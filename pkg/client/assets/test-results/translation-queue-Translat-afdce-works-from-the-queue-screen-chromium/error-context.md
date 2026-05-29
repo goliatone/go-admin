@@ -1,0 +1,266 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - complementary [ref=e3]:
+      - generic [ref=e4]:
+        - link "Translation Queue" [ref=e5] [cursor=pointer]:
+          - /url: /admin
+          - img "Translation Queue" [ref=e7]
+        - button "Toggle sidebar" [ref=e8] [cursor=pointer]
+      - generic [ref=e11]:
+        - textbox "Search" [ref=e12]
+        - generic [ref=e14]: ⌘K
+      - navigation [ref=e15]:
+        - generic [ref=e16]:
+          - button "Navigation" [ref=e17] [cursor=pointer]:
+            - generic [ref=e19]: Navigation
+          - generic [ref=e20]:
+            - link "Dashboard" [ref=e21] [cursor=pointer]:
+              - /url: /admin/dashboard
+              - generic [ref=e23]: Dashboard
+            - generic [ref=e24]:
+              - button "Content" [ref=e25] [cursor=pointer]:
+                - generic [ref=e27]: Content
+              - generic [ref=e29]:
+                - link "Block Library" [ref=e30] [cursor=pointer]:
+                  - /url: /admin/content/block-library
+                  - generic [ref=e32]: Block Library
+                - link "Pages" [ref=e33] [cursor=pointer]:
+                  - /url: /admin/content/pages
+                  - generic [ref=e35]: Pages
+                - link "Posts" [ref=e36] [cursor=pointer]:
+                  - /url: /admin/content/posts
+                  - generic [ref=e38]: Posts
+                - link "Content Modeling" [ref=e39] [cursor=pointer]:
+                  - /url: /admin/content/types
+                  - generic [ref=e41]: Content Modeling
+                - link "Media" [ref=e42] [cursor=pointer]:
+                  - /url: /admin/content/media
+                  - generic [ref=e44]: Media
+                - link "News" [ref=e45] [cursor=pointer]:
+                  - /url: /admin/content/news
+                  - generic [ref=e47]: News
+            - link "Users" [ref=e48] [cursor=pointer]:
+              - /url: /admin/users
+              - generic [ref=e50]: Users
+            - link "Roles" [ref=e51] [cursor=pointer]:
+              - /url: /admin/roles
+              - generic [ref=e53]: Roles
+            - link "User Profiles" [ref=e54] [cursor=pointer]:
+              - /url: /admin/user-profiles
+              - generic [ref=e56]: User Profiles
+        - generic [ref=e57]:
+          - button "Translations" [ref=e58] [cursor=pointer]:
+            - generic [ref=e60]: Translations
+          - generic [ref=e61]:
+            - button "Translation Dashboard PERMISSION_DENIED" [disabled] [ref=e62]:
+              - generic [ref=e64]: Translation Dashboard
+              - generic [ref=e65]: PERMISSION_DENIED
+            - button "Translation Queue PERMISSION_DENIED" [disabled] [ref=e66]:
+              - generic [ref=e68]: Translation Queue
+              - generic [ref=e69]: PERMISSION_DENIED
+            - button "Translation Exchange PERMISSION_DENIED" [disabled] [ref=e70]:
+              - generic [ref=e72]: Translation Exchange
+              - generic [ref=e73]: PERMISSION_DENIED
+        - generic [ref=e74]:
+          - button "Tools" [ref=e75] [cursor=pointer]:
+            - generic [ref=e77]: Tools
+          - generic [ref=e78]:
+            - link "Feature Flags" [ref=e79] [cursor=pointer]:
+              - /url: /admin/feature-flags
+              - generic [ref=e81]: Feature Flags
+            - link "Activity" [ref=e82] [cursor=pointer]:
+              - /url: /admin/activity
+              - generic [ref=e84]: Activity
+            - link "Debug" [ref=e85] [cursor=pointer]:
+              - /url: /admin/debug
+              - generic [ref=e87]: Debug
+      - navigation [ref=e88]:
+        - generic [ref=e89]: Utility
+        - link "Settings" [ref=e90] [cursor=pointer]:
+          - /url: /admin/settings
+          - generic [ref=e92]: Settings
+        - link "Preferences" [ref=e93] [cursor=pointer]:
+          - /url: /admin/preferences
+          - generic [ref=e95]: Preferences
+        - link "Profile" [ref=e96] [cursor=pointer]:
+          - /url: /admin/profile
+          - generic [ref=e98]: Profile
+        - link "Help" [ref=e99] [cursor=pointer]:
+          - /url: /admin/help
+          - generic [ref=e101]: Help
+      - button "admin admin Online" [ref=e104] [cursor=pointer]:
+        - img "admin" [ref=e106]
+        - generic [ref=e108]:
+          - generic [ref=e109]: admin
+          - generic [ref=e110]: Online
+    - main [ref=e112]:
+      - generic [ref=e115]:
+        - navigation "Breadcrumb" [ref=e116]:
+          - list [ref=e117]:
+            - listitem [ref=e118]: /
+            - listitem [ref=e119]: Queue
+        - paragraph [ref=e120]: Translations
+        - heading "Translation Queue" [level=1] [ref=e121]
+        - paragraph [ref=e122]: Assignment-centric queue with saved filters, keyboard row navigation, and inline claim/release actions.
+      - generic [ref=e127]:
+        - generic [ref=e128]:
+          - generic [ref=e129]:
+            - paragraph [ref=e130]: Assignment Queue
+            - heading "Translation Queue" [level=1] [ref=e131]
+            - paragraph [ref=e132]: Assignment-centric queue with saved filters, keyboard row navigation, and inline claim/release actions.
+          - generic [ref=e133]:
+            - generic [ref=e134]: Rows 1
+            - generic [ref=e135]: Total 1
+            - button "Refresh" [ref=e136] [cursor=pointer]
+        - status [ref=e137]:
+          - strong [ref=e138]: Assignment released back to the pool.
+        - region "Reviewer queue states" [ref=e139]:
+          - generic [ref=e140]:
+            - paragraph [ref=e141]: Reviewer states
+            - paragraph [ref=e142]: Signed in as reviewer-1
+          - generic [ref=e143]:
+            - button "Review Inbox 1" [ref=e144] [cursor=pointer]:
+              - generic [ref=e145]: Review Inbox
+              - strong [ref=e146]: "1"
+            - button "Review Overdue 0" [ref=e147] [cursor=pointer]:
+              - generic [ref=e148]: Review Overdue
+              - strong [ref=e149]: "0"
+            - button "QA Blocked 1" [ref=e150] [cursor=pointer]:
+              - generic [ref=e151]: QA Blocked
+              - strong [ref=e152]: "1"
+            - button "Changes Requested 1" [ref=e153] [cursor=pointer]:
+              - generic [ref=e154]: Changes Requested
+              - strong [ref=e155]: "1"
+        - tablist "Saved queue filters" [ref=e156]:
+          - tab "Mine" [ref=e157] [cursor=pointer]
+          - tab "Open" [selected] [ref=e158] [cursor=pointer]
+          - tab "Needs Review" [ref=e159] [cursor=pointer]
+          - tab "Overdue" [ref=e160] [cursor=pointer]
+          - tab "High Priority" [ref=e161] [cursor=pointer]
+        - group "View mode" [ref=e162]:
+          - generic [ref=e163]:
+            - button "List" [pressed] [ref=e164] [cursor=pointer]:
+              - img [ref=e165]
+              - generic [ref=e167]: List
+            - button "Grouped" [ref=e168] [cursor=pointer]:
+              - img [ref=e169]
+              - generic [ref=e171]: Grouped
+        - generic [ref=e172]:
+          - generic [ref=e173]:
+            - generic [ref=e174]: Status
+            - combobox "Status" [ref=e175]:
+              - option "All status"
+              - option "Open"
+              - option "Assigned"
+              - option "In Progress"
+              - option "In Review"
+              - option "Changes Requested"
+              - option "Approved"
+              - option "Archived"
+              - option "Open,assigned,in Progress,changes Requested" [selected]
+          - generic [ref=e176]:
+            - generic [ref=e177]: Due State
+            - combobox "Due State" [ref=e178]:
+              - option "All due state" [selected]
+              - option "None"
+              - option "On Track"
+              - option "Due Soon"
+              - option "Overdue"
+          - generic [ref=e179]:
+            - generic [ref=e180]: Priority
+            - combobox "Priority" [ref=e181]:
+              - option "All priority" [selected]
+              - option "Low"
+              - option "Normal"
+              - option "High"
+              - option "Urgent"
+          - generic [ref=e182]:
+            - generic [ref=e183]: Locale
+            - combobox "Locale" [ref=e184]:
+              - option "All locale" [selected]
+              - option "Fr"
+          - generic [ref=e185]:
+            - generic [ref=e186]: Assignee
+            - combobox "Assignee" [ref=e187]:
+              - option "All assignee" [selected]
+          - generic [ref=e188]:
+            - generic [ref=e189]: Reviewer
+            - combobox "Reviewer" [ref=e190]:
+              - option "All reviewer" [selected]
+          - generic [ref=e191]:
+            - generic [ref=e192]: Sort
+            - combobox "Sort" [ref=e193]:
+              - option "Updated At" [selected]
+              - option "Created At"
+              - option "Due Date"
+              - option "Due State"
+              - option "Status"
+              - option "Locale"
+              - option "Priority"
+              - option "Assignee Id"
+              - option "Reviewer Id"
+          - generic [ref=e194]:
+            - generic [ref=e195]: Order
+            - combobox "Order" [ref=e196]:
+              - option "Asc"
+              - option "Desc" [selected]
+        - table "Translation assignment queue" [ref=e198]:
+          - rowgroup [ref=e199]:
+            - row "Select all assignments on this page Content Locale Status Owners Due Priority Actions" [ref=e200]:
+              - columnheader "Select all assignments on this page" [ref=e201]:
+                - checkbox "Select all assignments on this page" [ref=e202] [cursor=pointer]
+              - columnheader "Content" [ref=e203]
+              - columnheader "Locale" [ref=e204]
+              - columnheader "Status" [ref=e205]
+              - columnheader "Owners" [ref=e206]
+              - columnheader "Due" [ref=e207]
+              - columnheader "Priority" [ref=e208]
+              - columnheader "Actions" [ref=e209]
+          - rowgroup [ref=e210]:
+            - row "Launch page, EN to FR, open, due_soon" [ref=e211]:
+              - cell "Select assignment Launch page" [ref=e212]:
+                - checkbox "Select assignment Launch page" [ref=e213] [cursor=pointer]
+              - cell "Launch page /launch pages · tg-open-1" [ref=e214]:
+                - generic [ref=e215]:
+                  - strong [ref=e216]: Launch page
+                  - generic [ref=e217]: /launch
+                  - generic [ref=e218]: pages · tg-open-1
+              - cell "EN → FR" [ref=e219]:
+                - generic [ref=e220]:
+                  - generic [ref=e221]: EN
+                  - generic [ref=e222]: →
+                  - generic [ref=e223]: FR
+              - cell "open" [ref=e224]:
+                - generic [ref=e226]: open
+              - cell "Unassigned" [ref=e227]:
+                - generic [ref=e229]: Unassigned
+              - cell "Due Soon Mar 13, 2:00 AM" [ref=e230]:
+                - generic [ref=e231]:
+                  - generic [ref=e232]: Due Soon
+                  - generic [ref=e233]: Mar 13, 2:00 AM
+              - 'cell "Priority: Normal Normal" [ref=e234]':
+                - generic [ref=e235]:
+                  - 'generic "Priority: Normal" [ref=e236]'
+                  - generic [ref=e237]: Normal
+              - cell "Claim Release Archive" [ref=e238]:
+                - generic [ref=e239]:
+                  - generic [ref=e240]:
+                    - button "Claim" [ref=e241] [cursor=pointer]
+                    - button "Release" [disabled] [ref=e242] [cursor=pointer]
+                  - button "Archive" [ref=e244] [cursor=pointer]
+  - generic [ref=e246] [cursor=pointer]:
+    - img [ref=e250]
+    - generic [ref=e252]:
+      - generic [ref=e253]:
+        - generic [ref=e254]: "0"
+        - generic [ref=e255]: Req
+      - generic [ref=e256]:
+        - generic [ref=e257]: "200"
+        - generic [ref=e258]: SQL
+      - generic [ref=e259]:
+        - generic [ref=e260]: "500"
+        - generic [ref=e261]: Logs
+```
