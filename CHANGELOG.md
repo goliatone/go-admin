@@ -1,5 +1,44 @@
 # Changelog
 
+# [0.80.0](https://github.com/goliatone/go-admin/compare/v0.79.1...v0.80.0) - (2026-05-29)
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Translation dashboard ux ([58beb68](https://github.com/goliatone/go-admin/commit/58beb68d46ca48a2c9619f90213f63bf79569a88))  - (goliatone)
+- Translation queue ([7298e28](https://github.com/goliatone/go-admin/commit/7298e282d5a30cc0a59a9de49eed041ae1bbdcbc))  - (goliatone)
+- Code quality ([bc45b3b](https://github.com/goliatone/go-admin/commit/bc45b3b0a97d08ff962c5db5be3642639c12d85e))  - (goliatone)
+- Translation assignment repo performance ([2353199](https://github.com/goliatone/go-admin/commit/2353199e3ed3920e89de9d93ae2a4cbe109c9900))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.80.0 ([e9e2901](https://github.com/goliatone/go-admin/commit/e9e29017e47a4a8adb950a43744f454754dd3659))  - (goliatone)
+
+## <!-- 16 -->➕ Add
+
+- Translation dashboard and queue updates ([de1526c](https://github.com/goliatone/go-admin/commit/de1526c5a6b47967df21daa693178503c19e0d88))  - (goliatone)
+- Translation performance fixes ([c6cde27](https://github.com/goliatone/go-admin/commit/c6cde27566214ccc3937963609b828fb3ae98cb5))  - (goliatone)
+- Translation editor memory ([728e0b2](https://github.com/goliatone/go-admin/commit/728e0b2d399a9dc7d5348c003249038029c7101e))  - (goliatone)
+- Translation dashboard updates ([5cb9067](https://github.com/goliatone/go-admin/commit/5cb9067196641a2ea97ac6896cd979a039a5db4e))  - (goliatone)
+- Translation assignment objects for dashboard ([5e8da45](https://github.com/goliatone/go-admin/commit/5e8da450eceedc9d3ad31403f516a1302a82c7ac))  - (goliatone)
+- Bulk translation bindings ([546e064](https://github.com/goliatone/go-admin/commit/546e0646eb19fc185ff6ba760b42e727eea18d17))  - (goliatone)
+- Translation family sync ([e3df8d3](https://github.com/goliatone/go-admin/commit/e3df8d330b1ce78dd1f36ec6dee440ffe50d7465))  - (goliatone)
+- Source locale as translation requirement ([153f3d3](https://github.com/goliatone/go-admin/commit/153f3d380b6f95fda3b7a30a09f365bf5082f150))  - (goliatone)
+- Family blocker service ([61b3d5d](https://github.com/goliatone/go-admin/commit/61b3d5d5efb712f3b476664db447fc8427428c4c))  - (goliatone)
+- Improvements for translation UX dashboard ([853f958](https://github.com/goliatone/go-admin/commit/853f958137806d73fc9e907a903d673866873355))  - (goliatone)
+- Translation performance indexes ([8d143d4](https://github.com/goliatone/go-admin/commit/8d143d40aea3dc43a8b19cd6640d55f8734bcb10))  - (goliatone)
+
+## <!-- 3 -->📚 Documentation
+
+- Update changelog for v0.79.1 ([460d278](https://github.com/goliatone/go-admin/commit/460d278b1c1d7ae129bcc39455e81370b4666e51))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Code quality ([4581f4c](https://github.com/goliatone/go-admin/commit/4581f4c8b521c1268326128b9c5bfb713cf6a9d8))  - (goliatone)
+- Update gitignore ([67f232e](https://github.com/goliatone/go-admin/commit/67f232efee4453413cc023b667e87f5139f26978))  - (goliatone)
+- Udpate tests ([2bf0557](https://github.com/goliatone/go-admin/commit/2bf055771e9858131e3f10557b25522a67aaed5d))  - (goliatone)
+- Update tests ([6e82d74](https://github.com/goliatone/go-admin/commit/6e82d74326b2ad4df06c9c106799a16f31f8fab6))  - (goliatone)
+- Update docs ([e53ce68](https://github.com/goliatone/go-admin/commit/e53ce689080a20fba733ec89d15ab81d93799a9e))  - (goliatone)
+
 # [0.79.1](https://github.com/goliatone/go-admin/compare/v0.79.0...v0.79.1) - (2026-05-29)
 
 ## <!-- 13 -->📦 Bumps
