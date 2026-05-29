@@ -448,7 +448,10 @@ func translationCoreModuleEnabled(adm *admin.Admin) bool {
 	if len(caps) == 0 {
 		return false
 	}
-	productized, _ := caps["productized"].(bool)
+	productized, ok := caps["productized"].(bool)
+	if !ok {
+		return false
+	}
 	return productized && !strings.EqualFold(strings.TrimSpace(fmt.Sprint(caps["profile"])), "none")
 }
 

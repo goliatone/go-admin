@@ -1971,7 +1971,10 @@ func translationCoreUIEnabled(adm *admin.Admin) bool {
 	if profile == "" || profile == string(quickstart.TranslationProfileNone) {
 		return false
 	}
-	productized, _ := caps["productized"].(bool)
+	productized, ok := caps["productized"].(bool)
+	if !ok {
+		return false
+	}
 	return productized
 }
 
