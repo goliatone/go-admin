@@ -57,6 +57,11 @@ type translationQueueBulkActionSelection struct {
 	OriginalPosition int    `json:"-"`
 }
 
+type translationQueueGroupingRequest struct {
+	Enabled bool
+	Mode    string
+}
+
 func newTranslationQueueBinding(a *Admin) *translationQueueBinding {
 	if a == nil {
 		return nil
@@ -94,14 +99,15 @@ func (b *translationQueueBinding) Assignments(c router.Context) (payload any, er
 	perPage := clampInt(atoiDefault(c.Query("per_page"), 50), 1, 200)
 	filter := b.assignmentFilterFromRequest(adminCtx, c)
 	channel := translationChannelFromRequest(c, adminCtx, nil)
+	grouping, err := translationQueueGroupingFromRequest(c)
+	if err != nil {
+		return nil, err
+	}
 	assignments, total, optimizedPage, err := b.assignmentPage(adminCtx.Context, repo, filter, page, perPage, channel, now)
 	if err != nil {
 		return nil, err
 	}
-	rows := make([]map[string]any, 0, len(assignments))
-	for _, assignment := range assignments {
-		rows = append(rows, b.assignmentContractRow(adminCtx.Context, assignment, now, channel))
-	}
+	rows := b.assignmentListRows(adminCtx.Context, assignments, now, channel, grouping)
 	reviewAssignments := assignments
 	if optimizedPage {
 		reviewAggregateCounts, err := b.optimizedReviewerAggregateCounts(adminCtx.Context, repo, filter, actorID, now)
@@ -122,6 +128,7 @@ func (b *translationQueueBinding) Assignments(c router.Context) (payload any, er
 					"default_review_filter_preset": "review_inbox",
 					"review_actor_id":              actorID,
 					"review_aggregate_counts":      reviewAggregateCounts,
+					"grouping":                     translationQueueGroupingContract(grouping, len(rows), len(assignments)),
 				}, channel),
 			}, nil
 		}
@@ -158,6 +165,7 @@ func (b *translationQueueBinding) Assignments(c router.Context) (payload any, er
 			"default_review_filter_preset": "review_inbox",
 			"review_actor_id":              actorID,
 			"review_aggregate_counts":      reviewAggregateCounts,
+			"grouping":                     translationQueueGroupingContract(grouping, len(rows), len(assignments)),
 		}, channel),
 	}, nil
 }
@@ -1945,6 +1953,189 @@ func (b *translationQueueBinding) assignmentContractRow(ctx context.Context, ass
 		row["qa_summary"] = summary
 	}
 	return row
+}
+
+func (b *translationQueueBinding) assignmentListRows(ctx context.Context, assignments []TranslationAssignment, now time.Time, environment string, grouping translationQueueGroupingRequest) []map[string]any {
+	rows := make([]map[string]any, 0, len(assignments))
+	for _, assignment := range assignments {
+		rows = append(rows, b.assignmentContractRow(ctx, assignment, now, environment))
+	}
+	if !grouping.Enabled || grouping.Mode != "family_id" {
+		return rows
+	}
+	return translationQueueFamilyGroupedRows(rows)
+}
+
+func translationQueueFamilyGroupedRows(rows []map[string]any) []map[string]any {
+	groupRows := make([]map[string]any, 0, len(rows))
+	groupIndex := map[string]int{}
+	for _, row := range rows {
+		familyID := strings.TrimSpace(toString(row["family_id"]))
+		if familyID == "" {
+			ungrouped := primitives.CloneAnyMap(row)
+			ungrouped["_group"] = map[string]any{
+				"row_type": "ungrouped",
+				"id":       strings.TrimSpace(toString(row["id"])),
+				"group_by": "family_id",
+			}
+			groupRows = append(groupRows, ungrouped)
+			continue
+		}
+		idx, exists := groupIndex[familyID]
+		if !exists {
+			groupIndex[familyID] = len(groupRows)
+			groupRows = append(groupRows, translationQueueFamilyGroupRow(familyID, row, nil))
+			continue
+		}
+		children := translationQueueMapSliceValue(groupRows[idx]["records"])
+		children = append(children, primitives.CloneAnyMap(row))
+		groupRows[idx] = translationQueueFamilyGroupRow(familyID, extractMap(groupRows[idx]["parent"]), children)
+	}
+	return groupRows
+}
+
+func translationQueueFamilyGroupRow(familyID string, parent map[string]any, children []map[string]any) map[string]any {
+	if len(children) == 0 && len(parent) > 0 {
+		children = []map[string]any{primitives.CloneAnyMap(parent)}
+	}
+	parent = primitives.CloneAnyMap(parent)
+	summary := translationQueueFamilyGroupSummary(children)
+	label := translationQueueFamilyGroupLabel(familyID, parent, children)
+	parent["target_locales"] = summary["target_locales"]
+	parent["queue_states"] = summary["status_counts"]
+	parent["priority_counts"] = summary["priority_counts"]
+	parent["action_state"] = map[string]any{
+		"scope":   "children",
+		"message": "Family group actions are derived from child assignment rows.",
+	}
+	row := map[string]any{
+		"id":             "family:" + familyID,
+		"row_type":       "group",
+		"family_id":      familyID,
+		"group_by":       "family_id",
+		"family_label":   label,
+		"family_summary": summary,
+		"parent":         parent,
+		"records":        children,
+		"children":       children,
+		"_group": map[string]any{
+			"row_type":    "group",
+			"id":          familyID,
+			"label":       label,
+			"group_by":    "family_id",
+			"child_count": len(children),
+			"mode":        "page_local",
+			"page_local":  true,
+			"expanded":    false,
+		},
+	}
+	for _, key := range []string{"actions", "review_actions", "qa_summary", "review_feedback"} {
+		if value, ok := parent[key]; ok {
+			row[key] = value
+		}
+	}
+	return row
+}
+
+func translationQueueMapSliceValue(raw any) []map[string]any {
+	items, ok := raw.([]map[string]any)
+	if ok {
+		out := make([]map[string]any, 0, len(items))
+		for _, item := range items {
+			out = append(out, primitives.CloneAnyMap(item))
+		}
+		return out
+	}
+	generic, ok := raw.([]any)
+	if !ok {
+		return nil
+	}
+	out := make([]map[string]any, 0, len(generic))
+	for _, item := range generic {
+		if mapped := extractMap(item); len(mapped) > 0 {
+			out = append(out, primitives.CloneAnyMap(mapped))
+		}
+	}
+	return out
+}
+
+func translationQueueFamilyGroupSummary(children []map[string]any) map[string]any {
+	statusCounts := map[string]int{}
+	availableLocales := map[string]struct{}{}
+	dueCounts := map[string]int{}
+	priorityCounts := map[string]int{}
+	for _, child := range children {
+		if status := strings.TrimSpace(toString(child["status"])); status != "" {
+			statusCounts[status]++
+		}
+		if locale := strings.TrimSpace(strings.ToLower(toString(child["target_locale"]))); locale != "" {
+			availableLocales[locale] = struct{}{}
+		}
+		if dueState := strings.TrimSpace(toString(child["due_state"])); dueState != "" {
+			dueCounts[dueState]++
+		}
+		if priority := strings.TrimSpace(toString(child["priority"])); priority != "" {
+			priorityCounts[priority]++
+		}
+	}
+	return map[string]any{
+		"total_items":       len(children),
+		"child_count":       len(children),
+		"available_locales": sortedStringSet(availableLocales),
+		"target_locales":    sortedStringSet(availableLocales),
+		"missing_locales":   []string{},
+		"status_counts":     statusCounts,
+		"due_state_counts":  dueCounts,
+		"priority_counts":   priorityCounts,
+	}
+}
+
+func translationQueueFamilyGroupLabel(familyID string, parent map[string]any, children []map[string]any) string {
+	for _, candidate := range []string{
+		toString(parent["source_title"]),
+		toString(parent["source_path"]),
+		toString(parent["source_record_id"]),
+	} {
+		if trimmed := strings.TrimSpace(candidate); trimmed != "" {
+			return trimmed
+		}
+	}
+	for _, child := range children {
+		for _, candidate := range []string{
+			toString(child["source_title"]),
+			toString(child["source_path"]),
+			toString(child["source_record_id"]),
+		} {
+			if trimmed := strings.TrimSpace(candidate); trimmed != "" {
+				return trimmed
+			}
+		}
+	}
+	return familyID
+}
+
+func translationQueueGroupingContract(grouping translationQueueGroupingRequest, rowCount, assignmentCount int) map[string]any {
+	mode := firstNonEmpty(grouping.Mode, "flat")
+	strategy := ""
+	if grouping.Enabled {
+		strategy = "page_local"
+	}
+	return map[string]any{
+		"enabled":          grouping.Enabled,
+		"mode":             mode,
+		"group_by":         grouping.Mode,
+		"scope":            "current_page",
+		"row_count":        rowCount,
+		"group_count":      rowCount,
+		"assignment_count": assignmentCount,
+		"supported_modes":  []string{"family_id"},
+		"strategy":         strategy,
+		"pagination":       "Assignment filters, sorting, and pagination are applied before page-local family grouping.",
+		"sorting":          "Group order follows the first child assignment in the sorted current page.",
+		"filtering":        "Filters remain assignment filters; groups contain only matching child assignments from the current page.",
+		"expansion":        "Parent rows expose children and records arrays; clients control expanded state.",
+		"action_state":     "Child assignment rows retain existing action states; parent action state is informational only.",
+	}
 }
 
 func translationQueueAssignmentContractRow(assignment TranslationAssignment, now time.Time) map[string]any {

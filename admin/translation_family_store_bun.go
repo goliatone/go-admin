@@ -63,6 +63,24 @@ type bunTranslationFamilyBlockerRecord struct {
 	UpdatedAt   time.Time `bun:"updated_at" json:"updated_at"`
 }
 
+type bunFamilyListVariantProjection struct {
+	FamilyID       string `bun:"family_id"`
+	VariantID      string `bun:"variant_id"`
+	TenantID       string `bun:"tenant_id"`
+	OrgID          string `bun:"org_id"`
+	Locale         string `bun:"locale"`
+	Status         string `bun:"status"`
+	IsSource       bool   `bun:"is_source"`
+	SourceRecordID string `bun:"source_record_id"`
+	FieldsJSON     string `bun:"fields_json"`
+}
+
+type bunFamilyListBlockerProjection struct {
+	FamilyID    string `bun:"family_id"`
+	BlockerCode string `bun:"blocker_code"`
+	Locale      string `bun:"locale"`
+}
+
 type BunTranslationFamilyStore struct {
 	db *bun.DB
 }
@@ -129,7 +147,7 @@ func (s *BunTranslationFamilyStore) ListFamiliesQuery(ctx context.Context, input
 	if err := query.Scan(ctx); err != nil {
 		return translationservices.ListFamiliesResult{}, err
 	}
-	families, err := s.familyListRowsFromRows(ctx, rows)
+	families, err := s.familyListProjectionRowsFromRows(ctx, rows)
 	if err != nil {
 		return translationservices.ListFamiliesResult{}, err
 	}
@@ -217,6 +235,94 @@ func (s *BunTranslationFamilyStore) familyListRowsFromRows(ctx context.Context, 
 	return out, nil
 }
 
+func (s *BunTranslationFamilyStore) familyListProjectionRowsFromRows(ctx context.Context, familyRows []bunTranslationFamilyRecord) ([]translationservices.FamilyRecord, error) {
+	if len(familyRows) == 0 {
+		return nil, nil
+	}
+	familyIDs := make([]string, 0, len(familyRows))
+	for _, row := range familyRows {
+		familyIDs = append(familyIDs, row.FamilyID)
+	}
+	variantRows := []bunFamilyListVariantProjection{}
+	if err := s.db.NewSelect().
+		Table("locale_variants").
+		Column("family_id", "variant_id", "tenant_id", "org_id", "locale", "status", "is_source", "source_record_id", "fields_json").
+		Where("family_id IN (?)", bun.List(familyIDs)).
+		OrderExpr("family_id ASC").
+		OrderExpr("is_source DESC").
+		OrderExpr("locale ASC").
+		Scan(ctx, &variantRows); err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return nil, err
+	}
+	blockerRows := []bunFamilyListBlockerProjection{}
+	if err := s.db.NewSelect().
+		Table("family_blockers").
+		Column("family_id", "blocker_code", "locale").
+		Where("family_id IN (?)", bun.List(familyIDs)).
+		OrderExpr("family_id ASC").
+		OrderExpr("blocker_code ASC").
+		OrderExpr("locale ASC").
+		Scan(ctx, &blockerRows); err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return nil, err
+	}
+	variantsByFamily, err := bunFamilyListVariantsByFamily(variantRows)
+	if err != nil {
+		return nil, err
+	}
+	blockersByFamily := bunFamilyListBlockersByFamily(blockerRows)
+	out := make([]translationservices.FamilyRecord, 0, len(familyRows))
+	for _, row := range familyRows {
+		family, err := familyModelFromBunRecord(row)
+		if err != nil {
+			return nil, err
+		}
+		family.Variants = variantsByFamily[row.FamilyID]
+		family.Blockers = blockersByFamily[row.FamilyID]
+		out = append(out, family)
+	}
+	return out, nil
+}
+
+func bunFamilyListVariantsByFamily(rows []bunFamilyListVariantProjection) (map[string][]translationservices.FamilyVariant, error) {
+	out := map[string][]translationservices.FamilyVariant{}
+	for _, row := range rows {
+		fields := map[string]string{}
+		if strings.TrimSpace(row.FieldsJSON) != "" {
+			if err := json.Unmarshal([]byte(row.FieldsJSON), &fields); err != nil {
+				return nil, err
+			}
+		}
+		out[row.FamilyID] = append(out[row.FamilyID], translationservices.FamilyVariant{
+			ID:             strings.TrimSpace(row.VariantID),
+			FamilyID:       strings.TrimSpace(row.FamilyID),
+			TenantID:       strings.TrimSpace(row.TenantID),
+			OrgID:          strings.TrimSpace(row.OrgID),
+			Locale:         strings.TrimSpace(strings.ToLower(row.Locale)),
+			Status:         strings.TrimSpace(strings.ToLower(row.Status)),
+			IsSource:       row.IsSource,
+			SourceRecordID: strings.TrimSpace(row.SourceRecordID),
+			Fields:         fields,
+		})
+	}
+	return out, nil
+}
+
+func bunFamilyListBlockersByFamily(rows []bunFamilyListBlockerProjection) map[string][]translationservices.FamilyBlocker {
+	out := map[string][]translationservices.FamilyBlocker{}
+	for _, row := range rows {
+		code := strings.TrimSpace(strings.ToLower(row.BlockerCode))
+		locale := strings.TrimSpace(strings.ToLower(row.Locale))
+		out[row.FamilyID] = append(out[row.FamilyID], translationservices.FamilyBlocker{
+			ID:          strings.TrimSpace(row.FamilyID + ":" + code + ":" + locale),
+			FamilyID:    strings.TrimSpace(row.FamilyID),
+			BlockerCode: code,
+			Locale:      locale,
+			Details:     map[string]any{},
+		})
+	}
+	return out
+}
+
 func (s *BunTranslationFamilyStore) TranslationDashboardFamilyMetrics(ctx context.Context, input TranslationDashboardFamilyMetricsInput) (TranslationDashboardFamilyMetrics, error) {
 	if s == nil || s.db == nil {
 		return TranslationDashboardFamilyMetrics{}, errors.New("family store not configured")
@@ -254,11 +360,60 @@ func (s *BunTranslationFamilyStore) TranslationDashboardFamilyMetrics(ctx contex
 	if err != nil {
 		return TranslationDashboardFamilyMetrics{}, err
 	}
+	blockersByFamily, err := s.dashboardFamilyBlockersForFamilies(ctx, topFamilies)
+	if err != nil {
+		return TranslationDashboardFamilyMetrics{}, err
+	}
+	for idx := range topFamilies {
+		topFamilies[idx].Blockers = blockersByFamily[topFamilies[idx].ID]
+	}
 	return TranslationDashboardFamilyMetrics{
 		BlockedFamilies:         blocked,
 		MissingRequiredFamilies: missing,
 		TopBlocked:              topFamilies,
 	}, nil
+}
+
+func (s *BunTranslationFamilyStore) dashboardFamilyBlockersForFamilies(ctx context.Context, families []translationservices.FamilyRecord) (map[string][]translationservices.FamilyBlocker, error) {
+	out := map[string][]translationservices.FamilyBlocker{}
+	if s == nil || s.db == nil || len(families) == 0 {
+		return out, nil
+	}
+	familyIDs := make([]string, 0, len(families))
+	for _, family := range families {
+		if id := strings.TrimSpace(family.ID); id != "" {
+			familyIDs = append(familyIDs, id)
+		}
+	}
+	if len(familyIDs) == 0 {
+		return out, nil
+	}
+	blockerRows := []bunTranslationFamilyBlockerRecord{}
+	err := s.db.NewSelect().
+		Model(&blockerRows).
+		Where("family_id IN (?)", bun.List(familyIDs)).
+		OrderExpr("family_id ASC").
+		OrderExpr("blocker_code ASC").
+		OrderExpr("locale ASC").
+		OrderExpr("field_path ASC").
+		Scan(ctx)
+	if errors.Is(err, sql.ErrNoRows) || isMissingFamilyBlockersTableError(err) {
+		return out, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return bunFamilyBlockersByFamily(blockerRows)
+}
+
+func isMissingFamilyBlockersTableError(err error) bool {
+	if err == nil {
+		return false
+	}
+	message := strings.ToLower(err.Error())
+	return strings.Contains(message, "no such table: family_blockers") ||
+		strings.Contains(message, `relation "family_blockers" does not exist`) ||
+		strings.Contains(message, "table family_blockers does not exist")
 }
 
 func familyModelsFromBunRows(rows []bunTranslationFamilyRecord) ([]translationservices.FamilyRecord, error) {

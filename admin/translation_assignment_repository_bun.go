@@ -403,14 +403,17 @@ func (r *BunTranslationAssignmentRepository) AssignmentMyWorkSummary(ctx context
 	if err != nil {
 		return nil, err
 	}
-	reviewOpts := ListOptions{Filters: cloneAssignmentFilterMap(input.Filters)}
-	if reviewOpts.Filters == nil {
-		reviewOpts.Filters = map[string]any{}
-	}
-	reviewOpts.Filters["status"] = string(AssignmentStatusInReview)
-	review, err := r.countAssignments(ctx, reviewOpts, now)
-	if err != nil {
-		return nil, err
+	review := 0
+	if assignmentFiltersAllowStatus(input.Filters, AssignmentStatusInReview) {
+		reviewOpts := ListOptions{Filters: cloneAssignmentFilterMap(input.Filters)}
+		if reviewOpts.Filters == nil {
+			reviewOpts.Filters = map[string]any{}
+		}
+		reviewOpts.Filters["status"] = string(AssignmentStatusInReview)
+		review, err = r.countAssignments(ctx, reviewOpts, now)
+		if err != nil {
+			return nil, err
+		}
 	}
 	return map[string]int{
 		"total":                         total,
@@ -420,6 +423,27 @@ func (r *BunTranslationAssignmentRepository) AssignmentMyWorkSummary(ctx context
 		translationQueueDueStateNone:    byDueState[translationQueueDueStateNone],
 		"review":                        review,
 	}, nil
+}
+
+func assignmentFiltersAllowStatus(filters map[string]any, status AssignmentStatus) bool {
+	if len(filters) == 0 {
+		return true
+	}
+	raw, ok := filters["status"]
+	if !ok {
+		return true
+	}
+	values := normalizedAssignmentFilterValues(raw)
+	if len(values) == 0 {
+		return true
+	}
+	expected := normalizeTranslationQueueState(string(status))
+	for _, value := range values {
+		if normalizeTranslationQueueState(value) == expected {
+			return true
+		}
+	}
+	return false
 }
 
 func (r *BunTranslationAssignmentRepository) AssignmentDashboardSummary(ctx context.Context, input TranslationAssignmentDashboardSummaryInput) (TranslationAssignmentDashboardSummary, error) {
