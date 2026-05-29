@@ -261,7 +261,10 @@ func newTestURLManager(basePath string) *urlkit.RouteManager {
 			},
 		},
 	}
-	manager, _ := urlkit.NewRouteManagerFromConfig(cfg)
+	manager, err := urlkit.NewRouteManagerFromConfig(cfg)
+	if err != nil {
+		panic(err)
+	}
 	return manager
 }
 
@@ -362,7 +365,10 @@ func newPlannerURLManager() *urlkit.RouteManager {
 			},
 		},
 	}
-	manager, _ := urlkit.NewRouteManagerFromConfig(cfg)
+	manager, err := urlkit.NewRouteManagerFromConfig(cfg)
+	if err != nil {
+		panic(err)
+	}
 	return manager
 }
 
@@ -714,8 +720,12 @@ func TestPanelStepBulkSuccessEnvelopeWithData(t *testing.T) {
 	require.Equal(t, "ok", payload["status"])
 	data, ok := payload["data"].(map[string]any)
 	require.True(t, ok)
-	require.Equal(t, 2, data["processed"].(int))
-	require.Equal(t, 0, data["failed"].(int))
+	processed, ok := data["processed"].(int)
+	require.True(t, ok)
+	failed, ok := data["failed"].(int)
+	require.True(t, ok)
+	require.Equal(t, 2, processed)
+	require.Equal(t, 0, failed)
 }
 
 func TestPanelStepActionMergesQueryContextIntoPayload(t *testing.T) {

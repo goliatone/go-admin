@@ -27,7 +27,7 @@ func TestTranslationEditorContractFixtures(t *testing.T) {
 	assertEditorActionEnvelope(t, detail["assignment_action_states"], "archive")
 	assertEditorActionEnvelope(t, detail["review_action_states"], "approve")
 	reviewFeedback := extractMap(detail["review_feedback"])
-	comments, _ := reviewFeedback["comments"].([]any)
+	comments := anySliceFromValue(reviewFeedback["comments"])
 	if len(comments) == 0 {
 		t.Fatalf("expected review_feedback comments")
 	}
@@ -41,15 +41,15 @@ func TestTranslationEditorContractFixtures(t *testing.T) {
 	}
 
 	assist := extractMap(detail["assist"])
-	glossaryMatches, _ := assist["glossary_matches"].([]any)
+	glossaryMatches := anySliceFromValue(assist["glossary_matches"])
 	if len(glossaryMatches) == 0 {
 		t.Fatalf("expected fixture glossary_matches")
 	}
 	styleGuide := extractMap(assist["style_guide_summary"])
-	if available, _ := styleGuide["available"].(bool); !available {
+	if available := toBool(styleGuide["available"]); !available {
 		t.Fatalf("expected style guide available in fixture")
 	}
-	memorySuggestions, _ := assist["translation_memory_suggestions"].([]any)
+	memorySuggestions := anySliceFromValue(assist["translation_memory_suggestions"])
 	if len(memorySuggestions) == 0 {
 		t.Fatalf("expected fixture translation_memory_suggestions")
 	}
@@ -66,7 +66,7 @@ func TestTranslationEditorContractFixtures(t *testing.T) {
 	}
 	assertEditorActionEnvelope(t, update["assignment_action_states"], "submit_review")
 	updateQA := extractMap(update["qa_results"])
-	if blocked, _ := updateQA["submit_blocked"].(bool); !blocked {
+	if blocked := toBool(updateQA["submit_blocked"]); !blocked {
 		t.Fatalf("expected variant_update qa_results.submit_blocked=true, got %+v", updateQA)
 	}
 
@@ -74,7 +74,7 @@ func TestTranslationEditorContractFixtures(t *testing.T) {
 	if got := toInt(history["total"]); got <= 0 {
 		t.Fatalf("expected history total > 0, got %+v", history)
 	}
-	attachments, _ := detail["attachments"].([]any)
+	attachments := anySliceFromValue(detail["attachments"])
 	if len(attachments) == 0 {
 		t.Fatalf("expected fixture attachments")
 	}

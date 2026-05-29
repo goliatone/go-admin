@@ -101,16 +101,16 @@ func TestTranslationDashboardOptimizedSyntheticValidation(t *testing.T) {
 	timedQueueRequest := func(label, path string) time.Duration {
 		t.Helper()
 		started := time.Now()
-		req := httptest.NewRequest(http.MethodGet, path, nil)
+		req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, path, nil)
 		req.Header.Set("X-User-ID", "manager-perf")
 		resp, err := app.Test(req)
 		if err != nil {
 			t.Fatalf("request %s: %v", label, err)
 		}
+		defer mustClose(t, "response body", resp.Body)
 		if resp.StatusCode != http.StatusOK {
 			t.Fatalf("%s status=%d want=200", label, resp.StatusCode)
 		}
-		mustClose(t, "response body", resp.Body)
 		return time.Since(started)
 	}
 	dashboardElapsed := timedQueueRequest("dashboard", "/admin/api/translations/dashboard?tenant_id=tenant-perf&org_id=org-perf")
@@ -120,16 +120,16 @@ func TestTranslationDashboardOptimizedSyntheticValidation(t *testing.T) {
 	familyBinding := &translationFamilyBinding{admin: adm}
 	familyApp := newTranslationFamilyTestApp(t, familyBinding)
 	started := time.Now()
-	familyReq := httptest.NewRequest(http.MethodGet, "/admin/api/translations/families?tenant_id=tenant-perf&org_id=org-perf&readiness_state=blocked&per_page=50", nil)
+	familyReq := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/translations/families?tenant_id=tenant-perf&org_id=org-perf&readiness_state=blocked&per_page=50", nil)
 	familyReq.Header.Set("X-User-ID", "manager-perf")
 	familyResp, err := familyApp.Test(familyReq)
 	if err != nil {
 		t.Fatalf("request family list: %v", err)
 	}
+	defer mustClose(t, "response body", familyResp.Body)
 	if familyResp.StatusCode != http.StatusOK {
 		t.Fatalf("family list status=%d want=200", familyResp.StatusCode)
 	}
-	mustClose(t, "response body", familyResp.Body)
 	familyElapsed := time.Since(started)
 
 	t.Logf("translation synthetic validation: families=%d assignments=%d blockers=%d dashboard=%s queue_page=%s my_work=%s family_list=%s",

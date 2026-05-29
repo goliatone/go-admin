@@ -340,7 +340,7 @@ func TestTranslationEditorAssignmentDetailReturnsDriftAssistTimelineAndActions(t
 
 	fieldDrift := extractMap(data["field_drift"])
 	titleDrift := extractMap(fieldDrift["title"])
-	if changed, _ := titleDrift["changed"].(bool); !changed {
+	if changed := toBool(titleDrift["changed"]); !changed {
 		t.Fatalf("expected title drift change, got %+v", titleDrift)
 	}
 	if mode := toString(titleDrift["comparison_mode"]); mode != translationEditorComparisonModeSnapshot {
@@ -349,7 +349,7 @@ func TestTranslationEditorAssignmentDetailReturnsDriftAssistTimelineAndActions(t
 
 	fieldCompleteness := extractMap(data["field_completeness"])
 	bodyCompleteness := extractMap(fieldCompleteness["body"])
-	if complete, _ := bodyCompleteness["complete"].(bool); !complete {
+	if complete := toBool(bodyCompleteness["complete"]); !complete {
 		t.Fatalf("expected body complete, got %+v", bodyCompleteness)
 	}
 
@@ -359,7 +359,7 @@ func TestTranslationEditorAssignmentDetailReturnsDriftAssistTimelineAndActions(t
 		t.Fatalf("expected changed field count > 0, got %+v", summary)
 	}
 
-	attachments, _ := data["attachments"].([]any)
+	attachments := anySliceFromValue(data["attachments"])
 	if len(attachments) != 2 {
 		t.Fatalf("expected two attachments, got %d", len(attachments))
 	}
@@ -373,21 +373,21 @@ func TestTranslationEditorAssignmentDetailReturnsDriftAssistTimelineAndActions(t
 	}
 
 	assist := extractMap(data["assist"])
-	glossaryMatches, _ := assist["glossary_matches"].([]any)
+	glossaryMatches := anySliceFromValue(assist["glossary_matches"])
 	if len(glossaryMatches) == 0 {
 		t.Fatalf("expected glossary matches, got %+v", assist)
 	}
 	styleGuide := extractMap(assist["style_guide_summary"])
-	if available, _ := styleGuide["available"].(bool); !available {
+	if available := toBool(styleGuide["available"]); !available {
 		t.Fatalf("expected style guide available, got %+v", styleGuide)
 	}
-	memorySuggestions, _ := assist["translation_memory_suggestions"].([]any)
+	memorySuggestions := anySliceFromValue(assist["translation_memory_suggestions"])
 	if len(memorySuggestions) != 0 {
 		t.Fatalf("expected empty translation memory suggestions without scoped matches, got %+v", memorySuggestions)
 	}
 
-	comments, _ := data["comments"].([]any)
-	events, _ := data["events"].([]any)
+	comments := anySliceFromValue(data["comments"])
+	events := anySliceFromValue(data["events"])
 	if len(comments) != 2 {
 		t.Fatalf("expected rejection and activity comments, got %d", len(comments))
 	}
@@ -401,10 +401,10 @@ func TestTranslationEditorAssignmentDetailReturnsDriftAssistTimelineAndActions(t
 
 	actions := extractMap(data["assignment_action_states"])
 	submitReview := extractMap(actions["submit_review"])
-	if enabled, _ := submitReview["enabled"].(bool); !enabled {
+	if enabled := toBool(submitReview["enabled"]); !enabled {
 		t.Fatalf("expected submit_review enabled, got %+v", submitReview)
 	}
-	if autoApprove, _ := submitReview["auto_approve"].(bool); autoApprove {
+	if autoApprove := toBool(submitReview["auto_approve"]); autoApprove {
 		t.Fatalf("expected submit_review auto_approve false when review is required")
 	}
 }
@@ -489,7 +489,7 @@ func TestTranslationEditorAssignmentDetailReturnsScopedTranslationMemorySuggesti
 	}
 
 	assist := extractMap(extractMap(payload["data"])["assist"])
-	suggestions, _ := assist["translation_memory_suggestions"].([]any)
+	suggestions := anySliceFromValue(assist["translation_memory_suggestions"])
 	if len(suggestions) != 2 {
 		t.Fatalf("expected two scoped translation memory suggestions, got %+v", suggestions)
 	}
@@ -506,7 +506,7 @@ func TestTranslationEditorAssignmentDetailReturnsScopedTranslationMemorySuggesti
 	if got := toString(current["suggested_text"]); got != "Guide precedent pour les workflows de publication." {
 		t.Fatalf("expected current suggestion text, got %+v", current)
 	}
-	if stale, _ := current["stale_source"].(bool); stale {
+	if stale := toBool(current["stale_source"]); stale {
 		t.Fatalf("expected first suggestion to be current, got %+v", current)
 	}
 
@@ -514,7 +514,7 @@ func TestTranslationEditorAssignmentDetailReturnsScopedTranslationMemorySuggesti
 	if got := toString(stale["suggested_text"]); got != "Ancienne suggestion approuvee." {
 		t.Fatalf("expected stale suggestion text, got %+v", stale)
 	}
-	if staleSource, _ := stale["stale_source"].(bool); !staleSource {
+	if staleSource := toBool(stale["stale_source"]); !staleSource {
 		t.Fatalf("expected stale_source indicator, got %+v", stale)
 	}
 	for _, raw := range suggestions {
@@ -587,7 +587,7 @@ func TestTranslationEditorAssignmentDetailUsesBoundedTranslationMemoryLookup(t *
 		t.Fatalf("expected editor TM lookup to avoid broad Families calls, got %d", trackingStore.familiesCalls)
 	}
 	assist := extractMap(extractMap(payload["data"])["assist"])
-	suggestions, _ := assist["translation_memory_suggestions"].([]any)
+	suggestions := anySliceFromValue(assist["translation_memory_suggestions"])
 	if len(suggestions) != 1 {
 		t.Fatalf("expected bounded lookup suggestion, got %+v", suggestions)
 	}
@@ -618,7 +618,7 @@ func TestTranslationEditorAssignmentDetailPaginatesHistory(t *testing.T) {
 	if got := toInt(history["total"]); got != 3 {
 		t.Fatalf("expected history total 3, got %+v", history)
 	}
-	items, _ := history["items"].([]any)
+	items := anySliceFromValue(history["items"])
 	if len(items) != 1 {
 		t.Fatalf("expected one paged history item, got %+v", history)
 	}
@@ -663,7 +663,7 @@ func TestTranslationEditorUpdateVariantMaintainsSourceHashAndRowVersion(t *testi
 		t.Fatalf("expected autosave meta true, got %+v", payload["meta"])
 	}
 	fieldDrift := extractMap(data["field_drift"])
-	if changed, _ := extractMap(fieldDrift["title"])["changed"].(bool); !changed {
+	if changed := toBool(extractMap(fieldDrift["title"])["changed"]); !changed {
 		t.Fatalf("expected title drift to remain until source acknowledgement, got %+v", fieldDrift)
 	}
 
@@ -831,12 +831,12 @@ func TestTranslationEditorDetailIncludesReviewFeedbackAndQAResults(t *testing.T)
 		t.Fatalf("expected last_rejection_reason, got %+v", data)
 	}
 	reviewFeedback := extractMap(data["review_feedback"])
-	comments, _ := reviewFeedback["comments"].([]any)
+	comments := anySliceFromValue(reviewFeedback["comments"])
 	if len(comments) != 1 {
 		t.Fatalf("expected one review_feedback comment, got %+v", reviewFeedback)
 	}
 	qaResults := extractMap(data["qa_results"])
-	if enabled, _ := qaResults["enabled"].(bool); !enabled {
+	if enabled := toBool(qaResults["enabled"]); !enabled {
 		t.Fatalf("expected qa_results enabled, got %+v", qaResults)
 	}
 	summary := extractMap(qaResults["summary"])
@@ -846,7 +846,7 @@ func TestTranslationEditorDetailIncludesReviewFeedbackAndQAResults(t *testing.T)
 	if got := toInt(summary["blocker_count"]); got <= 0 {
 		t.Fatalf("expected blocker_count > 0, got %+v", summary)
 	}
-	if blocked, _ := qaResults["submit_blocked"].(bool); !blocked {
+	if blocked := toBool(qaResults["submit_blocked"]); !blocked {
 		t.Fatalf("expected submit_blocked true, got %+v", qaResults)
 	}
 }
@@ -876,7 +876,7 @@ func TestTranslationEditorSubmitReviewBlocksOnQAResults(t *testing.T) {
 		t.Fatalf("expected text_code %q, got %q", string(translationcore.ErrorPolicyBlocked), got)
 	}
 	qaResults := extractMap(extractMap(errPayload["metadata"])["qa_results"])
-	if blocked, _ := qaResults["submit_blocked"].(bool); !blocked {
+	if blocked := toBool(qaResults["submit_blocked"]); !blocked {
 		t.Fatalf("expected submit_blocked true in metadata, got %+v", qaResults)
 	}
 	if len(metrics.qaOutcomeTags) != 1 {
@@ -918,7 +918,7 @@ func TestTranslationEditorReviewActionsPersistVariantStatus(t *testing.T) {
 	}); encodeRejectErr != nil {
 		t.Fatalf("encode reject body: %v", encodeRejectErr)
 	}
-	rejectReq := httptest.NewRequest(http.MethodPost, "/admin/api/translations/assignments/"+rejectFixture.assignmentID+"/actions/reject?channel=production&tenant_id=tenant-1&org_id=org-1", &rejectBody)
+	rejectReq := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/api/translations/assignments/"+rejectFixture.assignmentID+"/actions/reject?channel=production&tenant_id=tenant-1&org_id=org-1", &rejectBody)
 	rejectReq.Header.Set("Content-Type", "application/json")
 	rejectReq.Header.Set("X-User-ID", "reviewer-1")
 	rejectResp, err := rejectFixture.app.Test(rejectReq)
@@ -967,7 +967,7 @@ func TestTranslationEditorReviewActionsPersistVariantStatus(t *testing.T) {
 	}); encodeApproveErr != nil {
 		t.Fatalf("encode approve body: %v", encodeApproveErr)
 	}
-	approveReq := httptest.NewRequest(http.MethodPost, "/admin/api/translations/assignments/"+approveFixture.assignmentID+"/actions/approve?channel=production&tenant_id=tenant-1&org_id=org-1", &approveBody)
+	approveReq := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/api/translations/assignments/"+approveFixture.assignmentID+"/actions/approve?channel=production&tenant_id=tenant-1&org_id=org-1", &approveBody)
 	approveReq.Header.Set("Content-Type", "application/json")
 	approveReq.Header.Set("X-User-ID", "reviewer-1")
 	approveResp, err := approveFixture.app.Test(approveReq)
@@ -1057,7 +1057,7 @@ func doTranslationEditorJSONRequest(t *testing.T, app *fiber.App, method, target
 		}
 	}
 
-	req := httptest.NewRequest(method, target, &payload)
+	req := httptest.NewRequestWithContext(context.Background(), method, target, &payload)
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-User-ID", "translator-1")
 

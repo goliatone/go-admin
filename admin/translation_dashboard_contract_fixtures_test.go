@@ -96,7 +96,7 @@ func assertTranslationDashboardFixtureState(t *testing.T, stateKey string, paylo
 		assertDashboardSummaryCount(t, summary, "missing_required_locales", 0)
 		assertDashboardTableRows(t, tables, translationDashboardTableTopOverdueAssignments, 0)
 		assertDashboardTableRows(t, tables, translationDashboardTableBlockedFamilies, 0)
-		if degraded, _ := meta["degraded"].(bool); degraded {
+		if degraded := toBool(meta["degraded"]); degraded {
 			t.Fatalf("expected empty fixture not degraded")
 		}
 		if alerts := extractListMaps(data["alerts"]); len(alerts) != 0 {
@@ -112,7 +112,7 @@ func assertTranslationDashboardFixtureState(t *testing.T, stateKey string, paylo
 			t.Fatalf("expected healthy fixture alerts to be empty, got %+v", alerts)
 		}
 	case "degraded":
-		if degraded, _ := meta["degraded"].(bool); !degraded {
+		if degraded := toBool(meta["degraded"]); !degraded {
 			t.Fatalf("expected degraded fixture degraded=true")
 		}
 		reasons := extractListMaps(meta["degraded_reasons"])

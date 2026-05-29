@@ -108,16 +108,16 @@ func TestTranslationQueueBindingDashboardAggregatesCardsTablesAndLinks(t *testin
 	}
 
 	app := newTranslationQueueTestApp(t, binding)
-	req := httptest.NewRequest(http.MethodGet, "/admin/api/translations/dashboard?channel=production&tenant_id=tenant-1&org_id=org-1&blocked_limit=1&overdue_limit=1", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/translations/dashboard?channel=production&tenant_id=tenant-1&org_id=org-1&blocked_limit=1&overdue_limit=1", nil)
 	req.Header.Set("X-User-ID", "manager-1")
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("request error: %v", err)
 	}
+	defer mustClose(t, "response body", resp.Body)
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("status=%d want=200", resp.StatusCode)
 	}
-	defer mustClose(t, "response body", resp.Body)
 
 	payload := map[string]any{}
 	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
@@ -224,7 +224,7 @@ func TestTranslationQueueBindingDashboardAggregatesCardsTablesAndLinks(t *testin
 	if refresh := toInt(meta["refresh_interval_ms"]); refresh != translationDashboardRefreshIntervalMS {
 		t.Fatalf("expected refresh_interval_ms=%d, got %d", translationDashboardRefreshIntervalMS, refresh)
 	}
-	if degraded, _ := meta["degraded"].(bool); degraded {
+	if degraded := toBool(meta["degraded"]); degraded {
 		t.Fatalf("expected non-degraded dashboard payload")
 	}
 }
@@ -246,23 +246,23 @@ func TestTranslationQueueBindingDashboardDegradesWhenFamilyRuntimeUnavailable(t 
 	}
 	app := newTranslationQueueTestApp(t, binding)
 
-	req := httptest.NewRequest(http.MethodGet, "/admin/api/translations/dashboard?tenant_id=tenant-1&org_id=org-1", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/translations/dashboard?tenant_id=tenant-1&org_id=org-1", nil)
 	req.Header.Set("X-User-ID", "manager-1")
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("request error: %v", err)
 	}
+	defer mustClose(t, "response body", resp.Body)
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("status=%d want=200", resp.StatusCode)
 	}
-	defer mustClose(t, "response body", resp.Body)
 
 	payload := map[string]any{}
 	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
 	meta := extractMap(payload["meta"])
-	if degraded, _ := meta["degraded"].(bool); !degraded {
+	if degraded := toBool(meta["degraded"]); !degraded {
 		t.Fatalf("expected degraded dashboard payload")
 	}
 	reasons := extractListMaps(meta["degraded_reasons"])
@@ -329,16 +329,16 @@ func TestTranslationQueueBindingDashboardOptimizedPathAvoidsFullFamilyHydration(
 	binding.now = func() time.Time { return now }
 	app := newTranslationQueueTestApp(t, binding)
 
-	req := httptest.NewRequest(http.MethodGet, "/admin/api/translations/dashboard?tenant_id=tenant-1&org_id=org-1", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/translations/dashboard?tenant_id=tenant-1&org_id=org-1", nil)
 	req.Header.Set("X-User-ID", "manager-1")
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("request error: %v", err)
 	}
+	defer mustClose(t, "response body", resp.Body)
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("status=%d want=200", resp.StatusCode)
 	}
-	defer mustClose(t, "response body", resp.Body)
 
 	payload := map[string]any{}
 	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
@@ -410,16 +410,16 @@ func TestTranslationQueueBindingDashboardOptimizedAssignmentFailureFallsBackWith
 	}
 	app := newTranslationQueueTestApp(t, binding)
 
-	req := httptest.NewRequest(http.MethodGet, "/admin/api/translations/dashboard?tenant_id=tenant-1&org_id=org-1", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/translations/dashboard?tenant_id=tenant-1&org_id=org-1", nil)
 	req.Header.Set("X-User-ID", "manager-1")
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("request error: %v", err)
 	}
+	defer mustClose(t, "response body", resp.Body)
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("status=%d want=200", resp.StatusCode)
 	}
-	defer mustClose(t, "response body", resp.Body)
 
 	payload := map[string]any{}
 	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
@@ -430,7 +430,7 @@ func TestTranslationQueueBindingDashboardOptimizedAssignmentFailureFallsBackWith
 		t.Fatalf("expected fallback overdue_tasks=1, got %d", got)
 	}
 	meta := extractMap(payload["meta"])
-	if degraded, _ := meta["degraded"].(bool); !degraded {
+	if degraded := toBool(meta["degraded"]); !degraded {
 		t.Fatalf("expected degraded metadata after assignment summary failure")
 	}
 	reasons := extractListMaps(meta["degraded_reasons"])
@@ -649,13 +649,13 @@ func TestTranslationQueueBindingDashboardLatencyStaysWithinTarget(t *testing.T) 
 	samples := make([]time.Duration, 0, 25)
 	for idx := range 25 {
 		started := time.Now()
-		req := httptest.NewRequest(http.MethodGet, "/admin/api/translations/dashboard?channel=production&tenant_id=tenant-1&org_id=org-1", nil)
+		req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/translations/dashboard?channel=production&tenant_id=tenant-1&org_id=org-1", nil)
 		req.Header.Set("X-User-ID", "manager-1")
 		resp, err := app.Test(req)
 		if err != nil {
 			t.Fatalf("request %d error: %v", idx, err)
 		}
-		_ = resp.Body.Close()
+		defer mustClose(t, "response body", resp.Body)
 		if resp.StatusCode != http.StatusOK {
 			t.Fatalf("request %d status=%d want=200", idx, resp.StatusCode)
 		}

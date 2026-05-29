@@ -97,16 +97,16 @@ func TestTranslationQueueBindingMyWorkReturnsAssignmentsWithDueState(t *testing.
 	binding.now = func() time.Time { return now }
 	app := newTranslationQueueTestApp(t, binding)
 
-	req := httptest.NewRequest(http.MethodGet, "/admin/api/translations/my-work", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/translations/my-work", nil)
 	req.Header.Set("X-User-ID", "translator-1")
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("request error: %v", err)
 	}
+	defer mustClose(t, "response body", resp.Body)
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("status=%d want=200", resp.StatusCode)
 	}
-	defer mustClose(t, "response body", resp.Body)
 
 	payload := map[string]any{}
 	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
@@ -119,23 +119,23 @@ func TestTranslationQueueBindingMyWorkReturnsAssignmentsWithDueState(t *testing.
 		t.Fatalf("expected translator-1 user_id, got %q", got)
 	}
 
-	summary, _ := payload["summary"].(map[string]any)
-	if int(summary["total"].(float64)) != 4 {
+	summary := extractMap(payload["summary"])
+	if toInt(summary["total"]) != 4 {
 		t.Fatalf("expected total=4, got %+v", summary)
 	}
-	if int(summary["overdue"].(float64)) != 1 || int(summary["due_soon"].(float64)) != 1 || int(summary["on_track"].(float64)) != 1 || int(summary["none"].(float64)) != 1 {
+	if toInt(summary["overdue"]) != 1 || toInt(summary["due_soon"]) != 1 || toInt(summary["on_track"]) != 1 || toInt(summary["none"]) != 1 {
 		t.Fatalf("unexpected due-state summary: %+v", summary)
 	}
-	if int(summary["review"].(float64)) != 1 {
+	if toInt(summary["review"]) != 1 {
 		t.Fatalf("expected review=1, got %+v", summary)
 	}
 
-	items, _ := payload["assignments"].([]any)
+	items := anySliceFromValue(payload["assignments"])
 	if len(items) != 4 {
 		t.Fatalf("expected 4 assignments, got %d", len(items))
 	}
 	for _, raw := range items {
-		row, _ := raw.(map[string]any)
+		row := extractMap(raw)
 		if strings.TrimSpace(toString(row["due_state"])) == "" {
 			t.Fatalf("expected due_state on row: %+v", row)
 		}
@@ -157,12 +157,13 @@ func TestTranslationQueueBindingMyWorkRequiresViewPermission(t *testing.T) {
 	binding := newTranslationQueueBinding(adm)
 	app := newTranslationQueueTestApp(t, binding)
 
-	req := httptest.NewRequest(http.MethodGet, "/admin/api/translations/my-work", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/translations/my-work", nil)
 	req.Header.Set("X-User-ID", "translator-1")
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("request error: %v", err)
 	}
+	defer mustClose(t, "response body", resp.Body)
 	if resp.StatusCode != http.StatusForbidden {
 		t.Fatalf("status=%d want=403", resp.StatusCode)
 	}
@@ -217,16 +218,16 @@ func TestTranslationQueueBindingQueueIncludesUnifiedInboxFields(t *testing.T) {
 	binding.now = func() time.Time { return now }
 	app := newTranslationQueueTestApp(t, binding)
 
-	req := httptest.NewRequest(http.MethodGet, "/admin/api/translations/queue", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/translations/queue", nil)
 	req.Header.Set("X-User-ID", "manager-1")
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("request error: %v", err)
 	}
+	defer mustClose(t, "response body", resp.Body)
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("status=%d want=200", resp.StatusCode)
 	}
-	defer mustClose(t, "response body", resp.Body)
 
 	payload := map[string]any{}
 	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
@@ -236,12 +237,12 @@ func TestTranslationQueueBindingQueueIncludesUnifiedInboxFields(t *testing.T) {
 		t.Fatalf("expected scope queue, got %q", got)
 	}
 
-	items, _ := payload["items"].([]any)
+	items := anySliceFromValue(payload["items"])
 	if len(items) != 2 {
 		t.Fatalf("expected 2 queue items, got %d", len(items))
 	}
 	for _, raw := range items {
-		row, _ := raw.(map[string]any)
+		row := extractMap(raw)
 		if strings.TrimSpace(toString(row["content_state"])) == "" {
 			t.Fatalf("expected content_state, got %+v", row)
 		}
@@ -255,15 +256,15 @@ func TestTranslationQueueBindingQueueIncludesUnifiedInboxFields(t *testing.T) {
 		if !ok || len(actions) == 0 {
 			t.Fatalf("expected review_actions map, got %+v", row["review_actions"])
 		}
-		approve, _ := actions["approve"].(map[string]any)
-		submit, _ := actions["submit_review"].(map[string]any)
+		approve := extractMap(actions["approve"])
+		submit := extractMap(actions["submit_review"])
 		if strings.EqualFold(strings.TrimSpace(toString(row["queue_state"])), string(AssignmentStatusInReview)) {
-			if enabled, _ := approve["enabled"].(bool); !enabled {
+			if enabled := toBool(approve["enabled"]); !enabled {
 				t.Fatalf("expected approve enabled in review state, got %+v", approve)
 			}
 		}
 		if strings.EqualFold(strings.TrimSpace(toString(row["queue_state"])), string(AssignmentStatusInProgress)) {
-			if enabled, _ := submit["enabled"].(bool); enabled {
+			if enabled := toBool(submit["enabled"]); enabled {
 				t.Fatalf("expected submit_review disabled without edit permission, got %+v", submit)
 			}
 			if code := strings.TrimSpace(toString(submit["reason_code"])); code != ActionDisabledReasonCodePermissionDenied {
@@ -309,53 +310,53 @@ func TestTranslationQueueBindingAssignmentsReturnsEnvelopeAndActionStates(t *tes
 	binding.now = func() time.Time { return now }
 	app := newTranslationQueueTestApp(t, binding)
 
-	req := httptest.NewRequest(http.MethodGet, "/admin/api/translations/assignments?locale=es&priority=high&reviewer_id=reviewer-1&due_state=overdue", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/translations/assignments?locale=es&priority=high&reviewer_id=reviewer-1&due_state=overdue", nil)
 	req.Header.Set("X-User-ID", "manager-1")
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("request error: %v", err)
 	}
+	defer mustClose(t, "response body", resp.Body)
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("status=%d want=200", resp.StatusCode)
 	}
-	defer mustClose(t, "response body", resp.Body)
 
 	payload := map[string]any{}
 	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
-	meta, _ := payload["meta"].(map[string]any)
-	if int(meta["total"].(float64)) != 1 {
+	meta := extractMap(payload["meta"])
+	if toInt(meta["total"]) != 1 {
 		t.Fatalf("expected meta.total=1, got %+v", meta)
 	}
 	if got := strings.TrimSpace(toString(meta["default_review_filter_preset"])); got != "review_inbox" {
 		t.Fatalf("expected default_review_filter_preset review_inbox, got %q", got)
 	}
-	if reviewPresets, _ := meta["saved_review_filter_presets"].([]any); len(reviewPresets) != 4 {
+	if reviewPresets := anySliceFromValue(meta["saved_review_filter_presets"]); len(reviewPresets) != 4 {
 		t.Fatalf("expected four saved review presets, got %d", len(reviewPresets))
 	}
 	reviewCounts := extractMap(meta["review_aggregate_counts"])
 	if got := intValue(reviewCounts["review_inbox"]); got != 0 {
 		t.Fatalf("expected empty review_inbox count for non-reviewer result, got %+v", reviewCounts)
 	}
-	data, _ := payload["data"].([]any)
+	data := anySliceFromValue(payload["data"])
 	if len(data) != 1 {
 		t.Fatalf("expected one data row, got %d", len(data))
 	}
-	row, _ := data[0].(map[string]any)
+	row := extractMap(data[0])
 	if got := strings.TrimSpace(toString(row["id"])); got != created.ID {
 		t.Fatalf("expected id %q, got %q", created.ID, got)
 	}
 	if got := strings.TrimSpace(toString(row["due_state"])); got != translationQueueDueStateOverdue {
 		t.Fatalf("expected overdue due_state, got %q", got)
 	}
-	actions, _ := row["actions"].(map[string]any)
-	claim, _ := actions["claim"].(map[string]any)
-	release, _ := actions["release"].(map[string]any)
-	if enabled, _ := claim["enabled"].(bool); !enabled {
+	actions := extractMap(row["actions"])
+	claim := extractMap(actions["claim"])
+	release := extractMap(actions["release"])
+	if enabled := toBool(claim["enabled"]); !enabled {
 		t.Fatalf("expected claim enabled, got %+v", claim)
 	}
-	if enabled, _ := release["enabled"].(bool); enabled {
+	if enabled := toBool(release["enabled"]); enabled {
 		t.Fatalf("expected release disabled for pending assignment, got %+v", release)
 	}
 	if got := strings.TrimSpace(toString(release["reason_code"])); got != ActionDisabledReasonCodeInvalidStatus {
@@ -392,16 +393,16 @@ func TestTranslationQueueBindingAssignmentsSupportsPageLocalFamilyGrouping(t *te
 	binding.now = func() time.Time { return now }
 	app := newTranslationQueueTestApp(t, binding)
 
-	req := httptest.NewRequest(http.MethodGet, "/admin/api/translations/assignments?group_by=family_id&per_page=2&sort=created_at&order=asc", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/translations/assignments?group_by=family_id&per_page=2&sort=created_at&order=asc", nil)
 	req.Header.Set("X-User-ID", "manager-1")
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("request error: %v", err)
 	}
+	defer mustClose(t, "response body", resp.Body)
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("status=%d want=200", resp.StatusCode)
 	}
-	defer mustClose(t, "response body", resp.Body)
 
 	payload := map[string]any{}
 	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
@@ -415,7 +416,7 @@ func TestTranslationQueueBindingAssignmentsSupportsPageLocalFamilyGrouping(t *te
 	if intValue(grouping["assignment_count"]) != 2 || intValue(grouping["group_count"]) != 1 {
 		t.Fatalf("expected current-page assignment/group counts, got %+v", grouping)
 	}
-	data, _ := payload["data"].([]any)
+	data := anySliceFromValue(payload["data"])
 	if len(data) != 1 {
 		t.Fatalf("expected one group row on first page, got %+v", data)
 	}
@@ -433,7 +434,7 @@ func TestTranslationQueueBindingAssignmentsSupportsPageLocalFamilyGrouping(t *te
 	if got := toString(actionState["scope"]); got != "children" {
 		t.Fatalf("expected informational child action scope, got %+v", actionState)
 	}
-	children, _ := group["children"].([]any)
+	children := anySliceFromValue(group["children"])
 	if len(children) != 2 {
 		t.Fatalf("expected two child assignments, got %+v", children)
 	}
@@ -458,12 +459,13 @@ func TestTranslationQueueBindingAssignmentsRejectsUnsupportedGrouping(t *testing
 	}
 	app := newTranslationQueueTestApp(t, newTranslationQueueBinding(adm))
 
-	req := httptest.NewRequest(http.MethodGet, "/admin/api/translations/assignments?group_by=content_type", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/translations/assignments?group_by=content_type", nil)
 	req.Header.Set("X-User-ID", "manager-1")
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("request error: %v", err)
 	}
+	defer mustClose(t, "response body", resp.Body)
 	if resp.StatusCode != http.StatusBadRequest {
 		t.Fatalf("status=%d want=400", resp.StatusCode)
 	}
@@ -504,16 +506,16 @@ func TestTranslationQueueBindingAssignmentsUsesOptimizedPageAndReviewerSummary(t
 	binding.now = func() time.Time { return now }
 	app := newTranslationQueueTestApp(t, binding)
 
-	req := httptest.NewRequest(http.MethodGet, "/admin/api/translations/assignments?tenant_id=tenant-1&org_id=org-1", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/translations/assignments?tenant_id=tenant-1&org_id=org-1", nil)
 	req.Header.Set("X-User-ID", "manager-1")
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("request error: %v", err)
 	}
+	defer mustClose(t, "response body", resp.Body)
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("status=%d want=200", resp.StatusCode)
 	}
-	defer mustClose(t, "response body", resp.Body)
 	if repo.listCalls != 0 {
 		t.Fatalf("optimized assignment endpoint called List %d times", repo.listCalls)
 	}
@@ -612,22 +614,22 @@ func TestTranslationQueueBindingAssignmentsExposeReviewerGuardFeedbackAndQASumma
 	}
 	syncTranslationFamilyFixtureStore(t, fixture.admin, "production")
 
-	req := httptest.NewRequest(http.MethodGet, "/admin/api/translations/assignments", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/translations/assignments", nil)
 	req.Header.Set("X-User-ID", "reviewer-2")
 	resp, err := fixture.app.Test(req)
 	if err != nil {
 		t.Fatalf("request error: %v", err)
 	}
+	defer mustClose(t, "response body", resp.Body)
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("status=%d want=200", resp.StatusCode)
 	}
-	defer mustClose(t, "response body", resp.Body)
 
 	payload := map[string]any{}
 	if decodeErr := json.NewDecoder(resp.Body).Decode(&payload); decodeErr != nil {
 		t.Fatalf("decode response: %v", decodeErr)
 	}
-	data, _ := payload["data"].([]any)
+	data := anySliceFromValue(payload["data"])
 	if len(data) != 1 {
 		t.Fatalf("expected one queue row, got %d", len(data))
 	}
@@ -645,7 +647,7 @@ func TestTranslationQueueBindingAssignmentsExposeReviewerGuardFeedbackAndQASumma
 
 	reviewActions := extractMap(row["review_actions"])
 	approve := extractMap(reviewActions["approve"])
-	if enabled, _ := approve["enabled"].(bool); enabled {
+	if enabled := toBool(approve["enabled"]); enabled {
 		t.Fatalf("expected approve disabled for non-reviewer, got %+v", approve)
 	}
 	if got := strings.TrimSpace(toString(approve["reason_code"])); got != ActionDisabledReasonCodePermissionDenied {
@@ -655,12 +657,12 @@ func TestTranslationQueueBindingAssignmentsExposeReviewerGuardFeedbackAndQASumma
 		t.Fatalf("expected expected_reviewer_id reviewer-1, got %+v", approve)
 	}
 	archive := extractMap(reviewActions["archive"])
-	if enabled, _ := archive["enabled"].(bool); !enabled {
+	if enabled := toBool(archive["enabled"]); !enabled {
 		t.Fatalf("expected archive enabled for review row, got %+v", archive)
 	}
 
 	qaSummary := extractMap(row["qa_summary"])
-	if enabled, _ := qaSummary["enabled"].(bool); !enabled {
+	if enabled := toBool(qaSummary["enabled"]); !enabled {
 		t.Fatalf("expected qa_summary enabled, got %+v", qaSummary)
 	}
 	if got := intValue(qaSummary["warning_count"]); got <= 0 {
@@ -670,16 +672,16 @@ func TestTranslationQueueBindingAssignmentsExposeReviewerGuardFeedbackAndQASumma
 		t.Fatalf("expected qa blocker count > 0, got %+v", qaSummary)
 	}
 
-	reqReviewer := httptest.NewRequest(http.MethodGet, "/admin/api/translations/assignments", nil)
+	reqReviewer := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/translations/assignments", nil)
 	reqReviewer.Header.Set("X-User-ID", "reviewer-1")
 	respReviewer, err := fixture.app.Test(reqReviewer)
 	if err != nil {
 		t.Fatalf("reviewer request error: %v", err)
 	}
+	defer mustClose(t, "response body", respReviewer.Body)
 	if respReviewer.StatusCode != http.StatusOK {
 		t.Fatalf("reviewer status=%d want=200", respReviewer.StatusCode)
 	}
-	defer mustClose(t, "response body", respReviewer.Body)
 
 	reviewerPayload := map[string]any{}
 	if reviewerDecodeErr := json.NewDecoder(respReviewer.Body).Decode(&reviewerPayload); reviewerDecodeErr != nil {
@@ -697,21 +699,21 @@ func TestTranslationQueueBindingAssignmentsExposeReviewerGuardFeedbackAndQASumma
 		t.Fatalf("expected review_blocked count 1, got %+v", reviewCounts)
 	}
 
-	reqActorlessPreset := httptest.NewRequest(http.MethodGet, "/admin/api/translations/assignments?reviewer_id=__me__", nil)
+	reqActorlessPreset := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/translations/assignments?reviewer_id=__me__", nil)
 	respActorlessPreset, err := fixture.app.Test(reqActorlessPreset)
 	if err != nil {
 		t.Fatalf("actorless preset request error: %v", err)
 	}
+	defer mustClose(t, "response body", respActorlessPreset.Body)
 	if respActorlessPreset.StatusCode != http.StatusOK {
 		t.Fatalf("actorless preset status=%d want=200", respActorlessPreset.StatusCode)
 	}
-	defer mustClose(t, "response body", respActorlessPreset.Body)
 
 	actorlessPresetPayload := map[string]any{}
 	if err := json.NewDecoder(respActorlessPreset.Body).Decode(&actorlessPresetPayload); err != nil {
 		t.Fatalf("decode actorless preset payload: %v", err)
 	}
-	actorlessData, _ := actorlessPresetPayload["data"].([]any)
+	actorlessData := anySliceFromValue(actorlessPresetPayload["data"])
 	if got := len(actorlessData); got != 0 {
 		t.Fatalf("expected actorless reviewer preset to match zero assignments, got %d", got)
 	}
@@ -762,16 +764,16 @@ func TestTranslationQueueBindingAssignmentsSupportStableReviewStateAndGroupFilte
 	}
 	syncTranslationFamilyFixtureStore(t, fixture.admin, "production")
 
-	req := httptest.NewRequest(http.MethodGet, "/admin/api/translations/assignments?reviewer_id=__me__&review_state=qa_blocked&family_id=tg-page-1&channel=production&tenant_id=tenant-1&org_id=org-1", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/translations/assignments?reviewer_id=__me__&review_state=qa_blocked&family_id=tg-page-1&channel=production&tenant_id=tenant-1&org_id=org-1", nil)
 	req.Header.Set("X-User-ID", "reviewer-1")
 	resp, err := fixture.app.Test(req)
 	if err != nil {
 		t.Fatalf("request error: %v", err)
 	}
+	defer mustClose(t, "response body", resp.Body)
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("status=%d want=200", resp.StatusCode)
 	}
-	defer mustClose(t, "response body", resp.Body)
 
 	payload := map[string]any{}
 	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
@@ -786,7 +788,7 @@ func TestTranslationQueueBindingAssignmentsSupportStableReviewStateAndGroupFilte
 	if len(supportedReviewStates) != 1 || supportedReviewStates[0] != translationQueueReviewStateQABlocked {
 		t.Fatalf("expected supported_review_states to include qa_blocked, got %+v", supportedReviewStates)
 	}
-	data, _ := payload["data"].([]any)
+	data := anySliceFromValue(payload["data"])
 	if len(data) != 1 {
 		t.Fatalf("expected one qa-blocked assignment in the selected translation group, got %d", len(data))
 	}
@@ -822,7 +824,7 @@ func TestTranslationQueueBindingRejectActionRequiresReason(t *testing.T) {
 		t.Fatalf("update assignment: %v", updateAssignmentErr)
 	}
 
-	req := httptest.NewRequest(
+	req := httptest.NewRequestWithContext(context.Background(),
 		http.MethodPost,
 		"/admin/api/translations/assignments/"+fixture.assignmentID+"/actions/reject",
 		strings.NewReader(`{"expected_version":3}`),
@@ -833,10 +835,10 @@ func TestTranslationQueueBindingRejectActionRequiresReason(t *testing.T) {
 	if err != nil {
 		t.Fatalf("request error: %v", err)
 	}
+	defer mustClose(t, "response body", resp.Body)
 	if resp.StatusCode < 400 || resp.StatusCode >= 500 {
 		t.Fatalf("status=%d want=4xx", resp.StatusCode)
 	}
-	defer mustClose(t, "response body", resp.Body)
 
 	payload := map[string]any{}
 	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
@@ -927,7 +929,7 @@ func TestTranslationQueueBindingAssignmentActionClaimSupportsIdempotentReplay(t 
 
 	body := []byte(`{"expected_version":1,"idempotency_key":"claim-1"}`)
 	makeReq := func() *http.Request {
-		req := httptest.NewRequest(http.MethodPost, "/admin/api/translations/assignments/"+created.ID+"/actions/claim", bytes.NewReader(body))
+		req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/api/translations/assignments/"+created.ID+"/actions/claim", bytes.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("X-User-ID", "translator-1")
 		return req
@@ -937,16 +939,16 @@ func TestTranslationQueueBindingAssignmentActionClaimSupportsIdempotentReplay(t 
 	if err != nil {
 		t.Fatalf("first request error: %v", err)
 	}
+	defer mustClose(t, "response body", firstResp.Body)
 	if firstResp.StatusCode != http.StatusOK {
 		t.Fatalf("first status=%d want=200", firstResp.StatusCode)
 	}
-	defer mustClose(t, "response body", firstResp.Body)
 	first := map[string]any{}
 	if firstDecodeErr := json.NewDecoder(firstResp.Body).Decode(&first); firstDecodeErr != nil {
 		t.Fatalf("decode first response: %v", firstDecodeErr)
 	}
-	firstMeta, _ := first["meta"].(map[string]any)
-	if hit, _ := firstMeta["idempotency_hit"].(bool); hit {
+	firstMeta := extractMap(first["meta"])
+	if hit := toBool(firstMeta["idempotency_hit"]); hit {
 		t.Fatalf("expected first response not to be replay hit")
 	}
 
@@ -954,19 +956,19 @@ func TestTranslationQueueBindingAssignmentActionClaimSupportsIdempotentReplay(t 
 	if err != nil {
 		t.Fatalf("second request error: %v", err)
 	}
+	defer mustClose(t, "response body", secondResp.Body)
 	if secondResp.StatusCode != http.StatusOK {
 		t.Fatalf("second status=%d want=200", secondResp.StatusCode)
 	}
-	defer mustClose(t, "response body", secondResp.Body)
 	second := map[string]any{}
 	if secondDecodeErr := json.NewDecoder(secondResp.Body).Decode(&second); secondDecodeErr != nil {
 		t.Fatalf("decode second response: %v", secondDecodeErr)
 	}
-	secondMeta, _ := second["meta"].(map[string]any)
-	if hit, _ := secondMeta["idempotency_hit"].(bool); !hit {
+	secondMeta := extractMap(second["meta"])
+	if hit := toBool(secondMeta["idempotency_hit"]); !hit {
 		t.Fatalf("expected replay to set meta.idempotency_hit=true, got %+v", secondMeta)
 	}
-	data, _ := second["data"].(map[string]any)
+	data := extractMap(second["data"])
 	if got := strings.TrimSpace(toString(data["status"])); got != string(AssignmentStatusInProgress) {
 		t.Fatalf("expected in_progress status, got %q", got)
 	}
@@ -1006,13 +1008,14 @@ func TestTranslationQueueBindingAssignmentActionRequiresPermission(t *testing.T)
 	}
 	app := newTranslationQueueTestApp(t, newTranslationQueueBinding(adm))
 
-	req := httptest.NewRequest(http.MethodPost, "/admin/api/translations/assignments/"+created.ID+"/actions/claim", strings.NewReader(`{"expected_version":1}`))
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/api/translations/assignments/"+created.ID+"/actions/claim", strings.NewReader(`{"expected_version":1}`))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-User-ID", "translator-1")
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("request error: %v", err)
 	}
+	defer mustClose(t, "response body", resp.Body)
 	if resp.StatusCode != http.StatusForbidden {
 		t.Fatalf("status=%d want=403", resp.StatusCode)
 	}
@@ -1071,7 +1074,7 @@ func TestTranslationQueueBindingBulkActionAssignReturnsUpdatedRowsAndPartialFail
 	if err != nil {
 		t.Fatalf("marshal request: %v", err)
 	}
-	req := httptest.NewRequest(http.MethodPost, "/admin/api/translations/assignment-actions/bulk", bytes.NewReader(body))
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/api/translations/assignment-actions/bulk", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-User-ID", "manager-1")
 
@@ -1079,10 +1082,10 @@ func TestTranslationQueueBindingBulkActionAssignReturnsUpdatedRowsAndPartialFail
 	if err != nil {
 		t.Fatalf("request error: %v", err)
 	}
+	defer mustClose(t, "response body", resp.Body)
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("status=%d want=200", resp.StatusCode)
 	}
-	defer mustClose(t, "response body", resp.Body)
 	response := map[string]any{}
 	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
 		t.Fatalf("decode response: %v", err)
@@ -1091,15 +1094,15 @@ func TestTranslationQueueBindingBulkActionAssignReturnsUpdatedRowsAndPartialFail
 	if intValue(meta["requested"]) != 2 || intValue(meta["succeeded"]) != 1 || intValue(meta["failed"]) != 1 {
 		t.Fatalf("unexpected bulk metadata: %+v", meta)
 	}
-	if partial, _ := meta["partial"].(bool); !partial {
+	if partial := toBool(meta["partial"]); !partial {
 		t.Fatalf("expected partial=true, got %+v", meta)
 	}
 	data := extractMap(response["data"])
-	assignments, _ := data["assignments"].([]any)
+	assignments := anySliceFromValue(data["assignments"])
 	if len(assignments) != 1 {
 		t.Fatalf("expected one updated assignment row, got %d", len(assignments))
 	}
-	errorsOut, _ := data["errors"].([]any)
+	errorsOut := anySliceFromValue(data["errors"])
 	if len(errorsOut) != 1 {
 		t.Fatalf("expected one item error, got %d", len(errorsOut))
 	}
@@ -1184,17 +1187,17 @@ func TestTranslationQueueBindingBulkActionSupportsReleasePriorityAndArchive(t *t
 		if err != nil {
 			t.Fatalf("marshal %s request: %v", action, err)
 		}
-		req := httptest.NewRequest(http.MethodPost, "/admin/api/translations/assignment-actions/bulk", bytes.NewReader(body))
+		req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/api/translations/assignment-actions/bulk", bytes.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("X-User-ID", "manager-1")
 		resp, err := app.Test(req)
 		if err != nil {
 			t.Fatalf("%s request error: %v", action, err)
 		}
+		defer mustClose(t, "response body", resp.Body)
 		if resp.StatusCode != http.StatusOK {
 			t.Fatalf("%s status=%d want=200", action, resp.StatusCode)
 		}
-		defer mustClose(t, "response body", resp.Body)
 		response := map[string]any{}
 		if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
 			t.Fatalf("decode %s response: %v", action, err)
@@ -1262,7 +1265,7 @@ func TestTranslationQueueBindingBulkActionReportsPerItemPermissionDenial(t *test
 	}
 	app := newTranslationQueueTestApp(t, newTranslationQueueBinding(adm))
 	body := []byte(`{"action":"release","assignments":[{"assignment_id":"` + created.ID + `","expected_version":1}]}`)
-	req := httptest.NewRequest(http.MethodPost, "/admin/api/translations/assignment-actions/bulk", bytes.NewReader(body))
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/api/translations/assignment-actions/bulk", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-User-ID", "manager-1")
 
@@ -1270,10 +1273,10 @@ func TestTranslationQueueBindingBulkActionReportsPerItemPermissionDenial(t *test
 	if err != nil {
 		t.Fatalf("request error: %v", err)
 	}
+	defer mustClose(t, "response body", resp.Body)
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("status=%d want=200", resp.StatusCode)
 	}
-	defer mustClose(t, "response body", resp.Body)
 	response := map[string]any{}
 	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
 		t.Fatalf("decode response: %v", err)
@@ -1298,7 +1301,7 @@ func TestTranslationQueueBindingBulkActionRejectsUnsupportedAction(t *testing.T)
 		t.Fatalf("register queue panel: %v", registerErr)
 	}
 	app := newTranslationQueueTestApp(t, newTranslationQueueBinding(adm))
-	req := httptest.NewRequest(http.MethodPost, "/admin/api/translations/assignment-actions/bulk", strings.NewReader(`{"action":"approve","assignments":[{"assignment_id":"asg-1","expected_version":1}]}`))
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/api/translations/assignment-actions/bulk", strings.NewReader(`{"action":"approve","assignments":[{"assignment_id":"asg-1","expected_version":1}]}`))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-User-ID", "manager-1")
 
@@ -1306,6 +1309,7 @@ func TestTranslationQueueBindingBulkActionRejectsUnsupportedAction(t *testing.T)
 	if err != nil {
 		t.Fatalf("request error: %v", err)
 	}
+	defer mustClose(t, "response body", resp.Body)
 	if resp.StatusCode != http.StatusBadRequest {
 		t.Fatalf("status=%d want=400", resp.StatusCode)
 	}
@@ -1341,13 +1345,14 @@ func TestTranslationQueueBindingAssignmentActionEnforcesScopeIsolation(t *testin
 	}
 	app := newTranslationQueueTestApp(t, newTranslationQueueBinding(adm))
 
-	req := httptest.NewRequest(http.MethodPost, "/admin/api/translations/assignments/"+created.ID+"/actions/claim?tenant_id=tenant-b&org_id=org-b", strings.NewReader(`{"expected_version":1}`))
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/api/translations/assignments/"+created.ID+"/actions/claim?tenant_id=tenant-b&org_id=org-b", strings.NewReader(`{"expected_version":1}`))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-User-ID", "translator-1")
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("request error: %v", err)
 	}
+	defer mustClose(t, "response body", resp.Body)
 	if resp.StatusCode != http.StatusForbidden {
 		t.Fatalf("status=%d want=403", resp.StatusCode)
 	}
@@ -1364,7 +1369,7 @@ func TestTranslationQueueBindingMyWorkEchoesTraceHeaders(t *testing.T) {
 	binding := newTranslationQueueBinding(adm)
 	app := newTranslationQueueTestApp(t, binding)
 
-	req := httptest.NewRequest(http.MethodGet, "/admin/api/translations/my-work", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/translations/my-work", nil)
 	req.Header.Set("X-User-ID", "translator-1")
 	req.Header.Set("X-Request-ID", "req-queue-1")
 	req.Header.Set("X-Correlation-ID", "corr-queue-1")
@@ -1453,33 +1458,33 @@ func TestTranslationQueueBindingMyWorkSummaryIncludesAllFilteredAssignmentsAcros
 	binding.now = func() time.Time { return now }
 	app := newTranslationQueueTestApp(t, binding)
 
-	req := httptest.NewRequest(http.MethodGet, "/admin/api/translations/my-work?per_page=1&page=1", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/translations/my-work?per_page=1&page=1", nil)
 	req.Header.Set("X-User-ID", "translator-1")
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("request error: %v", err)
 	}
+	defer mustClose(t, "response body", resp.Body)
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("status=%d want=200", resp.StatusCode)
 	}
-	defer mustClose(t, "response body", resp.Body)
 
 	payload := map[string]any{}
 	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
-	assignments, _ := payload["assignments"].([]any)
+	assignments := anySliceFromValue(payload["assignments"])
 	if len(assignments) != 1 {
 		t.Fatalf("expected paginated assignments length=1, got %d", len(assignments))
 	}
-	summary, _ := payload["summary"].(map[string]any)
-	if int(summary["total"].(float64)) != 3 {
+	summary := extractMap(payload["summary"])
+	if toInt(summary["total"]) != 3 {
 		t.Fatalf("expected summary.total=3, got %+v", summary)
 	}
-	if int(summary["overdue"].(float64)) != 1 || int(summary["due_soon"].(float64)) != 1 || int(summary["on_track"].(float64)) != 1 {
+	if toInt(summary["overdue"]) != 1 || toInt(summary["due_soon"]) != 1 || toInt(summary["on_track"]) != 1 {
 		t.Fatalf("unexpected due summary counts: %+v", summary)
 	}
-	if int(summary["review"].(float64)) != 1 {
+	if toInt(summary["review"]) != 1 {
 		t.Fatalf("expected summary.review=1, got %+v", summary)
 	}
 }
@@ -1538,33 +1543,33 @@ func TestTranslationQueueBindingQueueSummaryIncludesAllFilteredAssignmentsAcross
 	binding.now = func() time.Time { return now }
 	app := newTranslationQueueTestApp(t, binding)
 
-	req := httptest.NewRequest(http.MethodGet, "/admin/api/translations/queue?per_page=1&page=1", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/translations/queue?per_page=1&page=1", nil)
 	req.Header.Set("X-User-ID", "manager-1")
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("request error: %v", err)
 	}
+	defer mustClose(t, "response body", resp.Body)
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("status=%d want=200", resp.StatusCode)
 	}
-	defer mustClose(t, "response body", resp.Body)
 
 	payload := map[string]any{}
 	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
-	items, _ := payload["items"].([]any)
+	items := anySliceFromValue(payload["items"])
 	if len(items) != 1 {
 		t.Fatalf("expected paginated items length=1, got %d", len(items))
 	}
-	summary, _ := payload["summary"].(map[string]any)
-	if int(summary["total"].(float64)) != 3 {
+	summary := extractMap(payload["summary"])
+	if toInt(summary["total"]) != 3 {
 		t.Fatalf("expected summary.total=3, got %+v", summary)
 	}
-	byQueueState, _ := summary["by_queue_state"].(map[string]any)
-	if int(byQueueState[string(AssignmentStatusInReview)].(float64)) != 1 ||
-		int(byQueueState[string(AssignmentStatusInProgress)].(float64)) != 1 ||
-		int(byQueueState[string(AssignmentStatusAssigned)].(float64)) != 1 {
+	byQueueState := extractMap(summary["by_queue_state"])
+	if toInt(byQueueState[string(AssignmentStatusInReview)]) != 1 ||
+		toInt(byQueueState[string(AssignmentStatusInProgress)]) != 1 ||
+		toInt(byQueueState[string(AssignmentStatusAssigned)]) != 1 {
 		t.Fatalf("unexpected by_queue_state summary: %+v", byQueueState)
 	}
 }
