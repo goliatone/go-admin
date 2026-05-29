@@ -5,8 +5,10 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	translationqueue "github.com/goliatone/go-admin/admin/internal/translationqueue"
 	"github.com/goliatone/go-admin/internal/primitives"
+	goerrors "github.com/goliatone/go-errors"
 	"sort"
 	"strings"
 	"sync"
@@ -49,6 +51,12 @@ type translationQueueActionReplay struct {
 	StoredAt    time.Time      `json:"stored_at"`
 }
 
+type translationQueueBulkActionSelection struct {
+	AssignmentID     string `json:"assignment_id"`
+	ExpectedVersion  int64  `json:"expected_version"`
+	OriginalPosition int    `json:"-"`
+}
+
 func newTranslationQueueBinding(a *Admin) *translationQueueBinding {
 	if a == nil {
 		return nil
@@ -86,16 +94,51 @@ func (b *translationQueueBinding) Assignments(c router.Context) (payload any, er
 	perPage := clampInt(atoiDefault(c.Query("per_page"), 50), 1, 200)
 	filter := b.assignmentFilterFromRequest(adminCtx, c)
 	channel := translationChannelFromRequest(c, adminCtx, nil)
-	allAssignments, err := b.listAssignmentsForSummary(adminCtx.Context, repo, filter.SortBy, nil)
+	assignments, total, optimizedPage, err := b.assignmentPage(adminCtx.Context, repo, filter, page, perPage, channel, now)
 	if err != nil {
 		return nil, err
 	}
-	assignments, total := b.filterAssignments(adminCtx.Context, allAssignments, filter, page, perPage, channel, now)
 	rows := make([]map[string]any, 0, len(assignments))
 	for _, assignment := range assignments {
 		rows = append(rows, b.assignmentContractRow(adminCtx.Context, assignment, now, channel))
 	}
-	reviewAggregateCounts, err := b.reviewerAggregateCounts(adminCtx.Context, allAssignments, filter, actorID, channel, now)
+	reviewAssignments := assignments
+	if optimizedPage {
+		reviewAggregateCounts, err := b.optimizedReviewerAggregateCounts(adminCtx.Context, repo, filter, actorID, now)
+		if err == nil {
+			return map[string]any{
+				"data": rows,
+				"meta": mergeTranslationChannelContract(map[string]any{
+					"page":                         page,
+					"per_page":                     perPage,
+					"total":                        total,
+					"updated_at":                   now,
+					"supported_sort_keys":          TranslationQueueSupportedSortKeys(),
+					"supported_filter_keys":        TranslationQueueSupportedFilterKeys(),
+					"supported_review_states":      TranslationQueueSupportedReviewStates(),
+					"default_sort":                 translationQueueDefaultSortContract(),
+					"saved_filter_presets":         TranslationQueueSavedFilterPresets(),
+					"saved_review_filter_presets":  TranslationQueueSavedReviewFilterPresets(),
+					"default_review_filter_preset": "review_inbox",
+					"review_actor_id":              actorID,
+					"review_aggregate_counts":      reviewAggregateCounts,
+				}, channel),
+			}, nil
+		}
+		reviewAssignments, err = b.listAssignmentsForSummary(adminCtx.Context, repo, "updated_at", map[string]any{
+			"tenant_id": filter.TenantID,
+			"org_id":    filter.OrgID,
+		})
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		reviewAssignments, err = b.listAssignmentsForSummary(adminCtx.Context, repo, filter.SortBy, nil)
+		if err != nil {
+			return nil, err
+		}
+	}
+	reviewAggregateCounts, err := b.reviewerAggregateCounts(adminCtx.Context, reviewAssignments, filter, actorID, channel, now)
 	if err != nil {
 		return nil, err
 	}
@@ -117,6 +160,19 @@ func (b *translationQueueBinding) Assignments(c router.Context) (payload any, er
 			"review_aggregate_counts":      reviewAggregateCounts,
 		}, channel),
 	}, nil
+}
+
+func (b *translationQueueBinding) optimizedReviewerAggregateCounts(ctx context.Context, repo TranslationAssignmentRepository, filter translationAssignmentListFilter, actorID string, now time.Time) (map[string]int, error) {
+	reviewerStore, ok := repo.(TranslationAssignmentReviewerSummaryStore)
+	if !ok || reviewerStore == nil {
+		return nil, ErrTranslationAssignmentQueryUnsupported
+	}
+	return reviewerStore.AssignmentReviewerAggregateCounts(ctx, TranslationAssignmentReviewerAggregateInput{
+		TenantID: filter.TenantID,
+		OrgID:    filter.OrgID,
+		ActorID:  actorID,
+		Now:      now,
+	})
 }
 
 func (b *translationQueueBinding) RunAssignmentAction(c router.Context, assignmentID, action string, body map[string]any) (payload any, err error) {
@@ -191,6 +247,114 @@ func (b *translationQueueBinding) RunAssignmentAction(c router.Context, assignme
 	return response, nil
 }
 
+func (b *translationQueueBinding) RunAssignmentBulkAction(c router.Context, body map[string]any) (payload any, err error) {
+	startedAt := time.Now()
+	obsCtx := c.Context()
+	action := normalizeTranslationQueueBulkAction(toString(body["action"]))
+	defer func() {
+		recordTranslationAPIOperation(obsCtx, translationAPIObservation{
+			Operation: "translations.assignments.bulk_action." + strings.TrimSpace(action),
+			Kind:      "write",
+			RequestID: requestIDFromContext(obsCtx),
+			TraceID:   traceIDFromContext(obsCtx),
+			TenantID:  tenantIDFromContext(obsCtx),
+			OrgID:     orgIDFromContext(obsCtx),
+			Duration:  time.Since(startedAt),
+			Err:       err,
+		})
+	}()
+	if identityErr := rejectTranslationClientIdentityFields(body); identityErr != nil {
+		return nil, identityErr
+	}
+	adminCtx, repo, now, err := b.prepareAssignmentRequest(c)
+	if err != nil {
+		return nil, err
+	}
+	obsCtx = adminCtx.Context
+	identity := translationIdentityFromAdminContext(adminCtx)
+	channel := translationChannelFromRequest(c, adminCtx, body)
+	if identity.ActorID == "" {
+		return nil, NewDomainError(string(translationcore.ErrorPermissionDenied), "bulk assignment actions require an authenticated actor", map[string]any{
+			"component": "translation_queue_binding",
+			"action":    action,
+		})
+	}
+	if action == "" {
+		return nil, requiredFieldDomainError("action", nil)
+	}
+	if !translationQueueBulkActionSupported(action) {
+		return nil, validationDomainError("unsupported bulk assignment action", map[string]any{
+			"field":  "action",
+			"action": action,
+		})
+	}
+	selections, err := translationQueueBulkActionSelections(body)
+	if err != nil {
+		return nil, err
+	}
+	service := &DefaultTranslationQueueService{
+		Repository:    repo,
+		Activity:      b.admin.ActivityFeed(),
+		Notifications: b.admin.NotificationService(),
+		URLs:          b.admin.URLs(),
+	}
+
+	results := make([]map[string]any, 0, len(selections))
+	errorsOut := make([]map[string]any, 0)
+	updatedRows := make([]map[string]any, 0, len(selections))
+	succeeded := 0
+	for _, selection := range selections {
+		current, itemErr := repo.Get(adminCtx.Context, selection.AssignmentID)
+		if itemErr == nil {
+			itemErr = b.ensureAssignmentScope(identity, current)
+		}
+		if itemErr == nil {
+			itemErr = b.requireAssignmentBulkActionPermission(adminCtx, action, current)
+		}
+		var updated TranslationAssignment
+		if itemErr == nil {
+			updated, itemErr = b.executeAssignmentBulkAction(adminCtx, service, current, identity.ActorID, action, selection.ExpectedVersion, body)
+		}
+		if itemErr != nil {
+			errorPayload := translationQueueBulkActionError(selection, itemErr)
+			results = append(results, map[string]any{
+				"assignment_id":     selection.AssignmentID,
+				"requested_version": selection.ExpectedVersion,
+				"status":            "failed",
+				"error":             errorPayload["error"],
+			})
+			errorsOut = append(errorsOut, errorPayload)
+			continue
+		}
+		row := b.assignmentContractRow(adminCtx.Context, updated, now, channel)
+		updatedRows = append(updatedRows, row)
+		results = append(results, map[string]any{
+			"assignment_id":     updated.ID,
+			"requested_version": selection.ExpectedVersion,
+			"status":            "succeeded",
+			"row_version":       updated.Version,
+			"assignment":        row,
+		})
+		succeeded++
+	}
+
+	return map[string]any{
+		"data": map[string]any{
+			"action":      action,
+			"results":     results,
+			"assignments": updatedRows,
+			"errors":      errorsOut,
+		},
+		"meta": mergeTranslationChannelContract(map[string]any{
+			"selection_scope": "current_page",
+			"requested":       len(selections),
+			"succeeded":       succeeded,
+			"failed":          len(errorsOut),
+			"partial":         succeeded > 0 && len(errorsOut) > 0,
+		}, channel),
+	}, nil
+}
+
 func normalizeAssignmentActionRequest(action, assignmentID string) (string, string, error) {
 	action = strings.TrimSpace(strings.ToLower(action))
 	assignmentID = strings.TrimSpace(assignmentID)
@@ -246,6 +410,56 @@ func (b *translationQueueBinding) executeAssignmentAction(
 		})
 	default:
 		return TranslationAssignment{}, validationDomainError("unsupported assignment action", map[string]any{
+			"field":  "action",
+			"action": action,
+		})
+	}
+}
+
+func (b *translationQueueBinding) executeAssignmentBulkAction(
+	adminCtx AdminContext,
+	service *DefaultTranslationQueueService,
+	current TranslationAssignment,
+	actorID, action string,
+	expectedVersion int64,
+	body map[string]any,
+) (TranslationAssignment, error) {
+	switch action {
+	case "assign":
+		return service.Assign(adminCtx.Context, TranslationQueueAssignInput{
+			AssignmentID:    current.ID,
+			AssigneeID:      strings.TrimSpace(toString(body["assignee_id"])),
+			AssignerID:      actorID,
+			Priority:        queuePriority(body),
+			DueDate:         queueDueDate(body),
+			ExpectedVersion: expectedVersion,
+		})
+	case "release":
+		return service.Release(adminCtx.Context, TranslationQueueReleaseInput{
+			AssignmentID:    current.ID,
+			ActorID:         actorID,
+			ExpectedVersion: expectedVersion,
+		})
+	case "priority":
+		priority := queuePriority(body)
+		if !priority.IsValid() {
+			return TranslationAssignment{}, validationDomainError("invalid priority", map[string]any{"field": "priority"})
+		}
+		current.Priority = priority
+		updated, err := service.Repository.Update(adminCtx.Context, current, expectedVersion)
+		if err != nil {
+			return TranslationAssignment{}, err
+		}
+		service.recordTransition(adminCtx.Context, "priority_updated", actorID, updated)
+		return updated, nil
+	case "archive":
+		return service.Archive(adminCtx.Context, TranslationQueueArchiveInput{
+			AssignmentID:    current.ID,
+			ActorID:         actorID,
+			ExpectedVersion: expectedVersion,
+		})
+	default:
+		return TranslationAssignment{}, validationDomainError("unsupported bulk assignment action", map[string]any{
 			"field":  "action",
 			"action": action,
 		})
@@ -315,12 +529,11 @@ func (b *translationQueueBinding) MyWork(c router.Context) (payload any, err err
 	if err != nil {
 		return nil, err
 	}
-	summaryAssignments, err := b.listAssignmentsForSummary(adminCtx.Context, repo, "due_date", filters)
+	rows := b.translationQueueAssignmentRows(adminCtx.Context, assignments, now, channel)
+	summary, err := b.myWorkSummary(adminCtx.Context, repo, filters, now)
 	if err != nil {
 		return nil, err
 	}
-	rows := b.translationQueueAssignmentRows(adminCtx.Context, assignments, now, channel)
-	summary := translationQueueMyWorkSummary(summaryAssignments, now)
 	return map[string]any{
 		"scope":       "my_work",
 		"user_id":     userID,
@@ -377,6 +590,26 @@ func translationQueueMyWorkSummary(assignments []TranslationAssignment, now time
 		}
 	}
 	return summary
+}
+
+func (b *translationQueueBinding) myWorkSummary(ctx context.Context, repo TranslationAssignmentRepository, filters map[string]any, now time.Time) (map[string]int, error) {
+	if summaryStore, ok := repo.(TranslationAssignmentSummaryStore); ok && summaryStore != nil {
+		summary, err := summaryStore.AssignmentMyWorkSummary(ctx, TranslationAssignmentMyWorkSummaryInput{
+			Filters: primitives.CloneAnyMap(filters),
+			Now:     now,
+		})
+		if err == nil {
+			return summary, nil
+		}
+		if !errors.Is(err, ErrTranslationAssignmentQueryUnsupported) {
+			return nil, err
+		}
+	}
+	summaryAssignments, err := b.listAssignmentsForSummary(ctx, repo, "due_date", filters)
+	if err != nil {
+		return nil, err
+	}
+	return translationQueueMyWorkSummary(summaryAssignments, now), nil
 }
 
 func (b *translationQueueBinding) translationQueueAssignmentRows(ctx context.Context, assignments []TranslationAssignment, now time.Time, channel string) []map[string]any {
@@ -442,31 +675,22 @@ func (b *translationQueueBinding) Queue(c router.Context) (payload any, err erro
 	if err != nil {
 		return nil, err
 	}
-	summaryAssignments, err := b.listAssignmentsForSummary(adminCtx.Context, repo, "updated_at", filters)
-	if err != nil {
-		return nil, err
-	}
-
 	rows := make([]map[string]any, 0, len(assignments))
-	byQueueState := map[string]int{}
-	byDueState := map[string]int{}
 	for _, assignment := range assignments {
 		row := b.assignmentContractRow(adminCtx.Context, assignment, now, channel)
 		rows = append(rows, row)
 	}
-	for _, assignment := range summaryAssignments {
-		queueState := normalizeTranslationQueueState(string(assignment.Status))
-		byQueueState[queueState]++
-		dueState := translationQueueDueState(assignment.DueDate, now)
-		byDueState[dueState]++
+	summary, err := b.queueSummary(adminCtx.Context, repo, filters, now)
+	if err != nil {
+		return nil, err
 	}
 
 	return map[string]any{
 		"scope": "queue",
 		"summary": map[string]any{
-			"total":          len(summaryAssignments),
-			"by_queue_state": byQueueState,
-			"by_due_state":   byDueState,
+			"total":          summary.Total,
+			"by_queue_state": summary.ByQueueState,
+			"by_due_state":   summary.ByDueState,
 		},
 		"items":       rows,
 		"assignments": rows,
@@ -475,6 +699,38 @@ func (b *translationQueueBinding) Queue(c router.Context) (payload any, err erro
 		"per_page":    perPage,
 		"updated_at":  now,
 		"channel":     channel,
+	}, nil
+}
+
+func (b *translationQueueBinding) queueSummary(ctx context.Context, repo TranslationAssignmentRepository, filters map[string]any, now time.Time) (TranslationAssignmentQueueSummary, error) {
+	if summaryStore, ok := repo.(TranslationAssignmentSummaryStore); ok && summaryStore != nil {
+		summary, err := summaryStore.AssignmentQueueSummary(ctx, TranslationAssignmentQueueSummaryInput{
+			Filters: primitives.CloneAnyMap(filters),
+			Now:     now,
+		})
+		if err == nil {
+			return summary, nil
+		}
+		if !errors.Is(err, ErrTranslationAssignmentQueryUnsupported) {
+			return TranslationAssignmentQueueSummary{}, err
+		}
+	}
+	summaryAssignments, err := b.listAssignmentsForSummary(ctx, repo, "updated_at", filters)
+	if err != nil {
+		return TranslationAssignmentQueueSummary{}, err
+	}
+	byQueueState := map[string]int{}
+	byDueState := map[string]int{}
+	for _, assignment := range summaryAssignments {
+		queueState := normalizeTranslationQueueState(string(assignment.Status))
+		byQueueState[queueState]++
+		dueState := translationQueueDueState(assignment.DueDate, now)
+		byDueState[dueState]++
+	}
+	return TranslationAssignmentQueueSummary{
+		Total:        len(summaryAssignments),
+		ByQueueState: byQueueState,
+		ByDueState:   byDueState,
 	}, nil
 }
 
@@ -521,6 +777,30 @@ func (b *translationQueueBinding) filterAssignments(ctx context.Context, assignm
 	}
 	end := min(start+perPage, total)
 	return matched[start:end], total
+}
+
+func (b *translationQueueBinding) assignmentPage(ctx context.Context, repo TranslationAssignmentRepository, filter translationAssignmentListFilter, page, perPage int, environment string, now time.Time) ([]TranslationAssignment, int, bool, error) {
+	if queryStore, ok := repo.(TranslationAssignmentPageQueryStore); ok && queryStore != nil {
+		result, err := queryStore.ListAssignmentPage(ctx, TranslationAssignmentPageQueryInput{
+			Filter:      filter,
+			Page:        page,
+			PerPage:     perPage,
+			Environment: environment,
+			Now:         now,
+		})
+		if err == nil {
+			return result.Items, result.Total, true, nil
+		}
+		if !errors.Is(err, ErrTranslationAssignmentQueryUnsupported) {
+			return nil, 0, false, err
+		}
+	}
+	allAssignments, err := b.listAssignmentsForSummary(ctx, repo, filter.SortBy, nil)
+	if err != nil {
+		return nil, 0, false, err
+	}
+	assignments, total := b.filterAssignments(ctx, allAssignments, filter, page, perPage, environment, now)
+	return assignments, total, false, nil
 }
 
 func (b *translationQueueBinding) matchAssignments(assignments []TranslationAssignment, filter translationAssignmentListFilter, now time.Time) []TranslationAssignment {
@@ -762,6 +1042,138 @@ func (b *translationQueueBinding) requireAssignmentActionPermission(adminCtx Adm
 			"field":  "action",
 			"action": action,
 		})
+	}
+}
+
+func (b *translationQueueBinding) requireAssignmentBulkActionPermission(adminCtx AdminContext, action string, assignment TranslationAssignment) error {
+	switch action {
+	case "assign":
+		if err := b.admin.requirePermission(adminCtx, PermAdminTranslationsAssign, "translations"); err != nil {
+			return err
+		}
+		if assignment.Status == AssignmentStatusOpen || assignment.Status == AssignmentStatusAssigned || assignment.Status == AssignmentStatusChangesRequested {
+			return nil
+		}
+		return invalidQueueTransitionError(assignment.Status, "assign", assignment)
+	case "release":
+		if err := b.admin.requirePermission(adminCtx, PermAdminTranslationsAssign, "translations"); err != nil {
+			return err
+		}
+		return validateReleaseAssignmentPermission(assignment)
+	case "priority":
+		return b.admin.requirePermission(adminCtx, PermAdminTranslationsManage, "translations")
+	case "archive":
+		if err := b.admin.requirePermission(adminCtx, PermAdminTranslationsManage, "translations"); err != nil {
+			return err
+		}
+		return validateArchiveAssignmentPermission(assignment)
+	default:
+		return validationDomainError("unsupported bulk assignment action", map[string]any{
+			"field":  "action",
+			"action": action,
+		})
+	}
+}
+
+func normalizeTranslationQueueBulkAction(action string) string {
+	switch strings.TrimSpace(strings.ToLower(action)) {
+	case "bulk_assign", "assign":
+		return "assign"
+	case "bulk_release", "release":
+		return "release"
+	case "bulk_priority", "priority", "set_priority":
+		return "priority"
+	case "bulk_archive", "archive":
+		return "archive"
+	default:
+		return strings.TrimSpace(strings.ToLower(action))
+	}
+}
+
+func translationQueueBulkActionSupported(action string) bool {
+	switch normalizeTranslationQueueBulkAction(action) {
+	case "assign", "release", "priority", "archive":
+		return true
+	default:
+		return false
+	}
+}
+
+func translationQueueBulkActionSelections(body map[string]any) ([]translationQueueBulkActionSelection, error) {
+	raw := body["assignments"]
+	if raw == nil {
+		raw = body["selected_assignments"]
+	}
+	items, ok := raw.([]any)
+	if !ok || len(items) == 0 {
+		return nil, requiredFieldDomainError("assignments", map[string]any{
+			"expected": "array of {assignment_id, expected_version}",
+		})
+	}
+	if len(items) > 200 {
+		return nil, validationDomainError("bulk assignment actions support current-page selections only", map[string]any{
+			"field":     "assignments",
+			"max_items": 200,
+		})
+	}
+	selections := make([]translationQueueBulkActionSelection, 0, len(items))
+	seen := map[string]struct{}{}
+	for idx, item := range items {
+		record, ok := item.(map[string]any)
+		if !ok {
+			return nil, validationDomainError("assignment selection must be an object", map[string]any{
+				"field": "assignments",
+				"index": idx,
+			})
+		}
+		selection := translationQueueBulkActionSelection{
+			AssignmentID:     strings.TrimSpace(toString(record["assignment_id"])),
+			ExpectedVersion:  queueExpectedVersion(record),
+			OriginalPosition: idx,
+		}
+		if selection.AssignmentID == "" {
+			return nil, requiredFieldDomainError("assignment_id", map[string]any{
+				"field": "assignments.assignment_id",
+				"index": idx,
+			})
+		}
+		if selection.ExpectedVersion <= 0 {
+			return nil, validationDomainError("expected_version must be > 0", map[string]any{
+				"field":         "assignments.expected_version",
+				"index":         idx,
+				"assignment_id": selection.AssignmentID,
+			})
+		}
+		if _, ok := seen[selection.AssignmentID]; ok {
+			continue
+		}
+		seen[selection.AssignmentID] = struct{}{}
+		selections = append(selections, selection)
+	}
+	return selections, nil
+}
+
+func translationQueueBulkActionError(selection translationQueueBulkActionSelection, err error) map[string]any {
+	if mapped, _, ok := mapTranslationQueueErrors(err); ok {
+		err = mapped
+	}
+	errorBody := map[string]any{
+		"message": err.Error(),
+	}
+	var richErr *goerrors.Error
+	if errors.As(err, &richErr) {
+		if richErr.TextCode != "" {
+			errorBody["code"] = richErr.TextCode
+		}
+		if len(richErr.Metadata) > 0 {
+			errorBody["metadata"] = primitives.CloneAnyMap(richErr.Metadata)
+		}
+	}
+	return map[string]any{
+		"assignment_id":     selection.AssignmentID,
+		"requested_version": selection.ExpectedVersion,
+		"index":             selection.OriginalPosition,
+		"error":             errorBody,
 	}
 }
 
