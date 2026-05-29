@@ -277,7 +277,7 @@ func translationEditorVariantPayload(ctx context.Context, b *translationQueueBin
 		"assignment_action_states": b.assignmentEditorActionStates(ctx, reloaded, currentAssignment),
 		"review_action_states":     b.reviewActionStates(ctx, currentAssignment),
 		"qa_results":               qaResults,
-		"assist":                   translationEditorAssistPayload(reloaded),
+		"assist":                   translationEditorAssistPayload(ctx, b, reloaded),
 	}
 }
 
@@ -467,7 +467,7 @@ func (b *translationQueueBinding) assignmentDetailPayload(ctx context.Context, a
 		"review_feedback":          reviewFeedback,
 		"last_rejection_reason":    strings.TrimSpace(assignment.LastRejectionReason),
 		"qa_results":               b.translationQAResults(editorCtx),
-		"assist":                   translationEditorAssistPayload(editorCtx),
+		"assist":                   translationEditorAssistPayload(ctx, b, editorCtx),
 		"glossary_matches":         translationEditorGlossaryMatches(editorCtx),
 		"style_guide_summary":      translationEditorStyleGuideSummary(editorCtx),
 		"translation_assignment":   row,
@@ -648,11 +648,106 @@ func translationEditorMissingRequiredFields(editorCtx translationEditorContext) 
 	return out
 }
 
-func translationEditorAssistPayload(editorCtx translationEditorContext) map[string]any {
+func translationEditorAssistPayload(ctx context.Context, b *translationQueueBinding, editorCtx translationEditorContext) map[string]any {
 	return map[string]any{
 		"glossary_matches":               translationEditorGlossaryMatches(editorCtx),
 		"style_guide_summary":            translationEditorStyleGuideSummary(editorCtx),
-		"translation_memory_suggestions": []map[string]any{},
+		"translation_memory_suggestions": translationEditorMemorySuggestions(ctx, b, editorCtx),
+	}
+}
+
+func translationEditorMemorySuggestions(ctx context.Context, b *translationQueueBinding, editorCtx translationEditorContext) []map[string]any {
+	if b == nil || b.admin == nil {
+		return []map[string]any{}
+	}
+	store, ok := b.admin.translationFamilyStore.(TranslationEditorMemorySuggestionStore)
+	if !ok || store == nil {
+		return []map[string]any{}
+	}
+	sourceLocale := strings.TrimSpace(strings.ToLower(editorCtx.SourceVariant.Locale))
+	targetLocale := strings.TrimSpace(strings.ToLower(editorCtx.TargetVariant.Locale))
+	contentType := strings.TrimSpace(strings.ToLower(editorCtx.Family.ContentType))
+	if sourceLocale == "" || targetLocale == "" || contentType == "" {
+		return []map[string]any{}
+	}
+	input := normalizeTranslationEditorMemoryInput(TranslationEditorMemorySuggestionInput{
+		TenantID:        strings.TrimSpace(editorCtx.Family.TenantID),
+		OrgID:           strings.TrimSpace(editorCtx.Family.OrgID),
+		ContentType:     contentType,
+		SourceLocale:    sourceLocale,
+		TargetLocale:    targetLocale,
+		ExcludeFamilyID: strings.TrimSpace(editorCtx.Family.ID),
+		FieldSources:    editorCtx.SourceFields,
+		Limit:           12,
+	})
+	if input.TenantID == "" {
+		input.TenantID = tenantIDFromContext(ctx)
+	}
+	if input.OrgID == "" {
+		input.OrgID = orgIDFromContext(ctx)
+	}
+	if len(input.FieldSources) == 0 {
+		return []map[string]any{}
+	}
+	matches, err := store.TranslationEditorMemorySuggestions(ctx, input)
+	if err != nil {
+		return []map[string]any{}
+	}
+	suggestions := make([]map[string]any, 0, len(matches))
+	for _, match := range matches {
+		sourceHash := translationEditorHashFields(match.SourceVariant.Fields)
+		suggestions = append(suggestions, translationEditorMemorySuggestionPayload(match.Family, match.SourceVariant, match.TargetVariant, match.FieldPath, match.SourceText, match.SuggestedText, sourceHash))
+	}
+	sort.SliceStable(suggestions, func(i, j int) bool {
+		leftScore, _ := suggestions[i]["score"].(float64)
+		rightScore, _ := suggestions[j]["score"].(float64)
+		if leftScore == rightScore {
+			if toString(suggestions[i]["field_path"]) == toString(suggestions[j]["field_path"]) {
+				return toString(suggestions[i]["source_label"]) < toString(suggestions[j]["source_label"])
+			}
+			return toString(suggestions[i]["field_path"]) < toString(suggestions[j]["field_path"])
+		}
+		return leftScore > rightScore
+	})
+	return suggestions
+}
+
+func translationEditorMemorySuggestionPayload(family translationservices.FamilyRecord, source, target translationservices.FamilyVariant, fieldPath, sourceText, suggestedText, sourceHash string) map[string]any {
+	sourceSyncHash := strings.TrimSpace(target.SourceHashAtLastSync)
+	sourceState := "unknown"
+	staleSource := false
+	score := 0.80
+	if sourceSyncHash != "" && strings.TrimSpace(sourceHash) != "" {
+		if strings.EqualFold(sourceSyncHash, strings.TrimSpace(sourceHash)) {
+			sourceState = "current"
+			score = 0.95
+		} else {
+			sourceState = "stale"
+			staleSource = true
+			score = 0.70
+		}
+	}
+	sourceLabel := strings.TrimSpace(firstNonEmpty(source.Fields["title"], source.SourceRecordID, family.ID))
+	sourceLocale := strings.TrimSpace(strings.ToLower(source.Locale))
+	targetLocale := strings.TrimSpace(strings.ToLower(target.Locale))
+	return map[string]any{
+		"id":                       "tm:" + strings.TrimSpace(family.ID) + ":" + targetLocale + ":" + strings.TrimSpace(fieldPath),
+		"score":                    score,
+		"source":                   "internal_variant_history",
+		"source_label":             sourceLabel,
+		"locale_pair":              sourceLocale + ":" + targetLocale,
+		"source_locale":            sourceLocale,
+		"target_locale":            targetLocale,
+		"field_path":               strings.TrimSpace(fieldPath),
+		"source_text":              strings.TrimSpace(sourceText),
+		"suggested_text":           strings.TrimSpace(suggestedText),
+		"stale_source":             staleSource,
+		"source_state":             sourceState,
+		"source_family_id":         strings.TrimSpace(family.ID),
+		"source_variant_id":        strings.TrimSpace(source.ID),
+		"target_variant_id":        strings.TrimSpace(target.ID),
+		"source_hash":              strings.TrimSpace(sourceHash),
+		"source_hash_at_last_sync": sourceSyncHash,
 	}
 }
 
@@ -1033,7 +1128,7 @@ func (b *translationQueueBinding) assignmentDetailVariantConflictPayload(ctx con
 		"field_drift":              translationEditorFieldDrift(editorCtx),
 		"field_validations":        translationEditorFieldValidations(editorCtx),
 		"source_target_drift":      translationEditorDriftPayload(editorCtx),
-		"assist":                   translationEditorAssistPayload(editorCtx),
+		"assist":                   translationEditorAssistPayload(ctx, b, editorCtx),
 		"assignment_action_states": b.assignmentEditorActionStates(ctx, editorCtx, assignment),
 	}
 }

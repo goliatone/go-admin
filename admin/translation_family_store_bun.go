@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	translationcore "github.com/goliatone/go-admin/translations/core"
 	translationservices "github.com/goliatone/go-admin/translations/services"
 	"github.com/uptrace/bun"
 )
@@ -79,6 +80,28 @@ type bunFamilyListBlockerProjection struct {
 	FamilyID    string `bun:"family_id"`
 	BlockerCode string `bun:"blocker_code"`
 	Locale      string `bun:"locale"`
+}
+
+type bunTranslationMemorySuggestionRow struct {
+	FamilyID                   string    `bun:"family_id"`
+	TenantID                   string    `bun:"tenant_id"`
+	OrgID                      string    `bun:"org_id"`
+	ContentType                string    `bun:"content_type"`
+	SourceLocale               string    `bun:"source_locale"`
+	SourceVariantID            string    `bun:"source_variant_id"`
+	SourceLocaleValue          string    `bun:"source_locale_value"`
+	SourceFieldsJSON           string    `bun:"source_fields_json"`
+	SourceRecordID             string    `bun:"source_record_id"`
+	SourceUpdatedAt            time.Time `bun:"source_updated_at"`
+	SourceCreatedAt            time.Time `bun:"source_created_at"`
+	TargetVariantID            string    `bun:"target_variant_id"`
+	TargetLocale               string    `bun:"target_locale"`
+	TargetStatus               string    `bun:"target_status"`
+	TargetFieldsJSON           string    `bun:"target_fields_json"`
+	TargetSourceHashAtLastSync string    `bun:"target_source_hash_at_last_sync"`
+	TargetSourceRecordID       string    `bun:"target_source_record_id"`
+	TargetUpdatedAt            time.Time `bun:"target_updated_at"`
+	TargetCreatedAt            time.Time `bun:"target_created_at"`
 }
 
 type BunTranslationFamilyStore struct {
@@ -190,6 +213,149 @@ func applyBunFamilyListFilters(query *bun.SelectQuery, input translationservices
 	if missingLocale := strings.TrimSpace(strings.ToLower(input.MissingLocale)); missingLocale != "" {
 		query.Where("EXISTS (SELECT 1 FROM family_blockers fb WHERE fb.family_id = cf.family_id AND LOWER(fb.blocker_code) = 'missing_locale' AND LOWER(fb.locale) = ?)", missingLocale)
 	}
+}
+
+func (s *BunTranslationFamilyStore) TranslationEditorMemorySuggestions(ctx context.Context, input TranslationEditorMemorySuggestionInput) ([]TranslationEditorMemorySuggestion, error) {
+	if s == nil || s.db == nil {
+		return nil, errors.New("family store not configured")
+	}
+	input = normalizeTranslationEditorMemoryInput(input)
+	if input.ContentType == "" || input.SourceLocale == "" || input.TargetLocale == "" || len(input.FieldSources) == 0 {
+		return nil, nil
+	}
+	rows := []bunTranslationMemorySuggestionRow{}
+	query := s.db.NewSelect().
+		TableExpr("content_families AS cf").
+		ColumnExpr("cf.family_id").
+		ColumnExpr("cf.tenant_id").
+		ColumnExpr("cf.org_id").
+		ColumnExpr("cf.content_type").
+		ColumnExpr("cf.source_locale").
+		ColumnExpr("source.variant_id AS source_variant_id").
+		ColumnExpr("source.locale AS source_locale_value").
+		ColumnExpr("source.fields_json AS source_fields_json").
+		ColumnExpr("source.source_record_id AS source_record_id").
+		ColumnExpr("source.updated_at AS source_updated_at").
+		ColumnExpr("source.created_at AS source_created_at").
+		ColumnExpr("target.variant_id AS target_variant_id").
+		ColumnExpr("target.locale AS target_locale").
+		ColumnExpr("target.status AS target_status").
+		ColumnExpr("target.fields_json AS target_fields_json").
+		ColumnExpr("target.source_hash_at_last_sync AS target_source_hash_at_last_sync").
+		ColumnExpr("target.source_record_id AS target_source_record_id").
+		ColumnExpr("target.updated_at AS target_updated_at").
+		ColumnExpr("target.created_at AS target_created_at").
+		Join("JOIN locale_variants AS source ON source.family_id = cf.family_id AND LOWER(source.locale) = ?", input.SourceLocale).
+		Join("JOIN locale_variants AS target ON target.family_id = cf.family_id AND LOWER(target.locale) = ?", input.TargetLocale).
+		Where("LOWER(cf.content_type) = ?", input.ContentType).
+		Where("LOWER(cf.source_locale) = ?", input.SourceLocale).
+		Where("LOWER(target.status) IN (?, ?)", string(translationcore.VariantStatusApproved), string(translationcore.VariantStatusPublished)).
+		Where("target.is_source = ?", false).
+		OrderExpr("target.updated_at DESC").
+		OrderExpr("cf.family_id ASC").
+		Limit(input.CandidateRowLimit)
+	if input.TenantID != "" {
+		query.Where("cf.tenant_id = ?", input.TenantID)
+	} else {
+		query.Where("(cf.tenant_id IS NULL OR cf.tenant_id = '')")
+	}
+	if input.OrgID != "" {
+		query.Where("cf.org_id = ?", input.OrgID)
+	} else {
+		query.Where("(cf.org_id IS NULL OR cf.org_id = '')")
+	}
+	if input.ExcludeFamilyID != "" {
+		query.Where("cf.family_id <> ?", input.ExcludeFamilyID)
+	}
+	if err := query.Scan(ctx, &rows); err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return nil, err
+	}
+	return translationEditorMemorySuggestionsFromBunRows(rows, input)
+}
+
+func translationEditorMemorySuggestionsFromBunRows(rows []bunTranslationMemorySuggestionRow, input TranslationEditorMemorySuggestionInput) ([]TranslationEditorMemorySuggestion, error) {
+	input = normalizeTranslationEditorMemoryInput(input)
+	out := make([]TranslationEditorMemorySuggestion, 0, min(input.Limit, len(rows)))
+	seen := map[string]struct{}{}
+	for _, row := range rows {
+		sourceFields := map[string]string{}
+		if strings.TrimSpace(row.SourceFieldsJSON) != "" {
+			if err := json.Unmarshal([]byte(row.SourceFieldsJSON), &sourceFields); err != nil {
+				return nil, err
+			}
+		}
+		targetFields := map[string]string{}
+		if strings.TrimSpace(row.TargetFieldsJSON) != "" {
+			if err := json.Unmarshal([]byte(row.TargetFieldsJSON), &targetFields); err != nil {
+				return nil, err
+			}
+		}
+		for fieldPath, sourceText := range input.FieldSources {
+			candidateSourceText := strings.TrimSpace(sourceFields[fieldPath])
+			suggestedText := strings.TrimSpace(targetFields[fieldPath])
+			if candidateSourceText == "" || suggestedText == "" || !strings.EqualFold(sourceText, candidateSourceText) {
+				continue
+			}
+			key := strings.Join([]string{
+				strings.TrimSpace(row.FamilyID),
+				strings.TrimSpace(row.TargetVariantID),
+				fieldPath,
+				input.SourceLocale,
+				input.TargetLocale,
+				suggestedText,
+			}, "\x00")
+			if _, exists := seen[key]; exists {
+				continue
+			}
+			seen[key] = struct{}{}
+			family := translationservices.FamilyRecord{
+				ID:           strings.TrimSpace(row.FamilyID),
+				TenantID:     strings.TrimSpace(row.TenantID),
+				OrgID:        strings.TrimSpace(row.OrgID),
+				ContentType:  strings.TrimSpace(strings.ToLower(row.ContentType)),
+				SourceLocale: strings.TrimSpace(strings.ToLower(row.SourceLocale)),
+			}
+			source := translationservices.FamilyVariant{
+				ID:             strings.TrimSpace(row.SourceVariantID),
+				FamilyID:       strings.TrimSpace(row.FamilyID),
+				TenantID:       strings.TrimSpace(row.TenantID),
+				OrgID:          strings.TrimSpace(row.OrgID),
+				Locale:         strings.TrimSpace(strings.ToLower(row.SourceLocaleValue)),
+				Status:         string(translationcore.VariantStatusPublished),
+				IsSource:       true,
+				Fields:         sourceFields,
+				SourceRecordID: strings.TrimSpace(row.SourceRecordID),
+				UpdatedAt:      row.SourceUpdatedAt,
+				CreatedAt:      row.SourceCreatedAt,
+			}
+			target := translationservices.FamilyVariant{
+				ID:                   strings.TrimSpace(row.TargetVariantID),
+				FamilyID:             strings.TrimSpace(row.FamilyID),
+				TenantID:             strings.TrimSpace(row.TenantID),
+				OrgID:                strings.TrimSpace(row.OrgID),
+				Locale:               strings.TrimSpace(strings.ToLower(row.TargetLocale)),
+				Status:               strings.TrimSpace(strings.ToLower(row.TargetStatus)),
+				IsSource:             false,
+				SourceHashAtLastSync: strings.TrimSpace(row.TargetSourceHashAtLastSync),
+				Fields:               targetFields,
+				SourceRecordID:       strings.TrimSpace(row.TargetSourceRecordID),
+				UpdatedAt:            row.TargetUpdatedAt,
+				CreatedAt:            row.TargetCreatedAt,
+			}
+			out = append(out, TranslationEditorMemorySuggestion{
+				Family:        family,
+				SourceVariant: source,
+				TargetVariant: target,
+				FieldPath:     strings.TrimSpace(fieldPath),
+				SourceText:    sourceText,
+				SuggestedText: suggestedText,
+			})
+			if len(out) >= input.Limit {
+				return out, nil
+			}
+		}
+	}
+	return out, nil
 }
 
 func (s *BunTranslationFamilyStore) familyListRowsFromRows(ctx context.Context, familyRows []bunTranslationFamilyRecord) ([]translationservices.FamilyRecord, error) {

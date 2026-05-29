@@ -62,6 +62,23 @@ type translationQueueGroupingRequest struct {
 	Mode    string
 }
 
+func translationQueueGroupingFromRequest(c router.Context) (translationQueueGroupingRequest, error) {
+	groupBy := strings.TrimSpace(strings.ToLower(firstNonEmpty(c.Query("group_by"), c.Query("groupBy"))))
+	if groupBy == "" {
+		return translationQueueGroupingRequest{}, nil
+	}
+	switch groupBy {
+	case "family_id":
+		return translationQueueGroupingRequest{Enabled: true, Mode: "family_id"}, nil
+	default:
+		return translationQueueGroupingRequest{}, validationDomainError("unsupported assignment queue grouping", map[string]any{
+			"field":     "group_by",
+			"group_by":  groupBy,
+			"supported": []string{"family_id"},
+		})
+	}
+}
+
 func newTranslationQueueBinding(a *Admin) *translationQueueBinding {
 	if a == nil {
 		return nil
@@ -2004,10 +2021,11 @@ func translationQueueFamilyGroupRow(familyID string, parent map[string]any, chil
 	parent["target_locales"] = summary["target_locales"]
 	parent["queue_states"] = summary["status_counts"]
 	parent["priority_counts"] = summary["priority_counts"]
-	parent["action_state"] = map[string]any{
+	parentActionState := map[string]any{
 		"scope":   "children",
 		"message": "Family group actions are derived from child assignment rows.",
 	}
+	parent["action_state"] = parentActionState
 	row := map[string]any{
 		"id":             "family:" + familyID,
 		"row_type":       "group",
@@ -2018,6 +2036,7 @@ func translationQueueFamilyGroupRow(familyID string, parent map[string]any, chil
 		"parent":         parent,
 		"records":        children,
 		"children":       children,
+		"action_state":   parentActionState,
 		"_group": map[string]any{
 			"row_type":    "group",
 			"id":          familyID,
@@ -2028,11 +2047,6 @@ func translationQueueFamilyGroupRow(familyID string, parent map[string]any, chil
 			"page_local":  true,
 			"expanded":    false,
 		},
-	}
-	for _, key := range []string{"actions", "review_actions", "qa_summary", "review_feedback"} {
-		if value, ok := parent[key]; ok {
-			row[key] = value
-		}
 	}
 	return row
 }
