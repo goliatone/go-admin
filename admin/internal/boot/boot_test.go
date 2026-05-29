@@ -230,7 +230,7 @@ func newTestURLManager(basePath string) *urlkit.RouteManager {
 							"translations.matrix.actions.export_selected": "/translations/matrix/actions/export-selected",
 							"translations.assignments":                    "/translations/assignments",
 							"translations.assignments.id":                 "/translations/assignments/:assignment_id",
-							"translations.assignments.bulk_actions":       "/translations/assignments/actions/bulk",
+							"translations.assignments.bulk_actions":       "/translations/assignment-actions/bulk",
 							"translations.assignments.actions":            "/translations/assignments/:assignment_id/actions/:action",
 							"translations.families":                       "/translations/families",
 							"translations.families.id":                    "/translations/families/:family_id",

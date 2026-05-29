@@ -966,7 +966,7 @@ func TestTranslationQueueBindingBulkActionAssignReturnsUpdatedRowsAndPartialFail
 	if err != nil {
 		t.Fatalf("marshal request: %v", err)
 	}
-	req := httptest.NewRequest(http.MethodPost, "/admin/api/translations/assignments/actions/bulk", bytes.NewReader(body))
+	req := httptest.NewRequest(http.MethodPost, "/admin/api/translations/assignment-actions/bulk", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-User-ID", "manager-1")
 
@@ -1081,7 +1081,7 @@ func TestTranslationQueueBindingBulkActionSupportsReleasePriorityAndArchive(t *t
 		if err != nil {
 			t.Fatalf("marshal %s request: %v", action, err)
 		}
-		req := httptest.NewRequest(http.MethodPost, "/admin/api/translations/assignments/actions/bulk", bytes.NewReader(body))
+		req := httptest.NewRequest(http.MethodPost, "/admin/api/translations/assignment-actions/bulk", bytes.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("X-User-ID", "manager-1")
 		resp, err := app.Test(req)
@@ -1159,7 +1159,7 @@ func TestTranslationQueueBindingBulkActionReportsPerItemPermissionDenial(t *test
 	}
 	app := newTranslationQueueTestApp(t, newTranslationQueueBinding(adm))
 	body := []byte(`{"action":"release","assignments":[{"assignment_id":"` + created.ID + `","expected_version":1}]}`)
-	req := httptest.NewRequest(http.MethodPost, "/admin/api/translations/assignments/actions/bulk", bytes.NewReader(body))
+	req := httptest.NewRequest(http.MethodPost, "/admin/api/translations/assignment-actions/bulk", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-User-ID", "manager-1")
 
@@ -1195,7 +1195,7 @@ func TestTranslationQueueBindingBulkActionRejectsUnsupportedAction(t *testing.T)
 		t.Fatalf("register queue panel: %v", registerErr)
 	}
 	app := newTranslationQueueTestApp(t, newTranslationQueueBinding(adm))
-	req := httptest.NewRequest(http.MethodPost, "/admin/api/translations/assignments/actions/bulk", strings.NewReader(`{"action":"approve","assignments":[{"assignment_id":"asg-1","expected_version":1}]}`))
+	req := httptest.NewRequest(http.MethodPost, "/admin/api/translations/assignment-actions/bulk", strings.NewReader(`{"action":"approve","assignments":[{"assignment_id":"asg-1","expected_version":1}]}`))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-User-ID", "manager-1")
 
@@ -1556,7 +1556,7 @@ func newTranslationQueueTestApp(t *testing.T, binding *translationQueueBinding) 
 		}
 		return writeJSON(c, payload)
 	})
-	r.Post("/admin/api/translations/assignments/actions/bulk", func(c router.Context) error {
+	r.Post("/admin/api/translations/assignment-actions/bulk", func(c router.Context) error {
 		body, err := parseJSONBody(c)
 		if err != nil {
 			return writeError(c, err)

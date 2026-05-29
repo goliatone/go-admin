@@ -358,7 +358,14 @@
                 "resolver_key": "admin.api.translations.families",
                 "entity_type": "family"
               }
-            }
+            },
+            "optional_fields": [
+              "reason_breakdown",
+              "blocker_codes",
+              "blocker_labels",
+              "affected_locales",
+              "reason_data"
+            ]
           }
         },
         "contracts": {
@@ -493,7 +500,14 @@
                   "resolver_key": "admin.api.translations.families",
                   "entity_type": "family"
                 }
-              }
+              },
+              "optional_fields": [
+                "reason_breakdown",
+                "blocker_codes",
+                "blocker_labels",
+                "affected_locales",
+                "reason_data"
+              ]
             }
           },
           "runbooks": [
@@ -532,6 +546,36 @@
                 "readiness_state": "blocked"
               }
             }
+          ],
+          "reason_contract": {
+            "table_id": "blocked_families",
+            "fields": {
+              "reason_breakdown": "Array of {code,label,count,affected_locales} entries for the row's known blocker reasons.",
+              "blocker_codes": "Stable machine-readable blocker codes already present on blocked family rows.",
+              "blocker_labels": "Map of blocker code to human-readable label for visible remediation UI.",
+              "affected_locales": "Sorted locale codes affected by the known blockers.",
+              "reason_data": "Availability state for optional reason context."
+            },
+            "reason_data": {
+              "state": [
+                "available",
+                "unavailable",
+                "degraded"
+              ],
+              "message": "Optional human-readable explanation when reason data is unavailable or degraded."
+            }
+          },
+          "reason_labels": {
+            "missing_locale": "Missing locale",
+            "missing_field": "Missing required field",
+            "pending_review": "Pending review",
+            "outdated_source": "Source changed",
+            "policy_denied": "Policy blocked"
+          },
+          "reason_data_states": [
+            "available",
+            "unavailable",
+            "degraded"
           ]
         }
       }
@@ -886,7 +930,14 @@
                 "resolver_key": "admin.api.translations.families",
                 "entity_type": "family"
               }
-            }
+            },
+            "optional_fields": [
+              "reason_breakdown",
+              "blocker_codes",
+              "blocker_labels",
+              "affected_locales",
+              "reason_data"
+            ]
           }
         },
         "contracts": {
@@ -1021,10 +1072,47 @@
                   "resolver_key": "admin.api.translations.families",
                   "entity_type": "family"
                 }
-              }
+              },
+              "optional_fields": [
+                "reason_breakdown",
+                "blocker_codes",
+                "blocker_labels",
+                "affected_locales",
+                "reason_data"
+              ]
             }
           },
-          "runbooks": []
+          "runbooks": [],
+          "reason_contract": {
+            "table_id": "blocked_families",
+            "fields": {
+              "reason_breakdown": "Array of {code,label,count,affected_locales} entries for the row's known blocker reasons.",
+              "blocker_codes": "Stable machine-readable blocker codes already present on blocked family rows.",
+              "blocker_labels": "Map of blocker code to human-readable label for visible remediation UI.",
+              "affected_locales": "Sorted locale codes affected by the known blockers.",
+              "reason_data": "Availability state for optional reason context."
+            },
+            "reason_data": {
+              "state": [
+                "available",
+                "unavailable",
+                "degraded"
+              ],
+              "message": "Optional human-readable explanation when reason data is unavailable or degraded."
+            }
+          },
+          "reason_labels": {
+            "missing_locale": "Missing locale",
+            "missing_field": "Missing required field",
+            "pending_review": "Pending review",
+            "outdated_source": "Source changed",
+            "policy_denied": "Policy blocked"
+          },
+          "reason_data_states": [
+            "available",
+            "unavailable",
+            "degraded"
+          ]
         }
       }
     },
@@ -1238,6 +1326,29 @@
                     "entity_type": "family",
                     "entity_id": "tg-product-9"
                   }
+                },
+                "blocker_labels": {
+                  "missing_locale": "Missing locale",
+                  "pending_review": "Pending review"
+                },
+                "reason_breakdown": [
+                  {
+                    "code": "missing_locale",
+                    "label": "Missing locale",
+                    "count": 0,
+                    "affected_locales": []
+                  },
+                  {
+                    "code": "pending_review",
+                    "label": "Pending review",
+                    "count": 0,
+                    "affected_locales": []
+                  }
+                ],
+                "affected_locales": [],
+                "reason_data": {
+                  "state": "unavailable",
+                  "message": "Reason counts and locale context are not available from the current dashboard projection."
                 }
               }
             ]
@@ -1376,7 +1487,14 @@
                 "resolver_key": "admin.api.translations.families",
                 "entity_type": "family"
               }
-            }
+            },
+            "optional_fields": [
+              "reason_breakdown",
+              "blocker_codes",
+              "blocker_labels",
+              "affected_locales",
+              "reason_data"
+            ]
           }
         },
         "contracts": {
@@ -1413,9 +1531,46 @@
                   "resolver_key": "admin.api.translations.families",
                   "entity_type": "family"
                 }
-              }
+              },
+              "optional_fields": [
+                "reason_breakdown",
+                "blocker_codes",
+                "blocker_labels",
+                "affected_locales",
+                "reason_data"
+              ]
             }
-          }
+          },
+          "reason_contract": {
+            "table_id": "blocked_families",
+            "fields": {
+              "reason_breakdown": "Array of {code,label,count,affected_locales} entries for the row's known blocker reasons.",
+              "blocker_codes": "Stable machine-readable blocker codes already present on blocked family rows.",
+              "blocker_labels": "Map of blocker code to human-readable label for visible remediation UI.",
+              "affected_locales": "Sorted locale codes affected by the known blockers.",
+              "reason_data": "Availability state for optional reason context."
+            },
+            "reason_data": {
+              "state": [
+                "available",
+                "unavailable",
+                "degraded"
+              ],
+              "message": "Optional human-readable explanation when reason data is unavailable or degraded."
+            }
+          },
+          "reason_labels": {
+            "missing_locale": "Missing locale",
+            "missing_field": "Missing required field",
+            "pending_review": "Pending review",
+            "outdated_source": "Source changed",
+            "policy_denied": "Policy blocked"
+          },
+          "reason_data_states": [
+            "available",
+            "unavailable",
+            "degraded"
+          ]
         }
       }
     },
@@ -1730,6 +1885,29 @@
                     "entity_type": "family",
                     "entity_id": "tg-page-1"
                   }
+                },
+                "blocker_labels": {
+                  "missing_locale": "Missing locale",
+                  "pending_review": "Pending review"
+                },
+                "reason_breakdown": [
+                  {
+                    "code": "missing_locale",
+                    "label": "Missing locale",
+                    "count": 0,
+                    "affected_locales": []
+                  },
+                  {
+                    "code": "pending_review",
+                    "label": "Pending review",
+                    "count": 0,
+                    "affected_locales": []
+                  }
+                ],
+                "affected_locales": [],
+                "reason_data": {
+                  "state": "unavailable",
+                  "message": "Reason counts and locale context are not available from the current dashboard projection."
                 }
               },
               {
@@ -1779,6 +1957,29 @@
                     "entity_type": "family",
                     "entity_id": "tg-post-2"
                   }
+                },
+                "blocker_labels": {
+                  "missing_locale": "Missing locale",
+                  "outdated_source": "Source changed"
+                },
+                "reason_breakdown": [
+                  {
+                    "code": "missing_locale",
+                    "label": "Missing locale",
+                    "count": 0,
+                    "affected_locales": []
+                  },
+                  {
+                    "code": "outdated_source",
+                    "label": "Source changed",
+                    "count": 0,
+                    "affected_locales": []
+                  }
+                ],
+                "affected_locales": [],
+                "reason_data": {
+                  "state": "unavailable",
+                  "message": "Reason counts and locale context are not available from the current dashboard projection."
                 }
               }
             ]
@@ -1921,7 +2122,14 @@
                 "resolver_key": "admin.api.translations.families",
                 "entity_type": "family"
               }
-            }
+            },
+            "optional_fields": [
+              "reason_breakdown",
+              "blocker_codes",
+              "blocker_labels",
+              "affected_locales",
+              "reason_data"
+            ]
           }
         },
         "contracts": {
@@ -1958,9 +2166,46 @@
                   "resolver_key": "admin.api.translations.families",
                   "entity_type": "family"
                 }
-              }
+              },
+              "optional_fields": [
+                "reason_breakdown",
+                "blocker_codes",
+                "blocker_labels",
+                "affected_locales",
+                "reason_data"
+              ]
             }
-          }
+          },
+          "reason_contract": {
+            "table_id": "blocked_families",
+            "fields": {
+              "reason_breakdown": "Array of {code,label,count,affected_locales} entries for the row's known blocker reasons.",
+              "blocker_codes": "Stable machine-readable blocker codes already present on blocked family rows.",
+              "blocker_labels": "Map of blocker code to human-readable label for visible remediation UI.",
+              "affected_locales": "Sorted locale codes affected by the known blockers.",
+              "reason_data": "Availability state for optional reason context."
+            },
+            "reason_data": {
+              "state": [
+                "available",
+                "unavailable",
+                "degraded"
+              ],
+              "message": "Optional human-readable explanation when reason data is unavailable or degraded."
+            }
+          },
+          "reason_labels": {
+            "missing_locale": "Missing locale",
+            "missing_field": "Missing required field",
+            "pending_review": "Pending review",
+            "outdated_source": "Source changed",
+            "policy_denied": "Policy blocked"
+          },
+          "reason_data_states": [
+            "available",
+            "unavailable",
+            "degraded"
+          ]
         }
       }
     }
