@@ -1397,7 +1397,7 @@ function renderSourceValue(entry: TranslationEditorFieldEntry): string {
   if (entry.required) {
     return '<span class="text-amber-600 italic">Source text pending - required field</span>';
   }
-  return '<span class="text-gray-400 italic">No source text for this field</span>';
+  return '<span class="text-gray-400 italic">Optional source content not provided</span>';
 }
 
 function renderFieldList(detail: TranslationAssignmentEditorDetail): string {
@@ -1470,7 +1470,7 @@ function normalizeTranslationMemorySuggestions(value: unknown): TranslationMemor
     if (!suggestedText) continue;
     suggestions.push({
       id: asString(record.id) || `tm-${suggestions.length}`,
-      score: asNumber(record.score) || asNumber(record.match_score) || 0,
+      score: normalizeTranslationMemoryScore(record.score, record.match_score),
       sourceLabel: asString(record.source_label) || asString(record.source) || 'Internal TM',
       localePair: asString(record.locale_pair) || '',
       fieldPath: asString(record.field_path) || '',
@@ -1479,6 +1479,21 @@ function normalizeTranslationMemorySuggestions(value: unknown): TranslationMemor
     });
   }
   return suggestions.sort((a, b) => b.score - a.score);
+}
+
+function normalizeTranslationMemoryScore(score: unknown, fallback?: unknown): number {
+  const raw = asNumber(score) || asNumber(fallback);
+  if (!Number.isFinite(raw) || raw <= 0) {
+    return 0;
+  }
+  const percent = raw <= 1 ? raw * 100 : raw;
+  return Math.max(0, Math.min(100, Math.round(percent)));
+}
+
+function translationMemoryScoreLabel(score: number): string {
+  if (score >= 99) return 'Exact';
+  if (score >= 80) return 'High';
+  return 'Fuzzy';
 }
 
 // T13: Render translation memory suggestions section
@@ -1502,7 +1517,7 @@ function renderTranslationMemorySuggestions(suggestions: TranslationMemorySugges
               <div class="flex-1 min-w-0">
                 <p class="font-medium text-gray-900 break-words">${escapeHTML(suggestion.suggestedText)}</p>
                 <div class="mt-2 flex flex-wrap items-center gap-2 text-xs text-gray-500">
-                  <span class="rounded-full bg-sky-100 px-2 py-0.5 text-sky-700">${suggestion.score >= 100 ? 'Exact' : suggestion.score >= 80 ? 'High' : 'Fuzzy'} ${suggestion.score}%</span>
+                  <span class="rounded-full bg-sky-100 px-2 py-0.5 text-sky-700">${translationMemoryScoreLabel(suggestion.score)} ${suggestion.score}%</span>
                   <span>${escapeHTML(suggestion.sourceLabel)}</span>
                   ${suggestion.localePair ? `<span class="text-gray-400">${escapeHTML(suggestion.localePair)}</span>` : ''}
                   ${suggestion.isStaleSource ? '<span class="text-amber-600">Source changed</span>' : ''}

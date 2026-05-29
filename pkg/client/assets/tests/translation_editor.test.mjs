@@ -200,6 +200,68 @@ function makeAssistUnavailableFixture() {
   return next;
 }
 
+function makeTranslationMemoryScaleFixture() {
+  const next = structuredClone(fixtures.detail);
+  next.data.assist.translation_memory_suggestions = [
+    {
+      id: 'tm-decimal',
+      score: 0.95,
+      source_label: 'Prior publish guide',
+      locale_pair: 'en:fr',
+      field_path: 'body',
+      suggested_text: 'Guide precedent pour les workflows de publication.',
+      stale_source: false,
+    },
+    {
+      id: 'tm-percent',
+      score: 85,
+      source_label: 'Prior help article',
+      locale_pair: 'en:fr',
+      field_path: 'title',
+      suggested_text: 'Guide de publication confirme.',
+      stale_source: true,
+    },
+  ];
+  return next;
+}
+
+function makeEmptySourceFixture() {
+  const next = structuredClone(fixtures.detail);
+  next.data.fields = next.data.fields.map((field) => {
+    if (field.path === 'path') {
+      return {
+        ...field,
+        source_value: '',
+        required: false,
+        completeness: {
+          required: false,
+          complete: true,
+          missing: false,
+        },
+      };
+    }
+    if (field.path === 'title') {
+      return {
+        ...field,
+        source_value: '',
+        required: true,
+        completeness: {
+          required: true,
+          complete: false,
+          missing: true,
+        },
+      };
+    }
+    return field;
+  });
+  next.data.source_fields = {
+    ...next.data.source_fields,
+    path: '',
+    title: '',
+  };
+  return next;
+}
+
 function makeAutosaveConflictFixture() {
   return {
     error: {
@@ -319,6 +381,68 @@ test('translation editor runtime: renders full screen with history, attachments,
   const unavailableHTML = renderTranslationEditorState({ status: 'ready', detail: assistUnavailable });
   assert.match(unavailableHTML, /Glossary matches unavailable/i);
   assert.match(unavailableHTML, /Style-guide guidance is unavailable/i);
+});
+
+test('translation editor runtime: renders translation-memory scores on one percent scale', () => {
+  const detail = normalizeAssignmentEditorDetail(makeTranslationMemoryScaleFixture());
+  const html = renderTranslationEditorState(
+    { status: 'ready', detail },
+    createTranslationEditorState(detail),
+    {},
+    { activeSidebarTab: 'assist' }
+  );
+
+  assert.match(html, /High 95%/);
+  assert.match(html, /High 85%/);
+  assert.match(html, /Source changed/);
+  assert.doesNotMatch(html, /0\.95%/);
+});
+
+test('translation editor runtime: distinguishes optional and required empty source copy', () => {
+  const detail = normalizeAssignmentEditorDetail(makeEmptySourceFixture());
+  const html = renderTranslationEditorState(
+    { status: 'ready', detail },
+    createTranslationEditorState(detail)
+  );
+
+  assert.match(html, /Optional source content not provided/);
+  assert.match(html, /Source text pending - required field/);
+  assert.doesNotMatch(html, /No source text for this field/);
+});
+
+test('translation editor runtime: translation-memory insert keeps inline editing and autosave path', async () => {
+  const { root } = setupDom();
+  globalThis.fetch = mock.fn(async (input, init = {}) => {
+    const method = String(init.method || 'GET').toUpperCase();
+    const url = String(input);
+    if (method === 'GET' && url.includes('/api/translations/assignments/asg-editor-1')) {
+      return createJsonResponse(makeTranslationMemoryScaleFixture());
+    }
+    if (method === 'PATCH' && url.includes('/api/translations/variants/')) {
+      return createJsonResponse(makeSubmitReadyUpdateFixture());
+    }
+    return createJsonResponse({ error: { message: 'unexpected request' } }, 500, {
+      'content-type': 'application/json',
+    });
+  });
+
+  const screen = new TranslationEditorScreen({
+    endpoint: '/admin/api/translations/assignments/asg-editor-1',
+    variantEndpointBase: '/admin/api/translations/variants',
+    actionEndpointBase: '/admin/api/translations/assignments',
+  });
+  screen.mount(root);
+  await flushAsync();
+  await flushAsync();
+
+  root.querySelector('[data-sidebar-tab="assist"]').dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+  root.querySelector('[data-insert-tm="tm-decimal"]').dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+
+  const bodyInput = root.querySelector('[data-field-input="body"]');
+  assert.equal(bodyInput.value, 'Guide precedent pour les workflows de publication.');
+  assert.match(root.innerHTML, /Translation memory suggestion inserted/);
+
+  screen.unmount();
 });
 
 test('translation editor runtime: separates review actions from management actions', () => {
