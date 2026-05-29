@@ -131,22 +131,7 @@ func (b *translationQueueBinding) Assignments(c router.Context) (payload any, er
 		if countsErr == nil {
 			return map[string]any{
 				"data": rows,
-				"meta": mergeTranslationChannelContract(map[string]any{
-					"page":                         page,
-					"per_page":                     perPage,
-					"total":                        total,
-					"updated_at":                   now,
-					"supported_sort_keys":          TranslationQueueSupportedSortKeys(),
-					"supported_filter_keys":        TranslationQueueSupportedFilterKeys(),
-					"supported_review_states":      TranslationQueueSupportedReviewStates(),
-					"default_sort":                 translationQueueDefaultSortContract(),
-					"saved_filter_presets":         TranslationQueueSavedFilterPresets(),
-					"saved_review_filter_presets":  TranslationQueueSavedReviewFilterPresets(),
-					"default_review_filter_preset": "review_inbox",
-					"review_actor_id":              actorID,
-					"review_aggregate_counts":      optimizedCounts,
-					"grouping":                     translationQueueGroupingContract(grouping, len(rows), len(assignments)),
-				}, channel),
+				"meta": b.assignmentListMeta(page, perPage, total, now, actorID, optimizedCounts, grouping, len(rows), len(assignments), channel),
 			}, nil
 		}
 		reviewAssignments, err = b.listAssignmentsForSummary(adminCtx.Context, repo, "updated_at", map[string]any{
@@ -168,23 +153,27 @@ func (b *translationQueueBinding) Assignments(c router.Context) (payload any, er
 	}
 	return map[string]any{
 		"data": rows,
-		"meta": mergeTranslationChannelContract(map[string]any{
-			"page":                         page,
-			"per_page":                     perPage,
-			"total":                        total,
-			"updated_at":                   now,
-			"supported_sort_keys":          TranslationQueueSupportedSortKeys(),
-			"supported_filter_keys":        TranslationQueueSupportedFilterKeys(),
-			"supported_review_states":      TranslationQueueSupportedReviewStates(),
-			"default_sort":                 translationQueueDefaultSortContract(),
-			"saved_filter_presets":         TranslationQueueSavedFilterPresets(),
-			"saved_review_filter_presets":  TranslationQueueSavedReviewFilterPresets(),
-			"default_review_filter_preset": "review_inbox",
-			"review_actor_id":              actorID,
-			"review_aggregate_counts":      reviewAggregateCounts,
-			"grouping":                     translationQueueGroupingContract(grouping, len(rows), len(assignments)),
-		}, channel),
+		"meta": b.assignmentListMeta(page, perPage, total, now, actorID, reviewAggregateCounts, grouping, len(rows), len(assignments), channel),
 	}, nil
+}
+
+func (b *translationQueueBinding) assignmentListMeta(page, perPage, total int, now time.Time, actorID string, reviewAggregateCounts map[string]int, grouping translationQueueGroupingRequest, rowCount, assignmentCount int, channel string) map[string]any {
+	return mergeTranslationChannelContract(map[string]any{
+		"page":                         page,
+		"per_page":                     perPage,
+		"total":                        total,
+		"updated_at":                   now,
+		"supported_sort_keys":          TranslationQueueSupportedSortKeys(),
+		"supported_filter_keys":        TranslationQueueSupportedFilterKeys(),
+		"supported_review_states":      TranslationQueueSupportedReviewStates(),
+		"default_sort":                 translationQueueDefaultSortContract(),
+		"saved_filter_presets":         TranslationQueueSavedFilterPresets(),
+		"saved_review_filter_presets":  TranslationQueueSavedReviewFilterPresets(),
+		"default_review_filter_preset": "review_inbox",
+		"review_actor_id":              actorID,
+		"review_aggregate_counts":      reviewAggregateCounts,
+		"grouping":                     translationQueueGroupingContract(grouping, rowCount, assignmentCount),
+	}, channel)
 }
 
 func (b *translationQueueBinding) optimizedReviewerAggregateCounts(ctx context.Context, repo TranslationAssignmentRepository, filter translationAssignmentListFilter, actorID string, now time.Time) (map[string]int, error) {

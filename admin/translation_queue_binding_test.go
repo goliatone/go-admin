@@ -1190,17 +1190,17 @@ func TestTranslationQueueBindingBulkActionSupportsReleasePriorityAndArchive(t *t
 		req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/api/translations/assignment-actions/bulk", bytes.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("X-User-ID", "manager-1")
-		resp, err := app.Test(req)
-		if err != nil {
-			t.Fatalf("%s request error: %v", action, err)
+		resp, requestErr := app.Test(req)
+		if requestErr != nil {
+			t.Fatalf("%s request error: %v", action, requestErr)
 		}
 		defer resp.Body.Close() //nolint:errcheck // test response body cleanup is best-effort
 		if resp.StatusCode != http.StatusOK {
 			t.Fatalf("%s status=%d want=200", action, resp.StatusCode)
 		}
 		response := map[string]any{}
-		if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
-			t.Fatalf("decode %s response: %v", action, err)
+		if decodeErr := json.NewDecoder(resp.Body).Decode(&response); decodeErr != nil {
+			t.Fatalf("decode %s response: %v", action, decodeErr)
 		}
 		meta := extractMap(response["meta"])
 		if intValue(meta["succeeded"]) != 1 || intValue(meta["failed"]) != 0 {

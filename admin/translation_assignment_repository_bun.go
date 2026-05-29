@@ -189,6 +189,25 @@ func applyBunAssignmentListFilters(query *bun.SelectQuery, opts ListOptions, due
 	}
 }
 
+var bunAssignmentFilterColumns = map[string]string{
+	"assignment_id":    "assignment_id",
+	"id":               "assignment_id",
+	"status":           "status",
+	"target_locale":    "target_locale",
+	"locale":           "target_locale",
+	"source_locale":    "source_locale",
+	"assignee_id":      "assignee_id",
+	"reviewer_id":      "COALESCE(NULLIF(reviewer_id, ''), last_reviewer_id, '')",
+	"assignment_type":  "assignment_type",
+	"work_scope":       "work_scope",
+	"entity_type":      "entity_type",
+	"priority":         "priority",
+	"family_id":        "family_id",
+	"tenant_id":        "tenant_id",
+	"org_id":           "org_id",
+	"source_record_id": "source_record_id",
+}
+
 func applyBunAssignmentFilter(query *bun.SelectQuery, key string, raw any, dueSQL bunAssignmentDueDateSQL) {
 	if key == "overdue" {
 		if toBool(raw) {
@@ -204,35 +223,8 @@ func applyBunAssignmentFilter(query *bun.SelectQuery, key string, raw any, dueSQ
 	if len(values) == 0 {
 		return
 	}
-	switch key {
-	case "assignment_id", "id":
-		query.Where("LOWER(assignment_id) IN (?)", bun.List(values))
-	case "status":
-		query.Where("LOWER(status) IN (?)", bun.List(values))
-	case "target_locale", "locale":
-		query.Where("LOWER(target_locale) IN (?)", bun.List(values))
-	case "source_locale":
-		query.Where("LOWER(source_locale) IN (?)", bun.List(values))
-	case "assignee_id":
-		query.Where("LOWER(assignee_id) IN (?)", bun.List(values))
-	case "reviewer_id":
-		query.Where("LOWER(COALESCE(NULLIF(reviewer_id, ''), last_reviewer_id, '')) IN (?)", bun.List(values))
-	case "assignment_type":
-		query.Where("LOWER(assignment_type) IN (?)", bun.List(values))
-	case "work_scope":
-		query.Where("LOWER(work_scope) IN (?)", bun.List(values))
-	case "entity_type":
-		query.Where("LOWER(entity_type) IN (?)", bun.List(values))
-	case "priority":
-		query.Where("LOWER(priority) IN (?)", bun.List(values))
-	case "family_id":
-		query.Where("LOWER(family_id) IN (?)", bun.List(values))
-	case "tenant_id":
-		query.Where("LOWER(tenant_id) IN (?)", bun.List(values))
-	case "org_id":
-		query.Where("LOWER(org_id) IN (?)", bun.List(values))
-	case "source_record_id":
-		query.Where("LOWER(source_record_id) IN (?)", bun.List(values))
+	if column, ok := bunAssignmentFilterColumns[key]; ok {
+		query.Where("LOWER("+column+") IN (?)", bun.List(values))
 	}
 }
 
@@ -460,52 +452,8 @@ func (r *BunTranslationAssignmentRepository) AssignmentDashboardSummary(ctx cont
 		scope["org_id"] = input.OrgID
 	}
 	out := TranslationAssignmentDashboardSummary{}
-	if strings.TrimSpace(input.ActorID) != "" {
-		myFilters := cloneAssignmentFilterMap(scope)
-		myFilters["assignee_id"] = input.ActorID
-		myFilters["status"] = strings.Join([]string{
-			string(AssignmentStatusOpen),
-			string(AssignmentStatusAssigned),
-			string(AssignmentStatusInProgress),
-			string(AssignmentStatusInReview),
-			string(AssignmentStatusChangesRequested),
-		}, ",")
-		var err error
-		out.MyTasks, err = r.countAssignments(ctx, ListOptions{Filters: myFilters}, now)
-		if err != nil {
-			return TranslationAssignmentDashboardSummary{}, err
-		}
-		inProgress := cloneAssignmentFilterMap(myFilters)
-		inProgress["status"] = string(AssignmentStatusInProgress)
-		out.MyInProgress, err = r.countAssignments(ctx, ListOptions{Filters: inProgress}, now)
-		if err != nil {
-			return TranslationAssignmentDashboardSummary{}, err
-		}
-		dueSoon := cloneAssignmentFilterMap(myFilters)
-		dueSoon["due_state"] = translationQueueDueStateSoon
-		out.MyDueSoon, err = r.countAssignments(ctx, ListOptions{Filters: dueSoon}, now)
-		if err != nil {
-			return TranslationAssignmentDashboardSummary{}, err
-		}
-		myOverdue := cloneAssignmentFilterMap(myFilters)
-		myOverdue["due_state"] = translationQueueDueStateOverdue
-		out.MyOverdue, err = r.countAssignments(ctx, ListOptions{Filters: myOverdue}, now)
-		if err != nil {
-			return TranslationAssignmentDashboardSummary{}, err
-		}
-		reviewFilters := cloneAssignmentFilterMap(scope)
-		reviewFilters["reviewer_id"] = input.ActorID
-		reviewFilters["status"] = string(AssignmentStatusInReview)
-		out.NeedsReview, err = r.countAssignments(ctx, ListOptions{Filters: reviewFilters}, now)
-		if err != nil {
-			return TranslationAssignmentDashboardSummary{}, err
-		}
-		reviewOverdue := cloneAssignmentFilterMap(reviewFilters)
-		reviewOverdue["due_state"] = translationQueueDueStateOverdue
-		out.NeedsReviewOverdue, err = r.countAssignments(ctx, ListOptions{Filters: reviewOverdue}, now)
-		if err != nil {
-			return TranslationAssignmentDashboardSummary{}, err
-		}
+	if err := r.applyAssignmentDashboardActorSummary(ctx, &out, scope, input.ActorID, now); err != nil {
+		return TranslationAssignmentDashboardSummary{}, err
 	}
 	overdueFilters := cloneAssignmentFilterMap(scope)
 	overdueFilters["due_state"] = translationQueueDueStateOverdue
@@ -538,6 +486,56 @@ func (r *BunTranslationAssignmentRepository) AssignmentDashboardSummary(ctx cont
 	}
 	out.TopOverdue = top
 	return out, nil
+}
+
+func (r *BunTranslationAssignmentRepository) applyAssignmentDashboardActorSummary(ctx context.Context, out *TranslationAssignmentDashboardSummary, scope map[string]any, actorID string, now time.Time) error {
+	actorID = strings.TrimSpace(actorID)
+	if actorID == "" || out == nil {
+		return nil
+	}
+	myFilters := cloneAssignmentFilterMap(scope)
+	myFilters["assignee_id"] = actorID
+	myFilters["status"] = strings.Join([]string{
+		string(AssignmentStatusOpen),
+		string(AssignmentStatusAssigned),
+		string(AssignmentStatusInProgress),
+		string(AssignmentStatusInReview),
+		string(AssignmentStatusChangesRequested),
+	}, ",")
+	var err error
+	out.MyTasks, err = r.countAssignments(ctx, ListOptions{Filters: myFilters}, now)
+	if err != nil {
+		return err
+	}
+	inProgress := cloneAssignmentFilterMap(myFilters)
+	inProgress["status"] = string(AssignmentStatusInProgress)
+	out.MyInProgress, err = r.countAssignments(ctx, ListOptions{Filters: inProgress}, now)
+	if err != nil {
+		return err
+	}
+	dueSoon := cloneAssignmentFilterMap(myFilters)
+	dueSoon["due_state"] = translationQueueDueStateSoon
+	out.MyDueSoon, err = r.countAssignments(ctx, ListOptions{Filters: dueSoon}, now)
+	if err != nil {
+		return err
+	}
+	myOverdue := cloneAssignmentFilterMap(myFilters)
+	myOverdue["due_state"] = translationQueueDueStateOverdue
+	out.MyOverdue, err = r.countAssignments(ctx, ListOptions{Filters: myOverdue}, now)
+	if err != nil {
+		return err
+	}
+	reviewFilters := cloneAssignmentFilterMap(scope)
+	reviewFilters["reviewer_id"] = actorID
+	reviewFilters["status"] = string(AssignmentStatusInReview)
+	out.NeedsReview, err = r.countAssignments(ctx, ListOptions{Filters: reviewFilters}, now)
+	if err != nil {
+		return err
+	}
+	reviewOverdue := cloneAssignmentFilterMap(reviewFilters)
+	reviewOverdue["due_state"] = translationQueueDueStateOverdue
+	out.NeedsReviewOverdue, err = r.countAssignments(ctx, ListOptions{Filters: reviewOverdue}, now)
+	return err
 }
 
 func (r *BunTranslationAssignmentRepository) dashboardTopOverdueAssignments(ctx context.Context, filters map[string]any, now time.Time, limit int) ([]TranslationAssignment, error) {
