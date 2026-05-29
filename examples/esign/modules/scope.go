@@ -14,8 +14,8 @@ var defaultModuleScope = stores.Scope{TenantID: "tenant-bootstrap", OrgID: "org-
 func resolveScopeFromContext(ctx context.Context, fallback stores.Scope) (stores.Scope, error) {
 	scope := stores.Scope{}
 	if actor, ok := auth.ActorFromContext(ctx); ok && actor != nil {
-		scope.TenantID = strings.TrimSpace(actor.TenantID)
-		scope.OrgID = strings.TrimSpace(actor.OrganizationID)
+		scope.TenantID = cleanScopeValue(actor.TenantID)
+		scope.OrgID = cleanScopeValue(actor.OrganizationID)
 		if scope.TenantID == "" {
 			scope.TenantID = metadataString(actor.Metadata, "tenant_id", "tenant")
 		}
@@ -24,10 +24,10 @@ func resolveScopeFromContext(ctx context.Context, fallback stores.Scope) (stores
 		}
 	}
 	if scope.TenantID == "" {
-		scope.TenantID = strings.TrimSpace(fallback.TenantID)
+		scope.TenantID = cleanScopeValue(fallback.TenantID)
 	}
 	if scope.OrgID == "" {
-		scope.OrgID = strings.TrimSpace(fallback.OrgID)
+		scope.OrgID = cleanScopeValue(fallback.OrgID)
 	}
 	if scope.TenantID == "" || scope.OrgID == "" {
 		return stores.Scope{}, fmt.Errorf("tenant_id and org_id are required")
@@ -35,12 +35,16 @@ func resolveScopeFromContext(ctx context.Context, fallback stores.Scope) (stores
 	return scope, nil
 }
 
+func cleanScopeValue(value string) string {
+	return strings.Clone(strings.TrimSpace(value))
+}
+
 func userIDFromContext(ctx context.Context) string {
 	if actor, ok := auth.ActorFromContext(ctx); ok && actor != nil {
-		if subject := strings.TrimSpace(actor.Subject); subject != "" {
+		if subject := cleanScopeValue(actor.Subject); subject != "" {
 			return subject
 		}
-		if actorID := strings.TrimSpace(actor.ActorID); actorID != "" {
+		if actorID := cleanScopeValue(actor.ActorID); actorID != "" {
 			return actorID
 		}
 	}
@@ -55,7 +59,7 @@ func metadataString(metadata map[string]any, keys ...string) string {
 		}
 		switch value := raw.(type) {
 		case string:
-			if trimmed := strings.TrimSpace(value); trimmed != "" {
+			if trimmed := cleanScopeValue(value); trimmed != "" {
 				return trimmed
 			}
 		case []byte:

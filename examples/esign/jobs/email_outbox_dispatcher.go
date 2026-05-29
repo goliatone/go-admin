@@ -3,6 +3,7 @@ package jobs
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"sync"
@@ -40,10 +41,10 @@ func (p EmailOutboxPublisher) PublishOutboxMessage(ctx context.Context, message 
 	if err := json.Unmarshal([]byte(message.PayloadJSON), &payload); err != nil {
 		return fmt.Errorf("decode email outbox payload: %w", err)
 	}
-	scope := stores.Scope{
-		TenantID: strings.TrimSpace(message.TenantID),
-		OrgID:    strings.TrimSpace(message.OrgID),
-	}
+	scope := normalizeDispatchScope(stores.Scope{
+		TenantID: message.TenantID,
+		OrgID:    message.OrgID,
+	})
 	msg := EmailSendSigningRequestMsg{
 		Scope:               scope,
 		AgreementID:         strings.TrimSpace(payload.AgreementID),
@@ -63,14 +64,16 @@ func (p EmailOutboxPublisher) PublishOutboxMessage(ctx context.Context, message 
 	if err := p.handlers.ExecuteEmailSendSigningRequest(ctx, msg); err != nil {
 		failureAuditEvent := strings.TrimSpace(payload.FailureAuditEvent)
 		if failureAuditEvent != "" {
-			_ = p.handlers.appendJobAudit(ctx, scope, msg.AgreementID, failureAuditEvent, map[string]any{
+			if auditErr := p.handlers.appendJobAudit(ctx, scope, msg.AgreementID, failureAuditEvent, map[string]any{
 				"correlation_id":  strings.TrimSpace(payload.CorrelationID),
 				"dedupe_key":      strings.TrimSpace(payload.DedupeKey),
 				"notification":    strings.TrimSpace(payload.Notification),
 				"recipient_id":    strings.TrimSpace(payload.RecipientID),
 				"idempotency_key": strings.TrimSpace(payload.CorrelationID),
 				"error":           strings.TrimSpace(err.Error()),
-			})
+			}); auditErr != nil {
+				return errors.Join(err, auditErr)
+			}
 		}
 		return err
 	}
@@ -248,8 +251,8 @@ func (d *EmailOutboxDispatcher) snapshotScopes() []stores.Scope {
 
 func normalizeDispatchScope(scope stores.Scope) stores.Scope {
 	return stores.Scope{
-		TenantID: strings.TrimSpace(scope.TenantID),
-		OrgID:    strings.TrimSpace(scope.OrgID),
+		TenantID: strings.Clone(strings.TrimSpace(scope.TenantID)),
+		OrgID:    strings.Clone(strings.TrimSpace(scope.OrgID)),
 	}
 }
 

@@ -3,6 +3,7 @@ package persistence
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"sort"
 	"strconv"
@@ -18,8 +19,8 @@ import (
 )
 
 func normalizedStoreScope(scope stores.Scope) (stores.Scope, error) {
-	scope.TenantID = strings.TrimSpace(scope.TenantID)
-	scope.OrgID = strings.TrimSpace(scope.OrgID)
+	scope.TenantID = strings.Clone(strings.TrimSpace(scope.TenantID))
+	scope.OrgID = strings.Clone(strings.TrimSpace(scope.OrgID))
 	if scope.TenantID == "" || scope.OrgID == "" {
 		return stores.Scope{}, goerrors.New("tenant_id and org_id are required", goerrors.CategoryValidation).
 			WithCode(400).
@@ -50,7 +51,7 @@ func mapSQLNotFound(err error, entity, id string) error {
 	if err == nil {
 		return nil
 	}
-	if err == sql.ErrNoRows || strings.Contains(strings.ToLower(err.Error()), "no rows") {
+	if errors.Is(err, sql.ErrNoRows) || strings.Contains(strings.ToLower(err.Error()), "no rows") {
 		return relationalNotFoundError(entity, id)
 	}
 	return err
