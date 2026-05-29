@@ -285,6 +285,8 @@ export interface TranslationEditorRuntimeState {
   saving?: boolean;
   submitting?: boolean;
   rejectDraft?: TranslationEditorRejectDraft | null;
+  // T13: Active sidebar tab
+  activeSidebarTab?: 'actions' | 'qa' | 'assist' | 'files' | 'history';
 }
 
 export interface TranslationEditorScreenConfig {
@@ -1190,13 +1192,39 @@ function renderHeader(
   `;
 }
 
+// T12: Suppress noisy drift details when before/current values are unavailable
 function renderDriftNotice(entry: TranslationEditorFieldEntry): string {
   if (!entry.drift.changed) return '';
+
+  const hasPrevious = Boolean(entry.drift.previous_source_value && entry.drift.previous_source_value.trim());
+  const hasCurrent = Boolean(entry.drift.current_source_value || entry.source_value);
+
+  // If both values are unavailable, show a simplified notice
+  if (!hasPrevious && !hasCurrent) {
+    return `
+      <div class="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800" data-field-drift="${escapeAttribute(entry.path)}">
+        <p class="font-semibold">Source changed since the last synced draft.</p>
+        <p class="mt-1 text-amber-700">Before/after values unavailable. Review the source field above.</p>
+      </div>
+    `;
+  }
+
+  // If only previous is unavailable, show a brief note
+  if (!hasPrevious) {
+    return `
+      <div class="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800" data-field-drift="${escapeAttribute(entry.path)}">
+        <p class="font-semibold">Source changed since the last synced draft.</p>
+        <p class="mt-1 text-amber-700">Previous value unavailable. Review the current source text above.</p>
+      </div>
+    `;
+  }
+
+  // Full drift notice with before/after
   return `
     <div class="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800" data-field-drift="${escapeAttribute(entry.path)}">
       <p class="font-semibold">Source changed since the last synced draft.</p>
-      <p class="mt-1"><span class="font-medium">Before:</span> ${escapeHTML(entry.drift.previous_source_value || 'Unavailable')}</p>
-      <p class="mt-1"><span class="font-medium">Current:</span> ${escapeHTML(entry.drift.current_source_value || entry.source_value || 'Unavailable')}</p>
+      <p class="mt-1"><span class="font-medium">Before:</span> ${escapeHTML(entry.drift.previous_source_value)}</p>
+      <p class="mt-1"><span class="font-medium">Current:</span> ${escapeHTML(entry.drift.current_source_value || entry.source_value || 'Current value unavailable')}</p>
     </div>
   `;
 }
@@ -1216,11 +1244,170 @@ function renderGlossaryHits(entry: TranslationEditorFieldEntry): string {
   `;
 }
 
+// T12: Editor issue summary interface
+interface EditorFieldIssueSummary {
+  totalFields: number;
+  completeFields: number;
+  missingRequiredFields: number;
+  sourceChangedFields: number;
+  validationErrors: number;
+  qaBlockers: number;
+  qaWarnings: number;
+  firstIssuePath: string | null;
+}
+
+// T12: Compute field issue summary
+function computeFieldIssueSummary(detail: TranslationAssignmentEditorDetail): EditorFieldIssueSummary {
+  const fields = detail.fields || [];
+  const qa = detail.qa_results;
+
+  let completeFields = 0;
+  let missingRequiredFields = 0;
+  let sourceChangedFields = 0;
+  let validationErrors = 0;
+  let firstIssuePath: string | null = null;
+
+  for (const field of fields) {
+    // Count completeness
+    if (field.completeness.complete && !field.completeness.missing) {
+      completeFields++;
+    }
+
+    // Count missing required
+    if (field.completeness.required && field.completeness.missing) {
+      missingRequiredFields++;
+      if (!firstIssuePath) firstIssuePath = field.path;
+    }
+
+    // Count source drift
+    if (field.drift.changed) {
+      sourceChangedFields++;
+      if (!firstIssuePath) firstIssuePath = field.path;
+    }
+
+    // Count validation errors
+    if (!field.validation.valid) {
+      validationErrors++;
+      if (!firstIssuePath) firstIssuePath = field.path;
+    }
+  }
+
+  // If no field-level issues but we have QA blockers, use first QA finding path
+  if (!firstIssuePath && qa.enabled && qa.summary.blocker_count > 0 && qa.findings.length > 0) {
+    const blockerFinding = qa.findings.find(f => f.severity === 'blocker');
+    if (blockerFinding?.field_path) {
+      firstIssuePath = blockerFinding.field_path;
+    }
+  }
+
+  return {
+    totalFields: fields.length,
+    completeFields,
+    missingRequiredFields,
+    sourceChangedFields,
+    validationErrors,
+    qaBlockers: qa.enabled ? qa.summary.blocker_count : 0,
+    qaWarnings: qa.enabled ? qa.summary.warning_count : 0,
+    firstIssuePath,
+  };
+}
+
+// T12: Render field issue summary bar
+function renderFieldIssueSummary(summary: EditorFieldIssueSummary): string {
+  const hasIssues = summary.missingRequiredFields > 0
+    || summary.sourceChangedFields > 0
+    || summary.validationErrors > 0
+    || summary.qaBlockers > 0;
+
+  const isReadyToSubmit = summary.completeFields === summary.totalFields
+    && summary.missingRequiredFields === 0
+    && summary.validationErrors === 0
+    && summary.qaBlockers === 0;
+
+  // Build summary chips with Tailwind classes
+  const chips: string[] = [];
+
+  // Total/complete chip
+  const completeClass = isReadyToSubmit
+    ? 'bg-emerald-100 text-emerald-700 border-emerald-200'
+    : 'bg-gray-100 text-gray-700 border-gray-200';
+  chips.push(`<span class="inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-medium ${completeClass}">${summary.completeFields}/${summary.totalFields} complete</span>`);
+
+  // Missing required
+  if (summary.missingRequiredFields > 0) {
+    chips.push(`<span class="inline-flex items-center gap-1 rounded-full border border-rose-200 bg-rose-100 px-2.5 py-1 text-xs font-medium text-rose-700">${summary.missingRequiredFields} missing required</span>`);
+  }
+
+  // Source changed
+  if (summary.sourceChangedFields > 0) {
+    chips.push(`<span class="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-700">${summary.sourceChangedFields} source changed</span>`);
+  }
+
+  // Validation errors
+  if (summary.validationErrors > 0) {
+    chips.push(`<span class="inline-flex items-center gap-1 rounded-full border border-rose-200 bg-rose-100 px-2.5 py-1 text-xs font-medium text-rose-700">${summary.validationErrors} validation ${summary.validationErrors === 1 ? 'error' : 'errors'}</span>`);
+  }
+
+  // QA blockers
+  if (summary.qaBlockers > 0) {
+    chips.push(`<span class="inline-flex items-center gap-1 rounded-full border border-rose-200 bg-rose-100 px-2.5 py-1 text-xs font-medium text-rose-700">${summary.qaBlockers} QA ${summary.qaBlockers === 1 ? 'blocker' : 'blockers'}</span>`);
+  }
+
+  // QA warnings
+  if (summary.qaWarnings > 0) {
+    chips.push(`<span class="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-700">${summary.qaWarnings} QA ${summary.qaWarnings === 1 ? 'warning' : 'warnings'}</span>`);
+  }
+
+  // Summary bar background
+  const barClass = isReadyToSubmit
+    ? 'border-emerald-200 bg-emerald-50'
+    : hasIssues
+      ? 'border-amber-200 bg-amber-50'
+      : 'border-gray-200 bg-gray-50';
+
+  const jumpButton = summary.firstIssuePath
+    ? `<button
+        type="button"
+        class="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 shadow-sm transition-all hover:bg-gray-50 hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-sky-100"
+        data-jump-to-field="${escapeAttribute(summary.firstIssuePath)}"
+        title="Jump to first issue"
+      >
+        Jump to issue
+        <svg class="h-3.5 w-3.5" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+          <path d="M8 4a.5.5 0 0 1 .5.5v5.793l2.146-2.147a.5.5 0 0 1 .708.708l-3 3a.5.5 0 0 1-.708 0l-3-3a.5.5 0 1 1 .708-.708L7.5 10.293V4.5A.5.5 0 0 1 8 4z"/>
+        </svg>
+      </button>`
+    : '';
+
+  return `
+    <section class="flex flex-wrap items-center justify-between gap-3 rounded-xl border p-3 ${barClass}" aria-label="Field progress summary" data-editor-summary="true">
+      <div class="flex flex-wrap items-center gap-2">${chips.join('')}</div>
+      ${jumpButton}
+    </section>
+  `;
+}
+
+// T12: Render contextual empty source state
+function renderSourceValue(entry: TranslationEditorFieldEntry): string {
+  if (entry.source_value && entry.source_value.trim()) {
+    return escapeHTML(entry.source_value);
+  }
+
+  // Contextual empty state based on field type and required status
+  if (entry.required) {
+    return '<span class="text-amber-600 italic">Source text pending - required field</span>';
+  }
+  return '<span class="text-gray-400 italic">No source text for this field</span>';
+}
+
 function renderFieldList(detail: TranslationAssignmentEditorDetail): string {
+  const summary = computeFieldIssueSummary(detail);
+
   return `
     <section class="space-y-4">
+      ${renderFieldIssueSummary(summary)}
       ${detail.fields.map((entry) => `
-        <article class="rounded-xl border border-gray-200 bg-white p-5" data-editor-field="${escapeAttribute(entry.path)}">
+        <article class="rounded-xl border border-gray-200 bg-white p-5" data-editor-field="${escapeAttribute(entry.path)}" id="field-${escapeAttribute(entry.path)}">
           <div class="flex flex-wrap items-start justify-between gap-3">
             <div>
               <h2 class="text-lg font-semibold text-gray-900">${escapeHTML(entry.label)}</h2>
@@ -1238,7 +1425,7 @@ function renderFieldList(detail: TranslationAssignmentEditorDetail): string {
           <div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
             <div class="rounded-xl border border-gray-200 bg-gray-50 p-4">
               <p class="text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">Source</p>
-              <div class="mt-2 whitespace-pre-wrap text-sm text-gray-800">${escapeHTML(entry.source_value || 'No source text')}</div>
+              <div class="mt-2 whitespace-pre-wrap text-sm text-gray-800">${renderSourceValue(entry)}</div>
             </div>
             <div class="rounded-xl border ${entry.validation.valid ? 'border-gray-200' : 'border-rose-200'} bg-white p-4">
               <label class="text-xs font-semibold uppercase tracking-[0.18em] text-gray-500" for="editor-field-${escapeAttribute(entry.path)}">Translation</label>
@@ -1262,14 +1449,95 @@ function renderFieldList(detail: TranslationAssignmentEditorDetail): string {
   `;
 }
 
+// T13: Translation memory suggestion interface
+interface TranslationMemorySuggestion {
+  id: string;
+  score: number;
+  sourceLabel: string;
+  localePair: string;
+  fieldPath: string;
+  suggestedText: string;
+  isStaleSource: boolean;
+}
+
+// T13: Normalize TM suggestions from backend
+function normalizeTranslationMemorySuggestions(value: unknown): TranslationMemorySuggestion[] {
+  if (!Array.isArray(value)) return [];
+  const suggestions: TranslationMemorySuggestion[] = [];
+  for (const entry of value) {
+    const record = asRecord(entry);
+    const suggestedText = asString(record.suggested_text) || asString(record.target_text);
+    if (!suggestedText) continue;
+    suggestions.push({
+      id: asString(record.id) || `tm-${suggestions.length}`,
+      score: asNumber(record.score) || asNumber(record.match_score) || 0,
+      sourceLabel: asString(record.source_label) || asString(record.source) || 'Internal TM',
+      localePair: asString(record.locale_pair) || '',
+      fieldPath: asString(record.field_path) || '',
+      suggestedText,
+      isStaleSource: asBoolean(record.is_stale_source) || asBoolean(record.stale_source),
+    });
+  }
+  return suggestions.sort((a, b) => b.score - a.score);
+}
+
+// T13: Render translation memory suggestions section
+function renderTranslationMemorySuggestions(suggestions: TranslationMemorySuggestion[]): string {
+  if (!suggestions.length) {
+    return `
+      <div class="mt-4">
+        <h3 class="text-sm font-semibold text-gray-800">Translation Memory</h3>
+        <p class="mt-3 text-sm text-gray-500">No matching suggestions from translation memory.</p>
+      </div>
+    `;
+  }
+
+  return `
+    <div class="mt-4" data-assist-section="tm">
+      <h3 class="text-sm font-semibold text-gray-800">Translation Memory</h3>
+      <ul class="mt-3 space-y-2">
+        ${suggestions.map((suggestion) => `
+          <li class="rounded-xl border ${suggestion.isStaleSource ? 'border-amber-200 bg-amber-50' : 'border-gray-200 bg-gray-50'} px-3 py-3 text-sm" data-tm-suggestion="${escapeAttribute(suggestion.id)}">
+            <div class="flex items-start justify-between gap-2">
+              <div class="flex-1 min-w-0">
+                <p class="font-medium text-gray-900 break-words">${escapeHTML(suggestion.suggestedText)}</p>
+                <div class="mt-2 flex flex-wrap items-center gap-2 text-xs text-gray-500">
+                  <span class="rounded-full bg-sky-100 px-2 py-0.5 text-sky-700">${suggestion.score >= 100 ? 'Exact' : suggestion.score >= 80 ? 'High' : 'Fuzzy'} ${suggestion.score}%</span>
+                  <span>${escapeHTML(suggestion.sourceLabel)}</span>
+                  ${suggestion.localePair ? `<span class="text-gray-400">${escapeHTML(suggestion.localePair)}</span>` : ''}
+                  ${suggestion.isStaleSource ? '<span class="text-amber-600">Source changed</span>' : ''}
+                </div>
+                ${suggestion.fieldPath ? `<p class="mt-1 text-xs text-gray-400">Field: ${escapeHTML(suggestion.fieldPath)}</p>` : ''}
+              </div>
+              <button
+                type="button"
+                class="flex-shrink-0 rounded-lg border border-gray-300 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-sky-100"
+                data-insert-tm="${escapeAttribute(suggestion.id)}"
+                data-insert-text="${escapeAttribute(suggestion.suggestedText)}"
+                data-insert-field="${escapeAttribute(suggestion.fieldPath)}"
+                title="Insert this suggestion${suggestion.isStaleSource ? ' (source may have changed)' : ''}"
+              >
+                Insert
+              </button>
+            </div>
+          </li>
+        `).join('')}
+      </ul>
+    </div>
+  `;
+}
+
 function renderAssistPanel(detail: TranslationAssignmentEditorDetail): string {
   const glossary = detail.assist.glossary_matches;
   const styleGuide = detail.assist.style_guide_summary;
+  const tmSuggestions = normalizeTranslationMemorySuggestions(detail.assist.translation_memory_suggestions);
+
   return `
-    <section class="rounded-xl border border-gray-200 bg-white p-5">
+    <section class="rounded-xl border border-gray-200 bg-white p-5" data-editor-panel="assist">
       <h2 class="text-lg font-semibold text-gray-900">Assist</h2>
       <div class="mt-4 space-y-4">
-        <div>
+        ${renderTranslationMemorySuggestions(tmSuggestions)}
+        <div data-assist-section="glossary">
           <h3 class="text-sm font-semibold text-gray-800">Glossary</h3>
           ${glossary.length
             ? `<ul class="mt-3 space-y-2">${glossary.map((entry) => `
@@ -1280,7 +1548,7 @@ function renderAssistPanel(detail: TranslationAssignmentEditorDetail): string {
               `).join('')}</ul>`
             : '<p class="mt-3 text-sm text-gray-500">Glossary matches unavailable for this assignment.</p>'}
         </div>
-        <div>
+        <div data-assist-section="style-guide">
           <h3 class="text-sm font-semibold text-gray-800">Style guide</h3>
           ${styleGuide.available
             ? `
@@ -1569,6 +1837,134 @@ function renderTimelinePanel(detail: TranslationAssignmentEditorDetail): string 
   `;
 }
 
+// T13: Sidebar tab type
+type SidebarTab = 'actions' | 'qa' | 'assist' | 'files' | 'history';
+
+// T13: Compute sidebar tab badges
+function computeSidebarTabBadges(detail: TranslationAssignmentEditorDetail): Record<SidebarTab, string | null> {
+  const hasReviewActions = shouldShowReviewActions(detail);
+  const hasManagementActions = shouldShowManagementActions(detail);
+  const qaCount = detail.qa_results.enabled ? detail.qa_results.summary.finding_count : 0;
+  const tmCount = normalizeTranslationMemorySuggestions(detail.assist.translation_memory_suggestions).length;
+  const glossaryCount = detail.assist.glossary_matches.length;
+  const fileCount = detail.attachment_summary.total;
+  const historyCount = detail.history.total;
+
+  return {
+    actions: (hasReviewActions || hasManagementActions) ? null : null,
+    qa: qaCount > 0 ? String(qaCount) : null,
+    assist: (tmCount + glossaryCount) > 0 ? String(tmCount + glossaryCount) : null,
+    files: fileCount > 0 ? String(fileCount) : null,
+    history: historyCount > 0 ? String(historyCount) : null,
+  };
+}
+
+// T13: Render tabbed sidebar
+function renderTabbedSidebar(detail: TranslationAssignmentEditorDetail, submitting: boolean, activeTab: SidebarTab = 'actions', loadState?: TranslationEditorLoadState): string {
+  const badges = computeSidebarTabBadges(detail);
+  const hasReviewActions = shouldShowReviewActions(detail);
+  const hasManagementActions = shouldShowManagementActions(detail);
+  const hasActions = hasReviewActions || hasManagementActions;
+
+  // Tab definitions
+  const tabs: Array<{ id: SidebarTab; label: string; icon: string; badge: string | null }> = [
+    {
+      id: 'actions',
+      label: 'Actions',
+      icon: '<svg class="w-4 h-4" viewBox="0 0 16 16" fill="currentColor"><path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/></svg>',
+      badge: badges.actions,
+    },
+    {
+      id: 'qa',
+      label: 'QA',
+      icon: '<svg class="w-4 h-4" viewBox="0 0 16 16" fill="currentColor"><path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0-1A6 6 0 1 0 8 2a6 6 0 0 0 0 12zM6.5 7.5a.5.5 0 0 1 1 0v2.5a.5.5 0 0 1-1 0V7.5zm2 0a.5.5 0 0 1 1 0v2.5a.5.5 0 0 1-1 0V7.5z"/></svg>',
+      badge: badges.qa,
+    },
+    {
+      id: 'assist',
+      label: 'Assist',
+      icon: '<svg class="w-4 h-4" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a3 3 0 0 0-3 3v2H4a2 2 0 0 0-2 2v5a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-1V4a3 3 0 0 0-3-3zM6 4a2 2 0 1 1 4 0v2H6V4z"/></svg>',
+      badge: badges.assist,
+    },
+    {
+      id: 'files',
+      label: 'Files',
+      icon: '<svg class="w-4 h-4" viewBox="0 0 16 16" fill="currentColor"><path d="M4 0h5.5v1H4a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V4.5h1V14a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V2a2 2 0 0 1 2-2z"/><path d="M9.5 3V0L14 4.5h-3A1.5 1.5 0 0 1 9.5 3z"/></svg>',
+      badge: badges.files,
+    },
+    {
+      id: 'history',
+      label: 'History',
+      icon: '<svg class="w-4 h-4" viewBox="0 0 16 16" fill="currentColor"><path d="M8.515 1.019A7 7 0 0 0 8 1V0a8 8 0 0 1 .589.022l-.074.997zm2.004.45a7.003 7.003 0 0 0-.985-.299l.219-.976c.383.086.76.2 1.126.342l-.36.933zm1.37.71a7.01 7.01 0 0 0-.439-.27l.493-.87a8.025 8.025 0 0 1 .979.654l-.615.789a6.996 6.996 0 0 0-.418-.302zm1.834 1.79a6.99 6.99 0 0 0-.653-.796l.724-.69c.27.285.52.59.747.91l-.818.576zM8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1zm0 1a6 6 0 1 1 0 12A6 6 0 0 1 8 2z"/><path d="M7.5 3a.5.5 0 0 1 .5.5v5.21l3.248 1.856a.5.5 0 0 1-.496.868l-3.5-2A.5.5 0 0 1 7 9V3.5a.5.5 0 0 1 .5-.5z"/></svg>',
+      badge: badges.history,
+    },
+  ];
+
+  // Tab navigation
+  const tabNav = `
+    <nav class="flex flex-wrap gap-1 rounded-xl border border-gray-200 bg-gray-50 p-1" role="tablist" aria-label="Editor sidebar sections">
+      ${tabs.map((tab) => `
+        <button
+          type="button"
+          class="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${activeTab === tab.id ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'}"
+          data-sidebar-tab="${escapeAttribute(tab.id)}"
+          role="tab"
+          aria-selected="${activeTab === tab.id}"
+          aria-controls="sidebar-panel-${escapeAttribute(tab.id)}"
+        >
+          ${tab.icon}
+          <span class="hidden sm:inline">${escapeHTML(tab.label)}</span>
+          ${tab.badge ? `<span class="rounded-full bg-gray-200 px-1.5 py-0.5 text-xs text-gray-700">${escapeHTML(tab.badge)}</span>` : ''}
+        </button>
+      `).join('')}
+    </nav>
+  `;
+
+  // Tab panels
+  const panels: Record<SidebarTab, string> = {
+    actions: `
+      <div id="sidebar-panel-actions" class="space-y-4" role="tabpanel" data-sidebar-panel="actions" ${activeTab !== 'actions' ? 'hidden' : ''}>
+        ${hasReviewActions ? renderReviewActionsPanel(detail, submitting) : ''}
+        ${hasManagementActions ? renderManagementActionsPanel(detail, submitting) : ''}
+        ${!hasActions ? `
+          <div class="rounded-xl border border-gray-200 bg-white p-5">
+            <h2 class="text-lg font-semibold text-gray-900">Actions</h2>
+            <p class="mt-3 text-sm text-gray-500">No actions available for this assignment in its current state.</p>
+          </div>
+        ` : ''}
+      </div>
+    `,
+    qa: `
+      <div id="sidebar-panel-qa" class="space-y-4" role="tabpanel" data-sidebar-panel="qa" ${activeTab !== 'qa' ? 'hidden' : ''}>
+        ${renderQAPanel(detail)}
+      </div>
+    `,
+    assist: `
+      <div id="sidebar-panel-assist" class="space-y-4" role="tabpanel" data-sidebar-panel="assist" ${activeTab !== 'assist' ? 'hidden' : ''}>
+        ${renderAssistPanel(detail)}
+      </div>
+    `,
+    files: `
+      <div id="sidebar-panel-files" class="space-y-4" role="tabpanel" data-sidebar-panel="files" ${activeTab !== 'files' ? 'hidden' : ''}>
+        ${renderAttachmentPanel(detail)}
+      </div>
+    `,
+    history: `
+      <div id="sidebar-panel-history" class="space-y-4" role="tabpanel" data-sidebar-panel="history" ${activeTab !== 'history' ? 'hidden' : ''}>
+        ${renderTimelinePanel(detail)}
+        ${renderDiagnostics(loadState || { status: 'ready', detail })}
+      </div>
+    `,
+  };
+
+  return `
+    <aside class="space-y-4 sm:space-y-6" data-editor-sidebar="true">
+      ${tabNav}
+      ${Object.values(panels).join('')}
+    </aside>
+  `;
+}
+
 export function renderTranslationEditorState(
   loadState: TranslationEditorLoadState,
   editorState?: TranslationEditorState | null,
@@ -1603,15 +1999,9 @@ export function renderTranslationEditorState(
         <div class="order-1 space-y-4 sm:space-y-6">
           ${renderFieldList(detail)}
         </div>
-        <aside class="order-2 space-y-4 sm:space-y-6">
-          ${renderReviewActionsPanel(detail, runtime.submitting === true)}
-          ${renderManagementActionsPanel(detail, runtime.submitting === true)}
-          ${renderQAPanel(detail)}
-          ${renderAssistPanel(detail)}
-          ${renderAttachmentPanel(detail)}
-          ${renderTimelinePanel(detail)}
-          ${renderDiagnostics(loadState)}
-        </aside>
+        <div class="order-2">
+          ${renderTabbedSidebar(detail, runtime.submitting === true, runtime.activeSidebarTab || 'actions', loadState)}
+        </div>
       </div>
       ${renderRejectModal(runtime.rejectDraft || null, runtime.submitting === true)}
     </div>
@@ -1641,6 +2031,8 @@ export class TranslationEditorScreen {
   private saving = false;
   private submitting = false;
   private rejectDraft: TranslationEditorRejectDraft | null = null;
+  // T13: Active sidebar tab
+  private activeSidebarTab: SidebarTab = 'actions';
 
   constructor(config: TranslationEditorScreenConfig) {
     this.config = {
@@ -1707,6 +2099,7 @@ export class TranslationEditorScreen {
       saving: this.saving,
       submitting: this.submitting,
       rejectDraft: this.rejectDraft,
+      activeSidebarTab: this.activeSidebarTab,
     });
     this.attachEventListeners();
     // Set up logical tab order for translation fields
@@ -1780,6 +2173,46 @@ export class TranslationEditorScreen {
     this.container.querySelector<HTMLElement>('[data-history-next="true"]')?.addEventListener('click', () => {
       const history = this.editorState?.detail.history;
       if (history?.has_more) void this.load(history.next_page || history.page + 1);
+    });
+
+    // T12: Jump to first issue handler
+    this.container.querySelector<HTMLElement>('[data-jump-to-field]')?.addEventListener('click', (event) => {
+      const button = event.currentTarget as HTMLElement;
+      const fieldPath = button.dataset.jumpToField;
+      if (!fieldPath || !this.container) return;
+      const fieldElement = this.container.querySelector<HTMLElement>(`[data-editor-field="${CSS.escape(fieldPath)}"]`);
+      if (fieldElement) {
+        fieldElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        // Focus the input field within
+        const input = fieldElement.querySelector<HTMLInputElement | HTMLTextAreaElement>('[data-field-input]');
+        if (input) {
+          setTimeout(() => input.focus(), 300);
+        }
+      }
+    });
+
+    // T13: Sidebar tab switching
+    this.container.querySelectorAll<HTMLElement>('[data-sidebar-tab]').forEach((element) => {
+      element.addEventListener('click', () => {
+        const tab = element.dataset.sidebarTab as SidebarTab;
+        if (tab && tab !== this.activeSidebarTab) {
+          this.activeSidebarTab = tab;
+          this.render();
+        }
+      });
+    });
+
+    // T13: TM suggestion insert handler
+    this.container.querySelectorAll<HTMLElement>('[data-insert-tm]').forEach((element) => {
+      element.addEventListener('click', () => {
+        const fieldPath = element.dataset.insertField || '';
+        const suggestedText = element.dataset.insertText || '';
+        if (!fieldPath || !suggestedText || !this.editorState) return;
+        this.editorState = applyEditorFieldChange(this.editorState, fieldPath, suggestedText);
+        this.feedback = { kind: 'success', message: 'Translation memory suggestion inserted.' };
+        this.scheduleAutosave();
+        this.render();
+      });
     });
   }
 

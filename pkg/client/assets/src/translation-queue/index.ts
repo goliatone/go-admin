@@ -2,6 +2,21 @@ import { renderVocabularyStatusBadge } from '../datatable/translation-status-voc
 import {
   type TranslationActionState,
 } from '../translation-contracts/index.js';
+import {
+  type ViewMode,
+  type GroupedData,
+  type RecordGroup,
+  normalizeBackendGroupedRows,
+  getPersistedViewMode,
+  persistViewMode,
+  getPersistedExpandState,
+  persistExpandState,
+  toggleGroupExpand,
+  expandAllGroups,
+  collapseAllGroups,
+  getExpandedGroupIds,
+  renderGroupHeaderSummary,
+} from '../datatable/grouped-mode.js';
 import { asNumber, asRecord, asString } from '../shared/coercion.js';
 import {
   buildEndpointURL,
@@ -100,6 +115,7 @@ export interface AssignmentListQueryState extends AssignmentListFilters {
   perPage?: number;
   sort?: AssignmentSortKey;
   order?: 'asc' | 'desc';
+  groupBy?: 'family_id';
 }
 
 export interface AssignmentActionStates {
@@ -157,6 +173,18 @@ export interface AssignmentListRow {
   qa_summary?: AssignmentQASummary;
 }
 
+export interface AssignmentListGroupingMeta {
+  enabled: boolean;
+  mode: string;
+  group_by: string;
+  scope: string;
+  row_count: number;
+  group_count: number;
+  assignment_count: number;
+  supported_modes: string[];
+  strategy: string;
+}
+
 export interface AssignmentListMeta {
   page: number;
   per_page: number;
@@ -172,6 +200,7 @@ export interface AssignmentListMeta {
   default_review_filter_preset?: string;
   review_actor_id?: string;
   review_aggregate_counts: Record<string, number>;
+  grouping?: AssignmentListGroupingMeta;
 }
 
 export interface AssignmentListResponse {
@@ -523,6 +552,27 @@ export function normalizeAssignmentListMeta(value: unknown): AssignmentListMeta 
     default_review_filter_preset: asString(raw.default_review_filter_preset) || undefined,
     review_actor_id: asString(raw.review_actor_id) || undefined,
     review_aggregate_counts: normalizeNumberRecord(raw.review_aggregate_counts, { trimKeys: true, omitBlankKeys: true }),
+    grouping: normalizeAssignmentListGroupingMeta(raw.grouping),
+  };
+}
+
+function normalizeAssignmentListGroupingMeta(value: unknown): AssignmentListGroupingMeta | undefined {
+  const raw = asRecord(value);
+  if (!raw || raw.enabled !== true) {
+    return undefined;
+  }
+  return {
+    enabled: true,
+    mode: asString(raw.mode) || 'family_id',
+    group_by: asString(raw.group_by) || 'family_id',
+    scope: asString(raw.scope) || 'current_page',
+    row_count: asNumber(raw.row_count),
+    group_count: asNumber(raw.group_count),
+    assignment_count: asNumber(raw.assignment_count),
+    supported_modes: Array.isArray(raw.supported_modes)
+      ? raw.supported_modes.map((m) => asString(m)).filter(Boolean)
+      : ['family_id'],
+    strategy: asString(raw.strategy) || 'page_local',
   };
 }
 
@@ -540,6 +590,7 @@ export function buildAssignmentListQuery(state: AssignmentListQueryState = {}): 
   setNumberSearchParam(params, 'per_page', state.perPage, { min: 1 });
   setSearchParam(params, 'sort', state.sort);
   setSearchParam(params, 'order', state.order);
+  setSearchParam(params, 'group_by', state.groupBy);
   return params.toString();
 }
 
@@ -838,6 +889,12 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
   private selectedRows = new Map<string, SelectionEntry>();
   private bulkActionPending = false;
 
+  // T11: View mode and grouped data state
+  private viewMode: ViewMode = 'flat';
+  private groupedData: GroupedData | null = null;
+  private expandedGroups = new Set<string>();
+  private static readonly PANEL_ID = 'translation-queue';
+
   constructor(config: AssignmentQueueScreenConfig) {
     super('loading');
     const requestedPresetId = asString(config.initialPresetId);
@@ -862,6 +919,16 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
       || DEFAULT_ASSIGNMENT_QUEUE_SAVED_FILTERS[0];
     this.activePresetId = preset?.id || 'open';
     this.queryState = preset ? presetToQueryState(preset) : { sort: 'updated_at', order: 'desc', page: 1 };
+
+    // T11: Restore persisted view mode and expanded groups
+    const persistedViewMode = getPersistedViewMode(AssignmentQueueScreen.PANEL_ID);
+    if (persistedViewMode) {
+      this.viewMode = persistedViewMode;
+      if (this.viewMode === 'grouped') {
+        this.queryState.groupBy = 'family_id';
+      }
+    }
+    this.expandedGroups = getPersistedExpandState(AssignmentQueueScreen.PANEL_ID);
   }
 
   mount(container: HTMLElement): void {
@@ -1051,7 +1118,39 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
     try {
       const response = await fetchAssignmentList(this.config.endpoint, this.queryState);
       this.response = response;
-      this.rows = response.data.map((row) => cloneRow(row));
+
+      // T11: Handle grouped responses
+      if (this.viewMode === 'grouped' && response.meta.grouping?.enabled) {
+        const grouped = normalizeBackendGroupedRows(
+          response.data as unknown as Record<string, unknown>[],
+          {
+            defaultExpanded: true,
+            expandMode: 'explicit',
+            expandedGroups: this.expandedGroups,
+          }
+        );
+        if (grouped) {
+          this.groupedData = grouped;
+          // Extract all child rows for flat access (needed for selection state)
+          this.rows = [];
+          for (const group of grouped.groups) {
+            for (const record of group.records) {
+              this.rows.push(normalizeAssignmentListRow(record));
+            }
+          }
+          for (const record of grouped.ungrouped) {
+            this.rows.push(normalizeAssignmentListRow(record));
+          }
+        } else {
+          // Fallback to flat if grouped parsing fails
+          this.groupedData = null;
+          this.rows = response.data.map((row) => cloneRow(row));
+        }
+      } else {
+        this.groupedData = null;
+        this.rows = response.data.map((row) => cloneRow(row));
+      }
+
       this.state = this.rows.length ? 'ready' : 'empty';
     } catch (error) {
       this.error = error instanceof Error ? error : new Error(String(error));
@@ -1059,6 +1158,56 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
         ? 'conflict'
         : 'error';
     }
+    this.render();
+  }
+
+  // T11: View mode methods
+  getViewMode(): ViewMode {
+    return this.viewMode;
+  }
+
+  setViewMode(mode: ViewMode): void {
+    if (this.viewMode === mode) return;
+    this.viewMode = mode;
+    persistViewMode(AssignmentQueueScreen.PANEL_ID, mode);
+
+    // Update query state for grouped mode
+    if (mode === 'grouped') {
+      this.queryState = { ...this.queryState, groupBy: 'family_id' };
+    } else {
+      const { groupBy: _, ...rest } = this.queryState;
+      this.queryState = rest;
+    }
+
+    this.feedback = null;
+    this.clearSelection();
+    void this.load();
+  }
+
+  toggleGroupExpansion(groupId: string): void {
+    if (!this.groupedData) return;
+
+    this.groupedData = toggleGroupExpand(this.groupedData, groupId);
+    this.expandedGroups = getExpandedGroupIds(this.groupedData);
+    persistExpandState(AssignmentQueueScreen.PANEL_ID, this.expandedGroups);
+    this.render();
+  }
+
+  expandAllFamilyGroups(): void {
+    if (!this.groupedData) return;
+
+    this.groupedData = expandAllGroups(this.groupedData);
+    this.expandedGroups = getExpandedGroupIds(this.groupedData);
+    persistExpandState(AssignmentQueueScreen.PANEL_ID, this.expandedGroups);
+    this.render();
+  }
+
+  collapseAllFamilyGroups(): void {
+    if (!this.groupedData) return;
+
+    this.groupedData = collapseAllGroups(this.groupedData);
+    this.expandedGroups = getExpandedGroupIds(this.groupedData);
+    persistExpandState(AssignmentQueueScreen.PANEL_ID, this.expandedGroups);
     this.render();
   }
 
@@ -1242,6 +1391,7 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
         ${this.renderBulkActionBar()}
         ${this.renderReviewStateBar()}
         ${this.renderPresetBar()}
+        ${this.renderViewModeToggle()}
         ${this.renderFilters()}
         ${this.renderBody()}
       </div>
@@ -1363,6 +1513,56 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
     `;
   }
 
+  // T11: View mode toggle
+  private renderViewModeToggle(): string {
+    const isGrouped = this.viewMode === 'grouped';
+    const groupCount = this.groupedData?.totalGroups ?? 0;
+    const assignmentCount = this.response?.meta.grouping?.assignment_count ?? this.rows.length;
+
+    return `
+      <div class="assignment-queue-view-mode" role="group" aria-label="View mode">
+        <div class="view-mode-buttons">
+          <button
+            type="button"
+            class="view-mode-button ${!isGrouped ? 'is-active' : ''}"
+            data-view-mode="flat"
+            aria-pressed="${!isGrouped}"
+            title="Show assignments as a flat list"
+          >
+            <svg class="view-mode-icon" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+              <path d="M2 3h12v2H2zM2 7h12v2H2zM2 11h12v2H2z"/>
+            </svg>
+            <span>List</span>
+          </button>
+          <button
+            type="button"
+            class="view-mode-button ${isGrouped ? 'is-active' : ''}"
+            data-view-mode="grouped"
+            aria-pressed="${isGrouped}"
+            title="Group assignments by translation family"
+          >
+            <svg class="view-mode-icon" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+              <path d="M2 2h4v4H2zM2 10h4v4H2zM8 2h6v2H8zM8 6h6v2H8zM8 10h6v2H8zM8 14h6v2H8z"/>
+            </svg>
+            <span>Grouped</span>
+          </button>
+        </div>
+        ${isGrouped && this.groupedData ? `
+          <div class="view-mode-info">
+            <span class="view-mode-count">${groupCount} ${groupCount === 1 ? 'family' : 'families'} · ${assignmentCount} assignments</span>
+            <span class="view-mode-scope">(page-local counts)</span>
+            <button type="button" class="view-mode-expand-all" data-expand-all="true" title="Expand all groups">
+              Expand all
+            </button>
+            <button type="button" class="view-mode-collapse-all" data-collapse-all="true" title="Collapse all groups">
+              Collapse all
+            </button>
+          </div>
+        ` : ''}
+      </div>
+    `;
+  }
+
   private renderFilters(): string {
     const rows = this.visibleRows;
     const statuses = ['', 'open', 'assigned', 'in_progress', 'in_review', 'changes_requested', 'approved', 'archived'];
@@ -1421,6 +1621,12 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
     if (!rows.length) {
       return `<div class="assignment-queue-state" data-queue-state="empty">No assignments match the current filters.</div>`;
     }
+
+    // T11: Handle grouped mode rendering
+    if (this.viewMode === 'grouped' && this.groupedData) {
+      return this.renderGroupedBody();
+    }
+
     const allSelected = this.isAllPageSelected();
     return `
       <!-- Mobile Card View (visible on small screens) -->
@@ -1456,6 +1662,302 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
         </table>
       </div>
     `;
+  }
+
+  // T11: Grouped body rendering
+  private renderGroupedBody(): string {
+    if (!this.groupedData) return '';
+
+    const allSelected = this.isAllPageSelected();
+    const colSpan = 8; // Number of columns in the table
+
+    return `
+      <!-- Mobile Card View - Grouped (visible on small screens) -->
+      <div class="flex flex-col gap-3 sm:hidden" data-queue-mobile-view="true" data-queue-grouped="true">
+        ${this.groupedData.groups.map((group) => this.renderGroupedMobileCards(group)).join('')}
+        ${this.groupedData.ungrouped.map((record) => this.renderMobileCard(normalizeAssignmentListRow(record))).join('')}
+      </div>
+      <!-- Desktop Table View - Grouped (hidden on small screens) -->
+      <div class="assignment-queue-table-wrap hidden sm:block">
+        <table class="assignment-queue-table assignment-queue-table-grouped" aria-label="Translation assignment queue (grouped by family)">
+          <thead>
+            <tr>
+              <th scope="col" class="queue-select-col">
+                <input
+                  type="checkbox"
+                  class="queue-select-all"
+                  data-select-all="true"
+                  ${allSelected ? 'checked' : ''}
+                  aria-label="Select all assignments on this page"
+                />
+              </th>
+              <th scope="col">Content</th>
+              <th scope="col">Locale</th>
+              <th scope="col">Status</th>
+              <th scope="col">Owners</th>
+              <th scope="col">Due</th>
+              <th scope="col">Priority</th>
+              <th scope="col">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${this.groupedData.groups.map((group) => this.renderFamilyGroupRows(group, colSpan)).join('')}
+            ${this.groupedData.ungrouped.map((record) => this.renderRow(normalizeAssignmentListRow(record))).join('')}
+          </tbody>
+        </table>
+      </div>
+    `;
+  }
+
+  // T11: Render family group header and child rows
+  private renderFamilyGroupRows(group: RecordGroup, colSpan: number): string {
+    const summaryHtml = renderGroupHeaderSummary(group, { size: 'sm' });
+    const groupLabel = escapeHtml(group.displayLabel || this.deriveFamilyGroupLabel(group));
+    const childCount = group.records.length;
+    const expandIcon = group.expanded ? '▼' : '▶';
+
+    // Render parent row
+    const parentRow = `
+      <tr class="family-group-header ${group.expanded ? 'is-expanded' : 'is-collapsed'}"
+          data-group-id="${escapeAttr(group.groupId)}"
+          data-group-expanded="${group.expanded}"
+          role="row"
+          aria-expanded="${group.expanded}"
+          tabindex="0">
+        <td class="queue-select-col">
+          <!-- Group parent doesn't have selection checkbox -->
+        </td>
+        <td colspan="${colSpan - 1}">
+          <div class="family-group-header-content">
+            <button type="button" class="family-group-toggle" data-toggle-group="${escapeAttr(group.groupId)}" aria-label="${group.expanded ? 'Collapse' : 'Expand'} family group">
+              <span class="family-group-expand-icon" aria-hidden="true">${expandIcon}</span>
+            </button>
+            <div class="family-group-info">
+              <strong class="family-group-label">${groupLabel}</strong>
+              <span class="family-group-count">${childCount} ${childCount === 1 ? 'locale' : 'locales'}</span>
+            </div>
+            <div class="family-group-summary">
+              ${summaryHtml}
+            </div>
+          </div>
+        </td>
+      </tr>
+    `;
+
+    // Render child rows if expanded
+    const childRows = group.expanded
+      ? group.records.map((record) => {
+          const row = normalizeAssignmentListRow(record);
+          return this.renderGroupChildRow(row, group.groupId);
+        }).join('')
+      : '';
+
+    return parentRow + childRows;
+  }
+
+  // T11: Render a child row within a group (slightly indented)
+  private renderGroupChildRow(row: AssignmentListRow, groupId: string): string {
+    const pendingClaim = this.pendingActions.has(`claim:${row.id}`);
+    const pendingRelease = this.pendingActions.has(`release:${row.id}`);
+    const pendingApprove = this.pendingActions.has(`approve:${row.id}`);
+    const pendingReject = this.pendingActions.has(`reject:${row.id}`);
+    const pendingArchive = this.pendingActions.has(`archive:${row.id}`);
+    const claimDisabled = pendingClaim || !row.actions.claim.enabled;
+    const releaseDisabled = pendingRelease || !row.actions.release.enabled;
+    const showReviewActions = shouldShowQueueReviewActions(row);
+    const showManagementActions = shouldShowQueueManagementActions(row);
+
+    const hasAssignee = Boolean(row.assignee_id);
+    const hasReviewer = Boolean(row.reviewer_id);
+    const hasDueDate = Boolean(row.due_date);
+    const showDueState = hasDueDate || row.due_state === 'overdue' || row.due_state === 'due_soon';
+
+    const isSelected = this.isRowSelected(row.id);
+
+    return `
+      <tr class="assignment-queue-row family-group-child ${isSelected ? 'is-selected' : ''}"
+          data-assignment-id="${escapeAttr(row.id)}"
+          data-parent-group="${escapeAttr(groupId)}"
+          data-assignment-row="true"
+          data-assignment-nav-group="table"
+          tabindex="0"
+          aria-label="${escapeAttr(buildRowAriaLabel(row))}">
+        <td class="queue-select-col">
+          <input
+            type="checkbox"
+            class="queue-row-select"
+            data-select-row="${escapeAttr(row.id)}"
+            ${isSelected ? 'checked' : ''}
+            aria-label="Select assignment ${escapeAttr(row.source_title || row.id)}"
+          />
+        </td>
+        <td>
+          <div class="queue-content-cell queue-content-cell-grouped">
+            <span class="queue-content-indent"></span>
+            <span class="queue-content-title-small">${escapeHtml(row.source_title || row.source_path || row.id)}</span>
+          </div>
+        </td>
+        <td>
+          <div class="queue-locale-cell">
+            <span class="locale-code">${escapeHtml(row.source_locale.toUpperCase())}</span>
+            <span class="locale-arrow">→</span>
+            <span class="locale-code locale-target">${escapeHtml(row.target_locale.toUpperCase())}</span>
+          </div>
+        </td>
+        <td>
+          <div class="queue-status-cell">
+            ${renderVocabularyStatusBadge(row.queue_state, { domain: 'queue', size: 'sm' })}
+            ${row.qa_summary?.enabled && row.qa_summary.finding_count > 0 ? `
+              <span class="queue-qa-chip ${row.qa_summary.blocker_count > 0 ? 'is-blocked' : ''}">
+                QA ${row.qa_summary.finding_count}
+              </span>
+            ` : ''}
+          </div>
+        </td>
+        <td>
+          <div class="queue-owner-cell">
+            ${hasAssignee
+              ? `<span class="queue-owner-value">${escapeHtml(row.assignee_id)}</span>`
+              : `<span class="queue-owner-empty">Unassigned</span>`}
+            ${hasReviewer
+              ? `<span class="queue-reviewer-value">${escapeHtml(row.reviewer_id)}</span>`
+              : ''}
+          </div>
+        </td>
+        <td>
+          <div class="queue-due-cell">
+            ${showDueState
+              ? `<span class="due-pill due-${escapeAttr(row.due_state)}">${escapeHtml(humanizeToken(row.due_state))}</span>`
+              : ''}
+            ${hasDueDate
+              ? `<span class="queue-due-date">${escapeHtml(formatTranslationShortDateTime(row.due_date, ''))}</span>`
+              : `<span class="queue-due-empty">—</span>`}
+          </div>
+        </td>
+        <td>
+          <div class="queue-priority-cell">
+            <span class="priority-indicator priority-${escapeAttr(row.priority)}" aria-label="${escapeAttr('Priority: ' + humanizeToken(row.priority))}"></span>
+            <span class="priority-label">${escapeHtml(humanizeToken(row.priority))}</span>
+          </div>
+        </td>
+        <td>
+          <div class="queue-action-cell">
+            <div class="queue-action-group" data-action-group="lifecycle">
+              <button
+                type="button"
+                class="${BTN_SECONDARY_SM}"
+                data-action="claim"
+                data-assignment-id="${escapeAttr(row.id)}"
+                ${claimDisabled ? 'disabled' : ''}
+                aria-disabled="${claimDisabled ? 'true' : 'false'}"
+                title="${escapeAttr(pendingClaim ? 'Claiming assignment…' : (row.actions.claim.reason || 'Claim assignment'))}"
+              >
+                ${pendingClaim ? 'Claiming…' : 'Claim'}
+              </button>
+              <button
+                type="button"
+                class="${BTN_SECONDARY_SM}"
+                data-action="release"
+                data-assignment-id="${escapeAttr(row.id)}"
+                ${releaseDisabled ? 'disabled' : ''}
+                aria-disabled="${releaseDisabled ? 'true' : 'false'}"
+                title="${escapeAttr(pendingRelease ? 'Releasing assignment…' : (row.actions.release.reason || 'Release assignment'))}"
+              >
+                ${pendingRelease ? 'Releasing…' : 'Release'}
+              </button>
+            </div>
+            ${showReviewActions ? `
+              <div class="queue-action-group" data-action-group="review">
+                <button
+                  type="button"
+                  class="${BTN_PRIMARY_SM}"
+                  data-action="approve"
+                  data-assignment-id="${escapeAttr(row.id)}"
+                  ${pendingApprove || !row.review_actions.approve.enabled ? 'disabled' : ''}
+                  title="${escapeAttr(pendingApprove ? 'Approving…' : (row.review_actions.approve.reason || 'Approve'))}"
+                >
+                  ${pendingApprove ? '…' : 'Approve'}
+                </button>
+                <button
+                  type="button"
+                  class="${BTN_DANGER_SM}"
+                  data-action="reject"
+                  data-assignment-id="${escapeAttr(row.id)}"
+                  ${pendingReject || !row.review_actions.reject.enabled ? 'disabled' : ''}
+                  title="${escapeAttr(pendingReject ? 'Rejecting…' : (row.review_actions.reject.reason || 'Reject'))}"
+                >
+                  ${pendingReject ? '…' : 'Reject'}
+                </button>
+              </div>
+            ` : ''}
+            ${showManagementActions ? `
+              <div class="queue-action-group" data-action-group="manage">
+                <button
+                  type="button"
+                  class="${BTN_SECONDARY_SM}"
+                  data-action="archive"
+                  data-assignment-id="${escapeAttr(row.id)}"
+                  ${pendingArchive || !row.review_actions.archive.enabled ? 'disabled' : ''}
+                  title="${escapeAttr(pendingArchive ? 'Archiving…' : (row.review_actions.archive.reason || 'Archive'))}"
+                >
+                  ${pendingArchive ? '…' : 'Archive'}
+                </button>
+              </div>
+            ` : ''}
+          </div>
+        </td>
+      </tr>
+    `;
+  }
+
+  // T11: Render grouped mobile cards
+  private renderGroupedMobileCards(group: RecordGroup): string {
+    const groupLabel = escapeHtml(group.displayLabel || this.deriveFamilyGroupLabel(group));
+    const childCount = group.records.length;
+    const expandIcon = group.expanded ? '▼' : '▶';
+
+    const headerCard = `
+      <div class="family-group-mobile-header ${group.expanded ? 'is-expanded' : 'is-collapsed'}"
+           data-group-id="${escapeAttr(group.groupId)}"
+           data-group-expanded="${group.expanded}">
+        <button type="button" class="family-group-mobile-toggle" data-toggle-group="${escapeAttr(group.groupId)}">
+          <span class="family-group-expand-icon">${expandIcon}</span>
+          <span class="family-group-mobile-label">${groupLabel}</span>
+          <span class="family-group-mobile-count">${childCount} ${childCount === 1 ? 'locale' : 'locales'}</span>
+        </button>
+      </div>
+    `;
+
+    const childCards = group.expanded
+      ? group.records.map((record) => {
+          const row = normalizeAssignmentListRow(record);
+          return `<div class="family-group-mobile-child">${this.renderMobileCard(row)}</div>`;
+        }).join('')
+      : '';
+
+    return headerCard + childCards;
+  }
+
+  // T11: Derive family group label from group data
+  private deriveFamilyGroupLabel(group: RecordGroup): string {
+    if (group.displayLabel) return group.displayLabel;
+
+    // Try to get label from first record
+    if (group.records.length > 0) {
+      const first = group.records[0];
+      const candidates = [
+        asString((first as Record<string, unknown>).source_title),
+        asString((first as Record<string, unknown>).source_path),
+        asString((first as Record<string, unknown>).source_record_id),
+      ];
+      for (const candidate of candidates) {
+        if (candidate) return candidate;
+      }
+    }
+
+    // Fallback to group ID
+    const shortId = group.groupId.length > 20 ? group.groupId.slice(0, 17) + '...' : group.groupId;
+    return `Family ${shortId}`;
   }
 
   private renderErrorState(kind: 'error' | 'conflict', message: string): string {
@@ -1878,6 +2380,67 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
           void this.runBulkAction(action);
         }
       });
+    });
+
+    // T11: View mode toggle handlers
+    this.container.querySelectorAll<HTMLButtonElement>('[data-view-mode]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const mode = button.dataset.viewMode;
+        if (mode === 'flat' || mode === 'grouped') {
+          this.setViewMode(mode);
+        }
+      });
+    });
+
+    // T11: Group expansion handlers
+    this.container.querySelectorAll<HTMLButtonElement>('[data-toggle-group]').forEach((button) => {
+      button.addEventListener('click', (event) => {
+        event.stopPropagation();
+        const groupId = button.dataset.toggleGroup;
+        if (groupId) {
+          this.toggleGroupExpansion(groupId);
+        }
+      });
+    });
+
+    // T11: Expand/collapse all handlers
+    const expandAllButton = this.container.querySelector<HTMLButtonElement>('[data-expand-all]');
+    if (expandAllButton) {
+      expandAllButton.addEventListener('click', () => {
+        this.expandAllFamilyGroups();
+      });
+    }
+
+    const collapseAllButton = this.container.querySelector<HTMLButtonElement>('[data-collapse-all]');
+    if (collapseAllButton) {
+      collapseAllButton.addEventListener('click', () => {
+        this.collapseAllFamilyGroups();
+      });
+    }
+
+    // T11: Group header click for expansion
+    this.container.querySelectorAll<HTMLElement>('[data-group-id]').forEach((header) => {
+      if (header.tagName.toLowerCase() === 'tr' || header.classList.contains('family-group-mobile-header')) {
+        header.addEventListener('click', (event) => {
+          const target = event.target as HTMLElement | null;
+          if (target?.closest('button, a, input, select, textarea')) {
+            return;
+          }
+          const groupId = header.dataset.groupId;
+          if (groupId) {
+            this.toggleGroupExpansion(groupId);
+          }
+        });
+        header.addEventListener('keydown', (event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            const groupId = header.dataset.groupId;
+            if (groupId) {
+              this.toggleGroupExpansion(groupId);
+            }
+          }
+        });
+      }
     });
 
     this.attachAssignmentNavigationTargets('[data-assignment-row]');
@@ -2536,6 +3099,235 @@ export function getAssignmentQueueStyles(): string {
       background: linear-gradient(135deg, #eff6ff 0%, #ffffff 100%);
     }
 
+    /* T11: View mode toggle */
+    .assignment-queue-view-mode {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      flex-wrap: wrap;
+      padding: 0.5rem 0;
+    }
+
+    .view-mode-buttons {
+      display: flex;
+      gap: 0.25rem;
+      border: 1px solid #e5e7eb;
+      border-radius: 0.5rem;
+      padding: 0.2rem;
+      background: #f9fafb;
+    }
+
+    .view-mode-button {
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.45rem 0.75rem;
+      border: none;
+      border-radius: 0.35rem;
+      background: transparent;
+      color: #6b7280;
+      font: inherit;
+      font-size: 0.85rem;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .view-mode-button:hover {
+      background: #e5e7eb;
+      color: #374151;
+    }
+
+    .view-mode-button.is-active {
+      background: #111827;
+      color: #ffffff;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+
+    .view-mode-icon {
+      width: 1rem;
+      height: 1rem;
+      flex-shrink: 0;
+    }
+
+    .view-mode-info {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      font-size: 0.85rem;
+    }
+
+    .view-mode-count {
+      color: #374151;
+      font-weight: 500;
+    }
+
+    .view-mode-scope {
+      color: #9ca3af;
+      font-size: 0.8rem;
+    }
+
+    .view-mode-expand-all,
+    .view-mode-collapse-all {
+      background: transparent;
+      border: none;
+      color: #2563eb;
+      font: inherit;
+      font-size: 0.8rem;
+      cursor: pointer;
+      padding: 0;
+      text-decoration: underline;
+    }
+
+    .view-mode-expand-all:hover,
+    .view-mode-collapse-all:hover {
+      color: #1d4ed8;
+    }
+
+    /* T11: Family group header row */
+    .family-group-header {
+      background: linear-gradient(135deg, #f3f4f6 0%, #f9fafb 100%);
+      cursor: pointer;
+      transition: background 0.15s ease;
+    }
+
+    .family-group-header:hover {
+      background: linear-gradient(135deg, #e5e7eb 0%, #f3f4f6 100%);
+    }
+
+    .family-group-header:focus {
+      outline: 2px solid #2563eb;
+      outline-offset: -2px;
+    }
+
+    .family-group-header-content {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .family-group-toggle {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 1.75rem;
+      height: 1.75rem;
+      border: none;
+      border-radius: 0.35rem;
+      background: transparent;
+      color: #6b7280;
+      cursor: pointer;
+      transition: background 0.15s ease, color 0.15s ease;
+    }
+
+    .family-group-toggle:hover {
+      background: #e5e7eb;
+      color: #374151;
+    }
+
+    .family-group-expand-icon {
+      font-size: 0.75rem;
+      transition: transform 0.2s ease;
+    }
+
+    .family-group-info {
+      display: flex;
+      flex-direction: column;
+      gap: 0.15rem;
+    }
+
+    .family-group-label {
+      font-weight: 600;
+      color: #111827;
+      font-size: 0.95rem;
+    }
+
+    .family-group-count {
+      font-size: 0.78rem;
+      color: #6b7280;
+    }
+
+    .family-group-summary {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    /* T11: Family group child row */
+    .family-group-child {
+      background: #ffffff;
+    }
+
+    .family-group-child:hover {
+      background: #f9fafb;
+    }
+
+    .queue-content-cell-grouped {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .queue-content-indent {
+      width: 1.5rem;
+      flex-shrink: 0;
+      border-left: 2px solid #e5e7eb;
+      height: 1rem;
+      margin-left: 0.5rem;
+    }
+
+    .queue-content-title-small {
+      font-weight: 500;
+      color: #374151;
+      font-size: 0.9rem;
+    }
+
+    /* T11: Mobile grouped cards */
+    .family-group-mobile-header {
+      border: 1px solid #e5e7eb;
+      border-radius: 0.75rem;
+      background: linear-gradient(135deg, #f3f4f6 0%, #ffffff 100%);
+      overflow: hidden;
+    }
+
+    .family-group-mobile-toggle {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      width: 100%;
+      padding: 0.85rem 1rem;
+      border: none;
+      background: transparent;
+      font: inherit;
+      text-align: left;
+      cursor: pointer;
+    }
+
+    .family-group-mobile-label {
+      flex: 1;
+      font-weight: 600;
+      color: #111827;
+      font-size: 0.95rem;
+    }
+
+    .family-group-mobile-count {
+      color: #6b7280;
+      font-size: 0.82rem;
+    }
+
+    .family-group-mobile-child {
+      margin-left: 1rem;
+      border-left: 2px solid #e5e7eb;
+      padding-left: 0.5rem;
+    }
+
+    /* T11: Collapsed state styling */
+    .family-group-header.is-collapsed + .family-group-child,
+    .family-group-mobile-header.is-collapsed + .family-group-mobile-child {
+      display: none;
+    }
+
     @media (max-width: 900px) {
       .assignment-queue-screen {
         padding: 1rem;
@@ -2543,6 +3335,15 @@ export function getAssignmentQueueStyles(): string {
 
       .assignment-queue-table {
         min-width: 760px;
+      }
+
+      .assignment-queue-view-mode {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+      .view-mode-info {
+        flex-wrap: wrap;
       }
     }
   `;
