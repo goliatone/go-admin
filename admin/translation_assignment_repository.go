@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"errors"
 	"strconv"
 	"strings"
 	"sync"
@@ -15,6 +16,78 @@ type TranslationAssignmentRepository interface {
 	CreateOrReuseActive(ctx context.Context, assignment TranslationAssignment) (TranslationAssignment, bool, error)
 	Get(ctx context.Context, id string) (TranslationAssignment, error)
 	Update(ctx context.Context, assignment TranslationAssignment, expectedVersion int64) (TranslationAssignment, error)
+}
+
+var ErrTranslationAssignmentQueryUnsupported = errors.New("translation assignment query unsupported")
+
+type TranslationAssignmentPageQueryStore interface {
+	ListAssignmentPage(ctx context.Context, input TranslationAssignmentPageQueryInput) (TranslationAssignmentPageQueryResult, error)
+}
+
+type TranslationAssignmentSummaryStore interface {
+	AssignmentQueueSummary(ctx context.Context, input TranslationAssignmentQueueSummaryInput) (TranslationAssignmentQueueSummary, error)
+	AssignmentMyWorkSummary(ctx context.Context, input TranslationAssignmentMyWorkSummaryInput) (map[string]int, error)
+	AssignmentDashboardSummary(ctx context.Context, input TranslationAssignmentDashboardSummaryInput) (TranslationAssignmentDashboardSummary, error)
+}
+
+type TranslationAssignmentReviewerSummaryStore interface {
+	AssignmentReviewerAggregateCounts(ctx context.Context, input TranslationAssignmentReviewerAggregateInput) (map[string]int, error)
+}
+
+type TranslationAssignmentPageQueryInput struct {
+	Filter      translationAssignmentListFilter
+	Page        int
+	PerPage     int
+	Environment string
+	Now         time.Time
+}
+
+type TranslationAssignmentPageQueryResult struct {
+	Items []TranslationAssignment
+	Total int
+}
+
+type TranslationAssignmentQueueSummaryInput struct {
+	Filters map[string]any
+	Now     time.Time
+}
+
+type TranslationAssignmentQueueSummary struct {
+	Total        int
+	ByQueueState map[string]int
+	ByDueState   map[string]int
+}
+
+type TranslationAssignmentMyWorkSummaryInput struct {
+	Filters map[string]any
+	Now     time.Time
+}
+
+type TranslationAssignmentDashboardSummaryInput struct {
+	TenantID     string
+	OrgID        string
+	ActorID      string
+	Now          time.Time
+	OverdueLimit int
+}
+
+type TranslationAssignmentReviewerAggregateInput struct {
+	TenantID string
+	OrgID    string
+	ActorID  string
+	Now      time.Time
+}
+
+type TranslationAssignmentDashboardSummary struct {
+	MyTasks             int
+	MyInProgress        int
+	MyDueSoon           int
+	MyOverdue           int
+	NeedsReview         int
+	NeedsReviewOverdue  int
+	OverdueTasks        int
+	HighPriorityOverdue int
+	TopOverdue          []TranslationAssignment
 }
 
 // InMemoryTranslationAssignmentRepository provides active-key uniqueness and optimistic locking constraints.
