@@ -435,8 +435,7 @@ test('translation editor runtime: translation-memory insert keeps inline editing
   await flushAsync();
   await flushAsync();
 
-  root.querySelector('[data-sidebar-tab="assist"]').dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
-  root.querySelector('[data-insert-tm="tm-decimal"]').dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+  root.querySelector('[data-insert-tm="tm-decimal"]').click();
 
   const bodyInput = root.querySelector('[data-field-input="body"]');
   assert.equal(bodyInput.value, 'Guide precedent pour les workflows de publication.');

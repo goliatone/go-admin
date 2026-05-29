@@ -261,7 +261,7 @@ function Y(e, t, s, a, r, n) {
     glossary_hits: []
   }));
 }
-function Pe(e) {
+function Me(e) {
   const t = u(e), s = u(t.data && typeof t.data == "object" ? t.data : e), a = S(s.source_fields, {
     trimKeys: !0,
     omitBlankKeys: !0
@@ -300,7 +300,7 @@ function Pe(e) {
     review_action_states: x(s.review_action_states ?? s.review_actions)
   };
 }
-function ze(e) {
+function Pe(e) {
   const t = u(e), s = u(t.data && typeof t.data == "object" ? t.data : e);
   return {
     variant_id: i(s.variant_id),
@@ -326,7 +326,7 @@ function R(e) {
   for (const t of Object.values(e.field_completeness)) if (t.required && t.missing) return !1;
   return !0;
 }
-function Me(e) {
+function ze(e) {
   return {
     detail: {
       ...e,
@@ -389,7 +389,7 @@ function Be(e) {
   };
 }
 function Oe(e, t) {
-  const s = ze(t), a = {
+  const s = Pe(t), a = {
     ...e.detail,
     row_version: s.row_version,
     target_fields: {
@@ -428,7 +428,7 @@ function Ie(e, t) {
     }
   };
 }
-function P(e, t) {
+function M(e, t) {
   const s = new URL(e, typeof window < "u" ? window.location.origin : "http://localhost");
   for (const [a, r] of Object.entries(t))
     r == null || `${r}`.trim() === "" || s.searchParams.set(a, String(r));
@@ -467,7 +467,7 @@ async function Ve(e) {
       errorCode: n.textCode
     };
   }
-  const r = Pe(await t.json());
+  const r = Me(await t.json());
   return r.assignment_id ? {
     status: "ready",
     detail: r,
@@ -561,7 +561,7 @@ function et() {
     textClass: "text-sm font-medium text-gray-500"
   });
 }
-function z(e, t) {
+function P(e, t) {
   return V({
     tag: "section",
     containerClass: `${he} p-8 text-center shadow-sm`,
@@ -574,7 +574,7 @@ function z(e, t) {
     messageClass: `${pe} mt-2`
   });
 }
-function M(e, t, s) {
+function z(e, t, s) {
   return V({
     tag: "section",
     containerClass: `${me} p-8 shadow-sm`,
@@ -708,7 +708,7 @@ function it(e) {
   `;
 }
 function nt(e) {
-  return e.source_value && e.source_value.trim() ? l(e.source_value) : e.required ? '<span class="text-amber-600 italic">Source text pending - required field</span>' : '<span class="text-gray-400 italic">No source text for this field</span>';
+  return e.source_value && e.source_value.trim() ? l(e.source_value) : e.required ? '<span class="text-amber-600 italic">Source text pending - required field</span>' : '<span class="text-gray-400 italic">Optional source content not provided</span>';
 }
 function ot(e) {
   return `
@@ -761,7 +761,7 @@ function W(e) {
     const a = u(s), r = i(a.suggested_text) || i(a.target_text);
     r && t.push({
       id: i(a.id) || `tm-${t.length}`,
-      score: f(a.score) || f(a.match_score) || 0,
+      score: lt(a.score, a.match_score),
       sourceLabel: i(a.source_label) || i(a.source) || "Internal TM",
       localePair: i(a.locale_pair) || "",
       fieldPath: i(a.field_path) || "",
@@ -771,7 +771,16 @@ function W(e) {
   }
   return t.sort((s, a) => a.score - s.score);
 }
-function lt(e) {
+function lt(e, t) {
+  const s = f(e) || f(t);
+  if (!Number.isFinite(s) || s <= 0) return 0;
+  const a = s <= 1 ? s * 100 : s;
+  return Math.max(0, Math.min(100, Math.round(a)));
+}
+function dt(e) {
+  return e >= 99 ? "Exact" : e >= 80 ? "High" : "Fuzzy";
+}
+function ct(e) {
   return e.length ? `
     <div class="mt-4" data-assist-section="tm">
       <h3 class="text-sm font-semibold text-gray-800">Translation Memory</h3>
@@ -782,7 +791,7 @@ function lt(e) {
               <div class="flex-1 min-w-0">
                 <p class="font-medium text-gray-900 break-words">${l(t.suggestedText)}</p>
                 <div class="mt-2 flex flex-wrap items-center gap-2 text-xs text-gray-500">
-                  <span class="rounded-full bg-sky-100 px-2 py-0.5 text-sky-700">${t.score >= 100 ? "Exact" : t.score >= 80 ? "High" : "Fuzzy"} ${t.score}%</span>
+                  <span class="rounded-full bg-sky-100 px-2 py-0.5 text-sky-700">${dt(t.score)} ${t.score}%</span>
                   <span>${l(t.sourceLabel)}</span>
                   ${t.localePair ? `<span class="text-gray-400">${l(t.localePair)}</span>` : ""}
                   ${t.isStaleSource ? '<span class="text-amber-600">Source changed</span>' : ""}
@@ -811,13 +820,13 @@ function lt(e) {
       </div>
     `;
 }
-function dt(e) {
+function ut(e) {
   const t = e.assist.glossary_matches, s = e.assist.style_guide_summary;
   return `
     <section class="rounded-xl border border-gray-200 bg-white p-5" data-editor-panel="assist">
       <h2 class="text-lg font-semibold text-gray-900">Assist</h2>
       <div class="mt-4 space-y-4">
-        ${lt(W(e.assist.translation_memory_suggestions))}
+        ${ct(W(e.assist.translation_memory_suggestions))}
         <div data-assist-section="glossary">
           <h3 class="text-sm font-semibold text-gray-800">Glossary</h3>
           ${t.length ? `<ul class="mt-3 space-y-2">${t.map((a) => `
@@ -843,7 +852,7 @@ function dt(e) {
     </section>
   `;
 }
-function ct(e) {
+function mt(e) {
   const t = e.history.items.map((s) => ({
     id: s.id,
     title: s.title || $(s.entry_type),
@@ -871,7 +880,7 @@ function ct(e) {
     return (a.created_at ? Date.parse(a.created_at) : 0) - r;
   });
 }
-function ut(e) {
+function ft(e) {
   const t = e.qa_results;
   if (!t.enabled) return "";
   const s = t.findings.filter((n) => n.severity === "blocker"), a = t.findings.filter((n) => n.severity !== "blocker"), r = (n, o) => {
@@ -916,7 +925,7 @@ function ut(e) {
     </section>
   `;
 }
-function mt(e, t) {
+function gt(e, t) {
   const s = e.review_action_states.approve, a = e.review_action_states.reject;
   return D(e) ? `
     <section
@@ -954,7 +963,7 @@ function mt(e, t) {
     </section>
   ` : "";
 }
-function ft(e, t) {
+function pt(e, t) {
   return e ? `
     <div class="${oe}" data-reject-modal="true">
       <section class="${ae}" role="dialog" aria-modal="true" aria-labelledby="translation-reject-title">
@@ -983,7 +992,7 @@ function ft(e, t) {
     </div>
   ` : "";
 }
-function gt(e, t) {
+function bt(e, t) {
   if (!F(e)) return "";
   const s = e.assignment_action_states.archive, a = !s?.enabled || t;
   return `
@@ -1007,7 +1016,7 @@ function gt(e, t) {
     </section>
   `;
 }
-function pt(e) {
+function ht(e) {
   return `
     <section class="${A} p-5">
       <div class="flex items-center justify-between gap-3">
@@ -1030,8 +1039,8 @@ function pt(e) {
     </section>
   `;
 }
-function bt(e) {
-  const t = e.history, s = ct(e);
+function vt(e) {
+  const t = e.history, s = mt(e);
   return `
     <section class="rounded-xl border border-gray-200 bg-white p-5">
       <div class="flex items-center justify-between gap-3">
@@ -1060,7 +1069,7 @@ function bt(e) {
     </section>
   `;
 }
-function ht(e) {
+function _t(e) {
   const t = D(e), s = F(e), a = e.qa_results.enabled ? e.qa_results.summary.finding_count : 0, r = W(e.assist.translation_memory_suggestions).length, n = e.assist.glossary_matches.length, o = e.attachment_summary.total, d = e.history.total;
   return {
     actions: null,
@@ -1070,8 +1079,8 @@ function ht(e) {
     history: d > 0 ? String(d) : null
   };
 }
-function vt(e, t, s = "actions", a) {
-  const r = ht(e), n = D(e), o = F(e), d = n || o, c = `
+function yt(e, t, s = "actions", a) {
+  const r = _t(e), n = D(e), o = F(e), d = n || o, c = `
     <nav class="flex flex-wrap gap-1 rounded-xl border border-gray-200 bg-gray-50 p-1" role="tablist" aria-label="Editor sidebar sections">
       ${[
     {
@@ -1122,8 +1131,8 @@ function vt(e, t, s = "actions", a) {
   `, g = {
     actions: `
       <div id="sidebar-panel-actions" class="space-y-4" role="tabpanel" data-sidebar-panel="actions" ${s !== "actions" ? "hidden" : ""}>
-        ${n ? mt(e, t) : ""}
-        ${o ? gt(e, t) : ""}
+        ${n ? gt(e, t) : ""}
+        ${o ? bt(e, t) : ""}
         ${d ? "" : `
           <div class="rounded-xl border border-gray-200 bg-white p-5">
             <h2 class="text-lg font-semibold text-gray-900">Actions</h2>
@@ -1134,22 +1143,22 @@ function vt(e, t, s = "actions", a) {
     `,
     qa: `
       <div id="sidebar-panel-qa" class="space-y-4" role="tabpanel" data-sidebar-panel="qa" ${s !== "qa" ? "hidden" : ""}>
-        ${ut(e)}
+        ${ft(e)}
       </div>
     `,
     assist: `
       <div id="sidebar-panel-assist" class="space-y-4" role="tabpanel" data-sidebar-panel="assist" ${s !== "assist" ? "hidden" : ""}>
-        ${dt(e)}
+        ${ut(e)}
       </div>
     `,
     files: `
       <div id="sidebar-panel-files" class="space-y-4" role="tabpanel" data-sidebar-panel="files" ${s !== "files" ? "hidden" : ""}>
-        ${pt(e)}
+        ${ht(e)}
       </div>
     `,
     history: `
       <div id="sidebar-panel-history" class="space-y-4" role="tabpanel" data-sidebar-panel="history" ${s !== "history" ? "hidden" : ""}>
-        ${bt(e)}
+        ${vt(e)}
         ${K(a || {
       status: "ready",
       detail: e
@@ -1164,13 +1173,13 @@ function vt(e, t, s = "actions", a) {
     </aside>
   `;
 }
-function _t(e, t, s = {}, a = {}) {
+function xt(e, t, s = {}, a = {}) {
   if (e.status === "loading") return et();
-  if (e.status === "empty") return z("Assignment unavailable", e.message || "No assignment detail payload was returned.");
-  if (e.status === "error") return M("Editor unavailable", e.message || "Unable to load the assignment editor.", e);
-  if (e.status === "conflict") return M("Editor conflict", e.message || "A newer version of this assignment is available.", e);
+  if (e.status === "empty") return P("Assignment unavailable", e.message || "No assignment detail payload was returned.");
+  if (e.status === "error") return z("Editor unavailable", e.message || "Unable to load the assignment editor.", e);
+  if (e.status === "conflict") return z("Editor conflict", e.message || "A newer version of this assignment is available.", e);
   const r = t?.detail || e.detail;
-  if (!r) return z("Assignment unavailable", "No assignment detail payload was returned.");
+  if (!r) return P("Assignment unavailable", "No assignment detail payload was returned.");
   const n = !!(t && Object.keys(t.dirty_fields).length), o = Ye(t || null, n, a.lastSavedMessage || ""), d = t?.autosave.conflict;
   return `
     <div class="translation-editor-screen space-y-6" data-translation-editor="true">
@@ -1192,17 +1201,17 @@ function _t(e, t, s = {}, a = {}) {
           ${ot(r)}
         </div>
         <div class="order-2">
-          ${vt(r, a.submitting === !0, a.activeSidebarTab || "actions", e)}
+          ${yt(r, a.submitting === !0, a.activeSidebarTab || "actions", e)}
         </div>
       </div>
-      ${ft(a.rejectDraft || null, a.submitting === !0)}
+      ${pt(a.rejectDraft || null, a.submitting === !0)}
     </div>
   `;
 }
-function yt(e, t, s, a = {}, r = {}) {
-  e.innerHTML = _t(t, s, a, r);
+function $t(e, t, s, a = {}, r = {}) {
+  e.innerHTML = xt(t, s, a, r);
 }
-var xt = class {
+var wt = class {
   constructor(e) {
     this.container = null, this.loadState = { status: "loading" }, this.editorState = null, this.feedback = null, this.lastSavedMessage = "", this.autosaveTimer = null, this.keyboardHandler = null, this.focusTrapCleanup = null, this.saving = !1, this.submitting = !1, this.rejectDraft = null, this.activeSidebarTab = "actions", this.config = {
       endpoint: e.endpoint,
@@ -1220,13 +1229,13 @@ var xt = class {
     this.autosaveTimer && clearTimeout(this.autosaveTimer), this.keyboardHandler && (document.removeEventListener("keydown", this.keyboardHandler), this.keyboardHandler = null), this.focusTrapCleanup && (this.focusTrapCleanup(), this.focusTrapCleanup = null), this.container && (this.container.innerHTML = ""), this.container = null;
   }
   async load(e) {
-    this.loadState = { status: "loading" }, this.render(), this.loadState = await Ve(e ? P(this.config.endpoint, {
+    this.loadState = { status: "loading" }, this.render(), this.loadState = await Ve(e ? M(this.config.endpoint, {
       history_page: e,
       history_per_page: this.editorState?.detail.history.per_page || this.loadState.detail?.history.per_page || 10
-    }) : this.config.endpoint), this.loadState.status === "ready" && this.loadState.detail ? this.editorState = Me(this.loadState.detail) : this.editorState = null, this.render();
+    }) : this.config.endpoint), this.loadState.status === "ready" && this.loadState.detail ? this.editorState = ze(this.loadState.detail) : this.editorState = null, this.render();
   }
   render() {
-    this.container && (yt(this.container, this.loadState, this.editorState, { basePath: this.config.basePath }, {
+    this.container && ($t(this.container, this.loadState, this.editorState, { basePath: this.config.basePath }, {
       feedback: this.feedback,
       lastSavedMessage: this.lastSavedMessage,
       saving: this.saving,
@@ -1321,7 +1330,7 @@ var xt = class {
   async saveDirtyFields(e) {
     if (!this.editorState || !Object.keys(this.editorState.dirty_fields).length || this.saving) return !0;
     this.saving = !0, this.editorState = Be(this.editorState), this.render();
-    const t = this.editorState.detail, s = await y(P(`${this.config.variantEndpointBase}/${encodeURIComponent(t.variant_id)}`, {}), {
+    const t = this.editorState.detail, s = await y(M(`${this.config.variantEndpointBase}/${encodeURIComponent(t.variant_id)}`, {}), {
       method: "PATCH",
       json: {
         expected_version: this.editorState.row_version,
@@ -1454,25 +1463,25 @@ var xt = class {
     });
   }
 };
-async function Ct(e, t) {
-  const s = new xt(t);
+async function Dt(e, t) {
+  const s = new wt(t);
   return s.mount(e), s;
 }
 export {
   Ne as TranslationEditorRequestError,
-  xt as TranslationEditorScreen,
+  wt as TranslationEditorScreen,
   Ie as applyEditorAutosaveConflict,
   w as applyEditorFieldChange,
   Oe as applyEditorUpdateResponse,
-  Me as createTranslationEditorState,
+  ze as createTranslationEditorState,
   Ve as fetchTranslationEditorDetailState,
-  Ct as initTranslationEditorPage,
+  Dt as initTranslationEditorPage,
   Be as markEditorAutosavePending,
-  Pe as normalizeAssignmentEditorDetail,
+  Me as normalizeAssignmentEditorDetail,
   G as normalizeEditorAssistPayload,
-  ze as normalizeEditorUpdateResponse,
-  yt as renderTranslationEditorPage,
-  _t as renderTranslationEditorState
+  Pe as normalizeEditorUpdateResponse,
+  $t as renderTranslationEditorPage,
+  xt as renderTranslationEditorState
 };
 
 //# sourceMappingURL=index.js.map
