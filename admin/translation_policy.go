@@ -42,6 +42,7 @@ type TranslationPolicyInput struct {
 // TranslationRequirements captures required locales and optional field checks.
 type TranslationRequirements struct {
 	Locales                 []string                         `json:"locales"`
+	SourceLocale            string                           `json:"source_locale,omitempty"`
 	RequiredFields          map[string][]string              `json:"required_fields"`
 	RequiredFieldsStrategy  RequiredFieldsValidationStrategy `json:"required_fields_strategy"`
 	ReviewRequired          bool                             `json:"review_required"`
