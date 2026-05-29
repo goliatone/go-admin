@@ -68,9 +68,27 @@ export interface TranslationDashboardCard {
   runbookId: string;
 }
 
+// Remediation context for blocked families (T08)
+export interface TranslationDashboardReasonBreakdown {
+  code: string;
+  label: string;
+  count: number;
+  affectedLocales: string[];
+}
+
+export interface TranslationDashboardReasonData {
+  state: 'available' | 'unavailable' | 'degraded';
+  message: string;
+}
+
 export interface TranslationDashboardTableRow {
   [key: string]: unknown;
   links: Record<string, TranslationDashboardLink>;
+  blockerCodes?: string[];
+  blockerLabels?: Record<string, string>;
+  reasonBreakdown?: TranslationDashboardReasonBreakdown[];
+  affectedLocales?: string[];
+  reasonData?: TranslationDashboardReasonData;
 }
 
 export interface TranslationDashboardTable {
@@ -308,6 +326,30 @@ export function normalizeTranslationDashboardCard(value: unknown): TranslationDa
   };
 }
 
+function normalizeReasonBreakdown(value: unknown): TranslationDashboardReasonBreakdown | null {
+  const raw = asRecord(value);
+  const code = asString(raw.code);
+  if (!code) return null;
+  return {
+    code,
+    label: asString(raw.label) || formatMetricLabel(code),
+    count: asNumber(raw.count),
+    affectedLocales: asList(raw.affected_locales, (item) => asString(item) || null),
+  };
+}
+
+function normalizeReasonData(value: unknown): TranslationDashboardReasonData | undefined {
+  const raw = asRecord(value);
+  const state = asString(raw.state);
+  if (!state || (state !== 'available' && state !== 'unavailable' && state !== 'degraded')) {
+    return undefined;
+  }
+  return {
+    state,
+    message: asString(raw.message),
+  };
+}
+
 export function normalizeTranslationDashboardTableRow(value: unknown): TranslationDashboardTableRow | null {
   const raw = asRecord(value);
   if (Object.keys(raw).length === 0) {
@@ -320,9 +362,28 @@ export function normalizeTranslationDashboardTableRow(value: unknown): Translati
       links[key] = link;
     }
   }
+
+  // Parse remediation context fields (T08)
+  const blockerCodes = asList(raw.blocker_codes, (item) => asString(item) || null);
+  const blockerLabels: Record<string, string> = {};
+  for (const [key, label] of Object.entries(asRecord(raw.blocker_labels))) {
+    const labelStr = asString(label);
+    if (labelStr) {
+      blockerLabels[key] = labelStr;
+    }
+  }
+  const reasonBreakdown = asList(raw.reason_breakdown, normalizeReasonBreakdown);
+  const affectedLocales = asList(raw.affected_locales, (item) => asString(item) || null);
+  const reasonData = normalizeReasonData(raw.reason_data);
+
   return {
     ...raw,
     links,
+    blockerCodes: blockerCodes.length > 0 ? blockerCodes : undefined,
+    blockerLabels: Object.keys(blockerLabels).length > 0 ? blockerLabels : undefined,
+    reasonBreakdown: reasonBreakdown.length > 0 ? reasonBreakdown : undefined,
+    affectedLocales: affectedLocales.length > 0 ? affectedLocales : undefined,
+    reasonData,
   };
 }
 
@@ -609,6 +670,64 @@ function formatMetricLabel(value: string): string {
     .replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
+// Human-readable label lookups for dashboard elements (T07)
+const CARD_LABELS: Record<string, { label: string; shortLabel?: string }> = {
+  my_tasks: { label: 'My Tasks', shortLabel: 'Tasks' },
+  needs_review: { label: 'Needs Review', shortLabel: 'Review' },
+  overdue_tasks: { label: 'Overdue Tasks', shortLabel: 'Overdue' },
+  blocked_families: { label: 'Blocked Families', shortLabel: 'Blocked' },
+  missing_required_locales: { label: 'Missing Required Locales', shortLabel: 'Missing' },
+};
+
+const TABLE_LABELS: Record<string, string> = {
+  top_overdue_assignments: 'Top Overdue Assignments',
+  blocked_families: 'Blocked Families',
+};
+
+const RUNBOOK_LABELS: Record<string, string> = {
+  'translations.dashboard.overdue_triage': 'Overdue Assignment Triage',
+  'translations.dashboard.review_backlog': 'Reviewer Backlog Triage',
+  'translations.dashboard.publish_blockers': 'Publish Blocker Remediation',
+};
+
+const METRIC_KEY_LABELS: Record<string, string> = {
+  'translations.dashboard.my_tasks': 'Actor Task Count',
+  'translations.dashboard.needs_review': 'Review Queue Depth',
+  'translations.dashboard.overdue_tasks': 'Overdue Assignment Count',
+  'translations.dashboard.blocked_families': 'Blocked Family Count',
+  'translations.dashboard.missing_required_locales': 'Missing Locale Count',
+};
+
+function getCardLabel(cardId: string, fallback: string): string {
+  return CARD_LABELS[cardId]?.label || fallback || formatMetricLabel(cardId);
+}
+
+function getTableLabel(tableId: string, fallback: string): string {
+  return TABLE_LABELS[tableId] || fallback || formatMetricLabel(tableId);
+}
+
+function getRunbookLabel(runbookId: string, fallback: string): string {
+  return RUNBOOK_LABELS[runbookId] || fallback || formatMetricLabel(runbookId);
+}
+
+function getMetricKeyLabel(metricKey: string): string {
+  return METRIC_KEY_LABELS[metricKey] || formatMetricLabel(metricKey);
+}
+
+function formatRefreshInterval(ms: number): string {
+  if (ms < 1000) return `${ms}ms`;
+  const seconds = Math.floor(ms / 1000);
+  if (seconds < 60) return `${seconds}s`;
+  const minutes = Math.floor(seconds / 60);
+  return `${minutes}m`;
+}
+
+function formatLatencyTarget(ms: number): string {
+  if (ms <= 0) return 'N/A';
+  if (ms < 1000) return `${ms}ms`;
+  return `${(ms / 1000).toFixed(1)}s`;
+}
+
 function renderLink(label: string, link: TranslationDashboardLink | null, fallbackClass = ''): string {
   const safeLabel = escapeHTML(label);
   if (link?.href) {
@@ -639,7 +758,45 @@ function renderLinkedActions(links: TranslationDashboardLink[], emptyLabel = 'No
     .join('');
 }
 
-function renderCard(card: TranslationDashboardCard): string {
+function renderCardDrilldown(card: TranslationDashboardCard): string {
+  if (!card.drilldown?.href) {
+    return `<span class="text-xs text-gray-400">No drilldown available</span>`;
+  }
+  return `
+    <a
+      href="${escapeAttribute(card.drilldown.href)}"
+      class="inline-flex items-center gap-1.5 rounded-lg bg-gray-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:ring-offset-2 transition-colors"
+      data-dashboard-drilldown="${escapeAttribute(card.id)}"
+      title="${escapeAttribute(card.drilldown.description || card.drilldown.label || 'Open drilldown')}"
+    >
+      <span>${escapeHTML(card.drilldown.label || 'Open')}</span>
+      <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+      </svg>
+    </a>
+  `;
+}
+
+function renderCardRunbookLink(card: TranslationDashboardCard, runbooks: TranslationDashboardRunbook[]): string {
+  if (!card.runbookId) return '';
+  const runbook = runbooks.find((r) => r.id === card.runbookId);
+  if (!runbook?.href) return '';
+  return `
+    <a
+      href="${escapeAttribute(runbook.href)}"
+      class="inline-flex items-center gap-1 text-xs text-sky-700 hover:text-sky-900 hover:underline"
+      data-dashboard-card-runbook="${escapeAttribute(card.id)}"
+      title="${escapeAttribute(runbook.description || runbook.title)}"
+    >
+      <svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+      </svg>
+      <span>${escapeHTML(getRunbookLabel(card.runbookId, runbook.title))}</span>
+    </a>
+  `;
+}
+
+function renderCard(card: TranslationDashboardCard, runbooks: TranslationDashboardRunbook[] = []): string {
   const breakdown = Object.entries(card.breakdown)
     .map(([key, value]) => `
       <li class="flex items-center justify-between gap-3 text-xs text-gray-600">
@@ -649,11 +806,15 @@ function renderCard(card: TranslationDashboardCard): string {
     `)
     .join('');
 
+  const cardLabel = getCardLabel(card.id, card.label);
+  const metricLabel = getMetricKeyLabel(card.metricKey);
+  const runbookLink = renderCardRunbookLink(card, runbooks);
+
   return `
-    <article class="${CARD} p-4 shadow-sm" data-dashboard-card="${escapeAttribute(card.id)}">
+    <article class="${CARD} p-4 shadow-sm flex flex-col" data-dashboard-card="${escapeAttribute(card.id)}">
       <div class="flex items-start justify-between gap-4">
         <div>
-          <p class="text-xs font-semibold uppercase tracking-[0.24em] text-gray-500">${escapeHTML(card.label)}</p>
+          <p class="text-xs font-semibold uppercase tracking-[0.24em] text-gray-500">${escapeHTML(cardLabel)}</p>
           <p class="mt-2 text-3xl font-semibold tracking-tight text-gray-900">${escapeHTML(String(card.count))}</p>
         </div>
         <span class="inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${escapeAttribute(alertToneClass(card.alert.state))}">
@@ -662,9 +823,12 @@ function renderCard(card: TranslationDashboardCard): string {
       </div>
       <p class="mt-3 text-sm leading-6 text-gray-600">${escapeHTML(card.description)}</p>
       ${breakdown ? `<ul class="mt-4 space-y-2">${breakdown}</ul>` : ''}
-      <div class="mt-4 flex items-center justify-between gap-3 text-sm">
-        ${renderLink(card.drilldown?.label || 'Open drilldown', card.drilldown)}
-        <span class="text-xs text-gray-400">${escapeHTML(card.metricKey)}</span>
+      <div class="mt-auto pt-4 flex flex-col gap-3">
+        <div class="flex items-center justify-between gap-3">
+          ${renderCardDrilldown(card)}
+          <span class="text-xs text-gray-400" title="${escapeAttribute(card.metricKey)}">${escapeHTML(metricLabel)}</span>
+        </div>
+        ${runbookLink ? `<div class="border-t border-gray-100 pt-3">${runbookLink}</div>` : ''}
       </div>
     </article>
   `;
@@ -726,14 +890,69 @@ function renderTopOverdueTable(table: TranslationDashboardTable): string {
   `;
 }
 
+function renderBlockerCodeChips(row: TranslationDashboardTableRow): string {
+  const codes = row.blockerCodes || [];
+  const labels = row.blockerLabels || {};
+  if (codes.length === 0) return '';
+
+  return codes.map((code) => {
+    const label = labels[code] || formatMetricLabel(code);
+    const colorClass = code === 'missing_locale' ? 'bg-amber-100 text-amber-800'
+      : code === 'pending_review' ? 'bg-sky-100 text-sky-800'
+      : code === 'outdated_source' ? 'bg-rose-100 text-rose-800'
+      : 'bg-gray-100 text-gray-700';
+    return `<span class="inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium ${colorClass}" data-blocker-code="${escapeAttribute(code)}">${escapeHTML(label)}</span>`;
+  }).join('');
+}
+
+function renderAffectedLocaleChips(row: TranslationDashboardTableRow): string {
+  const locales = row.affectedLocales || [];
+  if (locales.length === 0) return '';
+
+  const maxVisible = 3;
+  const visible = locales.slice(0, maxVisible);
+  const remaining = locales.length - maxVisible;
+
+  const chips = visible.map((locale) =>
+    `<span class="inline-flex items-center rounded-md bg-gray-100 px-1.5 py-0.5 text-xs font-medium text-gray-600">${escapeHTML(locale.toUpperCase())}</span>`
+  ).join('');
+
+  const overflow = remaining > 0
+    ? `<span class="inline-flex items-center text-xs text-gray-500">+${remaining}</span>`
+    : '';
+
+  return `<div class="flex flex-wrap items-center gap-1">${chips}${overflow}</div>`;
+}
+
+function renderReasonDataState(row: TranslationDashboardTableRow): string {
+  const reasonData = row.reasonData;
+  if (!reasonData) return '';
+
+  if (reasonData.state === 'available') return '';
+
+  const isDegraded = reasonData.state === 'degraded';
+  const iconColor = isDegraded ? 'text-amber-500' : 'text-gray-400';
+  const icon = isDegraded
+    ? `<svg class="h-3.5 w-3.5 ${iconColor}" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>`
+    : `<svg class="h-3.5 w-3.5 ${iconColor}" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>`;
+
+  return `
+    <span class="inline-flex items-center gap-1 text-xs text-gray-500" title="${escapeAttribute(reasonData.message || 'Reason data is ' + reasonData.state)}">
+      ${icon}
+      <span class="sr-only">${escapeHTML(reasonData.message || 'Reason data ' + reasonData.state)}</span>
+    </span>
+  `;
+}
+
 function renderBlockedFamiliesTable(table: TranslationDashboardTable): string {
   return `
     <table class="min-w-full divide-y divide-gray-200 text-sm">
-      <caption class="sr-only">Blocked families with family detail and blocker feed drill-down actions.</caption>
+      <caption class="sr-only">Blocked families with family detail, blocker codes, affected locales, and drill-down actions.</caption>
       <thead class="bg-gray-50 text-left text-xs uppercase tracking-[0.2em] text-gray-500">
         <tr>
           <th scope="col" class="px-4 py-3">Family</th>
-          <th scope="col" class="px-4 py-3">Readiness</th>
+          <th scope="col" class="px-4 py-3">Blockers</th>
+          <th scope="col" class="px-4 py-3">Affected</th>
           <th scope="col" class="px-4 py-3 text-right">Missing</th>
           <th scope="col" class="px-4 py-3 text-right">Review</th>
           <th scope="col" class="px-4 py-3 text-right">Actions</th>
@@ -741,12 +960,20 @@ function renderBlockedFamiliesTable(table: TranslationDashboardTable): string {
       </thead>
       <tbody class="divide-y divide-gray-100 bg-white">
         ${table.rows.map((row) => `
-          <tr>
+          <tr data-family-row="${escapeAttribute(asString(row.family_id))}">
             <td class="px-4 py-3">
               <div class="font-medium text-gray-900">${renderLink(asString(row.family_id), row.links.family)}</div>
-              <div class="mt-1 text-xs text-gray-500">${escapeHTML(asString(row.content_type))}</div>
+              <div class="mt-1 flex items-center gap-2 text-xs text-gray-500">
+                <span>${escapeHTML(asString(row.content_type))}</span>
+                ${renderReasonDataState(row)}
+              </div>
             </td>
-            <td class="px-4 py-3 text-gray-600">${escapeHTML(formatMetricLabel(asString(row.readiness_state)))}</td>
+            <td class="px-4 py-3">
+              <div class="flex flex-wrap gap-1">${renderBlockerCodeChips(row)}</div>
+            </td>
+            <td class="px-4 py-3">
+              ${renderAffectedLocaleChips(row)}
+            </td>
             <td class="px-4 py-3 text-right font-medium text-amber-700">${escapeHTML(String(asNumber(row.missing_required_locale_count)))}</td>
             <td class="px-4 py-3 text-right font-medium text-gray-700">${escapeHTML(String(asNumber(row.pending_review_count)))}</td>
             <td class="px-4 py-3">
@@ -759,17 +986,40 @@ function renderBlockedFamiliesTable(table: TranslationDashboardTable): string {
   `;
 }
 
-function renderTable(table: TranslationDashboardTable): string {
+function renderTable(table: TranslationDashboardTable, runbooks: TranslationDashboardRunbook[] = []): string {
   const content = table.id === 'top_overdue_assignments'
     ? renderTopOverdueTable(table)
     : renderBlockedFamiliesTable(table);
+  const tableLabel = getTableLabel(table.id, table.label);
+
+  // Find contextual runbook for the table
+  const tableRunbookMap: Record<string, string> = {
+    top_overdue_assignments: 'translations.dashboard.overdue_triage',
+    blocked_families: 'translations.dashboard.publish_blockers',
+  };
+  const runbookId = tableRunbookMap[table.id];
+  const runbook = runbookId ? runbooks.find((r) => r.id === runbookId) : undefined;
+
   return `
     <section class="overflow-hidden ${CARD} shadow-sm" data-dashboard-table="${escapeAttribute(table.id)}">
       <header class="flex items-center justify-between gap-3 border-b border-gray-200 px-4 py-3">
         <div>
-          <h2 class="text-sm font-semibold uppercase tracking-[0.22em] text-gray-500">${escapeHTML(table.label)}</h2>
+          <h2 class="text-sm font-semibold uppercase tracking-[0.22em] text-gray-500">${escapeHTML(tableLabel)}</h2>
           <p class="mt-1 text-xs text-gray-500">Showing ${escapeHTML(String(table.rows.length))} of ${escapeHTML(String(table.total))}</p>
         </div>
+        ${runbook?.href ? `
+          <a
+            href="${escapeAttribute(runbook.href)}"
+            class="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:border-gray-300 hover:bg-gray-50 transition-colors"
+            data-dashboard-table-runbook="${escapeAttribute(table.id)}"
+            title="${escapeAttribute(runbook.description || runbook.title)}"
+          >
+            <span>${escapeHTML(getRunbookLabel(runbookId || '', runbook.title))}</span>
+            <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+            </svg>
+          </a>
+        ` : ''}
       </header>
       <div class="overflow-x-auto">${content}</div>
     </section>
@@ -820,14 +1070,38 @@ function renderSummaryMeta(payload: TranslationDashboardResponse): string {
   const scopeParts = Object.entries(payload.meta.scope)
     .filter(([, value]) => value)
     .map(([key, value]) => `${formatMetricLabel(key)}: ${value}`);
+
+  const refreshDisplay = formatRefreshInterval(payload.meta.refreshIntervalMs);
+  const latencyDisplay = formatLatencyTarget(payload.meta.latencyTargetMs);
+  const channel = payload.meta.channel || 'default';
+
   return `
-    <section class="rounded-xl border border-gray-200 bg-gray-900 px-5 py-4 text-sm text-gray-200 shadow-sm" data-dashboard-meta="true">
-      <div class="flex flex-wrap items-center gap-4">
-        <span><strong class="font-semibold text-white">Channel:</strong> ${escapeHTML(payload.meta.channel || 'default')}</span>
-        <span><strong class="font-semibold text-white">Refresh:</strong> ${escapeHTML(String(payload.meta.refreshIntervalMs))}ms</span>
-        <span><strong class="font-semibold text-white">Latency target:</strong> ${escapeHTML(String(payload.meta.latencyTargetMs))}ms p95</span>
+    <section class="rounded-xl border border-gray-200 bg-gradient-to-r from-gray-900 to-gray-800 px-4 py-3 shadow-sm" data-dashboard-meta="true">
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <div class="flex flex-wrap items-center gap-3 text-xs">
+          <span class="inline-flex items-center gap-1.5 rounded-md bg-gray-700/50 px-2 py-1 text-gray-300">
+            <svg class="h-3.5 w-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+            </svg>
+            <span class="font-medium text-white">${escapeHTML(channel)}</span>
+          </span>
+          <span class="inline-flex items-center gap-1.5 rounded-md bg-gray-700/50 px-2 py-1 text-gray-300" title="Auto-refresh interval">
+            <svg class="h-3.5 w-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+            </svg>
+            <span>${escapeHTML(refreshDisplay)}</span>
+          </span>
+          <span class="inline-flex items-center gap-1.5 rounded-md bg-gray-700/50 px-2 py-1 text-gray-300" title="Latency target (p95)">
+            <svg class="h-3.5 w-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            <span>${escapeHTML(latencyDisplay)}</span>
+          </span>
+        </div>
+        ${scopeParts.length > 0 ? `
+          <span class="text-xs text-gray-400">${escapeHTML(scopeParts.join(' · '))}</span>
+        ` : ''}
       </div>
-      ${scopeParts.length > 0 ? `<p class="mt-2 text-xs uppercase tracking-[0.18em] text-gray-400">${escapeHTML(scopeParts.join(' • '))}</p>` : ''}
     </section>
   `;
 }
@@ -1061,8 +1335,9 @@ export class TranslationDashboardPage extends StatefulController<TranslationDash
       return;
     }
     const payload = this.payload;
-    const cards = payload.data.cards.map(renderCard).join('');
-    const tables = Object.values(payload.data.tables).map(renderTable).join('');
+    const runbooks = payload.data.runbooks;
+    const cards = payload.data.cards.map((card) => renderCard(card, runbooks)).join('');
+    const tables = Object.values(payload.data.tables).map((table) => renderTable(table, runbooks)).join('');
     const empty = Object.values(payload.data.summary).every((value) => value === 0)
       && Object.values(payload.data.tables).every((table) => table.rows.length === 0);
     const degraded = payload.meta.degraded

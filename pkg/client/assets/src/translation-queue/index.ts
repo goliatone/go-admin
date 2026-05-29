@@ -1238,26 +1238,39 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
     const releaseDisabled = pendingRelease || !row.actions.release.enabled;
     const showReviewActions = shouldShowQueueReviewActions(row);
     const showManagementActions = shouldShowQueueManagementActions(row);
+
+    // T09: Mute empty owner/due states
+    const hasAssignee = Boolean(row.assignee_id);
+    const hasReviewer = Boolean(row.reviewer_id);
+    const hasDueDate = Boolean(row.due_date);
+    const showDueState = hasDueDate || row.due_state === 'overdue' || row.due_state === 'due_soon';
+
+    // T09: Build compact metadata line
+    const metaParts: string[] = [];
+    if (row.entity_type) metaParts.push(row.entity_type);
+    if (row.family_id && row.family_id !== row.source_path) metaParts.push(row.family_id);
+    const metaLine = metaParts.join(' · ');
+
     return `
       <tr class="assignment-queue-row" tabindex="0" data-assignment-id="${escapeAttr(row.id)}" data-assignment-row="true" data-assignment-nav-group="table" aria-label="${escapeAttr(buildRowAriaLabel(row))}">
         <td>
           <div class="queue-content-cell">
-            <strong>${escapeHtml(row.source_title || row.source_path || row.id)}</strong>
-            <span>${escapeHtml(row.entity_type)} · ${escapeHtml(row.source_path || row.family_id)}</span>
+            <strong class="queue-content-title">${escapeHtml(row.source_title || row.source_path || row.id)}</strong>
+            ${row.source_path && row.source_title ? `<span class="queue-content-path">${escapeHtml(row.source_path)}</span>` : ''}
+            ${metaLine ? `<span class="queue-content-meta">${escapeHtml(metaLine)}</span>` : ''}
           </div>
         </td>
         <td>
           <div class="queue-locale-cell">
-            <span class="locale-pill">${escapeHtml(row.source_locale.toUpperCase())}</span>
+            <span class="locale-code">${escapeHtml(row.source_locale.toUpperCase())}</span>
             <span class="locale-arrow">→</span>
-            <span class="locale-pill locale-target">${escapeHtml(row.target_locale.toUpperCase())}</span>
+            <span class="locale-code locale-target">${escapeHtml(row.target_locale.toUpperCase())}</span>
           </div>
         </td>
         <td>
           <div class="queue-status-cell">
             ${renderVocabularyStatusBadge(row.queue_state, { domain: 'queue', size: 'sm' })}
-            <span class="queue-content-state">${escapeHtml(humanizeToken(row.content_state))}</span>
-            ${row.qa_summary?.enabled ? `
+            ${row.qa_summary?.enabled && row.qa_summary.finding_count > 0 ? `
               <span class="queue-qa-chip ${row.qa_summary.blocker_count > 0 ? 'is-blocked' : ''}">
                 QA ${row.qa_summary.finding_count}
               </span>
@@ -1266,19 +1279,30 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
         </td>
         <td>
           <div class="queue-owner-cell">
-            <span><strong>Assignee:</strong> ${escapeHtml(row.assignee_id || 'Open pool')}</span>
-            <span><strong>Reviewer:</strong> ${escapeHtml(row.reviewer_id || 'Not set')}</span>
+            ${hasAssignee
+              ? `<span class="queue-owner-value">${escapeHtml(row.assignee_id)}</span>`
+              : `<span class="queue-owner-empty">Unassigned</span>`}
+            ${hasReviewer
+              ? `<span class="queue-reviewer-value">${escapeHtml(row.reviewer_id)}</span>`
+              : ''}
             ${row.last_rejection_reason ? `<span class="queue-feedback-note">${escapeHtml(row.last_rejection_reason)}</span>` : ''}
           </div>
         </td>
         <td>
           <div class="queue-due-cell">
-            <span class="due-pill due-${escapeAttr(row.due_state)}">${escapeHtml(humanizeToken(row.due_state))}</span>
-            <span>${escapeHtml(formatTranslationShortDateTime(row.due_date, 'No due date'))}</span>
+            ${showDueState
+              ? `<span class="due-pill due-${escapeAttr(row.due_state)}">${escapeHtml(humanizeToken(row.due_state))}</span>`
+              : ''}
+            ${hasDueDate
+              ? `<span class="queue-due-date">${escapeHtml(formatTranslationShortDateTime(row.due_date, ''))}</span>`
+              : `<span class="queue-due-empty">—</span>`}
           </div>
         </td>
         <td>
-          <span class="priority-pill priority-${escapeAttr(row.priority)}">${escapeHtml(humanizeToken(row.priority))}</span>
+          <div class="queue-priority-cell">
+            <span class="priority-indicator priority-${escapeAttr(row.priority)}" aria-label="${escapeAttr('Priority: ' + humanizeToken(row.priority))}"></span>
+            <span class="priority-label">${escapeHtml(humanizeToken(row.priority))}</span>
+          </div>
         </td>
         <td>
           <div class="queue-action-cell">
@@ -1363,6 +1387,12 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
     const releaseDisabled = pendingRelease || !row.actions.release.enabled;
     const showReviewActions = shouldShowQueueReviewActions(row);
     const showManagementActions = shouldShowQueueManagementActions(row);
+
+    // T09: Mute empty owner/due states for mobile
+    const hasAssignee = Boolean(row.assignee_id);
+    const hasDueDate = Boolean(row.due_date);
+    const showDueState = hasDueDate || row.due_state === 'overdue' || row.due_state === 'due_soon';
+
     return `
       <article
         class="${MOBILE_CARD}"
@@ -1376,7 +1406,7 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
         <div class="${MOBILE_CARD_HEADER}">
           <div>
             <h3 class="${MOBILE_CARD_TITLE}">${escapeHtml(row.source_title || row.source_path || row.id)}</h3>
-            <p class="${MOBILE_CARD_SUBTITLE}">${escapeHtml(row.entity_type)} · ${escapeHtml(row.source_path || row.family_id)}</p>
+            <p class="${MOBILE_CARD_SUBTITLE}">${escapeHtml(row.source_path && row.source_title ? row.source_path : (row.entity_type || row.family_id))}</p>
           </div>
           ${renderVocabularyStatusBadge(row.queue_state, { domain: 'queue', size: 'sm' })}
         </div>
@@ -1384,25 +1414,28 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
           <div class="${MOBILE_CARD_ROW}">
             <span class="${MOBILE_CARD_LABEL}">Locale</span>
             <span class="${MOBILE_CARD_VALUE}">
-              <span class="locale-pill">${escapeHtml(row.source_locale.toUpperCase())}</span>
+              <span class="locale-code">${escapeHtml(row.source_locale.toUpperCase())}</span>
               <span class="locale-arrow">→</span>
-              <span class="locale-pill locale-target">${escapeHtml(row.target_locale.toUpperCase())}</span>
+              <span class="locale-code locale-target">${escapeHtml(row.target_locale.toUpperCase())}</span>
             </span>
           </div>
           <div class="${MOBILE_CARD_ROW}">
             <span class="${MOBILE_CARD_LABEL}">Assignee</span>
-            <span class="${MOBILE_CARD_VALUE}">${escapeHtml(row.assignee_id || 'Open pool')}</span>
+            <span class="${MOBILE_CARD_VALUE} ${hasAssignee ? '' : 'text-gray-400'}">${escapeHtml(hasAssignee ? row.assignee_id : 'Unassigned')}</span>
           </div>
           <div class="${MOBILE_CARD_ROW}">
             <span class="${MOBILE_CARD_LABEL}">Due</span>
             <span class="${MOBILE_CARD_VALUE}">
-              <span class="due-pill due-${escapeAttr(row.due_state)}">${escapeHtml(humanizeToken(row.due_state))}</span>
-              ${row.due_date ? `<span class="text-gray-500 ml-1">${escapeHtml(formatTranslationShortDateTime(row.due_date, 'No due date'))}</span>` : ''}
+              ${showDueState ? `<span class="due-pill due-${escapeAttr(row.due_state)}">${escapeHtml(humanizeToken(row.due_state))}</span>` : ''}
+              ${hasDueDate ? `<span class="text-gray-600 ml-1">${escapeHtml(formatTranslationShortDateTime(row.due_date, ''))}</span>` : `<span class="text-gray-400">—</span>`}
             </span>
           </div>
           <div class="${MOBILE_CARD_ROW}">
             <span class="${MOBILE_CARD_LABEL}">Priority</span>
-            <span class="priority-pill priority-${escapeAttr(row.priority)}">${escapeHtml(humanizeToken(row.priority))}</span>
+            <span class="${MOBILE_CARD_VALUE}">
+              <span class="priority-indicator priority-${escapeAttr(row.priority)}"></span>
+              <span class="priority-label">${escapeHtml(humanizeToken(row.priority))}</span>
+            </span>
           </div>
         </div>
         <div class="${MOBILE_CARD_ACTIONS}">
@@ -1870,64 +1903,174 @@ export function getAssignmentQueueStyles(): string {
       gap: 0.35rem;
     }
 
-    .queue-content-cell span,
-    .queue-owner-cell span,
-    .queue-due-cell span,
-    .queue-status-cell span {
-      color: #4b5563;
-      font-size: 0.88rem;
+    /* T09: Content cell hierarchy */
+    .queue-content-title {
+      display: block;
+      font-weight: 600;
+      color: #111827;
+      line-height: 1.3;
     }
 
+    .queue-content-path {
+      display: block;
+      font-size: 0.82rem;
+      color: #6b7280;
+      margin-top: 0.15rem;
+    }
+
+    .queue-content-meta {
+      display: block;
+      font-size: 0.75rem;
+      color: #9ca3af;
+      margin-top: 0.1rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    /* T09: Locale codes (neutral, no flags) */
     .queue-locale-cell {
       display: inline-flex;
       align-items: center;
-      gap: 0.4rem;
+      gap: 0.35rem;
       flex-wrap: wrap;
     }
 
-    .locale-pill,
-    .priority-pill,
-    .due-pill {
+    .locale-code {
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      padding: 0.3rem 0.6rem;
-      border-radius: 999px;
-      font-size: 0.8rem;
-      font-weight: 700;
+      padding: 0.25rem 0.5rem;
+      border-radius: 0.25rem;
+      font-size: 0.78rem;
+      font-weight: 600;
+      font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, Consolas, monospace;
+      background: #f3f4f6;
+      color: #374151;
     }
 
-    .locale-pill {
-      background: #e5e7eb;
-      color: #111827;
-    }
-
-    .locale-pill.locale-target {
+    .locale-code.locale-target {
       background: #dbeafe;
       color: #1d4ed8;
     }
 
     .locale-arrow {
-      color: #6b7280;
-      font-weight: 700;
+      color: #9ca3af;
+      font-size: 0.75rem;
     }
 
-    .priority-low {
+    /* T09: Owner cell - mute empty states */
+    .queue-owner-value {
+      display: block;
+      color: #374151;
+      font-size: 0.88rem;
+    }
+
+    .queue-reviewer-value {
+      display: block;
+      color: #6b7280;
+      font-size: 0.82rem;
+    }
+
+    .queue-owner-empty {
+      display: block;
+      color: #d1d5db;
+      font-size: 0.82rem;
+      font-style: italic;
+    }
+
+    /* T09: Due cell - mute empty states */
+    .queue-due-date {
+      display: block;
+      color: #374151;
+      font-size: 0.88rem;
+    }
+
+    .queue-due-empty {
+      display: block;
+      color: #d1d5db;
+      font-size: 0.88rem;
+    }
+
+    .due-pill {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0.2rem 0.5rem;
+      border-radius: 999px;
+      font-size: 0.72rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    /* T09: Priority cell with visual indicator */
+    .queue-priority-cell {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+
+    .priority-indicator {
+      width: 0.5rem;
+      height: 0.5rem;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .priority-indicator.priority-low {
+      background: #d1d5db;
+    }
+
+    .priority-indicator.priority-normal {
+      background: #3b82f6;
+    }
+
+    .priority-indicator.priority-high {
+      background: #f59e0b;
+    }
+
+    .priority-indicator.priority-urgent {
+      background: #ef4444;
+      animation: pulse-urgent 1.5s ease-in-out infinite;
+    }
+
+    @keyframes pulse-urgent {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    .priority-label {
+      font-size: 0.82rem;
+      color: #374151;
+    }
+
+    /* Legacy priority-pill support for mobile cards */
+    .priority-pill {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0.25rem 0.5rem;
+      border-radius: 999px;
+      font-size: 0.78rem;
+      font-weight: 600;
+    }
+
+    .priority-pill.priority-low {
       background: #f1f5f9;
       color: #4b5563;
     }
 
-    .priority-normal {
+    .priority-pill.priority-normal {
       background: #dbeafe;
       color: #1d4ed8;
     }
 
-    .priority-high {
+    .priority-pill.priority-high {
       background: #fef3c7;
       color: #b45309;
     }
 
-    .priority-urgent {
+    .priority-pill.priority-urgent {
       background: #fee2e2;
       color: #b91c1c;
     }
