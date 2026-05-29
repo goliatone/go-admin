@@ -325,6 +325,26 @@ func (b *translationQueueBinding) RunAssignmentBulkAction(c router.Context, body
 		URLs:          b.admin.URLs(),
 	}
 
+	results, errorsOut, updatedRows, succeeded := b.runAssignmentBulkSelections(adminCtx, repo, service, identity, action, channel, now, selections, body)
+
+	return map[string]any{
+		"data": map[string]any{
+			"action":      action,
+			"results":     results,
+			"assignments": updatedRows,
+			"errors":      errorsOut,
+		},
+		"meta": mergeTranslationChannelContract(map[string]any{
+			"selection_scope": "current_page",
+			"requested":       len(selections),
+			"succeeded":       succeeded,
+			"failed":          len(errorsOut),
+			"partial":         succeeded > 0 && len(errorsOut) > 0,
+		}, channel),
+	}, nil
+}
+
+func (b *translationQueueBinding) runAssignmentBulkSelections(adminCtx AdminContext, repo TranslationAssignmentRepository, service *DefaultTranslationQueueService, identity translationTransportIdentity, action, channel string, now time.Time, selections []translationQueueBulkActionSelection, body map[string]any) ([]map[string]any, []map[string]any, []map[string]any, int) {
 	results := make([]map[string]any, 0, len(selections))
 	errorsOut := make([]map[string]any, 0)
 	updatedRows := make([]map[string]any, 0, len(selections))
@@ -363,22 +383,7 @@ func (b *translationQueueBinding) RunAssignmentBulkAction(c router.Context, body
 		})
 		succeeded++
 	}
-
-	return map[string]any{
-		"data": map[string]any{
-			"action":      action,
-			"results":     results,
-			"assignments": updatedRows,
-			"errors":      errorsOut,
-		},
-		"meta": mergeTranslationChannelContract(map[string]any{
-			"selection_scope": "current_page",
-			"requested":       len(selections),
-			"succeeded":       succeeded,
-			"failed":          len(errorsOut),
-			"partial":         succeeded > 0 && len(errorsOut) > 0,
-		}, channel),
-	}, nil
+	return results, errorsOut, updatedRows, succeeded
 }
 
 func normalizeAssignmentActionRequest(action, assignmentID string) (string, string, error) {

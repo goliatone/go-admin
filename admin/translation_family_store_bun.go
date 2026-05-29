@@ -476,8 +476,8 @@ func (s *BunTranslationFamilyStore) TranslationDashboardFamilyMetrics(ctx contex
 		OrderExpr("updated_at DESC").
 		OrderExpr("family_id ASC").
 		Limit(limit)
-	if err := topQuery.Scan(ctx); err != nil {
-		return TranslationDashboardFamilyMetrics{}, err
+	if scanErr := topQuery.Scan(ctx); scanErr != nil {
+		return TranslationDashboardFamilyMetrics{}, scanErr
 	}
 	topFamilies, err := familyModelsFromBunRows(topRows)
 	if err != nil {
