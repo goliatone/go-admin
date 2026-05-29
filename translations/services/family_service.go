@@ -122,6 +122,10 @@ type FamilyPolicyResolver interface {
 	ResolvePolicy(context.Context, string, string) (FamilyPolicy, bool, error)
 }
 
+type FamilyPolicyBlockerResolver interface {
+	ResolvePolicyBlockers(context.Context, FamilyRecord, FamilyPolicy, string) ([]FamilyBlocker, error)
+}
+
 type StaticPolicyResolver struct {
 	Policies map[string]FamilyPolicy `json:"policies"`
 }
@@ -153,10 +157,26 @@ func (s PolicyService) ResolvePolicy(ctx context.Context, contentType, environme
 	return normalizeFamilyPolicy(policy), true, nil
 }
 
+func (s PolicyService) ResolvePolicyBlockers(ctx context.Context, family FamilyRecord, policy FamilyPolicy, environment string) ([]FamilyBlocker, error) {
+	resolver, ok := s.Resolver.(FamilyPolicyBlockerResolver)
+	if !ok || resolver == nil {
+		return nil, nil
+	}
+	blockers, err := resolver.ResolvePolicyBlockers(ctx, cloneFamilyRecord(family), normalizeFamilyPolicy(policy), strings.TrimSpace(environment))
+	if err != nil {
+		return nil, err
+	}
+	return cloneFamilyBlockers(blockers), nil
+}
+
 type FamilyStore interface {
 	Families(context.Context) ([]FamilyRecord, error)
 	Family(context.Context, string) (FamilyRecord, bool, error)
 	SaveFamily(context.Context, FamilyRecord) error
+}
+
+type FamilyQueryStore interface {
+	ListFamiliesQuery(context.Context, ListFamiliesInput) (ListFamiliesResult, error)
 }
 
 type InMemoryFamilyStore struct {
@@ -277,6 +297,19 @@ func (s *FamilyService) List(ctx context.Context, input ListFamiliesInput) (List
 	}
 	page := clampPositive(input.Page, 1)
 	perPage := min(clampPositive(input.PerPage, 50), 200)
+	input.Page = page
+	input.PerPage = perPage
+	if queryStore, ok := s.Store.(FamilyQueryStore); ok && queryStore != nil {
+		result, err := queryStore.ListFamiliesQuery(ctx, input)
+		if err != nil {
+			return ListFamiliesResult{}, err
+		}
+		result.Items, err = s.resolveListFamilyPolicies(ctx, result.Items, input.Environment)
+		if err != nil {
+			return ListFamiliesResult{}, err
+		}
+		return result, nil
+	}
 	families, err := s.RecomputeAll(ctx, input.Environment)
 	if err != nil {
 		return ListFamiliesResult{}, err
@@ -296,6 +329,30 @@ func (s *FamilyService) List(ctx context.Context, input ListFamiliesInput) (List
 		Page:    page,
 		PerPage: perPage,
 	}, nil
+}
+
+func (s *FamilyService) resolveListFamilyPolicies(ctx context.Context, families []FamilyRecord, environment string) ([]FamilyRecord, error) {
+	if len(families) == 0 {
+		return nil, nil
+	}
+	out := cloneFamilies(families)
+	for idx := range out {
+		contentType := strings.TrimSpace(strings.ToLower(out[idx].ContentType))
+		if contentType == "" {
+			out[idx].Policy = normalizeFamilyPolicy(out[idx].Policy)
+			continue
+		}
+		policy, found, err := s.Policies.ResolvePolicy(ctx, contentType, environment)
+		if err != nil {
+			return nil, err
+		}
+		if found {
+			out[idx].Policy = policy
+			continue
+		}
+		out[idx].Policy = normalizeFamilyPolicy(out[idx].Policy)
+	}
+	return out, nil
 }
 
 func appendMatchingFamily(out []FamilyRecord, family FamilyRecord, input ListFamiliesInput) []FamilyRecord {
@@ -396,6 +453,11 @@ func (s *FamilyService) recomputeFamily(ctx context.Context, family FamilyRecord
 		blockers = append(blockers, recomputeLocaleBlockers(family, policy, source)...)
 		blockers = append(blockers, recomputePendingReviewBlockers(family, policy)...)
 		blockers = append(blockers, recomputeOutdatedSourceBlockers(family, source)...)
+		policyBlockers, policyBlockerErr := s.Policies.ResolvePolicyBlockers(ctx, family, policy, environment)
+		if policyBlockerErr != nil {
+			return FamilyRecord{}, policyBlockerErr
+		}
+		blockers = append(blockers, policyBlockers...)
 	}
 	sortFamilyBlockers(blockers)
 	family.Blockers = blockers
