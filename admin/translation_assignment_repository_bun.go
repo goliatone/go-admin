@@ -62,25 +62,553 @@ func (r *BunTranslationAssignmentRepository) List(ctx context.Context, opts List
 	if r == nil || r.db == nil {
 		return nil, 0, serviceNotConfiguredDomainError("translation assignment repository", nil)
 	}
-	records := []bunTranslationAssignmentRecord{}
-	if err := r.db.NewSelect().Model(&records).Scan(ctx); err != nil {
+	now := time.Now().UTC()
+	return r.list(ctx, opts, now)
+}
+
+func (r *BunTranslationAssignmentRepository) list(ctx context.Context, opts ListOptions, now time.Time) ([]TranslationAssignment, int, error) {
+	if r == nil || r.db == nil {
+		return nil, 0, serviceNotConfiguredDomainError("translation assignment repository", nil)
+	}
+	now = normalizedBunAssignmentQueryNow(now)
+	dueSQL := r.assignmentDueDateSQL(now)
+	total, err := r.countAssignments(ctx, opts, now)
+	if err != nil {
 		return nil, 0, err
 	}
-	search := inMemoryListSearchTerm(opts)
+	records := []bunTranslationAssignmentRecord{}
+	query := r.db.NewSelect().Model(&records)
+	applyBunAssignmentListFilters(query, opts, dueSQL)
+	applyBunAssignmentListSort(query, opts, dueSQL)
+	applyBunAssignmentPagination(query, opts, 20)
+	if err := query.Scan(ctx); err != nil {
+		return nil, 0, err
+	}
 	items := make([]TranslationAssignment, 0, len(records))
 	for _, record := range records {
-		assignment := translationAssignmentFromBunRecord(record)
-		if !translationAssignmentMatchesFilters(assignment, opts.Filters) {
-			continue
-		}
-		if search != "" && !translationAssignmentMatchesSearch(assignment, search) {
-			continue
-		}
-		items = append(items, assignment)
+		items = append(items, translationAssignmentFromBunRecord(record))
 	}
-	sortTranslationAssignments(items, opts)
-	paginated, total := paginateInMemory(items, opts, 20)
-	return paginated, total, nil
+	return items, total, nil
+}
+
+func (r *BunTranslationAssignmentRepository) countAssignments(ctx context.Context, opts ListOptions, now time.Time) (int, error) {
+	query := r.db.NewSelect().Model((*bunTranslationAssignmentRecord)(nil))
+	applyBunAssignmentListFilters(query, opts, r.assignmentDueDateSQL(now))
+	return query.Count(ctx)
+}
+
+func (r *BunTranslationAssignmentRepository) ListAssignmentPage(ctx context.Context, input TranslationAssignmentPageQueryInput) (TranslationAssignmentPageQueryResult, error) {
+	if r == nil || r.db == nil {
+		return TranslationAssignmentPageQueryResult{}, serviceNotConfiguredDomainError("translation assignment repository", nil)
+	}
+	if normalizeTranslationQueueReviewState(input.Filter.ReviewState) == translationQueueReviewStateQABlocked {
+		return TranslationAssignmentPageQueryResult{}, ErrTranslationAssignmentQueryUnsupported
+	}
+	opts, unsupported := listOptionsFromAssignmentPageQuery(input)
+	if unsupported {
+		return TranslationAssignmentPageQueryResult{}, ErrTranslationAssignmentQueryUnsupported
+	}
+	now := normalizedBunAssignmentQueryNow(input.Now)
+	items, total, err := r.list(ctx, opts, now)
+	if err != nil {
+		return TranslationAssignmentPageQueryResult{}, err
+	}
+	return TranslationAssignmentPageQueryResult{Items: items, Total: total}, nil
+}
+
+func listOptionsFromAssignmentPageQuery(input TranslationAssignmentPageQueryInput) (ListOptions, bool) {
+	filter := input.Filter
+	if filter.AssigneeID == translationQueueMissingActorFilterToken || filter.ReviewerID == translationQueueMissingActorFilterToken {
+		return ListOptions{Page: input.Page, PerPage: input.PerPage, Filters: map[string]any{"assignment_id": "__no_assignment__"}}, false
+	}
+	filters := map[string]any{}
+	if filter.TenantID != "" {
+		filters["tenant_id"] = filter.TenantID
+	}
+	if filter.OrgID != "" {
+		filters["org_id"] = filter.OrgID
+	}
+	if filter.FamilyID != "" {
+		filters["family_id"] = filter.FamilyID
+	}
+	if filter.Status != "" {
+		filters["status"] = filter.Status
+	}
+	if filter.AssigneeID != "" {
+		filters["assignee_id"] = filter.AssigneeID
+	}
+	if filter.ReviewerID != "" {
+		filters["reviewer_id"] = filter.ReviewerID
+	}
+	if filter.Locale != "" {
+		filters["target_locale"] = filter.Locale
+	}
+	if filter.Priority != "" {
+		filters["priority"] = filter.Priority
+	}
+	if filter.DueState != "" {
+		filters["due_state"] = filter.DueState
+	}
+	sortBy := strings.TrimSpace(strings.ToLower(filter.SortBy))
+	if sortBy == "" {
+		sortBy = "updated_at"
+	}
+	return ListOptions{
+		Page:     input.Page,
+		PerPage:  input.PerPage,
+		SortBy:   sortBy,
+		SortDesc: filter.SortDesc,
+		Filters:  filters,
+	}, false
+}
+
+func applyBunAssignmentListFilters(query *bun.SelectQuery, opts ListOptions, dueSQL bunAssignmentDueDateSQL) {
+	if query == nil {
+		return
+	}
+	for key, raw := range opts.Filters {
+		key = strings.TrimSpace(strings.ToLower(key))
+		if key == "" || key == "_search" {
+			continue
+		}
+		applyBunAssignmentFilter(query, key, raw, dueSQL)
+	}
+	if search := inMemoryListSearchTerm(opts); search != "" {
+		like := "%" + strings.ToLower(search) + "%"
+		query.WhereGroup(" AND ", func(q *bun.SelectQuery) *bun.SelectQuery {
+			return q.WhereOr("LOWER(assignment_id) LIKE ?", like).
+				WhereOr("LOWER(source_title) LIKE ?", like).
+				WhereOr("LOWER(source_path) LIKE ?", like).
+				WhereOr("LOWER(family_id) LIKE ?", like).
+				WhereOr("LOWER(entity_type) LIKE ?", like).
+				WhereOr("LOWER(source_locale) LIKE ?", like).
+				WhereOr("LOWER(target_locale) LIKE ?", like).
+				WhereOr("LOWER(assignee_id) LIKE ?", like)
+		})
+	}
+}
+
+func applyBunAssignmentFilter(query *bun.SelectQuery, key string, raw any, dueSQL bunAssignmentDueDateSQL) {
+	if key == "overdue" {
+		if toBool(raw) {
+			query.Where(dueSQL.expr+" IS NOT NULL").Where(dueSQL.expr+" < ?", dueSQL.now)
+		}
+		return
+	}
+	if key == "due_state" {
+		applyBunAssignmentDueStateFilter(query, toString(raw), dueSQL)
+		return
+	}
+	values := normalizedAssignmentFilterValues(raw)
+	if len(values) == 0 {
+		return
+	}
+	switch key {
+	case "assignment_id", "id":
+		query.Where("LOWER(assignment_id) IN (?)", bun.In(values))
+	case "status":
+		query.Where("LOWER(status) IN (?)", bun.In(values))
+	case "target_locale", "locale":
+		query.Where("LOWER(target_locale) IN (?)", bun.In(values))
+	case "source_locale":
+		query.Where("LOWER(source_locale) IN (?)", bun.In(values))
+	case "assignee_id":
+		query.Where("LOWER(assignee_id) IN (?)", bun.In(values))
+	case "reviewer_id":
+		query.Where("LOWER(COALESCE(NULLIF(reviewer_id, ''), last_reviewer_id, '')) IN (?)", bun.In(values))
+	case "assignment_type":
+		query.Where("LOWER(assignment_type) IN (?)", bun.In(values))
+	case "work_scope":
+		query.Where("LOWER(work_scope) IN (?)", bun.In(values))
+	case "entity_type":
+		query.Where("LOWER(entity_type) IN (?)", bun.In(values))
+	case "priority":
+		query.Where("LOWER(priority) IN (?)", bun.In(values))
+	case "family_id":
+		query.Where("LOWER(family_id) IN (?)", bun.In(values))
+	case "tenant_id":
+		query.Where("LOWER(tenant_id) IN (?)", bun.In(values))
+	case "org_id":
+		query.Where("LOWER(org_id) IN (?)", bun.In(values))
+	case "source_record_id":
+		query.Where("LOWER(source_record_id) IN (?)", bun.In(values))
+	}
+}
+
+func applyBunAssignmentDueStateFilter(query *bun.SelectQuery, raw string, dueSQL bunAssignmentDueDateSQL) {
+	states := normalizedAssignmentFilterValues(raw)
+	if len(states) == 0 {
+		return
+	}
+	query.WhereGroup(" AND ", func(q *bun.SelectQuery) *bun.SelectQuery {
+		for _, state := range states {
+			switch normalizeTranslationQueueDueState(state) {
+			case translationQueueDueStateNone:
+				q = q.WhereOr(dueSQL.expr + " IS NULL")
+			case translationQueueDueStateOverdue:
+				q = q.WhereOr("("+dueSQL.expr+" IS NOT NULL AND "+dueSQL.expr+" < ?)", dueSQL.now)
+			case translationQueueDueStateSoon:
+				q = q.WhereOr("("+dueSQL.expr+" IS NOT NULL AND "+dueSQL.expr+" >= ? AND "+dueSQL.expr+" <= ?)", dueSQL.now, dueSQL.soon)
+			case translationQueueDueStateOnTrack:
+				q = q.WhereOr("("+dueSQL.expr+" IS NOT NULL AND "+dueSQL.expr+" > ?)", dueSQL.soon)
+			}
+		}
+		return q
+	})
+}
+
+func normalizedAssignmentFilterValues(raw any) []string {
+	out := []string{}
+	for part := range strings.SplitSeq(toString(raw), ",") {
+		value := strings.TrimSpace(strings.ToLower(part))
+		if value != "" {
+			out = append(out, value)
+		}
+	}
+	return out
+}
+
+func applyBunAssignmentPagination(query *bun.SelectQuery, opts ListOptions, defaultPerPage int) {
+	page := opts.Page
+	if page <= 0 {
+		page = 1
+	}
+	perPage := opts.PerPage
+	if perPage <= 0 {
+		perPage = defaultPerPage
+	}
+	if perPage <= 0 {
+		perPage = 10
+	}
+	query.Limit(perPage).Offset((page - 1) * perPage)
+}
+
+func applyBunAssignmentListSort(query *bun.SelectQuery, opts ListOptions, dueSQL bunAssignmentDueDateSQL) {
+	field := strings.TrimSpace(strings.ToLower(opts.SortBy))
+	desc := opts.SortDesc
+	if field == "" {
+		field = "created_at"
+		desc = true
+	}
+	applyBunAssignmentSort(query, field, desc, dueSQL)
+}
+
+func applyBunAssignmentSort(query *bun.SelectQuery, field string, desc bool, dueSQL bunAssignmentDueDateSQL) {
+	dir := "ASC"
+	if desc {
+		dir = "DESC"
+	}
+	switch strings.TrimSpace(strings.ToLower(field)) {
+	case "status":
+		query.OrderExpr("status " + dir)
+	case "target_locale", "locale":
+		query.OrderExpr("target_locale " + dir)
+	case "assignee_id":
+		query.OrderExpr("assignee_id " + dir)
+	case "reviewer_id":
+		query.OrderExpr("COALESCE(NULLIF(reviewer_id, ''), last_reviewer_id, '') " + dir)
+	case "priority":
+		query.OrderExpr(bunAssignmentPriorityRankSQL() + " " + dir)
+	case "due_state":
+		query.OrderExpr(bunAssignmentDueStateRankSQL(dueSQL.expr)+" "+dir, dueSQL.now, dueSQL.soon)
+	case "due_date":
+		if desc {
+			query.OrderExpr(dueSQL.expr + " IS NULL DESC").OrderExpr(dueSQL.expr + " DESC")
+		} else {
+			query.OrderExpr(dueSQL.expr + " IS NULL ASC").OrderExpr(dueSQL.expr + " ASC")
+		}
+	case "created_at":
+		query.OrderExpr("created_at " + dir)
+	default:
+		query.OrderExpr("updated_at " + dir)
+	}
+	query.OrderExpr("assignment_id ASC")
+}
+
+func bunAssignmentPriorityRankSQL() string {
+	return "CASE LOWER(priority) WHEN 'low' THEN 0 WHEN 'normal' THEN 1 WHEN 'high' THEN 2 WHEN 'urgent' THEN 3 ELSE -1 END"
+}
+
+func bunAssignmentDueStateRankSQL(dueDateExpr string) string {
+	return "CASE WHEN " + dueDateExpr + " IS NULL THEN 0 WHEN " + dueDateExpr + " < ? THEN 3 WHEN " + dueDateExpr + " <= ? THEN 2 ELSE 1 END"
+}
+
+type bunAssignmentDueDateSQL struct {
+	expr string
+	now  any
+	soon any
+}
+
+func (r *BunTranslationAssignmentRepository) assignmentDueDateSQL(now time.Time) bunAssignmentDueDateSQL {
+	now = normalizedBunAssignmentQueryNow(now)
+	soon := now.Add(translationQueueDueSoonWindow)
+	if r != nil && r.db != nil && strings.EqualFold(r.db.Dialect().Name().String(), "pg") {
+		return bunAssignmentDueDateSQL{
+			expr: "NULLIF(due_date, '')::timestamptz",
+			now:  now,
+			soon: soon,
+		}
+	}
+	return bunAssignmentDueDateSQL{
+		expr: "due_date",
+		now:  bunAssignmentSQLiteDateValue(now),
+		soon: bunAssignmentSQLiteDateValue(soon),
+	}
+}
+
+func normalizedBunAssignmentQueryNow(now time.Time) time.Time {
+	now = now.UTC()
+	if now.IsZero() {
+		return time.Now().UTC()
+	}
+	return now
+}
+
+func bunAssignmentSQLiteDateValue(value time.Time) string {
+	return value.UTC().Format("2006-01-02 15:04:05")
+}
+
+func (r *BunTranslationAssignmentRepository) AssignmentQueueSummary(ctx context.Context, input TranslationAssignmentQueueSummaryInput) (TranslationAssignmentQueueSummary, error) {
+	if r == nil || r.db == nil {
+		return TranslationAssignmentQueueSummary{}, serviceNotConfiguredDomainError("translation assignment repository", nil)
+	}
+	now := normalizedBunAssignmentQueryNow(input.Now)
+	opts := ListOptions{Filters: cloneAssignmentFilterMap(input.Filters)}
+	total, err := r.countAssignments(ctx, opts, now)
+	if err != nil {
+		return TranslationAssignmentQueueSummary{}, err
+	}
+	byQueueState, err := r.countAssignmentsByString(ctx, opts, now, "status")
+	if err != nil {
+		return TranslationAssignmentQueueSummary{}, err
+	}
+	byDueState, err := r.countAssignmentsByDueState(ctx, opts, now)
+	if err != nil {
+		return TranslationAssignmentQueueSummary{}, err
+	}
+	return TranslationAssignmentQueueSummary{Total: total, ByQueueState: byQueueState, ByDueState: byDueState}, nil
+}
+
+func (r *BunTranslationAssignmentRepository) AssignmentMyWorkSummary(ctx context.Context, input TranslationAssignmentMyWorkSummaryInput) (map[string]int, error) {
+	if r == nil || r.db == nil {
+		return nil, serviceNotConfiguredDomainError("translation assignment repository", nil)
+	}
+	now := normalizedBunAssignmentQueryNow(input.Now)
+	opts := ListOptions{Filters: cloneAssignmentFilterMap(input.Filters)}
+	total, err := r.countAssignments(ctx, opts, now)
+	if err != nil {
+		return nil, err
+	}
+	byDueState, err := r.countAssignmentsByDueState(ctx, opts, now)
+	if err != nil {
+		return nil, err
+	}
+	reviewOpts := ListOptions{Filters: cloneAssignmentFilterMap(input.Filters)}
+	if reviewOpts.Filters == nil {
+		reviewOpts.Filters = map[string]any{}
+	}
+	reviewOpts.Filters["status"] = string(AssignmentStatusInReview)
+	review, err := r.countAssignments(ctx, reviewOpts, now)
+	if err != nil {
+		return nil, err
+	}
+	return map[string]int{
+		"total":                         total,
+		translationQueueDueStateOverdue: byDueState[translationQueueDueStateOverdue],
+		translationQueueDueStateSoon:    byDueState[translationQueueDueStateSoon],
+		translationQueueDueStateOnTrack: byDueState[translationQueueDueStateOnTrack],
+		translationQueueDueStateNone:    byDueState[translationQueueDueStateNone],
+		"review":                        review,
+	}, nil
+}
+
+func (r *BunTranslationAssignmentRepository) AssignmentDashboardSummary(ctx context.Context, input TranslationAssignmentDashboardSummaryInput) (TranslationAssignmentDashboardSummary, error) {
+	if r == nil || r.db == nil {
+		return TranslationAssignmentDashboardSummary{}, serviceNotConfiguredDomainError("translation assignment repository", nil)
+	}
+	now := normalizedBunAssignmentQueryNow(input.Now)
+	scope := map[string]any{}
+	if input.TenantID != "" {
+		scope["tenant_id"] = input.TenantID
+	}
+	if input.OrgID != "" {
+		scope["org_id"] = input.OrgID
+	}
+	out := TranslationAssignmentDashboardSummary{}
+	if strings.TrimSpace(input.ActorID) != "" {
+		myFilters := cloneAssignmentFilterMap(scope)
+		myFilters["assignee_id"] = input.ActorID
+		myFilters["status"] = strings.Join([]string{
+			string(AssignmentStatusOpen),
+			string(AssignmentStatusAssigned),
+			string(AssignmentStatusInProgress),
+			string(AssignmentStatusInReview),
+			string(AssignmentStatusChangesRequested),
+		}, ",")
+		var err error
+		out.MyTasks, err = r.countAssignments(ctx, ListOptions{Filters: myFilters}, now)
+		if err != nil {
+			return TranslationAssignmentDashboardSummary{}, err
+		}
+		inProgress := cloneAssignmentFilterMap(myFilters)
+		inProgress["status"] = string(AssignmentStatusInProgress)
+		out.MyInProgress, err = r.countAssignments(ctx, ListOptions{Filters: inProgress}, now)
+		if err != nil {
+			return TranslationAssignmentDashboardSummary{}, err
+		}
+		dueSoon := cloneAssignmentFilterMap(myFilters)
+		dueSoon["due_state"] = translationQueueDueStateSoon
+		out.MyDueSoon, err = r.countAssignments(ctx, ListOptions{Filters: dueSoon}, now)
+		if err != nil {
+			return TranslationAssignmentDashboardSummary{}, err
+		}
+		myOverdue := cloneAssignmentFilterMap(myFilters)
+		myOverdue["due_state"] = translationQueueDueStateOverdue
+		out.MyOverdue, err = r.countAssignments(ctx, ListOptions{Filters: myOverdue}, now)
+		if err != nil {
+			return TranslationAssignmentDashboardSummary{}, err
+		}
+		reviewFilters := cloneAssignmentFilterMap(scope)
+		reviewFilters["reviewer_id"] = input.ActorID
+		reviewFilters["status"] = string(AssignmentStatusInReview)
+		out.NeedsReview, err = r.countAssignments(ctx, ListOptions{Filters: reviewFilters}, now)
+		if err != nil {
+			return TranslationAssignmentDashboardSummary{}, err
+		}
+		reviewOverdue := cloneAssignmentFilterMap(reviewFilters)
+		reviewOverdue["due_state"] = translationQueueDueStateOverdue
+		out.NeedsReviewOverdue, err = r.countAssignments(ctx, ListOptions{Filters: reviewOverdue}, now)
+		if err != nil {
+			return TranslationAssignmentDashboardSummary{}, err
+		}
+	}
+	overdueFilters := cloneAssignmentFilterMap(scope)
+	overdueFilters["due_state"] = translationQueueDueStateOverdue
+	overdueFilters["status"] = strings.Join([]string{
+		string(AssignmentStatusOpen),
+		string(AssignmentStatusAssigned),
+		string(AssignmentStatusInProgress),
+		string(AssignmentStatusInReview),
+		string(AssignmentStatusChangesRequested),
+		string(AssignmentStatusApproved),
+	}, ",")
+	var err error
+	out.OverdueTasks, err = r.countAssignments(ctx, ListOptions{Filters: overdueFilters}, now)
+	if err != nil {
+		return TranslationAssignmentDashboardSummary{}, err
+	}
+	highOverdue := cloneAssignmentFilterMap(overdueFilters)
+	highOverdue["priority"] = strings.Join([]string{string(PriorityHigh), string(PriorityUrgent)}, ",")
+	out.HighPriorityOverdue, err = r.countAssignments(ctx, ListOptions{Filters: highOverdue}, now)
+	if err != nil {
+		return TranslationAssignmentDashboardSummary{}, err
+	}
+	limit := input.OverdueLimit
+	if limit <= 0 {
+		limit = translationDashboardDefaultOverdueLimit
+	}
+	top, err := r.dashboardTopOverdueAssignments(ctx, overdueFilters, now, limit)
+	if err != nil {
+		return TranslationAssignmentDashboardSummary{}, err
+	}
+	out.TopOverdue = top
+	return out, nil
+}
+
+func (r *BunTranslationAssignmentRepository) dashboardTopOverdueAssignments(ctx context.Context, filters map[string]any, now time.Time, limit int) ([]TranslationAssignment, error) {
+	records := []bunTranslationAssignmentRecord{}
+	query := r.db.NewSelect().Model(&records)
+	dueSQL := r.assignmentDueDateSQL(now)
+	applyBunAssignmentListFilters(query, ListOptions{Filters: filters}, dueSQL)
+	query.OrderExpr(dueSQL.expr + " IS NULL ASC").
+		OrderExpr(dueSQL.expr + " ASC").
+		OrderExpr(bunAssignmentPriorityRankSQL() + " DESC").
+		OrderExpr("assignment_id ASC").
+		Limit(limit)
+	if err := query.Scan(ctx); err != nil {
+		return nil, err
+	}
+	out := make([]TranslationAssignment, 0, len(records))
+	for _, record := range records {
+		out = append(out, translationAssignmentFromBunRecord(record))
+	}
+	return out, nil
+}
+
+func (r *BunTranslationAssignmentRepository) AssignmentReviewerAggregateCounts(_ context.Context, input TranslationAssignmentReviewerAggregateInput) (map[string]int, error) {
+	counts := map[string]int{}
+	for _, key := range TranslationQueueReviewAggregateCountKeys() {
+		counts[key] = 0
+	}
+	if r == nil || r.db == nil {
+		return counts, serviceNotConfiguredDomainError("translation assignment repository", nil)
+	}
+	if strings.TrimSpace(input.ActorID) == "" {
+		return counts, nil
+	}
+	// review_blocked depends on QA/family blocker evaluation, which is not stored
+	// as an indexed assignment aggregate. Decline so the binding uses the
+	// existing QA-aware compatibility path instead of returning a false zero.
+	return counts, ErrTranslationAssignmentQueryUnsupported
+}
+
+type bunCountRow struct {
+	Key   string `bun:"key"`
+	Count int    `bun:"count"`
+}
+
+func (r *BunTranslationAssignmentRepository) countAssignmentsByString(ctx context.Context, opts ListOptions, now time.Time, column string) (map[string]int, error) {
+	rows := []bunCountRow{}
+	query := r.db.NewSelect().
+		Model((*bunTranslationAssignmentRecord)(nil)).
+		ColumnExpr("LOWER(" + column + ") AS key").
+		ColumnExpr("COUNT(*) AS count").
+		GroupExpr("LOWER(" + column + ")")
+	applyBunAssignmentListFilters(query, opts, r.assignmentDueDateSQL(now))
+	if err := query.Scan(ctx, &rows); err != nil {
+		return nil, err
+	}
+	out := map[string]int{}
+	for _, row := range rows {
+		out[normalizeTranslationQueueState(row.Key)] = row.Count
+	}
+	return out, nil
+}
+
+func (r *BunTranslationAssignmentRepository) countAssignmentsByDueState(ctx context.Context, opts ListOptions, now time.Time) (map[string]int, error) {
+	rows := []bunCountRow{}
+	dueSQL := r.assignmentDueDateSQL(now)
+	dueStateSQL := "CASE WHEN " + dueSQL.expr + " IS NULL THEN '" + translationQueueDueStateNone + "' WHEN " + dueSQL.expr + " < ? THEN '" + translationQueueDueStateOverdue + "' WHEN " + dueSQL.expr + " <= ? THEN '" + translationQueueDueStateSoon + "' ELSE '" + translationQueueDueStateOnTrack + "' END"
+	query := r.db.NewSelect().
+		Model((*bunTranslationAssignmentRecord)(nil)).
+		ColumnExpr(dueStateSQL+" AS key", dueSQL.now, dueSQL.soon).
+		ColumnExpr("COUNT(*) AS count").
+		GroupExpr(dueStateSQL, dueSQL.now, dueSQL.soon)
+	applyBunAssignmentListFilters(query, opts, dueSQL)
+	if err := query.Scan(ctx, &rows); err != nil {
+		return nil, err
+	}
+	out := map[string]int{
+		translationQueueDueStateOverdue: 0,
+		translationQueueDueStateSoon:    0,
+		translationQueueDueStateOnTrack: 0,
+		translationQueueDueStateNone:    0,
+	}
+	for _, row := range rows {
+		out[normalizeTranslationQueueDueState(row.Key)] = row.Count
+	}
+	return out, nil
+}
+
+func cloneAssignmentFilterMap(in map[string]any) map[string]any {
+	if len(in) == 0 {
+		return nil
+	}
+	out := make(map[string]any, len(in))
+	for key, value := range in {
+		out[key] = value
+	}
+	return out
 }
 
 func (r *BunTranslationAssignmentRepository) Get(ctx context.Context, id string) (TranslationAssignment, error) {
