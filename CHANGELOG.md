@@ -1,5 +1,29 @@
 # Changelog
 
+# [0.79.0](https://github.com/goliatone/go-admin/compare/v0.78.0...v0.79.0) - (2026-05-29)
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Error handler ([4ab31b5](https://github.com/goliatone/go-admin/commit/4ab31b550ade75ef9c7e254f3a053e3c64fcc40c))  - (goliatone)
+- Code quality ([4755790](https://github.com/goliatone/go-admin/commit/4755790679634439ed82431e5b89f569888b87d5))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.79.0 ([25fdeb4](https://github.com/goliatone/go-admin/commit/25fdeb4cdacdfdc829ea73c368f2185c157dd523))  - (goliatone)
+
+## <!-- 16 -->➕ Add
+
+- Feature flag module include descriptions ([a141d83](https://github.com/goliatone/go-admin/commit/a141d8363cb9e60a6e57a6418e951d41fc263e90))  - (goliatone)
+- Permissions const ([8f6e083](https://github.com/goliatone/go-admin/commit/8f6e083c58cdc6668d38801788b5c0090eaa4fe3))  - (goliatone)
+
+## <!-- 3 -->📚 Documentation
+
+- Update changelog for v0.78.0 ([75d0649](https://github.com/goliatone/go-admin/commit/75d0649fc175bf99341ec338457b47ce1ece9e44))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update tests ([7fbdf6f](https://github.com/goliatone/go-admin/commit/7fbdf6f4ef79a259ca26c03edbc0dafb7fc74367))  - (goliatone)
+
 # [0.78.0](https://github.com/goliatone/go-admin/compare/v0.77.2...v0.78.0) - (2026-05-26)
 
 ## <!-- 1 -->🐛 Bug Fixes
