@@ -24,6 +24,7 @@ func translationQueueRouteSpecs(ctx BootCtx, responder Responder, gates FeatureG
 		translationQueueReadRoute(ctx, responder, gates, "translations.dashboard", binding.Dashboard),
 		translationQueueReadRoute(ctx, responder, gates, "translations.assignments", binding.Assignments),
 		translationQueueAssignmentDetailRoute(ctx, responder, gates, binding),
+		translationQueueAssignmentBulkActionRoute(ctx, responder, gates, binding),
 		translationQueueAssignmentActionRoute(ctx, responder, gates, binding),
 		translationQueueVariantUpdateRoute(ctx, responder, gates, binding),
 		translationQueueReadRoute(ctx, responder, gates, "translations.my_work", binding.MyWork),
@@ -59,6 +60,17 @@ func translationQueueAssignmentDetailRoute(ctx BootCtx, responder Responder, gat
 			payload, err := binding.AssignmentDetail(c, id)
 			return writeJSONOrError(responder, c, payload, err)
 		}),
+	}
+}
+
+func translationQueueAssignmentBulkActionRoute(ctx BootCtx, responder Responder, gates FeatureGates, binding TranslationQueueBinding) RouteSpec {
+	return RouteSpec{
+		Method: "POST",
+		Path:   routePath(ctx, ctx.AdminAPIGroup(), "translations.assignments.bulk_actions"),
+		Handler: withFeatureGate(responder, gates, FeatureTranslationQueue, withParsedBody(ctx, responder, func(c router.Context, body map[string]any) error {
+			payload, err := binding.RunAssignmentBulkAction(c, body)
+			return writeJSONOrError(responder, c, payload, err)
+		})),
 	}
 }
 
