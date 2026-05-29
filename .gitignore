@@ -76,3 +76,4 @@ pkg/client/assets/tenant/tenant-runtime/*
 pkg/client/assets/dist-types/
 pkg/client/assets/.dist-staging/
 pkg/client/assets/.dist-prev/
+pkg/client/assets/test-results/.playwright-artifacts-1
