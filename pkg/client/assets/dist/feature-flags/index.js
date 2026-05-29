@@ -1,7 +1,7 @@
-import { escapeHTML as l } from "../shared/html.js";
-import { httpRequest as m, readHTTPError as g } from "../shared/transport/http-client.js";
-import { a as B, i, n as h, t as c } from "../chunks/entity-renderer-GXMu3Nhg.js";
-var v = class {
+import { escapeAttribute as S, escapeHTML as l } from "../shared/html.js";
+import { httpRequest as y, readHTTPError as v } from "../shared/transport/http-client.js";
+import { a as $, i, n as g, t as c } from "../chunks/entity-renderer-GXMu3Nhg.js";
+var w = class {
   constructor(e) {
     if (this.searchBox = null, this.scopeConfigs = /* @__PURE__ */ new Map(), this.currentScope = "system", this.selectedResult = null, this.config = e, typeof e.input == "string") {
       const t = document.querySelector(e.input);
@@ -58,7 +58,7 @@ var v = class {
     }
     this.input.disabled = !1, this.input.value = "";
     const t = this.scopeConfigs.get(e);
-    t ? (this.searchBox = new B({
+    t ? (this.searchBox = new $({
       input: this.input,
       container: this.container,
       resolver: t.resolver,
@@ -82,7 +82,7 @@ var v = class {
     }[e] || "Enter ID...";
   }
 };
-function E(e) {
+function P(e) {
   const t = (e || "").trim().replace(/\/+$/, ""), s = /\/api(\/|$)/.test(t) ? t : `${t || ""}/api`;
   return [
     {
@@ -111,7 +111,7 @@ function E(e) {
         descriptionField: (r) => String(r.email || ""),
         searchParam: "q"
       }),
-      renderer: new h({
+      renderer: new g({
         avatarField: "avatar",
         emailField: "email",
         roleField: "role"
@@ -120,7 +120,7 @@ function E(e) {
     }
   ];
 }
-function P(e) {
+function q(e) {
   const t = [
     {
       scope: "tenant",
@@ -148,7 +148,7 @@ function P(e) {
         descriptionField: (s) => String(s.email || ""),
         searchParam: "q"
       }),
-      renderer: new h({
+      renderer: new g({
         avatarField: "avatar",
         emailField: "email",
         roleField: "role"
@@ -162,7 +162,7 @@ function P(e) {
       ...r
     } : s;
   });
-  return new v({
+  return new w({
     input: e.inputSelector,
     scopeSelect: e.scopeSelectSelector,
     container: e.containerSelector,
@@ -180,7 +180,7 @@ var C = {
   mutableState: "#mutable-state",
   tableBody: "#flags-table",
   emptyState: "#flags-empty"
-}, f = [
+}, b = [
   {
     value: "unset",
     label: "Default",
@@ -196,14 +196,15 @@ var C = {
     label: "Disabled",
     icon: "x"
   }
-], y = {
+], I = 6, u = {
   check: '<svg class="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>',
   x: '<svg class="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>',
   minus: '<svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"/></svg>',
-  chevronDown: '<svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>'
-}, q = class {
+  chevronDown: '<svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>',
+  chevronRight: '<svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>'
+}, D = class {
   constructor(e, t = {}, s) {
-    this.scopeSelect = null, this.scopeIdInput = null, this.applyScopeBtn = null, this.refreshBtn = null, this.searchInput = null, this.mutableStateEl = null, this.tableBody = null, this.emptyState = null, this.allFlags = [], this.isMutable = !1, this.documentClickHandler = null, this.scopeSearchBox = null, this.config = e, this.selectors = {
+    this.scopeSelect = null, this.scopeIdInput = null, this.applyScopeBtn = null, this.refreshBtn = null, this.searchInput = null, this.mutableStateEl = null, this.tableBody = null, this.emptyState = null, this.allFlags = [], this.isMutable = !1, this.expandedKeys = /* @__PURE__ */ new Set(), this.documentClickHandler = null, this.scopeSearchBox = null, this.config = e, this.selectors = {
       ...C,
       ...t
     }, this.toast = s || window.toastManager || null;
@@ -225,7 +226,7 @@ var C = {
   initScopeSearch() {
     if (!this.scopeSelect || !this.scopeIdInput) return;
     const e = this.buildScopeConfigs(), t = this.scopeIdInput.parentElement;
-    t && (t.style.position = "relative", this.scopeSearchBox = new v({
+    t && (t.style.position = "relative", this.scopeSearchBox = new w({
       input: this.scopeIdInput,
       scopeSelect: this.scopeSelect,
       container: t,
@@ -271,7 +272,7 @@ var C = {
           descriptionField: (t) => String(t.email || ""),
           searchParam: "q"
         }),
-        renderer: new h({
+        renderer: new g({
           avatarField: "avatar",
           emailField: "email",
           roleField: "role"
@@ -304,10 +305,10 @@ var C = {
     this.syncUrl();
     const t = `${this.config.apiPath}?${e.toString()}`;
     try {
-      const s = await m(t, { headers: { Accept: "application/json" } });
+      const s = await y(t, { headers: { Accept: "application/json" } });
       if (!s.ok) {
-        const o = await g(s, "Failed to load flags.", { appendStatusToFallback: !1 });
-        this.toast?.error(o);
+        const n = await v(s, "Failed to load flags.", { appendStatusToFallback: !1 });
+        this.toast?.error(n);
         return;
       }
       const r = await s.json();
@@ -322,23 +323,23 @@ var C = {
       this.toast?.error("Scope ID required for tenant/org/user scopes."), await this.loadFlags();
       return;
     }
-    const o = {
+    const n = {
       key: e,
       scope: s
     };
-    r && (o.scope_id = r);
+    r && (n.scope_id = r);
     let a = "POST";
-    t === "unset" ? a = "DELETE" : o.enabled = t === "enabled";
+    t === "unset" ? a = "DELETE" : n.enabled = t === "enabled";
     try {
-      const n = await m(this.config.apiPath, {
+      const o = await y(this.config.apiPath, {
         method: a,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(o)
+        body: JSON.stringify(n)
       });
-      if (n.ok)
+      if (o.ok)
         this.toast?.success("Flag updated.");
       else {
-        const d = await g(n, "Failed to update flag.", { appendStatusToFallback: !1 });
+        const d = await v(o, "Failed to update flag.", { appendStatusToFallback: !1 });
         this.toast?.error(d);
       }
     } catch {
@@ -349,29 +350,74 @@ var C = {
   renderFlags(e, t) {
     if (!this.tableBody || !this.emptyState) return;
     this.tableBody.innerHTML = "";
-    const s = (this.searchInput?.value || "").toLowerCase().trim(), r = s ? e.filter((o) => o.key && o.key.toLowerCase().includes(s)) : e;
-    if (r.length === 0) {
+    const s = (this.searchInput?.value || "").toLowerCase().trim(), r = s ? e.filter((n) => n.key && n.key.toLowerCase().includes(s)) : e;
+    if (this.pruneExpandedKeys(e), r.length === 0) {
       this.emptyState.classList.remove("hidden");
       return;
     }
-    this.emptyState.classList.add("hidden"), r.forEach((o) => {
-      const a = this.createFlagRow(o, t);
-      this.tableBody.appendChild(a);
-    }), this.wireActionMenus();
+    this.emptyState.classList.add("hidden"), r.forEach((n) => {
+      this.createFlagRows(n, t).forEach((a) => this.tableBody.appendChild(a));
+    }), this.wireKeyToggles(), this.wireActionMenus();
   }
-  createFlagRow(e, t) {
-    const s = e.effective ? "Enabled" : "Disabled", r = this.badge(s, e.effective ? "on" : "off"), o = e.source || "unknown", a = e.default && e.default.set ? e.default.value ? "Enabled" : "Disabled" : "—", n = this.normalizeOverrideState(e), d = e.override && e.override.value !== void 0 ? e.override.value ? "Enabled" : "Disabled" : "—", b = n === "enabled" || n === "disabled" ? d : "Default", w = this.badge(b, n === "enabled" ? "on" : n === "disabled" ? "off" : "neutral"), x = this.currentOverrideValue(e), u = e.key || "", p = e.description ? l(e.description) : "", F = p ? `<div class="mt-1 text-xs text-gray-500">${p}</div>` : "", S = document.createElement("tr");
-    return S.innerHTML = `
+  createFlagRows(e, t) {
+    const s = e.effective ? "Enabled" : "Disabled", r = this.badge(s, e.effective ? "on" : "off"), n = e.source || "unknown", a = e.default && e.default.set ? e.default.value ? "Enabled" : "Disabled" : "—", o = this.normalizeOverrideState(e), d = e.override && e.override.value !== void 0 ? e.override.value ? "Enabled" : "Disabled" : "—", x = o === "enabled" || o === "disabled" ? d : "Default", F = this.badge(x, o === "enabled" ? "on" : o === "disabled" ? "off" : "neutral"), B = this.currentOverrideValue(e), h = e.key || "", m = this.hasDescription(e), f = m && this.expandedKeys.has(h), p = document.createElement("tr");
+    return p.innerHTML = `
       <td class="px-5 py-4 text-sm">
-        <div class="text-gray-900 font-mono">${l(u)}</div>
-        ${F}
+        ${m ? this.renderKeyToggle(h, f) : `<div class="text-gray-900 font-mono">${l(h)}</div>`}
       </td>
       <td class="px-5 py-4 text-sm">${r}</td>
-      <td class="px-5 py-4 text-sm text-gray-600 capitalize">${l(o)}</td>
+      <td class="px-5 py-4 text-sm text-gray-600 capitalize">${l(n)}</td>
       <td class="px-5 py-4 text-sm text-gray-600">${a}</td>
-      <td class="px-5 py-4 text-sm">${w}</td>
-      <td class="px-5 py-4 text-sm">${this.renderActionMenu(u, x, !t)}</td>
-    `, S;
+      <td class="px-5 py-4 text-sm">${F}</td>
+      <td class="px-5 py-4 text-sm">${this.renderActionMenu(h, B, !t)}</td>
+    `, f ? [p, this.createDescriptionRow(e)] : [p];
+  }
+  renderKeyToggle(e, t) {
+    const s = this.descriptionRowId(e), r = t ? `Hide description for ${e}` : `Show description for ${e}`;
+    return `
+      <button
+        type="button"
+        class="feature-flag-key-toggle inline-flex max-w-full items-center gap-2 rounded text-left font-mono text-gray-900 hover:text-admin-accent focus:outline-none focus:ring-2 focus:ring-admin-accent focus:ring-offset-2"
+        data-flag-key="${S(e)}"
+        aria-expanded="${t ? "true" : "false"}"
+        aria-controls="${S(s)}"
+        aria-label="${S(r)}"
+      >
+        <span aria-hidden="true">${t ? u.chevronDown : u.chevronRight}</span>
+        <span class="break-all">${l(e)}</span>
+      </button>
+    `;
+  }
+  createDescriptionRow(e) {
+    const t = e.key || "", s = document.createElement("tr");
+    return s.id = this.descriptionRowId(t), s.className = "feature-flag-description-row bg-gray-50", s.dataset.flagDetailKey = t, s.innerHTML = `
+      <td colspan="${I}" class="px-5 py-4 text-sm text-gray-600">
+        <div class="max-w-4xl leading-6">${l(String(e.description || "").trim())}</div>
+      </td>
+    `, s;
+  }
+  hasDescription(e) {
+    return typeof e.description == "string" && e.description.trim().length > 0;
+  }
+  descriptionRowId(e) {
+    let t = 0;
+    for (let s = 0; s < e.length; s += 1) t = t * 31 + e.charCodeAt(s) >>> 0;
+    return `feature-flag-description-${t.toString(36)}`;
+  }
+  pruneExpandedKeys(e) {
+    const t = new Set(e.map((s) => s.key || "").filter(Boolean));
+    this.expandedKeys.forEach((s) => {
+      t.has(s) || this.expandedKeys.delete(s);
+    });
+  }
+  wireKeyToggles() {
+    this.tableBody?.querySelectorAll(".feature-flag-key-toggle").forEach((e) => {
+      e.addEventListener("click", (t) => {
+        t.stopPropagation();
+        const s = e.dataset.flagKey || "";
+        s && (this.expandedKeys.has(s) ? this.expandedKeys.delete(s) : this.expandedKeys.add(s), this.renderFlags(this.allFlags, this.isMutable));
+      });
+    });
   }
   badge(e, t) {
     const s = "status-badge";
@@ -385,17 +431,17 @@ var C = {
     return t === "enabled" ? "enabled" : t === "disabled" ? "disabled" : "unset";
   }
   renderActionMenu(e, t, s) {
-    const r = s ? "opacity-50 pointer-events-none" : "", o = f.find((a) => a.value === t);
+    const r = s ? "opacity-50 pointer-events-none" : "", n = b.find((a) => a.value === t);
     return `
       <div class="relative action-menu ${r}" data-flag-key="${l(e)}">
         <button type="button" class="action-menu-trigger inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium rounded-lg border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-0" ${s ? "disabled" : ""}>
-          <span class="action-menu-label">${o?.label || "Default"}</span>
-          ${y.chevronDown}
+          <span class="action-menu-label">${n?.label || "Default"}</span>
+          ${u.chevronDown}
         </button>
         <div class="action-menu-dropdown hidden absolute right-0 mt-1 w-36 bg-white border border-gray-200 rounded-lg shadow-lg z-20">
-          ${f.map((a) => `
+          ${b.map((a) => `
             <button type="button" data-value="${a.value}" class="action-menu-item w-full text-left px-3 py-2 text-sm hover:bg-gray-50 flex items-center gap-2 ${a.value === t ? "bg-gray-50 font-medium" : ""}">
-              ${y[a.icon] || ""}
+              ${u[a.icon] || ""}
               ${a.label}
             </button>
           `).join("")}
@@ -405,26 +451,26 @@ var C = {
   }
   wireActionMenus() {
     document.querySelectorAll(".action-menu").forEach((e) => {
-      const t = e.querySelector(".action-menu-trigger"), s = e.querySelector(".action-menu-dropdown"), r = e.querySelectorAll(".action-menu-item"), o = e.dataset.flagKey;
-      !t || !s || !o || (t.addEventListener("click", (a) => {
-        a.stopPropagation(), document.querySelectorAll(".action-menu-dropdown").forEach((n) => {
-          n !== s && n.classList.add("hidden");
+      const t = e.querySelector(".action-menu-trigger"), s = e.querySelector(".action-menu-dropdown"), r = e.querySelectorAll(".action-menu-item"), n = e.dataset.flagKey;
+      !t || !s || !n || (t.addEventListener("click", (a) => {
+        a.stopPropagation(), document.querySelectorAll(".action-menu-dropdown").forEach((o) => {
+          o !== s && o.classList.add("hidden");
         }), s.classList.toggle("hidden");
       }), r.forEach((a) => {
-        a.addEventListener("click", async (n) => {
-          n.stopPropagation();
+        a.addEventListener("click", async (o) => {
+          o.stopPropagation();
           const d = a.dataset.value;
-          s.classList.add("hidden"), await this.updateFlag(o, d);
+          s.classList.add("hidden"), await this.updateFlag(n, d);
         });
       }));
     });
   }
 };
 export {
-  q as FeatureFlagsManager,
-  v as ScopeSearchBox,
-  E as createDefaultScopeConfigs,
-  P as createScopeSearchBox
+  D as FeatureFlagsManager,
+  w as ScopeSearchBox,
+  P as createDefaultScopeConfigs,
+  q as createScopeSearchBox
 };
 
 //# sourceMappingURL=index.js.map

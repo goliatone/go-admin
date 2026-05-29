@@ -17,7 +17,7 @@ import { ScopeSearchBox } from './scope-search/scope-search-box.js';
 import { createCrudResolver } from '../searchbox/resolvers/api-resolver.js';
 import { UserRenderer } from '../searchbox/renderers/user-renderer.js';
 import { EntityRenderer } from '../searchbox/renderers/entity-renderer.js';
-import { escapeHTML as escapeHtml } from '../shared/html.js';
+import { escapeAttribute, escapeHTML as escapeHtml } from '../shared/html.js';
 import { httpRequest, readHTTPError } from '../shared/transport/http-client.js';
 
 const DEFAULT_SELECTORS: FeatureFlagsSelectors = {
@@ -37,11 +37,14 @@ const ACTION_OPTIONS: ActionMenuOption[] = [
   { value: 'disabled', label: 'Disabled', icon: 'x' },
 ];
 
+const FLAG_TABLE_COLUMN_COUNT = 6;
+
 const ICONS: Record<string, string> = {
   check: '<svg class="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>',
   x: '<svg class="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>',
   minus: '<svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"/></svg>',
   chevronDown: '<svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>',
+  chevronRight: '<svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>',
 };
 
 export class FeatureFlagsManager {
@@ -60,6 +63,7 @@ export class FeatureFlagsManager {
 
   private allFlags: Flag[] = [];
   private isMutable = false;
+  private expandedKeys = new Set<string>();
   private documentClickHandler: (() => void) | null = null;
   private scopeSearchBox: ScopeSearchBox | null = null;
 
@@ -339,6 +343,8 @@ export class FeatureFlagsManager {
       ? flags.filter((f) => f.key && f.key.toLowerCase().includes(searchTerm))
       : flags;
 
+    this.pruneExpandedKeys(flags);
+
     if (filtered.length === 0) {
       this.emptyState.classList.remove('hidden');
       return;
@@ -347,14 +353,15 @@ export class FeatureFlagsManager {
     this.emptyState.classList.add('hidden');
 
     filtered.forEach((flag) => {
-      const row = this.createFlagRow(flag, mutable);
-      this.tableBody!.appendChild(row);
+      const rows = this.createFlagRows(flag, mutable);
+      rows.forEach((row) => this.tableBody!.appendChild(row));
     });
 
+    this.wireKeyToggles();
     this.wireActionMenus();
   }
 
-  private createFlagRow(flag: Flag, mutable: boolean): HTMLTableRowElement {
+  private createFlagRows(flag: Flag, mutable: boolean): HTMLTableRowElement[] {
     const effective = flag.effective ? 'Enabled' : 'Disabled';
     const effectiveBadge = this.badge(effective, flag.effective ? 'on' : 'off');
     const source = flag.source || 'unknown';
@@ -377,16 +384,13 @@ export class FeatureFlagsManager {
 
     const currentVal = this.currentOverrideValue(flag);
     const key = flag.key || '';
-    const description = flag.description ? escapeHtml(flag.description) : '';
-    const descriptionMarkup = description
-      ? `<div class="mt-1 text-xs text-gray-500">${description}</div>`
-      : '';
+    const hasDescription = this.hasDescription(flag);
+    const isExpanded = hasDescription && this.expandedKeys.has(key);
 
     const row = document.createElement('tr');
     row.innerHTML = `
       <td class="px-5 py-4 text-sm">
-        <div class="text-gray-900 font-mono">${escapeHtml(key)}</div>
-        ${descriptionMarkup}
+        ${hasDescription ? this.renderKeyToggle(key, isExpanded) : `<div class="text-gray-900 font-mono">${escapeHtml(key)}</div>`}
       </td>
       <td class="px-5 py-4 text-sm">${effectiveBadge}</td>
       <td class="px-5 py-4 text-sm text-gray-600 capitalize">${escapeHtml(source)}</td>
@@ -395,7 +399,80 @@ export class FeatureFlagsManager {
       <td class="px-5 py-4 text-sm">${this.renderActionMenu(key, currentVal, !mutable)}</td>
     `;
 
+    if (!isExpanded) {
+      return [row];
+    }
+
+    return [row, this.createDescriptionRow(flag)];
+  }
+
+  private renderKeyToggle(key: string, isExpanded: boolean): string {
+    const detailId = this.descriptionRowId(key);
+    const label = isExpanded ? `Hide description for ${key}` : `Show description for ${key}`;
+    return `
+      <button
+        type="button"
+        class="feature-flag-key-toggle inline-flex max-w-full items-center gap-2 rounded text-left font-mono text-gray-900 hover:text-admin-accent focus:outline-none focus:ring-2 focus:ring-admin-accent focus:ring-offset-2"
+        data-flag-key="${escapeAttribute(key)}"
+        aria-expanded="${isExpanded ? 'true' : 'false'}"
+        aria-controls="${escapeAttribute(detailId)}"
+        aria-label="${escapeAttribute(label)}"
+      >
+        <span aria-hidden="true">${isExpanded ? ICONS.chevronDown : ICONS.chevronRight}</span>
+        <span class="break-all">${escapeHtml(key)}</span>
+      </button>
+    `;
+  }
+
+  private createDescriptionRow(flag: Flag): HTMLTableRowElement {
+    const key = flag.key || '';
+    const row = document.createElement('tr');
+    row.id = this.descriptionRowId(key);
+    row.className = 'feature-flag-description-row bg-gray-50';
+    row.dataset.flagDetailKey = key;
+    row.innerHTML = `
+      <td colspan="${FLAG_TABLE_COLUMN_COUNT}" class="px-5 py-4 text-sm text-gray-600">
+        <div class="max-w-4xl leading-6">${escapeHtml(String(flag.description || '').trim())}</div>
+      </td>
+    `;
     return row;
+  }
+
+  private hasDescription(flag: Flag): boolean {
+    return typeof flag.description === 'string' && flag.description.trim().length > 0;
+  }
+
+  private descriptionRowId(key: string): string {
+    let hash = 0;
+    for (let i = 0; i < key.length; i += 1) {
+      hash = (hash * 31 + key.charCodeAt(i)) >>> 0;
+    }
+    return `feature-flag-description-${hash.toString(36)}`;
+  }
+
+  private pruneExpandedKeys(flags: Flag[]): void {
+    const availableKeys = new Set(flags.map((flag) => flag.key || '').filter(Boolean));
+    this.expandedKeys.forEach((key) => {
+      if (!availableKeys.has(key)) {
+        this.expandedKeys.delete(key);
+      }
+    });
+  }
+
+  private wireKeyToggles(): void {
+    this.tableBody?.querySelectorAll<HTMLButtonElement>('.feature-flag-key-toggle').forEach((button) => {
+      button.addEventListener('click', (event) => {
+        event.stopPropagation();
+        const key = button.dataset.flagKey || '';
+        if (!key) return;
+        if (this.expandedKeys.has(key)) {
+          this.expandedKeys.delete(key);
+        } else {
+          this.expandedKeys.add(key);
+        }
+        this.renderFlags(this.allFlags, this.isMutable);
+      });
+    });
   }
 
   private badge(label: string, intent: 'on' | 'off' | 'neutral'): string {
