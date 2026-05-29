@@ -21,6 +21,7 @@ const {
   buildAssignmentListURL,
   initAssignmentQueueScreen,
   normalizeAssignmentListResponse,
+  resolveAssignmentBulkActionEndpoint,
 } = await import('../dist/translation-queue/index.js');
 
 function createContainer(dataset = {}) {
@@ -137,6 +138,17 @@ test('translation queue contracts: canonical list urls preserve review state and
   );
 });
 
+test('translation queue contracts: bulk endpoint resolves to browser-facing route', () => {
+  assert.equal(
+    resolveAssignmentBulkActionEndpoint('/admin/api/translations/assignments'),
+    '/admin/api/translations/assignment-actions/bulk'
+  );
+  assert.equal(
+    resolveAssignmentBulkActionEndpoint('/tenant-a/admin/api/translations/assignments'),
+    '/tenant-a/admin/api/translations/assignment-actions/bulk'
+  );
+});
+
 test('translation queue contracts: optimistic claim state enables release and submit review', () => {
   const row = normalizeAssignmentListResponse({
     meta: fixtures.meta,
@@ -147,6 +159,137 @@ test('translation queue contracts: optimistic claim state enables release and su
   assert.equal(optimistic.queue_state, 'in_progress');
   assert.equal(optimistic.actions.release.enabled, true);
   assert.equal(optimistic.review_actions.submit_review.enabled, true);
+});
+
+test('translation queue runtime: bulk actions submit documented browser contract and parse backend metadata', async () => {
+  const calls = [];
+  globalThis.fetch = mock.fn(async (input, init = {}) => {
+    calls.push({ input: String(input), init });
+    if (calls.length === 1) {
+      return createJsonResponse({
+        meta: {
+          ...fixtures.states.open_pool.meta,
+          ...fixtures.meta,
+        },
+        data: fixtures.states.open_pool.data,
+      });
+    }
+    const requestBody = JSON.parse(String(init.body || '{}'));
+    assert.equal(String(input), '/admin/api/translations/assignment-actions/bulk');
+    assert.equal(requestBody.action, 'release');
+    assert.deepEqual(requestBody.assignments, [
+      { assignment_id: 'asg-open-1', expected_version: 1 },
+    ]);
+
+    const updated = {
+      ...fixtures.states.open_pool.data[0],
+      status: 'open',
+      queue_state: 'open',
+      row_version: 2,
+      version: 2,
+    };
+    return createJsonResponse({
+      data: {
+        action: 'release',
+        results: [
+          {
+            assignment_id: 'asg-open-1',
+            requested_version: 1,
+            status: 'succeeded',
+            row_version: 2,
+            assignment: updated,
+          },
+        ],
+        assignments: [updated],
+        errors: [],
+      },
+      meta: {
+        selection_scope: 'current_page',
+        requested: 1,
+        succeeded: 1,
+        failed: 0,
+        partial: false,
+      },
+    });
+  });
+
+  const screen = new AssignmentQueueScreen({
+    endpoint: '/admin/api/translations/assignments',
+    bulkActionEndpoint: '/admin/api/translations/assignment-actions/bulk',
+    editorBasePath: '/admin/translations/assignments',
+  });
+  screen.mount(createContainer());
+  await flushAsync();
+
+  screen.toggleRowSelection('asg-open-1');
+  await screen.runBulkAction('release');
+
+  assert.equal(calls.length, 2);
+  assert.equal(screen.getFeedback()?.kind, 'success');
+  assert.match(screen.getFeedback()?.message || '', /1 assignment updated/);
+  assert.equal(screen.getSelectedCount(), 0);
+  assert.equal(screen.getRows()[0].version, 2);
+});
+
+test('translation queue runtime: bulk partial failures preserve per-item backend errors', async () => {
+  globalThis.fetch = mock.fn(async (input, init = {}) => {
+    if (String(input).includes('/assignments') && (!init.method || init.method === 'GET')) {
+      return createJsonResponse({
+        meta: {
+          ...fixtures.states.open_pool.meta,
+          ...fixtures.meta,
+        },
+        data: fixtures.states.open_pool.data,
+      });
+    }
+    return createJsonResponse({
+      data: {
+        action: 'archive',
+        results: [
+          {
+            assignment_id: 'asg-open-1',
+            requested_version: 1,
+            status: 'failed',
+            error: {
+              code: 'TRANSLATION_QUEUE_VERSION_CONFLICT',
+              message: 'assignment version conflict',
+            },
+          },
+        ],
+        assignments: [],
+        errors: [
+          {
+            assignment_id: 'asg-open-1',
+            error: {
+              code: 'TRANSLATION_QUEUE_VERSION_CONFLICT',
+              message: 'assignment version conflict',
+            },
+          },
+        ],
+      },
+      meta: {
+        selection_scope: 'current_page',
+        requested: 1,
+        succeeded: 0,
+        failed: 1,
+        partial: false,
+      },
+    });
+  });
+
+  const screen = new AssignmentQueueScreen({
+    endpoint: '/admin/api/translations/assignments',
+    bulkActionEndpoint: '/admin/api/translations/assignment-actions/bulk',
+  });
+  screen.mount(createContainer());
+  await flushAsync();
+
+  screen.toggleRowSelection('asg-open-1');
+  await screen.runBulkAction('archive');
+
+  assert.equal(screen.getFeedback()?.kind, 'error');
+  assert.match(screen.getFeedback()?.message || '', /0 succeeded, 1 failed/);
+  assert.equal(screen.getSelectedCount(), 1);
 });
 
 test('translation queue runtime: mount renders saved filters and rows from shared fixture', async () => {

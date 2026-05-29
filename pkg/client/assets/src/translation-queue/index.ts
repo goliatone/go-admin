@@ -3419,9 +3419,23 @@ export function initAssignmentQueueScreen(container: HTMLElement): AssignmentQue
     : null;
   return createAssignmentQueueScreen(container, {
     endpoint,
+    bulkActionEndpoint: container.dataset.bulkActionEndpoint || container.dataset.bulkActionsEndpoint || '',
     editorBasePath: container.dataset.editorBasePath || '',
     title: container.dataset.title,
     description: container.dataset.description,
     initialPresetId: container.dataset.initialPresetId || getStringSearchParam(locationSearch ?? new URLSearchParams(), 'preset') || '',
   });
+}
+
+export function resolveAssignmentBulkActionEndpoint(endpoint: string): string {
+  const trimmed = endpoint.trim();
+  if (!trimmed) {
+    return '/admin/api/translations/assignment-actions/bulk';
+  }
+  const marker = '/translations/assignments';
+  const index = trimmed.indexOf(marker);
+  if (index >= 0) {
+    return `${trimmed.slice(0, index)}/translations/assignment-actions/bulk`;
+  }
+  return '/admin/api/translations/assignment-actions/bulk';
 }
