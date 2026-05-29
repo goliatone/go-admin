@@ -342,9 +342,67 @@ Core queue API routes:
 - `GET /admin/api/translations/assignments`
 - `GET /admin/api/translations/assignments/:assignment_id`
 - `POST /admin/api/translations/assignments/:assignment_id/actions/:action`
+- `POST /admin/api/translations/assignment-actions/bulk`
 - `PATCH /admin/api/translations/variants/:variant_id`
 
 Queue option endpoints also exist under `/admin/api/translations/options/*` for entity types, source records, locales, families, and assignees.
+
+### Queue bulk action contract
+
+The browser-facing bulk endpoint supports current-page selections only. Requests send an action plus selected assignment/version pairs:
+
+```json
+{
+  "action": "assign",
+  "assignments": [
+    {"assignment_id": "asg_1", "expected_version": 3}
+  ]
+}
+```
+
+Supported actions are `assign`, `release`, `priority`, and `archive`. Responses include updated assignment rows when available, per-assignment errors, and metadata with requested, succeeded, failed, partial, and selection-scope counts. Version conflicts, permission failures, invalid statuses, and missing assignments are reported per item where possible.
+
+This endpoint does not implement "select all matching filter". Clients must submit the selected page rows explicitly.
+
+### Queue grouping contract
+
+`GET /admin/api/translations/assignments?group_by=family_id` returns a queue-specific grouped response. This is separate from the content DataGrid grouped contract.
+
+Current semantics:
+
+- grouping is page-local: assignment filters, sorting, and pagination run first
+- group rows use `row_type=group`, `group_by=family_id`, `parent`, `children`, `records`, and `family_summary`
+- child rows retain normal assignment action states
+- parent action state is informational; execute actions against child assignments
+- `meta.grouping` advertises `strategy=page_local`, `scope=current_page`, `assignment_count`, `group_count`, supported modes, and the filtering/sorting/pagination rules
+
+Unsupported grouping modes return a validation error instead of silently changing the response shape.
+
+### Dashboard remediation context
+
+Dashboard blocked-family rows can include optional remediation fields:
+
+- `blocker_codes`
+- `blocker_labels`
+- `reason_breakdown`
+- `affected_locales`
+- `reason_data`
+
+`reason_data.state` is one of `available`, `unavailable`, or `degraded`. Clients should treat these fields as optional and keep rendering the existing dashboard payload when they are absent.
+
+The optimized dashboard path derives this context from persisted family/blocker projections scoped by tenant, org, channel, and dashboard limits. It should not call broad family or assignment hydration paths to render dashboard reason buckets.
+
+### Assignment editor assist
+
+The assignment editor assist payload includes:
+
+- `glossary_matches`
+- `style_guide_summary`
+- `translation_memory_suggestions`
+
+Translation memory suggestions currently come from internal variant history only. A suggestion is eligible when another family in the same tenant/org, content type, source locale, target locale, and field path has an exact source-field match and an approved or published target variant. The editor reads this through a bounded family-store lookup; stores without that optimized lookup return an empty suggestion list instead of scanning all families. Suggestions include score, source label, locale pair, source/target locale, field path, source text, suggested text, and stale-source metadata.
+
+AI suggestions are not part of this contract.
 
 ## 8. Tutorial: Run the Exchange Workflow
 
