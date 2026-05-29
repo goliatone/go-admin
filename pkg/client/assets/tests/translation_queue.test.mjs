@@ -89,6 +89,96 @@ function setupDom(url = 'http://localhost/admin/translations/queue') {
   };
 }
 
+function makeGroupedQueueResponse() {
+  const first = structuredClone(fixtures.states.open_pool.data[0]);
+  const second = {
+    ...structuredClone(first),
+    id: 'asg-open-2',
+    target_record_id: 'page-1-es',
+    target_locale: 'es',
+    source_title: 'Launch page Spanish',
+    row_version: 4,
+    version: 4,
+    actions: {
+      claim: {
+        enabled: false,
+        reason: 'assignment is already claimed',
+        reason_code: 'INVALID_STATUS',
+      },
+      release: {
+        enabled: true,
+        permission: 'admin.translations.assign',
+      },
+    },
+  };
+  first.family_id = 'tg-grouped-1';
+  second.family_id = 'tg-grouped-1';
+
+  return {
+    meta: {
+      ...fixtures.meta,
+      ...fixtures.states.open_pool.meta,
+      total: 2,
+      grouping: {
+        enabled: true,
+        mode: 'family_id',
+        group_by: 'family_id',
+        scope: 'current_page',
+        row_count: 1,
+        group_count: 1,
+        assignment_count: 2,
+        supported_modes: ['family_id'],
+        strategy: 'page_local',
+      },
+    },
+    data: [
+      {
+        id: 'family:tg-grouped-1',
+        row_type: 'group',
+        family_id: 'tg-grouped-1',
+        group_by: 'family_id',
+        family_label: 'Launch page family',
+        family_summary: {
+          total_items: 2,
+          child_count: 2,
+          target_locales: ['fr', 'es'],
+          status_counts: {
+            open: 2,
+          },
+          priority_counts: {
+            normal: 2,
+          },
+        },
+        parent: {
+          id: 'family:tg-grouped-1',
+          family_id: 'tg-grouped-1',
+          source_title: 'Launch page family',
+          target_locales: ['fr', 'es'],
+          action_state: {
+            scope: 'children',
+            message: 'Family group actions are derived from child assignment rows.',
+          },
+        },
+        records: [first, second],
+        children: [first, second],
+        action_state: {
+          scope: 'children',
+          message: 'Family group actions are derived from child assignment rows.',
+        },
+        _group: {
+          row_type: 'group',
+          id: 'tg-grouped-1',
+          label: 'Launch page family',
+          group_by: 'family_id',
+          child_count: 2,
+          mode: 'page_local',
+          page_local: true,
+        },
+      },
+    ],
+  };
+}
+
 setGlobals(new JSDOM('<!doctype html><html><body></body></html>', {
   url: 'http://localhost/admin/translations/queue',
 }).window);
@@ -121,6 +211,21 @@ test('translation queue contracts: review presets fall back to review defaults w
     response.meta.saved_review_filter_presets.map((preset) => preset.id),
     ['review_inbox', 'review_overdue', 'review_blocked', 'review_changes_requested']
   );
+});
+
+test('translation queue contracts: grouped backend rows survive list normalization', () => {
+  const groupedResponse = makeGroupedQueueResponse();
+  const response = normalizeAssignmentListResponse(groupedResponse);
+  const group = response.data[0];
+
+  assert.equal(response.meta.grouping.enabled, true);
+  assert.equal(group.row_type, 'group');
+  assert.equal(group.family_label, 'Launch page family');
+  assert.equal(group.family_summary.child_count, 2);
+  assert.equal(group.parent.action_state.scope, 'children');
+  assert.equal(group.records.length, 2);
+  assert.equal(group.children[0].actions.claim.enabled, true);
+  assert.equal(group.children[1].actions.release.enabled, true);
 });
 
 test('translation queue contracts: canonical list urls preserve review state and translation group filters', () => {
@@ -229,6 +334,45 @@ test('translation queue runtime: bulk actions submit documented browser contract
   assert.match(screen.getFeedback()?.message || '', /1 assignment updated/);
   assert.equal(screen.getSelectedCount(), 0);
   assert.equal(screen.getRows()[0].version, 2);
+});
+
+test('translation queue runtime: grouped backend rows render expandable families and child actions', async () => {
+  const groupedResponse = makeGroupedQueueResponse();
+  const seenURLs = [];
+  globalThis.fetch = mock.fn(async (input) => {
+    seenURLs.push(String(input));
+    if (String(input).includes('group_by=family_id')) {
+      return createJsonResponse(groupedResponse);
+    }
+    return createJsonResponse({
+      meta: {
+        ...fixtures.states.open_pool.meta,
+        ...fixtures.meta,
+      },
+      data: fixtures.states.open_pool.data,
+    });
+  });
+
+  const screen = new AssignmentQueueScreen({
+    endpoint: '/admin/api/translations/assignments',
+    editorBasePath: '/admin/translations/assignments',
+  });
+  const container = createContainer();
+  screen.mount(container);
+  await flushAsync();
+
+  screen.setViewMode('grouped');
+  await flushAsync();
+
+  assert.match(seenURLs.at(-1), /group_by=family_id/);
+  assert.equal(screen.getViewMode(), 'grouped');
+  assert.equal(screen.getRows().length, 2);
+  assert.match(container.innerHTML, /Launch page family/);
+  assert.match(container.innerHTML, /2 locales/);
+  assert.match(container.innerHTML, /page-local counts/);
+  assert.match(container.innerHTML, /data-parent-group="tg-grouped-1"/);
+  assert.match(container.innerHTML, /data-action="release"/);
+  assert.doesNotMatch(container.innerHTML, /data-assignment-id="family:tg-grouped-1"/);
 });
 
 test('translation queue runtime: bulk partial failures preserve per-item backend errors', async () => {
