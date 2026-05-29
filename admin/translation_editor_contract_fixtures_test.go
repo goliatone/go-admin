@@ -104,11 +104,11 @@ func TestTranslationEditorContractFixtures(t *testing.T) {
 
 	backcompat := extractMap(fixture["assist_backcompat"])
 	legacy := normalizeEditorAssistFixture(backcompat["legacy_top_level"])
-	if len(legacy["glossary_matches"].([]map[string]any)) == 0 {
+	if len(extractListMaps(legacy["glossary_matches"])) == 0 {
 		t.Fatalf("expected legacy assist parser to preserve glossary matches")
 	}
 	missing := normalizeEditorAssistFixture(backcompat["missing_assets"])
-	if len(missing["glossary_matches"].([]map[string]any)) != 0 {
+	if len(extractListMaps(missing["glossary_matches"])) != 0 {
 		t.Fatalf("expected missing-assets fixture to degrade to empty glossary matches")
 	}
 }
