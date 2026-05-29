@@ -39,8 +39,11 @@ func TranslationDashboardContractPayload() map[string]any {
 			translationDashboardTableTopOverdueAssignments: translationDashboardDefaultOverdueLimit,
 			translationDashboardTableBlockedFamilies:       translationDashboardDefaultBlockedLimit,
 		},
-		"query_models": TranslationDashboardQueryModels(),
-		"runbooks":     translationDashboardRunbookCatalog(),
+		"query_models":       TranslationDashboardQueryModels(),
+		"reason_contract":    translationDashboardReasonContract(),
+		"reason_labels":      translationDashboardReasonLabels(),
+		"reason_data_states": []string{"available", "unavailable", "degraded"},
+		"runbooks":           translationDashboardRunbookCatalog(),
 	}
 }
 
@@ -71,7 +74,41 @@ func TranslationDashboardQueryModels() map[string]any {
 			"resolver_keys":     []string{"admin.translations.families.id", "admin.api.translations.families"},
 			"supported_filters": []string{"tenant_id", "org_id", "family_id", "readiness_state", "blocker_code", "missing_locale"},
 			"drilldown_links":   translationDashboardQueryModelLinks(translationDashboardTableBlockedFamilies),
+			"optional_fields": []string{
+				"reason_breakdown",
+				"blocker_codes",
+				"blocker_labels",
+				"affected_locales",
+				"reason_data",
+			},
 		},
+	}
+}
+
+func translationDashboardReasonContract() map[string]any {
+	return map[string]any{
+		"table_id": translationDashboardTableBlockedFamilies,
+		"fields": map[string]any{
+			"reason_breakdown": "Array of {code,label,count,affected_locales} entries for the row's known blocker reasons.",
+			"blocker_codes":    "Stable machine-readable blocker codes already present on blocked family rows.",
+			"blocker_labels":   "Map of blocker code to human-readable label for visible remediation UI.",
+			"affected_locales": "Sorted locale codes affected by the known blockers.",
+			"reason_data":      "Availability state for optional reason context.",
+		},
+		"reason_data": map[string]any{
+			"state":   []string{"available", "unavailable", "degraded"},
+			"message": "Optional human-readable explanation when reason data is unavailable or degraded.",
+		},
+	}
+}
+
+func translationDashboardReasonLabels() map[string]string {
+	return map[string]string{
+		"missing_locale":  "Missing locale",
+		"missing_field":   "Missing required field",
+		"pending_review":  "Pending review",
+		"outdated_source": "Source changed",
+		"policy_denied":   "Policy blocked",
 	}
 }
 

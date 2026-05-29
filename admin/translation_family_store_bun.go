@@ -67,6 +67,22 @@ type BunTranslationFamilyStore struct {
 	db *bun.DB
 }
 
+type TranslationDashboardFamilyMetricsStore interface {
+	TranslationDashboardFamilyMetrics(context.Context, TranslationDashboardFamilyMetricsInput) (TranslationDashboardFamilyMetrics, error)
+}
+
+type TranslationDashboardFamilyMetricsInput struct {
+	TenantID     string
+	OrgID        string
+	BlockedLimit int
+}
+
+type TranslationDashboardFamilyMetrics struct {
+	BlockedFamilies         int
+	MissingRequiredFamilies int
+	TopBlocked              []translationservices.FamilyRecord
+}
+
 func NewBunTranslationFamilyStore(db *bun.DB) *BunTranslationFamilyStore {
 	if db == nil {
 		return nil
@@ -83,6 +99,181 @@ func (s *BunTranslationFamilyStore) Families(ctx context.Context) ([]translation
 		return nil, err
 	}
 	return s.familiesFromRows(ctx, familyRows)
+}
+
+func (s *BunTranslationFamilyStore) ListFamiliesQuery(ctx context.Context, input translationservices.ListFamiliesInput) (translationservices.ListFamiliesResult, error) {
+	if s == nil || s.db == nil {
+		return translationservices.ListFamiliesResult{}, errors.New("family store not configured")
+	}
+	page := input.Page
+	if page <= 0 {
+		page = 1
+	}
+	perPage := input.PerPage
+	if perPage <= 0 {
+		perPage = 50
+	}
+	if perPage > 200 {
+		perPage = 200
+	}
+	countQuery := s.db.NewSelect().Model((*bunTranslationFamilyRecord)(nil))
+	applyBunFamilyListFilters(countQuery, input)
+	total, err := countQuery.Count(ctx)
+	if err != nil {
+		return translationservices.ListFamiliesResult{}, err
+	}
+	rows := []bunTranslationFamilyRecord{}
+	query := s.db.NewSelect().Model(&rows)
+	applyBunFamilyListFilters(query, input)
+	query.OrderExpr("updated_at DESC").OrderExpr("family_id ASC").Limit(perPage).Offset((page - 1) * perPage)
+	if err := query.Scan(ctx); err != nil {
+		return translationservices.ListFamiliesResult{}, err
+	}
+	families, err := s.familyListRowsFromRows(ctx, rows)
+	if err != nil {
+		return translationservices.ListFamiliesResult{}, err
+	}
+	return translationservices.ListFamiliesResult{
+		Items:   families,
+		Total:   total,
+		Page:    page,
+		PerPage: perPage,
+	}, nil
+}
+
+func applyBunFamilyListFilters(query *bun.SelectQuery, input translationservices.ListFamiliesInput) {
+	if query == nil {
+		return
+	}
+	tenantID := strings.TrimSpace(input.Scope.TenantID)
+	orgID := strings.TrimSpace(input.Scope.OrgID)
+	if tenantID != "" {
+		query.Where("tenant_id = ?", tenantID)
+	} else {
+		query.Where("(tenant_id IS NULL OR tenant_id = '')")
+	}
+	if orgID != "" {
+		query.Where("org_id = ?", orgID)
+	} else {
+		query.Where("(org_id IS NULL OR org_id = '')")
+	}
+	if familyID := strings.TrimSpace(input.FamilyID); familyID != "" {
+		query.Where("family_id = ?", familyID)
+	}
+	if contentType := strings.TrimSpace(strings.ToLower(input.ContentType)); contentType != "" {
+		query.Where("LOWER(content_type) = ?", contentType)
+	}
+	if readiness := strings.TrimSpace(strings.ToLower(input.ReadinessState)); readiness != "" {
+		query.Where("LOWER(readiness_state) = ?", readiness)
+	}
+	if blockerCode := strings.TrimSpace(strings.ToLower(input.BlockerCode)); blockerCode != "" {
+		query.Where("EXISTS (SELECT 1 FROM family_blockers fb WHERE fb.family_id = cf.family_id AND LOWER(fb.blocker_code) = ?)", blockerCode)
+	}
+	if missingLocale := strings.TrimSpace(strings.ToLower(input.MissingLocale)); missingLocale != "" {
+		query.Where("EXISTS (SELECT 1 FROM family_blockers fb WHERE fb.family_id = cf.family_id AND LOWER(fb.blocker_code) = 'missing_locale' AND LOWER(fb.locale) = ?)", missingLocale)
+	}
+}
+
+func (s *BunTranslationFamilyStore) familyListRowsFromRows(ctx context.Context, familyRows []bunTranslationFamilyRecord) ([]translationservices.FamilyRecord, error) {
+	if len(familyRows) == 0 {
+		return nil, nil
+	}
+	familyIDs := make([]string, 0, len(familyRows))
+	for _, row := range familyRows {
+		familyIDs = append(familyIDs, row.FamilyID)
+	}
+	variantRows := []bunTranslationLocaleVariantRecord{}
+	if err := s.db.NewSelect().
+		Model(&variantRows).
+		Where("family_id IN (?)", bun.List(familyIDs)).
+		Scan(ctx); err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return nil, err
+	}
+	blockerRows := []bunTranslationFamilyBlockerRecord{}
+	if err := s.db.NewSelect().
+		Model(&blockerRows).
+		Where("family_id IN (?)", bun.List(familyIDs)).
+		Scan(ctx); err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return nil, err
+	}
+	variantsByFamily, err := bunFamilyVariantsByFamily(variantRows)
+	if err != nil {
+		return nil, err
+	}
+	blockersByFamily, err := bunFamilyBlockersByFamily(blockerRows)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]translationservices.FamilyRecord, 0, len(familyRows))
+	for _, row := range familyRows {
+		family, err := familyModelFromBunRecord(row)
+		if err != nil {
+			return nil, err
+		}
+		family.Variants = variantsByFamily[row.FamilyID]
+		family.Blockers = blockersByFamily[row.FamilyID]
+		out = append(out, family)
+	}
+	return out, nil
+}
+
+func (s *BunTranslationFamilyStore) TranslationDashboardFamilyMetrics(ctx context.Context, input TranslationDashboardFamilyMetricsInput) (TranslationDashboardFamilyMetrics, error) {
+	if s == nil || s.db == nil {
+		return TranslationDashboardFamilyMetrics{}, errors.New("family store not configured")
+	}
+	scope := translationservices.Scope{TenantID: strings.TrimSpace(input.TenantID), OrgID: strings.TrimSpace(input.OrgID)}
+	blockedCountQuery := s.db.NewSelect().Model((*bunTranslationFamilyRecord)(nil))
+	applyBunFamilyListFilters(blockedCountQuery, translationservices.ListFamiliesInput{Scope: scope, ReadinessState: "blocked"})
+	blocked, err := blockedCountQuery.Count(ctx)
+	if err != nil {
+		return TranslationDashboardFamilyMetrics{}, err
+	}
+	missingCountQuery := s.db.NewSelect().Model((*bunTranslationFamilyRecord)(nil)).Where("missing_required_locale_count > 0")
+	applyBunFamilyListFilters(missingCountQuery, translationservices.ListFamiliesInput{Scope: scope})
+	missing, err := missingCountQuery.Count(ctx)
+	if err != nil {
+		return TranslationDashboardFamilyMetrics{}, err
+	}
+	limit := input.BlockedLimit
+	if limit <= 0 {
+		limit = translationDashboardDefaultBlockedLimit
+	}
+	topRows := []bunTranslationFamilyRecord{}
+	topQuery := s.db.NewSelect().Model(&topRows)
+	applyBunFamilyListFilters(topQuery, translationservices.ListFamiliesInput{Scope: scope, ReadinessState: "blocked"})
+	topQuery.
+		OrderExpr("missing_required_locale_count DESC").
+		OrderExpr("pending_review_count DESC").
+		OrderExpr("updated_at DESC").
+		OrderExpr("family_id ASC").
+		Limit(limit)
+	if err := topQuery.Scan(ctx); err != nil {
+		return TranslationDashboardFamilyMetrics{}, err
+	}
+	topFamilies, err := familyModelsFromBunRows(topRows)
+	if err != nil {
+		return TranslationDashboardFamilyMetrics{}, err
+	}
+	return TranslationDashboardFamilyMetrics{
+		BlockedFamilies:         blocked,
+		MissingRequiredFamilies: missing,
+		TopBlocked:              topFamilies,
+	}, nil
+}
+
+func familyModelsFromBunRows(rows []bunTranslationFamilyRecord) ([]translationservices.FamilyRecord, error) {
+	if len(rows) == 0 {
+		return nil, nil
+	}
+	out := make([]translationservices.FamilyRecord, 0, len(rows))
+	for _, row := range rows {
+		family, err := familyModelFromBunRecord(row)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, family)
+	}
+	return out, nil
 }
 
 func (s *BunTranslationFamilyStore) Family(ctx context.Context, id string) (translationservices.FamilyRecord, bool, error) {

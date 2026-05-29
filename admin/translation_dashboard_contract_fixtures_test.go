@@ -58,6 +58,14 @@ func assertTranslationDashboardFixtureState(t *testing.T, stateKey string, paylo
 	}
 
 	contracts := extractMap(meta["contracts"])
+	reasonContract := extractMap(contracts["reason_contract"])
+	if len(reasonContract) == 0 {
+		t.Fatalf("expected reason_contract for %s", stateKey)
+	}
+	reasonLabels := extractMap(contracts["reason_labels"])
+	if toString(reasonLabels["missing_locale"]) == "" || toString(reasonLabels["pending_review"]) == "" {
+		t.Fatalf("expected reason labels for %s, got %+v", stateKey, reasonLabels)
+	}
 	queryModels := extractMap(contracts["query_models"])
 	if len(queryModels) != 2 {
 		t.Fatalf("expected query models for %s, got %+v", stateKey, queryModels)
@@ -74,6 +82,10 @@ func assertTranslationDashboardFixtureState(t *testing.T, stateKey string, paylo
 		if len(links) == 0 {
 			t.Fatalf("expected drilldown_links on query model %s", tableID)
 		}
+	}
+	blockedModel := extractMap(queryModels[translationDashboardTableBlockedFamilies])
+	if optionalFields := toStringSlice(blockedModel["optional_fields"]); !dashboardFixtureContains(optionalFields, "reason_breakdown") || !dashboardFixtureContains(optionalFields, "affected_locales") {
+		t.Fatalf("expected blocked families optional reason fields, got %+v", optionalFields)
 	}
 
 	switch stateKey {
@@ -156,6 +168,9 @@ func assertDashboardRowLinks(t *testing.T, table map[string]any, expectedLinkKey
 	t.Helper()
 	rows := extractListMaps(table["rows"])
 	for _, row := range rows {
+		if table["id"] == translationDashboardTableBlockedFamilies {
+			assertDashboardReasonContext(t, row)
+		}
 		links := extractMap(row["links"])
 		for _, key := range expectedLinkKeys {
 			link := extractMap(links[key])
@@ -169,4 +184,33 @@ func assertDashboardRowLinks(t *testing.T, table map[string]any, expectedLinkKey
 			}
 		}
 	}
+}
+
+func assertDashboardReasonContext(t *testing.T, row map[string]any) {
+	t.Helper()
+	reasonData := extractMap(row["reason_data"])
+	if state := toString(reasonData["state"]); state == "" {
+		t.Fatalf("expected reason_data.state on blocked family row %+v", row)
+	}
+	if _, ok := row["reason_breakdown"].([]any); !ok {
+		t.Fatalf("expected reason_breakdown array on blocked family row %+v", row)
+	}
+	if _, ok := row["affected_locales"].([]any); !ok {
+		t.Fatalf("expected affected_locales array on blocked family row %+v", row)
+	}
+	labels := extractMap(row["blocker_labels"])
+	for _, code := range toStringSlice(row["blocker_codes"]) {
+		if label := toString(labels[code]); label == "" {
+			t.Fatalf("expected blocker label for %q on row %+v", code, row)
+		}
+	}
+}
+
+func dashboardFixtureContains(values []string, candidate string) bool {
+	for _, value := range values {
+		if value == candidate {
+			return true
+		}
+	}
+	return false
 }
