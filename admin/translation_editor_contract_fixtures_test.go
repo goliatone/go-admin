@@ -49,6 +49,16 @@ func TestTranslationEditorContractFixtures(t *testing.T) {
 	if available, _ := styleGuide["available"].(bool); !available {
 		t.Fatalf("expected style guide available in fixture")
 	}
+	memorySuggestions, _ := assist["translation_memory_suggestions"].([]any)
+	if len(memorySuggestions) == 0 {
+		t.Fatalf("expected fixture translation_memory_suggestions")
+	}
+	memory := extractMap(memorySuggestions[0])
+	for _, key := range []string{"score", "source_label", "locale_pair", "source_locale", "target_locale", "field_path", "suggested_text", "stale_source"} {
+		if _, ok := memory[key]; !ok {
+			t.Fatalf("expected translation memory field %q in %+v", key, memory)
+		}
+	}
 
 	update := extractMap(extractMap(fixture["variant_update"])["data"])
 	if got := toInt(update["row_version"]); got <= 0 {

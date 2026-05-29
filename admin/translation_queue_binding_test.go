@@ -422,6 +422,16 @@ func TestTranslationQueueBindingAssignmentsSupportsPageLocalFamilyGrouping(t *te
 	if toString(group["row_type"]) != "group" || toString(group["group_by"]) != "family_id" {
 		t.Fatalf("expected group row, got %+v", group)
 	}
+	if actions := extractMap(group["actions"]); len(actions) != 0 {
+		t.Fatalf("expected group parent row to omit executable child actions, got %+v", actions)
+	}
+	if reviewActions := extractMap(group["review_actions"]); len(reviewActions) != 0 {
+		t.Fatalf("expected group parent row to omit executable child review actions, got %+v", reviewActions)
+	}
+	actionState := extractMap(group["action_state"])
+	if got := toString(actionState["scope"]); got != "children" {
+		t.Fatalf("expected informational child action scope, got %+v", actionState)
+	}
 	children, _ := group["children"].([]any)
 	if len(children) != 2 {
 		t.Fatalf("expected two child assignments, got %+v", children)

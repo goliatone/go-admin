@@ -13,6 +13,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	translationcore "github.com/goliatone/go-admin/translations/core"
+	translationservices "github.com/goliatone/go-admin/translations/services"
 )
 
 type translationEditorTestFixtureOptions struct {
@@ -24,6 +25,7 @@ type translationEditorTestFixtureOptions struct {
 	VariantRowVersion      int64
 	LastRejectionReason    string
 	Permissions            map[string]bool
+	FamilyStore            translationservices.FamilyStore
 }
 
 type translationEditorTestFixture struct {
@@ -33,6 +35,48 @@ type translationEditorTestFixture struct {
 	assignmentID    string
 	targetVariantID string
 	targetRecordID  string
+}
+
+type translationMemoryFixturePair struct {
+	FamilyID             string
+	SourceID             string
+	TargetID             string
+	TenantID             string
+	OrgID                string
+	TargetLocale         string
+	TargetStatus         string
+	SourceTitle          string
+	SourceBody           string
+	TargetBody           string
+	SourceHash           string
+	UseCurrentSourceHash bool
+}
+
+type translationEditorMemoryTrackingStore struct {
+	base          translationservices.FamilyStore
+	familiesCalls int
+	suggestions   []TranslationEditorMemorySuggestion
+}
+
+func (s *translationEditorMemoryTrackingStore) Families(ctx context.Context) ([]translationservices.FamilyRecord, error) {
+	s.familiesCalls++
+	return s.base.Families(ctx)
+}
+
+func (s *translationEditorMemoryTrackingStore) Family(ctx context.Context, id string) (translationservices.FamilyRecord, bool, error) {
+	return s.base.Family(ctx, id)
+}
+
+func (s *translationEditorMemoryTrackingStore) SaveFamily(ctx context.Context, family translationservices.FamilyRecord) error {
+	return s.base.SaveFamily(ctx, family)
+}
+
+func (s *translationEditorMemoryTrackingStore) TranslationEditorMemorySuggestions(_ context.Context, input TranslationEditorMemorySuggestionInput) ([]TranslationEditorMemorySuggestion, error) {
+	input = normalizeTranslationEditorMemoryInput(input)
+	if input.TenantID != "tenant-1" || input.OrgID != "org-1" || input.ContentType != "pages" || input.SourceLocale != "en" || input.TargetLocale != "fr" {
+		return nil, nil
+	}
+	return append([]TranslationEditorMemorySuggestion{}, s.suggestions...), nil
 }
 
 func newTranslationEditorTestFixture(t *testing.T, options translationEditorTestFixtureOptions) translationEditorTestFixture {
@@ -65,6 +109,7 @@ func newTranslationEditorTestFixture(t *testing.T, options translationEditorTest
 	base := newTranslationFamilyMutationFixture(t, translationFamilyMutationFixtureOptions{
 		RequiredLocales: []string{"fr"},
 		ReviewRequired:  options.ReviewRequired,
+		FamilyStore:     options.FamilyStore,
 		Assignments: []TranslationAssignment{
 			{
 				ID:                  "asg-editor-1",
@@ -215,6 +260,62 @@ func newTranslationEditorTestFixture(t *testing.T, options translationEditorTest
 	}
 }
 
+func seedTranslationMemoryFixturePair(t *testing.T, content *translationFamilyMutationContentService, pair translationMemoryFixturePair) {
+	t.Helper()
+	if pair.TargetLocale == "" {
+		pair.TargetLocale = "fr"
+	}
+	if pair.TargetStatus == "" {
+		pair.TargetStatus = string(translationcore.VariantStatusApproved)
+	}
+	sourceData := map[string]any{
+		"path": "/" + strings.TrimSpace(pair.SourceID),
+		"body": pair.SourceBody,
+	}
+	source := CMSPage{
+		ID:       pair.SourceID,
+		Title:    pair.SourceTitle,
+		Slug:     pair.SourceID,
+		Locale:   "en",
+		FamilyID: pair.FamilyID,
+		Status:   string(translationcore.VariantStatusPublished),
+		Data:     sourceData,
+		Metadata: map[string]any{
+			"tenant_id": pair.TenantID,
+			"org_id":    pair.OrgID,
+		},
+	}
+	if _, err := content.CreatePage(context.Background(), source); err != nil {
+		t.Fatalf("seed translation memory source: %v", err)
+	}
+	sourceHash := strings.TrimSpace(pair.SourceHash)
+	if pair.UseCurrentSourceHash {
+		sourceHash = translationEditorHashFields(translationFamilyFields(source.Title, source.Slug, sourceData))
+	}
+	if sourceHash == "" {
+		sourceHash = "fixture-source-hash"
+	}
+	if _, err := content.CreatePage(context.Background(), CMSPage{
+		ID:       pair.TargetID,
+		Title:    strings.TrimSpace(firstNonEmpty(pair.TargetBody, pair.SourceTitle)),
+		Slug:     pair.TargetID,
+		Locale:   pair.TargetLocale,
+		FamilyID: pair.FamilyID,
+		Status:   pair.TargetStatus,
+		Data: map[string]any{
+			"path": "/" + strings.TrimSpace(pair.TargetID),
+			"body": pair.TargetBody,
+		},
+		Metadata: map[string]any{
+			"tenant_id":                              pair.TenantID,
+			"org_id":                                 pair.OrgID,
+			translationEditorSourceHashAtLastSyncKey: sourceHash,
+		},
+	}); err != nil {
+		t.Fatalf("seed translation memory target: %v", err)
+	}
+}
+
 func TestTranslationEditorAssignmentDetailReturnsDriftAssistTimelineAndActions(t *testing.T) {
 	fixture := newTranslationEditorTestFixture(t, translationEditorTestFixtureOptions{
 		ReviewRequired:      true,
@@ -280,6 +381,10 @@ func TestTranslationEditorAssignmentDetailReturnsDriftAssistTimelineAndActions(t
 	if available, _ := styleGuide["available"].(bool); !available {
 		t.Fatalf("expected style guide available, got %+v", styleGuide)
 	}
+	memorySuggestions, _ := assist["translation_memory_suggestions"].([]any)
+	if len(memorySuggestions) != 0 {
+		t.Fatalf("expected empty translation memory suggestions without scoped matches, got %+v", memorySuggestions)
+	}
 
 	comments, _ := data["comments"].([]any)
 	events, _ := data["events"].([]any)
@@ -301,6 +406,193 @@ func TestTranslationEditorAssignmentDetailReturnsDriftAssistTimelineAndActions(t
 	}
 	if autoApprove, _ := submitReview["auto_approve"].(bool); autoApprove {
 		t.Fatalf("expected submit_review auto_approve false when review is required")
+	}
+}
+
+func TestTranslationEditorAssignmentDetailReturnsScopedTranslationMemorySuggestions(t *testing.T) {
+	familyStore := NewBunTranslationFamilyStore(newTranslationFamilyStoreSQLiteDB(t))
+	fixture := newTranslationEditorTestFixture(t, translationEditorTestFixtureOptions{
+		ReviewRequired: true,
+		FamilyStore:    familyStore,
+	})
+
+	seedTranslationMemoryFixturePair(t, fixture.content, translationMemoryFixturePair{
+		FamilyID:             "tg-memory-current",
+		SourceID:             "memory-current-en",
+		TargetID:             "memory-current-fr",
+		TenantID:             "tenant-1",
+		OrgID:                "org-1",
+		TargetLocale:         "fr",
+		TargetStatus:         string(translationcore.VariantStatusApproved),
+		SourceTitle:          "Prior publish guide",
+		SourceBody:           "Translation guide for publish workflows from the home page.",
+		TargetBody:           "Guide precedent pour les workflows de publication.",
+		UseCurrentSourceHash: true,
+	})
+	seedTranslationMemoryFixturePair(t, fixture.content, translationMemoryFixturePair{
+		FamilyID:     "tg-memory-stale",
+		SourceID:     "memory-stale-en",
+		TargetID:     "memory-stale-fr",
+		TenantID:     "tenant-1",
+		OrgID:        "org-1",
+		TargetLocale: "fr",
+		TargetStatus: string(translationcore.VariantStatusPublished),
+		SourceTitle:  "Older publish guide",
+		SourceBody:   "Translation guide for publish workflows from the home page.",
+		TargetBody:   "Ancienne suggestion approuvee.",
+		SourceHash:   "stale-source-hash",
+	})
+	seedTranslationMemoryFixturePair(t, fixture.content, translationMemoryFixturePair{
+		FamilyID:             "tg-memory-other-tenant",
+		SourceID:             "memory-other-tenant-en",
+		TargetID:             "memory-other-tenant-fr",
+		TenantID:             "tenant-2",
+		OrgID:                "org-9",
+		TargetLocale:         "fr",
+		TargetStatus:         string(translationcore.VariantStatusApproved),
+		SourceTitle:          "Other tenant",
+		SourceBody:           "Translation guide for publish workflows from the home page.",
+		TargetBody:           "Leaked tenant suggestion",
+		UseCurrentSourceHash: true,
+	})
+	seedTranslationMemoryFixturePair(t, fixture.content, translationMemoryFixturePair{
+		FamilyID:             "tg-memory-other-locale",
+		SourceID:             "memory-other-locale-en",
+		TargetID:             "memory-other-locale-es",
+		TenantID:             "tenant-1",
+		OrgID:                "org-1",
+		TargetLocale:         "es",
+		TargetStatus:         string(translationcore.VariantStatusApproved),
+		SourceTitle:          "Other locale",
+		SourceBody:           "Translation guide for publish workflows from the home page.",
+		TargetBody:           "Sugerencia en espanol",
+		UseCurrentSourceHash: true,
+	})
+	seedTranslationMemoryFixturePair(t, fixture.content, translationMemoryFixturePair{
+		FamilyID:             "tg-memory-draft",
+		SourceID:             "memory-draft-en",
+		TargetID:             "memory-draft-fr",
+		TenantID:             "tenant-1",
+		OrgID:                "org-1",
+		TargetLocale:         "fr",
+		TargetStatus:         string(translationcore.VariantStatusDraft),
+		SourceTitle:          "Draft",
+		SourceBody:           "Translation guide for publish workflows from the home page.",
+		TargetBody:           "Draft suggestion",
+		UseCurrentSourceHash: true,
+	})
+	syncTranslationFamilyFixtureStore(t, fixture.admin, "production")
+
+	status, payload := doTranslationEditorJSONRequest(t, fixture.app, http.MethodGet, "/admin/api/translations/assignments/"+fixture.assignmentID+"?channel=production&tenant_id=tenant-1&org_id=org-1", nil)
+	if status != http.StatusOK {
+		t.Fatalf("status=%d want=200 payload=%+v", status, payload)
+	}
+
+	assist := extractMap(extractMap(payload["data"])["assist"])
+	suggestions, _ := assist["translation_memory_suggestions"].([]any)
+	if len(suggestions) != 2 {
+		t.Fatalf("expected two scoped translation memory suggestions, got %+v", suggestions)
+	}
+	current := extractMap(suggestions[0])
+	if got := toString(current["source"]); got != "internal_variant_history" {
+		t.Fatalf("expected internal history source, got %+v", current)
+	}
+	if got := toString(current["field_path"]); got != "body" {
+		t.Fatalf("expected body field suggestion, got %+v", current)
+	}
+	if got := toString(current["locale_pair"]); got != "en:fr" {
+		t.Fatalf("expected en:fr locale pair, got %+v", current)
+	}
+	if got := toString(current["suggested_text"]); got != "Guide precedent pour les workflows de publication." {
+		t.Fatalf("expected current suggestion text, got %+v", current)
+	}
+	if stale, _ := current["stale_source"].(bool); stale {
+		t.Fatalf("expected first suggestion to be current, got %+v", current)
+	}
+
+	stale := extractMap(suggestions[1])
+	if got := toString(stale["suggested_text"]); got != "Ancienne suggestion approuvee." {
+		t.Fatalf("expected stale suggestion text, got %+v", stale)
+	}
+	if staleSource, _ := stale["stale_source"].(bool); !staleSource {
+		t.Fatalf("expected stale_source indicator, got %+v", stale)
+	}
+	for _, raw := range suggestions {
+		entry := extractMap(raw)
+		switch toString(entry["suggested_text"]) {
+		case "Leaked tenant suggestion", "Sugerencia en espanol", "Draft suggestion":
+			t.Fatalf("unexpected unscoped, wrong-locale, or draft suggestion: %+v", entry)
+		}
+	}
+}
+
+func TestTranslationEditorAssignmentDetailUsesBoundedTranslationMemoryLookup(t *testing.T) {
+	sourceFields := map[string]string{
+		"title": "Prior guide",
+		"path":  "/prior-guide",
+		"body":  "Translation guide for publish workflows from the home page.",
+	}
+	trackingStore := &translationEditorMemoryTrackingStore{
+		base: translationservices.NewInMemoryFamilyStore(),
+		suggestions: []TranslationEditorMemorySuggestion{
+			{
+				Family: translationservices.FamilyRecord{
+					ID:           "tm-tracking",
+					TenantID:     "tenant-1",
+					OrgID:        "org-1",
+					ContentType:  "pages",
+					SourceLocale: "en",
+				},
+				SourceVariant: translationservices.FamilyVariant{
+					ID:             "tm-tracking::en",
+					FamilyID:       "tm-tracking",
+					TenantID:       "tenant-1",
+					OrgID:          "org-1",
+					Locale:         "en",
+					Status:         string(translationcore.VariantStatusPublished),
+					IsSource:       true,
+					Fields:         sourceFields,
+					SourceRecordID: "tm-tracking-source",
+				},
+				TargetVariant: translationservices.FamilyVariant{
+					ID:                   "tm-tracking::fr",
+					FamilyID:             "tm-tracking",
+					TenantID:             "tenant-1",
+					OrgID:                "org-1",
+					Locale:               "fr",
+					Status:               string(translationcore.VariantStatusApproved),
+					SourceHashAtLastSync: translationEditorHashFields(sourceFields),
+					Fields: map[string]string{
+						"body": "Suggestion issue du read model.",
+					},
+					SourceRecordID: "tm-tracking-fr",
+				},
+				FieldPath:     "body",
+				SourceText:    "Translation guide for publish workflows from the home page.",
+				SuggestedText: "Suggestion issue du read model.",
+			},
+		},
+	}
+	fixture := newTranslationEditorTestFixture(t, translationEditorTestFixtureOptions{
+		ReviewRequired: true,
+		FamilyStore:    trackingStore,
+	})
+	trackingStore.familiesCalls = 0
+
+	status, payload := doTranslationEditorJSONRequest(t, fixture.app, http.MethodGet, "/admin/api/translations/assignments/"+fixture.assignmentID+"?channel=production&tenant_id=tenant-1&org_id=org-1", nil)
+	if status != http.StatusOK {
+		t.Fatalf("status=%d want=200 payload=%+v", status, payload)
+	}
+	if trackingStore.familiesCalls != 0 {
+		t.Fatalf("expected editor TM lookup to avoid broad Families calls, got %d", trackingStore.familiesCalls)
+	}
+	assist := extractMap(extractMap(payload["data"])["assist"])
+	suggestions, _ := assist["translation_memory_suggestions"].([]any)
+	if len(suggestions) != 1 {
+		t.Fatalf("expected bounded lookup suggestion, got %+v", suggestions)
+	}
+	if got := toString(extractMap(suggestions[0])["suggested_text"]); got != "Suggestion issue du read model." {
+		t.Fatalf("expected bounded lookup suggestion text, got %+v", suggestions[0])
 	}
 }
 

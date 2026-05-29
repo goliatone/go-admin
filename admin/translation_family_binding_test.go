@@ -987,6 +987,7 @@ type translationFamilyMutationFixtureOptions struct {
 	DisablePolicy        bool
 	OmitDefaultWorkScope bool
 	Repo                 TranslationAssignmentRepository
+	FamilyStore          translationservices.FamilyStore
 }
 
 type translationFamilyMutationFixture struct {
@@ -1068,7 +1069,11 @@ func newTranslationFamilyMutationFixture(t *testing.T, options translationFamily
 	adm.WithTranslationPolicy(readinessPolicyByEntityStub{
 		requirements: fixtureTranslationRequirementsByEntity(options),
 	})
-	adm.WithTranslationFamilyStore(translationservices.NewInMemoryFamilyStore())
+	familyStore := options.FamilyStore
+	if familyStore == nil {
+		familyStore = translationservices.NewInMemoryFamilyStore()
+	}
+	adm.WithTranslationFamilyStore(familyStore)
 	if _, err := RegisterTranslationQueuePanel(adm, repo); err != nil {
 		t.Fatalf("register translation queue panel: %v", err)
 	}
