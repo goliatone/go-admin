@@ -4,6 +4,9 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
+
+	translationservices "github.com/goliatone/go-admin/translations/services"
 )
 
 func TestInMemoryTranslationAssignmentRepositoryCreateEnforcesActiveUniqueness(t *testing.T) {
@@ -204,6 +207,144 @@ func TestInMemoryTranslationAssignmentRepositoryAllowsConcurrentActiveAssignment
 		Priority:       PriorityNormal,
 	}); err != nil {
 		t.Fatalf("expected separate work_scope assignment to succeed, got %v", err)
+	}
+}
+
+func TestBunTranslationAssignmentRepositoryListFiltersSortsAndCountsInSQL(t *testing.T) {
+	db := newTranslationFamilyStoreSQLiteDB(t)
+	ctx := context.Background()
+	store := NewBunTranslationFamilyStore(db)
+	if err := store.SaveFamily(ctx, translationservices.FamilyRecord{
+		ID:              "family-sql",
+		TenantID:        "tenant-1",
+		OrgID:           "org-1",
+		ContentType:     "pages",
+		SourceLocale:    "en",
+		SourceVariantID: "family-sql::en",
+		ReadinessState:  "ready",
+		Variants: []translationservices.FamilyVariant{
+			{ID: "family-sql::en", FamilyID: "family-sql", TenantID: "tenant-1", OrgID: "org-1", Locale: "en", Status: "published", IsSource: true, SourceRecordID: "page-1"},
+			{ID: "family-sql::es", FamilyID: "family-sql", TenantID: "tenant-1", OrgID: "org-1", Locale: "es", Status: "draft", SourceRecordID: "page-1"},
+			{ID: "family-sql::fr", FamilyID: "family-sql", TenantID: "tenant-1", OrgID: "org-1", Locale: "fr", Status: "draft", SourceRecordID: "page-1"},
+		},
+	}); err != nil {
+		t.Fatalf("seed family: %v", err)
+	}
+	repo := NewBunTranslationAssignmentRepository(db)
+	overdue := time.Now().UTC().Add(-2 * time.Hour)
+	future := time.Now().UTC().Add(72 * time.Hour)
+	for _, assignment := range []TranslationAssignment{
+		{ID: "asg-sql-1", FamilyID: "family-sql", EntityType: "pages", TenantID: "tenant-1", OrgID: "org-1", SourceRecordID: "page-1", SourceLocale: "en", TargetLocale: "es", SourceTitle: "Avalokiteshvara", AssignmentType: AssignmentTypeDirect, Status: AssignmentStatusInProgress, AssigneeID: "translator-1", ReviewerID: "reviewer-1", Priority: PriorityUrgent, DueDate: &overdue},
+		{ID: "asg-sql-2", FamilyID: "family-sql", EntityType: "pages", TenantID: "tenant-1", OrgID: "org-1", SourceRecordID: "page-1", SourceLocale: "en", TargetLocale: "fr", SourceTitle: "Other", AssignmentType: AssignmentTypeDirect, Status: AssignmentStatusAssigned, AssigneeID: "translator-1", ReviewerID: "reviewer-2", Priority: PriorityLow, DueDate: &future},
+	} {
+		if _, err := repo.Create(ctx, assignment); err != nil {
+			t.Fatalf("create assignment %s: %v", assignment.ID, err)
+		}
+	}
+
+	items, total, err := repo.List(ctx, ListOptions{
+		Page:    1,
+		PerPage: 1,
+		SortBy:  "due_date",
+		Filters: map[string]any{
+			"tenant_id":        "tenant-1",
+			"org_id":           "org-1",
+			"assignee_id":      "translator-1",
+			"target_locale":    "es,fr",
+			"source_locale":    "en",
+			"entity_type":      "pages",
+			"source_record_id": "page-1",
+			"_search":          "avalok",
+		},
+	})
+	if err != nil {
+		t.Fatalf("list assignments: %v", err)
+	}
+	if total != 1 {
+		t.Fatalf("total=%d want=1", total)
+	}
+	if len(items) != 1 || items[0].ID != "asg-sql-1" {
+		t.Fatalf("items=%+v want asg-sql-1", items)
+	}
+}
+
+func TestBunTranslationAssignmentRepositoryListAssignmentPageUsesInjectedClockForDueState(t *testing.T) {
+	db := newTranslationFamilyStoreSQLiteDB(t)
+	ctx := context.Background()
+	store := NewBunTranslationFamilyStore(db)
+	if err := store.SaveFamily(ctx, translationservices.FamilyRecord{
+		ID:              "family-clock",
+		TenantID:        "tenant-1",
+		OrgID:           "org-1",
+		ContentType:     "pages",
+		SourceLocale:    "en",
+		SourceVariantID: "family-clock::en",
+		ReadinessState:  "ready",
+		Variants: []translationservices.FamilyVariant{
+			{ID: "family-clock::en", FamilyID: "family-clock", TenantID: "tenant-1", OrgID: "org-1", Locale: "en", Status: "published", IsSource: true, SourceRecordID: "page-clock"},
+			{ID: "family-clock::es", FamilyID: "family-clock", TenantID: "tenant-1", OrgID: "org-1", Locale: "es", Status: "draft", SourceRecordID: "page-clock"},
+		},
+	}); err != nil {
+		t.Fatalf("seed family: %v", err)
+	}
+	repo := NewBunTranslationAssignmentRepository(db)
+	queryNow := time.Date(2030, 1, 2, 12, 0, 0, 0, time.UTC)
+	due := queryNow.Add(-time.Hour)
+	if _, err := repo.Create(ctx, TranslationAssignment{
+		ID:             "asg-clock-overdue",
+		FamilyID:       "family-clock",
+		EntityType:     "pages",
+		TenantID:       "tenant-1",
+		OrgID:          "org-1",
+		SourceRecordID: "page-clock",
+		SourceLocale:   "en",
+		TargetLocale:   "es",
+		AssignmentType: AssignmentTypeDirect,
+		Status:         AssignmentStatusAssigned,
+		Priority:       PriorityNormal,
+		DueDate:        &due,
+	}); err != nil {
+		t.Fatalf("seed assignment: %v", err)
+	}
+
+	result, err := repo.ListAssignmentPage(ctx, TranslationAssignmentPageQueryInput{
+		Filter: translationAssignmentListFilter{
+			TenantID:   "tenant-1",
+			OrgID:      "org-1",
+			DueState:   translationQueueDueStateOverdue,
+			SortBy:     "due_date",
+			SortDesc:   false,
+			ReviewerID: "",
+		},
+		Page:    1,
+		PerPage: 10,
+		Now:     queryNow,
+	})
+	if err != nil {
+		t.Fatalf("list assignment page: %v", err)
+	}
+	if result.Total != 1 || len(result.Items) != 1 || result.Items[0].ID != "asg-clock-overdue" {
+		t.Fatalf("expected overdue assignment using injected clock, got total=%d items=%+v", result.Total, result.Items)
+	}
+}
+
+func TestBunTranslationAssignmentRepositoryReviewerAggregateDeclinesQABlockedPlaceholder(t *testing.T) {
+	db := newTranslationFamilyStoreSQLiteDB(t)
+	repo := NewBunTranslationAssignmentRepository(db)
+
+	counts, err := repo.AssignmentReviewerAggregateCounts(context.Background(), TranslationAssignmentReviewerAggregateInput{
+		TenantID: "tenant-1",
+		OrgID:    "org-1",
+		ActorID:  "reviewer-1",
+		Now:      time.Date(2026, 2, 17, 12, 0, 0, 0, time.UTC),
+	})
+	if !errors.Is(err, ErrTranslationAssignmentQueryUnsupported) {
+		t.Fatalf("expected reviewer aggregate query to decline QA-blocked placeholder, got counts=%+v err=%v", counts, err)
+	}
+	for _, key := range TranslationQueueReviewAggregateCountKeys() {
+		if _, ok := counts[key]; !ok {
+			t.Fatalf("expected initialized count key %q in %+v", key, counts)
+		}
 	}
 }
 

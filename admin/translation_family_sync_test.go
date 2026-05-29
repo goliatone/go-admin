@@ -3,9 +3,11 @@ package admin
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"sort"
 	"testing"
 
+	translationcore "github.com/goliatone/go-admin/translations/core"
 	translationservices "github.com/goliatone/go-admin/translations/services"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/uptrace/bun"
@@ -62,6 +64,170 @@ func TestTranslationFamilySyncKeepsLocaleVariantsForSharedPageRecordID(t *testin
 		if variant.SourceRecordID != "page-privacy" {
 			t.Fatalf("variant %s source record id = %q", variant.ID, variant.SourceRecordID)
 		}
+	}
+}
+
+func TestTranslationFamilySyncLocalesIncludeActiveLocaleCatalog(t *testing.T) {
+	content := &translationFamilySyncContentStub{
+		InMemoryContentService: NewInMemoryContentService(),
+		pagesByLocale: map[string][]CMSPage{
+			"bo": {{
+				ID:               "page-home",
+				FamilyID:         "family-home",
+				Locale:           "bo",
+				Title:            "Home BO",
+				Slug:             "home",
+				Status:           "published",
+				AvailableLocales: []string{"bo"},
+			}},
+			"en": {{
+				ID:               "page-home",
+				FamilyID:         "family-home",
+				Locale:           "en",
+				Title:            "Home",
+				Slug:             "home",
+				Status:           "published",
+				AvailableLocales: []string{"en"},
+			}},
+		},
+	}
+	adm := &Admin{
+		contentSvc: content,
+		cms: activeLocalesContentContainerStub{
+			NoopCMSContainer: NewNoopCMSContainer(),
+			locales:          []string{"en", "bo"},
+		},
+		config: Config{DefaultLocale: "en"},
+	}
+	binding := &translationFamilyBinding{admin: adm}
+
+	locales, err := translationFamilySyncLocales(context.Background(), adm, binding, "en", "default")
+	if err != nil {
+		t.Fatalf("translationFamilySyncLocales: %v", err)
+	}
+	if !equalStrings(locales, []string{"bo", "en"}) {
+		t.Fatalf("locales = %#v, want active catalog locales bo/en", locales)
+	}
+	families, err := translationFamilySyncFamilies(context.Background(), adm, locales, "en")
+	if err != nil {
+		t.Fatalf("translationFamilySyncFamilies: %v", err)
+	}
+	if got := sortedFamilyVariantIDs(families["family-home"]); !equalStrings(got, []string{"page-home::bo", "page-home::en"}) {
+		t.Fatalf("variant ids = %#v, want bo/en variants from active catalog", got)
+	}
+}
+
+func TestSyncTranslationFamilyStoreForFamilySavesOnlyRequestedFamily(t *testing.T) {
+	ctx := context.Background()
+	store := translationservices.NewInMemoryFamilyStore()
+	content := &translationFamilySyncContentStub{
+		InMemoryContentService: NewInMemoryContentService(),
+		pagesByLocale: map[string][]CMSPage{
+			"en": {
+				{
+					ID:               "page-a",
+					FamilyID:         "family-a",
+					Locale:           "en",
+					Title:            "A",
+					Slug:             "a",
+					Status:           "published",
+					AvailableLocales: []string{"en"},
+				},
+				{
+					ID:               "page-b",
+					FamilyID:         "family-b",
+					Locale:           "en",
+					Title:            "B",
+					Slug:             "b",
+					Status:           "published",
+					AvailableLocales: []string{"en"},
+				},
+			},
+		},
+	}
+	adm := &Admin{
+		contentSvc:             content,
+		translationFamilyStore: store,
+		config:                 Config{DefaultLocale: "en"},
+		translationPolicy:      TranslationPolicyFunc(func(context.Context, TranslationPolicyInput) error { return nil }),
+	}
+
+	if err := SyncTranslationFamilyStoreForFamily(ctx, adm, "default", "family-a"); err != nil {
+		t.Fatalf("SyncTranslationFamilyStoreForFamily: %v", err)
+	}
+	if _, ok, err := store.Family(ctx, "family-a"); err != nil || !ok {
+		t.Fatalf("expected family-a saved, ok=%v err=%v", ok, err)
+	}
+	if _, ok, err := store.Family(ctx, "family-b"); err != nil || ok {
+		t.Fatalf("expected family-b not saved by scoped sync, ok=%v err=%v", ok, err)
+	}
+}
+
+func TestTranslationFamilyPolicyResolverUsesRequirementsSourceLocaleAndPolicyBlockers(t *testing.T) {
+	ctx := context.Background()
+	policy := &translationFamilyBlockingPolicy{
+		req: TranslationRequirements{
+			Locales:      []string{"en", "bo"},
+			SourceLocale: "bo",
+		},
+		err: errors.New("route conflict"),
+	}
+	adm := &Admin{
+		config:            Config{DefaultLocale: "zh"},
+		translationPolicy: policy,
+	}
+	resolver := translationFamilyPolicyResolver{admin: adm}
+
+	familyPolicy, ok, err := resolver.ResolvePolicy(ctx, "archive_event", "default")
+	if err != nil || !ok {
+		t.Fatalf("ResolvePolicy ok=%v err=%v", ok, err)
+	}
+	if familyPolicy.SourceLocale != "bo" {
+		t.Fatalf("source locale = %q, want requirements source locale bo", familyPolicy.SourceLocale)
+	}
+	blockers, err := resolver.ResolvePolicyBlockers(ctx, translationservices.FamilyRecord{
+		ID:              "family-archive",
+		ContentType:     "archive_event",
+		SourceLocale:    "bo",
+		SourceVariantID: "variant-bo",
+		Variants: []translationservices.FamilyVariant{{
+			ID:             "variant-bo",
+			FamilyID:       "family-archive",
+			Locale:         "bo",
+			IsSource:       true,
+			SourceRecordID: "record-bo",
+		}},
+	}, familyPolicy, "default")
+	if err != nil {
+		t.Fatalf("ResolvePolicyBlockers: %v", err)
+	}
+	if len(blockers) != 1 || blockers[0].BlockerCode != string(translationcore.FamilyBlockerPolicyDenied) || blockers[0].Locale != "bo" {
+		t.Fatalf("unexpected blockers: %+v", blockers)
+	}
+	if policy.input.RequestedLocale != "bo" || policy.input.EntityID != "record-bo" {
+		t.Fatalf("unexpected validation input: %+v", policy.input)
+	}
+}
+
+func TestTranslationFamilyPolicyResolverSourceLocaleFallsBackToRequiredEnglishBeforeDefaultLocale(t *testing.T) {
+	ctx := context.Background()
+	policy := &translationFamilyBlockingPolicy{
+		req: TranslationRequirements{
+			Locales: []string{"en", "bo", "zh"},
+		},
+	}
+	adm := &Admin{
+		config:            Config{DefaultLocale: "bo"},
+		translationPolicy: policy,
+	}
+	resolver := translationFamilyPolicyResolver{admin: adm}
+
+	familyPolicy, ok, err := resolver.ResolvePolicy(ctx, "archive_event", "default")
+	if err != nil || !ok {
+		t.Fatalf("ResolvePolicy ok=%v err=%v", ok, err)
+	}
+	if familyPolicy.SourceLocale != "en" {
+		t.Fatalf("source locale = %q, want required English before default locale", familyPolicy.SourceLocale)
 	}
 }
 
@@ -349,6 +515,21 @@ type translationFamilySyncContentStub struct {
 	*InMemoryContentService
 	pagesByLocale    map[string][]CMSPage
 	contentsByLocale map[string][]CMSContent
+}
+
+type translationFamilyBlockingPolicy struct {
+	req   TranslationRequirements
+	err   error
+	input TranslationPolicyInput
+}
+
+func (p *translationFamilyBlockingPolicy) Requirements(context.Context, TranslationPolicyInput) (TranslationRequirements, bool, error) {
+	return p.req, true, nil
+}
+
+func (p *translationFamilyBlockingPolicy) Validate(_ context.Context, input TranslationPolicyInput) error {
+	p.input = input
+	return p.err
 }
 
 func (s *translationFamilySyncContentStub) Pages(_ context.Context, locale string) ([]CMSPage, error) {

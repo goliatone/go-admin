@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -359,6 +360,105 @@ func TestTranslationQueueBindingAssignmentsReturnsEnvelopeAndActionStates(t *tes
 	if got := strings.TrimSpace(toString(release["reason_code"])); got != ActionDisabledReasonCodeInvalidStatus {
 		t.Fatalf("expected invalid status reason code, got %q", got)
 	}
+}
+
+func TestTranslationQueueBindingAssignmentsUsesOptimizedPageAndReviewerSummary(t *testing.T) {
+	now := time.Date(2026, 2, 17, 12, 0, 0, 0, time.UTC)
+	adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{
+		FeatureGate: featureGateFromKeys(FeatureCMS, FeatureTranslationQueue),
+	})
+	adm.WithAuthorizer(translationPermissionAuthorizer{
+		allowed: map[string]bool{
+			PermAdminTranslationsView:   true,
+			PermAdminTranslationsClaim:  true,
+			PermAdminTranslationsAssign: true,
+		},
+	})
+	repo := &optimizedAssignmentReadRepo{
+		pageItems: []TranslationAssignment{{
+			ID:             "asg-optimized-page",
+			FamilyID:       "family-optimized-page",
+			EntityType:     "pages",
+			SourceRecordID: "page-optimized",
+			SourceLocale:   "en",
+			TargetLocale:   "es",
+			AssignmentType: AssignmentTypeOpenPool,
+			Status:         AssignmentStatusOpen,
+			Priority:       PriorityNormal,
+			UpdatedAt:      now,
+			CreatedAt:      now,
+		}},
+		reviewerCounts: map[string]int{"review_inbox": 1, "review_overdue": 0, "review_blocked": 0, "review_changes_requested": 0},
+	}
+	if _, err := RegisterTranslationQueuePanel(adm, repo); err != nil {
+		t.Fatalf("register queue panel: %v", err)
+	}
+	binding := newTranslationQueueBinding(adm)
+	binding.now = func() time.Time { return now }
+	app := newTranslationQueueTestApp(t, binding)
+
+	req := httptest.NewRequest(http.MethodGet, "/admin/api/translations/assignments?tenant_id=tenant-1&org_id=org-1", nil)
+	req.Header.Set("X-User-ID", "manager-1")
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("request error: %v", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status=%d want=200", resp.StatusCode)
+	}
+	defer mustClose(t, "response body", resp.Body)
+	if repo.listCalls != 0 {
+		t.Fatalf("optimized assignment endpoint called List %d times", repo.listCalls)
+	}
+	if repo.pageCalls != 1 {
+		t.Fatalf("expected one optimized page call, got %d", repo.pageCalls)
+	}
+	if repo.reviewerCalls != 1 {
+		t.Fatalf("expected one optimized reviewer summary call, got %d", repo.reviewerCalls)
+	}
+}
+
+type optimizedAssignmentReadRepo struct {
+	pageItems      []TranslationAssignment
+	reviewerCounts map[string]int
+	listCalls      int
+	pageCalls      int
+	reviewerCalls  int
+}
+
+func (r *optimizedAssignmentReadRepo) List(context.Context, ListOptions) ([]TranslationAssignment, int, error) {
+	r.listCalls++
+	return nil, 0, errors.New("List must not be called by optimized assignment page")
+}
+
+func (r *optimizedAssignmentReadRepo) ListAssignmentPage(context.Context, TranslationAssignmentPageQueryInput) (TranslationAssignmentPageQueryResult, error) {
+	r.pageCalls++
+	return TranslationAssignmentPageQueryResult{Items: append([]TranslationAssignment{}, r.pageItems...), Total: len(r.pageItems)}, nil
+}
+
+func (r *optimizedAssignmentReadRepo) AssignmentReviewerAggregateCounts(context.Context, TranslationAssignmentReviewerAggregateInput) (map[string]int, error) {
+	r.reviewerCalls++
+	out := map[string]int{}
+	for key, value := range r.reviewerCounts {
+		out[key] = value
+	}
+	return out, nil
+}
+
+func (r *optimizedAssignmentReadRepo) Create(context.Context, TranslationAssignment) (TranslationAssignment, error) {
+	return TranslationAssignment{}, errors.New("not implemented")
+}
+
+func (r *optimizedAssignmentReadRepo) CreateOrReuseActive(context.Context, TranslationAssignment) (TranslationAssignment, bool, error) {
+	return TranslationAssignment{}, false, errors.New("not implemented")
+}
+
+func (r *optimizedAssignmentReadRepo) Get(context.Context, string) (TranslationAssignment, error) {
+	return TranslationAssignment{}, errors.New("not implemented")
+}
+
+func (r *optimizedAssignmentReadRepo) Update(context.Context, TranslationAssignment, int64) (TranslationAssignment, error) {
+	return TranslationAssignment{}, errors.New("not implemented")
 }
 
 func TestTranslationQueueBindingAssignmentsExposeReviewerGuardFeedbackAndQASummary(t *testing.T) {
@@ -1156,6 +1256,17 @@ func newTranslationQueueTestApp(t *testing.T, binding *translationQueueBinding) 
 			return writeError(c, err)
 		}
 		payload, err := binding.RunAssignmentAction(c, c.Param("assignment_id"), c.Param("action"), body)
+		if err != nil {
+			return writeError(c, err)
+		}
+		return writeJSON(c, payload)
+	})
+	r.Post("/admin/api/translations/assignments/actions/bulk", func(c router.Context) error {
+		body, err := parseJSONBody(c)
+		if err != nil {
+			return writeError(c, err)
+		}
+		payload, err := binding.RunAssignmentBulkAction(c, body)
 		if err != nil {
 			return writeError(c, err)
 		}

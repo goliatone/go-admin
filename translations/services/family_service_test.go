@@ -113,6 +113,51 @@ func TestFamilyServicePolicyOverrideAndSourceLocaleSelection(t *testing.T) {
 	}
 }
 
+func TestFamilyServiceIncludesCustomPolicyBlockers(t *testing.T) {
+	store := NewInMemoryFamilyStore()
+	requireNoErr(t, seedFamilyStore(store, FamilyRecord{
+		ID:              "family-custom-policy",
+		ContentType:     "pages",
+		SourceLocale:    "en",
+		SourceVariantID: "variant-en",
+		Variants: []FamilyVariant{
+			{ID: "variant-en", FamilyID: "family-custom-policy", Locale: "en", Status: string(translationcore.VariantStatusPublished), IsSource: true, Fields: map[string]string{"title": "Home"}},
+		},
+	}))
+
+	resolver := customPolicyBlockerResolver{
+		policy: FamilyPolicy{
+			ContentType:     "pages",
+			SourceLocale:    "en",
+			RequiredLocales: []string{"en"},
+		},
+		blockers: []FamilyBlocker{{
+			ID:          "custom-policy-blocker",
+			FamilyID:    "family-custom-policy",
+			BlockerCode: string(translationcore.FamilyBlockerPolicyDenied),
+			Locale:      "en",
+			Details:     map[string]any{"reason": "route collision"},
+		}},
+	}
+	svc := FamilyService{
+		Store:    store,
+		Policies: PolicyService{Resolver: resolver},
+	}
+
+	family, err := svc.Recompute(context.Background(), "family-custom-policy", "production")
+	requireNoErr(t, err)
+
+	if family.ReadinessState != string(translationcore.FamilyReadinessBlocked) {
+		t.Fatalf("expected custom blocker to block family, got %q", family.ReadinessState)
+	}
+	if got := strings.Join(family.BlockerCodes, ","); got != "policy_denied" {
+		t.Fatalf("unexpected blocker codes: %s", got)
+	}
+	if len(family.Blockers) != 1 || family.Blockers[0].Details["reason"] != "route collision" {
+		t.Fatalf("unexpected blockers: %+v", family.Blockers)
+	}
+}
+
 func TestFamilyServiceListAndDetailRespectScopeFilters(t *testing.T) {
 	store := NewInMemoryFamilyStore()
 	requireNoErr(t, seedFamilyStore(
@@ -174,6 +219,102 @@ func TestFamilyServiceListAndDetailRespectScopeFilters(t *testing.T) {
 	if detail.ReadinessState != string(translationcore.FamilyReadinessBlocked) {
 		t.Fatalf("expected tenant family blocked by missing locale, got %q", detail.ReadinessState)
 	}
+}
+
+func TestFamilyServiceListUsesQueryStoreWithoutRecomputeAll(t *testing.T) {
+	store := &queryFamilyStore{
+		result: ListFamiliesResult{
+			Items: []FamilyRecord{{ID: "family-query", TenantID: "tenant-1", OrgID: "org-1", ContentType: "pages"}},
+			Total: 1,
+		},
+	}
+	svc := FamilyService{
+		Store: store,
+		Policies: PolicyService{
+			Resolver: StaticPolicyResolver{Policies: map[string]FamilyPolicy{
+				"pages": {
+					ContentType:      "pages",
+					SourceLocale:     "en",
+					RequiredLocales:  []string{"en", "es"},
+					DefaultWorkScope: "localization",
+				},
+			}},
+		},
+	}
+
+	result, err := svc.List(context.Background(), ListFamiliesInput{
+		Scope:   Scope{TenantID: "tenant-1", OrgID: "org-1"},
+		Page:    0,
+		PerPage: 500,
+	})
+	if err != nil {
+		t.Fatalf("list families: %v", err)
+	}
+	if store.familiesCalls != 0 {
+		t.Fatalf("expected query store path to avoid Families/RecomputeAll, got %d calls", store.familiesCalls)
+	}
+	if store.queryCalls != 1 {
+		t.Fatalf("expected one query call, got %d", store.queryCalls)
+	}
+	if result.Page != 1 || result.PerPage != 200 {
+		t.Fatalf("expected clamped pagination page=1 per_page=200, got page=%d per_page=%d", result.Page, result.PerPage)
+	}
+	if len(result.Items) != 1 || result.Items[0].ID != "family-query" {
+		t.Fatalf("unexpected items: %+v", result.Items)
+	}
+	if got := result.Items[0].Policy.RequiredLocales; len(got) != 2 || got[0] != "en" || got[1] != "es" {
+		t.Fatalf("expected optimized list row to include policy required locales, got %+v", got)
+	}
+	if got := result.Items[0].Policy.DefaultWorkScope; got != "localization" {
+		t.Fatalf("expected optimized list row policy work scope, got %q", got)
+	}
+}
+
+type queryFamilyStore struct {
+	result        ListFamiliesResult
+	queryCalls    int
+	familiesCalls int
+}
+
+func (s *queryFamilyStore) ListFamiliesQuery(_ context.Context, input ListFamiliesInput) (ListFamiliesResult, error) {
+	s.queryCalls++
+	out := s.result
+	out.Page = input.Page
+	out.PerPage = input.PerPage
+	return out, nil
+}
+
+func (s *queryFamilyStore) Families(context.Context) ([]FamilyRecord, error) {
+	s.familiesCalls++
+	return nil, nil
+}
+
+func (s *queryFamilyStore) Family(context.Context, string) (FamilyRecord, bool, error) {
+	return FamilyRecord{}, false, nil
+}
+
+func (s *queryFamilyStore) SaveFamily(context.Context, FamilyRecord) error {
+	return nil
+}
+
+type customPolicyBlockerResolver struct {
+	policy   FamilyPolicy
+	blockers []FamilyBlocker
+}
+
+func (r customPolicyBlockerResolver) ResolvePolicy(_ context.Context, contentType, environment string) (FamilyPolicy, bool, error) {
+	if !strings.EqualFold(strings.TrimSpace(contentType), r.policy.ContentType) {
+		return FamilyPolicy{}, false, nil
+	}
+	policy := r.policy
+	if policy.Environment == "" {
+		policy.Environment = strings.TrimSpace(environment)
+	}
+	return policy, true, nil
+}
+
+func (r customPolicyBlockerResolver) ResolvePolicyBlockers(_ context.Context, _ FamilyRecord, _ FamilyPolicy, _ string) ([]FamilyBlocker, error) {
+	return append([]FamilyBlocker{}, r.blockers...), nil
 }
 
 func TestFamilyServicePerformanceBudgets(t *testing.T) {
