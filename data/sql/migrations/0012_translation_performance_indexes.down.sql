@@ -1,0 +1,8 @@
+DROP INDEX IF EXISTS ix_family_blockers_family_code_locale;
+DROP INDEX IF EXISTS ix_content_families_scope_missing_required;
+DROP INDEX IF EXISTS ix_content_families_scope_readiness_updated;
+DROP INDEX IF EXISTS ix_translation_assignments_scope_family_locale;
+DROP INDEX IF EXISTS ix_translation_assignments_scope_reviewer_due;
+DROP INDEX IF EXISTS ix_translation_assignments_scope_assignee_due;
+DROP INDEX IF EXISTS ix_translation_assignments_scope_due;
+DROP INDEX IF EXISTS ix_translation_assignments_scope_status_updated;
