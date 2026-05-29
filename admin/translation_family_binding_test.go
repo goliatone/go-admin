@@ -91,6 +91,90 @@ func TestTranslationFamilyBindingListAppliesFiltersAndScopeIsolation(t *testing.
 	}
 }
 
+func TestBunTranslationFamilyStoreListFamiliesQueryUsesLightweightProjectionRows(t *testing.T) {
+	db := newTranslationFamilyStoreSQLiteDB(t)
+	ctx := context.Background()
+	store := NewBunTranslationFamilyStore(db)
+	now := time.Date(2026, 2, 17, 12, 0, 0, 0, time.UTC)
+	if err := store.SaveFamily(ctx, translationservices.FamilyRecord{
+		ID:                         "family-lightweight-list",
+		TenantID:                   "tenant-1",
+		OrgID:                      "org-1",
+		ContentType:                "pages",
+		SourceLocale:               "en",
+		SourceVariantID:            "family-lightweight-list::en",
+		ReadinessState:             "blocked",
+		MissingRequiredLocaleCount: 1,
+		BlockerCodes:               []string{"missing_locale"},
+		Variants: []translationservices.FamilyVariant{
+			{
+				ID:             "family-lightweight-list::en",
+				FamilyID:       "family-lightweight-list",
+				TenantID:       "tenant-1",
+				OrgID:          "org-1",
+				Locale:         "en",
+				Status:         "published",
+				IsSource:       true,
+				SourceRecordID: "page-lightweight",
+				Fields:         map[string]string{"title": "Lightweight Title"},
+				CreatedAt:      now,
+				UpdatedAt:      now,
+			},
+			{
+				ID:        "family-lightweight-list::es",
+				FamilyID:  "family-lightweight-list",
+				TenantID:  "tenant-1",
+				OrgID:     "org-1",
+				Locale:    "es",
+				Status:    "draft",
+				CreatedAt: now,
+				UpdatedAt: now,
+			},
+		},
+		Blockers: []translationservices.FamilyBlocker{
+			{FamilyID: "family-lightweight-list", TenantID: "tenant-1", OrgID: "org-1", BlockerCode: "missing_locale", Locale: "fr", Details: map[string]any{"reason": "missing"}},
+		},
+		CreatedAt: now,
+		UpdatedAt: now,
+	}); err != nil {
+		t.Fatalf("seed family: %v", err)
+	}
+	if _, err := db.ExecContext(ctx, `UPDATE family_blockers SET details_json = '{malformed-json' WHERE family_id = ?`, "family-lightweight-list"); err != nil {
+		t.Fatalf("poison blocker details: %v", err)
+	}
+
+	result, err := store.ListFamiliesQuery(ctx, translationservices.ListFamiliesInput{
+		Scope:          translationservices.Scope{TenantID: "tenant-1", OrgID: "org-1"},
+		ReadinessState: "blocked",
+		MissingLocale:  "fr",
+		Page:           1,
+		PerPage:        10,
+	})
+	if err != nil {
+		t.Fatalf("list families query: %v", err)
+	}
+	if result.Total != 1 || len(result.Items) != 1 {
+		t.Fatalf("expected one family row, total=%d items=%+v", result.Total, result.Items)
+	}
+	row := translationFamilyListRow(result.Items[0])
+	if got := toString(row["source_record_id"]); got != "page-lightweight" {
+		t.Fatalf("expected source_record_id page-lightweight, got %q", got)
+	}
+	if got := toString(row["source_title"]); got != "Lightweight Title" {
+		t.Fatalf("expected source title from projected source fields, got %q", got)
+	}
+	if got := toStringSlice(row["available_locales"]); len(got) != 2 || got[0] != "en" || got[1] != "es" {
+		t.Fatalf("expected available locales [en es], got %+v", got)
+	}
+	if got := toStringSlice(row["missing_locales"]); len(got) != 1 || got[0] != "fr" {
+		t.Fatalf("expected missing locale [fr], got %+v", got)
+	}
+	quickCreate := extractMap(row["quick_create"])
+	if got := toStringSlice(quickCreate["missing_locales"]); len(got) != 1 || got[0] != "fr" {
+		t.Fatalf("expected quick_create missing locale [fr], got %+v", got)
+	}
+}
+
 func TestTranslationFamilyBindingDetailReturnsSourceAssignmentsAndPublishGate(t *testing.T) {
 	adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{
 		FeatureGate: featureGateFromKeys(FeatureCMS),

@@ -362,6 +362,102 @@ func TestTranslationQueueBindingAssignmentsReturnsEnvelopeAndActionStates(t *tes
 	}
 }
 
+func TestTranslationQueueBindingAssignmentsSupportsPageLocalFamilyGrouping(t *testing.T) {
+	now := time.Date(2026, 2, 17, 12, 0, 0, 0, time.UTC)
+	adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{
+		FeatureGate: featureGateFromKeys(FeatureCMS, FeatureTranslationQueue),
+	})
+	adm.WithAuthorizer(translationPermissionAuthorizer{
+		allowed: map[string]bool{
+			PermAdminTranslationsView:   true,
+			PermAdminTranslationsClaim:  true,
+			PermAdminTranslationsAssign: true,
+		},
+	})
+	repo := NewInMemoryTranslationAssignmentRepository()
+	for _, assignment := range []TranslationAssignment{
+		{FamilyID: "family-group-1", EntityType: "pages", SourceRecordID: "page-1", SourceTitle: "Page One", SourceLocale: "en", TargetLocale: "es", AssignmentType: AssignmentTypeOpenPool, Status: AssignmentStatusOpen, Priority: PriorityHigh},
+		{FamilyID: "family-group-1", EntityType: "pages", SourceRecordID: "page-1", SourceTitle: "Page One", SourceLocale: "en", TargetLocale: "fr", AssignmentType: AssignmentTypeDirect, Status: AssignmentStatusAssigned, Priority: PriorityNormal, AssigneeID: "translator-1"},
+		{FamilyID: "family-group-2", EntityType: "posts", SourceRecordID: "post-1", SourceTitle: "Post One", SourceLocale: "en", TargetLocale: "de", AssignmentType: AssignmentTypeOpenPool, Status: AssignmentStatusOpen, Priority: PriorityLow},
+	} {
+		if _, err := repo.Create(context.Background(), assignment); err != nil {
+			t.Fatalf("create assignment: %v", err)
+		}
+	}
+	if _, registerErr := RegisterTranslationQueuePanel(adm, repo); registerErr != nil {
+		t.Fatalf("register queue panel: %v", registerErr)
+	}
+	binding := newTranslationQueueBinding(adm)
+	binding.now = func() time.Time { return now }
+	app := newTranslationQueueTestApp(t, binding)
+
+	req := httptest.NewRequest(http.MethodGet, "/admin/api/translations/assignments?group_by=family_id&per_page=2&sort=created_at&order=asc", nil)
+	req.Header.Set("X-User-ID", "manager-1")
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("request error: %v", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status=%d want=200", resp.StatusCode)
+	}
+	defer mustClose(t, "response body", resp.Body)
+
+	payload := map[string]any{}
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	meta := extractMap(payload["meta"])
+	grouping := extractMap(meta["grouping"])
+	if toString(grouping["mode"]) != "family_id" || toString(grouping["strategy"]) != "page_local" {
+		t.Fatalf("expected page-local family grouping metadata, got %+v", grouping)
+	}
+	if intValue(grouping["assignment_count"]) != 2 || intValue(grouping["group_count"]) != 1 {
+		t.Fatalf("expected current-page assignment/group counts, got %+v", grouping)
+	}
+	data, _ := payload["data"].([]any)
+	if len(data) != 1 {
+		t.Fatalf("expected one group row on first page, got %+v", data)
+	}
+	group := extractMap(data[0])
+	if toString(group["row_type"]) != "group" || toString(group["group_by"]) != "family_id" {
+		t.Fatalf("expected group row, got %+v", group)
+	}
+	children, _ := group["children"].([]any)
+	if len(children) != 2 {
+		t.Fatalf("expected two child assignments, got %+v", children)
+	}
+	parent := extractMap(group["parent"])
+	if locales := toStringSlice(parent["target_locales"]); strings.Join(locales, ",") != "es,fr" {
+		t.Fatalf("expected parent target locales es,fr, got %+v", locales)
+	}
+	firstChild := extractMap(children[0])
+	if actions := extractMap(firstChild["actions"]); len(actions) == 0 {
+		t.Fatalf("expected child rows to retain action states, got %+v", firstChild)
+	}
+}
+
+func TestTranslationQueueBindingAssignmentsRejectsUnsupportedGrouping(t *testing.T) {
+	adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{
+		FeatureGate: featureGateFromKeys(FeatureCMS, FeatureTranslationQueue),
+	})
+	adm.WithAuthorizer(translationPermissionAuthorizer{allowed: map[string]bool{PermAdminTranslationsView: true}})
+	repo := NewInMemoryTranslationAssignmentRepository()
+	if _, registerErr := RegisterTranslationQueuePanel(adm, repo); registerErr != nil {
+		t.Fatalf("register queue panel: %v", registerErr)
+	}
+	app := newTranslationQueueTestApp(t, newTranslationQueueBinding(adm))
+
+	req := httptest.NewRequest(http.MethodGet, "/admin/api/translations/assignments?group_by=content_type", nil)
+	req.Header.Set("X-User-ID", "manager-1")
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("request error: %v", err)
+	}
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Fatalf("status=%d want=400", resp.StatusCode)
+	}
+}
+
 func TestTranslationQueueBindingAssignmentsUsesOptimizedPageAndReviewerSummary(t *testing.T) {
 	now := time.Date(2026, 2, 17, 12, 0, 0, 0, time.UTC)
 	adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{

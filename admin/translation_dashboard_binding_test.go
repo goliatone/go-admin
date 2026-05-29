@@ -484,6 +484,72 @@ func TestBunTranslationFamilyStoreDashboardMetricsUsesLightweightRows(t *testing
 	}
 }
 
+func TestBunTranslationFamilyStoreDashboardMetricsLoadsLightweightReasonProjection(t *testing.T) {
+	db := newTranslationFamilyStoreSQLiteDB(t)
+	ctx := context.Background()
+	now := nowStringForTest()
+	if _, err := db.ExecContext(ctx, `INSERT INTO content_families (
+		family_id, tenant_id, org_id, content_type, source_locale, readiness_state,
+		blocker_codes_json, missing_required_locale_count, pending_review_count,
+		outdated_locale_count, created_at, updated_at
+	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		"family-reasons", "tenant-1", "org-1", "pages", "en", "blocked",
+		`["missing_locale","pending_review"]`, 1, 1, 0, now, now,
+	); err != nil {
+		t.Fatalf("seed content family: %v", err)
+	}
+	for _, row := range []struct {
+		code   string
+		locale string
+	}{
+		{code: "missing_locale", locale: "es"},
+		{code: "pending_review", locale: "fr"},
+	} {
+		if _, err := db.ExecContext(ctx, `INSERT INTO family_blockers (
+			family_id, tenant_id, org_id, blocker_code, locale, field_path, details_json, created_at, updated_at
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			"family-reasons", "tenant-1", "org-1", row.code, row.locale, "", `{}`, now, now,
+		); err != nil {
+			t.Fatalf("seed family blocker: %v", err)
+		}
+	}
+	for _, statement := range []string{
+		`DROP TABLE translation_assignments`,
+		`DROP TABLE locale_variants`,
+	} {
+		if _, err := db.ExecContext(ctx, statement); err != nil {
+			t.Fatalf("drop hydration table %q: %v", statement, err)
+		}
+	}
+	store := NewBunTranslationFamilyStore(db)
+	metrics, err := store.TranslationDashboardFamilyMetrics(ctx, TranslationDashboardFamilyMetricsInput{
+		TenantID:     "tenant-1",
+		OrgID:        "org-1",
+		BlockedLimit: 5,
+	})
+	if err != nil {
+		t.Fatalf("dashboard family metrics: %v", err)
+	}
+	if len(metrics.TopBlocked) != 1 {
+		t.Fatalf("expected one top blocked family, got %+v", metrics.TopBlocked)
+	}
+	top := metrics.TopBlocked[0]
+	if len(top.Variants) != 0 || len(top.Assignments) != 0 {
+		t.Fatalf("expected no variant or assignment hydration, got %+v", top)
+	}
+	if len(top.Blockers) != 2 {
+		t.Fatalf("expected two lightweight blockers, got %+v", top.Blockers)
+	}
+	rows := translationDashboardTopBlockedRows(nil, metrics.TopBlocked, 5, "production")
+	reasonData := extractMap(rows[0]["reason_data"])
+	if state := toString(reasonData["state"]); state != "available" {
+		t.Fatalf("expected available reason_data, got %+v", reasonData)
+	}
+	if locales := toStringSlice(rows[0]["affected_locales"]); strings.Join(locales, ",") != "es,fr" {
+		t.Fatalf("expected affected locales es,fr, got %+v", locales)
+	}
+}
+
 func nowStringForTest() string {
 	return time.Date(2026, 2, 17, 12, 0, 0, 0, time.UTC).Format(time.RFC3339)
 }

@@ -328,6 +328,62 @@ func TestBunTranslationAssignmentRepositoryListAssignmentPageUsesInjectedClockFo
 	}
 }
 
+func TestBunTranslationAssignmentRepositoryMyWorkSummaryPreservesStatusFilterReviewParity(t *testing.T) {
+	db := newTranslationFamilyStoreSQLiteDB(t)
+	ctx := context.Background()
+	store := NewBunTranslationFamilyStore(db)
+	if err := store.SaveFamily(ctx, translationservices.FamilyRecord{
+		ID:              "family-my-work-summary",
+		TenantID:        "tenant-1",
+		OrgID:           "org-1",
+		ContentType:     "pages",
+		SourceLocale:    "en",
+		SourceVariantID: "family-my-work-summary::en",
+		ReadinessState:  "ready",
+		Variants: []translationservices.FamilyVariant{
+			{ID: "family-my-work-summary::en", FamilyID: "family-my-work-summary", TenantID: "tenant-1", OrgID: "org-1", Locale: "en", Status: "published", IsSource: true, SourceRecordID: "page-summary"},
+			{ID: "family-my-work-summary::es", FamilyID: "family-my-work-summary", TenantID: "tenant-1", OrgID: "org-1", Locale: "es", Status: "draft", SourceRecordID: "page-summary"},
+			{ID: "family-my-work-summary::fr", FamilyID: "family-my-work-summary", TenantID: "tenant-1", OrgID: "org-1", Locale: "fr", Status: "draft", SourceRecordID: "page-summary"},
+			{ID: "family-my-work-summary::de", FamilyID: "family-my-work-summary", TenantID: "tenant-1", OrgID: "org-1", Locale: "de", Status: "draft", SourceRecordID: "page-summary"},
+		},
+	}); err != nil {
+		t.Fatalf("seed family: %v", err)
+	}
+	repo := NewBunTranslationAssignmentRepository(db)
+	now := time.Date(2026, 2, 17, 12, 0, 0, 0, time.UTC)
+	for _, assignment := range []TranslationAssignment{
+		{ID: "asg-my-work-assigned", FamilyID: "family-my-work-summary", EntityType: "pages", TenantID: "tenant-1", OrgID: "org-1", SourceRecordID: "page-summary", SourceLocale: "en", TargetLocale: "es", AssignmentType: AssignmentTypeDirect, Status: AssignmentStatusAssigned, AssigneeID: "translator-1", Priority: PriorityNormal},
+		{ID: "asg-my-work-review", FamilyID: "family-my-work-summary", EntityType: "pages", TenantID: "tenant-1", OrgID: "org-1", SourceRecordID: "page-summary", SourceLocale: "en", TargetLocale: "fr", AssignmentType: AssignmentTypeDirect, Status: AssignmentStatusInReview, AssigneeID: "translator-1", Priority: PriorityNormal},
+		{ID: "asg-my-work-other", FamilyID: "family-my-work-summary", EntityType: "pages", TenantID: "tenant-1", OrgID: "org-1", SourceRecordID: "page-summary", SourceLocale: "en", TargetLocale: "de", AssignmentType: AssignmentTypeDirect, Status: AssignmentStatusInReview, AssigneeID: "translator-2", Priority: PriorityNormal},
+	} {
+		if _, err := repo.Create(ctx, assignment); err != nil {
+			t.Fatalf("create assignment %s: %v", assignment.ID, err)
+		}
+	}
+
+	assignedOnly, err := repo.AssignmentMyWorkSummary(ctx, TranslationAssignmentMyWorkSummaryInput{
+		Filters: map[string]any{"tenant_id": "tenant-1", "org_id": "org-1", "assignee_id": "translator-1", "status": string(AssignmentStatusAssigned)},
+		Now:     now,
+	})
+	if err != nil {
+		t.Fatalf("assigned my-work summary: %v", err)
+	}
+	if assignedOnly["total"] != 1 || assignedOnly["review"] != 0 {
+		t.Fatalf("expected assigned-only summary total=1 review=0, got %+v", assignedOnly)
+	}
+
+	assignedAndReview, err := repo.AssignmentMyWorkSummary(ctx, TranslationAssignmentMyWorkSummaryInput{
+		Filters: map[string]any{"tenant_id": "tenant-1", "org_id": "org-1", "assignee_id": "translator-1", "status": string(AssignmentStatusAssigned) + "," + string(AssignmentStatusInReview)},
+		Now:     now,
+	})
+	if err != nil {
+		t.Fatalf("multi-status my-work summary: %v", err)
+	}
+	if assignedAndReview["total"] != 2 || assignedAndReview["review"] != 1 {
+		t.Fatalf("expected multi-status summary total=2 review=1, got %+v", assignedAndReview)
+	}
+}
+
 func TestBunTranslationAssignmentRepositoryReviewerAggregateDeclinesQABlockedPlaceholder(t *testing.T) {
 	db := newTranslationFamilyStoreSQLiteDB(t)
 	repo := NewBunTranslationAssignmentRepository(db)
