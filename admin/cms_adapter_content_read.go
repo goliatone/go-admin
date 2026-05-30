@@ -69,6 +69,18 @@ func hasLocaleVariantsOption(opts []CMSContentListOption) bool {
 	return hasCMSContentListOption(opts, WithLocaleVariants())
 }
 
+func hasAdminReadUnsupportedContentListOption(opts []CMSContentListOption) bool {
+	if hasLocaleVariantsOption(opts) {
+		return true
+	}
+	return slices.ContainsFunc(opts, isContentTypeIDListOption)
+}
+
+func isContentTypeIDListOption(opt CMSContentListOption) bool {
+	const prefix = "content:list:content_type:"
+	return strings.HasPrefix(strings.ToLower(strings.TrimSpace(string(opt))), prefix)
+}
+
 func normalizeCMSRequestedListLocale(locale string) string {
 	if isTranslationLocaleWildcard(locale) {
 		return ""
@@ -166,7 +178,7 @@ func (r goCMSContentReadBoundary) listContents(ctx context.Context, locale strin
 	if a == nil || a.content == nil {
 		return nil, ErrNotFound
 	}
-	if a.adminRead != nil && !hasLocaleVariantsOption(opts) {
+	if a.adminRead != nil && !hasAdminReadUnsupportedContentListOption(opts) {
 		records, _, err := a.adminRead.List(ctx, cms.AdminContentListOptions{
 			Locale:                   locale,
 			AllowMissingTranslations: true,

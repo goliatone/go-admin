@@ -186,8 +186,8 @@ func publicAPIContentTypeIDOption(opts []CMSContentListOption) string {
 	const prefix = "content:list:content_type:"
 	for _, opt := range opts {
 		token := strings.TrimSpace(string(opt))
-		if strings.HasPrefix(token, prefix) {
-			return strings.TrimSpace(strings.TrimPrefix(token, prefix))
+		if after, ok := strings.CutPrefix(token, prefix); ok {
+			return strings.TrimSpace(after)
 		}
 	}
 	return ""

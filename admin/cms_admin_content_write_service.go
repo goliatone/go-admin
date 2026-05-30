@@ -469,7 +469,7 @@ func (s goCMSAdminContentWriteService) ensureUniqueTranslationLocalizedPath(ctx 
 	if source != nil {
 		contentType = strings.TrimSpace(primitives.FirstNonEmptyRaw(contentType, source.ContentTypeSlug, source.ContentType))
 	}
-	contents, err := s.content.Contents(ctx, input.Locale)
+	contents, err := s.listContentsForUniqueness(ctx, input.Locale, contentType)
 	if err != nil {
 		return err
 	}
@@ -507,7 +507,7 @@ func (s goCMSAdminContentWriteService) ensureUniqueLocalizedPath(ctx context.Con
 		return nil
 	}
 	contentType := strings.TrimSpace(primitives.FirstNonEmptyRaw(content.ContentTypeSlug, content.ContentType))
-	contents, err := s.content.Contents(ctx, content.Locale)
+	contents, err := s.listContentsForUniqueness(ctx, content.Locale, contentType)
 	if err != nil {
 		return err
 	}
@@ -534,6 +534,61 @@ func (s goCMSAdminContentWriteService) ensureUniqueLocalizedPath(ctx context.Con
 		})
 	}
 	return nil
+}
+
+func (s goCMSAdminContentWriteService) listContentsForUniqueness(ctx context.Context, locale, contentType string) ([]CMSContent, error) {
+	if s.content == nil {
+		return nil, ErrNotFound
+	}
+	contentTypeID := s.resolveUniquenessContentTypeID(ctx, contentType)
+	if contentTypeID == "" {
+		return s.content.Contents(ctx, locale)
+	}
+	svc, ok := resolveCMSContentListOptionsService(s.content)
+	if !ok || svc == nil {
+		return s.content.Contents(ctx, locale)
+	}
+	contents, err := svc.ContentsWithOptions(ctx, locale, WithContentTypeID(contentTypeID))
+	if err == nil {
+		return contents, nil
+	}
+	if errors.Is(err, ErrNotFound) {
+		return s.content.Contents(ctx, locale)
+	}
+	return nil, err
+}
+
+func (s goCMSAdminContentWriteService) resolveUniquenessContentTypeID(ctx context.Context, contentType string) string {
+	contentType = strings.TrimSpace(contentType)
+	if contentType == "" {
+		return ""
+	}
+	types := contentTypeServiceFromServices(s.content, s.contentTypes)
+	if types == nil {
+		return ""
+	}
+	if ct, err := types.ContentTypeBySlug(ctx, contentType); err == nil && ct != nil {
+		if id := strings.TrimSpace(ct.ID); id != "" {
+			return id
+		}
+	}
+	if ct, err := types.ContentType(ctx, contentType); err == nil && ct != nil {
+		if id := strings.TrimSpace(ct.ID); id != "" {
+			return id
+		}
+	}
+	items, err := types.ContentTypes(ctx)
+	if err != nil {
+		return ""
+	}
+	for _, item := range items {
+		if strings.EqualFold(strings.TrimSpace(item.Slug), contentType) ||
+			strings.EqualFold(strings.TrimSpace(item.Name), contentType) ||
+			strings.EqualFold(strings.TrimSpace(item.ID), contentType) {
+			return strings.TrimSpace(item.ID)
+		}
+	}
+	return ""
 }
 
 func normalizeCMSLocalizedPath(path string) string {

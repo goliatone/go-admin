@@ -718,7 +718,7 @@ func previewEntityAllowsMenuDrafts(raw string) bool {
 }
 
 func (a *Admin) listPublicContentsRaw(ctx context.Context, locale, contentType, category string, includeDrafts bool) ([]CMSContent, error) {
-	contents, err := a.contentSvc.Contents(ctx, locale)
+	contents, err := a.listPublicContentsScoped(ctx, locale, contentType)
 	if err != nil {
 		return nil, err
 	}
@@ -739,6 +739,61 @@ func (a *Admin) listPublicContentsRaw(ctx context.Context, locale, contentType, 
 		out = append(out, cnt)
 	}
 	return out, nil
+}
+
+func (a *Admin) listPublicContentsScoped(ctx context.Context, locale, contentType string) ([]CMSContent, error) {
+	if a == nil || a.contentSvc == nil {
+		return nil, ErrNotFound
+	}
+	contentTypeID := a.resolvePublicContentTypeID(ctx, contentType)
+	if contentTypeID == "" {
+		return a.contentSvc.Contents(ctx, locale)
+	}
+	svc, ok := resolveCMSContentListOptionsService(a.contentSvc)
+	if !ok || svc == nil {
+		return a.contentSvc.Contents(ctx, locale)
+	}
+	contents, err := svc.ContentsWithOptions(ctx, locale, WithTranslations(), WithDerivedFields(), WithContentTypeID(contentTypeID))
+	if err == nil {
+		return contents, nil
+	}
+	if errors.Is(err, ErrNotFound) {
+		return a.contentSvc.Contents(ctx, locale)
+	}
+	return nil, err
+}
+
+func (a *Admin) resolvePublicContentTypeID(ctx context.Context, contentType string) string {
+	contentType = strings.TrimSpace(contentType)
+	if a == nil || contentType == "" {
+		return ""
+	}
+	types := contentTypeServiceFromServices(a.contentSvc, a.contentTypeSvc)
+	if types == nil {
+		return ""
+	}
+	if ct, err := types.ContentTypeBySlug(ctx, contentType); err == nil && ct != nil {
+		if id := strings.TrimSpace(ct.ID); id != "" {
+			return id
+		}
+	}
+	if ct, err := types.ContentType(ctx, contentType); err == nil && ct != nil {
+		if id := strings.TrimSpace(ct.ID); id != "" {
+			return id
+		}
+	}
+	items, err := types.ContentTypes(ctx)
+	if err != nil {
+		return ""
+	}
+	for _, item := range items {
+		if strings.EqualFold(strings.TrimSpace(item.Slug), contentType) ||
+			strings.EqualFold(strings.TrimSpace(item.Name), contentType) ||
+			strings.EqualFold(strings.TrimSpace(item.ID), contentType) {
+			return strings.TrimSpace(item.ID)
+		}
+	}
+	return ""
 }
 
 func (a *Admin) findPublicContent(ctx context.Context, locale, contentType, slug, category string, includeDrafts bool) (*CMSContent, error) {

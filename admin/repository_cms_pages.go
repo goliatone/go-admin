@@ -57,12 +57,42 @@ func (r *CMSPageRepository) listPages(ctx context.Context, locale string, opts L
 	}
 	if svc, ok := resolveCMSPageListOptionsService(r.content); ok && svc != nil {
 		listOpts := []CMSContentListOption{WithTranslations(), WithDerivedFields()}
+		if id := r.resolvePageContentTypeID(ctx); id != "" {
+			listOpts = append(listOpts, WithContentTypeID(id))
+		}
 		if shouldExpandContentEntryTranslationFamilyRowsForContext(ctx, opts) {
 			listOpts = append(listOpts, WithLocaleVariants())
 		}
 		return svc.PagesWithOptions(ctx, locale, listOpts...)
 	}
 	return r.content.Pages(ctx, locale)
+}
+
+func (r *CMSPageRepository) resolvePageContentTypeID(ctx context.Context) string {
+	if r == nil || r.content == nil {
+		return ""
+	}
+	types := contentTypeServiceFromServices(r.content, nil)
+	if types == nil {
+		return ""
+	}
+	if ct, err := types.ContentTypeBySlug(ctx, "page"); err == nil && ct != nil {
+		if id := strings.TrimSpace(ct.ID); id != "" {
+			return id
+		}
+	}
+	items, err := types.ContentTypes(ctx)
+	if err != nil {
+		return ""
+	}
+	for _, item := range items {
+		if strings.EqualFold(strings.TrimSpace(item.Slug), "page") ||
+			strings.EqualFold(strings.TrimSpace(item.Name), "page") ||
+			strings.EqualFold(strings.TrimSpace(item.ID), "page") {
+			return strings.TrimSpace(item.ID)
+		}
+	}
+	return ""
 }
 
 // Get returns a page by id.
@@ -204,7 +234,7 @@ func (r *CMSPageRepository) ensureUniqueSlug(ctx context.Context, slug, skipID, 
 	if slug == "" {
 		return nil
 	}
-	pages, err := r.content.Pages(ctx, locale)
+	pages, err := r.listPages(ctx, locale, ListOptions{})
 	if err != nil {
 		return err
 	}
@@ -229,7 +259,7 @@ func (r *CMSPageRepository) ensureUniqueLocalizedPath(ctx context.Context, page 
 	if path == "" {
 		return nil
 	}
-	pages, err := r.content.Pages(ctx, page.Locale)
+	pages, err := r.listPages(ctx, page.Locale, ListOptions{})
 	if err != nil {
 		return err
 	}
