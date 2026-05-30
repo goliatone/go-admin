@@ -1081,50 +1081,70 @@ function release {
     local tag
     local level
     local message
+    local release_tag
+    local quickstart_tag
+    local current_branch
 
     # Fetch all changes from origin
-    git fetch --all
-    # Make sure we have the latest version file
-    git checkout origin/main -- ".version"
+    git fetch --all --tags || return 1
 
-    # Pull tags to make sure we have
-    git pull --tags -f
+    # Keep the local branch current without rewriting local release commits.
+    git pull --ff-only --tags || return 1
+
+    # Release commits are generated from a clean tracked tree. Untracked local
+    # notes and artifacts are allowed because they are not part of the release.
+    if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
+        echo "Tracked working tree changes are present; commit or stash them before release." >&2
+        git status --short --untracked-files=no >&2
+        return 1
+    fi
 
     level=${1:-"patch"}
 
     # Bump our version
-    tag=$(version:bump "${level}")
+    tag=$(version:bump "${level}") || return 1
+    release_tag="v${tag}"
+    quickstart_tag="quickstart/v${tag}"
+
+    if git rev-parse -q --verify "refs/tags/${release_tag}" >/dev/null; then
+        echo "Release tag already exists: ${release_tag}" >&2
+        return 1
+    fi
+
+    if git rev-parse -q --verify "refs/tags/${quickstart_tag}" >/dev/null; then
+        echo "Quickstart release tag already exists: ${quickstart_tag}" >&2
+        return 1
+    fi
 
     # Set message: default to New major|minor|patch release: vx.x.x
     message=${2:-"New ${level} release: v${tag}"}
 
     # Update version file
-    version:set "${tag}"
+    version:set "${tag}" || return 1
 
     # Sync quickstart module to the new tag
-    quickstart:sync "${tag}"
+    quickstart:sync "${tag}" || return 1
+
+    # Generate changelog before tagging so release tags include their notes.
+    git cliff --tag "${release_tag}" --output CHANGELOG.md || return 1
 
     # Add updated version file to git
-    git add "${VERSION_FILE}"
+    git add "${VERSION_FILE}" CHANGELOG.md || return 1
     if [ -f "quickstart/go.mod" ]; then
-        git add quickstart/go.mod quickstart/go.sum
+        git add quickstart/go.mod quickstart/go.sum || return 1
     fi
-    git commit -m "Bump version: v${tag}"
+    git commit -m "Bump version: v${tag}" || return 1
 
     # Create a new tag
-    git tag -a "v${tag}" -m "${message}"
-    git tag -a "quickstart/v${tag}" -m "Quickstart release: v${tag}"
+    git tag -a "${release_tag}" -m "${message}" || return 1
+    git tag -a "${quickstart_tag}" -m "Quickstart release: v${tag}" || return 1
 
-    # Push tags and trigger release 🚀 🥳
-    git push --tags
-    git push
+    current_branch=$(git symbolic-ref --short HEAD) || return 1
 
-    # Generate changelog
-    git cliff --output CHANGELOG.md
-    git add CHANGELOG.md
-    git commit -m "docs: update changelog for v${tag}"
-
-    git push
+    # Push branch and release tags together so the remote is not left half-published.
+    git push --atomic origin "HEAD:${current_branch}" \
+        "refs/tags/${release_tag}" \
+        "refs/tags/${quickstart_tag}" || return 1
 }
 
 ##########################################
