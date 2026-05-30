@@ -79,27 +79,6 @@ func (s recordingAdminContentWriteService) CreateTranslationForContentType(ctx c
 func TestAdminContentWriteServiceCreateUpdateAndTranslationPreserveRepositoryContract(t *testing.T) {
 	ctx := context.Background()
 	content := NewInMemoryContentService()
-	if _, err := content.CreateContentType(ctx, CMSContentType{
-		ID:   "page-type",
-		Name: "Page",
-		Slug: "page",
-		Schema: map[string]any{
-			"type": "object",
-		},
-		Capabilities: map[string]any{
-			"delivery": map[string]any{
-				"enabled": true,
-				"kind":    "page",
-			},
-			"navigation": map[string]any{
-				"entry": map[string]any{
-					"editable": true,
-				},
-			},
-		},
-	}); err != nil {
-		t.Fatalf("create content type failed: %v", err)
-	}
 	translationStub := &translationCreatorContentServiceStub{CMSContentService: content}
 	service := newAdminContentWriteService(translationStub)
 
