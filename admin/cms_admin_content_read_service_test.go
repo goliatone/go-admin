@@ -205,10 +205,7 @@ func (s *scopedReaderContentServiceStub) PagesWithOptions(ctx context.Context, l
 	if !strings.EqualFold(slug, "page") && !strings.EqualFold(contentTypeID, "page") {
 		return nil, nil
 	}
-	out := make([]CMSPage, 0, len(pages))
-	for _, page := range pages {
-		out = append(out, page)
-	}
+	out := append([]CMSPage{}, pages...)
 	return out, nil
 }
 

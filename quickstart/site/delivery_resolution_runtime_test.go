@@ -90,7 +90,7 @@ func (s *trackingQuicksiteContentService) unscopedListCalls() []quicksiteContent
 func quicksiteContentTypeIDOption(opts []admin.CMSContentListOption) string {
 	const prefix = "content:list:content_type:"
 	for _, opt := range opts {
-		token := strings.TrimSpace(string(opt))
+		token := strings.TrimSpace(opt)
 		if after, ok := strings.CutPrefix(token, prefix); ok {
 			return strings.TrimSpace(after)
 		}

@@ -15,6 +15,10 @@ import (
 	"github.com/julienschmidt/httprouter"
 )
 
+func newSiteAPIRequest(path string) *http.Request {
+	return httptest.NewRequestWithContext(context.Background(), http.MethodGet, path, nil)
+}
+
 type markerOnlyAuthenticator struct {
 	calls int
 }
@@ -185,7 +189,7 @@ func (s *scopedPublicAPIContentServiceStub) unscopedListCalls() []publicContentR
 func publicAPIContentTypeIDOption(opts []CMSContentListOption) string {
 	const prefix = "content:list:content_type:"
 	for _, opt := range opts {
-		token := strings.TrimSpace(string(opt))
+		token := strings.TrimSpace(opt)
 		if after, ok := strings.CutPrefix(token, prefix); ok {
 			return strings.TrimSpace(after)
 		}
@@ -368,7 +372,7 @@ func TestSitePublicAPIContentRoutesAndQueryModel(t *testing.T) {
 	publicGroup := publicAPIGroupName(adm.config)
 
 	legacyPath := mustResolveURL(t, adm.URLs(), publicGroup, "content.type", map[string]string{"type": "article"}, map[string]string{"locale": "en"})
-	legacyReq := httptest.NewRequest(http.MethodGet, legacyPath, nil)
+	legacyReq := newSiteAPIRequest(legacyPath)
 	legacyRes := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(legacyRes, legacyReq)
 	if legacyRes.Code != http.StatusOK {
@@ -391,7 +395,7 @@ func TestSitePublicAPIContentRoutesAndQueryModel(t *testing.T) {
 		"fields":    "id,title",
 		"q":         "a",
 	})
-	siteReq := httptest.NewRequest(http.MethodGet, sitePath, nil)
+	siteReq := newSiteAPIRequest(sitePath)
 	siteRes := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(siteRes, siteReq)
 	if siteRes.Code != http.StatusOK {
@@ -415,7 +419,7 @@ func TestSitePublicAPIContentRoutesAndQueryModel(t *testing.T) {
 	}
 
 	siteDetailPath := mustResolveURL(t, adm.URLs(), publicGroup, SiteRouteContentDetail, map[string]string{"type": "article", "slug": "alpha"}, map[string]string{"locale": "en"})
-	siteDetailReq := httptest.NewRequest(http.MethodGet, siteDetailPath, nil)
+	siteDetailReq := newSiteAPIRequest(siteDetailPath)
 	siteDetailRes := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(siteDetailRes, siteDetailReq)
 	if siteDetailRes.Code != http.StatusOK {
@@ -428,7 +432,7 @@ func TestSitePublicAPIContentRoutesAndQueryModel(t *testing.T) {
 	}
 
 	legacyDetailPath := mustResolveURL(t, adm.URLs(), publicGroup, "content.item", map[string]string{"type": "article", "slug": "alpha"}, map[string]string{"locale": "en"})
-	legacyDetailReq := httptest.NewRequest(http.MethodGet, legacyDetailPath, nil)
+	legacyDetailReq := newSiteAPIRequest(legacyDetailPath)
 	legacyDetailRes := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(legacyDetailRes, legacyDetailReq)
 	if legacyDetailRes.Code != http.StatusOK {
@@ -489,7 +493,7 @@ func TestSitePublicAPIContentRoutesAvoidUnscopedContentListsWhenTypeScopeAvailab
 		t.Run(tc.name, func(t *testing.T) {
 			contentSvc.resetCalls()
 			path := mustResolveURL(t, adm.URLs(), publicGroup, tc.route, tc.params, tc.query)
-			req := httptest.NewRequest(http.MethodGet, path, nil)
+			req := newSiteAPIRequest(path)
 			res := httptest.NewRecorder()
 			server.WrappedRouter().ServeHTTP(res, req)
 			if res.Code != http.StatusOK {
@@ -524,7 +528,7 @@ func TestSiteMenuRoutesUseConfiguredTranslatorForDisplayLabels(t *testing.T) {
 	path := mustResolveURL(t, adm.URLs(), publicAPIGroupName(adm.config), SiteRouteMenuByLocation, map[string]string{"location": "site.main"}, map[string]string{
 		"locale": "es",
 	})
-	req := httptest.NewRequest(http.MethodGet, path, nil)
+	req := newSiteAPIRequest(path)
 	res := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(res, req)
 	if res.Code != http.StatusOK {
@@ -570,7 +574,7 @@ func TestSitePublicAPILocaleFallbackPolicy(t *testing.T) {
 		adm, server := newSiteTestServer(t, allowPublicSiteReads(Config{BasePath: "/admin", DefaultLocale: "en"}), Dependencies{}, &siteAPIContentServiceStub{byLocale: fallbackRows}, nil)
 		publicGroup := publicAPIGroupName(adm.config)
 		path := mustResolveURL(t, adm.URLs(), publicGroup, SiteRouteContentDetail, map[string]string{"type": "article", "slug": "welcome"}, map[string]string{"locale": "es"})
-		req := httptest.NewRequest(http.MethodGet, path, nil)
+		req := newSiteAPIRequest(path)
 		res := httptest.NewRecorder()
 		server.WrappedRouter().ServeHTTP(res, req)
 		if res.Code != http.StatusOK {
@@ -578,7 +582,7 @@ func TestSitePublicAPILocaleFallbackPolicy(t *testing.T) {
 		}
 		payload := decodeJSONMap(t, res)
 		record := extractMap(payload["data"])
-		if missing, _ := record["missing_requested_locale"].(bool); !missing {
+		if !toBool(record["missing_requested_locale"]) {
 			t.Fatalf("expected missing_requested_locale=true, got %+v", record)
 		}
 	})
@@ -591,7 +595,7 @@ func TestSitePublicAPILocaleFallbackPolicy(t *testing.T) {
 
 		for _, route := range []string{SiteRouteContentDetail, "content.item"} {
 			path := mustResolveURL(t, adm.URLs(), publicGroup, route, map[string]string{"type": "article", "slug": "welcome"}, map[string]string{"locale": "es"})
-			req := httptest.NewRequest(http.MethodGet, path, nil)
+			req := newSiteAPIRequest(path)
 			res := httptest.NewRecorder()
 			server.WrappedRouter().ServeHTTP(res, req)
 			if res.Code != http.StatusNotFound {
@@ -622,7 +626,7 @@ func TestSitePublicAPIDraftReadAndProtectedEnforcement(t *testing.T) {
 	admDeniedByDefault, defaultServer := newSiteTestServer(t, defaultCfg, Dependencies{}, contentSvc, nil)
 	publicGroup := publicAPIGroupName(admDeniedByDefault.config)
 	defaultPath := mustResolveURL(t, admDeniedByDefault.URLs(), publicGroup, SiteRouteContentList, map[string]string{"type": "article"}, map[string]string{"locale": "en"})
-	defaultReq := httptest.NewRequest(http.MethodGet, defaultPath, nil)
+	defaultReq := newSiteAPIRequest(defaultPath)
 	defaultRes := httptest.NewRecorder()
 	defaultServer.WrappedRouter().ServeHTTP(defaultRes, defaultReq)
 	if defaultRes.Code != http.StatusForbidden {
@@ -635,7 +639,7 @@ func TestSitePublicAPIDraftReadAndProtectedEnforcement(t *testing.T) {
 		Authorizer:    allowAuthorizer{},
 	}, contentSvc, nil)
 	authWrappedPath := mustResolveURL(t, authWrappedAdmin.URLs(), publicAPIGroupName(authWrappedAdmin.config), SiteRouteContentList, map[string]string{"type": "article"}, map[string]string{"locale": "en"})
-	authWrappedReq := httptest.NewRequest(http.MethodGet, authWrappedPath, nil)
+	authWrappedReq := newSiteAPIRequest(authWrappedPath)
 	authWrappedRes := httptest.NewRecorder()
 	authWrappedServer.WrappedRouter().ServeHTTP(authWrappedRes, authWrappedReq)
 	if authWrappedRes.Code != http.StatusOK {
@@ -651,7 +655,7 @@ func TestSitePublicAPIDraftReadAndProtectedEnforcement(t *testing.T) {
 		Authorizer:    allowAuthorizer{},
 	}, contentSvc, nil)
 	markerPath := mustResolveURL(t, markerAdmin.URLs(), publicAPIGroupName(markerAdmin.config), SiteRouteContentList, map[string]string{"type": "article"}, map[string]string{"locale": "en"})
-	markerReq := httptest.NewRequest(http.MethodGet, markerPath, nil)
+	markerReq := newSiteAPIRequest(markerPath)
 	markerRes := httptest.NewRecorder()
 	markerServer.WrappedRouter().ServeHTTP(markerRes, markerReq)
 	if markerRes.Code != http.StatusOK {
@@ -666,14 +670,14 @@ func TestSitePublicAPIDraftReadAndProtectedEnforcement(t *testing.T) {
 	publicGroup = publicAPIGroupName(adm.config)
 	path := mustResolveURL(t, adm.URLs(), publicGroup, SiteRouteContentList, map[string]string{"type": "article"}, map[string]string{"locale": "en", "include_drafts": "true"})
 
-	publicReq := httptest.NewRequest(http.MethodGet, path, nil)
+	publicReq := newSiteAPIRequest(path)
 	publicRes := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(publicRes, publicReq)
 	if publicRes.Code != http.StatusForbidden {
 		t.Fatalf("expected include_drafts denied for public request, got %d body=%s", publicRes.Code, publicRes.Body.String())
 	}
 
-	internalReq := httptest.NewRequest(http.MethodGet, path, nil)
+	internalReq := newSiteAPIRequest(path)
 	internalReq.RemoteAddr = "127.0.0.1:12345"
 	internalRes := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(internalRes, internalReq)
@@ -690,7 +694,7 @@ func TestSitePublicAPIDraftReadAndProtectedEnforcement(t *testing.T) {
 	})
 	admTrusted, trustedServer := newSiteTestServerWithoutAuthorizer(t, trustedCfg, Dependencies{}, contentSvc, nil)
 	trustedPath := mustResolveURL(t, admTrusted.URLs(), publicAPIGroupName(admTrusted.config), SiteRouteContentList, map[string]string{"type": "article"}, map[string]string{"locale": "en", "include_drafts": "true"})
-	trustedReq := httptest.NewRequest(http.MethodGet, trustedPath, nil)
+	trustedReq := newSiteAPIRequest(trustedPath)
 	trustedReq.RemoteAddr = "127.0.0.1:12345"
 	trustedRes := httptest.NewRecorder()
 	trustedServer.WrappedRouter().ServeHTTP(trustedRes, trustedReq)
@@ -703,7 +707,7 @@ func TestSitePublicAPIDraftReadAndProtectedEnforcement(t *testing.T) {
 		t.Fatalf("expected trusted private-network include_drafts total=2, got %d", got)
 	}
 
-	spoofedReq := httptest.NewRequest(http.MethodGet, trustedPath, nil)
+	spoofedReq := newSiteAPIRequest(trustedPath)
 	spoofedReq.RemoteAddr = "127.0.0.1:12345"
 	spoofedReq.Header.Set("X-Forwarded-For", "198.51.100.9")
 	spoofedRes := httptest.NewRecorder()
@@ -712,7 +716,7 @@ func TestSitePublicAPIDraftReadAndProtectedEnforcement(t *testing.T) {
 		t.Fatalf("expected include_drafts denied when forwarded client ip header is present, got %d body=%s", spoofedRes.Code, spoofedRes.Body.String())
 	}
 
-	forwardedReq := httptest.NewRequest(http.MethodGet, trustedPath, nil)
+	forwardedReq := newSiteAPIRequest(trustedPath)
 	forwardedReq.RemoteAddr = "127.0.0.1:12345"
 	forwardedReq.Header.Set("Forwarded", `for=198.51.100.10;proto=https`)
 	forwardedRes := httptest.NewRecorder()
@@ -730,7 +734,7 @@ func TestSitePublicAPIDraftReadAndProtectedEnforcement(t *testing.T) {
 	protectedCfg := Config{BasePath: "/admin", DefaultLocale: "en", Site: SiteConfig{Protected: true, ReadPermission: "admin.site.read"}}
 	admDenied, deniedServer := newSiteTestServer(t, protectedCfg, Dependencies{Authorizer: denyAllAuthz{}}, contentSvc, nil)
 	deniedPath := mustResolveURL(t, admDenied.URLs(), publicAPIGroupName(admDenied.config), SiteRouteContentList, map[string]string{"type": "article"}, map[string]string{"locale": "en"})
-	deniedReq := httptest.NewRequest(http.MethodGet, deniedPath, nil)
+	deniedReq := newSiteAPIRequest(deniedPath)
 	deniedRes := httptest.NewRecorder()
 	deniedServer.WrappedRouter().ServeHTTP(deniedRes, deniedReq)
 	if deniedRes.Code != http.StatusForbidden {
@@ -739,13 +743,13 @@ func TestSitePublicAPIDraftReadAndProtectedEnforcement(t *testing.T) {
 
 	admAllowed, allowedServer := newSiteTestServer(t, protectedCfg, Dependencies{Authorizer: allowAuthorizer{}}, contentSvc, nil)
 	allowedPath := mustResolveURL(t, admAllowed.URLs(), publicAPIGroupName(admAllowed.config), SiteRouteContentList, map[string]string{"type": "article"}, map[string]string{"locale": "en"})
-	missingActorReq := httptest.NewRequest(http.MethodGet, allowedPath, nil)
+	missingActorReq := newSiteAPIRequest(allowedPath)
 	missingActorRes := httptest.NewRecorder()
 	allowedServer.WrappedRouter().ServeHTTP(missingActorRes, missingActorReq)
 	if missingActorRes.Code != http.StatusForbidden {
 		t.Fatalf("expected protected site read without actor denied, got %d body=%s", missingActorRes.Code, missingActorRes.Body.String())
 	}
-	allowedReq := httptest.NewRequest(http.MethodGet, allowedPath, nil)
+	allowedReq := newSiteAPIRequest(allowedPath)
 	allowedReq = allowedReq.WithContext(auth.WithActorContext(allowedReq.Context(), &auth.ActorContext{
 		ActorID: "user-1",
 	}))
@@ -771,7 +775,7 @@ func TestSitePublicAPIDraftReadAndProtectedEnforcement(t *testing.T) {
 			"admin.site.read": true,
 		}},
 	}, contentSvc, nil)
-	actorDeniedReq := httptest.NewRequest(http.MethodGet, draftPath, nil)
+	actorDeniedReq := newSiteAPIRequest(draftPath)
 	actorDeniedReq = actorDeniedReq.WithContext(auth.WithActorContext(actorDeniedReq.Context(), &auth.ActorContext{
 		ActorID: "user-1",
 	}))
@@ -788,7 +792,7 @@ func TestSitePublicAPIDraftReadAndProtectedEnforcement(t *testing.T) {
 			"admin.site.read_drafts": true,
 		}},
 	}, contentSvc, nil)
-	actorAllowedReq := httptest.NewRequest(http.MethodGet, actorAllowedPath, nil)
+	actorAllowedReq := newSiteAPIRequest(actorAllowedPath)
 	actorAllowedReq = actorAllowedReq.WithContext(auth.WithActorContext(actorAllowedReq.Context(), &auth.ActorContext{
 		ActorID: "user-1",
 	}))
@@ -832,7 +836,7 @@ func TestSitePublicAPIMenuRoutesAndQueryContracts(t *testing.T) {
 	publicGroup := publicAPIGroupName(adm.config)
 
 	defaultPath := mustResolveURL(t, adm.URLs(), publicGroup, SiteRouteMenuByLocation, map[string]string{"location": "site.main"}, map[string]string{"locale": "en"})
-	defaultReq := httptest.NewRequest(http.MethodGet, defaultPath, nil)
+	defaultReq := newSiteAPIRequest(defaultPath)
 	defaultRes := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(defaultRes, defaultReq)
 	if defaultRes.Code != http.StatusOK {
@@ -852,7 +856,7 @@ func TestSitePublicAPIMenuRoutesAndQueryContracts(t *testing.T) {
 		"preview_token":         token,
 		"view_profile":          "footer",
 	})
-	overrideReq := httptest.NewRequest(http.MethodGet, overridePath, nil)
+	overrideReq := newSiteAPIRequest(overridePath)
 	overrideRes := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(overrideRes, overrideReq)
 	if overrideRes.Code != http.StatusOK {
@@ -870,7 +874,7 @@ func TestSitePublicAPIMenuRoutesAndQueryContracts(t *testing.T) {
 	overridePayload := decodeJSONMap(t, overrideRes)
 	overrideMeta := extractMap(overridePayload["meta"])
 	overrideQuery := extractMap(overrideMeta["query"])
-	if includeDrafts, _ := overrideQuery["include_drafts"].(bool); !includeDrafts {
+	if !toBool(overrideQuery["include_drafts"]) {
 		t.Fatalf("expected meta.query.include_drafts=true, got %+v", overrideQuery)
 	}
 
@@ -883,7 +887,7 @@ func TestSitePublicAPIMenuRoutesAndQueryContracts(t *testing.T) {
 		"include_drafts": "true",
 		"preview_token":  nonMenuToken,
 	})
-	nonMenuReq := httptest.NewRequest(http.MethodGet, nonMenuPath, nil)
+	nonMenuReq := newSiteAPIRequest(nonMenuPath)
 	nonMenuRes := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(nonMenuRes, nonMenuReq)
 	if nonMenuRes.Code != http.StatusForbidden {
@@ -895,7 +899,7 @@ func TestSitePublicAPIMenuRoutesAndQueryContracts(t *testing.T) {
 		"runtime_env":  "staging",
 		"view_profile": "footer",
 	})
-	runtimeEnvReq := httptest.NewRequest(http.MethodGet, runtimeEnvPath, nil)
+	runtimeEnvReq := newSiteAPIRequest(runtimeEnvPath)
 	runtimeEnvRes := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(runtimeEnvRes, runtimeEnvReq)
 	if runtimeEnvRes.Code != http.StatusOK {
@@ -910,7 +914,7 @@ func TestSitePublicAPIMenuRoutesAndQueryContracts(t *testing.T) {
 		"site_runtime_env": "staging",
 		"view_profile":     "footer",
 	})
-	siteRuntimeEnvReq := httptest.NewRequest(http.MethodGet, siteRuntimeEnvPath, nil)
+	siteRuntimeEnvReq := newSiteAPIRequest(siteRuntimeEnvPath)
 	siteRuntimeEnvRes := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(siteRuntimeEnvRes, siteRuntimeEnvReq)
 	if siteRuntimeEnvRes.Code != http.StatusOK {
@@ -927,7 +931,7 @@ func TestSitePublicAPIMenuRoutesAndQueryContracts(t *testing.T) {
 	actorDeniedAdmin, actorDeniedServer := newSiteTestServer(t, cfg, Dependencies{
 		Authorizer: permissionAuthorizer{allowed: map[string]bool{}},
 	}, nil, menuSvc)
-	actorDeniedReq := httptest.NewRequest(http.MethodGet, actorDeniedPath, nil)
+	actorDeniedReq := newSiteAPIRequest(actorDeniedPath)
 	actorDeniedReq = actorDeniedReq.WithContext(auth.WithActorContext(actorDeniedReq.Context(), &auth.ActorContext{
 		ActorID: "user-1",
 	}))
@@ -945,7 +949,7 @@ func TestSitePublicAPIMenuRoutesAndQueryContracts(t *testing.T) {
 		"view_profile": "footer",
 	})
 	nilAuthzAdmin, nilAuthzServer := newSiteTestServerWithoutAuthorizer(t, cfg, Dependencies{}, nil, menuSvc)
-	nilAuthzReq := httptest.NewRequest(http.MethodGet, nilAuthzPath, nil)
+	nilAuthzReq := newSiteAPIRequest(nilAuthzPath)
 	nilAuthzReq = nilAuthzReq.WithContext(auth.WithActorContext(nilAuthzReq.Context(), &auth.ActorContext{
 		ActorID: "user-1",
 	}))
@@ -967,7 +971,7 @@ func TestSitePublicAPIMenuRoutesAndQueryContracts(t *testing.T) {
 			"admin.site.view_profile_override": true,
 		}},
 	}, nil, menuSvc)
-	actorAllowedReq := httptest.NewRequest(http.MethodGet, actorAllowedPath, nil)
+	actorAllowedReq := newSiteAPIRequest(actorAllowedPath)
 	actorAllowedReq = actorAllowedReq.WithContext(auth.WithActorContext(actorAllowedReq.Context(), &auth.ActorContext{
 		ActorID: "user-1",
 	}))
@@ -981,7 +985,7 @@ func TestSitePublicAPIMenuRoutesAndQueryContracts(t *testing.T) {
 	}
 
 	codePath := mustResolveURL(t, adm.URLs(), publicGroup, SiteRouteMenuByCode, map[string]string{"code": "primary"}, map[string]string{"locale": "en"})
-	codeReq := httptest.NewRequest(http.MethodGet, codePath, nil)
+	codeReq := newSiteAPIRequest(codePath)
 	codeRes := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(codeRes, codeReq)
 	if codeRes.Code != http.StatusOK {
@@ -992,7 +996,7 @@ func TestSitePublicAPIMenuRoutesAndQueryContracts(t *testing.T) {
 	}
 
 	aliasPath := mustResolveURL(t, adm.URLs(), publicGroup, SiteRouteNavigationLegacy, map[string]string{"location": "site.main"}, map[string]string{"locale": "en"})
-	aliasReq := httptest.NewRequest(http.MethodGet, aliasPath, nil)
+	aliasReq := newSiteAPIRequest(aliasPath)
 	aliasRes := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(aliasRes, aliasReq)
 	if aliasRes.Code != http.StatusOK {
@@ -1031,7 +1035,7 @@ func TestAdminPreviewRouteUsesAuthWrapperWhenSiteReadsRequireAuthentication(t *t
 		t.Fatalf("generate preview token: %v", err)
 	}
 	path := mustResolveURL(t, adm.URLs(), adminAPIGroupName(adm.config), "preview", map[string]string{"token": token}, nil)
-	req := httptest.NewRequest(http.MethodGet, path, nil)
+	req := newSiteAPIRequest(path)
 	res := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(res, req)
 	if res.Code != http.StatusOK {

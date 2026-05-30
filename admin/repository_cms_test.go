@@ -60,11 +60,51 @@ func (s *translationCreatorContentServiceStub) CreateTranslation(_ context.Conte
 	return nil, ErrNotFound
 }
 
+type testContentTypeCreator interface {
+	CreateContentType(context.Context, CMSContentType) (*CMSContentType, error)
+}
+
+func mustCreatePage(t *testing.T, content CMSContentService, ctx context.Context, page CMSPage) *CMSPage {
+	t.Helper()
+	created, err := content.CreatePage(ctx, page)
+	if err != nil {
+		t.Fatalf("create page failed: %v", err)
+	}
+	return created
+}
+
+func mustCreateContent(t *testing.T, content CMSContentService, ctx context.Context, record CMSContent) *CMSContent {
+	t.Helper()
+	created, err := content.CreateContent(ctx, record)
+	if err != nil {
+		t.Fatalf("create content failed: %v", err)
+	}
+	return created
+}
+
+func mustCreateContentType(t *testing.T, content testContentTypeCreator, ctx context.Context, contentType CMSContentType) *CMSContentType {
+	t.Helper()
+	created, err := content.CreateContentType(ctx, contentType)
+	if err != nil {
+		t.Fatalf("create content type failed: %v", err)
+	}
+	return created
+}
+
+func mustCreateBlockDefinition(t *testing.T, content CMSContentService, ctx context.Context, def CMSBlockDefinition) *CMSBlockDefinition {
+	t.Helper()
+	created, err := content.CreateBlockDefinition(ctx, def)
+	if err != nil {
+		t.Fatalf("create block definition failed: %v", err)
+	}
+	return created
+}
+
 func TestCMSPageRepositoryListFiltersAndSearch(t *testing.T) {
 	content := NewInMemoryContentService()
-	_, _ = content.CreatePage(context.Background(), CMSPage{Title: "Home", Slug: "/home", Locale: "en"})
-	_, _ = content.CreatePage(context.Background(), CMSPage{Title: "About", Slug: "/about", Locale: "en", ParentID: "1"})
-	_, _ = content.CreatePage(context.Background(), CMSPage{Title: "Inicio", Slug: "/inicio", Locale: "es"})
+	mustCreatePage(t, content, context.Background(), CMSPage{Title: "Home", Slug: "/home", Locale: "en"})
+	mustCreatePage(t, content, context.Background(), CMSPage{Title: "About", Slug: "/about", Locale: "en", ParentID: "1"})
+	mustCreatePage(t, content, context.Background(), CMSPage{Title: "Inicio", Slug: "/inicio", Locale: "es"})
 
 	repo := NewCMSPageRepository(content)
 	results, total, err := repo.List(context.Background(), ListOptions{
@@ -119,9 +159,9 @@ func TestCMSPageRepositoryListSortsBeforePagination(t *testing.T) {
 	content := NewInMemoryContentService()
 	repo := NewCMSPageRepository(content)
 
-	_, _ = content.CreatePage(ctx, CMSPage{Title: "Gamma", Slug: "/gamma", Locale: "en"})
-	_, _ = content.CreatePage(ctx, CMSPage{Title: "Alpha", Slug: "/alpha", Locale: "en"})
-	_, _ = content.CreatePage(ctx, CMSPage{Title: "Beta", Slug: "/beta", Locale: "en"})
+	mustCreatePage(t, content, ctx, CMSPage{Title: "Gamma", Slug: "/gamma", Locale: "en"})
+	mustCreatePage(t, content, ctx, CMSPage{Title: "Alpha", Slug: "/alpha", Locale: "en"})
+	mustCreatePage(t, content, ctx, CMSPage{Title: "Beta", Slug: "/beta", Locale: "en"})
 
 	pageOne, total, err := repo.List(ctx, ListOptions{
 		Page:    1,
@@ -187,10 +227,10 @@ func TestCMSPageRepositoryListWithoutSortRemainsStableAcrossPages(t *testing.T) 
 	content := NewInMemoryContentService()
 	repo := NewCMSPageRepository(content)
 
-	_, _ = content.CreatePage(ctx, CMSPage{Title: "Alpha", Slug: "/alpha", Locale: "en"})
-	_, _ = content.CreatePage(ctx, CMSPage{Title: "Bravo", Slug: "/bravo", Locale: "en"})
-	_, _ = content.CreatePage(ctx, CMSPage{Title: "Charlie", Slug: "/charlie", Locale: "en"})
-	_, _ = content.CreatePage(ctx, CMSPage{Title: "Delta", Slug: "/delta", Locale: "en"})
+	mustCreatePage(t, content, ctx, CMSPage{Title: "Alpha", Slug: "/alpha", Locale: "en"})
+	mustCreatePage(t, content, ctx, CMSPage{Title: "Bravo", Slug: "/bravo", Locale: "en"})
+	mustCreatePage(t, content, ctx, CMSPage{Title: "Charlie", Slug: "/charlie", Locale: "en"})
+	mustCreatePage(t, content, ctx, CMSPage{Title: "Delta", Slug: "/delta", Locale: "en"})
 
 	for i := range 25 {
 		pageOne, totalOne, err := repo.List(ctx, ListOptions{
@@ -252,7 +292,7 @@ func TestCMSPageRepositoryCreateUpdateDelete(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create failed: %v", err)
 	}
-	id, _ := created["id"].(string)
+	id := toString(created["id"])
 	if id == "" {
 		t.Fatalf("expected id assigned")
 	}
@@ -283,11 +323,13 @@ func TestCMSPageRepositoryCreateUpdateDelete(t *testing.T) {
 func TestCMSPageRepositoryPreventsSlugCollision(t *testing.T) {
 	content := NewInMemoryContentService()
 	repo := NewCMSPageRepository(content)
-	_, _ = repo.Create(context.Background(), map[string]any{
+	if _, err := repo.Create(context.Background(), map[string]any{
 		"title":  "Home",
 		"slug":   "/home",
 		"locale": "en",
-	})
+	}); err != nil {
+		t.Fatalf("seed page failed: %v", err)
+	}
 	_, err := repo.Create(context.Background(), map[string]any{
 		"title":  "Another",
 		"slug":   "/home",
@@ -350,7 +392,7 @@ func TestBlockAndWidgetDefinitionRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("block definition create failed: %v", err)
 	}
-	got, err := blockRepo.Get(context.Background(), created["id"].(string))
+	got, err := blockRepo.Get(context.Background(), toString(created["id"]))
 	if err != nil {
 		t.Fatalf("block definition get failed: %v", err)
 	}
@@ -360,11 +402,13 @@ func TestBlockAndWidgetDefinitionRoundTrip(t *testing.T) {
 
 	widgetSvc := NewInMemoryWidgetService()
 	widgetRepo := NewWidgetDefinitionRepository(widgetSvc)
-	_, _ = widgetRepo.Create(context.Background(), map[string]any{
+	if _, createErr := widgetRepo.Create(context.Background(), map[string]any{
 		"code":   "stats",
 		"name":   "Stats",
 		"schema": `{"type":"stats","fields":["a","b"]}`,
-	})
+	}); createErr != nil {
+		t.Fatalf("widget definition create failed: %v", createErr)
+	}
 	def, err := widgetRepo.Get(context.Background(), "stats")
 	if err != nil {
 		t.Fatalf("widget definition get failed: %v", err)
@@ -400,7 +444,7 @@ func TestCMSContentRepositoryEmbeddedBlocksAndSchema(t *testing.T) {
 		t.Fatalf("expected embedded blocks returned, got %+v", created["blocks"])
 	}
 
-	id, _ := created["id"].(string)
+	id := toString(created["id"])
 	updated, err := repo.Update(context.Background(), id, map[string]any{
 		"title": "Blocky Updated",
 	})
@@ -704,7 +748,7 @@ func TestCMSContentTypeEntryRepositoryListAppliesOperatorAwareFilters(t *testing
 	content := NewInMemoryContentService()
 	repo := NewCMSContentTypeEntryRepository(content, CMSContentType{Slug: "page"})
 
-	_, _ = content.CreateContent(ctx, CMSContent{
+	mustCreateContent(t, content, ctx, CMSContent{
 		Title:           "Home Page",
 		Slug:            "home",
 		Locale:          "en",
@@ -715,7 +759,7 @@ func TestCMSContentTypeEntryRepositoryListAppliesOperatorAwareFilters(t *testing
 			"author":   "alice",
 		},
 	})
-	_, _ = content.CreateContent(ctx, CMSContent{
+	mustCreateContent(t, content, ctx, CMSContent{
 		Title:           "Landing",
 		Slug:            "landing",
 		Locale:          "en",
@@ -726,7 +770,7 @@ func TestCMSContentTypeEntryRepositoryListAppliesOperatorAwareFilters(t *testing
 			"author":   "bob",
 		},
 	})
-	_, _ = content.CreateContent(ctx, CMSContent{
+	mustCreateContent(t, content, ctx, CMSContent{
 		Title:           "Changelog",
 		Slug:            "changelog",
 		Locale:          "en",
@@ -737,7 +781,7 @@ func TestCMSContentTypeEntryRepositoryListAppliesOperatorAwareFilters(t *testing
 			"author":   "alice",
 		},
 	})
-	_, _ = content.CreateContent(ctx, CMSContent{
+	mustCreateContent(t, content, ctx, CMSContent{
 		Title:           "Home Post",
 		Slug:            "home-post",
 		Locale:          "en",
@@ -834,9 +878,9 @@ func TestCMSContentTypeEntryRepositoryListFiltersBeforePagination(t *testing.T) 
 	content := NewInMemoryContentService()
 	repo := NewCMSContentTypeEntryRepository(content, CMSContentType{Slug: "page"})
 
-	_, _ = content.CreateContent(ctx, CMSContent{Title: "One", Slug: "one", Locale: "en", Status: "published", ContentTypeSlug: "page"})
-	_, _ = content.CreateContent(ctx, CMSContent{Title: "Two", Slug: "two", Locale: "en", Status: "draft", ContentTypeSlug: "page"})
-	_, _ = content.CreateContent(ctx, CMSContent{Title: "Three", Slug: "three", Locale: "en", Status: "published", ContentTypeSlug: "page"})
+	mustCreateContent(t, content, ctx, CMSContent{Title: "One", Slug: "one", Locale: "en", Status: "published", ContentTypeSlug: "page"})
+	mustCreateContent(t, content, ctx, CMSContent{Title: "Two", Slug: "two", Locale: "en", Status: "draft", ContentTypeSlug: "page"})
+	mustCreateContent(t, content, ctx, CMSContent{Title: "Three", Slug: "three", Locale: "en", Status: "published", ContentTypeSlug: "page"})
 
 	list, total, err := repo.List(ctx, ListOptions{
 		Page:    1,
@@ -859,9 +903,9 @@ func TestCMSContentTypeEntryRepositoryListSortsBeforePagination(t *testing.T) {
 	content := NewInMemoryContentService()
 	repo := NewCMSContentTypeEntryRepository(content, CMSContentType{Slug: "post"})
 
-	_, _ = content.CreateContent(ctx, CMSContent{Title: "Gamma", Slug: "gamma", Locale: "en", Status: "published", ContentTypeSlug: "post"})
-	_, _ = content.CreateContent(ctx, CMSContent{Title: "Alpha", Slug: "alpha", Locale: "en", Status: "published", ContentTypeSlug: "post"})
-	_, _ = content.CreateContent(ctx, CMSContent{Title: "Beta", Slug: "beta", Locale: "en", Status: "published", ContentTypeSlug: "post"})
+	mustCreateContent(t, content, ctx, CMSContent{Title: "Gamma", Slug: "gamma", Locale: "en", Status: "published", ContentTypeSlug: "post"})
+	mustCreateContent(t, content, ctx, CMSContent{Title: "Alpha", Slug: "alpha", Locale: "en", Status: "published", ContentTypeSlug: "post"})
+	mustCreateContent(t, content, ctx, CMSContent{Title: "Beta", Slug: "beta", Locale: "en", Status: "published", ContentTypeSlug: "post"})
 
 	pageOne, total, err := repo.List(ctx, ListOptions{
 		Page:    1,
@@ -924,7 +968,7 @@ func TestCMSContentTypeEntryRepositoryListUsesProjectedTopLevelFields(t *testing
 	content := NewInMemoryContentService()
 	repo := NewCMSContentTypeEntryRepository(content, CMSContentType{Slug: "page"})
 
-	_, _ = content.CreateContent(ctx, CMSContent{
+	mustCreateContent(t, content, ctx, CMSContent{
 		Title:           "About Us",
 		Slug:            "about",
 		Locale:          "en",
@@ -1005,7 +1049,7 @@ func TestCMSContentRepositoryListEmitsCanonicalFamilyIDWhenTranslationMetadataPr
 	content := NewInMemoryContentService()
 	repo := NewCMSContentRepository(content)
 
-	_, _ = content.CreateContent(ctx, CMSContent{
+	mustCreateContent(t, content, ctx, CMSContent{
 		Title:           "Page One",
 		Slug:            "page-one",
 		Locale:          "en",
@@ -1013,7 +1057,7 @@ func TestCMSContentRepositoryListEmitsCanonicalFamilyIDWhenTranslationMetadataPr
 		Status:          "draft",
 		ContentTypeSlug: "page",
 	})
-	_, _ = content.CreateContent(ctx, CMSContent{
+	mustCreateContent(t, content, ctx, CMSContent{
 		Title:           "Post One",
 		Slug:            "post-one",
 		Locale:          "en",
@@ -1021,7 +1065,7 @@ func TestCMSContentRepositoryListEmitsCanonicalFamilyIDWhenTranslationMetadataPr
 		Status:          "draft",
 		ContentTypeSlug: "post",
 	})
-	_, _ = content.CreateContent(ctx, CMSContent{
+	mustCreateContent(t, content, ctx, CMSContent{
 		Title:           "News One",
 		Slug:            "news-one",
 		Locale:          "en",
@@ -1049,7 +1093,7 @@ func TestCMSContentTypeEntryRepositoryListEmitsCanonicalFamilyIDForTranslationCa
 	ctx := context.Background()
 	content := NewInMemoryContentService()
 	familyID := "family-announcement"
-	created, _ := content.CreateContent(ctx, CMSContent{
+	created := mustCreateContent(t, content, ctx, CMSContent{
 		Title:           "Announcement",
 		Slug:            "announcement",
 		Locale:          "en",
@@ -1086,7 +1130,7 @@ func TestCMSContentTypeEntryRepositoryListEmitsCanonicalFamilyIDForTranslationCa
 func TestCMSContentTypeEntryRepositoryListRejectsTranslationCapabilityTypesWithoutCanonicalFamilyID(t *testing.T) {
 	ctx := context.Background()
 	content := NewInMemoryContentService()
-	_, _ = content.CreateContent(ctx, CMSContent{
+	mustCreateContent(t, content, ctx, CMSContent{
 		Title:           "Legacy Announcement",
 		Slug:            "legacy-announcement",
 		Locale:          "en",
@@ -1109,7 +1153,7 @@ func TestCMSContentTypeEntryRepositoryListRejectsTranslationCapabilityTypesWitho
 func TestCMSContentTypeEntryRepositoryGetRejectsTranslationCapabilityTypesWithoutCanonicalFamilyID(t *testing.T) {
 	ctx := context.Background()
 	content := NewInMemoryContentService()
-	created, _ := content.CreateContent(ctx, CMSContent{
+	created := mustCreateContent(t, content, ctx, CMSContent{
 		Title:           "Legacy Announcement",
 		Slug:            "legacy-announcement",
 		Locale:          "en",
@@ -1134,7 +1178,7 @@ func TestCMSContentRepositoryListRejectsMarkdownOnlyPagePayloadsWithoutCanonical
 	content := NewInMemoryContentService()
 	repo := NewCMSContentRepository(content)
 
-	_, _ = content.CreateContent(ctx, CMSContent{
+	mustCreateContent(t, content, ctx, CMSContent{
 		Title:           "Legacy Page",
 		Slug:            "legacy-page",
 		Locale:          "en",
@@ -1182,7 +1226,7 @@ func TestCMSContentRepositoryListAllowsMarkdownOnlyPayloadsForNonPageTypes(t *te
 	content := NewInMemoryContentService()
 	repo := NewCMSContentRepository(content)
 
-	_, _ = content.CreateContent(ctx, CMSContent{
+	mustCreateContent(t, content, ctx, CMSContent{
 		Title:           "Legacy Article",
 		Slug:            "legacy-article",
 		Locale:          "en",
@@ -1325,16 +1369,16 @@ func TestCMSBlockDefinitionRepositoryGetResolvesEnvironmentScopedRecordWithoutCo
 func TestCMSBlockDefinitionRepositoryFiltersByContentType(t *testing.T) {
 	content := NewInMemoryContentService()
 	ctx := context.Background()
-	_, _ = content.CreateContentType(ctx, CMSContentType{
+	mustCreateContentType(t, content, ctx, CMSContentType{
 		ID:           "ct-1",
 		Name:         "Article",
 		Slug:         "article",
 		Schema:       map[string]any{"fields": []map[string]any{{"name": "title", "type": "string"}}},
 		Capabilities: map[string]any{"block_types": []string{"hero", "gallery"}},
 	})
-	_, _ = content.CreateBlockDefinition(ctx, CMSBlockDefinition{ID: "hero", Name: "Hero", Type: "hero"})
-	_, _ = content.CreateBlockDefinition(ctx, CMSBlockDefinition{ID: "gallery", Name: "Gallery", Type: "gallery"})
-	_, _ = content.CreateBlockDefinition(ctx, CMSBlockDefinition{ID: "cta", Name: "CTA", Type: "cta"})
+	mustCreateBlockDefinition(t, content, ctx, CMSBlockDefinition{ID: "hero", Name: "Hero", Type: "hero"})
+	mustCreateBlockDefinition(t, content, ctx, CMSBlockDefinition{ID: "gallery", Name: "Gallery", Type: "gallery"})
+	mustCreateBlockDefinition(t, content, ctx, CMSBlockDefinition{ID: "cta", Name: "CTA", Type: "cta"})
 
 	repo := NewCMSBlockDefinitionRepository(content, content)
 	defs, total, err := repo.List(ctx, ListOptions{Filters: map[string]any{"content_type": "article"}, PerPage: 10})
@@ -1356,7 +1400,7 @@ func TestCMSBlockDefinitionRepositoryFiltersByContentType(t *testing.T) {
 func TestCMSBlockDefinitionRepositoryFiltersByContentTypeSupportsSlugAliases(t *testing.T) {
 	content := NewInMemoryContentService()
 	ctx := context.Background()
-	_, _ = content.CreateContentType(ctx, CMSContentType{
+	mustCreateContentType(t, content, ctx, CMSContentType{
 		ID:   "ct-page",
 		Name: "Page",
 		Slug: "page",
@@ -1375,14 +1419,14 @@ func TestCMSBlockDefinitionRepositoryFiltersByContentTypeSupportsSlugAliases(t *
 			},
 		},
 	})
-	_, _ = content.CreateBlockDefinition(ctx, CMSBlockDefinition{
+	mustCreateBlockDefinition(t, content, ctx, CMSBlockDefinition{
 		ID:     "hero",
 		Name:   "Hero",
 		Slug:   "hero",
 		Type:   "hero",
 		Status: "active",
 	})
-	_, _ = content.CreateBlockDefinition(ctx, CMSBlockDefinition{
+	mustCreateBlockDefinition(t, content, ctx, CMSBlockDefinition{
 		ID:     "rich_text",
 		Name:   "Rich Text",
 		Slug:   "rich-text",
@@ -1410,9 +1454,9 @@ func TestCMSBlockDefinitionRepositoryFiltersByContentTypeSupportsSlugAliases(t *
 func TestCMSBlockDefinitionRepositoryFiltersByCategoryAndStatus(t *testing.T) {
 	content := NewInMemoryContentService()
 	ctx := context.Background()
-	_, _ = content.CreateBlockDefinition(ctx, CMSBlockDefinition{ID: "hero", Name: "Hero", Category: "layout", Status: "active"})
-	_, _ = content.CreateBlockDefinition(ctx, CMSBlockDefinition{ID: "gallery", Name: "Gallery", Category: "media", Status: "draft"})
-	_, _ = content.CreateBlockDefinition(ctx, CMSBlockDefinition{ID: "cta", Name: "CTA", Category: "layout", Status: "deprecated"})
+	mustCreateBlockDefinition(t, content, ctx, CMSBlockDefinition{ID: "hero", Name: "Hero", Category: "layout", Status: "active"})
+	mustCreateBlockDefinition(t, content, ctx, CMSBlockDefinition{ID: "gallery", Name: "Gallery", Category: "media", Status: "draft"})
+	mustCreateBlockDefinition(t, content, ctx, CMSBlockDefinition{ID: "cta", Name: "CTA", Category: "layout", Status: "deprecated"})
 
 	repo := NewCMSBlockDefinitionRepository(content, content)
 	defs, total, err := repo.List(ctx, ListOptions{Filters: map[string]any{"category": "layout"}, PerPage: 10})
