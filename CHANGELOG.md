@@ -1,5 +1,33 @@
 # Changelog
 
+# [unreleased]
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Code quality ([cb9da96](https://github.com/goliatone/go-admin/commit/cb9da9636ef8b66e9081d1917376ee0a41dd40b1))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Udpate tests ([daa820c](https://github.com/goliatone/go-admin/commit/daa820c871fe495fe0da5bf76d322e3e49ebf7b4))  - (goliatone)
+
+# [0.81.0](https://github.com/goliatone/go-admin/compare/v0.80.0...v0.81.0) - (2026-05-30)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.81.0 ([2057141](https://github.com/goliatone/go-admin/commit/2057141bffb32a9687dec39937d88fb721ef1110))  - (goliatone)
+
+## <!-- 16 -->➕ Add
+
+- Site loading performance improvements ([d87431c](https://github.com/goliatone/go-admin/commit/d87431c6faf094e0ed5f797ff99e66eccc36c391))  - (goliatone)
+
+## <!-- 3 -->📚 Documentation
+
+- Update changelog for v0.80.0 ([5d574d3](https://github.com/goliatone/go-admin/commit/5d574d38edcd89c3576665f261cb7a52b7573961))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Udpate tests ([a4d4055](https://github.com/goliatone/go-admin/commit/a4d4055dee67ec4f48287ea79e9834ba0dde7e3f))  - (goliatone)
+
 # [0.80.0](https://github.com/goliatone/go-admin/compare/v0.79.1...v0.80.0) - (2026-05-29)
 
 ## <!-- 1 -->🐛 Bug Fixes
