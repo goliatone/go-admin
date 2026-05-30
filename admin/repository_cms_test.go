@@ -87,6 +87,33 @@ func TestCMSPageRepositoryListFiltersAndSearch(t *testing.T) {
 	}
 }
 
+func TestCMSPageRepositoryListRequestsPageContentTypeScope(t *testing.T) {
+	content := &scopedReaderContentServiceStub{
+		contentTypes: []CMSContentType{
+			{ID: "ct-page", Slug: "page"},
+			{ID: "ct-event", Slug: "event"},
+		},
+		pages: []CMSPage{
+			{ID: "page-1", Title: "Home", Slug: "home", Locale: "en"},
+		},
+	}
+	repo := NewCMSPageRepository(content)
+
+	rows, total, err := repo.List(context.Background(), ListOptions{Filters: map[string]any{"locale": "en"}})
+	if err != nil {
+		t.Fatalf("list pages: %v", err)
+	}
+	if total != 1 || len(rows) != 1 || strings.TrimSpace(toString(rows[0]["id"])) != "page-1" {
+		t.Fatalf("expected one scoped page row, got total=%d rows=%+v", total, rows)
+	}
+	if calls := content.unscopedCalls(); len(calls) != 0 {
+		t.Fatalf("expected page repository list to avoid unscoped page reads, got %+v", calls)
+	}
+	if got := content.countScopedCalls("pages_with_options", "ct-page"); got != 1 {
+		t.Fatalf("expected one page content-type scoped read, got calls=%+v", content.calls)
+	}
+}
+
 func TestCMSPageRepositoryListSortsBeforePagination(t *testing.T) {
 	ctx := context.Background()
 	content := NewInMemoryContentService()
@@ -503,6 +530,31 @@ func TestCMSContentTypeEntryRepositoryCreateTranslationDelegatesToContentCommand
 	}
 	if service.lastInput.ContentType != "posts" {
 		t.Fatalf("expected content type posts, got %q", service.lastInput.ContentType)
+	}
+}
+
+func TestCMSPageRepositoryUniquenessChecksUsePageContentTypeScope(t *testing.T) {
+	content := &scopedReaderContentServiceStub{
+		contentTypes: []CMSContentType{{ID: "ct-page", Slug: "page"}},
+		pages: []CMSPage{
+			{ID: "page-1", Slug: "about", Locale: "en", Data: map[string]any{"path": "/about"}},
+		},
+	}
+	repo := NewCMSPageRepository(content)
+
+	err := repo.ensureUniqueLocalizedPath(context.Background(), CMSPage{
+		ID:     "page-2",
+		Locale: "en",
+		Data:   map[string]any{"path": "/about"},
+	}, "")
+	if !errors.Is(err, ErrPathConflict) {
+		t.Fatalf("expected duplicate page path conflict, got %v", err)
+	}
+	if calls := content.unscopedCalls(); len(calls) != 0 {
+		t.Fatalf("expected page uniqueness check to avoid unscoped page reads, got %+v", calls)
+	}
+	if got := content.countScopedCalls("pages_with_options", "ct-page"); got != 1 {
+		t.Fatalf("expected one page-scoped uniqueness read, got calls=%+v", content.calls)
 	}
 }
 

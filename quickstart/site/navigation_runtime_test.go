@@ -381,10 +381,9 @@ func TestSiteNavigationLocalizesInternalMenuHrefForNonDefaultLocale(t *testing.T
 func seedDeliveryPageType(t *testing.T, content *admin.InMemoryContentService) {
 	t.Helper()
 	_, err := content.CreateContentType(context.Background(), admin.CMSContentType{
-		ID:          "page-type",
-		Name:        "Page",
-		Slug:        "page",
-		Environment: "default",
+		ID:   "page-type",
+		Name: "Page",
+		Slug: "page",
 		Schema: map[string]any{
 			"type":       "object",
 			"properties": map[string]any{},

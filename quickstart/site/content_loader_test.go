@@ -147,3 +147,45 @@ func TestListSiteContentsUsesLegacyServiceWhenOptionsUnavailable(t *testing.T) {
 		t.Fatalf("expected locale es for legacy call, got %q", stub.contentsLocale)
 	}
 }
+
+func TestListSiteContentsForTypeUsesScopedOptions(t *testing.T) {
+	stub := &siteContentLoaderWithOptionsStub{
+		withOptionsOut: []admin.CMSContent{{ID: "page-home", ContentTypeSlug: "page"}},
+		contentsOut:    []admin.CMSContent{{ID: "unscoped"}},
+	}
+
+	items, err := listSiteContentsForType(context.Background(), stub, "en", "ct-page")
+	if err != nil {
+		t.Fatalf("list scoped content: %v", err)
+	}
+	if len(items) != 1 || items[0].ID != "page-home" {
+		t.Fatalf("expected scoped option payload, got %+v", items)
+	}
+	if stub.contentsCalls != 0 {
+		t.Fatalf("expected legacy broad list to stay unused, got %d calls", stub.contentsCalls)
+	}
+	if len(stub.withOptionsArgs) != 3 ||
+		stub.withOptionsArgs[0] != admin.WithTranslations() ||
+		stub.withOptionsArgs[1] != admin.WithDerivedFields() ||
+		stub.withOptionsArgs[2] != admin.WithContentTypeID("ct-page") {
+		t.Fatalf("expected translations+derived+content-type options, got %+v", stub.withOptionsArgs)
+	}
+}
+
+func TestListSiteContentsForTypeFallsBackToLegacyWhenScopedOptionsUnsupported(t *testing.T) {
+	stub := &siteContentLoaderWithOptionsStub{
+		withOptionsErr: admin.ErrNotFound,
+		contentsOut:    []admin.CMSContent{{ID: "legacy"}},
+	}
+
+	items, err := listSiteContentsForType(context.Background(), stub, "en", "ct-page")
+	if err != nil {
+		t.Fatalf("list scoped content fallback: %v", err)
+	}
+	if len(items) != 1 || items[0].ID != "legacy" {
+		t.Fatalf("expected legacy fallback payload, got %+v", items)
+	}
+	if stub.withOptionsCalls != 2 || stub.contentsCalls != 1 {
+		t.Fatalf("expected scoped attempt, broad option fallback, and legacy fallback, got option=%d legacy=%d", stub.withOptionsCalls, stub.contentsCalls)
+	}
+}

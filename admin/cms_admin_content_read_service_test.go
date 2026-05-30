@@ -148,6 +148,163 @@ func (s *contextRecordingContentService) Contents(ctx context.Context, _ string)
 	}}, nil
 }
 
+type readerScopedCall struct {
+	kind          string
+	locale        string
+	contentTypeID string
+	unscoped      bool
+}
+
+type scopedReaderContentServiceStub struct {
+	siteAPIContentServiceStub
+	contentTypes []CMSContentType
+	pages        []CMSPage
+	calls        []readerScopedCall
+}
+
+func (s *scopedReaderContentServiceStub) Contents(ctx context.Context, locale string) ([]CMSContent, error) {
+	s.calls = append(s.calls, readerScopedCall{kind: "contents", locale: strings.TrimSpace(locale), unscoped: true})
+	return s.siteAPIContentServiceStub.Contents(ctx, locale)
+}
+
+func (s *scopedReaderContentServiceStub) ContentsWithOptions(ctx context.Context, locale string, opts ...CMSContentListOption) ([]CMSContent, error) {
+	contentTypeID := publicAPIContentTypeIDOption(opts)
+	s.calls = append(s.calls, readerScopedCall{
+		kind:          "contents_with_options",
+		locale:        strings.TrimSpace(locale),
+		contentTypeID: contentTypeID,
+		unscoped:      contentTypeID == "",
+	})
+	records, err := s.siteAPIContentServiceStub.Contents(ctx, locale)
+	if err != nil {
+		return nil, err
+	}
+	return s.filterContentsByTypeID(records, contentTypeID), nil
+}
+
+func (s *scopedReaderContentServiceStub) Pages(ctx context.Context, locale string) ([]CMSPage, error) {
+	s.calls = append(s.calls, readerScopedCall{kind: "pages", locale: strings.TrimSpace(locale), unscoped: true})
+	return s.filterPagesByLocale(locale), nil
+}
+
+func (s *scopedReaderContentServiceStub) PagesWithOptions(ctx context.Context, locale string, opts ...CMSContentListOption) ([]CMSPage, error) {
+	contentTypeID := publicAPIContentTypeIDOption(opts)
+	s.calls = append(s.calls, readerScopedCall{
+		kind:          "pages_with_options",
+		locale:        strings.TrimSpace(locale),
+		contentTypeID: contentTypeID,
+		unscoped:      contentTypeID == "",
+	})
+	pages := s.filterPagesByLocale(locale)
+	if contentTypeID == "" {
+		return pages, nil
+	}
+	slug := s.contentTypeSlugForID(contentTypeID)
+	if !strings.EqualFold(slug, "page") && !strings.EqualFold(contentTypeID, "page") {
+		return nil, nil
+	}
+	out := make([]CMSPage, 0, len(pages))
+	for _, page := range pages {
+		out = append(out, page)
+	}
+	return out, nil
+}
+
+func (s *scopedReaderContentServiceStub) ContentTypes(context.Context) ([]CMSContentType, error) {
+	return append([]CMSContentType{}, s.contentTypes...), nil
+}
+
+func (s *scopedReaderContentServiceStub) ContentType(_ context.Context, id string) (*CMSContentType, error) {
+	for _, contentType := range s.contentTypes {
+		if strings.EqualFold(strings.TrimSpace(contentType.ID), strings.TrimSpace(id)) {
+			copy := contentType
+			return &copy, nil
+		}
+	}
+	return nil, ErrNotFound
+}
+
+func (s *scopedReaderContentServiceStub) ContentTypeBySlug(_ context.Context, slug string) (*CMSContentType, error) {
+	for _, contentType := range s.contentTypes {
+		if strings.EqualFold(strings.TrimSpace(contentType.Slug), strings.TrimSpace(slug)) {
+			copy := contentType
+			return &copy, nil
+		}
+	}
+	return nil, ErrNotFound
+}
+
+func (s *scopedReaderContentServiceStub) CreateContentType(context.Context, CMSContentType) (*CMSContentType, error) {
+	return nil, ErrNotFound
+}
+
+func (s *scopedReaderContentServiceStub) UpdateContentType(context.Context, CMSContentType) (*CMSContentType, error) {
+	return nil, ErrNotFound
+}
+
+func (s *scopedReaderContentServiceStub) DeleteContentType(context.Context, string) error {
+	return ErrNotFound
+}
+
+func (s *scopedReaderContentServiceStub) unscopedCalls() []readerScopedCall {
+	out := []readerScopedCall{}
+	for _, call := range s.calls {
+		if call.unscoped {
+			out = append(out, call)
+		}
+	}
+	return out
+}
+
+func (s *scopedReaderContentServiceStub) countScopedCalls(kind, contentTypeID string) int {
+	count := 0
+	for _, call := range s.calls {
+		if call.kind == kind && call.contentTypeID == contentTypeID {
+			count++
+		}
+	}
+	return count
+}
+
+func (s *scopedReaderContentServiceStub) filterContentsByTypeID(records []CMSContent, contentTypeID string) []CMSContent {
+	contentTypeID = strings.TrimSpace(contentTypeID)
+	if contentTypeID == "" {
+		return records
+	}
+	slug := s.contentTypeSlugForID(contentTypeID)
+	out := make([]CMSContent, 0, len(records))
+	for _, record := range records {
+		if strings.EqualFold(strings.TrimSpace(record.ContentType), slug) ||
+			strings.EqualFold(strings.TrimSpace(record.ContentTypeSlug), slug) ||
+			strings.EqualFold(strings.TrimSpace(record.ContentType), contentTypeID) ||
+			strings.EqualFold(strings.TrimSpace(record.ContentTypeSlug), contentTypeID) {
+			out = append(out, record)
+		}
+	}
+	return out
+}
+
+func (s *scopedReaderContentServiceStub) filterPagesByLocale(locale string) []CMSPage {
+	locale = strings.TrimSpace(locale)
+	out := make([]CMSPage, 0, len(s.pages))
+	for _, page := range s.pages {
+		if locale != "" && page.Locale != "" && page.Locale != locale {
+			continue
+		}
+		out = append(out, page)
+	}
+	return out
+}
+
+func (s *scopedReaderContentServiceStub) contentTypeSlugForID(id string) string {
+	for _, contentType := range s.contentTypes {
+		if strings.EqualFold(strings.TrimSpace(contentType.ID), strings.TrimSpace(id)) {
+			return strings.TrimSpace(contentType.Slug)
+		}
+	}
+	return ""
+}
+
 func TestAdminContentReadServiceListForContentTypePropagatesRequestContext(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
@@ -162,6 +319,38 @@ func TestAdminContentReadServiceListForContentTypePropagatesRequestContext(t *te
 	}
 	if err := content.captured.Err(); !errors.Is(err, context.Canceled) {
 		t.Fatalf("expected canceled request context, got %v", err)
+	}
+}
+
+func TestAdminContentReadServiceListForContentTypeScopesNonTranslationContentType(t *testing.T) {
+	content := &scopedReaderContentServiceStub{
+		siteAPIContentServiceStub: siteAPIContentServiceStub{byLocale: map[string][]CMSContent{
+			"en": {
+				{ID: "article-1", Title: "Article", Slug: "article", Locale: "en", Status: "published", ContentType: "article", ContentTypeSlug: "article"},
+				{ID: "event-1", Title: "Event", Slug: "event", Locale: "en", Status: "published", ContentType: "event", ContentTypeSlug: "event"},
+			},
+		}},
+		contentTypes: []CMSContentType{
+			{ID: "ct-article", Slug: "article"},
+			{ID: "ct-event", Slug: "event"},
+		},
+	}
+	service := newAdminContentReadService(content, content)
+
+	rows, total, err := service.ListForContentType(context.Background(), CMSContentType{ID: "ct-article", Slug: "article"}, ListOptions{
+		Filters: map[string]any{"locale": "en"},
+	})
+	if err != nil {
+		t.Fatalf("list article content: %v", err)
+	}
+	if total != 1 || len(rows) != 1 || strings.TrimSpace(toString(rows[0]["id"])) != "article-1" {
+		t.Fatalf("expected one scoped article row, got total=%d rows=%+v", total, rows)
+	}
+	if calls := content.unscopedCalls(); len(calls) != 0 {
+		t.Fatalf("expected non-translation content type list to avoid unscoped reads, got %+v", calls)
+	}
+	if got := content.countScopedCalls("contents_with_options", "ct-article"); got != 1 {
+		t.Fatalf("expected one content-type scoped read for article, got calls=%+v", content.calls)
 	}
 }
 

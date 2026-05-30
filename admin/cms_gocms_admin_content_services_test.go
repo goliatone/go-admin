@@ -6,6 +6,7 @@ import (
 
 	cms "github.com/goliatone/go-cms"
 	cmsblocks "github.com/goliatone/go-cms/blocks"
+	cmscontent "github.com/goliatone/go-cms/content"
 	"github.com/google/uuid"
 )
 
@@ -200,6 +201,137 @@ func TestGoCMSContentAdapterContentsUsesAdminContentReadService(t *testing.T) {
 	}
 	if items[0].Data["_schema"] != "page/v1" {
 		t.Fatalf("expected schema version in data, got %v", items[0].Data["_schema"])
+	}
+}
+
+func TestGoCMSContentAdapterContentsWithContentTypeIDBypassesAdminRead(t *testing.T) {
+	ctx := context.Background()
+	contentTypeID := uuid.New()
+	pageID := uuid.New()
+	adminRead := &stubGoCMSAdminContentReadService{
+		listResp: []cms.AdminContentRecord{{
+			ID:              uuid.New(),
+			Slug:            "unrelated",
+			Locale:          "en",
+			ContentType:     "event",
+			ContentTypeSlug: "event",
+			Status:          "published",
+		}},
+	}
+	contentSvc := &stubGoCMSContentService{
+		listWithDerived: []*cmscontent.Content{{
+			ID:   pageID,
+			Slug: "home",
+			Type: &cmscontent.ContentType{
+				ID:   contentTypeID,
+				Slug: "page",
+			},
+			Translations: []*cmscontent.ContentTranslation{{
+				Locale:  &cmscontent.Locale{Code: "en"},
+				Title:   "Home",
+				Content: map[string]any{"path": "/"},
+			}},
+		}},
+	}
+	typeSvc := newStubContentTypeService(CMSContentType{ID: contentTypeID.String(), Slug: "page"})
+	svc := newGoCMSContentAdapter(contentSvc, nil, nil, typeSvc, nil, adminRead, nil, nil, nil)
+	adapter := svc.(*GoCMSContentAdapter)
+
+	items, err := adapter.ContentsWithOptions(ctx, "en", WithTranslations(), WithContentTypeID(contentTypeID.String()))
+	if err != nil {
+		t.Fatalf("list scoped contents: %v", err)
+	}
+	if adminRead.listCnt != 0 {
+		t.Fatalf("expected scoped content type read to bypass adminRead.List, got %d calls", adminRead.listCnt)
+	}
+	if !hasContentTypeIDListOption(contentSvc.listOptions, contentTypeID.String()) {
+		t.Fatalf("expected lower-level list to receive content type option %s, got %v", contentTypeID, contentSvc.listOptions)
+	}
+	if len(items) != 1 || items[0].ContentTypeSlug != "page" {
+		t.Fatalf("expected only page content from scoped lower-level list, got %+v", items)
+	}
+}
+
+func TestGoCMSContentAdapterContentsWithSupportedOptionsUsesAdminRead(t *testing.T) {
+	ctx := context.Background()
+	adminRead := &stubGoCMSAdminContentReadService{
+		listResp: []cms.AdminContentRecord{{
+			ID:              uuid.New(),
+			Slug:            "home",
+			Locale:          "en",
+			ContentType:     "page",
+			ContentTypeSlug: "page",
+			Status:          "published",
+		}},
+	}
+	contentSvc := &stubGoCMSContentService{}
+	svc := newGoCMSContentAdapter(contentSvc, nil, nil, nil, nil, adminRead, nil, nil, nil)
+	adapter := svc.(*GoCMSContentAdapter)
+
+	if _, err := adapter.ContentsWithOptions(ctx, "en", WithTranslations(), WithDerivedFields()); err != nil {
+		t.Fatalf("list contents with supported options: %v", err)
+	}
+	if adminRead.listCnt != 1 {
+		t.Fatalf("expected supported option read to use adminRead.List, got %d calls", adminRead.listCnt)
+	}
+	if len(contentSvc.listOptions) != 0 {
+		t.Fatalf("expected lower-level list to stay unused, got %v", contentSvc.listOptions)
+	}
+}
+
+func TestGoCMSContentAdapterContentsWithLocaleVariantsStillBypassesAdminRead(t *testing.T) {
+	ctx := context.Background()
+	contentID := uuid.New()
+	familyID := uuid.New()
+	adminRead := &stubGoCMSAdminContentReadService{
+		listResp: []cms.AdminContentRecord{{
+			ID:              uuid.New(),
+			Slug:            "admin-fast-path",
+			Locale:          "en",
+			ContentType:     "news",
+			ContentTypeSlug: "news",
+			Status:          "published",
+		}},
+	}
+	contentSvc := &stubGoCMSContentService{
+		listWithDerived: []*cmscontent.Content{{
+			ID:       contentID,
+			Slug:     "breaking-news",
+			Status:   "published",
+			Type:     &cmscontent.ContentType{Slug: "news"},
+			Metadata: map[string]any{"family_id": familyID.String()},
+			Translations: []*cmscontent.ContentTranslation{
+				{
+					Locale:   &cmscontent.Locale{Code: "en"},
+					FamilyID: &familyID,
+					Title:    "Breaking News",
+					Content:  map[string]any{"path": "/news/breaking-news"},
+				},
+				{
+					Locale:   &cmscontent.Locale{Code: "es"},
+					FamilyID: &familyID,
+					Title:    "Noticias",
+					Content:  map[string]any{"path": "/es/news/breaking-news"},
+				},
+			},
+		}},
+	}
+	typeSvc := newStubContentTypeService(CMSContentType{ID: uuid.New().String(), Slug: "news"})
+	svc := newGoCMSContentAdapter(contentSvc, nil, nil, typeSvc, nil, adminRead, nil, nil, nil)
+	adapter := svc.(*GoCMSContentAdapter)
+
+	items, err := adapter.ContentsWithOptions(ctx, "all", WithTranslations(), WithDerivedFields(), WithLocaleVariants())
+	if err != nil {
+		t.Fatalf("list locale variants: %v", err)
+	}
+	if adminRead.listCnt != 0 {
+		t.Fatalf("expected locale-variant read to bypass adminRead.List, got %d calls", adminRead.listCnt)
+	}
+	if len(items) != 2 {
+		t.Fatalf("expected two locale variants from lower-level list, got %+v", items)
+	}
+	if !hasTranslationListOption(contentSvc.listOptions) || !hasDerivedProjectionListOption(contentSvc.listOptions) {
+		t.Fatalf("expected translation and derived options on lower-level list, got %v", contentSvc.listOptions)
 	}
 }
 

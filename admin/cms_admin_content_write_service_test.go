@@ -188,6 +188,54 @@ func TestAdminContentWriteServiceUpdateRequiresCreateTranslationIntent(t *testin
 	}
 }
 
+func TestAdminContentWriteServiceUniquenessChecksUseContentTypeScope(t *testing.T) {
+	content := &scopedReaderContentServiceStub{
+		siteAPIContentServiceStub: siteAPIContentServiceStub{byLocale: map[string][]CMSContent{
+			"en": {
+				{ID: "article-1", Slug: "article", Locale: "en", ContentType: "article", ContentTypeSlug: "article", Data: map[string]any{"path": "/shared"}},
+				{ID: "event-1", Slug: "event", Locale: "en", ContentType: "event", ContentTypeSlug: "event", Data: map[string]any{"path": "/shared"}},
+			},
+		}},
+		contentTypes: []CMSContentType{
+			{ID: "ct-article", Slug: "article"},
+			{ID: "ct-event", Slug: "event"},
+		},
+	}
+	service := newAdminContentWriteService(content, content)
+
+	err := service.ensureUniqueLocalizedPath(context.Background(), CMSContent{
+		ID:              "article-2",
+		Locale:          "en",
+		ContentType:     "article",
+		ContentTypeSlug: "article",
+		Data:            map[string]any{"path": "/shared"},
+	}, "")
+	if !errors.Is(err, ErrPathConflict) {
+		t.Fatalf("expected same type duplicate path conflict, got %v", err)
+	}
+	if calls := content.unscopedCalls(); len(calls) != 0 {
+		t.Fatalf("expected uniqueness check to avoid unscoped content reads, got %+v", calls)
+	}
+	if got := content.countScopedCalls("contents_with_options", "ct-article"); got != 1 {
+		t.Fatalf("expected one article-scoped uniqueness read, got calls=%+v", content.calls)
+	}
+
+	content.calls = nil
+	err = service.ensureUniqueLocalizedPath(context.Background(), CMSContent{
+		ID:              "article-3",
+		Locale:          "en",
+		ContentType:     "article",
+		ContentTypeSlug: "article",
+		Data:            map[string]any{"path": "/event-only"},
+	}, "")
+	if err != nil {
+		t.Fatalf("expected unrelated type path to be ignored, got %v", err)
+	}
+	if calls := content.unscopedCalls(); len(calls) != 0 {
+		t.Fatalf("expected unrelated path check to avoid unscoped reads, got %+v", calls)
+	}
+}
+
 func TestAdminContentWriteServiceCreateTranslationBackfillsRouteKeyAndRejectsLocalizedPathConflict(t *testing.T) {
 	ctx := context.Background()
 	content := NewInMemoryContentService()

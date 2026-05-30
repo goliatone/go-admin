@@ -69,6 +69,131 @@ func TestResolveNavigationContextBuildsMainFooterAndLegacyContracts(t *testing.T
 	}
 }
 
+func TestResolveNavigationContextGeneratedFallbackUsesScopedSharedPageRecords(t *testing.T) {
+	contentTypes := []admin.CMSContentType{
+		quicksiteDeliveryContentType("ct-page", "page", "page", "", ""),
+		quicksiteDeliveryContentType("ct-event", "event", "detail", "/events", "/events/:slug"),
+	}
+	tracker := &trackingQuicksiteContentService{
+		typeIDToSlug: map[string]string{
+			"ct-page":  "page",
+			"ct-event": "event",
+		},
+		records: []admin.CMSContent{
+			{
+				ID:              "page-home",
+				Title:           "Home",
+				Slug:            "home",
+				Locale:          "en",
+				Status:          "published",
+				ContentType:     "page",
+				ContentTypeSlug: "page",
+				Data:            map[string]any{"path": "/"},
+			},
+			{
+				ID:              "event-archive",
+				Title:           "Archive",
+				Slug:            "archive",
+				Locale:          "en",
+				Status:          "published",
+				ContentType:     "event",
+				ContentTypeSlug: "event",
+				Data:            map[string]any{"path": "/events/archive"},
+			},
+		},
+	}
+	runtime := &navigationRuntime{
+		siteCfg: ResolveSiteConfig(admin.Config{DefaultLocale: "en"}, SiteConfig{
+			Navigation: SiteNavigationConfig{
+				MainMenuLocation:        "site.main",
+				FooterMenuLocation:      "site.footer",
+				EnableGeneratedFallback: true,
+				FallbackMenuCode:        "site_generated",
+			},
+		}),
+		menuSvc:     &siteNavigationMenuStub{},
+		contentSvc:  tracker,
+		contentType: &fixedContentTypeService{items: contentTypes},
+	}
+
+	ctx := router.NewMockContext()
+	ctx.On("Context").Return(context.Background())
+
+	payload := resolveNavigationContext(runtime, ctx, RequestState{
+		Locale:              "en",
+		DefaultLocale:       "en",
+		SupportedLocales:    []string{"en"},
+		AllowLocaleFallback: true,
+	}, "/")
+
+	mainItems := menuItemsFromContext(t, payload["main_menu_items"])
+	footerItems := menuItemsFromContext(t, payload["footer_menu_items"])
+	if len(mainItems) != 1 || len(footerItems) != 1 {
+		t.Fatalf("expected generated main and footer fallback items, got main=%+v footer=%+v", mainItems, footerItems)
+	}
+	if calls := tracker.unscopedListCalls(); len(calls) != 0 {
+		t.Fatalf("expected generated fallback navigation to avoid unscoped list calls, got %+v", calls)
+	}
+	pageScopedReads := 0
+	for _, call := range tracker.calls {
+		if call.contentTypeID == "ct-page" {
+			pageScopedReads++
+		}
+	}
+	if pageScopedReads != 1 {
+		t.Fatalf("expected main/footer generated fallback to share one page scoped read, got calls=%+v", tracker.calls)
+	}
+}
+
+func TestResolveNavigationContextGeneratedFallbackSkipsWhenPageScopeUnavailable(t *testing.T) {
+	tracker := &trackingQuicksiteContentService{
+		records: []admin.CMSContent{
+			{
+				ID:              "page-home",
+				Title:           "Home",
+				Slug:            "home",
+				Locale:          "en",
+				Status:          "published",
+				ContentType:     "page",
+				ContentTypeSlug: "page",
+				Data:            map[string]any{"path": "/"},
+			},
+		},
+	}
+	runtime := &navigationRuntime{
+		siteCfg: ResolveSiteConfig(admin.Config{DefaultLocale: "en"}, SiteConfig{
+			Navigation: SiteNavigationConfig{
+				MainMenuLocation:        "site.main",
+				FooterMenuLocation:      "site.footer",
+				EnableGeneratedFallback: true,
+				FallbackMenuCode:        "site_generated",
+			},
+		}),
+		menuSvc:    &siteNavigationMenuStub{},
+		contentSvc: tracker,
+	}
+
+	ctx := router.NewMockContext()
+	ctx.On("Context").Return(context.Background())
+
+	payload := resolveNavigationContext(runtime, ctx, RequestState{
+		Locale:              "en",
+		DefaultLocale:       "en",
+		SupportedLocales:    []string{"en"},
+		AllowLocaleFallback: true,
+	}, "/")
+
+	if mainItems := menuItemsFromContext(t, payload["main_menu_items"]); len(mainItems) != 0 {
+		t.Fatalf("expected generated fallback to skip without page content type scope, got %+v", mainItems)
+	}
+	if calls := tracker.unscopedListCalls(); len(calls) != 0 {
+		t.Fatalf("expected generated fallback without page scope to avoid unscoped list calls, got %+v", calls)
+	}
+	if len(tracker.calls) != 0 {
+		t.Fatalf("expected no content list calls without page scope, got %+v", tracker.calls)
+	}
+}
+
 func TestResolveNavigationContextNilRuntimeReturnsEmptyContracts(t *testing.T) {
 	var runtime *navigationRuntime
 

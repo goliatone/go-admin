@@ -114,3 +114,42 @@ func TestSiteContentCacheListCachesErrorsConsistently(t *testing.T) {
 		t.Fatalf("expected one locale list call after cached error, got %+v", contentSvc.listCalls)
 	}
 }
+
+func TestSiteContentCacheListForContentTypeCachesByLocaleAndType(t *testing.T) {
+	contentSvc := &siteContentCacheStub{
+		byLocale: map[string][]admin.CMSContent{
+			"en": {{ID: "page-home", Locale: "en", ContentTypeSlug: "page"}},
+		},
+	}
+	cache := newSiteContentCache()
+
+	first, err := cache.ListForContentType(context.Background(), contentSvc, " EN ", "ct-page", "page")
+	if err != nil {
+		t.Fatalf("unexpected scoped list error: %v", err)
+	}
+	if len(first) != 1 {
+		t.Fatalf("expected one scoped record, got %+v", first)
+	}
+	first[0].ID = "mutated"
+
+	second, err := cache.ListForContentType(context.Background(), contentSvc, "en", "ct-page", "page")
+	if err != nil {
+		t.Fatalf("unexpected cached scoped list error: %v", err)
+	}
+	if len(second) != 1 || second[0].ID != "page-home" {
+		t.Fatalf("expected cloned scoped cache result, got %+v", second)
+	}
+	if contentSvc.listCalls["en"] != 1 {
+		t.Fatalf("expected same locale/type read to be cached, got %+v", contentSvc.listCalls)
+	}
+
+	if _, err = cache.ListForContentType(context.Background(), contentSvc, "en", "ct-guide", "guide"); err != nil {
+		t.Fatalf("unexpected second type scoped list error: %v", err)
+	}
+	if _, err = cache.ListForContentType(context.Background(), contentSvc, "es", "ct-page", "page"); err != nil {
+		t.Fatalf("unexpected second locale scoped list error: %v", err)
+	}
+	if contentSvc.listCalls["en"] != 2 || contentSvc.listCalls["es"] != 1 {
+		t.Fatalf("expected scoped cache to vary by locale and content type, got %+v", contentSvc.listCalls)
+	}
+}

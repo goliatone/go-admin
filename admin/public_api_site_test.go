@@ -121,6 +121,78 @@ func (s *siteAPIContentServiceStub) DeleteBlock(context.Context, string) error {
 	return ErrNotFound
 }
 
+type publicContentReadCall struct {
+	locale        string
+	contentTypeID string
+	unscoped      bool
+}
+
+type scopedPublicAPIContentServiceStub struct {
+	siteAPIContentServiceStub
+	typeIDToSlug map[string]string
+	calls        []publicContentReadCall
+}
+
+func (s *scopedPublicAPIContentServiceStub) Contents(ctx context.Context, locale string) ([]CMSContent, error) {
+	s.calls = append(s.calls, publicContentReadCall{
+		locale:   strings.TrimSpace(locale),
+		unscoped: true,
+	})
+	return s.siteAPIContentServiceStub.Contents(ctx, locale)
+}
+
+func (s *scopedPublicAPIContentServiceStub) ContentsWithOptions(ctx context.Context, locale string, opts ...CMSContentListOption) ([]CMSContent, error) {
+	contentTypeID := publicAPIContentTypeIDOption(opts)
+	s.calls = append(s.calls, publicContentReadCall{
+		locale:        strings.TrimSpace(locale),
+		contentTypeID: contentTypeID,
+		unscoped:      contentTypeID == "",
+	})
+	records, err := s.siteAPIContentServiceStub.Contents(ctx, locale)
+	if err != nil {
+		return nil, err
+	}
+	if contentTypeID == "" {
+		return records, nil
+	}
+	slug := strings.TrimSpace(s.typeIDToSlug[contentTypeID])
+	out := make([]CMSContent, 0, len(records))
+	for _, record := range records {
+		if strings.EqualFold(strings.TrimSpace(record.ContentType), slug) ||
+			strings.EqualFold(strings.TrimSpace(record.ContentTypeSlug), slug) ||
+			strings.EqualFold(strings.TrimSpace(record.ContentType), contentTypeID) ||
+			strings.EqualFold(strings.TrimSpace(record.ContentTypeSlug), contentTypeID) {
+			out = append(out, record)
+		}
+	}
+	return out, nil
+}
+
+func (s *scopedPublicAPIContentServiceStub) resetCalls() {
+	s.calls = nil
+}
+
+func (s *scopedPublicAPIContentServiceStub) unscopedListCalls() []publicContentReadCall {
+	out := []publicContentReadCall{}
+	for _, call := range s.calls {
+		if call.unscoped {
+			out = append(out, call)
+		}
+	}
+	return out
+}
+
+func publicAPIContentTypeIDOption(opts []CMSContentListOption) string {
+	const prefix = "content:list:content_type:"
+	for _, opt := range opts {
+		token := strings.TrimSpace(string(opt))
+		if strings.HasPrefix(token, prefix) {
+			return strings.TrimSpace(strings.TrimPrefix(token, prefix))
+		}
+	}
+	return ""
+}
+
 func cloneSiteContents(in []CMSContent) []CMSContent {
 	out := make([]CMSContent, 0, len(in))
 	for _, record := range in {
@@ -369,6 +441,64 @@ func TestSitePublicAPIContentRoutesAndQueryModel(t *testing.T) {
 	}
 	if got := legacySlug; got != "alpha" {
 		t.Fatalf("expected legacy detail slug alpha, got %q", got)
+	}
+}
+
+func TestSitePublicAPIContentRoutesAvoidUnscopedContentListsWhenTypeScopeAvailable(t *testing.T) {
+	contentSvc := &scopedPublicAPIContentServiceStub{
+		siteAPIContentServiceStub: siteAPIContentServiceStub{byLocale: map[string][]CMSContent{
+			"en": {
+				{ID: "article-1", Title: "Alpha", Slug: "alpha", Locale: "en", ContentType: "article", ContentTypeSlug: "article", Status: "published", Data: map[string]any{"category": "news"}},
+				{ID: "article-2", Title: "Beta", Slug: "beta", Locale: "en", ContentType: "article", ContentTypeSlug: "article", Status: "published", Data: map[string]any{"category": "updates"}},
+				{ID: "event-1", Title: "Unrelated", Slug: "unrelated", Locale: "en", ContentType: "event", ContentTypeSlug: "event", Status: "published", Data: map[string]any{"category": "news"}},
+			},
+		}},
+		typeIDToSlug: map[string]string{"ct-article": "article"},
+	}
+	adm, server := newSiteTestServerWithoutAuthorizer(t, allowPublicSiteReads(Config{BasePath: "/admin", DefaultLocale: "en"}), Dependencies{}, contentSvc, nil)
+	adm.contentTypeSvc = newStubContentTypeService(CMSContentType{ID: "ct-article", Slug: "article"})
+	publicGroup := publicAPIGroupName(adm.config)
+
+	tests := []struct {
+		name   string
+		route  string
+		params map[string]string
+		query  map[string]string
+	}{
+		{
+			name:   "legacy content list",
+			route:  "content.type",
+			params: map[string]string{"type": "article"},
+			query:  map[string]string{"locale": "en", "category": "news"},
+		},
+		{
+			name:   "site content list",
+			route:  SiteRouteContentList,
+			params: map[string]string{"type": "article"},
+			query:  map[string]string{"locale": "en", "category": "news", "per_page": "1"},
+		},
+		{
+			name:   "site content detail",
+			route:  SiteRouteContentDetail,
+			params: map[string]string{"type": "article", "slug": "alpha"},
+			query:  map[string]string{"locale": "en", "category": "news"},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			contentSvc.resetCalls()
+			path := mustResolveURL(t, adm.URLs(), publicGroup, tc.route, tc.params, tc.query)
+			req := httptest.NewRequest(http.MethodGet, path, nil)
+			res := httptest.NewRecorder()
+			server.WrappedRouter().ServeHTTP(res, req)
+			if res.Code != http.StatusOK {
+				t.Fatalf("%s status=%d body=%s", tc.name, res.Code, res.Body.String())
+			}
+			if calls := contentSvc.unscopedListCalls(); len(calls) != 0 {
+				t.Fatalf("expected %s to avoid unscoped content list calls, got %+v", tc.name, calls)
+			}
+		})
 	}
 }
 
