@@ -1,6 +1,12 @@
 package site
 
-import router "github.com/goliatone/go-router"
+import (
+	"context"
+
+	router "github.com/goliatone/go-router"
+)
+
+type navigationGeneratedFallbackCacheKey struct{}
 
 func resolveNavigationContext(r *navigationRuntime, c router.Context, state RequestState, activePath string) map[string]any {
 	if r == nil {
@@ -11,8 +17,13 @@ func resolveNavigationContext(r *navigationRuntime, c router.Context, state Requ
 	activePath = normalizeLocalePath(activePath)
 	debugMode := navigationDebugEnabled(c)
 
-	main := r.resolveMenuForLocation(RequestContext(c), state, r.siteCfg.Navigation.MainMenuLocation, activePath, opts, debugMode)
-	footer := r.resolveMenuForLocation(RequestContext(c), state, r.siteCfg.Navigation.FooterMenuLocation, activePath, opts, debugMode)
+	ctx := RequestContext(c)
+	if r.siteCfg.Navigation.EnableGeneratedFallback {
+		ctx = context.WithValue(ctx, navigationGeneratedFallbackCacheKey{}, newSiteContentCache())
+	}
+
+	main := r.resolveMenuForLocation(ctx, state, r.siteCfg.Navigation.MainMenuLocation, activePath, opts, debugMode)
+	footer := r.resolveMenuForLocation(ctx, state, r.siteCfg.Navigation.FooterMenuLocation, activePath, opts, debugMode)
 
 	return navigationContextPayload(r, activePath, debugMode, main, footer)
 }

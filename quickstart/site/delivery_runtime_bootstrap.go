@@ -51,6 +51,13 @@ func (r *deliveryRuntime) listSiteContentsCached(ctx context.Context, locale str
 	return cache.List(ctx, r.contentSvc, locale)
 }
 
+func (r *deliveryRuntime) listSiteContentsForCapabilityCached(ctx context.Context, capability deliveryCapability, locale string, cache *siteContentCache) ([]admin.CMSContent, error) {
+	if r == nil || r.contentSvc == nil {
+		return nil, nil
+	}
+	return cache.ListForContentType(ctx, r.contentSvc, locale, capability.TypeID, capability.TypeSlug)
+}
+
 func (r *deliveryRuntime) strictLocalizedPathsEnabled() bool {
 	if r == nil {
 		return false

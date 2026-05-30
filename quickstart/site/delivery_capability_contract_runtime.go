@@ -17,7 +17,7 @@ func capabilityFromContentType(contentType admin.CMSContentType) (deliveryCapabi
 		return deliveryCapability{}, false
 	}
 
-	return deliveryCapabilityFromContract(slug, delivery), true
+	return deliveryCapabilityFromContract(strings.TrimSpace(contentType.ID), slug, delivery), true
 }
 
 func deliveryCapabilityTypeSlug(contentType admin.CMSContentType) string {
@@ -54,10 +54,11 @@ func deliveryCapabilityTemplates(delivery map[string]any) map[string]any {
 	return anyMap(delivery["templates"])
 }
 
-func deliveryCapabilityFromContract(slug string, delivery map[string]any) deliveryCapability {
+func deliveryCapabilityFromContract(id, slug string, delivery map[string]any) deliveryCapability {
 	routes := deliveryCapabilityRoutes(delivery)
 	templates := deliveryCapabilityTemplates(delivery)
 	out := deliveryCapability{
+		TypeID:         strings.TrimSpace(id),
 		TypeSlug:       strings.TrimSpace(slug),
 		Kind:           strings.ToLower(strings.TrimSpace(anyString(delivery["kind"]))),
 		ListRoute:      strings.TrimSpace(anyString(routes["list"])),

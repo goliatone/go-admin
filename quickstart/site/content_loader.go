@@ -28,3 +28,28 @@ func listSiteContents(ctx context.Context, contentSvc admin.CMSContentService, l
 	}
 	return contentSvc.Contents(ctx, locale)
 }
+
+func listSiteContentsForType(ctx context.Context, contentSvc admin.CMSContentService, locale, contentTypeID string) ([]admin.CMSContent, error) {
+	if contentSvc == nil {
+		return nil, admin.ErrNotFound
+	}
+	if contentTypeID == "" {
+		return listSiteContents(ctx, contentSvc, locale)
+	}
+	if withOptions, ok := contentSvc.(siteContentListOptionsService); ok && withOptions != nil {
+		items, err := withOptions.ContentsWithOptions(
+			ctx,
+			locale,
+			admin.WithTranslations(),
+			admin.WithDerivedFields(),
+			admin.WithContentTypeID(contentTypeID),
+		)
+		if err == nil {
+			return items, nil
+		}
+		if !errors.Is(err, admin.ErrNotFound) {
+			return nil, err
+		}
+	}
+	return listSiteContents(ctx, contentSvc, locale)
+}

@@ -20,14 +20,16 @@ type siteContentRecordCacheEntry struct {
 }
 
 type siteContentCache struct {
-	lists   map[string]siteContentListCacheEntry
-	records map[string]siteContentRecordCacheEntry
+	lists       map[string]siteContentListCacheEntry
+	scopedLists map[string]siteContentListCacheEntry
+	records     map[string]siteContentRecordCacheEntry
 }
 
 func newSiteContentCache() *siteContentCache {
 	return &siteContentCache{
-		lists:   map[string]siteContentListCacheEntry{},
-		records: map[string]siteContentRecordCacheEntry{},
+		lists:       map[string]siteContentListCacheEntry{},
+		scopedLists: map[string]siteContentListCacheEntry{},
+		records:     map[string]siteContentRecordCacheEntry{},
 	}
 }
 
@@ -56,6 +58,40 @@ func (c *siteContentCache) List(ctx context.Context, contentSvc admin.CMSContent
 		entry.items = cloneContentRecords(items)
 	}
 	c.lists[locale] = entry
+	if err != nil {
+		return nil, err
+	}
+	return cloneContentRecords(entry.items), nil
+}
+
+func (c *siteContentCache) ListForContentType(ctx context.Context, contentSvc admin.CMSContentService, locale, contentTypeID, contentTypeSlug string) ([]admin.CMSContent, error) {
+	locale = normalizeSiteContentCacheLocale(locale)
+	contentTypeID = strings.TrimSpace(contentTypeID)
+	contentTypeSlug = strings.ToLower(strings.TrimSpace(contentTypeSlug))
+	if c == nil {
+		items, err := listSiteContentsForType(ctx, contentSvc, locale, contentTypeID)
+		if err != nil {
+			return nil, err
+		}
+		return cloneContentRecords(items), nil
+	}
+	key := siteContentScopedListCacheKey(locale, contentTypeID, contentTypeSlug)
+	if entry, ok := c.scopedLists[key]; ok && entry.loaded {
+		if entry.err != nil {
+			return nil, entry.err
+		}
+		return cloneContentRecords(entry.items), nil
+	}
+
+	items, err := listSiteContentsForType(ctx, contentSvc, locale, contentTypeID)
+	entry := siteContentListCacheEntry{
+		loaded: true,
+		err:    err,
+	}
+	if err == nil {
+		entry.items = cloneContentRecords(items)
+	}
+	c.scopedLists[key] = entry
 	if err != nil {
 		return nil, err
 	}
@@ -104,6 +140,14 @@ func normalizeSiteContentCacheLocale(locale string) string {
 
 func siteContentRecordCacheKey(id, locale string) string {
 	return strings.ToLower(strings.TrimSpace(id)) + "|" + normalizeSiteContentCacheLocale(locale)
+}
+
+func siteContentScopedListCacheKey(locale, contentTypeID, contentTypeSlug string) string {
+	scope := strings.TrimSpace(contentTypeID)
+	if scope == "" {
+		scope = strings.ToLower(strings.TrimSpace(contentTypeSlug))
+	}
+	return normalizeSiteContentCacheLocale(locale) + "|" + scope
 }
 
 func cloneContentRecords(items []admin.CMSContent) []admin.CMSContent {

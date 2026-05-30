@@ -29,23 +29,14 @@ func (r *deliveryRuntime) localizedCapabilityRecords(
 		byLocale: make(map[string][]admin.CMSContent, len(locales)),
 	}
 	for _, locale := range locales {
-		items, err := r.listSiteContentsCached(ctx, locale, cache)
+		localeState := state
+		localeState.Locale = locale
+		items, err := r.listSiteContentsForCapabilityCached(ctx, capability, locale, cache)
 		if err != nil || len(items) == 0 {
 			continue
 		}
 
-		localeState := state
-		localeState.Locale = locale
-		filtered := make([]admin.CMSContent, 0, len(items))
-		for _, item := range items {
-			if !matchesCapabilityType(item, capability.TypeSlug) {
-				continue
-			}
-			if !recordVisibleForRequest(item, capability, localeState) {
-				continue
-			}
-			filtered = append(filtered, item)
-		}
+		filtered := filterCapabilityRecords(items, capability, localeState)
 		if len(filtered) == 0 {
 			continue
 		}

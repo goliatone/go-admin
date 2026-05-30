@@ -14,6 +14,7 @@ const (
 )
 
 type deliveryCapability struct {
+	TypeID         string             `json:"type_id"`
 	TypeSlug       string             `json:"type_slug"`
 	Kind           string             `json:"kind"`
 	ListRoute      string             `json:"list_route"`
