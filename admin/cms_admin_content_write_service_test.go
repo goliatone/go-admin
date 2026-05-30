@@ -83,6 +83,9 @@ func TestAdminContentWriteServiceCreateUpdateAndTranslationPreserveRepositoryCon
 		ID:   "page-type",
 		Name: "Page",
 		Slug: "page",
+		Schema: map[string]any{
+			"type": "object",
+		},
 		Capabilities: map[string]any{
 			"delivery": map[string]any{
 				"enabled": true,
