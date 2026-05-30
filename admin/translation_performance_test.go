@@ -151,8 +151,18 @@ func logTranslationSyntheticQueryPlans(t *testing.T, db interface {
 	}{
 		{
 			name:  "queue_page_overdue",
-			query: "EXPLAIN QUERY PLAN SELECT assignment_id FROM translation_assignments WHERE tenant_id = ? AND org_id = ? AND due_date < ? ORDER BY due_date ASC, assignment_id ASC LIMIT 50",
-			args:  []any{"tenant-perf", "org-perf", bunAssignmentSQLiteDateValue(time.Date(2026, 2, 17, 12, 0, 0, 0, time.UTC))},
+			query: "EXPLAIN QUERY PLAN SELECT assignment_id FROM translation_assignments WHERE tenant_id IN (?) AND org_id IN (?) AND status IN (?, ?, ?, ?, ?, ?) AND due_date IS NOT NULL AND due_date < ? ORDER BY due_date ASC, assignment_id ASC LIMIT 50",
+			args: []any{
+				"tenant-perf",
+				"org-perf",
+				string(AssignmentStatusOpen),
+				string(AssignmentStatusAssigned),
+				string(AssignmentStatusInProgress),
+				string(AssignmentStatusInReview),
+				string(AssignmentStatusChangesRequested),
+				string(AssignmentStatusApproved),
+				bunAssignmentStorageDateValue(time.Date(2026, 2, 17, 12, 0, 0, 0, time.UTC)),
+			},
 		},
 		{
 			name:  "family_list_blocked",

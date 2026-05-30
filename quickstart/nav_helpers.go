@@ -318,14 +318,27 @@ func applyTranslationEntrypointDegradationEntry(entry map[string]any, exposure t
 		return nil, false
 	}
 	if moduleState.EntryEnabled {
+		clearTranslationEntrypointDegradation(entry)
 		return entry, true
 	}
 
+	entry["enabled"] = false
 	entry["disabled"] = true
 	entry["aria_disabled"] = true
 	entry["disabled_reason"] = moduleState.Reason
 	entry["disabled_reason_code"] = moduleState.ReasonCode
 	return entry, true
+}
+
+func clearTranslationEntrypointDegradation(entry map[string]any) {
+	if entry == nil {
+		return
+	}
+	entry["enabled"] = true
+	delete(entry, "disabled")
+	delete(entry, "aria_disabled")
+	delete(entry, "disabled_reason")
+	delete(entry, "disabled_reason_code")
 }
 
 func translationModuleForNavKey(key string) (string, bool) {

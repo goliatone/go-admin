@@ -37,7 +37,7 @@ type bunTranslationAssignmentRecord struct {
 	LastReviewerID      string         `bun:"last_reviewer_id" json:"last_reviewer_id"`
 	LastRejectionReason string         `bun:"last_rejection_reason" json:"last_rejection_reason"`
 	Priority            string         `bun:"priority" json:"priority"`
-	DueDate             *time.Time     `bun:"due_date,nullzero" json:"due_date"`
+	DueDate             string         `bun:"due_date,nullzero" json:"due_date"`
 	RowVersion          int64          `bun:"row_version" json:"row_version"`
 	ClaimedAt           *time.Time     `bun:"claimed_at,nullzero" json:"claimed_at"`
 	SubmittedAt         *time.Time     `bun:"submitted_at,nullzero" json:"submitted_at"`
@@ -219,13 +219,41 @@ func applyBunAssignmentFilter(query *bun.SelectQuery, key string, raw any, dueSQ
 		applyBunAssignmentDueStateFilter(query, toString(raw), dueSQL)
 		return
 	}
-	values := normalizedAssignmentFilterValues(raw)
+	values := normalizedBunAssignmentFilterValues(key, raw)
 	if len(values) == 0 {
 		return
 	}
-	if column, ok := bunAssignmentFilterColumns[key]; ok {
-		query.Where("LOWER("+column+") IN (?)", bun.List(values))
+	if key == "reviewer_id" {
+		query.Where("(reviewer_id IN (?) OR (COALESCE(reviewer_id, '') = '' AND last_reviewer_id IN (?)))", bun.List(values), bun.List(values))
+		return
 	}
+	if column, ok := bunAssignmentFilterColumns[key]; ok {
+		query.Where(column+" IN (?)", bun.List(values))
+	}
+}
+
+func normalizedBunAssignmentFilterValues(key string, raw any) []string {
+	out := []string{}
+	for part := range strings.SplitSeq(toString(raw), ",") {
+		value := strings.TrimSpace(part)
+		if value == "" {
+			continue
+		}
+		switch key {
+		case "status":
+			value = normalizeTranslationQueueState(value)
+		case "target_locale", "locale", "source_locale":
+			value = normalizeTranslationQueueLocaleFilterValue(value)
+		case "priority":
+			value = normalizeTranslationQueuePriorityFilterValue(value)
+		case "assignment_type", "work_scope", "entity_type":
+			value = strings.ToLower(value)
+		}
+		if value != "" {
+			out = append(out, value)
+		}
+	}
+	return out
 }
 
 func applyBunAssignmentDueStateFilter(query *bun.SelectQuery, raw string, dueSQL bunAssignmentDueDateSQL) {
@@ -335,17 +363,10 @@ type bunAssignmentDueDateSQL struct {
 func (r *BunTranslationAssignmentRepository) assignmentDueDateSQL(now time.Time) bunAssignmentDueDateSQL {
 	now = normalizedBunAssignmentQueryNow(now)
 	soon := now.Add(translationQueueDueSoonWindow)
-	if r != nil && r.db != nil && strings.EqualFold(r.db.Dialect().Name().String(), "pg") {
-		return bunAssignmentDueDateSQL{
-			expr: "NULLIF(due_date, '')::timestamptz",
-			now:  now,
-			soon: soon,
-		}
-	}
 	return bunAssignmentDueDateSQL{
 		expr: "due_date",
-		now:  bunAssignmentSQLiteDateValue(now),
-		soon: bunAssignmentSQLiteDateValue(soon),
+		now:  bunAssignmentStorageDateValue(now),
+		soon: bunAssignmentStorageDateValue(soon),
 	}
 }
 
@@ -357,8 +378,15 @@ func normalizedBunAssignmentQueryNow(now time.Time) time.Time {
 	return now
 }
 
-func bunAssignmentSQLiteDateValue(value time.Time) string {
+func bunAssignmentStorageDateValue(value time.Time) string {
 	return value.UTC().Format("2006-01-02 15:04:05")
+}
+
+func bunAssignmentStorageDatePtr(value *time.Time) string {
+	if value == nil || value.IsZero() {
+		return ""
+	}
+	return bunAssignmentStorageDateValue(*value)
 }
 
 func (r *BunTranslationAssignmentRepository) AssignmentQueueSummary(ctx context.Context, input TranslationAssignmentQueueSummaryInput) (TranslationAssignmentQueueSummary, error) {
@@ -907,7 +935,7 @@ func bunTranslationAssignmentRecordFromAssignment(assignment TranslationAssignme
 		LastReviewerID:      strings.TrimSpace(assignment.LastReviewerID),
 		LastRejectionReason: strings.TrimSpace(assignment.LastRejectionReason),
 		Priority:            strings.TrimSpace(strings.ToLower(string(assignment.Priority))),
-		DueDate:             cloneTimePtr(assignment.DueDate),
+		DueDate:             bunAssignmentStorageDatePtr(assignment.DueDate),
 		RowVersion:          assignment.Version,
 		ClaimedAt:           cloneTimePtr(assignment.ClaimedAt),
 		SubmittedAt:         cloneTimePtr(assignment.SubmittedAt),
@@ -937,7 +965,7 @@ func translationAssignmentFromBunRecord(record bunTranslationAssignmentRecord) T
 		AssignmentType:      translationAssignmentTypeFromStorage(record.AssignmentType),
 		Status:              normalizeTranslationAssignmentStatus(AssignmentStatus(record.Status)),
 		Priority:            Priority(strings.TrimSpace(strings.ToLower(record.Priority))),
-		DueDate:             cloneTimePtr(record.DueDate),
+		DueDate:             queueTimePtr(record.DueDate),
 		AssigneeID:          strings.TrimSpace(record.AssigneeID),
 		ReviewerID:          strings.TrimSpace(record.ReviewerID),
 		AssignerID:          strings.TrimSpace(record.AssignerID),

@@ -442,6 +442,112 @@ func TestTranslationQueueBindingDashboardOptimizedAssignmentFailureFallsBackWith
 	}
 }
 
+func TestTranslationQueueBindingDashboardKeepsOptimizedAssignmentsWhenFamilyMetricsUnsupported(t *testing.T) {
+	now := time.Date(2026, 2, 17, 12, 0, 0, 0, time.UTC)
+	db := newTranslationFamilyStoreSQLiteDB(t)
+	ctx := context.Background()
+	baseFamilyStore := NewBunTranslationFamilyStore(db)
+	if err := baseFamilyStore.SaveFamily(ctx, translationservices.FamilyRecord{
+		ID:                         "family-partial-optimized",
+		TenantID:                   "tenant-1",
+		OrgID:                      "org-1",
+		ContentType:                "pages",
+		SourceLocale:               "en",
+		SourceVariantID:            "family-partial-optimized::en",
+		ReadinessState:             "blocked",
+		MissingRequiredLocaleCount: 1,
+		BlockerCodes:               []string{"missing_locale"},
+		Variants: []translationservices.FamilyVariant{
+			{ID: "family-partial-optimized::en", FamilyID: "family-partial-optimized", TenantID: "tenant-1", OrgID: "org-1", Locale: "en", Status: "published", IsSource: true, SourceRecordID: "page-partial"},
+		},
+		Blockers: []translationservices.FamilyBlocker{
+			{FamilyID: "family-partial-optimized", TenantID: "tenant-1", OrgID: "org-1", BlockerCode: "missing_locale", Locale: "es"},
+		},
+		UpdatedAt: now,
+	}); err != nil {
+		t.Fatalf("seed bun family: %v", err)
+	}
+	baseRepo := NewBunTranslationAssignmentRepository(db)
+	repo := &dashboardCountingSummaryRepo{BunTranslationAssignmentRepository: baseRepo}
+	overdue := now.Add(-time.Hour)
+	if _, err := repo.Create(ctx, TranslationAssignment{
+		ID:             "asg-partial-optimized",
+		FamilyID:       "family-partial-optimized",
+		EntityType:     "pages",
+		TenantID:       "tenant-1",
+		OrgID:          "org-1",
+		SourceRecordID: "page-partial",
+		SourceTitle:    "Partial Optimized",
+		SourceLocale:   "en",
+		TargetLocale:   "es",
+		AssigneeID:     "manager-1",
+		ReviewerID:     "manager-1",
+		AssignmentType: AssignmentTypeDirect,
+		Status:         AssignmentStatusInReview,
+		Priority:       PriorityHigh,
+		DueDate:        &overdue,
+	}); err != nil {
+		t.Fatalf("seed assignment: %v", err)
+	}
+	familyStore := &dashboardCountingFamiliesStore{InMemoryFamilyStore: translationservices.NewInMemoryFamilyStore()}
+	if err := familyStore.SaveFamily(ctx, translationservices.FamilyRecord{
+		ID:                         "family-partial-optimized",
+		TenantID:                   "tenant-1",
+		OrgID:                      "org-1",
+		ContentType:                "pages",
+		SourceLocale:               "en",
+		ReadinessState:             "blocked",
+		MissingRequiredLocaleCount: 1,
+		BlockerCodes:               []string{"missing_locale"},
+		Blockers: []translationservices.FamilyBlocker{
+			{FamilyID: "family-partial-optimized", TenantID: "tenant-1", OrgID: "org-1", BlockerCode: "missing_locale", Locale: "es"},
+		},
+		UpdatedAt: now,
+	}); err != nil {
+		t.Fatalf("seed compatibility family: %v", err)
+	}
+	adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{
+		FeatureGate:            featureGateFromKeys(FeatureCMS, FeatureTranslationQueue),
+		TranslationFamilyStore: familyStore,
+	})
+	adm.WithAuthorizer(translationPermissionAuthorizer{allowed: map[string]bool{PermAdminTranslationsView: true}})
+	if _, err := RegisterTranslationQueuePanel(adm, repo); err != nil {
+		t.Fatalf("register queue panel: %v", err)
+	}
+	binding := newTranslationQueueBinding(adm)
+	binding.now = func() time.Time { return now }
+	app := newTranslationQueueTestApp(t, binding)
+
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/translations/dashboard?tenant_id=tenant-1&org_id=org-1", nil)
+	req.Header.Set("X-User-ID", "manager-1")
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("request error: %v", err)
+	}
+	defer resp.Body.Close() //nolint:errcheck // test response body cleanup is best-effort
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status=%d want=200", resp.StatusCode)
+	}
+
+	payload := map[string]any{}
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	summary := extractMap(extractMap(payload["data"])["summary"])
+	if got := toInt(summary["overdue_tasks"]); got != 1 {
+		t.Fatalf("expected optimized overdue_tasks=1, got %d", got)
+	}
+	if got := toInt(summary["blocked_families"]); got != 1 {
+		t.Fatalf("expected fallback blocked_families=1, got %d", got)
+	}
+	if repo.dashboardSummaryCalls != 1 {
+		t.Fatalf("expected optimized assignment summary to be used once, got %d calls", repo.dashboardSummaryCalls)
+	}
+	if familyStore.familiesCalls != 1 {
+		t.Fatalf("expected family compatibility fallback to call Families once, got %d", familyStore.familiesCalls)
+	}
+}
+
 func TestBunTranslationFamilyStoreDashboardMetricsUsesLightweightRows(t *testing.T) {
 	db := newTranslationFamilyStoreSQLiteDB(t)
 	ctx := context.Background()
@@ -600,6 +706,26 @@ func (s *dashboardMetricsOnlyFamilyStore) Family(context.Context, string) (trans
 
 func (s *dashboardMetricsOnlyFamilyStore) SaveFamily(context.Context, translationservices.FamilyRecord) error {
 	return nil
+}
+
+type dashboardCountingSummaryRepo struct {
+	*BunTranslationAssignmentRepository
+	dashboardSummaryCalls int
+}
+
+func (r *dashboardCountingSummaryRepo) AssignmentDashboardSummary(ctx context.Context, input TranslationAssignmentDashboardSummaryInput) (TranslationAssignmentDashboardSummary, error) {
+	r.dashboardSummaryCalls++
+	return r.BunTranslationAssignmentRepository.AssignmentDashboardSummary(ctx, input)
+}
+
+type dashboardCountingFamiliesStore struct {
+	*translationservices.InMemoryFamilyStore
+	familiesCalls int
+}
+
+func (s *dashboardCountingFamiliesStore) Families(ctx context.Context) ([]translationservices.FamilyRecord, error) {
+	s.familiesCalls++
+	return s.InMemoryFamilyStore.Families(ctx)
 }
 
 func TestTranslationQueueBindingDashboardLatencyStaysWithinTarget(t *testing.T) {

@@ -268,6 +268,32 @@ func TestBunTranslationAssignmentRepositoryListFiltersSortsAndCountsInSQL(t *tes
 	}
 }
 
+func TestBunAssignmentFilterValuesPreserveIndexedScopeIDs(t *testing.T) {
+	values := normalizedBunAssignmentFilterValues("tenant_id", "Tenant-A,tenant-b")
+	if len(values) != 2 || values[0] != "Tenant-A" || values[1] != "tenant-b" {
+		t.Fatalf("expected scope IDs to keep caller casing for raw-column index predicates, got %+v", values)
+	}
+	statusValues := normalizedBunAssignmentFilterValues("status", "Assigned,IN_REVIEW")
+	if len(statusValues) != 2 || statusValues[0] != string(AssignmentStatusAssigned) || statusValues[1] != string(AssignmentStatusInReview) {
+		t.Fatalf("expected status values normalized to stored enum values, got %+v", statusValues)
+	}
+	localeValues := normalizedBunAssignmentFilterValues("target_locale", "ES, fr ")
+	if len(localeValues) != 2 || localeValues[0] != "es" || localeValues[1] != "fr" {
+		t.Fatalf("expected locale values normalized for stored locale columns, got %+v", localeValues)
+	}
+}
+
+func TestBunAssignmentStorageDateValueIsIndexSortableUTCText(t *testing.T) {
+	pacific := time.FixedZone("PST", -8*60*60)
+	value := time.Date(2026, 2, 17, 4, 30, 0, 0, pacific)
+	if got := bunAssignmentStorageDateValue(value); got != "2026-02-17 12:30:00" {
+		t.Fatalf("expected UTC sortable storage value, got %q", got)
+	}
+	if got := queueTimePtr("2026-02-17 12:30:00+00:00"); got == nil || !got.Equal(value.UTC()) {
+		t.Fatalf("expected existing Postgres text timestamp to parse as UTC, got %#v", got)
+	}
+}
+
 func TestBunTranslationAssignmentRepositoryListAssignmentPageUsesInjectedClockForDueState(t *testing.T) {
 	db := newTranslationFamilyStoreSQLiteDB(t)
 	ctx := context.Background()

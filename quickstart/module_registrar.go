@@ -37,19 +37,15 @@ type moduleRegistrarSeedRuntime struct {
 }
 
 type translationCapabilityMenuItemSpec struct {
-	ID             string
-	Label          string
-	LabelKey       string
-	Icon           string
-	RouteName      string
-	FallbackPanel  []string
-	Name           string
-	Key            string
-	Breadcrumb     string
-	Position       int
-	EntryEnabled   bool
-	DisabledReason string
-	ReasonCode     string
+	ID         string
+	Label      string
+	LabelKey   string
+	Icon       string
+	RouteName  string
+	Name       string
+	Key        string
+	Breadcrumb string
+	Position   int
 }
 
 type sidebarUtilityMenuItemSpec struct {
@@ -715,49 +711,40 @@ func translationCapabilityMenuItems(adm *admin.Admin, cfg admin.Config, menuCode
 
 	if queueEnabled {
 		items = append(items, translationCapabilityMenuItem(adm, cfg, parentID, menuCode, locale, translationCapabilityMenuItemSpec{
-			ID:             "translations.dashboard",
-			Label:          "Translation Dashboard",
-			LabelKey:       "menu.translations.dashboard",
-			Icon:           "dashboard-dots",
-			RouteName:      "translations.dashboard",
-			Name:           "admin.translations.dashboard",
-			Key:            "translation_dashboard",
-			Breadcrumb:     "Translations",
-			Position:       49,
-			EntryEnabled:   exposure.Queue.EntryEnabled,
-			DisabledReason: exposure.Queue.Reason,
-			ReasonCode:     exposure.Queue.ReasonCode,
+			ID:         "translations.dashboard",
+			Label:      "Translation Dashboard",
+			LabelKey:   "menu.translations.dashboard",
+			Icon:       "dashboard-dots",
+			RouteName:  "translations.dashboard",
+			Name:       "admin.translations.dashboard",
+			Key:        "translation_dashboard",
+			Breadcrumb: "Translations",
+			Position:   49,
 		}))
 		items = append(items, translationCapabilityMenuItem(adm, cfg, parentID, menuCode, locale, translationCapabilityMenuItemSpec{
-			ID:             "translations.queue",
-			Label:          "Translation Queue",
-			LabelKey:       "menu.translations.queue",
-			Icon:           "language",
-			RouteName:      "translations.queue",
-			Name:           "admin.translations.queue",
-			Key:            "translation_queue",
-			Breadcrumb:     "Queue",
-			Position:       50,
-			EntryEnabled:   exposure.Queue.EntryEnabled,
-			DisabledReason: exposure.Queue.Reason,
-			ReasonCode:     exposure.Queue.ReasonCode,
+			ID:         "translations.queue",
+			Label:      "Translation Queue",
+			LabelKey:   "menu.translations.queue",
+			Icon:       "language",
+			RouteName:  "translations.queue",
+			Name:       "admin.translations.queue",
+			Key:        "translation_queue",
+			Breadcrumb: "Queue",
+			Position:   50,
 		}))
 	}
 
 	if exchangeEnabled {
 		items = append(items, translationCapabilityMenuItem(adm, cfg, parentID, menuCode, locale, translationCapabilityMenuItemSpec{
-			ID:             "translations.exchange",
-			Label:          "Translation Exchange",
-			LabelKey:       "menu.translations.exchange",
-			Icon:           "translate",
-			RouteName:      "translations.exchange",
-			Name:           "admin.translations.exchange",
-			Key:            "translation_exchange",
-			Breadcrumb:     "Exchange",
-			Position:       51,
-			EntryEnabled:   exposure.Exchange.EntryEnabled,
-			DisabledReason: exposure.Exchange.Reason,
-			ReasonCode:     exposure.Exchange.ReasonCode,
+			ID:         "translations.exchange",
+			Label:      "Translation Exchange",
+			LabelKey:   "menu.translations.exchange",
+			Icon:       "translate",
+			RouteName:  "translations.exchange",
+			Name:       "admin.translations.exchange",
+			Key:        "translation_exchange",
+			Breadcrumb: "Exchange",
+			Position:   51,
 		}))
 	}
 
@@ -779,14 +766,11 @@ func translationCapabilityMenuItem(
 		LabelKey: spec.LabelKey,
 		Icon:     spec.Icon,
 		Target: map[string]any{
-			"type":                 "url",
-			"path":                 resolveTranslationCapabilityMenuPath(adm.URLs(), cfg.BasePath, spec.RouteName),
-			"name":                 spec.Name,
-			"key":                  spec.Key,
-			"breadcrumb_label":     spec.Breadcrumb,
-			"enabled":              spec.EntryEnabled,
-			"disabled_reason":      spec.DisabledReason,
-			"disabled_reason_code": spec.ReasonCode,
+			"type":             "url",
+			"path":             resolveTranslationCapabilityMenuPath(adm.URLs(), cfg.BasePath, spec.RouteName),
+			"name":             spec.Name,
+			"key":              spec.Key,
+			"breadcrumb_label": spec.Breadcrumb,
 		},
 		Position: intPtr(spec.Position),
 		ParentID: parentID,

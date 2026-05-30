@@ -595,6 +595,7 @@ func TestNewModuleRegistrarSeedsTranslationCapabilityMenuItemsWhenEnabled(t *tes
 				if len(queueItem.Permissions) != 0 {
 					t.Fatalf("expected queue menu item to be module/profile-gated only, got permissions %v", queueItem.Permissions)
 				}
+				assertNoPersistedTranslationPermissionState(t, queueItem)
 			}
 
 			dashboardItem := findMenuItemByRouteName(menu.Items, "admin.translations.dashboard")
@@ -613,6 +614,7 @@ func TestNewModuleRegistrarSeedsTranslationCapabilityMenuItemsWhenEnabled(t *tes
 				if len(dashboardItem.Permissions) != 0 {
 					t.Fatalf("expected dashboard menu item to be module/profile-gated only, got permissions %v", dashboardItem.Permissions)
 				}
+				assertNoPersistedTranslationPermissionState(t, dashboardItem)
 			}
 
 			exchangeItem := findMenuItemByRouteName(menu.Items, "admin.translations.exchange")
@@ -631,6 +633,7 @@ func TestNewModuleRegistrarSeedsTranslationCapabilityMenuItemsWhenEnabled(t *tes
 				if len(exchangeItem.Permissions) != 0 {
 					t.Fatalf("expected exchange menu item to be module/profile-gated only, got permissions %v", exchangeItem.Permissions)
 				}
+				assertNoPersistedTranslationPermissionState(t, exchangeItem)
 			}
 		})
 	}
@@ -689,6 +692,9 @@ func TestTranslationCapabilityMenuItemsVisibleWithoutTranslationPermissions(t *t
 		if disabled, _ := item["disabled"].(bool); !disabled {
 			t.Fatalf("expected queue entrypoint visible-disabled when permission denied")
 		}
+		if enabled, _ := item["enabled"].(bool); enabled {
+			t.Fatalf("expected queue entrypoint enabled=false when permission denied")
+		}
 		if code := strings.TrimSpace(toString(item["disabled_reason_code"])); code != admin.ActionDisabledReasonCodePermissionDenied {
 			t.Fatalf("expected queue disabled reason_code=%q, got %q", admin.ActionDisabledReasonCodePermissionDenied, code)
 		}
@@ -704,6 +710,9 @@ func TestTranslationCapabilityMenuItemsVisibleWithoutTranslationPermissions(t *t
 	if disabled, _ := dashboardItem["disabled"].(bool); !disabled {
 		t.Fatalf("expected dashboard entrypoint visible-disabled when permission denied")
 	}
+	if enabled, _ := dashboardItem["enabled"].(bool); enabled {
+		t.Fatalf("expected dashboard entrypoint enabled=false when permission denied")
+	}
 	if code := strings.TrimSpace(toString(dashboardItem["disabled_reason_code"])); code != admin.ActionDisabledReasonCodePermissionDenied {
 		t.Fatalf("expected dashboard disabled reason_code=%q, got %q", admin.ActionDisabledReasonCodePermissionDenied, code)
 	}
@@ -718,6 +727,9 @@ func TestTranslationCapabilityMenuItemsVisibleWithoutTranslationPermissions(t *t
 	if disabled, _ := exchangeItem["disabled"].(bool); !disabled {
 		t.Fatalf("expected exchange entrypoint visible-disabled when permission denied")
 	}
+	if enabled, _ := exchangeItem["enabled"].(bool); enabled {
+		t.Fatalf("expected exchange entrypoint enabled=false when permission denied")
+	}
 	if code := strings.TrimSpace(toString(exchangeItem["disabled_reason_code"])); code != admin.ActionDisabledReasonCodePermissionDenied {
 		t.Fatalf("expected exchange disabled reason_code=%q, got %q", admin.ActionDisabledReasonCodePermissionDenied, code)
 	}
@@ -729,6 +741,70 @@ func TestTranslationCapabilityMenuItemsVisibleWithoutTranslationPermissions(t *t
 	dashboardRoutePath := strings.TrimSpace(resolveRoutePath(adm.URLs(), "admin", "translations.dashboard"))
 	if !strings.Contains(dashboardRoutePath, "/translations/dashboard") {
 		t.Fatalf("expected dashboard route path to include /translations/dashboard, got %q", dashboardRoutePath)
+	}
+}
+
+func TestTranslationCapabilityMenuItemsClearStalePermissionDeniedStateWhenAllowed(t *testing.T) {
+	t.Cleanup(func() { _ = commandregistry.Stop(context.Background()) })
+
+	cfg := NewAdminConfig("/admin", "Admin", "en")
+	cfg.AuthConfig = &admin.AuthConfig{AllowUnauthenticatedRoutes: true}
+	adm, _, err := NewAdmin(
+		cfg,
+		AdapterHooks{},
+		WithTranslationProductConfig(TranslationProductConfig{
+			SchemaVersion: TranslationProductSchemaVersionCurrent,
+			Profile:       TranslationProfileFull,
+			Exchange: &TranslationExchangeConfig{
+				Enabled: true,
+				Store:   &moduleRegistrarExchangeStoreStub{},
+			},
+			Queue: &TranslationQueueConfig{
+				Enabled:          true,
+				Repository:       newQuickstartTranslationQueueRepo(),
+				SupportedLocales: []string{"en", "es"},
+			},
+		}),
+	)
+	if err != nil {
+		t.Fatalf("NewAdmin error: %v", err)
+	}
+	if adm.Commands() != nil {
+		t.Cleanup(adm.Commands().Reset)
+	}
+
+	adm.WithAuthorizer(allowAllQuickstartAuthorizer{})
+	adm.Navigation().UseCMS(false)
+	adm.Navigation().AddFallback(admin.NavigationItem{
+		ID:          NavigationGroupTranslationsID,
+		Type:        admin.MenuItemTypeGroup,
+		GroupTitle:  "Translations",
+		Collapsible: true,
+		Children: []admin.NavigationItem{
+			staleDeniedTranslationNavItem("translation_dashboard", "/admin/translations/dashboard"),
+			staleDeniedTranslationNavItem("translation_queue", "/admin/content/translations"),
+			staleDeniedTranslationNavItem("translation_exchange", "/admin/translations/exchange"),
+		},
+	})
+
+	navItems := BuildNavItems(adm, cfg, context.Background(), "")
+	for _, key := range []string{"translation_dashboard", "translation_queue", "translation_exchange"} {
+		item := findNavItemByKey(navItems, key)
+		if item == nil {
+			t.Fatalf("expected %s sidebar entrypoint", key)
+		}
+		if enabled, _ := item["enabled"].(bool); !enabled {
+			t.Fatalf("expected %s enabled=true after allowed request degradation, got %#v", key, item["enabled"])
+		}
+		if disabled, _ := item["disabled"].(bool); disabled {
+			t.Fatalf("expected %s disabled flag cleared, got %#v", key, item)
+		}
+		if reason := strings.TrimSpace(toString(item["disabled_reason"])); reason != "" {
+			t.Fatalf("expected %s disabled_reason cleared, got %q", key, reason)
+		}
+		if code := strings.TrimSpace(toString(item["disabled_reason_code"])); code != "" {
+			t.Fatalf("expected %s disabled_reason_code cleared, got %q", key, code)
+		}
 	}
 }
 
@@ -776,6 +852,34 @@ func findMenuItemByRouteName(items []admin.MenuItem, routeName string) *admin.Me
 		}
 	}
 	return nil
+}
+
+func assertNoPersistedTranslationPermissionState(t *testing.T, item *admin.MenuItem) {
+	t.Helper()
+	if item == nil {
+		t.Fatalf("expected menu item")
+	}
+	for _, key := range []string{"enabled", "disabled", "aria_disabled", "disabled_reason", "disabled_reason_code"} {
+		if _, ok := item.Target[key]; ok {
+			t.Fatalf("expected no persisted request-scoped permission state %q on %s target, got %+v", key, item.ID, item.Target)
+		}
+	}
+}
+
+func staleDeniedTranslationNavItem(key, href string) admin.NavigationItem {
+	return admin.NavigationItem{
+		ID:    key,
+		Type:  admin.MenuItemTypeItem,
+		Label: key,
+		Target: map[string]any{
+			"type":                 "url",
+			"path":                 href,
+			"key":                  key,
+			"enabled":              false,
+			"disabled_reason":      "missing permission: admin.translations.view",
+			"disabled_reason_code": admin.ActionDisabledReasonCodePermissionDenied,
+		},
+	}
 }
 
 func findNavItemByKey(items []map[string]any, target string) map[string]any {
