@@ -78,7 +78,7 @@ func hasAdminReadUnsupportedContentListOption(opts []CMSContentListOption) bool 
 
 func isContentTypeIDListOption(opt CMSContentListOption) bool {
 	const prefix = "content:list:content_type:"
-	return strings.HasPrefix(strings.ToLower(strings.TrimSpace(string(opt))), prefix)
+	return strings.HasPrefix(strings.ToLower(strings.TrimSpace(opt)), prefix)
 }
 
 func normalizeCMSRequestedListLocale(locale string) string {

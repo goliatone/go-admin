@@ -44,7 +44,10 @@ func (r *navigationRuntime) generatedFallbackRecords(ctx context.Context, state 
 		return nil, pageKinds, nil
 	}
 
-	cache, _ := ctx.Value(navigationGeneratedFallbackCacheKey{}).(*siteContentCache)
+	cache, ok := ctx.Value(navigationGeneratedFallbackCacheKey{}).(*siteContentCache)
+	if !ok {
+		cache = nil
+	}
 	records := make([]admin.CMSContent, 0)
 	for _, contentType := range pageTypes {
 		items, err := listGeneratedFallbackRecordsForType(ctx, cache, r.contentSvc, state.Locale, contentType)
