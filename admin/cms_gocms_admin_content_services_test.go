@@ -21,6 +21,15 @@ type stubGoCMSAdminContentReadService struct {
 	getCnt   int
 }
 
+func mustGoCMSContentAdapter(t *testing.T, svc CMSContentService) *GoCMSContentAdapter {
+	t.Helper()
+	adapter, ok := svc.(*GoCMSContentAdapter)
+	if !ok {
+		t.Fatalf("expected *GoCMSContentAdapter, got %T", svc)
+	}
+	return adapter
+}
+
 func (s *stubGoCMSAdminContentReadService) List(_ context.Context, opts cms.AdminContentListOptions) ([]cms.AdminContentRecord, int, error) {
 	s.listCnt++
 	s.listOpts = opts
@@ -175,7 +184,7 @@ func TestGoCMSContentAdapterContentsUsesAdminContentReadService(t *testing.T) {
 	}
 	contentSvc := &stubGoCMSContentService{}
 	svc := newGoCMSContentAdapter(contentSvc, nil, nil, typeSvc, nil, adminRead, nil, nil, nil)
-	adapter := svc.(*GoCMSContentAdapter)
+	adapter := mustGoCMSContentAdapter(t, svc)
 
 	items, err := adapter.Contents(ctx, "fr")
 	if err != nil {
@@ -235,7 +244,7 @@ func TestGoCMSContentAdapterContentsWithContentTypeIDBypassesAdminRead(t *testin
 	}
 	typeSvc := newStubContentTypeService(CMSContentType{ID: contentTypeID.String(), Slug: "page"})
 	svc := newGoCMSContentAdapter(contentSvc, nil, nil, typeSvc, nil, adminRead, nil, nil, nil)
-	adapter := svc.(*GoCMSContentAdapter)
+	adapter := mustGoCMSContentAdapter(t, svc)
 
 	items, err := adapter.ContentsWithOptions(ctx, "en", WithTranslations(), WithContentTypeID(contentTypeID.String()))
 	if err != nil {
@@ -266,7 +275,7 @@ func TestGoCMSContentAdapterContentsWithSupportedOptionsUsesAdminRead(t *testing
 	}
 	contentSvc := &stubGoCMSContentService{}
 	svc := newGoCMSContentAdapter(contentSvc, nil, nil, nil, nil, adminRead, nil, nil, nil)
-	adapter := svc.(*GoCMSContentAdapter)
+	adapter := mustGoCMSContentAdapter(t, svc)
 
 	if _, err := adapter.ContentsWithOptions(ctx, "en", WithTranslations(), WithDerivedFields()); err != nil {
 		t.Fatalf("list contents with supported options: %v", err)
@@ -318,7 +327,7 @@ func TestGoCMSContentAdapterContentsWithLocaleVariantsStillBypassesAdminRead(t *
 	}
 	typeSvc := newStubContentTypeService(CMSContentType{ID: uuid.New().String(), Slug: "news"})
 	svc := newGoCMSContentAdapter(contentSvc, nil, nil, typeSvc, nil, adminRead, nil, nil, nil)
-	adapter := svc.(*GoCMSContentAdapter)
+	adapter := mustGoCMSContentAdapter(t, svc)
 
 	items, err := adapter.ContentsWithOptions(ctx, "all", WithTranslations(), WithDerivedFields(), WithLocaleVariants())
 	if err != nil {
@@ -366,7 +375,7 @@ func TestGoCMSContentAdapterContentAppliesLegacyFallbackAfterAdminRead(t *testin
 		}},
 	}
 	svc := newGoCMSContentAdapter(contentSvc, nil, blockSvc, nil, nil, adminRead, nil, nil, nil)
-	adapter := svc.(*GoCMSContentAdapter)
+	adapter := mustGoCMSContentAdapter(t, svc)
 	adapter.blockDefinitionCache.Publish(map[string]uuid.UUID{"hero": defID}, map[uuid.UUID]string{defID: "hero"})
 
 	item, err := adapter.Content(ctx, contentID.String(), "en")
@@ -410,7 +419,7 @@ func TestGoCMSContentAdapterCreateContentUsesAdminContentWriteService(t *testing
 	}
 	contentSvc := &stubGoCMSContentService{}
 	svc := newGoCMSContentAdapter(contentSvc, nil, nil, typeSvc, nil, nil, adminWrite, nil, nil)
-	adapter := svc.(*GoCMSContentAdapter)
+	adapter := mustGoCMSContentAdapter(t, svc)
 
 	created, err := adapter.CreateContent(ctx, CMSContent{
 		Title:           "Home",
@@ -456,7 +465,7 @@ func TestGoCMSContentAdapterDeleteContentUsesAdminContentWriteService(t *testing
 	ctx := context.Background()
 	adminWrite := &stubGoCMSAdminContentWriteService{}
 	svc := newGoCMSContentAdapter(&stubGoCMSContentService{}, nil, nil, nil, nil, nil, adminWrite, nil, nil)
-	adapter := svc.(*GoCMSContentAdapter)
+	adapter := mustGoCMSContentAdapter(t, svc)
 	contentID := uuid.New()
 
 	if err := adapter.DeleteContent(ctx, contentID.String()); err != nil {
@@ -492,7 +501,7 @@ func TestGoCMSContentAdapterCreateTranslationUsesAdminContentWriteServiceForSupp
 	}
 	contentSvc := &stubGoCMSContentService{}
 	svc := newGoCMSContentAdapter(contentSvc, nil, nil, nil, nil, nil, adminWrite, nil, nil)
-	adapter := svc.(*GoCMSContentAdapter)
+	adapter := mustGoCMSContentAdapter(t, svc)
 
 	created, err := adapter.CreateTranslation(ctx, TranslationCreateInput{
 		SourceID:    sourceID.String(),
@@ -539,7 +548,7 @@ func TestGoCMSContentAdapterCreateTranslationKeepsAdminWritePathForLocalizedPath
 	}
 	contentSvc := &stubGoCMSContentService{}
 	svc := newGoCMSContentAdapter(contentSvc, nil, nil, nil, nil, nil, adminWrite, nil, nil)
-	adapter := svc.(*GoCMSContentAdapter)
+	adapter := mustGoCMSContentAdapter(t, svc)
 
 	_, err := adapter.CreateTranslation(ctx, TranslationCreateInput{
 		SourceID: sourceID.String(),
@@ -579,7 +588,7 @@ func TestGoCMSContentAdapterCreateTranslationKeepsAdminWritePathForRouteKeyOnly(
 	}
 	contentSvc := &stubGoCMSContentService{}
 	svc := newGoCMSContentAdapter(contentSvc, nil, nil, nil, nil, nil, adminWrite, nil, nil)
-	adapter := svc.(*GoCMSContentAdapter)
+	adapter := mustGoCMSContentAdapter(t, svc)
 
 	_, err := adapter.CreateTranslation(ctx, TranslationCreateInput{
 		SourceID: sourceID.String(),
@@ -613,7 +622,7 @@ func TestGoCMSContentAdapterCreateTranslationUsesAdminWritePathForTranslationFam
 	}
 	contentSvc := &stubGoCMSContentService{}
 	svc := newGoCMSContentAdapter(contentSvc, nil, nil, nil, nil, nil, adminWrite, nil, nil)
-	adapter := svc.(*GoCMSContentAdapter)
+	adapter := mustGoCMSContentAdapter(t, svc)
 
 	_, err := adapter.CreateTranslation(ctx, TranslationCreateInput{
 		SourceID:     sourceID.String(),

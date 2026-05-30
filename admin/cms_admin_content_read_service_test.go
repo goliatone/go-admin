@@ -64,7 +64,7 @@ func TestAdminContentReadServiceListAndGetReturnNotFoundWithoutContentService(t 
 func TestAdminContentReadServiceListAndGetPreserveRepositoryReadContract(t *testing.T) {
 	ctx := context.Background()
 	content := NewInMemoryContentService()
-	_, _ = content.CreateContentType(ctx, CMSContentType{
+	if _, err := content.CreateContentType(ctx, CMSContentType{
 		ID:   "page-type",
 		Name: "Page",
 		Slug: "page",
@@ -79,7 +79,9 @@ func TestAdminContentReadServiceListAndGetPreserveRepositoryReadContract(t *test
 				},
 			},
 		},
-	})
+	}); err != nil {
+		t.Fatalf("create content type failed: %v", err)
+	}
 	created, err := content.CreateContent(ctx, CMSContent{
 		Title:           "Home",
 		Slug:            "home",
