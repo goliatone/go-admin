@@ -93,6 +93,10 @@ type Config struct {
 	NavMenuCode string `json:"nav_menu_code"`
 	NavDebug    bool   `json:"nav_debug"`
 	NavDebugLog bool   `json:"nav_debug_log"`
+	// NavPermissionDeniedMode controls whether denied navigation entries are
+	// hidden or retained as disabled diagnostics. Empty and unknown values
+	// normalize to "hide".
+	NavPermissionDeniedMode NavigationPermissionDeniedMode `json:"nav_permission_denied_mode"`
 
 	FeatureFlagKeys    []string   `json:"feature_flag_keys"`
 	FeatureCatalogPath string     `json:"feature_catalog_path"`
