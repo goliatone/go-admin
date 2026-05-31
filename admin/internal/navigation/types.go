@@ -54,6 +54,23 @@ type ResolveOptions struct {
 	PermissionDeniedMode NavigationPermissionDeniedMode
 }
 
+// ResolveSource identifies which backing source produced a navigation result.
+type ResolveSource string
+
+const (
+	ResolveSourceCMS                 ResolveSource = "cms"
+	ResolveSourceFallbackNoCMS       ResolveSource = "fallback_no_cms"
+	ResolveSourceFallbackCMSDisabled ResolveSource = "fallback_cms_disabled"
+	ResolveSourceFallbackCMSError    ResolveSource = "fallback_cms_error"
+)
+
+// ResolveResult carries resolved navigation items plus source diagnostics.
+type ResolveResult struct {
+	Items         []NavigationItem `json:"items"`
+	Source        ResolveSource    `json:"source"`
+	FallbackError string           `json:"fallback_error,omitempty"`
+}
+
 // MenuItem describes a single navigation node.
 type MenuItem struct {
 	ID            string            `json:"id,omitempty"`
