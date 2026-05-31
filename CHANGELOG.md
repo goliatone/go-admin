@@ -1,10 +1,35 @@
 # Changelog
 
+# [0.82.0](https://github.com/goliatone/go-admin/compare/v0.81.1...v0.82.0) - (2026-05-31)
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Content lookup ([bf0a830](https://github.com/goliatone/go-admin/commit/bf0a830777d8c9a8a193e3a9ca21b378ede91025))  - (goliatone)
+- Translation loading perf ([1150951](https://github.com/goliatone/go-admin/commit/115095124b6bd2def6b5d30e3a45112ad011288c))  - (goliatone)
+
+## <!-- 16 -->➕ Add
+
+- Resolve menu with options ([0a3d1fd](https://github.com/goliatone/go-admin/commit/0a3d1fd64facad39ea4ab3c3e03b529bd72749e4))  - (goliatone)
+- Navigation menu item permissions ([4b764c3](https://github.com/goliatone/go-admin/commit/4b764c32216a079304e086df960332cc8e17affd))  - (goliatone)
+- Translation exchange config ([965182c](https://github.com/goliatone/go-admin/commit/965182c8ed7bb07b04e7c0dbfb55e0d725232102))  - (goliatone)
+- Translation exchange configuration ([446a71a](https://github.com/goliatone/go-admin/commit/446a71a439a3e4a35311b14c90fc3d67d395e1e9))  - (goliatone)
+- Translation exchange ui config and validation ([ab081da](https://github.com/goliatone/go-admin/commit/ab081da8220709d5c2918b2627ddcef82dcdf354))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update tests ([4b39d93](https://github.com/goliatone/go-admin/commit/4b39d93effd22bf863d6a29a4e056e2b068f68b4))  - (goliatone)
+- Update docs ([1f8d982](https://github.com/goliatone/go-admin/commit/1f8d9826dc1551d433fe4c45d7ff873149377d1c))  - (goliatone)
+- Update examples ([afd299f](https://github.com/goliatone/go-admin/commit/afd299f8bf56794edbe788eb31721b80f0b828d7))  - (goliatone)
+
 # [0.81.1](https://github.com/goliatone/go-admin/compare/v0.81.0...v0.81.1) - (2026-05-30)
 
 ## <!-- 1 -->🐛 Bug Fixes
 
 - Code quality ([cb9da96](https://github.com/goliatone/go-admin/commit/cb9da9636ef8b66e9081d1917376ee0a41dd40b1))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.81.1 ([de790a3](https://github.com/goliatone/go-admin/commit/de790a397a4cd24025408e87c0a50855f30d8fe4))  - (goliatone)
 
 ## <!-- 3 -->📚 Documentation
 

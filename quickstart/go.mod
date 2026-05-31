@@ -15,7 +15,7 @@ require (
 	github.com/gobuffalo/flect v1.0.3
 	github.com/gofiber/fiber/v2 v2.52.12
 	github.com/golang-jwt/jwt/v5 v5.3.1
-	github.com/goliatone/go-admin v0.81.1
+	github.com/goliatone/go-admin v0.82.0
 	github.com/goliatone/go-auth v0.43.0
 	github.com/goliatone/go-auth/adapters/featuregate v0.43.0
 	github.com/goliatone/go-cache v0.1.0
@@ -131,7 +131,7 @@ require (
 	github.com/goliatone/go-repository-cache v0.7.1 // indirect
 	github.com/goliatone/go-search/adapters/goadmin v0.8.0 // indirect
 	github.com/goliatone/go-slug v0.1.0 // indirect
-	github.com/goliatone/hashid v0.2.0 // indirect
+	github.com/goliatone/hashid v0.2.2 // indirect
 	github.com/goodsign/monday v1.0.2 // indirect
 	github.com/google/cel-go v0.26.1 // indirect
 	github.com/google/pprof v0.0.0-20251208000136-3d256cb9ff16 // indirect
