@@ -651,7 +651,7 @@ func TestNewModuleRegistrarSeedsTranslationCapabilityMenuItemsWhenEnabled(t *tes
 func TestTranslationCapabilityMenuItemsVisibleWithoutTranslationPermissions(t *testing.T) {
 	cleanupModuleCommandRegistry(t)
 
-	cfg := NewAdminConfig("/admin", "Admin", "en")
+	cfg := NewAdminConfig("/admin", "Admin", "en", WithNavPermissionDeniedMode(admin.NavigationPermissionDeniedModeDisable))
 	cfg.AuthConfig = &admin.AuthConfig{AllowUnauthenticatedRoutes: true}
 	adm, _, err := NewAdmin(
 		cfg,

@@ -200,7 +200,7 @@ func BuildNavItemsForPlacement(adm *admin.Admin, cfg admin.Config, placements Pl
 		}
 		entries = append(entries, entry)
 	}
-	entries = applyTranslationEntrypointDegradation(entries, resolveTranslationModuleExposureSnapshot(adm, ctx))
+	entries = applyTranslationEntrypointDegradation(entries, resolveTranslationModuleExposureSnapshot(adm, ctx), permissionDeniedMode)
 	if logNav {
 		logger := resolveQuickstartAdminLogger(adm, "quickstart.navigation", nil, nil)
 		if raw, err := json.Marshal(map[string]any{
@@ -287,13 +287,14 @@ func resolveNavRequestScope(ctx context.Context, defaultLocale string) navReques
 	return scope
 }
 
-func applyTranslationEntrypointDegradation(entries []map[string]any, exposure translationModuleExposureSnapshot) []map[string]any {
+func applyTranslationEntrypointDegradation(entries []map[string]any, exposure translationModuleExposureSnapshot, mode admin.NavigationPermissionDeniedMode) []map[string]any {
 	if len(entries) == 0 {
 		return entries
 	}
+	mode = admin.NormalizeNavigationPermissionDeniedMode(mode)
 	out := make([]map[string]any, 0, len(entries))
 	for _, entry := range entries {
-		mutated, include := applyTranslationEntrypointDegradationEntry(entry, exposure)
+		mutated, include := applyTranslationEntrypointDegradationEntry(entry, exposure, mode)
 		if !include {
 			continue
 		}
@@ -302,14 +303,14 @@ func applyTranslationEntrypointDegradation(entries []map[string]any, exposure tr
 	return out
 }
 
-func applyTranslationEntrypointDegradationEntry(entry map[string]any, exposure translationModuleExposureSnapshot) (map[string]any, bool) {
+func applyTranslationEntrypointDegradationEntry(entry map[string]any, exposure translationModuleExposureSnapshot, mode admin.NavigationPermissionDeniedMode) (map[string]any, bool) {
 	if entry == nil {
 		return entry, false
 	}
 
 	children := navEntryChildren(entry["children"])
 	if len(children) > 0 {
-		entry["children"] = applyTranslationEntrypointDegradation(children, exposure)
+		entry["children"] = applyTranslationEntrypointDegradation(children, exposure, mode)
 		updatedChildren := navEntryChildren(entry["children"])
 		entry["has_children"] = len(updatedChildren) > 0
 	}
@@ -334,6 +335,9 @@ func applyTranslationEntrypointDegradationEntry(entry map[string]any, exposure t
 	if moduleState.EntryEnabled {
 		clearTranslationEntrypointDegradation(entry)
 		return entry, true
+	}
+	if mode == admin.NavigationPermissionDeniedModeHide {
+		return nil, false
 	}
 
 	entry["enabled"] = false
@@ -361,11 +365,12 @@ func clearTranslationEntrypointDegradation(entry map[string]any) {
 	delete(entry, "aria_disabled")
 	delete(entry, "disabled_reason")
 	delete(entry, "disabled_reason_code")
+	delete(entry, "missing_permission")
 }
 
 func translationModuleForNavKey(key string) (string, bool) {
 	switch strings.ToLower(strings.TrimSpace(key)) {
-	case "translations", "translation_dashboard", "translation_queue":
+	case "translation_dashboard", "translation_queue":
 		return "queue", true
 	case "translation_exchange":
 		return "exchange", true
