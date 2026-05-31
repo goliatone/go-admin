@@ -110,25 +110,35 @@ func (n *Navigation) UseCMS(enabled bool) {
 
 // Resolve returns navigation for a locale, applying permission filters.
 func (n *Navigation) Resolve(ctx context.Context, locale string) []NavigationItem {
-	return n.ResolveMenu(ctx, n.defaultMenuCode, locale)
+	return n.ResolveMenuWithOptions(ctx, n.defaultMenuCode, locale, ResolveOptions{
+		PermissionDeniedMode: NavigationPermissionDeniedModeHide,
+	})
 }
 
 // ResolveMenu returns navigation for a menu code and locale, applying permission filters.
 func (n *Navigation) ResolveMenu(ctx context.Context, menuCode string, locale string) []NavigationItem {
+	return n.ResolveMenuWithOptions(ctx, menuCode, locale, ResolveOptions{
+		PermissionDeniedMode: NavigationPermissionDeniedModeHide,
+	})
+}
+
+// ResolveMenuWithOptions returns navigation for a menu code and locale with explicit resolution options.
+func (n *Navigation) ResolveMenuWithOptions(ctx context.Context, menuCode string, locale string, opts ResolveOptions) []NavigationItem {
 	if menuCode == "" {
 		menuCode = n.defaultMenuCode
 	}
+	opts.PermissionDeniedMode = NormalizeNavigationPermissionDeniedMode(opts.PermissionDeniedMode)
 	if n.menuSvc == nil || !n.useCMS {
 		items := orderNavigation(localize(n.translator, n.fallback, locale))
-		return n.filter(items, ctx)
+		return n.filter(items, ctx, opts)
 	}
 	menu, err := n.menuSvc.Menu(ctx, menuCode, locale)
 	if err != nil {
 		items := orderNavigation(localize(n.translator, n.fallback, locale))
-		return n.filter(items, ctx)
+		return n.filter(items, ctx, opts)
 	}
 	items := orderNavigation(localize(n.translator, ConvertMenuItems(menu.Items, n.translator, locale), locale))
-	return n.filter(items, ctx)
+	return n.filter(items, ctx, opts)
 }
 
 // ConvertMenuItems converts MenuItems into NavigationItems applying translation/localization.
@@ -211,20 +221,18 @@ func orderNavigation(items []NavigationItem) []NavigationItem {
 	return items
 }
 
-func (n *Navigation) filter(items []NavigationItem, ctx context.Context) []NavigationItem {
+func (n *Navigation) filter(items []NavigationItem, ctx context.Context, opts ResolveOptions) []NavigationItem {
+	mode := NormalizeNavigationPermissionDeniedMode(opts.PermissionDeniedMode)
 	out := []NavigationItem{}
 	lastWasSeparator := false
 	for _, item := range items {
-		if len(item.Permissions) > 0 && !n.canAny(ctx, item.Permissions) {
+		if !n.applyPermissionPolicy(&item, ctx, mode) {
 			continue
 		}
 		if len(item.Children) > 0 {
-			item.Children = n.filter(item.Children, ctx)
+			item.Children = n.filter(item.Children, ctx, opts)
 		}
-		if item.Type == MenuItemTypeGroup && len(item.Children) == 0 {
-			continue
-		}
-		if (item.Collapsible || boolFromTarget(item.Target, "collapsible")) && len(item.Children) == 0 {
+		if shouldPruneEmptyNavigationItem(item) {
 			continue
 		}
 		if item.Type == MenuItemTypeSeparator {
@@ -242,6 +250,31 @@ func (n *Navigation) filter(items []NavigationItem, ctx context.Context) []Navig
 		out = out[:len(out)-1]
 	}
 	return out
+}
+
+func (n *Navigation) applyPermissionPolicy(item *NavigationItem, ctx context.Context, mode NavigationPermissionDeniedMode) bool {
+	allowed, denied, missingPermission := n.permissionStatus(ctx, item.Permissions)
+	switch {
+	case denied && mode == NavigationPermissionDeniedModeHide:
+		return false
+	case denied:
+		item.MarkPermissionDenied(missingPermission)
+	case allowed:
+		item.MarkEnabled()
+	default:
+		item.ClearTransientState()
+	}
+	return true
+}
+
+func shouldPruneEmptyNavigationItem(item NavigationItem) bool {
+	if len(item.Children) > 0 {
+		return false
+	}
+	if item.Type == MenuItemTypeGroup {
+		return true
+	}
+	return item.Collapsible || boolFromTarget(item.Target, "collapsible")
 }
 
 func boolFromTarget(target map[string]any, key string) bool {
@@ -262,19 +295,29 @@ func boolFromTarget(target map[string]any, key string) bool {
 	}
 }
 
-func (n *Navigation) canAny(ctx context.Context, perms []string) bool {
-	if n == nil || n.authorizer == nil {
-		return false
+func (n *Navigation) permissionStatus(ctx context.Context, perms []string) (allowed bool, denied bool, firstMissing string) {
+	if len(perms) == 0 {
+		return false, false, ""
 	}
 	for _, perm := range perms {
-		if strings.TrimSpace(perm) == "" {
+		perm = strings.TrimSpace(perm)
+		if firstMissing == "" && perm != "" {
+			firstMissing = perm
+		}
+	}
+	if n == nil || n.authorizer == nil {
+		return false, true, firstMissing
+	}
+	for _, perm := range perms {
+		perm = strings.TrimSpace(perm)
+		if perm == "" {
 			continue
 		}
 		if n.authorizer.Can(ctx, perm, "navigation") {
-			return true
+			return true, false, ""
 		}
 	}
-	return len(perms) == 0
+	return false, true, firstMissing
 }
 
 func translateValue(raw, key string, t Translator, locale string) string {
