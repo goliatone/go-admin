@@ -93,6 +93,16 @@ Override precedence:
 1. `translation.profile` sets module defaults.
 2. `translation.exchange` / `translation.queue` override profile module defaults when set differently from the profile baseline.
 
+Exchange wizard UI config is optional. When `translation.exchange_ui` is omitted, the wizard keeps the demo fallback controls. Hosts that need a different contract can map their own runtime config into:
+- `translation.exchange_ui.source_locale`
+- `translation.exchange_ui.source_locales`
+- `translation.exchange_ui.target_locales`
+- `translation.exchange_ui.resources`
+- `translation.exchange_ui.default_target_locales`
+- `translation.exchange_ui.default_resources`
+
+For an `en/bo/zh` host, set `source_locale` to `en`, target locales to `bo` and `zh`, and resources to the exact host resource IDs expected by the exchange store. Site supported locales are not read by `go-admin` automatically; the host must map them into this quickstart config.
+
 Module routes when enabled:
 - Translations menu group: seeded by quickstart with dashboard, queue, and exchange entrypoints
 - Dashboard UI: `GET /admin/translations/dashboard`

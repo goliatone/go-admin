@@ -1947,6 +1947,7 @@ func buildTranslationProductConfig(
 		cfg.Exchange = &quickstart.TranslationExchangeConfig{
 			Enabled: exchangeEnabled,
 			Store:   exchangeStore,
+			UI:      buildTranslationExchangeUIConfig(translationCfg),
 		}
 	}
 	if queueEnabled || queueOverride {
@@ -1957,6 +1958,23 @@ func buildTranslationProductConfig(
 	}
 
 	return cfg
+}
+
+func buildTranslationExchangeUIConfig(translationCfg appcfg.TranslationConfig) quickstart.TranslationExchangeUIConfig {
+	ui := translationCfg.ExchangeUI
+	return quickstart.TranslationExchangeUIConfig{
+		SourceLocale:         strings.TrimSpace(ui.SourceLocale),
+		SourceLocales:        append([]quickstart.TranslationExchangeLocaleOption{}, ui.SourceLocales...),
+		TargetLocales:        append([]quickstart.TranslationExchangeLocaleOption{}, ui.TargetLocales...),
+		LocaleLabels:         primitives.CloneStringMapNilOnEmpty(ui.LocaleLabels),
+		Resources:            append([]quickstart.TranslationExchangeResourceOption{}, ui.Resources...),
+		DefaultResources:     append([]string{}, ui.DefaultResources...),
+		DefaultTargetLocales: append([]string{}, ui.DefaultTargetLocales...),
+		IncludeSourceHash:    ui.IncludeSourceHash,
+		IncludeExamples:      ui.IncludeExamples,
+		Template:             ui.Template,
+		Apply:                ui.Apply,
+	}
 }
 
 func translationCoreUIEnabled(adm *admin.Admin) bool {

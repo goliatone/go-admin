@@ -192,9 +192,24 @@ type SecureLinkConfig struct {
 }
 
 type TranslationConfig struct {
-	Profile  string `koanf:"profile" json:"profile" yaml:"profile"`
-	Exchange *bool  `koanf:"exchange" json:"exchange" yaml:"exchange"`
-	Queue    *bool  `koanf:"queue" json:"queue" yaml:"queue"`
+	Profile    string                      `koanf:"profile" json:"profile" yaml:"profile"`
+	Exchange   *bool                       `koanf:"exchange" json:"exchange" yaml:"exchange"`
+	Queue      *bool                       `koanf:"queue" json:"queue" yaml:"queue"`
+	ExchangeUI TranslationExchangeUIConfig `koanf:"exchange_ui" json:"exchange_ui" yaml:"exchange_ui"`
+}
+
+type TranslationExchangeUIConfig struct {
+	SourceLocale         string                                         `koanf:"source_locale" json:"source_locale" yaml:"source_locale"`
+	SourceLocales        []quickstart.TranslationExchangeLocaleOption   `koanf:"source_locales" json:"source_locales" yaml:"source_locales"`
+	TargetLocales        []quickstart.TranslationExchangeLocaleOption   `koanf:"target_locales" json:"target_locales" yaml:"target_locales"`
+	LocaleLabels         map[string]string                              `koanf:"locale_labels" json:"locale_labels" yaml:"locale_labels"`
+	Resources            []quickstart.TranslationExchangeResourceOption `koanf:"resources" json:"resources" yaml:"resources"`
+	DefaultResources     []string                                       `koanf:"default_resources" json:"default_resources" yaml:"default_resources"`
+	DefaultTargetLocales []string                                       `koanf:"default_target_locales" json:"default_target_locales" yaml:"default_target_locales"`
+	IncludeSourceHash    *bool                                          `koanf:"include_source_hash" json:"include_source_hash" yaml:"include_source_hash"`
+	IncludeExamples      *bool                                          `koanf:"include_examples" json:"include_examples" yaml:"include_examples"`
+	Template             quickstart.TranslationExchangeTemplateOption   `koanf:"template" json:"template" yaml:"template"`
+	Apply                quickstart.TranslationExchangeApplyDefaults    `koanf:"apply" json:"apply" yaml:"apply"`
 }
 
 type DatagridConfig struct {
