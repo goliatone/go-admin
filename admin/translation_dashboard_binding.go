@@ -84,74 +84,81 @@ func (b *translationQueueBinding) translationDashboardOptimizedPayload(adminCtx 
 	}
 	familyBinding := &translationFamilyBinding{admin: b.admin, loadRuntime: b.dashboardLoadRuntime}
 	runtime, degradedReasons := translationDashboardRuntimeSources(adminCtx, familyBinding, channel)
-	var familyStore TranslationDashboardFamilyMetricsStore
-	if runtime != nil && runtime.service != nil && runtime.service.Store != nil {
-		if optimizedStore, ok := runtime.service.Store.(TranslationDashboardFamilyMetricsStore); ok {
-			familyStore = optimizedStore
-		}
-	}
+	familyStore := translationDashboardOptimizedFamilyStore(runtime)
 	if assignmentStore == nil && familyStore == nil {
 		return nil, false, nil
 	}
-	var assignments TranslationAssignmentDashboardSummary
-	if assignmentStore != nil {
-		assignments, err = assignmentStore.AssignmentDashboardSummary(adminCtx.Context, TranslationAssignmentDashboardSummaryInput{
-			TenantID:     identity.TenantID,
-			OrgID:        identity.OrgID,
-			ActorID:      actorID,
-			Now:          now,
-			OverdueLimit: overdueLimit,
-		})
-		if err != nil {
-			degradedReasons = append(degradedReasons, map[string]any{"component": "assignment_metrics_query", "message": err.Error()})
-			fallbackAssignments, fallbackErr := b.translationDashboardAssignmentFallback(adminCtx, repo, identity)
-			if fallbackErr != nil {
-				return nil, true, fallbackErr
-			}
-			assignments = translationDashboardAssignmentSummaryFromAssignments(fallbackAssignments, actorID, now, overdueLimit)
-		}
-	} else {
-		fallbackAssignments, fallbackErr := b.translationDashboardAssignmentFallback(adminCtx, repo, identity)
-		if fallbackErr != nil {
-			return nil, true, fallbackErr
-		}
-		assignments = translationDashboardAssignmentSummaryFromAssignments(fallbackAssignments, actorID, now, overdueLimit)
+	assignments, degradedReasons, err := b.translationDashboardOptimizedAssignmentSummary(adminCtx, repo, assignmentStore, identity, actorID, now, overdueLimit, degradedReasons)
+	if err != nil {
+		return nil, true, err
 	}
-	familyMetrics := TranslationDashboardFamilyMetrics{}
-	if familyStore != nil {
-		familyMetrics, err = familyStore.TranslationDashboardFamilyMetrics(adminCtx.Context, TranslationDashboardFamilyMetricsInput{
+	familyMetrics, degradedReasons := translationDashboardOptimizedFamilyMetrics(adminCtx, runtime, familyStore, identity, blockedLimit, degradedReasons)
+	data, meta := b.translationDashboardOptimizedSections(assignments, familyMetrics, runtime, degradedReasons, identity, actorID, channel, now, overdueLimit, blockedLimit)
+	return map[string]any{"data": data, "meta": meta}, true, nil
+}
+
+func translationDashboardOptimizedFamilyStore(runtime *translationFamilyRuntime) TranslationDashboardFamilyMetricsStore {
+	if runtime == nil || runtime.service == nil || runtime.service.Store == nil {
+		return nil
+	}
+	optimizedStore, ok := runtime.service.Store.(TranslationDashboardFamilyMetricsStore)
+	if !ok {
+		return nil
+	}
+	return optimizedStore
+}
+
+func (b *translationQueueBinding) translationDashboardOptimizedAssignmentSummary(adminCtx AdminContext, repo TranslationAssignmentRepository, store TranslationAssignmentSummaryStore, identity translationTransportIdentity, actorID string, now time.Time, overdueLimit int, degradedReasons []map[string]any) (TranslationAssignmentDashboardSummary, []map[string]any, error) {
+	if store == nil {
+		assignments, err := b.translationDashboardAssignmentFallback(adminCtx, repo, identity)
+		if err != nil {
+			return TranslationAssignmentDashboardSummary{}, degradedReasons, err
+		}
+		return translationDashboardAssignmentSummaryFromAssignments(assignments, actorID, now, overdueLimit), degradedReasons, nil
+	}
+	summary, err := store.AssignmentDashboardSummary(adminCtx.Context, TranslationAssignmentDashboardSummaryInput{
+		TenantID:     identity.TenantID,
+		OrgID:        identity.OrgID,
+		ActorID:      actorID,
+		Now:          now,
+		OverdueLimit: overdueLimit,
+	})
+	if err == nil {
+		return summary, degradedReasons, nil
+	}
+	degradedReasons = append(degradedReasons, map[string]any{"component": "assignment_metrics_query", "message": err.Error()})
+	assignments, fallbackErr := b.translationDashboardAssignmentFallback(adminCtx, repo, identity)
+	if fallbackErr != nil {
+		return TranslationAssignmentDashboardSummary{}, degradedReasons, fallbackErr
+	}
+	return translationDashboardAssignmentSummaryFromAssignments(assignments, actorID, now, overdueLimit), degradedReasons, nil
+}
+
+func translationDashboardOptimizedFamilyMetrics(adminCtx AdminContext, runtime *translationFamilyRuntime, store TranslationDashboardFamilyMetricsStore, identity translationTransportIdentity, blockedLimit int, degradedReasons []map[string]any) (TranslationDashboardFamilyMetrics, []map[string]any) {
+	if store != nil {
+		metrics, err := store.TranslationDashboardFamilyMetrics(adminCtx.Context, TranslationDashboardFamilyMetricsInput{
 			TenantID:     identity.TenantID,
 			OrgID:        identity.OrgID,
 			BlockedLimit: blockedLimit,
 		})
-		if err != nil {
-			degradedReasons = append(degradedReasons, map[string]any{"component": "family_metrics_query", "message": err.Error()})
-			families, reasons := translationDashboardFamiliesFromRuntime(adminCtx, runtime, degradedReasons)
-			degradedReasons = reasons
-			scopedFamilies := translationDashboardScopedFamilies(families, identity.TenantID, identity.OrgID)
-			blockedFamilies := translationDashboardBlockedFamilies(scopedFamilies)
-			missingRequiredFamilies := translationDashboardMissingRequiredFamilies(scopedFamilies)
-			familyMetrics = TranslationDashboardFamilyMetrics{
-				BlockedFamilies:         len(blockedFamilies),
-				MissingRequiredFamilies: len(missingRequiredFamilies),
-				TopBlocked:              blockedFamilies,
-			}
+		if err == nil {
+			return metrics, degradedReasons
 		}
+		degradedReasons = append(degradedReasons, map[string]any{"component": "family_metrics_query", "message": err.Error()})
 	}
-	if familyStore == nil {
-		families, reasons := translationDashboardFamiliesFromRuntime(adminCtx, runtime, degradedReasons)
-		degradedReasons = reasons
-		scopedFamilies := translationDashboardScopedFamilies(families, identity.TenantID, identity.OrgID)
-		blockedFamilies := translationDashboardBlockedFamilies(scopedFamilies)
-		missingRequiredFamilies := translationDashboardMissingRequiredFamilies(scopedFamilies)
-		familyMetrics = TranslationDashboardFamilyMetrics{
-			BlockedFamilies:         len(blockedFamilies),
-			MissingRequiredFamilies: len(missingRequiredFamilies),
-			TopBlocked:              blockedFamilies,
-		}
-	}
-	data, meta := b.translationDashboardOptimizedSections(assignments, familyMetrics, runtime, degradedReasons, identity, actorID, channel, now, overdueLimit, blockedLimit)
-	return map[string]any{"data": data, "meta": meta}, true, nil
+	return translationDashboardFamilyMetricsFallback(adminCtx, runtime, identity, degradedReasons)
+}
+
+func translationDashboardFamilyMetricsFallback(adminCtx AdminContext, runtime *translationFamilyRuntime, identity translationTransportIdentity, degradedReasons []map[string]any) (TranslationDashboardFamilyMetrics, []map[string]any) {
+	families, reasons := translationDashboardFamiliesFromRuntime(adminCtx, runtime, degradedReasons)
+	scopedFamilies := translationDashboardScopedFamilies(families, identity.TenantID, identity.OrgID)
+	blockedFamilies := translationDashboardBlockedFamilies(scopedFamilies)
+	missingRequiredFamilies := translationDashboardMissingRequiredFamilies(scopedFamilies)
+	return TranslationDashboardFamilyMetrics{
+		BlockedFamilies:         len(blockedFamilies),
+		MissingRequiredFamilies: len(missingRequiredFamilies),
+		TopBlocked:              blockedFamilies,
+	}, reasons
 }
 
 func (b *translationQueueBinding) translationDashboardAssignmentFallback(adminCtx AdminContext, repo TranslationAssignmentRepository, identity translationTransportIdentity) ([]TranslationAssignment, error) {

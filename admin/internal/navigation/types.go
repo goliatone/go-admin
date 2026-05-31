@@ -24,6 +24,36 @@ const (
 	MenuItemTypeSeparator = "separator"
 )
 
+// NavigationPermissionDeniedMode controls how permission-denied navigation
+// entries are handled during resolution.
+type NavigationPermissionDeniedMode string
+
+const (
+	NavigationPermissionDeniedModeHide    NavigationPermissionDeniedMode = "hide"
+	NavigationPermissionDeniedModeDisable NavigationPermissionDeniedMode = "disable"
+)
+
+const (
+	NavigationDisabledReasonCodePermissionDenied = "permission_denied"
+)
+
+// NormalizeNavigationPermissionDeniedMode returns the canonical mode.
+func NormalizeNavigationPermissionDeniedMode(mode NavigationPermissionDeniedMode) NavigationPermissionDeniedMode {
+	switch NavigationPermissionDeniedMode(strings.ToLower(strings.TrimSpace(string(mode)))) {
+	case NavigationPermissionDeniedModeDisable:
+		return NavigationPermissionDeniedModeDisable
+	case NavigationPermissionDeniedModeHide:
+		return NavigationPermissionDeniedModeHide
+	default:
+		return NavigationPermissionDeniedModeHide
+	}
+}
+
+// ResolveOptions controls navigation resolution behavior.
+type ResolveOptions struct {
+	PermissionDeniedMode NavigationPermissionDeniedMode
+}
+
 // MenuItem describes a single navigation node.
 type MenuItem struct {
 	ID            string            `json:"id,omitempty"`
@@ -53,25 +83,72 @@ type MenuItem struct {
 
 // NavigationItem represents a node in the admin navigation tree.
 type NavigationItem struct {
-	ID            string            `json:"id,omitempty"`
-	Type          string            `json:"type,omitempty"`
-	Label         string            `json:"label"`
-	LabelKey      string            `json:"label_key,omitempty"`
-	GroupTitle    string            `json:"group_title,omitempty"`
-	GroupTitleKey string            `json:"group_title_key,omitempty"`
-	Icon          string            `json:"icon,omitempty"`
-	Target        map[string]any    `json:"target,omitempty"`
-	Badge         map[string]any    `json:"badge,omitempty"`
-	Children      []NavigationItem  `json:"children,omitempty"`
-	Permissions   []string          `json:"permissions,omitempty"`
-	Locale        string            `json:"locale,omitempty"`
-	Classes       []string          `json:"classes,omitempty"`
-	Styles        map[string]string `json:"styles,omitempty"`
-	Collapsible   bool              `json:"collapsible,omitempty"`
-	Collapsed     bool              `json:"collapsed,omitempty"`
-	Position      *int              `json:"position,omitempty"`
+	ID                 string            `json:"id,omitempty"`
+	Type               string            `json:"type,omitempty"`
+	Label              string            `json:"label"`
+	LabelKey           string            `json:"label_key,omitempty"`
+	GroupTitle         string            `json:"group_title,omitempty"`
+	GroupTitleKey      string            `json:"group_title_key,omitempty"`
+	Icon               string            `json:"icon,omitempty"`
+	Target             map[string]any    `json:"target,omitempty"`
+	Badge              map[string]any    `json:"badge,omitempty"`
+	Children           []NavigationItem  `json:"children,omitempty"`
+	Permissions        []string          `json:"permissions,omitempty"`
+	Locale             string            `json:"locale,omitempty"`
+	Classes            []string          `json:"classes,omitempty"`
+	Styles             map[string]string `json:"styles,omitempty"`
+	Collapsible        bool              `json:"collapsible,omitempty"`
+	Collapsed          bool              `json:"collapsed,omitempty"`
+	Position           *int              `json:"position,omitempty"`
+	Enabled            *bool             `json:"enabled,omitempty"`
+	Disabled           bool              `json:"disabled,omitempty"`
+	ARIADisabled       bool              `json:"aria_disabled,omitempty"`
+	DisabledReason     string            `json:"disabled_reason,omitempty"`
+	DisabledReasonCode string            `json:"disabled_reason_code,omitempty"`
+	MissingPermission  string            `json:"missing_permission,omitempty"`
 
 	order int `json:"-"`
+}
+
+// MarkPermissionDenied annotates an item with transient disabled metadata.
+func (item *NavigationItem) MarkPermissionDenied(missingPermission string) {
+	if item == nil {
+		return
+	}
+	enabled := false
+	item.Enabled = &enabled
+	item.Disabled = true
+	item.ARIADisabled = true
+	item.DisabledReason = "Permission denied"
+	item.DisabledReasonCode = NavigationDisabledReasonCodePermissionDenied
+	item.MissingPermission = strings.TrimSpace(missingPermission)
+}
+
+// MarkEnabled annotates an item as explicitly enabled and clears disabled state.
+func (item *NavigationItem) MarkEnabled() {
+	if item == nil {
+		return
+	}
+	enabled := true
+	item.Enabled = &enabled
+	item.Disabled = false
+	item.ARIADisabled = false
+	item.DisabledReason = ""
+	item.DisabledReasonCode = ""
+	item.MissingPermission = ""
+}
+
+// ClearTransientState removes request-scoped navigation state from an item.
+func (item *NavigationItem) ClearTransientState() {
+	if item == nil {
+		return
+	}
+	item.Enabled = nil
+	item.Disabled = false
+	item.ARIADisabled = false
+	item.DisabledReason = ""
+	item.DisabledReasonCode = ""
+	item.MissingPermission = ""
 }
 
 // Authorizer determines whether a subject can perform an action on a resource.
