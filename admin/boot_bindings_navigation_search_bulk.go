@@ -19,7 +19,9 @@ func newNavigationBinding(a *Admin) boot.NavigationBinding {
 
 func (n *navigationBinding) Resolve(c router.Context, locale, code string) (any, map[string]map[string]string) {
 	ctx := n.admin.adminContextFromRequest(c, locale)
-	items := n.admin.nav.ResolveMenu(ctx.Context, code, locale)
+	items := n.admin.nav.ResolveMenuWithOptions(ctx.Context, code, locale, ResolveOptions{
+		PermissionDeniedMode: NormalizeNavigationPermissionDeniedMode(n.admin.config.NavPermissionDeniedMode),
+	})
 	return items, n.admin.themePayload(ctx.Context)
 }
 
