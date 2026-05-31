@@ -14,6 +14,7 @@ type translationModuleExposure struct {
 	EntryEnabled      bool   `json:"entry_enabled"`
 	Reason            string `json:"reason"`
 	ReasonCode        string `json:"reason_code"`
+	MissingPermission string `json:"missing_permission"`
 }
 
 type translationModuleExposureSnapshot struct {
@@ -49,16 +50,19 @@ func translationModuleExposureFromCapabilities(caps map[string]any, module strin
 	out := translationModuleExposure{
 		Module: module,
 	}
-	modules, _ := caps["modules"].(map[string]any)
+	modules, ok := caps["modules"].(map[string]any)
+	if !ok {
+		modules = nil
+	}
 	out.CapabilityEnabled = translationModuleEnabled(modules, module)
 	out.EntryEnabled = out.CapabilityEnabled
 
-	rawModule, _ := modules[module].(map[string]any)
-	if len(rawModule) == 0 {
+	rawModule, ok := modules[module].(map[string]any)
+	if !ok || len(rawModule) == 0 {
 		return out
 	}
-	entry, _ := rawModule["entry"].(map[string]any)
-	if len(entry) == 0 {
+	entry, ok := rawModule["entry"].(map[string]any)
+	if !ok || len(entry) == 0 {
 		return out
 	}
 	if enabled, ok := entry["enabled"].(bool); ok {
@@ -67,6 +71,12 @@ func translationModuleExposureFromCapabilities(caps map[string]any, module strin
 	if !out.EntryEnabled {
 		out.Reason = normalizeCapabilityReason(entry["reason"])
 		out.ReasonCode = normalizeCapabilityReason(entry["reason_code"])
+		if out.ReasonCode == admin.ActionDisabledReasonCodePermissionDenied {
+			out.MissingPermission = normalizeCapabilityReason(entry["missing_permission"])
+			if out.MissingPermission == "" {
+				out.MissingPermission = normalizeCapabilityReason(entry["permission"])
+			}
+		}
 	}
 	return out
 }
