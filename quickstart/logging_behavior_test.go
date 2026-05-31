@@ -152,6 +152,9 @@ func TestBuildNavItemsLogsDebugPayloadViaAdminLogger(t *testing.T) {
 	if got, ok := quickstartLogArg(entry, "permission_denied_mode"); !ok || got != admin.NavigationPermissionDeniedModeHide {
 		t.Fatalf("expected permission_denied_mode hide log arg, got %#v", got)
 	}
+	if got, ok := quickstartLogArg(entry, "source"); !ok || got != admin.ResolveSourceFallbackCMSDisabled {
+		t.Fatalf("expected fallback_cms_disabled source log arg, got %#v", got)
+	}
 	if got, ok := quickstartLogArg(entry, "menu_code"); !ok || got != DefaultNavMenuCode {
 		t.Fatalf("expected menu_code log arg, got %#v", got)
 	}

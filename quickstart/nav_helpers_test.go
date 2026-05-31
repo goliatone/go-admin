@@ -428,6 +428,42 @@ func TestBuildNavItemsForPlacementAppliesPermissionDeniedMode(t *testing.T) {
 	}
 }
 
+func TestResolveFallbackMenuItemsAppliesPermissionDeniedMode(t *testing.T) {
+	cfg := NewAdminConfig("/admin", "Admin", "en")
+	adm, err := admin.New(cfg, admin.Dependencies{})
+	if err != nil {
+		t.Fatalf("admin.New: %v", err)
+	}
+	adm.WithAuthorizer(denyAllQuickstartAuthorizer{})
+
+	items := []admin.MenuItem{
+		{
+			ID:          "utility.secure",
+			Label:       "Secure Utility",
+			Locale:      "en",
+			Permissions: []string{"admin.utility.secure"},
+			Target:      map[string]any{"path": "/secure", "key": "secure_utility"},
+		},
+	}
+
+	hidden := resolveFallbackMenuItems(context.Background(), adm, items, "en", admin.NavigationPermissionDeniedModeHide)
+	if len(hidden) != 0 {
+		t.Fatalf("expected denied fallback item hidden in hide mode, got %+v", hidden)
+	}
+
+	disabled := resolveFallbackMenuItems(context.Background(), adm, items, "en", admin.NavigationPermissionDeniedModeDisable)
+	if len(disabled) != 1 {
+		t.Fatalf("expected denied fallback item retained in disable mode, got %+v", disabled)
+	}
+	got := disabled[0]
+	if got.Enabled == nil || *got.Enabled || !got.Disabled {
+		t.Fatalf("expected disabled metadata on fallback item, got %+v", got)
+	}
+	if got.MissingPermission != "admin.utility.secure" {
+		t.Fatalf("expected missing permission metadata, got %q", got.MissingPermission)
+	}
+}
+
 func TestBuildNavItemsCMSBackedPermissionPolicyRegression(t *testing.T) {
 	cleanupModuleCommandRegistry(t)
 
@@ -474,6 +510,9 @@ func TestBuildNavItemsCMSBackedPermissionPolicyRegression(t *testing.T) {
 	}
 	if dashboard["enabled"] != false || dashboard["disabled"] != true || dashboard["disabled_reason_code"] != admin.ActionDisabledReasonCodePermissionDenied {
 		t.Fatalf("expected translation dashboard disabled metadata, got %+v", dashboard)
+	}
+	if dashboard["missing_permission"] != admin.PermAdminTranslationsView {
+		t.Fatalf("expected translation dashboard missing permission metadata, got %+v", dashboard["missing_permission"])
 	}
 
 	capabilityCfg := NewAdminConfig("/admin", "Admin", "en", WithNavPermissionDeniedMode(admin.NavigationPermissionDeniedModeDisable))
@@ -597,6 +636,7 @@ func TestTranslationEntrypointDegradationRespectsPermissionDeniedMode(t *testing
 			EntryEnabled:      false,
 			Reason:            "missing permission: admin.translations.view",
 			ReasonCode:        admin.ActionDisabledReasonCodePermissionDenied,
+			MissingPermission: admin.PermAdminTranslationsView,
 		},
 		Exchange: translationModuleExposure{
 			Module:            "exchange",
@@ -626,6 +666,9 @@ func TestTranslationEntrypointDegradationRespectsPermissionDeniedMode(t *testing
 	}
 	if dashboard["disabled_reason_code"] != admin.ActionDisabledReasonCodePermissionDenied {
 		t.Fatalf("expected dashboard permission denied reason code, got %+v", dashboard["disabled_reason_code"])
+	}
+	if dashboard["missing_permission"] != admin.PermAdminTranslationsView {
+		t.Fatalf("expected dashboard missing permission metadata, got %+v", dashboard["missing_permission"])
 	}
 	if findNavEntryByKey(disabled, "translation_exchange") != nil {
 		t.Fatalf("expected capability-disabled exchange hidden in disable mode, got %+v", disabled)

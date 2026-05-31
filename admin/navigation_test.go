@@ -103,9 +103,13 @@ func TestNavigationResolveMenuWithOptionsDisableMode(t *testing.T) {
 	nav := NewNavigation(nil, denyAllNav{})
 	nav.AddItem(NavigationItem{ID: "debug", Label: "Debug", Permissions: []string{"admin.debug.view"}})
 
-	items := nav.ResolveMenuWithOptions(context.Background(), "", "en", ResolveOptions{
+	result := nav.ResolveMenuResultWithOptions(context.Background(), "", "en", ResolveOptions{
 		PermissionDeniedMode: NavigationPermissionDeniedModeDisable,
 	})
+	if result.Source != ResolveSourceFallbackNoCMS {
+		t.Fatalf("expected fallback_no_cms source, got %q", result.Source)
+	}
+	items := result.Items
 	if len(items) != 1 {
 		t.Fatalf("expected disabled item through public facade, got %+v", items)
 	}
@@ -116,6 +120,43 @@ func TestNavigationResolveMenuWithOptionsDisableMode(t *testing.T) {
 	if got.MissingPermission != "admin.debug.view" {
 		t.Fatalf("expected missing permission metadata, got %q", got.MissingPermission)
 	}
+}
+
+func TestNavigationBindingHonorsConfiguredPermissionDeniedMode(t *testing.T) {
+	cfg := Config{
+		DefaultLocale:           "en",
+		NavPermissionDeniedMode: NavigationPermissionDeniedModeDisable,
+	}
+	adm := mustNewAdmin(t, cfg, Dependencies{})
+	adm.WithAuthorizer(denyAllNav{})
+	adm.nav.UseCMS(false)
+	adm.nav.AddFallback(NavigationItem{
+		ID:          "debug",
+		Label:       "Debug",
+		Permissions: []string{"admin.debug.view"},
+	})
+
+	c := router.NewMockContext()
+	c.On("Context").Return(context.Background())
+	c.On("IP").Return("")
+
+	itemsAny, _ := newNavigationBinding(adm).Resolve(c, "en", "")
+	items, ok := itemsAny.([]NavigationItem)
+	if !ok {
+		t.Fatalf("expected []NavigationItem, got %T", itemsAny)
+	}
+	if len(items) != 1 {
+		t.Fatalf("expected disabled item through boot navigation binding, got %+v", items)
+	}
+	got := items[0]
+	if got.Enabled == nil || *got.Enabled || !got.Disabled {
+		t.Fatalf("expected disabled metadata through boot navigation binding, got %+v", got)
+	}
+	if got.MissingPermission != "admin.debug.view" {
+		t.Fatalf("expected missing permission metadata, got %q", got.MissingPermission)
+	}
+
+	c.AssertExpectations(t)
 }
 
 func TestNavigationResolvesMenuLocaleFromCMS(t *testing.T) {
