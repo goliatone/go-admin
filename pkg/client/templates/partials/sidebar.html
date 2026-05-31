@@ -59,12 +59,28 @@
                   </button>
                   <div class="submenu space-y-0.5 mt-1 pl-8 {% if child.collapsed %}collapsed{% else %}expanded{% endif %}" data-submenu="{{ child.id }}">
                     {% for grandchild in child.children %}
-                      <a href="{{ grandchild.href|default:'#' }}" class="nav-item{% if grandchild.active %} active{% endif %}" style="height: var(--sidebar-item-height, 36px);">
-                        {% if grandchild.icon %}
-                          {{ renderMenuIcon(grandchild.icon)|safe }}
-                        {% endif %}
-                        <span class="nav-text flex-1">{{ grandchild.label }}</span>
-                      </a>
+                      {% if grandchild.enabled == false %}
+                        <button type="button"
+                                class="nav-item w-full text-left opacity-70 cursor-not-allowed"
+                                style="height: var(--sidebar-item-height, 36px);"
+                                aria-disabled="true"
+                                title="{{ grandchild.disabled_reason|default:'Unavailable' }}">
+                          {% if grandchild.icon %}
+                            {{ renderMenuIcon(grandchild.icon)|safe }}
+                          {% endif %}
+                          <span class="nav-text flex-1">{{ grandchild.label }}</span>
+                          {% if grandchild.disabled_reason_code %}
+                            <span class="text-[10px] uppercase tracking-wide text-sidebar-text-muted">{{ grandchild.disabled_reason_code }}</span>
+                          {% endif %}
+                        </button>
+                      {% else %}
+                        <a href="{{ grandchild.href|default:'#' }}" class="nav-item{% if grandchild.active %} active{% endif %}" style="height: var(--sidebar-item-height, 36px);">
+                          {% if grandchild.icon %}
+                            {{ renderMenuIcon(grandchild.icon)|safe }}
+                          {% endif %}
+                          <span class="nav-text flex-1">{{ grandchild.label }}</span>
+                        </a>
+                      {% endif %}
                     {% endfor %}
                   </div>
                 </div>
