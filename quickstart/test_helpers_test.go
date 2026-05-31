@@ -9,5 +9,7 @@ import (
 
 func resetCommandRegistryForTest(t *testing.T) {
 	t.Helper()
-	_ = commandregistry.Stop(context.Background())
+	if err := commandregistry.Stop(context.Background()); err != nil {
+		t.Errorf("stop command registry: %v", err)
+	}
 }

@@ -20,6 +20,12 @@ type denyAllQuickstartAuthorizer struct{}
 
 func (denyAllQuickstartAuthorizer) Can(context.Context, string, string) bool { return false }
 
+type denyDebugQuickstartAuthorizer struct{}
+
+func (denyDebugQuickstartAuthorizer) Can(_ context.Context, action, _ string) bool {
+	return strings.TrimSpace(action) != "admin.debug.view"
+}
+
 func TestBuildNavItemsOrdering(t *testing.T) {
 	cfg := admin.Config{
 		DefaultLocale: "en",
@@ -422,6 +428,63 @@ func TestBuildNavItemsForPlacementAppliesPermissionDeniedMode(t *testing.T) {
 	}
 }
 
+func TestBuildNavItemsCMSBackedPermissionPolicyRegression(t *testing.T) {
+	cleanupModuleCommandRegistry(t)
+
+	cfg := NewAdminConfig("/admin", "Admin", "en")
+	adm := newAdminWithCMSNavigationRegressionFixture(t, cfg, true)
+	adm.WithAuthorizer(allowAllQuickstartAuthorizer{})
+
+	superItems := BuildNavItems(adm, cfg, context.Background(), "")
+	if findNavEntryByKey(superItems, "translation_dashboard") == nil {
+		t.Fatalf("expected super-admin translation dashboard entry, got %+v", superItems)
+	}
+	if findNavEntryByKey(superItems, "debug") == nil {
+		t.Fatalf("expected super-admin debug entry, got %+v", superItems)
+	}
+
+	adm.WithAuthorizer(denyDebugQuickstartAuthorizer{})
+	hiddenItems := BuildNavItems(adm, cfg, context.Background(), "")
+	if findNavEntryByKey(hiddenItems, "debug") != nil {
+		t.Fatalf("expected debug hidden in hide mode, got %+v", hiddenItems)
+	}
+
+	cfg.NavPermissionDeniedMode = admin.NavigationPermissionDeniedModeDisable
+	disabledItems := BuildNavItems(adm, cfg, context.Background(), "")
+	debug := findNavEntryByKey(disabledItems, "debug")
+	if debug == nil {
+		t.Fatalf("expected debug visible in disable mode, got %+v", disabledItems)
+	}
+	if debug["enabled"] != false || debug["disabled"] != true || debug["disabled_reason_code"] != admin.NavigationDisabledReasonCodePermissionDenied {
+		t.Fatalf("expected debug disabled metadata, got %+v", debug)
+	}
+
+	adm.WithAuthorizer(denyTranslationPermissionAuthorizer{})
+	cfg.NavPermissionDeniedMode = admin.NavigationPermissionDeniedModeHide
+	translationHidden := BuildNavItems(adm, cfg, context.Background(), "")
+	if findNavEntryByKey(translationHidden, "translation_dashboard") != nil {
+		t.Fatalf("expected translation dashboard hidden in hide mode, got %+v", translationHidden)
+	}
+
+	cfg.NavPermissionDeniedMode = admin.NavigationPermissionDeniedModeDisable
+	translationDisabled := BuildNavItems(adm, cfg, context.Background(), "")
+	dashboard := findNavEntryByKey(translationDisabled, "translation_dashboard")
+	if dashboard == nil {
+		t.Fatalf("expected translation dashboard visible in disable mode, got %+v", translationDisabled)
+	}
+	if dashboard["enabled"] != false || dashboard["disabled"] != true || dashboard["disabled_reason_code"] != admin.ActionDisabledReasonCodePermissionDenied {
+		t.Fatalf("expected translation dashboard disabled metadata, got %+v", dashboard)
+	}
+
+	capabilityCfg := NewAdminConfig("/admin", "Admin", "en", WithNavPermissionDeniedMode(admin.NavigationPermissionDeniedModeDisable))
+	capabilityAdm := newAdminWithCMSNavigationRegressionFixture(t, capabilityCfg, false)
+	capabilityAdm.WithAuthorizer(denyTranslationPermissionAuthorizer{})
+	capabilityItems := BuildNavItems(capabilityAdm, capabilityCfg, context.Background(), "")
+	if findNavEntryByKey(capabilityItems, "translation_exchange") != nil {
+		t.Fatalf("expected capability-disabled exchange entry absent, got %+v", capabilityItems)
+	}
+}
+
 func TestBuildNavEntryTransientMetadataOverridesStaleTargetMetadata(t *testing.T) {
 	item := admin.NavigationItem{
 		ID:          "settings",
@@ -445,6 +508,168 @@ func TestBuildNavEntryTransientMetadataOverridesStaleTargetMetadata(t *testing.T
 	}
 }
 
+func newAdminWithCMSNavigationRegressionFixture(t *testing.T, cfg admin.Config, exchangeEnabled bool) *admin.Admin {
+	t.Helper()
+
+	adm, _, err := NewAdmin(
+		cfg,
+		AdapterHooks{},
+		WithTranslationProductConfig(TranslationProductConfig{
+			SchemaVersion: TranslationProductSchemaVersionCurrent,
+			Profile:       TranslationProfileFull,
+			Exchange: &TranslationExchangeConfig{
+				Enabled: exchangeEnabled,
+				Store:   &moduleRegistrarExchangeStoreStub{},
+			},
+			Queue: &TranslationQueueConfig{
+				Enabled:          true,
+				Repository:       newQuickstartTranslationQueueRepo(),
+				SupportedLocales: []string{"en", "es"},
+			},
+		}),
+	)
+	if err != nil {
+		t.Fatalf("NewAdmin: %v", err)
+	}
+	if adm.Commands() != nil {
+		t.Cleanup(adm.Commands().Reset)
+	}
+	if err := SeedNavigation(context.Background(), SeedNavigationOptions{
+		MenuSvc:  adm.MenuService(),
+		MenuCode: cfg.NavMenuCode,
+		Locale:   cfg.DefaultLocale,
+		Items: []admin.MenuItem{
+			{
+				ID:          "translations",
+				Type:        admin.MenuItemTypeGroup,
+				Label:       "Translations",
+				GroupTitle:  "Translations",
+				Collapsible: true,
+			},
+			{
+				ID:       "translation_dashboard",
+				ParentID: "translations",
+				Type:     admin.MenuItemTypeItem,
+				Label:    "Dashboard",
+				Target:   map[string]any{"type": "url", "path": "/admin/translations/dashboard", "key": "translation_dashboard"},
+			},
+			{
+				ID:       "translation_queue",
+				ParentID: "translations",
+				Type:     admin.MenuItemTypeItem,
+				Label:    "Queue",
+				Target:   map[string]any{"type": "url", "path": "/admin/content/translations", "key": "translation_queue"},
+			},
+			{
+				ID:       "translation_exchange",
+				ParentID: "translations",
+				Type:     admin.MenuItemTypeItem,
+				Label:    "Exchange",
+				Target:   map[string]any{"type": "url", "path": "/admin/translations/exchange", "key": "translation_exchange"},
+			},
+			{
+				ID:         "tools",
+				Type:       admin.MenuItemTypeGroup,
+				Label:      "Tools",
+				GroupTitle: "Tools",
+			},
+			{
+				ID:          "debug",
+				ParentID:    "tools",
+				Type:        admin.MenuItemTypeItem,
+				Label:       "Debug",
+				Target:      map[string]any{"type": "url", "path": "/admin/debug", "key": "debug"},
+				Permissions: []string{"admin.debug.view"},
+			},
+		},
+	}); err != nil {
+		t.Fatalf("SeedNavigation: %v", err)
+	}
+	adm.Navigation().UseCMS(true)
+	return adm
+}
+
+func TestTranslationEntrypointDegradationRespectsPermissionDeniedMode(t *testing.T) {
+	exposure := translationModuleExposureSnapshot{
+		Queue: translationModuleExposure{
+			Module:            "queue",
+			CapabilityEnabled: true,
+			EntryEnabled:      false,
+			Reason:            "missing permission: admin.translations.view",
+			ReasonCode:        admin.ActionDisabledReasonCodePermissionDenied,
+		},
+		Exchange: translationModuleExposure{
+			Module:            "exchange",
+			CapabilityEnabled: false,
+			EntryEnabled:      false,
+		},
+	}
+
+	hidden := applyTranslationEntrypointDegradation(translationEntrypointFixture(), exposure, admin.NavigationPermissionDeniedModeHide)
+	if findNavEntryByKey(hidden, "translation_dashboard") != nil || findNavEntryByKey(hidden, "translation_queue") != nil {
+		t.Fatalf("expected denied translation entrypoints hidden in hide mode, got %+v", hidden)
+	}
+	if findNavEntryByKey(hidden, "translation_exchange") != nil {
+		t.Fatalf("expected capability-disabled exchange hidden in hide mode, got %+v", hidden)
+	}
+	if findNavEntryByKey(hidden, "translation_settings") == nil {
+		t.Fatalf("expected unrelated child to keep Translations group alive in hide mode, got %+v", hidden)
+	}
+
+	disabled := applyTranslationEntrypointDegradation(translationEntrypointFixture(), exposure, admin.NavigationPermissionDeniedModeDisable)
+	dashboard := findNavEntryByKey(disabled, "translation_dashboard")
+	if dashboard == nil {
+		t.Fatalf("expected denied dashboard visible in disable mode, got %+v", disabled)
+	}
+	if dashboard["enabled"] != false || dashboard["disabled"] != true || dashboard["aria_disabled"] != true {
+		t.Fatalf("expected dashboard disabled metadata, got %+v", dashboard)
+	}
+	if dashboard["disabled_reason_code"] != admin.ActionDisabledReasonCodePermissionDenied {
+		t.Fatalf("expected dashboard permission denied reason code, got %+v", dashboard["disabled_reason_code"])
+	}
+	if findNavEntryByKey(disabled, "translation_exchange") != nil {
+		t.Fatalf("expected capability-disabled exchange hidden in disable mode, got %+v", disabled)
+	}
+	if findNavEntryByKey(disabled, "translations") == nil {
+		t.Fatalf("expected Translations container to remain a container, got %+v", disabled)
+	}
+}
+
+func TestTranslationEntrypointDegradationClearsStaleMetadataWhenAllowed(t *testing.T) {
+	exposure := translationModuleExposureSnapshot{
+		Queue: translationModuleExposure{
+			Module:            "queue",
+			CapabilityEnabled: true,
+			EntryEnabled:      true,
+		},
+	}
+	entries := []map[string]any{
+		{
+			"key":                  "translation_queue",
+			"enabled":              false,
+			"disabled":             true,
+			"aria_disabled":        true,
+			"disabled_reason":      "stale",
+			"disabled_reason_code": "stale_code",
+			"missing_permission":   "admin.translations.view",
+		},
+	}
+
+	out := applyTranslationEntrypointDegradation(entries, exposure, admin.NavigationPermissionDeniedModeDisable)
+	queue := findNavEntryByKey(out, "translation_queue")
+	if queue == nil {
+		t.Fatalf("expected queue entry, got %+v", out)
+	}
+	if queue["enabled"] != true {
+		t.Fatalf("expected queue enabled=true, got %+v", queue["enabled"])
+	}
+	for _, key := range []string{"disabled", "aria_disabled", "disabled_reason", "disabled_reason_code", "missing_permission"} {
+		if _, ok := queue[key]; ok {
+			t.Fatalf("expected stale %s cleared, got %+v", key, queue)
+		}
+	}
+}
+
 func hasNavItemByGroupTitle(items []map[string]any, title string) bool {
 	title = strings.TrimSpace(title)
 	if title == "" {
@@ -460,6 +685,24 @@ func hasNavItemByGroupTitle(items []map[string]any, title string) bool {
 		}
 	}
 	return false
+}
+
+func translationEntrypointFixture() []map[string]any {
+	return []map[string]any{
+		{
+			"id":           "translations",
+			"key":          "translations",
+			"type":         admin.MenuItemTypeGroup,
+			"group_title":  "Translations",
+			"has_children": true,
+			"children": []map[string]any{
+				{"id": "translation_dashboard", "key": "translation_dashboard", "label": "Dashboard"},
+				{"id": "translation_queue", "key": "translation_queue", "label": "Queue"},
+				{"id": "translation_exchange", "key": "translation_exchange", "label": "Exchange"},
+				{"id": "translation_settings", "key": "translation_settings", "label": "Settings"},
+			},
+		},
+	}
 }
 
 func findNavEntryByKey(items []map[string]any, key string) map[string]any {

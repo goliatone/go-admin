@@ -21,11 +21,17 @@ func newQuickstartTranslationQueueRepo() admin.TranslationAssignmentRepository {
 
 func cleanupGlobalCommandRegistry(t *testing.T) {
 	t.Helper()
+	stopGlobalCommandRegistry(t)
 	t.Cleanup(func() {
-		if err := registry.Stop(context.Background()); err != nil {
-			t.Errorf("stop command registry: %v", err)
-		}
+		stopGlobalCommandRegistry(t)
 	})
+}
+
+func stopGlobalCommandRegistry(t *testing.T) {
+	t.Helper()
+	if err := registry.Stop(context.Background()); err != nil {
+		t.Errorf("stop command registry: %v", err)
+	}
 }
 
 func TestWithTranslationProfileSetsProductConfig(t *testing.T) {
@@ -1505,6 +1511,7 @@ func TestTranslationProductProfileModeRouteAndNavDeterminism(t *testing.T) {
 			if adm.Commands() != nil {
 				t.Cleanup(adm.Commands().Reset)
 			}
+			adm.WithAuthorizer(allowAllQuickstartAuthorizer{})
 
 			captureRouter := newUIRoutesCaptureRouter()
 			if err := RegisterAdminUIRoutes(captureRouter, cfg, adm, nil, WithUITranslationDashboardRoute(true)); err != nil {

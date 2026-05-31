@@ -24,11 +24,17 @@ type moduleRegistrarExchangeStoreStub struct{}
 
 func cleanupModuleCommandRegistry(t *testing.T) {
 	t.Helper()
+	stopModuleCommandRegistry(t)
 	t.Cleanup(func() {
-		if err := commandregistry.Stop(context.Background()); err != nil {
-			t.Errorf("stop command registry: %v", err)
-		}
+		stopModuleCommandRegistry(t)
 	})
+}
+
+func stopModuleCommandRegistry(t *testing.T) {
+	t.Helper()
+	if err := commandregistry.Stop(context.Background()); err != nil {
+		t.Errorf("stop command registry: %v", err)
+	}
 }
 
 func (m stubModule) Manifest() admin.ModuleManifest {
