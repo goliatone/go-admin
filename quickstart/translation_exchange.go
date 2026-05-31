@@ -23,7 +23,7 @@ type TranslationExchangeConfig struct {
 	// CommandExecutionMode applies per-command routing policy overrides for translation exchange commands.
 	// Hosts can still override specific command ids through WithCommandExecutionPolicy.
 	CommandExecutionMode gocommand.ExecutionMode     `json:"command_execution_mode,omitempty"`
-	UI                   TranslationExchangeUIConfig `json:"ui,omitempty"`
+	UI                   TranslationExchangeUIConfig `json:"ui"`
 
 	Store        admin.TranslationExchangeStore        `json:"-"`
 	RuntimeStore admin.TranslationExchangeRuntimeStore `json:"-"`
@@ -48,8 +48,8 @@ type TranslationExchangeUIConfig struct {
 	DefaultTargetLocales []string                            `koanf:"default_target_locales" json:"default_target_locales,omitempty" yaml:"default_target_locales,omitempty"`
 	IncludeSourceHash    *bool                               `koanf:"include_source_hash" json:"include_source_hash,omitempty" yaml:"include_source_hash,omitempty"`
 	IncludeExamples      *bool                               `koanf:"include_examples" json:"include_examples,omitempty" yaml:"include_examples,omitempty"`
-	Template             TranslationExchangeTemplateOption   `koanf:"template" json:"template,omitempty" yaml:"template,omitempty"`
-	Apply                TranslationExchangeApplyDefaults    `koanf:"apply" json:"apply,omitempty" yaml:"apply,omitempty"`
+	Template             TranslationExchangeTemplateOption   `koanf:"template" json:"template" yaml:"template,omitempty"`
+	Apply                TranslationExchangeApplyDefaults    `koanf:"apply" json:"apply" yaml:"apply,omitempty"`
 }
 
 // TranslationExchangeLocaleOption describes a selectable locale.
