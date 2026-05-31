@@ -6,9 +6,12 @@ import type {
   ApplyResponse,
   ApplyResolutionDecision,
   ExportRow,
+  LocaleOption,
   LongPollOptions,
+  ResourceOption,
   TranslationExchangeConfig,
   TranslationExchangeSelectors,
+  TranslationExchangeUIConfig,
   TranslationExchangeStageDecision,
   ToastNotifier,
 } from "./types.js";
@@ -101,6 +104,186 @@ interface HistoryState {
   jobStatus: string;
   selectedJobId: string;
   message: string;
+}
+
+interface NormalizedExchangeUIConfig {
+  configured: boolean;
+  blockedReason: string;
+  resources: ResourceOption[];
+  sourceLocales: LocaleOption[];
+  targetLocales: LocaleOption[];
+  defaultResources: string[];
+  defaultTargetLocales: string[];
+  defaultSourceLocale: string;
+  includeSourceHash: boolean;
+  includeExamples?: boolean;
+  apply: {
+    allowCreateMissing: boolean;
+    allowSourceHashOverride: boolean;
+    continueOnError: boolean;
+    dryRun: boolean;
+  };
+}
+
+const DEMO_RESOURCES: ResourceOption[] = [
+  { value: "pages", label: "pages" },
+  { value: "posts", label: "posts" },
+];
+const DEMO_SOURCE_LOCALES: LocaleOption[] = ["en", "es", "fr", "de"].map((code) => ({
+  code,
+  label: code.toUpperCase(),
+}));
+const DEMO_TARGET_LOCALES: LocaleOption[] = ["es", "fr", "de", "it"].map((code) => ({
+  code,
+  label: code.toUpperCase(),
+}));
+
+function normalizeLocaleCode(value: unknown): string {
+  return String(value ?? "").trim().toLowerCase();
+}
+
+function normalizeResourceID(value: unknown): string {
+  return String(value ?? "").trim();
+}
+
+function isValidExchangeLocaleCode(value: string): boolean {
+  return Boolean(value) && value !== "none" && value !== "mixed";
+}
+
+function hasHostExchangeUIConfig(raw: TranslationExchangeUIConfig | null | undefined): boolean {
+  if (!raw || typeof raw !== "object") return false;
+  return raw.configured === true ||
+    Boolean(String(raw.source_locale ?? "").trim()) ||
+    (Array.isArray(raw.source_locales) && raw.source_locales.length > 0) ||
+    (Array.isArray(raw.target_locales) && raw.target_locales.length > 0) ||
+    (Array.isArray(raw.resources) && raw.resources.length > 0) ||
+    (Array.isArray(raw.default_resources) && raw.default_resources.length > 0) ||
+    (Array.isArray(raw.default_target_locales) && raw.default_target_locales.length > 0) ||
+    typeof raw.include_source_hash === "boolean" ||
+    typeof raw.include_examples === "boolean" ||
+    Boolean(raw.template && Object.keys(raw.template).length > 0) ||
+    Boolean(raw.apply && Object.keys(raw.apply).length > 0);
+}
+
+function localeLabel(code: string, fallback: unknown, labels: Record<string, string>): string {
+  const mapped = String(labels[code] ?? "").trim();
+  if (mapped) return mapped;
+  const direct = String(fallback ?? "").trim();
+  if (direct && normalizeLocaleCode(direct) !== code) return direct;
+  return code.toUpperCase();
+}
+
+function normalizeLocaleOptions(
+  options: LocaleOption[] | undefined,
+  labels: Record<string, string>,
+): LocaleOption[] {
+  const seen = new Set<string>();
+  const out: LocaleOption[] = [];
+  for (const option of Array.isArray(options) ? options : []) {
+    const code = normalizeLocaleCode(option?.code);
+    if (!isValidExchangeLocaleCode(code) || seen.has(code)) continue;
+    seen.add(code);
+    out.push({ code, label: localeLabel(code, option?.label, labels) });
+  }
+  return out;
+}
+
+function normalizeResourceOptions(options: ResourceOption[] | undefined): ResourceOption[] {
+  const seen = new Set<string>();
+  const out: ResourceOption[] = [];
+  for (const option of Array.isArray(options) ? options : []) {
+    const value = normalizeResourceID(option?.value ?? option?.id);
+    if (!value || seen.has(value)) continue;
+    seen.add(value);
+    out.push({ value, id: value, label: String(option?.label ?? value).trim() || value });
+  }
+  return out;
+}
+
+function filterValues(values: unknown, allowed: Set<string>, exclude = ""): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const value of Array.isArray(values) ? values : []) {
+    const normalized = normalizeLocaleCode(value);
+    if (!normalized || normalized === exclude || !allowed.has(normalized) || seen.has(normalized)) {
+      continue;
+    }
+    seen.add(normalized);
+    out.push(normalized);
+  }
+  return out;
+}
+
+function filterResources(values: unknown, allowed: Set<string>): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const value of Array.isArray(values) ? values : []) {
+    const normalized = normalizeResourceID(value);
+    if (!normalized || !allowed.has(normalized) || seen.has(normalized)) continue;
+    seen.add(normalized);
+    out.push(normalized);
+  }
+  return out;
+}
+
+function normalizeExchangeUIConfig(raw: TranslationExchangeUIConfig | null | undefined): NormalizedExchangeUIConfig {
+  if (!hasHostExchangeUIConfig(raw)) {
+    return {
+      configured: false,
+      blockedReason: "",
+      resources: DEMO_RESOURCES,
+      sourceLocales: DEMO_SOURCE_LOCALES,
+      targetLocales: DEMO_TARGET_LOCALES,
+      defaultResources: ["pages"],
+      defaultTargetLocales: ["es", "fr"],
+      defaultSourceLocale: "en",
+      includeSourceHash: true,
+      apply: {
+        allowCreateMissing: false,
+        allowSourceHashOverride: false,
+        continueOnError: true,
+        dryRun: false,
+      },
+    };
+  }
+
+  const labels = raw?.locale_labels ?? {};
+  const resources = normalizeResourceOptions(raw?.resources);
+  const sourceLocales = normalizeLocaleOptions(raw?.source_locales, labels);
+  const configuredSourceLocale = normalizeLocaleCode(raw?.source_locale);
+  const sourceLocale = isValidExchangeLocaleCode(configuredSourceLocale)
+    ? configuredSourceLocale
+    : sourceLocales[0]?.code || "";
+  const targetLocales = normalizeLocaleOptions(raw?.target_locales, labels).filter(
+    (option) => option.code && option.code !== sourceLocale,
+  );
+  const resourceSet = new Set(resources.map((option) => option.value ?? ""));
+  const targetSet = new Set(targetLocales.map((option) => option.code));
+  const defaultResources = filterResources(raw?.default_resources, resourceSet);
+  const defaultTargetLocales = filterValues(raw?.default_target_locales, targetSet, sourceLocale);
+  const blocked: string[] = [];
+  if (resources.length === 0) blocked.push("No exchange resources are configured.");
+  if (sourceLocales.length === 0 || !sourceLocale) blocked.push("No source locale is configured.");
+  if (targetLocales.length === 0) blocked.push("No target locales are configured.");
+
+  return {
+    configured: true,
+    blockedReason: blocked.join(" "),
+    resources,
+    sourceLocales,
+    targetLocales,
+    defaultResources: defaultResources.length > 0 ? defaultResources : resources.map((option) => option.value ?? ""),
+    defaultTargetLocales: defaultTargetLocales.length > 0 ? defaultTargetLocales : targetLocales.map((option) => option.code),
+    defaultSourceLocale: sourceLocale,
+    includeSourceHash: raw?.include_source_hash !== false,
+    includeExamples: typeof raw?.include_examples === "boolean" ? raw.include_examples : undefined,
+    apply: {
+      allowCreateMissing: raw?.apply?.allow_create_missing === true,
+      allowSourceHashOverride: raw?.apply?.allow_source_hash_override === true,
+      continueOnError: raw?.apply?.continue_on_error !== false,
+      dryRun: raw?.apply?.dry_run === true,
+    },
+  };
 }
 
 function jobStatusSeverity(status: string): BadgeSeverity {
@@ -278,6 +461,7 @@ function normalizeRowIndex(row: ImportRow, index: number): ImportRow {
 
 export class TranslationExchangeManager {
   private readonly config: TranslationExchangeConfig;
+  private readonly exchangeUI: NormalizedExchangeUIConfig;
   private readonly selectors: TranslationExchangeSelectors;
   private readonly toast: ToastNotifier | null;
   private root: HTMLElement | null = null;
@@ -334,6 +518,17 @@ export class TranslationExchangeManager {
     toast?: ToastNotifier,
   ) {
     this.config = config;
+    this.exchangeUI = normalizeExchangeUIConfig(config.exchangeUIConfig);
+    this.exportState.draft = {
+      resources: this.exchangeUI.defaultResources,
+      sourceLocale: this.exchangeUI.defaultSourceLocale,
+      targetLocales: this.exchangeUI.defaultTargetLocales,
+      includeSourceHash: this.exchangeUI.includeSourceHash,
+    };
+    this.applyState.allowCreateMissing = this.exchangeUI.apply.allowCreateMissing;
+    this.applyState.allowSourceHashOverride = this.exchangeUI.apply.allowSourceHashOverride;
+    this.applyState.continueOnError = this.exchangeUI.apply.continueOnError;
+    this.applyState.dryRun = this.exchangeUI.apply.dryRun;
     this.selectors = { ...DEFAULT_SELECTORS, ...selectors };
     this.toast = toast ?? ((window as { toastManager?: ToastNotifier }).toastManager ?? null);
   }
@@ -359,6 +554,9 @@ export class TranslationExchangeManager {
   }
 
   private get includeExamples(): boolean {
+    if (typeof this.exchangeUI.includeExamples === "boolean") {
+      return this.exchangeUI.includeExamples;
+    }
     return this.config.includeExamples !== false;
   }
 
@@ -368,10 +566,13 @@ export class TranslationExchangeManager {
   ): ApplyRequest {
     return {
       rows,
-      allow_create_missing: overrides.allow_create_missing === true,
-      allow_source_hash_override: overrides.allow_source_hash_override === true,
-      continue_on_error: overrides.continue_on_error === true,
-      dry_run: overrides.dry_run === true,
+      allow_create_missing:
+        overrides.allow_create_missing ?? this.exchangeUI.apply.allowCreateMissing,
+      allow_source_hash_override:
+        overrides.allow_source_hash_override ?? this.exchangeUI.apply.allowSourceHashOverride,
+      continue_on_error:
+        overrides.continue_on_error ?? this.exchangeUI.apply.continueOnError,
+      dry_run: overrides.dry_run ?? this.exchangeUI.apply.dryRun,
       async: overrides.async !== false,
       retry_job_id:
         typeof overrides.retry_job_id === "string" ? overrides.retry_job_id : undefined,
@@ -614,15 +815,27 @@ export class TranslationExchangeManager {
 
   private readExportDraft(form: Element): ExportDraft {
     const data = new FormData(form as HTMLFormElement);
+    const allowedResources = new Set(this.exchangeUI.resources.map((option) => option.value ?? ""));
+    const allowedTargets = new Set(this.exchangeUI.targetLocales.map((option) => option.code));
+    const selectedSource = normalizeLocaleCode(data.get("source_locale"));
+    const sourceLocale = this.exchangeUI.sourceLocales.some((option) => option.code === selectedSource)
+      ? selectedSource
+      : this.exchangeUI.defaultSourceLocale;
     return {
-      resources: data.getAll("resources").map(String),
-      sourceLocale: String(data.get("source_locale") ?? "en"),
-      targetLocales: data.getAll("target_locales").map(String),
+      resources: filterResources(data.getAll("resources"), allowedResources),
+      sourceLocale,
+      targetLocales: filterValues(data.getAll("target_locales"), allowedTargets, sourceLocale),
       includeSourceHash: data.has("include_source_hash"),
     };
   }
 
   private async submitExport(form: HTMLFormElement): Promise<void> {
+    if (this.exchangeUI.blockedReason) {
+      this.exportState.status = "error";
+      this.exportState.message = this.exchangeUI.blockedReason;
+      this.render();
+      return;
+    }
     const draft = this.readExportDraft(form);
     this.exportState.draft = draft;
     const warnings = exportWarnings(draft);
@@ -1300,42 +1513,48 @@ export class TranslationExchangeManager {
 
   private renderExportStep(warnings: string[], examples: TranslationExchangeJob[]): string {
     const job = this.exportState.job;
+    const blocked = this.exchangeUI.blockedReason;
     return `
       ${this.renderExampleLinks(examples.filter((entry) => entry.kind === "export"))}
+      ${blocked ? `
+        <div class="${MUTED_PANEL_TIGHT} text-sm text-amber-800">
+          ${escapeHTML(blocked)}
+        </div>
+      ` : ""}
       <section class="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
         <form data-export-form="true" class="space-y-5 ${CARD_PANEL}">
           <div class="grid gap-5 md:grid-cols-2">
             <fieldset>
               <legend class="text-sm font-semibold text-gray-900">Resources</legend>
               <div class="mt-3 space-y-2">
-                ${["pages", "posts"].map((resource) => `
+                ${this.exchangeUI.resources.map((resource) => `
                   <label class="flex items-center gap-3 text-sm text-gray-700">
-                    <input type="checkbox" class="${INPUT_CHECKBOX}" name="resources" value="${resource}" ${
-                      this.exportState.draft.resources.includes(resource) ? "checked" : ""
+                    <input type="checkbox" class="${INPUT_CHECKBOX}" name="resources" value="${escapeHTML(resource.value ?? "")}" ${
+                      this.exportState.draft.resources.includes(resource.value ?? "") ? "checked" : ""
                     }>
-                    <span>${resource}</span>
+                    <span>${escapeHTML(resource.label)}</span>
                   </label>`).join("")}
               </div>
             </fieldset>
             <label class="block text-sm font-semibold text-gray-900">
               Source locale
               <select name="source_locale" class="mt-3 ${INPUT_SELECT}">
-                ${["en", "es", "fr", "de"].map((locale) => `
-                  <option value="${locale}" ${
-                    this.exportState.draft.sourceLocale === locale ? "selected" : ""
-                  }>${locale.toUpperCase()}</option>`).join("")}
+                ${this.exchangeUI.sourceLocales.map((locale) => `
+                  <option value="${escapeHTML(locale.code)}" ${
+                    this.exportState.draft.sourceLocale === locale.code ? "selected" : ""
+                  }>${escapeHTML(locale.label)}</option>`).join("")}
               </select>
             </label>
           </div>
           <fieldset>
             <legend class="text-sm font-semibold text-gray-900">Target locales</legend>
             <div class="mt-3 flex flex-wrap gap-3">
-              ${["es", "fr", "de", "it"].map((locale) => `
+              ${this.exchangeUI.targetLocales.map((locale) => `
                 <label class="inline-flex items-center gap-2 rounded-full border border-gray-200 px-3 py-2 text-sm text-gray-700">
-                  <input type="checkbox" class="${INPUT_CHECKBOX}" name="target_locales" value="${locale}" ${
-                    this.exportState.draft.targetLocales.includes(locale) ? "checked" : ""
+                  <input type="checkbox" class="${INPUT_CHECKBOX}" name="target_locales" value="${escapeHTML(locale.code)}" ${
+                    this.exportState.draft.targetLocales.includes(locale.code) ? "checked" : ""
                   }>
-                  <span>${locale.toUpperCase()}</span>
+                  <span>${escapeHTML(locale.label)}</span>
                 </label>`).join("")}
             </div>
           </fieldset>
@@ -1346,7 +1565,7 @@ export class TranslationExchangeManager {
             <span>Include source hashes so validate and apply can detect stale source drift.</span>
           </label>
           <div class="flex flex-wrap items-center gap-3">
-            <button class="${BTN_PRIMARY}" type="submit">Create export package</button>
+            <button class="${BTN_PRIMARY}" type="submit" ${blocked ? "disabled" : ""}>Create export package</button>
             <span class="text-sm text-gray-600">${escapeHTML(this.exportState.message)}</span>
           </div>
         </form>

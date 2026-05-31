@@ -12,10 +12,10 @@
       <p class="text-sm text-gray-500 mt-1">Export packages, validate imports, and apply translation files with conflict resolution.</p>
     </div>
     <div class="flex items-center gap-3">
-      <a href="{{ translation_exchange_api_path|default:"" }}/template?format=json"
+      <a href="{% if translation_exchange_ui_config.template.href %}{{ translation_exchange_ui_config.template.href }}{% else %}{{ translation_exchange_api_path|default:"" }}/template?format={{ translation_exchange_ui_config.template.format|default:"json" }}{% endif %}"
          class="btn btn-secondary"
-         download="translation_exchange_template.json">
-        Download JSON Template
+         download="{{ translation_exchange_ui_config.template.filename|default:"translation_exchange_template.json" }}">
+        {{ translation_exchange_ui_config.template.label|default:"Download JSON Template" }}
       </a>
     </div>
   </div>
@@ -36,11 +36,13 @@ const basePath = '{{ base_path }}';
 const apiBasePath = '{{ api_base_path|default:"" }}';
 const rawApiPath = '{{ translation_exchange_api_path|default:"" }}' || (apiBasePath ? `${apiBasePath}/translations/exchange` : `${basePath}/api/translations/exchange`);
 const apiPath = rawApiPath.includes('/exchange') ? rawApiPath : `${rawApiPath.replace(/\/$/, '')}/exchange`;
+const exchangeUIConfig = {{ toJSON(translation_exchange_ui_config)|safe }};
 
 const manager = new TranslationExchangeManager({
   apiPath,
   basePath,
   includeExamples: true,
+  exchangeUIConfig,
 });
 
 manager.init();

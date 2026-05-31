@@ -32,6 +32,9 @@ export type {
   ResultSummary,
   TranslationExchangeAnalyticsEvent,
   ToastNotifier,
+  TranslationExchangeApplyDefaults,
+  TranslationExchangeTemplateOption,
+  TranslationExchangeUIConfig,
 } from "./types.js";
 export type {
   TranslationExchangeConflictRow,

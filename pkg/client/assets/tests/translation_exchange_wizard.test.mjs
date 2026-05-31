@@ -194,6 +194,169 @@ test("translation exchange wizard: export step renders seeded example downloads 
   }
 });
 
+test("translation exchange wizard: configured locales and resources drive export payload", async () => {
+  const root = setupDOM();
+  let exportRequestBody = null;
+  const fetchMock = mock.fn(async (input, init = {}) => {
+    const url = String(input);
+    if (url.includes("/jobs")) {
+      return jsonResponse({ history: { items: [], total: 0 }, meta: {} });
+    }
+    if (url.endsWith("/export")) {
+      exportRequestBody = JSON.parse(init.body);
+      return jsonResponse({ row_count: 0, rows: [] });
+    }
+    throw new Error(`unexpected url ${url}`);
+  });
+  globalThis.fetch = fetchMock;
+
+  try {
+    const manager = new TranslationExchangeManager({
+      apiPath: "/admin/api/translations/exchange",
+      basePath: "/admin",
+      exchangeUIConfig: {
+        configured: true,
+        source_locale: "en",
+        source_locales: [{ code: "en", label: "EN" }],
+        target_locales: [
+          { code: "bo", label: "BO" },
+          { code: "zh", label: "ZH" },
+        ],
+        resources: [{ id: "Archive_Items", label: "Archive items" }],
+        default_resources: ["Archive_Items"],
+        default_target_locales: ["bo", "zh"],
+      },
+    });
+    manager.init();
+    await flush();
+    await flush();
+
+    assert.match(root.innerHTML, /Archive items/);
+    assert.match(root.innerHTML, />EN</);
+    assert.match(root.innerHTML, />BO</);
+    assert.match(root.innerHTML, />ZH</);
+    assert.doesNotMatch(root.innerHTML, />ES</);
+    assert.doesNotMatch(root.innerHTML, />FR</);
+    assert.doesNotMatch(root.innerHTML, />DE</);
+    assert.doesNotMatch(root.innerHTML, />IT</);
+    assert.doesNotMatch(root.innerHTML, /posts/);
+
+    root
+      .querySelector('[data-export-form="true"]')
+      .dispatchEvent(new window.Event("submit", { bubbles: true, cancelable: true }));
+    await waitFor(() => {
+      assert.ok(exportRequestBody);
+      return true;
+    });
+    assert.deepEqual(exportRequestBody.filter.resources, ["Archive_Items"]);
+    assert.equal(exportRequestBody.filter.source_locale, "en");
+    assert.deepEqual(exportRequestBody.filter.target_locales, ["bo", "zh"]);
+  } finally {
+    cleanupDOM();
+  }
+});
+
+test("translation exchange wizard: missing UI config keeps demo controls", async () => {
+  const root = setupDOM();
+  globalThis.fetch = mock.fn(async (input) => {
+    const url = String(input);
+    if (url.includes("/jobs")) {
+      return jsonResponse({ history: { items: [], total: 0 }, meta: {} });
+    }
+    throw new Error(`unexpected url ${url}`);
+  });
+
+  try {
+    const manager = new TranslationExchangeManager({
+      apiPath: "/admin/api/translations/exchange",
+      basePath: "/admin",
+    });
+    manager.init();
+    await flush();
+    await flush();
+
+    assert.match(root.innerHTML, /pages/);
+    assert.match(root.innerHTML, /posts/);
+    assert.match(root.innerHTML, />ES</);
+    assert.match(root.innerHTML, />FR</);
+    assert.match(root.innerHTML, />DE</);
+    assert.match(root.innerHTML, />IT</);
+  } finally {
+    cleanupDOM();
+  }
+});
+
+test("translation exchange wizard: unusable host config renders blocked export state", async () => {
+  const root = setupDOM();
+  globalThis.fetch = mock.fn(async (input) => {
+    const url = String(input);
+    if (url.includes("/jobs")) {
+      return jsonResponse({ history: { items: [], total: 0 }, meta: {} });
+    }
+    throw new Error(`unexpected url ${url}`);
+  });
+
+  try {
+    const manager = new TranslationExchangeManager({
+      apiPath: "/admin/api/translations/exchange",
+      basePath: "/admin",
+      exchangeUIConfig: {
+        configured: true,
+        resources: [{ id: "archive_items", label: "Archive items" }],
+      },
+    });
+    manager.init();
+    await flush();
+    await flush();
+
+    assert.match(root.innerHTML, /No source locale is configured/i);
+    assert.match(root.innerHTML, /No target locales are configured/i);
+    assert.match(root.innerHTML, /Archive items/);
+    assert.doesNotMatch(root.innerHTML, /posts/);
+    assert.ok(root.querySelector('[data-export-form="true"] button[type="submit"]').disabled);
+  } finally {
+    cleanupDOM();
+  }
+});
+
+test("translation exchange wizard: sentinel target locales are rejected from host config", async () => {
+  const root = setupDOM();
+  globalThis.fetch = mock.fn(async (input) => {
+    const url = String(input);
+    if (url.includes("/jobs")) {
+      return jsonResponse({ history: { items: [], total: 0 }, meta: {} });
+    }
+    throw new Error(`unexpected url ${url}`);
+  });
+
+  try {
+    const manager = new TranslationExchangeManager({
+      apiPath: "/admin/api/translations/exchange",
+      basePath: "/admin",
+      exchangeUIConfig: {
+        configured: true,
+        source_locale: "en",
+        source_locales: [{ code: "en", label: "EN" }],
+        target_locales: [
+          { code: "none", label: "None" },
+          { code: "mixed", label: "Mixed" },
+        ],
+        resources: [{ id: "archive_items", label: "Archive items" }],
+      },
+    });
+    manager.init();
+    await flush();
+    await flush();
+
+    assert.match(root.innerHTML, /No target locales are configured/i);
+    assert.doesNotMatch(root.innerHTML, />None</);
+    assert.doesNotMatch(root.innerHTML, />Mixed</);
+    assert.ok(root.querySelector('[data-export-form="true"] button[type="submit"]').disabled);
+  } finally {
+    cleanupDOM();
+  }
+});
+
 test("translation exchange wizard: validate step stages accept or reject decisions", async () => {
   const root = setupDOM();
   const fetchMock = mock.fn(async (input, init = {}) => {

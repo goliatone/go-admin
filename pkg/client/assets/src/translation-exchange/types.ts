@@ -10,6 +10,7 @@ export interface TranslationExchangeConfig {
   rootSelector?: string;
   historyPath?: string;
   includeExamples?: boolean;
+  exchangeUIConfig?: TranslationExchangeUIConfig | null;
   analyticsTarget?: EventTarget;
   telemetryEnabled?: boolean;
 }
@@ -24,8 +25,38 @@ export interface LocaleOption {
 }
 
 export interface ResourceOption {
-  value: string;
+  id?: string;
+  value?: string;
   label: string;
+}
+
+export interface TranslationExchangeTemplateOption {
+  label?: string;
+  format?: string;
+  href?: string;
+  filename?: string;
+}
+
+export interface TranslationExchangeApplyDefaults {
+  allow_create_missing?: boolean;
+  allow_source_hash_override?: boolean;
+  continue_on_error?: boolean;
+  dry_run?: boolean;
+}
+
+export interface TranslationExchangeUIConfig {
+  configured?: boolean;
+  source_locale?: string;
+  source_locales?: LocaleOption[];
+  target_locales?: LocaleOption[];
+  locale_labels?: Record<string, string>;
+  resources?: ResourceOption[];
+  default_resources?: string[];
+  default_target_locales?: string[];
+  include_source_hash?: boolean;
+  include_examples?: boolean;
+  template?: TranslationExchangeTemplateOption;
+  apply?: TranslationExchangeApplyDefaults;
 }
 
 export interface ExportRequest {
