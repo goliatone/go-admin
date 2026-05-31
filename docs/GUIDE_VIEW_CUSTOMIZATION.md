@@ -330,6 +330,57 @@ if err := quickstart.RegisterAuthUIRoutes(
 
 If the block is empty, the login page renders normally with no extra content.
 
+### Auth UI SSO providers
+
+The default login template can render SSO sign-in controls from
+`sso_providers`, a display-only view context value injected by an integration
+through `WithAuthUIViewContextBuilder(...)`. go-admin only renders the supplied
+provider entries; provider discovery, OIDC configuration, begin-login routes,
+callbacks, and secret filtering belong in the auth integration.
+
+Each provider entry is a map with these keys:
+
+| Key | Type | Description |
+|-----|------|-------------|
+| `key` | `string` | Stable non-secret provider identifier |
+| `label` | `string` | Required user-facing provider name |
+| `login_url` | `string` | Required begin-login URL for enabled providers |
+| `icon_class` | `string` | Optional CSS/icon class metadata |
+| `icon_url` | `string` | Optional image/icon asset URL |
+| `disabled_reason` | `string` | Optional non-secret unavailable reason |
+
+Rendering rules:
+
+- Missing or empty `sso_providers` omits the SSO divider and provider section.
+- Entries without a usable `label` are ignored.
+- Entries with `label`, `login_url`, and no `disabled_reason` render as links.
+- Entries with `disabled_reason` render disabled and never include an `href`.
+- A usable `login_url` is a non-empty relative URL or `http`/`https` URL
+  without control characters; blank URLs and unsafe schemes are filtered.
+- The section renders only when at least one provider remains after malformed
+  entries are filtered.
+
+Example:
+
+```go
+quickstart.WithAuthUIViewContextBuilder(func(ctx router.ViewContext, c router.Context) router.ViewContext {
+	ctx["sso_providers"] = []map[string]any{
+		{
+			"key":        "acme",
+			"label":      "Acme ID",
+			"login_url":  "/admin/auth/sso/acme",
+			"icon_class": "iconoir-key",
+		},
+		{
+			"key":             "okta",
+			"label":           "Okta",
+			"disabled_reason": "Temporarily unavailable",
+		},
+	}
+	return ctx
+})
+```
+
 When overriding auth or admin templates, preserve the CSRF helpers:
 
 - Keep `{{ csrf_meta|safe }}` in the page `<head>` so browser scripts can read `meta[name="csrf-token"]`.
@@ -545,6 +596,7 @@ For login/registration pages via `WithAuthUIViewContext`:
 | `password_reset_path` | `string` | Password reset page path |
 | `password_reset_confirm_path` | `string` | Password reset confirm path |
 | `register_path` | `string` | Registration page path |
+| `sso_providers` | `[]map[string]any` | Optional display-only SSO providers supplied by integrations |
 
 ### Route-specific API paths
 
