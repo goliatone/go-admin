@@ -3,6 +3,8 @@ package quickstart
 import (
 	"reflect"
 	"testing"
+
+	"github.com/goliatone/go-admin/admin"
 )
 
 func TestNewAdminConfigDefaults(t *testing.T) {
@@ -26,6 +28,9 @@ func TestNewAdminConfigDefaults(t *testing.T) {
 	if cfg.NavMenuCode != DefaultNavMenuCode {
 		t.Fatalf("expected default nav menu code %q, got %q", DefaultNavMenuCode, cfg.NavMenuCode)
 	}
+	if cfg.NavPermissionDeniedMode != admin.NavigationPermissionDeniedModeHide {
+		t.Fatalf("expected default nav permission denied mode hide, got %q", cfg.NavPermissionDeniedMode)
+	}
 	if cfg.ThemeTokens["primary"] == "" || cfg.ThemeTokens["accent"] == "" {
 		t.Fatalf("expected default theme tokens, got %+v", cfg.ThemeTokens)
 	}
@@ -40,6 +45,7 @@ func TestNewAdminConfigOverrides(t *testing.T) {
 		WithThemeTokens(map[string]string{"primary": "#000000"}),
 		WithThemeAssetURLs(map[string]string{"logo": "/brand/logo.svg", "icon": "/brand/icon.svg"}),
 		WithNavMenuCode("custom_menu"),
+		WithNavPermissionDeniedMode(admin.NavigationPermissionDeniedModeDisable),
 	)
 
 	if cfg.BasePath != "/root" {
@@ -51,6 +57,9 @@ func TestNewAdminConfigOverrides(t *testing.T) {
 	if cfg.NavMenuCode != "custom_menu" {
 		t.Fatalf("expected nav menu override, got %q", cfg.NavMenuCode)
 	}
+	if cfg.NavPermissionDeniedMode != admin.NavigationPermissionDeniedModeDisable {
+		t.Fatalf("expected nav permission denied mode override, got %q", cfg.NavPermissionDeniedMode)
+	}
 	if cfg.ThemeTokens["primary"] != "#000000" {
 		t.Fatalf("expected theme token override, got %+v", cfg.ThemeTokens)
 	}
@@ -59,6 +68,19 @@ func TestNewAdminConfigOverrides(t *testing.T) {
 	}
 	if cfg.ThemeAssets["logo"] != "/brand/logo.svg" || cfg.ThemeAssets["icon"] != "/brand/icon.svg" {
 		t.Fatalf("expected theme asset URL overrides, got %+v", cfg.ThemeAssets)
+	}
+}
+
+func TestWithNavPermissionDeniedModeNormalizesUnknownValues(t *testing.T) {
+	cfg := NewAdminConfig(
+		"/admin",
+		"Admin",
+		"en",
+		WithNavPermissionDeniedMode(admin.NavigationPermissionDeniedMode("visible")),
+	)
+
+	if cfg.NavPermissionDeniedMode != admin.NavigationPermissionDeniedModeHide {
+		t.Fatalf("expected unknown nav permission denied mode to normalize to hide, got %q", cfg.NavPermissionDeniedMode)
 	}
 }
 

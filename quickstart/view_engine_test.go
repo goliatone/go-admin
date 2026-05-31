@@ -271,6 +271,89 @@ func TestSidebarTemplateUsesCompactIconWhenAvailable(t *testing.T) {
 	}
 }
 
+func TestSidebarTemplateRendersDisabledNavigationAsNonLinks(t *testing.T) {
+	hostFS := fstest.MapFS{
+		"templates/home.html": {
+			Data: []byte(`{% include "partials/sidebar.html" %}`),
+		},
+	}
+
+	views, err := NewViewEngine(
+		hostFS,
+		WithViewTemplateFuncs(DefaultTemplateFuncs(WithTemplateBasePath("/admin"))),
+	)
+	if err != nil {
+		t.Fatalf("NewViewEngine error: %v", err)
+	}
+
+	app := fiber.New(fiber.Config{Views: views})
+	app.Get("/", func(c *fiber.Ctx) error {
+		return c.Render("home", fiber.Map{
+			"title":           "Admin",
+			"base_path":       "/admin",
+			"asset_base_path": "/admin",
+			"nav_items": []map[string]any{
+				{
+					"id":                   "debug",
+					"label":                "Debug",
+					"href":                 "/admin/debug",
+					"enabled":              false,
+					"disabled_reason":      "Permission denied",
+					"disabled_reason_code": "permission_denied",
+				},
+				{
+					"id":           "tools",
+					"label":        "Tools",
+					"collapsible":  true,
+					"has_children": true,
+					"children": []map[string]any{
+						{
+							"id":                   "tools.reports",
+							"label":                "Reports",
+							"href":                 "/admin/reports",
+							"enabled":              false,
+							"disabled_reason":      "Permission denied",
+							"disabled_reason_code": "permission_denied",
+						},
+					},
+				},
+			},
+			"nav_utility_items": []map[string]any{
+				{
+					"id":                   "utility.audit",
+					"label":                "Audit",
+					"href":                 "/admin/audit",
+					"enabled":              false,
+					"disabled_reason":      "Permission denied",
+					"disabled_reason_code": "permission_denied",
+				},
+			},
+			"session_user": map[string]any{},
+			"csrf_field":   "",
+		})
+	})
+
+	resp, err := app.Test(httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/", nil), -1)
+	if err != nil {
+		t.Fatalf("app.Test: %v", err)
+	}
+	defer closeResponseBody(t, resp)
+
+	var body bytes.Buffer
+	if _, err := body.ReadFrom(resp.Body); err != nil {
+		t.Fatalf("read response body: %v", err)
+	}
+	html := body.String()
+	if !containsAll(html, `aria-disabled="true"`, `Debug`, `Reports`, `Audit`, `permission_denied`) {
+		t.Fatalf("expected disabled navigation controls, got %q", html)
+	}
+	for _, forbidden := range []string{`href="/admin/debug"`, `href="/admin/reports"`, `href="/admin/audit"`} {
+		if bytes.Contains(body.Bytes(), []byte(forbidden)) {
+			t.Fatalf("expected disabled navigation to omit %s, got %q", forbidden, html)
+		}
+	}
+}
+
 func TestViewEngineConfigWiresTranslationHelpersFromOptions(t *testing.T) {
 	cfg, err := newViewEngineConfig(
 		fstest.MapFS{"templates/home.html": {Data: []byte("home")}},

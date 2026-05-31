@@ -19,6 +19,15 @@ func newQuickstartTranslationQueueRepo() admin.TranslationAssignmentRepository {
 	return admin.NewInMemoryTranslationAssignmentRepository()
 }
 
+func cleanupGlobalCommandRegistry(t *testing.T) {
+	t.Helper()
+	t.Cleanup(func() {
+		if err := registry.Stop(context.Background()); err != nil {
+			t.Errorf("stop command registry: %v", err)
+		}
+	})
+}
+
 func TestWithTranslationProfileSetsProductConfig(t *testing.T) {
 	opts := &adminOptions{}
 	WithTranslationProfile(TranslationProfileFull)(opts)
@@ -120,7 +129,7 @@ func TestNewAdminTranslationProfileRequiresCMSFeature(t *testing.T) {
 }
 
 func TestNewAdminTranslationProductConfigEnablesQueueProfile(t *testing.T) {
-	t.Cleanup(func() { _ = registry.Stop(context.Background()) })
+	cleanupGlobalCommandRegistry(t)
 	cfg := NewAdminConfig("", "", "")
 
 	adm, _, err := NewAdmin(cfg, AdapterHooks{}, WithTranslationProductConfig(TranslationProductConfig{
@@ -146,7 +155,7 @@ func TestNewAdminTranslationProductConfigEnablesQueueProfile(t *testing.T) {
 }
 
 func TestNewAdminTranslationProductConfigOverrideDisablesQueueModule(t *testing.T) {
-	t.Cleanup(func() { _ = registry.Stop(context.Background()) })
+	cleanupGlobalCommandRegistry(t)
 	cfg := NewAdminConfig("", "", "")
 
 	adm, _, err := NewAdmin(cfg, AdapterHooks{}, WithTranslationProductConfig(TranslationProductConfig{
@@ -275,7 +284,7 @@ func TestBuildTranslationProductResolutionPartialExchangeUINeverLeaksDemoValues(
 }
 
 func TestNewAdminTranslationProductConfigLegacyOverridesTakePrecedence(t *testing.T) {
-	t.Cleanup(func() { _ = registry.Stop(context.Background()) })
+	cleanupGlobalCommandRegistry(t)
 	cfg := NewAdminConfig("", "", "")
 
 	adm, _, err := NewAdmin(
@@ -298,19 +307,19 @@ func TestNewAdminTranslationProductConfigLegacyOverridesTakePrecedence(t *testin
 		t.Fatalf("expected legacy queue config to override profile none")
 	}
 	caps := TranslationCapabilities(adm)
-	modules, _ := caps["modules"].(map[string]any)
-	queue, _ := modules["queue"].(map[string]any)
-	if enabled, _ := queue["enabled"].(bool); !enabled {
+	modules := translationAnyMap(caps["modules"])
+	queue := translationAnyMap(modules["queue"])
+	if enabled := translationBool(queue["enabled"]); !enabled {
 		t.Fatalf("expected queue capability enabled after legacy override")
 	}
-	warnings, _ := caps["warnings"].([]string)
+	warnings := translationStringSlice(caps["warnings"])
 	if !slices.Contains(warnings, translationProductLegacyOverrideWarning) {
 		t.Fatalf("expected legacy override warning in capabilities, got %v", warnings)
 	}
 }
 
 func TestNewAdminTranslationProductConfigPublishesCapabilityMetadata(t *testing.T) {
-	t.Cleanup(func() { _ = registry.Stop(context.Background()) })
+	cleanupGlobalCommandRegistry(t)
 	cfg := NewAdminConfig("", "", "")
 
 	adm, _, err := NewAdmin(cfg, AdapterHooks{}, WithTranslationProductConfig(TranslationProductConfig{
@@ -336,16 +345,16 @@ func TestNewAdminTranslationProductConfigPublishesCapabilityMetadata(t *testing.
 	if got := strings.TrimSpace(fmt.Sprint(caps["profile"])); got != string(TranslationProfileFull) {
 		t.Fatalf("expected profile %q, got %q", TranslationProfileFull, got)
 	}
-	modules, _ := caps["modules"].(map[string]any)
-	exchange, _ := modules["exchange"].(map[string]any)
-	if enabled, _ := exchange["enabled"].(bool); !enabled {
+	modules := translationAnyMap(caps["modules"])
+	exchange := translationAnyMap(modules["exchange"])
+	if enabled := translationBool(exchange["enabled"]); !enabled {
 		t.Fatalf("expected exchange capability enabled")
 	}
-	queue, _ := modules["queue"].(map[string]any)
-	if enabled, _ := queue["enabled"].(bool); !enabled {
+	queue := translationAnyMap(modules["queue"])
+	if enabled := translationBool(queue["enabled"]); !enabled {
 		t.Fatalf("expected queue capability enabled")
 	}
-	resolverKeys, _ := caps["resolver_keys"].([]string)
+	resolverKeys := translationStringSlice(caps["resolver_keys"])
 	hasExportRoute := false
 	for _, key := range resolverKeys {
 		if strings.Contains(key, "translations.export") {
@@ -383,7 +392,7 @@ func TestBuildTranslationProductResolutionRejectsNegativeSchemaVersion(t *testin
 }
 
 func TestNewAdminTranslationDisabledModuleDoesNotRegisterRoutes(t *testing.T) {
-	t.Cleanup(func() { _ = registry.Stop(context.Background()) })
+	cleanupGlobalCommandRegistry(t)
 	cfg := NewAdminConfig("", "", "")
 
 	// Profile Core should not register exchange or queue routes
@@ -407,21 +416,21 @@ func TestNewAdminTranslationDisabledModuleDoesNotRegisterRoutes(t *testing.T) {
 
 	// Capabilities should show modules disabled
 	caps := TranslationCapabilities(adm)
-	modules, _ := caps["modules"].(map[string]any)
+	modules := translationAnyMap(caps["modules"])
 
-	exchange, _ := modules["exchange"].(map[string]any)
-	if enabled, _ := exchange["enabled"].(bool); enabled {
+	exchange := translationAnyMap(modules["exchange"])
+	if enabled := translationBool(exchange["enabled"]); enabled {
 		t.Fatalf("expected exchange capability disabled for core profile")
 	}
 
-	queue, _ := modules["queue"].(map[string]any)
-	if enabled, _ := queue["enabled"].(bool); enabled {
+	queue := translationAnyMap(modules["queue"])
+	if enabled := translationBool(queue["enabled"]); enabled {
 		t.Fatalf("expected queue capability disabled for core profile")
 	}
 }
 
 func TestNewAdminTranslationProductConfigProfileResolutionPrecedence(t *testing.T) {
-	t.Cleanup(func() { _ = registry.Stop(context.Background()) })
+	cleanupGlobalCommandRegistry(t)
 	cfg := NewAdminConfig("", "", "")
 
 	// Test: Profile + Module Override + Legacy Option precedence
@@ -444,9 +453,9 @@ func TestNewAdminTranslationProductConfigProfileResolutionPrecedence(t *testing.
 	}
 
 	caps := TranslationCapabilities(adm)
-	modules, _ := caps["modules"].(map[string]any)
-	queue, _ := modules["queue"].(map[string]any)
-	if enabled, _ := queue["enabled"].(bool); enabled {
+	modules := translationAnyMap(caps["modules"])
+	queue := translationAnyMap(modules["queue"])
+	if enabled := translationBool(queue["enabled"]); enabled {
 		t.Fatalf("expected queue module disabled by override")
 	}
 }
@@ -523,7 +532,7 @@ func TestTranslationProductErrorPayloadStructure(t *testing.T) {
 	if payload["hint"] != "test hint" {
 		t.Fatalf("expected hint 'test hint', got %v", payload["hint"])
 	}
-	failedChecks, _ := payload["failed_checks"].([]string)
+	failedChecks := translationStringSlice(payload["failed_checks"])
 	if len(failedChecks) != 2 {
 		t.Fatalf("expected 2 failed_checks, got %v", failedChecks)
 	}
@@ -572,7 +581,7 @@ func TestTranslationProfileDefaultsToNoneWithCMSDisabled(t *testing.T) {
 // Data-retention behavior tests for module disable/re-enable flows
 
 func TestTranslationQueueDisableRetainsPersistedData(t *testing.T) {
-	t.Cleanup(func() { _ = registry.Stop(context.Background()) })
+	cleanupGlobalCommandRegistry(t)
 
 	// Create a shared repository with pre-existing data
 	repo := admin.NewInMemoryTranslationAssignmentRepository()
@@ -674,7 +683,7 @@ func TestTranslationQueueDisableRetainsPersistedData(t *testing.T) {
 }
 
 func TestTranslationQueueDisableRemovesRuntimeExposure(t *testing.T) {
-	t.Cleanup(func() { _ = registry.Stop(context.Background()) })
+	cleanupGlobalCommandRegistry(t)
 	cfg := NewAdminConfig("", "", "")
 
 	// Enable queue
@@ -692,9 +701,9 @@ func TestTranslationQueueDisableRemovesRuntimeExposure(t *testing.T) {
 
 	// Verify runtime exposure when enabled
 	caps1 := TranslationCapabilities(adm1)
-	modules1, _ := caps1["modules"].(map[string]any)
-	queue1, _ := modules1["queue"].(map[string]any)
-	if enabled, _ := queue1["enabled"].(bool); !enabled {
+	modules1 := translationAnyMap(caps1["modules"])
+	queue1 := translationAnyMap(modules1["queue"])
+	if enabled := translationBool(queue1["enabled"]); !enabled {
 		t.Fatalf("expected queue module enabled in capabilities")
 	}
 	if _, ok := adm1.Registry().Panel("translations"); !ok {
@@ -714,9 +723,9 @@ func TestTranslationQueueDisableRemovesRuntimeExposure(t *testing.T) {
 
 	// Verify runtime exposure removed when disabled
 	caps2 := TranslationCapabilities(adm2)
-	modules2, _ := caps2["modules"].(map[string]any)
-	queue2, _ := modules2["queue"].(map[string]any)
-	if enabled, _ := queue2["enabled"].(bool); enabled {
+	modules2 := translationAnyMap(caps2["modules"])
+	queue2 := translationAnyMap(modules2["queue"])
+	if enabled := translationBool(queue2["enabled"]); enabled {
 		t.Fatalf("expected queue module disabled in capabilities")
 	}
 	if _, ok := adm2.Registry().Panel("translations"); ok {
@@ -725,7 +734,7 @@ func TestTranslationQueueDisableRemovesRuntimeExposure(t *testing.T) {
 }
 
 func TestTranslationProductQueueProfileDisableRetainsDataAndReEnableRestoresAccess(t *testing.T) {
-	t.Cleanup(func() { _ = registry.Stop(context.Background()) })
+	cleanupGlobalCommandRegistry(t)
 	ctx := context.Background()
 	repo := admin.NewInMemoryTranslationAssignmentRepository()
 	created, err := repo.Create(ctx, admin.TranslationAssignment{
@@ -805,7 +814,7 @@ func TestTranslationProductQueueProfileDisableRetainsDataAndReEnableRestoresAcce
 }
 
 func TestTranslationProductExchangeProfileDisableRetainsDataAndReEnableRestoresAccess(t *testing.T) {
-	t.Cleanup(func() { _ = registry.Stop(context.Background()) })
+	cleanupGlobalCommandRegistry(t)
 	store := &stubQuickstartTranslationExchangeStore{
 		exportRows: []admin.TranslationExchangeRow{
 			{
@@ -967,7 +976,7 @@ func TestSchemaVersionUpConversionFromSupportedOlderVersions(t *testing.T) {
 }
 
 func TestNewAdminSchemaVersionIncludedInCapabilities(t *testing.T) {
-	t.Cleanup(func() { _ = registry.Stop(context.Background()) })
+	cleanupGlobalCommandRegistry(t)
 	cfg := NewAdminConfig("", "", "")
 
 	adm, _, err := NewAdmin(cfg, AdapterHooks{}, WithTranslationProductConfig(TranslationProductConfig{
@@ -993,7 +1002,7 @@ func TestNewAdminSchemaVersionIncludedInCapabilities(t *testing.T) {
 }
 
 func TestNewAdminSchemaVersionZeroAddsUpconversionWarning(t *testing.T) {
-	t.Cleanup(func() { _ = registry.Stop(context.Background()) })
+	cleanupGlobalCommandRegistry(t)
 	cfg := NewAdminConfig("", "", "")
 
 	adm, _, err := NewAdmin(cfg, AdapterHooks{}, WithTranslationProductConfig(TranslationProductConfig{
@@ -1008,7 +1017,7 @@ func TestNewAdminSchemaVersionZeroAddsUpconversionWarning(t *testing.T) {
 	}
 
 	caps := TranslationCapabilities(adm)
-	warnings, _ := caps["warnings"].([]string)
+	warnings := translationStringSlice(caps["warnings"])
 	if !slices.Contains(warnings, translationProductSchemaUpconvertWarning) {
 		t.Fatalf("expected schema upconversion warning, got %v", warnings)
 	}
@@ -1048,7 +1057,7 @@ func TestFeatureFlagInteractionCMSDisabledBlocksAllTranslationProfiles(t *testin
 }
 
 func TestFeatureFlagInteractionCMSDisabledAllowsProfileNone(t *testing.T) {
-	t.Cleanup(func() { _ = registry.Stop(context.Background()) })
+	cleanupGlobalCommandRegistry(t)
 	cfg := NewAdminConfig("", "", "")
 
 	adm, _, err := NewAdmin(cfg, AdapterHooks{},
@@ -1069,7 +1078,7 @@ func TestFeatureFlagInteractionCMSDisabledAllowsProfileNone(t *testing.T) {
 }
 
 func TestFeatureFlagInteractionCMSEnabledDefaultsToCore(t *testing.T) {
-	t.Cleanup(func() { _ = registry.Stop(context.Background()) })
+	cleanupGlobalCommandRegistry(t)
 	cfg := NewAdminConfig("", "", "")
 
 	// CMS is enabled by default in DefaultAdminFeatures
@@ -1118,7 +1127,7 @@ func TestFeatureFlagInteractionModuleEnablementValidatedAtStartup(t *testing.T) 
 }
 
 func TestFeatureFlagInteractionCapabilitiesReflectFinalResolvedState(t *testing.T) {
-	t.Cleanup(func() { _ = registry.Stop(context.Background()) })
+	cleanupGlobalCommandRegistry(t)
 	cfg := NewAdminConfig("", "", "")
 
 	// Full profile with valid handlers should reflect all modules enabled
@@ -1149,25 +1158,25 @@ func TestFeatureFlagInteractionCapabilitiesReflectFinalResolvedState(t *testing.
 	}
 
 	// Verify modules state
-	modules, _ := caps["modules"].(map[string]any)
+	modules := translationAnyMap(caps["modules"])
 	if modules == nil {
 		t.Fatal("expected modules in capabilities")
 	}
 
-	exchange, _ := modules["exchange"].(map[string]any)
-	if enabled, _ := exchange["enabled"].(bool); !enabled {
+	exchange := translationAnyMap(modules["exchange"])
+	if enabled := translationBool(exchange["enabled"]); !enabled {
 		t.Fatalf("expected exchange enabled in final capabilities")
 	}
 
-	queue, _ := modules["queue"].(map[string]any)
-	if enabled, _ := queue["enabled"].(bool); !enabled {
+	queue := translationAnyMap(modules["queue"])
+	if enabled := translationBool(queue["enabled"]); !enabled {
 		t.Fatalf("expected queue enabled in final capabilities")
 	}
 
 	// Verify features state
-	features, _ := caps["features"].(map[string]any)
+	features := translationAnyMap(caps["features"])
 	if features != nil {
-		cmsEnabled, _ := features["cms"].(bool)
+		cmsEnabled := translationBool(features["cms"])
 		if !cmsEnabled {
 			t.Fatalf("expected cms feature enabled in capabilities")
 		}
@@ -1179,7 +1188,7 @@ func TestFeatureFlagInteractionDeterministicResolutionOrder(t *testing.T) {
 	// 1. Profile sets base module state
 	// 2. Module override (Exchange/Queue config) applies
 	// 3. Legacy options (WithTranslationQueueConfig) apply last
-	t.Cleanup(func() { _ = registry.Stop(context.Background()) })
+	cleanupGlobalCommandRegistry(t)
 	cfg := NewAdminConfig("", "", "")
 
 	// Profile Full enables queue, but Queue override disables it
@@ -1201,9 +1210,9 @@ func TestFeatureFlagInteractionDeterministicResolutionOrder(t *testing.T) {
 	}
 
 	caps := TranslationCapabilities(adm)
-	modules, _ := caps["modules"].(map[string]any)
-	queue, _ := modules["queue"].(map[string]any)
-	if enabled, _ := queue["enabled"].(bool); enabled {
+	modules := translationAnyMap(caps["modules"])
+	queue := translationAnyMap(modules["queue"])
+	if enabled := translationBool(queue["enabled"]); enabled {
 		t.Fatalf("expected queue disabled by module override")
 	}
 
@@ -1214,7 +1223,7 @@ func TestFeatureFlagInteractionDeterministicResolutionOrder(t *testing.T) {
 }
 
 func TestFeatureFlagInteractionExplicitModuleFeatureOverridesProfile(t *testing.T) {
-	t.Cleanup(func() { _ = registry.Stop(context.Background()) })
+	cleanupGlobalCommandRegistry(t)
 	cfg := NewAdminConfig("", "", "")
 
 	adm, _, err := NewAdmin(cfg, AdapterHooks{},
@@ -1249,13 +1258,13 @@ func TestFeatureFlagInteractionExplicitModuleFeatureOverridesProfile(t *testing.
 	}
 
 	caps := TranslationCapabilities(adm)
-	modules, _ := caps["modules"].(map[string]any)
-	queue, _ := modules["queue"].(map[string]any)
-	if enabled, _ := queue["enabled"].(bool); enabled {
+	modules := translationAnyMap(caps["modules"])
+	queue := translationAnyMap(modules["queue"])
+	if enabled := translationBool(queue["enabled"]); enabled {
 		t.Fatalf("expected queue disabled in capabilities")
 	}
-	exchange, _ := modules["exchange"].(map[string]any)
-	if enabled, _ := exchange["enabled"].(bool); !enabled {
+	exchange := translationAnyMap(modules["exchange"])
+	if enabled := translationBool(exchange["enabled"]); !enabled {
 		t.Fatalf("expected exchange enabled in capabilities")
 	}
 }
@@ -1280,7 +1289,7 @@ func TestFeatureFlagInteractionExplicitQueueFeatureEnableRequiresValidDependenci
 }
 
 func TestRuntimeValidationUsesResolvedTranslationModulesOverFeatureGateState(t *testing.T) {
-	t.Cleanup(func() { _ = registry.Stop(context.Background()) })
+	cleanupGlobalCommandRegistry(t)
 	cfg := NewAdminConfig("", "", "")
 
 	gateDefaults := DefaultAdminFeatures()
@@ -1304,15 +1313,15 @@ func TestRuntimeValidationUsesResolvedTranslationModulesOverFeatureGateState(t *
 	}
 
 	caps := TranslationCapabilities(adm)
-	modules, _ := caps["modules"].(map[string]any)
-	queue, _ := modules["queue"].(map[string]any)
-	if enabled, _ := queue["enabled"].(bool); enabled {
+	modules := translationAnyMap(caps["modules"])
+	queue := translationAnyMap(modules["queue"])
+	if enabled := translationBool(queue["enabled"]); enabled {
 		t.Fatalf("expected queue disabled in capability snapshot")
 	}
 }
 
 func TestFeatureFlagInteractionDashboardDisableDoesNotDisableModules(t *testing.T) {
-	t.Cleanup(func() { _ = registry.Stop(context.Background()) })
+	cleanupGlobalCommandRegistry(t)
 	cfg := NewAdminConfig("", "", "")
 
 	adm, _, err := NewAdmin(cfg, AdapterHooks{},
@@ -1346,8 +1355,8 @@ func TestFeatureFlagInteractionDashboardDisableDoesNotDisableModules(t *testing.
 	}
 
 	caps := TranslationCapabilities(adm)
-	features, _ := caps["features"].(map[string]any)
-	if dashboardEnabled, _ := features["dashboard"].(bool); dashboardEnabled {
+	features := translationAnyMap(caps["features"])
+	if dashboardEnabled := translationBool(features["dashboard"]); dashboardEnabled {
 		t.Fatalf("expected dashboard disabled in capability features")
 	}
 }
@@ -1398,7 +1407,7 @@ func TestTranslationProductRuntimeValidationQueueRouteCoherenceDiagnostics(t *te
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			t.Cleanup(func() { _ = registry.Stop(context.Background()) })
+			cleanupGlobalCommandRegistry(t)
 			cfg := NewAdminConfig("/admin", "Admin", "en")
 			cfg.URLs.URLKit = translationRuntimeValidationURLKitConfig(tc.includeDashboardUI, tc.includeMyWorkAPI)
 
@@ -1483,7 +1492,7 @@ func TestTranslationProductProfileModeRouteAndNavDeterminism(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(string(tc.profile), func(t *testing.T) {
-			t.Cleanup(func() { _ = registry.Stop(context.Background()) })
+			cleanupGlobalCommandRegistry(t)
 			cfg := NewAdminConfig("/admin", "Admin", "en")
 			adm, _, err := NewAdmin(
 				cfg,
@@ -1537,7 +1546,7 @@ func TestTranslationProductProfileModeRouteAndNavDeterminism(t *testing.T) {
 }
 
 func TestTranslationCapabilitiesDoNotAdvertiseModulesWhenFeatureGateDisablesRoutes(t *testing.T) {
-	t.Cleanup(func() { _ = registry.Stop(context.Background()) })
+	cleanupGlobalCommandRegistry(t)
 	cfg := NewAdminConfig("/admin", "Admin", "en")
 	defaults := DefaultAdminFeatures()
 	defaults[string(admin.FeatureTranslationQueue)] = false
@@ -1558,13 +1567,13 @@ func TestTranslationCapabilitiesDoNotAdvertiseModulesWhenFeatureGateDisablesRout
 	}
 
 	caps := TranslationCapabilities(adm)
-	modules, _ := caps["modules"].(map[string]any)
-	queue, _ := modules["queue"].(map[string]any)
-	if enabled, _ := queue["enabled"].(bool); enabled {
+	modules := translationAnyMap(caps["modules"])
+	queue := translationAnyMap(modules["queue"])
+	if enabled := translationBool(queue["enabled"]); enabled {
 		t.Fatalf("expected queue module disabled in capabilities")
 	}
-	exchange, _ := modules["exchange"].(map[string]any)
-	if enabled, _ := exchange["enabled"].(bool); enabled {
+	exchange := translationAnyMap(modules["exchange"])
+	if enabled := translationBool(exchange["enabled"]); enabled {
 		t.Fatalf("expected exchange module disabled in capabilities")
 	}
 

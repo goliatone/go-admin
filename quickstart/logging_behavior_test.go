@@ -50,6 +50,27 @@ func (l *captureQuickstartLogger) count(level, msg string) int {
 	return count
 }
 
+func (l *captureQuickstartLogger) first(level, msg string) (captureQuickstartLogEntry, bool) {
+	if l == nil {
+		return captureQuickstartLogEntry{}, false
+	}
+	for _, entry := range l.entries {
+		if entry.level == level && entry.msg == msg {
+			return entry, true
+		}
+	}
+	return captureQuickstartLogEntry{}, false
+}
+
+func quickstartLogArg(entry captureQuickstartLogEntry, key string) (any, bool) {
+	for idx := 0; idx+1 < len(entry.args); idx += 2 {
+		if gotKey, ok := entry.args[idx].(string); ok && gotKey == key {
+			return entry.args[idx+1], true
+		}
+	}
+	return nil, false
+}
+
 func TestNewAdminLogsAdapterFailuresViaDependencyLogger(t *testing.T) {
 	logger := &captureQuickstartLogger{}
 	cfg := NewAdminConfig("", "", "")
@@ -107,6 +128,7 @@ func TestNewModuleRegistrarLogsDisabledFeaturesViaAdminLogger(t *testing.T) {
 func TestBuildNavItemsLogsDebugPayloadViaAdminLogger(t *testing.T) {
 	cfg := admin.Config{
 		DefaultLocale: "en",
+		NavMenuCode:   DefaultNavMenuCode,
 		NavDebugLog:   true,
 	}
 	logger := &captureQuickstartLogger{}
@@ -122,6 +144,19 @@ func TestBuildNavItemsLogsDebugPayloadViaAdminLogger(t *testing.T) {
 
 	if got := logger.count("debug", "nav payload"); got == 0 {
 		t.Fatalf("expected nav payload to be logged via injected logger")
+	}
+	entry, ok := logger.first("debug", "nav payload")
+	if !ok {
+		t.Fatalf("expected nav payload log entry")
+	}
+	if got, ok := quickstartLogArg(entry, "permission_denied_mode"); !ok || got != admin.NavigationPermissionDeniedModeHide {
+		t.Fatalf("expected permission_denied_mode hide log arg, got %#v", got)
+	}
+	if got, ok := quickstartLogArg(entry, "menu_code"); !ok || got != DefaultNavMenuCode {
+		t.Fatalf("expected menu_code log arg, got %#v", got)
+	}
+	if got, ok := quickstartLogArg(entry, "menu_locale"); !ok || got != "en" {
+		t.Fatalf("expected menu_locale log arg, got %#v", got)
 	}
 }
 

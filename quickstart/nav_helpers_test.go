@@ -16,6 +16,10 @@ type allowAllQuickstartAuthorizer struct{}
 
 func (allowAllQuickstartAuthorizer) Can(context.Context, string, string) bool { return true }
 
+type denyAllQuickstartAuthorizer struct{}
+
+func (denyAllQuickstartAuthorizer) Can(context.Context, string, string) bool { return false }
+
 func TestBuildNavItemsOrdering(t *testing.T) {
 	cfg := admin.Config{
 		DefaultLocale: "en",
@@ -383,6 +387,64 @@ func TestBuildNavItemsForPlacementUsesRequestLocaleAndScope(t *testing.T) {
 	}
 }
 
+func TestBuildNavItemsForPlacementAppliesPermissionDeniedMode(t *testing.T) {
+	cfg := NewAdminConfig("/admin", "Admin", "en")
+	adm, err := admin.New(cfg, admin.Dependencies{})
+	if err != nil {
+		t.Fatalf("admin.New: %v", err)
+	}
+	adm.WithAuthorizer(denyAllQuickstartAuthorizer{})
+	adm.Navigation().UseCMS(false)
+	adm.Navigation().AddFallback(
+		admin.NavigationItem{ID: "home", Label: "Home", Target: map[string]any{"path": "/home"}},
+		admin.NavigationItem{ID: "debug", Label: "Debug", Target: map[string]any{"path": "/debug", "key": "debug"}, Permissions: []string{"admin.debug.view"}},
+	)
+
+	hidden := BuildNavItemsForPlacement(adm, cfg, DefaultPlacements(cfg), SidebarPlacementPrimary, context.Background(), "")
+	if findNavEntryByKey(hidden, "debug") != nil {
+		t.Fatalf("expected denied debug item to be hidden by default, got %+v", hidden)
+	}
+
+	cfg.NavPermissionDeniedMode = admin.NavigationPermissionDeniedModeDisable
+	disabled := BuildNavItemsForPlacement(adm, cfg, DefaultPlacements(cfg), SidebarPlacementPrimary, context.Background(), "")
+	debug := findNavEntryByKey(disabled, "debug")
+	if debug == nil {
+		t.Fatalf("expected denied debug item in disable mode, got %+v", disabled)
+	}
+	if debug["enabled"] != false || debug["disabled"] != true || debug["aria_disabled"] != true {
+		t.Fatalf("expected disabled render metadata, got %+v", debug)
+	}
+	if debug["disabled_reason_code"] != admin.NavigationDisabledReasonCodePermissionDenied {
+		t.Fatalf("expected permission denied reason code, got %+v", debug["disabled_reason_code"])
+	}
+	if debug["missing_permission"] != "admin.debug.view" {
+		t.Fatalf("expected missing permission metadata, got %+v", debug["missing_permission"])
+	}
+}
+
+func TestBuildNavEntryTransientMetadataOverridesStaleTargetMetadata(t *testing.T) {
+	item := admin.NavigationItem{
+		ID:          "settings",
+		Label:       "Settings",
+		Target:      map[string]any{"path": "/settings", "enabled": false, "disabled_reason": "stale", "disabled_reason_code": "stale_code", "missing_permission": "stale.permission"},
+		Permissions: []string{"admin.settings.view"},
+	}
+	item.MarkEnabled()
+
+	entry, _ := buildNavEntry(item, "/admin", nil, "", navRequestScope{})
+	if entry == nil {
+		t.Fatalf("expected nav entry")
+	}
+	if entry["enabled"] != true {
+		t.Fatalf("expected explicit enabled metadata to override stale target enabled=false, got %+v", entry["enabled"])
+	}
+	for _, key := range []string{"disabled", "aria_disabled", "disabled_reason", "disabled_reason_code", "missing_permission"} {
+		if _, ok := entry[key]; ok {
+			t.Fatalf("expected stale %s metadata to be cleared, got %+v", key, entry)
+		}
+	}
+}
+
 func hasNavItemByGroupTitle(items []map[string]any, title string) bool {
 	title = strings.TrimSpace(title)
 	if title == "" {
@@ -392,10 +454,23 @@ func hasNavItemByGroupTitle(items []map[string]any, title string) bool {
 		if strings.EqualFold(strings.TrimSpace(toNavString(item["group_title"])), title) {
 			return true
 		}
-		children, _ := item["children"].([]map[string]any)
+		children := navEntryChildren(item["children"])
 		if hasNavItemByGroupTitle(children, title) {
 			return true
 		}
 	}
 	return false
+}
+
+func findNavEntryByKey(items []map[string]any, key string) map[string]any {
+	for _, item := range items {
+		if strings.EqualFold(strings.TrimSpace(toNavString(item["key"])), key) || strings.EqualFold(strings.TrimSpace(toNavString(item["id"])), key) {
+			return item
+		}
+		children := navEntryChildren(item["children"])
+		if child := findNavEntryByKey(children, key); child != nil {
+			return child
+		}
+	}
+	return nil
 }

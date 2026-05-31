@@ -8,7 +8,6 @@ import (
 
 	"github.com/goliatone/go-admin/admin"
 	"github.com/goliatone/go-command/dispatcher"
-	"github.com/goliatone/go-command/registry"
 )
 
 type stubQuickstartTranslationExchangeStore struct {
@@ -46,7 +45,7 @@ func TestWithTranslationExchangeConfigSetsFeatureDefault(t *testing.T) {
 }
 
 func TestNewAdminTranslationExchangeDisabledByDefault(t *testing.T) {
-	t.Cleanup(func() { _ = registry.Stop(context.Background()) })
+	cleanupGlobalCommandRegistry(t)
 	cfg := NewAdminConfig("", "", "")
 	adm, _, err := NewAdmin(cfg, AdapterHooks{})
 	if err != nil {
@@ -61,7 +60,7 @@ func TestNewAdminTranslationExchangeDisabledByDefault(t *testing.T) {
 }
 
 func TestNewAdminTranslationExchangeEnabledRegistersCommandsAndPermissions(t *testing.T) {
-	t.Cleanup(func() { _ = registry.Stop(context.Background()) })
+	cleanupGlobalCommandRegistry(t)
 	store := &stubQuickstartTranslationExchangeStore{
 		exportRows: []admin.TranslationExchangeRow{
 			{Resource: "pages", EntityID: "page-1", FamilyID: "tg-1", TargetLocale: "es", FieldPath: "title"},
@@ -107,7 +106,7 @@ func TestNewAdminTranslationExchangeEnabledRegistersCommandsAndPermissions(t *te
 }
 
 func TestNewAdminTranslationExchangeAsyncApplyHook(t *testing.T) {
-	t.Cleanup(func() { _ = registry.Stop(context.Background()) })
+	cleanupGlobalCommandRegistry(t)
 	store := &stubQuickstartTranslationExchangeStore{
 		exportRows: []admin.TranslationExchangeRow{
 			{Resource: "pages", EntityID: "page-1", FamilyID: "tg-1", TargetLocale: "es", FieldPath: "title"},
@@ -162,7 +161,7 @@ func TestNewAdminTranslationExchangeAsyncApplyHook(t *testing.T) {
 }
 
 func TestNewAdminTranslationExchangeRegistersByNameFactories(t *testing.T) {
-	t.Cleanup(func() { _ = registry.Stop(context.Background()) })
+	cleanupGlobalCommandRegistry(t)
 	store := &stubQuickstartTranslationExchangeStore{}
 
 	cfg := NewAdminConfig("", "", "")
@@ -272,7 +271,7 @@ func TestTranslationExchangeValidatingExporterPreservesResourceIDs(t *testing.T)
 }
 
 func TestNewAdminTranslationExchangeValidatesConfiguredFiltersBeforeServiceExport(t *testing.T) {
-	t.Cleanup(func() { _ = registry.Stop(context.Background()) })
+	cleanupGlobalCommandRegistry(t)
 	store := &stubQuickstartTranslationExchangeStore{}
 	cfg := NewAdminConfig("", "", "en")
 	adm, _, err := NewAdmin(cfg, AdapterHooks{}, WithTranslationExchangeConfig(TranslationExchangeConfig{
@@ -336,7 +335,7 @@ func (e *customQuickstartTranslationExchangeExporter) Export(context.Context, ad
 }
 
 func TestNewAdminTranslationExchangeValidatesConfiguredFiltersBeforeCustomExporter(t *testing.T) {
-	t.Cleanup(func() { _ = registry.Stop(context.Background()) })
+	cleanupGlobalCommandRegistry(t)
 	store := &stubQuickstartTranslationExchangeStore{}
 	exporter := &customQuickstartTranslationExchangeExporter{}
 	cfg := NewAdminConfig("", "", "en")

@@ -2,16 +2,37 @@ package admin
 
 import (
 	"context"
+	"encoding/json"
+	"reflect"
 	"testing"
 
 	router "github.com/goliatone/go-router"
 )
 
+type navigationTestMenuService interface {
+	CreateMenu(context.Context, string) (*Menu, error)
+	AddMenuItem(context.Context, string, MenuItem) error
+}
+
+func mustCreateNavigationTestMenu(t *testing.T, svc navigationTestMenuService, ctx context.Context, code string) {
+	t.Helper()
+	if _, err := svc.CreateMenu(ctx, code); err != nil {
+		t.Fatalf("create menu %q: %v", code, err)
+	}
+}
+
+func mustAddNavigationTestMenuItem(t *testing.T, svc navigationTestMenuService, ctx context.Context, code string, item MenuItem) {
+	t.Helper()
+	if err := svc.AddMenuItem(ctx, code, item); err != nil {
+		t.Fatalf("add menu item to %q: %v", code, err)
+	}
+}
+
 func TestNavigationResolve(t *testing.T) {
 	menuSvc := NewInMemoryMenuService()
 	ctx := context.Background()
-	_, _ = menuSvc.CreateMenu(ctx, "admin.main")
-	_ = menuSvc.AddMenuItem(ctx, "admin.main", MenuItem{
+	mustCreateNavigationTestMenu(t, menuSvc, ctx, "admin.main")
+	mustAddNavigationTestMenuItem(t, menuSvc, ctx, "admin.main", MenuItem{
 		Label:       "Dashboard",
 		Target:      map[string]any{"type": "route", "name": "admin.dashboard"},
 		Locale:      "en",
@@ -25,13 +46,44 @@ func TestNavigationResolve(t *testing.T) {
 	}
 }
 
+func TestNavigationPermissionDeniedModeFacadeAndConfigJSON(t *testing.T) {
+	if NavigationPermissionDeniedModeHide != "hide" {
+		t.Fatalf("expected hide constant, got %q", NavigationPermissionDeniedModeHide)
+	}
+	if NavigationPermissionDeniedModeDisable != "disable" {
+		t.Fatalf("expected disable constant, got %q", NavigationPermissionDeniedModeDisable)
+	}
+	if NavigationDisabledReasonCodePermissionDenied != "permission_denied" {
+		t.Fatalf("expected permission denied reason code, got %q", NavigationDisabledReasonCodePermissionDenied)
+	}
+	if got := NormalizeNavigationPermissionDeniedMode("unknown"); got != NavigationPermissionDeniedModeHide {
+		t.Fatalf("expected unknown mode to normalize to hide, got %q", got)
+	}
+
+	field, ok := reflect.TypeFor[Config]().FieldByName("NavPermissionDeniedMode")
+	if !ok {
+		t.Fatalf("expected Config.NavPermissionDeniedMode field")
+	}
+	if got := field.Tag.Get("json"); got != "nav_permission_denied_mode" {
+		t.Fatalf("expected nav_permission_denied_mode JSON tag, got %q", got)
+	}
+
+	var cfg Config
+	if err := json.Unmarshal([]byte(`{"nav_permission_denied_mode":"disable"}`), &cfg); err != nil {
+		t.Fatalf("unmarshal config: %v", err)
+	}
+	if cfg.NavPermissionDeniedMode != NavigationPermissionDeniedModeDisable {
+		t.Fatalf("expected disable mode after unmarshal, got %q", cfg.NavPermissionDeniedMode)
+	}
+}
+
 func TestNavigationResolveMenuCode(t *testing.T) {
 	menuSvc := NewInMemoryMenuService()
 	ctx := context.Background()
-	_, _ = menuSvc.CreateMenu(ctx, "admin.main")
-	_ = menuSvc.AddMenuItem(ctx, "admin.main", MenuItem{Label: "Main", Locale: "en"})
-	_, _ = menuSvc.CreateMenu(ctx, "admin.reports")
-	_ = menuSvc.AddMenuItem(ctx, "admin.reports", MenuItem{Label: "Reports", Locale: "en"})
+	mustCreateNavigationTestMenu(t, menuSvc, ctx, "admin.main")
+	mustAddNavigationTestMenuItem(t, menuSvc, ctx, "admin.main", MenuItem{Label: "Main", Locale: "en"})
+	mustCreateNavigationTestMenu(t, menuSvc, ctx, "admin.reports")
+	mustAddNavigationTestMenuItem(t, menuSvc, ctx, "admin.reports", MenuItem{Label: "Reports", Locale: "en"})
 
 	nav := NewNavigation(menuSvc, allowAllNav{})
 	nav.SetDefaultMenuCode("admin.main")
@@ -47,12 +99,31 @@ func TestNavigationResolveMenuCode(t *testing.T) {
 	}
 }
 
+func TestNavigationResolveMenuWithOptionsDisableMode(t *testing.T) {
+	nav := NewNavigation(nil, denyAllNav{})
+	nav.AddItem(NavigationItem{ID: "debug", Label: "Debug", Permissions: []string{"admin.debug.view"}})
+
+	items := nav.ResolveMenuWithOptions(context.Background(), "", "en", ResolveOptions{
+		PermissionDeniedMode: NavigationPermissionDeniedModeDisable,
+	})
+	if len(items) != 1 {
+		t.Fatalf("expected disabled item through public facade, got %+v", items)
+	}
+	got := items[0]
+	if got.Enabled == nil || *got.Enabled || !got.Disabled {
+		t.Fatalf("expected disabled metadata through public facade, got %+v", got)
+	}
+	if got.MissingPermission != "admin.debug.view" {
+		t.Fatalf("expected missing permission metadata, got %q", got.MissingPermission)
+	}
+}
+
 func TestNavigationResolvesMenuLocaleFromCMS(t *testing.T) {
 	menuSvc := NewInMemoryMenuService()
 	ctx := context.Background()
-	_, _ = menuSvc.CreateMenu(ctx, "admin.main")
-	_ = menuSvc.AddMenuItem(ctx, "admin.main", MenuItem{Label: "Dashboard", Locale: "en"})
-	_ = menuSvc.AddMenuItem(ctx, "admin.main", MenuItem{Label: "Inicio", Locale: "es"})
+	mustCreateNavigationTestMenu(t, menuSvc, ctx, "admin.main")
+	mustAddNavigationTestMenuItem(t, menuSvc, ctx, "admin.main", MenuItem{Label: "Dashboard", Locale: "en"})
+	mustAddNavigationTestMenuItem(t, menuSvc, ctx, "admin.main", MenuItem{Label: "Inicio", Locale: "es"})
 
 	nav := NewNavigation(menuSvc, allowAllNav{})
 	en := nav.Resolve(ctx, "en")
@@ -68,8 +139,8 @@ func TestNavigationResolvesMenuLocaleFromCMS(t *testing.T) {
 func TestNavigationFallbackWhenCMSDisabled(t *testing.T) {
 	menuSvc := NewInMemoryMenuService()
 	ctx := context.Background()
-	_, _ = menuSvc.CreateMenu(ctx, "admin.main")
-	_ = menuSvc.AddMenuItem(ctx, "admin.main", MenuItem{Label: "CMS Item", Locale: "en"})
+	mustCreateNavigationTestMenu(t, menuSvc, ctx, "admin.main")
+	mustAddNavigationTestMenuItem(t, menuSvc, ctx, "admin.main", MenuItem{Label: "CMS Item", Locale: "en"})
 
 	nav := NewNavigation(menuSvc, allowAllNav{})
 	nav.UseCMS(false)
@@ -88,8 +159,8 @@ func TestAdminNavigationUsesFallbackWithoutCMSFeature(t *testing.T) {
 	adm := mustNewAdmin(t, cfg, Dependencies{})
 	ctx := context.Background()
 
-	_, _ = adm.menuSvc.CreateMenu(ctx, "admin.main")
-	_ = adm.menuSvc.AddMenuItem(ctx, "admin.main", MenuItem{Label: "CMS Item", Locale: "en"})
+	mustCreateNavigationTestMenu(t, adm.menuSvc, ctx, "admin.main")
+	mustAddNavigationTestMenuItem(t, adm.menuSvc, ctx, "admin.main", MenuItem{Label: "CMS Item", Locale: "en"})
 
 	if err := adm.addMenuItems(ctx, []MenuItem{{Label: "Fallback Item", Locale: "en"}}); err != nil {
 		t.Fatalf("add menu items failed: %v", err)
