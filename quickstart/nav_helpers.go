@@ -189,7 +189,10 @@ func BuildNavItemsForPlacement(adm *admin.Admin, cfg admin.Config, placements Pl
 	menuCode := placements.MenuCodeFor(placement, cfg.NavMenuCode)
 	logNav := cfg.NavDebugLog
 	scope := resolveNavRequestScope(ctx, cfg.DefaultLocale)
-	items := nav.ResolveMenu(ctx, menuCode, scope.MenuLocale)
+	permissionDeniedMode := admin.NormalizeNavigationPermissionDeniedMode(cfg.NavPermissionDeniedMode)
+	items := nav.ResolveMenuWithOptions(ctx, menuCode, scope.MenuLocale, admin.ResolveOptions{
+		PermissionDeniedMode: permissionDeniedMode,
+	})
 	for _, item := range items {
 		entry, _ := buildNavEntry(item, basePath, urls, active, scope)
 		if entry == nil {
@@ -200,11 +203,22 @@ func BuildNavItemsForPlacement(adm *admin.Admin, cfg admin.Config, placements Pl
 	entries = applyTranslationEntrypointDegradation(entries, resolveTranslationModuleExposureSnapshot(adm, ctx))
 	if logNav {
 		logger := resolveQuickstartAdminLogger(adm, "quickstart.navigation", nil, nil)
-		if raw, err := json.Marshal(map[string]any{"placement": placement, "menu_code": menuCode, "items": entries}); err == nil {
+		if raw, err := json.Marshal(map[string]any{
+			"placement":              placement,
+			"menu_code":              menuCode,
+			"menu_locale":            scope.MenuLocale,
+			"permission_denied_mode": permissionDeniedMode,
+			"resolved_item_count":    len(items),
+			"render_item_count":      len(entries),
+			"items":                  entries,
+		}); err == nil {
 			logger.Debug("nav payload",
 				"placement", placement,
 				"menu_code", menuCode,
 				"menu_locale", scope.MenuLocale,
+				"permission_denied_mode", permissionDeniedMode,
+				"resolved_item_count", len(items),
+				"render_item_count", len(entries),
 				"link_locale", scope.Locale,
 				"link_channel", scope.Channel,
 				"payload", string(raw),
@@ -293,14 +307,14 @@ func applyTranslationEntrypointDegradationEntry(entry map[string]any, exposure t
 		return entry, false
 	}
 
-	children, _ := entry["children"].([]map[string]any)
+	children := navEntryChildren(entry["children"])
 	if len(children) > 0 {
 		entry["children"] = applyTranslationEntrypointDegradation(children, exposure)
-		updatedChildren, _ := entry["children"].([]map[string]any)
+		updatedChildren := navEntryChildren(entry["children"])
 		entry["has_children"] = len(updatedChildren) > 0
 	}
 	if strings.EqualFold(strings.TrimSpace(toNavString(entry["type"])), admin.MenuItemTypeGroup) {
-		updatedChildren, _ := entry["children"].([]map[string]any)
+		updatedChildren := navEntryChildren(entry["children"])
 		if len(updatedChildren) == 0 {
 			return nil, false
 		}
@@ -328,6 +342,14 @@ func applyTranslationEntrypointDegradationEntry(entry map[string]any, exposure t
 	entry["disabled_reason"] = moduleState.Reason
 	entry["disabled_reason_code"] = moduleState.ReasonCode
 	return entry, true
+}
+
+func navEntryChildren(raw any) []map[string]any {
+	children, ok := raw.([]map[string]any)
+	if !ok {
+		return nil
+	}
+	return children
 }
 
 func clearTranslationEntrypointDegradation(entry map[string]any) {
@@ -397,6 +419,7 @@ func buildNavEntry(item admin.NavigationItem, basePath string, urls urlkit.Resol
 		"child_active":    childActive,
 	}
 	applyNavTargetMetadata(entry, target, scope)
+	applyNavigationItemMetadata(entry, item)
 	if strings.EqualFold(strings.TrimSpace(item.Type), admin.MenuItemTypeGroup) && len(children) == 0 {
 		return nil, false
 	}
@@ -451,6 +474,39 @@ func applyNavTargetMetadata(entry map[string]any, target map[string]any, scope n
 	}
 	if disabledReasonCode := strings.TrimSpace(toNavString(target["disabled_reason_code"])); disabledReasonCode != "" {
 		entry["disabled_reason_code"] = disabledReasonCode
+	}
+}
+
+func applyNavigationItemMetadata(entry map[string]any, item admin.NavigationItem) {
+	if entry == nil {
+		return
+	}
+	if item.Enabled == nil {
+		return
+	}
+	entry["enabled"] = *item.Enabled
+	if *item.Enabled {
+		delete(entry, "disabled")
+		delete(entry, "aria_disabled")
+		delete(entry, "disabled_reason")
+		delete(entry, "disabled_reason_code")
+		delete(entry, "missing_permission")
+		return
+	}
+	if item.Disabled {
+		entry["disabled"] = true
+	}
+	if item.ARIADisabled {
+		entry["aria_disabled"] = true
+	}
+	if strings.TrimSpace(item.DisabledReason) != "" {
+		entry["disabled_reason"] = strings.TrimSpace(item.DisabledReason)
+	}
+	if strings.TrimSpace(item.DisabledReasonCode) != "" {
+		entry["disabled_reason_code"] = strings.TrimSpace(item.DisabledReasonCode)
+	}
+	if strings.TrimSpace(item.MissingPermission) != "" {
+		entry["missing_permission"] = strings.TrimSpace(item.MissingPermission)
 	}
 }
 

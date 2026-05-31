@@ -255,20 +255,9 @@ func WithDoctorChecks(checks ...admin.DoctorCheck) AdminOption {
 
 // NewAdmin constructs an admin instance with adapter wiring applied.
 func NewAdmin(cfg admin.Config, hooks AdapterHooks, opts ...AdminOption) (*admin.Admin, AdapterResult, error) {
-	options := adminOptions{
-		ctx:                        context.Background(),
-		registerUserRoleBulkRoutes: false,
-	}
-	for _, opt := range opts {
-		if opt != nil {
-			opt(&options)
-		}
-	}
-	if err := options.err(); err != nil {
-		return nil, AdapterResult{}, err
-	}
-	if err := resolveWorkflowConfigOptions(&options); err != nil {
-		return nil, AdapterResult{}, err
+	options, optionsErr := resolveNewAdminOptions(opts)
+	if optionsErr != nil {
+		return nil, AdapterResult{}, optionsErr
 	}
 
 	loggerProvider, logger := resolveQuickstartLoggerDependencies(options.deps.LoggerProvider, options.deps.Logger)
@@ -277,29 +266,21 @@ func NewAdmin(cfg admin.Config, hooks AdapterHooks, opts ...AdminOption) (*admin
 	setQuickstartDefaultLoggerDependencies(loggerProvider, logger)
 	adaptersLogger := resolveQuickstartNamedLogger("quickstart.adapters", loggerProvider, logger)
 	translationLogger := resolveQuickstartNamedLogger("quickstart.translation.product", loggerProvider, logger)
-	if err := resolveTranslationProductOptions(cfg, &options); err != nil {
-		logTranslationCapabilityValidationError(translationLogger, err)
-		return nil, AdapterResult{}, err
+	if productErr := resolveTranslationProductOptions(cfg, &options); productErr != nil {
+		logTranslationCapabilityValidationError(translationLogger, productErr)
+		return nil, AdapterResult{}, productErr
 	}
 	if !options.translationProductConfigSet && options.translationExchangeConfigSet {
 		options.translationExchangeConfig.UI = normalizeTranslationExchangeUIConfig(options.translationExchangeConfig.UI, cfg.DefaultLocale, options.translationQueueConfig.SupportedLocales)
 	}
 
-	var result AdapterResult
-	if options.flags != nil {
-		cfg, result = configureAdaptersWithFlagsLogger(options.ctx, cfg, hooks, *options.flags, adaptersLogger)
-	} else {
-		cfg, result = configureAdaptersWithFlagsLogger(options.ctx, cfg, hooks, AdapterFlags{}, adaptersLogger)
-	}
-	if result.Flags.UsePersistentCMS && !result.PersistentCMSSet {
-		if result.PersistentCMSError != nil {
-			return nil, result, result.PersistentCMSError
-		}
-		return nil, result, ErrPersistentCMSSetupFailed
+	cfg, result, err := configureNewAdminAdapters(cfg, hooks, options, adaptersLogger)
+	if err != nil {
+		return nil, result, err
 	}
 	finalizeGoUsersUserManagement(cfg, &options)
-	if err := resolveAdminRuntimeDependencies(cfg, &options); err != nil {
-		return nil, result, err
+	if runtimeErr := resolveAdminRuntimeDependencies(cfg, &options); runtimeErr != nil {
+		return nil, result, runtimeErr
 	}
 	applyAdminRuntimeConfig(&cfg, &options)
 	adm, err := admin.New(cfg, options.deps)
@@ -317,6 +298,40 @@ func NewAdmin(cfg admin.Config, hooks AdapterHooks, opts ...AdminOption) (*admin
 		return nil, result, err
 	}
 	return adm, result, nil
+}
+
+func resolveNewAdminOptions(opts []AdminOption) (adminOptions, error) {
+	options := adminOptions{
+		ctx:                        context.Background(),
+		registerUserRoleBulkRoutes: false,
+	}
+	for _, opt := range opts {
+		if opt != nil {
+			opt(&options)
+		}
+	}
+	if err := options.err(); err != nil {
+		return options, err
+	}
+	if err := resolveWorkflowConfigOptions(&options); err != nil {
+		return options, err
+	}
+	return options, nil
+}
+
+func configureNewAdminAdapters(cfg admin.Config, hooks AdapterHooks, options adminOptions, logger admin.Logger) (admin.Config, AdapterResult, error) {
+	flags := AdapterFlags{}
+	if options.flags != nil {
+		flags = *options.flags
+	}
+	cfg, result := configureAdaptersWithFlagsLogger(options.ctx, cfg, hooks, flags, logger)
+	if result.Flags.UsePersistentCMS && !result.PersistentCMSSet {
+		if result.PersistentCMSError != nil {
+			return cfg, result, result.PersistentCMSError
+		}
+		return cfg, result, ErrPersistentCMSSetupFailed
+	}
+	return cfg, result, nil
 }
 
 func applyAdminRuntimeConfig(cfg *admin.Config, options *adminOptions) {
