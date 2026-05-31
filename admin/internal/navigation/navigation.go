@@ -124,21 +124,43 @@ func (n *Navigation) ResolveMenu(ctx context.Context, menuCode string, locale st
 
 // ResolveMenuWithOptions returns navigation for a menu code and locale with explicit resolution options.
 func (n *Navigation) ResolveMenuWithOptions(ctx context.Context, menuCode string, locale string, opts ResolveOptions) []NavigationItem {
+	return n.ResolveMenuResultWithOptions(ctx, menuCode, locale, opts).Items
+}
+
+// ResolveMenuResultWithOptions returns navigation plus source diagnostics.
+func (n *Navigation) ResolveMenuResultWithOptions(ctx context.Context, menuCode string, locale string, opts ResolveOptions) ResolveResult {
 	if menuCode == "" {
 		menuCode = n.defaultMenuCode
 	}
 	opts.PermissionDeniedMode = NormalizeNavigationPermissionDeniedMode(opts.PermissionDeniedMode)
-	if n.menuSvc == nil || !n.useCMS {
+	if n.menuSvc == nil {
 		items := orderNavigation(localize(n.translator, n.fallback, locale))
-		return n.filter(items, ctx, opts)
+		return ResolveResult{
+			Items:  n.filter(items, ctx, opts),
+			Source: ResolveSourceFallbackNoCMS,
+		}
+	}
+	if !n.useCMS {
+		items := orderNavigation(localize(n.translator, n.fallback, locale))
+		return ResolveResult{
+			Items:  n.filter(items, ctx, opts),
+			Source: ResolveSourceFallbackCMSDisabled,
+		}
 	}
 	menu, err := n.menuSvc.Menu(ctx, menuCode, locale)
 	if err != nil {
 		items := orderNavigation(localize(n.translator, n.fallback, locale))
-		return n.filter(items, ctx, opts)
+		return ResolveResult{
+			Items:         n.filter(items, ctx, opts),
+			Source:        ResolveSourceFallbackCMSError,
+			FallbackError: err.Error(),
+		}
 	}
 	items := orderNavigation(localize(n.translator, ConvertMenuItems(menu.Items, n.translator, locale), locale))
-	return n.filter(items, ctx, opts)
+	return ResolveResult{
+		Items:  n.filter(items, ctx, opts),
+		Source: ResolveSourceCMS,
+	}
 }
 
 // ConvertMenuItems converts MenuItems into NavigationItems applying translation/localization.
