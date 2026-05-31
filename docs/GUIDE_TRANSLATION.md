@@ -421,6 +421,10 @@ Choose:
 - target locales
 - whether to include source hash/linkage data
 
+The quickstart exchange wizard can be host-configured through `TranslationExchangeConfig.UI`. Configure source locale options, target locales, resource IDs/labels, default selections, template link metadata, and apply/export defaults there. Missing UI config keeps the demo `pages/posts` and `en/es/fr/de/it` fallback; partial host config does not mix in those demo values.
+
+Host apps should map their own runtime config into the quickstart contract. For example, a host with locales `en`, `bo`, and `zh` should set source `en`, target locales `bo` and `zh`, and its own exchange resource IDs. Resource IDs are exact host-owned identifiers, so configure them with the same casing the exchange store expects. Site supported locales are not read directly by `go-admin`.
+
 Core API endpoints:
 
 - `POST /admin/api/translations/exchange/export`
