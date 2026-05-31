@@ -190,9 +190,10 @@ func BuildNavItemsForPlacement(adm *admin.Admin, cfg admin.Config, placements Pl
 	logNav := cfg.NavDebugLog
 	scope := resolveNavRequestScope(ctx, cfg.DefaultLocale)
 	permissionDeniedMode := admin.NormalizeNavigationPermissionDeniedMode(cfg.NavPermissionDeniedMode)
-	items := nav.ResolveMenuWithOptions(ctx, menuCode, scope.MenuLocale, admin.ResolveOptions{
+	result := nav.ResolveMenuResultWithOptions(ctx, menuCode, scope.MenuLocale, admin.ResolveOptions{
 		PermissionDeniedMode: permissionDeniedMode,
 	})
+	items := result.Items
 	for _, item := range items {
 		entry, _ := buildNavEntry(item, basePath, urls, active, scope)
 		if entry == nil {
@@ -208,6 +209,8 @@ func BuildNavItemsForPlacement(adm *admin.Admin, cfg admin.Config, placements Pl
 			"menu_code":              menuCode,
 			"menu_locale":            scope.MenuLocale,
 			"permission_denied_mode": permissionDeniedMode,
+			"source":                 result.Source,
+			"fallback_error":         result.FallbackError,
 			"resolved_item_count":    len(items),
 			"render_item_count":      len(entries),
 			"items":                  entries,
@@ -217,6 +220,8 @@ func BuildNavItemsForPlacement(adm *admin.Admin, cfg admin.Config, placements Pl
 				"menu_code", menuCode,
 				"menu_locale", scope.MenuLocale,
 				"permission_denied_mode", permissionDeniedMode,
+				"source", result.Source,
+				"fallback_error", result.FallbackError,
 				"resolved_item_count", len(items),
 				"render_item_count", len(entries),
 				"link_locale", scope.Locale,
@@ -241,15 +246,35 @@ func buildDefaultUtilityNavItems(adm *admin.Admin, cfg admin.Config, ctx context
 
 	basePath := resolveAdminBasePath(adm.URLs(), adm.BasePath())
 	urls := adm.URLs()
-	entries := make([]map[string]any, 0, len(items))
-	for _, item := range items {
-		entry, _ := buildNavEntry(menuItemAsNavigationItem(item), basePath, urls, active, scope)
+	permissionDeniedMode := admin.NormalizeNavigationPermissionDeniedMode(cfg.NavPermissionDeniedMode)
+	navItems := resolveFallbackMenuItems(ctx, adm, items, scope.MenuLocale, permissionDeniedMode)
+	entries := make([]map[string]any, 0, len(navItems))
+	for _, item := range navItems {
+		entry, _ := buildNavEntry(item, basePath, urls, active, scope)
 		if entry == nil {
 			continue
 		}
 		entries = append(entries, entry)
 	}
 	return entries
+}
+
+func resolveFallbackMenuItems(ctx context.Context, adm *admin.Admin, items []admin.MenuItem, locale string, mode admin.NavigationPermissionDeniedMode) []admin.NavigationItem {
+	if len(items) == 0 {
+		return nil
+	}
+	navItems := make([]admin.NavigationItem, 0, len(items))
+	for _, item := range items {
+		navItems = append(navItems, menuItemAsNavigationItem(item))
+	}
+	nav := admin.NewNavigation(nil, nil)
+	if adm != nil {
+		nav.SetAuthorizer(adm.Authorizer())
+	}
+	nav.AddFallback(navItems...)
+	return nav.ResolveMenuWithOptions(ctx, "", locale, admin.ResolveOptions{
+		PermissionDeniedMode: admin.NormalizeNavigationPermissionDeniedMode(mode),
+	})
 }
 
 func menuItemAsNavigationItem(item admin.MenuItem) admin.NavigationItem {
@@ -345,6 +370,11 @@ func applyTranslationEntrypointDegradationEntry(entry map[string]any, exposure t
 	entry["aria_disabled"] = true
 	entry["disabled_reason"] = moduleState.Reason
 	entry["disabled_reason_code"] = moduleState.ReasonCode
+	if missingPermission := strings.TrimSpace(moduleState.MissingPermission); missingPermission != "" {
+		entry["missing_permission"] = missingPermission
+	} else {
+		delete(entry, "missing_permission")
+	}
 	return entry, true
 }
 
