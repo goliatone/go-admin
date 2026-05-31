@@ -68,6 +68,7 @@ type uiRouteOptions struct {
 	registerTranslationMatrix       bool
 	registerTranslationDashboard    bool
 	registerTranslationExchange     bool
+	translationExchangeUIConfig     TranslationExchangeUIConfig
 	viewContext                     UIViewContextBuilder
 }
 
@@ -427,6 +428,7 @@ func resolveAdminUIRouteOptions(cfg admin.Config, adm *admin.Admin, opts []UIRou
 		registerTranslationMatrix:       coreModuleEnabled,
 		registerTranslationDashboard:    queueModuleEnabled,
 		registerTranslationExchange:     exchangeModuleEnabled,
+		translationExchangeUIConfig:     translationExchangeUIConfigForAdmin(adm),
 	}
 	for _, opt := range opts {
 		if opt != nil {
@@ -649,9 +651,29 @@ func registerAdminUITranslationDetailRoutes[T any](
 		r.Get(options.translationExchangePath, wrap(func(c router.Context) error {
 			apiBase := resolveAPIBase()
 			return renderView(c, options.translationExchangeTemplate, options.translationExchangeTitle, options.translationExchangeActive, router.ViewContext{
-				"translation_exchange_api_path": prefixBasePath(apiBase, path.Join("translations", "exchange")),
+				"translation_exchange_api_path":  prefixBasePath(apiBase, path.Join("translations", "exchange")),
+				"translation_exchange_ui_config": options.translationExchangeUIConfig,
 			})
 		}))
+	}
+}
+
+func translationExchangeUIConfigForAdmin(adm *admin.Admin) TranslationExchangeUIConfig {
+	caps := TranslationCapabilities(adm)
+	raw, ok := caps["exchange_ui_config"]
+	if !ok {
+		return TranslationExchangeUIConfig{}
+	}
+	switch typed := raw.(type) {
+	case TranslationExchangeUIConfig:
+		return typed
+	case *TranslationExchangeUIConfig:
+		if typed == nil {
+			return TranslationExchangeUIConfig{}
+		}
+		return *typed
+	default:
+		return TranslationExchangeUIConfig{}
 	}
 }
 

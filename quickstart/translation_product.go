@@ -174,6 +174,7 @@ func buildTranslationProductResolution(cfg admin.Config, opts adminOptions) (tra
 	if err := validateTranslationProductModules(exchangeCfg, queueCfg, opts); err != nil {
 		return translationProductResolution{}, err
 	}
+	exchangeCfg.UI = normalizeTranslationExchangeUIConfig(exchangeCfg.UI, cfg.DefaultLocale, queueCfg.SupportedLocales)
 
 	return translationProductResolution{
 		Config: TranslationProductConfig{
@@ -373,6 +374,9 @@ func mergeTranslationExchangeConfig(base, override TranslationExchangeConfig) Tr
 	}
 	if override.PermissionRegister != nil {
 		out.PermissionRegister = override.PermissionRegister
+	}
+	if translationExchangeUIConfigHasFields(override.UI) {
+		out.UI = override.UI
 	}
 	return out
 }

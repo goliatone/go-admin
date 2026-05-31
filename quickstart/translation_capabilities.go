@@ -108,6 +108,9 @@ func buildTranslationCapabilities(adm *admin.Admin, productCfg TranslationProduc
 		"warnings":      dedupeStringSlice(warnings),
 		"contracts":     base["contracts"],
 	}
+	if productCfg.Exchange != nil && productCfg.Exchange.UI.Configured {
+		out["exchange_ui_config"] = productCfg.Exchange.UI
+	}
 	overrideModuleEnabled(out, "exchange", exchangeEnabled)
 	overrideModuleEnabled(out, "queue", queueEnabled)
 	applyTranslationCapabilityRouteFiltering(out)
@@ -130,6 +133,7 @@ func mergeTranslationCapabilities(base, overlay map[string]any) map[string]any {
 	copyCapabilityField(out, overlay, "schema_version")
 	copyCapabilityField(out, overlay, "warnings")
 	copyCapabilityField(out, overlay, "contracts")
+	copyCapabilityField(out, overlay, "exchange_ui_config")
 	copyCapabilityField(out, overlay, "features")
 	copyCapabilityField(out, overlay, "routes")
 	copyCapabilityField(out, overlay, "panels")

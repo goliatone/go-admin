@@ -171,6 +171,109 @@ func TestNewAdminTranslationProductConfigOverrideDisablesQueueModule(t *testing.
 	}
 }
 
+func TestBuildTranslationProductResolutionNormalizesExchangeUIConfig(t *testing.T) {
+	includeExamples := false
+	resolved, err := buildTranslationProductResolution(admin.Config{DefaultLocale: "en"}, adminOptions{
+		translationProductConfigSet: true,
+		translationProductConfig: TranslationProductConfig{
+			Profile: TranslationProfileCoreExchange,
+			Exchange: &TranslationExchangeConfig{
+				Enabled: true,
+				Store:   &stubQuickstartTranslationExchangeStore{},
+				UI: TranslationExchangeUIConfig{
+					TargetLocales: []TranslationExchangeLocaleOption{
+						{Code: "BO", Label: "Tibetan"},
+						{Code: "ZH", Label: "Chinese"},
+					},
+					Resources: []TranslationExchangeResourceOption{
+						{ID: "Archive_Items", Label: "Archive items"},
+					},
+					DefaultTargetLocales: []string{"BO", "EN"},
+					IncludeExamples:      &includeExamples,
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("buildTranslationProductResolution error: %v", err)
+	}
+	ui := resolved.Exchange.UI
+	if !ui.Configured {
+		t.Fatalf("expected normalized UI config")
+	}
+	if ui.SourceLocale != "en" {
+		t.Fatalf("expected admin default source locale en, got %q", ui.SourceLocale)
+	}
+	if got := strings.Join(localeOptionCodes(ui.TargetLocales), ","); got != "bo,zh" {
+		t.Fatalf("expected configured target locales, got %q", got)
+	}
+	if got := strings.Join(ui.DefaultTargetLocales, ","); got != "bo" {
+		t.Fatalf("expected source locale removed from defaults, got %q", got)
+	}
+	if got := strings.Join(resourceOptionIDs(ui.Resources), ","); got != "Archive_Items" {
+		t.Fatalf("expected configured resource only, got %q", got)
+	}
+	if ui.IncludeExamples == nil || *ui.IncludeExamples != false {
+		t.Fatalf("expected explicit false include_examples preserved")
+	}
+}
+
+func TestBuildTranslationProductResolutionDerivesExchangeUITargetsFromQueueLocales(t *testing.T) {
+	resolved, err := buildTranslationProductResolution(admin.Config{DefaultLocale: "EN"}, adminOptions{
+		translationProductConfigSet: true,
+		translationProductConfig: TranslationProductConfig{
+			Profile: TranslationProfileCoreExchange,
+			Exchange: &TranslationExchangeConfig{
+				Enabled: true,
+				Store:   &stubQuickstartTranslationExchangeStore{},
+				UI: TranslationExchangeUIConfig{
+					Resources: []TranslationExchangeResourceOption{{ID: "pages", Label: "Pages"}},
+				},
+			},
+			Queue: &TranslationQueueConfig{
+				Enabled:          false,
+				SupportedLocales: []string{"en", "bo", "zh", "bo"},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("buildTranslationProductResolution error: %v", err)
+	}
+	ui := resolved.Exchange.UI
+	if got := strings.Join(localeOptionCodes(ui.TargetLocales), ","); got != "bo,zh" {
+		t.Fatalf("expected queue-derived target locales without source, got %q", got)
+	}
+}
+
+func TestBuildTranslationProductResolutionPartialExchangeUINeverLeaksDemoValues(t *testing.T) {
+	resolved, err := buildTranslationProductResolution(admin.Config{DefaultLocale: "en"}, adminOptions{
+		translationProductConfigSet: true,
+		translationProductConfig: TranslationProductConfig{
+			Profile: TranslationProfileCoreExchange,
+			Exchange: &TranslationExchangeConfig{
+				Enabled: true,
+				Store:   &stubQuickstartTranslationExchangeStore{},
+				UI: TranslationExchangeUIConfig{
+					Resources: []TranslationExchangeResourceOption{{ID: "archive_items", Label: "Archive items"}},
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("buildTranslationProductResolution error: %v", err)
+	}
+	ui := resolved.Exchange.UI
+	if !ui.Configured {
+		t.Fatalf("expected partial UI config to be configured")
+	}
+	if got := strings.Join(resourceOptionIDs(ui.Resources), ","); got != "archive_items" {
+		t.Fatalf("expected only explicit resource, got %q", got)
+	}
+	if got := strings.Join(localeOptionCodes(ui.TargetLocales), ","); got != "" {
+		t.Fatalf("expected no demo target locales for partial host config, got %q", got)
+	}
+}
+
 func TestNewAdminTranslationProductConfigLegacyOverridesTakePrecedence(t *testing.T) {
 	t.Cleanup(func() { _ = registry.Stop(context.Background()) })
 	cfg := NewAdminConfig("", "", "")

@@ -281,6 +281,9 @@ func NewAdmin(cfg admin.Config, hooks AdapterHooks, opts ...AdminOption) (*admin
 		logTranslationCapabilityValidationError(translationLogger, err)
 		return nil, AdapterResult{}, err
 	}
+	if !options.translationProductConfigSet && options.translationExchangeConfigSet {
+		options.translationExchangeConfig.UI = normalizeTranslationExchangeUIConfig(options.translationExchangeConfig.UI, cfg.DefaultLocale, options.translationQueueConfig.SupportedLocales)
+	}
 
 	var result AdapterResult
 	if options.flags != nil {
@@ -359,20 +362,29 @@ func registerTranslationProductWiring(adm *admin.Admin, options adminOptions) er
 }
 
 func validateAndRegisterTranslationCapabilities(adm *admin.Admin, options adminOptions, translationLogger admin.Logger) error {
+	productCfg := options.translationProductConfig
+	if options.translationExchangeConfigSet {
+		exchangeCfg := options.translationExchangeConfig
+		productCfg.Exchange = &exchangeCfg
+	}
+	if options.translationQueueConfigSet {
+		queueCfg := options.translationQueueConfig
+		productCfg.Queue = &queueCfg
+	}
 	translationModules := resolvedTranslationCapabilityModules(
-		options.translationProductConfig,
+		productCfg,
 		options.translationExchangeConfig,
 		options.translationExchangeConfigSet,
 		options.translationQueueConfig,
 		options.translationQueueConfigSet,
 	)
 	if shouldValidateTranslationProductRuntime(options) {
-		if err := validateTranslationProductRuntime(adm, options.translationProductConfig, options.translationProductWarnings, translationModules); err != nil {
+		if err := validateTranslationProductRuntime(adm, productCfg, options.translationProductWarnings, translationModules); err != nil {
 			logTranslationCapabilityValidationError(translationLogger, err)
 			return err
 		}
 	}
-	registerTranslationCapabilities(adm, options.translationProductConfig, options.translationProductWarnings, translationModules)
+	registerTranslationCapabilities(adm, productCfg, options.translationProductWarnings, translationModules)
 	logTranslationCapabilitiesStartup(translationLogger, TranslationCapabilities(adm))
 	return nil
 }

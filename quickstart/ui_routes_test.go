@@ -1,6 +1,8 @@
 package quickstart
 
 import (
+	"os"
+	"strings"
 	"testing"
 
 	"github.com/gofiber/fiber/v2"
@@ -97,6 +99,69 @@ func (r *uiRoutesCaptureRouter) PrintRoutes()                     {}
 func (r *uiRoutesCaptureRouter) WithLogger(logger router.Logger) router.Router[*fiber.App] {
 	_ = logger
 	return r
+}
+
+func TestTranslationExchangeUIConfigForAdminReadsCapabilitySnapshot(t *testing.T) {
+	cfg := NewAdminConfig("/admin", "Admin", "en")
+	adm, _, err := NewAdmin(
+		cfg,
+		AdapterHooks{},
+		WithTranslationProductConfig(TranslationProductConfig{
+			Profile: TranslationProfileCoreExchange,
+			Exchange: &TranslationExchangeConfig{
+				Enabled: true,
+				Store:   &stubQuickstartTranslationExchangeStore{},
+				UI: TranslationExchangeUIConfig{
+					SourceLocale: "en",
+					TargetLocales: []TranslationExchangeLocaleOption{
+						{Code: "bo", Label: "BO"},
+						{Code: "zh", Label: "ZH"},
+					},
+					Resources: []TranslationExchangeResourceOption{{ID: "archive_items", Label: "Archive items"}},
+				},
+			},
+		}),
+	)
+	if err != nil {
+		t.Fatalf("create admin: %v", err)
+	}
+	if adm.Commands() != nil {
+		t.Cleanup(adm.Commands().Reset)
+	}
+
+	ui := translationExchangeUIConfigForAdmin(adm)
+	if !ui.Configured {
+		t.Fatalf("expected exchange UI config in capability snapshot")
+	}
+	if ui.SourceLocale != "en" {
+		t.Fatalf("expected source locale en, got %q", ui.SourceLocale)
+	}
+	if got := strings.Join(localeOptionCodes(ui.TargetLocales), ","); got != "bo,zh" {
+		t.Fatalf("expected target locales bo,zh, got %q", got)
+	}
+	if got := strings.Join(resourceOptionIDs(ui.Resources), ","); got != "archive_items" {
+		t.Fatalf("expected archive resource, got %q", got)
+	}
+}
+
+func TestTranslationExchangeTemplateSerializesUIConfigAndTemplateMetadata(t *testing.T) {
+	raw, err := os.ReadFile("../pkg/client/templates/resources/translations/exchange.html")
+	if err != nil {
+		t.Fatalf("read exchange template: %v", err)
+	}
+	template := string(raw)
+	for _, expected := range []string{
+		"translation_exchange_ui_config.template.href",
+		"translation_exchange_ui_config.template.format",
+		"translation_exchange_ui_config.template.filename",
+		"translation_exchange_ui_config.template.label",
+		"const exchangeUIConfig = {{ toJSON(translation_exchange_ui_config)|safe }};",
+		"exchangeUIConfig,",
+	} {
+		if !strings.Contains(template, expected) {
+			t.Fatalf("expected exchange template to contain %q", expected)
+		}
+	}
 }
 
 func TestRegisterAdminUIRoutesTranslationExchangeRouteIsCapabilityGuarded(t *testing.T) {

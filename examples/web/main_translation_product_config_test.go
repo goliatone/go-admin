@@ -176,6 +176,62 @@ func TestBuildTranslationProductConfigAttachesStoreAndRepository(t *testing.T) {
 	}
 }
 
+func TestBuildTranslationProductConfigMapsExchangeUIRuntimeConfig(t *testing.T) {
+	includeExamples := false
+	cfg := buildTranslationProductConfig(
+		quickstart.TranslationProfileCoreExchange,
+		noopExchangeStore{},
+		coreadmin.NewInMemoryTranslationAssignmentRepository(),
+		appcfg.TranslationConfig{
+			Profile: "core+exchange",
+			ExchangeUI: appcfg.TranslationExchangeUIConfig{
+				SourceLocale: "en",
+				TargetLocales: []quickstart.TranslationExchangeLocaleOption{
+					{Code: "bo", Label: "BO"},
+					{Code: "zh", Label: "ZH"},
+				},
+				Resources: []quickstart.TranslationExchangeResourceOption{
+					{ID: "archive_items", Label: "Archive items"},
+				},
+				DefaultTargetLocales: []string{"bo"},
+				IncludeExamples:      &includeExamples,
+			},
+		},
+	)
+
+	if cfg.Exchange == nil {
+		t.Fatalf("expected exchange config")
+	}
+	ui := cfg.Exchange.UI
+	if ui.SourceLocale != "en" {
+		t.Fatalf("expected source locale en, got %q", ui.SourceLocale)
+	}
+	if len(ui.TargetLocales) != 2 || ui.TargetLocales[0].Code != "bo" || ui.TargetLocales[1].Code != "zh" {
+		t.Fatalf("expected bo/zh target locales, got %+v", ui.TargetLocales)
+	}
+	if len(ui.Resources) != 1 || ui.Resources[0].ID != "archive_items" {
+		t.Fatalf("expected archive resource, got %+v", ui.Resources)
+	}
+	if ui.IncludeExamples == nil || *ui.IncludeExamples != false {
+		t.Fatalf("expected explicit false include_examples to be preserved")
+	}
+}
+
+func TestBuildTranslationProductConfigLeavesExchangeUIEmptyByDefault(t *testing.T) {
+	cfg := buildTranslationProductConfig(
+		quickstart.TranslationProfileCoreExchange,
+		noopExchangeStore{},
+		coreadmin.NewInMemoryTranslationAssignmentRepository(),
+		appcfg.TranslationConfig{Profile: "core+exchange"},
+	)
+	if cfg.Exchange == nil {
+		t.Fatalf("expected exchange config")
+	}
+	if cfg.Exchange.UI.SourceLocale != "" || len(cfg.Exchange.UI.Resources) != 0 || len(cfg.Exchange.UI.TargetLocales) != 0 {
+		t.Fatalf("expected example config to keep exchange UI fallback path by default, got %+v", cfg.Exchange.UI)
+	}
+}
+
 //go:fix inline
 func boolPtr(v bool) *bool {
 	return new(v)
