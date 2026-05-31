@@ -67,7 +67,7 @@ func buildTranslationCapabilities(adm *admin.Admin, productCfg TranslationProduc
 		base = map[string]any{}
 	}
 
-	baseModules, _ := base["modules"].(map[string]any)
+	baseModules := translationAnyMap(base["modules"])
 	exchangeEnabled := translationModuleEnabled(baseModules, "exchange")
 	queueEnabled := translationModuleEnabled(baseModules, "queue")
 	if modules.HasState {
@@ -75,7 +75,7 @@ func buildTranslationCapabilities(adm *admin.Admin, productCfg TranslationProduc
 		queueEnabled = effectiveTranslationModuleEnabled(queueEnabled, modules.QueueEnabled)
 	}
 
-	baseFeatures, _ := base["features"].(map[string]any)
+	baseFeatures := translationAnyMap(base["features"])
 	cmsEnabled := translationBool(baseFeatures["cms"])
 	dashboardEnabled := translationBool(baseFeatures["dashboard"])
 
@@ -146,11 +146,11 @@ func mergeTranslationCapabilities(base, overlay map[string]any) map[string]any {
 }
 
 func mergeTranslationCapabilityModules(out, overlay map[string]any) {
-	overlayModules, _ := overlay["modules"].(map[string]any)
+	overlayModules := translationAnyMap(overlay["modules"])
 	if len(overlayModules) == 0 {
 		return
 	}
-	baseModules, _ := out["modules"].(map[string]any)
+	baseModules := translationAnyMap(out["modules"])
 	mergedModules := cloneAnyMap(baseModules)
 	if mergedModules == nil {
 		mergedModules = map[string]any{}
@@ -167,7 +167,7 @@ func mergeTranslationCapabilityModules(out, overlay map[string]any) {
 }
 
 func mergeTranslationCapabilityModule(rawBase any, moduleOverlay map[string]any) map[string]any {
-	rawBaseModule, _ := rawBase.(map[string]any)
+	rawBaseModule := translationAnyMap(rawBase)
 	baseModule := cloneAnyMap(rawBaseModule)
 	if baseModule == nil {
 		baseModule = map[string]any{}
@@ -202,11 +202,11 @@ func overrideModuleEnabled(payload map[string]any, moduleName string, enabled bo
 	if len(payload) == 0 {
 		return
 	}
-	modules, _ := payload["modules"].(map[string]any)
+	modules := translationAnyMap(payload["modules"])
 	if modules == nil {
 		modules = map[string]any{}
 	}
-	rawModule, _ := modules[moduleName].(map[string]any)
+	rawModule := translationAnyMap(modules[moduleName])
 	module := cloneAnyMap(rawModule)
 	if module == nil {
 		module = map[string]any{}
@@ -222,7 +222,7 @@ func applyModuleEntryState(module map[string]any, moduleEnabled bool) {
 	if len(module) == 0 {
 		return
 	}
-	rawEntry, _ := module["entry"].(map[string]any)
+	rawEntry := translationAnyMap(module["entry"])
 	entry := cloneAnyMap(rawEntry)
 	if entry == nil {
 		entry = map[string]any{}
@@ -237,7 +237,7 @@ func applyModuleEntryState(module map[string]any, moduleEnabled bool) {
 }
 
 func applyModuleActionStates(module map[string]any, moduleEnabled bool) {
-	rawActions, _ := module["actions"].(map[string]any)
+	rawActions := translationAnyMap(module["actions"])
 	actions := cloneAnyMap(rawActions)
 	if actions == nil {
 		if !moduleEnabled {
@@ -246,7 +246,7 @@ func applyModuleActionStates(module map[string]any, moduleEnabled bool) {
 		return
 	}
 	for actionName, rawAction := range actions {
-		actionMap, _ := rawAction.(map[string]any)
+		actionMap := translationAnyMap(rawAction)
 		clonedAction := cloneAnyMap(actionMap)
 		if clonedAction == nil {
 			clonedAction = map[string]any{}
@@ -282,7 +282,7 @@ func applyTranslationCapabilityRouteFiltering(payload map[string]any) {
 	if len(payload) == 0 {
 		return
 	}
-	modules, _ := payload["modules"].(map[string]any)
+	modules := translationAnyMap(payload["modules"])
 	queueEnabled := translationModuleEnabled(modules, "queue")
 	exchangeEnabled := translationModuleEnabled(modules, "exchange")
 	routes := filterTranslationCapabilityRoutes(translationRoutesToStrings(payload["routes"]), exchangeEnabled, queueEnabled)
@@ -389,8 +389,8 @@ func logTranslationCapabilitiesStartup(logger admin.Logger, caps map[string]any)
 	if logger == nil {
 		return
 	}
-	modules, _ := caps["modules"].(map[string]any)
-	features, _ := caps["features"].(map[string]any)
+	modules := translationAnyMap(caps["modules"])
+	features := translationAnyMap(caps["features"])
 	routes := translationRoutesToAny(caps["routes"])
 	panels := translationStringSlice(caps["panels"])
 	resolverKeys := translationStringSlice(caps["resolver_keys"])
@@ -468,6 +468,22 @@ func translationRoutesToStrings(raw any) map[string]string {
 	}
 }
 
+func translationAnyMap(raw any) map[string]any {
+	typed, ok := raw.(map[string]any)
+	if !ok {
+		return nil
+	}
+	return typed
+}
+
+func translationStringMap(raw any) map[string]string {
+	typed, ok := raw.(map[string]string)
+	if !ok {
+		return nil
+	}
+	return typed
+}
+
 func translationStringSlice(raw any) []string {
 	switch typed := raw.(type) {
 	case []string:
@@ -488,6 +504,6 @@ func translationStringSlice(raw any) []string {
 }
 
 func translationBool(value any) bool {
-	enabled, _ := value.(bool)
-	return enabled
+	enabled, ok := value.(bool)
+	return ok && enabled
 }

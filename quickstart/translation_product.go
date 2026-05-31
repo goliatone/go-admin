@@ -523,8 +523,8 @@ func validateTranslationProductRuntime(
 		)
 	}
 
-	modules, _ := snapshot["modules"].(map[string]any)
-	routes, _ := snapshot["routes"].(map[string]string)
+	modules := translationAnyMap(snapshot["modules"])
+	routes := translationStringMap(snapshot["routes"])
 	failed := []string{}
 	adminAPIGroup := strings.TrimSpace(adm.AdminAPIGroup())
 	if adminAPIGroup == "" {
@@ -705,8 +705,7 @@ func translationModuleEnabled(modules map[string]any, module string) bool {
 	if !ok {
 		return false
 	}
-	enabled, _ := typed["enabled"].(bool)
-	return enabled
+	return translationBool(typed["enabled"])
 }
 
 func translationProductErrorPayload(err error) map[string]any {

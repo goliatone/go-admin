@@ -75,23 +75,43 @@ func normalizeTranslationExchangeUIConfig(ui TranslationExchangeUIConfig, adminD
 
 func translationExchangeUIConfigHasFields(ui TranslationExchangeUIConfig) bool {
 	return ui.Configured ||
-		strings.TrimSpace(ui.SourceLocale) != "" ||
+		translationExchangeUIConfigHasLocaleFields(ui) ||
+		translationExchangeUIConfigHasResourceFields(ui) ||
+		translationExchangeUIConfigHasOptionFields(ui) ||
+		translationExchangeUIConfigHasApplyFields(ui.Apply) ||
+		translationExchangeUIConfigHasTemplateFields(ui.Template)
+}
+
+func translationExchangeUIConfigHasLocaleFields(ui TranslationExchangeUIConfig) bool {
+	return strings.TrimSpace(ui.SourceLocale) != "" ||
 		len(ui.SourceLocales) > 0 ||
 		len(ui.TargetLocales) > 0 ||
 		len(ui.LocaleLabels) > 0 ||
-		len(ui.Resources) > 0 ||
-		len(ui.DefaultResources) > 0 ||
-		len(ui.DefaultTargetLocales) > 0 ||
-		ui.IncludeSourceHash != nil ||
-		ui.IncludeExamples != nil ||
-		ui.Apply.AllowCreateMissing != nil ||
-		ui.Apply.AllowSourceHashOverride != nil ||
-		ui.Apply.ContinueOnError != nil ||
-		ui.Apply.DryRun != nil ||
-		strings.TrimSpace(ui.Template.Label) != "" ||
-		strings.TrimSpace(ui.Template.Format) != "" ||
-		strings.TrimSpace(ui.Template.Href) != "" ||
-		strings.TrimSpace(ui.Template.Filename) != ""
+		len(ui.DefaultTargetLocales) > 0
+}
+
+func translationExchangeUIConfigHasResourceFields(ui TranslationExchangeUIConfig) bool {
+	return len(ui.Resources) > 0 ||
+		len(ui.DefaultResources) > 0
+}
+
+func translationExchangeUIConfigHasOptionFields(ui TranslationExchangeUIConfig) bool {
+	return ui.IncludeSourceHash != nil ||
+		ui.IncludeExamples != nil
+}
+
+func translationExchangeUIConfigHasApplyFields(apply TranslationExchangeApplyDefaults) bool {
+	return apply.AllowCreateMissing != nil ||
+		apply.AllowSourceHashOverride != nil ||
+		apply.ContinueOnError != nil ||
+		apply.DryRun != nil
+}
+
+func translationExchangeUIConfigHasTemplateFields(template TranslationExchangeTemplateOption) bool {
+	return strings.TrimSpace(template.Label) != "" ||
+		strings.TrimSpace(template.Format) != "" ||
+		strings.TrimSpace(template.Href) != "" ||
+		strings.TrimSpace(template.Filename) != ""
 }
 
 func normalizeTranslationExchangeLocaleLabels(labels map[string]string) map[string]string {
