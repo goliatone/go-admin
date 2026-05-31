@@ -856,6 +856,41 @@ Password reset UI defaults to two pages:
 Override the confirm route or template with `WithAuthUIPasswordResetConfirmPath` and
 `WithAuthUIPasswordResetConfirmTemplate`.
 
+### Auth UI SSO provider context
+The default login template reads optional `sso_providers` from auth UI view
+context. Integrations such as `go-auth/adapters/goadmin` can inject it with
+`WithAuthUIViewContextBuilder(...)`; go-admin does not discover providers,
+configure OIDC, handle callbacks, or receive secrets.
+
+Each provider entry is a display-safe map:
+
+- `key`: stable non-secret provider identifier.
+- `label`: required user-facing provider name.
+- `login_url`: required begin-login URL for enabled providers.
+- `icon_class`: optional CSS/icon class metadata.
+- `icon_url`: optional image/icon asset URL.
+- `disabled_reason`: optional non-secret reason for unavailable providers.
+
+Entries without a usable `label` are ignored. Entries with `label`,
+`login_url`, and no `disabled_reason` render as sign-in links. Entries with a
+`disabled_reason` render disabled without `href`. A usable `login_url` is a
+non-empty relative URL or `http`/`https` URL without control characters; blank
+URLs and unsafe schemes never produce active links. Missing, empty, or fully
+malformed provider lists omit the SSO divider and provider section.
+
+```go
+quickstart.WithAuthUIViewContextBuilder(func(ctx router.ViewContext, c router.Context) router.ViewContext {
+	ctx["sso_providers"] = []map[string]any{
+		{
+			"key":       "acme",
+			"label":     "Acme ID",
+			"login_url": "/admin/auth/sso/acme",
+		},
+	}
+	return ctx
+})
+```
+
 ### Theme assets for auth UI
 Auth and registration UI routes support theme assets (`logo`, `icon`, `favicon`) via dedicated options. Assets are exposed in templates as `theme.assets.logo`, `theme.assets.icon`, `theme.assets.favicon`, etc. Relative filenames are joined with the provided prefix; already resolved absolute URLs/paths are preserved.
 

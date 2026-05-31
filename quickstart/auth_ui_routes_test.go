@@ -795,6 +795,58 @@ func TestAuthUIRoutesThemeAssetsRemainSupportedWithoutAdminTheme(t *testing.T) {
 	}
 }
 
+func TestAuthUIRoutesAllowSSOProviderViewContextBuilder(t *testing.T) {
+	cfg := NewAdminConfig("/admin", "Admin", "en")
+	r := newCaptureRouter()
+	auther := auth.NewAuthenticator(stubIdentityProvider{}, stubAuthConfig{})
+	routeAuth, err := auth.NewHTTPAuthenticator(auther, stubAuthConfig{})
+	if err != nil {
+		t.Fatalf("new http authenticator: %v", err)
+	}
+
+	providers := []map[string]any{{
+		"key":       "acme",
+		"label":     "Acme ID",
+		"login_url": "/admin/auth/sso/acme",
+	}}
+	if err := RegisterAuthUIRoutes(
+		r,
+		cfg,
+		routeAuth,
+		WithAuthUIViewContextBuilder(func(ctx router.ViewContext, _ router.Context) router.ViewContext {
+			ctx["sso_providers"] = providers
+			return ctx
+		}),
+	); err != nil {
+		t.Fatalf("register auth routes: %v", err)
+	}
+
+	handler := r.getHandlers["/admin/login"]
+	if handler == nil {
+		t.Fatalf("expected login GET route")
+	}
+
+	ctx := router.NewMockContext()
+	ctx.On("Context").Return(context.Background())
+	var rendered any
+	ctx.On("Render", "login", mock.Anything).Run(func(args mock.Arguments) {
+		rendered = args.Get(1)
+	}).Return(nil)
+
+	if err := handler(ctx); err != nil {
+		t.Fatalf("login handler error: %v", err)
+	}
+
+	viewCtx, ok := rendered.(router.ViewContext)
+	if !ok {
+		t.Fatalf("expected view context, got %T", rendered)
+	}
+	got, ok := viewCtx["sso_providers"].([]map[string]any)
+	if !ok || len(got) != 1 {
+		t.Fatalf("expected injected SSO provider context, got %#v", got)
+	}
+}
+
 func TestRegistrationUIRoutesRespectUsersSignupGate(t *testing.T) {
 	cfg := NewAdminConfig("/admin", "Admin", "en")
 	gate := stubFeatureGate{

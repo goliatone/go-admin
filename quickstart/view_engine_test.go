@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"testing/fstest"
 
@@ -468,6 +469,125 @@ func TestSidebarTemplateFallsBackToBuiltInBrandAsset(t *testing.T) {
 }
 
 func TestLoginTemplatePrefersThemeIconAsset(t *testing.T) {
+	html := renderLoginTemplate(t, fiber.Map{
+		"theme": map[string]map[string]string{"assets": {
+			"logo": "/brand/logo.svg",
+			"icon": "/brand/icon.svg",
+		}},
+	})
+	if !containsAll(html, `/brand/icon.svg`, `w-10 h-10 object-contain`) {
+		t.Fatalf("expected login template to prefer theme icon asset, got %q", html)
+	}
+	if strings.Contains(html, `/brand/logo.svg`) {
+		t.Fatalf("expected login template not to render logo when icon exists, got %q", html)
+	}
+}
+
+func TestLoginTemplateOmitsSSOSectionWithoutProviders(t *testing.T) {
+	for name, providers := range map[string]any{
+		"absent": nil,
+		"empty":  []map[string]any{},
+	} {
+		t.Run(name, func(t *testing.T) {
+			data := fiber.Map{}
+			if name != "absent" {
+				data["sso_providers"] = providers
+			}
+			html := renderLoginTemplate(t, data)
+			if containsAny(html, `Or sign in with`, `>Google<`, `>Apple<`, `href="/admin/auth/sso`) {
+				t.Fatalf("expected no SSO section or static OAuth controls, got %q", html)
+			}
+			if !containsAll(html, `name="identifier"`, `name="password"`, `Sign In`) {
+				t.Fatalf("expected local login form to remain, got %q", html)
+			}
+		})
+	}
+}
+
+func TestLoginTemplateRendersEnabledSSOProviders(t *testing.T) {
+	html := renderLoginTemplate(t, fiber.Map{
+		"sso_providers": []map[string]any{
+			{
+				"key":        "acme",
+				"label":      "Acme ID",
+				"login_url":  "/admin/auth/sso/acme",
+				"icon_class": "iconoir-key",
+			},
+			{
+				"key":       "contoso",
+				"label":     "Contoso",
+				"login_url": "https://idp.example.test/start",
+				"icon_url":  "/assets/contoso.svg",
+			},
+		},
+	})
+	if !containsAll(html,
+		`Or sign in with`,
+		`href="/admin/auth/sso/acme"`,
+		`Acme ID`,
+		`iconoir-key`,
+		`href="https://idp.example.test/start"`,
+		`/assets/contoso.svg`,
+		`Contoso`,
+	) {
+		t.Fatalf("expected enabled SSO provider links, got %q", html)
+	}
+	if containsAny(html, `>Google<`, `>Apple<`, `aria-disabled="true"`) {
+		t.Fatalf("expected no static OAuth or disabled controls, got %q", html)
+	}
+}
+
+func TestLoginTemplateRendersDisabledSSOProvidersWithoutLinks(t *testing.T) {
+	html := renderLoginTemplate(t, fiber.Map{
+		"sso_providers": []map[string]any{
+			{
+				"key":             "okta",
+				"label":           "Okta",
+				"login_url":       "/admin/auth/sso/okta",
+				"disabled_reason": "Temporarily unavailable",
+			},
+		},
+	})
+	if !containsAll(html, `Or sign in with`, `Okta`, `Temporarily unavailable`, `aria-disabled="true"`) {
+		t.Fatalf("expected disabled SSO provider control, got %q", html)
+	}
+	if strings.Contains(html, `href="/admin/auth/sso/okta"`) {
+		t.Fatalf("expected disabled provider not to link to login, got %q", html)
+	}
+}
+
+func TestLoginTemplateFiltersMalformedSSOProviders(t *testing.T) {
+	html := renderLoginTemplate(t, fiber.Map{
+		"sso_providers": []map[string]any{
+			{"key": "blank-label", "label": " ", "login_url": "/admin/auth/sso/blank-label"},
+			{"key": "blank-url", "label": "Blank URL", "login_url": " "},
+			{"key": "unsafe-url", "label": "Unsafe", "login_url": "javascript:alert(1)"},
+			{"key": "disabled", "label": "Disabled IDP", "disabled_reason": "Setup required"},
+			{"key": "valid", "label": "Valid IDP", "login_url": "/admin/auth/sso/valid"},
+		},
+	})
+	if !containsAll(html, `Or sign in with`, `Disabled IDP`, `Setup required`, `Valid IDP`, `href="/admin/auth/sso/valid"`) {
+		t.Fatalf("expected mixed provider list to render valid controls, got %q", html)
+	}
+	if containsAny(html, `Blank URL`, `Unsafe`, `javascript:alert`, `blank-label`) {
+		t.Fatalf("expected malformed providers to be filtered, got %q", html)
+	}
+
+	html = renderLoginTemplate(t, fiber.Map{
+		"sso_providers": []map[string]any{
+			{"label": " "},
+			{"label": "No URL"},
+			{"label": "Unsafe", "login_url": "data:text/html,hi"},
+		},
+	})
+	if containsAny(html, `Or sign in with`, `No URL`, `Unsafe`) {
+		t.Fatalf("expected fully malformed provider list to omit SSO section, got %q", html)
+	}
+}
+
+func renderLoginTemplate(t *testing.T, data fiber.Map) string {
+	t.Helper()
+
 	views, err := NewViewEngine(
 		client.Templates(),
 		WithViewTemplateFuncs(DefaultTemplateFuncs(WithTemplateBasePath("/admin"))),
@@ -476,18 +596,19 @@ func TestLoginTemplatePrefersThemeIconAsset(t *testing.T) {
 		t.Fatalf("NewViewEngine error: %v", err)
 	}
 
+	viewData := fiber.Map{
+		"title":           "Admin",
+		"base_path":       "/admin",
+		"asset_base_path": "/admin",
+		"csrf_field":      "",
+	}
+	for key, value := range data {
+		viewData[key] = value
+	}
+
 	app := fiber.New(fiber.Config{Views: views})
 	app.Get("/", func(c *fiber.Ctx) error {
-		return c.Render("login", fiber.Map{
-			"title":           "Admin",
-			"base_path":       "/admin",
-			"asset_base_path": "/admin",
-			"theme": map[string]map[string]string{"assets": {
-				"logo": "/brand/logo.svg",
-				"icon": "/brand/icon.svg",
-			}},
-			"csrf_field": "",
-		})
+		return c.Render("login", viewData)
 	})
 
 	resp, err := app.Test(httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/", nil), -1)
@@ -500,13 +621,7 @@ func TestLoginTemplatePrefersThemeIconAsset(t *testing.T) {
 	if _, err := body.ReadFrom(resp.Body); err != nil {
 		t.Fatalf("read response body: %v", err)
 	}
-	html := body.String()
-	if !containsAll(html, `/brand/icon.svg`, `w-10 h-10 object-contain`) {
-		t.Fatalf("expected login template to prefer theme icon asset, got %q", html)
-	}
-	if bytes.Contains(body.Bytes(), []byte(`/brand/logo.svg`)) {
-		t.Fatalf("expected login template not to render logo when icon exists, got %q", html)
-	}
+	return body.String()
 }
 
 func containsAll(input string, patterns ...string) bool {
@@ -516,4 +631,13 @@ func containsAll(input string, patterns ...string) bool {
 		}
 	}
 	return true
+}
+
+func containsAny(input string, patterns ...string) bool {
+	for _, pattern := range patterns {
+		if strings.Contains(input, pattern) {
+			return true
+		}
+	}
+	return false
 }

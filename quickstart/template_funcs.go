@@ -98,6 +98,7 @@ func buildDefaultTemplateFuncMap(
 		"oauthNeedsReauthorization": func(isExpired, isExpiringSoon, canAutoRefresh bool) bool {
 			return OAuthNeedsReauthorization(isExpired, isExpiringSoon, canAutoRefresh)
 		},
+		"authSSOProviders": authSSOProviders,
 		"dict": func(values ...any) (map[string]any, error) {
 			if len(values)%2 != 0 {
 				return nil, fmt.Errorf("dict requires even number of arguments")
