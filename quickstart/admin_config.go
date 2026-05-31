@@ -22,13 +22,14 @@ func NewAdminConfig(basePath, title, defaultLocale string, opts ...AdminConfigOp
 	}
 	basePath = admin.NormalizeBasePath(basePath)
 	cfg := admin.Config{
-		Title:         strings.TrimSpace(title),
-		BasePath:      basePath,
-		DefaultLocale: strings.TrimSpace(defaultLocale),
-		Theme:         "admin",
-		ThemeVariant:  "light",
-		NavMenuCode:   DefaultNavMenuCode,
-		ThemeTokens:   DefaultThemeTokens(),
+		Title:                   strings.TrimSpace(title),
+		BasePath:                basePath,
+		DefaultLocale:           strings.TrimSpace(defaultLocale),
+		Theme:                   "admin",
+		ThemeVariant:            "light",
+		NavMenuCode:             DefaultNavMenuCode,
+		NavPermissionDeniedMode: admin.NavigationPermissionDeniedModeHide,
+		ThemeTokens:             DefaultThemeTokens(),
 	}
 
 	if cfg.Title == "" {
@@ -164,6 +165,16 @@ func WithNavMenuCode(code string) AdminConfigOption {
 		if code != "" {
 			cfg.NavMenuCode = code
 		}
+	}
+}
+
+// WithNavPermissionDeniedMode sets how denied navigation entries are resolved.
+func WithNavPermissionDeniedMode(mode admin.NavigationPermissionDeniedMode) AdminConfigOption {
+	return func(cfg *admin.Config) {
+		if cfg == nil {
+			return
+		}
+		cfg.NavPermissionDeniedMode = admin.NormalizeNavigationPermissionDeniedMode(mode)
 	}
 }
 
