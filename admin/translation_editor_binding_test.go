@@ -23,6 +23,8 @@ type translationEditorTestFixtureOptions struct {
 	TargetFields           map[string]string
 	LastSyncedSourceFields map[string]string
 	VariantRowVersion      int64
+	TargetCMSStatus        string
+	TargetVariantStatus    string
 	LastRejectionReason    string
 	Permissions            map[string]bool
 	FamilyStore            translationservices.FamilyStore
@@ -79,6 +81,35 @@ func (s *translationEditorMemoryTrackingStore) TranslationEditorMemorySuggestion
 	return append([]TranslationEditorMemorySuggestion{}, s.suggestions...), nil
 }
 
+func assertTranslationEditorVariantStatusMetadata(t *testing.T, metadata map[string]any, want string) {
+	t.Helper()
+	editorMeta := extractMap(metadata[translationEditorMetadataKey])
+	if got := toString(editorMeta[translationEditorVariantStatusKey]); got != want {
+		t.Fatalf("expected editor variant status %q, got %q in %+v", want, got, editorMeta)
+	}
+	if got := toString(metadata[translationVariantStatusMetadataKey]); got != want {
+		t.Fatalf("expected top-level variant status %q, got %q in %+v", want, got, metadata)
+	}
+}
+
+func assertTranslationEditorReadModelVariantStatus(t *testing.T, fixture translationEditorTestFixture, want string) {
+	t.Helper()
+	family, ok, err := fixture.admin.translationFamilyStore.Family(context.Background(), "tg-page-1")
+	if err != nil {
+		t.Fatalf("load synced family: %v", err)
+	}
+	if !ok {
+		t.Fatalf("expected synced family")
+	}
+	variant, ok := translationFamilyVariantByLocale(family, "fr")
+	if !ok {
+		t.Fatalf("expected fr variant in synced family")
+	}
+	if got := variant.Status; got != want {
+		t.Fatalf("expected read-model variant status %q, got %q", want, got)
+	}
+}
+
 func newTranslationEditorTestFixture(t *testing.T, options translationEditorTestFixtureOptions) translationEditorTestFixture {
 	t.Helper()
 
@@ -90,6 +121,12 @@ func newTranslationEditorTestFixture(t *testing.T, options translationEditorTest
 	}
 	if options.VariantRowVersion <= 0 {
 		options.VariantRowVersion = 3
+	}
+	if strings.TrimSpace(options.TargetCMSStatus) == "" {
+		options.TargetCMSStatus = "draft"
+	}
+	if strings.TrimSpace(options.TargetVariantStatus) == "" {
+		options.TargetVariantStatus = string(translationcore.VariantStatusInProgress)
 	}
 	if len(options.TargetFields) == 0 {
 		options.TargetFields = map[string]string{
@@ -189,8 +226,10 @@ func newTranslationEditorTestFixture(t *testing.T, options translationEditorTest
 			translationEditorLastSyncedSourceFieldsKey: cloneStringMapToAny(options.LastSyncedSourceFields),
 			translationEditorLastSavedAtKey:            "2026-03-12T16:00:00Z",
 			translationEditorLastSavedByKey:            "translator-1",
+			translationEditorVariantStatusKey:          strings.TrimSpace(options.TargetVariantStatus),
 		},
-		"source_hash_at_last_sync": lastSyncedHash,
+		"source_hash_at_last_sync":          lastSyncedHash,
+		translationVariantStatusMetadataKey: strings.TrimSpace(options.TargetVariantStatus),
 	}
 	_, err = base.content.CreatePage(context.Background(), CMSPage{
 		ID:       "page-1-fr",
@@ -198,7 +237,7 @@ func newTranslationEditorTestFixture(t *testing.T, options translationEditorTest
 		Slug:     "page-1-fr",
 		Locale:   "fr",
 		FamilyID: "tg-page-1",
-		Status:   string(translationcore.VariantStatusInProgress),
+		Status:   strings.TrimSpace(options.TargetCMSStatus),
 		Data: map[string]any{
 			"path": options.TargetFields["path"],
 			"body": options.TargetFields["body"],
@@ -671,10 +710,15 @@ func TestTranslationEditorUpdateVariantMaintainsSourceHashAndRowVersion(t *testi
 	if err != nil || target == nil {
 		t.Fatalf("load updated target page: %v", err)
 	}
+	if got := target.Status; got != "draft" {
+		t.Fatalf("expected CMS target status draft, got %q", got)
+	}
+	assertTranslationEditorVariantStatusMetadata(t, target.Metadata, string(translationcore.VariantStatusInProgress))
 	editorMeta := extractMap(extractMap(target.Metadata[translationEditorMetadataKey]))
 	if got := toInt(editorMeta[translationEditorRowVersionKey]); got != 4 {
 		t.Fatalf("expected persisted row_version 4, got %d", got)
 	}
+	assertTranslationEditorReadModelVariantStatus(t, fixture, string(translationcore.VariantStatusInProgress))
 
 	source, err := fixture.content.Page(context.Background(), "page-1", "")
 	if err != nil || source == nil {
@@ -686,6 +730,60 @@ func TestTranslationEditorUpdateVariantMaintainsSourceHashAndRowVersion(t *testi
 	}
 	if expectedHash == originalSourceHash {
 		t.Fatalf("expected fixture to contain source drift")
+	}
+}
+
+func TestTranslationEditorUpdateVariantReopensApprovedAndMovesActiveCMSStatusToDraft(t *testing.T) {
+	fixture := newTranslationEditorTestFixture(t, translationEditorTestFixtureOptions{
+		ReviewRequired:      true,
+		TargetCMSStatus:     "scheduled",
+		TargetVariantStatus: string(translationcore.VariantStatusApproved),
+	})
+
+	status, payload := doTranslationEditorJSONRequest(t, fixture.app, http.MethodPatch, "/admin/api/translations/variants/"+fixture.targetVariantID+"?channel=production&tenant_id=tenant-1&org_id=org-1", map[string]any{
+		"channel":          "production",
+		"expected_version": 3,
+		"fields": map[string]any{
+			"body": "Texte approuve mis a jour.",
+		},
+	})
+	if status != http.StatusOK {
+		t.Fatalf("status=%d want=200 payload=%+v", status, payload)
+	}
+
+	target, err := fixture.content.Page(context.Background(), fixture.targetRecordID, "")
+	if err != nil || target == nil {
+		t.Fatalf("load updated target page: %v", err)
+	}
+	if got := target.Status; got != "draft" {
+		t.Fatalf("expected CMS target status draft, got %q", got)
+	}
+	assertTranslationEditorVariantStatusMetadata(t, target.Metadata, string(translationcore.VariantStatusInProgress))
+	assertTranslationEditorReadModelVariantStatus(t, fixture, string(translationcore.VariantStatusInProgress))
+}
+
+func TestTranslationEditorCMSStatusForVariantStatus(t *testing.T) {
+	tests := []struct {
+		name       string
+		variant    string
+		currentCMS string
+		want       string
+	}{
+		{name: "in progress draft stays draft", variant: string(translationcore.VariantStatusInProgress), currentCMS: "draft", want: "draft"},
+		{name: "in progress published becomes draft", variant: string(translationcore.VariantStatusInProgress), currentCMS: "published", want: "draft"},
+		{name: "in progress scheduled becomes draft", variant: string(translationcore.VariantStatusInProgress), currentCMS: "scheduled", want: "draft"},
+		{name: "pending approval becomes draft", variant: string(translationcore.VariantStatusInProgress), currentCMS: "pending_approval", want: "draft"},
+		{name: "translation approved remains non public", variant: string(translationcore.VariantStatusApproved), currentCMS: "published", want: "draft"},
+		{name: "archived remains archived", variant: string(translationcore.VariantStatusInProgress), currentCMS: "archived", want: "archived"},
+		{name: "explicit archive wins", variant: string(translationcore.VariantStatusArchived), currentCMS: "published", want: "archived"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := translationEditorCMSStatusForVariantStatus(tc.variant, tc.currentCMS); got != tc.want {
+				t.Fatalf("expected %q, got %q", tc.want, got)
+			}
+		})
 	}
 }
 
@@ -934,9 +1032,11 @@ func TestTranslationEditorReviewActionsPersistVariantStatus(t *testing.T) {
 	if err != nil || rejectedTarget == nil {
 		t.Fatalf("load rejected target: %v", err)
 	}
-	if got := rejectedTarget.Status; got != string(translationcore.VariantStatusInProgress) {
-		t.Fatalf("expected rejected target status in_progress, got %q", got)
+	if got := rejectedTarget.Status; got != "draft" {
+		t.Fatalf("expected rejected target CMS status draft, got %q", got)
 	}
+	assertTranslationEditorVariantStatusMetadata(t, rejectedTarget.Metadata, string(translationcore.VariantStatusInProgress))
+	assertTranslationEditorReadModelVariantStatus(t, rejectFixture, string(translationcore.VariantStatusInProgress))
 	if len(metrics.reviewActionTags) == 0 {
 		t.Fatalf("expected review action metric for reject")
 	}
@@ -983,9 +1083,11 @@ func TestTranslationEditorReviewActionsPersistVariantStatus(t *testing.T) {
 	if err != nil || approvedTarget == nil {
 		t.Fatalf("load approved target: %v", err)
 	}
-	if got := approvedTarget.Status; got != string(translationcore.VariantStatusApproved) {
-		t.Fatalf("expected approved target status approved, got %q", got)
+	if got := approvedTarget.Status; got != "draft" {
+		t.Fatalf("expected approved target CMS status draft, got %q", got)
 	}
+	assertTranslationEditorVariantStatusMetadata(t, approvedTarget.Metadata, string(translationcore.VariantStatusApproved))
+	assertTranslationEditorReadModelVariantStatus(t, approveFixture, string(translationcore.VariantStatusApproved))
 	if len(metrics.reviewActionTags) < 2 {
 		t.Fatalf("expected review action metric for approve, got %+v", metrics.reviewActionTags)
 	}
@@ -1030,9 +1132,11 @@ func TestTranslationEditorSubmitReviewAutoApprovesWhenReviewIsDisabled(t *testin
 	if err != nil || target == nil {
 		t.Fatalf("load target page: %v", err)
 	}
-	if got := target.Status; got != string(translationcore.VariantStatusApproved) {
-		t.Fatalf("expected target variant approved, got %q", got)
+	if got := target.Status; got != "draft" {
+		t.Fatalf("expected target CMS status draft, got %q", got)
 	}
+	assertTranslationEditorVariantStatusMetadata(t, target.Metadata, string(translationcore.VariantStatusApproved))
+	assertTranslationEditorReadModelVariantStatus(t, fixture, string(translationcore.VariantStatusApproved))
 	if len(metrics.qaOutcomeTags) != 1 {
 		t.Fatalf("expected one qa outcome metric for submit review, got %d", len(metrics.qaOutcomeTags))
 	}

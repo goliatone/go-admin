@@ -386,7 +386,7 @@ func translationFamilyVariantRecord(
 		TenantID:       scope.TenantID,
 		OrgID:          scope.OrgID,
 		Locale:         resolvedLocale,
-		Status:         translationFamilyVariantStatus(status),
+		Status:         translationEditorVariantStatusFromMetadata(metadata, status),
 		IsSource:       strings.EqualFold(resolvedLocale, strings.TrimSpace(strings.ToLower(defaultLocale))),
 		Fields:         translationFamilyFields(title, slug, data),
 		Metadata:       cloneAnyMap(metadata),

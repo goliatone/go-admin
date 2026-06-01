@@ -25,6 +25,8 @@ const (
 	translationEditorLastSyncedSourceFieldsKey       = "last_synced_source_fields"
 	translationEditorLastSavedAtKey                  = "last_saved_at"
 	translationEditorLastSavedByKey                  = "last_saved_by"
+	translationEditorVariantStatusKey                = "variant_status"
+	translationVariantStatusMetadataKey              = "translation_variant_status"
 	translationEditorComparisonModeSnapshot          = "snapshot"
 	translationEditorComparisonModeHashOnly          = "hash_only"
 	translationEditorDefaultVersion            int64 = 1
@@ -1292,10 +1294,9 @@ func preparePersistedEditorPage(record CMSPage, state editorVariantUpdateState, 
 	for key, value := range state.fields {
 		translationEditorSetPageField(&updated, key, value)
 	}
-	if updated.Status == "" || strings.EqualFold(updated.Status, string(translationcore.VariantStatusDraft)) {
-		updated.Status = string(translationcore.VariantStatusInProgress)
-	}
-	updated.Metadata = translationEditorMergeMetadata(updated.Metadata, metadata, state.version, state.syncHash, state.syncFields, actorID, state.now)
+	variantStatus := translationEditorNextEditableVariantStatus()
+	updated.Status = translationEditorCMSStatusForVariantStatus(variantStatus, updated.Status)
+	updated.Metadata = translationEditorMergeMetadata(updated.Metadata, metadata, state.version, state.syncHash, state.syncFields, actorID, state.now, variantStatus)
 	return updated
 }
 
@@ -1304,10 +1305,9 @@ func preparePersistedEditorContent(record CMSContent, state editorVariantUpdateS
 	for key, value := range state.fields {
 		translationEditorSetContentField(&updated, key, value)
 	}
-	if updated.Status == "" || strings.EqualFold(updated.Status, string(translationcore.VariantStatusDraft)) {
-		updated.Status = string(translationcore.VariantStatusInProgress)
-	}
-	updated.Metadata = translationEditorMergeMetadata(updated.Metadata, metadata, state.version, state.syncHash, state.syncFields, actorID, state.now)
+	variantStatus := translationEditorNextEditableVariantStatus()
+	updated.Status = translationEditorCMSStatusForVariantStatus(variantStatus, updated.Status)
+	updated.Metadata = translationEditorMergeMetadata(updated.Metadata, metadata, state.version, state.syncHash, state.syncFields, actorID, state.now, variantStatus)
 	return updated
 }
 
@@ -1516,8 +1516,9 @@ func (b *translationQueueBinding) persistEditorVariantStatus(ctx context.Context
 			return err
 		}
 		updated := cloneCMSPage(*record)
-		updated.Status = strings.TrimSpace(status)
-		updated.Metadata = translationEditorMergeMetadata(updated.Metadata, nil, nextVersion, syncHash, syncFields, actorID, now)
+		variantStatus := translationFamilyVariantStatus(status)
+		updated.Status = translationEditorCMSStatusForVariantStatus(variantStatus, updated.Status)
+		updated.Metadata = translationEditorMergeMetadata(updated.Metadata, nil, nextVersion, syncHash, syncFields, actorID, now, variantStatus)
 		if _, err = b.admin.contentSvc.UpdatePage(ctx, updated); err != nil {
 			return err
 		}
@@ -1528,15 +1529,50 @@ func (b *translationQueueBinding) persistEditorVariantStatus(ctx context.Context
 		return err
 	}
 	updated := cloneCMSContent(*record)
-	updated.Status = strings.TrimSpace(status)
-	updated.Metadata = translationEditorMergeMetadata(updated.Metadata, nil, nextVersion, syncHash, syncFields, actorID, now)
+	variantStatus := translationFamilyVariantStatus(status)
+	updated.Status = translationEditorCMSStatusForVariantStatus(variantStatus, updated.Status)
+	updated.Metadata = translationEditorMergeMetadata(updated.Metadata, nil, nextVersion, syncHash, syncFields, actorID, now, variantStatus)
 	if _, err = b.admin.contentSvc.UpdateContent(ctx, updated); err != nil {
 		return err
 	}
 	return SyncTranslationFamilyStore(ctx, b.admin, editorCtx.Environment)
 }
 
-func translationEditorMergeMetadata(existing, incoming map[string]any, rowVersion int64, sourceHash string, sourceFields map[string]string, actorID string, now time.Time) map[string]any {
+func translationEditorNextEditableVariantStatus() string {
+	return string(translationcore.VariantStatusInProgress)
+}
+
+func translationEditorVariantStatusFromMetadata(metadata map[string]any, fallbackStatus string) string {
+	editorMeta := extractMap(metadata[translationEditorMetadataKey])
+	for _, candidate := range []string{
+		toString(editorMeta[translationEditorVariantStatusKey]),
+		toString(metadata[translationVariantStatusMetadataKey]),
+		toString(metadata[translationEditorVariantStatusKey]),
+		fallbackStatus,
+	} {
+		if strings.TrimSpace(candidate) == "" {
+			continue
+		}
+		return translationFamilyVariantStatus(candidate)
+	}
+	return string(translationcore.VariantStatusDraft)
+}
+
+func translationEditorCMSStatusForVariantStatus(variantStatus, currentCMSStatus string) string {
+	switch translationFamilyVariantStatus(variantStatus) {
+	case string(translationcore.VariantStatusArchived):
+		return "archived"
+	default:
+		switch strings.TrimSpace(strings.ToLower(currentCMSStatus)) {
+		case "archived":
+			return "archived"
+		default:
+			return "draft"
+		}
+	}
+}
+
+func translationEditorMergeMetadata(existing, incoming map[string]any, rowVersion int64, sourceHash string, sourceFields map[string]string, actorID string, now time.Time, variantStatus string) map[string]any {
 	merged := cloneAnyMap(existing)
 	if merged == nil {
 		merged = map[string]any{}
@@ -1551,6 +1587,10 @@ func translationEditorMergeMetadata(existing, incoming map[string]any, rowVersio
 	editorMeta[translationEditorLastSyncedSourceFieldsKey] = cloneStringMapToAny(sourceFields)
 	editorMeta[translationEditorLastSavedAtKey] = now.Format(time.RFC3339)
 	editorMeta[translationEditorLastSavedByKey] = strings.TrimSpace(actorID)
+	if normalizedStatus := translationFamilyVariantStatus(variantStatus); normalizedStatus != "" {
+		editorMeta[translationEditorVariantStatusKey] = normalizedStatus
+		merged[translationVariantStatusMetadataKey] = normalizedStatus
+	}
 	merged[translationEditorMetadataKey] = editorMeta
 	merged["source_hash_at_last_sync"] = strings.TrimSpace(sourceHash)
 	return merged
