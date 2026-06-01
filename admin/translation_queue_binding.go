@@ -10,6 +10,7 @@ import (
 	"github.com/goliatone/go-admin/internal/primitives"
 	goerrors "github.com/goliatone/go-errors"
 	"github.com/google/uuid"
+	"net/url"
 	"sort"
 	"strings"
 	"sync"
@@ -77,8 +78,10 @@ type translationQueueFilterSnapshot struct {
 }
 
 type translationQueueGroupingRequest struct {
-	Enabled bool
-	Mode    string
+	Enabled      bool
+	Mode         string
+	Strategy     string
+	ExplicitSort bool
 }
 
 func translationQueueGroupingFromRequest(c router.Context) (translationQueueGroupingRequest, error) {
@@ -86,9 +89,29 @@ func translationQueueGroupingFromRequest(c router.Context) (translationQueueGrou
 	if groupBy == "" {
 		return translationQueueGroupingRequest{}, nil
 	}
+	strategy := strings.TrimSpace(strings.ToLower(firstNonEmpty(c.Query("group_strategy"), c.Query("groupStrategy"))))
+	if strategy == "" {
+		strategy = "page_local"
+	}
 	switch groupBy {
 	case "family_id":
-		return translationQueueGroupingRequest{Enabled: true, Mode: "family_id"}, nil
+		switch strategy {
+		case "page_local", "server_family":
+			return translationQueueGroupingRequest{
+				Enabled:      true,
+				Mode:         "family_id",
+				Strategy:     strategy,
+				ExplicitSort: strings.TrimSpace(firstNonEmpty(c.Query("sort"), c.Query("sort_by"))) != "",
+			}, nil
+		default:
+			return translationQueueGroupingRequest{}, validationDomainError("unsupported assignment queue grouping strategy", map[string]any{
+				"field":          "group_strategy",
+				"group_by":       groupBy,
+				"group_strategy": strategy,
+				"supported":      []string{"page_local", "server_family"},
+				"reason_code":    "group_strategy_unsupported",
+			})
+		}
 	default:
 		return translationQueueGroupingRequest{}, validationDomainError("unsupported assignment queue grouping", map[string]any{
 			"field":     "group_by",
@@ -140,6 +163,9 @@ func (b *translationQueueBinding) Assignments(c router.Context) (payload any, er
 	if err != nil {
 		return nil, err
 	}
+	if grouping.Strategy == "server_family" {
+		return b.serverFamilyAssignmentGroups(adminCtx, repo, filter, page, clampInt(atoiDefault(c.Query("per_page"), 25), 1, 100), channel, now, grouping)
+	}
 	assignments, total, optimizedPage, err := b.assignmentPage(adminCtx.Context, repo, filter, page, perPage, channel, now)
 	if err != nil {
 		return nil, err
@@ -151,7 +177,7 @@ func (b *translationQueueBinding) Assignments(c router.Context) (payload any, er
 		if countsErr == nil {
 			return map[string]any{
 				"data": rows,
-				"meta": b.assignmentListMeta(page, perPage, total, now, actorID, optimizedCounts, grouping, len(rows), len(assignments), channel),
+				"meta": b.assignmentListMeta(page, perPage, total, now, actorID, optimizedCounts, grouping, len(rows), len(assignments), channel, translationQueueRepositorySupportsServerFamily(repo)),
 			}, nil
 		}
 		reviewAssignments, err = b.listAssignmentsForSummary(adminCtx.Context, repo, "updated_at", map[string]any{
@@ -173,11 +199,11 @@ func (b *translationQueueBinding) Assignments(c router.Context) (payload any, er
 	}
 	return map[string]any{
 		"data": rows,
-		"meta": b.assignmentListMeta(page, perPage, total, now, actorID, reviewAggregateCounts, grouping, len(rows), len(assignments), channel),
+		"meta": b.assignmentListMeta(page, perPage, total, now, actorID, reviewAggregateCounts, grouping, len(rows), len(assignments), channel, translationQueueRepositorySupportsServerFamily(repo)),
 	}, nil
 }
 
-func (b *translationQueueBinding) assignmentListMeta(page, perPage, total int, now time.Time, actorID string, reviewAggregateCounts map[string]int, grouping translationQueueGroupingRequest, rowCount, assignmentCount int, channel string) map[string]any {
+func (b *translationQueueBinding) assignmentListMeta(page, perPage, total int, now time.Time, actorID string, reviewAggregateCounts map[string]int, grouping translationQueueGroupingRequest, rowCount, assignmentCount int, channel string, serverFamilySupported bool) map[string]any {
 	return mergeTranslationChannelContract(map[string]any{
 		"page":                         page,
 		"per_page":                     perPage,
@@ -192,7 +218,7 @@ func (b *translationQueueBinding) assignmentListMeta(page, perPage, total int, n
 		"default_review_filter_preset": "review_inbox",
 		"review_actor_id":              actorID,
 		"review_aggregate_counts":      reviewAggregateCounts,
-		"grouping":                     translationQueueGroupingContract(grouping, rowCount, assignmentCount),
+		"grouping":                     translationQueueGroupingContract(grouping, rowCount, assignmentCount, serverFamilySupported),
 	}, channel)
 }
 
@@ -207,6 +233,102 @@ func (b *translationQueueBinding) optimizedReviewerAggregateCounts(ctx context.C
 		ActorID:  actorID,
 		Now:      now,
 	})
+}
+
+func (b *translationQueueBinding) serverFamilyAssignmentGroups(adminCtx AdminContext, repo TranslationAssignmentRepository, filter translationAssignmentListFilter, page, perPage int, channel string, now time.Time, grouping translationQueueGroupingRequest) (map[string]any, error) {
+	if err := validateServerFamilySort(filter.SortBy, grouping.ExplicitSort); err != nil {
+		return nil, err
+	}
+	store, ok := repo.(TranslationAssignmentFamilyGroupingStore)
+	if !ok || store == nil {
+		return nil, translationQueueGroupingUnsupportedError("grouped_query_unsupported", "server-side family grouping is not supported for this repository", map[string]any{
+			"field":          "group_strategy",
+			"group_strategy": "server_family",
+			"fallback_modes": []string{"flat", "page_local_family"},
+		})
+	}
+	result, err := store.ListAssignmentFamilyGroups(adminCtx.Context, TranslationAssignmentFamilyGroupQueryInput{
+		Filter:      filter,
+		Page:        page,
+		PerPage:     perPage,
+		Environment: channel,
+		Now:         now,
+	})
+	if err != nil {
+		return nil, translationQueueFamilyGroupingError(err)
+	}
+	rows := make([]map[string]any, 0, len(result.Families))
+	for _, family := range result.Families {
+		rows = append(rows, b.serverFamilyParentRow(family, filter, page, perPage, channel))
+	}
+	actorID := strings.TrimSpace(primitives.FirstNonEmptyRaw(adminCtx.UserID, actorFromContext(adminCtx.Context)))
+	meta := b.assignmentListMeta(page, perPage, result.FamilyTotal, now, actorID, map[string]int{}, grouping, len(rows), result.AssignmentTotal, channel, true)
+	meta["total"] = result.FamilyTotal
+	meta["family_total"] = result.FamilyTotal
+	meta["assignment_total"] = result.AssignmentTotal
+	meta["supported_sort_keys"] = translationQueueServerFamilySupportedSortKeys()
+	meta["grouping"] = translationQueueServerFamilyGroupingContract(result.FamilyTotal, result.AssignmentTotal, len(rows))
+	return map[string]any{
+		"data": rows,
+		"meta": meta,
+	}, nil
+}
+
+func (b *translationQueueBinding) FamilyAssignments(c router.Context, familyID string) (payload any, err error) {
+	startedAt := time.Now()
+	obsCtx := c.Context()
+	defer func() {
+		recordTranslationAPIOperation(obsCtx, translationAPIObservation{
+			Operation: "translations.assignments.family_assignments",
+			Kind:      "read",
+			RequestID: requestIDFromContext(obsCtx),
+			TraceID:   traceIDFromContext(obsCtx),
+			TenantID:  tenantIDFromContext(obsCtx),
+			OrgID:     orgIDFromContext(obsCtx),
+			Duration:  time.Since(startedAt),
+			Err:       err,
+		})
+	}()
+	adminCtx, repo, now, err := b.prepareAssignmentRequest(c)
+	if err != nil {
+		return nil, err
+	}
+	obsCtx = adminCtx.Context
+	store, ok := repo.(TranslationAssignmentFamilyGroupingStore)
+	if !ok || store == nil {
+		return nil, translationQueueGroupingUnsupportedError("grouped_query_unsupported", "server-side family assignment expansion is not supported for this repository", map[string]any{
+			"field":          "group_strategy",
+			"group_strategy": "server_family",
+		})
+	}
+	page := clampInt(atoiDefault(c.Query("page"), 1), 1, 10_000)
+	perPage := clampInt(atoiDefault(c.Query("per_page"), 25), 1, 100)
+	filter := b.assignmentFilterFromRequest(adminCtx, c)
+	channel := translationChannelFromRequest(c, adminCtx, nil)
+	result, err := store.ListFamilyAssignments(adminCtx.Context, TranslationAssignmentFamilyAssignmentsQueryInput{
+		FamilyID:    familyID,
+		Filter:      filter,
+		Page:        page,
+		PerPage:     perPage,
+		Environment: channel,
+		Now:         now,
+	})
+	if err != nil {
+		return nil, translationQueueFamilyGroupingError(err)
+	}
+	rows := b.translationQueueAssignmentRows(adminCtx.Context, result.Items, now, channel)
+	return map[string]any{
+		"data": rows,
+		"meta": mergeTranslationChannelContract(map[string]any{
+			"family_id": strings.TrimSpace(familyID),
+			"page":      page,
+			"per_page":  perPage,
+			"total":     result.Total,
+			"has_next":  result.HasNext,
+			"sort":      filter.SortBy,
+			"order":     translationQueueSortOrder(filter.SortDesc),
+		}, channel),
+	}, nil
 }
 
 func (b *translationQueueBinding) RunAssignmentAction(c router.Context, assignmentID, action string, body map[string]any) (payload any, err error) {
@@ -2492,6 +2614,132 @@ func translationQueueFamilyGroupSummary(children []map[string]any) map[string]an
 	}
 }
 
+func translationAssignmentFamilyGroupsFromAssignments(assignments []TranslationAssignment, now time.Time) []TranslationAssignmentFamilyGroup {
+	byFamily := map[string][]TranslationAssignment{}
+	for _, assignment := range assignments {
+		familyID := strings.TrimSpace(assignment.FamilyID)
+		if familyID == "" {
+			familyID = strings.TrimSpace(assignment.ID)
+		}
+		byFamily[familyID] = append(byFamily[familyID], assignment)
+	}
+	groups := make([]TranslationAssignmentFamilyGroup, 0, len(byFamily))
+	for familyID, children := range byFamily {
+		group := TranslationAssignmentFamilyGroup{
+			FamilyID:                    familyID,
+			AssignmentCount:             len(children),
+			StatusCounts:                map[string]int{},
+			DueStateCounts:              map[string]int{},
+			PriorityCounts:              map[string]int{},
+			FamilyBlockerCountAvailable: false,
+			FamilyBlockerCountReason:    "persisted_blockers_unavailable",
+			ActionHints:                 map[string]int{},
+		}
+		locales := map[string]struct{}{}
+		var priorityRank int
+		prioritySet := false
+		for idx, assignment := range children {
+			if idx == 0 {
+				group.EntityType = strings.TrimSpace(assignment.EntityType)
+				group.SourceRecordID = strings.TrimSpace(assignment.SourceRecordID)
+				group.SourceLocale = strings.TrimSpace(assignment.SourceLocale)
+				group.SourceTitle = strings.TrimSpace(assignment.SourceTitle)
+				group.SourcePath = strings.TrimSpace(assignment.SourcePath)
+				group.FamilyLabel = translationQueueFamilyLabelFromAssignment(assignment, familyID)
+				group.CreatedAt = assignment.CreatedAt
+				group.UpdatedAt = assignment.UpdatedAt
+				group.DueDate = cloneTimePtr(assignment.DueDate)
+				group.DueState = translationQueueDueState(assignment.DueDate, now)
+				group.Priority = assignment.Priority
+				priorityRank = translationQueuePriorityRank(string(assignment.Priority))
+				prioritySet = true
+			}
+			if assignment.CreatedAt.Before(group.CreatedAt) || group.CreatedAt.IsZero() {
+				group.CreatedAt = assignment.CreatedAt
+			}
+			if assignment.UpdatedAt.After(group.UpdatedAt) {
+				group.UpdatedAt = assignment.UpdatedAt
+			}
+			if compareTimePtr(assignment.DueDate, group.DueDate) < 0 {
+				group.DueDate = cloneTimePtr(assignment.DueDate)
+			}
+			dueState := translationQueueDueState(assignment.DueDate, now)
+			if translationQueueDueStateRank(dueState) > translationQueueDueStateRank(group.DueState) {
+				group.DueState = dueState
+			}
+			currentPriorityRank := translationQueuePriorityRank(string(assignment.Priority))
+			if !prioritySet || currentPriorityRank > priorityRank {
+				group.Priority = assignment.Priority
+				priorityRank = currentPriorityRank
+				prioritySet = true
+			}
+			if status := normalizeTranslationQueueState(string(assignment.Status)); status != "" {
+				group.StatusCounts[status]++
+			}
+			if dueState != "" {
+				group.DueStateCounts[dueState]++
+			}
+			if priority := normalizeTranslationQueuePriorityFilterValue(string(assignment.Priority)); priority != "" {
+				group.PriorityCounts[priority]++
+			}
+			if locale := normalizeTranslationQueueLocaleFilterValue(assignment.TargetLocale); locale != "" {
+				locales[locale] = struct{}{}
+			}
+			if assignment.Status == AssignmentStatusOpen {
+				group.ActionHints["claimable_count"]++
+			}
+			if assignment.Status == AssignmentStatusInReview {
+				group.ActionHints["reviewable_count"]++
+			}
+		}
+		group.TargetLocales = sortedStringSet(locales)
+		group.LocaleCount = len(group.TargetLocales)
+		groups = append(groups, group)
+	}
+	return groups
+}
+
+func translationQueueFamilyLabelFromAssignment(assignment TranslationAssignment, familyID string) string {
+	for _, candidate := range []string{assignment.SourceTitle, assignment.SourcePath, assignment.SourceRecordID, familyID} {
+		if trimmed := strings.TrimSpace(candidate); trimmed != "" {
+			return trimmed
+		}
+	}
+	return familyID
+}
+
+func sortTranslationAssignmentFamilyGroups(groups []TranslationAssignmentFamilyGroup, sortBy string, sortDesc bool) {
+	sortBy = strings.TrimSpace(strings.ToLower(sortBy))
+	if sortBy == "" {
+		sortBy = "updated_at"
+		sortDesc = true
+	}
+	sort.SliceStable(groups, func(i, j int) bool {
+		left := groups[i]
+		right := groups[j]
+		var comparison int
+		switch sortBy {
+		case "created_at":
+			comparison = compareTime(left.CreatedAt, right.CreatedAt)
+		case "due_date":
+			comparison = compareTimePtr(left.DueDate, right.DueDate)
+		case "due_state":
+			comparison = compareTranslationQueueDueState(left.DueState, right.DueState)
+		case "priority":
+			comparison = compareTranslationQueuePriority(left.Priority, right.Priority)
+		default:
+			comparison = compareTime(left.UpdatedAt, right.UpdatedAt)
+		}
+		if comparison == 0 {
+			return strings.ToLower(strings.TrimSpace(left.FamilyID)) < strings.ToLower(strings.TrimSpace(right.FamilyID))
+		}
+		if sortDesc {
+			return comparison > 0
+		}
+		return comparison < 0
+	})
+}
+
 func translationQueueFamilyGroupLabel(familyID string, parent map[string]any, children []map[string]any) string {
 	for _, candidate := range []string{
 		toString(parent["source_title"]),
@@ -2516,11 +2764,11 @@ func translationQueueFamilyGroupLabel(familyID string, parent map[string]any, ch
 	return familyID
 }
 
-func translationQueueGroupingContract(grouping translationQueueGroupingRequest, rowCount, assignmentCount int) map[string]any {
+func translationQueueGroupingContract(grouping translationQueueGroupingRequest, rowCount, assignmentCount int, serverFamilySupported bool) map[string]any {
 	mode := firstNonEmpty(grouping.Mode, "flat")
 	strategy := ""
 	if grouping.Enabled {
-		strategy = "page_local"
+		strategy = firstNonEmpty(grouping.Strategy, "page_local")
 	}
 	return map[string]any{
 		"enabled":          grouping.Enabled,
@@ -2531,13 +2779,219 @@ func translationQueueGroupingContract(grouping translationQueueGroupingRequest, 
 		"group_count":      rowCount,
 		"assignment_count": assignmentCount,
 		"supported_modes":  []string{"family_id"},
-		"strategy":         strategy,
-		"pagination":       "Assignment filters, sorting, and pagination are applied before page-local family grouping.",
-		"sorting":          "Group order follows the first child assignment in the sorted current page.",
-		"filtering":        "Filters remain assignment filters; groups contain only matching child assignments from the current page.",
-		"expansion":        "Parent rows expose children and records arrays; clients control expanded state.",
-		"action_state":     "Child assignment rows retain existing action states; parent action state is informational only.",
+		"capabilities": map[string]any{
+			"server_family": map[string]any{
+				"supported": serverFamilySupported,
+				"reason_code": func() string {
+					if serverFamilySupported {
+						return ""
+					}
+					return "grouped_query_unsupported"
+				}(),
+			},
+		},
+		"strategy":     strategy,
+		"pagination":   "Assignment filters, sorting, and pagination are applied before page-local family grouping.",
+		"sorting":      "Group order follows the first child assignment in the sorted current page.",
+		"filtering":    "Filters remain assignment filters; groups contain only matching child assignments from the current page.",
+		"expansion":    "Parent rows expose children and records arrays; clients control expanded state.",
+		"action_state": "Child assignment rows retain existing action states; parent action state is informational only.",
 	}
+}
+
+func translationQueueServerFamilyGroupingContract(familyTotal, assignmentTotal, rowCount int) map[string]any {
+	return map[string]any{
+		"enabled":             true,
+		"mode":                "family_id",
+		"group_by":            "family_id",
+		"scope":               "filtered_queue",
+		"strategy":            "server_family",
+		"row_count":           rowCount,
+		"group_count":         rowCount,
+		"family_total":        familyTotal,
+		"assignment_total":    assignmentTotal,
+		"supported_modes":     []string{"family_id"},
+		"supported_sort_keys": translationQueueServerFamilySupportedSortKeys(),
+		"capabilities": map[string]any{
+			"server_family": map[string]any{
+				"supported": true,
+			},
+		},
+		"pagination":   "Top-level page, per_page, and total describe parent family pagination.",
+		"sorting":      "Parent family rows use aggregate semantics; expanded child rows use normal assignment-row sorting.",
+		"filtering":    "Filters remain assignment filters and aggregate counts include all matching assignments in each family.",
+		"expansion":    "Parent rows provide an expansion href and structured request for the family child assignments endpoint.",
+		"action_state": "Child assignment rows retain executable action states; parent action state is informational only.",
+	}
+}
+
+func translationQueueServerFamilySupportedSortKeys() []string {
+	return []string{"updated_at", "created_at", "due_date", "due_state", "priority"}
+}
+
+func validateServerFamilySort(sortBy string, explicit bool) error {
+	sortBy = strings.TrimSpace(strings.ToLower(sortBy))
+	if sortBy == "" {
+		return nil
+	}
+	for _, key := range translationQueueServerFamilySupportedSortKeys() {
+		if sortBy == key {
+			return nil
+		}
+	}
+	if !explicit {
+		return nil
+	}
+	return validationDomainError("unsupported server-family assignment queue sort", map[string]any{
+		"field":          "sort",
+		"sort":           sortBy,
+		"group_strategy": "server_family",
+		"supported":      translationQueueServerFamilySupportedSortKeys(),
+		"reason_code":    "server_family_sort_unsupported",
+	})
+}
+
+func translationQueueRepositorySupportsServerFamily(repo TranslationAssignmentRepository) bool {
+	store, ok := repo.(TranslationAssignmentFamilyGroupingStore)
+	return ok && store != nil
+}
+
+func translationQueueGroupingUnsupportedError(reason, message string, meta map[string]any) error {
+	if meta == nil {
+		meta = map[string]any{}
+	}
+	meta["reason_code"] = strings.TrimSpace(reason)
+	meta["code"] = "TRANSLATION_QUEUE_GROUPING_UNSUPPORTED"
+	return validationDomainError(message, meta)
+}
+
+func translationQueueFamilyGroupingError(err error) error {
+	switch {
+	case errors.Is(err, ErrTranslationAssignmentQueryUnsupported):
+		return translationQueueGroupingUnsupportedError("grouped_query_unsupported", "server-side family grouping is not supported for this repository", map[string]any{
+			"field":          "group_strategy",
+			"group_strategy": "server_family",
+			"fallback_modes": []string{"flat", "page_local_family"},
+		})
+	case errors.Is(err, ErrTranslationAssignmentFamilyBlockersUnavailable):
+		return translationQueueGroupingUnsupportedError("persisted_blockers_unavailable", "persisted family blocker aggregates are unavailable for this query", map[string]any{
+			"field":          "review_state",
+			"review_state":   translationQueueReviewStateQABlocked,
+			"group_strategy": "server_family",
+		})
+	default:
+		return err
+	}
+}
+
+func (b *translationQueueBinding) serverFamilyParentRow(family TranslationAssignmentFamilyGroup, filter translationAssignmentListFilter, page, perPage int, channel string) map[string]any {
+	query := translationQueueExpansionQuery(filter, channel, 1, 25)
+	href := b.serverFamilyExpansionHref(family.FamilyID, query)
+	row := map[string]any{
+		"id":                             "family:" + strings.TrimSpace(family.FamilyID),
+		"row_type":                       "family",
+		"family_id":                      strings.TrimSpace(family.FamilyID),
+		"family_label":                   strings.TrimSpace(firstNonEmpty(family.FamilyLabel, family.SourceTitle, family.SourcePath, family.SourceRecordID, family.FamilyID)),
+		"entity_type":                    strings.TrimSpace(family.EntityType),
+		"source_record_id":               strings.TrimSpace(family.SourceRecordID),
+		"source_locale":                  strings.TrimSpace(family.SourceLocale),
+		"source_title":                   strings.TrimSpace(family.SourceTitle),
+		"source_path":                    strings.TrimSpace(family.SourcePath),
+		"assignment_count":               family.AssignmentCount,
+		"locale_count":                   family.LocaleCount,
+		"target_locales":                 append([]string{}, family.TargetLocales...),
+		"status_counts":                  cloneStringIntMap(family.StatusCounts),
+		"due_state_counts":               cloneStringIntMap(family.DueStateCounts),
+		"priority_counts":                cloneStringIntMap(family.PriorityCounts),
+		"family_blocker_count_available": family.FamilyBlockerCountAvailable,
+		"family_blocker_count_reason":    strings.TrimSpace(family.FamilyBlockerCountReason),
+		"action_state": map[string]any{
+			"scope":   "children",
+			"message": "Family actions are available on child assignment rows.",
+		},
+		"expansion": map[string]any{
+			"href":   href,
+			"route":  "translations.assignments.family_assignments",
+			"params": map[string]any{"family_id": strings.TrimSpace(family.FamilyID)},
+			"query":  query,
+		},
+	}
+	if family.FamilyBlockerCount != nil {
+		row["family_blocker_count"] = *family.FamilyBlockerCount
+	} else {
+		row["family_blocker_count"] = nil
+	}
+	if len(family.ActionHints) > 0 {
+		row["action_hints"] = cloneStringIntMap(family.ActionHints)
+	}
+	row["_group"] = map[string]any{
+		"row_type":    "family",
+		"id":          strings.TrimSpace(family.FamilyID),
+		"label":       row["family_label"],
+		"group_by":    "family_id",
+		"child_count": family.AssignmentCount,
+		"mode":        "server_family",
+		"page_local":  false,
+		"expanded":    false,
+	}
+	return row
+}
+
+func (b *translationQueueBinding) serverFamilyExpansionHref(familyID string, query map[string]any) string {
+	base := ""
+	if b != nil && b.admin != nil {
+		base = adminAPIRoutePath(b.admin, "translations.assignments.family_assignments")
+	}
+	if strings.TrimSpace(base) == "" {
+		base = "/admin/api/translations/assignments/families/:family_id/assignments"
+	}
+	base = strings.ReplaceAll(base, ":family_id", url.PathEscape(strings.TrimSpace(familyID)))
+	values := url.Values{}
+	for key, raw := range query {
+		value := strings.TrimSpace(toString(raw))
+		if key == "" || value == "" {
+			continue
+		}
+		values.Set(key, value)
+	}
+	if encoded := values.Encode(); encoded != "" {
+		return base + "?" + encoded
+	}
+	return base
+}
+
+func translationQueueExpansionQuery(filter translationAssignmentListFilter, channel string, page, perPage int) map[string]any {
+	query := translationQueueSnapshotFilterPayload(filter)
+	if filter.TenantID != "" {
+		query["tenant_id"] = filter.TenantID
+	}
+	if filter.OrgID != "" {
+		query["org_id"] = filter.OrgID
+	}
+	if channel = strings.TrimSpace(channel); channel != "" {
+		query["channel"] = channel
+	}
+	query["page"] = page
+	query["per_page"] = perPage
+	return query
+}
+
+func translationQueueSortOrder(desc bool) string {
+	if desc {
+		return "desc"
+	}
+	return "asc"
+}
+
+func cloneStringIntMap(input map[string]int) map[string]int {
+	if len(input) == 0 {
+		return map[string]int{}
+	}
+	out := make(map[string]int, len(input))
+	for key, value := range input {
+		out[key] = value
+	}
+	return out
 }
 
 func translationQueueAssignmentContractRow(assignment TranslationAssignment, now time.Time) map[string]any {

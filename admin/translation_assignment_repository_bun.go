@@ -53,6 +53,22 @@ type bunTranslationAssignmentSnapshotRecord struct {
 	RowVersion   int64  `bun:"row_version"`
 }
 
+type bunTranslationAssignmentFamilyGroupRecord struct {
+	FamilyID        string    `bun:"family_id"`
+	AssignmentCount int       `bun:"assignment_count"`
+	LocaleCount     int       `bun:"locale_count"`
+	CreatedAt       time.Time `bun:"created_at"`
+	UpdatedAt       time.Time `bun:"updated_at"`
+	DueDate         string    `bun:"due_date"`
+	DueStateRank    int       `bun:"due_state_rank"`
+	PriorityRank    int       `bun:"priority_rank"`
+}
+
+type bunTranslationFamilyBlockerCountRecord struct {
+	FamilyID string `bun:"family_id"`
+	Count    int    `bun:"count"`
+}
+
 type BunTranslationAssignmentRepository struct {
 	db *bun.DB
 }
@@ -168,6 +184,159 @@ func (r *BunTranslationAssignmentRepository) ListAssignmentSnapshot(ctx context.
 		})
 	}
 	return TranslationAssignmentSnapshotQueryResult{Selections: selections, Total: total}, nil
+}
+
+func (r *BunTranslationAssignmentRepository) ListAssignmentFamilyGroups(ctx context.Context, input TranslationAssignmentFamilyGroupQueryInput) (TranslationAssignmentFamilyGroupQueryResult, error) {
+	if r == nil || r.db == nil {
+		return TranslationAssignmentFamilyGroupQueryResult{}, serviceNotConfiguredDomainError("translation assignment repository", nil)
+	}
+	opts, unsupported := listOptionsFromAssignmentPageQuery(TranslationAssignmentPageQueryInput{
+		Filter:      input.Filter,
+		Page:        input.Page,
+		PerPage:     input.PerPage,
+		Environment: input.Environment,
+		Now:         input.Now,
+	})
+	if unsupported {
+		return TranslationAssignmentFamilyGroupQueryResult{}, ErrTranslationAssignmentQueryUnsupported
+	}
+	now := normalizedBunAssignmentQueryNow(input.Now)
+	dueSQL := r.assignmentDueDateSQL(now)
+	assignmentTotal, err := r.countAssignmentsWithFamilyReviewState(ctx, opts, dueSQL, input.Filter.ReviewState)
+	if err != nil {
+		return TranslationAssignmentFamilyGroupQueryResult{}, err
+	}
+	familyTotal, err := r.countAssignmentFamilies(ctx, opts, dueSQL, input.Filter.ReviewState)
+	if err != nil {
+		return TranslationAssignmentFamilyGroupQueryResult{}, err
+	}
+	records := []bunTranslationAssignmentFamilyGroupRecord{}
+	query := r.db.NewSelect().
+		Model((*bunTranslationAssignmentRecord)(nil)).
+		ColumnExpr("family_id").
+		ColumnExpr("COUNT(*) AS assignment_count").
+		ColumnExpr("COUNT(DISTINCT target_locale) AS locale_count").
+		ColumnExpr("MIN(created_at) AS created_at").
+		ColumnExpr("MAX(updated_at) AS updated_at").
+		ColumnExpr("MIN(NULLIF("+dueSQL.expr+", '')) AS due_date").
+		ColumnExpr("MAX("+bunAssignmentDueStateRankSQL(dueSQL.expr)+") AS due_state_rank", dueSQL.now, dueSQL.soon).
+		ColumnExpr("MAX(" + bunAssignmentPriorityRankSQL() + ") AS priority_rank").
+		GroupExpr("family_id")
+	applyBunAssignmentListFilters(query, opts, dueSQL)
+	if err := applyBunFamilyBlockedReviewFilter(query, input.Filter.ReviewState); err != nil {
+		return TranslationAssignmentFamilyGroupQueryResult{}, err
+	}
+	applyBunAssignmentFamilyGroupSort(query, input.Filter.SortBy, input.Filter.SortDesc, dueSQL)
+	applyBunAssignmentPagination(query, opts, 25)
+	if err := query.Scan(ctx, &records); err != nil {
+		if isMissingFamilyBlockersTableError(err) {
+			return TranslationAssignmentFamilyGroupQueryResult{}, ErrTranslationAssignmentFamilyBlockersUnavailable
+		}
+		return TranslationAssignmentFamilyGroupQueryResult{}, err
+	}
+	familyIDs := make([]string, 0, len(records))
+	for _, record := range records {
+		if familyID := strings.TrimSpace(record.FamilyID); familyID != "" {
+			familyIDs = append(familyIDs, familyID)
+		}
+	}
+	assignmentsByFamily, err := r.assignmentRowsForFamilies(ctx, opts, dueSQL, input.Filter.ReviewState, familyIDs)
+	if err != nil {
+		return TranslationAssignmentFamilyGroupQueryResult{}, err
+	}
+	blockerCounts, blockersAvailable, err := r.familyBlockerCounts(ctx, familyIDs)
+	if err != nil {
+		return TranslationAssignmentFamilyGroupQueryResult{}, err
+	}
+	groups := make([]TranslationAssignmentFamilyGroup, 0, len(records))
+	for _, record := range records {
+		children := assignmentsByFamily[strings.TrimSpace(record.FamilyID)]
+		childGroups := translationAssignmentFamilyGroupsFromAssignments(children, now)
+		var group TranslationAssignmentFamilyGroup
+		if len(childGroups) > 0 {
+			group = childGroups[0]
+		} else {
+			group = TranslationAssignmentFamilyGroup{FamilyID: strings.TrimSpace(record.FamilyID)}
+		}
+		group.AssignmentCount = record.AssignmentCount
+		group.LocaleCount = record.LocaleCount
+		group.CreatedAt = record.CreatedAt
+		group.UpdatedAt = record.UpdatedAt
+		group.DueDate = bunAssignmentDatePtr(record.DueDate)
+		group.DueState = bunAssignmentDueStateFromRank(record.DueStateRank)
+		group.Priority = bunAssignmentPriorityFromRank(record.PriorityRank)
+		if blockersAvailable {
+			count := blockerCounts[group.FamilyID]
+			group.FamilyBlockerCount = &count
+			group.FamilyBlockerCountAvailable = true
+			group.FamilyBlockerCountReason = ""
+		}
+		groups = append(groups, group)
+	}
+	return TranslationAssignmentFamilyGroupQueryResult{
+		Families:        groups,
+		FamilyTotal:     familyTotal,
+		AssignmentTotal: assignmentTotal,
+	}, nil
+}
+
+func (r *BunTranslationAssignmentRepository) ListFamilyAssignments(ctx context.Context, input TranslationAssignmentFamilyAssignmentsQueryInput) (TranslationAssignmentFamilyAssignmentsQueryResult, error) {
+	if r == nil || r.db == nil {
+		return TranslationAssignmentFamilyAssignmentsQueryResult{}, serviceNotConfiguredDomainError("translation assignment repository", nil)
+	}
+	familyID := strings.TrimSpace(input.FamilyID)
+	if familyID == "" {
+		return TranslationAssignmentFamilyAssignmentsQueryResult{}, requiredFieldDomainError("family_id", nil)
+	}
+	filter := input.Filter
+	filter.FamilyID = familyID
+	opts, unsupported := listOptionsFromAssignmentPageQuery(TranslationAssignmentPageQueryInput{
+		Filter:      filter,
+		Page:        input.Page,
+		PerPage:     input.PerPage,
+		Environment: input.Environment,
+		Now:         input.Now,
+	})
+	if unsupported {
+		return TranslationAssignmentFamilyAssignmentsQueryResult{}, ErrTranslationAssignmentQueryUnsupported
+	}
+	now := normalizedBunAssignmentQueryNow(input.Now)
+	dueSQL := r.assignmentDueDateSQL(now)
+	total, err := r.countAssignmentsWithFamilyReviewState(ctx, opts, dueSQL, input.Filter.ReviewState)
+	if err != nil {
+		return TranslationAssignmentFamilyAssignmentsQueryResult{}, err
+	}
+	records := []bunTranslationAssignmentRecord{}
+	query := r.db.NewSelect().Model(&records)
+	applyBunAssignmentListFilters(query, opts, dueSQL)
+	if err := applyBunFamilyBlockedReviewFilter(query, input.Filter.ReviewState); err != nil {
+		return TranslationAssignmentFamilyAssignmentsQueryResult{}, err
+	}
+	applyBunAssignmentListSort(query, opts, dueSQL)
+	applyBunAssignmentPagination(query, opts, 25)
+	if err := query.Scan(ctx); err != nil {
+		if isMissingFamilyBlockersTableError(err) {
+			return TranslationAssignmentFamilyAssignmentsQueryResult{}, ErrTranslationAssignmentFamilyBlockersUnavailable
+		}
+		return TranslationAssignmentFamilyAssignmentsQueryResult{}, err
+	}
+	items := make([]TranslationAssignment, 0, len(records))
+	for _, record := range records {
+		items = append(items, translationAssignmentFromBunRecord(record))
+	}
+	page := opts.Page
+	if page <= 0 {
+		page = 1
+	}
+	perPage := opts.PerPage
+	if perPage <= 0 {
+		perPage = 25
+	}
+	return TranslationAssignmentFamilyAssignmentsQueryResult{
+		Items:   items,
+		Total:   total,
+		HasNext: page*perPage < total,
+	}, nil
 }
 
 func listOptionsFromAssignmentPageQuery(input TranslationAssignmentPageQueryInput) (ListOptions, bool) {
@@ -367,6 +536,33 @@ func applyBunAssignmentListSort(query *bun.SelectQuery, opts ListOptions, dueSQL
 	applyBunAssignmentSort(query, field, desc, dueSQL)
 }
 
+func applyBunAssignmentFamilyGroupSort(query *bun.SelectQuery, sortBy string, desc bool, dueSQL bunAssignmentDueDateSQL) {
+	if query == nil {
+		return
+	}
+	dir := "ASC"
+	if desc {
+		dir = "DESC"
+	}
+	switch strings.TrimSpace(strings.ToLower(sortBy)) {
+	case "created_at":
+		query.OrderExpr("MIN(created_at) " + dir)
+	case "due_date":
+		if desc {
+			query.OrderExpr("MIN(NULLIF(" + dueSQL.expr + ", '')) IS NULL DESC").OrderExpr("MIN(NULLIF(" + dueSQL.expr + ", '')) DESC")
+		} else {
+			query.OrderExpr("MIN(NULLIF(" + dueSQL.expr + ", '')) IS NULL ASC").OrderExpr("MIN(NULLIF(" + dueSQL.expr + ", '')) ASC")
+		}
+	case "due_state":
+		query.OrderExpr("MAX("+bunAssignmentDueStateRankSQL(dueSQL.expr)+") "+dir, dueSQL.now, dueSQL.soon)
+	case "priority":
+		query.OrderExpr("MAX(" + bunAssignmentPriorityRankSQL() + ") " + dir)
+	default:
+		query.OrderExpr("MAX(updated_at) " + dir)
+	}
+	query.OrderExpr("family_id ASC")
+}
+
 func applyBunAssignmentSort(query *bun.SelectQuery, field string, desc bool, dueSQL bunAssignmentDueDateSQL) {
 	dir := "ASC"
 	if desc {
@@ -397,6 +593,137 @@ func applyBunAssignmentSort(query *bun.SelectQuery, field string, desc bool, due
 		query.OrderExpr("updated_at " + dir)
 	}
 	query.OrderExpr("assignment_id ASC")
+}
+
+func applyBunFamilyBlockedReviewFilter(query *bun.SelectQuery, reviewState string) error {
+	reviewState = normalizeTranslationQueueReviewState(reviewState)
+	if reviewState == "" {
+		return nil
+	}
+	if reviewState != translationQueueReviewStateQABlocked {
+		return ErrTranslationAssignmentQueryUnsupported
+	}
+	query.Where("EXISTS (SELECT 1 FROM family_blockers fb WHERE fb.family_id = ta.family_id)")
+	return nil
+}
+
+func (r *BunTranslationAssignmentRepository) countAssignmentsWithFamilyReviewState(ctx context.Context, opts ListOptions, dueSQL bunAssignmentDueDateSQL, reviewState string) (int, error) {
+	query := r.db.NewSelect().Model((*bunTranslationAssignmentRecord)(nil))
+	applyBunAssignmentListFilters(query, opts, dueSQL)
+	if err := applyBunFamilyBlockedReviewFilter(query, reviewState); err != nil {
+		return 0, err
+	}
+	total, err := query.Count(ctx)
+	if isMissingFamilyBlockersTableError(err) {
+		return 0, ErrTranslationAssignmentFamilyBlockersUnavailable
+	}
+	return total, err
+}
+
+func (r *BunTranslationAssignmentRepository) countAssignmentFamilies(ctx context.Context, opts ListOptions, dueSQL bunAssignmentDueDateSQL, reviewState string) (int, error) {
+	var count int
+	query := r.db.NewSelect().
+		Model((*bunTranslationAssignmentRecord)(nil)).
+		ColumnExpr("COUNT(DISTINCT family_id)")
+	applyBunAssignmentListFilters(query, opts, dueSQL)
+	if err := applyBunFamilyBlockedReviewFilter(query, reviewState); err != nil {
+		return 0, err
+	}
+	err := query.Scan(ctx, &count)
+	if isMissingFamilyBlockersTableError(err) {
+		return 0, ErrTranslationAssignmentFamilyBlockersUnavailable
+	}
+	return count, err
+}
+
+func (r *BunTranslationAssignmentRepository) assignmentRowsForFamilies(ctx context.Context, opts ListOptions, dueSQL bunAssignmentDueDateSQL, reviewState string, familyIDs []string) (map[string][]TranslationAssignment, error) {
+	out := map[string][]TranslationAssignment{}
+	if len(familyIDs) == 0 {
+		return out, nil
+	}
+	records := []bunTranslationAssignmentRecord{}
+	query := r.db.NewSelect().Model(&records).Where("family_id IN (?)", bun.List(familyIDs))
+	applyBunAssignmentListFilters(query, opts, dueSQL)
+	if err := applyBunFamilyBlockedReviewFilter(query, reviewState); err != nil {
+		return nil, err
+	}
+	applyBunAssignmentListSort(query, opts, dueSQL)
+	if err := query.Scan(ctx); err != nil {
+		if isMissingFamilyBlockersTableError(err) {
+			return nil, ErrTranslationAssignmentFamilyBlockersUnavailable
+		}
+		return nil, err
+	}
+	for _, record := range records {
+		assignment := translationAssignmentFromBunRecord(record)
+		out[strings.TrimSpace(assignment.FamilyID)] = append(out[strings.TrimSpace(assignment.FamilyID)], assignment)
+	}
+	return out, nil
+}
+
+func (r *BunTranslationAssignmentRepository) familyBlockerCounts(ctx context.Context, familyIDs []string) (map[string]int, bool, error) {
+	out := map[string]int{}
+	if len(familyIDs) == 0 {
+		return out, true, nil
+	}
+	records := []bunTranslationFamilyBlockerCountRecord{}
+	err := r.db.NewSelect().
+		Model((*bunTranslationFamilyBlockerRecord)(nil)).
+		ColumnExpr("family_id").
+		ColumnExpr("COUNT(*) AS count").
+		Where("family_id IN (?)", bun.List(familyIDs)).
+		GroupExpr("family_id").
+		Scan(ctx, &records)
+	if isMissingFamilyBlockersTableError(err) {
+		return out, false, nil
+	}
+	if err != nil {
+		return nil, false, err
+	}
+	for _, record := range records {
+		out[strings.TrimSpace(record.FamilyID)] = record.Count
+	}
+	return out, true, nil
+}
+
+func bunAssignmentDatePtr(value string) *time.Time {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return nil
+	}
+	for _, layout := range []string{"2006-01-02 15:04:05", time.RFC3339, "2006-01-02"} {
+		parsed, err := time.ParseInLocation(layout, value, time.UTC)
+		if err == nil {
+			return &parsed
+		}
+	}
+	return nil
+}
+
+func bunAssignmentDueStateFromRank(rank int) string {
+	switch rank {
+	case 3:
+		return translationQueueDueStateOverdue
+	case 2:
+		return translationQueueDueStateSoon
+	case 1:
+		return translationQueueDueStateOnTrack
+	default:
+		return translationQueueDueStateNone
+	}
+}
+
+func bunAssignmentPriorityFromRank(rank int) Priority {
+	switch rank {
+	case 3:
+		return PriorityUrgent
+	case 2:
+		return PriorityHigh
+	case 1:
+		return PriorityNormal
+	default:
+		return PriorityLow
+	}
 }
 
 func bunAssignmentPriorityRankSQL() string {

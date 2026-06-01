@@ -203,6 +203,7 @@ type TranslationFamiliesBinding interface {
 // TranslationQueueBinding exposes translation queue aggregate transport operations.
 type TranslationQueueBinding interface {
 	Assignments(router.Context) (any, error)
+	FamilyAssignments(router.Context, string) (any, error)
 	AssignmentDetail(router.Context, string) (any, error)
 	RunAssignmentAction(router.Context, string, string, map[string]any) (any, error)
 	CreateAssignmentBulkSnapshot(router.Context, map[string]any) (any, error)

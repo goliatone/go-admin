@@ -19,6 +19,7 @@ type TranslationAssignmentRepository interface {
 }
 
 var ErrTranslationAssignmentQueryUnsupported = errors.New("translation assignment query unsupported")
+var ErrTranslationAssignmentFamilyBlockersUnavailable = errors.New("translation assignment family blocker aggregates unavailable")
 
 type TranslationAssignmentPageQueryStore interface {
 	ListAssignmentPage(ctx context.Context, input TranslationAssignmentPageQueryInput) (TranslationAssignmentPageQueryResult, error)
@@ -36,6 +37,11 @@ type TranslationAssignmentSummaryStore interface {
 
 type TranslationAssignmentReviewerSummaryStore interface {
 	AssignmentReviewerAggregateCounts(ctx context.Context, input TranslationAssignmentReviewerAggregateInput) (map[string]int, error)
+}
+
+type TranslationAssignmentFamilyGroupingStore interface {
+	ListAssignmentFamilyGroups(ctx context.Context, input TranslationAssignmentFamilyGroupQueryInput) (TranslationAssignmentFamilyGroupQueryResult, error)
+	ListFamilyAssignments(ctx context.Context, input TranslationAssignmentFamilyAssignmentsQueryInput) (TranslationAssignmentFamilyAssignmentsQueryResult, error)
 }
 
 type TranslationAssignmentPageQueryInput struct {
@@ -98,6 +104,60 @@ type TranslationAssignmentReviewerAggregateInput struct {
 	OrgID    string
 	ActorID  string
 	Now      time.Time
+}
+
+type TranslationAssignmentFamilyGroupQueryInput struct {
+	Filter      translationAssignmentListFilter
+	Page        int
+	PerPage     int
+	Environment string
+	Now         time.Time
+}
+
+type TranslationAssignmentFamilyAssignmentsQueryInput struct {
+	FamilyID    string
+	Filter      translationAssignmentListFilter
+	Page        int
+	PerPage     int
+	Environment string
+	Now         time.Time
+}
+
+type TranslationAssignmentFamilyGroupQueryResult struct {
+	Families        []TranslationAssignmentFamilyGroup
+	FamilyTotal     int
+	AssignmentTotal int
+}
+
+type TranslationAssignmentFamilyAssignmentsQueryResult struct {
+	Items   []TranslationAssignment
+	Total   int
+	HasNext bool
+}
+
+type TranslationAssignmentFamilyGroup struct {
+	FamilyID                    string
+	FamilyLabel                 string
+	EntityType                  string
+	SourceRecordID              string
+	SourceLocale                string
+	SourceTitle                 string
+	SourcePath                  string
+	AssignmentCount             int
+	LocaleCount                 int
+	TargetLocales               []string
+	StatusCounts                map[string]int
+	DueStateCounts              map[string]int
+	PriorityCounts              map[string]int
+	FamilyBlockerCount          *int
+	FamilyBlockerCountAvailable bool
+	FamilyBlockerCountReason    string
+	ActionHints                 map[string]int
+	CreatedAt                   time.Time
+	UpdatedAt                   time.Time
+	DueDate                     *time.Time
+	DueState                    string
+	Priority                    Priority
 }
 
 type TranslationAssignmentDashboardSummary struct {
@@ -215,6 +275,94 @@ func (r *InMemoryTranslationAssignmentRepository) ListAssignmentSnapshot(ctx con
 		})
 	}
 	return TranslationAssignmentSnapshotQueryResult{Selections: selections, Total: total}, nil
+}
+
+func (r *InMemoryTranslationAssignmentRepository) ListAssignmentFamilyGroups(ctx context.Context, input TranslationAssignmentFamilyGroupQueryInput) (TranslationAssignmentFamilyGroupQueryResult, error) {
+	if r == nil {
+		return TranslationAssignmentFamilyGroupQueryResult{}, serviceNotConfiguredDomainError("translation assignment repository", nil)
+	}
+	if normalizeTranslationQueueReviewState(input.Filter.ReviewState) == translationQueueReviewStateQABlocked {
+		return TranslationAssignmentFamilyGroupQueryResult{}, ErrTranslationAssignmentFamilyBlockersUnavailable
+	}
+	page := input.Page
+	if page <= 0 {
+		page = 1
+	}
+	perPage := input.PerPage
+	if perPage <= 0 {
+		perPage = 25
+	}
+	r.mu.Lock()
+	assignments := make([]TranslationAssignment, 0, len(r.byID))
+	for _, assignment := range r.byID {
+		assignments = append(assignments, cloneTranslationAssignment(assignment))
+	}
+	r.mu.Unlock()
+	matched := make([]TranslationAssignment, 0, len(assignments))
+	for _, assignment := range assignments {
+		if matchesAssignmentListFilter(assignment, input.Filter, input.Now) {
+			matched = append(matched, assignment)
+		}
+	}
+	groups := translationAssignmentFamilyGroupsFromAssignments(matched, input.Now)
+	sortTranslationAssignmentFamilyGroups(groups, input.Filter.SortBy, input.Filter.SortDesc)
+	totalFamilies := len(groups)
+	start := (page - 1) * perPage
+	if start >= totalFamilies {
+		return TranslationAssignmentFamilyGroupQueryResult{Families: []TranslationAssignmentFamilyGroup{}, FamilyTotal: totalFamilies, AssignmentTotal: len(matched)}, nil
+	}
+	end := min(start+perPage, totalFamilies)
+	return TranslationAssignmentFamilyGroupQueryResult{
+		Families:        groups[start:end],
+		FamilyTotal:     totalFamilies,
+		AssignmentTotal: len(matched),
+	}, nil
+}
+
+func (r *InMemoryTranslationAssignmentRepository) ListFamilyAssignments(ctx context.Context, input TranslationAssignmentFamilyAssignmentsQueryInput) (TranslationAssignmentFamilyAssignmentsQueryResult, error) {
+	if r == nil {
+		return TranslationAssignmentFamilyAssignmentsQueryResult{}, serviceNotConfiguredDomainError("translation assignment repository", nil)
+	}
+	if strings.TrimSpace(input.FamilyID) == "" {
+		return TranslationAssignmentFamilyAssignmentsQueryResult{}, requiredFieldDomainError("family_id", nil)
+	}
+	if normalizeTranslationQueueReviewState(input.Filter.ReviewState) == translationQueueReviewStateQABlocked {
+		return TranslationAssignmentFamilyAssignmentsQueryResult{}, ErrTranslationAssignmentFamilyBlockersUnavailable
+	}
+	page := input.Page
+	if page <= 0 {
+		page = 1
+	}
+	perPage := input.PerPage
+	if perPage <= 0 {
+		perPage = 25
+	}
+	r.mu.Lock()
+	assignments := make([]TranslationAssignment, 0, len(r.byID))
+	for _, assignment := range r.byID {
+		assignments = append(assignments, cloneTranslationAssignment(assignment))
+	}
+	r.mu.Unlock()
+	filter := input.Filter
+	filter.FamilyID = strings.TrimSpace(input.FamilyID)
+	matched := make([]TranslationAssignment, 0, len(assignments))
+	for _, assignment := range assignments {
+		if matchesAssignmentListFilter(assignment, filter, input.Now) {
+			matched = append(matched, assignment)
+		}
+	}
+	sortAssignments(matched, filter.SortBy, filter.SortDesc, input.Now)
+	total := len(matched)
+	start := (page - 1) * perPage
+	if start >= total {
+		return TranslationAssignmentFamilyAssignmentsQueryResult{Items: []TranslationAssignment{}, Total: total}, nil
+	}
+	end := min(start+perPage, total)
+	return TranslationAssignmentFamilyAssignmentsQueryResult{
+		Items:   matched[start:end],
+		Total:   total,
+		HasNext: end < total,
+	}, nil
 }
 
 // Get retrieves an assignment by id.

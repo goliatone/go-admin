@@ -23,6 +23,7 @@ func translationQueueRouteSpecs(ctx BootCtx, responder Responder, gates FeatureG
 	return []RouteSpec{
 		translationQueueReadRoute(ctx, responder, gates, "translations.dashboard", binding.Dashboard),
 		translationQueueReadRoute(ctx, responder, gates, "translations.assignments", binding.Assignments),
+		translationQueueFamilyAssignmentsRoute(ctx, responder, gates, binding),
 		translationQueueAssignmentDetailRoute(ctx, responder, gates, binding),
 		translationQueueAssignmentBulkSnapshotRoute(ctx, responder, gates, binding),
 		translationQueueAssignmentBulkActionRoute(ctx, responder, gates, binding),
@@ -35,6 +36,21 @@ func translationQueueRouteSpecs(ctx BootCtx, responder Responder, gates FeatureG
 		translationQueueReadRoute(ctx, responder, gates, "translations.options.locales", binding.LocalesOptions),
 		translationQueueReadRoute(ctx, responder, gates, "translations.options.families", binding.TranslationGroupsOptions),
 		translationQueueReadRoute(ctx, responder, gates, "translations.options.assignees", binding.AssigneesOptions),
+	}
+}
+
+func translationQueueFamilyAssignmentsRoute(ctx BootCtx, responder Responder, gates FeatureGates, binding TranslationQueueBinding) RouteSpec {
+	return RouteSpec{
+		Method: "GET",
+		Path:   routePath(ctx, ctx.AdminAPIGroup(), "translations.assignments.family_assignments"),
+		Handler: withFeatureGate(responder, gates, FeatureTranslationQueue, func(c router.Context) error {
+			familyID := c.Param("family_id")
+			if familyID == "" {
+				return errMissingID
+			}
+			payload, err := binding.FamilyAssignments(c, familyID)
+			return writeJSONOrError(responder, c, payload, err)
+		}),
 	}
 }
 
