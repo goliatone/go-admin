@@ -4,7 +4,7 @@ import { extractStructuredError as te } from "../toast/error-helpers.js";
 import { buildEndpointURL as ae } from "../shared/query-state/url-state.js";
 import { StatefulController as re } from "../shared/stateful-controller.js";
 import { asNumberish as m, asRecord as h, asString as n } from "../shared/coercion.js";
-import { O as se, S as ne, T as oe, _ as T, d as v, g as D, h as B, i as ie, m as O, p as q, s as z, tt as N, v as F, w as le } from "../chunks/translation-shared-CQJ98SgC.js";
+import { O as se, S as ne, T as oe, _ as T, d as v, g as I, h as B, i as ie, m as O, p as q, s as z, tt as N, v as F, w as le } from "../chunks/translation-shared-CQJ98SgC.js";
 import { normalizeNumberRecord as C, normalizeStringRecord as k } from "../shared/record-normalization.js";
 import { c as w, s as de } from "../chunks/ui-states-1McZ5upU.js";
 var y = class extends Error {
@@ -316,7 +316,7 @@ function $e(t) {
   };
 }
 function b(t) {
-  return t.replace(/[_-]+/g, " ").replace(/\b\w/g, (e) => e.toUpperCase());
+  return t.replace(/^TRANSLATIONS\.DASHBOARD\./i, "").replace(/[_-]+/g, " ").replace(/\b\w/g, (e) => e.toUpperCase());
 }
 var _ = {
   my_tasks: {
@@ -385,10 +385,10 @@ function R(t, e) {
 function A(t, e) {
   return $[t]?.shortLabel || $[t]?.label || e || b(t);
 }
-function M(t) {
+function S(t) {
   return $[t]?.icon || "";
 }
-var S = "inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 hover:border-gray-300 transition-colors";
+var M = "inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 hover:border-gray-300 transition-colors";
 function K(t) {
   const e = t.trim();
   if (!e || e.length < 12) return `<span class="font-mono text-xs text-gray-500">${i(e)}</span>`;
@@ -472,7 +472,7 @@ function Ae(t) {
   };
   return t.reduce((a, r) => e[r.state] > e[a] ? r.state : a, "ok");
 }
-function Me(t, e) {
+function Se(t, e) {
   const a = e.find((s) => s.id === t.cardId), r = a ? V(t.cardId, a.label) : b(t.cardId);
   return `
     <div class="flex items-start justify-between gap-3 p-3 rounded-lg bg-white/50"
@@ -496,7 +496,7 @@ function Me(t, e) {
     </div>
   `;
 }
-function Se(t, e, a, r) {
+function Me(t, e, a, r) {
   const s = t.filter((d) => !r.has(d.code));
   if (s.length === 0) return "";
   const o = Ae(s), l = s.reduce((d, x) => (d[x.state] = (d[x.state] || 0) + 1, d), {}), f = Object.entries(l).filter(([, d]) => d > 0).map(([d, x]) => `${x} ${d}`).join(", "), p = s.map((d) => {
@@ -525,7 +525,7 @@ function Se(t, e, a, r) {
       </button>
       <div class="${a ? "" : "hidden"}" data-alerts-content="true">
         <div class="border-t border-current/20 px-4 py-3 space-y-2">
-          ${s.map((d) => Me(d, e)).join("")}
+          ${s.map((d) => Se(d, e)).join("")}
         </div>
       </div>
     </section>
@@ -565,14 +565,14 @@ function je(t) {
     </table>
   `;
 }
-function Ie(t) {
+function De(t) {
   const e = t.blockerCodes || [], a = t.blockerLabels || {};
   return e.length === 0 ? "" : e.map((r) => {
     const s = a[r] || b(r);
     return `<span class="inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium ${r === "missing_locale" ? "bg-amber-100 text-amber-800" : r === "pending_review" ? "bg-sky-100 text-sky-800" : r === "outdated_source" ? "bg-rose-100 text-rose-800" : "bg-gray-100 text-gray-700"}" data-blocker-code="${c(r)}">${i(s)}</span>`;
   }).join("");
 }
-function De(t) {
+function Ie(t) {
   const e = t.affectedLocales || [];
   if (e.length === 0) return "";
   const a = 3, r = e.slice(0, a), s = e.length - a;
@@ -614,10 +614,10 @@ function Oe(t) {
               </div>
             </td>
             <td class="px-4 py-3">
-              <div class="flex flex-wrap gap-1">${Ie(e)}</div>
+              <div class="flex flex-wrap gap-1">${De(e)}</div>
             </td>
             <td class="px-4 py-3">
-              ${De(e)}
+              ${Ie(e)}
             </td>
             <td class="px-4 py-3 text-right font-medium text-amber-700">${i(String(m(e.missing_required_locale_count)))}</td>
             <td class="px-4 py-3 text-right font-medium text-gray-700">${i(String(m(e.pending_review_count)))}</td>
@@ -644,11 +644,11 @@ function j(t, e = [], a = {}) {
           ${l?.href ? `
             <a
               href="${c(l.href)}"
-              class="${S}"
+              class="${M}"
               data-dashboard-table-runbook="${c(t.id)}"
               title="${c(l.description || R(o || "", l.title))}"
             >
-              ${M(o || "")}
+              ${S(o || "")}
               <span>${i(A(o || "", l.title))}</span>
             </a>
           ` : ""}
@@ -665,11 +665,11 @@ function j(t, e = [], a = {}) {
         ${l?.href ? `
           <a
             href="${c(l.href)}"
-            class="${S}"
+            class="${M}"
             data-dashboard-table-runbook="${c(t.id)}"
             title="${c(l.description || R(o || "", l.title))}"
           >
-            ${M(o || "")}
+            ${S(o || "")}
             <span>${i(A(o || "", l.title))}</span>
           </a>
         ` : ""}
@@ -871,7 +871,7 @@ function Pe(t) {
   const e = t instanceof y ? t.requestId : void 0, a = t instanceof y ? t.traceId : void 0, r = [e ? `Request ${e}` : "", a ? `Trace ${a}` : ""].filter(Boolean).join(" • ");
   return w({
     tag: "section",
-    containerClass: `${D} p-4`,
+    containerClass: `${I} p-4`,
     bodyClass: "",
     contentClass: "",
     title: "Latest refresh failed",
@@ -888,7 +888,7 @@ function Ue(t) {
   const e = t instanceof Error ? t.message : "Failed to load translation dashboard", a = t instanceof y ? t.requestId : void 0, r = t instanceof y ? t.traceId : void 0, s = [a ? `Request ${a}` : "", r ? `Trace ${r}` : ""].filter(Boolean).join(" • ");
   return w({
     tag: "section",
-    containerClass: `${D} p-4`,
+    containerClass: `${I} p-4`,
     bodyClass: "",
     contentClass: "",
     title: "Translation dashboard unavailable",
@@ -918,7 +918,7 @@ function Ve() {
     attributes: { "data-dashboard-empty": "true" }
   });
 }
-function I() {
+function D() {
   return de({
     tag: "section",
     text: "Loading translation dashboard aggregates...",
@@ -941,7 +941,7 @@ var Ge = class extends re {
       this.state = "error", t.innerHTML = Ve();
       return;
     }
-    this.state = "loading", this.refreshing = !1, this.lastError = null, t.innerHTML = I(), this.refreshController = $e({
+    this.state = "loading", this.refreshing = !1, this.lastError = null, t.innerHTML = D(), this.refreshController = $e({
       intervalMs: this.config.refreshInterval,
       load: () => this.client.fetchDashboard(),
       onData: (e) => {
@@ -964,7 +964,7 @@ var Ge = class extends re {
     return this.payload;
   }
   async refresh() {
-    if (this.lastError = null, this.refreshing = !0, this.payload ? this.render() : this.container && (this.state = "loading", this.container.innerHTML = I()), !this.refreshController) {
+    if (this.lastError = null, this.refreshing = !0, this.payload ? this.render() : this.container && (this.state = "loading", this.container.innerHTML = D()), !this.refreshController) {
       const t = await this.client.fetchDashboard();
       return this.payload = t, this.state = "ready", this.refreshing = !1, this.render(), t;
     }
@@ -988,7 +988,7 @@ var Ge = class extends re {
         ${Fe(t, this.refreshing, this.metaExpanded)}
         ${o}
         ${s}
-        ${Se(t.data.alerts, t.data.cards, this.alertsExpanded, this.dismissedAlerts)}
+        ${Me(t.data.alerts, t.data.cards, this.alertsExpanded, this.dismissedAlerts)}
         ${r ? He(t) : `
             <section class="grid gap-4 md:grid-cols-2 xl:grid-cols-5">${a}</section>
             ${qe(t.data.tables, e, this.activeTableTab)}

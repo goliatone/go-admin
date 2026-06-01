@@ -326,7 +326,7 @@ test('translation dashboard runtime: simplified cards do not show breakdown list
   assert.equal(page.getState(), 'ready');
 
   // Verify cards render with standard structure
-  assert.match(root.innerHTML, /data-card-id="/);
+  assert.match(root.innerHTML, /data-dashboard-card="/);
 
   // Verify NO inline breakdown lists are visible (T02 requirement)
   // The implementation removes inline breakdown rendering from card bodies

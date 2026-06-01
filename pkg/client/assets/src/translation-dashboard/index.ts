@@ -665,7 +665,9 @@ export function createTranslationDashboardRefreshController(options: Translation
 }
 
 function formatMetricLabel(value: string): string {
-  return value
+  // Strip TRANSLATIONS.DASHBOARD. prefix if present to avoid leaking raw metric keys
+  const cleaned = value.replace(/^TRANSLATIONS\.DASHBOARD\./i, '');
+  return cleaned
     .replace(/[_-]+/g, ' ')
     .replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
