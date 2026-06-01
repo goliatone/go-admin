@@ -2244,15 +2244,7 @@ func backfillTranslations(ctx context.Context, db *bun.DB, locale string, pageSe
 				contentTranslation.Summary = &summary
 			}
 
-			if _, err := db.NewInsert().
-				Model(contentTranslation).
-				On("CONFLICT (content_id, locale_id) DO UPDATE").
-				Set("title = EXCLUDED.title").
-				Set("summary = EXCLUDED.summary").
-				Set("content = EXCLUDED.content").
-				Set("family_id = EXCLUDED.family_id").
-				Set("updated_at = EXCLUDED.updated_at").
-				Exec(ctx); err != nil {
+			if err := upsertSeedContentTranslation(ctx, db, contentTranslation); err != nil {
 				return fmt.Errorf("seed content translation %s (%s): %w", seed.Slug, targetLocale, err)
 			}
 
@@ -2300,18 +2292,7 @@ func backfillTranslations(ctx context.Context, db *bun.DB, locale string, pageSe
 				pageTranslation.SEODescription = &seoDescription
 			}
 
-			if _, err := db.NewInsert().
-				Model(pageTranslation).
-				On("CONFLICT (page_id, locale_id) DO UPDATE").
-				Set("title = EXCLUDED.title").
-				Set("path = EXCLUDED.path").
-				Set("summary = EXCLUDED.summary").
-				Set("seo_title = EXCLUDED.seo_title").
-				Set("seo_description = EXCLUDED.seo_description").
-				Set("media_bindings = EXCLUDED.media_bindings").
-				Set("family_id = EXCLUDED.family_id").
-				Set("updated_at = EXCLUDED.updated_at").
-				Exec(ctx); err != nil {
+			if err := upsertSeedPageTranslation(ctx, db, pageTranslation); err != nil {
 				return fmt.Errorf("seed page translation %s (%s): %w", seed.Slug, targetLocale, err)
 			}
 
@@ -2326,6 +2307,96 @@ func backfillTranslations(ctx context.Context, db *bun.DB, locale string, pageSe
 	}
 
 	return nil
+}
+
+func upsertSeedContentTranslation(ctx context.Context, db *bun.DB, row *contentTranslationRow) error {
+	if db == nil {
+		return fmt.Errorf("db is nil")
+	}
+	if row == nil {
+		return nil
+	}
+	existingID, err := findSeedTranslationByFamilyLocale(ctx, db, "content_translations", row.FamilyID, row.LocaleID)
+	if err != nil {
+		return err
+	}
+	if existingID != uuid.Nil {
+		_, err = db.NewUpdate().
+			Model(row).
+			Column("title", "summary", "content", "family_id", "updated_at").
+			Where("id = ?", existingID).
+			Exec(ctx)
+		return err
+	}
+	_, err = db.NewInsert().
+		Model(row).
+		On("CONFLICT (content_id, locale_id) DO UPDATE").
+		Set("title = EXCLUDED.title").
+		Set("summary = EXCLUDED.summary").
+		Set("content = EXCLUDED.content").
+		Set("family_id = EXCLUDED.family_id").
+		Set("updated_at = EXCLUDED.updated_at").
+		Exec(ctx)
+	return err
+}
+
+func upsertSeedPageTranslation(ctx context.Context, db *bun.DB, row *pageTranslationRow) error {
+	if db == nil {
+		return fmt.Errorf("db is nil")
+	}
+	if row == nil {
+		return nil
+	}
+	existingID, err := findSeedTranslationByFamilyLocale(ctx, db, "page_translations", row.FamilyID, row.LocaleID)
+	if err != nil {
+		return err
+	}
+	if existingID != uuid.Nil {
+		_, err = db.NewUpdate().
+			Model(row).
+			Column("title", "path", "summary", "seo_title", "seo_description", "media_bindings", "family_id", "updated_at").
+			Where("id = ?", existingID).
+			Exec(ctx)
+		return err
+	}
+	_, err = db.NewInsert().
+		Model(row).
+		On("CONFLICT (page_id, locale_id) DO UPDATE").
+		Set("title = EXCLUDED.title").
+		Set("path = EXCLUDED.path").
+		Set("summary = EXCLUDED.summary").
+		Set("seo_title = EXCLUDED.seo_title").
+		Set("seo_description = EXCLUDED.seo_description").
+		Set("media_bindings = EXCLUDED.media_bindings").
+		Set("family_id = EXCLUDED.family_id").
+		Set("updated_at = EXCLUDED.updated_at").
+		Exec(ctx)
+	return err
+}
+
+func findSeedTranslationByFamilyLocale(ctx context.Context, db *bun.DB, table string, familyID *uuid.UUID, localeID uuid.UUID) (uuid.UUID, error) {
+	if db == nil || familyID == nil || *familyID == uuid.Nil || localeID == uuid.Nil {
+		return uuid.Nil, nil
+	}
+	table = strings.ToLower(strings.TrimSpace(table))
+	switch table {
+	case "content_translations", "page_translations":
+	default:
+		return uuid.Nil, fmt.Errorf("unsupported seed translation table %s", table)
+	}
+	var existingID uuid.UUID
+	err := db.NewSelect().
+		Table(table).
+		Column("id").
+		Where("family_id = ?", *familyID).
+		Where("locale_id = ?", localeID).
+		Where("deleted_at IS NULL").
+		Limit(1).
+		Scan(ctx, &existingID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return uuid.Nil, nil
+	}
+	return existingID, err
 }
 
 func seedFamilyIDValue(seed contentSeed) string {
