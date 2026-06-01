@@ -1039,9 +1039,6 @@ func (r *BunTranslationAssignmentRepository) countAssignmentsByDueState(ctx cont
 }
 
 func cloneAssignmentFilterMap(in map[string]any) map[string]any {
-	if len(in) == 0 {
-		return nil
-	}
 	out := make(map[string]any, len(in))
 	maps.Copy(out, in)
 	return out
