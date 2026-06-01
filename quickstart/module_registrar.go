@@ -22,6 +22,7 @@ type moduleRegistrarOptions struct {
 	sidebarUtilityMenuCode        string
 	seed                          bool
 	seedOpts                      SeedNavigationOptions
+	seedPlanOpts                  MenuSeedPlanOptions
 	gates                         fggate.FeatureGate
 	onDisabled                    func(feature, moduleID string) error
 	translationCapabilityMenuMode TranslationCapabilityMenuMode
@@ -158,6 +159,51 @@ func WithSeedNavigationOptions(mutator func(*SeedNavigationOptions)) ModuleRegis
 		}
 		mutator(&opts.seedOpts)
 	}
+}
+
+// WithMenuSeedPlanOptions mutates the expected menu seed plan before seeding/reconciliation.
+func WithMenuSeedPlanOptions(mutator func(*MenuSeedPlanOptions)) ModuleRegistrarOption {
+	return func(opts *moduleRegistrarOptions) {
+		if opts == nil || mutator == nil {
+			return
+		}
+		mutator(&opts.seedPlanOpts)
+	}
+}
+
+// WithMenuSeedParents replaces quickstart's default parent groups for the primary menu.
+func WithMenuSeedParents(parents ...admin.MenuItem) ModuleRegistrarOption {
+	return WithMenuSeedPlanOptions(func(opts *MenuSeedPlanOptions) {
+		opts.ParentItems = append([]admin.MenuItem{}, parents...)
+		opts.ReplaceDefaultParents = true
+	})
+}
+
+// WithMenuSeedTargetParentOverride places items with a matching target key under parentID.
+func WithMenuSeedTargetParentOverride(targetKey, parentID string) ModuleRegistrarOption {
+	return WithMenuSeedPlanOptions(func(opts *MenuSeedPlanOptions) {
+		if opts.TargetParentOverrides == nil {
+			opts.TargetParentOverrides = map[string]string{}
+		}
+		opts.TargetParentOverrides[strings.TrimSpace(targetKey)] = strings.TrimSpace(parentID)
+	})
+}
+
+// WithMenuSeedModuleParentOverride places menu rows contributed by moduleID under parentID.
+func WithMenuSeedModuleParentOverride(moduleID, parentID string) ModuleRegistrarOption {
+	return WithMenuSeedPlanOptions(func(opts *MenuSeedPlanOptions) {
+		if opts.ModuleParentOverrides == nil {
+			opts.ModuleParentOverrides = map[string]string{}
+		}
+		opts.ModuleParentOverrides[strings.TrimSpace(moduleID)] = strings.TrimSpace(parentID)
+	})
+}
+
+// WithMenuSeedItemTransform appends transforms applied to module-contributed menu rows.
+func WithMenuSeedItemTransform(transforms ...MenuSeedItemTransform) ModuleRegistrarOption {
+	return WithMenuSeedPlanOptions(func(opts *MenuSeedPlanOptions) {
+		opts.ItemTransforms = append(opts.ItemTransforms, transforms...)
+	})
 }
 
 // WithModuleFeatureGates enables feature-gated module filtering.
@@ -310,14 +356,28 @@ func (runtime moduleRegistrarSeedRuntime) menuLocale() string {
 func (runtime moduleRegistrarSeedRuntime) seedPrimaryMenu(mainMenuCode, menuLocale string) error {
 	baseItems := append([]admin.MenuItem{}, runtime.options.menuItems...)
 	baseItems = append(baseItems, normalizeToolsMenuItems(runtime.options.toolsMenuItems, mainMenuCode, menuLocale)...)
+	capabilityOmissions := []string{}
 	if runtime.options.translationCapabilityMenuMode == TranslationCapabilityMenuModeTools {
-		baseItems = append(baseItems, translationCapabilityMenuItems(runtime.adm, runtime.cfg, mainMenuCode, menuLocale)...)
+		var translationItems []admin.MenuItem
+		translationItems, capabilityOmissions = translationCapabilityMenuItemsWithDiagnostics(runtime.adm, runtime.cfg, mainMenuCode, menuLocale)
+		baseItems = append(baseItems, translationItems...)
 	}
 
 	primarySeedOpts := runtime.options.seedOpts
 	primarySeedOpts.MenuCode = mainMenuCode
 	primarySeedOpts.Locale = menuLocale
-	primarySeedOpts.Items = buildSeedMenuItems(mainMenuCode, menuLocale, runtime.ordered, baseItems)
+	primarySeedOpts.Reconcile = true
+	primarySeedOpts.CapabilityOmissions = append(primarySeedOpts.CapabilityOmissions, capabilityOmissions...)
+	planOpts := runtime.options.seedPlanOpts
+	planOpts.MenuCode = mainMenuCode
+	planOpts.Locale = menuLocale
+	planOpts.Modules = runtime.ordered
+	planOpts.BaseItems = baseItems
+	plan, err := BuildMenuSeedPlan(planOpts)
+	if err != nil {
+		return err
+	}
+	primarySeedOpts.Items = plan.Items
 	return SeedNavigation(runtime.options.ctx, primarySeedOpts)
 }
 
@@ -331,6 +391,7 @@ func (runtime moduleRegistrarSeedRuntime) seedUtilityMenu(menuLocale string) err
 	utilitySeedOpts.MenuCode = utilityMenuCode
 	utilitySeedOpts.Locale = menuLocale
 	utilitySeedOpts.Items = normalizeMenuItemsForMenu(utilityItems, utilityMenuCode, menuLocale)
+	utilitySeedOpts.Reconcile = true
 	return SeedNavigation(runtime.options.ctx, utilitySeedOpts)
 }
 
@@ -574,17 +635,16 @@ func modulesInIndexOrder(mods []admin.Module, index map[string]admin.Module) []a
 }
 
 func buildSeedMenuItems(menuCode, locale string, modules []admin.Module, baseItems []admin.MenuItem) []admin.MenuItem {
-	items := append([]admin.MenuItem{}, DefaultMenuParents(menuCode)...)
-	items = append(items, baseItems...)
-	for _, mod := range modules {
-		if mod == nil {
-			continue
-		}
-		if contributor, ok := mod.(interface{ MenuItems(string) []admin.MenuItem }); ok {
-			items = append(items, contributor.MenuItems(locale)...)
-		}
+	plan, err := BuildMenuSeedPlan(MenuSeedPlanOptions{
+		MenuCode:  menuCode,
+		Locale:    locale,
+		Modules:   modules,
+		BaseItems: baseItems,
+	})
+	if err != nil {
+		return nil
 	}
-	return dedupeMenuItems(items)
+	return plan.Items
 }
 
 func dedupeMenuItems(items []admin.MenuItem) []admin.MenuItem {
@@ -614,10 +674,10 @@ func dedupeMenuItems(items []admin.MenuItem) []admin.MenuItem {
 }
 
 func dedupeMenuItemKeys(item admin.MenuItem) []string {
-	keys := []string{}
 	if id := strings.TrimSpace(item.ID); id != "" {
-		keys = append(keys, "id:"+id)
+		return []string{"id:" + id}
 	}
+	keys := []string{}
 	if key := stringTargetValue(item.Target, "key"); key != "" {
 		keys = append(keys, "target:"+key)
 	}
@@ -685,14 +745,26 @@ func normalizeMenuItemsForMenu(items []admin.MenuItem, menuCode, locale string) 
 }
 
 func translationCapabilityMenuItems(adm *admin.Admin, cfg admin.Config, menuCode, locale string) []admin.MenuItem {
+	items, _ := translationCapabilityMenuItemsWithDiagnostics(adm, cfg, menuCode, locale)
+	return items
+}
+
+func translationCapabilityMenuItemsWithDiagnostics(adm *admin.Admin, cfg admin.Config, menuCode, locale string) ([]admin.MenuItem, []string) {
 	if adm == nil {
-		return nil
+		return nil, nil
 	}
 	exposure := resolveTranslationModuleExposureSnapshot(adm, nil)
 	queueEnabled := exposure.Queue.CapabilityEnabled
 	exchangeEnabled := exposure.Exchange.CapabilityEnabled
+	omissions := []string{}
+	if !queueEnabled {
+		omissions = append(omissions, "translations.dashboard", "translations.queue", "translations.assignments")
+	}
+	if !exchangeEnabled {
+		omissions = append(omissions, "translations.exchange")
+	}
 	if !queueEnabled && !exchangeEnabled {
-		return nil
+		return nil, omissions
 	}
 
 	menuCode = strings.TrimSpace(menuCode)
@@ -759,7 +831,7 @@ func translationCapabilityMenuItems(adm *admin.Admin, cfg admin.Config, menuCode
 		}))
 	}
 
-	return items
+	return items, omissions
 }
 
 func translationCapabilityMenuItem(

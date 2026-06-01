@@ -23,10 +23,15 @@ type SeedNavigationOptions struct {
 	MenuCode   string                           `json:"menu_code"`
 	Items      []admin.MenuItem                 `json:"items"`
 	Reset      bool                             `json:"reset"`
+	Reconcile  bool                             `json:"reconcile"`
 	ResetEnv   string                           `json:"reset_env"`
 	Locale     string                           `json:"locale"`
 	Logf       func(format string, args ...any) `json:"logf"`
 	SkipLogger bool                             `json:"skip_logger"`
+	Reportf    func(NavigationReconcileReport)  `json:"-"`
+
+	CapabilityOmissions     []string `json:"capability_omissions,omitempty"`
+	PermissionFilteredItems []string `json:"permission_filtered_items,omitempty"`
 
 	// AutoCreateParents allows seeds to omit intermediate path segments; missing parents are scaffolded as group nodes.
 	AutoCreateParents bool `json:"auto_create_parents"`
@@ -55,6 +60,25 @@ func SeedNavigation(ctx context.Context, opts SeedNavigationOptions) error {
 	}
 	if _, err := opts.MenuSvc.CreateMenu(ctx, runtime.menuCode); err != nil {
 		return err
+	}
+	if opts.Reconcile {
+		report, err := ReconcileGeneratedNavigation(ctx, NavigationReconcileOptions{
+			MenuSvc:                 opts.MenuSvc,
+			MenuCode:                runtime.menuCode,
+			Locale:                  runtime.locale,
+			Items:                   opts.Items,
+			Apply:                   true,
+			Logf:                    opts.Logf,
+			CapabilityOmissions:     opts.CapabilityOmissions,
+			PermissionFilteredItems: opts.PermissionFilteredItems,
+		})
+		if err != nil {
+			return err
+		}
+		if opts.Reportf != nil {
+			opts.Reportf(report)
+		}
+		return nil
 	}
 	return runtime.addSeedItems()
 }
@@ -135,6 +159,7 @@ func (runtime seedNavigationRuntime) seedItems() ([]admin.MenuItem, error) {
 		if err != nil {
 			return nil, err
 		}
+		normalized = generatedMenuItem(normalized, runtime.menuCode)
 		seedItems = append(seedItems, normalized)
 	}
 	autoCreateParents := runtime.opts.AutoCreateParents || shouldAutoCreateParents(runtime.menuCode, seedItems)
