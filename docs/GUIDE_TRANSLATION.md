@@ -414,13 +414,30 @@ Snapshot execution reuses the current-page bulk action semantics per assignment.
 
 `GET /admin/api/translations/assignments?group_by=family_id` returns a queue-specific grouped response. This is separate from the content DataGrid grouped contract.
 
-Current semantics:
+Page-local semantics:
 
 - grouping is page-local: assignment filters, sorting, and pagination run first
 - group rows use `row_type=group`, `group_by=family_id`, `parent`, `children`, `records`, and `family_summary`
 - child rows retain normal assignment action states
 - parent action state is informational; execute actions against child assignments
 - `meta.grouping` advertises `strategy=page_local`, `scope=current_page`, `assignment_count`, `group_count`, supported modes, and the filtering/sorting/pagination rules
+
+Server-family semantics:
+
+- request parent families with `GET /admin/api/translations/assignments?group_by=family_id&group_strategy=server_family`
+- parent pagination uses `page` and `per_page`, defaults to `25`, clamps to `100`, and top-level `meta.total` means total matching families
+- assignment totals are exposed separately as `meta.grouping.assignment_total` and `meta.assignment_total`
+- parent rows use `row_type=family`, `id=family:<family_id>`, `family_id`, `family_label`, source identity fields, `assignment_count`, `locale_count`, `target_locales`, `status_counts`, `due_state_counts`, `priority_counts`, persisted blocker metadata, informational `action_state`, optional `action_hints`, and `expansion`
+- `family_blocker_count` is a persisted family blocker aggregate; unavailable stores return `family_blocker_count=null`, `family_blocker_count_available=false`, and a reason such as `persisted_blockers_unavailable`
+- parent rows do not expose executable assignment actions; actions remain on expanded child rows
+- each parent `expansion` includes `href`, `route=translations.assignments.family_assignments`, `params.family_id`, and normalized effective query filters
+- expanded child rows load from `GET /admin/api/translations/assignments/families/:family_id/assignments`
+- child expansion uses page-based `page` and `per_page`, defaults to `25`, clamps to `100`, and returns normal assignment rows plus `meta.family_id`, `total`, `has_next`, `sort`, and `order`
+- server-family parent sort keys are `updated_at`, `created_at`, `due_date`, `due_state`, and `priority`; parent rows use aggregate semantics and `family_id` as the stable tie-breaker
+- expanded child rows inherit the normalized `sort` and `order` from the parent expansion request and use normal assignment-row sort semantics
+- explicit ambiguous flat queue sorts such as `locale`, `assignee_id`, `reviewer_id`, and `status` return a validation error in server-family mode
+- `review_state=qa_blocked` means persisted family blocker evidence in the filtered queue scope; unavailable persisted blocker data returns a structured unsupported response instead of live QA hydration
+- `meta.grouping.capabilities.server_family.supported` controls whether the UI may expose server-side family grouping for the active repository
 
 Unsupported grouping modes return a validation error instead of silently changing the response shape.
 
