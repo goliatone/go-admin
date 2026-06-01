@@ -76,12 +76,19 @@ func TestExamplesWebSeedsCanonicalTranslationMenuForCapabilityProfiles(t *testin
 
 			assertMenuRoutePresence(t, menu.Items, "admin.translations.dashboard", tc.expectDashboard)
 			assertMenuRoutePresence(t, menu.Items, "admin.translations.queue", tc.expectQueue)
+			assertMenuRoutePresence(t, menu.Items, "admin.translations.assignments", tc.expectQueue)
 			assertMenuRoutePresence(t, menu.Items, "admin.translations.exchange", tc.expectExchange)
 
 			if item := findMenuItemByRouteName(menu.Items, "admin.translations.queue"); item != nil {
 				path, _ := item.Target["path"].(string)
+				if !strings.Contains(strings.TrimSpace(path), "/translations/queue") {
+					t.Fatalf("expected queue menu item path to include /translations/queue, got %q", path)
+				}
+			}
+			if item := findMenuItemByRouteName(menu.Items, "admin.translations.assignments"); item != nil {
+				path, _ := item.Target["path"].(string)
 				if !strings.Contains(strings.TrimSpace(path), "/content/translations") {
-					t.Fatalf("expected queue menu item path to include /content/translations, got %q", path)
+					t.Fatalf("expected assignments menu item path to include /content/translations, got %q", path)
 				}
 			}
 			if item := findMenuItemByRouteName(menu.Items, "admin.translations.dashboard"); item != nil {

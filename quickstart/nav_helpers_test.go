@@ -597,7 +597,7 @@ func newAdminWithCMSNavigationRegressionFixture(t *testing.T, cfg admin.Config, 
 				ParentID: "translations",
 				Type:     admin.MenuItemTypeItem,
 				Label:    "Queue",
-				Target:   map[string]any{"type": "url", "path": "/admin/content/translations", "key": "translation_queue"},
+				Target:   map[string]any{"type": "url", "path": "/admin/translations/queue", "key": "translation_queue"},
 			},
 			{
 				ID:       "translation_exchange",

@@ -297,7 +297,7 @@ func TestNewModuleRegistrarSeedsTranslationCapabilityMenuItemsByDefault(t *testi
 	}
 }
 
-func TestResolveTranslationCapabilityMenuPathFallsBackToCanonicalTranslationsPanel(t *testing.T) {
+func TestResolveTranslationCapabilityMenuPathResolvesQueueAndAssignments(t *testing.T) {
 	manager, err := urlkit.NewRouteManagerFromConfig(&urlkit.Config{
 		Groups: []urlkit.GroupConfig{
 			{
@@ -316,8 +316,11 @@ func TestResolveTranslationCapabilityMenuPathFallsBackToCanonicalTranslationsPan
 		t.Fatalf("new route manager: %v", err)
 	}
 
-	if got := resolveTranslationCapabilityMenuPath(manager, "/admin", "translations.queue"); got != "/control/content/translations" {
-		t.Fatalf("expected queue fallback to canonical translations panel path, got %q", got)
+	if got := resolveTranslationCapabilityMenuPath(manager, "/admin", "translations.queue"); got != "/control/translations/queue" {
+		t.Fatalf("expected queue fallback to dedicated translations queue path, got %q", got)
+	}
+	if got := resolveTranslationCapabilityMenuPath(manager, "/admin", "translations.assignments"); got != "/control/content/translations" {
+		t.Fatalf("expected assignments fallback to canonical translations panel path, got %q", got)
 	}
 	if got := resolveTranslationCapabilityMenuPath(manager, "/admin", "translations.dashboard"); got != "/control/translations/dashboard" {
 		t.Fatalf("expected dashboard path to resolve through URLKit, got %q", got)
@@ -604,13 +607,27 @@ func TestNewModuleRegistrarSeedsTranslationCapabilityMenuItemsWhenEnabled(t *tes
 					t.Fatalf("expected queue item parent to include nav-group-translations, got %q", parent)
 				}
 				path := toString(queueItem.Target["path"])
-				if !strings.Contains(strings.TrimSpace(path), "/content/translations") {
-					t.Fatalf("expected queue target path to include /content/translations, got %q", path)
+				if !strings.Contains(strings.TrimSpace(path), "/translations/queue") {
+					t.Fatalf("expected queue target path to include /translations/queue, got %q", path)
 				}
 				if len(queueItem.Permissions) != 0 {
 					t.Fatalf("expected queue menu item to be module/profile-gated only, got permissions %v", queueItem.Permissions)
 				}
 				assertNoPersistedTranslationPermissionState(t, queueItem)
+			}
+			assignmentsItem := findMenuItemByRouteName(menu.Items, "admin.translations.assignments")
+			if (assignmentsItem != nil) != tc.expectQueue {
+				t.Fatalf("expected assignments menu=%t, got %t", tc.expectQueue, assignmentsItem != nil)
+			}
+			if assignmentsItem != nil {
+				path := toString(assignmentsItem.Target["path"])
+				if !strings.Contains(strings.TrimSpace(path), "/content/translations") {
+					t.Fatalf("expected assignments target path to include /content/translations, got %q", path)
+				}
+				if len(assignmentsItem.Permissions) != 0 {
+					t.Fatalf("expected assignments menu item to be module/profile-gated only, got permissions %v", assignmentsItem.Permissions)
+				}
+				assertNoPersistedTranslationPermissionState(t, assignmentsItem)
 			}
 
 			dashboardItem := findMenuItemByRouteName(menu.Items, "admin.translations.dashboard")
@@ -701,8 +718,8 @@ func TestTranslationCapabilityMenuItemsVisibleWithoutTranslationPermissions(t *t
 		t.Fatalf("expected translation queue sidebar entrypoint")
 	} else {
 		href := strings.TrimSpace(toString(item["href"]))
-		if !strings.Contains(href, "/content/translations") {
-			t.Fatalf("expected queue href to include /content/translations, got %q", href)
+		if !strings.Contains(href, "/translations/queue") {
+			t.Fatalf("expected queue href to include /translations/queue, got %q", href)
 		}
 		if disabled := translationBool(item["disabled"]); !disabled {
 			t.Fatalf("expected queue entrypoint visible-disabled when permission denied")
@@ -797,7 +814,7 @@ func TestTranslationCapabilityMenuItemsClearStalePermissionDeniedStateWhenAllowe
 		Collapsible: true,
 		Children: []admin.NavigationItem{
 			staleDeniedTranslationNavItem("translation_dashboard", "/admin/translations/dashboard"),
-			staleDeniedTranslationNavItem("translation_queue", "/admin/content/translations"),
+			staleDeniedTranslationNavItem("translation_queue", "/admin/translations/queue"),
 			staleDeniedTranslationNavItem("translation_exchange", "/admin/translations/exchange"),
 		},
 	})
