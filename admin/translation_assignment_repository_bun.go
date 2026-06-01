@@ -197,13 +197,7 @@ func (r *BunTranslationAssignmentRepository) ListAssignmentFamilyGroups(ctx cont
 	if r == nil || r.db == nil {
 		return TranslationAssignmentFamilyGroupQueryResult{}, serviceNotConfiguredDomainError("translation assignment repository", nil)
 	}
-	opts, unsupported := listOptionsFromAssignmentPageQuery(TranslationAssignmentPageQueryInput{
-		Filter:      input.Filter,
-		Page:        input.Page,
-		PerPage:     input.PerPage,
-		Environment: input.Environment,
-		Now:         input.Now,
-	})
+	opts, unsupported := listOptionsFromAssignmentPageQuery(TranslationAssignmentPageQueryInput(input))
 	if unsupported {
 		return TranslationAssignmentFamilyGroupQueryResult{}, ErrTranslationAssignmentQueryUnsupported
 	}
@@ -230,16 +224,16 @@ func (r *BunTranslationAssignmentRepository) ListAssignmentFamilyGroups(ctx cont
 		ColumnExpr("MAX(" + bunAssignmentPriorityRankSQL() + ") AS priority_rank").
 		GroupExpr("family_id")
 	applyBunAssignmentListFilters(query, opts, dueSQL)
-	if err := applyBunFamilyBlockedReviewFilter(query, input.Filter.ReviewState); err != nil {
-		return TranslationAssignmentFamilyGroupQueryResult{}, err
+	if filterErr := applyBunFamilyBlockedReviewFilter(query, input.Filter.ReviewState); filterErr != nil {
+		return TranslationAssignmentFamilyGroupQueryResult{}, filterErr
 	}
 	applyBunAssignmentFamilyGroupSort(query, input.Filter.SortBy, input.Filter.SortDesc, dueSQL)
 	applyBunAssignmentPagination(query, opts, 25)
-	if err := query.Scan(ctx, &records); err != nil {
-		if isMissingFamilyBlockersTableError(err) {
+	if scanErr := query.Scan(ctx, &records); scanErr != nil {
+		if isMissingFamilyBlockersTableError(scanErr) {
 			return TranslationAssignmentFamilyGroupQueryResult{}, ErrTranslationAssignmentFamilyBlockersUnavailable
 		}
-		return TranslationAssignmentFamilyGroupQueryResult{}, err
+		return TranslationAssignmentFamilyGroupQueryResult{}, scanErr
 	}
 	familyIDs := make([]string, 0, len(records))
 	for _, record := range records {
@@ -255,15 +249,23 @@ func (r *BunTranslationAssignmentRepository) ListAssignmentFamilyGroups(ctx cont
 	if err != nil {
 		return TranslationAssignmentFamilyGroupQueryResult{}, err
 	}
+	groups := bunTranslationAssignmentFamilyGroupsFromRecords(records, assignmentsByFamily, blockerCounts, blockersAvailable, now)
+	return TranslationAssignmentFamilyGroupQueryResult{
+		Families:        groups,
+		FamilyTotal:     familyTotal,
+		AssignmentTotal: assignmentTotal,
+	}, nil
+}
+
+func bunTranslationAssignmentFamilyGroupsFromRecords(records []bunTranslationAssignmentFamilyGroupRecord, assignmentsByFamily map[string][]TranslationAssignment, blockerCounts map[string]int, blockersAvailable bool, now time.Time) []TranslationAssignmentFamilyGroup {
 	groups := make([]TranslationAssignmentFamilyGroup, 0, len(records))
 	for _, record := range records {
-		children := assignmentsByFamily[strings.TrimSpace(record.FamilyID)]
+		familyID := strings.TrimSpace(record.FamilyID)
+		children := assignmentsByFamily[familyID]
 		childGroups := translationAssignmentFamilyGroupsFromAssignments(children, now)
-		var group TranslationAssignmentFamilyGroup
+		group := TranslationAssignmentFamilyGroup{FamilyID: familyID}
 		if len(childGroups) > 0 {
 			group = childGroups[0]
-		} else {
-			group = TranslationAssignmentFamilyGroup{FamilyID: strings.TrimSpace(record.FamilyID)}
 		}
 		group.AssignmentCount = record.AssignmentCount
 		group.LocaleCount = record.LocaleCount
@@ -280,11 +282,7 @@ func (r *BunTranslationAssignmentRepository) ListAssignmentFamilyGroups(ctx cont
 		}
 		groups = append(groups, group)
 	}
-	return TranslationAssignmentFamilyGroupQueryResult{
-		Families:        groups,
-		FamilyTotal:     familyTotal,
-		AssignmentTotal: assignmentTotal,
-	}, nil
+	return groups
 }
 
 func (r *BunTranslationAssignmentRepository) ListFamilyAssignments(ctx context.Context, input TranslationAssignmentFamilyAssignmentsQueryInput) (TranslationAssignmentFamilyAssignmentsQueryResult, error) {
