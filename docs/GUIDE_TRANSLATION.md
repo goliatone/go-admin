@@ -434,7 +434,7 @@ Server-family semantics:
 - `family_blocker_count` is a persisted family blocker aggregate; unavailable stores return `family_blocker_count=null`, `family_blocker_count_available=false`, and a reason such as `persisted_blockers_unavailable`
 - parent rows do not expose executable assignment actions; actions remain on expanded child rows
 - each parent `expansion` includes `href`, `route=translations.assignments.family_assignments`, `params.family_id`, and normalized effective query filters
-- expanded child rows load from `GET /admin/api/translations/assignments/families/:family_id/assignments`
+- expanded child rows load from `GET /admin/api/translations/families/:family_id/assignments`
 - child expansion uses page-based `page` and `per_page`, defaults to `25`, clamps to `100`, and returns normal assignment rows plus `meta.family_id`, `total`, `has_next`, `sort`, and `order`
 - server-family parent sort keys are `updated_at`, `created_at`, `due_date`, `due_state`, and `priority`; parent rows use aggregate semantics and `family_id` as the stable tie-breaker
 - expanded child rows inherit the normalized `sort` and `order` from the parent expansion request and use normal assignment-row sort semantics
