@@ -1,11 +1,35 @@
 # Changelog
 
+# [0.82.1](https://github.com/goliatone/go-admin/compare/v0.82.0...v0.82.1) - (2026-06-01)
+
+## <!-- 16 -->➕ Add
+
+- Translation bulk filter selection ([6ef542b](https://github.com/goliatone/go-admin/commit/6ef542b8a9c871b9621df98fd87f4d3370696bac))  - (goliatone)
+- Translation dashboard ([63cc5be](https://github.com/goliatone/go-admin/commit/63cc5be70310a961951667557185292b4a7f189f))  - (goliatone)
+- Translation assigment repository and translation queue ([59c2fc6](https://github.com/goliatone/go-admin/commit/59c2fc69e303353b0e61874985c767e1e0bd77c8))  - (goliatone)
+- Translation assigment filters and endpoints ([1b05713](https://github.com/goliatone/go-admin/commit/1b05713dcacc87bd7854573e6c8654c22ee56f0d))  - (goliatone)
+- Sso tempalte ([62243da](https://github.com/goliatone/go-admin/commit/62243da9dd3c4b42011ad1dbd0c176bc585505f3))  - (goliatone)
+- Bul snapshot for translations ([6bbe65e](https://github.com/goliatone/go-admin/commit/6bbe65ec6043c5e3d2c13398c79d906e2f4a0ea8))  - (goliatone)
+- Updated translation dashbaord ([2a08111](https://github.com/goliatone/go-admin/commit/2a08111a87c4c6a14f36517935aa8213bffe2fb8))  - (goliatone)
+- Sso templates ([822b8e3](https://github.com/goliatone/go-admin/commit/822b8e3b68803ef77542527072e88bc3ef9a3f4c))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update docs ([63a1f18](https://github.com/goliatone/go-admin/commit/63a1f18fe6532a5242c9086210663c8272c1dd4b))  - (goliatone)
+- Update tests ([796bc0b](https://github.com/goliatone/go-admin/commit/796bc0b0b1e51078cb11f569db8fa1c20eada86a))  - (goliatone)
+- Update tasks ([942161d](https://github.com/goliatone/go-admin/commit/942161d5603cad8cfff75af483989778728bcc15))  - (goliatone)
+- Update deps ([2c305b1](https://github.com/goliatone/go-admin/commit/2c305b1683e20235317326eb9c62ec589c40251f))  - (goliatone)
+
 # [0.82.0](https://github.com/goliatone/go-admin/compare/v0.81.1...v0.82.0) - (2026-05-31)
 
 ## <!-- 1 -->🐛 Bug Fixes
 
 - Content lookup ([bf0a830](https://github.com/goliatone/go-admin/commit/bf0a830777d8c9a8a193e3a9ca21b378ede91025))  - (goliatone)
 - Translation loading perf ([1150951](https://github.com/goliatone/go-admin/commit/115095124b6bd2def6b5d30e3a45112ad011288c))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.82.0 ([87b3498](https://github.com/goliatone/go-admin/commit/87b3498d62178d1ab45829b133a0721375958cdd))  - (goliatone)
 
 ## <!-- 16 -->➕ Add
 
