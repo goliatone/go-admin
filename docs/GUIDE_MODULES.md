@@ -2220,6 +2220,11 @@ if err != nil {
 | `WithSidebarUtilityMenuCode(code)`     | Override the utility menu code        |
 | `WithSeedNavigation(bool)`             | Toggle navigation seeding             |
 | `WithSeedNavigationOptions(fn)`        | Mutate seed options                   |
+| `WithMenuSeedPlanOptions(fn)`          | Mutate the expected generated menu plan |
+| `WithMenuSeedParents(items...)`        | Replace quickstart default primary-menu parent groups |
+| `WithMenuSeedTargetParentOverride(targetKey, parentID)` | Move rows by stable target key |
+| `WithMenuSeedModuleParentOverride(moduleID, parentID)` | Move all rows contributed by a module |
+| `WithMenuSeedItemTransform(fns...)`    | Adjust module-contributed rows before reconciliation |
 | `WithModuleFeatureGates(gates)`        | Enable feature-gated module filtering |
 | `WithModuleFeatureDisabledHandler(fn)` | Custom handler for disabled modules   |
 | `WithTranslationCapabilityMenuMode(mode)` | Control seeded translation links   |
@@ -2255,10 +2260,39 @@ quickstart.NewModuleRegistrar(
     adm, cfg, modules, isDev,
     quickstart.WithSeedNavigation(true),
     quickstart.WithSeedNavigationOptions(func(opts *quickstart.SeedNavigationOptions) {
-        opts.ResetMenu = hostConfig.Navigation.ResetMenu
+        opts.Reset = hostConfig.Navigation.ResetMenu
     }),
 )
 ```
+
+Primary and utility menu seeding now reconciles generated rows rather than
+blindly appending duplicates. The registrar builds the expected tree with
+`BuildMenuSeedPlan`, marks persisted generated rows with quickstart ownership
+metadata, preserves host-authored rows, updates stale generated rows, and reports
+ambiguous or destructive candidates through `NavigationReconcileReport`.
+
+Use seed-plan options for host-owned sidebar layout:
+
+```go
+quickstart.NewModuleRegistrar(
+    adm, cfg, modules, isDev,
+    quickstart.WithMenuSeedParents(admin.MenuItem{
+        ID:          "host.nav",
+        Type:        admin.MenuItemTypeGroup,
+        GroupTitle:  "Host Navigation",
+        Collapsible: true,
+    }),
+    quickstart.WithMenuSeedTargetParentOverride("translation_queue", "host.nav"),
+    quickstart.WithMenuSeedModuleParentOverride("reports", "host.nav"),
+)
+```
+
+For troubleshooting or migrations, call `ReconcileGeneratedNavigation` with
+`Apply: false` first and inspect `Creates`, `Updates`,
+`PreservedUserRows`, `DuplicateIdentities`, `DestructiveCandidates`,
+`StaleTargetStateCleanup`, `CapabilityOmissions`, and
+`PermissionFilteredItems`. See `quickstart/README.md` for the full
+reconciliation contract.
 
 ---
 

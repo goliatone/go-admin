@@ -472,6 +472,10 @@ Assigned role does not change navigation:
 - The role assignment exists, but permission resolution is not adding role
   permissions to the authorizer's effective claims.
 - The menu item may require a different permission string than the role grants.
+- If the row is quickstart-generated, inspect a dry-run
+  `ReconcileGeneratedNavigation` report. `PermissionFilteredItems` means the
+  generated row was intentionally omitted for the effective permission set, not
+  that navigation seeding failed.
 
 Custom role ID is ignored:
 

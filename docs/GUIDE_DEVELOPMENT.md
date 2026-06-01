@@ -207,6 +207,23 @@ If admin menu labels localize but clicks still open default-locale content:
     - propagate active scope in generated links via `?locale=...` and `?$channel=...` (`admin.ContentChannelScopeQueryParam`)
 3.  If behavior diverges, turn on nav payload logging (`cfg.NavDebugLog=true`) and verify emitted `href` values include locale/scope query state.
 
+If quickstart-generated admin navigation is stale, duplicated, or missing:
+
+1.  Treat generated menu rows as reconciled state, not append-only seed data.
+2.  Build or inspect the expected plan through `BuildMenuSeedPlan` / registrar
+    seed-plan options before editing persisted rows by hand.
+3.  Run a dry-run `ReconcileGeneratedNavigation` report and inspect:
+    - `Creates` / `Updates` for expected generated changes.
+    - `PreservedUserRows` for host-authored rows that should stay untouched.
+    - `DuplicateIdentities` for ambiguous legacy/generated matches.
+    - `DestructiveCandidates` before enabling destructive cleanup.
+    - `CapabilityOmissions` and `PermissionFilteredItems` when links disappear
+      because a feature or permission gate filtered them out.
+4.  Do not reseed or delete menu data until the dry-run report explains the
+    mismatch. Keep `AllowDestructive` off unless the candidates were reviewed.
+5.  Run focused quickstart navigation tests:
+    - `go test ./quickstart -run 'TestBuildMenuSeedPlan|TestReconcileGeneratedNavigation|TestSeedNavigation'`
+
 If site menu links are locale-prefixed but final page URL drops locale prefix (for example `/es/...` -\> `/...`):
 
 1.  Confirm rendered menu href payload is localized (`context.main_menu.items[*].href` includes `/es/...`).

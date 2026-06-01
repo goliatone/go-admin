@@ -440,6 +440,15 @@ The renderer also carries request scope in generated links:
 
 This keeps menu labels, link targets, and downstream content grids aligned to the same locale/channel context.
 
+Quickstart-generated admin menu rows are reconciled, not blindly reinserted.
+`BuildMenuSeedPlan` computes the expected generated rows, and
+`ReconcileGeneratedNavigation` updates quickstart-owned rows while preserving
+host-authored CMS menu rows. Use a dry-run reconcile report before deleting or
+resetting menu data; the report calls out creates, updates, preserved user rows,
+duplicate identities, destructive candidates, stale target-state cleanup,
+capability omissions, and permission-filtered generated rows. See
+`quickstart/README.md` for the generated navigation contract.
+
 ```go
 type Menu struct {
     ID       string
