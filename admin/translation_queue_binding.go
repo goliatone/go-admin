@@ -9,6 +9,7 @@ import (
 	translationqueue "github.com/goliatone/go-admin/admin/internal/translationqueue"
 	"github.com/goliatone/go-admin/internal/primitives"
 	goerrors "github.com/goliatone/go-errors"
+	"github.com/google/uuid"
 	"sort"
 	"strings"
 	"sync"
@@ -22,6 +23,8 @@ import (
 const translationQueueDueSoonWindow = 48 * time.Hour
 const translationQueueMissingActorFilterToken = translationqueue.MissingActorFilterToken
 const translationQueueReviewStateQABlocked = translationqueue.ReviewStateQABlocked
+const translationQueueBulkSnapshotTTL = 15 * time.Minute
+const translationQueueBulkSnapshotMaxAssignments = 5_000
 
 var translationQueuePrioritySortRank = map[string]int{
 	"low":    0,
@@ -43,6 +46,8 @@ type translationQueueBinding struct {
 	dashboardLoadRuntime func(context.Context, string) (*translationFamilyRuntime, error)
 	idempotencyMu        sync.Mutex
 	idempotency          map[string]translationQueueActionReplay
+	snapshotMu           sync.Mutex
+	snapshots            map[string]translationQueueFilterSnapshot
 }
 
 type translationQueueActionReplay struct {
@@ -55,6 +60,20 @@ type translationQueueBulkActionSelection struct {
 	AssignmentID     string `json:"assignment_id"`
 	ExpectedVersion  int64  `json:"expected_version"`
 	OriginalPosition int    `json:"-"`
+}
+
+type translationQueueFilterSnapshot struct {
+	ID            string                                `json:"snapshot_id"`
+	ActorID       string                                `json:"actor_id"`
+	TenantID      string                                `json:"tenant_id"`
+	OrgID         string                                `json:"org_id"`
+	Channel       string                                `json:"channel"`
+	Filter        translationAssignmentListFilter       `json:"filter"`
+	FilterPayload map[string]any                        `json:"filters"`
+	FilterSummary []string                              `json:"filter_summary"`
+	Selections    []translationQueueBulkActionSelection `json:"-"`
+	CreatedAt     time.Time                             `json:"created_at"`
+	ExpiresAt     time.Time                             `json:"expires_at"`
 }
 
 type translationQueueGroupingRequest struct {
@@ -87,6 +106,7 @@ func newTranslationQueueBinding(a *Admin) *translationQueueBinding {
 		admin:       a,
 		now:         func() time.Time { return time.Now().UTC() },
 		idempotency: map[string]translationQueueActionReplay{},
+		snapshots:   map[string]translationQueueFilterSnapshot{},
 	}
 }
 
@@ -262,6 +282,75 @@ func (b *translationQueueBinding) RunAssignmentAction(c router.Context, assignme
 	return response, nil
 }
 
+func (b *translationQueueBinding) CreateAssignmentBulkSnapshot(c router.Context, body map[string]any) (payload any, err error) {
+	startedAt := time.Now()
+	obsCtx := c.Context()
+	defer func() {
+		recordTranslationAPIOperation(obsCtx, translationAPIObservation{
+			Operation: "translations.assignments.bulk_snapshot.create",
+			Kind:      "write",
+			RequestID: requestIDFromContext(obsCtx),
+			TraceID:   traceIDFromContext(obsCtx),
+			TenantID:  tenantIDFromContext(obsCtx),
+			OrgID:     orgIDFromContext(obsCtx),
+			Duration:  time.Since(startedAt),
+			Err:       err,
+		})
+	}()
+	if identityErr := rejectTranslationClientIdentityFields(body); identityErr != nil {
+		return nil, identityErr
+	}
+	adminCtx, repo, now, err := b.prepareAssignmentRequest(c)
+	if err != nil {
+		return nil, err
+	}
+	obsCtx = adminCtx.Context
+	identity := translationIdentityFromAdminContext(adminCtx)
+	channel := translationChannelFromRequest(c, adminCtx, body)
+	if identity.ActorID == "" {
+		return nil, NewDomainError(string(translationcore.ErrorPermissionDenied), "bulk assignment snapshots require an authenticated actor", map[string]any{
+			"component": "translation_queue_binding",
+		})
+	}
+
+	filter := b.assignmentFilterFromSnapshotBody(adminCtx, body)
+	selections, total, err := b.assignmentSnapshotSelections(adminCtx.Context, repo, filter, channel, now)
+	if err != nil {
+		return nil, err
+	}
+	if total > translationQueueBulkSnapshotMaxAssignments {
+		return nil, validationDomainError("filter snapshot matches too many assignments for synchronous bulk action", map[string]any{
+			"field":     "filters",
+			"matched":   total,
+			"max_items": translationQueueBulkSnapshotMaxAssignments,
+		})
+	}
+
+	snapshot := translationQueueFilterSnapshot{
+		ID:            "snap_" + strings.ReplaceAll(uuid.NewString(), "-", ""),
+		ActorID:       identity.ActorID,
+		TenantID:      identity.TenantID,
+		OrgID:         identity.OrgID,
+		Channel:       channel,
+		Filter:        filter,
+		FilterPayload: translationQueueSnapshotFilterPayload(filter),
+		FilterSummary: translationQueueSnapshotFilterSummary(filter),
+		Selections:    selections,
+		CreatedAt:     now,
+		ExpiresAt:     now.Add(translationQueueBulkSnapshotTTL),
+	}
+	b.storeAssignmentBulkSnapshot(snapshot)
+
+	return map[string]any{
+		"data": snapshot.assignmentBulkSnapshotContract(),
+		"meta": mergeTranslationChannelContract(map[string]any{
+			"selection_scope": "filter_snapshot",
+			"requested":       len(selections),
+			"expires_in_sec":  int(translationQueueBulkSnapshotTTL.Seconds()),
+		}, channel),
+	}, nil
+}
+
 func (b *translationQueueBinding) RunAssignmentBulkAction(c router.Context, body map[string]any) (payload any, err error) {
 	startedAt := time.Now()
 	obsCtx := c.Context()
@@ -303,10 +392,6 @@ func (b *translationQueueBinding) RunAssignmentBulkAction(c router.Context, body
 			"action": action,
 		})
 	}
-	selections, err := translationQueueBulkActionSelections(body)
-	if err != nil {
-		return nil, err
-	}
 	service := &DefaultTranslationQueueService{
 		Repository:    repo,
 		Activity:      b.admin.ActivityFeed(),
@@ -314,7 +399,46 @@ func (b *translationQueueBinding) RunAssignmentBulkAction(c router.Context, body
 		URLs:          b.admin.URLs(),
 	}
 
+	selectionScope := normalizeTranslationQueueBulkSelectionScope(body)
+	if selectionScope != "current_page" && selectionScope != "filter_snapshot" {
+		return nil, validationDomainError("unsupported bulk assignment selection scope", map[string]any{
+			"field":           "selection_scope",
+			"selection_scope": selectionScope,
+			"supported":       []string{"current_page", "filter_snapshot"},
+		})
+	}
+	var snapshot *translationQueueFilterSnapshot
+	var selections []translationQueueBulkActionSelection
+	if selectionScope == "filter_snapshot" {
+		resolved, lookupErr := b.lookupAssignmentBulkSnapshot(identity, channel, body, now)
+		if lookupErr != nil {
+			return nil, lookupErr
+		}
+		snapshot = resolved
+		selections = cloneTranslationQueueBulkSelections(snapshot.Selections)
+	} else {
+		selections, err = translationQueueBulkActionSelections(body)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	results, errorsOut, updatedRows, succeeded := b.runAssignmentBulkSelections(adminCtx, repo, service, identity, action, channel, now, selections, body)
+
+	meta := mergeTranslationChannelContract(map[string]any{
+		"selection_scope": selectionScope,
+		"requested":       len(selections),
+		"succeeded":       succeeded,
+		"failed":          len(errorsOut),
+		"partial":         succeeded > 0 && len(errorsOut) > 0,
+	}, channel)
+	if snapshot != nil {
+		meta["snapshot_id"] = snapshot.ID
+		meta["filters"] = primitives.CloneAnyMap(snapshot.FilterPayload)
+		meta["filter_summary"] = append([]string{}, snapshot.FilterSummary...)
+		meta["snapshot_created_at"] = snapshot.CreatedAt
+		meta["snapshot_expires_at"] = snapshot.ExpiresAt
+	}
 
 	return map[string]any{
 		"data": map[string]any{
@@ -323,13 +447,7 @@ func (b *translationQueueBinding) RunAssignmentBulkAction(c router.Context, body
 			"assignments": updatedRows,
 			"errors":      errorsOut,
 		},
-		"meta": mergeTranslationChannelContract(map[string]any{
-			"selection_scope": "current_page",
-			"requested":       len(selections),
-			"succeeded":       succeeded,
-			"failed":          len(errorsOut),
-			"partial":         succeeded > 0 && len(errorsOut) > 0,
-		}, channel),
+		"meta": meta,
 	}, nil
 }
 
@@ -782,7 +900,264 @@ func (b *translationQueueBinding) assignmentFilterFromRequest(adminCtx AdminCont
 	)
 }
 
+func (b *translationQueueBinding) assignmentFilterFromSnapshotBody(adminCtx AdminContext, body map[string]any) translationAssignmentListFilter {
+	actorID := strings.TrimSpace(primitives.FirstNonEmptyRaw(adminCtx.UserID, actorFromContext(adminCtx.Context)))
+	filters := extractMap(body["filters"])
+	if len(filters) == 0 {
+		filters = primitives.CloneAnyMap(body)
+	}
+	return translationqueue.AssignmentFilterFromQuery(
+		func(key string) string {
+			return translationQueueSnapshotFilterValue(filters, key)
+		},
+		actorID,
+		strings.TrimSpace(primitives.FirstNonEmptyRaw(adminCtx.TenantID, tenantIDFromContext(adminCtx.Context))),
+		strings.TrimSpace(primitives.FirstNonEmptyRaw(adminCtx.OrgID, orgIDFromContext(adminCtx.Context))),
+	)
+}
+
+func translationQueueSnapshotFilterValue(filters map[string]any, key string) string {
+	if len(filters) == 0 {
+		return ""
+	}
+	candidates := []string{key}
+	switch key {
+	case "assignee_id":
+		candidates = append(candidates, "assigneeId")
+	case "reviewer_id":
+		candidates = append(candidates, "reviewerId")
+	case "due_state":
+		candidates = append(candidates, "dueState")
+	case "review_state":
+		candidates = append(candidates, "reviewState")
+	case "family_id":
+		candidates = append(candidates, "familyId")
+	case "target_locale", "locale":
+		candidates = append(candidates, "target_locale", "targetLocale")
+	case "sort":
+		candidates = append(candidates, "sort_by", "sortBy")
+	case "sort_by":
+		candidates = append(candidates, "sort")
+	}
+	for _, candidate := range candidates {
+		if value := strings.TrimSpace(toString(filters[candidate])); value != "" {
+			return value
+		}
+	}
+	return ""
+}
+
 type translationAssignmentListFilter = translationqueue.AssignmentListFilter
+
+func (b *translationQueueBinding) assignmentSnapshotSelections(ctx context.Context, repo TranslationAssignmentRepository, filter translationAssignmentListFilter, environment string, now time.Time) ([]translationQueueBulkActionSelection, int, error) {
+	if queryStore, ok := repo.(TranslationAssignmentSnapshotQueryStore); ok && queryStore != nil {
+		result, err := queryStore.ListAssignmentSnapshot(ctx, TranslationAssignmentSnapshotQueryInput{
+			Filter:      filter,
+			Environment: environment,
+			Now:         now,
+			Limit:       translationQueueBulkSnapshotMaxAssignments,
+		})
+		if err == nil {
+			return translationQueueSnapshotSelectionsFromQuery(result.Selections), result.Total, nil
+		}
+		if !errors.Is(err, ErrTranslationAssignmentQueryUnsupported) {
+			return nil, 0, err
+		}
+	}
+	allAssignments, err := b.listAssignmentsForSummary(ctx, repo, filter.SortBy, nil)
+	if err != nil {
+		return nil, 0, err
+	}
+	matched := b.matchAssignments(allAssignments, filter, now)
+	if filter.ReviewState != "" {
+		matched = b.applyReviewStateFilter(ctx, matched, filter.ReviewState, environment)
+	}
+	sortAssignments(matched, filter.SortBy, filter.SortDesc, now)
+	total := len(matched)
+	if len(matched) > translationQueueBulkSnapshotMaxAssignments {
+		matched = matched[:translationQueueBulkSnapshotMaxAssignments]
+	}
+	selections := make([]translationQueueBulkActionSelection, 0, len(matched))
+	for idx, assignment := range matched {
+		selections = append(selections, translationQueueBulkActionSelection{
+			AssignmentID:     strings.TrimSpace(assignment.ID),
+			ExpectedVersion:  assignment.Version,
+			OriginalPosition: idx,
+		})
+	}
+	return selections, total, nil
+}
+
+func translationQueueSnapshotSelectionsFromQuery(items []TranslationAssignmentSnapshotSelection) []translationQueueBulkActionSelection {
+	out := make([]translationQueueBulkActionSelection, 0, len(items))
+	for idx, item := range items {
+		position := item.OriginalPosition
+		if position < 0 {
+			position = idx
+		}
+		out = append(out, translationQueueBulkActionSelection{
+			AssignmentID:     strings.TrimSpace(item.AssignmentID),
+			ExpectedVersion:  item.ExpectedVersion,
+			OriginalPosition: position,
+		})
+	}
+	return out
+}
+
+func cloneTranslationQueueBulkSelections(items []translationQueueBulkActionSelection) []translationQueueBulkActionSelection {
+	out := make([]translationQueueBulkActionSelection, len(items))
+	copy(out, items)
+	return out
+}
+
+func translationQueueSnapshotFilterPayload(filter translationAssignmentListFilter) map[string]any {
+	payload := map[string]any{}
+	if filter.Status != "" {
+		payload["status"] = filter.Status
+	}
+	if filter.AssigneeID != "" {
+		payload["assignee_id"] = filter.AssigneeID
+	}
+	if filter.ReviewerID != "" {
+		payload["reviewer_id"] = filter.ReviewerID
+	}
+	if filter.DueState != "" {
+		payload["due_state"] = filter.DueState
+	}
+	if filter.Locale != "" {
+		payload["locale"] = filter.Locale
+	}
+	if filter.Priority != "" {
+		payload["priority"] = filter.Priority
+	}
+	if filter.FamilyID != "" {
+		payload["family_id"] = filter.FamilyID
+	}
+	if filter.ReviewState != "" {
+		payload["review_state"] = filter.ReviewState
+	}
+	if filter.SortBy != "" {
+		payload["sort"] = filter.SortBy
+		if filter.SortDesc {
+			payload["order"] = "desc"
+		} else {
+			payload["order"] = "asc"
+		}
+	}
+	return payload
+}
+
+func translationQueueSnapshotFilterSummary(filter translationAssignmentListFilter) []string {
+	summary := []string{}
+	if filter.Status != "" {
+		summary = append(summary, "Status: "+strings.ReplaceAll(filter.Status, ",", ", "))
+	}
+	if filter.AssigneeID != "" {
+		summary = append(summary, "Assignee: "+filter.AssigneeID)
+	}
+	if filter.ReviewerID != "" {
+		summary = append(summary, "Reviewer: "+filter.ReviewerID)
+	}
+	if filter.DueState != "" {
+		summary = append(summary, "Due: "+strings.ReplaceAll(filter.DueState, ",", ", "))
+	}
+	if filter.Locale != "" {
+		summary = append(summary, "Locale: "+strings.ReplaceAll(filter.Locale, ",", ", "))
+	}
+	if filter.Priority != "" {
+		summary = append(summary, "Priority: "+strings.ReplaceAll(filter.Priority, ",", ", "))
+	}
+	if filter.FamilyID != "" {
+		summary = append(summary, "Family: "+filter.FamilyID)
+	}
+	if filter.ReviewState != "" {
+		summary = append(summary, "Review: "+filter.ReviewState)
+	}
+	if filter.SortBy != "" {
+		order := "ascending"
+		if filter.SortDesc {
+			order = "descending"
+		}
+		summary = append(summary, "Sort: "+filter.SortBy+" "+order)
+	}
+	if len(summary) == 0 {
+		summary = append(summary, "All visible assignments")
+	}
+	return summary
+}
+
+func (s translationQueueFilterSnapshot) assignmentBulkSnapshotContract() map[string]any {
+	return map[string]any{
+		"selection_scope": "filter_snapshot",
+		"snapshot_id":     s.ID,
+		"requested":       len(s.Selections),
+		"filters":         primitives.CloneAnyMap(s.FilterPayload),
+		"filter_summary":  append([]string{}, s.FilterSummary...),
+		"created_at":      s.CreatedAt,
+		"expires_at":      s.ExpiresAt,
+	}
+}
+
+func (b *translationQueueBinding) storeAssignmentBulkSnapshot(snapshot translationQueueFilterSnapshot) {
+	b.snapshotMu.Lock()
+	defer b.snapshotMu.Unlock()
+	if b.snapshots == nil {
+		b.snapshots = map[string]translationQueueFilterSnapshot{}
+	}
+	now := snapshot.CreatedAt
+	if now.IsZero() {
+		now = time.Now().UTC()
+	}
+	for id, existing := range b.snapshots {
+		if !existing.ExpiresAt.IsZero() && !existing.ExpiresAt.After(now) {
+			delete(b.snapshots, id)
+		}
+	}
+	snapshot.Selections = cloneTranslationQueueBulkSelections(snapshot.Selections)
+	b.snapshots[snapshot.ID] = snapshot
+}
+
+func (b *translationQueueBinding) lookupAssignmentBulkSnapshot(identity translationTransportIdentity, channel string, body map[string]any, now time.Time) (*translationQueueFilterSnapshot, error) {
+	snapshotID := strings.TrimSpace(toString(body["snapshot_id"]))
+	if snapshotID == "" {
+		snapshotID = strings.TrimSpace(toString(extractMap(body["filter_snapshot"])["snapshot_id"]))
+	}
+	if snapshotID == "" {
+		return nil, requiredFieldDomainError("snapshot_id", map[string]any{
+			"field": "snapshot_id",
+		})
+	}
+	b.snapshotMu.Lock()
+	defer b.snapshotMu.Unlock()
+	snapshot, ok := b.snapshots[snapshotID]
+	if !ok {
+		return nil, validationDomainError("filter snapshot is missing or expired", map[string]any{
+			"field":       "snapshot_id",
+			"snapshot_id": snapshotID,
+		})
+	}
+	if !snapshot.ExpiresAt.IsZero() && !snapshot.ExpiresAt.After(now) {
+		delete(b.snapshots, snapshotID)
+		return nil, validationDomainError("filter snapshot is expired", map[string]any{
+			"field":       "snapshot_id",
+			"snapshot_id": snapshotID,
+			"expires_at":  snapshot.ExpiresAt,
+		})
+	}
+	if !strings.EqualFold(snapshot.ActorID, identity.ActorID) ||
+		!strings.EqualFold(snapshot.TenantID, identity.TenantID) ||
+		!strings.EqualFold(snapshot.OrgID, identity.OrgID) ||
+		!strings.EqualFold(snapshot.Channel, channel) {
+		return nil, NewDomainError(string(translationcore.ErrorPermissionDenied), "filter snapshot scope does not match the current request", map[string]any{
+			"field":       "snapshot_id",
+			"snapshot_id": snapshotID,
+		})
+	}
+	snapshot.Selections = cloneTranslationQueueBulkSelections(snapshot.Selections)
+	snapshot.FilterPayload = primitives.CloneAnyMap(snapshot.FilterPayload)
+	snapshot.FilterSummary = append([]string{}, snapshot.FilterSummary...)
+	return &snapshot, nil
+}
 
 func (b *translationQueueBinding) filterAssignments(ctx context.Context, assignments []TranslationAssignment, filter translationAssignmentListFilter, page, perPage int, environment string, now time.Time) ([]TranslationAssignment, int) {
 	matched := b.matchAssignments(assignments, filter, now)
@@ -1116,6 +1491,24 @@ func translationQueueBulkActionSupported(action string) bool {
 		return true
 	default:
 		return false
+	}
+}
+
+func normalizeTranslationQueueBulkSelectionScope(body map[string]any) string {
+	scope := strings.TrimSpace(strings.ToLower(toString(body["selection_scope"])))
+	if scope == "" {
+		scope = strings.TrimSpace(strings.ToLower(toString(body["scope"])))
+	}
+	switch scope {
+	case "", "current_page", "page":
+		if strings.TrimSpace(toString(body["snapshot_id"])) != "" {
+			return "filter_snapshot"
+		}
+		return "current_page"
+	case "filter_snapshot", "snapshot", "all_matching_filter", "all_matching":
+		return "filter_snapshot"
+	default:
+		return scope
 	}
 }
 

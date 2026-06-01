@@ -24,6 +24,10 @@ type TranslationAssignmentPageQueryStore interface {
 	ListAssignmentPage(ctx context.Context, input TranslationAssignmentPageQueryInput) (TranslationAssignmentPageQueryResult, error)
 }
 
+type TranslationAssignmentSnapshotQueryStore interface {
+	ListAssignmentSnapshot(ctx context.Context, input TranslationAssignmentSnapshotQueryInput) (TranslationAssignmentSnapshotQueryResult, error)
+}
+
 type TranslationAssignmentSummaryStore interface {
 	AssignmentQueueSummary(ctx context.Context, input TranslationAssignmentQueueSummaryInput) (TranslationAssignmentQueueSummary, error)
 	AssignmentMyWorkSummary(ctx context.Context, input TranslationAssignmentMyWorkSummaryInput) (map[string]int, error)
@@ -45,6 +49,24 @@ type TranslationAssignmentPageQueryInput struct {
 type TranslationAssignmentPageQueryResult struct {
 	Items []TranslationAssignment
 	Total int
+}
+
+type TranslationAssignmentSnapshotQueryInput struct {
+	Filter      translationAssignmentListFilter
+	Environment string
+	Now         time.Time
+	Limit       int
+}
+
+type TranslationAssignmentSnapshotSelection struct {
+	AssignmentID     string
+	ExpectedVersion  int64
+	OriginalPosition int
+}
+
+type TranslationAssignmentSnapshotQueryResult struct {
+	Selections []TranslationAssignmentSnapshotSelection
+	Total      int
 }
 
 type TranslationAssignmentQueueSummaryInput struct {
@@ -152,6 +174,47 @@ func (r *InMemoryTranslationAssignmentRepository) List(_ context.Context, opts L
 
 	paginated, total := paginateInMemory(items, opts, 20)
 	return paginated, total, nil
+}
+
+func (r *InMemoryTranslationAssignmentRepository) ListAssignmentSnapshot(ctx context.Context, input TranslationAssignmentSnapshotQueryInput) (TranslationAssignmentSnapshotQueryResult, error) {
+	if r == nil {
+		return TranslationAssignmentSnapshotQueryResult{}, serviceNotConfiguredDomainError("translation assignment repository", nil)
+	}
+	if normalizeTranslationQueueReviewState(input.Filter.ReviewState) != "" {
+		return TranslationAssignmentSnapshotQueryResult{}, ErrTranslationAssignmentQueryUnsupported
+	}
+	pageSize := input.Limit
+	if pageSize <= 0 {
+		pageSize = 1_000
+	}
+	opts, _ := listOptionsFromAssignmentPageQuery(TranslationAssignmentPageQueryInput{
+		Filter:  input.Filter,
+		Page:    1,
+		PerPage: pageSize,
+		Now:     input.Now,
+	})
+	items, total, err := r.List(ctx, ListOptions{
+		Page:     opts.Page,
+		PerPage:  opts.PerPage,
+		SortBy:   opts.SortBy,
+		SortDesc: opts.SortDesc,
+		Filters:  opts.Filters,
+	})
+	if err != nil {
+		return TranslationAssignmentSnapshotQueryResult{}, err
+	}
+	if total > pageSize {
+		items = items[:min(len(items), pageSize)]
+	}
+	selections := make([]TranslationAssignmentSnapshotSelection, 0, len(items))
+	for idx, assignment := range items {
+		selections = append(selections, TranslationAssignmentSnapshotSelection{
+			AssignmentID:     strings.TrimSpace(assignment.ID),
+			ExpectedVersion:  assignment.Version,
+			OriginalPosition: idx,
+		})
+	}
+	return TranslationAssignmentSnapshotQueryResult{Selections: selections, Total: total}, nil
 }
 
 // Get retrieves an assignment by id.

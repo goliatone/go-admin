@@ -48,6 +48,11 @@ type bunTranslationAssignmentRecord struct {
 	UpdatedAt           time.Time      `bun:"updated_at" json:"updated_at"`
 }
 
+type bunTranslationAssignmentSnapshotRecord struct {
+	AssignmentID string `bun:"assignment_id"`
+	RowVersion   int64  `bun:"row_version"`
+}
+
 type BunTranslationAssignmentRepository struct {
 	db *bun.DB
 }
@@ -115,6 +120,54 @@ func (r *BunTranslationAssignmentRepository) ListAssignmentPage(ctx context.Cont
 		return TranslationAssignmentPageQueryResult{}, err
 	}
 	return TranslationAssignmentPageQueryResult{Items: items, Total: total}, nil
+}
+
+func (r *BunTranslationAssignmentRepository) ListAssignmentSnapshot(ctx context.Context, input TranslationAssignmentSnapshotQueryInput) (TranslationAssignmentSnapshotQueryResult, error) {
+	if r == nil || r.db == nil {
+		return TranslationAssignmentSnapshotQueryResult{}, serviceNotConfiguredDomainError("translation assignment repository", nil)
+	}
+	if normalizeTranslationQueueReviewState(input.Filter.ReviewState) != "" {
+		return TranslationAssignmentSnapshotQueryResult{}, ErrTranslationAssignmentQueryUnsupported
+	}
+	limit := input.Limit
+	if limit <= 0 {
+		limit = 1_000
+	}
+	opts, unsupported := listOptionsFromAssignmentPageQuery(TranslationAssignmentPageQueryInput{
+		Filter:      input.Filter,
+		Page:        1,
+		PerPage:     limit,
+		Environment: input.Environment,
+		Now:         input.Now,
+	})
+	if unsupported {
+		return TranslationAssignmentSnapshotQueryResult{}, ErrTranslationAssignmentQueryUnsupported
+	}
+	now := normalizedBunAssignmentQueryNow(input.Now)
+	total, err := r.countAssignments(ctx, opts, now)
+	if err != nil {
+		return TranslationAssignmentSnapshotQueryResult{}, err
+	}
+	records := []bunTranslationAssignmentSnapshotRecord{}
+	dueSQL := r.assignmentDueDateSQL(now)
+	query := r.db.NewSelect().
+		Model((*bunTranslationAssignmentRecord)(nil)).
+		Column("assignment_id", "row_version").
+		Limit(limit)
+	applyBunAssignmentListFilters(query, opts, dueSQL)
+	applyBunAssignmentListSort(query, opts, dueSQL)
+	if err := query.Scan(ctx, &records); err != nil {
+		return TranslationAssignmentSnapshotQueryResult{}, err
+	}
+	selections := make([]TranslationAssignmentSnapshotSelection, 0, len(records))
+	for idx, record := range records {
+		selections = append(selections, TranslationAssignmentSnapshotSelection{
+			AssignmentID:     strings.TrimSpace(record.AssignmentID),
+			ExpectedVersion:  record.RowVersion,
+			OriginalPosition: idx,
+		})
+	}
+	return TranslationAssignmentSnapshotQueryResult{Selections: selections, Total: total}, nil
 }
 
 func listOptionsFromAssignmentPageQuery(input TranslationAssignmentPageQueryInput) (ListOptions, bool) {

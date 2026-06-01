@@ -205,6 +205,7 @@ type TranslationQueueBinding interface {
 	Assignments(router.Context) (any, error)
 	AssignmentDetail(router.Context, string) (any, error)
 	RunAssignmentAction(router.Context, string, string, map[string]any) (any, error)
+	CreateAssignmentBulkSnapshot(router.Context, map[string]any) (any, error)
 	RunAssignmentBulkAction(router.Context, map[string]any) (any, error)
 	UpdateVariant(router.Context, string, map[string]any) (any, error)
 	Dashboard(router.Context) (any, error)
