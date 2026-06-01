@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"io/fs"
+	"maps"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -604,9 +605,7 @@ func renderLoginTemplate(t *testing.T, data fiber.Map) string {
 		"asset_base_path": "/admin",
 		"csrf_field":      "",
 	}
-	for key, value := range data {
-		viewData[key] = value
-	}
+	maps.Copy(viewData, data)
 
 	app := fiber.New(fiber.Config{Views: views})
 	app.Get("/", func(c *fiber.Ctx) error {

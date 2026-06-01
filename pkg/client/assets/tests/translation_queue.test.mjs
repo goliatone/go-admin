@@ -181,6 +181,67 @@ function makeGroupedQueueResponse() {
   };
 }
 
+function makeServerFamilyQueueResponse() {
+  return {
+    meta: {
+      ...fixtures.meta,
+      ...fixtures.states.open_pool.meta,
+      total: 1,
+      family_total: 1,
+      assignment_total: 2,
+      supported_sort_keys: ['updated_at', 'created_at', 'due_date', 'due_state', 'priority'],
+      grouping: {
+        enabled: true,
+        mode: 'family_id',
+        group_by: 'family_id',
+        scope: 'filtered_queue',
+        row_count: 1,
+        group_count: 1,
+        family_total: 1,
+        assignment_total: 2,
+        supported_modes: ['family_id'],
+        supported_sort_keys: ['updated_at', 'created_at', 'due_date', 'due_state', 'priority'],
+        strategy: 'server_family',
+        capabilities: {
+          server_family: { supported: true },
+        },
+      },
+    },
+    data: [
+      {
+        id: 'family:tg-server-1',
+        row_type: 'family',
+        family_id: 'tg-server-1',
+        family_label: 'Launch page family',
+        entity_type: 'pages',
+        source_record_id: 'page-1',
+        source_locale: 'en',
+        source_title: 'Launch page family',
+        source_path: '/launch',
+        assignment_count: 2,
+        locale_count: 2,
+        target_locales: ['es', 'fr'],
+        status_counts: { open: 1, in_review: 1 },
+        due_state_counts: { overdue: 1 },
+        priority_counts: { high: 1, normal: 1 },
+        family_blocker_count: null,
+        family_blocker_count_available: false,
+        family_blocker_count_reason: 'persisted_blockers_unavailable',
+        action_state: {
+          scope: 'children',
+          message: 'Family actions are available on child assignment rows.',
+        },
+        expansion: {
+          href: '/admin/api/translations/assignments/families/tg-server-1/assignments?sort=updated_at&order=desc&page=1&per_page=25',
+          route: 'translations.assignments.family_assignments',
+          params: { family_id: 'tg-server-1' },
+          query: { sort: 'updated_at', order: 'desc', page: 1, per_page: 25 },
+        },
+      },
+    ],
+  };
+}
+
 setGlobals(new JSDOM('<!doctype html><html><body></body></html>', {
   url: 'http://localhost/admin/translations/queue',
 }).window);
@@ -242,6 +303,20 @@ test('translation queue contracts: canonical list urls preserve review state and
   assert.equal(
     url,
     '/admin/api/translations/assignments?reviewer_id=__me__&review_state=qa_blocked&family_id=tg-page-1&sort=due_date&order=asc'
+  );
+});
+
+test('translation queue contracts: canonical list urls include server family strategy', () => {
+  const url = buildAssignmentListURL('/admin/api/translations/assignments', {
+    groupBy: 'family_id',
+    groupStrategy: 'server_family',
+    sort: 'priority',
+    order: 'desc',
+  });
+
+  assert.equal(
+    url,
+    '/admin/api/translations/assignments?sort=priority&order=desc&group_by=family_id&group_strategy=server_family'
   );
 });
 
@@ -576,6 +651,77 @@ test('translation queue runtime: grouped backend rows render expandable families
   assert.match(container.innerHTML, /data-parent-group="tg-grouped-1"/);
   assert.match(container.innerHTML, /data-action="release"/);
   assert.doesNotMatch(container.innerHTML, /data-assignment-id="family:tg-grouped-1"/);
+});
+
+test('translation queue runtime: server family mode renders parents and loads child expansion', async () => {
+  const serverFamilyResponse = makeServerFamilyQueueResponse();
+  const child = structuredClone(fixtures.states.open_pool.data[0]);
+  child.id = 'asg-server-child-1';
+  child.family_id = 'tg-server-1';
+  child.source_title = 'Launch page Spanish';
+  const seenURLs = [];
+  globalThis.fetch = mock.fn(async (input) => {
+    const url = String(input);
+    seenURLs.push(url);
+    if (url.includes('/families/tg-server-1/assignments')) {
+      return createJsonResponse({
+        meta: {
+          family_id: 'tg-server-1',
+          page: 1,
+          per_page: 25,
+          total: 1,
+          has_next: false,
+          sort: 'updated_at',
+          order: 'desc',
+        },
+        data: [child],
+      });
+    }
+    if (url.includes('group_strategy=server_family')) {
+      return createJsonResponse(serverFamilyResponse);
+    }
+    return createJsonResponse({
+      meta: {
+        ...fixtures.states.open_pool.meta,
+        ...fixtures.meta,
+        grouping: {
+          enabled: false,
+          mode: 'flat',
+          strategy: '',
+          capabilities: {
+            server_family: { supported: true },
+          },
+        },
+      },
+      data: fixtures.states.open_pool.data,
+    });
+  });
+
+  const screen = new AssignmentQueueScreen({
+    endpoint: '/admin/api/translations/assignments',
+    editorBasePath: '/admin/translations/assignments',
+  });
+  const container = createContainer();
+  screen.mount(container);
+  await flushAsync();
+
+  screen.setViewMode('server_family');
+  await flushAsync();
+
+  assert.match(seenURLs.at(-1), /group_strategy=server_family/);
+  assert.equal(screen.getViewMode(), 'server_family');
+  assert.match(container.innerHTML, /server-side family pages/);
+  assert.match(container.innerHTML, /Launch page family/);
+  assert.match(container.innerHTML, /Blockers unavailable/);
+  assert.doesNotMatch(container.innerHTML, /data-assignment-id="family:tg-server-1"/);
+
+  await screen.toggleGroupExpansion('tg-server-1');
+  await flushAsync();
+
+  assert.ok(seenURLs.some((url) => url.includes('/families/tg-server-1/assignments')));
+  assert.equal(screen.getRows().length, 1);
+  assert.match(container.innerHTML, /data-parent-group="tg-server-1"/);
+  assert.match(container.innerHTML, /data-action="claim"/);
 });
 
 test('translation queue runtime: bulk partial failures preserve per-item backend errors', async () => {
