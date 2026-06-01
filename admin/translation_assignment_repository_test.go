@@ -283,6 +283,35 @@ func TestBunAssignmentFilterValuesPreserveIndexedScopeIDs(t *testing.T) {
 	}
 }
 
+func TestBunTranslationAssignmentRepositoryCloneAssignmentFilterMapReturnsMutableMapForEmptyInputs(t *testing.T) {
+	cases := map[string]map[string]any{
+		"nil":   nil,
+		"empty": {},
+	}
+	for name, input := range cases {
+		t.Run(name, func(t *testing.T) {
+			cloned := cloneAssignmentFilterMap(input)
+			if cloned == nil {
+				t.Fatalf("expected mutable map, got nil")
+			}
+			cloned["due_state"] = translationQueueDueStateOverdue
+			if got := toString(cloned["due_state"]); got != translationQueueDueStateOverdue {
+				t.Fatalf("expected cloned map to accept writes, got %q", got)
+			}
+		})
+	}
+
+	input := map[string]any{"tenant_id": "tenant-1"}
+	cloned := cloneAssignmentFilterMap(input)
+	cloned["org_id"] = "org-1"
+	if got := toString(cloned["tenant_id"]); got != "tenant-1" {
+		t.Fatalf("expected tenant_id to be copied, got %q", got)
+	}
+	if _, ok := input["org_id"]; ok {
+		t.Fatalf("expected clone mutation not to modify input map: %+v", input)
+	}
+}
+
 func TestBunAssignmentStorageDateValueIsIndexSortableUTCText(t *testing.T) {
 	pacific := time.FixedZone("PST", -8*60*60)
 	value := time.Date(2026, 2, 17, 4, 30, 0, 0, pacific)
@@ -352,6 +381,88 @@ func TestBunTranslationAssignmentRepositoryListAssignmentPageUsesInjectedClockFo
 	if result.Total != 1 || len(result.Items) != 1 || result.Items[0].ID != "asg-clock-overdue" {
 		t.Fatalf("expected overdue assignment using injected clock, got total=%d items=%+v", result.Total, result.Items)
 	}
+}
+
+func TestBunTranslationAssignmentRepositoryDashboardSummaryAllowsUnscopedScope(t *testing.T) {
+	db := newTranslationFamilyStoreSQLiteDB(t)
+	ctx := context.Background()
+	store := NewBunTranslationFamilyStore(db)
+	if err := store.SaveFamily(ctx, translationservices.FamilyRecord{
+		ID:              "family-dashboard-unscoped",
+		TenantID:        "tenant-1",
+		OrgID:           "org-1",
+		ContentType:     "pages",
+		SourceLocale:    "en",
+		SourceVariantID: "family-dashboard-unscoped::en",
+		ReadinessState:  "ready",
+		Variants: []translationservices.FamilyVariant{
+			{ID: "family-dashboard-unscoped::en", FamilyID: "family-dashboard-unscoped", TenantID: "tenant-1", OrgID: "org-1", Locale: "en", Status: "published", IsSource: true, SourceRecordID: "page-dashboard-unscoped"},
+			{ID: "family-dashboard-unscoped::es", FamilyID: "family-dashboard-unscoped", TenantID: "tenant-1", OrgID: "org-1", Locale: "es", Status: "draft", SourceRecordID: "page-dashboard-unscoped"},
+		},
+	}); err != nil {
+		t.Fatalf("seed family: %v", err)
+	}
+	repo := NewBunTranslationAssignmentRepository(db)
+	now := time.Date(2026, 2, 17, 12, 0, 0, 0, time.UTC)
+	overdue := now.Add(-time.Hour)
+	if _, err := repo.Create(ctx, TranslationAssignment{
+		ID:             "asg-dashboard-unscoped",
+		FamilyID:       "family-dashboard-unscoped",
+		EntityType:     "pages",
+		TenantID:       "tenant-1",
+		OrgID:          "org-1",
+		SourceRecordID: "page-dashboard-unscoped",
+		SourceTitle:    "Dashboard Unscoped",
+		SourceLocale:   "en",
+		TargetLocale:   "es",
+		AssigneeID:     "manager-1",
+		ReviewerID:     "manager-1",
+		AssignmentType: AssignmentTypeDirect,
+		Status:         AssignmentStatusInReview,
+		Priority:       PriorityHigh,
+		DueDate:        &overdue,
+	}); err != nil {
+		t.Fatalf("seed assignment: %v", err)
+	}
+
+	t.Run("actor present", func(t *testing.T) {
+		summary, err := repo.AssignmentDashboardSummary(ctx, TranslationAssignmentDashboardSummaryInput{
+			ActorID:      "manager-1",
+			Now:          now,
+			OverdueLimit: 5,
+		})
+		if err != nil {
+			t.Fatalf("dashboard summary: %v", err)
+		}
+		if summary.MyTasks != 1 || summary.NeedsReview != 1 {
+			t.Fatalf("expected actor aggregates to use unscoped mutable filters, got %+v", summary)
+		}
+		if summary.OverdueTasks != 1 || summary.HighPriorityOverdue != 1 {
+			t.Fatalf("expected overdue aggregates for unscoped summary, got %+v", summary)
+		}
+		if len(summary.TopOverdue) != 1 || summary.TopOverdue[0].ID != "asg-dashboard-unscoped" {
+			t.Fatalf("expected top overdue assignment, got %+v", summary.TopOverdue)
+		}
+	})
+
+	t.Run("actor empty", func(t *testing.T) {
+		summary, err := repo.AssignmentDashboardSummary(ctx, TranslationAssignmentDashboardSummaryInput{
+			Now:          now,
+			OverdueLimit: 5,
+		})
+		if err != nil {
+			t.Fatalf("dashboard summary: %v", err)
+		}
+		if summary.MyTasks != 0 || summary.NeedsReview != 0 {
+			t.Fatalf("expected actor aggregates to be skipped without actor, got %+v", summary)
+		}
+		if summary.OverdueTasks != 1 || summary.HighPriorityOverdue != 1 {
+			t.Fatalf("expected overdue aggregates for actor-empty unscoped summary, got %+v", summary)
+		}
+		if len(summary.TopOverdue) != 1 || summary.TopOverdue[0].ID != "asg-dashboard-unscoped" {
+			t.Fatalf("expected top overdue assignment, got %+v", summary.TopOverdue)
+		}
+	})
 }
 
 func TestBunTranslationAssignmentRepositoryFamilyGroupingAggregatesAndExpands(t *testing.T) {

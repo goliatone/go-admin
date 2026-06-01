@@ -356,6 +356,103 @@ func TestTranslationQueueBindingDashboardOptimizedPathAvoidsFullFamilyHydration(
 	}
 }
 
+func TestTranslationQueueBindingDashboardOptimizedPathAllowsUnscopedRequest(t *testing.T) {
+	now := time.Date(2026, 2, 17, 12, 0, 0, 0, time.UTC)
+	db := newTranslationFamilyStoreSQLiteDB(t)
+	ctx := context.Background()
+	baseFamilyStore := NewBunTranslationFamilyStore(db)
+	if err := baseFamilyStore.SaveFamily(ctx, translationservices.FamilyRecord{
+		ID:                         "family-optimized-unscoped",
+		TenantID:                   "tenant-1",
+		OrgID:                      "org-1",
+		ContentType:                "pages",
+		SourceLocale:               "en",
+		SourceVariantID:            "family-optimized-unscoped::en",
+		ReadinessState:             "blocked",
+		MissingRequiredLocaleCount: 1,
+		BlockerCodes:               []string{"missing_locale"},
+		Variants: []translationservices.FamilyVariant{
+			{ID: "family-optimized-unscoped::en", FamilyID: "family-optimized-unscoped", TenantID: "tenant-1", OrgID: "org-1", Locale: "en", Status: "published", IsSource: true, SourceRecordID: "page-optimized-unscoped", Fields: map[string]string{"title": "Optimized Unscoped"}},
+			{ID: "family-optimized-unscoped::es", FamilyID: "family-optimized-unscoped", TenantID: "tenant-1", OrgID: "org-1", Locale: "es", Status: "draft", SourceRecordID: "page-optimized-unscoped"},
+		},
+		Blockers: []translationservices.FamilyBlocker{
+			{FamilyID: "family-optimized-unscoped", TenantID: "tenant-1", OrgID: "org-1", BlockerCode: "missing_locale", Locale: "es"},
+		},
+	}); err != nil {
+		t.Fatalf("seed family: %v", err)
+	}
+	repo := NewBunTranslationAssignmentRepository(db)
+	overdue := now.Add(-time.Hour)
+	if _, err := repo.Create(ctx, TranslationAssignment{
+		ID:             "asg-optimized-unscoped",
+		FamilyID:       "family-optimized-unscoped",
+		EntityType:     "pages",
+		TenantID:       "tenant-1",
+		OrgID:          "org-1",
+		SourceRecordID: "page-optimized-unscoped",
+		SourceTitle:    "Optimized Unscoped",
+		SourceLocale:   "en",
+		TargetLocale:   "es",
+		AssigneeID:     "manager-1",
+		ReviewerID:     "manager-1",
+		AssignmentType: AssignmentTypeDirect,
+		Status:         AssignmentStatusInReview,
+		Priority:       PriorityHigh,
+		DueDate:        &overdue,
+	}); err != nil {
+		t.Fatalf("seed assignment: %v", err)
+	}
+	adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{
+		FeatureGate: featureGateFromKeys(FeatureCMS, FeatureTranslationQueue),
+	})
+	adm.WithAuthorizer(translationPermissionAuthorizer{allowed: map[string]bool{PermAdminTranslationsView: true}})
+	wrappedFamilyStore := &dashboardNoFamiliesStore{BunTranslationFamilyStore: baseFamilyStore}
+	adm.WithTranslationFamilyStore(wrappedFamilyStore)
+	if _, err := RegisterTranslationQueuePanel(adm, repo); err != nil {
+		t.Fatalf("register queue panel: %v", err)
+	}
+	binding := newTranslationQueueBinding(adm)
+	binding.now = func() time.Time { return now }
+	app := newTranslationQueueTestApp(t, binding)
+
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/translations/dashboard?blocked_limit=5", nil)
+	req.Header.Set("X-User-ID", "manager-1")
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("request error: %v", err)
+	}
+	defer resp.Body.Close() //nolint:errcheck // test response body cleanup is best-effort
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status=%d want=200", resp.StatusCode)
+	}
+
+	payload := map[string]any{}
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	data := extractMap(payload["data"])
+	summary := extractMap(data["summary"])
+	if got := toInt(summary["overdue_tasks"]); got != 1 {
+		t.Fatalf("expected overdue_tasks=1, got %d", got)
+	}
+	if got := toInt(summary["my_tasks"]); got != 1 {
+		t.Fatalf("expected my_tasks=1, got %d", got)
+	}
+	metaScope := extractMap(extractMap(payload["meta"])["scope"])
+	if tenantID := toString(metaScope["tenant_id"]); tenantID != "" {
+		t.Fatalf("expected unscoped tenant_id, got %q", tenantID)
+	}
+	if orgID := toString(metaScope["org_id"]); orgID != "" {
+		t.Fatalf("expected unscoped org_id, got %q", orgID)
+	}
+	if actorID := toString(metaScope["actor_id"]); actorID != "manager-1" {
+		t.Fatalf("expected actor_id manager-1, got %q", actorID)
+	}
+	if wrappedFamilyStore.familiesCalls != 0 {
+		t.Fatalf("optimized dashboard called Families %d times", wrappedFamilyStore.familiesCalls)
+	}
+}
+
 func TestTranslationQueueBindingDashboardOptimizedAssignmentFailureFallsBackWithDegradedMetadata(t *testing.T) {
 	now := time.Date(2026, 2, 17, 12, 0, 0, 0, time.UTC)
 	adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{
