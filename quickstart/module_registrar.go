@@ -732,6 +732,17 @@ func translationCapabilityMenuItems(adm *admin.Admin, cfg admin.Config, menuCode
 			Breadcrumb: "Queue",
 			Position:   50,
 		}))
+		items = append(items, translationCapabilityMenuItem(adm, cfg, parentID, menuCode, locale, translationCapabilityMenuItemSpec{
+			ID:         "translations.assignments",
+			Label:      "Translation Assignments",
+			LabelKey:   "menu.translations.assignments",
+			Icon:       "list-checks",
+			RouteName:  "translations.assignments",
+			Name:       "admin.translations.assignments",
+			Key:        "translation_assignments",
+			Breadcrumb: "Assignments",
+			Position:   51,
+		}))
 	}
 
 	if exchangeEnabled {
@@ -744,7 +755,7 @@ func translationCapabilityMenuItems(adm *admin.Admin, cfg admin.Config, menuCode
 			Name:       "admin.translations.exchange",
 			Key:        "translation_exchange",
 			Breadcrumb: "Exchange",
-			Position:   51,
+			Position:   52,
 		}))
 	}
 
@@ -784,6 +795,11 @@ func resolveTranslationCapabilityMenuPath(urls urlkit.Resolver, fallbackBase, ro
 	case "translations.dashboard":
 		return resolveAdminRouteURL(urls, fallbackBase, routeName, "translations", "dashboard")
 	case "translations.queue":
+		if resolved := strings.TrimSpace(resolveRouteURL(urls, "admin", routeName, nil, nil)); resolved != "" {
+			return resolved
+		}
+		return resolveAdminRouteURL(urls, fallbackBase, routeName, "translations", "queue")
+	case "translations.assignments":
 		if resolved := strings.TrimSpace(resolveRouteURL(urls, "admin", routeName, nil, nil)); resolved != "" {
 			return resolved
 		}

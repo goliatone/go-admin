@@ -400,7 +400,7 @@ func clearTranslationEntrypointDegradation(entry map[string]any) {
 
 func translationModuleForNavKey(key string) (string, bool) {
 	switch strings.ToLower(strings.TrimSpace(key)) {
-	case "translation_dashboard", "translation_queue":
+	case "translation_dashboard", "translation_queue", "translation_assignments":
 		return "queue", true
 	case "translation_exchange":
 		return "exchange", true

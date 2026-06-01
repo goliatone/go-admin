@@ -348,11 +348,15 @@ func translationModuleForRouteKey(routeKey string) (string, bool) {
 		return "queue", true
 	case routeKey == "admin.translations.queue":
 		return "queue", true
+	case routeKey == "admin.translations.assignments":
+		return "queue", true
 	case routeKey == "admin.translations.exchange":
 		return "exchange", true
 	case strings.HasSuffix(routeKey, ".translations.my_work"):
 		return "queue", true
 	case strings.HasSuffix(routeKey, ".translations.queue"):
+		return "queue", true
+	case strings.HasSuffix(routeKey, ".translations.assignments"):
 		return "queue", true
 	case strings.HasSuffix(routeKey, ".translations.export"):
 		return "exchange", true
