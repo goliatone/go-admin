@@ -1534,10 +1534,7 @@ export class TranslationDashboardPage extends StatefulController<TranslationDash
   private refreshing = false;
   private lastError: unknown = null;
 
-  // UI state for collapsible sections
-  private metaExpanded = false;
-  private alertsExpanded = false;
-  private dismissedAlerts: Set<string> = new Set();
+  // UI state for table tabs
   private activeTableTab: 'top_overdue_assignments' | 'blocked_families' = 'top_overdue_assignments';
 
   constructor(config: TranslationDashboardPageConfig) {
@@ -1645,11 +1642,8 @@ export class TranslationDashboardPage extends StatefulController<TranslationDash
     this.container.innerHTML = `
       <div class="space-y-4" data-dashboard="true">
         ${renderToolbar(payload, this.refreshing)}
-        ${renderHealthIndicator(payload)}
-        ${renderCollapsibleMeta(payload, this.metaExpanded)}
         ${inlineError}
         ${degraded}
-        ${renderAlertSummaryBanner(payload.data.alerts, this.alertsExpanded, this.dismissedAlerts)}
         ${empty
           ? renderEmptyState(payload)
           : `
@@ -1670,36 +1664,6 @@ export class TranslationDashboardPage extends StatefulController<TranslationDash
     buttons.forEach((button) => {
       button.addEventListener('click', () => {
         void this.refresh().catch(() => undefined);
-      });
-    });
-
-    // Meta toggle (Fix 5)
-    const metaToggle = this.container.querySelector<HTMLButtonElement>('[data-meta-toggle]');
-    if (metaToggle) {
-      metaToggle.addEventListener('click', () => {
-        this.metaExpanded = !this.metaExpanded;
-        this.render();
-      });
-    }
-
-    // Alerts toggle (Fix 1)
-    const alertsToggle = this.container.querySelector<HTMLButtonElement>('[data-alerts-toggle]');
-    if (alertsToggle) {
-      alertsToggle.addEventListener('click', () => {
-        this.alertsExpanded = !this.alertsExpanded;
-        this.render();
-      });
-    }
-
-    // Alert dismiss buttons (Fix 1)
-    this.container.querySelectorAll<HTMLButtonElement>('[data-dismiss-alert]').forEach((btn) => {
-      btn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const alertCode = btn.dataset.dismissAlert;
-        if (alertCode) {
-          this.dismissedAlerts.add(alertCode);
-          this.render();
-        }
       });
     });
 

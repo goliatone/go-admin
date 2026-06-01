@@ -5,7 +5,7 @@ import { buildURL as O, setNumberSearchParam as H, setSearchParam as C } from ".
 import { trimTrailingSlash as $ } from "../shared/path-normalization.js";
 import { parseJSONValue as K } from "../shared/json-parse.js";
 import { asLooseBoolean as g, asNumberish as _, asRecord as y, asString as n, asStringArray as f } from "../shared/coercion.js";
-import { $ as P, C as de, E as me, H as ue, S as ye, U as fe, _ as pe, d as k, g as ge, h as be, l as X, m as he, o as _e, p as ve, rt as xe, s as E, v as Ce } from "../chunks/translation-shared-kfjHEDZW.js";
+import { G as de, O as me, T as ue, W as ye, _ as fe, at as pe, d as k, g as ge, h as be, l as X, m as he, o as _e, p as ve, s as P, tt as E, v as xe, w as Ce } from "../chunks/translation-shared-CQJ98SgC.js";
 import { formatTranslationTimestampUTC as j, sentenceCaseToken as x } from "../translation-shared/formatters.js";
 import { normalizeStringRecord as we } from "../shared/record-normalization.js";
 function Le(e, a = {}) {
@@ -481,7 +481,7 @@ function Ge(e) {
   }
 }
 function He(e) {
-  return P(Ge(e));
+  return E(Ge(e));
 }
 function Ke(e) {
   switch (n(e)) {
@@ -497,7 +497,7 @@ function Ke(e) {
   }
 }
 function Ye(e) {
-  return P(Ke(e));
+  return E(Ke(e));
 }
 function Je(e) {
   switch (n(e)) {
@@ -514,7 +514,7 @@ function Je(e) {
   }
 }
 function Qe(e) {
-  return P(Je(e));
+  return E(Je(e));
 }
 function Xe(e) {
   switch (e) {
@@ -527,7 +527,7 @@ function Xe(e) {
   }
 }
 function We(e) {
-  return P(Xe(e));
+  return E(Xe(e));
 }
 function Ze(e, a, t) {
   const s = $(e), i = n(t.sourceRecordId);
@@ -606,7 +606,7 @@ function sa(e, a) {
     return `
       <button
         type="button"
-        class="${E}"
+        class="${P}"
         data-family-create-locale="true"
         data-locale="${h(l)}"
         ${o ? 'disabled aria-disabled="true"' : ""}
@@ -788,7 +788,7 @@ function la(e, a, t) {
   const s = t.syncRecovery, i = s?.canSync && t.syncStatus !== "completed" ? `
       <button
         type="button"
-        class="mt-4 ${E}"
+        class="mt-4 ${P}"
         data-family-sync-action="true"
         data-family-sync-rpc="${h(s.rpcInvokePath)}"
         data-family-sync-command="${h(s.commandName)}"
@@ -800,8 +800,8 @@ function la(e, a, t) {
     ` : "", r = t.syncMessage ? d(t.syncMessage) : "";
   return `
     <div class="${ge} p-6" role="alert">
-      <h2 class="${Ce}">${d(e)}</h2>
-      <p class="${pe} mt-2">${d(a)}</p>
+      <h2 class="${xe}">${d(e)}</h2>
+      <p class="${fe} mt-2">${d(a)}</p>
       <p
         data-family-sync-feedback="true"
         class="mt-3 text-sm ${t.syncStatus === "failed" ? "text-rose-700" : "text-amber-700"}"
@@ -833,7 +833,7 @@ function ca(e, a = {}) {
   const s = t.sourceVariant?.fields.title || t.sourceVariant?.fields.slug || `${t.contentType} family`, i = t.readinessSummary.blockerCodes.length ? t.readinessSummary.blockerCodes.map(x).join(", ") : "No blockers", r = !t.quickCreate.enabled, c = t.quickCreate.recommendedLocale ? `
       <button
         type="button"
-        class="${E}"
+        class="${P}"
         data-family-create-locale="true"
         data-locale="${h(t.quickCreate.recommendedLocale)}"
         ${r ? 'disabled aria-disabled="true"' : ""}
@@ -847,8 +847,8 @@ function ca(e, a = {}) {
       <section class="rounded-[28px] border border-gray-200 bg-[linear-gradient(135deg,#f8fafc,white)] p-6 shadow-sm">
         <div class="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <p class="${ye}">Translation family</p>
-            <h1 class="${de} mt-2">${d(s)}</h1>
+            <p class="${Ce}">Translation family</p>
+            <h1 class="${ue} mt-2">${d(s)}</h1>
             <p class="mt-2 text-sm text-gray-600">${d(t.contentType)} · Source locale ${d(t.sourceLocale.toUpperCase())} · Family ${d(t.familyId)}</p>
           </div>
           <div class="flex flex-wrap items-center gap-2">
@@ -960,8 +960,8 @@ function ne(e) {
     return;
   }
   const s = n(e.initialLocale || t.recommendedLocale || t.missingLocales[0]).toLowerCase(), i = t.missingLocales.includes(s) ? s : t.missingLocales[0], r = a.createElement("div");
-  r.className = fe, r.setAttribute("data-translation-create-locale-modal", "true"), r.innerHTML = `
-    <div class="${ue}" role="dialog" aria-modal="true" aria-labelledby="translation-create-locale-title">
+  r.className = de, r.setAttribute("data-translation-create-locale-modal", "true"), r.innerHTML = `
+    <div class="${ye}" role="dialog" aria-modal="true" aria-labelledby="translation-create-locale-title">
       <form class="p-6">
         <div class="flex items-start justify-between gap-4">
           <div>
@@ -1018,7 +1018,7 @@ function ne(e) {
         <div data-create-locale-feedback="true" class="mt-4 hidden rounded-xl border border-rose-200 bg-rose-50 px-6 py-4 text-sm text-rose-700"></div>
         <div class="mt-6 flex items-center justify-end gap-3">
           <button type="button" data-close-modal="true" class="${X}">Cancel</button>
-          <button type="submit" class="${E}">${d(e.submitLabel || "Create locale")}</button>
+          <button type="submit" class="${P}">${d(e.submitLabel || "Create locale")}</button>
         </div>
       </form>
     </div>
@@ -1027,7 +1027,7 @@ function ne(e) {
     re(), r.remove();
   }, z = () => {
     !w || !m || (w.hidden = !m.checked);
-  }, re = c ? xe(c, I) : () => {
+  }, re = c ? pe(c, I) : () => {
   };
   z(), m?.addEventListener("change", z), r.querySelectorAll('[data-close-modal="true"]').forEach((b) => {
     b.addEventListener("click", I);

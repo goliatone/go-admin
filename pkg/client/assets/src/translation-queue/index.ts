@@ -35,9 +35,12 @@ import {
   BTN_PRIMARY_SM,
   BTN_SECONDARY_SM,
   BTN_DANGER_SM,
+  BTN_GHOST,
   HEADER_TITLE,
   HEADER_PRETITLE,
   HEADER_DESCRIPTION,
+  HEADER_CONTAINER,
+  HEADER_FLEX,
   EMPTY_STATE,
   EMPTY_STATE_TITLE,
   EMPTY_STATE_TEXT,
@@ -1111,6 +1114,10 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
   private expandedGroups = new Set<string>();
   private static readonly PANEL_ID = 'translation-queue';
 
+  // Filter panel state
+  private filtersExpanded = false;
+  private static readonly FILTERS_STORAGE_KEY = 'go-admin:queue-filters-expanded';
+
   constructor(config: AssignmentQueueScreenConfig) {
     super('loading');
     const requestedPresetId = asString(config.initialPresetId);
@@ -1154,6 +1161,7 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
 
   mount(container: HTMLElement): void {
     this.container = container;
+    this.loadFiltersExpandedState();
     this.render();
     void this.load();
   }
@@ -1822,6 +1830,58 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
     return this.rows;
   }
 
+  private getActiveFilterCount(): number {
+    let count = 0;
+    if (this.queryState.status) count++;
+    if (this.queryState.dueState) count++;
+    if (this.queryState.priority) count++;
+    if (this.queryState.locale) count++;
+    if (this.queryState.assigneeId) count++;
+    if (this.queryState.reviewerId) count++;
+    return count;
+  }
+
+  private toggleFiltersExpanded(): void {
+    this.filtersExpanded = !this.filtersExpanded;
+    this.persistFiltersExpanded();
+    this.render();
+  }
+
+  private persistFiltersExpanded(): void {
+    try {
+      localStorage.setItem(AssignmentQueueScreen.FILTERS_STORAGE_KEY, this.filtersExpanded ? 'true' : 'false');
+    } catch {
+      // Ignore storage errors
+    }
+  }
+
+  private loadFiltersExpandedState(): void {
+    try {
+      this.filtersExpanded = localStorage.getItem(AssignmentQueueScreen.FILTERS_STORAGE_KEY) === 'true';
+    } catch {
+      this.filtersExpanded = false;
+    }
+  }
+
+  private clearAllFilters(): void {
+    this.queryState = {
+      ...this.queryState,
+      status: undefined,
+      dueState: undefined,
+      priority: undefined,
+      locale: undefined,
+      assigneeId: undefined,
+      reviewerId: undefined,
+      page: 1,
+    };
+    this.activePresetId = 'custom';
+    this.activeReviewPresetId = '';
+    this.activeReviewState = null;
+    this.filterSnapshot = null;
+    this.selectedRows.clear();
+    void this.load();
+  }
+
   private render(): void {
     if (!this.container) {
       return;
@@ -1829,18 +1889,29 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
 
     this.container.innerHTML = `
       <div class="assignment-queue-screen" data-assignment-queue="true">
-        <section class="assignment-queue-header">
-          <div>
-            <p class="${HEADER_PRETITLE}">Assignment Queue</p>
-            <h1 class="${HEADER_TITLE}">${escapeHtml(this.config.title)}</h1>
-            <p class="${HEADER_DESCRIPTION} max-w-2xl">${escapeHtml(this.config.description)}</p>
+        <header class="${HEADER_CONTAINER}">
+          <div class="${HEADER_FLEX}">
+            <div>
+              <p class="${HEADER_PRETITLE}">Queue</p>
+              <h1 class="${HEADER_TITLE}">${escapeHtml(this.config.title)}</h1>
+              <p class="${HEADER_DESCRIPTION} max-w-2xl">${escapeHtml(this.config.description)}</p>
+            </div>
+            <div class="flex items-center gap-3">
+              <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
+                <span class="text-gray-500">Rows</span> ${this.visibleRows.length}
+              </span>
+              <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
+                <span class="text-gray-500">Total</span> ${this.response?.meta.total ?? 0}
+              </span>
+              <button type="button" class="${BTN_SECONDARY_SM}" data-queue-refresh="true">
+                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                </svg>
+                Refresh
+              </button>
+            </div>
           </div>
-          <div class="assignment-queue-summary">
-            <span class="summary-pill">Rows ${this.visibleRows.length}</span>
-            <span class="summary-pill">Total ${this.response?.meta.total ?? 0}</span>
-            <button type="button" class="${BTN_SECONDARY_SM}" data-queue-refresh="true">Refresh</button>
-          </div>
-        </section>
+        </header>
         ${this.renderFeedback()}
         ${this.renderBulkActionBar()}
         ${this.renderFilterSnapshotBar()}
@@ -1970,20 +2041,22 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
 
   private renderPresetBar(): string {
     return `
-      <div class="assignment-queue-presets" role="tablist" aria-label="Saved queue filters">
-        ${this.savedFilterPresets.map((preset) => `
-          <button
-            type="button"
-            class="${BTN_SECONDARY_SM} queue-preset-button ${this.activePresetId === preset.id ? 'is-active' : ''}"
-            data-preset-id="${escapeAttr(preset.id)}"
-            role="tab"
-            aria-selected="${this.activePresetId === preset.id ? 'true' : 'false'}"
-            title="${escapeAttr(preset.description || preset.label)}"
-          >
-            ${escapeHtml(preset.label)}
-          </button>
-        `).join('')}
-      </div>
+      <nav class="panel-tabs border-b border-gray-200" role="tablist" aria-label="Saved queue filters">
+        <div class="panel-tabs-container">
+          ${this.savedFilterPresets.map((preset) => `
+            <button
+              type="button"
+              class="panel-tab ${this.activePresetId === preset.id ? 'panel-tab-active' : ''}"
+              data-preset-id="${escapeAttr(preset.id)}"
+              role="tab"
+              aria-selected="${this.activePresetId === preset.id ? 'true' : 'false'}"
+              title="${escapeAttr(preset.description || preset.label)}"
+            >
+              <span class="panel-tab-label">${escapeHtml(preset.label)}</span>
+            </button>
+          `).join('')}
+        </div>
+      </nav>
     `;
   }
 
@@ -1995,22 +2068,20 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
     const actorID = this.response?.meta.review_actor_id;
     const reviewerStateEnabled = Boolean(actorID);
     return `
-      <section class="assignment-review-presets" aria-label="Reviewer queue states">
-        <div class="review-preset-copy">
-          <p class="${HEADER_PRETITLE}">Reviewer states</p>
-          <p class="review-preset-description">${escapeHtml(actorID ? `Signed in as ${actorID}` : 'Reviewer queue states are available when reviewer metadata is present.')}</p>
-        </div>
-        <div class="assignment-review-presets-grid">
+      <section class="panel-tabs border-b border-gray-200" aria-label="Reviewer queue states">
+        <div class="panel-tabs-container">
           ${this.savedReviewFilterPresets.map((preset) => `
             <button
               type="button"
-              class="review-preset-button ${this.activeReviewPresetId === preset.id ? 'is-active' : ''}"
+              class="panel-tab ${this.activeReviewPresetId === preset.id ? 'panel-tab-active' : ''}"
               data-review-preset-id="${escapeAttr(preset.id)}"
+              role="tab"
+              aria-selected="${this.activeReviewPresetId === preset.id ? 'true' : 'false'}"
               title="${escapeAttr(reviewerStateEnabled ? (preset.description || preset.label) : 'Reviewer metadata is required to use this preset.')}"
               ${reviewerStateEnabled ? '' : 'disabled aria-disabled="true"'}
             >
-              <span>${escapeHtml(preset.label)}</span>
-              <strong>${counts[preset.id] ?? 0}</strong>
+              <span class="panel-tab-label">${escapeHtml(preset.label)}</span>
+              <span class="ml-1.5 px-2 py-0.5 text-xs rounded-full ${this.activeReviewPresetId === preset.id ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'}">${counts[preset.id] ?? 0}</span>
             </button>
           `).join('')}
         </div>
@@ -2111,17 +2182,89 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
     const sortKeys = this.response?.meta.supported_sort_keys?.length
       ? this.response.meta.supported_sort_keys
       : ['updated_at', 'due_date', 'priority', 'status', 'locale'];
+    const activeFilterCount = this.getActiveFilterCount();
+    const chevronRotation = this.filtersExpanded ? 'rotate-180' : '';
+
     return `
-      <form class="assignment-queue-filters" data-queue-filters="true">
-        ${this.renderSelect('status', 'Status', statuses, this.queryState.status || '')}
-        ${this.renderSelect('due_state', 'Due State', ['', ...dueStates], this.queryState.dueState || '')}
-        ${this.renderSelect('priority', 'Priority', priorities, this.queryState.priority || '')}
-        ${this.renderSelect('locale', 'Locale', locales, this.queryState.locale || '')}
-        ${this.renderSelect('assignee_id', 'Assignee', assignees, this.queryState.assigneeId || '')}
-        ${this.renderSelect('reviewer_id', 'Reviewer', reviewers, this.queryState.reviewerId || '')}
-        ${this.renderSelect('sort', 'Sort', sortKeys, this.queryState.sort || (this.response?.meta.default_sort.key ?? 'updated_at'))}
-        ${this.renderSelect('order', 'Order', ['asc', 'desc'], this.queryState.order || (this.response?.meta.default_sort.order ?? 'desc'))}
-      </form>
+      <div class="bg-white border-b border-gray-200 px-6 py-3">
+        <div class="flex items-center justify-between gap-4">
+          <button
+            type="button"
+            class="${BTN_SECONDARY_SM}"
+            data-filters-toggle="true"
+            aria-expanded="${this.filtersExpanded}"
+            aria-controls="queue-filters-panel"
+          >
+            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"/>
+            </svg>
+            <span>Filters</span>
+            ${activeFilterCount > 0 ? `<span class="ml-1 px-1.5 py-0.5 text-xs rounded-full bg-blue-100 text-blue-700">${activeFilterCount}</span>` : ''}
+            <svg class="h-4 w-4 transition-transform ${chevronRotation}" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+            </svg>
+          </button>
+          <div class="flex items-center gap-3">
+            ${this.renderSortControls(sortKeys)}
+          </div>
+        </div>
+        <form
+          id="queue-filters-panel"
+          class="${this.filtersExpanded ? '' : 'hidden'} mt-4 pt-4 border-t border-gray-100"
+          data-queue-filters="true"
+        >
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            ${this.renderSelect('status', 'Status', statuses, this.queryState.status || '')}
+            ${this.renderSelect('due_state', 'Due State', ['', ...dueStates], this.queryState.dueState || '')}
+            ${this.renderSelect('priority', 'Priority', priorities, this.queryState.priority || '')}
+            ${this.renderSelect('locale', 'Locale', locales, this.queryState.locale || '')}
+            ${this.renderSelect('assignee_id', 'Assignee', assignees, this.queryState.assigneeId || '')}
+            ${this.renderSelect('reviewer_id', 'Reviewer', reviewers, this.queryState.reviewerId || '')}
+          </div>
+          ${activeFilterCount > 0 ? `
+            <div class="mt-4 flex items-center gap-2">
+              <button type="button" class="${BTN_SECONDARY_SM}" data-clear-filters="true">
+                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+                Clear filters
+              </button>
+            </div>
+          ` : ''}
+        </form>
+      </div>
+    `;
+  }
+
+  private renderSortControls(sortKeys: string[]): string {
+    const currentSort = this.queryState.sort || (this.response?.meta.default_sort.key ?? 'updated_at');
+    const currentOrder = this.queryState.order || (this.response?.meta.default_sort.order ?? 'desc');
+    return `
+      <label class="flex items-center gap-2 text-sm text-gray-600">
+        <span class="text-gray-500">Sort by</span>
+        <select
+          data-filter-name="sort"
+          class="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
+        >
+          ${sortKeys.map((key) => `
+            <option value="${escapeAttr(key)}" ${key === currentSort ? 'selected' : ''}>
+              ${escapeHtml(humanizeToken(key))}
+            </option>
+          `).join('')}
+        </select>
+      </label>
+      <button
+        type="button"
+        class="${BTN_GHOST}"
+        data-toggle-sort-order="true"
+        title="${currentOrder === 'asc' ? 'Ascending (click for descending)' : 'Descending (click for ascending)'}"
+        aria-label="${currentOrder === 'asc' ? 'Sort ascending, click to sort descending' : 'Sort descending, click to sort ascending'}"
+      >
+        ${currentOrder === 'asc'
+          ? `<svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12"/></svg>`
+          : `<svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4h13M3 8h9m-9 4h9m5-4v12m0 0l-4-4m4 4l4-4"/></svg>`
+        }
+      </button>
     `;
   }
 
@@ -2147,7 +2290,15 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
   private renderBody(): string {
     const rows = this.visibleRows;
     if (this.state === 'loading' && !this.rows.length) {
-      return `<div class="assignment-queue-state" data-queue-state="loading">Loading queue…</div>`;
+      return `
+        <div class="${LOADING_STATE}" data-queue-state="loading">
+          <svg class="animate-spin h-8 w-8 text-gray-400 mx-auto" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+          <p class="mt-4 text-sm text-gray-500">Loading queue assignments...</p>
+        </div>
+      `;
     }
     if (this.state === 'error' && !this.rows.length) {
       return this.renderErrorState('error', this.error?.message || 'Failed to load queue assignments.');
@@ -2157,12 +2308,12 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
     }
     if (this.viewMode === 'server_family') {
       if (!this.serverFamilyRows.length) {
-        return `<div class="assignment-queue-state" data-queue-state="empty">No families match the current filters.</div>`;
+        return this.renderEmptyState('families');
       }
       return this.renderServerFamilyBody();
     }
     if (!rows.length) {
-      return `<div class="assignment-queue-state" data-queue-state="empty">No assignments match the current filters.</div>`;
+      return this.renderEmptyState('assignments');
     }
 
     // T11: Handle grouped mode rendering
@@ -2619,6 +2770,37 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
     return `Family ${shortId}`;
   }
 
+  private renderEmptyState(type: 'assignments' | 'families'): string {
+    const title = type === 'families' ? 'No families found' : 'No assignments found';
+    const message = type === 'families'
+      ? 'No families match the current filters. Try adjusting your filters or check back later.'
+      : 'No assignments match the current filters. Try adjusting your filters or selecting a different preset.';
+    const activeFilters = this.getActiveFilterCount();
+
+    return `
+      <div class="${EMPTY_STATE}" data-queue-state="empty">
+        <svg class="h-12 w-12 text-gray-400 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
+        </svg>
+        <h3 class="${EMPTY_STATE_TITLE} mt-4">${escapeHtml(title)}</h3>
+        <p class="${EMPTY_STATE_TEXT} max-w-md mx-auto">${escapeHtml(message)}</p>
+        <div class="mt-5 flex items-center justify-center gap-3">
+          ${activeFilters > 0 ? `
+            <button type="button" class="${BTN_SECONDARY_SM}" data-clear-filters="true">
+              Clear filters
+            </button>
+          ` : ''}
+          <button type="button" class="${BTN_SECONDARY_SM}" data-queue-refresh="true">
+            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+            </svg>
+            Refresh
+          </button>
+        </div>
+      </div>
+    `;
+  }
+
   private renderErrorState(kind: 'error' | 'conflict', message: string): string {
     const title = kind === 'conflict' ? 'Version conflict' : 'Queue unavailable';
     return `
@@ -2985,6 +3167,28 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
       });
     });
 
+    // Filter panel toggle
+    this.container.querySelectorAll<HTMLElement>('[data-filters-toggle]').forEach((button) => {
+      button.addEventListener('click', () => {
+        this.toggleFiltersExpanded();
+      });
+    });
+
+    // Clear filters button
+    this.container.querySelectorAll<HTMLElement>('[data-clear-filters]').forEach((button) => {
+      button.addEventListener('click', () => {
+        this.clearAllFilters();
+      });
+    });
+
+    // Sort order toggle
+    this.container.querySelectorAll<HTMLElement>('[data-toggle-sort-order]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const currentOrder = this.queryState.order || 'desc';
+        this.updateFilter({ order: currentOrder === 'asc' ? 'desc' : 'asc' });
+      });
+    });
+
     this.container.querySelectorAll<HTMLButtonElement>('[data-action]').forEach((button) => {
       button.addEventListener('click', () => {
         const action = button.dataset.action;
@@ -3214,41 +3418,21 @@ export function getAssignmentQueueStyles(): string {
       border: 1px solid #e5e7eb;
     }
 
-    .assignment-queue-header {
-      display: flex;
-      justify-content: space-between;
-      gap: 1rem;
-      align-items: flex-start;
-      flex-wrap: wrap;
-    }
-
-    .assignment-queue-summary {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      flex-wrap: wrap;
-    }
-
-    .summary-pill,
+    /* Filter field styling */
     .queue-filter-field select {
-      border-radius: 999px;
+      border-radius: 0.5rem;
       border: 1px solid #d1d5db;
       background: #ffffff;
       color: #111827;
       font: inherit;
+      padding: 0.5rem 0.75rem;
+      width: 100%;
     }
 
-    .summary-pill {
-      padding: 0.45rem 0.8rem;
-      font-size: 0.85rem;
-      color: #374151;
-    }
-
-    /* Preset button active state override for site btn classes */
-    .queue-preset-button.is-active {
-      background: #111827;
-      border-color: #111827;
-      color: #f9fafb;
+    .queue-filter-field select:focus {
+      border-color: #3b82f6;
+      outline: none;
+      box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
     }
 
     .assignment-queue-feedback {
@@ -3285,102 +3469,22 @@ export function getAssignmentQueueStyles(): string {
       opacity: 0.85;
     }
 
-    .assignment-queue-presets {
-      display: flex;
-      gap: 0.6rem;
-      flex-wrap: wrap;
-    }
-
-    .assignment-review-presets {
-      display: grid;
-      gap: 0.75rem;
-      border: 1px solid #e5e7eb;
-      border-radius: 0.75rem;
-      padding: 0.75rem;
-      background:
-        radial-gradient(circle at top left, rgba(14, 165, 233, 0.12), transparent 40%),
-        linear-gradient(135deg, #f9fafb 0%, #eff6ff 100%);
-    }
-
-    .review-preset-copy {
-      display: flex;
-      align-items: baseline;
-      justify-content: space-between;
-      gap: 1rem;
-      flex-wrap: wrap;
-    }
-
-    .review-preset-description {
-      margin: 0;
-      font-size: 0.9rem;
-      color: #374151;
-    }
-
-    .assignment-review-presets-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-      gap: 0.75rem;
-    }
-
-    .review-preset-button {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 0.5rem;
-      border-radius: 0.5rem;
-      border: 1px solid #bfdbfe;
-      background: rgba(255, 255, 255, 0.9);
-      color: #111827;
-      padding: 0.85rem 1rem;
-      cursor: pointer;
-      font: inherit;
-      transition: border-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
-    }
-
-    .review-preset-button strong {
-      display: inline-flex;
-      min-width: 2rem;
-      justify-content: center;
-      border-radius: 999px;
-      background: #dbeafe;
-      color: #1d4ed8;
-      padding: 0.25rem 0.55rem;
-      font-size: 0.82rem;
-    }
-
-    .review-preset-button:hover {
-      border-color: #2563eb;
-      transform: translateY(-1px);
-      box-shadow: 0 12px 30px rgba(37, 99, 235, 0.12);
-    }
-
-    .review-preset-button.is-active {
-      border-color: #111827;
-      background: #111827;
-      color: #f9fafb;
-    }
-
-    .review-preset-button.is-active strong {
-      background: rgba(255, 255, 255, 0.14);
-      color: #f9fafb;
-    }
-
-    .assignment-queue-filters {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-      gap: 0.75rem;
-    }
+    /* Legacy preset/filter styles removed - now using panel-tabs and tailwind grid from design system */
 
     .queue-filter-field {
       display: flex;
       flex-direction: column;
       gap: 0.35rem;
       color: #374151;
-      font-size: 0.9rem;
+      font-size: 0.875rem;
     }
 
-    .queue-filter-field select {
-      padding: 0.7rem 0.9rem;
+    .queue-filter-field span {
+      font-weight: 500;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #6b7280;
     }
 
     .assignment-queue-state {
@@ -3422,29 +3526,52 @@ export function getAssignmentQueueStyles(): string {
 
     .assignment-queue-table th,
     .assignment-queue-table td {
-      padding: 1rem;
-      border-bottom: 1px solid #e5e7eb;
+      padding: 0.875rem 1rem;
+      border-bottom: 1px solid var(--translation-border-default, #e5e7eb);
       text-align: left;
       vertical-align: middle;
     }
 
     .assignment-queue-table th {
-      font-size: 0.78rem;
+      font-size: 0.75rem;
+      font-weight: 600;
       text-transform: uppercase;
-      letter-spacing: 0.08em;
-      color: #6b7280;
-      background: #f9fafb;
+      letter-spacing: 0.05em;
+      color: var(--translation-text-muted, #6b7280);
+      background: var(--translation-surface-muted, #f9fafb);
     }
 
     .assignment-queue-row {
       outline: none;
-      transition: background 0.15s ease, box-shadow 0.15s ease;
+      transition: background-color 0.15s ease;
     }
 
-    .assignment-queue-row:hover,
-    .assignment-queue-row:focus {
-      background: #f9fafb;
-      box-shadow: inset 3px 0 0 #2563eb;
+    .assignment-queue-row:hover {
+      background-color: var(--translation-surface-muted, #f9fafb);
+    }
+
+    .assignment-queue-row:focus-within {
+      background-color: #eff6ff;
+    }
+
+    .assignment-queue-row.is-selected {
+      background-color: #eff6ff;
+    }
+
+    /* Checkbox column alignment */
+    .queue-select-col {
+      width: 3rem;
+      padding: 0.75rem 0.5rem !important;
+      text-align: center;
+      vertical-align: middle;
+    }
+
+    .queue-select-col input[type="checkbox"] {
+      width: 1rem;
+      height: 1rem;
+      margin: 0;
+      cursor: pointer;
+      accent-color: #2563eb;
     }
 
     .queue-content-cell,

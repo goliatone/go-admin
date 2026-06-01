@@ -1,8 +1,8 @@
 import { escapeHTML as o } from "../shared/html.js";
 import { httpRequest as q, readHTTPResponsePayload as G } from "../shared/transport/http-client.js";
-import { a as k, i as K, o as m, s as T } from "../chunks/translation-contracts-Ct_EG7JJ.js";
-import { S as Y, T as R, W as w, d as F, et as X, f as Q, l as f, q as Z, r as _, s as j, t as E, w as v, x as tt } from "../chunks/translation-shared-kfjHEDZW.js";
-import { formatTranslationShortDateTime as C } from "../translation-shared/formatters.js";
+import { a as C, i as K, o as m, s as k } from "../chunks/translation-contracts-Ct_EG7JJ.js";
+import { D as R, E as v, K as w, S as Y, Y as X, d as F, f as Q, l as f, nt as Z, r as _, s as j, t as E, w as tt } from "../chunks/translation-shared-CQJ98SgC.js";
+import { formatTranslationShortDateTime as T } from "../translation-shared/formatters.js";
 var et = { root: "#translation-exchange-app" }, st = [{
   value: "pages",
   label: "pages"
@@ -146,9 +146,9 @@ function S(t) {
   }
 }
 function y(t) {
-  return `rounded-full px-3 py-1 text-xs font-medium ${X(t)}`;
+  return `rounded-full px-3 py-1 text-xs font-medium ${Z(t)}`;
 }
-var g = `${F} p-5`, dt = `${F} p-4`, U = `${w} border ${_} ${E} p-5`, A = `${w} border ${_} ${E} p-4`, L = `${w} border ${_} ${E} px-4 py-3`, H = `${w} border ${_} ${E} px-6 py-10 text-center text-sm text-gray-600`, x = "text-xs uppercase tracking-wider text-gray-500", ct = `mt-2 text-2xl font-bold ${Z}`;
+var g = `${F} p-5`, dt = `${F} p-4`, U = `${w} border ${_} ${E} p-5`, A = `${w} border ${_} ${E} p-4`, L = `${w} border ${_} ${E} px-4 py-3`, H = `${w} border ${_} ${E} px-6 py-10 text-center text-sm text-gray-600`, x = "text-xs uppercase tracking-wider text-gray-500", ct = `mt-2 text-2xl font-bold ${X}`;
 function pt(t, e) {
   const a = typeof window < "u" && typeof window.btoa == "function" ? window.btoa.bind(window) : typeof globalThis.btoa == "function" ? globalThis.btoa.bind(globalThis) : null;
   return a ? `data:${t};base64,${a(encodeURIComponent(e).replace(/%([0-9A-F]{2})/g, (r, s) => String.fromCharCode(parseInt(s, 16))))}` : `data:${t},${encodeURIComponent(e)}`;
@@ -189,7 +189,7 @@ function N(t) {
 }
 function I(t) {
   return t?.result ? {
-    ...T({
+    ...k({
       ...t.result,
       job: t
     }),
@@ -399,7 +399,7 @@ var $t = class {
     const e = await this.postJSON(`${this.config.apiPath}/import/apply`, {
       ...t,
       async: t.async !== !1
-    }), a = T(e);
+    }), a = k(e);
     return a.job && this.loadHistory(!0), this.emitAnalytics("exchange_apply_completion", {
       processed: a.summary.processed,
       succeeded: a.summary.succeeded,
@@ -423,7 +423,7 @@ var $t = class {
         poll_endpoint: a,
         attempt: i
       });
-      const n = await this.fetchJSON(a), d = k(n.job && typeof n.job == "object" ? n.job : n);
+      const n = await this.fetchJSON(a), d = C(n.job && typeof n.job == "object" ? n.job : n);
       if (!d) throw new Error("Job payload missing.");
       if (e.onTick?.(d, i), d.status !== "running")
         return this.emitAnalytics("exchange_apply_completion", {
@@ -467,7 +467,7 @@ var $t = class {
           include_source_hash: e.includeSourceHash
         },
         async: !0
-      }), s = r.job && typeof r.job == "object" ? r.job : r.data && typeof r.data == "object" ? r.data.job : void 0, l = Array.isArray(r.rows) ? r.rows : r.data && typeof r.data == "object" && Array.isArray(r.data.rows) ? r.data.rows ?? [] : [], i = k(s);
+      }), s = r.job && typeof r.job == "object" ? r.job : r.data && typeof r.data == "object" ? r.data.job : void 0, l = Array.isArray(r.rows) ? r.rows : r.data && typeof r.data == "object" && Array.isArray(r.data.rows) ? r.data.rows ?? [] : [], i = C(s);
       if (this.exportState.job = i, i?.status === "running") {
         this.exportState.status = "polling", this.exportState.message = "Export job running. Polling for artifact...", this.render();
         const n = await this.pollJobUntilTerminal(i, {
@@ -533,7 +533,7 @@ var $t = class {
     try {
       const t = new FormData();
       t.set("file", this.validateState.file);
-      const e = T(await this.postForm(`${this.config.apiPath}/import/validate`, t));
+      const e = k(await this.postForm(`${this.config.apiPath}/import/validate`, t));
       this.validateState.result = e, this.validateState.decisions = gt(e), this.validateState.upload = m({
         state: "validated",
         filename: this.validateState.file.name,
@@ -790,9 +790,9 @@ var $t = class {
         <header class="px-6 py-5 border-b border-gray-200 bg-gray-50">
           <div class="flex flex-wrap items-start justify-between gap-4">
             <div>
-              <p class="${Y}">Translation Exchange</p>
+              <p class="${tt}">Translation Exchange</p>
               <h1 class="${ct}">Translation Exchange Wizard</h1>
-              <p class="${tt}">Prepare external translation files, validate row-level conflicts, apply imports with explicit create and conflict controls, and inspect retained job history for retries and audits.</p>
+              <p class="${Y}">Prepare external translation files, validate row-level conflicts, apply imports with explicit create and conflict controls, and inspect retained job history for retries and audits.</p>
             </div>
             <a class="${f}" href="${o(`${this.config.apiPath}/template?format=json`)}">
               Download JSON Template
@@ -1243,7 +1243,7 @@ var $t = class {
                             ${i.fixture ? `<span class="${y("warning")}">Fixture</span>` : ""}
                           </div>
                           <h3 class="mt-3 text-lg font-semibold text-gray-900">${o(i.file?.name ?? i.id)}</h3>
-                          <p class="mt-1 text-sm text-gray-600">Actor ${o(i.actor?.label ?? "system")} • ${o(C(i.created_at, "Pending"))}</p>
+                          <p class="mt-1 text-sm text-gray-600">Actor ${o(i.actor?.label ?? "system")} • ${o(T(i.created_at, "Pending"))}</p>
                         </div>
                         <div class="text-sm text-gray-600">
                           <div>${o(i.progress.processed)} / ${o(i.progress.total ?? 0)} processed</div>
@@ -1258,7 +1258,7 @@ var $t = class {
                   <div class="flex flex-wrap items-start justify-between gap-4">
                     <div>
                       <h2 class="text-lg font-semibold text-gray-900">${o(s.file?.name ?? s.id)}</h2>
-                      <p class="mt-1 text-sm text-gray-600">${o(s.kind.replace(/_/g, " "))} • ${o(s.status)} • ${o(C(s.updated_at, "Pending"))}</p>
+                      <p class="mt-1 text-sm text-gray-600">${o(s.kind.replace(/_/g, " "))} • ${o(s.status)} • ${o(T(s.updated_at, "Pending"))}</p>
                     </div>
                     <div class="flex flex-wrap gap-3">
                       <button class="${f}" type="button" data-history-load-apply="all">Load in apply step</button>
@@ -1319,9 +1319,9 @@ var $t = class {
 export {
   $t as TranslationExchangeManager,
   K as normalizeTranslationExchangeHistoryResponse,
-  k as normalizeTranslationExchangeJob,
+  C as normalizeTranslationExchangeJob,
   m as normalizeTranslationExchangeUploadDescriptor,
-  T as normalizeTranslationExchangeValidationResult
+  k as normalizeTranslationExchangeValidationResult
 };
 
 //# sourceMappingURL=index.js.map
