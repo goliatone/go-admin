@@ -229,7 +229,7 @@ func newTestURLManager(basePath string) *urlkit.RouteManager {
 							"translations.matrix.actions.create_missing":  "/translations/matrix/actions/create-missing",
 							"translations.matrix.actions.export_selected": "/translations/matrix/actions/export-selected",
 							"translations.assignments":                    "/translations/assignments",
-							"translations.assignments.family_assignments": "/translations/assignments/families/:family_id/assignments",
+							"translations.assignments.family_assignments": "/translations/families/:family_id/assignments",
 							"translations.assignments.id":                 "/translations/assignments/:assignment_id",
 							"translations.assignments.bulk_snapshot":      "/translations/assignment-actions/snapshot",
 							"translations.assignments.bulk_actions":       "/translations/assignment-actions/bulk",

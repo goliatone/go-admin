@@ -511,14 +511,14 @@ func TestTranslationQueueBindingAssignmentsSupportsServerFamilyGrouping(t *testi
 	if toString(expansion["route"]) != "translations.assignments.family_assignments" {
 		t.Fatalf("expected child expansion route, got %+v", expansion)
 	}
-	if !strings.Contains(toString(expansion["href"]), "/admin/api/translations/assignments/families/family-server-1/assignments") {
+	if !strings.Contains(toString(expansion["href"]), "/admin/api/translations/families/family-server-1/assignments") {
 		t.Fatalf("expected expansion href for family child endpoint, got %+v", expansion)
 	}
 	if toBool(parent["family_blocker_count_available"]) {
 		t.Fatalf("expected in-memory blocker aggregate to be degraded, got %+v", parent)
 	}
 
-	childReq := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/translations/assignments/families/family-server-1/assignments?page=1&per_page=1&sort=updated_at&order=desc", nil)
+	childReq := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/translations/families/family-server-1/assignments?page=1&per_page=1&sort=updated_at&order=desc", nil)
 	childReq.Header.Set("X-User-ID", "manager-1")
 	childResp, err := app.Test(childReq)
 	if err != nil {
@@ -2359,7 +2359,7 @@ func newTranslationQueueTestApp(t *testing.T, binding *translationQueueBinding) 
 		}
 		return writeJSON(c, payload)
 	})
-	r.Get("/admin/api/translations/assignments/families/:family_id/assignments", func(c router.Context) error {
+	r.Get("/admin/api/translations/families/:family_id/assignments", func(c router.Context) error {
 		payload, err := binding.FamilyAssignments(c, c.Param("family_id"))
 		if err != nil {
 			return writeError(c, err)
