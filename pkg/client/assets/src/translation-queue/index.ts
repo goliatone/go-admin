@@ -632,26 +632,42 @@ export function normalizeAssignmentListMeta(value: unknown): AssignmentListMeta 
     review_actor_id: asString(raw.review_actor_id) || undefined,
     review_aggregate_counts: normalizeNumberRecord(raw.review_aggregate_counts, { trimKeys: true, omitBlankKeys: true }),
     grouping: normalizeAssignmentListGroupingMeta(raw.grouping),
+    family_total: asNumber(raw.family_total) || undefined,
+    assignment_total: asNumber(raw.assignment_total) || undefined,
   };
 }
 
 function normalizeAssignmentListGroupingMeta(value: unknown): AssignmentListGroupingMeta | undefined {
   const raw = asRecord(value);
-  if (!raw || raw.enabled !== true) {
+  if (!raw) {
     return undefined;
   }
+  const capabilitiesRaw = asRecord(raw.capabilities);
+  const serverFamilyRaw = asRecord(capabilitiesRaw.server_family);
+  const supportedSortKeys = Array.isArray(raw.supported_sort_keys)
+    ? raw.supported_sort_keys.map((entry) => asString(entry)).filter((entry): entry is AssignmentSortKey => Boolean(entry))
+    : undefined;
   return {
-    enabled: true,
+    enabled: raw.enabled === true,
     mode: asString(raw.mode) || 'family_id',
     group_by: asString(raw.group_by) || 'family_id',
     scope: asString(raw.scope) || 'current_page',
     row_count: asNumber(raw.row_count),
     group_count: asNumber(raw.group_count),
     assignment_count: asNumber(raw.assignment_count),
+    family_total: asNumber(raw.family_total) || undefined,
+    assignment_total: asNumber(raw.assignment_total) || undefined,
     supported_modes: Array.isArray(raw.supported_modes)
       ? raw.supported_modes.map((m) => asString(m)).filter(Boolean)
       : ['family_id'],
+    supported_sort_keys: supportedSortKeys,
     strategy: asString(raw.strategy) || 'page_local',
+    capabilities: {
+      server_family: {
+        supported: serverFamilyRaw.supported === true,
+        reason_code: asString(serverFamilyRaw.reason_code) || undefined,
+      },
+    },
   };
 }
 
@@ -701,6 +717,7 @@ export function buildAssignmentListQuery(state: AssignmentListQueryState = {}): 
   setSearchParam(params, 'sort', state.sort);
   setSearchParam(params, 'order', state.order);
   setSearchParam(params, 'group_by', state.groupBy);
+  setSearchParam(params, 'group_strategy', state.groupStrategy);
   return params.toString();
 }
 
@@ -775,6 +792,42 @@ export function normalizeAssignmentListRow(value: unknown): AssignmentListRow {
   };
 }
 
+function normalizeServerFamilyParentRow(value: unknown, expandedGroups: Set<string>): ServerFamilyParentRow {
+  const raw = asRecord(value);
+  const expansionRaw = asRecord(raw.expansion);
+  const paramsRaw = asRecord(expansionRaw.params);
+  const familyID = asString(raw.family_id);
+  return {
+    id: asString(raw.id) || `family:${familyID}`,
+    row_type: 'family',
+    family_id: familyID,
+    family_label: asString(raw.family_label) || asString(raw.source_title) || familyID,
+    entity_type: asString(raw.entity_type),
+    source_record_id: asString(raw.source_record_id),
+    source_locale: asString(raw.source_locale),
+    source_title: asString(raw.source_title),
+    source_path: asString(raw.source_path),
+    assignment_count: asNumber(raw.assignment_count),
+    locale_count: asNumber(raw.locale_count),
+    target_locales: Array.isArray(raw.target_locales) ? raw.target_locales.map((item) => asString(item)).filter(Boolean) : [],
+    status_counts: normalizeNumberRecord(raw.status_counts, { trimKeys: true, omitBlankKeys: true }),
+    due_state_counts: normalizeNumberRecord(raw.due_state_counts, { trimKeys: true, omitBlankKeys: true }),
+    priority_counts: normalizeNumberRecord(raw.priority_counts, { trimKeys: true, omitBlankKeys: true }),
+    family_blocker_count: raw.family_blocker_count === null || raw.family_blocker_count === undefined ? null : asNumber(raw.family_blocker_count),
+    family_blocker_count_available: raw.family_blocker_count_available === true,
+    family_blocker_count_reason: asString(raw.family_blocker_count_reason),
+    action_hints: normalizeNumberRecord(raw.action_hints, { trimKeys: true, omitBlankKeys: true }),
+    expansion: {
+      href: asString(expansionRaw.href),
+      route: asString(expansionRaw.route),
+      params: Object.fromEntries(Object.entries(paramsRaw).map(([key, item]) => [key, asString(item)])),
+      query: asRecord(expansionRaw.query),
+    },
+    expanded: expandedGroups.has(familyID),
+    children: [],
+  };
+}
+
 export function normalizeAssignmentListResponse(value: unknown): AssignmentListResponse {
   const raw = asRecord(value);
   const meta = normalizeAssignmentListMeta(raw.meta);
@@ -791,6 +844,25 @@ export function normalizeAssignmentListResponse(value: unknown): AssignmentListR
   return {
     data: data.map((row) => normalizeAssignmentListRow(row)),
     meta,
+  };
+}
+
+async function fetchServerFamilyChildren(expansion: ServerFamilyExpansion): Promise<{ rows: AssignmentListRow[]; meta: ServerFamilyParentRow['childMeta'] }> {
+  const response = await httpRequest(expansion.href, { method: 'GET' });
+  if (!response.ok) {
+    throw await buildQueueRequestError(response, 'Failed to load family assignments');
+  }
+  const raw = asRecord(await response.json());
+  const metaRaw = asRecord(raw.meta);
+  const data = Array.isArray(raw.data) ? raw.data : [];
+  return {
+    rows: data.map((row) => normalizeAssignmentListRow(row)),
+    meta: {
+      page: asNumber(metaRaw.page) || 1,
+      per_page: asNumber(metaRaw.per_page) || 25,
+      total: asNumber(metaRaw.total),
+      has_next: metaRaw.has_next === true,
+    },
   };
 }
 
@@ -1035,6 +1107,7 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
   // T11: View mode and grouped data state
   private viewMode: ViewMode = 'flat';
   private groupedData: GroupedData | null = null;
+  private serverFamilyRows: ServerFamilyParentRow[] = [];
   private expandedGroups = new Set<string>();
   private static readonly PANEL_ID = 'translation-queue';
 
@@ -1071,6 +1144,9 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
       this.viewMode = persistedViewMode;
       if (this.viewMode === 'grouped') {
         this.queryState.groupBy = 'family_id';
+      } else if (this.viewMode === 'server_family') {
+        this.queryState.groupBy = 'family_id';
+        this.queryState.groupStrategy = 'server_family';
       }
     }
     this.expandedGroups = getPersistedExpandState(AssignmentQueueScreen.PANEL_ID);
@@ -1158,6 +1234,15 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
     this.selectedRows.clear();
     this.filterSnapshot = null;
     this.render();
+  }
+
+  private replaceCachedRow(row: AssignmentListRow): void {
+    for (const family of this.serverFamilyRows) {
+      const index = family.children.findIndex((child) => child.id === row.id);
+      if (index >= 0) {
+        family.children[index] = cloneRow(row);
+      }
+    }
   }
 
   async selectAllMatchingFilters(): Promise<void> {
@@ -1410,6 +1495,16 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
       const response = await fetchAssignmentList(this.config.endpoint, this.queryState);
       this.response = response;
 
+      if (this.viewMode === 'server_family' && response.meta.grouping?.strategy === 'server_family') {
+        this.groupedData = null;
+        this.serverFamilyRows = (response.data as unknown[]).map((row) => normalizeServerFamilyParentRow(row, this.expandedGroups));
+        this.rows = this.serverFamilyRows.flatMap((row) => row.children.map((child) => cloneRow(child)));
+        this.state = this.serverFamilyRows.length ? 'ready' : 'empty';
+        this.render();
+        return;
+      }
+
+      this.serverFamilyRows = [];
       // T11: Handle grouped responses
       if (this.viewMode === 'grouped' && response.meta.grouping?.enabled) {
         const grouped = normalizeBackendGroupedRows(
@@ -1464,9 +1559,14 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
 
     // Update query state for grouped mode
     if (mode === 'grouped') {
-      this.queryState = { ...this.queryState, groupBy: 'family_id' };
+      const { groupStrategy: _, ...rest } = this.queryState;
+      this.queryState = { ...rest, groupBy: 'family_id' };
+    } else if (mode === 'server_family') {
+      const supportedServerSort = ['updated_at', 'created_at', 'due_date', 'due_state', 'priority'];
+      const sort = this.queryState.sort && supportedServerSort.includes(this.queryState.sort) ? this.queryState.sort : 'updated_at';
+      this.queryState = { ...this.queryState, groupBy: 'family_id', groupStrategy: 'server_family', sort, perPage: Math.min(this.queryState.perPage || 25, 100) };
     } else {
-      const { groupBy: _, ...rest } = this.queryState;
+      const { groupBy: _, groupStrategy: __, ...rest } = this.queryState;
       this.queryState = rest;
     }
 
@@ -1476,6 +1576,10 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
   }
 
   toggleGroupExpansion(groupId: string): void {
+    if (this.viewMode === 'server_family') {
+      void this.toggleServerFamilyExpansion(groupId);
+      return;
+    }
     if (!this.groupedData) return;
 
     this.groupedData = toggleGroupExpand(this.groupedData, groupId);
@@ -1484,7 +1588,47 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
     this.render();
   }
 
+  private async toggleServerFamilyExpansion(groupId: string): Promise<void> {
+    const row = this.serverFamilyRows.find((item) => item.family_id === groupId);
+    if (!row) return;
+    row.expanded = !row.expanded;
+    if (row.expanded) {
+      this.expandedGroups.add(groupId);
+    } else {
+      this.expandedGroups.delete(groupId);
+    }
+    persistExpandState(AssignmentQueueScreen.PANEL_ID, this.expandedGroups);
+    if (!row.expanded || row.children.length || row.loading) {
+      this.rows = this.serverFamilyRows.flatMap((item) => item.children.map((child) => cloneRow(child)));
+      this.render();
+      return;
+    }
+    row.loading = true;
+    row.error = '';
+    this.render();
+    try {
+      const result = await fetchServerFamilyChildren(row.expansion);
+      row.children = result.rows;
+      row.childMeta = result.meta;
+      this.rows = this.serverFamilyRows.flatMap((item) => item.children.map((child) => cloneRow(child)));
+    } catch (error) {
+      row.error = error instanceof Error ? error.message : 'Failed to load family assignments.';
+    } finally {
+      row.loading = false;
+      this.render();
+    }
+  }
+
   expandAllFamilyGroups(): void {
+    if (this.viewMode === 'server_family') {
+      for (const row of this.serverFamilyRows) {
+        this.expandedGroups.add(row.family_id);
+        row.expanded = true;
+      }
+      persistExpandState(AssignmentQueueScreen.PANEL_ID, this.expandedGroups);
+      this.render();
+      return;
+    }
     if (!this.groupedData) return;
 
     this.groupedData = expandAllGroups(this.groupedData);
@@ -1494,6 +1638,15 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
   }
 
   collapseAllFamilyGroups(): void {
+    if (this.viewMode === 'server_family') {
+      this.expandedGroups.clear();
+      for (const row of this.serverFamilyRows) {
+        row.expanded = false;
+      }
+      persistExpandState(AssignmentQueueScreen.PANEL_ID, this.expandedGroups);
+      this.render();
+      return;
+    }
     if (!this.groupedData) return;
 
     this.groupedData = collapseAllGroups(this.groupedData);
@@ -1524,6 +1677,7 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
     this.pendingActions.add(pendingKey);
     this.feedback = null;
     this.rows[index] = applyOptimisticAssignmentAction(current, action);
+    this.replaceCachedRow(this.rows[index]);
     this.render();
 
     try {
@@ -1537,12 +1691,14 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
             idempotency_key: buildActionIdempotencyKey('release', previous),
           });
       this.rows[index] = cloneRow(response.data.assignment);
+      this.replaceCachedRow(this.rows[index]);
       this.feedback = {
         kind: 'success',
         message: action === 'claim' ? 'Assignment claimed.' : 'Assignment released back to the pool.',
       };
     } catch (error) {
       this.rows[index] = previous;
+      this.replaceCachedRow(previous);
       this.feedback = formatQueueActionError(error, `Failed to ${action} assignment.`);
     } finally {
       this.pendingActions.delete(pendingKey);
@@ -1588,6 +1744,7 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
     try {
       const response = await runAssignmentAction(this.config.endpoint, assignmentId, action, request);
       this.rows[index] = cloneRow(response.data.assignment);
+      this.replaceCachedRow(this.rows[index]);
       this.feedback = {
         kind: 'success',
         message: action === 'approve'
@@ -1764,6 +1921,17 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
   private renderFilterSnapshotBar(): string {
     const total = this.response?.meta.total ?? 0;
     const pageCount = this.visibleRows.length;
+    if (this.viewMode === 'server_family') {
+      const assignmentTotal = this.response?.meta.assignment_total ?? this.response?.meta.grouping?.assignment_total ?? 0;
+      return `
+        <section class="filter-snapshot-bar" data-filter-snapshot-bar="true" aria-label="Server-side family pagination">
+          <div class="filter-snapshot-copy">
+            <strong>${total} ${total === 1 ? 'family' : 'families'} match current filters</strong>
+            <span>${this.serverFamilyRows.length} visible on this family page · ${assignmentTotal} matching assignments</span>
+          </div>
+        </section>
+      `;
+    }
     if (total === 0 && !this.filterSnapshot) {
       return '';
     }
@@ -1853,17 +2021,22 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
   // T11: View mode toggle
   private renderViewModeToggle(): string {
     const isGrouped = this.viewMode === 'grouped';
+    const isServerFamily = this.viewMode === 'server_family';
+    const isFlat = !isGrouped && !isServerFamily;
     const groupCount = this.groupedData?.totalGroups ?? 0;
     const assignmentCount = this.response?.meta.grouping?.assignment_count ?? this.rows.length;
+    const serverFamilySupported = this.response?.meta.grouping?.capabilities?.server_family?.supported === true;
+    const serverFamilyCount = this.response?.meta.grouping?.family_total ?? this.response?.meta.family_total ?? this.serverFamilyRows.length;
+    const serverAssignmentCount = this.response?.meta.grouping?.assignment_total ?? this.response?.meta.assignment_total ?? 0;
 
     return `
       <div class="assignment-queue-view-mode" role="group" aria-label="View mode">
         <div class="view-mode-buttons">
           <button
             type="button"
-            class="view-mode-button ${!isGrouped ? 'is-active' : ''}"
+            class="view-mode-button ${isFlat ? 'is-active' : ''}"
             data-view-mode="flat"
-            aria-pressed="${!isGrouped}"
+            aria-pressed="${isFlat}"
             title="Show assignments as a flat list"
           >
             <svg class="view-mode-icon" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
@@ -1883,6 +2056,21 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
             </svg>
             <span>Grouped</span>
           </button>
+          ${(serverFamilySupported || isServerFamily) ? `
+            <button
+              type="button"
+              class="view-mode-button ${isServerFamily ? 'is-active' : ''}"
+              data-view-mode="server_family"
+              aria-pressed="${isServerFamily}"
+              title="${escapeAttr(serverFamilySupported ? 'Use server-side family pagination' : 'Server-side family grouping is unavailable for this repository')}"
+              ${serverFamilySupported ? '' : 'disabled aria-disabled="true"'}
+            >
+              <svg class="view-mode-icon" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+                <path d="M3 2h10v3H3zM2 7h5v3H2zM9 7h5v3H9zM2 12h5v3H2zM9 12h5v3H9z"/>
+              </svg>
+              <span>Families</span>
+            </button>
+          ` : ''}
         </div>
         ${isGrouped && this.groupedData ? `
           <div class="view-mode-info">
@@ -1892,6 +2080,18 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
               Expand all
             </button>
             <button type="button" class="view-mode-collapse-all" data-collapse-all="true" title="Collapse all groups">
+              Collapse all
+            </button>
+          </div>
+        ` : ''}
+        ${isServerFamily ? `
+          <div class="view-mode-info">
+            <span class="view-mode-count">${serverFamilyCount} ${serverFamilyCount === 1 ? 'family' : 'families'} · ${serverAssignmentCount} assignments</span>
+            <span class="view-mode-scope">(server-side family pages)</span>
+            <button type="button" class="view-mode-expand-all" data-expand-all="true" title="Expand visible families">
+              Expand all
+            </button>
+            <button type="button" class="view-mode-collapse-all" data-collapse-all="true" title="Collapse visible families">
               Collapse all
             </button>
           </div>
@@ -1955,6 +2155,12 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
     if (this.state === 'conflict' && !this.rows.length) {
       return this.renderErrorState('conflict', this.error?.message || 'The queue response is stale. Refresh and try again.');
     }
+    if (this.viewMode === 'server_family') {
+      if (!this.serverFamilyRows.length) {
+        return `<div class="assignment-queue-state" data-queue-state="empty">No families match the current filters.</div>`;
+      }
+      return this.renderServerFamilyBody();
+    }
     if (!rows.length) {
       return `<div class="assignment-queue-state" data-queue-state="empty">No assignments match the current filters.</div>`;
     }
@@ -1999,6 +2205,122 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
         </table>
       </div>
     `;
+  }
+
+  private renderServerFamilyBody(): string {
+    const colSpan = 8;
+    return `
+      <div class="flex flex-col gap-3 sm:hidden" data-queue-mobile-view="true" data-queue-grouped="true" data-server-family="true">
+        ${this.serverFamilyRows.map((family) => this.renderServerFamilyMobile(family)).join('')}
+      </div>
+      <div class="assignment-queue-table-wrap hidden sm:block">
+        <table class="assignment-queue-table assignment-queue-table-grouped" aria-label="Translation assignment queue families">
+          <thead>
+            <tr>
+              <th scope="col" class="queue-select-col"></th>
+              <th scope="col">Family</th>
+              <th scope="col">Locales</th>
+              <th scope="col">Status</th>
+              <th scope="col">Owners</th>
+              <th scope="col">Due</th>
+              <th scope="col">Priority</th>
+              <th scope="col">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${this.serverFamilyRows.map((family) => this.renderServerFamilyRows(family, colSpan)).join('')}
+          </tbody>
+        </table>
+      </div>
+    `;
+  }
+
+  private renderServerFamilyRows(family: ServerFamilyParentRow, colSpan: number): string {
+    const expandIcon = family.expanded ? '▼' : '▶';
+    const blocker = this.renderServerFamilyBlocker(family);
+    const childRows = family.expanded
+      ? family.loading
+        ? `<tr class="family-group-child"><td></td><td colspan="${colSpan - 1}">Loading family assignments…</td></tr>`
+        : family.error
+          ? `<tr class="family-group-child"><td></td><td colspan="${colSpan - 1}">${escapeHtml(family.error)}</td></tr>`
+          : family.children.map((row) => this.renderGroupChildRow(row, family.family_id)).join('')
+      : '';
+    return `
+      <tr class="family-group-header server-family-header ${family.expanded ? 'is-expanded' : 'is-collapsed'}"
+          data-group-id="${escapeAttr(family.family_id)}"
+          data-group-expanded="${family.expanded}"
+          role="row"
+          aria-expanded="${family.expanded}"
+          tabindex="0">
+        <td class="queue-select-col"></td>
+        <td colspan="${colSpan - 1}">
+          <div class="family-group-header-content">
+            <button type="button" class="family-group-toggle" data-toggle-group="${escapeAttr(family.family_id)}" aria-label="${family.expanded ? 'Collapse' : 'Expand'} family">
+              <span class="family-group-expand-icon" aria-hidden="true">${expandIcon}</span>
+            </button>
+            <div class="family-group-info">
+              <strong class="family-group-label">${escapeHtml(family.family_label || family.family_id)}</strong>
+              <span class="family-group-count">${family.assignment_count} ${family.assignment_count === 1 ? 'assignment' : 'assignments'} · ${family.locale_count} ${family.locale_count === 1 ? 'locale' : 'locales'}</span>
+            </div>
+            <div class="family-group-summary server-family-summary">
+              ${this.renderCountPills(family.status_counts)}
+              ${this.renderPriorityPills(family.priority_counts)}
+              ${blocker}
+            </div>
+          </div>
+        </td>
+      </tr>
+      ${childRows}
+    `;
+  }
+
+  private renderServerFamilyMobile(family: ServerFamilyParentRow): string {
+    const expandIcon = family.expanded ? '▼' : '▶';
+    const children = family.expanded
+      ? family.loading
+        ? '<div class="family-group-mobile-child">Loading family assignments…</div>'
+        : family.error
+          ? `<div class="family-group-mobile-child">${escapeHtml(family.error)}</div>`
+          : family.children.map((row) => `<div class="family-group-mobile-child">${this.renderMobileCard(row)}</div>`).join('')
+      : '';
+    return `
+      <div class="family-group-mobile-header ${family.expanded ? 'is-expanded' : 'is-collapsed'}"
+           data-group-id="${escapeAttr(family.family_id)}"
+           data-group-expanded="${family.expanded}">
+        <button type="button" class="family-group-mobile-toggle" data-toggle-group="${escapeAttr(family.family_id)}">
+          <span class="family-group-expand-icon">${expandIcon}</span>
+          <span class="family-group-mobile-label">${escapeHtml(family.family_label || family.family_id)}</span>
+          <span class="family-group-mobile-count">${family.assignment_count} assignments · ${family.locale_count} locales</span>
+        </button>
+        <div class="server-family-mobile-summary">${this.renderServerFamilyBlocker(family)}</div>
+      </div>
+      ${children}
+    `;
+  }
+
+  private renderCountPills(counts: Record<string, number>): string {
+    return Object.entries(counts)
+      .filter(([, count]) => count > 0)
+      .slice(0, 4)
+      .map(([key, count]) => `<span class="family-summary-pill">${escapeHtml(humanizeToken(key))} ${count}</span>`)
+      .join('');
+  }
+
+  private renderPriorityPills(counts: Record<string, number>): string {
+    return Object.entries(counts)
+      .filter(([, count]) => count > 0)
+      .slice(0, 2)
+      .map(([key, count]) => `<span class="family-summary-pill priority-${escapeAttr(key)}">${escapeHtml(humanizeToken(key))} ${count}</span>`)
+      .join('');
+  }
+
+  private renderServerFamilyBlocker(family: ServerFamilyParentRow): string {
+    if (!family.family_blocker_count_available) {
+      const reason = family.family_blocker_count_reason || 'persisted_blockers_unavailable';
+      return `<span class="family-summary-pill is-degraded" title="${escapeAttr(reason)}">Blockers unavailable</span>`;
+    }
+    const count = family.family_blocker_count ?? 0;
+    return `<span class="family-summary-pill ${count > 0 ? 'is-blocked' : ''}">${count} persisted ${count === 1 ? 'blocker' : 'blockers'}</span>`;
   }
 
   // T11: Grouped body rendering
@@ -2746,7 +3068,7 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
     this.container.querySelectorAll<HTMLButtonElement>('[data-view-mode]').forEach((button) => {
       button.addEventListener('click', () => {
         const mode = button.dataset.viewMode;
-        if (mode === 'flat' || mode === 'grouped') {
+        if (mode === 'flat' || mode === 'grouped' || mode === 'server_family') {
           this.setViewMode(mode);
         }
       });
@@ -3597,6 +3919,38 @@ export function getAssignmentQueueStyles(): string {
       display: flex;
       align-items: center;
       gap: 0.5rem;
+    }
+
+    .server-family-summary {
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .family-summary-pill {
+      display: inline-flex;
+      align-items: center;
+      min-height: 1.5rem;
+      padding: 0.2rem 0.5rem;
+      border-radius: 999px;
+      background: #eef2ff;
+      color: #3730a3;
+      font-size: 0.75rem;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+
+    .family-summary-pill.is-blocked {
+      background: #fef2f2;
+      color: #991b1b;
+    }
+
+    .family-summary-pill.is-degraded {
+      background: #fffbeb;
+      color: #92400e;
+    }
+
+    .server-family-mobile-summary {
+      padding: 0 0.75rem 0.75rem;
     }
 
     /* T11: Family group child row */

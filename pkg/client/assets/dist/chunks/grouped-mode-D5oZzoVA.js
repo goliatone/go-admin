@@ -1007,7 +1007,7 @@ function qe(e, t) {
   }
 }
 function q(e) {
-  return e === "flat" || e === "grouped" || e === "matrix";
+  return e === "flat" || e === "grouped" || e === "matrix" || e === "server_family";
 }
 function Ye(e) {
   return e && q(e) ? e : null;
@@ -1272,4 +1272,4 @@ export {
   Ie as z
 };
 
-//# sourceMappingURL=grouped-mode-DDcITWpq.js.map
+//# sourceMappingURL=grouped-mode-D5oZzoVA.js.map
