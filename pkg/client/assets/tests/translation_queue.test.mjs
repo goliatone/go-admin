@@ -232,7 +232,7 @@ function makeServerFamilyQueueResponse() {
           message: 'Family actions are available on child assignment rows.',
         },
         expansion: {
-          href: '/admin/api/translations/assignments/families/tg-server-1/assignments?sort=updated_at&order=desc&page=1&per_page=25',
+          href: '/admin/api/translations/families/tg-server-1/assignments?sort=updated_at&order=desc&page=1&per_page=25',
           route: 'translations.assignments.family_assignments',
           params: { family_id: 'tg-server-1' },
           query: { sort: 'updated_at', order: 'desc', page: 1, per_page: 25 },
