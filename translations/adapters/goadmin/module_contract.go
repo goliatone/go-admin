@@ -11,6 +11,7 @@ func ModuleUIRoutes() map[string]string {
 		"translations.dashboard":        "/dashboard",
 		"translations.exchange":         "/exchange",
 		"translations.matrix":           "/matrix",
+		"translations.queue":            "/queue",
 		"translations.families.id":      "/families/:family_id",
 		"translations.assignments.id":   "/assignments/:assignment_id",
 		"translations.assignments.edit": "/assignments/:assignment_id/edit",
@@ -45,9 +46,7 @@ func ModuleAPIRoutes() map[string]string {
 
 func AdminUIRoutes() map[string]string {
 	routes := prefixRoutes("/translations", ModuleUIRoutes())
-	// The queue UI is panel-backed, so its canonical admin entrypoint lives under
-	// the shared content surface rather than the translations module mount.
-	routes["translations.queue"] = "/content/translations"
+	routes["translations.assignments"] = "/content/translations"
 	return routes
 }
 
