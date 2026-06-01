@@ -404,11 +404,14 @@ The confirmed bulk request references the snapshot instead of sending all matchi
   "action": "assign",
   "selection_scope": "filter_snapshot",
   "snapshot_id": "snap_...",
-  "assignee_id": "translator-1"
+  "assignee_id": "translator-1",
+  "idempotency_key": "translation_queue_filter_snapshot:snap_...:assign:translator-1:"
 }
 ```
 
-Snapshot execution reuses the current-page bulk action semantics per assignment. If an assignment was updated, removed, moved out of scope, denied by permissions, or no longer supports the action, that item is returned as a per-assignment failure. Snapshots are short-lived and actor-scoped; expired or cross-actor snapshot references are rejected before mutation.
+Snapshot execution supports the same `assign`, `release`, `priority`, and `archive` action set as current-page bulk actions. `assign` requires `assignee_id`; `priority` requires `priority`. Clients should send an `idempotency_key` for confirmed snapshot executions. Reusing the same key with the same payload returns the original response with `meta.idempotency_hit=true`; reusing it with a different payload is rejected as a conflict.
+
+Snapshot execution reuses the current-page bulk action semantics per assignment. If an assignment was updated, removed, no longer matches the snapshot filter scope, denied by permissions, or no longer supports the action, that item is returned as a per-assignment failure. Snapshots are short-lived and actor-scoped; expired or cross-actor snapshot references are rejected before mutation. Repositories that cannot resolve a snapshot filter efficiently must return an unsupported-filter error instead of falling back to broad assignment hydration.
 
 ### Queue grouping contract
 
