@@ -10,7 +10,9 @@ import (
 	"github.com/goliatone/go-admin/internal/primitives"
 	goerrors "github.com/goliatone/go-errors"
 	"github.com/google/uuid"
+	"maps"
 	"net/url"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -2880,10 +2882,8 @@ func validateServerFamilySort(sortBy string, explicit bool) error {
 	if sortBy == "" {
 		return nil
 	}
-	for _, key := range translationQueueServerFamilySupportedSortKeys() {
-		if sortBy == key {
-			return nil
-		}
+	if slices.Contains(translationQueueServerFamilySupportedSortKeys(), sortBy) {
+		return nil
 	}
 	if !explicit {
 		return nil
@@ -3034,9 +3034,7 @@ func cloneStringIntMap(input map[string]int) map[string]int {
 		return map[string]int{}
 	}
 	out := make(map[string]int, len(input))
-	for key, value := range input {
-		out[key] = value
-	}
+	maps.Copy(out, input)
 	return out
 }
 

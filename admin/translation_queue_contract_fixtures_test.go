@@ -53,6 +53,29 @@ func TestTranslationQueueContractFixtures(t *testing.T) {
 	if states == nil {
 		t.Fatalf("expected states payload")
 	}
+	serverFamily := extractMap(states["server_family_parent"])
+	serverFamilyMeta := extractMap(serverFamily["meta"])
+	serverFamilyGrouping := extractMap(serverFamilyMeta["grouping"])
+	if got := toString(serverFamilyGrouping["strategy"]); got != "server_family" {
+		t.Fatalf("expected server_family fixture strategy, got %+v", serverFamilyGrouping)
+	}
+	serverFamilyRows, _ := serverFamily["data"].([]any)
+	if len(serverFamilyRows) != 1 {
+		t.Fatalf("expected one server-family parent fixture row, got %+v", serverFamily)
+	}
+	serverFamilyRow := extractMap(serverFamilyRows[0])
+	if got := toString(serverFamilyRow["row_type"]); got != "family" {
+		t.Fatalf("expected server-family parent row_type family, got %+v", serverFamilyRow)
+	}
+	if expansion := extractMap(serverFamilyRow["expansion"]); toString(expansion["route"]) != "translations.assignments.family_assignments" {
+		t.Fatalf("expected server-family expansion route fixture, got %+v", expansion)
+	}
+	if unsupported := extractMap(extractMap(states["server_family_unsupported"])["error"]); toString(extractMap(unsupported["metadata"])["reason_code"]) != "grouped_query_unsupported" {
+		t.Fatalf("expected grouped_query_unsupported fixture, got %+v", unsupported)
+	}
+	if blockersUnavailable := extractMap(extractMap(states["server_family_blockers_unavailable"])["error"]); toString(extractMap(blockersUnavailable["metadata"])["reason_code"]) != "persisted_blockers_unavailable" {
+		t.Fatalf("expected persisted_blockers_unavailable fixture, got %+v", blockersUnavailable)
+	}
 	assertQueueStateActionCode(t, states, "open_pool", "claim", "", true)
 	assertQueueStateActionCode(t, states, "review_ready", "approve", "", true)
 	assertQueueStateActionCode(t, states, "review_ready", "archive", "", true)

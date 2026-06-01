@@ -197,6 +197,141 @@
     ]
   },
   "states": {
+    "server_family_parent": {
+      "data": [
+        {
+          "action_hints": {
+            "claimable_count": 1,
+            "reviewable_count": 1
+          },
+          "action_state": {
+            "message": "Family actions are available on child assignment rows.",
+            "scope": "children"
+          },
+          "assignment_count": 2,
+          "due_state_counts": {
+            "overdue": 1,
+            "soon": 1
+          },
+          "entity_type": "pages",
+          "expansion": {
+            "href": "/admin/api/translations/assignments/families/tg-server-1/assignments?order=desc&page=1&per_page=25&sort=updated_at",
+            "params": {
+              "family_id": "tg-server-1"
+            },
+            "query": {
+              "order": "desc",
+              "page": 1,
+              "per_page": 25,
+              "sort": "updated_at"
+            },
+            "route": "translations.assignments.family_assignments"
+          },
+          "family_blocker_count": null,
+          "family_blocker_count_available": false,
+          "family_blocker_count_reason": "persisted_blockers_unavailable",
+          "family_id": "tg-server-1",
+          "family_label": "Launch page family",
+          "id": "family:tg-server-1",
+          "locale_count": 2,
+          "priority_counts": {
+            "high": 1,
+            "normal": 1
+          },
+          "row_type": "family",
+          "source_locale": "en",
+          "source_path": "/launch",
+          "source_record_id": "page-1",
+          "source_title": "Launch page family",
+          "status_counts": {
+            "in_review": 1,
+            "open": 1
+          },
+          "target_locales": [
+            "es",
+            "fr"
+          ]
+        }
+      ],
+      "meta": {
+        "assignment_total": 2,
+        "family_total": 1,
+        "grouping": {
+          "assignment_total": 2,
+          "capabilities": {
+            "server_family": {
+              "supported": true
+            }
+          },
+          "enabled": true,
+          "family_total": 1,
+          "group_by": "family_id",
+          "scope": "filtered_queue",
+          "strategy": "server_family",
+          "supported_sort_keys": [
+            "updated_at",
+            "created_at",
+            "due_date",
+            "due_state",
+            "priority"
+          ]
+        },
+        "page": 1,
+        "per_page": 25,
+        "total": 1
+      },
+      "status": 200
+    },
+    "server_family_children": {
+      "data": [],
+      "meta": {
+        "family_id": "tg-server-1",
+        "has_next": false,
+        "order": "desc",
+        "page": 1,
+        "per_page": 25,
+        "sort": "updated_at",
+        "total": 0
+      },
+      "status": 200
+    },
+    "server_family_unsupported": {
+      "error": {
+        "category": "validation",
+        "code": 400,
+        "message": "server-side family grouping is not supported for this repository",
+        "metadata": {
+          "code": "TRANSLATION_QUEUE_GROUPING_UNSUPPORTED",
+          "fallback_modes": [
+            "flat",
+            "page_local_family"
+          ],
+          "field": "group_strategy",
+          "group_strategy": "server_family",
+          "reason_code": "grouped_query_unsupported"
+        },
+        "severity": "ERROR",
+        "text_code": "VALIDATION_ERROR"
+      },
+      "status": 400
+    },
+    "server_family_blockers_unavailable": {
+      "error": {
+        "category": "validation",
+        "code": 400,
+        "message": "persisted family blocker aggregates are unavailable for this query",
+        "metadata": {
+          "code": "TRANSLATION_QUEUE_GROUPING_UNSUPPORTED",
+          "field": "review_state",
+          "group_strategy": "server_family",
+          "reason_code": "persisted_blockers_unavailable",
+          "review_state": "qa_blocked"
+        },
+        "severity": "ERROR",
+        "text_code": "VALIDATION_ERROR"
+      },
+      "status": 400
+    },
     "open_pool": {
       "data": [
         {
