@@ -117,7 +117,7 @@ func isUsableAuthSSOLoginURL(raw string) bool {
 		return false
 	}
 	if parsed.Scheme == "" {
-		return true
+		return parsed.Host == ""
 	}
 	switch strings.ToLower(parsed.Scheme) {
 	case "http", "https":
