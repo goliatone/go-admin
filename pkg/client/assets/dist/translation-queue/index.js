@@ -130,13 +130,13 @@ function Ne(s) {
     };
 }
 function He(s) {
-  const e = m(s), t = e.enabled === !0, a = h(e.warning_count), i = h(e.blocker_count), r = h(e.finding_count);
-  if (!(!t && a <= 0 && i <= 0 && r <= 0))
+  const e = m(s), t = e.enabled === !0, a = h(e.warning_count), i = h(e.blocker_count), l = h(e.finding_count);
+  if (!(!t && a <= 0 && i <= 0 && l <= 0))
     return {
       enabled: t,
       warning_count: a,
       blocker_count: i,
-      finding_count: r
+      finding_count: l
     };
 }
 function K(s) {
@@ -319,8 +319,8 @@ function Je(s = {}) {
 }
 function Ze(s = {}) {
   const e = {}, t = (a, i) => {
-    const r = n(i);
-    r && (e[a] = r);
+    const l = n(i);
+    l && (e[a] = l);
   };
   return t("status", s.status), t("assignee_id", s.assigneeId), t("reviewer_id", s.reviewerId), t("due_state", s.dueState), t("locale", s.locale), t("priority", s.priority), t("review_state", s.reviewState), t("family_id", s.familyId), t("sort", s.sort), t("order", s.order), e;
 }
@@ -370,12 +370,12 @@ function $(s) {
   };
 }
 function tt(s, e) {
-  const t = m(s), a = m(t.expansion), i = m(a.params), r = n(t.family_id);
+  const t = m(s), a = m(t.expansion), i = m(a.params), l = n(t.family_id);
   return {
-    id: n(t.id) || `family:${r}`,
+    id: n(t.id) || `family:${l}`,
     row_type: "family",
-    family_id: r,
-    family_label: n(t.family_label) || n(t.source_title) || r,
+    family_id: l,
+    family_label: n(t.family_label) || n(t.source_title) || l,
     entity_type: n(t.entity_type),
     source_record_id: n(t.source_record_id),
     source_locale: n(t.source_locale),
@@ -406,10 +406,10 @@ function tt(s, e) {
     expansion: {
       href: n(a.href),
       route: n(a.route),
-      params: Object.fromEntries(Object.entries(i).map(([d, o]) => [d, n(o)])),
+      params: Object.fromEntries(Object.entries(i).map(([d, r]) => [d, n(r)])),
       query: m(a.query)
     },
-    expanded: e.has(r),
+    expanded: e.has(l),
     children: []
   };
 }
@@ -458,12 +458,12 @@ async function rt(s, e = {}) {
 async function W(s, e, t, a) {
   const i = { expected_version: a.expected_version };
   a.idempotency_key && (i.idempotency_key = a.idempotency_key), a.reason && (i.reason = a.reason);
-  const r = await C(`${s}/${encodeURIComponent(e)}/actions/${t}`, {
+  const l = await C(`${s}/${encodeURIComponent(e)}/actions/${t}`, {
     method: "POST",
     json: i
   });
-  if (!r.ok) throw await L(r, `Failed to ${t} assignment`);
-  return it(await r.json());
+  if (!l.ok) throw await L(l, `Failed to ${t} assignment`);
+  return it(await l.json());
 }
 function nt(s, e, t) {
   return W(s, e, "claim", t);
@@ -572,17 +572,17 @@ function pt(s) {
   return !!s.review_actions.archive.enabled;
 }
 function H(s, e) {
-  const t = [], a = e.has(`claim:${s.id}`), i = e.has(`release:${s.id}`), r = e.has(`approve:${s.id}`), d = e.has(`reject:${s.id}`), o = e.has(`archive:${s.id}`), l = s.actions.claim.enabled && !a;
+  const t = [], a = e.has(`claim:${s.id}`), i = e.has(`release:${s.id}`), l = e.has(`approve:${s.id}`), d = e.has(`reject:${s.id}`), r = e.has(`archive:${s.id}`), o = s.actions.claim.enabled && !a;
   t.push({
     type: "claim",
     category: "lifecycle",
     label: a ? "Claiming…" : "Claim",
-    enabled: l,
+    enabled: o,
     disabledReason: s.actions.claim.reason || "Claim assignment",
     pending: a,
     pendingLabel: "Claiming assignment…",
     dataAction: "claim",
-    ariaLabel: l ? "Claim assignment" : s.actions.claim.reason || "Cannot claim assignment",
+    ariaLabel: o ? "Claim assignment" : s.actions.claim.reason || "Cannot claim assignment",
     buttonClass: v
   });
   const p = s.actions.release.enabled && !i;
@@ -598,14 +598,14 @@ function H(s, e) {
     ariaLabel: p ? "Release assignment" : s.actions.release.reason || "Cannot release assignment",
     buttonClass: v
   }), ut(s)) {
-    const f = s.review_actions.approve.enabled && !r;
+    const f = s.review_actions.approve.enabled && !l;
     t.push({
       type: "approve",
       category: "review",
-      label: r ? "Approving…" : "Approve",
+      label: l ? "Approving…" : "Approve",
       enabled: f,
       disabledReason: s.review_actions.approve.reason || "Approve assignment",
-      pending: r,
+      pending: l,
       pendingLabel: "Approving assignment…",
       dataAction: "approve",
       ariaLabel: f ? "Approve assignment" : s.review_actions.approve.reason || "Cannot approve assignment",
@@ -626,14 +626,14 @@ function H(s, e) {
     });
   }
   if (pt(s)) {
-    const f = s.review_actions.archive.enabled && !o;
+    const f = s.review_actions.archive.enabled && !r;
     t.push({
       type: "archive",
       category: "management",
-      label: o ? "Archiving…" : "Archive",
+      label: r ? "Archiving…" : "Archive",
       enabled: f,
       disabledReason: s.review_actions.archive.reason || "Archive assignment",
-      pending: o,
+      pending: r,
       pendingLabel: "Archiving assignment…",
       dataAction: "archive",
       ariaLabel: f ? "Archive assignment" : s.review_actions.archive.reason || "Cannot archive assignment",
@@ -644,7 +644,7 @@ function H(s, e) {
 }
 function Q(s, e) {
   if (ne(re(e))) {
-    const i = s.find((r) => r.category === "review" && r.enabled);
+    const i = s.find((l) => l.category === "review" && l.enabled);
     if (i) return i;
   }
   const t = s.find((i) => i.type === "claim" && i.enabled);
@@ -653,26 +653,29 @@ function Q(s, e) {
   return a || s[0];
 }
 function U(s, e, t) {
-  if (e.length <= 2) return e.map((r) => `
+  const a = (d) => d === "review" ? "review" : d === "management" ? "manage" : "lifecycle";
+  if (e.length <= 2) return e.map((d) => `
       <button
         type="button"
-        class="${r.buttonClass}"
-        data-action="${c(r.dataAction)}"
+        class="${d.buttonClass}"
+        data-action="${c(d.dataAction)}"
+        data-action-group="${c(a(d.category))}"
         data-assignment-id="${c(s.id)}"
-        ${r.enabled ? "" : "disabled"}
-        aria-disabled="${r.enabled ? "false" : "true"}"
-        title="${c(r.pending ? r.pendingLabel : r.disabledReason)}"
+        ${d.enabled ? "" : "disabled"}
+        aria-disabled="${d.enabled ? "false" : "true"}"
+        title="${c(d.pending ? d.pendingLabel : d.disabledReason)}"
       >
-        ${u(r.label)}
+        ${u(d.label)}
       </button>
     `).join("");
-  const a = e.filter((r) => r !== t), i = `menu-${s.id}`;
+  const i = e.filter((d) => d !== t), l = `menu-${s.id}`;
   return `
     <div class="queue-action-overflow-container">
       <button
         type="button"
         class="${t.buttonClass}"
         data-action="${c(t.dataAction)}"
+        data-action-group="${c(a(t.category))}"
         data-assignment-id="${c(s.id)}"
         ${t.enabled ? "" : "disabled"}
         aria-disabled="${t.enabled ? "false" : "true"}"
@@ -692,23 +695,24 @@ function U(s, e, t) {
       </button>
       <div
         class="queue-action-overflow-menu"
-        id="${c(i)}"
+        id="${c(l)}"
         role="menu"
         hidden
       >
-        ${a.map((r) => `
+        ${i.map((d) => `
           <button
             type="button"
             role="menuitem"
             class="queue-action-menu-item"
-            data-action="${c(r.dataAction)}"
+            data-action="${c(d.dataAction)}"
+            data-action-group="${c(a(d.category))}"
             data-assignment-id="${c(s.id)}"
-            ${r.enabled ? "" : "disabled"}
-            aria-disabled="${r.enabled ? "false" : "true"}"
-            title="${c(r.pending ? r.pendingLabel : r.disabledReason)}"
+            ${d.enabled ? "" : "disabled"}
+            aria-disabled="${d.enabled ? "false" : "true"}"
+            title="${c(d.pending ? d.pendingLabel : d.disabledReason)}"
           >
-            ${u(r.label)}
-            ${r.pending ? `<span class="action-pending-label">${u(r.pendingLabel)}</span>` : ""}
+            ${u(d.label)}
+            ${d.pending ? `<span class="action-pending-label">${u(d.pendingLabel)}</span>` : ""}
           </button>
         `).join("")}
       </div>
@@ -739,8 +743,8 @@ var oe = class w extends we {
       order: "desc",
       page: 1
     };
-    const r = he(w.PANEL_ID);
-    r && (this.viewMode = r, this.viewMode === "grouped" ? this.queryState.groupBy = "family_id" : this.viewMode === "server_family" && (this.queryState.groupBy = "family_id", this.queryState.groupStrategy = "server_family")), this.expandedGroups = ue(w.PANEL_ID);
+    const l = he(w.PANEL_ID);
+    l && (this.viewMode = l, this.viewMode === "grouped" ? this.queryState.groupBy = "family_id" : this.viewMode === "server_family" && (this.queryState.groupBy = "family_id", this.queryState.groupStrategy = "server_family")), this.expandedGroups = ue(w.PANEL_ID);
   }
   mount(e) {
     this.container = e, this.loadFiltersExpandedState(), this.render(), this.load();
@@ -840,15 +844,15 @@ var oe = class w extends we {
         reason: t?.reason,
         priority: t?.priority
       });
-      for (const r of i.data.results) if (r.success && r.assignment) {
-        const d = this.rows.findIndex((o) => o.id === r.assignmentId);
-        d >= 0 && (this.rows[d] = _(r.assignment)), this.selectedRows.delete(r.assignmentId);
+      for (const l of i.data.results) if (l.success && l.assignment) {
+        const d = this.rows.findIndex((r) => r.id === l.assignmentId);
+        d >= 0 && (this.rows[d] = _(l.assignment)), this.selectedRows.delete(l.assignmentId);
       }
       if (i.data.failed > 0) {
-        const r = i.data.results.filter((d) => !d.success).map((d) => d.assignmentId).slice(0, 3);
+        const l = i.data.results.filter((d) => !d.success).map((d) => d.assignmentId).slice(0, 3);
         this.feedback = {
           kind: "error",
-          message: `${i.data.succeeded} succeeded, ${i.data.failed} failed. Failed: ${r.join(", ")}${i.data.failed > 3 ? "..." : ""}`
+          message: `${i.data.succeeded} succeeded, ${i.data.failed} failed. Failed: ${l.join(", ")}${i.data.failed > 3 ? "..." : ""}`
         };
       } else this.feedback = {
         kind: "success",
@@ -871,14 +875,14 @@ var oe = class w extends we {
     }
     const i = t || this.promptFilterSnapshotActionOptions(e);
     if (i === null) return;
-    const r = a.filterSummary.length ? `
+    const l = a.filterSummary || [], d = l.length ? `
 
-${a.filterSummary.join(`
+${l.join(`
 `)}` : "";
-    if (typeof window > "u" || typeof window.confirm != "function" || window.confirm(`Apply ${e} to ${a.requested} matching assignment${a.requested !== 1 ? "s" : ""}?${r}`)) {
+    if (typeof window > "u" || typeof window.confirm != "function" || window.confirm(`Apply ${e} to ${a.requested} matching assignment${a.requested !== 1 ? "s" : ""}?${d}`)) {
       this.bulkActionPending = !0, this.feedback = null, this.render();
       try {
-        const d = await this.executeBulkAction({
+        const r = await this.executeBulkAction({
           action: e,
           selectionScope: "filter_snapshot",
           snapshotId: a.snapshotId,
@@ -886,15 +890,15 @@ ${a.filterSummary.join(`
           priority: i.priority,
           idempotencyKey: We(a.snapshotId, e, i)
         });
-        d.data.failed > 0 ? this.feedback = {
+        r.data.failed > 0 ? this.feedback = {
           kind: "error",
-          message: `${d.data.succeeded} succeeded, ${d.data.failed} failed.`
+          message: `${r.data.succeeded} succeeded, ${r.data.failed} failed.`
         } : this.feedback = {
           kind: "success",
-          message: `${d.data.succeeded} assignment${d.data.succeeded !== 1 ? "s" : ""} updated.`
+          message: `${r.data.succeeded} assignment${r.data.succeeded !== 1 ? "s" : ""} updated.`
         }, this.filterSnapshot = null, this.selectedRows.clear(), await this.load();
-      } catch (d) {
-        this.feedback = R(d, `Bulk ${e} failed.`);
+      } catch (r) {
+        this.feedback = R(r, `Bulk ${e} failed.`);
       } finally {
         this.bulkActionPending = !1, this.render();
       }
@@ -932,12 +936,12 @@ ${a.filterSummary.join(`
       }
     });
     if (!t.ok) throw await L(t, `Bulk ${e.action} failed`);
-    const a = m(await t.json()), i = m(a.data), r = m(a.meta), d = Array.isArray(i.results) ? i.results : [], o = h(r.requested), l = h(r.succeeded), p = h(r.failed), f = r.partial === !0, g = n(r.selection_scope) || "current_page";
+    const a = m(await t.json()), i = m(a.data), l = m(a.meta), d = Array.isArray(i.results) ? i.results : [], r = h(l.requested), o = h(l.succeeded), p = h(l.failed), f = l.partial === !0, g = n(l.selection_scope) || "current_page";
     return {
       data: {
         action: n(i.action) || e.action,
-        requested: o,
-        succeeded: l,
+        requested: r,
+        succeeded: o,
         failed: p,
         partial: f,
         selectionScope: g,
@@ -954,8 +958,8 @@ ${a.filterSummary.join(`
       },
       meta: {
         action: n(i.action) || e.action,
-        requested: o,
-        succeeded: l,
+        requested: r,
+        succeeded: o,
         failed: p,
         partial: f,
         selection_scope: g
@@ -1040,7 +1044,7 @@ ${a.filterSummary.join(`
       t.loading = !0, t.error = "", this.render();
       try {
         const a = await at(t.expansion);
-        t.children = a.rows, t.childMeta = a.meta, this.rows = this.serverFamilyRows.flatMap((i) => i.children.map((r) => _(r)));
+        t.children = a.rows, t.childMeta = a.meta, this.rows = this.serverFamilyRows.flatMap((i) => i.children.map((l) => _(l)));
       } catch (a) {
         t.error = a instanceof Error ? a.message : "Failed to load family assignments.";
       } finally {
@@ -1067,46 +1071,46 @@ ${a.filterSummary.join(`
     this.groupedData && (this.groupedData = fe(this.groupedData), this.expandedGroups = j(this.groupedData), x(w.PANEL_ID, this.expandedGroups), this.render());
   }
   async runInlineAction(e, t) {
-    const a = this.rows.findIndex((l) => l.id === t);
+    const a = this.rows.findIndex((o) => o.id === t);
     if (a < 0) return;
-    const i = this.rows[a], r = i.actions[e];
-    if (!r.enabled) {
+    const i = this.rows[a], l = i.actions[e];
+    if (!l.enabled) {
       this.feedback = {
-        kind: r.reason_code === "PERMISSION_DENIED" ? "error" : "conflict",
-        message: r.reason || `Cannot ${e} this assignment.`,
-        code: r.reason_code || null
+        kind: l.reason_code === "PERMISSION_DENIED" ? "error" : "conflict",
+        message: l.reason || `Cannot ${e} this assignment.`,
+        code: l.reason_code || null
       }, this.render();
       return;
     }
-    const d = _(i), o = `${e}:${t}`;
-    this.pendingActions.add(o), this.feedback = null, this.rows[a] = ct(i, e), this.replaceCachedRow(this.rows[a]), this.render();
+    const d = _(i), r = `${e}:${t}`;
+    this.pendingActions.add(r), this.feedback = null, this.rows[a] = ct(i, e), this.replaceCachedRow(this.rows[a]), this.render();
     try {
-      const l = e === "claim" ? await nt(this.config.endpoint, t, {
+      const o = e === "claim" ? await nt(this.config.endpoint, t, {
         expected_version: d.version,
         idempotency_key: se("claim", d)
       }) : await ot(this.config.endpoint, t, {
         expected_version: d.version,
         idempotency_key: se("release", d)
       });
-      this.rows[a] = _(l.data.assignment), this.replaceCachedRow(this.rows[a]), this.feedback = {
+      this.rows[a] = _(o.data.assignment), this.replaceCachedRow(this.rows[a]), this.feedback = {
         kind: "success",
         message: e === "claim" ? "Assignment claimed." : "Assignment released back to the pool."
       };
-    } catch (l) {
-      this.rows[a] = d, this.replaceCachedRow(d), this.feedback = R(l, `Failed to ${e} assignment.`);
+    } catch (o) {
+      this.rows[a] = d, this.replaceCachedRow(d), this.feedback = R(o, `Failed to ${e} assignment.`);
     } finally {
-      this.pendingActions.delete(o), this.render();
+      this.pendingActions.delete(r), this.render();
     }
   }
   async runReviewAction(e, t) {
-    const a = this.rows.findIndex((l) => l.id === t);
+    const a = this.rows.findIndex((o) => o.id === t);
     if (a < 0) return;
-    const i = this.rows[a], r = i.review_actions[e];
-    if (!r?.enabled) {
+    const i = this.rows[a], l = i.review_actions[e];
+    if (!l?.enabled) {
       this.feedback = {
-        kind: r?.reason_code === "PERMISSION_DENIED" ? "error" : "conflict",
-        message: r?.reason || `Cannot ${e} this assignment.`,
-        code: r?.reason_code || null
+        kind: l?.reason_code === "PERMISSION_DENIED" ? "error" : "conflict",
+        message: l?.reason || `Cannot ${e} this assignment.`,
+        code: l?.reason_code || null
       }, this.render();
       return;
     }
@@ -1115,8 +1119,8 @@ ${a.filterSummary.join(`
       idempotency_key: lt(e, i)
     };
     if (e === "reject") {
-      const l = typeof window < "u" ? window.prompt("Reject reason") : "";
-      if (!l || !l.trim()) {
+      const o = typeof window < "u" ? window.prompt("Reject reason") : "";
+      if (!o || !o.trim()) {
         this.feedback = {
           kind: "error",
           message: "Reject reason is required.",
@@ -1124,20 +1128,20 @@ ${a.filterSummary.join(`
         }, this.render();
         return;
       }
-      d.reason = l.trim();
+      d.reason = o.trim();
     }
-    const o = `${e}:${t}`;
-    this.pendingActions.add(o), this.feedback = null, this.render();
+    const r = `${e}:${t}`;
+    this.pendingActions.add(r), this.feedback = null, this.render();
     try {
-      const l = await W(this.config.endpoint, t, e, d);
-      this.rows[a] = _(l.data.assignment), this.replaceCachedRow(this.rows[a]), this.feedback = {
+      const o = await W(this.config.endpoint, t, e, d);
+      this.rows[a] = _(o.data.assignment), this.replaceCachedRow(this.rows[a]), this.feedback = {
         kind: "success",
         message: e === "approve" ? "Assignment approved." : e === "reject" ? "Changes requested." : "Assignment archived."
       };
-    } catch (l) {
-      this.feedback = R(l, `Failed to ${e} assignment.`);
+    } catch (o) {
+      this.feedback = R(o, `Failed to ${e} assignment.`);
     } finally {
-      this.pendingActions.delete(o), this.render();
+      this.pendingActions.delete(r), this.render();
     }
   }
   setActivePreset(e) {
@@ -1392,12 +1396,12 @@ ${a.filterSummary.join(`
   renderFilterSnapshotBar() {
     const e = this.response?.meta.total ?? 0, t = this.visibleRows.length;
     if (this.viewMode === "server_family") {
-      const r = this.response?.meta.assignment_total ?? this.response?.meta.grouping?.assignment_total ?? 0;
+      const l = this.response?.meta.assignment_total ?? this.response?.meta.grouping?.assignment_total ?? 0;
       return `
         <section class="filter-snapshot-bar" data-filter-snapshot-bar="true" aria-label="Server-side family pagination">
           <div class="filter-snapshot-copy">
             <strong>${e} ${e === 1 ? "family" : "families"} match current filters</strong>
-            <span>${this.serverFamilyRows.length} visible on this family page · ${r} matching assignments</span>
+            <span>${this.serverFamilyRows.length} visible on this family page · ${l} matching assignments</span>
           </div>
         </section>
       `;
@@ -1405,12 +1409,12 @@ ${a.filterSummary.join(`
     if (e === 0 && !this.filterSnapshot) return "";
     const a = this.filterSnapshot, i = this.bulkSnapshotPending || this.bulkActionPending;
     if (a) {
-      const r = a.filterSummary.slice(0, 4);
+      const l = (a.filterSummary || []).slice(0, 4);
       return `
         <section class="filter-snapshot-bar" data-filter-snapshot-bar="true" aria-label="All matching filter selection">
           <div class="filter-snapshot-copy">
             <strong>${a.requested} matching assignment${a.requested !== 1 ? "s" : ""} selected</strong>
-            ${r.length ? `<span>${r.map((d) => u(d)).join(" · ")}</span>` : ""}
+            ${l.length ? `<span>${l.map((d) => u(d)).join(" · ")}</span>` : ""}
           </div>
           <div class="filter-snapshot-actions">
             <button type="button" class="${v}" data-filter-snapshot-clear="true" ${i ? "disabled" : ""}>Clear</button>
@@ -1485,7 +1489,7 @@ ${a.filterSummary.join(`
     `;
   }
   renderViewModeToggle() {
-    const e = this.viewMode === "grouped", t = this.viewMode === "server_family", a = !e && !t, i = this.groupedData?.totalGroups ?? 0, r = this.response?.meta.grouping?.assignment_count ?? this.rows.length, d = this.response?.meta.grouping?.capabilities?.server_family?.supported === !0, o = this.response?.meta.grouping?.family_total ?? this.response?.meta.family_total ?? this.serverFamilyRows.length, l = this.response?.meta.grouping?.assignment_total ?? this.response?.meta.assignment_total ?? 0;
+    const e = this.viewMode === "grouped", t = this.viewMode === "server_family", a = !e && !t, i = this.groupedData?.totalGroups ?? 0, l = this.response?.meta.grouping?.assignment_count ?? this.rows.length, d = this.response?.meta.grouping?.capabilities?.server_family?.supported === !0, r = this.response?.meta.grouping?.family_total ?? this.response?.meta.family_total ?? this.serverFamilyRows.length, o = this.response?.meta.grouping?.assignment_total ?? this.response?.meta.assignment_total ?? 0;
     return `
       <div class="assignment-queue-view-mode" role="group" aria-label="View mode">
         <div class="view-mode-buttons">
@@ -1531,7 +1535,7 @@ ${a.filterSummary.join(`
         </div>
         ${e && this.groupedData ? `
           <div class="view-mode-info">
-            <span class="view-mode-count">${i} ${i === 1 ? "family" : "families"} · ${r} assignments</span>
+            <span class="view-mode-count">${i} ${i === 1 ? "family" : "families"} · ${l} assignments</span>
             <span class="view-mode-scope">(page-local counts)</span>
             <button type="button" class="view-mode-expand-all" data-expand-all="true" title="Expand all groups">
               Expand all
@@ -1543,7 +1547,7 @@ ${a.filterSummary.join(`
         ` : ""}
         ${t ? `
           <div class="view-mode-info">
-            <span class="view-mode-count">${o} ${o === 1 ? "family" : "families"} · ${l} assignments</span>
+            <span class="view-mode-count">${r} ${r === 1 ? "family" : "families"} · ${o} assignments</span>
             <span class="view-mode-scope">(server-side family pages)</span>
             <button type="button" class="view-mode-expand-all" data-expand-all="true" title="Expand visible families">
               Expand all
@@ -1577,7 +1581,7 @@ ${a.filterSummary.join(`
       "normal",
       "high",
       "urgent"
-    ], r = ["", ...O(e.map((g) => g.target_locale))], d = ["", ...O(e.map((g) => g.assignee_id))], o = ["", ...O(e.map((g) => g.reviewer_id))], l = this.response?.meta.supported_sort_keys?.length ? this.response.meta.supported_sort_keys : [
+    ], l = ["", ...O(e.map((g) => g.target_locale))], d = ["", ...O(e.map((g) => g.assignee_id))], r = ["", ...O(e.map((g) => g.reviewer_id))], o = this.response?.meta.supported_sort_keys?.length ? this.response.meta.supported_sort_keys : [
       "updated_at",
       "due_date",
       "priority",
@@ -1604,7 +1608,7 @@ ${a.filterSummary.join(`
             </svg>
           </button>
           <div class="flex items-center gap-3">
-            ${this.renderSortControls(l)}
+            ${this.renderSortControls(o)}
           </div>
         </div>
         ${this.renderFilterChips()}
@@ -1617,9 +1621,9 @@ ${a.filterSummary.join(`
             ${this.renderSelect("status", "Status", t, this.queryState.status || "")}
             ${this.renderSelect("due_state", "Due State", ["", ...a], this.queryState.dueState || "")}
             ${this.renderSelect("priority", "Priority", i, this.queryState.priority || "")}
-            ${this.renderSelect("locale", "Locale", r, this.queryState.locale || "")}
+            ${this.renderSelect("locale", "Locale", l, this.queryState.locale || "")}
             ${this.renderSelect("assignee_id", "Assignee", d, this.queryState.assigneeId || "")}
-            ${this.renderSelect("reviewer_id", "Reviewer", o, this.queryState.reviewerId || "")}
+            ${this.renderSelect("reviewer_id", "Reviewer", r, this.queryState.reviewerId || "")}
           </div>
           ${p > 0 ? `
             <div class="mt-4 flex items-center gap-2">
@@ -1663,12 +1667,12 @@ ${a.filterSummary.join(`
     `;
   }
   renderSelect(e, t, a, i) {
-    const r = [...a];
-    return i && !r.includes(i) && r.push(i), `
+    const l = [...a];
+    return i && !l.includes(i) && l.push(i), `
       <label class="queue-filter-field">
         <span>${u(t)}</span>
         <select data-filter-name="${c(e)}">
-          ${r.map((d) => `
+          ${l.map((d) => `
             <option value="${c(d)}" ${d === i ? "selected" : ""}>
               ${u(d ? b(d) : `All ${t.toLowerCase()}`)}
             </option>
@@ -1757,7 +1761,7 @@ ${a.filterSummary.join(`
     `;
   }
   renderServerFamilyRows(e, t) {
-    const a = e.expanded ? "▼" : "▶", i = this.renderServerFamilyBlocker(e), r = e.expanded ? e.loading ? `<tr class="family-group-child"><td></td><td colspan="${t - 1}">Loading family assignments…</td></tr>` : e.error ? `<tr class="family-group-child"><td></td><td colspan="${t - 1}">${u(e.error)}</td></tr>` : e.children.map((d) => this.renderGroupChildRow(d, e.family_id)).join("") : "";
+    const a = e.expanded ? "▼" : "▶", i = this.renderServerFamilyBlocker(e), l = e.expanded ? e.loading ? `<tr class="family-group-child"><td></td><td colspan="${t - 1}">Loading family assignments…</td></tr>` : e.error ? `<tr class="family-group-child"><td></td><td colspan="${t - 1}">${u(e.error)}</td></tr>` : e.children.map((d) => this.renderGroupChildRow(d, e.family_id)).join("") : "";
     return `
       <tr class="family-group-header server-family-header ${e.expanded ? "is-expanded" : "is-collapsed"}"
           data-group-id="${c(e.family_id)}"
@@ -1783,7 +1787,7 @@ ${a.filterSummary.join(`
           </div>
         </td>
       </tr>
-      ${r}
+      ${l}
     `;
   }
   renderServerFamilyMobile(e) {
@@ -1854,7 +1858,7 @@ ${a.filterSummary.join(`
     `;
   }
   renderFamilyGroupRows(e, t) {
-    const a = ge(e, { size: "sm" }), i = u(e.displayLabel || this.deriveFamilyGroupLabel(e)), r = e.records.length, d = e.expanded ? "▼" : "▶";
+    const a = ge(e, { size: "sm" }), i = u(e.displayLabel || this.deriveFamilyGroupLabel(e)), l = e.records.length, d = e.expanded ? "▼" : "▶";
     return `
       <tr class="family-group-header ${e.expanded ? "is-expanded" : "is-collapsed"}"
           data-group-id="${c(e.groupId)}"
@@ -1872,7 +1876,7 @@ ${a.filterSummary.join(`
             </button>
             <div class="family-group-info">
               <strong class="family-group-label">${i}</strong>
-              <span class="family-group-count">${r} ${r === 1 ? "locale" : "locales"}</span>
+              <span class="family-group-count">${l} ${l === 1 ? "locale" : "locales"}</span>
             </div>
             <div class="family-group-summary">
               ${a}
@@ -1880,15 +1884,15 @@ ${a.filterSummary.join(`
           </div>
         </td>
       </tr>
-    ` + (e.expanded ? e.records.map((o) => {
-      const l = $(o);
-      return this.renderGroupChildRow(l, e.groupId);
+    ` + (e.expanded ? e.records.map((r) => {
+      const o = $(r);
+      return this.renderGroupChildRow(o, e.groupId);
     }).join("") : "");
   }
   renderGroupChildRow(e, t) {
-    const a = !!e.assignee_id, i = !!e.reviewer_id, r = !!e.due_date, d = r || e.due_state === "overdue" || e.due_state === "due_soon", o = this.isRowSelected(e.id);
+    const a = !!e.assignee_id, i = !!e.reviewer_id, l = !!e.due_date, d = l || e.due_state === "overdue" || e.due_state === "due_soon", r = this.isRowSelected(e.id);
     return `
-      <tr class="assignment-queue-row family-group-child ${o ? "is-selected" : ""}"
+      <tr class="assignment-queue-row family-group-child ${r ? "is-selected" : ""}"
           data-assignment-id="${c(e.id)}"
           data-parent-group="${c(t)}"
           data-assignment-row="true"
@@ -1900,7 +1904,7 @@ ${a.filterSummary.join(`
             type="checkbox"
             class="queue-row-select"
             data-select-row="${c(e.id)}"
-            ${o ? "checked" : ""}
+            ${r ? "checked" : ""}
             aria-label="Select assignment ${c(e.source_title || e.id)}"
           />
         </td>
@@ -1939,7 +1943,7 @@ ${a.filterSummary.join(`
         <td class="queue-due-col">
           <div class="queue-due-cell">
             ${d ? `<span class="due-pill due-${c(e.due_state)}">${u(b(e.due_state))}</span>` : ""}
-            ${r ? `<span class="queue-due-date">${u(z(e.due_date, ""))}</span>` : ""}
+            ${l ? `<span class="queue-due-date">${u(z(e.due_date, ""))}</span>` : ""}
           </div>
         </td>
         <td class="queue-priority-col">
@@ -1951,8 +1955,8 @@ ${a.filterSummary.join(`
         <td class="queue-action-col">
           <div class="queue-action-cell">
             ${(() => {
-      const l = H(e, this.pendingActions);
-      return U(e, l, Q(l, e));
+      const o = H(e, this.pendingActions);
+      return U(e, o, Q(o, e));
     })()}
           </div>
         </td>
@@ -1971,8 +1975,8 @@ ${a.filterSummary.join(`
           <span class="family-group-mobile-count">${a} ${a === 1 ? "locale" : "locales"}</span>
         </button>
       </div>
-    ` + (e.expanded ? e.records.map((r) => {
-      const d = $(r);
+    ` + (e.expanded ? e.records.map((l) => {
+      const d = $(l);
       return `<div class="family-group-mobile-child">${this.renderMobileCard(d)}</div>`;
     }).join("") : "");
   }
@@ -2025,17 +2029,17 @@ ${a.filterSummary.join(`
     `;
   }
   renderRow(e) {
-    const t = !!e.assignee_id, a = !!e.reviewer_id, i = !!e.due_date, r = i || e.due_state === "overdue" || e.due_state === "due_soon", d = [];
+    const t = !!e.assignee_id, a = !!e.reviewer_id, i = !!e.due_date, l = i || e.due_state === "overdue" || e.due_state === "due_soon", d = [];
     e.entity_type && d.push(e.entity_type), e.family_id && e.family_id !== e.source_path && d.push(e.family_id);
-    const o = d.join(" · "), l = this.isRowSelected(e.id);
+    const r = d.join(" · "), o = this.isRowSelected(e.id);
     return `
-      <tr class="assignment-queue-row ${l ? "is-selected" : ""}" tabindex="0" data-assignment-id="${c(e.id)}" data-assignment-row="true" data-assignment-nav-group="table" aria-label="${c(V(e))}">
+      <tr class="assignment-queue-row ${o ? "is-selected" : ""}" tabindex="0" data-assignment-id="${c(e.id)}" data-assignment-row="true" data-assignment-nav-group="table" aria-label="${c(V(e))}">
         <td class="queue-select-col">
           <input
             type="checkbox"
             class="queue-row-select"
             data-select-row="${c(e.id)}"
-            ${l ? "checked" : ""}
+            ${o ? "checked" : ""}
             aria-label="Select assignment ${c(e.source_title || e.id)}"
           />
         </td>
@@ -2043,7 +2047,7 @@ ${a.filterSummary.join(`
           <div class="queue-content-cell">
             <strong class="queue-content-title" title="${c(e.source_title || e.source_path || e.id)}">${u(e.source_title || e.source_path || e.id)}</strong>
             ${e.source_path && e.source_title ? `<span class="queue-content-path" title="${c(e.source_path)}">${u(e.source_path)}</span>` : ""}
-            ${o ? `<span class="queue-content-meta" title="${c(o)}">${u(o)}</span>` : ""}
+            ${r ? `<span class="queue-content-meta" title="${c(r)}">${u(r)}</span>` : ""}
           </div>
         </td>
         <td class="queue-locale-col">
@@ -2075,7 +2079,7 @@ ${a.filterSummary.join(`
         </td>
         <td class="queue-due-col">
           <div class="queue-due-cell">
-            ${r ? `<span class="due-pill due-${c(e.due_state)}">${u(b(e.due_state))}</span>` : ""}
+            ${l ? `<span class="due-pill due-${c(e.due_state)}">${u(b(e.due_state))}</span>` : ""}
             ${i ? `<span class="queue-due-date">${u(z(e.due_date, ""))}</span>` : ""}
           </div>
         </td>
@@ -2097,10 +2101,10 @@ ${a.filterSummary.join(`
     `;
   }
   renderMobileCard(e) {
-    const t = !!e.assignee_id, a = !!e.due_date, i = a || e.due_state === "overdue" || e.due_state === "due_soon", r = this.isRowSelected(e.id);
+    const t = !!e.assignee_id, a = !!e.due_date, i = a || e.due_state === "overdue" || e.due_state === "due_soon", l = this.isRowSelected(e.id);
     return `
       <article
-        class="${$e} ${r ? "is-selected" : ""}"
+        class="${$e} ${l ? "is-selected" : ""}"
         data-assignment-id="${c(e.id)}"
         data-assignment-card="true"
         data-assignment-nav-group="mobile"
@@ -2114,7 +2118,7 @@ ${a.filterSummary.join(`
               type="checkbox"
               class="queue-row-select"
               data-select-row="${c(e.id)}"
-              ${r ? "checked" : ""}
+              ${l ? "checked" : ""}
               aria-label="Select assignment ${c(e.source_title || e.id)}"
             />
           </div>
@@ -2170,22 +2174,22 @@ ${a.filterSummary.join(`
   }
   attachEventListeners() {
     if (!this.container) return;
-    this.container.querySelectorAll("[data-preset-id]").forEach((o) => {
-      o.addEventListener("click", () => {
-        const l = o.dataset.presetId;
-        l && this.setActivePreset(l);
+    this.container.querySelectorAll("[data-preset-id]").forEach((r) => {
+      r.addEventListener("click", () => {
+        const o = r.dataset.presetId;
+        o && this.setActivePreset(o);
       });
-    }), this.container.querySelectorAll("[data-review-preset-id]").forEach((o) => {
-      o.addEventListener("click", () => {
-        const l = o.dataset.reviewPresetId;
-        l && this.setActiveReviewPreset(l);
+    }), this.container.querySelectorAll("[data-review-preset-id]").forEach((r) => {
+      r.addEventListener("click", () => {
+        const o = r.dataset.reviewPresetId;
+        o && this.setActiveReviewPreset(o);
       });
-    }), this.container.querySelectorAll("[data-filter-name]").forEach((o) => {
-      o.addEventListener("change", () => {
-        const l = o.dataset.filterName;
-        if (!l) return;
-        const p = o.value.trim();
-        switch (l) {
+    }), this.container.querySelectorAll("[data-filter-name]").forEach((r) => {
+      r.addEventListener("change", () => {
+        const o = r.dataset.filterName;
+        if (!o) return;
+        const p = r.value.trim();
+        switch (o) {
           case "status":
             this.updateFilter({ status: p || void 0 });
             break;
@@ -2212,48 +2216,48 @@ ${a.filterSummary.join(`
             break;
         }
       });
-    }), this.container.querySelectorAll("[data-queue-refresh]").forEach((o) => {
-      o.addEventListener("click", () => {
+    }), this.container.querySelectorAll("[data-queue-refresh]").forEach((r) => {
+      r.addEventListener("click", () => {
         this.load();
       });
-    }), this.container.querySelectorAll("[data-filters-toggle]").forEach((o) => {
-      o.addEventListener("click", () => {
+    }), this.container.querySelectorAll("[data-filters-toggle]").forEach((r) => {
+      r.addEventListener("click", () => {
         this.toggleFiltersExpanded();
       });
-    }), this.container.querySelectorAll("[data-clear-filters]").forEach((o) => {
-      o.addEventListener("click", () => {
+    }), this.container.querySelectorAll("[data-clear-filters]").forEach((r) => {
+      r.addEventListener("click", () => {
         this.clearAllFilters();
       });
-    }), this.container.querySelectorAll("[data-remove-filter]").forEach((o) => {
-      o.addEventListener("click", () => {
-        const l = o.dataset.removeFilter;
-        l && this.removeFilter(l);
+    }), this.container.querySelectorAll("[data-remove-filter]").forEach((r) => {
+      r.addEventListener("click", () => {
+        const o = r.dataset.removeFilter;
+        o && this.removeFilter(o);
       });
-    }), this.container.querySelectorAll("[data-toggle-sort-order]").forEach((o) => {
-      o.addEventListener("click", () => {
-        const l = this.queryState.order || "desc";
-        this.updateFilter({ order: l === "asc" ? "desc" : "asc" });
+    }), this.container.querySelectorAll("[data-toggle-sort-order]").forEach((r) => {
+      r.addEventListener("click", () => {
+        const o = this.queryState.order || "desc";
+        this.updateFilter({ order: o === "asc" ? "desc" : "asc" });
       });
-    }), this.container.querySelectorAll("[data-action]").forEach((o) => {
-      o.addEventListener("click", () => {
-        const l = o.dataset.action, p = o.dataset.assignmentId;
-        if ((l === "claim" || l === "release") && p) {
-          this.runInlineAction(l, p);
+    }), this.container.querySelectorAll("[data-action]").forEach((r) => {
+      r.addEventListener("click", () => {
+        const o = r.dataset.action, p = r.dataset.assignmentId;
+        if ((o === "claim" || o === "release") && p) {
+          this.runInlineAction(o, p);
           return;
         }
-        (l === "approve" || l === "reject" || l === "archive") && p && this.runReviewAction(l, p);
+        (o === "approve" || o === "reject" || o === "archive") && p && this.runReviewAction(o, p);
       });
     });
     const e = this.container.querySelector("[data-select-all]");
     e && e.addEventListener("change", () => {
       e.checked ? this.selectAllPage() : this.clearSelection();
-    }), this.container.querySelectorAll("[data-select-row]").forEach((o) => {
-      o.addEventListener("change", (l) => {
-        l.stopPropagation();
-        const p = o.dataset.selectRow;
+    }), this.container.querySelectorAll("[data-select-row]").forEach((r) => {
+      r.addEventListener("change", (o) => {
+        o.stopPropagation();
+        const p = r.dataset.selectRow;
         p && this.toggleRowSelection(p);
-      }), o.addEventListener("click", (l) => {
-        l.stopPropagation();
+      }), r.addEventListener("click", (o) => {
+        o.stopPropagation();
       });
     });
     const t = this.container.querySelector("[data-bulk-clear]");
@@ -2267,31 +2271,31 @@ ${a.filterSummary.join(`
     const i = this.container.querySelector("[data-filter-snapshot-clear]");
     i && i.addEventListener("click", () => {
       this.clearSelection();
-    }), this.container.querySelectorAll("[data-filter-snapshot-action]").forEach((o) => {
-      o.addEventListener("click", () => {
-        const l = o.dataset.filterSnapshotAction;
-        (l === "assign" || l === "release" || l === "priority" || l === "archive") && this.runFilterSnapshotBulkAction(l);
+    }), this.container.querySelectorAll("[data-filter-snapshot-action]").forEach((r) => {
+      r.addEventListener("click", () => {
+        const o = r.dataset.filterSnapshotAction;
+        (o === "assign" || o === "release" || o === "priority" || o === "archive") && this.runFilterSnapshotBulkAction(o);
       });
-    }), this.container.querySelectorAll("[data-bulk-action]").forEach((o) => {
-      o.addEventListener("click", () => {
-        const l = o.dataset.bulkAction;
-        (l === "release" || l === "archive") && this.runBulkAction(l);
+    }), this.container.querySelectorAll("[data-bulk-action]").forEach((r) => {
+      r.addEventListener("click", () => {
+        const o = r.dataset.bulkAction;
+        (o === "release" || o === "archive") && this.runBulkAction(o);
       });
-    }), this.container.querySelectorAll("[data-view-mode]").forEach((o) => {
-      o.addEventListener("click", () => {
-        const l = o.dataset.viewMode;
-        (l === "flat" || l === "grouped" || l === "server_family") && this.setViewMode(l);
+    }), this.container.querySelectorAll("[data-view-mode]").forEach((r) => {
+      r.addEventListener("click", () => {
+        const o = r.dataset.viewMode;
+        (o === "flat" || o === "grouped" || o === "server_family") && this.setViewMode(o);
       });
-    }), this.container.querySelectorAll("[data-toggle-group]").forEach((o) => {
-      o.addEventListener("click", (l) => {
-        l.stopPropagation();
-        const p = o.dataset.toggleGroup;
+    }), this.container.querySelectorAll("[data-toggle-group]").forEach((r) => {
+      r.addEventListener("click", (o) => {
+        o.stopPropagation();
+        const p = r.dataset.toggleGroup;
         p && this.toggleGroupExpansion(p);
       });
-    }), this.container.querySelectorAll("[data-overflow-menu]").forEach((o) => {
-      o.addEventListener("click", (l) => {
-        l.stopPropagation();
-        const p = o.dataset.overflowMenu;
+    }), this.container.querySelectorAll("[data-overflow-menu]").forEach((r) => {
+      r.addEventListener("click", (o) => {
+        o.stopPropagation();
+        const p = r.dataset.overflowMenu;
         if (!p) return;
         const f = this.container?.querySelector(`#menu-${p}`);
         if (!f) return;
@@ -2300,53 +2304,53 @@ ${a.filterSummary.join(`
           k.hidden = !0;
         }), this.container?.querySelectorAll("[data-overflow-menu]").forEach((k) => {
           k.setAttribute("aria-expanded", "false");
-        }), g ? (f.hidden = !0, o.setAttribute("aria-expanded", "false")) : (f.hidden = !1, o.setAttribute("aria-expanded", "true"), f.querySelector('[role="menuitem"]:not([disabled])')?.focus());
+        }), g ? (f.hidden = !0, r.setAttribute("aria-expanded", "false")) : (f.hidden = !1, r.setAttribute("aria-expanded", "true"), f.querySelector('[role="menuitem"]:not([disabled])')?.focus());
       });
-    }), this.container && typeof this.container.addEventListener == "function" && this.container.addEventListener("click", (o) => {
-      o.target.closest(".queue-action-overflow-container") || (this.container?.querySelectorAll(".queue-action-overflow-menu").forEach((l) => {
-        l.hidden = !0;
-      }), this.container?.querySelectorAll("[data-overflow-menu]").forEach((l) => {
-        l.setAttribute("aria-expanded", "false");
+    }), this.container && typeof this.container.addEventListener == "function" && this.container.addEventListener("click", (r) => {
+      r.target.closest(".queue-action-overflow-container") || (this.container?.querySelectorAll(".queue-action-overflow-menu").forEach((o) => {
+        o.hidden = !0;
+      }), this.container?.querySelectorAll("[data-overflow-menu]").forEach((o) => {
+        o.setAttribute("aria-expanded", "false");
       }));
-    }), this.container.querySelectorAll(".queue-action-overflow-menu").forEach((o) => {
-      o.addEventListener("keydown", (l) => {
-        const p = Array.from(o.querySelectorAll('[role="menuitem"]:not([disabled])')), f = p.findIndex((g) => g === document.activeElement);
-        switch (l.key) {
+    }), this.container.querySelectorAll(".queue-action-overflow-menu").forEach((r) => {
+      r.addEventListener("keydown", (o) => {
+        const p = Array.from(r.querySelectorAll('[role="menuitem"]:not([disabled])')), f = p.findIndex((g) => g === document.activeElement);
+        switch (o.key) {
           case "Escape":
-            l.preventDefault(), o.hidden = !0;
-            const g = o.closest(".queue-action-overflow-container")?.querySelector("[data-overflow-menu]");
+            o.preventDefault(), r.hidden = !0;
+            const g = r.closest(".queue-action-overflow-container")?.querySelector("[data-overflow-menu]");
             g && (g.setAttribute("aria-expanded", "false"), g.focus());
             break;
           case "ArrowDown":
-            l.preventDefault(), f < p.length - 1 ? p[f + 1]?.focus() : p[0]?.focus();
+            o.preventDefault(), f < p.length - 1 ? p[f + 1]?.focus() : p[0]?.focus();
             break;
           case "ArrowUp":
-            l.preventDefault(), f > 0 ? p[f - 1]?.focus() : p[p.length - 1]?.focus();
+            o.preventDefault(), f > 0 ? p[f - 1]?.focus() : p[p.length - 1]?.focus();
             break;
           case "Tab":
-            o.hidden = !0;
-            const k = o.closest(".queue-action-overflow-container")?.querySelector("[data-overflow-menu]");
+            r.hidden = !0;
+            const k = r.closest(".queue-action-overflow-container")?.querySelector("[data-overflow-menu]");
             k && k.setAttribute("aria-expanded", "false");
             break;
         }
       });
     });
-    const r = this.container.querySelector("[data-expand-all]");
-    r && r.addEventListener("click", () => {
+    const l = this.container.querySelector("[data-expand-all]");
+    l && l.addEventListener("click", () => {
       this.expandAllFamilyGroups();
     });
     const d = this.container.querySelector("[data-collapse-all]");
     d && d.addEventListener("click", () => {
       this.collapseAllFamilyGroups();
-    }), this.container.querySelectorAll("[data-group-id]").forEach((o) => {
-      (o.tagName.toLowerCase() === "tr" || o.classList.contains("family-group-mobile-header")) && (o.addEventListener("click", (l) => {
-        if (l.target?.closest("button, a, input, select, textarea")) return;
-        const p = o.dataset.groupId;
+    }), this.container.querySelectorAll("[data-group-id]").forEach((r) => {
+      (r.tagName.toLowerCase() === "tr" || r.classList.contains("family-group-mobile-header")) && (r.addEventListener("click", (o) => {
+        if (o.target?.closest("button, a, input, select, textarea")) return;
+        const p = r.dataset.groupId;
         p && this.toggleGroupExpansion(p);
-      }), o.addEventListener("keydown", (l) => {
-        if (l.key === "Enter" || l.key === " ") {
-          l.preventDefault();
-          const p = o.dataset.groupId;
+      }), r.addEventListener("keydown", (o) => {
+        if (o.key === "Enter" || o.key === " ") {
+          o.preventDefault();
+          const p = r.dataset.groupId;
           p && this.toggleGroupExpansion(p);
         }
       }));
@@ -2363,11 +2367,11 @@ ${a.filterSummary.join(`
           return;
         }
         if (i !== "ArrowDown" && i !== "ArrowUp") return;
-        const r = t.dataset.assignmentNavGroup;
-        if (!r) return;
+        const l = t.dataset.assignmentNavGroup;
+        if (!l) return;
         a.preventDefault();
-        const d = Array.from(this.container?.querySelectorAll(`[data-assignment-nav-group="${r}"]`) || []), o = d.indexOf(t);
-        o < 0 || d[i === "ArrowDown" ? Math.min(o + 1, d.length - 1) : Math.max(o - 1, 0)]?.focus();
+        const d = Array.from(this.container?.querySelectorAll(`[data-assignment-nav-group="${l}"]`) || []), r = d.indexOf(t);
+        r < 0 || d[i === "ArrowDown" ? Math.min(r + 1, d.length - 1) : Math.max(r - 1, 0)]?.focus();
       });
     });
   }

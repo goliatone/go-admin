@@ -1211,6 +1211,13 @@ function selectPrimaryAction(actions: QueueAction[], row: AssignmentListRow): Qu
 
 // T06: Render action overflow menu
 function renderActionOverflow(row: AssignmentListRow, actions: QueueAction[], primaryAction: QueueAction): string {
+  // Helper to map category to data-action-group value
+  const getActionGroup = (category: string): string => {
+    if (category === 'review') return 'review';
+    if (category === 'management') return 'manage';
+    return 'lifecycle';
+  };
+
   // If 2 or fewer actions, render inline
   if (actions.length <= 2) {
     return actions.map(action => `
@@ -1218,6 +1225,7 @@ function renderActionOverflow(row: AssignmentListRow, actions: QueueAction[], pr
         type="button"
         class="${action.buttonClass}"
         data-action="${escapeAttr(action.dataAction)}"
+        data-action-group="${escapeAttr(getActionGroup(action.category))}"
         data-assignment-id="${escapeAttr(row.id)}"
         ${action.enabled ? '' : 'disabled'}
         aria-disabled="${action.enabled ? 'false' : 'true'}"
@@ -1238,6 +1246,7 @@ function renderActionOverflow(row: AssignmentListRow, actions: QueueAction[], pr
         type="button"
         class="${primaryAction.buttonClass}"
         data-action="${escapeAttr(primaryAction.dataAction)}"
+        data-action-group="${escapeAttr(getActionGroup(primaryAction.category))}"
         data-assignment-id="${escapeAttr(row.id)}"
         ${primaryAction.enabled ? '' : 'disabled'}
         aria-disabled="${primaryAction.enabled ? 'false' : 'true'}"
@@ -1267,6 +1276,7 @@ function renderActionOverflow(row: AssignmentListRow, actions: QueueAction[], pr
             role="menuitem"
             class="queue-action-menu-item"
             data-action="${escapeAttr(action.dataAction)}"
+            data-action-group="${escapeAttr(getActionGroup(action.category))}"
             data-assignment-id="${escapeAttr(row.id)}"
             ${action.enabled ? '' : 'disabled'}
             aria-disabled="${action.enabled ? 'false' : 'true'}"
@@ -1559,7 +1569,8 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
     if (actionOptions === null) {
       return;
     }
-    const summary = snapshot.filterSummary.length ? `\n\n${snapshot.filterSummary.join('\n')}` : '';
+    const filterSummary = snapshot.filterSummary || [];
+    const summary = filterSummary.length ? `\n\n${filterSummary.join('\n')}` : '';
     const confirmed = typeof window === 'undefined' || typeof window.confirm !== 'function'
       ? true
       : window.confirm(`Apply ${action} to ${snapshot.requested} matching assignment${snapshot.requested !== 1 ? 's' : ''}?${summary}`);
@@ -2352,7 +2363,7 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
     const snapshot = this.filterSnapshot;
     const isPending = this.bulkSnapshotPending || this.bulkActionPending;
     if (snapshot) {
-      const summary = snapshot.filterSummary.slice(0, 4);
+      const summary = (snapshot.filterSummary || []).slice(0, 4);
       return `
         <section class="filter-snapshot-bar" data-filter-snapshot-bar="true" aria-label="All matching filter selection">
           <div class="filter-snapshot-copy">
