@@ -1809,6 +1809,13 @@ func newTranslationQueueTestApp(t *testing.T, binding *translationQueueBinding) 
 		}
 		return writeJSON(c, payload)
 	})
+	r.Get("/admin/api/translations/assignments/families/:family_id/assignments", func(c router.Context) error {
+		payload, err := binding.FamilyAssignments(c, c.Param("family_id"))
+		if err != nil {
+			return writeError(c, err)
+		}
+		return writeJSON(c, payload)
+	})
 	r.Get("/admin/api/translations/assignments/:assignment_id", func(c router.Context) error {
 		payload, err := binding.AssignmentDetail(c, c.Param("assignment_id"))
 		if err != nil {

@@ -229,6 +229,7 @@ func newTestURLManager(basePath string) *urlkit.RouteManager {
 							"translations.matrix.actions.create_missing":  "/translations/matrix/actions/create-missing",
 							"translations.matrix.actions.export_selected": "/translations/matrix/actions/export-selected",
 							"translations.assignments":                    "/translations/assignments",
+							"translations.assignments.family_assignments": "/translations/assignments/families/:family_id/assignments",
 							"translations.assignments.id":                 "/translations/assignments/:assignment_id",
 							"translations.assignments.bulk_snapshot":      "/translations/assignment-actions/snapshot",
 							"translations.assignments.bulk_actions":       "/translations/assignment-actions/bulk",
@@ -1461,6 +1462,10 @@ func (s *stubTranslationQueueBinding) Assignments(_ router.Context) (any, error)
 	return map[string]any{"scope": "assignments"}, nil
 }
 
+func (s *stubTranslationQueueBinding) FamilyAssignments(_ router.Context, familyID string) (any, error) {
+	return map[string]any{"family_id": familyID}, nil
+}
+
 func (s *stubTranslationQueueBinding) AssignmentDetail(_ router.Context, id string) (any, error) {
 	s.assignmentDetailCalled++
 	return map[string]any{"assignment_id": id}, nil
@@ -1637,6 +1642,7 @@ func TestTranslationQueueRouteStepRegistersRoutes(t *testing.T) {
 	}
 	require.True(t, methodPaths["GET "+mustRoutePath(t, ctx, ctx.AdminAPIGroup(), "translations.dashboard")])
 	require.True(t, methodPaths["GET "+mustRoutePath(t, ctx, ctx.AdminAPIGroup(), "translations.assignments")])
+	require.True(t, methodPaths["GET "+mustRoutePath(t, ctx, ctx.AdminAPIGroup(), "translations.assignments.family_assignments")])
 	require.True(t, methodPaths["GET "+mustRoutePath(t, ctx, ctx.AdminAPIGroup(), "translations.assignments.id")])
 	require.True(t, methodPaths["POST "+mustRoutePath(t, ctx, ctx.AdminAPIGroup(), "translations.assignments.bulk_snapshot")])
 	require.True(t, methodPaths["POST "+mustRoutePath(t, ctx, ctx.AdminAPIGroup(), "translations.assignments.bulk_actions")])

@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/uptrace/bun"
 	"github.com/uptrace/bun/dialect/sqlitedialect"
 )
@@ -214,6 +215,90 @@ func TestSetupPersistentCMSTranslationSeedsRemainIdempotentAcrossRestart(t *test
 	postLocales := translationFixtureLocales(t, ctx, db, "content_translations", "translation-review-post")
 	if got, want := strings.Join(postLocales, ","), "en,es"; got != want {
 		t.Fatalf("expected translation-review-post content locales %q, got %q", want, got)
+	}
+}
+
+func TestSetupPersistentCMSReconcilesLegacyLocalizedContentRowsByFamilyLocale(t *testing.T) {
+	t.Helper()
+
+	ctx := context.Background()
+	dsn := fmt.Sprintf("file:%s?cache=shared&_fk=1", filepath.Join(t.TempDir(), strings.ToLower(t.Name())+".db"))
+
+	if _, err := SetupPersistentCMS(ctx, "en", dsn); err != nil {
+		t.Fatalf("setup persistent cms (first pass): %v", err)
+	}
+
+	db := openTranslationFixtureTestDB(t, dsn)
+	defer db.Close()
+
+	var home struct {
+		ID            uuid.UUID `bun:"id"`
+		ContentTypeID uuid.UUID `bun:"content_type_id"`
+	}
+	if err := db.NewSelect().
+		Table("contents").
+		Column("id", "content_type_id").
+		Where("slug = ?", "home").
+		Scan(ctx, &home); err != nil {
+		t.Fatalf("load home content row: %v", err)
+	}
+
+	var frLocaleID uuid.UUID
+	if err := db.NewSelect().
+		Table("locales").
+		Column("id").
+		Where("LOWER(code) = LOWER(?)", "fr").
+		Scan(ctx, &frLocaleID); err != nil {
+		t.Fatalf("load fr locale: %v", err)
+	}
+
+	legacyContentID := uuid.New()
+	if _, err := db.Exec(
+		`INSERT INTO contents (id, content_type_id, current_version, status, slug, environment_id, created_by, updated_by, created_at, updated_at)
+		 VALUES (?, ?, 1, 'published', ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+		legacyContentID.String(),
+		home.ContentTypeID.String(),
+		"home-fr-legacy",
+		cmsSeedChannelID.String(),
+		seedAuthorID.String(),
+		seedAuthorID.String(),
+	); err != nil {
+		t.Fatalf("insert legacy localized content row: %v", err)
+	}
+
+	result, err := db.Exec(
+		`UPDATE content_translations
+		    SET content_id = ?
+		  WHERE family_id = ?
+		    AND locale_id = ?
+		    AND deleted_at IS NULL`,
+		legacyContentID.String(),
+		home.ID.String(),
+		frLocaleID.String(),
+	)
+	if err != nil {
+		t.Fatalf("move fr translation onto legacy localized content row: %v", err)
+	}
+	if affected, _ := result.RowsAffected(); affected != 1 {
+		t.Fatalf("expected to move one fr translation row, moved %d", affected)
+	}
+
+	if _, err := SetupPersistentCMS(ctx, "en", dsn); err != nil {
+		t.Fatalf("setup persistent cms (second pass with legacy localized row): %v", err)
+	}
+
+	var count int
+	if err := db.NewSelect().
+		Table("content_translations").
+		ColumnExpr("COUNT(1)").
+		Where("family_id = ?", home.ID).
+		Where("locale_id = ?", frLocaleID).
+		Where("deleted_at IS NULL").
+		Scan(ctx, &count); err != nil {
+		t.Fatalf("count active fr family translations: %v", err)
+	}
+	if count != 1 {
+		t.Fatalf("expected one active fr translation for home family after reconciliation, got %d", count)
 	}
 }
 
