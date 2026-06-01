@@ -1341,27 +1341,80 @@ function renderCollapsibleMeta(payload: TranslationDashboardResponse, expanded: 
   `;
 }
 
-function renderToolbar(payload: TranslationDashboardResponse | null, refreshing = false): string {
+function renderToolbar(payload: TranslationDashboardResponse | null, refreshing = false, metaExpanded = false): string {
   const generatedAt = payload?.meta.generatedAt
     ? new Date(payload.meta.generatedAt).toLocaleString()
     : 'Unavailable';
+
+  const scopeParts = payload ? Object.entries(payload.meta.scope)
+    .filter(([, value]) => value)
+    .map(([key, value]) => ({ key: formatMetricLabel(key), value: String(value) })) : [];
+
+  const refreshDisplay = payload ? formatRefreshInterval(payload.meta.refreshIntervalMs) : 'N/A';
+  const latencyDisplay = payload ? formatLatencyTarget(payload.meta.latencyTargetMs) : 'N/A';
+  const channel = payload?.meta.channel || 'default';
+  const chevronRotation = metaExpanded ? 'rotate-180' : '';
+
   return `
-    <section class="${CARD} px-5 py-4 shadow-sm" data-dashboard-toolbar="true">
-      <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-        <div>
-          <p class="${HEADER_PRETITLE}">Manager Monitoring</p>
-          <h2 class="${HEADER_TITLE} text-xl mt-2">Queue health and publish blockers</h2>
-          <p class="${HEADER_DESCRIPTION} mt-2">Track overdue work, review backlog, and family readiness without rebuilding aggregate state in the browser.</p>
-        </div>
-        <div class="flex flex-wrap items-center gap-3">
-          <span class="text-xs uppercase tracking-[0.18em] text-gray-500" aria-live="polite" data-dashboard-refresh-status="true">
-            ${escapeHTML(refreshing ? 'Refreshing dashboard…' : `Last updated ${generatedAt}`)}
-          </span>
-          <button type="button" class="${BTN_PRIMARY}" data-dashboard-refresh-button="true" aria-label="Refresh translation dashboard" ${refreshing ? 'disabled' : ''}>
-            ${escapeHTML(refreshing ? 'Refreshing…' : 'Refresh dashboard')}
-          </button>
+    <section class="${CARD} shadow-sm overflow-hidden" data-dashboard-toolbar="true">
+      <div class="px-5 py-4">
+        <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <p class="${HEADER_PRETITLE}">Manager Monitoring</p>
+            <h2 class="${HEADER_TITLE} text-xl mt-2">Queue health and publish blockers</h2>
+            <p class="${HEADER_DESCRIPTION} mt-2">Track overdue work, review backlog, and family readiness without rebuilding aggregate state in the browser.</p>
+          </div>
+          <div class="flex flex-wrap items-center gap-3">
+            <span class="text-xs uppercase tracking-[0.18em] text-gray-500" aria-live="polite" data-dashboard-refresh-status="true">
+              ${escapeHTML(refreshing ? 'Refreshing dashboard…' : `Last updated ${generatedAt}`)}
+            </span>
+            <button type="button" class="${BTN_PRIMARY}" data-dashboard-refresh-button="true" aria-label="Refresh translation dashboard" ${refreshing ? 'disabled' : ''}>
+              ${escapeHTML(refreshing ? 'Refreshing…' : 'Refresh dashboard')}
+            </button>
+          </div>
         </div>
       </div>
+      ${payload ? `
+        <div class="border-t border-gray-200">
+          <button type="button"
+                  class="w-full flex items-center justify-between gap-3 px-5 py-3 text-left hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-inset transition-colors"
+                  data-meta-toggle="true"
+                  aria-expanded="${metaExpanded}">
+            <div class="flex items-center gap-2">
+              <svg class="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+              </svg>
+              <span class="text-sm font-medium text-gray-700">Technical Details</span>
+            </div>
+            <svg class="h-4 w-4 text-gray-400 transition-transform ${chevronRotation}" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+            </svg>
+          </button>
+          <div class="${metaExpanded ? '' : 'hidden'}" data-meta-content="true">
+            <dl class="border-t border-gray-200 px-5 py-3 grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-4 bg-gray-50">
+              <div>
+                <dt class="text-xs font-medium uppercase tracking-[0.16em] text-gray-500">Channel</dt>
+                <dd class="mt-1 text-sm font-medium text-gray-900">${escapeHTML(channel)}</dd>
+              </div>
+              <div>
+                <dt class="text-xs font-medium uppercase tracking-[0.16em] text-gray-500">Refresh</dt>
+                <dd class="mt-1 text-sm font-medium text-gray-900">${escapeHTML(refreshDisplay)}</dd>
+              </div>
+              <div>
+                <dt class="text-xs font-medium uppercase tracking-[0.16em] text-gray-500">Latency</dt>
+                <dd class="mt-1 text-sm font-medium text-gray-900">${escapeHTML(latencyDisplay)}</dd>
+              </div>
+              ${scopeParts.map(({ key, value }) => `
+                <div>
+                  <dt class="text-xs font-medium uppercase tracking-[0.16em] text-gray-500">${escapeHTML(key)}</dt>
+                  <dd class="mt-1 text-xs font-medium text-gray-900 font-mono">${escapeHTML(value)}</dd>
+                </div>
+              `).join('')}
+            </dl>
+          </div>
+        </div>
+      ` : ''}
     </section>
   `;
 }
@@ -1534,7 +1587,10 @@ export class TranslationDashboardPage extends StatefulController<TranslationDash
   private refreshing = false;
   private lastError: unknown = null;
 
-  // UI state for table tabs
+  // UI state for collapsible sections
+  private metaExpanded = false;
+  private alertsExpanded = false;
+  private dismissedAlerts: Set<string> = new Set();
   private activeTableTab: 'top_overdue_assignments' | 'blocked_families' = 'top_overdue_assignments';
 
   constructor(config: TranslationDashboardPageConfig) {
@@ -1641,9 +1697,10 @@ export class TranslationDashboardPage extends StatefulController<TranslationDash
 
     this.container.innerHTML = `
       <div class="space-y-4" data-dashboard="true">
-        ${renderToolbar(payload, this.refreshing)}
+        ${renderToolbar(payload, this.refreshing, this.metaExpanded)}
         ${inlineError}
         ${degraded}
+        ${renderAlertSummaryBanner(payload.data.alerts, this.alertsExpanded, this.dismissedAlerts)}
         ${empty
           ? renderEmptyState(payload)
           : `
@@ -1664,6 +1721,36 @@ export class TranslationDashboardPage extends StatefulController<TranslationDash
     buttons.forEach((button) => {
       button.addEventListener('click', () => {
         void this.refresh().catch(() => undefined);
+      });
+    });
+
+    // Meta toggle (Fix 5)
+    const metaToggle = this.container.querySelector<HTMLButtonElement>('[data-meta-toggle]');
+    if (metaToggle) {
+      metaToggle.addEventListener('click', () => {
+        this.metaExpanded = !this.metaExpanded;
+        this.render();
+      });
+    }
+
+    // Alerts toggle (Fix 1)
+    const alertsToggle = this.container.querySelector<HTMLButtonElement>('[data-alerts-toggle]');
+    if (alertsToggle) {
+      alertsToggle.addEventListener('click', () => {
+        this.alertsExpanded = !this.alertsExpanded;
+        this.render();
+      });
+    }
+
+    // Alert dismiss buttons (Fix 1)
+    this.container.querySelectorAll<HTMLButtonElement>('[data-dismiss-alert]').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const alertCode = btn.dataset.dismissAlert;
+        if (alertCode) {
+          this.dismissedAlerts.add(alertCode);
+          this.render();
+        }
       });
     });
 

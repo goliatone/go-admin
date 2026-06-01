@@ -262,6 +262,31 @@ function makeEmptySourceFixture() {
   return next;
 }
 
+function makeHashOnlyDriftFixture() {
+  const next = structuredClone(fixtures.detail);
+  next.data.field_drift = Object.fromEntries(
+    Object.entries(next.data.field_drift).map(([path, drift]) => [
+      path,
+      {
+        ...drift,
+        changed: true,
+        comparison_mode: 'hash_only',
+        previous_source_value: '',
+      },
+    ])
+  );
+  next.data.fields = next.data.fields.map((field) => ({
+    ...field,
+    drift: {
+      ...field.drift,
+      changed: true,
+      comparison_mode: 'hash_only',
+      previous_source_value: '',
+    },
+  }));
+  return next;
+}
+
 function makeAutosaveConflictFixture() {
   return {
     error: {
@@ -409,6 +434,20 @@ test('translation editor runtime: distinguishes optional and required empty sour
   assert.match(html, /Optional source content not provided/);
   assert.match(html, /Source text pending - required field/);
   assert.doesNotMatch(html, /No source text for this field/);
+});
+
+test('translation editor runtime: suppresses repeated hash-only drift field warnings', () => {
+  const detail = normalizeAssignmentEditorDetail(makeHashOnlyDriftFixture());
+  const html = renderTranslationEditorState(
+    { status: 'ready', detail },
+    createTranslationEditorState(detail)
+  );
+
+  assert.match(html, /source changed/);
+  assert.doesNotMatch(html, />Source changed<\/span>/);
+  assert.doesNotMatch(html, /Previous value unavailable/);
+  assert.doesNotMatch(html, /Before\/after values unavailable/);
+  assert.doesNotMatch(html, /data-field-drift=/);
 });
 
 test('translation editor runtime: translation-memory insert keeps inline editing and autosave path', async () => {

@@ -1195,7 +1195,7 @@ function renderHeader(
 
 // T12: Suppress noisy drift details when before/current values are unavailable
 function renderDriftNotice(entry: TranslationEditorFieldEntry): string {
-  if (!entry.drift.changed) return '';
+  if (!shouldRenderFieldDriftDetail(entry)) return '';
 
   const hasPrevious = Boolean(entry.drift.previous_source_value && entry.drift.previous_source_value.trim());
   const hasCurrent = Boolean(entry.drift.current_source_value || entry.source_value);
@@ -1228,6 +1228,12 @@ function renderDriftNotice(entry: TranslationEditorFieldEntry): string {
       <p class="mt-1"><span class="font-medium">Current:</span> ${escapeHTML(entry.drift.current_source_value || entry.source_value || 'Current value unavailable')}</p>
     </div>
   `;
+}
+
+function shouldRenderFieldDriftDetail(entry: TranslationEditorFieldEntry): boolean {
+  if (!entry.drift.changed) return false;
+  const hasPrevious = Boolean(entry.drift.previous_source_value && entry.drift.previous_source_value.trim());
+  return entry.drift.comparison_mode !== 'hash_only' || hasPrevious;
 }
 
 function renderGlossaryHits(entry: TranslationEditorFieldEntry): string {
@@ -1437,7 +1443,7 @@ function renderFieldList(detail: TranslationAssignmentEditorDetail): string {
                 <span class="rounded-full px-2.5 py-1 ${entry.completeness.missing ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'}">
                   ${entry.completeness.missing ? 'Missing required content' : 'Ready to submit'}
                 </span>
-                ${entry.drift.changed ? '<span class="rounded-full bg-amber-100 px-2.5 py-1 text-amber-700">Source changed</span>' : ''}
+                ${shouldRenderFieldDriftDetail(entry) ? '<span class="rounded-full bg-amber-100 px-2.5 py-1 text-amber-700">Source changed</span>' : ''}
               </div>
               ${entry.validation.valid ? '' : `<p class="mt-3 text-sm font-medium text-rose-700" data-field-validation="${escapeAttribute(entry.path)}">${escapeHTML(entry.validation.message || 'Validation error')}</p>`}
               ${renderDriftNotice(entry)}
