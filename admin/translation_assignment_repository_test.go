@@ -354,6 +354,183 @@ func TestBunTranslationAssignmentRepositoryListAssignmentPageUsesInjectedClockFo
 	}
 }
 
+func TestBunTranslationAssignmentRepositoryFamilyGroupingAggregatesAndExpands(t *testing.T) {
+	db := newTranslationFamilyStoreSQLiteDB(t)
+	ctx := context.Background()
+	store := NewBunTranslationFamilyStore(db)
+	for _, family := range []translationservices.FamilyRecord{
+		{
+			ID:              "family-grouped-a",
+			TenantID:        "tenant-1",
+			OrgID:           "org-1",
+			ContentType:     "pages",
+			SourceLocale:    "en",
+			SourceVariantID: "family-grouped-a::en",
+			ReadinessState:  "blocked",
+			Variants: []translationservices.FamilyVariant{
+				{ID: "family-grouped-a::en", FamilyID: "family-grouped-a", TenantID: "tenant-1", OrgID: "org-1", Locale: "en", Status: "published", IsSource: true, SourceRecordID: "page-a"},
+				{ID: "family-grouped-a::es", FamilyID: "family-grouped-a", TenantID: "tenant-1", OrgID: "org-1", Locale: "es", Status: "draft", SourceRecordID: "page-a"},
+				{ID: "family-grouped-a::fr", FamilyID: "family-grouped-a", TenantID: "tenant-1", OrgID: "org-1", Locale: "fr", Status: "draft", SourceRecordID: "page-a"},
+			},
+		},
+		{
+			ID:              "family-grouped-b",
+			TenantID:        "tenant-1",
+			OrgID:           "org-1",
+			ContentType:     "posts",
+			SourceLocale:    "en",
+			SourceVariantID: "family-grouped-b::en",
+			ReadinessState:  "ready",
+			Variants: []translationservices.FamilyVariant{
+				{ID: "family-grouped-b::en", FamilyID: "family-grouped-b", TenantID: "tenant-1", OrgID: "org-1", Locale: "en", Status: "published", IsSource: true, SourceRecordID: "post-b"},
+				{ID: "family-grouped-b::de", FamilyID: "family-grouped-b", TenantID: "tenant-1", OrgID: "org-1", Locale: "de", Status: "draft", SourceRecordID: "post-b"},
+			},
+		},
+	} {
+		if err := store.SaveFamily(ctx, family); err != nil {
+			t.Fatalf("seed family %s: %v", family.ID, err)
+		}
+	}
+	repo := NewBunTranslationAssignmentRepository(db)
+	now := time.Date(2026, 2, 17, 12, 0, 0, 0, time.UTC)
+	dueSoon := now.Add(time.Hour)
+	for _, assignment := range []TranslationAssignment{
+		{ID: "asg-family-a-es", FamilyID: "family-grouped-a", EntityType: "pages", TenantID: "tenant-1", OrgID: "org-1", SourceRecordID: "page-a", SourceLocale: "en", TargetLocale: "es", SourceTitle: "Page A", AssignmentType: AssignmentTypeOpenPool, Status: AssignmentStatusOpen, Priority: PriorityHigh, DueDate: &dueSoon, UpdatedAt: now.Add(-time.Hour), CreatedAt: now.Add(-3 * time.Hour)},
+		{ID: "asg-family-a-fr", FamilyID: "family-grouped-a", EntityType: "pages", TenantID: "tenant-1", OrgID: "org-1", SourceRecordID: "page-a", SourceLocale: "en", TargetLocale: "fr", SourceTitle: "Page A", AssignmentType: AssignmentTypeDirect, Status: AssignmentStatusInReview, Priority: PriorityNormal, ReviewerID: "reviewer-1", UpdatedAt: now.Add(-30 * time.Minute), CreatedAt: now.Add(-2 * time.Hour)},
+		{ID: "asg-family-b-de", FamilyID: "family-grouped-b", EntityType: "posts", TenantID: "tenant-1", OrgID: "org-1", SourceRecordID: "post-b", SourceLocale: "en", TargetLocale: "de", SourceTitle: "Post B", AssignmentType: AssignmentTypeOpenPool, Status: AssignmentStatusOpen, Priority: PriorityLow, UpdatedAt: now.Add(-4 * time.Hour), CreatedAt: now.Add(-4 * time.Hour)},
+	} {
+		if _, err := repo.Create(ctx, assignment); err != nil {
+			t.Fatalf("create assignment %s: %v", assignment.ID, err)
+		}
+	}
+	if _, err := db.ExecContext(ctx, `INSERT INTO family_blockers (family_id, tenant_id, org_id, blocker_code, locale, field_path, details_json, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		"family-grouped-a", "tenant-1", "org-1", "missing_locale", "fr", "", "{}", bunAssignmentStorageDateValue(now), bunAssignmentStorageDateValue(now)); err != nil {
+		t.Fatalf("insert family blocker: %v", err)
+	}
+
+	result, err := repo.ListAssignmentFamilyGroups(ctx, TranslationAssignmentFamilyGroupQueryInput{
+		Filter: translationAssignmentListFilter{
+			TenantID: "tenant-1",
+			OrgID:    "org-1",
+			SortBy:   "due_date",
+			SortDesc: false,
+		},
+		Page:    1,
+		PerPage: 10,
+		Now:     now,
+	})
+	if err != nil {
+		t.Fatalf("list family groups: %v", err)
+	}
+	if result.FamilyTotal != 2 || result.AssignmentTotal != 3 || len(result.Families) != 2 {
+		t.Fatalf("unexpected family totals: %+v", result)
+	}
+	first := result.Families[0]
+	if first.FamilyID != "family-grouped-a" || first.AssignmentCount != 2 || first.LocaleCount != 2 {
+		t.Fatalf("expected family-grouped-a aggregate first, got %+v", first)
+	}
+	if first.FamilyBlockerCount == nil || *first.FamilyBlockerCount != 1 || !first.FamilyBlockerCountAvailable {
+		t.Fatalf("expected persisted blocker count on first family, got %+v", first)
+	}
+
+	blocked, err := repo.ListAssignmentFamilyGroups(ctx, TranslationAssignmentFamilyGroupQueryInput{
+		Filter: translationAssignmentListFilter{
+			TenantID:    "tenant-1",
+			OrgID:       "org-1",
+			ReviewState: translationQueueReviewStateQABlocked,
+			SortBy:      "due_date",
+			SortDesc:    false,
+		},
+		Page:    1,
+		PerPage: 10,
+		Now:     now,
+	})
+	if err != nil {
+		t.Fatalf("list blocked family groups: %v", err)
+	}
+	if blocked.FamilyTotal != 1 || blocked.AssignmentTotal != 2 || len(blocked.Families) != 1 || blocked.Families[0].FamilyID != "family-grouped-a" {
+		t.Fatalf("expected qa_blocked to use persisted blocker scope, got %+v", blocked)
+	}
+
+	children, err := repo.ListFamilyAssignments(ctx, TranslationAssignmentFamilyAssignmentsQueryInput{
+		FamilyID: "family-grouped-a",
+		Filter: translationAssignmentListFilter{
+			TenantID: "tenant-1",
+			OrgID:    "org-1",
+			SortBy:   "updated_at",
+			SortDesc: true,
+		},
+		Page:    1,
+		PerPage: 1,
+		Now:     now,
+	})
+	if err != nil {
+		t.Fatalf("list family assignments: %v", err)
+	}
+	if children.Total != 2 || !children.HasNext || len(children.Items) != 1 || children.Items[0].ID != "asg-family-a-fr" {
+		t.Fatalf("unexpected child assignment page: %+v", children)
+	}
+}
+
+func TestBunTranslationAssignmentRepositoryFamilyGroupingDegradesWhenBlockerTableMissing(t *testing.T) {
+	db := newTranslationFamilyStoreSQLiteDB(t)
+	ctx := context.Background()
+	store := NewBunTranslationFamilyStore(db)
+	if err := store.SaveFamily(ctx, translationservices.FamilyRecord{
+		ID:              "family-no-blockers",
+		TenantID:        "tenant-1",
+		OrgID:           "org-1",
+		ContentType:     "pages",
+		SourceLocale:    "en",
+		SourceVariantID: "family-no-blockers::en",
+		ReadinessState:  "ready",
+		Variants: []translationservices.FamilyVariant{
+			{ID: "family-no-blockers::en", FamilyID: "family-no-blockers", TenantID: "tenant-1", OrgID: "org-1", Locale: "en", Status: "published", IsSource: true, SourceRecordID: "page-no-blockers"},
+			{ID: "family-no-blockers::es", FamilyID: "family-no-blockers", TenantID: "tenant-1", OrgID: "org-1", Locale: "es", Status: "draft", SourceRecordID: "page-no-blockers"},
+		},
+	}); err != nil {
+		t.Fatalf("seed family: %v", err)
+	}
+	if _, err := db.ExecContext(ctx, `DROP TABLE family_blockers`); err != nil {
+		t.Fatalf("drop family_blockers: %v", err)
+	}
+	repo := NewBunTranslationAssignmentRepository(db)
+	if _, err := repo.Create(ctx, TranslationAssignment{
+		ID:             "asg-no-blockers",
+		FamilyID:       "family-no-blockers",
+		EntityType:     "pages",
+		TenantID:       "tenant-1",
+		OrgID:          "org-1",
+		SourceRecordID: "page-no-blockers",
+		SourceLocale:   "en",
+		TargetLocale:   "es",
+		AssignmentType: AssignmentTypeOpenPool,
+		Status:         AssignmentStatusOpen,
+		Priority:       PriorityNormal,
+	}); err != nil {
+		t.Fatalf("create assignment: %v", err)
+	}
+	result, err := repo.ListAssignmentFamilyGroups(ctx, TranslationAssignmentFamilyGroupQueryInput{
+		Filter: translationAssignmentListFilter{TenantID: "tenant-1", OrgID: "org-1", SortBy: "updated_at", SortDesc: true},
+		Page:   1,
+		Now:    time.Date(2026, 2, 17, 12, 0, 0, 0, time.UTC),
+	})
+	if err != nil {
+		t.Fatalf("list family groups without blocker table: %v", err)
+	}
+	if len(result.Families) != 1 || result.Families[0].FamilyBlockerCountAvailable || result.Families[0].FamilyBlockerCountReason != "persisted_blockers_unavailable" {
+		t.Fatalf("expected degraded blocker metadata, got %+v", result.Families)
+	}
+	_, err = repo.ListAssignmentFamilyGroups(ctx, TranslationAssignmentFamilyGroupQueryInput{
+		Filter: translationAssignmentListFilter{TenantID: "tenant-1", OrgID: "org-1", ReviewState: translationQueueReviewStateQABlocked, SortBy: "updated_at", SortDesc: true},
+		Page:   1,
+		Now:    time.Date(2026, 2, 17, 12, 0, 0, 0, time.UTC),
+	})
+	if !errors.Is(err, ErrTranslationAssignmentFamilyBlockersUnavailable) {
+		t.Fatalf("expected qa_blocked to fail without blocker table, got %v", err)
+	}
+}
+
 func TestBunTranslationAssignmentRepositoryMyWorkSummaryPreservesStatusFilterReviewParity(t *testing.T) {
 	db := newTranslationFamilyStoreSQLiteDB(t)
 	ctx := context.Background()

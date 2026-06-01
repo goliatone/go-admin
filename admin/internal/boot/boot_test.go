@@ -1635,7 +1635,7 @@ func TestTranslationQueueRouteStepRegistersRoutes(t *testing.T) {
 	}
 
 	require.NoError(t, TranslationQueueRouteStep(ctx))
-	require.Len(t, rr.calls, 13)
+	require.Len(t, rr.calls, 15)
 	methodPaths := map[string]bool{}
 	for _, call := range rr.calls {
 		methodPaths[call.method+" "+call.path] = true
@@ -1657,6 +1657,7 @@ func TestTranslationQueueRouteStepRegistersRoutes(t *testing.T) {
 	require.True(t, methodPaths["GET "+mustRoutePath(t, ctx, ctx.AdminAPIGroup(), "translations.options.assignees")])
 
 	detailPath := mustRoutePath(t, ctx, ctx.AdminAPIGroup(), "translations.assignments.id")
+	familyAssignmentsPath := mustRoutePath(t, ctx, ctx.AdminAPIGroup(), "translations.assignments.family_assignments")
 	bulkActionPath := mustRoutePath(t, ctx, ctx.AdminAPIGroup(), "translations.assignments.bulk_actions")
 	actionPath := mustRoutePath(t, ctx, ctx.AdminAPIGroup(), "translations.assignments.actions")
 	variantPath := mustRoutePath(t, ctx, ctx.AdminAPIGroup(), "translations.variants.id")
@@ -1665,6 +1666,8 @@ func TestTranslationQueueRouteStepRegistersRoutes(t *testing.T) {
 		switch call.path {
 		case detailPath:
 			requestCtx.ParamsM["assignment_id"] = "asg_1"
+		case familyAssignmentsPath:
+			requestCtx.ParamsM["family_id"] = "family_1"
 		case bulkActionPath:
 		case actionPath:
 			requestCtx.ParamsM["assignment_id"] = "asg_1"
