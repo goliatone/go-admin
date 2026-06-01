@@ -55,6 +55,26 @@ func ReconcileGeneratedNavigation(ctx context.Context, opts NavigationReconcileO
 	if opts.MenuSvc == nil {
 		return NavigationReconcileReport{}, fmt.Errorf("MenuSvc is required")
 	}
+	runtime, expected, report, err := prepareGeneratedNavigationReconcile(ctx, opts)
+	if err != nil {
+		return NavigationReconcileReport{}, err
+	}
+	actual, err := loadGeneratedNavigationActualItems(ctx, opts.MenuSvc, runtime.menuCode, runtime.locale)
+	if err != nil {
+		return report, err
+	}
+	recordGeneratedNavigationActualState(&report, actual, expected)
+
+	expectedKeys, err := reconcileGeneratedNavigationExpectedItems(ctx, opts, runtime, expected, actual, &report)
+	if err != nil {
+		return report, err
+	}
+	recordStaleGeneratedNavigationRows(&report, actual, expectedKeys)
+	report.sort()
+	return report, nil
+}
+
+func prepareGeneratedNavigationReconcile(ctx context.Context, opts NavigationReconcileOptions) (seedNavigationRuntime, []admin.MenuItem, NavigationReconcileReport, error) {
 	runtime := newSeedNavigationRuntime(ctx, SeedNavigationOptions{
 		MenuSvc:    opts.MenuSvc,
 		MenuCode:   opts.MenuCode,
@@ -65,7 +85,7 @@ func ReconcileGeneratedNavigation(ctx context.Context, opts NavigationReconcileO
 	})
 	expected, err := runtime.seedItems()
 	if err != nil {
-		return NavigationReconcileReport{}, err
+		return runtime, nil, NavigationReconcileReport{}, err
 	}
 	report := NavigationReconcileReport{
 		MenuCode:                runtime.menuCode,
@@ -78,16 +98,21 @@ func ReconcileGeneratedNavigation(ctx context.Context, opts NavigationReconcileO
 		ParentPrunedItems:       generatedEmptyParentItems(expected),
 	}
 	report.PermissionFilteredItems = append(report.PermissionFilteredItems, generatedPermissionFilteredItems(expected)...)
+	return runtime, expected, report, nil
+}
 
-	menu, err := opts.MenuSvc.Menu(ctx, runtime.menuCode, runtime.locale)
+func loadGeneratedNavigationActualItems(ctx context.Context, menuSvc admin.CMSMenuService, menuCode, locale string) ([]admin.MenuItem, error) {
+	menu, err := menuSvc.Menu(ctx, menuCode, locale)
 	if err != nil {
-		return report, err
+		return nil, err
 	}
-	actual := flattenReconcileMenuItems(nil)
-	if menu != nil {
-		actual = flattenReconcileMenuItems(menu.Items)
+	if menu == nil {
+		return nil, nil
 	}
+	return flattenReconcileMenuItems(menu.Items), nil
+}
 
+func recordGeneratedNavigationActualState(report *NavigationReconcileReport, actual, expected []admin.MenuItem) {
 	actualIdentityCount := map[string]int{}
 	for _, item := range actual {
 		keys := uniqueStrings(reconcileMenuItemKeys(item))
@@ -106,74 +131,99 @@ func ReconcileGeneratedNavigation(ctx context.Context, opts NavigationReconcileO
 			report.DuplicateIdentities = append(report.DuplicateIdentities, key)
 		}
 	}
+}
 
+func reconcileGeneratedNavigationExpectedItems(ctx context.Context, opts NavigationReconcileOptions, runtime seedNavigationRuntime, expected, actual []admin.MenuItem, report *NavigationReconcileReport) (map[string]bool, error) {
 	expectedKeys := map[string]bool{}
 	for _, item := range expected {
 		for _, key := range uniqueStrings(reconcileMenuItemKeys(item)) {
 			expectedKeys[key] = true
 		}
-		match, ok, ambiguous := findActualGeneratedMatch(item, actual)
-		if ambiguous {
-			report.DuplicateIdentities = append(report.DuplicateIdentities, "ambiguous:"+item.ID)
-			continue
-		}
-		if !ok {
-			report.Creates = append(report.Creates, item.ID)
-			if opts.Apply {
-				if err := opts.MenuSvc.AddMenuItem(ctx, runtime.menuCode, item); err != nil {
-					return report, err
-				}
-			}
-			continue
-		}
-		if generatedMenuItemHasStaleTargetState(match) {
-			report.StaleTargetStateCleanup = append(report.StaleTargetStateCleanup, match.ID)
-		}
-		updateItem := item
-		report.PreservedGeneratedFields = append(report.PreservedGeneratedFields, preserveGeneratedMenuItemFields(match, &updateItem)...)
-		if !strings.EqualFold(strings.TrimSpace(match.ID), strings.TrimSpace(updateItem.ID)) && strings.TrimSpace(match.ID) != "" {
-			report.DestructiveCandidates = append(report.DestructiveCandidates, match.ID)
-			if opts.Apply {
-				if opts.AllowDestructive || generatedMenuItemOwned(match) {
-					if err := opts.MenuSvc.DeleteMenuItem(ctx, runtime.menuCode, match.ID); err != nil && !errors.Is(err, admin.ErrMenuTargetNotFound) && !errors.Is(err, admin.ErrNotFound) {
-						return report, err
-					}
-					report.Creates = append(report.Creates, updateItem.ID)
-					if err := opts.MenuSvc.AddMenuItem(ctx, runtime.menuCode, updateItem); err != nil {
-						return report, err
-					}
-					continue
-				}
-			}
-			updateItem.ID = match.ID
-			report.PreservedGeneratedFields = append(report.PreservedGeneratedFields, updateItem.ID+":id")
-		}
-		if !generatedMenuItemsEquivalent(match, updateItem) {
-			report.Updates = append(report.Updates, item.ID)
-			if opts.Apply {
-				if err := opts.MenuSvc.UpdateMenuItem(ctx, runtime.menuCode, updateItem); err != nil {
-					return report, err
-				}
-			}
+		if err := reconcileGeneratedNavigationExpectedItem(ctx, opts, runtime, item, actual, report); err != nil {
+			return expectedKeys, err
 		}
 	}
+	return expectedKeys, nil
+}
+
+func reconcileGeneratedNavigationExpectedItem(ctx context.Context, opts NavigationReconcileOptions, runtime seedNavigationRuntime, item admin.MenuItem, actual []admin.MenuItem, report *NavigationReconcileReport) error {
+	match, ok, ambiguous := findActualGeneratedMatch(item, actual)
+	if ambiguous {
+		report.DuplicateIdentities = append(report.DuplicateIdentities, "ambiguous:"+item.ID)
+		return nil
+	}
+	if !ok {
+		return createMissingGeneratedNavigationItem(ctx, opts, runtime.menuCode, item, report)
+	}
+	return reconcileMatchedGeneratedNavigationItem(ctx, opts, runtime.menuCode, item, match, report)
+}
+
+func createMissingGeneratedNavigationItem(ctx context.Context, opts NavigationReconcileOptions, menuCode string, item admin.MenuItem, report *NavigationReconcileReport) error {
+	report.Creates = append(report.Creates, item.ID)
+	if !opts.Apply {
+		return nil
+	}
+	return opts.MenuSvc.AddMenuItem(ctx, menuCode, item)
+}
+
+func reconcileMatchedGeneratedNavigationItem(ctx context.Context, opts NavigationReconcileOptions, menuCode string, item, match admin.MenuItem, report *NavigationReconcileReport) error {
+	if generatedMenuItemHasStaleTargetState(match) {
+		report.StaleTargetStateCleanup = append(report.StaleTargetStateCleanup, match.ID)
+	}
+	updateItem := item
+	report.PreservedGeneratedFields = append(report.PreservedGeneratedFields, preserveGeneratedMenuItemFields(match, &updateItem)...)
+	replaced, err := replaceGeneratedNavigationItemWhenNeeded(ctx, opts, menuCode, match, &updateItem, report)
+	if err != nil || replaced {
+		return err
+	}
+	if generatedMenuItemsEquivalent(match, updateItem) {
+		return nil
+	}
+	report.Updates = append(report.Updates, item.ID)
+	if !opts.Apply {
+		return nil
+	}
+	return opts.MenuSvc.UpdateMenuItem(ctx, menuCode, updateItem)
+}
+
+func replaceGeneratedNavigationItemWhenNeeded(ctx context.Context, opts NavigationReconcileOptions, menuCode string, match admin.MenuItem, updateItem *admin.MenuItem, report *NavigationReconcileReport) (bool, error) {
+	matchID := strings.TrimSpace(match.ID)
+	updateID := strings.TrimSpace(updateItem.ID)
+	if strings.EqualFold(matchID, updateID) || matchID == "" {
+		return false, nil
+	}
+	report.DestructiveCandidates = append(report.DestructiveCandidates, match.ID)
+	if opts.Apply && (opts.AllowDestructive || generatedMenuItemOwned(match)) {
+		if err := opts.MenuSvc.DeleteMenuItem(ctx, menuCode, match.ID); err != nil && !errors.Is(err, admin.ErrMenuTargetNotFound) && !errors.Is(err, admin.ErrNotFound) {
+			return false, err
+		}
+		report.Creates = append(report.Creates, updateItem.ID)
+		return true, opts.MenuSvc.AddMenuItem(ctx, menuCode, *updateItem)
+	}
+	updateItem.ID = match.ID
+	report.PreservedGeneratedFields = append(report.PreservedGeneratedFields, updateItem.ID+":id")
+	return false, nil
+}
+
+func recordStaleGeneratedNavigationRows(report *NavigationReconcileReport, actual []admin.MenuItem, expectedKeys map[string]bool) {
 	for _, item := range actual {
 		if !generatedMenuItemOwned(item) {
 			continue
 		}
-		found := false
-		for _, key := range uniqueStrings(reconcileMenuItemKeys(item)) {
-			if expectedKeys[key] {
-				found = true
-				break
-			}
+		if generatedNavigationItemExpected(item, expectedKeys) {
+			continue
 		}
-		if !found {
-			report.DestructiveCandidates = append(report.DestructiveCandidates, item.ID)
+		report.DestructiveCandidates = append(report.DestructiveCandidates, item.ID)
+	}
+}
+
+func generatedNavigationItemExpected(item admin.MenuItem, expectedKeys map[string]bool) bool {
+	for _, key := range uniqueStrings(reconcileMenuItemKeys(item)) {
+		if expectedKeys[key] {
+			return true
 		}
 	}
-	report.sort()
-	return report, nil
+	return false
 }
 
 func (report *NavigationReconcileReport) sort() {
