@@ -22,6 +22,8 @@ const {
   initAssignmentQueueScreen,
   normalizeAssignmentListResponse,
   resolveAssignmentBulkActionEndpoint,
+  resolveAssignmentBulkSnapshotEndpoint,
+  snapshotFiltersFromQueryState,
 } = await import('../dist/translation-queue/index.js');
 
 function createContainer(dataset = {}) {
@@ -254,6 +256,34 @@ test('translation queue contracts: bulk endpoint resolves to browser-facing rout
   );
 });
 
+test('translation queue contracts: filter snapshot endpoint and payload use documented filter vocabulary', () => {
+  assert.equal(
+    resolveAssignmentBulkSnapshotEndpoint('/admin/api/translations/assignments'),
+    '/admin/api/translations/assignment-actions/snapshot'
+  );
+  assert.equal(
+    resolveAssignmentBulkSnapshotEndpoint('/tenant-a/admin/api/translations/assignments'),
+    '/tenant-a/admin/api/translations/assignment-actions/snapshot'
+  );
+  assert.deepEqual(snapshotFiltersFromQueryState({
+    status: 'open,assigned',
+    assigneeId: '__me__',
+    priority: 'high',
+    reviewState: 'qa_blocked',
+    familyId: 'tg-page-1',
+    sort: 'due_date',
+    order: 'asc',
+  }), {
+    status: 'open,assigned',
+    assignee_id: '__me__',
+    priority: 'high',
+    review_state: 'qa_blocked',
+    family_id: 'tg-page-1',
+    sort: 'due_date',
+    order: 'asc',
+  });
+});
+
 test('translation queue contracts: optimistic claim state enables release and submit review', () => {
   const row = normalizeAssignmentListResponse({
     meta: fixtures.meta,
@@ -334,6 +364,97 @@ test('translation queue runtime: bulk actions submit documented browser contract
   assert.match(screen.getFeedback()?.message || '', /1 assignment updated/);
   assert.equal(screen.getSelectedCount(), 0);
   assert.equal(screen.getRows()[0].version, 2);
+});
+
+test('translation queue runtime: all-matching filter snapshots confirm and submit snapshot bulk contract', async () => {
+  const { root } = setupDom();
+  const calls = [];
+  globalThis.window.confirm = mock.fn(() => true);
+  globalThis.fetch = mock.fn(async (input, init = {}) => {
+    calls.push({ input: String(input), init });
+    const url = String(input);
+    if (calls.length === 1) {
+      return createJsonResponse({
+        meta: {
+          ...fixtures.states.open_pool.meta,
+          ...fixtures.meta,
+          total: 3,
+        },
+        data: fixtures.states.open_pool.data,
+      });
+    }
+    if (url.endsWith('/assignment-actions/snapshot')) {
+      const requestBody = JSON.parse(String(init.body || '{}'));
+      assert.equal(requestBody.filters.status, 'open,assigned,in_progress,changes_requested');
+      assert.equal(requestBody.filters.sort, 'updated_at');
+      assert.equal(requestBody.filters.order, 'desc');
+      return createJsonResponse({
+        data: {
+          selection_scope: 'filter_snapshot',
+          snapshot_id: 'snap_test_1',
+          requested: 3,
+          filters: requestBody.filters,
+          filter_summary: ['Status: open, assigned', 'Sort: updated_at descending'],
+          created_at: '2026-06-01T12:00:00Z',
+          expires_at: '2026-06-01T12:15:00Z',
+        },
+        meta: {
+          selection_scope: 'filter_snapshot',
+          requested: 3,
+          expires_in_sec: 900,
+        },
+      });
+    }
+    if (url.endsWith('/assignment-actions/bulk')) {
+      const requestBody = JSON.parse(String(init.body || '{}'));
+      assert.equal(requestBody.action, 'release');
+      assert.equal(requestBody.selection_scope, 'filter_snapshot');
+      assert.equal(requestBody.snapshot_id, 'snap_test_1');
+      assert.deepEqual(requestBody.assignments, []);
+      return createJsonResponse({
+        data: {
+          action: 'release',
+          results: [],
+          assignments: [],
+          errors: [],
+        },
+        meta: {
+          selection_scope: 'filter_snapshot',
+          snapshot_id: 'snap_test_1',
+          requested: 3,
+          succeeded: 3,
+          failed: 0,
+          partial: false,
+        },
+      });
+    }
+    return createJsonResponse({
+      meta: {
+        ...fixtures.states.open_pool.meta,
+        ...fixtures.meta,
+        total: 3,
+      },
+      data: fixtures.states.open_pool.data,
+    });
+  });
+
+  const screen = new AssignmentQueueScreen({
+    endpoint: '/admin/api/translations/assignments',
+    bulkActionEndpoint: '/admin/api/translations/assignment-actions/bulk',
+    bulkSnapshotEndpoint: '/admin/api/translations/assignment-actions/snapshot',
+  });
+  screen.mount(root);
+  await flushAsync();
+
+  await screen.selectAllMatchingFilters();
+  assert.match(root.innerHTML, /3 matching assignments selected/);
+  assert.match(root.innerHTML, /Status: open, assigned/);
+
+  await screen.runFilterSnapshotBulkAction('release');
+  assert.equal(globalThis.window.confirm.mock.calls.length, 1);
+  assert.equal(calls.length, 4);
+  assert.equal(screen.getFeedback()?.kind, 'success');
+  assert.match(screen.getFeedback()?.message || '', /3 assignments updated/);
 });
 
 test('translation queue runtime: grouped backend rows render expandable families and child actions', async () => {

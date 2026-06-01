@@ -684,10 +684,36 @@ const TABLE_LABELS: Record<string, string> = {
   blocked_families: 'Blocked Families',
 };
 
-const RUNBOOK_LABELS: Record<string, string> = {
-  'translations.dashboard.overdue_triage': 'Overdue Assignment Triage',
-  'translations.dashboard.review_backlog': 'Reviewer Backlog Triage',
-  'translations.dashboard.publish_blockers': 'Publish Blocker Remediation',
+// Tab configuration for tables (Fix 2)
+const TABLE_TAB_CONFIG: Record<string, { label: string; shortLabel: string; icon: string }> = {
+  top_overdue_assignments: {
+    label: 'Top Overdue Assignments',
+    shortLabel: 'Overdue',
+    icon: '<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>',
+  },
+  blocked_families: {
+    label: 'Blocked Families',
+    shortLabel: 'Blocked',
+    icon: '<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/></svg>',
+  },
+};
+
+const RUNBOOK_LABELS: Record<string, { label: string; shortLabel: string; icon: string }> = {
+  'translations.dashboard.overdue_triage': {
+    label: 'Overdue Assignment Triage',
+    shortLabel: 'Overdue Triage',
+    icon: '<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>',
+  },
+  'translations.dashboard.review_backlog': {
+    label: 'Reviewer Backlog Triage',
+    shortLabel: 'Review Backlog',
+    icon: '<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>',
+  },
+  'translations.dashboard.publish_blockers': {
+    label: 'Publish Blocker Remediation',
+    shortLabel: 'Fix Blockers',
+    icon: '<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>',
+  },
 };
 
 const METRIC_KEY_LABELS: Record<string, string> = {
@@ -702,12 +728,48 @@ function getCardLabel(cardId: string, fallback: string): string {
   return CARD_LABELS[cardId]?.label || fallback || formatMetricLabel(cardId);
 }
 
+function getCardShortLabel(cardId: string, fallback: string): string {
+  return CARD_LABELS[cardId]?.shortLabel || CARD_LABELS[cardId]?.label || fallback || formatMetricLabel(cardId);
+}
+
 function getTableLabel(tableId: string, fallback: string): string {
   return TABLE_LABELS[tableId] || fallback || formatMetricLabel(tableId);
 }
 
 function getRunbookLabel(runbookId: string, fallback: string): string {
-  return RUNBOOK_LABELS[runbookId] || fallback || formatMetricLabel(runbookId);
+  return RUNBOOK_LABELS[runbookId]?.label || fallback || formatMetricLabel(runbookId);
+}
+
+function getRunbookShortLabel(runbookId: string, fallback: string): string {
+  return RUNBOOK_LABELS[runbookId]?.shortLabel || RUNBOOK_LABELS[runbookId]?.label || fallback || formatMetricLabel(runbookId);
+}
+
+function getRunbookIcon(runbookId: string): string {
+  return RUNBOOK_LABELS[runbookId]?.icon || '';
+}
+
+// Button variant styles (Fix 4)
+const BTN_SECONDARY = 'inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 hover:border-gray-300 transition-colors';
+const BTN_GHOST = 'inline-flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-colors';
+
+// UUID truncation helper (Fix 7)
+function renderTruncatedUUID(uuid: string): string {
+  const trimmed = uuid.trim();
+  if (!trimmed || trimmed.length < 12) {
+    return `<span class="font-mono text-xs text-gray-500">${escapeHTML(trimmed)}</span>`;
+  }
+  const truncated = `${trimmed.slice(0, 4)}...${trimmed.slice(-4)}`;
+  return `
+    <button type="button"
+            class="inline-flex items-center gap-1 font-mono text-xs text-gray-500 hover:text-gray-900 group cursor-pointer bg-transparent border-none p-0"
+            data-copy-uuid="${escapeAttribute(trimmed)}"
+            title="Click to copy: ${escapeAttribute(trimmed)}">
+      <span>${escapeHTML(truncated)}</span>
+      <svg class="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+      </svg>
+    </button>
+  `;
 }
 
 function getMetricKeyLabel(metricKey: string): string {
@@ -781,17 +843,18 @@ function renderCardRunbookLink(card: TranslationDashboardCard, runbooks: Transla
   if (!card.runbookId) return '';
   const runbook = runbooks.find((r) => r.id === card.runbookId);
   if (!runbook?.href) return '';
+  const shortLabel = getRunbookShortLabel(card.runbookId, runbook.title);
+  const icon = getRunbookIcon(card.runbookId);
+  const fullLabel = getRunbookLabel(card.runbookId, runbook.title);
   return `
     <a
       href="${escapeAttribute(runbook.href)}"
-      class="inline-flex items-center gap-1 text-xs text-sky-700 hover:text-sky-900 hover:underline"
+      class="${BTN_GHOST}"
       data-dashboard-card-runbook="${escapeAttribute(card.id)}"
-      title="${escapeAttribute(runbook.description || runbook.title)}"
+      title="${escapeAttribute(runbook.description || fullLabel)}"
     >
-      <svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-      </svg>
-      <span>${escapeHTML(getRunbookLabel(card.runbookId, runbook.title))}</span>
+      ${icon || `<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>`}
+      <span>${escapeHTML(shortLabel)}</span>
     </a>
   `;
 }
@@ -806,18 +869,19 @@ function renderCard(card: TranslationDashboardCard, runbooks: TranslationDashboa
     `)
     .join('');
 
-  const cardLabel = getCardLabel(card.id, card.label);
+  const cardShortLabel = getCardShortLabel(card.id, card.label);
+  const cardFullLabel = getCardLabel(card.id, card.label);
   const metricLabel = getMetricKeyLabel(card.metricKey);
   const runbookLink = renderCardRunbookLink(card, runbooks);
 
   return `
     <article class="${CARD} p-4 shadow-sm flex flex-col" data-dashboard-card="${escapeAttribute(card.id)}">
-      <div class="flex items-start justify-between gap-4">
-        <div>
-          <p class="text-xs font-semibold uppercase tracking-[0.24em] text-gray-500">${escapeHTML(cardLabel)}</p>
-          <p class="mt-2 text-3xl font-semibold tracking-tight text-gray-900">${escapeHTML(String(card.count))}</p>
-        </div>
-        <span class="inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${escapeAttribute(alertToneClass(card.alert.state))}">
+      <div>
+        <p class="text-xs font-semibold uppercase tracking-[0.24em] text-gray-500 truncate" title="${escapeAttribute(cardFullLabel)}">${escapeHTML(cardShortLabel)}</p>
+      </div>
+      <div class="mt-2">
+        <p class="text-3xl font-semibold tracking-tight text-gray-900">${escapeHTML(String(card.count))}</p>
+        <span class="mt-1.5 inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.16em] ${escapeAttribute(alertToneClass(card.alert.state))}">
           ${escapeHTML(card.alert.message || card.alert.state)}
         </span>
       </div>
@@ -834,23 +898,88 @@ function renderCard(card: TranslationDashboardCard, runbooks: TranslationDashboa
   `;
 }
 
-function renderAlerts(alerts: TranslationDashboardAlert[]): string {
-  if (alerts.length === 0) {
+// Get worst alert state (Fix 1)
+function getWorstAlertState(alerts: TranslationDashboardAlert[]): DashboardAlertState {
+  const severity: Record<DashboardAlertState, number> = {
+    critical: 4,
+    warning: 3,
+    degraded: 2,
+    ok: 1,
+  };
+  return alerts.reduce(
+    (worst, alert) => (severity[alert.state] > severity[worst] ? alert.state : worst),
+    'ok' as DashboardAlertState
+  );
+}
+
+function renderDismissibleAlert(alert: TranslationDashboardAlert): string {
+  return `
+    <div class="flex items-start justify-between gap-3 p-3 rounded-lg bg-white/50"
+         data-alert-code="${escapeAttribute(alert.code)}"
+         role="${alert.state === 'critical' ? 'alert' : 'status'}">
+      <div class="flex-1 min-w-0">
+        <p class="text-xs font-semibold uppercase tracking-[0.16em]">${escapeHTML(alert.code)}</p>
+        <p class="mt-1 text-sm">${escapeHTML(alert.message)}</p>
+      </div>
+      <button type="button"
+              class="flex-shrink-0 p-1 rounded hover:bg-gray-200/50 transition-colors"
+              data-dismiss-alert="${escapeAttribute(alert.code)}"
+              aria-label="Dismiss ${escapeHTML(alert.code)} alert">
+        <svg class="h-4 w-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+  `;
+}
+
+function renderAlertSummaryBanner(
+  alerts: TranslationDashboardAlert[],
+  expanded: boolean,
+  dismissedSet: Set<string>
+): string {
+  const activeAlerts = alerts.filter((a) => !dismissedSet.has(a.code));
+  if (activeAlerts.length === 0) {
     return '';
   }
+
+  const worstState = getWorstAlertState(activeAlerts);
+  const countBySeverity = activeAlerts.reduce((acc, a) => {
+    acc[a.state] = (acc[a.state] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
+
+  const summaryParts = Object.entries(countBySeverity)
+    .filter(([, count]) => count > 0)
+    .map(([state, count]) => `${count} ${state}`)
+    .join(', ');
+
+  const chevronRotation = expanded ? 'rotate-180' : '';
+
   return `
-    <section class="space-y-3" data-dashboard-alerts="true">
-      ${alerts.map((alert) => `
-        <div class="rounded-xl border px-4 py-3 text-sm ${escapeAttribute(alertToneContainerClass(alert.state))}" role="${escapeAttribute(alert.state === 'critical' ? 'alert' : 'status')}">
-          <div class="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <p class="font-semibold">${escapeHTML(alert.code)}</p>
-              <p class="mt-1">${escapeHTML(alert.message)}</p>
-            </div>
-            ${alert.runbookId ? `<span class="text-xs uppercase tracking-[0.22em]">${escapeHTML(alert.runbookId)}</span>` : ''}
-          </div>
+    <section class="rounded-xl border ${alertToneContainerClass(worstState)} shadow-sm overflow-hidden"
+             data-dashboard-alerts-section="true"
+             role="region"
+             aria-label="Dashboard alerts">
+      <button type="button"
+              class="w-full flex items-center justify-between gap-3 px-4 py-3 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+              data-alerts-toggle="true"
+              aria-expanded="${expanded}">
+        <div class="flex items-center gap-3">
+          <svg class="h-5 w-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+          </svg>
+          <span class="text-sm font-semibold">${escapeHTML(summaryParts)}</span>
         </div>
-      `).join('')}
+        <svg class="h-5 w-5 flex-shrink-0 transition-transform ${chevronRotation}" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+        </svg>
+      </button>
+      <div class="${expanded ? '' : 'hidden'}" data-alerts-content="true">
+        <div class="border-t border-current/20 px-4 py-3 space-y-2">
+          ${activeAlerts.map((alert) => renderDismissibleAlert(alert)).join('')}
+        </div>
+      </div>
     </section>
   `;
 }
@@ -874,7 +1003,7 @@ function renderTopOverdueTable(table: TranslationDashboardTable): string {
           <tr>
             <td class="px-4 py-3">
               <div class="font-medium text-gray-900">${renderLink(asString(row.source_title) || asString(row.assignment_id), row.links.assignment)}</div>
-              <div class="mt-1 text-xs text-gray-500">${escapeHTML(asString(row.assignment_id))}</div>
+              <div class="mt-1">${renderTruncatedUUID(asString(row.assignment_id))}</div>
             </td>
             <td class="px-4 py-3 text-gray-600">${escapeHTML(`${asString(row.source_locale).toUpperCase()} -> ${asString(row.target_locale).toUpperCase()}`)}</td>
             <td class="px-4 py-3 text-gray-600">${escapeHTML(formatMetricLabel(asString(row.priority)))}</td>
@@ -962,9 +1091,9 @@ function renderBlockedFamiliesTable(table: TranslationDashboardTable): string {
         ${table.rows.map((row) => `
           <tr data-family-row="${escapeAttribute(asString(row.family_id))}">
             <td class="px-4 py-3">
-              <div class="font-medium text-gray-900">${renderLink(asString(row.family_id), row.links.family)}</div>
-              <div class="mt-1 flex items-center gap-2 text-xs text-gray-500">
-                <span>${escapeHTML(asString(row.content_type))}</span>
+              <div class="font-medium text-gray-900">${renderLink(asString(row.content_type) || 'Family', row.links.family)}</div>
+              <div class="mt-1 flex items-center gap-2">
+                ${renderTruncatedUUID(asString(row.family_id))}
                 ${renderReasonDataState(row)}
               </div>
             </td>
@@ -986,7 +1115,11 @@ function renderBlockedFamiliesTable(table: TranslationDashboardTable): string {
   `;
 }
 
-function renderTable(table: TranslationDashboardTable, runbooks: TranslationDashboardRunbook[] = []): string {
+function renderTable(
+  table: TranslationDashboardTable,
+  runbooks: TranslationDashboardRunbook[] = [],
+  options: { embedded?: boolean } = {}
+): string {
   const content = table.id === 'top_overdue_assignments'
     ? renderTopOverdueTable(table)
     : renderBlockedFamiliesTable(table);
@@ -1000,6 +1133,31 @@ function renderTable(table: TranslationDashboardTable, runbooks: TranslationDash
   const runbookId = tableRunbookMap[table.id];
   const runbook = runbookId ? runbooks.find((r) => r.id === runbookId) : undefined;
 
+  // When embedded in tabs, return just the header + content without the outer card
+  if (options.embedded) {
+    return `
+      <div data-dashboard-table="${escapeAttribute(table.id)}">
+        <header class="flex items-center justify-between gap-3 border-b border-gray-200 px-4 py-3 bg-white">
+          <div>
+            <p class="text-xs text-gray-500">Showing ${escapeHTML(String(table.rows.length))} of ${escapeHTML(String(table.total))}</p>
+          </div>
+          ${runbook?.href ? `
+            <a
+              href="${escapeAttribute(runbook.href)}"
+              class="${BTN_SECONDARY}"
+              data-dashboard-table-runbook="${escapeAttribute(table.id)}"
+              title="${escapeAttribute(runbook.description || getRunbookLabel(runbookId || '', runbook.title))}"
+            >
+              ${getRunbookIcon(runbookId || '')}
+              <span>${escapeHTML(getRunbookShortLabel(runbookId || '', runbook.title))}</span>
+            </a>
+          ` : ''}
+        </header>
+        <div class="overflow-x-auto">${content}</div>
+      </div>
+    `;
+  }
+
   return `
     <section class="overflow-hidden ${CARD} shadow-sm" data-dashboard-table="${escapeAttribute(table.id)}">
       <header class="flex items-center justify-between gap-3 border-b border-gray-200 px-4 py-3">
@@ -1010,18 +1168,82 @@ function renderTable(table: TranslationDashboardTable, runbooks: TranslationDash
         ${runbook?.href ? `
           <a
             href="${escapeAttribute(runbook.href)}"
-            class="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:border-gray-300 hover:bg-gray-50 transition-colors"
+            class="${BTN_SECONDARY}"
             data-dashboard-table-runbook="${escapeAttribute(table.id)}"
-            title="${escapeAttribute(runbook.description || runbook.title)}"
+            title="${escapeAttribute(runbook.description || getRunbookLabel(runbookId || '', runbook.title))}"
           >
-            <span>${escapeHTML(getRunbookLabel(runbookId || '', runbook.title))}</span>
-            <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
-            </svg>
+            ${getRunbookIcon(runbookId || '')}
+            <span>${escapeHTML(getRunbookShortLabel(runbookId || '', runbook.title))}</span>
           </a>
         ` : ''}
       </header>
       <div class="overflow-x-auto">${content}</div>
+    </section>
+  `;
+}
+
+function renderTabbedTables(
+  tables: Record<string, TranslationDashboardTable>,
+  runbooks: TranslationDashboardRunbook[],
+  activeTab: string
+): string {
+  const tableIds = Object.keys(tables);
+  if (tableIds.length === 0) {
+    return '';
+  }
+
+  // Single table - render without tabs
+  if (tableIds.length === 1) {
+    return `<section class="space-y-4">${renderTable(tables[tableIds[0]], runbooks)}</section>`;
+  }
+
+  const tabButtons = tableIds
+    .map((id) => {
+      const tabConfig = TABLE_TAB_CONFIG[id] || { label: getTableLabel(id, id), shortLabel: getTableLabel(id, id), icon: '' };
+      const isActive = id === activeTab;
+      const activeClasses = isActive
+        ? 'text-blue-600 border-blue-600'
+        : 'text-gray-600 border-transparent hover:text-gray-900 hover:border-gray-300';
+
+      return `
+        <button type="button"
+                class="flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 -mb-px transition-colors whitespace-nowrap ${activeClasses}"
+                data-table-tab="${escapeAttribute(id)}"
+                role="tab"
+                aria-selected="${isActive}"
+                aria-controls="table-panel-${escapeAttribute(id)}">
+          ${tabConfig.icon}
+          <span>${escapeHTML(tabConfig.shortLabel)}</span>
+          <span class="ml-1 px-2 py-0.5 text-xs rounded-full ${isActive ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'}">
+            ${tables[id]?.total || 0}
+          </span>
+        </button>
+      `;
+    })
+    .join('');
+
+  const panels = tableIds
+    .map((id) => {
+      const isActive = id === activeTab;
+      return `
+        <div id="table-panel-${escapeAttribute(id)}"
+             role="tabpanel"
+             ${isActive ? '' : 'hidden'}
+             data-table-panel="${escapeAttribute(id)}">
+          ${renderTable(tables[id], runbooks, { embedded: true })}
+        </div>
+      `;
+    })
+    .join('');
+
+  return `
+    <section class="${CARD} shadow-sm overflow-hidden" data-dashboard-tables="true">
+      <nav class="flex border-b border-gray-200 bg-gray-50 px-4" role="tablist" aria-label="Data tables">
+        ${tabButtons}
+      </nav>
+      <div class="p-0">
+        ${panels}
+      </div>
     </section>
   `;
 }
@@ -1066,41 +1288,54 @@ function alertToneContainerClass(state: DashboardAlertState): string {
   return `border ${getStatusColorClass(alertStateSeverity(state))}`;
 }
 
-function renderSummaryMeta(payload: TranslationDashboardResponse): string {
+function renderCollapsibleMeta(payload: TranslationDashboardResponse, expanded: boolean): string {
   const scopeParts = Object.entries(payload.meta.scope)
     .filter(([, value]) => value)
-    .map(([key, value]) => `${formatMetricLabel(key)}: ${value}`);
+    .map(([key, value]) => ({ key: formatMetricLabel(key), value: String(value) }));
 
   const refreshDisplay = formatRefreshInterval(payload.meta.refreshIntervalMs);
   const latencyDisplay = formatLatencyTarget(payload.meta.latencyTargetMs);
   const channel = payload.meta.channel || 'default';
+  const chevronRotation = expanded ? 'rotate-180' : '';
 
   return `
-    <section class="rounded-xl border border-gray-200 bg-gradient-to-r from-gray-900 to-gray-800 px-4 py-3 shadow-sm" data-dashboard-meta="true">
-      <div class="flex flex-wrap items-center justify-between gap-3">
-        <div class="flex flex-wrap items-center gap-3 text-xs">
-          <span class="inline-flex items-center gap-1.5 rounded-md bg-gray-700/50 px-2 py-1 text-gray-300">
-            <svg class="h-3.5 w-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
-            </svg>
-            <span class="font-medium text-white">${escapeHTML(channel)}</span>
-          </span>
-          <span class="inline-flex items-center gap-1.5 rounded-md bg-gray-700/50 px-2 py-1 text-gray-300" title="Auto-refresh interval">
-            <svg class="h-3.5 w-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
-            </svg>
-            <span>${escapeHTML(refreshDisplay)}</span>
-          </span>
-          <span class="inline-flex items-center gap-1.5 rounded-md bg-gray-700/50 px-2 py-1 text-gray-300" title="Latency target (p95)">
-            <svg class="h-3.5 w-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
-            </svg>
-            <span>${escapeHTML(latencyDisplay)}</span>
-          </span>
+    <section class="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden" data-dashboard-meta="true">
+      <button type="button"
+              class="w-full flex items-center justify-between gap-3 px-4 py-3 text-left hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-inset transition-colors"
+              data-meta-toggle="true"
+              aria-expanded="${expanded}">
+        <div class="flex items-center gap-2">
+          <svg class="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+          </svg>
+          <span class="text-sm font-medium text-gray-700">Technical Details</span>
         </div>
-        ${scopeParts.length > 0 ? `
-          <span class="text-xs text-gray-400">${escapeHTML(scopeParts.join(' · '))}</span>
-        ` : ''}
+        <svg class="h-4 w-4 text-gray-400 transition-transform ${chevronRotation}" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+        </svg>
+      </button>
+      <div class="${expanded ? '' : 'hidden'}" data-meta-content="true">
+        <dl class="border-t border-gray-200 px-4 py-3 grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-4">
+          <div>
+            <dt class="text-xs font-medium uppercase tracking-[0.16em] text-gray-500">Channel</dt>
+            <dd class="mt-1 text-sm font-medium text-gray-900">${escapeHTML(channel)}</dd>
+          </div>
+          <div>
+            <dt class="text-xs font-medium uppercase tracking-[0.16em] text-gray-500">Refresh</dt>
+            <dd class="mt-1 text-sm font-medium text-gray-900">${escapeHTML(refreshDisplay)}</dd>
+          </div>
+          <div>
+            <dt class="text-xs font-medium uppercase tracking-[0.16em] text-gray-500">Latency</dt>
+            <dd class="mt-1 text-sm font-medium text-gray-900">${escapeHTML(latencyDisplay)}</dd>
+          </div>
+          ${scopeParts.map(({ key, value }) => `
+            <div>
+              <dt class="text-xs font-medium uppercase tracking-[0.16em] text-gray-500">${escapeHTML(key)}</dt>
+              <dd class="mt-1 text-xs font-medium text-gray-900 font-mono">${escapeHTML(value)}</dd>
+            </div>
+          `).join('')}
+        </dl>
       </div>
     </section>
   `;
@@ -1128,6 +1363,57 @@ function renderToolbar(payload: TranslationDashboardResponse | null, refreshing 
         </div>
       </div>
     </section>
+  `;
+}
+
+// Health indicator icons (Fix 6)
+const HEALTH_ICONS: Record<DashboardAlertState, string> = {
+  ok: '<svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>',
+  warning: '<svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>',
+  critical: '<svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>',
+  degraded: '<svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>',
+};
+
+function renderHealthIndicator(payload: TranslationDashboardResponse): string {
+  const alerts = payload.data.alerts;
+  const isDegraded = payload.meta.degraded;
+
+  // Determine overall health
+  let healthState: DashboardAlertState = 'ok';
+  let healthLabel = 'Healthy';
+  let healthDescription = 'All systems operating normally';
+
+  if (isDegraded) {
+    healthState = 'degraded';
+    healthLabel = 'Degraded';
+    healthDescription = 'Some metrics may be incomplete';
+  }
+
+  // Check alerts for worse states
+  const criticalCount = alerts.filter((a) => a.state === 'critical').length;
+  const warningCount = alerts.filter((a) => a.state === 'warning').length;
+
+  if (criticalCount > 0) {
+    healthState = 'critical';
+    healthLabel = 'Critical';
+    healthDescription = `${criticalCount} critical issue${criticalCount > 1 ? 's' : ''} require${criticalCount === 1 ? 's' : ''} attention`;
+  } else if (warningCount > 0) {
+    healthState = 'warning';
+    healthLabel = 'Warning';
+    healthDescription = `${warningCount} warning${warningCount > 1 ? 's' : ''} detected`;
+  }
+
+  return `
+    <div class="flex items-center gap-3 px-4 py-2 rounded-lg ${alertToneContainerClass(healthState)}"
+         role="status"
+         aria-label="Dashboard health: ${escapeAttribute(healthLabel)}"
+         data-dashboard-health="true">
+      ${HEALTH_ICONS[healthState]}
+      <div class="flex-1 min-w-0">
+        <span class="text-sm font-semibold">${escapeHTML(healthLabel)}</span>
+        <span class="ml-2 text-sm opacity-80">${escapeHTML(healthDescription)}</span>
+      </div>
+    </div>
   `;
 }
 
@@ -1248,6 +1534,12 @@ export class TranslationDashboardPage extends StatefulController<TranslationDash
   private refreshing = false;
   private lastError: unknown = null;
 
+  // UI state for collapsible sections
+  private metaExpanded = false;
+  private alertsExpanded = false;
+  private dismissedAlerts: Set<string> = new Set();
+  private activeTableTab: 'top_overdue_assignments' | 'blocked_families' = 'top_overdue_assignments';
+
   constructor(config: TranslationDashboardPageConfig) {
     super('idle');
     this.config = {
@@ -1337,7 +1629,6 @@ export class TranslationDashboardPage extends StatefulController<TranslationDash
     const payload = this.payload;
     const runbooks = payload.data.runbooks;
     const cards = payload.data.cards.map((card) => renderCard(card, runbooks)).join('');
-    const tables = Object.values(payload.data.tables).map((table) => renderTable(table, runbooks)).join('');
     const empty = Object.values(payload.data.summary).every((value) => value === 0)
       && Object.values(payload.data.tables).every((table) => table.rows.length === 0);
     const degraded = payload.meta.degraded
@@ -1354,15 +1645,16 @@ export class TranslationDashboardPage extends StatefulController<TranslationDash
     this.container.innerHTML = `
       <div class="space-y-4" data-dashboard="true">
         ${renderToolbar(payload, this.refreshing)}
-        ${renderSummaryMeta(payload)}
+        ${renderHealthIndicator(payload)}
+        ${renderCollapsibleMeta(payload, this.metaExpanded)}
         ${inlineError}
         ${degraded}
-        ${renderAlerts(payload.data.alerts)}
+        ${renderAlertSummaryBanner(payload.data.alerts, this.alertsExpanded, this.dismissedAlerts)}
         ${empty
           ? renderEmptyState(payload)
           : `
             <section class="grid gap-4 md:grid-cols-2 xl:grid-cols-5">${cards}</section>
-            <section class="grid gap-4 xl:grid-cols-2">${tables}</section>
+            ${renderTabbedTables(payload.data.tables, runbooks, this.activeTableTab)}
           `}
         ${renderRunbooks(payload.data.runbooks)}
       </div>
@@ -1378,6 +1670,72 @@ export class TranslationDashboardPage extends StatefulController<TranslationDash
     buttons.forEach((button) => {
       button.addEventListener('click', () => {
         void this.refresh().catch(() => undefined);
+      });
+    });
+
+    // Meta toggle (Fix 5)
+    const metaToggle = this.container.querySelector<HTMLButtonElement>('[data-meta-toggle]');
+    if (metaToggle) {
+      metaToggle.addEventListener('click', () => {
+        this.metaExpanded = !this.metaExpanded;
+        this.render();
+      });
+    }
+
+    // Alerts toggle (Fix 1)
+    const alertsToggle = this.container.querySelector<HTMLButtonElement>('[data-alerts-toggle]');
+    if (alertsToggle) {
+      alertsToggle.addEventListener('click', () => {
+        this.alertsExpanded = !this.alertsExpanded;
+        this.render();
+      });
+    }
+
+    // Alert dismiss buttons (Fix 1)
+    this.container.querySelectorAll<HTMLButtonElement>('[data-dismiss-alert]').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const alertCode = btn.dataset.dismissAlert;
+        if (alertCode) {
+          this.dismissedAlerts.add(alertCode);
+          this.render();
+        }
+      });
+    });
+
+    // Table tab switching (Fix 2)
+    this.container.querySelectorAll<HTMLButtonElement>('[data-table-tab]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const tabId = btn.dataset.tableTab as typeof this.activeTableTab;
+        if (tabId && tabId !== this.activeTableTab) {
+          this.activeTableTab = tabId;
+          this.render();
+        }
+      });
+    });
+
+    // UUID copy buttons (Fix 7)
+    this.container.querySelectorAll<HTMLButtonElement>('[data-copy-uuid]').forEach((btn) => {
+      btn.addEventListener('click', async (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const uuid = btn.dataset.copyUuid;
+        if (!uuid) return;
+        try {
+          await navigator.clipboard.writeText(uuid);
+          const originalHTML = btn.innerHTML;
+          btn.innerHTML = `
+            <span class="text-green-600">Copied!</span>
+            <svg class="h-3 w-3 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+            </svg>
+          `;
+          setTimeout(() => {
+            btn.innerHTML = originalHTML;
+          }, 1500);
+        } catch {
+          console.warn('Failed to copy UUID');
+        }
       });
     });
   }

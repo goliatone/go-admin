@@ -237,7 +237,9 @@ export interface BulkActionItem {
 
 export interface BulkActionRequest {
   action: 'assign' | 'release' | 'priority' | 'archive';
-  assignments: BulkActionItem[];
+  assignments?: BulkActionItem[];
+  selectionScope?: 'current_page' | 'filter_snapshot';
+  snapshotId?: string;
   reason?: string;
   priority?: AssignmentPriority;
 }
@@ -267,12 +269,26 @@ export interface BulkActionResponse {
     failed: number;
     partial: boolean;
     selection_scope: string;
+    snapshot_id?: string;
+    filters?: Record<string, unknown>;
+    filter_summary?: string[];
   };
+}
+
+export interface BulkFilterSnapshot {
+  selectionScope: 'filter_snapshot';
+  snapshotId: string;
+  requested: number;
+  filters: Record<string, unknown>;
+  filterSummary: string[];
+  createdAt: string;
+  expiresAt: string;
 }
 
 export interface AssignmentQueueScreenConfig {
   endpoint: string;
   bulkActionEndpoint?: string;
+  bulkSnapshotEndpoint?: string;
   editorBasePath?: string;
   title?: string;
   description?: string;
@@ -585,6 +601,20 @@ function normalizeAssignmentListGroupingMeta(value: unknown): AssignmentListGrou
   };
 }
 
+function normalizeBulkFilterSnapshot(value: unknown): BulkFilterSnapshot {
+  const raw = asRecord(value);
+  const summaryRaw = Array.isArray(raw.filter_summary) ? raw.filter_summary : [];
+  return {
+    selectionScope: 'filter_snapshot',
+    snapshotId: asString(raw.snapshot_id),
+    requested: asNumber(raw.requested),
+    filters: asRecord(raw.filters),
+    filterSummary: summaryRaw.map((item) => asString(item)).filter(Boolean),
+    createdAt: asString(raw.created_at),
+    expiresAt: asString(raw.expires_at),
+  };
+}
+
 export function buildAssignmentListQuery(state: AssignmentListQueryState = {}): string {
   const params = new URLSearchParams();
   setSearchParam(params, 'status', state.status);
@@ -601,6 +631,27 @@ export function buildAssignmentListQuery(state: AssignmentListQueryState = {}): 
   setSearchParam(params, 'order', state.order);
   setSearchParam(params, 'group_by', state.groupBy);
   return params.toString();
+}
+
+export function snapshotFiltersFromQueryState(state: AssignmentListQueryState = {}): Record<string, string> {
+  const filters: Record<string, string> = {};
+  const assign = (key: string, value: unknown) => {
+    const normalized = asString(value);
+    if (normalized) {
+      filters[key] = normalized;
+    }
+  };
+  assign('status', state.status);
+  assign('assignee_id', state.assigneeId);
+  assign('reviewer_id', state.reviewerId);
+  assign('due_state', state.dueState);
+  assign('locale', state.locale);
+  assign('priority', state.priority);
+  assign('review_state', state.reviewState);
+  assign('family_id', state.familyId);
+  assign('sort', state.sort);
+  assign('order', state.order);
+  return filters;
 }
 
 export function buildAssignmentListURL(endpoint: string, state: AssignmentListQueryState = {}): string {
@@ -907,6 +958,8 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
   // T10: Selection state
   private selectedRows = new Map<string, SelectionEntry>();
   private bulkActionPending = false;
+  private bulkSnapshotPending = false;
+  private filterSnapshot: BulkFilterSnapshot | null = null;
 
   // T11: View mode and grouped data state
   private viewMode: ViewMode = 'flat';
@@ -920,6 +973,7 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
     this.config = {
       endpoint: config.endpoint,
       bulkActionEndpoint: config.bulkActionEndpoint || resolveAssignmentBulkActionEndpoint(config.endpoint),
+      bulkSnapshotEndpoint: config.bulkSnapshotEndpoint || resolveAssignmentBulkSnapshotEndpoint(config.endpoint),
       editorBasePath: config.editorBasePath || '',
       title: config.title || 'Translation Queue',
       description: config.description || 'Filter assignments, claim open work, and release items back to the pool without leaving the queue.',
@@ -1006,6 +1060,7 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
     const row = this.rows.find((r) => r.id === assignmentId);
     if (!row) return;
 
+    this.filterSnapshot = null;
     if (this.selectedRows.has(assignmentId)) {
       this.selectedRows.delete(assignmentId);
     } else {
@@ -1018,6 +1073,7 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
   }
 
   selectAllPage(): void {
+    this.filterSnapshot = null;
     for (const row of this.rows) {
       this.selectedRows.set(row.id, {
         assignmentId: row.id,
@@ -1029,7 +1085,48 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
 
   clearSelection(): void {
     this.selectedRows.clear();
+    this.filterSnapshot = null;
     this.render();
+  }
+
+  async selectAllMatchingFilters(): Promise<void> {
+    this.bulkSnapshotPending = true;
+    this.feedback = null;
+    this.render();
+
+    try {
+      const response = await httpRequest(this.config.bulkSnapshotEndpoint || resolveAssignmentBulkSnapshotEndpoint(this.config.endpoint), {
+        method: 'POST',
+        json: {
+          filters: snapshotFiltersFromQueryState(this.queryState),
+        },
+      });
+
+      if (!response.ok) {
+        throw await buildQueueRequestError(response, 'Filter snapshot failed');
+      }
+
+      const raw = asRecord(await response.json());
+      const snapshot = normalizeBulkFilterSnapshot(asRecord(raw.data));
+      if (!snapshot.snapshotId) {
+        throw new AssignmentQueueRequestError({
+          message: 'Filter snapshot response did not include a snapshot id.',
+          status: 500,
+          code: 'INVALID_SNAPSHOT_RESPONSE',
+        });
+      }
+      this.selectedRows.clear();
+      this.filterSnapshot = snapshot;
+      this.feedback = {
+        kind: 'success',
+        message: `${snapshot.requested} matching assignment${snapshot.requested !== 1 ? 's' : ''} selected.`,
+      };
+    } catch (error) {
+      this.feedback = formatQueueActionError(error, 'Filter snapshot failed.');
+    } finally {
+      this.bulkSnapshotPending = false;
+      this.render();
+    }
   }
 
   // T10: Bulk action execution
@@ -1088,12 +1185,62 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
     }
   }
 
+  async runFilterSnapshotBulkAction(action: 'release' | 'archive'): Promise<void> {
+    const snapshot = this.filterSnapshot;
+    if (!snapshot) {
+      this.feedback = { kind: 'error', message: 'No filter snapshot selected.' };
+      this.render();
+      return;
+    }
+    const summary = snapshot.filterSummary.length ? `\n\n${snapshot.filterSummary.join('\n')}` : '';
+    const confirmed = typeof window === 'undefined' || typeof window.confirm !== 'function'
+      ? true
+      : window.confirm(`Apply ${action} to ${snapshot.requested} matching assignment${snapshot.requested !== 1 ? 's' : ''}?${summary}`);
+    if (!confirmed) {
+      return;
+    }
+
+    this.bulkActionPending = true;
+    this.feedback = null;
+    this.render();
+
+    try {
+      const response = await this.executeBulkAction({
+        action,
+        selectionScope: 'filter_snapshot',
+        snapshotId: snapshot.snapshotId,
+      });
+
+      if (response.data.failed > 0) {
+        this.feedback = {
+          kind: 'error',
+          message: `${response.data.succeeded} succeeded, ${response.data.failed} failed.`,
+        };
+      } else {
+        this.feedback = {
+          kind: 'success',
+          message: `${response.data.succeeded} assignment${response.data.succeeded !== 1 ? 's' : ''} updated.`,
+        };
+      }
+      this.filterSnapshot = null;
+      this.selectedRows.clear();
+      await this.load();
+    } catch (error) {
+      this.feedback = formatQueueActionError(error, `Bulk ${action} failed.`);
+    } finally {
+      this.bulkActionPending = false;
+      this.render();
+    }
+  }
+
   private async executeBulkAction(request: BulkActionRequest): Promise<BulkActionResponse> {
     const response = await httpRequest(this.config.bulkActionEndpoint || resolveAssignmentBulkActionEndpoint(this.config.endpoint), {
       method: 'POST',
       json: {
         action: request.action,
-        assignments: request.assignments.map((a) => ({
+        selection_scope: request.selectionScope || 'current_page',
+        snapshot_id: request.snapshotId,
+        assignments: (request.assignments || []).map((a) => ({
           assignment_id: a.assignmentId,
           expected_version: a.expectedVersion,
         })),
@@ -1358,6 +1505,8 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
     this.activeReviewPresetId = '';
     this.activeReviewState = null;
     this.queryState = presetToQueryState(preset);
+    this.filterSnapshot = null;
+    this.selectedRows.clear();
     this.feedback = null;
     void this.load();
   }
@@ -1371,6 +1520,8 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
     this.activeReviewPresetId = preset.id;
     this.activeReviewState = preset.review_state || null;
     this.queryState = presetToQueryState(preset);
+    this.filterSnapshot = null;
+    this.selectedRows.clear();
     this.feedback = null;
     void this.load();
   }
@@ -1384,6 +1535,8 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
       ...next,
       page: 1,
     };
+    this.filterSnapshot = null;
+    this.selectedRows.clear();
     this.feedback = null;
     void this.load();
   }
@@ -1425,6 +1578,7 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
         </section>
         ${this.renderFeedback()}
         ${this.renderBulkActionBar()}
+        ${this.renderFilterSnapshotBar()}
         ${this.renderReviewStateBar()}
         ${this.renderPresetBar()}
         ${this.renderViewModeToggle()}
@@ -1458,43 +1612,80 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
     `;
   }
 
-  // T10: Bulk action bar
+  // T10: Bulk action bar - uses floating overlay pattern from input.css
   private renderBulkActionBar(): string {
     const selectedCount = this.selectedRows.size;
-    if (selectedCount === 0) {
-      return '';
-    }
-
     const isPending = this.bulkActionPending;
+    const hiddenClass = selectedCount === 0 ? 'hidden' : '';
 
     return `
-      <section class="bulk-action-bar" data-bulk-action-bar="true" role="toolbar" aria-label="Bulk actions for ${selectedCount} selected assignment${selectedCount !== 1 ? 's' : ''}">
-        <div class="bulk-action-bar-info">
-          <span class="bulk-action-count">${selectedCount} selected</span>
-          <button type="button" class="bulk-action-clear" data-bulk-clear="true" ${isPending ? 'disabled' : ''}>
-            Clear selection
+      <div class="bulk-actions-overlay ${hiddenClass}" data-bulk-action-bar="true">
+        <div class="bulk-actions-bar" role="toolbar" aria-label="Bulk actions for ${selectedCount} selected assignment${selectedCount !== 1 ? 's' : ''}">
+          <button type="button" class="bulk-close-btn" data-bulk-clear="true" ${isPending ? 'disabled' : ''} title="Clear selection">
+            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+            <span class="sr-only">Clear selection</span>
           </button>
+          <span class="bulk-count-text"><span id="selected-count">${selectedCount}</span> selected</span>
+          <div class="flex items-center gap-2">
+            <button
+              type="button"
+              class="bulk-action-btn"
+              data-bulk-action="release"
+              ${isPending ? 'disabled' : ''}
+              title="Release selected assignments back to the pool"
+            >
+              ${isPending ? 'Processing…' : 'Release'}
+            </button>
+            <button
+              type="button"
+              class="bulk-action-btn bulk-action-btn--danger"
+              data-bulk-action="archive"
+              ${isPending ? 'disabled' : ''}
+              title="Archive selected assignments"
+            >
+              ${isPending ? 'Processing…' : 'Archive'}
+            </button>
+          </div>
         </div>
-        <div class="bulk-action-buttons">
-          <button
-            type="button"
-            class="${BTN_SECONDARY_SM}"
-            data-bulk-action="release"
-            ${isPending ? 'disabled' : ''}
-            title="Release selected assignments back to the pool"
-          >
-            ${isPending ? 'Processing…' : 'Release'}
-          </button>
-          <button
-            type="button"
-            class="${BTN_SECONDARY_SM}"
-            data-bulk-action="archive"
-            ${isPending ? 'disabled' : ''}
-            title="Archive selected assignments"
-          >
-            ${isPending ? 'Processing…' : 'Archive'}
-          </button>
+      </div>
+    `;
+  }
+
+  private renderFilterSnapshotBar(): string {
+    const total = this.response?.meta.total ?? 0;
+    const pageCount = this.visibleRows.length;
+    if (total === 0 && !this.filterSnapshot) {
+      return '';
+    }
+    const snapshot = this.filterSnapshot;
+    const isPending = this.bulkSnapshotPending || this.bulkActionPending;
+    if (snapshot) {
+      const summary = snapshot.filterSummary.slice(0, 4);
+      return `
+        <section class="filter-snapshot-bar" data-filter-snapshot-bar="true" aria-label="All matching filter selection">
+          <div class="filter-snapshot-copy">
+            <strong>${snapshot.requested} matching assignment${snapshot.requested !== 1 ? 's' : ''} selected</strong>
+            ${summary.length ? `<span>${summary.map((item) => escapeHtml(item)).join(' · ')}</span>` : ''}
+          </div>
+          <div class="filter-snapshot-actions">
+            <button type="button" class="${BTN_SECONDARY_SM}" data-filter-snapshot-clear="true" ${isPending ? 'disabled' : ''}>Clear</button>
+            <button type="button" class="${BTN_SECONDARY_SM}" data-filter-snapshot-action="release" ${isPending || snapshot.requested === 0 ? 'disabled' : ''}>Release</button>
+            <button type="button" class="${BTN_SECONDARY_SM}" data-filter-snapshot-action="archive" ${isPending || snapshot.requested === 0 ? 'disabled' : ''}>Archive</button>
+          </div>
+        </section>
+      `;
+    }
+    return `
+      <section class="filter-snapshot-bar" data-filter-snapshot-bar="true" aria-label="All matching filter selection">
+        <div class="filter-snapshot-copy">
+          <strong>${total} assignment${total !== 1 ? 's' : ''} match current filters</strong>
+          <span>${pageCount} visible on this page</span>
         </div>
+        <button type="button" class="${BTN_SECONDARY_SM}" data-select-all-matching="true" ${isPending || total === 0 ? 'disabled' : ''}>
+          ${this.bulkSnapshotPending ? 'Selecting…' : 'Select all matching filters'}
+        </button>
       </section>
     `;
   }
@@ -2409,6 +2600,29 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
       });
     }
 
+    const selectAllMatchingButton = this.container.querySelector<HTMLButtonElement>('[data-select-all-matching]');
+    if (selectAllMatchingButton) {
+      selectAllMatchingButton.addEventListener('click', () => {
+        void this.selectAllMatchingFilters();
+      });
+    }
+
+    const clearSnapshotButton = this.container.querySelector<HTMLButtonElement>('[data-filter-snapshot-clear]');
+    if (clearSnapshotButton) {
+      clearSnapshotButton.addEventListener('click', () => {
+        this.clearSelection();
+      });
+    }
+
+    this.container.querySelectorAll<HTMLButtonElement>('[data-filter-snapshot-action]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const action = button.dataset.filterSnapshotAction;
+        if (action === 'release' || action === 'archive') {
+          void this.runFilterSnapshotBulkAction(action);
+        }
+      });
+    });
+
     this.container.querySelectorAll<HTMLButtonElement>('[data-bulk-action]').forEach((button) => {
       button.addEventListener('click', () => {
         const action = button.dataset.bulkAction;
@@ -3067,54 +3281,39 @@ export function getAssignmentQueueStyles(): string {
       background: #dbeafe;
     }
 
-    /* T10: Bulk action bar */
-    .bulk-action-bar {
+    /* T10: Bulk action styles now in input.css via .bulk-actions-overlay and .bulk-actions-bar */
+
+    .filter-snapshot-bar {
       display: flex;
+      align-items: center;
       justify-content: space-between;
-      align-items: center;
-      gap: 1rem;
-      padding: 0.75rem 1rem;
-      background: linear-gradient(135deg, #1e40af 0%, #1d4ed8 100%);
-      border-radius: 0.75rem;
-      color: #ffffff;
-      flex-wrap: wrap;
-    }
-
-    .bulk-action-bar-info {
-      display: flex;
-      align-items: center;
       gap: 0.75rem;
+      padding: 0.75rem 1rem;
+      border: 1px solid #dbeafe;
+      border-radius: 0.5rem;
+      background: #eff6ff;
+      color: #1e3a8a;
     }
 
-    .bulk-action-count {
-      font-weight: 600;
-      font-size: 0.9rem;
-    }
-
-    .bulk-action-clear {
-      background: transparent;
-      border: none;
-      color: rgba(255, 255, 255, 0.8);
-      font: inherit;
-      font-size: 0.85rem;
-      cursor: pointer;
-      text-decoration: underline;
-      padding: 0;
-    }
-
-    .bulk-action-clear:hover {
-      color: #ffffff;
-    }
-
-    .bulk-action-clear:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-    }
-
-    .bulk-action-buttons {
+    .filter-snapshot-copy {
       display: flex;
+      flex-direction: column;
+      gap: 0.2rem;
+      min-width: 0;
+      font-size: 0.875rem;
+    }
+
+    .filter-snapshot-copy span {
+      color: #1d4ed8;
+      overflow-wrap: anywhere;
+    }
+
+    .filter-snapshot-actions {
+      display: flex;
+      align-items: center;
       gap: 0.5rem;
       flex-wrap: wrap;
+      justify-content: flex-end;
     }
 
     /* T10: Mobile card selection */
@@ -3420,6 +3619,7 @@ export function initAssignmentQueueScreen(container: HTMLElement): AssignmentQue
   return createAssignmentQueueScreen(container, {
     endpoint,
     bulkActionEndpoint: container.dataset.bulkActionEndpoint || container.dataset.bulkActionsEndpoint || '',
+    bulkSnapshotEndpoint: container.dataset.bulkSnapshotEndpoint || '',
     editorBasePath: container.dataset.editorBasePath || '',
     title: container.dataset.title,
     description: container.dataset.description,
@@ -3438,4 +3638,17 @@ export function resolveAssignmentBulkActionEndpoint(endpoint: string): string {
     return `${trimmed.slice(0, index)}/translations/assignment-actions/bulk`;
   }
   return '/admin/api/translations/assignment-actions/bulk';
+}
+
+export function resolveAssignmentBulkSnapshotEndpoint(endpoint: string): string {
+  const trimmed = endpoint.trim();
+  if (!trimmed) {
+    return '/admin/api/translations/assignment-actions/snapshot';
+  }
+  const marker = '/translations/assignments';
+  const index = trimmed.indexOf(marker);
+  if (index >= 0) {
+    return `${trimmed.slice(0, index)}/translations/assignment-actions/snapshot`;
+  }
+  return '/admin/api/translations/assignment-actions/snapshot';
 }
