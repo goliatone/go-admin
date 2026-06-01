@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -14,6 +15,8 @@ import (
 	"github.com/goliatone/go-admin/examples/web/stores"
 	"github.com/goliatone/go-admin/quickstart"
 	translationservices "github.com/goliatone/go-admin/translations/services"
+	commandregistry "github.com/goliatone/go-command/registry"
+	router "github.com/goliatone/go-router"
 	"github.com/stretchr/testify/require"
 )
 
@@ -299,6 +302,130 @@ func TestSeedExampleTranslationQueueFixtureSeedsPersistentBunEditorAssignmentAnd
 	require.True(t, ok)
 	require.Equal(t, tenantID, strings.TrimSpace(family.TenantID))
 	require.Equal(t, orgID, strings.TrimSpace(family.OrgID))
+}
+
+func TestPersistentAssignmentEditorSaveUsesCMSLifecycleStatus(t *testing.T) {
+	_ = commandregistry.Stop(context.Background())
+	t.Cleanup(func() {
+		_ = commandregistry.Stop(context.Background())
+	})
+
+	ctx := context.Background()
+	dsn := fmt.Sprintf("file:%s?cache=shared&_fk=1", filepath.Join(t.TempDir(), strings.ToLower(t.Name())+".db"))
+
+	cmsOpts, err := setup.SetupPersistentCMS(ctx, "en", dsn)
+	require.NoError(t, err)
+	require.NotNil(t, cmsOpts.Container)
+
+	db, err := stores.SetupContentDatabase(ctx, dsn)
+	require.NoError(t, err)
+	require.NotNil(t, db)
+
+	repo := coreadmin.NewBunTranslationAssignmentRepository(db)
+	familyStore := coreadmin.NewBunTranslationFamilyStore(db)
+
+	const tenantID = "tenant-demo"
+	const orgID = "org-demo"
+
+	cfg := quickstart.NewAdminConfig("/admin", "Admin", "en")
+	cfg.AuthConfig = &coreadmin.AuthConfig{AllowUnauthenticatedRoutes: true}
+	cfg.CMS = cmsOpts
+	queueEnabled := true
+	translationCfg := appcfg.TranslationConfig{
+		Profile: "full",
+		Queue:   &queueEnabled,
+	}
+	adm, _, err := quickstart.NewAdmin(
+		cfg,
+		quickstart.AdapterHooks{},
+		quickstart.WithAdminDependencies(coreadmin.Dependencies{
+			TranslationFamilyStore: familyStore,
+		}),
+		quickstart.WithFeatureDefaults(map[string]bool{
+			string(coreadmin.FeatureCMS): true,
+		}),
+		quickstart.WithTranslationPolicyConfig(exampleTranslationPolicyConfig()),
+		quickstart.WithTranslationProductConfig(buildTranslationProductConfig(
+			resolveTranslationProfile("full"),
+			noopExchangeStore{},
+			repo,
+			translationCfg,
+		)),
+	)
+	require.NoError(t, err)
+	adm.WithAuth(translationRuntimeHarnessPassthroughAuthenticator{}, nil)
+	adm.WithAuthorizer(translationRuntimeHarnessAllowAllAuthorizer{})
+
+	err = seedExampleTranslationQueueFixtureWithFamilySync(
+		ctx,
+		repo,
+		cmsOpts.Container.ContentService(),
+		tenantID,
+		orgID,
+		func(ctx context.Context) error {
+			return coreadmin.SyncTranslationFamilyStore(ctx, adm, "default")
+		},
+		"reviewer-qa",
+		"translator-qa",
+	)
+	require.NoError(t, err)
+
+	assignment, err := repo.Get(ctx, exampleTranslationQAAssignmentID)
+	require.NoError(t, err)
+	require.NotEmpty(t, strings.TrimSpace(assignment.TargetRecordID))
+
+	service := translationservices.FamilyService{Store: familyStore}
+	family, ok, err := service.Detail(ctx, translationservices.GetFamilyInput{
+		Scope: translationservices.Scope{
+			TenantID: tenantID,
+			OrgID:    orgID,
+		},
+		Environment: "default",
+		FamilyID:    assignment.FamilyID,
+	})
+	require.NoError(t, err)
+	require.True(t, ok)
+
+	var targetVariant translationservices.FamilyVariant
+	for _, variant := range family.Variants {
+		if strings.EqualFold(strings.TrimSpace(variant.Locale), strings.TrimSpace(assignment.TargetLocale)) {
+			targetVariant = variant
+			break
+		}
+	}
+	require.NotEmpty(t, strings.TrimSpace(targetVariant.ID))
+
+	server := router.NewHTTPServer()
+	require.NoError(t, adm.Initialize(server.Router()))
+
+	for _, currentStatus := range []string{"draft", "published", "scheduled"} {
+		t.Run(currentStatus, func(t *testing.T) {
+			target, err := cmsOpts.Container.ContentService().Page(ctx, assignment.TargetRecordID, "")
+			require.NoError(t, err)
+			require.NotNil(t, target)
+			updatedTarget := *target
+			updatedTarget.Status = currentStatus
+			_, err = cmsOpts.Container.ContentService().UpdatePage(ctx, updatedTarget)
+			require.NoError(t, err)
+
+			status, payload := doAdminJSONRequest(t, server.WrappedRouter(), http.MethodPatch, "/admin/api/translations/variants/"+targetVariant.ID+"?channel=default&tenant_id="+tenantID+"&org_id="+orgID, map[string]any{
+				"channel":          "default",
+				"expected_version": 1,
+				"fields": map[string]any{
+					"title": "Guide persistant mis a jour " + currentStatus,
+				},
+			})
+			require.Equal(t, http.StatusOK, status, "payload=%+v", payload)
+
+			target, err = cmsOpts.Container.ContentService().Page(ctx, assignment.TargetRecordID, "")
+			require.NoError(t, err)
+			require.NotNil(t, target)
+			require.Equal(t, "draft", strings.ToLower(strings.TrimSpace(target.Status)))
+			editorMeta, _ := target.Metadata["translation_editor"].(map[string]any)
+			require.Equal(t, "in_progress", strings.TrimSpace(fmt.Sprint(editorMeta["variant_status"])))
+			require.Equal(t, "in_progress", strings.TrimSpace(fmt.Sprint(target.Metadata["translation_variant_status"])))
+		})
+	}
 }
 
 func TestSeedExampleTranslationQueueFixtureSeedsReviewerOwnedReviewAssignments(t *testing.T) {
