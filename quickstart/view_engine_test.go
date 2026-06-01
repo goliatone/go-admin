@@ -562,6 +562,7 @@ func TestLoginTemplateFiltersMalformedSSOProviders(t *testing.T) {
 			{"key": "blank-label", "label": " ", "login_url": "/admin/auth/sso/blank-label"},
 			{"key": "blank-url", "label": "Blank URL", "login_url": " "},
 			{"key": "unsafe-url", "label": "Unsafe", "login_url": "javascript:alert(1)"},
+			{"key": "scheme-relative", "label": "Scheme Relative", "login_url": "//idp.example.test/start"},
 			{"key": "disabled", "label": "Disabled IDP", "disabled_reason": "Setup required"},
 			{"key": "valid", "label": "Valid IDP", "login_url": "/admin/auth/sso/valid"},
 		},
@@ -569,7 +570,7 @@ func TestLoginTemplateFiltersMalformedSSOProviders(t *testing.T) {
 	if !containsAll(html, `Or sign in with`, `Disabled IDP`, `Setup required`, `Valid IDP`, `href="/admin/auth/sso/valid"`) {
 		t.Fatalf("expected mixed provider list to render valid controls, got %q", html)
 	}
-	if containsAny(html, `Blank URL`, `Unsafe`, `javascript:alert`, `blank-label`) {
+	if containsAny(html, `Blank URL`, `Unsafe`, `javascript:alert`, `Scheme Relative`, `//idp.example.test/start`, `blank-label`) {
 		t.Fatalf("expected malformed providers to be filtered, got %q", html)
 	}
 
@@ -578,9 +579,10 @@ func TestLoginTemplateFiltersMalformedSSOProviders(t *testing.T) {
 			{"label": " "},
 			{"label": "No URL"},
 			{"label": "Unsafe", "login_url": "data:text/html,hi"},
+			{"label": "Scheme Relative", "login_url": "//idp.example.test/start"},
 		},
 	})
-	if containsAny(html, `Or sign in with`, `No URL`, `Unsafe`) {
+	if containsAny(html, `Or sign in with`, `No URL`, `Unsafe`, `Scheme Relative`) {
 		t.Fatalf("expected fully malformed provider list to omit SSO section, got %q", html)
 	}
 }

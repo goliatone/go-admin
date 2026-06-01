@@ -1315,6 +1315,169 @@ func TestTranslationQueueBindingBulkActionRejectsUnsupportedAction(t *testing.T)
 	}
 }
 
+func TestTranslationQueueBindingFilterSnapshotBulkActionUsesSnapshotVersions(t *testing.T) {
+	now := time.Date(2026, 6, 1, 12, 0, 0, 0, time.UTC)
+	adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{
+		FeatureGate: featureGateFromKeys(FeatureCMS, FeatureTranslationQueue),
+	})
+	adm.WithAuthorizer(translationPermissionAuthorizer{
+		allowed: map[string]bool{
+			PermAdminTranslationsView:   true,
+			PermAdminTranslationsAssign: true,
+		},
+	})
+	repo := NewInMemoryTranslationAssignmentRepository()
+	first, err := repo.Create(context.Background(), TranslationAssignment{
+		FamilyID:       "tg-snapshot-1",
+		EntityType:     "pages",
+		SourceRecordID: "page-snapshot-1",
+		SourceLocale:   "en",
+		TargetLocale:   "es",
+		AssignmentType: AssignmentTypeOpenPool,
+		Status:         AssignmentStatusOpen,
+		Priority:       PriorityHigh,
+	})
+	if err != nil {
+		t.Fatalf("create first assignment: %v", err)
+	}
+	second, err := repo.Create(context.Background(), TranslationAssignment{
+		FamilyID:       "tg-snapshot-2",
+		EntityType:     "pages",
+		SourceRecordID: "page-snapshot-2",
+		SourceLocale:   "en",
+		TargetLocale:   "fr",
+		AssignmentType: AssignmentTypeOpenPool,
+		Status:         AssignmentStatusOpen,
+		Priority:       PriorityHigh,
+	})
+	if err != nil {
+		t.Fatalf("create second assignment: %v", err)
+	}
+	if _, registerErr := RegisterTranslationQueuePanel(adm, repo); registerErr != nil {
+		t.Fatalf("register queue panel: %v", registerErr)
+	}
+	binding := newTranslationQueueBinding(adm)
+	binding.now = func() time.Time { return now }
+	app := newTranslationQueueTestApp(t, binding)
+
+	snapshotReq := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/api/translations/assignment-actions/snapshot", strings.NewReader(`{"filters":{"priority":"high","sort":"updated_at","order":"asc"}}`))
+	snapshotReq.Header.Set("Content-Type", "application/json")
+	snapshotReq.Header.Set("X-User-ID", "manager-1")
+	snapshotResp, err := app.Test(snapshotReq)
+	if err != nil {
+		t.Fatalf("snapshot request error: %v", err)
+	}
+	defer snapshotResp.Body.Close() //nolint:errcheck // test response body cleanup is best-effort
+	if snapshotResp.StatusCode != http.StatusOK {
+		t.Fatalf("snapshot status=%d want=200", snapshotResp.StatusCode)
+	}
+	snapshotPayload := map[string]any{}
+	if err := json.NewDecoder(snapshotResp.Body).Decode(&snapshotPayload); err != nil {
+		t.Fatalf("decode snapshot response: %v", err)
+	}
+	snapshotData := extractMap(snapshotPayload["data"])
+	snapshotID := strings.TrimSpace(toString(snapshotData["snapshot_id"]))
+	if snapshotID == "" {
+		t.Fatalf("expected snapshot_id in %+v", snapshotData)
+	}
+	if got := intValue(snapshotData["requested"]); got != 2 {
+		t.Fatalf("expected requested=2, got %+v", snapshotData)
+	}
+
+	second.Status = AssignmentStatusAssigned
+	second.AssignmentType = AssignmentTypeDirect
+	second.AssigneeID = "translator-existing"
+	if _, err := repo.Update(context.Background(), second, second.Version); err != nil {
+		t.Fatalf("stale second assignment: %v", err)
+	}
+
+	bulkPayload := map[string]any{
+		"action":          "assign",
+		"selection_scope": "filter_snapshot",
+		"snapshot_id":     snapshotID,
+		"assignee_id":     "translator-1",
+	}
+	body, err := json.Marshal(bulkPayload)
+	if err != nil {
+		t.Fatalf("marshal bulk request: %v", err)
+	}
+	bulkReq := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/api/translations/assignment-actions/bulk", bytes.NewReader(body))
+	bulkReq.Header.Set("Content-Type", "application/json")
+	bulkReq.Header.Set("X-User-ID", "manager-1")
+	bulkResp, err := app.Test(bulkReq)
+	if err != nil {
+		t.Fatalf("bulk request error: %v", err)
+	}
+	defer bulkResp.Body.Close() //nolint:errcheck // test response body cleanup is best-effort
+	if bulkResp.StatusCode != http.StatusOK {
+		t.Fatalf("bulk status=%d want=200", bulkResp.StatusCode)
+	}
+	response := map[string]any{}
+	if err := json.NewDecoder(bulkResp.Body).Decode(&response); err != nil {
+		t.Fatalf("decode bulk response: %v", err)
+	}
+	meta := extractMap(response["meta"])
+	if got := strings.TrimSpace(toString(meta["selection_scope"])); got != "filter_snapshot" {
+		t.Fatalf("expected filter_snapshot scope, got %+v", meta)
+	}
+	if intValue(meta["requested"]) != 2 || intValue(meta["succeeded"]) != 1 || intValue(meta["failed"]) != 1 || !toBool(meta["partial"]) {
+		t.Fatalf("unexpected snapshot bulk metadata: %+v", meta)
+	}
+	data := extractMap(response["data"])
+	errorsOut := anySliceFromValue(data["errors"])
+	if len(errorsOut) != 1 {
+		t.Fatalf("expected one stale item error, got %d", len(errorsOut))
+	}
+	itemErr := extractMap(errorsOut[0])
+	if got := strings.TrimSpace(toString(itemErr["assignment_id"])); got != second.ID {
+		t.Fatalf("expected stale second assignment error, got %+v", itemErr)
+	}
+	stored, err := repo.Get(context.Background(), first.ID)
+	if err != nil {
+		t.Fatalf("get first assignment: %v", err)
+	}
+	if stored.Status != AssignmentStatusAssigned || stored.AssigneeID != "translator-1" {
+		t.Fatalf("expected first assignment assigned by snapshot bulk, got %+v", stored)
+	}
+}
+
+func TestTranslationQueueBindingFilterSnapshotRejectsCrossScopeExecution(t *testing.T) {
+	adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{
+		FeatureGate: featureGateFromKeys(FeatureCMS, FeatureTranslationQueue),
+	})
+	now := time.Date(2026, 6, 1, 12, 0, 0, 0, time.UTC)
+	binding := newTranslationQueueBinding(adm)
+	binding.storeAssignmentBulkSnapshot(translationQueueFilterSnapshot{
+		ID:        "snap_scope_test",
+		ActorID:   "manager-1",
+		TenantID:  "tenant-a",
+		OrgID:     "org-a",
+		Channel:   "admin",
+		CreatedAt: now,
+		ExpiresAt: now.Add(translationQueueBulkSnapshotTTL),
+		Selections: []translationQueueBulkActionSelection{
+			{AssignmentID: "asg-1", ExpectedVersion: 1},
+		},
+	})
+
+	_, err := binding.lookupAssignmentBulkSnapshot(translationTransportIdentity{
+		ActorID:  "manager-2",
+		TenantID: "tenant-a",
+		OrgID:    "org-a",
+	}, "admin", map[string]any{"snapshot_id": "snap_scope_test"}, now)
+	if err == nil {
+		t.Fatalf("expected cross-actor snapshot lookup to fail")
+	}
+	_, err = binding.lookupAssignmentBulkSnapshot(translationTransportIdentity{
+		ActorID:  "manager-1",
+		TenantID: "tenant-b",
+		OrgID:    "org-a",
+	}, "admin", map[string]any{"snapshot_id": "snap_scope_test"}, now)
+	if err == nil {
+		t.Fatalf("expected cross-tenant snapshot lookup to fail")
+	}
+}
+
 func TestTranslationQueueBindingAssignmentActionEnforcesScopeIsolation(t *testing.T) {
 	adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{
 		FeatureGate: featureGateFromKeys(FeatureCMS, FeatureTranslationQueue),
@@ -1670,6 +1833,17 @@ func newTranslationQueueTestApp(t *testing.T, binding *translationQueueBinding) 
 			return writeError(c, err)
 		}
 		payload, err := binding.RunAssignmentBulkAction(c, body)
+		if err != nil {
+			return writeError(c, err)
+		}
+		return writeJSON(c, payload)
+	})
+	r.Post("/admin/api/translations/assignment-actions/snapshot", func(c router.Context) error {
+		body, err := parseJSONBody(c)
+		if err != nil {
+			return writeError(c, err)
+		}
+		payload, err := binding.CreateAssignmentBulkSnapshot(c, body)
 		if err != nil {
 			return writeError(c, err)
 		}
