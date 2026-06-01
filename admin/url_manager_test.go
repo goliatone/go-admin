@@ -113,8 +113,16 @@ func TestDefaultURLKitConfigPaths(t *testing.T) {
 	if err != nil {
 		t.Fatalf("resolve admin translations.queue: %v", err)
 	}
-	if translationsQueue != "/admin/content/translations" {
-		t.Fatalf("expected /admin/content/translations, got %q", translationsQueue)
+	if translationsQueue != "/admin/translations/queue" {
+		t.Fatalf("expected /admin/translations/queue, got %q", translationsQueue)
+	}
+
+	translationsAssignments, err := manager.Resolve("admin", "translations.assignments", nil, nil)
+	if err != nil {
+		t.Fatalf("resolve admin translations.assignments: %v", err)
+	}
+	if translationsAssignments != "/admin/content/translations" {
+		t.Fatalf("expected /admin/content/translations, got %q", translationsAssignments)
 	}
 
 	translationsDashboard, err := manager.Resolve("admin", "translations.dashboard", nil, nil)

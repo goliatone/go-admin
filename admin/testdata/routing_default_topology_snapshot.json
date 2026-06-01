@@ -19,7 +19,7 @@
     "admin.api|translations.queue": "/admin/api/translations/queue",
     "admin|dashboard": "/admin/",
     "admin|translations.dashboard": "/admin/translations/dashboard",
-    "admin|translations.queue": "/admin/content/translations",
+    "admin|translations.queue": "/admin/translations/queue",
     "public.api.v1|preview": "/api/v1/preview/token",
     "public.api.v1|site.menus.code": "/api/v1/site/menus/code/primary",
     "public.api.v1|site.menus.location": "/api/v1/site/menus/site.main"
