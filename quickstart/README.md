@@ -1842,9 +1842,77 @@ If you previously imported quickstart as part of the root module, keep the same 
 
 ## Overrides
 - Templates/Assets: prepend your own FS via `WithViewTemplatesFS`/`WithViewAssetsFS` to override the embedded sidebar.
-- Navigation seed: pass custom items to `SeedNavigation`; module menu contributions are deduped by ID.
+- Navigation seed: pass custom items to `SeedNavigation`; module menu contributions flow through `BuildMenuSeedPlan` and generated-menu reconciliation.
 - Module gating: `WithModuleFeatureGates(customGate)` with optional `WithModuleFeatureDisabledHandler`.
 - Translation nav seeding: `WithTranslationCapabilityMenuMode(TranslationCapabilityMenuModeTools)` adds dashboard/queue/exchange links into a dedicated `Translations` menu group in server-seeded navigation.
 - Dashboard SSR: provide `WithDashboardTemplatesFS` and/or disable embedded templates via `WithDashboardEmbeddedTemplates(false)`.
 - Dashboard widget contract: handlers should return typed `admin.WidgetPayload` models consumed by both SSR and client hydration; avoid render-mode payload branching and disallow `chart_html`/full-document/script blobs in payload data.
 - Error handler: swap `quickstart.NewFiberErrorHandler` with your own if needed.
+
+## Generated navigation reconciliation
+
+`NewModuleRegistrar` computes the expected primary and utility menu rows with
+`BuildMenuSeedPlan`, then calls `SeedNavigation` in reconciliation mode. This
+keeps quickstart-owned menu rows current without replacing host-authored rows.
+
+Generated rows are normalized before persistence:
+
+- `target._generated_by` is set to `quickstart`.
+- `target._generated_id` stores the stable generated identity.
+- request-scoped target state such as `enabled`, `disabled`,
+  `disabled_reason`, and `missing_permission` is removed before comparison.
+
+Use seed-plan options when a host owns the sidebar layout but still wants
+quickstart to collect module and translation menu contributions:
+
+```go
+quickstart.NewModuleRegistrar(
+    adm, cfg, modules, isDev,
+    quickstart.WithMenuSeedParents(admin.MenuItem{
+        ID:          "host.nav",
+        Type:        admin.MenuItemTypeGroup,
+        GroupTitle:  "Host Navigation",
+        Collapsible: true,
+    }),
+    quickstart.WithMenuSeedTargetParentOverride("translation_queue", "host.nav"),
+    quickstart.WithMenuSeedModuleParentOverride("reports", "host.nav"),
+    quickstart.WithMenuSeedItemTransform(func(moduleID string, item *admin.MenuItem) {
+        if moduleID == "reports" && item != nil {
+            item.Label = "Analytics"
+        }
+    }),
+)
+```
+
+Use `ReconcileGeneratedNavigation` directly when you need a dry-run report
+before applying changes:
+
+```go
+report, err := quickstart.ReconcileGeneratedNavigation(ctx, quickstart.NavigationReconcileOptions{
+    MenuSvc:  adm.MenuService(),
+    MenuCode: cfg.NavMenuCode,
+    Locale:   cfg.DefaultLocale,
+    Items:    expectedItems,
+    Apply:    false,
+})
+```
+
+The report separates normal updates from operational diagnostics:
+
+- `Creates` and `Updates` are generated rows that would be inserted or updated.
+- `PreservedUserRows` are non-generated rows that are intentionally left alone.
+- `DuplicateIdentities` reports duplicate or ambiguous generated identities; in
+  apply mode ambiguous legacy matches are skipped.
+- `DestructiveCandidates` reports stale generated rows whose identity no longer
+  appears in the expected plan. They are not deleted unless the caller opts into
+  destructive behavior.
+- `StaleTargetStateCleanup` reports generated rows that carried transient
+  request/permission state and will be cleaned by an update.
+- `CapabilityOmissions`, `PermissionFilteredItems`, `ParentPrunedItems`, and
+  `RouteResolutionFailures` are diagnostics for missing capabilities,
+  permission-filtered rows, empty generated parents, or unresolved route data.
+
+Set `Apply: true` to converge rows. Keep `AllowDestructive` off unless the host
+has explicitly reviewed the destructive candidates; generated rows are
+update-safe by default, but deleting or replacing rows can affect host-specific
+navigation customizations.
