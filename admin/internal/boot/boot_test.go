@@ -1663,6 +1663,10 @@ func TestTranslationQueueRouteStepRegistersRoutes(t *testing.T) {
 	variantPath := mustRoutePath(t, ctx, ctx.AdminAPIGroup(), "translations.variants.id")
 	for _, call := range rr.calls {
 		requestCtx := router.NewMockContext()
+		requestCtx.ParamsM["assignment_id"] = "asg_1"
+		requestCtx.ParamsM["family_id"] = "family_1"
+		requestCtx.ParamsM["variant_id"] = "var_1"
+		requestCtx.ParamsM["action"] = "claim"
 		switch call.path {
 		case detailPath:
 			requestCtx.ParamsM["assignment_id"] = "asg_1"

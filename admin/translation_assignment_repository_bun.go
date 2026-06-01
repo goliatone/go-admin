@@ -142,7 +142,8 @@ func (r *BunTranslationAssignmentRepository) ListAssignmentSnapshot(ctx context.
 	if r == nil || r.db == nil {
 		return TranslationAssignmentSnapshotQueryResult{}, serviceNotConfiguredDomainError("translation assignment repository", nil)
 	}
-	if normalizeTranslationQueueReviewState(input.Filter.ReviewState) != "" {
+	reviewState := normalizeTranslationQueueReviewState(input.Filter.ReviewState)
+	if reviewState != "" && reviewState != translationQueueReviewStateQABlocked {
 		return TranslationAssignmentSnapshotQueryResult{}, ErrTranslationAssignmentQueryUnsupported
 	}
 	limit := input.Limit
@@ -160,19 +161,25 @@ func (r *BunTranslationAssignmentRepository) ListAssignmentSnapshot(ctx context.
 		return TranslationAssignmentSnapshotQueryResult{}, ErrTranslationAssignmentQueryUnsupported
 	}
 	now := normalizedBunAssignmentQueryNow(input.Now)
-	total, err := r.countAssignments(ctx, opts, now)
+	dueSQL := r.assignmentDueDateSQL(now)
+	total, err := r.countAssignmentsWithFamilyReviewState(ctx, opts, dueSQL, reviewState)
 	if err != nil {
 		return TranslationAssignmentSnapshotQueryResult{}, err
 	}
 	records := []bunTranslationAssignmentSnapshotRecord{}
-	dueSQL := r.assignmentDueDateSQL(now)
 	query := r.db.NewSelect().
 		Model((*bunTranslationAssignmentRecord)(nil)).
 		Column("assignment_id", "row_version").
 		Limit(limit)
 	applyBunAssignmentListFilters(query, opts, dueSQL)
+	if err := applyBunFamilyBlockedReviewFilter(query, reviewState); err != nil {
+		return TranslationAssignmentSnapshotQueryResult{}, err
+	}
 	applyBunAssignmentListSort(query, opts, dueSQL)
 	if err := query.Scan(ctx, &records); err != nil {
+		if isMissingFamilyBlockersTableError(err) {
+			return TranslationAssignmentSnapshotQueryResult{}, ErrTranslationAssignmentFamilyBlockersUnavailable
+		}
 		return TranslationAssignmentSnapshotQueryResult{}, err
 	}
 	selections := make([]TranslationAssignmentSnapshotSelection, 0, len(records))

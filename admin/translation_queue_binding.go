@@ -529,6 +529,18 @@ func (b *translationQueueBinding) RunAssignmentBulkAction(c router.Context, body
 			"supported":       []string{"current_page", "filter_snapshot"},
 		})
 	}
+	idempotencyKey := strings.TrimSpace(toString(body["idempotency_key"]))
+	replayScope := "bulk"
+	if replay, ok, replayErr := b.lookupActionReplay(identity.ActorID, replayScope, action, idempotencyKey, body); replayErr != nil {
+		return nil, replayErr
+	} else if ok {
+		if rawMeta, hasMeta := replay["meta"]; hasMeta {
+			meta := extractMap(rawMeta)
+			meta["idempotency_hit"] = true
+			replay["meta"] = meta
+		}
+		return replay, nil
+	}
 	var snapshot *translationQueueFilterSnapshot
 	var selections []translationQueueBulkActionSelection
 	if selectionScope == "filter_snapshot" {
@@ -545,7 +557,7 @@ func (b *translationQueueBinding) RunAssignmentBulkAction(c router.Context, body
 		}
 	}
 
-	results, errorsOut, updatedRows, succeeded := b.runAssignmentBulkSelections(adminCtx, repo, service, identity, action, channel, now, selections, body)
+	results, errorsOut, updatedRows, succeeded := b.runAssignmentBulkSelections(adminCtx, repo, service, identity, action, channel, now, selections, body, snapshot)
 
 	meta := mergeTranslationChannelContract(map[string]any{
 		"selection_scope": selectionScope,
@@ -553,6 +565,7 @@ func (b *translationQueueBinding) RunAssignmentBulkAction(c router.Context, body
 		"succeeded":       succeeded,
 		"failed":          len(errorsOut),
 		"partial":         succeeded > 0 && len(errorsOut) > 0,
+		"idempotency_hit": false,
 	}, channel)
 	if snapshot != nil {
 		meta["snapshot_id"] = snapshot.ID
@@ -562,7 +575,7 @@ func (b *translationQueueBinding) RunAssignmentBulkAction(c router.Context, body
 		meta["snapshot_expires_at"] = snapshot.ExpiresAt
 	}
 
-	return map[string]any{
+	response := map[string]any{
 		"data": map[string]any{
 			"action":      action,
 			"results":     results,
@@ -570,10 +583,12 @@ func (b *translationQueueBinding) RunAssignmentBulkAction(c router.Context, body
 			"errors":      errorsOut,
 		},
 		"meta": meta,
-	}, nil
+	}
+	b.storeActionReplay(identity.ActorID, replayScope, action, idempotencyKey, body, response)
+	return response, nil
 }
 
-func (b *translationQueueBinding) runAssignmentBulkSelections(adminCtx AdminContext, repo TranslationAssignmentRepository, service *DefaultTranslationQueueService, identity translationTransportIdentity, action, channel string, now time.Time, selections []translationQueueBulkActionSelection, body map[string]any) ([]map[string]any, []map[string]any, []map[string]any, int) {
+func (b *translationQueueBinding) runAssignmentBulkSelections(adminCtx AdminContext, repo TranslationAssignmentRepository, service *DefaultTranslationQueueService, identity translationTransportIdentity, action, channel string, now time.Time, selections []translationQueueBulkActionSelection, body map[string]any, snapshot *translationQueueFilterSnapshot) ([]map[string]any, []map[string]any, []map[string]any, int) {
 	results := make([]map[string]any, 0, len(selections))
 	errorsOut := make([]map[string]any, 0)
 	updatedRows := make([]map[string]any, 0, len(selections))
@@ -582,6 +597,9 @@ func (b *translationQueueBinding) runAssignmentBulkSelections(adminCtx AdminCont
 		current, itemErr := repo.Get(adminCtx.Context, selection.AssignmentID)
 		if itemErr == nil {
 			itemErr = b.ensureAssignmentScope(identity, current)
+		}
+		if itemErr == nil && snapshot != nil {
+			itemErr = b.ensureAssignmentStillMatchesSnapshot(adminCtx.Context, current, *snapshot, channel)
 		}
 		if itemErr == nil {
 			itemErr = b.requireAssignmentBulkActionPermission(adminCtx, action, current)
@@ -1082,32 +1100,60 @@ func (b *translationQueueBinding) assignmentSnapshotSelections(ctx context.Conte
 		if err == nil {
 			return translationQueueSnapshotSelectionsFromQuery(result.Selections), result.Total, nil
 		}
+		if errors.Is(err, ErrTranslationAssignmentFamilyBlockersUnavailable) {
+			return nil, 0, validationDomainError("filter snapshot review state requires unavailable family blocker aggregates", map[string]any{
+				"field":        "filters.review_state",
+				"review_state": normalizeTranslationQueueReviewState(filter.ReviewState),
+				"reason_code":  "snapshot_review_state_unavailable",
+			})
+		}
 		if !errors.Is(err, ErrTranslationAssignmentQueryUnsupported) {
 			return nil, 0, err
 		}
-	}
-	allAssignments, err := b.listAssignmentsForSummary(ctx, repo, filter.SortBy, nil)
-	if err != nil {
-		return nil, 0, err
-	}
-	matched := b.matchAssignments(allAssignments, filter, now)
-	if filter.ReviewState != "" {
-		matched = b.applyReviewStateFilter(ctx, matched, filter.ReviewState, environment)
-	}
-	sortAssignments(matched, filter.SortBy, filter.SortDesc, now)
-	total := len(matched)
-	if len(matched) > translationQueueBulkSnapshotMaxAssignments {
-		matched = matched[:translationQueueBulkSnapshotMaxAssignments]
-	}
-	selections := make([]translationQueueBulkActionSelection, 0, len(matched))
-	for idx, assignment := range matched {
-		selections = append(selections, translationQueueBulkActionSelection{
-			AssignmentID:     strings.TrimSpace(assignment.ID),
-			ExpectedVersion:  assignment.Version,
-			OriginalPosition: idx,
+		if strings.TrimSpace(filter.ReviewState) != "" {
+			return nil, 0, unsupportedSnapshotFilterError(filter.ReviewState)
+		}
+		return nil, 0, validationDomainError("filter snapshot matching is not supported by the assignment repository", map[string]any{
+			"field":       "filters",
+			"reason_code": "snapshot_query_unsupported",
 		})
 	}
-	return selections, total, nil
+	return nil, 0, validationDomainError("filter snapshot matching is not supported by the assignment repository", map[string]any{
+		"field":       "filters",
+		"reason_code": "snapshot_query_unsupported",
+	})
+}
+
+func unsupportedSnapshotFilterError(reviewState string) error {
+	return validationDomainError("filter snapshot review state is not supported by the assignment repository", map[string]any{
+		"field":        "filters.review_state",
+		"review_state": normalizeTranslationQueueReviewState(reviewState),
+		"reason_code":  "snapshot_review_state_unsupported",
+	})
+}
+
+func (b *translationQueueBinding) ensureAssignmentStillMatchesSnapshot(ctx context.Context, assignment TranslationAssignment, snapshot translationQueueFilterSnapshot, channel string) error {
+	if !matchesAssignmentListFilter(assignment, snapshot.Filter, snapshot.CreatedAt) {
+		return validationDomainError("assignment no longer matches the filter snapshot", map[string]any{
+			"assignment_id": assignment.ID,
+			"snapshot_id":   snapshot.ID,
+			"field":         "snapshot_id",
+			"reason_code":   "snapshot_scope_changed",
+		})
+	}
+	if strings.TrimSpace(snapshot.Filter.ReviewState) != "" {
+		matched := b.applyReviewStateFilter(ctx, []TranslationAssignment{assignment}, snapshot.Filter.ReviewState, channel)
+		if len(matched) == 0 {
+			return validationDomainError("assignment no longer matches the filter snapshot review state", map[string]any{
+				"assignment_id": assignment.ID,
+				"snapshot_id":   snapshot.ID,
+				"field":         "snapshot_id",
+				"review_state":  normalizeTranslationQueueReviewState(snapshot.Filter.ReviewState),
+				"reason_code":   "snapshot_review_state_changed",
+			})
+		}
+	}
+	return nil
 }
 
 func translationQueueSnapshotSelectionsFromQuery(items []TranslationAssignmentSnapshotSelection) []translationQueueBulkActionSelection {

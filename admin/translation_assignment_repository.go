@@ -475,7 +475,9 @@ func (r *InMemoryTranslationAssignmentRepository) createLocked(assignment Transl
 	if normalized.CreatedAt.IsZero() {
 		normalized.CreatedAt = now
 	}
-	normalized.UpdatedAt = now
+	if normalized.UpdatedAt.IsZero() {
+		normalized.UpdatedAt = now
+	}
 	if normalized.Version == 0 {
 		normalized.Version = 1
 	}
