@@ -449,12 +449,94 @@ test('translation queue runtime: all-matching filter snapshots confirm and submi
   await screen.selectAllMatchingFilters();
   assert.match(root.innerHTML, /3 matching assignments selected/);
   assert.match(root.innerHTML, /Status: open, assigned/);
+  assert.match(root.innerHTML, /data-filter-snapshot-action="assign"/);
+  assert.match(root.innerHTML, /data-filter-snapshot-action="priority"/);
 
   await screen.runFilterSnapshotBulkAction('release');
   assert.equal(globalThis.window.confirm.mock.calls.length, 1);
   assert.equal(calls.length, 4);
   assert.equal(screen.getFeedback()?.kind, 'success');
   assert.match(screen.getFeedback()?.message || '', /3 assignments updated/);
+});
+
+test('translation queue runtime: all-matching snapshots support assign and priority payloads', async () => {
+  const { root } = setupDom();
+  const bulkRequests = [];
+  let snapshotCount = 0;
+  globalThis.window.confirm = mock.fn(() => true);
+  globalThis.fetch = mock.fn(async (input, init = {}) => {
+    const url = String(input);
+    if (url.endsWith('/assignment-actions/snapshot')) {
+      snapshotCount += 1;
+      return createJsonResponse({
+        data: {
+          selection_scope: 'filter_snapshot',
+          snapshot_id: snapshotCount === 1 ? 'snap_assign' : 'snap_priority',
+          requested: 2,
+          filters: {},
+          filter_summary: ['All visible assignments'],
+          created_at: '2026-06-01T12:00:00Z',
+          expires_at: '2026-06-01T12:15:00Z',
+        },
+        meta: {
+          selection_scope: 'filter_snapshot',
+          requested: 2,
+          expires_in_sec: 900,
+        },
+      });
+    }
+    if (url.endsWith('/assignment-actions/bulk')) {
+      const requestBody = JSON.parse(String(init.body || '{}'));
+      bulkRequests.push(requestBody);
+      return createJsonResponse({
+        data: {
+          action: requestBody.action,
+          results: [],
+          assignments: [],
+          errors: [],
+        },
+        meta: {
+          selection_scope: 'filter_snapshot',
+          snapshot_id: requestBody.snapshot_id,
+          requested: 2,
+          succeeded: 2,
+          failed: 0,
+          partial: false,
+        },
+      });
+    }
+    return createJsonResponse({
+      meta: {
+        ...fixtures.states.open_pool.meta,
+        ...fixtures.meta,
+        total: 2,
+      },
+      data: fixtures.states.open_pool.data,
+    });
+  });
+
+  const screen = new AssignmentQueueScreen({
+    endpoint: '/admin/api/translations/assignments',
+    bulkActionEndpoint: '/admin/api/translations/assignment-actions/bulk',
+    bulkSnapshotEndpoint: '/admin/api/translations/assignment-actions/snapshot',
+  });
+  screen.mount(root);
+  await flushAsync();
+
+  await screen.selectAllMatchingFilters();
+  await screen.runFilterSnapshotBulkAction('assign', { assigneeId: 'translator-1' });
+  await screen.selectAllMatchingFilters();
+  await screen.runFilterSnapshotBulkAction('priority', { priority: 'urgent' });
+
+  assert.equal(bulkRequests.length, 2);
+  assert.equal(bulkRequests[0].action, 'assign');
+  assert.equal(bulkRequests[0].assignee_id, 'translator-1');
+  assert.equal(bulkRequests[0].snapshot_id, 'snap_assign');
+  assert.match(bulkRequests[0].idempotency_key, /snap_assign:assign:translator-1/);
+  assert.equal(bulkRequests[1].action, 'priority');
+  assert.equal(bulkRequests[1].priority, 'urgent');
+  assert.equal(bulkRequests[1].snapshot_id, 'snap_priority');
+  assert.match(bulkRequests[1].idempotency_key, /snap_priority:priority::urgent/);
 });
 
 test('translation queue runtime: grouped backend rows render expandable families and child actions', async () => {

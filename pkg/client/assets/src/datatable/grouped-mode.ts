@@ -43,7 +43,7 @@ import { escapeAttribute as escapeAttr } from '../shared/html.js';
  * URL state sync, and pagination handling. The difference is purely visual:
  * the cell renderer switches to compact locale chips in matrix mode.
  */
-export type ViewMode = 'flat' | 'grouped' | 'matrix';
+export type ViewMode = 'flat' | 'grouped' | 'matrix' | 'server_family';
 export type GroupExpandMode = 'all' | 'none' | 'explicit';
 
 /**
@@ -830,7 +830,7 @@ export function persistViewMode(panelId: string, mode: ViewMode): void {
 }
 
 function isValidViewMode(value: string): value is ViewMode {
-  return value === 'flat' || value === 'grouped' || value === 'matrix';
+  return value === 'flat' || value === 'grouped' || value === 'matrix' || value === 'server_family';
 }
 
 /**

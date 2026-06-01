@@ -116,6 +116,7 @@ export interface AssignmentListQueryState extends AssignmentListFilters {
   sort?: AssignmentSortKey;
   order?: 'asc' | 'desc';
   groupBy?: 'family_id';
+  groupStrategy?: 'page_local' | 'server_family';
 }
 
 export interface AssignmentActionStates {
@@ -181,8 +182,17 @@ export interface AssignmentListGroupingMeta {
   row_count: number;
   group_count: number;
   assignment_count: number;
+  family_total?: number;
+  assignment_total?: number;
   supported_modes: string[];
+  supported_sort_keys?: AssignmentSortKey[];
   strategy: string;
+  capabilities?: {
+    server_family?: {
+      supported: boolean;
+      reason_code?: string;
+    };
+  };
 }
 
 export interface AssignmentListMeta {
@@ -201,11 +211,53 @@ export interface AssignmentListMeta {
   review_actor_id?: string;
   review_aggregate_counts: Record<string, number>;
   grouping?: AssignmentListGroupingMeta;
+  family_total?: number;
+  assignment_total?: number;
 }
 
 export interface AssignmentListResponse {
   meta: AssignmentListMeta;
   data: AssignmentListRow[];
+}
+
+interface ServerFamilyExpansion {
+  href: string;
+  route: string;
+  params: Record<string, string>;
+  query: Record<string, unknown>;
+}
+
+interface ServerFamilyParentRow {
+  id: string;
+  row_type: 'family';
+  family_id: string;
+  family_label: string;
+  entity_type: string;
+  source_record_id: string;
+  source_locale: string;
+  source_title: string;
+  source_path: string;
+  assignment_count: number;
+  locale_count: number;
+  target_locales: string[];
+  status_counts: Record<string, number>;
+  due_state_counts: Record<string, number>;
+  priority_counts: Record<string, number>;
+  family_blocker_count: number | null;
+  family_blocker_count_available: boolean;
+  family_blocker_count_reason: string;
+  action_hints: Record<string, number>;
+  expansion: ServerFamilyExpansion;
+  expanded: boolean;
+  children: AssignmentListRow[];
+  childMeta?: {
+    page: number;
+    per_page: number;
+    total: number;
+    has_next: boolean;
+  };
+  loading?: boolean;
+  error?: string;
 }
 
 export interface AssignmentActionResponseData {
@@ -240,6 +292,8 @@ export interface BulkActionRequest {
   assignments?: BulkActionItem[];
   selectionScope?: 'current_page' | 'filter_snapshot';
   snapshotId?: string;
+  assigneeId?: string;
+  idempotencyKey?: string;
   reason?: string;
   priority?: AssignmentPriority;
 }
@@ -613,6 +667,23 @@ function normalizeBulkFilterSnapshot(value: unknown): BulkFilterSnapshot {
     createdAt: asString(raw.created_at),
     expiresAt: asString(raw.expires_at),
   };
+}
+
+function normalizeAssignmentPriority(value: unknown): AssignmentPriority | '' {
+  const normalized = asString(value).toLowerCase();
+  return normalized === 'low' || normalized === 'normal' || normalized === 'high' || normalized === 'urgent'
+    ? normalized
+    : '';
+}
+
+function filterSnapshotBulkIdempotencyKey(snapshotId: string, action: string, options: { assigneeId?: string; priority?: AssignmentPriority } = {}): string {
+  return [
+    'translation_queue_filter_snapshot',
+    asString(snapshotId),
+    asString(action),
+    asString(options.assigneeId),
+    asString(options.priority),
+  ].join(':');
 }
 
 export function buildAssignmentListQuery(state: AssignmentListQueryState = {}): string {
@@ -1185,11 +1256,15 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
     }
   }
 
-  async runFilterSnapshotBulkAction(action: 'release' | 'archive'): Promise<void> {
+  async runFilterSnapshotBulkAction(action: 'assign' | 'release' | 'priority' | 'archive', options?: { assigneeId?: string; priority?: AssignmentPriority }): Promise<void> {
     const snapshot = this.filterSnapshot;
     if (!snapshot) {
       this.feedback = { kind: 'error', message: 'No filter snapshot selected.' };
       this.render();
+      return;
+    }
+    const actionOptions = options || this.promptFilterSnapshotActionOptions(action);
+    if (actionOptions === null) {
       return;
     }
     const summary = snapshot.filterSummary.length ? `\n\n${snapshot.filterSummary.join('\n')}` : '';
@@ -1209,6 +1284,9 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
         action,
         selectionScope: 'filter_snapshot',
         snapshotId: snapshot.snapshotId,
+        assigneeId: actionOptions.assigneeId,
+        priority: actionOptions.priority,
+        idempotencyKey: filterSnapshotBulkIdempotencyKey(snapshot.snapshotId, action, actionOptions),
       });
 
       if (response.data.failed > 0) {
@@ -1233,6 +1311,34 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
     }
   }
 
+  private promptFilterSnapshotActionOptions(action: 'assign' | 'release' | 'priority' | 'archive'): { assigneeId?: string; priority?: AssignmentPriority } | null {
+    if (action === 'assign') {
+      const fallback = this.queryState.assigneeId && this.queryState.assigneeId !== '__me__' ? this.queryState.assigneeId : '';
+      const value = typeof window === 'undefined' || typeof window.prompt !== 'function'
+        ? fallback
+        : window.prompt('Assign matching assignments to', fallback);
+      const assigneeId = asString(value);
+      if (!assigneeId) {
+        return null;
+      }
+      return { assigneeId };
+    }
+    if (action === 'priority') {
+      const fallback = normalizeAssignmentPriority(this.queryState.priority || 'normal');
+      const value = typeof window === 'undefined' || typeof window.prompt !== 'function'
+        ? fallback
+        : window.prompt('Set matching assignments priority', fallback);
+      const priority = normalizeAssignmentPriority(asString(value));
+      if (!priority) {
+        this.feedback = { kind: 'error', message: 'Priority must be low, normal, high, or urgent.' };
+        this.render();
+        return null;
+      }
+      return { priority };
+    }
+    return {};
+  }
+
   private async executeBulkAction(request: BulkActionRequest): Promise<BulkActionResponse> {
     const response = await httpRequest(this.config.bulkActionEndpoint || resolveAssignmentBulkActionEndpoint(this.config.endpoint), {
       method: 'POST',
@@ -1240,10 +1346,12 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
         action: request.action,
         selection_scope: request.selectionScope || 'current_page',
         snapshot_id: request.snapshotId,
+        idempotency_key: request.idempotencyKey,
         assignments: (request.assignments || []).map((a) => ({
           assignment_id: a.assignmentId,
           expected_version: a.expectedVersion,
         })),
+        assignee_id: request.assigneeId,
         reason: request.reason,
         priority: request.priority,
       },
@@ -1671,7 +1779,9 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
           </div>
           <div class="filter-snapshot-actions">
             <button type="button" class="${BTN_SECONDARY_SM}" data-filter-snapshot-clear="true" ${isPending ? 'disabled' : ''}>Clear</button>
+            <button type="button" class="${BTN_SECONDARY_SM}" data-filter-snapshot-action="assign" ${isPending || snapshot.requested === 0 ? 'disabled' : ''}>Assign</button>
             <button type="button" class="${BTN_SECONDARY_SM}" data-filter-snapshot-action="release" ${isPending || snapshot.requested === 0 ? 'disabled' : ''}>Release</button>
+            <button type="button" class="${BTN_SECONDARY_SM}" data-filter-snapshot-action="priority" ${isPending || snapshot.requested === 0 ? 'disabled' : ''}>Priority</button>
             <button type="button" class="${BTN_SECONDARY_SM}" data-filter-snapshot-action="archive" ${isPending || snapshot.requested === 0 ? 'disabled' : ''}>Archive</button>
           </div>
         </section>
@@ -2617,7 +2727,7 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
     this.container.querySelectorAll<HTMLButtonElement>('[data-filter-snapshot-action]').forEach((button) => {
       button.addEventListener('click', () => {
         const action = button.dataset.filterSnapshotAction;
-        if (action === 'release' || action === 'archive') {
+        if (action === 'assign' || action === 'release' || action === 'priority' || action === 'archive') {
           void this.runFilterSnapshotBulkAction(action);
         }
       });
