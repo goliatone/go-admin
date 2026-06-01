@@ -342,6 +342,7 @@ Core queue API routes:
 - `GET /admin/api/translations/assignments`
 - `GET /admin/api/translations/assignments/:assignment_id`
 - `POST /admin/api/translations/assignments/:assignment_id/actions/:action`
+- `POST /admin/api/translations/assignment-actions/snapshot`
 - `POST /admin/api/translations/assignment-actions/bulk`
 - `PATCH /admin/api/translations/variants/:variant_id`
 
@@ -349,11 +350,12 @@ Queue option endpoints also exist under `/admin/api/translations/options/*` for 
 
 ### Queue bulk action contract
 
-The browser-facing bulk endpoint supports current-page selections only. Requests send an action plus selected assignment/version pairs:
+The browser-facing bulk endpoint supports current-page selections and server-created filter snapshots. Current-page requests send an action plus selected assignment/version pairs:
 
 ```json
 {
   "action": "assign",
+  "selection_scope": "current_page",
   "assignments": [
     {"assignment_id": "asg_1", "expected_version": 3}
   ]
@@ -362,7 +364,51 @@ The browser-facing bulk endpoint supports current-page selections only. Requests
 
 Supported actions are `assign`, `release`, `priority`, and `archive`. Responses include updated assignment rows when available, per-assignment errors, and metadata with requested, succeeded, failed, partial, and selection-scope counts. Version conflicts, permission failures, invalid statuses, and missing assignments are reported per item where possible.
 
-This endpoint does not implement "select all matching filter". Clients must submit the selected page rows explicitly.
+For all-matching-filter selection, the browser first creates a server-side snapshot:
+
+```json
+{
+  "filters": {
+    "status": "open,assigned",
+    "assignee_id": "__me__",
+    "priority": "high,urgent",
+    "locale": "es",
+    "family_id": "tg_123",
+    "review_state": "qa_blocked",
+    "sort": "due_date",
+    "order": "asc"
+  }
+}
+```
+
+`POST /admin/api/translations/assignment-actions/snapshot` resolves the filter vocabulary used by `GET /admin/api/translations/assignments`, binds the snapshot to the authenticated tenant, org, actor, channel, and creation time, and stores assignment IDs with their row versions. The response includes:
+
+```json
+{
+  "data": {
+    "selection_scope": "filter_snapshot",
+    "snapshot_id": "snap_...",
+    "requested": 42,
+    "filters": {"status": "open,assigned", "sort": "due_date", "order": "asc"},
+    "filter_summary": ["Status: open, assigned", "Sort: due_date ascending"],
+    "created_at": "2026-06-01T12:00:00Z",
+    "expires_at": "2026-06-01T12:15:00Z"
+  }
+}
+```
+
+The confirmed bulk request references the snapshot instead of sending all matching IDs to the browser:
+
+```json
+{
+  "action": "assign",
+  "selection_scope": "filter_snapshot",
+  "snapshot_id": "snap_...",
+  "assignee_id": "translator-1"
+}
+```
+
+Snapshot execution reuses the current-page bulk action semantics per assignment. If an assignment was updated, removed, moved out of scope, denied by permissions, or no longer supports the action, that item is returned as a per-assignment failure. Snapshots are short-lived and actor-scoped; expired or cross-actor snapshot references are rejected before mutation.
 
 ### Queue grouping contract
 
@@ -388,9 +434,9 @@ Dashboard blocked-family rows can include optional remediation fields:
 - `affected_locales`
 - `reason_data`
 
-`reason_data.state` is one of `available`, `unavailable`, or `degraded`. Clients should treat these fields as optional and keep rendering the existing dashboard payload when they are absent.
+`reason_data.state` is one of `available`, `unavailable`, or `degraded`. Clients should treat these fields as optional and keep rendering the existing dashboard payload when they are absent. Populated `family_blockers` rows are the actionable source for reason buckets; fallback-only `content_families.blocker_codes` values provide labels but should render as unavailable or degraded reason context when detailed blocker rows are absent.
 
-The optimized dashboard path derives this context from persisted family/blocker projections scoped by tenant, org, channel, and dashboard limits. It should not call broad family or assignment hydration paths to render dashboard reason buckets.
+The optimized dashboard path derives family aggregates from `content_families` and reason detail from `family_blockers`, scoped by tenant, org, channel, and dashboard limits. It should not call broad family or assignment hydration paths, derive family reason buckets from assignment rows, or require a denormalized dashboard projection for the current contract.
 
 ### Assignment editor assist
 

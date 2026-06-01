@@ -459,7 +459,8 @@ curl http://localhost:8080/admin/test-error?type=nested
 
 - Sidebar footer now renders the current session from go-auth (`helpers.BuildSessionUser` via `helpers.WithNav`), showing display name/email plus role/tenant when available; guest state falls back to “Not signed in.”
 - Authenticated snapshot is also available at `GET /admin/api/session` (mirrors the footer payload: id/subject/email/username/role/tenant/org/resource_roles/scopes/issued_at/expires_at).
-- QA: login as admin/editor/viewer and confirm the footer avatar initial and labels match the account; collapse the sidebar to hide text; call `/admin/api/session` with the issued token and expect 200 with populated fields; without/expired token the auth middleware returns 401 and the footer shows Guest/Not signed in.
+- Sidebar logout is a POST form with `csrf_field`; `GET /admin/logout` is not registered by default and will surface as an admin `route_miss` unless `WithAuthUILogoutGET(true)` is explicitly enabled for legacy compatibility.
+- QA: login as admin/editor/viewer and confirm the footer avatar initial and labels match the account; collapse the sidebar to hide text; submit Log out and expect a redirect to `/admin/login`; call `/admin/api/session` with the issued token and expect 200 with populated fields; without/expired token the auth middleware returns 401 and the footer shows Guest/Not signed in.
 
 ## Adding a new CRUD resource (HTML)
 
@@ -511,6 +512,12 @@ func SetupAuth(adm *admin.Admin, dataStores *stores.DataStores) {
     }))
 }
 ```
+
+Logout route details:
+
+- `RegisterAuthUIRoutes` registers `POST /admin/logout` by default and validates it with the logout authenticator passed in `examples/web/main.go`.
+- Render logout as a form that includes `{{ csrf_field|safe }}`. A plain `<a href="/admin/logout">` issues a GET and will 404 in the default example.
+- Use `quickstart.WithAuthUILogoutGET(true)` only when preserving a legacy GET logout link is required.
 
 ### Demo Authentication Tokens
 
