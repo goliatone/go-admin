@@ -215,7 +215,7 @@
           },
           "entity_type": "pages",
           "expansion": {
-            "href": "/admin/api/translations/assignments/families/tg-server-1/assignments?order=desc&page=1&per_page=25&sort=updated_at",
+            "href": "/admin/api/translations/families/tg-server-1/assignments?order=desc&page=1&per_page=25&sort=updated_at",
             "params": {
               "family_id": "tg-server-1"
             },

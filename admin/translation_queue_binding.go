@@ -2989,7 +2989,7 @@ func (b *translationQueueBinding) serverFamilyExpansionHref(familyID string, que
 		base = adminAPIRoutePath(b.admin, "translations.assignments.family_assignments")
 	}
 	if strings.TrimSpace(base) == "" {
-		base = "/admin/api/translations/assignments/families/:family_id/assignments"
+		base = "/admin/api/translations/families/:family_id/assignments"
 	}
 	base = strings.ReplaceAll(base, ":family_id", url.PathEscape(strings.TrimSpace(familyID)))
 	values := url.Values{}
