@@ -2,6 +2,7 @@ package quickstart
 
 import (
 	"context"
+	"slices"
 	"strings"
 	"testing"
 
@@ -522,12 +523,7 @@ func findMenuItemByIDForTest(items []admin.MenuItem, id string) *admin.MenuItem 
 }
 
 func containsMenuSeedPlanString(values []string, want string) bool {
-	for _, value := range values {
-		if value == want {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(values, want)
 }
 
 func containsStringWithPrefix(values []string, prefix string) bool {
