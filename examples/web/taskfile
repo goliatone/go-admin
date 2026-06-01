@@ -7,18 +7,21 @@ fi
 
 export LGR_NO_TIMESTAMP=true
 
+TASKFILE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$(cd "${TASKFILE_DIR}/../.." && pwd)"
+
 # If we have a .taskenv file load it as source
-if [ -f .taskenv ]; then
+if [ -f "${TASKFILE_DIR}/.taskenv" ]; then
     # shellcheck disable=SC1091
-    source .taskenv
+    source "${TASKFILE_DIR}/.taskenv"
 fi
 
 # This makes all bin packages installed via npm available here
 # e.g. bogota, nyc, autocannon, etc.
-PATH=$(pwd)/node_modules/.bin:$PATH
+PATH="${ROOT_DIR}/node_modules/.bin:$PATH"
 
 # This will make all scripts available in the ./src/bin directory
-PATH=$(pwd)/src/bin:$PATH
+PATH="${TASKFILE_DIR}/src/bin:$PATH"
 
 
 ##########################################
@@ -34,7 +37,7 @@ function dev:cover {
 
 function dev:serve {
     local root_dir
-    root_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+    root_dir="${ROOT_DIR}"
     local assets_dir="${root_dir}/pkg/client/assets"
     local hash_file="${assets_dir}/.build_hash"
     local src_dir="${assets_dir}/src"
@@ -123,7 +126,7 @@ function dev:serve {
     export APP_TRANSLATION__PROFILE=full;
     export APP_ADMIN__ASSETS_DIR="${root_dir}/pkg/client/assets";
 
-    go run .
+    (cd "${TASKFILE_DIR}" && go run .)
 }
 
 # Force rebuild assets, bypassing hash check
