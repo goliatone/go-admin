@@ -744,11 +744,6 @@ func normalizeMenuItemsForMenu(items []admin.MenuItem, menuCode, locale string) 
 	return out
 }
 
-func translationCapabilityMenuItems(adm *admin.Admin, cfg admin.Config, menuCode, locale string) []admin.MenuItem {
-	items, _ := translationCapabilityMenuItemsWithDiagnostics(adm, cfg, menuCode, locale)
-	return items
-}
-
 func translationCapabilityMenuItemsWithDiagnostics(adm *admin.Admin, cfg admin.Config, menuCode, locale string) ([]admin.MenuItem, []string) {
 	if adm == nil {
 		return nil, nil
