@@ -29,6 +29,7 @@ func ModuleAPIRoutes() map[string]string {
 		"translations.variants.id":                    "/variants/:variant_id",
 		"translations.assignments":                    "/assignments",
 		"translations.assignments.id":                 "/assignments/:assignment_id",
+		"translations.assignments.bulk_snapshot":      "/assignment-actions/snapshot",
 		"translations.assignments.bulk_actions":       "/assignment-actions/bulk",
 		"translations.assignments.actions":            "/assignments/:assignment_id/actions/:action",
 		"translations.export":                         "/exchange/export",
