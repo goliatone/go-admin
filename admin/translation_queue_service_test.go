@@ -427,7 +427,7 @@ func TestDefaultTranslationQueueServiceReviewerGuardAndFeedbackActivity(t *testi
 	if got := strings.TrimSpace(toString(feedback.Metadata["reject_reason"])); got != "Missing CTA placeholder" {
 		t.Fatalf("expected reject_reason metadata, got %+v", feedback.Metadata)
 	}
-	if visible, _ := feedback.Metadata["translator_visible"].(bool); !visible {
+	if visible, ok := feedback.Metadata["translator_visible"].(bool); !ok || !visible {
 		t.Fatalf("expected translator_visible metadata, got %+v", feedback.Metadata)
 	}
 	if notes := toStringSlice(feedback.Metadata["terminology_notes"]); len(notes) != 1 || notes[0] != "Use traduction for translation." {

@@ -301,11 +301,11 @@ func TestReconcileGeneratedNavigationUpgradesExactLegacyParentOwnership(t *testi
 	}
 	legacy := seedItems[0]
 	legacy.Target = nil
-	if _, err := menuSvc.CreateMenu(ctx, menuCode); err != nil {
-		t.Fatalf("CreateMenu: %v", err)
+	if _, createErr := menuSvc.CreateMenu(ctx, menuCode); createErr != nil {
+		t.Fatalf("CreateMenu: %v", createErr)
 	}
-	if err := menuSvc.AddMenuItem(ctx, menuCode, legacy); err != nil {
-		t.Fatalf("seed legacy parent: %v", err)
+	if addErr := menuSvc.AddMenuItem(ctx, menuCode, legacy); addErr != nil {
+		t.Fatalf("seed legacy parent: %v", addErr)
 	}
 
 	report, err := ReconcileGeneratedNavigation(ctx, NavigationReconcileOptions{
@@ -391,11 +391,11 @@ func TestReconcileGeneratedNavigationUpdatesStaleGeneratedRows(t *testing.T) {
 	stale.Target[MenuTargetGeneratedIDKey] = stale.ID
 	stale.Target["disabled_reason"] = "Permission denied"
 	stale.Locale = locale
-	if _, err := menuSvc.CreateMenu(ctx, menuCode); err != nil {
-		t.Fatalf("create menu: %v", err)
+	if _, createErr := menuSvc.CreateMenu(ctx, menuCode); createErr != nil {
+		t.Fatalf("create menu: %v", createErr)
 	}
-	if err := menuSvc.AddMenuItem(ctx, menuCode, stale); err != nil {
-		t.Fatalf("seed stale row: %v", err)
+	if addErr := menuSvc.AddMenuItem(ctx, menuCode, stale); addErr != nil {
+		t.Fatalf("seed stale row: %v", addErr)
 	}
 
 	expected := []admin.MenuItem{

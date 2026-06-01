@@ -12,7 +12,7 @@ func TestTranslationQueueStatsFromRepositorySnapshot(t *testing.T) {
 	past := time.Now().UTC().Add(-time.Hour)
 	ctx := context.Background()
 
-	_, _ = repo.Create(ctx, TranslationAssignment{
+	if _, err := repo.Create(ctx, TranslationAssignment{
 		FamilyID:       "tg_1",
 		EntityType:     "pages",
 		SourceRecordID: "page_1",
@@ -22,8 +22,10 @@ func TestTranslationQueueStatsFromRepositorySnapshot(t *testing.T) {
 		Status:         AssignmentStatusOpen,
 		Priority:       PriorityNormal,
 		DueDate:        &past,
-	})
-	_, _ = repo.Create(ctx, TranslationAssignment{
+	}); err != nil {
+		t.Fatalf("create overdue assignment: %v", err)
+	}
+	if _, err := repo.Create(ctx, TranslationAssignment{
 		FamilyID:       "tg_2",
 		EntityType:     "posts",
 		SourceRecordID: "post_1",
@@ -32,7 +34,9 @@ func TestTranslationQueueStatsFromRepositorySnapshot(t *testing.T) {
 		AssignmentType: AssignmentTypeDirect,
 		Status:         AssignmentStatusInReview,
 		Priority:       PriorityHigh,
-	})
+	}); err != nil {
+		t.Fatalf("create review assignment: %v", err)
+	}
 
 	svc := &TranslationQueueStatsFromRepository{Repository: repo}
 	snapshot, err := svc.Snapshot(ctx)
@@ -59,7 +63,7 @@ func TestTranslationQueueStatsFromRepositorySnapshot(t *testing.T) {
 func TestRegisterTranslationProgressWidgetUsesResolverLinks(t *testing.T) {
 	repo := NewInMemoryTranslationAssignmentRepository()
 	ctx := context.Background()
-	_, _ = repo.Create(ctx, TranslationAssignment{
+	if _, err := repo.Create(ctx, TranslationAssignment{
 		FamilyID:       "tg_1",
 		EntityType:     "pages",
 		SourceRecordID: "page_1",
@@ -68,7 +72,9 @@ func TestRegisterTranslationProgressWidgetUsesResolverLinks(t *testing.T) {
 		AssignmentType: AssignmentTypeOpenPool,
 		Status:         AssignmentStatusOpen,
 		Priority:       PriorityNormal,
-	})
+	}); err != nil {
+		t.Fatalf("create assignment: %v", err)
+	}
 
 	dash := NewDashboard()
 	dash.WithWidgetService(NewInMemoryWidgetService())
@@ -119,7 +125,7 @@ func TestRegisterTranslationProgressWidgetUsesResolverLinks(t *testing.T) {
 		if link["resolver_key"] != translationQueueResolverKey || link["route"] != "translations.queue" {
 			t.Fatalf("expected resolver route metadata, got %v", link)
 		}
-		if url, _ := link["url"].(string); url != "" && !strings.HasPrefix(url, "/admin/translations/queue") {
+		if url, ok := link["url"].(string); ok && url != "" && !strings.HasPrefix(url, "/admin/translations/queue") {
 			t.Fatalf("expected resolver-built translations URL, got %q", url)
 		}
 		if link["label"] == "All Translations" {
