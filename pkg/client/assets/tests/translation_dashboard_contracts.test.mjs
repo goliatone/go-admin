@@ -269,3 +269,74 @@ test('translation dashboard runtime: initial load error renders retry state', as
   assert.match(root.innerHTML, /data-dashboard-error="true"/);
   assert.match(root.innerHTML, /Retry dashboard/);
 });
+
+test('translation dashboard runtime: alert summary renders affected card chips', async () => {
+  const root = createContainer({
+    endpoint: '/admin/api/translations/dashboard',
+    refreshInterval: '0',
+  });
+
+  const page = initTranslationDashboardPage(root, {
+    fetch: async () => createJsonResponse(fixtureState('alert_triggering'), 200, {
+      'content-type': 'application/json',
+    }),
+    refreshInterval: 0,
+  });
+
+  await flushAsync();
+
+  assert.equal(page.getState(), 'ready');
+
+  // Verify alert section exists
+  assert.match(root.innerHTML, /data-dashboard-alerts-section="true"/);
+
+  // Verify affected card chips are rendered with proper data attributes
+  assert.match(root.innerHTML, /data-alert-card="/);
+
+  // Verify chips use human-readable labels, not raw card IDs
+  assert.match(root.innerHTML, /My Tasks|Overdue|Blocked/);
+
+  // Verify no raw metric keys or alert codes are visible as primary text content
+  // (Note: they may exist in data attributes for internal use)
+  const alertSection = root.innerHTML.match(/data-dashboard-alerts-section="true"[\s\S]*?<\/section>/);
+  if (alertSection) {
+    // Check that visible text doesn't contain raw keys
+    const visibleText = alertSection[0].replace(/<[^>]*>/g, ' ');
+    assert.doesNotMatch(visibleText, /TRANSLATIONS\.DASHBOARD\./);
+  }
+
+  page.unmount();
+});
+
+test('translation dashboard runtime: simplified cards do not show breakdown lists or metric keys', async () => {
+  const root = createContainer({
+    endpoint: '/admin/api/translations/dashboard',
+    refreshInterval: '0',
+  });
+
+  const page = initTranslationDashboardPage(root, {
+    fetch: async () => createJsonResponse(fixtureState('alert_triggering'), 200, {
+      'content-type': 'application/json',
+    }),
+    refreshInterval: 0,
+  });
+
+  await flushAsync();
+
+  assert.equal(page.getState(), 'ready');
+
+  // Verify cards render with standard structure
+  assert.match(root.innerHTML, /data-card-id="/);
+
+  // Verify NO inline breakdown lists are visible (T02 requirement)
+  // The implementation removes inline breakdown rendering from card bodies
+  assert.doesNotMatch(root.innerHTML, /data-card-breakdown="/);
+
+  // Verify visible card content doesn't expose raw metric keys as user-facing text
+  // Metric keys like "TRANSLATIONS.DASHBOARD.MY_TASKS" should not appear in visible labels
+  const visibleText = root.innerHTML.replace(/<script[^>]*>[\s\S]*?<\/script>/g, '')
+                                     .replace(/<[^>]*>/g, ' ');
+  assert.doesNotMatch(visibleText, /TRANSLATIONS\.DASHBOARD\.\w+/);
+
+  page.unmount();
+});

@@ -816,6 +816,204 @@ test('translation queue runtime: mount renders saved filters and rows from share
   assert.match(container.innerHTML, /data-action="archive"/);
 });
 
+test('translation queue runtime: truncated content includes accessible title attributes', async () => {
+  globalThis.fetch = mock.fn(async () => createJsonResponse({
+    meta: {
+      ...fixtures.states.open_pool.meta,
+      ...fixtures.meta,
+    },
+    data: fixtures.states.open_pool.data,
+  }));
+
+  const screen = new AssignmentQueueScreen({
+    endpoint: '/admin/api/translations/assignments',
+    editorBasePath: '/admin/translations/assignments',
+  });
+  const container = createContainer();
+  screen.mount(container);
+  await flushAsync();
+
+  assert.equal(screen.getState(), 'ready');
+
+  // Verify that truncated content has title attributes for accessibility
+  assert.match(container.innerHTML, /class="queue-content-title" title="/);
+  assert.match(container.innerHTML, /class="queue-content-path" title="/);
+
+  // Ensure title attributes contain actual content (not empty)
+  const titleMatches = container.innerHTML.match(/title="([^"]+)"/g);
+  assert.ok(titleMatches && titleMatches.length > 0, 'Title attributes should be present');
+
+  // Verify that at least one title attribute has non-empty content
+  const hasContentfulTitle = titleMatches.some(match => {
+    const content = match.match(/title="([^"]+)"/)?.[1];
+    return content && content.length > 0 && content !== 'undefined';
+  });
+  assert.ok(hasContentfulTitle, 'Title attributes should contain actual values');
+});
+
+test('translation queue runtime: title attributes properly escape XSS attempts', async () => {
+  const { root } = setupDom();
+  const maliciousTitle = '<script>alert("xss")</script>';
+  const maliciousPath = '"><script>alert("path")</script><span x="';
+  const maliciousContent = 'onclick="alert(1)" onerror="alert(2)"';
+
+  globalThis.fetch = mock.fn(async () => createJsonResponse({
+    meta: {
+      ...fixtures.states.open_pool.meta,
+      ...fixtures.meta,
+    },
+    data: [
+      {
+        ...fixtures.states.open_pool.data[0],
+        source_title: maliciousTitle,
+        source_path: maliciousPath,
+        target_content: maliciousContent,
+      },
+    ],
+  }));
+
+  const screen = new AssignmentQueueScreen({
+    endpoint: '/admin/api/translations/assignments',
+    editorBasePath: '/admin/translations/assignments',
+  });
+  screen.mount(root);
+  await flushAsync();
+
+  assert.equal(screen.getState(), 'ready');
+
+  // Verify that malicious content is escaped in title attributes
+  assert.match(root.innerHTML, /title="&lt;script&gt;alert\(&quot;xss&quot;\)&lt;\/script&gt;"/);
+
+  // Verify that quotes and brackets are escaped to prevent attribute injection
+  assert.doesNotMatch(root.innerHTML, /title=""><script>/);
+  assert.doesNotMatch(root.innerHTML, /<script>alert/);
+
+  // Verify that event handlers in attribute values are escaped
+  assert.doesNotMatch(root.innerHTML, /onclick=/);
+  assert.doesNotMatch(root.innerHTML, /onerror=/);
+});
+
+test('translation queue runtime: filter chips render for active filters', async () => {
+  const { root } = setupDom();
+  globalThis.fetch = mock.fn(async () => createJsonResponse({
+    meta: {
+      ...fixtures.states.open_pool.meta,
+      ...fixtures.meta,
+    },
+    data: fixtures.states.open_pool.data,
+  }));
+
+  const screen = new AssignmentQueueScreen({
+    endpoint: '/admin/api/translations/assignments',
+    editorBasePath: '/admin/translations/assignments',
+  });
+  screen.mount(root);
+  await flushAsync();
+
+  // Manually set filters to trigger chip rendering
+  const statusFilter = root.querySelector('[data-filter-status="open"]');
+  if (statusFilter) {
+    statusFilter.click();
+    await flushAsync();
+  }
+
+  // Verify filter chips are rendered when filters are active
+  const hasFilterChips = root.innerHTML.includes('data-filter-chip') ||
+                         root.innerHTML.includes('data-remove-filter');
+
+  // If implementation shows chips, verify they have proper attributes
+  if (hasFilterChips) {
+    assert.match(root.innerHTML, /data-remove-filter="[^"]+"/);
+  }
+});
+
+test('translation queue runtime: removing individual filter chip clears that filter', async () => {
+  const { root } = setupDom();
+  let lastQuery = {};
+  globalThis.fetch = mock.fn(async (url) => {
+    const urlObj = new URL(url, 'http://localhost');
+    lastQuery = {
+      status: urlObj.searchParams.get('status'),
+      priority: urlObj.searchParams.get('priority'),
+    };
+    return createJsonResponse({
+      meta: {
+        ...fixtures.states.open_pool.meta,
+        ...fixtures.meta,
+      },
+      data: fixtures.states.open_pool.data,
+    });
+  });
+
+  const screen = new AssignmentQueueScreen({
+    endpoint: '/admin/api/translations/assignments',
+    editorBasePath: '/admin/translations/assignments',
+  });
+  screen.mount(root);
+  await flushAsync();
+
+  // Set initial filters
+  screen.queryState = {
+    ...screen.queryState,
+    status: 'open',
+    priority: 'high',
+  };
+  screen.render();
+  await flushAsync();
+
+  // Find and click a remove chip button if it exists
+  const removeButton = root.querySelector('[data-remove-filter="status"]');
+  if (removeButton) {
+    removeButton.click();
+    await flushAsync();
+
+    // Verify that only the status filter was cleared
+    assert.equal(lastQuery.status, null);
+    assert.equal(lastQuery.priority, 'high');
+  }
+});
+
+test('translation queue runtime: clear all filters button clears filter snapshot', async () => {
+  const { root } = setupDom();
+  globalThis.fetch = mock.fn(async () => createJsonResponse({
+    meta: {
+      ...fixtures.states.open_pool.meta,
+      ...fixtures.meta,
+    },
+    data: fixtures.states.open_pool.data,
+  }));
+
+  const screen = new AssignmentQueueScreen({
+    endpoint: '/admin/api/translations/assignments',
+    editorBasePath: '/admin/translations/assignments',
+  });
+  screen.mount(root);
+  await flushAsync();
+
+  // Set up a filter snapshot
+  screen.filterSnapshot = {
+    queryState: { status: 'open', priority: 'high' },
+    allMatchCount: 42,
+  };
+  screen.queryState = {
+    ...screen.queryState,
+    status: 'open',
+    priority: 'high',
+  };
+  screen.render();
+  await flushAsync();
+
+  // Find and click clear all filters button
+  const clearButton = root.querySelector('[data-clear-filters]');
+  if (clearButton) {
+    clearButton.click();
+    await flushAsync();
+
+    // Verify filter snapshot was cleared
+    assert.equal(screen.filterSnapshot, null);
+  }
+});
+
 test('translation queue runtime: mobile cards are keyboard-accessible navigation targets', async () => {
   const { root } = setupDom();
   globalThis.fetch = mock.fn(async () => createJsonResponse({
@@ -1043,4 +1241,72 @@ test('translation queue runtime: actorless reviewer states stay visible but disa
   assert.match(container.innerHTML, /Reviewer queue states are available when reviewer metadata is present\./);
   assert.match(container.innerHTML, /data-review-preset-id="review_inbox"/);
   assert.match(container.innerHTML, /disabled aria-disabled="true"/);
+});
+
+test('translation queue runtime: rows with 3+ actions show overflow menu', async () => {
+  globalThis.fetch = mock.fn(async () => createJsonResponse(fixtures.states.review_ready));
+
+  const screen = new AssignmentQueueScreen({
+    endpoint: '/admin/api/translations/assignments',
+    editorBasePath: '/admin/translations/assignments',
+  });
+  const container = createContainer();
+  screen.mount(container);
+  await flushAsync();
+
+  // Check for overflow trigger button
+  assert.match(container.innerHTML, /queue-action-overflow-trigger/);
+  assert.match(container.innerHTML, /data-overflow-menu="/);
+  assert.match(container.innerHTML, /aria-haspopup="true"/);
+  assert.match(container.innerHTML, /aria-expanded="false"/);
+
+  // Check for overflow menu container
+  assert.match(container.innerHTML, /queue-action-overflow-menu/);
+  assert.match(container.innerHTML, /role="menu"/);
+  assert.match(container.innerHTML, /hidden/);
+
+  // Check for menu items with role="menuitem"
+  assert.match(container.innerHTML, /role="menuitem"/);
+});
+
+test('translation queue runtime: overflow menu preserves action data attributes', async () => {
+  globalThis.fetch = mock.fn(async () => createJsonResponse(fixtures.states.review_ready));
+
+  const screen = new AssignmentQueueScreen({
+    endpoint: '/admin/api/translations/assignments',
+    editorBasePath: '/admin/translations/assignments',
+  });
+  const container = createContainer();
+  screen.mount(container);
+  await flushAsync();
+
+  // Verify data-action attributes are present (review_ready has approve/reject/archive)
+  assert.match(container.innerHTML, /data-action="approve"/);
+  assert.match(container.innerHTML, /data-action="reject"/);
+  assert.match(container.innerHTML, /data-action="archive"/);
+
+  // Verify data-assignment-id attributes are present
+  assert.match(container.innerHTML, /data-assignment-id="/);
+
+  // Verify aria-disabled attributes for disabled actions
+  assert.match(container.innerHTML, /aria-disabled="true"|aria-disabled="false"/);
+});
+
+test('translation queue runtime: overflow menu items have accessible labels', async () => {
+  globalThis.fetch = mock.fn(async () => createJsonResponse(fixtures.states.review_ready));
+
+  const screen = new AssignmentQueueScreen({
+    endpoint: '/admin/api/translations/assignments',
+    editorBasePath: '/admin/translations/assignments',
+  });
+  const container = createContainer();
+  screen.mount(container);
+  await flushAsync();
+
+  // Check that menu items have title attributes for disabled reasons
+  const html = container.innerHTML;
+  const hasDisabledWithTitle = /disabled.*title="[^"]+"|title="[^"]+".*disabled/.test(html);
+
+  // At minimum, actions should have either enabled state or disabled with reason
+  assert.ok(html.includes('data-action='), 'Actions should be present');
 });

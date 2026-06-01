@@ -715,7 +715,7 @@ function nt(e) {
   `;
 }
 function ot(e) {
-  return e.source_value && e.source_value.trim() ? l(e.source_value) : e.required ? '<span class="text-amber-600 italic">Source text pending - required field</span>' : '<span class="text-gray-400 italic">Optional source content not provided</span>';
+  return e.source_value && e.source_value.trim() ? l(e.source_value) : e.required ? '<span class="text-amber-600 italic">Source text pending - required field</span>' : '<span class="text-gray-400 italic text-xs">Optional source content not provided</span>';
 }
 function lt(e) {
   return `

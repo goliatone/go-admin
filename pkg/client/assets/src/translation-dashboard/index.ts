@@ -860,39 +860,23 @@ function renderCardRunbookLink(card: TranslationDashboardCard, runbooks: Transla
 }
 
 function renderCard(card: TranslationDashboardCard, runbooks: TranslationDashboardRunbook[] = []): string {
-  const breakdown = Object.entries(card.breakdown)
-    .map(([key, value]) => `
-      <li class="flex items-center justify-between gap-3 text-xs text-gray-600">
-        <span>${escapeHTML(formatMetricLabel(key))}</span>
-        <span class="font-semibold text-gray-900">${escapeHTML(String(value))}</span>
-      </li>
-    `)
-    .join('');
-
   const cardShortLabel = getCardShortLabel(card.id, card.label);
   const cardFullLabel = getCardLabel(card.id, card.label);
-  const metricLabel = getMetricKeyLabel(card.metricKey);
-  const runbookLink = renderCardRunbookLink(card, runbooks);
+  const titleText = card.description ? `${cardFullLabel} - ${card.description}` : cardFullLabel;
 
   return `
-    <article class="${CARD} p-4 shadow-sm flex flex-col" data-dashboard-card="${escapeAttribute(card.id)}">
-      <div>
-        <p class="text-xs font-semibold uppercase tracking-[0.24em] text-gray-500 truncate" title="${escapeAttribute(cardFullLabel)}">${escapeHTML(cardShortLabel)}</p>
-      </div>
-      <div class="mt-2">
-        <p class="text-3xl font-semibold tracking-tight text-gray-900">${escapeHTML(String(card.count))}</p>
-        <span class="mt-1.5 inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.16em] ${escapeAttribute(alertToneClass(card.alert.state))}">
+    <article class="${CARD} p-4 shadow-sm flex flex-col" data-dashboard-card="${escapeAttribute(card.id)}" title="${escapeAttribute(titleText)}">
+      <div class="flex items-start justify-between gap-2">
+        <p class="text-xs font-semibold uppercase tracking-[0.24em] text-gray-500 truncate">${escapeHTML(cardShortLabel)}</p>
+        <span class="flex-shrink-0 inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.16em] ${escapeAttribute(alertToneClass(card.alert.state))}">
           ${escapeHTML(card.alert.message || card.alert.state)}
         </span>
       </div>
-      <p class="mt-3 text-sm leading-6 text-gray-600">${escapeHTML(card.description)}</p>
-      ${breakdown ? `<ul class="mt-4 space-y-2">${breakdown}</ul>` : ''}
-      <div class="mt-auto pt-4 flex flex-col gap-3">
-        <div class="flex items-center justify-between gap-3">
-          ${renderCardDrilldown(card)}
-          <span class="text-xs text-gray-400" title="${escapeAttribute(card.metricKey)}">${escapeHTML(metricLabel)}</span>
-        </div>
-        ${runbookLink ? `<div class="border-t border-gray-100 pt-3">${runbookLink}</div>` : ''}
+      <div class="mt-3">
+        <p class="text-3xl font-semibold tracking-tight text-gray-900">${escapeHTML(String(card.count))}</p>
+      </div>
+      <div class="mt-auto pt-4">
+        ${renderCardDrilldown(card)}
       </div>
     </article>
   `;
@@ -912,19 +896,25 @@ function getWorstAlertState(alerts: TranslationDashboardAlert[]): DashboardAlert
   );
 }
 
-function renderDismissibleAlert(alert: TranslationDashboardAlert): string {
+function renderDismissibleAlert(alert: TranslationDashboardAlert, cards: TranslationDashboardCard[]): string {
+  const affectedCard = cards.find((c) => c.id === alert.cardId);
+  const cardLabel = affectedCard ? getCardLabel(alert.cardId, affectedCard.label) : formatMetricLabel(alert.cardId);
+
   return `
     <div class="flex items-start justify-between gap-3 p-3 rounded-lg bg-white/50"
          data-alert-code="${escapeAttribute(alert.code)}"
          role="${alert.state === 'critical' ? 'alert' : 'status'}">
       <div class="flex-1 min-w-0">
-        <p class="text-xs font-semibold uppercase tracking-[0.16em]">${escapeHTML(alert.code)}</p>
-        <p class="mt-1 text-sm">${escapeHTML(alert.message)}</p>
+        <div class="flex items-center gap-2 flex-wrap">
+          <span class="inline-flex items-center rounded-md px-2 py-0.5 text-xs font-semibold uppercase tracking-[0.16em] ${escapeAttribute(alertToneClass(alert.state))}">${escapeHTML(cardLabel)}</span>
+          <span class="text-xs font-medium text-gray-600">${escapeHTML(alert.state)}</span>
+        </div>
+        <p class="mt-1.5 text-sm text-gray-700">${escapeHTML(alert.message)}</p>
       </div>
       <button type="button"
               class="flex-shrink-0 p-1 rounded hover:bg-gray-200/50 transition-colors"
               data-dismiss-alert="${escapeAttribute(alert.code)}"
-              aria-label="Dismiss ${escapeHTML(alert.code)} alert">
+              aria-label="Dismiss alert for ${escapeHTML(cardLabel)}">
         <svg class="h-4 w-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
         </svg>
@@ -935,6 +925,7 @@ function renderDismissibleAlert(alert: TranslationDashboardAlert): string {
 
 function renderAlertSummaryBanner(
   alerts: TranslationDashboardAlert[],
+  cards: TranslationDashboardCard[],
   expanded: boolean,
   dismissedSet: Set<string>
 ): string {
@@ -954,6 +945,15 @@ function renderAlertSummaryBanner(
     .map(([state, count]) => `${count} ${state}`)
     .join(', ');
 
+  // Render affected cards as chips in collapsed summary
+  const affectedCardChips = activeAlerts
+    .map((alert) => {
+      const affectedCard = cards.find((c) => c.id === alert.cardId);
+      const cardLabel = affectedCard ? getCardShortLabel(alert.cardId, affectedCard.label) : formatMetricLabel(alert.cardId);
+      return `<span class="inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium bg-white/60 text-gray-700" data-alert-card="${escapeAttribute(alert.cardId)}">${escapeHTML(cardLabel)}</span>`;
+    })
+    .join('');
+
   const chevronRotation = expanded ? 'rotate-180' : '';
 
   return `
@@ -965,11 +965,12 @@ function renderAlertSummaryBanner(
               class="w-full flex items-center justify-between gap-3 px-4 py-3 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
               data-alerts-toggle="true"
               aria-expanded="${expanded}">
-        <div class="flex items-center gap-3">
+        <div class="flex items-center gap-3 flex-wrap min-w-0 flex-1">
           <svg class="h-5 w-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
           </svg>
           <span class="text-sm font-semibold">${escapeHTML(summaryParts)}</span>
+          ${!expanded ? `<div class="flex items-center gap-1.5 flex-wrap">${affectedCardChips}</div>` : ''}
         </div>
         <svg class="h-5 w-5 flex-shrink-0 transition-transform ${chevronRotation}" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
@@ -977,7 +978,7 @@ function renderAlertSummaryBanner(
       </button>
       <div class="${expanded ? '' : 'hidden'}" data-alerts-content="true">
         <div class="border-t border-current/20 px-4 py-3 space-y-2">
-          ${activeAlerts.map((alert) => renderDismissibleAlert(alert)).join('')}
+          ${activeAlerts.map((alert) => renderDismissibleAlert(alert, cards)).join('')}
         </div>
       </div>
     </section>
@@ -1214,6 +1215,7 @@ function renderTabbedTables(
                 aria-controls="table-panel-${escapeAttribute(id)}">
           ${tabConfig.icon}
           <span>${escapeHTML(tabConfig.shortLabel)}</span>
+          <span class="sr-only">${escapeHTML(tabConfig.label)}</span>
           <span class="ml-1 px-2 py-0.5 text-xs rounded-full ${isActive ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'}">
             ${tables[id]?.total || 0}
           </span>
@@ -1291,6 +1293,7 @@ function alertToneContainerClass(state: DashboardAlertState): string {
 function renderCollapsibleMeta(payload: TranslationDashboardResponse, expanded: boolean): string {
   const scopeParts = Object.entries(payload.meta.scope)
     .filter(([, value]) => value)
+    .filter(([key]) => key !== 'actor_id')
     .map(([key, value]) => ({ key: formatMetricLabel(key), value: String(value) }));
 
   const refreshDisplay = formatRefreshInterval(payload.meta.refreshIntervalMs);
@@ -1348,6 +1351,7 @@ function renderToolbar(payload: TranslationDashboardResponse | null, refreshing 
 
   const scopeParts = payload ? Object.entries(payload.meta.scope)
     .filter(([, value]) => value)
+    .filter(([key]) => key !== 'actor_id')
     .map(([key, value]) => ({ key: formatMetricLabel(key), value: String(value) })) : [];
 
   const refreshDisplay = payload ? formatRefreshInterval(payload.meta.refreshIntervalMs) : 'N/A';
@@ -1375,34 +1379,54 @@ function renderToolbar(payload: TranslationDashboardResponse | null, refreshing 
         </div>
       </div>
       ${payload ? `
-        <div class="border-t border-gray-200">
-          <button type="button"
-                  class="w-full flex items-center justify-between gap-3 px-5 py-3 text-left hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-inset transition-colors"
-                  data-meta-toggle="true"
-                  aria-expanded="${metaExpanded}">
-            <div class="flex items-center gap-2">
-              <svg class="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
-              </svg>
-              <span class="text-sm font-medium text-gray-700">Technical Details</span>
+        <div class="border-t border-gray-100 bg-gray-50 px-5 py-2">
+          <div class="flex items-center justify-between gap-3">
+            <div class="flex items-center gap-2 flex-wrap">
+              <span class="inline-flex items-center gap-1.5 px-2 py-1 text-xs font-medium text-gray-600 bg-white rounded border border-gray-200" title="Dashboard channel">
+                <svg class="h-3 w-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14"/>
+                </svg>
+                <span>${escapeHTML(channel)}</span>
+              </span>
+              <span class="inline-flex items-center gap-1.5 px-2 py-1 text-xs font-medium text-gray-600 bg-white rounded border border-gray-200" title="Refresh interval: ${escapeHTML(refreshDisplay)}">
+                <svg class="h-3 w-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+                <span>${escapeHTML(refreshDisplay)}</span>
+              </span>
+              <span class="inline-flex items-center gap-1.5 px-2 py-1 text-xs font-medium text-gray-600 bg-white rounded border border-gray-200" title="Latency target: ${escapeHTML(latencyDisplay)}">
+                <svg class="h-3 w-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                </svg>
+                <span>${escapeHTML(latencyDisplay)}</span>
+              </span>
             </div>
-            <svg class="h-4 w-4 text-gray-400 transition-transform ${chevronRotation}" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
-            </svg>
-          </button>
-          <div class="${metaExpanded ? '' : 'hidden'}" data-meta-content="true">
-            <dl class="border-t border-gray-200 px-5 py-3 grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-4 bg-gray-50">
+            <button type="button"
+                    class="inline-flex items-center gap-1.5 px-2 py-1 text-xs font-medium text-gray-600 hover:text-gray-900 hover:bg-white rounded transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                    data-meta-toggle="true"
+                    aria-expanded="${metaExpanded}"
+                    aria-label="Toggle technical details">
+              <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+              </svg>
+              <span>Details</span>
+              <svg class="h-3 w-3 transition-transform ${chevronRotation}" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+              </svg>
+            </button>
+          </div>
+          <div class="${metaExpanded ? 'mt-3' : 'hidden'}" data-meta-content="true">
+            <dl class="border-t border-gray-200 pt-3 grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-4">
               <div>
                 <dt class="text-xs font-medium uppercase tracking-[0.16em] text-gray-500">Channel</dt>
                 <dd class="mt-1 text-sm font-medium text-gray-900">${escapeHTML(channel)}</dd>
               </div>
               <div>
-                <dt class="text-xs font-medium uppercase tracking-[0.16em] text-gray-500">Refresh</dt>
+                <dt class="text-xs font-medium uppercase tracking-[0.16em] text-gray-500">Refresh Interval</dt>
                 <dd class="mt-1 text-sm font-medium text-gray-900">${escapeHTML(refreshDisplay)}</dd>
               </div>
               <div>
-                <dt class="text-xs font-medium uppercase tracking-[0.16em] text-gray-500">Latency</dt>
+                <dt class="text-xs font-medium uppercase tracking-[0.16em] text-gray-500">Latency Target</dt>
                 <dd class="mt-1 text-sm font-medium text-gray-900">${escapeHTML(latencyDisplay)}</dd>
               </div>
               ${scopeParts.map(({ key, value }) => `
@@ -1700,7 +1724,7 @@ export class TranslationDashboardPage extends StatefulController<TranslationDash
         ${renderToolbar(payload, this.refreshing, this.metaExpanded)}
         ${inlineError}
         ${degraded}
-        ${renderAlertSummaryBanner(payload.data.alerts, this.alertsExpanded, this.dismissedAlerts)}
+        ${renderAlertSummaryBanner(payload.data.alerts, payload.data.cards, this.alertsExpanded, this.dismissedAlerts)}
         ${empty
           ? renderEmptyState(payload)
           : `

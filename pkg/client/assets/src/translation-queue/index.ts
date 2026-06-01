@@ -1082,6 +1082,205 @@ function shouldShowQueueManagementActions(row: AssignmentListRow): boolean {
   return Boolean(row.review_actions.archive.enabled);
 }
 
+// T06: Action overflow menu types
+type QueueActionType = 'claim' | 'release' | 'approve' | 'reject' | 'archive';
+type QueueActionCategory = 'lifecycle' | 'review' | 'management';
+
+interface QueueAction {
+  type: QueueActionType;
+  category: QueueActionCategory;
+  label: string;
+  enabled: boolean;
+  disabledReason: string;
+  pending: boolean;
+  pendingLabel: string;
+  dataAction: string;
+  ariaLabel: string;
+  buttonClass: string;
+}
+
+// T06: Build list of available actions from row state
+function buildRowActions(row: AssignmentListRow, pendingActions: Set<string>): QueueAction[] {
+  const actions: QueueAction[] = [];
+  const pendingClaim = pendingActions.has(`claim:${row.id}`);
+  const pendingRelease = pendingActions.has(`release:${row.id}`);
+  const pendingApprove = pendingActions.has(`approve:${row.id}`);
+  const pendingReject = pendingActions.has(`reject:${row.id}`);
+  const pendingArchive = pendingActions.has(`archive:${row.id}`);
+
+  // Lifecycle actions
+  const claimEnabled = row.actions.claim.enabled && !pendingClaim;
+  actions.push({
+    type: 'claim',
+    category: 'lifecycle',
+    label: pendingClaim ? 'Claiming…' : 'Claim',
+    enabled: claimEnabled,
+    disabledReason: row.actions.claim.reason || 'Claim assignment',
+    pending: pendingClaim,
+    pendingLabel: 'Claiming assignment…',
+    dataAction: 'claim',
+    ariaLabel: claimEnabled ? 'Claim assignment' : row.actions.claim.reason || 'Cannot claim assignment',
+    buttonClass: BTN_SECONDARY_SM,
+  });
+
+  const releaseEnabled = row.actions.release.enabled && !pendingRelease;
+  actions.push({
+    type: 'release',
+    category: 'lifecycle',
+    label: pendingRelease ? 'Releasing…' : 'Release',
+    enabled: releaseEnabled,
+    disabledReason: row.actions.release.reason || 'Release assignment',
+    pending: pendingRelease,
+    pendingLabel: 'Releasing assignment…',
+    dataAction: 'release',
+    ariaLabel: releaseEnabled ? 'Release assignment' : row.actions.release.reason || 'Cannot release assignment',
+    buttonClass: BTN_SECONDARY_SM,
+  });
+
+  // Review actions (if visible)
+  if (shouldShowQueueReviewActions(row)) {
+    const approveEnabled = row.review_actions.approve.enabled && !pendingApprove;
+    actions.push({
+      type: 'approve',
+      category: 'review',
+      label: pendingApprove ? 'Approving…' : 'Approve',
+      enabled: approveEnabled,
+      disabledReason: row.review_actions.approve.reason || 'Approve assignment',
+      pending: pendingApprove,
+      pendingLabel: 'Approving assignment…',
+      dataAction: 'approve',
+      ariaLabel: approveEnabled ? 'Approve assignment' : row.review_actions.approve.reason || 'Cannot approve assignment',
+      buttonClass: BTN_PRIMARY_SM,
+    });
+
+    const rejectEnabled = row.review_actions.reject.enabled && !pendingReject;
+    actions.push({
+      type: 'reject',
+      category: 'review',
+      label: pendingReject ? 'Rejecting…' : 'Reject',
+      enabled: rejectEnabled,
+      disabledReason: row.review_actions.reject.reason || 'Reject assignment',
+      pending: pendingReject,
+      pendingLabel: 'Rejecting assignment…',
+      dataAction: 'reject',
+      ariaLabel: rejectEnabled ? 'Reject assignment' : row.review_actions.reject.reason || 'Cannot reject assignment',
+      buttonClass: BTN_DANGER_SM,
+    });
+  }
+
+  // Management actions (if visible)
+  if (shouldShowQueueManagementActions(row)) {
+    const archiveEnabled = row.review_actions.archive.enabled && !pendingArchive;
+    actions.push({
+      type: 'archive',
+      category: 'management',
+      label: pendingArchive ? 'Archiving…' : 'Archive',
+      enabled: archiveEnabled,
+      disabledReason: row.review_actions.archive.reason || 'Archive assignment',
+      pending: pendingArchive,
+      pendingLabel: 'Archiving assignment…',
+      dataAction: 'archive',
+      ariaLabel: archiveEnabled ? 'Archive assignment' : row.review_actions.archive.reason || 'Cannot archive assignment',
+      buttonClass: BTN_SECONDARY_SM,
+    });
+  }
+
+  return actions;
+}
+
+// T06: Select primary action using priority rules
+function selectPrimaryAction(actions: QueueAction[], row: AssignmentListRow): QueueAction {
+  // Priority 1: Enabled review action when row is in review workflow
+  const inReviewWorkflow = isReviewQueueState(queueLifecycleState(row));
+  if (inReviewWorkflow) {
+    const enabledReview = actions.find(a => a.category === 'review' && a.enabled);
+    if (enabledReview) return enabledReview;
+  }
+
+  // Priority 2: Enabled claim action
+  const enabledClaim = actions.find(a => a.type === 'claim' && a.enabled);
+  if (enabledClaim) return enabledClaim;
+
+  // Priority 3: First enabled lifecycle or management action
+  const firstEnabled = actions.find(a => a.enabled);
+  if (firstEnabled) return firstEnabled;
+
+  // Priority 4: First action (disabled) when all disabled
+  return actions[0];
+}
+
+// T06: Render action overflow menu
+function renderActionOverflow(row: AssignmentListRow, actions: QueueAction[], primaryAction: QueueAction): string {
+  // If 2 or fewer actions, render inline
+  if (actions.length <= 2) {
+    return actions.map(action => `
+      <button
+        type="button"
+        class="${action.buttonClass}"
+        data-action="${escapeAttr(action.dataAction)}"
+        data-assignment-id="${escapeAttr(row.id)}"
+        ${action.enabled ? '' : 'disabled'}
+        aria-disabled="${action.enabled ? 'false' : 'true'}"
+        title="${escapeAttr(action.pending ? action.pendingLabel : action.disabledReason)}"
+      >
+        ${escapeHtml(action.label)}
+      </button>
+    `).join('');
+  }
+
+  // 3+ actions: Show primary + overflow
+  const remainingActions = actions.filter(a => a !== primaryAction);
+  const menuId = `menu-${row.id}`;
+
+  return `
+    <div class="queue-action-overflow-container">
+      <button
+        type="button"
+        class="${primaryAction.buttonClass}"
+        data-action="${escapeAttr(primaryAction.dataAction)}"
+        data-assignment-id="${escapeAttr(row.id)}"
+        ${primaryAction.enabled ? '' : 'disabled'}
+        aria-disabled="${primaryAction.enabled ? 'false' : 'true'}"
+        title="${escapeAttr(primaryAction.pending ? primaryAction.pendingLabel : primaryAction.disabledReason)}"
+      >
+        ${escapeHtml(primaryAction.label)}
+      </button>
+      <button
+        type="button"
+        class="queue-action-overflow-trigger"
+        data-overflow-menu="${escapeAttr(row.id)}"
+        aria-label="More actions"
+        aria-haspopup="true"
+        aria-expanded="false"
+      >
+        ⋮
+      </button>
+      <div
+        class="queue-action-overflow-menu"
+        id="${escapeAttr(menuId)}"
+        role="menu"
+        hidden
+      >
+        ${remainingActions.map(action => `
+          <button
+            type="button"
+            role="menuitem"
+            class="queue-action-menu-item"
+            data-action="${escapeAttr(action.dataAction)}"
+            data-assignment-id="${escapeAttr(row.id)}"
+            ${action.enabled ? '' : 'disabled'}
+            aria-disabled="${action.enabled ? 'false' : 'true'}"
+            title="${escapeAttr(action.pending ? action.pendingLabel : action.disabledReason)}"
+          >
+            ${escapeHtml(action.label)}
+            ${action.pending ? `<span class="action-pending-label">${escapeHtml(action.pendingLabel)}</span>` : ''}
+          </button>
+        `).join('')}
+      </div>
+    </div>
+  `;
+}
+
 // T10: Selection state entry
 interface SelectionEntry {
   assignmentId: string;
@@ -1841,6 +2040,150 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
     return count;
   }
 
+  private removeFilter(filterName: string): void {
+    const updates: Partial<AssignmentListQueryState> = {};
+    switch (filterName) {
+      case 'status':
+        updates.status = undefined;
+        break;
+      case 'due_state':
+        updates.dueState = undefined;
+        break;
+      case 'priority':
+        updates.priority = undefined;
+        break;
+      case 'locale':
+        updates.locale = undefined;
+        break;
+      case 'assignee_id':
+        updates.assigneeId = undefined;
+        break;
+      case 'reviewer_id':
+        updates.reviewerId = undefined;
+        break;
+      case 'family_id':
+        updates.familyId = undefined;
+        break;
+      case 'sort':
+        updates.sort = undefined;
+        break;
+      case 'order':
+        updates.order = undefined;
+        break;
+    }
+    this.updateFilter(updates);
+  }
+
+  private renderFilterChips(): string {
+    const activeFilters: Array<{ name: string; label: string; value: string }> = [];
+
+    if (this.queryState.status) {
+      activeFilters.push({
+        name: 'status',
+        label: 'Status',
+        value: humanizeToken(this.queryState.status),
+      });
+    }
+    if (this.queryState.dueState) {
+      activeFilters.push({
+        name: 'due_state',
+        label: 'Due State',
+        value: humanizeToken(this.queryState.dueState),
+      });
+    }
+    if (this.queryState.priority) {
+      activeFilters.push({
+        name: 'priority',
+        label: 'Priority',
+        value: humanizeToken(this.queryState.priority),
+      });
+    }
+    if (this.queryState.locale) {
+      activeFilters.push({
+        name: 'locale',
+        label: 'Locale',
+        value: this.queryState.locale,
+      });
+    }
+    if (this.queryState.assigneeId) {
+      activeFilters.push({
+        name: 'assignee_id',
+        label: 'Assignee',
+        value: this.queryState.assigneeId,
+      });
+    }
+    if (this.queryState.reviewerId) {
+      activeFilters.push({
+        name: 'reviewer_id',
+        label: 'Reviewer',
+        value: this.queryState.reviewerId,
+      });
+    }
+    if (this.queryState.familyId) {
+      activeFilters.push({
+        name: 'family_id',
+        label: 'Family',
+        value: this.queryState.familyId,
+      });
+    }
+    if (this.activeReviewState) {
+      activeFilters.push({
+        name: 'review_state',
+        label: 'Review State',
+        value: humanizeToken(this.activeReviewState),
+      });
+    }
+    if (this.queryState.sort && this.queryState.sort !== (this.response?.meta.default_sort.key ?? 'updated_at')) {
+      activeFilters.push({
+        name: 'sort',
+        label: 'Sort',
+        value: humanizeToken(this.queryState.sort),
+      });
+    }
+    if (this.queryState.order && this.queryState.order !== (this.response?.meta.default_sort.order ?? 'desc')) {
+      activeFilters.push({
+        name: 'order',
+        label: 'Order',
+        value: this.queryState.order === 'asc' ? 'Ascending' : 'Descending',
+      });
+    }
+
+    if (activeFilters.length === 0) {
+      return '';
+    }
+
+    return `
+      <div class="queue-filter-chips-container">
+        <div class="queue-filter-chips">
+          ${activeFilters.map((filter) => `
+            <button
+              type="button"
+              class="queue-filter-chip"
+              data-remove-filter="${escapeAttr(filter.name)}"
+              aria-label="${escapeAttr(`Remove ${filter.label} filter: ${filter.value}`)}"
+              title="${escapeAttr(`Remove ${filter.label}: ${filter.value}`)}"
+            >
+              <span class="queue-filter-chip-label">${escapeHtml(filter.label)}:</span>
+              <span class="queue-filter-chip-value">${escapeHtml(filter.value)}</span>
+              <svg class="queue-filter-chip-remove" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+              </svg>
+            </button>
+          `).join('')}
+          <button
+            type="button"
+            class="queue-filter-chip queue-filter-chip-clear-all"
+            data-clear-filters="true"
+            aria-label="Clear all filters"
+            title="Clear all filters"
+          >
+            <span>Clear all</span>
+          </button>
+        </div>
+      </div>
+    `;
+  }
+
   private toggleFiltersExpanded(): void {
     this.filtersExpanded = !this.filtersExpanded;
     this.persistFiltersExpanded();
@@ -2069,6 +2412,7 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
     const reviewerStateEnabled = Boolean(actorID);
     return `
       <section class="panel-tabs border-b border-gray-200" aria-label="Reviewer queue states">
+        <h2 class="sr-only">Reviewer states</h2>
         <div class="panel-tabs-container">
           ${this.savedReviewFilterPresets.map((preset) => `
             <button
@@ -2085,6 +2429,11 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
             </button>
           `).join('')}
         </div>
+        ${!reviewerStateEnabled ? `
+          <div class="px-4 py-2 text-xs text-gray-500 bg-gray-50 border-t border-gray-200">
+            Reviewer queue states are available when reviewer metadata is present.
+          </div>
+        ` : ''}
       </section>
     `;
   }
@@ -2208,6 +2557,7 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
             ${this.renderSortControls(sortKeys)}
           </div>
         </div>
+        ${this.renderFilterChips()}
         <form
           id="queue-filters-panel"
           class="${this.filtersExpanded ? '' : 'hidden'} mt-4 pt-4 border-t border-gray-100"
@@ -2341,13 +2691,13 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
                   aria-label="Select all assignments on this page"
                 />
               </th>
-              <th scope="col">Content</th>
-              <th scope="col">Locale</th>
-              <th scope="col">Status</th>
-              <th scope="col">Owners</th>
-              <th scope="col">Due</th>
-              <th scope="col">Priority</th>
-              <th scope="col">Actions</th>
+              <th scope="col" class="queue-content-col">Content</th>
+              <th scope="col" class="queue-locale-col">Locale</th>
+              <th scope="col" class="queue-status-col">Status</th>
+              <th scope="col" class="queue-owner-col">Owners</th>
+              <th scope="col" class="queue-due-col">Due</th>
+              <th scope="col" class="queue-priority-col">Priority</th>
+              <th scope="col" class="queue-action-col">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -2501,13 +2851,13 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
                   aria-label="Select all assignments on this page"
                 />
               </th>
-              <th scope="col">Content</th>
-              <th scope="col">Locale</th>
-              <th scope="col">Status</th>
-              <th scope="col">Owners</th>
-              <th scope="col">Due</th>
-              <th scope="col">Priority</th>
-              <th scope="col">Actions</th>
+              <th scope="col" class="queue-content-col">Content</th>
+              <th scope="col" class="queue-locale-col">Locale</th>
+              <th scope="col" class="queue-status-col">Status</th>
+              <th scope="col" class="queue-owner-col">Owners</th>
+              <th scope="col" class="queue-due-col">Due</th>
+              <th scope="col" class="queue-priority-col">Priority</th>
+              <th scope="col" class="queue-action-col">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -2567,16 +2917,6 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
 
   // T11: Render a child row within a group (slightly indented)
   private renderGroupChildRow(row: AssignmentListRow, groupId: string): string {
-    const pendingClaim = this.pendingActions.has(`claim:${row.id}`);
-    const pendingRelease = this.pendingActions.has(`release:${row.id}`);
-    const pendingApprove = this.pendingActions.has(`approve:${row.id}`);
-    const pendingReject = this.pendingActions.has(`reject:${row.id}`);
-    const pendingArchive = this.pendingActions.has(`archive:${row.id}`);
-    const claimDisabled = pendingClaim || !row.actions.claim.enabled;
-    const releaseDisabled = pendingRelease || !row.actions.release.enabled;
-    const showReviewActions = shouldShowQueueReviewActions(row);
-    const showManagementActions = shouldShowQueueManagementActions(row);
-
     const hasAssignee = Boolean(row.assignee_id);
     const hasReviewer = Boolean(row.reviewer_id);
     const hasDueDate = Boolean(row.due_date);
@@ -2601,20 +2941,20 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
             aria-label="Select assignment ${escapeAttr(row.source_title || row.id)}"
           />
         </td>
-        <td>
+        <td class="queue-content-col">
           <div class="queue-content-cell queue-content-cell-grouped">
             <span class="queue-content-indent"></span>
-            <span class="queue-content-title-small">${escapeHtml(row.source_title || row.source_path || row.id)}</span>
+            <span class="queue-content-title-small" title="${escapeAttr(row.source_title || row.source_path || row.id)}">${escapeHtml(row.source_title || row.source_path || row.id)}</span>
           </div>
         </td>
-        <td>
+        <td class="queue-locale-col">
           <div class="queue-locale-cell">
             <span class="locale-code">${escapeHtml(row.source_locale.toUpperCase())}</span>
             <span class="locale-arrow">→</span>
             <span class="locale-code locale-target">${escapeHtml(row.target_locale.toUpperCase())}</span>
           </div>
         </td>
-        <td>
+        <td class="queue-status-col">
           <div class="queue-status-cell">
             ${renderVocabularyStatusBadge(row.queue_state, { domain: 'queue', size: 'sm' })}
             ${row.qa_summary?.enabled && row.qa_summary.finding_count > 0 ? `
@@ -2624,96 +2964,39 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
             ` : ''}
           </div>
         </td>
-        <td>
+        <td class="queue-owner-col">
           <div class="queue-owner-cell">
             ${hasAssignee
               ? `<span class="queue-owner-value">${escapeHtml(row.assignee_id)}</span>`
-              : `<span class="queue-owner-empty">Unassigned</span>`}
+              : ''}
             ${hasReviewer
               ? `<span class="queue-reviewer-value">${escapeHtml(row.reviewer_id)}</span>`
               : ''}
           </div>
         </td>
-        <td>
+        <td class="queue-due-col">
           <div class="queue-due-cell">
             ${showDueState
               ? `<span class="due-pill due-${escapeAttr(row.due_state)}">${escapeHtml(humanizeToken(row.due_state))}</span>`
               : ''}
             ${hasDueDate
               ? `<span class="queue-due-date">${escapeHtml(formatTranslationShortDateTime(row.due_date, ''))}</span>`
-              : `<span class="queue-due-empty">—</span>`}
+              : ''}
           </div>
         </td>
-        <td>
+        <td class="queue-priority-col">
           <div class="queue-priority-cell">
             <span class="priority-indicator priority-${escapeAttr(row.priority)}" aria-label="${escapeAttr('Priority: ' + humanizeToken(row.priority))}"></span>
             <span class="priority-label">${escapeHtml(humanizeToken(row.priority))}</span>
           </div>
         </td>
-        <td>
+        <td class="queue-action-col">
           <div class="queue-action-cell">
-            <div class="queue-action-group" data-action-group="lifecycle">
-              <button
-                type="button"
-                class="${BTN_SECONDARY_SM}"
-                data-action="claim"
-                data-assignment-id="${escapeAttr(row.id)}"
-                ${claimDisabled ? 'disabled' : ''}
-                aria-disabled="${claimDisabled ? 'true' : 'false'}"
-                title="${escapeAttr(pendingClaim ? 'Claiming assignment…' : (row.actions.claim.reason || 'Claim assignment'))}"
-              >
-                ${pendingClaim ? 'Claiming…' : 'Claim'}
-              </button>
-              <button
-                type="button"
-                class="${BTN_SECONDARY_SM}"
-                data-action="release"
-                data-assignment-id="${escapeAttr(row.id)}"
-                ${releaseDisabled ? 'disabled' : ''}
-                aria-disabled="${releaseDisabled ? 'true' : 'false'}"
-                title="${escapeAttr(pendingRelease ? 'Releasing assignment…' : (row.actions.release.reason || 'Release assignment'))}"
-              >
-                ${pendingRelease ? 'Releasing…' : 'Release'}
-              </button>
-            </div>
-            ${showReviewActions ? `
-              <div class="queue-action-group" data-action-group="review">
-                <button
-                  type="button"
-                  class="${BTN_PRIMARY_SM}"
-                  data-action="approve"
-                  data-assignment-id="${escapeAttr(row.id)}"
-                  ${pendingApprove || !row.review_actions.approve.enabled ? 'disabled' : ''}
-                  title="${escapeAttr(pendingApprove ? 'Approving…' : (row.review_actions.approve.reason || 'Approve'))}"
-                >
-                  ${pendingApprove ? '…' : 'Approve'}
-                </button>
-                <button
-                  type="button"
-                  class="${BTN_DANGER_SM}"
-                  data-action="reject"
-                  data-assignment-id="${escapeAttr(row.id)}"
-                  ${pendingReject || !row.review_actions.reject.enabled ? 'disabled' : ''}
-                  title="${escapeAttr(pendingReject ? 'Rejecting…' : (row.review_actions.reject.reason || 'Reject'))}"
-                >
-                  ${pendingReject ? '…' : 'Reject'}
-                </button>
-              </div>
-            ` : ''}
-            ${showManagementActions ? `
-              <div class="queue-action-group" data-action-group="manage">
-                <button
-                  type="button"
-                  class="${BTN_SECONDARY_SM}"
-                  data-action="archive"
-                  data-assignment-id="${escapeAttr(row.id)}"
-                  ${pendingArchive || !row.review_actions.archive.enabled ? 'disabled' : ''}
-                  title="${escapeAttr(pendingArchive ? 'Archiving…' : (row.review_actions.archive.reason || 'Archive'))}"
-                >
-                  ${pendingArchive ? '…' : 'Archive'}
-                </button>
-              </div>
-            ` : ''}
+            ${(() => {
+              const actions = buildRowActions(row, this.pendingActions);
+              const primaryAction = selectPrimaryAction(actions, row);
+              return renderActionOverflow(row, actions, primaryAction);
+            })()}
           </div>
         </td>
       </tr>
@@ -2815,17 +3098,7 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
   }
 
   private renderRow(row: AssignmentListRow): string {
-    const pendingClaim = this.pendingActions.has(`claim:${row.id}`);
-    const pendingRelease = this.pendingActions.has(`release:${row.id}`);
-    const pendingApprove = this.pendingActions.has(`approve:${row.id}`);
-    const pendingReject = this.pendingActions.has(`reject:${row.id}`);
-    const pendingArchive = this.pendingActions.has(`archive:${row.id}`);
-    const claimDisabled = pendingClaim || !row.actions.claim.enabled;
-    const releaseDisabled = pendingRelease || !row.actions.release.enabled;
-    const showReviewActions = shouldShowQueueReviewActions(row);
-    const showManagementActions = shouldShowQueueManagementActions(row);
-
-    // T09: Mute empty owner/due states
+    // T05: Mute empty owner/due states
     const hasAssignee = Boolean(row.assignee_id);
     const hasReviewer = Boolean(row.reviewer_id);
     const hasDueDate = Boolean(row.due_date);
@@ -2850,21 +3123,21 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
             aria-label="Select assignment ${escapeAttr(row.source_title || row.id)}"
           />
         </td>
-        <td>
+        <td class="queue-content-col">
           <div class="queue-content-cell">
-            <strong class="queue-content-title">${escapeHtml(row.source_title || row.source_path || row.id)}</strong>
-            ${row.source_path && row.source_title ? `<span class="queue-content-path">${escapeHtml(row.source_path)}</span>` : ''}
-            ${metaLine ? `<span class="queue-content-meta">${escapeHtml(metaLine)}</span>` : ''}
+            <strong class="queue-content-title" title="${escapeAttr(row.source_title || row.source_path || row.id)}">${escapeHtml(row.source_title || row.source_path || row.id)}</strong>
+            ${row.source_path && row.source_title ? `<span class="queue-content-path" title="${escapeAttr(row.source_path)}">${escapeHtml(row.source_path)}</span>` : ''}
+            ${metaLine ? `<span class="queue-content-meta" title="${escapeAttr(metaLine)}">${escapeHtml(metaLine)}</span>` : ''}
           </div>
         </td>
-        <td>
+        <td class="queue-locale-col">
           <div class="queue-locale-cell">
             <span class="locale-code">${escapeHtml(row.source_locale.toUpperCase())}</span>
             <span class="locale-arrow">→</span>
             <span class="locale-code locale-target">${escapeHtml(row.target_locale.toUpperCase())}</span>
           </div>
         </td>
-        <td>
+        <td class="queue-status-col">
           <div class="queue-status-cell">
             ${renderVocabularyStatusBadge(row.queue_state, { domain: 'queue', size: 'sm' })}
             ${row.qa_summary?.enabled && row.qa_summary.finding_count > 0 ? `
@@ -2874,100 +3147,40 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
             ` : ''}
           </div>
         </td>
-        <td>
+        <td class="queue-owner-col">
           <div class="queue-owner-cell">
             ${hasAssignee
               ? `<span class="queue-owner-value">${escapeHtml(row.assignee_id)}</span>`
-              : `<span class="queue-owner-empty">Unassigned</span>`}
+              : ''}
             ${hasReviewer
               ? `<span class="queue-reviewer-value">${escapeHtml(row.reviewer_id)}</span>`
               : ''}
             ${row.last_rejection_reason ? `<span class="queue-feedback-note">${escapeHtml(row.last_rejection_reason)}</span>` : ''}
           </div>
         </td>
-        <td>
+        <td class="queue-due-col">
           <div class="queue-due-cell">
             ${showDueState
               ? `<span class="due-pill due-${escapeAttr(row.due_state)}">${escapeHtml(humanizeToken(row.due_state))}</span>`
               : ''}
             ${hasDueDate
               ? `<span class="queue-due-date">${escapeHtml(formatTranslationShortDateTime(row.due_date, ''))}</span>`
-              : `<span class="queue-due-empty">—</span>`}
+              : ''}
           </div>
         </td>
-        <td>
+        <td class="queue-priority-col">
           <div class="queue-priority-cell">
             <span class="priority-indicator priority-${escapeAttr(row.priority)}" aria-label="${escapeAttr('Priority: ' + humanizeToken(row.priority))}"></span>
             <span class="priority-label">${escapeHtml(humanizeToken(row.priority))}</span>
           </div>
         </td>
-        <td>
+        <td class="queue-action-col">
           <div class="queue-action-cell">
-            <div class="queue-action-group" data-action-group="lifecycle">
-              <button
-                type="button"
-                class="${BTN_SECONDARY_SM}"
-                data-action="claim"
-                data-assignment-id="${escapeAttr(row.id)}"
-                ${claimDisabled ? 'disabled' : ''}
-                aria-disabled="${claimDisabled ? 'true' : 'false'}"
-                title="${escapeAttr(pendingClaim ? 'Claiming assignment…' : (row.actions.claim.reason || 'Claim assignment'))}"
-              >
-                ${pendingClaim ? 'Claiming…' : 'Claim'}
-              </button>
-              <button
-                type="button"
-                class="${BTN_SECONDARY_SM}"
-                data-action="release"
-                data-assignment-id="${escapeAttr(row.id)}"
-                ${releaseDisabled ? 'disabled' : ''}
-                aria-disabled="${releaseDisabled ? 'true' : 'false'}"
-                title="${escapeAttr(pendingRelease ? 'Releasing assignment…' : (row.actions.release.reason || 'Release assignment'))}"
-              >
-                ${pendingRelease ? 'Releasing…' : 'Release'}
-              </button>
-            </div>
-            ${showReviewActions ? `
-              <div class="queue-action-group" data-action-group="review">
-                <button
-                  type="button"
-                  class="${BTN_PRIMARY_SM}"
-                  data-action="approve"
-                  data-assignment-id="${escapeAttr(row.id)}"
-                  ${pendingApprove || !row.review_actions.approve.enabled ? 'disabled' : ''}
-                  aria-disabled="${pendingApprove || !row.review_actions.approve.enabled ? 'true' : 'false'}"
-                  title="${escapeAttr(pendingApprove ? 'Approving assignment…' : (row.review_actions.approve.reason || 'Approve assignment'))}"
-                >
-                  ${pendingApprove ? 'Approving…' : 'Approve'}
-                </button>
-                <button
-                  type="button"
-                  class="${BTN_DANGER_SM}"
-                  data-action="reject"
-                  data-assignment-id="${escapeAttr(row.id)}"
-                  ${pendingReject || !row.review_actions.reject.enabled ? 'disabled' : ''}
-                  aria-disabled="${pendingReject || !row.review_actions.reject.enabled ? 'true' : 'false'}"
-                  title="${escapeAttr(pendingReject ? 'Rejecting assignment…' : (row.review_actions.reject.reason || 'Reject assignment'))}"
-                >
-                  ${pendingReject ? 'Rejecting…' : 'Reject'}
-                </button>
-              </div>
-            ` : ''}
-            ${showManagementActions ? `
-              <div class="queue-action-group" data-action-group="manage">
-                <button
-                  type="button"
-                  class="${BTN_SECONDARY_SM}"
-                  data-action="archive"
-                  data-assignment-id="${escapeAttr(row.id)}"
-                  ${pendingArchive || !row.review_actions.archive.enabled ? 'disabled' : ''}
-                  aria-disabled="${pendingArchive || !row.review_actions.archive.enabled ? 'true' : 'false'}"
-                  title="${escapeAttr(pendingArchive ? 'Archiving assignment…' : (row.review_actions.archive.reason || 'Archive assignment'))}"
-                >
-                  ${pendingArchive ? 'Archiving…' : 'Archive'}
-                </button>
-              </div>
-            ` : ''}
+            ${(() => {
+              const actions = buildRowActions(row, this.pendingActions);
+              const primaryAction = selectPrimaryAction(actions, row);
+              return renderActionOverflow(row, actions, primaryAction);
+            })()}
           </div>
         </td>
       </tr>
@@ -2975,17 +3188,7 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
   }
 
   private renderMobileCard(row: AssignmentListRow): string {
-    const pendingClaim = this.pendingActions.has(`claim:${row.id}`);
-    const pendingRelease = this.pendingActions.has(`release:${row.id}`);
-    const pendingApprove = this.pendingActions.has(`approve:${row.id}`);
-    const pendingReject = this.pendingActions.has(`reject:${row.id}`);
-    const pendingArchive = this.pendingActions.has(`archive:${row.id}`);
-    const claimDisabled = pendingClaim || !row.actions.claim.enabled;
-    const releaseDisabled = pendingRelease || !row.actions.release.enabled;
-    const showReviewActions = shouldShowQueueReviewActions(row);
-    const showManagementActions = shouldShowQueueManagementActions(row);
-
-    // T09: Mute empty owner/due states for mobile
+    // T05: Mute empty owner/due states for mobile
     const hasAssignee = Boolean(row.assignee_id);
     const hasDueDate = Boolean(row.due_date);
     const showDueState = hasDueDate || row.due_state === 'overdue' || row.due_state === 'due_soon';
@@ -3014,8 +3217,8 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
             />
           </div>
           <div class="mobile-card-title-group">
-            <h3 class="${MOBILE_CARD_TITLE}">${escapeHtml(row.source_title || row.source_path || row.id)}</h3>
-            <p class="${MOBILE_CARD_SUBTITLE}">${escapeHtml(row.source_path && row.source_title ? row.source_path : (row.entity_type || row.family_id))}</p>
+            <h3 class="${MOBILE_CARD_TITLE}" title="${escapeAttr(row.source_title || row.source_path || row.id)}">${escapeHtml(row.source_title || row.source_path || row.id)}</h3>
+            <p class="${MOBILE_CARD_SUBTITLE}" title="${escapeAttr(row.source_path && row.source_title ? row.source_path : (row.entity_type || row.family_id))}">${escapeHtml(row.source_path && row.source_title ? row.source_path : (row.entity_type || row.family_id))}</p>
           </div>
           ${renderVocabularyStatusBadge(row.queue_state, { domain: 'queue', size: 'sm' })}
         </div>
@@ -3028,17 +3231,21 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
               <span class="locale-code locale-target">${escapeHtml(row.target_locale.toUpperCase())}</span>
             </span>
           </div>
+          ${hasAssignee ? `
           <div class="${MOBILE_CARD_ROW}">
             <span class="${MOBILE_CARD_LABEL}">Assignee</span>
-            <span class="${MOBILE_CARD_VALUE} ${hasAssignee ? '' : 'text-gray-400'}">${escapeHtml(hasAssignee ? row.assignee_id : 'Unassigned')}</span>
+            <span class="${MOBILE_CARD_VALUE}">${escapeHtml(row.assignee_id)}</span>
           </div>
+          ` : ''}
+          ${hasDueDate || showDueState ? `
           <div class="${MOBILE_CARD_ROW}">
             <span class="${MOBILE_CARD_LABEL}">Due</span>
             <span class="${MOBILE_CARD_VALUE}">
               ${showDueState ? `<span class="due-pill due-${escapeAttr(row.due_state)}">${escapeHtml(humanizeToken(row.due_state))}</span>` : ''}
-              ${hasDueDate ? `<span class="text-gray-600 ml-1">${escapeHtml(formatTranslationShortDateTime(row.due_date, ''))}</span>` : `<span class="text-gray-400">—</span>`}
+              ${hasDueDate ? `<span class="text-gray-600 ml-1">${escapeHtml(formatTranslationShortDateTime(row.due_date, ''))}</span>` : ''}
             </span>
           </div>
+          ` : ''}
           <div class="${MOBILE_CARD_ROW}">
             <span class="${MOBILE_CARD_LABEL}">Priority</span>
             <span class="${MOBILE_CARD_VALUE}">
@@ -3048,55 +3255,11 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
           </div>
         </div>
         <div class="${MOBILE_CARD_ACTIONS}">
-          <button
-            type="button"
-            class="${BTN_SECONDARY_SM} flex-1"
-            data-action="claim"
-            data-assignment-id="${escapeAttr(row.id)}"
-            ${claimDisabled ? 'disabled' : ''}
-          >
-            ${pendingClaim ? 'Claiming…' : 'Claim'}
-          </button>
-          <button
-            type="button"
-            class="${BTN_SECONDARY_SM} flex-1"
-            data-action="release"
-            data-assignment-id="${escapeAttr(row.id)}"
-            ${releaseDisabled ? 'disabled' : ''}
-          >
-            ${pendingRelease ? 'Releasing…' : 'Release'}
-          </button>
-          ${showReviewActions ? `
-            <button
-              type="button"
-              class="${BTN_PRIMARY_SM} flex-1"
-              data-action="approve"
-              data-assignment-id="${escapeAttr(row.id)}"
-              ${pendingApprove || !row.review_actions.approve.enabled ? 'disabled' : ''}
-            >
-              ${pendingApprove ? 'Approving…' : 'Approve'}
-            </button>
-            <button
-              type="button"
-              class="${BTN_DANGER_SM} flex-1"
-              data-action="reject"
-              data-assignment-id="${escapeAttr(row.id)}"
-              ${pendingReject || !row.review_actions.reject.enabled ? 'disabled' : ''}
-            >
-              ${pendingReject ? 'Rejecting…' : 'Reject'}
-            </button>
-          ` : ''}
-          ${showManagementActions ? `
-            <button
-              type="button"
-              class="${BTN_SECONDARY_SM}"
-              data-action="archive"
-              data-assignment-id="${escapeAttr(row.id)}"
-              ${pendingArchive || !row.review_actions.archive.enabled ? 'disabled' : ''}
-            >
-              ${pendingArchive ? 'Archiving…' : 'Archive'}
-            </button>
-          ` : ''}
+          ${(() => {
+            const actions = buildRowActions(row, this.pendingActions);
+            const primaryAction = selectPrimaryAction(actions, row);
+            return renderActionOverflow(row, actions, primaryAction);
+          })()}
         </div>
       </article>
     `;
@@ -3178,6 +3341,16 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
     this.container.querySelectorAll<HTMLElement>('[data-clear-filters]').forEach((button) => {
       button.addEventListener('click', () => {
         this.clearAllFilters();
+      });
+    });
+
+    // Individual filter chip removal
+    this.container.querySelectorAll<HTMLElement>('[data-remove-filter]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const filterName = button.dataset.removeFilter;
+        if (filterName) {
+          this.removeFilter(filterName);
+        }
       });
     });
 
@@ -3285,6 +3458,101 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
         const groupId = button.dataset.toggleGroup;
         if (groupId) {
           this.toggleGroupExpansion(groupId);
+        }
+      });
+    });
+
+    // T06: Overflow menu interaction handlers
+    this.container.querySelectorAll<HTMLButtonElement>('[data-overflow-menu]').forEach((trigger) => {
+      trigger.addEventListener('click', (event) => {
+        event.stopPropagation();
+        const menuId = trigger.dataset.overflowMenu;
+        if (!menuId) return;
+
+        const menu = this.container?.querySelector<HTMLElement>(`#menu-${menuId}`);
+        if (!menu) return;
+
+        const isOpen = menu.hidden === false;
+
+        // Close all other menus
+        this.container?.querySelectorAll<HTMLElement>('.queue-action-overflow-menu').forEach((m) => {
+          m.hidden = true;
+        });
+        this.container?.querySelectorAll<HTMLButtonElement>('[data-overflow-menu]').forEach((t) => {
+          t.setAttribute('aria-expanded', 'false');
+        });
+
+        if (isOpen) {
+          // Close this menu
+          menu.hidden = true;
+          trigger.setAttribute('aria-expanded', 'false');
+        } else {
+          // Open this menu
+          menu.hidden = false;
+          trigger.setAttribute('aria-expanded', 'true');
+          // Focus first menu item
+          const firstItem = menu.querySelector<HTMLElement>('[role="menuitem"]:not([disabled])');
+          firstItem?.focus();
+        }
+      });
+    });
+
+    // T06: Close menu on outside click
+    if (this.container && typeof this.container.addEventListener === 'function') {
+      this.container.addEventListener('click', (event) => {
+        const target = event.target as HTMLElement;
+        if (!target.closest('.queue-action-overflow-container')) {
+          // Close all menus
+          this.container?.querySelectorAll<HTMLElement>('.queue-action-overflow-menu').forEach((menu) => {
+            menu.hidden = true;
+          });
+          this.container?.querySelectorAll<HTMLButtonElement>('[data-overflow-menu]').forEach((trigger) => {
+            trigger.setAttribute('aria-expanded', 'false');
+          });
+        }
+      });
+    }
+
+    // T06: Keyboard navigation for menus (Escape, Arrow keys)
+    this.container.querySelectorAll<HTMLElement>('.queue-action-overflow-menu').forEach((menu) => {
+      menu.addEventListener('keydown', (event) => {
+        const items = Array.from(menu.querySelectorAll<HTMLElement>('[role="menuitem"]:not([disabled])'));
+        const currentIndex = items.findIndex((item) => item === document.activeElement);
+
+        switch (event.key) {
+          case 'Escape':
+            event.preventDefault();
+            menu.hidden = true;
+            const trigger = menu.closest('.queue-action-overflow-container')?.querySelector<HTMLButtonElement>('[data-overflow-menu]');
+            if (trigger) {
+              trigger.setAttribute('aria-expanded', 'false');
+              trigger.focus();
+            }
+            break;
+          case 'ArrowDown':
+            event.preventDefault();
+            if (currentIndex < items.length - 1) {
+              items[currentIndex + 1]?.focus();
+            } else {
+              items[0]?.focus();
+            }
+            break;
+          case 'ArrowUp':
+            event.preventDefault();
+            if (currentIndex > 0) {
+              items[currentIndex - 1]?.focus();
+            } else {
+              items[items.length - 1]?.focus();
+            }
+            break;
+          case 'Tab':
+            // Allow tab but close menu
+            menu.hidden = true;
+            const tabTrigger = menu.closest('.queue-action-overflow-container')?.querySelector<HTMLButtonElement>('[data-overflow-menu]');
+            if (tabTrigger) {
+              tabTrigger.setAttribute('aria-expanded', 'false');
+            }
+            break;
         }
       });
     });
@@ -3487,6 +3755,73 @@ export function getAssignmentQueueStyles(): string {
       color: #6b7280;
     }
 
+    /* Filter chips */
+    .queue-filter-chips-container {
+      margin-top: 0.75rem;
+      padding-top: 0.75rem;
+      border-top: 1px solid #e5e7eb;
+    }
+
+    .queue-filter-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      align-items: center;
+    }
+
+    .queue-filter-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.375rem;
+      padding: 0.375rem 0.625rem;
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      border-radius: 0.5rem;
+      color: #1e40af;
+      font-size: 0.875rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .queue-filter-chip:hover {
+      background: #dbeafe;
+      border-color: #93c5fd;
+    }
+
+    .queue-filter-chip:focus {
+      outline: none;
+      box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
+    }
+
+    .queue-filter-chip-label {
+      color: #64748b;
+      font-weight: 500;
+    }
+
+    .queue-filter-chip-value {
+      color: #1e40af;
+      font-weight: 600;
+    }
+
+    .queue-filter-chip-remove {
+      width: 1rem;
+      height: 1rem;
+      flex-shrink: 0;
+      margin-left: 0.125rem;
+    }
+
+    .queue-filter-chip-clear-all {
+      background: #f3f4f6;
+      border-color: #d1d5db;
+      color: #374151;
+    }
+
+    .queue-filter-chip-clear-all:hover {
+      background: #e5e7eb;
+      border-color: #9ca3af;
+    }
+
     .assignment-queue-state {
       border: 1px solid #e5e7eb;
       border-radius: 0.75rem;
@@ -3589,6 +3924,10 @@ export function getAssignmentQueueStyles(): string {
       font-weight: 600;
       color: #111827;
       line-height: 1.3;
+      max-width: 28rem;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
     .queue-content-path {
@@ -3596,6 +3935,10 @@ export function getAssignmentQueueStyles(): string {
       font-size: 0.82rem;
       color: #6b7280;
       margin-top: 0.15rem;
+      max-width: 28rem;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
     .queue-content-meta {
@@ -3605,6 +3948,21 @@ export function getAssignmentQueueStyles(): string {
       margin-top: 0.1rem;
       text-transform: uppercase;
       letter-spacing: 0.04em;
+      max-width: 28rem;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .queue-content-title-small {
+      display: block;
+      font-weight: 500;
+      color: #111827;
+      font-size: 0.875rem;
+      max-width: 24rem;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
     /* T09: Locale codes (neutral, no flags) */
@@ -4154,6 +4512,121 @@ export function getAssignmentQueueStyles(): string {
       display: none;
     }
 
+    /* T06: Action overflow menu styles */
+    .queue-action-overflow-container {
+      display: flex;
+      gap: 0.25rem;
+      align-items: center;
+      position: relative;
+    }
+
+    .queue-action-overflow-trigger {
+      padding: 0.25rem 0.5rem;
+      border: 1px solid #d1d5db;
+      background: white;
+      border-radius: 0.25rem;
+      cursor: pointer;
+      font-size: 1.125rem;
+      line-height: 1;
+      color: #374151;
+      transition: background-color 0.15s ease;
+    }
+
+    .queue-action-overflow-trigger:hover:not([disabled]) {
+      background: #f9fafb;
+      border-color: #9ca3af;
+    }
+
+    .queue-action-overflow-trigger:focus {
+      outline: 2px solid #3b82f6;
+      outline-offset: 2px;
+    }
+
+    .queue-action-overflow-trigger[aria-expanded="true"] {
+      background: #f3f4f6;
+      border-color: #6b7280;
+    }
+
+    .queue-action-overflow-menu {
+      position: absolute;
+      top: 100%;
+      right: 0;
+      z-index: 1000;
+      min-width: 10rem;
+      margin-top: 0.25rem;
+      background: white;
+      border: 1px solid #d1d5db;
+      border-radius: 0.375rem;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+      padding: 0.25rem 0;
+    }
+
+    .queue-action-menu-item {
+      display: block;
+      width: 100%;
+      text-align: left;
+      padding: 0.5rem 1rem;
+      border: none;
+      background: none;
+      cursor: pointer;
+      font-size: 0.875rem;
+      color: #374151;
+      transition: background-color 0.15s ease;
+    }
+
+    .queue-action-menu-item:hover:not([disabled]) {
+      background: #f3f4f6;
+    }
+
+    .queue-action-menu-item:focus {
+      background: #e5e7eb;
+      outline: none;
+    }
+
+    .queue-action-menu-item[disabled] {
+      opacity: 0.5;
+      cursor: not-allowed;
+      color: #9ca3af;
+    }
+
+    .action-pending-label {
+      display: block;
+      font-size: 0.75rem;
+      color: #6b7280;
+      margin-top: 0.125rem;
+    }
+
+    /* Mobile card action overflow adjustments */
+    .mobile-card-actions .queue-action-overflow-container {
+      width: 100%;
+    }
+
+    .mobile-card-actions .queue-action-overflow-container > button:first-child {
+      flex: 1;
+    }
+
+    /* Responsive column hiding for narrower viewports */
+    @media (max-width: 1440px) {
+      .queue-priority-col {
+        display: none;
+      }
+    }
+
+    @media (max-width: 1280px) {
+      .queue-priority-col,
+      .queue-due-col {
+        display: none;
+      }
+    }
+
+    @media (max-width: 1024px) {
+      .queue-priority-col,
+      .queue-due-col,
+      .queue-owner-col {
+        display: none;
+      }
+    }
+
     @media (max-width: 900px) {
       .assignment-queue-screen {
         padding: 1rem;
@@ -4170,6 +4643,36 @@ export function getAssignmentQueueStyles(): string {
 
       .view-mode-info {
         flex-wrap: wrap;
+      }
+
+      .queue-priority-col,
+      .queue-due-col,
+      .queue-owner-col,
+      .queue-locale-col {
+        display: none;
+      }
+
+      /* T06: Touch-friendly overflow menu for mobile */
+      .queue-action-overflow-menu {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        top: auto;
+        border-radius: 0.75rem 0.75rem 0 0;
+        max-height: 60vh;
+        overflow-y: auto;
+      }
+
+      .queue-action-menu-item {
+        padding: 1rem;
+        min-height: 44px;
+        font-size: 1rem;
+      }
+
+      .queue-action-overflow-trigger {
+        min-width: 44px;
+        min-height: 44px;
       }
     }
   `;

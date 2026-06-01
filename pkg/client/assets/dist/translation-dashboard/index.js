@@ -1,281 +1,281 @@
-import { escapeAttribute as d, escapeHTML as i } from "../shared/html.js";
-import { readHTTPError as Y } from "../shared/transport/http-client.js";
-import { extractStructuredError as Q } from "../toast/error-helpers.js";
-import { buildEndpointURL as W } from "../shared/query-state/url-state.js";
-import { StatefulController as J } from "../shared/stateful-controller.js";
+import { escapeAttribute as c, escapeHTML as i } from "../shared/html.js";
+import { readHTTPError as ee } from "../shared/transport/http-client.js";
+import { extractStructuredError as te } from "../toast/error-helpers.js";
+import { buildEndpointURL as ae } from "../shared/query-state/url-state.js";
+import { StatefulController as re } from "../shared/stateful-controller.js";
 import { asNumberish as m, asRecord as h, asString as n } from "../shared/coercion.js";
-import { O as Z, S as ee, T as te, _ as w, d as x, g as I, h as B, i as ae, m as O, p as q, s as z, tt as N, v as F, w as se } from "../chunks/translation-shared-CQJ98SgC.js";
-import { normalizeNumberRecord as R, normalizeStringRecord as v } from "../shared/record-normalization.js";
-import { c as $, s as re } from "../chunks/ui-states-1McZ5upU.js";
+import { O as se, S as ne, T as oe, _ as T, d as v, g as D, h as B, i as ie, m as O, p as q, s as z, tt as N, v as F, w as le } from "../chunks/translation-shared-CQJ98SgC.js";
+import { normalizeNumberRecord as C, normalizeStringRecord as k } from "../shared/record-normalization.js";
+import { c as w, s as de } from "../chunks/ui-states-1McZ5upU.js";
 var y = class extends Error {
-  constructor(e) {
-    super(e.message), this.name = "TranslationDashboardRequestError", this.status = e.status, this.code = e.code ?? null, this.requestId = e.requestId, this.traceId = e.traceId, this.metadata = e.metadata ?? null;
+  constructor(t) {
+    super(t.message), this.name = "TranslationDashboardRequestError", this.status = t.status, this.code = t.code ?? null, this.requestId = t.requestId, this.traceId = t.traceId, this.metadata = t.metadata ?? null;
   }
 };
-function p(e, t) {
-  if (!Array.isArray(e)) return [];
+function g(t, e) {
+  if (!Array.isArray(t)) return [];
   const a = [];
-  for (const s of e) {
-    const r = t(s);
-    r && a.push(r);
+  for (const r of t) {
+    const s = e(r);
+    s && a.push(s);
   }
   return a;
 }
-function A(e) {
-  const t = n(e).toLowerCase();
-  switch (t) {
+function E(t) {
+  const e = n(t).toLowerCase();
+  switch (e) {
     case "warning":
     case "critical":
     case "degraded":
-      return t;
+      return e;
     default:
       return "ok";
   }
 }
-function H(e) {
-  if (!e || typeof e != "object") return null;
-  const t = e;
+function H(t) {
+  if (!t || typeof t != "object") return null;
+  const e = t;
   return {
-    href: n(t.href),
-    group: n(t.group),
-    route: n(t.route),
-    resolverKey: n(t.resolver_key),
-    params: v(t.params, { omitEmptyValues: !0 }),
-    query: v(t.query, { omitEmptyValues: !0 }),
-    key: n(t.key),
-    label: n(t.label),
-    description: n(t.description),
-    relation: n(t.relation),
-    tableId: n(t.table_id),
-    entityType: n(t.entity_type),
-    entityId: n(t.entity_id)
+    href: n(e.href),
+    group: n(e.group),
+    route: n(e.route),
+    resolverKey: n(e.resolver_key),
+    params: k(e.params, { omitEmptyValues: !0 }),
+    query: k(e.query, { omitEmptyValues: !0 }),
+    key: n(e.key),
+    label: n(e.label),
+    description: n(e.description),
+    relation: n(e.relation),
+    tableId: n(e.table_id),
+    entityType: n(e.entity_type),
+    entityId: n(e.entity_id)
   };
 }
-function ne(e) {
-  const t = h(e), a = n(t.key);
+function ce(t) {
+  const e = h(t), a = n(e.key);
   return a ? {
     key: a,
-    label: n(t.label),
-    description: n(t.description),
-    relation: n(t.relation),
-    group: n(t.group),
-    route: n(t.route),
-    resolverKey: n(t.resolver_key),
-    entityType: n(t.entity_type)
+    label: n(e.label),
+    description: n(e.description),
+    relation: n(e.relation),
+    group: n(e.group),
+    route: n(e.route),
+    resolverKey: n(e.resolver_key),
+    entityType: n(e.entity_type)
   } : null;
 }
-function oe(e) {
-  const t = h(e), a = n(t.id);
+function ue(t) {
+  const e = h(t), a = n(e.id);
   if (!a) return null;
-  const s = h(t.alert);
+  const r = h(e.alert);
   return {
     id: a,
-    label: n(t.label),
-    description: n(t.description),
-    count: m(t.count),
-    breakdown: R(t.breakdown),
+    label: n(e.label),
+    description: n(e.description),
+    count: m(e.count),
+    breakdown: C(e.breakdown),
     alert: {
-      state: A(s.state),
-      message: n(s.message)
+      state: E(r.state),
+      message: n(r.message)
     },
-    drilldown: H(t.drilldown),
-    metricKey: n(t.metric_key),
-    runbookId: n(t.runbook_id)
+    drilldown: H(e.drilldown),
+    metricKey: n(e.metric_key),
+    runbookId: n(e.runbook_id)
   };
 }
-function ie(e) {
-  const t = h(e), a = n(t.code);
+function he(t) {
+  const e = h(t), a = n(e.code);
   return a ? {
     code: a,
-    label: n(t.label) || b(a),
-    count: m(t.count),
-    affectedLocales: p(t.affected_locales, (s) => n(s) || null)
+    label: n(e.label) || b(a),
+    count: m(e.count),
+    affectedLocales: g(e.affected_locales, (r) => n(r) || null)
   } : null;
 }
-function le(e) {
-  const t = h(e), a = n(t.state);
+function pe(t) {
+  const e = h(t), a = n(e.state);
   if (!(!a || a !== "available" && a !== "unavailable" && a !== "degraded"))
     return {
       state: a,
-      message: n(t.message)
+      message: n(e.message)
     };
 }
-function de(e) {
-  const t = h(e);
-  if (Object.keys(t).length === 0) return null;
+function ge(t) {
+  const e = h(t);
+  if (Object.keys(e).length === 0) return null;
   const a = {};
-  for (const [c, u] of Object.entries(h(t.links))) {
-    const g = H(u);
-    g && (a[c] = g);
+  for (const [p, u] of Object.entries(h(e.links))) {
+    const d = H(u);
+    d && (a[p] = d);
   }
-  const s = p(t.blocker_codes, (c) => n(c) || null), r = {};
-  for (const [c, u] of Object.entries(h(t.blocker_labels))) {
-    const g = n(u);
-    g && (r[c] = g);
+  const r = g(e.blocker_codes, (p) => n(p) || null), s = {};
+  for (const [p, u] of Object.entries(h(e.blocker_labels))) {
+    const d = n(u);
+    d && (s[p] = d);
   }
-  const o = p(t.reason_breakdown, ie), l = p(t.affected_locales, (c) => n(c) || null), f = le(t.reason_data);
+  const o = g(e.reason_breakdown, he), l = g(e.affected_locales, (p) => n(p) || null), f = pe(e.reason_data);
   return {
-    ...t,
+    ...e,
     links: a,
-    blockerCodes: s.length > 0 ? s : void 0,
-    blockerLabels: Object.keys(r).length > 0 ? r : void 0,
+    blockerCodes: r.length > 0 ? r : void 0,
+    blockerLabels: Object.keys(s).length > 0 ? s : void 0,
     reasonBreakdown: o.length > 0 ? o : void 0,
     affectedLocales: l.length > 0 ? l : void 0,
     reasonData: f
   };
 }
-function ce(e, t = "") {
-  const a = h(e), s = p(a.rows, de);
+function fe(t, e = "") {
+  const a = h(t), r = g(a.rows, ge);
   return {
-    id: n(a.id) || t,
-    label: n(a.label) || t,
-    total: m(a.total, s.length),
-    limit: m(a.limit, s.length),
-    rows: s
+    id: n(a.id) || e,
+    label: n(a.label) || e,
+    total: m(a.total, r.length),
+    limit: m(a.limit, r.length),
+    rows: r
   };
 }
-function P(e) {
-  const t = h(e), a = n(t.id);
+function P(t) {
+  const e = h(t), a = n(e.id);
   return a ? {
     id: a,
-    title: n(t.title),
-    description: n(t.description),
-    route: n(t.route),
-    resolverKey: n(t.resolver_key),
-    href: n(t.href),
-    query: v(t.query, { omitEmptyValues: !0 })
+    title: n(e.title),
+    description: n(e.description),
+    route: n(e.route),
+    resolverKey: n(e.resolver_key),
+    href: n(e.href),
+    query: k(e.query, { omitEmptyValues: !0 })
   } : null;
 }
-function U(e) {
-  const t = h(e), a = n(t.id);
+function U(t) {
+  const e = h(t), a = n(e.id);
   if (!a) return null;
-  const s = {};
-  for (const [r, o] of Object.entries(h(t.drilldown_links))) {
-    const l = ne(o);
-    l && (s[r] = l);
+  const r = {};
+  for (const [s, o] of Object.entries(h(e.drilldown_links))) {
+    const l = ce(o);
+    l && (r[s] = l);
   }
   return {
     id: a,
-    description: n(t.description),
-    scopeFields: p(t.scope_fields, (r) => n(r) || null),
-    stableSortKeys: p(t.stable_sort_keys, (r) => n(r) || null),
-    indexHints: p(t.index_hints, (r) => n(r) || null),
-    supportedFilters: p(t.supported_filters, (r) => n(r) || null),
-    defaultLimit: m(t.default_limit),
-    drilldownRoute: n(t.drilldown_route),
-    queueRoute: n(t.queue_route),
-    apiRoute: n(t.api_route),
-    resolverKeys: p(t.resolver_keys, (r) => n(r) || null),
-    drilldownLinks: s
+    description: n(e.description),
+    scopeFields: g(e.scope_fields, (s) => n(s) || null),
+    stableSortKeys: g(e.stable_sort_keys, (s) => n(s) || null),
+    indexHints: g(e.index_hints, (s) => n(s) || null),
+    supportedFilters: g(e.supported_filters, (s) => n(s) || null),
+    defaultLimit: m(e.default_limit),
+    drilldownRoute: n(e.drilldown_route),
+    queueRoute: n(e.queue_route),
+    apiRoute: n(e.api_route),
+    resolverKeys: g(e.resolver_keys, (s) => n(s) || null),
+    drilldownLinks: r
   };
 }
-function ue(e) {
-  const t = h(e), a = {};
-  for (const [s, r] of Object.entries(h(t.query_models))) {
-    const o = U(r);
-    o && (a[s] = o);
+function me(t) {
+  const e = h(t), a = {};
+  for (const [r, s] of Object.entries(h(e.query_models))) {
+    const o = U(s);
+    o && (a[r] = o);
   }
   return {
-    cardIds: p(t.card_ids, (s) => n(s) || null),
-    tableIds: p(t.table_ids, (s) => n(s) || null),
-    alertStates: p(t.alert_states, (s) => A(s)),
-    defaultLimits: R(t.default_limits),
+    cardIds: g(e.card_ids, (r) => n(r) || null),
+    tableIds: g(e.table_ids, (r) => n(r) || null),
+    alertStates: g(e.alert_states, (r) => E(r)),
+    defaultLimits: C(e.default_limits),
     queryModels: a,
-    runbooks: p(t.runbooks, P)
+    runbooks: g(e.runbooks, P)
   };
 }
-function he(e) {
-  const t = h(e), a = n(t.code);
+function be(t) {
+  const e = h(t), a = n(e.code);
   return a ? {
-    state: A(t.state),
+    state: E(e.state),
     code: a,
-    message: n(t.message),
-    cardId: n(t.card_id),
-    runbookId: n(t.runbook_id)
+    message: n(e.message),
+    cardId: n(e.card_id),
+    runbookId: n(e.runbook_id)
   } : null;
 }
-function pe(e, t) {
-  if (t.cardIds.length === 0) return e;
+function xe(t, e) {
+  if (e.cardIds.length === 0) return t;
   const a = /* @__PURE__ */ new Map();
-  return t.cardIds.forEach((s, r) => a.set(s, r)), [...e].sort((s, r) => (a.get(s.id) ?? Number.MAX_SAFE_INTEGER) - (a.get(r.id) ?? Number.MAX_SAFE_INTEGER));
+  return e.cardIds.forEach((r, s) => a.set(r, s)), [...t].sort((r, s) => (a.get(r.id) ?? Number.MAX_SAFE_INTEGER) - (a.get(s.id) ?? Number.MAX_SAFE_INTEGER));
 }
-function ge(e) {
-  const t = h(e), a = h(t.data), s = h(t.meta), r = ue(s.contracts), o = pe(p(a.cards, oe), r), l = {};
-  for (const [c, u] of Object.entries(h(a.tables))) l[c] = ce(u, c);
-  const f = { ...r.queryModels };
-  for (const [c, u] of Object.entries(h(s.query_models))) {
-    const g = U(u);
-    g && (f[c] = g);
+function ye(t) {
+  const e = h(t), a = h(e.data), r = h(e.meta), s = me(r.contracts), o = xe(g(a.cards, ue), s), l = {};
+  for (const [p, u] of Object.entries(h(a.tables))) l[p] = fe(u, p);
+  const f = { ...s.queryModels };
+  for (const [p, u] of Object.entries(h(r.query_models))) {
+    const d = U(u);
+    d && (f[p] = d);
   }
   return {
     data: {
       cards: o,
       tables: l,
-      alerts: p(a.alerts, he),
-      runbooks: p(a.runbooks, P),
-      summary: R(a.summary)
+      alerts: g(a.alerts, be),
+      runbooks: g(a.runbooks, P),
+      summary: C(a.summary)
     },
     meta: {
-      channel: n(s.channel),
-      generatedAt: n(s.generated_at),
-      refreshIntervalMs: m(s.refresh_interval_ms, 3e4),
-      latencyTargetMs: m(s.latency_target_ms, 0),
-      degraded: s.degraded === !0,
-      degradedReasons: p(s.degraded_reasons, (c) => {
-        const u = h(c), g = n(u.component), S = n(u.message);
-        return !g && !S ? null : {
-          component: g,
-          message: S
+      channel: n(r.channel),
+      generatedAt: n(r.generated_at),
+      refreshIntervalMs: m(r.refresh_interval_ms, 3e4),
+      latencyTargetMs: m(r.latency_target_ms, 0),
+      degraded: r.degraded === !0,
+      degradedReasons: g(r.degraded_reasons, (p) => {
+        const u = h(p), d = n(u.component), x = n(u.message);
+        return !d && !x ? null : {
+          component: d,
+          message: x
         };
       }),
-      familyReport: h(s.family_report),
-      scope: v(s.scope, { omitEmptyValues: !0 }),
-      metrics: p(s.metrics, (c) => {
-        const u = h(c), g = n(u.key);
-        return g ? {
-          key: g,
+      familyReport: h(r.family_report),
+      scope: k(r.scope, { omitEmptyValues: !0 }),
+      metrics: g(r.metrics, (p) => {
+        const u = h(p), d = n(u.key);
+        return d ? {
+          key: d,
           unit: n(u.unit),
           sloP95Ms: u.slo_p95_ms === void 0 ? null : m(u.slo_p95_ms)
         } : null;
       }),
       queryModels: f,
       contracts: {
-        ...r,
+        ...s,
         queryModels: f
       }
     }
   };
 }
-function fe(e, t = {}) {
-  const a = new URLSearchParams(), s = [
-    ["channel", n(t.channel)],
-    ["tenant_id", n(t.tenantId)],
-    ["org_id", n(t.orgId)],
-    ["overdue_limit", t.overdueLimit != null ? String(t.overdueLimit) : ""],
-    ["blocked_limit", t.blockedLimit != null ? String(t.blockedLimit) : ""]
+function ve(t, e = {}) {
+  const a = new URLSearchParams(), r = [
+    ["channel", n(e.channel)],
+    ["tenant_id", n(e.tenantId)],
+    ["org_id", n(e.orgId)],
+    ["overdue_limit", e.overdueLimit != null ? String(e.overdueLimit) : ""],
+    ["blocked_limit", e.blockedLimit != null ? String(e.blockedLimit) : ""]
   ];
-  for (const [r, o] of s) o && a.set(r, o);
-  return W(e, a, { preserveAbsolute: !0 });
+  for (const [s, o] of r) o && a.set(s, o);
+  return ae(t, a, { preserveAbsolute: !0 });
 }
-function me(e) {
-  const t = n(e.endpoint), a = e.fetch ?? globalThis.fetch?.bind(globalThis);
-  return { async fetchDashboard(s = {}) {
-    if (!t) throw new y({
+function ke(t) {
+  const e = n(t.endpoint), a = t.fetch ?? globalThis.fetch?.bind(globalThis);
+  return { async fetchDashboard(r = {}) {
+    if (!e) throw new y({
       message: "Translation dashboard endpoint is not configured",
       status: 0,
       code: "MISSING_CONTEXT"
     });
-    const r = fe(t, s);
+    const s = ve(e, r);
     if (!a) throw new y({
       message: "Fetch implementation is not available",
       status: 0,
       code: "MISSING_CONTEXT"
     });
-    const o = await a(r, { headers: { Accept: "application/json" } });
+    const o = await a(s, { headers: { Accept: "application/json" } });
     if (!o.ok) {
-      const l = await Q(o.clone());
+      const l = await te(o.clone());
       throw new y({
-        message: l.message || await Y(o, "Failed to load translation dashboard"),
+        message: l.message || await ee(o, "Failed to load translation dashboard"),
         status: o.status,
         code: l.textCode,
         requestId: o.headers.get("x-request-id") ?? o.headers.get("X-Request-ID") ?? void 0,
@@ -283,42 +283,42 @@ function me(e) {
         metadata: l.metadata
       });
     }
-    return ge(await o.json());
+    return ye(await o.json());
   } };
 }
-function be(e) {
-  const t = Math.max(0, e.intervalMs ?? 3e4);
-  let a = null, s = null;
-  const r = async () => s || (s = (async () => {
+function $e(t) {
+  const e = Math.max(0, t.intervalMs ?? 3e4);
+  let a = null, r = null;
+  const s = async () => r || (r = (async () => {
     try {
-      const o = await e.load();
-      return e.onData?.(o), o;
+      const o = await t.load();
+      return t.onData?.(o), o;
     } catch (o) {
-      throw e.onError?.(o), o;
+      throw t.onError?.(o), o;
     } finally {
-      s = null;
+      r = null;
     }
-  })(), s);
+  })(), r);
   return {
     async start() {
-      await r(), t > 0 && a == null && (a = globalThis.setInterval(() => {
-        r().catch(() => {
+      await s(), e > 0 && a == null && (a = globalThis.setInterval(() => {
+        s().catch(() => {
         });
-      }, t));
+      }, e));
     },
     stop() {
       a != null && (globalThis.clearInterval(a), a = null);
     },
-    refresh: r,
+    refresh: s,
     isRunning() {
       return a != null;
     }
   };
 }
-function b(e) {
-  return e.replace(/[_-]+/g, " ").replace(/\b\w/g, (t) => t.toUpperCase());
+function b(t) {
+  return t.replace(/[_-]+/g, " ").replace(/\b\w/g, (e) => e.toUpperCase());
 }
-var T = {
+var _ = {
   my_tasks: {
     label: "My Tasks",
     shortLabel: "Tasks"
@@ -339,10 +339,10 @@ var T = {
     label: "Missing Required Locales",
     shortLabel: "Missing"
   }
-}, ye = {
+}, we = {
   top_overdue_assignments: "Top Overdue Assignments",
   blocked_families: "Blocked Families"
-}, xe = {
+}, Te = {
   top_overdue_assignments: {
     label: "Top Overdue Assignments",
     shortLabel: "Overdue",
@@ -353,7 +353,7 @@ var T = {
     shortLabel: "Blocked",
     icon: '<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/></svg>'
   }
-}, k = {
+}, $ = {
   "translations.dashboard.overdue_triage": {
     label: "Overdue Assignment Triage",
     shortLabel: "Overdue Triage",
@@ -369,41 +369,35 @@ var T = {
     shortLabel: "Fix Blockers",
     icon: '<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>'
   }
-}, ve = {
-  "translations.dashboard.my_tasks": "Actor Task Count",
-  "translations.dashboard.needs_review": "Review Queue Depth",
-  "translations.dashboard.overdue_tasks": "Overdue Assignment Count",
-  "translations.dashboard.blocked_families": "Blocked Family Count",
-  "translations.dashboard.missing_required_locales": "Missing Locale Count"
 };
-function ke(e, t) {
-  return T[e]?.label || t || b(e);
+function V(t, e) {
+  return _[t]?.label || e || b(t);
 }
-function $e(e, t) {
-  return T[e]?.shortLabel || T[e]?.label || t || b(e);
+function G(t, e) {
+  return _[t]?.shortLabel || _[t]?.label || e || b(t);
 }
-function _(e, t) {
-  return ye[e] || t || b(e);
+function L(t, e) {
+  return we[t] || e || b(t);
 }
-function L(e, t) {
-  return k[e]?.label || t || b(e);
+function R(t, e) {
+  return $[t]?.label || e || b(t);
 }
-function C(e, t) {
-  return k[e]?.shortLabel || k[e]?.label || t || b(e);
+function A(t, e) {
+  return $[t]?.shortLabel || $[t]?.label || e || b(t);
 }
-function E(e) {
-  return k[e]?.icon || "";
+function M(t) {
+  return $[t]?.icon || "";
 }
-var M = "inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 hover:border-gray-300 transition-colors", we = "inline-flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-colors";
-function K(e) {
-  const t = e.trim();
-  if (!t || t.length < 12) return `<span class="font-mono text-xs text-gray-500">${i(t)}</span>`;
-  const a = `${t.slice(0, 4)}...${t.slice(-4)}`;
+var S = "inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 hover:border-gray-300 transition-colors";
+function K(t) {
+  const e = t.trim();
+  if (!e || e.length < 12) return `<span class="font-mono text-xs text-gray-500">${i(e)}</span>`;
+  const a = `${e.slice(0, 4)}...${e.slice(-4)}`;
   return `
     <button type="button"
             class="inline-flex items-center gap-1 font-mono text-xs text-gray-500 hover:text-gray-900 group cursor-pointer bg-transparent border-none p-0"
-            data-copy-uuid="${d(t)}"
-            title="Click to copy: ${d(t)}">
+            data-copy-uuid="${c(e)}"
+            title="Click to copy: ${c(e)}">
       <span>${i(a)}</span>
       <svg class="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
@@ -411,117 +405,90 @@ function K(e) {
     </button>
   `;
 }
-function Te(e) {
-  return ve[e] || b(e);
+function _e(t) {
+  if (t < 1e3) return `${t}ms`;
+  const e = Math.floor(t / 1e3);
+  return e < 60 ? `${e}s` : `${Math.floor(e / 60)}m`;
 }
-function _e(e) {
-  if (e < 1e3) return `${e}ms`;
-  const t = Math.floor(e / 1e3);
-  return t < 60 ? `${t}s` : `${Math.floor(t / 60)}m`;
+function Le(t) {
+  return t <= 0 ? "N/A" : t < 1e3 ? `${t}ms` : `${(t / 1e3).toFixed(1)}s`;
 }
-function Le(e) {
-  return e <= 0 ? "N/A" : e < 1e3 ? `${e}ms` : `${(e / 1e3).toFixed(1)}s`;
+function X(t, e, a = "") {
+  const r = i(t);
+  return e?.href ? `<a class="${c(a)} text-sky-700 hover:text-sky-900 hover:underline" href="${c(e.href)}">${r}</a>` : `<span class="${c(a)}">${r}</span>`;
 }
-function V(e, t, a = "") {
-  const s = i(e);
-  return t?.href ? `<a class="${d(a)} text-sky-700 hover:text-sky-900 hover:underline" href="${d(t.href)}">${s}</a>` : `<span class="${d(a)}">${s}</span>`;
-}
-function Ce(e) {
-  return [...e].sort((t, a) => {
-    const s = (r) => r === "primary" ? 0 : 1;
-    return s(t.relation) - s(a.relation);
+function Ce(t) {
+  return [...t].sort((e, a) => {
+    const r = (s) => s === "primary" ? 0 : 1;
+    return r(e.relation) - r(a.relation);
   });
 }
-function G(e, t = "No drill-downs") {
-  return e.length === 0 ? `<span class="text-gray-400">${i(t)}</span>` : Ce(e).map((a) => {
-    const s = a.label || "Open";
-    return a.href ? `<a class="inline-flex items-center rounded-full border border-gray-200 px-3 py-1 text-xs font-medium text-gray-700 hover:border-gray-300 hover:text-gray-900" data-dashboard-link="${d(a.key || s.toLowerCase())}" href="${d(a.href)}">${i(s)}</a>` : `<span class="inline-flex items-center rounded-full border border-gray-200 px-3 py-1 text-xs font-medium text-gray-400">${i(s)}</span>`;
+function Y(t, e = "No drill-downs") {
+  return t.length === 0 ? `<span class="text-gray-400">${i(e)}</span>` : Ce(t).map((a) => {
+    const r = a.label || "Open";
+    return a.href ? `<a class="inline-flex items-center rounded-full border border-gray-200 px-3 py-1 text-xs font-medium text-gray-700 hover:border-gray-300 hover:text-gray-900" data-dashboard-link="${c(a.key || r.toLowerCase())}" href="${c(a.href)}">${i(r)}</a>` : `<span class="inline-flex items-center rounded-full border border-gray-200 px-3 py-1 text-xs font-medium text-gray-400">${i(r)}</span>`;
   }).join("");
 }
-function Ee(e) {
-  return e.drilldown?.href ? `
+function Ee(t) {
+  return t.drilldown?.href ? `
     <a
-      href="${d(e.drilldown.href)}"
+      href="${c(t.drilldown.href)}"
       class="inline-flex items-center gap-1.5 rounded-lg bg-gray-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:ring-offset-2 transition-colors"
-      data-dashboard-drilldown="${d(e.id)}"
-      title="${d(e.drilldown.description || e.drilldown.label || "Open drilldown")}"
+      data-dashboard-drilldown="${c(t.id)}"
+      title="${c(t.drilldown.description || t.drilldown.label || "Open drilldown")}"
     >
-      <span>${i(e.drilldown.label || "Open")}</span>
+      <span>${i(t.drilldown.label || "Open")}</span>
       <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
       </svg>
     </a>
   ` : '<span class="text-xs text-gray-400">No drilldown available</span>';
 }
-function Re(e, t) {
-  if (!e.runbookId) return "";
-  const a = t.find((l) => l.id === e.runbookId);
-  if (!a?.href) return "";
-  const s = C(e.runbookId, a.title), r = E(e.runbookId), o = L(e.runbookId, a.title);
+function Re(t, e = []) {
+  const a = G(t.id, t.label), r = V(t.id, t.label), s = t.description ? `${r} - ${t.description}` : r;
   return `
-    <a
-      href="${d(a.href)}"
-      class="${we}"
-      data-dashboard-card-runbook="${d(e.id)}"
-      title="${d(a.description || o)}"
-    >
-      ${r || '<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>'}
-      <span>${i(s)}</span>
-    </a>
-  `;
-}
-function Ae(e, t = []) {
-  const a = Object.entries(e.breakdown).map(([f, c]) => `
-      <li class="flex items-center justify-between gap-3 text-xs text-gray-600">
-        <span>${i(b(f))}</span>
-        <span class="font-semibold text-gray-900">${i(String(c))}</span>
-      </li>
-    `).join(""), s = $e(e.id, e.label), r = ke(e.id, e.label), o = Te(e.metricKey), l = Re(e, t);
-  return `
-    <article class="${x} p-4 shadow-sm flex flex-col" data-dashboard-card="${d(e.id)}">
-      <div>
-        <p class="text-xs font-semibold uppercase tracking-[0.24em] text-gray-500 truncate" title="${d(r)}">${i(s)}</p>
-      </div>
-      <div class="mt-2">
-        <p class="text-3xl font-semibold tracking-tight text-gray-900">${i(String(e.count))}</p>
-        <span class="mt-1.5 inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.16em] ${d(Fe(e.alert.state))}">
-          ${i(e.alert.message || e.alert.state)}
+    <article class="${v} p-4 shadow-sm flex flex-col" data-dashboard-card="${c(t.id)}" title="${c(s)}">
+      <div class="flex items-start justify-between gap-2">
+        <p class="text-xs font-semibold uppercase tracking-[0.24em] text-gray-500 truncate">${i(a)}</p>
+        <span class="flex-shrink-0 inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.16em] ${c(W(t.alert.state))}">
+          ${i(t.alert.message || t.alert.state)}
         </span>
       </div>
-      <p class="mt-3 text-sm leading-6 text-gray-600">${i(e.description)}</p>
-      ${a ? `<ul class="mt-4 space-y-2">${a}</ul>` : ""}
-      <div class="mt-auto pt-4 flex flex-col gap-3">
-        <div class="flex items-center justify-between gap-3">
-          ${Ee(e)}
-          <span class="text-xs text-gray-400" title="${d(e.metricKey)}">${i(o)}</span>
-        </div>
-        ${l ? `<div class="border-t border-gray-100 pt-3">${l}</div>` : ""}
+      <div class="mt-3">
+        <p class="text-3xl font-semibold tracking-tight text-gray-900">${i(String(t.count))}</p>
+      </div>
+      <div class="mt-auto pt-4">
+        ${Ee(t)}
       </div>
     </article>
   `;
 }
-function Se(e) {
-  const t = {
+function Ae(t) {
+  const e = {
     critical: 4,
     warning: 3,
     degraded: 2,
     ok: 1
   };
-  return e.reduce((a, s) => t[s.state] > t[a] ? s.state : a, "ok");
+  return t.reduce((a, r) => e[r.state] > e[a] ? r.state : a, "ok");
 }
-function Me(e) {
+function Me(t, e) {
+  const a = e.find((s) => s.id === t.cardId), r = a ? V(t.cardId, a.label) : b(t.cardId);
   return `
     <div class="flex items-start justify-between gap-3 p-3 rounded-lg bg-white/50"
-         data-alert-code="${d(e.code)}"
-         role="${e.state === "critical" ? "alert" : "status"}">
+         data-alert-code="${c(t.code)}"
+         role="${t.state === "critical" ? "alert" : "status"}">
       <div class="flex-1 min-w-0">
-        <p class="text-xs font-semibold uppercase tracking-[0.16em]">${i(e.code)}</p>
-        <p class="mt-1 text-sm">${i(e.message)}</p>
+        <div class="flex items-center gap-2 flex-wrap">
+          <span class="inline-flex items-center rounded-md px-2 py-0.5 text-xs font-semibold uppercase tracking-[0.16em] ${c(W(t.state))}">${i(r)}</span>
+          <span class="text-xs font-medium text-gray-600">${i(t.state)}</span>
+        </div>
+        <p class="mt-1.5 text-sm text-gray-700">${i(t.message)}</p>
       </div>
       <button type="button"
               class="flex-shrink-0 p-1 rounded hover:bg-gray-200/50 transition-colors"
-              data-dismiss-alert="${d(e.code)}"
-              aria-label="Dismiss ${i(e.code)} alert">
+              data-dismiss-alert="${c(t.code)}"
+              aria-label="Dismiss alert for ${i(r)}">
         <svg class="h-4 w-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
         </svg>
@@ -529,38 +496,42 @@ function Me(e) {
     </div>
   `;
 }
-function je(e, t, a) {
-  const s = e.filter((c) => !a.has(c.code));
+function Se(t, e, a, r) {
+  const s = t.filter((d) => !r.has(d.code));
   if (s.length === 0) return "";
-  const r = Se(s), o = s.reduce((c, u) => (c[u.state] = (c[u.state] || 0) + 1, c), {}), l = Object.entries(o).filter(([, c]) => c > 0).map(([c, u]) => `${u} ${c}`).join(", "), f = t ? "rotate-180" : "";
+  const o = Ae(s), l = s.reduce((d, x) => (d[x.state] = (d[x.state] || 0) + 1, d), {}), f = Object.entries(l).filter(([, d]) => d > 0).map(([d, x]) => `${x} ${d}`).join(", "), p = s.map((d) => {
+    const x = e.find((Z) => Z.id === d.cardId), J = x ? G(d.cardId, x.label) : b(d.cardId);
+    return `<span class="inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium bg-white/60 text-gray-700" data-alert-card="${c(d.cardId)}">${i(J)}</span>`;
+  }).join(""), u = a ? "rotate-180" : "";
   return `
-    <section class="rounded-xl border ${He(r)} shadow-sm overflow-hidden"
+    <section class="rounded-xl border ${Ne(o)} shadow-sm overflow-hidden"
              data-dashboard-alerts-section="true"
              role="region"
              aria-label="Dashboard alerts">
       <button type="button"
               class="w-full flex items-center justify-between gap-3 px-4 py-3 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
               data-alerts-toggle="true"
-              aria-expanded="${t}">
-        <div class="flex items-center gap-3">
+              aria-expanded="${a}">
+        <div class="flex items-center gap-3 flex-wrap min-w-0 flex-1">
           <svg class="h-5 w-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
           </svg>
-          <span class="text-sm font-semibold">${i(l)}</span>
+          <span class="text-sm font-semibold">${i(f)}</span>
+          ${a ? "" : `<div class="flex items-center gap-1.5 flex-wrap">${p}</div>`}
         </div>
-        <svg class="h-5 w-5 flex-shrink-0 transition-transform ${f}" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+        <svg class="h-5 w-5 flex-shrink-0 transition-transform ${u}" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
         </svg>
       </button>
-      <div class="${t ? "" : "hidden"}" data-alerts-content="true">
+      <div class="${a ? "" : "hidden"}" data-alerts-content="true">
         <div class="border-t border-current/20 px-4 py-3 space-y-2">
-          ${s.map((c) => Me(c)).join("")}
+          ${s.map((d) => Me(d, e)).join("")}
         </div>
       </div>
     </section>
   `;
 }
-function De(e) {
+function je(t) {
   return `
     <table class="min-w-full divide-y divide-gray-200 text-sm">
       <caption class="sr-only">Top overdue assignments with assignment and queue drill-down actions.</caption>
@@ -575,18 +546,18 @@ function De(e) {
         </tr>
       </thead>
       <tbody class="divide-y divide-gray-100 bg-white">
-        ${e.rows.map((t) => `
+        ${t.rows.map((e) => `
           <tr>
             <td class="px-4 py-3">
-              <div class="font-medium text-gray-900">${V(n(t.source_title) || n(t.assignment_id), t.links.assignment)}</div>
-              <div class="mt-1">${K(n(t.assignment_id))}</div>
+              <div class="font-medium text-gray-900">${X(n(e.source_title) || n(e.assignment_id), e.links.assignment)}</div>
+              <div class="mt-1">${K(n(e.assignment_id))}</div>
             </td>
-            <td class="px-4 py-3 text-gray-600">${i(`${n(t.source_locale).toUpperCase()} -> ${n(t.target_locale).toUpperCase()}`)}</td>
-            <td class="px-4 py-3 text-gray-600">${i(b(n(t.priority)))}</td>
-            <td class="px-4 py-3 text-gray-600">${i(b(n(t.status)))}</td>
-            <td class="px-4 py-3 text-right font-medium text-rose-700">${i(`${m(t.overdue_minutes)}m`)}</td>
+            <td class="px-4 py-3 text-gray-600">${i(`${n(e.source_locale).toUpperCase()} -> ${n(e.target_locale).toUpperCase()}`)}</td>
+            <td class="px-4 py-3 text-gray-600">${i(b(n(e.priority)))}</td>
+            <td class="px-4 py-3 text-gray-600">${i(b(n(e.status)))}</td>
+            <td class="px-4 py-3 text-right font-medium text-rose-700">${i(`${m(e.overdue_minutes)}m`)}</td>
             <td class="px-4 py-3">
-              <div class="flex justify-end gap-2" aria-label="Assignment drill-down actions">${G(Object.values(t.links || {}))}</div>
+              <div class="flex justify-end gap-2" aria-label="Assignment drill-down actions">${Y(Object.values(e.links || {}))}</div>
             </td>
           </tr>
         `).join("")}
@@ -594,31 +565,31 @@ function De(e) {
     </table>
   `;
 }
-function Ie(e) {
-  const t = e.blockerCodes || [], a = e.blockerLabels || {};
-  return t.length === 0 ? "" : t.map((s) => {
-    const r = a[s] || b(s);
-    return `<span class="inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium ${s === "missing_locale" ? "bg-amber-100 text-amber-800" : s === "pending_review" ? "bg-sky-100 text-sky-800" : s === "outdated_source" ? "bg-rose-100 text-rose-800" : "bg-gray-100 text-gray-700"}" data-blocker-code="${d(s)}">${i(r)}</span>`;
+function Ie(t) {
+  const e = t.blockerCodes || [], a = t.blockerLabels || {};
+  return e.length === 0 ? "" : e.map((r) => {
+    const s = a[r] || b(r);
+    return `<span class="inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium ${r === "missing_locale" ? "bg-amber-100 text-amber-800" : r === "pending_review" ? "bg-sky-100 text-sky-800" : r === "outdated_source" ? "bg-rose-100 text-rose-800" : "bg-gray-100 text-gray-700"}" data-blocker-code="${c(r)}">${i(s)}</span>`;
   }).join("");
 }
-function Be(e) {
-  const t = e.affectedLocales || [];
-  if (t.length === 0) return "";
-  const a = 3, s = t.slice(0, a), r = t.length - a;
-  return `<div class="flex flex-wrap items-center gap-1">${s.map((o) => `<span class="inline-flex items-center rounded-md bg-gray-100 px-1.5 py-0.5 text-xs font-medium text-gray-600">${i(o.toUpperCase())}</span>`).join("")}${r > 0 ? `<span class="inline-flex items-center text-xs text-gray-500">+${r}</span>` : ""}</div>`;
+function De(t) {
+  const e = t.affectedLocales || [];
+  if (e.length === 0) return "";
+  const a = 3, r = e.slice(0, a), s = e.length - a;
+  return `<div class="flex flex-wrap items-center gap-1">${r.map((o) => `<span class="inline-flex items-center rounded-md bg-gray-100 px-1.5 py-0.5 text-xs font-medium text-gray-600">${i(o.toUpperCase())}</span>`).join("")}${s > 0 ? `<span class="inline-flex items-center text-xs text-gray-500">+${s}</span>` : ""}</div>`;
 }
-function Oe(e) {
-  const t = e.reasonData;
-  if (!t || t.state === "available") return "";
-  const a = t.state === "degraded", s = a ? "text-amber-500" : "text-gray-400", r = a ? `<svg class="h-3.5 w-3.5 ${s}" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>` : `<svg class="h-3.5 w-3.5 ${s}" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>`;
+function Be(t) {
+  const e = t.reasonData;
+  if (!e || e.state === "available") return "";
+  const a = e.state === "degraded", r = a ? "text-amber-500" : "text-gray-400", s = a ? `<svg class="h-3.5 w-3.5 ${r}" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>` : `<svg class="h-3.5 w-3.5 ${r}" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>`;
   return `
-    <span class="inline-flex items-center gap-1 text-xs text-gray-500" title="${d(t.message || "Reason data is " + t.state)}">
-      ${r}
-      <span class="sr-only">${i(t.message || "Reason data " + t.state)}</span>
+    <span class="inline-flex items-center gap-1 text-xs text-gray-500" title="${c(e.message || "Reason data is " + e.state)}">
+      ${s}
+      <span class="sr-only">${i(e.message || "Reason data " + e.state)}</span>
     </span>
   `;
 }
-function qe(e) {
+function Oe(t) {
   return `
     <table class="min-w-full divide-y divide-gray-200 text-sm">
       <caption class="sr-only">Blocked families with family detail, blocker codes, affected locales, and drill-down actions.</caption>
@@ -633,25 +604,25 @@ function qe(e) {
         </tr>
       </thead>
       <tbody class="divide-y divide-gray-100 bg-white">
-        ${e.rows.map((t) => `
-          <tr data-family-row="${d(n(t.family_id))}">
+        ${t.rows.map((e) => `
+          <tr data-family-row="${c(n(e.family_id))}">
             <td class="px-4 py-3">
-              <div class="font-medium text-gray-900">${V(n(t.content_type) || "Family", t.links.family)}</div>
+              <div class="font-medium text-gray-900">${X(n(e.content_type) || "Family", e.links.family)}</div>
               <div class="mt-1 flex items-center gap-2">
-                ${K(n(t.family_id))}
-                ${Oe(t)}
+                ${K(n(e.family_id))}
+                ${Be(e)}
               </div>
             </td>
             <td class="px-4 py-3">
-              <div class="flex flex-wrap gap-1">${Ie(t)}</div>
+              <div class="flex flex-wrap gap-1">${Ie(e)}</div>
             </td>
             <td class="px-4 py-3">
-              ${Be(t)}
+              ${De(e)}
             </td>
-            <td class="px-4 py-3 text-right font-medium text-amber-700">${i(String(m(t.missing_required_locale_count)))}</td>
-            <td class="px-4 py-3 text-right font-medium text-gray-700">${i(String(m(t.pending_review_count)))}</td>
+            <td class="px-4 py-3 text-right font-medium text-amber-700">${i(String(m(e.missing_required_locale_count)))}</td>
+            <td class="px-4 py-3 text-right font-medium text-gray-700">${i(String(m(e.pending_review_count)))}</td>
             <td class="px-4 py-3">
-              <div class="flex justify-end gap-2" aria-label="Family drill-down actions">${G(Object.values(t.links || {}))}</div>
+              <div class="flex justify-end gap-2" aria-label="Family drill-down actions">${Y(Object.values(e.links || {}))}</div>
             </td>
           </tr>
         `).join("")}
@@ -659,90 +630,91 @@ function qe(e) {
     </table>
   `;
 }
-function j(e, t = [], a = {}) {
-  const s = e.id === "top_overdue_assignments" ? De(e) : qe(e), r = _(e.id, e.label), o = {
+function j(t, e = [], a = {}) {
+  const r = t.id === "top_overdue_assignments" ? je(t) : Oe(t), s = L(t.id, t.label), o = {
     top_overdue_assignments: "translations.dashboard.overdue_triage",
     blocked_families: "translations.dashboard.publish_blockers"
-  }[e.id], l = o ? t.find((f) => f.id === o) : void 0;
+  }[t.id], l = o ? e.find((f) => f.id === o) : void 0;
   return a.embedded ? `
-      <div data-dashboard-table="${d(e.id)}">
+      <div data-dashboard-table="${c(t.id)}">
         <header class="flex items-center justify-between gap-3 border-b border-gray-200 px-4 py-3 bg-white">
           <div>
-            <p class="text-xs text-gray-500">Showing ${i(String(e.rows.length))} of ${i(String(e.total))}</p>
+            <p class="text-xs text-gray-500">Showing ${i(String(t.rows.length))} of ${i(String(t.total))}</p>
           </div>
           ${l?.href ? `
             <a
-              href="${d(l.href)}"
-              class="${M}"
-              data-dashboard-table-runbook="${d(e.id)}"
-              title="${d(l.description || L(o || "", l.title))}"
+              href="${c(l.href)}"
+              class="${S}"
+              data-dashboard-table-runbook="${c(t.id)}"
+              title="${c(l.description || R(o || "", l.title))}"
             >
-              ${E(o || "")}
-              <span>${i(C(o || "", l.title))}</span>
+              ${M(o || "")}
+              <span>${i(A(o || "", l.title))}</span>
             </a>
           ` : ""}
         </header>
-        <div class="overflow-x-auto">${s}</div>
+        <div class="overflow-x-auto">${r}</div>
       </div>
     ` : `
-    <section class="overflow-hidden ${x} shadow-sm" data-dashboard-table="${d(e.id)}">
+    <section class="overflow-hidden ${v} shadow-sm" data-dashboard-table="${c(t.id)}">
       <header class="flex items-center justify-between gap-3 border-b border-gray-200 px-4 py-3">
         <div>
-          <h2 class="text-sm font-semibold uppercase tracking-[0.22em] text-gray-500">${i(r)}</h2>
-          <p class="mt-1 text-xs text-gray-500">Showing ${i(String(e.rows.length))} of ${i(String(e.total))}</p>
+          <h2 class="text-sm font-semibold uppercase tracking-[0.22em] text-gray-500">${i(s)}</h2>
+          <p class="mt-1 text-xs text-gray-500">Showing ${i(String(t.rows.length))} of ${i(String(t.total))}</p>
         </div>
         ${l?.href ? `
           <a
-            href="${d(l.href)}"
-            class="${M}"
-            data-dashboard-table-runbook="${d(e.id)}"
-            title="${d(l.description || L(o || "", l.title))}"
+            href="${c(l.href)}"
+            class="${S}"
+            data-dashboard-table-runbook="${c(t.id)}"
+            title="${c(l.description || R(o || "", l.title))}"
           >
-            ${E(o || "")}
-            <span>${i(C(o || "", l.title))}</span>
+            ${M(o || "")}
+            <span>${i(A(o || "", l.title))}</span>
           </a>
         ` : ""}
       </header>
-      <div class="overflow-x-auto">${s}</div>
+      <div class="overflow-x-auto">${r}</div>
     </section>
   `;
 }
-function ze(e, t, a) {
-  const s = Object.keys(e);
-  return s.length === 0 ? "" : s.length === 1 ? `<section class="space-y-4">${j(e[s[0]], t)}</section>` : `
-    <section class="${x} shadow-sm overflow-hidden" data-dashboard-tables="true">
+function qe(t, e, a) {
+  const r = Object.keys(t);
+  return r.length === 0 ? "" : r.length === 1 ? `<section class="space-y-4">${j(t[r[0]], e)}</section>` : `
+    <section class="${v} shadow-sm overflow-hidden" data-dashboard-tables="true">
       <nav class="flex border-b border-gray-200 bg-gray-50 px-4" role="tablist" aria-label="Data tables">
-        ${s.map((r) => {
-    const o = xe[r] || {
-      label: _(r, r),
-      shortLabel: _(r, r),
+        ${r.map((s) => {
+    const o = Te[s] || {
+      label: L(s, s),
+      shortLabel: L(s, s),
       icon: ""
-    }, l = r === a;
+    }, l = s === a;
     return `
         <button type="button"
                 class="flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 -mb-px transition-colors whitespace-nowrap ${l ? "text-blue-600 border-blue-600" : "text-gray-600 border-transparent hover:text-gray-900 hover:border-gray-300"}"
-                data-table-tab="${d(r)}"
+                data-table-tab="${c(s)}"
                 role="tab"
                 aria-selected="${l}"
-                aria-controls="table-panel-${d(r)}">
+                aria-controls="table-panel-${c(s)}">
           ${o.icon}
           <span>${i(o.shortLabel)}</span>
+          <span class="sr-only">${i(o.label)}</span>
           <span class="ml-1 px-2 py-0.5 text-xs rounded-full ${l ? "bg-blue-100 text-blue-700" : "bg-gray-100 text-gray-600"}">
-            ${e[r]?.total || 0}
+            ${t[s]?.total || 0}
           </span>
         </button>
       `;
   }).join("")}
       </nav>
       <div class="p-0">
-        ${s.map((r) => {
-    const o = r === a;
+        ${r.map((s) => {
+    const o = s === a;
     return `
-        <div id="table-panel-${d(r)}"
+        <div id="table-panel-${c(s)}"
              role="tabpanel"
              ${o ? "" : "hidden"}
-             data-table-panel="${d(r)}">
-          ${j(e[r], t, { embedded: !0 })}
+             data-table-panel="${c(s)}">
+          ${j(t[s], e, { embedded: !0 })}
         </div>
       `;
   }).join("")}
@@ -750,23 +722,23 @@ function ze(e, t, a) {
     </section>
   `;
 }
-function Ne(e) {
-  return e.length === 0 ? "" : `
-    <section class="${x} p-4 shadow-sm" data-dashboard-runbooks="true">
+function ze(t) {
+  return t.length === 0 ? "" : `
+    <section class="${v} p-4 shadow-sm" data-dashboard-runbooks="true">
       <h2 class="text-sm font-semibold uppercase tracking-[0.22em] text-gray-500">Runbooks</h2>
       <div class="mt-4 grid gap-4 md:grid-cols-3">
-        ${e.map((t) => `
+        ${t.map((e) => `
           <article class="rounded-xl border border-gray-200 bg-gray-50 p-4">
-            <h3 class="text-sm font-semibold text-gray-900">${t.href ? `<a class="hover:underline" href="${d(t.href)}">${i(t.title)}</a>` : i(t.title)}</h3>
-            <p class="mt-2 text-sm leading-6 text-gray-600">${i(t.description)}</p>
+            <h3 class="text-sm font-semibold text-gray-900">${e.href ? `<a class="hover:underline" href="${c(e.href)}">${i(e.title)}</a>` : i(e.title)}</h3>
+            <p class="mt-2 text-sm leading-6 text-gray-600">${i(e.description)}</p>
           </article>
         `).join("")}
       </div>
     </section>
   `;
 }
-function X(e) {
-  switch (e) {
+function Q(t) {
+  switch (t) {
     case "critical":
       return "error";
     case "warning":
@@ -777,71 +749,91 @@ function X(e) {
       return "success";
   }
 }
-function Fe(e) {
-  return N(X(e));
+function W(t) {
+  return N(Q(t));
 }
-function He(e) {
-  return `border ${N(X(e))}`;
+function Ne(t) {
+  return `border ${N(Q(t))}`;
 }
-function Pe(e, t = !1, a = !1) {
-  const s = e?.meta.generatedAt ? new Date(e.meta.generatedAt).toLocaleString() : "Unavailable", r = e ? Object.entries(e.meta.scope).filter(([, u]) => u).map(([u, g]) => ({
+function Fe(t, e = !1, a = !1) {
+  const r = t?.meta.generatedAt ? new Date(t.meta.generatedAt).toLocaleString() : "Unavailable", s = t ? Object.entries(t.meta.scope).filter(([, u]) => u).filter(([u]) => u !== "actor_id").map(([u, d]) => ({
     key: b(u),
-    value: String(g)
-  })) : [], o = e ? _e(e.meta.refreshIntervalMs) : "N/A", l = e ? Le(e.meta.latencyTargetMs) : "N/A", f = e?.meta.channel || "default", c = a ? "rotate-180" : "";
+    value: String(d)
+  })) : [], o = t ? _e(t.meta.refreshIntervalMs) : "N/A", l = t ? Le(t.meta.latencyTargetMs) : "N/A", f = t?.meta.channel || "default", p = a ? "rotate-180" : "";
   return `
-    <section class="${x} shadow-sm overflow-hidden" data-dashboard-toolbar="true">
+    <section class="${v} shadow-sm overflow-hidden" data-dashboard-toolbar="true">
       <div class="px-5 py-4">
         <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <p class="${se}">Manager Monitoring</p>
-            <h2 class="${te} text-xl mt-2">Queue health and publish blockers</h2>
-            <p class="${ee} mt-2">Track overdue work, review backlog, and family readiness without rebuilding aggregate state in the browser.</p>
+            <p class="${le}">Manager Monitoring</p>
+            <h2 class="${oe} text-xl mt-2">Queue health and publish blockers</h2>
+            <p class="${ne} mt-2">Track overdue work, review backlog, and family readiness without rebuilding aggregate state in the browser.</p>
           </div>
           <div class="flex flex-wrap items-center gap-3">
             <span class="text-xs uppercase tracking-[0.18em] text-gray-500" aria-live="polite" data-dashboard-refresh-status="true">
-              ${i(t ? "Refreshing dashboard…" : `Last updated ${s}`)}
+              ${i(e ? "Refreshing dashboard…" : `Last updated ${r}`)}
             </span>
-            <button type="button" class="${z}" data-dashboard-refresh-button="true" aria-label="Refresh translation dashboard" ${t ? "disabled" : ""}>
-              ${i(t ? "Refreshing…" : "Refresh dashboard")}
+            <button type="button" class="${z}" data-dashboard-refresh-button="true" aria-label="Refresh translation dashboard" ${e ? "disabled" : ""}>
+              ${i(e ? "Refreshing…" : "Refresh dashboard")}
             </button>
           </div>
         </div>
       </div>
-      ${e ? `
-        <div class="border-t border-gray-200">
-          <button type="button"
-                  class="w-full flex items-center justify-between gap-3 px-5 py-3 text-left hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-inset transition-colors"
-                  data-meta-toggle="true"
-                  aria-expanded="${a}">
-            <div class="flex items-center gap-2">
-              <svg class="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
-              </svg>
-              <span class="text-sm font-medium text-gray-700">Technical Details</span>
+      ${t ? `
+        <div class="border-t border-gray-100 bg-gray-50 px-5 py-2">
+          <div class="flex items-center justify-between gap-3">
+            <div class="flex items-center gap-2 flex-wrap">
+              <span class="inline-flex items-center gap-1.5 px-2 py-1 text-xs font-medium text-gray-600 bg-white rounded border border-gray-200" title="Dashboard channel">
+                <svg class="h-3 w-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14"/>
+                </svg>
+                <span>${i(f)}</span>
+              </span>
+              <span class="inline-flex items-center gap-1.5 px-2 py-1 text-xs font-medium text-gray-600 bg-white rounded border border-gray-200" title="Refresh interval: ${i(o)}">
+                <svg class="h-3 w-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+                <span>${i(o)}</span>
+              </span>
+              <span class="inline-flex items-center gap-1.5 px-2 py-1 text-xs font-medium text-gray-600 bg-white rounded border border-gray-200" title="Latency target: ${i(l)}">
+                <svg class="h-3 w-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                </svg>
+                <span>${i(l)}</span>
+              </span>
             </div>
-            <svg class="h-4 w-4 text-gray-400 transition-transform ${c}" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
-            </svg>
-          </button>
-          <div class="${a ? "" : "hidden"}" data-meta-content="true">
-            <dl class="border-t border-gray-200 px-5 py-3 grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-4 bg-gray-50">
+            <button type="button"
+                    class="inline-flex items-center gap-1.5 px-2 py-1 text-xs font-medium text-gray-600 hover:text-gray-900 hover:bg-white rounded transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                    data-meta-toggle="true"
+                    aria-expanded="${a}"
+                    aria-label="Toggle technical details">
+              <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+              </svg>
+              <span>Details</span>
+              <svg class="h-3 w-3 transition-transform ${p}" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+              </svg>
+            </button>
+          </div>
+          <div class="${a ? "mt-3" : "hidden"}" data-meta-content="true">
+            <dl class="border-t border-gray-200 pt-3 grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-4">
               <div>
                 <dt class="text-xs font-medium uppercase tracking-[0.16em] text-gray-500">Channel</dt>
                 <dd class="mt-1 text-sm font-medium text-gray-900">${i(f)}</dd>
               </div>
               <div>
-                <dt class="text-xs font-medium uppercase tracking-[0.16em] text-gray-500">Refresh</dt>
+                <dt class="text-xs font-medium uppercase tracking-[0.16em] text-gray-500">Refresh Interval</dt>
                 <dd class="mt-1 text-sm font-medium text-gray-900">${i(o)}</dd>
               </div>
               <div>
-                <dt class="text-xs font-medium uppercase tracking-[0.16em] text-gray-500">Latency</dt>
+                <dt class="text-xs font-medium uppercase tracking-[0.16em] text-gray-500">Latency Target</dt>
                 <dd class="mt-1 text-sm font-medium text-gray-900">${i(l)}</dd>
               </div>
-              ${r.map(({ key: u, value: g }) => `
+              ${s.map(({ key: u, value: d }) => `
                 <div>
                   <dt class="text-xs font-medium uppercase tracking-[0.16em] text-gray-500">${i(u)}</dt>
-                  <dd class="mt-1 text-xs font-medium text-gray-900 font-mono">${i(g)}</dd>
+                  <dd class="mt-1 text-xs font-medium text-gray-900 font-mono">${i(d)}</dd>
                 </div>
               `).join("")}
             </dl>
@@ -851,9 +843,9 @@ function Pe(e, t = !1, a = !1) {
     </section>
   `;
 }
-function Ue(e) {
-  const t = e.data.runbooks[0], a = t?.href ? `<a class="inline-flex items-center rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-900 hover:bg-gray-50" href="${d(t.href)}">${i(t.title || "Open runbook")}</a>` : "";
-  return $({
+function He(t) {
+  const e = t.data.runbooks[0], a = e?.href ? `<a class="inline-flex items-center rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-900 hover:bg-gray-50" href="${c(e.href)}">${i(e.title || "Open runbook")}</a>` : "";
+  return w({
     tag: "section",
     containerClass: `${q} p-6 shadow-sm`,
     bodyClass: "",
@@ -875,46 +867,46 @@ function Ue(e) {
     ariaLive: "polite"
   });
 }
-function Ke(e) {
-  const t = e instanceof y ? e.requestId : void 0, a = e instanceof y ? e.traceId : void 0, s = [t ? `Request ${t}` : "", a ? `Trace ${a}` : ""].filter(Boolean).join(" • ");
-  return $({
+function Pe(t) {
+  const e = t instanceof y ? t.requestId : void 0, a = t instanceof y ? t.traceId : void 0, r = [e ? `Request ${e}` : "", a ? `Trace ${a}` : ""].filter(Boolean).join(" • ");
+  return w({
     tag: "section",
-    containerClass: `${I} p-4`,
+    containerClass: `${D} p-4`,
     bodyClass: "",
     contentClass: "",
     title: "Latest refresh failed",
     titleClass: F,
-    message: e instanceof Error ? e.message : "Failed to load translation dashboard",
-    messageClass: `${w} mt-2`,
-    metadata: s,
+    message: t instanceof Error ? t.message : "Failed to load translation dashboard",
+    messageClass: `${T} mt-2`,
+    metadata: r,
     metadataClass: "mt-2 text-xs uppercase tracking-[0.16em] text-rose-700",
     role: "alert",
     attributes: { "data-dashboard-inline-error": "true" }
   });
 }
-function Ve(e) {
-  const t = e instanceof Error ? e.message : "Failed to load translation dashboard", a = e instanceof y ? e.requestId : void 0, s = e instanceof y ? e.traceId : void 0, r = [a ? `Request ${a}` : "", s ? `Trace ${s}` : ""].filter(Boolean).join(" • ");
-  return $({
+function Ue(t) {
+  const e = t instanceof Error ? t.message : "Failed to load translation dashboard", a = t instanceof y ? t.requestId : void 0, r = t instanceof y ? t.traceId : void 0, s = [a ? `Request ${a}` : "", r ? `Trace ${r}` : ""].filter(Boolean).join(" • ");
+  return w({
     tag: "section",
-    containerClass: `${I} p-4`,
+    containerClass: `${D} p-4`,
     bodyClass: "",
     contentClass: "",
     title: "Translation dashboard unavailable",
     titleClass: F,
     heading: "Managers can retry the aggregate request and return to queue-health monitoring once the endpoint recovers.",
     headingTag: "p",
-    headingClass: `${w} mt-2`,
-    message: t,
-    messageClass: `${w} mt-2`,
-    metadata: r,
+    headingClass: `${T} mt-2`,
+    message: e,
+    messageClass: `${T} mt-2`,
+    metadata: s,
     metadataClass: "mt-2 text-xs uppercase tracking-[0.16em] text-rose-700",
-    actionsHtml: `<div class="mt-4"><button type="button" class="${ae}" data-dashboard-refresh-button="true">Retry dashboard</button></div>`,
+    actionsHtml: `<div class="mt-4"><button type="button" class="${ie}" data-dashboard-refresh-button="true">Retry dashboard</button></div>`,
     role: "alert",
     attributes: { "data-dashboard-error": "true" }
   });
 }
-function Ge() {
-  return $({
+function Ve() {
+  return w({
     tag: "section",
     containerClass: `${q} p-5`,
     bodyClass: "",
@@ -926,41 +918,41 @@ function Ge() {
     attributes: { "data-dashboard-empty": "true" }
   });
 }
-function D() {
-  return re({
+function I() {
+  return de({
     tag: "section",
     text: "Loading translation dashboard aggregates...",
     showSpinner: !1,
-    containerClass: `${Z} p-5`,
+    containerClass: `${se} p-5`,
     attributes: { "data-dashboard-loading": "true" },
     ariaLive: "polite"
   });
 }
-var Xe = class extends J {
-  constructor(e) {
+var Ge = class extends re {
+  constructor(t) {
     super("idle"), this.refreshController = null, this.container = null, this.payload = null, this.refreshing = !1, this.lastError = null, this.metaExpanded = !1, this.alertsExpanded = !1, this.dismissedAlerts = /* @__PURE__ */ new Set(), this.activeTableTab = "top_overdue_assignments", this.config = {
       refreshInterval: 3e4,
       title: "Translation Dashboard",
-      ...e
-    }, this.client = me(e);
+      ...t
+    }, this.client = ke(t);
   }
-  mount(e) {
-    if (this.container = e, !n(this.config.endpoint)) {
-      this.state = "error", e.innerHTML = Ge();
+  mount(t) {
+    if (this.container = t, !n(this.config.endpoint)) {
+      this.state = "error", t.innerHTML = Ve();
       return;
     }
-    this.state = "loading", this.refreshing = !1, this.lastError = null, e.innerHTML = D(), this.refreshController = be({
+    this.state = "loading", this.refreshing = !1, this.lastError = null, t.innerHTML = I(), this.refreshController = $e({
       intervalMs: this.config.refreshInterval,
       load: () => this.client.fetchDashboard(),
-      onData: (t) => {
-        this.payload = t, this.state = "ready", this.refreshing = !1, this.lastError = null, this.render();
+      onData: (e) => {
+        this.payload = e, this.state = "ready", this.refreshing = !1, this.lastError = null, this.render();
       },
-      onError: (t) => {
-        if (this.refreshing = !1, this.lastError = t, this.payload) {
+      onError: (e) => {
+        if (this.refreshing = !1, this.lastError = e, this.payload) {
           this.state = "ready", this.render();
           return;
         }
-        this.state = "error", this.container && (this.container.innerHTML = Ve(t), this.bindActions());
+        this.state = "error", this.container && (this.container.innerHTML = Ue(e), this.bindActions());
       }
     }), this.refreshController.start().catch(() => {
     });
@@ -972,9 +964,9 @@ var Xe = class extends J {
     return this.payload;
   }
   async refresh() {
-    if (this.lastError = null, this.refreshing = !0, this.payload ? this.render() : this.container && (this.state = "loading", this.container.innerHTML = D()), !this.refreshController) {
-      const e = await this.client.fetchDashboard();
-      return this.payload = e, this.state = "ready", this.refreshing = !1, this.render(), e;
+    if (this.lastError = null, this.refreshing = !0, this.payload ? this.render() : this.container && (this.state = "loading", this.container.innerHTML = I()), !this.refreshController) {
+      const t = await this.client.fetchDashboard();
+      return this.payload = t, this.state = "ready", this.refreshing = !1, this.render(), t;
     }
     try {
       return await this.refreshController.refresh();
@@ -984,24 +976,24 @@ var Xe = class extends J {
   }
   render() {
     if (!this.container || !this.payload) return;
-    const e = this.payload, t = e.data.runbooks, a = e.data.cards.map((l) => Ae(l, t)).join(""), s = Object.values(e.data.summary).every((l) => l === 0) && Object.values(e.data.tables).every((l) => l.rows.length === 0), r = e.meta.degraded ? `
+    const t = this.payload, e = t.data.runbooks, a = t.data.cards.map((l) => Re(l, e)).join(""), r = Object.values(t.data.summary).every((l) => l === 0) && Object.values(t.data.tables).every((l) => l.rows.length === 0), s = t.meta.degraded ? `
         <section class="rounded-xl border border-gray-200 bg-gray-100 p-4 text-sm text-gray-700" data-dashboard-degraded="true" role="status" aria-live="polite">
           <p class="font-semibold text-gray-900">Family aggregate data is degraded.</p>
           <p class="mt-2">Managers can continue triage, but family readiness figures may be incomplete until the aggregate recovers.</p>
-          <p class="mt-2">${i(e.meta.degradedReasons.map((l) => `${l.component}: ${l.message}`).join(" | ") || "Retry the dashboard request to refresh family blocker data.")}</p>
+          <p class="mt-2">${i(t.meta.degradedReasons.map((l) => `${l.component}: ${l.message}`).join(" | ") || "Retry the dashboard request to refresh family blocker data.")}</p>
         </section>
-      ` : "", o = this.lastError ? Ke(this.lastError) : "";
+      ` : "", o = this.lastError ? Pe(this.lastError) : "";
     this.container.innerHTML = `
       <div class="space-y-4" data-dashboard="true">
-        ${Pe(e, this.refreshing, this.metaExpanded)}
+        ${Fe(t, this.refreshing, this.metaExpanded)}
         ${o}
-        ${r}
-        ${je(e.data.alerts, this.alertsExpanded, this.dismissedAlerts)}
-        ${s ? Ue(e) : `
+        ${s}
+        ${Se(t.data.alerts, t.data.cards, this.alertsExpanded, this.dismissedAlerts)}
+        ${r ? He(t) : `
             <section class="grid gap-4 md:grid-cols-2 xl:grid-cols-5">${a}</section>
-            ${ze(e.data.tables, t, this.activeTableTab)}
+            ${qe(t.data.tables, e, this.activeTableTab)}
           `}
-        ${Ne(e.data.runbooks)}
+        ${ze(t.data.runbooks)}
       </div>
     `, this.bindActions();
   }
@@ -1013,31 +1005,31 @@ var Xe = class extends J {
         });
       });
     });
-    const e = this.container.querySelector("[data-meta-toggle]");
-    e && e.addEventListener("click", () => {
+    const t = this.container.querySelector("[data-meta-toggle]");
+    t && t.addEventListener("click", () => {
       this.metaExpanded = !this.metaExpanded, this.render();
     });
-    const t = this.container.querySelector("[data-alerts-toggle]");
-    t && t.addEventListener("click", () => {
+    const e = this.container.querySelector("[data-alerts-toggle]");
+    e && e.addEventListener("click", () => {
       this.alertsExpanded = !this.alertsExpanded, this.render();
     }), this.container.querySelectorAll("[data-dismiss-alert]").forEach((a) => {
-      a.addEventListener("click", (s) => {
-        s.stopPropagation();
-        const r = a.dataset.dismissAlert;
-        r && (this.dismissedAlerts.add(r), this.render());
+      a.addEventListener("click", (r) => {
+        r.stopPropagation();
+        const s = a.dataset.dismissAlert;
+        s && (this.dismissedAlerts.add(s), this.render());
       });
     }), this.container.querySelectorAll("[data-table-tab]").forEach((a) => {
       a.addEventListener("click", () => {
-        const s = a.dataset.tableTab;
-        s && s !== this.activeTableTab && (this.activeTableTab = s, this.render());
+        const r = a.dataset.tableTab;
+        r && r !== this.activeTableTab && (this.activeTableTab = r, this.render());
       });
     }), this.container.querySelectorAll("[data-copy-uuid]").forEach((a) => {
-      a.addEventListener("click", async (s) => {
-        s.preventDefault(), s.stopPropagation();
-        const r = a.dataset.copyUuid;
-        if (r)
+      a.addEventListener("click", async (r) => {
+        r.preventDefault(), r.stopPropagation();
+        const s = a.dataset.copyUuid;
+        if (s)
           try {
-            await navigator.clipboard.writeText(r);
+            await navigator.clipboard.writeText(s);
             const o = a.innerHTML;
             a.innerHTML = `
             <span class="text-green-600">Copied!</span>
@@ -1054,32 +1046,32 @@ var Xe = class extends J {
     });
   }
 };
-function rt(e, t = {}) {
-  if (!e) return null;
-  const a = new Xe({
-    endpoint: t.endpoint ?? e.dataset.endpoint ?? "",
-    queueEndpoint: t.queueEndpoint ?? e.dataset.queueEndpoint ?? "",
-    familiesEndpoint: t.familiesEndpoint ?? e.dataset.familiesEndpoint ?? "",
-    refreshInterval: t.refreshInterval ?? m(e.dataset.refreshInterval, 3e4),
-    title: t.title ?? e.dataset.title ?? "Translation Dashboard",
-    fetch: t.fetch
+function at(t, e = {}) {
+  if (!t) return null;
+  const a = new Ge({
+    endpoint: e.endpoint ?? t.dataset.endpoint ?? "",
+    queueEndpoint: e.queueEndpoint ?? t.dataset.queueEndpoint ?? "",
+    familiesEndpoint: e.familiesEndpoint ?? t.dataset.familiesEndpoint ?? "",
+    refreshInterval: e.refreshInterval ?? m(t.dataset.refreshInterval, 3e4),
+    title: e.title ?? t.dataset.title ?? "Translation Dashboard",
+    fetch: e.fetch
   });
-  return a.mount(e), a;
+  return a.mount(t), a;
 }
 export {
-  Xe as TranslationDashboardPage,
+  Ge as TranslationDashboardPage,
   y as TranslationDashboardRequestError,
-  fe as buildTranslationDashboardURL,
-  me as createTranslationDashboardClient,
-  be as createTranslationDashboardRefreshController,
-  rt as initTranslationDashboardPage,
-  oe as normalizeTranslationDashboardCard,
+  ve as buildTranslationDashboardURL,
+  ke as createTranslationDashboardClient,
+  $e as createTranslationDashboardRefreshController,
+  at as initTranslationDashboardPage,
+  ue as normalizeTranslationDashboardCard,
   H as normalizeTranslationDashboardLink,
   U as normalizeTranslationDashboardQueryModel,
-  ge as normalizeTranslationDashboardResponse,
+  ye as normalizeTranslationDashboardResponse,
   P as normalizeTranslationDashboardRunbook,
-  ce as normalizeTranslationDashboardTable,
-  de as normalizeTranslationDashboardTableRow
+  fe as normalizeTranslationDashboardTable,
+  ge as normalizeTranslationDashboardTableRow
 };
 
 //# sourceMappingURL=index.js.map

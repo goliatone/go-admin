@@ -1400,11 +1400,12 @@ function renderSourceValue(entry: TranslationEditorFieldEntry): string {
     return escapeHTML(entry.source_value);
   }
 
-  // Contextual empty state based on field type and required status
+  // Contextual empty state based on required status
   if (entry.required) {
     return '<span class="text-amber-600 italic">Source text pending - required field</span>';
   }
-  return '<span class="text-gray-400 italic">Optional source content not provided</span>';
+  // Optional fields show minimal empty indicator
+  return '<span class="text-gray-400 italic text-xs">Optional source content not provided</span>';
 }
 
 function renderFieldList(detail: TranslationAssignmentEditorDetail): string {
