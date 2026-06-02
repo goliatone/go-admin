@@ -16,9 +16,11 @@
   "routes": {
     "admin.api|errors": "/admin/api/errors",
     "admin.api|translations.dashboard": "/admin/api/translations/dashboard",
+    "admin.api|translations.families": "/admin/api/translations/families",
     "admin.api|translations.queue": "/admin/api/translations/queue",
     "admin|dashboard": "/admin/",
     "admin|translations.dashboard": "/admin/translations/dashboard",
+    "admin|translations.families": "/admin/translations/families",
     "admin|translations.queue": "/admin/translations/queue",
     "public.api.v1|preview": "/api/v1/preview/token",
     "public.api.v1|site.menus.code": "/api/v1/site/menus/code/primary",

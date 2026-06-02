@@ -44,7 +44,7 @@
             "route": "translations.families.id"
           }
         },
-        "drilldown_route": "translations.families.id",
+        "drilldown_route": "translations.families",
         "id": "blocked_families",
         "index_hints": [
           "content_families_scope_readiness_idx",
@@ -58,6 +58,7 @@
           "reason_data"
         ],
         "resolver_keys": [
+          "admin.translations.families",
           "admin.translations.families.id",
           "admin.api.translations.families"
         ],
@@ -194,12 +195,12 @@
       },
       {
         "description": "Work family readiness blockers from missing locales through pending review before publish windows open.",
-        "group": "admin.api",
+        "group": "admin",
         "id": "translations.dashboard.publish_blockers",
         "query": {
           "readiness_state": "blocked"
         },
-        "resolver_key": "admin.api.translations.families",
+        "resolver_key": "admin.translations.families",
         "route": "translations.families",
         "title": "Publish blocker remediation"
       }

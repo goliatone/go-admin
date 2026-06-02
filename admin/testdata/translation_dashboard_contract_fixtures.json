@@ -96,7 +96,7 @@
           {
             "id": "blocked_families",
             "label": "Blocked Families",
-            "description": "Families currently blocked from publish readiness.",
+            "description": "Open the blocked families workbench for the current scope.",
             "count": 0,
             "breakdown": {
               "missing_required_locales": 0
@@ -106,15 +106,15 @@
               "message": "Healthy"
             },
             "drilldown": {
-              "href": "/admin/api/translations/families?readiness_state=blocked",
-              "group": "admin.api",
+              "href": "/admin/translations/families?readiness_state=blocked",
+              "group": "admin",
               "route": "translations.families",
-              "resolver_key": "admin.api.translations.families",
+              "resolver_key": "admin.translations.families",
               "query": {
                 "readiness_state": "blocked"
               },
               "label": "Open blocked families",
-              "description": "Open the blocked family feed for the current scope.",
+              "description": "Open the blocked families workbench for the current scope.",
               "relation": "primary"
             },
             "metric_key": "translations.dashboard.blocked_families",
@@ -123,7 +123,7 @@
           {
             "id": "missing_required_locales",
             "label": "Missing Required Locales",
-            "description": "Families still missing policy-required locale variants.",
+            "description": "Open the families workbench filtered to missing locale blockers.",
             "count": 0,
             "breakdown": {
               "families_blocked": 0
@@ -133,16 +133,16 @@
               "message": "Healthy"
             },
             "drilldown": {
-              "href": "/admin/api/translations/families?readiness_state=blocked&blocker_code=missing_locale",
-              "group": "admin.api",
+              "href": "/admin/translations/families?readiness_state=blocked&blocker_code=missing_locale",
+              "group": "admin",
               "route": "translations.families",
-              "resolver_key": "admin.api.translations.families",
+              "resolver_key": "admin.translations.families",
               "query": {
                 "readiness_state": "blocked",
                 "blocker_code": "missing_locale"
               },
               "label": "Open missing locale blockers",
-              "description": "Open the blocked family feed filtered to missing locale blockers.",
+              "description": "Open the families workbench filtered to missing locale blockers.",
               "relation": "primary"
             },
             "metric_key": "translations.dashboard.missing_required_locales",
@@ -198,11 +198,12 @@
             "title": "Publish blocker remediation",
             "description": "Work family readiness blockers from missing locales through pending review before publish windows open.",
             "route": "translations.families",
-            "resolver_key": "admin.api.translations.families",
-            "href": "/admin/api/translations/families?readiness_state=blocked",
+            "resolver_key": "admin.translations.families",
+            "href": "/admin/translations/families?readiness_state=blocked",
             "query": {
               "readiness_state": "blocked"
-            }
+            },
+            "group": "admin"
           }
         ],
         "summary": {
@@ -331,9 +332,10 @@
               "missing_locale"
             ],
             "default_limit": 5,
-            "drilldown_route": "translations.families.id",
+            "drilldown_route": "translations.families",
             "api_route": "translations.families",
             "resolver_keys": [
+              "admin.translations.families",
               "admin.translations.families.id",
               "admin.api.translations.families"
             ],
@@ -473,9 +475,10 @@
                 "missing_locale"
               ],
               "default_limit": 5,
-              "drilldown_route": "translations.families.id",
+              "drilldown_route": "translations.families",
               "api_route": "translations.families",
               "resolver_keys": [
+                "admin.translations.families",
                 "admin.translations.families.id",
                 "admin.api.translations.families"
               ],
@@ -539,9 +542,9 @@
               "id": "translations.dashboard.publish_blockers",
               "title": "Publish blocker remediation",
               "description": "Work family readiness blockers from missing locales through pending review before publish windows open.",
-              "group": "admin.api",
+              "group": "admin",
               "route": "translations.families",
-              "resolver_key": "admin.api.translations.families",
+              "resolver_key": "admin.translations.families",
               "query": {
                 "readiness_state": "blocked"
               }
@@ -676,7 +679,7 @@
           {
             "id": "blocked_families",
             "label": "Blocked Families",
-            "description": "Families currently blocked from publish readiness.",
+            "description": "Open the blocked families workbench for the current scope.",
             "count": 0,
             "breakdown": {
               "missing_required_locales": 0
@@ -686,15 +689,15 @@
               "message": "Healthy"
             },
             "drilldown": {
-              "href": "/admin/api/translations/families?readiness_state=blocked",
-              "group": "admin.api",
+              "href": "/admin/translations/families?readiness_state=blocked",
+              "group": "admin",
               "route": "translations.families",
-              "resolver_key": "admin.api.translations.families",
+              "resolver_key": "admin.translations.families",
               "query": {
                 "readiness_state": "blocked"
               },
               "label": "Open blocked families",
-              "description": "Open the blocked family feed for the current scope.",
+              "description": "Open the blocked families workbench for the current scope.",
               "relation": "primary"
             },
             "metric_key": "translations.dashboard.blocked_families",
@@ -703,7 +706,7 @@
           {
             "id": "missing_required_locales",
             "label": "Missing Required Locales",
-            "description": "Families still missing policy-required locale variants.",
+            "description": "Open the families workbench filtered to missing locale blockers.",
             "count": 0,
             "breakdown": {
               "families_blocked": 0
@@ -713,16 +716,16 @@
               "message": "Healthy"
             },
             "drilldown": {
-              "href": "/admin/api/translations/families?readiness_state=blocked&blocker_code=missing_locale",
-              "group": "admin.api",
+              "href": "/admin/translations/families?readiness_state=blocked&blocker_code=missing_locale",
+              "group": "admin",
               "route": "translations.families",
-              "resolver_key": "admin.api.translations.families",
+              "resolver_key": "admin.translations.families",
               "query": {
                 "readiness_state": "blocked",
                 "blocker_code": "missing_locale"
               },
               "label": "Open missing locale blockers",
-              "description": "Open the blocked family feed filtered to missing locale blockers.",
+              "description": "Open the families workbench filtered to missing locale blockers.",
               "relation": "primary"
             },
             "metric_key": "translations.dashboard.missing_required_locales",
@@ -778,11 +781,12 @@
             "title": "Publish blocker remediation",
             "description": "Work family readiness blockers from missing locales through pending review before publish windows open.",
             "route": "translations.families",
-            "resolver_key": "admin.api.translations.families",
-            "href": "/admin/api/translations/families?readiness_state=blocked",
+            "resolver_key": "admin.translations.families",
+            "href": "/admin/translations/families?readiness_state=blocked",
             "query": {
               "readiness_state": "blocked"
-            }
+            },
+            "group": "admin"
           }
         ],
         "summary": {
@@ -903,9 +907,10 @@
               "missing_locale"
             ],
             "default_limit": 5,
-            "drilldown_route": "translations.families.id",
+            "drilldown_route": "translations.families",
             "api_route": "translations.families",
             "resolver_keys": [
+              "admin.translations.families",
               "admin.translations.families.id",
               "admin.api.translations.families"
             ],
@@ -1045,9 +1050,10 @@
                 "missing_locale"
               ],
               "default_limit": 5,
-              "drilldown_route": "translations.families.id",
+              "drilldown_route": "translations.families",
               "api_route": "translations.families",
               "resolver_keys": [
+                "admin.translations.families",
                 "admin.translations.families.id",
                 "admin.api.translations.families"
               ],
@@ -1212,7 +1218,7 @@
           {
             "id": "blocked_families",
             "label": "Blocked Families",
-            "description": "Families currently blocked from publish readiness.",
+            "description": "Open the blocked families workbench for the current scope.",
             "count": 1,
             "breakdown": {
               "missing_required_locales": 1
@@ -1222,15 +1228,15 @@
               "message": "Action required"
             },
             "drilldown": {
-              "href": "/admin/api/translations/families?readiness_state=blocked",
-              "group": "admin.api",
+              "href": "/admin/translations/families?readiness_state=blocked",
+              "group": "admin",
               "route": "translations.families",
-              "resolver_key": "admin.api.translations.families",
+              "resolver_key": "admin.translations.families",
               "query": {
                 "readiness_state": "blocked"
               },
               "label": "Open blocked families",
-              "description": "Open the blocked family feed for the current scope.",
+              "description": "Open the blocked families workbench for the current scope.",
               "relation": "primary"
             },
             "metric_key": "translations.dashboard.blocked_families",
@@ -1239,7 +1245,7 @@
           {
             "id": "missing_required_locales",
             "label": "Missing Required Locales",
-            "description": "Families still missing policy-required locale variants.",
+            "description": "Open the families workbench filtered to missing locale blockers.",
             "count": 1,
             "breakdown": {
               "families_blocked": 1
@@ -1249,16 +1255,16 @@
               "message": "Action required"
             },
             "drilldown": {
-              "href": "/admin/api/translations/families?readiness_state=blocked&blocker_code=missing_locale",
-              "group": "admin.api",
+              "href": "/admin/translations/families?readiness_state=blocked&blocker_code=missing_locale",
+              "group": "admin",
               "route": "translations.families",
-              "resolver_key": "admin.api.translations.families",
+              "resolver_key": "admin.translations.families",
               "query": {
                 "readiness_state": "blocked",
                 "blocker_code": "missing_locale"
               },
               "label": "Open missing locale blockers",
-              "description": "Open the blocked family feed filtered to missing locale blockers.",
+              "description": "Open the families workbench filtered to missing locale blockers.",
               "relation": "primary"
             },
             "metric_key": "translations.dashboard.missing_required_locales",
@@ -1394,11 +1400,12 @@
             "title": "Publish blocker remediation",
             "description": "Work family readiness blockers from missing locales through pending review before publish windows open.",
             "route": "translations.families",
-            "resolver_key": "admin.api.translations.families",
-            "href": "/admin/api/translations/families?readiness_state=blocked",
+            "resolver_key": "admin.translations.families",
+            "href": "/admin/translations/families?readiness_state=blocked",
             "query": {
               "readiness_state": "blocked"
-            }
+            },
+            "group": "admin"
           },
           {
             "id": "translations.dashboard.overdue_triage",
@@ -1494,6 +1501,13 @@
               "blocker_labels",
               "affected_locales",
               "reason_data"
+            ],
+            "drilldown_route": "translations.families",
+            "api_route": "translations.families",
+            "resolver_keys": [
+              "admin.translations.families",
+              "admin.translations.families.id",
+              "admin.api.translations.families"
             ]
           }
         },
@@ -1538,6 +1552,13 @@
                 "blocker_labels",
                 "affected_locales",
                 "reason_data"
+              ],
+              "drilldown_route": "translations.families",
+              "api_route": "translations.families",
+              "resolver_keys": [
+                "admin.translations.families",
+                "admin.translations.families.id",
+                "admin.api.translations.families"
               ]
             }
           },
@@ -1670,7 +1691,7 @@
           {
             "id": "blocked_families",
             "label": "Blocked Families",
-            "description": "Families currently blocked from publish readiness.",
+            "description": "Open the blocked families workbench for the current scope.",
             "count": 2,
             "breakdown": {
               "missing_required_locales": 2
@@ -1680,15 +1701,15 @@
               "message": "Action required"
             },
             "drilldown": {
-              "href": "/admin/api/translations/families?readiness_state=blocked",
-              "group": "admin.api",
+              "href": "/admin/translations/families?readiness_state=blocked",
+              "group": "admin",
               "route": "translations.families",
-              "resolver_key": "admin.api.translations.families",
+              "resolver_key": "admin.translations.families",
               "query": {
                 "readiness_state": "blocked"
               },
               "label": "Open blocked families",
-              "description": "Open the blocked family feed for the current scope.",
+              "description": "Open the blocked families workbench for the current scope.",
               "relation": "primary"
             },
             "metric_key": "translations.dashboard.blocked_families",
@@ -1697,7 +1718,7 @@
           {
             "id": "missing_required_locales",
             "label": "Missing Required Locales",
-            "description": "Families still missing policy-required locale variants.",
+            "description": "Open the families workbench filtered to missing locale blockers.",
             "count": 2,
             "breakdown": {
               "families_blocked": 2
@@ -1707,16 +1728,16 @@
               "message": "Action required"
             },
             "drilldown": {
-              "href": "/admin/api/translations/families?readiness_state=blocked&blocker_code=missing_locale",
-              "group": "admin.api",
+              "href": "/admin/translations/families?readiness_state=blocked&blocker_code=missing_locale",
+              "group": "admin",
               "route": "translations.families",
-              "resolver_key": "admin.api.translations.families",
+              "resolver_key": "admin.translations.families",
               "query": {
                 "readiness_state": "blocked",
                 "blocker_code": "missing_locale"
               },
               "label": "Open missing locale blockers",
-              "description": "Open the blocked family feed filtered to missing locale blockers.",
+              "description": "Open the families workbench filtered to missing locale blockers.",
               "relation": "primary"
             },
             "metric_key": "translations.dashboard.missing_required_locales",
@@ -2047,11 +2068,12 @@
             "title": "Publish blocker remediation",
             "description": "Work family readiness blockers from missing locales through pending review before publish windows open.",
             "route": "translations.families",
-            "resolver_key": "admin.api.translations.families",
-            "href": "/admin/api/translations/families?readiness_state=blocked",
+            "resolver_key": "admin.translations.families",
+            "href": "/admin/translations/families?readiness_state=blocked",
             "query": {
               "readiness_state": "blocked"
-            }
+            },
+            "group": "admin"
           }
         ],
         "summary": {
@@ -2129,6 +2151,13 @@
               "blocker_labels",
               "affected_locales",
               "reason_data"
+            ],
+            "drilldown_route": "translations.families",
+            "api_route": "translations.families",
+            "resolver_keys": [
+              "admin.translations.families",
+              "admin.translations.families.id",
+              "admin.api.translations.families"
             ]
           }
         },
@@ -2173,6 +2202,13 @@
                 "blocker_labels",
                 "affected_locales",
                 "reason_data"
+              ],
+              "drilldown_route": "translations.families",
+              "api_route": "translations.families",
+              "resolver_keys": [
+                "admin.translations.families",
+                "admin.translations.families.id",
+                "admin.api.translations.families"
               ]
             }
           },

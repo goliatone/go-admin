@@ -280,6 +280,57 @@
         }
       ],
       "family_id": "tg-page-1",
+      "locale_navigation": {
+        "current_locale": "fr",
+        "current_work_scope": "__all__",
+        "family_detail_url": "/admin/translations/families/tg-page-1",
+        "family_id": "tg-page-1",
+        "locales": [
+          {
+            "assignment_id": "asg-editor-1",
+            "current": true,
+            "disabled": false,
+            "enabled": true,
+            "href": "/admin/translations/assignments/asg-editor-1/edit",
+            "label": "FR",
+            "locale": "fr",
+            "source": false,
+            "status": "in_progress",
+            "work_scope": "__all__"
+          },
+          {
+            "assignment_id": "asg-editor-es",
+            "current": false,
+            "disabled": false,
+            "enabled": true,
+            "href": "/admin/translations/assignments/asg-editor-es/edit",
+            "label": "ES",
+            "locale": "es",
+            "source": false,
+            "status": "assigned",
+            "work_scope": "__all__"
+          },
+          {
+            "current": false,
+            "disabled": true,
+            "enabled": false,
+            "label": "DE",
+            "locale": "de",
+            "reason": "No translation assignment exists for this locale.",
+            "source": false
+          },
+          {
+            "current": false,
+            "disabled": true,
+            "enabled": false,
+            "label": "IT",
+            "locale": "it",
+            "reason": "No translation assignment exists for this locale.",
+            "source": false
+          }
+        ],
+        "source_locale": "en"
+      },
       "field_completeness": {
         "body": {
           "complete": true,
