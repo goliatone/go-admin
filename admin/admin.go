@@ -6,7 +6,9 @@ import (
 	"sync"
 
 	"github.com/goliatone/go-admin/admin/routing"
+	"github.com/goliatone/go-admin/internal/primitives"
 	translationservices "github.com/goliatone/go-admin/translations/services"
+	auth "github.com/goliatone/go-auth"
 	cmdrpc "github.com/goliatone/go-command/rpc"
 	"github.com/goliatone/go-featuregate/catalog"
 	fggate "github.com/goliatone/go-featuregate/gate"
@@ -420,7 +422,7 @@ func (a *Admin) WithMediaDeliveryAdapter(provider string, adapter MediaDeliveryA
 	if a == nil || adapter == nil {
 		return a
 	}
-	_ = a.RegisterMediaDeliveryAdapter(provider, adapter)
+	_ = a.RegisterMediaDeliveryAdapter(provider, adapter) //nolint:errcheck // fluent optional adapter registration keeps invalid input non-fatal.
 	return a
 }
 
@@ -643,6 +645,7 @@ func (a *Admin) activeLocales(ctx context.Context) []string {
 func (a *Admin) adminContextFromRequest(c router.Context, locale string) AdminContext {
 	locale = a.ResolveLocaleFromRequest(c, locale)
 	ctx := newAdminContextFromRouter(c, locale)
+	ctx = a.withEffectiveRequestScope(c, ctx, ScopeInput{})
 	ctx.FallbackLocales = a.dashboardFallbackLocales(locale)
 	ctx.Translator = a.translator
 	selector := selectorFromRequest(c)
@@ -653,6 +656,49 @@ func (a *Admin) adminContextFromRequest(c router.Context, locale string) AdminCo
 		ctx.Context = ContextWithActionDiagnostics(ctx.Context, sink)
 	}
 	return a.withTheme(ctx)
+}
+
+func (a *Admin) withEffectiveRequestScope(c router.Context, adminCtx AdminContext, input ScopeInput) AdminContext {
+	if a == nil {
+		return adminCtx
+	}
+	scope := a.EffectiveScopeFromRequest(c, input)
+	if scope.TenantID == "" && scope.OrgID == "" {
+		return adminCtx
+	}
+	adminCtx.TenantID = strings.TrimSpace(scope.TenantID)
+	adminCtx.OrgID = strings.TrimSpace(scope.OrgID)
+	adminCtx.Context = withEffectiveScopeContext(adminCtx.Context, adminCtx.UserID, scope)
+	return adminCtx
+}
+
+func withEffectiveScopeContext(ctx context.Context, userID string, scope EffectiveScope) context.Context {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if scope.TenantID != "" {
+		ctx = context.WithValue(ctx, tenantIDContextKey, scope.TenantID)
+	}
+	if scope.OrgID != "" {
+		ctx = context.WithValue(ctx, orgIDContextKey, scope.OrgID)
+	}
+	if actor, ok := auth.ActorFromContext(ctx); ok && actor != nil {
+		cloned := *actor
+		if cloned.TenantID == "" {
+			cloned.TenantID = scope.TenantID
+		}
+		if cloned.OrganizationID == "" {
+			cloned.OrganizationID = scope.OrgID
+		}
+		if cloned.ActorID == "" && userID != "" {
+			cloned.ActorID = userID
+		}
+		if cloned.Subject == "" {
+			cloned.Subject = primitives.FirstNonEmptyRaw(cloned.ActorID, userID)
+		}
+		ctx = auth.WithActorContext(ctx, &cloned)
+	}
+	return ctx
 }
 
 func (a *Admin) dashboardFallbackLocales(requested string) []string {
@@ -730,7 +776,7 @@ func (a *Admin) RegisterWidgetArea(def WidgetAreaDefinition) {
 		return
 	}
 	if a.widgetSvc != nil && strings.TrimSpace(def.Code) != "" {
-		_ = a.widgetSvc.RegisterAreaDefinition(context.Background(), def)
+		_ = a.widgetSvc.RegisterAreaDefinition(context.Background(), def) //nolint:errcheck // duplicate widget area registration is intentionally best-effort.
 	}
 }
 
@@ -875,7 +921,7 @@ func (a *Admin) recordActivity(ctx context.Context, actor, action, object string
 	if actor == ActivityActorTypeSystem {
 		metadata = tagActivityActorType(metadata, ActivityActorTypeSystem)
 	}
-	_ = a.activity.Record(ctx, ActivityEntry{
+	_ = a.activity.Record(ctx, ActivityEntry{ //nolint:errcheck // activity recording must not fail the caller path.
 		Actor:    actor,
 		Action:   action,
 		Object:   object,
