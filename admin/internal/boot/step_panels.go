@@ -131,7 +131,15 @@ func panelListRoute(ctx BootCtx, responder Responder, panelLookup panelBindingLo
 	}
 }
 
-func panelDetailRoute(ctx BootCtx, responder Responder, panelLookup panelBindingLookup, panelName, path string) RouteSpec {
+type panelReadHandler func(router.Context, PanelBinding, string) (map[string]any, error)
+
+func panelReadRoute(
+	ctx BootCtx,
+	responder Responder,
+	panelLookup panelBindingLookup,
+	panelName, path, operation string,
+	read panelReadHandler,
+) RouteSpec {
 	return RouteSpec{
 		Method: "GET",
 		Path:   path,
@@ -144,13 +152,19 @@ func panelDetailRoute(ctx BootCtx, responder Responder, panelLookup panelBinding
 			if id == "" {
 				return responder.WriteError(c, errMissingID)
 			}
-			rec, err := binding.Detail(c, panelLocale(ctx, c), id)
+			rec, err := read(c, binding, id)
 			if err != nil {
-				return responder.WriteError(c, panelRouteError(panelName, "load record", map[string]string{"id": id}, err))
+				return responder.WriteError(c, panelRouteError(panelName, operation, map[string]string{"id": id}, err))
 			}
 			return responder.WriteJSON(c, rec)
 		},
 	}
+}
+
+func panelDetailRoute(ctx BootCtx, responder Responder, panelLookup panelBindingLookup, panelName, path string) RouteSpec {
+	return panelReadRoute(ctx, responder, panelLookup, panelName, path, "load record", func(c router.Context, binding PanelBinding, id string) (map[string]any, error) {
+		return binding.Detail(c, panelLocale(ctx, c), id)
+	})
 }
 
 func panelCreateRoute(ctx BootCtx, responder Responder, panelLookup panelBindingLookup, panelName, path string) RouteSpec {
@@ -328,25 +342,9 @@ func panelBulkRoute(ctx BootCtx, responder Responder, panelLookup panelBindingLo
 }
 
 func panelPreviewRoute(ctx BootCtx, responder Responder, panelLookup panelBindingLookup, panelName, path string) RouteSpec {
-	return RouteSpec{
-		Method: "GET",
-		Path:   path,
-		Handler: func(c router.Context) error {
-			binding, err := panelLookup(panelName)
-			if err != nil {
-				return responder.WriteError(c, err)
-			}
-			id := c.Param("id", "")
-			if id == "" {
-				return responder.WriteError(c, errMissingID)
-			}
-			res, err := binding.Preview(c, panelLocale(ctx, c), id)
-			if err != nil {
-				return responder.WriteError(c, panelRouteError(panelName, "preview record", map[string]string{"id": id}, err))
-			}
-			return responder.WriteJSON(c, res)
-		},
-	}
+	return panelReadRoute(ctx, responder, panelLookup, panelName, path, "preview record", func(c router.Context, binding PanelBinding, id string) (map[string]any, error) {
+		return binding.Preview(c, panelLocale(ctx, c), id)
+	})
 }
 
 func panelSubresourceRoutes(ctx BootCtx, responder Responder, panelLookup panelBindingLookup, panelName string) []RouteSpec {

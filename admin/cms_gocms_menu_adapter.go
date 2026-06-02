@@ -3,9 +3,10 @@ package admin
 import (
 	"context"
 	"errors"
+	"strings"
+
 	"github.com/goliatone/go-admin/internal/navigationutil"
 	"github.com/goliatone/go-admin/internal/primitives"
-	"strings"
 
 	cms "github.com/goliatone/go-cms"
 	"github.com/google/uuid"
@@ -217,8 +218,8 @@ func (a *GoCMSMenuAdapter) ensureMenuHierarchyIntegrity(ctx context.Context, men
 	if canonicalPath == "" || canonicalParent == "" {
 		return nil
 	}
-	menu, err := a.Menu(ctx, menuCode, "")
-	if err != nil || menu == nil {
+	menu := a.menuForHierarchyIntegrity(ctx, menuCode)
+	if menu == nil {
 		return nil
 	}
 	if !menuTreeWouldCreateCycle(menu.Items, canonicalPath, canonicalParent) {
@@ -228,6 +229,14 @@ func (a *GoCMSMenuAdapter) ensureMenuHierarchyIntegrity(ctx context.Context, men
 		"id":        canonicalPath,
 		"parent_id": canonicalParent,
 	})
+}
+
+func (a *GoCMSMenuAdapter) menuForHierarchyIntegrity(ctx context.Context, menuCode string) *Menu {
+	menu, err := a.Menu(ctx, menuCode, "")
+	if err != nil {
+		return nil
+	}
+	return menu
 }
 
 // DeleteMenuItem removes an item via go-cms path-based APIs.

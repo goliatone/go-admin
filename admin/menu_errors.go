@@ -19,7 +19,7 @@ func normalizeMenuTargetError(err error) error {
 		return err
 	}
 	if errors.Is(err, cms.ErrMenuNotFound) || looksLikeCMSMenuItemNotFound(err) {
-		return fmt.Errorf("%w: %v", ErrMenuTargetNotFound, err)
+		return fmt.Errorf("%w: %w", ErrMenuTargetNotFound, err)
 	}
 	return err
 }
@@ -33,5 +33,8 @@ func looksLikeCMSMenuItemNotFound(err error) bool {
 		return false
 	}
 	msg := strings.ToLower(strings.TrimSpace(err.Error()))
+	if msg == "menus: menu item not found" {
+		return true
+	}
 	return strings.HasPrefix(msg, "cms: menu item ") && strings.HasSuffix(msg, " not found")
 }

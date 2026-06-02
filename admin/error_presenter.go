@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"errors"
 	"net/http"
 	"runtime"
 	"sync/atomic"
@@ -169,18 +170,14 @@ func extractErrorTypeName(err error) string {
 		return ""
 	}
 
-	// Use reflection-free type extraction
-	typeName := ""
-	switch e := err.(type) {
-	case *goerrors.Error:
-		typeName = "goerrors.Error"
-	case interface{ Unwrap() error }:
-		if inner := e.Unwrap(); inner != nil {
-			typeName = extractErrorTypeName(inner)
-		}
-	default:
-		// Get type name from error string pattern
-		typeName = "error"
+	var mapped *goerrors.Error
+	if errors.As(err, &mapped) {
+		return "goerrors.Error"
 	}
-	return typeName
+	if unwrapper, ok := err.(interface{ Unwrap() error }); ok {
+		if inner := unwrapper.Unwrap(); inner != nil {
+			return extractErrorTypeName(inner)
+		}
+	}
+	return "error"
 }

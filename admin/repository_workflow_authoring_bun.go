@@ -585,13 +585,16 @@ func writeWorkflowAuthoringCutoverMarker(
 	revisions []bunWorkflowRevisionRecord,
 	bindingsCount, migratedMachines, migratedVersions int,
 ) error {
-	details, _ := json.Marshal(map[string]any{
+	details, err := json.Marshal(map[string]any{
 		"legacy_workflows":         len(workflows),
 		"legacy_revisions":         len(revisions),
 		"legacy_bindings":          bindingsCount,
 		"migrated_authoring":       migratedMachines,
 		"migrated_authoringEvents": migratedVersions,
 	})
+	if err != nil {
+		return fmt.Errorf("workflow authoring cutover: marshal marker details: %w", err)
+	}
 	marker := bunWorkflowMigrationMarkerRecord{
 		MarkerKey:   workflowAuthoringCutoverMarker,
 		CompletedAt: time.Now().UTC(),
@@ -611,7 +614,7 @@ func writeWorkflowAuthoringCutoverMarker(
 func workflowCutoverTableExists(ctx context.Context, db bun.IDB, table string) (bool, error) {
 	var probe int
 	err := db.NewSelect().TableExpr(table).ColumnExpr("1").Limit(1).Scan(ctx, &probe)
-	if err == nil || err == sql.ErrNoRows {
+	if err == nil || errors.Is(err, sql.ErrNoRows) {
 		return true, nil
 	}
 	if workflowRepoNotFound(err) {

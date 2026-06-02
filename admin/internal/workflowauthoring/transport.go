@@ -37,7 +37,10 @@ func (s UnavailableStore) Delete(context.Context, string, string, bool) (bool, e
 }
 
 func ParseAuthoringVersion(value string) int {
-	parsed, _ := strconv.Atoi(strings.TrimSpace(value))
+	parsed, err := strconv.Atoi(strings.TrimSpace(value))
+	if err != nil {
+		return 0
+	}
 	return parsed
 }
 
@@ -59,18 +62,26 @@ func VersionSummary(record *flow.AuthoringMachineRecord) flow.FSMAuthoringVersio
 }
 
 func DiffMachineDefinitions(base, target *flow.MachineDefinition) []flow.FSMAuthoringDiffChange {
-	baseRaw, _ := json.Marshal(base)
-	targetRaw, _ := json.Marshal(target)
-	baseMap := map[string]any{}
-	targetMap := map[string]any{}
-	_ = json.Unmarshal(baseRaw, &baseMap)
-	_ = json.Unmarshal(targetRaw, &targetMap)
+	baseMap := machineDefinitionMap(base)
+	targetMap := machineDefinitionMap(target)
 	changes := []flow.FSMAuthoringDiffChange{}
 	collectDiffChanges("$", baseMap, targetMap, &changes)
 	sort.SliceStable(changes, func(i, j int) bool {
 		return changes[i].Path < changes[j].Path
 	})
 	return changes
+}
+
+func machineDefinitionMap(definition *flow.MachineDefinition) map[string]any {
+	raw, err := json.Marshal(definition)
+	if err != nil {
+		return map[string]any{}
+	}
+	out := map[string]any{}
+	if err := json.Unmarshal(raw, &out); err != nil {
+		return map[string]any{}
+	}
+	return out
 }
 
 func collectDiffChanges(path string, base, target any, changes *[]flow.FSMAuthoringDiffChange) {

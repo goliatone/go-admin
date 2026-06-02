@@ -21,10 +21,15 @@ func (UUIDRoleAssignmentLookup) IsAssignable(_ context.Context, roleID string) (
 	if roleID == "" {
 		return false, nil
 	}
-	if _, err := uuid.Parse(roleID); err != nil {
+	if !isUUIDRoleID(roleID) {
 		return false, nil
 	}
 	return true, nil
+}
+
+func isUUIDRoleID(roleID string) bool {
+	_, err := uuid.Parse(roleID)
+	return err == nil
 }
 
 // RoleRepositoryLookup uses a RoleRepository to validate assignable IDs.

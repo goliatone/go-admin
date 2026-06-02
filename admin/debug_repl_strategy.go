@@ -77,6 +77,13 @@ func (s SignedTokenStrategy) Allows(_ context.Context, req DebugREPLRequest) (bo
 	if s.Issuer != "" {
 		opts = append(opts, jwt.WithIssuer(s.Issuer))
 	}
+	if !s.validTokenClaims(tokenString, opts...) {
+		return false, nil
+	}
+	return true, nil
+}
+
+func (s SignedTokenStrategy) validTokenClaims(tokenString string, opts ...jwt.ParserOption) bool {
 	claims := &jwt.RegisteredClaims{}
 	token, err := jwt.ParseWithClaims(tokenString, claims, func(t *jwt.Token) (any, error) {
 		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
@@ -86,10 +93,10 @@ func (s SignedTokenStrategy) Allows(_ context.Context, req DebugREPLRequest) (bo
 		}
 		return s.Secret, nil
 	}, opts...)
-	if err != nil || token == nil || !token.Valid {
-		return false, nil
+	if err != nil {
+		return false
 	}
-	return true, nil
+	return token != nil && token.Valid
 }
 
 func debugREPLOverrideKey(req DebugREPLRequest) string {

@@ -423,10 +423,6 @@ func (cfg MediaDeliveryConfig) adminRoutesEnabled() bool {
 	return cfg.AdminEnabled == nil || *cfg.AdminEnabled
 }
 
-func (cfg MediaDeliveryConfig) publicRequested() bool {
-	return cfg.Public.Enabled
-}
-
 func (cfg MediaDeliveryConfig) publicRoutesEnabled() bool {
 	return cfg.Public.Enabled && cfg.Public.hasPolicy()
 }

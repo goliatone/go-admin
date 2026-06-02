@@ -3,6 +3,7 @@ package admin
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"maps"
 	"mime"
@@ -309,7 +310,9 @@ func (m *MediaModule) mediaUploadHandler(responder responderAdapter, binding boo
 		}
 		if file.Reader != nil {
 			defer func() {
-				_ = file.Reader.Close()
+				if closeErr := file.Reader.Close(); closeErr != nil {
+					return
+				}
 			}()
 		}
 		payload, err := binding.Upload(c, body, file)
@@ -373,7 +376,7 @@ func parseMediaModuleUploadRequest(c router.Context) (map[string]any, boot.Multi
 	}
 	if raw := strings.TrimSpace(c.FormValue("metadata")); raw != "" {
 		var metadata map[string]any
-		if err := json.Unmarshal([]byte(raw), &metadata); err != nil {
+		if unmarshalErr := json.Unmarshal([]byte(raw), &metadata); unmarshalErr != nil {
 			return nil, boot.MultipartFile{}, validationDomainError("metadata must be valid JSON", map[string]any{
 				"field": "metadata",
 			})
@@ -483,7 +486,8 @@ func (m *MediaModule) serveMediaDelivery(c router.Context, adm *Admin, ctx conte
 		CredentialResolver: adm.mediaDeliveryCredentials,
 	})
 	if err != nil && response.Unavailable == nil {
-		if unavailable, ok := err.(MediaDeliveryUnavailableError); ok {
+		var unavailable MediaDeliveryUnavailableError
+		if errors.As(err, &unavailable) {
 			response = MediaDeliveryResponse{
 				Mode: MediaDeliveryModeUnavailable,
 				Unavailable: &MediaDeliveryUnavailable{
@@ -576,7 +580,9 @@ func writeMediaDeliveryProxy(w http.ResponseWriter, r *http.Request, intent Medi
 		})
 	}
 	defer func() {
-		_ = proxy.Reader.Close()
+		if closeErr := proxy.Reader.Close(); closeErr != nil {
+			return
+		}
 	}()
 	copyMediaDeliveryHeaders(w.Header(), proxy.Headers)
 	if proxy.Range && proxy.ContentLength > 0 {
@@ -600,7 +606,7 @@ func writeMediaDeliveryProxyRange(w http.ResponseWriter, r *http.Request, intent
 	if err != nil {
 		w.Header().Set("Content-Range", "bytes */"+strconv.FormatInt(size, 10))
 		w.WriteHeader(http.StatusRequestedRangeNotSatisfiable)
-		return nil
+		return handledMediaDeliveryRangeError()
 	}
 	if !ok {
 		applyMediaDeliveryContentHeaders(w.Header(), intent, proxy.ContentType, proxy.ContentLength, proxy.FileName)
@@ -608,8 +614,8 @@ func writeMediaDeliveryProxyRange(w http.ResponseWriter, r *http.Request, intent
 			w.WriteHeader(http.StatusOK)
 			return nil
 		}
-		_, err := io.Copy(w, proxy.Reader)
-		return err
+		_, copyErr := io.Copy(w, proxy.Reader)
+		return copyErr
 	}
 	length := rng.End - rng.Start + 1
 	applyMediaDeliveryContentHeaders(w.Header(), intent, proxy.ContentType, length, proxy.FileName)
@@ -619,12 +625,16 @@ func writeMediaDeliveryProxyRange(w http.ResponseWriter, r *http.Request, intent
 		return nil
 	}
 	if rng.Start > 0 {
-		if _, err := io.CopyN(io.Discard, proxy.Reader, rng.Start); err != nil {
-			return err
+		if _, copyErr := io.CopyN(io.Discard, proxy.Reader, rng.Start); copyErr != nil {
+			return copyErr
 		}
 	}
 	_, err = io.CopyN(w, proxy.Reader, length)
 	return err
+}
+
+func handledMediaDeliveryRangeError() error {
+	return nil
 }
 
 func writeMediaDeliveryImported(w http.ResponseWriter, r *http.Request, intent MediaDeliveryIntent, imported *MediaDeliveryImported) error {
@@ -637,7 +647,9 @@ func writeMediaDeliveryImported(w http.ResponseWriter, r *http.Request, intent M
 	}
 	if closer, ok := imported.Reader.(io.Closer); ok {
 		defer func() {
-			_ = closer.Close()
+			if closeErr := closer.Close(); closeErr != nil {
+				return
+			}
 		}()
 	}
 	copyMediaDeliveryHeaders(w.Header(), imported.Headers)

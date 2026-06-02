@@ -304,7 +304,11 @@ func (a *GoCMSWidgetAdapter) SaveInstance(ctx context.Context, instance WidgetIn
 		})
 	}
 	if strings.TrimSpace(instance.Area) != "" {
-		_ = a.RegisterAreaDefinition(ctx, WidgetAreaDefinition{Code: instance.Area, Name: instance.Area, Scope: "global"})
+		if err := a.RegisterAreaDefinition(ctx, WidgetAreaDefinition{Code: instance.Area, Name: instance.Area, Scope: "global"}); err != nil {
+			if !strings.Contains(err.Error(), "area code already exists") {
+				return nil, err
+			}
+		}
 	}
 	var updated *WidgetInstance
 	var err error
@@ -421,7 +425,7 @@ func (a *GoCMSWidgetAdapter) ListInstances(ctx context.Context, filter WidgetIns
 	a.refreshDefinitions(ctx)
 	if resolved, err := a.resolveAreaInstances(ctx, filter); err == nil && resolved != nil {
 		return cmsadapter.FilterWidgetInstances(resolved, filter), nil
-	} else if err != nil && err != ErrNotFound {
+	} else if err != nil && !errors.Is(err, ErrNotFound) {
 		return nil, err
 	}
 
@@ -467,7 +471,7 @@ func (a *GoCMSWidgetAdapter) HasInstanceForDefinition(ctx context.Context, defin
 	if defID, ok := a.definitionID(code); ok && defID != uuid.Nil {
 		if exists, err := a.hasInstanceByDefinitionID(ctx, defID, filter); err == nil {
 			return exists, nil
-		} else if err != ErrNotFound {
+		} else if !errors.Is(err, ErrNotFound) {
 			return false, err
 		}
 	}

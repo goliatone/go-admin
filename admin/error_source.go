@@ -2,9 +2,9 @@ package admin
 
 import (
 	"bufio"
+	"go/build"
 	"math"
 	"path/filepath"
-	"runtime"
 	"strings"
 
 	"github.com/goliatone/go-admin/internal/primitives"
@@ -96,7 +96,9 @@ func extractSourceContext(filePath string, errorLine, contextLines int, cfg Erro
 		return nil
 	}
 	defer func() {
-		_ = file.Close()
+		if closeErr := file.Close(); closeErr != nil {
+			return
+		}
 	}()
 
 	startLine := max(errorLine-contextLines, 1)
@@ -247,11 +249,6 @@ func detectLanguage(filePath string) string {
 	}
 }
 
-// isApplicationCode determines if a file path is application code vs framework/library.
-func isApplicationCode(filePath string) bool {
-	return classifyStackFrame(filePath, "", ErrorConfig{}).SourceEligible
-}
-
 type stackFrameClassification struct {
 	Rank            int
 	SourceEligible  bool
@@ -314,7 +311,7 @@ func isLibraryPath(filePath, fn string) bool {
 
 func isStandardLibrarySourcePath(filePath string) bool {
 	cleanFile := filepath.ToSlash(filepath.Clean(filePath))
-	gorootSrc := filepath.ToSlash(filepath.Join(runtime.GOROOT(), "src"))
+	gorootSrc := filepath.ToSlash(filepath.Join(build.Default.GOROOT, "src"))
 	if slashPathWithinRoot(cleanFile, gorootSrc) {
 		return true
 	}

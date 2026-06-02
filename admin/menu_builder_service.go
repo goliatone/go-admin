@@ -536,6 +536,9 @@ func (s *MenuBuilderService) UpsertMenuItems(ctx context.Context, svc CMSMenuSer
 				continue
 			}
 			if err := svc.DeleteMenuItem(ctx, menuCode, root.ID); err != nil {
+				if isMenuTargetMissing(err) {
+					continue
+				}
 				return nil, err
 			}
 		}

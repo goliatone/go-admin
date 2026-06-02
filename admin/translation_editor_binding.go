@@ -399,7 +399,7 @@ func translationEditorContextFromFamily(family translationservices.FamilyRecord,
 			targetRecordID = strings.TrimSpace(targetVariant.SourceRecordID)
 		}
 		targetStatus = strings.TrimSpace(targetVariant.Status)
-		targetVersion = translationEditorVariantVersionFromMetadata(targetVariant.Metadata)
+		targetVersion = translationEditorVariantVersion(targetVariant)
 		lastSyncedSourceHash = strings.TrimSpace(firstNonEmpty(
 			targetVariant.SourceHashAtLastSync,
 			translationEditorSourceHashFromMetadata(targetVariant.Metadata),
@@ -1789,6 +1789,20 @@ func translationEditorVariantVersionFromMetadata(metadata map[string]any) int64 
 				return parsed
 			}
 		}
+	}
+	return translationEditorDefaultVersion
+}
+
+func translationEditorVariantVersion(variant translationservices.FamilyVariant) int64 {
+	if variant.RowVersion > 0 {
+		return variant.RowVersion
+	}
+	return translationEditorVariantVersionFromMetadata(variant.Metadata)
+}
+
+func normalizeTranslationFamilyVariantRowVersion(rowVersion int64) int64 {
+	if rowVersion > 0 {
+		return rowVersion
 	}
 	return translationEditorDefaultVersion
 }
