@@ -184,5 +184,5 @@ measurable_gain: CI validates the current reviewed Track C contract shape with a
 impacted_endpoints: no intended externally visible endpoint payload change; reviewed Track C files remain examples/esign/stores/contracts.go, examples/esign/stores/models.go, examples/esign/stores/memory.go, examples/esign/services/agreement_service.go, and examples/esign/modules/panel_repositories.go.
 backend_tests: go test ./examples/esign/release -count=1
 frontend_tests: N/A (no frontend contract payload change in this guard refresh)
-contract_hash: f6f71723dfcd3a5d8732c9d51d3dd1ed36206fbd981a59b2ef4e70acf88838c9
+contract_hash: 6809f594aa0e7dc80c0570b24d8463ecb10ac5b0e81cf1e136db8c8ee5483718
 related_adr: examples/esign/docs/GUIDES_ESIGN_ADR_0001_FLAGSHIP_CONSTRAINTS.md
