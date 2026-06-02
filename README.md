@@ -86,6 +86,7 @@ if err := adm.Initialize(server.Router()); err != nil {
 - Features: provide/override feature defaults with your gate implementation (core) or `quickstart.WithFeatureDefaults(...)`.
 - Modules: register host modules with `RegisterModule`; mounted modules must expose `RouteContractProvider` so routing ownership stays explicit.
 - URLs: use `Config.URLs` + URLKit route names instead of hardcoding paths.
+- Scope policy: use `Admin.EffectiveScope(...)` or `Admin.EffectiveScopeFromRequest(...)` before scoped reads, writes, background syncs, and materialized read-model updates. In single-tenant mode, missing tenant/org values are filled from configured defaults; in multi-tenant mode they remain missing unless trusted actor, claims, record, or service input provides them. Authenticated admin APIs do not trust browser query `tenant_id` or `org_id` as actor scope.
 - Commands: register typed commands and message factories for panel/API dispatch.
 - RPC: expose selected commands through `admin.commands.dispatch` with
   deny-by-default command rules; see `docs/GUIDE_RPC.md`.
