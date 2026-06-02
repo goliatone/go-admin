@@ -475,6 +475,7 @@ func (b *translationQueueBinding) CreateAssignmentBulkSnapshot(c router.Context,
 	}, nil
 }
 
+//nolint:funlen,gocyclo // Bulk action dispatch intentionally keeps validation, execution, and audit metadata together.
 func (b *translationQueueBinding) RunAssignmentBulkAction(c router.Context, body map[string]any) (payload any, err error) {
 	startedAt := time.Now()
 	obsCtx := c.Context()
@@ -595,6 +596,7 @@ func (b *translationQueueBinding) runAssignmentBulkSelections(adminCtx AdminCont
 	errorsOut := make([]map[string]any, 0)
 	updatedRows := make([]map[string]any, 0, len(selections))
 	succeeded := 0
+	actorLabels := b.newAssignmentActorLabelResolver()
 	for _, selection := range selections {
 		current, itemErr := repo.Get(adminCtx.Context, selection.AssignmentID)
 		if itemErr == nil {
@@ -621,7 +623,7 @@ func (b *translationQueueBinding) runAssignmentBulkSelections(adminCtx AdminCont
 			errorsOut = append(errorsOut, errorPayload)
 			continue
 		}
-		row := b.assignmentContractRow(adminCtx.Context, updated, now, channel)
+		row := b.assignmentContractRow(adminCtx.Context, updated, now, channel, actorLabels.labelsForAssignments(adminCtx.Context, []TranslationAssignment{updated}))
 		updatedRows = append(updatedRows, row)
 		results = append(results, map[string]any{
 			"assignment_id":     updated.ID,
@@ -747,13 +749,14 @@ func (b *translationQueueBinding) executeAssignmentBulkAction(
 }
 
 func (b *translationQueueBinding) assignmentActionResponse(adminCtx AdminContext, updated TranslationAssignment, assignmentID, channel string, now time.Time) map[string]any {
+	actorLabels := b.newAssignmentActorLabelResolver().labelsForAssignments(adminCtx.Context, []TranslationAssignment{updated})
 	return map[string]any{
 		"data": map[string]any{
 			"assignment_id": assignmentID,
 			"status":        normalizeTranslationQueueState(string(updated.Status)),
 			"row_version":   updated.Version,
 			"updated_at":    updated.UpdatedAt,
-			"assignment":    b.assignmentContractRow(adminCtx.Context, updated, now, channel),
+			"assignment":    b.assignmentContractRow(adminCtx.Context, updated, now, channel, actorLabels),
 		},
 		"meta": mergeTranslationChannelContract(map[string]any{
 			"idempotency_hit": false,
@@ -893,9 +896,10 @@ func (b *translationQueueBinding) myWorkSummary(ctx context.Context, repo Transl
 }
 
 func (b *translationQueueBinding) translationQueueAssignmentRows(ctx context.Context, assignments []TranslationAssignment, now time.Time, channel string) []map[string]any {
+	actorLabels := b.newAssignmentActorLabelResolver().labelsForAssignments(ctx, assignments)
 	rows := make([]map[string]any, 0, len(assignments))
 	for _, assignment := range assignments {
-		rows = append(rows, b.assignmentContractRow(ctx, assignment, now, channel))
+		rows = append(rows, b.assignmentContractRow(ctx, assignment, now, channel, actorLabels))
 	}
 	return rows
 }
@@ -955,9 +959,10 @@ func (b *translationQueueBinding) Queue(c router.Context) (payload any, err erro
 	if err != nil {
 		return nil, err
 	}
+	actorLabels := b.newAssignmentActorLabelResolver().labelsForAssignments(adminCtx.Context, assignments)
 	rows := make([]map[string]any, 0, len(assignments))
 	for _, assignment := range assignments {
-		row := b.assignmentContractRow(adminCtx.Context, assignment, now, channel)
+		row := b.assignmentContractRow(adminCtx.Context, assignment, now, channel, actorLabels)
 		rows = append(rows, row)
 	}
 	summary, err := b.queueSummary(adminCtx.Context, repo, filters, now)
@@ -2516,8 +2521,15 @@ func (b *translationQueueBinding) assignmentRepository() (TranslationAssignmentR
 	return repo.repo, nil
 }
 
-func (b *translationQueueBinding) assignmentContractRow(ctx context.Context, assignment TranslationAssignment, now time.Time, environment string) map[string]any {
+func (b *translationQueueBinding) assignmentContractRow(ctx context.Context, assignment TranslationAssignment, now time.Time, environment string, actorLabels map[string]string) map[string]any {
 	row := translationQueueAssignmentContractRow(assignment, now)
+	if label := actorLabels[strings.TrimSpace(assignment.AssigneeID)]; label != "" {
+		row["assignee_label"] = label
+	}
+	reviewerID := strings.TrimSpace(firstNonEmpty(assignment.ReviewerID, assignment.LastReviewerID))
+	if label := actorLabels[reviewerID]; label != "" {
+		row["reviewer_label"] = label
+	}
 	row["actions"] = b.assignmentActionStates(ctx, assignment)
 	row["review_actions"] = b.reviewActionStates(ctx, assignment)
 	if feedback := translationAssignmentReviewFeedbackPayload(assignment); len(feedback) > 0 {
@@ -2531,14 +2543,90 @@ func (b *translationQueueBinding) assignmentContractRow(ctx context.Context, ass
 }
 
 func (b *translationQueueBinding) assignmentListRows(ctx context.Context, assignments []TranslationAssignment, now time.Time, environment string, grouping translationQueueGroupingRequest) []map[string]any {
+	actorLabels := b.newAssignmentActorLabelResolver().labelsForAssignments(ctx, assignments)
 	rows := make([]map[string]any, 0, len(assignments))
 	for _, assignment := range assignments {
-		rows = append(rows, b.assignmentContractRow(ctx, assignment, now, environment))
+		rows = append(rows, b.assignmentContractRow(ctx, assignment, now, environment, actorLabels))
 	}
 	if !grouping.Enabled || grouping.Mode != "family_id" {
 		return rows
 	}
 	return translationQueueFamilyGroupedRows(rows)
+}
+
+func (b *translationQueueBinding) newAssignmentActorLabelResolver() *translationQueueActorLabelResolver {
+	return &translationQueueActorLabelResolver{
+		binding: b,
+		labels:  map[string]string{},
+		misses:  map[string]struct{}{},
+	}
+}
+
+type translationQueueActorLabelResolver struct {
+	binding *translationQueueBinding
+	labels  map[string]string
+	misses  map[string]struct{}
+}
+
+func (r *translationQueueActorLabelResolver) labelsForAssignments(ctx context.Context, assignments []TranslationAssignment) map[string]string {
+	labels := map[string]string{}
+	if r == nil || len(assignments) == 0 {
+		return labels
+	}
+	ids := map[string]struct{}{}
+	for _, assignment := range assignments {
+		if id := strings.TrimSpace(assignment.AssigneeID); id != "" {
+			ids[id] = struct{}{}
+		}
+		if id := strings.TrimSpace(firstNonEmpty(assignment.ReviewerID, assignment.LastReviewerID)); id != "" {
+			ids[id] = struct{}{}
+		}
+	}
+	for id := range ids {
+		if label, ok := r.labels[id]; ok {
+			labels[id] = label
+			continue
+		}
+		if _, missed := r.misses[id]; missed {
+			continue
+		}
+		label := r.resolveLabel(ctx, id)
+		if label == "" {
+			r.misses[id] = struct{}{}
+			continue
+		}
+		r.labels[id] = label
+		labels[id] = label
+	}
+	return labels
+}
+
+func (r *translationQueueActorLabelResolver) resolveLabel(ctx context.Context, id string) string {
+	id = strings.TrimSpace(id)
+	if r == nil || r.binding == nil || r.binding.admin == nil || id == "" {
+		return ""
+	}
+	if r.binding.admin.users != nil {
+		user, err := r.binding.admin.users.GetUser(ctx, id)
+		if err == nil && strings.TrimSpace(user.ID) != "" {
+			return translationQueueActorLabelFromRecord(userToRecord(user))
+		}
+	}
+	if r.binding.admin.registry != nil {
+		usersPanel, ok := r.binding.admin.registry.Panel(usersModuleID)
+		if ok && usersPanel != nil && usersPanel.repo != nil {
+			record, err := usersPanel.repo.Get(ctx, id)
+			if err == nil && len(record) > 0 {
+				return translationQueueActorLabelFromRecord(record)
+			}
+		}
+	}
+	return ""
+}
+
+func translationQueueActorLabelFromRecord(record map[string]any) string {
+	option := translationQueueAssigneeOption(record)
+	return strings.TrimSpace(toString(option["label"]))
 }
 
 func translationQueueFamilyGroupedRows(rows []map[string]any) []map[string]any {
@@ -2662,6 +2750,7 @@ func translationQueueFamilyGroupSummary(children []map[string]any) map[string]an
 	}
 }
 
+//nolint:funlen,gocyclo // Group derivation is kept inline to preserve deterministic family summary fields.
 func translationAssignmentFamilyGroupsFromAssignments(assignments []TranslationAssignment, now time.Time) []TranslationAssignmentFamilyGroup {
 	byFamily := map[string][]TranslationAssignment{}
 	for _, assignment := range assignments {
