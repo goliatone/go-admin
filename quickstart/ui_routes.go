@@ -2,6 +2,7 @@ package quickstart
 
 import (
 	"fmt"
+	"net/url"
 	"path"
 	"strings"
 
@@ -657,11 +658,18 @@ func registerAdminUITranslationDetailRoutes[T any](
 		r.Get(options.translationEditorPath, wrap(func(c router.Context) error {
 			apiBase := resolveAPIBase()
 			assignmentID := strings.TrimSpace(c.Param("assignment_id"))
+			channel := resolveContentChannel(c)
+			editorAPIPath := translationEditorAPIPathWithChannel(
+				prefixBasePath(apiBase, path.Join("translations", "assignments", assignmentID)),
+				channel,
+			)
 			view := WithBreadcrumbSpec(router.ViewContext{
-				"translation_assignment_id":           assignmentID,
-				"translation_editor_api_path":         prefixBasePath(apiBase, path.Join("translations", "assignments", assignmentID)),
-				"translation_editor_variant_api_base": prefixBasePath(apiBase, path.Join("translations", "variants")),
-				"translation_editor_action_api_base":  prefixBasePath(apiBase, path.Join("translations", "assignments")),
+				"translation_assignment_id":                assignmentID,
+				"translation_editor_api_path":              editorAPIPath,
+				"translation_editor_action_api_base":       prefixBasePath(apiBase, path.Join("translations", "assignments")),
+				"translation_editor_sync_api_base":         prefixBasePath(apiBase, "translations"),
+				"translation_editor_sync_client_base_path": prefixBasePath(options.basePath, path.Join("sync-client", "sync-core")),
+				"translation_editor_channel":               channel,
 			}, BreadcrumbSpec{
 				RootLabel:    "Dashboard",
 				RootHref:     options.basePath,
@@ -696,6 +704,27 @@ func registerAdminUITranslationDetailRoutes[T any](
 			})
 		}))
 	}
+}
+
+func translationEditorAPIPathWithChannel(endpoint, channel string) string {
+	channel = strings.TrimSpace(channel)
+	if strings.TrimSpace(endpoint) == "" || channel == "" {
+		return endpoint
+	}
+	parsed, err := url.Parse(endpoint)
+	if err != nil {
+		separator := "?"
+		if strings.Contains(endpoint, "?") {
+			separator = "&"
+		}
+		return endpoint + separator + "channel=" + url.QueryEscape(channel)
+	}
+	query := parsed.Query()
+	if strings.TrimSpace(query.Get("channel")) == "" {
+		query.Set("channel", channel)
+		parsed.RawQuery = query.Encode()
+	}
+	return parsed.String()
 }
 
 func translationExchangeUIConfigForAdmin(adm *admin.Admin) TranslationExchangeUIConfig {
