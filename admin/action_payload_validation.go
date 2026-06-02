@@ -205,7 +205,10 @@ func schemaProperties(schema map[string]any) map[string]any {
 	if len(schema) == 0 {
 		return nil
 	}
-	props, _ := schema["properties"].(map[string]any)
+	props, ok := schema["properties"].(map[string]any)
+	if !ok {
+		return nil
+	}
 	return props
 }
 
