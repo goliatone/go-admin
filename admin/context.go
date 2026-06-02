@@ -297,8 +297,8 @@ type adminRouterIdentity struct {
 func newAdminRouterIdentity(c router.Context, ctx context.Context) adminRouterIdentity {
 	identity := adminRouterIdentity{
 		userID:   strings.TrimSpace(c.Header("X-User-ID")),
-		tenantID: strings.TrimSpace(c.Query("tenant_id")),
-		orgID:    strings.TrimSpace(c.Query("org_id")),
+		tenantID: strings.TrimSpace(c.Query(ScopeTenantIDKey)),
+		orgID:    strings.TrimSpace(c.Query(ScopeOrgIDKey)),
 		actor:    actorFromRouterOrClaims(c, ctx),
 	}
 	if identity.actor == nil {

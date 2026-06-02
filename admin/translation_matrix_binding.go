@@ -152,7 +152,7 @@ func translationMatrixMetaPayload(runtime *translationFamilyRuntime, result tran
 		"latency_target_ms":    translationMatrixLatencyTargetMS,
 		"query_model":          TranslationMatrixQueryModel(),
 		"contracts":            TranslationMatrixContractPayload(),
-		"scope":                map[string]any{"tenant_id": scope.TenantID, "org_id": scope.OrgID},
+		"scope":                map[string]any{ScopeTenantIDKey: scope.TenantID, ScopeOrgIDKey: scope.OrgID},
 		"locale_policy":        translationMatrixLocalePolicyPayloads(result.Items, visibleLocales, request.LocaleOffset),
 		"quick_action_targets": translationMatrixQuickActionTargets(admin),
 		"report": map[string]any{

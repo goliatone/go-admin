@@ -122,11 +122,11 @@ func (s *OrganizationService) SaveOrganization(ctx context.Context, org Organiza
 		action = "organization.create"
 	}
 	s.recordActivity(ctx, action, result, map[string]any{
-		"organization_id": result.ID,
-		"name":            result.Name,
-		"status":          result.Status,
-		"tenant_id":       result.TenantID,
-		"member_count":    len(result.Members),
+		ScopeOrganizationIDKey: result.ID,
+		"name":                 result.Name,
+		"status":               result.Status,
+		ScopeTenantIDKey:       result.TenantID,
+		"member_count":         len(result.Members),
 	})
 	return result, nil
 }
@@ -140,7 +140,7 @@ func (s *OrganizationService) DeleteOrganization(ctx context.Context, id string)
 		return err
 	}
 	s.recordActivity(ctx, "organization.delete", OrganizationRecord{ID: id}, map[string]any{
-		"organization_id": id,
+		ScopeOrganizationIDKey: id,
 	})
 	return nil
 }
@@ -189,9 +189,9 @@ func (s *OrganizationService) recordActivity(ctx context.Context, action string,
 	if metadata == nil {
 		metadata = map[string]any{}
 	}
-	metadata["organization_id"] = org.ID
+	metadata[ScopeOrganizationIDKey] = org.ID
 	if org.TenantID != "" {
-		metadata["tenant_id"] = org.TenantID
+		metadata[ScopeTenantIDKey] = org.TenantID
 	}
 	recordEntityActivity(ctx, s.activity, action, "organization:"+org.ID, metadata)
 }
@@ -218,7 +218,7 @@ func (s *InMemoryOrganizationStore) List(ctx context.Context, opts ListOptions) 
 		clone: cloneOrganization,
 		include: func(org OrganizationRecord, search string, filters map[string]any) bool {
 			filterStatus := strings.ToLower(toString(filters["status"]))
-			filterTenant := strings.ToLower(toString(filters["tenant_id"]))
+			filterTenant := strings.ToLower(toString(filters[ScopeTenantIDKey]))
 			if filterStatus != "" && strings.ToLower(org.Status) != filterStatus {
 				return false
 			}

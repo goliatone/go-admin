@@ -332,8 +332,8 @@ func buildDebugSessionSnapshot(c router.Context, sessionMeta debugSessionContext
 			snapshot["user_id"] = primitives.FirstNonEmptyRaw(strings.TrimSpace(actor.ActorID), strings.TrimSpace(actor.Subject))
 		}
 		snapshot["actor_id"] = strings.TrimSpace(actor.ActorID)
-		snapshot["tenant_id"] = strings.TrimSpace(actor.TenantID)
-		snapshot["organization_id"] = strings.TrimSpace(actor.OrganizationID)
+		snapshot[ScopeTenantIDKey] = strings.TrimSpace(actor.TenantID)
+		snapshot[ScopeOrganizationIDKey] = strings.TrimSpace(actor.OrganizationID)
 	}
 	return snapshot
 }

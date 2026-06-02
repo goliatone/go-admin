@@ -223,25 +223,25 @@ func (m *OrganizationsModule) Register(ctx ModuleContext) error {
 			Field{Name: "name", Label: "Name", Type: "text"},
 			Field{Name: "slug", Label: "Slug", Type: "text"},
 			Field{Name: "status", Label: "Status", Type: "text"},
-			Field{Name: "tenant_id", Label: "Tenant", Type: "text"},
+			Field{Name: ScopeTenantIDKey, Label: "Tenant", Type: "text"},
 			Field{Name: "member_count", Label: "Members", Type: "number"},
 		).
 		Filters(
 			Filter{Name: "status", Type: "select"},
-			Filter{Name: "tenant_id", Type: "text"},
+			Filter{Name: ScopeTenantIDKey, Type: "text"},
 		).
 		FormFields(
 			Field{Name: "name", Label: "Name", Type: "text", Required: true},
 			Field{Name: "slug", Label: "Slug", Type: "text", Required: true},
 			Field{Name: "status", Label: "Status", Type: "select", Options: statusOptions()},
-			Field{Name: "tenant_id", Label: "Tenant ID", Type: "text"},
+			Field{Name: ScopeTenantIDKey, Label: "Tenant ID", Type: "text"},
 			Field{Name: "members", Label: "Members", Type: "table"},
 		).
 		DetailFields(
 			Field{Name: "name", Label: "Name", Type: "text"},
 			Field{Name: "slug", Label: "Slug", Type: "text"},
 			Field{Name: "status", Label: "Status", Type: "text"},
-			Field{Name: "tenant_id", Label: "Tenant", Type: "text"},
+			Field{Name: ScopeTenantIDKey, Label: "Tenant", Type: "text"},
 			Field{Name: "members", Label: "Members", Type: "table"},
 		).
 		Permissions(PanelPermissions{
@@ -434,12 +434,12 @@ func tenantToRecord(tenant TenantRecord) map[string]any {
 // organizationToRecord converts an organization into a panel record.
 func organizationToRecord(org OrganizationRecord) map[string]any {
 	record := map[string]any{
-		"id":        org.ID,
-		"name":      org.Name,
-		"slug":      org.Slug,
-		"status":    org.Status,
-		"tenant_id": org.TenantID,
-		"members":   organizationMembersToAny(org.Members),
+		"id":             org.ID,
+		"name":           org.Name,
+		"slug":           org.Slug,
+		"status":         org.Status,
+		ScopeTenantIDKey: org.TenantID,
+		"members":        organizationMembersToAny(org.Members),
 	}
 	if org.Metadata != nil {
 		record["metadata"] = primitives.CloneAnyMap(org.Metadata)
@@ -477,7 +477,7 @@ func organizationFromRecord(record map[string]any, id string) OrganizationRecord
 		Name:     toString(record["name"]),
 		Slug:     toString(record["slug"]),
 		Status:   strings.ToLower(toString(record["status"])),
-		TenantID: toString(record["tenant_id"]),
+		TenantID: toString(record[ScopeTenantIDKey]),
 		Metadata: extractMap(record["metadata"]),
 		Members:  organizationMembersFromAny(record["members"]),
 	}

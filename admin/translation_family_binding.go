@@ -1544,8 +1544,8 @@ func translationFamilyListRow(family translationservices.FamilyRecord) map[strin
 	quickCreate := translationFamilyQuickCreatePayload(family)
 	return map[string]any{
 		"family_id":                     family.ID,
-		"tenant_id":                     family.TenantID,
-		"org_id":                        family.OrgID,
+		ScopeTenantIDKey:                family.TenantID,
+		ScopeOrgIDKey:                   family.OrgID,
 		"content_type":                  family.ContentType,
 		"source_locale":                 family.SourceLocale,
 		"source_variant_id":             family.SourceVariantID,
@@ -1580,8 +1580,8 @@ func translationFamilyDetailPayload(family translationservices.FamilyRecord, cha
 	}
 	return map[string]any{
 		"family_id":          family.ID,
-		"tenant_id":          family.TenantID,
-		"org_id":             family.OrgID,
+		ScopeTenantIDKey:     family.TenantID,
+		ScopeOrgIDKey:        family.OrgID,
 		"content_type":       family.ContentType,
 		"source_locale":      family.SourceLocale,
 		"source_variant_id":  family.SourceVariantID,
@@ -1710,8 +1710,8 @@ func cloneFamilyVariantPayload(item translationservices.FamilyVariant) map[strin
 	return map[string]any{
 		"id":                       item.ID,
 		"family_id":                item.FamilyID,
-		"tenant_id":                item.TenantID,
-		"org_id":                   item.OrgID,
+		ScopeTenantIDKey:           item.TenantID,
+		ScopeOrgIDKey:              item.OrgID,
 		"locale":                   item.Locale,
 		"status":                   item.Status,
 		"is_source":                item.IsSource,
@@ -1731,14 +1731,14 @@ func cloneFamilyBlockerPayloads(items []translationservices.FamilyBlocker) []map
 	out := make([]map[string]any, 0, len(items))
 	for _, item := range items {
 		out = append(out, map[string]any{
-			"id":           item.ID,
-			"family_id":    item.FamilyID,
-			"tenant_id":    item.TenantID,
-			"org_id":       item.OrgID,
-			"blocker_code": item.BlockerCode,
-			"locale":       item.Locale,
-			"field_path":   item.FieldPath,
-			"details":      cloneAnyMap(item.Details),
+			"id":             item.ID,
+			"family_id":      item.FamilyID,
+			ScopeTenantIDKey: item.TenantID,
+			ScopeOrgIDKey:    item.OrgID,
+			"blocker_code":   item.BlockerCode,
+			"locale":         item.Locale,
+			"field_path":     item.FieldPath,
+			"details":        cloneAnyMap(item.Details),
 		})
 	}
 	return out
@@ -1751,21 +1751,21 @@ func cloneFamilyAssignmentPayloads(items []translationservices.FamilyAssignment)
 	out := make([]map[string]any, 0, len(items))
 	for _, item := range items {
 		out = append(out, map[string]any{
-			"id":            item.ID,
-			"family_id":     item.FamilyID,
-			"variant_id":    item.VariantID,
-			"tenant_id":     item.TenantID,
-			"org_id":        item.OrgID,
-			"source_locale": item.SourceLocale,
-			"target_locale": item.TargetLocale,
-			"work_scope":    item.WorkScope,
-			"status":        item.Status,
-			"assignee_id":   item.AssigneeID,
-			"reviewer_id":   item.ReviewerID,
-			"priority":      item.Priority,
-			"due_date":      item.DueDate,
-			"created_at":    item.CreatedAt,
-			"updated_at":    item.UpdatedAt,
+			"id":             item.ID,
+			"family_id":      item.FamilyID,
+			"variant_id":     item.VariantID,
+			ScopeTenantIDKey: item.TenantID,
+			ScopeOrgIDKey:    item.OrgID,
+			"source_locale":  item.SourceLocale,
+			"target_locale":  item.TargetLocale,
+			"work_scope":     item.WorkScope,
+			"status":         item.Status,
+			"assignee_id":    item.AssigneeID,
+			"reviewer_id":    item.ReviewerID,
+			"priority":       item.Priority,
+			"due_date":       item.DueDate,
+			"created_at":     item.CreatedAt,
+			"updated_at":     item.UpdatedAt,
 		})
 	}
 	return out
@@ -1864,10 +1864,10 @@ func translationScopeFromMaps(maps ...map[string]any) translationservices.Scope 
 			continue
 		}
 		if scope.TenantID == "" {
-			scope.TenantID = strings.TrimSpace(anyToString(data["tenant_id"]))
+			scope.TenantID = strings.TrimSpace(anyToString(data[ScopeTenantIDKey]))
 		}
 		if scope.OrgID == "" {
-			scope.OrgID = strings.TrimSpace(anyToString(data["org_id"]))
+			scope.OrgID = strings.TrimSpace(anyToString(data[ScopeOrgIDKey]))
 		}
 	}
 	return scope

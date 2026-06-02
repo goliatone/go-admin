@@ -47,7 +47,7 @@ func activityEntryFromFSMLifecycleEnvelope(envelope flow.LifecycleActivityEnvelo
 	setMetadataIfMissing(metadata, "phase", phase)
 	setMetadataIfMissing(metadata, "actor_id", actor)
 	setMetadataIfMissing(metadata, "tenant", tenant)
-	setMetadataIfMissing(metadata, "tenant_id", tenant)
+	setMetadataIfMissing(metadata, ScopeTenantIDKey, tenant)
 	setMetadataIfMissing(metadata, "object_type", objectType)
 	setMetadataIfMissing(metadata, "object_id", objectID)
 

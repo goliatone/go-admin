@@ -288,12 +288,12 @@ func enrichRPCDispatchPayload(identity rpcTrustedIdentity, payload map[string]an
 		enriched["user_id"] = identity.ActorID
 	}
 	if identity.TenantID != "" {
-		enriched["tenant"] = identity.TenantID
-		enriched["tenant_id"] = identity.TenantID
+		enriched[ScopeTenantKey] = identity.TenantID
+		enriched[ScopeTenantIDKey] = identity.TenantID
 	}
 	if identity.OrganizationID != "" {
-		enriched["org_id"] = identity.OrganizationID
-		enriched["organization_id"] = identity.OrganizationID
+		enriched[ScopeOrgIDKey] = identity.OrganizationID
+		enriched[ScopeOrganizationIDKey] = identity.OrganizationID
 	}
 
 	return enriched
@@ -316,20 +316,20 @@ func sanitizeRPCDispatchOptions(identity rpcTrustedIdentity, opts command.Dispat
 		metadata["subject"] = identity.Subject
 	}
 	if identity.TenantID != "" {
-		metadata["tenant"] = identity.TenantID
-		metadata["tenant_id"] = identity.TenantID
+		metadata[ScopeTenantKey] = identity.TenantID
+		metadata[ScopeTenantIDKey] = identity.TenantID
 	}
 	if identity.OrganizationID != "" {
-		metadata["organization_id"] = identity.OrganizationID
-		metadata["org_id"] = identity.OrganizationID
+		metadata[ScopeOrganizationIDKey] = identity.OrganizationID
+		metadata[ScopeOrgIDKey] = identity.OrganizationID
 	}
 	if identity.TenantID != "" || identity.OrganizationID != "" {
 		scope := map[string]any{}
 		if identity.TenantID != "" {
-			scope["tenant_id"] = identity.TenantID
+			scope[ScopeTenantIDKey] = identity.TenantID
 		}
 		if identity.OrganizationID != "" {
-			scope["organization_id"] = identity.OrganizationID
+			scope[ScopeOrganizationIDKey] = identity.OrganizationID
 		}
 		metadata["scope"] = scope
 	}
@@ -370,7 +370,7 @@ func copyAllowedRPCMetadata(in map[string]any, allowlist []string) map[string]an
 func isReservedRPCMetadataKey(key string) bool {
 	key = strings.TrimSpace(strings.ToLower(key))
 	switch key {
-	case "actor", "actor_id", "actorid", "subject", "user_id", "userid", "tenant", "tenant_id", "tenantid", "organization", "organization_id", "organizationid", "org", "org_id", "orgid", "roles", "permissions", "scope", "headers", "params", "query":
+	case "actor", "actor_id", "actorid", "subject", "user_id", "userid", ScopeTenantKey, ScopeTenantIDKey, "tenantid", "organization", ScopeOrganizationIDKey, "organizationid", ScopeOrgKey, ScopeOrgIDKey, "orgid", "roles", "permissions", "scope", "headers", "params", "query":
 		return true
 	default:
 		return false

@@ -73,7 +73,7 @@ func TranslationMatrixQueryModel() map[string]any {
 	return map[string]any{
 		"id":           "family_locale_matrix",
 		"description":  "Families as rows and locales as columns, with backend-resolved cell states and bulk-action contracts.",
-		"scope_fields": []string{"tenant_id", "org_id"},
+		"scope_fields": []string{ScopeTenantIDKey, ScopeOrgIDKey},
 		"supported_filters": []string{
 			"family_id",
 			"content_type",

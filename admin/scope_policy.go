@@ -22,12 +22,12 @@ const (
 	ScopeTenantIDKey = "tenant_id"
 	ScopeOrgIDKey    = "org_id"
 
-	ScopeTenantKey        = "tenant"
-	ScopeOrgKey           = "org"
-	ScopeOrganizationIDKey = "organization_id"
-	ScopeDefaultTenantKey = "default_tenant"
+	ScopeTenantKey          = "tenant"
+	ScopeOrgKey             = "org"
+	ScopeOrganizationIDKey  = "organization_id"
+	ScopeDefaultTenantKey   = "default_tenant"
 	ScopeDefaultTenantIDKey = "default_tenant_id"
-	ScopeDefaultOrgIDKey  = "default_org_id"
+	ScopeDefaultOrgIDKey    = "default_org_id"
 )
 
 // ScopePolicy captures the go-admin tenant/org scope policy.

@@ -183,8 +183,8 @@ func (b *translationQueueBinding) Assignments(c router.Context) (payload any, er
 			}, nil
 		}
 		reviewAssignments, err = b.listAssignmentsForSummary(adminCtx.Context, repo, "updated_at", map[string]any{
-			"tenant_id": filter.TenantID,
-			"org_id":    filter.OrgID,
+			ScopeTenantIDKey: filter.TenantID,
+			ScopeOrgIDKey:    filter.OrgID,
 		})
 		if err != nil {
 			return nil, err
@@ -1567,14 +1567,14 @@ func translationQueueDueStateRank(value string) int {
 func (b *translationQueueBinding) ensureAssignmentScope(identity translationTransportIdentity, assignment TranslationAssignment) error {
 	if identity.TenantID != "" && assignment.TenantID != "" && !strings.EqualFold(identity.TenantID, assignment.TenantID) {
 		return NewDomainError(string(translationcore.ErrorPermissionDenied), "assignment scope does not match current tenant", map[string]any{
-			"assignment_id": assignment.ID,
-			"tenant_id":     assignment.TenantID,
+			"assignment_id":  assignment.ID,
+			ScopeTenantIDKey: assignment.TenantID,
 		})
 	}
 	if identity.OrgID != "" && assignment.OrgID != "" && !strings.EqualFold(identity.OrgID, assignment.OrgID) {
 		return NewDomainError(string(translationcore.ErrorPermissionDenied), "assignment scope does not match current organization", map[string]any{
 			"assignment_id": assignment.ID,
-			"org_id":        assignment.OrgID,
+			ScopeOrgIDKey:   assignment.OrgID,
 		})
 	}
 	return nil
@@ -3098,10 +3098,10 @@ func (b *translationQueueBinding) serverFamilyExpansionHref(familyID string, que
 func translationQueueExpansionQuery(filter translationAssignmentListFilter, channel string, page, perPage int) map[string]any {
 	query := translationQueueSnapshotFilterPayload(filter)
 	if filter.TenantID != "" {
-		query["tenant_id"] = filter.TenantID
+		query[ScopeTenantIDKey] = filter.TenantID
 	}
 	if filter.OrgID != "" {
-		query["org_id"] = filter.OrgID
+		query[ScopeOrgIDKey] = filter.OrgID
 	}
 	if channel = strings.TrimSpace(channel); channel != "" {
 		query["channel"] = channel

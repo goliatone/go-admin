@@ -316,8 +316,8 @@ func (s *BunTranslationFamilyStore) TranslationEditorMemorySuggestions(ctx conte
 	query := s.db.NewSelect().
 		TableExpr("content_families AS cf").
 		ColumnExpr("cf.family_id").
-		ColumnExpr("cf." + ScopeTenantIDKey).
-		ColumnExpr("cf." + ScopeOrgIDKey).
+		ColumnExpr("cf."+ScopeTenantIDKey).
+		ColumnExpr("cf."+ScopeOrgIDKey).
 		ColumnExpr("cf.content_type").
 		ColumnExpr("cf.source_locale").
 		ColumnExpr("source.variant_id AS source_variant_id").

@@ -641,14 +641,14 @@ func validatePreferenceScope(level PreferenceLevel, scope PreferenceScope) error
 	case PreferenceLevelTenant:
 		if strings.TrimSpace(scope.TenantID) == "" {
 			return preferenceValidationError("tenant id required", map[string]any{
-				"field": "tenant_id",
+				"field": ScopeTenantIDKey,
 				"level": string(level),
 			})
 		}
 	case PreferenceLevelOrg:
 		if strings.TrimSpace(scope.OrgID) == "" {
 			return preferenceValidationError("org id required", map[string]any{
-				"field": "org_id",
+				"field": ScopeOrgIDKey,
 				"level": string(level),
 			})
 		}

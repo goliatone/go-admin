@@ -246,8 +246,8 @@ func parseFeatureOverrideScope(ctx AdminContext, body map[string]any) (string, f
 		scopeName = featureOverrideScopeSystem
 	}
 	scopeID := strings.TrimSpace(toString(body["scope_id"]))
-	tenantID := strings.TrimSpace(toString(body["tenant_id"]))
-	orgID := strings.TrimSpace(toString(body["org_id"]))
+	tenantID := strings.TrimSpace(toString(body[ScopeTenantIDKey]))
+	orgID := strings.TrimSpace(toString(body[ScopeOrgIDKey]))
 	userID := strings.TrimSpace(toString(body["user_id"]))
 
 	switch scopeName {
@@ -366,11 +366,11 @@ func featureOverrideBodyFromQuery(c router.Context) map[string]any {
 	if value := strings.TrimSpace(c.Query("scope_id")); value != "" {
 		body["scope_id"] = value
 	}
-	if value := strings.TrimSpace(c.Query("tenant_id")); value != "" {
-		body["tenant_id"] = value
+	if value := strings.TrimSpace(c.Query(ScopeTenantIDKey)); value != "" {
+		body[ScopeTenantIDKey] = value
 	}
-	if value := strings.TrimSpace(c.Query("org_id")); value != "" {
-		body["org_id"] = value
+	if value := strings.TrimSpace(c.Query(ScopeOrgIDKey)); value != "" {
+		body[ScopeOrgIDKey] = value
 	}
 	if value := strings.TrimSpace(c.Query("user_id")); value != "" {
 		body["user_id"] = value

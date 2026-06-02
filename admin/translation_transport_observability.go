@@ -41,13 +41,13 @@ func setTranslationTraceHeaders(c router.Context, ctx context.Context) {
 
 func recordTranslationAPIOperation(ctx context.Context, observation translationAPIObservation) {
 	tags := map[string]string{
-		"operation":  strings.TrimSpace(observation.Operation),
-		"kind":       strings.TrimSpace(observation.Kind),
-		"outcome":    "ok",
-		"tenant_id":  strings.TrimSpace(observation.TenantID),
-		"org_id":     strings.TrimSpace(observation.OrgID),
-		"request_id": strings.TrimSpace(observation.RequestID),
-		"trace_id":   strings.TrimSpace(observation.TraceID),
+		"operation":      strings.TrimSpace(observation.Operation),
+		"kind":           strings.TrimSpace(observation.Kind),
+		"outcome":        "ok",
+		ScopeTenantIDKey: strings.TrimSpace(observation.TenantID),
+		ScopeOrgIDKey:    strings.TrimSpace(observation.OrgID),
+		"request_id":     strings.TrimSpace(observation.RequestID),
+		"trace_id":       strings.TrimSpace(observation.TraceID),
 	}
 	levelWarn := false
 	if observation.Err != nil {
@@ -63,8 +63,8 @@ func recordTranslationAPIOperation(ctx context.Context, observation translationA
 		"kind", tags["kind"],
 		"outcome", tags["outcome"],
 		"duration_ms", observation.Duration.Milliseconds(),
-		"tenant_id", tags["tenant_id"],
-		"org_id", tags["org_id"],
+		ScopeTenantIDKey, tags[ScopeTenantIDKey],
+		ScopeOrgIDKey, tags[ScopeOrgIDKey],
 		"request_id", tags["request_id"],
 		"trace_id", tags["trace_id"],
 	}

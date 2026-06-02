@@ -665,9 +665,9 @@ func translationAssignmentFilterStringValue(assignment TranslationAssignment, ke
 		return strings.ToLower(string(assignment.Priority)), true
 	case "family_id":
 		return strings.ToLower(assignment.FamilyID), true
-	case "tenant_id":
+	case ScopeTenantIDKey:
 		return strings.ToLower(assignment.TenantID), true
-	case "org_id":
+	case ScopeOrgIDKey:
 		return strings.ToLower(assignment.OrgID), true
 	default:
 		return "", false

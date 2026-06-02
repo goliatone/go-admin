@@ -122,10 +122,10 @@ func (s *TenantService) SaveTenant(ctx context.Context, tenant TenantRecord) (Te
 		action = "tenant.create"
 	}
 	s.recordActivity(ctx, action, result, map[string]any{
-		"tenant_id":    result.ID,
-		"name":         result.Name,
-		"status":       result.Status,
-		"member_count": len(result.Members),
+		ScopeTenantIDKey: result.ID,
+		"name":           result.Name,
+		"status":         result.Status,
+		"member_count":   len(result.Members),
 	})
 	return result, nil
 }
@@ -138,7 +138,7 @@ func (s *TenantService) DeleteTenant(ctx context.Context, id string) error {
 	if err := s.repo.Delete(ctx, id); err != nil {
 		return err
 	}
-	s.recordActivity(ctx, "tenant.delete", TenantRecord{ID: id}, map[string]any{"tenant_id": id})
+	s.recordActivity(ctx, "tenant.delete", TenantRecord{ID: id}, map[string]any{ScopeTenantIDKey: id})
 	return nil
 }
 
@@ -186,7 +186,7 @@ func (s *TenantService) recordActivity(ctx context.Context, action string, tenan
 	if metadata == nil {
 		metadata = map[string]any{}
 	}
-	metadata["tenant_id"] = tenant.ID
+	metadata[ScopeTenantIDKey] = tenant.ID
 	recordEntityActivity(ctx, s.activity, action, "tenant:"+tenant.ID, metadata)
 }
 
