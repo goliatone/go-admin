@@ -206,7 +206,10 @@ func findNavTrail(entries []map[string]any, active string) []map[string]any {
 		if key == active || id == active || strings.HasSuffix(id, "."+active) {
 			return []map[string]any{entry}
 		}
-		children, _ := entry["children"].([]map[string]any)
+		children, ok := entry["children"].([]map[string]any)
+		if !ok {
+			children = nil
+		}
 		if trail := findNavTrail(children, active); len(trail) > 0 {
 			return append([]map[string]any{entry}, trail...)
 		}
