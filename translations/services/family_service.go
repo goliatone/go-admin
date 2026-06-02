@@ -179,6 +179,10 @@ type FamilyQueryStore interface {
 	ListFamiliesQuery(context.Context, ListFamiliesInput) (ListFamiliesResult, error)
 }
 
+type FamilyDetailQueryStore interface {
+	FamilyQuery(context.Context, GetFamilyInput) (FamilyRecord, bool, error)
+}
+
 type InMemoryFamilyStore struct {
 	mu       sync.RWMutex
 	families map[string]FamilyRecord
@@ -399,11 +403,20 @@ func (s *FamilyService) Detail(ctx context.Context, input GetFamilyInput) (Famil
 	if s == nil || s.Store == nil {
 		return FamilyRecord{}, false, fmt.Errorf("family service not configured")
 	}
-	family, ok, err := s.Store.Family(ctx, input.FamilyID)
+	var (
+		family FamilyRecord
+		ok     bool
+		err    error
+	)
+	if queryStore, supportsQuery := s.Store.(FamilyDetailQueryStore); supportsQuery && queryStore != nil {
+		family, ok, err = queryStore.FamilyQuery(ctx, input)
+	} else {
+		family, ok, err = s.Store.Family(ctx, input.FamilyID)
+	}
 	if err != nil || !ok {
 		return FamilyRecord{}, ok, err
 	}
-	if !familyMatchesScope(family, input.Scope) {
+	if _, supportsQuery := s.Store.(FamilyDetailQueryStore); !supportsQuery && !familyMatchesScope(family, input.Scope) {
 		return FamilyRecord{}, false, nil
 	}
 	recomputed, err := s.recomputeFamily(ctx, family, input.Environment)
