@@ -65,6 +65,9 @@ func resolvedStaticPrefixInputForPolicy(cfg admin.Config, policy SiteFallbackPol
 	if value := strings.TrimSpace(policy.StaticInput.RuntimePrefix); value != "" {
 		input.RuntimePrefix = value
 	}
+	if value := strings.TrimSpace(policy.StaticInput.SyncClientPrefix); value != "" {
+		input.SyncClientPrefix = value
+	}
 	if value := strings.TrimSpace(policy.StaticInput.EChartsPrefix); value != "" {
 		input.EChartsPrefix = value
 	}
