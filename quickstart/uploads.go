@@ -236,12 +236,13 @@ func handleUploadFileWithoutContentSniff(ctx context.Context, manager *uploader.
 	if err != nil {
 		return nil, err
 	}
-	defer func() {
-		_ = reader.Close()
-	}()
 	content, err := io.ReadAll(reader)
+	closeErr := reader.Close()
 	if err != nil {
 		return nil, err
+	}
+	if closeErr != nil {
+		return nil, closeErr
 	}
 	contentType := strings.TrimSpace(file.Header.Get("Content-Type"))
 	name, err := uploader.RandomName(file, uploadSubdir)
