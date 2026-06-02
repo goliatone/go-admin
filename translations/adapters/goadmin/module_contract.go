@@ -12,6 +12,7 @@ func ModuleUIRoutes() map[string]string {
 		"translations.exchange":         "/exchange",
 		"translations.matrix":           "/matrix",
 		"translations.queue":            "/queue",
+		"translations.families":         "/families",
 		"translations.families.id":      "/families/:family_id",
 		"translations.assignments.id":   "/assignments/:assignment_id",
 		"translations.assignments.edit": "/assignments/:assignment_id/edit",
