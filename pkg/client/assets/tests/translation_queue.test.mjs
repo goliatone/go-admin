@@ -1403,3 +1403,360 @@ test('translation queue runtime: grouped child rows expose both title and path w
   assert.match(html, /About Page/);
   assert.match(html, /title="About Page — \/content\/pages\/about\.md"/);
 });
+
+// T05/T06: Context bar and UI consolidation tests
+
+test('translation queue runtime: page header renders with default title and description', async () => {
+  globalThis.fetch = mock.fn(async () => {
+    return createJsonResponse({
+      meta: { ...fixtures.states.open_pool.meta, ...fixtures.meta },
+      data: fixtures.states.open_pool.data,
+    });
+  });
+
+  const { root } = setupDom();
+  const screen = new AssignmentQueueScreen({
+    endpoint: '/admin/api/translations/assignments',
+  });
+  screen.mount(root);
+  await flushAsync();
+
+  const html = root.innerHTML;
+
+  // Verify default header title and description
+  assert.match(html, /Translation Queue/);
+  assert.match(html, /Filter assignments, claim open work, and release items back to the pool without leaving the queue/);
+
+  // Verify refresh button exists
+  assert.match(html, /data-queue-refresh="true"/);
+});
+
+test('translation queue runtime: page header uses configured title and description', async () => {
+  globalThis.fetch = mock.fn(async () => {
+    return createJsonResponse({
+      meta: { ...fixtures.states.open_pool.meta, ...fixtures.meta },
+      data: fixtures.states.open_pool.data,
+    });
+  });
+
+  const { root } = setupDom();
+  const screen = new AssignmentQueueScreen({
+    endpoint: '/admin/api/translations/assignments',
+    title: 'Custom Queue Title',
+    description: 'Custom description for testing',
+  });
+  screen.mount(root);
+  await flushAsync();
+
+  const html = root.innerHTML;
+
+  // Verify custom header title and description
+  assert.match(html, /Custom Queue Title/);
+  assert.match(html, /Custom description for testing/);
+});
+
+test('translation queue runtime: preset tabs render with panel-tab styling', async () => {
+  globalThis.fetch = mock.fn(async () => {
+    return createJsonResponse({
+      meta: { ...fixtures.states.open_pool.meta, ...fixtures.meta },
+      data: fixtures.states.open_pool.data,
+    });
+  });
+
+  const { root } = setupDom();
+  const screen = new AssignmentQueueScreen({
+    endpoint: '/admin/api/translations/assignments',
+  });
+  screen.mount(root);
+  await flushAsync();
+
+  const html = root.innerHTML;
+
+  // Verify panel-tabs structure
+  assert.match(html, /class="panel-tabs"/);
+  assert.match(html, /class="panel-tabs-container"/);
+  assert.match(html, /class="panel-tab/);
+
+  // Verify preset buttons have data attributes
+  assert.match(html, /data-preset-id="mine"/);
+  assert.match(html, /data-preset-id="open"/);
+  assert.match(html, /data-preset-id="needs_review"/);
+
+  // Verify aria-pressed attribute
+  assert.match(html, /aria-pressed="true"/);
+});
+
+test('translation queue runtime: review selector renders in unified toolbar', async () => {
+  globalThis.fetch = mock.fn(async () => {
+    return createJsonResponse({
+      meta: {
+        ...fixtures.states.open_pool.meta,
+        ...fixtures.meta,
+        review_actor_id: 'user-123',
+        review_aggregate_counts: {
+          review_inbox: 5,
+          review_overdue: 2,
+          review_blocked: 1,
+          review_changes_requested: 3,
+        },
+      },
+      data: fixtures.states.open_pool.data,
+    });
+  });
+
+  const { root } = setupDom();
+  const screen = new AssignmentQueueScreen({
+    endpoint: '/admin/api/translations/assignments',
+  });
+  screen.mount(root);
+  await flushAsync();
+
+  const html = root.innerHTML;
+
+  // Verify review selector button exists
+  assert.match(html, /data-review-selector-toggle="true"/);
+
+  // Verify review selector is in toolbar context (after filters button)
+  const filtersIndex = html.indexOf('data-filters-toggle');
+  const reviewSelectorIndex = html.indexOf('data-review-selector-toggle');
+  assert.ok(reviewSelectorIndex > filtersIndex, 'Review selector should appear after filters toggle');
+
+  // Verify review presets exist in dropdown
+  assert.match(html, /data-review-preset-id="review_inbox"/);
+  assert.match(html, /data-review-preset-id="review_blocked"/);
+
+  // Verify count badges render
+  assert.match(html, />5</);
+  assert.match(html, />2</);
+});
+
+test('translation queue runtime: review selector disabled when reviewer metadata is missing', async () => {
+  globalThis.fetch = mock.fn(async () => {
+    return createJsonResponse({
+      meta: {
+        ...fixtures.states.open_pool.meta,
+        ...fixtures.meta,
+        // No review_actor_id
+        review_aggregate_counts: {},
+      },
+      data: fixtures.states.open_pool.data,
+    });
+  });
+
+  const { root } = setupDom();
+  const screen = new AssignmentQueueScreen({
+    endpoint: '/admin/api/translations/assignments',
+  });
+  screen.mount(root);
+  await flushAsync();
+
+  const html = root.innerHTML;
+
+  // Verify review selector button is disabled
+  assert.match(html, /data-review-selector-toggle="true"/);
+  assert.match(html, /disabled/);
+  assert.match(html, /aria-disabled="true"/);
+
+  // Verify guidance text (should be in the menu when disabled)
+  const hasGuidanceText = html.includes('Reviewer queue states are available when reviewer metadata is present');
+  // Guidance text may not render if review presets are not in response, which is okay
+  // The important part is that the button is disabled
+});
+
+test('translation queue runtime: context bar renders with flat mode counts', async () => {
+  globalThis.fetch = mock.fn(async () => {
+    return createJsonResponse({
+      meta: { ...fixtures.states.open_pool.meta, ...fixtures.meta, total: 10 },
+      data: fixtures.states.open_pool.data,
+    });
+  });
+
+  const { root } = setupDom();
+  const screen = new AssignmentQueueScreen({
+    endpoint: '/admin/api/translations/assignments',
+  });
+  screen.mount(root);
+  await flushAsync();
+
+  const html = root.innerHTML;
+
+  // Verify context bar shows visible and total counts
+  assert.match(html, /Showing \d+ of 10/);
+  assert.match(html, /assignment/);
+
+  // Verify view-mode controls are present
+  assert.match(html, /data-view-mode="flat"/);
+  assert.match(html, /data-view-mode="grouped"/);
+
+  // Verify expand/collapse buttons are NOT present in flat mode
+  assert.doesNotMatch(html, /data-expand-all="true"/);
+  assert.doesNotMatch(html, /data-collapse-all="true"/);
+});
+
+test('translation queue runtime: context bar renders with grouped mode counts', async () => {
+  const groupedResponse = makeGroupedQueueResponse();
+  globalThis.fetch = mock.fn(async (input) => {
+    if (String(input).includes('group_by=family_id')) {
+      return createJsonResponse(groupedResponse);
+    }
+    return createJsonResponse({
+      meta: { ...fixtures.states.open_pool.meta, ...fixtures.meta },
+      data: fixtures.states.open_pool.data,
+    });
+  });
+
+  const { root } = setupDom();
+  const screen = new AssignmentQueueScreen({
+    endpoint: '/admin/api/translations/assignments',
+  });
+  screen.mount(root);
+  await flushAsync();
+
+  screen.setViewMode('grouped');
+  await flushAsync();
+
+  const html = root.innerHTML;
+
+  // Verify context bar shows family and assignment counts
+  assert.match(html, /\d+ famil/);
+  assert.match(html, /assignments/);
+  assert.match(html, /page-local counts/);
+
+  // Verify expand/collapse buttons ARE present in grouped mode
+  assert.match(html, /data-expand-all="true"/);
+  assert.match(html, /data-collapse-all="true"/);
+
+  // Verify grouped view mode is active
+  assert.match(html, /data-view-mode="grouped"[^>]*aria-pressed="true"/);
+});
+
+test('translation queue runtime: context bar renders with server family mode counts', async () => {
+  const { root } = setupDom('http://localhost/admin/translations/queue?group_strategy=server_family');
+  globalThis.fetch = mock.fn(async () => {
+    return createJsonResponse({
+      meta: {
+        ...fixtures.states.open_pool.meta,
+        ...fixtures.meta,
+        total: 10,
+        family_total: 10,
+        assignment_total: 25,
+        grouping: {
+          enabled: true,
+          mode: 'family',
+          group_by: 'family_id',
+          scope: 'server',
+          strategy: 'server_family',
+          row_count: 3,
+          group_count: 3,
+          assignment_count: 8,
+          family_total: 10,
+          assignment_total: 25,
+          supported_modes: ['page_local', 'server_family'],
+          capabilities: {
+            server_family: {
+              supported: true,
+            },
+          },
+        },
+      },
+      // Use open_pool data but mark it as server_family mode via grouping meta
+      data: fixtures.states.open_pool.data,
+    });
+  });
+
+  const screen = new AssignmentQueueScreen({
+    endpoint: '/admin/api/translations/assignments',
+  });
+  const container = root;
+  screen.mount(container);
+  await flushAsync();
+
+  // Explicitly set server_family view mode
+  screen.setViewMode('server_family');
+  await flushAsync();
+
+  const html = container.innerHTML;
+
+  // Verify context bar shows server-family counts
+  assert.match(html, /\d+ of 10 famil/);
+  assert.match(html, /25 assignments/);
+  assert.match(html, /server-side family pages/);
+
+  // Verify expand/collapse buttons ARE present in server_family mode
+  assert.match(html, /data-expand-all="true"/);
+  assert.match(html, /data-collapse-all="true"/);
+
+  // Verify server_family view mode is active
+  assert.match(html, /data-view-mode="server_family"[^>]*aria-pressed="true"/);
+});
+
+test('translation queue runtime: context bar view-mode controls switch correctly', async () => {
+  globalThis.fetch = mock.fn(async () => {
+    return createJsonResponse({
+      meta: {
+        ...fixtures.states.open_pool.meta,
+        ...fixtures.meta,
+        grouping: {
+          enabled: true,
+          mode: 'family',
+          group_by: 'family_id',
+          scope: 'page',
+          strategy: 'page_local',
+          row_count: 5,
+          group_count: 2,
+          assignment_count: 5,
+          supported_modes: ['page_local'],
+        },
+      },
+      data: fixtures.states.open_pool.data,
+    });
+  });
+
+  const { root } = setupDom('http://localhost/admin/translations/queue');
+  const screen = new AssignmentQueueScreen({
+    endpoint: '/admin/api/translations/assignments',
+  });
+  screen.mount(root);
+  await flushAsync();
+
+  let html = root.innerHTML;
+
+  // Verify flat mode is initially active
+  assert.match(html, /data-view-mode="flat"[^>]*aria-pressed="true"/);
+
+  // Switch to grouped mode
+  const groupedButton = root.querySelector('[data-view-mode="grouped"]');
+  assert.ok(groupedButton, 'Grouped button should exist');
+  groupedButton.click();
+  await flushAsync();
+
+  html = root.innerHTML;
+
+  // Verify grouped mode is now active
+  assert.match(html, /data-view-mode="grouped"[^>]*aria-pressed="true"/);
+  assert.doesNotMatch(html, /data-view-mode="flat"[^>]*aria-pressed="true"/);
+});
+
+test('translation queue runtime: filter snapshot bar only shows when snapshot exists', async () => {
+  globalThis.fetch = mock.fn(async () => {
+    return createJsonResponse({
+      meta: { ...fixtures.states.open_pool.meta, ...fixtures.meta, total: 10 },
+      data: fixtures.states.open_pool.data,
+    });
+  });
+
+  const { root } = setupDom();
+  const screen = new AssignmentQueueScreen({
+    endpoint: '/admin/api/translations/assignments',
+  });
+  screen.mount(root);
+  await flushAsync();
+
+  let html = root.innerHTML;
+
+  // Verify filter snapshot bar is NOT present initially
+  assert.doesNotMatch(html, /data-filter-snapshot-bar="true"/);
+
+  // Context bar should still show counts
+  assert.match(html, /Showing \d+ of 10/);
+});

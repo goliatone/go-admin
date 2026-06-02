@@ -3,7 +3,7 @@ import { httpRequest as y, readHTTPError as Z, readHTTPErrorResult as ee } from 
 import { extractStructuredError as B } from "../toast/error-helpers.js";
 import { n as te } from "../chunks/translation-contracts-Ct_EG7JJ.js";
 import { asBoolean as p, asNumber as f, asRecord as u, asString as i, asStringArray as O } from "../shared/coercion.js";
-import { C as se, E as ae, H as re, J as ie, Q as ne, S as oe, U as le, X as _, Y as ce, Z as de, _ as ue, b as me, d as A, g as fe, h as ge, i as pe, l as j, m as be, nt as he, o as I, p as _e, rt as ve, s as N, tt as ye, u as F, v as xe, y as $e } from "../chunks/translation-shared-kfjHEDZW.js";
+import { $ as se, G as ae, O as re, Q as _, T as ie, W as ne, X as oe, Z as le, _ as ce, at as de, b as ue, d as A, et as me, g as fe, h as ge, i as pe, it as be, l as j, m as he, o as I, p as _e, rt as ve, s as N, u as F, v as ye, w as xe, y as $e } from "../chunks/translation-shared-CQJ98SgC.js";
 import { formatTranslationTimestampUTC as H, sentenceCaseToken as $ } from "../translation-shared/formatters.js";
 import { normalizeStringRecord as S } from "../shared/record-normalization.js";
 import { c as V, s as we } from "../chunks/ui-states-1McZ5upU.js";
@@ -242,7 +242,7 @@ function x(e) {
   }
   return s;
 }
-function Y(e, t, s, a, r, n) {
+function W(e, t, s, a, r, n) {
   if (Array.isArray(e.fields)) return e.fields.map((c) => {
     const d = u(c), g = i(d.path);
     if (!g) return null;
@@ -314,7 +314,7 @@ function Be(e) {
     row_version: f(s.row_version || s.version),
     source_fields: a,
     target_fields: r,
-    fields: Y(s, a, r, n, o, c),
+    fields: W(s, a, r, n, o, c),
     field_completeness: n,
     field_drift: o,
     field_validations: c,
@@ -351,7 +351,7 @@ function Oe(e) {
   };
 }
 function q(e) {
-  return Y({ fields: e.fields }, e.source_fields, e.target_fields, e.field_completeness, e.field_drift, e.field_validations);
+  return W({ fields: e.fields }, e.source_fields, e.target_fields, e.field_completeness, e.field_drift, e.field_validations);
 }
 function R(e) {
   if (!e.assignment_action_states.submit_review?.enabled || e.qa_results.submit_blocked) return !1;
@@ -514,26 +514,26 @@ async function Ge(e) {
     statusCode: t.status
   };
 }
-function Ye(e) {
+function We(e) {
   return !e || e <= 0 ? "0 B" : e < 1024 ? `${e} B` : e < 1024 * 1024 ? `${(e / 1024).toFixed(1)} KB` : `${(e / (1024 * 1024)).toFixed(1)} MB`;
 }
 function Ke(e) {
   return i(e.status || e.translation_assignment.status || e.translation_assignment.queue_state);
 }
-function We(e) {
+function Ye(e) {
   return e === "review" || e === "in_review";
 }
 function L(e) {
-  return We(Ke(e)) ? !0 : !!(e.review_action_states.approve?.enabled || e.review_action_states.reject?.enabled);
+  return Ye(Ke(e)) ? !0 : !!(e.review_action_states.approve?.enabled || e.review_action_states.reject?.enabled);
 }
 function D(e) {
   return !!e.assignment_action_states.archive?.enabled;
 }
-function Je(e, t, s) {
+function Xe(e, t, s) {
   let a = "idle";
   return e?.autosave.conflict ? a = "conflict" : e?.autosave.pending ? a = "saving" : t ? a = "dirty" : s && (a = "saved"), {
-    tone: ie(a),
-    text: ce(a, s),
+    tone: oe(a),
+    text: le(a, s),
     state: a
   };
 }
@@ -545,7 +545,7 @@ function K(e) {
   ].filter(Boolean);
   return t.length ? `<p class="mt-3 text-xs text-gray-500">${t.join(" · ")}</p>` : "";
 }
-function Xe(e) {
+function Je(e) {
   return e ? `
     <div class="rounded-xl border px-4 py-3 text-sm font-medium ${e.kind === "success" ? "border-emerald-200 bg-emerald-50 text-emerald-800" : e.kind === "conflict" ? "border-amber-200 bg-amber-50 text-amber-800" : "border-rose-200 bg-rose-50 text-rose-800"}" data-editor-feedback-kind="${m(e.kind)}" role="status" aria-live="polite">
       ${l(e.message)}
@@ -589,7 +589,7 @@ function at() {
     tag: "section",
     text: "Loading translation assignment…",
     showSpinner: !1,
-    containerClass: `${ae} p-8 shadow-sm`,
+    containerClass: `${re} p-8 shadow-sm`,
     textClass: "text-sm font-medium text-gray-500"
   });
 }
@@ -603,7 +603,7 @@ function M(e, t) {
     titleTag: "h2",
     titleClass: ge,
     message: t,
-    messageClass: `${be} mt-2`
+    messageClass: `${he} mt-2`
   });
 }
 function z(e, t, s) {
@@ -614,22 +614,22 @@ function z(e, t, s) {
     contentClass: "",
     title: e,
     titleTag: "h2",
-    titleClass: xe,
+    titleClass: ye,
     message: t,
-    messageClass: `${ue} mt-2`,
+    messageClass: `${ce} mt-2`,
     actionsHtml: K(s),
     role: "alert"
   });
 }
 function rt(e, t, s, a, r, n = "") {
-  const o = e.assignment_action_states.submit_review, c = !o?.enabled || r || a || e.qa_results.submit_blocked, d = r || !s, g = (e.source_locale || "source").toUpperCase(), b = (e.target_locale || "target").toUpperCase(), h = e.translation_assignment, X = e.qa_results.submit_blocked ? "Resolve QA blockers before submitting for review." : o?.reason || "";
+  const o = e.assignment_action_states.submit_review, c = !o?.enabled || r || a || e.qa_results.submit_blocked, d = r || !s, g = (e.source_locale || "source").toUpperCase(), b = (e.target_locale || "target").toUpperCase(), h = e.translation_assignment, J = e.qa_results.submit_blocked ? "Resolve QA blockers before submitting for review." : o?.reason || "";
   return `
     <section class="${A} p-6 shadow-sm">
       <div class="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
         <div class="space-y-3">
-          <p class="${oe}">Assignment editor</p>
+          <p class="${xe}">Assignment editor</p>
           <div>
-            <h1 class="${se}">${l(h.source_title || "Translation assignment")}</h1>
+            <h1 class="${ie}">${l(h.source_title || "Translation assignment")}</h1>
             <p class="mt-2 text-sm text-gray-600">
               ${l(g)} to ${l(b)} • ${l($(e.status || h.status || "draft"))} • Priority ${l(e.priority || "normal")}
             </p>
@@ -654,7 +654,7 @@ function rt(e, t, s, a, r, n = "") {
             type="button"
             class="${N}"
             data-action="submit-review"
-            title="${m(X)}"
+            title="${m(J)}"
             ${c ? 'disabled aria-disabled="true"' : ""}
           >
             ${a ? "Submitting…" : o?.enabled ? "Submit for review" : "Submit unavailable"}
@@ -716,7 +716,7 @@ function nt(e) {
   `;
 }
 function ot(e) {
-  if (!W(e)) return "";
+  if (!Y(e)) return "";
   const t = !!(e.drift.previous_source_value && e.drift.previous_source_value.trim()), s = !!(e.drift.current_source_value || e.source_value);
   return !t && !s ? `
       <div class="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800" data-field-drift="${m(e.path)}">
@@ -736,7 +736,7 @@ function ot(e) {
       </div>
     `;
 }
-function W(e) {
+function Y(e) {
   if (!e.drift.changed) return !1;
   const t = !!(e.drift.previous_source_value && e.drift.previous_source_value.trim());
   return e.drift.comparison_mode !== "hash_only" || t;
@@ -747,7 +747,7 @@ function lt(e) {
     <div class="mt-3 flex flex-wrap gap-2">
       ${t.map((s) => `
         <span class="${$e}">
-          <span class="${me}">${l(i(s.term))}</span>
+          <span class="${ue}">${l(i(s.term))}</span>
           → ${l(i(s.preferred_translation))}
         </span>
       `).join("")}
@@ -830,7 +830,7 @@ function mt(e) {
                 <span class="rounded-full px-2.5 py-1 ${t.completeness.missing ? "bg-rose-100 text-rose-700" : "bg-emerald-100 text-emerald-700"}">
                   ${t.completeness.missing ? "Missing required content" : "Ready to submit"}
                 </span>
-                ${W(t) ? '<span class="rounded-full bg-amber-100 px-2.5 py-1 text-amber-700">Source changed</span>' : ""}
+                ${Y(t) ? '<span class="rounded-full bg-amber-100 px-2.5 py-1 text-amber-700">Source changed</span>' : ""}
               </div>
               ${t.validation.valid ? "" : `<p class="mt-3 text-sm font-medium text-rose-700" data-field-validation="${m(t.path)}">${l(t.validation.message || "Validation error")}</p>`}
               ${ot(t)}
@@ -842,7 +842,7 @@ function mt(e) {
     </section>
   `;
 }
-function J(e) {
+function X(e) {
   if (!Array.isArray(e)) return [];
   const t = [];
   for (const s of e) {
@@ -914,7 +914,7 @@ function bt(e) {
     <section class="rounded-xl border border-gray-200 bg-white p-5" data-editor-panel="assist">
       <h2 class="text-lg font-semibold text-gray-900">Assist</h2>
       <div class="mt-4 space-y-4">
-        ${pt(J(e.assist.translation_memory_suggestions))}
+        ${pt(X(e.assist.translation_memory_suggestions))}
         <div data-assist-section="glossary">
           <h3 class="text-sm font-semibold text-gray-800">Glossary</h3>
           ${t.length ? `<ul class="mt-3 space-y-2">${t.map((a) => `
@@ -973,7 +973,7 @@ function _t(e) {
   if (!t.enabled) return "";
   const s = t.findings.filter((n) => n.severity === "blocker"), a = t.findings.filter((n) => n.severity !== "blocker"), r = (n, o) => {
     if (!n.length) return "";
-    const c = de(o);
+    const c = se(o);
     return `
       <section data-qa-group="${m(o === "blocker" ? "blockers" : "warnings")}">
         <h3 class="text-sm font-semibold ${o === "blocker" ? "text-rose-800" : "text-amber-800"}">
@@ -993,7 +993,7 @@ function _t(e) {
     `;
   };
   return `
-    <section class="${ne(t.submit_blocked)}">
+    <section class="${me(t.submit_blocked)}">
       <div class="flex items-center justify-between gap-3">
         <div>
           <h2 class="text-lg font-semibold text-gray-900">QA checks</h2>
@@ -1053,8 +1053,8 @@ function vt(e, t) {
 }
 function yt(e, t) {
   return e ? `
-    <div class="${le}" data-reject-modal="true">
-      <section class="${re}" role="dialog" aria-modal="true" aria-labelledby="translation-reject-title">
+    <div class="${ae}" data-reject-modal="true">
+      <section class="${ne}" role="dialog" aria-modal="true" aria-labelledby="translation-reject-title">
         <div class="flex items-start justify-between gap-4">
           <div>
             <p class="text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">Review action</p>
@@ -1118,7 +1118,7 @@ function $t(e) {
                   <p class="font-semibold text-gray-900">${l(t.filename)}</p>
                   <p class="mt-1 text-xs uppercase tracking-[0.18em] text-gray-500">${l(t.kind)}</p>
                 </div>
-                <span class="text-xs text-gray-500">${l(Ye(t.byte_size))}</span>
+                <span class="text-xs text-gray-500">${l(We(t.byte_size))}</span>
               </div>
               ${t.description ? `<p class="mt-2 text-xs text-gray-500">${l(t.description)}</p>` : ""}
               ${t.uploaded_at ? `<p class="mt-2 text-xs text-gray-500">Uploaded ${l(H(t.uploaded_at))}</p>` : ""}
@@ -1136,7 +1136,7 @@ function wt(e) {
         <span class="text-xs text-gray-500">Page ${t.page} of ${Math.max(1, Math.ceil(t.total / Math.max(1, t.per_page)))}</span>
       </div>
       ${s.length ? `<ol class="mt-4 space-y-3">${s.map((a) => {
-    const r = ye(a.tone);
+    const r = ve(a.tone);
     return `
             <li class="${r.container}" data-history-entry="${m(a.id)}">
               <div class="flex items-start justify-between gap-3">
@@ -1158,7 +1158,7 @@ function wt(e) {
   `;
 }
 function kt(e) {
-  const t = L(e), s = D(e), a = e.qa_results.enabled ? e.qa_results.summary.finding_count : 0, r = J(e.assist.translation_memory_suggestions).length, n = e.assist.glossary_matches.length, o = e.attachment_summary.total, c = e.history.total;
+  const t = L(e), s = D(e), a = e.qa_results.enabled ? e.qa_results.summary.finding_count : 0, r = X(e.assist.translation_memory_suggestions).length, n = e.assist.glossary_matches.length, o = e.attachment_summary.total, c = e.history.total;
   return {
     actions: null,
     qa: a > 0 ? String(a) : null,
@@ -1268,10 +1268,10 @@ function At(e, t, s = {}, a = {}) {
   if (e.status === "conflict") return z("Editor conflict", e.message || "A newer version of this assignment is available.", e);
   const r = t?.detail || e.detail;
   if (!r) return M("Assignment unavailable", "No assignment detail payload was returned.");
-  const n = !!(t && Object.keys(t.dirty_fields).length), o = Je(t || null, n, a.lastSavedMessage || ""), c = t?.autosave.conflict;
+  const n = !!(t && Object.keys(t.dirty_fields).length), o = Xe(t || null, n, a.lastSavedMessage || ""), c = t?.autosave.conflict;
   return `
     <div class="translation-editor-screen space-y-6" data-translation-editor="true">
-      ${Xe(a.feedback || null)}
+      ${Je(a.feedback || null)}
       ${rt(r, o, n, a.submitting === !0, a.saving === !0, s.basePath || "")}
       ${nt(r)}
       ${c ? `
@@ -1331,7 +1331,7 @@ var Tt = class {
       submitting: this.submitting,
       rejectDraft: this.rejectDraft,
       activeSidebarTab: this.activeSidebarTab
-    }), this.attachEventListeners(), he(this.container));
+    }), this.attachEventListeners(), be(this.container));
   }
   attachEventListeners() {
     !this.container || !this.editorState || (this.container.querySelectorAll("[data-field-input]").forEach((e) => {
@@ -1531,7 +1531,7 @@ var Tt = class {
       error: e
     }, this.render();
     const t = this.container?.querySelector('[data-reject-modal] [role="dialog"]');
-    t && (this.focusTrapCleanup = ve(t, () => this.closeRejectDialog()));
+    t && (this.focusTrapCleanup = de(t, () => this.closeRejectDialog()));
   }
   closeRejectDialog() {
     this.focusTrapCleanup && (this.focusTrapCleanup(), this.focusTrapCleanup = null), this.rejectDraft = null, this.render();

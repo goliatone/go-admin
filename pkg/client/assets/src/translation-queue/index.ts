@@ -37,7 +37,6 @@ import {
   BTN_DANGER_SM,
   BTN_GHOST,
   HEADER_TITLE,
-  HEADER_PRETITLE,
   HEADER_DESCRIPTION,
   HEADER_CONTAINER,
   HEADER_FLEX,
@@ -2205,6 +2204,62 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
     this.render();
   }
 
+  private toggleReviewSelectorDropdown(): void {
+    const menu = this.container?.querySelector<HTMLElement>('[data-review-selector-menu]');
+    const toggle = this.container?.querySelector<HTMLElement>('[data-review-selector-toggle]');
+    const chevron = this.container?.querySelector<HTMLElement>('[data-review-selector-chevron]');
+
+    if (!menu || !toggle) return;
+
+    const isHidden = menu.classList.contains('hidden');
+
+    if (isHidden) {
+      // Open dropdown
+      menu.classList.remove('hidden');
+      toggle.setAttribute('aria-expanded', 'true');
+      if (chevron) chevron.classList.add('rotate-180');
+
+      // Add document listener for outside clicks
+      const closeOnOutsideClick = (event: MouseEvent) => {
+        const target = event.target as Node;
+        const container = this.container?.querySelector<HTMLElement>('[data-review-selector-container]');
+        if (container && !container.contains(target)) {
+          this.closeReviewSelectorDropdown();
+          document.removeEventListener('click', closeOnOutsideClick);
+        }
+      };
+
+      // Add document listener for Escape key
+      const closeOnEscape = (event: KeyboardEvent) => {
+        if (event.key === 'Escape') {
+          this.closeReviewSelectorDropdown();
+          document.removeEventListener('keydown', closeOnEscape);
+          toggle.focus();
+        }
+      };
+
+      // Delay to avoid immediate close from the same click
+      setTimeout(() => {
+        document.addEventListener('click', closeOnOutsideClick);
+        document.addEventListener('keydown', closeOnEscape);
+      }, 0);
+    } else {
+      this.closeReviewSelectorDropdown();
+    }
+  }
+
+  private closeReviewSelectorDropdown(): void {
+    const menu = this.container?.querySelector<HTMLElement>('[data-review-selector-menu]');
+    const toggle = this.container?.querySelector<HTMLElement>('[data-review-selector-toggle]');
+    const chevron = this.container?.querySelector<HTMLElement>('[data-review-selector-chevron]');
+
+    if (!menu) return;
+
+    menu.classList.add('hidden');
+    if (toggle) toggle.setAttribute('aria-expanded', 'false');
+    if (chevron) chevron.classList.remove('rotate-180');
+  }
+
   private persistFiltersExpanded(): void {
     try {
       localStorage.setItem(AssignmentQueueScreen.FILTERS_STORAGE_KEY, this.filtersExpanded ? 'true' : 'false');
@@ -2250,34 +2305,41 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
 
     this.container.innerHTML = `
       <div class="assignment-queue-screen" data-assignment-queue="true">
-        <div class="bg-white border-b border-gray-200 px-8 py-4">
-          <div class="flex items-center justify-end gap-3">
-            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
-              <span class="text-gray-500">Rows</span> ${this.visibleRows.length}
-            </span>
-            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
-              <span class="text-gray-500">Total</span> ${this.response?.meta.total ?? 0}
-            </span>
-            <button type="button" class="${BTN_SECONDARY_SM}" data-queue-refresh="true">
-              <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
-              </svg>
-              Refresh
-            </button>
-          </div>
-        </div>
+        ${this.renderPageHeader()}
         ${this.renderFeedback()}
         ${this.renderBulkActionBar()}
         ${this.renderFilterSnapshotBar()}
         ${this.renderReviewStateBar()}
         ${this.renderPresetBar()}
-        ${this.renderViewModeToggle()}
         ${this.renderFilters()}
+        ${this.renderContextBar()}
         ${this.renderBody()}
       </div>
     `;
 
     this.attachEventListeners();
+  }
+
+  private renderPageHeader(): string {
+    const title = this.config.title;
+    const description = this.config.description;
+
+    return `
+      <header class="${HEADER_CONTAINER}">
+        <div class="${HEADER_FLEX}">
+          <div>
+            <h1 class="${HEADER_TITLE}">${escapeHtml(title)}</h1>
+            <p class="${HEADER_DESCRIPTION}">${escapeHtml(description)}</p>
+          </div>
+          <button type="button" class="${BTN_SECONDARY_SM}" data-queue-refresh="true">
+            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+            </svg>
+            Refresh
+          </button>
+        </div>
+      </header>
+    `;
   }
 
   private renderFeedback(): string {
@@ -2344,72 +2406,44 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
   }
 
   private renderFilterSnapshotBar(): string {
-    const total = this.response?.meta.total ?? 0;
-    const pageCount = this.visibleRows.length;
-    if (this.viewMode === 'server_family') {
-      const assignmentTotal = this.response?.meta.assignment_total ?? this.response?.meta.grouping?.assignment_total ?? 0;
-      return `
-        <section class="filter-snapshot-bar" data-filter-snapshot-bar="true" aria-label="Server-side family pagination">
-          <div class="filter-snapshot-copy">
-            <strong>${total} ${total === 1 ? 'family' : 'families'} match current filters</strong>
-            <span>${this.serverFamilyRows.length} visible on this family page · ${assignmentTotal} matching assignments</span>
-          </div>
-        </section>
-      `;
-    }
-    if (total === 0 && !this.filterSnapshot) {
+    // T05: Filter snapshot bar now only handles bulk selection state
+    // The context bar handles regular result counts to avoid duplication
+    const snapshot = this.filterSnapshot;
+    if (!snapshot) {
       return '';
     }
-    const snapshot = this.filterSnapshot;
     const isPending = this.bulkSnapshotPending || this.bulkActionPending;
-    if (snapshot) {
-      const summary = (snapshot.filterSummary || []).slice(0, 4);
-      return `
-        <section class="filter-snapshot-bar" data-filter-snapshot-bar="true" aria-label="All matching filter selection">
-          <div class="filter-snapshot-copy">
-            <strong>${snapshot.requested} matching assignment${snapshot.requested !== 1 ? 's' : ''} selected</strong>
-            ${summary.length ? `<span>${summary.map((item) => escapeHtml(item)).join(' · ')}</span>` : ''}
-          </div>
-          <div class="filter-snapshot-actions">
-            <button type="button" class="${BTN_SECONDARY_SM}" data-filter-snapshot-clear="true" ${isPending ? 'disabled' : ''}>Clear</button>
-            <button type="button" class="${BTN_SECONDARY_SM}" data-filter-snapshot-action="assign" ${isPending || snapshot.requested === 0 ? 'disabled' : ''}>Assign</button>
-            <button type="button" class="${BTN_SECONDARY_SM}" data-filter-snapshot-action="release" ${isPending || snapshot.requested === 0 ? 'disabled' : ''}>Release</button>
-            <button type="button" class="${BTN_SECONDARY_SM}" data-filter-snapshot-action="priority" ${isPending || snapshot.requested === 0 ? 'disabled' : ''}>Priority</button>
-            <button type="button" class="${BTN_SECONDARY_SM}" data-filter-snapshot-action="archive" ${isPending || snapshot.requested === 0 ? 'disabled' : ''}>Archive</button>
-          </div>
-        </section>
-      `;
-    }
+    const summary = (snapshot.filterSummary || []).slice(0, 4);
     return `
       <section class="filter-snapshot-bar" data-filter-snapshot-bar="true" aria-label="All matching filter selection">
         <div class="filter-snapshot-copy">
-          <strong>${total} assignment${total !== 1 ? 's' : ''} match current filters</strong>
-          <span>${pageCount} visible on this page</span>
+          <strong>${snapshot.requested} matching assignment${snapshot.requested !== 1 ? 's' : ''} selected</strong>
+          ${summary.length ? `<span>${summary.map((item) => escapeHtml(item)).join(' · ')}</span>` : ''}
         </div>
-        <button type="button" class="${BTN_SECONDARY_SM}" data-select-all-matching="true" ${isPending || total === 0 ? 'disabled' : ''}>
-          ${this.bulkSnapshotPending ? 'Selecting…' : 'Select all matching filters'}
-        </button>
+        <div class="filter-snapshot-actions">
+          <button type="button" class="${BTN_SECONDARY_SM}" data-filter-snapshot-clear="true" ${isPending ? 'disabled' : ''}>Clear</button>
+          <button type="button" class="${BTN_SECONDARY_SM}" data-filter-snapshot-action="assign" ${isPending || snapshot.requested === 0 ? 'disabled' : ''}>Assign</button>
+          <button type="button" class="${BTN_SECONDARY_SM}" data-filter-snapshot-action="release" ${isPending || snapshot.requested === 0 ? 'disabled' : ''}>Release</button>
+          <button type="button" class="${BTN_SECONDARY_SM}" data-filter-snapshot-action="priority" ${isPending || snapshot.requested === 0 ? 'disabled' : ''}>Priority</button>
+          <button type="button" class="${BTN_SECONDARY_SM}" data-filter-snapshot-action="archive" ${isPending || snapshot.requested === 0 ? 'disabled' : ''}>Archive</button>
+        </div>
       </section>
     `;
   }
 
   private renderPresetBar(): string {
     return `
-      <div class="bg-white border-b border-gray-200 px-8 py-4" role="group" aria-label="Saved queue filters">
-        <div class="flex flex-wrap items-center gap-2">
+      <div class="panel-tabs" role="group" aria-label="Saved queue filters">
+        <div class="panel-tabs-container">
           ${this.savedFilterPresets.map((preset) => `
             <button
               type="button"
-              class="inline-flex items-center px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-                this.activePresetId === preset.id
-                  ? 'bg-blue-600 text-white hover:bg-blue-700'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }"
+              class="panel-tab ${this.activePresetId === preset.id ? 'panel-tab-active' : ''}"
               data-preset-id="${escapeAttr(preset.id)}"
               aria-pressed="${this.activePresetId === preset.id ? 'true' : 'false'}"
               title="${escapeAttr(preset.description || preset.label)}"
             >
-              ${escapeHtml(preset.label)}
+              <span class="panel-tab-label">${escapeHtml(preset.label)}</span>
             </button>
           `).join('')}
         </div>
@@ -2418,49 +2452,82 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
   }
 
   private renderReviewStateBar(): string {
+    // This method is kept for backwards compatibility during transition
+    // The review selector will be integrated into the toolbar in T04
+    return '';
+  }
+
+  private renderReviewSelector(): string {
     if (!this.savedReviewFilterPresets.length) {
       return '';
     }
     const counts = this.response?.meta.review_aggregate_counts || {};
     const actorID = this.response?.meta.review_actor_id;
     const reviewerStateEnabled = Boolean(actorID);
+    const activePreset = this.savedReviewFilterPresets.find(p => p.id === this.activeReviewPresetId);
+    const buttonLabel = activePreset ? activePreset.label : 'Review State';
+    const activeCount = activePreset ? (counts[activePreset.id] ?? 0) : 0;
+
     return `
-      <div class="bg-white border-b border-gray-200 px-8 py-4" role="group" aria-label="Reviewer queue states">
+      <div class="relative" data-review-selector-container="true">
         <h2 class="sr-only">Reviewer states</h2>
-        <div class="flex flex-wrap items-center gap-2">
-          ${this.savedReviewFilterPresets.map((preset) => `
-            <button
-              type="button"
-              class="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-                this.activeReviewPresetId === preset.id
-                  ? 'bg-blue-600 text-white hover:bg-blue-700'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              } ${!reviewerStateEnabled ? 'opacity-50 cursor-not-allowed' : ''}"
-              data-review-preset-id="${escapeAttr(preset.id)}"
-              aria-pressed="${this.activeReviewPresetId === preset.id ? 'true' : 'false'}"
-              title="${escapeAttr(reviewerStateEnabled ? (preset.description || preset.label) : 'Reviewer metadata is required to use this preset.')}"
-              ${reviewerStateEnabled ? '' : 'disabled aria-disabled="true"'}
-            >
-              <span>${escapeHtml(preset.label)}</span>
-              <span class="inline-flex items-center justify-center min-w-[1.25rem] px-1.5 py-0.5 text-xs font-semibold rounded-full ${
-                this.activeReviewPresetId === preset.id
-                  ? 'bg-blue-500 text-white'
-                  : 'bg-white text-gray-700'
-              }">${counts[preset.id] ?? 0}</span>
-            </button>
-          `).join('')}
-        </div>
-        ${!reviewerStateEnabled ? `
-          <div class="mt-3 px-4 py-2 text-xs text-gray-500 bg-gray-50 rounded-lg">
-            Reviewer queue states are available when reviewer metadata is present.
+        <button
+          type="button"
+          class="${BTN_SECONDARY_SM} ${!reviewerStateEnabled ? 'opacity-50 cursor-not-allowed' : ''}"
+          data-review-selector-toggle="true"
+          aria-expanded="false"
+          aria-haspopup="true"
+          aria-label="Select review state filter"
+          ${reviewerStateEnabled ? '' : 'disabled aria-disabled="true"'}
+          title="${escapeAttr(reviewerStateEnabled ? 'Filter by review state' : 'Reviewer metadata is required to use review filters.')}"
+        >
+          <span>${escapeHtml(buttonLabel)}</span>
+          ${activePreset ? `<span class="ml-1 px-1.5 py-0.5 text-xs rounded-full bg-blue-100 text-blue-700">${activeCount}</span>` : ''}
+          <svg class="h-4 w-4 transition-transform" data-review-selector-chevron="true" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+          </svg>
+        </button>
+        <div
+          class="hidden absolute right-0 mt-2 w-56 rounded-lg border border-gray-200 bg-white shadow-lg z-50"
+          data-review-selector-menu="true"
+          role="menu"
+          aria-orientation="vertical"
+        >
+          <div class="py-1">
+            ${this.savedReviewFilterPresets.map((preset) => `
+              <button
+                type="button"
+                class="w-full flex items-center justify-between px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors ${
+                  this.activeReviewPresetId === preset.id ? 'bg-blue-50 text-blue-700' : ''
+                }"
+                data-review-preset-id="${escapeAttr(preset.id)}"
+                role="menuitem"
+                title="${escapeAttr(preset.description || preset.label)}"
+              >
+                <span>${escapeHtml(preset.label)}</span>
+                <span class="inline-flex items-center justify-center min-w-[1.5rem] px-1.5 py-0.5 text-xs font-semibold rounded-full ${
+                  this.activeReviewPresetId === preset.id
+                    ? 'bg-blue-200 text-blue-900'
+                    : 'bg-gray-100 text-gray-700'
+                }">${counts[preset.id] ?? 0}</span>
+              </button>
+            `).join('')}
           </div>
-        ` : ''}
+          ${!reviewerStateEnabled ? `
+            <div class="px-3 py-2 text-xs text-gray-500 bg-gray-50 border-t border-gray-100">
+              Reviewer queue states are available when reviewer metadata is present.
+            </div>
+          ` : ''}
+        </div>
       </div>
     `;
   }
 
-  // T11: View mode toggle
-  private renderViewModeToggle(): string {
+
+  // T05: Context bar - result counts and view-mode controls
+  private renderContextBar(): string {
+    const total = this.response?.meta.total ?? 0;
+    const pageCount = this.visibleRows.length;
     const isGrouped = this.viewMode === 'grouped';
     const isServerFamily = this.viewMode === 'server_family';
     const isFlat = !isGrouped && !isServerFamily;
@@ -2470,73 +2537,80 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
     const serverFamilyCount = this.response?.meta.grouping?.family_total ?? this.response?.meta.family_total ?? this.serverFamilyRows.length;
     const serverAssignmentCount = this.response?.meta.grouping?.assignment_total ?? this.response?.meta.assignment_total ?? 0;
 
+    // Build count text based on view mode
+    let countText = '';
+    let scopeText = '';
+
+    if (isServerFamily) {
+      countText = `${this.serverFamilyRows.length} of ${serverFamilyCount} ${serverFamilyCount === 1 ? 'family' : 'families'} · ${serverAssignmentCount} assignments`;
+      scopeText = '(server-side family pages)';
+    } else if (isGrouped && this.groupedData) {
+      countText = `${groupCount} ${groupCount === 1 ? 'family' : 'families'} · ${assignmentCount} assignments`;
+      scopeText = '(page-local counts)';
+    } else {
+      countText = `Showing ${pageCount} of ${total} ${total === 1 ? 'assignment' : 'assignments'}`;
+      scopeText = '';
+    }
+
     return `
-      <div class="assignment-queue-view-mode" role="group" aria-label="View mode">
-        <div class="view-mode-buttons">
-          <button
-            type="button"
-            class="view-mode-button ${isFlat ? 'is-active' : ''}"
-            data-view-mode="flat"
-            aria-pressed="${isFlat}"
-            title="Show assignments as a flat list"
-          >
-            <svg class="view-mode-icon" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
-              <path d="M2 3h12v2H2zM2 7h12v2H2zM2 11h12v2H2z"/>
-            </svg>
-            <span>List</span>
-          </button>
-          <button
-            type="button"
-            class="view-mode-button ${isGrouped ? 'is-active' : ''}"
-            data-view-mode="grouped"
-            aria-pressed="${isGrouped}"
-            title="Group assignments by translation family"
-          >
-            <svg class="view-mode-icon" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
-              <path d="M2 2h4v4H2zM2 10h4v4H2zM8 2h6v2H8zM8 6h6v2H8zM8 10h6v2H8zM8 14h6v2H8z"/>
-            </svg>
-            <span>Grouped</span>
-          </button>
-          ${(serverFamilySupported || isServerFamily) ? `
-            <button
-              type="button"
-              class="view-mode-button ${isServerFamily ? 'is-active' : ''}"
-              data-view-mode="server_family"
-              aria-pressed="${isServerFamily}"
-              title="${escapeAttr(serverFamilySupported ? 'Use server-side family pagination' : 'Server-side family grouping is unavailable for this repository')}"
-              ${serverFamilySupported ? '' : 'disabled aria-disabled="true"'}
-            >
-              <svg class="view-mode-icon" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
-                <path d="M3 2h10v3H3zM2 7h5v3H2zM9 7h5v3H9zM2 12h5v3H2zM9 12h5v3H9z"/>
-              </svg>
-              <span>Families</span>
-            </button>
-          ` : ''}
+      <div class="bg-white border-b border-gray-200 px-6 py-3">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div class="flex items-center gap-3 text-sm">
+            <span class="font-medium text-gray-700">${countText}</span>
+            ${scopeText ? `<span class="text-gray-500">${scopeText}</span>` : ''}
+          </div>
+          <div class="flex items-center gap-3">
+            ${(isGrouped || isServerFamily) ? `
+              <button type="button" class="${BTN_SECONDARY_SM}" data-expand-all="true" title="Expand all ${isServerFamily ? 'visible families' : 'groups'}">
+                Expand all
+              </button>
+              <button type="button" class="${BTN_SECONDARY_SM}" data-collapse-all="true" title="Collapse all ${isServerFamily ? 'visible families' : 'groups'}">
+                Collapse all
+              </button>
+            ` : ''}
+            <div role="group" aria-label="View mode" class="inline-flex rounded-lg border border-gray-200 bg-white">
+              <button
+                type="button"
+                class="px-3 py-1.5 text-sm font-medium transition-colors ${isFlat ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50'}"
+                data-view-mode="flat"
+                aria-pressed="${isFlat}"
+                title="Show assignments as a flat list"
+              >
+                <svg class="h-4 w-4 inline-block" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+                  <path d="M2 3h12v2H2zM2 7h12v2H2zM2 11h12v2H2z"/>
+                </svg>
+                <span class="ml-1">List</span>
+              </button>
+              <button
+                type="button"
+                class="px-3 py-1.5 text-sm font-medium transition-colors border-l border-gray-200 ${isGrouped ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50'}"
+                data-view-mode="grouped"
+                aria-pressed="${isGrouped}"
+                title="Group assignments by translation family"
+              >
+                <svg class="h-4 w-4 inline-block" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+                  <path d="M2 2h4v4H2zM2 10h4v4H2zM8 2h6v2H8zM8 6h6v2H8zM8 10h6v2H8zM8 14h6v2H8z"/>
+                </svg>
+                <span class="ml-1">Grouped</span>
+              </button>
+              ${(serverFamilySupported || isServerFamily) ? `
+                <button
+                  type="button"
+                  class="px-3 py-1.5 text-sm font-medium transition-colors border-l border-gray-200 ${isServerFamily ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50'} ${serverFamilySupported ? '' : 'opacity-50 cursor-not-allowed'}"
+                  data-view-mode="server_family"
+                  aria-pressed="${isServerFamily}"
+                  title="${escapeAttr(serverFamilySupported ? 'Use server-side family pagination' : 'Server-side family grouping is unavailable for this repository')}"
+                  ${serverFamilySupported ? '' : 'disabled aria-disabled="true"'}
+                >
+                  <svg class="h-4 w-4 inline-block" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+                    <path d="M3 2h10v3H3zM2 7h5v3H2zM9 7h5v3H9zM2 12h5v3H2zM9 12h5v3H9z"/>
+                  </svg>
+                  <span class="ml-1">Families</span>
+                </button>
+              ` : ''}
+            </div>
+          </div>
         </div>
-        ${isGrouped && this.groupedData ? `
-          <div class="view-mode-info">
-            <span class="view-mode-count">${groupCount} ${groupCount === 1 ? 'family' : 'families'} · ${assignmentCount} assignments</span>
-            <span class="view-mode-scope">(page-local counts)</span>
-            <button type="button" class="view-mode-expand-all" data-expand-all="true" title="Expand all groups">
-              Expand all
-            </button>
-            <button type="button" class="view-mode-collapse-all" data-collapse-all="true" title="Collapse all groups">
-              Collapse all
-            </button>
-          </div>
-        ` : ''}
-        ${isServerFamily ? `
-          <div class="view-mode-info">
-            <span class="view-mode-count">${serverFamilyCount} ${serverFamilyCount === 1 ? 'family' : 'families'} · ${serverAssignmentCount} assignments</span>
-            <span class="view-mode-scope">(server-side family pages)</span>
-            <button type="button" class="view-mode-expand-all" data-expand-all="true" title="Expand visible families">
-              Expand all
-            </button>
-            <button type="button" class="view-mode-collapse-all" data-collapse-all="true" title="Collapse visible families">
-              Collapse all
-            </button>
-          </div>
-        ` : ''}
       </div>
     `;
   }
@@ -2557,23 +2631,26 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
 
     return `
       <div class="bg-white border-b border-gray-200 px-6 py-3">
-        <div class="flex items-center justify-between gap-4">
-          <button
-            type="button"
-            class="${BTN_SECONDARY_SM}"
-            data-filters-toggle="true"
-            aria-expanded="${this.filtersExpanded}"
-            aria-controls="queue-filters-panel"
-          >
-            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"/>
-            </svg>
-            <span>Filters</span>
-            ${activeFilterCount > 0 ? `<span class="ml-1 px-1.5 py-0.5 text-xs rounded-full bg-blue-100 text-blue-700">${activeFilterCount}</span>` : ''}
-            <svg class="h-4 w-4 transition-transform ${chevronRotation}" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
-            </svg>
-          </button>
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div class="flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              class="${BTN_SECONDARY_SM}"
+              data-filters-toggle="true"
+              aria-expanded="${this.filtersExpanded}"
+              aria-controls="queue-filters-panel"
+            >
+              <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"/>
+              </svg>
+              <span>Filters</span>
+              ${activeFilterCount > 0 ? `<span class="ml-1 px-1.5 py-0.5 text-xs rounded-full bg-blue-100 text-blue-700">${activeFilterCount}</span>` : ''}
+              <svg class="h-4 w-4 transition-transform ${chevronRotation}" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+              </svg>
+            </button>
+            ${this.renderReviewSelector()}
+          </div>
           <div class="flex items-center gap-3">
             ${this.renderSortControls(sortKeys)}
           </div>
@@ -3312,7 +3389,20 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
         const presetId = button.dataset.reviewPresetId;
         if (presetId) {
           this.setActiveReviewPreset(presetId);
+          // Close dropdown if it's from a menu item
+          const menu = this.container?.querySelector<HTMLElement>('[data-review-selector-menu]');
+          if (menu && !menu.classList.contains('hidden')) {
+            this.closeReviewSelectorDropdown();
+          }
         }
+      });
+    });
+
+    // Review selector dropdown toggle
+    this.container.querySelectorAll<HTMLElement>('[data-review-selector-toggle]').forEach((button) => {
+      button.addEventListener('click', (event) => {
+        event.stopPropagation();
+        this.toggleReviewSelectorDropdown();
       });
     });
 

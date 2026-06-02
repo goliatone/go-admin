@@ -5,8 +5,8 @@ import { buildURL as P, getNumberSearchParam as ae, getStringSearchParam as I, r
 import { trimTrailingSlash as _ } from "../shared/path-normalization.js";
 import { parseJSONValue as se } from "../shared/json-parse.js";
 import { asLooseBoolean as b, asNumberish as h, asRecord as u, asString as n, asStringArray as f } from "../shared/coercion.js";
-import { $ as j, C as Ie, E as Te, H as Ae, S as Pe, U as Fe, _ as de, d as T, g as me, h as Ee, l as S, m as Ue, o as ue, p as De, rt as Ne, s as q, v as ye } from "../chunks/translation-shared-kfjHEDZW.js";
-import { formatTranslationTimestampUTC as G, sentenceCaseToken as $ } from "../translation-shared/formatters.js";
+import { G as Ie, O as Te, T as Ae, W as Pe, _ as de, at as Fe, d as T, g as me, h as Ee, l as S, m as Ue, o as ue, p as De, s as q, tt as j, v as ye, w as Ne } from "../chunks/translation-shared-CQJ98SgC.js";
+import { formatTranslationTimestampUTC as H, sentenceCaseToken as $ } from "../translation-shared/formatters.js";
 import { normalizeStringRecord as Be } from "../shared/record-normalization.js";
 function je(e, a = {}) {
   const t = u(e), s = b(t.can_sync ?? t.canSync), i = n(t.family_id ?? t.familyId ?? a.familyId), r = n((t.command_name ?? t.commandName ?? a.commandName) || "translation.families.sync"), c = n(t.rpc_invoke_path ?? t.rpcInvokePath ?? a.rpcInvokePath), l = n((t.environment ?? t.channel ?? a.environment) || "default");
@@ -127,7 +127,7 @@ function K(e, a = "", t = "") {
 function ge(e, a = {}) {
   return P(K(e), fe(a));
 }
-function He(e, a, t = "") {
+function Ge(e, a, t = "") {
   const s = new URLSearchParams();
   return L(s, "channel", t), P(K(e, a), s);
 }
@@ -143,7 +143,7 @@ function be(e = {}) {
     idempotencyKey: n(e.idempotencyKey)
   };
 }
-function Ge(e, a, t = "") {
+function He(e, a, t = "") {
   const s = new URLSearchParams();
   return L(s, "channel", t), P(K(e, a, "/variants"), s);
 }
@@ -230,7 +230,7 @@ function Xe(e) {
   };
   return t.idempotencyKey && (s["X-Idempotency-Key"] = t.idempotencyKey), {
     familyId: a,
-    endpoint: Ge(n(e.basePath) || "/admin/api", a, t.channel),
+    endpoint: He(n(e.basePath) || "/admin/api", a, t.channel),
     headers: s,
     request: t
   };
@@ -626,7 +626,7 @@ function pa(e, a) {
             <span class="rounded-full px-2 py-0.5 text-xs font-medium ${na(l.status)}">${d($(l.status))}</span>
           </div>
           <p class="mt-2 text-sm text-gray-600">${d(y)}</p>
-          <p class="mt-1 text-xs text-gray-500">Updated ${d(G(l.updatedAt || l.createdAt)) || "n/a"}</p>
+          <p class="mt-1 text-xs text-gray-500">Updated ${d(H(l.updatedAt || l.createdAt)) || "n/a"}</p>
         </div>
         <div class="flex-shrink-0">${m}</div>
       </li>
@@ -678,7 +678,7 @@ function fa(e) {
                   <span class="text-gray-400">·</span>
                   Priority ${d(a.priority || "normal")}
                 </p>
-                <p class="mt-1 text-xs text-gray-500">Updated ${d(G(a.updatedAt || a.createdAt)) || "n/a"}</p>
+                <p class="mt-1 text-xs text-gray-500">Updated ${d(H(a.updatedAt || a.createdAt)) || "n/a"}</p>
               </li>
             `;
   }).join("")}
@@ -743,7 +743,7 @@ function ba(e) {
                     <li class="rounded-xl border border-gray-200 bg-gray-50 p-6">
                       <div class="flex flex-wrap items-center gap-2">
                         <span class="text-sm font-semibold text-gray-900">${d(t.title)}</span>
-                        <span class="rounded-full px-2 py-0.5 text-xs font-medium ${t.tone === "success" ? "bg-emerald-100 text-emerald-700" : t.tone === "warning" ? "bg-amber-100 text-amber-700" : "bg-gray-100 text-gray-700"}">${d(G(t.timestamp))}</span>
+                        <span class="rounded-full px-2 py-0.5 text-xs font-medium ${t.tone === "success" ? "bg-emerald-100 text-emerald-700" : t.tone === "warning" ? "bg-amber-100 text-amber-700" : "bg-gray-100 text-gray-700"}">${d(H(t.timestamp))}</span>
                       </div>
                       <p class="mt-2 text-sm text-gray-600">${d(t.detail)}</p>
                     </li>
@@ -774,7 +774,7 @@ function Ce(e) {
     </div>
   `;
 }
-function H(e, a) {
+function G(e, a) {
   return `
     <div class="flex items-center justify-center py-16" role="status" aria-label="Empty">
       <div class="max-w-md ${De} p-8 text-center shadow-sm">
@@ -819,7 +819,7 @@ function ha(e, a, t) {
 function xa(e, a = {}) {
   if (e.status === "loading") return Ce("Loading translation family...");
   if (e.status === "empty") return `
-      ${H("Family detail unavailable", e.message || "This family detail view does not have a backing payload yet.")}
+      ${G("Family detail unavailable", e.message || "This family detail view does not have a backing payload yet.")}
       ${D(e)}
     `;
   if (e.status === "error" || e.status === "conflict") return `
@@ -829,7 +829,7 @@ function xa(e, a = {}) {
       </div>
     `;
   const t = e.detail;
-  if (!t) return H("Family detail unavailable", "No family detail payload was returned.");
+  if (!t) return G("Family detail unavailable", "No family detail payload was returned.");
   const s = t.sourceVariant?.fields.title || t.sourceVariant?.fields.slug || `${t.contentType} family`, i = t.readinessSummary.blockerCodes.length ? t.readinessSummary.blockerCodes.map($).join(", ") : "No blockers", r = !t.quickCreate.enabled, c = t.quickCreate.recommendedLocale ? `
       <button
         type="button"
@@ -847,8 +847,8 @@ function xa(e, a = {}) {
       <section class="rounded-[28px] border border-gray-200 bg-[linear-gradient(135deg,#f8fafc,white)] p-6 shadow-sm">
         <div class="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <p class="${Pe}">Translation family</p>
-            <h1 class="${Ie} mt-2">${d(s)}</h1>
+            <p class="${Ne}">Translation family</p>
+            <h1 class="${Ae} mt-2">${d(s)}</h1>
             <p class="mt-2 text-sm text-gray-600">${d(t.contentType)} · Source locale ${d(t.sourceLocale.toUpperCase())} · Family ${d(t.familyId)}</p>
           </div>
           <div class="flex flex-wrap items-center gap-2">
@@ -1157,7 +1157,7 @@ function Fa(e, a = {}) {
   if (e.status === "loading") return `${s}${Ce("Loading translation families...")}`;
   if (e.status === "error") return `${s}${Pa(e)}`;
   const i = e.response;
-  return !i || e.status === "empty" || i.items.length === 0 ? `${s}${H("No translation families found", "No families match the current filters.")}` : `${s}${Aa(i, t, a)}`;
+  return !i || e.status === "empty" || i.items.length === 0 ? `${s}${G("No translation families found", "No families match the current filters.")}` : `${s}${Aa(i, t, a)}`;
 }
 function oe(e, a, t = {}) {
   e.innerHTML = Fa(a, t);
@@ -1307,8 +1307,8 @@ function $e(e) {
     return;
   }
   const s = n(e.initialLocale || t.recommendedLocale || t.missingLocales[0]).toLowerCase(), i = t.missingLocales.includes(s) ? s : t.missingLocales[0], r = a.createElement("div");
-  r.className = Fe, r.setAttribute("data-translation-create-locale-modal", "true"), r.innerHTML = `
-    <div class="${Ae}" role="dialog" aria-modal="true" aria-labelledby="translation-create-locale-title">
+  r.className = Ie, r.setAttribute("data-translation-create-locale-modal", "true"), r.innerHTML = `
+    <div class="${Pe}" role="dialog" aria-modal="true" aria-labelledby="translation-create-locale-title">
       <form class="p-6">
         <div class="flex items-start justify-between gap-4">
           <div>
@@ -1374,7 +1374,7 @@ function $e(e) {
     ke(), r.remove();
   }, W = () => {
     !w || !m || (w.hidden = !m.checked);
-  }, ke = c ? Ne(c, E) : () => {
+  }, ke = c ? Fe(c, E) : () => {
   };
   W(), m?.addEventListener("change", W), r.querySelectorAll('[data-close-modal="true"]').forEach((x) => {
     x.addEventListener("click", E);
@@ -1550,7 +1550,7 @@ function we(e = {}) {
       return he(await s(await a(ge(t, i), { headers: { Accept: "application/json" } })));
     },
     async detail(i, r = "") {
-      return xe(await s(await a(He(t, i, r), { headers: { Accept: "application/json" } })));
+      return xe(await s(await a(Ge(t, i, r), { headers: { Accept: "application/json" } })));
     },
     async createLocale(i, r = {}) {
       const c = Xe({
@@ -1570,10 +1570,10 @@ function we(e = {}) {
 export {
   Za as applyCreateLocaleToFamilyDetail,
   et as applyCreateLocaleToSummaryState,
-  Ge as buildCreateLocaleURL,
+  He as buildCreateLocaleURL,
   ua as buildFamilyActivityPreview,
   wa as buildFamilyDetailUIURL,
-  He as buildFamilyDetailURL,
+  Ge as buildFamilyDetailURL,
   La as buildFamilyListBrowserSearch,
   fe as buildFamilyListQuery,
   ge as buildFamilyListURL,

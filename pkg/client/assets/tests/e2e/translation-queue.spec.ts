@@ -174,6 +174,12 @@ test.describe('Translation Queue MVP', () => {
 
     await navigateToTranslationQueue(page);
 
+    // T07: Review selector is now a dropdown, so click the toggle first
+    const reviewSelectorToggle = page.locator('[data-review-selector-toggle="true"]');
+    await expect(reviewSelectorToggle).toBeVisible();
+    await reviewSelectorToggle.click();
+
+    // Now check the review preset option
     const reviewerStates = page.locator('[data-review-preset-id="review_blocked"]');
     await expect(reviewerStates).toBeVisible();
     await expect(reviewerStates).toContainText('QA Blocked');

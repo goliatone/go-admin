@@ -4,7 +4,7 @@ import { extractStructuredError as te } from "../toast/error-helpers.js";
 import { buildEndpointURL as ae } from "../shared/query-state/url-state.js";
 import { StatefulController as re } from "../shared/stateful-controller.js";
 import { asNumberish as m, asRecord as h, asString as n } from "../shared/coercion.js";
-import { $ as I, C as se, E as ne, S as oe, _ as T, d as v, g as B, h as O, i as ie, m as q, p as z, s as N, v as F, x as le } from "../chunks/translation-shared-kfjHEDZW.js";
+import { O as se, S as ne, T as oe, _ as T, d as v, g as I, h as B, i as ie, m as O, p as q, s as z, tt as N, v as F, w as le } from "../chunks/translation-shared-CQJ98SgC.js";
 import { normalizeNumberRecord as C, normalizeStringRecord as k } from "../shared/record-normalization.js";
 import { c as w, s as de } from "../chunks/ui-states-1McZ5upU.js";
 var y = class extends Error {
@@ -750,10 +750,10 @@ function Q(t) {
   }
 }
 function W(t) {
-  return I(Q(t));
+  return N(Q(t));
 }
 function Ne(t) {
-  return `border ${I(Q(t))}`;
+  return `border ${N(Q(t))}`;
 }
 function Fe(t, e = !1, a = !1) {
   const r = t?.meta.generatedAt ? new Date(t.meta.generatedAt).toLocaleString() : "Unavailable", s = t ? Object.entries(t.meta.scope).filter(([, u]) => u).filter(([u]) => u !== "actor_id").map(([u, d]) => ({
@@ -765,15 +765,15 @@ function Fe(t, e = !1, a = !1) {
       <div class="px-5 py-4">
         <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <p class="${oe}">Manager Monitoring</p>
-            <h2 class="${se} text-xl mt-2">Queue health and publish blockers</h2>
-            <p class="${le} mt-2">Track overdue work, review backlog, and family readiness without rebuilding aggregate state in the browser.</p>
+            <p class="${le}">Manager Monitoring</p>
+            <h2 class="${oe} text-xl mt-2">Queue health and publish blockers</h2>
+            <p class="${ne} mt-2">Track overdue work, review backlog, and family readiness without rebuilding aggregate state in the browser.</p>
           </div>
           <div class="flex flex-wrap items-center gap-3">
             <span class="text-xs uppercase tracking-[0.18em] text-gray-500" aria-live="polite" data-dashboard-refresh-status="true">
               ${i(e ? "Refreshing dashboard…" : `Last updated ${r}`)}
             </span>
-            <button type="button" class="${N}" data-dashboard-refresh-button="true" aria-label="Refresh translation dashboard" ${e ? "disabled" : ""}>
+            <button type="button" class="${z}" data-dashboard-refresh-button="true" aria-label="Refresh translation dashboard" ${e ? "disabled" : ""}>
               ${i(e ? "Refreshing…" : "Refresh dashboard")}
             </button>
           </div>
@@ -847,19 +847,19 @@ function He(t) {
   const e = t.data.runbooks[0], a = e?.href ? `<a class="inline-flex items-center rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-900 hover:bg-gray-50" href="${c(e.href)}">${i(e.title || "Open runbook")}</a>` : "";
   return w({
     tag: "section",
-    containerClass: `${z} p-6 shadow-sm`,
+    containerClass: `${q} p-6 shadow-sm`,
     bodyClass: "",
     contentClass: "",
     title: "No active pressure",
-    titleClass: O,
+    titleClass: B,
     heading: "This scope is clear right now.",
     headingTag: "h3",
     headingClass: "mt-2 text-xl font-semibold text-gray-900",
     message: "Managers can refresh the aggregate snapshot to confirm the latest state or jump into a runbook if activity is expected to resume.",
-    messageClass: `${q} mt-3 max-w-2xl leading-6`,
+    messageClass: `${O} mt-3 max-w-2xl leading-6`,
     actionsHtml: `
       <div class="mt-5 flex flex-wrap gap-3">
-        <button type="button" class="${N}" data-dashboard-refresh-button="true">Refresh dashboard</button>
+        <button type="button" class="${z}" data-dashboard-refresh-button="true">Refresh dashboard</button>
         ${a}
       </div>
     `,
@@ -871,7 +871,7 @@ function Pe(t) {
   const e = t instanceof y ? t.requestId : void 0, a = t instanceof y ? t.traceId : void 0, r = [e ? `Request ${e}` : "", a ? `Trace ${a}` : ""].filter(Boolean).join(" • ");
   return w({
     tag: "section",
-    containerClass: `${B} p-4`,
+    containerClass: `${I} p-4`,
     bodyClass: "",
     contentClass: "",
     title: "Latest refresh failed",
@@ -888,7 +888,7 @@ function Ue(t) {
   const e = t instanceof Error ? t.message : "Failed to load translation dashboard", a = t instanceof y ? t.requestId : void 0, r = t instanceof y ? t.traceId : void 0, s = [a ? `Request ${a}` : "", r ? `Trace ${r}` : ""].filter(Boolean).join(" • ");
   return w({
     tag: "section",
-    containerClass: `${B} p-4`,
+    containerClass: `${I} p-4`,
     bodyClass: "",
     contentClass: "",
     title: "Translation dashboard unavailable",
@@ -908,13 +908,13 @@ function Ue(t) {
 function Ve() {
   return w({
     tag: "section",
-    containerClass: `${z} p-5`,
+    containerClass: `${q} p-5`,
     bodyClass: "",
     contentClass: "",
     title: "Dashboard contract route is not wired.",
-    titleClass: O,
+    titleClass: B,
     message: "Set a dashboard aggregate endpoint before initializing the dashboard client.",
-    messageClass: `${q} mt-2`,
+    messageClass: `${O} mt-2`,
     attributes: { "data-dashboard-empty": "true" }
   });
 }
@@ -923,7 +923,7 @@ function D() {
     tag: "section",
     text: "Loading translation dashboard aggregates...",
     showSpinner: !1,
-    containerClass: `${ne} p-5`,
+    containerClass: `${se} p-5`,
     attributes: { "data-dashboard-loading": "true" },
     ariaLive: "polite"
   });
