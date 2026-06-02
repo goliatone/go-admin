@@ -320,6 +320,7 @@ export interface TranslationEditorScreenConfig {
   syncBaseURL?: string;
   syncClientBasePath?: string;
   syncResourceKind?: string;
+  syncScope?: Record<string, string>;
   basePath?: string;
 }
 
@@ -374,7 +375,9 @@ interface TranslationSyncMutationInput<P = unknown> {
 }
 
 interface TranslationSyncResource<T = unknown, P = unknown> {
+  load(): Promise<TranslationSyncResourceSnapshot<T>>;
   mutate(input: TranslationSyncMutationInput<P>): Promise<TranslationSyncMutationResponse<T>>;
+  refresh(options?: { force?: boolean }): Promise<TranslationSyncResourceSnapshot<T>>;
   getSnapshot(): TranslationSyncResourceSnapshot<T> | null;
 }
 
@@ -467,6 +470,43 @@ function deriveTranslationSyncBaseURL(
 function deriveTranslationSyncClientBasePath(basePath: string): string {
   const normalized = normalizePathBase(basePath) || '/admin';
   return `${normalized}/sync-client/sync-core`;
+}
+
+function normalizeTranslationSyncScope(scope: Record<string, string> | undefined): Record<string, string> {
+  const normalized: Record<string, string> = {};
+  for (const [key, value] of Object.entries(scope || {})) {
+    const normalizedKey = String(key || '').trim();
+    const normalizedValue = String(value || '').trim();
+    if (!normalizedKey || !normalizedValue) continue;
+    normalized[normalizedKey] = normalizedValue;
+  }
+  return normalized;
+}
+
+function translationSyncScopeFromEndpoint(endpoint: string): Record<string, string> {
+  try {
+    const url = new URL(endpoint, typeof window !== 'undefined' ? window.location.origin : 'http://localhost');
+    const channel = String(url.searchParams.get('channel') || '').trim();
+    return channel ? { channel } : {};
+  } catch {
+    return {};
+  }
+}
+
+function deriveTranslationSyncScope(config: TranslationEditorScreenConfig): Record<string, string> {
+  return normalizeTranslationSyncScope({
+    ...translationSyncScopeFromEndpoint(config.endpoint),
+    ...(config.syncScope || {}),
+  });
+}
+
+function translationSyncResourceKey(ref: TranslationSyncResourceRef): string {
+  const scopeEntries = Object.entries(ref.scope || {})
+    .filter(([key, value]) => key.trim() !== '' && value.trim() !== '')
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(value)}`)
+    .join('&');
+  return `${encodeURIComponent(ref.kind)}::${encodeURIComponent(ref.id)}::${scopeEntries}`;
 }
 
 function normalizeFieldCompleteness(value: unknown): TranslationEditorFieldCompleteness {
@@ -1087,6 +1127,10 @@ function editorUpdatePayloadFromSyncSnapshot(
       row_version: rowVersion,
     },
   };
+}
+
+function isUsableTranslationSyncSnapshot(snapshot: TranslationSyncResourceSnapshot<unknown> | null | undefined): boolean {
+  return Object.keys(asRecord(snapshot?.data)).length > 0;
 }
 
 export function applyEditorAutosaveConflict(
@@ -2400,7 +2444,8 @@ export class TranslationEditorScreen {
   private syncCache: ReturnType<TranslationSyncCoreModule['createInMemoryCache']> | null = null;
   private syncEngine: ReturnType<TranslationSyncCoreModule['createSyncEngine']> | null = null;
   private syncResource: TranslationSyncResource<unknown, unknown> | null = null;
-  private syncResourceID = '';
+  private syncResourceKey = '';
+  private syncLoadedResourceKey = '';
   // T13: Active sidebar tab
   private activeSidebarTab: SidebarTab = 'actions';
 
@@ -2417,6 +2462,7 @@ export class TranslationEditorScreen {
       ),
       syncClientBasePath: config.syncClientBasePath || deriveTranslationSyncClientBasePath(basePath),
       syncResourceKind: config.syncResourceKind || TRANSLATION_DRAFT_SYNC_RESOURCE_KIND,
+      syncScope: deriveTranslationSyncScope(config),
       basePath,
     };
   }
@@ -2450,7 +2496,8 @@ export class TranslationEditorScreen {
     if (this.container) this.container.innerHTML = '';
     this.container = null;
     this.syncResource = null;
-    this.syncResourceID = '';
+    this.syncResourceKey = '';
+    this.syncLoadedResourceKey = '';
   }
 
   async load(historyPage?: number): Promise<void> {
@@ -2465,6 +2512,7 @@ export class TranslationEditorScreen {
     this.loadState = await fetchTranslationEditorDetailState(endpoint);
     if (this.loadState.status === 'ready' && this.loadState.detail) {
       this.editorState = createTranslationEditorState(this.loadState.detail);
+      await this.hydrateDraftSyncFromRead(this.loadState.detail);
     } else {
       this.editorState = null;
     }
@@ -2543,7 +2591,7 @@ export class TranslationEditorScreen {
       this.rejectDraft = { ...this.rejectDraft, comment: target.value };
     });
     this.container.querySelector<HTMLElement>('[data-action="reload-server-state"]')?.addEventListener('click', () => {
-      this.reloadServerDraft();
+      void this.reloadServerDraft();
     });
     this.container.querySelector<HTMLElement>('[data-history-prev="true"]')?.addEventListener('click', () => {
       const page = (this.editorState?.detail.history.page || 1) - 1;
@@ -2637,7 +2685,7 @@ export class TranslationEditorScreen {
     }
   }
 
-  private reloadServerDraft(): void {
+  private async reloadServerDraft(): Promise<void> {
     if (!this.editorState) return;
     const latest = this.editorState.autosave.conflict;
     if (latest && Object.keys(latest).length > 0) {
@@ -2647,8 +2695,36 @@ export class TranslationEditorScreen {
       this.render();
       return;
     }
-    this.feedback = { kind: 'conflict', message: 'Reloaded the latest server draft.' };
-    void this.load(this.editorState.detail.history.page);
+    try {
+      const resource = await this.ensureDraftSyncResource(this.editorState.detail);
+      const snapshot = await resource.refresh({ force: true });
+      if (!isUsableTranslationSyncSnapshot(snapshot)) {
+        throw new Error('Sync refresh did not return a usable draft snapshot');
+      }
+      this.editorState = applyEditorUpdateResponse(this.editorState, editorUpdatePayloadFromSyncSnapshot(snapshot));
+      this.feedback = { kind: 'conflict', message: 'Reloaded the latest server draft.' };
+      this.saving = false;
+      this.render();
+    } catch (error) {
+      this.feedback = {
+        kind: 'error',
+        message: error instanceof Error ? error.message : 'Failed to reload server draft',
+      };
+      this.saving = false;
+      this.render();
+    }
+  }
+
+  private async hydrateDraftSyncFromRead(detail: TranslationAssignmentEditorDetail): Promise<void> {
+    if (!this.editorState) return;
+    try {
+      await this.ensureDraftSyncLoaded(detail);
+    } catch (error) {
+      this.feedback = {
+        kind: 'error',
+        message: error instanceof Error ? error.message : 'Failed to load draft sync state',
+      };
+    }
   }
 
   private async mutateDraftSync(
@@ -2656,6 +2732,7 @@ export class TranslationEditorScreen {
     fields: Record<string, string>,
     isAutosave: boolean
   ): Promise<TranslationSyncMutationResponse<unknown>> {
+    await this.ensureDraftSyncLoaded(detail);
     const resource = await this.ensureDraftSyncResource(detail);
     return await resource.mutate({
       operation: TRANSLATION_DRAFT_SYNC_OPERATION,
@@ -2706,14 +2783,41 @@ export class TranslationEditorScreen {
       });
     }
     const resourceID = detail.variant_id;
-    if (!this.syncResource || this.syncResourceID !== resourceID) {
-      this.syncResourceID = resourceID;
-      this.syncResource = this.syncEngine.resource({
-        kind: this.config.syncResourceKind,
-        id: resourceID,
-      });
+    const ref: TranslationSyncResourceRef = {
+      kind: this.config.syncResourceKind,
+      id: resourceID,
+      scope: Object.keys(this.config.syncScope).length > 0 ? this.config.syncScope : undefined,
+    };
+    const resourceKey = translationSyncResourceKey(ref);
+    if (!this.syncResource || this.syncResourceKey !== resourceKey) {
+      this.syncResourceKey = resourceKey;
+      this.syncResource = this.syncEngine.resource(ref);
     }
     return this.syncResource;
+  }
+
+  private async ensureDraftSyncLoaded(detail: TranslationAssignmentEditorDetail): Promise<void> {
+    const resource = await this.ensureDraftSyncResource(detail);
+    const resourceKey = this.syncResourceKey;
+    if (this.syncLoadedResourceKey === resourceKey) return;
+
+    const pendingDirtyFields = this.editorState ? { ...this.editorState.dirty_fields } : {};
+    const snapshot = await resource.load();
+    if (!isUsableTranslationSyncSnapshot(snapshot)) {
+      throw new Error('Sync draft load did not return a usable draft snapshot');
+    }
+    if (!this.editorState || this.editorState.detail.variant_id !== detail.variant_id) return;
+
+    let nextState = applyEditorUpdateResponse(this.editorState, editorUpdatePayloadFromSyncSnapshot(snapshot));
+    for (const [fieldPath, fieldValue] of Object.entries(pendingDirtyFields)) {
+      nextState = applyEditorFieldChange(nextState, fieldPath, fieldValue);
+    }
+    this.editorState = nextState;
+    this.loadState = {
+      ...this.loadState,
+      detail: this.editorState.detail,
+    };
+    this.syncLoadedResourceKey = resourceKey;
   }
 
   private async submitForReview(): Promise<void> {

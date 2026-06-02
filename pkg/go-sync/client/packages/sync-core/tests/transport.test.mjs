@@ -89,12 +89,12 @@ test("createFetchSyncTransport uses canonical GET, PATCH, and POST action routes
   assert.equal(replay.replay, true);
   assert.deepEqual(calls, [
     {
-      url: "/admin/api/v1/sync/resources/agreement_draft/agreement_draft_123",
+      url: "/admin/api/v1/sync/resources/agreement_draft/agreement_draft_123?tenant=tenant_1",
       method: "GET",
       body: null,
     },
     {
-      url: "/admin/api/v1/sync/resources/agreement_draft/agreement_draft_123",
+      url: "/admin/api/v1/sync/resources/agreement_draft/agreement_draft_123?tenant=tenant_1",
       method: "PATCH",
       body: {
         operation: "autosave",
@@ -105,7 +105,7 @@ test("createFetchSyncTransport uses canonical GET, PATCH, and POST action routes
       },
     },
     {
-      url: "/admin/api/v1/sync/resources/agreement_draft/agreement_draft_123/actions/send",
+      url: "/admin/api/v1/sync/resources/agreement_draft/agreement_draft_123/actions/send?tenant=tenant_1",
       method: "POST",
       body: {
         payload: {

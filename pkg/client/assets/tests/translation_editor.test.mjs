@@ -98,10 +98,27 @@ function installTranslationSyncCoreStub(win) {
     transportOptions: null,
     engineOptions: null,
   };
+  const resourceURL = (baseURL, ref) => {
+    const url = `${String(baseURL || '').replace(/\/+$/, '')}/sync/resources/${encodeURIComponent(ref.kind)}/${encodeURIComponent(ref.id)}`;
+    const params = new URLSearchParams();
+    for (const [key, value] of Object.entries(ref.scope || {})) {
+      if (String(key).trim() && String(value).trim()) {
+        params.set(String(key).trim(), String(value).trim());
+      }
+    }
+    const query = params.toString();
+    return query ? `${url}?${query}` : url;
+  };
   win.__translationSyncCoreModule = {
     createInMemoryCache() {
       return {
+        get() {
+          return null;
+        },
         set() {},
+        invalidate() {
+          return { snapshot: null, invalidated: true };
+        },
         clear() {},
       };
     },
@@ -109,9 +126,13 @@ function installTranslationSyncCoreStub(win) {
       harness.transportOptions = options;
       return {
         async load(ref) {
-          const url = `${String(options.baseURL || '').replace(/\/+$/, '')}/sync/resources/${encodeURIComponent(ref.kind)}/${encodeURIComponent(ref.id)}`;
+          const url = resourceURL(options.baseURL, ref);
           const response = await globalThis.fetch(url, { method: 'GET' });
           const payload = await response.json();
+          if (!response.ok) {
+            const error = payload.error || {};
+            throw new Error(error.message || 'sync load failed');
+          }
           return {
             ref,
             data: payload.data,
@@ -122,7 +143,7 @@ function installTranslationSyncCoreStub(win) {
         },
         async mutate(input) {
           const ref = input.ref;
-          const url = `${String(options.baseURL || '').replace(/\/+$/, '')}/sync/resources/${encodeURIComponent(ref.kind)}/${encodeURIComponent(ref.id)}`;
+          const url = resourceURL(options.baseURL, ref);
           const headerFactory = typeof options.headers === 'function' ? options.headers : () => ({});
           const response = await globalThis.fetch(url, {
             method: 'PATCH',
@@ -177,12 +198,23 @@ function installTranslationSyncCoreStub(win) {
       harness.engineOptions = options;
       return {
         resource(ref) {
+          let snapshot = null;
           return {
             getSnapshot() {
-              return null;
+              return snapshot;
+            },
+            async load() {
+              snapshot = await options.transport.load(ref);
+              return snapshot;
             },
             async mutate(input) {
-              return await options.transport.mutate({ ...input, ref: input.ref || ref });
+              const response = await options.transport.mutate({ ...input, ref: input.ref || ref });
+              snapshot = response.snapshot;
+              return response;
+            },
+            async refresh() {
+              snapshot = await options.transport.load(ref);
+              return snapshot;
             },
           };
         },
@@ -491,8 +523,25 @@ test('translation editor state model: dirty fields, validation, autosave conflic
 });
 
 test('translation editor runtime: field inputs keep the natural document tab order', async () => {
-  const { root } = setupDom();
-  globalThis.fetch = mock.fn(async () => createJsonResponse(fixtures.detail));
+  const { root, window } = setupDom();
+  installTranslationSyncCoreStub(window);
+  globalThis.fetch = mock.fn(async (input, init = {}) => {
+    const method = String(init.method || 'GET').toUpperCase();
+    const url = String(input);
+    if (method === 'GET' && url.includes('/api/translations/assignments/asg-editor-1')) {
+      return createJsonResponse(fixtures.detail);
+    }
+    if (method === 'GET' && url.includes('/api/translations/sync/resources/translation_variant_draft/')) {
+      return createJsonResponse({
+        data: fixtures.detail.data,
+        revision: 3,
+        updated_at: '2026-01-01T00:00:00Z',
+      });
+    }
+    return createJsonResponse({ error: { message: 'unexpected request' } }, 500, {
+      'content-type': 'application/json',
+    });
+  });
 
   const screen = new TranslationEditorScreen({
     endpoint: '/admin/api/translations/assignments/asg-editor-1',
@@ -617,12 +666,20 @@ test('translation editor runtime: suppresses repeated hash-only drift field warn
 });
 
 test('translation editor runtime: translation-memory insert keeps inline editing and autosave path', async () => {
-  const { root } = setupDom();
+  const { root, window } = setupDom();
+  installTranslationSyncCoreStub(window);
   globalThis.fetch = mock.fn(async (input, init = {}) => {
     const method = String(init.method || 'GET').toUpperCase();
     const url = String(input);
     if (method === 'GET' && url.includes('/api/translations/assignments/asg-editor-1')) {
       return createJsonResponse(makeTranslationMemoryScaleFixture());
+    }
+    if (method === 'GET' && url.includes('/api/translations/sync/resources/translation_variant_draft/')) {
+      return createJsonResponse({
+        data: makeTranslationMemoryScaleFixture().data,
+        revision: 3,
+        updated_at: '2026-01-01T00:00:00Z',
+      });
     }
     return createJsonResponse({ error: { message: 'unexpected request' } }, 500, {
       'content-type': 'application/json',
@@ -658,6 +715,13 @@ test('translation editor runtime: save draft mutates the sync resource through s
     if (method === 'GET' && url.includes('/api/translations/assignments/asg-editor-1')) {
       return createJsonResponse(makeSubmitReadyFixture());
     }
+    if (method === 'GET' && url.includes('/admin/api/translations/sync/resources/translation_variant_draft/')) {
+      return createJsonResponse({
+        data: makeSubmitReadyFixture().data,
+        revision: 3,
+        updated_at: '2026-01-01T00:00:00Z',
+      });
+    }
     if (method === 'PATCH' && url.includes('/admin/api/translations/sync/resources/translation_variant_draft/')) {
       return createJsonResponse({
         data: makeSubmitReadyUpdateFixture().data,
@@ -673,7 +737,7 @@ test('translation editor runtime: save draft mutates the sync resource through s
   });
 
   const screen = new TranslationEditorScreen({
-    endpoint: '/admin/api/translations/assignments/asg-editor-1',
+    endpoint: '/admin/api/translations/assignments/asg-editor-1?channel=staging',
     actionEndpointBase: '/admin/api/translations/assignments',
     syncBaseURL: '/admin/api/translations',
     syncClientBasePath: '/admin/sync-client/sync-core',
@@ -690,8 +754,14 @@ test('translation editor runtime: save draft mutates the sync resource through s
   await flushAsync();
 
   const patch = requests.find((request) => request.method === 'PATCH');
+  const syncRead = requests.find((request) => request.method === 'GET' && request.url.includes('/sync/resources/translation_variant_draft/'));
+  assert.ok(syncRead);
+  assert.ok(requests.indexOf(syncRead) < requests.indexOf(patch));
+  assert.match(syncRead.url, /[?&]channel=staging(?:&|$)/);
+  assert.doesNotMatch(syncRead.url, /\/sync\/sync\/resources\//);
   assert.ok(patch);
   assert.match(patch.url, /\/admin\/api\/translations\/sync\/resources\/translation_variant_draft\//);
+  assert.match(patch.url, /[?&]channel=staging(?:&|$)/);
   assert.doesNotMatch(patch.url, /\/sync\/sync\/resources\//);
   const body = JSON.parse(patch.init.body);
   assert.equal(body.operation, 'autosave');
@@ -729,6 +799,13 @@ test('translation editor runtime: sync conflict reload applies latest snapshot r
     requests.push({ url, method, init });
     if (method === 'GET' && url.includes('/api/translations/assignments/asg-editor-1')) {
       return createJsonResponse(makeSubmitReadyFixture());
+    }
+    if (method === 'GET' && url.includes('/admin/api/translations/sync/resources/translation_variant_draft/')) {
+      return createJsonResponse({
+        data: makeSubmitReadyFixture().data,
+        revision: 3,
+        updated_at: '2026-01-01T00:00:00Z',
+      });
     }
     if (method === 'PATCH' && url.includes('/admin/api/translations/sync/resources/translation_variant_draft/')) {
       patchCount += 1;
@@ -812,6 +889,161 @@ test('translation editor runtime: sync conflict reload applies latest snapshot r
   screen.unmount();
 });
 
+test('translation editor runtime: sync conflict reload refreshes resource when latest snapshot is absent', async () => {
+  const { root, window } = setupDom();
+  installTranslationSyncCoreStub(window);
+  const requests = [];
+  let syncReadCount = 0;
+  const refreshed = makeSubmitReadyUpdateFixture();
+  refreshed.data.row_version = 4;
+  refreshed.data.version = 4;
+  refreshed.data.fields = {
+    ...refreshed.data.fields,
+    title: 'Guide rafraichi serveur',
+  };
+  refreshed.data.target_fields = {
+    ...refreshed.data.target_fields,
+    title: 'Guide rafraichi serveur',
+  };
+  globalThis.fetch = mock.fn(async (input, init = {}) => {
+    const method = String(init.method || 'GET').toUpperCase();
+    const url = String(input);
+    requests.push({ url, method, init });
+    if (method === 'GET' && url.includes('/api/translations/assignments/asg-editor-1')) {
+      return createJsonResponse(makeSubmitReadyFixture());
+    }
+    if (method === 'GET' && url.includes('/admin/api/translations/sync/resources/translation_variant_draft/')) {
+      syncReadCount += 1;
+      return createJsonResponse({
+        data: syncReadCount === 1 ? makeSubmitReadyFixture().data : refreshed.data,
+        revision: syncReadCount === 1 ? 3 : 4,
+        updated_at: '2026-01-01T00:00:00Z',
+      });
+    }
+    if (method === 'PATCH' && url.includes('/admin/api/translations/sync/resources/translation_variant_draft/')) {
+      return createJsonResponse({
+        error: {
+          code: 'STALE_REVISION',
+          message: 'stale translation variant draft',
+          details: {
+            current_revision: 4,
+          },
+        },
+      }, 409);
+    }
+    return createJsonResponse({ error: { message: 'unexpected request' } }, 500, {
+      'content-type': 'application/json',
+    });
+  });
+
+  const screen = new TranslationEditorScreen({
+    endpoint: '/admin/api/translations/assignments/asg-editor-1',
+    actionEndpointBase: '/admin/api/translations/assignments',
+    syncBaseURL: '/admin/api/translations',
+    syncClientBasePath: '/admin/sync-client/sync-core',
+  });
+  screen.mount(root);
+  await flushAsync();
+  await flushAsync();
+
+  const titleInput = root.querySelector('[data-field-input="title"]');
+  titleInput.value = 'Guide conflit local';
+  titleInput.dispatchEvent(new window.Event('input', { bubbles: true }));
+  root.querySelector('[data-action="save-draft"]').click();
+  await flushAsync();
+  await flushAsync();
+
+  root.querySelector('[data-action="reload-server-state"]').click();
+  await flushAsync();
+  await flushAsync();
+
+  const assignmentReads = requests.filter((request) => request.method === 'GET' && request.url.includes('/api/translations/assignments/asg-editor-1'));
+  const syncReads = requests.filter((request) => request.method === 'GET' && request.url.includes('/sync/resources/translation_variant_draft/'));
+  assert.equal(assignmentReads.length, 1);
+  assert.equal(syncReads.length, 2);
+  assert.equal(root.querySelector('[data-field-input="title"]').value, 'Guide rafraichi serveur');
+
+  screen.unmount();
+});
+
+test('translation editor runtime: conflict reload does not fall back to assignment detail when sync refresh fails', async () => {
+  const { root, window } = setupDom();
+  installTranslationSyncCoreStub(window);
+  const requests = [];
+  let assignmentReadCount = 0;
+  let syncReadCount = 0;
+
+  globalThis.fetch = mock.fn(async (input, init = {}) => {
+    const method = String(init.method || 'GET').toUpperCase();
+    const url = String(input);
+    requests.push({ url, method, init });
+    if (method === 'GET' && url.includes('/api/translations/assignments/asg-editor-1')) {
+      assignmentReadCount += 1;
+      return createJsonResponse(makeSubmitReadyFixture());
+    }
+    if (method === 'GET' && url.includes('/admin/api/translations/sync/resources/translation_variant_draft/')) {
+      syncReadCount += 1;
+      if (syncReadCount > 1) {
+        return createJsonResponse({ error: { message: 'sync refresh unavailable' } }, 503, {
+          'content-type': 'application/json',
+        });
+      }
+      return createJsonResponse({
+        data: makeSubmitReadyFixture().data,
+        revision: 3,
+        updated_at: '2026-01-01T00:00:00Z',
+      });
+    }
+    if (method === 'PATCH' && url.includes('/admin/api/translations/sync/resources/translation_variant_draft/')) {
+      return createJsonResponse({
+        error: {
+          code: 'STALE_REVISION',
+          message: 'stale translation variant draft',
+          details: {
+            current_revision: 4,
+          },
+        },
+      }, 409);
+    }
+    return createJsonResponse({ error: { message: 'unexpected request' } }, 500, {
+      'content-type': 'application/json',
+    });
+  });
+
+  const screen = new TranslationEditorScreen({
+    endpoint: '/admin/api/translations/assignments/asg-editor-1',
+    actionEndpointBase: '/admin/api/translations/assignments',
+    syncBaseURL: '/admin/api/translations',
+    syncClientBasePath: '/admin/sync-client/sync-core',
+  });
+  screen.mount(root);
+  await flushAsync();
+  await flushAsync();
+
+  const titleInput = root.querySelector('[data-field-input="title"]');
+  titleInput.value = 'Guide conflit local';
+  titleInput.dispatchEvent(new window.Event('input', { bubbles: true }));
+  root.querySelector('[data-action="save-draft"]').click();
+  await flushAsync();
+  await flushAsync();
+
+  root.querySelector('[data-action="reload-server-state"]').click();
+  for (let i = 0; i < 8; i += 1) {
+    await flushAsync();
+    const fallbackReads = requests.filter((request) => request.method === 'GET' && request.url.includes('/api/translations/assignments/asg-editor-1'));
+    if (fallbackReads.length >= 2) break;
+  }
+
+  const syncReads = requests.filter((request) => request.method === 'GET' && request.url.includes('/sync/resources/translation_variant_draft/'));
+  const assignmentReads = requests.filter((request) => request.method === 'GET' && request.url.includes('/api/translations/assignments/asg-editor-1'));
+  assert.equal(syncReads.length, 2);
+  assert.equal(assignmentReads.length, 1);
+  assert.doesNotMatch(syncReads[1].url, /\/sync\/sync\/resources\//);
+  assert.match(root.innerHTML, /Sync draft load did not return a usable draft snapshot|sync refresh unavailable/);
+
+  screen.unmount();
+});
+
 test('translation editor runtime: separates review actions from management actions', () => {
   const nonReviewDetail = normalizeAssignmentEditorDetail(fixtures.detail);
   const nonReviewHTML = renderTranslationEditorState(
@@ -861,6 +1093,8 @@ test('translation editor runtime: reject modal renders reviewer inputs', () => {
 });
 
 test('translation editor runtime: submit guard blocks QA-blocked actions before transport', async () => {
+  const { window } = setupDom();
+  installTranslationSyncCoreStub(window);
   let fetchCalls = 0;
   globalThis.fetch = mock.fn(async (input, init = {}) => {
     fetchCalls += 1;
@@ -868,6 +1102,13 @@ test('translation editor runtime: submit guard blocks QA-blocked actions before 
     const url = String(input);
     if (method === 'GET' && url.includes('/api/translations/assignments/asg-editor-1')) {
       return createJsonResponse(fixtures.detail);
+    }
+    if (method === 'GET' && url.includes('/api/translations/sync/resources/translation_variant_draft/')) {
+      return createJsonResponse({
+        data: fixtures.detail.data,
+        revision: 3,
+        updated_at: '2026-01-01T00:00:00Z',
+      });
     }
     return createJsonResponse({ error: { message: 'unexpected request' } }, 500, {
       'content-type': 'application/json',
@@ -885,7 +1126,7 @@ test('translation editor runtime: submit guard blocks QA-blocked actions before 
 
   await screen.submitForReview();
 
-  assert.equal(fetchCalls, 1);
+  assert.equal(fetchCalls, 2);
   assert.match(container.innerHTML, /Resolve QA blockers before submitting for review\./i);
   assert.match(container.innerHTML, /data-editor-feedback-kind="conflict"/);
 });

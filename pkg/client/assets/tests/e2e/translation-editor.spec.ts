@@ -246,6 +246,18 @@ test.describe('Translation Assignment Editor', () => {
       });
     });
     await page.route('**/api/translations/sync/resources/translation_variant_draft/*', async (route) => {
+      if (route.request().method() === 'GET') {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            data: makeSubmitReadyFixture().data,
+            revision: 3,
+            updated_at: '2026-01-01T00:00:00Z',
+          }),
+        });
+        return;
+      }
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -314,6 +326,18 @@ test.describe('Translation Assignment Editor', () => {
       });
     });
     await page.route('**/api/translations/sync/resources/translation_variant_draft/*', async (route) => {
+      if (route.request().method() === 'GET') {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            data: fixtures.detail.data,
+            revision: 3,
+            updated_at: '2026-01-01T00:00:00Z',
+          }),
+        });
+        return;
+      }
       await route.fulfill({
         status: 409,
         contentType: 'application/json',

@@ -184,7 +184,7 @@ async function parseResponseBody(response: FetchResponseLike): Promise<unknown> 
 }
 
 function buildResourceURL(ref: ResourceRef, baseURL = ""): string {
-  return joinURL(baseURL, "sync", "resources", ref.kind, ref.id);
+  return appendScopeQuery(joinURL(baseURL, "sync", "resources", ref.kind, ref.id), ref.scope);
 }
 
 function buildMutationURL(
@@ -194,9 +194,23 @@ function buildMutationURL(
   baseURL = "",
 ): string {
   if (method === "POST") {
-    return joinURL(baseURL, "sync", "resources", ref.kind, ref.id, "actions", operation);
+    return appendScopeQuery(joinURL(baseURL, "sync", "resources", ref.kind, ref.id, "actions", operation), ref.scope);
   }
   return buildResourceURL(ref, baseURL);
+}
+
+function appendScopeQuery(url: string, scope?: Record<string, string>): string {
+  const entries = Object.entries(scope ?? {})
+    .map(([key, value]) => [key.trim(), value.trim()] as const)
+    .filter(([key, value]) => key !== "" && value !== "")
+    .sort(([left], [right]) => left.localeCompare(right));
+  if (entries.length === 0) {
+    return url;
+  }
+  const query = entries
+    .map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(value)}`)
+    .join("&");
+  return `${url}${url.includes("?") ? "&" : "?"}${query}`;
 }
 
 function joinURL(baseURL: string, ...parts: string[]): string {

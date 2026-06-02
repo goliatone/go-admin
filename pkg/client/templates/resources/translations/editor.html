@@ -27,6 +27,7 @@
       data-action-base="{{ translation_editor_action_api_base|default:"" }}"
       data-sync-base="{{ translation_editor_sync_api_base|default:"" }}"
       data-sync-client-base-path="{{ translation_editor_sync_client_base_path|default:"" }}"
+      data-channel="{{ translation_editor_channel|default:"" }}"
       data-assignment-id="{{ translation_assignment_id|default:"" }}"
       data-base-path="{{ base_path|default:"/admin" }}"
     ></div>
@@ -45,6 +46,7 @@ if (root) {
     actionEndpointBase: root.dataset.actionBase || '',
     syncBaseURL: root.dataset.syncBase || '',
     syncClientBasePath: root.dataset.syncClientBasePath || '',
+    syncScope: root.dataset.channel ? { channel: root.dataset.channel } : {},
     basePath: root.dataset.basePath || '{{ base_path|default:"/admin" }}',
   });
 }

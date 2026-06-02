@@ -1,4 +1,4 @@
-const pe = "@goliatone/sync-core", he = "0.0.0-phase5";
+const he = "@goliatone/sync-core", me = "0.0.0-phase5";
 function R(e) {
   return e == null ? e : typeof structuredClone == "function" ? structuredClone(e) : I(e);
 }
@@ -7,7 +7,7 @@ function I(e) {
     return e.map((t) => I(t));
   if (e instanceof Date)
     return new Date(e.getTime());
-  if (N(e)) {
+  if (U(e)) {
     const t = {};
     for (const [i, a] of Object.entries(e))
       t[i] = I(a);
@@ -15,21 +15,21 @@ function I(e) {
   }
   return e;
 }
-function N(e) {
+function U(e) {
   return !!e && typeof e == "object" && !Array.isArray(e);
 }
 const k = /* @__PURE__ */ new Set([
   "RATE_LIMITED",
   "TEMPORARY_FAILURE",
   "TRANSPORT_UNAVAILABLE"
-]), A = {
+]), b = {
   maxAttempts: 3,
   baseDelayMs: 100,
   maxDelayMs: 2e3,
   jitterRatio: 0.2
 };
-function U(e) {
-  const t = e.cache ?? P(), i = z(e.retry), a = e.random ?? Math.random, o = e.wait ?? X, r = /* @__PURE__ */ new Map();
+function $(e) {
+  const t = e.cache ?? P(), i = Y(e.retry), a = e.random ?? Math.random, o = e.wait ?? Z, r = /* @__PURE__ */ new Map();
   return {
     resource(n) {
       const s = l(n);
@@ -38,10 +38,10 @@ function U(e) {
           return p(s.state.snapshot);
         },
         getState() {
-          return b(s.state);
+          return A(s.state);
         },
         subscribe(u) {
-          return s.listeners.add(u), u(b(s.state)), () => {
+          return s.listeners.add(u), u(A(s.state)), () => {
             s.listeners.delete(u);
           };
         },
@@ -61,7 +61,7 @@ function U(e) {
     },
     getState(n) {
       const s = r.get(E(n));
-      return s ? b(s.state) : null;
+      return s ? A(s.state) : null;
     },
     invalidate(n, s) {
       d(l(n), s);
@@ -72,10 +72,10 @@ function U(e) {
     if (u)
       return u;
     const h = t.get(n), w = {
-      ref: y(n),
+      ref: m(n),
       key: s,
       state: {
-        ref: y(n),
+        ref: m(n),
         status: h?.snapshot ? "ready" : "idle",
         snapshot: p(h?.snapshot ?? null),
         invalidated: h?.invalidated ?? !1,
@@ -110,39 +110,39 @@ function U(e) {
       error: null,
       conflict: null
     }, v(n);
-    const w = e.transport.load(y(n.ref)).then((S) => {
-      const m = g(S);
-      return h !== n.loadRequestID ? n.inFlightLoad ? n.inFlightLoad : g(n.state.snapshot ?? m) : (t.set(n.ref, m), n.state = {
+    const w = e.transport.load(m(n.ref)).then((S) => {
+      const y = g(S);
+      return h !== n.loadRequestID ? n.inFlightLoad ? n.inFlightLoad : g(n.state.snapshot ?? y) : (t.set(n.ref, y), n.state = {
         ...n.state,
         status: "ready",
-        snapshot: m,
+        snapshot: y,
         invalidated: !1,
         invalidationReason: void 0,
         error: null,
         conflict: null
-      }, v(n), g(m));
+      }, v(n), g(y));
     }).catch((S) => {
-      const m = _(n.ref, S, n.state.snapshot);
+      const y = _(n.ref, S, n.state.snapshot);
       if (h !== n.loadRequestID) {
         if (n.inFlightLoad)
           return n.inFlightLoad;
         if (n.state.snapshot && !n.state.invalidated)
           return g(n.state.snapshot);
-        throw m;
+        throw y;
       }
       throw n.state = {
         ...n.state,
-        status: m.conflict ? "conflict" : "error",
-        error: m,
-        conflict: m.conflict ?? null
-      }, v(n), m;
+        status: y.conflict ? "conflict" : "error",
+        error: y,
+        conflict: y.conflict ?? null
+      }, v(n), y;
     }).finally(() => {
       n.inFlightLoad === w && (n.inFlightLoad = null);
     });
     return n.inFlightLoad = w, w;
   }
   async function f(n, s) {
-    const u = W();
+    const u = J();
     return n.queue.push({
       input: s,
       resolve: u.resolve,
@@ -154,7 +154,7 @@ function U(e) {
   }
 }
 function ye(e) {
-  return U(e).resource(e.ref);
+  return $(e).resource(e.ref);
 }
 function P() {
   const e = /* @__PURE__ */ new Map();
@@ -162,7 +162,7 @@ function P() {
     get(t) {
       const i = e.get(E(t));
       return i ? {
-        ref: y(i.ref),
+        ref: m(i.ref),
         snapshot: p(i.snapshot),
         invalidated: i.invalidated,
         invalidationReason: i.invalidationReason
@@ -170,13 +170,13 @@ function P() {
     },
     set(t, i) {
       const a = E(t), o = {
-        ref: y(t),
+        ref: m(t),
         snapshot: p(i),
         invalidated: !1,
         invalidationReason: void 0
       };
       return e.set(a, o), {
-        ref: y(o.ref),
+        ref: m(o.ref),
         snapshot: p(o.snapshot),
         invalidated: o.invalidated,
         invalidationReason: o.invalidationReason
@@ -184,13 +184,13 @@ function P() {
     },
     invalidate(t, i) {
       const a = E(t), o = e.get(a), r = {
-        ref: y(t),
+        ref: m(t),
         snapshot: p(o?.snapshot ?? null),
         invalidated: !0,
         invalidationReason: i
       };
       return e.set(a, r), {
-        ref: y(r.ref),
+        ref: m(r.ref),
         snapshot: p(r.snapshot),
         invalidated: r.invalidated,
         invalidationReason: r.invalidationReason
@@ -205,7 +205,7 @@ function E(e) {
   return [
     encodeURIComponent(e.kind),
     encodeURIComponent(e.id),
-    Q(e.scope)
+    W(e.scope)
   ].join("::");
 }
 function _(e, t, i) {
@@ -246,7 +246,7 @@ async function K(e, t, i, a, o, r) {
           queueDepth: e.queue.length
         }, v(e);
         try {
-          const d = Y(e, l.input), c = await V(
+          const d = Q(e, l.input), c = await V(
             e,
             t,
             d,
@@ -254,7 +254,7 @@ async function K(e, t, i, a, o, r) {
             o,
             r
           ), f = g(c.snapshot);
-          $(i, e, f), e.queue.shift(), e.state = {
+          z(i, e, f), e.queue.shift(), e.state = {
             ...e.state,
             status: e.queue.length > 0 ? "saving" : "ready",
             snapshot: f,
@@ -302,7 +302,7 @@ async function V(e, t, i, a, o, r) {
     }
   throw d ?? new Error("mutation queue exhausted retries");
 }
-function $(e, t, i) {
+function z(e, t, i) {
   const a = e.set(t.ref, i);
   t.state = {
     ...t.state,
@@ -311,23 +311,23 @@ function $(e, t, i) {
     invalidationReason: void 0
   };
 }
-function z(e) {
+function Y(e) {
   return {
-    maxAttempts: e?.maxAttempts ?? A.maxAttempts,
-    baseDelayMs: e?.baseDelayMs ?? A.baseDelayMs,
-    maxDelayMs: e?.maxDelayMs ?? A.maxDelayMs,
-    jitterRatio: e?.jitterRatio ?? A.jitterRatio
+    maxAttempts: e?.maxAttempts ?? b.maxAttempts,
+    baseDelayMs: e?.baseDelayMs ?? b.baseDelayMs,
+    maxDelayMs: e?.maxDelayMs ?? b.maxDelayMs,
+    jitterRatio: e?.jitterRatio ?? b.jitterRatio
   };
 }
-function Y(e, t) {
+function Q(e, t) {
   const i = "ref" in t && t.ref ? t.ref : e.ref;
   if (E(i) !== e.key)
-    throw D("mutation request ref must match the bound sync resource");
+    throw q("mutation request ref must match the bound sync resource");
   const a = t.expectedRevision ?? e.state.snapshot?.revision;
   if (a === void 0)
-    throw D("resource must be loaded before mutate unless expectedRevision is provided");
+    throw q("resource must be loaded before mutate unless expectedRevision is provided");
   return {
-    ref: y(e.ref),
+    ref: m(e.ref),
     operation: t.operation,
     payload: R(t.payload),
     expectedRevision: a,
@@ -355,32 +355,32 @@ function H(e, t) {
   };
 }
 function v(e) {
-  const t = b(e.state);
+  const t = A(e.state);
   for (const i of e.listeners)
     i(t);
 }
-function Q(e) {
+function W(e) {
   return e ? Object.keys(e).sort().map((t) => `${encodeURIComponent(t)}=${encodeURIComponent(e[t] ?? "")}`).join("&") : "";
 }
-function W() {
+function J() {
   let e, t;
   return { promise: new Promise((a, o) => {
     e = a, t = o;
   }), resolve: e, reject: t };
 }
-function b(e) {
+function A(e) {
   return {
-    ref: y(e.ref),
+    ref: m(e.ref),
     status: e.status,
     snapshot: p(e.snapshot),
     invalidated: e.invalidated,
     invalidationReason: e.invalidationReason,
     queueDepth: e.queueDepth,
-    error: J(e.error),
-    conflict: q(e.conflict)
+    error: X(e.error),
+    conflict: D(e.conflict)
   };
 }
-function J(e) {
+function X(e) {
   return e ? {
     code: e.code,
     message: e.message,
@@ -389,10 +389,10 @@ function J(e) {
     resource: p(e.resource ?? null) ?? void 0,
     retriable: e.retriable,
     cause: e.cause,
-    conflict: q(e.conflict ?? null) ?? void 0
+    conflict: D(e.conflict ?? null) ?? void 0
   } : null;
 }
-function q(e) {
+function D(e) {
   return e ? {
     code: e.code,
     message: e.message,
@@ -406,14 +406,14 @@ function g(e) {
 }
 function p(e) {
   return e ? {
-    ref: y(e.ref),
+    ref: m(e.ref),
     data: R(e.data),
     revision: e.revision,
     updatedAt: e.updatedAt,
     metadata: O(e.metadata) ? R(e.metadata) : e.metadata
   } : null;
 }
-function y(e) {
+function m(e) {
   return {
     kind: e.kind,
     id: e.id,
@@ -423,22 +423,22 @@ function y(e) {
 function O(e) {
   return !!e && typeof e == "object" && !Array.isArray(e);
 }
-function X(e) {
+function Z(e) {
   return new Promise((t) => {
     setTimeout(t, e);
   });
 }
-function D(e) {
+function q(e) {
   return {
     code: "INVALID_MUTATION",
     message: e
   };
 }
-function Z(e, t) {
+function ee(e, t) {
   const i = T(t, "read envelope");
   return L(e, i);
 }
-function ee(e, t) {
+function te(e, t) {
   const i = T(t, "mutation envelope");
   if (typeof i.applied != "boolean")
     throw new TypeError("mutation envelope must include boolean applied");
@@ -450,7 +450,7 @@ function ee(e, t) {
     replay: i.replay
   };
 }
-function te(e, t) {
+function ne(e, t) {
   const i = T(t, "error envelope"), a = T(i.error, "error envelope.error");
   if (typeof a.code != "string" || a.code.trim() === "")
     throw new TypeError("error envelope must include string code");
@@ -471,14 +471,14 @@ function L(e, t) {
   if (typeof t.updated_at != "string" || t.updated_at.trim() === "")
     throw new TypeError("read envelope must include string updated_at");
   return {
-    ref: ne(e),
+    ref: ae(e),
     data: R(t.data),
     revision: t.revision,
     updatedAt: t.updated_at,
     metadata: M(t.metadata) ? R(t.metadata) : void 0
   };
 }
-function ne(e) {
+function ae(e) {
   return {
     kind: e.kind,
     id: e.id,
@@ -493,18 +493,18 @@ function T(e, t) {
 function M(e) {
   return !!e && typeof e == "object" && !Array.isArray(e);
 }
-function me(e = {}) {
-  const t = ae(e.fetch);
+function ve(e = {}) {
+  const t = ie(e.fetch);
   return {
     async load(a) {
-      const o = await i(a, "GET", x(a, e.baseURL), void 0);
-      return Z(a, o);
+      const o = await i(a, "GET", j(a, e.baseURL), void 0);
+      return ee(a, o);
     },
     async mutate(a) {
-      const o = re(a, e.actionOperations) ? "POST" : "PATCH", r = await i(
+      const o = ue(a, e.actionOperations) ? "POST" : "PATCH", r = await i(
         a.ref,
         o,
-        oe(a.ref, a.operation, o, e.baseURL),
+        re(a.ref, a.operation, o, e.baseURL),
         {
           operation: o === "PATCH" ? a.operation : void 0,
           payload: a.payload ?? null,
@@ -514,16 +514,16 @@ function me(e = {}) {
         },
         a
       );
-      return ee(a.ref, r);
+      return te(a.ref, r);
     }
   };
   async function i(a, o, r, l, d) {
     const c = {
       requestKind: d ? "mutate" : "load",
       method: o,
-      ref: C(a),
-      input: d ? F(d) : void 0
-    }, f = await ie(e.headers, c), n = {
+      ref: F(a),
+      input: d ? N(d) : void 0
+    }, f = await oe(e.headers, c), n = {
       method: o,
       credentials: e.credentials,
       headers: f
@@ -546,25 +546,25 @@ function me(e = {}) {
       return u;
     if (u !== void 0)
       try {
-        throw te(a, u);
+        throw ne(a, u);
       } catch (h) {
-        if (ce(h))
+        if (le(h))
           throw h;
       }
     throw {
-      code: ue(s.status),
+      code: ce(s.status),
       message: `sync request failed with status ${s.status}`
     };
   }
 }
-function ae(e) {
+function ie(e) {
   if (e)
     return e;
   if (typeof globalThis.fetch == "function")
     return globalThis.fetch.bind(globalThis);
   throw new TypeError("createFetchSyncTransport requires a fetch implementation");
 }
-async function ie(e, t) {
+async function oe(e, t) {
   return {
     Accept: "application/json",
     ...typeof e == "function" ? await e(t) : e ?? {}
@@ -579,32 +579,39 @@ async function se(e) {
       return;
     }
 }
-function x(e, t = "") {
-  return j(t, "sync", "resources", e.kind, e.id);
+function j(e, t = "") {
+  return x(C(t, "sync", "resources", e.kind, e.id), e.scope);
 }
-function oe(e, t, i, a = "") {
-  return i === "POST" ? j(a, "sync", "resources", e.kind, e.id, "actions", t) : x(e, a);
+function re(e, t, i, a = "") {
+  return i === "POST" ? x(C(a, "sync", "resources", e.kind, e.id, "actions", t), e.scope) : j(e, a);
 }
-function j(e, ...t) {
+function x(e, t) {
+  const i = Object.entries(t ?? {}).map(([o, r]) => [o.trim(), r.trim()]).filter(([o, r]) => o !== "" && r !== "").sort(([o], [r]) => o.localeCompare(r));
+  if (i.length === 0)
+    return e;
+  const a = i.map(([o, r]) => `${encodeURIComponent(o)}=${encodeURIComponent(r)}`).join("&");
+  return `${e}${e.includes("?") ? "&" : "?"}${a}`;
+}
+function C(e, ...t) {
   const i = e.replace(/\/+$/, ""), a = t.map((o) => encodeURIComponent(o.trim())).join("/");
   return i ? `${i}/${a}` : `/${a}`;
 }
-function re(e, t) {
-  return typeof t == "function" ? t(F(e)) : Array.isArray(t) && t.length > 0 ? t.includes(e.operation) : typeof e.idempotencyKey == "string" && e.idempotencyKey.trim() !== "";
+function ue(e, t) {
+  return typeof t == "function" ? t(N(e)) : Array.isArray(t) && t.length > 0 ? t.includes(e.operation) : typeof e.idempotencyKey == "string" && e.idempotencyKey.trim() !== "";
 }
-function ue(e) {
+function ce(e) {
   return e === 400 ? "INVALID_MUTATION" : e === 404 ? "NOT_FOUND" : e === 409 ? "STALE_REVISION" : e === 429 ? "RATE_LIMITED" : (e >= 500, "TEMPORARY_FAILURE");
 }
-function C(e) {
+function F(e) {
   return {
     kind: e.kind,
     id: e.id,
     scope: e.scope ? { ...e.scope } : void 0
   };
 }
-function F(e) {
+function N(e) {
   return {
-    ref: C(e.ref),
+    ref: F(e.ref),
     operation: e.operation,
     payload: e.payload,
     expectedRevision: e.expectedRevision,
@@ -612,16 +619,16 @@ function F(e) {
     metadata: e.metadata ? { ...e.metadata } : void 0
   };
 }
-function ce(e) {
+function le(e) {
   return !!e && typeof e == "object" && typeof e.code == "string" && typeof e.message == "string";
 }
-function ve(e, t = {}) {
-  const i = t.focusTarget ?? le(), a = t.visibilityTarget ?? de(), o = {
+function Re(e, t = {}) {
+  const i = t.focusTarget ?? de(), a = t.visibilityTarget ?? fe(), o = {
     force: t.refreshOptions?.force ?? !0
   };
   let r = !1, l = null;
   const d = () => {
-    !r || !fe(a) || c("window_focus").catch(() => {
+    !r || !pe(a) || c("window_focus").catch(() => {
     });
   };
   return {
@@ -656,28 +663,28 @@ function ve(e, t = {}) {
     return n === "initial_load" && !s || !s ? e.load() : e.refresh(o);
   }
 }
-function le() {
+function de() {
   return globalThis.window ?? null;
 }
-function de() {
+function fe() {
   return globalThis.document ?? null;
 }
-function fe(e) {
+function pe(e) {
   return !e || typeof e.visibilityState != "string" ? !0 : e.visibilityState !== "hidden";
 }
 export {
-  A as DEFAULT_RETRY_POLICY,
-  pe as SYNC_CORE_PACKAGE_NAME,
-  he as SYNC_CORE_PACKAGE_VERSION,
-  me as createFetchSyncTransport,
+  b as DEFAULT_RETRY_POLICY,
+  he as SYNC_CORE_PACKAGE_NAME,
+  me as SYNC_CORE_PACKAGE_VERSION,
+  ve as createFetchSyncTransport,
   P as createInMemoryCache,
-  ve as createRefreshPolicy,
+  Re as createRefreshPolicy,
   E as createResourceKey,
-  U as createSyncEngine,
+  $ as createSyncEngine,
   ye as createSyncResource,
   B as isSyncEnvelopeError,
   _ as normalizeSyncError,
-  te as parseErrorEnvelope,
-  ee as parseMutationEnvelope,
-  Z as parseReadEnvelope
+  ne as parseErrorEnvelope,
+  te as parseMutationEnvelope,
+  ee as parseReadEnvelope
 };
