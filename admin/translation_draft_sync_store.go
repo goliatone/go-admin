@@ -14,8 +14,11 @@ import (
 )
 
 const (
-	translationDraftSyncResourceKind = "translation_variant_draft"
-	translationDraftSyncOperation    = "autosave"
+	translationDraftSyncResourceKind    = "translation_variant_draft"
+	translationDraftSyncOperation       = "autosave"
+	translationDraftSyncTriggerRead     = "read"
+	translationDraftSyncTriggerSave     = "save"
+	translationDraftSyncTriggerConflict = "conflict"
 )
 
 var _ syncstore.ResourceStore = (*translationDraftSyncResourceStore)(nil)
@@ -30,6 +33,10 @@ type translationDraftSyncMutationPayload struct {
 	AcknowledgedSourceHash string         `json:"acknowledged_source_hash"`
 	SourceHashAtLastSync   string         `json:"source_hash_at_last_sync"`
 	Autosave               any            `json:"autosave"`
+}
+
+type translationDraftSyncSnapshotOptions struct {
+	QAOutcomeTrigger string
 }
 
 func newTranslationDraftSyncResourceStore(binding *translationQueueBinding) *translationDraftSyncResourceStore {
@@ -54,7 +61,9 @@ func (s *translationDraftSyncResourceStore) Get(ctx context.Context, ref synccor
 			"variant_id": strings.TrimSpace(ref.ID),
 		})
 	}
-	return s.snapshot(ctx, ref, editorCtx, nil, editorCtx.TargetRowVersion)
+	return s.snapshot(ctx, ref, editorCtx, nil, editorCtx.TargetRowVersion, translationDraftSyncSnapshotOptions{
+		QAOutcomeTrigger: translationDraftSyncTriggerRead,
+	})
 }
 
 //nolint:gocyclo,funlen // sync mutation validation has a fixed sequence of contract checks before persistence.
@@ -92,7 +101,9 @@ func (s *translationDraftSyncResourceStore) Mutate(ctx context.Context, input sy
 		})
 	}
 	if input.ExpectedRevision != editorCtx.TargetRowVersion {
-		latest, snapshotErr := s.snapshot(ctx, ref, editorCtx, nil, editorCtx.TargetRowVersion)
+		latest, snapshotErr := s.snapshot(ctx, ref, editorCtx, nil, editorCtx.TargetRowVersion, translationDraftSyncSnapshotOptions{
+			QAOutcomeTrigger: translationDraftSyncTriggerConflict,
+		})
 		if snapshotErr != nil {
 			return synccore.Snapshot{}, snapshotErr
 		}
@@ -127,7 +138,9 @@ func (s *translationDraftSyncResourceStore) Mutate(ctx context.Context, input sy
 	reloaded.TargetFields = updatedFields
 	reloaded.TargetRecordID = strings.TrimSpace(editorVariantRecordID(updatedRecord))
 	reloaded.TargetRowVersion = nextVersion
-	return s.snapshot(ctx, ref, reloaded, updatedRecord, nextVersion)
+	return s.snapshot(ctx, ref, reloaded, updatedRecord, nextVersion, translationDraftSyncSnapshotOptions{
+		QAOutcomeTrigger: translationDraftSyncTriggerSave,
+	})
 }
 
 func (s *translationDraftSyncResourceStore) validateResourceRef(ref synccore.ResourceRef) error {
@@ -147,19 +160,21 @@ func (s *translationDraftSyncResourceStore) validateResourceRef(ref synccore.Res
 	return nil
 }
 
-func (s *translationDraftSyncResourceStore) snapshot(ctx context.Context, ref synccore.ResourceRef, editorCtx translationEditorContext, updatedRecord any, revision int64) (synccore.Snapshot, error) {
+func (s *translationDraftSyncResourceStore) snapshot(ctx context.Context, ref synccore.ResourceRef, editorCtx translationEditorContext, updatedRecord any, revision int64, options translationDraftSyncSnapshotOptions) (synccore.Snapshot, error) {
 	currentAssignment := translationEditorAssignmentByLocale(editorCtx.Family, editorCtx.TargetVariant.Locale)
 	qaResults := s.binding.translationQAResults(editorCtx)
-	recordTranslationQAOutcomeMetric(ctx, translationQAOutcomeEvent{
-		Trigger:      "save",
-		AssignmentID: strings.TrimSpace(currentAssignment.ID),
-		EntityType:   strings.TrimSpace(editorCtx.Family.ContentType),
-		Locale:       strings.TrimSpace(editorCtx.TargetVariant.Locale),
-		Environment:  translationDraftSyncChannel(ref.Scope),
-		Outcome:      translationQAOutcomeLabel(qaResults),
-		WarningCount: intValue(extractMap(qaResults["summary"])["warning_count"]),
-		BlockerCount: intValue(extractMap(qaResults["summary"])["blocker_count"]),
-	})
+	if trigger := strings.TrimSpace(options.QAOutcomeTrigger); trigger != "" {
+		recordTranslationQAOutcomeMetric(ctx, translationQAOutcomeEvent{
+			Trigger:      trigger,
+			AssignmentID: strings.TrimSpace(currentAssignment.ID),
+			EntityType:   strings.TrimSpace(editorCtx.Family.ContentType),
+			Locale:       strings.TrimSpace(editorCtx.TargetVariant.Locale),
+			Environment:  translationDraftSyncChannel(ref.Scope),
+			Outcome:      translationQAOutcomeLabel(qaResults),
+			WarningCount: intValue(extractMap(qaResults["summary"])["warning_count"]),
+			BlockerCount: intValue(extractMap(qaResults["summary"])["blocker_count"]),
+		})
+	}
 	data := translationEditorVariantPayload(ctx, s.binding, editorCtx, currentAssignment, updatedRecord, revision, qaResults)
 	data["source_fields"] = cloneStringMap(editorCtx.SourceFields)
 	data["target_fields"] = cloneStringMap(editorCtx.TargetFields)
