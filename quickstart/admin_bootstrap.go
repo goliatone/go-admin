@@ -3,6 +3,7 @@ package quickstart
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 
 	"github.com/goliatone/go-admin/admin"
@@ -49,6 +50,7 @@ type adminOptions struct {
 	translationPolicyConfig      TranslationPolicyConfig
 	translationPolicyConfigSet   bool
 	translationPolicyServices    TranslationPolicyServices
+	translationPolicyDiagnostics []TranslationPolicyDiagnostic
 	translationLocaleLabels      map[string]string
 	translationProductConfig     TranslationProductConfig
 	translationProductConfigSet  bool
@@ -448,7 +450,9 @@ func resolveAdminRuntimeDependencies(cfg admin.Config, options *adminOptions) er
 	if options == nil {
 		return nil
 	}
-	resolveTranslationPolicyDependency(cfg, options)
+	if err := resolveTranslationPolicyDependency(cfg, options); err != nil {
+		return err
+	}
 	if err := resolvePreferencesStoreDependency(options); err != nil {
 		return err
 	}
@@ -458,22 +462,41 @@ func resolveAdminRuntimeDependencies(cfg admin.Config, options *adminOptions) er
 	return nil
 }
 
-func resolveTranslationPolicyDependency(cfg admin.Config, options *adminOptions) {
+func resolveTranslationPolicyDependency(cfg admin.Config, options *adminOptions) error {
 	if options.deps.TranslationPolicy != nil {
-		return
+		return nil
 	}
 	policyCfg := DefaultTranslationPolicyConfig()
 	if options.translationPolicyConfigSet {
 		policyCfg = options.translationPolicyConfig
 	}
 	if !options.translationPolicyConfigSet && !policyCfg.DenyByDefault && !hasTranslationPolicyRequirements(policyCfg) {
-		return
+		return nil
 	}
 	policyCfg = NormalizeTranslationPolicyConfig(policyCfg)
 	services := resolveTranslationPolicyServices(cfg, options.translationPolicyServices)
+	diagnostics := DiagnoseTranslationPolicyServices(policyCfg, services)
+	options.translationPolicyDiagnostics = diagnostics
+	if len(diagnostics) > 0 {
+		if translationPolicyStartupPolicy(options) == admin.ModuleStartupPolicyWarn {
+			return nil
+		}
+		return errors.Join(
+			ErrTranslationPolicyServicesUnavailable,
+			fmt.Errorf("%s: %s", diagnostics[0].Code, diagnostics[0].Message),
+		)
+	}
 	if policy := NewTranslationPolicy(policyCfg, services); policy != nil {
 		options.deps.TranslationPolicy = policy
 	}
+	return nil
+}
+
+func translationPolicyStartupPolicy(options *adminOptions) admin.ModuleStartupPolicy {
+	if options != nil && options.startupPolicy != nil {
+		return *options.startupPolicy
+	}
+	return admin.ModuleStartupPolicyEnforce
 }
 
 func resolvePreferencesStoreDependency(options *adminOptions) error {
