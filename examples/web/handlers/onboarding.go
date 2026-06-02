@@ -756,8 +756,8 @@ func parseTimeValue(value any) time.Time {
 
 func scopeFromPayload(payload userstypes.SecureLinkPayload) userstypes.ScopeFilter {
 	return userstypes.ScopeFilter{
-		TenantID: payloadUUID(payload, "tenant_id"),
-		OrgID:    payloadUUID(payload, "org_id"),
+		TenantID: payloadUUID(payload, admin.ScopeTenantIDKey),
+		OrgID:    payloadUUID(payload, admin.ScopeOrgIDKey),
 	}
 }
 

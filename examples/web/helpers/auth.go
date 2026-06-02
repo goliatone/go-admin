@@ -4,6 +4,7 @@ import (
 	"context"
 	"strings"
 
+	adminfacade "github.com/goliatone/go-admin/pkg/admin"
 	"github.com/goliatone/go-admin/quickstart"
 	authlib "github.com/goliatone/go-auth"
 	userstypes "github.com/goliatone/go-users/pkg/types"
@@ -11,8 +12,8 @@ import (
 )
 
 var (
-	tenantMetadataKeys       = []string{"tenant_id", "tenant", "default_tenant", "default_tenant_id"}
-	organizationMetadataKeys = []string{"organization_id", "org_id", "org"}
+	tenantMetadataKeys       = []string{adminfacade.ScopeTenantIDKey, adminfacade.ScopeTenantKey, adminfacade.ScopeDefaultTenantKey, adminfacade.ScopeDefaultTenantIDKey}
+	organizationMetadataKeys = []string{adminfacade.ScopeOrganizationIDKey, adminfacade.ScopeOrgIDKey, adminfacade.ScopeOrgKey}
 )
 
 // ActorRefFromContext maps the go-auth actor in context to a go-users ActorRef.

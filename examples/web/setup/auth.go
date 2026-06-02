@@ -485,8 +485,8 @@ func applySessionClaimsMetadata(ctx context.Context, identity auth.Identity, cla
 	setIfPresent("role", identity.Role())
 	display := primitives.FirstNonEmpty(identity.Username(), identity.Email(), identity.ID())
 	setIfPresent("display_name", display)
-	setIfMissing("tenant_id", defaults.defaultTenantID)
-	setIfMissing("organization_id", defaults.defaultOrgID)
+	setIfMissing(admin.ScopeTenantIDKey, defaults.defaultTenantID)
+	setIfMissing(admin.ScopeOrganizationIDKey, defaults.defaultOrgID)
 	if registry != nil {
 		scope := scopeFromClaims(claims, defaults)
 		if version, err := resolveRolePermissionsVersion(ctx, registry, identity, scope); err != nil {
@@ -732,8 +732,8 @@ func scopeFromClaims(claims *auth.JWTClaims, defaults authOptions) userstypes.Sc
 	tenant := ""
 	org := ""
 	if metadata != nil {
-		tenant = strings.TrimSpace(toString(metadata["tenant_id"]))
-		org = strings.TrimSpace(toString(metadata["organization_id"]))
+		tenant = strings.TrimSpace(toString(metadata[admin.ScopeTenantIDKey]))
+		org = strings.TrimSpace(toString(metadata[admin.ScopeOrganizationIDKey]))
 	}
 	tenant = primitives.FirstNonEmpty(tenant, defaults.defaultTenantID)
 	org = primitives.FirstNonEmpty(org, defaults.defaultOrgID)

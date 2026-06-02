@@ -474,8 +474,8 @@ func seedExampleTranslationQueueFixtureWithFamilySync(
 						"body": "Publier la traduction depuis l'accueil.",
 					},
 					Metadata: map[string]any{
-						"tenant_id": strings.TrimSpace(tenantID),
-						"org_id":    strings.TrimSpace(orgID),
+						coreadmin.ScopeTenantIDKey: strings.TrimSpace(tenantID),
+						coreadmin.ScopeOrgIDKey:    strings.TrimSpace(orgID),
 					},
 				})
 				if createErr != nil {
@@ -1290,12 +1290,12 @@ func applyFixtureScopeMetadata(metadata *map[string]any, data *map[string]any, t
 		if *target == nil {
 			*target = map[string]any{}
 		}
-		if tenantID != "" && strings.TrimSpace(fmt.Sprint((*target)["tenant_id"])) != tenantID {
-			(*target)["tenant_id"] = tenantID
+		if tenantID != "" && strings.TrimSpace(fmt.Sprint((*target)[coreadmin.ScopeTenantIDKey])) != tenantID {
+			(*target)[coreadmin.ScopeTenantIDKey] = tenantID
 			changed = true
 		}
-		if orgID != "" && strings.TrimSpace(fmt.Sprint((*target)["org_id"])) != orgID {
-			(*target)["org_id"] = orgID
+		if orgID != "" && strings.TrimSpace(fmt.Sprint((*target)[coreadmin.ScopeOrgIDKey])) != orgID {
+			(*target)[coreadmin.ScopeOrgIDKey] = orgID
 			changed = true
 		}
 	}
