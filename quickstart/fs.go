@@ -62,9 +62,16 @@ func (m MultiFS) Stat(name string) (fs.FileInfo, error) {
 			continue
 		}
 		info, statErr := file.Stat()
-		_ = file.Close()
+		closeErr := file.Close()
 		if statErr == nil {
+			if closeErr != nil {
+				return nil, closeErr
+			}
 			return info, nil
+		}
+		if closeErr != nil {
+			lastErr = closeErr
+			continue
 		}
 		lastErr = statErr
 	}
