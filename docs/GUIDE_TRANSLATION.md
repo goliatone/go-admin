@@ -458,6 +458,31 @@ Dashboard blocked-family rows can include optional remediation fields:
 
 The optimized dashboard path derives family aggregates from `content_families` and reason detail from `family_blockers`, scoped by tenant, org, channel, and dashboard limits. It should not call broad family or assignment hydration paths, derive family reason buckets from assignment rows, or require a denormalized dashboard projection for the current contract.
 
+### Scope policy
+
+Translation family, queue, assignment, dashboard, and sync paths use the
+go-admin effective-scope contract. Request handlers should call
+`Admin.EffectiveScopeFromRequest(...)` or consume the `AdminContext` produced by
+go-admin request binding; background syncs and service jobs should call
+`Admin.EffectiveScope(...)` with trusted record/service input. Query parameters
+named `tenant_id` or `org_id` are filters only when a path explicitly treats
+them as trusted service input; authenticated admin actor scope does not come
+from browser query strings.
+
+Single-tenant sync fills missing tenant/org values on materialized translation
+family rows before persistence. Explicit record metadata still wins. Multi-tenant
+sync leaves missing scope blank unless trusted context or record metadata
+provides it. Optimized Bun stores apply exact scoped predicates to family detail,
+child variants, blockers, assignments, dashboard metrics, and translation memory
+suggestions; global fallback is opt-in per call path.
+
+Use quickstart doctor check `quickstart.scope_drift` to find existing blank
+tenant/org rows in `content_families`, `locale_variants`, `family_blockers`, and
+`translation_assignments`. The diagnostic reports counts only and does not
+repair data. When `quickstart.NewBunScopeDriftInspector(db)` is wired, the
+explicit command `quickstart.scope_drift.repair` supports dry-run by default and
+`apply: true` mode for allowlisted single-tenant backfills.
+
 ### Assignment editor assist
 
 The assignment editor assist payload includes:
