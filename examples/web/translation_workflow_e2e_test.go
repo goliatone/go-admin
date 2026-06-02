@@ -559,7 +559,7 @@ func doAdminJSONRequest(t *testing.T, handler http.Handler, method, path string,
 		body = bytes.NewReader(nil)
 	}
 
-	req := httptest.NewRequest(method, path, body)
+	req := httptest.NewRequestWithContext(context.Background(), method, path, body)
 	if payload != nil {
 		req.Header.Set("Content-Type", "application/json")
 	}

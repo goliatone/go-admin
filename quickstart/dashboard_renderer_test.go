@@ -1,6 +1,7 @@
 package quickstart
 
 import (
+	"context"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -364,7 +365,7 @@ func TestDashboardHTMLRouteRendersWithQuickstartRenderer(t *testing.T) {
 		t.Fatalf("initialize error: %v", err)
 	}
 
-	req := httptest.NewRequest(http.MethodGet, "/admin/dashboard?locale=en", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/dashboard?locale=en", nil)
 	req.Header.Set("X-User-ID", "user-1")
 	rr := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(rr, req)

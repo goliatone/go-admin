@@ -168,7 +168,7 @@ func canonicalBulkActionContractsPhase7Fixture(t *testing.T) map[string]any {
 		}
 		return writeJSON(c, map[string]any{"status": "ok"})
 	})
-	req := httptest.NewRequest(http.MethodPost, "/panels/documents/bulk/delete", strings.NewReader(`{"ids":["doc_1","doc_2"]}`))
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/panels/documents/bulk/delete", strings.NewReader(`{"ids":["doc_1","doc_2"]}`))
 	req.Header.Set("Content-Type", "application/json")
 	rr := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(rr, req)

@@ -35,7 +35,7 @@ func TestTranslationMatrixBindingQueryBuildsTypedRowsColumnsAndCellStates(t *tes
 	}
 	app := newTranslationFamilyTestApp(t, binding)
 
-	req := httptest.NewRequest(http.MethodGet, "/admin/api/translations/matrix?tenant_id=tenant-1&org_id=org-1&channel=production&locale_limit=4", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/translations/matrix?tenant_id=tenant-1&org_id=org-1&channel=production&locale_limit=4", nil)
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("request error: %v", err)
@@ -158,7 +158,7 @@ func TestTranslationMatrixBindingFiltersColumnsRowsAndScope(t *testing.T) {
 	}
 	app := newTranslationFamilyTestApp(t, binding)
 
-	req := httptest.NewRequest(http.MethodGet, "/admin/api/translations/matrix?tenant_id=tenant-1&org_id=org-1&channel=production&content_type=pages&blocker_code=missing_locale&locales=fr,de", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/translations/matrix?tenant_id=tenant-1&org_id=org-1&channel=production&content_type=pages&blocker_code=missing_locale&locales=fr,de", nil)
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("request error: %v", err)
@@ -199,7 +199,7 @@ func TestTranslationMatrixBindingIncludesMissingCellFixtureState(t *testing.T) {
 	}
 	app := newTranslationFamilyTestApp(t, binding)
 
-	req := httptest.NewRequest(http.MethodGet, "/admin/api/translations/matrix?tenant_id=tenant-1&org_id=org-1&channel=production&locales=it", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/translations/matrix?tenant_id=tenant-1&org_id=org-1&channel=production&locales=it", nil)
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("request error: %v", err)
@@ -358,7 +358,7 @@ func TestTranslationMatrixBindingMatrixViewportP95UnderTarget(t *testing.T) {
 	samples := make([]time.Duration, 0, 20)
 	for range 20 {
 		started := time.Now()
-		req := httptest.NewRequest(http.MethodGet, "/admin/api/translations/matrix?tenant_id=tenant-1&org_id=org-1&channel=production&per_page=100&locale_limit=20", nil)
+		req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/translations/matrix?tenant_id=tenant-1&org_id=org-1&channel=production&per_page=100&locale_limit=20", nil)
 		resp, err := app.Test(req, 5_000)
 		if err != nil {
 			t.Fatalf("request error: %v", err)
@@ -386,7 +386,7 @@ func doTranslationMatrixJSONRequest(t *testing.T, app *fiber.App, method, path s
 	} else {
 		reader = bytes.NewReader(nil)
 	}
-	req := httptest.NewRequest(method, path, reader)
+	req := httptest.NewRequestWithContext(context.Background(), method, path, reader)
 	req.Header.Set("Content-Type", "application/json")
 	for key, value := range headers {
 		req.Header.Set(key, value)

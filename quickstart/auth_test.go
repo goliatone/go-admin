@@ -157,7 +157,7 @@ func TestWithProtectedAppAuthBuildsSessionUserFromProtectedRouteContext(t *testi
 		})
 	}))
 
-	req := httptest.NewRequest(http.MethodGet, "http://example.com/app/profile", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "http://example.com/app/profile", nil)
 	req.AddCookie(&http.Cookie{Name: cfg.GetContextKey(), Value: token})
 	res := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(res, req)

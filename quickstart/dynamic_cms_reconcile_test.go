@@ -164,10 +164,11 @@ func TestRegisterContentEntryUIRoutesSkipsCanonicalPanelsOwnedByAdminAliases(t *
 			t.Fatalf("expected generic content entry route to remain registered")
 		}
 
-		res, err := server.WrappedRouter().Test(httptest.NewRequest(http.MethodGet, "/admin/news", nil), -1)
+		res, err := server.WrappedRouter().Test(httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/news", nil), -1)
 		if err != nil {
 			t.Fatalf("news alias request: %v", err)
 		}
+		defer res.Body.Close()
 		if res.StatusCode != http.StatusFound {
 			t.Fatalf("expected alias redirect status %d, got %d", http.StatusFound, res.StatusCode)
 		}

@@ -1,6 +1,7 @@
 package site
 
 import (
+	"context"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -227,7 +228,7 @@ func assertStatusCode[T any](t *testing.T, server router.Server[T], method, path
 
 func performSiteTestRequest[T any](t *testing.T, server router.Server[T], method, path string) *httptest.ResponseRecorder {
 	t.Helper()
-	req := httptest.NewRequest(method, path, nil)
+	req := httptest.NewRequestWithContext(context.Background(), method, path, nil)
 	req.Header.Set("Accept", "application/json")
 	rec := httptest.NewRecorder()
 	switch app := any(server.WrappedRouter()).(type) {

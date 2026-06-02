@@ -1,6 +1,7 @@
 package quickstart
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -24,7 +25,7 @@ func TestFiberErrorHandlerPreservesAPI404ForUnmatchedRoutes(t *testing.T) {
 		ErrorHandler: NewFiberErrorHandler(nil, cfg, false),
 	})
 
-	req := httptest.NewRequest(http.MethodGet, "/admin/api/v1/missing-route", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/v1/missing-route", nil)
 	resp, err := app.Test(req, -1)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)

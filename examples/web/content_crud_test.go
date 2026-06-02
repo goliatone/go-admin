@@ -111,10 +111,11 @@ func TestContentCRUD_ListEndpoints(t *testing.T) {
 	}
 
 	for _, tc := range client {
-		req := httptest.NewRequest(http.MethodGet, tc.path, nil)
+		req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, tc.path, nil)
 		req.Header.Set("X-Role", string(authlib.RoleAdmin))
 		resp, err := app.Test(req)
 		require.NoError(t, err)
+		defer resp.Body.Close()
 		require.Equal(t, http.StatusOK, resp.StatusCode, tc.path)
 
 		var payload map[string]any
@@ -127,9 +128,10 @@ func TestContentCRUD_ListEndpoints(t *testing.T) {
 
 func TestContentCRUD_Unauthorized(t *testing.T) {
 	app, _ := setupContentCRUDApp(t)
-	req := httptest.NewRequest(http.MethodGet, "/admin/crud/media", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/crud/media", nil)
 	resp, err := app.Test(req)
 	require.NoError(t, err)
+	defer resp.Body.Close()
 	require.Equal(t, http.StatusUnauthorized, resp.StatusCode)
 }
 
@@ -144,12 +146,13 @@ func TestContentCRUD_CreateForbidden(t *testing.T) {
 		"uploaded_by": "crud-test",
 	}
 	body, _ := json.Marshal(payload)
-	req := httptest.NewRequest(http.MethodPost, "/admin/crud/media", bytes.NewReader(body))
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/crud/media", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-Role", string(authlib.RoleMember))
 
 	resp, err := app.Test(req)
 	require.NoError(t, err)
+	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusForbidden {
 		body, _ := io.ReadAll(resp.Body)
 		t.Logf("unexpected response: %s", string(body))
@@ -159,10 +162,11 @@ func TestContentCRUD_CreateForbidden(t *testing.T) {
 
 func TestContentCRUD_NotFound(t *testing.T) {
 	app, _ := setupContentCRUDApp(t)
-	req := httptest.NewRequest(http.MethodGet, "/admin/crud/media/"+time.Now().Format("20060102150405"), nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/crud/media/"+time.Now().Format("20060102150405"), nil)
 	req.Header.Set("X-Role", string(authlib.RoleAdmin))
 	resp, err := app.Test(req)
 	require.NoError(t, err)
+	defer resp.Body.Close()
 	require.Equal(t, http.StatusNotFound, resp.StatusCode)
 }
 
@@ -249,7 +253,7 @@ func doJSONRequest(t *testing.T, app *fiber.App, method, path string, body map[s
 		require.NoError(t, err)
 		reader = bytes.NewReader(b)
 	}
-	req := httptest.NewRequest(method, path, reader)
+	req := httptest.NewRequestWithContext(context.Background(), method, path, reader)
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")
 	}
@@ -257,6 +261,7 @@ func doJSONRequest(t *testing.T, app *fiber.App, method, path string, body map[s
 
 	resp, err := app.Test(req)
 	require.NoError(t, err)
+	defer resp.Body.Close()
 
 	raw := []byte{}
 	var payload map[string]any

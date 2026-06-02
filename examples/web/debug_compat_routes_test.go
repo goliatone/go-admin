@@ -19,7 +19,7 @@ import (
 func TestRegisterDebugCompatibilityRoutesRedirectsRootSessionsAlias(t *testing.T) {
 	handler, _ := newDebugCompatibilityTestServer(t, nil)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/sessions?source=compat", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/sessions?source=compat", nil)
 	rec := httptest.NewRecorder()
 	handler.ServeHTTP(rec, req)
 
@@ -34,7 +34,7 @@ func TestRegisterDebugCompatibilityRoutesRedirectsRootSessionsAlias(t *testing.T
 func TestRegisterDebugCompatibilityRoutesRedirectsAdminAPIDebugSessionsAlias(t *testing.T) {
 	handler, adminAPIBasePath := newDebugCompatibilityTestServer(t, nil)
 
-	req := httptest.NewRequest(http.MethodGet, adminAPIBasePath+"/debug/sessions", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, adminAPIBasePath+"/debug/sessions", nil)
 	rec := httptest.NewRecorder()
 	handler.ServeHTTP(rec, req)
 
@@ -51,7 +51,7 @@ func TestRegisterDebugCompatibilityRoutesUsesPublicAPISurfaceWhenRootMatchesAlia
 		cfg.Routing.Roots.PublicAPIRoot = "/api"
 	})
 
-	req := httptest.NewRequest(http.MethodGet, "/api/sessions?source=compat", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/sessions?source=compat", nil)
 	rec := httptest.NewRecorder()
 	handler.ServeHTTP(rec, req)
 

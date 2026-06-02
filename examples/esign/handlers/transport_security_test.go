@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -12,7 +13,7 @@ import (
 func TestTLSTransportGuardRejectsInsecureRequests(t *testing.T) {
 	app := setupRegisterTestApp(t, WithTransportGuard(TLSTransportGuard{AllowLocalInsecure: false}))
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/esign/signing/session/token-1", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/esign/signing/session/token-1", nil)
 	resp, err := app.Test(req, -1)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
@@ -33,7 +34,7 @@ func TestTLSTransportGuardAllowsHTTPSForwardedRequests(t *testing.T) {
 		},
 	}))
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/esign/signing/session/token-1", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/esign/signing/session/token-1", nil)
 	req.Header.Set("X-Forwarded-Proto", "https")
 	resp, err := app.Test(req, -1)
 	if err != nil {
@@ -54,7 +55,7 @@ func TestTLSTransportGuardIgnoresForwardedHTTPSWhenUntrusted(t *testing.T) {
 		},
 	}))
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/esign/signing/session/token-1", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/esign/signing/session/token-1", nil)
 	req.Header.Set("X-Forwarded-Proto", "https")
 	resp, err := app.Test(req, -1)
 	if err != nil {
@@ -88,7 +89,7 @@ func TestTLSTransportGuardIgnoresForwardedLocalhostWhenUntrusted(t *testing.T) {
 		},
 	}))
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/esign/signing/session/token-1", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/esign/signing/session/token-1", nil)
 	req.Host = "example.com"
 	req.Header.Set("X-Forwarded-Host", "localhost:8082")
 	resp, err := app.Test(req, -1)
@@ -105,7 +106,7 @@ func TestTLSTransportGuardIgnoresForwardedLocalhostWhenUntrusted(t *testing.T) {
 func TestTLSTransportGuardAllowsLocalhostWhenPeerIsUnspecified(t *testing.T) {
 	app := setupRegisterTestApp(t, WithTransportGuard(TLSTransportGuard{AllowLocalInsecure: true}))
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/esign/signing/session/token-1", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/esign/signing/session/token-1", nil)
 	req.Host = "localhost:8082"
 	resp, err := app.Test(req, -1)
 	if err != nil {

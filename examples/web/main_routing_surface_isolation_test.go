@@ -288,7 +288,7 @@ func newExamplePhase6HTMLApp(t *testing.T) *fiber.App {
 func performExampleHTMLRequest(t *testing.T, app *fiber.App, method, target string) (int, string) {
 	t.Helper()
 
-	req := httptest.NewRequest(method, target, nil)
+	req := httptest.NewRequestWithContext(context.Background(), method, target, nil)
 	req.Header.Set("Accept", "text/html")
 
 	resp, err := app.Test(req, -1)

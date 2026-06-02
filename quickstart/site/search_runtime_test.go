@@ -454,7 +454,7 @@ func TestSiteSearchEndpointPerformanceP95(t *testing.T) {
 	samples := 120
 	durations := make([]time.Duration, 0, samples)
 	for range samples {
-		req := httptest.NewRequest(http.MethodGet, "/api/v1/site/search?q=perf&page=1&per_page=10", nil)
+		req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/site/search?q=perf&page=1&per_page=10", nil)
 		req.Header.Set("Accept", "application/json")
 		rec := httptest.NewRecorder()
 		started := time.Now()
@@ -480,7 +480,7 @@ func performSiteRequestWithContext[T interface {
 	ServeHTTP(http.ResponseWriter, *http.Request)
 }](t *testing.T, server router.Server[T], path string, reqCtx context.Context, status int) map[string]any {
 	t.Helper()
-	req := httptest.NewRequest(http.MethodGet, path, nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, path, nil)
 	req.Header.Set("Accept", "application/json")
 	if reqCtx != nil {
 		req = req.WithContext(reqCtx)

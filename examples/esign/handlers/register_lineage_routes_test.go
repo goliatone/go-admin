@@ -36,7 +36,7 @@ func TestRegisterLineageDiagnosticsRoutesExposeDocumentAndAgreementDiagnostics(t
 		WithDefaultScope(scope),
 	)
 
-	documentReq := httptest.NewRequest(http.MethodGet, services.DefaultLineageDiagnosticsBasePath+"/documents/doc-lineage-1?user_id=ops-user", nil)
+	documentReq := httptest.NewRequestWithContext(context.Background(), http.MethodGet, services.DefaultLineageDiagnosticsBasePath+"/documents/doc-lineage-1?user_id=ops-user", nil)
 	documentResp, err := app.Test(documentReq, -1)
 	if err != nil {
 		t.Fatalf("document diagnostics request failed: %v", err)
@@ -54,7 +54,7 @@ func TestRegisterLineageDiagnosticsRoutesExposeDocumentAndAgreementDiagnostics(t
 		t.Fatalf("expected document diagnostics source_document, got %+v", documentPayload)
 	}
 
-	agreementReq := httptest.NewRequest(http.MethodGet, services.DefaultLineageDiagnosticsBasePath+"/agreements/agr-lineage-1?user_id=ops-user", nil)
+	agreementReq := httptest.NewRequestWithContext(context.Background(), http.MethodGet, services.DefaultLineageDiagnosticsBasePath+"/agreements/agr-lineage-1?user_id=ops-user", nil)
 	agreementResp, err := app.Test(agreementReq, -1)
 	if err != nil {
 		t.Fatalf("agreement diagnostics request failed: %v", err)
@@ -92,7 +92,7 @@ func TestRegisterLineageDiagnosticsRoutesExposeCandidateListAndReviewAction(t *t
 		WithDefaultScope(scope),
 	)
 
-	listReq := httptest.NewRequest(http.MethodGet, services.DefaultLineageDiagnosticsBasePath+"/documents/doc-lineage-1/candidates?user_id=ops-user", nil)
+	listReq := httptest.NewRequestWithContext(context.Background(), http.MethodGet, services.DefaultLineageDiagnosticsBasePath+"/documents/doc-lineage-1/candidates?user_id=ops-user", nil)
 	listResp, err := app.Test(listReq, -1)
 	if err != nil {
 		t.Fatalf("candidate list request failed: %v", err)
@@ -110,7 +110,7 @@ func TestRegisterLineageDiagnosticsRoutesExposeCandidateListAndReviewAction(t *t
 		t.Fatalf("expected one relationship in candidate list, got %+v", listPayload)
 	}
 
-	reviewReq := httptest.NewRequest(
+	reviewReq := httptest.NewRequestWithContext(context.Background(),
 		http.MethodPost,
 		services.DefaultLineageDiagnosticsBasePath+"/relationships/src-rel-lineage-1/review",
 		bytes.NewBufferString(`{"action":"reject","reason":"false positive"}`),
@@ -157,7 +157,7 @@ func TestRegisterLineageDiagnosticsReviewActionRequiresAuthenticatedAdminActor(t
 		WithDefaultScope(scope),
 	)
 
-	reviewReq := httptest.NewRequest(
+	reviewReq := httptest.NewRequestWithContext(context.Background(),
 		http.MethodPost,
 		services.DefaultLineageDiagnosticsBasePath+"/relationships/src-rel-lineage-1/review",
 		bytes.NewBufferString(`{"action":"reject","reason":"false positive"}`),
@@ -203,7 +203,7 @@ func TestRegisterReconciliationQueueRoutesExposeQueueDetailAndReviewAction(t *te
 		WithDefaultScope(scope),
 	)
 
-	queueReq := httptest.NewRequest(http.MethodGet, services.DefaultSourceManagementBasePath+"/reconciliation-queue?user_id=ops-user&confidence_band=medium", nil)
+	queueReq := httptest.NewRequestWithContext(context.Background(), http.MethodGet, services.DefaultSourceManagementBasePath+"/reconciliation-queue?user_id=ops-user&confidence_band=medium", nil)
 	queueResp, err := app.Test(queueReq, -1)
 	if err != nil {
 		t.Fatalf("queue request failed: %v", err)
@@ -218,7 +218,7 @@ func TestRegisterReconciliationQueueRoutesExposeQueueDetailAndReviewAction(t *te
 		t.Fatalf("expected one queue item, got %+v", queuePayload)
 	}
 
-	detailReq := httptest.NewRequest(http.MethodGet, services.DefaultSourceManagementBasePath+"/reconciliation-queue/src-rel-lineage-1?user_id=ops-user", nil)
+	detailReq := httptest.NewRequestWithContext(context.Background(), http.MethodGet, services.DefaultSourceManagementBasePath+"/reconciliation-queue/src-rel-lineage-1?user_id=ops-user", nil)
 	detailResp, err := app.Test(detailReq, -1)
 	if err != nil {
 		t.Fatalf("detail request failed: %v", err)
@@ -233,7 +233,7 @@ func TestRegisterReconciliationQueueRoutesExposeQueueDetailAndReviewAction(t *te
 		t.Fatalf("expected queue detail candidate, got %+v", detailPayload)
 	}
 
-	reviewReq := httptest.NewRequest(
+	reviewReq := httptest.NewRequestWithContext(context.Background(),
 		http.MethodPost,
 		services.DefaultSourceManagementBasePath+"/reconciliation-queue/src-rel-lineage-1/review",
 		bytes.NewBufferString(`{"action":"attach_handle_to_existing_source","reason":"validated queue-driven continuity"}`),
@@ -276,7 +276,7 @@ func TestRegisterReconciliationQueueReviewReturnsConflictForResolvedCandidate(t 
 		`{"action":"reject","reason":"first review"}`,
 		`{"action":"reject","reason":"duplicate review"}`,
 	} {
-		req := httptest.NewRequest(http.MethodPost, services.DefaultSourceManagementBasePath+"/reconciliation-queue/src-rel-lineage-1/review", bytes.NewBufferString(body))
+		req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, services.DefaultSourceManagementBasePath+"/reconciliation-queue/src-rel-lineage-1/review", bytes.NewBufferString(body))
 		req.Header.Set("Content-Type", "application/json")
 		resp, err := app.Test(req, -1)
 		if err != nil {
@@ -528,7 +528,7 @@ func TestRegisterSourceManagementRoutesExposeReadModelContracts(t *testing.T) {
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			req := httptest.NewRequest(http.MethodGet, tc.path, nil)
+			req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, tc.path, nil)
 			resp, err := app.Test(req, -1)
 			if err != nil {
 				t.Fatalf("%s request failed: %v", tc.name, err)
@@ -563,7 +563,7 @@ func TestRegisterSourceManagementRoutesApplyRequestScopedPermissions(t *testing.
 		WithDefaultScope(scope),
 	)
 
-	req := httptest.NewRequest(http.MethodGet, services.DefaultSourceManagementBasePath+"/sources/src-doc-lineage-1?user_id=ops-user", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, services.DefaultSourceManagementBasePath+"/sources/src-doc-lineage-1?user_id=ops-user", nil)
 	resp, err := viewOnlyApp.Test(req, -1)
 	if err != nil {
 		t.Fatalf("view-only source detail request failed: %v", err)
@@ -584,7 +584,7 @@ func TestRegisterSourceManagementRoutesApplyRequestScopedPermissions(t *testing.
 		t.Fatalf("expected view-only request to deny candidate review and allow comment visibility, got %+v", permissions)
 	}
 
-	relationshipsReq := httptest.NewRequest(http.MethodGet, services.DefaultSourceManagementBasePath+"/sources/src-doc-lineage-1/relationships?user_id=ops-user", nil)
+	relationshipsReq := httptest.NewRequestWithContext(context.Background(), http.MethodGet, services.DefaultSourceManagementBasePath+"/sources/src-doc-lineage-1/relationships?user_id=ops-user", nil)
 	relationshipsResp, err := viewOnlyApp.Test(relationshipsReq, -1)
 	if err != nil {
 		t.Fatalf("view-only source relationships request failed: %v", err)
@@ -649,7 +649,7 @@ func TestRegisterSourceManagementRoutesReturnNotFoundForMissingResources(t *test
 		services.DefaultSourceManagementBasePath + "/source-revisions/missing-revision/artifacts?user_id=ops-user",
 		services.DefaultSourceManagementBasePath + "/source-revisions/missing-revision/comments?user_id=ops-user",
 	} {
-		req := httptest.NewRequest(http.MethodGet, path, nil)
+		req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, path, nil)
 		resp, err := app.Test(req, -1)
 		if err != nil {
 			t.Fatalf("missing-resource request %q failed: %v", path, err)
@@ -843,7 +843,7 @@ func TestRegisterSourceManagementRoutesWithRealReadModelServiceRemainConsistent(
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			req := httptest.NewRequest(http.MethodGet, tc.path, nil)
+			req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, tc.path, nil)
 			resp, err := app.Test(req, -1)
 			if err != nil {
 				t.Fatalf("%s request failed: %v", tc.name, err)
@@ -1024,7 +1024,7 @@ func TestRegisterSourceManagementRoutesRemainConsistentWithLineageProvenanceRead
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			req := httptest.NewRequest(http.MethodGet, tc.path, nil)
+			req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, tc.path, nil)
 			resp, err := app.Test(req, -1)
 			if err != nil {
 				t.Fatalf("%s request failed: %v", tc.name, err)

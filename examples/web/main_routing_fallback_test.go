@@ -169,7 +169,7 @@ func performExampleJSONRequest(t *testing.T, app *fiber.App, method, path string
 
 func performExampleRequest(t *testing.T, app *fiber.App, method, path string) *httptest.ResponseRecorder {
 	t.Helper()
-	req := httptest.NewRequest(method, path, nil)
+	req := httptest.NewRequestWithContext(context.Background(), method, path, nil)
 	req.Header.Set("Accept", "application/json")
 	resp, err := app.Test(req, -1)
 	if err != nil {

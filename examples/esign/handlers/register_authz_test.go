@@ -535,7 +535,7 @@ func setupPublicSignerSessionApp(t *testing.T) (*fiber.App, stores.Scope, string
 func bootstrapPublicSignerSession(t *testing.T, app *fiber.App, token string) string {
 	t.Helper()
 
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/esign/signing/bootstrap/"+url.PathEscape(token), nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/esign/signing/bootstrap/"+url.PathEscape(token), nil)
 	resp, err := app.Test(req, -1)
 	if err != nil {
 		t.Fatalf("bootstrap request failed: %v", err)
@@ -560,7 +560,7 @@ func bootstrapPublicSignerSession(t *testing.T, app *fiber.App, token string) st
 func TestRegisterAdminRoutesRequirePermission(t *testing.T) {
 	app := setupRegisterTestApp(t, WithAuthorizer(mapAuthorizer{allowed: map[string]bool{}}))
 
-	req := httptest.NewRequest(http.MethodGet, "/admin/esign/status", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/esign/status", nil)
 	resp, err := app.Test(req, -1)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
@@ -575,7 +575,7 @@ func TestRegisterAdminRoutesRequirePermission(t *testing.T) {
 func TestRegisterAdminRoutesAllowPermission(t *testing.T) {
 	app := setupRegisterTestApp(t, WithAuthorizer(mapAuthorizer{allowed: map[string]bool{DefaultPermissions.AdminView: true}}))
 
-	req := httptest.NewRequest(http.MethodGet, "/admin/api/v1/esign/status", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/v1/esign/status", nil)
 	resp, err := app.Test(req, -1)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
@@ -602,7 +602,7 @@ func TestRegisterAgreementStatsRouteAllowPermission(t *testing.T) {
 		}),
 	)
 
-	req := httptest.NewRequest(http.MethodGet, "/admin/api/v1/esign/agreements/stats", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/v1/esign/agreements/stats", nil)
 	resp, err := app.Test(req, -1)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
@@ -638,7 +638,7 @@ func TestRegisterAgreementStatsRouteRequiresPermission(t *testing.T) {
 		WithAgreementStatsService(agreementStatsStub{}),
 	)
 
-	req := httptest.NewRequest(http.MethodGet, "/admin/api/v1/esign/agreements/stats", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/v1/esign/agreements/stats", nil)
 	resp, err := app.Test(req, -1)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
@@ -653,7 +653,7 @@ func TestRegisterAgreementStatsRouteRequiresPermission(t *testing.T) {
 func TestRegisterSignerRoutesRemainPublic(t *testing.T) {
 	app := setupRegisterTestApp(t, WithAuthorizer(mapAuthorizer{allowed: map[string]bool{}}))
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/esign/signing/session/test-token", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/esign/signing/session/test-token", nil)
 	resp, err := app.Test(req, -1)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
@@ -676,7 +676,7 @@ func TestRegisterSignerRoutesRemainPublic(t *testing.T) {
 func TestSignerBootstrapIssuesBearerSession(t *testing.T) {
 	app, _, token := setupPublicSignerSessionApp(t)
 
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/esign/signing/bootstrap/"+url.PathEscape(token), nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/esign/signing/bootstrap/"+url.PathEscape(token), nil)
 	resp, err := app.Test(req, -1)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
@@ -712,7 +712,7 @@ func TestSignerAuthSessionRouteRequiresBearerAndIgnoresCookies(t *testing.T) {
 	app, _, token := setupPublicSignerSessionApp(t)
 	bearer := bootstrapPublicSignerSession(t, app, token)
 
-	missingReq := httptest.NewRequest(http.MethodGet, "/api/v1/esign/signing/session", nil)
+	missingReq := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/esign/signing/session", nil)
 	missingReq.Header.Set("Cookie", "esign_admin_user=admin-cookie")
 	missingResp, err := app.Test(missingReq, -1)
 	if err != nil {
@@ -724,7 +724,7 @@ func TestSignerAuthSessionRouteRequiresBearerAndIgnoresCookies(t *testing.T) {
 		t.Fatalf("expected 401 without bearer token, got %d body=%s", missingResp.StatusCode, string(body))
 	}
 
-	authReq := httptest.NewRequest(http.MethodGet, "/api/v1/esign/signing/session", nil)
+	authReq := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/esign/signing/session", nil)
 	authReq.Header.Set("Authorization", "Bearer "+bearer)
 	authReq.Header.Set("Cookie", "esign_admin_user=admin-cookie")
 	authResp, err := app.Test(authReq, -1)
@@ -769,7 +769,7 @@ func TestRegisterSignerSessionReturns410ForExpiredToken(t *testing.T) {
 		WithDefaultScope(scope),
 	)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/esign/signing/session/"+issued.Token, nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/esign/signing/session/"+issued.Token, nil)
 	resp, err := app.Test(req, -1)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
@@ -805,7 +805,7 @@ func TestSignerTokenValidatorIsUsedByRoute(t *testing.T) {
 		WithDefaultScope(stores.Scope{TenantID: "tenant-1", OrgID: "org-1"}),
 	)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/esign/signing/session/token-1", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/esign/signing/session/token-1", nil)
 	resp, err := app.Test(req, -1)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
@@ -836,7 +836,7 @@ func TestRegisterSignerSessionReturns410ForRevokedToken(t *testing.T) {
 		WithDefaultScope(scope),
 	)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/esign/signing/session/"+issued.Token, nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/esign/signing/session/"+issued.Token, nil)
 	resp, err := app.Test(req, -1)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
@@ -944,7 +944,7 @@ func TestRegisterSignerAssetsRedirectsSupersededCorrectionToken(t *testing.T) {
 		WithDefaultScope(scope),
 	)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/esign/signing/assets/"+legacyToken+"?asset=source", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/esign/signing/assets/"+legacyToken+"?asset=source", nil)
 	resp, err := app.Test(req, -1)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
@@ -990,7 +990,7 @@ func TestRegisterSignerSessionRedirectsSupersededCorrectionToken(t *testing.T) {
 		WithDefaultScope(scope),
 	)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/esign/signing/session/"+legacyToken, nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/esign/signing/session/"+legacyToken, nil)
 	resp, err := app.Test(req, -1)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
@@ -1044,7 +1044,7 @@ func TestRegisterSignerAssetsReturns410ForRevokedTokenWithoutSupersedingVersion(
 		WithDefaultScope(scope),
 	)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/esign/signing/assets/"+issued.Token, nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/esign/signing/assets/"+issued.Token, nil)
 	resp, err := app.Test(req, -1)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
@@ -1069,7 +1069,7 @@ func TestRegisterAdminRouteDeniesCrossTenantScope(t *testing.T) {
 		WithDefaultScope(stores.Scope{TenantID: "tenant-1", OrgID: "org-1"}),
 	)
 
-	req := httptest.NewRequest(http.MethodGet, "/admin/api/v1/esign/status?tenant_id=tenant-2&org_id=org-1", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/v1/esign/status?tenant_id=tenant-2&org_id=org-1", nil)
 
 	resp, err := app.Test(req, -1)
 	if err != nil {
@@ -1094,7 +1094,7 @@ func TestRegisterRemediationTriggerRequiresAdminEdit(t *testing.T) {
 		WithAuthorizer(mapAuthorizer{allowed: map[string]bool{}}),
 		WithDefaultScope(stores.Scope{TenantID: "tenant-1", OrgID: "org-1"}),
 	)
-	req := httptest.NewRequest(http.MethodPost, "/admin/api/v1/esign/documents/doc-1/remediate", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/api/v1/esign/documents/doc-1/remediate", nil)
 	resp, err := app.Test(req, -1)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
@@ -1112,7 +1112,7 @@ func TestRegisterRemediationTriggerModeOverrideRequiresAdminSettings(t *testing.
 		}}),
 		WithDefaultScope(stores.Scope{TenantID: "tenant-1", OrgID: "org-1"}),
 	)
-	req := httptest.NewRequest(http.MethodPost, "/admin/api/v1/esign/documents/doc-1/remediate?mode=queued", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/api/v1/esign/documents/doc-1/remediate?mode=queued", nil)
 	resp, err := app.Test(req, -1)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
@@ -1138,7 +1138,7 @@ func TestRegisterRemediationTriggerModeOverrideAllowedWithAdminSettings(t *testi
 		}}),
 		WithDefaultScope(stores.Scope{TenantID: "tenant-1", OrgID: "org-1"}),
 	)
-	req := httptest.NewRequest(http.MethodPost, "/admin/api/v1/esign/documents/doc-1/remediate?mode=queued", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/api/v1/esign/documents/doc-1/remediate?mode=queued", nil)
 	resp, err := app.Test(req, -1)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
@@ -1164,7 +1164,7 @@ func TestRegisterRemediationTriggerDeniesScopeMismatch(t *testing.T) {
 		})),
 		WithDefaultScope(stores.Scope{TenantID: "tenant-1", OrgID: "org-1"}),
 	)
-	req := httptest.NewRequest(http.MethodPost, "/admin/api/v1/esign/documents/doc-1/remediate?tenant_id=tenant-2&org_id=org-1", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/api/v1/esign/documents/doc-1/remediate?tenant_id=tenant-2&org_id=org-1", nil)
 	resp, err := app.Test(req, -1)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
@@ -1200,7 +1200,7 @@ func TestRegisterRemediationTriggerReturnsQueuedReceiptAndStatusURL(t *testing.T
 		})),
 		WithDefaultScope(stores.Scope{TenantID: "tenant-1", OrgID: "org-1"}),
 	)
-	req := httptest.NewRequest(http.MethodPost, "/admin/api/v1/esign/documents/doc-1/remediate", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/api/v1/esign/documents/doc-1/remediate", nil)
 	resp, err := app.Test(req, -1)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
@@ -1257,7 +1257,7 @@ func TestRegisterRemediationTriggerMapsIdempotencyKeyAndRetries(t *testing.T) {
 		WithDefaultScope(stores.Scope{TenantID: "tenant-1", OrgID: "org-1"}),
 	)
 
-	reqOne := httptest.NewRequest(http.MethodPost, "/admin/api/v1/esign/documents/doc-1/remediate", nil)
+	reqOne := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/api/v1/esign/documents/doc-1/remediate", nil)
 	reqOne.Header.Set("Idempotency-Key", "remediate-key-1")
 	respOne, err := app.Test(reqOne, -1)
 	if err != nil {
@@ -1274,7 +1274,7 @@ func TestRegisterRemediationTriggerMapsIdempotencyKeyAndRetries(t *testing.T) {
 	}
 	dispatchOne := extractJSONFieldString(bodyOne, []string{"receipt", "dispatch_id"})
 
-	reqTwo := httptest.NewRequest(http.MethodPost, "/admin/api/v1/esign/documents/doc-1/remediate", nil)
+	reqTwo := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/api/v1/esign/documents/doc-1/remediate", nil)
 	reqTwo.Header.Set("Idempotency-Key", "remediate-key-1")
 	respTwo, err := app.Test(reqTwo, -1)
 	if err != nil {
@@ -1318,7 +1318,7 @@ func TestRegisterRemediationDispatchStatusRequiresAdminView(t *testing.T) {
 		}),
 		WithDefaultScope(stores.Scope{TenantID: "tenant-1", OrgID: "org-1"}),
 	)
-	req := httptest.NewRequest(http.MethodGet, "/admin/api/v1/esign/dispatches/dispatch-1", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/v1/esign/dispatches/dispatch-1", nil)
 	resp, err := app.Test(req, -1)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
@@ -1344,7 +1344,7 @@ func TestRegisterRemediationDispatchStatusDeniesScopeMismatch(t *testing.T) {
 		}),
 		WithDefaultScope(stores.Scope{TenantID: "tenant-1", OrgID: "org-1"}),
 	)
-	req := httptest.NewRequest(http.MethodGet, "/admin/api/v1/esign/dispatches/dispatch-1", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/v1/esign/dispatches/dispatch-1", nil)
 	resp, err := app.Test(req, -1)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
@@ -1382,7 +1382,7 @@ func TestRegisterRemediationDispatchStatusAllowsMatchingScope(t *testing.T) {
 		}),
 		WithDefaultScope(stores.Scope{TenantID: "tenant-1", OrgID: "org-1"}),
 	)
-	req := httptest.NewRequest(http.MethodGet, "/admin/api/v1/esign/dispatches/dispatch-1", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/v1/esign/dispatches/dispatch-1", nil)
 	resp, err := app.Test(req, -1)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
@@ -1432,7 +1432,7 @@ func TestRegisterRemediationDispatchStatusNormalizesLifecycleStates(t *testing.T
 				}),
 				WithDefaultScope(stores.Scope{TenantID: "tenant-1", OrgID: "org-1"}),
 			)
-			req := httptest.NewRequest(http.MethodGet, "/admin/api/v1/esign/dispatches/dispatch-state-1", nil)
+			req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/v1/esign/dispatches/dispatch-state-1", nil)
 			resp, err := app.Test(req, -1)
 			if err != nil {
 				t.Fatalf("request failed: %v", err)
@@ -1565,7 +1565,7 @@ func TestRegisterDraftWorkflowUnsupportedThenRemediateThenSend(t *testing.T) {
 			}
 			body = bytes.NewReader(raw)
 		}
-		req := httptest.NewRequest(method, path, body)
+		req := httptest.NewRequestWithContext(context.Background(), method, path, body)
 		req.Header.Set("Accept", "application/json")
 		if payload != nil {
 			req.Header.Set("Content-Type", "application/json")
@@ -1715,7 +1715,7 @@ func TestRegisterSignerRouteDeniesCrossTenantScope(t *testing.T) {
 		WithDefaultScope(scope),
 	)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/esign/signing/session/"+issued.Token+"?tenant_id=tenant-2&org_id=org-1", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/esign/signing/session/"+issued.Token+"?tenant_id=tenant-2&org_id=org-1", nil)
 	resp, err := app.Test(req, -1)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
@@ -1832,7 +1832,7 @@ func TestRegisterSignerSessionReturnsScopedContextWithWaitingState(t *testing.T)
 		WithDefaultScope(scope),
 	)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/esign/signing/session/"+issuedTwo.Token, nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/esign/signing/session/"+issuedTwo.Token, nil)
 	resp, err := app.Test(req, -1)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
@@ -1861,7 +1861,7 @@ func TestRegisterSignerSessionReturnsScopedContextWithWaitingState(t *testing.T)
 func TestRegisterSignerSessionIncludesUnifiedGeometryAndBootstrapMetadata(t *testing.T) {
 	app, _, token, fieldID, _ := setupSignerFlowApp(t)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/esign/signing/session/"+token, nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/esign/signing/session/"+token, nil)
 	resp, err := app.Test(req, -1)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
@@ -1911,7 +1911,7 @@ type externalReviewRouteFixture struct {
 func TestRegisterSignerSessionAcceptsExternalReviewToken(t *testing.T) {
 	fixture := setupExternalReviewRouteApp(t)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/esign/signing/session/"+fixture.issued.Token, nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/esign/signing/session/"+fixture.issued.Token, nil)
 	resp, err := fixture.app.Test(req, -1)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
@@ -2162,7 +2162,7 @@ func setupSenderAgreementViewerRouteApp(t *testing.T, grantedPerms []string, cla
 func TestRegisterSignerAssetsAcceptsExternalReviewTokenForSourcePreview(t *testing.T) {
 	fixture := setupExternalReviewRouteApp(t)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/esign/signing/assets/"+fixture.issued.Token, nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/esign/signing/assets/"+fixture.issued.Token, nil)
 	resp, err := fixture.app.Test(req, -1)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
@@ -2186,7 +2186,7 @@ func TestRegisterSignerAssetsAcceptsExternalReviewTokenForSourcePreview(t *testi
 		}
 	}
 
-	binaryReq := httptest.NewRequest(http.MethodGet, "/api/v1/esign/signing/assets/"+fixture.issued.Token+"?asset=preview", nil)
+	binaryReq := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/esign/signing/assets/"+fixture.issued.Token+"?asset=preview", nil)
 	binaryReq.Header.Set("User-Agent", "review-token-preview/1.0")
 	binaryResp, err := fixture.app.Test(binaryReq, -1)
 	if err != nil {
@@ -2227,7 +2227,7 @@ func TestRegisterAgreementViewerAssetsFilterProtectedArtifactsByPolicy(t *testin
 		true,
 	)
 
-	req := httptest.NewRequest(http.MethodGet, "/admin/api/v1/esign/agreements/"+fixture.agreementID+"/viewer/assets", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/v1/esign/agreements/"+fixture.agreementID+"/viewer/assets", nil)
 	resp, err := fixture.app.Test(req, -1)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
@@ -2253,7 +2253,7 @@ func TestRegisterAgreementViewerAssetsFilterProtectedArtifactsByPolicy(t *testin
 		}
 	}
 
-	executedReq := httptest.NewRequest(http.MethodGet, "/admin/api/v1/esign/agreements/"+fixture.agreementID+"/viewer/assets?asset=executed", nil)
+	executedReq := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/v1/esign/agreements/"+fixture.agreementID+"/viewer/assets?asset=executed", nil)
 	executedResp, err := fixture.app.Test(executedReq, -1)
 	if err != nil {
 		t.Fatalf("executed asset request failed: %v", err)
@@ -2272,7 +2272,7 @@ func TestRegisterAgreementViewerThreadsUseEditAndViewPolicy(t *testing.T) {
 		true,
 	)
 
-	sessionReq := httptest.NewRequest(http.MethodGet, "/admin/api/v1/esign/agreements/"+fixture.agreementID+"/viewer", nil)
+	sessionReq := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/v1/esign/agreements/"+fixture.agreementID+"/viewer", nil)
 	sessionResp, err := fixture.app.Test(sessionReq, -1)
 	if err != nil {
 		t.Fatalf("session request failed: %v", err)
@@ -2291,7 +2291,7 @@ func TestRegisterAgreementViewerThreadsUseEditAndViewPolicy(t *testing.T) {
 	}
 
 	payload := strings.NewReader(`{"thread":{"anchor_type":"agreement","body":"sender comment"}}`)
-	threadReq := httptest.NewRequest(http.MethodPost, "/admin/api/v1/esign/agreements/"+fixture.agreementID+"/viewer/review/threads", payload)
+	threadReq := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/api/v1/esign/agreements/"+fixture.agreementID+"/viewer/review/threads", payload)
 	threadReq.Header.Set("Content-Type", "application/json")
 	threadResp, err := fixture.app.Test(threadReq, -1)
 	if err != nil {
@@ -2312,7 +2312,7 @@ func TestRegisterAgreementViewerThreadsAllowEditAndViewPolicy(t *testing.T) {
 	)
 
 	payload := strings.NewReader(`{"thread":{"anchor_type":"agreement","body":"sender comment"}}`)
-	threadReq := httptest.NewRequest(http.MethodPost, "/admin/api/v1/esign/agreements/"+fixture.agreementID+"/viewer/review/threads", payload)
+	threadReq := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/api/v1/esign/agreements/"+fixture.agreementID+"/viewer/review/threads", payload)
 	threadReq.Header.Set("Content-Type", "application/json")
 	threadResp, err := fixture.app.Test(threadReq, -1)
 	if err != nil {
@@ -2339,7 +2339,7 @@ func TestRegisterAgreementViewerThreadsRespectReviewCommentState(t *testing.T) {
 		false,
 	)
 
-	sessionReq := httptest.NewRequest(http.MethodGet, "/admin/api/v1/esign/agreements/"+fixture.agreementID+"/viewer", nil)
+	sessionReq := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/v1/esign/agreements/"+fixture.agreementID+"/viewer", nil)
 	sessionResp, err := fixture.app.Test(sessionReq, -1)
 	if err != nil {
 		t.Fatalf("session request failed: %v", err)
@@ -2358,7 +2358,7 @@ func TestRegisterAgreementViewerThreadsRespectReviewCommentState(t *testing.T) {
 	}
 
 	payload := strings.NewReader(`{"thread":{"anchor_type":"agreement","body":"sender comment"}}`)
-	threadReq := httptest.NewRequest(http.MethodPost, "/admin/api/v1/esign/agreements/"+fixture.agreementID+"/viewer/review/threads", payload)
+	threadReq := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/api/v1/esign/agreements/"+fixture.agreementID+"/viewer/review/threads", payload)
 	threadReq.Header.Set("Content-Type", "application/json")
 	threadResp, err := fixture.app.Test(threadReq, -1)
 	if err != nil {
@@ -2375,7 +2375,7 @@ func TestRegisterSignerTelemetryAcceptsExternalReviewToken(t *testing.T) {
 	fixture := setupExternalReviewRouteApp(t)
 
 	body := bytes.NewBufferString(`{"events":[{"event":"viewer_load_success"}],"summary":{"sessionId":"reviewer-session-1"}}`)
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/esign/signing/telemetry/"+fixture.issued.Token, body)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/esign/signing/telemetry/"+fixture.issued.Token, body)
 	req.Header.Set("Content-Type", "text/plain;charset=UTF-8")
 
 	resp, err := fixture.app.Test(req, -1)
@@ -2400,7 +2400,7 @@ func TestRegisterSignerAssetsRejectExternalReviewTokenAfterReviewClose(t *testin
 		t.Fatalf("CloseReview: %v", err)
 	}
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/esign/signing/assets/"+fixture.issued.Token, nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/esign/signing/assets/"+fixture.issued.Token, nil)
 	resp, err := fixture.app.Test(req, -1)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
@@ -2483,7 +2483,7 @@ func TestRegisterSignerSessionIncludesLimitedCompatibilityReasonWhenPreviewFallb
 	adapter.Init()
 	forcedApp := adapter.WrappedRouter()
 
-	forcedReq := httptest.NewRequest(http.MethodGet, "/api/v1/esign/signing/session/"+issued.Token, nil)
+	forcedReq := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/esign/signing/session/"+issued.Token, nil)
 	forcedResp, err := forcedApp.Test(forcedReq, -1)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
@@ -2578,7 +2578,7 @@ func TestRegisterSignerSessionReturnsTypedUnsupportedForUnsupportedDocument(t *t
 		WithSignerSessionService(signingSvc),
 		WithDefaultScope(scope),
 	)
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/esign/signing/session/"+issued.Token, nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/esign/signing/session/"+issued.Token, nil)
 	resp, err := app.Test(req, -1)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
@@ -2683,7 +2683,7 @@ func TestRegisterSignerSessionEmitsViewedAuditEventWithIPAndUserAgent(t *testing
 		WithAuditEventStore(store),
 	)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/esign/signing/session/"+issued.Token, nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/esign/signing/session/"+issued.Token, nil)
 	req.Header.Set("User-Agent", "signer-viewed-test/1.0")
 	req.Header.Set("X-Forwarded-For", "203.0.113.10")
 	resp, err := app.Test(req, -1)
@@ -2731,7 +2731,7 @@ func TestRegisterSignerConsentCapturesAcceptance(t *testing.T) {
 	app, _, token, _, _ := setupSignerFlowApp(t)
 
 	body := bytes.NewBufferString(`{"accepted":true}`)
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/esign/signing/consent/"+token, body)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/esign/signing/consent/"+token, body)
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := app.Test(req, -1)
@@ -2756,7 +2756,7 @@ func TestRegisterSignerFieldValuesUpsertRequiredValidation(t *testing.T) {
 	app, _, token, fieldID, _ := setupSignerFlowApp(t)
 
 	body := bytes.NewBufferString(`{"field_instance_id":"` + fieldID + `","value_text":" "}`)
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/esign/signing/field-values/"+token, body)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/esign/signing/field-values/"+token, body)
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := app.Test(req, -1)
@@ -2781,7 +2781,7 @@ func TestRegisterSignerFieldValuesUpsertSuccess(t *testing.T) {
 	app, _, token, fieldID, _ := setupSignerFlowApp(t)
 
 	body := bytes.NewBufferString(`{"field_instance_id":"` + fieldID + `","value_text":"Signed by Alice"}`)
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/esign/signing/field-values/"+token, body)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/esign/signing/field-values/"+token, body)
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := app.Test(req, -1)
@@ -2810,7 +2810,7 @@ func TestRegisterSignerSignatureAttachSuccess(t *testing.T) {
 	app, _, token, _, signatureFieldID := setupSignerFlowApp(t)
 
 	body := bytes.NewBufferString(`{"field_instance_id":"` + signatureFieldID + `","type":"typed","object_key":"tenant/tenant-1/org/org-1/agreements/agreement-1/sig/sig-1.png","sha256":"` + strings.Repeat("a", 64) + `","value_text":"Signer Name"}`)
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/esign/signing/field-values/signature/"+token, body)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/esign/signing/field-values/signature/"+token, body)
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := app.Test(req, -1)
@@ -2839,7 +2839,7 @@ func TestRegisterSignerSignatureUploadBootstrapSuccess(t *testing.T) {
 	app, _, token, _, signatureFieldID := setupSignerFlowApp(t)
 
 	body := bytes.NewBufferString(`{"field_instance_id":"` + signatureFieldID + `","sha256":"` + strings.Repeat("a", 64) + `","content_type":"image/png","size_bytes":2048}`)
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/esign/signing/signature-upload/"+token, body)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/esign/signing/signature-upload/"+token, body)
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := app.Test(req, -1)
@@ -2875,7 +2875,7 @@ func TestRegisterSignerTelemetryAcceptsBeaconPayload(t *testing.T) {
 	app, _, token, _, _ := setupSignerFlowApp(t)
 
 	body := bytes.NewBufferString(`{"events":[{"event":"viewer_load_success"},{"event":"page_viewed"}],"summary":{"sessionId":"session-1"}}`)
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/esign/signing/telemetry/"+token, body)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/esign/signing/telemetry/"+token, body)
 	req.Header.Set("Content-Type", "text/plain;charset=UTF-8")
 
 	resp, err := app.Test(req, -1)
@@ -2903,7 +2903,7 @@ func TestRegisterSignerSignatureAttachDrawnWithUploadBootstrap(t *testing.T) {
 	uploadSHA := hex.EncodeToString(uploadDigest[:])
 
 	bootstrapReqBody := bytes.NewBufferString(`{"field_instance_id":"` + signatureFieldID + `","sha256":"` + uploadSHA + `","content_type":"image/png","size_bytes":1024}`)
-	bootstrapReq := httptest.NewRequest(http.MethodPost, "/api/v1/esign/signing/signature-upload/"+token, bootstrapReqBody)
+	bootstrapReq := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/esign/signing/signature-upload/"+token, bootstrapReqBody)
 	bootstrapReq.Header.Set("Content-Type", "application/json")
 	bootstrapResp, err := app.Test(bootstrapReq, -1)
 	if err != nil {
@@ -2929,7 +2929,7 @@ func TestRegisterSignerSignatureAttachDrawnWithUploadBootstrap(t *testing.T) {
 	if uploadToken == "" || objectKey == "" {
 		t.Fatalf("expected upload token/object key in bootstrap contract, got %+v", bootstrapPayload)
 	}
-	uploadReq := httptest.NewRequest(http.MethodPut, "/api/v1/esign/signing/signature-upload/object?upload_token="+url.QueryEscape(uploadToken)+"&object_key="+url.QueryEscape(objectKey), bytes.NewBuffer(uploadBytes))
+	uploadReq := httptest.NewRequestWithContext(context.Background(), http.MethodPut, "/api/v1/esign/signing/signature-upload/object?upload_token="+url.QueryEscape(uploadToken)+"&object_key="+url.QueryEscape(objectKey), bytes.NewBuffer(uploadBytes))
 	uploadReq.Header.Set("Content-Type", "image/png")
 	uploadReq.Header.Set("X-ESign-Upload-Token", uploadToken)
 	uploadReq.Header.Set("X-ESign-Upload-Key", objectKey)
@@ -2944,7 +2944,7 @@ func TestRegisterSignerSignatureAttachDrawnWithUploadBootstrap(t *testing.T) {
 	}
 
 	body := bytes.NewBufferString(`{"field_instance_id":"` + signatureFieldID + `","type":"drawn","object_key":"` + objectKey + `","sha256":"` + uploadSHA + `","upload_token":"` + uploadToken + `"}`)
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/esign/signing/field-values/signature/"+token, body)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/esign/signing/field-values/signature/"+token, body)
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := app.Test(req, -1)
@@ -2972,7 +2972,7 @@ func TestRegisterSignerSignatureAttachDrawnRetryRemainsIdempotent(t *testing.T) 
 	uploadSHA := hex.EncodeToString(uploadDigest[:])
 
 	bootstrapReqBody := bytes.NewBufferString(`{"field_instance_id":"` + signatureFieldID + `","sha256":"` + uploadSHA + `","content_type":"image/png","size_bytes":1024}`)
-	bootstrapReq := httptest.NewRequest(http.MethodPost, "/api/v1/esign/signing/signature-upload/"+token, bootstrapReqBody)
+	bootstrapReq := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/esign/signing/signature-upload/"+token, bootstrapReqBody)
 	bootstrapReq.Header.Set("Content-Type", "application/json")
 	bootstrapResp, err := app.Test(bootstrapReq, -1)
 	if err != nil {
@@ -2998,7 +2998,7 @@ func TestRegisterSignerSignatureAttachDrawnRetryRemainsIdempotent(t *testing.T) 
 	if uploadToken == "" || objectKey == "" {
 		t.Fatalf("expected upload token/object key in bootstrap contract, got %+v", bootstrapPayload)
 	}
-	uploadReq := httptest.NewRequest(http.MethodPut, "/api/v1/esign/signing/signature-upload/object?upload_token="+url.QueryEscape(uploadToken)+"&object_key="+url.QueryEscape(objectKey), bytes.NewBuffer(uploadBytes))
+	uploadReq := httptest.NewRequestWithContext(context.Background(), http.MethodPut, "/api/v1/esign/signing/signature-upload/object?upload_token="+url.QueryEscape(uploadToken)+"&object_key="+url.QueryEscape(objectKey), bytes.NewBuffer(uploadBytes))
 	uploadReq.Header.Set("Content-Type", "image/png")
 	uploadReq.Header.Set("X-ESign-Upload-Token", uploadToken)
 	uploadReq.Header.Set("X-ESign-Upload-Key", objectKey)
@@ -3013,7 +3013,7 @@ func TestRegisterSignerSignatureAttachDrawnRetryRemainsIdempotent(t *testing.T) 
 	}
 
 	attachBody := `{"field_instance_id":"` + signatureFieldID + `","type":"drawn","object_key":"` + objectKey + `","sha256":"` + uploadSHA + `","upload_token":"` + uploadToken + `"}`
-	firstReq := httptest.NewRequest(http.MethodPost, "/api/v1/esign/signing/field-values/signature/"+token, bytes.NewBufferString(attachBody))
+	firstReq := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/esign/signing/field-values/signature/"+token, bytes.NewBufferString(attachBody))
 	firstReq.Header.Set("Content-Type", "application/json")
 	firstResp, err := app.Test(firstReq, -1)
 	if err != nil {
@@ -3033,7 +3033,7 @@ func TestRegisterSignerSignatureAttachDrawnRetryRemainsIdempotent(t *testing.T) 
 		t.Fatalf("expected first attach artifact id, got %s", firstPayload)
 	}
 
-	retryReq := httptest.NewRequest(http.MethodPost, "/api/v1/esign/signing/field-values/signature/"+token, bytes.NewBufferString(attachBody))
+	retryReq := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/esign/signing/field-values/signature/"+token, bytes.NewBufferString(attachBody))
 	retryReq.Header.Set("Content-Type", "application/json")
 	retryResp, err := app.Test(retryReq, -1)
 	if err != nil {
@@ -3060,7 +3060,7 @@ func TestRegisterSignerSignatureAttachDrawnRetryRemainsIdempotent(t *testing.T) 
 func TestRegisterSignerSubmitFlowWithIdempotency(t *testing.T) {
 	app, _, token, textFieldID, signatureFieldID := setupSignerFlowApp(t)
 
-	consentReq := httptest.NewRequest(http.MethodPost, "/api/v1/esign/signing/consent/"+token, bytes.NewBufferString(`{"accepted":true}`))
+	consentReq := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/esign/signing/consent/"+token, bytes.NewBufferString(`{"accepted":true}`))
 	consentReq.Header.Set("Content-Type", "application/json")
 	consentResp, err := app.Test(consentReq, -1)
 	if err != nil {
@@ -3072,7 +3072,7 @@ func TestRegisterSignerSubmitFlowWithIdempotency(t *testing.T) {
 	}
 
 	signatureReqBody := bytes.NewBufferString(`{"field_instance_id":"` + signatureFieldID + `","type":"typed","object_key":"tenant/tenant-1/org/org-1/agreements/agreement-1/sig/sig-submit.png","sha256":"` + strings.Repeat("d", 64) + `","value_text":"Signer Name"}`)
-	signatureReq := httptest.NewRequest(http.MethodPost, "/api/v1/esign/signing/field-values/signature/"+token, signatureReqBody)
+	signatureReq := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/esign/signing/field-values/signature/"+token, signatureReqBody)
 	signatureReq.Header.Set("Content-Type", "application/json")
 	signatureResp, err := app.Test(signatureReq, -1)
 	if err != nil {
@@ -3084,7 +3084,7 @@ func TestRegisterSignerSubmitFlowWithIdempotency(t *testing.T) {
 	}
 
 	fieldReqBody := bytes.NewBufferString(`{"field_instance_id":"` + textFieldID + `","value_text":"Signer Name"}`)
-	fieldReq := httptest.NewRequest(http.MethodPost, "/api/v1/esign/signing/field-values/"+token, fieldReqBody)
+	fieldReq := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/esign/signing/field-values/"+token, fieldReqBody)
 	fieldReq.Header.Set("Content-Type", "application/json")
 	fieldResp, err := app.Test(fieldReq, -1)
 	if err != nil {
@@ -3095,7 +3095,7 @@ func TestRegisterSignerSubmitFlowWithIdempotency(t *testing.T) {
 		t.Fatalf("expected field-values status 200, got %d", fieldResp.StatusCode)
 	}
 
-	submitReq := httptest.NewRequest(http.MethodPost, "/api/v1/esign/signing/submit/"+token, nil)
+	submitReq := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/esign/signing/submit/"+token, nil)
 	submitReq.Header.Set("Idempotency-Key", "submit-handler-key-1")
 	submitResp, err := app.Test(submitReq, -1)
 	if err != nil {
@@ -3113,7 +3113,7 @@ func TestRegisterSignerSubmitFlowWithIdempotency(t *testing.T) {
 		t.Fatalf("expected completed submit payload, got %s", string(submitPayload))
 	}
 
-	replayReq := httptest.NewRequest(http.MethodPost, "/api/v1/esign/signing/submit/"+token, nil)
+	replayReq := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/esign/signing/submit/"+token, nil)
 	replayReq.Header.Set("Idempotency-Key", "submit-handler-key-1")
 	replayResp, err := app.Test(replayReq, -1)
 	if err != nil {
@@ -3138,7 +3138,7 @@ func TestRegisterSignerUnifiedFlowObservabilitySignals(t *testing.T) {
 
 	app, _, token, textFieldID, signatureFieldID := setupSignerFlowApp(t)
 
-	consentReq := httptest.NewRequest(http.MethodPost, "/api/v1/esign/signing/consent/"+token, bytes.NewBufferString(`{"accepted":true}`))
+	consentReq := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/esign/signing/consent/"+token, bytes.NewBufferString(`{"accepted":true}`))
 	consentReq.Header.Set("Content-Type", "application/json")
 	consentReq.Header.Set("X-ESign-Flow-Mode", "unified")
 	consentResp, err := app.Test(consentReq, -1)
@@ -3151,7 +3151,7 @@ func TestRegisterSignerUnifiedFlowObservabilitySignals(t *testing.T) {
 	}
 
 	signatureReqBody := bytes.NewBufferString(`{"field_instance_id":"` + signatureFieldID + `","type":"typed","object_key":"tenant/tenant-1/org/org-1/agreements/agreement-1/sig/sig-observe.png","sha256":"` + strings.Repeat("f", 64) + `","value_text":"Signer Name"}`)
-	signatureReq := httptest.NewRequest(http.MethodPost, "/api/v1/esign/signing/field-values/signature/"+token, signatureReqBody)
+	signatureReq := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/esign/signing/field-values/signature/"+token, signatureReqBody)
 	signatureReq.Header.Set("Content-Type", "application/json")
 	signatureReq.Header.Set("X-ESign-Flow-Mode", "unified")
 	signatureResp, err := app.Test(signatureReq, -1)
@@ -3164,7 +3164,7 @@ func TestRegisterSignerUnifiedFlowObservabilitySignals(t *testing.T) {
 	}
 
 	fieldReqBody := bytes.NewBufferString(`{"field_instance_id":"` + textFieldID + `","value_text":"Signer Name"}`)
-	fieldReq := httptest.NewRequest(http.MethodPost, "/api/v1/esign/signing/field-values/"+token, fieldReqBody)
+	fieldReq := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/esign/signing/field-values/"+token, fieldReqBody)
 	fieldReq.Header.Set("Content-Type", "application/json")
 	fieldReq.Header.Set("X-ESign-Flow-Mode", "unified")
 	fieldResp, err := app.Test(fieldReq, -1)
@@ -3176,7 +3176,7 @@ func TestRegisterSignerUnifiedFlowObservabilitySignals(t *testing.T) {
 		t.Fatalf("expected field-values status 200, got %d", fieldResp.StatusCode)
 	}
 
-	submitReq := httptest.NewRequest(http.MethodPost, "/api/v1/esign/signing/submit/"+token, nil)
+	submitReq := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/esign/signing/submit/"+token, nil)
 	submitReq.Header.Set("Idempotency-Key", "submit-unified-observe-1")
 	submitReq.Header.Set("X-ESign-Flow-Mode", "unified")
 	submitResp, err := app.Test(submitReq, -1)
@@ -3203,7 +3203,7 @@ func TestRegisterSignerUnifiedFlowObservabilitySignals(t *testing.T) {
 func TestRegisterSignerSubmitIdempotencyUnderBurstTraffic(t *testing.T) {
 	app, _, token, textFieldID, signatureFieldID := setupSignerFlowApp(t)
 
-	consentReq := httptest.NewRequest(http.MethodPost, "/api/v1/esign/signing/consent/"+token, bytes.NewBufferString(`{"accepted":true}`))
+	consentReq := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/esign/signing/consent/"+token, bytes.NewBufferString(`{"accepted":true}`))
 	consentReq.Header.Set("Content-Type", "application/json")
 	consentResp, err := app.Test(consentReq, -1)
 	if err != nil {
@@ -3215,7 +3215,7 @@ func TestRegisterSignerSubmitIdempotencyUnderBurstTraffic(t *testing.T) {
 	}
 
 	signatureReqBody := bytes.NewBufferString(`{"field_instance_id":"` + signatureFieldID + `","type":"typed","object_key":"tenant/tenant-1/org/org-1/agreements/agreement-1/sig/sig-burst.png","sha256":"` + strings.Repeat("e", 64) + `","value_text":"Signer Name"}`)
-	signatureReq := httptest.NewRequest(http.MethodPost, "/api/v1/esign/signing/field-values/signature/"+token, signatureReqBody)
+	signatureReq := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/esign/signing/field-values/signature/"+token, signatureReqBody)
 	signatureReq.Header.Set("Content-Type", "application/json")
 	signatureResp, err := app.Test(signatureReq, -1)
 	if err != nil {
@@ -3227,7 +3227,7 @@ func TestRegisterSignerSubmitIdempotencyUnderBurstTraffic(t *testing.T) {
 	}
 
 	fieldReqBody := bytes.NewBufferString(`{"field_instance_id":"` + textFieldID + `","value_text":"Signer Name"}`)
-	fieldReq := httptest.NewRequest(http.MethodPost, "/api/v1/esign/signing/field-values/"+token, fieldReqBody)
+	fieldReq := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/esign/signing/field-values/"+token, fieldReqBody)
 	fieldReq.Header.Set("Content-Type", "application/json")
 	fieldResp, err := app.Test(fieldReq, -1)
 	if err != nil {
@@ -3239,7 +3239,7 @@ func TestRegisterSignerSubmitIdempotencyUnderBurstTraffic(t *testing.T) {
 	}
 
 	for i := range 20 {
-		submitReq := httptest.NewRequest(http.MethodPost, "/api/v1/esign/signing/submit/"+token, nil)
+		submitReq := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/esign/signing/submit/"+token, nil)
 		submitReq.Header.Set("Idempotency-Key", "submit-burst-idempotency-1")
 		submitResp, err := app.Test(submitReq, -1)
 		if err != nil {
@@ -3259,7 +3259,7 @@ func TestRegisterSignerSubmitIdempotencyUnderBurstTraffic(t *testing.T) {
 func TestRegisterSignerDeclineFlow(t *testing.T) {
 	app, _, token, _, _ := setupSignerFlowApp(t)
 
-	declineReq := httptest.NewRequest(http.MethodPost, "/api/v1/esign/signing/decline/"+token, bytes.NewBufferString(`{"reason":"I decline to sign"}`))
+	declineReq := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/esign/signing/decline/"+token, bytes.NewBufferString(`{"reason":"I decline to sign"}`))
 	declineReq.Header.Set("Content-Type", "application/json")
 	declineResp, err := app.Test(declineReq, -1)
 	if err != nil {

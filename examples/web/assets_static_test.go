@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -46,7 +47,7 @@ func TestEmbeddedAssetsServed(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		req := httptest.NewRequest(http.MethodGet, tt.path, nil)
+		req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, tt.path, nil)
 		resp, err := app.Test(req, -1)
 		if err != nil {
 			t.Fatalf("request %s failed: %v", tt.path, err)
@@ -78,7 +79,7 @@ func TestEmbeddedAssetsServedWithCatchAll(t *testing.T) {
 	adapter.Init()
 	app := adapter.WrappedRouter()
 
-	req := httptest.NewRequest(http.MethodGet, "/admin/assets/output.css", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/assets/output.css", nil)
 	resp, err := app.Test(req, -1)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)

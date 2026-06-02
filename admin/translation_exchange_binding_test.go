@@ -112,13 +112,14 @@ func TestTranslationExchangeBindingImportValidateParsesCSVAndRecordsConflictActi
 
 	csvPayload := "resource,entity_id,family_id,target_locale,field_path,source_text,source_hash,route_key\npages,page_123,tg_123,es,title,Hello world,abc123,pages/about"
 	body, contentType := buildMultipartFile(t, "translations.csv", "text/csv", []byte(csvPayload))
-	req := httptest.NewRequest(http.MethodPost, "/admin/api/translations/exchange/import/validate", body)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/api/translations/exchange/import/validate", body)
 	req.Header.Set("Content-Type", contentType)
 
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("request error: %v", err)
 	}
+	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("status=%d, want %d", resp.StatusCode, http.StatusOK)
 	}
@@ -190,7 +191,7 @@ func TestTranslationExchangeBindingImportApplyUsesExplicitCreateIntentOptions(t 
 		"dry_run":                    true,
 	}
 	raw, _ := json.Marshal(payload)
-	req := httptest.NewRequest(http.MethodPost, "/admin/api/translations/exchange/import/apply", bytes.NewReader(raw))
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/api/translations/exchange/import/apply", bytes.NewReader(raw))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-User-ID", "ops-user")
 
@@ -198,6 +199,7 @@ func TestTranslationExchangeBindingImportApplyUsesExplicitCreateIntentOptions(t 
 	if err != nil {
 		t.Fatalf("request error: %v", err)
 	}
+	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("status=%d, want %d", resp.StatusCode, http.StatusOK)
 	}
@@ -243,13 +245,14 @@ func TestTranslationExchangeBindingImportApplyRejectsUnsupportedConflictReplayFi
 		},
 		"retry_job_id": "txex_job_retry_source",
 	})
-	req := httptest.NewRequest(http.MethodPost, "/admin/api/translations/exchange/import/apply", bytes.NewReader(raw))
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/api/translations/exchange/import/apply", bytes.NewReader(raw))
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("request error: %v", err)
 	}
+	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusBadRequest {
 		t.Fatalf("status=%d, want %d", resp.StatusCode, http.StatusBadRequest)
 	}
@@ -268,7 +271,7 @@ func TestTranslationExchangeBindingImportValidateEchoesTraceHeaders(t *testing.T
 
 	csvPayload := "resource,entity_id,family_id,target_locale,field_path,source_text,source_hash\npages,page_123,tg_123,es,title,Hello world,abc123"
 	body, contentType := buildMultipartFile(t, "translations.csv", "text/csv", []byte(csvPayload))
-	req := httptest.NewRequest(http.MethodPost, "/admin/api/translations/exchange/import/validate", body)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/api/translations/exchange/import/validate", body)
 	req.Header.Set("Content-Type", contentType)
 	req.Header.Set("X-Request-ID", "req-exchange-1")
 	req.Header.Set("X-Correlation-ID", "corr-exchange-1")
@@ -278,6 +281,7 @@ func TestTranslationExchangeBindingImportValidateEchoesTraceHeaders(t *testing.T
 	if err != nil {
 		t.Fatalf("request error: %v", err)
 	}
+	defer resp.Body.Close()
 	defer mustClose(t, "response body", resp.Body)
 
 	if got := resp.Header.Get("X-Request-ID"); got != "req-exchange-1" {
@@ -299,13 +303,14 @@ func TestTranslationExchangeBindingImportValidateRejectsUnsupportedFormatWithTyp
 	app := newTranslationExchangeTestApp(t, binding)
 
 	body, contentType := buildMultipartFile(t, "translations.xml", "text/xml", []byte("<x/>"))
-	req := httptest.NewRequest(http.MethodPost, "/admin/api/translations/exchange/import/validate", body)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/api/translations/exchange/import/validate", body)
 	req.Header.Set("Content-Type", contentType)
 
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("request error: %v", err)
 	}
+	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusBadRequest {
 		t.Fatalf("status=%d, want %d", resp.StatusCode, http.StatusBadRequest)
 	}
@@ -347,13 +352,14 @@ func TestTranslationExchangeBindingImportValidateRejectsUnknownTopLevelKeyInStri
 		"unexpected": true,
 	}
 	raw, _ := json.Marshal(payload)
-	req := httptest.NewRequest(http.MethodPost, "/admin/api/translations/exchange/import/validate", bytes.NewReader(raw))
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/api/translations/exchange/import/validate", bytes.NewReader(raw))
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("request error: %v", err)
 	}
+	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusBadRequest {
 		t.Fatalf("status=%d, want %d", resp.StatusCode, http.StatusBadRequest)
 	}
@@ -387,13 +393,14 @@ func TestTranslationExchangeBindingExportParsesFilterFromJSON(t *testing.T) {
 		},
 	}
 	raw, _ := json.Marshal(payload)
-	req := httptest.NewRequest(http.MethodPost, "/admin/api/translations/exchange/export", bytes.NewReader(raw))
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/api/translations/exchange/export", bytes.NewReader(raw))
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("request error: %v", err)
 	}
+	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("status=%d, want %d", resp.StatusCode, http.StatusOK)
 	}
@@ -445,13 +452,14 @@ func TestTranslationExchangeBindingImportValidateParsesJSONPayload(t *testing.T)
 		},
 	}
 	raw, _ := json.Marshal(payload)
-	req := httptest.NewRequest(http.MethodPost, "/admin/api/translations/exchange/import/validate", bytes.NewReader(raw))
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/api/translations/exchange/import/validate", bytes.NewReader(raw))
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("request error: %v", err)
 	}
+	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("status=%d, want %d", resp.StatusCode, http.StatusOK)
 	}
@@ -477,13 +485,14 @@ func TestTranslationExchangeBindingImportValidateMalformedCSVReturnsTypedError(t
 	// CSV with mismatched column count in data row
 	malformedCSV := "resource,entity_id,family_id,target_locale,field_path\npages,page_1,tg_1"
 	body, contentType := buildMultipartFile(t, "translations.csv", "text/csv", []byte(malformedCSV))
-	req := httptest.NewRequest(http.MethodPost, "/admin/api/translations/exchange/import/validate", body)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/api/translations/exchange/import/validate", body)
 	req.Header.Set("Content-Type", contentType)
 
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("request error: %v", err)
 	}
+	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusBadRequest {
 		t.Fatalf("status=%d, want %d", resp.StatusCode, http.StatusBadRequest)
 	}
@@ -525,13 +534,14 @@ func TestTranslationExchangeBindingImportValidateMissingRequiredFieldsReturnsTyp
 		},
 	}
 	raw, _ := json.Marshal(payload)
-	req := httptest.NewRequest(http.MethodPost, "/admin/api/translations/exchange/import/validate", bytes.NewReader(raw))
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/api/translations/exchange/import/validate", bytes.NewReader(raw))
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("request error: %v", err)
 	}
+	defer resp.Body.Close()
 	// Validation happens in command layer, so executor is called but returns validation error
 	validateCalled, _ := executor.validateSnapshot()
 	if validateCalled != 0 && resp.StatusCode == http.StatusBadRequest {
@@ -565,13 +575,14 @@ func TestTranslationExchangeBindingImportApplyParsesCSVWithTranslatedText(t *tes
 
 	csvPayload := "resource,entity_id,family_id,target_locale,field_path,translated_text,source_hash\npages,page_123,tg_123,es,title,\"Hola mundo\",abc123"
 	body, contentType := buildMultipartFile(t, "translations.csv", "text/csv", []byte(csvPayload))
-	req := httptest.NewRequest(http.MethodPost, "/admin/api/translations/exchange/import/apply", body)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/api/translations/exchange/import/apply", body)
 	req.Header.Set("Content-Type", contentType)
 
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("request error: %v", err)
 	}
+	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("status=%d, want %d", resp.StatusCode, http.StatusOK)
 	}
@@ -613,13 +624,14 @@ func TestTranslationExchangeBindingExportDispatchesCommandAndReturnsResult(t *te
 		},
 	}
 	raw, _ := json.Marshal(payload)
-	req := httptest.NewRequest(http.MethodPost, "/admin/api/translations/exchange/export", bytes.NewReader(raw))
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/api/translations/exchange/export", bytes.NewReader(raw))
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("request error: %v", err)
 	}
+	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("status=%d, want %d", resp.StatusCode, http.StatusOK)
 	}
@@ -670,7 +682,7 @@ func TestTranslationExchangeBindingExportRejectsCookieAuthWithoutCSRFToken(t *te
 	binding.executor = executor
 	app := newTranslationExchangeTestApp(t, binding)
 
-	req := httptest.NewRequest(http.MethodPost, "http://example.com/admin/api/translations/exchange/export", strings.NewReader(`{"filter":{"resources":["pages"]}}`))
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "http://example.com/admin/api/translations/exchange/export", strings.NewReader(`{"filter":{"resources":["pages"]}}`))
 	req.Header.Set("Content-Type", "application/json")
 	req.AddCookie(&http.Cookie{Name: cfg.GetContextKey(), Value: token})
 
@@ -678,6 +690,7 @@ func TestTranslationExchangeBindingExportRejectsCookieAuthWithoutCSRFToken(t *te
 	if err != nil {
 		t.Fatalf("request error: %v", err)
 	}
+	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusBadRequest {
 		t.Fatalf("status=%d, want %d", resp.StatusCode, http.StatusBadRequest)
 	}
@@ -719,7 +732,7 @@ func TestTranslationExchangeBindingExportRejectsCookieAuthWithBogusCSRFToken(t *
 	binding.executor = executor
 	app := newTranslationExchangeTestApp(t, binding)
 
-	req := httptest.NewRequest(http.MethodPost, "http://example.com/admin/api/translations/exchange/export", strings.NewReader(`{"filter":{"resources":["pages"]}}`))
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "http://example.com/admin/api/translations/exchange/export", strings.NewReader(`{"filter":{"resources":["pages"]}}`))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set(csrfmw.DefaultHeaderName, "bogus")
 	req.AddCookie(&http.Cookie{Name: cfg.GetContextKey(), Value: token})
@@ -728,6 +741,7 @@ func TestTranslationExchangeBindingExportRejectsCookieAuthWithBogusCSRFToken(t *
 	if err != nil {
 		t.Fatalf("request error: %v", err)
 	}
+	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusBadRequest {
 		t.Fatalf("status=%d, want %d", resp.StatusCode, http.StatusBadRequest)
 	}
@@ -769,12 +783,13 @@ func TestTranslationExchangeBindingExportAcceptsCookieAuthWithValidCSRFToken(t *
 	binding.executor = executor
 	app := newTranslationExchangeTestApp(t, binding)
 
-	tokenReq := httptest.NewRequest(http.MethodGet, "http://example.com/admin/translations", nil)
+	tokenReq := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "http://example.com/admin/translations", nil)
 	tokenReq.AddCookie(&http.Cookie{Name: cfg.GetContextKey(), Value: token})
 	tokenResp, err := app.Test(tokenReq)
 	if err != nil {
 		t.Fatalf("token request error: %v", err)
 	}
+	defer tokenResp.Body.Close()
 	if tokenResp.StatusCode != http.StatusOK {
 		t.Fatalf("token route status=%d, want %d", tokenResp.StatusCode, http.StatusOK)
 	}
@@ -787,7 +802,7 @@ func TestTranslationExchangeBindingExportAcceptsCookieAuthWithValidCSRFToken(t *
 		t.Fatalf("expected csrf token from browser route")
 	}
 
-	req := httptest.NewRequest(http.MethodPost, "http://example.com/admin/api/translations/exchange/export", strings.NewReader(`{"filter":{"resources":["pages"]}}`))
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "http://example.com/admin/api/translations/exchange/export", strings.NewReader(`{"filter":{"resources":["pages"]}}`))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set(csrfmw.DefaultHeaderName, csrfToken)
 	req.AddCookie(&http.Cookie{Name: cfg.GetContextKey(), Value: token})
@@ -796,6 +811,7 @@ func TestTranslationExchangeBindingExportAcceptsCookieAuthWithValidCSRFToken(t *
 	if err != nil {
 		t.Fatalf("request error: %v", err)
 	}
+	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("status=%d, want %d", resp.StatusCode, http.StatusOK)
 	}
@@ -816,7 +832,7 @@ func TestTranslationExchangeBindingExportRejectsCookieAuthWithoutBrowserCSRFProt
 	binding.executor = executor
 	app := newTranslationExchangeTestApp(t, binding)
 
-	req := httptest.NewRequest(http.MethodPost, "http://example.com/admin/api/translations/exchange/export", strings.NewReader(`{"filter":{"resources":["pages"]}}`))
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "http://example.com/admin/api/translations/exchange/export", strings.NewReader(`{"filter":{"resources":["pages"]}}`))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Cookie", "session=opaque")
 	req.Header.Set("X-User-ID", "user-123")
@@ -825,6 +841,7 @@ func TestTranslationExchangeBindingExportRejectsCookieAuthWithoutBrowserCSRFProt
 	if err != nil {
 		t.Fatalf("request error: %v", err)
 	}
+	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusBadRequest {
 		t.Fatalf("status=%d, want %d", resp.StatusCode, http.StatusBadRequest)
 	}
@@ -862,13 +879,14 @@ func TestTranslationExchangeBindingDeleteJobRejectsCookieAuthWithoutCSRFToken(t 
 	binding := newTranslationExchangeBinding(adm)
 	app := newTranslationExchangeTestApp(t, binding)
 
-	req := httptest.NewRequest(http.MethodDelete, "http://example.com/admin/api/translations/exchange/jobs/job-1", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodDelete, "http://example.com/admin/api/translations/exchange/jobs/job-1", nil)
 	req.AddCookie(&http.Cookie{Name: cfg.GetContextKey(), Value: token})
 
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("request error: %v", err)
 	}
+	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusBadRequest {
 		t.Fatalf("status=%d, want %d", resp.StatusCode, http.StatusBadRequest)
 	}
@@ -889,7 +907,7 @@ func TestTranslationExchangeBindingImportApplyEmptyRowsReturnsTypedError(t *test
 		"rows": []map[string]any{},
 	}
 	raw, _ := json.Marshal(payload)
-	req := httptest.NewRequest(http.MethodPost, "/admin/api/translations/exchange/import/apply", bytes.NewReader(raw))
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/api/translations/exchange/import/apply", bytes.NewReader(raw))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-User-ID", "ops-user")
 
@@ -897,6 +915,7 @@ func TestTranslationExchangeBindingImportApplyEmptyRowsReturnsTypedError(t *test
 	if err != nil {
 		t.Fatalf("request error: %v", err)
 	}
+	defer resp.Body.Close()
 	// Empty rows should trigger typed error
 	if resp.StatusCode != http.StatusBadRequest {
 		t.Fatalf("status=%d, want %d for empty rows", resp.StatusCode, http.StatusBadRequest)
@@ -974,7 +993,7 @@ func TestTranslationExchangeBindingImportApplyAsyncReturnsJobEnvelopeWithConflic
 		"async": true,
 	}
 	raw, _ := json.Marshal(payload)
-	req := httptest.NewRequest(http.MethodPost, "/admin/api/translations/exchange/import/apply", bytes.NewReader(raw))
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/api/translations/exchange/import/apply", bytes.NewReader(raw))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-User-ID", "ops-user")
 
@@ -982,6 +1001,7 @@ func TestTranslationExchangeBindingImportApplyAsyncReturnsJobEnvelopeWithConflic
 	if err != nil {
 		t.Fatalf("request error: %v", err)
 	}
+	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("status=%d want=200", resp.StatusCode)
 	}
@@ -1018,7 +1038,7 @@ func TestTranslationExchangeBindingImportApplyAsyncReturnsJobEnvelopeWithConflic
 
 	var pollJob map[string]any
 	for range 10 {
-		pollReq := httptest.NewRequest(http.MethodGet, pollEndpoint, nil)
+		pollReq := httptest.NewRequestWithContext(context.Background(), http.MethodGet, pollEndpoint, nil)
 		pollReq.Header.Set("X-User-ID", "ops-user")
 		pollResp, err := app.Test(pollReq)
 		if err != nil {
@@ -1081,7 +1101,7 @@ func TestTranslationExchangeBindingExportAsyncReturnsJobEnvelope(t *testing.T) {
 		"async": true,
 	}
 	raw, _ := json.Marshal(payload)
-	req := httptest.NewRequest(http.MethodPost, "/admin/api/translations/exchange/export", bytes.NewReader(raw))
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/api/translations/exchange/export", bytes.NewReader(raw))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-User-ID", "ops-user")
 
@@ -1089,6 +1109,7 @@ func TestTranslationExchangeBindingExportAsyncReturnsJobEnvelope(t *testing.T) {
 	if err != nil {
 		t.Fatalf("request error: %v", err)
 	}
+	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("status=%d want=200", resp.StatusCode)
 	}
@@ -1147,7 +1168,7 @@ func TestTranslationExchangeBindingJobStatusRequiresJobOwner(t *testing.T) {
 		},
 		"async": true,
 	})
-	createReq := httptest.NewRequest(http.MethodPost, "/admin/api/translations/exchange/export", bytes.NewReader(raw))
+	createReq := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/api/translations/exchange/export", bytes.NewReader(raw))
 	createReq.Header.Set("Content-Type", "application/json")
 	createReq.Header.Set("X-User-ID", "owner-user")
 
@@ -1155,6 +1176,7 @@ func TestTranslationExchangeBindingJobStatusRequiresJobOwner(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create request error: %v", err)
 	}
+	defer createResp.Body.Close()
 	if createResp.StatusCode != http.StatusOK {
 		t.Fatalf("create status=%d want=200", createResp.StatusCode)
 	}
@@ -1214,7 +1236,7 @@ func TestTranslationExchangeBindingHistoryListsActorJobsAndFixtureExamples(t *te
 	binding.executor = executor
 	app := newTranslationExchangeTestApp(t, binding)
 
-	createReq := httptest.NewRequest(http.MethodPost, "/admin/api/translations/exchange/export", bytes.NewReader([]byte(`{"filter":{"resources":["pages"]}}`)))
+	createReq := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/api/translations/exchange/export", bytes.NewReader([]byte(`{"filter":{"resources":["pages"]}}`)))
 	createReq.Header.Set("Content-Type", "application/json")
 	createReq.Header.Set("X-User-ID", "owner-user")
 	createResp, err := app.Test(createReq)
@@ -1243,7 +1265,7 @@ func TestTranslationExchangeBindingHistoryListsActorJobsAndFixtureExamples(t *te
 	var meta map[string]any
 	var items []map[string]any
 	for range 10 {
-		historyReq := httptest.NewRequest(http.MethodGet, "/admin/api/translations/exchange/jobs?include_examples=true&kind=export", nil)
+		historyReq := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/translations/exchange/jobs?include_examples=true&kind=export", nil)
 		historyReq.Header.Set("X-User-ID", "owner-user")
 		historyResp, err := app.Test(historyReq)
 		if err != nil {
@@ -1331,13 +1353,14 @@ func TestTranslationExchangeBindingImportApplyAsyncReplaysByRequestHash(t *testi
 	app := newTranslationExchangeTestApp(t, binding)
 
 	body := []byte(`{"rows":[{"resource":"pages","entity_id":"page_1","family_id":"tg_1","target_locale":"es","field_path":"title","translated_text":"Hola"}],"async":true}`)
-	firstReq := httptest.NewRequest(http.MethodPost, "/admin/api/translations/exchange/import/apply", bytes.NewReader(body))
+	firstReq := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/api/translations/exchange/import/apply", bytes.NewReader(body))
 	firstReq.Header.Set("Content-Type", "application/json")
 	firstReq.Header.Set("X-User-ID", "ops-user")
 	firstResp, err := app.Test(firstReq)
 	if err != nil {
 		t.Fatalf("first request error: %v", err)
 	}
+	defer firstResp.Body.Close()
 	defer mustClose(t, "response body", firstResp.Body)
 	firstPayload := map[string]any{}
 	if decodeFirstErr := json.NewDecoder(firstResp.Body).Decode(&firstPayload); decodeFirstErr != nil {
@@ -1348,13 +1371,14 @@ func TestTranslationExchangeBindingImportApplyAsyncReplaysByRequestHash(t *testi
 		t.Fatalf("expected first job id, got %+v", firstPayload)
 	}
 
-	secondReq := httptest.NewRequest(http.MethodPost, "/admin/api/translations/exchange/import/apply", bytes.NewReader(body))
+	secondReq := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/api/translations/exchange/import/apply", bytes.NewReader(body))
 	secondReq.Header.Set("Content-Type", "application/json")
 	secondReq.Header.Set("X-User-ID", "ops-user")
 	secondResp, err := app.Test(secondReq)
 	if err != nil {
 		t.Fatalf("second request error: %v", err)
 	}
+	defer secondResp.Body.Close()
 	defer mustClose(t, "response body", secondResp.Body)
 	secondPayload := map[string]any{}
 	if err := json.NewDecoder(secondResp.Body).Decode(&secondPayload); err != nil {
@@ -1395,13 +1419,14 @@ func TestTranslationExchangeBindingDeleteJobRemovesJobFromStatusAndHistory(t *te
 	binding.executor = executor
 	app := newTranslationExchangeTestApp(t, binding)
 
-	createReq := httptest.NewRequest(http.MethodPost, "/admin/api/translations/exchange/export", bytes.NewReader([]byte(`{"filter":{"resources":["pages"]}}`)))
+	createReq := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/api/translations/exchange/export", bytes.NewReader([]byte(`{"filter":{"resources":["pages"]}}`)))
 	createReq.Header.Set("Content-Type", "application/json")
 	createReq.Header.Set("X-User-ID", "owner-user")
 	createResp, err := app.Test(createReq)
 	if err != nil {
 		t.Fatalf("create request error: %v", err)
 	}
+	defer createResp.Body.Close()
 	defer mustClose(t, "response body", createResp.Body)
 	createPayload := map[string]any{}
 	if decodeCreateErr := json.NewDecoder(createResp.Body).Decode(&createPayload); decodeCreateErr != nil {
@@ -1413,7 +1438,7 @@ func TestTranslationExchangeBindingDeleteJobRemovesJobFromStatusAndHistory(t *te
 		t.Fatalf("expected job id, got %+v", job)
 	}
 
-	deleteReq := httptest.NewRequest(http.MethodDelete, "/admin/api/translations/exchange/jobs/"+jobID, nil)
+	deleteReq := httptest.NewRequestWithContext(context.Background(), http.MethodDelete, "/admin/api/translations/exchange/jobs/"+jobID, nil)
 	deleteReq.Header.Set("X-User-ID", "owner-user")
 	deleteResp, err := app.Test(deleteReq)
 	if err != nil {
@@ -1424,7 +1449,7 @@ func TestTranslationExchangeBindingDeleteJobRemovesJobFromStatusAndHistory(t *te
 	}
 	_ = deleteResp.Body.Close()
 
-	statusReq := httptest.NewRequest(http.MethodGet, "/admin/api/translations/exchange/jobs/"+jobID, nil)
+	statusReq := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/translations/exchange/jobs/"+jobID, nil)
 	statusReq.Header.Set("X-User-ID", "owner-user")
 	statusResp, err := app.Test(statusReq)
 	if err != nil {
@@ -1435,12 +1460,13 @@ func TestTranslationExchangeBindingDeleteJobRemovesJobFromStatusAndHistory(t *te
 	}
 	_ = statusResp.Body.Close()
 
-	historyReq := httptest.NewRequest(http.MethodGet, "/admin/api/translations/exchange/jobs", nil)
+	historyReq := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/translations/exchange/jobs", nil)
 	historyReq.Header.Set("X-User-ID", "owner-user")
 	historyResp, err := app.Test(historyReq)
 	if err != nil {
 		t.Fatalf("history request error: %v", err)
 	}
+	defer historyResp.Body.Close()
 	defer mustClose(t, "response body", historyResp.Body)
 	historyPayload := map[string]any{}
 	if err := json.NewDecoder(historyResp.Body).Decode(&historyPayload); err != nil {

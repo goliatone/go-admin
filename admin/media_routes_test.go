@@ -270,7 +270,7 @@ func TestMediaRoutesUsePermissionMatrix(t *testing.T) {
 
 func TestMediaRoutesRemainFeatureGated(t *testing.T) {
 	server := newMediaRouteServer(t, allowAll{}, newMediaRouteTestLibrary(), featureGateFromKeys(FeatureCMS))
-	req := httptest.NewRequest(http.MethodGet, "/admin/api/media/assets", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/media/assets", nil)
 	res := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(res, req)
 	if res.Code < 400 {
@@ -540,7 +540,7 @@ func TestWithMediaLibraryOverridesRouteLibrary(t *testing.T) {
 
 func assertMediaStatus(t *testing.T, server router.Server[*httprouter.Router], method, path string, body io.Reader, headers map[string]string, want int) {
 	t.Helper()
-	req := httptest.NewRequest(method, path, body)
+	req := httptest.NewRequestWithContext(context.Background(), method, path, body)
 	for key, value := range headers {
 		req.Header.Set(key, value)
 	}
@@ -553,7 +553,7 @@ func assertMediaStatus(t *testing.T, server router.Server[*httprouter.Router], m
 
 func assertMediaJSON[T any](t *testing.T, server router.Server[*httprouter.Router], method, path string, body io.Reader, headers map[string]string, want int) T {
 	t.Helper()
-	req := httptest.NewRequest(method, path, body)
+	req := httptest.NewRequestWithContext(context.Background(), method, path, body)
 	for key, value := range headers {
 		req.Header.Set(key, value)
 	}
@@ -589,7 +589,7 @@ func assertMultipartMediaStatus(t *testing.T, server router.Server[*httprouter.R
 	if err := writer.Close(); err != nil {
 		t.Fatalf("close multipart writer: %v", err)
 	}
-	req := httptest.NewRequest(http.MethodPost, path, &body)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, path, &body)
 	req.Header.Set("Content-Type", writer.FormDataContentType())
 	res := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(res, req)
@@ -627,7 +627,7 @@ func TestDefaultAdminAPIRoutesIncludeMediaContractKeys(t *testing.T) {
 
 func TestMediaCapabilitiesRouteReturnsRequestScopedCapabilities(t *testing.T) {
 	server := newMediaRouteServer(t, allowAll{}, newMediaRouteTestLibrary(), featureGateFromKeys(FeatureMedia, FeatureCMS))
-	req := httptest.NewRequest(http.MethodGet, "/admin/api/media/capabilities", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/media/capabilities", nil)
 	res := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(res, req)
 	if res.Code != 200 {
@@ -654,7 +654,7 @@ func (l *mediaCapabilityOverrideTestLibrary) MediaCapabilityOverrides(context.Co
 func TestMediaCapabilitiesClampUnauthorizedProviderClaims(t *testing.T) {
 	lib := newMediaRouteTestLibrary()
 	server := newMediaRouteServer(t, allowPermissionAuthorizer{allowed: "perm.view"}, lib, featureGateFromKeys(FeatureMedia, FeatureCMS))
-	req := httptest.NewRequest(http.MethodGet, "/admin/api/media/capabilities", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/media/capabilities", nil)
 	res := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(res, req)
 	if res.Code != 200 {
@@ -685,7 +685,7 @@ func TestMediaCapabilityOverridesCanAdjustPartialFieldsWithoutResettingBooleans(
 		},
 	}
 	server := newMediaRouteServer(t, allowAll{}, lib, featureGateFromKeys(FeatureMedia, FeatureCMS))
-	req := httptest.NewRequest(http.MethodGet, "/admin/api/media/capabilities", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/media/capabilities", nil)
 	res := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(res, req)
 	if res.Code != 200 {
@@ -732,7 +732,7 @@ func TestMediaMutationRoutesEmitDefaultActivityEntries(t *testing.T) {
 		featureGateFromKeys(FeatureMedia, FeatureCMS),
 		Dependencies{ActivitySink: feed},
 	)
-	updateReq := httptest.NewRequest(http.MethodPatch, "/admin/api/media/assets/1", bytes.NewBufferString(`{"metadata":{"alt_text":"Hero image"}}`))
+	updateReq := httptest.NewRequestWithContext(context.Background(), http.MethodPatch, "/admin/api/media/assets/1", bytes.NewBufferString(`{"metadata":{"alt_text":"Hero image"}}`))
 	updateReq.Header.Set("Content-Type", "application/json")
 	updateReq = updateReq.WithContext(auth.WithActorContext(updateReq.Context(), &auth.ActorContext{ActorID: "editor-update"}))
 	updateResp := httptest.NewRecorder()
@@ -748,7 +748,7 @@ func TestMediaMutationRoutesEmitDefaultActivityEntries(t *testing.T) {
 		featureGateFromKeys(FeatureMedia, FeatureCMS),
 		Dependencies{ActivitySink: feed},
 	)
-	deleteReq := httptest.NewRequest(http.MethodDelete, "/admin/api/media/assets/1", nil)
+	deleteReq := httptest.NewRequestWithContext(context.Background(), http.MethodDelete, "/admin/api/media/assets/1", nil)
 	deleteReq = deleteReq.WithContext(auth.WithActorContext(deleteReq.Context(), &auth.ActorContext{ActorID: "editor-delete"}))
 	deleteResp := httptest.NewRecorder()
 	deleteServer.WrappedRouter().ServeHTTP(deleteResp, deleteReq)
@@ -816,7 +816,7 @@ func TestMediaMutationActivityHookCanOverrideAppendAndSuppress(t *testing.T) {
 		featureGateFromKeys(FeatureMedia, FeatureCMS),
 		Dependencies{ActivitySink: feed, MediaActivityHook: hook},
 	)
-	updateReq := httptest.NewRequest(http.MethodPatch, "/admin/api/media/assets/1", bytes.NewBufferString(`{"metadata":{"alt_text":"Hero image"}}`))
+	updateReq := httptest.NewRequestWithContext(context.Background(), http.MethodPatch, "/admin/api/media/assets/1", bytes.NewBufferString(`{"metadata":{"alt_text":"Hero image"}}`))
 	updateReq.Header.Set("Content-Type", "application/json")
 	updateReq = updateReq.WithContext(auth.WithActorContext(updateReq.Context(), &auth.ActorContext{ActorID: "editor-update"}))
 	updateResp := httptest.NewRecorder()
@@ -832,7 +832,7 @@ func TestMediaMutationActivityHookCanOverrideAppendAndSuppress(t *testing.T) {
 		featureGateFromKeys(FeatureMedia, FeatureCMS),
 		Dependencies{ActivitySink: feed, MediaActivityHook: hook},
 	)
-	deleteReq := httptest.NewRequest(http.MethodDelete, "/admin/api/media/assets/1", nil)
+	deleteReq := httptest.NewRequestWithContext(context.Background(), http.MethodDelete, "/admin/api/media/assets/1", nil)
 	deleteReq = deleteReq.WithContext(auth.WithActorContext(deleteReq.Context(), &auth.ActorContext{ActorID: "editor-delete"}))
 	deleteResp := httptest.NewRecorder()
 	deleteServer.WrappedRouter().ServeHTTP(deleteResp, deleteReq)
@@ -879,7 +879,7 @@ func TestAdminMediaDeliveryRoutesHandleRedirectHeadAndUnavailable(t *testing.T) 
 		MediaDeliveryRegistry: registry,
 	})
 
-	req := httptest.NewRequest(http.MethodGet, "/admin/api/media/delivery/1/asset", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/media/delivery/1/asset", nil)
 	res := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(res, req)
 	if res.Code != http.StatusTemporaryRedirect {
@@ -892,14 +892,14 @@ func TestAdminMediaDeliveryRoutesHandleRedirectHeadAndUnavailable(t *testing.T) 
 		t.Fatalf("expected cache header, got %q", got)
 	}
 
-	req = httptest.NewRequest(http.MethodHead, "/admin/api/media/delivery/1/asset", nil)
+	req = httptest.NewRequestWithContext(context.Background(), http.MethodHead, "/admin/api/media/delivery/1/asset", nil)
 	res = httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(res, req)
 	if res.Code != http.StatusTemporaryRedirect || res.Body.Len() != 0 {
 		t.Fatalf("expected HEAD redirect without body, got status=%d body=%q", res.Code, res.Body.String())
 	}
 
-	missingReq := httptest.NewRequest(http.MethodGet, "/admin/api/media/delivery/1/stream", nil)
+	missingReq := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/media/delivery/1/stream", nil)
 	missingRes := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(missingRes, missingReq)
 	if missingRes.Code != http.StatusTemporaryRedirect {
@@ -944,7 +944,7 @@ func TestPublicMediaDeliveryRoutesAuthorizeAndResolve(t *testing.T) {
 		MediaDeliveryRegistry: registry,
 	})
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/media/delivery/1/asset", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/media/delivery/1/asset", nil)
 	res := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(res, req)
 	if res.Code != http.StatusOK || res.Body.String() != "public-bytes" {
@@ -1007,7 +1007,7 @@ func TestAdminMediaDeliveryRoutesHandleProxyDownloadAndErrors(t *testing.T) {
 		MediaDeliveryRegistry: registry,
 	})
 
-	req := httptest.NewRequest(http.MethodGet, "/admin/api/media/delivery/1/download", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/media/delivery/1/download", nil)
 	res := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(res, req)
 	if res.Code != http.StatusOK || res.Body.String() != "media-bytes" {
@@ -1023,7 +1023,7 @@ func TestAdminMediaDeliveryRoutesHandleProxyDownloadAndErrors(t *testing.T) {
 	assertMediaStatus(t, unauthorized, "GET", "/admin/api/media/delivery/1/asset", nil, nil, http.StatusForbidden)
 
 	missingAdapterServer := newMediaRouteServer(t, allowPermissionAuthorizer{allowed: "perm.view"}, lib, featureGateFromKeys(FeatureMedia, FeatureCMS))
-	req = httptest.NewRequest(http.MethodGet, "/admin/api/media/delivery/1/asset", nil)
+	req = httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/media/delivery/1/asset", nil)
 	res = httptest.NewRecorder()
 	missingAdapterServer.WrappedRouter().ServeHTTP(res, req)
 	if res.Code != http.StatusServiceUnavailable {
@@ -1054,7 +1054,7 @@ func TestAdminMediaDeliveryProxySupportsRanges(t *testing.T) {
 		MediaDeliveryRegistry: registry,
 	})
 
-	req := httptest.NewRequest(http.MethodGet, "/admin/api/media/delivery/1/stream", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/media/delivery/1/stream", nil)
 	req.Header.Set("Range", "bytes=2-5")
 	res := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(res, req)
@@ -1068,7 +1068,7 @@ func TestAdminMediaDeliveryProxySupportsRanges(t *testing.T) {
 		t.Fatalf("expected Content-Range bytes 2-5/10, got %q", got)
 	}
 
-	req = httptest.NewRequest(http.MethodHead, "/admin/api/media/delivery/1/stream", nil)
+	req = httptest.NewRequestWithContext(context.Background(), http.MethodHead, "/admin/api/media/delivery/1/stream", nil)
 	req.Header.Set("Range", "bytes=2-5")
 	res = httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(res, req)
@@ -1082,7 +1082,7 @@ func TestAdminMediaDeliveryProxySupportsRanges(t *testing.T) {
 		t.Fatalf("expected HEAD ranged proxy Content-Range bytes 2-5/10, got %q", got)
 	}
 
-	req = httptest.NewRequest(http.MethodGet, "/admin/api/media/delivery/1/stream", nil)
+	req = httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/media/delivery/1/stream", nil)
 	req.Header.Set("Range", "bytes=20-25")
 	res = httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(res, req)
@@ -1127,7 +1127,7 @@ func TestAdminMediaDeliveryRequestExposesCredentialResolver(t *testing.T) {
 		MediaDeliveryCredentialResolver: resolver,
 	})
 
-	req := httptest.NewRequest(http.MethodGet, "/admin/api/media/delivery/1/asset", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/media/delivery/1/asset", nil)
 	res := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(res, req)
 	if res.Code != http.StatusOK || res.Body.String() != "drive-bytes" {
@@ -1159,7 +1159,7 @@ func TestAdminMediaDeliveryRoutesServeImportedRangesAndHead(t *testing.T) {
 		MediaDeliveryRegistry: registry,
 	})
 
-	req := httptest.NewRequest(http.MethodGet, "/admin/api/media/delivery/1/asset", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/media/delivery/1/asset", nil)
 	req.Header.Set("Range", "bytes=2-5")
 	res := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(res, req)
@@ -1173,14 +1173,14 @@ func TestAdminMediaDeliveryRoutesServeImportedRangesAndHead(t *testing.T) {
 		t.Fatalf("expected Content-Range bytes 2-5/10, got %q", got)
 	}
 
-	req = httptest.NewRequest(http.MethodHead, "/admin/api/media/delivery/1/asset", nil)
+	req = httptest.NewRequestWithContext(context.Background(), http.MethodHead, "/admin/api/media/delivery/1/asset", nil)
 	res = httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(res, req)
 	if res.Code != http.StatusOK || res.Body.Len() != 0 {
 		t.Fatalf("expected HEAD full content without body, got status=%d body=%q", res.Code, res.Body.String())
 	}
 
-	req = httptest.NewRequest(http.MethodGet, "/admin/api/media/delivery/1/asset", nil)
+	req = httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/media/delivery/1/asset", nil)
 	req.Header.Set("Range", "bytes=20-25")
 	res = httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(res, req)
@@ -1207,7 +1207,7 @@ func TestAdminMediaDeliveryRoutesUseLocalFileAdapter(t *testing.T) {
 		MediaDeliveryRegistry: registry,
 	})
 
-	req := httptest.NewRequest(http.MethodGet, "/admin/api/media/delivery/1/asset", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/media/delivery/1/asset", nil)
 	req.Header.Set("Range", "bytes=1-3")
 	res := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(res, req)
@@ -1238,7 +1238,7 @@ func newMultipartMediaRequest(t *testing.T, path, filename, contentType string, 
 	if err := writer.Close(); err != nil {
 		t.Fatalf("close multipart writer: %v", err)
 	}
-	req := httptest.NewRequest(http.MethodPost, path, &body)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, path, &body)
 	req.Header.Set("Content-Type", writer.FormDataContentType())
 	return req
 }

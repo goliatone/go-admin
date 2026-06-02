@@ -224,7 +224,7 @@ func TestPreferencesPanelRequiresPermissions(t *testing.T) {
 		t.Fatalf("initialize: %v", err)
 	}
 
-	req := httptest.NewRequest("GET", preferencesAPIPath(t, adm, ""), nil)
+	req := httptest.NewRequestWithContext(context.Background(), "GET", preferencesAPIPath(t, adm, ""), nil)
 	req.Header.Set("X-User-ID", "user-1")
 	rr := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(rr, req)
@@ -292,7 +292,7 @@ func TestPreferencesUpdateRoundTripViaAPI(t *testing.T) {
 		"theme_variant": "dark",
 	}
 	body, _ := json.Marshal(payload)
-	req := httptest.NewRequest("PUT", preferencesAPIPath(t, adm, "user-1"), bytes.NewReader(body))
+	req := httptest.NewRequestWithContext(context.Background(), "PUT", preferencesAPIPath(t, adm, "user-1"), bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-User-ID", "user-1")
 	rr := httptest.NewRecorder()
@@ -354,7 +354,7 @@ func TestPreferencesUpdateRoundTripViaAPIStoresRawUIKeysAndStripsReserved(t *tes
 				},
 			}
 			body, _ := json.Marshal(payload)
-			req := httptest.NewRequest(tc.method, tc.path, bytes.NewReader(body))
+			req := httptest.NewRequestWithContext(context.Background(), tc.method, tc.path, bytes.NewReader(body))
 			req.Header.Set("Content-Type", "application/json")
 			req.Header.Set("X-User-ID", "user-1")
 			rr := httptest.NewRecorder()
@@ -394,7 +394,7 @@ func TestPreferencesUpdateRoundTripViaAPIStoresRawUIKeysAndStripsReserved(t *tes
 				t.Fatalf("expected reserved key not to persist, got %v", snapshot.Effective)
 			}
 
-			getReq := httptest.NewRequest("GET", preferencesAPIPath(t, adm, ""), nil)
+			getReq := httptest.NewRequestWithContext(context.Background(), "GET", preferencesAPIPath(t, adm, ""), nil)
 			getReq.Header.Set("X-User-ID", "user-1")
 			getRR := httptest.NewRecorder()
 			server.WrappedRouter().ServeHTTP(getRR, getReq)
@@ -446,7 +446,7 @@ func TestPreferencesClearKeysViaAPI(t *testing.T) {
 		"clear_raw_keys": []any{"ui.datagrid.users.columns"},
 	}
 	body, _ := json.Marshal(payload)
-	req := httptest.NewRequest("PUT", preferencesAPIPath(t, adm, "user-1"), bytes.NewReader(body))
+	req := httptest.NewRequestWithContext(context.Background(), "PUT", preferencesAPIPath(t, adm, "user-1"), bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-User-ID", "user-1")
 	rr := httptest.NewRecorder()
@@ -506,7 +506,7 @@ func TestPreferencesClearAllRawViaAPI(t *testing.T) {
 
 	payload := map[string]any{"clear": true}
 	body, _ := json.Marshal(payload)
-	req := httptest.NewRequest("PUT", preferencesAPIPath(t, adm, "user-1"), bytes.NewReader(body))
+	req := httptest.NewRequestWithContext(context.Background(), "PUT", preferencesAPIPath(t, adm, "user-1"), bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-User-ID", "user-1")
 	rr := httptest.NewRecorder()
@@ -550,7 +550,7 @@ func TestPreferencesRejectsRawUIInAPI(t *testing.T) {
 		"raw_ui": map[string]any{"ui.bad": true},
 	}
 	body, _ := json.Marshal(payload)
-	req := httptest.NewRequest("PUT", preferencesAPIPath(t, adm, "user-1"), bytes.NewReader(body))
+	req := httptest.NewRequestWithContext(context.Background(), "PUT", preferencesAPIPath(t, adm, "user-1"), bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-User-ID", "user-1")
 	rr := httptest.NewRecorder()
@@ -587,7 +587,7 @@ func TestPreferencesRejectsClearKeysInAPI(t *testing.T) {
 		"clear_keys": []any{"ui.one"},
 	}
 	body, _ := json.Marshal(payload)
-	req := httptest.NewRequest("PUT", preferencesAPIPath(t, adm, "user-1"), bytes.NewReader(body))
+	req := httptest.NewRequestWithContext(context.Background(), "PUT", preferencesAPIPath(t, adm, "user-1"), bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-User-ID", "user-1")
 	rr := httptest.NewRecorder()
@@ -643,7 +643,7 @@ func TestPreferencesQueryParamsIncludeTracesAndVersions(t *testing.T) {
 		t.Fatalf("seed user preferences: %v", err)
 	}
 
-	req := httptest.NewRequest("GET", preferencesAPIPathWithQuery(t, adm, "", "?tenant_id=tenant-1&levels=system,tenant&keys=theme&include_traces=1&include_versions=1"), nil)
+	req := httptest.NewRequestWithContext(context.Background(), "GET", preferencesAPIPathWithQuery(t, adm, "", "?tenant_id=tenant-1&levels=system,tenant&keys=theme&include_traces=1&include_versions=1"), nil)
 	req.Header.Set("X-User-ID", "user-1")
 	req = req.WithContext(auth.WithActorContext(req.Context(), &auth.ActorContext{
 		ActorID:  "user-1",
@@ -696,7 +696,7 @@ func TestPreferencesQueryParamsRejectInvalidLevels(t *testing.T) {
 		t.Fatalf("initialize: %v", err)
 	}
 
-	req := httptest.NewRequest("GET", preferencesAPIPathWithQuery(t, adm, "", "?levels=unknown"), nil)
+	req := httptest.NewRequestWithContext(context.Background(), "GET", preferencesAPIPathWithQuery(t, adm, "", "?levels=unknown"), nil)
 	req.Header.Set("X-User-ID", "user-1")
 	rr := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(rr, req)
@@ -728,7 +728,7 @@ func TestPreferencesQueryBaseOverridesDefaults(t *testing.T) {
 	}
 
 	encodedBase := url.QueryEscape(`{"theme":"base"}`)
-	req := httptest.NewRequest("GET", preferencesAPIPathWithQuery(t, adm, "", "?base="+encodedBase), nil)
+	req := httptest.NewRequestWithContext(context.Background(), "GET", preferencesAPIPathWithQuery(t, adm, "", "?base="+encodedBase), nil)
 	req.Header.Set("X-User-ID", "user-1")
 	rr := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(rr, req)
@@ -777,7 +777,7 @@ func TestPreferencesEmptyThemeClearsToInheritedValue(t *testing.T) {
 
 	payload := map[string]any{"theme": ""}
 	body, _ := json.Marshal(payload)
-	req := httptest.NewRequest("PUT", preferencesAPIPathWithQuery(t, adm, "user-1", "?tenant_id=tenant-1"), bytes.NewReader(body))
+	req := httptest.NewRequestWithContext(context.Background(), "PUT", preferencesAPIPathWithQuery(t, adm, "user-1", "?tenant_id=tenant-1"), bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-User-ID", "user-1")
 	req = req.WithContext(auth.WithActorContext(req.Context(), &auth.ActorContext{
@@ -829,7 +829,7 @@ func TestPreferencesTenantWriteRequiresPermission(t *testing.T) {
 		"theme": "teal",
 	}
 	body, _ := json.Marshal(payload)
-	req := httptest.NewRequest("PUT", preferencesAPIPathWithQuery(t, adm, "user-1", "?tenant_id=tenant-1"), bytes.NewReader(body))
+	req := httptest.NewRequestWithContext(context.Background(), "PUT", preferencesAPIPathWithQuery(t, adm, "user-1", "?tenant_id=tenant-1"), bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-User-ID", "user-1")
 	req = req.WithContext(auth.WithActorContext(req.Context(), &auth.ActorContext{
@@ -872,7 +872,7 @@ func TestPreferencesTenantWriteHonorsPermission(t *testing.T) {
 		"theme": "teal",
 	}
 	body, _ := json.Marshal(payload)
-	req := httptest.NewRequest("PUT", preferencesAPIPathWithQuery(t, adm, "user-1", "?tenant_id=tenant-1"), bytes.NewReader(body))
+	req := httptest.NewRequestWithContext(context.Background(), "PUT", preferencesAPIPathWithQuery(t, adm, "user-1", "?tenant_id=tenant-1"), bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-User-ID", "user-1")
 	req = req.WithContext(auth.WithActorContext(req.Context(), &auth.ActorContext{
@@ -916,7 +916,7 @@ func TestPreferencesAPIRoutesFeatureGated(t *testing.T) {
 		t.Fatalf("initialize: %v", err)
 	}
 
-	req := httptest.NewRequest("GET", preferencesAPIPath(t, adm, ""), nil)
+	req := httptest.NewRequestWithContext(context.Background(), "GET", preferencesAPIPath(t, adm, ""), nil)
 	req.Header.Set("X-User-ID", "user-1")
 	rr := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(rr, req)

@@ -206,7 +206,7 @@ func TestActivityRouteRequiresActorContext(t *testing.T) {
 		ActivityFeedQuery: feed,
 	})
 
-	req := httptest.NewRequest(http.MethodGet, "/admin/api/activity", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/activity", nil)
 	rr := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(rr, req)
 
@@ -222,7 +222,7 @@ func TestActivityRouteRequiresPermission(t *testing.T) {
 		ActivityFeedQuery: feed,
 	})
 
-	req := httptest.NewRequest(http.MethodGet, "/admin/api/activity", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/activity", nil)
 	req = req.WithContext(auth.WithActorContext(req.Context(), &auth.ActorContext{ActorID: uuid.NewString()}))
 	rr := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(rr, req)
@@ -241,7 +241,7 @@ func TestActivityRouteRejectsNonUUIDActorID(t *testing.T) {
 	tenantID := uuid.New()
 	orgID := uuid.New()
 
-	req := httptest.NewRequest(http.MethodGet, "/admin/api/activity", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/activity", nil)
 	req = req.WithContext(auth.WithActorContext(req.Context(), &auth.ActorContext{
 		ActorID:        "esign-admin",
 		Role:           "admin",
@@ -296,7 +296,7 @@ func TestActivityRouteRejectsNonUUIDActorIDWithDefaultPolicy(t *testing.T) {
 		ActivityRepository: repo,
 	})
 
-	req := httptest.NewRequest(http.MethodGet, "/admin/api/activity", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/activity", nil)
 	req = req.WithContext(auth.WithActorContext(req.Context(), &auth.ActorContext{
 		ActorID:        "esign-admin",
 		Role:           "admin",
@@ -329,7 +329,7 @@ func TestActivityRoutePaginationMetadata(t *testing.T) {
 		ActivityFeedQuery: feed,
 	})
 
-	req := httptest.NewRequest(http.MethodGet, "/admin/api/activity?limit=1", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/activity?limit=1", nil)
 	req = req.WithContext(auth.WithActorContext(req.Context(), &auth.ActorContext{ActorID: uuid.NewString()}))
 	rr := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(rr, req)
@@ -355,7 +355,7 @@ func TestActivityRouteFeatureDisabledWhenNoFeed(t *testing.T) {
 		Authorizer: allowAuthorizer{},
 	})
 
-	req := httptest.NewRequest(http.MethodGet, "/admin/api/activity", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/activity", nil)
 	req = req.WithContext(auth.WithActorContext(req.Context(), &auth.ActorContext{ActorID: uuid.NewString()}))
 	rr := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(rr, req)
@@ -396,7 +396,7 @@ func TestActivityRouteParsesActivityFilter(t *testing.T) {
 	values.Set("limit", "25")
 	values.Set("offset", "10")
 
-	req := httptest.NewRequest(http.MethodGet, "/admin/api/activity?"+values.Encode(), nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/activity?"+values.Encode(), nil)
 	req = req.WithContext(auth.WithActorContext(req.Context(), &auth.ActorContext{
 		ActorID:        actorID.String(),
 		Role:           "member",
@@ -487,7 +487,7 @@ func TestActivityRoutePaginationDefaultsAndClamp(t *testing.T) {
 			if tc.query != "" {
 				path += "?" + tc.query
 			}
-			req := httptest.NewRequest(http.MethodGet, path, nil)
+			req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, path, nil)
 			req = req.WithContext(auth.WithActorContext(req.Context(), actorCtx))
 			rr := httptest.NewRecorder()
 			server.WrappedRouter().ServeHTTP(rr, req)
@@ -523,7 +523,7 @@ func TestActivityRouteRejectsInvalidQueryParams(t *testing.T) {
 				ActivityFeedQuery: feed,
 			})
 
-			req := httptest.NewRequest(http.MethodGet, "/admin/api/activity?"+tc.query, nil)
+			req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/activity?"+tc.query, nil)
 			req = req.WithContext(auth.WithActorContext(req.Context(), actorCtx))
 			rr := httptest.NewRecorder()
 			server.WrappedRouter().ServeHTTP(rr, req)
@@ -577,7 +577,7 @@ func TestActivityPolicyScopingSanitizerAndMachineFiltering(t *testing.T) {
 		ActivityAccessPolicy: policy,
 	})
 
-	req := httptest.NewRequest(http.MethodGet, "/admin/api/activity", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/activity", nil)
 	req = req.WithContext(auth.WithActorContext(req.Context(), &auth.ActorContext{
 		ActorID:        actorID.String(),
 		Role:           "member",
@@ -647,7 +647,7 @@ func TestActivityPolicyMasksActorEmailAndSessionID(t *testing.T) {
 		ActivityRepository: repo,
 	})
 
-	req := httptest.NewRequest(http.MethodGet, "/admin/api/activity", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/activity", nil)
 	req = req.WithContext(auth.WithActorContext(req.Context(), &auth.ActorContext{
 		ActorID: actorID.String(),
 		Role:    "member",

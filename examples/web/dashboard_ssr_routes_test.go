@@ -57,7 +57,7 @@ func TestExampleDashboardSSRRouteUsesTypedRenderer(t *testing.T) {
 		t.Fatalf("initialize admin: %v", err)
 	}
 
-	req := httptest.NewRequest(http.MethodGet, "/admin/dashboard?locale=en", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/dashboard?locale=en", nil)
 	req.Header.Set("X-User-ID", "web-test-user")
 	rec := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(rec, req)

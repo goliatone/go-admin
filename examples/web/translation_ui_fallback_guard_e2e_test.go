@@ -260,9 +260,10 @@ func findPageIDBySlugAndLocale(t *testing.T, contentSvc coreadmin.CMSContentServ
 
 func doUIRequest(t *testing.T, app *fiber.App, method, path string) (int, string) {
 	t.Helper()
-	req := httptest.NewRequest(method, path, nil)
+	req := httptest.NewRequestWithContext(context.Background(), method, path, nil)
 	res, err := app.Test(req, -1)
 	require.NoError(t, err, "execute %s %s", method, path)
+	defer res.Body.Close()
 	body := ""
 	if res != nil && res.Body != nil {
 		raw, readErr := io.ReadAll(res.Body)
@@ -276,10 +277,11 @@ func doUIFormRequest(t *testing.T, app *fiber.App, method, path string, values u
 	t.Helper()
 
 	body := strings.NewReader(values.Encode())
-	req := httptest.NewRequest(method, path, body)
+	req := httptest.NewRequestWithContext(context.Background(), method, path, body)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	res, err := app.Test(req, -1)
 	require.NoError(t, err, "execute %s %s", method, path)
+	defer res.Body.Close()
 
 	payload := ""
 	if res != nil && res.Body != nil {

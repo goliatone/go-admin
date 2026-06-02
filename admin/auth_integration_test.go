@@ -58,7 +58,7 @@ func TestGoAuthAuthenticatorWrapHandlerInjectsActor(t *testing.T) {
 		return c.JSON(200, map[string]string{"status": "ok"})
 	}))
 
-	req := httptest.NewRequest(http.MethodGet, "/protected", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/protected", nil)
 	req.Header.Set("Authorization", "Bearer "+token)
 	res := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(res, req)
@@ -308,7 +308,7 @@ func TestGoAuthAuthenticatorWrapHandlerSeedsResolvedPermissionsCache(t *testing.
 		return c.JSON(200, map[string]string{"status": "ok"})
 	}))
 
-	req := httptest.NewRequest(http.MethodGet, "/cached", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/cached", nil)
 	req.Header.Set("Authorization", "Bearer "+token)
 	res := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(res, req)
@@ -355,7 +355,7 @@ func TestGoAuthAuthenticatorSplitsBrowserAndAPIRoutes(t *testing.T) {
 		return c.SendStatus(http.StatusOK)
 	}))
 
-	browserReq := httptest.NewRequest(http.MethodGet, "http://example.com/admin/preferences", nil)
+	browserReq := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "http://example.com/admin/preferences", nil)
 	browserReq.AddCookie(&http.Cookie{Name: cfg.GetContextKey(), Value: token})
 	browserRes := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(browserRes, browserReq)
@@ -372,7 +372,7 @@ func TestGoAuthAuthenticatorSplitsBrowserAndAPIRoutes(t *testing.T) {
 		t.Fatalf("expected browser route header token to match rendered token")
 	}
 
-	browserPostReq := httptest.NewRequest(http.MethodPost, "http://example.com/admin/preferences", strings.NewReader("theme=dark"))
+	browserPostReq := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "http://example.com/admin/preferences", strings.NewReader("theme=dark"))
 	browserPostReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	browserPostReq.Header.Set("Origin", "http://example.com")
 	browserPostReq.Header.Set(csrfmw.DefaultHeaderName, browserToken)
@@ -383,7 +383,7 @@ func TestGoAuthAuthenticatorSplitsBrowserAndAPIRoutes(t *testing.T) {
 		t.Fatalf("expected browser post status 200, got %d body=%s", browserPostRes.Code, browserPostRes.Body.String())
 	}
 
-	apiReq := httptest.NewRequest(http.MethodPost, "http://example.com/admin/api/dashboard/config", strings.NewReader(`{}`))
+	apiReq := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "http://example.com/admin/api/dashboard/config", strings.NewReader(`{}`))
 	apiReq.Header.Set("Content-Type", "application/json")
 	apiReq.Header.Set("Origin", "http://example.com")
 	apiReq.AddCookie(&http.Cookie{Name: cfg.GetContextKey(), Value: token})
@@ -404,7 +404,7 @@ func TestGoAuthAuthenticatorSplitsBrowserAndAPIRoutes(t *testing.T) {
 		t.Fatalf("expected api csrf error text_code %q, got %q", TextCodeAdminCSRFInvalid, got)
 	}
 
-	apiPostReq := httptest.NewRequest(http.MethodPost, "http://example.com/admin/api/dashboard/config", strings.NewReader(`{}`))
+	apiPostReq := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "http://example.com/admin/api/dashboard/config", strings.NewReader(`{}`))
 	apiPostReq.Header.Set("Content-Type", "application/json")
 	apiPostReq.Header.Set("Origin", "http://example.com")
 	apiPostReq.Header.Set(csrfmw.DefaultHeaderName, browserToken)
@@ -415,7 +415,7 @@ func TestGoAuthAuthenticatorSplitsBrowserAndAPIRoutes(t *testing.T) {
 		t.Fatalf("expected api route with csrf status 200, got %d body=%s", apiPostRes.Code, apiPostRes.Body.String())
 	}
 
-	bearerReq := httptest.NewRequest(http.MethodPost, "http://example.com/admin/api/dashboard/config", strings.NewReader(`{}`))
+	bearerReq := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "http://example.com/admin/api/dashboard/config", strings.NewReader(`{}`))
 	bearerReq.Header.Set("Content-Type", "application/json")
 	bearerReq.Header.Set("Authorization", "Bearer "+token)
 	bearerRes := httptest.NewRecorder()
@@ -468,7 +468,7 @@ func TestGoAuthAuthenticatorUsesConfiguredAdminAPIRoot(t *testing.T) {
 		return c.SendStatus(http.StatusOK)
 	}))
 
-	tokenReq := httptest.NewRequest(http.MethodGet, "http://example.com/admin/preferences", nil)
+	tokenReq := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "http://example.com/admin/preferences", nil)
 	tokenReq.AddCookie(&http.Cookie{Name: cfg.GetContextKey(), Value: token})
 	tokenRes := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(tokenRes, tokenReq)
@@ -480,7 +480,7 @@ func TestGoAuthAuthenticatorUsesConfiguredAdminAPIRoot(t *testing.T) {
 		t.Fatalf("expected csrf token from browser route")
 	}
 
-	req := httptest.NewRequest(http.MethodPost, "http://example.com/admin/internal/v2/dashboard/config", strings.NewReader(`{}`))
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "http://example.com/admin/internal/v2/dashboard/config", strings.NewReader(`{}`))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Origin", "http://example.com")
 	req.Header.Set(csrfmw.DefaultHeaderName, csrfToken)
@@ -538,7 +538,7 @@ func TestProtectedSurfaceAuthenticatorUsesProtectedAppRoots(t *testing.T) {
 		return c.SendStatus(http.StatusOK)
 	}))
 
-	browserReq := httptest.NewRequest(http.MethodGet, "http://example.com/app/preferences", nil)
+	browserReq := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "http://example.com/app/preferences", nil)
 	browserReq.AddCookie(&http.Cookie{Name: cfg.GetContextKey(), Value: token})
 	browserRes := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(browserRes, browserReq)
@@ -550,7 +550,7 @@ func TestProtectedSurfaceAuthenticatorUsesProtectedAppRoots(t *testing.T) {
 		t.Fatalf("expected csrf token from protected app browser route")
 	}
 
-	apiReq := httptest.NewRequest(http.MethodPost, "http://example.com/app/api/preferences", strings.NewReader(`{}`))
+	apiReq := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "http://example.com/app/api/preferences", strings.NewReader(`{}`))
 	apiReq.Header.Set("Content-Type", "application/json")
 	apiReq.Header.Set("Origin", "http://example.com")
 	apiReq.AddCookie(&http.Cookie{Name: cfg.GetContextKey(), Value: token})
@@ -560,7 +560,7 @@ func TestProtectedSurfaceAuthenticatorUsesProtectedAppRoots(t *testing.T) {
 		t.Fatalf("expected protected app api route without csrf status 400, got %d body=%s", apiRes.Code, apiRes.Body.String())
 	}
 
-	apiPostReq := httptest.NewRequest(http.MethodPost, "http://example.com/app/api/preferences", strings.NewReader(`{}`))
+	apiPostReq := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "http://example.com/app/api/preferences", strings.NewReader(`{}`))
 	apiPostReq.Header.Set("Content-Type", "application/json")
 	apiPostReq.Header.Set("Origin", "http://example.com")
 	apiPostReq.Header.Set(csrfmw.DefaultHeaderName, browserToken)
@@ -571,7 +571,7 @@ func TestProtectedSurfaceAuthenticatorUsesProtectedAppRoots(t *testing.T) {
 		t.Fatalf("expected protected app api route with csrf status 200, got %d body=%s", apiPostRes.Code, apiPostRes.Body.String())
 	}
 
-	bearerReq := httptest.NewRequest(http.MethodPost, "http://example.com/app/api/preferences", strings.NewReader(`{}`))
+	bearerReq := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "http://example.com/app/api/preferences", strings.NewReader(`{}`))
 	bearerReq.Header.Set("Content-Type", "application/json")
 	bearerReq.Header.Set("Authorization", "Bearer "+token)
 	bearerRes := httptest.NewRecorder()
@@ -677,7 +677,7 @@ func TestGoAuthAuthenticatorWrapHandlerRendersBrowserHTML(t *testing.T) {
 		return c.SendString("<!doctype html><html><body><main>activity-page</main></body></html>")
 	}))
 
-	req := httptest.NewRequest(http.MethodGet, "http://example.com/admin/activity", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "http://example.com/admin/activity", nil)
 	req.AddCookie(&http.Cookie{Name: cfg.GetContextKey(), Value: token})
 	res := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(res, req)
@@ -738,7 +738,7 @@ func TestJobsAndNotificationsRoutesRequirePermission(t *testing.T) {
 		t.Fatalf("initialize: %v", err)
 	}
 
-	jobReq := httptest.NewRequest(http.MethodGet, "/admin/api/jobs", nil)
+	jobReq := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/jobs", nil)
 	jobRes := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(jobRes, jobReq)
 	if jobRes.Code != 403 {
@@ -746,7 +746,7 @@ func TestJobsAndNotificationsRoutesRequirePermission(t *testing.T) {
 	}
 
 	payload := `{"ids":["n1"],"read":true}`
-	notifReq := httptest.NewRequest(http.MethodPost, "/admin/api/notifications/read", strings.NewReader(payload))
+	notifReq := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/api/notifications/read", strings.NewReader(payload))
 	notifReq.Header.Set("Content-Type", "application/json")
 	notifRes := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(notifRes, notifReq)

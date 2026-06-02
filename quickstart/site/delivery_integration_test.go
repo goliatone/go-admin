@@ -1,6 +1,7 @@
 package site
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -537,7 +538,7 @@ func TestSiteDeliveryPersistsLocaleCookieAndRedirectsUnscopedFallbackRequest(t *
 		t.Fatalf("expected persisted locale cookie %q=%q, got %q", defaultLocaleCookieName, "es", localeCookie)
 	}
 
-	req := httptest.NewRequest(http.MethodGet, "/posts/welcome", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/posts/welcome", nil)
 	req.Header.Set("Accept", "text/html")
 	req.Header.Set("Cookie", defaultLocaleCookieName+"="+localeCookie)
 	rec := httptest.NewRecorder()
@@ -630,7 +631,7 @@ func TestSiteLocaleSwitcherCanSwitchToDefaultLocaleWithLocaleCookie(t *testing.T
 		t.Fatalf("expected default-locale switch URL to include locale=en, got %q", enURL)
 	}
 
-	req := httptest.NewRequest(http.MethodGet, enURL, nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, enURL, nil)
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("Cookie", defaultLocaleCookieName+"="+localeCookie)
 	rec := httptest.NewRecorder()
@@ -803,7 +804,7 @@ func performSiteRequest[T interface {
 	ServeHTTP(http.ResponseWriter, *http.Request)
 }](t *testing.T, server router.Server[T], path string) map[string]any {
 	t.Helper()
-	req := httptest.NewRequest(http.MethodGet, path, nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, path, nil)
 	req.Header.Set("Accept", "application/json")
 	rec := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(rec, req)
@@ -817,7 +818,7 @@ func performSiteRequestWithStatus[T interface {
 	ServeHTTP(http.ResponseWriter, *http.Request)
 }](t *testing.T, server router.Server[T], path string, status int) map[string]any {
 	t.Helper()
-	req := httptest.NewRequest(http.MethodGet, path, nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, path, nil)
 	req.Header.Set("Accept", "application/json")
 	rec := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(rec, req)
@@ -831,7 +832,7 @@ func performSiteRequestRaw[T interface {
 	ServeHTTP(http.ResponseWriter, *http.Request)
 }](t *testing.T, server router.Server[T], path string, accept string) *httptest.ResponseRecorder {
 	t.Helper()
-	req := httptest.NewRequest(http.MethodGet, path, nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, path, nil)
 	if strings.TrimSpace(accept) != "" {
 		req.Header.Set("Accept", accept)
 	}

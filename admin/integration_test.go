@@ -118,7 +118,7 @@ func TestEndToEndFlowCoversAuthDashboardSearchSettings(t *testing.T) {
 			t.Fatalf("initialize: %v", err)
 		}
 
-		createReq := httptest.NewRequest(http.MethodPost, "/admin/api/panels/items", strings.NewReader(`{"name":"Alpha"}`))
+		createReq := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/api/panels/items", strings.NewReader(`{"name":"Alpha"}`))
 		createReq.Header.Set("Content-Type", "application/json")
 		createReq.Header.Set("X-User-ID", "request-user")
 		createRes := httptest.NewRecorder()
@@ -136,7 +136,7 @@ func TestEndToEndFlowCoversAuthDashboardSearchSettings(t *testing.T) {
 			t.Fatalf("expected authenticator to run")
 		}
 
-		searchReq := httptest.NewRequest(http.MethodGet, "/admin/api/search?query=Alpha&limit=5", nil)
+		searchReq := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/search?query=Alpha&limit=5", nil)
 		searchReq.Header.Set("X-User-ID", "request-user")
 		searchRes := httptest.NewRecorder()
 		server.WrappedRouter().ServeHTTP(searchRes, searchReq)
@@ -158,7 +158,7 @@ func TestEndToEndFlowCoversAuthDashboardSearchSettings(t *testing.T) {
 		}
 
 		settingsPayload := `{"values":{"admin.title":"Custom Admin"},"scope":"user"}`
-		settingsReq := httptest.NewRequest(http.MethodPost, "/admin/api/settings", strings.NewReader(settingsPayload))
+		settingsReq := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/api/settings", strings.NewReader(settingsPayload))
 		settingsReq.Header.Set("Content-Type", "application/json")
 		settingsReq.Header.Set("X-User-ID", "request-user")
 		settingsRes := httptest.NewRecorder()
@@ -167,7 +167,7 @@ func TestEndToEndFlowCoversAuthDashboardSearchSettings(t *testing.T) {
 			t.Fatalf("settings status: %d body=%s", settingsRes.Code, settingsRes.Body.String())
 		}
 
-		dashboardReq := httptest.NewRequest(http.MethodGet, "/admin/api/dashboard", nil)
+		dashboardReq := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/dashboard", nil)
 		dashboardReq.Header.Set("X-User-ID", "request-user")
 		dashboardRes := httptest.NewRecorder()
 		server.WrappedRouter().ServeHTTP(dashboardRes, dashboardReq)
@@ -204,7 +204,7 @@ func TestEndToEndFlowCoversAuthDashboardSearchSettings(t *testing.T) {
 			t.Fatalf("expected settings overview widget in dashboard payload")
 		}
 
-		navReq := httptest.NewRequest(http.MethodGet, "/admin/api/navigation", nil)
+		navReq := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/navigation", nil)
 		navReq.Header.Set("X-User-ID", "request-user")
 		navRes := httptest.NewRecorder()
 		server.WrappedRouter().ServeHTTP(navRes, navReq)
@@ -233,7 +233,7 @@ func TestEndToEndFlowCoversAuthDashboardSearchSettings(t *testing.T) {
 			t.Fatalf("expected settings nav entry in navigation payload")
 		}
 
-		jobsReq := httptest.NewRequest(http.MethodGet, "/admin/api/jobs", nil)
+		jobsReq := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/jobs", nil)
 		jobsReq.Header.Set("X-User-ID", "request-user")
 		jobsRes := httptest.NewRecorder()
 		server.WrappedRouter().ServeHTTP(jobsRes, jobsReq)
@@ -260,7 +260,7 @@ func TestEndToEndFlowCoversAuthDashboardSearchSettings(t *testing.T) {
 			t.Fatalf("expected schedule on cron-backed job, got %+v", jobEntry)
 		}
 
-		triggerReq := httptest.NewRequest(http.MethodPost, "/admin/api/jobs/trigger", strings.NewReader(`{"name":"jobs.integration"}`))
+		triggerReq := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/api/jobs/trigger", strings.NewReader(`{"name":"jobs.integration"}`))
 		triggerReq.Header.Set("Content-Type", "application/json")
 		triggerReq.Header.Set("X-User-ID", "request-user")
 		triggerRes := httptest.NewRecorder()
@@ -293,7 +293,7 @@ func TestEndToEndFlowCoversAuthDashboardSearchSettings(t *testing.T) {
 			t.Fatalf("expected last_run timestamp after trigger, got %+v", triggered["last_run"])
 		}
 
-		listReq := httptest.NewRequest(http.MethodGet, "/admin/api/panels/items", nil)
+		listReq := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/panels/items", nil)
 		listReq.Header.Set("X-User-ID", "request-user")
 		listRes := httptest.NewRecorder()
 		server.WrappedRouter().ServeHTTP(listRes, listReq)

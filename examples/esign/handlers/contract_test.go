@@ -80,7 +80,7 @@ func (s *memorySignerObjectStore) UploadFile(_ context.Context, path string, con
 func TestAdminAPIStatusEnvelopeContract(t *testing.T) {
 	app := setupRegisterTestApp(t, WithAuthorizer(mapAuthorizer{allowed: map[string]bool{DefaultPermissions.AdminView: true}}))
 
-	req := httptest.NewRequest(http.MethodGet, "/admin/api/v1/esign/status", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/v1/esign/status", nil)
 	resp, err := app.Test(req, -1)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
@@ -133,7 +133,7 @@ func TestAdminAPIStatusIncludesPDFPolicyDiagnostics(t *testing.T) {
 		)),
 	)
 
-	req := httptest.NewRequest(http.MethodGet, "/admin/api/v1/esign/status", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/v1/esign/status", nil)
 	resp, err := app.Test(req, -1)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
@@ -206,7 +206,7 @@ func TestAdminGuardedEffectStatusRedactsSensitivePayloadFields(t *testing.T) {
 		WithGuardedEffectStore(store),
 	)
 
-	req := httptest.NewRequest(http.MethodGet, "/admin/api/v1/esign/effects/effect-1", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/v1/esign/effects/effect-1", nil)
 	resp, err := app.Test(req, -1)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
@@ -262,7 +262,7 @@ func TestAdminSmokeRecipientLinksReturnsCapturedInvitationLink(t *testing.T) {
 		WithDefaultScope(scope),
 	)
 
-	req := httptest.NewRequest(http.MethodGet, "/admin/api/v1/esign/smoke/recipient-links?agreement_id=agreement-1&recipient_id=recipient-1&notification=signing_invitation", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/v1/esign/smoke/recipient-links?agreement_id=agreement-1&recipient_id=recipient-1&notification=signing_invitation", nil)
 	resp, err := app.Test(req, -1)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
@@ -313,7 +313,7 @@ func TestAdminSmokeRecipientLinksReturnsCapturedReviewLink(t *testing.T) {
 		WithDefaultScope(scope),
 	)
 
-	req := httptest.NewRequest(http.MethodGet, "/admin/api/v1/esign/smoke/recipient-links?agreement_id=agreement-1&recipient_id=participant-1&notification=review_invitation", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/v1/esign/smoke/recipient-links?agreement_id=agreement-1&recipient_id=participant-1&notification=review_invitation", nil)
 	resp, err := app.Test(req, -1)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
@@ -346,7 +346,7 @@ func TestAdminSmokeRecipientLinksReturnsTyped404WhenUnavailable(t *testing.T) {
 		WithDefaultScope(scope),
 	)
 
-	req := httptest.NewRequest(http.MethodGet, "/admin/api/v1/esign/smoke/recipient-links?agreement_id=agreement-missing&recipient_id=recipient-missing&notification=signing_invitation", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/v1/esign/smoke/recipient-links?agreement_id=agreement-missing&recipient_id=recipient-missing&notification=signing_invitation", nil)
 	resp, err := app.Test(req, -1)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
@@ -386,7 +386,7 @@ func TestGoogleImportEnvelopeAndMetadataContractWhenEnabled(t *testing.T) {
 		WithDefaultScope(scope),
 	)
 
-	connectReq := httptest.NewRequest(http.MethodPost, "/admin/api/v1/esign/integrations/google/connect?user_id=ops-user", bytes.NewBufferString(`{"auth_code":"oauth-code-contract"}`))
+	connectReq := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/api/v1/esign/integrations/google/connect?user_id=ops-user", bytes.NewBufferString(`{"auth_code":"oauth-code-contract"}`))
 	connectReq.Header.Set("Content-Type", "application/json")
 	connectResp, err := app.Test(connectReq, -1)
 	if err != nil {
@@ -397,7 +397,7 @@ func TestGoogleImportEnvelopeAndMetadataContractWhenEnabled(t *testing.T) {
 		t.Fatalf("expected connect status 200, got %d", connectResp.StatusCode)
 	}
 
-	importReq := httptest.NewRequest(http.MethodPost, "/admin/api/v1/esign/google-drive/import?user_id=ops-user", bytes.NewBufferString(`{"google_file_id":"google-file-1","document_title":"Contract Doc","agreement_title":"Contract Agreement"}`))
+	importReq := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/api/v1/esign/google-drive/import?user_id=ops-user", bytes.NewBufferString(`{"google_file_id":"google-file-1","document_title":"Contract Doc","agreement_title":"Contract Agreement"}`))
 	importReq.Header.Set("Content-Type", "application/json")
 	importResp, err := app.Test(importReq, -1)
 	if err != nil {
@@ -478,7 +478,7 @@ func TestGoogleImportAsyncEndpointsQueueAndPollSuccess(t *testing.T) {
 		WithDefaultScope(scope),
 	)
 
-	connectReq := httptest.NewRequest(http.MethodPost, "/admin/api/v1/esign/integrations/google/connect?user_id=ops-user", bytes.NewBufferString(`{"auth_code":"oauth-code-async"}`))
+	connectReq := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/api/v1/esign/integrations/google/connect?user_id=ops-user", bytes.NewBufferString(`{"auth_code":"oauth-code-async"}`))
 	connectReq.Header.Set("Content-Type", "application/json")
 	connectResp, err := app.Test(connectReq, -1)
 	if err != nil {
@@ -490,7 +490,7 @@ func TestGoogleImportAsyncEndpointsQueueAndPollSuccess(t *testing.T) {
 	}
 
 	body := `{"google_file_id":"google-file-1","document_title":"Contract Doc","agreement_title":"Contract Agreement","source_version_hint":"v1"}`
-	createReq := httptest.NewRequest(http.MethodPost, "/admin/api/v1/esign/google-drive/imports?user_id=ops-user", bytes.NewBufferString(body))
+	createReq := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/api/v1/esign/google-drive/imports?user_id=ops-user", bytes.NewBufferString(body))
 	createReq.Header.Set("Content-Type", "application/json")
 	createResp, err := app.Test(createReq, -1)
 	if err != nil {
@@ -508,7 +508,7 @@ func TestGoogleImportAsyncEndpointsQueueAndPollSuccess(t *testing.T) {
 		t.Fatalf("expected import_run_id/status_url, got %+v", createPayload)
 	}
 
-	replayReq := httptest.NewRequest(http.MethodPost, "/admin/api/v1/esign/google-drive/imports?user_id=ops-user", bytes.NewBufferString(body))
+	replayReq := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/api/v1/esign/google-drive/imports?user_id=ops-user", bytes.NewBufferString(body))
 	replayReq.Header.Set("Content-Type", "application/json")
 	replayResp, err := app.Test(replayReq, -1)
 	if err != nil {
@@ -525,7 +525,7 @@ func TestGoogleImportAsyncEndpointsQueueAndPollSuccess(t *testing.T) {
 
 	var final map[string]any
 	for range 40 {
-		statusReq := httptest.NewRequest(http.MethodGet, statusURL+"?user_id=ops-user", nil)
+		statusReq := httptest.NewRequestWithContext(context.Background(), http.MethodGet, statusURL+"?user_id=ops-user", nil)
 		statusResp, pollErr := app.Test(statusReq, -1)
 		if pollErr != nil {
 			t.Fatalf("status poll failed: %v", pollErr)
@@ -599,7 +599,7 @@ func TestGoogleImportAsyncEndpointsPropagateTerminalFailure(t *testing.T) {
 		WithDefaultScope(scope),
 	)
 
-	connectReq := httptest.NewRequest(http.MethodPost, "/admin/api/v1/esign/integrations/google/connect?user_id=ops-user", bytes.NewBufferString(`{"auth_code":"oauth-code-fail"}`))
+	connectReq := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/api/v1/esign/integrations/google/connect?user_id=ops-user", bytes.NewBufferString(`{"auth_code":"oauth-code-fail"}`))
 	connectReq.Header.Set("Content-Type", "application/json")
 	connectResp, err := app.Test(connectReq, -1)
 	if err != nil {
@@ -610,7 +610,7 @@ func TestGoogleImportAsyncEndpointsPropagateTerminalFailure(t *testing.T) {
 		t.Fatalf("expected connect status 200, got %d", connectResp.StatusCode)
 	}
 
-	createReq := httptest.NewRequest(http.MethodPost, "/admin/api/v1/esign/google-drive/imports?user_id=ops-user", bytes.NewBufferString(`{"google_file_id":"shared-sheet-1","source_version_hint":"v1"}`))
+	createReq := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/api/v1/esign/google-drive/imports?user_id=ops-user", bytes.NewBufferString(`{"google_file_id":"shared-sheet-1","source_version_hint":"v1"}`))
 	createReq.Header.Set("Content-Type", "application/json")
 	createResp, err := app.Test(createReq, -1)
 	if err != nil {
@@ -628,7 +628,7 @@ func TestGoogleImportAsyncEndpointsPropagateTerminalFailure(t *testing.T) {
 
 	var final map[string]any
 	for range 40 {
-		statusReq := httptest.NewRequest(http.MethodGet, statusURL+"?user_id=ops-user", nil)
+		statusReq := httptest.NewRequestWithContext(context.Background(), http.MethodGet, statusURL+"?user_id=ops-user", nil)
 		statusResp, pollErr := app.Test(statusReq, -1)
 		if pollErr != nil {
 			t.Fatalf("status poll failed: %v", pollErr)
@@ -655,7 +655,7 @@ func TestSignerSessionRateLimitErrorEnvelopeContract(t *testing.T) {
 	})
 	app := setupRegisterTestApp(t, WithRequestRateLimiter(limiter))
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/esign/signing/session/contract-token", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/esign/signing/session/contract-token", nil)
 	req.Header.Set("X-Forwarded-For", "203.0.113.24")
 	resp, err := app.Test(req, -1)
 	if err != nil {
@@ -666,7 +666,7 @@ func TestSignerSessionRateLimitErrorEnvelopeContract(t *testing.T) {
 		t.Fatalf("expected first request 200, got %d", resp.StatusCode)
 	}
 
-	replay := httptest.NewRequest(http.MethodGet, "/api/v1/esign/signing/session/contract-token", nil)
+	replay := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/esign/signing/session/contract-token", nil)
 	replay.Header.Set("X-Forwarded-For", "203.0.113.24")
 	limited, err := app.Test(replay, -1)
 	if err != nil {
@@ -710,7 +710,7 @@ func TestSignerSessionExpiredTokenErrorEnvelopeContract(t *testing.T) {
 		WithDefaultScope(stores.Scope{TenantID: "tenant-1", OrgID: "org-1"}),
 	)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/esign/signing/session/token-contract", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/esign/signing/session/token-contract", nil)
 	resp, err := app.Test(req, -1)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
@@ -737,7 +737,7 @@ func TestSignerSessionExpiredTokenErrorEnvelopeContract(t *testing.T) {
 func TestSignerAssetContractEnvelope(t *testing.T) {
 	app := setupRegisterTestApp(t)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/esign/signing/assets/token-contract", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/esign/signing/assets/token-contract", nil)
 	resp, err := app.Test(req, -1)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
@@ -771,7 +771,7 @@ func TestSignerAssetContractReturnsPDFBinaryWhenAssetQueryPresent(t *testing.T) 
 		},
 	}), WithSignerObjectStore(objectStore))
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/esign/signing/assets/token-contract?asset=source", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/esign/signing/assets/token-contract?asset=source", nil)
 	resp, err := app.Test(req, -1)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
@@ -816,7 +816,7 @@ func TestSignerAssetContractReturnsExecutedAndCertificatePDFWhenRequested(t *tes
 	}), WithSignerObjectStore(objectStore))
 
 	for _, asset := range []string{"executed", "certificate"} {
-		req := httptest.NewRequest(http.MethodGet, "/api/v1/esign/signing/assets/token-contract?asset="+asset, nil)
+		req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/esign/signing/assets/token-contract?asset="+asset, nil)
 		resp, err := app.Test(req, -1)
 		if err != nil {
 			t.Fatalf("request %s failed: %v", asset, err)
@@ -851,7 +851,7 @@ func TestSignerAssetContractReturnsTyped404WhenAssetUnavailable(t *testing.T) {
 		},
 	}))
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/esign/signing/assets/token-contract?asset=source", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/esign/signing/assets/token-contract?asset=source", nil)
 	resp, err := app.Test(req, -1)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
@@ -887,7 +887,7 @@ func TestAdminAgreementArtifactDownloadRouteNotExposedByHandlersRegister(t *test
 		}),
 	)
 
-	req := httptest.NewRequest(http.MethodGet, "/admin/api/v1/esign_agreements/agreement-admin-1/artifact/executed", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/v1/esign_agreements/agreement-admin-1/artifact/executed", nil)
 	resp, err := app.Test(req, -1)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
@@ -918,7 +918,7 @@ func TestAdminAgreementArtifactDownloadRouteNotExposedByHandlersRegisterWithEnvS
 		}),
 	)
 
-	req := httptest.NewRequest(http.MethodGet, "/admin/api/v1/esign_agreements@staging/agreement-admin-env-1/artifact/executed", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/v1/esign_agreements@staging/agreement-admin-env-1/artifact/executed", nil)
 	resp, err := app.Test(req, -1)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
@@ -959,7 +959,7 @@ func TestSignerAssetContractEmitsAuditEventForAssetOpen(t *testing.T) {
 		}),
 	)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/esign/signing/assets/token-contract?asset=source", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/esign/signing/assets/token-contract?asset=source", nil)
 	resp, err := app.Test(req, -1)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
@@ -995,7 +995,7 @@ func TestSignerAssetContractEmitsAuditEventForAssetOpen(t *testing.T) {
 func TestSignerSessionV2FieldIdentityContract(t *testing.T) {
 	app, _, token, _, _ := setupSignerFlowApp(t)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/esign/signing/session/"+token, nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/esign/signing/session/"+token, nil)
 	resp, err := app.Test(req, -1)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
@@ -1057,7 +1057,7 @@ func TestSignerTypedSignatureAttachRequiresFieldInstanceID(t *testing.T) {
 	app, _, token, _, signatureFieldID := setupSignerFlowApp(t)
 
 	legacyBody := bytes.NewBufferString(`{"field_id":"` + signatureFieldID + `","type":"typed","object_key":"tenant/tenant-1/org/org-1/agreements/agreement-1/sig/v2-contract.png","sha256":"` + strings.Repeat("a", 64) + `","value_text":"Signer"}`)
-	legacyReq := httptest.NewRequest(http.MethodPost, "/api/v1/esign/signing/field-values/signature/"+token, legacyBody)
+	legacyReq := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/esign/signing/field-values/signature/"+token, legacyBody)
 	legacyReq.Header.Set("Content-Type", "application/json")
 
 	legacyResp, err := app.Test(legacyReq, -1)
@@ -1071,7 +1071,7 @@ func TestSignerTypedSignatureAttachRequiresFieldInstanceID(t *testing.T) {
 	}
 
 	body := bytes.NewBufferString(`{"field_instance_id":"` + signatureFieldID + `","type":"typed","object_key":"tenant/tenant-1/org/org-1/agreements/agreement-1/sig/v2-contract.png","sha256":"` + strings.Repeat("a", 64) + `","value_text":"Signer"}`)
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/esign/signing/field-values/signature/"+token, body)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/esign/signing/field-values/signature/"+token, body)
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := app.Test(req, -1)

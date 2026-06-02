@@ -70,7 +70,7 @@ func doSyncRequest(
 		}
 		body = bytes.NewReader(raw)
 	}
-	req := httptest.NewRequest(method, path, body)
+	req := httptest.NewRequestWithContext(context.Background(), method, path, body)
 	req.Header.Set("Accept", "application/json")
 	_ = userID
 	if payload != nil {
@@ -590,7 +590,7 @@ func TestRegisterSyncBootstrapEchoesTraceHeaders(t *testing.T) {
 	_, scope, store := newScopeStoreFixture()
 	app := setupDraftSyncApp(t, store, scope)
 
-	req := httptest.NewRequest(http.MethodPost, "/admin/api/v1/esign/sync/bootstrap/agreement-draft", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/api/v1/esign/sync/bootstrap/agreement-draft", nil)
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("X-Request-ID", "req-sync-1")
 	req.Header.Set("X-Correlation-ID", "corr-sync-1")

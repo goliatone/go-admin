@@ -1,6 +1,7 @@
 package quickstart
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -61,14 +62,14 @@ func TestRegisterInternalOpsRoutesRegistersOnlyEnabledHandlers(t *testing.T) {
 	}
 
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/readyz", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/readyz", nil)
 	server.WrappedRouter().ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected healthz status 200, got %d body=%s", rec.Code, rec.Body.String())
 	}
 
 	missing := httptest.NewRecorder()
-	missingReq := httptest.NewRequest(http.MethodGet, "/ops/status", nil)
+	missingReq := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/ops/status", nil)
 	server.WrappedRouter().ServeHTTP(missing, missingReq)
 	if missing.Code != http.StatusNotFound {
 		t.Fatalf("expected disabled status route to remain unregistered, got %d body=%s", missing.Code, missing.Body.String())

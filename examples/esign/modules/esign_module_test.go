@@ -173,7 +173,7 @@ func TestESignModuleRegistersPanelsSettingsRoleDefaultsAndCommandActions(t *test
 	seedAgreementAsSignable(t, module, agreementID)
 
 	actionBody, _ := json.Marshal(map[string]any{"idempotency_key": "phase6-send-1"})
-	actionReq := httptest.NewRequest(http.MethodPost, "/admin/api/v1/panels/esign_agreements/actions/send?id="+agreementID+"&tenant_id=tenant-bootstrap&org_id=org-bootstrap", bytes.NewReader(actionBody))
+	actionReq := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/api/v1/panels/esign_agreements/actions/send?id="+agreementID+"&tenant_id=tenant-bootstrap&org_id=org-bootstrap", bytes.NewReader(actionBody))
 	actionReq.Header.Set("Content-Type", "application/json")
 	actionReq.Header.Set("X-User-ID", "ops-user")
 	actionRes, err := server.WrappedRouter().Test(actionReq, -1)
@@ -187,7 +187,7 @@ func TestESignModuleRegistersPanelsSettingsRoleDefaultsAndCommandActions(t *test
 	}
 
 	resendBody, _ := json.Marshal(map[string]any{"idempotency_key": "phase6-send-2"})
-	resendReq := httptest.NewRequest(http.MethodPost, "/admin/api/v1/panels/esign_agreements/actions/resend?id="+agreementID+"&tenant_id=tenant-bootstrap&org_id=org-bootstrap", bytes.NewReader(resendBody))
+	resendReq := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/api/v1/panels/esign_agreements/actions/resend?id="+agreementID+"&tenant_id=tenant-bootstrap&org_id=org-bootstrap", bytes.NewReader(resendBody))
 	resendReq.Header.Set("Content-Type", "application/json")
 	resendReq.Header.Set("X-User-ID", "ops-user")
 	resendRes, err := server.WrappedRouter().Test(resendReq, -1)
@@ -369,7 +369,7 @@ func seedAgreementAsSignable(t *testing.T, module *ESignModule, agreementID stri
 func createPanelRecord(t *testing.T, server router.Server[*fiber.App], path string, payload map[string]any) string {
 	t.Helper()
 	body, _ := json.Marshal(payload)
-	req := httptest.NewRequest(http.MethodPost, path, bytes.NewReader(body))
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, path, bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-User-ID", "ops-user")
 	res, err := server.WrappedRouter().Test(req, -1)
@@ -395,7 +395,7 @@ func createPanelRecord(t *testing.T, server router.Server[*fiber.App], path stri
 
 func getPanelDetail(t *testing.T, server router.Server[*fiber.App], path string) map[string]any {
 	t.Helper()
-	req := httptest.NewRequest(http.MethodGet, path, nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, path, nil)
 	req.Header.Set("X-User-ID", "ops-user")
 	res, err := server.WrappedRouter().Test(req, -1)
 	if err != nil {

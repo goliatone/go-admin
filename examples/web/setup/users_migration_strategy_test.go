@@ -95,7 +95,7 @@ func openStrategyTestDB(t *testing.T) *sql.DB {
 
 func mustExec(t *testing.T, db *sql.DB, query string, args ...any) {
 	t.Helper()
-	if _, err := db.Exec(query, args...); err != nil {
+	if _, err := db.ExecContext(context.Background(), query, args...); err != nil {
 		t.Fatalf("exec %q: %v", query, err)
 	}
 }

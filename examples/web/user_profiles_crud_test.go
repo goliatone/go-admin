@@ -93,7 +93,7 @@ func doUserProfilesRequest(t *testing.T, app *fiber.App, method, path string, bo
 		require.NoError(t, err)
 		reader = bytes.NewReader(raw)
 	}
-	req := httptest.NewRequest(method, path, reader)
+	req := httptest.NewRequestWithContext(context.Background(), method, path, reader)
 	req.Header.Set("X-Role", string(authlib.RoleAdmin))
 	if allow {
 		req.Header.Set("X-Allow-Users", "true")
@@ -103,6 +103,7 @@ func doUserProfilesRequest(t *testing.T, app *fiber.App, method, path string, bo
 	}
 	resp, err := app.Test(req)
 	require.NoError(t, err)
+	defer resp.Body.Close()
 
 	payload := map[string]any{}
 	if resp.Body != nil {
@@ -116,18 +117,20 @@ func doUserProfilesRequest(t *testing.T, app *fiber.App, method, path string, bo
 
 func TestUserProfilesCRUD_Unauthorized(t *testing.T) {
 	h := setupUserProfilesCRUDApp(t)
-	req := httptest.NewRequest(http.MethodGet, "/admin/crud/user-profiles", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/crud/user-profiles", nil)
 	resp, err := h.app.Test(req)
 	require.NoError(t, err)
+	defer resp.Body.Close()
 	require.Equal(t, http.StatusUnauthorized, resp.StatusCode)
 }
 
 func TestUserProfilesCRUD_Forbidden(t *testing.T) {
 	h := setupUserProfilesCRUDApp(t)
-	req := httptest.NewRequest(http.MethodGet, "/admin/crud/user-profiles", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/crud/user-profiles", nil)
 	req.Header.Set("X-Role", string(authlib.RoleAdmin))
 	resp, err := h.app.Test(req)
 	require.NoError(t, err)
+	defer resp.Body.Close()
 	require.Equal(t, http.StatusForbidden, resp.StatusCode)
 }
 

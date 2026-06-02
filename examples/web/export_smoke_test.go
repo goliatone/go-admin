@@ -60,7 +60,7 @@ func TestExampleExportSmokeFilters(t *testing.T) {
 	}
 
 	jsonBody, _ := json.Marshal(filteredPayload)
-	req := httptest.NewRequest(http.MethodPost, "/admin/exports", bytes.NewReader(jsonBody))
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/exports", bytes.NewReader(jsonBody))
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(rec, req)
@@ -93,7 +93,7 @@ func TestExampleExportSmokeFilters(t *testing.T) {
 
 	filteredPayload["format"] = "csv"
 	csvBody, _ := json.Marshal(filteredPayload)
-	req = httptest.NewRequest(http.MethodPost, "/admin/exports", bytes.NewReader(csvBody))
+	req = httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/exports", bytes.NewReader(csvBody))
 	req.Header.Set("Content-Type", "application/json")
 	rec = httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(rec, req)

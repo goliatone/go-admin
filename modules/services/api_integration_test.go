@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"github.com/goliatone/go-admin/internal/primitives"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
@@ -13,6 +12,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/goliatone/go-admin/internal/primitives"
 
 	goadmin "github.com/goliatone/go-admin/admin"
 	router "github.com/goliatone/go-router"
@@ -1886,7 +1887,7 @@ func performJSONRequest(
 		}
 		body.Write(raw)
 	}
-	req := httptest.NewRequest(method, path, body)
+	req := httptest.NewRequestWithContext(context.Background(), method, path, body)
 	if payload != nil {
 		req.Header.Set("Content-Type", "application/json")
 	}

@@ -35,7 +35,7 @@ func TestRegisterGoogleRoutesFeatureGatedWhenDisabled(t *testing.T) {
 		WithDefaultScope(scope),
 	)
 
-	req := httptest.NewRequest(http.MethodGet, "/admin/api/v1/esign/integrations/google/status?user_id=ops-user", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/v1/esign/integrations/google/status?user_id=ops-user", nil)
 	resp, err := app.Test(req, -1)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
@@ -109,7 +109,7 @@ func TestRegisterAdminRouteMiddlewareInjectsClaimsForGoAuthAuthorizer(t *testing
 		WithGoogleIntegrationService(newGoogle()),
 		WithDefaultScope(scope),
 	)
-	noClaimsReq := httptest.NewRequest(http.MethodPost, "/admin/api/v1/esign/integrations/google/connect?user_id=ops-user", bytes.NewBufferString(`{"auth_code":"oauth-code-missing-claims"}`))
+	noClaimsReq := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/api/v1/esign/integrations/google/connect?user_id=ops-user", bytes.NewBufferString(`{"auth_code":"oauth-code-missing-claims"}`))
 	noClaimsReq.Header.Set("Content-Type", "application/json")
 	noClaimsResp, err := noClaimsApp.Test(noClaimsReq, -1)
 	if err != nil {
@@ -128,7 +128,7 @@ func TestRegisterAdminRouteMiddlewareInjectsClaimsForGoAuthAuthorizer(t *testing
 		WithGoogleIntegrationService(newGoogle()),
 		WithDefaultScope(scope),
 	)
-	connectReq := httptest.NewRequest(http.MethodPost, "/admin/api/v1/esign/integrations/google/connect?user_id=ops-user", bytes.NewBufferString(`{"auth_code":"oauth-code-with-claims"}`))
+	connectReq := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/api/v1/esign/integrations/google/connect?user_id=ops-user", bytes.NewBufferString(`{"auth_code":"oauth-code-with-claims"}`))
 	connectReq.Header.Set("Content-Type", "application/json")
 	connectResp, err := withClaimsApp.Test(connectReq, -1)
 	if err != nil {
@@ -150,7 +150,7 @@ func TestRegisterAdminRouteMiddlewareDoesNotProtectSignerRoutes(t *testing.T) {
 		}),
 	)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/esign/signing/session/public-token", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/esign/signing/session/public-token", nil)
 	resp, err := app.Test(req, -1)
 	if err != nil {
 		t.Fatalf("signer session request failed: %v", err)
@@ -181,7 +181,7 @@ func TestRegisterGoogleOAuthConnectAndStatusEndpoints(t *testing.T) {
 		WithDefaultScope(scope),
 	)
 
-	connectReq := httptest.NewRequest(http.MethodPost, "/admin/api/v1/esign/integrations/google/connect?user_id=ops-user", bytes.NewBufferString(`{"auth_code":"oauth-code-1"}`))
+	connectReq := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/api/v1/esign/integrations/google/connect?user_id=ops-user", bytes.NewBufferString(`{"auth_code":"oauth-code-1"}`))
 	connectReq.Header.Set("Content-Type", "application/json")
 	connectResp, err := app.Test(connectReq, -1)
 	if err != nil {
@@ -197,7 +197,7 @@ func TestRegisterGoogleOAuthConnectAndStatusEndpoints(t *testing.T) {
 		t.Fatalf("expected connected response, got %s", string(connectBody))
 	}
 
-	rotateReq := httptest.NewRequest(http.MethodPost, "/admin/api/v1/esign/integrations/google/rotate-credentials?user_id=ops-user", nil)
+	rotateReq := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/api/v1/esign/integrations/google/rotate-credentials?user_id=ops-user", nil)
 	rotateResp, err := app.Test(rotateReq, -1)
 	if err != nil {
 		t.Fatalf("rotate request failed: %v", err)
@@ -212,7 +212,7 @@ func TestRegisterGoogleOAuthConnectAndStatusEndpoints(t *testing.T) {
 		t.Fatalf("expected rotated response status, got %s", string(rotateBody))
 	}
 
-	statusReq := httptest.NewRequest(http.MethodGet, "/admin/api/v1/esign/integrations/google/status?user_id=ops-user", nil)
+	statusReq := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/v1/esign/integrations/google/status?user_id=ops-user", nil)
 	statusResp, err := app.Test(statusReq, -1)
 	if err != nil {
 		t.Fatalf("status request failed: %v", err)
@@ -239,7 +239,7 @@ func TestRegisterGoogleOAuthStatusUnexpectedErrorReturnsInternalServerError(t *t
 		WithDefaultScope(defaultTestScope()),
 	)
 
-	req := httptest.NewRequest(http.MethodGet, "/admin/api/v1/esign/integrations/google/status?user_id=ops-user", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/v1/esign/integrations/google/status?user_id=ops-user", nil)
 	resp, err := app.Test(req, -1)
 	if err != nil {
 		t.Fatalf("status request failed: %v", err)
@@ -281,7 +281,7 @@ func TestRegisterGoogleImportRunDetailUsesSourceReadModelService(t *testing.T) {
 		WithDefaultScope(scope),
 	)
 
-	req := httptest.NewRequest(http.MethodGet, "/admin/api/v1/esign/google-drive/imports/"+runID+"?user_id=ops-user", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/v1/esign/google-drive/imports/"+runID+"?user_id=ops-user", nil)
 	resp, err := app.Test(req, -1)
 	if err != nil {
 		t.Fatalf("import run detail request failed: %v", err)
@@ -495,7 +495,7 @@ func TestRegisterGoogleDriveSearchBrowseAndImportEndpoints(t *testing.T) {
 		WithDefaultScope(scope),
 	)
 
-	connectReq := httptest.NewRequest(http.MethodPost, "/admin/api/v1/esign/integrations/google/connect?user_id=ops-user", bytes.NewBufferString(`{"auth_code":"oauth-code-2"}`))
+	connectReq := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/api/v1/esign/integrations/google/connect?user_id=ops-user", bytes.NewBufferString(`{"auth_code":"oauth-code-2"}`))
 	connectReq.Header.Set("Content-Type", "application/json")
 	connectResp, err := app.Test(connectReq, -1)
 	if err != nil {
@@ -506,7 +506,7 @@ func TestRegisterGoogleDriveSearchBrowseAndImportEndpoints(t *testing.T) {
 		t.Fatalf("expected connect status 200, got %d", connectResp.StatusCode)
 	}
 
-	searchReq := httptest.NewRequest(http.MethodGet, "/admin/api/v1/esign/google-drive/search?user_id=ops-user&q=nda", nil)
+	searchReq := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/v1/esign/google-drive/search?user_id=ops-user&q=nda", nil)
 	searchResp, err := app.Test(searchReq, -1)
 	if err != nil {
 		t.Fatalf("search request failed: %v", err)
@@ -530,7 +530,7 @@ func TestRegisterGoogleDriveSearchBrowseAndImportEndpoints(t *testing.T) {
 		t.Fatalf("expected camelCase google file keys only, got %s", string(searchBody))
 	}
 
-	browseReq := httptest.NewRequest(http.MethodGet, "/admin/api/v1/esign/google-drive/browse?user_id=ops-user&folder_id=root", nil)
+	browseReq := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/v1/esign/google-drive/browse?user_id=ops-user&folder_id=root", nil)
 	browseResp, err := app.Test(browseReq, -1)
 	if err != nil {
 		t.Fatalf("browse request failed: %v", err)
@@ -541,7 +541,7 @@ func TestRegisterGoogleDriveSearchBrowseAndImportEndpoints(t *testing.T) {
 		t.Fatalf("expected browse 200, got %d body=%s", browseResp.StatusCode, string(body))
 	}
 
-	importReq := httptest.NewRequest(http.MethodPost, "/admin/api/v1/esign/google-drive/import?user_id=ops-user", bytes.NewBufferString(`{"google_file_id":"google-file-1","document_title":"Imported NDA","agreement_title":"Imported NDA Agreement"}`))
+	importReq := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/api/v1/esign/google-drive/import?user_id=ops-user", bytes.NewBufferString(`{"google_file_id":"google-file-1","document_title":"Imported NDA","agreement_title":"Imported NDA Agreement"}`))
 	importReq.Header.Set("Content-Type", "application/json")
 	importResp, err := app.Test(importReq, -1)
 	if err != nil {
@@ -581,7 +581,7 @@ func TestRegisterGoogleDriveImportEndpointReplaysSameIdempotentImport(t *testing
 		WithDefaultScope(scope),
 	)
 
-	connectReq := httptest.NewRequest(http.MethodPost, "/admin/api/v1/esign/integrations/google/connect?user_id=ops-user", bytes.NewBufferString(`{"auth_code":"oauth-code-replay","account_id":"work@example.com"}`))
+	connectReq := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/api/v1/esign/integrations/google/connect?user_id=ops-user", bytes.NewBufferString(`{"auth_code":"oauth-code-replay","account_id":"work@example.com"}`))
 	connectReq.Header.Set("Content-Type", "application/json")
 	connectResp, err := app.Test(connectReq, -1)
 	if err != nil {
@@ -593,7 +593,7 @@ func TestRegisterGoogleDriveImportEndpointReplaysSameIdempotentImport(t *testing
 	}
 
 	body := `{"google_file_id":"google-file-1","account_id":"work@example.com","document_title":"Imported NDA","agreement_title":"Imported NDA Agreement","source_version_hint":"v1"}`
-	firstReq := httptest.NewRequest(http.MethodPost, "/admin/api/v1/esign/google-drive/import?user_id=ops-user", bytes.NewBufferString(body))
+	firstReq := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/api/v1/esign/google-drive/import?user_id=ops-user", bytes.NewBufferString(body))
 	firstReq.Header.Set("Content-Type", "application/json")
 	firstResp, err := app.Test(firstReq, -1)
 	if err != nil {
@@ -609,7 +609,7 @@ func TestRegisterGoogleDriveImportEndpointReplaysSameIdempotentImport(t *testing
 		t.Fatalf("read first import response: %v", err)
 	}
 
-	secondReq := httptest.NewRequest(http.MethodPost, "/admin/api/v1/esign/google-drive/import?user_id=ops-user", bytes.NewBufferString(body))
+	secondReq := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/api/v1/esign/google-drive/import?user_id=ops-user", bytes.NewBufferString(body))
 	secondReq.Header.Set("Content-Type", "application/json")
 	secondResp, err := app.Test(secondReq, -1)
 	if err != nil {
@@ -665,7 +665,7 @@ func TestRegisterGoogleDriveSharedDriveBrowseAndImport(t *testing.T) {
 		WithDefaultScope(scope),
 	)
 
-	connectReq := httptest.NewRequest(http.MethodPost, "/admin/api/v1/esign/integrations/google/connect?user_id=ops-user", bytes.NewBufferString(`{"auth_code":"oauth-shared-1"}`))
+	connectReq := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/api/v1/esign/integrations/google/connect?user_id=ops-user", bytes.NewBufferString(`{"auth_code":"oauth-shared-1"}`))
 	connectReq.Header.Set("Content-Type", "application/json")
 	connectResp, err := app.Test(connectReq, -1)
 	if err != nil {
@@ -676,7 +676,7 @@ func TestRegisterGoogleDriveSharedDriveBrowseAndImport(t *testing.T) {
 		t.Fatalf("expected connect status 200, got %d", connectResp.StatusCode)
 	}
 
-	browseReq := httptest.NewRequest(http.MethodGet, "/admin/api/v1/esign/google-drive/browse?user_id=ops-user&folder_id=shared-drive-1", nil)
+	browseReq := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/v1/esign/google-drive/browse?user_id=ops-user&folder_id=shared-drive-1", nil)
 	browseResp, err := app.Test(browseReq, -1)
 	if err != nil {
 		t.Fatalf("browse request failed: %v", err)
@@ -691,7 +691,7 @@ func TestRegisterGoogleDriveSharedDriveBrowseAndImport(t *testing.T) {
 		t.Fatalf("expected shared drive file in browse response, got %s", string(browseBody))
 	}
 
-	importReq := httptest.NewRequest(http.MethodPost, "/admin/api/v1/esign/google-drive/import?user_id=ops-user", bytes.NewBufferString(`{"google_file_id":"shared-file-1","document_title":"Shared NDA","agreement_title":"Shared NDA Agreement"}`))
+	importReq := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/api/v1/esign/google-drive/import?user_id=ops-user", bytes.NewBufferString(`{"google_file_id":"shared-file-1","document_title":"Shared NDA","agreement_title":"Shared NDA Agreement"}`))
 	importReq.Header.Set("Content-Type", "application/json")
 	importResp, err := app.Test(importReq, -1)
 	if err != nil {
@@ -729,7 +729,7 @@ func TestRegisterGoogleDriveImportPermissionDeniedReturnsTypedError(t *testing.T
 		WithDefaultScope(scope),
 	)
 
-	connectReq := httptest.NewRequest(http.MethodPost, "/admin/api/v1/esign/integrations/google/connect?user_id=ops-user", bytes.NewBufferString(`{"auth_code":"oauth-shared-2"}`))
+	connectReq := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/api/v1/esign/integrations/google/connect?user_id=ops-user", bytes.NewBufferString(`{"auth_code":"oauth-shared-2"}`))
 	connectReq.Header.Set("Content-Type", "application/json")
 	connectResp, err := app.Test(connectReq, -1)
 	if err != nil {
@@ -740,7 +740,7 @@ func TestRegisterGoogleDriveImportPermissionDeniedReturnsTypedError(t *testing.T
 		t.Fatalf("expected connect status 200, got %d", connectResp.StatusCode)
 	}
 
-	importReq := httptest.NewRequest(http.MethodPost, "/admin/api/v1/esign/google-drive/import?user_id=ops-user", bytes.NewBufferString(`{"google_file_id":"shared-denied-1","document_title":"Denied Shared Doc","agreement_title":"Denied Shared Agreement"}`))
+	importReq := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/api/v1/esign/google-drive/import?user_id=ops-user", bytes.NewBufferString(`{"google_file_id":"shared-denied-1","document_title":"Denied Shared Doc","agreement_title":"Denied Shared Agreement"}`))
 	importReq.Header.Set("Content-Type", "application/json")
 	importResp, err := app.Test(importReq, -1)
 	if err != nil {
@@ -778,7 +778,7 @@ func TestRegisterGoogleImportCreateAtomicallyPersistsRunAndDurableJob(t *testing
 		WithDefaultScope(scope),
 	)
 
-	req := httptest.NewRequest(http.MethodPost, "/admin/api/v1/esign/google-drive/imports?user_id=ops-user", bytes.NewBufferString(`{"google_file_id":"google-file-1","document_title":"Imported Doc","agreement_title":"Imported Agreement"}`))
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/api/v1/esign/google-drive/imports?user_id=ops-user", bytes.NewBufferString(`{"google_file_id":"google-file-1","document_title":"Imported Doc","agreement_title":"Imported Agreement"}`))
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := app.Test(req, -1)
 	if err != nil {
@@ -838,7 +838,7 @@ func TestRegisterGoogleImportCreateRollsBackRunWhenDurableEnqueueFails(t *testin
 		WithDefaultScope(scope),
 	)
 
-	req := httptest.NewRequest(http.MethodPost, "/admin/api/v1/esign/google-drive/imports?user_id=ops-user", bytes.NewBufferString(`{"google_file_id":"google-file-fail","document_title":"Imported Doc","agreement_title":"Imported Agreement"}`))
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/api/v1/esign/google-drive/imports?user_id=ops-user", bytes.NewBufferString(`{"google_file_id":"google-file-fail","document_title":"Imported Doc","agreement_title":"Imported Agreement"}`))
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := app.Test(req, -1)
 	if err != nil {

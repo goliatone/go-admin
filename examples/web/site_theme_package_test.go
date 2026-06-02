@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"io"
 	"io/fs"
 	"net/http"
@@ -61,7 +62,7 @@ func TestMountEmbeddedSiteThemeAssetsServesBundles(t *testing.T) {
 		path.Join(pkg.Manifest.Assets.Prefix, "static", "site.css"),
 		path.Join(pkg.Manifest.Assets.Prefix, "static", "site.js"),
 	} {
-		resp, err := app.Test(httptest.NewRequest(http.MethodGet, assetPath, nil), -1)
+		resp, err := app.Test(httptest.NewRequestWithContext(context.Background(), http.MethodGet, assetPath, nil), -1)
 		if err != nil {
 			t.Fatalf("request %s failed: %v", assetPath, err)
 		}
@@ -294,7 +295,7 @@ func renderEmbeddedSiteTemplate(t *testing.T, pkg *embeddedSiteThemePackage, var
 		return c.Render(strings.ReplaceAll(c.Params("template"), "__", "/"), ctx)
 	})
 
-	resp, err := app.Test(httptest.NewRequest(http.MethodGet, "/render/"+strings.ReplaceAll(templateName, "/", "__"), nil), -1)
+	resp, err := app.Test(httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/render/"+strings.ReplaceAll(templateName, "/", "__"), nil), -1)
 	if err != nil {
 		t.Fatalf("render %s: %v", templateName, err)
 	}

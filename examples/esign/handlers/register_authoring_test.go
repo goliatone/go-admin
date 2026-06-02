@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"bytes"
+	"context"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -61,7 +62,7 @@ func doJSONRequest(t *testing.T, app *fiber.App, method, path, payload string) (
 	if strings.TrimSpace(payload) != "" {
 		body = bytes.NewBufferString(payload)
 	}
-	req := httptest.NewRequest(method, path, body)
+	req := httptest.NewRequestWithContext(context.Background(), method, path, body)
 	if strings.TrimSpace(payload) != "" {
 		req.Header.Set("Content-Type", "application/json")
 	}

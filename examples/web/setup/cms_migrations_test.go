@@ -801,7 +801,7 @@ CREATE INDEX idx_menu_location_bindings_channel_location
 
 func sqliteTableHasColumn(t *testing.T, db *sql.DB, table, column string) bool {
 	t.Helper()
-	rows, err := db.Query(fmt.Sprintf(`PRAGMA table_info('%s')`, table))
+	rows, err := db.QueryContext(context.Background(), fmt.Sprintf(`PRAGMA table_info('%s')`, table))
 	if err != nil {
 		t.Fatalf("pragma table_info(%s): %v", table, err)
 	}

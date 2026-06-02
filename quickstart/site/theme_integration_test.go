@@ -483,7 +483,7 @@ func renderSiteTemplateForTest(t *testing.T, cfg admin.Config, siteCfg SiteConfi
 		return c.Render(templateName, viewCtx)
 	})
 
-	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/", nil)
 	res, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("render themed template request: %v", err)

@@ -517,7 +517,7 @@ func TestNewAdminRegistersRoutesWithGoUsersPreferencesRepo(t *testing.T) {
 
 		for _, tc := range tests {
 			t.Run(tc.name, func(t *testing.T) {
-				req := httptest.NewRequest(tc.method, tc.path, bytes.NewReader(body))
+				req := httptest.NewRequestWithContext(context.Background(), tc.method, tc.path, bytes.NewReader(body))
 				req.Header.Set("Content-Type", "application/json")
 				req.Header.Set("X-User-ID", userID)
 				rr := httptest.NewRecorder()

@@ -43,7 +43,7 @@ func TestSignerEndpointsRateLimited(t *testing.T) {
 	})
 	app := setupRegisterTestApp(t, WithRequestRateLimiter(limiter))
 
-	req1 := httptest.NewRequest(http.MethodGet, "/api/v1/esign/signing/session/token-1", nil)
+	req1 := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/esign/signing/session/token-1", nil)
 	req1.Header.Set("X-Forwarded-For", "203.0.113.10")
 	resp1, err := app.Test(req1, -1)
 	if err != nil {
@@ -55,7 +55,7 @@ func TestSignerEndpointsRateLimited(t *testing.T) {
 		t.Fatalf("expected first status 200, got %d", resp1.StatusCode)
 	}
 
-	req2 := httptest.NewRequest(http.MethodGet, "/api/v1/esign/signing/session/token-1", nil)
+	req2 := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/esign/signing/session/token-1", nil)
 	req2.Header.Set("X-Forwarded-For", "203.0.113.10")
 	resp2, err := app.Test(req2, -1)
 	if err != nil {
@@ -75,7 +75,7 @@ func TestSignerWriteUsesSeparateBucketFromSubmit(t *testing.T) {
 	})
 	app := setupRegisterTestApp(t, WithRequestRateLimiter(limiter))
 
-	submitReq1 := httptest.NewRequest(http.MethodPost, "/api/v1/esign/signing/submit/token-1", nil)
+	submitReq1 := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/esign/signing/submit/token-1", nil)
 	submitResp1, err := app.Test(submitReq1, -1)
 	if err != nil {
 		t.Fatalf("first submit request failed: %v", err)
@@ -85,7 +85,7 @@ func TestSignerWriteUsesSeparateBucketFromSubmit(t *testing.T) {
 		t.Fatalf("expected first submit status 501 (service unavailable in test wiring), got %d", submitResp1.StatusCode)
 	}
 
-	writeReq := httptest.NewRequest(http.MethodPost, "/api/v1/esign/signing/field-values/token-1", bytes.NewBufferString(`{"field_instance_id":"field-1","value_text":"ok"}`))
+	writeReq := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/esign/signing/field-values/token-1", bytes.NewBufferString(`{"field_instance_id":"field-1","value_text":"ok"}`))
 	writeReq.Header.Set("Content-Type", "application/json")
 	writeResp, err := app.Test(writeReq, -1)
 	if err != nil {
@@ -96,7 +96,7 @@ func TestSignerWriteUsesSeparateBucketFromSubmit(t *testing.T) {
 		t.Fatalf("expected write request not to be blocked by submit bucket")
 	}
 
-	submitReq2 := httptest.NewRequest(http.MethodPost, "/api/v1/esign/signing/submit/token-1", nil)
+	submitReq2 := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/esign/signing/submit/token-1", nil)
 	submitResp2, err := app.Test(submitReq2, -1)
 	if err != nil {
 		t.Fatalf("second submit request failed: %v", err)
@@ -128,7 +128,7 @@ func TestRateLimitRulesCanBeOverriddenByPreferences(t *testing.T) {
 	)
 
 	for i := range 3 {
-		req := httptest.NewRequest(http.MethodGet, "/api/v1/esign/signing/session/token-1", nil)
+		req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/esign/signing/session/token-1", nil)
 		resp, err := app.Test(req, -1)
 		if err != nil {
 			t.Fatalf("request %d failed: %v", i+1, err)
@@ -139,7 +139,7 @@ func TestRateLimitRulesCanBeOverriddenByPreferences(t *testing.T) {
 		}
 	}
 
-	limitedReq := httptest.NewRequest(http.MethodGet, "/api/v1/esign/signing/session/token-1", nil)
+	limitedReq := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/esign/signing/session/token-1", nil)
 	limitedResp, err := app.Test(limitedReq, -1)
 	if err != nil {
 		t.Fatalf("limited request failed: %v", err)
@@ -156,7 +156,7 @@ func TestRateLimiterIgnoresForwardedHeadersByDefault(t *testing.T) {
 	})
 	app := setupRegisterTestApp(t, WithRequestRateLimiter(limiter))
 
-	req1 := httptest.NewRequest(http.MethodGet, "/api/v1/esign/signing/session/token-1", nil)
+	req1 := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/esign/signing/session/token-1", nil)
 	req1.Header.Set("X-Forwarded-For", "203.0.113.10")
 	resp1, err := app.Test(req1, -1)
 	if err != nil {
@@ -167,7 +167,7 @@ func TestRateLimiterIgnoresForwardedHeadersByDefault(t *testing.T) {
 		t.Fatalf("expected first status 200, got %d", resp1.StatusCode)
 	}
 
-	req2 := httptest.NewRequest(http.MethodGet, "/api/v1/esign/signing/session/token-1", nil)
+	req2 := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/esign/signing/session/token-1", nil)
 	req2.Header.Set("X-Forwarded-For", "198.51.100.25")
 	resp2, err := app.Test(req2, -1)
 	if err != nil {
@@ -191,7 +191,7 @@ func TestRateLimiterCanTrustForwardedHeadersWhenEnabled(t *testing.T) {
 		}),
 	)
 
-	req1 := httptest.NewRequest(http.MethodGet, "/api/v1/esign/signing/session/token-1", nil)
+	req1 := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/esign/signing/session/token-1", nil)
 	req1.Header.Set("X-Forwarded-For", "203.0.113.10")
 	resp1, err := app.Test(req1, -1)
 	if err != nil {
@@ -202,7 +202,7 @@ func TestRateLimiterCanTrustForwardedHeadersWhenEnabled(t *testing.T) {
 		t.Fatalf("expected first status 200, got %d", resp1.StatusCode)
 	}
 
-	req2 := httptest.NewRequest(http.MethodGet, "/api/v1/esign/signing/session/token-1", nil)
+	req2 := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/esign/signing/session/token-1", nil)
 	req2.Header.Set("X-Forwarded-For", "198.51.100.25")
 	resp2, err := app.Test(req2, -1)
 	if err != nil {

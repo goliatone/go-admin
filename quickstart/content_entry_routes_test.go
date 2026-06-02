@@ -806,7 +806,7 @@ func TestEntryForPanelRejectsCurrentUserModeWhenUserIDMissing(t *testing.T) {
 	ctx := router.NewMockContext()
 	ctx.On("Context").Return(context.Background())
 
-	if err := h.entryForPanel(ctx, "profile", admin.PanelEntryModeDetailCurrentUser); err != admin.ErrForbidden {
+	if err := h.entryForPanel(ctx, "profile", admin.PanelEntryModeDetailCurrentUser); !errors.Is(err, admin.ErrForbidden) {
 		t.Fatalf("expected ErrForbidden when user id missing, got %v", err)
 	}
 }
@@ -1289,7 +1289,7 @@ func TestNewForPanelReturnsNotFoundWhenPanelHasNoRenderableFormSchema(t *testing
 	ctx := router.NewMockContext()
 	ctx.On("Context").Return(context.Background())
 	h := &contentEntryHandlers{admin: adm, cfg: cfg}
-	if err := h.newForPanel(ctx, "translations"); err != admin.ErrNotFound {
+	if err := h.newForPanel(ctx, "translations"); !errors.Is(err, admin.ErrNotFound) {
 		t.Fatalf("expected ErrNotFound, got %v", err)
 	}
 }

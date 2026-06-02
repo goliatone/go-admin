@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -17,7 +18,7 @@ func TestDebugRequestMiddlewareTagsSessionFromToken(t *testing.T) {
 	}
 	collector := NewDebugCollector(cfg)
 
-	req := httptest.NewRequest(http.MethodGet, "/test", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/test", nil)
 	rec := httptest.NewRecorder()
 	ctx := router.NewHTTPRouterContext(rec, req, httprouter.Params{}, nil)
 
@@ -50,7 +51,7 @@ func TestDebugRequestMiddlewareTagsSessionFromToken(t *testing.T) {
 
 func TestDebugSessionContextFromRequestCookieFallback(t *testing.T) {
 	cfg := normalizeDebugConfig(DebugConfig{}, "/admin")
-	req := httptest.NewRequest(http.MethodGet, "/test", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/test", nil)
 	rec := httptest.NewRecorder()
 	ctx := router.NewHTTPRouterContext(rec, req, httprouter.Params{}, nil)
 
@@ -76,7 +77,7 @@ func TestDebugSessionContextFromRequestCookieFallback(t *testing.T) {
 
 func TestDebugSessionContextFromRequestReadsStandardClaimsContext(t *testing.T) {
 	cfg := normalizeDebugConfig(DebugConfig{}, "/admin")
-	req := httptest.NewRequest(http.MethodGet, "/test", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/test", nil)
 	rec := httptest.NewRecorder()
 	ctx := router.NewHTTPRouterContext(rec, req, httprouter.Params{}, nil)
 

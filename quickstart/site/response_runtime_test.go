@@ -1,6 +1,7 @@
 package site
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -74,7 +75,7 @@ func TestRenderSiteTemplateResponseJSONAndHTMLFallback(t *testing.T) {
 		})
 	})
 
-	jsonReq := httptest.NewRequest(http.MethodGet, "/json", nil)
+	jsonReq := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/json", nil)
 	jsonReq.Header.Set("Accept", "application/json")
 	jsonRec := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(jsonRec, jsonReq)
@@ -89,7 +90,7 @@ func TestRenderSiteTemplateResponseJSONAndHTMLFallback(t *testing.T) {
 		t.Fatalf("expected JSON context ok=true, got %+v", jsonPayload)
 	}
 
-	htmlReq := httptest.NewRequest(http.MethodGet, "/html-fallback", nil)
+	htmlReq := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/html-fallback", nil)
 	htmlRec := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(htmlRec, htmlReq)
 	if htmlRec.Code != 502 {

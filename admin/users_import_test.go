@@ -116,11 +116,12 @@ func TestParseJSONImport_NormalizesRecords(t *testing.T) {
 func TestImportUsersHandler_PermissionDenied(t *testing.T) {
 	app := newImportTestApp(t, newTestClaims(t, "guest"), rejectAuthorizer{})
 
-	req := httptest.NewRequest(http.MethodPost, "/admin/api/users-import", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/api/users-import", nil)
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("request error: %v", err)
 	}
+	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusForbidden {
 		t.Fatalf("status=%d, want %d", resp.StatusCode, http.StatusForbidden)
 	}
@@ -130,11 +131,12 @@ func TestImportUsersHandler_MissingOrInvalidFile(t *testing.T) {
 	app := newImportTestApp(t, newTestClaims(t, "admin"), allowAuthorizer{})
 
 	t.Run("missing file", func(t *testing.T) {
-		req := httptest.NewRequest(http.MethodPost, "/admin/api/users-import", nil)
+		req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/api/users-import", nil)
 		resp, err := app.Test(req)
 		if err != nil {
 			t.Fatalf("request error: %v", err)
 		}
+		defer resp.Body.Close()
 		if resp.StatusCode != http.StatusBadRequest {
 			t.Fatalf("status=%d, want %d", resp.StatusCode, http.StatusBadRequest)
 		}
@@ -146,12 +148,13 @@ func TestImportUsersHandler_MissingOrInvalidFile(t *testing.T) {
 
 	t.Run("invalid file type", func(t *testing.T) {
 		body, contentType := buildMultipartFile(t, "users.txt", "text/plain", []byte("noop"))
-		req := httptest.NewRequest(http.MethodPost, "/admin/api/users-import", body)
+		req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/api/users-import", body)
 		req.Header.Set("Content-Type", contentType)
 		resp, err := app.Test(req)
 		if err != nil {
 			t.Fatalf("request error: %v", err)
 		}
+		defer resp.Body.Close()
 		if resp.StatusCode != http.StatusBadRequest {
 			t.Fatalf("status=%d, want %d", resp.StatusCode, http.StatusBadRequest)
 		}
@@ -171,13 +174,14 @@ func TestImportUsersHandler_MixedResults(t *testing.T) {
 		",missing,member",
 	}, "\n")
 	body, contentType := buildMultipartFile(t, "users.csv", "text/csv", []byte(csvPayload))
-	req := httptest.NewRequest(http.MethodPost, "/admin/api/users-import", body)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/api/users-import", body)
 	req.Header.Set("Content-Type", contentType)
 
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("request error: %v", err)
 	}
+	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusUnprocessableEntity {
 		t.Fatalf("status=%d, want %d", resp.StatusCode, http.StatusUnprocessableEntity)
 	}

@@ -67,7 +67,7 @@ func TestExampleCMSPreviewAndPublicAPI(t *testing.T) {
 	require.NoError(t, adm.Initialize(server.Router()))
 
 	contentBody := `{"title":"Example Draft","slug":"example-draft","content_type":"post","status":"draft","locale":"en"}`
-	createReq := httptest.NewRequest(http.MethodPost, "/admin/api/panels/content", strings.NewReader(contentBody))
+	createReq := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/api/panels/content", strings.NewReader(contentBody))
 	createReq.Header.Set("Content-Type", "application/json")
 	createRes := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(createRes, createReq)
@@ -76,7 +76,7 @@ func TestExampleCMSPreviewAndPublicAPI(t *testing.T) {
 	pageID := fmt.Sprint(created["id"])
 	require.NotEmpty(t, pageID)
 
-	previewReq := httptest.NewRequest(http.MethodGet, "/admin/api/panels/content/"+pageID+"/preview", nil)
+	previewReq := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/panels/content/"+pageID+"/preview", nil)
 	previewRes := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(previewRes, previewReq)
 	require.Equal(t, http.StatusOK, previewRes.Code)
@@ -84,7 +84,7 @@ func TestExampleCMSPreviewAndPublicAPI(t *testing.T) {
 	token := fmt.Sprint(previewPayload["token"])
 	require.NotEmpty(t, token)
 
-	adminPreviewReq := httptest.NewRequest(http.MethodGet, "/admin/api/preview/"+token, nil)
+	adminPreviewReq := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/preview/"+token, nil)
 	adminPreviewRes := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(adminPreviewRes, adminPreviewReq)
 	require.Equal(t, http.StatusOK, adminPreviewRes.Code)
@@ -93,18 +93,18 @@ func TestExampleCMSPreviewAndPublicAPI(t *testing.T) {
 	slug := firstTestString(adminRecord, "slug", "path", "Slug", "Path")
 	require.Equal(t, "example-draft", slug)
 
-	publicReq := httptest.NewRequest(http.MethodGet, "/api/v1/content/post/example-draft", nil)
+	publicReq := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/content/post/example-draft", nil)
 	publicRes := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(publicRes, publicReq)
 	require.Equal(t, http.StatusNotFound, publicRes.Code)
 
-	updateReq := httptest.NewRequest(http.MethodPut, "/admin/api/panels/content/"+pageID, strings.NewReader(`{"status":"published"}`))
+	updateReq := httptest.NewRequestWithContext(context.Background(), http.MethodPut, "/admin/api/panels/content/"+pageID, strings.NewReader(`{"status":"published"}`))
 	updateReq.Header.Set("Content-Type", "application/json")
 	updateRes := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(updateRes, updateReq)
 	require.Equal(t, http.StatusOK, updateRes.Code)
 
-	publicReq = httptest.NewRequest(http.MethodGet, "/api/v1/content/post/example-draft", nil)
+	publicReq = httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/content/post/example-draft", nil)
 	publicRes = httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(publicRes, publicReq)
 	require.Equal(t, http.StatusOK, publicRes.Code)

@@ -105,7 +105,7 @@ func TestInitializeReconcilesDynamicCMSBeforeAliasRoutes(t *testing.T) {
 	}
 
 	for _, path := range []string{"/admin/quotes", "/admin/news"} {
-		req := httptest.NewRequest(http.MethodGet, path, nil)
+		req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, path, nil)
 		res := httptest.NewRecorder()
 		server.WrappedRouter().ServeHTTP(res, req)
 		if res.Code != http.StatusFound {

@@ -71,7 +71,7 @@ func TestLocalizationRegressionSnapshot(t *testing.T) {
 	path := mustResolveURL(t, adm.URLs(), publicAPIGroupName(adm.config), SiteRouteMenuByLocation, map[string]string{"location": "site.main"}, map[string]string{
 		"locale": "es",
 	})
-	req := httptest.NewRequest(http.MethodGet, path, nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, path, nil)
 	res := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(res, req)
 	if res.Code != http.StatusOK {

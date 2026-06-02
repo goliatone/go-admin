@@ -65,6 +65,7 @@ func TestDebugWebSocketUnauthenticatedUpgradeFailsWithoutRedirectHeaders(t *test
 	if resp == nil {
 		t.Fatalf("expected handshake response, got nil error=%v", err)
 	}
+	defer resp.Body.Close()
 	if resp.StatusCode == http.StatusSwitchingProtocols {
 		t.Fatalf("expected unauthenticated websocket dial to avoid 101, got %d", resp.StatusCode)
 	}
@@ -139,6 +140,7 @@ func TestDebugWebSocketAuthenticatedUpgradeSucceedsWithCookieAuth(t *testing.T) 
 		}
 		t.Fatalf("expected authenticated websocket dial to upgrade, got %d", resp.StatusCode)
 	}
+	defer resp.Body.Close()
 	if got := strings.TrimSpace(resp.Header.Get("Location")); got != "" {
 		t.Fatalf("expected successful websocket upgrade without redirect header, got %q", got)
 	}
@@ -147,7 +149,7 @@ func TestDebugWebSocketAuthenticatedUpgradeSucceedsWithCookieAuth(t *testing.T) 
 func startAdminFiberServer(t *testing.T, app *router.FiberAdapter) (string, func()) {
 	t.Helper()
 
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	listener, err := (&net.ListenConfig{}).Listen(context.Background(), "tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatalf("failed to allocate listener: %v", err)
 	}

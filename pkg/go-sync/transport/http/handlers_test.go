@@ -34,7 +34,7 @@ func TestHandleReadReturnsCanonicalEnvelopeAndServerDerivedScope(t *testing.T) {
 		}, nil
 	}))
 
-	req := httptest.NewRequest(http.MethodGet, "/sync/resources/agreement_draft/agreement_draft_123", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/sync/resources/agreement_draft/agreement_draft_123", nil)
 	req.SetPathValue("kind", "agreement_draft")
 	req.SetPathValue("id", "agreement_draft_123")
 
@@ -101,7 +101,7 @@ func TestHandleMutateDerivesTrustedIdentityAndReturnsMutationEnvelope(t *testing
 		}, nil
 	}))
 
-	req := httptest.NewRequest(http.MethodPatch, "/sync/resources/agreement_draft/agreement_draft_123", bytes.NewBufferString(`{
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPatch, "/sync/resources/agreement_draft/agreement_draft_123", bytes.NewBufferString(`{
 		"operation":"autosave",
 		"payload":{"title":"Mutual NDA"},
 		"expected_revision":12,
@@ -149,7 +149,7 @@ func TestHandleActionUsesPathOperationAndReturnsReplayEnvelope(t *testing.T) {
 		},
 	})
 
-	req := httptest.NewRequest(http.MethodPost, "/sync/resources/agreement_draft/agreement_draft_123/actions/send", bytes.NewBufferString(`{
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/sync/resources/agreement_draft/agreement_draft_123/actions/send", bytes.NewBufferString(`{
 		"operation":"ignored-body-operation",
 		"payload":{"confirm":true},
 		"expected_revision":13,
@@ -194,7 +194,7 @@ func TestHandleMutateReturnsConflictEnvelope(t *testing.T) {
 		},
 	})
 
-	req := httptest.NewRequest(http.MethodPatch, "/sync/resources/agreement_draft/agreement_draft_123", bytes.NewBufferString(`{
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPatch, "/sync/resources/agreement_draft/agreement_draft_123", bytes.NewBufferString(`{
 		"operation":"autosave",
 		"payload":{"title":"Changed"},
 		"expected_revision":12
@@ -221,7 +221,7 @@ func TestHandleMutateReturnsConflictEnvelope(t *testing.T) {
 func TestHandleMutateRejectsInvalidRequestEnvelope(t *testing.T) {
 	handler := mustNewHandler(t, syncServiceStub{})
 
-	req := httptest.NewRequest(http.MethodPatch, "/sync/resources/agreement_draft/agreement_draft_123", bytes.NewBufferString(`{
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPatch, "/sync/resources/agreement_draft/agreement_draft_123", bytes.NewBufferString(`{
 		"operation":"autosave",
 		"payload":{"title":"Changed"}
 	}`))
@@ -251,7 +251,7 @@ func TestHandleActionMapsTemporaryFailureEnvelope(t *testing.T) {
 		},
 	})
 
-	req := httptest.NewRequest(http.MethodPost, "/sync/resources/agreement_draft/agreement_draft_123/actions/send", bytes.NewBufferString(`{
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/sync/resources/agreement_draft/agreement_draft_123/actions/send", bytes.NewBufferString(`{
 		"payload":{"confirm":true},
 		"expected_revision":13,
 		"idempotency_key":"idem_send_13"

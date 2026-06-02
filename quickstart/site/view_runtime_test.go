@@ -1,6 +1,7 @@
 package site
 
 import (
+	"context"
 	"io"
 	"io/fs"
 	"net/http"
@@ -166,7 +167,7 @@ func mustRenderViewWithOptions(t *testing.T, base fs.FS, options ...quickstart.V
 		return c.Render("site/base", map[string]any{})
 	})
 
-	res, err := app.Test(httptest.NewRequest(http.MethodGet, "/", nil))
+	res, err := app.Test(httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/", nil))
 	if err != nil {
 		t.Fatalf("render request: %v", err)
 	}

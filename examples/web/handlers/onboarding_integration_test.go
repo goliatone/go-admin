@@ -306,7 +306,7 @@ func doOnboardingJSONRequest(t *testing.T, app *fiber.App, method, url string, b
 		}
 		reader = bytes.NewReader(encoded)
 	}
-	req := httptest.NewRequest(method, url, reader)
+	req := httptest.NewRequestWithContext(context.Background(), method, url, reader)
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("Accept", "application/json")

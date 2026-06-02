@@ -2274,7 +2274,7 @@ func TestAgreementPanelRepositoryServePanelSubresourceReturnsPDFAndAppendsAuditE
 		return repo.ServePanelSubresource(adminCtx, c, agreement.ID, "artifact", "executed")
 	})
 
-	resp, err := adapter.WrappedRouter().Test(httptest.NewRequest(http.MethodGet, "/artifact?disposition=attachment", nil), -1)
+	resp, err := adapter.WrappedRouter().Test(httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/artifact?disposition=attachment", nil), -1)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}

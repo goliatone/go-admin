@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"bytes"
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -31,7 +32,7 @@ func TestSignerProfileRoutesRoundTripAndClear(t *testing.T) {
 
 	key := "https%3A%2F%2Flocalhost%3A8080%3Asigner%40example.com"
 	body := []byte(`{"patch":{"fullName":"Signer Example","initials":"SE","typedSignature":"Signer Example","drawnSignatureDataUrl":"data:image/png;base64,ZmFrZQ==","drawnInitialsDataUrl":"data:image/png;base64,ZmFrZUluaXRpYWxz"}}`)
-	patchReq := httptest.NewRequest(http.MethodPatch, "/api/v1/esign/signing/profile/token-1?key="+key, bytes.NewReader(body))
+	patchReq := httptest.NewRequestWithContext(context.Background(), http.MethodPatch, "/api/v1/esign/signing/profile/token-1?key="+key, bytes.NewReader(body))
 	patchReq.Header.Set("Content-Type", "application/json")
 	patchResp, err := app.Test(patchReq, -1)
 	if err != nil {
@@ -53,7 +54,7 @@ func TestSignerProfileRoutesRoundTripAndClear(t *testing.T) {
 		t.Fatalf("expected drawn signature data url to persist, got %+v", profile)
 	}
 
-	getReq := httptest.NewRequest(http.MethodGet, "/api/v1/esign/signing/profile/token-1?key="+key, nil)
+	getReq := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/esign/signing/profile/token-1?key="+key, nil)
 	getResp, err := app.Test(getReq, -1)
 	if err != nil {
 		t.Fatalf("get request failed: %v", err)
@@ -71,7 +72,7 @@ func TestSignerProfileRoutesRoundTripAndClear(t *testing.T) {
 		t.Fatalf("expected typed signature persisted, got %+v", getProfile["typedSignature"])
 	}
 
-	deleteReq := httptest.NewRequest(http.MethodDelete, "/api/v1/esign/signing/profile/token-1?key="+key, nil)
+	deleteReq := httptest.NewRequestWithContext(context.Background(), http.MethodDelete, "/api/v1/esign/signing/profile/token-1?key="+key, nil)
 	deleteResp, err := app.Test(deleteReq, -1)
 	if err != nil {
 		t.Fatalf("delete request failed: %v", err)
@@ -81,7 +82,7 @@ func TestSignerProfileRoutesRoundTripAndClear(t *testing.T) {
 		t.Fatalf("expected delete status 200, got %d", deleteResp.StatusCode)
 	}
 
-	getAfterDeleteReq := httptest.NewRequest(http.MethodGet, "/api/v1/esign/signing/profile/token-1?key="+key, nil)
+	getAfterDeleteReq := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/esign/signing/profile/token-1?key="+key, nil)
 	getAfterDeleteResp, err := app.Test(getAfterDeleteReq, -1)
 	if err != nil {
 		t.Fatalf("get-after-delete request failed: %v", err)
@@ -109,7 +110,7 @@ func TestSignerProfileRoutesRequireKey(t *testing.T) {
 		WithDefaultScope(scope),
 	)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/esign/signing/profile/token-1", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/esign/signing/profile/token-1", nil)
 	resp, err := app.Test(req, -1)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
@@ -130,7 +131,7 @@ func TestSignerProfileRoutesReturnNotImplementedWhenServiceMissing(t *testing.T)
 		WithDefaultScope(scope),
 	)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/esign/signing/profile/token-1?key=test", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/esign/signing/profile/token-1?key=test", nil)
 	resp, err := app.Test(req, -1)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
@@ -154,7 +155,7 @@ func TestSignerProfileRoutesPatchRejectsEmptyPatch(t *testing.T) {
 		WithDefaultScope(scope),
 	)
 
-	req := httptest.NewRequest(
+	req := httptest.NewRequestWithContext(context.Background(),
 		http.MethodPatch,
 		"/api/v1/esign/signing/profile/token-1?key=profile-key",
 		bytes.NewReader([]byte(`{"patch":{}}`)),
@@ -184,7 +185,7 @@ func TestSignerProfileRoutesPatchRejectsOverlongKey(t *testing.T) {
 	)
 
 	longKey := strings.Repeat("k", 2048)
-	req := httptest.NewRequest(
+	req := httptest.NewRequestWithContext(context.Background(),
 		http.MethodPatch,
 		"/api/v1/esign/signing/profile/token-1?key="+longKey,
 		bytes.NewReader([]byte(`{"patch":{"fullName":"Signer"}}`)),

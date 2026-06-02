@@ -54,7 +54,7 @@ func TestRuntimeOverridesAffectBootAndModules(t *testing.T) {
 		t.Fatalf("expected users module to be disabled by override")
 	}
 
-	req := httptest.NewRequest(http.MethodGet, "/admin/api/settings", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/settings", nil)
 	resp, err := server.WrappedRouter().Test(req)
 	if err != nil {
 		t.Fatalf("settings request error: %v", err)

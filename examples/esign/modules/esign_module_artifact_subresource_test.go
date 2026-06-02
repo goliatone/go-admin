@@ -45,7 +45,7 @@ func TestESignModuleAgreementArtifactSubresourceAllowsAdminDownloadExecutedAndCe
 	agreementID := seedAgreementWithArtifacts(t, module, server, scope)
 
 	for _, asset := range []string{"executed", "certificate"} {
-		req := httptest.NewRequest(http.MethodGet, fmt.Sprintf(
+		req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, fmt.Sprintf(
 			"/admin/api/v1/panels/esign_agreements/%s/artifact/%s?tenant_id=%s&org_id=%s&disposition=attachment",
 			agreementID,
 			asset,
@@ -111,7 +111,7 @@ func TestESignModuleAgreementArtifactSubresourceDeniesMissingDownloadPermission(
 	})
 	agreementID := seedAgreementWithArtifacts(t, module, server, scope)
 
-	req := httptest.NewRequest(http.MethodGet, fmt.Sprintf(
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, fmt.Sprintf(
 		"/admin/api/v1/panels/esign_agreements/%s/artifact/executed?tenant_id=%s&org_id=%s",
 		agreementID,
 		scope.TenantID,
@@ -163,7 +163,7 @@ func TestESignModuleAgreementArtifactSubresourceDoesNotMatchDynamicPanelAlias(t 
 	})
 	agreementID := seedAgreementWithArtifacts(t, module, server, scope)
 
-	req := httptest.NewRequest(http.MethodGet, fmt.Sprintf(
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, fmt.Sprintf(
 		"/admin/api/v1/panels/esign_agreements@staging/%s/artifact/executed?tenant_id=%s&org_id=%s",
 		agreementID,
 		scope.TenantID,
@@ -191,7 +191,7 @@ func TestESignModuleDocumentSourceSubresourceAllowsAdminView(t *testing.T) {
 	})
 	documentID := seedDocumentForSourceSubresource(t, server, scope)
 
-	req := httptest.NewRequest(http.MethodGet, fmt.Sprintf(
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, fmt.Sprintf(
 		"/admin/api/v1/panels/esign_documents/%s/source/pdf?tenant_id=%s&org_id=%s&disposition=attachment",
 		documentID,
 		scope.TenantID,
@@ -231,7 +231,7 @@ func TestESignModuleDocumentSourceSubresourceDeniesMissingViewPermission(t *test
 	})
 	documentID := seedDocumentForSourceSubresource(t, server, scope)
 
-	req := httptest.NewRequest(http.MethodGet, fmt.Sprintf(
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, fmt.Sprintf(
 		"/admin/api/v1/panels/esign_documents/%s/source/pdf?tenant_id=%s&org_id=%s",
 		documentID,
 		scope.TenantID,
@@ -282,7 +282,7 @@ func TestESignModuleDocumentSourceSubresourceDoesNotMatchDynamicPanelAlias(t *te
 	})
 	documentID := seedDocumentForSourceSubresource(t, server, scope)
 
-	req := httptest.NewRequest(http.MethodGet, fmt.Sprintf(
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, fmt.Sprintf(
 		"/admin/api/v1/panels/esign_documents@staging/%s/source/pdf?tenant_id=%s&org_id=%s",
 		documentID,
 		scope.TenantID,

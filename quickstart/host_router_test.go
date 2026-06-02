@@ -485,7 +485,7 @@ func performHostRouterRequest[T any](t *testing.T, server router.Server[T], meth
 func performHostRouterHTTPResponse[T any](t *testing.T, server router.Server[T], method, target string) *http.Response {
 	t.Helper()
 
-	req := httptest.NewRequest(method, target, nil)
+	req := httptest.NewRequestWithContext(context.Background(), method, target, nil)
 	req.Header.Set("Accept", "application/json")
 
 	switch wrapped := any(server.WrappedRouter()).(type) {

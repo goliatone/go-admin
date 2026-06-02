@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -88,7 +89,7 @@ func TestDebugEnsureJSErrorNonceNilContext(t *testing.T) {
 }
 
 func TestDebugIsSecureRequestUsesResolverOverride(t *testing.T) {
-	req := httptest.NewRequest(http.MethodGet, "/debug", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/debug", nil)
 	rec := httptest.NewRecorder()
 	ctx := router.NewHTTPRouterContext(rec, req, httprouter.Params{}, nil)
 

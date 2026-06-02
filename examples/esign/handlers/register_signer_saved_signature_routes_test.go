@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"bytes"
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -25,7 +26,7 @@ func TestSignerSavedSignatureRoutesRoundTrip(t *testing.T) {
 		WithDefaultScope(scope),
 	)
 
-	createReq := httptest.NewRequest(
+	createReq := httptest.NewRequestWithContext(context.Background(),
 		http.MethodPost,
 		"/api/v1/esign/signing/signatures/token-1",
 		bytes.NewReader([]byte(`{"type":"signature","label":"Main","data_url":"`+signerSavedSignaturePNGDataURL+`"}`)),
@@ -49,7 +50,7 @@ func TestSignerSavedSignatureRoutesRoundTrip(t *testing.T) {
 		t.Fatalf("expected signature id, got %+v", signature)
 	}
 
-	listReq := httptest.NewRequest(http.MethodGet, "/api/v1/esign/signing/signatures/token-1?type=signature", nil)
+	listReq := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/esign/signing/signatures/token-1?type=signature", nil)
 	listResp, err := app.Test(listReq, -1)
 	if err != nil {
 		t.Fatalf("list request failed: %v", err)
@@ -64,7 +65,7 @@ func TestSignerSavedSignatureRoutesRoundTrip(t *testing.T) {
 		t.Fatalf("expected one signature in list, got %+v", listPayload)
 	}
 
-	deleteReq := httptest.NewRequest(http.MethodDelete, "/api/v1/esign/signing/signatures/token-1/"+signatureID, nil)
+	deleteReq := httptest.NewRequestWithContext(context.Background(), http.MethodDelete, "/api/v1/esign/signing/signatures/token-1/"+signatureID, nil)
 	deleteResp, err := app.Test(deleteReq, -1)
 	if err != nil {
 		t.Fatalf("delete request failed: %v", err)
@@ -89,7 +90,7 @@ func TestSignerSavedSignatureRoutesEnforceLimit(t *testing.T) {
 	)
 
 	for i := range 2 {
-		req := httptest.NewRequest(
+		req := httptest.NewRequestWithContext(context.Background(),
 			http.MethodPost,
 			"/api/v1/esign/signing/signatures/token-1",
 			bytes.NewReader([]byte(`{"type":"initials","data_url":"`+signerSavedSignaturePNGDataURL+`"}`)),

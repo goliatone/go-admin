@@ -242,7 +242,7 @@ func TestModuleContextUsesProtectedRouterByDefaultAndExposesPublicRouter(t *test
 		t.Fatalf("initialize failed: %v", err)
 	}
 
-	protectedReq := httptest.NewRequest(http.MethodGet, "/admin/api/module-protected", nil)
+	protectedReq := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/module-protected", nil)
 	protectedRes := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(protectedRes, protectedReq)
 	if protectedRes.Code != http.StatusOK {
@@ -256,7 +256,7 @@ func TestModuleContextUsesProtectedRouterByDefaultAndExposesPublicRouter(t *test
 	}
 
 	callsAfterProtected := authn.calls
-	publicReq := httptest.NewRequest(http.MethodGet, "/module/public", nil)
+	publicReq := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/module/public", nil)
 	publicRes := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(publicRes, publicReq)
 	if publicRes.Code != http.StatusOK {
@@ -314,7 +314,7 @@ func TestModuleStartupValidationWarnPolicySkipsModuleRegistration(t *testing.T) 
 	if err := adm.Initialize(server.Router()); err != nil {
 		t.Fatalf("initialize failed: %v", err)
 	}
-	req := httptest.NewRequest(http.MethodGet, "/admin/startup_validator_warn", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/startup_validator_warn", nil)
 	res := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(res, req)
 	if res.Code != http.StatusNotFound {
@@ -445,7 +445,7 @@ func TestModuleContextExposesResolvedRoutingSurfaces(t *testing.T) {
 		t.Fatalf("expected api route lookup /admin/api/routing_aware/ping, got %q", apiPath)
 	}
 
-	req := httptest.NewRequest(http.MethodGet, apiPath, nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, apiPath, nil)
 	res := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(res, req)
 	if res.Code != http.StatusOK {

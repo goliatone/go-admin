@@ -73,7 +73,7 @@ func TestESignModuleGoogleDriveImportAsyncUsesGoogleImporter(t *testing.T) {
 		t.Fatalf("Initialize: %v", initErr)
 	}
 
-	connectReq := httptest.NewRequest(http.MethodPost, "/admin/api/v1/esign/integrations/google/connect?user_id=ops-user", bytes.NewBufferString(`{"auth_code":"oauth-code-async"}`))
+	connectReq := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/api/v1/esign/integrations/google/connect?user_id=ops-user", bytes.NewBufferString(`{"auth_code":"oauth-code-async"}`))
 	connectReq.TLS = &tls.ConnectionState{}
 	connectReq.RemoteAddr = "127.0.0.1:41001"
 	connectReq.Header.Set("Content-Type", "application/json")
@@ -93,7 +93,7 @@ func TestESignModuleGoogleDriveImportAsyncUsesGoogleImporter(t *testing.T) {
 	_ = connectResp.Body.Close()
 
 	body := `{"google_file_id":"google-file-1","document_title":"Contract Doc","agreement_title":"Contract Agreement","source_version_hint":"v1"}`
-	createReq := httptest.NewRequest(http.MethodPost, "/admin/api/v1/esign/google-drive/imports?user_id=ops-user", bytes.NewBufferString(body))
+	createReq := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/api/v1/esign/google-drive/imports?user_id=ops-user", bytes.NewBufferString(body))
 	createReq.TLS = &tls.ConnectionState{}
 	createReq.RemoteAddr = "127.0.0.1:41002"
 	createReq.Header.Set("Content-Type", "application/json")
@@ -121,7 +121,7 @@ func TestESignModuleGoogleDriveImportAsyncUsesGoogleImporter(t *testing.T) {
 
 	var final map[string]any
 	for range 50 {
-		statusReq := httptest.NewRequest(http.MethodGet, statusURL+"?user_id=ops-user", nil)
+		statusReq := httptest.NewRequestWithContext(context.Background(), http.MethodGet, statusURL+"?user_id=ops-user", nil)
 		statusReq.TLS = &tls.ConnectionState{}
 		statusReq.RemoteAddr = "127.0.0.1:41003"
 		statusReq.Header.Set("X-User-ID", "ops-user")

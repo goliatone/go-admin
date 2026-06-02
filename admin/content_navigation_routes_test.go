@@ -94,7 +94,7 @@ func TestContentNavigationPatchTriStateToggles(t *testing.T) {
 	group := adminAPIGroupName(adm.config)
 	path := mustResolveURL(t, adm.URLs(), group, "content.navigation", map[string]string{"type": "page", "id": id}, nil)
 
-	req := httptest.NewRequest(http.MethodPatch, path, strings.NewReader(`{"_navigation":{"site.main":"show","site.footer":"hide"}}`))
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPatch, path, strings.NewReader(`{"_navigation":{"site.main":"show","site.footer":"hide"}}`))
 	req.Header.Set("Content-Type", "application/json")
 	res := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(res, req)
@@ -124,7 +124,7 @@ func TestContentNavigationPatchTriStateToggles(t *testing.T) {
 	}
 
 	detailPath := mustResolveURL(t, adm.URLs(), group, "panel.id", map[string]string{"panel": "page", "id": id}, nil)
-	detailReq := httptest.NewRequest(http.MethodGet, detailPath, nil)
+	detailReq := httptest.NewRequestWithContext(context.Background(), http.MethodGet, detailPath, nil)
 	detailRes := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(detailRes, detailReq)
 	if detailRes.Code != http.StatusOK {
@@ -150,7 +150,7 @@ func TestContentNavigationPatchRequiresEditPermission(t *testing.T) {
 	group := adminAPIGroupName(adm.config)
 	path := mustResolveURL(t, adm.URLs(), group, "content.navigation", map[string]string{"type": "page", "id": id}, nil)
 
-	req := httptest.NewRequest(http.MethodPatch, path, strings.NewReader(`{"_navigation":{"site.main":"show"}}`))
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPatch, path, strings.NewReader(`{"_navigation":{"site.main":"show"}}`))
 	req.Header.Set("Content-Type", "application/json")
 	res := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(res, req)
@@ -177,7 +177,7 @@ func TestContentNavigationPatchReturnsInvalidLocationGuidance(t *testing.T) {
 	group := adminAPIGroupName(adm.config)
 	path := mustResolveURL(t, adm.URLs(), group, "content.navigation", map[string]string{"type": "page", "id": id}, nil)
 
-	req := httptest.NewRequest(http.MethodPatch, path, strings.NewReader(`{"_navigation":{"site.unknown":"show"}}`))
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPatch, path, strings.NewReader(`{"_navigation":{"site.unknown":"show"}}`))
 	req.Header.Set("Content-Type", "application/json")
 	res := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(res, req)
@@ -216,7 +216,7 @@ func TestContentNavigationPatchIgnoresOverridesWhenDisabled(t *testing.T) {
 	group := adminAPIGroupName(adm.config)
 	path := mustResolveURL(t, adm.URLs(), group, "content.navigation", map[string]string{"type": "page", "id": id}, nil)
 
-	req := httptest.NewRequest(http.MethodPatch, path, strings.NewReader(`{"_navigation":{"site.main":"hide","site.footer":"show"}}`))
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPatch, path, strings.NewReader(`{"_navigation":{"site.main":"hide","site.footer":"show"}}`))
 	req.Header.Set("Content-Type", "application/json")
 	res := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(res, req)

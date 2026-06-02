@@ -48,7 +48,7 @@ func newMenuBuilderTestServer(t *testing.T, cfg Config, deps Dependencies, menus
 }
 
 func menuBuilderDoRequest(server router.Server[*httprouter.Router], method, path, body string) *httptest.ResponseRecorder {
-	req := httptest.NewRequest(method, path, strings.NewReader(body))
+	req := httptest.NewRequestWithContext(context.Background(), method, path, strings.NewReader(body))
 	if strings.TrimSpace(body) != "" {
 		req.Header.Set("Content-Type", "application/json")
 	}

@@ -116,7 +116,7 @@ func mustMultipartFileHeader(t *testing.T, fieldName, filename string, extraHead
 	require.NoError(t, err)
 	require.NoError(t, writer.Close())
 
-	req := httptest.NewRequest(http.MethodPost, "/upload", body)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/upload", body)
 	req.Header.Set("Content-Type", writer.FormDataContentType())
 	require.NoError(t, req.ParseMultipartForm(10<<20))
 

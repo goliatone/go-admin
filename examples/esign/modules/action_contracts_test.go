@@ -278,7 +278,7 @@ func doPanelJSONRequestWithStatus(t *testing.T, server router.Server[*fiber.App]
 		require.NoError(t, err, "marshal payload")
 		body = bytes.NewReader(raw)
 	}
-	req := httptest.NewRequest(method, requestPath, body)
+	req := httptest.NewRequestWithContext(context.Background(), method, requestPath, body)
 	req.Header.Set("X-User-ID", "ops-user")
 	if payload != nil {
 		req.Header.Set("Content-Type", "application/json")

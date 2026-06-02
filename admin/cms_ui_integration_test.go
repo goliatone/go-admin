@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -24,7 +25,7 @@ func TestCMSContentTypeCRUDAndValidation(t *testing.T) {
 	}
 
 	createBody := `{"name":"FAQ","slug":"faq","schema":{"fields":[{"name":"question","type":"text","required":true}]}}`
-	createReq := httptest.NewRequest(http.MethodPost, "/admin/api/panels/content_types", strings.NewReader(createBody))
+	createReq := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/api/panels/content_types", strings.NewReader(createBody))
 	createReq.Header.Set("Content-Type", "application/json")
 	createRes := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(createRes, createReq)
@@ -45,7 +46,7 @@ func TestCMSContentTypeCRUDAndValidation(t *testing.T) {
 	}
 
 	updateBody := `{"description":"Frequently asked questions","content_type_id":"` + updateID + `"}`
-	updateReq := httptest.NewRequest(http.MethodPut, "/admin/api/panels/content_types/"+updateID, strings.NewReader(updateBody))
+	updateReq := httptest.NewRequestWithContext(context.Background(), http.MethodPut, "/admin/api/panels/content_types/"+updateID, strings.NewReader(updateBody))
 	updateReq.Header.Set("Content-Type", "application/json")
 	updateRes := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(updateRes, updateReq)
@@ -57,7 +58,7 @@ func TestCMSContentTypeCRUDAndValidation(t *testing.T) {
 		t.Fatalf("expected description update, got %+v", updated)
 	}
 
-	getReq := httptest.NewRequest(http.MethodGet, "/admin/api/panels/content_types/"+updateID, nil)
+	getReq := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/panels/content_types/"+updateID, nil)
 	getRes := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(getRes, getReq)
 	if getRes.Code != http.StatusOK {
@@ -69,7 +70,7 @@ func TestCMSContentTypeCRUDAndValidation(t *testing.T) {
 	}
 
 	invalidBody := `{"name":"Broken","slug":"bad@slug"}`
-	invalidReq := httptest.NewRequest(http.MethodPost, "/admin/api/panels/content_types", strings.NewReader(invalidBody))
+	invalidReq := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/api/panels/content_types", strings.NewReader(invalidBody))
 	invalidReq.Header.Set("Content-Type", "application/json")
 	invalidRes := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(invalidRes, invalidReq)
@@ -89,7 +90,7 @@ func TestCMSContentTypeCRUDAndValidation(t *testing.T) {
 		t.Fatalf("expected schema validation error, got %+v", invalidPayload)
 	}
 
-	deleteReq := httptest.NewRequest(http.MethodDelete, "/admin/api/panels/content_types/"+updateID, nil)
+	deleteReq := httptest.NewRequestWithContext(context.Background(), http.MethodDelete, "/admin/api/panels/content_types/"+updateID, nil)
 	deleteRes := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(deleteRes, deleteReq)
 	if deleteRes.Code != http.StatusOK {
@@ -109,7 +110,7 @@ func TestCMSBlockAdapterRoutes(t *testing.T) {
 		t.Fatalf("initialize: %v", err)
 	}
 
-	defsReq := httptest.NewRequest(http.MethodGet, "/admin/api/panels/block_definitions", nil)
+	defsReq := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/panels/block_definitions", nil)
 	defsRes := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(defsRes, defsReq)
 	if defsRes.Code != http.StatusOK {
@@ -124,7 +125,7 @@ func TestCMSBlockAdapterRoutes(t *testing.T) {
 	pageID := fetchFirstContentTreeID(t, server)
 
 	blockBody := `{"definition_id":"hero","content_id":"` + pageID + `","region":"main","locale":"en","status":"draft","data":{"title":"Hello"}}`
-	blockReq := httptest.NewRequest(http.MethodPost, "/admin/api/panels/blocks", strings.NewReader(blockBody))
+	blockReq := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/api/panels/blocks", strings.NewReader(blockBody))
 	blockReq.Header.Set("Content-Type", "application/json")
 	blockRes := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(blockRes, blockReq)
@@ -141,14 +142,14 @@ func TestCMSBlockAdapterRoutes(t *testing.T) {
 		t.Fatalf("expected block content id %q, got %+v", pageID, created)
 	}
 
-	getReq := httptest.NewRequest(http.MethodGet, "/admin/api/panels/blocks/"+blockID, nil)
+	getReq := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/panels/blocks/"+blockID, nil)
 	getRes := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(getRes, getReq)
 	if getRes.Code != http.StatusOK {
 		t.Fatalf("get block status: %d body=%s", getRes.Code, getRes.Body.String())
 	}
 
-	contentBlocksReq := httptest.NewRequest(http.MethodGet, "/admin/api/content/"+pageID+"/blocks", nil)
+	contentBlocksReq := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/content/"+pageID+"/blocks", nil)
 	contentBlocksRes := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(contentBlocksRes, contentBlocksReq)
 	if contentBlocksRes.Code != http.StatusOK {
@@ -158,7 +159,7 @@ func TestCMSBlockAdapterRoutes(t *testing.T) {
 
 func fetchFirstContentTreeID(t *testing.T, server router.Server[*httprouter.Router]) string {
 	t.Helper()
-	listReq := httptest.NewRequest(http.MethodGet, "/admin/api/panels/content_tree", nil)
+	listReq := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/panels/content_tree", nil)
 	listRes := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(listRes, listReq)
 	if listRes.Code != http.StatusOK {

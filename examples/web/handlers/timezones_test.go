@@ -77,7 +77,7 @@ func setupTimezonesTestApp() *fiber.App {
 func TestListTimezones_Unauthorized(t *testing.T) {
 	app := setupTimezonesTestApp()
 
-	req := httptest.NewRequest(http.MethodGet, "/admin/api/timezones?q=utc&limit=1", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/timezones?q=utc&limit=1", nil)
 	resp, err := app.Test(req, -1)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
@@ -92,7 +92,7 @@ func TestListTimezones_Unauthorized(t *testing.T) {
 func TestListTimezones_Forbidden(t *testing.T) {
 	app := setupTimezonesTestApp()
 
-	req := httptest.NewRequest(http.MethodGet, "/admin/api/timezones?q=utc&limit=1", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/timezones?q=utc&limit=1", nil)
 	req.Header.Set("X-Role", string(authlib.RoleAdmin))
 	resp, err := app.Test(req, -1)
 	if err != nil {
@@ -109,7 +109,7 @@ func TestListTimezones_OK(t *testing.T) {
 	t.Helper()
 	app := setupTimezonesTestApp()
 
-	req := httptest.NewRequest(http.MethodGet, "/admin/api/timezones?q=utc&limit=1", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/timezones?q=utc&limit=1", nil)
 	req = req.WithContext(context.Background())
 	req.Header.Set("X-Role", string(authlib.RoleAdmin))
 	req.Header.Set("X-Allow-Users", "true")

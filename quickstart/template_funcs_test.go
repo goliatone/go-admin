@@ -11,8 +11,8 @@ import (
 )
 
 func TestRenderMenuIcon_Empty(t *testing.T) {
-	assert.Equal(t, "", renderMenuIcon(""))
-	assert.Equal(t, "", renderMenuIcon("  "))
+	assert.Empty(t, renderMenuIcon(""))
+	assert.Empty(t, renderMenuIcon("  "))
 }
 
 func TestRenderMenuIcon_Iconoir(t *testing.T) {
@@ -139,7 +139,7 @@ func TestDefaultTemplateFuncs_ContainsRenderMenuIcon(t *testing.T) {
 	callable, ok := fn.(func(string) string)
 	require.True(t, ok, "renderMenuIcon should be func(string) string")
 	result := callable("cube")
-	assert.True(t, strings.Contains(result, "iconoir-cube"))
+	assert.Contains(t, result, "iconoir-cube")
 }
 
 func TestAdminURLUsesURLKitResolver(t *testing.T) {

@@ -43,7 +43,7 @@ func TestRegisterIntegrationMappingAndPublishEndpoints(t *testing.T) {
 		},
 	}
 	mappingBody, _ := json.Marshal(mappingPayload)
-	createReq := httptest.NewRequest(http.MethodPost, "/admin/api/v1/esign/integrations/mappings", bytes.NewReader(mappingBody))
+	createReq := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/api/v1/esign/integrations/mappings", bytes.NewReader(mappingBody))
 	createReq.Header.Set("Content-Type", "application/json")
 	createResp, err := app.Test(createReq, -1)
 	if err != nil {
@@ -66,7 +66,7 @@ func TestRegisterIntegrationMappingAndPublishEndpoints(t *testing.T) {
 	version := int64(asFloat(mapping["version"]))
 
 	publishBody, _ := json.Marshal(map[string]any{"expected_version": version})
-	publishReq := httptest.NewRequest(http.MethodPost, "/admin/api/v1/esign/integrations/mappings/"+mappingID+"/publish", bytes.NewReader(publishBody))
+	publishReq := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/api/v1/esign/integrations/mappings/"+mappingID+"/publish", bytes.NewReader(publishBody))
 	publishReq.Header.Set("Content-Type", "application/json")
 	publishResp, err := app.Test(publishReq, -1)
 	if err != nil {
@@ -78,7 +78,7 @@ func TestRegisterIntegrationMappingAndPublishEndpoints(t *testing.T) {
 		t.Fatalf("expected publish status 200, got %d body=%s", publishResp.StatusCode, payload)
 	}
 
-	getReq := httptest.NewRequest(http.MethodGet, "/admin/api/v1/esign/integrations/mappings/"+mappingID, nil)
+	getReq := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/v1/esign/integrations/mappings/"+mappingID, nil)
 	getResp, err := app.Test(getReq, -1)
 	if err != nil {
 		t.Fatalf("get mapping request failed: %v", err)
@@ -127,7 +127,7 @@ func TestRegisterIntegrationSyncConflictInboundOutboundEndpoints(t *testing.T) {
 		"mapping_spec_id": compiled.Spec.ID,
 		"cursor":          "batch-0",
 	})
-	startReq := httptest.NewRequest(http.MethodPost, "/admin/api/v1/esign/integrations/sync-runs", bytes.NewReader(startBody))
+	startReq := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/api/v1/esign/integrations/sync-runs", bytes.NewReader(startBody))
 	startReq.Header.Set("Content-Type", "application/json")
 	startReq.Header.Set("Idempotency-Key", "sync-start-1")
 	startResp, err := app.Test(startReq, -1)
@@ -151,7 +151,7 @@ func TestRegisterIntegrationSyncConflictInboundOutboundEndpoints(t *testing.T) {
 		"cursor":         "batch-1",
 		"payload":        map[string]any{"offset": 100},
 	})
-	checkpointReq := httptest.NewRequest(http.MethodPost, "/admin/api/v1/esign/integrations/sync-runs/"+runID+"/checkpoints", bytes.NewReader(checkpointBody))
+	checkpointReq := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/api/v1/esign/integrations/sync-runs/"+runID+"/checkpoints", bytes.NewReader(checkpointBody))
 	checkpointReq.Header.Set("Content-Type", "application/json")
 	checkpointResp, err := app.Test(checkpointReq, -1)
 	if err != nil {
@@ -182,7 +182,7 @@ func TestRegisterIntegrationSyncConflictInboundOutboundEndpoints(t *testing.T) {
 		t.Fatalf("DetectConflict: %v", err)
 	}
 
-	diagnosticsReq := httptest.NewRequest(http.MethodGet, "/admin/api/v1/esign/integrations/diagnostics?run_id="+runID, nil)
+	diagnosticsReq := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/v1/esign/integrations/diagnostics?run_id="+runID, nil)
 	diagnosticsResp, err := app.Test(diagnosticsReq, -1)
 	if err != nil {
 		t.Fatalf("diagnostics request failed: %v", err)
@@ -205,7 +205,7 @@ func TestRegisterIntegrationSyncConflictInboundOutboundEndpoints(t *testing.T) {
 		"resolved_by_user_id": "ops-user",
 		"resolution":          map[string]any{"action": "keep_internal"},
 	})
-	resolveReq := httptest.NewRequest(http.MethodPost, "/admin/api/v1/esign/integrations/conflicts/"+conflictID+"/resolve", bytes.NewReader(resolveBody))
+	resolveReq := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/api/v1/esign/integrations/conflicts/"+conflictID+"/resolve", bytes.NewReader(resolveBody))
 	resolveReq.Header.Set("Content-Type", "application/json")
 	resolveReq.Header.Set("Idempotency-Key", "resolve-conflict-1")
 	resolveResp, err := app.Test(resolveReq, -1)
@@ -232,7 +232,7 @@ func TestRegisterIntegrationSyncConflictInboundOutboundEndpoints(t *testing.T) {
 		},
 		"idempotency_key": "inbound-handler-1",
 	})
-	inboundReq := httptest.NewRequest(http.MethodPost, "/admin/api/v1/esign/integrations/inbound", bytes.NewReader(inboundBody))
+	inboundReq := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/api/v1/esign/integrations/inbound", bytes.NewReader(inboundBody))
 	inboundReq.Header.Set("Content-Type", "application/json")
 	inboundResp, err := app.Test(inboundReq, -1)
 	if err != nil {
@@ -257,7 +257,7 @@ func TestRegisterIntegrationSyncConflictInboundOutboundEndpoints(t *testing.T) {
 		"payload":         map[string]any{"status": "completed", "token": "sensitive"},
 		"idempotency_key": "outbound-handler-1",
 	})
-	outboundReq := httptest.NewRequest(http.MethodPost, "/admin/api/v1/esign/integrations/outbound", bytes.NewReader(outboundBody))
+	outboundReq := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/api/v1/esign/integrations/outbound", bytes.NewReader(outboundBody))
 	outboundReq.Header.Set("Content-Type", "application/json")
 	outboundResp, err := app.Test(outboundReq, -1)
 	if err != nil {

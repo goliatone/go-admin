@@ -2,6 +2,7 @@ package quickstart
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -52,12 +53,13 @@ func TestFeatureFlagsAPIListAndMutate(t *testing.T) {
 	}
 
 	postBody := `{"key":"users.signup","enabled":false,"scope":"system"}`
-	postReq := httptest.NewRequest(http.MethodPost, "/admin/api/feature-flags", strings.NewReader(postBody))
+	postReq := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/api/feature-flags", strings.NewReader(postBody))
 	postReq.Header.Set("Content-Type", "application/json")
 	postResp, err := server.WrappedRouter().Test(postReq)
 	if err != nil {
 		t.Fatalf("feature flag set request error: %v", err)
 	}
+	defer postResp.Body.Close()
 	if postResp.StatusCode != http.StatusOK {
 		t.Fatalf("expected set status 200, got %d", postResp.StatusCode)
 	}
@@ -75,12 +77,13 @@ func TestFeatureFlagsAPIListAndMutate(t *testing.T) {
 	}
 
 	deleteBody := `{"key":"users.signup","scope":"system"}`
-	deleteReq := httptest.NewRequest(http.MethodDelete, "/admin/api/feature-flags", strings.NewReader(deleteBody))
+	deleteReq := httptest.NewRequestWithContext(context.Background(), http.MethodDelete, "/admin/api/feature-flags", strings.NewReader(deleteBody))
 	deleteReq.Header.Set("Content-Type", "application/json")
 	deleteResp, err := server.WrappedRouter().Test(deleteReq)
 	if err != nil {
 		t.Fatalf("feature flag unset request error: %v", err)
 	}
+	defer deleteResp.Body.Close()
 	if deleteResp.StatusCode != http.StatusOK {
 		t.Fatalf("expected unset status 200, got %d", deleteResp.StatusCode)
 	}
@@ -243,12 +246,13 @@ func TestFeatureFlagsAPIMutateAllScopesWithGoUsersPreferencesStore(t *testing.T)
 			if err != nil {
 				t.Fatalf("marshal body: %v", err)
 			}
-			req := httptest.NewRequest(http.MethodPost, "/admin/api/feature-flags", bytes.NewReader(body))
+			req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/api/feature-flags", bytes.NewReader(body))
 			req.Header.Set("Content-Type", "application/json")
 			resp, err := server.WrappedRouter().Test(req)
 			if err != nil {
 				t.Fatalf("feature flag set request error: %v", err)
 			}
+			defer resp.Body.Close()
 			if resp.StatusCode != http.StatusOK {
 				t.Fatalf("expected set status 200, got %d", resp.StatusCode)
 			}
@@ -291,7 +295,7 @@ func TestFeatureFlagsAPIMutateAllScopesWithGoUsersPreferencesStore(t *testing.T)
 
 func getFeatureFlags(t *testing.T, server router.Server[*fiber.App], path string) []any {
 	t.Helper()
-	req := httptest.NewRequest(http.MethodGet, path, nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, path, nil)
 	resp, err := server.WrappedRouter().Test(req)
 	if err != nil {
 		t.Fatalf("feature flags list request error: %v", err)

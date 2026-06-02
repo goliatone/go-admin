@@ -103,7 +103,7 @@ func TestContentAliasRoutesRedirectToContentEntryPanels(t *testing.T) {
 	adm.router = server.Router()
 	adm.registerContentEntryAliases()
 
-	req := httptest.NewRequest(http.MethodGet, "/admin/pages", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/pages", nil)
 	res := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(res, req)
 	if res.Code != http.StatusFound {
@@ -113,7 +113,7 @@ func TestContentAliasRoutesRedirectToContentEntryPanels(t *testing.T) {
 		t.Fatalf("unexpected pages redirect: %q", location)
 	}
 
-	req = httptest.NewRequest(http.MethodGet, "/admin/posts/2024?channel=staging&foo=bar", nil)
+	req = httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/posts/2024?channel=staging&foo=bar", nil)
 	res = httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(res, req)
 	if res.Code != http.StatusFound {
