@@ -542,20 +542,23 @@ func hostStaticHandler(prefix string, fileSystem fs.FS, cfg router.Static) route
 		if err != nil {
 			return hostStaticFileError(c, err)
 		}
-		defer func(file fs.File) {
-			_ = file.Close()
-		}(f)
-
 		applyHostStaticResponseHeaders(c, cfg, filePath)
 		if cfg.ModifyResponse != nil {
 			if modifyErr := cfg.ModifyResponse(c); modifyErr != nil {
+				if closeErr := f.Close(); closeErr != nil {
+					return closeErr
+				}
 				return modifyErr
 			}
 		}
 
 		content, err := io.ReadAll(f)
+		closeErr := f.Close()
 		if err != nil {
 			return c.Status(500).SendString(err.Error())
+		}
+		if closeErr != nil {
+			return c.Status(500).SendString(closeErr.Error())
 		}
 		return c.Send(content)
 	}
@@ -583,17 +586,23 @@ func openHostStaticFile(fileSystem fs.FS, filePath, indexFile string, browse boo
 	}
 	stat, err := f.Stat()
 	if err != nil {
-		_ = f.Close()
+		if closeErr := f.Close(); closeErr != nil {
+			return nil, filePath, closeErr
+		}
 		return nil, filePath, err
 	}
 	if !stat.IsDir() {
 		return f, filePath, nil
 	}
 	if browse {
-		_ = f.Close()
+		if closeErr := f.Close(); closeErr != nil {
+			return nil, filePath, closeErr
+		}
 		return nil, filePath, fs.ErrNotExist
 	}
-	_ = f.Close()
+	if closeErr := f.Close(); closeErr != nil {
+		return nil, filePath, closeErr
+	}
 	indexPath := path.Join(filePath, indexFile)
 	indexFileHandle, err := fileSystem.Open(indexPath)
 	if err != nil {
