@@ -405,6 +405,7 @@ func translationFamilyVariantRecord(
 		IsSource:       strings.EqualFold(resolvedLocale, strings.TrimSpace(strings.ToLower(defaultLocale))),
 		Fields:         translationFamilyFields(title, slug, data),
 		Metadata:       cloneAnyMap(metadata),
+		RowVersion:     translationEditorVariantVersionFromMetadata(metadata),
 		SourceRecordID: strings.TrimSpace(recordID),
 		SourceHashAtLastSync: strings.TrimSpace(firstNonEmpty(
 			toString(metadata[translationEditorSourceHashAtLastSyncKey]),
