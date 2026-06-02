@@ -14,8 +14,8 @@ import (
 )
 
 var (
-	sessionTenantMetadataKeys       = []string{"tenant_id", "tenant", "default_tenant", "default_tenant_id"}
-	sessionOrganizationMetadataKeys = []string{"organization_id", "org_id", "org"}
+	sessionTenantMetadataKeys       = []string{admin.ScopeTenantIDKey, admin.ScopeTenantKey, admin.ScopeDefaultTenantKey, admin.ScopeDefaultTenantIDKey}
+	sessionOrganizationMetadataKeys = []string{admin.ScopeOrganizationIDKey, admin.ScopeOrgIDKey, admin.ScopeOrgKey}
 )
 
 // SessionUser captures session metadata to expose in templates and APIs.
@@ -72,10 +72,10 @@ func BuildSessionUser(ctx context.Context) SessionUser {
 		stringFromMetadata(session.Metadata, "username", "user", "name"),
 	)
 	session.TenantID = firstNonEmpty(session.TenantID,
-		stringFromMetadata(session.Metadata, "tenant_id", "tenant", "default_tenant"),
+		stringFromMetadata(session.Metadata, admin.ScopeTenantIDKey, admin.ScopeTenantKey, admin.ScopeDefaultTenantKey),
 	)
 	session.OrganizationID = firstNonEmpty(session.OrganizationID,
-		stringFromMetadata(session.Metadata, "organization_id", "org_id", "org"),
+		stringFromMetadata(session.Metadata, admin.ScopeOrganizationIDKey, admin.ScopeOrgIDKey, admin.ScopeOrgKey),
 	)
 	session.Environment = firstNonEmpty(session.Environment,
 		stringFromMetadata(session.Metadata, "environment", "env"),
@@ -155,22 +155,22 @@ func FilterSessionUser(session SessionUser, gate fggate.FeatureGate) SessionUser
 // ToViewContext converts the session into snake_case keys for templates.
 func (s SessionUser) ToViewContext() map[string]any {
 	view := map[string]any{
-		"id":               s.ID,
-		"subject":          s.Subject,
-		"username":         s.Username,
-		"email":            s.Email,
-		"role":             s.Role,
-		"tenant_id":        s.TenantID,
-		"organization_id":  s.OrganizationID,
-		"environment":      s.Environment,
-		"resource_roles":   s.ResourceRoles,
-		"metadata":         s.Metadata,
-		"scopes":           s.Scopes,
-		"is_authenticated": s.IsAuthenticated,
-		"display_name":     s.DisplayName,
-		"subtitle":         s.Subtitle,
-		"initial":          s.Initial,
-		"avatar_url":       s.AvatarURL,
+		"id":                         s.ID,
+		"subject":                    s.Subject,
+		"username":                   s.Username,
+		"email":                      s.Email,
+		"role":                       s.Role,
+		admin.ScopeTenantIDKey:       s.TenantID,
+		admin.ScopeOrganizationIDKey: s.OrganizationID,
+		"environment":                s.Environment,
+		"resource_roles":             s.ResourceRoles,
+		"metadata":                   s.Metadata,
+		"scopes":                     s.Scopes,
+		"is_authenticated":           s.IsAuthenticated,
+		"display_name":               s.DisplayName,
+		"subtitle":                   s.Subtitle,
+		"initial":                    s.Initial,
+		"avatar_url":                 s.AvatarURL,
 	}
 
 	if s.IssuedAt != nil {

@@ -138,24 +138,24 @@ func goUsersScopeDoctorMetadata(ctx context.Context, cfg admin.Config, options a
 		"scope": map[string]any{
 			"mode": scopeCfg.Mode,
 			"raw": map[string]string{
-				"tenant_id": formatUUID(rawScope.TenantID),
-				"org_id":    formatUUID(rawScope.OrgID),
+				admin.ScopeTenantIDKey: formatUUID(rawScope.TenantID),
+				admin.ScopeOrgIDKey:    formatUUID(rawScope.OrgID),
 			},
 			"resolved": map[string]string{
-				"tenant_id": formatUUID(resolvedScope.TenantID),
-				"org_id":    formatUUID(resolvedScope.OrgID),
+				admin.ScopeTenantIDKey: formatUUID(resolvedScope.TenantID),
+				admin.ScopeOrgIDKey:    formatUUID(resolvedScope.OrgID),
 			},
 			"default": map[string]string{
-				"tenant_id": formatUUID(defaultScope.TenantID),
-				"org_id":    formatUUID(defaultScope.OrgID),
+				admin.ScopeTenantIDKey: formatUUID(defaultScope.TenantID),
+				admin.ScopeOrgIDKey:    formatUUID(defaultScope.OrgID),
 			},
 			"defaults_present": map[string]bool{
-				"tenant_id": defaultTenantPresent,
-				"org_id":    defaultOrgPresent,
+				admin.ScopeTenantIDKey: defaultTenantPresent,
+				admin.ScopeOrgIDKey:    defaultOrgPresent,
 			},
 			"defaults_applied": map[string]bool{
-				"tenant_id": rawScope.TenantID == uuid.Nil && defaultScope.TenantID != uuid.Nil && resolvedScope.TenantID == defaultScope.TenantID,
-				"org_id":    rawScope.OrgID == uuid.Nil && defaultScope.OrgID != uuid.Nil && resolvedScope.OrgID == defaultScope.OrgID,
+				admin.ScopeTenantIDKey: rawScope.TenantID == uuid.Nil && defaultScope.TenantID != uuid.Nil && resolvedScope.TenantID == defaultScope.TenantID,
+				admin.ScopeOrgIDKey:    rawScope.OrgID == uuid.Nil && defaultScope.OrgID != uuid.Nil && resolvedScope.OrgID == defaultScope.OrgID,
 			},
 		},
 		"wiring": wiring,
@@ -228,7 +228,7 @@ func goUsersScopeDoctorFindings(metadata map[string]any) []admin.DoctorFinding {
 		return nil
 	}
 	defaultsPresent := boolMapFromMetadata(scope, "defaults_present")
-	if !defaultsPresent["tenant_id"] || !defaultsPresent["org_id"] {
+	if !defaultsPresent[admin.ScopeTenantIDKey] || !defaultsPresent[admin.ScopeOrgIDKey] {
 		return []admin.DoctorFinding{{
 			Severity:  admin.DoctorSeverityWarn,
 			Code:      "quickstart.go_users_scope.defaults_missing",

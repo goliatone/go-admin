@@ -370,15 +370,15 @@ func filterScopeMetadata(metadata map[string]any) map[string]any {
 		return nil
 	}
 	keys := []string{
-		"tenant_id",
-		"tenant",
-		"default_tenant",
-		"default_tenant_id",
-		"organization_id",
-		"org_id",
-		"org",
+		admin.ScopeTenantIDKey,
+		admin.ScopeTenantKey,
+		admin.ScopeDefaultTenantKey,
+		admin.ScopeDefaultTenantIDKey,
+		admin.ScopeOrganizationIDKey,
+		admin.ScopeOrgIDKey,
+		admin.ScopeOrgKey,
 		"default_org",
-		"default_org_id",
+		admin.ScopeDefaultOrgIDKey,
 	}
 	out := map[string]any{}
 	for _, key := range keys {

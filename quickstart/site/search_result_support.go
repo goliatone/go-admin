@@ -94,12 +94,12 @@ func searchActorPayload(c router.Context) map[string]any {
 		return nil
 	}
 	out := map[string]any{
-		"actor_id":        strings.TrimSpace(actor.ActorID),
-		"subject":         strings.TrimSpace(actor.Subject),
-		"role":            strings.TrimSpace(actor.Role),
-		"tenant_id":       strings.TrimSpace(actor.TenantID),
-		"organization_id": strings.TrimSpace(actor.OrganizationID),
-		"metadata":        cloneAnyMap(actor.Metadata),
+		"actor_id":                   strings.TrimSpace(actor.ActorID),
+		"subject":                    strings.TrimSpace(actor.Subject),
+		"role":                       strings.TrimSpace(actor.Role),
+		admin.ScopeTenantIDKey:       strings.TrimSpace(actor.TenantID),
+		admin.ScopeOrganizationIDKey: strings.TrimSpace(actor.OrganizationID),
+		"metadata":                   cloneAnyMap(actor.Metadata),
 	}
 	if out["actor_id"] == "" && out["subject"] != "" {
 		out["actor_id"] = out["subject"]

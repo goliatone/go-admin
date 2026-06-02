@@ -128,11 +128,11 @@ func ApplyScopeDefaultsToMetadata(metadata map[string]any, cfg admin.Config) map
 	if metadata == nil {
 		metadata = map[string]any{}
 	}
-	if _, ok := metadata["tenant_id"]; !ok && strings.TrimSpace(scopeCfg.DefaultTenantID) != "" {
-		metadata["tenant_id"] = scopeCfg.DefaultTenantID
+	if _, ok := metadata[admin.ScopeTenantIDKey]; !ok && strings.TrimSpace(scopeCfg.DefaultTenantID) != "" {
+		metadata[admin.ScopeTenantIDKey] = scopeCfg.DefaultTenantID
 	}
-	if _, ok := metadata["organization_id"]; !ok && strings.TrimSpace(scopeCfg.DefaultOrgID) != "" {
-		metadata["organization_id"] = scopeCfg.DefaultOrgID
+	if _, ok := metadata[admin.ScopeOrganizationIDKey]; !ok && strings.TrimSpace(scopeCfg.DefaultOrgID) != "" {
+		metadata[admin.ScopeOrganizationIDKey] = scopeCfg.DefaultOrgID
 	}
 	return metadata
 }
@@ -180,10 +180,10 @@ func mergeScope(scope userstypes.ScopeFilter, tenantID, orgID string, metadata m
 	}
 	if len(metadata) > 0 {
 		if scope.TenantID == uuid.Nil {
-			scope.TenantID = firstScopeUUID(metadata, "tenant_id", "tenant", "default_tenant", "default_tenant_id")
+			scope.TenantID = firstScopeUUID(metadata, admin.ScopeTenantIDKey, admin.ScopeTenantKey, admin.ScopeDefaultTenantKey, admin.ScopeDefaultTenantIDKey)
 		}
 		if scope.OrgID == uuid.Nil {
-			scope.OrgID = firstScopeUUID(metadata, "organization_id", "org_id", "org")
+			scope.OrgID = firstScopeUUID(metadata, admin.ScopeOrganizationIDKey, admin.ScopeOrgIDKey, admin.ScopeOrgKey)
 		}
 	}
 	return scope

@@ -276,8 +276,8 @@ func quickstartScopeDriftBaseMetadata(scopeCfg ScopeConfig) map[string]any {
 	return map[string]any{
 		"scope_mode": string(scopeCfg.Mode),
 		"default_scope": map[string]string{
-			"tenant_id": strings.TrimSpace(scopeCfg.DefaultTenantID),
-			"org_id":    strings.TrimSpace(scopeCfg.DefaultOrgID),
+			admin.ScopeTenantIDKey: strings.TrimSpace(scopeCfg.DefaultTenantID),
+			admin.ScopeOrgIDKey:    strings.TrimSpace(scopeCfg.DefaultOrgID),
 		},
 		"inspected_tables": append([]string{}, quickstartScopeDriftTables...),
 	}
