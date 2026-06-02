@@ -11,19 +11,21 @@ import (
 // Input describes the mounted static prefixes that must stay aligned across
 // host routing, ownership manifests, and public-site fallback reservations.
 type Input struct {
-	AssetsPrefix  string
-	FormgenPrefix string
-	RuntimePrefix string
-	EChartsPrefix string
+	AssetsPrefix     string
+	FormgenPrefix    string
+	RuntimePrefix    string
+	SyncClientPrefix string
+	EChartsPrefix    string
 }
 
 // DefaultInput derives the quickstart static mount prefixes from admin config.
 func DefaultInput(cfg admin.Config) Input {
 	return Input{
-		AssetsPrefix:  path.Join(cfg.BasePath, "assets"),
-		FormgenPrefix: path.Join(cfg.BasePath, "formgen"),
-		RuntimePrefix: path.Join(cfg.BasePath, "runtime"),
-		EChartsPrefix: strings.TrimSuffix(dashboardcmp.DefaultEChartsAssetsPath, "/"),
+		AssetsPrefix:     path.Join(cfg.BasePath, "assets"),
+		FormgenPrefix:    path.Join(cfg.BasePath, "formgen"),
+		RuntimePrefix:    path.Join(cfg.BasePath, "runtime"),
+		SyncClientPrefix: path.Join(cfg.BasePath, "sync-client", "sync-core"),
+		EChartsPrefix:    strings.TrimSuffix(dashboardcmp.DefaultEChartsAssetsPath, "/"),
 	}
 }
 
@@ -33,6 +35,7 @@ func Resolve(input Input) []string {
 		input.AssetsPrefix,
 		input.RuntimePrefix,
 		input.FormgenPrefix,
+		input.SyncClientPrefix,
 		input.EChartsPrefix,
 	}
 	if NeedsRuntimeRootAlias(input.RuntimePrefix) {
