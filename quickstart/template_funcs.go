@@ -1,7 +1,6 @@
 package quickstart
 
 import (
-	"encoding/json"
 	"fmt"
 	"html"
 	"maps"
@@ -60,8 +59,7 @@ func buildDefaultTemplateFuncMap(
 ) map[string]any {
 	funcs := map[string]any{
 		"toJSON": func(v any) string {
-			b, _ := json.Marshal(v)
-			return string(b)
+			return templateJSONString(v)
 		},
 		// Legacy alias preserved for compatibility; returns escaped text instead of raw HTML.
 		"safeHTML": func(s string) string {
