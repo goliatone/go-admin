@@ -92,8 +92,8 @@ func TestDiagnoseTranslationPolicyServicesReportsExplicitRequirementsWithoutChec
 	if diagnostics[0].Code != TranslationPolicyServicesMissingCode {
 		t.Fatalf("unexpected diagnostic code: %+v", diagnostics[0])
 	}
-	if len(diagnostics[0].MissingServices) != 1 || diagnostics[0].MissingServices[0] != translationPolicyPagesServiceName {
-		t.Fatalf("expected page service missing, got %+v", diagnostics[0].MissingServices)
+	if len(diagnostics[0].MissingServices) != 1 || diagnostics[0].MissingServices[0] != translationPolicyContentServiceName {
+		t.Fatalf("expected content service missing, got %+v", diagnostics[0].MissingServices)
 	}
 }
 

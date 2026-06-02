@@ -133,12 +133,12 @@ func TestTranslationPolicyValidateUsesEnvironmentCriteriaForPagesAndPosts(t *tes
 	}
 }
 
-func TestTranslationPolicyValidateUsesContentCheckerUnlessPageEntityConfigured(t *testing.T) {
+func TestTranslationPolicyValidateUsesContentCheckerForPagesUnlessPageEntityConfigured(t *testing.T) {
 	pageChecker := &recordingTranslationChecker{}
-	contentChecker := &recordingTranslationChecker{err: errors.New("content checker unavailable")}
+	contentChecker := &recordingTranslationChecker{}
 	cfg := TranslationPolicyConfig{
 		Required: map[string]TranslationPolicyEntityConfig{
-			"landing_pages": {
+			"pages": {
 				"publish": {
 					Locales: []string{"en", "fr"},
 				},
@@ -151,12 +151,12 @@ func TestTranslationPolicyValidateUsesContentCheckerUnlessPageEntityConfigured(t
 	})
 
 	err := policy.Validate(context.Background(), admin.TranslationPolicyInput{
-		EntityType: "landing_pages",
+		EntityType: "pages",
 		EntityID:   uuid.NewString(),
 		Transition: "publish",
 	})
-	if err == nil || !errors.Is(err, contentChecker.err) {
-		t.Fatalf("expected content checker error, got %v", err)
+	if err != nil {
+		t.Fatalf("validate pages with content checker: %v", err)
 	}
 	if contentChecker.calls != 1 {
 		t.Fatalf("expected content checker attempted once, got %d", contentChecker.calls)
