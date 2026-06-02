@@ -1885,7 +1885,7 @@ func ptrTime(value time.Time) *time.Time {
 func writeJSONResponse(w http.ResponseWriter, status int, payload map[string]any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(payload) //nolint:errcheck // legacy test setup intentionally ignores this helper result after scenario assertions. //nolint:errchkjson // legacy job metadata payload is map-backed by design.
+	_ = json.NewEncoder(w).Encode(payload) //nolint:errcheck,errchkjson // legacy test setup intentionally ignores this helper result after scenario assertions.; legacy job metadata payload is map-backed by design.
 }
 
 func anyString(value any) string {

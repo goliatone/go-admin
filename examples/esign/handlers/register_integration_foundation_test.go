@@ -42,7 +42,7 @@ func TestRegisterIntegrationMappingAndPublishEndpoints(t *testing.T) {
 			{"source_object": "employee", "source_field": "email", "target_entity": "participant", "target_path": "email"},
 		},
 	}
-	mappingBody, _ := json.Marshal(mappingPayload) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions. //nolint:errchkjson // test request fixture is map-backed and validated through handler assertions.
+	mappingBody, _ := json.Marshal(mappingPayload) //nolint:errcheck,errchkjson // legacy test fixture decoding is validated by subsequent assertions.; test request fixture is map-backed and validated through handler assertions.
 	createReq := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/api/v1/esign/integrations/mappings", bytes.NewReader(mappingBody))
 	createReq.Header.Set("Content-Type", "application/json")
 	createResp, err := app.Test(createReq, -1)
@@ -65,7 +65,7 @@ func TestRegisterIntegrationMappingAndPublishEndpoints(t *testing.T) {
 	}
 	version := int64(asFloat(mapping["version"]))
 
-	publishBody, _ := json.Marshal(map[string]any{"expected_version": version}) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions. //nolint:errchkjson // test request fixture is map-backed and validated through handler assertions.
+	publishBody, _ := json.Marshal(map[string]any{"expected_version": version}) //nolint:errcheck,errchkjson // legacy test fixture decoding is validated by subsequent assertions.; test request fixture is map-backed and validated through handler assertions.
 	publishReq := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/api/v1/esign/integrations/mappings/"+mappingID+"/publish", bytes.NewReader(publishBody))
 	publishReq.Header.Set("Content-Type", "application/json")
 	publishResp, err := app.Test(publishReq, -1)
@@ -121,7 +121,7 @@ func TestRegisterIntegrationSyncConflictInboundOutboundEndpoints(t *testing.T) {
 		t.Fatalf("ValidateAndCompileMapping: %v", err)
 	}
 
-	startBody, _ := json.Marshal(map[string]any{ //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions. //nolint:errchkjson // test request fixture is map-backed and validated through handler assertions.
+	startBody, _ := json.Marshal(map[string]any{ //nolint:errcheck,errchkjson // legacy test fixture decoding is validated by subsequent assertions.; test request fixture is map-backed and validated through handler assertions.
 		"provider":        "crm",
 		"direction":       "inbound",
 		"mapping_spec_id": compiled.Spec.ID,
@@ -146,7 +146,7 @@ func TestRegisterIntegrationSyncConflictInboundOutboundEndpoints(t *testing.T) {
 		t.Fatalf("expected sync run id in response: %+v", started)
 	}
 
-	checkpointBody, _ := json.Marshal(map[string]any{ //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions. //nolint:errchkjson // test request fixture is map-backed and validated through handler assertions.
+	checkpointBody, _ := json.Marshal(map[string]any{ //nolint:errcheck,errchkjson // legacy test fixture decoding is validated by subsequent assertions.; test request fixture is map-backed and validated through handler assertions.
 		"checkpoint_key": "page-1",
 		"cursor":         "batch-1",
 		"payload":        map[string]any{"offset": 100},
@@ -200,7 +200,7 @@ func TestRegisterIntegrationSyncConflictInboundOutboundEndpoints(t *testing.T) {
 	conflict := asMap(t, conflicts[0])
 	conflictID := asString(conflict["id"])
 
-	resolveBody, _ := json.Marshal(map[string]any{ //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions. //nolint:errchkjson // test request fixture is map-backed and validated through handler assertions.
+	resolveBody, _ := json.Marshal(map[string]any{ //nolint:errcheck,errchkjson // legacy test fixture decoding is validated by subsequent assertions.; test request fixture is map-backed and validated through handler assertions.
 		"status":              stores.IntegrationConflictStatusResolved,
 		"resolved_by_user_id": "ops-user",
 		"resolution":          map[string]any{"action": "keep_internal"},
@@ -218,7 +218,7 @@ func TestRegisterIntegrationSyncConflictInboundOutboundEndpoints(t *testing.T) {
 		t.Fatalf("expected resolve status 200, got %d body=%s", resolveResp.StatusCode, payload)
 	}
 
-	inboundBody, _ := json.Marshal(map[string]any{ //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions. //nolint:errchkjson // test request fixture is map-backed and validated through handler assertions.
+	inboundBody, _ := json.Marshal(map[string]any{ //nolint:errcheck,errchkjson // legacy test fixture decoding is validated by subsequent assertions.; test request fixture is map-backed and validated through handler assertions.
 		"provider":       "crm",
 		"entity_kind":    "agreement",
 		"external_id":    "ext-agreement-1",
@@ -249,7 +249,7 @@ func TestRegisterIntegrationSyncConflictInboundOutboundEndpoints(t *testing.T) {
 		t.Fatalf("expected participant_count=1, got %+v", result)
 	}
 
-	outboundBody, _ := json.Marshal(map[string]any{ //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions. //nolint:errchkjson // test request fixture is map-backed and validated through handler assertions.
+	outboundBody, _ := json.Marshal(map[string]any{ //nolint:errcheck,errchkjson // legacy test fixture decoding is validated by subsequent assertions.; test request fixture is map-backed and validated through handler assertions.
 		"provider":        "crm",
 		"agreement_id":    agreementID,
 		"event_type":      "agreement.completed",

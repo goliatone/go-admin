@@ -627,7 +627,9 @@ func loadPostgresColumnMap(ctx context.Context, queryer sqlQueryer, tables []str
 		if err != nil {
 			return nil, fmt.Errorf("runtime relational store sync: query columns for %s: %w", table, err)
 		}
-		defer rows.Close()
+		defer func() {
+			_ = rows.Close() //nolint:errcheck // cleanup is best-effort after rows.Err has been checked.
+		}()
 		columns := map[string]bool{}
 		for rows.Next() {
 			var column string

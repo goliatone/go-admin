@@ -172,7 +172,7 @@ func TestESignModuleRegistersPanelsSettingsRoleDefaultsAndCommandActions(t *test
 	})
 	seedAgreementAsSignable(t, module, agreementID)
 
-	actionBody, _ := json.Marshal(map[string]any{"idempotency_key": "phase6-send-1"}) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions. //nolint:errchkjson // test request fixture is map-backed and validated through handler assertions.
+	actionBody, _ := json.Marshal(map[string]any{"idempotency_key": "phase6-send-1"}) //nolint:errcheck,errchkjson // legacy test fixture decoding is validated by subsequent assertions.; test request fixture is map-backed and validated through handler assertions.
 	actionReq := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/api/v1/panels/esign_agreements/actions/send?id="+agreementID+"&tenant_id=tenant-bootstrap&org_id=org-bootstrap", bytes.NewReader(actionBody))
 	actionReq.Header.Set("Content-Type", "application/json")
 	actionReq.Header.Set("X-User-ID", "ops-user")
@@ -186,7 +186,7 @@ func TestESignModuleRegistersPanelsSettingsRoleDefaultsAndCommandActions(t *test
 		t.Fatalf("expected send action 202, got %d body=%s", actionRes.StatusCode, string(payload))
 	}
 
-	resendBody, _ := json.Marshal(map[string]any{"idempotency_key": "phase6-send-2"}) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions. //nolint:errchkjson // test request fixture is map-backed and validated through handler assertions.
+	resendBody, _ := json.Marshal(map[string]any{"idempotency_key": "phase6-send-2"}) //nolint:errcheck,errchkjson // legacy test fixture decoding is validated by subsequent assertions.; test request fixture is map-backed and validated through handler assertions.
 	resendReq := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/api/v1/panels/esign_agreements/actions/resend?id="+agreementID+"&tenant_id=tenant-bootstrap&org_id=org-bootstrap", bytes.NewReader(resendBody))
 	resendReq.Header.Set("Content-Type", "application/json")
 	resendReq.Header.Set("X-User-ID", "ops-user")
@@ -368,7 +368,7 @@ func seedAgreementAsSignable(t *testing.T, module *ESignModule, agreementID stri
 
 func createPanelRecord(t *testing.T, server router.Server[*fiber.App], path string, payload map[string]any) string {
 	t.Helper()
-	body, _ := json.Marshal(payload) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions. //nolint:errchkjson // test request fixture is map-backed and validated through handler assertions.
+	body, _ := json.Marshal(payload) //nolint:errcheck,errchkjson // legacy test fixture decoding is validated by subsequent assertions.; test request fixture is map-backed and validated through handler assertions.
 	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, path, bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-User-ID", "ops-user")

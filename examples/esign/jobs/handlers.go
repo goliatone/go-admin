@@ -289,7 +289,7 @@ func (h agreementNotificationEffectHandler) Finalize(ctx context.Context, effect
 		}
 	}
 	if h.audits != nil && strings.TrimSpace(payload.AgreementID) != "" {
-		metadata, _ := json.Marshal(map[string]any{ //nolint:errcheck // legacy best-effort call intentionally does not affect the primary result.
+		metadata, _ := json.Marshal(map[string]any{ //nolint:errcheck,errchkjson // legacy best-effort call intentionally does not affect the primary result.; legacy job metadata payload is map-backed by design.
 			"effect_id":             strings.TrimSpace(effect.EffectID),
 			"recipient_id":          strings.TrimSpace(payload.RecipientID),
 			"review_participant_id": strings.TrimSpace(payload.ReviewParticipantID),

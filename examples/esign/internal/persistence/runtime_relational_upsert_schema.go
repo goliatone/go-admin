@@ -116,10 +116,13 @@ func loadSQLiteColumnMap(ctx context.Context, queryer sqlQueryer, tables []strin
 		if !exists {
 			continue
 		}
-		rows, err := queryer.QueryContext(ctx, `PRAGMA table_info(`+table+`)`) //nolint:rowserrcheck // schema introspection query is fully consumed and close errors are handled separately.
+		rows, err := queryer.QueryContext(ctx, `PRAGMA table_info(`+table+`)`)
 		if err != nil {
 			return nil, fmt.Errorf("runtime relational schema: table_info for %s: %w", table, err)
 		}
+		defer func() {
+			_ = rows.Close() //nolint:errcheck // cleanup is best-effort after rows.Err has been checked.
+		}()
 		columns := map[string]bool{}
 		for rows.Next() {
 			var (
@@ -131,13 +134,15 @@ func loadSQLiteColumnMap(ctx context.Context, queryer sqlQueryer, tables []strin
 				pk         int
 			)
 			if scanErr := rows.Scan(&cid, &name, &declType, &notNull, &defaultVal, &pk); scanErr != nil {
-				_ = rows.Close() //nolint:errcheck // cleanup is best-effort and must not replace the primary result.
 				return nil, fmt.Errorf("runtime relational schema: scan table_info %s: %w", table, scanErr)
 			}
 			name = strings.TrimSpace(strings.ToLower(name))
 			if name != "" {
 				columns[name] = true
 			}
+		}
+		if rowsErr := rows.Err(); rowsErr != nil {
+			return nil, fmt.Errorf("runtime relational schema: iterate table_info %s: %w", table, rowsErr)
 		}
 		if err := rows.Close(); err != nil {
 			return nil, fmt.Errorf("runtime relational schema: close table_info rows for %s: %w", table, err)

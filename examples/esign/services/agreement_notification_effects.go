@@ -681,7 +681,7 @@ func appendAgreementNotificationResumeAudit(
 	correlationID string,
 	now time.Time,
 ) {
-	metadata, _ := json.Marshal(map[string]any{ //nolint:errcheck // legacy best-effort call intentionally does not affect the primary result.
+	metadata, _ := json.Marshal(map[string]any{ //nolint:errcheck,errchkjson // legacy best-effort call intentionally does not affect the primary result.; legacy job metadata payload is map-backed by design.
 		"effect_id":             strings.TrimSpace(saved.EffectID),
 		"recipient_id":          strings.TrimSpace(notification.RecipientID),
 		"review_participant_id": strings.TrimSpace(notification.ReviewParticipantID),
