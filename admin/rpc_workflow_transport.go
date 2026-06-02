@@ -1,7 +1,9 @@
+//nolint:tagliatelle // RPC workflow transport preserves existing camelCase JSON field names for command clients.
 package admin
 
 import (
 	"context"
+	"errors"
 	"strconv"
 	"strings"
 	"time"
@@ -613,7 +615,7 @@ func syncPublishedMachineToRuntime(ctx context.Context, adm *Admin, machineID st
 		runtime.registerActiveWorkflow(updated)
 		return nil
 	}
-	if getErr != ErrNotFound {
+	if !errors.Is(getErr, ErrNotFound) {
 		return getErr
 	}
 	created, createErr := runtime.workflows.Create(ctx, projected)
@@ -634,7 +636,7 @@ func syncDeletedMachineToRuntime(ctx context.Context, adm *Admin, machineID stri
 	}
 	current, err := runtime.workflows.Get(ctx, strings.TrimSpace(machineID))
 	if err != nil {
-		if err == ErrNotFound {
+		if errors.Is(err, ErrNotFound) {
 			return nil
 		}
 		return err
@@ -646,7 +648,9 @@ func syncDeletedMachineToRuntime(ctx context.Context, adm *Admin, machineID stri
 	if unreg, ok := resolveCMSWorkflowEngine(adm).(interface {
 		UnregisterWorkflow(entityType string) error
 	}); ok {
-		_ = unreg.UnregisterWorkflow(strings.TrimSpace(machineID))
+		if err := unreg.UnregisterWorkflow(strings.TrimSpace(machineID)); err != nil {
+			return err
+		}
 	}
 	return nil
 }
