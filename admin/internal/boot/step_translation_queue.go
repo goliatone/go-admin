@@ -1,12 +1,6 @@
 package boot
 
-import (
-	"reflect"
-	"strings"
-
-	syncdata "github.com/goliatone/go-admin/pkg/go-sync/data"
-	router "github.com/goliatone/go-router"
-)
+import router "github.com/goliatone/go-router"
 
 // TranslationQueueRouteStep registers translation queue aggregate HTTP routes.
 func TranslationQueueRouteStep(ctx BootCtx) error {
@@ -25,7 +19,6 @@ func TranslationQueueRouteStep(ctx BootCtx) error {
 	if err := applyRoutes(ctx, routes); err != nil {
 		return err
 	}
-	registerTranslationSyncClientAssets(ctx)
 	return nil
 }
 
@@ -156,26 +149,4 @@ func translationQueueDraftSyncMutateRoute(ctx BootCtx, responder Responder, gate
 			return nil
 		}),
 	}
-}
-
-func registerTranslationSyncClientAssets(ctx BootCtx) {
-	if ctx == nil || ctx.Router() == nil {
-		return
-	}
-	static := reflect.ValueOf(ctx.Router()).MethodByName("Static")
-	if !static.IsValid() {
-		return
-	}
-	prefix := strings.TrimRight(adminBasePath(ctx), "/") + "/sync-client/sync-core"
-	if !strings.HasPrefix(prefix, "/") {
-		prefix = "/" + prefix
-	}
-	static.Call([]reflect.Value{
-		reflect.ValueOf(prefix),
-		reflect.ValueOf("."),
-		reflect.ValueOf(router.Static{
-			FS:   syncdata.ClientSyncCoreFS(),
-			Root: ".",
-		}),
-	})
 }
