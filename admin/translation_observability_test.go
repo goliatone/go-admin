@@ -113,14 +113,10 @@ func TestApplyTranslationPolicyRecordsBlockedTransitionMetric(t *testing.T) {
 func TestPanelBindingCreateTranslationRecordsMetricOutcomes(t *testing.T) {
 	t.Run("created", func(t *testing.T) {
 		metrics := &capturingTranslationMetrics{}
-		original := defaultTranslationMetrics
+		useTranslationMetricsForTest(t, metrics)
 		logCapture := &capturingSlogHandler{}
-		defaultTranslationMetrics = metrics
 		restoreLogger := swapTranslationObservabilityLoggerForTest(testLoggerWithHandler(logCapture))
-		t.Cleanup(func() {
-			defaultTranslationMetrics = original
-			restoreLogger()
-		})
+		t.Cleanup(restoreLogger)
 
 		repo := &translationActionRepoStub{
 			records: map[string]map[string]any{
@@ -169,14 +165,10 @@ func TestPanelBindingCreateTranslationRecordsMetricOutcomes(t *testing.T) {
 
 	t.Run("duplicate", func(t *testing.T) {
 		metrics := &capturingTranslationMetrics{}
-		original := defaultTranslationMetrics
+		useTranslationMetricsForTest(t, metrics)
 		logCapture := &capturingSlogHandler{}
-		defaultTranslationMetrics = metrics
 		restoreLogger := swapTranslationObservabilityLoggerForTest(testLoggerWithHandler(logCapture))
-		t.Cleanup(func() {
-			defaultTranslationMetrics = original
-			restoreLogger()
-		})
+		t.Cleanup(restoreLogger)
 
 		repo := &translationActionRepoStub{
 			records: map[string]map[string]any{
@@ -231,14 +223,10 @@ func TestPanelBindingCreateTranslationRecordsMetricOutcomes(t *testing.T) {
 
 func TestRecordTranslationCreateLocaleMetricCapturesOutcomesAndTraceContext(t *testing.T) {
 	metrics := &capturingTranslationMetrics{}
-	original := defaultTranslationMetrics
+	useTranslationMetricsForTest(t, metrics)
 	logCapture := &capturingSlogHandler{}
-	defaultTranslationMetrics = metrics
 	restoreLogger := swapTranslationObservabilityLoggerForTest(testLoggerWithHandler(logCapture))
-	t.Cleanup(func() {
-		defaultTranslationMetrics = original
-		restoreLogger()
-	})
+	t.Cleanup(restoreLogger)
 
 	ctx := context.Background()
 	ctx = context.WithValue(ctx, requestIDContextKey, "req-create-locale-1")
@@ -336,14 +324,10 @@ func TestRecordTranslationAPIOperationLogsTraceCorrelation(t *testing.T) {
 
 func TestRecordTranslationReviewActionMetricCapturesApproveAndRequestChanges(t *testing.T) {
 	metrics := &capturingTranslationMetrics{}
-	original := defaultTranslationMetrics
+	useTranslationMetricsForTest(t, metrics)
 	logCapture := &capturingSlogHandler{}
-	defaultTranslationMetrics = metrics
 	restoreLogger := swapTranslationObservabilityLoggerForTest(testLoggerWithHandler(logCapture))
-	t.Cleanup(func() {
-		defaultTranslationMetrics = original
-		restoreLogger()
-	})
+	t.Cleanup(restoreLogger)
 
 	ctx := context.Background()
 	ctx = context.WithValue(ctx, requestIDContextKey, "req-review-1")
@@ -395,14 +379,10 @@ func TestRecordTranslationReviewActionMetricCapturesApproveAndRequestChanges(t *
 
 func TestRecordTranslationQAOutcomeMetricCapturesSaveAndSubmitStates(t *testing.T) {
 	metrics := &capturingTranslationMetrics{}
-	original := defaultTranslationMetrics
+	useTranslationMetricsForTest(t, metrics)
 	logCapture := &capturingSlogHandler{}
-	defaultTranslationMetrics = metrics
 	restoreLogger := swapTranslationObservabilityLoggerForTest(testLoggerWithHandler(logCapture))
-	t.Cleanup(func() {
-		defaultTranslationMetrics = original
-		restoreLogger()
-	})
+	t.Cleanup(restoreLogger)
 
 	ctx := context.Background()
 	ctx = context.WithValue(ctx, requestIDContextKey, "req-qa-1")

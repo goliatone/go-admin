@@ -17,18 +17,14 @@ func TestTranslationDraftSyncStoreGetReturnsEditorSnapshot(t *testing.T) {
 	fixture := newTranslationEditorTestFixture(t, translationEditorTestFixtureOptions{})
 	store := newTranslationDraftSyncResourceStore(fixture.binding)
 	metrics := &capturingTranslationMetrics{}
-	originalMetrics := defaultTranslationMetrics
-	defaultTranslationMetrics = metrics
-	t.Cleanup(func() {
-		defaultTranslationMetrics = originalMetrics
-	})
+	useTranslationMetricsForTest(t, metrics)
 
 	snapshot, err := store.Get(context.Background(), translationDraftSyncTestRef(fixture))
 	if err != nil {
 		t.Fatalf("Get: %v", err)
 	}
-	if len(metrics.qaOutcomeTags) != 1 || metrics.qaOutcomeTags[0]["trigger"] != translationDraftSyncTriggerRead {
-		t.Fatalf("expected one read qa outcome metric, got %+v", metrics.qaOutcomeTags)
+	if len(metrics.qaOutcomeTags) != 0 {
+		t.Fatalf("expected read snapshot to avoid qa outcome metrics, got %+v", metrics.qaOutcomeTags)
 	}
 
 	if snapshot.Revision != 3 {
@@ -52,11 +48,7 @@ func TestTranslationDraftSyncStoreMutateAppliesConsecutiveAutosavesAndReturnsSta
 	store := newTranslationDraftSyncResourceStore(fixture.binding)
 	ref := translationDraftSyncTestRef(fixture)
 	metrics := &capturingTranslationMetrics{}
-	originalMetrics := defaultTranslationMetrics
-	defaultTranslationMetrics = metrics
-	t.Cleanup(func() {
-		defaultTranslationMetrics = originalMetrics
-	})
+	useTranslationMetricsForTest(t, metrics)
 
 	first := storeMutation(t, store, ref, 3, map[string]any{
 		"fields": map[string]any{
@@ -116,17 +108,8 @@ func TestTranslationDraftSyncStoreMutateAppliesConsecutiveAutosavesAndReturnsSta
 	if !ok || current != 5 || latest == nil || latest.Revision != 5 {
 		t.Fatalf("unexpected stale details current=%d latest=%+v ok=%v", current, latest, ok)
 	}
-	if len(metrics.qaOutcomeTags) != 3 || metrics.qaOutcomeTags[2]["trigger"] != translationDraftSyncTriggerConflict {
-		t.Fatalf("expected stale snapshot to emit conflict qa outcome metric, got %+v", metrics.qaOutcomeTags)
-	}
-	saveCount := 0
-	for _, tags := range metrics.qaOutcomeTags {
-		if tags["trigger"] == translationDraftSyncTriggerSave {
-			saveCount++
-		}
-	}
-	if saveCount != 2 {
-		t.Fatalf("expected only successful mutations to emit save metrics, got %+v", metrics.qaOutcomeTags)
+	if len(metrics.qaOutcomeTags) != 2 {
+		t.Fatalf("expected stale snapshot to avoid qa outcome metrics, got %+v", metrics.qaOutcomeTags)
 	}
 }
 

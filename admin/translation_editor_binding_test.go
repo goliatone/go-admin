@@ -1193,11 +1193,7 @@ func TestTranslationEditorSubmitReviewBlocksOnQAResults(t *testing.T) {
 	})
 	enableTranslationEditorQAWithBlockers(t, fixture)
 	metrics := &capturingTranslationMetrics{}
-	originalMetrics := defaultTranslationMetrics
-	defaultTranslationMetrics = metrics
-	t.Cleanup(func() {
-		defaultTranslationMetrics = originalMetrics
-	})
+	useTranslationMetricsForTest(t, metrics)
 
 	status, payload := doTranslationEditorJSONRequest(t, fixture.app, http.MethodPost, "/admin/api/translations/assignments/"+fixture.assignmentID+"/actions/submit_review?channel=production&tenant_id=tenant-1&org_id=org-1", map[string]any{
 		"channel":          "production",
@@ -1228,11 +1224,7 @@ func TestTranslationEditorReviewActionsPersistVariantStatus(t *testing.T) {
 		ReviewRequired: true,
 	})
 	metrics := &capturingTranslationMetrics{}
-	originalMetrics := defaultTranslationMetrics
-	defaultTranslationMetrics = metrics
-	t.Cleanup(func() {
-		defaultTranslationMetrics = originalMetrics
-	})
+	useTranslationMetricsForTest(t, metrics)
 	reviewAssignment, err := rejectFixture.repo.Get(context.Background(), rejectFixture.assignmentID)
 	if err != nil {
 		t.Fatalf("load assignment: %v", err)
@@ -1339,11 +1331,7 @@ func TestTranslationEditorSubmitReviewAutoApprovesWhenReviewIsDisabled(t *testin
 		ReviewRequired: false,
 	})
 	metrics := &capturingTranslationMetrics{}
-	originalMetrics := defaultTranslationMetrics
-	defaultTranslationMetrics = metrics
-	t.Cleanup(func() {
-		defaultTranslationMetrics = originalMetrics
-	})
+	useTranslationMetricsForTest(t, metrics)
 
 	status, payload := doTranslationEditorJSONRequest(t, fixture.app, http.MethodPost, "/admin/api/translations/assignments/"+fixture.assignmentID+"/actions/submit_review?channel=production&tenant_id=tenant-1&org_id=org-1", map[string]any{
 		"channel":          "production",
