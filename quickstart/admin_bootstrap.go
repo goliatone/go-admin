@@ -478,13 +478,12 @@ func resolveTranslationPolicyDependency(cfg admin.Config, options *adminOptions)
 	diagnostics := DiagnoseTranslationPolicyServices(policyCfg, services)
 	options.translationPolicyDiagnostics = diagnostics
 	if len(diagnostics) > 0 {
-		if translationPolicyStartupPolicy(options) == admin.ModuleStartupPolicyWarn {
-			return nil
+		if translationPolicyStartupPolicy(options) != admin.ModuleStartupPolicyWarn {
+			return errors.Join(
+				ErrTranslationPolicyServicesUnavailable,
+				fmt.Errorf("%s: %s", diagnostics[0].Code, diagnostics[0].Message),
+			)
 		}
-		return errors.Join(
-			ErrTranslationPolicyServicesUnavailable,
-			fmt.Errorf("%s: %s", diagnostics[0].Code, diagnostics[0].Message),
-		)
 	}
 	if policy := NewTranslationPolicy(policyCfg, services); policy != nil {
 		options.deps.TranslationPolicy = policy
