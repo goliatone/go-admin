@@ -195,11 +195,8 @@ func resolveContentEntryAliasPanelSlug(ctx context.Context, adm *admin.Admin, al
 		ctx = context.Background()
 	}
 	if ct, err := contentTypes.ContentTypeBySlug(ctx, alias); err == nil && ct != nil {
-		if slug := panelSlugFromCapabilities(ct.Capabilities); slug != "" {
+		if slug := contentEntryAliasSlugForContentType(ct); slug != "" {
 			return slug
-		}
-		if ctSlug := strings.TrimSpace(ct.Slug); ctSlug != "" {
-			return ctSlug
 		}
 	}
 	types, err := contentTypes.ContentTypes(ctx)
@@ -222,6 +219,16 @@ func resolveContentEntryAliasPanelSlug(ctx context.Context, adm *admin.Admin, al
 		}
 	}
 	return alias
+}
+
+func contentEntryAliasSlugForContentType(ct *admin.CMSContentType) string {
+	if ct == nil {
+		return ""
+	}
+	if slug := panelSlugFromCapabilities(ct.Capabilities); slug != "" {
+		return slug
+	}
+	return strings.TrimSpace(ct.Slug)
 }
 
 func panelSlugFromCapabilities(capabilities map[string]any) string {
