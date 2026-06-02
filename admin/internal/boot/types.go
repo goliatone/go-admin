@@ -38,6 +38,12 @@ type Router interface {
 	Head(path string, handler router.HandlerFunc, mw ...router.MiddlewareFunc) router.RouteInfo
 }
 
+// StaticRouter extends the boot route surface for typed static asset mounts.
+type StaticRouter[T any] interface {
+	Router
+	Static(prefix, root string, config ...router.Static) router.Router[T]
+}
+
 // RouteSpec describes a route to register.
 type RouteSpec struct {
 	Method  string             `json:"method"`
