@@ -584,9 +584,10 @@ func (r translationFamilyPolicyResolver) ResolvePolicyBlockers(ctx context.Conte
 		BlockerCode: string(translationcore.FamilyBlockerPolicyDenied),
 		Locale:      locale,
 		Details: map[string]any{
-			"content_type": family.ContentType,
-			"environment":  strings.TrimSpace(environment),
-			"reason":       err.Error(),
+			translationcore.FamilyBlockerDetailContentType: family.ContentType,
+			translationcore.FamilyBlockerDetailEnvironment: strings.TrimSpace(environment),
+			translationcore.FamilyBlockerDetailMessage:     err.Error(),
+			translationcore.FamilyBlockerDetailReason:      string(translationcore.FamilyBlockerReasonHostPolicy),
 		},
 	}}, nil
 }
@@ -1009,6 +1010,7 @@ func translationFamilyMutationSummaryPayload(family translationservices.FamilyRe
 		"pending_review_count":          family.PendingReviewCount,
 		"outdated_locale_count":         family.OutdatedLocaleCount,
 		"blocker_codes":                 append([]string{}, family.BlockerCodes...),
+		"blocker_labels":                translationDashboardBlockerLabelsForFamily(family.Blockers, family.BlockerCodes),
 		"missing_locales":               translationFamilyMissingLocales(family),
 		"available_locales":             translationFamilyAvailableLocales(family),
 		"quick_create":                  translationReadinessQuickCreatePayloadMap(quickCreate),
@@ -1556,12 +1558,42 @@ func translationFamilyListRow(family translationservices.FamilyRecord) map[strin
 		"pending_review_count":          family.PendingReviewCount,
 		"outdated_locale_count":         family.OutdatedLocaleCount,
 		"blocker_codes":                 append([]string{}, family.BlockerCodes...),
+		"blocker_labels":                translationDashboardBlockerLabelsForFamily(family.Blockers, family.BlockerCodes),
 		"missing_locales":               translationFamilyMissingLocales(family),
 		"available_locales":             translationFamilyAvailableLocales(family),
 		"quick_create":                  translationReadinessQuickCreatePayloadMap(quickCreate),
 		"updated_at":                    family.UpdatedAt,
 		"created_at":                    family.CreatedAt,
 	}
+}
+
+func translationFamilyBlockerIsPolicyUnavailable(blocker translationservices.FamilyBlocker) bool {
+	if strings.TrimSpace(strings.ToLower(blocker.BlockerCode)) != string(translationcore.FamilyBlockerPolicyDenied) {
+		return false
+	}
+	reason := translationFamilyBlockerDetailString(blocker, translationcore.FamilyBlockerDetailReason)
+	reasonCode := translationFamilyBlockerDetailString(blocker, translationcore.FamilyBlockerDetailReasonCode)
+	if reason == string(translationcore.FamilyBlockerReasonPolicyUnavailable) || reasonCode == string(translationcore.FamilyBlockerReasonPolicyUnavailable) {
+		return true
+	}
+	if reason == string(translationcore.FamilyBlockerReasonHostPolicy) || reasonCode == string(translationcore.FamilyBlockerReasonHostPolicy) {
+		return false
+	}
+	if reason != "" || reasonCode != "" {
+		return false
+	}
+	if translationFamilyBlockerDetailString(blocker, translationcore.FamilyBlockerDetailMessage) != "" || translationFamilyBlockerDetailString(blocker, "policy_reason") != "" {
+		return false
+	}
+	return translationFamilyBlockerDetailString(blocker, translationcore.FamilyBlockerDetailContentType) != "" ||
+		translationFamilyBlockerDetailString(blocker, translationcore.FamilyBlockerDetailEnvironment) != ""
+}
+
+func translationFamilyBlockerDetailString(blocker translationservices.FamilyBlocker, key string) string {
+	if blocker.Details == nil {
+		return ""
+	}
+	return strings.TrimSpace(strings.ToLower(toString(blocker.Details[key])))
 }
 
 func translationFamilyDetailPayload(family translationservices.FamilyRecord, channel string) map[string]any {
