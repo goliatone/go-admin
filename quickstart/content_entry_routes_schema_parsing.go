@@ -80,7 +80,10 @@ func parseMultiValue(values []string, info schemaPathInfo) (any, error) {
 	if stype != "array" {
 		return parseScalarMultiValue(values, info)
 	}
-	itemsSchema, _ := info.Schema["items"].(map[string]any)
+	itemsSchema, ok := info.Schema["items"].(map[string]any)
+	if !ok {
+		itemsSchema = nil
+	}
 	parsed := make([]any, 0, len(values))
 	for _, raw := range values {
 		parsed = append(parsed, parseValue(raw, schemaPathInfo{Schema: itemsSchema, Type: schemaType(itemsSchema)}))
@@ -98,7 +101,10 @@ func parseSingleArrayValue(raw string, info schemaPathInfo) any {
 			return values
 		}
 	}
-	itemsSchema, _ := info.Schema["items"].(map[string]any)
+	itemsSchema, ok := info.Schema["items"].(map[string]any)
+	if !ok {
+		itemsSchema = nil
+	}
 	return []any{parseValue(raw, schemaPathInfo{Schema: itemsSchema, Type: schemaType(itemsSchema)})}
 }
 
@@ -313,7 +319,10 @@ func contentEntryAttachBlocksIconMap(columns []map[string]any, iconMap map[strin
 		if renderer != "blocks_chips" {
 			continue
 		}
-		opts, _ := col["renderer_options"].(map[string]any)
+		opts, ok := col["renderer_options"].(map[string]any)
+		if !ok {
+			opts = nil
+		}
 		if opts == nil {
 			opts = map[string]any{}
 		}

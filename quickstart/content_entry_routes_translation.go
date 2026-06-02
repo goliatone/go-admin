@@ -110,7 +110,10 @@ func contentEntryAttachTranslationFamilyLink(record map[string]any, urls urlkit.
 	out := cloneAnyMap(record)
 	out["translation_family_id"] = groupID
 	out["translation_family_url"] = familyURL
-	links, _ := out["links"].(map[string]any)
+	links, ok := out["links"].(map[string]any)
+	if !ok {
+		links = nil
+	}
 	linked := cloneAnyMap(links)
 	if linked == nil {
 		linked = map[string]any{}
@@ -153,7 +156,10 @@ func contentEntryAttachTranslationLocaleLinks(record map[string]any, routes cont
 
 	out := cloneAnyMap(record)
 	out["translation_locale_urls"] = links
-	nested, _ := out["links"].(map[string]any)
+	nested, ok := out["links"].(map[string]any)
+	if !ok {
+		nested = nil
+	}
 	linked := cloneAnyMap(nested)
 	if linked == nil {
 		linked = map[string]any{}
