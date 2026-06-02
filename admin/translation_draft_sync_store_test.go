@@ -1,11 +1,16 @@
 package admin
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"testing"
+	"time"
 
 	synccore "github.com/goliatone/go-admin/pkg/go-sync/core"
+	auth "github.com/goliatone/go-auth"
 )
 
 func TestTranslationDraftSyncStoreGetReturnsEditorSnapshot(t *testing.T) {
@@ -118,6 +123,198 @@ func TestTranslationDraftSyncStoreRejectsClientIdentityFields(t *testing.T) {
 	}
 }
 
+func TestTranslationDraftSyncRouteReadMutateAndStaleRevision(t *testing.T) {
+	fixture := newTranslationEditorTestFixture(t, translationEditorTestFixtureOptions{})
+	target := "/admin/api/translations/sync/resources/translation_variant_draft/" + fixture.targetVariantID + "?channel=production&tenant_id=tenant-1&org_id=org-1"
+
+	status, payload := doTranslationDraftSyncJSONRequest(t, fixture.app, http.MethodGet, target, nil)
+	if status != http.StatusOK {
+		t.Fatalf("read status=%d payload=%+v", status, payload)
+	}
+	if got := int64(payload["revision"].(float64)); got != 3 {
+		t.Fatalf("read revision=%d want 3", got)
+	}
+	readData := extractMap(payload["data"])
+	if got := toString(readData["variant_id"]); got != fixture.targetVariantID {
+		t.Fatalf("read variant_id=%q want %q", got, fixture.targetVariantID)
+	}
+
+	status, payload = doTranslationDraftSyncJSONRequest(t, fixture.app, http.MethodPatch, target, map[string]any{
+		"operation":         "autosave",
+		"expected_revision": 3,
+		"payload": map[string]any{
+			"fields": map[string]any{
+				"title": "Guide de publication",
+			},
+			"autosave": true,
+		},
+		"metadata": map[string]any{
+			"autosave": true,
+		},
+	})
+	if status != http.StatusOK {
+		t.Fatalf("mutate status=%d payload=%+v", status, payload)
+	}
+	if got := int64(payload["revision"].(float64)); got != 4 {
+		t.Fatalf("mutate revision=%d want 4", got)
+	}
+	if got := payload["applied"]; got != true {
+		t.Fatalf("mutate applied=%v want true", got)
+	}
+	mutateData := extractMap(payload["data"])
+	fields := mapString(extractMap(mutateData["target_fields"]))
+	if got := fields["title"]; got != "Guide de publication" {
+		t.Fatalf("mutate title=%q", got)
+	}
+
+	status, payload = doTranslationDraftSyncJSONRequest(t, fixture.app, http.MethodPatch, target, map[string]any{
+		"operation":         "autosave",
+		"expected_revision": 3,
+		"payload": map[string]any{
+			"fields": map[string]any{
+				"path": "/fr/stale",
+			},
+		},
+	})
+	if status != http.StatusConflict {
+		t.Fatalf("stale status=%d payload=%+v", status, payload)
+	}
+	errorPayload := extractMap(payload["error"])
+	if got := toString(errorPayload["code"]); got != string(synccore.CodeStaleRevision) {
+		t.Fatalf("stale code=%q", got)
+	}
+	details := extractMap(errorPayload["details"])
+	if got := int64(details["current_revision"].(float64)); got != 4 {
+		t.Fatalf("stale current_revision=%d want 4", got)
+	}
+	resource := extractMap(details["resource"])
+	if got := int64(resource["revision"].(float64)); got != 4 {
+		t.Fatalf("stale resource revision=%d want 4", got)
+	}
+}
+
+func TestTranslationDraftSyncRouteMutatesContentBackedVariant(t *testing.T) {
+	ctx := context.Background()
+	fixture := newTranslationEditorTestFixture(t, translationEditorTestFixtureOptions{})
+	sourceFields := map[string]string{
+		"title": "Content source",
+		"path":  "content-source",
+		"body":  "Content source body.",
+	}
+	targetFields := map[string]string{
+		"title": "Contenu source",
+		"path":  "contenu-source",
+		"body":  "Corps traduit.",
+	}
+	lastSyncedHash := translationEditorHashFields(sourceFields)
+	now := time.Date(2026, 3, 12, 12, 0, 0, 0, time.UTC)
+
+	if _, err := fixture.content.CreateContent(ctx, CMSContent{
+		ID:              "content-1",
+		Title:           sourceFields["title"],
+		Slug:            sourceFields["path"],
+		Locale:          "en",
+		FamilyID:        "content-family-1",
+		ContentType:     "article",
+		ContentTypeSlug: "article",
+		Status:          "published",
+		Data: map[string]any{
+			"body": sourceFields["body"],
+		},
+		Metadata: map[string]any{
+			"tenant_id": "tenant-1",
+			"org_id":    "org-1",
+		},
+	}); err != nil {
+		t.Fatalf("seed source content: %v", err)
+	}
+	if _, err := fixture.content.CreateContent(ctx, CMSContent{
+		ID:              "content-1-fr",
+		Title:           targetFields["title"],
+		Slug:            targetFields["path"],
+		Locale:          "fr",
+		FamilyID:        "content-family-1",
+		ContentType:     "article",
+		ContentTypeSlug: "article",
+		Status:          "published",
+		Data: map[string]any{
+			"body": targetFields["body"],
+		},
+		Metadata: translationEditorMergeMetadata(map[string]any{
+			"tenant_id": "tenant-1",
+			"org_id":    "org-1",
+		}, nil, 3, lastSyncedHash, sourceFields, "translator-1", now, translationEditorNextEditableVariantStatus()),
+	}); err != nil {
+		t.Fatalf("seed target content: %v", err)
+	}
+	if _, err := fixture.repo.Create(ctx, TranslationAssignment{
+		ID:             "asg-content-1",
+		FamilyID:       "content-family-1",
+		EntityType:     "article",
+		TenantID:       "tenant-1",
+		OrgID:          "org-1",
+		SourceRecordID: "content-1",
+		SourceLocale:   "en",
+		TargetLocale:   "fr",
+		TargetRecordID: "content-1-fr",
+		SourceTitle:    sourceFields["title"],
+		SourcePath:     "/" + sourceFields["path"],
+		AssignmentType: AssignmentTypeDirect,
+		Status:         AssignmentStatusAssigned,
+		Priority:       PriorityHigh,
+		AssigneeID:     "translator-1",
+		Version:        2,
+	}); err != nil {
+		t.Fatalf("seed content assignment: %v", err)
+	}
+	syncTranslationFamilyFixtureStore(t, fixture.admin, "production")
+	family, ok, err := fixture.admin.translationFamilyStore.Family(ctx, "content-family-1")
+	if err != nil || !ok {
+		t.Fatalf("load content family ok=%v err=%v", ok, err)
+	}
+	variant, ok := translationFamilyVariantByLocale(family, "fr")
+	if !ok {
+		t.Fatalf("expected fr content variant: %+v", family.Variants)
+	}
+
+	target := "/admin/api/translations/sync/resources/translation_variant_draft/" + variant.ID + "?channel=production&tenant_id=tenant-1&org_id=org-1"
+	status, payload := doTranslationDraftSyncJSONRequest(t, fixture.app, http.MethodPatch, target, map[string]any{
+		"operation":         "autosave",
+		"expected_revision": 3,
+		"payload": map[string]any{
+			"fields": map[string]any{
+				"body": "Corps traduit mis a jour.",
+			},
+			"autosave": true,
+		},
+		"metadata": map[string]any{
+			"autosave": true,
+		},
+	})
+	if status != http.StatusOK {
+		t.Fatalf("content mutate status=%d payload=%+v", status, payload)
+	}
+	if got := int64(payload["revision"].(float64)); got != 4 {
+		t.Fatalf("content revision=%d want 4", got)
+	}
+	data := extractMap(payload["data"])
+	fields := mapString(extractMap(data["target_fields"]))
+	if got := fields["body"]; got != "Corps traduit mis a jour." {
+		t.Fatalf("snapshot body=%q", got)
+	}
+
+	persisted, err := fixture.content.Content(ctx, "content-1-fr", "")
+	if err != nil || persisted == nil {
+		t.Fatalf("load persisted content: %v", err)
+	}
+	if got := toString(persisted.Data["body"]); got != "Corps traduit mis a jour." {
+		t.Fatalf("persisted body=%q", got)
+	}
+	if got := persisted.Status; got != "draft" {
+		t.Fatalf("persisted status=%q want draft", got)
+	}
+}
+
 func translationDraftSyncTestRef(fixture translationEditorTestFixture) synccore.ResourceRef {
 	return synccore.ResourceRef{
 		Kind: translationDraftSyncResourceKind,
@@ -161,4 +358,37 @@ func mustJSONBytes(t *testing.T, payload map[string]any) []byte {
 		t.Fatalf("marshal payload: %v", err)
 	}
 	return encoded
+}
+
+func doTranslationDraftSyncJSONRequest(t *testing.T, app interface {
+	Test(*http.Request, ...int) (*http.Response, error)
+}, method, target string, body map[string]any) (int, map[string]any) {
+	t.Helper()
+	var payload bytes.Buffer
+	if body != nil {
+		if err := json.NewEncoder(&payload).Encode(body); err != nil {
+			t.Fatalf("encode request body: %v", err)
+		}
+	}
+	ctx := auth.WithActorContext(context.Background(), &auth.ActorContext{
+		ActorID:        "translator-1",
+		Subject:        "translator-1",
+		TenantID:       "tenant-1",
+		OrganizationID: "org-1",
+	})
+	req := httptest.NewRequestWithContext(ctx, method, target, &payload)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Test-Authenticated-Actor-ID", "translator-1")
+	req.Header.Set("X-User-ID", "spoofed-user")
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("request error: %v", err)
+	}
+	defer resp.Body.Close() //nolint:errcheck // test response body cleanup is best-effort
+
+	out := map[string]any{}
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	return resp.StatusCode, out
 }
