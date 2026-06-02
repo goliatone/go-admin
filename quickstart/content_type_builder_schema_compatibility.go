@@ -31,7 +31,10 @@ func mergeContentTypeSchema(base, incoming map[string]any) map[string]any {
 	}
 	merged := compatCloneMap(incoming)
 	if baseDefs, ok := base["$defs"].(map[string]any); ok && len(baseDefs) > 0 {
-		defs, _ := merged["$defs"].(map[string]any)
+		defs, ok := merged["$defs"].(map[string]any)
+		if !ok {
+			defs = nil
+		}
 		if defs == nil {
 			defs = map[string]any{}
 		}
@@ -44,7 +47,10 @@ func mergeContentTypeSchema(base, incoming map[string]any) map[string]any {
 		merged["$defs"] = defs
 	}
 	if baseMeta, ok := base["metadata"].(map[string]any); ok && len(baseMeta) > 0 {
-		meta, _ := merged["metadata"].(map[string]any)
+		meta, ok := merged["metadata"].(map[string]any)
+		if !ok {
+			meta = nil
+		}
 		if meta == nil {
 			meta = map[string]any{}
 		}
@@ -279,7 +285,10 @@ func walkCompatibilityFields(node map[string]any, prefix string, fields map[stri
 
 func walkCompatibilityProperties(node map[string]any, prefix string, fields map[string]compatFieldDescriptor) {
 	required := requiredSetFromValue(node["required"])
-	props, _ := node["properties"].(map[string]any)
+	props, ok := node["properties"].(map[string]any)
+	if !ok {
+		return
+	}
 	for name, raw := range props {
 		child, ok := raw.(map[string]any)
 		if !ok {
@@ -302,7 +311,10 @@ func compatibilityItemPath(prefix string) string {
 }
 
 func walkCompatibilitySchemaList(node map[string]any, prefix string, key string, fields map[string]compatFieldDescriptor) {
-	entries, _ := node[key].([]any)
+	entries, ok := node[key].([]any)
+	if !ok {
+		return
+	}
 	for idx, entry := range entries {
 		child, ok := entry.(map[string]any)
 		if !ok {
@@ -313,7 +325,10 @@ func walkCompatibilitySchemaList(node map[string]any, prefix string, key string,
 }
 
 func walkCompatibilityDefs(node map[string]any, prefix string, fields map[string]compatFieldDescriptor) {
-	defs, _ := node["$defs"].(map[string]any)
+	defs, ok := node["$defs"].(map[string]any)
+	if !ok {
+		return
+	}
 	for name, entry := range defs {
 		child, ok := entry.(map[string]any)
 		if !ok {
@@ -395,7 +410,10 @@ func compatTypeInfoFromTypes(node map[string]any, types []string) (compatTypeInf
 		return compatTypeInfo{kind: "unknown", signature: "type:" + strings.Join(types, "|")}, true
 	}
 	if containsArray {
-		items, _ := node["items"].(map[string]any)
+		items, ok := node["items"].(map[string]any)
+		if !ok {
+			items = nil
+		}
 		return compatArrayTypeInfo(items), true
 	}
 	return compatTypeInfo{kind: "object"}, true
@@ -630,7 +648,10 @@ func addCompatField(properties map[string]any, required *[]string, field map[str
 	if field == nil {
 		return
 	}
-	name, _ := field["name"].(string)
+	name, ok := field["name"].(string)
+	if !ok {
+		return
+	}
 	name = strings.TrimSpace(name)
 	if name == "" {
 		return
