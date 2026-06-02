@@ -32,7 +32,7 @@ func defaultQuickstartDoctorChecks(cfg admin.Config, result AdapterResult, optio
 		quickstartDoctorRoutingCheck(),
 		quickstartDoctorRoutesCheck(cfg),
 		quickstartDoctorBlockDefinitionsCheck(),
-		quickstartDoctorTranslationCheck(),
+		quickstartDoctorTranslationCheck(options),
 	}
 }
 
@@ -472,7 +472,7 @@ func quickstartDoctorRoutingCheck() admin.DoctorCheck {
 	}
 }
 
-func quickstartDoctorTranslationCheck() admin.DoctorCheck {
+func quickstartDoctorTranslationCheck(options adminOptions) admin.DoctorCheck {
 	return admin.DoctorCheck{
 		ID:          "quickstart.translation",
 		Label:       "Translation Capabilities",
@@ -482,8 +482,41 @@ func quickstartDoctorTranslationCheck() admin.DoctorCheck {
 			"Enable/disable translation modules consistently and ensure UI/API routes are registered for active modules.",
 			"Review translation wiring",
 		),
-		Run: quickstartDoctorTranslationRun,
+		Run: func(ctx context.Context, adm *admin.Admin) admin.DoctorCheckOutput {
+			output := quickstartDoctorTranslationRun(ctx, adm)
+			output.Findings = append(translationPolicyDiagnosticFindings(options.translationPolicyDiagnostics), output.Findings...)
+			return output
+		},
 	}
+}
+
+func translationPolicyDiagnosticFindings(diagnostics []TranslationPolicyDiagnostic) []admin.DoctorFinding {
+	if len(diagnostics) == 0 {
+		return nil
+	}
+	findings := make([]admin.DoctorFinding, 0, len(diagnostics))
+	for _, diagnostic := range diagnostics {
+		code := strings.TrimSpace(diagnostic.Code)
+		if code == "" {
+			code = TranslationPolicyServicesMissingCode
+		}
+		metadata := maps.Clone(diagnostic.Metadata)
+		if metadata == nil {
+			metadata = map[string]any{}
+		}
+		if len(diagnostic.MissingServices) > 0 {
+			metadata["missing_services"] = append([]string{}, diagnostic.MissingServices...)
+		}
+		findings = append(findings, admin.DoctorFinding{
+			Severity:  admin.DoctorSeverityWarn,
+			Code:      code,
+			Component: "translation.policy",
+			Message:   strings.TrimSpace(diagnostic.Message),
+			Hint:      strings.TrimSpace(diagnostic.Hint),
+			Metadata:  metadata,
+		})
+	}
+	return findings
 }
 
 func quickstartDoctorTranslationRun(_ context.Context, adm *admin.Admin) admin.DoctorCheckOutput {
