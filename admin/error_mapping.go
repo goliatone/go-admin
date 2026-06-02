@@ -2,10 +2,11 @@ package admin
 
 import (
 	"errors"
-	"github.com/goliatone/go-admin/internal/primitives"
 	"maps"
 	"net/http"
 	"strings"
+
+	"github.com/goliatone/go-admin/internal/primitives"
 
 	validation "github.com/go-ozzo/ozzo-validation/v4"
 	"github.com/gofiber/fiber/v2"
@@ -398,27 +399,7 @@ func mapPermissionAndCommonErrors(err error) (*goerrors.Error, int, bool) {
 
 	switch {
 	case errors.As(err, &permission):
-		mapped := goerrors.Wrap(err, goerrors.CategoryAuthz, mappedControlFlowMessage(err, permission.Error())).
-			WithCode(http.StatusForbidden).
-			WithTextCode(TextCodeForbidden)
-		meta := map[string]any{}
-		if permission.Permission != "" {
-			meta["permission"] = permission.Permission
-			meta["missing_permission"] = permission.Permission
-		}
-		if permission.Resource != "" {
-			meta["resource"] = permission.Resource
-		}
-		if strings.TrimSpace(permission.Hint) != "" {
-			meta["hint"] = strings.TrimSpace(permission.Hint)
-		}
-		if permission.ReauthRequired {
-			meta["reauth_required"] = true
-		}
-		if len(meta) > 0 {
-			mapped.Metadata = meta
-		}
-		return mapped, http.StatusForbidden, true
+		return mapPermissionDeniedError(err, permission), http.StatusForbidden, true
 	case errors.As(err, &fiberErr) && fiberErr != nil:
 		mapped := goerrors.Wrap(err, goerrors.CategoryRouting, fiberErr.Message).
 			WithCode(fiberErr.Code).
@@ -456,6 +437,30 @@ func mapPermissionAndCommonErrors(err error) (*goerrors.Error, int, bool) {
 		return mapped, http.StatusNotFound, true
 	}
 	return nil, 0, false
+}
+
+func mapPermissionDeniedError(err error, permission PermissionDeniedError) *goerrors.Error {
+	mapped := goerrors.Wrap(err, goerrors.CategoryAuthz, mappedControlFlowMessage(err, permission.Error())).
+		WithCode(http.StatusForbidden).
+		WithTextCode(TextCodeForbidden)
+	meta := map[string]any{}
+	if permission.Permission != "" {
+		meta["permission"] = permission.Permission
+		meta["missing_permission"] = permission.Permission
+	}
+	if permission.Resource != "" {
+		meta["resource"] = permission.Resource
+	}
+	if strings.TrimSpace(permission.Hint) != "" {
+		meta["hint"] = strings.TrimSpace(permission.Hint)
+	}
+	if permission.ReauthRequired {
+		meta["reauth_required"] = true
+	}
+	if len(meta) > 0 {
+		mapped.Metadata = meta
+	}
+	return mapped
 }
 
 type routeBoundaryContextCarrier interface {
@@ -535,8 +540,8 @@ func translationExistsMetadataForCMSError(err error) map[string]any {
 func preferSpecificMappedError(err error) *goerrors.Error {
 	var first *goerrors.Error
 	for current := err; current != nil; current = errors.Unwrap(current) {
-		typed, ok := current.(*goerrors.Error)
-		if !ok || typed == nil {
+		var typed *goerrors.Error
+		if !errors.As(current, &typed) || typed == nil {
 			continue
 		}
 		if first == nil {
