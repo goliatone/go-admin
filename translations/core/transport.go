@@ -2,7 +2,13 @@ package core
 
 import "strings"
 
-var reservedIdentityFields = []string{"actor_id", "tenant_id", "org_id"}
+const (
+	IdentityActorIDKey  = "actor_id"
+	IdentityTenantIDKey = "tenant_id"
+	IdentityOrgIDKey    = "org_id"
+)
+
+var reservedIdentityFields = []string{IdentityActorIDKey, IdentityTenantIDKey, IdentityOrgIDKey}
 
 func ReservedIdentityFields() []string {
 	return append([]string{}, reservedIdentityFields...)
@@ -21,7 +27,7 @@ func ForbiddenIdentityField(payload map[string]any) (string, bool) {
 	if len(scope) == 0 {
 		return "", false
 	}
-	for _, key := range []string{"tenant_id", "org_id"} {
+	for _, key := range []string{IdentityTenantIDKey, IdentityOrgIDKey} {
 		if _, ok := scope[key]; ok {
 			return "scope." + key, true
 		}
