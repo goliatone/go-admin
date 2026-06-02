@@ -459,16 +459,7 @@ func (s *TranslationExchangeService) executeImportRow(
 	}
 	record, replay, err := s.applyTranslationIdempotently(ctx, applyReq, prepared.PayloadHash)
 	if err != nil {
-		prepared.RowResult.Status = translationExchangeRowStatusError
-		prepared.RowResult.Error = err.Error()
-		prepared.RowResult.Metadata = map[string]any{
-			"linkage_key":  prepared.Key.String(),
-			"payload_hash": prepared.PayloadHash,
-		}
-		return translationExchangeRegisteredApplyOutcome(
-			translationExchangeApplyStopOutcome(prepared.RowResult, input),
-			prepared.KeyString,
-		), nil
+		return translationExchangeRegisteredApplyErrorOutcome(prepared, input, err)
 	}
 	return translationExchangeRegisteredApplyOutcome(translationExchangeApplyRowOutcome{
 		RowResult: translationExchangeAppliedRowResult(
@@ -481,6 +472,23 @@ func (s *TranslationExchangeService) executeImportRow(
 			prepared.Linkage,
 		),
 	}, prepared.KeyString), nil
+}
+
+func translationExchangeRegisteredApplyErrorOutcome(
+	prepared translationExchangePreparedApplyRow,
+	input TranslationImportApplyInput,
+	applyErr error,
+) (translationExchangeApplyRowOutcome, error) {
+	prepared.RowResult.Status = translationExchangeRowStatusError
+	prepared.RowResult.Error = applyErr.Error()
+	prepared.RowResult.Metadata = map[string]any{
+		"linkage_key":  prepared.Key.String(),
+		"payload_hash": prepared.PayloadHash,
+	}
+	return translationExchangeRegisteredApplyOutcome(
+		translationExchangeApplyStopOutcome(prepared.RowResult, input),
+		prepared.KeyString,
+	), nil
 }
 
 func translationExchangeApplyStopOutcome(rowResult TranslationExchangeRowResult, input TranslationImportApplyInput) translationExchangeApplyRowOutcome {
