@@ -3,11 +3,13 @@ package main
 import (
 	"context"
 	"embed"
+	"encoding/json"
 	"fmt"
 	"io/fs"
 	"log"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"os"
 	"path"
 	"path/filepath"
@@ -464,6 +466,23 @@ func main() {
 		)
 	}
 	cfg = adapterResult.Config
+	infof(
+		"navigation.startup.config config_path=%s env=%s persistent_cms=%t cms_dsn=%s content_dsn=%s resolved_content_dsn=%s menu=%s locale=%s reset_menu=%t nav_debug=%t nav_debug_log=%t seeds_enabled=%t seeds_truncate=%t translation_profile=%s",
+		strings.TrimSpace(runtimeConfig.ConfigPath),
+		strings.TrimSpace(runtimeConfig.App.Env),
+		adapterResult.Flags.UsePersistentCMS,
+		redactedDSNForLog(runtimeConfig.Databases.CMSDSN),
+		redactedDSNForLog(runtimeConfig.Databases.ContentDSN),
+		redactedDSNForLog(stores.ResolveContentDSN()),
+		cfg.NavMenuCode,
+		cfg.DefaultLocale,
+		runtimeConfig.Navigation.ResetMenu,
+		runtimeConfig.Navigation.Debug,
+		runtimeConfig.Navigation.DebugLog,
+		runtimeConfig.Seeds.Enabled,
+		runtimeConfig.Seeds.Truncate,
+		runtimeConfig.Translation.Profile,
+	)
 	cmsBackend := adapterResult.CMSBackend
 	authzPreflightMode := resolveAuthzPreflightMode(runtimeConfig.Admin.AuthzPreflight.Mode, isDev)
 	authzPreflightRoles := resolveAuthzPreflightRoleKeys(runtimeConfig.Admin.AuthzPreflight.Roles)
@@ -980,6 +999,7 @@ func main() {
 		modules = append(modules, quickstart.NewDebugModule(cfg.Debug))
 	}
 
+	logTranslationNavigationSnapshot(context.Background(), "before-module-registrar", adm.MenuService(), cfg.NavMenuCode, cfg.DefaultLocale, infof, warnf)
 	if err := quickstart.NewModuleRegistrar(
 		adm,
 		cfg,
@@ -987,12 +1007,26 @@ func main() {
 		isDev,
 		quickstart.WithTranslationCapabilityMenuMode(quickstart.TranslationCapabilityMenuModeTools),
 		quickstart.WithDefaultSidebarUtilityItems(true),
+		quickstart.WithSeedNavigationOptions(func(opts *quickstart.SeedNavigationOptions) {
+			if opts == nil {
+				return
+			}
+			opts.Reset = runtimeConfig.Navigation.ResetMenu
+			opts.Logf = func(format string, args ...any) {
+				infof(format, args...)
+			}
+			opts.Reportf = func(report quickstart.NavigationReconcileReport) {
+				logNavigationReconcileReport(infof, report)
+			}
+		}),
 	); err != nil {
 		fatalf("failed to register modules: %v", err)
 	}
+	logTranslationNavigationSnapshot(context.Background(), "after-module-registrar", adm.MenuService(), cfg.NavMenuCode, cfg.DefaultLocale, infof, warnf)
 	if err := ensureCoreContentPanels(adm, dataStores.Pages, dataStores.Posts); err != nil {
 		fatalf("failed to ensure core content panels: %v", err)
 	}
+	logTranslationNavigationSnapshot(context.Background(), "after-core-content-panels", adm.MenuService(), cfg.NavMenuCode, cfg.DefaultLocale, infof, warnf)
 
 	// Wire dashboard renderer for server-side rendering
 	dashboardRenderer, err := setup.NewDashboardRenderer(
@@ -1014,24 +1048,30 @@ func main() {
 	if err := adm.Initialize(host.Admin()); err != nil {
 		fatalf("failed to initialize admin: %v", err)
 	}
+	logTranslationNavigationSnapshot(context.Background(), "after-admin-initialize", adm.MenuService(), cfg.NavMenuCode, cfg.DefaultLocale, infof, warnf)
 	if err := setup.RemovePrimarySettingsMenuItems(context.Background(), adm.MenuService(), cfg.NavMenuCode, cfg.DefaultLocale); err != nil {
 		warnf("failed to prune primary settings menu item: %v", err)
 	}
+	logTranslationNavigationSnapshot(context.Background(), "after-remove-primary-settings", adm.MenuService(), cfg.NavMenuCode, cfg.DefaultLocale, infof, warnf)
 	if _, err := setup.LogNavigationIntegritySummary(context.Background(), adm.MenuService(), cfg.NavMenuCode, cfg.DefaultLocale); err != nil {
 		warnf("failed to repair/check navigation integrity: %v", err)
 	}
+	logTranslationNavigationSnapshot(context.Background(), "after-navigation-integrity-summary-1", adm.MenuService(), cfg.NavMenuCode, cfg.DefaultLocale, infof, warnf)
 	// Reorder after full module/panel registration to avoid mutation races with dynamic panel sync.
 	if err := setup.EnsureDashboardFirstWithOptions(context.Background(), adm.MenuService(), cfg.BasePath, cfg.NavMenuCode, cfg.DefaultLocale, setup.EnsureDashboardFirstOptions{
 		EnsureContentParentPath: false,
 	}); err != nil {
 		warnf("failed to fix dashboard ordering: %v", err)
 	}
+	logTranslationNavigationSnapshot(context.Background(), "after-ensure-dashboard-first", adm.MenuService(), cfg.NavMenuCode, cfg.DefaultLocale, infof, warnf)
 	if err := setup.EnsureContentParentPermissions(context.Background(), adm.MenuService(), cfg.NavMenuCode, cfg.DefaultLocale); err != nil {
 		warnf("failed to reconcile content parent permissions: %v", err)
 	}
+	logTranslationNavigationSnapshot(context.Background(), "after-content-parent-permissions", adm.MenuService(), cfg.NavMenuCode, cfg.DefaultLocale, infof, warnf)
 	if err := setup.RemoveLegacyTranslationToolsMenuItems(context.Background(), adm.MenuService(), cfg.NavMenuCode, cfg.DefaultLocale); err != nil {
 		warnf("failed to remove legacy translation items from tools menu: %v", err)
 	}
+	logTranslationNavigationSnapshot(context.Background(), "after-remove-legacy-translation-tools", adm.MenuService(), cfg.NavMenuCode, cfg.DefaultLocale, infof, warnf)
 	if report, err := setup.LogNavigationIntegritySummary(context.Background(), adm.MenuService(), cfg.NavMenuCode, cfg.DefaultLocale); err != nil {
 		warnf("failed to compute final navigation integrity summary: %v", err)
 	} else if report.HasIssues() {
@@ -1046,6 +1086,7 @@ func main() {
 			report.MenuCode, report.Locale, report.OrphanCount, report.CycleCount, report.SelfParentCount,
 		)
 	}
+	logTranslationNavigationSnapshot(context.Background(), "after-navigation-integrity-summary-final", adm.MenuService(), cfg.NavMenuCode, cfg.DefaultLocale, infof, warnf)
 	if debugEnabled {
 		if collector := adm.Debug(); collector != nil {
 			if runtimeConfig.Admin.Debug.EnableSlog {
@@ -1409,6 +1450,254 @@ func main() {
 	if err := server.Serve(listenAddr); err != nil {
 		fatalf("server stopped: %v", err)
 	}
+}
+
+func redactedDSNForLog(dsn string) string {
+	dsn = strings.TrimSpace(dsn)
+	if dsn == "" {
+		return ""
+	}
+	parsed, err := url.Parse(dsn)
+	if err != nil || parsed == nil || parsed.User == nil {
+		return dsn
+	}
+	user := parsed.User.Username()
+	if user == "" {
+		parsed.User = url.UserPassword("redacted", "redacted")
+	} else {
+		parsed.User = url.UserPassword(user, "redacted")
+	}
+	return parsed.String()
+}
+
+func logNavigationReconcileReport(infof func(string, ...any), report quickstart.NavigationReconcileReport) {
+	if infof == nil {
+		return
+	}
+	payload, err := json.Marshal(report)
+	if err != nil {
+		infof(
+			"navigation.reconcile.report menu=%s locale=%s applied=%t expected=%d actual=%d creates=%v updates=%v destructive=%v",
+			report.MenuCode,
+			report.Locale,
+			report.Applied,
+			report.ExpectedGeneratedCount,
+			report.ActualGeneratedCount,
+			report.Creates,
+			report.Updates,
+			report.DestructiveCandidates,
+		)
+		return
+	}
+	infof("navigation.reconcile.report %s", string(payload))
+}
+
+func logTranslationNavigationSnapshot(
+	ctx context.Context,
+	phase string,
+	menuSvc admin.CMSMenuService,
+	menuCode string,
+	locale string,
+	infof func(string, ...any),
+	warnf func(string, ...any),
+) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if infof == nil {
+		return
+	}
+	menuCode = normalizedExampleMenuCode(menuCode)
+	locale = strings.TrimSpace(locale)
+	if locale == "" {
+		locale = "en"
+	}
+	requiredIDs := requiredTranslationNavigationIDs(menuCode)
+
+	rendered := navigationInventory{}
+	if menuSvc == nil {
+		if warnf != nil {
+			warnf("navigation.translation.snapshot phase=%s menu=%s locale=%s rendered_error=menu_service_nil", phase, menuCode, locale)
+		}
+	} else if menu, err := menuSvc.Menu(ctx, menuCode, locale); err != nil {
+		if warnf != nil {
+			warnf("navigation.translation.snapshot phase=%s menu=%s locale=%s rendered_error=%v", phase, menuCode, locale, err)
+		}
+	} else if menu != nil {
+		rendered = collectRenderedTranslationNavigation(menu.Items)
+	}
+	renderedPresent, renderedMissing := partitionRequiredNavigationIDs(requiredIDs, rendered.IDs)
+
+	raw, rawErr := collectGoCMSRawTranslationNavigation(ctx, menuSvc, menuCode)
+	rawPresent, rawMissing := partitionRequiredNavigationIDs(requiredIDs, raw.IDs)
+	rawStatus := "available"
+	if rawErr != nil {
+		rawStatus = rawErr.Error()
+	}
+
+	infof(
+		"navigation.translation.snapshot phase=%s menu=%s locale=%s required=%v rendered_present=%v rendered_missing=%v rendered_items=%v raw_status=%s raw_present=%v raw_missing=%v raw_items=%v",
+		phase,
+		menuCode,
+		locale,
+		requiredIDs,
+		renderedPresent,
+		renderedMissing,
+		summarizeNavigationList(rendered.Summaries, 12),
+		rawStatus,
+		rawPresent,
+		rawMissing,
+		summarizeNavigationList(raw.Summaries, 12),
+	)
+}
+
+type navigationInventory struct {
+	IDs       []string
+	Summaries []string
+}
+
+func normalizedExampleMenuCode(menuCode string) string {
+	menuCode = strings.TrimSpace(menuCode)
+	if menuCode == "" {
+		return setup.NavigationMenuCode
+	}
+	return menuCode
+}
+
+func requiredTranslationNavigationIDs(menuCode string) []string {
+	menuCode = normalizedExampleMenuCode(menuCode)
+	return []string{
+		menuCode + ".nav-group-translations.translations.dashboard",
+		menuCode + ".nav-group-translations.translations.queue",
+		menuCode + ".nav-group-translations.translations.assignments",
+		menuCode + ".nav-group-translations.translations.exchange",
+	}
+}
+
+func collectRenderedTranslationNavigation(items []admin.MenuItem) navigationInventory {
+	inventory := navigationInventory{}
+	var walk func([]admin.MenuItem)
+	walk = func(nodes []admin.MenuItem) {
+		for _, item := range nodes {
+			if isTranslationNavigationItem(item.ID, item.Label, menuItemTargetValue(item.Target, "key"), menuItemTargetValue(item.Target, "path"), menuItemTargetValue(item.Target, "name")) {
+				inventory.IDs = append(inventory.IDs, strings.TrimSpace(item.ID))
+				inventory.Summaries = append(inventory.Summaries, renderedNavigationSummary(item))
+			}
+			if len(item.Children) > 0 {
+				walk(item.Children)
+			}
+		}
+	}
+	walk(items)
+	sort.Strings(inventory.IDs)
+	sort.Strings(inventory.Summaries)
+	return inventory
+}
+
+func collectGoCMSRawTranslationNavigation(ctx context.Context, menuSvc admin.CMSMenuService, menuCode string) (navigationInventory, error) {
+	if menuSvc == nil {
+		return navigationInventory{}, fmt.Errorf("unavailable:menu_service_nil")
+	}
+	adapter, ok := menuSvc.(*coreadmin.GoCMSMenuAdapter)
+	if !ok || adapter == nil || adapter.GoCMSMenuService() == nil {
+		return navigationInventory{}, fmt.Errorf("unavailable:menu_service_type=%T", menuSvc)
+	}
+	items, err := adapter.GoCMSMenuService().ListMenuItemsByCode(ctx, menuCode)
+	if err != nil {
+		return navigationInventory{}, fmt.Errorf("error:%w", err)
+	}
+	inventory := navigationInventory{}
+	for _, item := range items {
+		if item == nil {
+			continue
+		}
+		if isTranslationNavigationItem(item.Path, "", anyMapValueString(item.Target, "key"), anyMapValueString(item.Target, "path"), anyMapValueString(item.Target, "name")) {
+			inventory.IDs = append(inventory.IDs, strings.TrimSpace(item.Path))
+			inventory.Summaries = append(inventory.Summaries, rawNavigationSummary(item.Path, item.Target, item.Permissions))
+		}
+	}
+	sort.Strings(inventory.IDs)
+	sort.Strings(inventory.Summaries)
+	return inventory, nil
+}
+
+func partitionRequiredNavigationIDs(required, observed []string) ([]string, []string) {
+	seen := map[string]bool{}
+	for _, id := range observed {
+		id = strings.TrimSpace(id)
+		if id != "" {
+			seen[id] = true
+		}
+	}
+	present := []string{}
+	missing := []string{}
+	for _, id := range required {
+		if seen[id] {
+			present = append(present, id)
+		} else {
+			missing = append(missing, id)
+		}
+	}
+	return present, missing
+}
+
+func renderedNavigationSummary(item admin.MenuItem) string {
+	return fmt.Sprintf(
+		"%s{label=%s,key=%s,path=%s,perms=%s}",
+		strings.TrimSpace(item.ID),
+		strings.TrimSpace(item.Label),
+		menuItemTargetValue(item.Target, "key"),
+		menuItemTargetValue(item.Target, "path"),
+		strings.Join(item.Permissions, "|"),
+	)
+}
+
+func rawNavigationSummary(id string, target map[string]any, permissions []string) string {
+	return fmt.Sprintf(
+		"%s{key=%s,path=%s,perms=%s}",
+		strings.TrimSpace(id),
+		anyMapValueString(target, "key"),
+		anyMapValueString(target, "path"),
+		strings.Join(permissions, "|"),
+	)
+}
+
+func isTranslationNavigationItem(values ...string) bool {
+	for _, value := range values {
+		if strings.Contains(strings.ToLower(strings.TrimSpace(value)), "translation") {
+			return true
+		}
+	}
+	return false
+}
+
+func menuItemTargetValue(target map[string]any, key string) string {
+	return anyMapValueString(target, key)
+}
+
+func anyMapValueString(target map[string]any, key string) string {
+	if len(target) == 0 {
+		return ""
+	}
+	value, ok := target[key]
+	if !ok || value == nil {
+		return ""
+	}
+	switch typed := value.(type) {
+	case string:
+		return strings.TrimSpace(typed)
+	default:
+		return strings.TrimSpace(fmt.Sprint(typed))
+	}
+}
+
+func summarizeNavigationList(items []string, limit int) []string {
+	if limit <= 0 || len(items) <= limit {
+		return append([]string{}, items...)
+	}
+	out := append([]string{}, items[:limit]...)
+	out = append(out, fmt.Sprintf("...+%d", len(items)-limit))
+	return out
 }
 
 func resolveListenAddr(cfg appcfg.ServerConfig) string {

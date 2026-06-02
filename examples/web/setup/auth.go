@@ -604,8 +604,11 @@ func resolveRolePermissionsSnapshot(ctx context.Context, registry userstypes.Rol
 	if userID == "" {
 		return rolePermissionSnapshot{}, nil
 	}
-	uid, err := uuid.Parse(userID)
-	if err != nil || uid == uuid.Nil {
+	uid := uuid.Nil
+	if parsed, err := uuid.Parse(userID); err == nil {
+		uid = parsed
+	}
+	if uid == uuid.Nil {
 		return rolePermissionSnapshot{}, nil
 	}
 	actor := userstypes.ActorRef{ID: uid, Type: "user"}
