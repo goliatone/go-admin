@@ -10,7 +10,6 @@ import (
 	"github.com/goliatone/go-admin/internal/primitives"
 	"maps"
 	"net/http"
-	"reflect"
 	"sort"
 	"strings"
 	"time"
@@ -20,6 +19,7 @@ import (
 	gocore "github.com/goliatone/go-services/core"
 	goservicesinbound "github.com/goliatone/go-services/inbound"
 	servicesratelimit "github.com/goliatone/go-services/ratelimit"
+	sqlstore "github.com/goliatone/go-services/store/sql"
 	"github.com/uptrace/bun"
 )
 
@@ -1535,6 +1535,14 @@ type rateLimitStateStore interface {
 	Get(ctx context.Context, key gocore.RateLimitKey) (servicesratelimit.State, error)
 }
 
+type rateLimitStateStoreProvider interface {
+	RateLimitStateStore() rateLimitStateStore
+}
+
+type sqlRateLimitStateStoreProvider interface {
+	RateLimitStateStore() *sqlstore.RateLimitStateStore
+}
+
 func resolveRateLimitStateStore(factory any) rateLimitStateStore {
 	if factory == nil {
 		return nil
@@ -1542,39 +1550,17 @@ func resolveRateLimitStateStore(factory any) rateLimitStateStore {
 	if typed, ok := factory.(rateLimitStateStore); ok {
 		return typed
 	}
-	factoryValue := reflect.ValueOf(factory)
-	if !factoryValue.IsValid() {
-		return nil
+	if provider, ok := factory.(rateLimitStateStoreProvider); ok {
+		return provider.RateLimitStateStore()
 	}
-	method := factoryValue.MethodByName("RateLimitStateStore")
-	if !method.IsValid() || method.Type().NumIn() != 0 || method.Type().NumOut() != 1 {
-		return nil
-	}
-	results, ok := safeReflectMethodCall(method)
-	if !ok || len(results) != 1 {
-		return nil
-	}
-	candidate := results[0]
-	if !candidate.IsValid() {
-		return nil
-	}
-	if candidate.Kind() == reflect.Pointer && candidate.IsNil() {
-		return nil
-	}
-	typed, ok := candidate.Interface().(rateLimitStateStore)
-	if !ok {
-		return nil
-	}
-	return typed
-}
-
-func safeReflectMethodCall(method reflect.Value) (_ []reflect.Value, ok bool) {
-	defer func() {
-		if recover() != nil {
-			ok = false
+	if provider, ok := factory.(sqlRateLimitStateStoreProvider); ok {
+		store := provider.RateLimitStateStore()
+		if store == nil {
+			return nil
 		}
-	}()
-	return method.Call(nil), true
+		return store
+	}
+	return nil
 }
 
 func paginateMaps(items []map[string]any, limit int, offset int) []map[string]any {
