@@ -43,6 +43,9 @@ func (a *Admin) contentEntryAliases() []string {
 	}
 	seen := map[string]string{}
 	for _, ct := range types {
+		if !contentTypePublished(&ct) {
+			continue
+		}
 		for _, candidate := range []string{
 			strings.TrimSpace(ct.Slug),
 			panelSlugForContentType(&ct),
@@ -130,6 +133,9 @@ func (a *Admin) resolvePanelSlugAlias(ctx context.Context, alias string) string 
 		return alias
 	}
 	for _, ct := range types {
+		if !contentTypePublished(&ct) {
+			continue
+		}
 		panelSlug := panelSlugForContentType(&ct)
 		if panelSlug != "" && strings.EqualFold(panelSlug, alias) {
 			return panelSlug
