@@ -91,6 +91,95 @@ func TestTranslationFamilyBindingListAppliesFiltersAndScopeIsolation(t *testing.
 	}
 }
 
+func TestTranslationFamilyListRowLabelsPolicyUnavailableWithoutChangingCode(t *testing.T) {
+	row := translationFamilyListRow(translationservices.FamilyRecord{
+		ID:             "family-policy-unavailable",
+		ContentType:    "news",
+		SourceLocale:   "en",
+		ReadinessState: string(translationcore.FamilyReadinessBlocked),
+		BlockerCodes:   []string{string(translationcore.FamilyBlockerPolicyDenied)},
+		Blockers: []translationservices.FamilyBlocker{{
+			FamilyID:    "family-policy-unavailable",
+			BlockerCode: string(translationcore.FamilyBlockerPolicyDenied),
+			Details: map[string]any{
+				translationcore.FamilyBlockerDetailContentType: "news",
+				translationcore.FamilyBlockerDetailEnvironment: "default",
+				translationcore.FamilyBlockerDetailReason:      string(translationcore.FamilyBlockerReasonPolicyUnavailable),
+			},
+		}},
+	})
+
+	if codes := toStringSlice(row["blocker_codes"]); len(codes) != 1 || codes[0] != string(translationcore.FamilyBlockerPolicyDenied) {
+		t.Fatalf("expected canonical policy_denied code, got %+v", codes)
+	}
+	labels, ok := row["blocker_labels"].(map[string]string)
+	if !ok {
+		t.Fatalf("expected blocker_labels map[string]string, got %#v", row["blocker_labels"])
+	}
+	if got := labels[string(translationcore.FamilyBlockerPolicyDenied)]; got != "Policy unavailable" {
+		t.Fatalf("expected policy-unavailable label, got %q", got)
+	}
+
+	hostRow := translationFamilyListRow(translationservices.FamilyRecord{
+		ID:             "family-host-policy",
+		ContentType:    "news",
+		SourceLocale:   "en",
+		ReadinessState: string(translationcore.FamilyReadinessBlocked),
+		BlockerCodes:   []string{string(translationcore.FamilyBlockerPolicyDenied)},
+		Blockers: []translationservices.FamilyBlocker{{
+			FamilyID:    "family-host-policy",
+			BlockerCode: string(translationcore.FamilyBlockerPolicyDenied),
+			Details: map[string]any{
+				translationcore.FamilyBlockerDetailReason: "Legal hold",
+			},
+		}},
+	})
+	hostLabels, ok := hostRow["blocker_labels"].(map[string]string)
+	if !ok {
+		t.Fatalf("expected host blocker_labels map[string]string, got %#v", hostRow["blocker_labels"])
+	}
+	if got := hostLabels[string(translationcore.FamilyBlockerPolicyDenied)]; got != "Policy denied" {
+		t.Fatalf("expected host policy denial label to remain policy denied, got %q", got)
+	}
+}
+
+func TestTranslationFamilyPolicyResolverMarksHostPolicyDenials(t *testing.T) {
+	expectedErr := errors.New("legal hold")
+	adm := &Admin{
+		translationPolicy: TranslationPolicyFunc(func(context.Context, TranslationPolicyInput) error {
+			return expectedErr
+		}),
+	}
+	resolver := translationFamilyPolicyResolver{admin: adm}
+	blockers, err := resolver.ResolvePolicyBlockers(
+		context.Background(),
+		translationservices.FamilyRecord{
+			ID:              "family-host-policy",
+			ContentType:     "pages",
+			SourceLocale:    "en",
+			SourceVariantID: "variant-en",
+			Variants: []translationservices.FamilyVariant{
+				{ID: "variant-en", FamilyID: "family-host-policy", Locale: "en", SourceRecordID: "record-en", IsSource: true},
+			},
+		},
+		translationservices.FamilyPolicy{ContentType: "pages", SourceLocale: "en", RequiredLocales: []string{"en"}},
+		"production",
+	)
+	if err != nil {
+		t.Fatalf("resolve policy blockers: %v", err)
+	}
+	if len(blockers) != 1 {
+		t.Fatalf("expected one host policy blocker, got %+v", blockers)
+	}
+	details := blockers[0].Details
+	if details["reason"] != "host_policy" {
+		t.Fatalf("expected host_policy reason, got %+v", details)
+	}
+	if details["message"] != expectedErr.Error() {
+		t.Fatalf("expected original policy error message, got %+v", details)
+	}
+}
+
 func TestBunTranslationFamilyStoreListFamiliesQueryUsesLightweightProjectionRows(t *testing.T) {
 	db := newTranslationFamilyStoreSQLiteDB(t)
 	ctx := context.Background()

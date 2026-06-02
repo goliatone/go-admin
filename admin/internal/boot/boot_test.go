@@ -3,13 +3,9 @@ package boot
 import (
 	"context"
 	"errors"
-	"io"
-	"net/http"
-	"net/http/httptest"
 	"strings"
 	"testing"
 
-	"github.com/gofiber/fiber/v2"
 	"github.com/goliatone/go-admin/admin/routing"
 	goerrors "github.com/goliatone/go-errors"
 	"github.com/stretchr/testify/require"
@@ -1737,36 +1733,6 @@ func TestPanelAndTranslationQueueRoutesDoNotShadowEachOther(t *testing.T) {
 	require.NotEqual(t, panelCollection, queue)
 	require.NotEqual(t, panelDetail, myWork)
 	require.NotEqual(t, panelDetail, queue)
-}
-
-func TestTranslationQueueRouteStepServesSyncCoreAssets(t *testing.T) {
-	app := fiber.New(fiber.Config{
-		UnescapePath:      true,
-		EnablePrintRoutes: true,
-		StrictRouting:     false,
-		PassLocalsToViews: true,
-	})
-	adapter := router.NewFiberAdapter(func(_ *fiber.App) *fiber.App {
-		return app
-	})
-	ctx := &stubCtx{
-		router:    adapter.Router(),
-		responder: &stubResponder{},
-		basePath:  "/admin",
-		queue:     &stubTranslationQueueBinding{},
-	}
-
-	require.NoError(t, TranslationQueueRouteStep(ctx))
-	adapter.Init()
-
-	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/sync-client/sync-core/index.js", nil)
-	resp, err := app.Test(req)
-	require.NoError(t, err)
-	defer resp.Body.Close() //nolint:errcheck // test response body cleanup is best-effort
-	body, err := io.ReadAll(resp.Body)
-	require.NoError(t, err)
-	require.Equal(t, http.StatusOK, resp.StatusCode, string(body))
-	require.NotEmpty(t, strings.TrimSpace(string(body)))
 }
 
 func (s *stubSettingsBinding) Values(_ router.Context) (map[string]any, error) {

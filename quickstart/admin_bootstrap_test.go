@@ -3,6 +3,7 @@ package quickstart
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/goliatone/go-admin/admin"
@@ -375,6 +376,130 @@ func TestNewAdminWithStartupPolicyEnforceFailsOnModuleStartupValidationErrors(t 
 	server := router.NewHTTPServer()
 	if err := adm.Initialize(server.Router()); err == nil {
 		t.Fatalf("Initialize should fail with enforce startup policy")
+	}
+}
+
+func TestNewAdminFailsForExplicitTranslationPolicyWithoutCheckers(t *testing.T) {
+	resetCommandRegistryForTest(t)
+
+	cfg := NewAdminConfig("", "", "en")
+	cfg.AuthConfig = &admin.AuthConfig{AllowUnauthenticatedRoutes: true}
+
+	_, _, err := NewAdmin(
+		cfg,
+		AdapterHooks{},
+		WithTranslationPolicyConfig(bootstrapRequiredTranslationPolicyConfig()),
+	)
+	if err == nil {
+		t.Fatalf("expected NewAdmin to fail for configured translation policy without checkers")
+	}
+	if !errors.Is(err, ErrTranslationPolicyServicesUnavailable) {
+		t.Fatalf("expected ErrTranslationPolicyServicesUnavailable, got %v", err)
+	}
+	if !strings.Contains(err.Error(), TranslationPolicyServicesMissingCode) {
+		t.Fatalf("expected deterministic diagnostic code in error, got %q", err)
+	}
+}
+
+func TestNewAdminFailsForDenyByDefaultTranslationPolicyWithoutCheckers(t *testing.T) {
+	resetCommandRegistryForTest(t)
+
+	cfg := NewAdminConfig("", "", "en")
+	cfg.AuthConfig = &admin.AuthConfig{AllowUnauthenticatedRoutes: true}
+
+	_, _, err := NewAdmin(
+		cfg,
+		AdapterHooks{},
+		WithTranslationPolicyConfig(TranslationPolicyConfig{DenyByDefault: true}),
+	)
+	if !errors.Is(err, ErrTranslationPolicyServicesUnavailable) {
+		t.Fatalf("expected ErrTranslationPolicyServicesUnavailable, got %v", err)
+	}
+}
+
+func TestNewAdminAllowsPermissiveTranslationPolicyWithoutCheckers(t *testing.T) {
+	resetCommandRegistryForTest(t)
+
+	cfg := NewAdminConfig("", "", "en")
+	cfg.AuthConfig = &admin.AuthConfig{AllowUnauthenticatedRoutes: true}
+
+	adm, _, err := NewAdmin(
+		cfg,
+		AdapterHooks{},
+		WithTranslationPolicyConfig(TranslationPolicyConfig{}),
+	)
+	if err != nil {
+		t.Fatalf("NewAdmin error: %v", err)
+	}
+	t.Cleanup(adm.Commands().Reset)
+}
+
+func TestNewAdminAllowsExplicitTranslationPolicyServiceOverrides(t *testing.T) {
+	resetCommandRegistryForTest(t)
+
+	cfg := NewAdminConfig("", "", "en")
+	cfg.AuthConfig = &admin.AuthConfig{AllowUnauthenticatedRoutes: true}
+
+	adm, _, err := NewAdmin(
+		cfg,
+		AdapterHooks{},
+		WithTranslationPolicyConfig(bootstrapRequiredTranslationPolicyConfig()),
+		WithTranslationPolicyServices(TranslationPolicyServices{
+			Pages:   stubTranslationChecker{},
+			Content: stubTranslationChecker{},
+		}),
+	)
+	if err != nil {
+		t.Fatalf("NewAdmin error: %v", err)
+	}
+	t.Cleanup(adm.Commands().Reset)
+}
+
+func TestNewAdminStartupPolicyWarnReportsTranslationPolicyCheckerDiagnostic(t *testing.T) {
+	resetCommandRegistryForTest(t)
+
+	cfg := NewAdminConfig("", "", "en")
+	cfg.AuthConfig = &admin.AuthConfig{AllowUnauthenticatedRoutes: true}
+
+	adm, _, err := NewAdmin(
+		cfg,
+		AdapterHooks{},
+		WithStartupPolicy(StartupPolicyWarn),
+		WithTranslationPolicyConfig(bootstrapRequiredTranslationPolicyConfig()),
+	)
+	if err != nil {
+		t.Fatalf("NewAdmin error: %v", err)
+	}
+	t.Cleanup(adm.Commands().Reset)
+
+	report := adm.RunDoctor(context.Background())
+	check, ok := quickstartDoctorCheckResult(report, "quickstart.translation")
+	if !ok {
+		t.Fatalf("expected quickstart.translation doctor check, got %+v", report.Checks)
+	}
+	for _, finding := range check.Findings {
+		if finding.Code == TranslationPolicyServicesMissingCode {
+			if finding.Severity != admin.DoctorSeverityWarn {
+				t.Fatalf("expected warn severity, got %#v", finding)
+			}
+			if !strings.Contains(strings.ToLower(finding.Hint), "withtranslationpolicyservices") {
+				t.Fatalf("expected actionable service override hint, got %#v", finding)
+			}
+			return
+		}
+	}
+	t.Fatalf("expected translation policy services diagnostic, got %#v", check.Findings)
+}
+
+func bootstrapRequiredTranslationPolicyConfig() TranslationPolicyConfig {
+	return TranslationPolicyConfig{
+		Required: map[string]TranslationPolicyEntityConfig{
+			"posts": {
+				"publish": {
+					Locales: []string{"fr"},
+				},
+			},
+		},
 	}
 }
 

@@ -75,3 +75,56 @@ func TestResolveTranslationPolicyServicesPrefersOverrides(t *testing.T) {
 		t.Fatalf("expected override services to be used")
 	}
 }
+
+func TestDiagnoseTranslationPolicyServicesReportsExplicitRequirementsWithoutCheckers(t *testing.T) {
+	cfg := TranslationPolicyConfig{
+		Required: map[string]TranslationPolicyEntityConfig{
+			"pages": {
+				"publish": {Locales: []string{"en", "es"}},
+			},
+		},
+	}
+	diagnostics := DiagnoseTranslationPolicyServices(cfg, TranslationPolicyServices{})
+	if len(diagnostics) != 1 {
+		t.Fatalf("expected one diagnostic, got %+v", diagnostics)
+	}
+	if diagnostics[0].Code != TranslationPolicyServicesMissingCode {
+		t.Fatalf("unexpected diagnostic code: %+v", diagnostics[0])
+	}
+	if len(diagnostics[0].MissingServices) != 2 {
+		t.Fatalf("expected page and content services missing, got %+v", diagnostics[0].MissingServices)
+	}
+}
+
+func TestDiagnoseTranslationPolicyServicesReportsDenyByDefaultWithoutCheckers(t *testing.T) {
+	diagnostics := DiagnoseTranslationPolicyServices(
+		TranslationPolicyConfig{DenyByDefault: true},
+		TranslationPolicyServices{},
+	)
+	if len(diagnostics) != 1 || diagnostics[0].Code != TranslationPolicyServicesMissingCode {
+		t.Fatalf("expected services-missing diagnostic, got %+v", diagnostics)
+	}
+}
+
+func TestDiagnoseTranslationPolicyServicesAllowsPermissiveEmptyPolicyWithoutCheckers(t *testing.T) {
+	diagnostics := DiagnoseTranslationPolicyServices(TranslationPolicyConfig{}, TranslationPolicyServices{})
+	if len(diagnostics) != 0 {
+		t.Fatalf("expected no diagnostics for empty permissive policy, got %+v", diagnostics)
+	}
+}
+
+func TestDiagnoseTranslationPolicyServicesAllowsExplicitOverrides(t *testing.T) {
+	diagnostics := DiagnoseTranslationPolicyServices(
+		TranslationPolicyConfig{
+			Required: map[string]TranslationPolicyEntityConfig{
+				"pages": {
+					"publish": {Locales: []string{"en", "es"}},
+				},
+			},
+		},
+		TranslationPolicyServices{Pages: stubTranslationChecker{}, Content: stubTranslationChecker{}},
+	)
+	if len(diagnostics) != 0 {
+		t.Fatalf("expected no diagnostics with explicit checker overrides, got %+v", diagnostics)
+	}
+}

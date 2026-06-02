@@ -14,6 +14,7 @@ import (
 	router "github.com/goliatone/go-router"
 	goservices "github.com/goliatone/go-services"
 	gocore "github.com/goliatone/go-services/core"
+	servicesratelimit "github.com/goliatone/go-services/ratelimit"
 	"github.com/uptrace/bun"
 	"github.com/uptrace/bun/dialect/sqlitedialect"
 	"github.com/uptrace/bun/driver/sqliteshim"
@@ -104,6 +105,61 @@ type fixedOptionsResolver struct {
 
 func (r fixedOptionsResolver) Resolve(gocore.Config, gocore.Config, gocore.Config) (gocore.Config, error) {
 	return r.cfg, nil
+}
+
+type testRateLimitStateStore struct{}
+
+func (s *testRateLimitStateStore) Get(context.Context, gocore.RateLimitKey) (servicesratelimit.State, error) {
+	return servicesratelimit.State{}, nil
+}
+
+type testRateLimitStateStoreProvider struct {
+	store rateLimitStateStore
+}
+
+func (p testRateLimitStateStoreProvider) RateLimitStateStore() rateLimitStateStore {
+	return p.store
+}
+
+type testLegacyConcreteRateLimitStateStoreProvider struct {
+	store *testRateLimitStateStore
+}
+
+func (p testLegacyConcreteRateLimitStateStoreProvider) RateLimitStateStore() *testRateLimitStateStore {
+	return p.store
+}
+
+func TestResolveRateLimitStateStoreUsesDirectStore(t *testing.T) {
+	store := &testRateLimitStateStore{}
+	if got := resolveRateLimitStateStore(store); got != store {
+		t.Fatalf("expected direct store, got %#v", got)
+	}
+}
+
+func TestResolveRateLimitStateStoreUsesTypedProvider(t *testing.T) {
+	store := &testRateLimitStateStore{}
+	factory := testRateLimitStateStoreProvider{store: store}
+	if got := resolveRateLimitStateStore(factory); got != store {
+		t.Fatalf("expected provider store, got %#v", got)
+	}
+}
+
+func TestResolveRateLimitStateStoreReturnsNilForNilProviderStore(t *testing.T) {
+	factory := testRateLimitStateStoreProvider{}
+	if got := resolveRateLimitStateStore(factory); got != nil {
+		t.Fatalf("expected nil store, got %#v", got)
+	}
+}
+
+func TestResolveRateLimitStateStoreRejectsUnsupportedFactoryShapes(t *testing.T) {
+	if got := resolveRateLimitStateStore(struct{}{}); got != nil {
+		t.Fatalf("expected nil for unsupported factory, got %#v", got)
+	}
+
+	legacy := testLegacyConcreteRateLimitStateStoreProvider{store: &testRateLimitStateStore{}}
+	if got := resolveRateLimitStateStore(legacy); got != nil {
+		t.Fatalf("expected nil for legacy concrete-return provider, got %#v", got)
+	}
 }
 
 func TestSetup_DisabledNoop(t *testing.T) {

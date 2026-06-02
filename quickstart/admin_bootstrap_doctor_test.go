@@ -3,6 +3,7 @@ package quickstart
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -64,6 +65,91 @@ func TestWithDoctorChecksRegistersCustomChecks(t *testing.T) {
 	if !foundCustom {
 		t.Fatalf("expected custom check result in report")
 	}
+}
+
+func TestNewAdminFailsConfiguredTranslationPolicyWithoutCheckerServices(t *testing.T) {
+	resetCommandRegistryForTest(t)
+
+	cfg := NewAdminConfig("/admin", "Admin", "en")
+	_, _, err := NewAdmin(
+		cfg,
+		AdapterHooks{},
+		WithTranslationPolicyConfig(TranslationPolicyConfig{
+			Required: map[string]TranslationPolicyEntityConfig{
+				"pages": {
+					"publish": {Locales: []string{"en", "es"}},
+				},
+			},
+		}),
+	)
+	if !errors.Is(err, ErrTranslationPolicyServicesUnavailable) {
+		t.Fatalf("expected translation policy services error, got %v", err)
+	}
+}
+
+func TestNewAdminWarnsConfiguredTranslationPolicyWithoutCheckerServices(t *testing.T) {
+	resetCommandRegistryForTest(t)
+
+	cfg := NewAdminConfig("/admin", "Admin", "en")
+	adm, _, err := NewAdmin(
+		cfg,
+		AdapterHooks{},
+		WithTranslationPolicyConfig(TranslationPolicyConfig{
+			Required: map[string]TranslationPolicyEntityConfig{
+				"pages": {
+					"publish": {Locales: []string{"en", "es"}},
+				},
+			},
+		}),
+		WithStartupPolicy(StartupPolicyWarn),
+	)
+	if err != nil {
+		t.Fatalf("expected warn-mode startup to continue, got %v", err)
+	}
+	t.Cleanup(adm.Commands().Reset)
+
+	report := adm.RunDoctor(context.Background())
+	check, ok := quickstartDoctorCheckResult(report, "quickstart.translation")
+	if !ok {
+		t.Fatalf("expected quickstart.translation doctor result, got %+v", report.Checks)
+	}
+	found := false
+	for _, finding := range check.Findings {
+		if finding.Code == TranslationPolicyServicesMissingCode {
+			found = true
+			if finding.Severity != admin.DoctorSeverityWarn || finding.Component != "translation.policy" {
+				t.Fatalf("unexpected translation policy finding: %+v", finding)
+			}
+		}
+	}
+	if !found {
+		t.Fatalf("expected translation policy services-missing finding, got %+v", check.Findings)
+	}
+}
+
+func TestNewAdminAllowsConfiguredTranslationPolicyWithCheckerServices(t *testing.T) {
+	resetCommandRegistryForTest(t)
+
+	cfg := NewAdminConfig("/admin", "Admin", "en")
+	adm, _, err := NewAdmin(
+		cfg,
+		AdapterHooks{},
+		WithTranslationPolicyConfig(TranslationPolicyConfig{
+			Required: map[string]TranslationPolicyEntityConfig{
+				"pages": {
+					"publish": {Locales: []string{"en", "es"}},
+				},
+			},
+		}),
+		WithTranslationPolicyServices(TranslationPolicyServices{
+			Pages:   stubTranslationChecker{},
+			Content: stubTranslationChecker{},
+		}),
+	)
+	if err != nil {
+		t.Fatalf("expected checker services to satisfy startup diagnostics, got %v", err)
+	}
+	t.Cleanup(adm.Commands().Reset)
 }
 
 func TestQuickstartDoctorGoUsersScopeReportsDefaultedResolver(t *testing.T) {

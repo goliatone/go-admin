@@ -589,6 +589,12 @@ func TestTranslationFamilyPolicyResolverUsesRequirementsSourceLocaleAndPolicyBlo
 	if len(blockers) != 1 || blockers[0].BlockerCode != string(translationcore.FamilyBlockerPolicyDenied) || blockers[0].Locale != "bo" {
 		t.Fatalf("unexpected blockers: %+v", blockers)
 	}
+	if blockers[0].Details[translationcore.FamilyBlockerDetailReason] != string(translationcore.FamilyBlockerReasonHostPolicy) {
+		t.Fatalf("expected host policy reason, got %+v", blockers[0].Details)
+	}
+	if blockers[0].Details[translationcore.FamilyBlockerDetailMessage] != "route conflict" {
+		t.Fatalf("expected host policy message, got %+v", blockers[0].Details)
+	}
 	if policy.input.RequestedLocale != "bo" || policy.input.EntityID != "record-bo" {
 		t.Fatalf("unexpected validation input: %+v", policy.input)
 	}

@@ -26,6 +26,10 @@ func TestNewAdminConfiguresCreateTranslationActionLocalesFromPolicy(t *testing.T
 		cfg,
 		AdapterHooks{},
 		WithTranslationPolicyConfig(policyCfg),
+		WithTranslationPolicyServices(TranslationPolicyServices{
+			Pages:   stubTranslationChecker{},
+			Content: stubTranslationChecker{},
+		}),
 	)
 	if err != nil {
 		t.Fatalf("new admin: %v", err)

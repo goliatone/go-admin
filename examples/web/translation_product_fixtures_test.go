@@ -14,6 +14,7 @@ import (
 	"github.com/goliatone/go-admin/examples/web/setup"
 	"github.com/goliatone/go-admin/examples/web/stores"
 	"github.com/goliatone/go-admin/quickstart"
+	translationcore "github.com/goliatone/go-admin/translations/core"
 	translationservices "github.com/goliatone/go-admin/translations/services"
 	commandregistry "github.com/goliatone/go-command/registry"
 	router "github.com/goliatone/go-router"
@@ -303,6 +304,150 @@ func TestSeedExampleTranslationQueueFixtureSeedsPersistentBunEditorAssignmentAnd
 	require.True(t, ok)
 	require.Equal(t, tenantID, strings.TrimSpace(family.TenantID))
 	require.Equal(t, orgID, strings.TrimSpace(family.OrgID))
+}
+
+func TestPersistentExampleFamilySyncProducesMeaningfulReadiness(t *testing.T) {
+	ctx := context.Background()
+	dsn := fmt.Sprintf("file:%s?cache=shared&_fk=1", filepath.Join(t.TempDir(), strings.ToLower(t.Name())+".db"))
+
+	cmsOpts, err := setup.SetupPersistentCMS(ctx, "en", dsn)
+	require.NoError(t, err)
+	require.NotNil(t, cmsOpts.Container)
+
+	db, err := stores.SetupContentDatabase(ctx, dsn)
+	require.NoError(t, err)
+	require.NotNil(t, db)
+
+	familyStore := coreadmin.NewBunTranslationFamilyStore(db)
+	cfg := quickstart.NewAdminConfig("/admin", "Admin", "en")
+	cfg.ScopeMode = string(quickstart.ScopeModeMulti)
+	cfg.AuthConfig = &coreadmin.AuthConfig{AllowUnauthenticatedRoutes: true}
+	cfg.CMS = cmsOpts
+	adm, _, err := quickstart.NewAdmin(
+		cfg,
+		quickstart.AdapterHooks{},
+		quickstart.WithAdminDependencies(coreadmin.Dependencies{
+			TranslationFamilyStore: familyStore,
+		}),
+		quickstart.WithFeatureDefaults(map[string]bool{
+			string(coreadmin.FeatureCMS): true,
+		}),
+		quickstart.WithTranslationPolicyConfig(exampleTranslationPolicyConfig()),
+	)
+	require.NoError(t, err)
+	require.NoError(t, coreadmin.SyncTranslationFamilyStore(ctx, adm, "default"))
+
+	missingFR := requireSyncedFamily(t, ctx, familyStore, "11111111-1111-1111-1111-111111111201")
+	require.Equal(t, "pages", strings.TrimSpace(missingFR.ContentType))
+	requireFamilyBlocker(t, missingFR, string(translationcore.FamilyBlockerMissingLocale), "fr")
+	requireNoPolicyUnavailableOnly(t, missingFR)
+
+	reviewPost := requireSyncedFamily(t, ctx, familyStore, "11111111-1111-1111-1111-111111111203")
+	require.Equal(t, "posts", strings.TrimSpace(reviewPost.ContentType))
+	requireFamilyBlocker(t, reviewPost, string(translationcore.FamilyBlockerPendingReview), "es")
+	requireFamilyBlocker(t, reviewPost, string(translationcore.FamilyBlockerMissingField), "es")
+	requireNoPolicyUnavailableOnly(t, reviewPost)
+
+	exchangeReady := requireSyncedFamilyWithVariantPath(t, ctx, familyStore, "/translation-demo-exchange")
+	require.Equal(t, "pages", strings.TrimSpace(exchangeReady.ContentType))
+	require.Equal(t, string(translationcore.FamilyReadinessReady), strings.TrimSpace(exchangeReady.ReadinessState))
+	require.Empty(t, exchangeReady.Blockers)
+
+	for _, tc := range []struct {
+		name     string
+		familyID string
+	}{
+		{name: "site-runtime-rollout", familyID: "11111111-1111-1111-1111-111111111206"},
+		{name: "menu-projection-preview", familyID: "11111111-1111-1111-1111-111111111207"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			newsFamily := requireSyncedFamily(t, ctx, familyStore, tc.familyID)
+			require.Equal(t, "news", strings.TrimSpace(newsFamily.ContentType))
+			requireFamilyBlocker(t, newsFamily, string(translationcore.FamilyBlockerMissingField), "es")
+			requireFamilyBlocker(t, newsFamily, string(translationcore.FamilyBlockerMissingField), "fr")
+			requireNoPolicyUnavailableOnly(t, newsFamily)
+		})
+	}
+
+	families, err := familyStore.Families(ctx)
+	require.NoError(t, err)
+	blocked := 0
+	barePolicyUnavailable := 0
+	for _, family := range families {
+		if strings.TrimSpace(family.ReadinessState) != string(translationcore.FamilyReadinessBlocked) {
+			continue
+		}
+		blocked++
+		if familyHasOnlyPolicyUnavailableBlockers(family) {
+			barePolicyUnavailable++
+		}
+	}
+	require.Positive(t, blocked, "expected seeded dataset to include blocked readiness examples")
+	require.NotEqual(t, blocked, barePolicyUnavailable, "blocked seeded families must not all be bare policy-unavailable blockers")
+}
+
+func requireSyncedFamily(t *testing.T, ctx context.Context, store *coreadmin.BunTranslationFamilyStore, familyID string) translationservices.FamilyRecord {
+	t.Helper()
+	family, ok, err := store.Family(ctx, familyID)
+	require.NoError(t, err)
+	require.True(t, ok, "expected synced family %s", familyID)
+	return family
+}
+
+func requireSyncedFamilyWithVariantPath(t *testing.T, ctx context.Context, store *coreadmin.BunTranslationFamilyStore, path string) translationservices.FamilyRecord {
+	t.Helper()
+	path = strings.TrimSpace(path)
+	families, err := store.Families(ctx)
+	require.NoError(t, err)
+	for _, family := range families {
+		for _, variant := range family.Variants {
+			if strings.TrimSpace(variant.Fields["path"]) == path {
+				return family
+			}
+		}
+	}
+	t.Fatalf("expected synced family with variant path %q", path)
+	return translationservices.FamilyRecord{}
+}
+
+func requireFamilyBlocker(t *testing.T, family translationservices.FamilyRecord, code string, locale string) {
+	t.Helper()
+	code = strings.TrimSpace(strings.ToLower(code))
+	locale = strings.TrimSpace(strings.ToLower(locale))
+	for _, blocker := range family.Blockers {
+		if strings.TrimSpace(strings.ToLower(blocker.BlockerCode)) != code {
+			continue
+		}
+		if locale == "" || strings.TrimSpace(strings.ToLower(blocker.Locale)) == locale {
+			return
+		}
+	}
+	t.Fatalf("expected family %s to include blocker code=%s locale=%s, got %+v", family.ID, code, locale, family.Blockers)
+}
+
+func requireNoPolicyUnavailableOnly(t *testing.T, family translationservices.FamilyRecord) {
+	t.Helper()
+	if familyHasOnlyPolicyUnavailableBlockers(family) {
+		t.Fatalf("family %s should not be blocked only by policy-unavailable diagnostics: %+v", family.ID, family.Blockers)
+	}
+}
+
+func familyHasOnlyPolicyUnavailableBlockers(family translationservices.FamilyRecord) bool {
+	if len(family.Blockers) == 0 {
+		return false
+	}
+	for _, blocker := range family.Blockers {
+		if strings.TrimSpace(strings.ToLower(blocker.BlockerCode)) != string(translationcore.FamilyBlockerPolicyDenied) {
+			return false
+		}
+		if strings.TrimSpace(fmt.Sprint(blocker.Details[translationcore.FamilyBlockerDetailReason])) != string(translationcore.FamilyBlockerReasonPolicyUnavailable) {
+			return false
+		}
+		if family.MissingRequiredLocaleCount != 0 || family.PendingReviewCount != 0 || family.OutdatedLocaleCount != 0 {
+			return false
+		}
+	}
+	return true
 }
 
 func TestPersistentAssignmentEditorSaveUsesCMSLifecycleStatus(t *testing.T) {

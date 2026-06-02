@@ -924,6 +924,33 @@ func TestRenderCacheMemoryBackendStoresWithoutTagIndexWhenNotRequired(t *testing
 	}
 }
 
+func TestRenderCacheBackendKindUsesDeclaredDescriptorOnly(t *testing.T) {
+	store := newTestRenderCacheStore()
+	store.backendKind = "memory"
+	if got := renderCacheStoreBackendKind(store); got != "memory" {
+		t.Fatalf("expected declared memory backend, got %q", got)
+	}
+	if !renderCacheStoreIsMemoryBackend(store) {
+		t.Fatalf("expected declared memory backend to be treated as memory")
+	}
+
+	store.backendKind = "valkey"
+	if got := renderCacheStoreBackendKind(store); got != "valkey" {
+		t.Fatalf("expected declared valkey backend, got %q", got)
+	}
+	if renderCacheStoreIsMemoryBackend(store) {
+		t.Fatalf("did not expect valkey backend to be treated as memory")
+	}
+
+	undisclosed := &testMemoryNamedRenderCacheStore{items: map[string]RenderedSiteResponse{}}
+	if got := renderCacheStoreBackendKind(undisclosed); got != "" {
+		t.Fatalf("expected missing descriptor not to infer backend kind, got %q", got)
+	}
+	if renderCacheStoreIsMemoryBackend(undisclosed) {
+		t.Fatalf("did not expect memory-like type name to be inferred as memory")
+	}
+}
+
 func TestRenderCacheRequireTagIndexBypassesMemoryBackend(t *testing.T) {
 	store := newTestRenderCacheStore()
 	store.backendKind = "memory"
@@ -1430,6 +1457,25 @@ func (s *testRenderCacheStoreNoTags) Delete(_ context.Context, key string) error
 
 func (s *testRenderCacheStoreNoTags) RenderCacheBackendKind() string {
 	return s.backendKind
+}
+
+type testMemoryNamedRenderCacheStore struct {
+	items map[string]RenderedSiteResponse
+}
+
+func (s *testMemoryNamedRenderCacheStore) Get(_ context.Context, key string) (RenderedSiteResponse, bool, error) {
+	item, ok := s.items[key]
+	return item, ok, nil
+}
+
+func (s *testMemoryNamedRenderCacheStore) Set(_ context.Context, key string, value RenderedSiteResponse, _ time.Duration) error {
+	s.items[key] = value
+	return nil
+}
+
+func (s *testMemoryNamedRenderCacheStore) Delete(_ context.Context, key string) error {
+	delete(s.items, key)
+	return nil
 }
 
 type testRenderCacheRenderer struct {

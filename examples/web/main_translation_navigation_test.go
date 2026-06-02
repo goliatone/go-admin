@@ -211,6 +211,10 @@ func newExampleTranslationAdmin(
 			string(coreadmin.FeatureCMS): true,
 		}),
 		quickstart.WithTranslationPolicyConfig(exampleTranslationPolicyConfig()),
+		quickstart.WithTranslationPolicyServices(quickstart.TranslationPolicyServices{
+			Pages:   &policyRecordingChecker{},
+			Content: &policyRecordingChecker{},
+		}),
 		quickstart.WithTranslationProductConfig(buildTranslationProductConfig(
 			profile,
 			noopExchangeStore{},

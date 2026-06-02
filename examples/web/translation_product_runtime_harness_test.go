@@ -69,6 +69,10 @@ func TestDevServeEquivalentTranslationRuntimeContracts(t *testing.T) {
 			),
 		),
 		quickstart.WithTranslationPolicyConfig(exampleTranslationPolicyConfig()),
+		quickstart.WithTranslationPolicyServices(quickstart.TranslationPolicyServices{
+			Pages:   &policyRecordingChecker{},
+			Content: &policyRecordingChecker{},
+		}),
 	)
 	require.NoError(t, err)
 	adm.WithAuth(translationRuntimeHarnessPassthroughAuthenticator{}, nil)

@@ -24,14 +24,14 @@ func (c *policyRecordingChecker) CheckTranslations(_ context.Context, _ uuid.UUI
 	return nil, nil
 }
 
-func TestExampleTranslationPolicyUsesEnvironmentSpecificPublishRequirementsForPagesAndPosts(t *testing.T) {
+func TestExampleTranslationPolicyUsesEnvironmentSpecificPublishRequirementsForPagesPostsAndNews(t *testing.T) {
 	pagesChecker := &policyRecordingChecker{}
-	postsChecker := &policyRecordingChecker{}
+	contentChecker := &policyRecordingChecker{}
 	policy := quickstart.NewTranslationPolicy(
 		exampleTranslationPolicyConfig(),
 		quickstart.TranslationPolicyServices{
 			Pages:   pagesChecker,
-			Content: postsChecker,
+			Content: contentChecker,
 		},
 	)
 
@@ -81,7 +81,7 @@ func TestExampleTranslationPolicyUsesEnvironmentSpecificPublishRequirementsForPa
 				Transition:  "publish",
 				Environment: "staging",
 			},
-			checker:         postsChecker,
+			checker:         contentChecker,
 			expectedLocales: []string{"en", "es"},
 			expectedFieldByLang: map[string][]string{
 				"en": {"title", "path", "excerpt"},
@@ -96,7 +96,22 @@ func TestExampleTranslationPolicyUsesEnvironmentSpecificPublishRequirementsForPa
 				Transition:  "publish",
 				Environment: "production",
 			},
-			checker:         postsChecker,
+			checker:         contentChecker,
+			expectedLocales: []string{"en", "es", "fr"},
+			expectedFieldByLang: map[string][]string{
+				"en": {"title", "path", "excerpt"},
+				"es": {"title", "path", "excerpt"},
+				"fr": {"title", "path", "excerpt"},
+			},
+		},
+		{
+			name: "news default",
+			input: adminpkg.TranslationPolicyInput{
+				EntityType: "news",
+				EntityID:   uuid.NewString(),
+				Transition: "publish",
+			},
+			checker:         contentChecker,
 			expectedLocales: []string{"en", "es", "fr"},
 			expectedFieldByLang: map[string][]string{
 				"en": {"title", "path", "excerpt"},
@@ -122,5 +137,31 @@ func TestExampleTranslationPolicyUsesEnvironmentSpecificPublishRequirementsForPa
 				t.Fatalf("expected required fields %+v got %+v", tc.expectedFieldByLang, tc.checker.lastOpts.RequiredFields)
 			}
 		})
+	}
+}
+
+func TestExampleTranslationPolicyValidationCatalogIncludesNews(t *testing.T) {
+	result, err := quickstart.ValidateTranslationPolicyConfig(
+		exampleTranslationPolicyConfig(),
+		exampleTranslationPolicyValidationCatalog(),
+	)
+	if err != nil {
+		t.Fatalf("validate example translation policy config: %v", err)
+	}
+	if len(result.Warnings) != 0 {
+		t.Fatalf("expected no validation warnings, got %+v", result.Warnings)
+	}
+}
+
+func TestExampleTranslationPolicyCoversFamilyContentTypes(t *testing.T) {
+	result, err := quickstart.ValidateTranslationPolicyCoverage(
+		exampleTranslationPolicyConfig(),
+		exampleTranslationFamilyContentTypes(),
+	)
+	if err != nil {
+		t.Fatalf("validate example translation policy coverage: %v", err)
+	}
+	if len(result.Warnings) != 0 {
+		t.Fatalf("expected no coverage warnings, got %+v", result.Warnings)
 	}
 }

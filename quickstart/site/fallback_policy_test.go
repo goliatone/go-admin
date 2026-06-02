@@ -132,6 +132,7 @@ func TestSiteReservedPrefixesAndSearchEndpointFollowAdminConfigRoots(t *testing.
 		"/admin/assets",
 		"/admin/formgen",
 		"/admin/runtime",
+		"/admin/sync-client/sync-core",
 		"/assets",
 		"/control",
 		"/dashboard/assets/echarts",

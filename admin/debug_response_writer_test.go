@@ -9,6 +9,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	router "github.com/goliatone/go-router"
 )
 
 type stubResponseWriter struct {
@@ -130,5 +132,102 @@ func TestDebugResponseWriterMissingInterfaces(t *testing.T) {
 	}
 	if err := writer.Push("/test", nil); !errors.Is(err, http.ErrNotSupported) {
 		t.Fatalf("expected push not supported, got %v", err)
+	}
+}
+
+type debugSetterContext struct {
+	*router.MockContext
+	writer http.ResponseWriter
+	calls  int
+}
+
+func newDebugSetterContext(writer http.ResponseWriter) *debugSetterContext {
+	return &debugSetterContext{
+		MockContext: router.NewMockContext(),
+		writer:      writer,
+	}
+}
+
+func (c *debugSetterContext) Response() http.ResponseWriter {
+	return c.writer
+}
+
+func (c *debugSetterContext) SetResponseWriter(writer http.ResponseWriter) {
+	c.calls++
+	c.writer = writer
+}
+
+type debugNoSetterContext struct {
+	*router.MockContext
+	writer http.ResponseWriter
+}
+
+func (c *debugNoSetterContext) Response() http.ResponseWriter {
+	return c.writer
+}
+
+type debugLegacyWriterContext struct {
+	*router.MockContext
+	w http.ResponseWriter
+}
+
+func (c *debugLegacyWriterContext) Response() http.ResponseWriter {
+	return c.w
+}
+
+func TestDebugSwapResponseWriterUsesSetterAndRestores(t *testing.T) {
+	original := httptest.NewRecorder()
+	wrapped := httptest.NewRecorder()
+	ctx := newDebugSetterContext(original)
+
+	restore := debugSwapResponseWriter(ctx, original, wrapped)
+	if restore == nil {
+		t.Fatalf("expected restore callback")
+	}
+	if ctx.writer != wrapped {
+		t.Fatalf("expected setter to install wrapped writer")
+	}
+	if ctx.calls != 1 {
+		t.Fatalf("expected one setter call, got %d", ctx.calls)
+	}
+
+	restore()
+	if ctx.writer != original {
+		t.Fatalf("expected restore to reinstall original writer")
+	}
+	if ctx.calls != 2 {
+		t.Fatalf("expected restore setter call, got %d", ctx.calls)
+	}
+}
+
+func TestDebugSwapResponseWriterMissingSetterReturnsNil(t *testing.T) {
+	ctx := &debugNoSetterContext{
+		MockContext: router.NewMockContext(),
+		writer:      httptest.NewRecorder(),
+	}
+	if restore := debugSwapResponseWriter(ctx, ctx.writer, httptest.NewRecorder()); restore != nil {
+		t.Fatalf("expected no restore callback without setter or legacy field")
+	}
+}
+
+func TestDebugSwapResponseWriterLegacyFieldFallbackRestores(t *testing.T) {
+	original := httptest.NewRecorder()
+	wrapped := httptest.NewRecorder()
+	ctx := &debugLegacyWriterContext{
+		MockContext: router.NewMockContext(),
+		w:           original,
+	}
+
+	restore := debugSwapResponseWriter(ctx, original, wrapped)
+	if restore == nil {
+		t.Fatalf("expected legacy restore callback")
+	}
+	if ctx.w != wrapped {
+		t.Fatalf("expected legacy fallback to install wrapped writer")
+	}
+
+	restore()
+	if ctx.w != original {
+		t.Fatalf("expected legacy fallback to restore original writer")
 	}
 }

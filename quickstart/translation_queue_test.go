@@ -114,6 +114,10 @@ func TestNewAdminTranslationQueueDerivesLocalesFromPolicyWhenUnset(t *testing.T)
 	repo := admin.NewInMemoryTranslationAssignmentRepository()
 	adm, _, err := NewAdmin(cfg, AdapterHooks{},
 		WithTranslationPolicyConfig(policy),
+		WithTranslationPolicyServices(TranslationPolicyServices{
+			Pages:   stubTranslationChecker{},
+			Content: stubTranslationChecker{},
+		}),
 		WithTranslationQueueConfig(TranslationQueueConfig{
 			Enabled:    true,
 			Repository: repo,
@@ -155,6 +159,10 @@ func TestNewAdminTranslationQueueFailsOnPolicyLocaleMismatch(t *testing.T) {
 	repo := admin.NewInMemoryTranslationAssignmentRepository()
 	_, _, err := NewAdmin(cfg, AdapterHooks{},
 		WithTranslationPolicyConfig(policy),
+		WithTranslationPolicyServices(TranslationPolicyServices{
+			Pages:   stubTranslationChecker{},
+			Content: stubTranslationChecker{},
+		}),
 		WithTranslationQueueConfig(TranslationQueueConfig{
 			Enabled:          true,
 			Repository:       repo,

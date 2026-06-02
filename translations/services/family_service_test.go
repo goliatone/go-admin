@@ -158,6 +158,49 @@ func TestFamilyServiceIncludesCustomPolicyBlockers(t *testing.T) {
 	}
 }
 
+func TestFamilyServiceMissingPolicyCreatesPolicyUnavailableDetails(t *testing.T) {
+	store := NewInMemoryFamilyStore()
+	requireNoErr(t, seedFamilyStore(store, FamilyRecord{
+		ID:              "family-missing-policy",
+		ContentType:     "news",
+		SourceLocale:    "en",
+		SourceVariantID: "variant-en",
+		Variants: []FamilyVariant{
+			{ID: "variant-en", FamilyID: "family-missing-policy", Locale: "en", Status: string(translationcore.VariantStatusPublished), IsSource: true, Fields: map[string]string{"title": "News"}},
+		},
+	}))
+	svc := FamilyService{
+		Store: store,
+		Policies: PolicyService{
+			Resolver: StaticPolicyResolver{Policies: map[string]FamilyPolicy{}},
+		},
+	}
+
+	family, err := svc.Recompute(context.Background(), "family-missing-policy", "default")
+	requireNoErr(t, err)
+
+	if family.ReadinessState != string(translationcore.FamilyReadinessBlocked) {
+		t.Fatalf("expected missing policy to block family, got %q", family.ReadinessState)
+	}
+	if len(family.Blockers) != 1 {
+		t.Fatalf("expected one policy blocker, got %+v", family.Blockers)
+	}
+	blocker := family.Blockers[0]
+	if blocker.BlockerCode != string(translationcore.FamilyBlockerPolicyDenied) {
+		t.Fatalf("expected policy_denied compatibility code, got %+v", blocker)
+	}
+	if blocker.Details[translationcore.FamilyBlockerDetailReason] != string(translationcore.FamilyBlockerReasonPolicyUnavailable) {
+		t.Fatalf("expected policy_unavailable reason, got %+v", blocker.Details)
+	}
+	if blocker.Details[translationcore.FamilyBlockerDetailContentType] != "news" || blocker.Details[translationcore.FamilyBlockerDetailEnvironment] != "default" {
+		t.Fatalf("expected content type and environment details, got %+v", blocker.Details)
+	}
+	remediation, _ := blocker.Details[translationcore.FamilyBlockerDetailRemediation].(string)
+	if strings.TrimSpace(remediation) == "" {
+		t.Fatalf("expected remediation detail, got %+v", blocker.Details)
+	}
+}
+
 func TestFamilyServiceListAndDetailRespectScopeFilters(t *testing.T) {
 	store := NewInMemoryFamilyStore()
 	requireNoErr(t, seedFamilyStore(

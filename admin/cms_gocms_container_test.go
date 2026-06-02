@@ -59,6 +59,114 @@ func TestResolveGoCMSContentServiceWiresOptionalAdminContentServices(t *testing.
 	}
 }
 
+func TestResolveGoCMSContentServiceAllowsMissingAdminContentReadProvider(t *testing.T) {
+	resolved := resolveGoCMSContentService(testGoCMSContentOnlyProvider{
+		content: &stubGoCMSContentService{},
+	})
+	adapter, ok := resolved.(*GoCMSContentAdapter)
+	if !ok || adapter == nil {
+		t.Fatalf("expected GoCMSContentAdapter, got %T", resolved)
+	}
+	if adapter.adminRead != nil {
+		t.Fatalf("expected missing admin read provider to leave adminRead nil")
+	}
+}
+
+func TestResolveGoCMSContentServiceAllowsNilAdminContentReadProvider(t *testing.T) {
+	resolved := resolveGoCMSContentService(testGoCMSContentProvider{
+		content:   &stubGoCMSContentService{},
+		adminRead: nil,
+	})
+	adapter, ok := resolved.(*GoCMSContentAdapter)
+	if !ok || adapter == nil {
+		t.Fatalf("expected GoCMSContentAdapter, got %T", resolved)
+	}
+	if adapter.adminRead != nil {
+		t.Fatalf("expected nil admin read provider to leave adminRead nil")
+	}
+}
+
+func TestResolveGoCMSContentServiceAllowsMissingAdminContentWriteProvider(t *testing.T) {
+	resolved := resolveGoCMSContentService(testGoCMSContentOnlyProvider{
+		content: &stubGoCMSContentService{},
+	})
+	adapter, ok := resolved.(*GoCMSContentAdapter)
+	if !ok || adapter == nil {
+		t.Fatalf("expected GoCMSContentAdapter, got %T", resolved)
+	}
+	if adapter.adminWrite != nil {
+		t.Fatalf("expected missing admin write provider to leave adminWrite nil")
+	}
+}
+
+func TestResolveGoCMSContentServiceAllowsNilAdminContentWriteProvider(t *testing.T) {
+	resolved := resolveGoCMSContentService(testGoCMSContentProvider{
+		content:    &stubGoCMSContentService{},
+		adminWrite: nil,
+	})
+	adapter, ok := resolved.(*GoCMSContentAdapter)
+	if !ok || adapter == nil {
+		t.Fatalf("expected GoCMSContentAdapter, got %T", resolved)
+	}
+	if adapter.adminWrite != nil {
+		t.Fatalf("expected nil admin write provider to leave adminWrite nil")
+	}
+}
+
+func TestResolveGoCMSContentServiceAllowsMissingAdminBlockReadProvider(t *testing.T) {
+	resolved := resolveGoCMSContentService(testGoCMSContentOnlyProvider{
+		content: &stubGoCMSContentService{},
+	})
+	adapter, ok := resolved.(*GoCMSContentAdapter)
+	if !ok || adapter == nil {
+		t.Fatalf("expected GoCMSContentAdapter, got %T", resolved)
+	}
+	if adapter.adminBlocks != nil {
+		t.Fatalf("expected missing admin block read provider to leave adminBlocks nil")
+	}
+}
+
+func TestResolveGoCMSContentServiceAllowsNilAdminBlockReadProvider(t *testing.T) {
+	resolved := resolveGoCMSContentService(testGoCMSContentProvider{
+		content:    &stubGoCMSContentService{},
+		adminBlock: nil,
+	})
+	adapter, ok := resolved.(*GoCMSContentAdapter)
+	if !ok || adapter == nil {
+		t.Fatalf("expected GoCMSContentAdapter, got %T", resolved)
+	}
+	if adapter.adminBlocks != nil {
+		t.Fatalf("expected nil admin block read provider to leave adminBlocks nil")
+	}
+}
+
+func TestResolveGoCMSContentServiceAllowsMissingAdminBlockWriteProvider(t *testing.T) {
+	resolved := resolveGoCMSContentService(testGoCMSContentOnlyProvider{
+		content: &stubGoCMSContentService{},
+	})
+	adapter, ok := resolved.(*GoCMSContentAdapter)
+	if !ok || adapter == nil {
+		t.Fatalf("expected GoCMSContentAdapter, got %T", resolved)
+	}
+	if adapter.adminBlockW != nil {
+		t.Fatalf("expected missing admin block write provider to leave adminBlockW nil")
+	}
+}
+
+func TestResolveGoCMSContentServiceAllowsNilAdminBlockWriteProvider(t *testing.T) {
+	resolved := resolveGoCMSContentService(testGoCMSContentProvider{
+		content:     &stubGoCMSContentService{},
+		adminBlockW: nil,
+	})
+	adapter, ok := resolved.(*GoCMSContentAdapter)
+	if !ok || adapter == nil {
+		t.Fatalf("expected GoCMSContentAdapter, got %T", resolved)
+	}
+	if adapter.adminBlockW != nil {
+		t.Fatalf("expected nil admin block write provider to leave adminBlockW nil")
+	}
+}
+
 type typedWidgetServiceProviderWithIncompatibleWidgets struct {
 	svc cms.WidgetService
 }
@@ -104,6 +212,12 @@ func (p testGoCMSContentProvider) AdminBlockRead() cms.AdminBlockReadService {
 func (p testGoCMSContentProvider) AdminBlockWrite() cms.AdminBlockWriteService {
 	return p.adminBlockW
 }
+
+type testGoCMSContentOnlyProvider struct {
+	content any
+}
+
+func (p testGoCMSContentOnlyProvider) ContentService() any { return p.content }
 
 // testPublicWidgetService implements the public go-cms widgets.Service contract.
 type testPublicWidgetService struct{}

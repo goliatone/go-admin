@@ -9,10 +9,16 @@ import (
 	"strings"
 	"testing"
 
+	cms "github.com/goliatone/go-cms"
+	cmsinterfaces "github.com/goliatone/go-cms/pkg/interfaces"
 	"github.com/google/uuid"
 	"github.com/uptrace/bun"
 	"github.com/uptrace/bun/dialect/sqlitedialect"
 )
+
+type translationCheckerContract interface {
+	CheckTranslations(context.Context, uuid.UUID, []string, cmsinterfaces.TranslationCheckOptions) ([]string, error)
+}
 
 func TestLoadCMSContentSeedsAcceptsCanonicalTranslationFixtures(t *testing.T) {
 	t.Helper()
@@ -114,6 +120,34 @@ func TestValidateTranslationSeedFixtureCoveragePassesForPersistentCMSSeeds(t *te
 
 	if err := validateTranslationSeedFixtureCoverage(ctx, db); err != nil {
 		t.Fatalf("validate translation seed fixtures: %v", err)
+	}
+}
+
+func TestSetupPersistentCMSExposesPolicyCheckerServices(t *testing.T) {
+	t.Helper()
+
+	ctx := context.Background()
+	dsn := fmt.Sprintf("file:%s?cache=shared&_fk=1", filepath.Join(t.TempDir(), strings.ToLower(t.Name())+".db"))
+
+	opts, err := SetupPersistentCMS(ctx, "en", dsn)
+	if err != nil {
+		t.Fatalf("setup persistent cms: %v", err)
+	}
+	if opts.Container == nil || opts.Container.ContentService() == nil {
+		t.Fatalf("expected admin CMS bridge container to remain available")
+	}
+	provider, ok := opts.GoCMSConfig.(interface {
+		Pages() cms.PageService
+		Content() cms.ContentService
+	})
+	if !ok {
+		t.Fatalf("expected raw go-cms module in GoCMSConfig, got %T", opts.GoCMSConfig)
+	}
+	if _, ok := provider.Pages().(translationCheckerContract); !ok {
+		t.Fatalf("expected go-cms page service to implement CheckTranslations")
+	}
+	if _, ok := provider.Content().(translationCheckerContract); !ok {
+		t.Fatalf("expected go-cms content service to implement CheckTranslations")
 	}
 }
 

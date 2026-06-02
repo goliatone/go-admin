@@ -189,3 +189,72 @@ func TestNormalizeTranslationPolicyConfigWorkflowSettings(t *testing.T) {
 		t.Fatalf("expected qa_signoff, got %q", got)
 	}
 }
+
+func TestValidateTranslationPolicyCoverageExactMatches(t *testing.T) {
+	cfg := TranslationPolicyConfig{
+		RequiredFieldsStrategy: admin.RequiredFieldsValidationError,
+		Required: map[string]TranslationPolicyEntityConfig{
+			"pages": {"publish": {Locales: []string{"en"}}},
+			"posts": {"publish": {Locales: []string{"en"}}},
+			"news":  {"publish": {Locales: []string{"en"}}},
+		},
+	}
+	result, err := ValidateTranslationPolicyCoverage(cfg, []string{"pages", "posts", "news"})
+	if err != nil {
+		t.Fatalf("expected coverage validation to pass: %v", err)
+	}
+	if len(result.Warnings) != 0 {
+		t.Fatalf("expected no warnings, got %+v", result.Warnings)
+	}
+}
+
+func TestValidateTranslationPolicyCoverageUsesAliases(t *testing.T) {
+	cfg := TranslationPolicyConfig{
+		RequiredFieldsStrategy: admin.RequiredFieldsValidationError,
+		EntityAliases:          map[string]string{"article": "news"},
+		Required: map[string]TranslationPolicyEntityConfig{
+			"news": {"publish": {Locales: []string{"en"}}},
+		},
+	}
+	if _, err := ValidateTranslationPolicyCoverage(cfg, []string{"articles"}); err != nil {
+		t.Fatalf("expected alias coverage validation to pass: %v", err)
+	}
+}
+
+func TestValidateTranslationPolicyCoverageUsesSingularPluralMatching(t *testing.T) {
+	cfg := TranslationPolicyConfig{
+		RequiredFieldsStrategy: admin.RequiredFieldsValidationError,
+		Required: map[string]TranslationPolicyEntityConfig{
+			"post": {"publish": {Locales: []string{"en"}}},
+		},
+	}
+	if _, err := ValidateTranslationPolicyCoverage(cfg, []string{"posts"}); err != nil {
+		t.Fatalf("expected singular/plural coverage validation to pass: %v", err)
+	}
+}
+
+func TestValidateTranslationPolicyCoverageReportsMissingContentType(t *testing.T) {
+	cfg := TranslationPolicyConfig{
+		RequiredFieldsStrategy: admin.RequiredFieldsValidationError,
+		Required: map[string]TranslationPolicyEntityConfig{
+			"pages": {"publish": {Locales: []string{"en"}}},
+		},
+	}
+	_, err := ValidateTranslationPolicyCoverage(cfg, []string{"pages", "news"})
+	if err == nil {
+		t.Fatalf("expected missing coverage error")
+	}
+	if !strings.Contains(err.Error(), `content type "news"`) {
+		t.Fatalf("expected missing news coverage in error, got %v", err)
+	}
+}
+
+func TestValidateTranslationPolicyCoverageAllowsEmptyContentTypes(t *testing.T) {
+	result, err := ValidateTranslationPolicyCoverage(TranslationPolicyConfig{}, nil)
+	if err != nil {
+		t.Fatalf("expected empty content types to pass: %v", err)
+	}
+	if len(result.Warnings) != 0 {
+		t.Fatalf("expected no warnings, got %+v", result.Warnings)
+	}
+}

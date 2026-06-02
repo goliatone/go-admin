@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	translationcore "github.com/goliatone/go-admin/translations/core"
 	translationservices "github.com/goliatone/go-admin/translations/services"
 )
 
@@ -771,6 +772,42 @@ func TestBunTranslationFamilyStoreDashboardMetricsLoadsLightweightReasonProjecti
 	}
 	if locales := toStringSlice(rows[0]["affected_locales"]); strings.Join(locales, ",") != "es,fr" {
 		t.Fatalf("expected affected locales es,fr, got %+v", locales)
+	}
+}
+
+func TestTranslationDashboardBlockedRowsLabelPolicyUnavailableSeparately(t *testing.T) {
+	rows := translationDashboardTopBlockedRows(nil, []translationservices.FamilyRecord{{
+		ID:             "family-policy-unavailable",
+		ContentType:    "news",
+		SourceLocale:   "en",
+		ReadinessState: "blocked",
+		BlockerCodes:   []string{string(translationcore.FamilyBlockerPolicyDenied)},
+		Blockers: []translationservices.FamilyBlocker{{
+			FamilyID:    "family-policy-unavailable",
+			BlockerCode: string(translationcore.FamilyBlockerPolicyDenied),
+			Details: map[string]any{
+				translationcore.FamilyBlockerDetailContentType: "news",
+				translationcore.FamilyBlockerDetailEnvironment: "default",
+				translationcore.FamilyBlockerDetailReason:      string(translationcore.FamilyBlockerReasonPolicyUnavailable),
+			},
+		}},
+	}}, 5, "default")
+	if len(rows) != 1 {
+		t.Fatalf("expected one row, got %+v", rows)
+	}
+	labels, ok := rows[0]["blocker_labels"].(map[string]string)
+	if !ok {
+		t.Fatalf("expected blocker_labels map[string]string, got %#v", rows[0]["blocker_labels"])
+	}
+	if labels[string(translationcore.FamilyBlockerPolicyDenied)] != "Policy unavailable" {
+		t.Fatalf("expected policy_denied chip label to be policy unavailable, got %+v", labels)
+	}
+	breakdown, ok := rows[0]["reason_breakdown"].([]map[string]any)
+	if !ok || len(breakdown) != 1 {
+		t.Fatalf("expected one reason breakdown entry, got %#v", rows[0]["reason_breakdown"])
+	}
+	if breakdown[0]["code"] != string(translationcore.FamilyBlockerReasonPolicyUnavailable) || breakdown[0]["label"] != "Policy unavailable" {
+		t.Fatalf("unexpected reason breakdown: %+v", breakdown[0])
 	}
 }
 

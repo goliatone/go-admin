@@ -8,6 +8,7 @@ import (
 	"testing/fstest"
 
 	"github.com/goliatone/go-admin/admin"
+	quickstart "github.com/goliatone/go-admin/quickstart"
 )
 
 func TestResolveSiteLocaleDefaultsHonorsConfigFallbackAndDeduplicatesSupportedLocales(t *testing.T) {
@@ -239,5 +240,24 @@ func TestResolveSiteConfigFlowAddsEnabledInternalOpsPathsToReservedPrefixes(t *t
 		if got[i] != want[i] {
 			t.Fatalf("expected reserved prefixes %v, got %v", want, got)
 		}
+	}
+}
+
+func TestResolveSiteConfigFlowPreservesCustomSyncClientStaticPrefix(t *testing.T) {
+	cfg := admin.Config{BasePath: "/admin", DefaultLocale: "en"}
+	resolved := resolveSiteConfigFlow(cfg, SiteConfig{
+		Fallback: SiteFallbackPolicy{
+			StaticInput: quickstart.SiteStaticPrefixInput{
+				SyncClientPrefix: "ops/sync-client",
+			},
+		},
+	})
+
+	got := resolved.Fallback.ReservedPrefixes
+	if !slices.Contains(got, "/ops/sync-client") {
+		t.Fatalf("expected custom sync-client prefix reserved, got %v", got)
+	}
+	if slices.Contains(got, "/admin/sync-client/sync-core") {
+		t.Fatalf("expected custom sync-client prefix to replace default reservation, got %v", got)
 	}
 }

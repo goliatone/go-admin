@@ -219,6 +219,34 @@ func TestNewStaticAssetsMountsExpectedRoutes(t *testing.T) {
 	}
 }
 
+func TestRegisterSyncClientAssetsMountsSuppliedFilesystem(t *testing.T) {
+	r := &stubRouter{}
+	cfg := admin.Config{BasePath: "/admin"}
+	syncFS := fstest.MapFS{
+		"index.js": {Data: []byte("export const syncCore = true;")},
+	}
+
+	RegisterSyncClientAssets(r, cfg, syncFS)
+
+	call, ok := findStaticCall(r.staticCalls, "/admin/sync-client/sync-core")
+	if !ok {
+		t.Fatalf("expected sync-client mount")
+	}
+	if call.root != "." {
+		t.Fatalf("expected sync-client root '.', got %q", call.root)
+	}
+	if call.config.FS == nil {
+		t.Fatalf("expected sync-client static FS configured")
+	}
+	data, err := fs.ReadFile(call.config.FS, "index.js")
+	if err != nil {
+		t.Fatalf("read sync-client asset: %v", err)
+	}
+	if string(data) != "export const syncCore = true;" {
+		t.Fatalf("expected supplied sync-client asset, got %q", string(data))
+	}
+}
+
 func TestResolveStaticAssetPrefixesIncludesRuntimeAliasAndSharedMounts(t *testing.T) {
 	cfg := admin.Config{BasePath: "/admin"}
 
@@ -227,6 +255,7 @@ func TestResolveStaticAssetPrefixesIncludesRuntimeAliasAndSharedMounts(t *testin
 		"/admin/assets",
 		"/admin/runtime",
 		"/admin/formgen",
+		"/admin/sync-client/sync-core",
 		"/dashboard/assets/echarts",
 		"/runtime",
 	}
@@ -248,6 +277,7 @@ func TestResolveSiteFallbackReservedPrefixesTracksStaticAssetOverrides(t *testin
 		WithAssetsPrefix("/public-assets"),
 		WithRuntimePrefix("/ops/runtime"),
 		WithFormgenPrefix("/widgets/formgen"),
+		WithSyncClientPrefix("/ops/sync-client"),
 		WithEChartsPrefix("/charts/echarts"),
 	)
 	want := []string{
@@ -258,6 +288,7 @@ func TestResolveSiteFallbackReservedPrefixesTracksStaticAssetOverrides(t *testin
 		"/assets",
 		"/charts/echarts",
 		"/ops/runtime",
+		"/ops/sync-client",
 		"/public-assets",
 		"/runtime",
 		"/static",
@@ -281,6 +312,7 @@ func TestResolveSiteFallbackStaticInputTracksStaticAssetOverrides(t *testing.T) 
 		WithAssetsPrefix("/public-assets"),
 		WithRuntimePrefix("/ops/runtime"),
 		WithFormgenPrefix("/widgets/formgen"),
+		WithSyncClientPrefix("/ops/sync-client"),
 		WithEChartsPrefix("/charts/echarts"),
 	)
 
@@ -292,6 +324,9 @@ func TestResolveSiteFallbackStaticInputTracksStaticAssetOverrides(t *testing.T) 
 	}
 	if got.FormgenPrefix != "/widgets/formgen" {
 		t.Fatalf("expected formgen prefix override, got %+v", got)
+	}
+	if got.SyncClientPrefix != "/ops/sync-client" {
+		t.Fatalf("expected sync-client prefix override, got %+v", got)
 	}
 	if got.EChartsPrefix != "/charts/echarts" {
 		t.Fatalf("expected echarts prefix override, got %+v", got)

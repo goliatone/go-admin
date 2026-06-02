@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	auth "github.com/goliatone/go-auth"
 	cms "github.com/goliatone/go-cms"
 	cmsblocks "github.com/goliatone/go-cms/blocks"
 	cmscontent "github.com/goliatone/go-cms/content"
@@ -461,6 +462,68 @@ func TestGoCMSContentAdapterCreateContentUsesAdminContentWriteService(t *testing
 	}
 }
 
+func TestGoCMSContentAdapterUpdateContentUsesAdminContentWriteService(t *testing.T) {
+	ctx := context.Background()
+	contentID := uuid.New()
+	typeID := uuid.New()
+	typeSvc := newStubContentTypeService(CMSContentType{
+		ID:           typeID.String(),
+		Slug:         "page",
+		Capabilities: map[string]any{"structural_fields": true, "panel_slug": "pages"},
+	})
+	adminWrite := &stubGoCMSAdminContentWriteService{
+		updateResp: &cms.AdminContentRecord{
+			ID:              contentID,
+			Title:           "Home Updated",
+			Slug:            "home",
+			Locale:          "en",
+			ContentType:     "page",
+			ContentTypeSlug: "page",
+			Status:          "published",
+			Data:            map[string]any{"body": "updated"},
+			Metadata:        map[string]any{"path": "/home"},
+		},
+	}
+	contentSvc := &stubGoCMSContentService{}
+	svc := newGoCMSContentAdapter(contentSvc, nil, nil, typeSvc, nil, nil, adminWrite, nil, nil)
+	adapter := mustGoCMSContentAdapter(t, svc)
+
+	updated, err := adapter.UpdateContent(ctx, CMSContent{
+		ID:              contentID.String(),
+		Title:           "Home Updated",
+		Slug:            "home",
+		Locale:          "en",
+		Status:          "published",
+		ContentType:     "page",
+		ContentTypeSlug: "page",
+		Data: map[string]any{
+			"path": "/home",
+			"body": "updated",
+		},
+	})
+	if err != nil {
+		t.Fatalf("update content failed: %v", err)
+	}
+	if adminWrite.updateCnt != 1 {
+		t.Fatalf("expected one admin write update, got %d", adminWrite.updateCnt)
+	}
+	if contentSvc.updateReq.ID != uuid.Nil {
+		t.Fatalf("expected raw update path to stay unused, got %s", contentSvc.updateReq.ID)
+	}
+	if adminWrite.updateReq.ID != contentID {
+		t.Fatalf("expected update id %s, got %s", contentID, adminWrite.updateReq.ID)
+	}
+	if adminWrite.updateReq.ContentTypeID != typeID {
+		t.Fatalf("expected content type id %s, got %s", typeID, adminWrite.updateReq.ContentTypeID)
+	}
+	if adminWrite.updateReq.Metadata["path"] != "/home" {
+		t.Fatalf("expected metadata path /home, got %v", adminWrite.updateReq.Metadata["path"])
+	}
+	if updated == nil || updated.Data["path"] != "/home" {
+		t.Fatalf("expected updated content to rehydrate path, got %#v", updated)
+	}
+}
+
 func TestGoCMSContentAdapterDeleteContentUsesAdminContentWriteService(t *testing.T) {
 	ctx := context.Background()
 	adminWrite := &stubGoCMSAdminContentWriteService{}
@@ -483,7 +546,8 @@ func TestGoCMSContentAdapterDeleteContentUsesAdminContentWriteService(t *testing
 }
 
 func TestGoCMSContentAdapterCreateTranslationUsesAdminContentWriteServiceForSupportedShape(t *testing.T) {
-	ctx := context.Background()
+	actorID := uuid.New()
+	ctx := auth.WithActorContext(context.Background(), &auth.ActorContext{ActorID: actorID.String()})
 	sourceID := uuid.New()
 	familyID := uuid.New()
 	adminWrite := &stubGoCMSAdminContentWriteService{
@@ -508,6 +572,12 @@ func TestGoCMSContentAdapterCreateTranslationUsesAdminContentWriteServiceForSupp
 		Locale:      "fr",
 		Environment: "staging",
 		Status:      "draft",
+		Path:        "/bonjour",
+		RouteKey:    "posts/bonjour",
+		Metadata: map[string]any{
+			"family_id": familyID.String(),
+			"source":    "translation-ui",
+		},
 	})
 	if err != nil {
 		t.Fatalf("create translation failed: %v", err)
@@ -523,6 +593,27 @@ func TestGoCMSContentAdapterCreateTranslationUsesAdminContentWriteServiceForSupp
 	}
 	if adminWrite.createTranslationReq.TargetLocale != "fr" {
 		t.Fatalf("expected target locale fr, got %q", adminWrite.createTranslationReq.TargetLocale)
+	}
+	if adminWrite.createTranslationReq.EnvironmentKey != "staging" {
+		t.Fatalf("expected environment staging, got %q", adminWrite.createTranslationReq.EnvironmentKey)
+	}
+	if adminWrite.createTranslationReq.Status != "draft" {
+		t.Fatalf("expected status draft, got %q", adminWrite.createTranslationReq.Status)
+	}
+	if adminWrite.createTranslationReq.Path != "/bonjour" {
+		t.Fatalf("expected path /bonjour, got %q", adminWrite.createTranslationReq.Path)
+	}
+	if adminWrite.createTranslationReq.RouteKey != "posts/bonjour" {
+		t.Fatalf("expected route key posts/bonjour, got %q", adminWrite.createTranslationReq.RouteKey)
+	}
+	if adminWrite.createTranslationReq.ActorID != actorID {
+		t.Fatalf("expected actor id %s, got %s", actorID, adminWrite.createTranslationReq.ActorID)
+	}
+	if adminWrite.createTranslationReq.FamilyID == nil || *adminWrite.createTranslationReq.FamilyID != familyID {
+		t.Fatalf("expected family id %s, got %+v", familyID, adminWrite.createTranslationReq.FamilyID)
+	}
+	if adminWrite.createTranslationReq.Metadata["source"] != "translation-ui" {
+		t.Fatalf("expected metadata forwarded, got %+v", adminWrite.createTranslationReq.Metadata)
 	}
 	if created == nil || created.FamilyID != familyID.String() {
 		t.Fatalf("expected created family id %s, got %#v", familyID.String(), created)
