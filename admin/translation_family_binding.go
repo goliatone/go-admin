@@ -1717,6 +1717,7 @@ func cloneFamilyVariantPayload(item translationservices.FamilyVariant) map[strin
 		"is_source":                item.IsSource,
 		"source_hash_at_last_sync": item.SourceHashAtLastSync,
 		"fields":                   cloneStringMap(item.Fields),
+		"row_version":              translationEditorVariantVersion(item),
 		"source_record_id":         item.SourceRecordID,
 		"created_at":               item.CreatedAt,
 		"updated_at":               item.UpdatedAt,
