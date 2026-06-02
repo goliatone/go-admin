@@ -278,7 +278,7 @@ func (b *translationQueueBinding) translationDashboardOptimizedCards(channel str
 			families.BlockedFamilies,
 			map[string]any{"missing_required_locales": families.MissingRequiredFamilies},
 			translationDashboardCardAlert(families.BlockedFamilies, families.BlockedFamilies > 0, false),
-			translationDashboardLink(b.admin.URLs(), b.admin.AdminAPIGroup(), "translations.families", b.admin.AdminAPIGroup()+".translations.families", nil, translationDashboardQuery(nil, channel, map[string]string{"readiness_state": "blocked"}), map[string]any{"label": "Open blocked families", "description": "Open the blocked family feed for the current scope.", "relation": "primary"}),
+			translationDashboardLink(b.admin.URLs(), "admin", "translations.families", "admin.translations.families", nil, translationDashboardQuery(nil, channel, map[string]string{"readiness_state": "blocked"}), map[string]any{"label": "Open blocked families", "description": "Open the blocked families workbench for the current scope.", "relation": "primary"}),
 			"translations.dashboard.blocked_families",
 			"translations.dashboard.publish_blockers",
 		),
@@ -289,7 +289,7 @@ func (b *translationQueueBinding) translationDashboardOptimizedCards(channel str
 			families.MissingRequiredFamilies,
 			map[string]any{"families_blocked": families.BlockedFamilies},
 			translationDashboardCardAlert(families.MissingRequiredFamilies, families.MissingRequiredFamilies > 0, false),
-			translationDashboardLink(b.admin.URLs(), b.admin.AdminAPIGroup(), "translations.families", b.admin.AdminAPIGroup()+".translations.families", nil, translationDashboardQuery(nil, channel, map[string]string{"readiness_state": "blocked", "blocker_code": "missing_locale"}), map[string]any{"label": "Open missing locale blockers", "description": "Open the blocked family feed filtered to missing locale blockers.", "relation": "primary"}),
+			translationDashboardLink(b.admin.URLs(), "admin", "translations.families", "admin.translations.families", nil, translationDashboardQuery(nil, channel, map[string]string{"readiness_state": "blocked", "blocker_code": "missing_locale"}), map[string]any{"label": "Open missing locale blockers", "description": "Open the families workbench filtered to missing locale blockers.", "relation": "primary"}),
 			"translations.dashboard.missing_required_locales",
 			"translations.dashboard.publish_blockers",
 		),
@@ -474,6 +474,7 @@ func translationDashboardOverdueTasksCard(urls urlkit.Resolver, channel string, 
 }
 
 func translationDashboardBlockedFamiliesCard(urls urlkit.Resolver, adminAPIGroup, channel string, blockedFamilies, missingRequiredFamilies []translationservices.FamilyRecord) map[string]any {
+	_ = adminAPIGroup
 	return translationDashboardCard(
 		translationDashboardCardBlockedFamilies,
 		"Blocked Families",
@@ -481,11 +482,11 @@ func translationDashboardBlockedFamiliesCard(urls urlkit.Resolver, adminAPIGroup
 		len(blockedFamilies),
 		map[string]any{"missing_required_locales": len(missingRequiredFamilies)},
 		translationDashboardCardAlert(len(blockedFamilies), len(blockedFamilies) > 0, false),
-		translationDashboardLink(urls, adminAPIGroup, "translations.families", adminAPIGroup+".translations.families", nil, translationDashboardQuery(nil, channel, map[string]string{
+		translationDashboardLink(urls, "admin", "translations.families", "admin.translations.families", nil, translationDashboardQuery(nil, channel, map[string]string{
 			"readiness_state": "blocked",
 		}), map[string]any{
 			"label":       "Open blocked families",
-			"description": "Open the blocked family feed for the current scope.",
+			"description": "Open the blocked families workbench for the current scope.",
 			"relation":    "primary",
 		}),
 		"translations.dashboard.blocked_families",
@@ -494,6 +495,7 @@ func translationDashboardBlockedFamiliesCard(urls urlkit.Resolver, adminAPIGroup
 }
 
 func translationDashboardMissingLocalesCard(urls urlkit.Resolver, adminAPIGroup, channel string, blockedFamilies, missingRequiredFamilies []translationservices.FamilyRecord) map[string]any {
+	_ = adminAPIGroup
 	return translationDashboardCard(
 		translationDashboardCardMissingRequiredLocale,
 		"Missing Required Locales",
@@ -501,12 +503,12 @@ func translationDashboardMissingLocalesCard(urls urlkit.Resolver, adminAPIGroup,
 		len(missingRequiredFamilies),
 		map[string]any{"families_blocked": len(blockedFamilies)},
 		translationDashboardCardAlert(len(missingRequiredFamilies), len(missingRequiredFamilies) > 0, false),
-		translationDashboardLink(urls, adminAPIGroup, "translations.families", adminAPIGroup+".translations.families", nil, translationDashboardQuery(nil, channel, map[string]string{
+		translationDashboardLink(urls, "admin", "translations.families", "admin.translations.families", nil, translationDashboardQuery(nil, channel, map[string]string{
 			"readiness_state": "blocked",
 			"blocker_code":    "missing_locale",
 		}), map[string]any{
 			"label":       "Open missing locale blockers",
-			"description": "Open the blocked family feed filtered to missing locale blockers.",
+			"description": "Open the families workbench filtered to missing locale blockers.",
 			"relation":    "primary",
 		}),
 		"translations.dashboard.missing_required_locales",

@@ -10,6 +10,7 @@ import (
 
 	translationcore "github.com/goliatone/go-admin/translations/core"
 	translationservices "github.com/goliatone/go-admin/translations/services"
+	bunrepo "github.com/goliatone/go-repository-bun"
 	"github.com/uptrace/bun"
 )
 
@@ -186,18 +187,7 @@ func applyBunFamilyListFilters(query *bun.SelectQuery, input translationservices
 	if query == nil {
 		return
 	}
-	tenantID := strings.TrimSpace(input.Scope.TenantID)
-	orgID := strings.TrimSpace(input.Scope.OrgID)
-	if tenantID != "" {
-		query.Where("tenant_id = ?", tenantID)
-	} else {
-		query.Where("(tenant_id IS NULL OR tenant_id = '')")
-	}
-	if orgID != "" {
-		query.Where("org_id = ?", orgID)
-	} else {
-		query.Where("(org_id IS NULL OR org_id = '')")
-	}
+	applyBunScopedColumns(query, "tenant_id", "org_id", input.Scope)
 	if familyID := strings.TrimSpace(input.FamilyID); familyID != "" {
 		query.Where("family_id = ?", familyID)
 	}
@@ -208,11 +198,110 @@ func applyBunFamilyListFilters(query *bun.SelectQuery, input translationservices
 		query.Where("LOWER(readiness_state) = ?", readiness)
 	}
 	if blockerCode := strings.TrimSpace(strings.ToLower(input.BlockerCode)); blockerCode != "" {
-		query.Where("EXISTS (SELECT 1 FROM family_blockers fb WHERE fb.family_id = cf.family_id AND LOWER(fb.blocker_code) = ?)", blockerCode)
+		scopeExpr, scopeArgs := bunScopedColumnsPredicate("fb.tenant_id", "fb.org_id", input.Scope)
+		args := append([]any{blockerCode}, scopeArgs...)
+		query.Where("EXISTS (SELECT 1 FROM family_blockers fb WHERE fb.family_id = cf.family_id AND LOWER(fb.blocker_code) = ? AND "+scopeExpr+")", args...)
 	}
 	if missingLocale := strings.TrimSpace(strings.ToLower(input.MissingLocale)); missingLocale != "" {
-		query.Where("EXISTS (SELECT 1 FROM family_blockers fb WHERE fb.family_id = cf.family_id AND LOWER(fb.blocker_code) = 'missing_locale' AND LOWER(fb.locale) = ?)", missingLocale)
+		scopeExpr, scopeArgs := bunScopedColumnsPredicate("fb.tenant_id", "fb.org_id", input.Scope)
+		args := append([]any{missingLocale}, scopeArgs...)
+		query.Where("EXISTS (SELECT 1 FROM family_blockers fb WHERE fb.family_id = cf.family_id AND LOWER(fb.blocker_code) = 'missing_locale' AND LOWER(fb.locale) = ? AND "+scopeExpr+")", args...)
 	}
+}
+
+func applyBunScopedColumns(query *bun.SelectQuery, tenantColumn, orgColumn string, scope translationservices.Scope) {
+	if query == nil {
+		return
+	}
+	expr, args := bunScopedColumnsPredicate(tenantColumn, orgColumn, scope)
+	if expr == "" {
+		return
+	}
+	query.Where(expr, args...)
+}
+
+func bunScopedColumnsPredicate(tenantColumn, orgColumn string, scope translationservices.Scope) (string, []any) {
+	parts := make([]string, 0, 2)
+	args := make([]any, 0, 2)
+	tenantID := strings.TrimSpace(scope.TenantID)
+	orgID := strings.TrimSpace(scope.OrgID)
+	if tenantColumn = strings.TrimSpace(tenantColumn); tenantColumn != "" {
+		if expr, exprArgs, ok := bunScopedColumnPredicate(tenantColumn, tenantID); ok {
+			parts = append(parts, expr)
+			args = append(args, exprArgs...)
+		}
+	}
+	if orgColumn = strings.TrimSpace(orgColumn); orgColumn != "" {
+		if expr, exprArgs, ok := bunScopedColumnPredicate(orgColumn, orgID); ok {
+			parts = append(parts, expr)
+			args = append(args, exprArgs...)
+		}
+	}
+	return strings.Join(parts, " AND "), args
+}
+
+func bunScopedColumnPredicate(column, value string) (string, []any, bool) {
+	mode := bunrepo.ScopeGlobal
+	values := bunrepo.ScopeValues{}
+	if value = strings.TrimSpace(value); value != "" {
+		mode = bunrepo.ScopeExact
+		values.TenantID = value
+	}
+	return bunrepo.ScopeWhere(bunrepo.ScopeColumns{Tenant: strings.TrimSpace(column)}, values, mode)
+}
+
+func applyBunScopedUpdateColumns(query *bun.UpdateQuery, tenantColumn, orgColumn string, scope translationservices.Scope) {
+	if query == nil {
+		return
+	}
+	expr, args := bunScopedColumnsPredicate(tenantColumn, orgColumn, scope)
+	if expr == "" {
+		return
+	}
+	query.Where(expr, args...)
+}
+
+func applyBunScopedDeleteColumns(query *bun.DeleteQuery, tenantColumn, orgColumn string, scope translationservices.Scope) {
+	if query == nil {
+		return
+	}
+	expr, args := bunScopedColumnsPredicate(tenantColumn, orgColumn, scope)
+	if expr == "" {
+		return
+	}
+	query.Where(expr, args...)
+}
+
+func bunFamilyRowsSharedScope(rows []bunTranslationFamilyRecord) (translationservices.Scope, bool) {
+	if len(rows) == 0 {
+		return translationservices.Scope{}, false
+	}
+	scope := translationservices.Scope{
+		TenantID: strings.TrimSpace(rows[0].TenantID),
+		OrgID:    strings.TrimSpace(rows[0].OrgID),
+	}
+	for _, row := range rows[1:] {
+		if strings.TrimSpace(row.TenantID) != scope.TenantID || strings.TrimSpace(row.OrgID) != scope.OrgID {
+			return translationservices.Scope{}, false
+		}
+	}
+	return scope, true
+}
+
+func familyRecordsSharedScope(rows []translationservices.FamilyRecord) (translationservices.Scope, bool) {
+	if len(rows) == 0 {
+		return translationservices.Scope{}, false
+	}
+	scope := translationservices.Scope{
+		TenantID: strings.TrimSpace(rows[0].TenantID),
+		OrgID:    strings.TrimSpace(rows[0].OrgID),
+	}
+	for _, row := range rows[1:] {
+		if strings.TrimSpace(row.TenantID) != scope.TenantID || strings.TrimSpace(row.OrgID) != scope.OrgID {
+			return translationservices.Scope{}, false
+		}
+	}
+	return scope, true
 }
 
 func (s *BunTranslationFamilyStore) TranslationEditorMemorySuggestions(ctx context.Context, input TranslationEditorMemorySuggestionInput) ([]TranslationEditorMemorySuggestion, error) {
@@ -254,16 +343,10 @@ func (s *BunTranslationFamilyStore) TranslationEditorMemorySuggestions(ctx conte
 		OrderExpr("target.updated_at DESC").
 		OrderExpr("cf.family_id ASC").
 		Limit(input.CandidateRowLimit)
-	if input.TenantID != "" {
-		query.Where("cf.tenant_id = ?", input.TenantID)
-	} else {
-		query.Where("(cf.tenant_id IS NULL OR cf.tenant_id = '')")
-	}
-	if input.OrgID != "" {
-		query.Where("cf.org_id = ?", input.OrgID)
-	} else {
-		query.Where("(cf.org_id IS NULL OR cf.org_id = '')")
-	}
+	scope := translationservices.Scope{TenantID: input.TenantID, OrgID: input.OrgID}
+	applyBunScopedColumns(query, "cf.tenant_id", "cf.org_id", scope)
+	applyBunScopedColumns(query, "source.tenant_id", "source.org_id", scope)
+	applyBunScopedColumns(query, "target.tenant_id", "target.org_id", scope)
 	if input.ExcludeFamilyID != "" {
 		query.Where("cf.family_id <> ?", input.ExcludeFamilyID)
 	}
@@ -367,22 +450,28 @@ func (s *BunTranslationFamilyStore) familyListProjectionRowsFromRows(ctx context
 		familyIDs = append(familyIDs, row.FamilyID)
 	}
 	variantRows := []bunFamilyListVariantProjection{}
-	if err := s.db.NewSelect().
+	variantQuery := s.db.NewSelect().
 		Table("locale_variants").
 		Column("family_id", "variant_id", "tenant_id", "org_id", "locale", "status", "is_source", "source_record_id", "fields_json").
-		Where("family_id IN (?)", bun.List(familyIDs)).
-		OrderExpr("family_id ASC").
+		Where("family_id IN (?)", bun.List(familyIDs))
+	if scope, ok := bunFamilyRowsSharedScope(familyRows); ok {
+		applyBunScopedColumns(variantQuery, "tenant_id", "org_id", scope)
+	}
+	if err := variantQuery.OrderExpr("family_id ASC").
 		OrderExpr("is_source DESC").
 		OrderExpr("locale ASC").
 		Scan(ctx, &variantRows); err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return nil, err
 	}
 	blockerRows := []bunFamilyListBlockerProjection{}
-	if err := s.db.NewSelect().
+	blockerQuery := s.db.NewSelect().
 		Table("family_blockers").
 		Column("family_id", "blocker_code", "locale").
-		Where("family_id IN (?)", bun.List(familyIDs)).
-		OrderExpr("family_id ASC").
+		Where("family_id IN (?)", bun.List(familyIDs))
+	if scope, ok := bunFamilyRowsSharedScope(familyRows); ok {
+		applyBunScopedColumns(blockerQuery, "tenant_id", "org_id", scope)
+	}
+	if err := blockerQuery.OrderExpr("family_id ASC").
 		OrderExpr("blocker_code ASC").
 		OrderExpr("locale ASC").
 		Scan(ctx, &blockerRows); err != nil && !errors.Is(err, sql.ErrNoRows) {
@@ -512,14 +601,17 @@ func (s *BunTranslationFamilyStore) dashboardFamilyBlockersForFamilies(ctx conte
 		return out, nil
 	}
 	blockerRows := []bunTranslationFamilyBlockerRecord{}
-	err := s.db.NewSelect().
+	query := s.db.NewSelect().
 		Model(&blockerRows).
 		Where("family_id IN (?)", bun.List(familyIDs)).
 		OrderExpr("family_id ASC").
 		OrderExpr("blocker_code ASC").
 		OrderExpr("locale ASC").
-		OrderExpr("field_path ASC").
-		Scan(ctx)
+		OrderExpr("field_path ASC")
+	if scope, ok := familyRecordsSharedScope(families); ok {
+		applyBunScopedColumns(query, "tenant_id", "org_id", scope)
+	}
+	err := query.Scan(ctx)
 	if errors.Is(err, sql.ErrNoRows) || isMissingFamilyBlockersTableError(err) {
 		return out, nil
 	}
@@ -573,6 +665,27 @@ func (s *BunTranslationFamilyStore) Family(ctx context.Context, id string) (tran
 	return families[0], true, nil
 }
 
+func (s *BunTranslationFamilyStore) FamilyQuery(ctx context.Context, input translationservices.GetFamilyInput) (translationservices.FamilyRecord, bool, error) {
+	if s == nil || s.db == nil {
+		return translationservices.FamilyRecord{}, false, errors.New("family store not configured")
+	}
+	record := bunTranslationFamilyRecord{}
+	query := s.db.NewSelect().Model(&record).Where("family_id = ?", strings.TrimSpace(input.FamilyID))
+	applyBunScopedColumns(query, "tenant_id", "org_id", input.Scope)
+	err := query.Scan(ctx)
+	if errors.Is(err, sql.ErrNoRows) {
+		return translationservices.FamilyRecord{}, false, nil
+	}
+	if err != nil {
+		return translationservices.FamilyRecord{}, false, err
+	}
+	families, err := s.familiesFromRows(ctx, []bunTranslationFamilyRecord{record})
+	if err != nil || len(families) == 0 {
+		return translationservices.FamilyRecord{}, false, err
+	}
+	return families[0], true, nil
+}
+
 func (s *BunTranslationFamilyStore) SaveFamily(ctx context.Context, family translationservices.FamilyRecord) error {
 	if s == nil || s.db == nil {
 		return errors.New("family store not configured")
@@ -596,7 +709,7 @@ func (s *BunTranslationFamilyStore) SaveFamily(ctx context.Context, family trans
 		if saveErr := upsertFamilyLocaleVariantsTx(ctx, tx, family); saveErr != nil {
 			return saveErr
 		}
-		if saveErr := updateFamilySourceVariantTx(ctx, tx, family.ID, sourceVariantID); saveErr != nil {
+		if saveErr := updateFamilySourceVariantTx(ctx, tx, family, sourceVariantID); saveErr != nil {
 			return saveErr
 		}
 		if saveErr := deleteStaleFamilyVariants(ctx, tx, family); saveErr != nil {
@@ -653,37 +766,54 @@ func upsertFamilyLocaleVariantsTx(ctx context.Context, tx bun.Tx, family transla
 	return nil
 }
 
-func updateFamilySourceVariantTx(ctx context.Context, tx bun.Tx, familyID string, sourceVariantID sql.NullString) error {
-	_, err := tx.NewUpdate().
+func updateFamilySourceVariantTx(ctx context.Context, tx bun.Tx, family translationservices.FamilyRecord, sourceVariantID sql.NullString) error {
+	query := tx.NewUpdate().
 		Model((*bunTranslationFamilyRecord)(nil)).
 		Set("source_variant_id = ?", sourceVariantID).
-		Where("family_id = ?", strings.TrimSpace(familyID)).
-		Exec(ctx)
+		Where("family_id = ?", strings.TrimSpace(family.ID))
+	applyBunScopedUpdateColumns(query, "tenant_id", "org_id", translationservices.Scope{TenantID: family.TenantID, OrgID: family.OrgID})
+	_, err := query.Exec(ctx)
 	return err
 }
 
 func replaceFamilyBlockersTx(ctx context.Context, tx bun.Tx, family translationservices.FamilyRecord) error {
-	if _, err := tx.NewDelete().
+	query := tx.NewDelete().
 		Model((*bunTranslationFamilyBlockerRecord)(nil)).
-		Where("family_id = ?", strings.TrimSpace(family.ID)).
-		Exec(ctx); err != nil {
-		return err
+		Where("family_id = ?", strings.TrimSpace(family.ID))
+	_, deleteErr := query.Exec(ctx)
+	if deleteErr != nil {
+		return deleteErr
 	}
 	if len(family.Blockers) == 0 {
 		return nil
 	}
 	rows := make([]bunTranslationFamilyBlockerRecord, 0, len(family.Blockers))
+	seen := map[string]struct{}{}
 	for _, blocker := range family.Blockers {
-		row, err := bunTranslationFamilyBlockerRecordFromModel(family, blocker)
-		if err != nil {
-			return err
+		row, rowErr := bunTranslationFamilyBlockerRecordFromModel(family, blocker)
+		if rowErr != nil {
+			return rowErr
 		}
+		key := strings.Join([]string{
+			strings.TrimSpace(row.FamilyID),
+			strings.TrimSpace(strings.ToLower(row.BlockerCode)),
+			strings.TrimSpace(strings.ToLower(row.Locale)),
+			strings.TrimSpace(row.FieldPath),
+		}, "\x00")
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
 		rows = append(rows, row)
 	}
-	_, err := tx.NewInsert().Model(&rows).Exec(ctx)
-	return err
+	if len(rows) == 0 {
+		return nil
+	}
+	_, insertErr := tx.NewInsert().Model(&rows).On("CONFLICT DO NOTHING").Exec(ctx)
+	return insertErr
 }
 
+//nolint:gocyclo // Hydration keeps variants, blockers, and assignments grouped in one query boundary.
 func (s *BunTranslationFamilyStore) familiesFromRows(ctx context.Context, familyRows []bunTranslationFamilyRecord) ([]translationservices.FamilyRecord, error) {
 	if len(familyRows) == 0 {
 		return nil, nil
@@ -693,24 +823,33 @@ func (s *BunTranslationFamilyStore) familiesFromRows(ctx context.Context, family
 		familyIDs = append(familyIDs, row.FamilyID)
 	}
 	variantRows := []bunTranslationLocaleVariantRecord{}
-	if err := s.db.NewSelect().
+	variantQuery := s.db.NewSelect().
 		Model(&variantRows).
-		Where("family_id IN (?)", bun.List(familyIDs)).
-		Scan(ctx); err != nil && !errors.Is(err, sql.ErrNoRows) {
+		Where("family_id IN (?)", bun.List(familyIDs))
+	if scope, ok := bunFamilyRowsSharedScope(familyRows); ok {
+		applyBunScopedColumns(variantQuery, "tenant_id", "org_id", scope)
+	}
+	if err := variantQuery.Scan(ctx); err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return nil, err
 	}
 	blockerRows := []bunTranslationFamilyBlockerRecord{}
-	if err := s.db.NewSelect().
+	blockerQuery := s.db.NewSelect().
 		Model(&blockerRows).
-		Where("family_id IN (?)", bun.List(familyIDs)).
-		Scan(ctx); err != nil && !errors.Is(err, sql.ErrNoRows) {
+		Where("family_id IN (?)", bun.List(familyIDs))
+	if scope, ok := bunFamilyRowsSharedScope(familyRows); ok {
+		applyBunScopedColumns(blockerQuery, "tenant_id", "org_id", scope)
+	}
+	if err := blockerQuery.Scan(ctx); err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return nil, err
 	}
 	assignmentRows := []bunTranslationAssignmentRecord{}
-	if err := s.db.NewSelect().
+	assignmentQuery := s.db.NewSelect().
 		Model(&assignmentRows).
-		Where("family_id IN (?)", bun.List(familyIDs)).
-		Scan(ctx); err != nil && !errors.Is(err, sql.ErrNoRows) {
+		Where("family_id IN (?)", bun.List(familyIDs))
+	if scope, ok := bunFamilyRowsSharedScope(familyRows); ok {
+		applyBunScopedColumns(assignmentQuery, "tenant_id", "org_id", scope)
+	}
+	if err := assignmentQuery.Scan(ctx); err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return nil, err
 	}
 	variantsByFamily, err := bunFamilyVariantsByFamily(variantRows)
@@ -830,11 +969,12 @@ func clearFamilySourceVariants(ctx context.Context, tx bun.Tx, family translatio
 	if familyID == "" || len(family.Variants) == 0 {
 		return nil
 	}
-	_, err := tx.NewUpdate().
+	query := tx.NewUpdate().
 		Model((*bunTranslationLocaleVariantRecord)(nil)).
 		Set("is_source = ?", false).
-		Where("family_id = ?", familyID).
-		Exec(ctx)
+		Where("family_id = ?", familyID)
+	applyBunScopedUpdateColumns(query, "tenant_id", "org_id", translationservices.Scope{TenantID: family.TenantID, OrgID: family.OrgID})
+	_, err := query.Exec(ctx)
 	return err
 }
 
@@ -852,11 +992,12 @@ func deleteStaleFamilyVariants(ctx context.Context, tx bun.Tx, family translatio
 	if len(ids) == 0 {
 		return nil
 	}
-	_, err := tx.NewDelete().
+	query := tx.NewDelete().
 		Model((*bunTranslationLocaleVariantRecord)(nil)).
 		Where("family_id = ?", familyID).
-		Where("variant_id NOT IN (?)", bun.List(ids)).
-		Exec(ctx)
+		Where("variant_id NOT IN (?)", bun.List(ids))
+	applyBunScopedDeleteColumns(query, "tenant_id", "org_id", translationservices.Scope{TenantID: family.TenantID, OrgID: family.OrgID})
+	_, err := query.Exec(ctx)
 	return err
 }
 
@@ -871,13 +1012,14 @@ func renameFamilyLocaleVariants(ctx context.Context, tx bun.Tx, family translati
 		if variantID == "" || locale == "" {
 			continue
 		}
-		if _, err := tx.NewUpdate().
+		query := tx.NewUpdate().
 			Model((*bunTranslationLocaleVariantRecord)(nil)).
 			Set("variant_id = ?", variantID).
 			Where("family_id = ?", familyID).
 			Where("locale = ?", locale).
-			Where("variant_id <> ?", variantID).
-			Exec(ctx); err != nil {
+			Where("variant_id <> ?", variantID)
+		applyBunScopedUpdateColumns(query, "tenant_id", "org_id", translationservices.Scope{TenantID: family.TenantID, OrgID: family.OrgID})
+		if _, err := query.Exec(ctx); err != nil {
 			return err
 		}
 	}

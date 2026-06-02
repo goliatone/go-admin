@@ -127,7 +127,7 @@ func appendTranslationFamilyLocaleVariants(ctx context.Context, adm *Admin, fami
 		return err
 	}
 	for _, page := range pages {
-		appendErr := appendPageFamilyVariant(families, state, page, locale, defaultLocale)
+		appendErr := appendPageFamilyVariant(ctx, adm, families, state, page, locale, defaultLocale)
 		if appendErr != nil {
 			return appendErr
 		}
@@ -176,7 +176,7 @@ func recomputeTranslationFamily(ctx context.Context, adm *Admin, familyID string
 	return err
 }
 
-func appendPageFamilyVariant(families map[string]translationservices.FamilyRecord, state *translationFamilySyncState, page CMSPage, locale, defaultLocale string) error {
+func appendPageFamilyVariant(ctx context.Context, adm *Admin, families map[string]translationservices.FamilyRecord, state *translationFamilySyncState, page CMSPage, locale, defaultLocale string) error {
 	familyID := strings.TrimSpace(page.FamilyID)
 	if familyID == "" {
 		return validationDomainError("translation-enabled page missing canonical family_id", map[string]any{
@@ -190,7 +190,7 @@ func appendPageFamilyVariant(families map[string]translationservices.FamilyRecor
 		return nil
 	}
 	family := families[familyID]
-	scope := translationScopeFromMaps(page.Metadata, page.Data)
+	scope := translationFamilySyncScope(ctx, adm, page.Metadata, page.Data)
 	if family.ID == "" {
 		family = translationservices.FamilyRecord{
 			ID:          familyID,
@@ -247,7 +247,7 @@ func appendContentFamilyVariant(ctx context.Context, adm *Admin, families map[st
 		return nil
 	}
 	family := families[familyID]
-	scope := translationScopeFromMaps(content.Metadata, content.Data)
+	scope := translationFamilySyncScope(ctx, adm, content.Metadata, content.Data)
 	if family.ID == "" {
 		family = translationservices.FamilyRecord{
 			ID:          familyID,
@@ -283,6 +283,21 @@ func appendContentFamilyVariant(ctx context.Context, adm *Admin, families map[st
 	family.Variants = append(family.Variants, variant)
 	families[familyID] = family
 	return nil
+}
+
+func translationFamilySyncScope(ctx context.Context, adm *Admin, maps ...map[string]any) translationservices.Scope {
+	scope := translationScopeFromMaps(maps...)
+	if adm == nil {
+		return scope
+	}
+	effective := adm.EffectiveScope(ctx, ScopeInput{
+		TenantID: scope.TenantID,
+		OrgID:    scope.OrgID,
+	})
+	return translationservices.Scope{
+		TenantID: strings.TrimSpace(effective.TenantID),
+		OrgID:    strings.TrimSpace(effective.OrgID),
+	}
 }
 
 func translationFamilySyncContentType(ctx context.Context, adm *Admin, contentType string) string {

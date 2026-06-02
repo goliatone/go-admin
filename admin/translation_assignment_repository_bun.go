@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	translationservices "github.com/goliatone/go-admin/translations/services"
 	"github.com/google/uuid"
 	"github.com/uptrace/bun"
 )
@@ -245,7 +246,7 @@ func (r *BunTranslationAssignmentRepository) ListAssignmentFamilyGroups(ctx cont
 	if err != nil {
 		return TranslationAssignmentFamilyGroupQueryResult{}, err
 	}
-	blockerCounts, blockersAvailable, err := r.familyBlockerCounts(ctx, familyIDs)
+	blockerCounts, blockersAvailable, err := r.familyBlockerCounts(ctx, familyIDs, bunAssignmentScopeFromListOptions(opts))
 	if err != nil {
 		return TranslationAssignmentFamilyGroupQueryResult{}, err
 	}
@@ -454,6 +455,14 @@ func applyBunAssignmentFilter(query *bun.SelectQuery, key string, raw any, dueSQ
 		query.Where("(reviewer_id IN (?) OR (COALESCE(reviewer_id, '') = '' AND last_reviewer_id IN (?)))", bun.List(values), bun.List(values))
 		return
 	}
+	if key == "tenant_id" && len(values) == 1 {
+		applyBunScopedColumns(query, "tenant_id", "", translationservices.Scope{TenantID: values[0]})
+		return
+	}
+	if key == "org_id" && len(values) == 1 {
+		applyBunScopedColumns(query, "", "org_id", translationservices.Scope{OrgID: values[0]})
+		return
+	}
 	if column, ok := bunAssignmentFilterColumns[key]; ok {
 		query.Where(column+" IN (?)", bun.List(values))
 	}
@@ -481,6 +490,21 @@ func normalizedBunAssignmentFilterValues(key string, raw any) []string {
 		}
 	}
 	return out
+}
+
+func bunAssignmentScopeFromListOptions(opts ListOptions) translationservices.Scope {
+	return translationservices.Scope{
+		TenantID: singleBunAssignmentFilterValue("tenant_id", opts.Filters["tenant_id"]),
+		OrgID:    singleBunAssignmentFilterValue("org_id", opts.Filters["org_id"]),
+	}
+}
+
+func singleBunAssignmentFilterValue(key string, raw any) string {
+	values := normalizedBunAssignmentFilterValues(key, raw)
+	if len(values) != 1 {
+		return ""
+	}
+	return values[0]
 }
 
 func applyBunAssignmentDueStateFilter(query *bun.SelectQuery, raw string, dueSQL bunAssignmentDueDateSQL) {
@@ -608,7 +632,7 @@ func applyBunFamilyBlockedReviewFilter(query *bun.SelectQuery, reviewState strin
 	if reviewState != translationQueueReviewStateQABlocked {
 		return ErrTranslationAssignmentQueryUnsupported
 	}
-	query.Where("EXISTS (SELECT 1 FROM family_blockers fb WHERE fb.family_id = ta.family_id)")
+	query.Where("EXISTS (SELECT 1 FROM family_blockers fb WHERE fb.family_id = ta.family_id AND COALESCE(fb.tenant_id, '') = COALESCE(ta.tenant_id, '') AND COALESCE(fb.org_id, '') = COALESCE(ta.org_id, ''))")
 	return nil
 }
 
@@ -666,19 +690,20 @@ func (r *BunTranslationAssignmentRepository) assignmentRowsForFamilies(ctx conte
 	return out, nil
 }
 
-func (r *BunTranslationAssignmentRepository) familyBlockerCounts(ctx context.Context, familyIDs []string) (map[string]int, bool, error) {
+func (r *BunTranslationAssignmentRepository) familyBlockerCounts(ctx context.Context, familyIDs []string, scope translationservices.Scope) (map[string]int, bool, error) {
 	out := map[string]int{}
 	if len(familyIDs) == 0 {
 		return out, true, nil
 	}
 	records := []bunTranslationFamilyBlockerCountRecord{}
-	err := r.db.NewSelect().
+	query := r.db.NewSelect().
 		Model((*bunTranslationFamilyBlockerRecord)(nil)).
 		ColumnExpr("family_id").
 		ColumnExpr("COUNT(*) AS count").
 		Where("family_id IN (?)", bun.List(familyIDs)).
-		GroupExpr("family_id").
-		Scan(ctx, &records)
+		GroupExpr("family_id")
+	applyBunScopedColumns(query, "tenant_id", "org_id", scope)
+	err := query.Scan(ctx, &records)
 	if isMissingFamilyBlockersTableError(err) {
 		return out, false, nil
 	}
@@ -1222,13 +1247,14 @@ func (r *BunTranslationAssignmentRepository) resolveAssignmentVariantIDTx(ctx co
 		return fallback, nil
 	}
 	record := bunTranslationLocaleVariantRecord{}
-	err := db.NewSelect().
+	query := db.NewSelect().
 		Model(&record).
 		Column("variant_id").
 		Where("family_id = ?", familyID).
 		Where("locale = ?", targetLocale).
-		Limit(1).
-		Scan(ctx)
+		Limit(1)
+	applyBunScopedColumns(query, "tenant_id", "org_id", translationservices.Scope{TenantID: assignment.TenantID, OrgID: assignment.OrgID})
+	err := query.Scan(ctx)
 	if errors.Is(err, sql.ErrNoRows) {
 		return "", nil
 	}
@@ -1268,10 +1294,8 @@ func (r *BunTranslationAssignmentRepository) getTx(ctx context.Context, db bun.I
 
 func (r *BunTranslationAssignmentRepository) findActiveByKeyTx(ctx context.Context, db bun.IDB, assignment TranslationAssignment) (TranslationAssignment, bool, error) {
 	record := bunTranslationAssignmentRecord{}
-	err := db.NewSelect().
+	query := db.NewSelect().
 		Model(&record).
-		Where("COALESCE(tenant_id, '__global__') = COALESCE(?, '__global__')", strings.TrimSpace(assignment.TenantID)).
-		Where("COALESCE(org_id, '__global__') = COALESCE(?, '__global__')", strings.TrimSpace(assignment.OrgID)).
 		Where("family_id = ?", strings.TrimSpace(assignment.FamilyID)).
 		Where("target_locale = ?", strings.TrimSpace(strings.ToLower(assignment.TargetLocale))).
 		Where("work_scope = ?", normalizeTranslationAssignmentWorkScope(assignment.WorkScope)).
@@ -1282,8 +1306,12 @@ func (r *BunTranslationAssignmentRepository) findActiveByKeyTx(ctx context.Conte
 			string(AssignmentStatusInReview),
 			string(AssignmentStatusChangesRequested),
 		})).
-		Limit(1).
-		Scan(ctx)
+		Limit(1)
+	applyBunScopedColumns(query, "tenant_id", "org_id", translationservices.Scope{
+		TenantID: strings.TrimSpace(assignment.TenantID),
+		OrgID:    strings.TrimSpace(assignment.OrgID),
+	})
+	err := query.Scan(ctx)
 	if errors.Is(err, sql.ErrNoRows) {
 		return TranslationAssignment{}, false, nil
 	}

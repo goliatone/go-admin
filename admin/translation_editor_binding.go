@@ -427,7 +427,7 @@ func translationEditorContextFromFamily(family translationservices.FamilyRecord,
 }
 
 func (b *translationQueueBinding) assignmentDetailPayload(ctx context.Context, assignment TranslationAssignment, editorCtx translationEditorContext, now time.Time, historyPage, historyPerPage int) map[string]any {
-	row := b.assignmentContractRow(ctx, assignment, now, editorCtx.Environment)
+	row := b.assignmentContractRow(ctx, assignment, now, editorCtx.Environment, b.newAssignmentActorLabelResolver().labelsForAssignments(ctx, []TranslationAssignment{assignment}))
 	editorActions := b.assignmentEditorActionStates(ctx, editorCtx, assignment)
 	fieldCompleteness := translationEditorFieldCompleteness(editorCtx)
 	fieldDrift := translationEditorFieldDrift(editorCtx)
@@ -478,11 +478,175 @@ func (b *translationQueueBinding) assignmentDetailPayload(ctx context.Context, a
 		"glossary_matches":         translationEditorGlossaryMatches(editorCtx),
 		"style_guide_summary":      translationEditorStyleGuideSummary(editorCtx),
 		"translation_assignment":   row,
+		"locale_navigation":        b.translationEditorLocaleNavigationPayload(editorCtx, assignment),
 	}
 	if assignment.DueDate != nil {
 		payload["due_date"] = assignment.DueDate
 	}
 	return payload
+}
+
+func (b *translationQueueBinding) translationEditorLocaleNavigationPayload(editorCtx translationEditorContext, currentAssignment TranslationAssignment) map[string]any {
+	family := editorCtx.Family
+	currentLocale := strings.TrimSpace(strings.ToLower(firstNonEmpty(currentAssignment.TargetLocale, editorCtx.TargetVariant.Locale)))
+	sourceLocale := strings.TrimSpace(strings.ToLower(firstNonEmpty(editorCtx.SourceVariant.Locale, family.SourceLocale, family.Policy.SourceLocale)))
+	currentWorkScope := normalizeTranslationAssignmentWorkScope(firstNonEmpty(currentAssignment.WorkScope, family.Policy.DefaultWorkScope))
+	locales := translationEditorNavigationLocales(family, currentLocale, sourceLocale)
+	entries := make([]map[string]any, 0, len(locales))
+	for _, locale := range locales {
+		assignment, hasAssignment := translationEditorFamilyAssignmentByLocale(family, locale, currentWorkScope)
+		entry := map[string]any{
+			"locale":   locale,
+			"label":    strings.ToUpper(locale),
+			"current":  strings.EqualFold(locale, currentLocale),
+			"source":   sourceLocale != "" && strings.EqualFold(locale, sourceLocale),
+			"enabled":  false,
+			"disabled": true,
+			"reason":   "No translation assignment exists for this locale.",
+		}
+		if hasAssignment && strings.TrimSpace(assignment.ID) != "" {
+			entry["assignment_id"] = strings.TrimSpace(assignment.ID)
+			entry["status"] = strings.TrimSpace(assignment.Status)
+			entry["work_scope"] = normalizeTranslationAssignmentWorkScope(assignment.WorkScope)
+			entry["enabled"] = true
+			entry["disabled"] = false
+			delete(entry, "reason")
+			if href := translationEditorAssignmentEditorURL(b.admin, assignment.ID); href != "" {
+				entry["href"] = href
+			}
+		}
+		entries = append(entries, entry)
+	}
+	return map[string]any{
+		"family_id":          strings.TrimSpace(family.ID),
+		"current_locale":     currentLocale,
+		"source_locale":      sourceLocale,
+		"current_work_scope": currentWorkScope,
+		"family_detail_url":  translationEditorFamilyDetailURL(b.admin, family.ID),
+		"locales":            entries,
+	}
+}
+
+func translationEditorNavigationLocales(family translationservices.FamilyRecord, currentLocale, sourceLocale string) []string {
+	set := map[string]struct{}{}
+	for _, locale := range family.Policy.RequiredLocales {
+		if normalized := strings.TrimSpace(strings.ToLower(locale)); normalized != "" {
+			set[normalized] = struct{}{}
+		}
+	}
+	for _, assignment := range family.Assignments {
+		if normalized := strings.TrimSpace(strings.ToLower(assignment.TargetLocale)); normalized != "" {
+			set[normalized] = struct{}{}
+		}
+	}
+	sourceLocale = strings.TrimSpace(strings.ToLower(sourceLocale))
+	for _, variant := range family.Variants {
+		if normalized := strings.TrimSpace(strings.ToLower(variant.Locale)); normalized != "" {
+			if sourceLocale != "" && strings.EqualFold(normalized, sourceLocale) {
+				continue
+			}
+			set[normalized] = struct{}{}
+		}
+	}
+	if normalized := strings.TrimSpace(strings.ToLower(currentLocale)); normalized != "" {
+		set[normalized] = struct{}{}
+	}
+	return sortLocaleSetWithCurrentFirst(set, currentLocale)
+}
+
+func sortLocaleSetWithCurrentFirst(set map[string]struct{}, currentLocale string) []string {
+	out := make([]string, 0, len(set))
+	for locale := range set {
+		out = append(out, locale)
+	}
+	sort.Strings(out)
+	currentLocale = strings.TrimSpace(strings.ToLower(currentLocale))
+	if currentLocale == "" {
+		return out
+	}
+	for index, locale := range out {
+		if !strings.EqualFold(locale, currentLocale) {
+			continue
+		}
+		copy(out[1:index+1], out[0:index])
+		out[0] = locale
+		break
+	}
+	return out
+}
+
+func translationEditorFamilyAssignmentByLocale(family translationservices.FamilyRecord, locale, workScope string) (translationservices.FamilyAssignment, bool) {
+	targetLocale := strings.TrimSpace(strings.ToLower(locale))
+	if targetLocale == "" {
+		return translationservices.FamilyAssignment{}, false
+	}
+	targetWorkScope := normalizeTranslationAssignmentWorkScope(workScope)
+	var selected translationservices.FamilyAssignment
+	selectedRank := 99
+	selectedTime := time.Time{}
+	for _, assignment := range family.Assignments {
+		if !strings.EqualFold(strings.TrimSpace(assignment.TargetLocale), targetLocale) || strings.TrimSpace(assignment.ID) == "" {
+			continue
+		}
+		if normalizeTranslationAssignmentWorkScope(assignment.WorkScope) != targetWorkScope {
+			continue
+		}
+		rank := translationEditorAssignmentNavigationRank(assignment.Status)
+		if selected.ID == "" || rank < selectedRank || (rank == selectedRank && assignment.UpdatedAt.After(selectedTime)) {
+			selected = assignment
+			selectedRank = rank
+			selectedTime = assignment.UpdatedAt
+		}
+	}
+	if selected.ID == "" {
+		return translationservices.FamilyAssignment{}, false
+	}
+	return selected, true
+}
+
+func translationEditorAssignmentNavigationRank(status string) int {
+	switch strings.TrimSpace(strings.ToLower(status)) {
+	case string(translationcore.AssignmentStatusOpen), string(translationcore.AssignmentStatusAssigned), string(translationcore.AssignmentStatusInProgress), string(translationcore.AssignmentStatusInReview), string(translationcore.AssignmentStatusChangesRequested):
+		return 0
+	case string(translationcore.AssignmentStatusApproved):
+		return 1
+	default:
+		return 2
+	}
+}
+
+func translationEditorAssignmentEditorURL(adm *Admin, assignmentID string) string {
+	assignmentID = strings.TrimSpace(assignmentID)
+	if adm == nil || assignmentID == "" {
+		return ""
+	}
+	if href := resolveURLWith(adm.URLs(), "admin", "translations.assignments.edit", map[string]string{
+		"assignment_id": assignmentID,
+	}, nil); href != "" {
+		return href
+	}
+	base := strings.TrimRight(strings.TrimSpace(firstNonEmpty(adm.config.BasePath, "/admin")), "/")
+	if base == "" {
+		base = "/admin"
+	}
+	return base + "/translations/assignments/" + assignmentID + "/edit"
+}
+
+func translationEditorFamilyDetailURL(adm *Admin, familyID string) string {
+	familyID = strings.TrimSpace(familyID)
+	if adm == nil || familyID == "" {
+		return ""
+	}
+	if href := resolveURLWith(adm.URLs(), "admin", "translations.families.id", map[string]string{
+		"family_id": familyID,
+	}, nil); href != "" {
+		return href
+	}
+	base := strings.TrimRight(strings.TrimSpace(firstNonEmpty(adm.config.BasePath, "/admin")), "/")
+	if base == "" {
+		base = "/admin"
+	}
+	return base + "/translations/families/" + familyID
 }
 
 func (b *translationQueueBinding) assignmentEditorActionStates(ctx context.Context, editorCtx translationEditorContext, assignment TranslationAssignment) map[string]any {
