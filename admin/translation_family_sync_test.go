@@ -255,6 +255,158 @@ func TestTranslationFamilySyncSingleTenantBunDetailIntegration(t *testing.T) {
 	}
 }
 
+func TestTranslationFamilySyncPreservesEditorRowVersion(t *testing.T) {
+	ctx := context.Background()
+	db := newTranslationFamilyStoreSQLiteDB(t)
+	store := NewBunTranslationFamilyStore(db)
+	content := &translationFamilySyncContentStub{
+		InMemoryContentService: NewInMemoryContentService(),
+		pagesByLocale: map[string][]CMSPage{
+			"en": {{
+				ID:               "page-versioned",
+				FamilyID:         "family-versioned",
+				Locale:           "en",
+				Title:            "Versioned",
+				Slug:             "versioned",
+				Status:           "published",
+				AvailableLocales: []string{"en", "fr"},
+			}},
+			"fr": {{
+				ID:               "page-versioned",
+				FamilyID:         "family-versioned",
+				Locale:           "fr",
+				Title:            "Versioned FR",
+				Slug:             "versioned-fr",
+				Status:           "draft",
+				AvailableLocales: []string{"en", "fr"},
+				Metadata: map[string]any{
+					translationEditorMetadataKey: map[string]any{
+						translationEditorRowVersionKey: int64(2),
+					},
+				},
+			}},
+		},
+	}
+	adm := mustNewAdmin(t, translationFamilyScopedTestConfig(), Dependencies{
+		FeatureGate: featureGateFromKeys(FeatureCMS),
+	})
+	adm.contentSvc = content
+	adm.WithTranslationFamilyStore(store)
+
+	if err := SyncTranslationFamilyStore(ctx, adm, "production"); err != nil {
+		t.Fatalf("sync translation family store: %v", err)
+	}
+
+	family, ok, err := store.FamilyQuery(ctx, translationservices.GetFamilyInput{
+		FamilyID: "family-versioned",
+		Scope:    translationservices.Scope{TenantID: "tenant-1", OrgID: "org-1"},
+	})
+	if err != nil {
+		t.Fatalf("family query: %v", err)
+	}
+	if !ok {
+		t.Fatalf("expected synced versioned family")
+	}
+	variant, ok := translationFamilyVariantByLocale(family, "fr")
+	if !ok {
+		t.Fatalf("expected fr variant in family: %+v", family.Variants)
+	}
+	if variant.RowVersion != 2 {
+		t.Fatalf("hydrated row_version = %d, want 2", variant.RowVersion)
+	}
+
+	var storedVersion int64
+	if err := db.QueryRowContext(ctx, `SELECT row_version FROM locale_variants WHERE family_id = ? AND locale = ?`, "family-versioned", "fr").Scan(&storedVersion); err != nil {
+		t.Fatalf("select stored row_version: %v", err)
+	}
+	if storedVersion != 2 {
+		t.Fatalf("stored row_version = %d, want 2", storedVersion)
+	}
+
+	result, err := store.ListFamiliesQuery(ctx, translationservices.ListFamiliesInput{
+		Scope: translationservices.Scope{TenantID: "tenant-1", OrgID: "org-1"},
+		Page:  1,
+	})
+	if err != nil {
+		t.Fatalf("list families query: %v", err)
+	}
+	if len(result.Items) != 1 {
+		t.Fatalf("expected one listed family, got %d", len(result.Items))
+	}
+	listedVariant, ok := translationFamilyVariantByLocale(result.Items[0], "fr")
+	if !ok {
+		t.Fatalf("expected listed fr variant: %+v", result.Items[0].Variants)
+	}
+	if listedVariant.RowVersion != 2 {
+		t.Fatalf("listed row_version = %d, want 2", listedVariant.RowVersion)
+	}
+}
+
+func TestTranslationFamilySyncPreservesEditorRowVersionForContent(t *testing.T) {
+	ctx := context.Background()
+	db := newTranslationFamilyStoreSQLiteDB(t)
+	store := NewBunTranslationFamilyStore(db)
+	content := &translationFamilySyncContentStub{
+		InMemoryContentService: NewInMemoryContentService(),
+		contentsByLocale: map[string][]CMSContent{
+			"en": {{
+				ID:               "article-versioned",
+				FamilyID:         "family-article-versioned",
+				Locale:           "en",
+				ContentType:      "article",
+				ContentTypeSlug:  "article",
+				Title:            "Versioned Article",
+				Slug:             "versioned-article",
+				Status:           "published",
+				AvailableLocales: []string{"en", "fr"},
+			}},
+			"fr": {{
+				ID:               "article-versioned",
+				FamilyID:         "family-article-versioned",
+				Locale:           "fr",
+				ContentType:      "article",
+				ContentTypeSlug:  "article",
+				Title:            "Versioned Article FR",
+				Slug:             "versioned-article-fr",
+				Status:           "draft",
+				AvailableLocales: []string{"en", "fr"},
+				Metadata: map[string]any{
+					translationEditorMetadataKey: map[string]any{
+						translationEditorRowVersionKey: "4",
+					},
+				},
+			}},
+		},
+	}
+	adm := mustNewAdmin(t, translationFamilyScopedTestConfig(), Dependencies{
+		FeatureGate: featureGateFromKeys(FeatureCMS),
+	})
+	adm.contentSvc = content
+	adm.WithTranslationFamilyStore(store)
+
+	if err := SyncTranslationFamilyStore(ctx, adm, "production"); err != nil {
+		t.Fatalf("sync translation family store: %v", err)
+	}
+
+	family, ok, err := store.FamilyQuery(ctx, translationservices.GetFamilyInput{
+		FamilyID: "family-article-versioned",
+		Scope:    translationservices.Scope{TenantID: "tenant-1", OrgID: "org-1"},
+	})
+	if err != nil {
+		t.Fatalf("family query: %v", err)
+	}
+	if !ok {
+		t.Fatalf("expected synced content family")
+	}
+	variant, ok := translationFamilyVariantByLocale(family, "fr")
+	if !ok {
+		t.Fatalf("expected fr variant in content family: %+v", family.Variants)
+	}
+	if variant.RowVersion != 4 {
+		t.Fatalf("content row_version = %d, want 4", variant.RowVersion)
+	}
+}
+
 func TestTranslationFamilySyncMultiTenantBunLeavesMissingScopeBlank(t *testing.T) {
 	ctx := context.Background()
 	store := NewBunTranslationFamilyStore(newTranslationFamilyStoreSQLiteDB(t))

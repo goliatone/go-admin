@@ -410,9 +410,14 @@ func TestPersistentAssignmentEditorSaveUsesCMSLifecycleStatus(t *testing.T) {
 			_, err = cmsOpts.Container.ContentService().UpdatePage(ctx, updatedTarget)
 			require.NoError(t, err)
 
+			detailStatus, detailPayload := doAdminJSONRequest(t, server.WrappedRouter(), http.MethodGet, "/admin/api/translations/assignments/"+assignment.ID+"?channel=default&tenant_id="+tenantID+"&org_id="+orgID, nil)
+			require.Equal(t, http.StatusOK, detailStatus, "payload=%+v", detailPayload)
+			expectedVersion := toInt(extractMap(detailPayload["data"])["row_version"])
+			require.Positive(t, expectedVersion)
+
 			status, payload := doAdminJSONRequest(t, server.WrappedRouter(), http.MethodPatch, "/admin/api/translations/variants/"+targetVariant.ID+"?channel=default&tenant_id="+tenantID+"&org_id="+orgID, map[string]any{
 				"channel":          "default",
-				"expected_version": 1,
+				"expected_version": expectedVersion,
 				"fields": map[string]any{
 					"title": "Guide persistant mis a jour " + currentStatus,
 				},

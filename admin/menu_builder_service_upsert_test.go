@@ -134,6 +134,34 @@ func TestMenuBuilderServiceUpsertMenuItemsReturnsRootDeleteFailure(t *testing.T)
 	}
 }
 
+func TestMenuBuilderServiceUpsertMenuItemsIgnoresMissingRootDuringRebuild(t *testing.T) {
+	svc := &recordingMenuUpsertService{
+		current: &Menu{
+			Code: "admin.main",
+			Slug: NormalizeMenuSlug("admin.main"),
+			ID:   MenuUUIDFromSlug("admin.main"),
+			Items: []MenuItem{
+				{ID: "already-gone", Menu: "admin.main", Label: "Existing Root", Target: map[string]any{"path": "/old"}},
+			},
+		},
+		deleteErrByID: map[string]error{"already-gone": ErrMenuTargetNotFound},
+	}
+	builder := NewMenuBuilderService()
+
+	_, err := builder.UpsertMenuItems(context.Background(), svc, "admin.main", []MenuItem{
+		{ID: "new-root", Label: "New Root", Target: map[string]any{"path": "/new"}},
+	}, "en")
+	if err != nil {
+		t.Fatalf("expected missing root delete to be ignored, got %v", err)
+	}
+	if len(svc.deleteCalls) != 1 || svc.deleteCalls[0] != "already-gone" {
+		t.Fatalf("expected one attempted missing-root delete, got %+v", svc.deleteCalls)
+	}
+	if len(svc.addCalls) != 1 || svc.addCalls[0].ID != "new-root" {
+		t.Fatalf("expected rebuilt root to be added, got %+v", svc.addCalls)
+	}
+}
+
 func TestMenuBuilderServiceUpsertMenuItemsReplacesExistingRoots(t *testing.T) {
 	svc := &recordingMenuUpsertService{
 		current: &Menu{

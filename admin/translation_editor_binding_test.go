@@ -893,6 +893,119 @@ func TestTranslationEditorUpdateVariantMaintainsSourceHashAndRowVersion(t *testi
 	}
 }
 
+func TestTranslationEditorAutosaveAcceptsConsecutiveFieldUpdates(t *testing.T) {
+	fixture := newTranslationEditorTestFixture(t, translationEditorTestFixtureOptions{})
+	detailURL := "/admin/api/translations/assignments/" + fixture.assignmentID + "?channel=production&tenant_id=tenant-1&org_id=org-1"
+	variantURL := "/admin/api/translations/variants/" + fixture.targetVariantID + "?channel=production&tenant_id=tenant-1&org_id=org-1"
+
+	status, payload := doTranslationEditorJSONRequest(t, fixture.app, http.MethodGet, detailURL, nil)
+	if status != http.StatusOK {
+		t.Fatalf("initial detail status=%d want=200 payload=%+v", status, payload)
+	}
+	detail := extractMap(payload["data"])
+	if got := toInt(detail["row_version"]); got != 3 {
+		t.Fatalf("initial row_version = %d, want 3", got)
+	}
+
+	status, payload = doTranslationEditorJSONRequest(t, fixture.app, http.MethodPatch, variantURL, map[string]any{
+		"channel":          "production",
+		"expected_version": 3,
+		"autosave":         true,
+		"fields": map[string]any{
+			"title": "Guide de publication",
+		},
+	})
+	if status != http.StatusOK {
+		t.Fatalf("first autosave status=%d want=200 payload=%+v", status, payload)
+	}
+	firstSave := extractMap(payload["data"])
+	firstVersion := toInt(firstSave["row_version"])
+	if firstVersion != 4 {
+		t.Fatalf("first autosave row_version = %d, want 4", firstVersion)
+	}
+
+	status, payload = doTranslationEditorJSONRequest(t, fixture.app, http.MethodGet, detailURL, nil)
+	if status != http.StatusOK {
+		t.Fatalf("detail after first autosave status=%d want=200 payload=%+v", status, payload)
+	}
+	reloaded := extractMap(payload["data"])
+	if got := toInt(reloaded["row_version"]); got != firstVersion {
+		t.Fatalf("reloaded row_version = %d, want %d", got, firstVersion)
+	}
+	targetVariant := extractMap(reloaded["target_variant"])
+	if got := toInt(targetVariant["row_version"]); got != firstVersion {
+		t.Fatalf("reloaded target_variant row_version = %d, want %d", got, firstVersion)
+	}
+	family, ok, err := fixture.admin.translationFamilyStore.Family(context.Background(), "tg-page-1")
+	if err != nil {
+		t.Fatalf("load synced family after first autosave: %v", err)
+	}
+	if !ok {
+		t.Fatalf("expected synced family after first autosave")
+	}
+	variant, ok := translationFamilyVariantByLocale(family, "fr")
+	if !ok {
+		t.Fatalf("expected fr variant after first autosave: %+v", family.Variants)
+	}
+	if variant.RowVersion != int64(firstVersion) {
+		t.Fatalf("synced variant row_version = %d, want %d", variant.RowVersion, firstVersion)
+	}
+
+	status, payload = doTranslationEditorJSONRequest(t, fixture.app, http.MethodPatch, variantURL, map[string]any{
+		"channel":          "production",
+		"expected_version": firstVersion,
+		"autosave":         true,
+		"fields": map[string]any{
+			"body": "Publier la traduction avec un second changement autosauve.",
+		},
+	})
+	if status != http.StatusOK {
+		t.Fatalf("second autosave status=%d want=200 payload=%+v", status, payload)
+	}
+	secondSave := extractMap(payload["data"])
+	if got := toInt(secondSave["row_version"]); got != 5 {
+		t.Fatalf("second autosave row_version = %d, want 5", got)
+	}
+	fields := mapString(payloadPath(secondSave, "fields"))
+	if got := fields["title"]; got != "Guide de publication" {
+		t.Fatalf("expected title from first autosave to persist, got %q", got)
+	}
+	if got := fields["body"]; got != "Publier la traduction avec un second changement autosauve." {
+		t.Fatalf("expected body from second autosave to persist, got %q", got)
+	}
+
+	target, err := fixture.content.Page(context.Background(), fixture.targetRecordID, "")
+	if err != nil || target == nil {
+		t.Fatalf("load target after consecutive autosaves: %v", err)
+	}
+	if target.Title != "Guide de publication" {
+		t.Fatalf("persisted title = %q, want first autosave value", target.Title)
+	}
+	if got := toString(target.Data["body"]); got != "Publier la traduction avec un second changement autosauve." {
+		t.Fatalf("persisted body = %q, want second autosave value", got)
+	}
+
+	status, payload = doTranslationEditorJSONRequest(t, fixture.app, http.MethodPatch, variantURL, map[string]any{
+		"channel":          "production",
+		"expected_version": firstVersion,
+		"autosave":         true,
+		"fields": map[string]any{
+			"path": "/fr/stale",
+		},
+	})
+	if status != http.StatusConflict {
+		t.Fatalf("stale autosave status=%d want=409 payload=%+v", status, payload)
+	}
+	errPayload := extractMap(payload["error"])
+	if got := toString(errPayload["text_code"]); got != TextCodeAutosaveConflict {
+		t.Fatalf("expected text_code %q, got %q", TextCodeAutosaveConflict, got)
+	}
+	latest := extractMap(extractMap(errPayload["metadata"])["latest_server_state_record"])
+	if got := toInt(latest["row_version"]); got != 5 {
+		t.Fatalf("latest stale-conflict row_version = %d, want 5", got)
+	}
+}
+
 func TestTranslationEditorUpdateVariantReopensApprovedAndMovesActiveCMSStatusToDraft(t *testing.T) {
 	fixture := newTranslationEditorTestFixture(t, translationEditorTestFixtureOptions{
 		ReviewRequired:      true,

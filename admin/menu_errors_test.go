@@ -20,6 +20,10 @@ func TestNormalizeMenuTargetErrorMapsExplicitMenuTargetMisses(t *testing.T) {
 			name: "go-cms menu item path message",
 			err:  normalizeMenuTargetError(errors.New(`cms: menu item "admin_main.missing" not found`)),
 		},
+		{
+			name: "go-cms menu item sentinel message",
+			err:  normalizeMenuTargetError(errors.New("menus: menu item not found")),
+		},
 	}
 
 	for _, tt := range tests {
