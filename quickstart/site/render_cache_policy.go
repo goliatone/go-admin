@@ -3,7 +3,6 @@ package site
 import (
 	"context"
 	"net/http"
-	"reflect"
 	"strings"
 	"time"
 
@@ -216,7 +215,7 @@ func renderCacheStoreBackendKind(store RenderCacheStore) string {
 	if describer, ok := store.(RenderCacheBackendDescriber); ok {
 		return strings.ToLower(strings.TrimSpace(describer.RenderCacheBackendKind()))
 	}
-	return renderCacheReflectBackendKind(store)
+	return ""
 }
 
 func renderCacheStoreHasDeclaredBackendKind(store RenderCacheStore) bool {
@@ -232,22 +231,4 @@ func renderCacheStoreHasDeclaredBackendKind(store RenderCacheStore) bool {
 
 func renderCacheStoreIsMemoryBackend(store RenderCacheStore) bool {
 	return renderCacheStoreBackendKind(store) == "memory"
-}
-
-func renderCacheReflectBackendKind(store RenderCacheStore) string {
-	t := reflect.TypeOf(store)
-	if t == nil {
-		return ""
-	}
-	if t.Kind() == reflect.Pointer {
-		t = t.Elem()
-	}
-	pkgPath := strings.ToLower(t.PkgPath())
-	typeName := strings.ToLower(t.String())
-	switch {
-	case strings.Contains(pkgPath, "/stores/memory") || strings.Contains(typeName, ".memorystore") || strings.Contains(typeName, ".memory"):
-		return "memory"
-	default:
-		return ""
-	}
 }

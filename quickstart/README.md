@@ -51,7 +51,7 @@ auth wiring, password-change gate, and recovery flow.
 - `WithTranslationProfile(profile TranslationProfile) AdminOption` - Inputs: profile (`none`, `core`, `core+exchange`, `core+queue`, `full`); outputs: option that applies productized translation defaults.
 - `WithTranslationProductConfig(cfg TranslationProductConfig) AdminOption` - Inputs: product config (`SchemaVersion`, `Profile`, optional module overrides); outputs: option that resolves effective translation module wiring with deterministic precedence.
 - `TranslationCapabilities(adm *admin.Admin) map[string]any` - Inputs: admin instance; outputs: resolved translation capability metadata (`profile`, `schema_version`, module enablement, feature flags, routes, resolver keys, panels, warnings).
-- `WithTranslationPolicyConfig(cfg TranslationPolicyConfig) AdminOption` - Inputs: workflow transition requirements by policy entity/content type; outputs: option that wires the default translation policy when checker services are available.
+- `WithTranslationPolicyConfig(cfg TranslationPolicyConfig) AdminOption` - Inputs: workflow transition requirements by policy entity/content type; outputs: option that wires the default translation policy and reports missing suitable checker services.
 - `WithTranslationPolicyServices(services TranslationPolicyServices) AdminOption` - Inputs: page/content services implementing `CheckTranslations`; outputs: explicit checker overrides for hosts whose CMS container is not discoverable.
 - `ValidateTranslationPolicyCoverage(cfg TranslationPolicyConfig, contentTypes []string) (TranslationPolicyValidationResult, error)` - Inputs: policy config plus content types included in family readiness; outputs: validation warnings/error for missing policy coverage.
 - `WithTranslationExchangeConfig(cfg TranslationExchangeConfig) AdminOption` - Inputs: exchange config (disabled by default); outputs: option that enables exchange feature + command wiring when configured.
@@ -1194,8 +1194,10 @@ translation_policy:
 Behavior notes:
 - `required` keys map to policy entities (panel slug or content type slug). If a
   payload includes `policy_entity`/`policyEntity`, it overrides the entity lookup.
-- When both page/content translation checkers are present, `page_entities` can
-  declare which entities should prefer the page checker.
+- `pages` uses the page checker by default. Other entities use the content
+  checker unless listed in `page_entities`; quickstart does not use a page
+  checker as fallback for content entities or a content checker as fallback for
+  page entities.
 - Entity lookup is singular/plural tolerant (for example `item` vs `items`) using
   inflection-based matching against configured `required` keys.
 - Use `entity_aliases` for irregular/legacy names that need explicit mapping.
@@ -1208,13 +1210,15 @@ Behavior notes:
   validation (`error`, `warn`, `ignore`).
 - `deny_by_default=true` blocks transitions when no requirements are configured
   for a transition.
-- Every content type included in translation family readiness needs policy
-  coverage. Use `ValidateTranslationPolicyCoverage` when hosts know the family
-  content types at startup.
+- Every content type included in translation family readiness needs effective
+  `publish` requirements. Use `ValidateTranslationPolicyCoverage` when hosts
+  know the family content types at startup; an entity key without publish
+  locales or required fields is not enough.
 - The default policy needs page/content services that implement
   `CheckTranslations`. Quickstart discovers them from go-cms wiring when
   possible; use `WithTranslationPolicyServices` when the CMS container is not
-  discoverable.
+  discoverable or when custom entity routing needs explicit page/content
+  services.
 - Family readiness is persisted by sync. After policy, checker-service, or CMS
   fixture changes, rerun family sync so `content_families`, `locale_variants`,
   and `family_blockers` match the current policy.
