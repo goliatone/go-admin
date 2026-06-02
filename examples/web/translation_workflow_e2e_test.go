@@ -15,6 +15,7 @@ import (
 	"github.com/goliatone/go-admin/examples/web/commands"
 	"github.com/goliatone/go-admin/examples/web/setup"
 	"github.com/goliatone/go-admin/examples/web/stores"
+	auth "github.com/goliatone/go-auth"
 	"github.com/goliatone/go-command/flow"
 	commandregistry "github.com/goliatone/go-command/registry"
 	fggate "github.com/goliatone/go-featuregate/gate"
@@ -559,16 +560,24 @@ func doAdminJSONRequest(t *testing.T, handler http.Handler, method, path string,
 		body = bytes.NewReader(nil)
 	}
 
-	req := httptest.NewRequestWithContext(context.Background(), method, path, body)
+	ctx := auth.WithActorContext(context.Background(), &auth.ActorContext{
+		ActorID:        "translator-qa",
+		Subject:        "translator-qa",
+		TenantID:       "tenant-demo",
+		OrganizationID: "org-demo",
+	})
+	req := httptest.NewRequestWithContext(ctx, method, path, body)
 	if payload != nil {
 		req.Header.Set("Content-Type", "application/json")
 	}
+	req.Header.Set("X-User-ID", "translator-qa")
+	req.Header.Set("X-Test-Authenticated-Actor-ID", "translator-qa")
 	res := httptest.NewRecorder()
 	handler.ServeHTTP(res, req)
 
 	decoded := map[string]any{}
 	if strings.TrimSpace(res.Body.String()) != "" {
-		require.NoError(t, json.Unmarshal(res.Body.Bytes(), &decoded), "decode response body")
+		require.NoError(t, json.Unmarshal(res.Body.Bytes(), &decoded), "decode response body: %s", res.Body.String())
 	}
 	return res.Code, decoded
 }

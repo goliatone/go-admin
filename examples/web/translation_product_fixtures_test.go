@@ -409,11 +409,17 @@ func TestPersistentAssignmentEditorSaveUsesCMSLifecycleStatus(t *testing.T) {
 			expectedVersion := toInt(extractMap(detailPayload["data"])["row_version"])
 			require.Positive(t, expectedVersion)
 
-			status, payload := doAdminJSONRequest(t, server.WrappedRouter(), http.MethodPatch, "/admin/api/translations/variants/"+targetVariant.ID+"?channel=default&tenant_id="+tenantID+"&org_id="+orgID, map[string]any{
-				"channel":          "default",
-				"expected_version": expectedVersion,
-				"fields": map[string]any{
-					"title": "Guide persistant mis a jour " + currentStatus,
+			status, payload := doAdminJSONRequest(t, server.WrappedRouter(), http.MethodPatch, "/admin/api/translations/sync/resources/translation_variant_draft/"+targetVariant.ID+"?channel=default&tenant_id="+tenantID+"&org_id="+orgID, map[string]any{
+				"operation":         "autosave",
+				"expected_revision": expectedVersion,
+				"payload": map[string]any{
+					"fields": map[string]any{
+						"title": "Guide persistant mis a jour " + currentStatus,
+					},
+					"metadata": map[string]any{
+						"autosave": false,
+					},
+					"autosave": false,
 				},
 			})
 			require.Equal(t, http.StatusOK, status, "payload=%+v", payload)
