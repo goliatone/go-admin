@@ -223,6 +223,7 @@ func translationCapabilityRouteSpecs(adminGroup, adminAPIGroup string) []transla
 		{group: adminGroup, route: "translations.dashboard", key: "admin.translations.dashboard"},
 		{group: adminGroup, route: "translations.exchange", key: "admin.translations.exchange"},
 		{group: adminGroup, route: "translations.matrix", key: "admin.translations.matrix"},
+		{group: adminGroup, route: "translations.families", key: "admin.translations.families"},
 		{group: adminGroup, route: "translations.families.id", key: "admin.translations.families.id"},
 		{group: adminGroup, route: "translations.assignments", key: "admin.translations.assignments"},
 		{group: adminGroup, route: "translations.assignments.id", key: "admin.translations.assignments.id"},
