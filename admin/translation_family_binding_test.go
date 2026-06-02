@@ -141,6 +141,42 @@ func TestTranslationFamilyListRowLabelsPolicyUnavailableWithoutChangingCode(t *t
 	if got := hostLabels[string(translationcore.FamilyBlockerPolicyDenied)]; got != "Policy denied" {
 		t.Fatalf("expected host policy denial label to remain policy denied, got %q", got)
 	}
+
+	mixedRow := translationFamilyListRow(translationservices.FamilyRecord{
+		ID:             "family-mixed-policy",
+		ContentType:    "news",
+		SourceLocale:   "en",
+		ReadinessState: string(translationcore.FamilyReadinessBlocked),
+		BlockerCodes:   []string{string(translationcore.FamilyBlockerPolicyDenied)},
+		Blockers: []translationservices.FamilyBlocker{
+			{
+				FamilyID:    "family-mixed-policy",
+				BlockerCode: string(translationcore.FamilyBlockerPolicyDenied),
+				Details: map[string]any{
+					translationcore.FamilyBlockerDetailContentType: "news",
+					translationcore.FamilyBlockerDetailEnvironment: "default",
+					translationcore.FamilyBlockerDetailReason:      string(translationcore.FamilyBlockerReasonPolicyUnavailable),
+				},
+			},
+			{
+				FamilyID:    "family-mixed-policy",
+				BlockerCode: string(translationcore.FamilyBlockerPolicyDenied),
+				Details: map[string]any{
+					translationcore.FamilyBlockerDetailReason: string(translationcore.FamilyBlockerReasonHostPolicy),
+				},
+			},
+		},
+	})
+	mixedLabels, ok := mixedRow["blocker_labels"].(map[string]string)
+	if !ok {
+		t.Fatalf("expected mixed blocker_labels map[string]string, got %#v", mixedRow["blocker_labels"])
+	}
+	if got := mixedLabels[string(translationcore.FamilyBlockerPolicyDenied)]; got != "Policy denied" {
+		t.Fatalf("expected mixed canonical policy_denied label to remain host-policy label, got %q", got)
+	}
+	if got := mixedLabels[string(translationcore.FamilyBlockerReasonPolicyUnavailable)]; got != "Policy unavailable" {
+		t.Fatalf("expected mixed row to expose policy_unavailable label, got %q", got)
+	}
 }
 
 func TestTranslationFamilyPolicyResolverMarksHostPolicyDenials(t *testing.T) {

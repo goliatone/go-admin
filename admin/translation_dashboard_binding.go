@@ -925,18 +925,29 @@ func translationDashboardBlockerLabelsForFamily(blockers []translationservices.F
 	if len(blockers) == 0 {
 		return out
 	}
+	hasPolicyUnavailable := false
+	hasHostPolicyDenied := false
 	for _, blocker := range blockers {
 		code := strings.TrimSpace(strings.ToLower(blocker.BlockerCode))
 		if code == "" {
 			continue
 		}
 		if code == string(translationcore.FamilyBlockerPolicyDenied) && translationFamilyBlockerIsPolicyUnavailable(blocker) {
-			out[code] = "Policy unavailable"
+			hasPolicyUnavailable = true
+			out[string(translationcore.FamilyBlockerReasonPolicyUnavailable)] = "Policy unavailable"
+			continue
+		}
+		if code == string(translationcore.FamilyBlockerPolicyDenied) {
+			hasHostPolicyDenied = true
+			out[code] = translationDashboardReasonLabel(translationDashboardReasonLabels(), code)
 			continue
 		}
 		if _, ok := out[code]; !ok {
 			out[code] = translationDashboardReasonLabel(translationDashboardReasonLabels(), code)
 		}
+	}
+	if hasPolicyUnavailable && !hasHostPolicyDenied {
+		out[string(translationcore.FamilyBlockerPolicyDenied)] = "Policy unavailable"
 	}
 	return out
 }

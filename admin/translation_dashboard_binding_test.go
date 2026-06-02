@@ -811,6 +811,47 @@ func TestTranslationDashboardBlockedRowsLabelPolicyUnavailableSeparately(t *test
 	}
 }
 
+func TestTranslationDashboardBlockedRowsPreserveHostPolicyLabelForMixedPolicyReasons(t *testing.T) {
+	rows := translationDashboardTopBlockedRows(nil, []translationservices.FamilyRecord{{
+		ID:             "family-mixed-policy",
+		ContentType:    "news",
+		SourceLocale:   "en",
+		ReadinessState: "blocked",
+		BlockerCodes:   []string{string(translationcore.FamilyBlockerPolicyDenied)},
+		Blockers: []translationservices.FamilyBlocker{
+			{
+				FamilyID:    "family-mixed-policy",
+				BlockerCode: string(translationcore.FamilyBlockerPolicyDenied),
+				Details: map[string]any{
+					translationcore.FamilyBlockerDetailContentType: "news",
+					translationcore.FamilyBlockerDetailEnvironment: "default",
+					translationcore.FamilyBlockerDetailReason:      string(translationcore.FamilyBlockerReasonPolicyUnavailable),
+				},
+			},
+			{
+				FamilyID:    "family-mixed-policy",
+				BlockerCode: string(translationcore.FamilyBlockerPolicyDenied),
+				Details: map[string]any{
+					translationcore.FamilyBlockerDetailReason: string(translationcore.FamilyBlockerReasonHostPolicy),
+				},
+			},
+		},
+	}}, 5, "default")
+	if len(rows) != 1 {
+		t.Fatalf("expected one row, got %+v", rows)
+	}
+	labels, ok := rows[0]["blocker_labels"].(map[string]string)
+	if !ok {
+		t.Fatalf("expected blocker_labels map[string]string, got %#v", rows[0]["blocker_labels"])
+	}
+	if got := labels[string(translationcore.FamilyBlockerPolicyDenied)]; got != "Policy denied" {
+		t.Fatalf("expected mixed canonical policy_denied label to remain host-policy label, got %q", got)
+	}
+	if got := labels[string(translationcore.FamilyBlockerReasonPolicyUnavailable)]; got != "Policy unavailable" {
+		t.Fatalf("expected mixed row to expose policy_unavailable label, got %q", got)
+	}
+}
+
 func nowStringForTest() string {
 	return time.Date(2026, 2, 17, 12, 0, 0, 0, time.UTC).Format(time.RFC3339)
 }
