@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"errors"
 	"strconv"
 	"strings"
 
@@ -160,7 +161,7 @@ func (s *WorkflowRuntimeService) RollbackWorkflow(ctx context.Context, id string
 
 	target, err := s.workflows.GetVersion(ctx, id, targetVersion)
 	if err != nil {
-		if err == ErrNotFound {
+		if errors.Is(err, ErrNotFound) {
 			return PersistedWorkflow{}, ErrWorkflowRollbackVersionNotFound
 		}
 		return PersistedWorkflow{}, err
@@ -330,7 +331,9 @@ func (s *WorkflowRuntimeService) registerActiveWorkflow(workflow PersistedWorkfl
 	def := workflowcore.CloneWorkflowDefinition(workflow.Definition)
 	def.EntityType = workflowcore.CanonicalMachineIDForWorkflow(workflow)
 	def.MachineVersion = workflowcore.CanonicalMachineVersionForWorkflow(workflow)
-	_ = s.registrar.RegisterWorkflow(def.EntityType, def)
+	if err := s.registrar.RegisterWorkflow(def.EntityType, def); err != nil {
+		return
+	}
 }
 
 func (s *WorkflowRuntimeService) normalizeAndValidateWorkflow(workflow PersistedWorkflow) (PersistedWorkflow, error) {
@@ -484,7 +487,7 @@ func (s *WorkflowRuntimeService) resolveFirstActiveBinding(ctx context.Context, 
 	for _, binding := range candidates {
 		workflow, err := s.workflows.Get(ctx, binding.WorkflowID)
 		if err != nil {
-			if err == ErrNotFound {
+			if errors.Is(err, ErrNotFound) {
 				continue
 			}
 			return WorkflowBindingResolution{}, false, err
