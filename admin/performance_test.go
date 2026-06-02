@@ -58,7 +58,7 @@ func BenchmarkPanelListRoute(b *testing.B) {
 		b.Fatalf("initialize: %v", err)
 	}
 
-	req := httptest.NewRequest("GET", "/admin/api/panels/items", nil)
+	req := httptest.NewRequest(http.MethodGet, "/admin/api/panels/items", nil)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		rr := httptest.NewRecorder()
@@ -90,7 +90,7 @@ func BenchmarkPanelCreateRoute(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		body := fmt.Sprintf(`{"name":"Item-%d"}`, i)
-		req := httptest.NewRequest("POST", "/admin/api/panels/items", strings.NewReader(body))
+		req := httptest.NewRequest(http.MethodPost, "/admin/api/panels/items", strings.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
 		rr := httptest.NewRecorder()
 		server.WrappedRouter().ServeHTTP(rr, req)

@@ -69,7 +69,7 @@ func TestWorkflowTransportApplyEventPersistsStateProjectsActivityAndReturnsEnvel
 		"panel":  "pages",
 		"action": "publish",
 	}, nil)
-	req := httptest.NewRequest("POST", actionPath, strings.NewReader(`{"id":"`+id+`"}`))
+	req := httptest.NewRequest(http.MethodPost, actionPath, strings.NewReader(`{"id":"`+id+`"}`))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-User-ID", "editor-42")
 	req.Header.Set("X-Request-ID", "req-24")
@@ -193,7 +193,7 @@ func TestWorkflowTransportDetailIncludesSnapshotDiagnostics(t *testing.T) {
 		"panel": "pages",
 		"id":    id,
 	}, nil)
-	req := httptest.NewRequest("GET", detailPath, nil)
+	req := httptest.NewRequest(http.MethodGet, detailPath, nil)
 	rr := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(rr, req)
 	if rr.Code != http.StatusOK {
@@ -277,7 +277,7 @@ func TestWorkflowTransportApplyEventMapsCanonicalErrorDetails(t *testing.T) {
 		"panel":  "pages",
 		"action": "publish",
 	}, nil)
-	req := httptest.NewRequest("POST", actionPath, strings.NewReader(`{"id":"`+id+`"}`))
+	req := httptest.NewRequest(http.MethodPost, actionPath, strings.NewReader(`{"id":"`+id+`"}`))
 	req.Header.Set("Content-Type", "application/json")
 	rr := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(rr, req)

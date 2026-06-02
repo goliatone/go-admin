@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"testing"
@@ -133,7 +134,7 @@ func TestRunDoctorActionReturnsNotRunnableForManualChecks(t *testing.T) {
 	if err == nil {
 		t.Fatalf("expected manual action to be non-runnable")
 	}
-	if err != ErrDoctorActionNotRunnable {
+	if !errors.Is(err, ErrDoctorActionNotRunnable) {
 		t.Fatalf("expected ErrDoctorActionNotRunnable, got %v", err)
 	}
 }

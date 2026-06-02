@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"errors"
 	"testing"
 )
 
@@ -161,7 +162,7 @@ func TestInMemoryUserStoreDeleteRoleUsesSharedDeleteHelper(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create system role: %v", err)
 	}
-	if deleteErr := store.Delete(context.Background(), systemRole.ID); deleteErr != ErrForbidden {
+	if deleteErr := store.Delete(context.Background(), systemRole.ID); !errors.Is(deleteErr, ErrForbidden) {
 		t.Fatalf("expected ErrForbidden for system role delete, got %v", deleteErr)
 	}
 

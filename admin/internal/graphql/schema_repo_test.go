@@ -2,7 +2,6 @@ package graphql
 
 import (
 	"context"
-	"errors"
 	"testing"
 
 	repository "github.com/goliatone/go-repository-bun"
@@ -67,5 +66,5 @@ func TestSchemaRepoKeepsHandlersAndScopeDefaults(t *testing.T) {
 
 	repo.RegisterScope("tenant", repository.ScopeDefinition{})
 	_, err := repo.GetByIdentifier(context.Background(), "abc")
-	require.True(t, errors.Is(err, errSchemaRepository))
+	require.ErrorIs(t, err, errSchemaRepository)
 }

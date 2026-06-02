@@ -9,7 +9,7 @@ import (
 func TestParseIconReference_EmptyString(t *testing.T) {
 	ref := ParseIconReference("")
 	assert.True(t, ref.IsEmpty())
-	assert.Equal(t, "", ref.Raw)
+	assert.Empty(t, ref.Raw)
 }
 
 func TestParseIconReference_Whitespace(t *testing.T) {
@@ -165,16 +165,16 @@ func TestIconReference_IsEmptyFromParse(t *testing.T) {
 
 func TestIconType_Values(t *testing.T) {
 	// Verify the icon type constants are defined correctly
-	assert.Equal(t, IconType("emoji"), IconTypeEmoji)
-	assert.Equal(t, IconType("library"), IconTypeLibrary)
-	assert.Equal(t, IconType("svg"), IconTypeSVG)
-	assert.Equal(t, IconType("url"), IconTypeURL)
+	assert.Equal(t, IconTypeEmoji, IconType("emoji"))
+	assert.Equal(t, IconTypeLibrary, IconType("library"))
+	assert.Equal(t, IconTypeSVG, IconType("svg"))
+	assert.Equal(t, IconTypeURL, IconType("url"))
 }
 
 func TestIconRenderMode_Values(t *testing.T) {
 	// Verify the render mode constants are defined correctly
-	assert.Equal(t, IconRenderMode("css-class"), IconRenderModeCSS)
-	assert.Equal(t, IconRenderMode("inline-svg"), IconRenderModeSVG)
-	assert.Equal(t, IconRenderMode("img-url"), IconRenderModeImg)
-	assert.Equal(t, IconRenderMode("span"), IconRenderModeSpan)
+	assert.Equal(t, IconRenderModeCSS, IconRenderMode("css-class"))
+	assert.Equal(t, IconRenderModeSVG, IconRenderMode("inline-svg"))
+	assert.Equal(t, IconRenderModeImg, IconRenderMode("img-url"))
+	assert.Equal(t, IconRenderModeSpan, IconRenderMode("span"))
 }

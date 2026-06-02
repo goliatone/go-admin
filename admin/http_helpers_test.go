@@ -2,6 +2,7 @@ package admin
 
 import (
 	"encoding/json"
+	"net/http"
 	"net/http/httptest"
 	"testing"
 
@@ -19,7 +20,7 @@ func TestWriteErrorReturnsStructuredPayload(t *testing.T) {
 		return writeError(c, ErrFeatureDisabled)
 	})
 
-	req := httptest.NewRequest("GET", "/err", nil)
+	req := httptest.NewRequest(http.MethodGet, "/err", nil)
 	rr := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(rr, req)
 	if rr.Code != 404 {
@@ -49,7 +50,7 @@ func TestWriteErrorIncludesValidationFields(t *testing.T) {
 		return writeError(c, SettingsValidationErrors{Fields: map[string]string{"admin.title": "required"}})
 	})
 
-	req := httptest.NewRequest("POST", "/validate", nil)
+	req := httptest.NewRequest(http.MethodPost, "/validate", nil)
 	rr := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(rr, req)
 	if rr.Code != 400 {
@@ -81,7 +82,7 @@ func TestWriteErrorMapsFeatureConfigIssues(t *testing.T) {
 		})
 	})
 
-	req := httptest.NewRequest("GET", "/features", nil)
+	req := httptest.NewRequest(http.MethodGet, "/features", nil)
 	rr := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(rr, req)
 	if rr.Code != 400 {
@@ -130,7 +131,7 @@ func TestWriteErrorMapsSchemaValidationErrors(t *testing.T) {
 		})
 	})
 
-	req := httptest.NewRequest("POST", "/schema", nil)
+	req := httptest.NewRequest(http.MethodPost, "/schema", nil)
 	rr := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(rr, req)
 	if rr.Code != 400 {
@@ -163,7 +164,7 @@ func TestWriteErrorMapsTranslationMissingConflict(t *testing.T) {
 		})
 	})
 
-	req := httptest.NewRequest("POST", "/publish", nil)
+	req := httptest.NewRequest(http.MethodPost, "/publish", nil)
 	rr := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(rr, req)
 	if rr.Code != 409 {
@@ -209,7 +210,7 @@ func TestWriteErrorPrefersSpecificDomainCodeOverGenericHandlerWrappers(t *testin
 		return writeError(c, handlerErr)
 	})
 
-	req := httptest.NewRequest("POST", "/actions/schedule", nil)
+	req := httptest.NewRequest(http.MethodPost, "/actions/schedule", nil)
 	rr := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(rr, req)
 	if rr.Code != 409 {
@@ -248,7 +249,7 @@ func TestWriteErrorMapsTranslationMissingNormalizesEntityTypeMetadata(t *testing
 		})
 	})
 
-	req := httptest.NewRequest("POST", "/publish", nil)
+	req := httptest.NewRequest(http.MethodPost, "/publish", nil)
 	rr := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(rr, req)
 	if rr.Code != 409 {
@@ -280,7 +281,7 @@ func TestWriteErrorMapsTranslationMissingUnprocessableWhenFieldFailuresPresent(t
 		})
 	})
 
-	req := httptest.NewRequest("POST", "/publish", nil)
+	req := httptest.NewRequest(http.MethodPost, "/publish", nil)
 	rr := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(rr, req)
 	if rr.Code != 422 {
@@ -312,7 +313,7 @@ func TestWriteErrorMapsTranslationMissingIncludesMandatoryMetadataKeys(t *testin
 		})
 	})
 
-	req := httptest.NewRequest("POST", "/publish", nil)
+	req := httptest.NewRequest(http.MethodPost, "/publish", nil)
 	rr := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(rr, req)
 	if rr.Code != 409 {
@@ -352,7 +353,7 @@ func TestWriteErrorMapsTranslationMissingIncludesFieldMapWhenRequiredFieldChecks
 		})
 	})
 
-	req := httptest.NewRequest("POST", "/publish", nil)
+	req := httptest.NewRequest(http.MethodPost, "/publish", nil)
 	rr := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(rr, req)
 	if rr.Code != 409 {
@@ -389,7 +390,7 @@ func TestWriteErrorMapsTranslationAlreadyExists(t *testing.T) {
 		})
 	})
 
-	req := httptest.NewRequest("POST", "/translate", nil)
+	req := httptest.NewRequest(http.MethodPost, "/translate", nil)
 	rr := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(rr, req)
 	if rr.Code != 409 {
@@ -422,7 +423,7 @@ func TestWriteErrorMapsAutosaveConflict(t *testing.T) {
 		})
 	})
 
-	req := httptest.NewRequest("POST", "/autosave", nil)
+	req := httptest.NewRequest(http.MethodPost, "/autosave", nil)
 	rr := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(rr, req)
 	if rr.Code != 409 {
@@ -458,7 +459,7 @@ func TestWriteErrorMapsGoCMSTranslationAlreadyExists(t *testing.T) {
 		})
 	})
 
-	req := httptest.NewRequest("POST", "/translate", nil)
+	req := httptest.NewRequest(http.MethodPost, "/translate", nil)
 	rr := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(rr, req)
 	if rr.Code != 409 {
@@ -488,7 +489,7 @@ func TestWriteErrorMapsGoCMSTranslationValidationAndNotFound(t *testing.T) {
 		return writeError(c, cmscontent.ErrSourceNotFound)
 	})
 
-	reqInvalid := httptest.NewRequest("POST", "/translate/invalid-locale", nil)
+	reqInvalid := httptest.NewRequest(http.MethodPost, "/translate/invalid-locale", nil)
 	rrInvalid := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(rrInvalid, reqInvalid)
 	if rrInvalid.Code != 400 {
@@ -501,7 +502,7 @@ func TestWriteErrorMapsGoCMSTranslationValidationAndNotFound(t *testing.T) {
 		t.Fatalf("expected %s, got %v", TextCodeValidationError, invalidErr["text_code"])
 	}
 
-	reqMissing := httptest.NewRequest("POST", "/translate/source-missing", nil)
+	reqMissing := httptest.NewRequest(http.MethodPost, "/translate/source-missing", nil)
 	rrMissing := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(rrMissing, reqMissing)
 	if rrMissing.Code != 404 {
@@ -528,7 +529,7 @@ func TestWriteErrorMapsTranslationQueueConflict(t *testing.T) {
 		})
 	})
 
-	req := httptest.NewRequest("POST", "/queue/conflict", nil)
+	req := httptest.NewRequest(http.MethodPost, "/queue/conflict", nil)
 	rr := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(rr, req)
 	if rr.Code != 409 {
@@ -559,7 +560,7 @@ func TestWriteErrorMapsTranslationQueueVersionConflict(t *testing.T) {
 		})
 	})
 
-	req := httptest.NewRequest("POST", "/queue/version-conflict", nil)
+	req := httptest.NewRequest(http.MethodPost, "/queue/version-conflict", nil)
 	rr := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(rr, req)
 	if rr.Code != 409 {
@@ -589,7 +590,7 @@ func TestWriteErrorMapsTranslationExchangeUnsupportedFormat(t *testing.T) {
 		})
 	})
 
-	req := httptest.NewRequest("POST", "/exchange", nil)
+	req := httptest.NewRequest(http.MethodPost, "/exchange", nil)
 	rr := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(rr, req)
 	if rr.Code != 400 {
@@ -622,7 +623,7 @@ func TestWriteErrorMapsTranslationExchangeConflict(t *testing.T) {
 		})
 	})
 
-	req := httptest.NewRequest("POST", "/exchange-conflict", nil)
+	req := httptest.NewRequest(http.MethodPost, "/exchange-conflict", nil)
 	rr := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(rr, req)
 	if rr.Code != 409 {

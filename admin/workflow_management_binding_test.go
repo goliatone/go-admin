@@ -159,7 +159,8 @@ func TestWorkflowManagementBindingBindingCRUDAndValidation(t *testing.T) {
 		"status":      "active",
 	})
 	require.Error(t, err)
-	validationErr, ok := err.(WorkflowValidationErrors)
+	var validationErr WorkflowValidationErrors
+	ok := errors.As(err, &validationErr)
 	require.True(t, ok)
 	require.NotEmpty(t, validationErr.Fields["workflow_id"])
 }

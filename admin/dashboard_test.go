@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"net/http"
 	"net/http/httptest"
 	"strconv"
 	"sync"
@@ -637,7 +638,7 @@ func TestDashboardConfigRoutePersistsLayoutPerUser(t *testing.T) {
 	}
 
 	body := []byte(`{"area_order":{"admin.dashboard.main":["w1"]},"layout_rows":{"admin.dashboard.main":[{"widgets":[{"id":"w1","width":12}]}]},"hidden_widget_ids":["w1"]}`)
-	req := httptest.NewRequest("POST", "/admin/api/dashboard/preferences", bytes.NewReader(body))
+	req := httptest.NewRequest(http.MethodPost, "/admin/api/dashboard/preferences", bytes.NewReader(body))
 	req.Header.Set("X-User-ID", "user-1")
 	req.Header.Set("Content-Type", "application/json")
 	rr := httptest.NewRecorder()
@@ -655,7 +656,7 @@ func TestDashboardConfigRoutePersistsLayoutPerUser(t *testing.T) {
 		t.Fatalf("expected widget hidden flag to persist, got %+v", saved.HiddenWidgets)
 	}
 
-	req = httptest.NewRequest("GET", "/admin/api/dashboard", nil)
+	req = httptest.NewRequest(http.MethodGet, "/admin/api/dashboard", nil)
 	req.Header.Set("X-User-ID", "user-1")
 	rr = httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(rr, req)

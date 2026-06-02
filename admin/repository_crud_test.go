@@ -341,12 +341,12 @@ func TestCRUDAdapterMissingServiceReturnsNotFoundAcrossOperations(t *testing.T) 
 
 	for _, tc := range testCases {
 		t.Run("nil/"+tc.name, func(t *testing.T) {
-			if err := tc.run(nilAdapter); err != ErrNotFound {
+			if err := tc.run(nilAdapter); !errors.Is(err, ErrNotFound) {
 				t.Fatalf("expected ErrNotFound, got %v", err)
 			}
 		})
 		t.Run("zero/"+tc.name, func(t *testing.T) {
-			if err := tc.run(zeroAdapter); err != ErrNotFound {
+			if err := tc.run(zeroAdapter); !errors.Is(err, ErrNotFound) {
 				t.Fatalf("expected ErrNotFound, got %v", err)
 			}
 		})

@@ -3,6 +3,7 @@ package admin
 import (
 	"encoding/json"
 	"errors"
+	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
@@ -44,7 +45,7 @@ func TestSearchRouteRespectsFeatureGates(t *testing.T) {
 		t.Fatalf("initialize: %v", err)
 	}
 
-	req := httptest.NewRequest("GET", "/admin/api/search?query=missing", nil)
+	req := httptest.NewRequest(http.MethodGet, "/admin/api/search?query=missing", nil)
 	rr := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(rr, req)
 	if rr.Code != 404 {

@@ -111,7 +111,8 @@ func TestWorkflowRuntimeServiceCreateBindingRejectsUnknownWorkflow(t *testing.T)
 	if err == nil {
 		t.Fatalf("expected validation error")
 	}
-	typed, ok := err.(WorkflowValidationErrors)
+	var typed WorkflowValidationErrors
+	ok := errors.As(err, &typed)
 	if !ok {
 		t.Fatalf("expected WorkflowValidationErrors, got %T", err)
 	}

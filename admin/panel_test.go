@@ -402,7 +402,8 @@ func TestPanelRunActionResponseRequiresAllActionPermissions(t *testing.T) {
 		if err == nil {
 			t.Fatal("expected permission denied error")
 		}
-		denied, ok := err.(PermissionDeniedError)
+		var denied PermissionDeniedError
+		ok := errors.As(err, &denied)
 		if !ok {
 			t.Fatalf("expected PermissionDeniedError, got %T", err)
 		}
@@ -861,7 +862,7 @@ func TestPanelSchemaIncludesSubresources(t *testing.T) {
 	if schema.Subresources[0].Name != "artifact" {
 		t.Fatalf("expected subresource artifact, got %q", schema.Subresources[0].Name)
 	}
-	if schema.Subresources[0].Method != "GET" {
+	if schema.Subresources[0].Method != http.MethodGet {
 		t.Fatalf("expected method GET, got %q", schema.Subresources[0].Method)
 	}
 	if schema.Subresources[0].Permission != "agreements.download" {

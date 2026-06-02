@@ -3,6 +3,7 @@ package admin
 import (
 	"context"
 	"encoding/json"
+	"net/http"
 	"net/http/httptest"
 	"testing"
 
@@ -61,7 +62,7 @@ func TestBlockDefinitionTemplateEndpoint_SingleActiveSlug(t *testing.T) {
 		},
 	})
 
-	req := httptest.NewRequest("GET", "/admin/api/block_definitions_meta/templates/case_active", nil)
+	req := httptest.NewRequest(http.MethodGet, "/admin/api/block_definitions_meta/templates/case_active", nil)
 	req.Header.Set("X-User-ID", "user-1")
 	rr := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(rr, req)
@@ -87,7 +88,7 @@ func TestBlockDefinitionTemplateEndpoint_SingleInactiveSlugRequiresIncludeInacti
 	server, content := setupBlockDefinitionTemplateServer(t, templateServerOptions{})
 	seedBlockDefinitions(t, content)
 
-	req := httptest.NewRequest("GET", "/admin/api/block_definitions_meta/templates/old_banner", nil)
+	req := httptest.NewRequest(http.MethodGet, "/admin/api/block_definitions_meta/templates/old_banner", nil)
 	req.Header.Set("X-User-ID", "user-1")
 	rr := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(rr, req)
@@ -95,7 +96,7 @@ func TestBlockDefinitionTemplateEndpoint_SingleInactiveSlugRequiresIncludeInacti
 		t.Fatalf("expected 404 for inactive slug, got %d body=%s", rr.Code, rr.Body.String())
 	}
 
-	req = httptest.NewRequest("GET", "/admin/api/block_definitions_meta/templates/old_banner?include_inactive=true", nil)
+	req = httptest.NewRequest(http.MethodGet, "/admin/api/block_definitions_meta/templates/old_banner?include_inactive=true", nil)
 	req.Header.Set("X-User-ID", "user-1")
 	rr = httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(rr, req)
@@ -121,7 +122,7 @@ func TestBlockDefinitionTemplateEndpoint_BatchSlugs(t *testing.T) {
 	server, content := setupBlockDefinitionTemplateServer(t, templateServerOptions{})
 	seedBlockDefinitions(t, content)
 
-	req := httptest.NewRequest("GET", "/admin/api/block_definitions_meta/templates?slugs=hero_section,old_banner&include_inactive=true", nil)
+	req := httptest.NewRequest(http.MethodGet, "/admin/api/block_definitions_meta/templates?slugs=hero_section,old_banner&include_inactive=true", nil)
 	req.Header.Set("X-User-ID", "user-1")
 	rr := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(rr, req)
@@ -154,7 +155,7 @@ func TestBlockDefinitionTemplateEndpoint_EmptySlugsReturnsAll(t *testing.T) {
 	server, content := setupBlockDefinitionTemplateServer(t, templateServerOptions{})
 	seedBlockDefinitions(t, content)
 
-	req := httptest.NewRequest("GET", "/admin/api/block_definitions_meta/templates?include_inactive=true", nil)
+	req := httptest.NewRequest(http.MethodGet, "/admin/api/block_definitions_meta/templates?include_inactive=true", nil)
 	req.Header.Set("X-User-ID", "user-1")
 	rr := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(rr, req)
@@ -180,7 +181,7 @@ func TestBlockDefinitionTemplateEndpoint_Unauthorized(t *testing.T) {
 	})
 	seedBlockDefinitions(t, content)
 
-	req := httptest.NewRequest("GET", "/admin/api/block_definitions_meta/templates/hero_section", nil)
+	req := httptest.NewRequest(http.MethodGet, "/admin/api/block_definitions_meta/templates/hero_section", nil)
 	req.Header.Set("X-User-ID", "user-1")
 	rr := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(rr, req)

@@ -19,7 +19,7 @@ func TestWithStackPreservesExistingStackCarriers(t *testing.T) {
 	if second == nil {
 		t.Fatal("expected wrapped error")
 	}
-	if wrapped != second {
+	if !errors.Is(wrapped, second) {
 		t.Fatalf("expected wrapper with existing stack carrier to be returned unchanged")
 	}
 	if !errors.Is(second, base) {
@@ -32,7 +32,7 @@ func TestWithStackPreservesGoErrorsStackTrace(t *testing.T) {
 	wrapped := fmt.Errorf("route boundary: %w", ge)
 
 	got := WithStack(wrapped)
-	if got != wrapped {
+	if !errors.Is(got, wrapped) {
 		t.Fatalf("expected wrapped go-errors stack to be preserved")
 	}
 	if stack := stackFromError(got); len(stack) != len(ge.StackTrace) {

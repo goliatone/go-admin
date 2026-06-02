@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	core "github.com/goliatone/go-admin/admin"
@@ -57,7 +58,7 @@ func TestFacadeGeneratedAliases(t *testing.T) {
 	if CreateTranslationKey != core.CreateTranslationKey {
 		t.Fatalf("CreateTranslationKey alias mismatch")
 	}
-	if ErrNotFound != core.ErrNotFound {
+	if !errors.Is(ErrNotFound, core.ErrNotFound) {
 		t.Fatalf("ErrNotFound alias mismatch")
 	}
 }

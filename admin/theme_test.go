@@ -33,7 +33,7 @@ func TestDashboardRouteReturnsTheme(t *testing.T) {
 	}
 
 	dashboardPath := mustResolveURL(t, adm.URLs(), adminAPIGroupName(adm.config), "dashboard", nil, nil)
-	req := httptest.NewRequest("GET", dashboardPath, nil)
+	req := httptest.NewRequest(http.MethodGet, dashboardPath, nil)
 	rr := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(rr, req)
 	if rr.Code != 200 {
@@ -89,7 +89,7 @@ func TestPanelSchemaIncludesThemePayload(t *testing.T) {
 	}
 
 	itemsPath := mustResolveURL(t, adm.URLs(), adminAPIGroupName(adm.config), "panel", map[string]string{"panel": "items"}, nil)
-	req := httptest.NewRequest("GET", itemsPath, nil)
+	req := httptest.NewRequest(http.MethodGet, itemsPath, nil)
 	rr := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(rr, req)
 	if rr.Code != 200 {
@@ -243,7 +243,7 @@ func TestThemeOverrideViaAdminThemeSelector(t *testing.T) {
 
 	var expected map[string]any
 	for _, tc := range tests {
-		req := httptest.NewRequest("GET", tc.path, nil)
+		req := httptest.NewRequest(http.MethodGet, tc.path, nil)
 		rr := httptest.NewRecorder()
 		server.WrappedRouter().ServeHTTP(rr, req)
 		if rr.Code != 200 {

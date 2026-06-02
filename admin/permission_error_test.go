@@ -4,7 +4,8 @@ import "testing"
 
 func TestPermissionDeniedAddsTranslationHint(t *testing.T) {
 	err := permissionDenied("admin.translations.export", "translations")
-	denied, ok := err.(PermissionDeniedError)
+	var denied PermissionDeniedError
+	ok := errors.As(err, &denied)
 	if !ok {
 		t.Fatalf("expected PermissionDeniedError, got %T", err)
 	}

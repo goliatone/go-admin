@@ -58,7 +58,7 @@ func TestGoAuthAuthenticatorWrapHandlerInjectsActor(t *testing.T) {
 		return c.JSON(200, map[string]string{"status": "ok"})
 	}))
 
-	req := httptest.NewRequest("GET", "/protected", nil)
+	req := httptest.NewRequest(http.MethodGet, "/protected", nil)
 	req.Header.Set("Authorization", "Bearer "+token)
 	res := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(res, req)
@@ -308,7 +308,7 @@ func TestGoAuthAuthenticatorWrapHandlerSeedsResolvedPermissionsCache(t *testing.
 		return c.JSON(200, map[string]string{"status": "ok"})
 	}))
 
-	req := httptest.NewRequest("GET", "/cached", nil)
+	req := httptest.NewRequest(http.MethodGet, "/cached", nil)
 	req.Header.Set("Authorization", "Bearer "+token)
 	res := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(res, req)
@@ -738,7 +738,7 @@ func TestJobsAndNotificationsRoutesRequirePermission(t *testing.T) {
 		t.Fatalf("initialize: %v", err)
 	}
 
-	jobReq := httptest.NewRequest("GET", "/admin/api/jobs", nil)
+	jobReq := httptest.NewRequest(http.MethodGet, "/admin/api/jobs", nil)
 	jobRes := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(jobRes, jobReq)
 	if jobRes.Code != 403 {
@@ -746,7 +746,7 @@ func TestJobsAndNotificationsRoutesRequirePermission(t *testing.T) {
 	}
 
 	payload := `{"ids":["n1"],"read":true}`
-	notifReq := httptest.NewRequest("POST", "/admin/api/notifications/read", strings.NewReader(payload))
+	notifReq := httptest.NewRequest(http.MethodPost, "/admin/api/notifications/read", strings.NewReader(payload))
 	notifReq.Header.Set("Content-Type", "application/json")
 	notifRes := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(notifRes, notifReq)

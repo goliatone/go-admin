@@ -3,6 +3,7 @@ package admin
 import (
 	"bufio"
 	"bytes"
+	"errors"
 	"io"
 	"net"
 	"net/http"
@@ -124,10 +125,10 @@ func TestDebugResponseWriterMissingInterfaces(t *testing.T) {
 	rec := httptest.NewRecorder()
 	writer := newDebugResponseWriter(rec, 10)
 
-	if _, _, err := writer.Hijack(); err != http.ErrNotSupported {
+	if _, _, err := writer.Hijack(); !errors.Is(err, http.ErrNotSupported) {
 		t.Fatalf("expected hijack not supported, got %v", err)
 	}
-	if err := writer.Push("/test", nil); err != http.ErrNotSupported {
+	if err := writer.Push("/test", nil); !errors.Is(err, http.ErrNotSupported) {
 		t.Fatalf("expected push not supported, got %v", err)
 	}
 }

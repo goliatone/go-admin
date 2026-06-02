@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/http"
 	"net/http/httptest"
 	"testing"
 
@@ -86,7 +87,7 @@ func TestDashboardPreferencesEndpointPersistsLayout(t *testing.T) {
 	}
 
 	body := `{"area_order":{"admin.dashboard.main":["w1"]},"layout_rows":{"admin.dashboard.main":[{"widgets":[{"id":"w1","width":12}]}]},"hidden_widget_ids":[]}`
-	req := httptest.NewRequest("POST", "/admin/api/dashboard/preferences", bytes.NewBufferString(body))
+	req := httptest.NewRequest(http.MethodPost, "/admin/api/dashboard/preferences", bytes.NewBufferString(body))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-User-ID", "user-1")
 	rr := httptest.NewRecorder()
@@ -124,7 +125,7 @@ func TestDashboardPreferencesEndpointPreservesLegacyLayoutPayload(t *testing.T) 
 	}
 
 	body := `{"layout":[{"id":"w1","definition":"admin.widget.user_stats","area":"admin.dashboard.main","config":{"metric":"total"},"position":1,"span":8,"hidden":true,"locale":"es"}]}`
-	req := httptest.NewRequest("POST", "/admin/api/dashboard/preferences", bytes.NewBufferString(body))
+	req := httptest.NewRequest(http.MethodPost, "/admin/api/dashboard/preferences", bytes.NewBufferString(body))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-User-ID", "user-1")
 	rr := httptest.NewRecorder()
@@ -160,7 +161,7 @@ func TestDashboardHTMLRouteUsesTypedAdminDashboardPage(t *testing.T) {
 		t.Fatalf("initialize: %v", err)
 	}
 
-	req := httptest.NewRequest("GET", "/admin/dashboard?locale=es", nil)
+	req := httptest.NewRequest(http.MethodGet, "/admin/dashboard?locale=es", nil)
 	req.Header.Set("X-User-ID", "user-1")
 	rr := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(rr, req)
@@ -204,7 +205,7 @@ func TestDashboardAPIRouteUsesTypedPageSource(t *testing.T) {
 		t.Fatalf("initialize: %v", err)
 	}
 
-	htmlReq := httptest.NewRequest("GET", "/admin/dashboard?locale=es", nil)
+	htmlReq := httptest.NewRequest(http.MethodGet, "/admin/dashboard?locale=es", nil)
 	htmlReq.Header.Set("X-User-ID", "user-1")
 	htmlRR := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(htmlRR, htmlReq)
@@ -212,7 +213,7 @@ func TestDashboardAPIRouteUsesTypedPageSource(t *testing.T) {
 		t.Fatalf("expected 200 from dashboard html route, got %d body=%s", htmlRR.Code, htmlRR.Body.String())
 	}
 
-	apiReq := httptest.NewRequest("GET", "/admin/api/dashboard?locale=es", nil)
+	apiReq := httptest.NewRequest(http.MethodGet, "/admin/api/dashboard?locale=es", nil)
 	apiReq.Header.Set("X-User-ID", "user-1")
 	apiRR := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(apiRR, apiReq)
@@ -285,7 +286,7 @@ func TestDashboardPreferenceRoutesExposeTypedTransport(t *testing.T) {
 	}
 
 	body := `{"area_order":{"admin.dashboard.main":["w1"]},"layout_rows":{"admin.dashboard.main":[{"widgets":[{"id":"w1","width":12}]}]},"hidden_widget_ids":["w1"]}`
-	postReq := httptest.NewRequest("POST", "/admin/api/dashboard/preferences", bytes.NewBufferString(body))
+	postReq := httptest.NewRequest(http.MethodPost, "/admin/api/dashboard/preferences", bytes.NewBufferString(body))
 	postReq.Header.Set("Content-Type", "application/json")
 	postReq.Header.Set("X-User-ID", "user-1")
 	postRR := httptest.NewRecorder()
@@ -295,7 +296,7 @@ func TestDashboardPreferenceRoutesExposeTypedTransport(t *testing.T) {
 	}
 
 	for _, path := range []string{"/admin/api/dashboard/preferences", "/admin/api/dashboard/config"} {
-		req := httptest.NewRequest("GET", path, nil)
+		req := httptest.NewRequest(http.MethodGet, path, nil)
 		req.Header.Set("X-User-ID", "user-1")
 		rr := httptest.NewRecorder()
 		server.WrappedRouter().ServeHTTP(rr, req)
@@ -343,7 +344,7 @@ func TestDashboardConfigRoutePersistsTypedPreferences(t *testing.T) {
 	}
 
 	body := `{"area_order":{"admin.dashboard.main":["w1"]},"layout_rows":{"admin.dashboard.main":[{"widgets":[{"id":"w1","width":6}]}]},"hidden_widget_ids":["w1"]}`
-	req := httptest.NewRequest("POST", "/admin/api/dashboard/config", bytes.NewBufferString(body))
+	req := httptest.NewRequest(http.MethodPost, "/admin/api/dashboard/config", bytes.NewBufferString(body))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-User-ID", "user-1")
 	rr := httptest.NewRecorder()
@@ -375,7 +376,7 @@ func TestDashboardDebugRouteUsesTypedDiagnostics(t *testing.T) {
 		t.Fatalf("initialize: %v", err)
 	}
 
-	req := httptest.NewRequest("GET", "/admin/api/dashboard/debug?locale=es", nil)
+	req := httptest.NewRequest(http.MethodGet, "/admin/api/dashboard/debug?locale=es", nil)
 	req.Header.Set("X-User-ID", "user-1")
 	rr := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(rr, req)

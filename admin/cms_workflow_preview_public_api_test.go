@@ -35,7 +35,7 @@ func TestCMSWorkflowPreviewAndPublicAPIIntegration(t *testing.T) {
 
 	pageBody := `{"title":"Draft Item","slug":"draft-item","content_type":"article","status":"draft","locale":"en","blocks":[{"_type":"hero","title":"Hello"}]}`
 	createPath := mustResolveURL(t, adm.URLs(), adminAPIGroup, "panel", map[string]string{"panel": "content"}, nil)
-	createReq := httptest.NewRequest("POST", createPath, strings.NewReader(pageBody))
+	createReq := httptest.NewRequest(http.MethodPost, createPath, strings.NewReader(pageBody))
 	createReq.Header.Set("Content-Type", "application/json")
 	createRes := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(createRes, createReq)
@@ -58,7 +58,7 @@ func TestCMSWorkflowPreviewAndPublicAPIIntegration(t *testing.T) {
 
 	updateBody := `{"blocks":[{"_type":"hero","title":"Updated"}]}`
 	updatePath := mustResolveURL(t, adm.URLs(), adminAPIGroup, "panel.id", map[string]string{"panel": "content", "id": pageID}, nil)
-	updateReq := httptest.NewRequest("PUT", updatePath, strings.NewReader(updateBody))
+	updateReq := httptest.NewRequest(http.MethodPut, updatePath, strings.NewReader(updateBody))
 	updateReq.Header.Set("Content-Type", "application/json")
 	updateRes := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(updateRes, updateReq)
@@ -72,7 +72,7 @@ func TestCMSWorkflowPreviewAndPublicAPIIntegration(t *testing.T) {
 	}
 
 	publicPath := mustResolveURL(t, adm.URLs(), publicAPIGroup, "content.item", map[string]string{"type": "article", "slug": pageSlug}, nil)
-	publicReq := httptest.NewRequest("GET", publicPath, nil)
+	publicReq := httptest.NewRequest(http.MethodGet, publicPath, nil)
 	publicRes := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(publicRes, publicReq)
 	if publicRes.Code != http.StatusNotFound {
@@ -80,7 +80,7 @@ func TestCMSWorkflowPreviewAndPublicAPIIntegration(t *testing.T) {
 	}
 
 	previewPath := mustResolveURL(t, adm.URLs(), adminAPIGroup, "panel.preview", map[string]string{"panel": "content", "id": pageID}, nil)
-	previewReq := httptest.NewRequest("GET", previewPath, nil)
+	previewReq := httptest.NewRequest(http.MethodGet, previewPath, nil)
 	previewRes := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(previewRes, previewReq)
 	if previewRes.Code != http.StatusOK {
@@ -93,7 +93,7 @@ func TestCMSWorkflowPreviewAndPublicAPIIntegration(t *testing.T) {
 	}
 
 	adminPreviewPath := mustResolveURL(t, adm.URLs(), adminAPIGroup, "preview", map[string]string{"token": token}, nil)
-	adminPreviewReq := httptest.NewRequest("GET", adminPreviewPath, nil)
+	adminPreviewReq := httptest.NewRequest(http.MethodGet, adminPreviewPath, nil)
 	adminPreviewRes := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(adminPreviewRes, adminPreviewReq)
 	if adminPreviewRes.Code != http.StatusOK {
@@ -110,7 +110,7 @@ func TestCMSWorkflowPreviewAndPublicAPIIntegration(t *testing.T) {
 	}
 
 	publicPreviewPath := mustResolveURL(t, adm.URLs(), publicAPIGroup, "preview", map[string]string{"token": token}, nil)
-	publicPreviewReq := httptest.NewRequest("GET", publicPreviewPath, nil)
+	publicPreviewReq := httptest.NewRequest(http.MethodGet, publicPreviewPath, nil)
 	publicPreviewRes := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(publicPreviewRes, publicPreviewReq)
 	if publicPreviewRes.Code != http.StatusOK {
@@ -126,7 +126,7 @@ func TestCMSWorkflowPreviewAndPublicAPIIntegration(t *testing.T) {
 	}
 
 	workflowPath := mustResolveURL(t, adm.URLs(), adminAPIGroup, "panel.action", map[string]string{"panel": "content", "action": "submit_for_approval"}, nil)
-	workflowReq := httptest.NewRequest("POST", workflowPath, strings.NewReader(`{"id":"`+pageID+`"}`))
+	workflowReq := httptest.NewRequest(http.MethodPost, workflowPath, strings.NewReader(`{"id":"`+pageID+`"}`))
 	workflowReq.Header.Set("Content-Type", "application/json")
 	workflowRes := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(workflowRes, workflowReq)
@@ -140,7 +140,7 @@ func TestCMSWorkflowPreviewAndPublicAPIIntegration(t *testing.T) {
 	}
 
 	publishPath := mustResolveURL(t, adm.URLs(), adminAPIGroup, "panel.action", map[string]string{"panel": "content", "action": "publish"}, nil)
-	publishReq := httptest.NewRequest("POST", publishPath, strings.NewReader(`{"id":"`+pageID+`"}`))
+	publishReq := httptest.NewRequest(http.MethodPost, publishPath, strings.NewReader(`{"id":"`+pageID+`"}`))
 	publishReq.Header.Set("Content-Type", "application/json")
 	publishRes := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(publishRes, publishReq)
@@ -154,7 +154,7 @@ func TestCMSWorkflowPreviewAndPublicAPIIntegration(t *testing.T) {
 	}
 
 	publicPath = mustResolveURL(t, adm.URLs(), publicAPIGroup, "content.item", map[string]string{"type": "article", "slug": pageSlug}, nil)
-	publicReq = httptest.NewRequest("GET", publicPath, nil)
+	publicReq = httptest.NewRequest(http.MethodGet, publicPath, nil)
 	publicRes = httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(publicRes, publicReq)
 	if publicRes.Code != http.StatusOK {
@@ -179,7 +179,7 @@ func decodeJSONMap(t *testing.T, rr *httptest.ResponseRecorder) map[string]any {
 func fetchContentStatus(t *testing.T, server router.Server[*httprouter.Router], urls urlkit.Resolver, adminAPIGroup, panel, id string) string {
 	t.Helper()
 	getPath := mustResolveURL(t, urls, adminAPIGroup, "panel.id", map[string]string{"panel": panel, "id": id}, nil)
-	getReq := httptest.NewRequest("GET", getPath, nil)
+	getReq := httptest.NewRequest(http.MethodGet, getPath, nil)
 	getRes := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(getRes, getReq)
 	if getRes.Code != http.StatusOK {

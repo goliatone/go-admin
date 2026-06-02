@@ -3,6 +3,7 @@ package admin
 import (
 	"context"
 	"encoding/json"
+	"net/http"
 	"net/http/httptest"
 	"testing"
 )
@@ -36,7 +37,7 @@ func TestBlockDefinitionDiagnosticsEndpointIncludesChannelMetadata(t *testing.T)
 		Schema:      map[string]any{"type": "object"},
 	})
 
-	req := httptest.NewRequest("GET", "/admin/api/block_definitions_meta/diagnostics?channel=staging", nil)
+	req := httptest.NewRequest(http.MethodGet, "/admin/api/block_definitions_meta/diagnostics?channel=staging", nil)
 	req.Header.Set("X-User-ID", "user-1")
 	rr := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(rr, req)
@@ -75,7 +76,7 @@ func TestBlockDefinitionDiagnosticsEndpointIncludesChannelMetadata(t *testing.T)
 func TestBlockDefinitionDiagnosticsEndpointUsesDollarChannelQuery(t *testing.T) {
 	server, _ := setupBlockDefinitionTemplateServer(t, templateServerOptions{})
 
-	req := httptest.NewRequest("GET", "/admin/api/block_definitions_meta/diagnostics?%24channel=staging", nil)
+	req := httptest.NewRequest(http.MethodGet, "/admin/api/block_definitions_meta/diagnostics?%24channel=staging", nil)
 	req.Header.Set("X-User-ID", "user-1")
 	rr := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(rr, req)

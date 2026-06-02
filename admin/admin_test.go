@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
@@ -230,7 +231,7 @@ func TestInitializeRegistersHealth(t *testing.T) {
 		t.Fatalf("initialize: %v", err)
 	}
 
-	req := httptest.NewRequest("GET", "/admin/health", nil)
+	req := httptest.NewRequest(http.MethodGet, "/admin/health", nil)
 	rr := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(rr, req)
 	if rr.Code != 200 {
@@ -306,7 +307,7 @@ func TestWithAuthorizerRetrofitsRegisteredPanelsWithoutLocalAuthorizer(t *testin
 		t.Fatalf("initialize: %v", err)
 	}
 
-	req := httptest.NewRequest("GET", adminPanelAPIPath(adm, adm.config, "items"), nil)
+	req := httptest.NewRequest(http.MethodGet, adminPanelAPIPath(adm, adm.config, "items"), nil)
 	rr := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(rr, req)
 	if rr.Code != 200 {
@@ -783,7 +784,7 @@ func TestPanelRoutesCRUDAndActions(t *testing.T) {
 		}
 
 		// Create
-		req := httptest.NewRequest("POST", "/admin/api/panels/items", strings.NewReader(`{"name":"Item 1"}`))
+		req := httptest.NewRequest(http.MethodPost, "/admin/api/panels/items", strings.NewReader(`{"name":"Item 1"}`))
 		req.Header.Set("Content-Type", "application/json")
 		rr := httptest.NewRecorder()
 		server.WrappedRouter().ServeHTTP(rr, req)
@@ -795,7 +796,7 @@ func TestPanelRoutesCRUDAndActions(t *testing.T) {
 		id := created["id"].(string)
 
 		// Detail
-		req = httptest.NewRequest("GET", "/admin/api/panels/items/"+id, nil)
+		req = httptest.NewRequest(http.MethodGet, "/admin/api/panels/items/"+id, nil)
 		rr = httptest.NewRecorder()
 		server.WrappedRouter().ServeHTTP(rr, req)
 		if rr.Code != 200 {
@@ -803,7 +804,7 @@ func TestPanelRoutesCRUDAndActions(t *testing.T) {
 		}
 
 		// Update
-		req = httptest.NewRequest("PUT", "/admin/api/panels/items/"+id, strings.NewReader(`{"name":"Updated"}`))
+		req = httptest.NewRequest(http.MethodPut, "/admin/api/panels/items/"+id, strings.NewReader(`{"name":"Updated"}`))
 		req.Header.Set("Content-Type", "application/json")
 		rr = httptest.NewRecorder()
 		server.WrappedRouter().ServeHTTP(rr, req)
@@ -812,7 +813,7 @@ func TestPanelRoutesCRUDAndActions(t *testing.T) {
 		}
 
 		// List
-		req = httptest.NewRequest("GET", "/admin/api/panels/items", nil)
+		req = httptest.NewRequest(http.MethodGet, "/admin/api/panels/items", nil)
 		rr = httptest.NewRecorder()
 		server.WrappedRouter().ServeHTTP(rr, req)
 		if rr.Code != 200 {
@@ -832,7 +833,7 @@ func TestPanelRoutesCRUDAndActions(t *testing.T) {
 		}
 
 		// Action
-		req = httptest.NewRequest("POST", "/admin/api/panels/items/actions/refresh", strings.NewReader(`{"source":"panel"}`))
+		req = httptest.NewRequest(http.MethodPost, "/admin/api/panels/items/actions/refresh", strings.NewReader(`{"source":"panel"}`))
 		req.Header.Set("Content-Type", "application/json")
 		rr = httptest.NewRecorder()
 		server.WrappedRouter().ServeHTTP(rr, req)
@@ -847,7 +848,7 @@ func TestPanelRoutesCRUDAndActions(t *testing.T) {
 		}
 
 		// Delete
-		req = httptest.NewRequest("DELETE", "/admin/api/panels/items/"+id, nil)
+		req = httptest.NewRequest(http.MethodDelete, "/admin/api/panels/items/"+id, nil)
 		rr = httptest.NewRecorder()
 		server.WrappedRouter().ServeHTTP(rr, req)
 		if rr.Code != 200 {
@@ -902,7 +903,7 @@ func TestPanelRoutesActionPayloadValidation(t *testing.T) {
 			t.Fatalf("initialize: %v", err)
 		}
 
-		req := httptest.NewRequest("POST", "/admin/api/panels/items/actions/refresh", strings.NewReader(`{}`))
+		req := httptest.NewRequest(http.MethodPost, "/admin/api/panels/items/actions/refresh", strings.NewReader(`{}`))
 		req.Header.Set("Content-Type", "application/json")
 		rr := httptest.NewRecorder()
 		server.WrappedRouter().ServeHTTP(rr, req)
@@ -913,7 +914,7 @@ func TestPanelRoutesActionPayloadValidation(t *testing.T) {
 			t.Fatalf("command should not execute on payload validation error")
 		}
 
-		req = httptest.NewRequest("POST", "/admin/api/panels/items/actions/refresh", strings.NewReader(`{"source": 1}`))
+		req = httptest.NewRequest(http.MethodPost, "/admin/api/panels/items/actions/refresh", strings.NewReader(`{"source": 1}`))
 		req.Header.Set("Content-Type", "application/json")
 		rr = httptest.NewRecorder()
 		server.WrappedRouter().ServeHTTP(rr, req)
@@ -924,7 +925,7 @@ func TestPanelRoutesActionPayloadValidation(t *testing.T) {
 			t.Fatalf("command should not execute on schema validation error")
 		}
 
-		req = httptest.NewRequest("POST", "/admin/api/panels/items/actions/refresh", strings.NewReader(`{"source":"panel"}`))
+		req = httptest.NewRequest(http.MethodPost, "/admin/api/panels/items/actions/refresh", strings.NewReader(`{"source":"panel"}`))
 		req.Header.Set("Content-Type", "application/json")
 		rr = httptest.NewRecorder()
 		server.WrappedRouter().ServeHTTP(rr, req)
@@ -971,7 +972,7 @@ func TestPanelRoutesActionInjectsActorContextIntoPayload(t *testing.T) {
 			t.Fatalf("initialize: %v", err)
 		}
 
-		req := httptest.NewRequest("POST", "/admin/api/panels/items/actions/refresh", strings.NewReader(`{"source":"panel"}`))
+		req := httptest.NewRequest(http.MethodPost, "/admin/api/panels/items/actions/refresh", strings.NewReader(`{"source":"panel"}`))
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("X-User-ID", "translator-1")
 		rr := httptest.NewRecorder()
@@ -992,7 +993,7 @@ func TestPanelRoutesActionInjectsActorContextIntoPayload(t *testing.T) {
 			t.Fatalf("expected injected actor_id translator-1, got %q", got)
 		}
 
-		req = httptest.NewRequest("POST", "/admin/api/panels/items/actions/refresh", strings.NewReader(`{"source":"panel","user_id":"explicit-user","actor_id":"explicit-actor"}`))
+		req = httptest.NewRequest(http.MethodPost, "/admin/api/panels/items/actions/refresh", strings.NewReader(`{"source":"panel","user_id":"explicit-user","actor_id":"explicit-actor"}`))
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("X-User-ID", "translator-1")
 		rr = httptest.NewRecorder()
@@ -1036,7 +1037,7 @@ func TestPanelListSchemaFiltersActionsToRowScope(t *testing.T) {
 			t.Fatalf("initialize: %v", err)
 		}
 
-		req := httptest.NewRequest("GET", "/admin/api/panels/items", nil)
+		req := httptest.NewRequest(http.MethodGet, "/admin/api/panels/items", nil)
 		rr := httptest.NewRecorder()
 		server.WrappedRouter().ServeHTTP(rr, req)
 		if rr.Code != 200 {
@@ -1108,7 +1109,7 @@ func TestPanelRoutesActionIdempotentFallbackGeneratesKey(t *testing.T) {
 			t.Fatalf("initialize: %v", err)
 		}
 
-		req := httptest.NewRequest("POST", "/admin/api/panels/items/actions/send", strings.NewReader(`{"id":"item-1"}`))
+		req := httptest.NewRequest(http.MethodPost, "/admin/api/panels/items/actions/send", strings.NewReader(`{"id":"item-1"}`))
 		req.Header.Set("Content-Type", "application/json")
 		rr := httptest.NewRecorder()
 		server.WrappedRouter().ServeHTTP(rr, req)
@@ -1144,7 +1145,7 @@ func TestNotificationsRoutes(t *testing.T) {
 		t.Fatalf("init: %v", initErr)
 	}
 
-	req := httptest.NewRequest("GET", "/admin/api/notifications", nil)
+	req := httptest.NewRequest(http.MethodGet, "/admin/api/notifications", nil)
 	req.Header.Set("X-User-ID", "tester")
 	rr := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(rr, req)
@@ -1169,7 +1170,7 @@ func TestNotificationsRoutes(t *testing.T) {
 		t.Fatalf("expected notification id in payload")
 	}
 
-	req = httptest.NewRequest("POST", "/admin/api/notifications/read", strings.NewReader(fmt.Sprintf(`{"ids":["%s"],"read":true}`, targetID)))
+	req = httptest.NewRequest(http.MethodPost, "/admin/api/notifications/read", strings.NewReader(fmt.Sprintf(`{"ids":["%s"],"read":true}`, targetID)))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-User-ID", "tester")
 	rr = httptest.NewRecorder()
@@ -1257,7 +1258,7 @@ func TestActivityRouteAndWidget(t *testing.T) {
 		t.Fatalf("init: %v", err)
 	}
 
-	req := httptest.NewRequest("GET", "/admin/api/activity?limit=1", nil)
+	req := httptest.NewRequest(http.MethodGet, "/admin/api/activity?limit=1", nil)
 	req = req.WithContext(auth.WithActorContext(req.Context(), &auth.ActorContext{ActorID: actorID.String()}))
 	rr := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(rr, req)
@@ -1333,7 +1334,7 @@ func TestBulkRoute(t *testing.T) {
 		t.Fatalf("init: %v", err)
 	}
 
-	req := httptest.NewRequest("POST", "/admin/api/bulk", strings.NewReader(`{"name":"cleanup","total":5,"source":"tests","ref":"job-123"}`))
+	req := httptest.NewRequest(http.MethodPost, "/admin/api/bulk", strings.NewReader(`{"name":"cleanup","total":5,"source":"tests","ref":"job-123"}`))
 	req.Header.Set("Content-Type", "application/json")
 	rr := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(rr, req)
@@ -1347,7 +1348,7 @@ func TestBulkRoute(t *testing.T) {
 	)
 	deadline := time.Now().Add(250 * time.Millisecond)
 	for {
-		req = httptest.NewRequest("GET", "/admin/api/bulk", nil)
+		req = httptest.NewRequest(http.MethodGet, "/admin/api/bulk", nil)
 		rr = httptest.NewRecorder()
 		server.WrappedRouter().ServeHTTP(rr, req)
 		if rr.Code != 200 {
@@ -1390,7 +1391,7 @@ func TestBulkRoute(t *testing.T) {
 	}
 
 	time.Sleep(20 * time.Millisecond)
-	req = httptest.NewRequest("POST", "/admin/api/bulk/"+id+"/rollback", nil)
+	req = httptest.NewRequest(http.MethodPost, "/admin/api/bulk/"+id+"/rollback", nil)
 	rr = httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(rr, req)
 	if rr.Code != 200 {
@@ -1420,7 +1421,7 @@ func TestMediaLibraryRoute(t *testing.T) {
 		t.Fatalf("init: %v", err)
 	}
 
-	req := httptest.NewRequest("GET", "/admin/api/media/assets", nil)
+	req := httptest.NewRequest(http.MethodGet, "/admin/api/media/assets", nil)
 	rr := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(rr, req)
 	if rr.Code != 200 {
@@ -1459,7 +1460,7 @@ func TestPanelSchemaIncludesFeatureMetadata(t *testing.T) {
 		t.Fatalf("init: %v", err)
 	}
 
-	req := httptest.NewRequest("GET", "/admin/api/panels/items", nil)
+	req := httptest.NewRequest(http.MethodGet, "/admin/api/panels/items", nil)
 	rr := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(rr, req)
 	if rr.Code != 200 {
@@ -1541,7 +1542,7 @@ func TestJobsRouteAndTrigger(t *testing.T) {
 			t.Fatalf("init: %v", err)
 		}
 
-		req := httptest.NewRequest("GET", "/admin/api/jobs", nil)
+		req := httptest.NewRequest(http.MethodGet, "/admin/api/jobs", nil)
 		rr := httptest.NewRecorder()
 		server.WrappedRouter().ServeHTTP(rr, req)
 		if rr.Code != 200 {
@@ -1561,7 +1562,7 @@ func TestJobsRouteAndTrigger(t *testing.T) {
 			t.Fatalf("expected schedule in job payload, got %v", schedule)
 		}
 
-		req = httptest.NewRequest("POST", "/admin/api/jobs/trigger", strings.NewReader(`{"name":"jobs.cleanup"}`))
+		req = httptest.NewRequest(http.MethodPost, "/admin/api/jobs/trigger", strings.NewReader(`{"name":"jobs.cleanup"}`))
 		req.Header.Set("Content-Type", "application/json")
 		rr = httptest.NewRecorder()
 		server.WrappedRouter().ServeHTTP(rr, req)
@@ -1572,7 +1573,7 @@ func TestJobsRouteAndTrigger(t *testing.T) {
 			t.Fatalf("expected job command executed")
 		}
 
-		req = httptest.NewRequest("GET", "/admin/api/jobs", nil)
+		req = httptest.NewRequest(http.MethodGet, "/admin/api/jobs", nil)
 		rr = httptest.NewRecorder()
 		server.WrappedRouter().ServeHTTP(rr, req)
 		jobsBody = map[string]any{}
@@ -1606,7 +1607,7 @@ func TestSearchRouteReturnsResults(t *testing.T) {
 		t.Fatalf("init: %v", err)
 	}
 
-	req := httptest.NewRequest("GET", "/admin/api/search?query=Alpha&limit=5", nil)
+	req := httptest.NewRequest(http.MethodGet, "/admin/api/search?query=Alpha&limit=5", nil)
 	rr := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(rr, req)
 	if rr.Code != 200 {

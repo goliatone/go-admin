@@ -2,6 +2,7 @@ package routing
 
 import (
 	"errors"
+	"net/http"
 	"strings"
 	"testing"
 
@@ -37,7 +38,7 @@ func TestNormalizeManifestSortsEntriesAndFillsMethodMetadata(t *testing.T) {
 	if manifest.Entries[0].Owner != "module:alpha" {
 		t.Fatalf("expected alpha to sort first, got %+v", manifest.Entries)
 	}
-	if manifest.Entries[0].Method != "GET" {
+	if manifest.Entries[0].Method != http.MethodGet {
 		t.Fatalf("expected GET method normalization, got %q", manifest.Entries[0].Method)
 	}
 	if manifest.Entries[0].Domain != RouteDomainAdminUI {

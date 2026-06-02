@@ -2,6 +2,7 @@ package admin
 
 import (
 	"encoding/json"
+	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
@@ -114,7 +115,7 @@ func TestActionContractsPhase1RuntimeWriteErrorEnvelope(t *testing.T) {
 		}))
 	})
 
-	req := httptest.NewRequest("GET", "/err", nil)
+	req := httptest.NewRequest(http.MethodGet, "/err", nil)
 	rr := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(rr, req)
 	if rr.Code != 409 {

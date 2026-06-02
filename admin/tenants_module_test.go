@@ -52,7 +52,7 @@ func TestTenantModuleEnforcesPermissions(t *testing.T) {
 		t.Fatalf("initialize: %v", err)
 	}
 
-	req := httptest.NewRequest("GET", adminPanelAPIPath(adm, cfg, tenantsModuleID), nil)
+	req := httptest.NewRequest(http.MethodGet, adminPanelAPIPath(adm, cfg, tenantsModuleID), nil)
 	req.Header.Set("X-User-ID", "actor-tenant")
 	rr := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(rr, req)
@@ -83,7 +83,7 @@ func TestTenantAndOrganizationCRUDSearchAndActivity(t *testing.T) {
 		},
 	}
 	tenantBody, _ := json.Marshal(tenantPayload)
-	tenantReq := httptest.NewRequest("POST", adminPanelAPIPath(adm, cfg, tenantsModuleID), bytes.NewReader(tenantBody))
+	tenantReq := httptest.NewRequest(http.MethodPost, adminPanelAPIPath(adm, cfg, tenantsModuleID), bytes.NewReader(tenantBody))
 	tenantReq.Header.Set("Content-Type", "application/json")
 	tenantReq.Header.Set("X-User-ID", "actor-tenant")
 	tenantRes := httptest.NewRecorder()
@@ -108,7 +108,7 @@ func TestTenantAndOrganizationCRUDSearchAndActivity(t *testing.T) {
 		},
 	}
 	orgBody, _ := json.Marshal(orgPayload)
-	orgReq := httptest.NewRequest("POST", adminPanelAPIPath(adm, cfg, organizationsModuleID), bytes.NewReader(orgBody))
+	orgReq := httptest.NewRequest(http.MethodPost, adminPanelAPIPath(adm, cfg, organizationsModuleID), bytes.NewReader(orgBody))
 	orgReq.Header.Set("Content-Type", "application/json")
 	orgReq.Header.Set("X-User-ID", "actor-org")
 	orgRes := httptest.NewRecorder()
@@ -123,7 +123,7 @@ func TestTenantAndOrganizationCRUDSearchAndActivity(t *testing.T) {
 		t.Fatalf("unexpected organization response %+v", orgResp)
 	}
 
-	searchReq := httptest.NewRequest("GET", "/admin/api/search?query=acme", nil)
+	searchReq := httptest.NewRequest(http.MethodGet, "/admin/api/search?query=acme", nil)
 	searchReq.Header.Set("X-User-ID", "actor-search")
 	searchRes := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(searchRes, searchReq)
@@ -137,7 +137,7 @@ func TestTenantAndOrganizationCRUDSearchAndActivity(t *testing.T) {
 		t.Fatalf("expected search results, got %+v", searchPayload["results"])
 	}
 
-	tenantDetailReq := httptest.NewRequest("GET", adminAPIPath(adm, cfg, "panel.id", map[string]string{"panel": tenantsModuleID, "id": tenantID}, nil), nil)
+	tenantDetailReq := httptest.NewRequest(http.MethodGet, adminAPIPath(adm, cfg, "panel.id", map[string]string{"panel": tenantsModuleID, "id": tenantID}, nil), nil)
 	tenantDetailReq.Header.Set("X-User-ID", "actor-tenant")
 	tenantDetailRes := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(tenantDetailRes, tenantDetailReq)

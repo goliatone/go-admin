@@ -3,6 +3,7 @@ package admin
 import (
 	"context"
 	"encoding/json"
+	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
@@ -57,7 +58,7 @@ func TestActionExecutionPhase3DeleteFailureEnvelope(t *testing.T) {
 		return writeJSON(c, map[string]any{"status": "ok"})
 	})
 
-	req := httptest.NewRequest("DELETE", "/panels/documents/doc_123", nil)
+	req := httptest.NewRequest(http.MethodDelete, "/panels/documents/doc_123", nil)
 	rr := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(rr, req)
 
@@ -99,7 +100,7 @@ func TestActionExecutionPhase3PanelActionFailureEnvelope(t *testing.T) {
 		return writeJSON(c, map[string]any{"status": "ok"})
 	})
 
-	req := httptest.NewRequest("POST", "/panels/documents/actions/publish", strings.NewReader(`{"id":"doc_123"}`))
+	req := httptest.NewRequest(http.MethodPost, "/panels/documents/actions/publish", strings.NewReader(`{"id":"doc_123"}`))
 	req.Header.Set("Content-Type", "application/json")
 	rr := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(rr, req)
@@ -129,7 +130,7 @@ func TestActionExecutionPhase3BulkFailureEnvelope(t *testing.T) {
 		return writeJSON(c, map[string]any{"status": "ok"})
 	})
 
-	req := httptest.NewRequest("POST", "/panels/documents/bulk/bulk_publish", strings.NewReader(`{}`))
+	req := httptest.NewRequest(http.MethodPost, "/panels/documents/bulk/bulk_publish", strings.NewReader(`{}`))
 	req.Header.Set("Content-Type", "application/json")
 	rr := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(rr, req)

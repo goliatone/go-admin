@@ -3,6 +3,7 @@ package admin
 import (
 	"context"
 	"encoding/json"
+	"net/http"
 	"testing"
 	"time"
 
@@ -63,7 +64,7 @@ func TestDebugCollectorSnapshot(t *testing.T) {
 		t.Fatalf("expected session snapshot")
 	}
 	requests, ok := snapshot[DebugPanelRequests].([]RequestEntry)
-	if !ok || len(requests) != 1 || requests[0].Method != "GET" {
+	if !ok || len(requests) != 1 || requests[0].Method != http.MethodGet {
 		t.Fatalf("expected request snapshot, got %+v", snapshot[DebugPanelRequests])
 	}
 	sqlEntries, ok := snapshot[DebugPanelSQL].([]SQLEntry)
