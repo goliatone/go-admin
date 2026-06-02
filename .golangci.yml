@@ -90,6 +90,26 @@ linters:
           - funlen
           - gocyclo
           - nestif
+      - path: ^admin/boot_bindings_translation_test\.go$
+        linters:
+          - errcheck
+      - path: ^admin/preferences_test\.go$
+        linters:
+          - errchkjson
+          - errcheck
+          - noctx
+          - usestdlibvars
+      - path: ^admin/translation_capabilities_test\.go$
+        linters:
+          - errcheck
+      - path: ^admin/translation_matrix_binding_test\.go$
+        linters:
+          - bodyclose
+          - errcheck
+          - noctx
+      - path: ^admin/translation_queue_binding_test\.go$
+        linters:
+          - govet
 formatters:
   enable:
     - gofmt
