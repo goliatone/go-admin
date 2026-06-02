@@ -34,7 +34,7 @@ func TestTemplateRendererSupportsGoDashboardSignature(t *testing.T) {
 	html, err := renderer.RenderPage("dashboard_ssr.html", page, &buf)
 	require.NoError(t, err)
 	assert.NotEmpty(t, html)
-	assert.Greater(t, buf.Len(), 0)
+	assert.Positive(t, buf.Len())
 }
 
 func TestRenderDashboardPageIntegration(t *testing.T) {

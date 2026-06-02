@@ -25,7 +25,8 @@ func TestSafeImportPageFromStreamRecoversPanic(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected panic to be recovered as error")
 	}
-	importErr, ok := err.(*PDFImportError)
+	importErr := &PDFImportError{}
+	ok := errors.As(err, &importErr)
 	if !ok {
 		t.Fatalf("expected PDFImportError, got %T", err)
 	}
@@ -49,7 +50,8 @@ func TestSafeUseImportedTemplateRecoversPanic(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected panic to be recovered as error")
 	}
-	importErr, ok := err.(*PDFImportError)
+	importErr := &PDFImportError{}
+	ok := errors.As(err, &importErr)
 	if !ok {
 		t.Fatalf("expected PDFImportError, got %T", err)
 	}

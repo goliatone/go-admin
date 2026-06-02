@@ -2,6 +2,7 @@ package main
 
 import (
 	"io"
+	"net/http"
 	"net/http/httptest"
 	"testing"
 
@@ -45,12 +46,12 @@ func TestEmbeddedAssetsServed(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		req := httptest.NewRequest("GET", tt.path, nil)
+		req := httptest.NewRequest(http.MethodGet, tt.path, nil)
 		resp, err := app.Test(req, -1)
 		if err != nil {
 			t.Fatalf("request %s failed: %v", tt.path, err)
 		}
-		if resp.StatusCode != 200 {
+		if resp.StatusCode != http.StatusOK {
 			body, _ := io.ReadAll(resp.Body)
 			_ = resp.Body.Close()
 			t.Fatalf("GET %s status=%d body=%q", tt.path, resp.StatusCode, string(body))
@@ -77,14 +78,14 @@ func TestEmbeddedAssetsServedWithCatchAll(t *testing.T) {
 	adapter.Init()
 	app := adapter.WrappedRouter()
 
-	req := httptest.NewRequest("GET", "/admin/assets/output.css", nil)
+	req := httptest.NewRequest(http.MethodGet, "/admin/assets/output.css", nil)
 	resp, err := app.Test(req, -1)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != 200 {
+	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
 		t.Fatalf("expected static assets handler to win; status=%d body=%q", resp.StatusCode, string(body))
 	}

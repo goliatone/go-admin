@@ -1415,7 +1415,7 @@ func TestSigningServiceIssueSignatureUploadBootstrap(t *testing.T) {
 	if strings.TrimSpace(contract.ObjectKey) == "" {
 		t.Fatalf("expected object key in contract, got %+v", contract)
 	}
-	if contract.Method != "PUT" {
+	if contract.Method != http.MethodPut {
 		t.Fatalf("expected upload method PUT, got %q", contract.Method)
 	}
 	if contract.UploadURL != "/api/v1/esign/signing/signature-upload/object" {

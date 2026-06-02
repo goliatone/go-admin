@@ -39,7 +39,7 @@ func TestCMSRepositoriesExposeVirtualFieldsAndScopes(t *testing.T) {
 
 	totalPageRows, err := db.NewSelect().Table("admin_page_records").Count(ctx)
 	require.NoError(t, err, "count existing page rows")
-	require.Greater(t, totalPageRows, 0, "page view should be hydrated by seeds")
+	require.Positive(t, totalPageRows, "page view should be hydrated by seeds")
 
 	pageRepo := stores.NewPageRecordRepository(db)
 	postRepo := stores.NewPostRecordRepository(db)
@@ -135,7 +135,7 @@ func TestCMSRepositoriesExposeVirtualFieldsAndScopes(t *testing.T) {
 	})
 	require.NoError(t, err, "list pages after delete")
 	require.Equal(t, 0, deletedTotal)
-	require.Len(t, deletedResults, 0)
+	require.Empty(t, deletedResults)
 
 	postPayload := map[string]any{
 		"title":            "Scoped Story",
@@ -173,7 +173,7 @@ func TestCMSRepositoriesExposeVirtualFieldsAndScopes(t *testing.T) {
 	crossResults, crossTotal, err := postAdapter.List(ctx, admin.ListOptions{Search: "contract-page"})
 	require.NoError(t, err, "verify post scope excludes pages")
 	require.Equal(t, 0, crossTotal, "page slug should not bleed into post scope")
-	require.Len(t, crossResults, 0)
+	require.Empty(t, crossResults)
 
 	updatedPost, err := postStore.Update(ctx, postID, map[string]any{"status": "scheduled"})
 	require.NoError(t, err, "update post status")
@@ -320,7 +320,7 @@ func TestAdminPageResponsesExposeTranslationMetadataForListAndDetail(t *testing.
 		PerPage: 50,
 	})
 	require.NoError(t, err, "list pages for fr locale")
-	require.Greater(t, total, 0, "expected at least one page row")
+	require.Positive(t, total, "expected at least one page row")
 
 	var home admin.AdminPageRecord
 	foundHome := false

@@ -873,7 +873,7 @@ func (s *transactionalGoogleImportTestStore) WithTx(ctx context.Context, fn func
 	}
 	if err := fn(s); err != nil {
 		if restoreErr := s.ApplySnapshotPayload(snapshot); restoreErr != nil {
-			return fmt.Errorf("%w (rollback=%v)", err, restoreErr)
+			return fmt.Errorf("%w (rollback=%w)", err, restoreErr)
 		}
 		return err
 	}

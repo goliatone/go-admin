@@ -178,7 +178,8 @@ func TestPDFServiceAnalyzeRejectsDecompressedBudget(t *testing.T) {
 
 func pdfErrorReason(t *testing.T, err error) PDFReasonCode {
 	t.Helper()
-	pdfErr, ok := err.(*PDFError)
+	pdfErr := &PDFError{}
+	ok := errors.As(err, &pdfErr)
 	if !ok || pdfErr == nil {
 		t.Fatalf("expected *PDFError, got %T (%v)", err, err)
 	}

@@ -3,7 +3,6 @@ package handlers
 import (
 	"bytes"
 	"context"
-	"errors"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
@@ -28,7 +27,7 @@ func TestProfilePictureUploadHandlerUnauthorized(t *testing.T) {
 	require.Error(t, err)
 
 	var appErr *goerrors.Error
-	require.True(t, errors.As(err, &appErr))
+	require.ErrorAs(t, err, &appErr)
 	require.Equal(t, goerrors.CodeUnauthorized, appErr.Code)
 }
 
@@ -43,7 +42,7 @@ func TestProfilePictureUploadHandlerForbidden(t *testing.T) {
 	require.Error(t, err)
 
 	var appErr *goerrors.Error
-	require.True(t, errors.As(err, &appErr))
+	require.ErrorAs(t, err, &appErr)
 	require.Equal(t, goerrors.CodeForbidden, appErr.Code)
 }
 

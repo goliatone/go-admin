@@ -109,7 +109,7 @@ func TestUserDetailActivityTabPermissionModeStrictReturnsForbidden(t *testing.T)
 	err := h.Detail(ctx)
 	require.Error(t, err)
 	var appErr *goerrors.Error
-	require.True(t, errors.As(err, &appErr))
+	require.ErrorAs(t, err, &appErr)
 	require.Equal(t, goerrors.CodeForbidden, appErr.Code)
 	require.Equal(t, "activity", fmt.Sprint(appErr.Metadata["tab"]))
 }
@@ -151,7 +151,7 @@ func TestUserDetailActivityTabPermissionModeAutoUsesDevMode(t *testing.T) {
 		err := h.Detail(ctx)
 		require.Error(t, err)
 		var appErr *goerrors.Error
-		require.True(t, errors.As(err, &appErr))
+		require.ErrorAs(t, err, &appErr)
 		require.Equal(t, goerrors.CodeForbidden, appErr.Code)
 	})
 
@@ -352,7 +352,7 @@ func TestUserActivityTabPermissionMatrixAcrossEndpoints(t *testing.T) {
 
 				require.Error(t, err)
 				var appErr *goerrors.Error
-				require.True(t, errors.As(err, &appErr))
+				require.ErrorAs(t, err, &appErr)
 				require.Equal(t, goerrors.CodeForbidden, appErr.Code)
 			})
 		}
@@ -382,7 +382,7 @@ func TestUserActivityTabEndpointsRejectInvalidLimit(t *testing.T) {
 			err := tt.call(h, ctx)
 			require.Error(t, err)
 			var appErr *goerrors.Error
-			require.True(t, errors.As(err, &appErr))
+			require.ErrorAs(t, err, &appErr)
 			require.Equal(t, goerrors.CodeBadRequest, appErr.Code)
 		})
 	}

@@ -138,7 +138,7 @@ func TestUserProfilesCRUD_ListSeeded(t *testing.T) {
 
 	data, ok := payload["data"].([]any)
 	require.True(t, ok, "expected data array, got: %#v", payload)
-	require.Greater(t, len(data), 0)
+	require.NotEmpty(t, data)
 }
 
 func TestUserProfilesCRUD_CreateUpdateDelete(t *testing.T) {

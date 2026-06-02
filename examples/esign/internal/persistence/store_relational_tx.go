@@ -3541,7 +3541,7 @@ func (s *relationalTxStore) findReusableDraftSession(ctx context.Context, scope 
 }
 
 func (s *relationalTxStore) reloadDraftSessionOnInsertConflict(ctx context.Context, scope stores.Scope, record stores.DraftRecord, insertErr error) (stores.DraftRecord, bool) {
-	if relationalUniqueConstraintError(insertErr, "drafts", "id") == insertErr {
+	if errors.Is(relationalUniqueConstraintError(insertErr, "drafts", "id"), insertErr) {
 		return stores.DraftRecord{}, false
 	}
 	replayed, err := findDraftByWizardRecord(ctx, s.tx, scope, record.CreatedByUserID, record.WizardID)
@@ -3739,7 +3739,7 @@ func (s *relationalTxStore) insertFieldValue(ctx context.Context, scope stores.S
 }
 
 func (s *relationalTxStore) reloadFieldValueOnInsertConflict(ctx context.Context, scope stores.Scope, value stores.FieldValueRecord, insertErr error) (stores.FieldValueRecord, bool) {
-	if relationalUniqueConstraintError(insertErr, "field_values", "id") == insertErr {
+	if errors.Is(relationalUniqueConstraintError(insertErr, "field_values", "id"), insertErr) {
 		return stores.FieldValueRecord{}, false
 	}
 	reloaded, err := findFieldValueByLogicalKey(ctx, s.tx, scope, value.AgreementID, value.RecipientID, value.FieldID)
@@ -4605,7 +4605,7 @@ func buildQueuedJobRunRecord(scope stores.Scope, input stores.JobRunEnqueueInput
 
 func insertJobRunRecord(ctx context.Context, tx bun.IDB, scope stores.Scope, record stores.JobRunRecord, uniqueFields string) (stores.JobRunRecord, error) {
 	if _, err := tx.NewInsert().Model(&record).Exec(ctx); err != nil {
-		if relationalUniqueConstraintError(err, "job_runs", "dedupe_key") != err {
+		if !errors.Is(relationalUniqueConstraintError(err, "job_runs", "dedupe_key"), err) {
 			reloaded, reloadErr := findJobRunByDedupeRecord(ctx, tx, scope, record.JobName, record.DedupeKey)
 			if reloadErr == nil {
 				return reloaded, nil

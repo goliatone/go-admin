@@ -38,13 +38,13 @@ func TestUserProfileStore_UpdateAllowsClearingOptionalFields(t *testing.T) {
 		"bio":      "",
 	})
 	require.NoError(t, err)
-	require.Equal(t, "", fmt.Sprint(updated["timezone"]))
-	require.Equal(t, "", fmt.Sprint(updated["bio"]))
+	require.Empty(t, fmt.Sprint(updated["timezone"]))
+	require.Empty(t, fmt.Sprint(updated["bio"]))
 
 	reloaded, err := store.Get(ctx, adminUser.ID.String())
 	require.NoError(t, err)
-	require.Equal(t, "", fmt.Sprint(reloaded["timezone"]))
-	require.Equal(t, "", fmt.Sprint(reloaded["bio"]))
+	require.Empty(t, fmt.Sprint(reloaded["timezone"]))
+	require.Empty(t, fmt.Sprint(reloaded["bio"]))
 }
 
 func TestUserProfileStore_RepositoryListRespectsOrder(t *testing.T) {

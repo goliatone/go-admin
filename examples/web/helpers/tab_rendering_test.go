@@ -216,10 +216,10 @@ func TestApplyUserProfileWidgetOverrides(t *testing.T) {
 }
 
 func TestProfileFieldTypes(t *testing.T) {
-	assert.Equal(t, ProfileFieldType("text"), ProfileFieldText)
-	assert.Equal(t, ProfileFieldType("badge"), ProfileFieldBadge)
-	assert.Equal(t, ProfileFieldType("status"), ProfileFieldStatus)
-	assert.Equal(t, ProfileFieldType("date"), ProfileFieldDate)
-	assert.Equal(t, ProfileFieldType("relative"), ProfileFieldRelative)
-	assert.Equal(t, ProfileFieldType("verified"), ProfileFieldVerified)
+	assert.Equal(t, ProfileFieldText, ProfileFieldType("text"))
+	assert.Equal(t, ProfileFieldBadge, ProfileFieldType("badge"))
+	assert.Equal(t, ProfileFieldStatus, ProfileFieldType("status"))
+	assert.Equal(t, ProfileFieldDate, ProfileFieldType("date"))
+	assert.Equal(t, ProfileFieldRelative, ProfileFieldType("relative"))
+	assert.Equal(t, ProfileFieldVerified, ProfileFieldType("verified"))
 }

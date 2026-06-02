@@ -121,7 +121,7 @@ func TestContentCRUD_ListEndpoints(t *testing.T) {
 		require.NoError(t, json.NewDecoder(resp.Body).Decode(&payload), tc.path)
 		data, ok := payload["data"].([]any)
 		require.True(t, ok, tc.path)
-		require.Greater(t, len(data), 0, tc.path)
+		require.NotEmpty(t, data, tc.path)
 	}
 }
 

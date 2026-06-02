@@ -104,7 +104,7 @@ func RunSyncValidationProfile(ctx context.Context) (SyncValidationResult, error)
 	conflictErr := runSyncValidationConflict(ctx, svc, ref, runtime.actorID, draftCtx.draft.Revision, draftCtx.document.ID)
 	currentRevision, _, ok := gosynccore.StaleRevisionDetails(conflictErr)
 	if !ok {
-		return SyncValidationResult{}, fmt.Errorf("expected stale revision details from sync validation conflict, got %v", conflictErr)
+		return SyncValidationResult{}, fmt.Errorf("expected stale revision details from sync validation conflict, got %w", conflictErr)
 	}
 
 	blockingStore := newBlockingMutationResourceStore(resourceStore, esignsync.OperationSend)
@@ -277,7 +277,7 @@ func runSyncValidationFirstSend(
 	blockingStore.waitUntilBlocked()
 	_, retryErr := blockingSvc.Mutate(ctx, sendInput)
 	if retryErr == nil || !gosynccore.HasCode(retryErr, gosynccore.CodeTemporaryFailure) {
-		return syncValidationSendOutcome{}, nil, fmt.Errorf("expected retry-safe temporary failure while first send was in flight, got %v", retryErr)
+		return syncValidationSendOutcome{}, nil, fmt.Errorf("expected retry-safe temporary failure while first send was in flight, got %w", retryErr)
 	}
 	blockingStore.release()
 	firstSend := <-firstSendCh

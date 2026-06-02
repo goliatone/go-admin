@@ -73,7 +73,7 @@ func TestCommerceExampleHappyPath(t *testing.T) {
 		authHeader := "Bearer " + token
 
 		// Panel CRUD (products)
-		createReq := httptest.NewRequest("POST", "/admin/api/panels/products", strings.NewReader(`{"name":"New Bag","sku":"NB-10","price":99,"inventory":3,"status":"active"}`))
+		createReq := httptest.NewRequest(http.MethodPost, "/admin/api/panels/products", strings.NewReader(`{"name":"New Bag","sku":"NB-10","price":99,"inventory":3,"status":"active"}`))
 		createReq.Header.Set("Content-Type", "application/json")
 		createReq.Header.Set("Authorization", authHeader)
 		createResp, err := app.Test(createReq, -1)
@@ -82,7 +82,7 @@ func TestCommerceExampleHappyPath(t *testing.T) {
 		}
 		defer closeResponseBody(t, createResp)
 		createBody, _ := io.ReadAll(createResp.Body)
-		if createResp.StatusCode != 200 {
+		if createResp.StatusCode != http.StatusOK {
 			t.Fatalf("create product status: %d body=%s", createResp.StatusCode, string(createBody))
 		}
 		var created map[string]any
@@ -96,7 +96,7 @@ func TestCommerceExampleHappyPath(t *testing.T) {
 			productID = fmt.Sprintf("%v", productsAfterCreate[len(productsAfterCreate)-1]["id"])
 		}
 
-		detailReq := httptest.NewRequest("GET", "/admin/api/panels/products/"+productID, nil)
+		detailReq := httptest.NewRequest(http.MethodGet, "/admin/api/panels/products/"+productID, nil)
 		detailReq.Header.Set("Authorization", authHeader)
 		detailResp, err := app.Test(detailReq, -1)
 		if err != nil {
@@ -104,7 +104,7 @@ func TestCommerceExampleHappyPath(t *testing.T) {
 		}
 		defer closeResponseBody(t, detailResp)
 		detailBody, _ := io.ReadAll(detailResp.Body)
-		if detailResp.StatusCode != 200 {
+		if detailResp.StatusCode != http.StatusOK {
 			t.Fatalf("detail product status: %d body=%s", detailResp.StatusCode, string(detailBody))
 		}
 		var detailPayload map[string]any
@@ -113,27 +113,27 @@ func TestCommerceExampleHappyPath(t *testing.T) {
 			t.Fatalf("expected detail payload to include data, got %v", detailPayload)
 		}
 
-		listReq := httptest.NewRequest("GET", "/admin/api/panels/products", nil)
+		listReq := httptest.NewRequest(http.MethodGet, "/admin/api/panels/products", nil)
 		listReq.Header.Set("Authorization", authHeader)
 		listResp, err := app.Test(listReq, -1)
 		if err != nil {
 			t.Fatalf("list products request failed: %v", err)
 		}
 		defer closeResponseBody(t, listResp)
-		if listResp.StatusCode != 200 {
+		if listResp.StatusCode != http.StatusOK {
 			body, _ := io.ReadAll(listResp.Body)
 			t.Fatalf("list products status: %d body=%s", listResp.StatusCode, string(body))
 		}
 
 		// Dashboard render
-		dashReq := httptest.NewRequest("GET", "/admin/api/dashboard", nil)
+		dashReq := httptest.NewRequest(http.MethodGet, "/admin/api/dashboard", nil)
 		dashReq.Header.Set("Authorization", authHeader)
 		dashResp, err := app.Test(dashReq, -1)
 		if err != nil {
 			t.Fatalf("dashboard request failed: %v", err)
 		}
 		defer closeResponseBody(t, dashResp)
-		if dashResp.StatusCode != 200 {
+		if dashResp.StatusCode != http.StatusOK {
 			body, _ := io.ReadAll(dashResp.Body)
 			t.Fatalf("dashboard status: %d body=%s", dashResp.StatusCode, string(body))
 		}
@@ -145,14 +145,14 @@ func TestCommerceExampleHappyPath(t *testing.T) {
 		}
 
 		// Search
-		searchReq := httptest.NewRequest("GET", "/admin/api/search?query=hoodie", nil)
+		searchReq := httptest.NewRequest(http.MethodGet, "/admin/api/search?query=hoodie", nil)
 		searchReq.Header.Set("Authorization", authHeader)
 		searchResp, err := app.Test(searchReq, -1)
 		if err != nil {
 			t.Fatalf("search request failed: %v", err)
 		}
 		defer closeResponseBody(t, searchResp)
-		if searchResp.StatusCode != 200 {
+		if searchResp.StatusCode != http.StatusOK {
 			body, _ := io.ReadAll(searchResp.Body)
 			t.Fatalf("search status: %d body=%s", searchResp.StatusCode, string(body))
 		}
@@ -164,14 +164,14 @@ func TestCommerceExampleHappyPath(t *testing.T) {
 		}
 
 		// Jobs (cron hooks)
-		jobsReq := httptest.NewRequest("GET", "/admin/api/jobs", nil)
+		jobsReq := httptest.NewRequest(http.MethodGet, "/admin/api/jobs", nil)
 		jobsReq.Header.Set("Authorization", authHeader)
 		jobsResp, err := app.Test(jobsReq, -1)
 		if err != nil {
 			t.Fatalf("jobs request failed: %v", err)
 		}
 		defer closeResponseBody(t, jobsResp)
-		if jobsResp.StatusCode != 200 {
+		if jobsResp.StatusCode != http.StatusOK {
 			body, _ := io.ReadAll(jobsResp.Body)
 			t.Fatalf("jobs status: %d body=%s", jobsResp.StatusCode, string(body))
 		}
