@@ -1,6 +1,52 @@
 # Changelog
 
+# [0.83.0](https://github.com/goliatone/go-admin/compare/v0.82.1...v0.83.0) - (2026-06-02)
+
+## <!-- 0 -->🚀 Features
+
+- **translation:** Add data-action-group attributes and defensive filterSummary handling ([2ef55d5](https://github.com/goliatone/go-admin/commit/2ef55d53bff079902abc40f00e5983550c6b123e))  - (goliatone)
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Code quality ([c633acd](https://github.com/goliatone/go-admin/commit/c633acdcf2a7591f4f9e145ea6cead8aab988ac4))  - (goliatone)
+- Fix translation editor ([1582d75](https://github.com/goliatone/go-admin/commit/1582d75d2e2d495e0da5086c6e761c1def025f1a))  - (goliatone)
+- Menu and navigation registration ([e41cc7f](https://github.com/goliatone/go-admin/commit/e41cc7f1c8276c87316966364d5dfc1daf35d222))  - (goliatone)
+
+## <!-- 16 -->➕ Add
+
+- Translation draft sync ([8f626de](https://github.com/goliatone/go-admin/commit/8f626de8f423d449caae2133a0f438005408b6ca))  - (goliatone)
+- Translator ui updates ([729b263](https://github.com/goliatone/go-admin/commit/729b2634a376dd2f1563c5d14c19f5553f739f7b))  - (goliatone)
+- Translation family sync ([0fe233f](https://github.com/goliatone/go-admin/commit/0fe233fd18593f53bd4c8fe64cb275671fd57763))  - (goliatone)
+- Row version to translation service ([91ea596](https://github.com/goliatone/go-admin/commit/91ea59642fb25ebf06f91482fc8c1edd231fcd1e))  - (goliatone)
+- Translation queue ux improvements ([a719183](https://github.com/goliatone/go-admin/commit/a719183a6b2ed29b16761af6096610fd0e487c33))  - (goliatone)
+- Expose query and other keys ([751f6f7](https://github.com/goliatone/go-admin/commit/751f6f708836569f8bd0ce1d2f99c86ba9f68d21))  - (goliatone)
+- Translations families ([5dfa68a](https://github.com/goliatone/go-admin/commit/5dfa68aa6117255771fbb4cddcca177b6bb3aa81))  - (goliatone)
+- Scope management ([d489925](https://github.com/goliatone/go-admin/commit/d4899259c5135dd786cd5537af695274458ccd1f))  - (goliatone)
+- Translations family views ([46be206](https://github.com/goliatone/go-admin/commit/46be2063c826e0e93cc3a7340a58e5b4f73eda1f))  - (goliatone)
+- Family blockers scoped identity ([a253a07](https://github.com/goliatone/go-admin/commit/a253a07e0cb99560422952b92e78a2fbf08cb17c))  - (goliatone)
+- Translation families views ([da9d131](https://github.com/goliatone/go-admin/commit/da9d1311cdee76ca57783a9b2709241bad28a354))  - (goliatone)
+- Scope drift docter ([63765f7](https://github.com/goliatone/go-admin/commit/63765f70f56c582a3609880bf862cd3b12bf2cbb))  - (goliatone)
+- Admin scope policy ([5a2ef49](https://github.com/goliatone/go-admin/commit/5a2ef49bea32586bc2ff3d0c9c648195806fea50))  - (goliatone)
+- Translation dashboard UX ([1d7011b](https://github.com/goliatone/go-admin/commit/1d7011b5afe0be10031b298059f32b768444937a))  - (goliatone)
+- Navigation seeding and building ([0f57ec7](https://github.com/goliatone/go-admin/commit/0f57ec7ac7dc39ec06a9119860b9813114acb8cb))  - (goliatone)
+- Translation editor refinements ([d27f60e](https://github.com/goliatone/go-admin/commit/d27f60e2ec996a20ffc0a61d371434b555255bd9))  - (goliatone)
+- Menu reconcile helper ([cdf0e1a](https://github.com/goliatone/go-admin/commit/cdf0e1a6db54afbdc4d283a354cd2321d394b8f5))  - (goliatone)
+- Translations dashboard updates ([9daaee5](https://github.com/goliatone/go-admin/commit/9daaee5436e717482332c2f2a5695f559a5d55d3))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update tests ([1b6b5c2](https://github.com/goliatone/go-admin/commit/1b6b5c20b2b50617983f9040133cd9accfb231ce))  - (goliatone)
+- Update deps ([fdc8915](https://github.com/goliatone/go-admin/commit/fdc891504347ce887aa7108ee4a51228ab3eb6d9))  - (goliatone)
+- Update examples ([d894599](https://github.com/goliatone/go-admin/commit/d894599a746ecc1aefe7a1b5e5fa30ec2962a8a0))  - (goliatone)
+- Update docs ([d46d807](https://github.com/goliatone/go-admin/commit/d46d807b8c9e6857dc682a63f0293a7333202ec7))  - (goliatone)
+- Update linter setup ([67d212a](https://github.com/goliatone/go-admin/commit/67d212a27e61f22cbb1c01cd3b3f29c7df0855ab))  - (goliatone)
+- Update readme ([79f37e1](https://github.com/goliatone/go-admin/commit/79f37e183d17399c0c5fe2deebec5b4f37ac17b8))  - (goliatone)
+
 # [0.82.1](https://github.com/goliatone/go-admin/compare/v0.82.0...v0.82.1) - (2026-06-01)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.82.1 ([9efbf05](https://github.com/goliatone/go-admin/commit/9efbf055e7552126ee505346ff3c652426685666))  - (goliatone)
 
 ## <!-- 16 -->➕ Add
 
