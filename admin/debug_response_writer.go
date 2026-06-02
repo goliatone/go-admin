@@ -5,8 +5,6 @@ import (
 	"bytes"
 	"net"
 	"net/http"
-	"reflect"
-	"unsafe"
 
 	router "github.com/goliatone/go-router"
 )
@@ -161,42 +159,15 @@ func debugSwapResponseWriter(c router.Context, original http.ResponseWriter, wra
 			setter.SetResponseWriter(original)
 		}
 	}
-	if prev, ok := debugSetResponseWriterField(c, "w", wrapped); ok {
+	if prev, ok := debugSwapLegacyResponseWriterField(c, "w", wrapped); ok {
 		return func() {
-			debugSetResponseWriterField(c, "w", prev)
+			debugSwapLegacyResponseWriterField(c, "w", prev)
 		}
 	}
-	if prev, ok := debugSetResponseWriterField(c, "httpRes", wrapped); ok {
+	if prev, ok := debugSwapLegacyResponseWriterField(c, "httpRes", wrapped); ok {
 		return func() {
-			debugSetResponseWriterField(c, "httpRes", prev)
+			debugSwapLegacyResponseWriterField(c, "httpRes", prev)
 		}
 	}
 	return nil
-}
-
-func debugSetResponseWriterField(target any, fieldName string, writer http.ResponseWriter) (http.ResponseWriter, bool) {
-	if target == nil {
-		return nil, false
-	}
-	val := reflect.ValueOf(target)
-	if val.Kind() != reflect.Pointer || val.IsNil() {
-		return nil, false
-	}
-	elem := val.Elem()
-	if elem.Kind() != reflect.Struct {
-		return nil, false
-	}
-	field := elem.FieldByName(fieldName)
-	if !field.IsValid() || field.Type() != reflect.TypeFor[http.ResponseWriter]() {
-		return nil, false
-	}
-	// #nosec G103 -- audited reflection escape hatch used to replace an unexported http.ResponseWriter field in a local wrapper struct.
-	fieldPtr := reflect.NewAt(field.Type(), unsafe.Pointer(field.UnsafeAddr())).Elem()
-	current, _ := fieldPtr.Interface().(http.ResponseWriter) //nolint:errcheck // legacy dynamic payload keeps existing zero-value fallback behavior.
-	next := reflect.ValueOf(writer)
-	if !next.IsValid() {
-		next = reflect.Zero(field.Type())
-	}
-	fieldPtr.Set(next)
-	return current, true
 }
