@@ -95,7 +95,7 @@ CREATE TABLE IF NOT EXISTS family_blockers (
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS ux_family_blockers_identity
-    ON family_blockers(family_id, blocker_code, COALESCE(locale, ''), COALESCE(field_path, ''));
+    ON family_blockers(COALESCE(tenant_id, ''), COALESCE(org_id, ''), family_id, blocker_code, COALESCE(locale, ''), COALESCE(field_path, ''));
 CREATE INDEX IF NOT EXISTS ix_family_blockers_scope_code_locale_family
     ON family_blockers(tenant_id, org_id, blocker_code, locale, family_id);
 
