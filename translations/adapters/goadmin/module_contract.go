@@ -28,7 +28,7 @@ func ModuleAPIRoutes() map[string]string {
 		"translations.families":                       "/families",
 		"translations.families.id":                    "/families/:family_id",
 		"translations.families.variants":              "/families/:family_id/variants",
-		"translations.variants.id":                    "/variants/:variant_id",
+		"translations.sync.resources.id":              "/sync/resources/:kind/:id",
 		"translations.assignments":                    "/assignments",
 		"translations.assignments.family_assignments": "/families/:family_id/assignments",
 		"translations.assignments.id":                 "/assignments/:assignment_id",
