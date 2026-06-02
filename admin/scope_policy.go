@@ -61,6 +61,8 @@ func (a *Admin) ScopePolicy() ScopePolicy {
 
 // EffectiveScope resolves trusted input, context actor scope, and configured
 // single-tenant defaults into one scope value.
+//
+//nolint:gocyclo,nestif // Scope precedence is explicit so tenant/org source attribution stays readable.
 func (a *Admin) EffectiveScope(ctx context.Context, input ScopeInput) EffectiveScope {
 	input = normalizeScopeInput(input)
 	scope := EffectiveScope{
