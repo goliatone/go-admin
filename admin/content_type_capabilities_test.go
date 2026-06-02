@@ -113,7 +113,7 @@ func TestBackfillContentTypeNavigationDefaults(t *testing.T) {
 	if contracts.MigratedDeliveryMenu {
 		t.Fatalf("expected stored canonical payload to not require legacy migration marker")
 	}
-	if delivery := mustAs[map[string]any](contracts.Delivery["menu"]); len(delivery) > 0 {
+	if delivery := extractMap(contracts.Delivery["menu"]); len(delivery) > 0 {
 		t.Fatalf("expected delivery.menu removed from canonical contract, got %+v", delivery)
 	}
 	if got := toStringSlice(contracts.Navigation["default_locations"]); len(got) != 1 || got[0] != "site.footer" {

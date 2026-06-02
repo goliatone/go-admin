@@ -561,10 +561,8 @@ func doAdminJSONRequest(t *testing.T, handler http.Handler, method, path string,
 	}
 
 	ctx := auth.WithActorContext(context.Background(), &auth.ActorContext{
-		ActorID:        "translator-qa",
-		Subject:        "translator-qa",
-		TenantID:       "tenant-demo",
-		OrganizationID: "org-demo",
+		ActorID: "translator-qa",
+		Subject: "translator-qa",
 	})
 	req := httptest.NewRequestWithContext(ctx, method, path, body)
 	if payload != nil {
