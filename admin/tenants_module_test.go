@@ -3,7 +3,6 @@ package admin
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -83,7 +82,7 @@ func TestTenantAndOrganizationCRUDSearchAndActivity(t *testing.T) {
 			{"user_id": "user-tenant-1", "roles": []string{"owner"}, "permissions": []string{"admin.tenants.manage"}},
 		},
 	}
-	tenantBody, _ := json.Marshal(tenantPayload)
+	tenantBody := mustMarshalJSON(t, tenantPayload)
 	tenantReq := testHTTPRequest(http.MethodPost, adminPanelAPIPath(adm, cfg, tenantsModuleID), bytes.NewReader(tenantBody))
 	tenantReq.Header.Set("Content-Type", "application/json")
 	tenantReq.Header.Set("X-User-ID", "actor-tenant")
@@ -93,7 +92,7 @@ func TestTenantAndOrganizationCRUDSearchAndActivity(t *testing.T) {
 		t.Fatalf("expected tenant create 200, got %d body=%s", tenantRes.Code, tenantRes.Body.String())
 	}
 	var tenantResp map[string]any
-	_ = json.Unmarshal(tenantRes.Body.Bytes(), &tenantResp)
+	mustUnmarshalJSON(t, tenantRes.Body.Bytes(), &tenantResp)
 	tenantID := toString(tenantResp["id"])
 	if tenantID == "" || toString(tenantResp["name"]) != "Acme Corp" {
 		t.Fatalf("unexpected tenant response %+v", tenantResp)
@@ -108,7 +107,7 @@ func TestTenantAndOrganizationCRUDSearchAndActivity(t *testing.T) {
 			{"user_id": "user-org-1", "roles": []string{"manager"}},
 		},
 	}
-	orgBody, _ := json.Marshal(orgPayload)
+	orgBody := mustMarshalJSON(t, orgPayload)
 	orgReq := testHTTPRequest(http.MethodPost, adminPanelAPIPath(adm, cfg, organizationsModuleID), bytes.NewReader(orgBody))
 	orgReq.Header.Set("Content-Type", "application/json")
 	orgReq.Header.Set("X-User-ID", "actor-org")
@@ -118,7 +117,7 @@ func TestTenantAndOrganizationCRUDSearchAndActivity(t *testing.T) {
 		t.Fatalf("expected organization create 200, got %d body=%s", orgRes.Code, orgRes.Body.String())
 	}
 	var orgResp map[string]any
-	_ = json.Unmarshal(orgRes.Body.Bytes(), &orgResp)
+	mustUnmarshalJSON(t, orgRes.Body.Bytes(), &orgResp)
 	orgID := toString(orgResp["id"])
 	if orgID == "" || toString(orgResp["tenant_id"]) != tenantID {
 		t.Fatalf("unexpected organization response %+v", orgResp)
@@ -132,8 +131,8 @@ func TestTenantAndOrganizationCRUDSearchAndActivity(t *testing.T) {
 		t.Fatalf("expected search 200, got %d body=%s", searchRes.Code, searchRes.Body.String())
 	}
 	var searchPayload map[string]any
-	_ = json.Unmarshal(searchRes.Body.Bytes(), &searchPayload)
-	results, _ := searchPayload["results"].([]any)
+	mustUnmarshalJSON(t, searchRes.Body.Bytes(), &searchPayload)
+	results := mustAnySlice(t, searchPayload["results"], "search results")
 	if len(results) == 0 {
 		t.Fatalf("expected search results, got %+v", searchPayload["results"])
 	}
@@ -146,13 +145,16 @@ func TestTenantAndOrganizationCRUDSearchAndActivity(t *testing.T) {
 		t.Fatalf("expected tenant detail 200, got %d body=%s", tenantDetailRes.Code, tenantDetailRes.Body.String())
 	}
 	var tenantDetail map[string]any
-	_ = json.Unmarshal(tenantDetailRes.Body.Bytes(), &tenantDetail)
-	record, _ := tenantDetail["data"].(map[string]any)
+	mustUnmarshalJSON(t, tenantDetailRes.Body.Bytes(), &tenantDetail)
+	record := mustMapAny(t, tenantDetail["data"], "tenant detail data")
 	if members, ok := record["members"].([]any); !ok || len(members) != 1 {
 		t.Fatalf("expected tenant members to persist, got %+v", record["members"])
 	}
 
-	entries, _ := adm.ActivityFeed().List(context.Background(), 10)
+	entries, err := adm.ActivityFeed().List(context.Background(), 10)
+	if err != nil {
+		t.Fatalf("list activity feed: %v", err)
+	}
 	foundTenant := false
 	foundOrg := false
 	for _, entry := range entries {

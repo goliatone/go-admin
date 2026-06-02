@@ -20,16 +20,10 @@ func TestTranslationQueueContractFixtures(t *testing.T) {
 		t.Fatalf("decode fixture: %v", err)
 	}
 
-	meta, _ := fixture["meta"].(map[string]any)
-	if meta == nil {
-		t.Fatalf("expected fixture meta")
-	}
+	meta := mustMapAny(t, fixture["meta"], "fixture meta")
 
 	assertStringSliceEqual(t, meta["supported_sort_keys"], TranslationQueueSupportedSortKeys())
-	defaultSort, _ := meta["default_sort"].(map[string]any)
-	if defaultSort == nil {
-		t.Fatalf("expected default_sort payload")
-	}
+	defaultSort := mustMapAny(t, meta["default_sort"], "default_sort payload")
 	if got := toString(defaultSort["key"]); got != "updated_at" {
 		t.Fatalf("expected default sort key updated_at, got %q", got)
 	}
@@ -37,11 +31,11 @@ func TestTranslationQueueContractFixtures(t *testing.T) {
 		t.Fatalf("expected default sort order desc, got %q", got)
 	}
 
-	presets, _ := meta["saved_filter_presets"].([]any)
+	presets := mustAnySlice(t, meta["saved_filter_presets"], "saved_filter_presets")
 	if len(presets) != 5 {
 		t.Fatalf("expected five saved filter presets, got %d", len(presets))
 	}
-	reviewPresets, _ := meta["saved_review_filter_presets"].([]any)
+	reviewPresets := mustAnySlice(t, meta["saved_review_filter_presets"], "saved_review_filter_presets")
 	if len(reviewPresets) != 4 {
 		t.Fatalf("expected four saved review filter presets, got %d", len(reviewPresets))
 	}
@@ -49,17 +43,14 @@ func TestTranslationQueueContractFixtures(t *testing.T) {
 		t.Fatalf("expected default_review_filter_preset review_inbox, got %q", got)
 	}
 
-	states, _ := fixture["states"].(map[string]any)
-	if states == nil {
-		t.Fatalf("expected states payload")
-	}
+	states := mustMapAny(t, fixture["states"], "states payload")
 	serverFamily := extractMap(states["server_family_parent"])
 	serverFamilyMeta := extractMap(serverFamily["meta"])
 	serverFamilyGrouping := extractMap(serverFamilyMeta["grouping"])
 	if got := toString(serverFamilyGrouping["strategy"]); got != "server_family" {
 		t.Fatalf("expected server_family fixture strategy, got %+v", serverFamilyGrouping)
 	}
-	serverFamilyRows, _ := serverFamily["data"].([]any)
+	serverFamilyRows := mustAnySlice(t, serverFamily["data"], "server family data")
 	if len(serverFamilyRows) != 1 {
 		t.Fatalf("expected one server-family parent fixture row, got %+v", serverFamily)
 	}
@@ -83,7 +74,7 @@ func TestTranslationQueueContractFixtures(t *testing.T) {
 	assertQueueStateActionCode(t, states, "permission_denied", "claim", ActionDisabledReasonCodePermissionDenied, false)
 
 	qaSummaryState := extractMap(states["qa_summary"])
-	qaRows, _ := qaSummaryState["data"].([]any)
+	qaRows := mustAnySlice(t, qaSummaryState["data"], "qa summary data")
 	if len(qaRows) != 1 {
 		t.Fatalf("expected one qa_summary row, got %+v", qaSummaryState)
 	}
@@ -103,10 +94,7 @@ func TestTranslationQueueContractFixtures(t *testing.T) {
 		t.Fatalf("expected qa blocker_count > 0, got %+v", summary)
 	}
 
-	actionErrors, _ := fixture["action_errors"].(map[string]any)
-	if actionErrors == nil {
-		t.Fatalf("expected action_errors payload")
-	}
+	actionErrors := mustMapAny(t, fixture["action_errors"], "action_errors payload")
 	assertActionErrorCode(t, actionErrors, "permission_denied", TextCodeForbidden)
 	assertActionErrorCode(t, actionErrors, "version_conflict", TextCodeTranslationQueueVersionConflict)
 	assertActionErrorCode(t, actionErrors, "reject_requires_reason", TextCodeValidationError)
@@ -129,7 +117,11 @@ func TestTranslationQueueAssignmentsMetaPublishesPresetContracts(t *testing.T) {
 	if err != nil {
 		t.Fatalf("request error: %v", err)
 	}
-	defer mustClose(t, "response body", resp.Body)
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			t.Fatalf("close response body: %v", closeErr)
+		}
+	}()
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("status=%d want=200", resp.StatusCode)
 	}
@@ -138,16 +130,13 @@ func TestTranslationQueueAssignmentsMetaPublishesPresetContracts(t *testing.T) {
 	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
 		t.Fatalf("decode payload: %v", err)
 	}
-	meta, _ := payload["meta"].(map[string]any)
-	if meta == nil {
-		t.Fatalf("expected meta payload")
-	}
+	meta := mustMapAny(t, payload["meta"], "meta payload")
 
 	assertStringSliceEqual(t, meta["supported_sort_keys"], TranslationQueueSupportedSortKeys())
-	if presets, _ := meta["saved_filter_presets"].([]any); len(presets) != 5 {
+	if presets := mustAnySlice(t, meta["saved_filter_presets"], "saved_filter_presets"); len(presets) != 5 {
 		t.Fatalf("expected five saved presets, got %d", len(presets))
 	}
-	if reviewPresets, _ := meta["saved_review_filter_presets"].([]any); len(reviewPresets) != 4 {
+	if reviewPresets := mustAnySlice(t, meta["saved_review_filter_presets"], "saved_review_filter_presets"); len(reviewPresets) != 4 {
 		t.Fatalf("expected four review presets, got %d", len(reviewPresets))
 	}
 }
@@ -212,7 +201,11 @@ func TestTranslationQueueAssignmentsFiltersResolveActorPresetTokensAndMultiValue
 	if err != nil {
 		t.Fatalf("request error: %v", err)
 	}
-	defer mustClose(t, "response body", resp.Body)
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			t.Fatalf("close response body: %v", closeErr)
+		}
+	}()
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("status=%d want=200", resp.StatusCode)
 	}
@@ -221,11 +214,11 @@ func TestTranslationQueueAssignmentsFiltersResolveActorPresetTokensAndMultiValue
 	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
 		t.Fatalf("decode payload: %v", err)
 	}
-	items, _ := payload["data"].([]any)
+	items := mustAnySlice(t, payload["data"], "assignments data")
 	if len(items) != 1 {
 		t.Fatalf("expected one filtered assignment, got %d", len(items))
 	}
-	row, _ := items[0].(map[string]any)
+	row := mustMapAny(t, items[0], "assignment row")
 	if got := toString(row["assignee_id"]); got != "translator-1" {
 		t.Fatalf("expected __me__ resolution to translator-1, got %q", got)
 	}
@@ -233,19 +226,19 @@ func TestTranslationQueueAssignmentsFiltersResolveActorPresetTokensAndMultiValue
 
 func assertQueueStateActionCode(t *testing.T, states map[string]any, stateKey, actionKey, reasonCode string, enabled bool) {
 	t.Helper()
-	state, _ := states[stateKey].(map[string]any)
-	rows, _ := state["data"].([]any)
+	state := mustMapAny(t, states[stateKey], stateKey)
+	rows := mustAnySlice(t, state["data"], stateKey+" data")
 	if len(rows) != 1 {
 		t.Fatalf("expected one row for %s, got %d", stateKey, len(rows))
 	}
-	row, _ := rows[0].(map[string]any)
-	actions, _ := row["actions"].(map[string]any)
-	action, _ := actions[actionKey].(map[string]any)
-	if len(action) == 0 {
-		reviewActions, _ := row["review_actions"].(map[string]any)
-		action, _ = reviewActions[actionKey].(map[string]any)
+	row := mustMapAny(t, rows[0], stateKey+" row")
+	actions := mustMapAny(t, row["actions"], stateKey+" actions")
+	action, ok := actions[actionKey].(map[string]any)
+	if !ok || len(action) == 0 {
+		reviewActions := mustMapAny(t, row["review_actions"], stateKey+" review actions")
+		action = mustMapAny(t, reviewActions[actionKey], stateKey+" review action "+actionKey)
 	}
-	if got, _ := action["enabled"].(bool); got != enabled {
+	if got := mustBool(t, action["enabled"], stateKey+" action enabled"); got != enabled {
 		t.Fatalf("expected %s.%s enabled=%t, got %+v", stateKey, actionKey, enabled, action)
 	}
 	if reasonCode == "" {
@@ -258,11 +251,8 @@ func assertQueueStateActionCode(t *testing.T, states map[string]any, stateKey, a
 
 func assertActionErrorCode(t *testing.T, payload map[string]any, key, expected string) {
 	t.Helper()
-	entry, _ := payload[key].(map[string]any)
-	errPayload, _ := entry["error"].(map[string]any)
-	if errPayload == nil {
-		t.Fatalf("expected %s error payload", key)
-	}
+	entry := mustMapAny(t, payload[key], key)
+	errPayload := mustMapAny(t, entry["error"], key+" error payload")
 	if got := toString(errPayload["text_code"]); got != expected {
 		t.Fatalf("expected %s error text_code=%q, got %q", key, expected, got)
 	}
@@ -270,7 +260,7 @@ func assertActionErrorCode(t *testing.T, payload map[string]any, key, expected s
 
 func assertStringSliceEqual(t *testing.T, raw any, expected []string) {
 	t.Helper()
-	values, _ := raw.([]any)
+	values := mustAnySlice(t, raw, "string slice")
 	if len(values) != len(expected) {
 		t.Fatalf("expected %d values, got %d", len(expected), len(values))
 	}

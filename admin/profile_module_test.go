@@ -3,7 +3,6 @@ package admin
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -82,7 +81,7 @@ func TestProfileAPIRejectsMismatchedUser(t *testing.T) {
 	payload := map[string]any{
 		"display_name": "Other User",
 	}
-	body, _ := json.Marshal(payload)
+	body := mustMarshalJSON(t, payload)
 	req := testHTTPRequest(http.MethodPut, adminAPIPath(adm, cfg, "panel.id", map[string]string{"panel": profileModuleID, "id": "other-user"}, nil), bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-User-ID", "user-1")
@@ -112,7 +111,7 @@ func TestProfileUpdateRoundTripViaAPI(t *testing.T) {
 		"avatar_url":   "https://example.com/avatar.png",
 		"locale":       "en",
 	}
-	body, _ := json.Marshal(payload)
+	body := mustMarshalJSON(t, payload)
 	req := testHTTPRequest(http.MethodPut, adminAPIPath(adm, cfg, "panel.id", map[string]string{"panel": profileModuleID, "id": "user-1"}, nil), bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-User-ID", "user-1")
@@ -122,7 +121,7 @@ func TestProfileUpdateRoundTripViaAPI(t *testing.T) {
 		t.Fatalf("expected 200 on update, got %d body=%s", rr.Code, rr.Body.String())
 	}
 	var resp map[string]any
-	_ = json.Unmarshal(rr.Body.Bytes(), &resp)
+	mustUnmarshalJSON(t, rr.Body.Bytes(), &resp)
 	if toString(resp["display_name"]) != "Jane Doe" {
 		t.Fatalf("expected display_name to update, got %v", resp["display_name"])
 	}
@@ -130,7 +129,10 @@ func TestProfileUpdateRoundTripViaAPI(t *testing.T) {
 		t.Fatalf("expected email to update, got %v", resp["email"])
 	}
 
-	entries, _ := adm.ActivityFeed().List(context.Background(), 5)
+	entries, err := adm.ActivityFeed().List(context.Background(), 5)
+	if err != nil {
+		t.Fatalf("list activity feed: %v", err)
+	}
 	found := false
 	for _, entry := range entries {
 		if entry.Action == "profile.update" && entry.Object == "profile:user-1" {
@@ -165,9 +167,9 @@ func TestProfileSchemaIncludesMediaHintsWhenEnabled(t *testing.T) {
 	}
 
 	var resp map[string]any
-	_ = json.Unmarshal(rr.Body.Bytes(), &resp)
-	schema, _ := resp["schema"].(map[string]any)
-	mediaCfg, _ := schema["media"].(map[string]any)
+	mustUnmarshalJSON(t, rr.Body.Bytes(), &resp)
+	schema := mustMapAny(t, resp["schema"], "schema")
+	mediaCfg := mustMapAny(t, schema["media"], "schema media")
 	if toString(mediaCfg["library_path"]) == "" {
 		t.Fatalf("expected media library path in schema, got %v", mediaCfg)
 	}
@@ -183,7 +185,7 @@ func TestProfileSchemaIncludesMediaHintsWhenEnabled(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected avatar field schema, got %v", props["avatar"])
 	}
-	adminMeta, _ := avatar["x-admin"].(map[string]any)
+	adminMeta := mustMapAny(t, avatar["x-admin"], "avatar x-admin")
 	if toString(adminMeta["media_library_path"]) == "" {
 		t.Fatalf("expected avatar field to include media library metadata, got %v", adminMeta)
 	}

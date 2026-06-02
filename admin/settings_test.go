@@ -2,7 +2,6 @@ package admin
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -102,7 +101,7 @@ func TestSettingsFormAdapterIncludesTheme(t *testing.T) {
 	if len(form.Scopes) == 0 {
 		t.Fatalf("expected scopes from go-options schema")
 	}
-	props := form.Schema["properties"].(map[string]any)
+	props := mustMapAny(t, form.Schema["properties"], "form schema properties")
 	if _, ok := props["admin.title"]; !ok {
 		t.Fatalf("expected schema property for admin.title")
 	}
@@ -118,7 +117,7 @@ func TestSettingsFormAdapterCarriesScopesAndWidgets(t *testing.T) {
 	adapter := NewSettingsFormAdapter(svc, "admin", map[string]string{})
 
 	form := adapter.Form("")
-	props := form.Schema["properties"].(map[string]any)
+	props := mustMapAny(t, form.Schema["properties"], "form schema properties")
 	field, ok := props["site.description"].(map[string]any)
 	if !ok {
 		t.Fatalf("expected schema property for site.description")
@@ -157,7 +156,7 @@ func TestSettingsFormAdapterOptionsAndVisibility(t *testing.T) {
 	adapter := NewSettingsFormAdapter(svc, "admin", map[string]string{})
 
 	form := adapter.Form("")
-	props := form.Schema["properties"].(map[string]any)
+	props := mustMapAny(t, form.Schema["properties"], "form schema properties")
 	field, ok := props["site.locale"].(map[string]any)
 	if !ok {
 		t.Fatalf("expected schema property for site.locale")
@@ -327,8 +326,9 @@ func TestSettingsRoutesUseCommandAndReturnValidation(t *testing.T) {
 		t.Fatalf("expected 400 for validation, got %d", rr.Code)
 	}
 	var firstResp map[string]any
-	_ = json.Unmarshal(rr.Body.Bytes(), &firstResp)
-	meta, _ := firstResp["error"].(map[string]any)["metadata"].(map[string]any)
+	mustUnmarshalJSON(t, rr.Body.Bytes(), &firstResp)
+	errorPayload := mustMapAny(t, firstResp["error"], "error payload")
+	meta := mustMapAny(t, errorPayload["metadata"], "error metadata")
 	if meta["scope"] != string(SettingsScopeSite) {
 		t.Fatalf("expected validation metadata to include scope, got %v", meta["scope"])
 	}
@@ -371,8 +371,8 @@ func TestSettingsWidgetResolvesValues(t *testing.T) {
 	found := false
 	for _, w := range widgets {
 		if w["definition"] == WidgetSettingsOverview {
-			data, _ := w["data"].(map[string]any)
-			values, _ := data["values"].(map[string]any)
+			data := mustMapAny(t, w["data"], "widget data")
+			values := mustMapAny(t, data["values"], "widget values")
 			titleVal, ok := values["admin.title"].(map[string]any)
 			if !ok {
 				t.Fatalf("expected admin.title in widget payload")

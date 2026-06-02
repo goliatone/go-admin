@@ -43,7 +43,10 @@ func (s *stubCRUDService) CreateBatch(ctx crud.Context, records []map[string]any
 	s.capturedContext = ctx
 	out := []map[string]any{}
 	for _, rec := range records {
-		created, _ := s.Create(ctx, rec)
+		created, err := s.Create(ctx, rec)
+		if err != nil {
+			return nil, err
+		}
 		out = append(out, created)
 	}
 	return out, nil
@@ -51,7 +54,10 @@ func (s *stubCRUDService) CreateBatch(ctx crud.Context, records []map[string]any
 
 func (s *stubCRUDService) Update(ctx crud.Context, record map[string]any) (map[string]any, error) {
 	s.capturedContext = ctx
-	id, _ := record["id"].(string)
+	id, ok := record["id"].(string)
+	if !ok {
+		return nil, ErrNotFound
+	}
 	for i, rec := range s.records {
 		if rec["id"] == id {
 			maps.Copy(rec, record)
@@ -66,7 +72,10 @@ func (s *stubCRUDService) UpdateBatch(ctx crud.Context, records []map[string]any
 	s.capturedContext = ctx
 	out := []map[string]any{}
 	for _, rec := range records {
-		updated, _ := s.Update(ctx, rec)
+		updated, err := s.Update(ctx, rec)
+		if err != nil {
+			return nil, err
+		}
 		out = append(out, updated)
 	}
 	return out, nil
@@ -74,7 +83,10 @@ func (s *stubCRUDService) UpdateBatch(ctx crud.Context, records []map[string]any
 
 func (s *stubCRUDService) Delete(ctx crud.Context, record map[string]any) error {
 	s.capturedContext = ctx
-	id, _ := record["id"].(string)
+	id, ok := record["id"].(string)
+	if !ok {
+		return ErrNotFound
+	}
 	for i, rec := range s.records {
 		if rec["id"] == id {
 			s.records = append(s.records[:i], s.records[i+1:]...)
@@ -87,7 +99,9 @@ func (s *stubCRUDService) Delete(ctx crud.Context, record map[string]any) error 
 func (s *stubCRUDService) DeleteBatch(ctx crud.Context, records []map[string]any) error {
 	s.capturedContext = ctx
 	for _, rec := range records {
-		_ = s.Delete(ctx, rec)
+		if err := s.Delete(ctx, rec); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -276,7 +290,7 @@ func TestCRUDAdapterCreateUpdateDelete(t *testing.T) {
 	if err != nil || created["id"] == "" {
 		t.Fatalf("create failed: %v", err)
 	}
-	id := created["id"].(string)
+	id := mustString(t, created["id"], "created id")
 
 	updated, err := adapter.Update(context.Background(), id, map[string]any{"status": "published"})
 	if err != nil {

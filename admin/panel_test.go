@@ -43,12 +43,13 @@ func TestPanelListCreateUpdateDelete(t *testing.T) {
 		t.Fatalf("list unexpected: err=%v total=%d len=%d", err, total, len(list))
 	}
 
-	updated, err := panel.Update(ctx, created["id"].(string), map[string]any{"name": "B"})
+	createdID := mustString(t, created["id"], "created id")
+	updated, err := panel.Update(ctx, createdID, map[string]any{"name": "B"})
 	if err != nil || updated["name"] != "B" {
 		t.Fatalf("update failed: %v", err)
 	}
 
-	if err := panel.Delete(ctx, created["id"].(string)); err != nil {
+	if err := panel.Delete(ctx, createdID); err != nil {
 		t.Fatalf("delete: %v", err)
 	}
 }
@@ -357,7 +358,7 @@ func TestPanelRunActionResponseReturnsStructuredStatusWithoutHTTPStatusField(t *
 		if response.StatusCode != http.StatusAccepted {
 			t.Fatalf("expected accepted status, got %d", response.StatusCode)
 		}
-		if queued, _ := response.Data["queued"].(bool); !queued {
+		if queued := mustBool(t, response.Data["queued"], "queued"); !queued {
 			t.Fatalf("expected queued response payload, got %#v", response.Data)
 		}
 		if _, ok := response.Data["http_status"]; ok {
@@ -474,18 +475,21 @@ func TestPanelSchemaIncludesFormSchema(t *testing.T) {
 	if schema.FormSchema == nil {
 		t.Fatalf("expected form schema")
 	}
-	props := schema.FormSchema["properties"].(map[string]any)
+	props := mustMapAny(t, schema.FormSchema["properties"], "form schema properties")
 	if _, ok := props["name"]; !ok {
 		t.Fatalf("expected name property in form schema")
 	}
-	nameProps := props["name"].(map[string]any)
+	nameProps := mustMapAny(t, props["name"], "name properties")
 	if val, ok := nameProps["read_only"].(bool); !ok || val {
 		t.Fatalf("expected read_only flag in snake_case, got %v", nameProps["read_only"])
 	}
 	if val, ok := nameProps["readOnly"].(bool); !ok || val {
 		t.Fatalf("expected readOnly preserved for JSON Schema, got %v", nameProps["readOnly"])
 	}
-	req := schema.FormSchema["required"].([]string)
+	req, ok := schema.FormSchema["required"].([]string)
+	if !ok {
+		t.Fatalf("expected required string slice, got %T", schema.FormSchema["required"])
+	}
 	if len(req) != 1 || req[0] != "name" {
 		t.Fatalf("expected name to be required, got %v", req)
 	}

@@ -150,7 +150,7 @@ func TestMediaItemJSONRedactsProviderProvenanceMetadata(t *testing.T) {
 	if err := json.Unmarshal(raw, &payload); err != nil {
 		t.Fatalf("decode media item: %v", err)
 	}
-	metadata, _ := payload["metadata"].(map[string]any)
+	metadata := mustMapAny(t, payload["metadata"], "metadata")
 	if metadata["caption"] != "Safe caption" {
 		t.Fatalf("expected safe metadata to remain, got %+v", metadata)
 	}
@@ -247,7 +247,7 @@ func TestMediaDeliveryRegistryResolvesAdaptersAndFailsTypedUnavailable(t *testin
 		t.Fatalf("expected typed unavailable response, got %+v", resp)
 	}
 	var mediaDeliveryUnavailableError MediaDeliveryUnavailableError
-	if errors.As(err, &mediaDeliveryUnavailableError) {
+	if !errors.As(err, &mediaDeliveryUnavailableError) {
 		t.Fatalf("expected MediaDeliveryUnavailableError, got %T %v", err, err)
 	}
 }
@@ -310,7 +310,9 @@ func TestMediaLocalFileDeliveryAdapterUsesRootsAndIntentPaths(t *testing.T) {
 		t.Fatalf("expected imported asset response, got %+v", resp)
 	}
 	if closer, ok := resp.Imported.Reader.(interface{ Close() error }); ok {
-		_ = closer.Close()
+		if closeErr := closer.Close(); closeErr != nil {
+			t.Fatalf("close asset reader: %v", closeErr)
+		}
 	}
 
 	resp, err = adapter.ResolveMediaDelivery(context.Background(), MediaDeliveryRequest{
@@ -327,12 +329,14 @@ func TestMediaLocalFileDeliveryAdapterUsesRootsAndIntentPaths(t *testing.T) {
 		t.Fatalf("expected imported poster response, got %+v", resp)
 	}
 	if closer, ok := resp.Imported.Reader.(interface{ Close() error }); ok {
-		_ = closer.Close()
+		if closeErr := closer.Close(); closeErr != nil {
+			t.Fatalf("close poster reader: %v", closeErr)
+		}
 	}
 
 	outside := filepath.Join(t.TempDir(), "outside.txt")
-	if err := os.WriteFile(outside, []byte("outside"), 0o600); err != nil {
-		t.Fatalf("write outside: %v", err)
+	if writeErr := os.WriteFile(outside, []byte("outside"), 0o600); writeErr != nil {
+		t.Fatalf("write outside: %v", writeErr)
 	}
 	resp, err = adapter.ResolveMediaDelivery(context.Background(), MediaDeliveryRequest{
 		Reference: MediaDeliveryReference{StorageKey: outside},
@@ -399,7 +403,11 @@ func TestNewLocalMediaDeliveryImportedValidatesRoots(t *testing.T) {
 		t.Fatalf("open local media: %v", err)
 	}
 	if closer, ok := imported.Reader.(interface{ Close() error }); ok {
-		defer func() { _ = closer.Close() }()
+		defer func() {
+			if closeErr := closer.Close(); closeErr != nil {
+				t.Fatalf("close imported reader: %v", closeErr)
+			}
+		}()
 	}
 	if imported.ContentLength != int64(len("local media")) || imported.FileName != "asset.txt" {
 		t.Fatalf("unexpected imported metadata: %+v", imported)

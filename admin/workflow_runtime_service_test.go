@@ -30,20 +30,27 @@ func TestWorkflowRuntimeServiceResolveBindingPrecedence(t *testing.T) {
 	createWorkflow("editorial.trait")
 	createWorkflow("editorial.news")
 
-	_, _ = runtime.CreateBinding(ctx, WorkflowBinding{
+	createBinding := func(binding WorkflowBinding) {
+		t.Helper()
+		if _, err := runtime.CreateBinding(ctx, binding); err != nil {
+			t.Fatalf("create binding %s: %v", binding.WorkflowID, err)
+		}
+	}
+
+	createBinding(WorkflowBinding{
 		ScopeType:  WorkflowBindingScopeGlobal,
 		WorkflowID: "editorial.global",
 		Priority:   100,
 		Status:     WorkflowBindingStatusActive,
 	})
-	_, _ = runtime.CreateBinding(ctx, WorkflowBinding{
+	createBinding(WorkflowBinding{
 		ScopeType:  WorkflowBindingScopeTrait,
 		ScopeRef:   "editorial",
 		WorkflowID: "editorial.trait",
 		Priority:   20,
 		Status:     WorkflowBindingStatusActive,
 	})
-	_, _ = runtime.CreateBinding(ctx, WorkflowBinding{
+	createBinding(WorkflowBinding{
 		ScopeType:  WorkflowBindingScopeContentType,
 		ScopeRef:   "news",
 		WorkflowID: "editorial.news",

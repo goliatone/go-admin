@@ -242,7 +242,7 @@ func TestSearchRouteFeatureGateDisabled(t *testing.T) {
 		t.Fatalf("expected 404 when search disabled, got %d", rr.Code)
 	}
 	var body map[string]any
-	_ = json.Unmarshal(rr.Body.Bytes(), &body)
+	mustUnmarshalJSON(t, rr.Body.Bytes(), &body)
 	errPayload, ok := body["error"].(map[string]any)
 	if !ok || errPayload["text_code"] != "FEATURE_DISABLED" {
 		t.Fatalf("expected FEATURE_DISABLED text_code, got %v", body)

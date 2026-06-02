@@ -3,7 +3,6 @@ package admin
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -253,7 +252,7 @@ func TestUserModuleCRUDSearchAndActivity(t *testing.T) {
 		"description": "Administrators",
 		"permissions": []string{"admin.users.edit", "admin.users.create"},
 	}
-	roleBody, _ := json.Marshal(rolePayload)
+	roleBody := mustMarshalJSON(t, rolePayload)
 	roleReq := testHTTPRequest(http.MethodPost, adminPanelAPIPath(adm, cfg, rolesPanelID), bytes.NewReader(roleBody))
 	roleReq.Header.Set("Content-Type", "application/json")
 	roleReq.Header.Set("X-User-ID", "seed-actor")
@@ -263,7 +262,7 @@ func TestUserModuleCRUDSearchAndActivity(t *testing.T) {
 		t.Fatalf("expected role create 200, got %d body=%s", roleRes.Code, roleRes.Body.String())
 	}
 	var role map[string]any
-	_ = json.Unmarshal(roleRes.Body.Bytes(), &role)
+	mustUnmarshalJSON(t, roleRes.Body.Bytes(), &role)
 	roleID := toString(role["id"])
 	if roleID == "" {
 		t.Fatalf("expected role id in response, got %v", role)
@@ -275,7 +274,7 @@ func TestUserModuleCRUDSearchAndActivity(t *testing.T) {
 		"status":   "active",
 		"roles":    []string{roleID},
 	}
-	userBody, _ := json.Marshal(userPayload)
+	userBody := mustMarshalJSON(t, userPayload)
 	userReq := testHTTPRequest(http.MethodPost, adminPanelAPIPath(adm, cfg, usersModuleID), bytes.NewReader(userBody))
 	userReq.Header.Set("Content-Type", "application/json")
 	userReq.Header.Set("X-User-ID", "actor-123")
@@ -286,7 +285,7 @@ func TestUserModuleCRUDSearchAndActivity(t *testing.T) {
 	}
 
 	var user map[string]any
-	_ = json.Unmarshal(userRes.Body.Bytes(), &user)
+	mustUnmarshalJSON(t, userRes.Body.Bytes(), &user)
 	userID := toString(user["id"])
 	if userID == "" || toString(user["email"]) != "tester@example.com" {
 		t.Fatalf("unexpected user response %+v", user)
@@ -300,13 +299,16 @@ func TestUserModuleCRUDSearchAndActivity(t *testing.T) {
 		t.Fatalf("expected search 200, got %d body=%s", searchRes.Code, searchRes.Body.String())
 	}
 	var searchPayload map[string]any
-	_ = json.Unmarshal(searchRes.Body.Bytes(), &searchPayload)
-	results, _ := searchPayload["results"].([]any)
+	mustUnmarshalJSON(t, searchRes.Body.Bytes(), &searchPayload)
+	results := mustAnySlice(t, searchPayload["results"], "search results")
 	if len(results) == 0 {
 		t.Fatalf("expected search results, got %v", searchPayload["results"])
 	}
 
-	entries, _ := adm.ActivityFeed().List(context.Background(), 10)
+	entries, err := adm.ActivityFeed().List(context.Background(), 10)
+	if err != nil {
+		t.Fatalf("list activity feed: %v", err)
+	}
 	foundUserCreate := false
 	foundRoleCreate := false
 	for _, entry := range entries {
@@ -343,7 +345,7 @@ func TestUserModuleCreateWithSystemAndCustomRoles(t *testing.T) {
 		"description": "Custom role",
 		"permissions": []string{"admin.users.view"},
 	}
-	roleBody, _ := json.Marshal(rolePayload)
+	roleBody := mustMarshalJSON(t, rolePayload)
 	roleReq := testHTTPRequest(http.MethodPost, adminPanelAPIPath(adm, cfg, rolesPanelID), bytes.NewReader(roleBody))
 	roleReq.Header.Set("Content-Type", "application/json")
 	roleReq.Header.Set("X-User-ID", "seed-actor")
@@ -353,7 +355,7 @@ func TestUserModuleCreateWithSystemAndCustomRoles(t *testing.T) {
 		t.Fatalf("expected role create 200, got %d body=%s", roleRes.Code, roleRes.Body.String())
 	}
 	var role map[string]any
-	_ = json.Unmarshal(roleRes.Body.Bytes(), &role)
+	mustUnmarshalJSON(t, roleRes.Body.Bytes(), &role)
 	roleID := toString(role["id"])
 	if roleID == "" {
 		t.Fatalf("expected role id in response, got %v", role)
@@ -366,7 +368,7 @@ func TestUserModuleCreateWithSystemAndCustomRoles(t *testing.T) {
 		"role":     "member",
 		"roles":    []string{roleID},
 	}
-	userBody, _ := json.Marshal(userPayload)
+	userBody := mustMarshalJSON(t, userPayload)
 	userReq := testHTTPRequest(http.MethodPost, adminPanelAPIPath(adm, cfg, usersModuleID), bytes.NewReader(userBody))
 	userReq.Header.Set("Content-Type", "application/json")
 	userReq.Header.Set("X-User-ID", "actor-123")
@@ -376,7 +378,7 @@ func TestUserModuleCreateWithSystemAndCustomRoles(t *testing.T) {
 		t.Fatalf("expected user create 200, got %d body=%s", userRes.Code, userRes.Body.String())
 	}
 	var user map[string]any
-	_ = json.Unmarshal(userRes.Body.Bytes(), &user)
+	mustUnmarshalJSON(t, userRes.Body.Bytes(), &user)
 	if toString(user["role"]) != "member" {
 		t.Fatalf("expected role member in response, got %v", user["role"])
 	}
@@ -399,7 +401,7 @@ func TestUserPanelListIncludesRoleDisplayFields(t *testing.T) {
 		t.Fatalf("initialize: %v", err)
 	}
 
-	roleBody, _ := json.Marshal(map[string]any{
+	roleBody := mustMarshalJSON(t, map[string]any{
 		"name":        "Operators",
 		"description": "Ops role",
 		"permissions": []string{"admin.users.view"},
@@ -413,13 +415,13 @@ func TestUserPanelListIncludesRoleDisplayFields(t *testing.T) {
 		t.Fatalf("expected role create 200, got %d body=%s", roleRes.Code, roleRes.Body.String())
 	}
 	var role map[string]any
-	_ = json.Unmarshal(roleRes.Body.Bytes(), &role)
+	mustUnmarshalJSON(t, roleRes.Body.Bytes(), &role)
 	roleID := toString(role["id"])
 	if roleID == "" {
 		t.Fatalf("expected role id in response, got %v", role)
 	}
 
-	userBody, _ := json.Marshal(map[string]any{
+	userBody := mustMarshalJSON(t, map[string]any{
 		"email":    "operator@example.com",
 		"username": "operator",
 		"status":   "active",
@@ -434,7 +436,7 @@ func TestUserPanelListIncludesRoleDisplayFields(t *testing.T) {
 		t.Fatalf("expected user create 200, got %d body=%s", userRes.Code, userRes.Body.String())
 	}
 	var user map[string]any
-	_ = json.Unmarshal(userRes.Body.Bytes(), &user)
+	mustUnmarshalJSON(t, userRes.Body.Bytes(), &user)
 	userID := toString(user["id"])
 	if userID == "" {
 		t.Fatalf("expected user id in create response")
@@ -449,15 +451,15 @@ func TestUserPanelListIncludesRoleDisplayFields(t *testing.T) {
 	}
 
 	var payload map[string]any
-	_ = json.Unmarshal(listRes.Body.Bytes(), &payload)
-	records, _ := payload["records"].([]any)
+	mustUnmarshalJSON(t, listRes.Body.Bytes(), &payload)
+	records := mustAnySlice(t, payload["records"], "user records")
 	if len(records) == 0 {
 		t.Fatalf("expected records in users list response")
 	}
 
 	var record map[string]any
 	for _, item := range records {
-		entry, _ := item.(map[string]any)
+		entry := mustMapAny(t, item, "user record")
 		if toString(entry["id"]) == userID {
 			record = entry
 			break
@@ -503,7 +505,10 @@ func TestUserLifecycleCommandTransitionsStatus(t *testing.T) {
 	if updated.Status != "active" {
 		t.Fatalf("expected status active, got %s", updated.Status)
 	}
-	entries, _ := feed.List(context.Background(), 10)
+	entries, err := feed.List(context.Background(), 10)
+	if err != nil {
+		t.Fatalf("list activity feed: %v", err)
+	}
 	found := false
 	for _, entry := range entries {
 		if entry.Action == "user.status.active" {
@@ -528,7 +533,7 @@ func TestUserPanelBulkRoleActionsRouteThroughPanelBulkEndpoint(t *testing.T) {
 		t.Fatalf("initialize: %v", err)
 	}
 
-	roleBody, _ := json.Marshal(map[string]any{
+	roleBody := mustMarshalJSON(t, map[string]any{
 		"name":        "Operators",
 		"description": "Ops role",
 	})
@@ -541,13 +546,13 @@ func TestUserPanelBulkRoleActionsRouteThroughPanelBulkEndpoint(t *testing.T) {
 		t.Fatalf("expected role create 200, got %d body=%s", roleRes.Code, roleRes.Body.String())
 	}
 	var role map[string]any
-	_ = json.Unmarshal(roleRes.Body.Bytes(), &role)
+	mustUnmarshalJSON(t, roleRes.Body.Bytes(), &role)
 	roleID := toString(role["id"])
 	if roleID == "" {
 		t.Fatalf("expected role id in response")
 	}
 
-	userBody, _ := json.Marshal(map[string]any{
+	userBody := mustMarshalJSON(t, map[string]any{
 		"email":    "bulk-role@example.com",
 		"username": "bulk-role",
 		"status":   "active",
@@ -561,13 +566,13 @@ func TestUserPanelBulkRoleActionsRouteThroughPanelBulkEndpoint(t *testing.T) {
 		t.Fatalf("expected user create 200, got %d body=%s", userRes.Code, userRes.Body.String())
 	}
 	var user map[string]any
-	_ = json.Unmarshal(userRes.Body.Bytes(), &user)
+	mustUnmarshalJSON(t, userRes.Body.Bytes(), &user)
 	userID := toString(user["id"])
 	if userID == "" {
 		t.Fatalf("expected user id in response")
 	}
 
-	assignPayload, _ := json.Marshal(map[string]any{
+	assignPayload := mustMarshalJSON(t, map[string]any{
 		"ids":     []string{userID},
 		"role_id": roleID,
 	})
@@ -592,7 +597,7 @@ func TestUserPanelBulkRoleActionsRouteThroughPanelBulkEndpoint(t *testing.T) {
 		t.Fatalf("expected assigned role %s, got %+v", roleID, roles)
 	}
 
-	unassignPayload, _ := json.Marshal(map[string]any{
+	unassignPayload := mustMarshalJSON(t, map[string]any{
 		"ids":     []string{userID},
 		"role_id": roleID,
 	})
@@ -694,12 +699,12 @@ func TestRolesPanelFormSchemaUsesPermissionMatrix(t *testing.T) {
 		t.Fatalf("expected roles form schema properties, got %T", schema["properties"])
 	}
 
-	permsProp, _ := props["permissions"].(map[string]any)
-	permsFormgen, _ := permsProp["x-formgen"].(map[string]any)
+	permsProp := mustMapAny(t, props["permissions"], "permissions property")
+	permsFormgen := mustMapAny(t, permsProp["x-formgen"], "permissions x-formgen")
 	if got := permsFormgen["widget"]; got != "permission-matrix" {
 		t.Fatalf("expected permissions widget permission-matrix, got %v", got)
 	}
-	permsConfig, _ := permsFormgen["component.config"].(map[string]any)
+	permsConfig := mustMapAny(t, permsFormgen["component.config"], "permissions component config")
 	if len(toStringSlice(permsConfig["actions"])) == 0 {
 		t.Fatalf("expected permission matrix actions, got %v", permsConfig["actions"])
 	}
@@ -711,23 +716,23 @@ func TestRolesPanelFormSchemaUsesPermissionMatrix(t *testing.T) {
 		t.Fatalf("expected admin.translations. ignored in additional permissions, got %v", ignorePrefixes)
 	}
 
-	debugProp, _ := props["permissions_debug"].(map[string]any)
-	debugFormgen, _ := debugProp["x-formgen"].(map[string]any)
+	debugProp := mustMapAny(t, props["permissions_debug"], "debug permissions property")
+	debugFormgen := mustMapAny(t, debugProp["x-formgen"], "debug permissions x-formgen")
 	if got := debugFormgen["widget"]; got != "permission-matrix" {
 		t.Fatalf("expected debug permissions widget permission-matrix, got %v", got)
 	}
-	debugConfig, _ := debugFormgen["component.config"].(map[string]any)
-	if showExtra, _ := debugConfig["showExtra"].(bool); showExtra {
+	debugConfig := mustMapAny(t, debugFormgen["component.config"], "debug permissions component config")
+	if showExtra := mustBool(t, debugConfig["showExtra"], "debug showExtra"); showExtra {
 		t.Fatalf("expected permissions_debug showExtra=false, got true")
 	}
 
-	translationProp, _ := props["permissions_translation"].(map[string]any)
-	translationFormgen, _ := translationProp["x-formgen"].(map[string]any)
+	translationProp := mustMapAny(t, props["permissions_translation"], "translation permissions property")
+	translationFormgen := mustMapAny(t, translationProp["x-formgen"], "translation permissions x-formgen")
 	if got := translationFormgen["widget"]; got != "permission-matrix" {
 		t.Fatalf("expected translation permissions widget permission-matrix, got %v", got)
 	}
-	translationConfig, _ := translationFormgen["component.config"].(map[string]any)
-	if showExtra, _ := translationConfig["showExtra"].(bool); showExtra {
+	translationConfig := mustMapAny(t, translationFormgen["component.config"], "translation permissions component config")
+	if showExtra := mustBool(t, translationConfig["showExtra"], "translation showExtra"); showExtra {
 		t.Fatalf("expected permissions_translation showExtra=false, got true")
 	}
 	translationActions := toStringSlice(translationConfig["actions"])

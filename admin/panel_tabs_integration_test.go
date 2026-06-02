@@ -1,7 +1,6 @@
 package admin
 
 import (
-	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -54,8 +53,8 @@ func TestPanelTabsListAndDetailResponses(t *testing.T) {
 		t.Fatalf("create status: %d body=%s", createRes.Code, createRes.Body.String())
 	}
 	var created map[string]any
-	_ = json.Unmarshal(createRes.Body.Bytes(), &created)
-	id, _ := created["id"].(string)
+	mustUnmarshalJSON(t, createRes.Body.Bytes(), &created)
+	id := mustString(t, created["id"], "created id")
 	if id == "" {
 		t.Fatalf("expected created ID, got %+v", created)
 	}
@@ -67,7 +66,7 @@ func TestPanelTabsListAndDetailResponses(t *testing.T) {
 		t.Fatalf("list status: %d body=%s", listRes.Code, listRes.Body.String())
 	}
 	var listPayload map[string]any
-	_ = json.Unmarshal(listRes.Body.Bytes(), &listPayload)
+	mustUnmarshalJSON(t, listRes.Body.Bytes(), &listPayload)
 	schema, ok := listPayload["schema"].(map[string]any)
 	if !ok {
 		t.Fatalf("expected schema in list response")
@@ -96,7 +95,7 @@ func TestPanelTabsListAndDetailResponses(t *testing.T) {
 		t.Fatalf("detail status: %d body=%s", detailRes.Code, detailRes.Body.String())
 	}
 	var detailPayload map[string]any
-	_ = json.Unmarshal(detailRes.Body.Bytes(), &detailPayload)
+	mustUnmarshalJSON(t, detailRes.Body.Bytes(), &detailPayload)
 	record, ok := detailPayload["data"].(map[string]any)
 	if !ok {
 		t.Fatalf("expected data in detail response")
@@ -168,7 +167,7 @@ func TestPanelTabsPermissionFiltering(t *testing.T) {
 		t.Fatalf("list status: %d body=%s", listRes.Code, listRes.Body.String())
 	}
 	var listPayload map[string]any
-	_ = json.Unmarshal(listRes.Body.Bytes(), &listPayload)
+	mustUnmarshalJSON(t, listRes.Body.Bytes(), &listPayload)
 	schema, ok := listPayload["schema"].(map[string]any)
 	if !ok {
 		t.Fatalf("expected schema in list response")

@@ -229,7 +229,7 @@ func TestThemeOverrideViaAdminThemeSelector(t *testing.T) {
 			path:  mustResolveURL(t, adm.URLs(), adminAPIGroupName(adm.config), "panel", map[string]string{"panel": "items"}, themeQuery),
 			label: "panel",
 			extract: func(body map[string]any) map[string]any {
-				schema, _ := body["schema"].(map[string]any)
+				schema := mustMapAny(t, body["schema"], "panel schema")
 				return mapFromAny(schema["theme"])
 			},
 		},

@@ -38,7 +38,8 @@ func TestWorkflowManagementBindingWorkflowCRUDAndRollback(t *testing.T) {
 		},
 	})
 	require.NoError(t, err)
-	created := createdPayload["workflow"].(PersistedWorkflow)
+	created, ok := createdPayload["workflow"].(PersistedWorkflow)
+	require.True(t, ok)
 	require.Equal(t, "editorial.default", created.ID)
 	require.Equal(t, 1, created.Version)
 
@@ -59,7 +60,8 @@ func TestWorkflowManagementBindingWorkflowCRUDAndRollback(t *testing.T) {
 		"expected_version": created.Version,
 	})
 	require.NoError(t, err)
-	updated := updatedPayload["workflow"].(PersistedWorkflow)
+	updated, ok := updatedPayload["workflow"].(PersistedWorkflow)
+	require.True(t, ok)
 	require.Equal(t, "Editorial Default v2", updated.Name)
 	require.Equal(t, 2, updated.Version)
 
@@ -71,7 +73,8 @@ func TestWorkflowManagementBindingWorkflowCRUDAndRollback(t *testing.T) {
 		"expected_version":    updated.Version,
 	})
 	require.NoError(t, err)
-	rolledBack := rolledBackPayload["workflow"].(PersistedWorkflow)
+	rolledBack, ok := rolledBackPayload["workflow"].(PersistedWorkflow)
+	require.True(t, ok)
 	require.Equal(t, "Editorial Default", rolledBack.Name)
 	require.Equal(t, 3, rolledBack.Version)
 }
@@ -117,7 +120,8 @@ func TestWorkflowManagementBindingBindingCRUDAndValidation(t *testing.T) {
 		"status":      "active",
 	})
 	require.NoError(t, err)
-	created := createdPayload["binding"].(WorkflowBinding)
+	created, ok := createdPayload["binding"].(WorkflowBinding)
+	require.True(t, ok)
 	require.Equal(t, "editorial.default", created.WorkflowID)
 	require.Equal(t, 1, created.Version)
 
@@ -129,7 +133,8 @@ func TestWorkflowManagementBindingBindingCRUDAndValidation(t *testing.T) {
 		"expected_version": created.Version,
 	})
 	require.NoError(t, err)
-	updated := updatedPayload["binding"].(WorkflowBinding)
+	updated, ok := updatedPayload["binding"].(WorkflowBinding)
+	require.True(t, ok)
 	require.Equal(t, 5, updated.Priority)
 	require.Equal(t, 2, updated.Version)
 
@@ -161,7 +166,7 @@ func TestWorkflowManagementBindingBindingCRUDAndValidation(t *testing.T) {
 	})
 	require.Error(t, err)
 	var validationErr WorkflowValidationErrors
-	ok := errors.As(err, &validationErr)
+	ok = errors.As(err, &validationErr)
 	require.True(t, ok)
 	require.NotEmpty(t, validationErr.Fields["workflow_id"])
 }

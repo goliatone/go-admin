@@ -24,7 +24,9 @@ func mustNewAdminWithoutAuthorizer(t *testing.T, cfg Config, deps Dependencies) 
 
 func mustNewAdminWithDeps(t *testing.T, cfg Config, deps Dependencies) *Admin {
 	t.Helper()
-	_ = registry.Stop(context.Background())
+	if err := registry.Stop(context.Background()); err != nil {
+		t.Fatalf("stop command registry: %v", err)
+	}
 	if cfg.AuthConfig == nil {
 		cfg.AuthConfig = &AuthConfig{AllowUnauthenticatedRoutes: true}
 	}
