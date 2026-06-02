@@ -664,7 +664,7 @@ export function createTranslationCreateLocaleActionModel(
 export function normalizeFamilyListRow(input: Record<string, unknown>): TranslationFamilyListItem {
   const blockerLabels: Record<string, string> = {};
   for (const [key, label] of Object.entries(asRecord(input.blocker_labels))) {
-    const code = normalizeBlockerCode(key);
+    const code = asString(key);
     const text = asString(label);
     if (code && text) {
       blockerLabels[code] = text;
@@ -1906,8 +1906,22 @@ function renderFamilyBlockers(row: TranslationFamilyListItem): string {
   if (!row.blockerCodes.length) {
     return '<span class="text-gray-400">No blockers</span>';
   }
-  return row.blockerCodes
-    .map((code) => `<span class="rounded-full px-2 py-0.5 text-xs font-medium ${blockerTone(code)}">${escapeHTML(row.blockerLabels[code] || sentenceCaseToken(code))}</span>`)
+  const renderedLabels = new Set<string>();
+	const chips: Array<{ code: string; label: string }> = row.blockerCodes.map((code) => {
+    const label = row.blockerLabels[code] || sentenceCaseToken(code);
+    renderedLabels.add(label.toLowerCase());
+    return { code, label };
+  });
+  for (const [code, label] of Object.entries(row.blockerLabels)) {
+    const normalizedLabel = label.toLowerCase();
+    if (row.blockerCodes.includes(code as FamilyBlockerCode) || renderedLabels.has(normalizedLabel)) {
+      continue;
+    }
+    renderedLabels.add(normalizedLabel);
+    chips.push({ code: asString(code), label });
+  }
+  return chips
+    .map(({ code, label }) => `<span class="rounded-full px-2 py-0.5 text-xs font-medium ${blockerTone(code)}">${escapeHTML(label)}</span>`)
     .join(' ');
 }
 

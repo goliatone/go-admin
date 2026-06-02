@@ -567,10 +567,22 @@ function je(t) {
 }
 function De(t) {
   const e = t.blockerCodes || [], a = t.blockerLabels || {};
-  return e.length === 0 ? "" : e.map((r) => {
-    const s = a[r] || b(r);
-    return `<span class="inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium ${r === "missing_locale" ? "bg-amber-100 text-amber-800" : r === "pending_review" ? "bg-sky-100 text-sky-800" : r === "outdated_source" ? "bg-rose-100 text-rose-800" : "bg-gray-100 text-gray-700"}" data-blocker-code="${c(r)}">${i(s)}</span>`;
-  }).join("");
+  if (e.length === 0) return "";
+  const r = /* @__PURE__ */ new Set(), s = e.map((o) => {
+    const l = a[o] || b(o);
+    return r.add(l.toLowerCase()), {
+      code: o,
+      label: l
+    };
+  });
+  for (const [o, l] of Object.entries(a)) {
+    const f = l.toLowerCase();
+    e.includes(o) || r.has(f) || (r.add(f), s.push({
+      code: o,
+      label: l
+    }));
+  }
+  return s.map(({ code: o, label: l }) => `<span class="inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium ${o === "missing_locale" ? "bg-amber-100 text-amber-800" : o === "pending_review" ? "bg-sky-100 text-sky-800" : o === "outdated_source" ? "bg-rose-100 text-rose-800" : "bg-gray-100 text-gray-700"}" data-blocker-code="${c(o)}">${i(l)}</span>`).join("");
 }
 function Ie(t) {
   const e = t.affectedLocales || [];

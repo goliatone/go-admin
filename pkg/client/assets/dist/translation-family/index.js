@@ -1,12 +1,12 @@
 import { escapeAttribute as p, escapeHTML as d } from "../shared/html.js";
-import { appendCSRFHeader as Re, httpRequest as me, readHTTPJSON as Ie } from "../shared/transport/http-client.js";
+import { appendCSRFHeader as Re, httpRequest as de, readHTTPJSON as Ie } from "../shared/transport/http-client.js";
 import { extractStructuredError as j } from "../toast/error-helpers.js";
-import { buildURL as F, getNumberSearchParam as se, getStringSearchParam as T, readLocationSearchParams as Te, setNumberSearchParam as ne, setSearchParam as $ } from "../shared/query-state/url-state.js";
+import { buildURL as F, getNumberSearchParam as te, getStringSearchParam as T, readLocationSearchParams as Te, setNumberSearchParam as se, setSearchParam as $ } from "../shared/query-state/url-state.js";
 import { trimTrailingSlash as C } from "../shared/path-normalization.js";
-import { parseJSONValue as ie } from "../shared/json-parse.js";
+import { parseJSONValue as ne } from "../shared/json-parse.js";
 import { asLooseBoolean as b, asNumberish as h, asRecord as u, asString as i, asStringArray as f } from "../shared/coercion.js";
-import { $ as O, C as Ae, E as Pe, H as Fe, S as Ee, U as Ue, _ as ue, d as A, g as ye, h as De, l as q, m as Ne, o as pe, p as Be, rt as je, s as R, v as fe } from "../chunks/translation-shared-kfjHEDZW.js";
-import { formatTranslationTimestampUTC as K, sentenceCaseToken as w } from "../translation-shared/formatters.js";
+import { $ as O, C as Ae, E as Pe, H as Fe, S as Ee, U as Ue, _ as me, d as A, g as ue, h as De, l as q, m as Ne, o as ye, p as Be, rt as je, s as R, v as pe } from "../chunks/translation-shared-kfjHEDZW.js";
+import { formatTranslationTimestampUTC as Y, sentenceCaseToken as w } from "../translation-shared/formatters.js";
 import { normalizeStringRecord as Oe } from "../shared/record-normalization.js";
 function Me(e, a = {}) {
   const t = u(e), s = b(t.can_sync ?? t.canSync), n = i(t.family_id ?? t.familyId ?? a.familyId), r = i((t.command_name ?? t.commandName ?? a.commandName) || "translation.families.sync"), c = i(t.rpc_invoke_path ?? t.rpcInvokePath ?? a.rpcInvokePath), l = i((t.environment ?? t.channel ?? a.environment) || "default");
@@ -85,13 +85,13 @@ async function Ge(e, a = {}) {
     receipt: m
   };
 }
-function Q(e) {
+function K(e) {
   return i(e.get("x-trace-id") || e.get("x-correlation-id") || e.get("traceparent"));
 }
 function P(e) {
   return i(e) === "ready" ? "ready" : "blocked";
 }
-function G(e) {
+function fe(e) {
   const a = i(e);
   switch (a) {
     case "missing_locale":
@@ -118,18 +118,18 @@ function M(e = {}) {
 }
 function ge(e = {}) {
   const a = M(e), t = new URLSearchParams();
-  return $(t, "content_type", a.contentType), $(t, "readiness_state", a.readinessState), $(t, "blocker_code", a.blockerCode), $(t, "missing_locale", a.missingLocale), $(t, "channel", a.channel), ne(t, "page", a.page, { min: 1 }), ne(t, "per_page", a.perPage, { min: 1 }), t;
+  return $(t, "content_type", a.contentType), $(t, "readiness_state", a.readinessState), $(t, "blocker_code", a.blockerCode), $(t, "missing_locale", a.missingLocale), $(t, "channel", a.channel), se(t, "page", a.page, { min: 1 }), se(t, "per_page", a.perPage, { min: 1 }), t;
 }
-function J(e, a = "", t = "") {
+function Q(e, a = "", t = "") {
   const s = C(e);
   return a ? `${s}/translations/families/${encodeURIComponent(i(a))}${t}` : `${s}/translations/families`;
 }
 function be(e, a = {}) {
-  return F(J(e), ge(a));
+  return F(Q(e), ge(a));
 }
 function Ye(e, a, t = "") {
   const s = new URLSearchParams();
-  return $(s, "channel", t), F(J(e, a), s);
+  return $(s, "channel", t), F(Q(e, a), s);
 }
 function he(e = {}) {
   const a = i(e.channel);
@@ -145,7 +145,7 @@ function he(e = {}) {
 }
 function Ke(e, a, t = "") {
   const s = new URLSearchParams();
-  return $(s, "channel", t), F(J(e, a, "/variants"), s);
+  return $(s, "channel", t), F(Q(e, a, "/variants"), s);
 }
 function Qe(e = {}) {
   const a = he(e), t = { locale: a.locale };
@@ -171,7 +171,7 @@ function Xe(e) {
     dueDate: i(e.due_date)
   };
 }
-function X(e, a = {}) {
+function J(e, a = {}) {
   const t = u(e.default_assignment), s = f(e.missing_locales ?? a.missingLocales), n = f(e.required_for_publish ?? a.requiredForPublish), r = i(e.recommended_locale || a.recommendedLocale);
   return {
     enabled: typeof e.enabled == "boolean" ? b(e.enabled) : s.length > 0,
@@ -190,7 +190,7 @@ function X(e, a = {}) {
   };
 }
 function We(e) {
-  const a = u(e.data), t = u(e.meta), s = u(t.family), n = u(t.refresh), r = u(a.navigation), c = X(u(s.quick_create), { missingLocales: f(s.missing_locales) });
+  const a = u(e.data), t = u(e.meta), s = u(t.family), n = u(t.refresh), r = u(a.navigation), c = J(u(s.quick_create), { missingLocales: f(s.missing_locales) });
   return {
     variantId: i(a.variant_id),
     familyId: i(a.family_id) || i(s.family_id),
@@ -238,7 +238,7 @@ function Ze(e) {
 function ea(e) {
   const a = {};
   for (const [t, s] of Object.entries(u(e.blocker_labels))) {
-    const n = G(t), r = i(s);
+    const n = i(t), r = i(s);
     n && r && (a[n] = r);
   }
   return {
@@ -254,7 +254,7 @@ function ea(e) {
     missingRequiredLocaleCount: h(e.missing_required_locale_count),
     pendingReviewCount: h(e.pending_review_count),
     outdatedLocaleCount: h(e.outdated_locale_count),
-    blockerCodes: f(e.blocker_codes).map(G),
+    blockerCodes: f(e.blocker_codes).map(fe),
     blockerLabels: a,
     missingLocales: f(e.missing_locales),
     availableLocales: f(e.available_locales)
@@ -270,7 +270,7 @@ function xe(e) {
     channel: i(n.channel)
   };
 }
-function re(e) {
+function ie(e) {
   return {
     id: i(e.id),
     familyId: i(e.family_id),
@@ -292,7 +292,7 @@ function aa(e) {
   return {
     id: i(e.id),
     familyId: i(e.family_id),
-    blockerCode: G(e.blocker_code),
+    blockerCode: fe(e.blocker_code),
     locale: i(e.locale),
     fieldPath: i(e.field_path),
     details: u(e.details)
@@ -316,7 +316,7 @@ function ta(e) {
   };
 }
 function ve(e) {
-  const a = u(e.data), t = Object.keys(a).length ? a : e, s = t.source_variant ? re(u(t.source_variant)) : null, n = Array.isArray(t.blockers) ? t.blockers.map((y) => aa(u(y))) : [], r = Array.isArray(t.locale_variants) ? t.locale_variants.map((y) => re(u(y))) : [], c = Array.isArray(t.active_assignments) ? t.active_assignments.map((y) => ta(u(y))) : [], l = u(t.publish_gate), o = u(t.readiness_summary), m = X(u(t.quick_create), {
+  const a = u(e.data), t = Object.keys(a).length ? a : e, s = t.source_variant ? ie(u(t.source_variant)) : null, n = Array.isArray(t.blockers) ? t.blockers.map((y) => aa(u(y))) : [], r = Array.isArray(t.locale_variants) ? t.locale_variants.map((y) => ie(u(y))) : [], c = Array.isArray(t.active_assignments) ? t.active_assignments.map((y) => ta(u(y))) : [], l = u(t.publish_gate), o = u(t.readiness_summary), m = J(u(t.quick_create), {
     missingLocales: f(o.missing_locales),
     recommendedLocale: i(o.recommended_locale),
     requiredForPublish: f(o.required_for_publish ?? o.required_locales)
@@ -465,13 +465,13 @@ function sa(e) {
     tone: "warning"
   };
 }
-function W(e) {
+function X(e) {
   const a = sa(e);
   return `<span class="translation-family-chip translation-family-chip--${a.tone}" data-readiness-state="${a.state}">${a.label}</span>`;
 }
 async function na(e) {
   const a = await j(e), t = new Error(a.message || "Failed to create locale.");
-  return t.statusCode = e.status, t.textCode = a.textCode, t.requestId = i(e.headers.get("x-request-id")), t.traceId = Q(e.headers), t.metadata = u(a.metadata), t;
+  return t.statusCode = e.status, t.textCode = a.textCode, t.requestId = i(e.headers.get("x-request-id")), t.traceId = K(e.headers), t.metadata = u(a.metadata), t;
 }
 function ia(e) {
   switch (i(e)) {
@@ -667,7 +667,7 @@ function xa(e, a) {
             <span class="rounded-full px-2 py-0.5 text-xs font-medium ${ra(l.status)}">${d(w(l.status))}</span>
           </div>
           <p class="mt-2 text-sm text-gray-600">${d(y)}</p>
-          <p class="mt-1 text-xs text-gray-500">Updated ${d(K(l.updatedAt || l.createdAt)) || "n/a"}</p>
+          <p class="mt-1 text-xs text-gray-500">Updated ${d(Y(l.updatedAt || l.createdAt)) || "n/a"}</p>
         </div>
         <div class="flex-shrink-0">${m}</div>
       </li>
@@ -719,7 +719,7 @@ function va(e) {
                   <span class="text-gray-400">·</span>
                   Priority ${d(a.priority || "normal")}
                 </p>
-                <p class="mt-1 text-xs text-gray-500">Updated ${d(K(a.updatedAt || a.createdAt)) || "n/a"}</p>
+                <p class="mt-1 text-xs text-gray-500">Updated ${d(Y(a.updatedAt || a.createdAt)) || "n/a"}</p>
               </li>
             `;
   }).join("")}
@@ -750,7 +750,7 @@ function _a(e) {
       <h2 id="translation-family-publish-gate" class="text-lg font-semibold text-gray-900">Publish gate</h2>
       <div class="mt-4 rounded-xl ${e.publishGate.allowed ? "border border-emerald-200 bg-emerald-50" : "border border-amber-200 bg-amber-50"} p-6">
         <div class="flex flex-wrap items-center gap-3">
-          ${W(e.readinessState)}
+          ${X(e.readinessState)}
           <span class="text-sm font-medium ${e.publishGate.allowed ? "text-emerald-800" : "text-amber-800"}">
             ${e.publishGate.allowed ? "Eligible to publish." : "Publishing is blocked until blockers are cleared."}
           </span>
@@ -787,7 +787,7 @@ function Ca(e) {
                     <li class="rounded-xl border border-gray-200 bg-gray-50 p-6">
                       <div class="flex flex-wrap items-center gap-2">
                         <span class="text-sm font-semibold text-gray-900">${d(t.title)}</span>
-                        <span class="rounded-full px-2 py-0.5 text-xs font-medium ${t.tone === "success" ? "bg-emerald-100 text-emerald-700" : t.tone === "warning" ? "bg-amber-100 text-amber-700" : "bg-gray-100 text-gray-700"}">${d(K(t.timestamp))}</span>
+                        <span class="rounded-full px-2 py-0.5 text-xs font-medium ${t.tone === "success" ? "bg-emerald-100 text-emerald-700" : t.tone === "warning" ? "bg-amber-100 text-amber-700" : "bg-gray-100 text-gray-700"}">${d(Y(t.timestamp))}</span>
                       </div>
                       <p class="mt-2 text-sm text-gray-600">${d(t.detail)}</p>
                     </li>
@@ -818,7 +818,7 @@ function $e(e) {
     </div>
   `;
 }
-function Y(e, a) {
+function G(e, a) {
   return `
     <div class="flex items-center justify-center py-16" role="status" aria-label="Empty">
       <div class="max-w-md ${Be} p-8 text-center shadow-sm">
@@ -843,9 +843,9 @@ function La(e, a, t) {
       </button>
     ` : "", r = t.syncMessage ? d(t.syncMessage) : "";
   return `
-    <div class="${ye} p-6" role="alert">
-      <h2 class="${fe}">${d(e)}</h2>
-      <p class="${ue} mt-2">${d(a)}</p>
+    <div class="${ue} p-6" role="alert">
+      <h2 class="${pe}">${d(e)}</h2>
+      <p class="${me} mt-2">${d(a)}</p>
       <p
         data-family-sync-feedback="true"
         class="mt-3 text-sm ${t.syncStatus === "failed" ? "text-rose-700" : "text-amber-700"}"
@@ -863,7 +863,7 @@ function La(e, a, t) {
 function $a(e, a = {}) {
   if (e.status === "loading") return $e("Loading translation family...");
   if (e.status === "empty") return `
-      ${Y("Family detail unavailable", e.message || "This family detail view does not have a backing payload yet.")}
+      ${G("Family detail unavailable", e.message || "This family detail view does not have a backing payload yet.")}
       ${N(e)}
     `;
   if (e.status === "error" || e.status === "conflict") return `
@@ -873,7 +873,7 @@ function $a(e, a = {}) {
       </div>
     `;
   const t = e.detail;
-  if (!t) return Y("Family detail unavailable", "No family detail payload was returned.");
+  if (!t) return G("Family detail unavailable", "No family detail payload was returned.");
   const s = t.sourceVariant?.fields.title || t.sourceVariant?.fields.slug || `${t.contentType} family`, n = t.readinessSummary.blockerCodes.length ? t.readinessSummary.blockerCodes.map(w).join(", ") : "No blockers", r = !t.quickCreate.enabled, c = t.quickCreate.recommendedLocale ? `
       <button
         type="button"
@@ -896,7 +896,7 @@ function $a(e, a = {}) {
             <p class="mt-2 text-sm text-gray-600">${d(t.contentType)} · Source locale ${d(t.sourceLocale.toUpperCase())} · Family ${d(t.familyId)}</p>
           </div>
           <div class="flex flex-wrap items-center gap-2">
-            ${W(t.readinessState)}
+            ${X(t.readinessState)}
             <span class="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700">${d(n)}</span>
             ${c}
           </div>
@@ -919,14 +919,14 @@ function $a(e, a = {}) {
     </div>
   `;
 }
-async function oe(e, a = {}) {
+async function re(e, a = {}) {
   const t = i(e);
   if (!t) return {
     status: "empty",
     message: "The family detail route is missing its backing API endpoint."
   };
   try {
-    const s = await (a.fetch ? a.fetch(t, { headers: { Accept: "application/json" } }) : me(t, { headers: { Accept: "application/json" } })), n = i(s.headers.get("x-request-id")), r = Q(s.headers);
+    const s = await (a.fetch ? a.fetch(t, { headers: { Accept: "application/json" } }) : de(t, { headers: { Accept: "application/json" } })), n = i(s.headers.get("x-request-id")), r = K(s.headers);
     if (!s.ok) {
       const l = await j(s), o = u(l.metadata?.sync_recovery), m = l.textCode === "NOT_FOUND" || b(o.syncable);
       return {
@@ -980,8 +980,8 @@ function ka(e) {
     readinessState: T(a, "readiness_state") || "",
     blockerCode: T(a, "blocker_code") || "",
     missingLocale: T(a, "missing_locale") || "",
-    page: se(a, "page") || 1,
-    perPage: se(a, "per_page") || 50
+    page: te(a, "page") || 1,
+    perPage: te(a, "per_page") || 50
   });
 }
 function Sa(e = globalThis.location) {
@@ -996,11 +996,11 @@ function Ra(e, a = "/admin") {
   const t = C(e);
   return t.endsWith("/translations/families") ? t.slice(0, -22) || "/" : `${C(a || "/admin")}/api`;
 }
-function Z(e = "/admin") {
+function W(e = "/admin") {
   return `${C(e || "/admin")}/translations/families`;
 }
 function Ia(e, a, t = "") {
-  const s = C(e || Z("/admin")), n = new URLSearchParams();
+  const s = C(e || W("/admin")), n = new URLSearchParams();
   return $(n, "channel", t), F(`${s}/${encodeURIComponent(i(a))}`, n);
 }
 function we(e, a) {
@@ -1087,7 +1087,7 @@ function Fa(e) {
     </form>
   `;
 }
-function le(e, a = "None") {
+function oe(e, a = "None") {
   return e.length ? `
     <span class="flex flex-wrap gap-1">
       ${e.map((t) => `<span class="rounded bg-gray-100 px-1.5 py-0.5 text-xs font-medium text-gray-700">${d(t.toUpperCase())}</span>`).join("")}
@@ -1095,7 +1095,22 @@ function le(e, a = "None") {
   ` : `<span class="text-gray-400">${d(a)}</span>`;
 }
 function Ea(e) {
-  return e.blockerCodes.length ? e.blockerCodes.map((a) => `<span class="rounded-full px-2 py-0.5 text-xs font-medium ${Ce(a)}">${d(e.blockerLabels[a] || w(a))}</span>`).join(" ") : '<span class="text-gray-400">No blockers</span>';
+  if (!e.blockerCodes.length) return '<span class="text-gray-400">No blockers</span>';
+  const a = /* @__PURE__ */ new Set(), t = e.blockerCodes.map((s) => {
+    const n = e.blockerLabels[s] || w(s);
+    return a.add(n.toLowerCase()), {
+      code: s,
+      label: n
+    };
+  });
+  for (const [s, n] of Object.entries(e.blockerLabels)) {
+    const r = n.toLowerCase();
+    e.blockerCodes.includes(s) || a.has(r) || (a.add(r), t.push({
+      code: i(s),
+      label: n
+    }));
+  }
+  return t.map(({ code: s, label: n }) => `<span class="rounded-full px-2 py-0.5 text-xs font-medium ${Ce(s)}">${d(n)}</span>`).join(" ");
 }
 function V(e, a, t = "text-gray-900") {
   return `
@@ -1106,7 +1121,7 @@ function V(e, a, t = "text-gray-900") {
   `;
 }
 function Ua(e, a, t) {
-  const s = t.familyBasePath || Z(t.basePath || "/admin");
+  const s = t.familyBasePath || W(t.basePath || "/admin");
   return e.map((n) => {
     const r = Ia(s, n.familyId, a.channel), c = t.matrixPath ? Ta(t.matrixPath, n, a) : "", l = t.queuePath ? Aa(t.queuePath, n, a) : "", o = Pa(n);
     return `
@@ -1118,7 +1133,7 @@ function Ua(e, a, t) {
             <p class="mt-2 text-xs text-gray-500">${d(n.contentType || "unknown")} · Source ${d(n.sourceLocale.toUpperCase() || "n/a")}</p>
           </div>
         </td>
-        <td class="px-4 py-4 align-top">${W(n.readinessState)}</td>
+        <td class="px-4 py-4 align-top">${X(n.readinessState)}</td>
         <td class="px-4 py-4 align-top">${Ea(n)}</td>
         <td class="px-4 py-4 align-top">
           <div class="flex flex-wrap gap-2">
@@ -1129,15 +1144,15 @@ function Ua(e, a, t) {
         </td>
         <td class="px-4 py-4 align-top">
           <div class="space-y-2 text-sm">
-            <div><span class="text-xs font-semibold uppercase tracking-wide text-gray-500">Available</span>${le(n.availableLocales)}</div>
-            <div><span class="text-xs font-semibold uppercase tracking-wide text-gray-500">Missing</span>${le(n.missingLocales)}</div>
+            <div><span class="text-xs font-semibold uppercase tracking-wide text-gray-500">Available</span>${oe(n.availableLocales)}</div>
+            <div><span class="text-xs font-semibold uppercase tracking-wide text-gray-500">Missing</span>${oe(n.missingLocales)}</div>
           </div>
         </td>
         <td class="px-4 py-4 align-top">
           <div class="flex flex-col gap-2">
             <a href="${p(r)}" class="${R} text-center" data-family-primary-action="true">Open family</a>
             ${c ? `<a href="${p(c)}" class="${q} text-center">Matrix</a>` : ""}
-            ${l ? `<a href="${p(l)}" class="${pe} text-center">Queue</a>` : ""}
+            ${l ? `<a href="${p(l)}" class="${ye} text-center">Queue</a>` : ""}
           </div>
         </td>
       </tr>
@@ -1182,9 +1197,9 @@ function Da(e, a, t) {
 }
 function Na(e) {
   return `
-    <div class="${ye} mt-6 p-6" role="alert">
-      <h2 class="${fe}">Families failed to load</h2>
-      <p class="${ue} mt-2">${d(e.message || "The translation families request failed.")}</p>
+    <div class="${ue} mt-6 p-6" role="alert">
+      <h2 class="${pe}">Families failed to load</h2>
+      <p class="${me} mt-2">${d(e.message || "The translation families request failed.")}</p>
       ${e.requestURL ? `<p class="mt-3 break-all text-xs text-gray-500">Request ${d(e.requestURL)}</p>` : ""}
       ${N({
     status: "error",
@@ -1201,15 +1216,15 @@ function Ba(e, a = {}) {
   if (e.status === "loading") return `${s}${$e("Loading translation families...")}`;
   if (e.status === "error") return `${s}${Na(e)}`;
   const n = e.response;
-  return !n || e.status === "empty" || n.items.length === 0 ? `${s}${Y("No translation families found", "No families match the current filters.")}` : `${s}${Da(n, t, a)}`;
+  return !n || e.status === "empty" || n.items.length === 0 ? `${s}${G("No translation families found", "No families match the current filters.")}` : `${s}${Da(n, t, a)}`;
 }
-function ce(e, a, t = {}) {
+function le(e, a, t = {}) {
   e.innerHTML = Ba(a, t);
 }
 async function ja(e, a, t = {}) {
   const s = be(Ra(e, t.basePath), a), n = t.fetch;
   try {
-    const r = await (n ? n(s, { headers: { Accept: "application/json" } }) : me(s, { headers: { Accept: "application/json" } })), c = i(r.headers.get("x-request-id")), l = Q(r.headers);
+    const r = await (n ? n(s, { headers: { Accept: "application/json" } }) : de(s, { headers: { Accept: "application/json" } })), c = i(r.headers.get("x-request-id")), l = K(r.headers);
     if (!r.ok) {
       const m = await j(r);
       return {
@@ -1242,7 +1257,7 @@ async function ja(e, a, t = {}) {
     };
   }
 }
-function de(e, a) {
+function ce(e, a) {
   const t = new FormData(e), s = (r, c) => t.has(r) ? i(t.get(r)) : c, n = (r, c) => t.has(r) ? h(t.get(r), c) : c;
   return M({
     channel: s("channel", a.channel),
@@ -1268,10 +1283,10 @@ async function rt(e, a = {}) {
     matrixPath: i(a.matrixPath || t.matrixPath),
     queuePath: i(a.queuePath || t.queuePath)
   };
-  s.familyBasePath || (s.familyBasePath = Z(s.basePath));
+  s.familyBasePath || (s.familyBasePath = W(s.basePath));
   let n = Sa(), r = null;
   const c = async (l, o = !1) => {
-    n = M(l), o && Oa(n), ce(e, {
+    n = M(l), o && Oa(n), le(e, {
       status: "loading",
       filters: n
     }, s);
@@ -1279,7 +1294,7 @@ async function rt(e, a = {}) {
       fetch: a.fetch,
       basePath: s.basePath
     });
-    return r = m, ce(e, m, s), Ma(e, m, c), m;
+    return r = m, le(e, m, s), Ma(e, m, c), m;
   };
   return r = await c(n, !1), r;
 }
@@ -1287,13 +1302,13 @@ function Ma(e, a, t) {
   const s = e.querySelector('[data-family-list-filters="true"]');
   s && (s.addEventListener("submit", (n) => {
     n.preventDefault(), t({
-      ...de(s, a.filters),
+      ...ce(s, a.filters),
       page: 1
     }, !0);
   }), s.querySelectorAll("select").forEach((n) => {
     n.addEventListener("change", () => {
       t({
-        ...de(s, a.filters),
+        ...ce(s, a.filters),
         page: 1
       }, !0);
     });
@@ -1360,7 +1375,7 @@ function ke(e) {
             <h2 id="translation-create-locale-title" class="mt-2 text-2xl font-semibold text-gray-900">${d(e.heading)}</h2>
             <p class="mt-2 text-sm text-gray-600">Server-authored recommendations and publish requirements for family ${d(e.familyId)}.</p>
           </div>
-          <button type="button" data-close-modal="true" class="${pe}">Close</button>
+          <button type="button" data-close-modal="true" class="${ye}">Close</button>
         </div>
         <div class="mt-6 grid gap-4">
           <label class="grid gap-2">
@@ -1416,21 +1431,21 @@ function ke(e) {
   `, a.body.appendChild(r);
   const c = r.querySelector('[role="dialog"]'), l = r.querySelector("form"), o = r.querySelector('select[name="locale"]'), m = r.querySelector('input[name="auto_create_assignment"]'), y = r.querySelector('input[name="assignee_id"]'), g = r.querySelector('select[name="priority"]'), E = r.querySelector('input[name="due_date"]'), k = r.querySelector('[data-assignment-fields="true"]'), S = r.querySelector('[data-create-locale-feedback="true"]'), I = r.querySelector('button[type="submit"]'), U = () => {
     qe(), r.remove();
-  }, ee = () => {
+  }, Z = () => {
     !k || !m || (k.hidden = !m.checked);
   }, qe = c ? je(c, U) : () => {
   };
-  ee(), m?.addEventListener("change", ee), r.querySelectorAll('[data-close-modal="true"]').forEach((x) => {
+  Z(), m?.addEventListener("change", Z), r.querySelectorAll('[data-close-modal="true"]').forEach((x) => {
     x.addEventListener("click", U);
   }), r.addEventListener("click", (x) => {
     x.target === r && U();
   }), l?.addEventListener("submit", async (x) => {
     if (x.preventDefault(), !o || !I) return;
     S && (S.hidden = !0, S.textContent = ""), I.disabled = !0, I.classList.add("opacity-60", "cursor-not-allowed");
-    const ae = i(o.value).toLowerCase();
+    const ee = i(o.value).toLowerCase();
     try {
       const z = await e.onSubmit({
-        locale: ae,
+        locale: ee,
         autoCreateAssignment: m?.checked,
         assigneeId: y?.value,
         priority: g?.value,
@@ -1438,8 +1453,8 @@ function ke(e) {
       });
       U(), await e.onSuccess?.(z);
     } catch (z) {
-      const te = za(z, ae);
-      S && (S.hidden = !1, S.textContent = te), L("error", te);
+      const ae = za(z, ee);
+      S && (S.hidden = !1, S.textContent = ae), L("error", ae);
     } finally {
       I.disabled = !1, I.classList.remove("opacity-60", "cursor-not-allowed");
     }
@@ -1451,8 +1466,8 @@ function Ya(e) {
     requestedLocale: i(e.dataset.requestedLocale).toLowerCase(),
     resolvedLocale: i(e.dataset.resolvedLocale).toLowerCase(),
     apiBasePath: i(e.dataset.apiBasePath || "/admin/api"),
-    quickCreate: X(ie(e.dataset.quickCreate, {}), {}),
-    localeURLs: ie(e.dataset.localeUrls, {})
+    quickCreate: J(ne(e.dataset.quickCreate, {}), {}),
+    localeURLs: ne(e.dataset.localeUrls, {})
   };
 }
 function ot(e = document) {
@@ -1491,7 +1506,7 @@ async function H(e, a = {}) {
     contentBasePath: i(a.contentBasePath || t.contentBasePath)
   };
   D(e, { status: "loading" }, n);
-  const r = await oe(s, { fetch: a.fetch });
+  const r = await re(s, { fetch: a.fetch });
   if (D(e, r, n), typeof e.querySelector == "function") {
     if (r.status === "ready" && r.detail) {
       const o = Se({
@@ -1549,7 +1564,7 @@ async function H(e, a = {}) {
           fetch: a.fetch,
           correlationId: r.requestId || ""
         });
-        const y = await oe(s, { fetch: a.fetch });
+        const y = await re(s, { fetch: a.fetch });
         if (y.status === "error" && (y.errorCode === "NOT_FOUND" || y.statusCode === 404)) {
           D(e, {
             ...y,
@@ -1629,7 +1644,7 @@ export {
   he as createTranslationCreateLocaleRequest,
   Se as createTranslationFamilyClient,
   Ge as dispatchTranslationFamilySync,
-  oe as fetchTranslationFamilyDetailState,
+  re as fetchTranslationFamilyDetailState,
   ja as fetchTranslationFamilyListState,
   sa as getReadinessChip,
   H as initTranslationFamilyDetailPage,
@@ -1639,14 +1654,14 @@ export {
   ve as normalizeFamilyDetail,
   xe as normalizeFamilyListResponse,
   ea as normalizeFamilyListRow,
-  X as normalizeQuickCreateHints,
+  J as normalizeQuickCreateHints,
   Me as normalizeTranslationFamilySyncRecoveryCapability,
   ka as parseFamilyListFiltersFromSearchParams,
   Sa as readFamilyListFiltersFromLocation,
-  W as renderReadinessChip,
+  X as renderReadinessChip,
   D as renderTranslationFamilyDetailPage,
   $a as renderTranslationFamilyDetailState,
-  ce as renderTranslationFamilyListPage,
+  le as renderTranslationFamilyListPage,
   Ba as renderTranslationFamilyListState,
   Qe as serializeCreateLocaleRequest,
   Va as toDateTimeLocalInputValue

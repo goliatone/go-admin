@@ -1027,8 +1027,22 @@ function renderBlockerCodeChips(row: TranslationDashboardTableRow): string {
   const labels = row.blockerLabels || {};
   if (codes.length === 0) return '';
 
-  return codes.map((code) => {
+  const renderedLabels = new Set<string>();
+  const chips = codes.map((code) => {
     const label = labels[code] || formatMetricLabel(code);
+    renderedLabels.add(label.toLowerCase());
+    return { code, label };
+  });
+  for (const [code, label] of Object.entries(labels)) {
+    const normalizedLabel = label.toLowerCase();
+    if (codes.includes(code) || renderedLabels.has(normalizedLabel)) {
+      continue;
+    }
+    renderedLabels.add(normalizedLabel);
+    chips.push({ code, label });
+  }
+
+  return chips.map(({ code, label }) => {
     const colorClass = code === 'missing_locale' ? 'bg-amber-100 text-amber-800'
       : code === 'pending_review' ? 'bg-sky-100 text-sky-800'
       : code === 'outdated_source' ? 'bg-rose-100 text-rose-800'

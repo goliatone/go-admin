@@ -162,7 +162,7 @@ test('translation-family list page: renders loading empty error and populated st
         source_record_id: 'news-1',
         readiness_state: 'blocked',
         blocker_codes: ['policy_denied'],
-        blocker_labels: { policy_denied: 'Policy unavailable' },
+        blocker_labels: { policy_denied: 'Policy denied', policy_unavailable: 'Policy unavailable' },
         missing_required_locale_count: 0,
         pending_review_count: 0,
         outdated_locale_count: 0,
@@ -172,6 +172,8 @@ test('translation-family list page: renders loading empty error and populated st
     },
     meta: { total: 2, page: 1, per_page: 50, channel: 'production' },
   });
+  assert.equal(row.items[1].blockerLabels.policy_denied, 'Policy denied');
+  assert.equal(row.items[1].blockerLabels.policy_unavailable, 'Policy unavailable');
 
   const options = {
     basePath: '/admin',
