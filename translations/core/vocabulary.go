@@ -21,6 +21,22 @@ const (
 	FamilyBlockerPolicyDenied   FamilyBlockerCode = "policy_denied"
 )
 
+type FamilyBlockerReason string
+
+const (
+	FamilyBlockerReasonPolicyUnavailable FamilyBlockerReason = "policy_unavailable"
+	FamilyBlockerReasonHostPolicy        FamilyBlockerReason = "host_policy"
+)
+
+const (
+	FamilyBlockerDetailContentType = "content_type"
+	FamilyBlockerDetailEnvironment = "environment"
+	FamilyBlockerDetailReason      = "reason"
+	FamilyBlockerDetailReasonCode  = "reason_code"
+	FamilyBlockerDetailMessage     = "message"
+	FamilyBlockerDetailRemediation = "remediation"
+)
+
 type VariantStatus string
 
 const (

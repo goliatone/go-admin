@@ -452,6 +452,7 @@ func (s *FamilyService) recomputeFamily(ctx context.Context, family FamilyRecord
 	}
 	blockers := make([]FamilyBlocker, 0)
 	if !found {
+		environment = strings.TrimSpace(environment)
 		blockers = append(blockers, FamilyBlocker{
 			ID:          DeterministicBlockerID(Scope{TenantID: family.TenantID, OrgID: family.OrgID}, family.ID, string(translationcore.FamilyBlockerPolicyDenied), "", ""),
 			FamilyID:    family.ID,
@@ -459,8 +460,10 @@ func (s *FamilyService) recomputeFamily(ctx context.Context, family FamilyRecord
 			OrgID:       family.OrgID,
 			BlockerCode: string(translationcore.FamilyBlockerPolicyDenied),
 			Details: map[string]any{
-				"content_type": family.ContentType,
-				"environment":  strings.TrimSpace(environment),
+				translationcore.FamilyBlockerDetailContentType: family.ContentType,
+				translationcore.FamilyBlockerDetailEnvironment: environment,
+				translationcore.FamilyBlockerDetailReason:      string(translationcore.FamilyBlockerReasonPolicyUnavailable),
+				translationcore.FamilyBlockerDetailRemediation: "Configure translation policy requirements and checker services for this content type, then rerun translation family sync.",
 			},
 		})
 	} else {
