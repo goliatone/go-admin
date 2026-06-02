@@ -2,7 +2,6 @@ package admin
 
 import (
 	"context"
-	"reflect"
 
 	"github.com/goliatone/go-admin/admin/cms/gocmsutil"
 	cms "github.com/goliatone/go-cms"
@@ -252,8 +251,7 @@ func resolveGoCMSContentTranslationService(container any) any {
 	if container == nil {
 		return nil
 	}
-	method := reflect.ValueOf(container).MethodByName("ContentTranslations")
-	if result := reflectNoArgMethodResult(method); result != nil {
+	if result := resolveLegacyGoCMSContentTranslations(container); result != nil {
 		return result
 	}
 	if inner, ok := goCMSInnerContainer(container); ok {
@@ -290,33 +288,6 @@ func goCMSInnerContainer(container any) (any, bool) {
 		return nil, false
 	}
 	return inner, true
-}
-
-func reflectNoArgMethodResult(method reflect.Value) any {
-	if !method.IsValid() {
-		return nil
-	}
-	signature := method.Type()
-	if signature.NumIn() != 0 || signature.NumOut() < 1 {
-		return nil
-	}
-	results := method.Call(nil)
-	if len(results) == 0 {
-		return nil
-	}
-	return reflectInterfaceValue(results[0])
-}
-
-func reflectInterfaceValue(result reflect.Value) any {
-	if !result.IsValid() {
-		return nil
-	}
-	if result.Kind() == reflect.Pointer || result.Kind() == reflect.Interface {
-		if result.IsNil() {
-			return nil
-		}
-	}
-	return result.Interface()
 }
 
 func resolveGoCMSContentTypeService(container any) CMSContentTypeService {
