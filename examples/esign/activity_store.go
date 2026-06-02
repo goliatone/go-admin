@@ -5,12 +5,13 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	esignpersistence "github.com/goliatone/go-admin/examples/esign/internal/persistence"
-	"github.com/goliatone/go-admin/internal/primitives"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
+
+	esignpersistence "github.com/goliatone/go-admin/examples/esign/internal/persistence"
+	"github.com/goliatone/go-admin/internal/primitives"
 
 	coreadmin "github.com/goliatone/go-admin/admin"
 	"github.com/goliatone/go-admin/examples/esign/stores"
@@ -77,7 +78,7 @@ func newSQLiteESignActivityStore(dsn string) (*eSignActivityStore, error) {
 	}
 	db.SetMaxOpenConns(1)
 	db.SetMaxIdleConns(1)
-	if err := db.Ping(); err != nil {
+	if err := db.PingContext(context.Background()); err != nil {
 		_ = db.Close()
 		return nil, fmt.Errorf("ping esign activity sqlite: %w", err)
 	}
