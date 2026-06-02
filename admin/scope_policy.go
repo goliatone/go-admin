@@ -16,6 +16,20 @@ const (
 	ScopePolicyMulti  ScopePolicyMode = "multi"
 )
 
+const (
+	// ScopeTenantIDKey and ScopeOrgIDKey are the canonical tenant/org keys used
+	// in scope metadata maps, request filters, and Bun column references.
+	ScopeTenantIDKey = "tenant_id"
+	ScopeOrgIDKey    = "org_id"
+
+	ScopeTenantKey        = "tenant"
+	ScopeOrgKey           = "org"
+	ScopeOrganizationIDKey = "organization_id"
+	ScopeDefaultTenantKey = "default_tenant"
+	ScopeDefaultTenantIDKey = "default_tenant_id"
+	ScopeDefaultOrgIDKey  = "default_org_id"
+)
+
 // ScopePolicy captures the go-admin tenant/org scope policy.
 type ScopePolicy struct {
 	Mode            ScopePolicyMode `json:"mode"`
@@ -88,13 +102,13 @@ func (a *Admin) EffectiveScope(ctx context.Context, input ScopeInput) EffectiveS
 		}
 		if actor, ok := auth.ActorFromContext(ctx); ok && actor != nil {
 			if scope.TenantID == "" {
-				if tenantID := strings.TrimSpace(authMetadataString(actor.Metadata, "tenant_id", "tenant", "default_tenant", "default_tenant_id")); tenantID != "" {
+				if tenantID := strings.TrimSpace(authMetadataString(actor.Metadata, ScopeTenantIDKey, ScopeTenantKey, ScopeDefaultTenantKey, ScopeDefaultTenantIDKey)); tenantID != "" {
 					scope.TenantID = tenantID
 					scope.Source = appendScopeSource(scope.Source, "actor_metadata")
 				}
 			}
 			if scope.OrgID == "" {
-				if orgID := strings.TrimSpace(authMetadataString(actor.Metadata, "organization_id", "org_id", "org", "default_org_id")); orgID != "" {
+				if orgID := strings.TrimSpace(authMetadataString(actor.Metadata, ScopeOrganizationIDKey, ScopeOrgIDKey, ScopeOrgKey, ScopeDefaultOrgIDKey)); orgID != "" {
 					scope.OrgID = orgID
 					scope.Source = appendScopeSource(scope.Source, "actor_metadata")
 				}

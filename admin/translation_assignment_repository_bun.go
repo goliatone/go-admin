@@ -352,10 +352,10 @@ func listOptionsFromAssignmentPageQuery(input TranslationAssignmentPageQueryInpu
 	}
 	filters := map[string]any{}
 	if filter.TenantID != "" {
-		filters["tenant_id"] = filter.TenantID
+		filters[ScopeTenantIDKey] = filter.TenantID
 	}
 	if filter.OrgID != "" {
-		filters["org_id"] = filter.OrgID
+		filters[ScopeOrgIDKey] = filter.OrgID
 	}
 	if filter.FamilyID != "" {
 		filters["family_id"] = filter.FamilyID
@@ -431,8 +431,8 @@ var bunAssignmentFilterColumns = map[string]string{
 	"entity_type":      "entity_type",
 	"priority":         "priority",
 	"family_id":        "family_id",
-	"tenant_id":        "tenant_id",
-	"org_id":           "org_id",
+	ScopeTenantIDKey:   ScopeTenantIDKey,
+	ScopeOrgIDKey:      ScopeOrgIDKey,
 	"source_record_id": "source_record_id",
 }
 
@@ -455,12 +455,12 @@ func applyBunAssignmentFilter(query *bun.SelectQuery, key string, raw any, dueSQ
 		query.Where("(reviewer_id IN (?) OR (COALESCE(reviewer_id, '') = '' AND last_reviewer_id IN (?)))", bun.List(values), bun.List(values))
 		return
 	}
-	if key == "tenant_id" && len(values) == 1 {
-		applyBunScopedColumns(query, "tenant_id", "", translationservices.Scope{TenantID: values[0]})
+	if key == ScopeTenantIDKey && len(values) == 1 {
+		applyBunScopedColumns(query, ScopeTenantIDKey, "", translationservices.Scope{TenantID: values[0]})
 		return
 	}
-	if key == "org_id" && len(values) == 1 {
-		applyBunScopedColumns(query, "", "org_id", translationservices.Scope{OrgID: values[0]})
+	if key == ScopeOrgIDKey && len(values) == 1 {
+		applyBunScopedColumns(query, "", ScopeOrgIDKey, translationservices.Scope{OrgID: values[0]})
 		return
 	}
 	if column, ok := bunAssignmentFilterColumns[key]; ok {
@@ -494,8 +494,8 @@ func normalizedBunAssignmentFilterValues(key string, raw any) []string {
 
 func bunAssignmentScopeFromListOptions(opts ListOptions) translationservices.Scope {
 	return translationservices.Scope{
-		TenantID: singleBunAssignmentFilterValue("tenant_id", opts.Filters["tenant_id"]),
-		OrgID:    singleBunAssignmentFilterValue("org_id", opts.Filters["org_id"]),
+		TenantID: singleBunAssignmentFilterValue(ScopeTenantIDKey, opts.Filters[ScopeTenantIDKey]),
+		OrgID:    singleBunAssignmentFilterValue(ScopeOrgIDKey, opts.Filters[ScopeOrgIDKey]),
 	}
 }
 
@@ -702,7 +702,7 @@ func (r *BunTranslationAssignmentRepository) familyBlockerCounts(ctx context.Con
 		ColumnExpr("COUNT(*) AS count").
 		Where("family_id IN (?)", bun.List(familyIDs)).
 		GroupExpr("family_id")
-	applyBunScopedColumns(query, "tenant_id", "org_id", scope)
+	applyBunScopedColumns(query, ScopeTenantIDKey, ScopeOrgIDKey, scope)
 	err := query.Scan(ctx, &records)
 	if isMissingFamilyBlockersTableError(err) {
 		return out, false, nil
@@ -884,10 +884,10 @@ func (r *BunTranslationAssignmentRepository) AssignmentDashboardSummary(ctx cont
 	now := normalizedBunAssignmentQueryNow(input.Now)
 	scope := map[string]any{}
 	if input.TenantID != "" {
-		scope["tenant_id"] = input.TenantID
+		scope[ScopeTenantIDKey] = input.TenantID
 	}
 	if input.OrgID != "" {
-		scope["org_id"] = input.OrgID
+		scope[ScopeOrgIDKey] = input.OrgID
 	}
 	out := TranslationAssignmentDashboardSummary{}
 	if err := r.applyAssignmentDashboardActorSummary(ctx, &out, scope, input.ActorID, now); err != nil {
@@ -1253,7 +1253,7 @@ func (r *BunTranslationAssignmentRepository) resolveAssignmentVariantIDTx(ctx co
 		Where("family_id = ?", familyID).
 		Where("locale = ?", targetLocale).
 		Limit(1)
-	applyBunScopedColumns(query, "tenant_id", "org_id", translationservices.Scope{TenantID: assignment.TenantID, OrgID: assignment.OrgID})
+	applyBunScopedColumns(query, ScopeTenantIDKey, ScopeOrgIDKey, translationservices.Scope{TenantID: assignment.TenantID, OrgID: assignment.OrgID})
 	err := query.Scan(ctx)
 	if errors.Is(err, sql.ErrNoRows) {
 		return "", nil
@@ -1307,7 +1307,7 @@ func (r *BunTranslationAssignmentRepository) findActiveByKeyTx(ctx context.Conte
 			string(AssignmentStatusChangesRequested),
 		})).
 		Limit(1)
-	applyBunScopedColumns(query, "tenant_id", "org_id", translationservices.Scope{
+	applyBunScopedColumns(query, ScopeTenantIDKey, ScopeOrgIDKey, translationservices.Scope{
 		TenantID: strings.TrimSpace(assignment.TenantID),
 		OrgID:    strings.TrimSpace(assignment.OrgID),
 	})

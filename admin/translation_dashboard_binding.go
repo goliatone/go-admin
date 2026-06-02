@@ -166,8 +166,8 @@ func (b *translationQueueBinding) translationDashboardAssignmentFallback(adminCt
 		return nil, serviceNotConfiguredDomainError("translation assignment repository", nil)
 	}
 	return b.listAssignmentsForSummary(adminCtx.Context, repo, "due_date", map[string]any{
-		"tenant_id": identity.TenantID,
-		"org_id":    identity.OrgID,
+		ScopeTenantIDKey: identity.TenantID,
+		ScopeOrgIDKey:    identity.OrgID,
 	})
 }
 
@@ -231,7 +231,7 @@ func (b *translationQueueBinding) translationDashboardOptimizedSections(assignme
 			"degraded":            len(degradedReasons) > 0,
 			"degraded_reasons":    degradedReasons,
 			"family_report":       translationDashboardFamilyReport(runtime),
-			"scope":               map[string]any{"tenant_id": identity.TenantID, "org_id": identity.OrgID, "actor_id": actorID},
+			"scope":               map[string]any{ScopeTenantIDKey: identity.TenantID, ScopeOrgIDKey: identity.OrgID, "actor_id": actorID},
 			"metrics":             translationDashboardMetricCatalog(),
 		}, channel)
 }
@@ -302,8 +302,8 @@ func (b *translationQueueBinding) translationDashboardDataSources(adminCtx Admin
 		return nil, nil, nil, nil, err
 	}
 	assignments, err := b.listAssignmentsForSummary(adminCtx.Context, repo, "due_date", map[string]any{
-		"tenant_id": identity.TenantID,
-		"org_id":    identity.OrgID,
+		ScopeTenantIDKey: identity.TenantID,
+		ScopeOrgIDKey:    identity.OrgID,
 	})
 	if err != nil {
 		return nil, nil, nil, nil, err
@@ -364,7 +364,7 @@ func (b *translationQueueBinding) translationDashboardSections(assignments []Tra
 			"degraded":            len(degradedReasons) > 0,
 			"degraded_reasons":    degradedReasons,
 			"family_report":       translationDashboardFamilyReport(runtime),
-			"scope":               map[string]any{"tenant_id": identity.TenantID, "org_id": identity.OrgID, "actor_id": actorID},
+			"scope":               map[string]any{ScopeTenantIDKey: identity.TenantID, ScopeOrgIDKey: identity.OrgID, "actor_id": actorID},
 			"metrics":             translationDashboardMetricCatalog(),
 		}, channel)
 }

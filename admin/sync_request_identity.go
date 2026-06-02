@@ -62,11 +62,11 @@ func ResolveAuthenticatedRequestIdentity(c router.Context, defaults Authenticate
 		identity.ActorID = primitives.FirstNonEmpty(actor.Subject, actor.ActorID)
 		identity.TenantID = primitives.FirstNonEmpty(
 			actor.TenantID,
-			authMetadataString(actor.Metadata, "tenant_id", "tenant", "default_tenant", "default_tenant_id"),
+			authMetadataString(actor.Metadata, ScopeTenantIDKey, ScopeTenantKey, ScopeDefaultTenantKey, ScopeDefaultTenantIDKey),
 		)
 		identity.OrgID = primitives.FirstNonEmpty(
 			actor.OrganizationID,
-			authMetadataString(actor.Metadata, "organization_id", "org_id", "org", "default_org_id"),
+			authMetadataString(actor.Metadata, ScopeOrganizationIDKey, ScopeOrgIDKey, ScopeOrgKey, ScopeDefaultOrgIDKey),
 		)
 	}
 
@@ -74,8 +74,8 @@ func ResolveAuthenticatedRequestIdentity(c router.Context, defaults Authenticate
 		metadata := claimsMetadata(claims)
 		identity.ActorID = primitives.FirstNonEmpty(identity.ActorID, claims.Subject(), claims.UserID())
 		identity.Subject = primitives.FirstNonEmpty(identity.Subject, claims.Subject(), claims.UserID())
-		identity.TenantID = primitives.FirstNonEmpty(identity.TenantID, authMetadataString(metadata, "tenant_id", "tenant", "default_tenant", "default_tenant_id"))
-		identity.OrgID = primitives.FirstNonEmpty(identity.OrgID, authMetadataString(metadata, "organization_id", "org_id", "org", "default_org_id"))
+		identity.TenantID = primitives.FirstNonEmpty(identity.TenantID, authMetadataString(metadata, ScopeTenantIDKey, ScopeTenantKey, ScopeDefaultTenantKey, ScopeDefaultTenantIDKey))
+		identity.OrgID = primitives.FirstNonEmpty(identity.OrgID, authMetadataString(metadata, ScopeOrganizationIDKey, ScopeOrgIDKey, ScopeOrgKey, ScopeDefaultOrgIDKey))
 	}
 
 	if defaults.Enabled {
