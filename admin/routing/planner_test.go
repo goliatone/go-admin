@@ -395,6 +395,7 @@ func TestPlannerAdoptsIdenticalExistingHostRoutes(t *testing.T) {
 				Routes: map[string]string{
 					"translations.dashboard":      "/translations/dashboard",
 					"translations.exchange":       "/translations/exchange",
+					"translations.families":       "/translations/families",
 					"translations.families.id":    "/translations/families/:family_id",
 					"translations.assignments.id": "/translations/assignments/:assignment_id",
 				},
@@ -442,6 +443,7 @@ func TestPlannerAdoptsIdenticalExistingHostRoutes(t *testing.T) {
 		UIRoutes: map[string]string{
 			"translations.dashboard":        "/dashboard",
 			"translations.exchange":         "/exchange",
+			"translations.families":         "/families",
 			"translations.families.id":      "/families/:family_id",
 			"translations.assignments.id":   "/assignments/:assignment_id",
 			"translations.assignments.edit": "/assignments/:assignment_id/edit",

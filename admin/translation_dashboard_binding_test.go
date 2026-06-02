@@ -16,7 +16,7 @@ import (
 
 func TestTranslationQueueBindingDashboardAggregatesCardsTablesAndLinks(t *testing.T) {
 	now := time.Date(2026, 2, 17, 12, 0, 0, 0, time.UTC)
-	adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{
+	adm := mustNewAdmin(t, translationFamilyScopedTestConfig(), Dependencies{
 		FeatureGate: featureGateFromKeys(FeatureCMS, FeatureTranslationQueue),
 	})
 	adm.WithAuthorizer(translationPermissionAuthorizer{
@@ -149,6 +149,21 @@ func TestTranslationQueueBindingDashboardAggregatesCardsTablesAndLinks(t *testin
 	if got := toInt(cardByID[translationDashboardCardMissingRequiredLocale]["count"]); got != 1 {
 		t.Fatalf("expected missing_required_locales count=1, got %d", got)
 	}
+	blockedDrilldown := extractMap(cardByID[translationDashboardCardBlockedFamilies]["drilldown"])
+	if href := toString(blockedDrilldown["href"]); href != "/admin/translations/families?channel=production&readiness_state=blocked" {
+		t.Fatalf("expected blocked families UI drilldown, got %q", href)
+	}
+	if resolverKey := toString(blockedDrilldown["resolver_key"]); resolverKey != "admin.translations.families" {
+		t.Fatalf("expected blocked families UI resolver key, got %q", resolverKey)
+	}
+	missingLocaleDrilldown := extractMap(cardByID[translationDashboardCardMissingRequiredLocale]["drilldown"])
+	if href := toString(missingLocaleDrilldown["href"]); href != "/admin/translations/families?channel=production&readiness_state=blocked&blocker_code=missing_locale" &&
+		href != "/admin/translations/families?blocker_code=missing_locale&channel=production&readiness_state=blocked" {
+		t.Fatalf("expected missing locale UI drilldown, got %q", href)
+	}
+	if strings.Contains(toString(blockedDrilldown["href"]), "/admin/api/") || strings.Contains(toString(missingLocaleDrilldown["href"]), "/admin/api/") {
+		t.Fatalf("primary family dashboard drilldowns must not target admin API: blocked=%q missing=%q", blockedDrilldown["href"], missingLocaleDrilldown["href"])
+	}
 
 	tables := extractMap(data["tables"])
 	overdueTable := extractMap(tables[translationDashboardTableTopOverdueAssignments])
@@ -217,6 +232,12 @@ func TestTranslationQueueBindingDashboardAggregatesCardsTablesAndLinks(t *testin
 	if href := toString(runbookByID["translations.dashboard.publish_blockers"]["href"]); href == "" {
 		t.Fatalf("expected publish_blockers runbook href to resolve")
 	}
+	if href := toString(runbookByID["translations.dashboard.publish_blockers"]["href"]); href != "/admin/translations/families?readiness_state=blocked" {
+		t.Fatalf("expected publish_blockers runbook to target family UI, got %q", href)
+	}
+	if resolverKey := toString(runbookByID["translations.dashboard.publish_blockers"]["resolver_key"]); resolverKey != "admin.translations.families" {
+		t.Fatalf("expected publish_blockers UI resolver key, got %q", resolverKey)
+	}
 	alerts := extractListMaps(data["alerts"])
 	if len(alerts) == 0 {
 		t.Fatalf("expected dashboard alerts for overdue/blocked conditions")
@@ -230,7 +251,7 @@ func TestTranslationQueueBindingDashboardAggregatesCardsTablesAndLinks(t *testin
 }
 
 func TestTranslationQueueBindingDashboardDegradesWhenFamilyRuntimeUnavailable(t *testing.T) {
-	adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{
+	adm := mustNewAdmin(t, translationFamilyScopedTestConfig(), Dependencies{
 		FeatureGate: featureGateFromKeys(FeatureCMS, FeatureTranslationQueue),
 	})
 	adm.WithAuthorizer(translationPermissionAuthorizer{
@@ -316,7 +337,7 @@ func TestTranslationQueueBindingDashboardOptimizedPathAvoidsFullFamilyHydration(
 	}); err != nil {
 		t.Fatalf("seed assignment: %v", err)
 	}
-	adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{
+	adm := mustNewAdmin(t, translationFamilyScopedTestConfig(), Dependencies{
 		FeatureGate: featureGateFromKeys(FeatureCMS, FeatureTranslationQueue),
 	})
 	adm.WithAuthorizer(translationPermissionAuthorizer{allowed: map[string]bool{PermAdminTranslationsView: true}})

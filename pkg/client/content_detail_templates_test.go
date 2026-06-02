@@ -92,6 +92,28 @@ func TestTranslationFamilyDetailTemplateBootstrapsClientRenderer(t *testing.T) {
 	}
 }
 
+func TestTranslationFamiliesTemplateBootstrapsClientRenderer(t *testing.T) {
+	template := mustReadClientTemplate(t, "resources/translations/families.html")
+
+	required := []string{
+		`id="translation-families-root"`,
+		`data-endpoint="{{ translation_families_api_path|default:"" }}"`,
+		`data-base-path="{{ base_path|default:"/admin" }}"`,
+		`data-family-base-path="{{ translation_family_base_path|default:"" }}"`,
+		`data-matrix-path="{{ translation_matrix_path|default:"" }}"`,
+		`data-queue-path="{{ translation_queue_path|default:"" }}"`,
+		`data-title="Translation Families"`,
+		`data-surface="translation-families"`,
+		`initTranslationFamilyListPage`,
+	}
+	for _, fragment := range required {
+		if strings.Contains(template, fragment) {
+			continue
+		}
+		t.Fatalf("expected translation families template fragment not found: %q", fragment)
+	}
+}
+
 func mustReadClientTemplate(t *testing.T, name string) string {
 	t.Helper()
 

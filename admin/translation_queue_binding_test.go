@@ -364,6 +364,143 @@ func TestTranslationQueueBindingAssignmentsReturnsEnvelopeAndActionStates(t *tes
 	}
 }
 
+func TestTranslationQueueBindingAssignmentsIncludesOwnerLabels(t *testing.T) {
+	now := time.Date(2026, 2, 17, 12, 0, 0, 0, time.UTC)
+	userStore := NewInMemoryUserStore()
+	adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{
+		FeatureGate: featureGateFromKeys(FeatureCMS, FeatureTranslationQueue, FeatureUsers),
+		UserRepository: &inMemoryUserRepoAdapter{
+			store: userStore,
+		},
+		RoleRepository: &inMemoryRoleRepoAdapter{
+			store: userStore,
+		},
+	})
+	adm.WithAuthorizer(translationPermissionAuthorizer{
+		allowed: map[string]bool{
+			PermAdminTranslationsView: true,
+		},
+	})
+	if _, err := userStore.CreateUser(context.Background(), UserRecord{
+		ID:       "9e838c81-6d3e-49d7-ad8f-b6616a040a44",
+		Username: "translator.jane",
+		Email:    "jane@example.com",
+		Status:   "active",
+	}); err != nil {
+		t.Fatalf("save user: %v", err)
+	}
+	if _, err := userStore.CreateUser(context.Background(), UserRecord{
+		ID:       "reviewer-1",
+		Username: "reviewer.sam",
+		Email:    "sam@example.com",
+		Status:   "active",
+	}); err != nil {
+		t.Fatalf("save reviewer: %v", err)
+	}
+	repo := NewInMemoryTranslationAssignmentRepository()
+	created, err := repo.Create(context.Background(), TranslationAssignment{
+		FamilyID:       "tg-owner-labels",
+		EntityType:     "pages",
+		SourceRecordID: "page-1",
+		SourceLocale:   "en",
+		TargetLocale:   "es",
+		AssignmentType: AssignmentTypeDirect,
+		Status:         AssignmentStatusInReview,
+		Priority:       PriorityNormal,
+		AssigneeID:     "9e838c81-6d3e-49d7-ad8f-b6616a040a44",
+		ReviewerID:     "reviewer-1",
+	})
+	if err != nil {
+		t.Fatalf("create assignment: %v", err)
+	}
+	if _, registerErr := RegisterTranslationQueuePanel(adm, repo); registerErr != nil {
+		t.Fatalf("register queue panel: %v", registerErr)
+	}
+	binding := newTranslationQueueBinding(adm)
+	binding.now = func() time.Time { return now }
+	app := newTranslationQueueTestApp(t, binding)
+
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/translations/assignments", nil)
+	req.Header.Set("X-User-ID", "manager-1")
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("request error: %v", err)
+	}
+	defer resp.Body.Close() //nolint:errcheck // test response body cleanup is best-effort
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status=%d want=200", resp.StatusCode)
+	}
+	payload := map[string]any{}
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	data := anySliceFromValue(payload["data"])
+	if len(data) != 1 {
+		t.Fatalf("expected one data row, got %d", len(data))
+	}
+	row := extractMap(data[0])
+	if got := strings.TrimSpace(toString(row["id"])); got != created.ID {
+		t.Fatalf("expected id %q, got %q", created.ID, got)
+	}
+	if got := strings.TrimSpace(toString(row["assignee_label"])); got != "translator.jane" {
+		t.Fatalf("expected assignee_label translator.jane, got %q", got)
+	}
+	if got := strings.TrimSpace(toString(row["reviewer_label"])); got != "reviewer.sam" {
+		t.Fatalf("expected reviewer_label reviewer.sam, got %q", got)
+	}
+	if got := strings.TrimSpace(toString(row["assignee_id"])); got != "9e838c81-6d3e-49d7-ad8f-b6616a040a44" {
+		t.Fatalf("expected assignee_id to remain stable, got %q", got)
+	}
+}
+
+func TestTranslationQueueActorLabelResolverUsesUserServiceFallbackAndCaches(t *testing.T) {
+	userStore := NewInMemoryUserStore()
+	userRepo := &translationQueueCountingUserRepo{UserRepository: &inMemoryUserRepoAdapter{store: userStore}}
+	adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{
+		FeatureGate:    featureGateFromKeys(FeatureCMS, FeatureTranslationQueue),
+		UserRepository: userRepo,
+		RoleRepository: &inMemoryRoleRepoAdapter{store: userStore},
+	})
+	if _, err := userStore.CreateUser(context.Background(), UserRecord{
+		ID:       "translator-1",
+		Username: "translator.jane",
+		Email:    "jane@example.com",
+		Status:   "active",
+	}); err != nil {
+		t.Fatalf("save user: %v", err)
+	}
+
+	binding := newTranslationQueueBinding(adm)
+	resolver := binding.newAssignmentActorLabelResolver()
+	assignments := []TranslationAssignment{
+		{AssigneeID: "translator-1", ReviewerID: "translator-1"},
+		{AssigneeID: "translator-1"},
+	}
+
+	first := resolver.labelsForAssignments(context.Background(), assignments)
+	second := resolver.labelsForAssignments(context.Background(), assignments)
+
+	if got := strings.TrimSpace(first["translator-1"]); got != "translator.jane" {
+		t.Fatalf("expected first lookup label translator.jane, got %q", got)
+	}
+	if got := strings.TrimSpace(second["translator-1"]); got != "translator.jane" {
+		t.Fatalf("expected cached label translator.jane, got %q", got)
+	}
+	if userRepo.getCount != 1 {
+		t.Fatalf("expected one user lookup for repeated owner id, got %d", userRepo.getCount)
+	}
+}
+
+type translationQueueCountingUserRepo struct {
+	UserRepository
+	getCount int
+}
+
+func (r *translationQueueCountingUserRepo) Get(ctx context.Context, id string) (UserRecord, error) {
+	r.getCount++
+	return r.UserRepository.Get(ctx, id)
+}
+
 func TestTranslationQueueBindingAssignmentsSupportsPageLocalFamilyGrouping(t *testing.T) {
 	now := time.Date(2026, 2, 17, 12, 0, 0, 0, time.UTC)
 	adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{
@@ -2029,7 +2166,13 @@ func TestTranslationQueueBindingFilterSnapshotRejectsUnsupportedReviewStateFallb
 }
 
 func TestTranslationQueueBindingAssignmentActionEnforcesScopeIsolation(t *testing.T) {
-	adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{
+	adm := mustNewAdmin(t, Config{
+		BasePath:        "/admin",
+		DefaultLocale:   "en",
+		ScopeMode:       "single",
+		DefaultTenantID: "tenant-b",
+		DefaultOrgID:    "org-b",
+	}, Dependencies{
 		FeatureGate: featureGateFromKeys(FeatureCMS, FeatureTranslationQueue),
 	})
 	adm.WithAuthorizer(translationPermissionAuthorizer{

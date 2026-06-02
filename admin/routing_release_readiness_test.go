@@ -32,9 +32,11 @@ func TestRoutingDefaultTopologySnapshot(t *testing.T) {
 		"routes": map[string]string{
 			"admin|dashboard":                   resolveURLWith(adm.URLs(), "admin", "dashboard", nil, nil),
 			"admin|translations.dashboard":      resolveURLWith(adm.URLs(), "admin", "translations.dashboard", nil, nil),
+			"admin|translations.families":       resolveURLWith(adm.URLs(), "admin", "translations.families", nil, nil),
 			"admin|translations.queue":          resolveURLWith(adm.URLs(), "admin", "translations.queue", nil, nil),
 			"admin.api|errors":                  resolveURLWith(adm.URLs(), adminAPIGroupName(adm.config), "errors", nil, nil),
 			"admin.api|translations.dashboard":  resolveURLWith(adm.URLs(), adminAPIGroupName(adm.config), "translations.dashboard", nil, nil),
+			"admin.api|translations.families":   resolveURLWith(adm.URLs(), adminAPIGroupName(adm.config), "translations.families", nil, nil),
 			"admin.api|translations.queue":      resolveURLWith(adm.URLs(), adminAPIGroupName(adm.config), "translations.queue", nil, nil),
 			"public.api.v1|preview":             resolveURLWith(adm.URLs(), publicAPIGroupName(adm.config), "preview", map[string]string{"token": "token"}, nil),
 			"public.api.v1|site.menus.location": resolveURLWith(adm.URLs(), publicAPIGroupName(adm.config), SiteRouteMenuByLocation, map[string]string{"location": "site.main"}, nil),

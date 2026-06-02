@@ -1,6 +1,8 @@
 package quickstart
 
 import (
+	"context"
+	"fmt"
 	"os"
 	"strings"
 	"testing"
@@ -8,10 +10,12 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/goliatone/go-admin/admin"
 	router "github.com/goliatone/go-router"
+	"github.com/stretchr/testify/mock"
 )
 
 type uiRoutesCaptureRouter struct {
 	getHandlers map[string]router.HandlerFunc
+	getPaths    []string
 }
 
 func newUIRoutesCaptureRouter() *uiRoutesCaptureRouter {
@@ -55,6 +59,7 @@ func (r *uiRoutesCaptureRouter) Use(m ...router.MiddlewareFunc) router.Router[*f
 func (r *uiRoutesCaptureRouter) Get(path string, handler router.HandlerFunc, mw ...router.MiddlewareFunc) router.RouteInfo {
 	_ = mw
 	r.getHandlers[path] = handler
+	r.getPaths = append(r.getPaths, path)
 	return nil
 }
 
@@ -287,6 +292,9 @@ func TestRegisterAdminUIRoutesTranslationCoreShellsAreCapabilityGuarded(t *testi
 	if disabledRouter.getHandlers["/admin/translations/families/:family_id"] != nil {
 		t.Fatalf("expected family-detail shell route to be absent when core capability disabled")
 	}
+	if disabledRouter.getHandlers["/admin/translations/families"] != nil {
+		t.Fatalf("expected family-list shell route to be absent when core capability disabled")
+	}
 	if disabledRouter.getHandlers["/admin/translations/matrix"] != nil {
 		t.Fatalf("expected matrix shell route to be absent when core capability disabled")
 	}
@@ -314,7 +322,89 @@ func TestRegisterAdminUIRoutesTranslationCoreShellsAreCapabilityGuarded(t *testi
 	if enabledRouter.getHandlers["/admin/translations/families/:family_id"] == nil {
 		t.Fatalf("expected family-detail shell route handler when core capability enabled")
 	}
+	if enabledRouter.getHandlers["/admin/translations/families"] == nil {
+		t.Fatalf("expected family-list shell route handler when core capability enabled")
+	}
 	if enabledRouter.getHandlers["/admin/translations/matrix"] == nil {
 		t.Fatalf("expected matrix shell route handler when core capability enabled")
+	}
+	assertRouteRegisteredBefore(t, enabledRouter.getPaths, "/admin/translations/families", "/admin/translations/families/:family_id")
+}
+
+func TestRegisterAdminUIRoutesTranslationFamiliesShellContext(t *testing.T) {
+	cfg := NewAdminConfig("/admin", "Admin", "en")
+	adm, _, err := NewAdmin(
+		cfg,
+		AdapterHooks{},
+		WithFeatureDefaults(map[string]bool{
+			string(admin.FeatureCMS): true,
+		}),
+	)
+	if err != nil {
+		t.Fatalf("create core admin: %v", err)
+	}
+	registerTranslationCapabilities(
+		adm,
+		TranslationProductConfig{Profile: TranslationProfileCore},
+		nil,
+		translationCapabilityModuleState{HasState: true},
+	)
+
+	captureRouter := newUIRoutesCaptureRouter()
+	if err := RegisterAdminUIRoutes(captureRouter, cfg, adm, nil); err != nil {
+		t.Fatalf("register core ui routes: %v", err)
+	}
+	handler := captureRouter.getHandlers["/admin/translations/families"]
+	if handler == nil {
+		t.Fatalf("expected family-list shell route handler")
+	}
+
+	ctx := router.NewMockContext()
+	ctx.On("Context").Return(context.Background())
+	ctx.On("Render", "resources/translations/families", mock.MatchedBy(func(arg any) bool {
+		viewCtx, ok := arg.(router.ViewContext)
+		if !ok {
+			return false
+		}
+		expected := map[string]string{
+			"title":                         "Translation Families",
+			"base_path":                     "/admin",
+			"translation_families_api_path": "/admin/api/translations/families",
+			"translation_family_base_path":  "/admin/translations/families",
+			"translation_matrix_path":       "/admin/translations/matrix",
+			"translation_queue_path":        "",
+		}
+		for key, want := range expected {
+			if got := strings.TrimSpace(fmt.Sprint(viewCtx[key])); got != want {
+				return false
+			}
+		}
+		return true
+	})).Return(nil)
+
+	if err := handler(ctx); err != nil {
+		t.Fatalf("render family-list shell: %v", err)
+	}
+	ctx.AssertExpectations(t)
+}
+
+func assertRouteRegisteredBefore(t *testing.T, paths []string, before, after string) {
+	t.Helper()
+
+	beforeIndex := -1
+	afterIndex := -1
+	for i, path := range paths {
+		if path == before {
+			beforeIndex = i
+		}
+		if path == after {
+			afterIndex = i
+		}
+	}
+	if beforeIndex < 0 || afterIndex < 0 {
+		t.Fatalf("expected routes %q and %q in %v", before, after, paths)
+	}
+	if beforeIndex > afterIndex {
+		t.Fatalf("expected %q to be registered before %q, got %v", before, after, paths)
 	}
 }

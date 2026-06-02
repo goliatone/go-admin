@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	navinternal "github.com/goliatone/go-admin/admin/internal/navigation"
+	auth "github.com/goliatone/go-auth"
 	router "github.com/goliatone/go-router"
 )
 
@@ -644,6 +645,10 @@ func TestPreferencesQueryParamsIncludeTracesAndVersions(t *testing.T) {
 
 	req := httptest.NewRequest("GET", preferencesAPIPathWithQuery(t, adm, "", "?tenant_id=tenant-1&levels=system,tenant&keys=theme&include_traces=1&include_versions=1"), nil)
 	req.Header.Set("X-User-ID", "user-1")
+	req = req.WithContext(auth.WithActorContext(req.Context(), &auth.ActorContext{
+		ActorID:  "user-1",
+		TenantID: "tenant-1",
+	}))
 	rr := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(rr, req)
 	if rr.Code != 200 {
@@ -775,6 +780,10 @@ func TestPreferencesEmptyThemeClearsToInheritedValue(t *testing.T) {
 	req := httptest.NewRequest("PUT", preferencesAPIPathWithQuery(t, adm, "user-1", "?tenant_id=tenant-1"), bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-User-ID", "user-1")
+	req = req.WithContext(auth.WithActorContext(req.Context(), &auth.ActorContext{
+		ActorID:  "user-1",
+		TenantID: "tenant-1",
+	}))
 	rr := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(rr, req)
 	if rr.Code != 200 {
@@ -823,6 +832,10 @@ func TestPreferencesTenantWriteRequiresPermission(t *testing.T) {
 	req := httptest.NewRequest("PUT", preferencesAPIPathWithQuery(t, adm, "user-1", "?tenant_id=tenant-1"), bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-User-ID", "user-1")
+	req = req.WithContext(auth.WithActorContext(req.Context(), &auth.ActorContext{
+		ActorID:  "user-1",
+		TenantID: "tenant-1",
+	}))
 	rr := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(rr, req)
 	if rr.Code != 403 {
@@ -862,6 +875,10 @@ func TestPreferencesTenantWriteHonorsPermission(t *testing.T) {
 	req := httptest.NewRequest("PUT", preferencesAPIPathWithQuery(t, adm, "user-1", "?tenant_id=tenant-1"), bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-User-ID", "user-1")
+	req = req.WithContext(auth.WithActorContext(req.Context(), &auth.ActorContext{
+		ActorID:  "user-1",
+		TenantID: "tenant-1",
+	}))
 	rr := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(rr, req)
 	if rr.Code != 200 {

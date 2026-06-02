@@ -119,3 +119,83 @@ func TestBunTranslationFamilyStoreTranslationEditorMemorySuggestions(t *testing.
 		t.Fatalf("expected no exact-match suggestions, got %+v", empty)
 	}
 }
+
+func TestBunTranslationFamilyStoreFamilyQueryScopesChildRows(t *testing.T) {
+	ctx := context.Background()
+	db := newTranslationFamilyStoreSQLiteDB(t)
+	store := NewBunTranslationFamilyStore(db)
+	now := time.Date(2026, 3, 12, 12, 0, 0, 0, time.UTC)
+	if err := store.SaveFamily(ctx, translationservices.FamilyRecord{
+		ID:              "family-scoped-detail",
+		TenantID:        "tenant-1",
+		OrgID:           "org-1",
+		ContentType:     "pages",
+		SourceLocale:    "en",
+		SourceVariantID: "family-scoped-detail::en",
+		ReadinessState:  "blocked",
+		Variants: []translationservices.FamilyVariant{{
+			ID:             "family-scoped-detail::en",
+			FamilyID:       "family-scoped-detail",
+			TenantID:       "tenant-1",
+			OrgID:          "org-1",
+			Locale:         "en",
+			Status:         string(translationcore.VariantStatusPublished),
+			IsSource:       true,
+			SourceRecordID: "page-1",
+			Fields:         map[string]string{"title": "Scoped"},
+			CreatedAt:      now,
+			UpdatedAt:      now,
+		}},
+		Blockers: []translationservices.FamilyBlocker{{
+			FamilyID:    "family-scoped-detail",
+			TenantID:    "tenant-1",
+			OrgID:       "org-1",
+			BlockerCode: "missing_locale",
+			Locale:      "fr",
+		}},
+	}); err != nil {
+		t.Fatalf("seed scoped family: %v", err)
+	}
+	if _, err := db.NewInsert().Model(&bunTranslationLocaleVariantRecord{
+		VariantID:      "family-scoped-detail::es-other",
+		FamilyID:       "family-scoped-detail",
+		TenantID:       "tenant-2",
+		OrgID:          "org-9",
+		Locale:         "es",
+		Status:         string(translationcore.VariantStatusDraft),
+		SourceRecordID: "page-other",
+		FieldsJSON:     `{"title":"Wrong scope"}`,
+		CreatedAt:      now,
+		UpdatedAt:      now,
+	}).Exec(ctx); err != nil {
+		t.Fatalf("seed wrong-scope variant: %v", err)
+	}
+	if _, err := db.NewInsert().Model(&bunTranslationFamilyBlockerRecord{
+		FamilyID:    "family-scoped-detail",
+		TenantID:    "tenant-2",
+		OrgID:       "org-9",
+		BlockerCode: "wrong_scope",
+		Locale:      "es",
+		CreatedAt:   now,
+		UpdatedAt:   now,
+	}).Exec(ctx); err != nil {
+		t.Fatalf("seed wrong-scope blocker: %v", err)
+	}
+
+	family, ok, err := store.FamilyQuery(ctx, translationservices.GetFamilyInput{
+		FamilyID: "family-scoped-detail",
+		Scope:    translationservices.Scope{TenantID: "tenant-1", OrgID: "org-1"},
+	})
+	if err != nil {
+		t.Fatalf("family query: %v", err)
+	}
+	if !ok {
+		t.Fatalf("expected scoped family")
+	}
+	if len(family.Variants) != 1 || family.Variants[0].TenantID != "tenant-1" || family.Variants[0].Locale != "en" {
+		t.Fatalf("unexpected scoped variants: %+v", family.Variants)
+	}
+	if len(family.Blockers) != 1 || family.Blockers[0].TenantID != "tenant-1" || family.Blockers[0].BlockerCode != "missing_locale" {
+		t.Fatalf("unexpected scoped blockers: %+v", family.Blockers)
+	}
+}

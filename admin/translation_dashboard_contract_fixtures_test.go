@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"slices"
+	"strings"
 	"testing"
 )
 
@@ -45,6 +46,7 @@ func assertTranslationDashboardFixtureState(t *testing.T, stateKey string, paylo
 	if len(cards) != 5 {
 		t.Fatalf("expected five cards for %s, got %d", stateKey, len(cards))
 	}
+	assertDashboardPrimaryFamilyCardLinks(t, cards, stateKey)
 	summary := extractMap(data["summary"])
 	if len(summary) == 0 {
 		t.Fatalf("expected summary for %s", stateKey)
@@ -57,6 +59,7 @@ func assertTranslationDashboardFixtureState(t *testing.T, stateKey string, paylo
 	if len(runbooks) < 3 {
 		t.Fatalf("expected runbooks for %s, got %+v", stateKey, runbooks)
 	}
+	assertDashboardPublishBlockersRunbookLink(t, runbooks, stateKey)
 
 	contracts := extractMap(meta["contracts"])
 	reasonContract := extractMap(contracts["reason_contract"])
@@ -88,6 +91,7 @@ func assertTranslationDashboardFixtureState(t *testing.T, stateKey string, paylo
 	if optionalFields := toStringSlice(blockedModel["optional_fields"]); !dashboardFixtureContains(optionalFields, "reason_breakdown") || !dashboardFixtureContains(optionalFields, "affected_locales") {
 		t.Fatalf("expected blocked families optional reason fields, got %+v", optionalFields)
 	}
+	assertDashboardBlockedFamilyQueryModel(t, blockedModel, stateKey)
 
 	switch stateKey {
 	case "empty":
@@ -156,6 +160,60 @@ func assertDashboardSummaryCount(t *testing.T, summary map[string]any, key strin
 	}
 }
 
+func assertDashboardPrimaryFamilyCardLinks(t *testing.T, cards []map[string]any, stateKey string) {
+	t.Helper()
+	for _, cardID := range []string{
+		translationDashboardCardBlockedFamilies,
+		translationDashboardCardMissingRequiredLocale,
+	} {
+		card := dashboardFixtureCardByID(cards, cardID)
+		if len(card) == 0 {
+			t.Fatalf("expected %s card in %s fixture", cardID, stateKey)
+		}
+		drilldown := extractMap(card["drilldown"])
+		if got := toString(drilldown["resolver_key"]); got != "admin.translations.families" {
+			t.Fatalf("expected %s card resolver to use UI route in %s fixture, got %q", cardID, stateKey, got)
+		}
+		if href := toString(drilldown["href"]); !strings.HasPrefix(href, "/admin/translations/families") || strings.Contains(href, "/admin/api/") {
+			t.Fatalf("expected %s card to target family UI in %s fixture, got %q", cardID, stateKey, href)
+		}
+		if group := toString(drilldown["group"]); group != "admin" {
+			t.Fatalf("expected %s card group admin in %s fixture, got %q", cardID, stateKey, group)
+		}
+	}
+}
+
+func assertDashboardPublishBlockersRunbookLink(t *testing.T, runbooks []map[string]any, stateKey string) {
+	t.Helper()
+	runbook := dashboardFixtureRunbookByID(runbooks, "translations.dashboard.publish_blockers")
+	if len(runbook) == 0 {
+		t.Fatalf("expected publish blockers runbook in %s fixture", stateKey)
+	}
+	if got := toString(runbook["resolver_key"]); got != "admin.translations.families" {
+		t.Fatalf("expected publish blockers runbook resolver to use UI route in %s fixture, got %q", stateKey, got)
+	}
+	if href := toString(runbook["href"]); !strings.HasPrefix(href, "/admin/translations/families") || strings.Contains(href, "/admin/api/") {
+		t.Fatalf("expected publish blockers runbook to target family UI in %s fixture, got %q", stateKey, href)
+	}
+}
+
+func assertDashboardBlockedFamilyQueryModel(t *testing.T, model map[string]any, stateKey string) {
+	t.Helper()
+	if got := toString(model["drilldown_route"]); got != "translations.families" {
+		t.Fatalf("expected blocked family query model UI drilldown route in %s fixture, got %q", stateKey, got)
+	}
+	resolverKeys := toStringSlice(model["resolver_keys"])
+	for _, key := range []string{
+		"admin.translations.families",
+		"admin.translations.families.id",
+		"admin.api.translations.families",
+	} {
+		if !dashboardFixtureContains(resolverKeys, key) {
+			t.Fatalf("expected blocked family query model resolver %q in %s fixture, got %+v", key, stateKey, resolverKeys)
+		}
+	}
+}
+
 func assertDashboardTableRows(t *testing.T, tables map[string]any, tableID string, want int) {
 	t.Helper()
 	table := extractMap(tables[tableID])
@@ -209,4 +267,22 @@ func assertDashboardReasonContext(t *testing.T, row map[string]any) {
 
 func dashboardFixtureContains(values []string, candidate string) bool {
 	return slices.Contains(values, candidate)
+}
+
+func dashboardFixtureCardByID(cards []map[string]any, id string) map[string]any {
+	for _, card := range cards {
+		if toString(card["id"]) == id {
+			return card
+		}
+	}
+	return nil
+}
+
+func dashboardFixtureRunbookByID(runbooks []map[string]any, id string) map[string]any {
+	for _, runbook := range runbooks {
+		if toString(runbook["id"]) == id {
+			return runbook
+		}
+	}
+	return nil
 }

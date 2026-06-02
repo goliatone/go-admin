@@ -220,6 +220,9 @@ func TestTranslationCapabilitiesExposeCleanBreakRoutes(t *testing.T) {
 	if got := strings.TrimSpace(routes["admin.translations.families.id"]); got != "/admin/translations/families/:family_id" {
 		t.Fatalf("expected family detail route, got %q", got)
 	}
+	if got := strings.TrimSpace(routes["admin.translations.families"]); got != "/admin/translations/families" {
+		t.Fatalf("expected family collection UI route, got %q", got)
+	}
 	if got := strings.TrimSpace(routes["admin.api.translations.families"]); got != "/admin/api/translations/families" {
 		t.Fatalf("expected families api route, got %q", got)
 	}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"net/http"
 	"sort"
 	"testing"
 
@@ -64,6 +65,238 @@ func TestTranslationFamilySyncKeepsLocaleVariantsForSharedPageRecordID(t *testin
 		if variant.SourceRecordID != "page-privacy" {
 			t.Fatalf("variant %s source record id = %q", variant.ID, variant.SourceRecordID)
 		}
+	}
+}
+
+func TestTranslationFamilySyncAppliesSingleTenantDefaultScope(t *testing.T) {
+	const (
+		defaultTenant = "tenant-default"
+		defaultOrg    = "org-default"
+	)
+	content := &translationFamilySyncContentStub{
+		InMemoryContentService: NewInMemoryContentService(),
+		pagesByLocale: map[string][]CMSPage{
+			"en": {{
+				ID:               "page-global",
+				FamilyID:         "family-global",
+				Locale:           "en",
+				Title:            "Global Page",
+				Slug:             "global-page",
+				Status:           "published",
+				AvailableLocales: []string{"en"},
+			}},
+		},
+		contentsByLocale: map[string][]CMSContent{
+			"en": {{
+				ID:               "post-explicit",
+				FamilyID:         "family-explicit",
+				Locale:           "en",
+				ContentType:      "posts",
+				ContentTypeSlug:  "posts",
+				Title:            "Explicit Post",
+				Slug:             "explicit-post",
+				Status:           "published",
+				AvailableLocales: []string{"en"},
+				Metadata:         map[string]any{"tenant_id": "tenant-explicit", "org_id": "org-explicit"},
+			}},
+		},
+	}
+	adm := &Admin{
+		contentSvc: content,
+		config: Config{
+			DefaultLocale:   "en",
+			ScopeMode:       "single",
+			DefaultTenantID: defaultTenant,
+			DefaultOrgID:    defaultOrg,
+		},
+	}
+
+	families, err := translationFamilySyncFamilies(context.Background(), adm, []string{"en"}, "en")
+	if err != nil {
+		t.Fatalf("translationFamilySyncFamilies: %v", err)
+	}
+
+	defaulted := families["family-global"]
+	if defaulted.TenantID != defaultTenant || defaulted.OrgID != defaultOrg {
+		t.Fatalf("defaulted family scope = (%q, %q), want (%q, %q)", defaulted.TenantID, defaulted.OrgID, defaultTenant, defaultOrg)
+	}
+	if len(defaulted.Variants) != 1 {
+		t.Fatalf("defaulted variants = %d, want 1", len(defaulted.Variants))
+	}
+	if defaulted.Variants[0].TenantID != defaultTenant || defaulted.Variants[0].OrgID != defaultOrg {
+		t.Fatalf("defaulted variant scope = (%q, %q), want (%q, %q)", defaulted.Variants[0].TenantID, defaulted.Variants[0].OrgID, defaultTenant, defaultOrg)
+	}
+
+	explicit := families["family-explicit"]
+	if explicit.TenantID != "tenant-explicit" || explicit.OrgID != "org-explicit" {
+		t.Fatalf("explicit family scope = (%q, %q), want explicit scope", explicit.TenantID, explicit.OrgID)
+	}
+	if len(explicit.Variants) != 1 {
+		t.Fatalf("explicit variants = %d, want 1", len(explicit.Variants))
+	}
+	if explicit.Variants[0].TenantID != "tenant-explicit" || explicit.Variants[0].OrgID != "org-explicit" {
+		t.Fatalf("explicit variant scope = (%q, %q), want explicit scope", explicit.Variants[0].TenantID, explicit.Variants[0].OrgID)
+	}
+}
+
+func TestTranslationFamilySyncDoesNotDefaultScopeInMultiTenantMode(t *testing.T) {
+	content := &translationFamilySyncContentStub{
+		InMemoryContentService: NewInMemoryContentService(),
+		pagesByLocale: map[string][]CMSPage{
+			"en": {{
+				ID:               "page-unscoped",
+				FamilyID:         "family-unscoped",
+				Locale:           "en",
+				Title:            "Unscoped Page",
+				Slug:             "unscoped-page",
+				Status:           "published",
+				AvailableLocales: []string{"en"},
+			}},
+		},
+	}
+	adm := &Admin{
+		contentSvc: content,
+		config: Config{
+			DefaultLocale:   "en",
+			ScopeMode:       "multi",
+			DefaultTenantID: "tenant-default",
+			DefaultOrgID:    "org-default",
+		},
+	}
+
+	families, err := translationFamilySyncFamilies(context.Background(), adm, []string{"en"}, "en")
+	if err != nil {
+		t.Fatalf("translationFamilySyncFamilies: %v", err)
+	}
+
+	family := families["family-unscoped"]
+	if family.TenantID != "" || family.OrgID != "" {
+		t.Fatalf("multi-tenant family scope = (%q, %q), want blank", family.TenantID, family.OrgID)
+	}
+	if len(family.Variants) != 1 {
+		t.Fatalf("variants = %d, want 1", len(family.Variants))
+	}
+	if family.Variants[0].TenantID != "" || family.Variants[0].OrgID != "" {
+		t.Fatalf("multi-tenant variant scope = (%q, %q), want blank", family.Variants[0].TenantID, family.Variants[0].OrgID)
+	}
+}
+
+func TestTranslationFamilySyncSingleTenantBunDetailIntegration(t *testing.T) {
+	ctx := context.Background()
+	store := NewBunTranslationFamilyStore(newTranslationFamilyStoreSQLiteDB(t))
+	content := &translationFamilySyncContentStub{
+		InMemoryContentService: NewInMemoryContentService(),
+		pagesByLocale: map[string][]CMSPage{
+			"en": {{
+				ID:               "page-single-scope",
+				FamilyID:         "family-single-scope",
+				Locale:           "en",
+				Title:            "Single Scope",
+				Slug:             "single-scope",
+				Status:           "published",
+				AvailableLocales: []string{"en"},
+				Data:             map[string]any{"body": "Hello scoped world"},
+			}},
+		},
+	}
+	adm := mustNewAdmin(t, translationFamilyScopedTestConfig(), Dependencies{
+		FeatureGate: featureGateFromKeys(FeatureCMS),
+	})
+	adm.WithAuthorizer(translationPermissionAuthorizer{
+		allowed: map[string]bool{PermAdminTranslationsView: true},
+	})
+	adm.contentSvc = content
+	adm.WithTranslationFamilyStore(store)
+	adm.WithTranslationPolicy(readinessPolicyByEntityStub{
+		requirements: map[string]TranslationRequirements{
+			"pages": {
+				Locales:        []string{"fr"},
+				RequiredFields: map[string][]string{"fr": {"title"}},
+			},
+		},
+	})
+
+	if err := SyncTranslationFamilyStore(ctx, adm, "production"); err != nil {
+		t.Fatalf("sync translation family store: %v", err)
+	}
+
+	family, ok, err := store.FamilyQuery(ctx, translationservices.GetFamilyInput{
+		FamilyID: "family-single-scope",
+		Scope:    translationservices.Scope{TenantID: "tenant-1", OrgID: "org-1"},
+	})
+	if err != nil {
+		t.Fatalf("family query: %v", err)
+	}
+	if !ok {
+		t.Fatalf("expected synced single-tenant family")
+	}
+	if family.TenantID != "tenant-1" || family.OrgID != "org-1" {
+		t.Fatalf("family scope = (%q, %q), want tenant-1/org-1", family.TenantID, family.OrgID)
+	}
+	if len(family.Variants) != 1 || family.Variants[0].TenantID != "tenant-1" || family.Variants[0].OrgID != "org-1" {
+		t.Fatalf("variant scope not defaulted: %+v", family.Variants)
+	}
+	if len(family.Blockers) != 1 || family.Blockers[0].TenantID != "tenant-1" || family.Blockers[0].OrgID != "org-1" {
+		t.Fatalf("blocker scope not defaulted: %+v", family.Blockers)
+	}
+
+	app := newTranslationFamilyTestApp(t, newTranslationFamilyBinding(adm))
+	status, payload := doTranslationFamilyJSONRequest(t, app, http.MethodGet, "/admin/api/translations/families/family-single-scope?channel=production&tenant_id=tenant-evil&org_id=org-evil", nil, nil)
+	if status != http.StatusOK {
+		t.Fatalf("detail status=%d payload=%+v", status, payload)
+	}
+	data := extractMap(payload["data"])
+	if got := toString(data["family_id"]); got != "family-single-scope" {
+		t.Fatalf("detail family_id = %q, want family-single-scope", got)
+	}
+	blockers := testAnySlice(t, data["blockers"], "data.blockers")
+	if len(blockers) != 1 {
+		t.Fatalf("expected scoped blocker in detail, got %+v", blockers)
+	}
+}
+
+func TestTranslationFamilySyncMultiTenantBunLeavesMissingScopeBlank(t *testing.T) {
+	ctx := context.Background()
+	store := NewBunTranslationFamilyStore(newTranslationFamilyStoreSQLiteDB(t))
+	content := &translationFamilySyncContentStub{
+		InMemoryContentService: NewInMemoryContentService(),
+		pagesByLocale: map[string][]CMSPage{
+			"en": {{
+				ID:               "page-multi-scope",
+				FamilyID:         "family-multi-scope",
+				Locale:           "en",
+				Title:            "Multi Scope",
+				Slug:             "multi-scope",
+				Status:           "published",
+				AvailableLocales: []string{"en"},
+			}},
+		},
+	}
+	adm := mustNewAdmin(t, Config{
+		BasePath:        "/admin",
+		DefaultLocale:   "en",
+		ScopeMode:       "multi",
+		DefaultTenantID: "tenant-1",
+		DefaultOrgID:    "org-1",
+	}, Dependencies{FeatureGate: featureGateFromKeys(FeatureCMS)})
+	adm.contentSvc = content
+	adm.WithTranslationFamilyStore(store)
+
+	if err := SyncTranslationFamilyStore(ctx, adm, "production"); err != nil {
+		t.Fatalf("sync translation family store: %v", err)
+	}
+	family, ok, err := store.Family(ctx, "family-multi-scope")
+	if err != nil {
+		t.Fatalf("family: %v", err)
+	}
+	if !ok {
+		t.Fatalf("expected synced multi-tenant family")
+	}
+	if family.TenantID != "" || family.OrgID != "" {
+		t.Fatalf("multi-tenant family scope = (%q, %q), want blank", family.TenantID, family.OrgID)
+	}
+	if len(family.Variants) != 1 || family.Variants[0].TenantID != "" || family.Variants[0].OrgID != "" {
+		t.Fatalf("multi-tenant variant scope not blank: %+v", family.Variants)
 	}
 }
 

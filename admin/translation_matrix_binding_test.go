@@ -18,7 +18,7 @@ import (
 )
 
 func TestTranslationMatrixBindingQueryBuildsTypedRowsColumnsAndCellStates(t *testing.T) {
-	adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{
+	adm := mustNewAdmin(t, translationFamilyScopedTestConfig(), Dependencies{
 		FeatureGate: featureGateFromKeys(FeatureCMS),
 	})
 	adm.WithAuthorizer(translationPermissionAuthorizer{
@@ -146,7 +146,7 @@ func TestTranslationMatrixBindingQueryBuildsTypedRowsColumnsAndCellStates(t *tes
 }
 
 func TestTranslationMatrixBindingFiltersColumnsRowsAndScope(t *testing.T) {
-	adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{
+	adm := mustNewAdmin(t, translationFamilyScopedTestConfig(), Dependencies{
 		FeatureGate: featureGateFromKeys(FeatureCMS),
 	})
 	adm.WithAuthorizer(translationPermissionAuthorizer{
@@ -184,7 +184,7 @@ func TestTranslationMatrixBindingFiltersColumnsRowsAndScope(t *testing.T) {
 }
 
 func TestTranslationMatrixBindingIncludesMissingCellFixtureState(t *testing.T) {
-	adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{
+	adm := mustNewAdmin(t, translationFamilyScopedTestConfig(), Dependencies{
 		FeatureGate: featureGateFromKeys(FeatureCMS),
 	})
 	adm.WithAuthorizer(translationPermissionAuthorizer{
@@ -286,7 +286,7 @@ func TestTranslationMatrixBindingCreateMissingBulkReturnsTypedSummary(t *testing
 }
 
 func TestTranslationMatrixBindingExportSelectedReturnsPreviewAndPermissionChecks(t *testing.T) {
-	adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{
+	adm := mustNewAdmin(t, translationFamilyScopedTestConfig(), Dependencies{
 		FeatureGate: featureGateFromKeys(FeatureCMS),
 	})
 	adm.WithAuthorizer(translationPermissionAuthorizer{

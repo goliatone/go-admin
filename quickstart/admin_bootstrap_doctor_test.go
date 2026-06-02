@@ -2,10 +2,15 @@ package quickstart
 
 import (
 	"context"
+	"database/sql"
+	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/goliatone/go-admin/admin"
+	"github.com/uptrace/bun"
+	"github.com/uptrace/bun/dialect/sqlitedialect"
+	"github.com/uptrace/bun/driver/sqliteshim"
 )
 
 func TestWithDoctorChecksRegistersCustomChecks(t *testing.T) {
@@ -35,7 +40,7 @@ func TestWithDoctorChecksRegistersCustomChecks(t *testing.T) {
 	t.Cleanup(adm.Commands().Reset)
 
 	ids := doctorCheckIDs(adm.DoctorChecks())
-	if !ids["quickstart.adapters"] || !ids["quickstart.go_users_scope"] || !ids["quickstart.routing"] || !ids["quickstart.routes"] || !ids["quickstart.blocks.seeded_defaults"] || !ids["quickstart.translation"] {
+	if !ids["quickstart.adapters"] || !ids["quickstart.go_users_scope"] || !ids["quickstart.scope_drift"] || !ids["quickstart.routing"] || !ids["quickstart.routes"] || !ids["quickstart.blocks.seeded_defaults"] || !ids["quickstart.translation"] {
 		t.Fatalf("expected quickstart default doctor checks, got %v", ids)
 	}
 	if !ids["app.custom.health"] {
@@ -202,6 +207,273 @@ func TestQuickstartDoctorGoUsersScopeDoesNotWarnForMultiTenantUnknownResolver(t 
 	}
 }
 
+func TestQuickstartDoctorScopeDriftReportsUnavailableWithoutInspector(t *testing.T) {
+	cfg := NewAdminConfig("/admin", "Admin", "en")
+
+	output := quickstartDoctorScopeDriftCheck(cfg, nil).Run(context.Background(), nil)
+	if len(output.Findings) != 1 {
+		t.Fatalf("expected one finding, got %#v", output.Findings)
+	}
+	finding := output.Findings[0]
+	if finding.Severity != admin.DoctorSeverityInfo || finding.Code != "quickstart.scope_drift.inspector_missing" {
+		t.Fatalf("unexpected finding: %#v", finding)
+	}
+	if got := output.Metadata["available"]; got != false {
+		t.Fatalf("available = %v, want false", got)
+	}
+}
+
+func TestQuickstartDoctorScopeDriftSkipsMultiTenantMode(t *testing.T) {
+	cfg := NewAdminConfig("/admin", "Admin", "en", WithScopeMode(ScopeModeMulti))
+	inspector := scopeDriftInspectorStub{
+		results: map[string]ScopeDriftTableCheck{
+			"content_families": {Table: "content_families", Count: 3, Available: true},
+		},
+	}
+
+	output := quickstartDoctorScopeDriftCheck(cfg, inspector).Run(context.Background(), nil)
+	if len(output.Findings) != 0 {
+		t.Fatalf("expected no findings for skipped multi-tenant check, got %#v", output.Findings)
+	}
+	if got := output.Metadata["skipped"]; got != true {
+		t.Fatalf("skipped = %v, want true", got)
+	}
+	if !strings.Contains(strings.ToLower(output.Summary), "multi-tenant") {
+		t.Fatalf("expected multi-tenant skip summary, got %q", output.Summary)
+	}
+}
+
+func TestQuickstartDoctorScopeDriftReportsBlankRows(t *testing.T) {
+	cfg := NewAdminConfig("/admin", "Admin", "en")
+	inspector := scopeDriftInspectorStub{
+		results: map[string]ScopeDriftTableCheck{
+			"content_families":        {Table: "content_families", Count: 2, Available: true},
+			"locale_variants":         {Table: "locale_variants", Count: 0, Available: true},
+			"family_blockers":         {Table: "family_blockers", Count: 1, Available: true},
+			"translation_assignments": {Table: "translation_assignments", Count: 0, Available: true},
+		},
+	}
+
+	output := quickstartDoctorScopeDriftCheck(cfg, inspector).Run(context.Background(), nil)
+	if len(output.Findings) != 2 {
+		t.Fatalf("expected two blank-row findings, got %#v", output.Findings)
+	}
+	for _, finding := range output.Findings {
+		if finding.Severity != admin.DoctorSeverityWarn || finding.Code != "quickstart.scope_drift.blank_rows" {
+			t.Fatalf("unexpected finding: %#v", finding)
+		}
+	}
+	if got := output.Metadata["available"]; got != true {
+		t.Fatalf("available = %v, want true", got)
+	}
+	if !strings.Contains(output.Summary, "3 blank scoped row") {
+		t.Fatalf("expected blank row summary, got %q", output.Summary)
+	}
+}
+
+func TestQuickstartDoctorScopeDriftReportsCleanInspector(t *testing.T) {
+	cfg := NewAdminConfig("/admin", "Admin", "en")
+	inspector := scopeDriftInspectorStub{
+		results: map[string]ScopeDriftTableCheck{
+			"content_families":        {Table: "content_families", Available: true},
+			"locale_variants":         {Table: "locale_variants", Available: true},
+			"family_blockers":         {Table: "family_blockers", Available: true},
+			"translation_assignments": {Table: "translation_assignments", Available: true},
+		},
+	}
+
+	output := quickstartDoctorScopeDriftCheck(cfg, inspector).Run(context.Background(), nil)
+	if len(output.Findings) != 0 {
+		t.Fatalf("expected no findings for clean scope drift check, got %#v", output.Findings)
+	}
+	if !strings.Contains(strings.ToLower(output.Summary), "no blank scoped rows") {
+		t.Fatalf("expected clean summary, got %q", output.Summary)
+	}
+}
+
+func TestBunScopeDriftInspectorCountsBlankRows(t *testing.T) {
+	ctx := context.Background()
+	db := newScopeDriftDoctorBunDB(t)
+	createScopeDriftDoctorTables(t, db)
+	cfg := NewAdminConfig("/admin", "Admin", "en")
+	inspector := NewBunScopeDriftInspector(db)
+
+	clean := quickstartDoctorScopeDriftCheck(cfg, inspector).Run(ctx, nil)
+	if len(clean.Findings) != 0 {
+		t.Fatalf("expected clean database findings to be empty, got %#v", clean.Findings)
+	}
+
+	if _, err := db.ExecContext(ctx, `INSERT INTO content_families (tenant_id, org_id) VALUES ('', 'org-1')`); err != nil {
+		t.Fatalf("insert blank content family scope: %v", err)
+	}
+	if _, err := db.ExecContext(ctx, `INSERT INTO family_blockers (tenant_id, org_id) VALUES ('tenant-1', NULL)`); err != nil {
+		t.Fatalf("insert blank family blocker scope: %v", err)
+	}
+
+	drifted := quickstartDoctorScopeDriftCheck(cfg, inspector).Run(ctx, nil)
+	if len(drifted.Findings) != 2 {
+		t.Fatalf("expected two drift findings, got %#v", drifted.Findings)
+	}
+	if !strings.Contains(drifted.Summary, "2 blank scoped row") {
+		t.Fatalf("expected drift summary, got %q", drifted.Summary)
+	}
+}
+
+func TestRepairScopeDriftDryRunReportsWithoutMutation(t *testing.T) {
+	ctx := context.Background()
+	db := newScopeDriftDoctorBunDB(t)
+	createScopeDriftDoctorTables(t, db)
+	inspector := NewBunScopeDriftInspector(db)
+	cfg := NewAdminConfig("/admin", "Admin", "en")
+
+	if _, err := db.ExecContext(ctx, `INSERT INTO content_families (tenant_id, org_id) VALUES ('', '')`); err != nil {
+		t.Fatalf("insert blank content family scope: %v", err)
+	}
+
+	report, err := RepairScopeDrift(ctx, cfg, inspector, inspector, ScopeDriftRepairInput{Tables: []string{"content_families"}})
+	if err != nil {
+		t.Fatalf("RepairScopeDrift dry-run error: %v", err)
+	}
+	if !report.DryRun || report.Applied {
+		t.Fatalf("expected dry-run report, got %+v", report)
+	}
+	if report.TotalBeforeCount != 1 || report.TotalAfterCount != 1 || report.TotalRepairedCount != 0 {
+		t.Fatalf("unexpected dry-run totals: %+v", report)
+	}
+	if got := scopeDriftBlankCount(t, db, "content_families"); got != 1 {
+		t.Fatalf("dry-run mutated blank rows, count=%d", got)
+	}
+}
+
+func TestRepairScopeDriftApplyBackfillsBlankScopeRows(t *testing.T) {
+	ctx := context.Background()
+	db := newScopeDriftDoctorBunDB(t)
+	createScopeDriftDoctorTables(t, db)
+	inspector := NewBunScopeDriftInspector(db)
+	cfg := NewAdminConfig("/admin", "Admin", "en")
+
+	if _, err := db.ExecContext(ctx, `INSERT INTO content_families (tenant_id, org_id) VALUES ('', 'org-keep'), (NULL, NULL), ('tenant-ok', 'org-ok')`); err != nil {
+		t.Fatalf("insert content family rows: %v", err)
+	}
+
+	report, err := RepairScopeDrift(ctx, cfg, inspector, inspector, ScopeDriftRepairInput{
+		Apply:  true,
+		Tables: []string{"content_families"},
+	})
+	if err != nil {
+		t.Fatalf("RepairScopeDrift apply error: %v", err)
+	}
+	if report.DryRun || !report.Applied {
+		t.Fatalf("expected apply report, got %+v", report)
+	}
+	if report.TotalBeforeCount != 2 || report.TotalAfterCount != 0 || report.TotalRepairedCount != 2 {
+		t.Fatalf("unexpected apply totals: %+v", report)
+	}
+	if got := scopeDriftBlankCount(t, db, "content_families"); got != 0 {
+		t.Fatalf("expected no blank rows after repair, got %d", got)
+	}
+
+	var tenantForExistingOrg string
+	if err := db.QueryRowContext(ctx, `SELECT tenant_id FROM content_families WHERE org_id = 'org-keep'`).Scan(&tenantForExistingOrg); err != nil {
+		t.Fatalf("read partially repaired row: %v", err)
+	}
+	if tenantForExistingOrg != defaultScopeTenantID {
+		t.Fatalf("expected blank tenant backfilled to default, got %q", tenantForExistingOrg)
+	}
+	var defaultScoped int
+	if err := db.QueryRowContext(ctx, `SELECT COUNT(*) FROM content_families WHERE tenant_id = ? AND org_id = ?`, defaultScopeTenantID, defaultScopeOrgID).Scan(&defaultScoped); err != nil {
+		t.Fatalf("count default scoped rows: %v", err)
+	}
+	if defaultScoped != 1 {
+		t.Fatalf("expected one fully default-scoped repaired row, got %d", defaultScoped)
+	}
+}
+
+func TestRepairScopeDriftRejectsMultiTenantMode(t *testing.T) {
+	ctx := context.Background()
+	db := newScopeDriftDoctorBunDB(t)
+	createScopeDriftDoctorTables(t, db)
+	inspector := NewBunScopeDriftInspector(db)
+	cfg := NewAdminConfig("/admin", "Admin", "en", WithScopeMode(ScopeModeMulti))
+
+	if _, err := db.ExecContext(ctx, `INSERT INTO content_families (tenant_id, org_id) VALUES ('', '')`); err != nil {
+		t.Fatalf("insert blank content family scope: %v", err)
+	}
+
+	_, err := RepairScopeDrift(ctx, cfg, inspector, inspector, ScopeDriftRepairInput{
+		Apply:  true,
+		Tables: []string{"content_families"},
+	})
+	if err == nil || !strings.Contains(err.Error(), "single-tenant") {
+		t.Fatalf("expected single-tenant repair error, got %v", err)
+	}
+	if got := scopeDriftBlankCount(t, db, "content_families"); got != 1 {
+		t.Fatalf("multi-tenant repair mutated blank rows, count=%d", got)
+	}
+}
+
+func TestNewAdminRegistersScopeDriftRepairCommandForRepairer(t *testing.T) {
+	resetCommandRegistryForTest(t)
+	t.Cleanup(func() { resetCommandRegistryForTest(t) })
+
+	ctx := context.Background()
+	db := newScopeDriftDoctorBunDB(t)
+	createScopeDriftDoctorTables(t, db)
+	inspector := NewBunScopeDriftInspector(db)
+	if _, err := db.ExecContext(ctx, `INSERT INTO content_families (tenant_id, org_id) VALUES ('', '')`); err != nil {
+		t.Fatalf("insert blank content family scope: %v", err)
+	}
+
+	adm, _, err := NewAdmin(
+		NewAdminConfig("/admin", "Admin", "en"),
+		AdapterHooks{},
+		WithScopeDriftInspector(inspector),
+	)
+	if err != nil {
+		t.Fatalf("NewAdmin error: %v", err)
+	}
+	t.Cleanup(adm.Commands().Reset)
+
+	err = adm.Commands().DispatchByName(ctx, ScopeDriftRepairCommandName, map[string]any{
+		"apply": true,
+		"table": "content_families",
+	}, nil)
+	if err != nil {
+		t.Fatalf("DispatchByName scope repair error: %v", err)
+	}
+	if got := scopeDriftBlankCount(t, db, "content_families"); got != 0 {
+		t.Fatalf("expected command to repair blank rows, got %d", got)
+	}
+}
+
+func TestBunScopeDriftInspectorReportsMissingTablesUnavailable(t *testing.T) {
+	db := newScopeDriftDoctorBunDB(t)
+	cfg := NewAdminConfig("/admin", "Admin", "en")
+	inspector := NewBunScopeDriftInspector(db)
+
+	output := quickstartDoctorScopeDriftCheck(cfg, inspector).Run(context.Background(), nil)
+	if len(output.Findings) != len(quickstartScopeDriftTables) {
+		t.Fatalf("expected one unavailable finding per table, got %#v", output.Findings)
+	}
+	for _, finding := range output.Findings {
+		if finding.Severity != admin.DoctorSeverityInfo || finding.Code != "quickstart.scope_drift.table_unavailable" {
+			t.Fatalf("unexpected finding: %#v", finding)
+		}
+	}
+	if got := output.Metadata["available"]; got != false {
+		t.Fatalf("available = %v, want false", got)
+	}
+}
+
+func scopeDriftBlankCount(t *testing.T, db *bun.DB, table string) int {
+	t.Helper()
+	var count int
+	if err := db.QueryRowContext(context.Background(), `SELECT COUNT(*) FROM `+table+` WHERE tenant_id IS NULL OR tenant_id = '' OR org_id IS NULL OR org_id = ''`).Scan(&count); err != nil {
+		t.Fatalf("count blank rows in %s: %v", table, err)
+	}
+	return count
+}
+
 func doctorCheckIDs(checks []admin.DoctorCheck) map[string]bool {
 	ids := map[string]bool{}
 	for _, check := range checks {
@@ -221,6 +493,47 @@ func metadataMap(t *testing.T, metadata map[string]any, key string) map[string]a
 		t.Fatalf("metadata[%q] = %T, want map[string]any", key, metadata[key])
 	}
 	return out
+}
+
+type scopeDriftInspectorStub struct {
+	results map[string]ScopeDriftTableCheck
+}
+
+func (s scopeDriftInspectorStub) CheckBlankScopeRows(_ context.Context, table string) (ScopeDriftTableCheck, error) {
+	if result, ok := s.results[table]; ok {
+		return result, nil
+	}
+	return ScopeDriftTableCheck{Table: table, Available: false, Error: "not configured"}, nil
+}
+
+func newScopeDriftDoctorBunDB(t *testing.T) *bun.DB {
+	t.Helper()
+
+	dsn := "file:" + filepath.Join(t.TempDir(), "scope_drift.db") + "?cache=shared&_fk=1"
+	sqlDB, err := sql.Open(sqliteshim.ShimName, dsn)
+	if err != nil {
+		t.Fatalf("open sqlite: %v", err)
+	}
+	sqlDB.SetMaxOpenConns(1)
+	sqlDB.SetMaxIdleConns(1)
+	db := bun.NewDB(sqlDB, sqlitedialect.New())
+	t.Cleanup(func() {
+		if closeErr := db.Close(); closeErr != nil {
+			t.Errorf("close bun db: %v", closeErr)
+		}
+	})
+	return db
+}
+
+func createScopeDriftDoctorTables(t *testing.T, db *bun.DB) {
+	t.Helper()
+
+	ctx := context.Background()
+	for _, table := range quickstartScopeDriftTables {
+		if _, err := db.ExecContext(ctx, `CREATE TABLE `+table+` (tenant_id TEXT, org_id TEXT)`); err != nil {
+			t.Fatalf("create %s: %v", table, err)
+		}
+	}
 }
 
 func metadataBoolMap(t *testing.T, metadata map[string]any, key string) map[string]bool {

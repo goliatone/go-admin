@@ -19,7 +19,7 @@ import (
 )
 
 func TestTranslationFamilyBindingListAppliesFiltersAndScopeIsolation(t *testing.T) {
-	adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{
+	adm := mustNewAdmin(t, translationFamilyScopedTestConfig(), Dependencies{
 		FeatureGate: featureGateFromKeys(FeatureCMS),
 	})
 	adm.WithAuthorizer(translationPermissionAuthorizer{
@@ -176,7 +176,7 @@ func TestBunTranslationFamilyStoreListFamiliesQueryUsesLightweightProjectionRows
 }
 
 func TestTranslationFamilyBindingDetailReturnsSourceAssignmentsAndPublishGate(t *testing.T) {
-	adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{
+	adm := mustNewAdmin(t, translationFamilyScopedTestConfig(), Dependencies{
 		FeatureGate: featureGateFromKeys(FeatureCMS),
 	})
 	adm.WithAuthorizer(translationPermissionAuthorizer{
@@ -279,7 +279,7 @@ func TestTranslationFamilyBindingDetailReturnsSourceAssignmentsAndPublishGate(t 
 }
 
 func TestTranslationFamilyBindingDetailNotFoundIncludesSyncRecoveryForAuthorizedUser(t *testing.T) {
-	adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{
+	adm := mustNewAdmin(t, translationFamilyScopedTestConfig(), Dependencies{
 		FeatureGate: featureGateFromKeys(FeatureCMS),
 	})
 	adm.WithAuthorizer(translationPermissionAuthorizer{
@@ -340,7 +340,7 @@ func TestTranslationFamilyBindingDetailNotFoundIncludesSyncRecoveryForAuthorized
 }
 
 func TestTranslationFamilyBindingDetailNotFoundOmitsSyncRecoveryWithoutPermission(t *testing.T) {
-	adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{
+	adm := mustNewAdmin(t, translationFamilyScopedTestConfig(), Dependencies{
 		FeatureGate: featureGateFromKeys(FeatureCMS),
 	})
 	adm.WithAuthorizer(translationPermissionAuthorizer{
@@ -1050,7 +1050,7 @@ func newTranslationFamilyMutationFixture(t *testing.T, options translationFamily
 		}
 	}
 
-	adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{
+	adm := mustNewAdmin(t, translationFamilyScopedTestConfig(), Dependencies{
 		FeatureGate:  featureGateFromKeys(FeatureCMS),
 		ActivitySink: activityFeed,
 	})
@@ -1087,6 +1087,16 @@ func newTranslationFamilyMutationFixture(t *testing.T, options translationFamily
 		content:  contentSvc,
 		admin:    adm,
 		repo:     repo,
+	}
+}
+
+func translationFamilyScopedTestConfig() Config {
+	return Config{
+		BasePath:        "/admin",
+		DefaultLocale:   "en",
+		ScopeMode:       "single",
+		DefaultTenantID: "tenant-1",
+		DefaultOrgID:    "org-1",
 	}
 }
 

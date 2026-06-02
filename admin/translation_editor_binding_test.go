@@ -28,6 +28,8 @@ type translationEditorTestFixtureOptions struct {
 	LastRejectionReason    string
 	Permissions            map[string]bool
 	FamilyStore            translationservices.FamilyStore
+	RequiredLocales        []string
+	ExtraAssignments       []TranslationAssignment
 }
 
 type translationEditorTestFixture struct {
@@ -143,31 +145,37 @@ func newTranslationEditorTestFixture(t *testing.T, options translationEditorTest
 		}
 	}
 
+	requiredLocales := append([]string{}, options.RequiredLocales...)
+	if len(requiredLocales) == 0 {
+		requiredLocales = []string{"fr"}
+	}
+	assignments := []TranslationAssignment{
+		{
+			ID:                  "asg-editor-1",
+			FamilyID:            "tg-page-1",
+			EntityType:          "pages",
+			TenantID:            "tenant-1",
+			OrgID:               "org-1",
+			SourceRecordID:      "page-1",
+			SourceLocale:        "en",
+			TargetLocale:        "fr",
+			TargetRecordID:      "page-1-fr",
+			SourceTitle:         "Translation guide",
+			SourcePath:          "/page-1",
+			AssignmentType:      AssignmentTypeDirect,
+			Status:              options.AssignmentStatus,
+			Priority:            PriorityHigh,
+			AssigneeID:          "translator-1",
+			Version:             options.AssignmentVersion,
+			LastRejectionReason: options.LastRejectionReason,
+		},
+	}
+	assignments = append(assignments, options.ExtraAssignments...)
 	base := newTranslationFamilyMutationFixture(t, translationFamilyMutationFixtureOptions{
-		RequiredLocales: []string{"fr"},
+		RequiredLocales: requiredLocales,
 		ReviewRequired:  options.ReviewRequired,
 		FamilyStore:     options.FamilyStore,
-		Assignments: []TranslationAssignment{
-			{
-				ID:                  "asg-editor-1",
-				FamilyID:            "tg-page-1",
-				EntityType:          "pages",
-				TenantID:            "tenant-1",
-				OrgID:               "org-1",
-				SourceRecordID:      "page-1",
-				SourceLocale:        "en",
-				TargetLocale:        "fr",
-				TargetRecordID:      "page-1-fr",
-				SourceTitle:         "Translation guide",
-				SourcePath:          "/page-1",
-				AssignmentType:      AssignmentTypeDirect,
-				Status:              options.AssignmentStatus,
-				Priority:            PriorityHigh,
-				AssigneeID:          "translator-1",
-				Version:             options.AssignmentVersion,
-				LastRejectionReason: options.LastRejectionReason,
-			},
-		},
+		Assignments:     assignments,
 	})
 
 	permissions := map[string]bool{
@@ -445,6 +453,158 @@ func TestTranslationEditorAssignmentDetailReturnsDriftAssistTimelineAndActions(t
 	}
 	if autoApprove := toBool(submitReview["auto_approve"]); autoApprove {
 		t.Fatalf("expected submit_review auto_approve false when review is required")
+	}
+}
+
+func TestTranslationEditorAssignmentDetailReturnsLocaleNavigation(t *testing.T) {
+	fixture := newTranslationEditorTestFixture(t, translationEditorTestFixtureOptions{
+		RequiredLocales: []string{"fr", "es", "de"},
+		ExtraAssignments: []TranslationAssignment{
+			{
+				ID:             "asg-editor-es",
+				FamilyID:       "tg-page-1",
+				EntityType:     "pages",
+				TenantID:       "tenant-1",
+				OrgID:          "org-1",
+				SourceRecordID: "page-1",
+				SourceLocale:   "en",
+				TargetLocale:   "es",
+				TargetRecordID: "page-1-es",
+				SourceTitle:    "Translation guide",
+				SourcePath:     "/page-1",
+				AssignmentType: AssignmentTypeDirect,
+				Status:         AssignmentStatusInProgress,
+				Priority:       PriorityNormal,
+				AssigneeID:     "translator-2",
+				WorkScope:      translationcore.DefaultWorkScope,
+				Version:        1,
+			},
+			{
+				ID:             "asg-editor-es-review",
+				FamilyID:       "tg-page-1",
+				EntityType:     "pages",
+				TenantID:       "tenant-1",
+				OrgID:          "org-1",
+				SourceRecordID: "page-1",
+				SourceLocale:   "en",
+				TargetLocale:   "es",
+				TargetRecordID: "page-1-es-review",
+				SourceTitle:    "Translation guide",
+				SourcePath:     "/page-1",
+				AssignmentType: AssignmentTypeDirect,
+				Status:         AssignmentStatusInProgress,
+				Priority:       PriorityHigh,
+				AssigneeID:     "translator-review",
+				WorkScope:      "editorial.review",
+				Version:        1,
+				UpdatedAt:      time.Date(2026, 3, 12, 18, 0, 0, 0, time.UTC),
+			},
+		},
+	})
+	if _, err := fixture.content.CreatePage(context.Background(), CMSPage{
+		ID:       "page-1-it",
+		Title:    "Guida di traduzione",
+		Slug:     "page-1-it",
+		Locale:   "it",
+		FamilyID: "tg-page-1",
+		Status:   "draft",
+		Data: map[string]any{
+			"path": "/it/page-1",
+			"body": "Bozza italiana senza incarico.",
+		},
+		Metadata: map[string]any{
+			"tenant_id": "tenant-1",
+			"org_id":    "org-1",
+		},
+	}); err != nil {
+		t.Fatalf("seed variant-only locale: %v", err)
+	}
+	source, err := fixture.content.Page(context.Background(), "page-1", "")
+	if err != nil || source == nil {
+		t.Fatalf("load source page for variant-only locale: %v", err)
+	}
+	updatedSource := cloneCMSPage(*source)
+	updatedSource.AvailableLocales = append(updatedSource.AvailableLocales, "it")
+	if _, err := fixture.content.UpdatePage(context.Background(), updatedSource); err != nil {
+		t.Fatalf("update source page available locales: %v", err)
+	}
+	syncTranslationFamilyFixtureStore(t, fixture.admin, "production")
+
+	status, payload := doTranslationEditorJSONRequest(t, fixture.app, http.MethodGet, "/admin/api/translations/assignments/"+fixture.assignmentID+"?channel=production&tenant_id=tenant-1&org_id=org-1", nil)
+	if status != http.StatusOK {
+		t.Fatalf("status=%d want=200 payload=%+v", status, payload)
+	}
+
+	data := extractMap(payload["data"])
+	navigation := extractMap(data["locale_navigation"])
+	if got := toString(navigation["family_id"]); got != "tg-page-1" {
+		t.Fatalf("expected family_id tg-page-1, got %q", got)
+	}
+	if got := toString(navigation["current_locale"]); got != "fr" {
+		t.Fatalf("expected current_locale fr, got %q", got)
+	}
+	if got := toString(navigation["source_locale"]); got != "en" {
+		t.Fatalf("expected source_locale en, got %q", got)
+	}
+	if got := toString(navigation["current_work_scope"]); got != translationcore.DefaultWorkScope {
+		t.Fatalf("expected current_work_scope %q, got %q", translationcore.DefaultWorkScope, got)
+	}
+	if href := toString(navigation["family_detail_url"]); !strings.Contains(href, "/admin/translations/families/tg-page-1") {
+		t.Fatalf("expected family detail href, got %q", href)
+	}
+
+	locales := anySliceFromValue(navigation["locales"])
+	if len(locales) != 4 {
+		t.Fatalf("expected four locale navigation entries, got %d: %+v", len(locales), locales)
+	}
+	entries := map[string]map[string]any{}
+	for _, raw := range locales {
+		entry := extractMap(raw)
+		entries[toString(entry["locale"])] = entry
+	}
+
+	fr := entries["fr"]
+	if !toBool(fr["current"]) || !toBool(fr["enabled"]) || toBool(fr["disabled"]) {
+		t.Fatalf("expected current fr locale to be enabled, got %+v", fr)
+	}
+	if got := toString(fr["href"]); !strings.Contains(got, "/admin/translations/assignments/asg-editor-1/edit") {
+		t.Fatalf("expected fr assignment editor href, got %q", got)
+	}
+
+	es := entries["es"]
+	if toBool(es["current"]) || !toBool(es["enabled"]) || toBool(es["disabled"]) {
+		t.Fatalf("expected assigned es locale to be enabled sibling, got %+v", es)
+	}
+	if got := toString(es["href"]); !strings.Contains(got, "/admin/translations/assignments/asg-editor-es/edit") {
+		t.Fatalf("expected es assignment editor href, got %q", got)
+	}
+	if got := toString(es["assignment_id"]); got != "asg-editor-es" {
+		t.Fatalf("expected es locale to use current work-scope assignment, got %q", got)
+	}
+	if got := toString(es["work_scope"]); got != translationcore.DefaultWorkScope {
+		t.Fatalf("expected es work_scope %q, got %q", translationcore.DefaultWorkScope, got)
+	}
+
+	de := entries["de"]
+	if toBool(de["enabled"]) || !toBool(de["disabled"]) {
+		t.Fatalf("expected missing de locale to be disabled, got %+v", de)
+	}
+	if got := toString(de["href"]); got != "" {
+		t.Fatalf("expected missing de locale to have no fallback href, got %q", got)
+	}
+	if got := toString(de["reason"]); !strings.Contains(got, "No translation assignment") {
+		t.Fatalf("expected missing de locale reason, got %q", got)
+	}
+
+	it := entries["it"]
+	if toBool(it["enabled"]) || !toBool(it["disabled"]) {
+		t.Fatalf("expected variant-only it locale to be disabled, got %+v", it)
+	}
+	if got := toString(it["href"]); got != "" {
+		t.Fatalf("expected variant-only it locale to have no fallback href, got %q", got)
+	}
+	if _, ok := entries["en"]; ok {
+		t.Fatalf("did not expect source locale in target locale navigation: %+v", entries["en"])
 	}
 }
 

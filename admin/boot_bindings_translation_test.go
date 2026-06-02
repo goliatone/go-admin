@@ -20,6 +20,7 @@ import (
 	goerrors "github.com/goliatone/go-errors"
 	router "github.com/goliatone/go-router"
 	"github.com/google/uuid"
+	"github.com/stretchr/testify/mock"
 )
 
 type translationActionRepoStub struct {
@@ -254,6 +255,7 @@ func percentile95(samples []time.Duration) time.Duration {
 func newPanelBindingMockContext() *router.MockContext {
 	c := router.NewMockContext()
 	c.On("Context").Return(context.Background())
+	c.On("SetContext", mock.Anything).Return().Maybe()
 	c.On("IP").Return("").Maybe()
 	return c
 }
@@ -279,7 +281,12 @@ func TestPanelBindingCreateTranslationReturnsStablePayload(t *testing.T) {
 		activity: feed,
 	}
 	binding := &panelBinding{
-		admin: &Admin{config: Config{DefaultLocale: "en"}},
+		admin: &Admin{config: Config{
+			DefaultLocale:   "en",
+			ScopeMode:       "single",
+			DefaultTenantID: "tenant-xyz",
+			DefaultOrgID:    "org-xyz",
+		}},
 		name:  "pages",
 		panel: panel,
 	}
@@ -848,8 +855,8 @@ func TestPanelBindingWorkflowActionPropagatesCanonicalRequestMetadata(t *testing
 	if input.ExecCtx.ActorID != "actor-1" {
 		t.Fatalf("expected actor id actor-1, got %q", input.ExecCtx.ActorID)
 	}
-	if input.ExecCtx.Tenant != "tenant-xyz" {
-		t.Fatalf("expected tenant tenant-xyz, got %q", input.ExecCtx.Tenant)
+	if input.ExecCtx.Tenant != "" {
+		t.Fatalf("expected query tenant to be ignored, got %q", input.ExecCtx.Tenant)
 	}
 	if got := toString(input.Metadata["request_id"]); got != "req-123" {
 		t.Fatalf("expected request_id req-123, got %q", got)
