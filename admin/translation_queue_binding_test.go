@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
+	auth "github.com/goliatone/go-auth"
 	router "github.com/goliatone/go-router"
 )
 
@@ -2549,16 +2550,19 @@ func newTranslationQueueTestApp(t *testing.T, binding *translationQueueBinding) 
 		}
 		return writeJSON(c, payload)
 	})
-	r.Patch("/admin/api/translations/variants/:variant_id", func(c router.Context) error {
-		body, err := parseJSONBody(c)
-		if err != nil {
+	r.Get("/admin/api/translations/sync/resources/:kind/:id", func(c router.Context) error {
+		withTranslationQueueTestAuthenticatedActor(c)
+		if err := binding.ReadDraftSync(c); err != nil {
 			return writeError(c, err)
 		}
-		payload, err := binding.UpdateVariant(c, c.Param("variant_id"), body)
-		if err != nil {
+		return nil
+	})
+	r.Patch("/admin/api/translations/sync/resources/:kind/:id", func(c router.Context) error {
+		withTranslationQueueTestAuthenticatedActor(c)
+		if err := binding.MutateDraftSync(c); err != nil {
 			return writeError(c, err)
 		}
-		return writeJSON(c, payload)
+		return nil
 	})
 	r.Get("/admin/api/translations/my-work", func(c router.Context) error {
 		payload, err := binding.MyWork(c)
@@ -2576,4 +2580,20 @@ func newTranslationQueueTestApp(t *testing.T, binding *translationQueueBinding) 
 	})
 	adapter.Init()
 	return adapter.WrappedRouter()
+}
+
+func withTranslationQueueTestAuthenticatedActor(c router.Context) {
+	if c == nil {
+		return
+	}
+	actorID := strings.TrimSpace(c.Header("X-Test-Authenticated-Actor-ID"))
+	if actorID == "" {
+		return
+	}
+	c.SetContext(auth.WithActorContext(c.Context(), &auth.ActorContext{
+		ActorID:        actorID,
+		Subject:        actorID,
+		TenantID:       strings.TrimSpace(c.Query(ScopeTenantIDKey)),
+		OrganizationID: strings.TrimSpace(c.Query(ScopeOrgIDKey)),
+	}))
 }

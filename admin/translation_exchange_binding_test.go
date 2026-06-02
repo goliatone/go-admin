@@ -190,7 +190,7 @@ func TestTranslationExchangeBindingImportApplyUsesExplicitCreateIntentOptions(t 
 		"continue_on_error":          true,
 		"dry_run":                    true,
 	}
-	raw, _ := json.Marshal(payload) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions. //nolint:errchkjson // test request fixture is map-backed and validated through handler assertions.
+	raw, _ := json.Marshal(payload) //nolint:errcheck,errchkjson // legacy test fixture decoding is validated by subsequent assertions.; test request fixture is map-backed and validated through handler assertions.
 	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/api/translations/exchange/import/apply", bytes.NewReader(raw))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-User-ID", "ops-user")
@@ -232,7 +232,7 @@ func TestTranslationExchangeBindingImportApplyRejectsUnsupportedConflictReplayFi
 	binding := newTranslationExchangeBinding(adm)
 	app := newTranslationExchangeTestApp(t, binding)
 
-	raw, _ := json.Marshal(map[string]any{ //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions. //nolint:errchkjson // test request fixture is map-backed and validated through handler assertions.
+	raw, _ := json.Marshal(map[string]any{ //nolint:errcheck,errchkjson // legacy test fixture decoding is validated by subsequent assertions.; test request fixture is map-backed and validated through handler assertions.
 		"rows": []map[string]any{
 			{
 				"resource":        "pages",
@@ -351,7 +351,7 @@ func TestTranslationExchangeBindingImportValidateRejectsUnknownTopLevelKeyInStri
 		},
 		"unexpected": true,
 	}
-	raw, _ := json.Marshal(payload) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions. //nolint:errchkjson // test request fixture is map-backed and validated through handler assertions.
+	raw, _ := json.Marshal(payload) //nolint:errcheck,errchkjson // legacy test fixture decoding is validated by subsequent assertions.; test request fixture is map-backed and validated through handler assertions.
 	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/api/translations/exchange/import/validate", bytes.NewReader(raw))
 	req.Header.Set("Content-Type", "application/json")
 
@@ -392,7 +392,7 @@ func TestTranslationExchangeBindingExportParsesFilterFromJSON(t *testing.T) {
 			"include_source_hash": true,
 		},
 	}
-	raw, _ := json.Marshal(payload) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions. //nolint:errchkjson // test request fixture is map-backed and validated through handler assertions.
+	raw, _ := json.Marshal(payload) //nolint:errcheck,errchkjson // legacy test fixture decoding is validated by subsequent assertions.; test request fixture is map-backed and validated through handler assertions.
 	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/api/translations/exchange/export", bytes.NewReader(raw))
 	req.Header.Set("Content-Type", "application/json")
 
@@ -451,7 +451,7 @@ func TestTranslationExchangeBindingImportValidateParsesJSONPayload(t *testing.T)
 			},
 		},
 	}
-	raw, _ := json.Marshal(payload) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions. //nolint:errchkjson // test request fixture is map-backed and validated through handler assertions.
+	raw, _ := json.Marshal(payload) //nolint:errcheck,errchkjson // legacy test fixture decoding is validated by subsequent assertions.; test request fixture is map-backed and validated through handler assertions.
 	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/api/translations/exchange/import/validate", bytes.NewReader(raw))
 	req.Header.Set("Content-Type", "application/json")
 
@@ -533,7 +533,7 @@ func TestTranslationExchangeBindingImportValidateMissingRequiredFieldsReturnsTyp
 			},
 		},
 	}
-	raw, _ := json.Marshal(payload) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions. //nolint:errchkjson // test request fixture is map-backed and validated through handler assertions.
+	raw, _ := json.Marshal(payload) //nolint:errcheck,errchkjson // legacy test fixture decoding is validated by subsequent assertions.; test request fixture is map-backed and validated through handler assertions.
 	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/api/translations/exchange/import/validate", bytes.NewReader(raw))
 	req.Header.Set("Content-Type", "application/json")
 
@@ -623,7 +623,7 @@ func TestTranslationExchangeBindingExportDispatchesCommandAndReturnsResult(t *te
 			"resources": []string{"pages"},
 		},
 	}
-	raw, _ := json.Marshal(payload) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions. //nolint:errchkjson // test request fixture is map-backed and validated through handler assertions.
+	raw, _ := json.Marshal(payload) //nolint:errcheck,errchkjson // legacy test fixture decoding is validated by subsequent assertions.; test request fixture is map-backed and validated through handler assertions.
 	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/api/translations/exchange/export", bytes.NewReader(raw))
 	req.Header.Set("Content-Type", "application/json")
 
@@ -906,7 +906,7 @@ func TestTranslationExchangeBindingImportApplyEmptyRowsReturnsTypedError(t *test
 	payload := map[string]any{
 		"rows": []map[string]any{},
 	}
-	raw, _ := json.Marshal(payload) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions. //nolint:errchkjson // test request fixture is map-backed and validated through handler assertions.
+	raw, _ := json.Marshal(payload) //nolint:errcheck,errchkjson // legacy test fixture decoding is validated by subsequent assertions.; test request fixture is map-backed and validated through handler assertions.
 	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/api/translations/exchange/import/apply", bytes.NewReader(raw))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-User-ID", "ops-user")
@@ -992,7 +992,7 @@ func TestTranslationExchangeBindingImportApplyAsyncReturnsJobEnvelopeWithConflic
 		},
 		"async": true,
 	}
-	raw, _ := json.Marshal(payload) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions. //nolint:errchkjson // test request fixture is map-backed and validated through handler assertions.
+	raw, _ := json.Marshal(payload) //nolint:errcheck,errchkjson // legacy test fixture decoding is validated by subsequent assertions.; test request fixture is map-backed and validated through handler assertions.
 	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/api/translations/exchange/import/apply", bytes.NewReader(raw))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-User-ID", "ops-user")
@@ -1100,7 +1100,7 @@ func TestTranslationExchangeBindingExportAsyncReturnsJobEnvelope(t *testing.T) {
 		},
 		"async": true,
 	}
-	raw, _ := json.Marshal(payload) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions. //nolint:errchkjson // test request fixture is map-backed and validated through handler assertions.
+	raw, _ := json.Marshal(payload) //nolint:errcheck,errchkjson // legacy test fixture decoding is validated by subsequent assertions.; test request fixture is map-backed and validated through handler assertions.
 	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/api/translations/exchange/export", bytes.NewReader(raw))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-User-ID", "ops-user")
@@ -1162,7 +1162,7 @@ func TestTranslationExchangeBindingJobStatusRequiresJobOwner(t *testing.T) {
 	binding.executor = executor
 	app := newTranslationExchangeTestApp(t, binding)
 
-	raw, _ := json.Marshal(map[string]any{ //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions. //nolint:errchkjson // test request fixture is map-backed and validated through handler assertions.
+	raw, _ := json.Marshal(map[string]any{ //nolint:errcheck,errchkjson // legacy test fixture decoding is validated by subsequent assertions.; test request fixture is map-backed and validated through handler assertions.
 		"filter": map[string]any{
 			"resources": []string{"pages"},
 		},

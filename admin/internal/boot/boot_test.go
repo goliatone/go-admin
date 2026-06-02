@@ -3,9 +3,13 @@ package boot
 import (
 	"context"
 	"errors"
+	"io"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 
+	"github.com/gofiber/fiber/v2"
 	"github.com/goliatone/go-admin/admin/routing"
 	goerrors "github.com/goliatone/go-errors"
 	"github.com/stretchr/testify/require"
@@ -239,7 +243,7 @@ func newTestURLManager(basePath string) *urlkit.RouteManager {
 							"translations.families.variants":              "/translations/families/:family_id/variants",
 							"translations.my_work":                        "/translations/my-work",
 							"translations.queue":                          "/translations/queue",
-							"translations.variants.id":                    "/translations/variants/:variant_id",
+							"translations.sync.resources.id":              "/translations/sync/resources/:kind/:id",
 							"translations.options.entity_types":           "/translations/options/entity-types",
 							"translations.options.source_records":         "/translations/options/source-records",
 							"translations.options.locales":                "/translations/options/locales",
@@ -1442,7 +1446,8 @@ type stubTranslationQueueBinding struct {
 	dashboardCalled            int
 	assignmentsCalled          int
 	assignmentDetailCalled     int
-	updateVariantCalled        int
+	readDraftSyncCalled        int
+	mutateDraftSyncCalled      int
 	myWorkCalled               int
 	queueCalled                int
 	entityTypesOptionsCalled   int
@@ -1493,12 +1498,14 @@ func (s *stubTranslationQueueBinding) CreateAssignmentBulkSnapshot(_ router.Cont
 	}, nil
 }
 
-func (s *stubTranslationQueueBinding) UpdateVariant(_ router.Context, id string, body map[string]any) (any, error) {
-	s.updateVariantCalled++
-	return map[string]any{
-		"variant_id": id,
-		"body":       body,
-	}, nil
+func (s *stubTranslationQueueBinding) ReadDraftSync(_ router.Context) error {
+	s.readDraftSyncCalled++
+	return nil
+}
+
+func (s *stubTranslationQueueBinding) MutateDraftSync(_ router.Context) error {
+	s.mutateDraftSyncCalled++
+	return nil
 }
 
 func (s *stubTranslationQueueBinding) MyWork(_ router.Context) (any, error) {
@@ -1635,7 +1642,7 @@ func TestTranslationQueueRouteStepRegistersRoutes(t *testing.T) {
 	}
 
 	require.NoError(t, TranslationQueueRouteStep(ctx))
-	require.Len(t, rr.calls, 15)
+	require.Len(t, rr.calls, 16)
 	methodPaths := map[string]bool{}
 	for _, call := range rr.calls {
 		methodPaths[call.method+" "+call.path] = true
@@ -1647,7 +1654,8 @@ func TestTranslationQueueRouteStepRegistersRoutes(t *testing.T) {
 	require.True(t, methodPaths["POST "+mustRoutePath(t, ctx, ctx.AdminAPIGroup(), "translations.assignments.bulk_snapshot")])
 	require.True(t, methodPaths["POST "+mustRoutePath(t, ctx, ctx.AdminAPIGroup(), "translations.assignments.bulk_actions")])
 	require.True(t, methodPaths["POST "+mustRoutePath(t, ctx, ctx.AdminAPIGroup(), "translations.assignments.actions")])
-	require.True(t, methodPaths["PATCH "+mustRoutePath(t, ctx, ctx.AdminAPIGroup(), "translations.variants.id")])
+	require.True(t, methodPaths["GET "+mustRoutePath(t, ctx, ctx.AdminAPIGroup(), "translations.sync.resources.id")])
+	require.True(t, methodPaths["PATCH "+mustRoutePath(t, ctx, ctx.AdminAPIGroup(), "translations.sync.resources.id")])
 	require.True(t, methodPaths["GET "+mustRoutePath(t, ctx, ctx.AdminAPIGroup(), "translations.my_work")])
 	require.True(t, methodPaths["GET "+mustRoutePath(t, ctx, ctx.AdminAPIGroup(), "translations.queue")])
 	require.True(t, methodPaths["GET "+mustRoutePath(t, ctx, ctx.AdminAPIGroup(), "translations.options.entity_types")])
@@ -1660,12 +1668,13 @@ func TestTranslationQueueRouteStepRegistersRoutes(t *testing.T) {
 	familyAssignmentsPath := mustRoutePath(t, ctx, ctx.AdminAPIGroup(), "translations.assignments.family_assignments")
 	bulkActionPath := mustRoutePath(t, ctx, ctx.AdminAPIGroup(), "translations.assignments.bulk_actions")
 	actionPath := mustRoutePath(t, ctx, ctx.AdminAPIGroup(), "translations.assignments.actions")
-	variantPath := mustRoutePath(t, ctx, ctx.AdminAPIGroup(), "translations.variants.id")
 	for _, call := range rr.calls {
 		requestCtx := router.NewMockContext()
 		requestCtx.ParamsM["assignment_id"] = "asg_1"
 		requestCtx.ParamsM["family_id"] = "family_1"
 		requestCtx.ParamsM["variant_id"] = "var_1"
+		requestCtx.ParamsM["kind"] = "translation_variant_draft"
+		requestCtx.ParamsM["id"] = "var_1"
 		requestCtx.ParamsM["action"] = "claim"
 		switch call.path {
 		case detailPath:
@@ -1676,15 +1685,14 @@ func TestTranslationQueueRouteStepRegistersRoutes(t *testing.T) {
 		case actionPath:
 			requestCtx.ParamsM["assignment_id"] = "asg_1"
 			requestCtx.ParamsM["action"] = "claim"
-		case variantPath:
-			requestCtx.ParamsM["variant_id"] = "var_1"
 		}
 		require.NoError(t, call.handler(requestCtx))
 	}
 	require.Equal(t, 1, binding.dashboardCalled)
 	require.Equal(t, 1, binding.assignmentsCalled)
 	require.Equal(t, 1, binding.assignmentDetailCalled)
-	require.Equal(t, 1, binding.updateVariantCalled)
+	require.Equal(t, 1, binding.readDraftSyncCalled)
+	require.Equal(t, 1, binding.mutateDraftSyncCalled)
 	require.Equal(t, 1, binding.myWorkCalled)
 	require.Equal(t, 1, binding.queueCalled)
 	require.Equal(t, 1, binding.entityTypesOptionsCalled)
@@ -1729,6 +1737,36 @@ func TestPanelAndTranslationQueueRoutesDoNotShadowEachOther(t *testing.T) {
 	require.NotEqual(t, panelCollection, queue)
 	require.NotEqual(t, panelDetail, myWork)
 	require.NotEqual(t, panelDetail, queue)
+}
+
+func TestTranslationQueueRouteStepServesSyncCoreAssets(t *testing.T) {
+	app := fiber.New(fiber.Config{
+		UnescapePath:      true,
+		EnablePrintRoutes: true,
+		StrictRouting:     false,
+		PassLocalsToViews: true,
+	})
+	adapter := router.NewFiberAdapter(func(_ *fiber.App) *fiber.App {
+		return app
+	})
+	ctx := &stubCtx{
+		router:    adapter.Router(),
+		responder: &stubResponder{},
+		basePath:  "/admin",
+		queue:     &stubTranslationQueueBinding{},
+	}
+
+	require.NoError(t, TranslationQueueRouteStep(ctx))
+	adapter.Init()
+
+	req := httptest.NewRequest(http.MethodGet, "/admin/sync-client/sync-core/index.js", nil)
+	resp, err := app.Test(req)
+	require.NoError(t, err)
+	defer resp.Body.Close() //nolint:errcheck // test response body cleanup is best-effort
+	body, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, resp.StatusCode, string(body))
+	require.NotEmpty(t, strings.TrimSpace(string(body)))
 }
 
 func (s *stubSettingsBinding) Values(_ router.Context) (map[string]any, error) {

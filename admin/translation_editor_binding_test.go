@@ -827,7 +827,7 @@ func TestTranslationEditorAssignmentDetailPaginatesHistory(t *testing.T) {
 	}
 }
 
-func TestTranslationEditorUpdateVariantMaintainsSourceHashAndRowVersion(t *testing.T) {
+func TestTranslationEditorDraftSyncMaintainsSourceHashAndRowVersion(t *testing.T) {
 	fixture := newTranslationEditorTestFixture(t, translationEditorTestFixtureOptions{
 		ReviewRequired: true,
 	})
@@ -838,28 +838,23 @@ func TestTranslationEditorUpdateVariantMaintainsSourceHashAndRowVersion(t *testi
 	}
 	originalSourceHash := toString(originalTarget.Metadata["source_hash_at_last_sync"])
 
-	status, payload := doTranslationEditorJSONRequest(t, fixture.app, http.MethodPatch, "/admin/api/translations/variants/"+fixture.targetVariantID+"?channel=production&tenant_id=tenant-1&org_id=org-1", map[string]any{
-		"channel":          "production",
-		"expected_version": 3,
-		"autosave":         true,
-		"fields": map[string]any{
-			"title": "Guide de publication",
-		},
-	})
+	status, payload := doTranslationEditorJSONRequest(t, fixture.app, http.MethodPatch, translationEditorDraftSyncURL(fixture), translationEditorDraftSyncMutation(3, true, map[string]any{
+		"title": "Guide de publication",
+	}, nil))
 	if status != http.StatusOK {
 		t.Fatalf("status=%d want=200 payload=%+v", status, payload)
 	}
 
 	data := extractMap(payload["data"])
+	if applied := toBool(payload["applied"]); !applied {
+		t.Fatalf("expected applied sync mutation, got %+v", payload)
+	}
 	if got := toInt(data["row_version"]); got != 4 {
 		t.Fatalf("expected row_version 4, got %d", got)
 	}
 	fields := mapString(payloadPath(data, "fields"))
 	if got := fields["title"]; got != "Guide de publication" {
 		t.Fatalf("expected updated title, got %q", got)
-	}
-	if got := toString(extractMap(payload["meta"])["autosave"]); got != "true" {
-		t.Fatalf("expected autosave meta true, got %+v", payload["meta"])
 	}
 	fieldDrift := extractMap(data["field_drift"])
 	if changed := toBool(extractMap(fieldDrift["title"])["changed"]); !changed {
@@ -896,7 +891,7 @@ func TestTranslationEditorUpdateVariantMaintainsSourceHashAndRowVersion(t *testi
 func TestTranslationEditorAutosaveAcceptsConsecutiveFieldUpdates(t *testing.T) {
 	fixture := newTranslationEditorTestFixture(t, translationEditorTestFixtureOptions{})
 	detailURL := "/admin/api/translations/assignments/" + fixture.assignmentID + "?channel=production&tenant_id=tenant-1&org_id=org-1"
-	variantURL := "/admin/api/translations/variants/" + fixture.targetVariantID + "?channel=production&tenant_id=tenant-1&org_id=org-1"
+	variantURL := translationEditorDraftSyncURL(fixture)
 
 	status, payload := doTranslationEditorJSONRequest(t, fixture.app, http.MethodGet, detailURL, nil)
 	if status != http.StatusOK {
@@ -907,14 +902,9 @@ func TestTranslationEditorAutosaveAcceptsConsecutiveFieldUpdates(t *testing.T) {
 		t.Fatalf("initial row_version = %d, want 3", got)
 	}
 
-	status, payload = doTranslationEditorJSONRequest(t, fixture.app, http.MethodPatch, variantURL, map[string]any{
-		"channel":          "production",
-		"expected_version": 3,
-		"autosave":         true,
-		"fields": map[string]any{
-			"title": "Guide de publication",
-		},
-	})
+	status, payload = doTranslationEditorJSONRequest(t, fixture.app, http.MethodPatch, variantURL, translationEditorDraftSyncMutation(3, true, map[string]any{
+		"title": "Guide de publication",
+	}, nil))
 	if status != http.StatusOK {
 		t.Fatalf("first autosave status=%d want=200 payload=%+v", status, payload)
 	}
@@ -951,14 +941,9 @@ func TestTranslationEditorAutosaveAcceptsConsecutiveFieldUpdates(t *testing.T) {
 		t.Fatalf("synced variant row_version = %d, want %d", variant.RowVersion, firstVersion)
 	}
 
-	status, payload = doTranslationEditorJSONRequest(t, fixture.app, http.MethodPatch, variantURL, map[string]any{
-		"channel":          "production",
-		"expected_version": firstVersion,
-		"autosave":         true,
-		"fields": map[string]any{
-			"body": "Publier la traduction avec un second changement autosauve.",
-		},
-	})
+	status, payload = doTranslationEditorJSONRequest(t, fixture.app, http.MethodPatch, variantURL, translationEditorDraftSyncMutation(int64(firstVersion), true, map[string]any{
+		"body": "Publier la traduction avec un second changement autosauve.",
+	}, nil))
 	if status != http.StatusOK {
 		t.Fatalf("second autosave status=%d want=200 payload=%+v", status, payload)
 	}
@@ -985,41 +970,32 @@ func TestTranslationEditorAutosaveAcceptsConsecutiveFieldUpdates(t *testing.T) {
 		t.Fatalf("persisted body = %q, want second autosave value", got)
 	}
 
-	status, payload = doTranslationEditorJSONRequest(t, fixture.app, http.MethodPatch, variantURL, map[string]any{
-		"channel":          "production",
-		"expected_version": firstVersion,
-		"autosave":         true,
-		"fields": map[string]any{
-			"path": "/fr/stale",
-		},
-	})
+	status, payload = doTranslationEditorJSONRequest(t, fixture.app, http.MethodPatch, variantURL, translationEditorDraftSyncMutation(int64(firstVersion), true, map[string]any{
+		"path": "/fr/stale",
+	}, nil))
 	if status != http.StatusConflict {
 		t.Fatalf("stale autosave status=%d want=409 payload=%+v", status, payload)
 	}
 	errPayload := extractMap(payload["error"])
-	if got := toString(errPayload["text_code"]); got != TextCodeAutosaveConflict {
-		t.Fatalf("expected text_code %q, got %q", TextCodeAutosaveConflict, got)
+	if got := toString(errPayload["code"]); got != "STALE_REVISION" {
+		t.Fatalf("expected code STALE_REVISION, got %q", got)
 	}
-	latest := extractMap(extractMap(errPayload["metadata"])["latest_server_state_record"])
+	latest := extractMap(extractMap(extractMap(errPayload["details"])["resource"])["data"])
 	if got := toInt(latest["row_version"]); got != 5 {
 		t.Fatalf("latest stale-conflict row_version = %d, want 5", got)
 	}
 }
 
-func TestTranslationEditorUpdateVariantReopensApprovedAndMovesActiveCMSStatusToDraft(t *testing.T) {
+func TestTranslationEditorDraftSyncReopensApprovedAndMovesActiveCMSStatusToDraft(t *testing.T) {
 	fixture := newTranslationEditorTestFixture(t, translationEditorTestFixtureOptions{
 		ReviewRequired:      true,
 		TargetCMSStatus:     "scheduled",
 		TargetVariantStatus: string(translationcore.VariantStatusApproved),
 	})
 
-	status, payload := doTranslationEditorJSONRequest(t, fixture.app, http.MethodPatch, "/admin/api/translations/variants/"+fixture.targetVariantID+"?channel=production&tenant_id=tenant-1&org_id=org-1", map[string]any{
-		"channel":          "production",
-		"expected_version": 3,
-		"fields": map[string]any{
-			"body": "Texte approuve mis a jour.",
-		},
-	})
+	status, payload := doTranslationEditorJSONRequest(t, fixture.app, http.MethodPatch, translationEditorDraftSyncURL(fixture), translationEditorDraftSyncMutation(3, false, map[string]any{
+		"body": "Texte approuve mis a jour.",
+	}, nil))
 	if status != http.StatusOK {
 		t.Fatalf("status=%d want=200 payload=%+v", status, payload)
 	}
@@ -1060,7 +1036,7 @@ func TestTranslationEditorCMSStatusForVariantStatus(t *testing.T) {
 	}
 }
 
-func TestTranslationEditorUpdateVariantAcknowledgesCurrentSourceHashWhenRequested(t *testing.T) {
+func TestTranslationEditorDraftSyncAcknowledgesCurrentSourceHashWhenRequested(t *testing.T) {
 	fixture := newTranslationEditorTestFixture(t, translationEditorTestFixtureOptions{
 		ReviewRequired: true,
 	})
@@ -1071,14 +1047,11 @@ func TestTranslationEditorUpdateVariantAcknowledgesCurrentSourceHashWhenRequeste
 	}
 	currentSourceHash := translationEditorHashFields(translationFamilyFields(source.Title, source.Slug, source.Data))
 
-	status, payload := doTranslationEditorJSONRequest(t, fixture.app, http.MethodPatch, "/admin/api/translations/variants/"+fixture.targetVariantID+"?channel=production&tenant_id=tenant-1&org_id=org-1", map[string]any{
-		"channel":                  "production",
-		"expected_version":         3,
+	status, payload := doTranslationEditorJSONRequest(t, fixture.app, http.MethodPatch, translationEditorDraftSyncURL(fixture), translationEditorDraftSyncMutation(3, false, map[string]any{
+		"title": "Guide de publication",
+	}, map[string]any{
 		"acknowledged_source_hash": currentSourceHash,
-		"fields": map[string]any{
-			"title": "Guide de publication",
-		},
-	})
+	}))
 	if status != http.StatusOK {
 		t.Fatalf("status=%d want=200 payload=%+v", status, payload)
 	}
@@ -1094,57 +1067,49 @@ func TestTranslationEditorUpdateVariantAcknowledgesCurrentSourceHashWhenRequeste
 	}
 }
 
-func TestTranslationEditorUpdateVariantRejectsStaleSourceAcknowledgement(t *testing.T) {
+func TestTranslationEditorDraftSyncRejectsStaleSourceAcknowledgement(t *testing.T) {
 	fixture := newTranslationEditorTestFixture(t, translationEditorTestFixtureOptions{
 		ReviewRequired: true,
 	})
 
-	status, payload := doTranslationEditorJSONRequest(t, fixture.app, http.MethodPatch, "/admin/api/translations/variants/"+fixture.targetVariantID+"?channel=production&tenant_id=tenant-1&org_id=org-1", map[string]any{
-		"channel":                  "production",
-		"expected_version":         3,
+	status, payload := doTranslationEditorJSONRequest(t, fixture.app, http.MethodPatch, translationEditorDraftSyncURL(fixture), translationEditorDraftSyncMutation(3, false, map[string]any{
+		"title": "Guide de publication",
+	}, map[string]any{
 		"acknowledged_source_hash": "stale-source-hash",
-		"fields": map[string]any{
-			"title": "Guide de publication",
-		},
-	})
-	if status != http.StatusConflict {
-		t.Fatalf("status=%d want=409 payload=%+v", status, payload)
+	}))
+	if status != http.StatusBadRequest {
+		t.Fatalf("status=%d want=400 payload=%+v", status, payload)
 	}
 
 	errPayload := extractMap(payload["error"])
-	if got := toString(errPayload["text_code"]); got != string(translationcore.ErrorVersionConflict) {
-		t.Fatalf("expected text_code %q, got %q", string(translationcore.ErrorVersionConflict), got)
+	if got := toString(errPayload["code"]); got != "INVALID_MUTATION" {
+		t.Fatalf("expected code INVALID_MUTATION, got %q", got)
 	}
-	meta := extractMap(errPayload["metadata"])
+	meta := extractMap(errPayload["details"])
 	if got := toString(meta["field"]); got != translationEditorAcknowledgedSourceHashKey {
 		t.Fatalf("expected field %q, got %+v", translationEditorAcknowledgedSourceHashKey, meta)
 	}
 }
 
-func TestTranslationEditorUpdateVariantReturnsAutosaveConflictPayload(t *testing.T) {
+func TestTranslationEditorDraftSyncReturnsStaleRevisionPayload(t *testing.T) {
 	fixture := newTranslationEditorTestFixture(t, translationEditorTestFixtureOptions{})
 
-	status, payload := doTranslationEditorJSONRequest(t, fixture.app, http.MethodPatch, "/admin/api/translations/variants/"+fixture.targetVariantID+"?channel=production&tenant_id=tenant-1&org_id=org-1", map[string]any{
-		"channel":          "production",
-		"expected_version": 2,
-		"autosave":         true,
-		"fields": map[string]any{
-			"title": "Conflit",
-		},
-	})
+	status, payload := doTranslationEditorJSONRequest(t, fixture.app, http.MethodPatch, translationEditorDraftSyncURL(fixture), translationEditorDraftSyncMutation(2, true, map[string]any{
+		"title": "Conflit",
+	}, nil))
 	if status != http.StatusConflict {
 		t.Fatalf("status=%d want=409 payload=%+v", status, payload)
 	}
 
 	errPayload := extractMap(payload["error"])
-	if got := toString(errPayload["text_code"]); got != TextCodeAutosaveConflict {
-		t.Fatalf("expected text_code %q, got %q", TextCodeAutosaveConflict, got)
+	if got := toString(errPayload["code"]); got != "STALE_REVISION" {
+		t.Fatalf("expected code STALE_REVISION, got %q", got)
 	}
-	meta := extractMap(errPayload["metadata"])
-	if got := toString(meta["expected_version"]); got != "2" {
-		t.Fatalf("expected expected_version 2, got %+v", meta)
+	details := extractMap(errPayload["details"])
+	if got := toInt(details["current_revision"]); got != 3 {
+		t.Fatalf("expected current_revision 3, got %+v", details)
 	}
-	latest := extractMap(meta["latest_server_state_record"])
+	latest := extractMap(extractMap(details["resource"])["data"])
 	if got := toInt(latest["row_version"]); got != 3 {
 		t.Fatalf("expected latest row_version 3, got %+v", latest)
 	}
@@ -1424,6 +1389,28 @@ func TestTranslationEditorSubmitReviewAutoApprovesWhenReviewIsDisabled(t *testin
 	}
 }
 
+func translationEditorDraftSyncURL(fixture translationEditorTestFixture) string {
+	return "/admin/api/translations/sync/resources/translation_variant_draft/" + fixture.targetVariantID + "?channel=production&tenant_id=tenant-1&org_id=org-1"
+}
+
+func translationEditorDraftSyncMutation(expectedRevision int64, autosave bool, fields map[string]any, metadata map[string]any) map[string]any {
+	payload := map[string]any{
+		"autosave": autosave,
+		"fields":   fields,
+	}
+	if metadata != nil {
+		payload["metadata"] = metadata
+	}
+	return map[string]any{
+		"operation":         translationDraftSyncOperation,
+		"expected_revision": expectedRevision,
+		"payload":           payload,
+		"metadata": map[string]any{
+			"autosave": autosave,
+		},
+	}
+}
+
 func doTranslationEditorJSONRequest(t *testing.T, app *fiber.App, method, target string, body map[string]any) (int, map[string]any) {
 	t.Helper()
 
@@ -1437,6 +1424,7 @@ func doTranslationEditorJSONRequest(t *testing.T, app *fiber.App, method, target
 	req := httptest.NewRequestWithContext(context.Background(), method, target, &payload)
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-User-ID", "translator-1")
+	req.Header.Set("X-Test-Authenticated-Actor-ID", "translator-1")
 
 	resp, err := app.Test(req)
 	if err != nil {
