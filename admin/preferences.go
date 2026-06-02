@@ -551,7 +551,7 @@ func (s *PreferencesService) recordActivity(ctx context.Context, userID string, 
 	if actor == "" {
 		actor = userID
 	}
-	_ = s.activity.Record(ctx, ActivityEntry{
+	if err := s.activity.Record(ctx, ActivityEntry{
 		Actor:  actor,
 		Action: "preferences.update",
 		Object: "preferences:" + userID,
@@ -559,7 +559,9 @@ func (s *PreferencesService) recordActivity(ctx context.Context, userID string, 
 			"user_id": userID,
 			"keys":    keys,
 		},
-	})
+	}); err != nil {
+		return
+	}
 }
 
 func mergePreferenceScope(ctx context.Context, scope PreferenceScope) PreferenceScope {
