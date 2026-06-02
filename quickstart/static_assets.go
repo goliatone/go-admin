@@ -19,23 +19,25 @@ import (
 type StaticAssetsOption func(*staticAssetsOptions)
 
 type staticAssetsOptions struct {
-	diskAssetsDir string
-	diskAssetsFS  fs.FS
-	extraAssetsFS []fs.FS
-	assetsPrefix  string
-	formgenPrefix string
-	runtimePrefix string
-	echartsPrefix string
-	sidebarAssets fs.FS
+	diskAssetsDir    string
+	diskAssetsFS     fs.FS
+	extraAssetsFS    []fs.FS
+	assetsPrefix     string
+	formgenPrefix    string
+	runtimePrefix    string
+	syncClientPrefix string
+	echartsPrefix    string
+	sidebarAssets    fs.FS
 }
 
 func resolveStaticAssetsOptions(cfg admin.Config, opts []StaticAssetsOption) staticAssetsOptions {
 	options := staticAssetsOptions{
-		assetsPrefix:  path.Join(cfg.BasePath, "assets"),
-		formgenPrefix: path.Join(cfg.BasePath, "formgen"),
-		runtimePrefix: path.Join(cfg.BasePath, "runtime"),
-		echartsPrefix: strings.TrimSuffix(dashboardcmp.DefaultEChartsAssetsPath, "/"),
-		sidebarAssets: SidebarAssetsFS(),
+		assetsPrefix:     path.Join(cfg.BasePath, "assets"),
+		formgenPrefix:    path.Join(cfg.BasePath, "formgen"),
+		runtimePrefix:    path.Join(cfg.BasePath, "runtime"),
+		syncClientPrefix: ResolveSyncClientAssetsPrefix(cfg),
+		echartsPrefix:    strings.TrimSuffix(dashboardcmp.DefaultEChartsAssetsPath, "/"),
+		sidebarAssets:    SidebarAssetsFS(),
 	}
 	for _, opt := range opts {
 		if opt != nil {
@@ -105,6 +107,17 @@ func WithRuntimePrefix(prefix string) StaticAssetsOption {
 	}
 }
 
+// WithSyncClientPrefix overrides the sync-core runtime asset route prefix used
+// by static-prefix discovery and site fallback reservation helpers.
+func WithSyncClientPrefix(prefix string) StaticAssetsOption {
+	return func(opts *staticAssetsOptions) {
+		if opts == nil {
+			return
+		}
+		opts.syncClientPrefix = strings.TrimSpace(prefix)
+	}
+}
+
 // WithEChartsPrefix overrides the go-dashboard ECharts assets prefix.
 func WithEChartsPrefix(prefix string) StaticAssetsOption {
 	return func(opts *staticAssetsOptions) {
@@ -125,15 +138,38 @@ func WithSidebarAssetsFS(fsys fs.FS) StaticAssetsOption {
 	}
 }
 
-// ResolveStaticAssetPrefixes returns the static URL prefixes that
-// NewStaticAssets will mount for the given config and options.
+// ResolveStaticAssetPrefixes returns static URL prefixes owned by quickstart
+// asset helpers for the given config and options.
 func ResolveStaticAssetPrefixes(cfg admin.Config, opts ...StaticAssetsOption) []string {
 	options := resolveStaticAssetsOptions(cfg, opts)
 	return staticprefixes.Resolve(staticprefixes.Input{
-		AssetsPrefix:  options.assetsPrefix,
-		RuntimePrefix: options.runtimePrefix,
-		FormgenPrefix: options.formgenPrefix,
-		EChartsPrefix: options.echartsPrefix,
+		AssetsPrefix:     options.assetsPrefix,
+		RuntimePrefix:    options.runtimePrefix,
+		FormgenPrefix:    options.formgenPrefix,
+		SyncClientPrefix: options.syncClientPrefix,
+		EChartsPrefix:    options.echartsPrefix,
+	})
+}
+
+// ResolveSyncClientAssetsPrefix returns the admin-scoped sync-core runtime
+// asset prefix used by translation and e-sign editor runtime config.
+func ResolveSyncClientAssetsPrefix(cfg admin.Config) string {
+	return prefixBasePath(cfg.BasePath, path.Join("sync-client", "sync-core"))
+}
+
+// RegisterSyncClientAssets mounts the supplied sync-core runtime filesystem at
+// the admin-scoped sync-client route advertised to browser editors.
+func RegisterSyncClientAssets[T any](r router.Router[T], cfg admin.Config, fsys fs.FS) {
+	if r == nil || fsys == nil {
+		return
+	}
+	prefix := strings.TrimSpace(ResolveSyncClientAssetsPrefix(cfg))
+	if prefix == "" {
+		return
+	}
+	r.Static(prefix, ".", router.Static{
+		FS:   fsys,
+		Root: ".",
 	})
 }
 
