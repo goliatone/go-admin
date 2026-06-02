@@ -40,16 +40,25 @@ func (m *capturingTranslationMetrics) IncrementQAOutcome(_ context.Context, tags
 	m.qaOutcomeTags = append(m.qaOutcomeTags, cloneTagsMap(tags))
 }
 
-func TestApplyTranslationPolicyRecordsBlockedTransitionMetric(t *testing.T) {
-	metrics := &capturingTranslationMetrics{}
+var translationMetricsTestMu sync.Mutex
+
+func useTranslationMetricsForTest(t *testing.T, metrics TranslationMetrics) {
+	t.Helper()
+	translationMetricsTestMu.Lock()
 	original := defaultTranslationMetrics
-	logCapture := &capturingSlogHandler{}
 	defaultTranslationMetrics = metrics
-	restoreLogger := swapTranslationObservabilityLoggerForTest(testLoggerWithHandler(logCapture))
 	t.Cleanup(func() {
 		defaultTranslationMetrics = original
-		restoreLogger()
+		translationMetricsTestMu.Unlock()
 	})
+}
+
+func TestApplyTranslationPolicyRecordsBlockedTransitionMetric(t *testing.T) {
+	metrics := &capturingTranslationMetrics{}
+	useTranslationMetricsForTest(t, metrics)
+	logCapture := &capturingSlogHandler{}
+	restoreLogger := swapTranslationObservabilityLoggerForTest(testLoggerWithHandler(logCapture))
+	t.Cleanup(restoreLogger)
 
 	err := applyTranslationPolicy(context.Background(), TranslationPolicyFunc(func(_ context.Context, input TranslationPolicyInput) error {
 		return MissingTranslationsError{
