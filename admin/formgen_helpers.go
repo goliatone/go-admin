@@ -155,7 +155,7 @@ func (m multiFS) Stat(name string) (fs.FileInfo, error) {
 			continue
 		}
 		info, statErr := file.Stat()
-		_ = file.Close()
+		_ = file.Close() //nolint:errcheck // cleanup is best-effort and must not replace the primary result.
 		if statErr == nil {
 			return info, nil
 		}

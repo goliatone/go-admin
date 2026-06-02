@@ -103,7 +103,7 @@ func (j *JobRegistry) attachResolver() {
 	if registry.HasResolver(jobResolverKey) {
 		return
 	}
-	_ = registry.AddResolver(jobResolverKey, j.commandResolver())
+	_ = registry.AddResolver(jobResolverKey, j.commandResolver()) //nolint:errcheck // registration happens during optional bootstrap and remains best-effort here.
 }
 
 func (j *JobRegistry) commandResolver() command.Resolver {
@@ -268,7 +268,7 @@ func (j *JobRegistry) syncTasks(registryInst gojob.Registry, scheduler goJobSche
 		if task == nil {
 			continue
 		}
-		_ = registryInst.Add(task)
+		_ = registryInst.Add(task) //nolint:errcheck // registration happens during optional bootstrap and remains best-effort here.
 		state.tasks[name] = task
 		state.commanders[name] = gojob.NewTaskCommander(task)
 
@@ -319,7 +319,7 @@ func (j *JobRegistry) List() []Job {
 	if !enabled {
 		return empty
 	}
-	_ = j.ensureSynced(context.Background())
+	_ = j.ensureSynced(context.Background()) //nolint:errcheck // legacy best-effort call intentionally does not affect the primary result.
 
 	j.mu.Lock()
 	defer j.mu.Unlock()
@@ -468,7 +468,7 @@ func recordJobActivity(activity ActivitySink, ctx AdminContext, name string, sch
 			actor = ActivityActorTypeSystem
 		}
 	}
-	_ = activity.Record(ctx.Context, ActivityEntry{
+	_ = activity.Record(ctx.Context, ActivityEntry{ //nolint:errcheck // best-effort telemetry must not fail the primary operation.
 		Actor:    actor,
 		Action:   "job.trigger",
 		Object:   name,

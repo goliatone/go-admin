@@ -932,7 +932,7 @@ func (j *jobsBinding) List(c router.Context) (map[string]any, error) {
 }
 
 func (j *jobsBinding) Trigger(c router.Context, body map[string]any) error {
-	name, _ := body["name"].(string)
+	name, _ := body["name"].(string) //nolint:errcheck // legacy dynamic payload keeps existing zero-value fallback behavior.
 	if name == "" {
 		return validationDomainError("name required", map[string]any{
 			"field": "name",

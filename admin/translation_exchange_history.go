@@ -310,7 +310,7 @@ func translationExchangeExportDownload(result TranslationExportResult) map[strin
 	case "csv":
 		buffer := &bytes.Buffer{}
 		writer := csv.NewWriter(buffer)
-		_ = writer.Write([]string{
+		_ = writer.Write([]string{ //nolint:errcheck // legacy best-effort call intentionally does not affect the primary result.
 			"resource",
 			"entity_id",
 			"family_id",
@@ -327,7 +327,7 @@ func translationExchangeExportDownload(result TranslationExportResult) map[strin
 			"notes",
 		})
 		for _, row := range result.Rows {
-			_ = writer.Write([]string{
+			_ = writer.Write([]string{ //nolint:errcheck // legacy best-effort call intentionally does not affect the primary result.
 				strings.TrimSpace(row.Resource),
 				strings.TrimSpace(row.EntityID),
 				strings.TrimSpace(row.FamilyID),

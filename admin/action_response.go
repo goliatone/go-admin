@@ -38,7 +38,7 @@ func ActionResponseCollectorFromContext(ctx context.Context) *ActionResponseColl
 	if ctx == nil {
 		return nil
 	}
-	collector, _ := ctx.Value(actionResponseContextKey{}).(*ActionResponseCollector)
+	collector, _ := ctx.Value(actionResponseContextKey{}).(*ActionResponseCollector) //nolint:errcheck // legacy dynamic payload keeps existing zero-value fallback behavior.
 	return collector
 }
 

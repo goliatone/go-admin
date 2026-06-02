@@ -403,6 +403,7 @@ func defaultAdminRoutes() map[string]string {
 	return routes
 }
 
+//nolint:funlen // keeping the route catalog together preserves route ordering readability.
 func defaultAdminAPIRoutes() map[string]string {
 	routes := map[string]string{
 		"activity":                            "/activity",

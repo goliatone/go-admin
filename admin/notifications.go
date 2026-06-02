@@ -141,7 +141,7 @@ func (s *InMemoryNotificationService) recordActivity(ctx context.Context, action
 	if s == nil || s.activity == nil {
 		return
 	}
-	_ = s.activity.Record(ctx, ActivityEntry{
+	_ = s.activity.Record(ctx, ActivityEntry{ //nolint:errcheck // best-effort telemetry must not fail the primary operation.
 		Actor:    actorFromContext(ctx),
 		Action:   action,
 		Object:   "notification:" + object,

@@ -1,6 +1,12 @@
 package boot
 
-import router "github.com/goliatone/go-router"
+import (
+	"reflect"
+	"strings"
+
+	syncdata "github.com/goliatone/go-admin/pkg/go-sync/data"
+	router "github.com/goliatone/go-router"
+)
 
 // TranslationQueueRouteStep registers translation queue aggregate HTTP routes.
 func TranslationQueueRouteStep(ctx BootCtx) error {
@@ -16,7 +22,11 @@ func TranslationQueueRouteStep(ctx BootCtx) error {
 		return nil
 	}
 	routes := translationQueueRouteSpecs(ctx, responder, ctx.Gates(), binding)
-	return applyRoutes(ctx, routes)
+	if err := applyRoutes(ctx, routes); err != nil {
+		return err
+	}
+	registerTranslationSyncClientAssets(ctx)
+	return nil
 }
 
 func translationQueueRouteSpecs(ctx BootCtx, responder Responder, gates FeatureGates, binding TranslationQueueBinding) []RouteSpec {
@@ -28,7 +38,8 @@ func translationQueueRouteSpecs(ctx BootCtx, responder Responder, gates FeatureG
 		translationQueueAssignmentBulkSnapshotRoute(ctx, responder, gates, binding),
 		translationQueueAssignmentBulkActionRoute(ctx, responder, gates, binding),
 		translationQueueAssignmentActionRoute(ctx, responder, gates, binding),
-		translationQueueVariantUpdateRoute(ctx, responder, gates, binding),
+		translationQueueDraftSyncReadRoute(ctx, responder, gates, binding),
+		translationQueueDraftSyncMutateRoute(ctx, responder, gates, binding),
 		translationQueueReadRoute(ctx, responder, gates, "translations.my_work", binding.MyWork),
 		translationQueueReadRoute(ctx, responder, gates, "translations.queue", binding.Queue),
 		translationQueueReadRoute(ctx, responder, gates, "translations.options.entity_types", binding.EntityTypesOptions),
@@ -121,17 +132,50 @@ func translationQueueAssignmentActionRoute(ctx BootCtx, responder Responder, gat
 	}
 }
 
-func translationQueueVariantUpdateRoute(ctx BootCtx, responder Responder, gates FeatureGates, binding TranslationQueueBinding) RouteSpec {
+func translationQueueDraftSyncReadRoute(ctx BootCtx, responder Responder, gates FeatureGates, binding TranslationQueueBinding) RouteSpec {
+	return RouteSpec{
+		Method: "GET",
+		Path:   routePath(ctx, ctx.AdminAPIGroup(), "translations.sync.resources.id"),
+		Handler: withFeatureGate(responder, gates, FeatureTranslationQueue, func(c router.Context) error {
+			if err := binding.ReadDraftSync(c); err != nil {
+				return responder.WriteError(c, err)
+			}
+			return nil
+		}),
+	}
+}
+
+func translationQueueDraftSyncMutateRoute(ctx BootCtx, responder Responder, gates FeatureGates, binding TranslationQueueBinding) RouteSpec {
 	return RouteSpec{
 		Method: "PATCH",
-		Path:   routePath(ctx, ctx.AdminAPIGroup(), "translations.variants.id"),
-		Handler: withFeatureGate(responder, gates, FeatureTranslationQueue, withParsedBody(ctx, responder, func(c router.Context, body map[string]any) error {
-			id := c.Param("variant_id")
-			if id == "" {
-				return errMissingID
+		Path:   routePath(ctx, ctx.AdminAPIGroup(), "translations.sync.resources.id"),
+		Handler: withFeatureGate(responder, gates, FeatureTranslationQueue, func(c router.Context) error {
+			if err := binding.MutateDraftSync(c); err != nil {
+				return responder.WriteError(c, err)
 			}
-			payload, err := binding.UpdateVariant(c, id, body)
-			return writeJSONOrError(responder, c, payload, err)
-		})),
+			return nil
+		}),
 	}
+}
+
+func registerTranslationSyncClientAssets(ctx BootCtx) {
+	if ctx == nil || ctx.Router() == nil {
+		return
+	}
+	static := reflect.ValueOf(ctx.Router()).MethodByName("Static")
+	if !static.IsValid() {
+		return
+	}
+	prefix := strings.TrimRight(adminBasePath(ctx), "/") + "/sync-client/sync-core"
+	if !strings.HasPrefix(prefix, "/") {
+		prefix = "/" + prefix
+	}
+	static.Call([]reflect.Value{
+		reflect.ValueOf(prefix),
+		reflect.ValueOf("."),
+		reflect.ValueOf(router.Static{
+			FS:   syncdata.ClientSyncCoreFS(),
+			Root: ".",
+		}),
+	})
 }

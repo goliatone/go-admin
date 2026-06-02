@@ -192,7 +192,7 @@ func debugSetResponseWriterField(target any, fieldName string, writer http.Respo
 	}
 	// #nosec G103 -- audited reflection escape hatch used to replace an unexported http.ResponseWriter field in a local wrapper struct.
 	fieldPtr := reflect.NewAt(field.Type(), unsafe.Pointer(field.UnsafeAddr())).Elem()
-	current, _ := fieldPtr.Interface().(http.ResponseWriter)
+	current, _ := fieldPtr.Interface().(http.ResponseWriter) //nolint:errcheck // legacy dynamic payload keeps existing zero-value fallback behavior.
 	next := reflect.ValueOf(writer)
 	if !next.IsValid() {
 		next = reflect.Zero(field.Type())

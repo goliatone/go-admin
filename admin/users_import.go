@@ -387,7 +387,7 @@ func parseImportFile(file *multipart.FileHeader) (bulkImportParseOutcome, error)
 		return outcome, validationDomainError("unable to read import file", map[string]any{"component": "users_import"})
 	}
 	defer func() {
-		_ = handle.Close()
+		_ = handle.Close() //nolint:errcheck // cleanup is best-effort and must not replace the primary result.
 	}()
 
 	switch format {

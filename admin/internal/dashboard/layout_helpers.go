@@ -75,7 +75,7 @@ func normalizeWidgetData(data any) map[string]any {
 	if err := json.Unmarshal(payload, &decoded); err != nil {
 		return nil
 	}
-	mapped, _ := decoded.(map[string]any)
+	mapped, _ := decoded.(map[string]any) //nolint:errcheck // legacy dynamic payload keeps existing zero-value fallback behavior.
 	return mapped
 }
 

@@ -173,7 +173,7 @@ func actionDiagnosticsSinkFromContext(ctx context.Context) ActionDiagnosticSink 
 	if ctx == nil {
 		return nil
 	}
-	sink, _ := ctx.Value(actionDiagnosticsSinkContextKey).(ActionDiagnosticSink)
+	sink, _ := ctx.Value(actionDiagnosticsSinkContextKey).(ActionDiagnosticSink) //nolint:errcheck // legacy dynamic payload keeps existing zero-value fallback behavior.
 	return sink
 }
 

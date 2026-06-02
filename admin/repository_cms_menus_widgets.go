@@ -91,7 +91,7 @@ func (r *CMSMenuRepository) Create(ctx context.Context, record map[string]any) (
 		return nil, err
 	}
 	if item.ID == "" {
-		menu, _ := r.menu.Menu(ctx, menuCode, "")
+		menu, _ := r.menu.Menu(ctx, menuCode, "") //nolint:errcheck // legacy best-effort call intentionally does not affect the primary result.
 		for _, mi := range flattenMenuItems(menu.Items, "") {
 			if mi.Label == item.Label && mi.Locale == item.Locale && mi.ParentID == item.ParentID {
 				item.ID = mi.ID

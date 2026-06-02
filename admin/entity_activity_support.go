@@ -24,7 +24,7 @@ func recordEntityActivity(
 	if metadata == nil {
 		metadata = map[string]any{}
 	}
-	_ = sink.Record(ctx, ActivityEntry{
+	_ = sink.Record(ctx, ActivityEntry{ //nolint:errcheck // best-effort telemetry must not fail the primary operation.
 		Actor:    actor,
 		Action:   action,
 		Object:   object,

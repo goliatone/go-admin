@@ -1157,7 +1157,7 @@ func (m *Module) handleWorkflowCallbackDiagnosticsStatus(c router.Context, _ map
 		for _, flow := range flows {
 			preview := m.workflowPreviewCallbackResolution(c, pid, flow)
 			providerChecks = append(providerChecks, preview)
-			if ok, _ := preview["ok"].(bool); !ok {
+			if ok, _ := preview["ok"].(bool); !ok { //nolint:errcheck // legacy dynamic payload keeps existing zero-value fallback behavior.
 				errorsOut = append(errorsOut, map[string]any{
 					"provider_id": pid,
 					"flow":        flow,

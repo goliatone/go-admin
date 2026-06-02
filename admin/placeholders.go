@@ -107,7 +107,7 @@ func resolvedPermissionsCacheFromContext(ctx context.Context) *resolvedPermissio
 	if ctx == nil {
 		return nil
 	}
-	cache, _ := ctx.Value(resolvedPermissionsCacheContextKey{}).(*resolvedPermissionsCache)
+	cache, _ := ctx.Value(resolvedPermissionsCacheContextKey{}).(*resolvedPermissionsCache) //nolint:errcheck // legacy dynamic payload keeps existing zero-value fallback behavior.
 	return cache
 }
 
@@ -593,7 +593,7 @@ func (a *GoAuthAuthorizer) ResolvedPermissions(ctx context.Context) []string {
 }
 
 func (a *GoAuthAuthorizer) resolvePermissionsWithCache(ctx context.Context, cache *resolvedPermissionsCache) []string {
-	_, readyBefore, _, _ := cache.snapshot()
+	_, readyBefore, _, _ := cache.snapshot() //nolint:errcheck // legacy best-effort call intentionally does not affect the primary result.
 	if readyBefore {
 		a.resolverCacheHits.Add(1)
 	} else {

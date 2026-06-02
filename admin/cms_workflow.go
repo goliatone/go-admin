@@ -66,7 +66,7 @@ func RegisterDefaultCMSWorkflows(registrar WorkflowRegistrar) {
 		if checker != nil && checker.HasWorkflow(definition.EntityType) {
 			continue
 		}
-		_ = registrar.RegisterWorkflow(definition.EntityType, definition)
+		_ = registrar.RegisterWorkflow(definition.EntityType, definition) //nolint:errcheck // registration happens during optional bootstrap and remains best-effort here.
 	}
 }
 

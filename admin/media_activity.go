@@ -57,10 +57,10 @@ func (a *Admin) recordMediaMutationActivity(ctx context.Context, event MediaMuta
 	}
 
 	if primary, ok := resolveMediaPrimaryEntry(defaultEntry, decision); ok {
-		_ = a.activity.Record(ctx, primary)
+		_ = a.activity.Record(ctx, primary) //nolint:errcheck // best-effort telemetry must not fail the primary operation.
 	}
 	for _, entry := range decision.Additional {
-		_ = a.activity.Record(ctx, normalizeMediaActivityEntry(entry, defaultEntry))
+		_ = a.activity.Record(ctx, normalizeMediaActivityEntry(entry, defaultEntry)) //nolint:errcheck // best-effort telemetry must not fail the primary operation.
 	}
 }
 

@@ -72,7 +72,7 @@ func registerBuiltinDebugPanel(id string, config debugregistry.PanelConfig) {
 	if strings.TrimSpace(config.SnapshotKey) == "" {
 		config.SnapshotKey = normalized
 	}
-	_ = debugregistry.RegisterPanel(normalized, config)
+	_ = debugregistry.RegisterPanel(normalized, config) //nolint:errcheck // registration happens during optional bootstrap and remains best-effort here.
 }
 
 func registerDebugPanelFromInterface(panel DebugPanel) {
@@ -100,7 +100,7 @@ func registerDebugPanelFromInterface(panel DebugPanel) {
 	if actionProvider, ok := panel.(DebugPanelActionProvider); ok {
 		config.Actions = actionProvider.Actions()
 	}
-	_ = debugregistry.RegisterPanel(id, config)
+	_ = debugregistry.RegisterPanel(id, config) //nolint:errcheck // registration happens during optional bootstrap and remains best-effort here.
 }
 
 func debugPanelDefinitionFor(panelID string) debugregistry.PanelDefinition {

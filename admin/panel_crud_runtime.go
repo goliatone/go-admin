@@ -200,7 +200,7 @@ func (p *Panel) recordActivity(ctx AdminContext, action string, metadata map[str
 		Object:   "panel:" + p.name,
 		Metadata: metadata,
 	}
-	_ = p.activity.Record(ctx.Context, entry)
+	_ = p.activity.Record(ctx.Context, entry) //nolint:errcheck // best-effort telemetry must not fail the primary operation.
 }
 
 func (p *Panel) recordBlockedTranslation(ctx AdminContext, id string, record map[string]any, err error) {

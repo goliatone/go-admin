@@ -384,7 +384,7 @@ func (r *BunWorkflowBindingRepository) Create(ctx context.Context, binding Workf
 				return conflictDomainError("workflow binding already exists", map[string]any{"id": next.ID})
 			}
 			if workflowBindingUniqueConstraintConflict(err) {
-				existingID, _ := findWorkflowBindingConflict(ctx, tx, next, "")
+				existingID, _ := findWorkflowBindingConflict(ctx, tx, next, "") //nolint:errcheck // legacy dynamic payload keeps existing zero-value fallback behavior.
 				return WorkflowBindingConflictError{
 					BindingID:         next.ID,
 					ExistingBindingID: existingID,
@@ -496,7 +496,7 @@ func normalizeUpdatedWorkflowBinding(current WorkflowBinding, binding WorkflowBi
 }
 
 func workflowBindingConflictFromUniqueError(ctx context.Context, tx bun.Tx, next WorkflowBinding, currentID string) error {
-	existingID, _ := findWorkflowBindingConflict(ctx, tx, next, currentID)
+	existingID, _ := findWorkflowBindingConflict(ctx, tx, next, currentID) //nolint:errcheck // legacy dynamic payload keeps existing zero-value fallback behavior.
 	return WorkflowBindingConflictError{
 		BindingID:         next.ID,
 		ExistingBindingID: existingID,
@@ -519,7 +519,7 @@ func (r *BunWorkflowBindingRepository) Delete(ctx context.Context, id string) er
 	if err != nil {
 		return err
 	}
-	affected, _ := res.RowsAffected()
+	affected, _ := res.RowsAffected() //nolint:errcheck // legacy best-effort call intentionally does not affect the primary result.
 	if affected == 0 {
 		return ErrNotFound
 	}

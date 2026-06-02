@@ -61,7 +61,7 @@ func buildActivityRuntime(cfg Config, repositoryFactory any) (*activityRuntime, 
 	}
 
 	fallback := activityCfg.FallbackSink
-	fallbackMemory, _ := fallback.(*memoryActivityFallbackSink)
+	fallbackMemory, _ := fallback.(*memoryActivityFallbackSink) //nolint:errcheck // legacy dynamic payload keeps existing zero-value fallback behavior.
 	if fallback == nil {
 		fallbackMemory = newMemoryActivityFallbackSink(activityCfg.FallbackBufferSize)
 		fallback = fallbackMemory

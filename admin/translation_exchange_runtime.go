@@ -277,7 +277,7 @@ func (r *TranslationExchangeRuntime) heartbeatLoop(ctx context.Context, jobID st
 			mu.Lock()
 			snapshot := primitives.CloneAnyMap(*progress)
 			mu.Unlock()
-			_ = r.store.HeartbeatJob(ctx, jobID, r.workerID, snapshot, now, now.Add(r.leaseDuration))
+			_ = r.store.HeartbeatJob(ctx, jobID, r.workerID, snapshot, now, now.Add(r.leaseDuration)) //nolint:errcheck // legacy best-effort call intentionally does not affect the primary result.
 		}
 	}
 }
@@ -286,7 +286,7 @@ func (r *TranslationExchangeRuntime) failJob(ctx context.Context, jobID string, 
 	if r == nil || r.store == nil {
 		return
 	}
-	_, _ = r.store.FailJob(ctx, jobID, r.workerID, map[string]any{"failed": 1}, failure, time.Now().UTC())
+	_, _ = r.store.FailJob(ctx, jobID, r.workerID, map[string]any{"failed": 1}, failure, time.Now().UTC()) //nolint:errcheck // legacy best-effort call intentionally does not affect the primary result.
 }
 
 func (r *TranslationExchangeRuntime) executeExportJob(ctx context.Context, job translationExchangeAsyncJob, progressMu *sync.Mutex, currentProgress *map[string]any) {
@@ -311,8 +311,8 @@ func (r *TranslationExchangeRuntime) executeExportJob(ctx context.Context, job t
 	progressMu.Lock()
 	*currentProgress = primitives.CloneAnyMap(progress)
 	progressMu.Unlock()
-	_ = r.store.ReplaceJobArtifacts(ctx, job, translationExchangeArtifactsFromPayload(responsePayload))
-	_, _ = r.store.CompleteJob(ctx, job.ID, r.workerID, progress, translationExchangeStoredResultPayload(responsePayload), translationExchangeJobRetentionPayload(job.PollEndpoint, responsePayload), time.Now().UTC())
+	_ = r.store.ReplaceJobArtifacts(ctx, job, translationExchangeArtifactsFromPayload(responsePayload))                                                                                                                 //nolint:errcheck // legacy best-effort call intentionally does not affect the primary result.
+	_, _ = r.store.CompleteJob(ctx, job.ID, r.workerID, progress, translationExchangeStoredResultPayload(responsePayload), translationExchangeJobRetentionPayload(job.PollEndpoint, responsePayload), time.Now().UTC()) //nolint:errcheck // legacy best-effort call intentionally does not affect the primary result.
 }
 
 func (r *TranslationExchangeRuntime) executeApplyJob(ctx context.Context, job translationExchangeAsyncJob, progressMu *sync.Mutex, currentProgress *map[string]any) {
@@ -350,7 +350,7 @@ func (r *TranslationExchangeRuntime) executeApplyJobWithService(ctx context.Cont
 			return
 		}
 		stored = r.updateStoredApplyRow(stored, outcome)
-		_ = r.store.UpsertJobRow(ctx, job.ID, stored)
+		_ = r.store.UpsertJobRow(ctx, job.ID, stored) //nolint:errcheck // legacy best-effort call intentionally does not affect the primary result.
 		r.registerSeenKey(seen, outcome.SeenRegistered, outcome.SeenKey, stored.RowIndex)
 		result.Add(outcome.RowResult)
 		r.updateApplyProgress(progressMu, currentProgress, result.Summary, len(rows))
@@ -427,7 +427,7 @@ func (r *TranslationExchangeRuntime) markRemainingApplyRowsSkipped(ctx context.C
 		rowResult.Error = "skipped due to previous row failure and continue_on_error=false"
 		pending.Result = &rowResult
 		pending.UpdatedAt = time.Now().UTC()
-		_ = r.store.UpsertJobRow(ctx, jobID, pending)
+		_ = r.store.UpsertJobRow(ctx, jobID, pending) //nolint:errcheck // legacy best-effort call intentionally does not affect the primary result.
 		result.Add(rowResult)
 	}
 }
@@ -439,8 +439,8 @@ func (r *TranslationExchangeRuntime) completeApplyJob(ctx context.Context, job t
 	progressMu.Lock()
 	*currentProgress = primitives.CloneAnyMap(progress)
 	progressMu.Unlock()
-	_ = r.store.ReplaceJobArtifacts(ctx, job, translationExchangeArtifactsFromPayload(responsePayload))
-	_, _ = r.store.CompleteJob(ctx, job.ID, r.workerID, progress, translationExchangeStoredResultPayload(responsePayload), translationExchangeJobRetentionPayload(job.PollEndpoint, responsePayload), time.Now().UTC())
+	_ = r.store.ReplaceJobArtifacts(ctx, job, translationExchangeArtifactsFromPayload(responsePayload))                                                                                                                 //nolint:errcheck // legacy best-effort call intentionally does not affect the primary result.
+	_, _ = r.store.CompleteJob(ctx, job.ID, r.workerID, progress, translationExchangeStoredResultPayload(responsePayload), translationExchangeJobRetentionPayload(job.PollEndpoint, responsePayload), time.Now().UTC()) //nolint:errcheck // legacy best-effort call intentionally does not affect the primary result.
 }
 
 func (r *TranslationExchangeRuntime) executeApplyJobWithExecutor(ctx context.Context, job translationExchangeAsyncJob, rows []translationExchangeStoredRow, applier TranslationExchangeApplier, progressMu *sync.Mutex, currentProgress *map[string]any) {
@@ -473,15 +473,15 @@ func (r *TranslationExchangeRuntime) executeApplyJobWithExecutor(ctx context.Con
 			}
 		}
 		stored.UpdatedAt = time.Now().UTC()
-		_ = r.store.UpsertJobRow(ctx, job.ID, stored)
+		_ = r.store.UpsertJobRow(ctx, job.ID, stored) //nolint:errcheck // legacy best-effort call intentionally does not affect the primary result.
 	}
 	responsePayload := translationExchangeResultPayloadForKind(translationExchangeJobKindImportApply, result, translationExchangeInputRowsFromStoredRows(rows))
 	progress := translationExchangeProgressFromResultSummary(result.Summary, len(rows))
 	progressMu.Lock()
 	*currentProgress = primitives.CloneAnyMap(progress)
 	progressMu.Unlock()
-	_ = r.store.ReplaceJobArtifacts(ctx, job, translationExchangeArtifactsFromPayload(responsePayload))
-	_, _ = r.store.CompleteJob(ctx, job.ID, r.workerID, progress, translationExchangeStoredResultPayload(responsePayload), translationExchangeJobRetentionPayload(job.PollEndpoint, responsePayload), time.Now().UTC())
+	_ = r.store.ReplaceJobArtifacts(ctx, job, translationExchangeArtifactsFromPayload(responsePayload))                                                                                                                 //nolint:errcheck // legacy best-effort call intentionally does not affect the primary result.
+	_, _ = r.store.CompleteJob(ctx, job.ID, r.workerID, progress, translationExchangeStoredResultPayload(responsePayload), translationExchangeJobRetentionPayload(job.PollEndpoint, responsePayload), time.Now().UTC()) //nolint:errcheck // legacy best-effort call intentionally does not affect the primary result.
 }
 
 func translationExchangeProgressFromResultSummary(summary TranslationExchangeSummary, total int) map[string]any {

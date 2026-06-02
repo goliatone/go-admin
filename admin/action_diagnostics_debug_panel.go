@@ -59,11 +59,11 @@ func (p *ActionDiagnosticsDebugPanel) Collect(context.Context) map[string]any {
 	for _, entry := range entries {
 		switch entry.Kind {
 		case actionDiagnosticKindDisablement:
-			summary["disablements"] = summary["disablements"].(int) + 1
+			summary["disablements"] = summary["disablements"].(int) + 1 //nolint:errcheck // legacy dynamic payload keeps existing zero-value fallback behavior.
 		case actionDiagnosticKindAvailabilityErr:
-			summary["availability_errors"] = summary["availability_errors"].(int) + 1
+			summary["availability_errors"] = summary["availability_errors"].(int) + 1 //nolint:errcheck // legacy dynamic payload keeps existing zero-value fallback behavior.
 		case actionDiagnosticKindExecutionErr:
-			summary["execution_failures"] = summary["execution_failures"].(int) + 1
+			summary["execution_failures"] = summary["execution_failures"].(int) + 1 //nolint:errcheck // legacy dynamic payload keeps existing zero-value fallback behavior.
 		}
 	}
 

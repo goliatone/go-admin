@@ -73,8 +73,8 @@ func IconsRouteStep(ctx BootCtx) error {
 			Method: "POST",
 			Path:   routePath(ctx, ctx.AdminAPIGroup(), "icons.render"),
 			Handler: withParsedBody(ctx, responder, func(c router.Context, body map[string]any) error {
-				value, _ := body["value"].(string)
-				variant, _ := body["variant"].(string)
+				value, _ := body["value"].(string)     //nolint:errcheck // legacy dynamic payload keeps existing zero-value fallback behavior.
+				variant, _ := body["variant"].(string) //nolint:errcheck // legacy dynamic payload keeps existing zero-value fallback behavior.
 				payload, err := binding.Render(c, value, variant)
 				return writeJSONOrError(responder, c, payload, err)
 			}),

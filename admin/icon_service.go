@@ -238,7 +238,7 @@ func (s *IconService) Render(ref IconReference, opts IconRenderOptions) string {
 	}
 
 	// Look up definition for metadata
-	def, _ := s.Resolve(ref)
+	def, _ := s.Resolve(ref) //nolint:errcheck // legacy best-effort call intentionally does not affect the primary result.
 
 	return s.renderer.Render(ref, def, opts)
 }

@@ -948,7 +948,7 @@ func recordContentTypeActivity(ctx context.Context, sink ActivitySink, action st
 		Channel:  "cms",
 		Metadata: metadata,
 	}
-	_ = sink.Record(ctx, entry)
+	_ = sink.Record(ctx, entry) //nolint:errcheck // best-effort telemetry must not fail the primary operation.
 }
 
 type contentTypeCreateCommand struct {
@@ -968,7 +968,7 @@ func (c *contentTypeCreateCommand) Execute(ctx context.Context, msg ContentTypeC
 		return err
 	}
 	if c.panels != nil && created != nil {
-		_, _ = c.panels.CreatePanelFromContentType(ctx, created)
+		_, _ = c.panels.CreatePanelFromContentType(ctx, created) //nolint:errcheck // legacy best-effort call intentionally does not affect the primary result.
 	}
 	recordContentTypeActivity(ctx, c.activity, "created", created, nil)
 	return nil
@@ -991,7 +991,7 @@ func (c *contentTypeUpdateCommand) Execute(ctx context.Context, msg ContentTypeU
 		return err
 	}
 	if c.panels != nil && updated != nil {
-		_ = c.panels.RefreshPanel(ctx, updated)
+		_ = c.panels.RefreshPanel(ctx, updated) //nolint:errcheck // legacy best-effort call intentionally does not affect the primary result.
 	}
 	recordContentTypeActivity(ctx, c.activity, "updated", updated, nil)
 	return nil
@@ -1024,7 +1024,7 @@ func (c *contentTypeDeleteCommand) Execute(ctx context.Context, msg ContentTypeD
 		return err
 	}
 	if c.panels != nil {
-		_ = c.panels.RemovePanel(ctx, id)
+		_ = c.panels.RemovePanel(ctx, id) //nolint:errcheck // legacy best-effort call intentionally does not affect the primary result.
 	}
 	if deletedCT == nil {
 		deletedCT = &CMSContentType{ID: id}
@@ -1067,7 +1067,7 @@ func (c *contentTypePublishCommand) Execute(ctx context.Context, msg ContentType
 		return err
 	}
 	if c.panels != nil && updated != nil {
-		_ = c.panels.RefreshPanel(ctx, updated)
+		_ = c.panels.RefreshPanel(ctx, updated) //nolint:errcheck // legacy best-effort call intentionally does not affect the primary result.
 	}
 	extra := map[string]any{
 		"from_status": previousStatus,
@@ -1511,11 +1511,11 @@ func normalizeBlockPickerWidgetHints(node map[string]any) {
 	if !hasBlockLibraryWidgetHint(node) {
 		return
 	}
-	items, _ := node["items"].(map[string]any)
+	items, _ := node["items"].(map[string]any) //nolint:errcheck // legacy dynamic payload keeps existing zero-value fallback behavior.
 	if items == nil {
 		return
 	}
-	oneOf, _ := items["oneOf"].([]any)
+	oneOf, _ := items["oneOf"].([]any) //nolint:errcheck // legacy dynamic payload keeps existing zero-value fallback behavior.
 	allowed := extractAllowedBlockTypes(oneOf)
 	if len(oneOf) > 0 {
 		delete(items, "oneOf")
@@ -1656,11 +1656,11 @@ func extractAllowedBlockTypes(oneOf []any) []string {
 			add(parts[len(parts)-1])
 			continue
 		}
-		props, _ := item["properties"].(map[string]any)
+		props, _ := item["properties"].(map[string]any) //nolint:errcheck // legacy dynamic payload keeps existing zero-value fallback behavior.
 		if props == nil {
 			continue
 		}
-		typeProp, _ := props["_type"].(map[string]any)
+		typeProp, _ := props["_type"].(map[string]any) //nolint:errcheck // legacy dynamic payload keeps existing zero-value fallback behavior.
 		if typeProp == nil {
 			continue
 		}

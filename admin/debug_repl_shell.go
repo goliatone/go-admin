@@ -165,7 +165,7 @@ func runDebugREPLShellLoop(admin *Admin, ctx context.Context, replCfg DebugREPLC
 			}
 		case err := <-cmdErrCh:
 			exitCode := debugREPLShellExitCode(err)
-			_ = c.WriteJSON(debugREPLShellEvent{Type: debugREPLShellEventExit, Code: exitCode})
+			_ = c.WriteJSON(debugREPLShellEvent{Type: debugREPLShellEventExit, Code: exitCode}) //nolint:errcheck // legacy best-effort call intentionally does not affect the primary result.
 			*closeReason = debugREPLShellCloseReasonUser
 			return nil
 		case <-ptyErrCh:
@@ -240,7 +240,7 @@ func debugREPLFinishSession(admin *Admin, runtime debugREPLSessionRuntime, close
 	if runtime.sessionManger == nil {
 		return
 	}
-	_ = runtime.sessionManger.Close(runtime.adminCtx.Context, runtime.session.ID, time.Now())
+	_ = runtime.sessionManger.Close(runtime.adminCtx.Context, runtime.session.ID, time.Now()) //nolint:errcheck // cleanup is best-effort and must not replace the primary result.
 	closeMeta := primitives.CloneAnyMap(runtime.baseMeta)
 	if closeReason != nil {
 		closeMeta["reason"] = *closeReason
@@ -367,12 +367,12 @@ func debugREPLStartShell(cfg DebugREPLConfig) (*exec.Cmd, *os.File, error) {
 
 func debugREPLStopShell(cmd *exec.Cmd, ptmx *os.File) {
 	if ptmx != nil {
-		_ = ptmx.Close()
+		_ = ptmx.Close() //nolint:errcheck // cleanup is best-effort and must not replace the primary result.
 	}
 	if cmd == nil || cmd.Process == nil {
 		return
 	}
-	_ = cmd.Process.Kill()
+	_ = cmd.Process.Kill() //nolint:errcheck // cleanup is best-effort and must not replace the primary result.
 }
 
 func debugREPLShellExitCode(err error) int {
@@ -439,7 +439,7 @@ func recordDebugREPLActivity(admin *Admin, ctx context.Context, action, object s
 		actor = ActivityActorTypeSystem
 		metadata = tagActivityActorType(metadata, ActivityActorTypeSystem)
 	}
-	_ = admin.activity.Record(ctx, ActivityEntry{
+	_ = admin.activity.Record(ctx, ActivityEntry{ //nolint:errcheck // best-effort telemetry must not fail the primary operation.
 		Actor:    actor,
 		Action:   action,
 		Object:   object,

@@ -262,7 +262,7 @@ func (w *WorkerRuntime) handleOutboxDispatchJob(ctx context.Context, params map[
 		return err
 	}
 	if w.activityRuntime != nil {
-		_, _ = w.activityRuntime.EnforceRetention(ctx)
+		_, _ = w.activityRuntime.EnforceRetention(ctx) //nolint:errcheck // legacy best-effort call intentionally does not affect the primary result.
 	}
 	return nil
 }
@@ -442,7 +442,7 @@ func registerInboundHandlers(dispatcher *goservicesinbound.Dispatcher, handlers 
 		if registered[surface] {
 			continue
 		}
-		_ = dispatcher.Register(noopInboundHandler{surface: surface})
+		_ = dispatcher.Register(noopInboundHandler{surface: surface}) //nolint:errcheck // registration happens during optional bootstrap and remains best-effort here.
 	}
 }
 

@@ -249,7 +249,7 @@ func (s goCMSAdminBlockReadService) listBlocks(ctx context.Context, opts ListOpt
 	}
 	blocks := []CMSBlock{}
 	for _, cid := range contentIDs {
-		items, _ := s.content.BlocksForContent(ctx, cid, locale)
+		items, _ := s.content.BlocksForContent(ctx, cid, locale) //nolint:errcheck // legacy best-effort call intentionally does not affect the primary result.
 		blocks = append(blocks, items...)
 	}
 	search := strings.ToLower(extractSearch(opts))

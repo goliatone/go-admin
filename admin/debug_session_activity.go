@@ -52,7 +52,7 @@ func recordDebugSessionAttach(admin *Admin, ctx context.Context, session DebugUs
 		actor = ActivityActorTypeSystem
 		meta = tagActivityActorType(meta, ActivityActorTypeSystem)
 	}
-	_ = admin.activity.Record(ctx, ActivityEntry{
+	_ = admin.activity.Record(ctx, ActivityEntry{ //nolint:errcheck // best-effort telemetry must not fail the primary operation.
 		Actor:    actor,
 		Action:   debugSessionActivityActionAttach,
 		Object:   debugSessionActivityObject(session.SessionID),

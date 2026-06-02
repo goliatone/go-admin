@@ -181,7 +181,7 @@ func (a *ActivitySinkAdapter) Record(ctx context.Context, entry ActivityEntry) e
 		}
 	}
 	if a.fallback != nil {
-		_ = a.fallback.Record(ctx, entry)
+		_ = a.fallback.Record(ctx, entry) //nolint:errcheck // best-effort telemetry must not fail the primary operation.
 	}
 	return nil
 }
@@ -516,7 +516,7 @@ func fromUsersActivityRecord(record userstypes.ActivityRecord) ActivityRecord {
 }
 
 func parseUUIDValue(value string) uuid.UUID {
-	id, _ := uuid.Parse(strings.TrimSpace(value))
+	id, _ := uuid.Parse(strings.TrimSpace(value)) //nolint:errcheck // legacy best-effort call intentionally does not affect the primary result.
 	return id
 }
 

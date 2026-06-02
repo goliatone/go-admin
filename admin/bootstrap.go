@@ -39,7 +39,7 @@ func (a *Admin) Bootstrap(ctx context.Context) error {
 
 	// TODO: Configurable
 	if featureEnabled(a.featureGate, FeatureNotifications) && a.notifications != nil {
-		_, _ = a.notifications.Add(ctx, Notification{Title: "Welcome to go-admin", Message: "Notifications are wired", Read: false})
+		_, _ = a.notifications.Add(ctx, Notification{Title: "Welcome to go-admin", Message: "Notifications are wired", Read: false}) //nolint:errcheck // registration happens during optional bootstrap and remains best-effort here.
 	}
 
 	return nil

@@ -61,7 +61,7 @@ func HooksFromContext(ctx context.Context) *Hooks {
 	if ctx == nil {
 		return nil
 	}
-	hooks, _ := ctx.Value(hooksContextKey{}).(*Hooks)
+	hooks, _ := ctx.Value(hooksContextKey{}).(*Hooks) //nolint:errcheck // legacy dynamic payload keeps existing zero-value fallback behavior.
 	return hooks
 }
 

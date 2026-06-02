@@ -14,7 +14,7 @@ func adminBrowserCSRFProtector(admin *Admin) BrowserCSRFProtector {
 	if admin == nil {
 		return nil
 	}
-	protector, _ := admin.authenticator.(BrowserCSRFProtector)
+	protector, _ := admin.authenticator.(BrowserCSRFProtector) //nolint:errcheck // legacy dynamic payload keeps existing zero-value fallback behavior.
 	return protector
 }
 

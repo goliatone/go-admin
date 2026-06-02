@@ -26,7 +26,7 @@ func walkMediaSchemaProperties(schema map[string]any, media *MediaConfig) int {
 		return 0
 	}
 	enriched := 0
-	props, _ := schema["properties"].(map[string]any)
+	props, _ := schema["properties"].(map[string]any) //nolint:errcheck // legacy dynamic payload keeps existing zero-value fallback behavior.
 	for _, raw := range props {
 		prop, ok := raw.(map[string]any)
 		if !ok || prop == nil {
@@ -41,7 +41,7 @@ func walkMediaSchemaProperties(schema map[string]any, media *MediaConfig) int {
 			continue
 		}
 		if strings.EqualFold(strings.TrimSpace(toString(prop["type"])), "array") {
-			items, _ := prop["items"].(map[string]any)
+			items, _ := prop["items"].(map[string]any) //nolint:errcheck // legacy dynamic payload keeps existing zero-value fallback behavior.
 			if mediaSchemaHasObjectProperties(items) {
 				enriched += walkMediaSchemaProperties(items, media)
 			}
@@ -168,15 +168,15 @@ func mediaSchemaIsGallery(prop map[string]any) bool {
 	if strings.EqualFold(strings.TrimSpace(toString(prop["type"])), "array") {
 		return true
 	}
-	formgen, _ := prop["x-formgen"].(map[string]any)
+	formgen, _ := prop["x-formgen"].(map[string]any) //nolint:errcheck // legacy dynamic payload keeps existing zero-value fallback behavior.
 	if mediaSchemaOptionsMultiple(formgen) {
 		return true
 	}
-	adminMeta, _ := prop["x-admin"].(map[string]any)
+	adminMeta, _ := prop["x-admin"].(map[string]any) //nolint:errcheck // legacy dynamic payload keeps existing zero-value fallback behavior.
 	if mediaSchemaOptionsMultiple(adminMeta) {
 		return true
 	}
-	if mediaMeta, _ := adminMeta["media"].(map[string]any); mediaSchemaOptionsMultiple(mediaMeta) {
+	if mediaMeta, _ := adminMeta["media"].(map[string]any); mediaSchemaOptionsMultiple(mediaMeta) { //nolint:errcheck // legacy dynamic payload keeps existing zero-value fallback behavior.
 		return true
 	}
 	return false
@@ -212,7 +212,7 @@ func applyMediaSchemaPropertyHints(prop map[string]any, media *MediaConfig, kind
 	}
 	valueMode := applyFormgenMediaHints(prop, media, kind)
 	if kind == "media-gallery" || mediaSchemaIsGallery(prop) {
-		if formgenMeta, _ := prop["x-formgen"].(map[string]any); formgenMeta != nil {
+		if formgenMeta, _ := prop["x-formgen"].(map[string]any); formgenMeta != nil { //nolint:errcheck // legacy dynamic payload keeps existing zero-value fallback behavior.
 			componentOptions := mergedFormgenMediaComponentOptions(formgenMeta)
 			componentOptions["multiple"] = true
 			formgenMeta["componentOptions"] = deepCloneAnyMap(componentOptions)

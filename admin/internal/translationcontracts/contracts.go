@@ -365,7 +365,7 @@ func NormalizeDriftFields(groups ...[]string) []string {
 }
 
 func mapFromAny(value any) map[string]any {
-	out, _ := value.(map[string]any)
+	out, _ := value.(map[string]any) //nolint:errcheck // legacy dynamic payload keeps existing zero-value fallback behavior.
 	return out
 }
 

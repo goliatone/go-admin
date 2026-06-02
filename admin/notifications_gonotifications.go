@@ -208,7 +208,7 @@ func (s *goNotificationsService) Mark(ctx context.Context, ids []string, read bo
 		return err
 	}
 	if userID != "system" {
-		_ = s.inbox.MarkRead(ctx, "system", parsed, read)
+		_ = s.inbox.MarkRead(ctx, "system", parsed, read) //nolint:errcheck // legacy best-effort call intentionally does not affect the primary result.
 	}
 	return nil
 }
@@ -254,7 +254,7 @@ func (s *goNotificationsService) registerDefaults(tplSvc *notiftemplates.Service
 				"source": "go-admin",
 			},
 		}
-		_ = s.definitions.Create(ctx, &def)
+		_ = s.definitions.Create(ctx, &def) //nolint:errcheck // legacy best-effort call intentionally does not affect the primary result.
 	}
 	if _, err := tplSvc.Get(ctx, s.defaultDefinition, s.defaultChannel, s.defaultLocale); errors.Is(err, notifstore.ErrNotFound) {
 		_, tplErr := tplSvc.Create(ctx, notiftemplates.TemplateInput{
@@ -292,7 +292,7 @@ func (h *notificationsActivityHook) Notify(ctx context.Context, evt notifactivit
 	if evt.ObjectID != "" {
 		object = object + ":" + evt.ObjectID
 	}
-	_ = sink.Record(ctx, ActivityEntry{
+	_ = sink.Record(ctx, ActivityEntry{ //nolint:errcheck // best-effort telemetry must not fail the primary operation.
 		Actor:    evt.ActorID,
 		Action:   evt.Verb,
 		Object:   object,

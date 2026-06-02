@@ -24,7 +24,7 @@ func recordCMSActivity(ctx context.Context, sink ActivitySink, action, object st
 	if sink == nil {
 		return
 	}
-	_ = sink.Record(ctx, ActivityEntry{
+	_ = sink.Record(ctx, ActivityEntry{ //nolint:errcheck // best-effort telemetry must not fail the primary operation.
 		Actor:    actorFromContext(ctx),
 		Action:   action,
 		Object:   object,

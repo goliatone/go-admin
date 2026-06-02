@@ -882,7 +882,7 @@ func (c *DebugCollector) Clear() {
 			continue
 		}
 		if registration.Clear != nil {
-			_ = registration.Clear(ctx)
+			_ = registration.Clear(ctx) //nolint:errcheck // legacy dynamic payload keeps existing zero-value fallback behavior.
 		}
 	}
 }
@@ -942,7 +942,7 @@ func (c *DebugCollector) clearBuiltinPanel(panelID string) bool {
 func (c *DebugCollector) clearRegisteredOrDynamicPanel(panelID string) bool {
 	reg, regOK := debugregistry.Panel(panelID)
 	if regOK && reg.Clear != nil {
-		_ = reg.Clear(context.Background())
+		_ = reg.Clear(context.Background()) //nolint:errcheck // legacy dynamic payload keeps existing zero-value fallback behavior.
 	}
 	c.mu.Lock()
 	defer c.mu.Unlock()

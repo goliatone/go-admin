@@ -898,7 +898,7 @@ func mergeSchemaSection(target, base map[string]any, key string) {
 	if !ok || len(baseSection) == 0 {
 		return
 	}
-	section, _ := target[key].(map[string]any)
+	section, _ := target[key].(map[string]any) //nolint:errcheck // legacy dynamic payload keeps existing zero-value fallback behavior.
 	if section == nil {
 		section = map[string]any{}
 	}

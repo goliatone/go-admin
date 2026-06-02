@@ -54,7 +54,7 @@ func (c *DebugREPLCommandCatalog) attachResolver() {
 	if c == nil || registry.HasResolver(debugREPLCommandResolverKey) {
 		return
 	}
-	_ = registry.AddResolver(debugREPLCommandResolverKey, c.commandResolver())
+	_ = registry.AddResolver(debugREPLCommandResolverKey, c.commandResolver()) //nolint:errcheck // registration happens during optional bootstrap and remains best-effort here.
 }
 
 func (c *DebugREPLCommandCatalog) commandResolver() command.Resolver {

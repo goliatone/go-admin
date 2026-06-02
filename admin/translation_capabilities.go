@@ -238,7 +238,7 @@ func translationCapabilityRouteSpecs(adminGroup, adminAPIGroup string) []transla
 		"translations.families",
 		"translations.families.id",
 		"translations.families.variants",
-		"translations.variants.id",
+		"translations.sync.resources.id",
 		"translations.assignments",
 		"translations.assignments.family_assignments",
 		"translations.assignments.id",

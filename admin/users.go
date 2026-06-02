@@ -441,7 +441,7 @@ func (s *UserManagementService) DeleteRole(ctx context.Context, id string) error
 	if s == nil || s.roles == nil {
 		return serviceNotConfiguredDomainError("role service", nil)
 	}
-	role, _ := s.roles.Get(ctx, id)
+	role, _ := s.roles.Get(ctx, id) //nolint:errcheck // legacy best-effort call intentionally does not affect the primary result.
 	if role.IsSystem {
 		return ErrForbidden
 	}
@@ -620,7 +620,7 @@ func (s *UserManagementService) recordActivity(ctx context.Context, action, obje
 	if actor == "" {
 		actor = userIDFromContext(ctx)
 	}
-	_ = s.activity.Record(ctx, ActivityEntry{
+	_ = s.activity.Record(ctx, ActivityEntry{ //nolint:errcheck // best-effort telemetry must not fail the primary operation.
 		Actor:    actor,
 		Action:   action,
 		Object:   object,
@@ -1571,7 +1571,7 @@ func fromUsersAuthUser(u users.AuthUser) UserRecord {
 }
 
 func toUsersAuthUser(u UserRecord) users.AuthUser {
-	id, _ := uuid.Parse(u.ID)
+	id, _ := uuid.Parse(u.ID) //nolint:errcheck // legacy best-effort call intentionally does not affect the primary result.
 	return users.AuthUser{
 		ID:        id,
 		Email:     u.Email,

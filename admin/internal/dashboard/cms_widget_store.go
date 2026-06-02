@@ -134,7 +134,7 @@ func (s *CMSWidgetStore) DeleteInstance(ctx context.Context, instanceID string) 
 	if s == nil || s.svc == nil {
 		return errWidgetServiceUnavailable
 	}
-	inst, _ := s.loadInstance(ctx, instanceID)
+	inst, _ := s.loadInstance(ctx, instanceID) //nolint:errcheck // legacy best-effort call intentionally does not affect the primary result.
 	if err := s.svc.DeleteInstance(ctx, instanceID); err != nil {
 		return err
 	}

@@ -66,7 +66,7 @@ func newGoCMSContentAdapter(contentSvc any, translationSvc any, blockSvc any, co
 	if !hasTypedContent || typedContent == nil {
 		return nil
 	}
-	typedBlocks, _ := blockSvc.(goCMSBlockService)
+	typedBlocks, _ := blockSvc.(goCMSBlockService) //nolint:errcheck // legacy dynamic payload keeps existing zero-value fallback behavior.
 	return &GoCMSContentAdapter{
 		content:              typedContent,
 		translations:         translationSvc,

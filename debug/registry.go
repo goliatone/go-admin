@@ -567,6 +567,7 @@ func cloneMetadata(input map[string]any) map[string]any {
 	return out
 }
 
+//nolint:gocyclo // panel UI normalization handles a fixed legacy schema matrix in one place.
 func normalizePanelUI(input *PanelUI, handlers map[string]PanelActionHandler) *PanelUI {
 	if input == nil {
 		return nil

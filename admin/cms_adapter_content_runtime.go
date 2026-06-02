@@ -94,7 +94,7 @@ func (r goCMSContentWriteBoundary) contentTypeForMetadata(ctx context.Context, c
 	if a == nil || a.contentTypes == nil {
 		return nil
 	}
-	cache, _ := ctx.Value(cmsContentTypeMetadataCacheKey{}).(cmsContentTypeMetadataCache)
+	cache, _ := ctx.Value(cmsContentTypeMetadataCacheKey{}).(cmsContentTypeMetadataCache) //nolint:errcheck // legacy dynamic payload keeps existing zero-value fallback behavior.
 	if ct := a.contentTypeByMetadataSlug(ctx, cache, content.ContentTypeSlug); ct != nil {
 		return ct
 	}

@@ -281,7 +281,7 @@ func schemaMapField(schema map[string]any, key string) map[string]any {
 	if schema == nil {
 		return nil
 	}
-	value, _ := schema[key].(map[string]any)
+	value, _ := schema[key].(map[string]any) //nolint:errcheck // legacy dynamic payload keeps existing zero-value fallback behavior.
 	return value
 }
 
@@ -334,13 +334,13 @@ func (g *SchemaGuardrails) countDefinitionFields(schema map[string]any, currentD
 }
 
 func (g *SchemaGuardrails) validateLayoutFieldReferences(raw any, schema map[string]any, sectionType string) error {
-	items, _ := raw.([]any)
+	items, _ := raw.([]any) //nolint:errcheck // legacy dynamic payload keeps existing zero-value fallback behavior.
 	for _, item := range items {
 		itemMap, ok := item.(map[string]any)
 		if !ok {
 			continue
 		}
-		fields, _ := itemMap["fields"].([]any)
+		fields, _ := itemMap["fields"].([]any) //nolint:errcheck // legacy dynamic payload keeps existing zero-value fallback behavior.
 		for _, field := range fields {
 			fieldStr, ok := field.(string)
 			if !ok {

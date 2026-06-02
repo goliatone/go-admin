@@ -107,7 +107,7 @@ func mediaUploadHandler(responder Responder, binding MediaBinding) router.Handle
 		}
 		if file.Reader != nil {
 			defer func() {
-				_ = file.Reader.Close()
+				_ = file.Reader.Close() //nolint:errcheck // cleanup is best-effort and must not replace the primary result.
 			}()
 		}
 		payload, err := binding.Upload(c, body, file)

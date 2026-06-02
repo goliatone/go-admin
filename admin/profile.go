@@ -184,7 +184,7 @@ func (s *ProfileService) recordActivity(ctx context.Context, profile UserProfile
 	if profile.AvatarURL != "" {
 		meta[profileKeyAvatarURL] = profile.AvatarURL
 	}
-	_ = s.activity.Record(ctx, ActivityEntry{
+	_ = s.activity.Record(ctx, ActivityEntry{ //nolint:errcheck // best-effort telemetry must not fail the primary operation.
 		Actor:    actor,
 		Action:   "profile.update",
 		Object:   "profile:" + profile.UserID,

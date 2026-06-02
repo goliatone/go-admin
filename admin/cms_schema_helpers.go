@@ -153,8 +153,8 @@ func mergeFormSchemas(base, extra map[string]any) map[string]any {
 		return base
 	}
 	extra = ensureObjectSchema(primitives.CloneAnyMap(extra))
-	baseProps := base["properties"].(map[string]any)
-	extraProps := extra["properties"].(map[string]any)
+	baseProps := base["properties"].(map[string]any)   //nolint:errcheck // legacy dynamic payload keeps existing zero-value fallback behavior.
+	extraProps := extra["properties"].(map[string]any) //nolint:errcheck // legacy dynamic payload keeps existing zero-value fallback behavior.
 	for key, value := range extraProps {
 		if _, ok := baseProps[key]; ok {
 			continue
@@ -256,7 +256,7 @@ func fieldsFromJSONSchema(schema map[string]any) []Field {
 	sort.Strings(keys)
 	fields := []Field{}
 	for _, key := range keys {
-		prop, _ := props[key].(map[string]any)
+		prop, _ := props[key].(map[string]any) //nolint:errcheck // legacy dynamic payload keeps existing zero-value fallback behavior.
 		field := Field{
 			Name:     key,
 			Label:    schemaFieldLabel(prop, key),

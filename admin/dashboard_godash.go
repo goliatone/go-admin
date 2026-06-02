@@ -130,7 +130,7 @@ func (a activityRecorderAdapter) RecordWidgetEvent(ctx context.Context, action s
 		"widget_metadata": inst.Metadata,
 	}
 	actor := actorFromContext(ctx)
-	_ = a.sink.Record(ctx, ActivityEntry{
+	_ = a.sink.Record(ctx, ActivityEntry{ //nolint:errcheck // best-effort telemetry must not fail the primary operation.
 		Actor:    actor,
 		Action:   "dashboard.widget." + strings.TrimSpace(action),
 		Object:   inst.DefinitionID,
@@ -204,13 +204,13 @@ func registerDashboardProviderWithRegistry(registry *dashcmp.Registry, spec Dash
 	if name == "" {
 		name = spec.Code
 	}
-	_ = registry.RegisterDefinition(dashcmp.WidgetDefinition{
+	_ = registry.RegisterDefinition(dashcmp.WidgetDefinition{ //nolint:errcheck // registration happens during optional bootstrap and remains best-effort here.
 		Code:   spec.Code,
 		Name:   name,
 		Schema: primitives.CloneAnyMap(spec.Schema),
 	})
 	defaultCfg := cloneAny(spec.DefaultConfig)
-	_ = registry.RegisterProvider(spec.Code, dashcmp.ProviderFunc(func(ctx context.Context, meta dashcmp.WidgetContext) (dashcmp.WidgetData, error) {
+	_ = registry.RegisterProvider(spec.Code, dashcmp.ProviderFunc(func(ctx context.Context, meta dashcmp.WidgetContext) (dashcmp.WidgetData, error) { //nolint:errcheck // registration happens during optional bootstrap and remains best-effort here.
 		cfg := cloneAny(defaultCfg)
 		if cfg == nil {
 			cfg = map[string]any{}
@@ -475,7 +475,7 @@ func adminDashboardChromeFromContext(ctx context.Context) AdminChromeState {
 	if ctx == nil {
 		return AdminChromeState{}
 	}
-	raw, _ := ctx.Value(dashboardPayloadContextKey{}).(AdminChromeState)
+	raw, _ := ctx.Value(dashboardPayloadContextKey{}).(AdminChromeState) //nolint:errcheck // legacy dynamic payload keeps existing zero-value fallback behavior.
 	return cloneAdminChromeState(raw)
 }
 

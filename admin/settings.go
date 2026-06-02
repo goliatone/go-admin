@@ -647,7 +647,7 @@ func recordSettingsActivity(activity ActivitySink, ctx context.Context, scope Se
 	if bundle.UserID != "" {
 		meta["user_id"] = bundle.UserID
 	}
-	_ = activity.Record(ctx, ActivityEntry{
+	_ = activity.Record(ctx, ActivityEntry{ //nolint:errcheck // best-effort telemetry must not fail the primary operation.
 		Actor:    actor,
 		Action:   "settings.update",
 		Object:   "settings",

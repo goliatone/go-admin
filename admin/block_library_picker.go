@@ -66,8 +66,8 @@ func blockDefinitionsFromLibrary(
 		if !blockLibraryDefinitionAllowed(item, slugSet) {
 			continue
 		}
-		schema, _ := item["schema"].(map[string]any)
-		uiSchema, _ := item["ui_schema"].(map[string]any)
+		schema, _ := item["schema"].(map[string]any)      //nolint:errcheck // legacy dynamic payload keeps existing zero-value fallback behavior.
+		uiSchema, _ := item["ui_schema"].(map[string]any) //nolint:errcheck // legacy dynamic payload keeps existing zero-value fallback behavior.
 		definition, renderErr := buildBlockLibraryDefinition(item, schema, uiSchema, renderChild)
 		if renderErr != nil {
 			return nil, renderErr

@@ -139,12 +139,12 @@ func (a *Admin) dashboardUserStatValue(ctx AdminContext, metric string) int {
 	switch metric {
 	case "notifications":
 		if a.notifications != nil {
-			items, _ := a.notifications.List(ctx.Context)
+			items, _ := a.notifications.List(ctx.Context) //nolint:errcheck // legacy best-effort call intentionally does not affect the primary result.
 			return len(items)
 		}
 	case "activity":
 		if a.activity != nil {
-			items, _ := a.activity.List(ctx.Context, 100)
+			items, _ := a.activity.List(ctx.Context, 100) //nolint:errcheck // legacy best-effort call intentionally does not affect the primary result.
 			return len(items)
 		}
 	default:

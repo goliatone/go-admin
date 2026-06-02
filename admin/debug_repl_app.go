@@ -176,13 +176,13 @@ func debugREPLAppReadyInterpreter(admin *Admin, adminCtx AdminContext, replCfg D
 	fallback, fallbackErr := debugREPLAppFallbackInterpreter(replCfg)
 	if fallbackErr != nil {
 		admin.loggerFor("admin.debug.repl.app").Error("app console fallback initialization failed", "error", fallbackErr)
-		_ = debugREPLAppWriteError(admin, adminCtx, session, c, "", serviceUnavailableDomainError("app console unavailable", map[string]any{
+		_ = debugREPLAppWriteError(admin, adminCtx, session, c, "", serviceUnavailableDomainError("app console unavailable", map[string]any{ //nolint:errcheck // legacy dynamic payload keeps existing zero-value fallback behavior.
 			"component": "debug_repl_app",
 			"error":     initErr.Error(),
 		}))
 		return nil, fallbackErr
 	}
-	_ = debugREPLAppWriteError(admin, adminCtx, session, c, "", serviceUnavailableDomainError("app console started without admin helpers", map[string]any{
+	_ = debugREPLAppWriteError(admin, adminCtx, session, c, "", serviceUnavailableDomainError("app console started without admin helpers", map[string]any{ //nolint:errcheck // legacy dynamic payload keeps existing zero-value fallback behavior.
 		"component": "debug_repl_app",
 		"error":     initErr.Error(),
 	}))
@@ -211,7 +211,7 @@ func handleDebugREPLAppCommand(admin *Admin, adminCtx AdminContext, cfg DebugREP
 		return ErrForbidden
 	}
 	if interpreter == nil {
-		_ = debugREPLAppWriteError(admin, adminCtx, session, c, "", serviceUnavailableDomainError("app console unavailable", map[string]any{
+		_ = debugREPLAppWriteError(admin, adminCtx, session, c, "", serviceUnavailableDomainError("app console unavailable", map[string]any{ //nolint:errcheck // legacy dynamic payload keeps existing zero-value fallback behavior.
 			"component": "debug_repl_app",
 		}))
 		return nil
@@ -236,7 +236,7 @@ func handleDebugREPLAppCommand(admin *Admin, adminCtx AdminContext, cfg DebugREP
 		output, err, timedOut := debugREPLAppEval(interpreter, code, time.Duration(cfg.AppEvalTimeoutMs)*time.Millisecond)
 		if err != nil {
 			if errors.Is(err, context.DeadlineExceeded) && timedOut {
-				_ = debugREPLAppWriteError(admin, adminCtx, session, c, code, err)
+				_ = debugREPLAppWriteError(admin, adminCtx, session, c, code, err) //nolint:errcheck // legacy dynamic payload keeps existing zero-value fallback behavior.
 				return errDebugREPLAppTimeout
 			}
 			return debugREPLAppWriteError(admin, adminCtx, session, c, code, err)

@@ -39,7 +39,7 @@ func BulkStep(ctx BootCtx) error {
 			Path:   routePath(ctx, ctx.AdminAPIGroup(), "bulk.rollback"),
 			Handler: withFeatureGate(responder, gates, FeatureBulk, func(c router.Context) error {
 				id := c.Param("id", "")
-				body, _ := ctx.ParseBody(c)
+				body, _ := ctx.ParseBody(c) //nolint:errcheck // legacy best-effort call intentionally does not affect the primary result.
 				payload, err := binding.Rollback(c, id, body)
 				return writeJSONOrError(responder, c, payload, err)
 			}),

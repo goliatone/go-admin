@@ -160,7 +160,7 @@ func dashboardLocale(ctx BootCtx, responder Responder, c router.Context) (string
 	if gates := ctx.Gates(); gates != nil {
 		if err := gates.Require(FeatureDashboard); err != nil {
 			if responder != nil {
-				_ = responder.WriteError(c, err)
+				_ = responder.WriteError(c, err) //nolint:errcheck // legacy best-effort call intentionally does not affect the primary result.
 			}
 			return "", false
 		}
