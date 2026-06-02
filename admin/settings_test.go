@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
@@ -318,7 +319,7 @@ func TestSettingsRoutesUseCommandAndReturnValidation(t *testing.T) {
 		t.Fatalf("initialize: %v", err)
 	}
 
-	req := httptest.NewRequest(http.MethodPost, "/admin/api/settings", strings.NewReader(`{"values":{"admin.dashboard_enabled":"yes"},"scope":"site"}`))
+	req := testHTTPRequest(http.MethodPost, "/admin/api/settings", strings.NewReader(`{"values":{"admin.dashboard_enabled":"yes"},"scope":"site"}`))
 	req.Header.Set("Content-Type", "application/json")
 	rr := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(rr, req)
@@ -332,7 +333,7 @@ func TestSettingsRoutesUseCommandAndReturnValidation(t *testing.T) {
 		t.Fatalf("expected validation metadata to include scope, got %v", meta["scope"])
 	}
 
-	req = httptest.NewRequest(http.MethodPost, "/admin/api/settings", strings.NewReader(`{"values":{"admin.title":"New Title"},"scope":"site"}`))
+	req = testHTTPRequest(http.MethodPost, "/admin/api/settings", strings.NewReader(`{"values":{"admin.title":"New Title"},"scope":"site"}`))
 	req.Header.Set("Content-Type", "application/json")
 	rr = httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(rr, req)

@@ -3,7 +3,7 @@ package admin
 import (
 	"context"
 	"encoding/json"
-	"net/http/httptest"
+	"net/http"
 	"os"
 	"testing"
 	"time"
@@ -123,16 +123,16 @@ func TestTranslationQueueAssignmentsMetaPublishesPresetContracts(t *testing.T) {
 	binding := newTranslationQueueBinding(adm)
 	app := newTranslationQueueTestApp(t, binding)
 
-	req := httptest.NewRequest(http.MethodGet, "/admin/api/translations/assignments", nil)
+	req := testHTTPRequest(http.MethodGet, "/admin/api/translations/assignments", nil)
 	req.Header.Set("X-User-ID", "translator-1")
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("request error: %v", err)
 	}
+	defer mustClose(t, "response body", resp.Body)
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("status=%d want=200", resp.StatusCode)
 	}
-	defer mustClose(t, "response body", resp.Body)
 
 	payload := map[string]any{}
 	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
@@ -206,16 +206,16 @@ func TestTranslationQueueAssignmentsFiltersResolveActorPresetTokensAndMultiValue
 	binding.now = func() time.Time { return now }
 	app := newTranslationQueueTestApp(t, binding)
 
-	req := httptest.NewRequest(http.MethodGet, "/admin/api/translations/assignments?assignee_id=__me__&status=open,assigned&priority=high,urgent", nil)
+	req := testHTTPRequest(http.MethodGet, "/admin/api/translations/assignments?assignee_id=__me__&status=open,assigned&priority=high,urgent", nil)
 	req.Header.Set("X-User-ID", "translator-1")
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("request error: %v", err)
 	}
+	defer mustClose(t, "response body", resp.Body)
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("status=%d want=200", resp.StatusCode)
 	}
-	defer mustClose(t, "response body", resp.Body)
 
 	payload := map[string]any{}
 	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {

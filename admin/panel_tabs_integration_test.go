@@ -2,6 +2,7 @@ package admin
 
 import (
 	"encoding/json"
+	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
@@ -45,7 +46,7 @@ func TestPanelTabsListAndDetailResponses(t *testing.T) {
 		t.Fatalf("initialize: %v", err)
 	}
 
-	createReq := httptest.NewRequest(http.MethodPost, "/admin/api/panels/items", strings.NewReader(`{"name":"Item 1"}`))
+	createReq := testHTTPRequest(http.MethodPost, "/admin/api/panels/items", strings.NewReader(`{"name":"Item 1"}`))
 	createReq.Header.Set("Content-Type", "application/json")
 	createRes := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(createRes, createReq)
@@ -59,7 +60,7 @@ func TestPanelTabsListAndDetailResponses(t *testing.T) {
 		t.Fatalf("expected created ID, got %+v", created)
 	}
 
-	listReq := httptest.NewRequest(http.MethodGet, "/admin/api/panels/items", nil)
+	listReq := testHTTPRequest(http.MethodGet, "/admin/api/panels/items", nil)
 	listRes := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(listRes, listReq)
 	if listRes.Code != 200 {
@@ -88,7 +89,7 @@ func TestPanelTabsListAndDetailResponses(t *testing.T) {
 		t.Fatalf("expected 2 tabs in list form schema, got %+v", formSchema["tabs"])
 	}
 
-	detailReq := httptest.NewRequest(http.MethodGet, "/admin/api/panels/items/"+id, nil)
+	detailReq := testHTTPRequest(http.MethodGet, "/admin/api/panels/items/"+id, nil)
 	detailRes := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(detailRes, detailReq)
 	if detailRes.Code != 200 {
@@ -160,7 +161,7 @@ func TestPanelTabsPermissionFiltering(t *testing.T) {
 		t.Fatalf("initialize: %v", err)
 	}
 
-	listReq := httptest.NewRequest(http.MethodGet, "/admin/api/panels/items", nil)
+	listReq := testHTTPRequest(http.MethodGet, "/admin/api/panels/items", nil)
 	listRes := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(listRes, listReq)
 	if listRes.Code != 200 {

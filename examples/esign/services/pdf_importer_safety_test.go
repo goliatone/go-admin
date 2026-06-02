@@ -2,6 +2,7 @@ package services
 
 import (
 	"bytes"
+	"errors"
 	"io"
 	"testing"
 

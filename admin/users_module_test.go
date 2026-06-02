@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"net/http"
 	"net/http/httptest"
 	"slices"
 	"testing"
@@ -205,7 +206,7 @@ func TestUserModuleRespectsURLOverrides(t *testing.T) {
 	if apiPath != "/control/rest/panels/users" {
 		t.Fatalf("expected users API path /control/rest/panels/users, got %q", apiPath)
 	}
-	req := httptest.NewRequest(http.MethodGet, apiPath, nil)
+	req := testHTTPRequest(http.MethodGet, apiPath, nil)
 	req.Header.Set("X-User-ID", "actor-1")
 	rr := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(rr, req)
@@ -226,7 +227,7 @@ func TestUserModuleEnforcesPermissions(t *testing.T) {
 		t.Fatalf("initialize: %v", err)
 	}
 
-	req := httptest.NewRequest(http.MethodGet, adminPanelAPIPath(adm, cfg, usersModuleID), nil)
+	req := testHTTPRequest(http.MethodGet, adminPanelAPIPath(adm, cfg, usersModuleID), nil)
 	req.Header.Set("X-User-ID", "actor-1")
 	rr := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(rr, req)
@@ -253,7 +254,7 @@ func TestUserModuleCRUDSearchAndActivity(t *testing.T) {
 		"permissions": []string{"admin.users.edit", "admin.users.create"},
 	}
 	roleBody, _ := json.Marshal(rolePayload)
-	roleReq := httptest.NewRequest(http.MethodPost, adminPanelAPIPath(adm, cfg, rolesPanelID), bytes.NewReader(roleBody))
+	roleReq := testHTTPRequest(http.MethodPost, adminPanelAPIPath(adm, cfg, rolesPanelID), bytes.NewReader(roleBody))
 	roleReq.Header.Set("Content-Type", "application/json")
 	roleReq.Header.Set("X-User-ID", "seed-actor")
 	roleRes := httptest.NewRecorder()
@@ -275,7 +276,7 @@ func TestUserModuleCRUDSearchAndActivity(t *testing.T) {
 		"roles":    []string{roleID},
 	}
 	userBody, _ := json.Marshal(userPayload)
-	userReq := httptest.NewRequest(http.MethodPost, adminPanelAPIPath(adm, cfg, usersModuleID), bytes.NewReader(userBody))
+	userReq := testHTTPRequest(http.MethodPost, adminPanelAPIPath(adm, cfg, usersModuleID), bytes.NewReader(userBody))
 	userReq.Header.Set("Content-Type", "application/json")
 	userReq.Header.Set("X-User-ID", "actor-123")
 	userRes := httptest.NewRecorder()
@@ -291,7 +292,7 @@ func TestUserModuleCRUDSearchAndActivity(t *testing.T) {
 		t.Fatalf("unexpected user response %+v", user)
 	}
 
-	searchReq := httptest.NewRequest(http.MethodGet, adminAPIPath(adm, cfg, "search", nil, map[string]string{"query": "tester"}), nil)
+	searchReq := testHTTPRequest(http.MethodGet, adminAPIPath(adm, cfg, "search", nil, map[string]string{"query": "tester"}), nil)
 	searchReq.Header.Set("X-User-ID", "actor-123")
 	searchRes := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(searchRes, searchReq)
@@ -343,7 +344,7 @@ func TestUserModuleCreateWithSystemAndCustomRoles(t *testing.T) {
 		"permissions": []string{"admin.users.view"},
 	}
 	roleBody, _ := json.Marshal(rolePayload)
-	roleReq := httptest.NewRequest(http.MethodPost, adminPanelAPIPath(adm, cfg, rolesPanelID), bytes.NewReader(roleBody))
+	roleReq := testHTTPRequest(http.MethodPost, adminPanelAPIPath(adm, cfg, rolesPanelID), bytes.NewReader(roleBody))
 	roleReq.Header.Set("Content-Type", "application/json")
 	roleReq.Header.Set("X-User-ID", "seed-actor")
 	roleRes := httptest.NewRecorder()
@@ -366,7 +367,7 @@ func TestUserModuleCreateWithSystemAndCustomRoles(t *testing.T) {
 		"roles":    []string{roleID},
 	}
 	userBody, _ := json.Marshal(userPayload)
-	userReq := httptest.NewRequest(http.MethodPost, adminPanelAPIPath(adm, cfg, usersModuleID), bytes.NewReader(userBody))
+	userReq := testHTTPRequest(http.MethodPost, adminPanelAPIPath(adm, cfg, usersModuleID), bytes.NewReader(userBody))
 	userReq.Header.Set("Content-Type", "application/json")
 	userReq.Header.Set("X-User-ID", "actor-123")
 	userRes := httptest.NewRecorder()
@@ -403,7 +404,7 @@ func TestUserPanelListIncludesRoleDisplayFields(t *testing.T) {
 		"description": "Ops role",
 		"permissions": []string{"admin.users.view"},
 	})
-	roleReq := httptest.NewRequest(http.MethodPost, adminPanelAPIPath(adm, cfg, rolesPanelID), bytes.NewReader(roleBody))
+	roleReq := testHTTPRequest(http.MethodPost, adminPanelAPIPath(adm, cfg, rolesPanelID), bytes.NewReader(roleBody))
 	roleReq.Header.Set("Content-Type", "application/json")
 	roleReq.Header.Set("X-User-ID", "seed-actor")
 	roleRes := httptest.NewRecorder()
@@ -424,7 +425,7 @@ func TestUserPanelListIncludesRoleDisplayFields(t *testing.T) {
 		"status":   "active",
 		"roles":    []string{roleID},
 	})
-	userReq := httptest.NewRequest(http.MethodPost, adminPanelAPIPath(adm, cfg, usersModuleID), bytes.NewReader(userBody))
+	userReq := testHTTPRequest(http.MethodPost, adminPanelAPIPath(adm, cfg, usersModuleID), bytes.NewReader(userBody))
 	userReq.Header.Set("Content-Type", "application/json")
 	userReq.Header.Set("X-User-ID", "actor-1")
 	userRes := httptest.NewRecorder()
@@ -439,7 +440,7 @@ func TestUserPanelListIncludesRoleDisplayFields(t *testing.T) {
 		t.Fatalf("expected user id in create response")
 	}
 
-	listReq := httptest.NewRequest(http.MethodGet, adminPanelAPIPath(adm, cfg, usersModuleID), nil)
+	listReq := testHTTPRequest(http.MethodGet, adminPanelAPIPath(adm, cfg, usersModuleID), nil)
 	listReq.Header.Set("X-User-ID", "actor-1")
 	listRes := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(listRes, listReq)
@@ -531,7 +532,7 @@ func TestUserPanelBulkRoleActionsRouteThroughPanelBulkEndpoint(t *testing.T) {
 		"name":        "Operators",
 		"description": "Ops role",
 	})
-	roleReq := httptest.NewRequest(http.MethodPost, adminPanelAPIPath(adm, cfg, rolesPanelID), bytes.NewReader(roleBody))
+	roleReq := testHTTPRequest(http.MethodPost, adminPanelAPIPath(adm, cfg, rolesPanelID), bytes.NewReader(roleBody))
 	roleReq.Header.Set("Content-Type", "application/json")
 	roleReq.Header.Set("X-User-ID", "actor-1")
 	roleRes := httptest.NewRecorder()
@@ -551,7 +552,7 @@ func TestUserPanelBulkRoleActionsRouteThroughPanelBulkEndpoint(t *testing.T) {
 		"username": "bulk-role",
 		"status":   "active",
 	})
-	userReq := httptest.NewRequest(http.MethodPost, adminPanelAPIPath(adm, cfg, usersModuleID), bytes.NewReader(userBody))
+	userReq := testHTTPRequest(http.MethodPost, adminPanelAPIPath(adm, cfg, usersModuleID), bytes.NewReader(userBody))
 	userReq.Header.Set("Content-Type", "application/json")
 	userReq.Header.Set("X-User-ID", "actor-1")
 	userRes := httptest.NewRecorder()
@@ -574,7 +575,7 @@ func TestUserPanelBulkRoleActionsRouteThroughPanelBulkEndpoint(t *testing.T) {
 		"panel":  usersModuleID,
 		"action": "assign-role",
 	}, nil)
-	assignReq := httptest.NewRequest(http.MethodPost, assignPath, bytes.NewReader(assignPayload))
+	assignReq := testHTTPRequest(http.MethodPost, assignPath, bytes.NewReader(assignPayload))
 	assignReq.Header.Set("Content-Type", "application/json")
 	assignReq.Header.Set("X-User-ID", "actor-1")
 	assignRes := httptest.NewRecorder()
@@ -599,7 +600,7 @@ func TestUserPanelBulkRoleActionsRouteThroughPanelBulkEndpoint(t *testing.T) {
 		"panel":  usersModuleID,
 		"action": "unassign-role",
 	}, nil)
-	unassignReq := httptest.NewRequest(http.MethodPost, unassignPath, bytes.NewReader(unassignPayload))
+	unassignReq := testHTTPRequest(http.MethodPost, unassignPath, bytes.NewReader(unassignPayload))
 	unassignReq.Header.Set("Content-Type", "application/json")
 	unassignReq.Header.Set("X-User-ID", "actor-1")
 	unassignRes := httptest.NewRecorder()

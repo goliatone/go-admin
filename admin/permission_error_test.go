@@ -1,6 +1,9 @@
 package admin
 
-import "testing"
+import (
+	"errors"
+	"testing"
+)
 
 func TestPermissionDeniedAddsTranslationHint(t *testing.T) {
 	err := permissionDenied("admin.translations.export", "translations")

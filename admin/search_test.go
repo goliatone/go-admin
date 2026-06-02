@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"net/http"
 	"net/http/httptest"
 	"testing"
 
@@ -179,7 +180,7 @@ func TestSearchRouteAggregatesAndFiltersByPermission(t *testing.T) {
 		t.Fatalf("initialize: %v", err)
 	}
 
-	reqDenied := httptest.NewRequest(http.MethodGet, "/admin/api/search?query=Order%20%232", nil)
+	reqDenied := testHTTPRequest(http.MethodGet, "/admin/api/search?query=Order%20%232", nil)
 	rrDenied := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(rrDenied, reqDenied)
 	if rrDenied.Code != 200 {
@@ -197,7 +198,7 @@ func TestSearchRouteAggregatesAndFiltersByPermission(t *testing.T) {
 		t.Fatalf("expected denied adapter to be filtered, got %+v", deniedResults)
 	}
 
-	reqAllowed := httptest.NewRequest(http.MethodGet, "/admin/api/search/typeahead?query=Alice", nil)
+	reqAllowed := testHTTPRequest(http.MethodGet, "/admin/api/search/typeahead?query=Alice", nil)
 	rrAllowed := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(rrAllowed, reqAllowed)
 	if rrAllowed.Code != 200 {
@@ -234,7 +235,7 @@ func TestSearchRouteFeatureGateDisabled(t *testing.T) {
 		t.Fatalf("initialize: %v", err)
 	}
 
-	req := httptest.NewRequest(http.MethodGet, "/admin/api/search?query=anything", nil)
+	req := testHTTPRequest(http.MethodGet, "/admin/api/search?query=anything", nil)
 	rr := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(rr, req)
 	if rr.Code != 404 {

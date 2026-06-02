@@ -3,12 +3,14 @@ package admin
 import (
 	"context"
 	"fmt"
-	"github.com/goliatone/go-admin/internal/primitives"
 	"io"
 	"log/slog"
+	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/goliatone/go-admin/internal/primitives"
 
 	router "github.com/goliatone/go-router"
 )
@@ -58,7 +60,7 @@ func BenchmarkPanelListRoute(b *testing.B) {
 		b.Fatalf("initialize: %v", err)
 	}
 
-	req := httptest.NewRequest(http.MethodGet, "/admin/api/panels/items", nil)
+	req := testHTTPRequest(http.MethodGet, "/admin/api/panels/items", nil)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		rr := httptest.NewRecorder()
@@ -90,7 +92,7 @@ func BenchmarkPanelCreateRoute(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		body := fmt.Sprintf(`{"name":"Item-%d"}`, i)
-		req := httptest.NewRequest(http.MethodPost, "/admin/api/panels/items", strings.NewReader(body))
+		req := testHTTPRequest(http.MethodPost, "/admin/api/panels/items", strings.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
 		rr := httptest.NewRecorder()
 		server.WrappedRouter().ServeHTTP(rr, req)

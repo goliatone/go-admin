@@ -2,6 +2,10 @@ package admin
 
 import (
 	"context"
+	"encoding/json"
+	"io"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	"github.com/goliatone/go-command/registry"
@@ -52,4 +56,60 @@ func featureGateFromKeys(keys ...FeatureKey) fggate.FeatureGate {
 		flags[string(key)] = true
 	}
 	return newFeatureGateFromFlags(flags)
+}
+
+func testHTTPRequest(method, target string, body io.Reader) *http.Request {
+	return httptest.NewRequestWithContext(context.Background(), method, target, body)
+}
+
+func mustMarshalJSON(t *testing.T, value any) []byte {
+	t.Helper()
+	body, err := json.Marshal(value)
+	if err != nil {
+		t.Fatalf("marshal JSON: %v", err)
+	}
+	return body
+}
+
+func mustUnmarshalJSON(t *testing.T, body []byte, target any) {
+	t.Helper()
+	if err := json.Unmarshal(body, target); err != nil {
+		t.Fatalf("unmarshal JSON: %v", err)
+	}
+}
+
+func mustMapAny(t *testing.T, value any, label string) map[string]any {
+	t.Helper()
+	result, ok := value.(map[string]any)
+	if !ok {
+		t.Fatalf("%s: expected map[string]any, got %T", label, value)
+	}
+	return result
+}
+
+func mustAnySlice(t *testing.T, value any, label string) []any {
+	t.Helper()
+	result, ok := value.([]any)
+	if !ok {
+		t.Fatalf("%s: expected []any, got %T", label, value)
+	}
+	return result
+}
+
+func mustString(t *testing.T, value any, label string) string {
+	t.Helper()
+	result, ok := value.(string)
+	if !ok {
+		t.Fatalf("%s: expected string, got %T", label, value)
+	}
+	return result
+}
+
+func mustBool(t *testing.T, value any, label string) bool {
+	t.Helper()
+	result, ok := value.(bool)
+	if !ok {
+		t.Fatalf("%s: expected bool, got %T", label, value)
+	}
+	return result
 }
