@@ -173,8 +173,10 @@ func ValidateTranslationPolicyConfig(cfg TranslationPolicyConfig, catalog Transl
 	return result, nil
 }
 
+const translationPolicyCoverageTransition = "publish"
+
 // ValidateTranslationPolicyCoverage checks that family/readiness content types
-// have configured policy requirements.
+// have effective publish policy requirements.
 func ValidateTranslationPolicyCoverage(cfg TranslationPolicyConfig, contentTypes []string) (TranslationPolicyValidationResult, error) {
 	cfg = NormalizeTranslationPolicyConfig(cfg)
 	result := TranslationPolicyValidationResult{}
@@ -193,20 +195,43 @@ func ValidateTranslationPolicyCoverage(cfg TranslationPolicyConfig, contentTypes
 			continue
 		}
 		seen[lookupKey] = struct{}{}
-		if _, ok := findEntityConfig(cfg.Required, normalized, cfg.EntityAliases); ok {
-			continue
+		if entityCfg, ok := findEntityConfig(cfg.Required, normalized, cfg.EntityAliases); ok {
+			if transitionCfg, ok := findTransitionConfig(entityCfg, translationPolicyCoverageTransition); ok && translationPolicyTransitionHasRequirements(transitionCfg) {
+				continue
+			}
 		}
 		appendValidationIssue(
 			&result,
 			&errorsOut,
 			cfg.RequiredFieldsStrategy,
-			fmt.Sprintf("translation policy coverage missing for content type %q", strings.TrimSpace(contentType)),
+			fmt.Sprintf("translation policy coverage missing publish requirements for content type %q", strings.TrimSpace(contentType)),
 		)
 	}
 	if len(errorsOut) > 0 {
 		return result, fmt.Errorf("translation policy coverage validation failed: %s", strings.Join(errorsOut, "; "))
 	}
 	return result, nil
+}
+
+func translationPolicyTransitionHasRequirements(cfg TranslationPolicyTransitionConfig) bool {
+	if len(cfg.Locales) > 0 || len(cfg.RequiredFields) > 0 {
+		return true
+	}
+	for _, criteria := range cfg.Environments {
+		if len(criteria.Locales) > 0 || len(criteria.RequiredFields) > 0 {
+			return true
+		}
+	}
+	return false
+}
+
+func translationPolicyEntityHasRequirements(entityCfg TranslationPolicyEntityConfig) bool {
+	for _, transitionCfg := range entityCfg {
+		if translationPolicyTransitionHasRequirements(transitionCfg) {
+			return true
+		}
+	}
+	return false
 }
 
 // ValidateTranslationPolicyContentTypeCoverage is an explicit alias for

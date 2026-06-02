@@ -2,6 +2,7 @@ package quickstart
 
 import (
 	"context"
+	"slices"
 	"testing"
 
 	"github.com/goliatone/go-admin/admin"
@@ -91,8 +92,50 @@ func TestDiagnoseTranslationPolicyServicesReportsExplicitRequirementsWithoutChec
 	if diagnostics[0].Code != TranslationPolicyServicesMissingCode {
 		t.Fatalf("unexpected diagnostic code: %+v", diagnostics[0])
 	}
-	if len(diagnostics[0].MissingServices) != 2 {
-		t.Fatalf("expected page and content services missing, got %+v", diagnostics[0].MissingServices)
+	if len(diagnostics[0].MissingServices) != 1 || diagnostics[0].MissingServices[0] != translationPolicyPagesServiceName {
+		t.Fatalf("expected page service missing, got %+v", diagnostics[0].MissingServices)
+	}
+}
+
+func TestDiagnoseTranslationPolicyServicesReportsEntitySpecificMissingServices(t *testing.T) {
+	cfg := TranslationPolicyConfig{
+		PageEntities: []string{"landing_pages"},
+		Required: map[string]TranslationPolicyEntityConfig{
+			"landing_pages": {
+				"publish": {Locales: []string{"en", "es"}},
+			},
+			"news": {
+				"publish": {Locales: []string{"en", "fr"}},
+			},
+		},
+	}
+	diagnostics := DiagnoseTranslationPolicyServices(cfg, TranslationPolicyServices{})
+	if len(diagnostics) != 1 {
+		t.Fatalf("expected one diagnostic, got %+v", diagnostics)
+	}
+	missing := diagnostics[0].MissingServices
+	if !slices.Equal(missing, []string{translationPolicyContentServiceName, translationPolicyPagesServiceName}) {
+		t.Fatalf("expected page and content services missing, got %+v", missing)
+	}
+}
+
+func TestDiagnoseTranslationPolicyServicesReportsPartialCheckerMismatch(t *testing.T) {
+	cfg := TranslationPolicyConfig{
+		Required: map[string]TranslationPolicyEntityConfig{
+			"news": {
+				"publish": {Locales: []string{"en", "fr"}},
+			},
+		},
+	}
+	diagnostics := DiagnoseTranslationPolicyServices(
+		cfg,
+		TranslationPolicyServices{Pages: stubTranslationChecker{}},
+	)
+	if len(diagnostics) != 1 {
+		t.Fatalf("expected one diagnostic for missing content checker, got %+v", diagnostics)
+	}
+	if !slices.Equal(diagnostics[0].MissingServices, []string{translationPolicyContentServiceName}) {
+		t.Fatalf("expected content service missing, got %+v", diagnostics[0].MissingServices)
 	}
 }
 

@@ -29,6 +29,11 @@ type TranslationPolicyServices struct {
 // TranslationPolicyServicesMissingCode identifies an explicit policy that cannot be evaluated.
 const TranslationPolicyServicesMissingCode = "quickstart.translation_policy.services_missing"
 
+const (
+	translationPolicyPagesServiceName   = "pages"
+	translationPolicyContentServiceName = "content"
+)
+
 // ErrTranslationPolicyServicesUnavailable marks configured policy requirements
 // that cannot be evaluated because no translation checker services are wired.
 var ErrTranslationPolicyServicesUnavailable = errors.New("quickstart: translation policy checker services unavailable")
@@ -70,10 +75,10 @@ func (p translationPolicy) Requirements(_ context.Context, input admin.Translati
 
 // NewTranslationPolicy builds a quickstart translation policy from config + services.
 func NewTranslationPolicy(cfg TranslationPolicyConfig, services TranslationPolicyServices) admin.TranslationPolicy {
-	if services.Pages == nil && services.Content == nil {
+	cfg = NormalizeTranslationPolicyConfig(cfg)
+	if services.Pages == nil && services.Content == nil && !cfg.DenyByDefault && !hasTranslationPolicyRequirements(cfg) {
 		return nil
 	}
-	cfg = NormalizeTranslationPolicyConfig(cfg)
 	return translationPolicy{cfg: cfg, services: services}
 }
 
@@ -109,7 +114,7 @@ func (p translationPolicy) Validate(ctx context.Context, input admin.Translation
 	entity := resolvePolicyEntity(input)
 	checkers := translationCheckerCandidates(p.cfg, entity, p.services)
 	if len(checkers) == 0 {
-		return fmt.Errorf("translation checker unavailable")
+		return translationPolicyServicesUnavailableError(entity, translationPolicyRequiredServiceName(p.cfg, entity))
 	}
 	var (
 		missing  []string
@@ -467,7 +472,6 @@ func translationCheckerCandidates(
 	entity string,
 	services TranslationPolicyServices,
 ) []TranslationChecker {
-	preferPages := translationPolicyEntityInSet(cfg.PageEntities, entity)
 	out := []TranslationChecker{}
 	add := func(checker TranslationChecker) {
 		if checker == nil {
@@ -475,7 +479,7 @@ func translationCheckerCandidates(
 		}
 		out = append(out, checker)
 	}
-	if preferPages {
+	if translationPolicyEntityUsesPageChecker(cfg, entity) {
 		add(services.Pages)
 		add(services.Content)
 	} else {
@@ -483,6 +487,43 @@ func translationCheckerCandidates(
 		add(services.Pages)
 	}
 	return out
+}
+
+func translationPolicyEntityUsesPageChecker(cfg TranslationPolicyConfig, entity string) bool {
+	return translationPolicyEntityInSet(cfg.PageEntities, entity)
+}
+
+func translationPolicyRequiredServiceName(cfg TranslationPolicyConfig, entity string) string {
+	if translationPolicyEntityUsesPageChecker(cfg, entity) {
+		return translationPolicyPagesServiceName
+	}
+	return translationPolicyContentServiceName
+}
+
+func translationPolicyServiceAvailable(services TranslationPolicyServices, serviceName string) bool {
+	switch serviceName {
+	case translationPolicyPagesServiceName:
+		return services.Pages != nil
+	case translationPolicyContentServiceName:
+		return services.Content != nil
+	default:
+		return false
+	}
+}
+
+func translationPolicyServicesUnavailableError(entity string, missingService string) error {
+	entity = normalizePolicyEntity(entity)
+	if entity == "" {
+		entity = "unknown"
+	}
+	missingService = strings.TrimSpace(strings.ToLower(missingService))
+	if missingService == "" {
+		missingService = "translation"
+	}
+	return errors.Join(
+		ErrTranslationPolicyServicesUnavailable,
+		fmt.Errorf("%s: missing %s checker service for policy entity %q", TranslationPolicyServicesMissingCode, missingService, entity),
+	)
 }
 
 func translationPolicyEntityInSet(values []string, entity string) bool {
@@ -508,18 +549,8 @@ func hasTranslationPolicyRequirements(cfg TranslationPolicyConfig) bool {
 		return false
 	}
 	for _, entityCfg := range cfg.Required {
-		for _, transitionCfg := range entityCfg {
-			if len(transitionCfg.Locales) > 0 || len(transitionCfg.RequiredFields) > 0 {
-				return true
-			}
-			if len(transitionCfg.Environments) == 0 {
-				continue
-			}
-			for _, criteria := range transitionCfg.Environments {
-				if len(criteria.Locales) > 0 || len(criteria.RequiredFields) > 0 {
-					return true
-				}
-			}
+		if translationPolicyEntityHasRequirements(entityCfg) {
+			return true
 		}
 	}
 	return false
@@ -531,24 +562,47 @@ func DiagnoseTranslationPolicyServices(cfg TranslationPolicyConfig, services Tra
 	if !cfg.DenyByDefault && !hasTranslationPolicyRequirements(cfg) {
 		return nil
 	}
-	missing := []string{}
-	if services.Pages == nil {
-		missing = append(missing, "pages")
+	missingByService := map[string][]string{}
+	if cfg.DenyByDefault && services.Pages == nil && services.Content == nil {
+		missingByService[translationPolicyPagesServiceName] = nil
+		missingByService[translationPolicyContentServiceName] = nil
 	}
-	if services.Content == nil {
-		missing = append(missing, "content")
+	for _, entity := range sortedKeys(cfg.Required) {
+		entityCfg := cfg.Required[entity]
+		if !translationPolicyEntityHasRequirements(entityCfg) {
+			continue
+		}
+		serviceName := translationPolicyRequiredServiceName(cfg, entity)
+		if translationPolicyServiceAvailable(services, serviceName) {
+			continue
+		}
+		missingByService[serviceName] = append(missingByService[serviceName], normalizePolicyEntity(entity))
 	}
-	if len(missing) != 2 {
+	if len(missingByService) == 0 {
 		return nil
+	}
+	missing := sortedKeys(missingByService)
+	missingEntities := map[string]any{}
+	for _, serviceName := range missing {
+		entities := append([]string{}, missingByService[serviceName]...)
+		sort.Strings(entities)
+		if len(entities) > 0 {
+			missingEntities[serviceName] = entities
+		}
+	}
+	message := "Translation policy requirements are configured but required translation checker services are unavailable."
+	if len(missing) == 2 && services.Pages == nil && services.Content == nil {
+		message = "Translation policy requirements are configured but no page or content translation checker services are available."
 	}
 	return []TranslationPolicyDiagnostic{{
 		Code:            TranslationPolicyServicesMissingCode,
-		Message:         "Translation policy requirements are configured but no page or content translation checker services are available.",
+		Message:         message,
 		Hint:            "Expose go-cms services through CMSOptions.GoCMSConfig or pass quickstart.WithTranslationPolicyServices.",
 		MissingServices: missing,
 		Metadata: map[string]any{
-			"deny_by_default": cfg.DenyByDefault,
-			"required":        len(cfg.Required),
+			"deny_by_default":             cfg.DenyByDefault,
+			"required":                    len(cfg.Required),
+			"missing_entities_by_service": missingEntities,
 		},
 	}}
 }

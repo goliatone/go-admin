@@ -29,6 +29,35 @@ func (c *recordingTranslationChecker) CheckTranslations(_ context.Context, _ uui
 	return append([]string{}, c.missing...), nil
 }
 
+func TestNewTranslationPolicyPreservesConfiguredPolicyWithoutServices(t *testing.T) {
+	cfg := TranslationPolicyConfig{
+		Required: map[string]TranslationPolicyEntityConfig{
+			"pages": {
+				"publish": {Locales: []string{"en", "es"}},
+			},
+		},
+	}
+	policy := NewTranslationPolicy(cfg, TranslationPolicyServices{})
+	if policy == nil {
+		t.Fatalf("expected configured policy to be returned without checker services")
+	}
+	err := policy.Validate(context.Background(), admin.TranslationPolicyInput{
+		EntityType:  "pages",
+		EntityID:    uuid.NewString(),
+		Transition:  "publish",
+		Environment: "default",
+	})
+	if !errors.Is(err, ErrTranslationPolicyServicesUnavailable) {
+		t.Fatalf("expected services unavailable error, got %v", err)
+	}
+}
+
+func TestNewTranslationPolicyAllowsEmptyPermissivePolicyWithoutServices(t *testing.T) {
+	if policy := NewTranslationPolicy(TranslationPolicyConfig{}, TranslationPolicyServices{}); policy != nil {
+		t.Fatalf("expected empty permissive policy without services to remain nil, got %T", policy)
+	}
+}
+
 func TestTranslationPolicyValidateUsesEnvironmentCriteriaForPagesAndPosts(t *testing.T) {
 	pagesChecker := &recordingTranslationChecker{}
 	postsChecker := &recordingTranslationChecker{}
@@ -104,7 +133,7 @@ func TestTranslationPolicyValidateUsesEnvironmentCriteriaForPagesAndPosts(t *tes
 	}
 }
 
-func TestTranslationPolicyValidateFallsBackToPageCheckerWhenPreferredCheckerFails(t *testing.T) {
+func TestTranslationPolicyValidateUsesContentCheckerUnlessPageEntityConfigured(t *testing.T) {
 	pageChecker := &recordingTranslationChecker{}
 	contentChecker := &recordingTranslationChecker{err: errors.New("content checker unavailable")}
 	cfg := TranslationPolicyConfig{
@@ -121,21 +150,57 @@ func TestTranslationPolicyValidateFallsBackToPageCheckerWhenPreferredCheckerFail
 		Content: contentChecker,
 	})
 
-	if err := policy.Validate(context.Background(), admin.TranslationPolicyInput{
+	err := policy.Validate(context.Background(), admin.TranslationPolicyInput{
 		EntityType: "landing_pages",
 		EntityID:   uuid.NewString(),
 		Transition: "publish",
-	}); err != nil {
-		t.Fatalf("validate fallback: %v", err)
+	})
+	if err == nil || !errors.Is(err, contentChecker.err) {
+		t.Fatalf("expected content checker error, got %v", err)
 	}
 	if contentChecker.calls != 1 {
 		t.Fatalf("expected content checker attempted once, got %d", contentChecker.calls)
 	}
-	if pageChecker.calls != 1 {
-		t.Fatalf("expected page checker fallback once, got %d", pageChecker.calls)
+	if pageChecker.calls != 0 {
+		t.Fatalf("expected page checker not called without PageEntities, got %d", pageChecker.calls)
 	}
-	if !reflect.DeepEqual(pageChecker.lastRequired, []string{"en", "fr"}) {
-		t.Fatalf("expected page checker locales [en fr], got %+v", pageChecker.lastRequired)
+}
+
+func TestNewTranslationPolicyPreservesExplicitRequirementsWithoutCheckerServices(t *testing.T) {
+	cfg := TranslationPolicyConfig{
+		Required: map[string]TranslationPolicyEntityConfig{
+			"news": {
+				"publish": {Locales: []string{"en", "fr"}},
+			},
+		},
+	}
+
+	policy := NewTranslationPolicy(cfg, TranslationPolicyServices{})
+	if policy == nil {
+		t.Fatalf("expected explicit requirements to produce a policy")
+	}
+	resolver, ok := policy.(admin.TranslationRequirementsResolver)
+	if !ok {
+		t.Fatalf("expected policy to expose requirements")
+	}
+	req, found, err := resolver.Requirements(context.Background(), admin.TranslationPolicyInput{
+		EntityType: "news",
+		Transition: "publish",
+	})
+	if err != nil {
+		t.Fatalf("requirements error: %v", err)
+	}
+	if !found || !reflect.DeepEqual(req.Locales, []string{"en", "fr"}) {
+		t.Fatalf("expected news publish requirements, found=%v req=%+v", found, req)
+	}
+
+	err = policy.Validate(context.Background(), admin.TranslationPolicyInput{
+		EntityType: "news",
+		EntityID:   uuid.NewString(),
+		Transition: "publish",
+	})
+	if !errors.Is(err, ErrTranslationPolicyServicesUnavailable) {
+		t.Fatalf("expected checker service error, got %v", err)
 	}
 }
 
@@ -143,6 +208,7 @@ func TestTranslationPolicyValidateIncludesMissingFieldsByLocale(t *testing.T) {
 	pagesChecker := &recordingTranslationChecker{missing: []string{"fr"}}
 	cfg := TranslationPolicyConfig{
 		RequiredFieldsStrategy: admin.RequiredFieldsValidationError,
+		PageEntities:           []string{"pages"},
 		Required: map[string]TranslationPolicyEntityConfig{
 			"pages": {
 				"publish": {
@@ -180,6 +246,7 @@ func TestTranslationPolicyValidateSkipsMissingFieldsByLocaleForIgnoreStrategy(t 
 	pagesChecker := &recordingTranslationChecker{missing: []string{"fr"}}
 	cfg := TranslationPolicyConfig{
 		RequiredFieldsStrategy: admin.RequiredFieldsValidationIgnore,
+		PageEntities:           []string{"pages"},
 		Required: map[string]TranslationPolicyEntityConfig{
 			"pages": {
 				"publish": {
@@ -318,6 +385,7 @@ func TestTranslationPolicyValidateResolvesConfiguredEntityAlias(t *testing.T) {
 func TestTranslationPolicyValidateEnvironmentResolutionIsDeterministic(t *testing.T) {
 	pagesChecker := &recordingTranslationChecker{}
 	cfg := TranslationPolicyConfig{
+		PageEntities: []string{"pages"},
 		Required: map[string]TranslationPolicyEntityConfig{
 			"pages": {
 				"publish": {

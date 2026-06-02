@@ -249,6 +249,76 @@ func TestValidateTranslationPolicyCoverageReportsMissingContentType(t *testing.T
 	}
 }
 
+func TestValidateTranslationPolicyCoverageRequiresPublishRequirements(t *testing.T) {
+	tests := []struct {
+		name string
+		cfg  TranslationPolicyConfig
+	}{
+		{
+			name: "empty entity config",
+			cfg: TranslationPolicyConfig{
+				RequiredFieldsStrategy: admin.RequiredFieldsValidationError,
+				Required: map[string]TranslationPolicyEntityConfig{
+					"news": {},
+				},
+			},
+		},
+		{
+			name: "non publish requirements",
+			cfg: TranslationPolicyConfig{
+				RequiredFieldsStrategy: admin.RequiredFieldsValidationError,
+				Required: map[string]TranslationPolicyEntityConfig{
+					"news": {
+						"draft": {Locales: []string{"en"}},
+					},
+				},
+			},
+		},
+		{
+			name: "empty publish requirements",
+			cfg: TranslationPolicyConfig{
+				RequiredFieldsStrategy: admin.RequiredFieldsValidationError,
+				Required: map[string]TranslationPolicyEntityConfig{
+					"news": {
+						"publish": {},
+					},
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := ValidateTranslationPolicyCoverage(tt.cfg, []string{"news"})
+			if err == nil {
+				t.Fatalf("expected missing publish requirements error")
+			}
+			if !strings.Contains(err.Error(), `publish requirements for content type "news"`) {
+				t.Fatalf("expected publish requirements in error, got %v", err)
+			}
+		})
+	}
+}
+
+func TestValidateTranslationPolicyCoverageAcceptsEnvironmentPublishRequirements(t *testing.T) {
+	cfg := TranslationPolicyConfig{
+		RequiredFieldsStrategy: admin.RequiredFieldsValidationError,
+		Required: map[string]TranslationPolicyEntityConfig{
+			"news": {
+				"publish": {
+					Environments: map[string]TranslationCriteria{
+						"production": {Locales: []string{"en", "fr"}},
+					},
+				},
+			},
+		},
+	}
+
+	if _, err := ValidateTranslationPolicyCoverage(cfg, []string{"news"}); err != nil {
+		t.Fatalf("expected environment publish requirements to satisfy coverage: %v", err)
+	}
+}
+
 func TestValidateTranslationPolicyCoverageAllowsEmptyContentTypes(t *testing.T) {
 	result, err := ValidateTranslationPolicyCoverage(TranslationPolicyConfig{}, nil)
 	if err != nil {
