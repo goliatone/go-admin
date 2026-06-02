@@ -128,7 +128,7 @@ func TestInMemoryWorkflowBindingRepositoryListByScope(t *testing.T) {
 	repo := NewInMemoryWorkflowBindingRepository()
 	ctx := context.Background()
 
-	_, _ = repo.Create(ctx, WorkflowBinding{
+	_, _ = repo.Create(ctx, WorkflowBinding{ //nolint:errcheck // legacy test setup intentionally ignores this helper result after scenario assertions.
 		ScopeType:   WorkflowBindingScopeTrait,
 		ScopeRef:    "editorial",
 		WorkflowID:  "editorial.default",
@@ -136,7 +136,7 @@ func TestInMemoryWorkflowBindingRepositoryListByScope(t *testing.T) {
 		Status:      WorkflowBindingStatusActive,
 		Environment: "",
 	})
-	_, _ = repo.Create(ctx, WorkflowBinding{
+	_, _ = repo.Create(ctx, WorkflowBinding{ //nolint:errcheck // legacy test setup intentionally ignores this helper result after scenario assertions.
 		ScopeType:   WorkflowBindingScopeTrait,
 		ScopeRef:    "editorial",
 		WorkflowID:  "editorial.news",

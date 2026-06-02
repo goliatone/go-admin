@@ -192,7 +192,7 @@ func TestGoSearchBundleBuildsSiteGlobalAndOperations(t *testing.T) {
 		t.Fatalf("expected complete bundle, got %#v", bundle)
 	}
 
-	_, _ = bundle.SiteProvider.Search(context.Background(), SearchRequest{Query: "ocean", Locale: "en"})
+	_, _ = bundle.SiteProvider.Search(context.Background(), SearchRequest{Query: "ocean", Locale: "en"}) //nolint:errcheck // legacy test setup intentionally ignores this helper result after scenario assertions.
 	if len(search.last.Indexes) != 2 || search.last.Indexes[0] != "site_content" {
 		t.Fatalf("expected site provider indexes, got %#v", search.last.Indexes)
 	}

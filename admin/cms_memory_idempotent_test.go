@@ -8,7 +8,7 @@ import (
 func TestInMemoryMenuServiceAddMenuItemIdempotent(t *testing.T) {
 	menuSvc := NewInMemoryMenuService()
 	ctx := context.Background()
-	_, _ = menuSvc.CreateMenu(ctx, "admin.main")
+	_, _ = menuSvc.CreateMenu(ctx, "admin.main") //nolint:errcheck // legacy test setup intentionally ignores this helper result after scenario assertions.
 
 	item := MenuItem{ID: "unique", Label: "Once"}
 	if err := menuSvc.AddMenuItem(ctx, "admin.main", item); err != nil {

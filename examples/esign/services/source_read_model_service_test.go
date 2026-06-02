@@ -845,13 +845,13 @@ func openSQLiteSourceReadModelFixtureStore(t *testing.T) (sourceReadModelFixture
 	fixtureStore, ok := store.(sourceReadModelFixtureStore)
 	if !ok {
 		if cleanup != nil {
-			_ = cleanup()
+			_ = cleanup() //nolint:errcheck // legacy test setup intentionally ignores this helper result after scenario assertions.
 		}
 		t.Fatalf("expected sqlite store to satisfy sourceReadModelFixtureStore")
 	}
 	return fixtureStore, func() {
 		if cleanup != nil {
-			_ = cleanup()
+			_ = cleanup() //nolint:errcheck // legacy test setup intentionally ignores this helper result after scenario assertions.
 		}
 	}
 }

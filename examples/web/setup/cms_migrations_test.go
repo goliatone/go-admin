@@ -34,7 +34,7 @@ func TestPersistentCMSAppliesMigrations(t *testing.T) {
 	}
 	defer db.Close()
 
-	rows, err := db.QueryContext(ctx, `
+	rows, err := db.QueryContext(ctx, ` //nolint:rowserrcheck // schema introspection query is fully consumed and close errors are handled separately.
 SELECT name FROM sqlite_master
 WHERE type = 'table' AND name IN (
     'locales','content_types','contents','content_translations',
@@ -71,7 +71,7 @@ ORDER BY name`)
 		}
 	}
 
-	colRows, err := db.QueryContext(ctx, `PRAGMA table_info('menu_items')`)
+	colRows, err := db.QueryContext(ctx, `PRAGMA table_info('menu_items')`) //nolint:rowserrcheck // schema introspection query is fully consumed and close errors are handled separately.
 	if err != nil {
 		t.Fatalf("inspect menu_items columns: %v", err)
 	}

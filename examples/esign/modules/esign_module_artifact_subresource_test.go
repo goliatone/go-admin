@@ -60,7 +60,7 @@ func TestESignModuleAgreementArtifactSubresourceAllowsAdminDownloadExecutedAndCe
 		}
 		defer closeHTTPResponseBody(t, resp)
 		if resp.StatusCode != http.StatusOK {
-			body, _ := io.ReadAll(resp.Body)
+			body, _ := io.ReadAll(resp.Body) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 			t.Fatalf("expected status 200 for %s, got %d body=%s", asset, resp.StatusCode, strings.TrimSpace(string(body)))
 		}
 		if contentType := strings.ToLower(strings.TrimSpace(resp.Header.Get("Content-Type"))); !strings.Contains(contentType, "application/pdf") {
@@ -124,11 +124,11 @@ func TestESignModuleAgreementArtifactSubresourceDeniesMissingDownloadPermission(
 	}
 	defer closeHTTPResponseBody(t, resp)
 	if resp.StatusCode != http.StatusForbidden {
-		body, _ := io.ReadAll(resp.Body)
+		body, _ := io.ReadAll(resp.Body) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 		t.Fatalf("expected status 403, got %d body=%s", resp.StatusCode, strings.TrimSpace(string(body)))
 	}
 	payload := map[string]any{}
-	raw, _ := io.ReadAll(resp.Body)
+	raw, _ := io.ReadAll(resp.Body) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 	if err := json.Unmarshal(raw, &payload); err != nil {
 		t.Fatalf("unmarshal response payload: %v payload=%s", err, strings.TrimSpace(string(raw)))
 	}
@@ -176,7 +176,7 @@ func TestESignModuleAgreementArtifactSubresourceDoesNotMatchDynamicPanelAlias(t 
 	}
 	defer closeHTTPResponseBody(t, resp)
 	if resp.StatusCode != http.StatusNotFound {
-		body, _ := io.ReadAll(resp.Body)
+		body, _ := io.ReadAll(resp.Body) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 		t.Fatalf("expected status 404 for non-canonical panel alias route, got %d body=%s", resp.StatusCode, strings.TrimSpace(string(body)))
 	}
 }
@@ -204,7 +204,7 @@ func TestESignModuleDocumentSourceSubresourceAllowsAdminView(t *testing.T) {
 	}
 	defer closeHTTPResponseBody(t, resp)
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
+		body, _ := io.ReadAll(resp.Body) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 		t.Fatalf("expected status 200, got %d body=%s", resp.StatusCode, strings.TrimSpace(string(body)))
 	}
 	if contentType := strings.ToLower(strings.TrimSpace(resp.Header.Get("Content-Type"))); !strings.Contains(contentType, "application/pdf") {
@@ -244,11 +244,11 @@ func TestESignModuleDocumentSourceSubresourceDeniesMissingViewPermission(t *test
 	}
 	defer closeHTTPResponseBody(t, resp)
 	if resp.StatusCode != http.StatusForbidden {
-		body, _ := io.ReadAll(resp.Body)
+		body, _ := io.ReadAll(resp.Body) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 		t.Fatalf("expected status 403, got %d body=%s", resp.StatusCode, strings.TrimSpace(string(body)))
 	}
 	payload := map[string]any{}
-	raw, _ := io.ReadAll(resp.Body)
+	raw, _ := io.ReadAll(resp.Body) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 	if err := json.Unmarshal(raw, &payload); err != nil {
 		t.Fatalf("unmarshal response payload: %v payload=%s", err, strings.TrimSpace(string(raw)))
 	}
@@ -295,15 +295,15 @@ func TestESignModuleDocumentSourceSubresourceDoesNotMatchDynamicPanelAlias(t *te
 	}
 	defer closeHTTPResponseBody(t, resp)
 	if resp.StatusCode != http.StatusNotFound {
-		body, _ := io.ReadAll(resp.Body)
+		body, _ := io.ReadAll(resp.Body) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 		t.Fatalf("expected status 404 for non-canonical panel alias route, got %d body=%s", resp.StatusCode, strings.TrimSpace(string(body)))
 	}
 }
 
 func setupESignModuleArtifactSubresourceTest(t *testing.T, authz coreadmin.Authorizer) (*ESignModule, router.Server[*fiber.App], stores.Scope) {
 	t.Helper()
-	_ = registry.Stop(context.Background())
-	t.Cleanup(func() { _ = registry.Stop(context.Background()) })
+	_ = registry.Stop(context.Background())                       //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
+	t.Cleanup(func() { _ = registry.Stop(context.Background()) }) //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 
 	cfg := quickstart.NewAdminConfig("/admin", "E-Sign Artifact Test", "en")
 	cfg.AuthConfig = &coreadmin.AuthConfig{AllowUnauthenticatedRoutes: true}

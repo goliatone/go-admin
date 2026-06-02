@@ -83,7 +83,7 @@ func TestRuntimeDetailPagesRenderSeededLineageFixtures(t *testing.T) {
 			pageResp := doRequestWithCookie(t, fixture.App, http.MethodGet, "/admin/content/esign_documents/"+tc.id+"?"+query, authCookie)
 			defer closeHTTPResponseBody(t, pageResp)
 			if pageResp.StatusCode != http.StatusOK {
-				body, _ := io.ReadAll(pageResp.Body)
+				body, _ := io.ReadAll(pageResp.Body) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 				t.Fatalf("expected document detail status 200, got %d body=%s", pageResp.StatusCode, strings.TrimSpace(string(body)))
 			}
 			body, readErr := io.ReadAll(pageResp.Body)
@@ -113,7 +113,7 @@ func TestRuntimeDetailPagesRenderSeededLineageFixtures(t *testing.T) {
 			pdfResp := doRequestWithCookie(t, fixture.App, http.MethodGet, "/admin/api/v1/panels/esign_documents/"+tc.id+"/source/pdf?"+query, authCookie)
 			defer closeHTTPResponseBody(t, pdfResp)
 			if pdfResp.StatusCode != http.StatusOK {
-				payload, _ := io.ReadAll(pdfResp.Body)
+				payload, _ := io.ReadAll(pdfResp.Body) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 				t.Fatalf("expected source pdf 200, got %d body=%s", pdfResp.StatusCode, strings.TrimSpace(string(payload)))
 			}
 			pdfBody, pdfReadErr := io.ReadAll(pdfResp.Body)
@@ -127,7 +127,7 @@ func TestRuntimeDetailPagesRenderSeededLineageFixtures(t *testing.T) {
 			diagnosticsResp := doRequestWithCookie(t, fixture.App, http.MethodGet, tc.diagnosticsURL+"?"+query, authCookie)
 			defer closeHTTPResponseBody(t, diagnosticsResp)
 			if diagnosticsResp.StatusCode != http.StatusOK {
-				payload, _ := io.ReadAll(diagnosticsResp.Body)
+				payload, _ := io.ReadAll(diagnosticsResp.Body) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 				t.Fatalf("expected diagnostics 200, got %d body=%s", diagnosticsResp.StatusCode, strings.TrimSpace(string(payload)))
 			}
 			diagnosticsPayload := decodeRuntimeJSONBody(t, diagnosticsResp.Body)
@@ -140,7 +140,7 @@ func TestRuntimeDetailPagesRenderSeededLineageFixtures(t *testing.T) {
 	agreementResp := doRequestWithCookie(t, fixture.App, http.MethodGet, "/admin/content/esign_agreements/"+fixtureSet.ImportedAgreementID+"?"+query, authCookie)
 	defer closeHTTPResponseBody(t, agreementResp)
 	if agreementResp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(agreementResp.Body)
+		body, _ := io.ReadAll(agreementResp.Body) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 		t.Fatalf("expected agreement detail status 200, got %d body=%s", agreementResp.StatusCode, strings.TrimSpace(string(body)))
 	}
 	agreementBody, err := io.ReadAll(agreementResp.Body)
@@ -175,7 +175,7 @@ func TestRuntimeDetailPagesRenderSeededLineageFixtures(t *testing.T) {
 	agreementDiagnosticsResp := doRequestWithCookie(t, fixture.App, http.MethodGet, "/admin/debug/lineage/agreements/"+fixtureSet.ImportedAgreementID+"?"+query, authCookie)
 	defer closeHTTPResponseBody(t, agreementDiagnosticsResp)
 	if agreementDiagnosticsResp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(agreementDiagnosticsResp.Body)
+		body, _ := io.ReadAll(agreementDiagnosticsResp.Body) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 		t.Fatalf("expected agreement diagnostics status 200, got %d body=%s", agreementDiagnosticsResp.StatusCode, strings.TrimSpace(string(body)))
 	}
 	agreementDiagnostics := decodeRuntimeJSONBody(t, agreementDiagnosticsResp.Body)
@@ -195,7 +195,7 @@ func loginESignRuntimeAdmin(t *testing.T, app *fiber.App) *http.Cookie {
 	loginResp := doRequest(t, app, http.MethodPost, "/admin/login", "application/x-www-form-urlencoded", strings.NewReader(form.Encode()))
 	defer closeHTTPResponseBody(t, loginResp)
 	if loginResp.StatusCode != http.StatusFound {
-		body, _ := io.ReadAll(loginResp.Body)
+		body, _ := io.ReadAll(loginResp.Body) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 		t.Fatalf("expected login redirect, got %d body=%s", loginResp.StatusCode, strings.TrimSpace(string(body)))
 	}
 	authCookie := firstAuthCookie(loginResp)
@@ -211,7 +211,7 @@ func fetchRuntimePanelDetail(t *testing.T, app *fiber.App, authCookie *http.Cook
 	resp := doRequestWithCookie(t, app, http.MethodGet, endpoint, authCookie)
 	defer closeHTTPResponseBody(t, resp)
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
+		body, _ := io.ReadAll(resp.Body) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 		t.Fatalf("expected panel detail status 200, got %d body=%s", resp.StatusCode, strings.TrimSpace(string(body)))
 	}
 

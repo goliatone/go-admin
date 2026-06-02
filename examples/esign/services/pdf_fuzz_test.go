@@ -69,7 +69,7 @@ func FuzzSafeImportPageWithBoxes(f *testing.F) {
 		}()
 		ctx, cancel := context.WithTimeout(context.Background(), 250*time.Millisecond)
 		defer cancel()
-		_, _, _ = safeImportPageWithBoxesWithContext(ctx, importer, pdfDoc, payload, page, "/MediaBox", "/CropBox")
+		_, _, _ = safeImportPageWithBoxesWithContext(ctx, importer, pdfDoc, payload, page, "/MediaBox", "/CropBox") //nolint:errcheck // legacy test setup intentionally ignores this helper result after scenario assertions.
 	})
 }
 

@@ -14,7 +14,7 @@ func (panelActionWiringMsg) Type() string { return "items.refresh" }
 func TestValidatePanelActionWiringFailsForMissingWorkflowTransition(t *testing.T) {
 	cfg := Config{BasePath: "/admin", DefaultLocale: "en"}
 	workflow := NewFSMWorkflowEngine()
-	_ = workflow.RegisterWorkflow("pages", WorkflowDefinition{
+	_ = workflow.RegisterWorkflow("pages", WorkflowDefinition{ //nolint:errcheck // legacy test setup intentionally ignores this helper result after scenario assertions.
 		EntityType:   "pages",
 		InitialState: "draft",
 		Transitions: []WorkflowTransition{
@@ -43,7 +43,7 @@ func TestValidatePanelActionWiringFailsForMissingWorkflowTransition(t *testing.T
 func TestValidatePanelActionWiringAcceptsWorkflowAliasActions(t *testing.T) {
 	cfg := Config{BasePath: "/admin", DefaultLocale: "en"}
 	workflow := NewFSMWorkflowEngine()
-	_ = workflow.RegisterWorkflow("pages", WorkflowDefinition{
+	_ = workflow.RegisterWorkflow("pages", WorkflowDefinition{ //nolint:errcheck // legacy test setup intentionally ignores this helper result after scenario assertions.
 		EntityType:   "pages",
 		InitialState: "draft",
 		Transitions: []WorkflowTransition{
@@ -248,7 +248,7 @@ func panelActionWiringContainsReason(t *testing.T, err error, reason string) boo
 		}
 	case []any:
 		for _, issue := range issues {
-			issueMap, _ := issue.(map[string]any)
+			issueMap := mustAs[map[string]any](issue)
 			if strings.EqualFold(strings.TrimSpace(toString(issueMap["reason"])), strings.TrimSpace(reason)) {
 				return true
 			}

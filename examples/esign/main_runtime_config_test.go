@@ -255,7 +255,7 @@ func TestNewESignRuntimeStoreCreatesCanonicalRuntimeAdapterFromSQLiteBootstrapDS
 	if err != nil {
 		t.Fatalf("Bootstrap sqlite runtime store test: %v", err)
 	}
-	defer func() { _ = bootstrap.Close() }()
+	defer func() { _ = bootstrap.Close() }() //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 
 	store, cleanup, err := newESignRuntimeStore(bootstrap)
 	if err != nil {
@@ -282,7 +282,7 @@ func TestNewESignRuntimeStoreSupportsPostgresWhenBootstrapHandlesPresent(t *test
 	if err != nil {
 		t.Fatalf("Bootstrap postgres runtime store test: %v", err)
 	}
-	defer func() { _ = bootstrap.Close() }()
+	defer func() { _ = bootstrap.Close() }() //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 
 	store, cleanup, err := newESignRuntimeStore(bootstrap)
 	if err != nil {

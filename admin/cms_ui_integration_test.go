@@ -78,14 +78,14 @@ func TestCMSContentTypeCRUDAndValidation(t *testing.T) {
 		t.Fatalf("expected validation error, got %d body=%s", invalidRes.Code, invalidRes.Body.String())
 	}
 	var invalidPayload map[string]any
-	_ = json.Unmarshal(invalidRes.Body.Bytes(), &invalidPayload)
+	_ = json.Unmarshal(invalidRes.Body.Bytes(), &invalidPayload) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 	meta := map[string]any{}
 	if errNode, ok := invalidPayload["error"].(map[string]any); ok {
 		if rawMeta, ok := errNode["metadata"].(map[string]any); ok {
 			meta = rawMeta
 		}
 	}
-	fields, _ := meta["fields"].(map[string]any)
+	fields := mustAs[map[string]any](meta["fields"])
 	if fields == nil || (fields["schema"] == nil && fields["slug"] == nil) {
 		t.Fatalf("expected schema validation error, got %+v", invalidPayload)
 	}

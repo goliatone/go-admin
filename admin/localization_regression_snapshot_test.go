@@ -95,7 +95,7 @@ func TestLocalizationRegressionSnapshot(t *testing.T) {
 			"id":        menuItems[0]["id"],
 			"label":     menuItems[0]["label"],
 			"label_key": menuItems[0]["label_key"],
-			"href":      menuItems[0]["target"].(map[string]any)["url"],
+			"href":      mustAs[map[string]any](menuItems[0]["target"])["url"],
 		},
 	}
 

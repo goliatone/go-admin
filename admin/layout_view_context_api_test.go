@@ -43,24 +43,24 @@ func TestEnrichLayoutViewContextIncludesTranslationCapabilities(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected translation_capabilities map, got %T", view["translation_capabilities"])
 	}
-	if profile, _ := caps["profile"].(string); profile != "full" {
+	if profile := mustAs[string](caps["profile"]); profile != "full" {
 		t.Fatalf("expected translation profile full, got %v", caps["profile"])
 	}
-	if schemaVersion, _ := caps["schema_version"].(int); schemaVersion != translationCapabilitiesSchemaVersionCurrent {
+	if schemaVersion := mustAs[int](caps["schema_version"]); schemaVersion != translationCapabilitiesSchemaVersionCurrent {
 		t.Fatalf("expected schema version %d, got %v", translationCapabilitiesSchemaVersionCurrent, caps["schema_version"])
 	}
 
-	modules, _ := caps["modules"].(map[string]any)
-	exchange, _ := modules["exchange"].(map[string]any)
-	if enabled, _ := exchange["enabled"].(bool); !enabled {
+	modules := mustAs[map[string]any](caps["modules"])
+	exchange := mustAs[map[string]any](modules["exchange"])
+	if enabled := mustAs[bool](exchange["enabled"]); !enabled {
 		t.Fatalf("expected exchange module enabled")
 	}
-	queue, _ := modules["queue"].(map[string]any)
-	if enabled, _ := queue["enabled"].(bool); !enabled {
+	queue := mustAs[map[string]any](modules["queue"])
+	if enabled := mustAs[bool](queue["enabled"]); !enabled {
 		t.Fatalf("expected queue module enabled")
 	}
 
-	routes, _ := caps["routes"].(map[string]string)
+	routes := mustAs[map[string]string](caps["routes"])
 	if strings.TrimSpace(routes["admin.translations.queue"]) == "" {
 		t.Fatalf("expected admin.translations.queue route")
 	}
@@ -80,7 +80,7 @@ func TestEnrichLayoutViewContextPreservesProvidedTranslationCapabilities(t *test
 		"base_path":                "/admin",
 		"translation_capabilities": custom,
 	}, "")
-	if got, _ := view["translation_capabilities"].(map[string]any); got["profile"] != "custom" {
+	if got := mustAs[map[string]any](view["translation_capabilities"]); got["profile"] != "custom" {
 		t.Fatalf("expected custom translation capabilities to be preserved, got %v", view["translation_capabilities"])
 	}
 }

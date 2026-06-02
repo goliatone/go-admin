@@ -18,10 +18,10 @@ func TestEnsureRuntimeParityColumnsSQLiteRepairsEmailLogUpdatedAtColumn(t *testi
 	}
 	client, err := persistence.New(bootstrapPersistenceConfig{driver: driverName, server: dsn}, sqlDB, bunDialect)
 	if err != nil {
-		_ = sqlDB.Close()
+		_ = sqlDB.Close() //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 		t.Fatalf("persistence.New: %v", err)
 	}
-	defer func() { _ = client.Close() }()
+	defer func() { _ = client.Close() }() //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 
 	cfg := appcfg.Defaults()
 	cfg.Persistence.Migrations.LocalOnly = true
@@ -67,10 +67,10 @@ func TestEnsureRuntimeParityColumnsSQLiteBackfillsEmailLogUpdatedAt(t *testing.T
 	}
 	client, err := persistence.New(bootstrapPersistenceConfig{driver: driverName, server: dsn}, sqlDB, bunDialect)
 	if err != nil {
-		_ = sqlDB.Close()
+		_ = sqlDB.Close() //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 		t.Fatalf("persistence.New: %v", err)
 	}
-	defer func() { _ = client.Close() }()
+	defer func() { _ = client.Close() }() //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 
 	cfg := appcfg.Defaults()
 	cfg.Persistence.Migrations.LocalOnly = true
@@ -153,10 +153,10 @@ func TestEnsureRuntimeParityColumnsSQLiteRepairsLineageLinkageColumns(t *testing
 	}
 	client, err := persistence.New(bootstrapPersistenceConfig{driver: driverName, server: dsn}, sqlDB, bunDialect)
 	if err != nil {
-		_ = sqlDB.Close()
+		_ = sqlDB.Close() //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 		t.Fatalf("persistence.New: %v", err)
 	}
-	defer func() { _ = client.Close() }()
+	defer func() { _ = client.Close() }() //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 
 	cfg := appcfg.Defaults()
 	cfg.Persistence.Migrations.LocalOnly = true
@@ -197,10 +197,10 @@ func TestEnsureRuntimeParityColumnsPostgresRepairsJobRunAttemptConstraint(t *tes
 	}
 	client, err := persistence.New(bootstrapPersistenceConfig{driver: driverName, server: dsn}, sqlDB, bunDialect)
 	if err != nil {
-		_ = sqlDB.Close()
+		_ = sqlDB.Close() //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 		t.Fatalf("persistence.New: %v", err)
 	}
-	defer func() { _ = client.Close() }()
+	defer func() { _ = client.Close() }() //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 
 	cfg := appcfg.Defaults()
 	cfg.Runtime.RepositoryDialect = appcfg.RepositoryDialectPostgres

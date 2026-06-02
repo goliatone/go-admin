@@ -53,7 +53,7 @@ func TestCMSWidgetStoreCRUD(t *testing.T) {
 	if len(resolved.Widgets) != 1 {
 		t.Fatalf("expected 1 widget, got %d", len(resolved.Widgets))
 	}
-	if resolved.Widgets[0].Metadata["layout"].(map[string]any)["width"] != 6 {
+	if mustAs[map[string]any](resolved.Widgets[0].Metadata["layout"])["width"] != 6 {
 		t.Fatalf("expected width metadata propagated")
 	}
 
@@ -117,7 +117,7 @@ func TestCMSWidgetStoreUsesSharedMetadataHelpers(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create instance: %v", err)
 	}
-	if got := created.Metadata["layout"].(map[string]any)["width"]; got != 8 {
+	if got := mustAs[map[string]any](created.Metadata["layout"])["width"]; got != 8 {
 		t.Fatalf("expected shared width normalization to yield 8, got %#v", got)
 	}
 	if got := created.Metadata["hidden"]; got != true {

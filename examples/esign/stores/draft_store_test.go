@@ -107,7 +107,7 @@ func TestInMemoryDraftSessionPaginationAndExpiryCleanup(t *testing.T) {
 	scope := Scope{TenantID: "tenant-1", OrgID: "org-1"}
 	now := time.Now().UTC()
 
-	_, _, _ = store.CreateDraftSession(ctx, scope, DraftRecord{
+	_, _, _ = store.CreateDraftSession(ctx, scope, DraftRecord{ //nolint:errcheck // legacy test setup intentionally ignores this helper result after scenario assertions.
 		WizardID:        "wiz-expired",
 		CreatedByUserID: "user-1",
 		CurrentStep:     2,

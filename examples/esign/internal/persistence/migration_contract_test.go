@@ -254,7 +254,7 @@ func TestPhase8RepositoryStoreParitySQLiteAndPostgresContract(t *testing.T) {
 	if err != nil {
 		t.Fatalf("OpenClient: %v", err)
 	}
-	defer func() { _ = handles.Close() }()
+	defer func() { _ = handles.Close() }() //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 
 	if err := handles.Client.Migrate(context.Background()); err != nil {
 		t.Fatalf("Migrate: %v", err)

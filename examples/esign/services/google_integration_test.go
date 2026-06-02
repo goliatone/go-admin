@@ -304,7 +304,7 @@ func TestGoogleServicesIntegrationEnqueueLineageProcessingForwardsImportRunID(t 
 			PageCount: 3,
 		},
 	}
-	_ = service.enqueueLineageProcessing(ctx, scope, result, GoogleImportInput{
+	_ = service.enqueueLineageProcessing(ctx, scope, result, GoogleImportInput{ //nolint:errcheck // legacy test setup intentionally ignores this helper result after scenario assertions.
 		ImportRunID:       runID,
 		UserID:            "ops-user",
 		AccountID:         "acct-1",
@@ -1643,7 +1643,7 @@ func (e *googleProviderEmulatorServer) serveDriveFiles(w http.ResponseWriter, r 
 	case r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "/export"):
 		w.Header().Set("Content-Type", "application/pdf")
 		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write(GenerateDeterministicPDF(1))
+		_, _ = w.Write(GenerateDeterministicPDF(1)) //nolint:errcheck // legacy test setup intentionally ignores this helper result after scenario assertions.
 		return
 	case r.Method == http.MethodGet && r.URL.Path == "/drive/v3/files/google-file-1":
 		writeJSONResponse(w, http.StatusOK, map[string]any{
@@ -1885,11 +1885,11 @@ func ptrTime(value time.Time) *time.Time {
 func writeJSONResponse(w http.ResponseWriter, status int, payload map[string]any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(payload)
+	_ = json.NewEncoder(w).Encode(payload) //nolint:errcheck // legacy test setup intentionally ignores this helper result after scenario assertions.
 }
 
 func anyString(value any) string {
-	text, _ := value.(string)
+	text := mustAs[string](value)
 	return text
 }
 

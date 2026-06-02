@@ -78,7 +78,7 @@ func TestBuildDebugViewContextAdminLayoutDerivesNavAndSession(t *testing.T) {
 	if got := sessionUser["avatar_url"]; got != "https://cdn.example/avatar.png" {
 		t.Fatalf("expected avatar_url propagated, got %v", got)
 	}
-	if got, _ := sessionUser["is_authenticated"].(bool); !got {
+	if got := mustAs[bool](sessionUser["is_authenticated"]); !got {
 		t.Fatalf("expected is_authenticated true")
 	}
 
@@ -86,7 +86,7 @@ func TestBuildDebugViewContextAdminLayoutDerivesNavAndSession(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected translation_capabilities map, got %T", view["translation_capabilities"])
 	}
-	if profile, _ := caps["profile"].(string); strings.TrimSpace(profile) == "" {
+	if profile := mustAs[string](caps["profile"]); strings.TrimSpace(profile) == "" {
 		t.Fatalf("expected translation_capabilities profile")
 	}
 }
@@ -125,7 +125,7 @@ func TestBuildDebugViewContextAdminLayoutGuestFallback(t *testing.T) {
 	if got := sessionUser["initial"]; got != "?" {
 		t.Fatalf("expected guest initial ?, got %v", got)
 	}
-	if got, _ := sessionUser["is_authenticated"].(bool); got {
+	if got := mustAs[bool](sessionUser["is_authenticated"]); got {
 		t.Fatalf("expected is_authenticated false")
 	}
 
@@ -153,8 +153,8 @@ func containsActiveNavItem(items []map[string]any, label string) bool {
 		if item == nil {
 			continue
 		}
-		if itemLabel, _ := item["label"].(string); itemLabel == label {
-			if active, _ := item["active"].(bool); active {
+		if itemLabel := mustAs[string](item["label"]); itemLabel == label {
+			if active := mustAs[bool](item["active"]); active {
 				return true
 			}
 		}

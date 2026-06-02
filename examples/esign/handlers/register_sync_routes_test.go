@@ -603,7 +603,7 @@ func TestRegisterSyncBootstrapEchoesTraceHeaders(t *testing.T) {
 	defer closeHTTPResponseBody(t, resp)
 
 	if resp.StatusCode != http.StatusCreated {
-		body, _ := io.ReadAll(resp.Body)
+		body, _ := io.ReadAll(resp.Body) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 		t.Fatalf("expected bootstrap status 201, got %d body=%s", resp.StatusCode, string(body))
 	}
 	if got := strings.TrimSpace(resp.Header.Get("X-Request-ID")); got != "req-sync-1" {

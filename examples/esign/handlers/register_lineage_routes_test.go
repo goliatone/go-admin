@@ -402,8 +402,8 @@ func TestRegisterSourceManagementRoutesExposeReadModelContracts(t *testing.T) {
 				if !ok || len(items) != 1 {
 					t.Fatalf("expected stub source list items, got %+v", payload)
 				}
-				first, _ := items[0].(map[string]any)
-				source, _ := first["source"].(map[string]any)
+				first := mustAs[map[string]any](items[0])
+				source := mustAs[map[string]any](first["source"])
 				if got := strings.TrimSpace(toString(source["id"])); got != "stub-source" {
 					t.Fatalf("expected stub source id, got %+v", payload)
 				}
@@ -413,7 +413,7 @@ func TestRegisterSourceManagementRoutesExposeReadModelContracts(t *testing.T) {
 			name: "source detail",
 			path: services.DefaultSourceManagementBasePath + "/sources/src-doc-lineage-1?user_id=ops-user",
 			check: func(payload map[string]any) {
-				source, _ := payload["source"].(map[string]any)
+				source := mustAs[map[string]any](payload["source"])
 				if got := strings.TrimSpace(toString(source["id"])); got != "stub-source-detail" {
 					t.Fatalf("expected stub source detail, got %+v", payload)
 				}
@@ -423,9 +423,9 @@ func TestRegisterSourceManagementRoutesExposeReadModelContracts(t *testing.T) {
 			name: "source revisions",
 			path: services.DefaultSourceManagementBasePath + "/sources/src-doc-lineage-1/revisions?user_id=ops-user",
 			check: func(payload map[string]any) {
-				items, _ := payload["items"].([]any)
-				first, _ := items[0].(map[string]any)
-				revision, _ := first["revision"].(map[string]any)
+				items := mustAs[[]any](payload["items"])
+				first := mustAs[map[string]any](items[0])
+				revision := mustAs[map[string]any](first["revision"])
 				if got := strings.TrimSpace(toString(revision["id"])); got != "stub-revision-page" {
 					t.Fatalf("expected stub revision page payload, got %+v", payload)
 				}
@@ -435,8 +435,8 @@ func TestRegisterSourceManagementRoutesExposeReadModelContracts(t *testing.T) {
 			name: "source relationships",
 			path: services.DefaultSourceManagementBasePath + "/sources/src-doc-lineage-1/relationships?user_id=ops-user",
 			check: func(payload map[string]any) {
-				items, _ := payload["items"].([]any)
-				first, _ := items[0].(map[string]any)
+				items := mustAs[[]any](payload["items"])
+				first := mustAs[map[string]any](items[0])
 				if got := strings.TrimSpace(toString(first["id"])); got != "stub-relationship" {
 					t.Fatalf("expected stub relationship payload, got %+v", payload)
 				}
@@ -446,8 +446,8 @@ func TestRegisterSourceManagementRoutesExposeReadModelContracts(t *testing.T) {
 			name: "source handles",
 			path: services.DefaultSourceManagementBasePath + "/sources/src-doc-lineage-1/handles?user_id=ops-user",
 			check: func(payload map[string]any) {
-				items, _ := payload["items"].([]any)
-				first, _ := items[0].(map[string]any)
+				items := mustAs[[]any](payload["items"])
+				first := mustAs[map[string]any](items[0])
 				if got := strings.TrimSpace(toString(first["id"])); got != "stub-handle" {
 					t.Fatalf("expected stub handle payload, got %+v", payload)
 				}
@@ -466,7 +466,7 @@ func TestRegisterSourceManagementRoutesExposeReadModelContracts(t *testing.T) {
 			name: "revision detail",
 			path: services.DefaultSourceManagementBasePath + "/source-revisions/src-rev-lineage-1?user_id=ops-user",
 			check: func(payload map[string]any) {
-				revision, _ := payload["revision"].(map[string]any)
+				revision := mustAs[map[string]any](payload["revision"])
 				if got := strings.TrimSpace(toString(revision["id"])); got != "stub-revision-detail" {
 					t.Fatalf("expected stub revision detail payload, got %+v", payload)
 				}
@@ -476,8 +476,8 @@ func TestRegisterSourceManagementRoutesExposeReadModelContracts(t *testing.T) {
 			name: "revision artifacts",
 			path: services.DefaultSourceManagementBasePath + "/source-revisions/src-rev-lineage-1/artifacts?user_id=ops-user",
 			check: func(payload map[string]any) {
-				items, _ := payload["items"].([]any)
-				first, _ := items[0].(map[string]any)
+				items := mustAs[[]any](payload["items"])
+				first := mustAs[map[string]any](items[0])
 				if got := strings.TrimSpace(toString(first["id"])); got != "stub-artifact" {
 					t.Fatalf("expected stub artifact payload, got %+v", payload)
 				}
@@ -496,9 +496,9 @@ func TestRegisterSourceManagementRoutesExposeReadModelContracts(t *testing.T) {
 			name: "source search",
 			path: services.DefaultSourceManagementBasePath + "/source-search?user_id=ops-user&q=google-lineage-file-1",
 			check: func(payload map[string]any) {
-				items, _ := payload["items"].([]any)
-				first, _ := items[0].(map[string]any)
-				revision, _ := first["revision"].(map[string]any)
+				items := mustAs[[]any](payload["items"])
+				first := mustAs[map[string]any](items[0])
+				revision := mustAs[map[string]any](first["revision"])
 				if got := strings.TrimSpace(toString(revision["id"])); got != "stub-search-revision" {
 					t.Fatalf("expected stub source search payload, got %+v", payload)
 				}
@@ -508,9 +508,9 @@ func TestRegisterSourceManagementRoutesExposeReadModelContracts(t *testing.T) {
 			name: "reconciliation queue",
 			path: services.DefaultSourceManagementBasePath + "/reconciliation-queue?user_id=ops-user",
 			check: func(payload map[string]any) {
-				items, _ := payload["items"].([]any)
-				first, _ := items[0].(map[string]any)
-				candidate, _ := first["candidate"].(map[string]any)
+				items := mustAs[[]any](payload["items"])
+				first := mustAs[map[string]any](items[0])
+				candidate := mustAs[map[string]any](first["candidate"])
 				if got := strings.TrimSpace(toString(candidate["id"])); got != "stub-queue-relationship" {
 					t.Fatalf("expected stub reconciliation queue payload, got %+v", payload)
 				}
@@ -520,7 +520,7 @@ func TestRegisterSourceManagementRoutesExposeReadModelContracts(t *testing.T) {
 			name: "reconciliation candidate",
 			path: services.DefaultSourceManagementBasePath + "/reconciliation-queue/src-rel-lineage-1?user_id=ops-user",
 			check: func(payload map[string]any) {
-				candidate, _ := payload["candidate"].(map[string]any)
+				candidate := mustAs[map[string]any](payload["candidate"])
 				if got := strings.TrimSpace(toString(candidate["id"])); got != "stub-queue-candidate" {
 					t.Fatalf("expected stub reconciliation candidate payload, got %+v", payload)
 				}
@@ -598,7 +598,7 @@ func TestRegisterSourceManagementRoutesApplyRequestScopedPermissions(t *testing.
 	if !ok || len(relationshipItems) != 1 {
 		t.Fatalf("expected one relationship item, got %+v", relationshipsPayload)
 	}
-	firstRelationship, _ := relationshipItems[0].(map[string]any)
+	firstRelationship := mustAs[map[string]any](relationshipItems[0])
 	if got := strings.TrimSpace(toString(firstRelationship["review_action_visible"])); got != "" {
 		t.Fatalf("expected view-only request to redact review action visibility, got %+v", firstRelationship)
 	}
@@ -616,8 +616,8 @@ func TestRegisterSourceManagementRoutesApplyRequestScopedPermissions(t *testing.
 	if !ok || !toBool(editPermissions["can_review_candidates"]) {
 		t.Fatalf("expected view+edit request to enable candidate review, got %+v", editRelationshipsPayload)
 	}
-	editRelationshipItems, _ := editRelationshipsPayload["items"].([]any)
-	editFirstRelationship, _ := editRelationshipItems[0].(map[string]any)
+	editRelationshipItems := mustAs[[]any](editRelationshipsPayload["items"])
+	editFirstRelationship := mustAs[map[string]any](editRelationshipItems[0])
 	if got := strings.TrimSpace(toString(editFirstRelationship["review_action_visible"])); got != services.LineageReviewVisibilityAdminOnly {
 		t.Fatalf("expected view+edit request to expose review action visibility, got %+v", editFirstRelationship)
 	}
@@ -946,7 +946,7 @@ func (s stubSourceReadModelService) GetReconciliationCandidate(ctx context.Conte
 }
 
 func toBool(value any) bool {
-	typed, _ := value.(bool)
+	typed := mustAs[bool](value)
 	return typed
 }
 

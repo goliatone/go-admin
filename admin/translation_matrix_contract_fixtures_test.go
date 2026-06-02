@@ -135,13 +135,13 @@ func assertTranslationMatrixViewportFixture(t *testing.T, payload map[string]any
 	if got := toString(extractMap(pageCells["fr"])["state"]); got != translationMatrixCellStateFallback {
 		t.Fatalf("expected page/fr state fallback, got %q", got)
 	}
-	if enabled, _ := extractMap(extractMap(extractMap(pageCells["fr"])["quick_actions"])["create"])["enabled"].(bool); !enabled {
+	if enabled := mustAs[bool](extractMap(extractMap(extractMap(pageCells["fr"])["quick_actions"])["create"])["enabled"]); !enabled {
 		t.Fatalf("expected page/fr create quick action enabled")
 	}
 	if got := toString(extractMap(pageCells["de"])["state"]); got != translationMatrixCellStateNotRequired {
 		t.Fatalf("expected page/de state not_required, got %q", got)
 	}
-	if enabled, _ := extractMap(extractMap(extractMap(pageCells["de"])["quick_actions"])["create"])["enabled"].(bool); enabled {
+	if enabled := mustAs[bool](extractMap(extractMap(extractMap(pageCells["de"])["quick_actions"])["create"])["enabled"]); enabled {
 		t.Fatalf("expected page/de create quick action disabled")
 	}
 
@@ -158,10 +158,10 @@ func assertTranslationMatrixViewportFixture(t *testing.T, payload map[string]any
 
 	selection := extractMap(data["selection"])
 	actions := extractMap(selection["bulk_actions"])
-	if enabled, _ := extractMap(actions[translationMatrixBulkActionCreateMissing])["enabled"].(bool); !enabled {
+	if enabled := mustAs[bool](extractMap(actions[translationMatrixBulkActionCreateMissing])["enabled"]); !enabled {
 		t.Fatalf("expected create_missing action enabled")
 	}
-	if enabled, _ := extractMap(actions[translationMatrixBulkActionExportSelected])["enabled"].(bool); !enabled {
+	if enabled := mustAs[bool](extractMap(actions[translationMatrixBulkActionExportSelected])["enabled"]); !enabled {
 		t.Fatalf("expected export_selected action enabled")
 	}
 }

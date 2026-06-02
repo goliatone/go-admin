@@ -342,7 +342,7 @@ func TestGoAuthAuthenticatorSplitsBrowserAndAPIRoutes(t *testing.T) {
 
 	server := router.NewHTTPServer()
 	server.Router().Get("/admin/preferences", authenticator.WrapHandler(func(c router.Context) error {
-		csrfToken, _ := c.Locals(csrfmw.DefaultContextKey).(string)
+		csrfToken := mustAs[string](c.Locals(csrfmw.DefaultContextKey))
 		if strings.TrimSpace(csrfToken) == "" {
 			t.Fatalf("expected csrf token in browser route context")
 		}
@@ -458,7 +458,7 @@ func TestGoAuthAuthenticatorUsesConfiguredAdminAPIRoot(t *testing.T) {
 
 	server := router.NewHTTPServer()
 	server.Router().Get("/admin/preferences", authenticator.WrapHandler(func(c router.Context) error {
-		csrfToken, _ := c.Locals(csrfmw.DefaultContextKey).(string)
+		csrfToken := mustAs[string](c.Locals(csrfmw.DefaultContextKey))
 		if strings.TrimSpace(csrfToken) == "" {
 			t.Fatalf("expected csrf token in browser route context")
 		}
@@ -528,7 +528,7 @@ func TestProtectedSurfaceAuthenticatorUsesProtectedAppRoots(t *testing.T) {
 
 	server := router.NewHTTPServer()
 	server.Router().Get("/app/preferences", authenticator.WrapHandler(func(c router.Context) error {
-		csrfToken, _ := c.Locals(csrfmw.DefaultContextKey).(string)
+		csrfToken := mustAs[string](c.Locals(csrfmw.DefaultContextKey))
 		if strings.TrimSpace(csrfToken) == "" {
 			t.Fatalf("expected csrf token in protected app browser route context")
 		}
@@ -669,7 +669,7 @@ func TestGoAuthAuthenticatorWrapHandlerRendersBrowserHTML(t *testing.T) {
 
 	server := router.NewHTTPServer()
 	server.Router().Get("/admin/activity", authenticator.WrapHandler(func(c router.Context) error {
-		csrfToken, _ := c.Locals(csrfmw.DefaultContextKey).(string)
+		csrfToken := mustAs[string](c.Locals(csrfmw.DefaultContextKey))
 		if strings.TrimSpace(csrfToken) == "" {
 			t.Fatalf("expected csrf token in browser route context")
 		}

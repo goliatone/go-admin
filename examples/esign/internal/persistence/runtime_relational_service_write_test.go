@@ -62,14 +62,14 @@ func newRuntimeStoreAdapterFromBootstrap(t *testing.T, bootstrap *BootstrapResul
 	t.Helper()
 	adapter, cleanup, err := NewStoreAdapter(bootstrap)
 	if err != nil {
-		_ = bootstrap.Close()
+		_ = bootstrap.Close() //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 		t.Fatalf("NewStoreAdapter: %v", err)
 	}
 	return adapter, func() {
 		if cleanup != nil {
-			_ = cleanup()
+			_ = cleanup() //nolint:errcheck // legacy test setup intentionally ignores this helper result after scenario assertions.
 		}
-		_ = bootstrap.Close()
+		_ = bootstrap.Close() //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 	}
 }
 

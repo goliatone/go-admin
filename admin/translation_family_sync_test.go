@@ -316,8 +316,8 @@ func TestTranslationFamilySyncPreservesEditorRowVersion(t *testing.T) {
 	}
 
 	var storedVersion int64
-	if err := db.QueryRowContext(ctx, `SELECT row_version FROM locale_variants WHERE family_id = ? AND locale = ?`, "family-versioned", "fr").Scan(&storedVersion); err != nil {
-		t.Fatalf("select stored row_version: %v", err)
+	if scanErr := db.QueryRowContext(ctx, `SELECT row_version FROM locale_variants WHERE family_id = ? AND locale = ?`, "family-versioned", "fr").Scan(&storedVersion); scanErr != nil {
+		t.Fatalf("select stored row_version: %v", scanErr)
 	}
 	if storedVersion != 2 {
 		t.Fatalf("stored row_version = %d, want 2", storedVersion)

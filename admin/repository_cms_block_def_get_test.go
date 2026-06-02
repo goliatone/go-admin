@@ -8,7 +8,7 @@ import (
 func TestCMSBlockDefinitionRepositoryGetBySlug(t *testing.T) {
 	content := NewInMemoryContentService()
 	ctx := context.Background()
-	_, _ = content.CreateBlockDefinition(ctx, CMSBlockDefinition{
+	_, _ = content.CreateBlockDefinition(ctx, CMSBlockDefinition{ //nolint:errcheck // legacy test setup intentionally ignores this helper result after scenario assertions.
 		ID:   "hero",
 		Name: "Hero",
 		Slug: "hero-section",
@@ -30,13 +30,13 @@ func TestCMSBlockDefinitionRepositoryGetBySlugRespectsEnvironment(t *testing.T) 
 	ctxDev := WithEnvironment(context.Background(), "dev")
 	ctxProd := WithEnvironment(context.Background(), "prod")
 
-	_, _ = content.CreateBlockDefinition(ctxDev, CMSBlockDefinition{
+	_, _ = content.CreateBlockDefinition(ctxDev, CMSBlockDefinition{ //nolint:errcheck // legacy test setup intentionally ignores this helper result after scenario assertions.
 		ID:   "hero-dev",
 		Name: "Hero Dev",
 		Slug: "hero",
 		Type: "hero",
 	})
-	_, _ = content.CreateBlockDefinition(ctxProd, CMSBlockDefinition{
+	_, _ = content.CreateBlockDefinition(ctxProd, CMSBlockDefinition{ //nolint:errcheck // legacy test setup intentionally ignores this helper result after scenario assertions.
 		ID:   "hero-prod",
 		Name: "Hero Prod",
 		Slug: "hero",

@@ -28,13 +28,13 @@ func newPhase10SQLiteBootstrap(t *testing.T, dsn string) *BootstrapResult {
 func TestPhase10RuntimeStoreSQLiteDoesNotWriteLegacySnapshotState(t *testing.T) {
 	dsn := "file:" + filepath.Join(t.TempDir(), "phase10-runtime-cutover.db") + "?_fk=1&_busy_timeout=5000"
 	bootstrap := newPhase10SQLiteBootstrap(t, dsn)
-	defer func() { _ = bootstrap.Close() }()
+	defer func() { _ = bootstrap.Close() }() //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 
 	adapter, cleanup, err := NewStoreAdapter(bootstrap)
 	if err != nil {
 		t.Fatalf("NewStoreAdapter: %v", err)
 	}
-	defer func() { _ = cleanup() }()
+	defer func() { _ = cleanup() }() //nolint:errcheck // legacy test setup intentionally ignores this helper result after scenario assertions.
 
 	scope := stores.Scope{TenantID: "tenant-phase10", OrgID: "org-phase10"}
 	_, createErr := adapter.Create(context.Background(), scope, stores.DocumentRecord{
@@ -64,7 +64,7 @@ func TestPhase10RuntimeStoreSQLitePersistsAcrossBootstrapRestart(t *testing.T) {
 	first := newPhase10SQLiteBootstrap(t, dsn)
 	firstStore, firstCleanup, err := NewStoreAdapter(first)
 	if err != nil {
-		_ = first.Close()
+		_ = first.Close() //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 		t.Fatalf("NewStoreAdapter first: %v", err)
 	}
 	_, createErr := firstStore.Create(context.Background(), scope, stores.DocumentRecord{
@@ -75,23 +75,23 @@ func TestPhase10RuntimeStoreSQLitePersistsAcrossBootstrapRestart(t *testing.T) {
 		SourceSHA256:       strings.Repeat("b", 64),
 	})
 	if createErr != nil {
-		_ = firstCleanup()
-		_ = first.Close()
+		_ = firstCleanup() //nolint:errcheck // legacy test setup intentionally ignores this helper result after scenario assertions.
+		_ = first.Close()  //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 		t.Fatalf("Create first: %v", createErr)
 	}
-	_ = firstCleanup()
+	_ = firstCleanup() //nolint:errcheck // legacy test setup intentionally ignores this helper result after scenario assertions.
 	closeErr := first.Close()
 	if closeErr != nil {
 		t.Fatalf("close first bootstrap: %v", closeErr)
 	}
 
 	second := newPhase10SQLiteBootstrap(t, dsn)
-	defer func() { _ = second.Close() }()
+	defer func() { _ = second.Close() }() //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 	secondStore, secondCleanup, err := NewStoreAdapter(second)
 	if err != nil {
 		t.Fatalf("NewStoreAdapter second: %v", err)
 	}
-	defer func() { _ = secondCleanup() }()
+	defer func() { _ = secondCleanup() }() //nolint:errcheck // legacy test setup intentionally ignores this helper result after scenario assertions.
 
 	docs, err := secondStore.List(context.Background(), scope, stores.DocumentQuery{})
 	if err != nil {

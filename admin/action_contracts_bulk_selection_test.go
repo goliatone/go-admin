@@ -142,7 +142,7 @@ func canonicalBulkActionContractsPhase7Fixture(t *testing.T) map[string]any {
 	if err != nil {
 		t.Fatalf("list: %v", err)
 	}
-	schema, _ := schemaAny.(Schema)
+	schema := mustAs[Schema](schemaAny)
 
 	singleSelection, err := binding.BulkActionState(newPanelBindingMockContext(), "en", map[string]any{
 		"ids": []string{"doc_1"},

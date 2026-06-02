@@ -256,7 +256,7 @@ func assertGoCMSContentAdapterContentsWithLocaleVariantsCompleteRows(t *testing.
 		},
 	}
 	svc := NewGoCMSContentAdapter(contentSvc, nil, typeSvc)
-	adapter := svc.(*GoCMSContentAdapter)
+	adapter := mustAs[*GoCMSContentAdapter](svc)
 
 	items, err := adapter.ContentsWithOptions(ctx, "all", WithTranslations(), WithDerivedFields(), WithLocaleVariants())
 	if err != nil {
@@ -360,7 +360,7 @@ func TestGoCMSContentAdapterContentsWithLocaleVariantsCachesContentTypeMetadataL
 		},
 	}
 	svc := NewGoCMSContentAdapter(contentSvc, nil, typeSvc)
-	adapter := svc.(*GoCMSContentAdapter)
+	adapter := mustAs[*GoCMSContentAdapter](svc)
 
 	items, err := adapter.ContentsWithOptions(ctx, "all", WithTranslations(), WithDerivedFields(), WithLocaleVariants())
 	if err != nil {
@@ -408,7 +408,7 @@ func TestGoCMSContentAdapterPagesWithLocaleVariantsExpandsTranslationFamilies(t 
 			},
 		},
 	}
-	adapter := NewGoCMSContentAdapter(contentSvc, nil, typeSvc).(*GoCMSContentAdapter)
+	adapter := mustAs[*GoCMSContentAdapter](NewGoCMSContentAdapter(contentSvc, nil, typeSvc))
 
 	items, err := adapter.PagesWithOptions(ctx, "all", WithTranslations(), WithLocaleVariants())
 	if err != nil {

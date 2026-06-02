@@ -27,12 +27,12 @@ func TestPhase8RestartPersistenceSQLiteSurvivesRestart(t *testing.T) {
 	}
 	_, execErr := first.BunDB.ExecContext(context.Background(), fmt.Sprintf(`CREATE TABLE IF NOT EXISTS %s (id INTEGER PRIMARY KEY, marker TEXT NOT NULL)`, tableName))
 	if execErr != nil {
-		_ = first.Close()
+		_ = first.Close() //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 		t.Fatalf("create probe table: %v", execErr)
 	}
 	_, execErr = first.BunDB.ExecContext(context.Background(), fmt.Sprintf(`INSERT OR REPLACE INTO %s (id, marker) VALUES (1, ?)`, tableName), marker)
 	if execErr != nil {
-		_ = first.Close()
+		_ = first.Close() //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 		t.Fatalf("insert probe row: %v", execErr)
 	}
 	closeErr := first.Close()
@@ -44,7 +44,7 @@ func TestPhase8RestartPersistenceSQLiteSurvivesRestart(t *testing.T) {
 	if err != nil {
 		t.Fatalf("second Bootstrap: %v", err)
 	}
-	defer func() { _ = second.Close() }()
+	defer func() { _ = second.Close() }() //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 
 	var persisted string
 	if err := second.BunDB.NewRaw(fmt.Sprintf(`SELECT marker FROM %s WHERE id = 1`, tableName)).Scan(context.Background(), &persisted); err != nil {
@@ -72,12 +72,12 @@ func TestPhase8RestartPersistencePostgresSurvivesRestartWhenDSNProvided(t *testi
 	}
 	_, execErr := first.BunDB.ExecContext(context.Background(), fmt.Sprintf(`CREATE TABLE IF NOT EXISTS %s (id BIGINT PRIMARY KEY, marker TEXT NOT NULL)`, tableName))
 	if execErr != nil {
-		_ = first.Close()
+		_ = first.Close() //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 		t.Fatalf("create postgres probe table: %v", execErr)
 	}
 	_, execErr = first.BunDB.ExecContext(context.Background(), fmt.Sprintf(`INSERT INTO %s (id, marker) VALUES (1, ?) ON CONFLICT (id) DO UPDATE SET marker = EXCLUDED.marker`, tableName), marker)
 	if execErr != nil {
-		_ = first.Close()
+		_ = first.Close() //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 		t.Fatalf("insert postgres probe row: %v", execErr)
 	}
 	closeErr := first.Close()
@@ -90,8 +90,8 @@ func TestPhase8RestartPersistencePostgresSurvivesRestartWhenDSNProvided(t *testi
 		t.Fatalf("second Bootstrap (postgres): %v", err)
 	}
 	defer func() {
-		_, _ = second.BunDB.ExecContext(context.Background(), fmt.Sprintf(`DROP TABLE IF EXISTS %s`, tableName))
-		_ = second.Close()
+		_, _ = second.BunDB.ExecContext(context.Background(), fmt.Sprintf(`DROP TABLE IF EXISTS %s`, tableName)) //nolint:errcheck // legacy test setup intentionally ignores this helper result after scenario assertions.
+		_ = second.Close()                                                                                       //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 	}()
 
 	var persisted string

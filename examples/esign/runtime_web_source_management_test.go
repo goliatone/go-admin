@@ -76,7 +76,7 @@ func TestRuntimeSourceManagementPagesBootWithSeededContracts(t *testing.T) {
 				resp := doRequestWithCookie(t, app, http.MethodGet, urls.SourceWorkspaceURL, authCookie)
 				defer closeHTTPResponseBody(t, resp)
 				if resp.StatusCode != http.StatusOK {
-					body, _ := io.ReadAll(resp.Body)
+					body, _ := io.ReadAll(resp.Body) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 					t.Fatalf("expected source workspace page status 200, got %d body=%s", resp.StatusCode, strings.TrimSpace(string(body)))
 				}
 				body, err := io.ReadAll(resp.Body)
@@ -86,13 +86,13 @@ func TestRuntimeSourceManagementPagesBootWithSeededContracts(t *testing.T) {
 				workspaceModel := extractJSONScriptPayloadFromHTML(t, string(body), "source-management-page-model")
 				workspaceContract := assertCanonicalWorkspaceContract(t, workspaceModel)
 
-				detailSource, _ := detailContract["source"].(map[string]any)
-				workspaceSource, _ := workspaceContract["source"].(map[string]any)
+				detailSource := mustAs[map[string]any](detailContract["source"])
+				workspaceSource := mustAs[map[string]any](workspaceContract["source"])
 				if got, want := strings.TrimSpace(rawToString(detailSource["id"])), strings.TrimSpace(rawToString(workspaceSource["id"])); got != want {
 					t.Fatalf("expected detail alias source id %q to match workspace source id %q", got, want)
 				}
-				detailRevision, _ := detailContract["latest_revision"].(map[string]any)
-				workspaceRevision, _ := workspaceContract["latest_revision"].(map[string]any)
+				detailRevision := mustAs[map[string]any](detailContract["latest_revision"])
+				workspaceRevision := mustAs[map[string]any](workspaceContract["latest_revision"])
 				if got, want := strings.TrimSpace(rawToString(detailRevision["id"])), strings.TrimSpace(rawToString(workspaceRevision["id"])); got != want {
 					t.Fatalf("expected detail alias latest revision %q to match workspace latest revision %q", got, want)
 				}
@@ -190,7 +190,7 @@ func TestRuntimeSourceManagementPagesBootWithSeededContracts(t *testing.T) {
 					resp := doRequestWithCookie(t, app, http.MethodGet, href, authCookie)
 					defer closeHTTPResponseBody(t, resp)
 					if resp.StatusCode != http.StatusOK {
-						body, _ := io.ReadAll(resp.Body)
+						body, _ := io.ReadAll(resp.Body) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 						t.Fatalf("expected translated result link %q to return 200, got %d body=%s", href, resp.StatusCode, strings.TrimSpace(string(body)))
 					}
 				}
@@ -203,7 +203,7 @@ func TestRuntimeSourceManagementPagesBootWithSeededContracts(t *testing.T) {
 			resp := doRequestWithCookie(t, fixture.App, http.MethodGet, tc.endpoint, authCookie)
 			defer closeHTTPResponseBody(t, resp)
 			if resp.StatusCode != http.StatusOK {
-				body, _ := io.ReadAll(resp.Body)
+				body, _ := io.ReadAll(resp.Body) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 				t.Fatalf("expected %s status 200, got %d body=%s", tc.name, resp.StatusCode, strings.TrimSpace(string(body)))
 			}
 			body, err := io.ReadAll(resp.Body)
@@ -258,7 +258,7 @@ func TestRuntimeSourceManagementPagesAreDiscoverableFromAdminRuntimeNavigation(t
 	landingResp := doRequestWithCookie(t, fixture.App, http.MethodGet, "/admin", authCookie)
 	defer closeHTTPResponseBody(t, landingResp)
 	if landingResp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(landingResp.Body)
+		body, _ := io.ReadAll(landingResp.Body) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 		t.Fatalf("expected landing page status 200, got %d body=%s", landingResp.StatusCode, strings.TrimSpace(string(body)))
 	}
 	landingBody, err := io.ReadAll(landingResp.Body)
@@ -274,7 +274,7 @@ func TestRuntimeSourceManagementPagesAreDiscoverableFromAdminRuntimeNavigation(t
 	detailResp := doRequestWithCookie(t, fixture.App, http.MethodGet, urls.SourceDetailURL, authCookie)
 	defer closeHTTPResponseBody(t, detailResp)
 	if detailResp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(detailResp.Body)
+		body, _ := io.ReadAll(detailResp.Body) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 		t.Fatalf("expected source detail page status 200, got %d body=%s", detailResp.StatusCode, strings.TrimSpace(string(body)))
 	}
 	detailBody, err := io.ReadAll(detailResp.Body)
@@ -291,7 +291,7 @@ func TestRuntimeSourceManagementPagesAreDiscoverableFromAdminRuntimeNavigation(t
 func TestRuntimeSourceSearchUsesGoSearchWhenLegacySearchStoreIsUnavailable(t *testing.T) {
 	fixture, err := newESignRuntimeWebFixtureForTestsWithOptions(t, false, eSignRuntimeWebFixtureOptions{
 		StoreWrap: func(store stores.Store) stores.Store {
-			lineageStore, _ := store.(stores.LineageStore)
+			lineageStore := mustAs[stores.LineageStore](store)
 			return legacySourceSearchFailingRuntimeStore{
 				Store:        store,
 				LineageStore: lineageStore,
@@ -311,7 +311,7 @@ func TestRuntimeSourceSearchUsesGoSearchWhenLegacySearchStoreIsUnavailable(t *te
 	resp := doRequestWithCookie(t, fixture.App, http.MethodGet, urls.SourceSearchURL, authCookie)
 	defer closeHTTPResponseBody(t, resp)
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
+		body, _ := io.ReadAll(resp.Body) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 		t.Fatalf("expected source search status 200, got %d body=%s", resp.StatusCode, strings.TrimSpace(string(body)))
 	}
 	body, err := io.ReadAll(resp.Body)
@@ -405,7 +405,7 @@ func assertSourceManagementShellMatchesModel(t *testing.T, html string, pageMode
 			}
 		}
 
-		quickActions, _ := pageModel["quick_action_links"].([]any)
+		quickActions := mustAs[[]any](pageModel["quick_action_links"])
 		if len(quickActions) > 0 {
 			if !strings.Contains(rendered, "Quick Actions") {
 				t.Fatalf("expected rendered source-management shell to include Quick Actions heading for surface %q", surface)

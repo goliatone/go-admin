@@ -42,7 +42,7 @@ func TestRegisterIntegrationMappingAndPublishEndpoints(t *testing.T) {
 			{"source_object": "employee", "source_field": "email", "target_entity": "participant", "target_path": "email"},
 		},
 	}
-	mappingBody, _ := json.Marshal(mappingPayload)
+	mappingBody, _ := json.Marshal(mappingPayload) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 	createReq := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/api/v1/esign/integrations/mappings", bytes.NewReader(mappingBody))
 	createReq.Header.Set("Content-Type", "application/json")
 	createResp, err := app.Test(createReq, -1)
@@ -51,7 +51,7 @@ func TestRegisterIntegrationMappingAndPublishEndpoints(t *testing.T) {
 	}
 	defer closeHTTPResponseBody(t, createResp)
 	if createResp.StatusCode != http.StatusOK {
-		payload, _ := io.ReadAll(createResp.Body)
+		payload, _ := io.ReadAll(createResp.Body) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 		t.Fatalf("expected create mapping status 200, got %d body=%s", createResp.StatusCode, payload)
 	}
 	created := decodeBodyMap(t, createResp.Body)
@@ -65,7 +65,7 @@ func TestRegisterIntegrationMappingAndPublishEndpoints(t *testing.T) {
 	}
 	version := int64(asFloat(mapping["version"]))
 
-	publishBody, _ := json.Marshal(map[string]any{"expected_version": version})
+	publishBody, _ := json.Marshal(map[string]any{"expected_version": version}) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 	publishReq := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/api/v1/esign/integrations/mappings/"+mappingID+"/publish", bytes.NewReader(publishBody))
 	publishReq.Header.Set("Content-Type", "application/json")
 	publishResp, err := app.Test(publishReq, -1)
@@ -74,7 +74,7 @@ func TestRegisterIntegrationMappingAndPublishEndpoints(t *testing.T) {
 	}
 	defer closeHTTPResponseBody(t, publishResp)
 	if publishResp.StatusCode != http.StatusOK {
-		payload, _ := io.ReadAll(publishResp.Body)
+		payload, _ := io.ReadAll(publishResp.Body) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 		t.Fatalf("expected publish status 200, got %d body=%s", publishResp.StatusCode, payload)
 	}
 
@@ -85,7 +85,7 @@ func TestRegisterIntegrationMappingAndPublishEndpoints(t *testing.T) {
 	}
 	defer closeHTTPResponseBody(t, getResp)
 	if getResp.StatusCode != http.StatusOK {
-		payload, _ := io.ReadAll(getResp.Body)
+		payload, _ := io.ReadAll(getResp.Body) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 		t.Fatalf("expected get mapping status 200, got %d body=%s", getResp.StatusCode, payload)
 	}
 	fetched := decodeBodyMap(t, getResp.Body)
@@ -121,7 +121,7 @@ func TestRegisterIntegrationSyncConflictInboundOutboundEndpoints(t *testing.T) {
 		t.Fatalf("ValidateAndCompileMapping: %v", err)
 	}
 
-	startBody, _ := json.Marshal(map[string]any{
+	startBody, _ := json.Marshal(map[string]any{ //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 		"provider":        "crm",
 		"direction":       "inbound",
 		"mapping_spec_id": compiled.Spec.ID,
@@ -136,7 +136,7 @@ func TestRegisterIntegrationSyncConflictInboundOutboundEndpoints(t *testing.T) {
 	}
 	defer closeHTTPResponseBody(t, startResp)
 	if startResp.StatusCode != http.StatusOK {
-		payload, _ := io.ReadAll(startResp.Body)
+		payload, _ := io.ReadAll(startResp.Body) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 		t.Fatalf("expected start sync run status 200, got %d body=%s", startResp.StatusCode, payload)
 	}
 	started := decodeBodyMap(t, startResp.Body)
@@ -146,7 +146,7 @@ func TestRegisterIntegrationSyncConflictInboundOutboundEndpoints(t *testing.T) {
 		t.Fatalf("expected sync run id in response: %+v", started)
 	}
 
-	checkpointBody, _ := json.Marshal(map[string]any{
+	checkpointBody, _ := json.Marshal(map[string]any{ //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 		"checkpoint_key": "page-1",
 		"cursor":         "batch-1",
 		"payload":        map[string]any{"offset": 100},
@@ -159,7 +159,7 @@ func TestRegisterIntegrationSyncConflictInboundOutboundEndpoints(t *testing.T) {
 	}
 	defer closeHTTPResponseBody(t, checkpointResp)
 	if checkpointResp.StatusCode != http.StatusOK {
-		payload, _ := io.ReadAll(checkpointResp.Body)
+		payload, _ := io.ReadAll(checkpointResp.Body) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 		t.Fatalf("expected checkpoint status 200, got %d body=%s", checkpointResp.StatusCode, payload)
 	}
 	checkpointPayload := decodeBodyMap(t, checkpointResp.Body)
@@ -189,7 +189,7 @@ func TestRegisterIntegrationSyncConflictInboundOutboundEndpoints(t *testing.T) {
 	}
 	defer closeHTTPResponseBody(t, diagnosticsResp)
 	if diagnosticsResp.StatusCode != http.StatusOK {
-		payload, _ := io.ReadAll(diagnosticsResp.Body)
+		payload, _ := io.ReadAll(diagnosticsResp.Body) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 		t.Fatalf("expected diagnostics status 200, got %d body=%s", diagnosticsResp.StatusCode, payload)
 	}
 	diagnostics := decodeBodyMap(t, diagnosticsResp.Body)
@@ -200,7 +200,7 @@ func TestRegisterIntegrationSyncConflictInboundOutboundEndpoints(t *testing.T) {
 	conflict := asMap(t, conflicts[0])
 	conflictID := asString(conflict["id"])
 
-	resolveBody, _ := json.Marshal(map[string]any{
+	resolveBody, _ := json.Marshal(map[string]any{ //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 		"status":              stores.IntegrationConflictStatusResolved,
 		"resolved_by_user_id": "ops-user",
 		"resolution":          map[string]any{"action": "keep_internal"},
@@ -214,11 +214,11 @@ func TestRegisterIntegrationSyncConflictInboundOutboundEndpoints(t *testing.T) {
 	}
 	defer closeHTTPResponseBody(t, resolveResp)
 	if resolveResp.StatusCode != http.StatusOK {
-		payload, _ := io.ReadAll(resolveResp.Body)
+		payload, _ := io.ReadAll(resolveResp.Body) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 		t.Fatalf("expected resolve status 200, got %d body=%s", resolveResp.StatusCode, payload)
 	}
 
-	inboundBody, _ := json.Marshal(map[string]any{
+	inboundBody, _ := json.Marshal(map[string]any{ //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 		"provider":       "crm",
 		"entity_kind":    "agreement",
 		"external_id":    "ext-agreement-1",
@@ -240,7 +240,7 @@ func TestRegisterIntegrationSyncConflictInboundOutboundEndpoints(t *testing.T) {
 	}
 	defer closeHTTPResponseBody(t, inboundResp)
 	if inboundResp.StatusCode != http.StatusOK {
-		payload, _ := io.ReadAll(inboundResp.Body)
+		payload, _ := io.ReadAll(inboundResp.Body) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 		t.Fatalf("expected inbound status 200, got %d body=%s", inboundResp.StatusCode, payload)
 	}
 	inbound := decodeBodyMap(t, inboundResp.Body)
@@ -249,7 +249,7 @@ func TestRegisterIntegrationSyncConflictInboundOutboundEndpoints(t *testing.T) {
 		t.Fatalf("expected participant_count=1, got %+v", result)
 	}
 
-	outboundBody, _ := json.Marshal(map[string]any{
+	outboundBody, _ := json.Marshal(map[string]any{ //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 		"provider":        "crm",
 		"agreement_id":    agreementID,
 		"event_type":      "agreement.completed",
@@ -265,7 +265,7 @@ func TestRegisterIntegrationSyncConflictInboundOutboundEndpoints(t *testing.T) {
 	}
 	defer closeHTTPResponseBody(t, outboundResp)
 	if outboundResp.StatusCode != http.StatusOK {
-		payload, _ := io.ReadAll(outboundResp.Body)
+		payload, _ := io.ReadAll(outboundResp.Body) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 		t.Fatalf("expected outbound status 200, got %d body=%s", outboundResp.StatusCode, payload)
 	}
 	outbound := decodeBodyMap(t, outboundResp.Body)

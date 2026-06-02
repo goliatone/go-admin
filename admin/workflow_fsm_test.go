@@ -42,7 +42,7 @@ func TestFSMWorkflowEngineApplyEventInvalidTransition(t *testing.T) {
 
 func TestFSMWorkflowEngineApplyEventGuardRejected(t *testing.T) {
 	engine := mustTestFSMEngine(t, func(e *FSMWorkflowEngine) {
-		_ = e.RegisterGuard("deny.publish", func(context.Context, WorkflowMessage, WorkflowExecutionContext) error {
+		_ = e.RegisterGuard("deny.publish", func(context.Context, WorkflowMessage, WorkflowExecutionContext) error { //nolint:errcheck // legacy test setup intentionally ignores this helper result after scenario assertions.
 			return &flow.GuardRejection{
 				Code:     "guard.denied",
 				Category: flow.GuardClassificationDomainReject,
@@ -50,7 +50,7 @@ func TestFSMWorkflowEngineApplyEventGuardRejected(t *testing.T) {
 			}
 		})
 	})
-	_ = engine.RegisterWorkflow("pages", WorkflowDefinition{
+	_ = engine.RegisterWorkflow("pages", WorkflowDefinition{ //nolint:errcheck // legacy test setup intentionally ignores this helper result after scenario assertions.
 		EntityType:   "pages",
 		InitialState: "draft",
 		Transitions: []WorkflowTransition{
@@ -157,7 +157,7 @@ func TestFSMWorkflowEngineDryRunDoesNotMutateState(t *testing.T) {
 
 func TestFSMWorkflowEngineSnapshotBlockedTransitionDiagnostics(t *testing.T) {
 	engine := mustTestFSMEngine(t, func(e *FSMWorkflowEngine) {
-		_ = e.RegisterGuard("deny.publish", func(context.Context, WorkflowMessage, WorkflowExecutionContext) error {
+		_ = e.RegisterGuard("deny.publish", func(context.Context, WorkflowMessage, WorkflowExecutionContext) error { //nolint:errcheck // legacy test setup intentionally ignores this helper result after scenario assertions.
 			return &flow.GuardRejection{
 				Code:            "guard.denied",
 				Category:        flow.GuardClassificationDomainReject,
@@ -167,7 +167,7 @@ func TestFSMWorkflowEngineSnapshotBlockedTransitionDiagnostics(t *testing.T) {
 			}
 		})
 	})
-	_ = engine.RegisterWorkflow("pages", WorkflowDefinition{
+	_ = engine.RegisterWorkflow("pages", WorkflowDefinition{ //nolint:errcheck // legacy test setup intentionally ignores this helper result after scenario assertions.
 		EntityType:   "pages",
 		InitialState: "draft",
 		Transitions: []WorkflowTransition{

@@ -48,7 +48,7 @@ func TestTranslationFamilyContractFallbackContextConsistency(t *testing.T) {
 	if err != nil {
 		t.Fatalf("detail failed: %v", err)
 	}
-	data, _ := detail["data"].(map[string]any)
+	data := mustAs[map[string]any](detail["data"])
 	assertFallbackContractKeys(t, data)
 
 	siblings, ok := detail["siblings"].([]map[string]any)

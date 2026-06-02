@@ -69,14 +69,14 @@ func TestBuildRecordTranslationReadinessMissingLocales(t *testing.T) {
 	if len(missing) != 1 || missing[0] != "fr" {
 		t.Fatalf("expected missing locales [fr], got %v", missing)
 	}
-	readyFor, _ := readiness["ready_for_transition"].(map[string]bool)
+	readyFor := mustAs[map[string]bool](readiness["ready_for_transition"])
 	if readyFor[translationReadinessTransitionPublish] {
 		t.Fatalf("expected publish readiness false when locales missing")
 	}
 	if env := toString(readiness["evaluated_channel"]); env != "production" {
 		t.Fatalf("expected evaluated_channel production, got %q", env)
 	}
-	quickCreate, _ := readiness["quick_create"].(map[string]any)
+	quickCreate := mustAs[map[string]any](readiness["quick_create"])
 	if quickCreate == nil {
 		t.Fatalf("expected quick_create payload")
 	}
@@ -86,7 +86,7 @@ func TestBuildRecordTranslationReadinessMissingLocales(t *testing.T) {
 	if required := toStringSlice(quickCreate["required_for_publish"]); len(required) != 3 || required[2] != "fr" {
 		t.Fatalf("expected required_for_publish [en es fr], got %v", required)
 	}
-	defaultAssignment, _ := quickCreate["default_assignment"].(map[string]any)
+	defaultAssignment := mustAs[map[string]any](quickCreate["default_assignment"])
 	if got := toString(defaultAssignment["work_scope"]); got != "localization" {
 		t.Fatalf("expected default assignment work_scope localization, got %q", got)
 	}
@@ -117,7 +117,7 @@ func TestBuildRecordTranslationReadinessMissingFields(t *testing.T) {
 	if state := toString(readiness["readiness_state"]); state != translationReadinessStateMissingFields {
 		t.Fatalf("expected readiness state %q, got %q", translationReadinessStateMissingFields, state)
 	}
-	missingFields, _ := readiness["missing_required_fields_by_locale"].(map[string][]string)
+	missingFields := mustAs[map[string][]string](readiness["missing_required_fields_by_locale"])
 	fields := missingFields["en"]
 	if len(fields) != 1 || fields[0] != "path" {
 		t.Fatalf("expected missing fields [path], got %v", fields)
@@ -139,8 +139,8 @@ func TestBuildRecordTranslationReadinessDefaultsWorkScopeWhenPolicyOmitsIt(t *te
 	}
 
 	readiness := buildRecordTranslationReadiness(context.Background(), policy, "pages", record, nil)
-	quickCreate, _ := readiness["quick_create"].(map[string]any)
-	defaultAssignment, _ := quickCreate["default_assignment"].(map[string]any)
+	quickCreate := mustAs[map[string]any](readiness["quick_create"])
+	defaultAssignment := mustAs[map[string]any](quickCreate["default_assignment"])
 	if got := toString(defaultAssignment["work_scope"]); got != "__all__" {
 		t.Fatalf("expected default assignment work_scope __all__, got %q", got)
 	}
@@ -161,11 +161,11 @@ func TestBuildRecordTranslationReadinessDisablesQuickCreateWhenPolicyIsUnresolve
 	if readiness == nil {
 		t.Fatalf("expected readiness payload")
 	}
-	quickCreate, _ := readiness["quick_create"].(map[string]any)
+	quickCreate := mustAs[map[string]any](readiness["quick_create"])
 	if quickCreate == nil {
 		t.Fatalf("expected quick_create payload")
 	}
-	if enabled, _ := quickCreate["enabled"].(bool); enabled {
+	if enabled := mustAs[bool](quickCreate["enabled"]); enabled {
 		t.Fatalf("expected quick_create to be disabled when policy is unresolved")
 	}
 	if got := toString(quickCreate["disabled_reason_code"]); got != "policy_denied" {

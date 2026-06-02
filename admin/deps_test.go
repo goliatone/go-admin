@@ -72,7 +72,7 @@ func TestNewAppliesDependencyDefaults(t *testing.T) {
 	if adm.mediaActivityHook != nil {
 		t.Fatalf("expected media activity hook default nil")
 	}
-	res, _ := adm.translator.Translate("en", "key")
+	res, _ := adm.translator.Translate("en", "key") //nolint:errcheck // legacy test setup intentionally ignores this helper result after scenario assertions.
 	if adm.translator == nil || res != "key" {
 		t.Fatalf("expected noop translator default")
 	}

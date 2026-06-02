@@ -22,7 +22,7 @@ func TestCMSContentRepositoryPersistsNavigationFields(t *testing.T) {
 		t.Fatalf("create failed: %v", err)
 	}
 
-	nav, _ := created["_navigation"].(map[string]any)
+	nav := mustAs[map[string]any](created["_navigation"])
 	if toString(nav["site.main"]) != "show" {
 		t.Fatalf("expected _navigation.site.main=show, got %+v", created["_navigation"])
 	}
@@ -40,7 +40,7 @@ func TestCMSContentRepositoryPersistsNavigationFields(t *testing.T) {
 	if err != nil {
 		t.Fatalf("get failed: %v", err)
 	}
-	recordNav, _ := record["_navigation"].(map[string]any)
+	recordNav := mustAs[map[string]any](record["_navigation"])
 	if toString(recordNav["site.main"]) != "show" {
 		t.Fatalf("expected persisted _navigation.site.main=show, got %+v", record["_navigation"])
 	}
@@ -64,7 +64,7 @@ func TestCMSPageRepositoryPersistsNavigationFields(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create failed: %v", err)
 	}
-	nav, _ := created["_navigation"].(map[string]any)
+	nav := mustAs[map[string]any](created["_navigation"])
 	if toString(nav["site.footer"]) != "show" {
 		t.Fatalf("expected _navigation.site.footer=show, got %+v", created["_navigation"])
 	}
@@ -82,7 +82,7 @@ func TestCMSPageRepositoryPersistsNavigationFields(t *testing.T) {
 	if err != nil {
 		t.Fatalf("get failed: %v", err)
 	}
-	recordNav, _ := record["_navigation"].(map[string]any)
+	recordNav := mustAs[map[string]any](record["_navigation"])
 	if toString(recordNav["site.footer"]) != "show" {
 		t.Fatalf("expected persisted _navigation.site.footer=show, got %+v", record["_navigation"])
 	}

@@ -864,39 +864,44 @@ func TestDraftServiceCreateNormalizesWizardPagesToDocumentBounds(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected document object, got %#v", decoded["document"])
 	}
-	if got := int(document["pageCount"].(float64)); got != 3 {
+	if got := int(mustAs[float64](document["pageCount"])); got != 3 {
 		t.Fatalf("expected normalized document.pageCount=3, got %d", got)
 	}
 
-	fieldDefinitions := decoded["fieldDefinitions"].([]any)
-	if got := int(fieldDefinitions[0].(map[string]any)["page"].(float64)); got != 3 {
+	fieldDefinitions := mustAs[[]any](decoded["fieldDefinitions"])
+	firstFieldDefinition := mustAs[map[string]any](fieldDefinitions[0])
+	if got := int(mustAs[float64](firstFieldDefinition["page"])); got != 3 {
 		t.Fatalf("expected fieldDefinitions[0].page clamped to 3, got %d", got)
 	}
-	if got := int(fieldDefinitions[1].(map[string]any)["page"].(float64)); got != 1 {
+	secondFieldDefinition := mustAs[map[string]any](fieldDefinitions[1])
+	if got := int(mustAs[float64](secondFieldDefinition["page"])); got != 1 {
 		t.Fatalf("expected fieldDefinitions[1].page clamped to 1, got %d", got)
 	}
 
-	fieldPlacements := decoded["fieldPlacements"].([]any)
-	if got := int(fieldPlacements[0].(map[string]any)["page"].(float64)); got != 1 {
+	fieldPlacements := mustAs[[]any](decoded["fieldPlacements"])
+	firstFieldPlacement := mustAs[map[string]any](fieldPlacements[0])
+	if got := int(mustAs[float64](firstFieldPlacement["page"])); got != 1 {
 		t.Fatalf("expected fieldPlacements[0].page clamped to 1, got %d", got)
 	}
-	if got := int(fieldPlacements[1].(map[string]any)["page"].(float64)); got != 1 {
+	secondFieldPlacement := mustAs[map[string]any](fieldPlacements[1])
+	if got := int(mustAs[float64](secondFieldPlacement["page"])); got != 1 {
 		t.Fatalf("expected fieldPlacements[1].page clamped to 1, got %d", got)
 	}
-	if got := int(fieldPlacements[2].(map[string]any)["page"].(float64)); got != 3 {
+	thirdFieldPlacement := mustAs[map[string]any](fieldPlacements[2])
+	if got := int(mustAs[float64](thirdFieldPlacement["page"])); got != 3 {
 		t.Fatalf("expected fieldPlacements[2].page clamped to 3, got %d", got)
 	}
 
-	fieldRules := decoded["fieldRules"].([]any)
-	firstRule := fieldRules[0].(map[string]any)
-	if got := int(firstRule["page"].(float64)); got != 1 {
+	fieldRules := mustAs[[]any](decoded["fieldRules"])
+	firstRule := mustAs[map[string]any](fieldRules[0])
+	if got := int(mustAs[float64](firstRule["page"])); got != 1 {
 		t.Fatalf("expected fieldRules[0].page clamped to 1, got %d", got)
 	}
-	if got := int(firstRule["toPage"].(float64)); got != 3 {
+	if got := int(mustAs[float64](firstRule["toPage"])); got != 3 {
 		t.Fatalf("expected fieldRules[0].toPage clamped to 3, got %d", got)
 	}
-	excludePages := firstRule["excludePages"].([]any)
-	if len(excludePages) != 2 || int(excludePages[0].(float64)) != 2 || int(excludePages[1].(float64)) != 3 {
+	excludePages := mustAs[[]any](firstRule["excludePages"])
+	if len(excludePages) != 2 || int(mustAs[float64](excludePages[0])) != 2 || int(mustAs[float64](excludePages[1])) != 3 {
 		t.Fatalf("expected fieldRules[0].excludePages normalized to [2,3], got %#v", excludePages)
 	}
 }
@@ -971,20 +976,20 @@ func TestDraftServiceUpdateNormalizesWizardPagesToDocumentBounds(t *testing.T) {
 	if err := json.Unmarshal([]byte(updated.WizardStateJSON), &decoded); err != nil {
 		t.Fatalf("unmarshal wizard_state: %v", err)
 	}
-	document := decoded["document"].(map[string]any)
-	if got := int(document["pageCount"].(float64)); got != 2 {
+	document := mustAs[map[string]any](decoded["document"])
+	if got := int(mustAs[float64](document["pageCount"])); got != 2 {
 		t.Fatalf("expected normalized document.pageCount=2, got %d", got)
 	}
-	rules := decoded["fieldRules"].([]any)
-	rule := rules[0].(map[string]any)
-	if got := int(rule["fromPage"].(float64)); got != 1 {
+	rules := mustAs[[]any](decoded["fieldRules"])
+	rule := mustAs[map[string]any](rules[0])
+	if got := int(mustAs[float64](rule["fromPage"])); got != 1 {
 		t.Fatalf("expected fromPage clamped to 1, got %d", got)
 	}
-	if got := int(rule["toPage"].(float64)); got != 2 {
+	if got := int(mustAs[float64](rule["toPage"])); got != 2 {
 		t.Fatalf("expected toPage clamped to 2, got %d", got)
 	}
-	excludePages := rule["excludePages"].([]any)
-	if len(excludePages) != 1 || int(excludePages[0].(float64)) != 2 {
+	excludePages := mustAs[[]any](rule["excludePages"])
+	if len(excludePages) != 1 || int(mustAs[float64](excludePages[0])) != 2 {
 		t.Fatalf("expected excludePages normalized to [2], got %#v", excludePages)
 	}
 }

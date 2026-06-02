@@ -17,7 +17,7 @@ func TestPhase2SQLiteLineagePersistenceAndFixtures(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewStoreAdapter: %v", err)
 	}
-	t.Cleanup(func() { _ = cleanup() })
+	t.Cleanup(func() { _ = cleanup() }) //nolint:errcheck // legacy test setup intentionally ignores this helper result after scenario assertions.
 
 	lineage, ok := any(adapter).(stores.LineageStore)
 	if !ok {
@@ -148,7 +148,7 @@ func TestPhase2SQLiteLineagePersistenceNormalizesDefaultsAndRejectsDuplicateRela
 	if err != nil {
 		t.Fatalf("NewStoreAdapter: %v", err)
 	}
-	t.Cleanup(func() { _ = cleanup() })
+	t.Cleanup(func() { _ = cleanup() }) //nolint:errcheck // legacy test setup intentionally ignores this helper result after scenario assertions.
 
 	lineage, ok := any(adapter).(stores.LineageStore)
 	if !ok {
@@ -284,7 +284,7 @@ func TestPhase2SQLiteLineagePersistenceRejectsRevisionWhenHandleBelongsToDiffere
 	if err != nil {
 		t.Fatalf("NewStoreAdapter: %v", err)
 	}
-	t.Cleanup(func() { _ = cleanup() })
+	t.Cleanup(func() { _ = cleanup() }) //nolint:errcheck // legacy test setup intentionally ignores this helper result after scenario assertions.
 
 	lineage, ok := any(adapter).(stores.LineageStore)
 	if !ok {
@@ -344,7 +344,7 @@ func TestPhase12SQLiteLineagePersistenceStoresDirectionalRelationshipEndpointsAn
 	if err != nil {
 		t.Fatalf("NewStoreAdapter: %v", err)
 	}
-	t.Cleanup(func() { _ = cleanup() })
+	t.Cleanup(func() { _ = cleanup() }) //nolint:errcheck // legacy test setup intentionally ignores this helper result after scenario assertions.
 
 	lineage, ok := any(adapter).(stores.LineageStore)
 	if !ok {
@@ -503,7 +503,7 @@ func TestPhase13SQLiteLineagePersistenceStoresSourceCommentsAndSearchDocuments(t
 	if err != nil {
 		t.Fatalf("NewStoreAdapter: %v", err)
 	}
-	t.Cleanup(func() { _ = cleanup() })
+	t.Cleanup(func() { _ = cleanup() }) //nolint:errcheck // legacy test setup intentionally ignores this helper result after scenario assertions.
 
 	lineage, ok := any(adapter).(stores.LineageStore)
 	if !ok {

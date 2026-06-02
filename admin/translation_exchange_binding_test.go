@@ -119,7 +119,7 @@ func TestTranslationExchangeBindingImportValidateParsesCSVAndRecordsConflictActi
 	if err != nil {
 		t.Fatalf("request error: %v", err)
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("status=%d, want %d", resp.StatusCode, http.StatusOK)
 	}
@@ -190,7 +190,7 @@ func TestTranslationExchangeBindingImportApplyUsesExplicitCreateIntentOptions(t 
 		"continue_on_error":          true,
 		"dry_run":                    true,
 	}
-	raw, _ := json.Marshal(payload)
+	raw, _ := json.Marshal(payload) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/api/translations/exchange/import/apply", bytes.NewReader(raw))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-User-ID", "ops-user")
@@ -199,7 +199,7 @@ func TestTranslationExchangeBindingImportApplyUsesExplicitCreateIntentOptions(t 
 	if err != nil {
 		t.Fatalf("request error: %v", err)
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("status=%d, want %d", resp.StatusCode, http.StatusOK)
 	}
@@ -232,7 +232,7 @@ func TestTranslationExchangeBindingImportApplyRejectsUnsupportedConflictReplayFi
 	binding := newTranslationExchangeBinding(adm)
 	app := newTranslationExchangeTestApp(t, binding)
 
-	raw, _ := json.Marshal(map[string]any{
+	raw, _ := json.Marshal(map[string]any{ //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 		"rows": []map[string]any{
 			{
 				"resource":        "pages",
@@ -252,7 +252,7 @@ func TestTranslationExchangeBindingImportApplyRejectsUnsupportedConflictReplayFi
 	if err != nil {
 		t.Fatalf("request error: %v", err)
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 	if resp.StatusCode != http.StatusBadRequest {
 		t.Fatalf("status=%d, want %d", resp.StatusCode, http.StatusBadRequest)
 	}
@@ -281,7 +281,7 @@ func TestTranslationExchangeBindingImportValidateEchoesTraceHeaders(t *testing.T
 	if err != nil {
 		t.Fatalf("request error: %v", err)
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 	defer mustClose(t, "response body", resp.Body)
 
 	if got := resp.Header.Get("X-Request-ID"); got != "req-exchange-1" {
@@ -310,7 +310,7 @@ func TestTranslationExchangeBindingImportValidateRejectsUnsupportedFormatWithTyp
 	if err != nil {
 		t.Fatalf("request error: %v", err)
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 	if resp.StatusCode != http.StatusBadRequest {
 		t.Fatalf("status=%d, want %d", resp.StatusCode, http.StatusBadRequest)
 	}
@@ -351,7 +351,7 @@ func TestTranslationExchangeBindingImportValidateRejectsUnknownTopLevelKeyInStri
 		},
 		"unexpected": true,
 	}
-	raw, _ := json.Marshal(payload)
+	raw, _ := json.Marshal(payload) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/api/translations/exchange/import/validate", bytes.NewReader(raw))
 	req.Header.Set("Content-Type", "application/json")
 
@@ -359,7 +359,7 @@ func TestTranslationExchangeBindingImportValidateRejectsUnknownTopLevelKeyInStri
 	if err != nil {
 		t.Fatalf("request error: %v", err)
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 	if resp.StatusCode != http.StatusBadRequest {
 		t.Fatalf("status=%d, want %d", resp.StatusCode, http.StatusBadRequest)
 	}
@@ -392,7 +392,7 @@ func TestTranslationExchangeBindingExportParsesFilterFromJSON(t *testing.T) {
 			"include_source_hash": true,
 		},
 	}
-	raw, _ := json.Marshal(payload)
+	raw, _ := json.Marshal(payload) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/api/translations/exchange/export", bytes.NewReader(raw))
 	req.Header.Set("Content-Type", "application/json")
 
@@ -400,7 +400,7 @@ func TestTranslationExchangeBindingExportParsesFilterFromJSON(t *testing.T) {
 	if err != nil {
 		t.Fatalf("request error: %v", err)
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("status=%d, want %d", resp.StatusCode, http.StatusOK)
 	}
@@ -451,7 +451,7 @@ func TestTranslationExchangeBindingImportValidateParsesJSONPayload(t *testing.T)
 			},
 		},
 	}
-	raw, _ := json.Marshal(payload)
+	raw, _ := json.Marshal(payload) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/api/translations/exchange/import/validate", bytes.NewReader(raw))
 	req.Header.Set("Content-Type", "application/json")
 
@@ -459,7 +459,7 @@ func TestTranslationExchangeBindingImportValidateParsesJSONPayload(t *testing.T)
 	if err != nil {
 		t.Fatalf("request error: %v", err)
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("status=%d, want %d", resp.StatusCode, http.StatusOK)
 	}
@@ -492,7 +492,7 @@ func TestTranslationExchangeBindingImportValidateMalformedCSVReturnsTypedError(t
 	if err != nil {
 		t.Fatalf("request error: %v", err)
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 	if resp.StatusCode != http.StatusBadRequest {
 		t.Fatalf("status=%d, want %d", resp.StatusCode, http.StatusBadRequest)
 	}
@@ -533,7 +533,7 @@ func TestTranslationExchangeBindingImportValidateMissingRequiredFieldsReturnsTyp
 			},
 		},
 	}
-	raw, _ := json.Marshal(payload)
+	raw, _ := json.Marshal(payload) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/api/translations/exchange/import/validate", bytes.NewReader(raw))
 	req.Header.Set("Content-Type", "application/json")
 
@@ -541,7 +541,7 @@ func TestTranslationExchangeBindingImportValidateMissingRequiredFieldsReturnsTyp
 	if err != nil {
 		t.Fatalf("request error: %v", err)
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 	// Validation happens in command layer, so executor is called but returns validation error
 	validateCalled, _ := executor.validateSnapshot()
 	if validateCalled != 0 && resp.StatusCode == http.StatusBadRequest {
@@ -582,7 +582,7 @@ func TestTranslationExchangeBindingImportApplyParsesCSVWithTranslatedText(t *tes
 	if err != nil {
 		t.Fatalf("request error: %v", err)
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("status=%d, want %d", resp.StatusCode, http.StatusOK)
 	}
@@ -623,7 +623,7 @@ func TestTranslationExchangeBindingExportDispatchesCommandAndReturnsResult(t *te
 			"resources": []string{"pages"},
 		},
 	}
-	raw, _ := json.Marshal(payload)
+	raw, _ := json.Marshal(payload) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/api/translations/exchange/export", bytes.NewReader(raw))
 	req.Header.Set("Content-Type", "application/json")
 
@@ -631,7 +631,7 @@ func TestTranslationExchangeBindingExportDispatchesCommandAndReturnsResult(t *te
 	if err != nil {
 		t.Fatalf("request error: %v", err)
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("status=%d, want %d", resp.StatusCode, http.StatusOK)
 	}
@@ -647,7 +647,7 @@ func TestTranslationExchangeBindingExportDispatchesCommandAndReturnsResult(t *te
 	if !ok || len(rows) != 3 {
 		t.Fatalf("expected 3 rows, got %v", respPayload["rows"])
 	}
-	job, _ := respPayload["job"].(map[string]any)
+	job := mustAs[map[string]any](respPayload["job"])
 	if toString(job["kind"]) != translationExchangeJobKindExport {
 		t.Fatalf("expected export job payload, got %+v", job)
 	}
@@ -690,7 +690,7 @@ func TestTranslationExchangeBindingExportRejectsCookieAuthWithoutCSRFToken(t *te
 	if err != nil {
 		t.Fatalf("request error: %v", err)
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 	if resp.StatusCode != http.StatusBadRequest {
 		t.Fatalf("status=%d, want %d", resp.StatusCode, http.StatusBadRequest)
 	}
@@ -741,7 +741,7 @@ func TestTranslationExchangeBindingExportRejectsCookieAuthWithBogusCSRFToken(t *
 	if err != nil {
 		t.Fatalf("request error: %v", err)
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 	if resp.StatusCode != http.StatusBadRequest {
 		t.Fatalf("status=%d, want %d", resp.StatusCode, http.StatusBadRequest)
 	}
@@ -789,7 +789,7 @@ func TestTranslationExchangeBindingExportAcceptsCookieAuthWithValidCSRFToken(t *
 	if err != nil {
 		t.Fatalf("token request error: %v", err)
 	}
-	defer tokenResp.Body.Close()
+	defer tokenResp.Body.Close() //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 	if tokenResp.StatusCode != http.StatusOK {
 		t.Fatalf("token route status=%d, want %d", tokenResp.StatusCode, http.StatusOK)
 	}
@@ -811,7 +811,7 @@ func TestTranslationExchangeBindingExportAcceptsCookieAuthWithValidCSRFToken(t *
 	if err != nil {
 		t.Fatalf("request error: %v", err)
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("status=%d, want %d", resp.StatusCode, http.StatusOK)
 	}
@@ -841,7 +841,7 @@ func TestTranslationExchangeBindingExportRejectsCookieAuthWithoutBrowserCSRFProt
 	if err != nil {
 		t.Fatalf("request error: %v", err)
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 	if resp.StatusCode != http.StatusBadRequest {
 		t.Fatalf("status=%d, want %d", resp.StatusCode, http.StatusBadRequest)
 	}
@@ -886,7 +886,7 @@ func TestTranslationExchangeBindingDeleteJobRejectsCookieAuthWithoutCSRFToken(t 
 	if err != nil {
 		t.Fatalf("request error: %v", err)
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 	if resp.StatusCode != http.StatusBadRequest {
 		t.Fatalf("status=%d, want %d", resp.StatusCode, http.StatusBadRequest)
 	}
@@ -906,7 +906,7 @@ func TestTranslationExchangeBindingImportApplyEmptyRowsReturnsTypedError(t *test
 	payload := map[string]any{
 		"rows": []map[string]any{},
 	}
-	raw, _ := json.Marshal(payload)
+	raw, _ := json.Marshal(payload) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/api/translations/exchange/import/apply", bytes.NewReader(raw))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-User-ID", "ops-user")
@@ -915,7 +915,7 @@ func TestTranslationExchangeBindingImportApplyEmptyRowsReturnsTypedError(t *test
 	if err != nil {
 		t.Fatalf("request error: %v", err)
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 	// Empty rows should trigger typed error
 	if resp.StatusCode != http.StatusBadRequest {
 		t.Fatalf("status=%d, want %d for empty rows", resp.StatusCode, http.StatusBadRequest)
@@ -992,7 +992,7 @@ func TestTranslationExchangeBindingImportApplyAsyncReturnsJobEnvelopeWithConflic
 		},
 		"async": true,
 	}
-	raw, _ := json.Marshal(payload)
+	raw, _ := json.Marshal(payload) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/api/translations/exchange/import/apply", bytes.NewReader(raw))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-User-ID", "ops-user")
@@ -1001,7 +1001,7 @@ func TestTranslationExchangeBindingImportApplyAsyncReturnsJobEnvelopeWithConflic
 	if err != nil {
 		t.Fatalf("request error: %v", err)
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("status=%d want=200", resp.StatusCode)
 	}
@@ -1024,7 +1024,7 @@ func TestTranslationExchangeBindingImportApplyAsyncReturnsJobEnvelopeWithConflic
 	if got := toString(respPayload["status"]); got != "accepted" {
 		t.Fatalf("expected accepted status, got %q", got)
 	}
-	job, _ := respPayload["job"].(map[string]any)
+	job := mustAs[map[string]any](respPayload["job"])
 	if toString(job["id"]) == "" {
 		t.Fatalf("expected async job id, got %+v", job)
 	}
@@ -1049,11 +1049,11 @@ func TestTranslationExchangeBindingImportApplyAsyncReturnsJobEnvelopeWithConflic
 		}
 		pollPayload := map[string]any{}
 		if err := json.NewDecoder(pollResp.Body).Decode(&pollPayload); err != nil {
-			_ = pollResp.Body.Close()
+			_ = pollResp.Body.Close() //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 			t.Fatalf("decode poll response: %v", err)
 		}
-		_ = pollResp.Body.Close()
-		pollJob, _ = pollPayload["job"].(map[string]any)
+		_ = pollResp.Body.Close() //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
+		pollJob = mustAs[map[string]any](pollPayload["job"])
 		if toString(pollJob["status"]) == translationExchangeAsyncJobStatusCompleted {
 			break
 		}
@@ -1067,9 +1067,9 @@ func TestTranslationExchangeBindingImportApplyAsyncReturnsJobEnvelopeWithConflic
 	if toString(pollJob["request_hash"]) == "" {
 		t.Fatalf("expected request_hash in polled job payload, got %+v", pollJob)
 	}
-	result, _ := pollJob["result"].(map[string]any)
-	conflicts, _ := result["conflicts"].(map[string]any)
-	byType, _ := conflicts["by_type"].(map[string]any)
+	result := mustAs[map[string]any](pollJob["result"])
+	conflicts := mustAs[map[string]any](result["conflicts"])
+	byType := mustAs[map[string]any](conflicts["by_type"])
 	if byType["stale_source_hash"] != float64(1) {
 		t.Fatalf("expected stale_source_hash conflict count, got %+v", byType)
 	}
@@ -1100,7 +1100,7 @@ func TestTranslationExchangeBindingExportAsyncReturnsJobEnvelope(t *testing.T) {
 		},
 		"async": true,
 	}
-	raw, _ := json.Marshal(payload)
+	raw, _ := json.Marshal(payload) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/api/translations/exchange/export", bytes.NewReader(raw))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-User-ID", "ops-user")
@@ -1109,7 +1109,7 @@ func TestTranslationExchangeBindingExportAsyncReturnsJobEnvelope(t *testing.T) {
 	if err != nil {
 		t.Fatalf("request error: %v", err)
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("status=%d want=200", resp.StatusCode)
 	}
@@ -1118,7 +1118,7 @@ func TestTranslationExchangeBindingExportAsyncReturnsJobEnvelope(t *testing.T) {
 	if err := json.NewDecoder(resp.Body).Decode(&respPayload); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
-	job, _ := respPayload["job"].(map[string]any)
+	job := mustAs[map[string]any](respPayload["job"])
 	if toString(job["id"]) == "" {
 		t.Fatalf("expected job id, got %+v", job)
 	}
@@ -1162,7 +1162,7 @@ func TestTranslationExchangeBindingJobStatusRequiresJobOwner(t *testing.T) {
 	binding.executor = executor
 	app := newTranslationExchangeTestApp(t, binding)
 
-	raw, _ := json.Marshal(map[string]any{
+	raw, _ := json.Marshal(map[string]any{ //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 		"filter": map[string]any{
 			"resources": []string{"pages"},
 		},
@@ -1176,7 +1176,7 @@ func TestTranslationExchangeBindingJobStatusRequiresJobOwner(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create request error: %v", err)
 	}
-	defer createResp.Body.Close()
+	defer createResp.Body.Close() //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 	if createResp.StatusCode != http.StatusOK {
 		t.Fatalf("create status=%d want=200", createResp.StatusCode)
 	}
@@ -1185,7 +1185,7 @@ func TestTranslationExchangeBindingJobStatusRequiresJobOwner(t *testing.T) {
 	if decodeCreateErr := json.NewDecoder(createResp.Body).Decode(&createPayload); decodeCreateErr != nil {
 		t.Fatalf("decode create payload: %v", decodeCreateErr)
 	}
-	job, _ := createPayload["job"].(map[string]any)
+	job := mustAs[map[string]any](createPayload["job"])
 	pollEndpoint := toString(job["poll_endpoint"])
 	if pollEndpoint == "" {
 		t.Fatalf("expected poll endpoint, got %+v", job)
@@ -1246,7 +1246,7 @@ func TestTranslationExchangeBindingHistoryListsActorJobsAndFixtureExamples(t *te
 	if createResp.StatusCode != http.StatusOK {
 		t.Fatalf("create status=%d want=200", createResp.StatusCode)
 	}
-	_ = createResp.Body.Close()
+	_ = createResp.Body.Close() //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 
 	otherJobID := defaultTranslationExchangeRuntimeJobID()
 	if _, err = binding.runtime.RecordCompletedJob(context.Background(), translationExchangeAsyncJob{
@@ -1272,15 +1272,15 @@ func TestTranslationExchangeBindingHistoryListsActorJobsAndFixtureExamples(t *te
 			t.Fatalf("history request error: %v", err)
 		}
 		if historyResp.StatusCode != http.StatusOK {
-			_ = historyResp.Body.Close()
+			_ = historyResp.Body.Close() //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 			t.Fatalf("history status=%d want=200", historyResp.StatusCode)
 		}
 		payload := map[string]any{}
 		if err := json.NewDecoder(historyResp.Body).Decode(&payload); err != nil {
-			_ = historyResp.Body.Close()
+			_ = historyResp.Body.Close() //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 			t.Fatalf("decode history response: %v", err)
 		}
-		_ = historyResp.Body.Close()
+		_ = historyResp.Body.Close() //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 		history = extractMap(payload["history"])
 		meta = extractMap(payload["meta"])
 		items = extractListMaps(history["items"])
@@ -1360,7 +1360,7 @@ func TestTranslationExchangeBindingImportApplyAsyncReplaysByRequestHash(t *testi
 	if err != nil {
 		t.Fatalf("first request error: %v", err)
 	}
-	defer firstResp.Body.Close()
+	defer firstResp.Body.Close() //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 	defer mustClose(t, "response body", firstResp.Body)
 	firstPayload := map[string]any{}
 	if decodeFirstErr := json.NewDecoder(firstResp.Body).Decode(&firstPayload); decodeFirstErr != nil {
@@ -1378,7 +1378,7 @@ func TestTranslationExchangeBindingImportApplyAsyncReplaysByRequestHash(t *testi
 	if err != nil {
 		t.Fatalf("second request error: %v", err)
 	}
-	defer secondResp.Body.Close()
+	defer secondResp.Body.Close() //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 	defer mustClose(t, "response body", secondResp.Body)
 	secondPayload := map[string]any{}
 	if err := json.NewDecoder(secondResp.Body).Decode(&secondPayload); err != nil {
@@ -1426,7 +1426,7 @@ func TestTranslationExchangeBindingDeleteJobRemovesJobFromStatusAndHistory(t *te
 	if err != nil {
 		t.Fatalf("create request error: %v", err)
 	}
-	defer createResp.Body.Close()
+	defer createResp.Body.Close() //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 	defer mustClose(t, "response body", createResp.Body)
 	createPayload := map[string]any{}
 	if decodeCreateErr := json.NewDecoder(createResp.Body).Decode(&createPayload); decodeCreateErr != nil {
@@ -1447,7 +1447,7 @@ func TestTranslationExchangeBindingDeleteJobRemovesJobFromStatusAndHistory(t *te
 	if deleteResp.StatusCode != http.StatusOK {
 		t.Fatalf("delete status=%d want=200", deleteResp.StatusCode)
 	}
-	_ = deleteResp.Body.Close()
+	_ = deleteResp.Body.Close() //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 
 	statusReq := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/translations/exchange/jobs/"+jobID, nil)
 	statusReq.Header.Set("X-User-ID", "owner-user")
@@ -1458,7 +1458,7 @@ func TestTranslationExchangeBindingDeleteJobRemovesJobFromStatusAndHistory(t *te
 	if statusResp.StatusCode != http.StatusNotFound {
 		t.Fatalf("status after delete=%d want=404", statusResp.StatusCode)
 	}
-	_ = statusResp.Body.Close()
+	_ = statusResp.Body.Close() //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 
 	historyReq := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/translations/exchange/jobs", nil)
 	historyReq.Header.Set("X-User-ID", "owner-user")
@@ -1466,7 +1466,7 @@ func TestTranslationExchangeBindingDeleteJobRemovesJobFromStatusAndHistory(t *te
 	if err != nil {
 		t.Fatalf("history request error: %v", err)
 	}
-	defer historyResp.Body.Close()
+	defer historyResp.Body.Close() //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 	defer mustClose(t, "response body", historyResp.Body)
 	historyPayload := map[string]any{}
 	if err := json.NewDecoder(historyResp.Body).Decode(&historyPayload); err != nil {
@@ -1515,7 +1515,7 @@ func newTranslationExchangeTestApp(t *testing.T, binding *translationExchangeBin
 		return handler
 	}
 	r.Get("/admin/translations", wrap(func(c router.Context) error {
-		token, _ := c.Locals(csrfmw.DefaultContextKey).(string)
+		token := mustAs[string](c.Locals(csrfmw.DefaultContextKey))
 		return c.SendString(token)
 	}))
 	r.Post("/admin/api/translations/exchange/export", wrap(func(c router.Context) error {

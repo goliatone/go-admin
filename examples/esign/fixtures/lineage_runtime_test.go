@@ -23,7 +23,7 @@ func TestEnsureLineageQAFixturesIsIdempotentAndUploadsArtifacts(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Bootstrap: %v", err)
 	}
-	t.Cleanup(func() { _ = bootstrap.Close() })
+	t.Cleanup(func() { _ = bootstrap.Close() }) //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 
 	scope := stores.Scope{TenantID: "tenant-bootstrap", OrgID: "org-bootstrap"}
 	uploads := uploader.NewManager(uploader.WithProvider(uploader.NewFSProvider(t.TempDir())))

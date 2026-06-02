@@ -161,7 +161,7 @@ func TestGoCMSContentAdapterContentUsesAdminBlockReadServiceForLegacyFallback(t 
 	}
 
 	svc := newGoCMSContentAdapter(&stubGoCMSContentService{}, nil, nil, nil, nil, adminRead, nil, adminBlocks, nil)
-	adapter := svc.(*GoCMSContentAdapter)
+	adapter := mustAs[*GoCMSContentAdapter](svc)
 
 	item, err := adapter.Content(ctx, contentID.String(), "en")
 	if err != nil {
@@ -203,7 +203,7 @@ func TestGoCMSContentAdapterBlocksForContentUsesAdminBlockReadService(t *testing
 	}
 
 	svc := newGoCMSContentAdapter(&stubGoCMSContentService{}, nil, nil, nil, nil, nil, nil, adminBlocks, nil)
-	adapter := svc.(*GoCMSContentAdapter)
+	adapter := mustAs[*GoCMSContentAdapter](svc)
 
 	blocks, err := adapter.LegacyBlocksForContent(ctx, contentID.String(), "fr")
 	if err != nil {
@@ -244,7 +244,7 @@ func TestGoCMSContentAdapterBlockDefinitionsUseAdminBlockReadService(t *testing.
 	}
 
 	svc := newGoCMSContentAdapter(&stubGoCMSContentService{}, nil, nil, nil, nil, nil, nil, adminBlocks, nil)
-	adapter := svc.(*GoCMSContentAdapter)
+	adapter := mustAs[*GoCMSContentAdapter](svc)
 
 	defs, err := adapter.BlockDefinitions(ctx)
 	if err != nil {
@@ -282,7 +282,7 @@ func TestGoCMSContentAdapterBlockDefinitionVersionsUseAdminBlockReadService(t *t
 	}
 
 	svc := newGoCMSContentAdapter(&stubGoCMSContentService{}, nil, nil, nil, nil, nil, nil, adminBlocks, nil)
-	adapter := svc.(*GoCMSContentAdapter)
+	adapter := mustAs[*GoCMSContentAdapter](svc)
 
 	versions, err := adapter.BlockDefinitionVersions(ctx, definitionID.String())
 	if err != nil {
@@ -316,7 +316,7 @@ func TestGoCMSContentAdapterCreateBlockDefinitionUsesAdminBlockWriteService(t *t
 		},
 	}
 	svc := newGoCMSContentAdapter(&stubGoCMSContentService{}, nil, nil, nil, nil, nil, nil, nil, adminBlockW)
-	adapter := svc.(*GoCMSContentAdapter)
+	adapter := mustAs[*GoCMSContentAdapter](svc)
 
 	created, err := adapter.CreateBlockDefinition(ctx, CMSBlockDefinition{
 		Name:        "Hero",
@@ -357,7 +357,7 @@ func TestGoCMSContentAdapterUpdateBlockDefinitionUsesAdminBlockWriteService(t *t
 		},
 	}
 	svc := newGoCMSContentAdapter(&stubGoCMSContentService{}, nil, nil, nil, nil, nil, nil, nil, adminBlockW)
-	adapter := svc.(*GoCMSContentAdapter)
+	adapter := mustAs[*GoCMSContentAdapter](svc)
 
 	updated, err := adapter.UpdateBlockDefinition(ctx, CMSBlockDefinition{
 		ID:          definitionID.String(),
@@ -403,7 +403,7 @@ func TestGoCMSContentAdapterSaveBlockUsesAdminBlockWriteService(t *testing.T) {
 		},
 	}
 	svc := newGoCMSContentAdapter(&stubGoCMSContentService{}, nil, nil, nil, nil, nil, nil, nil, adminBlockW)
-	adapter := svc.(*GoCMSContentAdapter)
+	adapter := mustAs[*GoCMSContentAdapter](svc)
 
 	created, err := adapter.SaveBlock(ctx, CMSBlock{
 		DefinitionID: definitionID.String(),
@@ -434,7 +434,7 @@ func TestGoCMSContentAdapterDeleteBlockUsesAdminBlockWriteService(t *testing.T) 
 	blockID := uuid.New()
 	adminBlockW := &stubGoCMSAdminBlockWriteService{}
 	svc := newGoCMSContentAdapter(&stubGoCMSContentService{}, nil, nil, nil, nil, nil, nil, nil, adminBlockW)
-	adapter := svc.(*GoCMSContentAdapter)
+	adapter := mustAs[*GoCMSContentAdapter](svc)
 
 	if err := adapter.DeleteBlock(ctx, blockID.String()); err != nil {
 		t.Fatalf("delete block failed: %v", err)

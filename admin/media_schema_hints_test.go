@@ -62,19 +62,19 @@ func TestApplyMediaSchemaHintsDetectsPlainJSONSchemaMediaFields(t *testing.T) {
 	if got := adm.ApplyMediaSchemaHints(schema); got != 5 {
 		t.Fatalf("expected 5 enriched media fields, got %d", got)
 	}
-	props := schema["properties"].(map[string]any)
+	props := mustAs[map[string]any](schema["properties"])
 	for _, key := range []string{"flat", "nested", "gallery", "adminMedia"} {
-		prop := props[key].(map[string]any)
-		formgen := prop["x-formgen"].(map[string]any)
-		opts := formgen["componentOptions"].(map[string]any)
+		prop := mustAs[map[string]any](props[key])
+		formgen := mustAs[map[string]any](prop["x-formgen"])
+		opts := mustAs[map[string]any](formgen["componentOptions"])
 		if opts["libraryPath"] == "" || opts["capabilitiesEndpoint"] == "" {
 			t.Fatalf("expected %s to receive media endpoints, got %+v", key, opts)
 		}
 		if opts["assetUrlTemplate"] == "" || opts["streamUrlTemplate"] == "" || opts["posterUrlTemplate"] == "" || opts["downloadUrlTemplate"] == "" {
 			t.Fatalf("expected %s to receive delivery templates, got %+v", key, opts)
 		}
-		adminMeta := prop["x-admin"].(map[string]any)
-		mediaMeta := adminMeta["media"].(map[string]any)
+		adminMeta := mustAs[map[string]any](prop["x-admin"])
+		mediaMeta := mustAs[map[string]any](adminMeta["media"])
 		if mediaMeta["libraryPath"] == "" || mediaMeta["capabilitiesPath"] == "" {
 			t.Fatalf("expected %s to receive admin media hints, got %+v", key, mediaMeta)
 		}
@@ -82,13 +82,15 @@ func TestApplyMediaSchemaHintsDetectsPlainJSONSchemaMediaFields(t *testing.T) {
 			t.Fatalf("expected %s to receive admin delivery hints, got %+v", key, mediaMeta)
 		}
 	}
-	nested := props["nested"].(map[string]any)
-	nestedOpts := nested["x-formgen"].(map[string]any)["componentOptions"].(map[string]any)
+	nested := mustAs[map[string]any](props["nested"])
+	nestedFormgen := mustAs[map[string]any](nested["x-formgen"])
+	nestedOpts := mustAs[map[string]any](nestedFormgen["componentOptions"])
 	if nestedOpts["valueMode"] != "id" || nestedOpts["accept"] != "image/*" {
 		t.Fatalf("expected explicit valueMode and accept to be preserved, got %+v", nestedOpts)
 	}
-	gallery := props["gallery"].(map[string]any)
-	galleryOpts := gallery["x-formgen"].(map[string]any)["componentOptions"].(map[string]any)
+	gallery := mustAs[map[string]any](props["gallery"])
+	galleryFormgen := mustAs[map[string]any](gallery["x-formgen"])
+	galleryOpts := mustAs[map[string]any](galleryFormgen["componentOptions"])
 	if galleryOpts["multiple"] != true {
 		t.Fatalf("expected gallery multiple=true, got %+v", galleryOpts)
 	}
@@ -98,10 +100,11 @@ func TestApplyMediaSchemaHintsDetectsPlainJSONSchemaMediaFields(t *testing.T) {
 	if got := galleryOpts["acceptedKinds"]; got == nil {
 		t.Fatalf("expected acceptedKinds to be preserved, got %+v", galleryOpts)
 	}
-	nestedObject := props["nestedObject"].(map[string]any)
-	nestedProps := nestedObject["properties"].(map[string]any)
-	hero := nestedProps["hero"].(map[string]any)
-	heroOpts := hero["x-formgen"].(map[string]any)["componentOptions"].(map[string]any)
+	nestedObject := mustAs[map[string]any](props["nestedObject"])
+	nestedProps := mustAs[map[string]any](nestedObject["properties"])
+	hero := mustAs[map[string]any](nestedProps["hero"])
+	heroFormgen := mustAs[map[string]any](hero["x-formgen"])
+	heroOpts := mustAs[map[string]any](heroFormgen["componentOptions"])
 	if heroOpts["libraryPath"] == "" {
 		t.Fatalf("expected nested media field to be enriched, got %+v", heroOpts)
 	}
@@ -151,7 +154,8 @@ func TestApplyMediaSchemaHintsSkipsWhenMediaUnavailable(t *testing.T) {
 	if got := adm.ApplyMediaSchemaHints(schema); got != 0 {
 		t.Fatalf("expected no enrichment when media feature is disabled, got %d", got)
 	}
-	prop := schema["properties"].(map[string]any)["hero"].(map[string]any)
+	props := mustAs[map[string]any](schema["properties"])
+	prop := mustAs[map[string]any](props["hero"])
 	if _, ok := prop["x-admin"]; ok {
 		t.Fatalf("did not expect active media hints when media is disabled, got %+v", prop["x-admin"])
 	}
@@ -181,10 +185,11 @@ func TestApplyMediaSchemaHintsPreservesExistingComponentConfig(t *testing.T) {
 	if got := adm.ApplyMediaSchemaHints(schema); got != 1 {
 		t.Fatalf("expected one enriched media field, got %d", got)
 	}
-	prop := schema["properties"].(map[string]any)["hero"].(map[string]any)
-	formgen := prop["x-formgen"].(map[string]any)
-	componentOptions := formgen["componentOptions"].(map[string]any)
-	componentConfig := formgen["component.config"].(map[string]any)
+	props := mustAs[map[string]any](schema["properties"])
+	prop := mustAs[map[string]any](props["hero"])
+	formgen := mustAs[map[string]any](prop["x-formgen"])
+	componentOptions := mustAs[map[string]any](formgen["componentOptions"])
+	componentConfig := mustAs[map[string]any](formgen["component.config"])
 	for name, opts := range map[string]map[string]any{
 		"componentOptions": componentOptions,
 		"component.config": componentConfig,
@@ -226,10 +231,11 @@ func TestApplyMediaSchemaHintsMirrorsGalleryMultipleIntoComponentConfig(t *testi
 	if got := adm.ApplyMediaSchemaHints(schema); got != 1 {
 		t.Fatalf("expected one enriched media field, got %d", got)
 	}
-	prop := schema["properties"].(map[string]any)["gallery"].(map[string]any)
-	formgen := prop["x-formgen"].(map[string]any)
-	componentOptions := formgen["componentOptions"].(map[string]any)
-	componentConfig := formgen["component.config"].(map[string]any)
+	props := mustAs[map[string]any](schema["properties"])
+	prop := mustAs[map[string]any](props["gallery"])
+	formgen := mustAs[map[string]any](prop["x-formgen"])
+	componentOptions := mustAs[map[string]any](formgen["componentOptions"])
+	componentConfig := mustAs[map[string]any](formgen["component.config"])
 	if componentOptions["multiple"] != true {
 		t.Fatalf("expected componentOptions multiple=true, got %+v", componentOptions)
 	}
@@ -269,12 +275,16 @@ func TestApplyMediaSchemaHintsOnlyRecursesIntoArrayItemsWithProperties(t *testin
 	if got := adm.ApplyMediaSchemaHints(schema); got != 1 {
 		t.Fatalf("expected only explicit object item properties to be enriched, got %d", got)
 	}
-	props := schema["properties"].(map[string]any)
-	blockImage := props["blocks"].(map[string]any)["items"].(map[string]any)["properties"].(map[string]any)["image"].(map[string]any)
+	props := mustAs[map[string]any](schema["properties"])
+	blocks := mustAs[map[string]any](props["blocks"])
+	blockItems := mustAs[map[string]any](blocks["items"])
+	blockProps := mustAs[map[string]any](blockItems["properties"])
+	blockImage := mustAs[map[string]any](blockProps["image"])
 	if blockImage["x-admin"] == nil {
 		t.Fatalf("expected block item image to be enriched")
 	}
-	tagItems := props["tags"].(map[string]any)["items"].(map[string]any)
+	tags := mustAs[map[string]any](props["tags"])
+	tagItems := mustAs[map[string]any](tags["items"])
 	if tagItems["x-admin"] != nil {
 		t.Fatalf("did not expect array scalar item schema to be enriched, got %+v", tagItems)
 	}

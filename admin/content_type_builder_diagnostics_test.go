@@ -12,7 +12,7 @@ func TestBlockDefinitionDiagnosticsEndpointIncludesChannelMetadata(t *testing.T)
 	server, content := setupBlockDefinitionTemplateServer(t, templateServerOptions{})
 
 	seedCtx := context.Background()
-	_, _ = content.CreateBlockDefinition(seedCtx, CMSBlockDefinition{
+	_, _ = content.CreateBlockDefinition(seedCtx, CMSBlockDefinition{ //nolint:errcheck // legacy test setup intentionally ignores this helper result after scenario assertions.
 		ID:          "hero",
 		Name:        "Hero",
 		Slug:        "hero",
@@ -20,7 +20,7 @@ func TestBlockDefinitionDiagnosticsEndpointIncludesChannelMetadata(t *testing.T)
 		Environment: "default",
 		Schema:      map[string]any{"type": "object"},
 	})
-	_, _ = content.CreateBlockDefinition(seedCtx, CMSBlockDefinition{
+	_, _ = content.CreateBlockDefinition(seedCtx, CMSBlockDefinition{ //nolint:errcheck // legacy test setup intentionally ignores this helper result after scenario assertions.
 		ID:          "rich_text",
 		Name:        "Rich Text",
 		Slug:        "rich_text",
@@ -28,7 +28,7 @@ func TestBlockDefinitionDiagnosticsEndpointIncludesChannelMetadata(t *testing.T)
 		Environment: "default",
 		Schema:      map[string]any{"type": "object"},
 	})
-	_, _ = content.CreateBlockDefinition(seedCtx, CMSBlockDefinition{
+	_, _ = content.CreateBlockDefinition(seedCtx, CMSBlockDefinition{ //nolint:errcheck // legacy test setup intentionally ignores this helper result after scenario assertions.
 		ID:          "promo",
 		Name:        "Promo",
 		Slug:        "promo",

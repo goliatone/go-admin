@@ -69,38 +69,38 @@ func TestNewTranslationQueuePanelSchemaIncludesQueueActionsAndFilters(t *testing
 	if schema.FormSchema == nil {
 		t.Fatalf("expected form schema")
 	}
-	required, _ := schema.FormSchema["required"].([]string)
+	required := mustAs[[]string](schema.FormSchema["required"])
 	for _, expected := range []string{"family_id", "entity_type", "source_record_id", "source_locale", "target_locale"} {
 		found := slices.Contains(required, expected)
 		if !found {
 			t.Fatalf("expected required field %q in form schema, got %v", expected, required)
 		}
 	}
-	properties, _ := schema.FormSchema["properties"].(map[string]any)
-	dueDate, _ := properties["due_date"].(map[string]any)
+	properties := mustAs[map[string]any](schema.FormSchema["properties"])
+	dueDate := mustAs[map[string]any](properties["due_date"])
 	if strings.TrimSpace(toString(dueDate["format"])) != "date" {
 		t.Fatalf("expected due_date format date, got %+v", dueDate)
 	}
-	priority, _ := properties["priority"].(map[string]any)
-	enumValues, _ := priority["enum"].([]any)
+	priority := mustAs[map[string]any](properties["priority"])
+	enumValues := mustAs[[]any](priority["enum"])
 	if len(enumValues) == 0 {
 		t.Fatalf("expected priority enum values in form schema")
 	}
-	assignee, _ := properties["assignee_id"].(map[string]any)
-	assigneeEndpoint, _ := assignee["x-endpoint"].(map[string]any)
+	assignee := mustAs[map[string]any](properties["assignee_id"])
+	assigneeEndpoint := mustAs[map[string]any](assignee["x-endpoint"])
 	if strings.TrimSpace(toString(assigneeEndpoint["url"])) == "" {
 		t.Fatalf("expected assignee_id x-endpoint url")
 	}
-	sourceRecord, _ := properties["source_record_id"].(map[string]any)
-	sourceRecordEndpoint, _ := sourceRecord["x-endpoint"].(map[string]any)
+	sourceRecord := mustAs[map[string]any](properties["source_record_id"])
+	sourceRecordEndpoint := mustAs[map[string]any](sourceRecord["x-endpoint"])
 	if strings.TrimSpace(toString(sourceRecordEndpoint["url"])) == "" {
 		t.Fatalf("expected source_record_id x-endpoint url")
 	}
-	sourceLocale, _ := properties["source_locale"].(map[string]any)
-	if readonly, _ := sourceLocale["readOnly"].(bool); !readonly {
+	sourceLocale := mustAs[map[string]any](properties["source_locale"])
+	if readonly := mustAs[bool](sourceLocale["readOnly"]); !readonly {
 		t.Fatalf("expected source_locale schema readOnly=true, got %+v", sourceLocale)
 	}
-	sourceLocaleFormgen, _ := sourceLocale["x-formgen"].(map[string]any)
+	sourceLocaleFormgen := mustAs[map[string]any](sourceLocale["x-formgen"])
 	if strings.TrimSpace(toString(sourceLocaleFormgen["readonly"])) != "true" {
 		t.Fatalf("expected source_locale x-formgen readonly=true, got %+v", sourceLocaleFormgen)
 	}

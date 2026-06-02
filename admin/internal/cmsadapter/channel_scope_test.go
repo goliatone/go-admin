@@ -35,11 +35,11 @@ func TestResolveContextChannelPrefersResolversInOrder(t *testing.T) {
 
 	got := ResolveContextChannel("", ctx,
 		func(ctx context.Context) string {
-			value, _ := ctx.Value(contentKey).(string)
+			value := mustAs[string](ctx.Value(contentKey))
 			return value
 		},
 		func(ctx context.Context) string {
-			value, _ := ctx.Value(environmentKey).(string)
+			value := mustAs[string](ctx.Value(environmentKey))
 			return value
 		},
 	)

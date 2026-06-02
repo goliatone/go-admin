@@ -127,7 +127,7 @@ func TestEndToEndFlowCoversAuthDashboardSearchSettings(t *testing.T) {
 			t.Fatalf("create status: %d body=%s", createRes.Code, createRes.Body.String())
 		}
 		var created map[string]any
-		_ = json.Unmarshal(createRes.Body.Bytes(), &created)
+		_ = json.Unmarshal(createRes.Body.Bytes(), &created) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 		id := toString(created["id"])
 		if id == "" {
 			t.Fatalf("expected created id, got %+v", created)
@@ -144,12 +144,12 @@ func TestEndToEndFlowCoversAuthDashboardSearchSettings(t *testing.T) {
 			t.Fatalf("search status: %d body=%s", searchRes.Code, searchRes.Body.String())
 		}
 		var searchBody map[string]any
-		_ = json.Unmarshal(searchRes.Body.Bytes(), &searchBody)
+		_ = json.Unmarshal(searchRes.Body.Bytes(), &searchBody) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 		rawResults, ok := searchBody["results"].([]any)
 		if !ok || len(rawResults) != 1 {
 			t.Fatalf("expected one search result, got %v", searchBody["results"])
 		}
-		firstResult, _ := rawResults[0].(map[string]any)
+		firstResult := mustAs[map[string]any](rawResults[0])
 		if toString(firstResult["id"]) != id {
 			t.Fatalf("expected search result id %s, got %v", id, firstResult["id"])
 		}
@@ -175,7 +175,7 @@ func TestEndToEndFlowCoversAuthDashboardSearchSettings(t *testing.T) {
 			t.Fatalf("dashboard status: %d body=%s", dashboardRes.Code, dashboardRes.Body.String())
 		}
 		var dashboardBody map[string]any
-		_ = json.Unmarshal(dashboardRes.Body.Bytes(), &dashboardBody)
+		_ = json.Unmarshal(dashboardRes.Body.Bytes(), &dashboardBody) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 		rawWidgets, ok := dashboardBody["widgets"].([]any)
 		if !ok || len(rawWidgets) == 0 {
 			t.Fatalf("expected dashboard widgets, got %v", dashboardBody["widgets"])
@@ -189,9 +189,9 @@ func TestEndToEndFlowCoversAuthDashboardSearchSettings(t *testing.T) {
 			if toString(widget["definition"]) != WidgetSettingsOverview {
 				continue
 			}
-			data, _ := widget["data"].(map[string]any)
-			values, _ := data["values"].(map[string]any)
-			titleVal, _ := values["admin.title"].(map[string]any)
+			data := mustAs[map[string]any](widget["data"])
+			values := mustAs[map[string]any](data["values"])
+			titleVal := mustAs[map[string]any](values["admin.title"])
 			if titleVal["value"] != "Custom Admin" {
 				t.Fatalf("expected updated settings value, got %v", titleVal["value"])
 			}
@@ -212,7 +212,7 @@ func TestEndToEndFlowCoversAuthDashboardSearchSettings(t *testing.T) {
 			t.Fatalf("navigation status: %d body=%s", navRes.Code, navRes.Body.String())
 		}
 		var navBody map[string]any
-		_ = json.Unmarshal(navRes.Body.Bytes(), &navBody)
+		_ = json.Unmarshal(navRes.Body.Bytes(), &navBody) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 		navItems, ok := navBody["items"].([]any)
 		if !ok || len(navItems) == 0 {
 			t.Fatalf("expected navigation items, got %v", navBody["items"])
@@ -223,7 +223,7 @@ func TestEndToEndFlowCoversAuthDashboardSearchSettings(t *testing.T) {
 			if !itemOK {
 				continue
 			}
-			target, _ := item["target"].(map[string]any)
+			target := mustAs[map[string]any](item["target"])
 			if toString(target["key"]) == "settings" || toString(target["path"]) == "/admin/settings" {
 				foundSettingsNav = true
 				break
@@ -241,7 +241,7 @@ func TestEndToEndFlowCoversAuthDashboardSearchSettings(t *testing.T) {
 			t.Fatalf("jobs status: %d body=%s", jobsRes.Code, jobsRes.Body.String())
 		}
 		var jobsBody map[string]any
-		_ = json.Unmarshal(jobsRes.Body.Bytes(), &jobsBody)
+		_ = json.Unmarshal(jobsRes.Body.Bytes(), &jobsBody) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 		jobs, ok := jobsBody["jobs"].([]any)
 		if !ok || len(jobs) == 0 {
 			t.Fatalf("expected jobs array, got %v", jobsBody["jobs"])
@@ -274,8 +274,8 @@ func TestEndToEndFlowCoversAuthDashboardSearchSettings(t *testing.T) {
 		jobsRes = httptest.NewRecorder()
 		server.WrappedRouter().ServeHTTP(jobsRes, jobsReq)
 		var jobsAfter map[string]any
-		_ = json.Unmarshal(jobsRes.Body.Bytes(), &jobsAfter)
-		afterList, _ := jobsAfter["jobs"].([]any)
+		_ = json.Unmarshal(jobsRes.Body.Bytes(), &jobsAfter) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
+		afterList := mustAs[[]any](jobsAfter["jobs"])
 		var triggered map[string]any
 		for _, raw := range afterList {
 			if j, jobOK := raw.(map[string]any); jobOK && toString(j["name"]) == "jobs.integration" {
@@ -289,7 +289,7 @@ func TestEndToEndFlowCoversAuthDashboardSearchSettings(t *testing.T) {
 		if status := toString(triggered["status"]); status != "ok" && status != "" {
 			t.Fatalf("expected job status ok after trigger, got %q", status)
 		}
-		if lastRun, _ := triggered["last_run"].(string); lastRun == "" {
+		if lastRun := mustAs[string](triggered["last_run"]); lastRun == "" {
 			t.Fatalf("expected last_run timestamp after trigger, got %+v", triggered["last_run"])
 		}
 
@@ -301,8 +301,8 @@ func TestEndToEndFlowCoversAuthDashboardSearchSettings(t *testing.T) {
 			t.Fatalf("list status: %d body=%s", listRes.Code, listRes.Body.String())
 		}
 		var listBody map[string]any
-		_ = json.Unmarshal(listRes.Body.Bytes(), &listBody)
-		if total := int(listBody["total"].(float64)); total != 1 {
+		_ = json.Unmarshal(listRes.Body.Bytes(), &listBody) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
+		if total := int(mustAs[float64](listBody["total"])); total != 1 {
 			t.Fatalf("expected total 1, got %d", total)
 		}
 		form, ok := listBody["form"].(map[string]any)

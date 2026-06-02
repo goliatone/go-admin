@@ -46,34 +46,34 @@ func TestAdminDecorateSchemaAppliesFeatureMetadataAndMediaHints(t *testing.T) {
 		t.Fatalf("expected default media value mode %q, got %q", MediaValueModeURL, schema.Media.DefaultValueMode)
 	}
 
-	props, _ := schema.FormSchema["properties"].(map[string]any)
-	asset, _ := props["asset"].(map[string]any)
-	adminMeta, _ := asset["x-admin"].(map[string]any)
+	props := mustAs[map[string]any](schema.FormSchema["properties"])
+	asset := mustAs[map[string]any](props["asset"])
+	adminMeta := mustAs[map[string]any](asset["x-admin"])
 	if got := adminMeta["media_library_path"]; got != schema.Media.LibraryPath {
 		t.Fatalf("expected media hint path %q, got %v", schema.Media.LibraryPath, got)
 	}
 	if got := asset["x-formgen:widget"]; got != "media-picker" {
 		t.Fatalf("expected media picker widget hint, got %v", got)
 	}
-	formgenMeta, _ := asset["x-formgen"].(map[string]any)
-	componentOptions, _ := formgenMeta["componentOptions"].(map[string]any)
+	formgenMeta := mustAs[map[string]any](asset["x-formgen"])
+	componentOptions := mustAs[map[string]any](formgenMeta["componentOptions"])
 	if got := componentOptions["valueMode"]; got != string(MediaValueModeURL) {
 		t.Fatalf("expected default media picker valueMode=url, got %v", got)
 	}
 	if got := componentOptions["itemEndpoint"]; got != schema.Media.ItemPath {
 		t.Fatalf("expected media item endpoint %q, got %v", schema.Media.ItemPath, got)
 	}
-	adminMedia, _ := adminMeta["media"].(map[string]any)
+	adminMedia := mustAs[map[string]any](adminMeta["media"])
 	if got := adminMedia["capabilitiesPath"]; got != schema.Media.CapabilitiesPath {
 		t.Fatalf("expected nested media capabilities path %q, got %v", schema.Media.CapabilitiesPath, got)
 	}
 
-	gallery, _ := props["gallery"].(map[string]any)
+	gallery := mustAs[map[string]any](props["gallery"])
 	if got := gallery["x-formgen:widget"]; got != "media-picker" {
 		t.Fatalf("expected gallery media widget hint, got %v", got)
 	}
-	galleryFormgen, _ := gallery["x-formgen"].(map[string]any)
-	galleryComponentOptions, _ := galleryFormgen["componentOptions"].(map[string]any)
+	galleryFormgen := mustAs[map[string]any](gallery["x-formgen"])
+	galleryComponentOptions := mustAs[map[string]any](galleryFormgen["componentOptions"])
 	if got := galleryComponentOptions["multiple"]; got != true {
 		t.Fatalf("expected gallery multiple=true, got %v", got)
 	}
@@ -103,10 +103,10 @@ func TestAdminDecorateSchemaHonorsExplicitMediaValueModeWhenSupported(t *testing
 
 	adm.decorateSchema(schema, "items")
 
-	props, _ := schema.FormSchema["properties"].(map[string]any)
-	asset, _ := props["asset"].(map[string]any)
-	formgenMeta, _ := asset["x-formgen"].(map[string]any)
-	componentOptions, _ := formgenMeta["componentOptions"].(map[string]any)
+	props := mustAs[map[string]any](schema.FormSchema["properties"])
+	asset := mustAs[map[string]any](props["asset"])
+	formgenMeta := mustAs[map[string]any](asset["x-formgen"])
+	componentOptions := mustAs[map[string]any](formgenMeta["componentOptions"])
 	if got := componentOptions["valueMode"]; got != string(MediaValueModeID) {
 		t.Fatalf("expected explicit media picker valueMode=id, got %v", got)
 	}

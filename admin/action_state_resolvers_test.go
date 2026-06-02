@@ -413,7 +413,7 @@ func TestActionStateEnvelopeReadsTypedAndGenericPayloads(t *testing.T) {
 
 	extractMap(generic["publish"])["enabled"] = true
 	extractMap(extractMap(generic["publish"])["metadata"])["source"] = "mutated"
-	if enabled, _ := fromGeneric["publish"]["enabled"].(bool); enabled {
+	if enabled := mustAs[bool](fromGeneric["publish"]["enabled"]); enabled {
 		t.Fatalf("expected cloned envelope not to track source mutation, got %#v", fromGeneric)
 	}
 	if got := extractMap(fromGeneric["publish"]["metadata"])["source"]; got != "generic" {

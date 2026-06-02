@@ -252,7 +252,7 @@ func TestDebugCollectorRedaction(t *testing.T) {
 	if !ok || template["password"] != expectedTemplate["password"] {
 		t.Fatalf("expected template password redacted, got %+v", snapshot[DebugPanelTemplate])
 	}
-	expectedTemplateNested, _ := expectedTemplate["nested"].(map[string]any)
+	expectedTemplateNested := mustAs[map[string]any](expectedTemplate["nested"])
 	nested, ok := template["nested"].(map[string]any)
 	if !ok || nested["api_key"] != expectedTemplateNested["api_key"] {
 		t.Fatalf("expected nested api_key redacted, got %+v", template["nested"])
@@ -262,7 +262,7 @@ func TestDebugCollectorRedaction(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected session snapshot")
 	}
-	expectedSessionAuth, _ := expectedSession["auth"].(map[string]any)
+	expectedSessionAuth := mustAs[map[string]any](expectedSession["auth"])
 	sessionAuth, ok := session["auth"].(map[string]any)
 	if !ok || sessionAuth["token"] != expectedSessionAuth["token"] {
 		t.Fatalf("expected session token redacted, got %+v", session["auth"])
@@ -287,7 +287,7 @@ func TestDebugCollectorRedaction(t *testing.T) {
 		t.Fatalf("expected sql args preserved, got %+v", sqlEntries[0].Args)
 	}
 	expectedArgs := mustMaskSlice(t, cfg, sqlArgs)
-	expectedArgMap, _ := expectedArgs[0].(map[string]any)
+	expectedArgMap := mustAs[map[string]any](expectedArgs[0])
 	sqlArgMap, ok := sqlEntries[0].Args[0].(map[string]any)
 	if !ok || sqlArgMap["password"] != expectedArgMap["password"] {
 		t.Fatalf("expected sql args redacted, got %+v", sqlEntries[0].Args)
@@ -300,7 +300,7 @@ func TestDebugCollectorRedaction(t *testing.T) {
 	if logEntries[0].Fields["token"] != expectedLogFields["token"] {
 		t.Fatalf("expected log fields redacted, got %+v", logEntries[0].Fields)
 	}
-	expectedLogNested, _ := expectedLogFields["nested"].(map[string]any)
+	expectedLogNested := mustAs[map[string]any](expectedLogFields["nested"])
 	logNested, ok := logEntries[0].Fields["nested"].(map[string]any)
 	if !ok || logNested["secret"] != expectedLogNested["secret"] {
 		t.Fatalf("expected nested log field redacted, got %+v", logEntries[0].Fields)
@@ -327,7 +327,7 @@ func TestDebugCollectorRedaction(t *testing.T) {
 	if !ok || config == nil {
 		t.Fatalf("expected config snapshot")
 	}
-	expectedConfigAuth, _ := expectedConfig["auth"].(map[string]any)
+	expectedConfigAuth := mustAs[map[string]any](expectedConfig["auth"])
 	configAuth, ok := config["auth"].(map[string]any)
 	if !ok || configAuth["jwt"] != expectedConfigAuth["jwt"] {
 		t.Fatalf("expected config jwt redacted, got %+v", config["auth"])

@@ -89,7 +89,7 @@ func TestStoreAdapterPreservesCommittedStateUnderConcurrentWithTx(t *testing.T) 
 	if err != nil {
 		t.Fatalf("Bootstrap: %v", err)
 	}
-	defer func() { _ = bootstrap.Close() }()
+	defer func() { _ = bootstrap.Close() }() //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 
 	store, cleanup, err := NewStoreAdapter(bootstrap)
 	if err != nil {
@@ -97,7 +97,7 @@ func TestStoreAdapterPreservesCommittedStateUnderConcurrentWithTx(t *testing.T) 
 	}
 	defer func() {
 		if cleanup != nil {
-			_ = cleanup()
+			_ = cleanup() //nolint:errcheck // legacy test setup intentionally ignores this helper result after scenario assertions.
 		}
 	}()
 
@@ -234,7 +234,7 @@ func TestStoreAdapterWithTxRollsBackOnPanic(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Bootstrap: %v", err)
 	}
-	defer func() { _ = bootstrap.Close() }()
+	defer func() { _ = bootstrap.Close() }() //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 
 	store, cleanup, err := NewStoreAdapter(bootstrap)
 	if err != nil {
@@ -242,7 +242,7 @@ func TestStoreAdapterWithTxRollsBackOnPanic(t *testing.T) {
 	}
 	defer func() {
 		if cleanup != nil {
-			_ = cleanup()
+			_ = cleanup() //nolint:errcheck // legacy test setup intentionally ignores this helper result after scenario assertions.
 		}
 	}()
 
@@ -260,7 +260,7 @@ func TestStoreAdapterWithTxRollsBackOnPanic(t *testing.T) {
 		}
 	}()
 
-	_ = store.WithTx(context.Background(), func(tx stores.TxStore) error {
+	_ = store.WithTx(context.Background(), func(tx stores.TxStore) error { //nolint:errcheck // legacy test setup intentionally ignores this helper result after scenario assertions.
 		if _, err := tx.Create(context.Background(), scope, stores.DocumentRecord{
 			ID:                 "doc-panic",
 			CreatedByUserID:    "user-panic",
@@ -286,7 +286,7 @@ func TestStoreAdapterConcurrentWithTxDoesNotRaceOnEntry(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Bootstrap: %v", err)
 	}
-	defer func() { _ = bootstrap.Close() }()
+	defer func() { _ = bootstrap.Close() }() //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 
 	store, cleanup, err := NewStoreAdapter(bootstrap)
 	if err != nil {
@@ -294,7 +294,7 @@ func TestStoreAdapterConcurrentWithTxDoesNotRaceOnEntry(t *testing.T) {
 	}
 	defer func() {
 		if cleanup != nil {
-			_ = cleanup()
+			_ = cleanup() //nolint:errcheck // legacy test setup intentionally ignores this helper result after scenario assertions.
 		}
 	}()
 
@@ -304,7 +304,7 @@ func TestStoreAdapterConcurrentWithTxDoesNotRaceOnEntry(t *testing.T) {
 		wg.Add(1)
 		go func(idx int) {
 			defer wg.Done()
-			_, _ = store.Create(context.Background(), scope, stores.DocumentRecord{
+			_, _ = store.Create(context.Background(), scope, stores.DocumentRecord{ //nolint:errcheck // legacy test setup intentionally ignores this helper result after scenario assertions.
 				ID:                 "doc-entry-" + time.Now().UTC().Format("150405.000000") + "-" + string(rune('a'+idx)),
 				CreatedByUserID:    "user-entry",
 				SourceObjectKey:    "tenant/tenant-entry/org/org-entry/docs/doc-entry/source.pdf",

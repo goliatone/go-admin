@@ -39,39 +39,39 @@ func TestNormalizeFormgenSchemaCompatibility_BlockLibraryPickerOneOfArray(t *tes
 	}
 
 	out := normalizeFormgenSchemaCompatibility(input)
-	props, _ := out["properties"].(map[string]any)
-	blocks, _ := props["blocks"].(map[string]any)
-	formgen, _ := blocks["x-formgen"].(map[string]any)
+	props := mustAs[map[string]any](out["properties"])
+	blocks := mustAs[map[string]any](props["blocks"])
+	formgen := mustAs[map[string]any](blocks["x-formgen"])
 	if got := formgen["widget"]; got != "block-library-picker" {
 		t.Fatalf("expected block-library-picker widget, got %v", got)
 	}
 	if got := formgen["component.name"]; got != "block-library-picker" {
 		t.Fatalf("expected component.name block-library-picker, got %v", got)
 	}
-	if allowed, _ := formgen["allowedBlocks"].([]string); len(allowed) != 1 || allowed[0] != "hero" {
+	if allowed := mustAs[[]string](formgen["allowedBlocks"]); len(allowed) != 1 || allowed[0] != "hero" {
 		t.Fatalf("expected allowedBlocks [hero], got %v", formgen["allowedBlocks"])
 	}
-	componentConfig, _ := formgen["component.config"].(map[string]any)
-	allowedFromConfig, _ := componentConfig["allowedBlocks"].([]string)
+	componentConfig := mustAs[map[string]any](formgen["component.config"])
+	allowedFromConfig := mustAs[[]string](componentConfig["allowedBlocks"])
 	if len(allowedFromConfig) != 1 || allowedFromConfig[0] != "hero" {
 		t.Fatalf("expected component.config.allowedBlocks [hero], got %v", componentConfig["allowedBlocks"])
 	}
-	if includeInactive, _ := componentConfig["includeInactive"].(bool); !includeInactive {
+	if includeInactive := mustAs[bool](componentConfig["includeInactive"]); !includeInactive {
 		t.Fatalf("expected component.config.includeInactive=true, got %v", componentConfig["includeInactive"])
 	}
-	items, _ := blocks["items"].(map[string]any)
+	items := mustAs[map[string]any](blocks["items"])
 	if _, ok := items["oneOf"]; ok {
 		t.Fatalf("expected oneOf removed from picker schema")
 	}
 
 	// Original input should remain unchanged.
-	inProps, _ := input["properties"].(map[string]any)
-	inBlocks, _ := inProps["blocks"].(map[string]any)
-	inFormgen, _ := inBlocks["x-formgen"].(map[string]any)
+	inProps := mustAs[map[string]any](input["properties"])
+	inBlocks := mustAs[map[string]any](inProps["blocks"])
+	inFormgen := mustAs[map[string]any](inBlocks["x-formgen"])
 	if got := inFormgen["widget"]; got != "block-library-picker" {
 		t.Fatalf("expected input widget untouched, got %v", got)
 	}
-	inItems, _ := inBlocks["items"].(map[string]any)
+	inItems := mustAs[map[string]any](inBlocks["items"])
 	if _, ok := inItems["oneOf"]; !ok {
 		t.Fatalf("expected input oneOf preserved")
 	}
@@ -96,10 +96,10 @@ func TestNormalizeFormgenSchemaCompatibility_AllowsHyphenUnderscoreBlockAliases(
 	}
 
 	out := normalizeFormgenSchemaCompatibility(input)
-	props, _ := out["properties"].(map[string]any)
-	blocks, _ := props["blocks"].(map[string]any)
-	formgen, _ := blocks["x-formgen"].(map[string]any)
-	allowed, _ := formgen["allowedBlocks"].([]string)
+	props := mustAs[map[string]any](out["properties"])
+	blocks := mustAs[map[string]any](props["blocks"])
+	formgen := mustAs[map[string]any](blocks["x-formgen"])
+	allowed := mustAs[[]string](formgen["allowedBlocks"])
 	if len(allowed) < 2 {
 		t.Fatalf("expected alias-expanded allowedBlocks, got %v", allowed)
 	}

@@ -98,11 +98,11 @@ func decodeActivityResponse(t *testing.T, rr *httptest.ResponseRecorder) activit
 func decodeErrorField(t *testing.T, rr *httptest.ResponseRecorder) string {
 	t.Helper()
 	errBody := decodeErrorPayload(t, rr)
-	meta, _ := errBody["metadata"].(map[string]any)
+	meta := mustAs[map[string]any](errBody["metadata"])
 	if meta == nil {
 		return ""
 	}
-	field, _ := meta["field"].(string)
+	field := mustAs[string](meta["field"])
 	return field
 }
 
@@ -255,24 +255,24 @@ func TestActivityRouteRejectsNonUUIDActorID(t *testing.T) {
 		t.Fatalf("expected 400, got %d body=%s", rr.Code, rr.Body.String())
 	}
 	errBody := decodeErrorPayload(t, rr)
-	if textCode, _ := errBody["text_code"].(string); textCode != TextCodeActivityActorContextInvalid {
+	if textCode := mustAs[string](errBody["text_code"]); textCode != TextCodeActivityActorContextInvalid {
 		t.Fatalf("expected text code %s, got %v", TextCodeActivityActorContextInvalid, errBody["text_code"])
 	}
-	msg, _ := errBody["message"].(string)
+	msg := mustAs[string](errBody["message"])
 	if !strings.Contains(msg, "actor_id") || !strings.Contains(msg, "UUID") {
 		t.Fatalf("expected clear actor_id/UUID message, got %q", msg)
 	}
-	meta, _ := errBody["metadata"].(map[string]any)
+	meta := mustAs[map[string]any](errBody["metadata"])
 	if meta == nil {
 		t.Fatalf("expected metadata in error payload")
 	}
-	if got, _ := meta["actor_id"].(string); got != "esign-admin" {
+	if got := mustAs[string](meta["actor_id"]); got != "esign-admin" {
 		t.Fatalf("expected actor_id metadata esign-admin, got %q", got)
 	}
-	if got, _ := meta["field"].(string); got != "actor_id" {
+	if got := mustAs[string](meta["field"]); got != "actor_id" {
 		t.Fatalf("expected field metadata actor_id, got %q", got)
 	}
-	if got, _ := meta["source_text_code"].(string); got != "ACTOR_CONTEXT_INVALID" {
+	if got := mustAs[string](meta["source_text_code"]); got != "ACTOR_CONTEXT_INVALID" {
 		t.Fatalf("expected source text code ACTOR_CONTEXT_INVALID, got %q", got)
 	}
 }
@@ -310,7 +310,7 @@ func TestActivityRouteRejectsNonUUIDActorIDWithDefaultPolicy(t *testing.T) {
 		t.Fatalf("expected 400, got %d body=%s", rr.Code, rr.Body.String())
 	}
 	errBody := decodeErrorPayload(t, rr)
-	if textCode, _ := errBody["text_code"].(string); textCode != TextCodeActivityActorContextInvalid {
+	if textCode := mustAs[string](errBody["text_code"]); textCode != TextCodeActivityActorContextInvalid {
 		t.Fatalf("expected text code %s, got %v", TextCodeActivityActorContextInvalid, errBody["text_code"])
 	}
 }
@@ -665,11 +665,11 @@ func TestActivityPolicyMasksActorEmailAndSessionID(t *testing.T) {
 	}
 
 	meta := body.Entries[0].Metadata
-	email, _ := meta[usersactivity.DataKeyActorEmail].(string)
+	email := mustAs[string](meta[usersactivity.DataKeyActorEmail])
 	if email == "admin@example.com" || strings.TrimSpace(email) == "" {
 		t.Fatalf("expected actor_email to be masked, got %q", email)
 	}
-	sessionID, _ := meta[usersactivity.DataKeySessionID].(string)
+	sessionID := mustAs[string](meta[usersactivity.DataKeySessionID])
 	if sessionID == "session-12345" || strings.TrimSpace(sessionID) == "" {
 		t.Fatalf("expected session_id to be masked, got %q", sessionID)
 	}

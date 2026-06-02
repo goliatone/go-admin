@@ -16,9 +16,9 @@ func TestAdminNewFailsWhenWorkflowAuthoringCutoverSchemaMissing(t *testing.T) {
 	if err != nil {
 		t.Fatalf("open sqlite: %v", err)
 	}
-	t.Cleanup(func() { _ = sqldb.Close() })
+	t.Cleanup(func() { _ = sqldb.Close() }) //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 	db := bun.NewDB(sqldb, sqlitedialect.New())
-	t.Cleanup(func() { _ = db.Close() })
+	t.Cleanup(func() { _ = db.Close() }) //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 
 	runtime := NewWorkflowRuntimeService(NewBunWorkflowDefinitionRepository(db), NewBunWorkflowBindingRepository(db))
 	_, err = New(Config{}, Dependencies{

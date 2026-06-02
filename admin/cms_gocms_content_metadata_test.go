@@ -597,7 +597,7 @@ func TestGoCMSContentAdapterCreateTranslationPromotesFirstClassPathAndRouteKeyIn
 		},
 	}
 	svc := NewGoCMSContentAdapter(contentSvc, nil, typeSvc)
-	adapter := svc.(*GoCMSContentAdapter)
+	adapter := mustAs[*GoCMSContentAdapter](svc)
 
 	_, err := adapter.CreateTranslation(ctx, TranslationCreateInput{
 		SourceID:    sourceID.String(),

@@ -46,11 +46,11 @@ func isolatedPostgresTestDSN(t *testing.T, baseDSN string) string {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	if err := db.PingContext(ctx); err != nil {
-		_ = db.Close()
+		_ = db.Close() //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 		t.Fatalf("ping postgres test admin connection: %v", err)
 	}
 	if _, err := db.ExecContext(ctx, fmt.Sprintf(`CREATE SCHEMA "%s"`, schemaName)); err != nil {
-		_ = db.Close()
+		_ = db.Close() //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 		t.Fatalf("create isolated postgres test schema %q: %v", schemaName, err)
 	}
 

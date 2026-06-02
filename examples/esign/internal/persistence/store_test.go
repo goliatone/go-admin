@@ -22,7 +22,7 @@ func newSQLiteBootstrapForStoreAdapterTests(t *testing.T) *BootstrapResult {
 	if err != nil {
 		t.Fatalf("Bootstrap: %v", err)
 	}
-	t.Cleanup(func() { _ = result.Close() })
+	t.Cleanup(func() { _ = result.Close() }) //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 	return result
 }
 
@@ -49,7 +49,7 @@ func TestStoreAdapterWithTxRollsBackOnCallbackError(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewStoreAdapter: %v", err)
 	}
-	t.Cleanup(func() { _ = cleanup() })
+	t.Cleanup(func() { _ = cleanup() }) //nolint:errcheck // legacy test setup intentionally ignores this helper result after scenario assertions.
 
 	ctx := context.Background()
 	scope := stores.Scope{TenantID: "tenant-phase4", OrgID: "org-phase4"}
@@ -86,7 +86,7 @@ func TestStoreAdapterPreservesOptimisticLockVersionConflicts(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewStoreAdapter: %v", err)
 	}
-	t.Cleanup(func() { _ = cleanup() })
+	t.Cleanup(func() { _ = cleanup() }) //nolint:errcheck // legacy test setup intentionally ignores this helper result after scenario assertions.
 
 	ctx := context.Background()
 	scope := stores.Scope{TenantID: "tenant-phase4-opt", OrgID: "org-phase4-opt"}
@@ -127,7 +127,7 @@ func TestStoreAdapterAuditEventsRemainAppendOnly(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewStoreAdapter: %v", err)
 	}
-	t.Cleanup(func() { _ = cleanup() })
+	t.Cleanup(func() { _ = cleanup() }) //nolint:errcheck // legacy test setup intentionally ignores this helper result after scenario assertions.
 
 	ctx := context.Background()
 	scope := stores.Scope{TenantID: "tenant-phase4-audit", OrgID: "org-phase4-audit"}

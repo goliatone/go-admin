@@ -23,8 +23,8 @@ import (
 )
 
 func TestESignModuleGoogleDriveImportAsyncUsesGoogleImporter(t *testing.T) {
-	_ = registry.Stop(context.Background())
-	t.Cleanup(func() { _ = registry.Stop(context.Background()) })
+	_ = registry.Stop(context.Background())                       //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
+	t.Cleanup(func() { _ = registry.Stop(context.Background()) }) //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 	runtimeCfg := appcfg.Defaults()
 	runtimeCfg.Features.ESignGoogle = true
 	runtimeCfg.Google.ProviderMode = services.GoogleProviderModeDeterministic
@@ -86,11 +86,11 @@ func TestESignModuleGoogleDriveImportAsyncUsesGoogleImporter(t *testing.T) {
 		t.Fatalf("google connect request failed: %v", err)
 	}
 	if connectResp.StatusCode != http.StatusOK {
-		payload, _ := io.ReadAll(connectResp.Body)
-		_ = connectResp.Body.Close()
+		payload, _ := io.ReadAll(connectResp.Body) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
+		_ = connectResp.Body.Close()               //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 		t.Fatalf("expected connect status 200, got %d body=%s", connectResp.StatusCode, string(payload))
 	}
-	_ = connectResp.Body.Close()
+	_ = connectResp.Body.Close() //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 
 	body := `{"google_file_id":"google-file-1","document_title":"Contract Doc","agreement_title":"Contract Agreement","source_version_hint":"v1"}`
 	createReq := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/api/v1/esign/google-drive/imports?user_id=ops-user", bytes.NewBufferString(body))
@@ -106,12 +106,12 @@ func TestESignModuleGoogleDriveImportAsyncUsesGoogleImporter(t *testing.T) {
 		t.Fatalf("google async import request failed: %v", err)
 	}
 	if createResp.StatusCode != http.StatusAccepted {
-		payload, _ := io.ReadAll(createResp.Body)
-		_ = createResp.Body.Close()
+		payload, _ := io.ReadAll(createResp.Body) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
+		_ = createResp.Body.Close()               //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 		t.Fatalf("expected status 202, got %d body=%s", createResp.StatusCode, string(payload))
 	}
 	createPayload := decodeJSONMap(t, createResp.Body)
-	_ = createResp.Body.Close()
+	_ = createResp.Body.Close() //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 
 	importRunID := strings.TrimSpace(toString(createPayload["import_run_id"]))
 	statusURL := strings.TrimSpace(toString(createPayload["status_url"]))
@@ -133,7 +133,7 @@ func TestESignModuleGoogleDriveImportAsyncUsesGoogleImporter(t *testing.T) {
 			t.Fatalf("status poll failed: %v", pollErr)
 		}
 		final = decodeJSONMap(t, statusResp.Body)
-		_ = statusResp.Body.Close()
+		_ = statusResp.Body.Close() //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 		if strings.TrimSpace(toString(final["status"])) == "succeeded" {
 			break
 		}

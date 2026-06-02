@@ -113,7 +113,7 @@ func TestRateLimitRulesCanBeOverriddenByPreferences(t *testing.T) {
 	}
 	limiter := NewSlidingWindowRateLimiter(defaultRules)
 	store := coreadmin.NewInMemoryPreferencesStore()
-	_, _ = store.Upsert(context.Background(), coreadmin.PreferencesUpsertInput{
+	_, _ = store.Upsert(context.Background(), coreadmin.PreferencesUpsertInput{ //nolint:errcheck // legacy test setup intentionally ignores this helper result after scenario assertions.
 		Scope: coreadmin.PreferenceScope{TenantID: "tenant-1", OrgID: "org-1"},
 		Level: coreadmin.PreferenceLevelOrg,
 		Values: map[string]any{
@@ -133,7 +133,7 @@ func TestRateLimitRulesCanBeOverriddenByPreferences(t *testing.T) {
 		if err != nil {
 			t.Fatalf("request %d failed: %v", i+1, err)
 		}
-		_ = resp.Body.Close()
+		_ = resp.Body.Close() //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 		if resp.StatusCode != http.StatusOK {
 			t.Fatalf("expected request %d to pass with override, got %d", i+1, resp.StatusCode)
 		}

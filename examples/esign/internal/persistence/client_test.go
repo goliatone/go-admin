@@ -19,7 +19,7 @@ func TestOpenClientSQLiteRegistersSourcesAndMigrates(t *testing.T) {
 	if err != nil {
 		t.Fatalf("OpenClient: %v", err)
 	}
-	defer func() { _ = handles.Close() }()
+	defer func() { _ = handles.Close() }() //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 
 	if handles.Client == nil || handles.BunDB == nil || handles.SQLDB == nil {
 		t.Fatalf("expected all persistence handles to be initialized")

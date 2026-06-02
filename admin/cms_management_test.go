@@ -96,8 +96,8 @@ func TestRegisterCMSDemoPanelsRoutesAndLocale(t *testing.T) {
 func TestCMSMenuRepositoryLocaleAndReorder(t *testing.T) {
 	menuSvc := NewInMemoryMenuService()
 	repo := NewCMSMenuRepository(menuSvc, "admin.main")
-	_, _ = repo.Create(context.Background(), map[string]any{"label": "Dashboard", "locale": "en", "position": 2})
-	second, _ := repo.Create(context.Background(), map[string]any{"label": "Contenido", "locale": "es", "position": 1})
+	_, _ = repo.Create(context.Background(), map[string]any{"label": "Dashboard", "locale": "en", "position": 2})       //nolint:errcheck // legacy test setup intentionally ignores this helper result after scenario assertions.
+	second, _ := repo.Create(context.Background(), map[string]any{"label": "Contenido", "locale": "es", "position": 1}) //nolint:errcheck // legacy test setup intentionally ignores this helper result after scenario assertions.
 
 	listEs, total, err := repo.List(context.Background(), ListOptions{Filters: map[string]any{"locale": "es"}})
 	if err != nil {
@@ -107,7 +107,7 @@ func TestCMSMenuRepositoryLocaleAndReorder(t *testing.T) {
 		t.Fatalf("expected locale filter to return spanish item, got %+v", listEs)
 	}
 
-	_, err = repo.Update(context.Background(), second["id"].(string), map[string]any{
+	_, err = repo.Update(context.Background(), mustAs[string](second["id"]), map[string]any{
 		"label":    "Contenido",
 		"locale":   "es",
 		"position": 3,
@@ -115,7 +115,7 @@ func TestCMSMenuRepositoryLocaleAndReorder(t *testing.T) {
 	if err != nil {
 		t.Fatalf("update failed: %v", err)
 	}
-	listAll, _, _ := repo.List(context.Background(), ListOptions{})
+	listAll, _, _ := repo.List(context.Background(), ListOptions{}) //nolint:errcheck // legacy test setup intentionally ignores this helper result after scenario assertions.
 	if len(listAll) != 2 {
 		t.Fatalf("expected two items")
 	}

@@ -185,7 +185,7 @@ func TestTranslationExchangeServiceValidateImportIncludesCreateHintForMissingTar
 	if len(result.Results) != 1 || result.Results[0].Status != translationExchangeRowStatusSuccess {
 		t.Fatalf("expected successful validate result, got %+v", result.Results)
 	}
-	if hint, _ := result.Results[0].Metadata["create_translation_hint"].(bool); !hint {
+	if hint := mustAs[bool](result.Results[0].Metadata["create_translation_hint"]); !hint {
 		t.Fatalf("expected create_translation_hint=true, got %+v", result.Results[0].Metadata)
 	}
 }
@@ -274,7 +274,7 @@ func TestTranslationExchangeServiceApplyImportSupportsExplicitRowResolutions(t *
 	if result.Results[0].Status != translationExchangeRowStatusSuccess {
 		t.Fatalf("expected first row success, got %+v", result.Results[0])
 	}
-	if override, _ := result.Results[0].Metadata["source_hash_override"].(bool); !override {
+	if override := mustAs[bool](result.Results[0].Metadata["source_hash_override"]); !override {
 		t.Fatalf("expected source_hash_override=true, got %+v", result.Results[0].Metadata)
 	}
 	if result.Results[1].Status != translationExchangeRowStatusSuccess {
@@ -444,7 +444,7 @@ func TestTranslationExchangeServiceApplyImportDedupesRepeatedWritesByLinkageAndP
 	if len(store.apply) != 1 {
 		t.Fatalf("expected a single write across replayed applies, got %d", len(store.apply))
 	}
-	if hit, _ := second.Results[0].Metadata["idempotency_hit"].(bool); !hit {
+	if hit := mustAs[bool](second.Results[0].Metadata["idempotency_hit"]); !hit {
 		t.Fatalf("expected idempotency_hit=true on replay, got %+v", second.Results[0].Metadata)
 	}
 	if first.Results[0].Metadata["payload_hash"] == "" || second.Results[0].Metadata["payload_hash"] == "" {

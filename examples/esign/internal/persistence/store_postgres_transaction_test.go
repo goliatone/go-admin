@@ -22,7 +22,7 @@ func newPostgresBootstrapForStoreAdapterTests(t *testing.T) *BootstrapResult {
 	if err != nil {
 		t.Fatalf("Bootstrap postgres: %v", err)
 	}
-	t.Cleanup(func() { _ = result.Close() })
+	t.Cleanup(func() { _ = result.Close() }) //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 	return result
 }
 
@@ -32,7 +32,7 @@ func TestStoreAdapterPostgresWithTxRollsBackOnCallbackError(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewStoreAdapter postgres: %v", err)
 	}
-	t.Cleanup(func() { _ = cleanup() })
+	t.Cleanup(func() { _ = cleanup() }) //nolint:errcheck // legacy test setup intentionally ignores this helper result after scenario assertions.
 
 	ctx := context.Background()
 	scope := stores.Scope{TenantID: "tenant-postgres-rollback", OrgID: "org-postgres-rollback"}
@@ -70,7 +70,7 @@ func TestStoreAdapterPostgresTxReadVisibilityAndRollbackForRelationalReads(t *te
 	if err != nil {
 		t.Fatalf("NewStoreAdapter postgres: %v", err)
 	}
-	t.Cleanup(func() { _ = cleanup() })
+	t.Cleanup(func() { _ = cleanup() }) //nolint:errcheck // legacy test setup intentionally ignores this helper result after scenario assertions.
 
 	ctx := context.Background()
 	scope := stores.Scope{TenantID: "tenant-postgres-read", OrgID: "org-postgres-read"}
@@ -124,7 +124,7 @@ func TestStoreAdapterPostgresPreservesCommittedStateUnderConcurrentWithTx(t *tes
 	if err != nil {
 		t.Fatalf("NewStoreAdapter postgres: %v", err)
 	}
-	t.Cleanup(func() { _ = cleanup() })
+	t.Cleanup(func() { _ = cleanup() }) //nolint:errcheck // legacy test setup intentionally ignores this helper result after scenario assertions.
 
 	scope := stores.Scope{TenantID: "tenant-postgres-runtime", OrgID: "org-postgres-runtime"}
 	ctx := context.Background()
@@ -196,7 +196,7 @@ func TestStoreAdapterPostgresWithTxRollsBackOnPanic(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewStoreAdapter postgres: %v", err)
 	}
-	t.Cleanup(func() { _ = cleanup() })
+	t.Cleanup(func() { _ = cleanup() }) //nolint:errcheck // legacy test setup intentionally ignores this helper result after scenario assertions.
 
 	scope := stores.Scope{TenantID: "tenant-postgres-panic", OrgID: "org-postgres-panic"}
 	defer func() {
@@ -212,7 +212,7 @@ func TestStoreAdapterPostgresWithTxRollsBackOnPanic(t *testing.T) {
 		}
 	}()
 
-	_ = store.WithTx(context.Background(), func(tx stores.TxStore) error {
+	_ = store.WithTx(context.Background(), func(tx stores.TxStore) error { //nolint:errcheck // legacy test setup intentionally ignores this helper result after scenario assertions.
 		if _, err := tx.Create(context.Background(), scope, stores.DocumentRecord{
 			ID:                 "doc-postgres-panic",
 			CreatedByUserID:    "user-postgres-panic",

@@ -26,7 +26,7 @@ func TestPhase11ReminderStateUpsertAfterRestartUsesLogicalKey(t *testing.T) {
 	}
 	firstStore, firstCleanup, err := NewStoreAdapter(first)
 	if err != nil {
-		_ = first.Close()
+		_ = first.Close() //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 		t.Fatalf("NewStoreAdapter first: %v", err)
 	}
 	now := time.Now().UTC().Truncate(time.Second)
@@ -42,11 +42,11 @@ func TestPhase11ReminderStateUpsertAfterRestartUsesLogicalKey(t *testing.T) {
 		UpdatedAt:     now,
 	})
 	if err != nil {
-		_ = firstCleanup()
-		_ = first.Close()
+		_ = firstCleanup() //nolint:errcheck // legacy test setup intentionally ignores this helper result after scenario assertions.
+		_ = first.Close()  //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 		t.Fatalf("initial UpsertAgreementReminderState: %v", err)
 	}
-	_ = firstCleanup()
+	_ = firstCleanup() //nolint:errcheck // legacy test setup intentionally ignores this helper result after scenario assertions.
 	if closeErr := first.Close(); closeErr != nil {
 		t.Fatalf("close first bootstrap: %v", closeErr)
 	}
@@ -55,12 +55,12 @@ func TestPhase11ReminderStateUpsertAfterRestartUsesLogicalKey(t *testing.T) {
 	if err != nil {
 		t.Fatalf("second Bootstrap: %v", err)
 	}
-	defer func() { _ = second.Close() }()
+	defer func() { _ = second.Close() }() //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 	secondStore, secondCleanup, err := NewStoreAdapter(second)
 	if err != nil {
 		t.Fatalf("NewStoreAdapter second: %v", err)
 	}
-	defer func() { _ = secondCleanup() }()
+	defer func() { _ = secondCleanup() }() //nolint:errcheck // legacy test setup intentionally ignores this helper result after scenario assertions.
 
 	found, err := secondStore.GetAgreementReminderState(context.Background(), scope, "agreement-phase11", "recipient-phase11")
 	if err != nil {

@@ -21,7 +21,7 @@ func TestNormalizeContentTypeCapabilitiesMigratesLegacyDeliveryMenu(t *testing.T
 		t.Fatalf("expected no validation errors, got %+v", validation)
 	}
 
-	navigation, _ := normalized["navigation"].(map[string]any)
+	navigation := mustAs[map[string]any](normalized["navigation"])
 	if navigation == nil {
 		t.Fatalf("expected navigation contract to be synthesized from delivery.menu")
 	}
@@ -68,7 +68,7 @@ func TestNormalizeContentTypeCapabilitiesUsesCMSCanonicalSearchIndex(t *testing.
 	if len(validation) > 0 {
 		t.Fatalf("expected no validation errors, got %+v", validation)
 	}
-	search, _ := normalized["search"].(map[string]any)
+	search := mustAs[map[string]any](normalized["search"])
 	if search == nil {
 		t.Fatalf("expected search capability")
 	}
@@ -113,7 +113,7 @@ func TestBackfillContentTypeNavigationDefaults(t *testing.T) {
 	if contracts.MigratedDeliveryMenu {
 		t.Fatalf("expected stored canonical payload to not require legacy migration marker")
 	}
-	if delivery, _ := contracts.Delivery["menu"].(map[string]any); len(delivery) > 0 {
+	if delivery := mustAs[map[string]any](contracts.Delivery["menu"]); len(delivery) > 0 {
 		t.Fatalf("expected delivery.menu removed from canonical contract, got %+v", delivery)
 	}
 	if got := toStringSlice(contracts.Navigation["default_locations"]); len(got) != 1 || got[0] != "site.footer" {
@@ -156,8 +156,8 @@ func TestContentTypeCapabilityContractsStableAcrossLocaleContexts(t *testing.T) 
 		t.Fatalf("get(es) failed: %v", err)
 	}
 
-	enContracts, _ := enRecord["capability_contracts"].(map[string]any)
-	esContracts, _ := esRecord["capability_contracts"].(map[string]any)
+	enContracts := mustAs[map[string]any](enRecord["capability_contracts"])
+	esContracts := mustAs[map[string]any](esRecord["capability_contracts"])
 	if !reflect.DeepEqual(enContracts, esContracts) {
 		t.Fatalf("expected locale-stable capability contracts, en=%+v es=%+v", enContracts, esContracts)
 	}

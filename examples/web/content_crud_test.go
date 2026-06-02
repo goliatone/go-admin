@@ -145,7 +145,7 @@ func TestContentCRUD_CreateForbidden(t *testing.T) {
 		"size":        2048,
 		"uploaded_by": "crud-test",
 	}
-	body, _ := json.Marshal(payload)
+	body, _ := json.Marshal(payload) //nolint:errchkjson // test request fixture is map-backed and validated through the handler response.
 	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/crud/media", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-Role", string(authlib.RoleMember))

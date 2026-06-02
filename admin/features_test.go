@@ -54,12 +54,12 @@ func TestSearchRouteRespectsFeatureGates(t *testing.T) {
 	}
 
 	var body map[string]any
-	_ = json.Unmarshal(rr.Body.Bytes(), &body)
+	_ = json.Unmarshal(rr.Body.Bytes(), &body) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 	errPayload, ok := body["error"].(map[string]any)
 	if !ok {
 		t.Fatalf("expected structured error payload, got %v", body)
 	}
-	if code := int(errPayload["code"].(float64)); code != 404 {
+	if code := int(mustAs[float64](errPayload["code"])); code != 404 {
 		t.Fatalf("expected error code 404, got %d", code)
 	}
 	msg := strings.ToLower(toString(errPayload["message"]))

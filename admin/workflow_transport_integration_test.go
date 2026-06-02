@@ -87,17 +87,17 @@ func TestWorkflowTransportApplyEventPersistsStateProjectsActivityAndReturnsEnvel
 	if payload["status"] != "ok" {
 		t.Fatalf("expected status=ok, got %+v", payload)
 	}
-	data, _ := payload["data"].(map[string]any)
+	data := mustAs[map[string]any](payload["data"])
 	if data == nil {
 		t.Fatalf("expected response data envelope, got %+v", payload)
 	}
-	workflowEnvelope, _ := data["workflow"].(map[string]any)
+	workflowEnvelope := mustAs[map[string]any](data["workflow"])
 	if workflowEnvelope == nil {
 		t.Fatalf("expected workflow envelope in response data, got %+v", data)
 	}
-	transition, _ := workflowEnvelope["transition"].(map[string]any)
+	transition := mustAs[map[string]any](workflowEnvelope["transition"])
 	if transition == nil {
-		transition, _ = workflowEnvelope["Transition"].(map[string]any)
+		transition = mustAs[map[string]any](workflowEnvelope["Transition"])
 	}
 	currentState := strings.TrimSpace(toString(transition["current_state"]))
 	if currentState == "" {
@@ -204,7 +204,7 @@ func TestWorkflowTransportDetailIncludesSnapshotDiagnostics(t *testing.T) {
 	if err := json.Unmarshal(rr.Body.Bytes(), &payload); err != nil {
 		t.Fatalf("decode detail payload: %v", err)
 	}
-	workflowEnvelope, _ := payload["workflow"].(map[string]any)
+	workflowEnvelope := mustAs[map[string]any](payload["workflow"])
 	if workflowEnvelope == nil {
 		t.Fatalf("expected workflow envelope, got %+v", payload)
 	}
@@ -289,14 +289,14 @@ func TestWorkflowTransportApplyEventMapsCanonicalErrorDetails(t *testing.T) {
 	if decodeErr := json.Unmarshal(rr.Body.Bytes(), &payload); decodeErr != nil {
 		t.Fatalf("decode error payload: %v", decodeErr)
 	}
-	errPayload, _ := payload["error"].(map[string]any)
+	errPayload := mustAs[map[string]any](payload["error"])
 	if errPayload == nil {
 		t.Fatalf("expected error envelope, got %+v", payload)
 	}
 	if textCode := strings.TrimSpace(toString(errPayload["text_code"])); textCode != TextCodeWorkflowInvalidTransition {
 		t.Fatalf("expected text_code=%s, got %+v", TextCodeWorkflowInvalidTransition, errPayload["text_code"])
 	}
-	metadata, _ := errPayload["metadata"].(map[string]any)
+	metadata := mustAs[map[string]any](errPayload["metadata"])
 	if len(metadata) == 0 {
 		t.Fatalf("expected canonical runtime metadata, got %+v", errPayload)
 	}

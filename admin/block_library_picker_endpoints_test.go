@@ -50,7 +50,7 @@ func setupBlockDefinitionTemplateServer(t *testing.T, opts templateServerOptions
 func TestBlockDefinitionTemplateEndpoint_SingleActiveSlug(t *testing.T) {
 	server, content := setupBlockDefinitionTemplateServer(t, templateServerOptions{})
 	seedBlockDefinitions(t, content)
-	_, _ = content.CreateBlockDefinition(context.Background(), CMSBlockDefinition{
+	_, _ = content.CreateBlockDefinition(context.Background(), CMSBlockDefinition{ //nolint:errcheck // legacy test setup intentionally ignores this helper result after scenario assertions.
 		ID:     "case-1",
 		Name:   "Case Active",
 		Slug:   "case_active",

@@ -394,7 +394,7 @@ func TestStoreAgreementQueuedResponsePreservesSingularFieldsForSingleEffectDispa
 }
 
 func TestRegisterDispatchesTypedAgreementAndTokenCommands(t *testing.T) {
-	t.Cleanup(func() { _ = registry.Stop(context.Background()) })
+	t.Cleanup(func() { _ = registry.Stop(context.Background()) }) //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 	observability.ResetDefaultMetrics()
 	t.Cleanup(observability.ResetDefaultMetrics)
 
@@ -450,7 +450,7 @@ func TestRegisterDispatchesTypedAgreementAndTokenCommands(t *testing.T) {
 }
 
 func TestAgreementRevisionCommandsStoreRedirectActionResponse(t *testing.T) {
-	t.Cleanup(func() { _ = registry.Stop(context.Background()) })
+	t.Cleanup(func() { _ = registry.Stop(context.Background()) }) //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 	agreementSvc := &stubAgreementLifecycleService{}
 	bus := coreadmin.NewCommandBus(true)
 	t.Cleanup(bus.Reset)
@@ -504,7 +504,7 @@ func TestAgreementRevisionCommandsStoreRedirectActionResponse(t *testing.T) {
 }
 
 func TestAgreementSendCommandReturnsValidationErrorWhenAlreadySent(t *testing.T) {
-	t.Cleanup(func() { _ = registry.Stop(context.Background()) })
+	t.Cleanup(func() { _ = registry.Stop(context.Background()) }) //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 	observability.ResetDefaultMetrics()
 	t.Cleanup(observability.ResetDefaultMetrics)
 
@@ -547,7 +547,7 @@ func TestAgreementSendCommandReturnsValidationErrorWhenAlreadySent(t *testing.T)
 }
 
 func TestCommandsPropagateRequestIPFromContext(t *testing.T) {
-	t.Cleanup(func() { _ = registry.Stop(context.Background()) })
+	t.Cleanup(func() { _ = registry.Stop(context.Background()) }) //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 	agreementSvc := &stubAgreementLifecycleService{}
 	tokenSvc := &stubTokenRotator{}
 	bus := coreadmin.NewCommandBus(true)
@@ -605,7 +605,7 @@ func TestCommandsPropagateRequestIPFromContext(t *testing.T) {
 }
 
 func TestRegisterDispatchesReminderCommands(t *testing.T) {
-	t.Cleanup(func() { _ = registry.Stop(context.Background()) })
+	t.Cleanup(func() { _ = registry.Stop(context.Background()) }) //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 	observability.ResetDefaultMetrics()
 	t.Cleanup(observability.ResetDefaultMetrics)
 
@@ -698,7 +698,7 @@ func TestAgreementReminderSweepCommandCronOptionsFromConfig(t *testing.T) {
 }
 
 func TestRegisterDispatchesPDFRemediationCommandWhenServiceConfigured(t *testing.T) {
-	t.Cleanup(func() { _ = registry.Stop(context.Background()) })
+	t.Cleanup(func() { _ = registry.Stop(context.Background()) }) //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 	observability.ResetDefaultMetrics()
 	t.Cleanup(observability.ResetDefaultMetrics)
 
@@ -780,7 +780,7 @@ func TestRegisterDispatchesPDFRemediationCommandWhenServiceConfigured(t *testing
 }
 
 func TestRegisterDoesNotExposePDFRemediationCommandWithoutService(t *testing.T) {
-	t.Cleanup(func() { _ = registry.Stop(context.Background()) })
+	t.Cleanup(func() { _ = registry.Stop(context.Background()) }) //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 	agreementSvc := &stubAgreementLifecycleService{}
 	tokenSvc := &stubTokenRotator{}
 	bus := coreadmin.NewCommandBus(true)

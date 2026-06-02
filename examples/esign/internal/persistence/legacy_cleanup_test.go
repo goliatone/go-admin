@@ -26,20 +26,20 @@ func TestPhase11LegacyCleanupMigrationDropsLegacySnapshotTables(t *testing.T) {
 	}
 	exists, tableErr := sqliteTableExists(context.Background(), first.SQLDB, removedSnapshotStateTable)
 	if tableErr != nil {
-		_ = first.Close()
+		_ = first.Close() //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 		t.Fatalf("sqliteTableExists(%s): %v", removedSnapshotStateTable, tableErr)
 	}
 	if exists {
-		_ = first.Close()
+		_ = first.Close() //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 		t.Fatalf("expected %s dropped by migration", removedSnapshotStateTable)
 	}
 	exists, tableErr = sqliteTableExists(context.Background(), first.SQLDB, removedSnapshotMigrationMarkerTable)
 	if tableErr != nil {
-		_ = first.Close()
+		_ = first.Close() //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 		t.Fatalf("sqliteTableExists(%s): %v", removedSnapshotMigrationMarkerTable, tableErr)
 	}
 	if exists {
-		_ = first.Close()
+		_ = first.Close() //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 		t.Fatalf("expected %s dropped by migration", removedSnapshotMigrationMarkerTable)
 	}
 	closeErr := first.Close()
@@ -51,7 +51,7 @@ func TestPhase11LegacyCleanupMigrationDropsLegacySnapshotTables(t *testing.T) {
 	if err != nil {
 		t.Fatalf("second Bootstrap: %v", err)
 	}
-	defer func() { _ = second.Close() }()
+	defer func() { _ = second.Close() }() //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 	if exists, err := sqliteTableExists(context.Background(), second.SQLDB, removedSnapshotStateTable); err != nil {
 		t.Fatalf("sqliteTableExists(%s): %v", removedSnapshotStateTable, err)
 	} else if exists {
@@ -70,7 +70,7 @@ func seedLegacySnapshotTablesForCleanupTest(t *testing.T, dsn string) {
 	if err != nil {
 		t.Fatalf("sql.Open: %v", err)
 	}
-	defer func() { _ = db.Close() }()
+	defer func() { _ = db.Close() }() //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 
 	if _, err := db.ExecContext(context.Background(), `
 CREATE TABLE IF NOT EXISTS esign_store_state (

@@ -117,7 +117,7 @@ func TestRegisterAdminRouteMiddlewareInjectsClaimsForGoAuthAuthorizer(t *testing
 	}
 	defer closeHTTPResponseBody(t, noClaimsResp)
 	if noClaimsResp.StatusCode != http.StatusForbidden {
-		body, _ := io.ReadAll(noClaimsResp.Body)
+		body, _ := io.ReadAll(noClaimsResp.Body) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 		t.Fatalf("expected connect 403 without auth middleware claims, got %d body=%s", noClaimsResp.StatusCode, string(body))
 	}
 
@@ -136,7 +136,7 @@ func TestRegisterAdminRouteMiddlewareInjectsClaimsForGoAuthAuthorizer(t *testing
 	}
 	defer closeHTTPResponseBody(t, connectResp)
 	if connectResp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(connectResp.Body)
+		body, _ := io.ReadAll(connectResp.Body) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 		t.Fatalf("expected connect 200 with admin route middleware claims, got %d body=%s", connectResp.StatusCode, string(body))
 	}
 }
@@ -157,7 +157,7 @@ func TestRegisterAdminRouteMiddlewareDoesNotProtectSignerRoutes(t *testing.T) {
 	}
 	defer closeHTTPResponseBody(t, resp)
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
+		body, _ := io.ReadAll(resp.Body) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 		t.Fatalf("expected signer session to remain public (200), got %d body=%s", resp.StatusCode, string(body))
 	}
 }
@@ -189,10 +189,10 @@ func TestRegisterGoogleOAuthConnectAndStatusEndpoints(t *testing.T) {
 	}
 	defer closeHTTPResponseBody(t, connectResp)
 	if connectResp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(connectResp.Body)
+		body, _ := io.ReadAll(connectResp.Body) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 		t.Fatalf("expected connect 200, got %d body=%s", connectResp.StatusCode, string(body))
 	}
-	connectBody, _ := io.ReadAll(connectResp.Body)
+	connectBody, _ := io.ReadAll(connectResp.Body) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 	if !strings.Contains(string(connectBody), `"status":"connected"`) {
 		t.Fatalf("expected connected response, got %s", string(connectBody))
 	}
@@ -204,10 +204,10 @@ func TestRegisterGoogleOAuthConnectAndStatusEndpoints(t *testing.T) {
 	}
 	defer closeHTTPResponseBody(t, rotateResp)
 	if rotateResp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(rotateResp.Body)
+		body, _ := io.ReadAll(rotateResp.Body) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 		t.Fatalf("expected rotate 200, got %d body=%s", rotateResp.StatusCode, string(body))
 	}
-	rotateBody, _ := io.ReadAll(rotateResp.Body)
+	rotateBody, _ := io.ReadAll(rotateResp.Body) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 	if !strings.Contains(string(rotateBody), `"status":"rotated"`) {
 		t.Fatalf("expected rotated response status, got %s", string(rotateBody))
 	}
@@ -219,10 +219,10 @@ func TestRegisterGoogleOAuthConnectAndStatusEndpoints(t *testing.T) {
 	}
 	defer closeHTTPResponseBody(t, statusResp)
 	if statusResp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(statusResp.Body)
+		body, _ := io.ReadAll(statusResp.Body) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 		t.Fatalf("expected status 200, got %d body=%s", statusResp.StatusCode, string(body))
 	}
-	statusBody, _ := io.ReadAll(statusResp.Body)
+	statusBody, _ := io.ReadAll(statusResp.Body) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 	if !strings.Contains(string(statusBody), `"least_privilege":true`) {
 		t.Fatalf("expected least-privilege marker in status response, got %s", string(statusBody))
 	}
@@ -246,10 +246,10 @@ func TestRegisterGoogleOAuthStatusUnexpectedErrorReturnsInternalServerError(t *t
 	}
 	defer closeHTTPResponseBody(t, resp)
 	if resp.StatusCode != http.StatusInternalServerError {
-		body, _ := io.ReadAll(resp.Body)
+		body, _ := io.ReadAll(resp.Body) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 		t.Fatalf("expected status 500, got %d body=%s", resp.StatusCode, string(body))
 	}
-	body, _ := io.ReadAll(resp.Body)
+	body, _ := io.ReadAll(resp.Body) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 	if !strings.Contains(string(body), "GOOGLE_STATUS_UNAVAILABLE") {
 		t.Fatalf("expected GOOGLE_STATUS_UNAVAILABLE code, got %s", string(body))
 	}
@@ -288,7 +288,7 @@ func TestRegisterGoogleImportRunDetailUsesSourceReadModelService(t *testing.T) {
 	}
 	defer closeHTTPResponseBody(t, resp)
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
+		body, _ := io.ReadAll(resp.Body) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 		t.Fatalf("expected import run detail 200, got %d body=%s", resp.StatusCode, string(body))
 	}
 	payload := decodeBodyMap(t, resp.Body)
@@ -501,7 +501,7 @@ func TestRegisterGoogleDriveSearchBrowseAndImportEndpoints(t *testing.T) {
 	if err != nil {
 		t.Fatalf("connect request failed: %v", err)
 	}
-	_ = connectResp.Body.Close()
+	_ = connectResp.Body.Close() //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 	if connectResp.StatusCode != http.StatusOK {
 		t.Fatalf("expected connect status 200, got %d", connectResp.StatusCode)
 	}
@@ -513,10 +513,10 @@ func TestRegisterGoogleDriveSearchBrowseAndImportEndpoints(t *testing.T) {
 	}
 	defer closeHTTPResponseBody(t, searchResp)
 	if searchResp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(searchResp.Body)
+		body, _ := io.ReadAll(searchResp.Body) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 		t.Fatalf("expected search 200, got %d body=%s", searchResp.StatusCode, string(body))
 	}
-	searchBody, _ := io.ReadAll(searchResp.Body)
+	searchBody, _ := io.ReadAll(searchResp.Body) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 	if !strings.Contains(string(searchBody), `"files"`) {
 		t.Fatalf("expected files in search response, got %s", string(searchBody))
 	}
@@ -537,7 +537,7 @@ func TestRegisterGoogleDriveSearchBrowseAndImportEndpoints(t *testing.T) {
 	}
 	defer closeHTTPResponseBody(t, browseResp)
 	if browseResp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(browseResp.Body)
+		body, _ := io.ReadAll(browseResp.Body) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 		t.Fatalf("expected browse 200, got %d body=%s", browseResp.StatusCode, string(body))
 	}
 
@@ -549,10 +549,10 @@ func TestRegisterGoogleDriveSearchBrowseAndImportEndpoints(t *testing.T) {
 	}
 	defer closeHTTPResponseBody(t, importResp)
 	if importResp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(importResp.Body)
+		body, _ := io.ReadAll(importResp.Body) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 		t.Fatalf("expected import 200, got %d body=%s", importResp.StatusCode, string(body))
 	}
-	importBody, _ := io.ReadAll(importResp.Body)
+	importBody, _ := io.ReadAll(importResp.Body) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 	if !strings.Contains(string(importBody), `"source_google_file_id":"google-file-1"`) {
 		t.Fatalf("expected google source metadata keys in import response, got %s", string(importBody))
 	}
@@ -587,7 +587,7 @@ func TestRegisterGoogleDriveImportEndpointReplaysSameIdempotentImport(t *testing
 	if err != nil {
 		t.Fatalf("connect request failed: %v", err)
 	}
-	_ = connectResp.Body.Close()
+	_ = connectResp.Body.Close() //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 	if connectResp.StatusCode != http.StatusOK {
 		t.Fatalf("expected connect status 200, got %d", connectResp.StatusCode)
 	}
@@ -601,7 +601,7 @@ func TestRegisterGoogleDriveImportEndpointReplaysSameIdempotentImport(t *testing
 	}
 	defer closeHTTPResponseBody(t, firstResp)
 	if firstResp.StatusCode != http.StatusOK {
-		payload, _ := io.ReadAll(firstResp.Body)
+		payload, _ := io.ReadAll(firstResp.Body) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 		t.Fatalf("expected first import 200, got %d body=%s", firstResp.StatusCode, string(payload))
 	}
 	firstPayload, err := io.ReadAll(firstResp.Body)
@@ -617,7 +617,7 @@ func TestRegisterGoogleDriveImportEndpointReplaysSameIdempotentImport(t *testing
 	}
 	defer closeHTTPResponseBody(t, secondResp)
 	if secondResp.StatusCode != http.StatusOK {
-		payload, _ := io.ReadAll(secondResp.Body)
+		payload, _ := io.ReadAll(secondResp.Body) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 		t.Fatalf("expected second import 200, got %d body=%s", secondResp.StatusCode, string(payload))
 	}
 	secondPayload, err := io.ReadAll(secondResp.Body)
@@ -671,7 +671,7 @@ func TestRegisterGoogleDriveSharedDriveBrowseAndImport(t *testing.T) {
 	if err != nil {
 		t.Fatalf("connect request failed: %v", err)
 	}
-	_ = connectResp.Body.Close()
+	_ = connectResp.Body.Close() //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 	if connectResp.StatusCode != http.StatusOK {
 		t.Fatalf("expected connect status 200, got %d", connectResp.StatusCode)
 	}
@@ -683,10 +683,10 @@ func TestRegisterGoogleDriveSharedDriveBrowseAndImport(t *testing.T) {
 	}
 	defer closeHTTPResponseBody(t, browseResp)
 	if browseResp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(browseResp.Body)
+		body, _ := io.ReadAll(browseResp.Body) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 		t.Fatalf("expected browse 200, got %d body=%s", browseResp.StatusCode, string(body))
 	}
-	browseBody, _ := io.ReadAll(browseResp.Body)
+	browseBody, _ := io.ReadAll(browseResp.Body) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 	if !strings.Contains(string(browseBody), `"shared-file-1"`) {
 		t.Fatalf("expected shared drive file in browse response, got %s", string(browseBody))
 	}
@@ -699,10 +699,10 @@ func TestRegisterGoogleDriveSharedDriveBrowseAndImport(t *testing.T) {
 	}
 	defer closeHTTPResponseBody(t, importResp)
 	if importResp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(importResp.Body)
+		body, _ := io.ReadAll(importResp.Body) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 		t.Fatalf("expected import 200, got %d body=%s", importResp.StatusCode, string(body))
 	}
-	importBody, _ := io.ReadAll(importResp.Body)
+	importBody, _ := io.ReadAll(importResp.Body) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 	if !strings.Contains(string(importBody), `"source_google_file_id":"shared-file-1"`) {
 		t.Fatalf("expected shared drive source metadata in import response, got %s", string(importBody))
 	}
@@ -735,7 +735,7 @@ func TestRegisterGoogleDriveImportPermissionDeniedReturnsTypedError(t *testing.T
 	if err != nil {
 		t.Fatalf("connect request failed: %v", err)
 	}
-	_ = connectResp.Body.Close()
+	_ = connectResp.Body.Close() //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 	if connectResp.StatusCode != http.StatusOK {
 		t.Fatalf("expected connect status 200, got %d", connectResp.StatusCode)
 	}
@@ -748,10 +748,10 @@ func TestRegisterGoogleDriveImportPermissionDeniedReturnsTypedError(t *testing.T
 	}
 	defer closeHTTPResponseBody(t, importResp)
 	if importResp.StatusCode != http.StatusForbidden {
-		body, _ := io.ReadAll(importResp.Body)
+		body, _ := io.ReadAll(importResp.Body) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 		t.Fatalf("expected import 403 for permission denied, got %d body=%s", importResp.StatusCode, string(body))
 	}
-	importBody, _ := io.ReadAll(importResp.Body)
+	importBody, _ := io.ReadAll(importResp.Body) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 	if !strings.Contains(string(importBody), string(services.ErrorCodeGooglePermissionDenied)) {
 		t.Fatalf("expected GOOGLE_PERMISSION_DENIED typed error response, got %s", string(importBody))
 	}
@@ -786,7 +786,7 @@ func TestRegisterGoogleImportCreateAtomicallyPersistsRunAndDurableJob(t *testing
 	}
 	defer closeHTTPResponseBody(t, resp)
 	if resp.StatusCode != http.StatusAccepted {
-		body, _ := io.ReadAll(resp.Body)
+		body, _ := io.ReadAll(resp.Body) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 		t.Fatalf("expected create 202, got %d body=%s", resp.StatusCode, string(body))
 	}
 
@@ -846,7 +846,7 @@ func TestRegisterGoogleImportCreateRollsBackRunWhenDurableEnqueueFails(t *testin
 	}
 	defer closeHTTPResponseBody(t, resp)
 	if resp.StatusCode != http.StatusServiceUnavailable {
-		body, _ := io.ReadAll(resp.Body)
+		body, _ := io.ReadAll(resp.Body) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 		t.Fatalf("expected create 503 on enqueue failure, got %d body=%s", resp.StatusCode, string(body))
 	}
 	runs, _, err := store.ListGoogleImportRuns(context.Background(), scope, stores.GoogleImportRunQuery{UserID: "ops-user", Limit: 10})

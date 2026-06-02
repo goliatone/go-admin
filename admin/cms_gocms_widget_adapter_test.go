@@ -397,7 +397,7 @@ func TestGoCMSWidgetAdapterSyncDefinitionIsIdempotentAndUpdatesChanges(t *testin
 	}
 
 	stored := svc.defs["admin.widget.syncable"]
-	properties, _ := stored.Schema["properties"].(map[string]any)
+	properties := mustAs[map[string]any](stored.Schema["properties"])
 	if _, ok := properties["variant"]; !ok {
 		t.Fatalf("expected updated schema propagated to go-cms service, got %#v", stored.Schema)
 	}

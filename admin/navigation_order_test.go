@@ -8,29 +8,29 @@ import (
 func TestNavigationDeterministicOrdering(t *testing.T) {
 	menuSvc := NewInMemoryMenuService()
 	ctx := context.Background()
-	_, _ = menuSvc.CreateMenu(ctx, "admin.main")
+	_, _ = menuSvc.CreateMenu(ctx, "admin.main") //nolint:errcheck // legacy test setup intentionally ignores this helper result after scenario assertions.
 
 	// Mixed explicit and auto positions on the root.
-	_ = menuSvc.AddMenuItem(ctx, "admin.main", MenuItem{Label: "AutoOne"})
-	_ = menuSvc.AddMenuItem(ctx, "admin.main", MenuItem{Label: "ExplicitOne", Position: new(1)})
-	_ = menuSvc.AddMenuItem(ctx, "admin.main", MenuItem{Label: "AutoTwo"})
+	_ = menuSvc.AddMenuItem(ctx, "admin.main", MenuItem{Label: "AutoOne"})                       //nolint:errcheck // legacy test setup intentionally ignores this helper result after scenario assertions.
+	_ = menuSvc.AddMenuItem(ctx, "admin.main", MenuItem{Label: "ExplicitOne", Position: new(1)}) //nolint:errcheck // legacy test setup intentionally ignores this helper result after scenario assertions.
+	_ = menuSvc.AddMenuItem(ctx, "admin.main", MenuItem{Label: "AutoTwo"})                       //nolint:errcheck // legacy test setup intentionally ignores this helper result after scenario assertions.
 
 	// Children under a collapsible parent.
-	_ = menuSvc.AddMenuItem(ctx, "admin.main", MenuItem{
+	_ = menuSvc.AddMenuItem(ctx, "admin.main", MenuItem{ //nolint:errcheck // legacy test setup intentionally ignores this helper result after scenario assertions.
 		ID:          "parent",
 		Label:       "Parent",
 		Collapsible: true,
 	})
-	_ = menuSvc.AddMenuItem(ctx, "admin.main", MenuItem{
+	_ = menuSvc.AddMenuItem(ctx, "admin.main", MenuItem{ //nolint:errcheck // legacy test setup intentionally ignores this helper result after scenario assertions.
 		Label:    "ChildAuto",
 		ParentID: "parent",
 	})
-	_ = menuSvc.AddMenuItem(ctx, "admin.main", MenuItem{
+	_ = menuSvc.AddMenuItem(ctx, "admin.main", MenuItem{ //nolint:errcheck // legacy test setup intentionally ignores this helper result after scenario assertions.
 		Label:    "ChildExplicit",
 		Position: new(2),
 		ParentID: "parent",
 	})
-	_ = menuSvc.AddMenuItem(ctx, "admin.main", MenuItem{
+	_ = menuSvc.AddMenuItem(ctx, "admin.main", MenuItem{ //nolint:errcheck // legacy test setup intentionally ignores this helper result after scenario assertions.
 		Label:    "ChildAutoTwo",
 		ParentID: "parent",
 	})

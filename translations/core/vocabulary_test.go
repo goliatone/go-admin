@@ -7,7 +7,7 @@ func TestVocabularyPayloadIncludesCanonicalContracts(t *testing.T) {
 	if got := payload["schema_version"]; got != SchemaVersion {
 		t.Fatalf("expected schema version %d, got %v", SchemaVersion, got)
 	}
-	statuses, _ := payload["statuses"].(map[string]any)
+	statuses := mustAs[map[string]any](payload["statuses"])
 	if len(statuses) == 0 {
 		t.Fatalf("expected statuses in payload")
 	}

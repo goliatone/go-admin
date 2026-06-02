@@ -55,7 +55,7 @@ func TestPanelRepositoryListPaginationContracts(t *testing.T) {
 
 	t.Run("bun adapter", func(t *testing.T) {
 		db := setupTestBunDB(t)
-		t.Cleanup(func() { _ = db.Close() })
+		t.Cleanup(func() { _ = db.Close() }) //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 
 		repo := newTestProductRepo(db)
 		adapter := NewBunRepositoryAdapter[*bunTestProduct](repo, WithBunSearchColumns[*bunTestProduct]("name"))
@@ -81,11 +81,11 @@ func TestPanelRepositoryListPaginationContracts(t *testing.T) {
 		content := NewInMemoryContentService()
 		repo := NewCMSPageRepository(content)
 
-		_, _ = content.CreatePage(context.Background(), CMSPage{Title: "Alpha", Slug: "/alpha", Locale: "en"})
-		_, _ = content.CreatePage(context.Background(), CMSPage{Title: "Bravo", Slug: "/bravo", Locale: "en"})
-		_, _ = content.CreatePage(context.Background(), CMSPage{Title: "Charlie", Slug: "/charlie", Locale: "en"})
-		_, _ = content.CreatePage(context.Background(), CMSPage{Title: "Delta", Slug: "/delta", Locale: "en"})
-		_, _ = content.CreatePage(context.Background(), CMSPage{Title: "Inicio", Slug: "/inicio", Locale: "es"})
+		_, _ = content.CreatePage(context.Background(), CMSPage{Title: "Alpha", Slug: "/alpha", Locale: "en"})     //nolint:errcheck // legacy test setup intentionally ignores this helper result after scenario assertions.
+		_, _ = content.CreatePage(context.Background(), CMSPage{Title: "Bravo", Slug: "/bravo", Locale: "en"})     //nolint:errcheck // legacy test setup intentionally ignores this helper result after scenario assertions.
+		_, _ = content.CreatePage(context.Background(), CMSPage{Title: "Charlie", Slug: "/charlie", Locale: "en"}) //nolint:errcheck // legacy test setup intentionally ignores this helper result after scenario assertions.
+		_, _ = content.CreatePage(context.Background(), CMSPage{Title: "Delta", Slug: "/delta", Locale: "en"})     //nolint:errcheck // legacy test setup intentionally ignores this helper result after scenario assertions.
+		_, _ = content.CreatePage(context.Background(), CMSPage{Title: "Inicio", Slug: "/inicio", Locale: "es"})   //nolint:errcheck // legacy test setup intentionally ignores this helper result after scenario assertions.
 
 		admincontract.AssertPaginationContract(t, listContractFromRepository(repo), admincontract.PaginationContractConfig{
 			TotalExpected: 4,

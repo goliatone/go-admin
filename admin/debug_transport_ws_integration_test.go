@@ -42,7 +42,7 @@ func TestDebugWebSocketUnauthenticatedUpgradeFailsWithoutRedirectHeaders(t *test
 	})), &AuthConfig{LoginPath: "/login", RedirectPath: "/admin"})
 	adm.WithAuthorizer(allowAuthorizer{})
 
-	server := router.NewFiberAdapter().(*router.FiberAdapter)
+	server := router.NewFiberAdapter().(*router.FiberAdapter) //nolint:errcheck // legacy test setup intentionally ignores this helper result after scenario assertions.
 	if initErr := adm.Initialize(server.Router()); initErr != nil {
 		t.Fatalf("initialize: %v", initErr)
 	}
@@ -59,13 +59,13 @@ func TestDebugWebSocketUnauthenticatedUpgradeFailsWithoutRedirectHeaders(t *test
 
 	conn, resp, err := websocket.DefaultDialer.Dial(wsURL, headers)
 	if err == nil {
-		_ = conn.Close()
+		_ = conn.Close() //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 		t.Fatal("expected unauthenticated websocket dial to fail")
 	}
 	if resp == nil {
 		t.Fatalf("expected handshake response, got nil error=%v", err)
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 	if resp.StatusCode == http.StatusSwitchingProtocols {
 		t.Fatalf("expected unauthenticated websocket dial to avoid 101, got %d", resp.StatusCode)
 	}
@@ -104,7 +104,7 @@ func TestDebugWebSocketAuthenticatedUpgradeSucceedsWithCookieAuth(t *testing.T) 
 	adm.WithAuth(goAuth, &AuthConfig{LoginPath: "/login", RedirectPath: "/admin"})
 	adm.WithAuthorizer(allowAuthorizer{})
 
-	server := router.NewFiberAdapter().(*router.FiberAdapter)
+	server := router.NewFiberAdapter().(*router.FiberAdapter) //nolint:errcheck // legacy test setup intentionally ignores this helper result after scenario assertions.
 	if initErr := adm.Initialize(server.Router()); initErr != nil {
 		t.Fatalf("initialize: %v", initErr)
 	}
@@ -140,7 +140,7 @@ func TestDebugWebSocketAuthenticatedUpgradeSucceedsWithCookieAuth(t *testing.T) 
 		}
 		t.Fatalf("expected authenticated websocket dial to upgrade, got %d", resp.StatusCode)
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 	if got := strings.TrimSpace(resp.Header.Get("Location")); got != "" {
 		t.Fatalf("expected successful websocket upgrade without redirect header, got %q", got)
 	}
@@ -165,7 +165,7 @@ func startAdminFiberServer(t *testing.T, app *router.FiberAdapter) (string, func
 	shutdown := func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancel()
-		_ = app.Shutdown(ctx)
+		_ = app.Shutdown(ctx) //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 		select {
 		case <-serverErr:
 		case <-time.After(500 * time.Millisecond):

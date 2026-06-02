@@ -32,7 +32,7 @@ func TestUserManagementModuleRegisterFailsWhenCommandRegistrationFails(t *testin
 	if err := commandregistry.Start(context.Background()); err != nil {
 		t.Fatalf("force registry initialized state: %v", err)
 	}
-	t.Cleanup(func() { _ = commandregistry.Stop(context.Background()) })
+	t.Cleanup(func() { _ = commandregistry.Stop(context.Background()) }) //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 
 	err := adm.Initialize(nilRouter{})
 	if err == nil {
@@ -98,7 +98,7 @@ func TestDashboardRegisterProviderLogsProviderCommandRegistrationFailure(t *test
 	if err := commandregistry.Start(context.Background()); err != nil {
 		t.Fatalf("force registry initialized state: %v", err)
 	}
-	t.Cleanup(func() { _ = commandregistry.Stop(context.Background()) })
+	t.Cleanup(func() { _ = commandregistry.Stop(context.Background()) }) //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 
 	adm.Dashboard().RegisterProvider(DashboardProviderSpec{
 		Code:        "warn.provider.command",

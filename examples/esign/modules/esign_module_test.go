@@ -61,8 +61,8 @@ func TestResolveSignatureUploadSecurityPolicyDerivesFromAuthSigningKey(t *testin
 }
 
 func TestESignModuleRegistersPanelsSettingsRoleDefaultsAndCommandActions(t *testing.T) {
-	_ = registry.Stop(context.Background())
-	t.Cleanup(func() { _ = registry.Stop(context.Background()) })
+	_ = registry.Stop(context.Background())                       //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
+	t.Cleanup(func() { _ = registry.Stop(context.Background()) }) //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 	observability.ResetDefaultMetrics()
 	t.Cleanup(observability.ResetDefaultMetrics)
 	cfg := quickstart.NewAdminConfig("/admin", "E-Sign Test", "en")
@@ -172,7 +172,7 @@ func TestESignModuleRegistersPanelsSettingsRoleDefaultsAndCommandActions(t *test
 	})
 	seedAgreementAsSignable(t, module, agreementID)
 
-	actionBody, _ := json.Marshal(map[string]any{"idempotency_key": "phase6-send-1"})
+	actionBody, _ := json.Marshal(map[string]any{"idempotency_key": "phase6-send-1"}) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 	actionReq := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/api/v1/panels/esign_agreements/actions/send?id="+agreementID+"&tenant_id=tenant-bootstrap&org_id=org-bootstrap", bytes.NewReader(actionBody))
 	actionReq.Header.Set("Content-Type", "application/json")
 	actionReq.Header.Set("X-User-ID", "ops-user")
@@ -182,11 +182,11 @@ func TestESignModuleRegistersPanelsSettingsRoleDefaultsAndCommandActions(t *test
 	}
 	defer closeHTTPResponseBody(t, actionRes)
 	if actionRes.StatusCode != http.StatusAccepted {
-		payload, _ := io.ReadAll(actionRes.Body)
+		payload, _ := io.ReadAll(actionRes.Body) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 		t.Fatalf("expected send action 202, got %d body=%s", actionRes.StatusCode, string(payload))
 	}
 
-	resendBody, _ := json.Marshal(map[string]any{"idempotency_key": "phase6-send-2"})
+	resendBody, _ := json.Marshal(map[string]any{"idempotency_key": "phase6-send-2"}) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 	resendReq := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/api/v1/panels/esign_agreements/actions/resend?id="+agreementID+"&tenant_id=tenant-bootstrap&org_id=org-bootstrap", bytes.NewReader(resendBody))
 	resendReq.Header.Set("Content-Type", "application/json")
 	resendReq.Header.Set("X-User-ID", "ops-user")
@@ -196,7 +196,7 @@ func TestESignModuleRegistersPanelsSettingsRoleDefaultsAndCommandActions(t *test
 	}
 	defer closeHTTPResponseBody(t, resendRes)
 	if resendRes.StatusCode != http.StatusAccepted {
-		payload, _ := io.ReadAll(resendRes.Body)
+		payload, _ := io.ReadAll(resendRes.Body) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 		t.Fatalf("expected resend action 202, got %d body=%s", resendRes.StatusCode, string(payload))
 	}
 
@@ -368,7 +368,7 @@ func seedAgreementAsSignable(t *testing.T, module *ESignModule, agreementID stri
 
 func createPanelRecord(t *testing.T, server router.Server[*fiber.App], path string, payload map[string]any) string {
 	t.Helper()
-	body, _ := json.Marshal(payload)
+	body, _ := json.Marshal(payload) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, path, bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-User-ID", "ops-user")
@@ -378,11 +378,11 @@ func createPanelRecord(t *testing.T, server router.Server[*fiber.App], path stri
 	}
 	defer closeHTTPResponseBody(t, res)
 	if res.StatusCode != http.StatusOK {
-		payload, _ := io.ReadAll(res.Body)
+		payload, _ := io.ReadAll(res.Body) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 		t.Fatalf("expected create 200, got %d body=%s", res.StatusCode, string(payload))
 	}
 	out := map[string]any{}
-	bodyBytes, _ := io.ReadAll(res.Body)
+	bodyBytes, _ := io.ReadAll(res.Body) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 	if err := json.Unmarshal(bodyBytes, &out); err != nil {
 		t.Fatalf("decode create response: %v", err)
 	}
@@ -403,15 +403,15 @@ func getPanelDetail(t *testing.T, server router.Server[*fiber.App], path string)
 	}
 	defer closeHTTPResponseBody(t, res)
 	if res.StatusCode != http.StatusOK {
-		payload, _ := io.ReadAll(res.Body)
+		payload, _ := io.ReadAll(res.Body) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 		t.Fatalf("expected detail 200, got %d body=%s", res.StatusCode, string(payload))
 	}
 	out := map[string]any{}
-	bodyBytes, _ := io.ReadAll(res.Body)
+	bodyBytes, _ := io.ReadAll(res.Body) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 	if err := json.Unmarshal(bodyBytes, &out); err != nil {
 		t.Fatalf("decode detail response: %v", err)
 	}
-	record, _ := out["data"].(map[string]any)
+	record := mustAs[map[string]any](out["data"])
 	if len(record) == 0 {
 		t.Fatalf("expected detail response data payload, got %+v", out)
 	}

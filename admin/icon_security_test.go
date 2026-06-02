@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestDefaultIconSecurityPolicy(t *testing.T) {
@@ -162,7 +163,7 @@ func TestSanitizeSVG_ValidSVG(t *testing.T) {
 	svg := `<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/></svg>`
 	result, err := sanitizeSVG(svg)
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Contains(t, result, "<svg")
 	assert.Contains(t, result, "<circle")
 }
@@ -171,7 +172,7 @@ func TestSanitizeSVG_RemovesScript(t *testing.T) {
 	svg := `<svg><script>alert('xss')</script><circle/></svg>`
 	result, err := sanitizeSVG(svg)
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotContains(t, result, "script")
 }
 
@@ -179,7 +180,7 @@ func TestSanitizeSVG_RemovesForeignObject(t *testing.T) {
 	svg := `<svg><foreignObject><div>html</div></foreignObject><circle/></svg>`
 	result, err := sanitizeSVG(svg)
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotContains(t, result, "foreignObject")
 }
 
@@ -187,7 +188,7 @@ func TestSanitizeSVG_RemovesEventHandlers(t *testing.T) {
 	svg := `<svg onclick="alert()" onload="alert()"><circle/></svg>`
 	result, err := sanitizeSVG(svg)
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotContains(t, result, "onclick")
 	assert.NotContains(t, result, "onload")
 }
@@ -196,7 +197,7 @@ func TestSanitizeSVG_RemovesJavaScriptHref(t *testing.T) {
 	svg := `<svg><a href="javascript:alert()"><circle/></a></svg>`
 	result, err := sanitizeSVG(svg)
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotContains(t, result, "javascript")
 }
 
@@ -204,14 +205,14 @@ func TestSanitizeSVG_RemovesExternalRefs(t *testing.T) {
 	svg := `<svg><image href="https://evil.com/img.png"/></svg>`
 	result, err := sanitizeSVG(svg)
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotContains(t, result, "https://")
 }
 
 func TestSanitizeSVG_InvalidContent(t *testing.T) {
 	result, err := sanitizeSVG("not an svg")
 
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Empty(t, result)
 }
 

@@ -502,7 +502,7 @@ func (r *captureDashboardRenderer) RenderPage(name string, page AdminDashboardPa
 	r.lastTemplate = name
 	r.lastPage = page
 	if len(out) > 0 && out[0] != nil {
-		_, _ = out[0].Write([]byte("<html></html>"))
+		_, _ = out[0].Write([]byte("<html></html>")) //nolint:errcheck // legacy test setup intentionally ignores this helper result after scenario assertions.
 	}
 	return "<html></html>", nil
 }

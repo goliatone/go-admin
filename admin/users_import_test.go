@@ -121,7 +121,7 @@ func TestImportUsersHandler_PermissionDenied(t *testing.T) {
 	if err != nil {
 		t.Fatalf("request error: %v", err)
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 	if resp.StatusCode != http.StatusForbidden {
 		t.Fatalf("status=%d, want %d", resp.StatusCode, http.StatusForbidden)
 	}
@@ -136,7 +136,7 @@ func TestImportUsersHandler_MissingOrInvalidFile(t *testing.T) {
 		if err != nil {
 			t.Fatalf("request error: %v", err)
 		}
-		defer resp.Body.Close()
+		defer resp.Body.Close() //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 		if resp.StatusCode != http.StatusBadRequest {
 			t.Fatalf("status=%d, want %d", resp.StatusCode, http.StatusBadRequest)
 		}
@@ -154,7 +154,7 @@ func TestImportUsersHandler_MissingOrInvalidFile(t *testing.T) {
 		if err != nil {
 			t.Fatalf("request error: %v", err)
 		}
-		defer resp.Body.Close()
+		defer resp.Body.Close() //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 		if resp.StatusCode != http.StatusBadRequest {
 			t.Fatalf("status=%d, want %d", resp.StatusCode, http.StatusBadRequest)
 		}
@@ -181,7 +181,7 @@ func TestImportUsersHandler_MixedResults(t *testing.T) {
 	if err != nil {
 		t.Fatalf("request error: %v", err)
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 	if resp.StatusCode != http.StatusUnprocessableEntity {
 		t.Fatalf("status=%d, want %d", resp.StatusCode, http.StatusUnprocessableEntity)
 	}

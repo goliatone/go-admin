@@ -45,7 +45,7 @@ func TestSignerSavedSignatureRoutesRoundTrip(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected signature payload, got %+v", createPayload)
 	}
-	signatureID, _ := signature["id"].(string)
+	signatureID := mustAs[string](signature["id"])
 	if signatureID == "" {
 		t.Fatalf("expected signature id, got %+v", signature)
 	}

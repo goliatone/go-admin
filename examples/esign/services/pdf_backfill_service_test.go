@@ -76,7 +76,7 @@ func TestPDFBackfillServiceRelationalSQLiteMigrationSmoke(t *testing.T) {
 	}
 	defer func() {
 		if cleanup != nil {
-			_ = cleanup()
+			_ = cleanup() //nolint:errcheck // legacy test setup intentionally ignores this helper result after scenario assertions.
 		}
 	}()
 
@@ -111,7 +111,7 @@ func TestPDFBackfillServiceRelationalSQLiteMigrationSmoke(t *testing.T) {
 	}
 	defer func() {
 		if reloadCleanup != nil {
-			_ = reloadCleanup()
+			_ = reloadCleanup() //nolint:errcheck // legacy test setup intentionally ignores this helper result after scenario assertions.
 		}
 	}()
 

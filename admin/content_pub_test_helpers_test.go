@@ -30,11 +30,11 @@ func workflowEngineWithPagesAndPosts() *FSMWorkflowEngine {
 	}
 	pages := base
 	pages.EntityType = "pages"
-	_ = engine.RegisterWorkflow("pages", pages)
+	_ = engine.RegisterWorkflow("pages", pages) //nolint:errcheck // legacy test setup intentionally ignores this helper result after scenario assertions.
 
 	posts := base
 	posts.EntityType = "posts"
-	_ = engine.RegisterWorkflow("posts", posts)
+	_ = engine.RegisterWorkflow("posts", posts) //nolint:errcheck // legacy test setup intentionally ignores this helper result after scenario assertions.
 	return engine
 }
 
@@ -58,7 +58,7 @@ func workflowEngineWithPagesPostsAndNews() *FSMWorkflowEngine {
 			},
 		},
 	}
-	_ = engine.RegisterWorkflow("news", news)
+	_ = engine.RegisterWorkflow("news", news) //nolint:errcheck // legacy test setup intentionally ignores this helper result after scenario assertions.
 	return engine
 }
 

@@ -28,18 +28,18 @@ func TestWriteErrorReturnsStructuredPayload(t *testing.T) {
 		t.Fatalf("expected 404, got %d", rr.Code)
 	}
 	var body map[string]any
-	_ = json.Unmarshal(rr.Body.Bytes(), &body)
+	_ = json.Unmarshal(rr.Body.Bytes(), &body) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 	errPayload, ok := body["error"].(map[string]any)
 	if !ok {
 		t.Fatalf("expected error payload, got %v", body)
 	}
-	if code := int(errPayload["code"].(float64)); code != 404 {
+	if code := int(mustAs[float64](errPayload["code"])); code != 404 {
 		t.Fatalf("expected code 404, got %d", code)
 	}
 	if text := errPayload["text_code"]; text != "FEATURE_DISABLED" {
 		t.Fatalf("expected text_code FEATURE_DISABLED, got %v", text)
 	}
-	meta, _ := errPayload["metadata"].(map[string]any)
+	meta := mustAs[map[string]any](errPayload["metadata"])
 	if meta["path"] != "/err" {
 		t.Fatalf("expected path metadata, got %v", meta)
 	}
@@ -58,13 +58,13 @@ func TestWriteErrorIncludesValidationFields(t *testing.T) {
 		t.Fatalf("expected 400, got %d", rr.Code)
 	}
 	var body map[string]any
-	_ = json.Unmarshal(rr.Body.Bytes(), &body)
+	_ = json.Unmarshal(rr.Body.Bytes(), &body) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 	errPayload, ok := body["error"].(map[string]any)
 	if !ok {
 		t.Fatalf("expected error payload, got %v", body)
 	}
-	meta, _ := errPayload["metadata"].(map[string]any)
-	fields, _ := meta["fields"].(map[string]any)
+	meta := mustAs[map[string]any](errPayload["metadata"])
+	fields := mustAs[map[string]any](meta["fields"])
 	if fields["admin.title"] != "required" {
 		t.Fatalf("expected validation fields preserved, got %v", fields)
 	}
@@ -91,7 +91,7 @@ func TestWriteErrorMapsFeatureConfigIssues(t *testing.T) {
 	}
 
 	var body map[string]any
-	_ = json.Unmarshal(rr.Body.Bytes(), &body)
+	_ = json.Unmarshal(rr.Body.Bytes(), &body) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 	errPayload, ok := body["error"].(map[string]any)
 	if !ok {
 		t.Fatalf("expected error payload, got %v", body)
@@ -99,16 +99,16 @@ func TestWriteErrorMapsFeatureConfigIssues(t *testing.T) {
 	if errPayload["text_code"] != "INVALID_FEATURE_CONFIG" {
 		t.Fatalf("expected INVALID_FEATURE_CONFIG text code, got %v", errPayload["text_code"])
 	}
-	meta, _ := errPayload["metadata"].(map[string]any)
-	issues, _ := meta["issues"].([]any)
+	meta := mustAs[map[string]any](errPayload["metadata"])
+	issues := mustAs[[]any](meta["issues"])
 	if len(issues) != 1 {
 		t.Fatalf("expected one issue, got %v", issues)
 	}
-	issue, _ := issues[0].(map[string]any)
+	issue := mustAs[map[string]any](issues[0])
 	if issue["feature"] != "export" {
 		t.Fatalf("expected feature export, got %v", issue["feature"])
 	}
-	rawMissing, _ := issue["missing"].([]any)
+	rawMissing := mustAs[[]any](issue["missing"])
 	missing := map[string]bool{}
 	for _, item := range rawMissing {
 		if s, ok := item.(string); ok {
@@ -139,13 +139,13 @@ func TestWriteErrorMapsSchemaValidationErrors(t *testing.T) {
 		t.Fatalf("expected 400, got %d", rr.Code)
 	}
 	var body map[string]any
-	_ = json.Unmarshal(rr.Body.Bytes(), &body)
+	_ = json.Unmarshal(rr.Body.Bytes(), &body) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 	errPayload, ok := body["error"].(map[string]any)
 	if !ok {
 		t.Fatalf("expected error payload, got %v", body)
 	}
-	meta, _ := errPayload["metadata"].(map[string]any)
-	fields, _ := meta["fields"].(map[string]any)
+	meta := mustAs[map[string]any](errPayload["metadata"])
+	fields := mustAs[map[string]any](meta["fields"])
 	if fields["title"] != "is required" {
 		t.Fatalf("expected schema field mapped, got %v", fields)
 	}
@@ -172,7 +172,7 @@ func TestWriteErrorMapsTranslationMissingConflict(t *testing.T) {
 		t.Fatalf("expected 409, got %d", rr.Code)
 	}
 	var body map[string]any
-	_ = json.Unmarshal(rr.Body.Bytes(), &body)
+	_ = json.Unmarshal(rr.Body.Bytes(), &body) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 	errPayload, ok := body["error"].(map[string]any)
 	if !ok {
 		t.Fatalf("expected error payload, got %v", body)
@@ -180,7 +180,7 @@ func TestWriteErrorMapsTranslationMissingConflict(t *testing.T) {
 	if errPayload["text_code"] != TextCodeTranslationMissing {
 		t.Fatalf("expected %s, got %v", TextCodeTranslationMissing, errPayload["text_code"])
 	}
-	meta, _ := errPayload["metadata"].(map[string]any)
+	meta := mustAs[map[string]any](errPayload["metadata"])
 	if meta["transition"] != "publish" {
 		t.Fatalf("expected transition publish, got %v", meta["transition"])
 	}
@@ -190,7 +190,7 @@ func TestWriteErrorMapsTranslationMissingConflict(t *testing.T) {
 	if meta["requested_locale"] != "en" || meta["channel"] != "production" {
 		t.Fatalf("expected locale/channel metadata, got %v", meta)
 	}
-	locales, _ := meta["missing_locales"].([]any)
+	locales := mustAs[[]any](meta["missing_locales"])
 	if len(locales) != 2 {
 		t.Fatalf("expected missing locales [es fr], got %v", meta["missing_locales"])
 	}
@@ -219,7 +219,7 @@ func TestWriteErrorPrefersSpecificDomainCodeOverGenericHandlerWrappers(t *testin
 	}
 
 	var body map[string]any
-	_ = json.Unmarshal(rr.Body.Bytes(), &body)
+	_ = json.Unmarshal(rr.Body.Bytes(), &body) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 	errPayload, ok := body["error"].(map[string]any)
 	if !ok {
 		t.Fatalf("expected error payload, got %v", body)
@@ -230,7 +230,7 @@ func TestWriteErrorPrefersSpecificDomainCodeOverGenericHandlerWrappers(t *testin
 	if errPayload["message"] != "Only draft posts can be scheduled for publication." {
 		t.Fatalf("expected domain error message, got %v", errPayload["message"])
 	}
-	meta, _ := errPayload["metadata"].(map[string]any)
+	meta := mustAs[map[string]any](errPayload["metadata"])
 	if meta["current_status"] != "published" || meta["required_status"] != "draft" {
 		t.Fatalf("expected domain metadata, got %v", meta)
 	}
@@ -257,12 +257,12 @@ func TestWriteErrorMapsTranslationMissingNormalizesEntityTypeMetadata(t *testing
 		t.Fatalf("expected 409, got %d", rr.Code)
 	}
 	var body map[string]any
-	_ = json.Unmarshal(rr.Body.Bytes(), &body)
+	_ = json.Unmarshal(rr.Body.Bytes(), &body) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 	errPayload, ok := body["error"].(map[string]any)
 	if !ok {
 		t.Fatalf("expected error payload, got %v", body)
 	}
-	meta, _ := errPayload["metadata"].(map[string]any)
+	meta := mustAs[map[string]any](errPayload["metadata"])
 	if meta["entity_type"] != "posts" || meta["policy_entity"] != "posts" {
 		t.Fatalf("expected normalized entity metadata, got %v", meta)
 	}
@@ -289,17 +289,17 @@ func TestWriteErrorMapsTranslationMissingUnprocessableWhenFieldFailuresPresent(t
 		t.Fatalf("expected 422, got %d", rr.Code)
 	}
 	var body map[string]any
-	_ = json.Unmarshal(rr.Body.Bytes(), &body)
+	_ = json.Unmarshal(rr.Body.Bytes(), &body) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 	errPayload, ok := body["error"].(map[string]any)
 	if !ok {
 		t.Fatalf("expected error payload, got %v", body)
 	}
-	meta, _ := errPayload["metadata"].(map[string]any)
+	meta := mustAs[map[string]any](errPayload["metadata"])
 	rawFields, ok := meta["missing_fields_by_locale"].(map[string]any)
 	if !ok {
 		t.Fatalf("expected missing_fields_by_locale metadata, got %v", meta)
 	}
-	frFields, _ := rawFields["fr"].([]any)
+	frFields := mustAs[[]any](rawFields["fr"])
 	if len(frFields) != 2 {
 		t.Fatalf("expected fr field failures, got %v", rawFields["fr"])
 	}
@@ -321,20 +321,20 @@ func TestWriteErrorMapsTranslationMissingIncludesMandatoryMetadataKeys(t *testin
 		t.Fatalf("expected 409, got %d", rr.Code)
 	}
 	var body map[string]any
-	_ = json.Unmarshal(rr.Body.Bytes(), &body)
+	_ = json.Unmarshal(rr.Body.Bytes(), &body) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 	errPayload, ok := body["error"].(map[string]any)
 	if !ok {
 		t.Fatalf("expected error payload, got %v", body)
 	}
-	meta, _ := errPayload["metadata"].(map[string]any)
+	meta := mustAs[map[string]any](errPayload["metadata"])
 	if _, ok := meta["missing_locales"]; !ok {
 		t.Fatalf("expected missing_locales metadata key, got %v", meta)
 	}
-	locales, _ := meta["missing_locales"].([]any)
+	locales := mustAs[[]any](meta["missing_locales"])
 	if len(locales) != 0 {
 		t.Fatalf("expected empty missing_locales, got %v", locales)
 	}
-	if transition, _ := meta["transition"].(string); transition != "unknown" {
+	if transition := mustAs[string](meta["transition"]); transition != "unknown" {
 		t.Fatalf("expected transition fallback unknown, got %q", transition)
 	}
 	if _, ok := meta["missing_fields_by_locale"]; ok {
@@ -361,12 +361,12 @@ func TestWriteErrorMapsTranslationMissingIncludesFieldMapWhenRequiredFieldChecks
 		t.Fatalf("expected 409, got %d", rr.Code)
 	}
 	var body map[string]any
-	_ = json.Unmarshal(rr.Body.Bytes(), &body)
+	_ = json.Unmarshal(rr.Body.Bytes(), &body) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 	errPayload, ok := body["error"].(map[string]any)
 	if !ok {
 		t.Fatalf("expected error payload, got %v", body)
 	}
-	meta, _ := errPayload["metadata"].(map[string]any)
+	meta := mustAs[map[string]any](errPayload["metadata"])
 	rawFields, ok := meta["missing_fields_by_locale"]
 	if !ok {
 		t.Fatalf("expected missing_fields_by_locale key when required-fields checks are enabled, got %v", meta)
@@ -398,7 +398,7 @@ func TestWriteErrorMapsTranslationAlreadyExists(t *testing.T) {
 		t.Fatalf("expected 409, got %d", rr.Code)
 	}
 	var body map[string]any
-	_ = json.Unmarshal(rr.Body.Bytes(), &body)
+	_ = json.Unmarshal(rr.Body.Bytes(), &body) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 	errPayload, ok := body["error"].(map[string]any)
 	if !ok {
 		t.Fatalf("expected error payload, got %v", body)
@@ -406,7 +406,7 @@ func TestWriteErrorMapsTranslationAlreadyExists(t *testing.T) {
 	if errPayload["text_code"] != TextCodeTranslationExists {
 		t.Fatalf("expected %s, got %v", TextCodeTranslationExists, errPayload["text_code"])
 	}
-	meta, _ := errPayload["metadata"].(map[string]any)
+	meta := mustAs[map[string]any](errPayload["metadata"])
 	if meta["locale"] != "es" || meta["family_id"] != "tg_123" {
 		t.Fatalf("expected locale/group metadata, got %v", meta)
 	}
@@ -431,7 +431,7 @@ func TestWriteErrorMapsAutosaveConflict(t *testing.T) {
 		t.Fatalf("expected 409, got %d", rr.Code)
 	}
 	var body map[string]any
-	_ = json.Unmarshal(rr.Body.Bytes(), &body)
+	_ = json.Unmarshal(rr.Body.Bytes(), &body) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 	errPayload, ok := body["error"].(map[string]any)
 	if !ok {
 		t.Fatalf("expected error payload, got %v", body)
@@ -439,7 +439,7 @@ func TestWriteErrorMapsAutosaveConflict(t *testing.T) {
 	if errPayload["text_code"] != TextCodeAutosaveConflict {
 		t.Fatalf("expected %s, got %v", TextCodeAutosaveConflict, errPayload["text_code"])
 	}
-	meta, _ := errPayload["metadata"].(map[string]any)
+	meta := mustAs[map[string]any](errPayload["metadata"])
 	if meta["version"] != "2" || meta["expected_version"] != "1" {
 		t.Fatalf("expected autosave version metadata, got %v", meta)
 	}
@@ -467,7 +467,7 @@ func TestWriteErrorMapsGoCMSTranslationAlreadyExists(t *testing.T) {
 		t.Fatalf("expected 409, got %d", rr.Code)
 	}
 	var body map[string]any
-	_ = json.Unmarshal(rr.Body.Bytes(), &body)
+	_ = json.Unmarshal(rr.Body.Bytes(), &body) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 	errPayload, ok := body["error"].(map[string]any)
 	if !ok {
 		t.Fatalf("expected error payload, got %v", body)
@@ -475,7 +475,7 @@ func TestWriteErrorMapsGoCMSTranslationAlreadyExists(t *testing.T) {
 	if errPayload["text_code"] != TextCodeTranslationExists {
 		t.Fatalf("expected %s, got %v", TextCodeTranslationExists, errPayload["text_code"])
 	}
-	meta, _ := errPayload["metadata"].(map[string]any)
+	meta := mustAs[map[string]any](errPayload["metadata"])
 	if meta["locale"] != "fr" {
 		t.Fatalf("expected locale fr metadata, got %v", meta)
 	}
@@ -497,8 +497,8 @@ func TestWriteErrorMapsGoCMSTranslationValidationAndNotFound(t *testing.T) {
 		t.Fatalf("expected 400 for invalid locale, got %d", rrInvalid.Code)
 	}
 	var invalidBody map[string]any
-	_ = json.Unmarshal(rrInvalid.Body.Bytes(), &invalidBody)
-	invalidErr, _ := invalidBody["error"].(map[string]any)
+	_ = json.Unmarshal(rrInvalid.Body.Bytes(), &invalidBody) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
+	invalidErr := mustAs[map[string]any](invalidBody["error"])
 	if invalidErr["text_code"] != TextCodeValidationError {
 		t.Fatalf("expected %s, got %v", TextCodeValidationError, invalidErr["text_code"])
 	}
@@ -510,8 +510,8 @@ func TestWriteErrorMapsGoCMSTranslationValidationAndNotFound(t *testing.T) {
 		t.Fatalf("expected 404 for source not found, got %d", rrMissing.Code)
 	}
 	var missingBody map[string]any
-	_ = json.Unmarshal(rrMissing.Body.Bytes(), &missingBody)
-	missingErr, _ := missingBody["error"].(map[string]any)
+	_ = json.Unmarshal(rrMissing.Body.Bytes(), &missingBody) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
+	missingErr := mustAs[map[string]any](missingBody["error"])
 	if missingErr["text_code"] != TextCodeNotFound {
 		t.Fatalf("expected %s, got %v", TextCodeNotFound, missingErr["text_code"])
 	}
@@ -537,7 +537,7 @@ func TestWriteErrorMapsTranslationQueueConflict(t *testing.T) {
 		t.Fatalf("expected 409, got %d", rr.Code)
 	}
 	var body map[string]any
-	_ = json.Unmarshal(rr.Body.Bytes(), &body)
+	_ = json.Unmarshal(rr.Body.Bytes(), &body) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 	errPayload, ok := body["error"].(map[string]any)
 	if !ok {
 		t.Fatalf("expected error payload, got %v", body)
@@ -545,7 +545,7 @@ func TestWriteErrorMapsTranslationQueueConflict(t *testing.T) {
 	if errPayload["text_code"] != TextCodeTranslationQueueConflict {
 		t.Fatalf("expected %s, got %v", TextCodeTranslationQueueConflict, errPayload["text_code"])
 	}
-	meta, _ := errPayload["metadata"].(map[string]any)
+	meta := mustAs[map[string]any](errPayload["metadata"])
 	if meta["existing_assignment_id"] != "tqa_1" || meta["target_locale"] != "es" {
 		t.Fatalf("expected queue conflict metadata, got %v", meta)
 	}
@@ -568,7 +568,7 @@ func TestWriteErrorMapsTranslationQueueVersionConflict(t *testing.T) {
 		t.Fatalf("expected 409, got %d", rr.Code)
 	}
 	var body map[string]any
-	_ = json.Unmarshal(rr.Body.Bytes(), &body)
+	_ = json.Unmarshal(rr.Body.Bytes(), &body) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 	errPayload, ok := body["error"].(map[string]any)
 	if !ok {
 		t.Fatalf("expected error payload, got %v", body)
@@ -576,7 +576,7 @@ func TestWriteErrorMapsTranslationQueueVersionConflict(t *testing.T) {
 	if errPayload["text_code"] != TextCodeTranslationQueueVersionConflict {
 		t.Fatalf("expected %s, got %v", TextCodeTranslationQueueVersionConflict, errPayload["text_code"])
 	}
-	meta, _ := errPayload["metadata"].(map[string]any)
+	meta := mustAs[map[string]any](errPayload["metadata"])
 	if meta["expected_version"] != float64(2) || meta["actual_version"] != float64(3) {
 		t.Fatalf("expected version conflict metadata, got %v", meta)
 	}
@@ -598,7 +598,7 @@ func TestWriteErrorMapsTranslationExchangeUnsupportedFormat(t *testing.T) {
 		t.Fatalf("expected 400, got %d", rr.Code)
 	}
 	var body map[string]any
-	_ = json.Unmarshal(rr.Body.Bytes(), &body)
+	_ = json.Unmarshal(rr.Body.Bytes(), &body) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 	errPayload, ok := body["error"].(map[string]any)
 	if !ok {
 		t.Fatalf("expected error payload, got %v", body)
@@ -631,7 +631,7 @@ func TestWriteErrorMapsTranslationExchangeConflict(t *testing.T) {
 		t.Fatalf("expected 409, got %d", rr.Code)
 	}
 	var body map[string]any
-	_ = json.Unmarshal(rr.Body.Bytes(), &body)
+	_ = json.Unmarshal(rr.Body.Bytes(), &body) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 	errPayload, ok := body["error"].(map[string]any)
 	if !ok {
 		t.Fatalf("expected error payload, got %v", body)

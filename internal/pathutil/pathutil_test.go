@@ -120,5 +120,5 @@ func TestReadAndOpenFileWithinRoot(t *testing.T) {
 	if err != nil {
 		t.Fatalf("OpenFileWithinRoot returned error: %v", err)
 	}
-	_ = file.Close()
+	_ = file.Close() //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 }

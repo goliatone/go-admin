@@ -59,7 +59,7 @@ func TestExampleExportSmokeFilters(t *testing.T) {
 		},
 	}
 
-	jsonBody, _ := json.Marshal(filteredPayload)
+	jsonBody, _ := json.Marshal(filteredPayload) //nolint:errchkjson // test request fixture is map-backed and validated through the handler response.
 	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/exports", bytes.NewReader(jsonBody))
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
@@ -92,7 +92,7 @@ func TestExampleExportSmokeFilters(t *testing.T) {
 	}
 
 	filteredPayload["format"] = "csv"
-	csvBody, _ := json.Marshal(filteredPayload)
+	csvBody, _ := json.Marshal(filteredPayload) //nolint:errchkjson // test request fixture is map-backed and validated through the handler response.
 	req = httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/exports", bytes.NewReader(csvBody))
 	req.Header.Set("Content-Type", "application/json")
 	rec = httptest.NewRecorder()

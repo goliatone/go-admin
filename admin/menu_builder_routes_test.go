@@ -262,8 +262,8 @@ func TestMenuBuilderLifecyclePreviewCloneArchiveAndAudit(t *testing.T) {
 		t.Fatalf("list view profiles status=%d body=%s", listProfilesRes.Code, listProfilesRes.Body.String())
 	}
 	listProfilesPayload := decodeJSONMap(t, listProfilesRes)
-	viewProfiles, _ := listProfilesPayload["view_profiles"].([]any)
-	profilesAlias, _ := listProfilesPayload["profiles"].([]any)
+	viewProfiles := mustAs[[]any](listProfilesPayload["view_profiles"])
+	profilesAlias := mustAs[[]any](listProfilesPayload["profiles"])
 	if len(viewProfiles) == 0 {
 		t.Fatalf("expected view_profiles array in list response, payload=%+v", listProfilesPayload)
 	}
@@ -308,10 +308,10 @@ func TestMenuBuilderLifecyclePreviewCloneArchiveAndAudit(t *testing.T) {
 	if got := strings.TrimSpace(toString(simulation["view_profile"])); got != "footer" {
 		t.Fatalf("expected simulation.view_profile footer, got %q", got)
 	}
-	if includeDrafts, _ := simulation["include_drafts"].(bool); includeDrafts {
+	if includeDrafts := mustAs[bool](simulation["include_drafts"]); includeDrafts {
 		t.Fatalf("expected include_drafts=false without preview token")
 	}
-	if present, _ := simulation["preview_token_present"].(bool); present {
+	if present := mustAs[bool](simulation["preview_token_present"]); present {
 		t.Fatalf("expected preview_token_present=false without token")
 	}
 	binding := extractMap(simulation["binding"])
@@ -323,9 +323,9 @@ func TestMenuBuilderLifecyclePreviewCloneArchiveAndAudit(t *testing.T) {
 		t.Fatalf("expected simulation.profile.code=footer, got %q", got)
 	}
 	previewMenu := extractMap(previewPayload["menu"])
-	previewItems, _ := previewMenu["items"].([]any)
+	previewItems := mustAs[[]any](previewMenu["items"])
 	if len(previewItems) == 0 {
-		previewItems, _ = previewMenu["Items"].([]any)
+		previewItems = mustAs[[]any](previewMenu["Items"])
 	}
 	if len(previewItems) != 1 {
 		t.Fatalf("expected view profile top_level_limit projection to return 1 item, got %d body=%s", len(previewItems), previewRes.Body.String())
@@ -347,10 +347,10 @@ func TestMenuBuilderLifecyclePreviewCloneArchiveAndAudit(t *testing.T) {
 	}
 	previewWithTokenPayload := decodeJSONMap(t, previewWithTokenRes)
 	tokenSimulation := extractMap(previewWithTokenPayload["simulation"])
-	if includeDrafts, _ := tokenSimulation["include_drafts"].(bool); !includeDrafts {
+	if includeDrafts := mustAs[bool](tokenSimulation["include_drafts"]); !includeDrafts {
 		t.Fatalf("expected include_drafts=true when preview token is present")
 	}
-	if present, _ := tokenSimulation["preview_token_present"].(bool); !present {
+	if present := mustAs[bool](tokenSimulation["preview_token_present"]); !present {
 		t.Fatalf("expected preview_token_present=true when preview token is present")
 	}
 
@@ -372,7 +372,7 @@ func TestMenuBuilderLifecyclePreviewCloneArchiveAndAudit(t *testing.T) {
 	}
 	archivePayload := decodeJSONMap(t, archiveRes)
 	archivedMenu := extractMap(archivePayload["menu"])
-	if archived, _ := archivedMenu["archived"].(bool); !archived {
+	if archived := mustAs[bool](archivedMenu["archived"]); !archived {
 		t.Fatalf("expected archived=true in archive response, got %+v", archivedMenu["archived"])
 	}
 

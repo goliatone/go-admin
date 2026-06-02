@@ -27,8 +27,8 @@ func newSQLiteBunDBForRepositoryFactoryTests(t *testing.T) *bun.DB {
 	}
 	bunDB := bun.NewDB(sqlDB, sqlitedialect.New())
 	t.Cleanup(func() {
-		_ = bunDB.Close()
-		_ = sqlDB.Close()
+		_ = bunDB.Close() //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
+		_ = sqlDB.Close() //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 	})
 	return bunDB
 }

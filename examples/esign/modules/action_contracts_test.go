@@ -307,7 +307,7 @@ func scopedPanelDetailPath(scope stores.Scope, panel, id string) string {
 }
 
 func extractSchemaActionsPayload(payload map[string]any) []any {
-	out, _ := tolerateMap(payload["schema"])["actions"].([]any)
+	out := mustAs[[]any](tolerateMap(payload["schema"])["actions"])
 	return out
 }
 
@@ -333,7 +333,7 @@ func extractListRecordsPayload(payload map[string]any) []any {
 func extractListRecordByID(t *testing.T, payload map[string]any, id string) map[string]any {
 	t.Helper()
 	for _, item := range extractListRecordsPayload(payload) {
-		record, _ := item.(map[string]any)
+		record := mustAs[map[string]any](item)
 		if strings.TrimSpace(toString(record["id"])) == strings.TrimSpace(id) {
 			return record
 		}
@@ -352,7 +352,7 @@ func filterActionContracts(actions []any, names ...string) []map[string]any {
 	}
 	out := make([]map[string]any, 0, len(names))
 	for _, item := range actions {
-		action, _ := item.(map[string]any)
+		action := mustAs[map[string]any](item)
 		name := strings.ToLower(strings.TrimSpace(toString(action["name"])))
 		if _, ok := allowed[name]; !ok {
 			continue
@@ -447,7 +447,7 @@ func filterExecutionFailure(errPayload map[string]any, metadataKeys ...string) m
 func extractRecordIDs(records []any) []string {
 	out := make([]string, 0, len(records))
 	for _, item := range records {
-		record, _ := item.(map[string]any)
+		record := mustAs[map[string]any](item)
 		if id := strings.TrimSpace(toString(record["id"])); id != "" {
 			out = append(out, id)
 		}
@@ -477,7 +477,7 @@ func extractFixtureMap(t *testing.T, value any) map[string]any {
 }
 
 func tolerateMap(value any) map[string]any {
-	out, _ := value.(map[string]any)
+	out := mustAs[map[string]any](value)
 	return out
 }
 

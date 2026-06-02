@@ -542,14 +542,14 @@ func bootstrapPublicSignerSession(t *testing.T, app *fiber.App, token string) st
 	}
 	defer closeHTTPResponseBody(t, resp)
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
+		body, _ := io.ReadAll(resp.Body) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 		t.Fatalf("expected bootstrap status 200, got %d body=%s", resp.StatusCode, string(body))
 	}
 	var payload map[string]any
 	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
 		t.Fatalf("decode bootstrap payload: %v", err)
 	}
-	authPayload, _ := payload["auth"].(map[string]any)
+	authPayload := mustAs[map[string]any](payload["auth"])
 	bearer := strings.TrimSpace(fmt.Sprint(authPayload["token"]))
 	if bearer == "" {
 		t.Fatalf("expected bootstrap bearer token, got %+v", payload)
@@ -684,7 +684,7 @@ func TestSignerBootstrapIssuesBearerSession(t *testing.T) {
 	defer closeHTTPResponseBody(t, resp)
 
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
+		body, _ := io.ReadAll(resp.Body) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 		t.Fatalf("expected status 200, got %d body=%s", resp.StatusCode, string(body))
 	}
 
@@ -692,8 +692,8 @@ func TestSignerBootstrapIssuesBearerSession(t *testing.T) {
 	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
 		t.Fatalf("decode bootstrap response: %v", err)
 	}
-	authPayload, _ := payload["auth"].(map[string]any)
-	routesPayload, _ := payload["routes"].(map[string]any)
+	authPayload := mustAs[map[string]any](payload["auth"])
+	routesPayload := mustAs[map[string]any](payload["routes"])
 	if strings.TrimSpace(fmt.Sprint(authPayload["type"])) != "bearer" {
 		t.Fatalf("expected bearer auth payload, got %+v", authPayload)
 	}
@@ -720,7 +720,7 @@ func TestSignerAuthSessionRouteRequiresBearerAndIgnoresCookies(t *testing.T) {
 	}
 	defer closeHTTPResponseBody(t, missingResp)
 	if missingResp.StatusCode != http.StatusUnauthorized {
-		body, _ := io.ReadAll(missingResp.Body)
+		body, _ := io.ReadAll(missingResp.Body) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 		t.Fatalf("expected 401 without bearer token, got %d body=%s", missingResp.StatusCode, string(body))
 	}
 
@@ -733,14 +733,14 @@ func TestSignerAuthSessionRouteRequiresBearerAndIgnoresCookies(t *testing.T) {
 	}
 	defer closeHTTPResponseBody(t, authResp)
 	if authResp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(authResp.Body)
+		body, _ := io.ReadAll(authResp.Body) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 		t.Fatalf("expected 200 with bearer token, got %d body=%s", authResp.StatusCode, string(body))
 	}
 	var payload map[string]any
 	if err := json.NewDecoder(authResp.Body).Decode(&payload); err != nil {
 		t.Fatalf("decode auth response: %v", err)
 	}
-	sessionPayload, _ := payload["session"].(map[string]any)
+	sessionPayload := mustAs[map[string]any](payload["session"])
 	if strings.TrimSpace(fmt.Sprint(sessionPayload["agreement_id"])) == "" {
 		t.Fatalf("expected session payload from auth route, got %+v", payload)
 	}
@@ -1265,7 +1265,7 @@ func TestRegisterRemediationTriggerMapsIdempotencyKeyAndRetries(t *testing.T) {
 	}
 	defer closeHTTPResponseBody(t, respOne)
 	if respOne.StatusCode != http.StatusAccepted {
-		body, _ := io.ReadAll(respOne.Body)
+		body, _ := io.ReadAll(respOne.Body) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 		t.Fatalf("expected request one status 202, got %d body=%s", respOne.StatusCode, body)
 	}
 	bodyOne, err := io.ReadAll(respOne.Body)
@@ -1282,7 +1282,7 @@ func TestRegisterRemediationTriggerMapsIdempotencyKeyAndRetries(t *testing.T) {
 	}
 	defer closeHTTPResponseBody(t, respTwo)
 	if respTwo.StatusCode != http.StatusAccepted {
-		body, _ := io.ReadAll(respTwo.Body)
+		body, _ := io.ReadAll(respTwo.Body) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 		t.Fatalf("expected request two status 202, got %d body=%s", respTwo.StatusCode, body)
 	}
 	bodyTwo, err := io.ReadAll(respTwo.Body)
@@ -1918,7 +1918,7 @@ func TestRegisterSignerSessionAcceptsExternalReviewToken(t *testing.T) {
 	}
 	defer closeHTTPResponseBody(t, resp)
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
+		body, _ := io.ReadAll(resp.Body) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 		t.Fatalf("expected status 200, got %d body=%s", resp.StatusCode, body)
 	}
 	body, err := io.ReadAll(resp.Body)
@@ -2169,7 +2169,7 @@ func TestRegisterSignerAssetsAcceptsExternalReviewTokenForSourcePreview(t *testi
 	}
 	defer closeHTTPResponseBody(t, resp)
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
+		body, _ := io.ReadAll(resp.Body) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 		t.Fatalf("expected status 200, got %d body=%s", resp.StatusCode, body)
 	}
 	body, err := io.ReadAll(resp.Body)
@@ -2194,7 +2194,7 @@ func TestRegisterSignerAssetsAcceptsExternalReviewTokenForSourcePreview(t *testi
 	}
 	defer closeHTTPResponseBody(t, binaryResp)
 	if binaryResp.StatusCode != http.StatusOK {
-		payload, _ := io.ReadAll(binaryResp.Body)
+		payload, _ := io.ReadAll(binaryResp.Body) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 		t.Fatalf("expected binary status 200, got %d body=%s", binaryResp.StatusCode, payload)
 	}
 	if contentType := strings.TrimSpace(binaryResp.Header.Get("Content-Type")); !strings.Contains(contentType, "application/pdf") {
@@ -2234,7 +2234,7 @@ func TestRegisterAgreementViewerAssetsFilterProtectedArtifactsByPolicy(t *testin
 	}
 	defer closeHTTPResponseBody(t, resp)
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
+		body, _ := io.ReadAll(resp.Body) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 		t.Fatalf("expected status 200, got %d body=%s", resp.StatusCode, body)
 	}
 	body, err := io.ReadAll(resp.Body)
@@ -2260,7 +2260,7 @@ func TestRegisterAgreementViewerAssetsFilterProtectedArtifactsByPolicy(t *testin
 	}
 	defer closeHTTPResponseBody(t, executedResp)
 	if executedResp.StatusCode != http.StatusForbidden {
-		body, _ := io.ReadAll(executedResp.Body)
+		body, _ := io.ReadAll(executedResp.Body) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 		t.Fatalf("expected status 403 for executed asset without download permission, got %d body=%s", executedResp.StatusCode, body)
 	}
 }
@@ -2279,7 +2279,7 @@ func TestRegisterAgreementViewerThreadsUseEditAndViewPolicy(t *testing.T) {
 	}
 	defer closeHTTPResponseBody(t, sessionResp)
 	if sessionResp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(sessionResp.Body)
+		body, _ := io.ReadAll(sessionResp.Body) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 		t.Fatalf("expected status 200 for sender session, got %d body=%s", sessionResp.StatusCode, body)
 	}
 	sessionBody, err := io.ReadAll(sessionResp.Body)
@@ -2299,7 +2299,7 @@ func TestRegisterAgreementViewerThreadsUseEditAndViewPolicy(t *testing.T) {
 	}
 	defer closeHTTPResponseBody(t, threadResp)
 	if threadResp.StatusCode != http.StatusForbidden {
-		body, _ := io.ReadAll(threadResp.Body)
+		body, _ := io.ReadAll(threadResp.Body) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 		t.Fatalf("expected status 403 without edit+view comment policy, got %d body=%s", threadResp.StatusCode, body)
 	}
 }
@@ -2320,7 +2320,7 @@ func TestRegisterAgreementViewerThreadsAllowEditAndViewPolicy(t *testing.T) {
 	}
 	defer closeHTTPResponseBody(t, threadResp)
 	if threadResp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(threadResp.Body)
+		body, _ := io.ReadAll(threadResp.Body) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 		t.Fatalf("expected status 200 with edit+view policy, got %d body=%s", threadResp.StatusCode, body)
 	}
 	body, err := io.ReadAll(threadResp.Body)
@@ -2346,7 +2346,7 @@ func TestRegisterAgreementViewerThreadsRespectReviewCommentState(t *testing.T) {
 	}
 	defer closeHTTPResponseBody(t, sessionResp)
 	if sessionResp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(sessionResp.Body)
+		body, _ := io.ReadAll(sessionResp.Body) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 		t.Fatalf("expected status 200 for sender session, got %d body=%s", sessionResp.StatusCode, body)
 	}
 	sessionBody, err := io.ReadAll(sessionResp.Body)
@@ -2366,7 +2366,7 @@ func TestRegisterAgreementViewerThreadsRespectReviewCommentState(t *testing.T) {
 	}
 	defer closeHTTPResponseBody(t, threadResp)
 	if threadResp.StatusCode != http.StatusForbidden {
-		body, _ := io.ReadAll(threadResp.Body)
+		body, _ := io.ReadAll(threadResp.Body) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 		t.Fatalf("expected status 403 when review comments are disabled, got %d body=%s", threadResp.StatusCode, body)
 	}
 }
@@ -2384,7 +2384,7 @@ func TestRegisterSignerTelemetryAcceptsExternalReviewToken(t *testing.T) {
 	}
 	defer closeHTTPResponseBody(t, resp)
 	if resp.StatusCode != http.StatusAccepted {
-		payload, _ := io.ReadAll(resp.Body)
+		payload, _ := io.ReadAll(resp.Body) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 		t.Fatalf("expected status 202, got %d body=%s", resp.StatusCode, payload)
 	}
 }
@@ -2407,7 +2407,7 @@ func TestRegisterSignerAssetsRejectExternalReviewTokenAfterReviewClose(t *testin
 	}
 	defer closeHTTPResponseBody(t, resp)
 	if resp.StatusCode != http.StatusGone {
-		body, _ := io.ReadAll(resp.Body)
+		body, _ := io.ReadAll(resp.Body) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 		t.Fatalf("expected status 410 after closing review, got %d body=%s", resp.StatusCode, body)
 	}
 }
@@ -2490,7 +2490,7 @@ func TestRegisterSignerSessionIncludesLimitedCompatibilityReasonWhenPreviewFallb
 	}
 	defer closeHTTPResponseBody(t, forcedResp)
 	if forcedResp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(forcedResp.Body)
+		body, _ := io.ReadAll(forcedResp.Body) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 		t.Fatalf("expected status 200, got %d body=%s", forcedResp.StatusCode, body)
 	}
 	payload, err := io.ReadAll(forcedResp.Body)
@@ -2585,7 +2585,7 @@ func TestRegisterSignerSessionReturnsTypedUnsupportedForUnsupportedDocument(t *t
 	}
 	defer closeHTTPResponseBody(t, resp)
 	if resp.StatusCode != http.StatusUnprocessableEntity {
-		body, _ := io.ReadAll(resp.Body)
+		body, _ := io.ReadAll(resp.Body) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 		t.Fatalf("expected status 422, got %d body=%s", resp.StatusCode, body)
 	}
 	body, err := io.ReadAll(resp.Body)
@@ -2692,7 +2692,7 @@ func TestRegisterSignerSessionEmitsViewedAuditEventWithIPAndUserAgent(t *testing
 	}
 	defer closeHTTPResponseBody(t, resp)
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
+		body, _ := io.ReadAll(resp.Body) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 		t.Fatalf("expected status 200, got %d body=%s", resp.StatusCode, string(body))
 	}
 
@@ -2849,7 +2849,7 @@ func TestRegisterSignerSignatureUploadBootstrapSuccess(t *testing.T) {
 	defer closeHTTPResponseBody(t, resp)
 
 	if resp.StatusCode != http.StatusOK {
-		payload, _ := io.ReadAll(resp.Body)
+		payload, _ := io.ReadAll(resp.Body) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 		t.Fatalf("expected status 200, got %d body=%s", resp.StatusCode, string(payload))
 	}
 	if cacheControl := strings.ToLower(strings.TrimSpace(resp.Header.Get("Cache-Control"))); !strings.Contains(cacheControl, "no-store") {
@@ -2884,7 +2884,7 @@ func TestRegisterSignerTelemetryAcceptsBeaconPayload(t *testing.T) {
 	}
 	defer closeHTTPResponseBody(t, resp)
 	if resp.StatusCode != http.StatusAccepted {
-		payload, _ := io.ReadAll(resp.Body)
+		payload, _ := io.ReadAll(resp.Body) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 		t.Fatalf("expected status 202, got %d body=%s", resp.StatusCode, payload)
 	}
 	payload, err := io.ReadAll(resp.Body)
@@ -2911,7 +2911,7 @@ func TestRegisterSignerSignatureAttachDrawnWithUploadBootstrap(t *testing.T) {
 	}
 	defer closeHTTPResponseBody(t, bootstrapResp)
 	if bootstrapResp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(bootstrapResp.Body)
+		body, _ := io.ReadAll(bootstrapResp.Body) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 		t.Fatalf("expected bootstrap status 200, got %d body=%s", bootstrapResp.StatusCode, body)
 	}
 	bootstrapPayloadRaw, err := io.ReadAll(bootstrapResp.Body)
@@ -2923,7 +2923,7 @@ func TestRegisterSignerSignatureAttachDrawnWithUploadBootstrap(t *testing.T) {
 	if err != nil {
 		t.Fatalf("decode bootstrap payload: %v", err)
 	}
-	contract, _ := bootstrapPayload["contract"].(map[string]any)
+	contract := mustAs[map[string]any](bootstrapPayload["contract"])
 	uploadToken := strings.TrimSpace(toString(contract["upload_token"]))
 	objectKey := strings.TrimSpace(toString(contract["object_key"]))
 	if uploadToken == "" || objectKey == "" {
@@ -2939,7 +2939,7 @@ func TestRegisterSignerSignatureAttachDrawnWithUploadBootstrap(t *testing.T) {
 	}
 	defer closeHTTPResponseBody(t, uploadResp)
 	if uploadResp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(uploadResp.Body)
+		body, _ := io.ReadAll(uploadResp.Body) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 		t.Fatalf("expected upload status 200, got %d body=%s", uploadResp.StatusCode, body)
 	}
 
@@ -2953,7 +2953,7 @@ func TestRegisterSignerSignatureAttachDrawnWithUploadBootstrap(t *testing.T) {
 	}
 	defer closeHTTPResponseBody(t, resp)
 	if resp.StatusCode != http.StatusOK {
-		payload, _ := io.ReadAll(resp.Body)
+		payload, _ := io.ReadAll(resp.Body) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 		t.Fatalf("expected status 200, got %d body=%s", resp.StatusCode, string(payload))
 	}
 	payload, err := io.ReadAll(resp.Body)
@@ -2980,7 +2980,7 @@ func TestRegisterSignerSignatureAttachDrawnRetryRemainsIdempotent(t *testing.T) 
 	}
 	defer closeHTTPResponseBody(t, bootstrapResp)
 	if bootstrapResp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(bootstrapResp.Body)
+		body, _ := io.ReadAll(bootstrapResp.Body) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 		t.Fatalf("expected bootstrap status 200, got %d body=%s", bootstrapResp.StatusCode, body)
 	}
 	bootstrapPayloadRaw, err := io.ReadAll(bootstrapResp.Body)
@@ -2992,7 +2992,7 @@ func TestRegisterSignerSignatureAttachDrawnRetryRemainsIdempotent(t *testing.T) 
 	if err != nil {
 		t.Fatalf("decode bootstrap payload: %v", err)
 	}
-	contract, _ := bootstrapPayload["contract"].(map[string]any)
+	contract := mustAs[map[string]any](bootstrapPayload["contract"])
 	uploadToken := strings.TrimSpace(toString(contract["upload_token"]))
 	objectKey := strings.TrimSpace(toString(contract["object_key"]))
 	if uploadToken == "" || objectKey == "" {
@@ -3008,7 +3008,7 @@ func TestRegisterSignerSignatureAttachDrawnRetryRemainsIdempotent(t *testing.T) 
 	}
 	defer closeHTTPResponseBody(t, uploadResp)
 	if uploadResp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(uploadResp.Body)
+		body, _ := io.ReadAll(uploadResp.Body) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 		t.Fatalf("expected upload status 200, got %d body=%s", uploadResp.StatusCode, body)
 	}
 
@@ -3021,7 +3021,7 @@ func TestRegisterSignerSignatureAttachDrawnRetryRemainsIdempotent(t *testing.T) 
 	}
 	defer closeHTTPResponseBody(t, firstResp)
 	if firstResp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(firstResp.Body)
+		body, _ := io.ReadAll(firstResp.Body) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 		t.Fatalf("expected first attach status 200, got %d body=%s", firstResp.StatusCode, body)
 	}
 	firstPayload, err := io.ReadAll(firstResp.Body)
@@ -3041,7 +3041,7 @@ func TestRegisterSignerSignatureAttachDrawnRetryRemainsIdempotent(t *testing.T) 
 	}
 	defer closeHTTPResponseBody(t, retryResp)
 	if retryResp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(retryResp.Body)
+		body, _ := io.ReadAll(retryResp.Body) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 		t.Fatalf("expected retry attach status 200, got %d body=%s", retryResp.StatusCode, body)
 	}
 	retryPayload, err := io.ReadAll(retryResp.Body)
@@ -3066,7 +3066,7 @@ func TestRegisterSignerSubmitFlowWithIdempotency(t *testing.T) {
 	if err != nil {
 		t.Fatalf("consent request failed: %v", err)
 	}
-	_ = consentResp.Body.Close()
+	_ = consentResp.Body.Close() //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 	if consentResp.StatusCode != http.StatusOK {
 		t.Fatalf("expected consent status 200, got %d", consentResp.StatusCode)
 	}
@@ -3078,7 +3078,7 @@ func TestRegisterSignerSubmitFlowWithIdempotency(t *testing.T) {
 	if err != nil {
 		t.Fatalf("signature request failed: %v", err)
 	}
-	_ = signatureResp.Body.Close()
+	_ = signatureResp.Body.Close() //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 	if signatureResp.StatusCode != http.StatusOK {
 		t.Fatalf("expected signature status 200, got %d", signatureResp.StatusCode)
 	}
@@ -3090,7 +3090,7 @@ func TestRegisterSignerSubmitFlowWithIdempotency(t *testing.T) {
 	if err != nil {
 		t.Fatalf("field-values request failed: %v", err)
 	}
-	_ = fieldResp.Body.Close()
+	_ = fieldResp.Body.Close() //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 	if fieldResp.StatusCode != http.StatusOK {
 		t.Fatalf("expected field-values status 200, got %d", fieldResp.StatusCode)
 	}
@@ -3145,7 +3145,7 @@ func TestRegisterSignerUnifiedFlowObservabilitySignals(t *testing.T) {
 	if err != nil {
 		t.Fatalf("consent request failed: %v", err)
 	}
-	_ = consentResp.Body.Close()
+	_ = consentResp.Body.Close() //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 	if consentResp.StatusCode != http.StatusOK {
 		t.Fatalf("expected consent status 200, got %d", consentResp.StatusCode)
 	}
@@ -3158,7 +3158,7 @@ func TestRegisterSignerUnifiedFlowObservabilitySignals(t *testing.T) {
 	if err != nil {
 		t.Fatalf("signature request failed: %v", err)
 	}
-	_ = signatureResp.Body.Close()
+	_ = signatureResp.Body.Close() //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 	if signatureResp.StatusCode != http.StatusOK {
 		t.Fatalf("expected signature status 200, got %d", signatureResp.StatusCode)
 	}
@@ -3171,7 +3171,7 @@ func TestRegisterSignerUnifiedFlowObservabilitySignals(t *testing.T) {
 	if err != nil {
 		t.Fatalf("field-values request failed: %v", err)
 	}
-	_ = fieldResp.Body.Close()
+	_ = fieldResp.Body.Close() //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 	if fieldResp.StatusCode != http.StatusOK {
 		t.Fatalf("expected field-values status 200, got %d", fieldResp.StatusCode)
 	}
@@ -3183,7 +3183,7 @@ func TestRegisterSignerUnifiedFlowObservabilitySignals(t *testing.T) {
 	if err != nil {
 		t.Fatalf("submit request failed: %v", err)
 	}
-	_ = submitResp.Body.Close()
+	_ = submitResp.Body.Close() //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 	if submitResp.StatusCode != http.StatusOK {
 		t.Fatalf("expected submit status 200, got %d", submitResp.StatusCode)
 	}
@@ -3209,7 +3209,7 @@ func TestRegisterSignerSubmitIdempotencyUnderBurstTraffic(t *testing.T) {
 	if err != nil {
 		t.Fatalf("consent request failed: %v", err)
 	}
-	_ = consentResp.Body.Close()
+	_ = consentResp.Body.Close() //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 	if consentResp.StatusCode != http.StatusOK {
 		t.Fatalf("expected consent status 200, got %d", consentResp.StatusCode)
 	}
@@ -3221,7 +3221,7 @@ func TestRegisterSignerSubmitIdempotencyUnderBurstTraffic(t *testing.T) {
 	if err != nil {
 		t.Fatalf("signature request failed: %v", err)
 	}
-	_ = signatureResp.Body.Close()
+	_ = signatureResp.Body.Close() //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 	if signatureResp.StatusCode != http.StatusOK {
 		t.Fatalf("expected signature status 200, got %d", signatureResp.StatusCode)
 	}
@@ -3233,7 +3233,7 @@ func TestRegisterSignerSubmitIdempotencyUnderBurstTraffic(t *testing.T) {
 	if err != nil {
 		t.Fatalf("field-values request failed: %v", err)
 	}
-	_ = fieldResp.Body.Close()
+	_ = fieldResp.Body.Close() //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 	if fieldResp.StatusCode != http.StatusOK {
 		t.Fatalf("expected field-values status 200, got %d", fieldResp.StatusCode)
 	}
@@ -3245,8 +3245,8 @@ func TestRegisterSignerSubmitIdempotencyUnderBurstTraffic(t *testing.T) {
 		if err != nil {
 			t.Fatalf("submit request %d failed: %v", i, err)
 		}
-		body, _ := io.ReadAll(submitResp.Body)
-		_ = submitResp.Body.Close()
+		body, _ := io.ReadAll(submitResp.Body) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
+		_ = submitResp.Body.Close()            //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 		if submitResp.StatusCode != http.StatusOK {
 			t.Fatalf("expected submit status 200 in burst iteration %d, got %d body=%s", i, submitResp.StatusCode, body)
 		}

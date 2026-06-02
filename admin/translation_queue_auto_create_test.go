@@ -301,7 +301,7 @@ func TestApplyTranslationPolicyWithQueueHookTriggersHookOnBlocker(t *testing.T) 
 	}
 
 	// But queue items should have been created
-	assignments, count, _ := repo.List(context.Background(), ListOptions{PerPage: 100})
+	assignments, count, _ := repo.List(context.Background(), ListOptions{PerPage: 100}) //nolint:errcheck // legacy test setup intentionally ignores this helper result after scenario assertions.
 	if count != 2 {
 		t.Fatalf("expected 2 queue assignments, got %d", count)
 	}
@@ -355,7 +355,7 @@ func TestApplyTranslationPolicyWithQueueHookSuccessNoHookTrigger(t *testing.T) {
 	}
 
 	// No queue items should be created on success
-	_, count, _ := repo.List(context.Background(), ListOptions{PerPage: 100})
+	_, count, _ := repo.List(context.Background(), ListOptions{PerPage: 100}) //nolint:errcheck // legacy test setup intentionally ignores this helper result after scenario assertions.
 	if count != 0 {
 		t.Fatalf("expected 0 queue assignments on success, got %d", count)
 	}

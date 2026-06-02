@@ -1755,9 +1755,9 @@ func TestDiffComparableParticipantsDoesNotMisreportInsertionAsUpdate(t *testing.
 	}
 
 	diff := diffComparableParticipants(source, target)
-	added := diff["added"].([]map[string]any)
-	removed := diff["removed"].([]map[string]any)
-	updated := diff["updated"].([]map[string]any)
+	added := mustAs[[]map[string]any](diff["added"])
+	removed := mustAs[[]map[string]any](diff["removed"])
+	updated := mustAs[[]map[string]any](diff["updated"])
 	if len(added) != 1 || strings.TrimSpace(fmt.Sprint(added[0]["email"])) != "charlie@example.com" {
 		t.Fatalf("expected single added participant, got %+v", diff)
 	}
@@ -1792,10 +1792,10 @@ func TestDiffComparableFieldsDoesNotMisreportInsertedFieldAsMove(t *testing.T) {
 	}
 
 	diff := diffComparableFields(sourceParticipants, sourceDefinitions, sourceInstances, targetParticipants, targetDefinitions, targetInstances)
-	added := diff["added"].([]string)
-	removed := diff["removed"].([]string)
-	moved := diff["moved"].([]map[string]any)
-	updated := diff["updated"].([]map[string]any)
+	added := mustAs[[]string](diff["added"])
+	removed := mustAs[[]string](diff["removed"])
+	moved := mustAs[[]map[string]any](diff["moved"])
+	updated := mustAs[[]map[string]any](diff["updated"])
 	if len(added) != 1 || strings.TrimSpace(added[0]) != "field-added-new" {
 		t.Fatalf("expected single added field, got %+v", diff)
 	}

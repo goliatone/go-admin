@@ -23,7 +23,7 @@ func TestDefaultBlockFieldTypeRegistryExposesFirstClassMediaPickerTypes(t *testi
 	if picker.Category != "media" {
 		t.Fatalf("expected media-picker category media, got %q", picker.Category)
 	}
-	pickerConfig, _ := picker.Defaults["config"].(map[string]any)
+	pickerConfig := mustAs[map[string]any](picker.Defaults["config"])
 	if got := toString(pickerConfig["valueMode"]); got != "url" {
 		t.Fatalf("expected media-picker default valueMode url, got %v", pickerConfig["valueMode"])
 	}
@@ -32,8 +32,8 @@ func TestDefaultBlockFieldTypeRegistryExposesFirstClassMediaPickerTypes(t *testi
 	if !ok {
 		t.Fatalf("expected media-gallery field type, got %+v", fieldTypes)
 	}
-	galleryConfig, _ := gallery.Defaults["config"].(map[string]any)
-	if multiple, _ := galleryConfig["multiple"].(bool); !multiple {
+	galleryConfig := mustAs[map[string]any](gallery.Defaults["config"])
+	if multiple := mustAs[bool](galleryConfig["multiple"]); !multiple {
 		t.Fatalf("expected media-gallery multiple=true, got %+v", galleryConfig)
 	}
 }

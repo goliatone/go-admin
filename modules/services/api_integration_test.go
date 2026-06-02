@@ -868,7 +868,7 @@ func TestServicesAPI_ConnectionDetailSyncRateLimitAndActionLabels(t *testing.T) 
 	}
 
 	grantsSummary := toAnyMap(detailPayload["grants_summary"])
-	if found, _ := grantsSummary["snapshot_found"].(bool); !found {
+	if found := mustAs[bool](grantsSummary["snapshot_found"]); !found {
 		t.Fatalf("expected grants snapshot in %v", grantsSummary)
 	}
 
@@ -977,7 +977,7 @@ func TestServicesAPI_ExtensionDiagnosticsAndStatusSurface(t *testing.T) {
 		t.Fatalf("expected command/query bundle diagnostics, got %#v", bundles)
 	}
 	flags := toAnyMap(extensions["feature_flags"])
-	if enabled, _ := flags["orders.enabled"].(bool); !enabled {
+	if enabled := mustAs[bool](flags["orders.enabled"]); !enabled {
 		t.Fatalf("expected extension feature flag in diagnostics: %#v", flags)
 	}
 
@@ -1052,7 +1052,7 @@ func TestServicesAPI_RateLimitRuntimeAndProviderOperationStatus(t *testing.T) {
 	}
 	runtimePayload := decodeJSONMap(t, runtimeList.Body.Bytes())
 	assertListEnvelopeHasCoreFields(t, runtimePayload)
-	items, _ := runtimePayload["rate_limits"].([]any)
+	items := mustAs[[]any](runtimePayload["rate_limits"])
 	if len(items) == 0 {
 		t.Fatalf("expected runtime rate-limit items in payload=%#v", runtimePayload)
 	}
@@ -1067,7 +1067,7 @@ func TestServicesAPI_RateLimitRuntimeAndProviderOperationStatus(t *testing.T) {
 	}
 	opsPayload := decodeJSONMap(t, ops.Body.Bytes())
 	assertListEnvelopeHasCoreFields(t, opsPayload)
-	statuses, _ := opsPayload["operation_statuses"].([]any)
+	statuses := mustAs[[]any](opsPayload["operation_statuses"])
 	if len(statuses) == 0 {
 		t.Fatalf("expected operation statuses in payload=%#v", opsPayload)
 	}
@@ -1267,7 +1267,7 @@ func TestServicesAPI_WorkflowMappingSyncConflictWorkflow(t *testing.T) {
 	}
 	validationPayload := decodeJSONMap(t, validateResult.Body.Bytes())
 	validation := toAnyMap(validationPayload["validation"])
-	if valid, _ := validation["valid"].(bool); !valid {
+	if valid := mustAs[bool](validation["valid"]); !valid {
 		t.Fatalf("expected validation.valid=true payload=%v", validationPayload)
 	}
 
@@ -1386,7 +1386,7 @@ func TestServicesAPI_WorkflowMappingSyncConflictWorkflow(t *testing.T) {
 	if got := strings.TrimSpace(toString(result["status"])); got != "succeeded" {
 		t.Fatalf("expected sync result status succeeded, got %q payload=%v", got, runPayload)
 	}
-	recordedConflicts, _ := runPayload["recorded_conflicts"].([]any)
+	recordedConflicts := mustAs[[]any](runPayload["recorded_conflicts"])
 	if len(recordedConflicts) == 0 {
 		t.Fatalf("expected recorded conflicts payload=%v", runPayload)
 	}
@@ -1407,7 +1407,7 @@ func TestServicesAPI_WorkflowMappingSyncConflictWorkflow(t *testing.T) {
 		t.Fatalf("workflow list conflicts status=%d body=%s", listConflicts.Code, listConflicts.Body.String())
 	}
 	listPayload := decodeJSONMap(t, listConflicts.Body.Bytes())
-	conflicts, _ := listPayload["conflicts"].([]any)
+	conflicts := mustAs[[]any](listPayload["conflicts"])
 	if len(conflicts) == 0 {
 		t.Fatalf("expected conflict list payload=%v", listPayload)
 	}
@@ -1551,7 +1551,7 @@ func TestServicesAPI_WorkflowRunHistoryResumeCheckpointAndSchemaDrift(t *testing
 		t.Fatalf("workflow sync runs list status=%d body=%s", listRuns.Code, listRuns.Body.String())
 	}
 	listRunsPayload := decodeJSONMap(t, listRuns.Body.Bytes())
-	runs, _ := listRunsPayload["runs"].([]any)
+	runs := mustAs[[]any](listRunsPayload["runs"])
 	if len(runs) == 0 {
 		t.Fatalf("expected at least one sync run payload=%v", listRunsPayload)
 	}
@@ -1634,7 +1634,7 @@ func TestServicesAPI_WorkflowRunHistoryResumeCheckpointAndSchemaDrift(t *testing
 		t.Fatalf("workflow schema drift list status=%d body=%s", listDriftBeforeBaseline.Code, listDriftBeforeBaseline.Body.String())
 	}
 	driftBeforePayload := decodeJSONMap(t, listDriftBeforeBaseline.Body.Bytes())
-	driftItemsBefore, _ := driftBeforePayload["drift_items"].([]any)
+	driftItemsBefore := mustAs[[]any](driftBeforePayload["drift_items"])
 	if len(driftItemsBefore) != 1 {
 		t.Fatalf("expected one schema drift item before baseline payload=%v", driftBeforePayload)
 	}
@@ -1703,7 +1703,7 @@ func TestServicesAPI_WorkflowRunHistoryResumeCheckpointAndSchemaDrift(t *testing
 		t.Fatalf("workflow schema drift list after update status=%d body=%s", listDriftAfterSchemaChange.Code, listDriftAfterSchemaChange.Body.String())
 	}
 	driftAfterPayload := decodeJSONMap(t, listDriftAfterSchemaChange.Body.Bytes())
-	driftItemsAfter, _ := driftAfterPayload["drift_items"].([]any)
+	driftItemsAfter := mustAs[[]any](driftAfterPayload["drift_items"])
 	if len(driftItemsAfter) != 1 {
 		t.Fatalf("expected one schema drift item after schema update payload=%v", driftAfterPayload)
 	}
@@ -1711,7 +1711,7 @@ func TestServicesAPI_WorkflowRunHistoryResumeCheckpointAndSchemaDrift(t *testing
 	if got := strings.TrimSpace(toString(item["status"])); got != "drift_detected" {
 		t.Fatalf("expected drift_detected status after schema update, got %q payload=%v", got, driftAfterPayload)
 	}
-	if detected, _ := item["drift_detected"].(bool); !detected {
+	if detected := mustAs[bool](item["drift_detected"]); !detected {
 		t.Fatalf("expected drift_detected=true payload=%v", driftAfterPayload)
 	}
 }
@@ -1755,7 +1755,7 @@ func TestServicesAPI_WorkflowAmbiguousCapabilityRemediation(t *testing.T) {
 		t.Fatalf("expected candidates list ok, got %d body=%s", candidates.Code, candidates.Body.String())
 	}
 	candidatesPayload := decodeJSONMap(t, candidates.Body.Bytes())
-	rows, _ := candidatesPayload["candidates"].([]any)
+	rows := mustAs[[]any](candidatesPayload["candidates"])
 	if len(rows) < 2 {
 		t.Fatalf("expected >=2 candidates payload=%v", candidatesPayload)
 	}
@@ -1820,7 +1820,7 @@ func TestServicesAPI_WorkflowCallbackDiagnosticsAndIdempotency(t *testing.T) {
 	assertJSONEqual(t, preview1.Body.Bytes(), preview2.Body.Bytes())
 	previewPayloadMap := decodeJSONMap(t, preview1.Body.Bytes())
 	preview := toAnyMap(previewPayloadMap["preview"])
-	if ok, _ := preview["ok"].(bool); ok {
+	if ok := mustAs[bool](preview["ok"]); ok {
 		t.Fatalf("expected preview ok=false for missing route payload=%v", previewPayloadMap)
 	}
 
@@ -2005,7 +2005,7 @@ func toAnyMap(value any) map[string]any {
 	if value == nil {
 		return map[string]any{}
 	}
-	typed, _ := value.(map[string]any)
+	typed := mustAs[map[string]any](value)
 	if typed == nil {
 		return map[string]any{}
 	}

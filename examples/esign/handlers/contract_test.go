@@ -392,7 +392,7 @@ func TestGoogleImportEnvelopeAndMetadataContractWhenEnabled(t *testing.T) {
 	if err != nil {
 		t.Fatalf("google connect request failed: %v", err)
 	}
-	_ = connectResp.Body.Close()
+	_ = connectResp.Body.Close() //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 	if connectResp.StatusCode != http.StatusOK {
 		t.Fatalf("expected connect status 200, got %d", connectResp.StatusCode)
 	}
@@ -484,7 +484,7 @@ func TestGoogleImportAsyncEndpointsQueueAndPollSuccess(t *testing.T) {
 	if err != nil {
 		t.Fatalf("google connect request failed: %v", err)
 	}
-	_ = connectResp.Body.Close()
+	_ = connectResp.Body.Close() //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 	if connectResp.StatusCode != http.StatusOK {
 		t.Fatalf("expected connect status 200, got %d", connectResp.StatusCode)
 	}
@@ -500,7 +500,7 @@ func TestGoogleImportAsyncEndpointsQueueAndPollSuccess(t *testing.T) {
 		t.Fatalf("expected status 202, got %d", createResp.StatusCode)
 	}
 	createPayload := mustDecodeJSONMap(t, createResp.Body)
-	_ = createResp.Body.Close()
+	_ = createResp.Body.Close() //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 
 	importRunID := strings.TrimSpace(toString(createPayload["import_run_id"]))
 	statusURL := strings.TrimSpace(toString(createPayload["status_url"]))
@@ -518,7 +518,7 @@ func TestGoogleImportAsyncEndpointsQueueAndPollSuccess(t *testing.T) {
 		t.Fatalf("expected replay status 202, got %d", replayResp.StatusCode)
 	}
 	replayPayload := mustDecodeJSONMap(t, replayResp.Body)
-	_ = replayResp.Body.Close()
+	_ = replayResp.Body.Close() //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 	if strings.TrimSpace(toString(replayPayload["import_run_id"])) != importRunID {
 		t.Fatalf("expected idempotent replay to return same import_run_id, got %+v", replayPayload)
 	}
@@ -531,7 +531,7 @@ func TestGoogleImportAsyncEndpointsQueueAndPollSuccess(t *testing.T) {
 			t.Fatalf("status poll failed: %v", pollErr)
 		}
 		final = mustDecodeJSONMap(t, statusResp.Body)
-		_ = statusResp.Body.Close()
+		_ = statusResp.Body.Close() //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 		if strings.TrimSpace(toString(final["status"])) == stores.GoogleImportRunStatusSucceeded {
 			break
 		}
@@ -605,7 +605,7 @@ func TestGoogleImportAsyncEndpointsPropagateTerminalFailure(t *testing.T) {
 	if err != nil {
 		t.Fatalf("google connect request failed: %v", err)
 	}
-	_ = connectResp.Body.Close()
+	_ = connectResp.Body.Close() //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 	if connectResp.StatusCode != http.StatusOK {
 		t.Fatalf("expected connect status 200, got %d", connectResp.StatusCode)
 	}
@@ -620,7 +620,7 @@ func TestGoogleImportAsyncEndpointsPropagateTerminalFailure(t *testing.T) {
 		t.Fatalf("expected status 202, got %d", createResp.StatusCode)
 	}
 	createPayload := mustDecodeJSONMap(t, createResp.Body)
-	_ = createResp.Body.Close()
+	_ = createResp.Body.Close() //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 	statusURL := strings.TrimSpace(toString(createPayload["status_url"]))
 	if statusURL == "" {
 		t.Fatalf("expected status_url, got %+v", createPayload)
@@ -634,7 +634,7 @@ func TestGoogleImportAsyncEndpointsPropagateTerminalFailure(t *testing.T) {
 			t.Fatalf("status poll failed: %v", pollErr)
 		}
 		final = mustDecodeJSONMap(t, statusResp.Body)
-		_ = statusResp.Body.Close()
+		_ = statusResp.Body.Close() //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 		if strings.TrimSpace(toString(final["status"])) == stores.GoogleImportRunStatusFailed {
 			break
 		}
@@ -661,7 +661,7 @@ func TestSignerSessionRateLimitErrorEnvelopeContract(t *testing.T) {
 	if err != nil {
 		t.Fatalf("first request failed: %v", err)
 	}
-	_ = resp.Body.Close()
+	_ = resp.Body.Close() //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("expected first request 200, got %d", resp.StatusCode)
 	}
@@ -778,7 +778,7 @@ func TestSignerAssetContractReturnsPDFBinaryWhenAssetQueryPresent(t *testing.T) 
 	}
 	defer closeHTTPResponseBody(t, resp)
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
+		body, _ := io.ReadAll(resp.Body) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 		t.Fatalf("expected status 200, got %d body=%s", resp.StatusCode, string(body))
 	}
 	if contentType := strings.ToLower(strings.TrimSpace(resp.Header.Get("Content-Type"))); !strings.Contains(contentType, "application/pdf") {
@@ -822,16 +822,16 @@ func TestSignerAssetContractReturnsExecutedAndCertificatePDFWhenRequested(t *tes
 			t.Fatalf("request %s failed: %v", asset, err)
 		}
 		if resp.StatusCode != http.StatusOK {
-			body, _ := io.ReadAll(resp.Body)
-			_ = resp.Body.Close()
+			body, _ := io.ReadAll(resp.Body) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
+			_ = resp.Body.Close()            //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 			t.Fatalf("expected status 200 for %s, got %d body=%s", asset, resp.StatusCode, string(body))
 		}
 		if contentType := strings.ToLower(strings.TrimSpace(resp.Header.Get("Content-Type"))); !strings.Contains(contentType, "application/pdf") {
-			_ = resp.Body.Close()
+			_ = resp.Body.Close() //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 			t.Fatalf("expected application/pdf content type for %s, got %q", asset, resp.Header.Get("Content-Type"))
 		}
 		body, err := io.ReadAll(resp.Body)
-		_ = resp.Body.Close()
+		_ = resp.Body.Close() //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 		if err != nil {
 			t.Fatalf("read response body for %s: %v", asset, err)
 		}
@@ -858,7 +858,7 @@ func TestSignerAssetContractReturnsTyped404WhenAssetUnavailable(t *testing.T) {
 	}
 	defer closeHTTPResponseBody(t, resp)
 	if resp.StatusCode != http.StatusNotFound {
-		body, _ := io.ReadAll(resp.Body)
+		body, _ := io.ReadAll(resp.Body) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 		t.Fatalf("expected status 404, got %d body=%s", resp.StatusCode, string(body))
 	}
 	payload := mustDecodeJSONMap(t, resp.Body)
@@ -894,7 +894,7 @@ func TestAdminAgreementArtifactDownloadRouteNotExposedByHandlersRegister(t *test
 	}
 	defer closeHTTPResponseBody(t, resp)
 	if resp.StatusCode != http.StatusNotFound {
-		body, _ := io.ReadAll(resp.Body)
+		body, _ := io.ReadAll(resp.Body) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 		t.Fatalf("expected status 404 for non-canonical artifact route, got %d body=%s", resp.StatusCode, string(body))
 	}
 }
@@ -925,7 +925,7 @@ func TestAdminAgreementArtifactDownloadRouteNotExposedByHandlersRegisterWithEnvS
 	}
 	defer closeHTTPResponseBody(t, resp)
 	if resp.StatusCode != http.StatusNotFound {
-		body, _ := io.ReadAll(resp.Body)
+		body, _ := io.ReadAll(resp.Body) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 		t.Fatalf("expected status 404 for non-canonical artifact route, got %d body=%s", resp.StatusCode, string(body))
 	}
 }
@@ -966,7 +966,7 @@ func TestSignerAssetContractEmitsAuditEventForAssetOpen(t *testing.T) {
 	}
 	defer closeHTTPResponseBody(t, resp)
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
+		body, _ := io.ReadAll(resp.Body) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 		t.Fatalf("expected status 200, got %d body=%s", resp.StatusCode, string(body))
 	}
 
@@ -1066,7 +1066,7 @@ func TestSignerTypedSignatureAttachRequiresFieldInstanceID(t *testing.T) {
 	}
 	defer closeHTTPResponseBody(t, legacyResp)
 	if legacyResp.StatusCode != http.StatusBadRequest {
-		payload, _ := io.ReadAll(legacyResp.Body)
+		payload, _ := io.ReadAll(legacyResp.Body) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 		t.Fatalf("expected status 400 for legacy field_id payload, got %d body=%s", legacyResp.StatusCode, payload)
 	}
 
@@ -1080,7 +1080,7 @@ func TestSignerTypedSignatureAttachRequiresFieldInstanceID(t *testing.T) {
 	}
 	defer closeHTTPResponseBody(t, resp)
 	if resp.StatusCode != http.StatusOK {
-		payload, _ := io.ReadAll(resp.Body)
+		payload, _ := io.ReadAll(resp.Body) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
 		t.Fatalf("expected status 200 for v2 typed signature attach, got %d body=%s", resp.StatusCode, payload)
 	}
 }

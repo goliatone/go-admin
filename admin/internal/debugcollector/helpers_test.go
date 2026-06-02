@@ -31,8 +31,8 @@ func TestClonePanelPayloadClonesMapAndSliceInputs(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected cloned map")
 	}
-	sourceMap["nested"].(map[string]any)["ok"] = false
-	if clonedMap["nested"].(map[string]any)["ok"] != true {
+	mustAs[map[string]any](sourceMap["nested"])["ok"] = false
+	if mustAs[map[string]any](clonedMap["nested"])["ok"] != true {
 		t.Fatalf("expected cloned nested map isolation, got %+v", clonedMap)
 	}
 

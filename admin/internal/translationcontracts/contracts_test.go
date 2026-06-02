@@ -20,7 +20,7 @@ func TestNormalizeStatusesAndEnums(t *testing.T) {
 	}
 
 	payload := StatusEnumContract()
-	all, _ := payload["all"].([]string)
+	all := mustAs[[]string](payload["all"])
 	if len(all) == 0 {
 		t.Fatalf("expected flattened enum list")
 	}

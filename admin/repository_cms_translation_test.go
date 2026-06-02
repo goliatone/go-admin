@@ -20,7 +20,7 @@ func TestCMSPageRepositoryUpdateRequiresCreateTranslation(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create failed: %v", err)
 	}
-	id, _ := created["id"].(string)
+	id := mustAs[string](created["id"])
 	if id == "" {
 		t.Fatalf("expected id assigned")
 	}
@@ -67,7 +67,7 @@ func TestCMSContentRepositoryUpdateRequiresCreateTranslation(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create failed: %v", err)
 	}
-	id, _ := created["id"].(string)
+	id := mustAs[string](created["id"])
 	if id == "" {
 		t.Fatalf("expected id assigned")
 	}

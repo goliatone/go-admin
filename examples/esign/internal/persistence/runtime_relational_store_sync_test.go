@@ -25,7 +25,7 @@ func TestRuntimeRelationalStoreSyncLoadPayloadKeysReminderStatesByScopeAgreement
 	if err != nil {
 		t.Fatalf("Bootstrap: %v", err)
 	}
-	defer func() { _ = bootstrap.Close() }()
+	defer func() { _ = bootstrap.Close() }() //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 
 	now := time.Now().UTC().Truncate(time.Second)
 	nextDueAt := now.Add(time.Hour)

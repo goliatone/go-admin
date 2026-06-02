@@ -288,7 +288,7 @@ func TestRemediationDispatchStatusLookupPersistsAcrossRelationalReopen(t *testin
 	}
 	t.Cleanup(func() {
 		if reopenedCleanup != nil {
-			_ = reopenedCleanup()
+			_ = reopenedCleanup() //nolint:errcheck // legacy test setup intentionally ignores this helper result after scenario assertions.
 		}
 	})
 

@@ -45,7 +45,7 @@ func (s *stubResponseWriter) Flush() {
 func (s *stubResponseWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
 	s.hijacked = true
 	conn, peer := net.Pipe()
-	_ = peer.Close()
+	_ = peer.Close() //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 	rw := bufio.NewReadWriter(bufio.NewReader(bytes.NewBuffer(nil)), bufio.NewWriter(io.Discard))
 	return conn, rw, nil
 }

@@ -59,7 +59,7 @@ func newSQLiteMigrationClientWithDSN(t *testing.T, dsn string) (*persistence.Cli
 	}
 
 	cleanup := func() {
-		_ = client.Close()
+		_ = client.Close() //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 	}
 	return client, cleanup
 }
@@ -76,7 +76,7 @@ func tableColumnNames(ctx context.Context, db *bun.DB, table string) ([]string, 
 		return nil, err
 	}
 	defer func() {
-		_ = rows.Close()
+		_ = rows.Close() //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 	}()
 
 	cols := make([]string, 0)
@@ -355,12 +355,12 @@ func TestMigrationsBackupAndRestoreSQLite(t *testing.T) {
 		t.Fatalf("open restore sqlite: %v", err)
 	}
 	defer func() {
-		_ = restoreSQLDB.Close()
+		_ = restoreSQLDB.Close() //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 	}()
 
 	restoreDB := bun.NewDB(restoreSQLDB, sqlitedialect.New())
 	defer func() {
-		_ = restoreDB.Close()
+		_ = restoreDB.Close() //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 	}()
 
 	exists, err := tableExists(ctx, restoreDB, "documents")
@@ -590,13 +590,13 @@ func TestV2MigrationBackfillPreservesAuditTerminalOutcomesAndArtifactPointers(t 
 		t.Fatalf("open sqlite: %v", err)
 	}
 	defer func() {
-		_ = sqlDB.Close()
+		_ = sqlDB.Close() //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 	}()
 	sqlDB.SetMaxOpenConns(1)
 	sqlDB.SetMaxIdleConns(1)
 	db := bun.NewDB(sqlDB, sqlitedialect.New())
 	defer func() {
-		_ = db.Close()
+		_ = db.Close() //nolint:errcheck // test cleanup failure cannot change the already-asserted behavior.
 	}()
 
 	execSQLFile(t, db, "../data/sql/migrations/0001_esign_core.up.sql")
