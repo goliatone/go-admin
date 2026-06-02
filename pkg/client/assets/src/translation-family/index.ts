@@ -64,6 +64,7 @@ export interface TranslationFamilyListItem {
   pendingReviewCount: number;
   outdatedLocaleCount: number;
   blockerCodes: FamilyBlockerCode[];
+  blockerLabels: Record<string, string>;
   missingLocales: string[];
   availableLocales: string[];
 }
@@ -661,6 +662,14 @@ export function createTranslationCreateLocaleActionModel(
 }
 
 export function normalizeFamilyListRow(input: Record<string, unknown>): TranslationFamilyListItem {
+  const blockerLabels: Record<string, string> = {};
+  for (const [key, label] of Object.entries(asRecord(input.blocker_labels))) {
+    const code = normalizeBlockerCode(key);
+    const text = asString(label);
+    if (code && text) {
+      blockerLabels[code] = text;
+    }
+  }
   return {
     familyId: asString(input.family_id),
     tenantId: asString(input.tenant_id),
@@ -675,6 +684,7 @@ export function normalizeFamilyListRow(input: Record<string, unknown>): Translat
     pendingReviewCount: asNumber(input.pending_review_count),
     outdatedLocaleCount: asNumber(input.outdated_locale_count),
     blockerCodes: asStringArray(input.blocker_codes).map(normalizeBlockerCode),
+    blockerLabels,
     missingLocales: asStringArray(input.missing_locales),
     availableLocales: asStringArray(input.available_locales),
   };
@@ -1067,6 +1077,77 @@ function blockerTone(code: string): string {
   return getStatusColorClass(blockerCodeSeverity(code));
 }
 
+function blockerDetailValue(details: Record<string, unknown>, key: string): string {
+  return asString(details[key]);
+}
+
+function isPolicyUnavailableBlocker(blocker: TranslationFamilyBlocker): boolean {
+  if (blocker.blockerCode !== 'policy_denied') {
+    return false;
+  }
+  const reason = blockerDetailValue(blocker.details, 'reason').toLowerCase();
+  const reasonCode = blockerDetailValue(blocker.details, 'reason_code').toLowerCase();
+  if (reason === 'policy_unavailable' || reasonCode === 'policy_unavailable') {
+    return true;
+  }
+  if (reason === 'host_policy' || reasonCode === 'host_policy') {
+    return false;
+  }
+  const hasPolicyScope = Boolean(blockerDetailValue(blocker.details, 'content_type') || blockerDetailValue(blocker.details, 'environment'));
+  const hasHostMessage = Boolean(blockerDetailValue(blocker.details, 'message') || blockerDetailValue(blocker.details, 'policy_reason'));
+  return hasPolicyScope && !reason && !hasHostMessage;
+}
+
+function blockerDisplayLabel(blocker: TranslationFamilyBlocker): string {
+  if (isPolicyUnavailableBlocker(blocker)) {
+    return 'Policy unavailable';
+  }
+  return sentenceCaseToken(blocker.blockerCode);
+}
+
+function blockerDetailRows(blocker: TranslationFamilyBlocker): Array<[string, string]> {
+  const details = blocker.details || {};
+  const rows: Array<[string, string]> = [
+    ['Code', blocker.blockerCode],
+    ['Locale', blocker.locale.toUpperCase()],
+    ['Field', blocker.fieldPath],
+    ['Content type', blockerDetailValue(details, 'content_type')],
+    ['Environment', blockerDetailValue(details, 'environment')],
+  ];
+  const reason = blockerDetailValue(details, 'reason');
+  const message = blockerDetailValue(details, 'message');
+  const remediation = blockerDetailValue(details, 'remediation');
+  if (isPolicyUnavailableBlocker(blocker)) {
+    rows.push(['Reason', 'Policy unavailable']);
+  } else if (reason) {
+    rows.push(['Reason', reason]);
+  }
+  if (message && message !== reason) {
+    rows.push(['Message', message]);
+  }
+  if (remediation) {
+    rows.push(['Remediation', remediation]);
+  }
+  return rows.filter(([, value]) => value.trim() !== '');
+}
+
+function renderBlockerDetailRows(blocker: TranslationFamilyBlocker): string {
+  const rows = blockerDetailRows(blocker);
+  if (!rows.length) {
+    return '';
+  }
+  return `
+    <dl class="mt-2 grid gap-x-4 gap-y-1 text-xs text-gray-600 sm:grid-cols-[7rem_minmax(0,1fr)]">
+      ${rows
+        .map(([label, value]) => `
+          <dt class="font-medium text-gray-500">${escapeHTML(label)}</dt>
+          <dd class="min-w-0 break-words text-gray-700">${escapeHTML(value)}</dd>
+        `)
+        .join('')}
+    </dl>
+  `;
+}
+
 function dueStateSeverity(dueState: string): string {
   switch (dueState) {
     case 'overdue':
@@ -1303,9 +1384,12 @@ function renderPublishGatePanel(detail: TranslationFamilyDetail): string {
         .map((blocker) => {
           const scope = [blocker.locale && blocker.locale.toUpperCase(), blocker.fieldPath].filter(Boolean).join(' · ');
           return `
-            <li class="flex flex-wrap items-center gap-2">
-              <span class="rounded-full px-2 py-0.5 text-xs font-medium ${blockerTone(blocker.blockerCode)}">${escapeHTML(sentenceCaseToken(blocker.blockerCode))}</span>
-              ${scope ? `<span class="text-sm text-gray-600">${escapeHTML(scope)}</span>` : ''}
+            <li class="rounded-lg border border-gray-200 bg-white p-3">
+              <div class="flex flex-wrap items-center gap-2">
+                <span class="rounded-full px-2 py-0.5 text-xs font-medium ${blockerTone(blocker.blockerCode)}">${escapeHTML(blockerDisplayLabel(blocker))}</span>
+                ${scope ? `<span class="text-sm text-gray-600">${escapeHTML(scope)}</span>` : ''}
+              </div>
+              ${renderBlockerDetailRows(blocker)}
             </li>
           `;
         })
@@ -1781,7 +1865,7 @@ function renderTranslationFamilyListFilters(filters: TranslationFamilyFilters): 
             ${renderFilterOption('missing_field', 'Missing field', filters.blockerCode)}
             ${renderFilterOption('pending_review', 'Pending review', filters.blockerCode)}
             ${renderFilterOption('outdated_source', 'Outdated source', filters.blockerCode)}
-            ${renderFilterOption('policy_denied', 'Policy denied', filters.blockerCode)}
+            ${renderFilterOption('policy_denied', 'Policy issue', filters.blockerCode)}
           </select>
         </label>
         <label class="block text-sm font-medium text-gray-700">
@@ -1823,7 +1907,7 @@ function renderFamilyBlockers(row: TranslationFamilyListItem): string {
     return '<span class="text-gray-400">No blockers</span>';
   }
   return row.blockerCodes
-    .map((code) => `<span class="rounded-full px-2 py-0.5 text-xs font-medium ${blockerTone(code)}">${escapeHTML(sentenceCaseToken(code))}</span>`)
+    .map((code) => `<span class="rounded-full px-2 py-0.5 text-xs font-medium ${blockerTone(code)}">${escapeHTML(row.blockerLabels[code] || sentenceCaseToken(code))}</span>`)
     .join(' ');
 }
 

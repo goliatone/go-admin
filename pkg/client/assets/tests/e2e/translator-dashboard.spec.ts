@@ -33,7 +33,7 @@ test.describe('Translation Dashboard - Manager Monitoring', () => {
     await expect(myTasksCard).toContainText('Tasks');
     await expect(myTasksCard).toHaveAttribute('title', /My Tasks/);
     await expect(page.locator('[data-dashboard-table="top_overdue_assignments"]')).toBeVisible();
-    await expect(page.locator('[data-dashboard-table="top_overdue_assignments"]')).toContainText('Showing 0 of 0');
+    await expect(page.locator('[data-dashboard-table="top_overdue_assignments"]')).toContainText('Showing top 0 of 0');
     await expect(page.locator('[data-dashboard-link="assignment"]')).toHaveCount(0);
     await expect(page.locator('[data-dashboard-refresh-button]').first()).toBeVisible();
   });

@@ -120,6 +120,7 @@ test('translation-family detail: missing-locale fixture renders blocked locale r
 test('translation-family detail: blocker fixtures render canonical blocker labels', () => {
   const cases = [
     ['blocked', /Policy denied/i],
+    ['policy_unavailable', /Policy unavailable/i],
     ['missing_field', /Missing field/i],
     ['pending_review', /Pending review/i],
     ['outdated_source', /Outdated source/i],
@@ -130,6 +131,29 @@ test('translation-family detail: blocker fixtures render canonical blocker label
     const html = renderTranslationFamilyDetailState({ status: 'ready', detail });
     assert.match(html, matcher, `expected ${name} fixture to render ${matcher}`);
   }
+});
+
+test('translation-family detail: distinguishes host policy denial from unavailable policy wiring', () => {
+  const denied = renderTranslationFamilyDetailState({
+    status: 'ready',
+    detail: normalizeFamilyDetail(fixtures.blocked),
+  });
+  assert.match(denied, /Policy denied/i);
+  assert.match(denied, /Legal hold/i);
+  assert.doesNotMatch(denied, /Policy unavailable/i);
+
+  const unavailable = renderTranslationFamilyDetailState({
+    status: 'ready',
+    detail: normalizeFamilyDetail(fixtures.policy_unavailable),
+  });
+  assert.match(unavailable, /Policy unavailable/i);
+  assert.match(unavailable, /policy_denied/i);
+  assert.match(unavailable, /Content type/i);
+  assert.match(unavailable, /news/i);
+  assert.match(unavailable, /Environment/i);
+  assert.match(unavailable, /default/i);
+  assert.match(unavailable, /Configure translation policy requirements/i);
+  assert.doesNotMatch(unavailable, /Legal hold/i);
 });
 
 test('translation-family detail: derives activity preview from variant and assignment timestamps', () => {

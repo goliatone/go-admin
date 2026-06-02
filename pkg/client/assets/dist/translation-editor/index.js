@@ -2,8 +2,8 @@ import { escapeAttribute as m, escapeHTML as d } from "../shared/html.js";
 import { httpRequest as R, readCSRFToken as ie, readHTTPError as ne } from "../shared/transport/http-client.js";
 import { extractStructuredError as V } from "../toast/error-helpers.js";
 import { n as oe } from "../chunks/translation-contracts-Ct_EG7JJ.js";
-import { asBoolean as g, asNumber as f, asRecord as c, asString as n, asStringArray as K } from "../shared/coercion.js";
-import { $ as le, G as ce, O as de, Q as y, T as ue, W as me, X as fe, Z as pe, _ as ge, at as he, b as be, d as A, et as ye, g as ve, h as _e, i as xe, it as $e, l as j, m as we, o as H, p as Se, rt as ke, s as Q, u as B, v as Ce, w as Re, y as Ee } from "../chunks/translation-shared-CQJ98SgC.js";
+import { asBoolean as g, asNumber as f, asRecord as c, asString as n, asStringArray as H } from "../shared/coercion.js";
+import { C as le, E as ce, H as de, J as ue, Q as me, S as fe, U as pe, X as y, Y as ge, Z as he, _ as be, b as ye, d as A, g as ve, h as _e, i as xe, l as j, m as $e, nt as we, o as K, p as Se, rt as ke, s as Q, tt as Ce, u as B, v as Re, y as Ee } from "../chunks/translation-shared-kfjHEDZW.js";
 import { formatTranslationTimestampUTC as G, sentenceCaseToken as S } from "../translation-shared/formatters.js";
 import { normalizeStringRecord as E } from "../shared/record-normalization.js";
 import { c as Y, s as Te } from "../chunks/ui-states-1McZ5upU.js";
@@ -102,7 +102,7 @@ function Ie(e) {
       term: r,
       preferred_translation: i,
       notes: n(a.notes) || void 0,
-      field_paths: K(a.field_paths)
+      field_paths: H(a.field_paths)
     });
   }
   return t;
@@ -113,7 +113,7 @@ function ze(e) {
     available: g(t.available),
     title: n(t.title),
     summary: n(t.summary) || n(t.summary_markdown),
-    rules: K(t.rules)
+    rules: H(t.rules)
   };
 }
 function W(e) {
@@ -146,14 +146,14 @@ function Ve(e, t) {
     kinds: r
   };
 }
-function Ke(e) {
+function He(e) {
   return n(e) === "comment" ? "comment" : "event";
 }
-function He(e) {
+function Ke(e) {
   const t = c(e), s = n(t.id);
   return s ? {
     id: s,
-    entry_type: Ke(t.entry_type),
+    entry_type: He(t.entry_type),
     title: n(t.title),
     body: n(t.body),
     action: n(t.action),
@@ -165,7 +165,7 @@ function He(e) {
   } : null;
 }
 function Qe(e) {
-  const t = c(e), s = Array.isArray(t.items) ? t.items.map((a) => He(a)).filter((a) => a !== null) : [];
+  const t = c(e), s = Array.isArray(t.items) ? t.items.map((a) => Ke(a)).filter((a) => a !== null) : [];
   return {
     items: s,
     page: f(t.page, 1) || 1,
@@ -616,8 +616,8 @@ function O(e) {
 function ft(e, t, s) {
   let a = "idle";
   return e?.autosave.conflict ? a = "conflict" : e?.autosave.pending ? a = "saving" : t ? a = "dirty" : s && (a = "saved"), {
-    tone: fe(a),
-    text: pe(a, s),
+    tone: ue(a),
+    text: ge(a, s),
     state: a
   };
 }
@@ -673,7 +673,7 @@ function vt() {
     tag: "section",
     text: "Loading translation assignment…",
     showSpinner: !1,
-    containerClass: `${de} p-8 shadow-sm`,
+    containerClass: `${ce} p-8 shadow-sm`,
     textClass: "text-sm font-medium text-gray-500"
   });
 }
@@ -687,7 +687,7 @@ function N(e, t) {
     titleTag: "h2",
     titleClass: _e,
     message: t,
-    messageClass: `${we} mt-2`
+    messageClass: `${$e} mt-2`
   });
 }
 function U(e, t, s) {
@@ -698,9 +698,9 @@ function U(e, t, s) {
     contentClass: "",
     title: e,
     titleTag: "h2",
-    titleClass: Ce,
+    titleClass: Re,
     message: t,
-    messageClass: `${ge} mt-2`,
+    messageClass: `${be} mt-2`,
     actionsHtml: te(s),
     role: "alert"
   });
@@ -711,9 +711,9 @@ function _t(e, t, s, a, r, i = "") {
     <section class="${A} p-6 shadow-sm">
       <div class="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
         <div class="space-y-3">
-          <p class="${Re}">Assignment editor</p>
+          <p class="${fe}">Assignment editor</p>
           <div>
-            <h1 class="${ue}">${d(b.source_title || "Translation assignment")}</h1>
+            <h1 class="${le}">${d(b.source_title || "Translation assignment")}</h1>
             <p class="mt-2 text-sm text-gray-600">
               ${d(p)} to ${d(h)} • ${d(S(e.status || b.status || "draft"))} • Priority ${d(e.priority || "normal")}
             </p>
@@ -831,7 +831,7 @@ function St(e) {
     <div class="mt-3 flex flex-wrap gap-2">
       ${t.map((s) => `
         <span class="${Ee}">
-          <span class="${be}">${d(n(s.term))}</span>
+          <span class="${ye}">${d(n(s.term))}</span>
           → ${d(n(s.preferred_translation))}
         </span>
       `).join("")}
@@ -895,7 +895,7 @@ function Et(e) {
             </div>
             <button
               type="button"
-              class="${H}"
+              class="${K}"
               data-copy-source="${m(t.path)}"
               aria-label="Copy source text to translation field for ${m(t.label)}"
             >
@@ -1057,7 +1057,7 @@ function Dt(e) {
   if (!t.enabled) return "";
   const s = t.findings.filter((i) => i.severity === "blocker"), a = t.findings.filter((i) => i.severity !== "blocker"), r = (i, o) => {
     if (!i.length) return "";
-    const l = le(o);
+    const l = he(o);
     return `
       <section data-qa-group="${m(o === "blocker" ? "blockers" : "warnings")}">
         <h3 class="text-sm font-semibold ${o === "blocker" ? "text-rose-800" : "text-amber-800"}">
@@ -1077,7 +1077,7 @@ function Dt(e) {
     `;
   };
   return `
-    <section class="${ye(t.submit_blocked)}">
+    <section class="${me(t.submit_blocked)}">
       <div class="flex items-center justify-between gap-3">
         <div>
           <h2 class="text-lg font-semibold text-gray-900">QA checks</h2>
@@ -1137,15 +1137,15 @@ function Mt(e, t) {
 }
 function Ft(e, t) {
   return e ? `
-    <div class="${ce}" data-reject-modal="true">
-      <section class="${me}" role="dialog" aria-modal="true" aria-labelledby="translation-reject-title">
+    <div class="${pe}" data-reject-modal="true">
+      <section class="${de}" role="dialog" aria-modal="true" aria-labelledby="translation-reject-title">
         <div class="flex items-start justify-between gap-4">
           <div>
             <p class="text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">Review action</p>
             <h2 id="translation-reject-title" class="mt-2 text-2xl font-semibold text-gray-900">Request changes</h2>
             <p class="mt-2 text-sm text-gray-600">Capture the rejection reason so translators can see it directly in the editor timeline.</p>
           </div>
-          <button type="button" class="${H}" data-action="cancel-reject">Close</button>
+          <button type="button" class="${K}" data-action="cancel-reject">Close</button>
         </div>
         <label class="mt-5 block text-sm font-medium text-gray-700">
           Reject reason
@@ -1220,7 +1220,7 @@ function Bt(e) {
         <span class="text-xs text-gray-500">Page ${t.page} of ${Math.max(1, Math.ceil(t.total / Math.max(1, t.per_page)))}</span>
       </div>
       ${s.length ? `<ol class="mt-4 space-y-3">${s.map((a) => {
-    const r = ke(a.tone);
+    const r = Ce(a.tone);
     return `
             <li class="${r.container}" data-history-entry="${m(a.id)}">
               <div class="flex items-start justify-between gap-3">
@@ -1421,7 +1421,7 @@ var Vt = class {
       submitting: this.submitting,
       rejectDraft: this.rejectDraft,
       activeSidebarTab: this.activeSidebarTab
-    }), this.attachEventListeners(), $e(this.container));
+    }), this.attachEventListeners(), we(this.container));
   }
   attachEventListeners() {
     !this.container || !this.editorState || (this.container.querySelectorAll("[data-field-input]").forEach((e) => {
@@ -1695,7 +1695,7 @@ var Vt = class {
       error: e
     }, this.render();
     const t = this.container?.querySelector('[data-reject-modal] [role="dialog"]');
-    t && (this.focusTrapCleanup = he(t, () => this.closeRejectDialog()));
+    t && (this.focusTrapCleanup = ke(t, () => this.closeRejectDialog()));
   }
   closeRejectDialog() {
     this.focusTrapCleanup && (this.focusTrapCleanup(), this.focusTrapCleanup = null), this.rejectDraft = null, this.render();

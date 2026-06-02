@@ -189,6 +189,86 @@
       "disabled_reason": "Policy currently blocks creating additional locale variants for this family."
     }
   },
+  "policy_unavailable": {
+    "family_id": "family-policy-unavailable",
+    "content_type": "news",
+    "source_locale": "en",
+    "readiness_state": "blocked",
+    "source_variant": {
+      "id": "variant-policy-unavailable-en",
+      "family_id": "family-policy-unavailable",
+      "locale": "en",
+      "status": "published",
+      "is_source": true,
+      "source_record_id": "news-policy-unavailable-en",
+      "fields": {
+        "title": "Policy unavailable bulletin"
+      },
+      "created_at": "2026-03-01T09:00:00Z",
+      "updated_at": "2026-03-02T09:00:00Z"
+    },
+    "locale_variants": [
+      {
+        "id": "variant-policy-unavailable-en",
+        "family_id": "family-policy-unavailable",
+        "locale": "en",
+        "status": "published",
+        "is_source": true,
+        "source_record_id": "news-policy-unavailable-en",
+        "fields": {
+          "title": "Policy unavailable bulletin"
+        },
+        "created_at": "2026-03-01T09:00:00Z",
+        "updated_at": "2026-03-02T09:00:00Z"
+      }
+    ],
+    "blockers": [
+      {
+        "id": "blocker-policy-unavailable",
+        "family_id": "family-policy-unavailable",
+        "blocker_code": "policy_denied",
+        "details": {
+          "content_type": "news",
+          "environment": "default",
+          "reason": "policy_unavailable",
+          "remediation": "Configure translation policy requirements and checker services for this content type, then rerun translation family sync."
+        }
+      }
+    ],
+    "active_assignments": [],
+    "publish_gate": {
+      "allowed": false,
+      "override_allowed": false,
+      "blocked_by": ["policy_denied"],
+      "review_required": false
+    },
+    "readiness_summary": {
+      "state": "blocked",
+      "required_locales": ["en"],
+      "missing_locales": [],
+      "available_locales": ["en"],
+      "blocker_codes": ["policy_denied"],
+      "missing_required_locale_count": 0,
+      "pending_review_count": 0,
+      "outdated_locale_count": 0,
+      "publish_ready": false
+    },
+    "quick_create": {
+      "enabled": false,
+      "missing_locales": [],
+      "recommended_locale": "",
+      "required_for_publish": ["en"],
+      "default_assignment": {
+        "auto_create_assignment": false,
+        "work_scope": "localization",
+        "priority": "normal",
+        "assignee_id": "",
+        "due_date": ""
+      },
+      "disabled_reason_code": "policy_denied",
+      "disabled_reason": "Policy currently blocks creating additional locale variants for this family."
+    }
+  },
   "missing_locale": {
     "family_id": "family-missing-locale",
     "content_type": "pages",

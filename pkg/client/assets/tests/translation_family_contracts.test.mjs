@@ -92,6 +92,7 @@ test('translation-family contracts: normalize list payloads and filter query sta
           source_locale: 'en',
           readiness_state: 'blocked',
           blocker_codes: ['missing_locale', 'pending_review'],
+          blocker_labels: { missing_locale: 'Missing locale', pending_review: 'Pending review' },
           missing_locales: ['fr'],
           available_locales: ['en', 'es'],
         },
@@ -109,6 +110,7 @@ test('translation-family contracts: normalize list payloads and filter query sta
   assert.equal(payload.channel, 'production');
   assert.equal(payload.items[0].familyId, 'tg-page-1');
   assert.deepEqual(payload.items[0].blockerCodes, ['missing_locale', 'pending_review']);
+  assert.deepEqual(payload.items[0].blockerLabels, { missing_locale: 'Missing locale', pending_review: 'Pending review' });
 });
 
 test('translation-family list page: parses URL filters and preserves unrelated query state', () => {
@@ -146,14 +148,29 @@ test('translation-family list page: renders loading empty error and populated st
         source_record_id: 'page-1',
         readiness_state: 'blocked',
         blocker_codes: ['missing_locale'],
+        blocker_labels: { missing_locale: 'Missing locale' },
         missing_required_locale_count: 1,
         pending_review_count: 2,
         outdated_locale_count: 3,
         missing_locales: ['fr'],
         available_locales: ['en', 'es'],
+      }, {
+        family_id: 'tg-policy-unavailable',
+        content_type: 'news',
+        source_locale: 'en',
+        source_title: 'News Policy',
+        source_record_id: 'news-1',
+        readiness_state: 'blocked',
+        blocker_codes: ['policy_denied'],
+        blocker_labels: { policy_denied: 'Policy unavailable' },
+        missing_required_locale_count: 0,
+        pending_review_count: 0,
+        outdated_locale_count: 0,
+        missing_locales: [],
+        available_locales: ['en'],
       }],
     },
-    meta: { total: 1, page: 1, per_page: 50, channel: 'production' },
+    meta: { total: 2, page: 1, per_page: 50, channel: 'production' },
   });
 
   const options = {
@@ -184,6 +201,7 @@ test('translation-family list page: renders loading empty error and populated st
   const readyHTML = renderTranslationFamilyListState({ status: 'ready', filters, response: row }, options);
   assert.match(readyHTML, /Landing Page/);
   assert.match(readyHTML, /Missing locale/);
+  assert.match(readyHTML, /Policy unavailable/);
   assert.match(readyHTML, /FR/);
   assert.match(readyHTML, /Open family/);
   assert.match(readyHTML, /href="\/admin\/translations\/families\/tg-page-1\?channel=production"/);

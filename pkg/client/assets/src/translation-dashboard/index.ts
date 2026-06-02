@@ -1142,7 +1142,7 @@ function renderTable(
       <div data-dashboard-table="${escapeAttribute(table.id)}">
         <header class="flex items-center justify-between gap-3 border-b border-gray-200 px-4 py-3 bg-white">
           <div>
-            <p class="text-xs text-gray-500">Showing ${escapeHTML(String(table.rows.length))} of ${escapeHTML(String(table.total))}</p>
+            <p class="text-xs text-gray-500">Showing top ${escapeHTML(String(table.rows.length))} of ${escapeHTML(String(table.total))}</p>
           </div>
           ${runbook?.href ? `
             <a
@@ -1166,7 +1166,7 @@ function renderTable(
       <header class="flex items-center justify-between gap-3 border-b border-gray-200 px-4 py-3">
         <div>
           <h2 class="text-sm font-semibold uppercase tracking-[0.22em] text-gray-500">${escapeHTML(tableLabel)}</h2>
-          <p class="mt-1 text-xs text-gray-500">Showing ${escapeHTML(String(table.rows.length))} of ${escapeHTML(String(table.total))}</p>
+          <p class="mt-1 text-xs text-gray-500">Showing top ${escapeHTML(String(table.rows.length))} of ${escapeHTML(String(table.total))}</p>
         </div>
         ${runbook?.href ? `
           <a
