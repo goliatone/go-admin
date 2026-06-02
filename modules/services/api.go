@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"database/sql"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"github.com/goliatone/go-admin/internal/primitives"
 	"maps"
@@ -1321,7 +1322,7 @@ func providerOperationStatusItem(ctx context.Context, db *bun.DB, connection con
 		return nil, err
 	}
 	applyOperationSourceStatus(status, outbox, outboxFound, syncJob, syncFound)
-	if nextRetryAt, _ := status["next_retry_at"].(*time.Time); nextRetryAt != nil {
+	if nextRetryAt, ok := status["next_retry_at"].(*time.Time); ok && nextRetryAt != nil {
 		status["retry_backoff_seconds"] = max(int(nextRetryAt.UTC().Sub(now).Seconds()), 0)
 	}
 	return status, nil
@@ -2096,7 +2097,7 @@ func (m *Module) lookupConnectionProvider(ctx context.Context, connectionID stri
 }
 
 func errorsIsNoRows(err error) bool {
-	return err == sql.ErrNoRows || strings.Contains(strings.ToLower(err.Error()), "no rows")
+	return errors.Is(err, sql.ErrNoRows) || strings.Contains(strings.ToLower(err.Error()), "no rows")
 }
 
 type installationRecord struct {
