@@ -87,6 +87,20 @@ func TestNormalPathsDoNotRegressToReflection(t *testing.T) {
 	}
 }
 
+func TestGoCMSLegacyReflectionShimsStayRemoved(t *testing.T) {
+	root := repositoryRoot(t)
+	for _, path := range []string{
+		"admin/cms_gocms_container_legacy.go",
+		"admin/cms_gocms_translation_legacy.go",
+	} {
+		if _, err := os.Stat(filepath.Join(root, path)); err == nil {
+			t.Fatalf("legacy reflection shim %s must not be restored", path)
+		} else if !os.IsNotExist(err) {
+			t.Fatalf("stat %s: %v", path, err)
+		}
+	}
+}
+
 func repositoryRoot(t *testing.T) string {
 	t.Helper()
 	dir, err := os.Getwd()

@@ -3,6 +3,7 @@ package admin
 import (
 	"context"
 	"slices"
+	"strings"
 	"testing"
 
 	cmscontent "github.com/goliatone/go-cms/content"
@@ -394,31 +395,15 @@ func TestGoCMSContentAdapterUpdatePageMetadataMapping(t *testing.T) {
 	}
 }
 
-func TestGoCMSContentAdapterCreateTranslationUsesOptionalCommand(t *testing.T) {
+func TestGoCMSContentAdapterCreateTranslationRequiresAdminContentWriteService(t *testing.T) {
 	ctx := context.Background()
 	typeID := uuid.New()
 	sourceID := uuid.New()
-	groupID := uuid.New()
 	typeSvc := newStubContentTypeService(CMSContentType{
 		ID:   typeID.String(),
 		Slug: "posts",
 	})
-	contentSvc := &stubGoCMSContentService{
-		createTranslationRes: &cmscontent.Content{
-			ID:     uuid.New(),
-			Slug:   "hello-fr",
-			Status: "draft",
-			Type:   &cmscontent.ContentType{Slug: "posts"},
-			Translations: []*cmscontent.ContentTranslation{
-				{
-					Locale:   &cmscontent.Locale{Code: "fr"},
-					Title:    "Bonjour",
-					FamilyID: &groupID,
-					Content:  map[string]any{"body": "bonjour"},
-				},
-			},
-		},
-	}
+	contentSvc := &stubGoCMSContentService{}
 	svc := NewGoCMSContentAdapter(contentSvc, nil, typeSvc)
 	adapter, ok := svc.(*GoCMSContentAdapter)
 	if !ok || adapter == nil {
@@ -432,196 +417,17 @@ func TestGoCMSContentAdapterCreateTranslationUsesOptionalCommand(t *testing.T) {
 		ContentType: "posts",
 		Status:      "draft",
 	})
-	if err != nil {
-		t.Fatalf("create translation failed: %v", err)
+	if err == nil {
+		t.Fatalf("expected missing admin write service error")
 	}
-	if contentSvc.createTranslationCnt != 1 {
-		t.Fatalf("expected one create translation call, got %d", contentSvc.createTranslationCnt)
+	if created != nil {
+		t.Fatalf("expected no created content, got %#v", created)
 	}
-	if contentSvc.createTranslationReq.ContentID != sourceID {
-		t.Fatalf("expected content id %s, got %s", sourceID.String(), contentSvc.createTranslationReq.ContentID.String())
+	if contentSvc.createTranslationCnt != 0 {
+		t.Fatalf("expected legacy content CreateTranslation to stay unused, got %d calls", contentSvc.createTranslationCnt)
 	}
-	if contentSvc.createTranslationReq.Locale != "fr" {
-		t.Fatalf("expected locale fr, got %q", contentSvc.createTranslationReq.Locale)
-	}
-	if contentSvc.createTranslationReq.EnvironmentKey != "staging" {
-		t.Fatalf("expected environment staging, got %q", contentSvc.createTranslationReq.EnvironmentKey)
-	}
-	if created == nil {
-		t.Fatalf("expected created content")
-	}
-	if created.Locale != "fr" {
-		t.Fatalf("expected created locale fr, got %q", created.Locale)
-	}
-	if created.FamilyID != groupID.String() {
-		t.Fatalf("expected group id %s, got %s", groupID.String(), created.FamilyID)
-	}
-}
-
-func TestGoCMSContentAdapterCreateTranslationUsesDedicatedTranslationCapability(t *testing.T) {
-	ctx := context.Background()
-	typeID := uuid.New()
-	sourceID := uuid.New()
-	groupID := uuid.New()
-	typeSvc := newStubContentTypeService(CMSContentType{
-		ID:   typeID.String(),
-		Slug: "posts",
-	})
-	contentSvc := &stubGoCMSContentServiceNoTranslation{
-		base: &stubGoCMSContentService{},
-	}
-	translationSvc := &stubGoCMSContentTranslationService{
-		createTranslationRes: &cmscontent.Content{
-			ID:     uuid.New(),
-			Slug:   "hello-fr",
-			Status: "draft",
-			Type:   &cmscontent.ContentType{Slug: "posts"},
-			Translations: []*cmscontent.ContentTranslation{
-				{
-					Locale:   &cmscontent.Locale{Code: "fr"},
-					Title:    "Bonjour",
-					FamilyID: &groupID,
-					Content:  map[string]any{"body": "bonjour"},
-				},
-			},
-		},
-	}
-	svc := newGoCMSContentAdapter(contentSvc, translationSvc, nil, typeSvc, nil, nil, nil, nil, nil)
-	adapter, ok := svc.(*GoCMSContentAdapter)
-	if !ok || adapter == nil {
-		t.Fatalf("expected GoCMSContentAdapter, got %T", svc)
-	}
-
-	created, err := adapter.CreateTranslation(ctx, TranslationCreateInput{
-		SourceID:    sourceID.String(),
-		Locale:      "fr",
-		Environment: "staging",
-		ContentType: "posts",
-		Status:      "draft",
-	})
-	if err != nil {
-		t.Fatalf("create translation failed: %v", err)
-	}
-	if translationSvc.createTranslationCnt != 1 {
-		t.Fatalf("expected one translation capability call, got %d", translationSvc.createTranslationCnt)
-	}
-	if translationSvc.createTranslationReq.SourceID != sourceID {
-		t.Fatalf("expected source id %s, got %s", sourceID.String(), translationSvc.createTranslationReq.SourceID.String())
-	}
-	if translationSvc.createTranslationReq.TargetLocale != "fr" {
-		t.Fatalf("expected target locale fr, got %q", translationSvc.createTranslationReq.TargetLocale)
-	}
-	if created == nil {
-		t.Fatalf("expected created content")
-	}
-	if created.Locale != "fr" {
-		t.Fatalf("expected created locale fr, got %q", created.Locale)
-	}
-	if created.FamilyID != groupID.String() {
-		t.Fatalf("expected group id %s, got %s", groupID.String(), created.FamilyID)
-	}
-}
-
-func TestGoCMSContentAdapterCreateTranslationUsesCanonicalMetadataOnly(t *testing.T) {
-	ctx := context.Background()
-	typeID := uuid.New()
-	sourceID := uuid.New()
-	typeSvc := newStubContentTypeService(CMSContentType{
-		ID:   typeID.String(),
-		Slug: "posts",
-	})
-	contentSvc := &stubGoCMSContentService{
-		createTranslationRes: &cmscontent.Content{
-			ID:     uuid.New(),
-			Slug:   "hello-fr",
-			Status: "draft",
-			Type:   &cmscontent.ContentType{Slug: "posts"},
-			Translations: []*cmscontent.ContentTranslation{
-				{
-					Locale:  &cmscontent.Locale{Code: "fr"},
-					Title:   "Bonjour",
-					Content: map[string]any{"body": "bonjour"},
-				},
-			},
-		},
-	}
-	svc := NewGoCMSContentAdapter(contentSvc, nil, typeSvc)
-	adapter, ok := svc.(*GoCMSContentAdapter)
-	if !ok || adapter == nil {
-		t.Fatalf("expected GoCMSContentAdapter, got %T", svc)
-	}
-
-	_, err := adapter.CreateTranslation(ctx, TranslationCreateInput{
-		SourceID:    sourceID.String(),
-		Locale:      "fr",
-		Environment: "staging",
-		ContentType: "posts",
-		Status:      "draft",
-		Metadata: map[string]any{
-			"path":   "/bonjour",
-			"custom": "keep",
-		},
-	})
-	if err != nil {
-		t.Fatalf("create translation failed: %v", err)
-	}
-	if contentSvc.createTranslationReq.Metadata == nil {
-		t.Fatalf("expected canonical metadata field to be populated")
-	}
-	if contentSvc.createTranslationReq.Metadata["path"] != "/bonjour" {
-		t.Fatalf("expected canonical metadata path /bonjour, got %v", contentSvc.createTranslationReq.Metadata["path"])
-	}
-	if len(contentSvc.createTranslationReq.Meta) != 0 {
-		t.Fatalf("expected legacy Meta field to remain empty, got %v", contentSvc.createTranslationReq.Meta)
-	}
-}
-
-func TestGoCMSContentAdapterCreateTranslationPromotesFirstClassPathAndRouteKeyIntoMetadata(t *testing.T) {
-	ctx := context.Background()
-	sourceID := uuid.New()
-	typeSvc := newStubContentTypeService(CMSContentType{
-		ID:   uuid.New().String(),
-		Slug: "posts",
-	})
-	contentSvc := &stubGoCMSContentService{
-		createTranslationRes: &cmscontent.Content{
-			ID:     uuid.New(),
-			Slug:   "hello-fr",
-			Status: "draft",
-			Type:   &cmscontent.ContentType{Slug: "posts"},
-			Translations: []*cmscontent.ContentTranslation{{
-				Locale:  &cmscontent.Locale{Code: "fr"},
-				Title:   "Bonjour",
-				Content: map[string]any{"body": "bonjour"},
-			}},
-		},
-	}
-	svc := NewGoCMSContentAdapter(contentSvc, nil, typeSvc)
-	adapter := mustAs[*GoCMSContentAdapter](svc)
-
-	_, err := adapter.CreateTranslation(ctx, TranslationCreateInput{
-		SourceID:    sourceID.String(),
-		Locale:      "fr",
-		Environment: "staging",
-		ContentType: "posts",
-		Status:      "draft",
-		Path:        "/bonjour",
-		RouteKey:    "posts/hello",
-	})
-	if err != nil {
-		t.Fatalf("create translation failed: %v", err)
-	}
-	if contentSvc.createTranslationReq.Path != "/bonjour" {
-		t.Fatalf("expected first-class path on request, got %q", contentSvc.createTranslationReq.Path)
-	}
-	if contentSvc.createTranslationReq.RouteKey != "posts/hello" {
-		t.Fatalf("expected first-class route_key on request, got %q", contentSvc.createTranslationReq.RouteKey)
-	}
-	if got := toString(contentSvc.createTranslationReq.Metadata["path"]); got != "/bonjour" {
-		t.Fatalf("expected metadata path /bonjour, got %q", got)
-	}
-	if got := toString(contentSvc.createTranslationReq.Metadata["route_key"]); got != "posts/hello" {
-		t.Fatalf("expected metadata route_key posts/hello, got %q", got)
+	if got := err.Error(); !strings.Contains(got, "go-cms AdminContentWrite service not configured") {
+		t.Fatalf("expected admin write configuration error, got %v", err)
 	}
 }
 

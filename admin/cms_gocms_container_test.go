@@ -2,10 +2,14 @@ package admin
 
 import (
 	"context"
+	"errors"
+	"fmt"
+	"strings"
 	"testing"
 
 	cms "github.com/goliatone/go-cms"
 	cmswidgets "github.com/goliatone/go-cms/widgets"
+	goerrors "github.com/goliatone/go-errors"
 	"github.com/google/uuid"
 )
 
@@ -56,6 +60,52 @@ func TestResolveGoCMSContentServiceWiresOptionalAdminContentServices(t *testing.
 	}
 	if adapter.adminBlockW == nil {
 		t.Fatalf("expected admin block write service to be wired")
+	}
+}
+
+func TestBuildGoCMSContainerFailsWhenGoCMSAdminContractsAreMissing(t *testing.T) {
+	_, err := BuildGoCMSContainer(context.Background(), Config{
+		CMS: CMSOptions{
+			GoCMSConfig: testGoCMSContentOnlyProvider{
+				content: &stubGoCMSContentService{},
+			},
+		},
+	})
+	if err == nil {
+		t.Fatalf("expected missing go-cms admin services error")
+	}
+	var typedErr *goerrors.Error
+	if !errors.As(err, &typedErr) {
+		t.Fatalf("expected domain error, got %T: %v", err, err)
+	}
+	if typedErr.TextCode != TextCodeServiceUnavailable {
+		t.Fatalf("expected %s, got %q", TextCodeServiceUnavailable, typedErr.TextCode)
+	}
+	missing := fmt.Sprint(typedErr.Metadata["missing"])
+	for _, expected := range []string{"AdminContentRead", "AdminContentWrite", "AdminBlockRead", "AdminBlockWrite"} {
+		if !strings.Contains(missing, expected) {
+			t.Fatalf("expected missing services %q to contain %q", missing, expected)
+		}
+	}
+}
+
+func TestBuildGoCMSContainerAcceptsTypedGoCMSAdminContracts(t *testing.T) {
+	container, err := BuildGoCMSContainer(context.Background(), Config{
+		CMS: CMSOptions{
+			GoCMSConfig: testGoCMSContentProvider{
+				content:     &stubGoCMSContentService{},
+				adminRead:   &stubGoCMSAdminContentReadService{},
+				adminWrite:  &stubGoCMSAdminContentWriteService{},
+				adminBlock:  &stubGoCMSAdminBlockReadService{},
+				adminBlockW: &stubGoCMSAdminBlockWriteService{},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("build container failed: %v", err)
+	}
+	if container == nil || container.ContentService() == nil {
+		t.Fatalf("expected adapted go-cms content container")
 	}
 }
 
