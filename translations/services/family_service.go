@@ -38,6 +38,7 @@ type FamilyVariant struct {
 	SourceHashAtLastSync string            `json:"source_hash_at_last_sync,omitempty"`
 	Fields               map[string]string `json:"fields,omitempty"`
 	Metadata             map[string]any    `json:"metadata,omitempty"`
+	RowVersion           int64             `json:"row_version,omitempty"`
 	SourceRecordID       string            `json:"source_record_id,omitempty"`
 	UpdatedAt            time.Time         `json:"updated_at"`
 	CreatedAt            time.Time         `json:"created_at"`
