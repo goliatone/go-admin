@@ -140,6 +140,16 @@ Field completeness is separate:
 - missing locale: the locale variant does not exist
 - missing field: the locale exists, but required translated fields are incomplete
 
+### Translation policy lifecycle
+
+Publish readiness is derived in this order:
+
+1. Configure `quickstart.TranslationPolicyConfig` for every content type that participates in family readiness, including custom types such as `news`.
+2. Ensure suitable page/content services that implement `CheckTranslations` are discoverable through the CMS module, `CMSOptions.GoCMSConfig`, or explicit `quickstart.WithTranslationPolicyServices`; `pages` uses the page checker, while other content types use the content checker unless declared in `page_entities`.
+3. Validate policy coverage before startup when seeded or displayed family content types are known; each family content type must have effective `publish` requirements.
+4. Run translation family sync so `content_families`, `locale_variants`, and `family_blockers` reflect the current CMS records and policy.
+5. Treat `policy_denied` blockers with `details.reason=policy_unavailable` as configuration or wiring work, not translator locale work.
+
 ### Fallback mode
 
 If a requested locale does not exist and fallback is allowed:
@@ -456,6 +466,8 @@ Dashboard blocked-family rows can include optional remediation fields:
 
 `reason_data.state` is one of `available`, `unavailable`, or `degraded`. Clients should treat these fields as optional and keep rendering the existing dashboard payload when they are absent. Populated `family_blockers` rows are the actionable source for reason buckets; fallback-only `content_families.blocker_codes` values provide labels but should render as unavailable or degraded reason context when detailed blocker rows are absent.
 
+`blocker_codes` remains the canonical machine field. A row can still carry `policy_denied` while `blocker_labels.policy_denied` or `reason_breakdown[].code=policy_unavailable` tells operators the policy checker was unavailable or not configured.
+
 The optimized dashboard path derives family aggregates from `content_families` and reason detail from `family_blockers`, scoped by tenant, org, channel, and dashboard limits. It should not call broad family or assignment hydration paths, derive family reason buckets from assignment rows, or require a denormalized dashboard projection for the current contract.
 
 ### Scope policy
@@ -688,6 +700,15 @@ You may still have:
 - missing required fields
 - pending review
 - stale/outdated source
+
+### “Publish is blocked by policy unavailable”
+
+This is a host configuration issue. Check that:
+
+- `WithTranslationPolicyConfig` covers the content type with effective `publish` requirements.
+- the suitable page/content service implementing `CheckTranslations` is discoverable, or pass it with `WithTranslationPolicyServices`.
+- the content type is included in policy coverage validation.
+- translation family sync has been run after policy or CMS wiring changes.
 
 ### “Queue is enabled, but editing still happens in a content form”
 
