@@ -154,7 +154,9 @@ func (r *dashboardTemplateRenderer) RenderPage(name string, page admin.AdminDash
 		return "", err
 	}
 	if len(out) > 0 && out[0] != nil {
-		_, _ = io.Copy(out[0], bytes.NewBufferString(html))
+		if _, err := io.Copy(out[0], bytes.NewBufferString(html)); err != nil {
+			return "", err
+		}
 	}
 	return html, nil
 }
