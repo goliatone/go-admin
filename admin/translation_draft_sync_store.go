@@ -163,7 +163,7 @@ func (s *translationDraftSyncResourceStore) validateResourceRef(ref synccore.Res
 func (s *translationDraftSyncResourceStore) snapshot(ctx context.Context, ref synccore.ResourceRef, editorCtx translationEditorContext, updatedRecord any, revision int64, options translationDraftSyncSnapshotOptions) (synccore.Snapshot, error) {
 	currentAssignment := translationEditorAssignmentByLocale(editorCtx.Family, editorCtx.TargetVariant.Locale)
 	qaResults := s.binding.translationQAResults(editorCtx)
-	if trigger := strings.TrimSpace(options.QAOutcomeTrigger); trigger != "" {
+	if trigger := strings.TrimSpace(options.QAOutcomeTrigger); trigger == translationDraftSyncTriggerSave {
 		recordTranslationQAOutcomeMetric(ctx, translationQAOutcomeEvent{
 			Trigger:      trigger,
 			AssignmentID: strings.TrimSpace(currentAssignment.ID),
