@@ -166,7 +166,8 @@
       "missing_locale": "Missing locale",
       "outdated_source": "Source changed",
       "pending_review": "Pending review",
-      "policy_denied": "Policy blocked"
+      "policy_denied": "Policy denied",
+      "policy_unavailable": "Policy unavailable"
     },
     "runbooks": [
       {
