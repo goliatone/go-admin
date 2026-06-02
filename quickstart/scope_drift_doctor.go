@@ -130,6 +130,8 @@ func quickstartDoctorScopeDriftCheck(cfg admin.Config, inspector ScopeDriftInspe
 
 // RepairScopeDrift runs the explicit single-tenant scope repair. When Apply is
 // false it reports affected rows without mutating data.
+//
+//nolint:gocyclo,nestif // Repair reporting and apply-mode branching are kept together for auditability.
 func RepairScopeDrift(ctx context.Context, cfg admin.Config, inspector ScopeDriftInspector, repairer ScopeDriftRepairer, input ScopeDriftRepairInput) (ScopeDriftRepairReport, error) {
 	if ctx == nil {
 		ctx = context.Background()

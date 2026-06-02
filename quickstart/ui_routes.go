@@ -601,6 +601,7 @@ func registerAdminUITranslationOverviewRoutes[T any](
 	}
 }
 
+//nolint:funlen // Route registration keeps the translation detail endpoints together for generic router wiring.
 func registerAdminUITranslationDetailRoutes[T any](
 	r router.Router[T],
 	options uiRouteOptions,
