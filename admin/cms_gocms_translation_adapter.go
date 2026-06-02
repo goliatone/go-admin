@@ -8,7 +8,9 @@ import (
 	"github.com/google/uuid"
 )
 
-// CreateTranslation attempts to use a first-class go-cms translation command when available.
+// CreateTranslation uses the typed go-cms admin write service. Older dynamic
+// ContentTranslations/CreateTranslation shapes are intentionally unsupported so
+// GoCMS wiring fails clearly instead of falling back to reflective shims.
 func (a *GoCMSContentAdapter) CreateTranslation(ctx context.Context, input TranslationCreateInput) (*CMSContent, error) {
 	if a == nil || a.content == nil {
 		return nil, ErrNotFound
@@ -24,39 +26,33 @@ func (a *GoCMSContentAdapter) CreateTranslation(ctx context.Context, input Trans
 			"field": "locale",
 		})
 	}
-	if a.adminWrite != nil && shouldUseAdminContentTranslationCreate(input) {
-		sourceID := cmsadapter.UUIDFromString(input.SourceID)
-		if sourceID == uuid.Nil {
-			return nil, ErrNotFound
-		}
-		record, err := a.adminWrite.CreateTranslation(ctx, cms.AdminContentCreateTranslationRequest{
-			SourceID:       sourceID,
-			TargetLocale:   input.Locale,
-			FamilyID:       cmsadapter.UUIDPointerFromString(toString(input.Metadata["family_id"])),
-			EnvironmentKey: input.Environment,
-			ActorID:        actorUUID(ctx),
-			Status:         input.Status,
-			Path:           input.Path,
-			RouteKey:       input.RouteKey,
-			Metadata:       cloneAnyMap(input.Metadata),
+	if a.adminWrite == nil {
+		return nil, serviceNotConfiguredDomainError("go-cms AdminContentWrite service", map[string]any{
+			"operation": "create_translation",
 		})
-		if err != nil {
-			return nil, normalizeGoCMSTranslationCreateError(err, input)
-		}
-		if record == nil {
-			return nil, ErrNotFound
-		}
-		converted := a.convertAdminContentRecord(ctx, *record)
-		return &converted, nil
 	}
-	record, err := a.createTranslationRecordViaLegacyReflection(ctx, input)
-	if err != nil {
-		return nil, err
-	}
-	converted := a.convertContent(ctx, record, input.Locale)
-	return &converted, nil
-}
 
-func shouldUseAdminContentTranslationCreate(TranslationCreateInput) bool {
-	return true
+	sourceID := cmsadapter.UUIDFromString(input.SourceID)
+	if sourceID == uuid.Nil {
+		return nil, ErrNotFound
+	}
+	record, err := a.adminWrite.CreateTranslation(ctx, cms.AdminContentCreateTranslationRequest{
+		SourceID:       sourceID,
+		TargetLocale:   input.Locale,
+		FamilyID:       cmsadapter.UUIDPointerFromString(toString(input.Metadata["family_id"])),
+		EnvironmentKey: input.Environment,
+		ActorID:        actorUUID(ctx),
+		Status:         input.Status,
+		Path:           input.Path,
+		RouteKey:       input.RouteKey,
+		Metadata:       cloneAnyMap(input.Metadata),
+	})
+	if err != nil {
+		return nil, normalizeGoCMSTranslationCreateError(err, input)
+	}
+	if record == nil {
+		return nil, ErrNotFound
+	}
+	converted := a.convertAdminContentRecord(ctx, *record)
+	return &converted, nil
 }

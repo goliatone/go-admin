@@ -26,15 +26,15 @@ func BuildGoCMSContainer(ctx context.Context, cfg Config) (CMSContainer, error) 
 		if v == nil {
 			return nil, nil
 		}
-		return NewGoCMSContainerAdapter(v), nil
+		return newStrictGoCMSContainerAdapter(v)
 	case cms.Module:
-		return NewGoCMSContainerAdapter(&v), nil
+		return newStrictGoCMSContainerAdapter(&v)
 	case cms.Config:
 		module, err := cms.New(v)
 		if err != nil {
 			return nil, err
 		}
-		return NewGoCMSContainerAdapter(module), nil
+		return newStrictGoCMSContainerAdapter(module)
 	case *cms.Config:
 		if v == nil {
 			return nil, nil
@@ -43,15 +43,57 @@ func BuildGoCMSContainer(ctx context.Context, cfg Config) (CMSContainer, error) 
 		if err != nil {
 			return nil, err
 		}
-		return NewGoCMSContainerAdapter(module), nil
+		return newStrictGoCMSContainerAdapter(module)
 	default:
 		if raw != nil {
-			if adapted := NewGoCMSContainerAdapter(raw); adapted != nil {
+			if adapted, err := newStrictGoCMSContainerAdapter(raw); err != nil {
+				return nil, err
+			} else if adapted != nil {
 				return adapted, nil
 			}
 		}
 	}
 	return nil, nil
+}
+
+func newStrictGoCMSContainerAdapter(container any) (*GoCMSContainerAdapter, error) {
+	adapted := NewGoCMSContainerAdapter(container)
+	if adapted == nil {
+		return nil, nil
+	}
+	if err := validateGoCMSAdminServiceContracts(adapted); err != nil {
+		return nil, err
+	}
+	return adapted, nil
+}
+
+func validateGoCMSAdminServiceContracts(container *GoCMSContainerAdapter) error {
+	if container == nil || container.contentSvc == nil {
+		return nil
+	}
+	content, ok := container.contentSvc.(*GoCMSContentAdapter)
+	if !ok || content == nil {
+		return nil
+	}
+	missing := make([]string, 0, 4)
+	if content.adminRead == nil {
+		missing = append(missing, "AdminContentRead")
+	}
+	if content.adminWrite == nil {
+		missing = append(missing, "AdminContentWrite")
+	}
+	if content.adminBlocks == nil {
+		missing = append(missing, "AdminBlockRead")
+	}
+	if content.adminBlockW == nil {
+		missing = append(missing, "AdminBlockWrite")
+	}
+	if len(missing) == 0 {
+		return nil
+	}
+	return serviceNotConfiguredDomainError("go-cms admin services", map[string]any{
+		"missing": missing,
+	})
 }
 
 // GoCMSContainerAdapter maps go-cms containers/modules into the admin CMSContainer contract.
@@ -128,7 +170,6 @@ func resolveGoCMSContentService(container any) CMSContentService {
 		return nil
 	}
 	localeResolver := resolveGoCMSLocaleResolver(container)
-	translationSvc := resolveGoCMSContentTranslationService(container)
 	adminRead := resolveGoCMSAdminContentReadService(container)
 	adminWrite := resolveGoCMSAdminContentWriteService(container)
 	adminBlocks := resolveGoCMSAdminBlockReadService(container)
@@ -136,7 +177,7 @@ func resolveGoCMSContentService(container any) CMSContentService {
 	if svc, ok := container.(CMSContentService); ok && svc != nil {
 		return svc
 	}
-	if adapted := resolveGoCMSContentAdapter(container, translationSvc, localeResolver, adminRead, adminWrite, adminBlocks, adminBlockWrite); adapted != nil {
+	if adapted := resolveGoCMSContentAdapter(container, localeResolver, adminRead, adminWrite, adminBlocks, adminBlockWrite); adapted != nil {
 		return adapted
 	}
 	if provider, ok := container.(interface{ Container() any }); ok {
@@ -148,17 +189,17 @@ func resolveGoCMSContentService(container any) CMSContentService {
 	return nil
 }
 
-func resolveGoCMSContentAdapter(container any, translationSvc any, localeResolver gocmsutil.LocaleResolver, adminRead cms.AdminContentReadService, adminWrite cms.AdminContentWriteService, adminBlocks cms.AdminBlockReadService, adminBlockWrite cms.AdminBlockWriteService) CMSContentService {
+func resolveGoCMSContentAdapter(container any, localeResolver gocmsutil.LocaleResolver, adminRead cms.AdminContentReadService, adminWrite cms.AdminContentWriteService, adminBlocks cms.AdminBlockReadService, adminBlockWrite cms.AdminBlockWriteService) CMSContentService {
 	contentTypeSvc := resolveGoCMSContentTypeService(container)
 	switch provider := container.(type) {
 	case interface{ ContentService() cms.ContentService }:
-		return newGoCMSContentAdapter(provider.ContentService(), translationSvc, resolveGoCMSBlockService(container), contentTypeSvc, localeResolver, adminRead, adminWrite, adminBlocks, adminBlockWrite)
+		return newGoCMSContentAdapter(provider.ContentService(), resolveGoCMSBlockService(container), contentTypeSvc, localeResolver, adminRead, adminWrite, adminBlocks, adminBlockWrite)
 	case interface{ Content() cms.ContentService }:
-		return newGoCMSContentAdapter(provider.Content(), translationSvc, resolveGoCMSBlockService(container), contentTypeSvc, localeResolver, adminRead, adminWrite, adminBlocks, adminBlockWrite)
+		return newGoCMSContentAdapter(provider.Content(), resolveGoCMSBlockService(container), contentTypeSvc, localeResolver, adminRead, adminWrite, adminBlocks, adminBlockWrite)
 	case interface{ ContentService() any }:
-		return newGoCMSContentAdapter(provider.ContentService(), translationSvc, resolveGoCMSBlockService(container), contentTypeSvc, localeResolver, adminRead, adminWrite, adminBlocks, adminBlockWrite)
+		return newGoCMSContentAdapter(provider.ContentService(), resolveGoCMSBlockService(container), contentTypeSvc, localeResolver, adminRead, adminWrite, adminBlocks, adminBlockWrite)
 	case interface{ Content() any }:
-		return newGoCMSContentAdapter(provider.Content(), translationSvc, resolveGoCMSBlockService(container), contentTypeSvc, localeResolver, adminRead, adminWrite, adminBlocks, adminBlockWrite)
+		return newGoCMSContentAdapter(provider.Content(), resolveGoCMSBlockService(container), contentTypeSvc, localeResolver, adminRead, adminWrite, adminBlocks, adminBlockWrite)
 	default:
 		return nil
 	}
@@ -243,19 +284,6 @@ func resolveGoCMSAdminBlockWriteService(container any) cms.AdminBlockWriteServic
 	}
 	if provider, ok := container.(interface{ Container() any }); ok {
 		return resolveGoCMSAdminBlockWriteService(provider.Container())
-	}
-	return nil
-}
-
-func resolveGoCMSContentTranslationService(container any) any {
-	if container == nil {
-		return nil
-	}
-	if result := resolveLegacyGoCMSContentTranslations(container); result != nil {
-		return result
-	}
-	if inner, ok := goCMSInnerContainer(container); ok {
-		return resolveGoCMSContentTranslationService(inner)
 	}
 	return nil
 }

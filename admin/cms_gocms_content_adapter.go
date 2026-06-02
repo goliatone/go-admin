@@ -38,7 +38,6 @@ type goCMSBlockService interface {
 // It uses the typed public go-cms contracts.
 type GoCMSContentAdapter struct {
 	content      goCMSContentService
-	translations any
 	blocks       goCMSBlockService
 	contentTypes CMSContentTypeService
 	locales      *gocmsutil.LocaleIDCache
@@ -52,10 +51,10 @@ type GoCMSContentAdapter struct {
 
 // NewGoCMSContentAdapter wraps go-cms services into the admin CMSContentService contract.
 func NewGoCMSContentAdapter(contentSvc any, blockSvc any, contentTypeSvc CMSContentTypeService) CMSContentService {
-	return newGoCMSContentAdapter(contentSvc, nil, blockSvc, contentTypeSvc, nil, nil, nil, nil, nil)
+	return newGoCMSContentAdapter(contentSvc, blockSvc, contentTypeSvc, nil, nil, nil, nil, nil)
 }
 
-func newGoCMSContentAdapter(contentSvc any, translationSvc any, blockSvc any, contentTypeSvc CMSContentTypeService, localeResolver gocmsutil.LocaleResolver, adminRead cms.AdminContentReadService, adminWrite cms.AdminContentWriteService, adminBlocks cms.AdminBlockReadService, adminBlockWrite cms.AdminBlockWriteService) CMSContentService {
+func newGoCMSContentAdapter(contentSvc any, blockSvc any, contentTypeSvc CMSContentTypeService, localeResolver gocmsutil.LocaleResolver, adminRead cms.AdminContentReadService, adminWrite cms.AdminContentWriteService, adminBlocks cms.AdminBlockReadService, adminBlockWrite cms.AdminBlockWriteService) CMSContentService {
 	if contentSvc == nil {
 		return nil
 	}
@@ -69,7 +68,6 @@ func newGoCMSContentAdapter(contentSvc any, translationSvc any, blockSvc any, co
 	typedBlocks, _ := blockSvc.(goCMSBlockService) //nolint:errcheck // legacy dynamic payload keeps existing zero-value fallback behavior.
 	return &GoCMSContentAdapter{
 		content:              typedContent,
-		translations:         translationSvc,
 		blocks:               typedBlocks,
 		contentTypes:         contentTypeSvc,
 		locales:              gocmsutil.NewLocaleIDCache(localeResolver),
