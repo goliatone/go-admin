@@ -187,6 +187,7 @@ func normalizeSiteStaticPrefixInput(input quickstart.SiteStaticPrefixInput) quic
 	input.AssetsPrefix = strings.TrimSpace(input.AssetsPrefix)
 	input.FormgenPrefix = strings.TrimSpace(input.FormgenPrefix)
 	input.RuntimePrefix = strings.TrimSpace(input.RuntimePrefix)
+	input.SyncClientPrefix = strings.TrimSpace(input.SyncClientPrefix)
 	input.EChartsPrefix = strings.TrimSpace(input.EChartsPrefix)
 	return input
 }
@@ -234,7 +235,16 @@ func isZeroSiteFallbackPolicy(policy SiteFallbackPolicy) bool {
 		len(policy.AllowedMethods) == 0 &&
 		len(policy.AllowedExactPaths) == 0 &&
 		len(policy.AllowedPathPrefixes) == 0 &&
-		len(policy.ReservedPrefixes) == 0
+		len(policy.ReservedPrefixes) == 0 &&
+		isZeroSiteStaticPrefixInput(policy.StaticInput)
+}
+
+func isZeroSiteStaticPrefixInput(input quickstart.SiteStaticPrefixInput) bool {
+	return strings.TrimSpace(input.AssetsPrefix) == "" &&
+		strings.TrimSpace(input.FormgenPrefix) == "" &&
+		strings.TrimSpace(input.RuntimePrefix) == "" &&
+		strings.TrimSpace(input.SyncClientPrefix) == "" &&
+		strings.TrimSpace(input.EChartsPrefix) == ""
 }
 
 func ValidateSiteFallbackPolicy(policy SiteFallbackPolicy) error {
