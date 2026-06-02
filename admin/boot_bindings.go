@@ -577,11 +577,7 @@ func (p *panelBinding) autosaveConflictForUpdate(ctx AdminContext, id string, bo
 	if expectedVersion == "" {
 		return nil
 	}
-	current, err := p.panel.Get(ctx, id)
-	if err != nil {
-		return nil
-	}
-	currentVersion := autosaveCurrentVersionToken(current)
+	current, currentVersion := panelAutosaveCurrentState(p.panel, ctx, id)
 	if currentVersion == "" {
 		return nil
 	}
@@ -596,6 +592,17 @@ func (p *panelBinding) autosaveConflictForUpdate(ctx AdminContext, id string, bo
 		LatestStatePath:   p.panelDetailPath(id),
 		LatestServerState: map[string]any{"id": strings.TrimSpace(toString(current["id"])), "version": currentVersion},
 	}
+}
+
+func panelAutosaveCurrentState(panel *Panel, ctx AdminContext, id string) (map[string]any, string) {
+	if panel == nil {
+		return nil, ""
+	}
+	current, err := panel.Get(ctx, id)
+	if err != nil {
+		return nil, ""
+	}
+	return current, autosaveCurrentVersionToken(current)
 }
 
 func autosaveEnabled(body map[string]any) bool {
