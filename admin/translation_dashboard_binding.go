@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/goliatone/go-admin/internal/primitives"
+	translationcore "github.com/goliatone/go-admin/translations/core"
 	translationservices "github.com/goliatone/go-admin/translations/services"
 	router "github.com/goliatone/go-router"
 	urlkit "github.com/goliatone/go-urlkit"
@@ -812,7 +813,7 @@ func translationDashboardTopBlockedRows(urls urlkit.Resolver, families []transla
 			"pending_review_count":          family.PendingReviewCount,
 			"outdated_locale_count":         family.OutdatedLocaleCount,
 			"blocker_codes":                 append([]string{}, family.BlockerCodes...),
-			"blocker_labels":                translationDashboardBlockerLabels(family.BlockerCodes),
+			"blocker_labels":                translationDashboardBlockerLabelsForFamily(family.Blockers, family.BlockerCodes),
 			"reason_breakdown":              translationDashboardReasonBreakdown(family.Blockers, family.BlockerCodes),
 			"affected_locales":              translationDashboardAffectedLocales(family.Blockers),
 			"reason_data":                   translationDashboardReasonDataState(family),
@@ -856,7 +857,7 @@ func translationDashboardReasonBreakdown(blockers []translationservices.FamilyBl
 	}
 	byCode := map[string]*reasonAggregate{}
 	for _, blocker := range blockers {
-		code := strings.TrimSpace(strings.ToLower(blocker.BlockerCode))
+		code := translationDashboardPresentationReasonCode(blocker)
 		if code == "" {
 			continue
 		}
@@ -874,6 +875,11 @@ func translationDashboardReasonBreakdown(blockers []translationservices.FamilyBl
 		code := strings.TrimSpace(strings.ToLower(raw))
 		if code == "" {
 			continue
+		}
+		if code == string(translationcore.FamilyBlockerPolicyDenied) {
+			if _, ok := byCode[string(translationcore.FamilyBlockerReasonPolicyUnavailable)]; ok {
+				continue
+			}
 		}
 		if _, ok := byCode[code]; !ok {
 			byCode[code] = &reasonAggregate{code: code, locales: map[string]struct{}{}, count: 0}
@@ -914,6 +920,27 @@ func translationDashboardAffectedLocales(blockers []translationservices.FamilyBl
 	return sortedStringSet(locales)
 }
 
+func translationDashboardBlockerLabelsForFamily(blockers []translationservices.FamilyBlocker, fallbackCodes []string) map[string]string {
+	out := translationDashboardBlockerLabels(fallbackCodes)
+	if len(blockers) == 0 {
+		return out
+	}
+	for _, blocker := range blockers {
+		code := strings.TrimSpace(strings.ToLower(blocker.BlockerCode))
+		if code == "" {
+			continue
+		}
+		if code == string(translationcore.FamilyBlockerPolicyDenied) && translationFamilyBlockerIsPolicyUnavailable(blocker) {
+			out[code] = "Policy unavailable"
+			continue
+		}
+		if _, ok := out[code]; !ok {
+			out[code] = translationDashboardReasonLabel(translationDashboardReasonLabels(), code)
+		}
+	}
+	return out
+}
+
 func translationDashboardBlockerLabels(codes []string) map[string]string {
 	labels := translationDashboardReasonLabels()
 	out := map[string]string{}
@@ -925,6 +952,17 @@ func translationDashboardBlockerLabels(codes []string) map[string]string {
 		out[code] = translationDashboardReasonLabel(labels, code)
 	}
 	return out
+}
+
+func translationDashboardPresentationReasonCode(blocker translationservices.FamilyBlocker) string {
+	code := strings.TrimSpace(strings.ToLower(blocker.BlockerCode))
+	if code != string(translationcore.FamilyBlockerPolicyDenied) {
+		return code
+	}
+	if translationFamilyBlockerIsPolicyUnavailable(blocker) {
+		return string(translationcore.FamilyBlockerReasonPolicyUnavailable)
+	}
+	return code
 }
 
 func translationDashboardReasonDataState(family translationservices.FamilyRecord) map[string]any {
@@ -952,11 +990,12 @@ func translationDashboardReasonLabel(labels map[string]string, code string) stri
 
 func translationDashboardReasonRank(code string) int {
 	ranks := map[string]int{
-		"missing_locale":  0,
-		"missing_field":   1,
-		"pending_review":  2,
-		"outdated_source": 3,
-		"policy_denied":   4,
+		"missing_locale":     0,
+		"missing_field":      1,
+		"pending_review":     2,
+		"outdated_source":    3,
+		"policy_denied":      4,
+		"policy_unavailable": 4,
 	}
 	if rank, ok := ranks[strings.TrimSpace(strings.ToLower(code))]; ok {
 		return rank

@@ -104,11 +104,12 @@ func translationDashboardReasonContract() map[string]any {
 
 func translationDashboardReasonLabels() map[string]string {
 	return map[string]string{
-		"missing_locale":  "Missing locale",
-		"missing_field":   "Missing required field",
-		"pending_review":  "Pending review",
-		"outdated_source": "Source changed",
-		"policy_denied":   "Policy blocked",
+		"missing_locale":     "Missing locale",
+		"missing_field":      "Missing required field",
+		"pending_review":     "Pending review",
+		"outdated_source":    "Source changed",
+		"policy_denied":      "Policy denied",
+		"policy_unavailable": "Policy unavailable",
 	}
 }
 
