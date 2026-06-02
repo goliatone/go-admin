@@ -24,8 +24,9 @@
     <div
       id="translation-editor-root"
       data-endpoint="{{ translation_editor_api_path|default:"" }}"
-      data-variant-base="{{ translation_editor_variant_api_base|default:"" }}"
       data-action-base="{{ translation_editor_action_api_base|default:"" }}"
+      data-sync-base="{{ translation_editor_sync_api_base|default:"" }}"
+      data-sync-client-base-path="{{ translation_editor_sync_client_base_path|default:"" }}"
       data-assignment-id="{{ translation_assignment_id|default:"" }}"
       data-base-path="{{ base_path|default:"/admin" }}"
     ></div>
@@ -41,8 +42,9 @@ const root = document.getElementById('translation-editor-root');
 if (root) {
   void initTranslationEditorPage(root, {
     endpoint: root.dataset.endpoint || '',
-    variantEndpointBase: root.dataset.variantBase || '',
     actionEndpointBase: root.dataset.actionBase || '',
+    syncBaseURL: root.dataset.syncBase || '',
+    syncClientBasePath: root.dataset.syncClientBasePath || '',
     basePath: root.dataset.basePath || '{{ base_path|default:"/admin" }}',
   });
 }

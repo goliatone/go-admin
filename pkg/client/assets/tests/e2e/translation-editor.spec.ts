@@ -199,20 +199,36 @@ function makeRejectedDetailFixture() {
 }
 
 function makeAutosaveConflictFixture() {
+  const latest = makeSubmitReadyUpdateFixture();
+  latest.data.row_version = 3;
+  latest.data.version = 3;
+  latest.data.fields = {
+    ...latest.data.fields,
+    title: 'Guide de publication serveur',
+  };
   return {
     error: {
-      text_code: 'VERSION_CONFLICT',
-      message: 'translation variant version conflict',
-      metadata: {
-        actual_version: 3,
-        latest_server_state_record: {
-          row_version: 3,
-          fields: {
-            title: 'Guide de publication serveur',
-          },
+      code: 'STALE_REVISION',
+      message: 'stale translation variant draft',
+      details: {
+        current_revision: 3,
+        resource: {
+          data: latest.data,
+          revision: 3,
+          updated_at: '2026-01-01T00:00:00Z',
         },
       },
     },
+  };
+}
+
+function makeSyncMutationFixture(update) {
+  return {
+    data: update.data,
+    revision: update.data.row_version || update.data.version || 4,
+    updated_at: '2026-01-01T00:00:00Z',
+    applied: true,
+    replay: false,
   };
 }
 
@@ -229,11 +245,11 @@ test.describe('Translation Assignment Editor', () => {
         body: JSON.stringify(makeSubmitReadyFixture()),
       });
     });
-    await page.route('**/api/translations/variants/*', async (route) => {
+    await page.route('**/api/translations/sync/resources/translation_variant_draft/*', async (route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify(makeSubmitReadyUpdateFixture()),
+        body: JSON.stringify(makeSyncMutationFixture(makeSubmitReadyUpdateFixture())),
       });
     });
 
@@ -297,7 +313,7 @@ test.describe('Translation Assignment Editor', () => {
         body: JSON.stringify(fixtures.detail),
       });
     });
-    await page.route('**/api/translations/variants/*', async (route) => {
+    await page.route('**/api/translations/sync/resources/translation_variant_draft/*', async (route) => {
       await route.fulfill({
         status: 409,
         contentType: 'application/json',
@@ -333,14 +349,6 @@ test.describe('Translation Assignment Editor', () => {
         body: JSON.stringify(submitted ? makeApprovedDetailFixture() : makeSubmitReadyFixture()),
       });
     });
-    await page.route('**/api/translations/variants/*', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify(fixtures.variant_update),
-      });
-    });
-
     await page.goto(`/admin/translations/assignments/${assignmentID}/edit`);
     await page.waitForLoadState('networkidle');
 

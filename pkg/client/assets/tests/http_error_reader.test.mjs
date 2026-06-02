@@ -253,8 +253,12 @@ test('http error reader callers now route through shared transport helper', () =
   assert.ok(!agreementFeedbackSource.includes('payload.error.details'));
 
   assert.match(translationEditorSource, /from '\.\.\/shared\/transport\/http-client\.js'/);
-  assert.match(translationEditorSource, /readHTTPErrorResult\(response, 'Autosave conflict'/);
-  assert.match(translationEditorSource, /async function readEditorAutosaveConflictPayload/);
+  assert.match(translationEditorSource, /TRANSLATION_DRAFT_SYNC_RESOURCE_KIND = 'translation_variant_draft'/);
+  assert.match(translationEditorSource, /TRANSLATION_DRAFT_SYNC_OPERATION = 'autosave'/);
+  assert.match(translationEditorSource, /code: 'STALE_REVISION'/);
+  assert.match(translationEditorSource, /applyEditorAutosaveConflict/);
+  assert.ok(!translationEditorSource.includes("readHTTPErrorResult(response, 'Autosave conflict'"));
+  assert.ok(!translationEditorSource.includes('async function readEditorAutosaveConflictPayload'));
   assert.ok(!translationEditorSource.includes("response.json().catch(async () => ({ error: { message: await readHTTPError(response, 'Autosave conflict') } }))"));
 
   assert.match(translationExchangeSource, /from '\.\.\/shared\/transport\/http-client\.js'/);

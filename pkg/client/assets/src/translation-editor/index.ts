@@ -11,7 +11,7 @@ import {
 } from '../shared/coercion.js';
 import { escapeAttribute, escapeHTML } from '../shared/html.js';
 import { normalizeStringRecord } from '../shared/record-normalization.js';
-import { httpRequest, readHTTPError, readHTTPErrorResult } from '../shared/transport/http-client.js';
+import { httpRequest, readCSRFToken, readHTTPError } from '../shared/transport/http-client.js';
 import { renderPanelLoadingState, renderPanelState } from '../services/ui-states.js';
 import { extractStructuredError } from '../toast/error-helpers.js';
 import {
@@ -315,9 +315,158 @@ export interface TranslationEditorRuntimeState {
 
 export interface TranslationEditorScreenConfig {
   endpoint: string;
-  variantEndpointBase: string;
+  variantEndpointBase?: string;
   actionEndpointBase: string;
+  syncBaseURL?: string;
+  syncClientBasePath?: string;
+  syncResourceKind?: string;
   basePath?: string;
+}
+
+const TRANSLATION_DRAFT_SYNC_RESOURCE_KIND = 'translation_variant_draft';
+const TRANSLATION_DRAFT_SYNC_OPERATION = 'autosave';
+
+interface TranslationSyncResourceRef {
+  kind: string;
+  id: string;
+  scope?: Record<string, string>;
+}
+
+interface TranslationSyncResourceSnapshot<T = unknown> {
+  ref: TranslationSyncResourceRef;
+  data: T;
+  revision: number;
+  updatedAt: string;
+  metadata?: Record<string, unknown>;
+}
+
+interface TranslationSyncMutationResponse<T = unknown> {
+  snapshot: TranslationSyncResourceSnapshot<T>;
+  applied: boolean;
+  replay: boolean;
+}
+
+interface TranslationSyncConflict<T = unknown> {
+  code: 'STALE_REVISION';
+  message: string;
+  currentRevision?: number;
+  latestSnapshot: TranslationSyncResourceSnapshot<T> | null;
+  staleSnapshot: TranslationSyncResourceSnapshot<T> | null;
+}
+
+interface TranslationSyncError<T = unknown> {
+  code: string;
+  message: string;
+  details?: unknown;
+  currentRevision?: number;
+  resource?: TranslationSyncResourceSnapshot<T>;
+  retriable?: boolean;
+  conflict?: TranslationSyncConflict<T>;
+}
+
+interface TranslationSyncMutationInput<P = unknown> {
+  ref?: TranslationSyncResourceRef;
+  operation: string;
+  payload: P;
+  expectedRevision?: number;
+  idempotencyKey?: string;
+  metadata?: Record<string, unknown>;
+}
+
+interface TranslationSyncResource<T = unknown, P = unknown> {
+  mutate(input: TranslationSyncMutationInput<P>): Promise<TranslationSyncMutationResponse<T>>;
+  getSnapshot(): TranslationSyncResourceSnapshot<T> | null;
+}
+
+interface TranslationSyncTransport {
+  load<T>(ref: TranslationSyncResourceRef): Promise<TranslationSyncResourceSnapshot<T>>;
+  mutate<T, P>(input: TranslationSyncMutationInput<P> & { ref: TranslationSyncResourceRef }): Promise<TranslationSyncMutationResponse<T>>;
+}
+
+interface TranslationSyncCoreModule {
+  createInMemoryCache(): {
+    set<T>(ref: TranslationSyncResourceRef, snapshot: TranslationSyncResourceSnapshot<T> | null): unknown;
+    clear(ref: TranslationSyncResourceRef): void;
+  };
+  createFetchSyncTransport(options?: Record<string, unknown>): TranslationSyncTransport;
+  createSyncEngine(options: Record<string, unknown>): {
+    resource<T, P = unknown>(ref: TranslationSyncResourceRef): TranslationSyncResource<T, P>;
+  };
+  parseReadEnvelope<T>(ref: TranslationSyncResourceRef, payload: unknown): TranslationSyncResourceSnapshot<T>;
+}
+
+declare global {
+  interface Window {
+    __translationSyncCoreLoader?: (clientBasePath: string) => Promise<TranslationSyncCoreModule>;
+    __translationSyncCoreModule?: TranslationSyncCoreModule;
+  }
+}
+
+const translationSyncCoreModuleCache = new Map<string, Promise<TranslationSyncCoreModule>>();
+
+export async function loadTranslationSyncCoreModule(clientBasePath: string): Promise<TranslationSyncCoreModule> {
+  const normalizedBasePath = normalizePathBase(clientBasePath);
+  if (!normalizedBasePath) {
+    throw new Error('syncClientBasePath is required to load sync-core');
+  }
+  if (typeof window !== 'undefined' && window.__translationSyncCoreModule) {
+    return validateTranslationSyncCoreModule(window.__translationSyncCoreModule);
+  }
+  if (!translationSyncCoreModuleCache.has(normalizedBasePath)) {
+    translationSyncCoreModuleCache.set(normalizedBasePath, importTranslationSyncCoreModule(normalizedBasePath));
+  }
+  return translationSyncCoreModuleCache.get(normalizedBasePath)!;
+}
+
+async function importTranslationSyncCoreModule(clientBasePath: string): Promise<TranslationSyncCoreModule> {
+  if (typeof window !== 'undefined' && typeof window.__translationSyncCoreLoader === 'function') {
+    return validateTranslationSyncCoreModule(await window.__translationSyncCoreLoader(clientBasePath));
+  }
+  const imported = await import(/* @vite-ignore */ `${clientBasePath}/index.js`);
+  return validateTranslationSyncCoreModule(imported as TranslationSyncCoreModule);
+}
+
+function validateTranslationSyncCoreModule(module: TranslationSyncCoreModule): TranslationSyncCoreModule {
+  if (
+    !module
+    || typeof module.createInMemoryCache !== 'function'
+    || typeof module.createFetchSyncTransport !== 'function'
+    || typeof module.createSyncEngine !== 'function'
+    || typeof module.parseReadEnvelope !== 'function'
+  ) {
+    throw new TypeError('Invalid translation sync-core runtime module');
+  }
+  return module;
+}
+
+function normalizePathBase(value: string | undefined): string {
+  return String(value || '').trim().replace(/\/+$/, '');
+}
+
+function deriveTranslationSyncBaseURL(
+  variantEndpointBase: string,
+  actionEndpointBase: string,
+  detailEndpoint: string
+): string {
+  const variantBase = normalizePathBase(variantEndpointBase);
+  if (/\/variants$/i.test(variantBase)) {
+    return variantBase.replace(/\/variants$/i, '');
+  }
+  const actionBase = normalizePathBase(actionEndpointBase);
+  if (/\/assignments$/i.test(actionBase)) {
+    return actionBase.replace(/\/assignments$/i, '');
+  }
+  const endpoint = normalizePathBase(detailEndpoint);
+  const assignmentMatch = endpoint.match(/^(.*)\/assignments(?:\/.*)?$/i);
+  if (assignmentMatch) {
+    return assignmentMatch[1];
+  }
+  return variantBase || actionBase || endpoint;
+}
+
+function deriveTranslationSyncClientBasePath(basePath: string): string {
+  const normalized = normalizePathBase(basePath) || '/admin';
+  return `${normalized}/sync-client/sync-core`;
 }
 
 function normalizeFieldCompleteness(value: unknown): TranslationEditorFieldCompleteness {
@@ -784,7 +933,7 @@ export function normalizeEditorUpdateResponse(raw: unknown): TranslationEditorUp
   return {
     variant_id: asString(record.variant_id),
     row_version: asNumber(record.row_version || record.version),
-    fields: normalizeStringRecord(record.fields, { trimKeys: true, omitBlankKeys: true }),
+    fields: normalizeStringRecord(record.fields ?? record.target_fields, { trimKeys: true, omitBlankKeys: true }),
     field_completeness: normalizeFieldMap(record.field_completeness, normalizeFieldCompleteness),
     field_drift: normalizeFieldMap(record.field_drift, normalizeFieldDrift),
     field_validations: normalizeFieldMap(record.field_validations, normalizeFieldValidation),
@@ -927,19 +1076,82 @@ export function applyEditorUpdateResponse(
   };
 }
 
+function editorUpdatePayloadFromSyncSnapshot(
+  snapshot: TranslationSyncResourceSnapshot<unknown>
+): Record<string, unknown> {
+  const data = asRecord(snapshot.data);
+  const rowVersion = asNumber(data.row_version || data.version, snapshot.revision) || snapshot.revision;
+  return {
+    data: {
+      ...data,
+      row_version: rowVersion,
+    },
+  };
+}
+
 export function applyEditorAutosaveConflict(
   state: TranslationEditorState,
   payload: unknown
 ): TranslationEditorState {
-  const metadata = asRecord(asRecord(asRecord(payload).error).metadata);
+  const record = asRecord(payload);
+  const error = asRecord(record.error);
+  const details = asRecord(error.details ?? record.details);
+  const resource = asRecord(
+    record.resource
+    || details.resource
+    || asRecord(record.conflict).latestSnapshot
+    || asRecord(error.conflict).latestSnapshot
+  );
+  const latestData = resource.data && typeof resource.data === 'object'
+    ? asRecord(resource.data)
+    : {};
+  const latestRevision = asNumber(resource.revision);
+  const metadata = asRecord(error.metadata);
+  const conflict = Object.keys(latestData).length
+    ? {
+        ...latestData,
+        row_version: asNumber(latestData.row_version || latestData.version, latestRevision) || latestRevision,
+      }
+    : asRecord(metadata.latest_server_state_record);
   return {
     ...state,
     assignment_row_version: state.assignment_row_version,
     autosave: {
       pending: false,
-      conflict: asRecord(metadata.latest_server_state_record),
+      conflict,
     },
   };
+}
+
+function syncConflictPayloadFromError(error: unknown): Record<string, unknown> {
+  const record = asRecord(error);
+  const cause = asRecord(record.cause);
+  const details = asRecord(record.details);
+  const resource = record.resource || details.resource;
+  if (record.code === 'STALE_REVISION') {
+    return {
+      error: {
+        code: 'STALE_REVISION',
+        message: asString(record.message) || 'stale revision',
+        details: {
+          current_revision: asNumber(record.currentRevision || details.current_revision),
+          resource,
+        },
+      },
+      resource,
+      conflict: record.conflict,
+    };
+  }
+  if (cause.code === 'STALE_REVISION') {
+    return syncConflictPayloadFromError(cause);
+  }
+  return record;
+}
+
+function isStaleRevisionError(error: unknown): error is TranslationSyncError {
+  const record = asRecord(error);
+  const cause = asRecord(record.cause);
+  return record.code === 'STALE_REVISION' || cause.code === 'STALE_REVISION';
 }
 
 function buildURLWithParams(endpoint: string, params: Record<string, string | number | undefined>): string {
@@ -989,20 +1201,6 @@ async function buildEditorRequestError(response: Response, fallback: string): Pr
     requestId: asString(response.headers.get('x-request-id')) || undefined,
     traceId: requestTraceID(response.headers) || undefined,
   });
-}
-
-async function readEditorAutosaveConflictPayload(response: Response): Promise<Record<string, unknown>> {
-  const result = await readHTTPErrorResult(response, 'Autosave conflict', {
-    appendStatusToFallback: false,
-  });
-  if (result.payload && typeof result.payload === 'object') {
-    return result.payload as Record<string, unknown>;
-  }
-  return {
-    error: {
-      message: result.message,
-    },
-  };
 }
 
 export async function fetchTranslationEditorDetailState(endpoint: string): Promise<TranslationEditorLoadState> {
@@ -2197,15 +2395,29 @@ export class TranslationEditorScreen {
   private saving = false;
   private submitting = false;
   private rejectDraft: TranslationEditorRejectDraft | null = null;
+  private syncCoreModulePromise: Promise<TranslationSyncCoreModule> | null = null;
+  private syncCoreModule: TranslationSyncCoreModule | null = null;
+  private syncCache: ReturnType<TranslationSyncCoreModule['createInMemoryCache']> | null = null;
+  private syncEngine: ReturnType<TranslationSyncCoreModule['createSyncEngine']> | null = null;
+  private syncResource: TranslationSyncResource<unknown, unknown> | null = null;
+  private syncResourceID = '';
   // T13: Active sidebar tab
   private activeSidebarTab: SidebarTab = 'actions';
 
   constructor(config: TranslationEditorScreenConfig) {
+    const basePath = config.basePath || '/admin';
     this.config = {
       endpoint: config.endpoint,
-      variantEndpointBase: config.variantEndpointBase,
+      variantEndpointBase: config.variantEndpointBase || '',
       actionEndpointBase: config.actionEndpointBase,
-      basePath: config.basePath || '/admin',
+      syncBaseURL: config.syncBaseURL || deriveTranslationSyncBaseURL(
+        config.variantEndpointBase || '',
+        config.actionEndpointBase,
+        config.endpoint
+      ),
+      syncClientBasePath: config.syncClientBasePath || deriveTranslationSyncClientBasePath(basePath),
+      syncResourceKind: config.syncResourceKind || TRANSLATION_DRAFT_SYNC_RESOURCE_KIND,
+      basePath,
     };
   }
 
@@ -2237,6 +2449,8 @@ export class TranslationEditorScreen {
     }
     if (this.container) this.container.innerHTML = '';
     this.container = null;
+    this.syncResource = null;
+    this.syncResourceID = '';
   }
 
   async load(historyPage?: number): Promise<void> {
@@ -2329,8 +2543,7 @@ export class TranslationEditorScreen {
       this.rejectDraft = { ...this.rejectDraft, comment: target.value };
     });
     this.container.querySelector<HTMLElement>('[data-action="reload-server-state"]')?.addEventListener('click', () => {
-      this.feedback = { kind: 'conflict', message: 'Reloaded the latest server draft.' };
-      void this.load(this.editorState?.detail.history.page);
+      this.reloadServerDraft();
     });
     this.container.querySelector<HTMLElement>('[data-history-prev="true"]')?.addEventListener('click', () => {
       const page = (this.editorState?.detail.history.page || 1) - 1;
@@ -2395,39 +2608,112 @@ export class TranslationEditorScreen {
     this.editorState = markEditorAutosavePending(this.editorState);
     this.render();
     const detail = this.editorState.detail;
-    const response = await httpRequest(buildURLWithParams(`${this.config.variantEndpointBase}/${encodeURIComponent(detail.variant_id)}`, {}), {
-      method: 'PATCH',
-      json: {
-        expected_version: this.editorState.row_version,
-        autosave: isAutosave,
-        fields: this.editorState.dirty_fields,
-      },
-    });
-    if (!response.ok) {
-      if (response.status === 409) {
-        const conflictPayload = await readEditorAutosaveConflictPayload(response);
-        this.editorState = applyEditorAutosaveConflict(this.editorState, conflictPayload);
+    try {
+      const response = await this.mutateDraftSync(detail, this.editorState.dirty_fields, isAutosave);
+      this.editorState = applyEditorUpdateResponse(this.editorState, editorUpdatePayloadFromSyncSnapshot(response.snapshot));
+      const qaFeedback = buildSaveFeedbackMessage(this.editorState.detail.qa_results, isAutosave);
+      this.lastSavedMessage = qaFeedback.lastSaved;
+      if (!isAutosave || qaFeedback.kind === 'conflict') {
+        this.feedback = { kind: qaFeedback.kind, message: qaFeedback.message };
+      }
+      this.saving = false;
+      this.render();
+      return true;
+    } catch (error) {
+      if (isStaleRevisionError(error)) {
+        this.editorState = applyEditorAutosaveConflict(this.editorState, syncConflictPayloadFromError(error));
         this.feedback = { kind: 'conflict', message: 'Autosave conflict detected. Reload the latest server draft.' };
         this.saving = false;
         this.render();
         return false;
       }
-      const error = await buildEditorRequestError(response, 'Failed to save draft');
-      this.feedback = { kind: 'error', message: error.message };
+      this.feedback = {
+        kind: 'error',
+        message: error instanceof Error ? error.message : 'Failed to save draft',
+      };
       this.saving = false;
       this.render();
       return false;
     }
-    const payload = await response.json();
-    this.editorState = applyEditorUpdateResponse(this.editorState, payload);
-    const qaFeedback = buildSaveFeedbackMessage(this.editorState.detail.qa_results, isAutosave);
-    this.lastSavedMessage = qaFeedback.lastSaved;
-    if (!isAutosave || qaFeedback.kind === 'conflict') {
-      this.feedback = { kind: qaFeedback.kind, message: qaFeedback.message };
+  }
+
+  private reloadServerDraft(): void {
+    if (!this.editorState) return;
+    const latest = this.editorState.autosave.conflict;
+    if (latest && Object.keys(latest).length > 0) {
+      this.editorState = applyEditorUpdateResponse(this.editorState, { data: latest });
+      this.feedback = { kind: 'conflict', message: 'Reloaded the latest server draft.' };
+      this.saving = false;
+      this.render();
+      return;
     }
-    this.saving = false;
-    this.render();
-    return true;
+    this.feedback = { kind: 'conflict', message: 'Reloaded the latest server draft.' };
+    void this.load(this.editorState.detail.history.page);
+  }
+
+  private async mutateDraftSync(
+    detail: TranslationAssignmentEditorDetail,
+    fields: Record<string, string>,
+    isAutosave: boolean
+  ): Promise<TranslationSyncMutationResponse<unknown>> {
+    const resource = await this.ensureDraftSyncResource(detail);
+    return await resource.mutate({
+      operation: TRANSLATION_DRAFT_SYNC_OPERATION,
+      expectedRevision: this.editorState?.row_version || detail.row_version,
+      payload: {
+        autosave: isAutosave,
+        fields,
+      },
+      metadata: {
+        autosave: isAutosave,
+      },
+    });
+  }
+
+  private async ensureDraftSyncResource(
+    detail: TranslationAssignmentEditorDetail
+  ): Promise<TranslationSyncResource<unknown, unknown>> {
+    if (!this.syncCoreModule) {
+      if (!this.syncCoreModulePromise) {
+        this.syncCoreModulePromise = loadTranslationSyncCoreModule(this.config.syncClientBasePath);
+      }
+      this.syncCoreModule = await this.syncCoreModulePromise;
+    }
+    if (!this.syncCache) {
+      this.syncCache = this.syncCoreModule.createInMemoryCache();
+    }
+    if (!this.syncEngine) {
+      const transport = this.syncCoreModule.createFetchSyncTransport({
+        baseURL: this.config.syncBaseURL,
+        credentials: 'same-origin',
+        fetch: typeof fetch === 'function' ? fetch.bind(globalThis) : undefined,
+        headers: (context: { method?: string }) => {
+          const headers: Record<string, string> = {};
+          const method = String(context?.method || 'GET').toUpperCase();
+          if (method !== 'GET') {
+            const token = readCSRFToken();
+            if (token) headers['X-CSRF-Token'] = token;
+          }
+          return headers;
+        },
+      });
+      this.syncEngine = this.syncCoreModule.createSyncEngine({
+        transport,
+        cache: this.syncCache,
+        retry: {
+          maxAttempts: 1,
+        },
+      });
+    }
+    const resourceID = detail.variant_id;
+    if (!this.syncResource || this.syncResourceID !== resourceID) {
+      this.syncResourceID = resourceID;
+      this.syncResource = this.syncEngine.resource({
+        kind: this.config.syncResourceKind,
+        id: resourceID,
+      });
+    }
+    return this.syncResource;
   }
 
   private async submitForReview(): Promise<void> {
