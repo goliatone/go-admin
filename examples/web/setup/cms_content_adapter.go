@@ -22,8 +22,9 @@ var (
 	bridgeUUIDType    = reflect.TypeFor[uuid.UUID]()
 )
 
-// goCMSContentBridge adapts the go-cms content service (which uses internal types)
-// to the admin.CMSContentService contract using reflection.
+// goCMSContentBridge is example-only legacy compatibility for go-cms service
+// shapes that do not expose the production typed admin content/block contracts.
+// Production go-admin adapter paths must use admin.GoCMSContentAdapter instead.
 type goCMSContentBridge struct {
 	content   any
 	blocks    any

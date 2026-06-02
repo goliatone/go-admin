@@ -251,7 +251,7 @@ func SetupPersistentCMS(ctx context.Context, defaultLocale, dsn string) (admin.C
 		contentTypeSvc: contentTypeSvc,
 	}
 
-	return admin.CMSOptions{Container: container}, nil
+	return admin.CMSOptions{Container: container, GoCMSConfig: module}, nil
 }
 
 func registerSQLiteDrivers(names ...string) {

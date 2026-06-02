@@ -34,6 +34,7 @@ import (
 	"github.com/goliatone/go-admin/examples/web/stores"
 	"github.com/goliatone/go-admin/pkg/admin"
 	"github.com/goliatone/go-admin/pkg/client"
+	syncdata "github.com/goliatone/go-admin/pkg/go-sync/data"
 	"github.com/goliatone/go-admin/quickstart"
 	quicksite "github.com/goliatone/go-admin/quickstart/site"
 	authlib "github.com/goliatone/go-auth"
@@ -372,6 +373,16 @@ func main() {
 	}
 	for _, warning := range validationResult.Warnings {
 		warnf("translation policy config warning: %s", warning)
+	}
+	coverageResult, err := quickstart.ValidateTranslationPolicyCoverage(
+		translationPolicyCfg,
+		exampleTranslationFamilyContentTypes(),
+	)
+	if err != nil {
+		fatalf("invalid translation policy coverage: %v", err)
+	}
+	for _, warning := range coverageResult.Warnings {
+		warnf("translation policy coverage warning: %s", warning)
 	}
 
 	// Resolve translation profile and module wiring from runtime config.
@@ -892,6 +903,7 @@ func main() {
 		quickstart.WithDiskAssetsDir(diskAssetsDir),
 	}
 	quickstart.NewStaticAssets(staticRoutes, cfg, embeddedAssetsFS, staticAssetOptions...)
+	quickstart.RegisterSyncClientAssets(staticRoutes, cfg, syncdata.ClientSyncCoreFS())
 	wirePersistentMediaLibrary(adm, dataStores.Media, stores.DefaultMediaLibraryUploadConfig(cfg.BasePath, diskAssetsDir))
 	siteCfg.Fallback.StaticInput = quickstart.ResolveSiteFallbackStaticInput(cfg, staticAssetOptions...)
 	siteCfg.Fallback = quicksite.ResolveSiteConfig(cfg, siteCfg).Fallback
