@@ -254,17 +254,24 @@ func parseMultipartFormValues(c router.Context) (url.Values, error) {
 		}
 		name := strings.TrimSpace(part.FormName())
 		if name == "" {
-			_ = part.Close()
+			if closeErr := part.Close(); closeErr != nil {
+				return nil, closeErr
+			}
 			continue
 		}
 		if strings.TrimSpace(part.FileName()) != "" {
-			_ = part.Close()
+			if closeErr := part.Close(); closeErr != nil {
+				return nil, closeErr
+			}
 			continue
 		}
 		data, readErr := io.ReadAll(part)
-		_ = part.Close()
+		closeErr := part.Close()
 		if readErr != nil {
 			return nil, readErr
+		}
+		if closeErr != nil {
+			return nil, closeErr
 		}
 		values.Add(name, string(data))
 	}
