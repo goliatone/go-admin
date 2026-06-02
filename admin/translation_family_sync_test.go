@@ -866,6 +866,8 @@ func newTranslationFamilyStoreSQLiteDB(t *testing.T) *bun.DB {
 			created_at TEXT,
 			updated_at TEXT
 		)`,
+		`CREATE UNIQUE INDEX ux_family_blockers_identity
+			ON family_blockers(COALESCE(tenant_id, ''), COALESCE(org_id, ''), family_id, blocker_code, COALESCE(locale, ''), COALESCE(field_path, ''))`,
 		`CREATE TABLE translation_assignments (
 			assignment_id TEXT PRIMARY KEY,
 			tenant_id TEXT,

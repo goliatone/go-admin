@@ -855,8 +855,8 @@ func TestPanelBindingWorkflowActionPropagatesCanonicalRequestMetadata(t *testing
 	if input.ExecCtx.ActorID != "actor-1" {
 		t.Fatalf("expected actor id actor-1, got %q", input.ExecCtx.ActorID)
 	}
-	if input.ExecCtx.Tenant != "" {
-		t.Fatalf("expected query tenant to be ignored, got %q", input.ExecCtx.Tenant)
+	if input.ExecCtx.Tenant != "tenant-xyz" {
+		t.Fatalf("expected query tenant tenant-xyz, got %q", input.ExecCtx.Tenant)
 	}
 	if got := toString(input.Metadata["request_id"]); got != "req-123" {
 		t.Fatalf("expected request_id req-123, got %q", got)

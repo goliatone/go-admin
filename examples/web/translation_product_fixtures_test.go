@@ -240,6 +240,7 @@ func TestSeedExampleTranslationQueueFixtureSeedsPersistentBunEditorAssignmentAnd
 	require.NotNil(t, familyStore)
 
 	cfg := quickstart.NewAdminConfig("/admin", "Admin", "en")
+	cfg.ScopeMode = string(quickstart.ScopeModeMulti)
 	cfg.AuthConfig = &coreadmin.AuthConfig{AllowUnauthenticatedRoutes: true}
 	cfg.CMS = cmsOpts
 	queueEnabled := true
@@ -328,6 +329,7 @@ func TestPersistentAssignmentEditorSaveUsesCMSLifecycleStatus(t *testing.T) {
 	const orgID = "org-demo"
 
 	cfg := quickstart.NewAdminConfig("/admin", "Admin", "en")
+	cfg.ScopeMode = string(quickstart.ScopeModeMulti)
 	cfg.AuthConfig = &coreadmin.AuthConfig{AllowUnauthenticatedRoutes: true}
 	cfg.CMS = cmsOpts
 	queueEnabled := true

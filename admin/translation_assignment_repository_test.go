@@ -518,6 +518,10 @@ func TestBunTranslationAssignmentRepositoryFamilyGroupingAggregatesAndExpands(t 
 		"family-grouped-a", "tenant-1", "org-1", "missing_locale", "fr", "", "{}", bunAssignmentStorageDateValue(now), bunAssignmentStorageDateValue(now)); err != nil {
 		t.Fatalf("insert family blocker: %v", err)
 	}
+	if _, err := db.ExecContext(ctx, `INSERT INTO family_blockers (family_id, tenant_id, org_id, blocker_code, locale, field_path, details_json, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		"family-grouped-b", "tenant-2", "org-9", "missing_locale", "de", "", "{}", bunAssignmentStorageDateValue(now), bunAssignmentStorageDateValue(now)); err != nil {
+		t.Fatalf("insert wrong-scope family blocker: %v", err)
+	}
 
 	result, err := repo.ListAssignmentFamilyGroups(ctx, TranslationAssignmentFamilyGroupQueryInput{
 		Filter: translationAssignmentListFilter{
@@ -542,6 +546,19 @@ func TestBunTranslationAssignmentRepositoryFamilyGroupingAggregatesAndExpands(t 
 	}
 	if first.FamilyBlockerCount == nil || *first.FamilyBlockerCount != 1 || !first.FamilyBlockerCountAvailable {
 		t.Fatalf("expected persisted blocker count on first family, got %+v", first)
+	}
+	var familyB TranslationAssignmentFamilyGroup
+	for _, group := range result.Families {
+		if group.FamilyID == "family-grouped-b" {
+			familyB = group
+			break
+		}
+	}
+	if familyB.FamilyID == "" {
+		t.Fatalf("expected family-grouped-b in grouped results, got %+v", result.Families)
+	}
+	if familyB.FamilyBlockerCount == nil || *familyB.FamilyBlockerCount != 0 || !familyB.FamilyBlockerCountAvailable {
+		t.Fatalf("expected wrong-scope blocker to be excluded from family-grouped-b count, got %+v", familyB)
 	}
 
 	blocked, err := repo.ListAssignmentFamilyGroups(ctx, TranslationAssignmentFamilyGroupQueryInput{
@@ -580,6 +597,62 @@ func TestBunTranslationAssignmentRepositoryFamilyGroupingAggregatesAndExpands(t 
 	}
 	if children.Total != 2 || !children.HasNext || len(children.Items) != 1 || children.Items[0].ID != "asg-family-a-fr" {
 		t.Fatalf("unexpected child assignment page: %+v", children)
+	}
+}
+
+func TestBunTranslationAssignmentRepositoryCreateResolvesVariantIDWithinScope(t *testing.T) {
+	db := newTranslationFamilyStoreSQLiteDB(t)
+	ctx := context.Background()
+	now := time.Date(2026, 2, 17, 12, 0, 0, 0, time.UTC)
+	if _, err := db.NewInsert().Model(&bunTranslationFamilyRecord{
+		FamilyID:       "family-variant-scope",
+		TenantID:       "tenant-1",
+		OrgID:          "org-1",
+		ContentType:    "pages",
+		SourceLocale:   "en",
+		ReadinessState: "ready",
+		CreatedAt:      now,
+		UpdatedAt:      now,
+	}).Exec(ctx); err != nil {
+		t.Fatalf("seed scoped family: %v", err)
+	}
+	if _, err := db.NewInsert().Model(&bunTranslationLocaleVariantRecord{
+		VariantID:      "family-variant-scope::fr-wrong-scope",
+		FamilyID:       "family-variant-scope",
+		TenantID:       "tenant-2",
+		OrgID:          "org-9",
+		Locale:         "fr",
+		Status:         "draft",
+		SourceRecordID: "wrong-scope-target",
+		FieldsJSON:     "{}",
+		CreatedAt:      now,
+		UpdatedAt:      now,
+	}).Exec(ctx); err != nil {
+		t.Fatalf("seed wrong-scope variant: %v", err)
+	}
+
+	repo := NewBunTranslationAssignmentRepository(db)
+	created, err := repo.Create(ctx, TranslationAssignment{
+		ID:             "asg-variant-scope",
+		FamilyID:       "family-variant-scope",
+		EntityType:     "pages",
+		TenantID:       "tenant-1",
+		OrgID:          "org-1",
+		SourceRecordID: "page-variant-scope",
+		SourceLocale:   "en",
+		TargetLocale:   "fr",
+		SourceTitle:    "Scoped page",
+		AssignmentType: AssignmentTypeOpenPool,
+		Status:         AssignmentStatusOpen,
+		Priority:       PriorityNormal,
+		CreatedAt:      now,
+		UpdatedAt:      now,
+	})
+	if err != nil {
+		t.Fatalf("create assignment: %v", err)
+	}
+	if created.VariantID != "" {
+		t.Fatalf("expected wrong-scope variant not to be linked, got %+v", created)
 	}
 }
 
