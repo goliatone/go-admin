@@ -102,3 +102,44 @@ func TestRegisterContentEntryAliasRoutesUsesProvidedContextForAliasDiscovery(t *
 		t.Fatalf("expected alias routes registered, got %v", sortedRoutePaths(r.paths))
 	}
 }
+
+func TestRegisterContentEntryAliasRoutesSkipsRetiredContentTypes(t *testing.T) {
+	cfg := admin.Config{BasePath: "/admin", DefaultLocale: "en"}
+	adm, err := admin.New(cfg, admin.Dependencies{})
+	if err != nil {
+		t.Fatalf("admin.New: %v", err)
+	}
+	spy := &quickstartContentAliasSpyContentTypeService{
+		types: []admin.CMSContentType{
+			{
+				ID:           "ct-page",
+				Name:         "Page",
+				Slug:         "page",
+				Status:       "active",
+				Capabilities: map[string]any{"panel_slug": "pages"},
+			},
+			{
+				ID:           "ct-media-detail",
+				Name:         "Media Detail",
+				Slug:         "media-detail",
+				Status:       "retired",
+				Capabilities: map[string]any{"panel_slug": "media-detail"},
+			},
+		},
+	}
+	adm.UseCMS(&quickstartContentAliasSpyContainer{contentTypes: spy})
+
+	r := newContentEntryRouteCaptureRouter()
+	if err := RegisterContentEntryAliasRoutes(r, cfg, adm, nil); err != nil {
+		t.Fatalf("RegisterContentEntryAliasRoutes: %v", err)
+	}
+
+	if !r.paths["/admin/pages"] || !r.paths["/admin/pages/*path"] {
+		t.Fatalf("expected active pages alias routes, got %v", sortedRoutePaths(r.paths))
+	}
+	for _, retiredPath := range []string{"/admin/media-detail", "/admin/media-detail/*path"} {
+		if r.paths[retiredPath] {
+			t.Fatalf("retired media-detail should not register alias route %q, got %v", retiredPath, sortedRoutePaths(r.paths))
+		}
+	}
+}

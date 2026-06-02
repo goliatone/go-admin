@@ -155,3 +155,46 @@ func TestContentAliasRoutesUseLifecycleContextForAliasDiscovery(t *testing.T) {
 		t.Fatalf("expected lifecycle context to reach alias discovery, got %#v", got)
 	}
 }
+
+func TestContentAliasRoutesSkipRetiredContentTypes(t *testing.T) {
+	cfg := Config{BasePath: "/admin", DefaultLocale: "en"}
+	adm := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromKeys(FeatureCMS)})
+	spy := &contentAliasSpyContentTypeService{
+		types: []CMSContentType{
+			{
+				ID:           "ct-page",
+				Name:         "Page",
+				Slug:         "page",
+				Status:       "active",
+				Schema:       minimalContentTypeSchema(),
+				Capabilities: map[string]any{"panel_slug": "pages"},
+			},
+			{
+				ID:           "ct-media-detail",
+				Name:         "Media Detail",
+				Slug:         "media-detail",
+				Status:       "retired",
+				Schema:       minimalContentTypeSchema(),
+				Capabilities: map[string]any{"panel_slug": "media-detail"},
+			},
+		},
+	}
+	adm.UseCMS(&contentAliasSpyContainer{contentTypes: spy})
+
+	aliases := adm.contentEntryAliases()
+	if containsStringFold(aliases, "media-detail") {
+		t.Fatalf("retired media-detail should not be exposed as alias, got %v", aliases)
+	}
+	if !containsStringFold(aliases, "pages") {
+		t.Fatalf("expected active pages alias, got %v", aliases)
+	}
+}
+
+func containsStringFold(values []string, want string) bool {
+	for _, value := range values {
+		if strings.EqualFold(strings.TrimSpace(value), want) {
+			return true
+		}
+	}
+	return false
+}

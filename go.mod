@@ -10,7 +10,7 @@ require (
 	github.com/gofiber/fiber/v2 v2.52.12
 	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/goliatone/go-admin/quickstart v0.82.0
-	github.com/goliatone/go-auth v0.44.0
+	github.com/goliatone/go-auth v0.44.1
 	github.com/goliatone/go-auth/adapters/featuregate v0.43.0
 	github.com/goliatone/go-cms v0.54.1
 	github.com/goliatone/go-command v0.19.0
