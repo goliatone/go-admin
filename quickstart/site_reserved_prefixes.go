@@ -9,10 +9,11 @@ import (
 // SiteStaticPrefixInput describes the static asset mount prefixes that site
 // fallback reservations should align with when the host customizes them.
 type SiteStaticPrefixInput struct {
-	AssetsPrefix  string `json:"assets_prefix,omitempty"`
-	FormgenPrefix string `json:"formgen_prefix,omitempty"`
-	RuntimePrefix string `json:"runtime_prefix,omitempty"`
-	EChartsPrefix string `json:"echarts_prefix,omitempty"`
+	AssetsPrefix     string `json:"assets_prefix,omitempty"`
+	FormgenPrefix    string `json:"formgen_prefix,omitempty"`
+	RuntimePrefix    string `json:"runtime_prefix,omitempty"`
+	SyncClientPrefix string `json:"sync_client_prefix,omitempty"`
+	EChartsPrefix    string `json:"echarts_prefix,omitempty"`
 }
 
 // ResolveSiteFallbackStaticInput returns a site fallback static-input payload
@@ -20,10 +21,11 @@ type SiteStaticPrefixInput struct {
 func ResolveSiteFallbackStaticInput(cfg admin.Config, opts ...StaticAssetsOption) SiteStaticPrefixInput {
 	options := resolveStaticAssetsOptions(cfg, opts)
 	return SiteStaticPrefixInput{
-		AssetsPrefix:  options.assetsPrefix,
-		FormgenPrefix: options.formgenPrefix,
-		RuntimePrefix: options.runtimePrefix,
-		EChartsPrefix: options.echartsPrefix,
+		AssetsPrefix:     options.assetsPrefix,
+		FormgenPrefix:    options.formgenPrefix,
+		RuntimePrefix:    options.runtimePrefix,
+		SyncClientPrefix: options.syncClientPrefix,
+		EChartsPrefix:    options.echartsPrefix,
 	}
 }
 
@@ -34,9 +36,10 @@ func ResolveSiteFallbackStaticInput(cfg admin.Config, opts ...StaticAssetsOption
 func ResolveSiteFallbackReservedPrefixes(cfg admin.Config, opts ...StaticAssetsOption) []string {
 	input := ResolveSiteFallbackStaticInput(cfg, opts...)
 	return sitereserved.ForAdminConfig(cfg, staticprefixes.Input{
-		AssetsPrefix:  input.AssetsPrefix,
-		FormgenPrefix: input.FormgenPrefix,
-		RuntimePrefix: input.RuntimePrefix,
-		EChartsPrefix: input.EChartsPrefix,
+		AssetsPrefix:     input.AssetsPrefix,
+		FormgenPrefix:    input.FormgenPrefix,
+		RuntimePrefix:    input.RuntimePrefix,
+		SyncClientPrefix: input.SyncClientPrefix,
+		EChartsPrefix:    input.EChartsPrefix,
 	})
 }
