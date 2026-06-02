@@ -402,13 +402,7 @@ func TestPersistentAssignmentEditorSaveUsesCMSLifecycleStatus(t *testing.T) {
 
 	for _, currentStatus := range []string{"draft", "published", "scheduled"} {
 		t.Run(currentStatus, func(t *testing.T) {
-			target, err := cmsOpts.Container.ContentService().Page(ctx, assignment.TargetRecordID, "")
-			require.NoError(t, err)
-			require.NotNil(t, target)
-			updatedTarget := *target
-			updatedTarget.Status = currentStatus
-			_, err = cmsOpts.Container.ContentService().UpdatePage(ctx, updatedTarget)
-			require.NoError(t, err)
+			setPersistentPageStatus(t, ctx, cmsOpts.Container.ContentService(), assignment.TargetRecordID, currentStatus)
 
 			detailStatus, detailPayload := doAdminJSONRequest(t, server.WrappedRouter(), http.MethodGet, "/admin/api/translations/assignments/"+assignment.ID+"?channel=default&tenant_id="+tenantID+"&org_id="+orgID, nil)
 			require.Equal(t, http.StatusOK, detailStatus, "payload=%+v", detailPayload)
@@ -433,6 +427,33 @@ func TestPersistentAssignmentEditorSaveUsesCMSLifecycleStatus(t *testing.T) {
 			require.Equal(t, "in_progress", strings.TrimSpace(fmt.Sprint(target.Metadata["translation_variant_status"])))
 		})
 	}
+}
+
+func setPersistentPageStatus(t *testing.T, ctx context.Context, service coreadmin.CMSContentService, pageID, status string) {
+	t.Helper()
+
+	target, err := service.Page(ctx, pageID, "")
+	require.NoError(t, err)
+	require.NotNil(t, target)
+
+	current := strings.TrimSpace(target.Status)
+	next := strings.TrimSpace(status)
+	if current == next {
+		return
+	}
+
+	if current == "published" && next == "scheduled" {
+		draftTarget := *target
+		draftTarget.Status = "draft"
+		target, err = service.UpdatePage(ctx, draftTarget)
+		require.NoError(t, err)
+		require.NotNil(t, target)
+	}
+
+	updatedTarget := *target
+	updatedTarget.Status = next
+	_, err = service.UpdatePage(ctx, updatedTarget)
+	require.NoError(t, err)
 }
 
 func TestSeedExampleTranslationQueueFixtureSeedsReviewerOwnedReviewAssignments(t *testing.T) {

@@ -477,8 +477,20 @@ func extractFixtureMap(t *testing.T, value any) map[string]any {
 }
 
 func tolerateMap(value any) map[string]any {
-	out := mustAs[map[string]any](value)
-	return out
+	if value == nil {
+		return nil
+	}
+	if out, ok := value.(map[string]any); ok {
+		return out
+	}
+	if out, ok := value.(map[string]string); ok {
+		converted := make(map[string]any, len(out))
+		for key, entry := range out {
+			converted[key] = entry
+		}
+		return converted
+	}
+	return nil
 }
 
 func extractFixtureSlice(t *testing.T, value any) []any {
