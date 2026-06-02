@@ -73,6 +73,7 @@ type bunFamilyListVariantProjection struct {
 	Locale         string `bun:"locale"`
 	Status         string `bun:"status"`
 	IsSource       bool   `bun:"is_source"`
+	RowVersion     int64  `bun:"row_version"`
 	SourceRecordID string `bun:"source_record_id"`
 	FieldsJSON     string `bun:"fields_json"`
 }
@@ -452,7 +453,7 @@ func (s *BunTranslationFamilyStore) familyListProjectionRowsFromRows(ctx context
 	variantRows := []bunFamilyListVariantProjection{}
 	variantQuery := s.db.NewSelect().
 		Table("locale_variants").
-		Column("family_id", "variant_id", ScopeTenantIDKey, ScopeOrgIDKey, "locale", "status", "is_source", "source_record_id", "fields_json").
+		Column("family_id", "variant_id", ScopeTenantIDKey, ScopeOrgIDKey, "locale", "status", "is_source", "row_version", "source_record_id", "fields_json").
 		Where("family_id IN (?)", bun.List(familyIDs))
 	if scope, ok := bunFamilyRowsSharedScope(familyRows); ok {
 		applyBunScopedColumns(variantQuery, ScopeTenantIDKey, ScopeOrgIDKey, scope)
@@ -512,6 +513,7 @@ func bunFamilyListVariantsByFamily(rows []bunFamilyListVariantProjection) (map[s
 			Locale:         strings.TrimSpace(strings.ToLower(row.Locale)),
 			Status:         strings.TrimSpace(strings.ToLower(row.Status)),
 			IsSource:       row.IsSource,
+			RowVersion:     normalizeTranslationFamilyVariantRowVersion(row.RowVersion),
 			SourceRecordID: strings.TrimSpace(row.SourceRecordID),
 			Fields:         fields,
 		})
@@ -1053,7 +1055,7 @@ func bunTranslationLocaleVariantRecordFromModel(family translationservices.Famil
 		IsSource:             variant.IsSource,
 		SourceHashAtLastSync: strings.TrimSpace(variant.SourceHashAtLastSync),
 		FieldsJSON:           string(fieldsJSON),
-		RowVersion:           1,
+		RowVersion:           translationEditorVariantVersion(variant),
 		SourceRecordID:       strings.TrimSpace(variant.SourceRecordID),
 		CreatedAt:            variant.CreatedAt,
 		UpdatedAt:            variant.UpdatedAt,
@@ -1078,6 +1080,7 @@ func familyVariantFromBunRecord(record bunTranslationLocaleVariantRecord) (trans
 		IsSource:             record.IsSource,
 		SourceHashAtLastSync: strings.TrimSpace(record.SourceHashAtLastSync),
 		Fields:               fields,
+		RowVersion:           normalizeTranslationFamilyVariantRowVersion(record.RowVersion),
 		SourceRecordID:       strings.TrimSpace(record.SourceRecordID),
 		CreatedAt:            record.CreatedAt,
 		UpdatedAt:            record.UpdatedAt,
