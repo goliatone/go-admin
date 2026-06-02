@@ -407,9 +407,13 @@ func recordDebugUserSession(collector *DebugCollector, c router.Context, session
 		RequestCount: 1,
 	}
 	if ttl := collector.config.SessionInactivityExpiry; ttl > 0 {
-		_, _ = store.Expire(c.Context(), ttl)
+		if _, err := store.Expire(c.Context(), ttl); err != nil {
+			slog.Debug("debug session expiration failed", "err", err)
+		}
 	}
-	_ = store.Upsert(c.Context(), session)
+	if err := store.Upsert(c.Context(), session); err != nil {
+		slog.Debug("debug session upsert failed", "err", err)
+	}
 }
 
 func debugIsTextContentType(contentType string) bool {
