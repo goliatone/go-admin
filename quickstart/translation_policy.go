@@ -2,6 +2,7 @@ package quickstart
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"slices"
 	"sort"
@@ -23,6 +24,22 @@ type TranslationChecker interface {
 type TranslationPolicyServices struct {
 	Pages   TranslationChecker `json:"pages"`
 	Content TranslationChecker `json:"content"`
+}
+
+// TranslationPolicyServicesMissingCode identifies an explicit policy that cannot be evaluated.
+const TranslationPolicyServicesMissingCode = "quickstart.translation_policy.services_missing"
+
+// ErrTranslationPolicyServicesUnavailable marks configured policy requirements
+// that cannot be evaluated because no translation checker services are wired.
+var ErrTranslationPolicyServicesUnavailable = errors.New("quickstart: translation policy checker services unavailable")
+
+// TranslationPolicyDiagnostic captures policy wiring diagnostics for startup and Doctor checks.
+type TranslationPolicyDiagnostic struct {
+	Code            string         `json:"code"`
+	Message         string         `json:"message"`
+	Hint            string         `json:"hint,omitempty"`
+	MissingServices []string       `json:"missing_services,omitempty"`
+	Metadata        map[string]any `json:"metadata,omitempty"`
 }
 
 type translationPolicy struct {
@@ -506,6 +523,34 @@ func hasTranslationPolicyRequirements(cfg TranslationPolicyConfig) bool {
 		}
 	}
 	return false
+}
+
+// DiagnoseTranslationPolicyServices reports explicit policy configs that cannot be evaluated.
+func DiagnoseTranslationPolicyServices(cfg TranslationPolicyConfig, services TranslationPolicyServices) []TranslationPolicyDiagnostic {
+	cfg = NormalizeTranslationPolicyConfig(cfg)
+	if !cfg.DenyByDefault && !hasTranslationPolicyRequirements(cfg) {
+		return nil
+	}
+	missing := []string{}
+	if services.Pages == nil {
+		missing = append(missing, "pages")
+	}
+	if services.Content == nil {
+		missing = append(missing, "content")
+	}
+	if len(missing) != 2 {
+		return nil
+	}
+	return []TranslationPolicyDiagnostic{{
+		Code:            TranslationPolicyServicesMissingCode,
+		Message:         "Translation policy requirements are configured but no page or content translation checker services are available.",
+		Hint:            "Expose go-cms services through CMSOptions.GoCMSConfig or pass quickstart.WithTranslationPolicyServices.",
+		MissingServices: missing,
+		Metadata: map[string]any{
+			"deny_by_default": cfg.DenyByDefault,
+			"required":        len(cfg.Required),
+		},
+	}}
 }
 
 func resolveTranslationPolicyServices(cfg admin.Config, overrides TranslationPolicyServices) TranslationPolicyServices {

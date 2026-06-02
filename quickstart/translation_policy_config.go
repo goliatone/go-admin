@@ -173,6 +173,48 @@ func ValidateTranslationPolicyConfig(cfg TranslationPolicyConfig, catalog Transl
 	return result, nil
 }
 
+// ValidateTranslationPolicyCoverage checks that family/readiness content types
+// have configured policy requirements.
+func ValidateTranslationPolicyCoverage(cfg TranslationPolicyConfig, contentTypes []string) (TranslationPolicyValidationResult, error) {
+	cfg = NormalizeTranslationPolicyConfig(cfg)
+	result := TranslationPolicyValidationResult{}
+	if len(contentTypes) == 0 {
+		return result, nil
+	}
+	errorsOut := []string{}
+	seen := map[string]struct{}{}
+	for _, contentType := range contentTypes {
+		normalized := normalizePolicyEntity(contentType)
+		lookupKey := policyEntityLookupKey(normalized)
+		if lookupKey == "" {
+			continue
+		}
+		if _, ok := seen[lookupKey]; ok {
+			continue
+		}
+		seen[lookupKey] = struct{}{}
+		if _, ok := findEntityConfig(cfg.Required, normalized, cfg.EntityAliases); ok {
+			continue
+		}
+		appendValidationIssue(
+			&result,
+			&errorsOut,
+			cfg.RequiredFieldsStrategy,
+			fmt.Sprintf("translation policy coverage missing for content type %q", strings.TrimSpace(contentType)),
+		)
+	}
+	if len(errorsOut) > 0 {
+		return result, fmt.Errorf("translation policy coverage validation failed: %s", strings.Join(errorsOut, "; "))
+	}
+	return result, nil
+}
+
+// ValidateTranslationPolicyContentTypeCoverage is an explicit alias for
+// ValidateTranslationPolicyCoverage.
+func ValidateTranslationPolicyContentTypeCoverage(cfg TranslationPolicyConfig, contentTypes []string) (TranslationPolicyValidationResult, error) {
+	return ValidateTranslationPolicyCoverage(cfg, contentTypes)
+}
+
 // NormalizeTranslationPolicyConfig applies defaults and normalizes strategy values.
 func NormalizeTranslationPolicyConfig(cfg TranslationPolicyConfig) TranslationPolicyConfig {
 	cfg.RequiredFieldsStrategy = normalizeRequiredFieldsStrategy(cfg.RequiredFieldsStrategy)

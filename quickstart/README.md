@@ -51,6 +51,9 @@ auth wiring, password-change gate, and recovery flow.
 - `WithTranslationProfile(profile TranslationProfile) AdminOption` - Inputs: profile (`none`, `core`, `core+exchange`, `core+queue`, `full`); outputs: option that applies productized translation defaults.
 - `WithTranslationProductConfig(cfg TranslationProductConfig) AdminOption` - Inputs: product config (`SchemaVersion`, `Profile`, optional module overrides); outputs: option that resolves effective translation module wiring with deterministic precedence.
 - `TranslationCapabilities(adm *admin.Admin) map[string]any` - Inputs: admin instance; outputs: resolved translation capability metadata (`profile`, `schema_version`, module enablement, feature flags, routes, resolver keys, panels, warnings).
+- `WithTranslationPolicyConfig(cfg TranslationPolicyConfig) AdminOption` - Inputs: workflow transition requirements by policy entity/content type; outputs: option that wires the default translation policy when checker services are available.
+- `WithTranslationPolicyServices(services TranslationPolicyServices) AdminOption` - Inputs: page/content services implementing `CheckTranslations`; outputs: explicit checker overrides for hosts whose CMS container is not discoverable.
+- `ValidateTranslationPolicyCoverage(cfg TranslationPolicyConfig, contentTypes []string) (TranslationPolicyValidationResult, error)` - Inputs: policy config plus content types included in family readiness; outputs: validation warnings/error for missing policy coverage.
 - `WithTranslationExchangeConfig(cfg TranslationExchangeConfig) AdminOption` - Inputs: exchange config (disabled by default); outputs: option that enables exchange feature + command wiring when configured.
 - `WithTranslationQueueConfig(cfg TranslationQueueConfig) AdminOption` - Inputs: queue config (disabled by default); outputs: option that enables queue feature + panel/command wiring when configured.
 - `EnablePreferences() AdminOption` - Inputs: none; outputs: option to enable `FeaturePreferences`.
@@ -1205,6 +1208,19 @@ Behavior notes:
   validation (`error`, `warn`, `ignore`).
 - `deny_by_default=true` blocks transitions when no requirements are configured
   for a transition.
+- Every content type included in translation family readiness needs policy
+  coverage. Use `ValidateTranslationPolicyCoverage` when hosts know the family
+  content types at startup.
+- The default policy needs page/content services that implement
+  `CheckTranslations`. Quickstart discovers them from go-cms wiring when
+  possible; use `WithTranslationPolicyServices` when the CMS container is not
+  discoverable.
+- Family readiness is persisted by sync. After policy, checker-service, or CMS
+  fixture changes, rerun family sync so `content_families`, `locale_variants`,
+  and `family_blockers` match the current policy.
+- `policy_denied` with `details.reason=policy_unavailable` means policy
+  configuration or checker wiring is missing; it is not a missing-translation
+  task for editors.
 - Operational contract and troubleshooting workflow: `../docs/GUIDE_CMS.md#17-translation-workflow-operations`.
 
 Wiring example:
@@ -1218,10 +1234,19 @@ policyCfg := quickstart.TranslationPolicyConfig{
 	},
 }
 
+if _, err := quickstart.ValidateTranslationPolicyCoverage(policyCfg, []string{"articles"}); err != nil {
+	return err
+}
+
 adm, _, err := quickstart.NewAdmin(
 	cfg,
 	hooks,
 	quickstart.WithTranslationPolicyConfig(policyCfg),
+	// Use explicit services when go-cms checkers are not auto-discoverable.
+	quickstart.WithTranslationPolicyServices(quickstart.TranslationPolicyServices{
+		Pages:   pageService,
+		Content: contentService,
+	}),
 )
 if err != nil {
 	return err
@@ -1838,6 +1863,8 @@ When a module is disabled:
 | Exchange routes not registered | Exchange module not enabled | Set `TranslationProductConfig.Exchange.Enabled=true` or use `core+exchange`/`full` profile |
 | `exchange.handlers_missing` error | Exchange store not configured | Provide `TranslationExchangeConfig.Store` implementation |
 | `queue.locales_invalid` error | Queue enabled without supported locales | Set `TranslationQueueConfig.SupportedLocales` or configure translation policy |
+| `quickstart.translation_policy.services_missing` warning/error | Policy has explicit requirements but no page/content checker service was resolved | Expose go-cms services through `CMSOptions.GoCMSConfig` or pass `WithTranslationPolicyServices` |
+| Family row shows `Policy unavailable` | Family sync could not resolve policy/checker wiring for that content type | Cover the content type in `TranslationPolicyConfig`, provide checker services, then rerun family sync |
 | Translation UI not visible | Feature gate disabled | Check `FeatureTranslationExchange` in feature gate |
 
 ### Runtime Validation
