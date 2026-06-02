@@ -2,6 +2,7 @@ package quickstart
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"strings"
 	"time"
@@ -231,7 +232,8 @@ func debugFiberSlogMiddleware(cfg admin.Config) fiber.Handler {
 
 		status := c.Response().StatusCode()
 		if err != nil {
-			if ferr, ok := err.(*fiber.Error); ok && ferr.Code > 0 {
+			var ferr *fiber.Error
+			if errors.As(err, &ferr) && ferr.Code > 0 {
 				status = ferr.Code
 			} else if status < fiber.StatusBadRequest {
 				status = fiber.StatusInternalServerError
