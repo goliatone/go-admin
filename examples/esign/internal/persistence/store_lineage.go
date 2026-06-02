@@ -480,6 +480,7 @@ func (s *StoreAdapter) SaveSourceRelationship(ctx context.Context, scope stores.
 	})
 }
 
+//nolint:dupl // generic scoped create wrapper mirrors a sibling store to preserve local store naming.
 func createScopedLineageRecord[T any](
 	ctx context.Context,
 	idb bun.IDB,

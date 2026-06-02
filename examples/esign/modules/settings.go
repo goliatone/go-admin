@@ -322,7 +322,7 @@ func resolveSettingInt64(service *coreadmin.SettingsService, key string) int64 {
 			return 0
 		}
 		var parsed int64
-		_, _ = fmt.Sscan(value, &parsed)
+		_, _ = fmt.Sscan(value, &parsed) //nolint:errcheck // legacy best-effort call intentionally does not affect the primary result.
 		return parsed
 	default:
 		return 0

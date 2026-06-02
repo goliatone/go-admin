@@ -216,7 +216,7 @@ func (p SMTPEmailProvider) sendMail(addr, host, from, to string, message []byte)
 		return err
 	}
 	defer func() {
-		_ = client.Close()
+		_ = client.Close() //nolint:errcheck // cleanup is best-effort and must not replace the primary result.
 	}()
 
 	if !p.cfg.DisableSTARTTLS {
@@ -257,7 +257,7 @@ func (p SMTPEmailProvider) sendMail(addr, host, from, to string, message []byte)
 		return err
 	}
 	if _, err := writer.Write(message); err != nil {
-		_ = writer.Close()
+		_ = writer.Close() //nolint:errcheck // cleanup is best-effort and must not replace the primary result.
 		return err
 	}
 	if err := writer.Close(); err != nil {

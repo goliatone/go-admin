@@ -578,7 +578,7 @@ func hashFingerprintUint64(value string) uint64 {
 
 func decodeFingerprintHashes(raw string) []string {
 	out := make([]string, 0)
-	_ = json.Unmarshal([]byte(strings.TrimSpace(raw)), &out)
+	_ = json.Unmarshal([]byte(strings.TrimSpace(raw)), &out) //nolint:errcheck // legacy best-effort call intentionally does not affect the primary result.
 	return out
 }
 

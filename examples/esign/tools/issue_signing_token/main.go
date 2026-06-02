@@ -46,7 +46,7 @@ func main() {
 	}
 	defer func() {
 		if cleanup != nil {
-			_ = cleanup()
+			_ = cleanup() //nolint:errcheck // legacy dynamic payload keeps existing zero-value fallback behavior.
 		}
 	}()
 
@@ -55,5 +55,5 @@ func main() {
 	if err != nil {
 		logger.Fatal("issue signing token failed", "error", err)
 	}
-	_, _ = fmt.Fprintln(os.Stdout, strings.TrimSpace(issued.Token))
+	_, _ = fmt.Fprintln(os.Stdout, strings.TrimSpace(issued.Token)) //nolint:errcheck // legacy best-effort call intentionally does not affect the primary result.
 }

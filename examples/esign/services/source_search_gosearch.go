@@ -228,7 +228,7 @@ func (s *GoSearchSourceSearchService) HealthStatus(ctx context.Context, scope st
 	}
 	health, err := bundle.health.Query(ctx, searchtypes.HealthRequest{Indexes: []string{s.indexName}})
 	if err == nil {
-		stats, _ := s.StatsSnapshot(ctx, scope)
+		stats, _ := s.StatsSnapshot(ctx, scope) //nolint:errcheck // legacy best-effort call intentionally does not affect the primary result.
 		observability.ObserveSourceSearchProviderSnapshot(ctx, health, stats)
 	}
 	return health, err
@@ -248,7 +248,7 @@ func (s *GoSearchSourceSearchService) StatsSnapshot(ctx context.Context, scope s
 	}
 	stats, err := bundle.stats.Query(ctx, searchtypes.StatsRequest{Indexes: []string{s.indexName}})
 	if err == nil {
-		health, _ := bundle.health.Query(ctx, searchtypes.HealthRequest{Indexes: []string{s.indexName}})
+		health, _ := bundle.health.Query(ctx, searchtypes.HealthRequest{Indexes: []string{s.indexName}}) //nolint:errcheck // legacy best-effort call intentionally does not affect the primary result.
 		observability.ObserveSourceSearchProviderSnapshot(ctx, health, stats)
 	}
 	return stats, err
@@ -618,7 +618,7 @@ func documentIntField(doc searchtypes.Document, key string) int {
 	case float64:
 		return int(typed)
 	case string:
-		parsed, _ := strconv.Atoi(strings.TrimSpace(typed))
+		parsed, _ := strconv.Atoi(strings.TrimSpace(typed)) //nolint:errcheck // legacy best-effort call intentionally does not affect the primary result.
 		return parsed
 	default:
 		return 0
@@ -637,7 +637,7 @@ func documentBoolField(doc searchtypes.Document, key string) bool {
 	case bool:
 		return typed
 	case string:
-		parsed, _ := strconv.ParseBool(strings.TrimSpace(typed))
+		parsed, _ := strconv.ParseBool(strings.TrimSpace(typed)) //nolint:errcheck // legacy best-effort call intentionally does not affect the primary result.
 		return parsed
 	default:
 		return false

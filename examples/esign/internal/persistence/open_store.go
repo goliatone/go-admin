@@ -15,13 +15,13 @@ func OpenStore(ctx context.Context, cfg appcfg.Config) (stores.Store, func() err
 	}
 	store, storeCleanup, err := NewStoreAdapter(bootstrap)
 	if err != nil {
-		_ = bootstrap.Close()
+		_ = bootstrap.Close() //nolint:errcheck // cleanup is best-effort and must not replace the primary result.
 		return nil, nil, err
 	}
 	return store, func() error {
 		if storeCleanup != nil {
 			if err := storeCleanup(); err != nil {
-				_ = bootstrap.Close()
+				_ = bootstrap.Close() //nolint:errcheck // cleanup is best-effort and must not replace the primary result.
 				return err
 			}
 		}

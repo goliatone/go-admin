@@ -308,7 +308,7 @@ func markGoogleImportRunFailedIfNeeded(
 	if store == nil || strings.TrimSpace(runID) == "" || err == nil {
 		return
 	}
-	_, _ = store.MarkGoogleImportRunFailed(ctx, scope, runID, googleImportRunFailureInput(err, completedAt))
+	_, _ = store.MarkGoogleImportRunFailed(ctx, scope, runID, googleImportRunFailureInput(err, completedAt)) //nolint:errcheck // legacy best-effort call intentionally does not affect the primary result.
 }
 
 func markGoogleImportRunSucceededIfNeeded(
@@ -368,7 +368,7 @@ func loadCompletedGoogleImportResult(ctx context.Context, scope stores.Scope, ru
 		IngestionMode:      strings.TrimSpace(run.IngestionMode),
 	}
 	if strings.TrimSpace(run.CandidateStatusJSON) != "" {
-		_ = json.Unmarshal([]byte(run.CandidateStatusJSON), &result.CandidateStatus)
+		_ = json.Unmarshal([]byte(run.CandidateStatusJSON), &result.CandidateStatus) //nolint:errcheck // legacy best-effort call intentionally does not affect the primary result.
 	}
 	if documents != nil && strings.TrimSpace(run.DocumentID) != "" {
 		document, err := documents.Get(ctx, scope, run.DocumentID)

@@ -340,11 +340,11 @@ func SanitizeSQLiteMigrations(src fs.FS) fs.FS {
 	out := fstest.MapFS{}
 	_ = fs.WalkDir(src, ".", func(path string, d fs.DirEntry, err error) error {
 		if err != nil || d.IsDir() {
-			return nil
+			return nil //nolint:nilerr // this branch intentionally consumes a non-fatal error and returns the fallback result.
 		}
 		data, readErr := fs.ReadFile(src, path)
 		if readErr != nil {
-			return nil
+			return nil //nolint:nilerr // this branch intentionally consumes a non-fatal error and returns the fallback result.
 		}
 		content := string(data)
 		if strings.Contains(path, "20250209000000_menu_navigation_enhancements.up.sql") {

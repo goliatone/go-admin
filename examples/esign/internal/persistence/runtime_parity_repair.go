@@ -50,7 +50,7 @@ func sqliteColumnExists(ctx context.Context, db *sql.DB, table, column string) (
 	if err != nil {
 		return false, fmt.Errorf("query sqlite table info for %s: %w", table, err)
 	}
-	defer func() { _ = rows.Close() }()
+	defer func() { _ = rows.Close() }() //nolint:errcheck // cleanup is best-effort and must not replace the primary result.
 
 	for rows.Next() {
 		var (

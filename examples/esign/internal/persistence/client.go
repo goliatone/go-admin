@@ -63,11 +63,11 @@ func OpenClient(ctx context.Context, cfg appcfg.Config) (*ClientHandles, error) 
 		bunDialect,
 	)
 	if err != nil {
-		_ = sqlDB.Close()
+		_ = sqlDB.Close() //nolint:errcheck // cleanup is best-effort and must not replace the primary result.
 		return nil, fmt.Errorf("persistence open client: create client: %w", err)
 	}
 	if err := registerOrderedSources(client, cfg); err != nil {
-		_ = client.Close()
+		_ = client.Close() //nolint:errcheck // cleanup is best-effort and must not replace the primary result.
 		return nil, fmt.Errorf("persistence open client: register migration sources: %w", err)
 	}
 

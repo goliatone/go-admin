@@ -329,7 +329,7 @@ func (s *CMSPageStore) CreateTranslation(ctx context.Context, input admin.Transl
 	}
 	record, getErr := s.Get(ctx, id)
 	if getErr != nil {
-		return created, nil
+		return created, nil //nolint:nilerr // this branch intentionally consumes a non-fatal error and returns the fallback result.
 	}
 	return record, nil
 }

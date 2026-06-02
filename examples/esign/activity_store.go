@@ -79,15 +79,15 @@ func newSQLiteESignActivityStore(dsn string) (*eSignActivityStore, error) {
 	db.SetMaxOpenConns(1)
 	db.SetMaxIdleConns(1)
 	if err := db.PingContext(context.Background()); err != nil {
-		_ = db.Close()
+		_ = db.Close() //nolint:errcheck // cleanup is best-effort and must not replace the primary result.
 		return nil, fmt.Errorf("ping esign activity sqlite: %w", err)
 	}
 	if err := esignpersistence.ConfigureSQLiteConnection(context.Background(), db); err != nil {
-		_ = db.Close()
+		_ = db.Close() //nolint:errcheck // cleanup is best-effort and must not replace the primary result.
 		return nil, err
 	}
 	if err := ensureESignActivityTable(context.Background(), db); err != nil {
-		_ = db.Close()
+		_ = db.Close() //nolint:errcheck // cleanup is best-effort and must not replace the primary result.
 		return nil, err
 	}
 	return &eSignActivityStore{db: db}, nil
@@ -109,7 +109,7 @@ func ensureSQLiteDSNDir(dsn string) {
 	if dir == "" || dir == "." {
 		return
 	}
-	_ = os.MkdirAll(dir, 0o750)
+	_ = os.MkdirAll(dir, 0o750) //nolint:errcheck // legacy best-effort call intentionally does not affect the primary result.
 }
 
 func ensureESignActivityTable(ctx context.Context, db *sql.DB) error {
@@ -194,7 +194,7 @@ func (s *eSignActivityStore) List(ctx context.Context, limit int, filters ...cor
 		return nil, fmt.Errorf("list esign activity records: %w", err)
 	}
 	defer func() {
-		_ = rows.Close()
+		_ = rows.Close() //nolint:errcheck // cleanup is best-effort and must not replace the primary result.
 	}()
 
 	out := make([]coreadmin.ActivityEntry, 0)
@@ -237,7 +237,7 @@ func (s *eSignActivityStore) ListActivity(ctx context.Context, filter userstypes
 		return userstypes.ActivityPage{}, fmt.Errorf("query esign activity records: %w", err)
 	}
 	defer func() {
-		_ = rows.Close()
+		_ = rows.Close() //nolint:errcheck // cleanup is best-effort and must not replace the primary result.
 	}()
 
 	records := make([]userstypes.ActivityRecord, 0)
@@ -274,7 +274,7 @@ func (s *eSignActivityStore) ActivityStats(ctx context.Context, filter userstype
 		return stats, fmt.Errorf("query esign activity stats: %w", err)
 	}
 	defer func() {
-		_ = rows.Close()
+		_ = rows.Close() //nolint:errcheck // cleanup is best-effort and must not replace the primary result.
 	}()
 
 	for rows.Next() {
@@ -539,7 +539,7 @@ func rowFromUsersActivityRecord(record userstypes.ActivityRecord) (eSignActivity
 
 func rowToUsersActivityRecord(row eSignActivityRow) userstypes.ActivityRecord {
 	data := map[string]any{}
-	_ = json.Unmarshal([]byte(strings.TrimSpace(row.DataJSON)), &data)
+	_ = json.Unmarshal([]byte(strings.TrimSpace(row.DataJSON)), &data) //nolint:errcheck // legacy best-effort call intentionally does not affect the primary result.
 
 	occurredAt := parseTimestamp(row.OccurredAt)
 	if occurredAt.IsZero() {
@@ -687,7 +687,7 @@ func joinObjectRef(objectType, objectID string) string {
 }
 
 func parseUUID(value string) uuid.UUID {
-	id, _ := uuid.Parse(strings.TrimSpace(value))
+	id, _ := uuid.Parse(strings.TrimSpace(value)) //nolint:errcheck // legacy best-effort call intentionally does not affect the primary result.
 	return id
 }
 

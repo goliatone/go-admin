@@ -103,7 +103,7 @@ func newLineageValidationRuntime(ctx context.Context) (lineageValidationRuntime,
 	}
 	store, storeCleanup, err := esignpersistence.NewStoreAdapter(bootstrap)
 	if err != nil {
-		_ = bootstrap.Close()
+		_ = bootstrap.Close() //nolint:errcheck // cleanup is best-effort and must not replace the primary result.
 		runLineageValidationCleanup(dsnCleanup)
 		return lineageValidationRuntime{}, func() {}, fmt.Errorf("create lineage validation store adapter: %w", err)
 	}
@@ -115,7 +115,7 @@ func newLineageValidationRuntime(ctx context.Context) (lineageValidationRuntime,
 	uploads := uploader.NewManager(uploader.WithProvider(uploader.NewFSProvider(uploadDir)))
 	provider, err := newLineageValidationGoogleProvider()
 	if err != nil {
-		_ = os.RemoveAll(uploadDir)
+		_ = os.RemoveAll(uploadDir) //nolint:errcheck // cleanup is best-effort and must not replace the primary result.
 		runLineageValidationStoreCleanup(bootstrap, storeCleanup, dsnCleanup)
 		return lineageValidationRuntime{}, func() {}, fmt.Errorf("build lineage validation google provider: %w", err)
 	}
@@ -142,7 +142,7 @@ func newLineageValidationRuntime(ctx context.Context) (lineageValidationRuntime,
 		provider: provider,
 	}
 	cleanup := func() {
-		_ = os.RemoveAll(uploadDir)
+		_ = os.RemoveAll(uploadDir) //nolint:errcheck // cleanup is best-effort and must not replace the primary result.
 		runLineageValidationStoreCleanup(bootstrap, storeCleanup, dsnCleanup)
 	}
 	return runtime, cleanup, nil
@@ -156,10 +156,10 @@ func runLineageValidationCleanup(cleanup func()) {
 
 func runLineageValidationStoreCleanup(bootstrap ioCloser, storeCleanup func() error, dsnCleanup func()) {
 	if bootstrap != nil {
-		_ = bootstrap.Close()
+		_ = bootstrap.Close() //nolint:errcheck // cleanup is best-effort and must not replace the primary result.
 	}
 	if storeCleanup != nil {
-		_ = storeCleanup()
+		_ = storeCleanup() //nolint:errcheck // legacy dynamic payload keeps existing zero-value fallback behavior.
 	}
 	runLineageValidationCleanup(dsnCleanup)
 }

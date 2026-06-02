@@ -63,7 +63,7 @@ func (c *restockLowInventoryCommand) Execute(ctx context.Context, _ RestockLowIn
 		if id == "" {
 			continue
 		}
-		_, _ = c.products.Update(ctx, id, map[string]any{"inventory": inv + c.restockAmount})
+		_, _ = c.products.Update(ctx, id, map[string]any{"inventory": inv + c.restockAmount}) //nolint:errcheck // legacy best-effort call intentionally does not affect the primary result.
 	}
 	return nil
 }

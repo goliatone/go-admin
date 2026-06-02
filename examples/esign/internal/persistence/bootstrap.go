@@ -77,26 +77,26 @@ func Bootstrap(ctx context.Context, cfg appcfg.Config) (*BootstrapResult, error)
 
 	client, err := persistence.New(bootstrapPersistenceConfig{driver: driverName, server: dsn}, sqlDB, bunDialect)
 	if err != nil {
-		_ = sqlDB.Close()
+		_ = sqlDB.Close() //nolint:errcheck // cleanup is best-effort and must not replace the primary result.
 		return nil, fmt.Errorf("persistence bootstrap: create client: %w", err)
 	}
 
 	if err := registerOrderedSources(client, cfg); err != nil {
-		_ = client.Close()
+		_ = client.Close() //nolint:errcheck // cleanup is best-effort and must not replace the primary result.
 		return nil, fmt.Errorf("persistence bootstrap: register migration sources: %w", err)
 	}
 
 	if err := client.Migrate(ctx); err != nil {
-		_ = client.Close()
+		_ = client.Close() //nolint:errcheck // cleanup is best-effort and must not replace the primary result.
 		return nil, fmt.Errorf("persistence bootstrap: migrate: %w", err)
 	}
 	if err := ensureRuntimeParityColumns(ctx, sqlDB, dialect); err != nil {
-		_ = client.Close()
+		_ = client.Close() //nolint:errcheck // cleanup is best-effort and must not replace the primary result.
 		return nil, fmt.Errorf("persistence bootstrap: runtime parity column repair: %w", err)
 	}
 
 	if err := CheckReadiness(ctx, client); err != nil {
-		_ = client.Close()
+		_ = client.Close() //nolint:errcheck // cleanup is best-effort and must not replace the primary result.
 		return nil, fmt.Errorf("persistence bootstrap: readiness check: %w", err)
 	}
 
@@ -170,11 +170,11 @@ func openDialectDB(ctx context.Context, dialect Dialect, dsn string) (*sql.DB, s
 		sqlDB.SetMaxOpenConns(1)
 		sqlDB.SetMaxIdleConns(1)
 		if err := sqlDB.PingContext(ctx); err != nil {
-			_ = sqlDB.Close()
+			_ = sqlDB.Close() //nolint:errcheck // cleanup is best-effort and must not replace the primary result.
 			return nil, nil, "", fmt.Errorf("persistence bootstrap: ping sqlite: %w", err)
 		}
 		if err := ConfigureSQLiteConnection(ctx, sqlDB); err != nil {
-			_ = sqlDB.Close()
+			_ = sqlDB.Close() //nolint:errcheck // cleanup is best-effort and must not replace the primary result.
 			return nil, nil, "", fmt.Errorf("persistence bootstrap: configure sqlite: %w", err)
 		}
 		return sqlDB, sqlitedialect.New(), sqliteshim.ShimName, nil
@@ -184,7 +184,7 @@ func openDialectDB(ctx context.Context, dialect Dialect, dsn string) (*sql.DB, s
 			return nil, nil, "", fmt.Errorf("persistence bootstrap: open postgres: %w", err)
 		}
 		if err := sqlDB.PingContext(ctx); err != nil {
-			_ = sqlDB.Close()
+			_ = sqlDB.Close() //nolint:errcheck // cleanup is best-effort and must not replace the primary result.
 			return nil, nil, "", fmt.Errorf("persistence bootstrap: ping postgres: %w", err)
 		}
 		return sqlDB, pgdialect.New(), "postgres", nil
@@ -209,5 +209,5 @@ func ensureSQLiteDSNDir(dsn string) {
 	if dir == "" || dir == "." {
 		return
 	}
-	_ = os.MkdirAll(dir, 0o750)
+	_ = os.MkdirAll(dir, 0o750) //nolint:errcheck // legacy best-effort call intentionally does not affect the primary result.
 }

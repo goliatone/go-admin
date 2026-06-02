@@ -79,7 +79,7 @@ func (q *SourceLineageQueue) worker() {
 		case <-q.closed:
 			return
 		case msg := <-q.queue:
-			_, _, _ = q.handlers.ExecuteSourceLineageProcessing(context.Background(), msg)
+			_, _, _ = q.handlers.ExecuteSourceLineageProcessing(context.Background(), msg) //nolint:errcheck // legacy best-effort call intentionally does not affect the primary result.
 		}
 	}
 }

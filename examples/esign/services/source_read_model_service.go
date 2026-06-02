@@ -289,7 +289,7 @@ func (s DefaultSourceReadModelService) buildGoogleImportLineageStatus(ctx contex
 		AgreementDetailURL:    strings.TrimSpace(run.AgreementDetailURL),
 	}
 	if strings.TrimSpace(run.CandidateStatusJSON) != "" {
-		_ = json.Unmarshal([]byte(strings.TrimSpace(run.CandidateStatusJSON)), &status.CandidateStatus)
+		_ = json.Unmarshal([]byte(strings.TrimSpace(run.CandidateStatusJSON)), &status.CandidateStatus) //nolint:errcheck // legacy best-effort call intentionally does not affect the primary result.
 	}
 	if s.lineage == nil {
 		return status, nil

@@ -446,12 +446,12 @@ type GoogleAccountInfo struct {
 type GoogleDriveFile struct {
 	ID           string    `json:"id"`
 	Name         string    `json:"name"`
-	MimeType     string    `json:"mimeType"`
-	WebViewURL   string    `json:"webViewLink,omitempty"`
-	OwnerEmail   string    `json:"ownerEmail,omitempty"`
-	DriveID      string    `json:"driveId,omitempty"`
-	ParentID     string    `json:"parentId,omitempty"`
-	ModifiedTime time.Time `json:"modifiedTime"`
+	MimeType     string    `json:"mimeType"`              //nolint:tagliatelle // external Google API uses these camelCase JSON field names.
+	WebViewURL   string    `json:"webViewLink,omitempty"` //nolint:tagliatelle // external Google API uses these camelCase JSON field names.
+	OwnerEmail   string    `json:"ownerEmail,omitempty"`  //nolint:tagliatelle // external Google API uses these camelCase JSON field names.
+	DriveID      string    `json:"driveId,omitempty"`     //nolint:tagliatelle // external Google API uses these camelCase JSON field names.
+	ParentID     string    `json:"parentId,omitempty"`    //nolint:tagliatelle // external Google API uses these camelCase JSON field names.
+	ModifiedTime time.Time `json:"modifiedTime"`          //nolint:tagliatelle // external Google API uses these camelCase JSON field names.
 }
 
 type GoogleDriveCommentAuthor struct {

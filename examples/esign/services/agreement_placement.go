@@ -205,7 +205,7 @@ func (s AgreementService) RunAutoPlacement(ctx context.Context, scope stores.Sco
 		return AutoPlacementRunResult{}, err
 	}
 
-	_ = s.appendAuditEvent(ctx, scope, agreementID, "agreement.placement_run_created", "system", strings.TrimSpace(input.UserID), map[string]any{
+	_ = s.appendAuditEvent(ctx, scope, agreementID, "agreement.placement_run_created", "system", strings.TrimSpace(input.UserID), map[string]any{ //nolint:errcheck // best-effort telemetry must not fail the primary operation.
 		"placement_run_id": persisted.ID,
 		"status":           persisted.Status,
 		"reason_code":      persisted.ReasonCode,
@@ -363,7 +363,7 @@ func (s AgreementService) applyPlacementRunWithTx(ctx context.Context, scope sto
 	if err != nil {
 		return ApplyPlacementRunResult{}, err
 	}
-	_ = s.appendAuditEvent(ctx, scope, agreementID, "agreement.placement_run_applied", "system", strings.TrimSpace(input.UserID), map[string]any{
+	_ = s.appendAuditEvent(ctx, scope, agreementID, "agreement.placement_run_applied", "system", strings.TrimSpace(input.UserID), map[string]any{ //nolint:errcheck // best-effort telemetry must not fail the primary operation.
 		"placement_run_id":        persisted.ID,
 		"applied_count":           len(applied),
 		"selected_suggestion_ids": persisted.SelectedSuggestionIDs,

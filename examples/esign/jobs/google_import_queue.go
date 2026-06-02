@@ -80,7 +80,7 @@ func (q *GoogleDriveImportQueue) worker() {
 		case <-q.closed:
 			return
 		case msg := <-q.queue:
-			_, _ = q.handlers.ExecuteGoogleDriveImport(context.Background(), msg)
+			_, _ = q.handlers.ExecuteGoogleDriveImport(context.Background(), msg) //nolint:errcheck // legacy best-effort call intentionally does not affect the primary result.
 		}
 	}
 }

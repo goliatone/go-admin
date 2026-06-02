@@ -900,7 +900,7 @@ func (r *agreementPanelRepository) ServePanelSubresource(ctx coreadmin.AdminCont
 		}); err == nil {
 			metadataJSON = string(encoded)
 		}
-		_, _ = audits.Append(ctx.Context, scope, stores.AuditEventRecord{
+		_, _ = audits.Append(ctx.Context, scope, stores.AuditEventRecord{ //nolint:errcheck // best-effort telemetry must not fail the primary operation.
 			AgreementID:  strings.TrimSpace(agreementID),
 			EventType:    "admin.agreement.artifact_downloaded",
 			ActorType:    "admin",
@@ -3285,7 +3285,7 @@ func parseAgreementFieldPlacementGeometry(entry map[string]any, index int) (agre
 }
 
 func parseAgreementFieldPlacementString(entry map[string]any, index int, key string) string {
-	value, _ := coerceFormString(entry[key], fmt.Sprintf("field_placements[%d].%s", index, key))
+	value, _ := coerceFormString(entry[key], fmt.Sprintf("field_placements[%d].%s", index, key)) //nolint:errcheck // legacy dynamic payload keeps existing zero-value fallback behavior.
 	return value
 }
 

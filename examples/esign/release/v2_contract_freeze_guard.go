@@ -53,7 +53,7 @@ func ValidateV2ContractFreezeGuard(repoRoot string, guard V2ContractFreezeGuard,
 	freezeDate, err := time.Parse(v2ContractFreezeDateLayout, strings.TrimSpace(guard.FreezeDate))
 	if err != nil {
 		issues = append(issues, "freeze_date must use YYYY-MM-DD format")
-		return issues, nil
+		return issues, nil //nolint:nilerr // this branch intentionally consumes a non-fatal error and returns the fallback result.
 	}
 	afterFreeze := !now.Before(freezeDate)
 

@@ -305,7 +305,7 @@ func agreementActiveReviewGuard(actionName string, requireCommentsEnabled bool, 
 			}
 		}
 		if requireCommentsEnabled {
-			enabled, _ := ctx.Record["comments_enabled"].(bool)
+			enabled, _ := ctx.Record["comments_enabled"].(bool) //nolint:errcheck // legacy dynamic payload keeps existing zero-value fallback behavior.
 			if !enabled {
 				return coreadmin.ActionState{
 					Enabled:    false,
@@ -478,7 +478,7 @@ func agreementDeleteDisabledGuard() coreadmin.ActionGuard {
 
 func agreementResumeDeliveryGuard() coreadmin.ActionGuard {
 	return func(ctx coreadmin.ActionGuardContext) coreadmin.ActionState {
-		delivery, _ := ctx.Record["delivery"].(map[string]any)
+		delivery, _ := ctx.Record["delivery"].(map[string]any) //nolint:errcheck // legacy dynamic payload keeps existing zero-value fallback behavior.
 		if delivery != nil {
 			if recoverable, ok := delivery["notification_recoverable"].(bool); ok && recoverable {
 				return coreadmin.ActionState{Enabled: true}
@@ -542,16 +542,16 @@ func reviewOverrideActiveInRecord(record map[string]any) bool {
 	if value, ok := record["review_override_active"].(bool); ok {
 		return value
 	}
-	review, _ := record["review"].(map[string]any)
+	review, _ := record["review"].(map[string]any) //nolint:errcheck // legacy dynamic payload keeps existing zero-value fallback behavior.
 	if review == nil {
 		return false
 	}
-	value, _ := review["override_active"].(bool)
+	value, _ := review["override_active"].(bool) //nolint:errcheck // legacy dynamic payload keeps existing zero-value fallback behavior.
 	return value
 }
 
 func recordHasPendingApprover(record map[string]any) bool {
-	review, _ := record["review"].(map[string]any)
+	review, _ := record["review"].(map[string]any) //nolint:errcheck // legacy dynamic payload keeps existing zero-value fallback behavior.
 	if review == nil {
 		return false
 	}
@@ -561,7 +561,7 @@ func recordHasPendingApprover(record map[string]any) bool {
 		participants = raw
 	case []any:
 		for _, entry := range raw {
-			participant, _ := entry.(map[string]any)
+			participant, _ := entry.(map[string]any) //nolint:errcheck // legacy dynamic payload keeps existing zero-value fallback behavior.
 			if participant != nil {
 				participants = append(participants, participant)
 			}
@@ -571,7 +571,7 @@ func recordHasPendingApprover(record map[string]any) bool {
 		if participant == nil {
 			continue
 		}
-		canApprove, _ := participant["can_approve"].(bool)
+		canApprove, _ := participant["can_approve"].(bool) //nolint:errcheck // legacy dynamic payload keeps existing zero-value fallback behavior.
 		if !canApprove {
 			continue
 		}

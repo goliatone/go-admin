@@ -21,25 +21,25 @@ const (
 
 // SignerProfile captures persisted signer profile fields used by the unified signer UI.
 type SignerProfile struct {
-	SchemaVersion         int    `json:"schemaVersion"`
+	SchemaVersion         int    `json:"schemaVersion"` //nolint:tagliatelle // legacy browser wizard contract uses these camelCase JSON field names.
 	Key                   string `json:"key"`
-	FullName              string `json:"fullName"`
+	FullName              string `json:"fullName"` //nolint:tagliatelle // legacy browser wizard contract uses these camelCase JSON field names.
 	Initials              string `json:"initials"`
-	TypedSignature        string `json:"typedSignature"`
-	DrawnSignatureDataURL string `json:"drawnSignatureDataUrl"`
-	DrawnInitialsDataURL  string `json:"drawnInitialsDataUrl"`
+	TypedSignature        string `json:"typedSignature"`        //nolint:tagliatelle // legacy browser wizard contract uses these camelCase JSON field names.
+	DrawnSignatureDataURL string `json:"drawnSignatureDataUrl"` //nolint:tagliatelle // legacy browser wizard contract uses these camelCase JSON field names.
+	DrawnInitialsDataURL  string `json:"drawnInitialsDataUrl"`  //nolint:tagliatelle // legacy browser wizard contract uses these camelCase JSON field names.
 	Remember              bool   `json:"remember"`
-	UpdatedAt             int64  `json:"updatedAt"`
-	ExpiresAt             int64  `json:"expiresAt"`
+	UpdatedAt             int64  `json:"updatedAt"` //nolint:tagliatelle // legacy browser wizard contract uses these camelCase JSON field names.
+	ExpiresAt             int64  `json:"expiresAt"` //nolint:tagliatelle // legacy browser wizard contract uses these camelCase JSON field names.
 }
 
 // SignerProfilePatch is a partial profile update payload from the signer UI.
 type SignerProfilePatch struct {
-	FullName              *string `json:"fullName,omitempty"`
+	FullName              *string `json:"fullName,omitempty"` //nolint:tagliatelle // legacy browser wizard contract uses these camelCase JSON field names.
 	Initials              *string `json:"initials,omitempty"`
-	TypedSignature        *string `json:"typedSignature,omitempty"`
-	DrawnSignatureDataURL *string `json:"drawnSignatureDataUrl,omitempty"`
-	DrawnInitialsDataURL  *string `json:"drawnInitialsDataUrl,omitempty"`
+	TypedSignature        *string `json:"typedSignature,omitempty"`        //nolint:tagliatelle // legacy browser wizard contract uses these camelCase JSON field names.
+	DrawnSignatureDataURL *string `json:"drawnSignatureDataUrl,omitempty"` //nolint:tagliatelle // legacy browser wizard contract uses these camelCase JSON field names.
+	DrawnInitialsDataURL  *string `json:"drawnInitialsDataUrl,omitempty"`  //nolint:tagliatelle // legacy browser wizard contract uses these camelCase JSON field names.
 	Remember              *bool   `json:"remember,omitempty"`
 }
 

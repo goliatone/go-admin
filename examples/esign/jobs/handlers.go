@@ -289,7 +289,7 @@ func (h agreementNotificationEffectHandler) Finalize(ctx context.Context, effect
 		}
 	}
 	if h.audits != nil && strings.TrimSpace(payload.AgreementID) != "" {
-		metadata, _ := json.Marshal(map[string]any{
+		metadata, _ := json.Marshal(map[string]any{ //nolint:errcheck // legacy best-effort call intentionally does not affect the primary result.
 			"effect_id":             strings.TrimSpace(effect.EffectID),
 			"recipient_id":          strings.TrimSpace(payload.RecipientID),
 			"review_participant_id": strings.TrimSpace(payload.ReviewParticipantID),
@@ -297,7 +297,7 @@ func (h agreementNotificationEffectHandler) Finalize(ctx context.Context, effect
 			"guard_policy":          strings.TrimSpace(effect.GuardPolicy),
 			"effect_status":         strings.TrimSpace(effect.Status),
 		})
-		_, _ = h.audits.Append(ctx, h.scope, stores.AuditEventRecord{
+		_, _ = h.audits.Append(ctx, h.scope, stores.AuditEventRecord{ //nolint:errcheck // best-effort telemetry must not fail the primary operation.
 			AgreementID:  strings.TrimSpace(payload.AgreementID),
 			EventType:    "agreement.notification_delivered",
 			ActorType:    "system_job",
@@ -1181,7 +1181,7 @@ func (h Handlers) performGoogleDriveImport(ctx context.Context, msg GoogleDriveI
 		err := fmt.Errorf("google import dependencies not configured")
 		importRunID := strings.TrimSpace(msg.ImportRunID)
 		if h.googleImportRuns != nil && importRunID != "" {
-			_, _ = h.googleImportRuns.MarkGoogleImportRunFailed(ctx, msg.Scope, importRunID, stores.GoogleImportRunFailureInput{
+			_, _ = h.googleImportRuns.MarkGoogleImportRunFailed(ctx, msg.Scope, importRunID, stores.GoogleImportRunFailureInput{ //nolint:errcheck // legacy best-effort call intentionally does not affect the primary result.
 				ErrorCode:    string(services.ErrorCodeGoogleProviderDegraded),
 				ErrorMessage: err.Error(),
 				CompletedAt:  h.now(),
@@ -1239,7 +1239,7 @@ func (h Handlers) performGoogleDriveImport(ctx context.Context, msg GoogleDriveI
 	h.markGoogleImportRunSucceeded(ctx, msg.Scope, importRunID, result)
 	h.trackGoogleImportAgreementJob(ctx, msg.Scope, trackAgreementJob, dedupeKey, correlationID, result)
 	if h.audits != nil && strings.TrimSpace(result.Agreement.ID) != "" {
-		_ = h.appendJobAudit(ctx, msg.Scope, result.Agreement.ID, "google.import.completed", map[string]any{
+		_ = h.appendJobAudit(ctx, msg.Scope, result.Agreement.ID, "google.import.completed", map[string]any{ //nolint:errcheck // best-effort telemetry must not fail the primary operation.
 			"job_name":       JobGoogleDriveImport,
 			"google_file_id": strings.TrimSpace(msg.GoogleFileID),
 			"correlation_id": correlationID,
@@ -1284,7 +1284,7 @@ func (h Handlers) failGoogleDriveImport(
 ) {
 	if h.googleImportRuns != nil && importRunID != "" {
 		code, message, details := googleImportFailureDetails(err)
-		_, _ = h.googleImportRuns.MarkGoogleImportRunFailed(ctx, scope, importRunID, stores.GoogleImportRunFailureInput{
+		_, _ = h.googleImportRuns.MarkGoogleImportRunFailed(ctx, scope, importRunID, stores.GoogleImportRunFailureInput{ //nolint:errcheck // legacy best-effort call intentionally does not affect the primary result.
 			ErrorCode:        code,
 			ErrorMessage:     message,
 			ErrorDetailsJSON: details,
@@ -1311,7 +1311,7 @@ func (h Handlers) markGoogleImportRunSucceeded(
 	if encoded, err := json.Marshal(result.CandidateStatus); err == nil {
 		candidateStatusJSON = string(encoded)
 	}
-	_, _ = h.googleImportRuns.MarkGoogleImportRunSucceeded(ctx, scope, importRunID, stores.GoogleImportRunSuccessInput{
+	_, _ = h.googleImportRuns.MarkGoogleImportRunSucceeded(ctx, scope, importRunID, stores.GoogleImportRunSuccessInput{ //nolint:errcheck // legacy best-effort call intentionally does not affect the primary result.
 		DocumentID:          strings.TrimSpace(result.Document.ID),
 		AgreementID:         strings.TrimSpace(result.Agreement.ID),
 		SourceDocumentID:    strings.TrimSpace(result.SourceDocumentID),
@@ -1348,7 +1348,7 @@ func (h Handlers) trackGoogleImportAgreementJob(
 		AttemptedAt:   h.now(),
 	})
 	if err == nil && shouldRun {
-		_, _ = h.jobRuns.MarkJobRunSucceeded(ctx, scope, run.ID, h.now())
+		_, _ = h.jobRuns.MarkJobRunSucceeded(ctx, scope, run.ID, h.now()) //nolint:errcheck // legacy best-effort call intentionally does not affect the primary result.
 	}
 }
 
@@ -1570,7 +1570,7 @@ func (h Handlers) loadCompletedGoogleImportResult(ctx context.Context, scope sto
 		IngestionMode:      strings.TrimSpace(run.IngestionMode),
 	}
 	if strings.TrimSpace(run.CandidateStatusJSON) != "" {
-		_ = json.Unmarshal([]byte(run.CandidateStatusJSON), &result.CandidateStatus)
+		_ = json.Unmarshal([]byte(run.CandidateStatusJSON), &result.CandidateStatus) //nolint:errcheck // legacy best-effort call intentionally does not affect the primary result.
 	}
 	if err := h.populateCompletedGoogleImportDocument(ctx, scope, run, &result); err != nil {
 		return services.GoogleImportResult{}, false, err
@@ -2019,7 +2019,7 @@ func (h Handlers) failEmailJob(
 	if nextRetry != nil {
 		status = stores.JobRunStatusRetrying
 	}
-	_, _ = h.emailLogs.UpdateEmailLog(ctx, scope, log.ID, stores.EmailLogRecord{
+	_, _ = h.emailLogs.UpdateEmailLog(ctx, scope, log.ID, stores.EmailLogRecord{ //nolint:errcheck // legacy best-effort call intentionally does not affect the primary result.
 		Status:        status,
 		FailureReason: strings.TrimSpace(cause.Error()),
 		AttemptCount:  run.AttemptCount,
@@ -2028,7 +2028,7 @@ func (h Handlers) failEmailJob(
 		NextRetryAt:   nextRetry,
 		UpdatedAt:     h.now(),
 	})
-	_ = h.failNotificationEffect(ctx, scope, effectID, run, cause)
+	_ = h.failNotificationEffect(ctx, scope, effectID, run, cause) //nolint:errcheck // legacy best-effort call intentionally does not affect the primary result.
 	return h.failJob(ctx, scope, run, cause, agreementID, metadata)
 }
 
@@ -2082,7 +2082,7 @@ func (h Handlers) failJob(
 		})
 	}
 	observability.LogOperation(ctx, slog.LevelWarn, "job", "execution", "error", run.CorrelationID, 0, cause, jobMetadata)
-	_ = h.appendJobAudit(ctx, scope, agreementID, "job.failed", jobMetadata)
+	_ = h.appendJobAudit(ctx, scope, agreementID, "job.failed", jobMetadata) //nolint:errcheck // best-effort telemetry must not fail the primary operation.
 	return cause
 }
 
@@ -2161,7 +2161,7 @@ func (h Handlers) resolveDirectNotificationRecipient(ctx context.Context, scope 
 	}
 	recipient, err := h.findRecipient(ctx, scope, msg.AgreementID, recipientID)
 	if err != nil {
-		return stores.RecipientRecord{}, false, nil
+		return stores.RecipientRecord{}, false, nil //nolint:nilerr // this branch intentionally consumes a non-fatal error and returns the fallback result.
 	}
 	if strings.TrimSpace(msg.RecipientEmail) != "" {
 		recipient.Email = strings.TrimSpace(msg.RecipientEmail)

@@ -276,7 +276,7 @@ func (s PDFRemediationService) startPDFRemediation(
 	document, err := s.documents.Get(ctx, scope, req.documentID)
 	if err != nil {
 		observeRemediationLockSignal(ctx, err)
-		_ = s.emitLifecycle(ctx, req.agreementID, req.actorID, PDFRemediationStatusFailed, s.now().UTC(), req.baseMeta, err.Error())
+		_ = s.emitLifecycle(ctx, req.agreementID, req.actorID, PDFRemediationStatusFailed, s.now().UTC(), req.baseMeta, err.Error()) //nolint:errcheck // best-effort telemetry must not fail the primary operation.
 		return pdfRemediationState{}, err
 	}
 	claim, err := s.leases.AcquireDocumentRemediationLease(ctx, scope, req.documentID, stores.DocumentRemediationLeaseAcquireInput{
@@ -287,7 +287,7 @@ func (s PDFRemediationService) startPDFRemediation(
 	})
 	if err != nil {
 		observeRemediationLockSignal(ctx, err)
-		_ = s.emitLifecycle(ctx, req.agreementID, req.actorID, PDFRemediationStatusFailed, s.now().UTC(), req.baseMeta, err.Error())
+		_ = s.emitLifecycle(ctx, req.agreementID, req.actorID, PDFRemediationStatusFailed, s.now().UTC(), req.baseMeta, err.Error()) //nolint:errcheck // best-effort telemetry must not fail the primary operation.
 		return pdfRemediationState{}, err
 	}
 	state := pdfRemediationState{
@@ -298,7 +298,7 @@ func (s PDFRemediationService) startPDFRemediation(
 	}
 	updatedDocument, err := s.persistStartedRemediationState(ctx, scope, state)
 	if err != nil {
-		_ = s.emitLifecycle(ctx, req.agreementID, req.actorID, PDFRemediationStatusFailed, s.now().UTC(), req.baseMeta, err.Error())
+		_ = s.emitLifecycle(ctx, req.agreementID, req.actorID, PDFRemediationStatusFailed, s.now().UTC(), req.baseMeta, err.Error()) //nolint:errcheck // best-effort telemetry must not fail the primary operation.
 		return pdfRemediationState{}, err
 	}
 	state.document = updatedDocument
@@ -458,7 +458,7 @@ func (s PDFRemediationService) completePDFRemediation(
 
 	updated, err := s.documents.SaveMetadata(ctx, scope, state.request.documentID, successPatch)
 	if err != nil {
-		_ = s.emitLifecycle(ctx, state.request.agreementID, state.request.actorID, PDFRemediationStatusFailed, s.now().UTC(), state.request.baseMeta, err.Error())
+		_ = s.emitLifecycle(ctx, state.request.agreementID, state.request.actorID, PDFRemediationStatusFailed, s.now().UTC(), state.request.baseMeta, err.Error()) //nolint:errcheck // best-effort telemetry must not fail the primary operation.
 		return PDFRemediationResult{}, err
 	}
 	if emitErr := s.emitLifecycle(ctx, state.request.agreementID, state.request.actorID, PDFRemediationStatusSucceeded, completedAt, state.request.baseMeta, ""); emitErr != nil {
@@ -478,7 +478,7 @@ func (s PDFRemediationService) failStartedPDFRemediation(
 	state pdfRemediationState,
 	err error,
 ) error {
-	_ = s.persistFailureState(
+	_ = s.persistFailureState( //nolint:errcheck // legacy best-effort call intentionally does not affect the primary result.
 		ctx,
 		scope,
 		state.request.documentID,
@@ -492,7 +492,7 @@ func (s PDFRemediationService) failStartedPDFRemediation(
 		state.startedAt,
 		err.Error(),
 	)
-	_ = s.emitLifecycle(ctx, state.request.agreementID, state.request.actorID, PDFRemediationStatusFailed, s.now().UTC(), state.request.baseMeta, err.Error())
+	_ = s.emitLifecycle(ctx, state.request.agreementID, state.request.actorID, PDFRemediationStatusFailed, s.now().UTC(), state.request.baseMeta, err.Error()) //nolint:errcheck // best-effort telemetry must not fail the primary operation.
 	return err
 }
 

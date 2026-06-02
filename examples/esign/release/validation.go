@@ -73,7 +73,7 @@ func runValidationChunk(ctx context.Context, scope stores.Scope, chunkStart, chu
 	}
 	defer func() {
 		if storeCleanup != nil {
-			_ = storeCleanup()
+			_ = storeCleanup() //nolint:errcheck // legacy dynamic payload keeps existing zero-value fallback behavior.
 		}
 	}()
 

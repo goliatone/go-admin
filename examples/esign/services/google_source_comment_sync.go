@@ -65,7 +65,7 @@ func syncGoogleSourceRevisionComments(ctx context.Context, scope stores.Scope, d
 	}
 	if !deps.providerStatus.Healthy {
 		err := domainValidationError("google_source_comment_sync", "provider", "degraded")
-		_, _ = deps.comments.RecordSourceRevisionCommentSyncFailure(ctx, scope, SourceCommentSyncFailureInput{
+		_, _ = deps.comments.RecordSourceRevisionCommentSyncFailure(ctx, scope, SourceCommentSyncFailureInput{ //nolint:errcheck // best-effort telemetry must not fail the primary operation.
 			SourceRevisionID: sourceRevisionID,
 			ProviderKind:     deps.providerKind,
 			AttemptedAt:      googleSourceSyncAttemptedAt(deps.now),
@@ -97,7 +97,7 @@ func syncGoogleSourceRevisionComments(ctx context.Context, scope stores.Scope, d
 	attemptedAt := googleSourceSyncAttemptedAt(deps.now)
 	accessToken, err := deps.resolveToken(ctx, scope, handle.AccountID)
 	if err != nil {
-		_, _ = deps.comments.RecordSourceRevisionCommentSyncFailure(ctx, scope, SourceCommentSyncFailureInput{
+		_, _ = deps.comments.RecordSourceRevisionCommentSyncFailure(ctx, scope, SourceCommentSyncFailureInput{ //nolint:errcheck // best-effort telemetry must not fail the primary operation.
 			SourceDocumentID: sourceDocument.ID,
 			SourceRevisionID: revision.ID,
 			ProviderKind:     deps.providerKind,
@@ -111,7 +111,7 @@ func syncGoogleSourceRevisionComments(ctx context.Context, scope stores.Scope, d
 	comments, err := deps.provider.ListComments(ctx, accessToken, fileID)
 	if err != nil {
 		observability.ObserveProviderResult(ctx, GoogleProviderName, false)
-		_, _ = deps.comments.RecordSourceRevisionCommentSyncFailure(ctx, scope, SourceCommentSyncFailureInput{
+		_, _ = deps.comments.RecordSourceRevisionCommentSyncFailure(ctx, scope, SourceCommentSyncFailureInput{ //nolint:errcheck // best-effort telemetry must not fail the primary operation.
 			SourceDocumentID: sourceDocument.ID,
 			SourceRevisionID: revision.ID,
 			ProviderKind:     deps.providerKind,

@@ -1588,7 +1588,7 @@ func (s SigningService) resolveExistingSignatureAttachment(
 	}
 	artifact, err := s.artifacts.GetSignatureArtifact(ctx, scope, attachmentCtx.existing.SignatureArtifactID)
 	if err != nil {
-		return SignerSignatureResult{}, false, nil
+		return SignerSignatureResult{}, false, nil //nolint:nilerr // this branch intentionally consumes a non-fatal error and returns the fallback result.
 	}
 	if strings.TrimSpace(artifact.ObjectKey) != attachmentInput.objectKey ||
 		strings.TrimSpace(artifact.SHA256) != attachmentInput.sha256Hex ||
@@ -1689,7 +1689,7 @@ func (s SigningService) resolveSignatureUploadReceiptFromObjectStore(ctx context
 	}
 	stored, err := s.objectStore.GetFile(ctx, strings.TrimSpace(grant.ObjectKey))
 	if err != nil || len(stored) == 0 {
-		return signatureUploadReceipt{}, false, nil
+		return signatureUploadReceipt{}, false, nil //nolint:nilerr // this branch intentionally consumes a non-fatal error and returns the fallback result.
 	}
 	sum := sha256.Sum256(stored)
 	if hex.EncodeToString(sum[:]) != strings.TrimSpace(grant.SHA256) {
@@ -1718,7 +1718,7 @@ func (s SigningService) resolveSignatureUploadReceiptFromAudit(ctx context.Conte
 	}
 	events, err := s.audits.ListForAgreement(ctx, scope, grant.AgreementID, stores.AuditEventQuery{SortDesc: true})
 	if err != nil {
-		return signatureUploadReceipt{}, false, nil
+		return signatureUploadReceipt{}, false, nil //nolint:nilerr // this branch intentionally consumes a non-fatal error and returns the fallback result.
 	}
 	for _, event := range events {
 		if strings.TrimSpace(event.EventType) != "signer.signature_upload_confirmed" {

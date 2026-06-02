@@ -123,20 +123,20 @@ func newSourceManagementValidationContext(ctx context.Context) (*sourceManagemen
 	uploads := uploader.NewManager(uploader.WithProvider(uploader.NewFSProvider(uploadDir)))
 	fixtureSet, lineageStore, urls, err := seedSourceManagementValidationFixtures(ctx, bootstrap, store, uploads, scope)
 	if err != nil {
-		_ = bootstrap.Close()
+		_ = bootstrap.Close() //nolint:errcheck // cleanup is best-effort and must not replace the primary result.
 		if storeCleanup != nil {
-			_ = storeCleanup()
+			_ = storeCleanup() //nolint:errcheck // legacy dynamic payload keeps existing zero-value fallback behavior.
 		}
-		_ = os.RemoveAll(uploadDir)
+		_ = os.RemoveAll(uploadDir) //nolint:errcheck // cleanup is best-effort and must not replace the primary result.
 		return nil, err
 	}
 	sourceSearch, readModels, err := buildSourceManagementValidationServices(store, lineageStore)
 	if err != nil {
-		_ = bootstrap.Close()
+		_ = bootstrap.Close() //nolint:errcheck // cleanup is best-effort and must not replace the primary result.
 		if storeCleanup != nil {
-			_ = storeCleanup()
+			_ = storeCleanup() //nolint:errcheck // legacy dynamic payload keeps existing zero-value fallback behavior.
 		}
-		_ = os.RemoveAll(uploadDir)
+		_ = os.RemoveAll(uploadDir) //nolint:errcheck // cleanup is best-effort and must not replace the primary result.
 		return nil, err
 	}
 	return &sourceManagementValidationContext{
@@ -159,13 +159,13 @@ func (c *sourceManagementValidationContext) close() {
 		return
 	}
 	if c.bootstrap != nil {
-		_ = c.bootstrap.Close()
+		_ = c.bootstrap.Close() //nolint:errcheck // cleanup is best-effort and must not replace the primary result.
 	}
 	if c.storeCleanup != nil {
-		_ = c.storeCleanup()
+		_ = c.storeCleanup() //nolint:errcheck // legacy dynamic payload keeps existing zero-value fallback behavior.
 	}
 	if strings.TrimSpace(c.uploadDir) != "" {
-		_ = os.RemoveAll(c.uploadDir)
+		_ = os.RemoveAll(c.uploadDir) //nolint:errcheck // cleanup is best-effort and must not replace the primary result.
 	}
 }
 
@@ -201,14 +201,14 @@ func bootstrapSourceManagementValidationRuntime(ctx context.Context) (*esignpers
 	}
 	store, storeCleanup, err := esignpersistence.NewStoreAdapter(bootstrap)
 	if err != nil {
-		_ = bootstrap.Close()
+		_ = bootstrap.Close() //nolint:errcheck // cleanup is best-effort and must not replace the primary result.
 		return nil, nil, nil, "", fmt.Errorf("create source-management validation store adapter: %w", err)
 	}
 	uploadDir, err := os.MkdirTemp("", "go-admin-source-management-validation-upload-*")
 	if err != nil {
-		_ = bootstrap.Close()
+		_ = bootstrap.Close() //nolint:errcheck // cleanup is best-effort and must not replace the primary result.
 		if storeCleanup != nil {
-			_ = storeCleanup()
+			_ = storeCleanup() //nolint:errcheck // legacy dynamic payload keeps existing zero-value fallback behavior.
 		}
 		return nil, nil, nil, "", fmt.Errorf("create source-management validation upload dir: %w", err)
 	}

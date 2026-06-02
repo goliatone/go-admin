@@ -1140,7 +1140,7 @@ func (s IntegrationFoundationService) appendAudit(ctx context.Context, scope sto
 	if event.CreatedAt.IsZero() {
 		event.CreatedAt = s.now()
 	}
-	_, _ = s.audits.Append(ctx, scope, event)
+	_, _ = s.audits.Append(ctx, scope, event) //nolint:errcheck // best-effort telemetry must not fail the primary operation.
 }
 
 func normalizeExternalSchema(schema stores.ExternalSchema) stores.ExternalSchema {

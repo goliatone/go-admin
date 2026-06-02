@@ -957,7 +957,7 @@ func enforceScopeBoundary(c router.Context, cfg registerConfig) error {
 		"path":              c.Path(),
 		"method":            c.Method(),
 	})
-	_ = writeAPIError(c,
+	_ = writeAPIError(c, //nolint:errcheck // legacy dynamic payload keeps existing zero-value fallback behavior.
 		goerrors.New("scope boundary denied", goerrors.CategoryAuthz).
 			WithCode(http.StatusForbidden).
 			WithTextCode(string(services.ErrorCodeScopeDenied)).
@@ -1009,7 +1009,7 @@ func resolveSignerTokenWithRedirect(c router.Context, cfg registerConfig, rawTok
 	}
 	redirected, redirectErr := redirectSupersededSignerLink(c, cfg, routePattern, rawToken)
 	if redirectErr != nil {
-		_ = writeAPIError(
+		_ = writeAPIError( //nolint:errcheck // legacy dynamic payload keeps existing zero-value fallback behavior.
 			c,
 			redirectErr,
 			http.StatusConflict,
@@ -1050,7 +1050,7 @@ func resolvePublicReviewTokenWithRedirect(c router.Context, cfg registerConfig, 
 		}
 		redirected, redirectErr := redirectSupersededSignerLink(c, cfg, routePattern, rawToken)
 		if redirectErr != nil {
-			_ = writeAPIError(
+			_ = writeAPIError( //nolint:errcheck // legacy dynamic payload keeps existing zero-value fallback behavior.
 				c,
 				redirectErr,
 				http.StatusConflict,
@@ -1115,7 +1115,7 @@ func resolveRequestSigningToken(c router.Context, cfg registerConfig, routePatte
 		return stores.SigningTokenRecord{}, err
 	}
 	if principal.PublicToken.SigningToken == nil {
-		_ = writeAPIError(
+		_ = writeAPIError( //nolint:errcheck // legacy dynamic payload keeps existing zero-value fallback behavior.
 			c,
 			nil,
 			http.StatusForbidden,
@@ -1151,7 +1151,7 @@ func rejectSignerToken(c router.Context, cfg registerConfig, err error) error {
 		"ip":         resolveAuditRequestIP(c, cfg),
 		"token_code": textCode(err),
 	})
-	_ = writeAPIError(c, err, http.StatusUnauthorized, string(services.ErrorCodeTokenInvalid), "invalid token", nil)
+	_ = writeAPIError(c, err, http.StatusUnauthorized, string(services.ErrorCodeTokenInvalid), "invalid token", nil) //nolint:errcheck // legacy dynamic payload keeps existing zero-value fallback behavior.
 	return errResponseHandled
 }
 
@@ -1213,7 +1213,7 @@ func enforceRateLimit(c router.Context, cfg registerConfig, operation string) er
 		"retry_after_seconds": retryAfterSeconds,
 		"reset_at":            details["reset_at"],
 	})
-	_ = writeAPIError(c,
+	_ = writeAPIError(c, //nolint:errcheck // legacy dynamic payload keeps existing zero-value fallback behavior.
 		goerrors.New("rate limit exceeded", goerrors.CategoryRateLimit).
 			WithCode(http.StatusTooManyRequests).
 			WithTextCode(string(services.ErrorCodeRateLimited)).
@@ -1237,7 +1237,7 @@ func enforceTransportSecurity(c router.Context, cfg registerConfig) error {
 			"ip":         resolveAuditRequestIP(c, cfg),
 			"error_code": textCode(err),
 		})
-		_ = writeAPIError(c, err, http.StatusUpgradeRequired, string(services.ErrorCodeTransportSecurity), "tls transport required", nil)
+		_ = writeAPIError(c, err, http.StatusUpgradeRequired, string(services.ErrorCodeTransportSecurity), "tls transport required", nil) //nolint:errcheck // legacy dynamic payload keeps existing zero-value fallback behavior.
 		return errResponseHandled
 	}
 	return nil

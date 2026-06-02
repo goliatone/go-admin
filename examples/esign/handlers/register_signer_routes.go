@@ -96,7 +96,7 @@ func registerSignerPublicReviewSessionRoutes(r coreadmin.AdminRouter, routes Rou
 				}); merr == nil {
 					metadataJSON = string(encoded)
 				}
-				_, _ = cfg.auditEvents.Append(c.Context(), cfg.resolveScope(c), stores.AuditEventRecord{
+				_, _ = cfg.auditEvents.Append(c.Context(), cfg.resolveScope(c), stores.AuditEventRecord{ //nolint:errcheck // best-effort telemetry must not fail the primary operation.
 					AgreementID:  strings.TrimSpace(publicToken.SigningToken.AgreementID),
 					EventType:    "signer.viewed",
 					ActorType:    "signer_token",
@@ -1571,7 +1571,7 @@ func appendSignerSessionViewedAudit(c router.Context, cfg registerConfig, public
 	}); merr == nil {
 		metadataJSON = string(encoded)
 	}
-	_, _ = cfg.auditEvents.Append(c.Context(), cfg.resolveScope(c), stores.AuditEventRecord{
+	_, _ = cfg.auditEvents.Append(c.Context(), cfg.resolveScope(c), stores.AuditEventRecord{ //nolint:errcheck // best-effort telemetry must not fail the primary operation.
 		AgreementID:  strings.TrimSpace(publicToken.SigningToken.AgreementID),
 		EventType:    "signer.viewed",
 		ActorType:    "signer_token",
@@ -1595,7 +1595,7 @@ func appendSignerAssetAudit(c router.Context, cfg registerConfig, actorType stri
 	}); merr == nil {
 		metadataJSON = string(encoded)
 	}
-	_, _ = cfg.auditEvents.Append(c.Context(), cfg.resolveScope(c), stores.AuditEventRecord{
+	_, _ = cfg.auditEvents.Append(c.Context(), cfg.resolveScope(c), stores.AuditEventRecord{ //nolint:errcheck // best-effort telemetry must not fail the primary operation.
 		AgreementID:  strings.TrimSpace(contract.AgreementID),
 		EventType:    "signer.assets.asset_opened",
 		ActorType:    actorType,
@@ -1618,7 +1618,7 @@ func appendSignerAssetContractAudit(c router.Context, cfg registerConfig, actorT
 	}); merr == nil {
 		metadataJSON = string(encoded)
 	}
-	_, _ = cfg.auditEvents.Append(c.Context(), cfg.resolveScope(c), stores.AuditEventRecord{
+	_, _ = cfg.auditEvents.Append(c.Context(), cfg.resolveScope(c), stores.AuditEventRecord{ //nolint:errcheck // best-effort telemetry must not fail the primary operation.
 		AgreementID:  strings.TrimSpace(contract.AgreementID),
 		EventType:    "signer.assets.contract_viewed",
 		ActorType:    actorType,
@@ -1634,14 +1634,14 @@ func revokePublicSignerSession(ctx context.Context, scope stores.Scope, cfg regi
 	if cfg.publicSignerSessions == nil {
 		return
 	}
-	_ = cfg.publicSignerSessions.RevokeSigner(ctx, scope, strings.TrimSpace(token.AgreementID), strings.TrimSpace(token.RecipientID))
+	_ = cfg.publicSignerSessions.RevokeSigner(ctx, scope, strings.TrimSpace(token.AgreementID), strings.TrimSpace(token.RecipientID)) //nolint:errcheck // cleanup is best-effort and must not replace the primary result.
 }
 
 func revokePublicReviewerSessionIfTerminal(ctx context.Context, scope stores.Scope, cfg registerConfig, publicToken services.PublicReviewToken) {
 	if cfg.publicSignerSessions == nil || publicToken.ReviewToken == nil || strings.TrimSpace(publicToken.Kind) != services.PublicReviewTokenKindReview {
 		return
 	}
-	_ = cfg.publicSignerSessions.RevokeReviewer(ctx, scope, strings.TrimSpace(publicToken.ReviewToken.AgreementID), strings.TrimSpace(publicToken.ReviewToken.ParticipantID))
+	_ = cfg.publicSignerSessions.RevokeReviewer(ctx, scope, strings.TrimSpace(publicToken.ReviewToken.AgreementID), strings.TrimSpace(publicToken.ReviewToken.ParticipantID)) //nolint:errcheck // cleanup is best-effort and must not replace the primary result.
 }
 
 func redirectSupersededSignerLink(c router.Context, cfg registerConfig, routePattern, rawToken string) (bool, error) {
@@ -1656,7 +1656,7 @@ func redirectSupersededSignerLink(c router.Context, cfg registerConfig, routePat
 	scope := cfg.resolveScope(c)
 	legacyToken, err := redirector.ResolveRawToken(c.Context(), scope, rawToken)
 	if err != nil {
-		return false, nil
+		return false, nil //nolint:nilerr // this branch intentionally consumes a non-fatal error and returns the fallback result.
 	}
 	if !isSupersededLegacyToken(legacyToken) {
 		return false, nil

@@ -249,7 +249,7 @@ func resolveRemediationDispatchMode(bus *coreadmin.CommandBus, override string) 
 		mode = gocommand.ExecutionModeInline
 	}
 	if err := gocommand.ValidateExecutionMode(mode); err != nil {
-		return gocommand.ExecutionModeInline, nil
+		return gocommand.ExecutionModeInline, nil //nolint:nilerr // this branch intentionally consumes a non-fatal error and returns the fallback result.
 	}
 	return mode, nil
 }

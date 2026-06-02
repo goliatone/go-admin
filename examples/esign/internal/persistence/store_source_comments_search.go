@@ -246,6 +246,7 @@ func (s *StoreAdapter) DeleteSourceSearchDocuments(ctx context.Context, scope st
 	})
 }
 
+//nolint:dupl // generic scoped create wrapper mirrors a sibling store to preserve local store naming.
 func createScopedSourceCommentRecord[T any](
 	ctx context.Context,
 	idb bun.IDB,

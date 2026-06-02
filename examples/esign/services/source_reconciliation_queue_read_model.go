@@ -384,7 +384,7 @@ func reconciliationAuditTrail(relationship stores.SourceRelationshipRecord) []Re
 		if !ok {
 			continue
 		}
-		createdAt, _ := time.Parse(time.RFC3339Nano, lineageMetadataString(decoded, "created_at"))
+		createdAt, _ := time.Parse(time.RFC3339Nano, lineageMetadataString(decoded, "created_at")) //nolint:errcheck // legacy best-effort call intentionally does not affect the primary result.
 		audit := ReconciliationAuditEntry{
 			ID:         lineageMetadataString(decoded, "id"),
 			Action:     lineageMetadataString(decoded, "action"),

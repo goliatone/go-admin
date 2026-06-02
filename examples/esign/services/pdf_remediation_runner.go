@@ -141,7 +141,7 @@ func (r *ExternalPDFRemediationRunner) prepareRun(source []byte) (string, string
 		return "", "", nil, fmt.Errorf("create remediation temp dir: %w", err)
 	}
 	cleanup := func() {
-		_ = os.RemoveAll(tempDir)
+		_ = os.RemoveAll(tempDir) //nolint:errcheck // cleanup is best-effort and must not replace the primary result.
 	}
 	inputPath := filepath.Join(tempDir, "input.pdf")
 	outputPath := filepath.Join(tempDir, "output.pdf")

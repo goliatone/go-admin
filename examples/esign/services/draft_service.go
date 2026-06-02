@@ -1462,16 +1462,16 @@ type wizardStatePayload struct {
 	Document         wizardDocumentState          `json:"document"`
 	Details          wizardDetailsState           `json:"details"`
 	Participants     []wizardParticipantState     `json:"participants"`
-	FieldDefinitions []wizardFieldDefinitionState `json:"fieldDefinitions"`
-	FieldPlacements  []wizardFieldPlacementState  `json:"fieldPlacements"`
-	FieldRules       []wizardFieldRuleState       `json:"fieldRules"`
+	FieldDefinitions []wizardFieldDefinitionState `json:"fieldDefinitions"` //nolint:tagliatelle // legacy browser wizard contract uses these camelCase JSON field names.
+	FieldPlacements  []wizardFieldPlacementState  `json:"fieldPlacements"`  //nolint:tagliatelle // legacy browser wizard contract uses these camelCase JSON field names.
+	FieldRules       []wizardFieldRuleState       `json:"fieldRules"`       //nolint:tagliatelle // legacy browser wizard contract uses these camelCase JSON field names.
 	FieldRulesSnake  []wizardFieldRuleState       `json:"field_rules"`
 	Review           wizardReviewState            `json:"review"`
 }
 
 type wizardDocumentState struct {
 	ID        string `json:"id"`
-	PageCount int    `json:"pageCount"`
+	PageCount int    `json:"pageCount"` //nolint:tagliatelle // legacy browser wizard contract uses these camelCase JSON field names.
 }
 
 type wizardDetailsState struct {
@@ -1480,57 +1480,57 @@ type wizardDetailsState struct {
 }
 
 type wizardParticipantState struct {
-	TempID       string `json:"tempId"`
+	TempID       string `json:"tempId"` //nolint:tagliatelle // legacy browser wizard contract uses these camelCase JSON field names.
 	Name         string `json:"name"`
 	Email        string `json:"email"`
 	Role         string `json:"role"`
 	Notify       *bool  `json:"notify"`
 	Order        int    `json:"order"`
-	SigningStage int    `json:"signingStage"`
+	SigningStage int    `json:"signingStage"` //nolint:tagliatelle // legacy browser wizard contract uses these camelCase JSON field names.
 }
 
 type wizardFieldDefinitionState struct {
 	ID                string `json:"id"`
-	TempID            string `json:"tempId"`
+	TempID            string `json:"tempId"` //nolint:tagliatelle // legacy browser wizard contract uses these camelCase JSON field names.
 	Type              string `json:"type"`
-	ParticipantID     string `json:"participantId"`
-	ParticipantTempID string `json:"participantTempId"`
+	ParticipantID     string `json:"participantId"`     //nolint:tagliatelle // legacy browser wizard contract uses these camelCase JSON field names.
+	ParticipantTempID string `json:"participantTempId"` //nolint:tagliatelle // legacy browser wizard contract uses these camelCase JSON field names.
 	Label             string `json:"label"`
 	Required          bool   `json:"required"`
 	Page              int    `json:"page"`
-	TabIndex          int    `json:"tabIndex"`
+	TabIndex          int    `json:"tabIndex"` //nolint:tagliatelle // legacy browser wizard contract uses these camelCase JSON field names.
 }
 
 type wizardFieldPlacementState struct {
 	FieldDefinitionID   string  `json:"field_definition_id"`
 	DefinitionID        string  `json:"definition_id"`
-	FieldDefinitionIDV2 string  `json:"definitionId"`
-	FieldTempID         string  `json:"fieldTempId"`
+	FieldDefinitionIDV2 string  `json:"definitionId"` //nolint:tagliatelle // legacy browser wizard contract uses these camelCase JSON field names.
+	FieldTempID         string  `json:"fieldTempId"`  //nolint:tagliatelle // legacy browser wizard contract uses these camelCase JSON field names.
 	Page                int     `json:"page"`
 	X                   float64 `json:"x"`
 	Y                   float64 `json:"y"`
 	Width               float64 `json:"width"`
 	Height              float64 `json:"height"`
 	PlacementSource     string  `json:"placement_source"`
-	PlacementSourceV2   string  `json:"placementSource"`
+	PlacementSourceV2   string  `json:"placementSource"` //nolint:tagliatelle // legacy browser wizard contract uses these camelCase JSON field names.
 	LinkGroupID         string  `json:"link_group_id"`
-	LinkGroupIDV2       string  `json:"linkGroupId"`
+	LinkGroupIDV2       string  `json:"linkGroupId"` //nolint:tagliatelle // legacy browser wizard contract uses these camelCase JSON field names.
 	LinkedFromFieldID   string  `json:"linked_from_field_id"`
-	LinkedFromFieldIDV2 string  `json:"linkedFromFieldId"`
+	LinkedFromFieldIDV2 string  `json:"linkedFromFieldId"` //nolint:tagliatelle // legacy browser wizard contract uses these camelCase JSON field names.
 	IsUnlinked          bool    `json:"is_unlinked"`
-	IsUnlinkedV2        bool    `json:"isUnlinked"`
+	IsUnlinkedV2        bool    `json:"isUnlinked"` //nolint:tagliatelle // legacy browser wizard contract uses these camelCase JSON field names.
 }
 
 type wizardFieldRuleState struct {
 	ID                string `json:"id"`
 	Type              string `json:"type"`
-	ParticipantID     string `json:"participantId"`
-	ParticipantTempID string `json:"participantTempId"`
+	ParticipantID     string `json:"participantId"`     //nolint:tagliatelle // legacy browser wizard contract uses these camelCase JSON field names.
+	ParticipantTempID string `json:"participantTempId"` //nolint:tagliatelle // legacy browser wizard contract uses these camelCase JSON field names.
 	Page              int    `json:"page"`
-	FromPage          int    `json:"fromPage"`
-	ToPage            int    `json:"toPage"`
-	ExcludeLastPage   bool   `json:"excludeLastPage"`
-	ExcludePages      []int  `json:"excludePages"`
+	FromPage          int    `json:"fromPage"`        //nolint:tagliatelle // legacy browser wizard contract uses these camelCase JSON field names.
+	ToPage            int    `json:"toPage"`          //nolint:tagliatelle // legacy browser wizard contract uses these camelCase JSON field names.
+	ExcludeLastPage   bool   `json:"excludeLastPage"` //nolint:tagliatelle // legacy browser wizard contract uses these camelCase JSON field names.
+	ExcludePages      []int  `json:"excludePages"`    //nolint:tagliatelle // legacy browser wizard contract uses these camelCase JSON field names.
 	Label             string `json:"label"`
 	Required          *bool  `json:"required,omitempty"`
 }
@@ -1538,24 +1538,24 @@ type wizardFieldRuleState struct {
 type wizardReviewState struct {
 	Enabled         bool                           `json:"enabled"`
 	Gate            string                         `json:"gate"`
-	CommentsEnabled bool                           `json:"commentsEnabled"`
+	CommentsEnabled bool                           `json:"commentsEnabled"` //nolint:tagliatelle // legacy browser wizard contract uses these camelCase JSON field names.
 	CommentsLegacy  bool                           `json:"comments_enabled"`
 	Participants    []wizardReviewParticipantState `json:"participants"`
 }
 
 type wizardReviewParticipantState struct {
-	ParticipantType string `json:"participantType"`
+	ParticipantType string `json:"participantType"` //nolint:tagliatelle // legacy browser wizard contract uses these camelCase JSON field names.
 	ParticipantKind string `json:"participant_type"`
-	ParticipantTemp string `json:"participantTempId"`
-	RecipientTemp   string `json:"recipientTempId"`
-	RecipientID     string `json:"recipientId"`
+	ParticipantTemp string `json:"participantTempId"` //nolint:tagliatelle // legacy browser wizard contract uses these camelCase JSON field names.
+	RecipientTemp   string `json:"recipientTempId"`   //nolint:tagliatelle // legacy browser wizard contract uses these camelCase JSON field names.
+	RecipientID     string `json:"recipientId"`       //nolint:tagliatelle // legacy browser wizard contract uses these camelCase JSON field names.
 	RecipientLegacy string `json:"recipient_id"`
 	Email           string `json:"email"`
-	DisplayName     string `json:"displayName"`
+	DisplayName     string `json:"displayName"` //nolint:tagliatelle // legacy browser wizard contract uses these camelCase JSON field names.
 	DisplayLegacy   string `json:"display_name"`
-	CanComment      bool   `json:"canComment"`
+	CanComment      bool   `json:"canComment"` //nolint:tagliatelle // legacy browser wizard contract uses these camelCase JSON field names.
 	CanCommentV1    bool   `json:"can_comment"`
-	CanApprove      bool   `json:"canApprove"`
+	CanApprove      bool   `json:"canApprove"` //nolint:tagliatelle // legacy browser wizard contract uses these camelCase JSON field names.
 	CanApproveV1    bool   `json:"can_approve"`
 }
 

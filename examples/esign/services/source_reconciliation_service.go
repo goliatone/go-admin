@@ -260,7 +260,7 @@ func (s DefaultSourceReconciliationService) attachAutoConfirmedCandidateHandles(
 }
 
 func (s DefaultSourceReconciliationService) ApplyReviewAction(ctx context.Context, scope stores.Scope, input SourceRelationshipReviewInput) (CandidateWarningSummary, error) {
-	normalizedAction, _ := normalizeSourceRelationshipReviewAction(strings.TrimSpace(input.Action), strings.TrimSpace(input.ConfirmBehavior))
+	normalizedAction, _ := normalizeSourceRelationshipReviewAction(strings.TrimSpace(input.Action), strings.TrimSpace(input.ConfirmBehavior)) //nolint:errcheck // legacy dynamic payload keeps existing zero-value fallback behavior.
 	if s.lineage == nil {
 		observability.ObserveSourceReviewAction(ctx, normalizedAction, false)
 		return CandidateWarningSummary{}, domainValidationError("lineage_reconciliation", "lineage", "not configured")
@@ -553,7 +553,7 @@ func appendReconciliationAuditEntry(evidence map[string]any, entry reconciliatio
 	if len(evidence) == 0 {
 		evidence = map[string]any{}
 	}
-	raw, _ := evidence["review_audit"].([]any)
+	raw, _ := evidence["review_audit"].([]any) //nolint:errcheck // legacy dynamic payload keeps existing zero-value fallback behavior.
 	auditEntry := map[string]any{
 		"id":          strings.TrimSpace(entry.ID),
 		"action":      strings.TrimSpace(entry.Action),

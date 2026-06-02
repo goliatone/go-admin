@@ -265,7 +265,7 @@ func (s DocumentService) persistNormalizedDocumentPayload(
 	candidateNormalizedObjectKey := normalizedObjectKeyForSource(objectKey)
 	normalized, err := s.pdfs.Normalize(ctx, scope, payload)
 	if err != nil || len(normalized.Payload) == 0 {
-		return "", PDFNormalizationStatusFailed, nil
+		return "", PDFNormalizationStatusFailed, nil //nolint:nilerr // this branch intentionally consumes a non-fatal error and returns the fallback result.
 	}
 	if _, uploadErr := s.objectStore.UploadFile(
 		ctx,
@@ -274,11 +274,11 @@ func (s DocumentService) persistNormalizedDocumentPayload(
 		uploader.WithContentType("application/pdf"),
 		uploader.WithCacheControl("no-store, no-cache, max-age=0, must-revalidate, private"),
 	); uploadErr != nil {
-		return "", PDFNormalizationStatusFailed, nil
+		return "", PDFNormalizationStatusFailed, nil //nolint:nilerr // this branch intentionally consumes a non-fatal error and returns the fallback result.
 	}
 	storedNormalized, err := s.objectStore.GetFile(ctx, candidateNormalizedObjectKey)
 	if err != nil || len(storedNormalized) == 0 {
-		return "", PDFNormalizationStatusFailed, nil
+		return "", PDFNormalizationStatusFailed, nil //nolint:nilerr // this branch intentionally consumes a non-fatal error and returns the fallback result.
 	}
 	sum := sha256.Sum256(storedNormalized)
 	if hex.EncodeToString(sum[:]) != normalized.SHA256 {

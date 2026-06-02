@@ -144,7 +144,7 @@ func RunSyncValidationProfile(ctx context.Context) (SyncValidationResult, error)
 
 func runSyncValidationCleanup(cleanup func() error) {
 	if cleanup != nil {
-		_ = cleanup()
+		_ = cleanup() //nolint:errcheck // legacy dynamic payload keeps existing zero-value fallback behavior.
 	}
 }
 

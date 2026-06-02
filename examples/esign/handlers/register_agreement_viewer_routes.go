@@ -90,7 +90,7 @@ func registerAgreementViewerAssetRoute(adminRoutes routeRegistrar, routes RouteS
 			if encoded, merr := json.Marshal(map[string]any{"assets": assets}); merr == nil {
 				metadataJSON = string(encoded)
 			}
-			_, _ = cfg.auditEvents.Append(c.Context(), cfg.resolveScope(c), stores.AuditEventRecord{
+			_, _ = cfg.auditEvents.Append(c.Context(), cfg.resolveScope(c), stores.AuditEventRecord{ //nolint:errcheck // best-effort telemetry must not fail the primary operation.
 				AgreementID:  strings.TrimSpace(filteredContract.AgreementID),
 				EventType:    "agreement.viewer.contract_viewed",
 				ActorType:    "user",
@@ -154,7 +154,7 @@ func appendAgreementViewerAssetAudit(
 	}); err == nil {
 		metadataJSON = string(encoded)
 	}
-	_, _ = cfg.auditEvents.Append(c.Context(), cfg.resolveScope(c), stores.AuditEventRecord{
+	_, _ = cfg.auditEvents.Append(c.Context(), cfg.resolveScope(c), stores.AuditEventRecord{ //nolint:errcheck // best-effort telemetry must not fail the primary operation.
 		AgreementID:  strings.TrimSpace(contract.AgreementID),
 		EventType:    "agreement.viewer.asset_opened",
 		ActorType:    "user",

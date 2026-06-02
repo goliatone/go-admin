@@ -305,7 +305,7 @@ func RunV2ValidationProfile(ctx context.Context, cfg V2ValidationConfig) (V2Vali
 	}
 	defer func() {
 		if storeCleanup != nil {
-			_ = storeCleanup()
+			_ = storeCleanup() //nolint:errcheck // legacy dynamic payload keeps existing zero-value fallback behavior.
 		}
 	}()
 

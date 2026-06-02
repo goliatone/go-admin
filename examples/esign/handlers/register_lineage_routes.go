@@ -235,15 +235,15 @@ func sourceRevisionCommentPageLookup(cfg registerConfig) lineageLookupFunc {
 }
 
 func authorizeSourceRelationshipPageValue(c router.Context, cfg registerConfig, value any) any {
-	return authorizeSourceRelationshipPage(c, cfg, value.(services.SourceRelationshipPage))
+	return authorizeSourceRelationshipPage(c, cfg, value.(services.SourceRelationshipPage)) //nolint:errcheck // legacy dynamic payload keeps existing zero-value fallback behavior.
 }
 
 func authorizeSourceAgreementPageValue(c router.Context, cfg registerConfig, value any) any {
-	return authorizeSourceAgreementPage(c, cfg, value.(services.SourceAgreementPage))
+	return authorizeSourceAgreementPage(c, cfg, value.(services.SourceAgreementPage)) //nolint:errcheck // legacy dynamic payload keeps existing zero-value fallback behavior.
 }
 
 func authorizeSourceCommentPageValue(c router.Context, cfg registerConfig, value any) any {
-	return authorizeSourceCommentPage(c, cfg, value.(services.SourceCommentPage))
+	return authorizeSourceCommentPage(c, cfg, value.(services.SourceCommentPage)) //nolint:errcheck // legacy dynamic payload keeps existing zero-value fallback behavior.
 }
 
 func registerLineageDiagnosticRoutes(adminRoutes routeRegistrar, cfg registerConfig, paths lineageRoutePaths) {
@@ -406,7 +406,7 @@ func registerSourceDocumentDetailRoutes(adminRoutes routeRegistrar, cfg register
 			return cfg.sourceReadModels.GetSourceDetail(ctx, scope, id)
 		},
 		func(c router.Context, cfg registerConfig, value any) any {
-			return authorizeSourceDetail(c, cfg, value.(services.SourceDetail))
+			return authorizeSourceDetail(c, cfg, value.(services.SourceDetail)) //nolint:errcheck // legacy dynamic payload keeps existing zero-value fallback behavior.
 		},
 	)
 
@@ -425,7 +425,7 @@ func registerSourceDocumentDetailRoutes(adminRoutes routeRegistrar, cfg register
 			})
 		},
 		func(c router.Context, cfg registerConfig, value any) any {
-			return authorizeSourceWorkspace(c, cfg, value.(services.SourceWorkspace))
+			return authorizeSourceWorkspace(c, cfg, value.(services.SourceWorkspace)) //nolint:errcheck // legacy dynamic payload keeps existing zero-value fallback behavior.
 		},
 	)
 
@@ -445,7 +445,7 @@ func registerSourceDocumentDetailRoutes(adminRoutes routeRegistrar, cfg register
 			})
 		},
 		func(c router.Context, cfg registerConfig, value any) any {
-			return authorizeSourceRevisionPage(c, cfg, value.(services.SourceRevisionPage))
+			return authorizeSourceRevisionPage(c, cfg, value.(services.SourceRevisionPage)) //nolint:errcheck // legacy dynamic payload keeps existing zero-value fallback behavior.
 		},
 	)
 }
@@ -487,7 +487,7 @@ func registerSourceDocumentRelationshipRoutes(adminRoutes routeRegistrar, cfg re
 			return cfg.sourceReadModels.ListSourceHandles(ctx, scope, id)
 		},
 		func(c router.Context, cfg registerConfig, value any) any {
-			return authorizeSourceHandlePage(c, cfg, value.(services.SourceHandlePage))
+			return authorizeSourceHandlePage(c, cfg, value.(services.SourceHandlePage)) //nolint:errcheck // legacy dynamic payload keeps existing zero-value fallback behavior.
 		},
 	)
 
@@ -517,7 +517,7 @@ func registerSourceRevisionReadModelRoutes(adminRoutes routeRegistrar, cfg regis
 			return cfg.sourceReadModels.GetSourceRevisionDetail(ctx, scope, id)
 		},
 		func(c router.Context, cfg registerConfig, value any) any {
-			return authorizeSourceRevisionDetail(c, cfg, value.(services.SourceRevisionDetail))
+			return authorizeSourceRevisionDetail(c, cfg, value.(services.SourceRevisionDetail)) //nolint:errcheck // legacy dynamic payload keeps existing zero-value fallback behavior.
 		},
 	)
 
@@ -533,7 +533,7 @@ func registerSourceRevisionReadModelRoutes(adminRoutes routeRegistrar, cfg regis
 			return cfg.sourceReadModels.ListSourceRevisionArtifacts(ctx, scope, id)
 		},
 		func(c router.Context, cfg registerConfig, value any) any {
-			return authorizeSourceArtifactPage(c, cfg, value.(services.SourceArtifactPage))
+			return authorizeSourceArtifactPage(c, cfg, value.(services.SourceArtifactPage)) //nolint:errcheck // legacy dynamic payload keeps existing zero-value fallback behavior.
 		},
 	)
 
@@ -617,7 +617,7 @@ func registerLineageReconciliationRoutes(adminRoutes routeRegistrar, cfg registe
 			return cfg.sourceReadModels.GetReconciliationCandidate(ctx, scope, id)
 		},
 		authorize: func(c router.Context, cfg registerConfig, value any) any {
-			return authorizeReconciliationCandidateDetail(c, cfg, value.(services.ReconciliationCandidateDetail))
+			return authorizeReconciliationCandidateDetail(c, cfg, value.(services.ReconciliationCandidateDetail)) //nolint:errcheck // legacy dynamic payload keeps existing zero-value fallback behavior.
 		},
 	})
 

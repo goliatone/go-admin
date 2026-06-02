@@ -13,19 +13,19 @@ import (
 type googleDriveCommentPayload struct {
 	ID                string `json:"id"`
 	Content           string `json:"content"`
-	HTMLContent       string `json:"htmlContent"`
+	HTMLContent       string `json:"htmlContent"` //nolint:tagliatelle // external Google API uses these camelCase JSON field names.
 	Anchor            string `json:"anchor"`
 	Deleted           bool   `json:"deleted"`
 	Resolved          bool   `json:"resolved"`
-	CreatedTime       string `json:"createdTime"`
-	ModifiedTime      string `json:"modifiedTime"`
+	CreatedTime       string `json:"createdTime"`  //nolint:tagliatelle // external Google API uses these camelCase JSON field names.
+	ModifiedTime      string `json:"modifiedTime"` //nolint:tagliatelle // external Google API uses these camelCase JSON field names.
 	QuotedFileContent struct {
-		MimeType string `json:"mimeType"`
+		MimeType string `json:"mimeType"` //nolint:tagliatelle // external Google API uses these camelCase JSON field names.
 		Value    string `json:"value"`
-	} `json:"quotedFileContent"`
+	} `json:"quotedFileContent"` //nolint:tagliatelle // external Google API uses these camelCase JSON field names.
 	Author struct {
-		DisplayName  string `json:"displayName"`
-		EmailAddress string `json:"emailAddress"`
+		DisplayName  string `json:"displayName"`  //nolint:tagliatelle // external Google API uses these camelCase JSON field names.
+		EmailAddress string `json:"emailAddress"` //nolint:tagliatelle // external Google API uses these camelCase JSON field names.
 		Me           bool   `json:"me"`
 	} `json:"author"`
 }
@@ -33,14 +33,14 @@ type googleDriveCommentPayload struct {
 type googleDriveReplyPayload struct {
 	ID           string `json:"id"`
 	Content      string `json:"content"`
-	HTMLContent  string `json:"htmlContent"`
+	HTMLContent  string `json:"htmlContent"` //nolint:tagliatelle // external Google API uses these camelCase JSON field names.
 	Action       string `json:"action"`
 	Deleted      bool   `json:"deleted"`
-	CreatedTime  string `json:"createdTime"`
-	ModifiedTime string `json:"modifiedTime"`
+	CreatedTime  string `json:"createdTime"`  //nolint:tagliatelle // external Google API uses these camelCase JSON field names.
+	ModifiedTime string `json:"modifiedTime"` //nolint:tagliatelle // external Google API uses these camelCase JSON field names.
 	Author       struct {
-		DisplayName  string `json:"displayName"`
-		EmailAddress string `json:"emailAddress"`
+		DisplayName  string `json:"displayName"`  //nolint:tagliatelle // external Google API uses these camelCase JSON field names.
+		EmailAddress string `json:"emailAddress"` //nolint:tagliatelle // external Google API uses these camelCase JSON field names.
 		Me           bool   `json:"me"`
 	} `json:"author"`
 }
@@ -87,7 +87,7 @@ func (p *GoogleHTTPProvider) ListComments(ctx context.Context, accessToken, file
 		}
 		var payload struct {
 			Comments      []googleDriveCommentPayload `json:"comments"`
-			NextPageToken string                      `json:"nextPageToken"`
+			NextPageToken string                      `json:"nextPageToken"` //nolint:tagliatelle // external Google API uses these camelCase JSON field names.
 		}
 		if err := json.Unmarshal(respBody, &payload); err != nil {
 			return nil, fmt.Errorf("decode google drive comments response: %w", err)
@@ -140,7 +140,7 @@ func (p *GoogleHTTPProvider) listReplies(ctx context.Context, accessToken, fileI
 		}
 		var payload struct {
 			Replies       []googleDriveReplyPayload `json:"replies"`
-			NextPageToken string                    `json:"nextPageToken"`
+			NextPageToken string                    `json:"nextPageToken"` //nolint:tagliatelle // external Google API uses these camelCase JSON field names.
 		}
 		if err := json.Unmarshal(respBody, &payload); err != nil {
 			return nil, fmt.Errorf("decode google drive replies response: %w", err)
@@ -195,8 +195,8 @@ func decodeGoogleDriveComment(record googleDriveCommentPayload) (GoogleDriveComm
 }
 
 func decodeGoogleDriveReply(record googleDriveReplyPayload) GoogleDriveReply {
-	createdTime, _ := parseGoogleTime(record.CreatedTime)
-	modifiedTime, _ := parseGoogleTime(record.ModifiedTime)
+	createdTime, _ := parseGoogleTime(record.CreatedTime)   //nolint:errcheck // legacy dynamic payload keeps existing zero-value fallback behavior.
+	modifiedTime, _ := parseGoogleTime(record.ModifiedTime) //nolint:errcheck // legacy dynamic payload keeps existing zero-value fallback behavior.
 	return GoogleDriveReply{
 		ID:           strings.TrimSpace(record.ID),
 		Content:      strings.TrimSpace(record.Content),

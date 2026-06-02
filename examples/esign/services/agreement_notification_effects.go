@@ -260,7 +260,7 @@ func selectAgreementNotificationStatus(records []guardedeffects.Record) string {
 
 func agreementNotificationPayload(record guardedeffects.Record) agreementNotificationEffectPreparePayload {
 	payload := agreementNotificationEffectPreparePayload{}
-	_ = json.Unmarshal([]byte(record.PreparePayloadJSON), &payload)
+	_ = json.Unmarshal([]byte(record.PreparePayloadJSON), &payload) //nolint:errcheck // legacy best-effort call intentionally does not affect the primary result.
 	return payload
 }
 
@@ -681,7 +681,7 @@ func appendAgreementNotificationResumeAudit(
 	correlationID string,
 	now time.Time,
 ) {
-	metadata, _ := json.Marshal(map[string]any{
+	metadata, _ := json.Marshal(map[string]any{ //nolint:errcheck // legacy best-effort call intentionally does not affect the primary result.
 		"effect_id":             strings.TrimSpace(saved.EffectID),
 		"recipient_id":          strings.TrimSpace(notification.RecipientID),
 		"review_participant_id": strings.TrimSpace(notification.ReviewParticipantID),
@@ -693,7 +693,7 @@ func appendAgreementNotificationResumeAudit(
 	if strings.TrimSpace(input.ActorID) == "" {
 		actorType = "system"
 	}
-	_, _ = tx.Append(ctx, scope, stores.AuditEventRecord{
+	_, _ = tx.Append(ctx, scope, stores.AuditEventRecord{ //nolint:errcheck // best-effort telemetry must not fail the primary operation.
 		AgreementID:  agreementID,
 		EventType:    "agreement.notification_delivery_resumed",
 		ActorType:    actorType,
@@ -769,7 +769,7 @@ func resumeSigningAgreementNotification(
 		return AgreementNotification{}, domainValidationError("signing_tokens", "service", "not configured")
 	}
 	if pendingTokenID != "" {
-		_, _ = tokens.AbortPending(ctx, scope, pendingTokenID)
+		_, _ = tokens.AbortPending(ctx, scope, pendingTokenID) //nolint:errcheck // legacy best-effort call intentionally does not affect the primary result.
 	}
 	issued, err := tokens.IssuePending(ctx, scope, agreementID, recipientID)
 	if err != nil {

@@ -650,7 +650,7 @@ type PDFRemediationInput struct {
 	DispatchID       string         `json:"dispatch_id,omitempty"`
 	ExecutionMode    string         `json:"execution_mode,omitempty"`
 	RequestedAt      string         `json:"requested_at,omitempty"`
-	DispatchMetadata map[string]any `json:"_dispatch_metadata,omitempty"`
+	DispatchMetadata map[string]any `json:"_dispatch_metadata,omitempty"` //nolint:tagliatelle // dispatch metadata keeps its documented underscore-prefixed wire key.
 }
 
 func (PDFRemediationInput) Type() string {

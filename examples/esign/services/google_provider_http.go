@@ -67,13 +67,13 @@ type GoogleHTTPProvider struct {
 type googleDriveFilePayload struct {
 	ID           string   `json:"id"`
 	Name         string   `json:"name"`
-	MimeType     string   `json:"mimeType"`
-	WebViewLink  string   `json:"webViewLink"`
-	DriveID      string   `json:"driveId"`
+	MimeType     string   `json:"mimeType"`    //nolint:tagliatelle // external Google API uses these camelCase JSON field names.
+	WebViewLink  string   `json:"webViewLink"` //nolint:tagliatelle // external Google API uses these camelCase JSON field names.
+	DriveID      string   `json:"driveId"`     //nolint:tagliatelle // external Google API uses these camelCase JSON field names.
 	Parents      []string `json:"parents"`
-	ModifiedTime string   `json:"modifiedTime"`
+	ModifiedTime string   `json:"modifiedTime"` //nolint:tagliatelle // external Google API uses these camelCase JSON field names.
 	Owners       []struct {
-		EmailAddress string `json:"emailAddress"`
+		EmailAddress string `json:"emailAddress"` //nolint:tagliatelle // external Google API uses these camelCase JSON field names.
 	} `json:"owners"`
 }
 
@@ -184,10 +184,10 @@ func (p *GoogleHTTPProvider) HealthCheck(ctx context.Context) error {
 		return fmt.Errorf("google provider health request failed: %w", err)
 	}
 	defer func() {
-		_ = resp.Body.Close()
+		_ = resp.Body.Close() //nolint:errcheck // cleanup is best-effort and must not replace the primary result.
 	}()
 	if resp.StatusCode >= http.StatusBadRequest {
-		body, _ := io.ReadAll(io.LimitReader(resp.Body, 256))
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 256)) //nolint:errcheck // legacy best-effort call intentionally does not affect the primary result.
 		return fmt.Errorf("google provider health status %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
 	}
 	return nil
@@ -237,7 +237,7 @@ func (p *GoogleHTTPProvider) ExchangeCode(ctx context.Context, authCode, redirec
 	if payload.ExpiresIn > 0 {
 		expiresAt = time.Now().UTC().Add(time.Duration(payload.ExpiresIn) * time.Second)
 	}
-	accountEmail, _ := p.fetchUserEmail(ctx, accessToken)
+	accountEmail, _ := p.fetchUserEmail(ctx, accessToken) //nolint:errcheck // legacy best-effort call intentionally does not affect the primary result.
 	return GoogleOAuthToken{
 		AccessToken:  accessToken,
 		RefreshToken: strings.TrimSpace(payload.RefreshToken),
@@ -297,7 +297,7 @@ func (p *GoogleHTTPProvider) SearchFiles(ctx context.Context, accessToken, query
 		return GoogleDriveListResult{}, mapGoogleHTTPStatus("drive_search", statusCode, respBody, nil)
 	}
 	var payload struct {
-		NextPageToken string                   `json:"nextPageToken"`
+		NextPageToken string                   `json:"nextPageToken"` //nolint:tagliatelle // external Google API uses these camelCase JSON field names.
 		Files         []googleDriveFilePayload `json:"files"`
 	}
 	if err := json.Unmarshal(respBody, &payload); err != nil {
@@ -339,7 +339,7 @@ func (p *GoogleHTTPProvider) BrowseFiles(ctx context.Context, accessToken, folde
 		return GoogleDriveListResult{}, mapGoogleHTTPStatus("drive_browse", statusCode, respBody, map[string]any{"folder_id": folderID})
 	}
 	var payload struct {
-		NextPageToken string                   `json:"nextPageToken"`
+		NextPageToken string                   `json:"nextPageToken"` //nolint:tagliatelle // external Google API uses these camelCase JSON field names.
 		Files         []googleDriveFilePayload `json:"files"`
 	}
 	if err := json.Unmarshal(respBody, &payload); err != nil {
@@ -416,19 +416,19 @@ func (p *GoogleHTTPProvider) fetchDriveFileMetadata(ctx context.Context, accessT
 	var payload struct {
 		ID           string   `json:"id"`
 		Name         string   `json:"name"`
-		MimeType     string   `json:"mimeType"`
-		WebViewLink  string   `json:"webViewLink"`
-		DriveID      string   `json:"driveId"`
+		MimeType     string   `json:"mimeType"`    //nolint:tagliatelle // external Google API uses these camelCase JSON field names.
+		WebViewLink  string   `json:"webViewLink"` //nolint:tagliatelle // external Google API uses these camelCase JSON field names.
+		DriveID      string   `json:"driveId"`     //nolint:tagliatelle // external Google API uses these camelCase JSON field names.
 		Parents      []string `json:"parents"`
-		ModifiedTime string   `json:"modifiedTime"`
+		ModifiedTime string   `json:"modifiedTime"` //nolint:tagliatelle // external Google API uses these camelCase JSON field names.
 		Owners       []struct {
-			EmailAddress string `json:"emailAddress"`
+			EmailAddress string `json:"emailAddress"` //nolint:tagliatelle // external Google API uses these camelCase JSON field names.
 		} `json:"owners"`
 	}
 	if err := json.Unmarshal(respBody, &payload); err != nil {
 		return GoogleDriveFile{}, fmt.Errorf("decode google drive metadata response: %w", err)
 	}
-	modifiedAt, _ := parseGoogleTime(payload.ModifiedTime)
+	modifiedAt, _ := parseGoogleTime(payload.ModifiedTime) //nolint:errcheck // legacy dynamic payload keeps existing zero-value fallback behavior.
 	ownerEmail := ""
 	if len(payload.Owners) > 0 {
 		ownerEmail = strings.TrimSpace(payload.Owners[0].EmailAddress)
@@ -495,7 +495,7 @@ func (p *GoogleHTTPProvider) requestForm(ctx context.Context, method, endpoint s
 		return nil, 0, err
 	}
 	defer func() {
-		_ = resp.Body.Close()
+		_ = resp.Body.Close() //nolint:errcheck // cleanup is best-effort and must not replace the primary result.
 	}()
 	payload, err := io.ReadAll(io.LimitReader(resp.Body, 10*1024*1024))
 	if err != nil {
@@ -524,7 +524,7 @@ func (p *GoogleHTTPProvider) requestJSON(ctx context.Context, method, endpoint, 
 		return nil, 0, err
 	}
 	defer func() {
-		_ = resp.Body.Close()
+		_ = resp.Body.Close() //nolint:errcheck // cleanup is best-effort and must not replace the primary result.
 	}()
 	payload, err := io.ReadAll(io.LimitReader(resp.Body, 10*1024*1024))
 	if err != nil {
@@ -536,7 +536,7 @@ func (p *GoogleHTTPProvider) requestJSON(ctx context.Context, method, endpoint, 
 func decodeGoogleDriveFiles(in []googleDriveFilePayload) []GoogleDriveFile {
 	out := make([]GoogleDriveFile, 0, len(in))
 	for _, record := range in {
-		modifiedAt, _ := parseGoogleTime(record.ModifiedTime)
+		modifiedAt, _ := parseGoogleTime(record.ModifiedTime) //nolint:errcheck // legacy dynamic payload keeps existing zero-value fallback behavior.
 		ownerEmail := ""
 		if len(record.Owners) > 0 {
 			ownerEmail = strings.TrimSpace(record.Owners[0].EmailAddress)

@@ -83,7 +83,7 @@ func (s DefaultSourceSearchService) ReindexSourceDocument(ctx context.Context, s
 	if err != nil {
 		return SourceSearchIndexResult{}, err
 	}
-	_ = s.lineage.DeleteSourceSearchDocuments(ctx, scope, stores.SourceSearchDocumentQuery{SourceDocumentID: sourceDocumentID})
+	_ = s.lineage.DeleteSourceSearchDocuments(ctx, scope, stores.SourceSearchDocumentQuery{SourceDocumentID: sourceDocumentID}) //nolint:errcheck // legacy best-effort call intentionally does not affect the primary result.
 	indexedCount := 0
 	now := time.Now().UTC()
 	docs, commentStatus, err := s.buildIndexDocuments(ctx, scope, sourceDocument)
@@ -414,7 +414,7 @@ func (s DefaultSourceSearchService) buildSourceSearchResultSummary(ctx context.C
 	}
 	revision := stores.SourceRevisionRecord{}
 	if strings.TrimSpace(indexed.SourceRevisionID) != "" {
-		revision, _ = s.lineage.GetSourceRevision(ctx, scope, indexed.SourceRevisionID)
+		revision, _ = s.lineage.GetSourceRevision(ctx, scope, indexed.SourceRevisionID) //nolint:errcheck // legacy best-effort call intentionally does not affect the primary result.
 	}
 	metadata := decodeLineageMetadataJSON(indexed.MetadataJSON)
 	handle := stores.SourceHandleRecord{}

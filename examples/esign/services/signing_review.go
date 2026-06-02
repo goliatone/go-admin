@@ -507,7 +507,7 @@ func (s SigningService) ensurePublicSigningReviewAccess(
 	if err != nil {
 		return ReviewSummary{}, nil, stores.AgreementReviewParticipantRecord{}, err
 	}
-	_ = s.recordReviewParticipantView(ctx, scope, summary, participant)
+	_ = s.recordReviewParticipantView(ctx, scope, summary, participant) //nolint:errcheck // legacy best-effort call intentionally does not affect the primary result.
 	return summary, reviewCtx, participant, nil
 }
 
@@ -537,7 +537,7 @@ func (s SigningService) ensurePublicReviewTokenAccess(
 	if reviewCtx == nil || !reviewCtx.IsReviewer {
 		return ReviewSummary{}, nil, stores.AgreementReviewParticipantRecord{}, signerReviewAccessError("participant is not selected for review")
 	}
-	_ = s.recordReviewParticipantView(ctx, scope, summary, participant)
+	_ = s.recordReviewParticipantView(ctx, scope, summary, participant) //nolint:errcheck // legacy best-effort call intentionally does not affect the primary result.
 	return summary, reviewCtx, participant, nil
 }
 

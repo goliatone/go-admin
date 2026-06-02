@@ -412,7 +412,7 @@ func (b *runtimeRelationalStoreSync) persistSnapshot(ctx context.Context, snapsh
 	if err != nil {
 		return fmt.Errorf("runtime relational store sync: begin transaction: %w", err)
 	}
-	defer func() { _ = tx.Rollback() }()
+	defer func() { _ = tx.Rollback() }() //nolint:errcheck // cleanup is best-effort and must not replace the primary result.
 
 	if err := upsertRuntimeSnapshotRows(ctx, tx, b.dialect, specs, columnMap, snapshot); err != nil {
 		return err
@@ -620,18 +620,18 @@ func loadPostgresColumnMap(ctx context.Context, queryer sqlQueryer, tables []str
 		}
 		rows, err := queryer.QueryContext(ctx,
 			`SELECT column_name
-			 FROM information_schema.columns
-			 WHERE table_schema = current_schema() AND table_name = $1`,
+				 FROM information_schema.columns
+				 WHERE table_schema = current_schema() AND table_name = $1`,
 			table,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("runtime relational store sync: query columns for %s: %w", table, err)
 		}
+		defer rows.Close()
 		columns := map[string]bool{}
 		for rows.Next() {
 			var column string
 			if scanErr := rows.Scan(&column); scanErr != nil {
-				_ = rows.Close()
 				return nil, fmt.Errorf("runtime relational store sync: scan columns for %s: %w", table, scanErr)
 			}
 			column = strings.ToLower(strings.TrimSpace(column))
@@ -639,8 +639,8 @@ func loadPostgresColumnMap(ctx context.Context, queryer sqlQueryer, tables []str
 				columns[column] = true
 			}
 		}
-		if closeErr := rows.Close(); closeErr != nil {
-			return nil, fmt.Errorf("runtime relational store sync: close column rows for %s: %w", table, closeErr)
+		if rowsErr := rows.Err(); rowsErr != nil {
+			return nil, fmt.Errorf("runtime relational store sync: iterate columns for %s: %w", table, rowsErr)
 		}
 		out[table] = columns
 	}
@@ -747,11 +747,11 @@ func deleteMissingRowsByKey(
 	}
 	tableName, err := primitives.NormalizeSQLIdentifier(table)
 	if err != nil {
-		return nil
+		return nil //nolint:nilerr // this branch intentionally consumes a non-fatal error and returns the fallback result.
 	}
 	keyName, err := primitives.NormalizeSQLIdentifier(keyColumn)
 	if err != nil {
-		return nil
+		return nil //nolint:nilerr // this branch intentionally consumes a non-fatal error and returns the fallback result.
 	}
 	if len(keys) == 0 {
 		// #nosec G201,G202 -- table identifier is validated before query construction.

@@ -806,7 +806,7 @@ func (s AgreementReminderService) processReviewReminderAgreement(
 	if err != nil {
 		out.Failed++
 		out.FailureReasons["review_summary_failed"]++
-		return out, nil
+		return out, nil //nolint:nilerr // this branch intentionally consumes a non-fatal error and returns the fallback result.
 	}
 	if summary.Review == nil || strings.TrimSpace(summary.Status) != stores.AgreementReviewStatusInReview {
 		return out, nil
@@ -815,7 +815,7 @@ func (s AgreementReminderService) processReviewReminderAgreement(
 	if err != nil {
 		out.Failed++
 		out.FailureReasons["review_audit_lookup_failed"]++
-		return out, nil
+		return out, nil //nolint:nilerr // this branch intentionally consumes a non-fatal error and returns the fallback result.
 	}
 	targets, targetStates, batch := collectReviewReminderTargets(scope, agreement.ID, summary, events, now, policy, &out)
 	if len(targets) == 0 {
@@ -941,7 +941,7 @@ func (s AgreementReminderService) notifyReviewReminderTargets(
 	if err != nil {
 		out.Failed += len(targets)
 		out.FailureReasons["review_notify_failed"] += len(targets)
-		return nil
+		return nil //nolint:nilerr // this branch intentionally consumes a non-fatal error and returns the fallback result.
 	}
 	recordReviewReminderSendMetrics(out, targetStates, notifyStartedAt)
 	return nil
@@ -1218,7 +1218,7 @@ func reviewReminderEventMetadata(event stores.AuditEventRecord) map[string]any {
 	if strings.TrimSpace(event.MetadataJSON) == "" {
 		return metadata
 	}
-	_ = json.Unmarshal([]byte(event.MetadataJSON), &metadata)
+	_ = json.Unmarshal([]byte(event.MetadataJSON), &metadata) //nolint:errcheck // legacy best-effort call intentionally does not affect the primary result.
 	return metadata
 }
 
@@ -1577,7 +1577,7 @@ func (s AgreementReminderService) SendNow(ctx context.Context, scope stores.Scop
 			state.NextDueAt = cloneServiceTimePtr(decision.NextDueAt)
 		}
 		state.UpdatedAt = now
-		_, _ = s.reminders.UpsertAgreementReminderState(ctx, scope, state)
+		_, _ = s.reminders.UpsertAgreementReminderState(ctx, scope, state) //nolint:errcheck // legacy best-effort call intentionally does not affect the primary result.
 		return ResendResult{}, domainValidationError("reminders", "policy", "send_now blocked by reminder policy")
 	}
 	return s.lifecycle.Resend(ctx, scope, agreement.ID, ResendInput{

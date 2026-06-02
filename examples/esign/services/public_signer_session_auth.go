@@ -104,16 +104,16 @@ func (s PublicSignerSessionAuthService) Resolve(ctx context.Context, scope store
 		}
 		signingToken, err := s.signingTokens.GetSigningToken(ctx, scope, record.SigningTokenID)
 		if err != nil {
-			_ = s.sessions.Revoke(ctx, scope, record.AgreementID, record.RecipientID, "")
+			_ = s.sessions.Revoke(ctx, scope, record.AgreementID, record.RecipientID, "") //nolint:errcheck // cleanup is best-effort and must not replace the primary result.
 			return PublicSignerSessionPrincipal{}, publicSignerTokenInvalidError()
 		}
 		if err := s.ensureSigningTokenActive(signingToken); err != nil {
-			_ = s.sessions.Revoke(ctx, scope, record.AgreementID, record.RecipientID, "")
+			_ = s.sessions.Revoke(ctx, scope, record.AgreementID, record.RecipientID, "") //nolint:errcheck // cleanup is best-effort and must not replace the primary result.
 			return PublicSignerSessionPrincipal{}, err
 		}
 		if strings.TrimSpace(record.AgreementID) != strings.TrimSpace(signingToken.AgreementID) ||
 			strings.TrimSpace(record.RecipientID) != strings.TrimSpace(signingToken.RecipientID) {
-			_ = s.sessions.Revoke(ctx, scope, record.AgreementID, record.RecipientID, "")
+			_ = s.sessions.Revoke(ctx, scope, record.AgreementID, record.RecipientID, "") //nolint:errcheck // cleanup is best-effort and must not replace the primary result.
 			return PublicSignerSessionPrincipal{}, publicSignerTokenInvalidError()
 		}
 		return PublicSignerSessionPrincipal{
@@ -126,17 +126,17 @@ func (s PublicSignerSessionAuthService) Resolve(ctx context.Context, scope store
 		}
 		reviewToken, err := s.reviewTokens.GetReviewSessionToken(ctx, scope, record.ReviewTokenID)
 		if err != nil {
-			_ = s.sessions.Revoke(ctx, scope, record.AgreementID, "", record.ParticipantID)
+			_ = s.sessions.Revoke(ctx, scope, record.AgreementID, "", record.ParticipantID) //nolint:errcheck // cleanup is best-effort and must not replace the primary result.
 			return PublicSignerSessionPrincipal{}, publicSignerTokenInvalidError()
 		}
 		if err := s.ensureReviewTokenActive(reviewToken); err != nil {
-			_ = s.sessions.Revoke(ctx, scope, record.AgreementID, "", record.ParticipantID)
+			_ = s.sessions.Revoke(ctx, scope, record.AgreementID, "", record.ParticipantID) //nolint:errcheck // cleanup is best-effort and must not replace the primary result.
 			return PublicSignerSessionPrincipal{}, err
 		}
 		if strings.TrimSpace(record.AgreementID) != strings.TrimSpace(reviewToken.AgreementID) ||
 			strings.TrimSpace(record.ReviewID) != strings.TrimSpace(reviewToken.ReviewID) ||
 			strings.TrimSpace(record.ParticipantID) != strings.TrimSpace(reviewToken.ParticipantID) {
-			_ = s.sessions.Revoke(ctx, scope, record.AgreementID, "", record.ParticipantID)
+			_ = s.sessions.Revoke(ctx, scope, record.AgreementID, "", record.ParticipantID) //nolint:errcheck // cleanup is best-effort and must not replace the primary result.
 			return PublicSignerSessionPrincipal{}, publicSignerTokenInvalidError()
 		}
 		return PublicSignerSessionPrincipal{

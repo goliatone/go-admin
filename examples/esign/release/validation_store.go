@@ -26,7 +26,7 @@ func resolveValidationSQLiteDSN(runLabel string) (string, func()) {
 	filename := fmt.Sprintf("%s-%d.db", label, time.Now().UTC().UnixNano())
 	dsn := "file:" + filepath.Join(tempDir, filename) + "?cache=shared&_fk=1&_busy_timeout=5000"
 	return dsn, func() {
-		_ = os.RemoveAll(tempDir)
+		_ = os.RemoveAll(tempDir) //nolint:errcheck // cleanup is best-effort and must not replace the primary result.
 	}
 }
 

@@ -501,11 +501,11 @@ func (s *AgreementDraftIdempotencyStore) lookupPersistentReplay(ctx context.Cont
 	}
 	parsed, err := parseScopedReplayKey(key)
 	if err != nil {
-		return gosynccore.MutationResult{}, false, nil
+		return gosynccore.MutationResult{}, false, nil //nolint:nilerr // this branch intentionally consumes a non-fatal error and returns the fallback result.
 	}
 	scope, err := storesScopeFromResourceScope(parsed.Scope)
 	if err != nil {
-		return gosynccore.MutationResult{}, false, nil
+		return gosynccore.MutationResult{}, false, nil //nolint:nilerr // this branch intentionally consumes a non-fatal error and returns the fallback result.
 	}
 	events, err := s.audits.ListDraftEvents(ctx, scope, parsed.ResourceID, stores.DraftAuditEventQuery{
 		Limit:    100,

@@ -276,7 +276,7 @@ func runValidateFixtures(ctx context.Context, handles *esignpersistence.ClientHa
 	}
 	fx, err := validateFixtureTransaction(ctx, tx)
 	if err != nil {
-		_ = tx.Rollback()
+		_ = tx.Rollback() //nolint:errcheck // cleanup is best-effort and must not replace the primary result.
 		return err
 	}
 
@@ -322,7 +322,7 @@ func validateLineageFixtures(ctx context.Context, tx bun.Tx, scope stores.Scope)
 	if err != nil {
 		return fmt.Errorf("create lineage validation assets dir: %w", err)
 	}
-	defer func() { _ = os.RemoveAll(validationAssetsDir) }()
+	defer func() { _ = os.RemoveAll(validationAssetsDir) }() //nolint:errcheck // cleanup is best-effort and must not replace the primary result.
 	uploads := uploader.NewManager(uploader.WithProvider(uploader.NewFSProvider(validationAssetsDir)))
 	lineageSet, err := fixtures.EnsureLineageQAFixtures(ctx, tx, uploads, scope)
 	if err != nil {
@@ -460,22 +460,22 @@ func printUsage(out io.Writer) {
 	if out == nil {
 		out = os.Stdout
 	}
-	_, _ = fmt.Fprintln(out, "Usage:")
-	_, _ = fmt.Fprintln(out, "  go run ./examples/esign/cmd/migrate [--config <path>] [--timeout <duration>] <command>")
-	_, _ = fmt.Fprintln(out, "")
-	_, _ = fmt.Fprintln(out, "Commands:")
-	_, _ = fmt.Fprintln(out, "  status             Print migration status for the configured runtime database.")
-	_, _ = fmt.Fprintln(out, "  up                 Apply pending migrations.")
-	_, _ = fmt.Fprintln(out, "  down               Roll back the most recently applied migration group.")
-	_, _ = fmt.Fprintln(out, "  rollback-all       Roll back all applied migration groups.")
-	_, _ = fmt.Fprintln(out, "  validate-dialects  Validate migration dialect contracts (postgres/sqlite).")
-	_, _ = fmt.Fprintln(out, "  validate-fixtures  Apply migrations, seed fixtures in a transaction, and roll back.")
-	_, _ = fmt.Fprintln(out, "  seed-fixtures      Apply migrations and persist deterministic lineage QA fixtures.")
-	_, _ = fmt.Fprintln(out, "")
-	_, _ = fmt.Fprintln(out, "Examples:")
-	_, _ = fmt.Fprintln(out, "  go run ./examples/esign/cmd/migrate status")
-	_, _ = fmt.Fprintln(out, "  go run ./examples/esign/cmd/migrate seed-fixtures")
-	_, _ = fmt.Fprintln(out, "  go run ./examples/esign/cmd/migrate --config examples/esign/config/app.json up")
+	_, _ = fmt.Fprintln(out, "Usage:")                                                                                   //nolint:errcheck // legacy best-effort call intentionally does not affect the primary result.
+	_, _ = fmt.Fprintln(out, "  go run ./examples/esign/cmd/migrate [--config <path>] [--timeout <duration>] <command>") //nolint:errcheck // legacy best-effort call intentionally does not affect the primary result.
+	_, _ = fmt.Fprintln(out, "")                                                                                         //nolint:errcheck // legacy best-effort call intentionally does not affect the primary result.
+	_, _ = fmt.Fprintln(out, "Commands:")                                                                                //nolint:errcheck // legacy best-effort call intentionally does not affect the primary result.
+	_, _ = fmt.Fprintln(out, "  status             Print migration status for the configured runtime database.")         //nolint:errcheck // legacy best-effort call intentionally does not affect the primary result.
+	_, _ = fmt.Fprintln(out, "  up                 Apply pending migrations.")                                           //nolint:errcheck // legacy best-effort call intentionally does not affect the primary result.
+	_, _ = fmt.Fprintln(out, "  down               Roll back the most recently applied migration group.")                //nolint:errcheck // legacy best-effort call intentionally does not affect the primary result.
+	_, _ = fmt.Fprintln(out, "  rollback-all       Roll back all applied migration groups.")                             //nolint:errcheck // legacy best-effort call intentionally does not affect the primary result.
+	_, _ = fmt.Fprintln(out, "  validate-dialects  Validate migration dialect contracts (postgres/sqlite).")             //nolint:errcheck // legacy best-effort call intentionally does not affect the primary result.
+	_, _ = fmt.Fprintln(out, "  validate-fixtures  Apply migrations, seed fixtures in a transaction, and roll back.")    //nolint:errcheck // legacy best-effort call intentionally does not affect the primary result.
+	_, _ = fmt.Fprintln(out, "  seed-fixtures      Apply migrations and persist deterministic lineage QA fixtures.")     //nolint:errcheck // legacy best-effort call intentionally does not affect the primary result.
+	_, _ = fmt.Fprintln(out, "")                                                                                         //nolint:errcheck // legacy best-effort call intentionally does not affect the primary result.
+	_, _ = fmt.Fprintln(out, "Examples:")                                                                                //nolint:errcheck // legacy best-effort call intentionally does not affect the primary result.
+	_, _ = fmt.Fprintln(out, "  go run ./examples/esign/cmd/migrate status")                                             //nolint:errcheck // legacy best-effort call intentionally does not affect the primary result.
+	_, _ = fmt.Fprintln(out, "  go run ./examples/esign/cmd/migrate seed-fixtures")                                      //nolint:errcheck // legacy best-effort call intentionally does not affect the primary result.
+	_, _ = fmt.Fprintln(out, "  go run ./examples/esign/cmd/migrate --config examples/esign/config/app.json up")         //nolint:errcheck // legacy best-effort call intentionally does not affect the primary result.
 }
 
 func assertRollbackSafety(handles *esignpersistence.ClientHandles) error {

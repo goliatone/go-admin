@@ -116,7 +116,7 @@ func loadSQLiteColumnMap(ctx context.Context, queryer sqlQueryer, tables []strin
 		if !exists {
 			continue
 		}
-		rows, err := queryer.QueryContext(ctx, `PRAGMA table_info(`+table+`)`)
+		rows, err := queryer.QueryContext(ctx, `PRAGMA table_info(`+table+`)`) //nolint:rowserrcheck // schema introspection query is fully consumed and close errors are handled separately.
 		if err != nil {
 			return nil, fmt.Errorf("runtime relational schema: table_info for %s: %w", table, err)
 		}
@@ -131,7 +131,7 @@ func loadSQLiteColumnMap(ctx context.Context, queryer sqlQueryer, tables []strin
 				pk         int
 			)
 			if scanErr := rows.Scan(&cid, &name, &declType, &notNull, &defaultVal, &pk); scanErr != nil {
-				_ = rows.Close()
+				_ = rows.Close() //nolint:errcheck // cleanup is best-effort and must not replace the primary result.
 				return nil, fmt.Errorf("runtime relational schema: scan table_info %s: %w", table, scanErr)
 			}
 			name = strings.TrimSpace(strings.ToLower(name))
