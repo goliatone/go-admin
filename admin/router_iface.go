@@ -12,3 +12,9 @@ type AdminRouter interface {
 	Patch(path string, handler router.HandlerFunc, mw ...router.MiddlewareFunc) router.RouteInfo
 	Head(path string, handler router.HandlerFunc, mw ...router.MiddlewareFunc) router.RouteInfo
 }
+
+// AdminStaticRouter extends AdminRouter with typed static asset registration.
+type AdminStaticRouter[T any] interface {
+	AdminRouter
+	Static(prefix, root string, config ...router.Static) router.Router[T]
+}
