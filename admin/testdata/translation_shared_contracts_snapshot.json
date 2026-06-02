@@ -722,7 +722,7 @@
     }
   },
   "openapi": {
-    "artifact_bytes": 11711,
+    "artifact_bytes": 10403,
     "artifact_path": "translations/ui/openapi/translations.json",
     "schema_version": 1
   },
