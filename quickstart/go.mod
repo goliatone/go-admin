@@ -10,6 +10,8 @@ replace github.com/goliatone/go-router => ../../go-router
 
 replace github.com/goliatone/go-cms => ../../go-cms
 
+replace github.com/goliatone/go-repository-bun => ../../go-repository-bun
+
 require (
 	github.com/flosch/pongo2/v6 v6.0.0
 	github.com/gobuffalo/flect v1.0.3
@@ -43,6 +45,7 @@ require (
 	github.com/jinzhu/inflection v1.0.0
 	github.com/julienschmidt/httprouter v1.3.0
 	github.com/stretchr/testify v1.11.1
+	github.com/uptrace/bun v1.2.18
 	github.com/uptrace/bun/dialect/sqlitedialect v1.2.18
 	github.com/uptrace/bun/driver/sqliteshim v1.2.18
 	github.com/valkey-io/valkey-go v1.0.72
@@ -185,7 +188,6 @@ require (
 	github.com/tidwall/sjson v1.2.5 // indirect
 	github.com/tmthrgd/go-hex v0.0.0-20190904060850-447a3041c3bc // indirect
 	github.com/traefik/yaegi v0.16.1 // indirect
-	github.com/uptrace/bun v1.2.18 // indirect
 	github.com/uptrace/bun/dbfixture v1.2.18 // indirect
 	github.com/uptrace/bun/dialect/pgdialect v1.2.18 // indirect
 	github.com/uptrace/bun/extra/bundebug v1.2.18 // indirect

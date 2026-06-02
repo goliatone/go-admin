@@ -28,6 +28,7 @@ func defaultQuickstartDoctorChecks(cfg admin.Config, result AdapterResult, optio
 	return []admin.DoctorCheck{
 		quickstartDoctorAdaptersCheck(result),
 		quickstartDoctorGoUsersScopeCheck(cfg, options),
+		quickstartDoctorScopeDriftCheck(cfg, options.scopeDriftInspector),
 		quickstartDoctorRoutingCheck(),
 		quickstartDoctorRoutesCheck(cfg),
 		quickstartDoctorBlockDefinitionsCheck(),

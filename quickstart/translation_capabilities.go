@@ -285,12 +285,15 @@ func applyTranslationCapabilityRouteFiltering(payload map[string]any) {
 	modules := translationAnyMap(payload["modules"])
 	queueEnabled := translationModuleEnabled(modules, "queue")
 	exchangeEnabled := translationModuleEnabled(modules, "exchange")
-	routes := filterTranslationCapabilityRoutes(translationRoutesToStrings(payload["routes"]), exchangeEnabled, queueEnabled)
+	features := translationAnyMap(payload["features"])
+	profileNone := strings.TrimSpace(fmt.Sprint(payload["profile"])) == string(TranslationProfileNone)
+	coreEnabled := translationBool(features["cms"]) && (!profileNone || queueEnabled || exchangeEnabled)
+	routes := filterTranslationCapabilityRoutes(translationRoutesToStrings(payload["routes"]), coreEnabled, exchangeEnabled, queueEnabled)
 	payload["routes"] = routes
 	payload["resolver_keys"] = filterTranslationCapabilityResolverKeys(translationStringSlice(payload["resolver_keys"]), routes)
 }
 
-func filterTranslationCapabilityRoutes(routes map[string]string, exchangeEnabled, queueEnabled bool) map[string]string {
+func filterTranslationCapabilityRoutes(routes map[string]string, coreEnabled, exchangeEnabled, queueEnabled bool) map[string]string {
 	if len(routes) == 0 {
 		return map[string]string{}
 	}
@@ -299,6 +302,9 @@ func filterTranslationCapabilityRoutes(routes map[string]string, exchangeEnabled
 		key = strings.TrimSpace(key)
 		path = strings.TrimSpace(path)
 		if key == "" || path == "" {
+			continue
+		}
+		if !coreEnabled && strings.Contains(key, ".translations.") {
 			continue
 		}
 		module, hasModule := translationModuleForRouteKey(key)
@@ -352,11 +358,13 @@ func translationModuleForRouteKey(routeKey string) (string, bool) {
 		return "queue", true
 	case routeKey == "admin.translations.exchange":
 		return "exchange", true
+	case strings.HasSuffix(routeKey, ".translations.dashboard"):
+		return "queue", true
 	case strings.HasSuffix(routeKey, ".translations.my_work"):
 		return "queue", true
 	case strings.HasSuffix(routeKey, ".translations.queue"):
 		return "queue", true
-	case strings.HasSuffix(routeKey, ".translations.assignments"):
+	case strings.Contains(routeKey, ".translations.assignments"):
 		return "queue", true
 	case strings.HasSuffix(routeKey, ".translations.export"):
 		return "exchange", true

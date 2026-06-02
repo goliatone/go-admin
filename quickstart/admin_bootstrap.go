@@ -59,6 +59,8 @@ type adminOptions struct {
 	translationQueueConfigSet    bool
 	startupPolicy                *admin.ModuleStartupPolicy
 	doctorChecks                 []admin.DoctorCheck
+	scopeDriftInspector          ScopeDriftInspector
+	scopeDriftRepairer           ScopeDriftRepairer
 	goUsersUserManagement        *goUsersUserManagementWiring
 	errors                       []error
 	registerUserRoleBulkRoutes   bool
@@ -253,6 +255,34 @@ func WithDoctorChecks(checks ...admin.DoctorCheck) AdminOption {
 	}
 }
 
+// WithScopeDriftInspector wires the quickstart doctor check data source used to
+// detect blank tenant/org rows in scoped translation tables.
+func WithScopeDriftInspector(inspector ScopeDriftInspector) AdminOption {
+	return func(opts *adminOptions) {
+		if opts == nil {
+			return
+		}
+		opts.scopeDriftInspector = inspector
+		if repairer, ok := inspector.(ScopeDriftRepairer); ok {
+			opts.scopeDriftRepairer = repairer
+		}
+	}
+}
+
+// WithScopeDriftRepairer wires the opt-in repair command used to backfill blank
+// tenant/org rows in allowlisted scoped translation tables.
+func WithScopeDriftRepairer(repairer ScopeDriftRepairer) AdminOption {
+	return func(opts *adminOptions) {
+		if opts == nil {
+			return
+		}
+		opts.scopeDriftRepairer = repairer
+		if inspector, ok := repairer.(ScopeDriftInspector); ok && opts.scopeDriftInspector == nil {
+			opts.scopeDriftInspector = inspector
+		}
+	}
+}
+
 // NewAdmin constructs an admin instance with adapter wiring applied.
 func NewAdmin(cfg admin.Config, hooks AdapterHooks, opts ...AdminOption) (*admin.Admin, AdapterResult, error) {
 	options, optionsErr := resolveNewAdminOptions(opts)
@@ -357,6 +387,9 @@ func applyAdminPostCreateIntegrations(adm *admin.Admin, cfg admin.Config, hooks 
 		adm.WithThemeManifest(options.themeManifest)
 	}
 	ApplyAdapterIntegrations(adm, result, hooks)
+	if err := registerQuickstartScopeDriftRepairCommand(adm, cfg, options); err != nil {
+		return err
+	}
 	if options.registerUserRoleBulkRoutes {
 		return registerUserRoleBulkRoutes(adm, cfg)
 	}

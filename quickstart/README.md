@@ -729,6 +729,14 @@ when `ScopeResolver` is omitted. Custom repositories, handlers, or direct
 go-users registry calls must use `quickstart.ScopeBuilder(cfg)` or an
 equivalent config-aware resolver themselves.
 
+go-admin request and service paths should resolve trusted tenant/org scope
+through `Admin.EffectiveScope(...)` or `Admin.EffectiveScopeFromRequest(...)`.
+These helpers preserve explicit trusted scope, apply configured defaults only in
+single-tenant mode, and ignore browser query `tenant_id` / `org_id` values for
+authenticated actor scope. Repository code should receive the resolved scope and
+apply explicit predicates; do not add global persistence hooks that inject scope
+into every query.
+
 Defaults:
 - tenant: `11111111-1111-1111-1111-111111111111`
 - org: `22222222-2222-2222-2222-222222222222`
@@ -744,6 +752,29 @@ cfg := quickstart.NewAdminConfig("/admin", "Admin", "en",
 	}),
 )
 ```
+
+Quickstart registers a `quickstart.scope_drift` doctor check for single-tenant
+translation data. Hosts can wire it with:
+
+```go
+adm, _, err := quickstart.NewAdmin(
+	cfg,
+	hooks,
+	quickstart.WithScopeDriftInspector(quickstart.NewBunScopeDriftInspector(db)),
+)
+```
+
+The check inspects the allowlisted translation tables `content_families`,
+`locale_variants`, `family_blockers`, and `translation_assignments` for blank
+tenant/org rows. It reports counts and default scope metadata, skips
+multi-tenant mode, reports unavailable/missing tables as informational findings,
+and never mutates data.
+
+When the same Bun inspector is wired, quickstart also registers the explicit
+command `quickstart.scope_drift.repair`. Dispatch without `apply` to dry-run the
+allowlisted tables; dispatch with `apply: true` to backfill blank tenant/org
+values to the configured single-tenant defaults. Apply mode rejects multi-tenant
+configurations and never updates tables outside the allowlist.
 
 ## Template functions
 `NewViewEngine` wires `DefaultTemplateFuncs()` when no template functions are supplied. Prefer `WithViewURLResolver(adm.URLs())` (or `WithTemplateURLResolver(adm.URLs())`) so `adminURL` resolves via URLKit; `WithViewBasePath(cfg.BasePath)` remains as a fallback for legacy setups. `WithViewTemplateFuncs` is a strict override; use `MergeTemplateFuncs` if you want to keep defaults and add/override a subset.

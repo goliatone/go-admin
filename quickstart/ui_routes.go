@@ -23,6 +23,7 @@ type uiRouteOptions struct {
 	activityPath                    string
 	featureFlagsPath                string
 	translationQueuePath            string
+	translationFamilyListPath       string
 	translationFamilyDetailPath     string
 	translationEditorPath           string
 	translationMatrixPath           string
@@ -33,6 +34,7 @@ type uiRouteOptions struct {
 	activityTemplate                string
 	featureFlagsTemplate            string
 	translationShellTemplate        string
+	translationFamilyListTemplate   string
 	translationFamilyDetailTemplate string
 	translationEditorTemplate       string
 	translationMatrixTemplate       string
@@ -43,6 +45,7 @@ type uiRouteOptions struct {
 	activityTitle                   string
 	featureFlagsTitle               string
 	translationQueueTitle           string
+	translationFamilyListTitle      string
 	translationFamilyDetailTitle    string
 	translationEditorTitle          string
 	translationMatrixTitle          string
@@ -53,6 +56,7 @@ type uiRouteOptions struct {
 	activityActive                  string
 	featureFlagsActive              string
 	translationQueueActive          string
+	translationFamilyListActive     string
 	translationFamilyDetailActive   string
 	translationEditorActive         string
 	translationMatrixActive         string
@@ -63,6 +67,7 @@ type uiRouteOptions struct {
 	registerActivity                bool
 	registerFeatureFlags            bool
 	registerTranslationQueue        bool
+	registerTranslationFamilyList   bool
 	registerTranslationFamilyDetail bool
 	registerTranslationEditor       bool
 	registerTranslationMatrix       bool
@@ -393,6 +398,7 @@ func resolveAdminUIRouteOptions(cfg admin.Config, adm *admin.Admin, opts []UIRou
 		activityTemplate:                "resources/activity/list",
 		featureFlagsTemplate:            "resources/feature-flags/index",
 		translationShellTemplate:        "resources/translations/shell",
+		translationFamilyListTemplate:   "resources/translations/families",
 		translationFamilyDetailTemplate: "resources/translations/family-detail",
 		translationEditorTemplate:       "resources/translations/editor",
 		translationMatrixTemplate:       "resources/translations/matrix",
@@ -403,6 +409,7 @@ func resolveAdminUIRouteOptions(cfg admin.Config, adm *admin.Admin, opts []UIRou
 		activityTitle:                   "Activity",
 		featureFlagsTitle:               "Feature Flags",
 		translationQueueTitle:           "Translation Queue",
+		translationFamilyListTitle:      "Translation Families",
 		translationFamilyDetailTitle:    "Translation Family",
 		translationEditorTitle:          "Translation Editor",
 		translationMatrixTitle:          "Translation Matrix",
@@ -413,6 +420,7 @@ func resolveAdminUIRouteOptions(cfg admin.Config, adm *admin.Admin, opts []UIRou
 		activityActive:                  "activity",
 		featureFlagsActive:              "feature_flags",
 		translationQueueActive:          "translation_queue",
+		translationFamilyListActive:     "translation_families",
 		translationFamilyDetailActive:   "translation_families",
 		translationEditorActive:         "translation_editor",
 		translationMatrixActive:         "translation_matrix",
@@ -423,6 +431,7 @@ func resolveAdminUIRouteOptions(cfg admin.Config, adm *admin.Admin, opts []UIRou
 		registerActivity:                true,
 		registerFeatureFlags:            true,
 		registerTranslationQueue:        queueModuleEnabled,
+		registerTranslationFamilyList:   coreModuleEnabled,
 		registerTranslationFamilyDetail: coreModuleEnabled,
 		registerTranslationEditor:       queueModuleEnabled,
 		registerTranslationMatrix:       coreModuleEnabled,
@@ -464,6 +473,7 @@ func applyAdminUITranslationCapabilityGates(options *uiRouteOptions, queueModule
 		options.registerTranslationDashboard = false
 	}
 	if !coreModuleEnabled {
+		options.registerTranslationFamilyList = false
 		options.registerTranslationFamilyDetail = false
 		options.registerTranslationMatrix = false
 	}
@@ -490,6 +500,9 @@ func applyAdminUIRoutePathDefaults(options *uiRouteOptions) {
 	}
 	if options.translationQueuePath == "" {
 		options.translationQueuePath = path.Join(options.basePath, "translations", "queue")
+	}
+	if options.translationFamilyListPath == "" {
+		options.translationFamilyListPath = path.Join(options.basePath, "translations", "families")
 	}
 	if options.translationFamilyDetailPath == "" {
 		options.translationFamilyDetailPath = path.Join(options.basePath, "translations", "families", ":family_id")
@@ -595,6 +608,32 @@ func registerAdminUITranslationDetailRoutes[T any](
 	renderView func(router.Context, string, string, string, router.ViewContext) error,
 	resolveAPIBase func() string,
 ) {
+	if options.registerTranslationFamilyList {
+		r.Get(options.translationFamilyListPath, wrap(func(c router.Context) error {
+			apiBase := resolveAPIBase()
+			matrixPath := ""
+			if options.registerTranslationMatrix {
+				matrixPath = options.translationMatrixPath
+			}
+			queuePath := ""
+			if options.registerTranslationQueue {
+				queuePath = options.translationQueuePath
+			}
+			view := WithBreadcrumbSpec(router.ViewContext{
+				"translation_families_api_path": prefixBasePath(apiBase, path.Join("translations", "families")),
+				"translation_family_base_path":  path.Join(options.basePath, "translations", "families"),
+				"translation_matrix_path":       matrixPath,
+				"translation_queue_path":        queuePath,
+			}, BreadcrumbSpec{
+				RootLabel:    "Dashboard",
+				RootHref:     options.basePath,
+				Trail:        []BreadcrumbItem{Breadcrumb(options.translationDashboardTitle, options.translationDashboardPath)},
+				CurrentLabel: options.translationFamilyListTitle,
+			})
+			return renderView(c, options.translationFamilyListTemplate, options.translationFamilyListTitle, options.translationFamilyListActive, view)
+		}))
+	}
+
 	if options.registerTranslationFamilyDetail {
 		r.Get(options.translationFamilyDetailPath, wrap(func(c router.Context) error {
 			apiBase := resolveAPIBase()
