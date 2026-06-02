@@ -668,7 +668,7 @@ func registerAdminUITranslationDetailRoutes[T any](
 				"translation_editor_api_path":              editorAPIPath,
 				"translation_editor_action_api_base":       prefixBasePath(apiBase, path.Join("translations", "assignments")),
 				"translation_editor_sync_api_base":         prefixBasePath(apiBase, "translations"),
-				"translation_editor_sync_client_base_path": prefixBasePath(options.basePath, path.Join("sync-client", "sync-core")),
+				"translation_editor_sync_client_base_path": ResolveSyncClientAssetsPrefix(admin.Config{BasePath: options.basePath}),
 				"translation_editor_channel":               channel,
 			}, BreadcrumbSpec{
 				RootLabel:    "Dashboard",
