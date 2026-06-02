@@ -34,7 +34,7 @@ func TestPersistentCMSAppliesMigrations(t *testing.T) {
 	}
 	defer db.Close()
 
-	rows, err := db.QueryContext(ctx, ` //nolint:rowserrcheck // schema introspection query is fully consumed and close errors are handled separately.
+	rows, err := db.QueryContext(ctx, `
 SELECT name FROM sqlite_master
 WHERE type = 'table' AND name IN (
     'locales','content_types','contents','content_translations',
@@ -48,7 +48,9 @@ ORDER BY name`)
 	if err != nil {
 		t.Fatalf("list tables: %v", err)
 	}
-	defer rows.Close()
+	defer func() {
+		_ = rows.Close() //nolint:errcheck // test cleanup failure cannot change the schema assertions.
+	}()
 
 	tables := map[string]bool{}
 	for rows.Next() {
@@ -56,6 +58,9 @@ ORDER BY name`)
 		if scanErr := rows.Scan(&name); scanErr == nil {
 			tables[name] = true
 		}
+	}
+	if rowsErr := rows.Err(); rowsErr != nil {
+		t.Fatalf("iterate tables: %v", rowsErr)
 	}
 
 	for _, table := range []string{
@@ -71,11 +76,13 @@ ORDER BY name`)
 		}
 	}
 
-	colRows, err := db.QueryContext(ctx, `PRAGMA table_info('menu_items')`) //nolint:rowserrcheck // schema introspection query is fully consumed and close errors are handled separately.
+	colRows, err := db.QueryContext(ctx, `PRAGMA table_info('menu_items')`) //nolint:rowserrcheck // migration test only scans expected rows and validates required columns.
 	if err != nil {
 		t.Fatalf("inspect menu_items columns: %v", err)
 	}
-	defer colRows.Close()
+	defer func() {
+		_ = colRows.Close() //nolint:errcheck // test cleanup failure cannot change the schema assertions.
+	}()
 
 	hasCanonicalKey := false
 	for colRows.Next() {
@@ -95,6 +102,9 @@ ORDER BY name`)
 			hasCanonicalKey = true
 			break
 		}
+	}
+	if rowsErr := colRows.Err(); rowsErr != nil {
+		t.Fatalf("iterate menu_items columns: %v", rowsErr)
 	}
 	if !hasCanonicalKey {
 		t.Fatalf("expected canonical_key column from sanitized migrations")

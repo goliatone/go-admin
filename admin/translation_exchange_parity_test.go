@@ -28,7 +28,7 @@ func TestTranslationImportValidateInputFactoryMatchesHTTPJSONParsing(t *testing.
 		t.Fatalf("build validate input: %v", err)
 	}
 
-	raw, _ := json.Marshal(payload) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
+	raw, _ := json.Marshal(payload) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions. //nolint:errchkjson // test request fixture is map-backed and validated through handler assertions.
 	rows, _, err := parseTranslationImportJSON(raw, false)
 	if err != nil {
 		t.Fatalf("parse http json rows: %v", err)
@@ -63,7 +63,7 @@ func TestTranslationImportApplyInputFactoryMatchesHTTPJSONParsing(t *testing.T) 
 		t.Fatalf("build apply input: %v", err)
 	}
 
-	raw, _ := json.Marshal(payload) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
+	raw, _ := json.Marshal(payload) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions. //nolint:errchkjson // test request fixture is map-backed and validated through handler assertions.
 	rows, body, err := parseTranslationImportJSON(raw, true)
 	if err != nil {
 		t.Fatalf("parse http json rows: %v", err)

@@ -123,7 +123,7 @@ func (d *Dashboard) WithWidgetService(svc CMSWidgetService) {
 	}
 	if len(areas) > 0 {
 		for _, area := range areas {
-			_ = svc.RegisterAreaDefinition(context.Background(), area)
+			_ = svc.RegisterAreaDefinition(context.Background(), area) //nolint:errcheck // registration happens during optional bootstrap and remains best-effort here.
 		}
 	} else {
 		for _, area := range svc.Areas() {
@@ -218,7 +218,7 @@ func (d *Dashboard) RegisterArea(def WidgetAreaDefinition) {
 	widgetSvc := d.widgetSvc
 	d.mu.Unlock()
 	if widgetSvc != nil {
-		_ = widgetSvc.RegisterAreaDefinition(context.Background(), def)
+		_ = widgetSvc.RegisterAreaDefinition(context.Background(), def) //nolint:errcheck // registration happens during optional bootstrap and remains best-effort here.
 	}
 }
 
@@ -569,7 +569,7 @@ func (d *Dashboard) saveUserLayout(ctx AdminContext, instances []DashboardWidget
 		if actor == "" {
 			actor = actorFromContext(ctx.Context)
 		}
-		_ = activity.Record(ctx.Context, ActivityEntry{
+		_ = activity.Record(ctx.Context, ActivityEntry{ //nolint:errcheck // best-effort telemetry must not fail the primary operation.
 			Actor:  actor,
 			Action: "dashboard.layout.save",
 			Object: "dashboard",

@@ -85,9 +85,9 @@ func TestTranslationExchangeExportValidateApplyThenPublishSucceedsUnderPolicy(t 
 	})
 	require.Equal(t, http.StatusOK, validateStatus, "validate payload=%+v", validatePayload)
 	validateSummary, _ := validatePayload["summary"].(map[string]any)
-	require.Equal(t, float64(2), validateSummary["processed"])
-	require.Equal(t, float64(2), validateSummary["succeeded"])
-	require.Equal(t, float64(0), validateSummary["failed"])
+	require.InDelta(t, float64(2), validateSummary["processed"], 0)
+	require.InDelta(t, float64(2), validateSummary["succeeded"], 0)
+	require.InDelta(t, float64(0), validateSummary["failed"], 0)
 
 	applyStatus, applyPayload := doAdminJSONRequest(t, fx.handler, http.MethodPost, "/admin/api/translations/exchange/import/apply", map[string]any{
 		"rows":               translatedRows,
@@ -95,9 +95,9 @@ func TestTranslationExchangeExportValidateApplyThenPublishSucceedsUnderPolicy(t 
 	})
 	require.Equal(t, http.StatusOK, applyStatus, "apply payload=%+v", applyPayload)
 	applySummary, _ := applyPayload["summary"].(map[string]any)
-	require.Equal(t, float64(2), applySummary["processed"])
-	require.Equal(t, float64(2), applySummary["succeeded"])
-	require.Equal(t, float64(0), applySummary["failed"])
+	require.InDelta(t, float64(2), applySummary["processed"], 0)
+	require.InDelta(t, float64(2), applySummary["succeeded"], 0)
+	require.InDelta(t, float64(0), applySummary["failed"], 0)
 
 	publishStatus, publishPayload := doAdminJSONRequest(t, fx.handler, http.MethodPost, panelActionPath("pages", "publish"), map[string]any{
 		"id":            entityID,
