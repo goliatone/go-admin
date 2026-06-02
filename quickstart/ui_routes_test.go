@@ -388,6 +388,68 @@ func TestRegisterAdminUIRoutesTranslationFamiliesShellContext(t *testing.T) {
 	ctx.AssertExpectations(t)
 }
 
+func TestRegisterAdminUIRoutesTranslationEditorShellContextIncludesScopedSync(t *testing.T) {
+	cfg := NewAdminConfig("/admin", "Admin", "en")
+	adm, _, err := NewAdmin(
+		cfg,
+		AdapterHooks{},
+		WithFeatureDefaults(map[string]bool{
+			string(admin.FeatureCMS):              true,
+			string(admin.FeatureTranslationQueue): true,
+		}),
+	)
+	if err != nil {
+		t.Fatalf("create admin: %v", err)
+	}
+	if adm.Commands() != nil {
+		t.Cleanup(adm.Commands().Reset)
+	}
+
+	captureRouter := newUIRoutesCaptureRouter()
+	if err := RegisterAdminUIRoutes(captureRouter, cfg, adm, nil); err != nil {
+		t.Fatalf("register ui routes: %v", err)
+	}
+	handler := captureRouter.getHandlers["/admin/translations/assignments/:assignment_id/edit"]
+	if handler == nil {
+		t.Fatalf("expected translation editor shell route handler")
+	}
+
+	ctx := router.NewMockContext()
+	ctx.ParamsM["assignment_id"] = "asg-editor-1"
+	ctx.QueriesM["channel"] = "staging"
+	ctx.On("Context").Return(context.Background())
+	ctx.On("Render", "resources/translations/editor", mock.MatchedBy(func(arg any) bool {
+		viewCtx, ok := arg.(router.ViewContext)
+		if !ok {
+			return false
+		}
+		expected := map[string]string{
+			"title":                                    "Translation Editor",
+			"base_path":                                "/admin",
+			"translation_assignment_id":                "asg-editor-1",
+			"translation_editor_api_path":              "/admin/api/translations/assignments/asg-editor-1?channel=staging",
+			"translation_editor_action_api_base":       "/admin/api/translations/assignments",
+			"translation_editor_sync_api_base":         "/admin/api/translations",
+			"translation_editor_sync_client_base_path": "/admin/sync-client/sync-core",
+			"translation_editor_channel":               "staging",
+		}
+		for key, want := range expected {
+			if got := strings.TrimSpace(fmt.Sprint(viewCtx[key])); got != want {
+				return false
+			}
+		}
+		if _, exists := viewCtx["translation_editor_variant_api_base"]; exists {
+			return false
+		}
+		return true
+	})).Return(nil)
+
+	if err := handler(ctx); err != nil {
+		t.Fatalf("render translation editor shell: %v", err)
+	}
+	ctx.AssertExpectations(t)
+}
+
 func assertRouteRegisteredBefore(t *testing.T, paths []string, before, after string) {
 	t.Helper()
 

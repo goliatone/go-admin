@@ -68,7 +68,8 @@ func TestRuntimeOverridesAffectBootAndModules(t *testing.T) {
 	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
-	if textCode, _ := payload["text_code"].(string); textCode != "" && textCode != "FEATURE_DISABLED" {
+	textCode, ok := payload["text_code"].(string)
+	if ok && textCode != "" && textCode != "FEATURE_DISABLED" {
 		t.Fatalf("expected FEATURE_DISABLED text code, got %v", payload["text_code"])
 	}
 }

@@ -177,7 +177,7 @@ func TestWithRPCTransportMountsInvokeRouteAndHidesDiscoveryByDefault(t *testing.
 	}
 
 	resp := testFiberRequest(t, server.WrappedRouter(), http.MethodPost, invokePath, `{"method":"admin.commands.dispatch","params":{"data":{"name":"missing"}}}`)
-	defer resp.Body.Close()
+	defer closeResponseBody(t, resp)
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("expected invoke response status 200, got %d", resp.StatusCode)
 	}

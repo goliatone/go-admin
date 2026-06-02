@@ -504,7 +504,10 @@ func TestNewAdminRegistersRoutesWithGoUsersPreferencesRepo(t *testing.T) {
 
 		userID := uuid.New().String()
 		payload := map[string]any{"theme": "teal"}
-		body, _ := json.Marshal(payload)
+		body, err := json.Marshal(payload)
+		if err != nil {
+			t.Fatalf("marshal payload: %v", err)
+		}
 
 		tests := []struct {
 			name   string
@@ -528,7 +531,10 @@ func TestNewAdminRegistersRoutesWithGoUsersPreferencesRepo(t *testing.T) {
 			})
 		}
 
-		uid, _ := uuid.Parse(userID)
+		uid, err := uuid.Parse(userID)
+		if err != nil {
+			t.Fatalf("parse user id: %v", err)
+		}
 		if _, ok := repo.getRecord(uid, types.PreferenceLevelUser, "theme"); !ok {
 			t.Fatalf("expected preference record to be stored")
 		}

@@ -252,7 +252,9 @@ func performSiteTestRequest[T any](t *testing.T, server router.Server[T], method
 			}
 		}
 		rec.WriteHeader(resp.StatusCode)
-		_, _ = rec.Write(body)
+		if _, err := rec.Write(body); err != nil {
+			t.Fatalf("write response body: %v", err)
+		}
 	default:
 		t.Fatalf("unsupported wrapped router type %T", app)
 	}

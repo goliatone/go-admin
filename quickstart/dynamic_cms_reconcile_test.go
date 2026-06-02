@@ -168,7 +168,7 @@ func TestRegisterContentEntryUIRoutesSkipsCanonicalPanelsOwnedByAdminAliases(t *
 		if err != nil {
 			t.Fatalf("news alias request: %v", err)
 		}
-		defer res.Body.Close()
+		defer closeResponseBody(t, res)
 		if res.StatusCode != http.StatusFound {
 			t.Fatalf("expected alias redirect status %d, got %d", http.StatusFound, res.StatusCode)
 		}

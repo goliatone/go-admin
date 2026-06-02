@@ -1759,7 +1759,7 @@ func TestTranslationQueueRouteStepServesSyncCoreAssets(t *testing.T) {
 	require.NoError(t, TranslationQueueRouteStep(ctx))
 	adapter.Init()
 
-	req := httptest.NewRequest(http.MethodGet, "/admin/sync-client/sync-core/index.js", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/sync-client/sync-core/index.js", nil)
 	resp, err := app.Test(req)
 	require.NoError(t, err)
 	defer resp.Body.Close() //nolint:errcheck // test response body cleanup is best-effort

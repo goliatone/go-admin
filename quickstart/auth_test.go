@@ -237,6 +237,9 @@ func getAuthConfig(adm *admin.Admin) *admin.AuthConfig {
 		return nil
 	}
 	authCfg = reflect.NewAt(authCfg.Type(), unsafe.Pointer(authCfg.UnsafeAddr())).Elem()
-	out, _ := authCfg.Interface().(*admin.AuthConfig)
+	out, ok := authCfg.Interface().(*admin.AuthConfig)
+	if !ok {
+		return nil
+	}
 	return out
 }

@@ -386,7 +386,9 @@ func (dashboardStubRenderer) RenderPage(name string, page admin.AdminDashboardPa
 	_ = name
 	_ = page
 	if len(out) > 0 && out[0] != nil {
-		_, _ = out[0].Write([]byte("stub"))
+		if _, err := out[0].Write([]byte("stub")); err != nil {
+			return "", err
+		}
 	}
 	return "stub", nil
 }
@@ -408,6 +410,9 @@ func unsafeDashboardRenderer(dash *admin.Dashboard) admin.DashboardRenderer {
 		return nil
 	}
 	field = reflect.NewAt(field.Type(), unsafe.Pointer(field.UnsafeAddr())).Elem()
-	renderer, _ := field.Interface().(admin.DashboardRenderer)
+	renderer, ok := field.Interface().(admin.DashboardRenderer)
+	if !ok {
+		return nil
+	}
 	return renderer
 }

@@ -16,10 +16,19 @@ import (
 func TestTranslationDraftSyncStoreGetReturnsEditorSnapshot(t *testing.T) {
 	fixture := newTranslationEditorTestFixture(t, translationEditorTestFixtureOptions{})
 	store := newTranslationDraftSyncResourceStore(fixture.binding)
+	metrics := &capturingTranslationMetrics{}
+	originalMetrics := defaultTranslationMetrics
+	defaultTranslationMetrics = metrics
+	t.Cleanup(func() {
+		defaultTranslationMetrics = originalMetrics
+	})
 
 	snapshot, err := store.Get(context.Background(), translationDraftSyncTestRef(fixture))
 	if err != nil {
 		t.Fatalf("Get: %v", err)
+	}
+	if len(metrics.qaOutcomeTags) != 1 || metrics.qaOutcomeTags[0]["trigger"] != translationDraftSyncTriggerRead {
+		t.Fatalf("expected one read qa outcome metric, got %+v", metrics.qaOutcomeTags)
 	}
 
 	if snapshot.Revision != 3 {
@@ -42,6 +51,12 @@ func TestTranslationDraftSyncStoreMutateAppliesConsecutiveAutosavesAndReturnsSta
 	fixture := newTranslationEditorTestFixture(t, translationEditorTestFixtureOptions{})
 	store := newTranslationDraftSyncResourceStore(fixture.binding)
 	ref := translationDraftSyncTestRef(fixture)
+	metrics := &capturingTranslationMetrics{}
+	originalMetrics := defaultTranslationMetrics
+	defaultTranslationMetrics = metrics
+	t.Cleanup(func() {
+		defaultTranslationMetrics = originalMetrics
+	})
 
 	first := storeMutation(t, store, ref, 3, map[string]any{
 		"fields": map[string]any{
@@ -56,6 +71,9 @@ func TestTranslationDraftSyncStoreMutateAppliesConsecutiveAutosavesAndReturnsSta
 	firstFields := mapString(mustAs[map[string]any](firstData["target_fields"]))
 	if got := firstFields["title"]; got != "Guide de publication" {
 		t.Fatalf("first title=%q", got)
+	}
+	if len(metrics.qaOutcomeTags) != 1 || metrics.qaOutcomeTags[0]["trigger"] != translationDraftSyncTriggerSave {
+		t.Fatalf("expected one save qa outcome metric after first mutate, got %+v", metrics.qaOutcomeTags)
 	}
 
 	second := storeMutation(t, store, ref, 4, map[string]any{
@@ -77,6 +95,9 @@ func TestTranslationDraftSyncStoreMutateAppliesConsecutiveAutosavesAndReturnsSta
 	if got := secondFields["body"]; got != "Deuxieme autosave." {
 		t.Fatalf("second body=%q", got)
 	}
+	if len(metrics.qaOutcomeTags) != 2 || metrics.qaOutcomeTags[1]["trigger"] != translationDraftSyncTriggerSave {
+		t.Fatalf("expected second save qa outcome metric after second mutate, got %+v", metrics.qaOutcomeTags)
+	}
 
 	_, err := store.Mutate(context.Background(), synccore.MutationInput{
 		ResourceRef:      ref,
@@ -94,6 +115,18 @@ func TestTranslationDraftSyncStoreMutateAppliesConsecutiveAutosavesAndReturnsSta
 	current, latest, ok := synccore.StaleRevisionDetails(err)
 	if !ok || current != 5 || latest == nil || latest.Revision != 5 {
 		t.Fatalf("unexpected stale details current=%d latest=%+v ok=%v", current, latest, ok)
+	}
+	if len(metrics.qaOutcomeTags) != 3 || metrics.qaOutcomeTags[2]["trigger"] != translationDraftSyncTriggerConflict {
+		t.Fatalf("expected stale snapshot to emit conflict qa outcome metric, got %+v", metrics.qaOutcomeTags)
+	}
+	saveCount := 0
+	for _, tags := range metrics.qaOutcomeTags {
+		if tags["trigger"] == translationDraftSyncTriggerSave {
+			saveCount++
+		}
+	}
+	if saveCount != 2 {
+		t.Fatalf("expected only successful mutations to emit save metrics, got %+v", metrics.qaOutcomeTags)
 	}
 }
 
@@ -131,7 +164,7 @@ func TestTranslationDraftSyncRouteReadMutateAndStaleRevision(t *testing.T) {
 	if status != http.StatusOK {
 		t.Fatalf("read status=%d payload=%+v", status, payload)
 	}
-	if got := int64(payload["revision"].(float64)); got != 3 {
+	if got := translationDraftSyncJSONInt64(t, payload, "revision"); got != 3 {
 		t.Fatalf("read revision=%d want 3", got)
 	}
 	readData := extractMap(payload["data"])
@@ -155,7 +188,7 @@ func TestTranslationDraftSyncRouteReadMutateAndStaleRevision(t *testing.T) {
 	if status != http.StatusOK {
 		t.Fatalf("mutate status=%d payload=%+v", status, payload)
 	}
-	if got := int64(payload["revision"].(float64)); got != 4 {
+	if got := translationDraftSyncJSONInt64(t, payload, "revision"); got != 4 {
 		t.Fatalf("mutate revision=%d want 4", got)
 	}
 	if got := payload["applied"]; got != true {
@@ -184,11 +217,11 @@ func TestTranslationDraftSyncRouteReadMutateAndStaleRevision(t *testing.T) {
 		t.Fatalf("stale code=%q", got)
 	}
 	details := extractMap(errorPayload["details"])
-	if got := int64(details["current_revision"].(float64)); got != 4 {
+	if got := translationDraftSyncJSONInt64(t, details, "current_revision"); got != 4 {
 		t.Fatalf("stale current_revision=%d want 4", got)
 	}
 	resource := extractMap(details["resource"])
-	if got := int64(resource["revision"].(float64)); got != 4 {
+	if got := translationDraftSyncJSONInt64(t, resource, "revision"); got != 4 {
 		t.Fatalf("stale resource revision=%d want 4", got)
 	}
 }
@@ -294,7 +327,7 @@ func TestTranslationDraftSyncRouteMutatesContentBackedVariant(t *testing.T) {
 	if status != http.StatusOK {
 		t.Fatalf("content mutate status=%d payload=%+v", status, payload)
 	}
-	if got := int64(payload["revision"].(float64)); got != 4 {
+	if got := translationDraftSyncJSONInt64(t, payload, "revision"); got != 4 {
 		t.Fatalf("content revision=%d want 4", got)
 	}
 	data := extractMap(payload["data"])
@@ -349,6 +382,15 @@ func translationDraftSyncSnapshotData(t *testing.T, snapshot synccore.Snapshot) 
 		t.Fatalf("decode snapshot data: %v", err)
 	}
 	return data
+}
+
+func translationDraftSyncJSONInt64(t *testing.T, payload map[string]any, key string) int64 {
+	t.Helper()
+	value, ok := payload[key].(float64)
+	if !ok {
+		t.Fatalf("expected %s to decode as float64, got %T (%v)", key, payload[key], payload[key])
+	}
+	return int64(value)
 }
 
 func mustJSONBytes(t *testing.T, payload map[string]any) []byte {

@@ -501,7 +501,10 @@ func renderSiteTemplateForTest(t *testing.T, cfg admin.Config, siteCfg SiteConfi
 }
 
 func mapFromNestedAny(raw any) map[string]any {
-	typed, _ := raw.(map[string]any)
+	typed, ok := raw.(map[string]any)
+	if !ok {
+		return nil
+	}
 	return typed
 }
 

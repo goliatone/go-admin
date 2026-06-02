@@ -56,6 +56,33 @@ func contentEntryTestInt(value any) int {
 	}
 }
 
+func contentEntryTestString(t *testing.T, payload map[string]any, key string) string {
+	t.Helper()
+	value, ok := payload[key].(string)
+	if !ok {
+		t.Fatalf("expected %s to be string, got %T (%v)", key, payload[key], payload[key])
+	}
+	return value
+}
+
+func contentEntryTestBool(t *testing.T, payload map[string]any, key string) bool {
+	t.Helper()
+	value, ok := payload[key].(bool)
+	if !ok {
+		t.Fatalf("expected %s to be bool, got %T (%v)", key, payload[key], payload[key])
+	}
+	return value
+}
+
+func contentEntryTestMap(t *testing.T, value any, label string) map[string]any {
+	t.Helper()
+	typed, ok := value.(map[string]any)
+	if !ok {
+		t.Fatalf("expected %s to be map[string]any, got %T (%v)", label, value, value)
+	}
+	return typed
+}
+
 type countingListRepository struct {
 	admin.Repository
 	listCalls int
@@ -220,25 +247,25 @@ func TestContentEntryColumnsMarksFilterableFields(t *testing.T) {
 
 	byField := map[string]map[string]any{}
 	for _, column := range columns {
-		byField[column["field"].(string)] = column
+		byField[contentEntryTestString(t, column, "field")] = column
 	}
 
-	if filterable, _ := byField["title"]["filterable"].(bool); !filterable {
+	if filterable := contentEntryTestBool(t, byField["title"], "filterable"); !filterable {
 		t.Fatalf("expected title column to be filterable, got %+v", byField["title"])
 	}
-	if sortable, _ := byField["title"]["sortable"].(bool); !sortable {
+	if sortable := contentEntryTestBool(t, byField["title"], "sortable"); !sortable {
 		t.Fatalf("expected title column to be sortable, got %+v", byField["title"])
 	}
-	if filterable, _ := byField["status"]["filterable"].(bool); !filterable {
+	if filterable := contentEntryTestBool(t, byField["status"], "filterable"); !filterable {
 		t.Fatalf("expected status column to be filterable, got %+v", byField["status"])
 	}
-	if sortable, _ := byField["status"]["sortable"].(bool); !sortable {
+	if sortable := contentEntryTestBool(t, byField["status"], "sortable"); !sortable {
 		t.Fatalf("expected status column to be sortable, got %+v", byField["status"])
 	}
-	if filterable, _ := byField["slug"]["filterable"].(bool); filterable {
+	if filterable := contentEntryTestBool(t, byField["slug"], "filterable"); filterable {
 		t.Fatalf("expected slug column to be non-filterable, got %+v", byField["slug"])
 	}
-	if sortable, _ := byField["slug"]["sortable"].(bool); !sortable {
+	if sortable := contentEntryTestBool(t, byField["slug"], "sortable"); !sortable {
 		t.Fatalf("expected slug column to be sortable, got %+v", byField["slug"])
 	}
 }
@@ -279,7 +306,7 @@ func TestContentEntryColumnsWiresRenderersAndUISchemaHints(t *testing.T) {
 
 	byField := map[string]map[string]any{}
 	for _, column := range columns {
-		byField[column["field"].(string)] = column
+		byField[contentEntryTestString(t, column, "field")] = column
 	}
 
 	if got := strings.TrimSpace(anyToString(byField["tags"]["renderer"])); got != "_array" {
@@ -288,14 +315,14 @@ func TestContentEntryColumnsWiresRenderersAndUISchemaHints(t *testing.T) {
 	if got := strings.TrimSpace(anyToString(byField["metadata"]["renderer"])); got != "_object" {
 		t.Fatalf("expected metadata renderer _object, got %q", got)
 	}
-	metadataOptions, _ := byField["metadata"]["renderer_options"].(map[string]any)
+	metadataOptions := contentEntryTestMap(t, byField["metadata"]["renderer_options"], "metadata renderer_options")
 	if got := strings.TrimSpace(anyToString(metadataOptions["display_key"])); got != "name" {
 		t.Fatalf("expected metadata display_key=name, got %q", got)
 	}
 	if got := strings.TrimSpace(anyToString(byField["blocks"]["renderer"])); got != "blocks_summary" {
 		t.Fatalf("expected blocks renderer override, got %q", got)
 	}
-	blocksOptions, _ := byField["blocks"]["renderer_options"].(map[string]any)
+	blocksOptions := contentEntryTestMap(t, byField["blocks"]["renderer_options"], "blocks renderer_options")
 	if got := strings.TrimSpace(anyToString(blocksOptions["display_key"])); got != "title" {
 		t.Fatalf("expected blocks display_key=title, got %q", got)
 	}
@@ -389,7 +416,7 @@ func TestContentEntryColumnsAppliesConfiguredDefaultRenderers(t *testing.T) {
 
 	byField := map[string]map[string]any{}
 	for _, column := range columns {
-		byField[column["field"].(string)] = column
+		byField[contentEntryTestString(t, column, "field")] = column
 	}
 
 	if got := strings.TrimSpace(anyToString(byField["blocks"]["renderer"])); got != "blocks_summary" {
@@ -487,7 +514,7 @@ func TestContentEntryFiltersUsesSchemaAndFormFieldOptions(t *testing.T) {
 
 	byName := map[string]map[string]any{}
 	for _, filter := range filters {
-		byName[filter["name"].(string)] = filter
+		byName[contentEntryTestString(t, filter, "name")] = filter
 	}
 
 	statusFilter := byName["status"]
@@ -546,7 +573,7 @@ func TestContentEntryFiltersFallsBackToColumns(t *testing.T) {
 
 	byName := map[string]map[string]any{}
 	for _, filter := range filters {
-		byName[filter["name"].(string)] = filter
+		byName[contentEntryTestString(t, filter, "name")] = filter
 	}
 	if byName["title"]["type"] != "text" {
 		t.Fatalf("expected title fallback type text, got %+v", byName["title"]["type"])
@@ -1490,7 +1517,8 @@ func TestRenderFormIncludesResourceItemForEdit(t *testing.T) {
 		if got := strings.TrimSpace(anyToString(viewCtx["panel_name"])); got != "pages" {
 			return false
 		}
-		if edit, _ := viewCtx["is_edit"].(bool); !edit {
+		edit, ok := viewCtx["is_edit"].(bool)
+		if !ok || !edit {
 			return false
 		}
 		item, ok := viewCtx["resource_item"].(map[string]any)
@@ -1670,8 +1698,8 @@ func TestContentEntryAttachTranslationFamilyLinkResolvesFamilyDetailURL(t *testi
 	if got := strings.TrimSpace(anyToString(mapped["translation_family_url"])); got != "/admin/translations/families/tg-page-123" {
 		t.Fatalf("expected translation_family_url to resolve, got %q", got)
 	}
-	links, _ := mapped["links"].(map[string]any)
-	family, _ := links["translation_family"].(map[string]any)
+	links := contentEntryTestMap(t, mapped["links"], "links")
+	family := contentEntryTestMap(t, links["translation_family"], "links.translation_family")
 	if got := strings.TrimSpace(anyToString(family["href"])); got != "/admin/translations/families/tg-page-123" {
 		t.Fatalf("expected links.translation_family.href to resolve, got %q", got)
 	}
@@ -1685,8 +1713,8 @@ func TestContentEntryAttachTranslationFamilyLinkPreservesChannelScope(t *testing
 	if got := strings.TrimSpace(anyToString(mapped["translation_family_url"])); got != "/admin/translations/families/tg-page-123?channel=staging" {
 		t.Fatalf("expected channel-scoped translation_family_url, got %q", got)
 	}
-	links, _ := mapped["links"].(map[string]any)
-	family, _ := links["translation_family"].(map[string]any)
+	links := contentEntryTestMap(t, mapped["links"], "links")
+	family := contentEntryTestMap(t, links["translation_family"], "links.translation_family")
 	if got := strings.TrimSpace(anyToString(family["href"])); got != "/admin/translations/families/tg-page-123?channel=staging" {
 		t.Fatalf("expected channel-scoped links.translation_family.href, got %q", got)
 	}
@@ -1700,13 +1728,13 @@ func TestContentEntryAttachTranslationLocaleLinksBuildsLocaleTargets(t *testing.
 	routes := newContentEntryRoutes("/admin", "pages", "")
 
 	detailLinked := contentEntryAttachTranslationLocaleLinks(record, routes, false, true)
-	detailURLs, _ := detailLinked["translation_locale_urls"].(map[string]any)
+	detailURLs := contentEntryTestMap(t, detailLinked["translation_locale_urls"], "translation_locale_urls")
 	if got := strings.TrimSpace(anyToString(detailURLs["es"])); got != "/admin/content/pages/page-123?locale=es" {
 		t.Fatalf("expected detail locale link, got %q", got)
 	}
 
 	editLinked := contentEntryAttachTranslationLocaleLinks(record, routes, true, true)
-	editURLs, _ := editLinked["translation_locale_urls"].(map[string]any)
+	editURLs := contentEntryTestMap(t, editLinked["translation_locale_urls"], "translation_locale_urls")
 	if got := strings.TrimSpace(anyToString(editURLs["fr"])); got != "/admin/content/pages/page-123/edit?locale=fr" {
 		t.Fatalf("expected edit locale link, got %q", got)
 	}
@@ -1761,7 +1789,10 @@ func TestDetailForPanelIncludesTranslationFamilyLinkWhenTranslationUXEnabled(t *
 		if !ok {
 			return false
 		}
-		localeURLs, _ := item["translation_locale_urls"].(map[string]any)
+		localeURLs, ok := item["translation_locale_urls"].(map[string]any)
+		if !ok {
+			return false
+		}
 		return strings.TrimSpace(anyToString(item["translation_family_url"])) == "/admin/translations/families/tg-page-123" &&
 			strings.TrimSpace(anyToString(localeURLs["en"])) == "/admin/content/pages/1?locale=en"
 	})).Return(nil).Once()

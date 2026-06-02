@@ -59,7 +59,7 @@ func TestFeatureFlagsAPIListAndMutate(t *testing.T) {
 	if err != nil {
 		t.Fatalf("feature flag set request error: %v", err)
 	}
-	defer postResp.Body.Close()
+	defer closeResponseBody(t, postResp)
 	if postResp.StatusCode != http.StatusOK {
 		t.Fatalf("expected set status 200, got %d", postResp.StatusCode)
 	}
@@ -83,7 +83,7 @@ func TestFeatureFlagsAPIListAndMutate(t *testing.T) {
 	if err != nil {
 		t.Fatalf("feature flag unset request error: %v", err)
 	}
-	defer deleteResp.Body.Close()
+	defer closeResponseBody(t, deleteResp)
 	if deleteResp.StatusCode != http.StatusOK {
 		t.Fatalf("expected unset status 200, got %d", deleteResp.StatusCode)
 	}
@@ -252,7 +252,7 @@ func TestFeatureFlagsAPIMutateAllScopesWithGoUsersPreferencesStore(t *testing.T)
 			if err != nil {
 				t.Fatalf("feature flag set request error: %v", err)
 			}
-			defer resp.Body.Close()
+			defer closeResponseBody(t, resp)
 			if resp.StatusCode != http.StatusOK {
 				t.Fatalf("expected set status 200, got %d", resp.StatusCode)
 			}

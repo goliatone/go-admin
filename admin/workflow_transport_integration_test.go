@@ -95,9 +95,9 @@ func TestWorkflowTransportApplyEventPersistsStateProjectsActivityAndReturnsEnvel
 	if workflowEnvelope == nil {
 		t.Fatalf("expected workflow envelope in response data, got %+v", data)
 	}
-	transition := mustAs[map[string]any](workflowEnvelope["transition"])
-	if transition == nil {
-		transition = mustAs[map[string]any](workflowEnvelope["Transition"])
+	transition := extractMap(workflowEnvelope["transition"])
+	if len(transition) == 0 {
+		transition = extractMap(workflowEnvelope["Transition"])
 	}
 	currentState := strings.TrimSpace(toString(transition["current_state"]))
 	if currentState == "" {
