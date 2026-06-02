@@ -1,7 +1,6 @@
 package quickstart
 
 import (
-	"strings"
 	"testing"
 
 	"github.com/goliatone/go-admin/admin"

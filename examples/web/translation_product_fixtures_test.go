@@ -418,7 +418,7 @@ func TestPersistentAssignmentEditorSaveUsesCMSLifecycleStatus(t *testing.T) {
 			})
 			require.Equal(t, http.StatusOK, status, "payload=%+v", payload)
 
-			target, err = cmsOpts.Container.ContentService().Page(ctx, assignment.TargetRecordID, "")
+			target, err := cmsOpts.Container.ContentService().Page(ctx, assignment.TargetRecordID, "")
 			require.NoError(t, err)
 			require.NotNil(t, target)
 			require.Equal(t, "draft", strings.ToLower(strings.TrimSpace(target.Status)))

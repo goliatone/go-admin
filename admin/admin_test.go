@@ -1359,14 +1359,14 @@ func TestBulkRoute(t *testing.T) {
 		jobs, ok := body["jobs"].([]any)
 		if ok && len(jobs) > 0 {
 			first = mustAs[map[string]any](jobs[0])
-			if progress := mustAs[float64](first["progress"]); progress > 0 {
+			if progress, ok := bulkJobProgress(first["progress"]); ok && progress > 0 {
 				break
 			}
 		}
 		if time.Now().After(deadline) {
 			progress := 0.0
 			if first != nil {
-				progress = mustAs[float64](first["progress"])
+				progress, _ = bulkJobProgress(first["progress"])
 			}
 			t.Fatalf("expected progress value, got %v", progress)
 		}
@@ -1405,6 +1405,24 @@ func TestBulkRoute(t *testing.T) {
 	}
 	if status := mustAs[string](job["status"]); status != "rolled_back" {
 		t.Fatalf("expected rolled_back status, got %v", status)
+	}
+}
+
+func bulkJobProgress(value any) (float64, bool) {
+	switch typed := value.(type) {
+	case float64:
+		return typed, true
+	case float32:
+		return float64(typed), true
+	case int:
+		return float64(typed), true
+	case int64:
+		return float64(typed), true
+	case json.Number:
+		parsed, err := typed.Float64()
+		return parsed, err == nil
+	default:
+		return 0, false
 	}
 }
 
