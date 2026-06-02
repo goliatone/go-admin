@@ -306,7 +306,9 @@ func writeError(w http.ResponseWriter, status int, err error) {
 func writeJSON(w http.ResponseWriter, status int, payload any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(payload)
+	if err := json.NewEncoder(w).Encode(payload); err != nil {
+		return
+	}
 }
 
 func cloneScope(input map[string]string) map[string]string {
