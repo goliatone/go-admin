@@ -114,6 +114,9 @@ func contentEntryAliasesFromAdmin(ctx context.Context, adm *admin.Admin) []strin
 	}
 	seen := map[string]string{}
 	for _, ct := range types {
+		if !contentEntryAliasContentTypePublished(&ct) {
+			continue
+		}
 		for _, candidate := range []string{
 			strings.TrimSpace(ct.Slug),
 			panelSlugFromCapabilities(ct.Capabilities),
@@ -204,6 +207,9 @@ func resolveContentEntryAliasPanelSlug(ctx context.Context, adm *admin.Admin, al
 		return alias
 	}
 	for _, ct := range types {
+		if !contentEntryAliasContentTypePublished(&ct) {
+			continue
+		}
 		panelSlug := panelSlugFromCapabilities(ct.Capabilities)
 		if panelSlug != "" && strings.EqualFold(panelSlug, alias) {
 			return panelSlug
@@ -220,4 +226,12 @@ func resolveContentEntryAliasPanelSlug(ctx context.Context, adm *admin.Admin, al
 
 func panelSlugFromCapabilities(capabilities map[string]any) string {
 	return admin.ContentTypeCapabilityString(capabilities, admin.ContentTypeCapabilityKeyPanelSlug)
+}
+
+func contentEntryAliasContentTypePublished(contentType *admin.CMSContentType) bool {
+	if contentType == nil {
+		return false
+	}
+	status := strings.ToLower(strings.TrimSpace(contentType.Status))
+	return status == "active" || status == "published"
 }

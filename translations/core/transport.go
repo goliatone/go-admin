@@ -23,7 +23,10 @@ func ForbiddenIdentityField(payload map[string]any) (string, bool) {
 			return key, true
 		}
 	}
-	scope, _ := payload["scope"].(map[string]any)
+	scope, ok := payload["scope"].(map[string]any)
+	if !ok {
+		return "", false
+	}
 	if len(scope) == 0 {
 		return "", false
 	}

@@ -178,7 +178,7 @@ func RegisterScopeDebugPanel(buffer *ScopeDebugBuffer) {
 	if buffer == nil {
 		return
 	}
-	_ = debugregistry.RegisterPanel(ScopeDebugPanelID, debugregistry.PanelConfig{
+	if err := debugregistry.RegisterPanel(ScopeDebugPanelID, debugregistry.PanelConfig{
 		Label:           "Scope",
 		Icon:            "target",
 		SnapshotKey:     ScopeDebugPanelID,
@@ -245,7 +245,9 @@ func RegisterScopeDebugPanel(buffer *ScopeDebugBuffer) {
 		Clear: func(ctx context.Context) error {
 			return buffer.Clear()
 		},
-	})
+	}); err != nil {
+		return
+	}
 }
 
 func buildScopeDebugEntry(c router.Context, cfg *admin.Config) ScopeDebugEntry {

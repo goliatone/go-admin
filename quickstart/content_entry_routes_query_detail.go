@@ -364,7 +364,14 @@ func (h *contentEntryHandlers) contentTypeFor(ctx context.Context, slug string, 
 	}
 	env = strings.TrimSpace(env)
 	if env == "" {
-		return h.contentTypes.ContentTypeBySlug(ctx, slug)
+		contentType, err := h.contentTypes.ContentTypeBySlug(ctx, slug)
+		if err != nil {
+			return nil, err
+		}
+		if !contentEntryContentTypePublished(contentType) {
+			return nil, admin.ErrNotFound
+		}
+		return contentType, nil
 	}
 	types, err := h.contentTypes.ContentTypes(ctx)
 	if err != nil {
@@ -375,13 +382,31 @@ func (h *contentEntryHandlers) contentTypeFor(ctx context.Context, slug string, 
 		if !strings.EqualFold(ctChannel, env) {
 			continue
 		}
+		if !contentEntryContentTypePublished(&ct) {
+			continue
+		}
 		panelSlug := contentTypePanelSlug(&ct)
 		if strings.EqualFold(strings.TrimSpace(ct.Slug), slug) || (panelSlug != "" && strings.EqualFold(panelSlug, slug)) {
 			contentType := ct
 			return &contentType, nil
 		}
 	}
-	return h.contentTypes.ContentTypeBySlug(ctx, slug)
+	contentType, err := h.contentTypes.ContentTypeBySlug(ctx, slug)
+	if err != nil {
+		return nil, err
+	}
+	if !contentEntryContentTypePublished(contentType) {
+		return nil, admin.ErrNotFound
+	}
+	return contentType, nil
+}
+
+func contentEntryContentTypePublished(contentType *admin.CMSContentType) bool {
+	if contentType == nil {
+		return false
+	}
+	status := strings.ToLower(strings.TrimSpace(contentType.Status))
+	return status == "active" || status == "published"
 }
 
 func (h *contentEntryHandlers) hydrateDetailRelationLinks(panelName string, record map[string]any, channel string) map[string]any {
