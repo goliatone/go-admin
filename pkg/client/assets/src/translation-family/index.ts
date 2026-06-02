@@ -11,6 +11,9 @@ import { normalizeStringRecord } from '../shared/record-normalization.js';
 import { trimTrailingSlash } from '../shared/path-normalization.js';
 import {
   buildURL,
+  getNumberSearchParam,
+  getStringSearchParam,
+  readLocationSearchParams,
   setNumberSearchParam,
   setSearchParam,
 } from '../shared/query-state/url-state.js';
@@ -1621,6 +1624,496 @@ export function renderTranslationFamilyDetailPage(
   options: TranslationFamilyDetailRenderOptions = {}
 ): void {
   root.innerHTML = renderTranslationFamilyDetailState(state, options);
+}
+
+export interface TranslationFamilyListLoadState {
+  status: 'loading' | 'ready' | 'empty' | 'error';
+  filters: TranslationFamilyFilters;
+  response?: TranslationFamilyListResponse;
+  message?: string;
+  requestURL?: string;
+  requestId?: string;
+  traceId?: string;
+  statusCode?: number;
+  errorCode?: string | null;
+}
+
+export interface TranslationFamilyListRenderOptions {
+  endpoint?: string;
+  basePath?: string;
+  familyBasePath?: string;
+  matrixPath?: string;
+  queuePath?: string;
+}
+
+export interface TranslationFamilyListPageOptions extends TranslationFamilyListRenderOptions {
+  fetch?: typeof fetch;
+}
+
+const FAMILY_LIST_QUERY_KEYS = [
+  'channel',
+  'content_type',
+  'readiness_state',
+  'blocker_code',
+  'missing_locale',
+  'page',
+  'per_page',
+];
+
+export function parseFamilyListFiltersFromSearchParams(params: URLSearchParams | null | undefined): TranslationFamilyFilters {
+  const source = params ?? new URLSearchParams();
+  return createFamilyFilters({
+    channel: getStringSearchParam(source, 'channel') || '',
+    contentType: getStringSearchParam(source, 'content_type') || '',
+    readinessState: getStringSearchParam(source, 'readiness_state') || '',
+    blockerCode: getStringSearchParam(source, 'blocker_code') || '',
+    missingLocale: getStringSearchParam(source, 'missing_locale') || '',
+    page: getNumberSearchParam(source, 'page') || 1,
+    perPage: getNumberSearchParam(source, 'per_page') || 50,
+  });
+}
+
+export function readFamilyListFiltersFromLocation(
+  locationLike: { search?: string | null } | null | undefined = globalThis.location
+): TranslationFamilyFilters {
+  return parseFamilyListFiltersFromSearchParams(readLocationSearchParams(locationLike));
+}
+
+export function buildFamilyListBrowserSearch(
+  currentParams: URLSearchParams | null | undefined,
+  filters: Partial<TranslationFamilyFilters>
+): string {
+  const params = new URLSearchParams(currentParams ?? undefined);
+  for (const key of FAMILY_LIST_QUERY_KEYS) {
+    params.delete(key);
+  }
+  const next = buildFamilyListQuery(filters);
+  next.forEach((value, key) => params.set(key, value));
+  return params.toString();
+}
+
+function deriveFamilyAPIBasePath(endpoint: string, fallbackBasePath = '/admin'): string {
+  const normalizedEndpoint = trimTrailingSlash(endpoint);
+  const suffix = '/translations/families';
+  if (normalizedEndpoint.endsWith(suffix)) {
+    return normalizedEndpoint.slice(0, -suffix.length) || '/';
+  }
+  return `${trimTrailingSlash(fallbackBasePath || '/admin')}/api`;
+}
+
+function defaultFamilyBasePath(basePath = '/admin'): string {
+  return `${trimTrailingSlash(basePath || '/admin')}/translations/families`;
+}
+
+export function buildFamilyDetailUIURL(familyBasePath: string, familyId: string, channel = ''): string {
+  const base = trimTrailingSlash(familyBasePath || defaultFamilyBasePath('/admin'));
+  const query = new URLSearchParams();
+  setSearchParam(query, 'channel', channel);
+  return buildURL(`${base}/${encodeURIComponent(asString(familyId))}`, query);
+}
+
+function buildFamilyContextURL(pathname: string, params: Record<string, string>): string {
+  const base = asString(pathname);
+  if (!base) return '';
+  const query = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    setSearchParam(query, key, value);
+  }
+  return buildURL(base, query);
+}
+
+export function buildFamilyMatrixURL(
+  matrixPath: string,
+  row: TranslationFamilyListItem,
+  filters: Partial<TranslationFamilyFilters> = {}
+): string {
+  return buildFamilyContextURL(matrixPath, {
+    family_id: row.familyId,
+    channel: asString(filters.channel),
+    content_type: row.contentType || asString(filters.contentType),
+    readiness_state: row.readinessState || asString(filters.readinessState),
+    blocker_code: asString(filters.blockerCode),
+    missing_locale: asString(filters.missingLocale),
+  });
+}
+
+export function buildFamilyQueueURL(
+  queuePath: string,
+  row: TranslationFamilyListItem,
+  filters: Partial<TranslationFamilyFilters> = {}
+): string {
+  return buildFamilyContextURL(queuePath, {
+    family_id: row.familyId,
+    channel: asString(filters.channel),
+  });
+}
+
+function familyDisplayTitle(row: TranslationFamilyListItem): string {
+  return row.sourceTitle || row.sourceRecordId || row.familyId || 'Translation family';
+}
+
+function renderFilterOption(value: string, label: string, selected: string): string {
+  return `<option value="${escapeAttribute(value)}" ${value === selected ? 'selected' : ''}>${escapeHTML(label)}</option>`;
+}
+
+function renderTranslationFamilyListFilters(filters: TranslationFamilyFilters): string {
+  const perPage = String(filters.perPage || 50);
+  return `
+    <form class="rounded-lg border border-gray-200 bg-white p-4 shadow-sm" data-family-list-filters="true">
+      <div class="grid gap-4 md:grid-cols-3 xl:grid-cols-7">
+        <label class="block text-sm font-medium text-gray-700">
+          <span>Channel</span>
+          <input name="channel" value="${escapeAttribute(filters.channel)}" class="mt-1 block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-sky-500 focus:ring-sky-500" placeholder="default">
+        </label>
+        <label class="block text-sm font-medium text-gray-700">
+          <span>Readiness</span>
+          <select name="readiness_state" class="mt-1 block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-sky-500 focus:ring-sky-500">
+            ${renderFilterOption('', 'Any', filters.readinessState)}
+            ${renderFilterOption('blocked', 'Blocked', filters.readinessState)}
+            ${renderFilterOption('ready', 'Ready', filters.readinessState)}
+          </select>
+        </label>
+        <label class="block text-sm font-medium text-gray-700">
+          <span>Blocker</span>
+          <select name="blocker_code" class="mt-1 block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-sky-500 focus:ring-sky-500">
+            ${renderFilterOption('', 'Any', filters.blockerCode)}
+            ${renderFilterOption('missing_locale', 'Missing locale', filters.blockerCode)}
+            ${renderFilterOption('missing_field', 'Missing field', filters.blockerCode)}
+            ${renderFilterOption('pending_review', 'Pending review', filters.blockerCode)}
+            ${renderFilterOption('outdated_source', 'Outdated source', filters.blockerCode)}
+            ${renderFilterOption('policy_denied', 'Policy denied', filters.blockerCode)}
+          </select>
+        </label>
+        <label class="block text-sm font-medium text-gray-700">
+          <span>Missing locale</span>
+          <input name="missing_locale" value="${escapeAttribute(filters.missingLocale)}" class="mt-1 block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-sky-500 focus:ring-sky-500" placeholder="fr">
+        </label>
+        <label class="block text-sm font-medium text-gray-700">
+          <span>Content type</span>
+          <input name="content_type" value="${escapeAttribute(filters.contentType)}" class="mt-1 block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-sky-500 focus:ring-sky-500" placeholder="pages">
+        </label>
+        <label class="block text-sm font-medium text-gray-700">
+          <span>Per page</span>
+          <select name="per_page" class="mt-1 block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-sky-500 focus:ring-sky-500">
+            ${['10', '25', '50', '100'].map((value) => renderFilterOption(value, value, perPage)).join('')}
+          </select>
+        </label>
+        <div class="flex items-end gap-2">
+          <button type="submit" class="${BTN_PRIMARY} w-full">Apply</button>
+        </div>
+      </div>
+      <input type="hidden" name="page" value="${escapeAttribute(filters.page)}">
+    </form>
+  `;
+}
+
+function renderLocaleList(locales: string[], empty = 'None'): string {
+  if (!locales.length) {
+    return `<span class="text-gray-400">${escapeHTML(empty)}</span>`;
+  }
+  return `
+    <span class="flex flex-wrap gap-1">
+      ${locales.map((locale) => `<span class="rounded bg-gray-100 px-1.5 py-0.5 text-xs font-medium text-gray-700">${escapeHTML(locale.toUpperCase())}</span>`).join('')}
+    </span>
+  `;
+}
+
+function renderFamilyBlockers(row: TranslationFamilyListItem): string {
+  if (!row.blockerCodes.length) {
+    return '<span class="text-gray-400">No blockers</span>';
+  }
+  return row.blockerCodes
+    .map((code) => `<span class="rounded-full px-2 py-0.5 text-xs font-medium ${blockerTone(code)}">${escapeHTML(sentenceCaseToken(code))}</span>`)
+    .join(' ');
+}
+
+function renderFamilyMetric(value: number, label: string, tone = 'text-gray-900'): string {
+  return `
+    <span class="inline-flex min-w-[4.25rem] flex-col rounded-md bg-gray-50 px-2 py-1">
+      <span class="text-sm font-semibold ${tone}">${escapeHTML(value)}</span>
+      <span class="text-[11px] font-medium uppercase tracking-wide text-gray-500">${escapeHTML(label)}</span>
+    </span>
+  `;
+}
+
+function renderFamilyListRows(
+  rows: TranslationFamilyListItem[],
+  filters: TranslationFamilyFilters,
+  options: TranslationFamilyListRenderOptions
+): string {
+  const familyBasePath = options.familyBasePath || defaultFamilyBasePath(options.basePath || '/admin');
+  return rows.map((row) => {
+    const detailURL = buildFamilyDetailUIURL(familyBasePath, row.familyId, filters.channel);
+    const matrixURL = options.matrixPath ? buildFamilyMatrixURL(options.matrixPath, row, filters) : '';
+    const queueURL = options.queuePath ? buildFamilyQueueURL(options.queuePath, row, filters) : '';
+    const title = familyDisplayTitle(row);
+    return `
+      <tr class="border-b border-gray-200 last:border-0" data-family-id="${escapeAttribute(row.familyId)}">
+        <td class="max-w-[22rem] px-4 py-4 align-top">
+          <div class="min-w-0">
+            <a href="${escapeAttribute(detailURL)}" class="font-semibold text-gray-900 hover:text-sky-700">${escapeHTML(title)}</a>
+            <p class="mt-1 break-all text-xs text-gray-500">${escapeHTML(row.familyId)}</p>
+            <p class="mt-2 text-xs text-gray-500">${escapeHTML(row.contentType || 'unknown')} · Source ${escapeHTML(row.sourceLocale.toUpperCase() || 'n/a')}</p>
+          </div>
+        </td>
+        <td class="px-4 py-4 align-top">${renderReadinessChip(row.readinessState)}</td>
+        <td class="px-4 py-4 align-top">${renderFamilyBlockers(row)}</td>
+        <td class="px-4 py-4 align-top">
+          <div class="flex flex-wrap gap-2">
+            ${renderFamilyMetric(row.missingRequiredLocaleCount, 'Missing', row.missingRequiredLocaleCount > 0 ? 'text-rose-700' : 'text-gray-900')}
+            ${renderFamilyMetric(row.pendingReviewCount, 'Review', row.pendingReviewCount > 0 ? 'text-amber-700' : 'text-gray-900')}
+            ${renderFamilyMetric(row.outdatedLocaleCount, 'Outdated', row.outdatedLocaleCount > 0 ? 'text-violet-700' : 'text-gray-900')}
+          </div>
+        </td>
+        <td class="px-4 py-4 align-top">
+          <div class="space-y-2 text-sm">
+            <div><span class="text-xs font-semibold uppercase tracking-wide text-gray-500">Available</span>${renderLocaleList(row.availableLocales)}</div>
+            <div><span class="text-xs font-semibold uppercase tracking-wide text-gray-500">Missing</span>${renderLocaleList(row.missingLocales)}</div>
+          </div>
+        </td>
+        <td class="px-4 py-4 align-top">
+          <div class="flex flex-col gap-2">
+            <a href="${escapeAttribute(detailURL)}" class="${BTN_PRIMARY} text-center" data-family-primary-action="true">Open family</a>
+            ${matrixURL ? `<a href="${escapeAttribute(matrixURL)}" class="${BTN_SECONDARY} text-center">Matrix</a>` : ''}
+            ${queueURL ? `<a href="${escapeAttribute(queueURL)}" class="${BTN_GHOST} text-center">Queue</a>` : ''}
+          </div>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function renderTranslationFamilyListTable(
+  response: TranslationFamilyListResponse,
+  filters: TranslationFamilyFilters,
+  options: TranslationFamilyListRenderOptions
+): string {
+  const start = response.items.length ? ((response.page - 1) * response.perPage) + 1 : 0;
+  const end = Math.min(response.total, (response.page - 1) * response.perPage + response.items.length);
+  const hasPrevious = response.page > 1;
+  const hasNext = response.page * response.perPage < response.total;
+  return `
+    <section class="mt-6 rounded-lg border border-gray-200 bg-white shadow-sm" aria-labelledby="translation-family-list-results">
+      <div class="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 px-4 py-3">
+        <div>
+          <h2 id="translation-family-list-results" class="text-base font-semibold text-gray-900">Families</h2>
+          <p class="text-sm text-gray-500">${escapeHTML(start)}-${escapeHTML(end)} of ${escapeHTML(response.total)} families</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <button type="button" class="${BTN_SECONDARY}" data-family-list-page="prev" ${hasPrevious ? '' : 'disabled'}>Previous</button>
+          <span class="text-sm text-gray-500">Page ${escapeHTML(response.page)}</span>
+          <button type="button" class="${BTN_SECONDARY}" data-family-list-page="next" ${hasNext ? '' : 'disabled'}>Next</button>
+        </div>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="min-w-full text-left text-sm">
+          <caption class="sr-only">Translation families with readiness, blockers, locale coverage, and row actions.</caption>
+          <thead class="bg-gray-50 text-xs font-semibold uppercase tracking-wide text-gray-500">
+            <tr>
+              <th scope="col" class="px-4 py-3">Family</th>
+              <th scope="col" class="px-4 py-3">Readiness</th>
+              <th scope="col" class="px-4 py-3">Blockers</th>
+              <th scope="col" class="px-4 py-3">Pressure</th>
+              <th scope="col" class="px-4 py-3">Locales</th>
+              <th scope="col" class="px-4 py-3">Actions</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-100">
+            ${renderFamilyListRows(response.items, filters, options)}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  `;
+}
+
+function renderTranslationFamilyListError(state: TranslationFamilyListLoadState): string {
+  return `
+    <div class="${ERROR_STATE} mt-6 p-6" role="alert">
+      <h2 class="${ERROR_STATE_TITLE}">Families failed to load</h2>
+      <p class="${ERROR_STATE_TEXT} mt-2">${escapeHTML(state.message || 'The translation families request failed.')}</p>
+      ${state.requestURL ? `<p class="mt-3 break-all text-xs text-gray-500">Request ${escapeHTML(state.requestURL)}</p>` : ''}
+      ${renderDiagnostics({
+        status: 'error',
+        requestId: state.requestId,
+        traceId: state.traceId,
+        errorCode: state.errorCode,
+      })}
+      <button type="button" class="ui-state-retry-btn mt-4 ${BTN_SECONDARY}">Retry</button>
+    </div>
+  `;
+}
+
+export function renderTranslationFamilyListState(
+  state: TranslationFamilyListLoadState,
+  options: TranslationFamilyListRenderOptions = {}
+): string {
+  const filters = state.filters;
+  const controls = renderTranslationFamilyListFilters(filters);
+  if (state.status === 'loading') {
+    return `${controls}${renderFamilyLoadingState('Loading translation families...')}`;
+  }
+  if (state.status === 'error') {
+    return `${controls}${renderTranslationFamilyListError(state)}`;
+  }
+  const response = state.response;
+  if (!response || state.status === 'empty' || response.items.length === 0) {
+    return `${controls}${renderFamilyEmptyState('No translation families found', 'No families match the current filters.')}`;
+  }
+  return `${controls}${renderTranslationFamilyListTable(response, filters, options)}`;
+}
+
+export function renderTranslationFamilyListPage(
+  root: HTMLElement | { innerHTML: string; dataset?: DOMStringMap | Record<string, string | undefined> },
+  state: TranslationFamilyListLoadState,
+  options: TranslationFamilyListRenderOptions = {}
+): void {
+  root.innerHTML = renderTranslationFamilyListState(state, options);
+}
+
+export async function fetchTranslationFamilyListState(
+  endpoint: string,
+  filters: TranslationFamilyFilters,
+  options: TranslationFamilyDetailFetchOptions & { basePath?: string } = {}
+): Promise<TranslationFamilyListLoadState> {
+  const apiBasePath = deriveFamilyAPIBasePath(endpoint, options.basePath);
+  const requestURL = buildFamilyListURL(apiBasePath, filters);
+  const fetchImpl = options.fetch;
+  try {
+    const response = await (fetchImpl
+      ? fetchImpl(requestURL, { headers: { Accept: 'application/json' } })
+      : httpRequest(requestURL, { headers: { Accept: 'application/json' } }));
+    const requestId = asString(response.headers.get('x-request-id'));
+    const traceId = requestTraceID(response.headers);
+    if (!response.ok) {
+      const structured = await extractStructuredError(response);
+      return {
+        status: 'error',
+        filters,
+        message: structured.message,
+        requestURL,
+        requestId,
+        traceId,
+        statusCode: response.status,
+        errorCode: structured.textCode,
+      };
+    }
+    const payload = asRecord(await response.json());
+    const list = normalizeFamilyListResponse(payload);
+    return {
+      status: list.items.length ? 'ready' : 'empty',
+      filters,
+      response: list,
+      requestURL,
+      requestId,
+      traceId,
+      statusCode: response.status,
+    };
+  } catch (error) {
+    return {
+      status: 'error',
+      filters,
+      message: error instanceof Error ? error.message : 'Failed to load translation families.',
+      requestURL,
+    };
+  }
+}
+
+function familyFiltersFromForm(form: HTMLFormElement, fallback: TranslationFamilyFilters): TranslationFamilyFilters {
+  const data = new FormData(form);
+  const stringValue = (name: string, fallbackValue: string): string =>
+    data.has(name) ? asString(data.get(name)) : fallbackValue;
+  const numberValue = (name: string, fallbackValue: number): number =>
+    data.has(name) ? asNumber(data.get(name), fallbackValue) : fallbackValue;
+  return createFamilyFilters({
+    channel: stringValue('channel', fallback.channel),
+    contentType: stringValue('content_type', fallback.contentType),
+    readinessState: stringValue('readiness_state', fallback.readinessState),
+    blockerCode: stringValue('blocker_code', fallback.blockerCode),
+    missingLocale: stringValue('missing_locale', fallback.missingLocale),
+    page: numberValue('page', fallback.page),
+    perPage: numberValue('per_page', fallback.perPage),
+  });
+}
+
+function updateFamilyListBrowserURL(filters: TranslationFamilyFilters): void {
+  if (typeof window === 'undefined' || !window.history || !window.location) return;
+  const current = new URLSearchParams(window.location.search);
+  const search = buildFamilyListBrowserSearch(current, filters);
+  const nextURL = `${window.location.pathname}${search ? `?${search}` : ''}${window.location.hash || ''}`;
+  window.history.pushState({}, '', nextURL);
+}
+
+export async function initTranslationFamilyListPage(
+  root: HTMLElement | null,
+  options: TranslationFamilyListPageOptions = {}
+): Promise<TranslationFamilyListLoadState | null> {
+  if (!root) return null;
+  const dataset = root.dataset || {};
+  const renderOptions: TranslationFamilyListRenderOptions = {
+    endpoint: asString(options.endpoint || dataset.endpoint),
+    basePath: asString(options.basePath || dataset.basePath || '/admin'),
+    familyBasePath: asString(options.familyBasePath || dataset.familyBasePath),
+    matrixPath: asString(options.matrixPath || dataset.matrixPath),
+    queuePath: asString(options.queuePath || dataset.queuePath),
+  };
+  if (!renderOptions.familyBasePath) {
+    renderOptions.familyBasePath = defaultFamilyBasePath(renderOptions.basePath);
+  }
+
+  let filters = readFamilyListFiltersFromLocation();
+  let lastState: TranslationFamilyListLoadState | null = null;
+
+  const load = async (nextFilters: TranslationFamilyFilters, pushURL = false): Promise<TranslationFamilyListLoadState> => {
+    filters = createFamilyFilters(nextFilters);
+    if (pushURL) {
+      updateFamilyListBrowserURL(filters);
+    }
+    renderTranslationFamilyListPage(root, { status: 'loading', filters }, renderOptions);
+    const state = await fetchTranslationFamilyListState(asString(renderOptions.endpoint), filters, {
+      fetch: options.fetch,
+      basePath: renderOptions.basePath,
+    });
+    lastState = state;
+    renderTranslationFamilyListPage(root, state, renderOptions);
+    bindTranslationFamilyListPage(root, state, load);
+    return state;
+  };
+
+  lastState = await load(filters, false);
+  return lastState;
+}
+
+function bindTranslationFamilyListPage(
+  root: HTMLElement,
+  state: TranslationFamilyListLoadState,
+  load: (filters: TranslationFamilyFilters, pushURL?: boolean) => Promise<TranslationFamilyListLoadState>
+): void {
+  const form = root.querySelector<HTMLFormElement>('[data-family-list-filters="true"]');
+  if (form) {
+    form.addEventListener('submit', (event) => {
+      event.preventDefault();
+      const next = familyFiltersFromForm(form, state.filters);
+      void load({ ...next, page: 1 }, true);
+    });
+    form.querySelectorAll<HTMLSelectElement>('select').forEach((select) => {
+      select.addEventListener('change', () => {
+        const next = familyFiltersFromForm(form, state.filters);
+        void load({ ...next, page: 1 }, true);
+      });
+    });
+  }
+  root.querySelector<HTMLButtonElement>('.ui-state-retry-btn')?.addEventListener('click', () => {
+    void load(state.filters, false);
+  });
+  root.querySelectorAll<HTMLButtonElement>('[data-family-list-page]').forEach((button) => {
+    button.addEventListener('click', () => {
+      if (button.disabled) return;
+      const direction = button.dataset.familyListPage;
+      const delta = direction === 'next' ? 1 : -1;
+      void load({ ...state.filters, page: Math.max(1, state.filters.page + delta) }, true);
+    });
+  });
 }
 
 function globalToast(kind: 'success' | 'error' | 'warning' | 'info', message: string): void {

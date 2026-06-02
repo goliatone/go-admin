@@ -158,7 +158,9 @@ export interface AssignmentListRow {
   source_title: string;
   source_path: string;
   assignee_id: string;
+  assignee_label?: string;
   reviewer_id: string;
+  reviewer_label?: string;
   assignment_type: string;
   content_state: string;
   queue_state: AssignmentQueueState;
@@ -767,7 +769,9 @@ export function normalizeAssignmentListRow(value: unknown): AssignmentListRow {
     source_title: asString(raw.source_title),
     source_path: asString(raw.source_path),
     assignee_id: asString(raw.assignee_id),
+    assignee_label: asString(raw.assignee_label) || undefined,
     reviewer_id: asString(raw.reviewer_id),
+    reviewer_label: asString(raw.reviewer_label) || undefined,
     assignment_type: asString(raw.assignment_type),
     content_state: asString(raw.content_state),
     queue_state: normalizeQueueState(raw.queue_state),
@@ -2226,6 +2230,9 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
       locale: undefined,
       assigneeId: undefined,
       reviewerId: undefined,
+      familyId: undefined,
+      sort: undefined,
+      order: undefined,
       page: 1,
     };
     this.activePresetId = 'custom';
@@ -2243,29 +2250,22 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
 
     this.container.innerHTML = `
       <div class="assignment-queue-screen" data-assignment-queue="true">
-        <header class="${HEADER_CONTAINER}">
-          <div class="${HEADER_FLEX}">
-            <div>
-              <p class="${HEADER_PRETITLE}">Queue</p>
-              <h1 class="${HEADER_TITLE}">${escapeHtml(this.config.title)}</h1>
-              <p class="${HEADER_DESCRIPTION} max-w-2xl">${escapeHtml(this.config.description)}</p>
-            </div>
-            <div class="flex items-center gap-3">
-              <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
-                <span class="text-gray-500">Rows</span> ${this.visibleRows.length}
-              </span>
-              <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
-                <span class="text-gray-500">Total</span> ${this.response?.meta.total ?? 0}
-              </span>
-              <button type="button" class="${BTN_SECONDARY_SM}" data-queue-refresh="true">
-                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
-                </svg>
-                Refresh
-              </button>
-            </div>
+        <div class="bg-white border-b border-gray-200 px-8 py-4">
+          <div class="flex items-center justify-end gap-3">
+            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
+              <span class="text-gray-500">Rows</span> ${this.visibleRows.length}
+            </span>
+            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
+              <span class="text-gray-500">Total</span> ${this.response?.meta.total ?? 0}
+            </span>
+            <button type="button" class="${BTN_SECONDARY_SM}" data-queue-refresh="true">
+              <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+              </svg>
+              Refresh
+            </button>
           </div>
-        </header>
+        </div>
         ${this.renderFeedback()}
         ${this.renderBulkActionBar()}
         ${this.renderFilterSnapshotBar()}
@@ -2395,22 +2395,25 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
 
   private renderPresetBar(): string {
     return `
-      <nav class="panel-tabs border-b border-gray-200" role="tablist" aria-label="Saved queue filters">
-        <div class="panel-tabs-container">
+      <div class="bg-white border-b border-gray-200 px-8 py-4" role="group" aria-label="Saved queue filters">
+        <div class="flex flex-wrap items-center gap-2">
           ${this.savedFilterPresets.map((preset) => `
             <button
               type="button"
-              class="panel-tab ${this.activePresetId === preset.id ? 'panel-tab-active' : ''}"
+              class="inline-flex items-center px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                this.activePresetId === preset.id
+                  ? 'bg-blue-600 text-white hover:bg-blue-700'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }"
               data-preset-id="${escapeAttr(preset.id)}"
-              role="tab"
-              aria-selected="${this.activePresetId === preset.id ? 'true' : 'false'}"
+              aria-pressed="${this.activePresetId === preset.id ? 'true' : 'false'}"
               title="${escapeAttr(preset.description || preset.label)}"
             >
-              <span class="panel-tab-label">${escapeHtml(preset.label)}</span>
+              ${escapeHtml(preset.label)}
             </button>
           `).join('')}
         </div>
-      </nav>
+      </div>
     `;
   }
 
@@ -2422,30 +2425,37 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
     const actorID = this.response?.meta.review_actor_id;
     const reviewerStateEnabled = Boolean(actorID);
     return `
-      <section class="panel-tabs border-b border-gray-200" aria-label="Reviewer queue states">
+      <div class="bg-white border-b border-gray-200 px-8 py-4" role="group" aria-label="Reviewer queue states">
         <h2 class="sr-only">Reviewer states</h2>
-        <div class="panel-tabs-container">
+        <div class="flex flex-wrap items-center gap-2">
           ${this.savedReviewFilterPresets.map((preset) => `
             <button
               type="button"
-              class="panel-tab ${this.activeReviewPresetId === preset.id ? 'panel-tab-active' : ''}"
+              class="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                this.activeReviewPresetId === preset.id
+                  ? 'bg-blue-600 text-white hover:bg-blue-700'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              } ${!reviewerStateEnabled ? 'opacity-50 cursor-not-allowed' : ''}"
               data-review-preset-id="${escapeAttr(preset.id)}"
-              role="tab"
-              aria-selected="${this.activeReviewPresetId === preset.id ? 'true' : 'false'}"
+              aria-pressed="${this.activeReviewPresetId === preset.id ? 'true' : 'false'}"
               title="${escapeAttr(reviewerStateEnabled ? (preset.description || preset.label) : 'Reviewer metadata is required to use this preset.')}"
               ${reviewerStateEnabled ? '' : 'disabled aria-disabled="true"'}
             >
-              <span class="panel-tab-label">${escapeHtml(preset.label)}</span>
-              <span class="ml-1.5 px-2 py-0.5 text-xs rounded-full ${this.activeReviewPresetId === preset.id ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'}">${counts[preset.id] ?? 0}</span>
+              <span>${escapeHtml(preset.label)}</span>
+              <span class="inline-flex items-center justify-center min-w-[1.25rem] px-1.5 py-0.5 text-xs font-semibold rounded-full ${
+                this.activeReviewPresetId === preset.id
+                  ? 'bg-blue-500 text-white'
+                  : 'bg-white text-gray-700'
+              }">${counts[preset.id] ?? 0}</span>
             </button>
           `).join('')}
         </div>
         ${!reviewerStateEnabled ? `
-          <div class="px-4 py-2 text-xs text-gray-500 bg-gray-50 border-t border-gray-200">
+          <div class="mt-3 px-4 py-2 text-xs text-gray-500 bg-gray-50 rounded-lg">
             Reviewer queue states are available when reviewer metadata is present.
           </div>
         ` : ''}
-      </section>
+      </div>
     `;
   }
 
@@ -2955,7 +2965,7 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
         <td class="queue-content-col">
           <div class="queue-content-cell queue-content-cell-grouped">
             <span class="queue-content-indent"></span>
-            <span class="queue-content-title-small" title="${escapeAttr(row.source_title || row.source_path || row.id)}">${escapeHtml(row.source_title || row.source_path || row.id)}</span>
+            <span class="queue-content-title-small" title="${escapeAttr(row.source_title && row.source_path ? `${row.source_title} — ${row.source_path}` : row.source_title || row.source_path || row.id)}">${escapeHtml(row.source_title || row.source_path || row.id)}</span>
           </div>
         </td>
         <td class="queue-locale-col">
@@ -2978,10 +2988,10 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
         <td class="queue-owner-col">
           <div class="queue-owner-cell">
             ${hasAssignee
-              ? `<span class="queue-owner-value">${escapeHtml(row.assignee_id)}</span>`
+              ? renderOwnerToken('queue-owner-value', 'Assignee', row.assignee_id, row.assignee_label)
               : ''}
             ${hasReviewer
-              ? `<span class="queue-reviewer-value">${escapeHtml(row.reviewer_id)}</span>`
+              ? renderOwnerToken('queue-reviewer-value', 'Reviewer', row.reviewer_id, row.reviewer_label)
               : ''}
           </div>
         </td>
@@ -3161,10 +3171,10 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
         <td class="queue-owner-col">
           <div class="queue-owner-cell">
             ${hasAssignee
-              ? `<span class="queue-owner-value">${escapeHtml(row.assignee_id)}</span>`
+              ? renderOwnerToken('queue-owner-value', 'Assignee', row.assignee_id, row.assignee_label)
               : ''}
             ${hasReviewer
-              ? `<span class="queue-reviewer-value">${escapeHtml(row.reviewer_id)}</span>`
+              ? renderOwnerToken('queue-reviewer-value', 'Reviewer', row.reviewer_id, row.reviewer_label)
               : ''}
             ${row.last_rejection_reason ? `<span class="queue-feedback-note">${escapeHtml(row.last_rejection_reason)}</span>` : ''}
           </div>
@@ -3201,6 +3211,7 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
   private renderMobileCard(row: AssignmentListRow): string {
     // T05: Mute empty owner/due states for mobile
     const hasAssignee = Boolean(row.assignee_id);
+    const hasReviewer = Boolean(row.reviewer_id);
     const hasDueDate = Boolean(row.due_date);
     const showDueState = hasDueDate || row.due_state === 'overdue' || row.due_state === 'due_soon';
 
@@ -3245,7 +3256,13 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
           ${hasAssignee ? `
           <div class="${MOBILE_CARD_ROW}">
             <span class="${MOBILE_CARD_LABEL}">Assignee</span>
-            <span class="${MOBILE_CARD_VALUE}">${escapeHtml(row.assignee_id)}</span>
+            <span class="${MOBILE_CARD_VALUE}" title="${escapeAttr(ownerTitle('Assignee', row.assignee_id, row.assignee_label))}">${escapeHtml(ownerDisplay(row.assignee_id, row.assignee_label))}</span>
+          </div>
+          ` : ''}
+          ${hasReviewer ? `
+          <div class="${MOBILE_CARD_ROW}">
+            <span class="${MOBILE_CARD_LABEL}">Reviewer</span>
+            <span class="${MOBILE_CARD_VALUE}" title="${escapeAttr(ownerTitle('Reviewer', row.reviewer_id, row.reviewer_label))}">${escapeHtml(ownerDisplay(row.reviewer_id, row.reviewer_label))}</span>
           </div>
           ` : ''}
           ${hasDueDate || showDueState ? `
@@ -3474,14 +3491,27 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
     });
 
     // T06: Overflow menu interaction handlers
-    this.container.querySelectorAll<HTMLButtonElement>('[data-overflow-menu]').forEach((trigger) => {
+    const overflowTriggers = this.container.querySelectorAll<HTMLButtonElement>('[data-overflow-menu]');
+    overflowTriggers.forEach((trigger) => {
       trigger.addEventListener('click', (event) => {
         event.stopPropagation();
         const menuId = trigger.dataset.overflowMenu;
-        if (!menuId) return;
+        if (!menuId) {
+          return;
+        }
 
-        const menu = this.container?.querySelector<HTMLElement>(`#menu-${menuId}`);
-        if (!menu) return;
+        // Try to find menu within the same overflow container first
+        const overflowContainer = trigger.closest('.queue-action-overflow-container');
+        let menu = overflowContainer?.querySelector<HTMLElement>(`#menu-${menuId}`);
+
+        // Fallback to global search if not found
+        if (!menu) {
+          menu = this.container?.querySelector<HTMLElement>(`#menu-${menuId}`) || null;
+        }
+
+        if (!menu) {
+          return;
+        }
 
         const isOpen = menu.hidden === false;
 
@@ -3670,6 +3700,31 @@ function buildRowAriaLabel(row: AssignmentListRow): string {
     row.queue_state,
     row.due_state,
   ].filter(Boolean).join(', ');
+}
+
+function ownerDisplay(id: string, label?: string): string {
+  return (label || id || '').trim();
+}
+
+function ownerTitle(role: string, id: string, label?: string): string {
+  const display = ownerDisplay(id, label);
+  if (!display) {
+    return '';
+  }
+  const trimmedId = (id || '').trim();
+  if (!trimmedId || display === trimmedId) {
+    return `${role}: ${display}`;
+  }
+  return `${role}: ${display} (${trimmedId})`;
+}
+
+function renderOwnerToken(className: string, role: string, id: string, label?: string): string {
+  const display = ownerDisplay(id, label);
+  if (!display) {
+    return '';
+  }
+  const title = ownerTitle(role, id, label);
+  return `<span class="${escapeAttr(className)}" title="${escapeAttr(title)}" aria-label="${escapeAttr(title)}">${escapeHtml(display)}</span>`;
 }
 
 function humanizeToken(value: string): string {
@@ -4010,12 +4065,20 @@ export function getAssignmentQueueStyles(): string {
     /* T09: Owner cell - mute empty states */
     .queue-owner-value {
       display: block;
+      max-width: 11rem;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
       color: #374151;
       font-size: 0.88rem;
     }
 
     .queue-reviewer-value {
       display: block;
+      max-width: 11rem;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
       color: #6b7280;
       font-size: 0.82rem;
     }
@@ -4570,6 +4633,15 @@ export function getAssignmentQueueStyles(): string {
       border-radius: 0.375rem;
       box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
       padding: 0.25rem 0;
+      display: none;
+    }
+
+    .queue-action-overflow-menu[hidden] {
+      display: none !important;
+    }
+
+    .queue-action-overflow-menu:not([hidden]) {
+      display: block;
     }
 
     .queue-action-menu-item {

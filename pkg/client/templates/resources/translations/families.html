@@ -1,0 +1,53 @@
+{% extends "layout.html" %}
+
+{% block title %}Translation Families - {{ title }}{% endblock %}
+
+{% block content %}
+<header class="px-8 py-6 border-b border-gray-200 bg-white">
+  <div class="flex flex-wrap items-center justify-between gap-4">
+    <div>
+      {% include "partials/breadcrumbs.html" with breadcrumbs=breadcrumbs %}
+      <p class="text-xs font-semibold uppercase tracking-wider text-gray-500">Translations</p>
+      <h1 class="mt-2 text-3xl font-bold text-admin-dark">Translation Families</h1>
+      <p class="text-sm text-gray-500 mt-1">
+        Triage readiness blockers, locale coverage, and review pressure across translation families.
+      </p>
+    </div>
+    <div id="translation-families-header-actions" class="flex items-center gap-3">
+      <!-- Header actions mount here via JS -->
+    </div>
+  </div>
+</header>
+
+<div class="flex-1 overflow-y-auto bg-gray-50 p-8">
+  <div class="mx-auto">
+    <div
+      id="translation-families-root"
+      data-endpoint="{{ translation_families_api_path|default:"" }}"
+      data-base-path="{{ base_path|default:"/admin" }}"
+      data-family-base-path="{{ translation_family_base_path|default:"" }}"
+      data-matrix-path="{{ translation_matrix_path|default:"" }}"
+      data-queue-path="{{ translation_queue_path|default:"" }}"
+      data-title="Translation Families"
+      data-surface="translation-families"
+    ></div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script type="module">
+import { initTranslationFamilyListPage } from '{{ adminURL("assets/dist/translation-family/index.js") }}';
+
+const root = document.getElementById('translation-families-root');
+if (root) {
+  void initTranslationFamilyListPage(root, {
+    endpoint: root.dataset.endpoint || '',
+    basePath: root.dataset.basePath || '{{ base_path|default:"/admin" }}',
+    familyBasePath: root.dataset.familyBasePath || '',
+    matrixPath: root.dataset.matrixPath || '',
+    queuePath: root.dataset.queuePath || '',
+  });
+}
+</script>
+{% endblock %}

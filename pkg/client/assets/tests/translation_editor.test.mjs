@@ -320,6 +320,17 @@ test('translation editor contracts: normalize detail fixture with assist and act
   assert.equal(detail.attachments.length, 2);
   assert.equal(detail.translation_assignment.version, 2);
   assert.equal(detail.qa_results.submit_blocked, true);
+  assert.equal(detail.locale_navigation.family_id, 'tg-page-1');
+  assert.equal(detail.locale_navigation.current_locale, 'fr');
+  assert.equal(detail.locale_navigation.source_locale, 'en');
+  assert.equal(detail.locale_navigation.current_work_scope, '__all__');
+  assert.equal(detail.locale_navigation.locales.length, 4);
+  assert.equal(detail.locale_navigation.locales.find((entry) => entry.locale === 'es')?.href, '/admin/translations/assignments/asg-editor-es/edit');
+  assert.equal(detail.locale_navigation.locales.find((entry) => entry.locale === 'es')?.work_scope, '__all__');
+  assert.equal(detail.locale_navigation.locales.find((entry) => entry.locale === 'de')?.disabled, true);
+  assert.equal(detail.locale_navigation.locales.find((entry) => entry.locale === 'de')?.href, undefined);
+  assert.equal(detail.locale_navigation.locales.find((entry) => entry.locale === 'it')?.disabled, true);
+  assert.equal(detail.locale_navigation.locales.find((entry) => entry.locale === 'it')?.href, undefined);
 });
 
 test('translation editor contracts: legacy assist keys and missing assets degrade cleanly', () => {
@@ -407,6 +418,43 @@ test('translation editor runtime: renders full screen with history, attachments,
   const unavailableHTML = renderTranslationEditorState({ status: 'ready', detail: assistUnavailable });
   assert.match(unavailableHTML, /Glossary matches unavailable/i);
   assert.match(unavailableHTML, /Style-guide guidance is unavailable/i);
+});
+
+test('translation editor runtime: renders locale navigation without missing-locale fallbacks', () => {
+  const detail = normalizeAssignmentEditorDetail(fixtures.detail);
+  const html = renderTranslationEditorState(
+    { status: 'ready', detail },
+    createTranslationEditorState(detail)
+  );
+  const dom = new JSDOM(`<!doctype html><html><body>${html}</body></html>`);
+  const summary = dom.window.document.querySelector('[data-editor-locale-summary="true"]');
+  assert.ok(summary);
+  assert.equal(summary.getAttribute('data-family-id'), 'tg-page-1');
+  assert.equal(summary.getAttribute('data-current-locale'), 'fr');
+
+  const current = summary.querySelector('[data-locale-chip="fr"]');
+  assert.equal(current?.tagName, 'A');
+  assert.equal(current?.getAttribute('aria-current'), 'page');
+  assert.equal(current?.getAttribute('href'), '/admin/translations/assignments/asg-editor-1/edit');
+
+  const sibling = summary.querySelector('[data-locale-chip="es"]');
+  assert.equal(sibling?.tagName, 'A');
+  assert.equal(sibling?.getAttribute('href'), '/admin/translations/assignments/asg-editor-es/edit');
+  assert.equal(sibling?.getAttribute('data-assignment-id'), 'asg-editor-es');
+
+  const missing = summary.querySelector('[data-locale-chip="de"]');
+  assert.equal(missing?.tagName, 'SPAN');
+  assert.equal(missing?.getAttribute('aria-disabled'), 'true');
+  assert.equal(missing?.hasAttribute('href'), false);
+  assert.match(missing?.getAttribute('title') || '', /No translation assignment exists/);
+
+  const variantOnly = summary.querySelector('[data-locale-chip="it"]');
+  assert.equal(variantOnly?.tagName, 'SPAN');
+  assert.equal(variantOnly?.getAttribute('aria-disabled'), 'true');
+  assert.equal(variantOnly?.hasAttribute('href'), false);
+
+  const familyLink = summary.querySelector('[data-family-detail-link="true"]');
+  assert.equal(familyLink?.getAttribute('href'), '/admin/translations/families/tg-page-1');
 });
 
 test('translation editor runtime: renders translation-memory scores on one percent scale', () => {

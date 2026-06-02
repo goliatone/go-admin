@@ -27,7 +27,11 @@ test.describe('Translation Dashboard - Manager Monitoring', () => {
     await navigateToTranslationDashboard(page);
 
     await expect(page.locator('[data-dashboard-toolbar="true"]')).toBeVisible();
-    await expect(page.locator('[data-dashboard-card="my_tasks"]')).toContainText('My Tasks');
+    // After polish, cards show short labels with full context in title
+    const myTasksCard = page.locator('[data-dashboard-card="my_tasks"]');
+    await expect(myTasksCard).toBeVisible();
+    await expect(myTasksCard).toContainText('Tasks');
+    await expect(myTasksCard).toHaveAttribute('title', /My Tasks/);
     await expect(page.locator('[data-dashboard-table="top_overdue_assignments"]')).toBeVisible();
     await expect(page.locator('[data-dashboard-table="top_overdue_assignments"]')).toContainText('Showing 0 of 0');
     await expect(page.locator('[data-dashboard-link="assignment"]')).toHaveCount(0);
@@ -62,8 +66,14 @@ test.describe('Translation Dashboard - Manager Monitoring', () => {
     await navigateToTranslationDashboard(page);
 
     await expect(page.locator('[data-dashboard-degraded="true"]')).toBeVisible();
-    await expect(page.locator('[data-dashboard-alerts="true"]')).toContainText('DEGRADED_DATA');
-    await expect(page.locator('[data-dashboard-table="blocked_families"] [data-dashboard-link="family"]').first()).toBeVisible();
+    // After polish, raw alert codes like DEGRADED_DATA are not visible text
+    // Alert information is shown through the summary banner with human-readable labels
+    const alertBanner = page.locator('[data-dashboard-alerts-section="true"]');
+    await expect(alertBanner).toBeVisible();
+    // Verify alert code is in data attribute but not visible text
+    await expect(page.locator('[data-alert-code="DEGRADED_DATA"]')).toBeAttached();
+    // Verify blocked families card is present (tables may be in tabs)
+    await expect(page.locator('[data-dashboard-card="blocked_families"]')).toBeVisible();
   });
 
   test('retry recovers from an initial dashboard failure', async ({ page }) => {
@@ -94,6 +104,29 @@ test.describe('Translation Dashboard - Manager Monitoring', () => {
     await page.locator('[data-dashboard-refresh-button]').first().click();
     await expect(page.locator('[data-dashboard="true"]')).toBeVisible();
     await expect(page.locator('[data-dashboard-inline-error="true"]')).toHaveCount(0);
-    await expect(page.locator('[data-dashboard-card="blocked_families"]')).toContainText('Blocked Families');
+    // After polish, cards show short labels with full context in title
+    const blockedCard = page.locator('[data-dashboard-card="blocked_families"]');
+    await expect(blockedCard).toBeVisible();
+    await expect(blockedCard).toContainText('Blocked');
+    await expect(blockedCard).toHaveAttribute('title', /Blocked Families/);
+  });
+
+  test('blocked-family drilldown opens the families UI page instead of the API feed', async ({ page }) => {
+    await page.route('**/admin/api/translations/dashboard**', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(fixtureState('alert_triggering')),
+      });
+    });
+    await navigateToTranslationDashboard(page);
+
+    const blockedDrilldown = page.locator('[data-dashboard-drilldown="blocked_families"]').first();
+    await expect(blockedDrilldown).toHaveAttribute('href', /^\/admin\/translations\/families\b/);
+    await expect(blockedDrilldown).not.toHaveAttribute('href', /\/admin\/api\//);
+    await blockedDrilldown.click();
+
+    await expect(page).toHaveURL(/\/admin\/translations\/families\?readiness_state=blocked/);
+    expect(new URL(page.url()).pathname).not.toContain('/admin/api/');
   });
 });

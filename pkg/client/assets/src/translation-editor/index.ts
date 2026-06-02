@@ -203,6 +203,29 @@ export interface TranslationEditorAssignmentSummary {
   updated_at: string;
 }
 
+export interface TranslationEditorLocaleNavigationEntry {
+  locale: string;
+  label: string;
+  current: boolean;
+  source: boolean;
+  enabled: boolean;
+  disabled: boolean;
+  reason: string;
+  href?: string;
+  assignment_id?: string;
+  status?: string;
+  work_scope?: string;
+}
+
+export interface TranslationEditorLocaleNavigation {
+  family_id: string;
+  current_locale: string;
+  source_locale: string;
+  current_work_scope: string;
+  family_detail_url: string;
+  locales: TranslationEditorLocaleNavigationEntry[];
+}
+
 export interface TranslationAssignmentEditorDetail {
   assignment_id: string;
   assignment_row_version: number;
@@ -232,6 +255,7 @@ export interface TranslationAssignmentEditorDetail {
   qa_results: TranslationEditorQAResults;
   assignment_action_states: Record<string, TranslationActionState>;
   review_action_states: Record<string, TranslationActionState>;
+  locale_navigation: TranslationEditorLocaleNavigation;
 }
 
 export interface TranslationEditorUpdateResponse {
@@ -566,6 +590,54 @@ function normalizeAssignmentSummary(value: unknown): TranslationEditorAssignment
   };
 }
 
+function normalizeLocaleNavigationEntry(value: unknown, currentLocale = ''): TranslationEditorLocaleNavigationEntry | null {
+  const record = asRecord(value);
+  const locale = asString(record.locale).trim().toLowerCase();
+  if (!locale) return null;
+  const href = asString(record.href).trim();
+  const enabled = asBoolean(record.enabled) && href !== '';
+  const reason = asString(record.reason || record.disabled_reason);
+  return {
+    locale,
+    label: asString(record.label) || locale.toUpperCase(),
+    current: asBoolean(record.current) || (currentLocale !== '' && locale === currentLocale),
+    source: asBoolean(record.source),
+    enabled,
+    disabled: asBoolean(record.disabled) || !enabled,
+    reason,
+    href: enabled ? href : undefined,
+    assignment_id: asString(record.assignment_id) || undefined,
+    status: asString(record.status) || undefined,
+    work_scope: asString(record.work_scope) || undefined,
+  };
+}
+
+function normalizeLocaleNavigation(value: unknown, fallback: Record<string, unknown>): TranslationEditorLocaleNavigation {
+  const record = asRecord(value);
+  const currentLocale = (
+    asString(record.current_locale)
+    || asString(fallback.target_locale)
+    || asString(fallback.locale)
+  ).trim().toLowerCase();
+  const sourceLocale = (
+    asString(record.source_locale)
+    || asString(fallback.source_locale)
+  ).trim().toLowerCase();
+  const locales = Array.isArray(record.locales)
+    ? record.locales
+        .map((entry) => normalizeLocaleNavigationEntry(entry, currentLocale))
+        .filter((entry): entry is TranslationEditorLocaleNavigationEntry => entry !== null)
+    : [];
+  return {
+    family_id: asString(record.family_id) || asString(fallback.family_id),
+    current_locale: currentLocale,
+    source_locale: sourceLocale,
+    current_work_scope: asString(record.current_work_scope),
+    family_detail_url: asString(record.family_detail_url),
+    locales,
+  };
+}
+
 export function normalizeEditorAssistPayload(
   value: unknown,
   fallbackRoot?: unknown
@@ -702,6 +774,7 @@ export function normalizeAssignmentEditorDetail(raw: unknown): TranslationAssign
     review_action_states: normalizeActionStateMap(
       record.review_action_states ?? record.review_actions
     ),
+    locale_navigation: normalizeLocaleNavigation(record.locale_navigation, record),
   };
 }
 
@@ -1188,6 +1261,75 @@ function renderHeader(
             ${submitting ? 'Submitting…' : (submitState?.enabled ? 'Submit for review' : 'Submit unavailable')}
           </button>
         </div>
+      </div>
+    </section>
+  `;
+}
+
+function renderLocaleChip(entry: TranslationEditorLocaleNavigationEntry): string {
+  const label = escapeHTML(entry.label || entry.locale.toUpperCase());
+  const baseClass = 'inline-flex min-h-[24px] items-center rounded px-2 py-1 text-xs font-medium transition-colors';
+  const currentClass = 'bg-blue-100 text-blue-700';
+  const linkedClass = 'bg-gray-100 text-gray-700 hover:bg-gray-200 hover:text-gray-900';
+  const disabledClass = 'cursor-not-allowed bg-gray-50 text-gray-400 ring-1 ring-inset ring-gray-200';
+  const attrs = [
+    `data-locale-chip="${escapeAttribute(entry.locale)}"`,
+    entry.current ? 'data-locale-current="true"' : '',
+    entry.disabled ? 'data-locale-disabled="true"' : '',
+    entry.assignment_id ? `data-assignment-id="${escapeAttribute(entry.assignment_id)}"` : '',
+  ].filter(Boolean).join(' ');
+
+  if (entry.enabled && entry.href) {
+    const toneClass = entry.current ? currentClass : linkedClass;
+    const currentAttr = entry.current ? ' aria-current="page"' : '';
+    return `<a href="${escapeAttribute(entry.href)}" class="${baseClass} ${toneClass}" ${attrs}${currentAttr} aria-label="Open ${escapeAttribute(entry.label || entry.locale.toUpperCase())} assignment">${label}</a>`;
+  }
+  if (entry.current) {
+    return `<span class="${baseClass} ${currentClass}" ${attrs} aria-current="page">${label}</span>`;
+  }
+  const reason = entry.reason || 'No translation assignment exists for this locale.';
+  return `<span class="${baseClass} ${disabledClass}" ${attrs} aria-disabled="true" title="${escapeAttribute(reason)}" aria-label="${escapeAttribute(`${entry.label || entry.locale.toUpperCase()} unavailable: ${reason}`)}">${label}</span>`;
+}
+
+function renderEditorLocaleSummary(detail: TranslationAssignmentEditorDetail): string {
+  const navigation = detail.locale_navigation;
+  const locales = navigation.locales;
+  const currentLocale = navigation.current_locale || (detail.target_locale || '').toLowerCase();
+  const currentLabel = (currentLocale || 'target').toUpperCase();
+  if (!navigation.family_id && locales.length === 0 && !navigation.family_detail_url) {
+    return '';
+  }
+  const chipEntries = locales.length > 0
+    ? locales
+    : [{
+        locale: currentLocale,
+        label: currentLabel,
+        current: true,
+        source: false,
+        enabled: false,
+        disabled: false,
+        reason: '',
+      }];
+  return `
+    <section class="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm" data-editor-locale-summary="true" data-family-id="${escapeAttribute(navigation.family_id || detail.family_id)}" data-current-locale="${escapeAttribute(currentLocale)}">
+      <div class="p-4">
+        <div class="flex flex-wrap items-center justify-between gap-4">
+          <div class="flex flex-wrap items-center gap-2">
+            <span class="text-xs font-medium uppercase tracking-wide text-gray-500">Locale</span>
+            <div class="flex flex-wrap items-center gap-1" data-editor-locale-chips="true">
+              ${chipEntries.map(renderLocaleChip).join('')}
+            </div>
+          </div>
+        </div>
+        ${navigation.family_detail_url ? `
+          <div class="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-gray-100 pt-3">
+            <p class="text-xs text-gray-500">Use the family detail view for blocker ordering, publish-gate rationale, and assignment context.</p>
+            <a href="${escapeAttribute(navigation.family_detail_url)}" class="inline-flex items-center gap-1.5 text-sm font-medium text-blue-700 hover:text-blue-800" data-family-detail-link="true" aria-label="Open translation family detail">
+              Open family detail
+              <span aria-hidden="true">›</span>
+            </a>
+          </div>
+        ` : ''}
       </div>
     </section>
   `;
@@ -2007,6 +2149,7 @@ export function renderTranslationEditorState(
     <div class="translation-editor-screen space-y-6" data-translation-editor="true">
       ${renderFeedback(runtime.feedback || null)}
       ${renderHeader(detail, autosaveLabel, hasDirtyFields, runtime.submitting === true, runtime.saving === true, options.basePath || '')}
+      ${renderEditorLocaleSummary(detail)}
       ${conflictState ? `
         <section class="rounded-xl border border-amber-200 bg-amber-50 p-5">
           <div class="flex flex-wrap items-center justify-between gap-3">

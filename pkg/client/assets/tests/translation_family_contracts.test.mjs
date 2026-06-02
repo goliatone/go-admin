@@ -6,18 +6,55 @@ import { fileURLToPath } from 'node:url';
 
 const {
   buildFamilyDetailURL,
+  buildFamilyDetailUIURL,
+  buildFamilyListBrowserSearch,
   buildFamilyListQuery,
   buildFamilyListURL,
+  buildFamilyMatrixURL,
+  buildFamilyQueueURL,
   createFamilyFilters,
   createTranslationFamilyClient,
+  fetchTranslationFamilyListState,
   getReadinessChip,
+  initTranslationFamilyListPage,
   normalizeFamilyDetail,
   normalizeFamilyListResponse,
+  parseFamilyListFiltersFromSearchParams,
   renderReadinessChip,
+  renderTranslationFamilyListState,
 } = await import('../dist/translation-family/index.js');
 
 const testFileDir = path.dirname(fileURLToPath(import.meta.url));
 const translationFamilySourcePath = path.resolve(testFileDir, '../src/translation-family/index.ts');
+
+async function loadJSDOM() {
+  try {
+    return await import('jsdom');
+  } catch {
+    return await import('../../../../../go-formgen/client/node_modules/jsdom/lib/api.js');
+  }
+}
+
+const { JSDOM } = await loadJSDOM();
+
+function setGlobals(win) {
+  globalThis.window = win;
+  globalThis.document = win.document;
+  globalThis.Document = win.Document;
+  globalThis.Node = win.Node;
+  globalThis.Element = win.Element;
+  globalThis.HTMLElement = win.HTMLElement;
+  globalThis.HTMLFormElement = win.HTMLFormElement;
+  globalThis.HTMLSelectElement = win.HTMLSelectElement;
+  globalThis.FormData = win.FormData;
+  globalThis.Event = win.Event;
+  Object.defineProperty(globalThis, 'navigator', { value: win.navigator, configurable: true });
+  Object.defineProperty(globalThis, 'location', { value: win.location, configurable: true });
+}
+
+function nextTick() {
+  return new Promise((resolve) => setTimeout(resolve, 0));
+}
 
 test('translation-family contracts: normalize list payloads and filter query state', () => {
   const filters = createFamilyFilters({
@@ -72,6 +109,181 @@ test('translation-family contracts: normalize list payloads and filter query sta
   assert.equal(payload.channel, 'production');
   assert.equal(payload.items[0].familyId, 'tg-page-1');
   assert.deepEqual(payload.items[0].blockerCodes, ['missing_locale', 'pending_review']);
+});
+
+test('translation-family list page: parses URL filters and preserves unrelated query state', () => {
+  const filters = parseFamilyListFiltersFromSearchParams(new URLSearchParams(
+    'channel=default&content_type=pages&readiness_state=blocked&blocker_code=missing_locale&missing_locale=fr&page=2&per_page=25'
+  ));
+
+  assert.deepEqual(filters, {
+    contentType: 'pages',
+    readinessState: 'blocked',
+    blockerCode: 'missing_locale',
+    missingLocale: 'fr',
+    page: 2,
+    perPage: 25,
+    channel: 'default',
+  });
+
+  const nextSearch = buildFamilyListBrowserSearch(new URLSearchParams('debug=1&channel=old'), {
+    ...filters,
+    readinessState: 'ready',
+    page: 1,
+  });
+  assert.equal(nextSearch, 'debug=1&content_type=pages&readiness_state=ready&blocker_code=missing_locale&missing_locale=fr&channel=default&page=1&per_page=25');
+});
+
+test('translation-family list page: renders loading empty error and populated states', () => {
+  const filters = createFamilyFilters({ channel: 'production', readinessState: 'blocked', blockerCode: 'missing_locale' });
+  const row = normalizeFamilyListResponse({
+    data: {
+      items: [{
+        family_id: 'tg-page-1',
+        content_type: 'pages',
+        source_locale: 'en',
+        source_title: 'Landing Page',
+        source_record_id: 'page-1',
+        readiness_state: 'blocked',
+        blocker_codes: ['missing_locale'],
+        missing_required_locale_count: 1,
+        pending_review_count: 2,
+        outdated_locale_count: 3,
+        missing_locales: ['fr'],
+        available_locales: ['en', 'es'],
+      }],
+    },
+    meta: { total: 1, page: 1, per_page: 50, channel: 'production' },
+  });
+
+  const options = {
+    basePath: '/admin',
+    familyBasePath: '/admin/translations/families',
+    matrixPath: '/admin/translations/matrix',
+    queuePath: '/admin/translations/queue',
+  };
+  const loadingHTML = renderTranslationFamilyListState({ status: 'loading', filters }, options);
+  assert.match(loadingHTML, /Loading translation families/);
+
+  const emptyHTML = renderTranslationFamilyListState({ status: 'empty', filters, response: { ...row, items: [], total: 0 } }, options);
+  assert.match(emptyHTML, /No translation families found/);
+
+  const errorHTML = renderTranslationFamilyListState({
+    status: 'error',
+    filters,
+    message: 'backend unavailable',
+    requestURL: '/admin/api/translations/families?readiness_state=blocked',
+    requestId: 'req-1',
+    traceId: 'trace-1',
+    errorCode: 'INTERNAL_ERROR',
+  }, options);
+  assert.match(errorHTML, /backend unavailable/);
+  assert.match(errorHTML, /Retry/);
+  assert.match(errorHTML, /Request req-1/);
+
+  const readyHTML = renderTranslationFamilyListState({ status: 'ready', filters, response: row }, options);
+  assert.match(readyHTML, /Landing Page/);
+  assert.match(readyHTML, /Missing locale/);
+  assert.match(readyHTML, /FR/);
+  assert.match(readyHTML, /Open family/);
+  assert.match(readyHTML, /href="\/admin\/translations\/families\/tg-page-1\?channel=production"/);
+  assert.match(readyHTML, /href="\/admin\/translations\/matrix\?family_id=tg-page-1&amp;channel=production/);
+  assert.match(readyHTML, /href="\/admin\/translations\/queue\?family_id=tg-page-1&amp;channel=production"/);
+  assert.equal(/data-family-primary-action="true"[^>]*href="\/admin\/api\//.test(readyHTML), false);
+});
+
+test('translation-family list page: builds UI context URLs without API paths', () => {
+  const filters = createFamilyFilters({ channel: 'production', readinessState: 'blocked', blockerCode: 'missing_locale' });
+  const row = normalizeFamilyListResponse({
+    families: [{
+      family_id: 'tg-page-1',
+      content_type: 'pages',
+      source_locale: 'en',
+      readiness_state: 'blocked',
+    }],
+    total: 1,
+  }).items[0];
+
+  assert.equal(buildFamilyDetailUIURL('/admin/translations/families', row.familyId, 'production'), '/admin/translations/families/tg-page-1?channel=production');
+  assert.equal(buildFamilyMatrixURL('/admin/translations/matrix', row, filters), '/admin/translations/matrix?family_id=tg-page-1&channel=production&content_type=pages&readiness_state=blocked&blocker_code=missing_locale');
+  assert.equal(buildFamilyQueueURL('/admin/translations/queue', row, filters), '/admin/translations/queue?family_id=tg-page-1&channel=production');
+});
+
+test('translation-family list page: fetches through endpoint-derived API base', async () => {
+  const requests = [];
+  const state = await fetchTranslationFamilyListState('/admin/api/translations/families', createFamilyFilters({
+    channel: 'production',
+    readinessState: 'blocked',
+    perPage: 25,
+  }), {
+    fetch: async (url) => {
+      requests.push(String(url));
+      return new Response(JSON.stringify({
+        data: { items: [{ family_id: 'tg-page-1', content_type: 'pages', source_locale: 'en', readiness_state: 'blocked' }] },
+        meta: { total: 1, page: 1, per_page: 25, channel: 'production' },
+      }), { status: 200, headers: { 'Content-Type': 'application/json', 'X-Request-Id': 'req-list' } });
+    },
+  });
+
+  assert.equal(requests[0], '/admin/api/translations/families?readiness_state=blocked&channel=production&page=1&per_page=25');
+  assert.equal(state.status, 'ready');
+  assert.equal(state.requestId, 'req-list');
+  assert.equal(state.response.items[0].familyId, 'tg-page-1');
+});
+
+test('translation-family list page: initializer hydrates filters and updates browser URL on filter changes', async () => {
+  const dom = new JSDOM(`
+    <div
+      id="root"
+      data-endpoint="/admin/api/translations/families"
+      data-base-path="/admin"
+      data-family-base-path="/admin/translations/families"
+      data-matrix-path="/admin/translations/matrix"
+    ></div>
+  `, { url: 'http://localhost:8082/admin/translations/families?channel=default&content_type=pages&readiness_state=blocked&debug=1' });
+  setGlobals(dom.window);
+  const requests = [];
+  const fetchImpl = async (url) => {
+    requests.push(String(url));
+    const page = Number(new URL(String(url), 'http://localhost:8082').searchParams.get('page') || '1');
+    return new Response(JSON.stringify({
+      data: { items: [{ family_id: 'tg-page-1', content_type: 'pages', source_locale: 'en', readiness_state: 'blocked' }] },
+      meta: { total: 75, page, per_page: 50, channel: 'default' },
+    }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+  };
+
+  const root = dom.window.document.getElementById('root');
+  const state = await initTranslationFamilyListPage(root, { fetch: fetchImpl });
+  assert.equal(state.status, 'ready');
+  assert.equal(requests[0], '/admin/api/translations/families?content_type=pages&readiness_state=blocked&channel=default&page=1&per_page=50');
+  assert.match(root.innerHTML, /Open family/);
+  assert.match(root.innerHTML, /data-family-list-page="next"/);
+  assert.match(root.innerHTML, /Page 1/);
+
+  const readiness = root.querySelector('select[name="readiness_state"]');
+  readiness.value = 'ready';
+  readiness.dispatchEvent(new dom.window.Event('change', { bubbles: true }));
+  await nextTick();
+  await nextTick();
+
+  assert.equal(requests[1], '/admin/api/translations/families?content_type=pages&readiness_state=ready&channel=default&page=1&per_page=50');
+  assert.equal(dom.window.location.search, '?debug=1&content_type=pages&readiness_state=ready&channel=default&page=1&per_page=50');
+
+  const contentType = root.querySelector('input[name="content_type"]');
+  contentType.value = '';
+  root.querySelector('[data-family-list-filters="true"]').dispatchEvent(new dom.window.Event('submit', { bubbles: true, cancelable: true }));
+  await nextTick();
+  await nextTick();
+
+  assert.equal(requests[2], '/admin/api/translations/families?readiness_state=ready&channel=default&page=1&per_page=50');
+  assert.equal(dom.window.location.search, '?debug=1&readiness_state=ready&channel=default&page=1&per_page=50');
+
+  root.querySelector('[data-family-list-page="next"]').dispatchEvent(new dom.window.Event('click', { bubbles: true }));
+  await nextTick();
+  await nextTick();
+
+  assert.equal(requests[3], '/admin/api/translations/families?readiness_state=ready&channel=default&page=2&per_page=50');
+  assert.equal(dom.window.location.search, '?debug=1&readiness_state=ready&channel=default&page=2&per_page=50');
 });
 
 test('translation-family contracts: normalize detail payloads and render readiness chips', () => {

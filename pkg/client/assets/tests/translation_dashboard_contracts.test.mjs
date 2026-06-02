@@ -63,6 +63,26 @@ test('translation dashboard contracts: normalize payloads, table links, and dril
   assert.equal(payload.data.tables.top_overdue_assignments.rows[0].links.assignment.entityId, 'asg-alert-1');
   assert.equal(payload.meta.queryModels.top_overdue_assignments.drilldownLinks.assignment.entityType, 'assignment');
   assert.equal(payload.meta.queryModels.blocked_families.drilldownLinks.family.label, 'Open family');
+  assert.deepEqual(
+    payload.meta.queryModels.blocked_families.resolverKeys,
+    ['admin.translations.families', 'admin.translations.families.id', 'admin.api.translations.families']
+  );
+  assert.equal(payload.meta.queryModels.blocked_families.drilldownRoute, 'translations.families');
+  for (const cardId of ['blocked_families', 'missing_required_locales']) {
+    const card = payload.data.cards.find((candidate) => candidate.id === cardId);
+    assert.ok(card, `expected ${cardId} card`);
+    assert.equal(card.drilldown.resolverKey, 'admin.translations.families');
+    assert.match(card.drilldown.href, /^\/admin\/translations\/families\b/);
+    assert.doesNotMatch(card.drilldown.href, /\/admin\/api\//);
+  }
+  const publishBlockersRunbook = payload.data.runbooks.find((runbook) => runbook.id === 'translations.dashboard.publish_blockers');
+  assert.ok(publishBlockersRunbook);
+  assert.equal(publishBlockersRunbook.resolverKey, 'admin.translations.families');
+  assert.match(publishBlockersRunbook.href, /^\/admin\/translations\/families\b/);
+  assert.doesNotMatch(publishBlockersRunbook.href, /\/admin\/api\//);
+  const blockedRowAPI = payload.data.tables.blocked_families.rows[0].links.api;
+  assert.equal(blockedRowAPI.relation, 'secondary');
+  assert.equal(blockedRowAPI.resolverKey, 'admin.api.translations.families');
   assert.equal(payload.meta.scope.actor_id, 'manager-1');
 });
 

@@ -147,12 +147,14 @@ test.describe('Translation Queue MVP', () => {
 
     await navigateToTranslationQueue(page);
 
-    const row = page.locator('[data-assignment-id="asg-review-1"]');
-    await expect(row.locator('[data-action-group="review"]')).toBeVisible();
-    await expect(row.locator('[data-action-group="review"] [data-action="approve"]')).toBeVisible();
-    await expect(row.locator('[data-action-group="review"] [data-action="reject"]')).toBeVisible();
-    await expect(row.locator('[data-action-group="manage"]')).toBeVisible();
-    await expect(row.locator('[data-action-group="manage"] [data-action="archive"]')).toBeVisible();
+    // After overflow rendering, data-action-group is on action buttons, not parent containers
+    // Scope to table row to avoid matching mobile cards
+    const tableRow = page.locator('.assignment-queue-table [data-assignment-id="asg-review-1"]').first();
+
+    // Verify review and management action groups are present
+    await expect(tableRow.locator('[data-action="approve"][data-action-group="review"]')).toBeAttached();
+    await expect(tableRow.locator('[data-action="reject"][data-action-group="review"]')).toBeAttached();
+    await expect(tableRow.locator('[data-action="archive"][data-action-group="manage"]')).toBeAttached();
   });
 
   test('reviewer state presets render aggregate counts and support qa-blocked filtering', async ({ page }) => {

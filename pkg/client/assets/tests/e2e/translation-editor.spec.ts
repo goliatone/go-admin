@@ -253,6 +253,42 @@ test.describe('Translation Assignment Editor', () => {
     await expect(page.locator('[data-autosave-state="saved"]')).toContainText('Draft saved');
   });
 
+  test('locale navigation links assigned locales and disables missing locales', async ({ page }) => {
+    await page.route(`**/api/translations/assignments/${assignmentID}*`, async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(fixtures.detail),
+      });
+    });
+
+    await page.goto(`/admin/translations/assignments/${assignmentID}/edit`);
+    await page.waitForLoadState('networkidle');
+
+    const summary = page.locator('[data-editor-locale-summary="true"]');
+    await expect(summary).toBeVisible();
+    await expect(summary).toHaveAttribute('data-family-id', 'tg-page-1');
+
+    const current = summary.locator('[data-locale-chip="fr"]');
+    await expect(current).toHaveAttribute('aria-current', 'page');
+    await expect(current).toHaveAttribute('href', '/admin/translations/assignments/asg-editor-1/edit');
+
+    const sibling = summary.locator('[data-locale-chip="es"]');
+    await expect(sibling).toHaveAttribute('href', '/admin/translations/assignments/asg-editor-es/edit');
+    await expect(sibling).toHaveAttribute('data-assignment-id', 'asg-editor-es');
+
+    const missing = summary.locator('[data-locale-chip="de"]');
+    await expect(missing).toHaveAttribute('aria-disabled', 'true');
+    await expect(missing).not.toHaveAttribute('href', /.+/);
+    await expect(missing).toHaveAttribute('title', /No translation assignment exists/);
+
+    const variantOnly = summary.locator('[data-locale-chip="it"]');
+    await expect(variantOnly).toHaveAttribute('aria-disabled', 'true');
+    await expect(variantOnly).not.toHaveAttribute('href', /.+/);
+
+    await expect(summary.locator('[data-family-detail-link="true"]')).toHaveAttribute('href', '/admin/translations/families/tg-page-1');
+  });
+
   test('autosave conflict shows a recoverable banner', async ({ page }) => {
     await page.route(`**/api/translations/assignments/${assignmentID}*`, async (route) => {
       await route.fulfill({

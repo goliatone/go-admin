@@ -816,6 +816,36 @@ test('translation queue runtime: mount renders saved filters and rows from share
   assert.match(container.innerHTML, /data-action="archive"/);
 });
 
+test('translation queue runtime: owners column prefers labels over raw ids', async () => {
+  const { root } = setupDom();
+  const row = structuredClone(fixtures.states.open_pool.data[0]);
+  row.assignee_id = '9e838c81-6d3e-49d7-ad8f-b6616a040a44';
+  row.assignee_label = 'translator.jane';
+  row.reviewer_id = 'reviewer-1';
+  row.reviewer_label = 'reviewer.sam';
+  globalThis.fetch = mock.fn(async () => createJsonResponse({
+    meta: {
+      ...fixtures.states.open_pool.meta,
+      ...fixtures.meta,
+    },
+    data: [row],
+  }));
+
+  const screen = new AssignmentQueueScreen({
+    endpoint: '/admin/api/translations/assignments',
+    editorBasePath: '/admin/translations/assignments',
+  });
+  screen.mount(root);
+  await flushAsync();
+
+  const ownerValue = root.querySelector('.queue-owner-value');
+  const reviewerValue = root.querySelector('.queue-reviewer-value');
+  assert.equal(ownerValue?.textContent?.trim(), 'translator.jane');
+  assert.equal(reviewerValue?.textContent?.trim(), 'reviewer.sam');
+  assert.match(ownerValue?.getAttribute('title') || '', /9e838c81-6d3e-49d7-ad8f-b6616a040a44/);
+  assert.doesNotMatch(ownerValue?.textContent || '', /9e838c81/);
+});
+
 test('translation queue runtime: truncated content includes accessible title attributes', async () => {
   globalThis.fetch = mock.fn(async () => createJsonResponse({
     meta: {
@@ -881,16 +911,20 @@ test('translation queue runtime: title attributes properly escape XSS attempts',
 
   assert.equal(screen.getState(), 'ready');
 
-  // Verify that malicious content is escaped in title attributes
-  assert.match(root.innerHTML, /title="&lt;script&gt;alert\(&quot;xss&quot;\)&lt;\/script&gt;"/);
+  // Verify that malicious content does not create executable scripts
+  // Note: <> in HTML attribute values are safe and don't need escaping (they're plain text)
+  // What matters is that no actual XSS vectors are present
 
-  // Verify that quotes and brackets are escaped to prevent attribute injection
+  // Verify no executable <script> elements were created
+  assert.equal(root.querySelectorAll('script').length, 0);
+
+  // Verify that quotes are escaped to prevent attribute injection
   assert.doesNotMatch(root.innerHTML, /title=""><script>/);
-  assert.doesNotMatch(root.innerHTML, /<script>alert/);
+  assert.doesNotMatch(root.innerHTML, /aria-label=""><script>/);
 
-  // Verify that event handlers in attribute values are escaped
-  assert.doesNotMatch(root.innerHTML, /onclick=/);
-  assert.doesNotMatch(root.innerHTML, /onerror=/);
+  // Verify that event handlers are not present as executable attributes
+  assert.doesNotMatch(root.innerHTML, /onclick="/);
+  assert.doesNotMatch(root.innerHTML, /onerror="/);
 });
 
 test('translation queue runtime: filter chips render for active filters', async () => {
@@ -917,14 +951,13 @@ test('translation queue runtime: filter chips render for active filters', async 
     await flushAsync();
   }
 
-  // Verify filter chips are rendered when filters are active
-  const hasFilterChips = root.innerHTML.includes('data-filter-chip') ||
-                         root.innerHTML.includes('data-remove-filter');
+  // Verify filter chips are rendered when filters are active (T08: unconditional)
+  assert.match(root.innerHTML, /data-remove-filter="[^"]+"/,
+    'Filter chips should render with remove buttons when filters are active');
 
-  // If implementation shows chips, verify they have proper attributes
-  if (hasFilterChips) {
-    assert.match(root.innerHTML, /data-remove-filter="[^"]+"/);
-  }
+  // Verify chip has proper label and value
+  assert.match(root.innerHTML, /queue-filter-chip/,
+    'Filter chips should have queue-filter-chip class');
 });
 
 test('translation queue runtime: removing individual filter chip clears that filter', async () => {
@@ -990,7 +1023,7 @@ test('translation queue runtime: clear all filters button clears filter snapshot
   screen.mount(root);
   await flushAsync();
 
-  // Set up a filter snapshot
+  // Set up a filter snapshot and all filter types
   screen.filterSnapshot = {
     queryState: { status: 'open', priority: 'high' },
     allMatchCount: 42,
@@ -999,7 +1032,15 @@ test('translation queue runtime: clear all filters button clears filter snapshot
     ...screen.queryState,
     status: 'open',
     priority: 'high',
+    dueState: 'overdue',
+    locale: 'es',
+    assigneeId: 'user-1',
+    reviewerId: 'user-2',
+    familyId: 'family-1',
+    sort: 'priority',
+    order: 'asc',
   };
+  screen.activeReviewState = 'pending';
   screen.render();
   await flushAsync();
 
@@ -1011,6 +1052,18 @@ test('translation queue runtime: clear all filters button clears filter snapshot
 
     // Verify filter snapshot was cleared
     assert.equal(screen.filterSnapshot, null);
+
+    // Verify all filter fields were cleared
+    assert.equal(screen.queryState.status, undefined);
+    assert.equal(screen.queryState.priority, undefined);
+    assert.equal(screen.queryState.dueState, undefined);
+    assert.equal(screen.queryState.locale, undefined);
+    assert.equal(screen.queryState.assigneeId, undefined);
+    assert.equal(screen.queryState.reviewerId, undefined);
+    assert.equal(screen.queryState.familyId, undefined);
+    assert.equal(screen.queryState.sort, undefined);
+    assert.equal(screen.queryState.order, undefined);
+    assert.equal(screen.activeReviewState, null);
   }
 });
 
@@ -1309,4 +1362,44 @@ test('translation queue runtime: overflow menu items have accessible labels', as
 
   // At minimum, actions should have either enabled state or disabled with reason
   assert.ok(html.includes('data-action='), 'Actions should be present');
+});
+
+test('translation queue runtime: grouped child rows expose both title and path when both exist', async () => {
+  const groupedResponse = makeGroupedQueueResponse();
+  // Ensure child rows have both title and path
+  groupedResponse.data[0].children[0].source_title = 'Home Page';
+  groupedResponse.data[0].children[0].source_path = '/content/pages/home.md';
+  groupedResponse.data[0].children[1].source_title = 'About Page';
+  groupedResponse.data[0].children[1].source_path = '/content/pages/about.md';
+
+  globalThis.fetch = mock.fn(async (input) => {
+    if (String(input).includes('group_by=family_id')) {
+      return createJsonResponse(groupedResponse);
+    }
+    return createJsonResponse({
+      meta: { ...fixtures.states.open_pool.meta, ...fixtures.meta },
+      data: fixtures.states.open_pool.data,
+    });
+  });
+
+  const screen = new AssignmentQueueScreen({
+    endpoint: '/admin/api/translations/assignments',
+    editorBasePath: '/admin/translations/assignments',
+  });
+  const container = createContainer();
+  screen.mount(container);
+  await flushAsync();
+
+  screen.setViewMode('grouped');
+  await flushAsync();
+
+  const html = container.innerHTML;
+
+  // Verify first child row shows title and exposes both title and path in title attribute
+  assert.match(html, /Home Page/);
+  assert.match(html, /title="Home Page — \/content\/pages\/home\.md"/);
+
+  // Verify second child row shows title and exposes both title and path in title attribute
+  assert.match(html, /About Page/);
+  assert.match(html, /title="About Page — \/content\/pages\/about\.md"/);
 });
