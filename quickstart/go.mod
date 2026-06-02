@@ -23,7 +23,7 @@ require (
 	github.com/goliatone/go-cache v0.1.0
 	github.com/goliatone/go-cms v0.54.1
 	github.com/goliatone/go-command v0.19.0
-	github.com/goliatone/go-dashboard v0.12.0
+	github.com/goliatone/go-dashboard v0.12.1
 	github.com/goliatone/go-errors v0.10.0
 	github.com/goliatone/go-export v0.8.0
 	github.com/goliatone/go-export/adapters/template/go-template v0.8.0
@@ -130,7 +130,7 @@ require (
 	github.com/goliatone/go-masker v0.1.0 // indirect
 	github.com/goliatone/go-options v0.7.1 // indirect
 	github.com/goliatone/go-print v0.4.1 // indirect
-	github.com/goliatone/go-repository-bun v0.15.1 // indirect
+	github.com/goliatone/go-repository-bun v0.16.1 // indirect
 	github.com/goliatone/go-repository-cache v0.7.1 // indirect
 	github.com/goliatone/go-search/adapters/goadmin v0.8.0 // indirect
 	github.com/goliatone/go-slug v0.1.0 // indirect
