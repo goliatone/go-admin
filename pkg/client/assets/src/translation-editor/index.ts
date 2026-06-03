@@ -324,6 +324,15 @@ export interface TranslationEditorScreenConfig {
   basePath?: string;
 }
 
+interface TranslationEditorRenderViewportState {
+  fieldPath: string;
+  selectionStart: number | null;
+  selectionEnd: number | null;
+  selectionDirection: 'forward' | 'backward' | 'none' | null;
+  scrollX: number;
+  scrollY: number;
+}
+
 const TRANSLATION_DRAFT_SYNC_RESOURCE_KIND = 'translation_variant_draft';
 const TRANSLATION_DRAFT_SYNC_OPERATION = 'autosave';
 
@@ -2521,6 +2530,7 @@ export class TranslationEditorScreen {
 
   private render(): void {
     if (!this.container) return;
+    const viewportState = this.captureRenderViewportState();
     renderTranslationEditorPage(this.container, this.loadState, this.editorState, { basePath: this.config.basePath }, {
       feedback: this.feedback,
       lastSavedMessage: this.lastSavedMessage,
@@ -2532,6 +2542,60 @@ export class TranslationEditorScreen {
     this.attachEventListeners();
     // Set up logical tab order for translation fields
     setupFieldTabOrder(this.container);
+    this.restoreRenderViewportState(viewportState);
+  }
+
+  private captureRenderViewportState(): TranslationEditorRenderViewportState | null {
+    if (!this.container || typeof document === 'undefined') return null;
+    const active = document.activeElement;
+    const activeInput = typeof HTMLInputElement !== 'undefined' && active instanceof HTMLInputElement;
+    const activeTextarea = typeof HTMLTextAreaElement !== 'undefined' && active instanceof HTMLTextAreaElement;
+    if (
+      !(activeInput || activeTextarea)
+      || !this.container.contains(active)
+      || !active.dataset.fieldInput
+    ) {
+      return null;
+    }
+    return {
+      fieldPath: active.dataset.fieldInput,
+      selectionStart: active.selectionStart,
+      selectionEnd: active.selectionEnd,
+      selectionDirection: active.selectionDirection as 'forward' | 'backward' | 'none' | null,
+      scrollX: typeof window !== 'undefined' ? window.scrollX || window.pageXOffset || 0 : 0,
+      scrollY: typeof window !== 'undefined' ? window.scrollY || window.pageYOffset || 0 : 0,
+    };
+  }
+
+  private restoreRenderViewportState(state: TranslationEditorRenderViewportState | null): void {
+    if (!state || !this.container) return;
+    const input = Array.from(this.container.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>('[data-field-input]'))
+      .find((candidate) => candidate.dataset.fieldInput === state.fieldPath);
+    if (!input) return;
+    try {
+      input.focus({ preventScroll: true });
+    } catch {
+      input.focus();
+    }
+    if (state.selectionStart !== null && state.selectionEnd !== null && typeof input.setSelectionRange === 'function') {
+      const valueLength = input.value.length;
+      const start = Math.min(state.selectionStart, valueLength);
+      const end = Math.min(state.selectionEnd, valueLength);
+      input.setSelectionRange(start, end, state.selectionDirection || 'none');
+    }
+    this.restoreWindowScroll(state);
+    if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
+      window.requestAnimationFrame(() => this.restoreWindowScroll(state));
+    }
+  }
+
+  private restoreWindowScroll(state: TranslationEditorRenderViewportState): void {
+    if (typeof window === 'undefined' || typeof window.scrollTo !== 'function') return;
+    try {
+      window.scrollTo(state.scrollX, state.scrollY);
+    } catch {
+      return;
+    }
   }
 
   private attachEventListeners(): void {

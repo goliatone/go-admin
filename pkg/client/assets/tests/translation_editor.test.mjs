@@ -777,6 +777,102 @@ test('translation editor runtime: save draft mutates the sync resource through s
   screen.unmount();
 });
 
+test('translation editor runtime: autosave sync renders preserve active field and scroll position', async () => {
+  const { root, window } = setupDom();
+  installTranslationSyncCoreStub(window);
+  const requests = [];
+  const scrollCalls = [];
+  let scrollX = 18;
+  let scrollY = 640;
+  Object.defineProperty(window, 'scrollX', { get: () => scrollX, configurable: true });
+  Object.defineProperty(window, 'pageXOffset', { get: () => scrollX, configurable: true });
+  Object.defineProperty(window, 'scrollY', { get: () => scrollY, configurable: true });
+  Object.defineProperty(window, 'pageYOffset', { get: () => scrollY, configurable: true });
+  window.scrollTo = mock.fn((x, y) => {
+    scrollX = Number(x);
+    scrollY = Number(y);
+    scrollCalls.push([scrollX, scrollY]);
+  });
+
+  globalThis.fetch = mock.fn(async (input, init = {}) => {
+    const method = String(init.method || 'GET').toUpperCase();
+    const url = String(input);
+    requests.push({ url, method, init });
+    if (method === 'GET' && url.includes('/api/translations/assignments/asg-editor-1')) {
+      return createJsonResponse(makeSubmitReadyFixture());
+    }
+    if (method === 'GET' && url.includes('/admin/api/translations/sync/resources/translation_variant_draft/')) {
+      return createJsonResponse({
+        data: makeSubmitReadyFixture().data,
+        revision: 3,
+        updated_at: '2026-01-01T00:00:00Z',
+      });
+    }
+    if (method === 'PATCH' && url.includes('/admin/api/translations/sync/resources/translation_variant_draft/')) {
+      const body = JSON.parse(init.body);
+      const next = makeSubmitReadyUpdateFixture();
+      next.data.fields = {
+        ...next.data.fields,
+        body: body.payload.fields.body,
+      };
+      next.data.target_fields = {
+        ...next.data.target_fields,
+        body: body.payload.fields.body,
+      };
+      return createJsonResponse({
+        data: next.data,
+        revision: 4,
+        updated_at: '2026-01-01T00:00:00Z',
+        applied: true,
+        replay: false,
+      });
+    }
+    return createJsonResponse({ error: { message: 'unexpected request' } }, 500, {
+      'content-type': 'application/json',
+    });
+  });
+
+  const screen = new TranslationEditorScreen({
+    endpoint: '/admin/api/translations/assignments/asg-editor-1?channel=staging',
+    actionEndpointBase: '/admin/api/translations/assignments',
+    syncBaseURL: '/admin/api/translations',
+    syncClientBasePath: '/admin/sync-client/sync-core',
+  });
+  screen.mount(root);
+  await flushAsync();
+  await flushAsync();
+
+  const bodyDraft = 'Texte traduit sans saut de page';
+  const bodyInput = root.querySelector('[data-field-input="body"]');
+  bodyInput.focus();
+  bodyInput.value = bodyDraft;
+  bodyInput.setSelectionRange(11, 11);
+  bodyInput.dispatchEvent(new window.Event('input', { bubbles: true }));
+
+  let activeInput = window.document.activeElement;
+  assert.equal(activeInput?.dataset.fieldInput, 'body');
+  assert.equal(activeInput.selectionStart, 11);
+  assert.equal(scrollX, 18);
+  assert.equal(scrollY, 640);
+
+  await new Promise((resolve) => setTimeout(resolve, 650));
+  await flushAsync();
+  await flushAsync();
+
+  const patch = requests.find((request) => request.method === 'PATCH');
+  assert.ok(patch);
+  activeInput = window.document.activeElement;
+  assert.equal(activeInput?.dataset.fieldInput, 'body');
+  assert.equal(activeInput.value, bodyDraft);
+  assert.equal(activeInput.selectionStart, 11);
+  assert.equal(activeInput.selectionEnd, 11);
+  assert.equal(scrollX, 18);
+  assert.equal(scrollY, 640);
+  assert.ok(scrollCalls.some(([x, y]) => x === 18 && y === 640));
+
+  screen.unmount();
+});
+
 test('translation editor runtime: sync conflict reload applies latest snapshot revision', async () => {
   const { root, window } = setupDom();
   installTranslationSyncCoreStub(window);
