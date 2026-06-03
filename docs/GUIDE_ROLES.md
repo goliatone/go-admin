@@ -425,7 +425,7 @@ Cover these cases when adding or changing role behavior:
 - Seeded privileged roles include required permissions.
 - Lower-privilege roles do not receive privileged permissions.
 - Permission resolution includes assigned role permissions.
-- Navigation and panels are filtered when permissions are missing.
+- Navigation and panels are filtered when permissions are missing. Navigation can alternatively render denied items disabled when `nav_permission_denied_mode` / `permission_denied_mode` is `disable`; keep the default `hide` behavior in production. Public site CMS menu permissions use the `navigation` authorization resource.
 - Role creation/update deduplicates permissions.
 - System roles cannot be deleted.
 - Assignment lookup rejects invalid role IDs.

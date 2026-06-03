@@ -924,6 +924,18 @@ func (m *DebugModule) MenuItems(locale string) []MenuItem {
 
 Menu links are rendered from `Target["path"]` first, then `Target["name"]` if present. If neither resolves, the UI falls back to the admin base path. To avoid incorrect links (e.g. `/admin`), always resolve through URLKit and provide a base-path fallback.
 
+### Permission Denial Policy
+
+Menu item `Permissions` are evaluated at render/resolve time; route handlers must still enforce authorization independently. Denied entries are hidden by default. Hosts can opt into diagnostic disabled rendering:
+
+```go
+cfg := quickstart.NewAdminConfig("/admin", "Admin", "en",
+    quickstart.WithNavPermissionDeniedMode(admin.NavigationPermissionDeniedModeDisable),
+)
+```
+
+Use `disable` outside production to reveal missing role grants while keeping links non-navigable. Use `hide` in production to avoid exposing restricted features. Public site CMS menus use the same `permission_denied_mode` semantics through `quickstart/site.SiteNavigationConfig`.
+
 ```go
 func (m *MyModule) MenuItems(locale string) []MenuItem {
     if locale == "" {

@@ -19,7 +19,9 @@ This guide covers how authentication and authorization are wired inside go-admin
   - Use `Admin.requirePermission` in any new handlers that mutate data (settings, jobs, export, bulk, custom APIs).
   - Workflow transitions can be guarded separately with `WorkflowAuthorizer` (use `PanelBuilder.WithWorkflowAuthorizer` or `WithContentTypeBuilderWorkflowAuthorizer` for the content type builder). `RoleWorkflowAuthorizer` enforces a minimum role and optional permission checks.
 - **Navigation**
-  - `Navigation.Resolve` filters menu items by `Permissions` using the `Authorizer`. When contributing menu items (modules or host seeds), populate `Permissions` with role/feature strings; filtering happens at resolve time.
+  - `Navigation.Resolve` evaluates menu item `Permissions` using the `Authorizer`. When contributing menu items (modules or host seeds), populate `Permissions` with role/feature strings; filtering happens at resolve time.
+  - Denied entries are hidden by default. Set `admin.Config.NavPermissionDeniedMode` or quickstart `WithNavPermissionDeniedMode(admin.NavigationPermissionDeniedModeDisable)` to retain denied entries as disabled diagnostics.
+  - Use `disable` in local, development, or staging environments when you need to see missing menu permissions. Use `hide` in production when restricted feature names should not be exposed.
   - Support multiple menu groups by using distinct menu codes (e.g., `admin.main`, `admin.section_a`) and exposing a route parameter to select the code. Always filter via the `Authorizer`.
 - **Search**
   - Search adapters can expose a `Permission()` method (pattern already used); the search engine consults the `Authorizer` to filter results. Ensure new adapters return a permission string when results should be gated.
@@ -50,7 +52,7 @@ This guide covers how authentication and authorization are wired inside go-admin
   - If you need stricter publish/transition rules, add a `WorkflowAuthorizer` (for example `NewRoleWorkflowAuthorizer("admin")` with `WithWorkflowPermission(...)`) to the relevant panels or modules.
 - **Define permissions**
   - Panels/actions: set `Permission` on actions/bulk actions; define your own permission strings (e.g., `admin.users.view`, `admin.users.edit`).
-  - Navigation: set `Permissions` on menu items; unauthorized items are filtered out of `/admin/api/navigation`.
+  - Navigation: set `Permissions` on menu items; unauthorized items are hidden by default or rendered disabled when the navigation permission-denial mode is `disable`. Public site CMS menu permissions are checked against the `navigation` resource for compatibility with existing site role grants.
   - Search adapters: expose permissions so results are hidden when unauthorized.
 - **Register permissions with your auth system**
   - Seed or register the permission strings that go-admin uses (defaults listed below) plus any module-specific permissions you add.

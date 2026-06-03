@@ -440,6 +440,13 @@ The renderer also carries request scope in generated links:
 
 This keeps menu labels, link targets, and downstream content grids aligned to the same locale/channel context.
 
+CMS-backed admin and public site menus share the same permission-denial policy:
+
+- `hide` omits denied menu rows and prunes empty groups. This is the default and the recommended production setting.
+- `disable` keeps denied menu rows in the render payload with `enabled=false`, `disabled=true`, `aria_disabled=true`, `disabled_reason_code=permission_denied`, and `missing_permission` when available. Use it in local, development, or staging environments to debug role grants.
+
+Quickstart admin config uses `WithNavPermissionDeniedMode(...)`. Public site config uses `SiteNavigationConfig.PermissionDeniedMode` / JSON `permission_denied_mode`. Public site CMS menu permissions continue to authorize against the `navigation` resource for compatibility with existing site roles. Templates should use `navItemVisible(item)` and `navItemDisabled(item)` from `quickstart.DefaultTemplateFuncs` rather than duplicating permission checks.
+
 Quickstart-generated admin menu rows are reconciled, not blindly reinserted.
 `BuildMenuSeedPlan` computes the expected generated rows, and
 `ReconcileGeneratedNavigation` updates quickstart-owned rows while preserving

@@ -540,6 +540,33 @@ Each item in `nav_items` contains:
 | `position` | `int` | Sort position |
 | `active` | `bool` | Whether this item is active |
 | `child_active` | `bool` | Whether a child is active |
+| `enabled` | `bool` | Present when the resolver explicitly marked the item enabled or disabled |
+| `disabled` | `bool` | True when the item should render as a disabled non-link |
+| `aria_disabled` | `bool` | True when templates should emit `aria-disabled="true"` |
+| `disabled_reason` | `string` | Human-readable unavailable reason |
+| `disabled_reason_code` | `string` | Stable reason code such as `permission_denied` |
+| `missing_permission` | `string` | First missing permission when available |
+
+### Navigation permission-denial rendering
+
+Navigation items with `Permissions` are hidden by default when the active user is denied. Configure `admin.Config.NavPermissionDeniedMode` or quickstart `WithNavPermissionDeniedMode(admin.NavigationPermissionDeniedModeDisable)` to keep denied items visible with disabled metadata. Public site CMS menus use the same `permission_denied_mode` field on `quickstart/site.SiteNavigationConfig`, and their permission checks continue to use the `navigation` authorization resource for compatibility.
+
+Recommended environment policy:
+
+- Development/staging: `disable`, so missing role or permission grants are visible in the menu.
+- Production: `hide`, so restricted feature names and links are not exposed.
+
+Use the shared template helpers instead of duplicating inline checks:
+
+```pongo
+{% if navItemVisible(item) %}
+  {% if navItemDisabled(item) %}
+    <span aria-disabled="true" title="{{ item.disabled_reason|default:'Unavailable' }}">{{ item.label }}</span>
+  {% else %}
+    <a href="{{ item.href }}">{{ item.label }}</a>
+  {% endif %}
+{% endif %}
+```
 
 ### Theme payload (`theme`)
 
