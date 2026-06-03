@@ -99,7 +99,7 @@ func generatedFallbackItems(menuCode, location string, byIdentity map[string][]a
 
 func generatedFallbackEligible(record admin.CMSContent, pageKinds map[string]bool) bool {
 	typeSlug := singularTypeSlug(firstNonEmpty(record.ContentTypeSlug, record.ContentType))
-	if typeSlug == "page" {
+	if admin.IsCMSPageContentTypeSlug(typeSlug) {
 		return true
 	}
 	if len(pageKinds) == 0 {
