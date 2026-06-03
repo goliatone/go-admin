@@ -1797,6 +1797,24 @@ func translationEditorSetPageField(page *CMSPage, fieldPath, value string) {
 			page.Data = map[string]any{}
 		}
 		page.Data["path"] = value
+	case "meta_title":
+		if page.Data == nil {
+			page.Data = map[string]any{}
+		}
+		if page.SEO == nil {
+			page.SEO = map[string]any{}
+		}
+		page.Data["meta_title"] = value
+		page.SEO["title"] = value
+	case "meta_description":
+		if page.Data == nil {
+			page.Data = map[string]any{}
+		}
+		if page.SEO == nil {
+			page.SEO = map[string]any{}
+		}
+		page.Data["meta_description"] = value
+		page.SEO["description"] = value
 	default:
 		if page.Data == nil {
 			page.Data = map[string]any{}
