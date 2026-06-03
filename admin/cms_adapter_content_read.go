@@ -125,7 +125,7 @@ func (r goCMSContentReadBoundary) PagesWithOptions(ctx context.Context, locale s
 	}
 	out := make([]CMSPage, 0, len(contents))
 	for _, item := range contents {
-		if !strings.EqualFold(item.ContentType, "page") && !strings.EqualFold(item.ContentTypeSlug, "page") {
+		if !IsCMSPageContentRecord(item.ContentType, item.ContentTypeSlug) {
 			continue
 		}
 		out = append(out, pageFromContent(item))
@@ -146,7 +146,7 @@ func (r goCMSContentReadBoundary) Page(ctx context.Context, id, locale string) (
 	if err != nil {
 		return nil, err
 	}
-	if content == nil || (!strings.EqualFold(content.ContentType, "page") && !strings.EqualFold(content.ContentTypeSlug, "page")) {
+	if content == nil || !IsCMSPageContentRecord(content.ContentType, content.ContentTypeSlug) {
 		return nil, ErrNotFound
 	}
 	rec := pageFromContent(*content)
