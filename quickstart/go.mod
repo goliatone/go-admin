@@ -1,6 +1,8 @@
 module github.com/goliatone/go-admin/quickstart
 
-go 1.26.2
+go 1.26.4
+
+toolchain go1.26.4
 
 replace github.com/goliatone/go-admin => ..
 

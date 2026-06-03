@@ -1,6 +1,6 @@
 module github.com/goliatone/go-admin
 
-go 1.26.2
+go 1.26.4
 
 exclude google.golang.org/genproto v0.0.0-20211208223120-3a66f561d7aa
 

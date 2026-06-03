@@ -437,7 +437,7 @@ pages:
     custom:
       featured_image: "/admin/assets/uploads/media/showcase/brand-mark.svg"
       published_at: "2026-01-16T10:00:00Z"
-      family_id: "11111111-1111-1111-1111-111111111213"
+      family_id: "11111111-1111-1111-1111-111111111214"
       meta:
         translation_scenario: "exchange_ready"
         required_locales: ["en", "es", "fr"]
@@ -466,6 +466,7 @@ posts:
       author: "editorial.team"
       category: "guides"
       featured_image: "/admin/assets/uploads/users/profile-pictures/1765861166124613.png"
+      family_id: "11111111-1111-1111-1111-111111111213"
       seo:
         title: "Welcome Post"
         description: "Getting started with the CMS"
