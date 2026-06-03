@@ -1080,17 +1080,17 @@ func TestTranslationEditorAutosavePersistsPageSEOMirrorFields(t *testing.T) {
 	clearData := extractMap(payload["data"])
 	clearFields := mapString(extractMap(clearData["fields"]))
 	clearTargetFields := mapString(extractMap(clearData["target_fields"]))
-	if got := clearFields["meta_title"]; got == staleTitle || got == translatedTitle {
-		t.Fatalf("clear response fields.meta_title restored stale value %q", got)
+	if got := clearFields["meta_title"]; got != "" {
+		t.Fatalf("clear response fields.meta_title = %q, want empty", got)
 	}
-	if got := clearFields["meta_description"]; got == staleDescription || got == translatedDescription {
-		t.Fatalf("clear response fields.meta_description restored stale value %q", got)
+	if got := clearFields["meta_description"]; got != "" {
+		t.Fatalf("clear response fields.meta_description = %q, want empty", got)
 	}
-	if got := clearTargetFields["meta_title"]; got == staleTitle || got == translatedTitle {
-		t.Fatalf("clear response target_fields.meta_title restored stale value %q", got)
+	if got := clearTargetFields["meta_title"]; got != "" {
+		t.Fatalf("clear response target_fields.meta_title = %q, want empty", got)
 	}
-	if got := clearTargetFields["meta_description"]; got == staleDescription || got == translatedDescription {
-		t.Fatalf("clear response target_fields.meta_description restored stale value %q", got)
+	if got := clearTargetFields["meta_description"]; got != "" {
+		t.Fatalf("clear response target_fields.meta_description = %q, want empty", got)
 	}
 
 	cleared, err := fixture.content.Page(context.Background(), fixture.targetRecordID, "")
@@ -1108,6 +1108,59 @@ func TestTranslationEditorAutosavePersistsPageSEOMirrorFields(t *testing.T) {
 	}
 	if got := toString(cleared.SEO["description"]); got != "" {
 		t.Fatalf("cleared SEO.description = %q, want empty", got)
+	}
+}
+
+func TestTranslationEditorAutosavePageSEOFieldWritesSurvivePageAdapterProjection(t *testing.T) {
+	staleTitle := "Translation Demo - Exchange Ready"
+	staleDescription := "Demonstrates translation exchange export and import flows."
+	translatedTitle := "Demo de traduction - pret pour l'echange"
+	translatedDescription := "Demontre les flux d'exportation et d'importation des echanges de traduction."
+	existing := &CMSContent{
+		ID:    "page-1-fr",
+		Title: "Translation Demo - Exchange Ready",
+		Slug:  "translation-demo-exchange",
+		Data: map[string]any{
+			"path":             "/translation-demo-exchange",
+			"meta_title":       staleTitle,
+			"meta_description": staleDescription,
+		},
+	}
+	page := CMSPage{
+		ID:    existing.ID,
+		Title: existing.Title,
+		Slug:  existing.Slug,
+		Data:  cloneAnyMap(existing.Data),
+		SEO: map[string]any{
+			"title":       staleTitle,
+			"description": staleDescription,
+		},
+	}
+
+	translationEditorSetPageField(&page, "meta_title", translatedTitle)
+	translationEditorSetPageField(&page, "meta_description", translatedDescription)
+	projected := projectedPageContentDataForTest(page, existing)
+	if got := toString(projected["meta_title"]); got != translatedTitle {
+		t.Fatalf("projected meta_title = %q, want %q", got, translatedTitle)
+	}
+	if got := toString(projected["meta_description"]); got != translatedDescription {
+		t.Fatalf("projected meta_description = %q, want %q", got, translatedDescription)
+	}
+
+	translationEditorSetPageField(&page, "meta_title", "")
+	translationEditorSetPageField(&page, "meta_description", "")
+	cleared := projectedPageContentDataForTest(page, existing)
+	if got := toString(cleared["meta_title"]); got != "" {
+		t.Fatalf("projected cleared meta_title = %q, want empty", got)
+	}
+	if got := toString(cleared["meta_description"]); got != "" {
+		t.Fatalf("projected cleared meta_description = %q, want empty", got)
+	}
+	if got := toString(page.SEO["title"]); got != "" {
+		t.Fatalf("page SEO.title after clear = %q, want empty", got)
+	}
+	if got := toString(page.SEO["description"]); got != "" {
+		t.Fatalf("page SEO.description after clear = %q, want empty", got)
 	}
 }
 
@@ -1562,6 +1615,12 @@ func mapString(data map[string]any) map[string]string {
 		out[key] = toString(value)
 	}
 	return out
+}
+
+func projectedPageContentDataForTest(page CMSPage, existing *CMSContent) map[string]any {
+	data := cloneAnyMap(existing.Data)
+	maps.Copy(data, cloneAnyMap(page.Data))
+	return updatePageContentData(data, page, existing)
 }
 
 func enableTranslationEditorQAWithBlockers(t *testing.T, fixture translationEditorTestFixture) {
