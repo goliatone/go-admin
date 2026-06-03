@@ -170,6 +170,7 @@ func ConvertMenuItems(items []MenuItem, t Translator, locale string) []Navigatio
 	for _, item := range items {
 		translated := NavigationItem{
 			ID:            item.ID,
+			Code:          item.Code,
 			Type:          strings.TrimSpace(item.Type),
 			Label:         item.Label,
 			LabelKey:      item.LabelKey,
@@ -245,10 +246,11 @@ func orderNavigation(items []NavigationItem) []NavigationItem {
 
 func (n *Navigation) filter(items []NavigationItem, ctx context.Context, opts ResolveOptions) []NavigationItem {
 	mode := NormalizeNavigationPermissionDeniedMode(opts.PermissionDeniedMode)
+	resourceOverride := strings.TrimSpace(opts.PermissionResource)
 	out := []NavigationItem{}
 	lastWasSeparator := false
 	for _, item := range items {
-		if !n.applyPermissionPolicy(&item, ctx, mode) {
+		if !n.applyPermissionPolicy(&item, ctx, mode, resourceOverride) {
 			continue
 		}
 		if len(item.Children) > 0 {
@@ -274,8 +276,8 @@ func (n *Navigation) filter(items []NavigationItem, ctx context.Context, opts Re
 	return out
 }
 
-func (n *Navigation) applyPermissionPolicy(item *NavigationItem, ctx context.Context, mode NavigationPermissionDeniedMode) bool {
-	allowed, denied, missingPermission := n.permissionStatus(ctx, item.Permissions)
+func (n *Navigation) applyPermissionPolicy(item *NavigationItem, ctx context.Context, mode NavigationPermissionDeniedMode, resourceOverride string) bool {
+	allowed, denied, missingPermission := n.permissionStatus(ctx, item.Permissions, resourceOverride)
 	switch {
 	case denied && mode == NavigationPermissionDeniedModeHide:
 		return false
@@ -317,7 +319,7 @@ func boolFromTarget(target map[string]any, key string) bool {
 	}
 }
 
-func (n *Navigation) permissionStatus(ctx context.Context, perms []string) (allowed bool, denied bool, firstMissing string) {
+func (n *Navigation) permissionStatus(ctx context.Context, perms []string, resourceOverride string) (allowed bool, denied bool, firstMissing string) {
 	if len(perms) == 0 {
 		return false, false, ""
 	}
@@ -335,11 +337,28 @@ func (n *Navigation) permissionStatus(ctx context.Context, perms []string) (allo
 		if perm == "" {
 			continue
 		}
-		if n.authorizer.Can(ctx, perm, "navigation") {
+		if n.authorizer.Can(ctx, perm, navigationPermissionResourceFor(perm, resourceOverride)) {
 			return true, false, ""
 		}
 	}
 	return false, true, firstMissing
+}
+
+func navigationPermissionResourceFor(permission string, override string) string {
+	if resource := strings.TrimSpace(override); resource != "" {
+		return resource
+	}
+	return navigationPermissionResource(permission)
+}
+
+func navigationPermissionResource(permission string) string {
+	parts := strings.FieldsFunc(strings.TrimSpace(permission), func(r rune) bool {
+		return r == '.' || r == ':' || r == '/'
+	})
+	if len(parts) <= 1 {
+		return "navigation"
+	}
+	return strings.Join(parts[:len(parts)-1], ".")
 }
 
 func translateValue(raw, key string, t Translator, locale string) string {

@@ -52,6 +52,9 @@ func NormalizeNavigationPermissionDeniedMode(mode NavigationPermissionDeniedMode
 // ResolveOptions controls navigation resolution behavior.
 type ResolveOptions struct {
 	PermissionDeniedMode NavigationPermissionDeniedMode
+	// PermissionResource overrides the resource passed to Authorizer.Can for
+	// permissioned navigation items. Empty uses the permission-derived resource.
+	PermissionResource string
 }
 
 // ResolveSource identifies which backing source produced a navigation result.
@@ -101,6 +104,7 @@ type MenuItem struct {
 // NavigationItem represents a node in the admin navigation tree.
 type NavigationItem struct {
 	ID                 string            `json:"id,omitempty"`
+	Code               string            `json:"code,omitempty"`
 	Type               string            `json:"type,omitempty"`
 	Label              string            `json:"label"`
 	LabelKey           string            `json:"label_key,omitempty"`
