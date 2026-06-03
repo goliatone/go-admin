@@ -603,7 +603,8 @@ func translationFamilyPolicySourceNotFound(err error) bool {
 		return true
 	}
 	message := strings.ToLower(strings.TrimSpace(err.Error()))
-	return strings.Contains(message, "not found")
+	return strings.Contains(message, " not found") &&
+		(strings.HasPrefix(message, "page ") || strings.HasPrefix(message, "content "))
 }
 
 func translationFamilyPolicySourceLocale(req TranslationRequirements, fallback string) string {
