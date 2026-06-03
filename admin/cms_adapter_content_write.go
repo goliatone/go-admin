@@ -841,7 +841,7 @@ func (r goCMSContentWriteBoundary) createPageFromContent(ctx context.Context, pa
 		Status:      page.Status,
 		Locale:      locale,
 		FamilyID:    groupID,
-		ContentType: "page",
+		ContentType: CMSPageContentTypeSlug,
 		Blocks:      append([]string{}, page.Blocks...),
 		Data:        data,
 		Metadata:    metadata,
@@ -863,7 +863,7 @@ func (r goCMSContentWriteBoundary) updatePageFromContent(ctx context.Context, pa
 	if err != nil {
 		return nil, err
 	}
-	if existing == nil || (!strings.EqualFold(existing.ContentType, "page") && !strings.EqualFold(existing.ContentTypeSlug, "page")) {
+	if existing == nil || !IsCMSPageContentRecord(existing.ContentType, existing.ContentTypeSlug) {
 		return nil, ErrNotFound
 	}
 
@@ -898,7 +898,7 @@ func (r goCMSContentWriteBoundary) updatePageFromContent(ctx context.Context, pa
 		Status:      status,
 		Locale:      locale,
 		FamilyID:    groupID,
-		ContentType: "page",
+		ContentType: CMSPageContentTypeSlug,
 		Blocks:      blocks,
 		Data:        data,
 		Metadata:    metadata,
@@ -975,7 +975,7 @@ func (r goCMSContentWriteBoundary) deletePageFromContent(ctx context.Context, id
 	if err != nil {
 		return err
 	}
-	if existing == nil || (!strings.EqualFold(existing.ContentType, "page") && !strings.EqualFold(existing.ContentTypeSlug, "page")) {
+	if existing == nil || !IsCMSPageContentRecord(existing.ContentType, existing.ContentTypeSlug) {
 		return ErrNotFound
 	}
 	return r.DeleteContent(ctx, existing.ID)
