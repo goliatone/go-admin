@@ -182,7 +182,7 @@ func appendPageFamilyVariant(ctx context.Context, adm *Admin, families map[strin
 		return validationDomainError("translation-enabled page missing canonical family_id", map[string]any{
 			"record_id": page.ID,
 			"locale":    page.Locale,
-			"entity":    "pages",
+			"entity":    CMSPagePolicyEntity,
 		})
 	}
 	resolvedLocale := translationFamilyLocale(page.Locale, locale)
@@ -196,7 +196,7 @@ func appendPageFamilyVariant(ctx context.Context, adm *Admin, families map[strin
 			ID:          familyID,
 			TenantID:    scope.TenantID,
 			OrgID:       scope.OrgID,
-			ContentType: "pages",
+			ContentType: CMSPagePolicyEntity,
 			SourceLocale: translationFamilyLocale(
 				defaultLocale,
 				page.Locale,
@@ -230,7 +230,7 @@ func appendPageFamilyVariant(ctx context.Context, adm *Admin, families map[strin
 
 func appendContentFamilyVariant(ctx context.Context, adm *Admin, families map[string]translationservices.FamilyRecord, state *translationFamilySyncState, content CMSContent, locale, defaultLocale string) error {
 	contentType := strings.TrimSpace(strings.ToLower(firstNonEmpty(content.ContentTypeSlug, content.ContentType)))
-	if contentType == "" || contentType == "page" {
+	if contentType == "" || IsCMSPageContentTypeSlug(contentType) {
 		return nil
 	}
 	familyContentType := translationFamilySyncContentType(ctx, adm, contentType)
