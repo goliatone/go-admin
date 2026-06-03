@@ -1220,7 +1220,7 @@ func (b *translationQueueBinding) persistEditorVariantUpdate(ctx context.Context
 		})
 	}
 	state := b.editorVariantUpdateState(editorCtx, fields, sourceSyncState)
-	if strings.EqualFold(strings.TrimSpace(editorCtx.Family.ContentType), "pages") {
+	if IsCMSPagePolicyEntity(editorCtx.Family.ContentType) {
 		return b.persistEditorPageUpdate(ctx, editorCtx, state, metadata, actorID)
 	}
 	return b.persistEditorContentUpdate(ctx, editorCtx, state, metadata, actorID)
@@ -1499,7 +1499,7 @@ func (b *translationQueueBinding) persistEditorVariantStatus(ctx context.Context
 	if nextVersion <= 0 {
 		nextVersion = translationEditorDefaultVersion
 	}
-	if strings.EqualFold(strings.TrimSpace(editorCtx.Family.ContentType), "pages") {
+	if IsCMSPagePolicyEntity(editorCtx.Family.ContentType) {
 		record, err := b.admin.contentSvc.Page(ctx, strings.TrimSpace(editorCtx.TargetRecordID), "")
 		if err != nil || record == nil {
 			return err
@@ -1732,7 +1732,7 @@ func translationEditorStyleGuideRules(locale, contentType string) []string {
 	if strings.EqualFold(locale, "fr") {
 		rules = append(rules, "Use sentence case for navigation and CTA copy.")
 	}
-	if strings.EqualFold(contentType, "pages") {
+	if IsCMSPagePolicyEntity(contentType) {
 		rules = append(rules, "Do not localize canonical slug fragments unless policy explicitly allows it.")
 	}
 	return rules
