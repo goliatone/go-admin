@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/goliatone/go-admin/admin"
-	"github.com/goliatone/go-command/registry"
 )
 
 func TestWithTranslationQueueConfigSetsFeatureDefault(t *testing.T) {
@@ -32,8 +31,7 @@ func TestNewAdminTranslationQueueDisabledByDefault(t *testing.T) {
 }
 
 func TestNewAdminTranslationQueueEnabledRegistersPanelCommandsAndPermissions(t *testing.T) {
-	_ = registry.Stop(context.Background())
-	t.Cleanup(func() { _ = registry.Stop(context.Background()) })
+	cleanupGlobalCommandRegistry(t)
 
 	repo := admin.NewInMemoryTranslationAssignmentRepository()
 	ctx := context.Background()
@@ -98,7 +96,7 @@ func TestNewAdminTranslationQueueEnabledRegistersPanelCommandsAndPermissions(t *
 }
 
 func TestNewAdminTranslationQueueDerivesLocalesFromPolicyWhenUnset(t *testing.T) {
-	t.Cleanup(func() { _ = registry.Stop(context.Background()) })
+	cleanupGlobalCommandRegistry(t)
 
 	policy := TranslationPolicyConfig{
 		Required: map[string]TranslationPolicyEntityConfig{

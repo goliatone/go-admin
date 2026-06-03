@@ -3,15 +3,19 @@ package admin
 import (
 	"context"
 	"errors"
+	"fmt"
 	"reflect"
 	"testing"
 
+	cmscontent "github.com/goliatone/go-cms/content"
+	cmspages "github.com/goliatone/go-cms/pages"
 	cmsinterfaces "github.com/goliatone/go-cms/pkg/interfaces"
 	"github.com/google/uuid"
 )
 
 type stubPageTranslationService struct {
 	missing      []string
+	err          error
 	calls        int
 	lastID       uuid.UUID
 	lastRequired []string
@@ -23,7 +27,7 @@ func (s *stubPageTranslationService) CheckTranslations(_ context.Context, id uui
 	s.lastID = id
 	s.lastRequired = append([]string{}, required...)
 	s.lastOpts = opts
-	return s.missing, nil
+	return s.missing, s.err
 }
 
 func (s *stubPageTranslationService) AvailableLocales(context.Context, uuid.UUID, cmsinterfaces.TranslationCheckOptions) ([]string, error) {
@@ -229,6 +233,56 @@ func TestGoCMSTranslationPolicyNormalizesEntityMetadata(t *testing.T) {
 	}
 	if missingErr.PolicyEntity != "pages" {
 		t.Fatalf("expected normalized policy entity pages, got %q", missingErr.PolicyEntity)
+	}
+}
+
+func TestGoCMSTranslationPolicyNormalizesTypedSourceLookupNotFound(t *testing.T) {
+	sourceErr := &cmspages.SourceNotFoundError{EntityID: uuid.New()}
+	pageSvc := &stubPageTranslationService{err: sourceErr}
+	resolver := TranslationRequirementsResolverFunc(func(context.Context, TranslationPolicyInput) (TranslationRequirements, bool, error) {
+		return TranslationRequirements{Locales: []string{"en", "es"}}, true, nil
+	})
+	policy := GoCMSTranslationPolicy{Pages: pageSvc, Resolver: resolver}
+
+	err := policy.Validate(context.Background(), TranslationPolicyInput{
+		EntityType: pageWorkflowEntityType,
+		EntityID:   uuid.New().String(),
+		Transition: "publish",
+	})
+	if err == nil {
+		t.Fatalf("expected source lookup error")
+	}
+	if !errors.Is(err, ErrTranslationSourceNotFound) {
+		t.Fatalf("expected ErrTranslationSourceNotFound, got %v", err)
+	}
+	if !errors.Is(err, cmspages.ErrSourceNotFound) {
+		t.Fatalf("expected wrapped pages ErrSourceNotFound, got %v", err)
+	}
+	if !translationFamilyPolicySourceNotFound(err) {
+		t.Fatalf("expected family policy resolver to classify typed source lookup not-found")
+	}
+}
+
+func TestNormalizeTranslationPolicySourceErrorWrapsContentSourceNotFound(t *testing.T) {
+	sourceErr := fmt.Errorf("translation checker: %w", cmscontent.ErrSourceNotFound)
+
+	err := normalizeTranslationPolicySourceError(sourceErr)
+	if !errors.Is(err, ErrTranslationSourceNotFound) {
+		t.Fatalf("expected ErrTranslationSourceNotFound, got %v", err)
+	}
+	if !errors.Is(err, cmscontent.ErrSourceNotFound) {
+		t.Fatalf("expected wrapped content ErrSourceNotFound, got %v", err)
+	}
+}
+
+func TestTranslationFamilyPolicySourceNotFoundDoesNotParseMessages(t *testing.T) {
+	for _, err := range []error{
+		errors.New("page 123 not found"),
+		errors.New("content 123 not found"),
+	} {
+		if translationFamilyPolicySourceNotFound(err) {
+			t.Fatalf("expected plain message error to remain a policy blocker: %v", err)
+		}
 	}
 }
 

@@ -195,8 +195,8 @@ func TestFamilyServiceMissingPolicyCreatesPolicyUnavailableDetails(t *testing.T)
 	if blocker.Details[translationcore.FamilyBlockerDetailContentType] != "news" || blocker.Details[translationcore.FamilyBlockerDetailEnvironment] != "default" {
 		t.Fatalf("expected content type and environment details, got %+v", blocker.Details)
 	}
-	remediation, _ := blocker.Details[translationcore.FamilyBlockerDetailRemediation].(string)
-	if strings.TrimSpace(remediation) == "" {
+	remediation, ok := blocker.Details[translationcore.FamilyBlockerDetailRemediation].(string)
+	if !ok || strings.TrimSpace(remediation) == "" {
 		t.Fatalf("expected remediation detail, got %+v", blocker.Details)
 	}
 }

@@ -28,49 +28,6 @@ type stubGoCMSContentService struct {
 	createTranslationCnt int
 }
 
-type stubGoCMSContentServiceNoTranslation struct {
-	base *stubGoCMSContentService
-}
-
-func (s *stubGoCMSContentServiceNoTranslation) List(ctx context.Context, opts ...cmscontent.ContentListOption) ([]*cmscontent.Content, error) {
-	return s.base.List(ctx, opts...)
-}
-
-func (s *stubGoCMSContentServiceNoTranslation) Get(ctx context.Context, id uuid.UUID, opts ...cmscontent.ContentGetOption) (*cmscontent.Content, error) {
-	return s.base.Get(ctx, id, opts...)
-}
-
-func (s *stubGoCMSContentServiceNoTranslation) Create(ctx context.Context, req cmscontent.CreateContentRequest) (*cmscontent.Content, error) {
-	return s.base.Create(ctx, req)
-}
-
-func (s *stubGoCMSContentServiceNoTranslation) Update(ctx context.Context, req cmscontent.UpdateContentRequest) (*cmscontent.Content, error) {
-	return s.base.Update(ctx, req)
-}
-
-func (s *stubGoCMSContentServiceNoTranslation) Delete(ctx context.Context, req cmscontent.DeleteContentRequest) error {
-	return s.base.Delete(ctx, req)
-}
-
-type stubGoCMSContentTranslationService struct {
-	createTranslationReq stubCreateTranslationRequest
-	createTranslationRes *cmscontent.Content
-	createTranslationErr error
-	createTranslationCnt int
-}
-
-func (s *stubGoCMSContentTranslationService) CreateTranslation(_ context.Context, req stubCreateTranslationRequest) (*cmscontent.Content, error) {
-	s.createTranslationCnt++
-	s.createTranslationReq = req
-	if s.createTranslationErr != nil {
-		return nil, s.createTranslationErr
-	}
-	if s.createTranslationRes != nil {
-		return s.createTranslationRes, nil
-	}
-	return nil, ErrNotFound
-}
-
 type stubCreateTranslationRequest struct {
 	ContentID       uuid.UUID
 	SourceID        uuid.UUID
