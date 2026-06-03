@@ -104,7 +104,7 @@ func resolveMenuItemHref(item admin.MenuItem, target map[string]any) string {
 	}
 	if slug := strings.TrimSpace(anyString(target["slug"])); slug != "" {
 		contentType := singularTypeSlug(anyString(target["content_type_slug"]))
-		if contentType == "page" {
+		if admin.IsCMSPageContentTypeSlug(contentType) {
 			return normalizeNavigationPath("/" + slug)
 		}
 		if contentType != "" {
