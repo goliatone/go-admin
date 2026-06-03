@@ -133,6 +133,12 @@ func buildSiteTemplateFuncMap() map[string]any {
 		"siteMenuHasActive": func(menu any) bool {
 			return siteMenuHasActive(menu)
 		},
+		"navItemVisible": func(item any) bool {
+			return navItemVisible(item)
+		},
+		"navItemDisabled": func(item any) bool {
+			return navItemDisabled(item)
+		},
 	}
 }
 

@@ -181,6 +181,7 @@ func resolveSiteNavigationConfig(input SiteNavigationConfig) SiteNavigationConfi
 		FallbackMenuCode:         firstNonEmpty(input.FallbackMenuCode, DefaultFallbackMenuCode),
 		EnableGeneratedFallback:  input.EnableGeneratedFallback,
 		ContributionLocalePolicy: normalizeContributionLocalePolicy(input.ContributionLocalePolicy),
+		PermissionDeniedMode:     admin.NormalizeNavigationPermissionDeniedMode(input.PermissionDeniedMode),
 	}
 }
 

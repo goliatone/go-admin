@@ -9,13 +9,13 @@ import (
 	"github.com/goliatone/go-admin/internal/primitives"
 )
 
-func dedupeMenuItems(items []admin.MenuItem, policy string) []admin.MenuItem {
+func dedupeMenuItems(items []admin.NavigationItem, policy string) []admin.NavigationItem {
 	policy = normalizeDedupPolicy(policy)
 	if policy == "" || policy == menuDedupNone || len(items) <= 1 {
 		return items
 	}
 	seen := map[string]struct{}{}
-	out := make([]admin.MenuItem, 0, len(items))
+	out := make([]admin.NavigationItem, 0, len(items))
 	for _, item := range items {
 		key := dedupeKeyForMenuItem(item, policy)
 		if key == "" {
@@ -31,7 +31,7 @@ func dedupeMenuItems(items []admin.MenuItem, policy string) []admin.MenuItem {
 	return out
 }
 
-func dedupeKeyForMenuItem(item admin.MenuItem, policy string) string {
+func dedupeKeyForMenuItem(item admin.NavigationItem, policy string) string {
 	target := item.Target
 	switch policy {
 	case menuDedupByTarget:
@@ -52,13 +52,13 @@ func dedupeKeyForMenuItem(item admin.MenuItem, policy string) string {
 	return ""
 }
 
-func orderMenuItemsDeterministic(items []admin.MenuItem) []admin.MenuItem {
+func orderMenuItemsDeterministic(items []admin.NavigationItem) []admin.NavigationItem {
 	if len(items) <= 1 {
-		return append([]admin.MenuItem{}, items...)
+		return append([]admin.NavigationItem{}, items...)
 	}
 	type orderedItem struct {
 		index int
-		item  admin.MenuItem
+		item  admin.NavigationItem
 	}
 	out := make([]orderedItem, 0, len(items))
 	for index, item := range items {
@@ -82,21 +82,21 @@ func orderMenuItemsDeterministic(items []admin.MenuItem) []admin.MenuItem {
 		return out[i].index < out[j].index
 	})
 
-	projected := make([]admin.MenuItem, 0, len(out))
+	projected := make([]admin.NavigationItem, 0, len(out))
 	for _, item := range out {
 		projected = append(projected, item.item)
 	}
 	return projected
 }
 
-func menuItemPosition(item admin.MenuItem) int {
+func menuItemPosition(item admin.NavigationItem) int {
 	if item.Position == nil {
 		return int(^uint(0) >> 1)
 	}
 	return *item.Position
 }
 
-func resolveMenuItemHref(item admin.MenuItem, target map[string]any) string {
+func resolveMenuItemHref(item admin.NavigationItem, target map[string]any) string {
 	for _, key := range []string{"url", "href", "path"} {
 		if value := strings.TrimSpace(anyString(target[key])); value != "" {
 			return normalizeNavigationPath(value)
@@ -160,7 +160,7 @@ func (r *navigationRuntime) menuItemActiveForRequestPath(activePath, href, mode,
 	return menuItemActive(strippedActive, strippedHref, mode, pattern)
 }
 
-func resolveMenuItemKey(item admin.MenuItem, href string, target map[string]any) string {
+func resolveMenuItemKey(item admin.NavigationItem, href string, target map[string]any) string {
 	if value := strings.TrimSpace(anyString(target["key"])); value != "" {
 		return strings.ToLower(value)
 	}

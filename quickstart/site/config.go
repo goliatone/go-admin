@@ -62,11 +62,12 @@ type SiteConfig struct {
 
 // SiteNavigationConfig defines site menu defaults.
 type SiteNavigationConfig struct {
-	MainMenuLocation         string `json:"main_menu_location"`
-	FooterMenuLocation       string `json:"footer_menu_location"`
-	FallbackMenuCode         string `json:"fallback_menu_code"`
-	EnableGeneratedFallback  bool   `json:"enable_generated_fallback"`
-	ContributionLocalePolicy string `json:"contribution_locale_policy"`
+	MainMenuLocation         string                               `json:"main_menu_location"`
+	FooterMenuLocation       string                               `json:"footer_menu_location"`
+	FallbackMenuCode         string                               `json:"fallback_menu_code"`
+	EnableGeneratedFallback  bool                                 `json:"enable_generated_fallback"`
+	ContributionLocalePolicy string                               `json:"contribution_locale_policy"`
+	PermissionDeniedMode     admin.NavigationPermissionDeniedMode `json:"permission_denied_mode"`
 }
 
 const (

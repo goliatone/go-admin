@@ -80,7 +80,7 @@ func siteMenuItems(menu any) []map[string]any {
 	menuMap := siteAnyMap(menu)
 	if len(menuMap) == 0 {
 		if items := siteAnyMapSlice(menu); len(items) > 0 {
-			return items
+			return filterVisibleNavItems(items)
 		}
 		return []map[string]any{}
 	}
@@ -88,7 +88,7 @@ func siteMenuItems(menu any) []map[string]any {
 	if len(items) == 0 {
 		return []map[string]any{}
 	}
-	return items
+	return filterVisibleNavItems(items)
 }
 
 func siteMenuChildren(item any) []map[string]any {
@@ -100,7 +100,54 @@ func siteMenuChildren(item any) []map[string]any {
 	if len(children) == 0 {
 		return []map[string]any{}
 	}
-	return children
+	return filterVisibleNavItems(children)
+}
+
+func navItemVisible(item any) bool {
+	itemMap := siteAnyMap(item)
+	if len(itemMap) == 0 {
+		return false
+	}
+	if siteAnyBool(itemMap["hidden"]) {
+		return false
+	}
+	if siteAnyBool(itemMap["hide"]) {
+		return false
+	}
+	if raw, ok := itemMap["render"]; ok && !siteAnyBool(raw) {
+		return false
+	}
+	if raw, ok := itemMap["visible"]; ok && !siteAnyBool(raw) {
+		return false
+	}
+	return true
+}
+
+func navItemDisabled(item any) bool {
+	itemMap := siteAnyMap(item)
+	if len(itemMap) == 0 {
+		return false
+	}
+	if raw, ok := itemMap["enabled"]; ok {
+		return !siteAnyBool(raw)
+	}
+	return siteAnyBool(itemMap["disabled"]) || siteAnyBool(itemMap["aria_disabled"])
+}
+
+func filterVisibleNavItems(items []map[string]any) []map[string]any {
+	if len(items) == 0 {
+		return []map[string]any{}
+	}
+	out := make([]map[string]any, 0, len(items))
+	for _, item := range items {
+		if navItemVisible(item) {
+			out = append(out, item)
+		}
+	}
+	if len(out) == 0 {
+		return []map[string]any{}
+	}
+	return out
 }
 
 func siteMenuHasActive(menu any) bool {

@@ -60,7 +60,7 @@
                   </button>
                   <div class="submenu space-y-0.5 mt-1 pl-8 {% if child.collapsed %}collapsed{% else %}expanded{% endif %}" data-submenu="{{ child.id }}">
                     {% for grandchild in child.children %}
-                      {% if grandchild.enabled == false %}
+                      {% if navItemDisabled(grandchild) %}
                         <button type="button"
                                 class="nav-item w-full text-left opacity-70 cursor-not-allowed"
                                 style="height: var(--sidebar-item-height, 36px);"
@@ -86,7 +86,7 @@
                   </div>
                 </div>
               {% else %}
-                {% if child.enabled == false %}
+                {% if navItemDisabled(child) %}
                   <button type="button"
                           class="nav-item w-full text-left opacity-70 cursor-not-allowed"
                           style="height: var(--sidebar-item-height, 36px);"
@@ -123,7 +123,7 @@
           </button>
           <div class="submenu space-y-0.5 mt-1 pl-8 {% if item.collapsed %}collapsed{% else %}expanded{% endif %}" data-submenu="{{ item.id }}">
             {% for child in item.children %}
-              {% if child.enabled == false %}
+              {% if navItemDisabled(child) %}
                 <button type="button"
                         class="nav-item w-full text-left opacity-70 cursor-not-allowed"
                         style="height: var(--sidebar-item-height, 36px);"
@@ -149,7 +149,7 @@
           </div>
         </div>
       {% else %}
-        {% if item.enabled == false %}
+        {% if navItemDisabled(item) %}
           <button type="button"
                   class="nav-item w-full text-left opacity-70 cursor-not-allowed"
                   style="height: var(--sidebar-item-height, 36px);"
@@ -186,7 +186,7 @@
             <div class="px-3 py-1 text-[11px] font-medium uppercase tracking-wider text-sidebar-text-muted">{{ item.group_title }}</div>
           {% endif %}
           {% for child in item.children %}
-            {% if child.enabled == false %}
+            {% if navItemDisabled(child) %}
               <button type="button"
                       class="nav-item w-full text-left opacity-70 cursor-not-allowed"
                       style="height: var(--sidebar-item-height, 36px);"
@@ -210,7 +210,7 @@
             {% endif %}
           {% endfor %}
         {% else %}
-          {% if item.enabled == false %}
+          {% if navItemDisabled(item) %}
             <button type="button"
                     class="nav-item w-full text-left opacity-70 cursor-not-allowed"
                     style="height: var(--sidebar-item-height, 36px);"

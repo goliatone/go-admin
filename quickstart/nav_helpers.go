@@ -280,6 +280,7 @@ func resolveFallbackMenuItems(ctx context.Context, adm *admin.Admin, items []adm
 func menuItemAsNavigationItem(item admin.MenuItem) admin.NavigationItem {
 	return admin.NavigationItem{
 		ID:            item.ID,
+		Code:          item.Code,
 		Type:          item.Type,
 		Label:         item.Label,
 		LabelKey:      item.LabelKey,

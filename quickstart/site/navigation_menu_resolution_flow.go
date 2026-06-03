@@ -71,9 +71,9 @@ func navigationResolvedMenuPayload(
 	menu *admin.Menu,
 	source string,
 ) map[string]any {
-	filtered := r.filterMenuItems(ctx, menu.Items)
-	filtered = r.enforceContributionLocalePolicy(ctx, filtered, opts.Locale, opts.ContributionLocalePolicy)
-	projected := r.projectMenuItems(filtered, activePath, opts.Locale, opts.DedupPolicy, debugMode)
+	filtered := r.enforceContributionLocalePolicy(ctx, menu.Items, opts.Locale, opts.ContributionLocalePolicy)
+	resolved := r.filterMenuItems(ctx, filtered)
+	projected := r.projectMenuItems(resolved, activePath, opts.Locale, opts.DedupPolicy, debugMode)
 
 	return map[string]any{
 		"location":           strings.TrimSpace(primitives.FirstNonEmpty(menu.Location, location)),
