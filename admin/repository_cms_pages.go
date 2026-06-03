@@ -3,8 +3,9 @@ package admin
 import (
 	"context"
 	"errors"
-	"github.com/goliatone/go-admin/internal/primitives"
 	"strings"
+
+	"github.com/goliatone/go-admin/internal/primitives"
 )
 
 // ErrPathConflict signals a page path/slug collision.
@@ -76,7 +77,7 @@ func (r *CMSPageRepository) resolvePageContentTypeID(ctx context.Context) string
 	if types == nil {
 		return ""
 	}
-	if ct, err := types.ContentTypeBySlug(ctx, "page"); err == nil && ct != nil {
+	if ct, err := types.ContentTypeBySlug(ctx, CMSPageContentTypeSlug); err == nil && ct != nil {
 		if id := strings.TrimSpace(ct.ID); id != "" {
 			return id
 		}
@@ -86,9 +87,9 @@ func (r *CMSPageRepository) resolvePageContentTypeID(ctx context.Context) string
 		return ""
 	}
 	for _, item := range items {
-		if strings.EqualFold(strings.TrimSpace(item.Slug), "page") ||
-			strings.EqualFold(strings.TrimSpace(item.Name), "page") ||
-			strings.EqualFold(strings.TrimSpace(item.ID), "page") {
+		if IsCMSPageContentTypeSlug(item.Slug) ||
+			IsCMSPageContentTypeSlug(item.Name) ||
+			IsCMSPageContentTypeSlug(item.ID) {
 			return strings.TrimSpace(item.ID)
 		}
 	}
@@ -116,7 +117,7 @@ func (r *CMSPageRepository) Get(ctx context.Context, id string) (map[string]any,
 	normalized := normalizeCMSPageLocaleState(*page, requested)
 	if requested != "" && normalized.MissingRequestedLocale && !localeFallbackAllowed(ctx) {
 		return nil, translationMissingNotFoundError(requested, normalized.AvailableLocales, map[string]any{
-			"entity":     "page",
+			"entity":     CMSPageContentTypeSlug,
 			"id":         normalized.ID,
 			"slug":       normalized.Slug,
 			"path":       resolveCMSPagePath(normalized),
@@ -279,7 +280,7 @@ func (r *CMSPageRepository) ensureUniqueLocalizedPath(ctx context.Context, page 
 			"skip_id":   skipID,
 			"candidate": candidate.ID,
 			"locale":    page.Locale,
-			"scope":     "page",
+			"scope":     CMSPageContentTypeSlug,
 		})
 	}
 	return nil
