@@ -16,7 +16,7 @@ import (
 )
 
 const (
-	exampleTranslationQueueSourceSlug   = "translation-demo-exchange"
+	exampleTranslationQueueSourceSlug   = "privacy"
 	exampleTranslationQueuePostSource   = "translation-demo-queue-active"
 	exampleTranslationQueueOpenPoolSlug = "translation-exchange-ready"
 	exampleTranslationQueueTargetLocale = "fr"

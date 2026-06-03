@@ -350,7 +350,7 @@ func TestPersistentExampleFamilySyncProducesMeaningfulReadiness(t *testing.T) {
 
 	exchangeReady := requireSyncedFamilyWithVariantPath(t, ctx, familyStore, "/translation-demo-exchange")
 	require.Equal(t, "pages", strings.TrimSpace(exchangeReady.ContentType))
-	require.Equal(t, string(translationcore.FamilyReadinessReady), strings.TrimSpace(exchangeReady.ReadinessState))
+	require.Equal(t, string(translationcore.FamilyReadinessReady), strings.TrimSpace(exchangeReady.ReadinessState), "family=%s blockers=%+v variants=%+v", exchangeReady.ID, exchangeReady.Blockers, exchangeReady.Variants)
 	require.Empty(t, exchangeReady.Blockers)
 
 	for _, tc := range []struct {
