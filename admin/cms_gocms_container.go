@@ -19,6 +19,10 @@ func BuildGoCMSContainer(ctx context.Context, cfg Config) (CMSContainer, error) 
 	if raw == nil {
 		raw = cfg.CMSConfig
 	}
+	return buildGoCMSContainerFromRaw(raw)
+}
+
+func buildGoCMSContainerFromRaw(raw any) (CMSContainer, error) {
 	switch v := raw.(type) {
 	case CMSContainer:
 		return v, nil
