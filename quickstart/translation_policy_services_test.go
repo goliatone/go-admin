@@ -80,7 +80,7 @@ func TestResolveTranslationPolicyServicesPrefersOverrides(t *testing.T) {
 func TestDiagnoseTranslationPolicyServicesReportsExplicitRequirementsWithoutCheckers(t *testing.T) {
 	cfg := TranslationPolicyConfig{
 		Required: map[string]TranslationPolicyEntityConfig{
-			"pages": {
+			admin.CMSPagePolicyEntity: {
 				"publish": {Locales: []string{"en", "es"}},
 			},
 		},
@@ -92,8 +92,8 @@ func TestDiagnoseTranslationPolicyServicesReportsExplicitRequirementsWithoutChec
 	if diagnostics[0].Code != TranslationPolicyServicesMissingCode {
 		t.Fatalf("unexpected diagnostic code: %+v", diagnostics[0])
 	}
-	if len(diagnostics[0].MissingServices) != 1 || diagnostics[0].MissingServices[0] != translationPolicyContentServiceName {
-		t.Fatalf("expected content service missing, got %+v", diagnostics[0].MissingServices)
+	if len(diagnostics[0].MissingServices) != 1 || diagnostics[0].MissingServices[0] != translationPolicyPagesServiceName {
+		t.Fatalf("expected pages service missing, got %+v", diagnostics[0].MissingServices)
 	}
 }
 
@@ -139,6 +139,26 @@ func TestDiagnoseTranslationPolicyServicesReportsPartialCheckerMismatch(t *testi
 	}
 }
 
+func TestDiagnoseTranslationPolicyServicesReportsCMSPagesMissingPageChecker(t *testing.T) {
+	cfg := TranslationPolicyConfig{
+		Required: map[string]TranslationPolicyEntityConfig{
+			admin.CMSPagePolicyEntity: {
+				"publish": {Locales: []string{"en", "fr"}},
+			},
+		},
+	}
+	diagnostics := DiagnoseTranslationPolicyServices(
+		cfg,
+		TranslationPolicyServices{Content: stubTranslationChecker{}},
+	)
+	if len(diagnostics) != 1 {
+		t.Fatalf("expected one diagnostic for missing page checker, got %+v", diagnostics)
+	}
+	if !slices.Equal(diagnostics[0].MissingServices, []string{translationPolicyPagesServiceName}) {
+		t.Fatalf("expected pages service missing, got %+v", diagnostics[0].MissingServices)
+	}
+}
+
 func TestDiagnoseTranslationPolicyServicesReportsDenyByDefaultWithoutCheckers(t *testing.T) {
 	diagnostics := DiagnoseTranslationPolicyServices(
 		TranslationPolicyConfig{DenyByDefault: true},
@@ -160,7 +180,7 @@ func TestDiagnoseTranslationPolicyServicesAllowsExplicitOverrides(t *testing.T) 
 	diagnostics := DiagnoseTranslationPolicyServices(
 		TranslationPolicyConfig{
 			Required: map[string]TranslationPolicyEntityConfig{
-				"pages": {
+				admin.CMSPagePolicyEntity: {
 					"publish": {Locales: []string{"en", "es"}},
 				},
 			},
