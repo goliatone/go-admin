@@ -16,6 +16,7 @@ import (
 	"github.com/goliatone/go-admin/quickstart"
 	translationcore "github.com/goliatone/go-admin/translations/core"
 	translationservices "github.com/goliatone/go-admin/translations/services"
+	cms "github.com/goliatone/go-cms"
 	commandregistry "github.com/goliatone/go-command/registry"
 	router "github.com/goliatone/go-router"
 	"github.com/stretchr/testify/require"
@@ -259,6 +260,7 @@ func TestSeedExampleTranslationQueueFixtureSeedsPersistentBunEditorAssignmentAnd
 			string(coreadmin.FeatureCMS): true,
 		}),
 		quickstart.WithTranslationPolicyConfig(exampleTranslationPolicyConfig()),
+		quickstart.WithTranslationPolicyServices(exampleContentBackedPagePolicyServices(t, cmsOpts)),
 		quickstart.WithTranslationProductConfig(buildTranslationProductConfig(
 			resolveTranslationProfile("full"),
 			noopExchangeStore{},
@@ -333,6 +335,7 @@ func TestPersistentExampleFamilySyncProducesMeaningfulReadiness(t *testing.T) {
 			string(coreadmin.FeatureCMS): true,
 		}),
 		quickstart.WithTranslationPolicyConfig(exampleTranslationPolicyConfig()),
+		quickstart.WithTranslationPolicyServices(exampleContentBackedPagePolicyServices(t, cmsOpts)),
 	)
 	require.NoError(t, err)
 	require.NoError(t, coreadmin.SyncTranslationFamilyStore(ctx, adm, "default"))
@@ -384,6 +387,18 @@ func TestPersistentExampleFamilySyncProducesMeaningfulReadiness(t *testing.T) {
 	}
 	require.Positive(t, blocked, "expected seeded dataset to include blocked readiness examples")
 	require.NotEqual(t, blocked, barePolicyUnavailable, "blocked seeded families must not all be bare policy-unavailable blockers")
+}
+
+func exampleContentBackedPagePolicyServices(t *testing.T, cmsOpts coreadmin.CMSOptions) quickstart.TranslationPolicyServices {
+	t.Helper()
+	provider, ok := cmsOpts.GoCMSConfig.(interface{ Content() cms.ContentService })
+	require.True(t, ok, "expected persistent CMS config to expose a go-cms content checker")
+	content := provider.Content()
+	require.NotNil(t, content)
+	return quickstart.TranslationPolicyServices{
+		Pages:   content,
+		Content: content,
+	}
 }
 
 func requireSyncedFamily(t *testing.T, ctx context.Context, store *coreadmin.BunTranslationFamilyStore, familyID string) translationservices.FamilyRecord {
@@ -492,6 +507,7 @@ func TestPersistentAssignmentEditorSaveUsesCMSLifecycleStatus(t *testing.T) {
 			string(coreadmin.FeatureCMS): true,
 		}),
 		quickstart.WithTranslationPolicyConfig(exampleTranslationPolicyConfig()),
+		quickstart.WithTranslationPolicyServices(exampleContentBackedPagePolicyServices(t, cmsOpts)),
 		quickstart.WithTranslationProductConfig(buildTranslationProductConfig(
 			resolveTranslationProfile("full"),
 			noopExchangeStore{},

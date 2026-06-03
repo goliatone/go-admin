@@ -986,6 +986,131 @@ func TestTranslationEditorAutosaveAcceptsConsecutiveFieldUpdates(t *testing.T) {
 	}
 }
 
+func TestTranslationEditorAutosavePersistsPageSEOMirrorFields(t *testing.T) {
+	fixture := newTranslationEditorTestFixture(t, translationEditorTestFixtureOptions{})
+	detailURL := "/admin/api/translations/assignments/" + fixture.assignmentID + "?channel=production&tenant_id=tenant-1&org_id=org-1"
+	variantURL := translationEditorDraftSyncURL(fixture)
+
+	target, err := fixture.content.Page(context.Background(), fixture.targetRecordID, "")
+	if err != nil || target == nil {
+		t.Fatalf("load seeded target page: %v", err)
+	}
+	staleTitle := "Translation Demo - Exchange Ready"
+	staleDescription := "Demonstrates translation exchange export and import flows."
+	seeded := cloneCMSPage(*target)
+	if seeded.Data == nil {
+		seeded.Data = map[string]any{}
+	}
+	if seeded.SEO == nil {
+		seeded.SEO = map[string]any{}
+	}
+	seeded.Data["meta_title"] = staleTitle
+	seeded.Data["meta_description"] = staleDescription
+	seeded.SEO["title"] = staleTitle
+	seeded.SEO["description"] = staleDescription
+	if _, err = fixture.content.UpdatePage(context.Background(), seeded); err != nil {
+		t.Fatalf("seed target page SEO mirrors: %v", err)
+	}
+	syncTranslationFamilyFixtureStore(t, fixture.admin, "production")
+
+	translatedTitle := "Demo de traduction - pret pour l'echange"
+	translatedDescription := "Demontre les flux d'exportation et d'importation des echanges de traduction."
+	status, payload := doTranslationEditorJSONRequest(t, fixture.app, http.MethodPatch, variantURL, translationEditorDraftSyncMutation(3, true, map[string]any{
+		"meta_title":       translatedTitle,
+		"meta_description": translatedDescription,
+	}, nil))
+	if status != http.StatusOK {
+		t.Fatalf("autosave SEO fields status=%d want=200 payload=%+v", status, payload)
+	}
+	data := extractMap(payload["data"])
+	if got := toInt(data["row_version"]); got != 4 {
+		t.Fatalf("autosave SEO fields row_version = %d, want 4", got)
+	}
+	fields := mapString(extractMap(data["fields"]))
+	targetFields := mapString(extractMap(data["target_fields"]))
+	if got := fields["meta_title"]; got != translatedTitle {
+		t.Fatalf("response fields.meta_title = %q, want %q", got, translatedTitle)
+	}
+	if got := fields["meta_description"]; got != translatedDescription {
+		t.Fatalf("response fields.meta_description = %q, want %q", got, translatedDescription)
+	}
+	if got := targetFields["meta_title"]; got != translatedTitle {
+		t.Fatalf("response target_fields.meta_title = %q, want %q", got, translatedTitle)
+	}
+	if got := targetFields["meta_description"]; got != translatedDescription {
+		t.Fatalf("response target_fields.meta_description = %q, want %q", got, translatedDescription)
+	}
+
+	status, payload = doTranslationEditorJSONRequest(t, fixture.app, http.MethodGet, detailURL, nil)
+	if status != http.StatusOK {
+		t.Fatalf("detail after SEO autosave status=%d want=200 payload=%+v", status, payload)
+	}
+	reloadedTargetFields := mapString(extractMap(extractMap(payload["data"])["target_fields"]))
+	if got := reloadedTargetFields["meta_title"]; got != translatedTitle {
+		t.Fatalf("reloaded target_fields.meta_title = %q, want %q", got, translatedTitle)
+	}
+	if got := reloadedTargetFields["meta_description"]; got != translatedDescription {
+		t.Fatalf("reloaded target_fields.meta_description = %q, want %q", got, translatedDescription)
+	}
+
+	persisted, err := fixture.content.Page(context.Background(), fixture.targetRecordID, "")
+	if err != nil || persisted == nil {
+		t.Fatalf("load target after SEO autosave: %v", err)
+	}
+	if got := toString(persisted.Data["meta_title"]); got != translatedTitle {
+		t.Fatalf("persisted Data.meta_title = %q, want %q", got, translatedTitle)
+	}
+	if got := toString(persisted.Data["meta_description"]); got != translatedDescription {
+		t.Fatalf("persisted Data.meta_description = %q, want %q", got, translatedDescription)
+	}
+	if got := toString(persisted.SEO["title"]); got != translatedTitle {
+		t.Fatalf("persisted SEO.title = %q, want %q", got, translatedTitle)
+	}
+	if got := toString(persisted.SEO["description"]); got != translatedDescription {
+		t.Fatalf("persisted SEO.description = %q, want %q", got, translatedDescription)
+	}
+
+	status, payload = doTranslationEditorJSONRequest(t, fixture.app, http.MethodPatch, variantURL, translationEditorDraftSyncMutation(4, true, map[string]any{
+		"meta_title":       "",
+		"meta_description": "",
+	}, nil))
+	if status != http.StatusOK {
+		t.Fatalf("clear SEO fields status=%d want=200 payload=%+v", status, payload)
+	}
+	clearData := extractMap(payload["data"])
+	clearFields := mapString(extractMap(clearData["fields"]))
+	clearTargetFields := mapString(extractMap(clearData["target_fields"]))
+	if got := clearFields["meta_title"]; got == staleTitle || got == translatedTitle {
+		t.Fatalf("clear response fields.meta_title restored stale value %q", got)
+	}
+	if got := clearFields["meta_description"]; got == staleDescription || got == translatedDescription {
+		t.Fatalf("clear response fields.meta_description restored stale value %q", got)
+	}
+	if got := clearTargetFields["meta_title"]; got == staleTitle || got == translatedTitle {
+		t.Fatalf("clear response target_fields.meta_title restored stale value %q", got)
+	}
+	if got := clearTargetFields["meta_description"]; got == staleDescription || got == translatedDescription {
+		t.Fatalf("clear response target_fields.meta_description restored stale value %q", got)
+	}
+
+	cleared, err := fixture.content.Page(context.Background(), fixture.targetRecordID, "")
+	if err != nil || cleared == nil {
+		t.Fatalf("load target after clearing SEO autosave: %v", err)
+	}
+	if got := toString(cleared.Data["meta_title"]); got != "" {
+		t.Fatalf("cleared Data.meta_title = %q, want empty", got)
+	}
+	if got := toString(cleared.Data["meta_description"]); got != "" {
+		t.Fatalf("cleared Data.meta_description = %q, want empty", got)
+	}
+	if got := toString(cleared.SEO["title"]); got != "" {
+		t.Fatalf("cleared SEO.title = %q, want empty", got)
+	}
+	if got := toString(cleared.SEO["description"]); got != "" {
+		t.Fatalf("cleared SEO.description = %q, want empty", got)
+	}
+}
+
 func TestTranslationEditorDraftSyncReopensApprovedAndMovesActiveCMSStatusToDraft(t *testing.T) {
 	fixture := newTranslationEditorTestFixture(t, translationEditorTestFixtureOptions{
 		ReviewRequired:      true,
