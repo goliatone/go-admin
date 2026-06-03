@@ -64,7 +64,7 @@ func TestNavigationLocalizeMenuHrefDoesNotDoublePrefixAlreadyLocalized(t *testin
 }
 
 func TestNavigationDedupeKeyForMenuItemUsesTargetBeforeURLFallback(t *testing.T) {
-	item := admin.MenuItem{
+	item := admin.NavigationItem{
 		ID: "fallback-id",
 		Target: map[string]any{
 			"key": "primary-target-key",

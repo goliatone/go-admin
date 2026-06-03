@@ -24,6 +24,9 @@ func TestDefaultsEnableFullTranslationProfileForReleaseQA(t *testing.T) {
 	if cfg.ProtectedApp.Enabled {
 		t.Fatalf("expected protected app opt-in to be disabled by default")
 	}
+	if cfg.Navigation.PermissionDeniedMode != "hide" {
+		t.Fatalf("expected navigation permission denied mode hide by default, got %q", cfg.Navigation.PermissionDeniedMode)
+	}
 }
 
 func TestLoadProtectedAppRuntimeConfig(t *testing.T) {
@@ -53,6 +56,28 @@ func TestLoadProtectedAppRuntimeConfig(t *testing.T) {
 	}
 	if cfg.ProtectedApp.APIRoot != "/portal/api" {
 		t.Fatalf("expected protected app api root /portal/api, got %q", cfg.ProtectedApp.APIRoot)
+	}
+}
+
+func TestLoadNavigationPermissionDeniedModeRuntimeConfig(t *testing.T) {
+	dir := t.TempDir()
+	configPath := filepath.Join(dir, "app.json")
+	if err := os.WriteFile(configPath, []byte(`{
+  "app": {"name": "go-admin web", "env": "development"},
+  "server": {"address": ":8080"},
+  "navigation": {
+    "permission_denied_mode": "disable"
+  }
+}`), 0o600); err != nil {
+		t.Fatalf("write config fixture: %v", err)
+	}
+
+	cfg, _, err := Load(context.Background(), configPath)
+	if err != nil {
+		t.Fatalf("load config: %v", err)
+	}
+	if cfg.Navigation.PermissionDeniedMode != "disable" {
+		t.Fatalf("expected navigation permission denied mode disable, got %q", cfg.Navigation.PermissionDeniedMode)
 	}
 }
 

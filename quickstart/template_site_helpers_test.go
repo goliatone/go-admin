@@ -56,6 +56,8 @@ func TestSiteMenuHelpers(t *testing.T) {
 					{"label": "API", "active": true},
 				},
 			},
+			{"label": "Hidden", "hidden": true},
+			{"label": "No Render", "render": false},
 		},
 	}
 
@@ -72,6 +74,35 @@ func TestSiteMenuHelpers(t *testing.T) {
 	}
 }
 
+func TestNavigationTemplateHelpers(t *testing.T) {
+	if !navItemVisible(map[string]any{"label": "Visible"}) {
+		t.Fatalf("expected regular item to be visible")
+	}
+	for _, item := range []map[string]any{
+		{"label": "Hidden", "hidden": true},
+		{"label": "Hidden Alias", "hide": true},
+		{"label": "Render False", "render": false},
+		{"label": "Visible False", "visible": false},
+	} {
+		if navItemVisible(item) {
+			t.Fatalf("expected item to be hidden: %+v", item)
+		}
+	}
+	for _, item := range []map[string]any{
+		{"label": "Disabled", "enabled": false},
+		{"label": "Disabled String", "enabled": "false"},
+		{"label": "Disabled Flag", "disabled": true},
+		{"label": "ARIA Disabled", "aria_disabled": true},
+	} {
+		if !navItemDisabled(item) {
+			t.Fatalf("expected item to be disabled: %+v", item)
+		}
+	}
+	if navItemDisabled(map[string]any{"label": "Enabled", "enabled": true}) {
+		t.Fatalf("expected enabled item not to be disabled")
+	}
+}
+
 func TestDefaultTemplateFuncsExposeSiteHelpers(t *testing.T) {
 	funcs := DefaultTemplateFuncs()
 	required := []string{
@@ -83,6 +114,8 @@ func TestDefaultTemplateFuncsExposeSiteHelpers(t *testing.T) {
 		"siteMenuItems",
 		"siteMenuChildren",
 		"siteMenuHasActive",
+		"navItemVisible",
+		"navItemDisabled",
 	}
 	for _, key := range required {
 		if _, ok := funcs[key]; !ok {

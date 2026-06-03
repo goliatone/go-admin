@@ -547,6 +547,18 @@ func TestBuildNavEntryTransientMetadataOverridesStaleTargetMetadata(t *testing.T
 	}
 }
 
+func TestMenuItemAsNavigationItemPreservesCode(t *testing.T) {
+	item := menuItemAsNavigationItem(admin.MenuItem{
+		ID:    "docs",
+		Code:  "docs-code",
+		Label: "Docs",
+	})
+
+	if item.Code != "docs-code" {
+		t.Fatalf("expected code to be preserved, got %q", item.Code)
+	}
+}
+
 func newAdminWithCMSNavigationRegressionFixture(t *testing.T, cfg admin.Config, exchangeEnabled bool) *admin.Admin {
 	t.Helper()
 

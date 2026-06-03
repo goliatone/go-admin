@@ -26,6 +26,9 @@ func TestResolveSiteRuntimeConfigDefaults(t *testing.T) {
 	if siteCfg.Navigation.ContributionLocalePolicy != quicksite.ContributionLocalePolicyFallback {
 		t.Fatalf("expected contribution locale policy fallback, got %q", siteCfg.Navigation.ContributionLocalePolicy)
 	}
+	if string(siteCfg.Navigation.PermissionDeniedMode) != "hide" {
+		t.Fatalf("expected navigation permission denied mode hide, got %q", siteCfg.Navigation.PermissionDeniedMode)
+	}
 	if siteCfg.LocalePrefixMode != quicksite.LocalePrefixNonDefault {
 		t.Fatalf("expected locale prefix mode non_default, got %q", siteCfg.LocalePrefixMode)
 	}

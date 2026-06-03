@@ -9,7 +9,7 @@ import (
 
 func TestNavigationProjectMenuItemsIsDeterministic(t *testing.T) {
 	runtime := &navigationRuntime{}
-	items := []admin.MenuItem{
+	items := []admin.NavigationItem{
 		{
 			ID:       "c",
 			Label:    "C",
@@ -47,7 +47,7 @@ func TestNavigationProjectMenuItemsIsDeterministic(t *testing.T) {
 
 func TestNavigationProjectMenuItemsDedupesByURL(t *testing.T) {
 	runtime := &navigationRuntime{}
-	items := []admin.MenuItem{
+	items := []admin.NavigationItem{
 		{ID: "home-primary", Label: "Home", Position: new(1), Target: map[string]any{"url": "/home"}},
 		{ID: "home-secondary", Label: "Home Copy", Position: new(2), Target: map[string]any{"url": "/home"}},
 		{ID: "about", Label: "About", Position: new(3), Target: map[string]any{"url": "/about"}},
@@ -67,7 +67,7 @@ func TestNavigationProjectMenuItemsDedupesByURL(t *testing.T) {
 
 func TestNavigationProjectMenuItemDebugPreservesContributionOrigin(t *testing.T) {
 	runtime := &navigationRuntime{}
-	projected := projectNavigationMenuItem(runtime, admin.MenuItem{
+	projected := projectNavigationMenuItem(runtime, admin.NavigationItem{
 		ID:    "contribution",
 		Label: "Contributed",
 		Target: map[string]any{
@@ -114,4 +114,92 @@ func TestNavigationFilterMenuItemsDropsUnauthorizedEmptyGroupsAndSeparators(t *t
 	if filtered[0].ID != "public" {
 		t.Fatalf("expected public item to remain, got %+v", filtered[0])
 	}
+}
+
+func TestNavigationFilterMenuItemsCanDisableUnauthorizedItems(t *testing.T) {
+	runtime := &navigationRuntime{
+		siteCfg: ResolvedSiteConfig{
+			Navigation: SiteNavigationConfig{
+				PermissionDeniedMode: admin.NavigationPermissionDeniedModeDisable,
+			},
+		},
+		authorizer: siteAuthorizerStub{
+			allowed: map[string]bool{
+				"nav.secret": false,
+			},
+		},
+	}
+	items := []admin.MenuItem{
+		{
+			ID:          "group",
+			Type:        "group",
+			Label:       "Group",
+			Permissions: nil,
+			Children: []admin.MenuItem{
+				{ID: "secret", Label: "Secret", Permissions: []string{"nav.secret"}, Target: map[string]any{"url": "/secret"}},
+			},
+		},
+	}
+
+	filtered := filterNavigationMenuItems(runtime, context.Background(), items)
+	if len(filtered) != 1 || len(filtered[0].Children) != 1 {
+		t.Fatalf("expected group with disabled child to remain, got %+v", filtered)
+	}
+	child := filtered[0].Children[0]
+	if child.Enabled == nil || *child.Enabled || !child.Disabled {
+		t.Fatalf("expected child disabled metadata, got %+v", child)
+	}
+	projected := projectNavigationMenuItems(runtime, filtered, "/secret", "en", menuDedupByURL, false)
+	projectedChildren, ok := projected[0]["children"].([]map[string]any)
+	if !ok {
+		t.Fatalf("expected projected children slice, got %T", projected[0]["children"])
+	}
+	if len(projectedChildren) != 1 {
+		t.Fatalf("expected projected disabled child, got %+v", projected)
+	}
+	if projectedChildren[0]["enabled"] != false || projectedChildren[0]["disabled"] != true {
+		t.Fatalf("expected disabled projection metadata, got %+v", projectedChildren[0])
+	}
+	if got := anyString(projectedChildren[0]["missing_permission"]); got != "nav.secret" {
+		t.Fatalf("expected missing permission nav.secret, got %q", got)
+	}
+}
+
+func TestNavigationFilterMenuItemsUsesLegacyNavigationResource(t *testing.T) {
+	runtime := &navigationRuntime{
+		authorizer: siteNavigationResourceAuthorizer{
+			allowed: map[string]bool{
+				"site.docs.view": true,
+			},
+		},
+	}
+	items := []admin.MenuItem{
+		{
+			ID:          "docs",
+			Code:        "docs-code",
+			Label:       "Docs",
+			Permissions: []string{"site.docs.view"},
+			Target:      map[string]any{"url": "/docs"},
+		},
+	}
+
+	filtered := filterNavigationMenuItems(runtime, context.Background(), items)
+	if len(filtered) != 1 {
+		t.Fatalf("expected item allowed through legacy navigation resource, got %+v", filtered)
+	}
+	projected := projectNavigationMenuItems(runtime, filtered, "/docs", "en", menuDedupByURL, false)
+	if len(projected) != 1 {
+		t.Fatalf("expected projected docs item, got %+v", projected)
+	}
+	if got := anyString(projected[0]["code"]); got != "docs-code" {
+		t.Fatalf("expected projected code docs-code, got %q", got)
+	}
+}
+
+type siteNavigationResourceAuthorizer struct {
+	allowed map[string]bool
+}
+
+func (s siteNavigationResourceAuthorizer) Can(_ context.Context, action string, resource string) bool {
+	return resource == "navigation" && s.allowed[action]
 }

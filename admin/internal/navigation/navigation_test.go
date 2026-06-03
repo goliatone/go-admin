@@ -18,7 +18,7 @@ func (allowAllAuthorizer) Can(_ context.Context, _, _ string) bool { return true
 type permissionAuthorizer map[string]bool
 
 func (a permissionAuthorizer) Can(_ context.Context, action, resource string) bool {
-	return resource == "navigation" && a[action]
+	return resource == navigationPermissionResource(action) && a[action]
 }
 
 func TestNavigationFallbackFiltersSeparatorsAndEmptyNodes(t *testing.T) {
@@ -81,6 +81,19 @@ func TestNavigationFailsClosedWithoutAuthorizerForPermissionedItems(t *testing.T
 	}
 }
 
+func TestNavigationPermissionChecksUsePermissionResource(t *testing.T) {
+	nav := NewNavigation(nil, resourceAuthorizer{"admin.events": true})
+	nav.AddFallback(
+		NavigationItem{ID: "events", Label: "Events", Permissions: []string{"admin.events.view"}},
+		NavigationItem{ID: "sessions", Label: "Sessions", Permissions: []string{"admin.sessions.view"}},
+	)
+
+	items := nav.Resolve(context.Background(), "en")
+	if len(items) != 1 || items[0].ID != "events" {
+		t.Fatalf("expected only event item allowed by admin.events resource, got %+v", items)
+	}
+}
+
 func TestNormalizeNavigationPermissionDeniedMode(t *testing.T) {
 	tests := []struct {
 		name string
@@ -107,6 +120,7 @@ func TestConvertMenuItemsDoesNotSynthesizeTransientDisabledMetadata(t *testing.T
 	items := ConvertMenuItems([]MenuItem{
 		{
 			ID:     "debug",
+			Code:   "debug.code",
 			Label:  "Debug",
 			Target: map[string]any{"key": "debug", "enabled": false, "disabled": true, "disabled_reason_code": "stale"},
 		},
@@ -124,6 +138,33 @@ func TestConvertMenuItemsDoesNotSynthesizeTransientDisabledMetadata(t *testing.T
 	}
 	if item.Target["disabled"] != true {
 		t.Fatalf("expected stable target metadata to be preserved, got %+v", item.Target)
+	}
+	if item.Code != "debug.code" {
+		t.Fatalf("expected menu item code to be preserved, got %q", item.Code)
+	}
+}
+
+func TestNavigationPermissionResourceOverride(t *testing.T) {
+	nav := NewNavigation(nil, navigationResourceAuthorizer{"site.docs.view": true})
+	nav.AddFallback(NavigationItem{
+		ID:          "docs",
+		Label:       "Docs",
+		Permissions: []string{"site.docs.view"},
+	})
+
+	defaultItems := nav.ResolveMenuWithOptions(context.Background(), "", "en", ResolveOptions{
+		PermissionDeniedMode: NavigationPermissionDeniedModeHide,
+	})
+	if len(defaultItems) != 0 {
+		t.Fatalf("expected derived resource to deny navigation-resource authorizer, got %+v", defaultItems)
+	}
+
+	overrideItems := nav.ResolveMenuWithOptions(context.Background(), "", "en", ResolveOptions{
+		PermissionDeniedMode: NavigationPermissionDeniedModeHide,
+		PermissionResource:   "navigation",
+	})
+	if len(overrideItems) != 1 || overrideItems[0].ID != "docs" {
+		t.Fatalf("expected override resource to allow docs item, got %+v", overrideItems)
 	}
 }
 
@@ -267,6 +308,18 @@ func TestResolveMenuWithOptionsClearsStaleTransientMetadataForAllowedItems(t *te
 	if got.Disabled || got.ARIADisabled || got.DisabledReasonCode != "" || got.MissingPermission != "" {
 		t.Fatalf("expected stale disabled metadata to be cleared, got %+v", got)
 	}
+}
+
+type resourceAuthorizer map[string]bool
+
+func (a resourceAuthorizer) Can(_ context.Context, action, resource string) bool {
+	return action == resource+".view" && a[resource]
+}
+
+type navigationResourceAuthorizer map[string]bool
+
+func (a navigationResourceAuthorizer) Can(_ context.Context, action, resource string) bool {
+	return resource == "navigation" && a[action]
 }
 
 func findNavigationItemForTest(items []NavigationItem, id string) *NavigationItem {

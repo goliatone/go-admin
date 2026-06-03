@@ -44,6 +44,9 @@ func TestResolveSiteConfigDefaults(t *testing.T) {
 	if resolved.Navigation.ContributionLocalePolicy != ContributionLocalePolicyFallback {
 		t.Fatalf("expected contribution locale policy fallback, got %q", resolved.Navigation.ContributionLocalePolicy)
 	}
+	if resolved.Navigation.PermissionDeniedMode != admin.NavigationPermissionDeniedModeHide {
+		t.Fatalf("expected navigation permission denied mode hide, got %q", resolved.Navigation.PermissionDeniedMode)
+	}
 
 	if resolved.Views.BaseTemplate != DefaultBaseTemplate {
 		t.Fatalf("expected base template %q, got %q", DefaultBaseTemplate, resolved.Views.BaseTemplate)
@@ -97,6 +100,7 @@ func TestResolveSiteConfigHonorsFeatureAndFallbackOverrides(t *testing.T) {
 		},
 		Navigation: SiteNavigationConfig{
 			ContributionLocalePolicy: ContributionLocalePolicyStrict,
+			PermissionDeniedMode:     admin.NavigationPermissionDeniedModeDisable,
 		},
 		Views: SiteViewConfig{
 			Reload: new(true),
@@ -120,6 +124,9 @@ func TestResolveSiteConfigHonorsFeatureAndFallbackOverrides(t *testing.T) {
 	}
 	if resolved.Navigation.ContributionLocalePolicy != ContributionLocalePolicyStrict {
 		t.Fatalf("expected strict contribution locale policy, got %q", resolved.Navigation.ContributionLocalePolicy)
+	}
+	if resolved.Navigation.PermissionDeniedMode != admin.NavigationPermissionDeniedModeDisable {
+		t.Fatalf("expected disable permission denied mode, got %q", resolved.Navigation.PermissionDeniedMode)
 	}
 	if resolved.Features.EnableSearch {
 		t.Fatalf("expected search feature disabled")
@@ -150,6 +157,17 @@ func TestResolveSiteConfigHonorsFeatureAndFallbackOverrides(t *testing.T) {
 	}
 	if got := resolved.Views.ErrorTemplatesByCode[siteErrorCodeTranslationMissing]; got != "site/error/custom_missing_translation" {
 		t.Fatalf("expected override for translation_missing template, got %q", got)
+	}
+}
+
+func TestResolveSiteConfigNormalizesUnknownNavigationPermissionDeniedMode(t *testing.T) {
+	resolved := ResolveSiteConfig(admin.Config{DefaultLocale: "en"}, SiteConfig{
+		Navigation: SiteNavigationConfig{
+			PermissionDeniedMode: admin.NavigationPermissionDeniedMode("visible"),
+		},
+	})
+	if resolved.Navigation.PermissionDeniedMode != admin.NavigationPermissionDeniedModeHide {
+		t.Fatalf("expected unknown permission denied mode to normalize to hide, got %q", resolved.Navigation.PermissionDeniedMode)
 	}
 }
 

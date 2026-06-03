@@ -217,7 +217,7 @@ type denySettingsNav struct{}
 
 func (denySettingsNav) Can(ctx context.Context, action string, resource string) bool {
 	_ = ctx
-	if action == "admin.settings.view" && resource == "navigation" {
+	if action == "admin.settings.view" && (resource == "navigation" || resource == "admin.settings") {
 		return false
 	}
 	return true
