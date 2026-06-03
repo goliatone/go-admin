@@ -8,6 +8,8 @@ import (
 	"strings"
 
 	cmsadapter "github.com/goliatone/go-admin/admin/internal/cmsadapter"
+	cmscontent "github.com/goliatone/go-cms/content"
+	cmspages "github.com/goliatone/go-cms/pages"
 	cmsinterfaces "github.com/goliatone/go-cms/pkg/interfaces"
 	"github.com/google/uuid"
 )
@@ -86,6 +88,10 @@ type GoCMSTranslationPolicy struct {
 	Resolver TranslationRequirementsResolver `json:"resolver"`
 }
 
+// ErrTranslationSourceNotFound marks translation policy failures caused by the
+// source record disappearing before readiness checks can resolve it.
+var ErrTranslationSourceNotFound = errors.New("translation source not found")
+
 // Requirements resolves transition requirements when the policy exposes a resolver.
 func (p GoCMSTranslationPolicy) Requirements(ctx context.Context, input TranslationPolicyInput) (TranslationRequirements, bool, error) {
 	if p.Resolver == nil {
@@ -136,7 +142,7 @@ func (p GoCMSTranslationPolicy) Validate(ctx context.Context, input TranslationP
 			break
 		}
 		if firstErr == nil {
-			firstErr = err
+			firstErr = normalizeTranslationPolicySourceError(err)
 		}
 	}
 	if err != nil {
@@ -160,6 +166,24 @@ func (p GoCMSTranslationPolicy) Validate(ctx context.Context, input TranslationP
 		),
 		RequiredFieldsEvaluated: requiredFieldsValidationEnabled(req.RequiredFields, req.RequiredFieldsStrategy),
 	}
+}
+
+func normalizeTranslationPolicySourceError(err error) error {
+	if err == nil {
+		return nil
+	}
+	if errors.Is(err, ErrTranslationSourceNotFound) || errors.Is(err, ErrNotFound) {
+		return err
+	}
+	if translationPolicyCMSSourceNotFound(err) {
+		return fmt.Errorf("%w: %w", ErrTranslationSourceNotFound, err)
+	}
+	return err
+}
+
+func translationPolicyCMSSourceNotFound(err error) bool {
+	return errors.Is(err, cmscontent.ErrSourceNotFound) ||
+		errors.Is(err, cmspages.ErrSourceNotFound)
 }
 
 // CanonicalPolicyEntityKey performs structural normalization for policy entities.
