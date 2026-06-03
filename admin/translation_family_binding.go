@@ -575,6 +575,9 @@ func (r translationFamilyPolicyResolver) ResolvePolicyBlockers(ctx context.Conte
 	if errors.As(err, &missing) {
 		return nil, nil
 	}
+	if translationFamilyPolicySourceNotFound(err) {
+		return nil, nil
+	}
 	scope := translationservices.Scope{TenantID: family.TenantID, OrgID: family.OrgID}
 	return []translationservices.FamilyBlocker{{
 		ID:          translationservices.DeterministicBlockerID(scope, family.ID, string(translationcore.FamilyBlockerPolicyDenied), locale, "host_policy"),
@@ -590,6 +593,17 @@ func (r translationFamilyPolicyResolver) ResolvePolicyBlockers(ctx context.Conte
 			translationcore.FamilyBlockerDetailReason:      string(translationcore.FamilyBlockerReasonHostPolicy),
 		},
 	}}, nil
+}
+
+func translationFamilyPolicySourceNotFound(err error) bool {
+	if err == nil {
+		return false
+	}
+	if errors.Is(err, ErrNotFound) {
+		return true
+	}
+	message := strings.ToLower(strings.TrimSpace(err.Error()))
+	return strings.Contains(message, "not found")
 }
 
 func translationFamilyPolicySourceLocale(req TranslationRequirements, fallback string) string {
