@@ -1,16 +1,18 @@
-{% if footer_menu and footer_menu.items %}
-  {% set footer_items = footer_menu.items %}
-{% else %}
-  {% set footer_items = siteMenuItems(footer_menu) %}
-{% endif %}
+{% set footer_items = siteMenuItems(footer_menu) %}
 
 <section class="footer-link-group site-footer__group" aria-label="Footer links">
   <h2 class="footer-link-group__title">Explore</h2>
   <ul class="footer-link-group__list">
     {% for item in footer_items %}
+    {% if navItemVisible(item) %}
     <li class="footer-link-group__item">
+      {% if navItemDisabled(item) %}
+      <span class="ui-link ui-link--prominent footer-link-group__link is-disabled" aria-disabled="true" title="{{ item.disabled_reason|default:'Unavailable' }}">{{ item.label|default:item.group_title|default:item.key|default:"Link" }}</span>
+      {% else %}
       <a class="ui-link ui-link--prominent footer-link-group__link" href="{{ item.href|default:'#' }}">{{ item.label|default:item.group_title|default:item.key|default:"Link" }}</a>
+      {% endif %}
     </li>
+    {% endif %}
     {% endfor %}
   </ul>
 </section>

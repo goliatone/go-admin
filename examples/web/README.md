@@ -434,6 +434,7 @@ curl http://localhost:8080/admin/test-error?type=nested
 
 - Navigation can be seeded via `quickstart.SeedNavigation` in `examples/web/setup/navigation.go`; by default the app uses module menu contributions with `quickstart.EnsureDefaultMenuParents` so grouped/collapsible nav renders without seeding. Menus are addressed by slug (`cfg.NavMenuCode`) for deterministic IDs; reset persistent menus with `navigation.reset_menu=true` (`APP_NAVIGATION__RESET_MENU=true`) or delete the local DB when switching sources.
 - Startup reconciliation in `examples/web/main.go` runs `setup.EnsureDashboardFirst(...)` and `setup.EnsureContentParentPermissions(...)` so persisted menus from older runs pick up new ordering and Content parent permission requirements without a full reset.
+- Permission-denied menu items are hidden by default. Set `navigation.permission_denied_mode=disable` (`APP_NAVIGATION__PERMISSION_DENIED_MODE=disable`) to render denied admin and public-site CMS menu items as disabled diagnostics in local/staging. Keep the default `hide` mode for production. Public-site CMS menu permissions authorize against the `navigation` resource.
 - Sidebar templates/assets come from quickstart embeds (collapse + submenu persistence); override by layering your own template/assets FS via `quickstart.NewViewEngine` options in `examples/web/main.go`.
 - Menu items include both `Label`/`LabelKey` and `GroupTitleKey`; modules can nest under seeded groups via `ParentID`.
 - Collapse state persists (`admin-sidebar-collapsed`), submenu state persists per submenu key, and debug mode exposes ordered nav JSON in the sidebar (`admin.debug.enabled=true`).
@@ -441,7 +442,7 @@ curl http://localhost:8080/admin/test-error?type=nested
 
 ## Template Functions
 
-- The view engine uses `quickstart.DefaultTemplateFuncs`, which includes `singularize`, `pluralize`, `toJSON`, `dict`, `formatNumber`, `adminURL`, and widget title helpers. These are helpers (globals) in Pongo2, so call them like `{{ singularize(resource_label|default:resource)|title }}`.
+- The view engine uses `quickstart.DefaultTemplateFuncs`, which includes `singularize`, `pluralize`, `toJSON`, `dict`, `formatNumber`, `adminURL`, `navItemVisible`, `navItemDisabled`, and widget title helpers. These are helpers (globals) in Pongo2, so call them like `{{ singularize(resource_label|default:resource)|title }}`.
 - `adminURL` prefixes paths with the configured base path (wired in `examples/web/main.go` via `WithTemplateBasePath(cfg.BasePath)`).
 - Prefer `adminURL(...)` for admin-relative links and admin-hosted assets; keep using `asset_base_path` only where a template intentionally supports a separate asset host/CDN.
 - Example-specific widget title labels are configured in `examples/web/helpers/template_funcs.go` via `helpers.TemplateFuncOptions()`.
@@ -542,7 +543,7 @@ Browser note: cookie-backed admin pages now submit CSRF automatically through th
 
 - Users/roles/profiles/preferences are backed by go-users on the shared SQLite DSN (`databases.cms_dsn`); seeds create admin/editor/viewer/inactive with passwords `<username>.pwd`, and demo JWTs are printed from the DB on startup.
 - go-auth reads users from go-users and issues resource roles for `admin.users.*`, `admin.roles.*`, `admin.profile.*`, `admin.preferences.*` (admin → owner, editor → member, viewer → none); profile/preferences remain self-service even when broader perms are absent.
-- Panels (`/admin/api/users|roles|profile|preferences`), navigation, search, and `/admin/crud/users` all run through the same scope guard and permissions; unauthorized tokens get 403s and the menu hides.
+- Panels (`/admin/api/users|roles|profile|preferences`), navigation, search, and `/admin/crud/users` all run through the same scope guard and permissions; unauthorized tokens get 403s and the menu hides unless diagnostic disabled rendering is enabled.
 - Onboarding flags live in `main.go` (`users.invite` ✅, `users.password_reset` ✅, `users.signup` ❌ by default with allowlist mode). Override with:
   - `features.user_invites` (`APP_FEATURES__USER_INVITES`)
   - `features.password_reset` (`APP_FEATURES__PASSWORD_RESET`)

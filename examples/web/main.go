@@ -154,6 +154,7 @@ func main() {
 		quickstart.WithNavMenuCode(setup.NavigationMenuCode),
 		quickstart.WithNavDebug(runtimeConfig.Navigation.Debug),
 		quickstart.WithNavDebugLog(runtimeConfig.Navigation.DebugLog),
+		quickstart.WithNavPermissionDeniedMode(coreadmin.NavigationPermissionDeniedMode(runtimeConfig.Navigation.PermissionDeniedMode)),
 		quickstart.WithThemeTokens(map[string]string{
 			"primary": "#2563eb",
 			"accent":  "#f59e0b",
@@ -478,7 +479,7 @@ func main() {
 	}
 	cfg = adapterResult.Config
 	infof(
-		"navigation.startup.config config_path=%s env=%s persistent_cms=%t cms_dsn=%s content_dsn=%s resolved_content_dsn=%s menu=%s locale=%s reset_menu=%t nav_debug=%t nav_debug_log=%t seeds_enabled=%t seeds_truncate=%t translation_profile=%s",
+		"navigation.startup.config config_path=%s env=%s persistent_cms=%t cms_dsn=%s content_dsn=%s resolved_content_dsn=%s menu=%s locale=%s reset_menu=%t nav_debug=%t nav_debug_log=%t permission_denied_mode=%s seeds_enabled=%t seeds_truncate=%t translation_profile=%s",
 		strings.TrimSpace(runtimeConfig.ConfigPath),
 		strings.TrimSpace(runtimeConfig.App.Env),
 		adapterResult.Flags.UsePersistentCMS,
@@ -490,6 +491,7 @@ func main() {
 		runtimeConfig.Navigation.ResetMenu,
 		runtimeConfig.Navigation.Debug,
 		runtimeConfig.Navigation.DebugLog,
+		coreadmin.NormalizeNavigationPermissionDeniedMode(coreadmin.NavigationPermissionDeniedMode(runtimeConfig.Navigation.PermissionDeniedMode)),
 		runtimeConfig.Seeds.Enabled,
 		runtimeConfig.Seeds.Truncate,
 		runtimeConfig.Translation.Profile,
@@ -718,6 +720,7 @@ func main() {
 	authn, routeAuth, _, authContextKey := setup.SetupAuth(adm, dataStores, usersDeps, authOptions...)
 
 	siteCfg := resolveSiteRuntimeConfig(cfg, runtimeConfig.Site, isDev)
+	siteCfg.Navigation.PermissionDeniedMode = coreadmin.NormalizeNavigationPermissionDeniedMode(coreadmin.NavigationPermissionDeniedMode(runtimeConfig.Navigation.PermissionDeniedMode))
 	siteThemePackage, err := loadEmbeddedSiteThemePackage(siteCfg.Theme.Name)
 	if err != nil {
 		fatalf("failed to load embedded site theme package %q: %v", siteCfg.Theme.Name, err)
@@ -1772,6 +1775,7 @@ func resolveSiteRuntimeConfig(cfg admin.Config, siteRuntime appcfg.SiteConfig, i
 			FallbackMenuCode:         setup.SiteNavigationMenuCode,
 			ContributionLocalePolicy: strings.TrimSpace(siteRuntime.ContributionLocalePolicy),
 			EnableGeneratedFallback:  siteRuntime.EnableGeneratedFallback, // Demo-only fallback; keep disabled unless explicitly enabled.
+			PermissionDeniedMode:     coreadmin.NavigationPermissionDeniedModeHide,
 		},
 		Views: quicksite.SiteViewConfig{
 			TemplateFS: []fs.FS{

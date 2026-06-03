@@ -166,10 +166,11 @@ type RegistrationConfig struct {
 }
 
 type NavigationConfig struct {
-	ResetMenu       bool `koanf:"reset_menu" json:"reset_menu" yaml:"reset_menu"`
-	Debug           bool `koanf:"debug" json:"debug" yaml:"debug"`
-	DebugLog        bool `koanf:"debug_log" json:"debug_log" yaml:"debug_log"`
-	IntegrityStrict bool `koanf:"integrity_strict" json:"integrity_strict" yaml:"integrity_strict"`
+	ResetMenu            bool   `koanf:"reset_menu" json:"reset_menu" yaml:"reset_menu"`
+	Debug                bool   `koanf:"debug" json:"debug" yaml:"debug"`
+	DebugLog             bool   `koanf:"debug_log" json:"debug_log" yaml:"debug_log"`
+	IntegrityStrict      bool   `koanf:"integrity_strict" json:"integrity_strict" yaml:"integrity_strict"`
+	PermissionDeniedMode string `koanf:"permission_denied_mode" json:"permission_denied_mode" yaml:"permission_denied_mode"`
 }
 
 type SeedsConfig struct {
@@ -402,10 +403,11 @@ func Defaults() *Config {
 			Allowlist: []string{"example.com"},
 		},
 		Navigation: NavigationConfig{
-			ResetMenu:       true,
-			Debug:           false,
-			DebugLog:        false,
-			IntegrityStrict: false,
+			ResetMenu:            true,
+			Debug:                false,
+			DebugLog:             false,
+			IntegrityStrict:      false,
+			PermissionDeniedMode: "hide",
 		},
 		Seeds: SeedsConfig{
 			Enabled:          true,

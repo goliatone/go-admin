@@ -880,6 +880,13 @@ p {
   background: color-mix(in srgb, var(--color-text-primary) 4%, var(--color-bg-primary));
 }
 
+.site-header__nav-link.is-disabled,
+.footer-link-group__link.is-disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+  pointer-events: none;
+}
+
 .site-header__locale {
   text-decoration: none;
 }
