@@ -30,7 +30,7 @@ type TranslationPolicyServices struct {
 const TranslationPolicyServicesMissingCode = "quickstart.translation_policy.services_missing"
 
 const (
-	translationPolicyPagesServiceName   = "pages"
+	translationPolicyPagesServiceName   = admin.CMSPagePolicyEntity
 	translationPolicyContentServiceName = "content"
 )
 
@@ -481,16 +481,20 @@ func translationCheckerCandidates(
 	}
 	if translationPolicyEntityUsesPageChecker(cfg, entity) {
 		add(services.Pages)
-		add(services.Content)
-	} else {
-		add(services.Content)
-		add(services.Pages)
+		return out
 	}
+	add(services.Content)
 	return out
 }
 
 func translationPolicyEntityUsesPageChecker(cfg TranslationPolicyConfig, entity string) bool {
-	return translationPolicyEntityInSet(cfg.PageEntities, entity)
+	// go-cms ships a first-class Pages service exposed as policy entity
+	// "pages". Custom page-like entities must opt in through PageEntities.
+	return translationPolicyEntityIsCMSPage(entity) || translationPolicyEntityInSet(cfg.PageEntities, entity)
+}
+
+func translationPolicyEntityIsCMSPage(entity string) bool {
+	return policyEntityLookupKey(entity) == policyEntityLookupKey(admin.CMSPagePolicyEntity)
 }
 
 func translationPolicyRequiredServiceName(cfg TranslationPolicyConfig, entity string) string {
