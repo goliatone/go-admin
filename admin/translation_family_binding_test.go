@@ -216,6 +216,36 @@ func TestTranslationFamilyPolicyResolverMarksHostPolicyDenials(t *testing.T) {
 	}
 }
 
+func TestTranslationFamilyPolicyResolverIgnoresSourceLookupNotFound(t *testing.T) {
+	adm := &Admin{
+		translationPolicy: TranslationPolicyFunc(func(context.Context, TranslationPolicyInput) error {
+			return ErrNotFound
+		}),
+	}
+	resolver := translationFamilyPolicyResolver{admin: adm}
+	blockers, err := resolver.ResolvePolicyBlockers(
+		context.Background(),
+		translationservices.FamilyRecord{
+			ID:              "family-ready-projection",
+			ContentType:     "pages",
+			SourceLocale:    "en",
+			SourceVariantID: "family-ready-projection::en",
+			Variants: []translationservices.FamilyVariant{
+				{ID: "family-ready-projection::en", FamilyID: "family-ready-projection", Locale: "en", SourceRecordID: "family-ready-projection", IsSource: true},
+				{ID: "family-ready-projection::es", FamilyID: "family-ready-projection", Locale: "es", SourceRecordID: "family-ready-projection"},
+			},
+		},
+		translationservices.FamilyPolicy{ContentType: "pages", SourceLocale: "en", RequiredLocales: []string{"en", "es"}},
+		"default",
+	)
+	if err != nil {
+		t.Fatalf("resolve policy blockers: %v", err)
+	}
+	if len(blockers) != 0 {
+		t.Fatalf("expected source lookup not-found to be non-blocking, got %+v", blockers)
+	}
+}
+
 func TestBunTranslationFamilyStoreListFamiliesQueryUsesLightweightProjectionRows(t *testing.T) {
 	db := newTranslationFamilyStoreSQLiteDB(t)
 	ctx := context.Background()
