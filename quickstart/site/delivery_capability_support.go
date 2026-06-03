@@ -5,6 +5,8 @@ import (
 	"slices"
 	"sort"
 	"strings"
+
+	"github.com/goliatone/go-admin/admin"
 )
 
 const (
@@ -37,7 +39,7 @@ func (c deliveryCapability) normalizedKind() string {
 	case "page", "collection", "detail", "hybrid":
 		return strings.ToLower(strings.TrimSpace(c.Kind))
 	default:
-		if strings.EqualFold(c.TypeSlug, "page") || strings.EqualFold(c.TypeSlug, "pages") {
+		if admin.IsCMSPageContentTypeSlug(c.TypeSlug) || admin.IsCMSPagePolicyEntity(c.TypeSlug) {
 			return "page"
 		}
 		return "detail"
