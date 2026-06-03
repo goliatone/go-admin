@@ -1406,7 +1406,7 @@ test('translation queue runtime: grouped child rows expose both title and path w
 
 // T05/T06: Context bar and UI consolidation tests
 
-test('translation queue runtime: page header renders with default title and description', async () => {
+test('translation queue runtime: no-header control stack keeps refresh available', async () => {
   globalThis.fetch = mock.fn(async () => {
     return createJsonResponse({
       meta: { ...fixtures.states.open_pool.meta, ...fixtures.meta },
@@ -1423,36 +1423,12 @@ test('translation queue runtime: page header renders with default title and desc
 
   const html = root.innerHTML;
 
-  // Verify default header title and description
-  assert.match(html, /Translation Queue/);
-  assert.match(html, /Filter assignments, claim open work, and release items back to the pool without leaving the queue/);
-
-  // Verify refresh button exists
+  // The host page owns page identity; the queue controller starts with controls.
+  assert.doesNotMatch(html, /Filter assignments, claim open work, and release items back to the pool without leaving the queue/);
   assert.match(html, /data-queue-refresh="true"/);
-});
-
-test('translation queue runtime: page header uses configured title and description', async () => {
-  globalThis.fetch = mock.fn(async () => {
-    return createJsonResponse({
-      meta: { ...fixtures.states.open_pool.meta, ...fixtures.meta },
-      data: fixtures.states.open_pool.data,
-    });
-  });
-
-  const { root } = setupDom();
-  const screen = new AssignmentQueueScreen({
-    endpoint: '/admin/api/translations/assignments',
-    title: 'Custom Queue Title',
-    description: 'Custom description for testing',
-  });
-  screen.mount(root);
-  await flushAsync();
-
-  const html = root.innerHTML;
-
-  // Verify custom header title and description
-  assert.match(html, /Custom Queue Title/);
-  assert.match(html, /Custom description for testing/);
+  assert.match(html, /class="panel-tabs"/);
+  assert.match(html, /data-filters-toggle="true"/);
+  assert.match(html, /data-view-mode="flat"/);
 });
 
 test('translation queue runtime: preset tabs render with panel-tab styling', async () => {
