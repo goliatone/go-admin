@@ -2,8 +2,6 @@ module github.com/goliatone/go-admin/quickstart
 
 go 1.26.4
 
-toolchain go1.26.4
-
 replace github.com/goliatone/go-admin => ..
 
 replace github.com/goliatone/go-uploader => ../../go-uploader
@@ -19,7 +17,7 @@ require (
 	github.com/gobuffalo/flect v1.0.3
 	github.com/gofiber/fiber/v2 v2.52.12
 	github.com/golang-jwt/jwt/v5 v5.3.1
-	github.com/goliatone/go-admin v0.83.0
+	github.com/goliatone/go-admin v0.84.0
 	github.com/goliatone/go-auth v0.44.1
 	github.com/goliatone/go-auth/adapters/featuregate v0.43.0
 	github.com/goliatone/go-cache v0.1.0
