@@ -1344,7 +1344,7 @@ func (b *translationFamilyBinding) deleteFamilyVariant(ctx context.Context, crea
 	if recordID == "" || contentType == "" {
 		return nil
 	}
-	if contentType == "pages" {
+	if IsCMSPagePolicyEntity(contentType) || IsCMSPageContentTypeSlug(contentType) {
 		return b.admin.contentSvc.DeletePage(ctx, recordID)
 	}
 	return b.admin.contentSvc.DeleteContent(ctx, recordID)
@@ -1470,7 +1470,7 @@ func (b *translationFamilyBinding) translationFamilyPolicy(ctx context.Context, 
 }
 
 func (b *translationFamilyBinding) policyLocales(ctx context.Context, environment string) []string {
-	contentTypes := []string{"pages"}
+	contentTypes := []string{CMSPagePolicyEntity}
 	if svc := b.admin.contentTypeSvc; svc != nil {
 		if types, err := svc.ContentTypes(ctx); err == nil {
 			for _, contentType := range types {
