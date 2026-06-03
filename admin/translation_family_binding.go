@@ -596,15 +596,7 @@ func (r translationFamilyPolicyResolver) ResolvePolicyBlockers(ctx context.Conte
 }
 
 func translationFamilyPolicySourceNotFound(err error) bool {
-	if err == nil {
-		return false
-	}
-	if errors.Is(err, ErrNotFound) {
-		return true
-	}
-	message := strings.ToLower(strings.TrimSpace(err.Error()))
-	return strings.Contains(message, " not found") &&
-		(strings.HasPrefix(message, "page ") || strings.HasPrefix(message, "content "))
+	return errors.Is(err, ErrNotFound) || errors.Is(err, ErrTranslationSourceNotFound)
 }
 
 func translationFamilyPolicySourceLocale(req TranslationRequirements, fallback string) string {
