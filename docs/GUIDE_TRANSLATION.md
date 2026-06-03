@@ -145,7 +145,7 @@ Field completeness is separate:
 Publish readiness is derived in this order:
 
 1. Configure `quickstart.TranslationPolicyConfig` for every content type that participates in family readiness, including custom types such as `news`.
-2. Ensure suitable page/content services that implement `CheckTranslations` are discoverable through the CMS module, `CMSOptions.GoCMSConfig`, or explicit `quickstart.WithTranslationPolicyServices`; `pages` uses the page checker, while other content types use the content checker unless declared in `page_entities`.
+2. Ensure suitable page/content services that implement `CheckTranslations` are discoverable through the CMS module, `CMSOptions.GoCMSConfig`, or explicit `quickstart.WithTranslationPolicyServices`; `pages` is the go-cms Pages service entity and uses the page checker by default, while `page` is the backing content type slug used by generic content bridges. Other content types use the content checker unless declared in `page_entities`.
 3. Validate policy coverage before startup when seeded or displayed family content types are known; each family content type must have effective `publish` requirements.
 4. Run translation family sync so `content_families`, `locale_variants`, and `family_blockers` reflect the current CMS records and policy.
 5. Treat `policy_denied` blockers with `details.reason=policy_unavailable` as configuration or wiring work, not translator locale work.

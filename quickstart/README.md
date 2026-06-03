@@ -1171,7 +1171,7 @@ Config example (YAML/JSON):
 translation_policy:
   deny_by_default: false
   required_fields_strategy: "error" # error|warn|ignore
-  page_entities: ["landing_pages"] # optional: entities that should use page checker
+  page_entities: ["landing_pages"] # optional: additional entities that use page checker
   entity_aliases:
     article: news
   required:
@@ -1194,10 +1194,12 @@ translation_policy:
 Behavior notes:
 - `required` keys map to policy entities (panel slug or content type slug). If a
   payload includes `policy_entity`/`policyEntity`, it overrides the entity lookup.
-- `pages` uses the page checker by default. Other entities use the content
-  checker unless listed in `page_entities`; quickstart does not use a page
-  checker as fallback for content entities or a content checker as fallback for
-  page entities.
+- `pages` is the go-cms Pages service policy entity and uses the page checker by
+  default; `page` is the backing content type slug used when page records are
+  bridged through generic content APIs. Other entities use the content checker
+  unless listed in `page_entities`; quickstart does not use a page checker as
+  fallback for content entities or a content checker as fallback for page
+  entities.
 - Entity lookup is singular/plural tolerant (for example `item` vs `items`) using
   inflection-based matching against configured `required` keys.
 - Use `entity_aliases` for irregular/legacy names that need explicit mapping.
