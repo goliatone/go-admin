@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"strings"
 	"time"
 )
@@ -27,6 +28,55 @@ func NewPreviewService(secret string) *PreviewService {
 	return &PreviewService{
 		secret: []byte(secret),
 	}
+}
+
+// ResolveContentPreviewPath resolves the public preview path for a content record.
+func ResolveContentPreviewPath(record map[string]any) string {
+	if record == nil {
+		return ""
+	}
+	for _, key := range []string{"path", "preview_url"} {
+		if resolved := normalizePreviewPath(anyToString(record[key])); resolved != "" {
+			return resolved
+		}
+	}
+	if data, ok := record["data"].(map[string]any); ok {
+		for _, key := range []string{"path", "preview_url"} {
+			if resolved := normalizePreviewPath(anyToString(data[key])); resolved != "" {
+				return resolved
+			}
+		}
+	}
+	slug := strings.TrimSpace(anyToString(record["slug"]))
+	if slug == "" {
+		return ""
+	}
+	return normalizePreviewPath(slug)
+}
+
+func normalizePreviewPath(raw string) string {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return ""
+	}
+	if !strings.HasPrefix(trimmed, "/") {
+		return "/" + trimmed
+	}
+	return trimmed
+}
+
+// BuildSitePreviewURL appends a preview token to a public preview path.
+func BuildSitePreviewURL(targetPath, token string) string {
+	path := strings.TrimSpace(targetPath)
+	token = strings.TrimSpace(token)
+	if path == "" || token == "" {
+		return ""
+	}
+	separator := "?"
+	if strings.Contains(path, "?") {
+		separator = "&"
+	}
+	return path + separator + "preview_token=" + url.QueryEscape(token)
 }
 
 // Generate creates a signed preview token for a record.
