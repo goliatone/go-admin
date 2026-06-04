@@ -73,6 +73,18 @@ func (f handlerAuthenticatorFunc) WrapHandler(handler router.HandlerFunc) router
 	return f(handler)
 }
 
+func repairPersistentTranslationScopeDrift(ctx context.Context, cfg coreadmin.Config, inspector *quickstart.BunScopeDriftInspector) (quickstart.ScopeDriftRepairReport, error) {
+	if inspector == nil {
+		return quickstart.ScopeDriftRepairReport{}, nil
+	}
+	if quickstart.ScopeConfigFromAdmin(cfg).Mode != quickstart.ScopeModeSingle {
+		return quickstart.ScopeDriftRepairReport{}, nil
+	}
+	return quickstart.RepairScopeDrift(ctx, cfg, inspector, inspector, quickstart.ScopeDriftRepairInput{
+		Apply: true,
+	})
+}
+
 func main() {
 	rootLogger := glog.NewLogger(
 		glog.WithName("examples.web"),
@@ -392,6 +404,7 @@ func main() {
 		return exchangeContentService
 	})
 	var queueRepository coreadmin.TranslationAssignmentRepository
+	var scopeDriftInspector *quickstart.BunScopeDriftInspector
 	if adapterFlags.UsePersistentCMS {
 		translationDB, err := stores.SetupContentDatabase(context.Background(), "")
 		if err != nil {
@@ -399,6 +412,13 @@ func main() {
 		}
 		queueRepository = coreadmin.NewBunTranslationAssignmentRepository(translationDB)
 		adminDeps.TranslationFamilyStore = coreadmin.NewBunTranslationFamilyStore(translationDB)
+		scopeDriftInspector = quickstart.NewBunScopeDriftInspector(translationDB)
+		scopeRepairReport, scopeRepairErr := repairPersistentTranslationScopeDrift(context.Background(), cfg, scopeDriftInspector)
+		if scopeRepairErr != nil {
+			warnf("translation scope drift startup repair failed: %v", scopeRepairErr)
+		} else if scopeRepairReport.TotalRepairedCount > 0 {
+			infof("translation scope drift startup repair applied rows=%d", scopeRepairReport.TotalRepairedCount)
+		}
 	}
 	translationProductCfg := buildTranslationProductConfig(
 		resolveTranslationProfile(runtimeConfig.Translation.Profile),
@@ -438,6 +458,7 @@ func main() {
 		quickstart.WithTranslationPolicyConfig(translationPolicyCfg),
 		quickstart.WithTranslationProductConfig(translationProductCfg),
 		quickstart.WithAdapterFlags(adapterFlags),
+		quickstart.WithScopeDriftInspector(scopeDriftInspector),
 		quickstart.WithGoUsersUserManagement(quickstart.GoUsersUserManagementConfig{
 			AuthRepo:      usersDeps.AuthRepo,
 			InventoryRepo: usersDeps.InventoryRepo,
