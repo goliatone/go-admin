@@ -77,6 +77,43 @@ func TestGoCMSMenuAdapterAddsAndResolvesNavigation(t *testing.T) {
 	}
 }
 
+func TestGoCMSMenuAdapterRawMenuItemsExposePersistedRows(t *testing.T) {
+	ctx := context.Background()
+	menuSvc := newStubCMSMenuService()
+	adapter := NewGoCMSMenuAdapterFromAny(menuSvc)
+
+	if _, err := adapter.CreateMenu(ctx, "admin.main"); err != nil {
+		t.Fatalf("create menu: %v", err)
+	}
+	if err := adapter.AddMenuItem(ctx, "admin.main", MenuItem{
+		ID:          "media",
+		Label:       "Media",
+		Locale:      "en",
+		Icon:        "media-image-list",
+		Permissions: []string{"admin.media.view"},
+		Target:      map[string]any{"type": "url", "path": "", "key": "media"},
+	}); err != nil {
+		t.Fatalf("add menu item: %v", err)
+	}
+
+	raw, err := adapter.RawMenuItems(ctx, "admin.main")
+	if err != nil {
+		t.Fatalf("RawMenuItems: %v", err)
+	}
+	if len(raw) != 1 {
+		t.Fatalf("expected one raw row, got %#v", raw)
+	}
+	if raw[0].ID != "admin_main.media" {
+		t.Fatalf("expected raw row path admin_main.media, got %q", raw[0].ID)
+	}
+	if got := strings.TrimSpace(toString(raw[0].Target["key"])); got != "media" {
+		t.Fatalf("expected raw target key media, got %q", got)
+	}
+	if got := strings.TrimSpace(toString(raw[0].Target["path"])); got != "" {
+		t.Fatalf("expected raw inventory to preserve empty target path, got %q", got)
+	}
+}
+
 func TestGoCMSMenuAdapterUsesTranslationURLOverride(t *testing.T) {
 	ctx := context.Background()
 	menuSvc := newStubCMSMenuService()

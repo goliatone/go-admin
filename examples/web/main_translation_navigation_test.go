@@ -111,6 +111,76 @@ func TestExamplesWebSeedsCanonicalTranslationMenuForCapabilityProfiles(t *testin
 	}
 }
 
+func TestExamplesWebRepairsMissingTranslationDashboardFromPersistedDrift(t *testing.T) {
+	adm, cfg := newExampleTranslationAdmin(t, quickstart.TranslationProfileFull, appcfg.TranslationConfig{
+		Profile:  "full",
+		Exchange: new(true),
+		Queue:    new(true),
+	})
+
+	ctx := context.Background()
+	menuCode := cfg.NavMenuCode
+	locale := cfg.DefaultLocale
+	if _, err := adm.MenuService().CreateMenu(ctx, menuCode); err != nil {
+		t.Fatalf("CreateMenu: %v", err)
+	}
+	for _, item := range []coreadmin.MenuItem{
+		{
+			ID:          menuCode + "." + quickstart.NavigationGroupTranslationsID,
+			Type:        coreadmin.MenuItemTypeGroup,
+			GroupTitle:  "Translations",
+			Collapsible: true,
+			Menu:        menuCode,
+			Locale:      locale,
+		},
+		persistedTranslationMenuFixture(menuCode, locale, "translations.queue", "Translation Queue", "translation_queue", "admin.translations.queue", "/admin/translations/queue", 50),
+		persistedTranslationMenuFixture(menuCode, locale, "translations.assignments", "Translation Assignments", "translation_assignments", "admin.translations.assignments", "/admin/content/translations", 51),
+		persistedTranslationMenuFixture(menuCode, locale, "translations.exchange", "Translation Exchange", "translation_exchange", "admin.translations.exchange", "/admin/translations/exchange", 52),
+	} {
+		if err := adm.MenuService().AddMenuItem(ctx, menuCode, item); err != nil {
+			t.Fatalf("seed persisted drift item %s: %v", item.ID, err)
+		}
+	}
+
+	if err := quickstart.NewModuleRegistrar(
+		adm,
+		cfg,
+		nil,
+		false,
+		quickstart.WithTranslationCapabilityMenuMode(quickstart.TranslationCapabilityMenuModeTools),
+	); err != nil {
+		t.Fatalf("NewModuleRegistrar: %v", err)
+	}
+
+	menu, err := adm.MenuService().Menu(ctx, menuCode, locale)
+	if err != nil {
+		t.Fatalf("menu lookup: %v", err)
+	}
+	assertMenuRoutePresence(t, menu.Items, "admin.translations.dashboard", true)
+	for _, key := range []string{"translation_dashboard", "translation_queue", "translation_assignments", "translation_exchange"} {
+		if got := countExampleMenuItemsByTargetKey(menu.Items, key); got != 1 {
+			t.Fatalf("expected one %s row after registrar repair, got %d in %#v", key, got, menu.Items)
+		}
+	}
+}
+
+func persistedTranslationMenuFixture(menuCode, locale, id, label, key, routeName, targetPath string, position int) coreadmin.MenuItem {
+	return coreadmin.MenuItem{
+		ID:       menuCode + "." + id,
+		Label:    label,
+		Locale:   locale,
+		Menu:     menuCode,
+		ParentID: menuCode + "." + quickstart.NavigationGroupTranslationsID,
+		Position: new(position),
+		Target: map[string]any{
+			"type": "url",
+			"path": targetPath,
+			"key":  key,
+			"name": routeName,
+		},
+	}
+}
+
 func TestExamplesWebRegistersProductionTranslationRoutesWithoutQAShortcuts(t *testing.T) {
 	tests := []struct {
 		name            string
@@ -189,6 +259,17 @@ func TestExamplesWebRegistersProductionTranslationRoutesWithoutQAShortcuts(t *te
 			assertRoutePresence(t, capture.getHandlers, "/admin/translations/qa/fallback-edit", false)
 		})
 	}
+}
+
+func countExampleMenuItemsByTargetKey(items []coreadmin.MenuItem, key string) int {
+	count := 0
+	for idx := range items {
+		if strings.EqualFold(strings.TrimSpace(toString(items[idx].Target["key"])), key) {
+			count++
+		}
+		count += countExampleMenuItemsByTargetKey(items[idx].Children, key)
+	}
+	return count
 }
 
 func newExampleTranslationAdmin(

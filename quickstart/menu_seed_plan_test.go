@@ -181,7 +181,7 @@ func TestReconcileGeneratedNavigationDoesNotOverwriteUserRowWithMatchingTarget(t
 		t.Fatalf("CreateMenu: %v", err)
 	}
 	if err := menuSvc.AddMenuItem(ctx, menuCode, admin.MenuItem{
-		ID:     "custom.translation.queue",
+		ID:     "custom.translations.queue",
 		Label:  "Custom Queue",
 		Locale: locale,
 		Target: map[string]any{
@@ -210,6 +210,70 @@ func TestReconcileGeneratedNavigationDoesNotOverwriteUserRowWithMatchingTarget(t
 	}
 	if len(report.Creates) == 0 {
 		t.Fatalf("expected generated row create beside preserved user row, got %#v", report)
+	}
+
+	menu, err := menuSvc.Menu(ctx, menuCode, locale)
+	if err != nil {
+		t.Fatalf("read menu: %v", err)
+	}
+	custom := findMenuItemByIDForTest(menu.Items, "custom.translations.queue")
+	if custom == nil {
+		t.Fatalf("expected custom row to remain")
+	}
+	if custom.Label != "Custom Queue" {
+		t.Fatalf("expected custom row label preserved, got %q", custom.Label)
+	}
+	generated := findMenuItemByIDForTest(menu.Items, "admin_main.translations.queue")
+	if generated == nil {
+		t.Fatalf("expected generated queue row to be created, got %#v", menu.Items)
+	}
+}
+
+func TestReconcileGeneratedNavigationDoesNotOverwriteSameParentUserShortcut(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	menuSvc := admin.NewInMemoryMenuService()
+	menuCode := "admin.main"
+	locale := "en"
+	if _, err := menuSvc.CreateMenu(ctx, menuCode); err != nil {
+		t.Fatalf("CreateMenu: %v", err)
+	}
+	if err := menuSvc.AddMenuItem(ctx, menuCode, admin.MenuItem{
+		ID:       "custom.translation.queue",
+		Label:    "Custom Queue",
+		Locale:   locale,
+		ParentID: "admin_main." + NavigationGroupTranslationsID,
+		Target: map[string]any{
+			"type": "url",
+			"path": "/admin/translations/queue",
+			"key":  "translation_queue",
+			"name": "admin.translations.queue",
+		},
+	}); err != nil {
+		t.Fatalf("seed custom row: %v", err)
+	}
+
+	report, err := ReconcileGeneratedNavigation(ctx, NavigationReconcileOptions{
+		MenuSvc:  menuSvc,
+		MenuCode: menuCode,
+		Locale:   locale,
+		Items: []admin.MenuItem{
+			{
+				ID:          NavigationGroupTranslationsID,
+				Type:        admin.MenuItemTypeGroup,
+				GroupTitle:  "Translations",
+				Collapsible: true,
+			},
+			testGeneratedMenuItem("translations.queue", NavigationGroupTranslationsID, "Translation Queue", "translation_queue", "/admin/translations/queue", 50),
+		},
+		Apply: true,
+	})
+	if err != nil {
+		t.Fatalf("reconcile: %v", err)
+	}
+	if !containsStringWithSuffix(report.Creates, "translations.queue") {
+		t.Fatalf("expected generated queue to be created beside same-parent user shortcut, got %#v", report)
 	}
 
 	menu, err := menuSvc.Menu(ctx, menuCode, locale)
@@ -436,6 +500,124 @@ func TestReconcileGeneratedNavigationUpdatesStaleGeneratedRows(t *testing.T) {
 	}
 }
 
+func TestReconcileGeneratedNavigationUsesRawInventoryWhenRenderedMenuHidesRow(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	menuCode := "admin.main"
+	locale := "en"
+	expected := testGeneratedMenuItem("translations.queue", NavigationGroupTranslationsID, "Translation Queue", "translation_queue", "/admin/translations/queue", 50)
+	runtime := newSeedNavigationRuntime(ctx, SeedNavigationOptions{
+		MenuSvc:  admin.NewInMemoryMenuService(),
+		MenuCode: menuCode,
+		Locale:   locale,
+		Items:    []admin.MenuItem{expected},
+	})
+	seedItems, err := runtime.seedItems()
+	if err != nil {
+		t.Fatalf("seedItems: %v", err)
+	}
+
+	rawOnly := seedItems[0]
+	rawOnly.ID = "admin_main.legacy.translation.queue"
+	rawOnly.Code = rawOnly.ID
+	rawOnly.ParentID = "admin_main." + NavigationGroupTranslationsID
+	rawOnly.ParentCode = rawOnly.ParentID
+	rawOnly.Target["path"] = ""
+
+	menuSvc := &rawInventoryMenuService{
+		InMemoryMenuService: admin.NewInMemoryMenuService(),
+		raw:                 []admin.MenuItem{rawOnly},
+	}
+	if _, err := menuSvc.CreateMenu(ctx, menuCode); err != nil {
+		t.Fatalf("CreateMenu: %v", err)
+	}
+
+	report, err := ReconcileGeneratedNavigation(ctx, NavigationReconcileOptions{
+		MenuSvc:  menuSvc,
+		MenuCode: menuCode,
+		Locale:   locale,
+		Items:    []admin.MenuItem{expected},
+	})
+	if err != nil {
+		t.Fatalf("reconcile: %v", err)
+	}
+	if containsStringWithSuffix(report.Creates, "translations.queue") {
+		t.Fatalf("expected raw row to prevent duplicate queue create, got %#v", report.Creates)
+	}
+	if !containsStringWithSuffix(report.Updates, "translations.queue") {
+		t.Fatalf("expected raw row to be reported as update candidate, got %#v", report)
+	}
+	if !containsStringWithSuffix(report.RawPresentButNotRendered, "legacy.translation.queue") {
+		t.Fatalf("expected raw-present diagnostic, got %#v", report.RawPresentButNotRendered)
+	}
+	if !containsStringWithSuffix(report.PersistedPresent, "translations.queue") {
+		t.Fatalf("expected persisted-present diagnostic, got %#v", report.PersistedPresent)
+	}
+}
+
+func TestReconcileGeneratedNavigationKeepsRawGeneratedRowWhenRenderedUserRowSharesTarget(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	menuCode := "admin.main"
+	locale := "en"
+	expected := testGeneratedMenuItem("translations.queue", NavigationGroupTranslationsID, "Translation Queue", "translation_queue", "/admin/translations/queue", 50)
+	runtime := newSeedNavigationRuntime(ctx, SeedNavigationOptions{
+		MenuSvc:  admin.NewInMemoryMenuService(),
+		MenuCode: menuCode,
+		Locale:   locale,
+		Items:    []admin.MenuItem{expected},
+	})
+	seedItems, err := runtime.seedItems()
+	if err != nil {
+		t.Fatalf("seedItems: %v", err)
+	}
+	rawGenerated := seedItems[0]
+	rawGenerated.Target["path"] = ""
+
+	rendered := admin.NewInMemoryMenuService()
+	if _, err := rendered.CreateMenu(ctx, menuCode); err != nil {
+		t.Fatalf("CreateMenu: %v", err)
+	}
+	if err := rendered.AddMenuItem(ctx, menuCode, admin.MenuItem{
+		ID:       "custom.translation.queue",
+		Label:    "Custom Queue",
+		Locale:   locale,
+		ParentID: "admin_main." + NavigationGroupTranslationsID,
+		Target: map[string]any{
+			"type": "url",
+			"path": "/admin/translations/queue",
+			"key":  "translation_queue",
+		},
+	}); err != nil {
+		t.Fatalf("seed rendered user row: %v", err)
+	}
+	menuSvc := &rawInventoryMenuService{
+		InMemoryMenuService: rendered,
+		raw:                 []admin.MenuItem{rawGenerated},
+	}
+
+	report, err := ReconcileGeneratedNavigation(ctx, NavigationReconcileOptions{
+		MenuSvc:  menuSvc,
+		MenuCode: menuCode,
+		Locale:   locale,
+		Items:    []admin.MenuItem{expected},
+	})
+	if err != nil {
+		t.Fatalf("reconcile: %v", err)
+	}
+	if containsStringWithSuffix(report.Creates, "translations.queue") {
+		t.Fatalf("expected raw generated row to prevent duplicate queue create, got %#v", report.Creates)
+	}
+	if !containsStringWithSuffix(report.Updates, "translations.queue") {
+		t.Fatalf("expected raw generated row to drive update candidate, got %#v", report)
+	}
+	if !containsStringWithSuffix(report.RawPresentButNotRendered, "translations.queue") {
+		t.Fatalf("expected raw-present diagnostic for hidden generated row, got %#v", report.RawPresentButNotRendered)
+	}
+}
+
 func TestReconcileGeneratedNavigationPreservesUserRowsAndReportsDestructiveCandidates(t *testing.T) {
 	t.Parallel()
 
@@ -472,6 +654,15 @@ func TestReconcileGeneratedNavigationPreservesUserRowsAndReportsDestructiveCandi
 	if len(report.PreservedUserRows) == 0 {
 		t.Fatalf("expected custom user row preserved, got %#v", report)
 	}
+}
+
+type rawInventoryMenuService struct {
+	*admin.InMemoryMenuService
+	raw []admin.MenuItem
+}
+
+func (s *rawInventoryMenuService) RawMenuItems(context.Context, string) ([]admin.MenuItem, error) {
+	return append([]admin.MenuItem{}, s.raw...), nil
 }
 
 func testGeneratedMenuItem(id, parent, label, key, itemPath string, position int) admin.MenuItem {
