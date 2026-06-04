@@ -16,12 +16,13 @@ func TestTranslationCapabilityRoutesIncludeTranslationUIKeys(t *testing.T) {
 
 	routes, keys := translationCapabilityRoutes(adm)
 	expected := map[string]string{
-		"admin.translations.exchange":              "/admin/translations/exchange",
-		"admin.translations.families":              "/admin/translations/families",
-		"admin.api.translations.families":          "/admin/api/translations/families",
-		"admin.translations.families.id":           "/admin/translations/families/:family_id",
-		"admin.api.translations.families.id":       "/admin/api/translations/families/:family_id",
-		"admin.api.translations.families.variants": "/admin/api/translations/families/:family_id/variants",
+		"admin.translations.exchange":                "/admin/translations/exchange",
+		"admin.translations.families":                "/admin/translations/families",
+		"admin.api.translations.families":            "/admin/api/translations/families",
+		"admin.translations.families.id":             "/admin/translations/families/:family_id",
+		"admin.api.translations.families.id":         "/admin/api/translations/families/:family_id",
+		"admin.api.translations.families.variants":   "/admin/api/translations/families/:family_id/variants",
+		"admin.api.translations.assignments.preview": "/admin/api/translations/assignments/:assignment_id/preview",
 	}
 	for key, wantPath := range expected {
 		if got := strings.TrimSpace(routes[key]); got != wantPath {
@@ -70,6 +71,7 @@ func TestTranslationCapabilityRoutesRespectCoreProfile(t *testing.T) {
 		"admin.api.translations.queue",
 		"admin.api.translations.assignments",
 		"admin.api.translations.assignments.id",
+		"admin.api.translations.assignments.preview",
 		"admin.api.translations.export",
 	} {
 		if got := strings.TrimSpace(routes[disabledKey]); got != "" {

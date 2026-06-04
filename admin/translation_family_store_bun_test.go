@@ -310,6 +310,78 @@ func TestBunTranslationFamilyStoreFamilyQueryScopesChildRows(t *testing.T) {
 	}
 }
 
+func TestBunTranslationFamilyStoreSaveFamilyReconcilesUnscopedLocaleVariantDrift(t *testing.T) {
+	ctx := context.Background()
+	db := newTranslationFamilyStoreSQLiteDB(t)
+	store := NewBunTranslationFamilyStore(db)
+
+	if err := store.SaveFamily(ctx, translationservices.FamilyRecord{
+		ID:              "family-dev-restart",
+		ContentType:     "pages",
+		SourceLocale:    "en",
+		SourceVariantID: "page-dev-restart",
+		ReadinessState:  "ready",
+		Variants: []translationservices.FamilyVariant{{
+			ID:             "page-dev-restart",
+			FamilyID:       "family-dev-restart",
+			Locale:         "en",
+			Status:         string(translationcore.VariantStatusPublished),
+			IsSource:       true,
+			SourceRecordID: "page-dev-restart",
+		}},
+	}); err != nil {
+		t.Fatalf("seed unscoped family: %v", err)
+	}
+
+	if _, err := db.ExecContext(ctx, `INSERT INTO translation_assignments (
+		assignment_id, family_id, variant_id, entity_type, source_record_id, source_locale,
+		target_locale, work_scope, assignment_type, status, priority, row_version, created_at, updated_at
+	) VALUES (
+		'assignment-dev-restart', 'family-dev-restart', 'page-dev-restart', 'pages', 'page-dev-restart', 'en',
+		'en', '__all__', 'open_pool', 'open', 'normal', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+	)`); err != nil {
+		t.Fatalf("seed assignment: %v", err)
+	}
+
+	if err := store.SaveFamily(ctx, translationservices.FamilyRecord{
+		ID:              "family-dev-restart",
+		TenantID:        "tenant-1",
+		OrgID:           "org-1",
+		ContentType:     "pages",
+		SourceLocale:    "en",
+		SourceVariantID: "page-dev-restart::en",
+		ReadinessState:  "ready",
+		Variants: []translationservices.FamilyVariant{{
+			ID:             "page-dev-restart::en",
+			FamilyID:       "family-dev-restart",
+			TenantID:       "tenant-1",
+			OrgID:          "org-1",
+			Locale:         "en",
+			Status:         string(translationcore.VariantStatusPublished),
+			IsSource:       true,
+			SourceRecordID: "page-dev-restart",
+		}},
+	}); err != nil {
+		t.Fatalf("save scoped family over unscoped drift: %v", err)
+	}
+
+	var variantID, tenantID, orgID string
+	if err := db.QueryRowContext(ctx, `SELECT variant_id, tenant_id, org_id FROM locale_variants WHERE family_id = ? AND locale = ?`, "family-dev-restart", "en").Scan(&variantID, &tenantID, &orgID); err != nil {
+		t.Fatalf("load repaired variant: %v", err)
+	}
+	if variantID != "page-dev-restart::en" || tenantID != "tenant-1" || orgID != "org-1" {
+		t.Fatalf("variant not repaired, got id=%q tenant=%q org=%q", variantID, tenantID, orgID)
+	}
+
+	var assignmentVariantID string
+	if err := db.QueryRowContext(ctx, `SELECT variant_id FROM translation_assignments WHERE assignment_id = ?`, "assignment-dev-restart").Scan(&assignmentVariantID); err != nil {
+		t.Fatalf("load assignment variant: %v", err)
+	}
+	if assignmentVariantID != "page-dev-restart::en" {
+		t.Fatalf("assignment variant_id = %q, want page-dev-restart::en", assignmentVariantID)
+	}
+}
+
 func TestBunTranslationFamilyStoreSaveFamilyReplacesStaleBlockerIdentities(t *testing.T) {
 	ctx := context.Background()
 	db := newTranslationFamilyStoreSQLiteDB(t)

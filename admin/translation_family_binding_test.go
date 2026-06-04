@@ -1221,6 +1221,14 @@ func newTranslationFamilyMutationFixture(t *testing.T, options translationFamily
 		content: contentSvc.InMemoryContentService,
 	})
 	adm.contentSvc = contentSvc
+	if _, err := adm.RegisterPanel("pages", adm.Panel("pages").
+		WithRepository(NewCMSPageRepository(contentSvc)).
+		Permissions(PanelPermissions{
+			View: PermAdminTranslationsView,
+		}),
+	); err != nil {
+		t.Fatalf("register pages panel: %v", err)
+	}
 	adm.WithTranslationPolicy(readinessPolicyByEntityStub{
 		requirements: fixtureTranslationRequirementsByEntity(options),
 	})

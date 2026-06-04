@@ -654,7 +654,7 @@ func TestResolveContentEntryPreviewPathUsesGenericSlugFallback(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			got := resolveContentEntryPreviewPath(tc.panelName, tc.record)
+			got := admin.ResolveContentPreviewPath(tc.record)
 			if got != tc.expected {
 				t.Fatalf("expected %q got %q", tc.expected, got)
 			}
@@ -663,7 +663,7 @@ func TestResolveContentEntryPreviewPathUsesGenericSlugFallback(t *testing.T) {
 }
 
 func TestBuildSitePreviewURLAppendsTokenQueryParam(t *testing.T) {
-	got := buildSitePreviewURL("/about?lang=en", "token-123")
+	got := admin.BuildSitePreviewURL("/about?lang=en", "token-123")
 	if got != "/about?lang=en&preview_token=token-123" {
 		t.Fatalf("expected preview token appended, got %q", got)
 	}

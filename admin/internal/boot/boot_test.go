@@ -231,6 +231,7 @@ func newTestURLManager(basePath string) *urlkit.RouteManager {
 							"translations.assignments":                    "/translations/assignments",
 							"translations.assignments.family_assignments": "/translations/families/:family_id/assignments",
 							"translations.assignments.id":                 "/translations/assignments/:assignment_id",
+							"translations.assignments.preview":            "/translations/assignments/:assignment_id/preview",
 							"translations.assignments.bulk_snapshot":      "/translations/assignment-actions/snapshot",
 							"translations.assignments.bulk_actions":       "/translations/assignment-actions/bulk",
 							"translations.assignments.actions":            "/translations/assignments/:assignment_id/actions/:action",
@@ -1442,6 +1443,7 @@ type stubTranslationQueueBinding struct {
 	dashboardCalled            int
 	assignmentsCalled          int
 	assignmentDetailCalled     int
+	assignmentPreviewCalled    int
 	readDraftSyncCalled        int
 	mutateDraftSyncCalled      int
 	myWorkCalled               int
@@ -1470,6 +1472,11 @@ func (s *stubTranslationQueueBinding) FamilyAssignments(_ router.Context, family
 func (s *stubTranslationQueueBinding) AssignmentDetail(_ router.Context, id string) (any, error) {
 	s.assignmentDetailCalled++
 	return map[string]any{"assignment_id": id}, nil
+}
+
+func (s *stubTranslationQueueBinding) AssignmentPreview(_ router.Context, id string) (any, error) {
+	s.assignmentPreviewCalled++
+	return map[string]any{"assignment_id": id, "preview": true}, nil
 }
 
 func (s *stubTranslationQueueBinding) RunAssignmentAction(_ router.Context, id, action string, body map[string]any) (any, error) {
@@ -1638,7 +1645,7 @@ func TestTranslationQueueRouteStepRegistersRoutes(t *testing.T) {
 	}
 
 	require.NoError(t, TranslationQueueRouteStep(ctx))
-	require.Len(t, rr.calls, 16)
+	require.Len(t, rr.calls, 17)
 	methodPaths := map[string]bool{}
 	for _, call := range rr.calls {
 		methodPaths[call.method+" "+call.path] = true
@@ -1647,6 +1654,7 @@ func TestTranslationQueueRouteStepRegistersRoutes(t *testing.T) {
 	require.True(t, methodPaths["GET "+mustRoutePath(t, ctx, ctx.AdminAPIGroup(), "translations.assignments")])
 	require.True(t, methodPaths["GET "+mustRoutePath(t, ctx, ctx.AdminAPIGroup(), "translations.assignments.family_assignments")])
 	require.True(t, methodPaths["GET "+mustRoutePath(t, ctx, ctx.AdminAPIGroup(), "translations.assignments.id")])
+	require.True(t, methodPaths["GET "+mustRoutePath(t, ctx, ctx.AdminAPIGroup(), "translations.assignments.preview")])
 	require.True(t, methodPaths["POST "+mustRoutePath(t, ctx, ctx.AdminAPIGroup(), "translations.assignments.bulk_snapshot")])
 	require.True(t, methodPaths["POST "+mustRoutePath(t, ctx, ctx.AdminAPIGroup(), "translations.assignments.bulk_actions")])
 	require.True(t, methodPaths["POST "+mustRoutePath(t, ctx, ctx.AdminAPIGroup(), "translations.assignments.actions")])
@@ -1661,6 +1669,7 @@ func TestTranslationQueueRouteStepRegistersRoutes(t *testing.T) {
 	require.True(t, methodPaths["GET "+mustRoutePath(t, ctx, ctx.AdminAPIGroup(), "translations.options.assignees")])
 
 	detailPath := mustRoutePath(t, ctx, ctx.AdminAPIGroup(), "translations.assignments.id")
+	previewPath := mustRoutePath(t, ctx, ctx.AdminAPIGroup(), "translations.assignments.preview")
 	familyAssignmentsPath := mustRoutePath(t, ctx, ctx.AdminAPIGroup(), "translations.assignments.family_assignments")
 	bulkActionPath := mustRoutePath(t, ctx, ctx.AdminAPIGroup(), "translations.assignments.bulk_actions")
 	actionPath := mustRoutePath(t, ctx, ctx.AdminAPIGroup(), "translations.assignments.actions")
@@ -1674,6 +1683,8 @@ func TestTranslationQueueRouteStepRegistersRoutes(t *testing.T) {
 		requestCtx.ParamsM["action"] = "claim"
 		switch call.path {
 		case detailPath:
+			requestCtx.ParamsM["assignment_id"] = "asg_1"
+		case previewPath:
 			requestCtx.ParamsM["assignment_id"] = "asg_1"
 		case familyAssignmentsPath:
 			requestCtx.ParamsM["family_id"] = "family_1"

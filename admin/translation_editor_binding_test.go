@@ -7,6 +7,7 @@ import (
 	"maps"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 	"time"
@@ -453,6 +454,177 @@ func TestTranslationEditorAssignmentDetailReturnsDriftAssistTimelineAndActions(t
 	}
 	if autoApprove := toBool(submitReview["auto_approve"]); autoApprove {
 		t.Fatalf("expected submit_review auto_approve false when review is required")
+	}
+}
+
+func TestTranslationEditorAssignmentDetailReturnsPreviewActionWithoutURL(t *testing.T) {
+	fixture := newTranslationEditorTestFixture(t, translationEditorTestFixtureOptions{})
+
+	status, payload := doTranslationEditorJSONRequest(t, fixture.app, http.MethodGet, "/admin/api/translations/assignments/"+fixture.assignmentID+"?channel=production&tenant_id=tenant-1&org_id=org-1", nil)
+	if status != http.StatusOK {
+		t.Fatalf("status=%d want=200 payload=%+v", status, payload)
+	}
+
+	data := extractMap(payload["data"])
+	preview := extractMap(data["preview_action"])
+	if !toBool(preview["enabled"]) {
+		t.Fatalf("expected preview action enabled, got %+v", preview)
+	}
+	if got := toString(preview["assignment_id"]); got != fixture.assignmentID {
+		t.Fatalf("expected assignment_id %q, got %q", fixture.assignmentID, got)
+	}
+	if got := toString(preview["entity_type"]); got != "pages" {
+		t.Fatalf("expected entity_type pages, got %q", got)
+	}
+	if got := toString(preview["target_record_id"]); got != fixture.targetRecordID {
+		t.Fatalf("expected target_record_id %q, got %q", fixture.targetRecordID, got)
+	}
+	if got := toString(preview["record_id"]); got != fixture.targetRecordID {
+		t.Fatalf("expected record_id to target %q, got %q", fixture.targetRecordID, got)
+	}
+	if got := toString(preview["target_locale"]); got != "fr" {
+		t.Fatalf("expected target_locale fr, got %q", got)
+	}
+	if got := toString(preview["channel"]); got != "production" {
+		t.Fatalf("expected channel production, got %q", got)
+	}
+	if got := toString(preview["url"]); got != "" {
+		t.Fatalf("expected assignment detail preview action to omit signed url, got %q", got)
+	}
+}
+
+func TestTranslationEditorAssignmentPreviewReturnsFreshSignedTargetURL(t *testing.T) {
+	fixture := newTranslationEditorTestFixture(t, translationEditorTestFixtureOptions{})
+
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/translations/assignments/"+fixture.assignmentID+"/preview?channel=production&tenant_id=tenant-1&org_id=org-1", nil)
+	req.Header.Set("X-User-ID", "translator-1")
+	req.Header.Set("X-Test-Authenticated-Actor-ID", "translator-1")
+	resp, err := fixture.app.Test(req)
+	if err != nil {
+		t.Fatalf("request error: %v", err)
+	}
+	defer resp.Body.Close() //nolint:errcheck // test response body cleanup is best-effort
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status=%d want=200", resp.StatusCode)
+	}
+	if got := strings.TrimSpace(resp.Header.Get("Cache-Control")); got != "no-store" {
+		t.Fatalf("expected Cache-Control no-store, got %q", got)
+	}
+	if got := strings.TrimSpace(resp.Header.Get("Pragma")); got != "no-cache" {
+		t.Fatalf("expected Pragma no-cache, got %q", got)
+	}
+
+	payload := map[string]any{}
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	meta := extractMap(payload["meta"])
+	if got := toString(meta["cache"]); got != "no-store" {
+		t.Fatalf("expected meta cache no-store, got %q", got)
+	}
+	if got := toString(meta["channel"]); got != "production" {
+		t.Fatalf("expected meta channel production, got %q", got)
+	}
+
+	data := extractMap(payload["data"])
+	if !toBool(data["enabled"]) {
+		t.Fatalf("expected enabled preview data, got %+v", data)
+	}
+	if got := toString(data["target_record_id"]); got != fixture.targetRecordID {
+		t.Fatalf("expected target_record_id %q, got %q", fixture.targetRecordID, got)
+	}
+	if got := toString(data["record_id"]); got != fixture.targetRecordID {
+		t.Fatalf("expected record_id to target %q, got %q", fixture.targetRecordID, got)
+	}
+	rawURL := toString(data["url"])
+	if !strings.HasPrefix(rawURL, "/fr/page-1?preview_token=") {
+		t.Fatalf("expected localized target preview url, got %q", rawURL)
+	}
+	token := previewTokenFromURL(t, rawURL)
+	decoded, err := fixture.admin.Preview().Validate(token)
+	if err != nil {
+		t.Fatalf("validate preview token: %v", err)
+	}
+	if decoded.ContentID != fixture.targetRecordID {
+		t.Fatalf("expected preview token content id %q, got %q", fixture.targetRecordID, decoded.ContentID)
+	}
+	if decoded.EntityType != "pages@production" {
+		t.Fatalf("expected preview token entity pages@production, got %q", decoded.EntityType)
+	}
+}
+
+func TestTranslationEditorAssignmentPreviewUsesRequestedChannelInTokenScope(t *testing.T) {
+	fixture := newTranslationEditorTestFixture(t, translationEditorTestFixtureOptions{})
+	syncTranslationFamilyFixtureStore(t, fixture.admin, "staging")
+
+	status, payload := doTranslationEditorJSONRequest(t, fixture.app, http.MethodGet, "/admin/api/translations/assignments/"+fixture.assignmentID+"/preview?channel=staging&tenant_id=tenant-1&org_id=org-1", nil)
+	if status != http.StatusOK {
+		t.Fatalf("status=%d want=200 payload=%+v", status, payload)
+	}
+	data := extractMap(payload["data"])
+	if !toBool(data["enabled"]) {
+		t.Fatalf("expected enabled staging preview, got %+v", data)
+	}
+	if got := toString(data["channel"]); got != "staging" {
+		t.Fatalf("expected staging channel, got %q", got)
+	}
+	token := previewTokenFromURL(t, toString(data["url"]))
+	decoded, err := fixture.admin.Preview().Validate(token)
+	if err != nil {
+		t.Fatalf("validate preview token: %v", err)
+	}
+	if decoded.EntityType != "pages@staging" {
+		t.Fatalf("expected preview token entity pages@staging, got %q", decoded.EntityType)
+	}
+	if decoded.ContentID != fixture.targetRecordID {
+		t.Fatalf("expected preview token content id %q, got %q", fixture.targetRecordID, decoded.ContentID)
+	}
+}
+
+func TestTranslationEditorAssignmentPreviewReturnsUnavailableWhenPathMissing(t *testing.T) {
+	fixture := newTranslationEditorTestFixture(t, translationEditorTestFixtureOptions{})
+
+	target, err := fixture.content.Page(context.Background(), fixture.targetRecordID, "")
+	if err != nil || target == nil {
+		t.Fatalf("load target page: %v", err)
+	}
+	updated := cloneCMSPage(*target)
+	updated.Slug = " "
+	updated.PreviewURL = " "
+	updated.Data = map[string]any{
+		"body": "Target body without a preview path.",
+	}
+	if _, err := fixture.content.UpdatePage(context.Background(), updated); err != nil {
+		t.Fatalf("update target page without preview path: %v", err)
+	}
+	syncTranslationFamilyFixtureStore(t, fixture.admin, "production")
+
+	status, payload := doTranslationEditorJSONRequest(t, fixture.app, http.MethodGet, "/admin/api/translations/assignments/"+fixture.assignmentID+"/preview?channel=production&tenant_id=tenant-1&org_id=org-1", nil)
+	if status != http.StatusOK {
+		t.Fatalf("status=%d want=200 payload=%+v", status, payload)
+	}
+	data := extractMap(payload["data"])
+	if toBool(data["enabled"]) {
+		t.Fatalf("expected preview disabled without path, got %+v", data)
+	}
+	if got := toString(data["reason_code"]); got != translationPreviewReasonPathMissing {
+		t.Fatalf("expected reason_code %q, got %q in %+v", translationPreviewReasonPathMissing, got, data)
+	}
+	if got := toString(data["url"]); got != "" {
+		t.Fatalf("expected disabled preview to omit url, got %q", got)
+	}
+}
+
+func TestTranslationEditorAssignmentPreviewRequiresViewPermission(t *testing.T) {
+	fixture := newTranslationEditorTestFixture(t, translationEditorTestFixtureOptions{
+		Permissions: map[string]bool{
+			PermAdminTranslationsView: false,
+		},
+	})
+
+	status, payload := doTranslationEditorJSONRequest(t, fixture.app, http.MethodGet, "/admin/api/translations/assignments/"+fixture.assignmentID+"/preview?channel=production&tenant_id=tenant-1&org_id=org-1", nil)
+	if status != http.StatusForbidden {
+		t.Fatalf("status=%d want=403 payload=%+v", status, payload)
 	}
 }
 
@@ -1603,6 +1775,19 @@ func doTranslationEditorJSONRequest(t *testing.T, app *fiber.App, method, target
 		t.Fatalf("decode response: %v", err)
 	}
 	return resp.StatusCode, out
+}
+
+func previewTokenFromURL(t *testing.T, rawURL string) string {
+	t.Helper()
+	parsed, err := url.Parse(rawURL)
+	if err != nil {
+		t.Fatalf("parse preview url %q: %v", rawURL, err)
+	}
+	token := strings.TrimSpace(parsed.Query().Get("preview_token"))
+	if token == "" {
+		t.Fatalf("expected preview_token query param in %q", rawURL)
+	}
+	return token
 }
 
 func payloadPath(data map[string]any, key string) map[string]any {
