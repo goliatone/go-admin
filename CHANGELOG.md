@@ -1,11 +1,22 @@
 # Changelog
 
+# [0.85.1](https://github.com/goliatone/go-admin/compare/v0.85.0...v0.85.1) - (2026-06-04)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update deps ([3d3f731](https://github.com/goliatone/go-admin/commit/3d3f731104e2faf2adb45dab6e2c26a3e245209e))  - (goliatone)
+- Update tests ([a3efbea](https://github.com/goliatone/go-admin/commit/a3efbeaea0d77a4ab857374b90c5e7c1e8ffad46))  - (goliatone)
+
 # [0.85.0](https://github.com/goliatone/go-admin/compare/v0.84.0...v0.85.0) - (2026-06-04)
 
 ## <!-- 1 -->🐛 Bug Fixes
 
 - Code quality ([a5772ba](https://github.com/goliatone/go-admin/commit/a5772bab6fb8fc15499252311db76537dbc12a16))  - (goliatone)
 - Content editor ([56a82c2](https://github.com/goliatone/go-admin/commit/56a82c2171a2dd150d3ab89f8e28c869ea1d054d))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.85.0 ([874069f](https://github.com/goliatone/go-admin/commit/874069f4520a7ecae871a116275c7f309bab00c0))  - (goliatone)
 
 ## <!-- 16 -->➕ Add
 
