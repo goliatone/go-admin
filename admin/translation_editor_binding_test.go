@@ -515,8 +515,8 @@ func TestTranslationEditorAssignmentPreviewReturnsFreshSignedTargetURL(t *testin
 	}
 
 	payload := map[string]any{}
-	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
-		t.Fatalf("decode response: %v", err)
+	if decodeErr := json.NewDecoder(resp.Body).Decode(&payload); decodeErr != nil {
+		t.Fatalf("decode response: %v", decodeErr)
 	}
 	meta := extractMap(payload["meta"])
 	if got := toString(meta["cache"]); got != "no-store" {

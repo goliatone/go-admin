@@ -637,6 +637,75 @@ test('translation editor runtime: field inputs keep the natural document tab ord
   });
 });
 
+test('translation editor runtime: copy source fills target field and autosaves copied text', async () => {
+  const { root, window } = setupDom();
+  installTranslationSyncCoreStub(window);
+  window.scrollTo = mock.fn();
+  const requests = [];
+  const detail = makeSubmitReadyFixture();
+  const sourceValue = detail.data.fields.find((field) => field.path === 'body')?.source_value;
+  assert.ok(sourceValue);
+  globalThis.fetch = mock.fn(async (input, init = {}) => {
+    const method = String(init.method || 'GET').toUpperCase();
+    const url = String(input);
+    requests.push({ url, method, init });
+    if (method === 'GET' && url.includes('/api/translations/assignments/asg-editor-1')) {
+      return createJsonResponse(detail);
+    }
+    if (method === 'GET' && url.includes('/api/translations/sync/resources/translation_variant_draft/')) {
+      return createJsonResponse({
+        data: detail.data,
+        revision: 3,
+        updated_at: '2026-01-01T00:00:00Z',
+      });
+    }
+    if (method === 'PATCH' && url.includes('/api/translations/sync/resources/translation_variant_draft/')) {
+      const body = JSON.parse(init.body);
+      const next = makeSubmitReadyUpdateFixture();
+      assert.equal(body.payload.fields.body, sourceValue);
+      return createJsonResponse({
+        data: {
+          ...next.data,
+          fields: { ...next.data.fields, body: sourceValue },
+          target_fields: { ...next.data.target_fields, body: sourceValue },
+        },
+        revision: 4,
+        updated_at: '2026-01-01T00:00:00Z',
+        applied: true,
+        replay: false,
+      });
+    }
+    return createJsonResponse({ error: { message: 'unexpected request' } }, 500, {
+      'content-type': 'application/json',
+    });
+  });
+
+  const screen = new TranslationEditorScreen({
+    endpoint: '/admin/api/translations/assignments/asg-editor-1',
+    actionEndpointBase: '/admin/api/translations/assignments',
+  });
+  screen.mount(root);
+  await flushAsync();
+  await flushAsync();
+
+  const button = root.querySelector('[data-copy-source="body"]');
+  assert.ok(button);
+  assert.match(button.className, /text-\[11px\]/);
+  assert.ok(button.querySelector('svg'));
+  assert.equal(button.querySelector('svg')?.nextElementSibling?.textContent, 'Copy source');
+  button.click();
+
+  const input = root.querySelector('[data-field-input="body"]');
+  assert.equal(input.value, sourceValue);
+  assert.equal(window.document.activeElement?.dataset.fieldInput, 'body');
+
+  await new Promise((resolve) => setTimeout(resolve, 650));
+  await flushAsync();
+  assert.ok(requests.some((request) => request.method === 'PATCH'));
+
+  screen.unmount();
+});
+
 test('translation editor runtime: renders full screen with history, attachments, and assist fallbacks', () => {
   const detail = normalizeAssignmentEditorDetail(fixtures.detail);
   const state = createTranslationEditorState(detail);
@@ -680,6 +749,20 @@ test('translation editor runtime: disabled preview action renders server reason'
   assert.match(html, /data-preview-unavailable-reason="true"/);
   assert.match(html, /target content has no preview path/);
   assert.match(html, /data-preview-reason-code="preview_path_missing"/);
+});
+
+test('translation editor runtime: active autosave conflict disables preview action', () => {
+  const detail = normalizeAssignmentEditorDetail(makeSubmitReadyFixture());
+  const state = createTranslationEditorState(detail);
+  state.autosave.conflict = { row_version: 4, message: 'server draft changed' };
+  const html = renderTranslationEditorState(
+    { status: 'ready', detail },
+    state
+  );
+
+  assert.match(html, /data-action="preview-assignment"/);
+  assert.match(html, /data-action="preview-assignment"[\s\S]*disabled aria-disabled="true"/);
+  assert.match(html, /Reload the latest server draft before opening preview\./);
 });
 
 test('translation editor runtime: field completion copy is distinct from submit workflow state', () => {
@@ -942,9 +1025,11 @@ test('translation editor runtime: preview opens blank tab synchronously, saves d
   const { root, window } = setupDom();
   installTranslationSyncCoreStub(window);
   const requests = [];
+  const openCalls = [];
   const previewTab = {
     closed: false,
     navigatedTo: '',
+    opener: {},
     close() {
       this.closed = true;
     },
@@ -956,7 +1041,13 @@ test('translation editor runtime: preview opens blank tab synchronously, saves d
       },
     },
   };
-  window.open = mock.fn(() => previewTab);
+  window.open = mock.fn((url, target, features) => {
+    openCalls.push({ url, target, features });
+    if (String(features || '').includes('noopener')) {
+      return null;
+    }
+    return previewTab;
+  });
   globalThis.fetch = mock.fn(async (input, init = {}) => {
     const method = String(init.method || 'GET').toUpperCase();
     const url = String(input);
@@ -1017,6 +1108,8 @@ test('translation editor runtime: preview opens blank tab synchronously, saves d
   assert.ok(patchIndex >= 0);
   assert.ok(previewIndex > patchIndex);
   assert.match(requests[previewIndex].url, /[?&]channel=production(?:&|$)/);
+  assert.deepEqual(openCalls, [{ url: 'about:blank', target: '_blank', features: undefined }]);
+  assert.equal(previewTab.opener, null);
   assert.equal(previewTab.closed, false);
   assert.equal(previewTab.navigatedTo, '/fr/guide?preview_token=fresh-token');
 
@@ -1083,6 +1176,10 @@ test('translation editor runtime: preview closes blank tab and skips endpoint on
   assert.equal(previewTab.closed, true);
   assert.equal(requests.some((request) => request.url.includes('/preview')), false);
   assert.match(root.innerHTML, /Autosave conflict detected/);
+  const previewButton = root.querySelector('[data-action="preview-assignment"]');
+  assert.equal(previewButton.disabled, true);
+  previewButton.click();
+  assert.equal(window.open.mock.callCount(), 1);
 
   screen.unmount();
 });

@@ -1568,12 +1568,13 @@ function renderHeader(
   submitting: boolean,
   saving: boolean,
   previewing: boolean,
+  hasConflict: boolean,
   basePath = ''
 ): string {
   const submitState = detail.assignment_action_states.submit_review;
   const previewState = detail.preview_action;
   const submitDisabled = !submitState?.enabled || saving || submitting || detail.qa_results.submit_blocked;
-  const previewDisabled = !previewState?.enabled || saving || submitting || previewing;
+  const previewDisabled = !previewState?.enabled || saving || submitting || previewing || hasConflict;
   const saveDisabled = saving || !hasDirtyFields;
   const sourceLocale = (detail.source_locale || 'source').toUpperCase();
   const targetLocale = (detail.target_locale || 'target').toUpperCase();
@@ -1583,6 +1584,8 @@ function renderHeader(
     : (submitState?.reason || '');
   const previewTitle = !previewState?.enabled
     ? (previewState?.reason || 'Preview is unavailable for this assignment.')
+    : hasConflict
+      ? 'Reload the latest server draft before opening preview.'
     : previewing
       ? 'Opening preview.'
       : 'Open preview in a new tab.';
@@ -1938,6 +1941,18 @@ function renderSourceValue(entry: TranslationEditorFieldEntry): string {
   return '<span class="text-gray-400 italic text-xs">Optional source content not provided</span>';
 }
 
+const COPY_SOURCE_BUTTON_CLASS =
+  'inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-[11px] font-medium leading-4 text-gray-600 shadow-sm transition-colors hover:border-gray-300 hover:bg-gray-50 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-sky-100';
+
+function renderCopySourceIcon(): string {
+  return `
+    <svg class="h-3 w-3 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <rect width="14" height="14" x="8" y="8" rx="2" ry="2"></rect>
+      <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"></path>
+    </svg>
+  `;
+}
+
 function renderFieldList(detail: TranslationAssignmentEditorDetail): string {
   const summary = computeFieldIssueSummary(detail);
 
@@ -1953,11 +1968,13 @@ function renderFieldList(detail: TranslationAssignmentEditorDetail): string {
             </div>
             <button
               type="button"
-              class="${BTN_GHOST}"
+              class="${COPY_SOURCE_BUTTON_CLASS}"
               data-copy-source="${escapeAttribute(entry.path)}"
+              data-source-value="${escapeAttribute(entry.source_value)}"
               aria-label="Copy source text to translation field for ${escapeAttribute(entry.label)}"
             >
-              Copy source
+              ${renderCopySourceIcon()}
+              <span>Copy source</span>
             </button>
           </div>
           <div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -2545,7 +2562,7 @@ export function renderTranslationEditorState(
   return `
     <div class="translation-editor-screen space-y-6" data-translation-editor="true">
       ${renderFeedback(runtime.feedback || null)}
-      ${renderHeader(detail, autosaveLabel, hasDirtyFields, runtime.submitting === true, runtime.saving === true, runtime.previewing === true, options.basePath || '')}
+      ${renderHeader(detail, autosaveLabel, hasDirtyFields, runtime.submitting === true, runtime.saving === true, runtime.previewing === true, Boolean(conflictState), options.basePath || '')}
       ${renderEditorLocaleSummary(detail)}
       ${conflictState ? `
         <section class="rounded-xl border border-amber-200 bg-amber-50 p-5">
@@ -2764,11 +2781,31 @@ export class TranslationEditorScreen {
       });
     });
     this.container.querySelectorAll<HTMLElement>('[data-copy-source]').forEach((element) => {
-      element.addEventListener('click', () => {
+      element.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
         const path = element.dataset.copySource || '';
         const entry = this.editorState?.detail.fields.find((item) => item.path === path);
         if (!entry || !this.editorState) return;
-        this.editorState = applyEditorFieldChange(this.editorState, path, entry.source_value);
+        const sourceValue = entry.source_value || element.dataset.sourceValue || '';
+        this.editorState = applyEditorFieldChange(this.editorState, path, sourceValue);
+        const input = this.container?.querySelector<HTMLInputElement | HTMLTextAreaElement>(`[data-field-input="${cssEscape(path)}"]`);
+        if (input) {
+          input.value = sourceValue.trim();
+          try {
+            input.focus({ preventScroll: true });
+          } catch {
+            input.focus();
+          }
+          const selectionEnd = input.value.length;
+          try {
+            input.setSelectionRange(selectionEnd, selectionEnd);
+          } catch {
+            // Non-text inputs do not support selection ranges.
+          }
+        }
+        this.feedback = null;
+        this.lastSavedMessage = '';
         this.scheduleAutosave();
         this.render();
       });
@@ -2780,6 +2817,12 @@ export class TranslationEditorScreen {
       void this.submitForReview();
     });
     this.container.querySelector<HTMLElement>('[data-action="preview-assignment"]')?.addEventListener('click', () => {
+      const blockedMessage = this.previewBlockedBeforeOpenMessage();
+      if (blockedMessage) {
+        this.feedback = blockedMessage;
+        this.render();
+        return;
+      }
       const previewWindow = this.openPreviewWindow();
       void this.previewAssignment(previewWindow);
     });
@@ -3130,10 +3173,41 @@ export class TranslationEditorScreen {
       return null;
     }
     try {
-      return window.open('', '_blank', 'noopener');
+      const previewWindow = window.open('about:blank', '_blank');
+      if (previewWindow) {
+        try {
+          previewWindow.opener = null;
+        } catch {
+          // Some browser policies prevent assignment; preview can still proceed.
+        }
+      }
+      return previewWindow;
     } catch {
       return null;
     }
+  }
+
+  private previewBlockedBeforeOpenMessage(): NonNullable<TranslationEditorRuntimeState['feedback']> | null {
+    if (!this.editorState) {
+      return { kind: 'error', message: 'Preview is unavailable for this assignment.' };
+    }
+    if (this.previewing) {
+      return { kind: 'error', message: 'Preview is already opening.' };
+    }
+    if (this.saving) {
+      return { kind: 'error', message: 'Wait for the current save to finish before opening preview.' };
+    }
+    if (this.submitting) {
+      return { kind: 'error', message: 'Wait for the current action to finish before opening preview.' };
+    }
+    const previewAction = this.editorState.detail.preview_action;
+    if (!previewAction.enabled) {
+      return { kind: 'error', message: previewAction.reason || 'Preview is unavailable for this assignment.' };
+    }
+    if (this.editorState.autosave.conflict) {
+      return { kind: 'conflict', message: 'Reload the latest server draft before opening preview.' };
+    }
+    return null;
   }
 
   private assignmentPreviewEndpoint(detail: TranslationAssignmentEditorDetail): string {
