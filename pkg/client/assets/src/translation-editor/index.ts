@@ -117,6 +117,14 @@ export interface TranslationEditorQAResults {
   submit_blocked: boolean;
 }
 
+interface TranslationEditorIssueTargets {
+  missing: string | null;
+  validation: string | null;
+  qaBlocker: string | null;
+  qaFinding: string | null;
+  sourceDrift: string | null;
+}
+
 export interface TranslationEditorReviewFeedbackComment {
   id: string;
   body: string;
@@ -226,6 +234,19 @@ export interface TranslationEditorLocaleNavigation {
   locales: TranslationEditorLocaleNavigationEntry[];
 }
 
+export interface TranslationEditorPreviewAction {
+  enabled: boolean;
+  url?: string;
+  reason: string;
+  reason_code: string;
+  assignment_id: string;
+  entity_type: string;
+  record_id: string;
+  target_record_id: string;
+  target_locale: string;
+  channel: string;
+}
+
 export interface TranslationAssignmentEditorDetail {
   assignment_id: string;
   assignment_row_version: number;
@@ -256,6 +277,7 @@ export interface TranslationAssignmentEditorDetail {
   assignment_action_states: Record<string, TranslationActionState>;
   review_action_states: Record<string, TranslationActionState>;
   locale_navigation: TranslationEditorLocaleNavigation;
+  preview_action: TranslationEditorPreviewAction;
 }
 
 export interface TranslationEditorUpdateResponse {
@@ -265,6 +287,7 @@ export interface TranslationEditorUpdateResponse {
   field_completeness: Record<string, TranslationEditorFieldCompleteness>;
   field_drift: Record<string, TranslationEditorFieldDrift>;
   field_validations: Record<string, TranslationEditorFieldValidation>;
+  source_target_drift?: Record<string, unknown>;
   assist: TranslationEditorAssistPayload;
   qa_results: TranslationEditorQAResults;
   assignment_action_states: Record<string, TranslationActionState>;
@@ -308,6 +331,7 @@ export interface TranslationEditorRuntimeState {
   lastSavedMessage?: string;
   saving?: boolean;
   submitting?: boolean;
+  previewing?: boolean;
   rejectDraft?: TranslationEditorRejectDraft | null;
   // T13: Active sidebar tab
   activeSidebarTab?: 'actions' | 'qa' | 'assist' | 'files' | 'history';
@@ -836,6 +860,26 @@ function normalizeLocaleNavigation(value: unknown, fallback: Record<string, unkn
   };
 }
 
+function normalizePreviewAction(value: unknown, fallback: Record<string, unknown>): TranslationEditorPreviewAction {
+  const record = asRecord(value);
+  const enabled = asBoolean(record.enabled);
+  const targetRecordID = asString(record.target_record_id) || asString(record.record_id) || asString(fallback.target_record_id);
+  const reason = asString(record.reason);
+  const reasonCode = asString(record.reason_code);
+  return {
+    enabled,
+    url: asString(record.url) || undefined,
+    reason: reason || (enabled ? '' : 'Preview is unavailable for this assignment.'),
+    reason_code: reasonCode || (enabled ? '' : 'preview_unavailable'),
+    assignment_id: asString(record.assignment_id) || asString(fallback.assignment_id),
+    entity_type: asString(record.entity_type) || asString(fallback.entity_type),
+    record_id: asString(record.record_id) || targetRecordID,
+    target_record_id: targetRecordID,
+    target_locale: asString(record.target_locale) || asString(fallback.target_locale),
+    channel: asString(record.channel) || asString(fallback.channel),
+  };
+}
+
 export function normalizeEditorAssistPayload(
   value: unknown,
   fallbackRoot?: unknown
@@ -973,6 +1017,7 @@ export function normalizeAssignmentEditorDetail(raw: unknown): TranslationAssign
       record.review_action_states ?? record.review_actions
     ),
     locale_navigation: normalizeLocaleNavigation(record.locale_navigation, record),
+    preview_action: normalizePreviewAction(record.preview_action, record),
   };
 }
 
@@ -986,6 +1031,7 @@ export function normalizeEditorUpdateResponse(raw: unknown): TranslationEditorUp
     field_completeness: normalizeFieldMap(record.field_completeness, normalizeFieldCompleteness),
     field_drift: normalizeFieldMap(record.field_drift, normalizeFieldDrift),
     field_validations: normalizeFieldMap(record.field_validations, normalizeFieldValidation),
+    source_target_drift: asRecord(record.source_target_drift),
     assist: normalizeEditorAssistPayload(record.assist, record),
     qa_results: normalizeQAResults(record.qa_results),
     assignment_action_states: normalizeActionStateMap(record.assignment_action_states),
@@ -1105,6 +1151,9 @@ export function applyEditorUpdateResponse(
     field_completeness: update.field_completeness,
     field_drift: update.field_drift,
     field_validations: update.field_validations,
+    source_target_drift: Object.keys(asRecord(update.source_target_drift)).length
+      ? update.source_target_drift
+      : state.detail.source_target_drift,
     assist: update.assist,
     qa_results: update.qa_results,
     assignment_action_states: update.assignment_action_states,
@@ -1129,11 +1178,12 @@ function editorUpdatePayloadFromSyncSnapshot(
   snapshot: TranslationSyncResourceSnapshot<unknown>
 ): Record<string, unknown> {
   const data = asRecord(snapshot.data);
-  const rowVersion = asNumber(data.row_version || data.version, snapshot.revision) || snapshot.revision;
+  const rowVersion = snapshot.revision || asNumber(data.row_version || data.version);
   return {
     data: {
       ...data,
       row_version: rowVersion,
+      version: rowVersion,
     },
   };
 }
@@ -1201,6 +1251,38 @@ function syncConflictPayloadFromError(error: unknown): Record<string, unknown> {
   return record;
 }
 
+function syncConflictLatestSnapshotFromError(error: unknown): TranslationSyncResourceSnapshot<unknown> | null {
+  const record = asRecord(error);
+  const details = asRecord(record.details);
+  const conflict = asRecord(record.conflict);
+  const resource = record.resource || details.resource || conflict.latestSnapshot;
+  const resourceRecord = asRecord(resource);
+  const latestData = asRecord(resourceRecord.data);
+  const revision = asNumber(resourceRecord.revision || record.currentRevision || details.current_revision);
+  const updatedAt = asString(resourceRecord.updatedAt || resourceRecord.updated_at) || new Date().toISOString();
+  if (!Object.keys(latestData).length || revision <= 0) {
+    return null;
+  }
+  return {
+    ref: asRecord(resourceRecord.ref) as unknown as TranslationSyncResourceRef,
+    data: latestData,
+    revision,
+    updatedAt,
+    metadata: asRecord(resourceRecord.metadata),
+  };
+}
+
+function currentSourceHashFromDetail(detail: TranslationAssignmentEditorDetail): string {
+  return asString(asRecord(detail.source_target_drift).current_source_hash);
+}
+
+function cssEscape(value: string): string {
+  if (typeof CSS !== 'undefined' && typeof CSS.escape === 'function') {
+    return CSS.escape(value);
+  }
+  return value.replace(/["\\]/g, '\\$&');
+}
+
 function isStaleRevisionError(error: unknown): error is TranslationSyncError {
   const record = asRecord(error);
   const cause = asRecord(record.cause);
@@ -1217,6 +1299,27 @@ function buildURLWithParams(endpoint: string, params: Record<string, string | nu
     return url.toString();
   }
   return `${url.pathname}${url.search}`;
+}
+
+function closePreviewWindow(previewWindow: Window | null): void {
+  if (!previewWindow || typeof previewWindow.close !== 'function') return;
+  try {
+    previewWindow.close();
+  } catch {
+    return;
+  }
+}
+
+function navigatePreviewWindow(previewWindow: Window, url: string): void {
+  try {
+    if (previewWindow.location && typeof previewWindow.location.assign === 'function') {
+      previewWindow.location.assign(url);
+      return;
+    }
+  } catch {
+    // Fall back to href assignment below.
+  }
+  previewWindow.location.href = url;
 }
 
 export class TranslationEditorRequestError extends Error {
@@ -1464,10 +1567,13 @@ function renderHeader(
   hasDirtyFields: boolean,
   submitting: boolean,
   saving: boolean,
+  previewing: boolean,
   basePath = ''
 ): string {
   const submitState = detail.assignment_action_states.submit_review;
+  const previewState = detail.preview_action;
   const submitDisabled = !submitState?.enabled || saving || submitting || detail.qa_results.submit_blocked;
+  const previewDisabled = !previewState?.enabled || saving || submitting || previewing;
   const saveDisabled = saving || !hasDirtyFields;
   const sourceLocale = (detail.source_locale || 'source').toUpperCase();
   const targetLocale = (detail.target_locale || 'target').toUpperCase();
@@ -1475,6 +1581,11 @@ function renderHeader(
   const submitTitle = detail.qa_results.submit_blocked
     ? 'Resolve QA blockers before submitting for review.'
     : (submitState?.reason || '');
+  const previewTitle = !previewState?.enabled
+    ? (previewState?.reason || 'Preview is unavailable for this assignment.')
+    : previewing
+      ? 'Opening preview.'
+      : 'Open preview in a new tab.';
   return `
     <section class="${CARD} p-6 shadow-sm">
       <div class="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
@@ -1493,7 +1604,7 @@ function renderHeader(
             ${qaSummaryChips(detail)}
           </div>
         </div>
-        <div class="flex flex-wrap items-center gap-3">
+        <div class="flex flex-wrap items-start gap-3">
           <button
             type="button"
             class="${BTN_SECONDARY}"
@@ -1502,15 +1613,32 @@ function renderHeader(
           >
             ${saving ? 'Saving…' : 'Save draft'}
           </button>
-          <button
-            type="button"
-            class="${BTN_PRIMARY}"
-            data-action="submit-review"
-            title="${escapeAttribute(submitTitle)}"
-            ${submitDisabled ? 'disabled aria-disabled="true"' : ''}
-          >
-            ${submitting ? 'Submitting…' : (submitState?.enabled ? 'Submit for review' : 'Submit unavailable')}
-          </button>
+          <div class="flex max-w-xs flex-col items-start gap-1">
+            <button
+              type="button"
+              class="${BTN_SECONDARY}"
+              data-action="preview-assignment"
+              title="${escapeAttribute(previewTitle)}"
+              data-preview-enabled="${previewState?.enabled ? 'true' : 'false'}"
+              data-preview-reason-code="${escapeAttribute(previewState?.reason_code || '')}"
+              ${previewDisabled ? 'disabled aria-disabled="true"' : ''}
+            >
+              ${previewing ? 'Opening…' : (previewState?.enabled ? 'Preview' : 'Preview unavailable')}
+            </button>
+            ${!previewState?.enabled && previewState?.reason ? `<p class="text-xs text-gray-500" data-preview-unavailable-reason="true">${escapeHTML(previewState.reason)}</p>` : ''}
+          </div>
+          <div class="flex max-w-xs flex-col items-start gap-1">
+            <button
+              type="button"
+              class="${BTN_PRIMARY}"
+              data-action="submit-review"
+              title="${escapeAttribute(submitTitle)}"
+              ${submitDisabled ? 'disabled aria-disabled="true"' : ''}
+            >
+              ${submitting ? 'Submitting…' : (submitState?.enabled ? 'Submit for review' : 'Submit unavailable')}
+            </button>
+            ${submitDisabled && submitTitle ? `<p class="text-xs text-gray-500" data-submit-unavailable-reason="true">${escapeHTML(submitTitle)}</p>` : ''}
+          </div>
         </div>
       </div>
     </section>
@@ -1660,12 +1788,18 @@ interface EditorFieldIssueSummary {
 function computeFieldIssueSummary(detail: TranslationAssignmentEditorDetail): EditorFieldIssueSummary {
   const fields = detail.fields || [];
   const qa = detail.qa_results;
+  const targets: TranslationEditorIssueTargets = {
+    missing: null,
+    validation: null,
+    qaBlocker: null,
+    qaFinding: null,
+    sourceDrift: null,
+  };
 
   let completeFields = 0;
   let missingRequiredFields = 0;
   let sourceChangedFields = 0;
   let validationErrors = 0;
-  let firstIssuePath: string | null = null;
 
   for (const field of fields) {
     // Count completeness
@@ -1676,27 +1810,30 @@ function computeFieldIssueSummary(detail: TranslationAssignmentEditorDetail): Ed
     // Count missing required
     if (field.completeness.required && field.completeness.missing) {
       missingRequiredFields++;
-      if (!firstIssuePath) firstIssuePath = field.path;
+      if (!targets.missing) targets.missing = field.path;
     }
 
     // Count source drift
     if (field.drift.changed) {
       sourceChangedFields++;
-      if (!firstIssuePath) firstIssuePath = field.path;
+      if (!targets.sourceDrift) targets.sourceDrift = field.path;
     }
 
     // Count validation errors
     if (!field.validation.valid) {
       validationErrors++;
-      if (!firstIssuePath) firstIssuePath = field.path;
+      if (!targets.validation) targets.validation = field.path;
     }
   }
 
-  // If no field-level issues but we have QA blockers, use first QA finding path
-  if (!firstIssuePath && qa.enabled && qa.summary.blocker_count > 0 && qa.findings.length > 0) {
+  if (qa.enabled && qa.findings.length > 0) {
     const blockerFinding = qa.findings.find(f => f.severity === 'blocker');
     if (blockerFinding?.field_path) {
-      firstIssuePath = blockerFinding.field_path;
+      targets.qaBlocker = blockerFinding.field_path;
+    }
+    const firstFinding = qa.findings.find(finding => finding.field_path);
+    if (firstFinding?.field_path) {
+      targets.qaFinding = firstFinding.field_path;
     }
   }
 
@@ -1708,7 +1845,7 @@ function computeFieldIssueSummary(detail: TranslationAssignmentEditorDetail): Ed
     validationErrors,
     qaBlockers: qa.enabled ? qa.summary.blocker_count : 0,
     qaWarnings: qa.enabled ? qa.summary.warning_count : 0,
-    firstIssuePath,
+    firstIssuePath: targets.missing || targets.validation || targets.qaBlocker || targets.qaFinding || targets.sourceDrift,
   };
 }
 
@@ -1835,7 +1972,7 @@ function renderFieldList(detail: TranslationAssignmentEditorDetail): string {
                 : `<input id="editor-field-${escapeAttribute(entry.path)}" type="text" class="mt-2 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-100" data-field-input="${escapeAttribute(entry.path)}" value="${escapeAttribute(entry.target_value)}" />`}
               <div class="mt-2 flex flex-wrap gap-2 text-xs">
                 <span class="rounded-full px-2.5 py-1 ${entry.completeness.missing ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'}">
-                  ${entry.completeness.missing ? 'Missing required content' : 'Ready to submit'}
+                  ${entry.completeness.missing ? 'Missing required content' : 'Field complete'}
                 </span>
                 ${shouldRenderFieldDriftDetail(entry) ? '<span class="rounded-full bg-amber-100 px-2.5 py-1 text-amber-700">Source changed</span>' : ''}
               </div>
@@ -2055,7 +2192,16 @@ function renderQAPanel(detail: TranslationAssignmentEditorDetail): string {
               <span class="${classes.badge}">${escapeHTML(finding.severity)}</span>
             </div>
             <p class="mt-2">${escapeHTML(finding.message)}</p>
-            ${finding.field_path ? `<p class="mt-2 text-xs opacity-80">Field ${escapeHTML(finding.field_path)}</p>` : ''}
+            ${finding.field_path ? `
+              <button
+                type="button"
+                class="mt-2 inline-flex items-center rounded-md border border-current px-2 py-1 text-xs font-medium opacity-80 transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-current/20"
+                data-jump-to-field="${escapeAttribute(finding.field_path)}"
+                title="Jump to ${escapeAttribute(finding.field_path)}"
+              >
+                Field ${escapeHTML(finding.field_path)}
+              </button>
+            ` : ''}
           </li>
         `).join('')}</ol>
       </section>
@@ -2399,7 +2545,7 @@ export function renderTranslationEditorState(
   return `
     <div class="translation-editor-screen space-y-6" data-translation-editor="true">
       ${renderFeedback(runtime.feedback || null)}
-      ${renderHeader(detail, autosaveLabel, hasDirtyFields, runtime.submitting === true, runtime.saving === true, options.basePath || '')}
+      ${renderHeader(detail, autosaveLabel, hasDirtyFields, runtime.submitting === true, runtime.saving === true, runtime.previewing === true, options.basePath || '')}
       ${renderEditorLocaleSummary(detail)}
       ${conflictState ? `
         <section class="rounded-xl border border-amber-200 bg-amber-50 p-5">
@@ -2447,6 +2593,7 @@ export class TranslationEditorScreen {
   private focusTrapCleanup: (() => void) | null = null;
   private saving = false;
   private submitting = false;
+  private previewing = false;
   private rejectDraft: TranslationEditorRejectDraft | null = null;
   private syncCoreModulePromise: Promise<TranslationSyncCoreModule> | null = null;
   private syncCoreModule: TranslationSyncCoreModule | null = null;
@@ -2455,6 +2602,8 @@ export class TranslationEditorScreen {
   private syncResource: TranslationSyncResource<unknown, unknown> | null = null;
   private syncResourceKey = '';
   private syncLoadedResourceKey = '';
+  private syncLoadedRevision: number | null = null;
+  private syncConflictSnapshot: TranslationSyncResourceSnapshot<unknown> | null = null;
   // T13: Active sidebar tab
   private activeSidebarTab: SidebarTab = 'actions';
 
@@ -2507,6 +2656,8 @@ export class TranslationEditorScreen {
     this.syncResource = null;
     this.syncResourceKey = '';
     this.syncLoadedResourceKey = '';
+    this.syncLoadedRevision = null;
+    this.syncConflictSnapshot = null;
   }
 
   async load(historyPage?: number): Promise<void> {
@@ -2536,6 +2687,7 @@ export class TranslationEditorScreen {
       lastSavedMessage: this.lastSavedMessage,
       saving: this.saving,
       submitting: this.submitting,
+      previewing: this.previewing,
       rejectDraft: this.rejectDraft,
       activeSidebarTab: this.activeSidebarTab,
     });
@@ -2627,6 +2779,10 @@ export class TranslationEditorScreen {
     this.container.querySelector<HTMLElement>('[data-action="submit-review"]')?.addEventListener('click', () => {
       void this.submitForReview();
     });
+    this.container.querySelector<HTMLElement>('[data-action="preview-assignment"]')?.addEventListener('click', () => {
+      const previewWindow = this.openPreviewWindow();
+      void this.previewAssignment(previewWindow);
+    });
     this.container.querySelector<HTMLElement>('[data-action="approve"]')?.addEventListener('click', () => {
       void this.runReviewAction('approve');
     });
@@ -2667,19 +2823,21 @@ export class TranslationEditorScreen {
     });
 
     // T12: Jump to first issue handler
-    this.container.querySelector<HTMLElement>('[data-jump-to-field]')?.addEventListener('click', (event) => {
-      const button = event.currentTarget as HTMLElement;
-      const fieldPath = button.dataset.jumpToField;
-      if (!fieldPath || !this.container) return;
-      const fieldElement = this.container.querySelector<HTMLElement>(`[data-editor-field="${CSS.escape(fieldPath)}"]`);
-      if (fieldElement) {
-        fieldElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        // Focus the input field within
-        const input = fieldElement.querySelector<HTMLInputElement | HTMLTextAreaElement>('[data-field-input]');
-        if (input) {
-          setTimeout(() => input.focus(), 300);
+    this.container.querySelectorAll<HTMLElement>('[data-jump-to-field]').forEach((element) => {
+      element.addEventListener('click', (event) => {
+        const button = event.currentTarget as HTMLElement;
+        const fieldPath = button.dataset.jumpToField;
+        if (!fieldPath || !this.container) return;
+        const fieldElement = this.container.querySelector<HTMLElement>(`[data-editor-field="${cssEscape(fieldPath)}"]`);
+        if (fieldElement) {
+          fieldElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          // Focus the input field within
+          const input = fieldElement.querySelector<HTMLInputElement | HTMLTextAreaElement>('[data-field-input]');
+          if (input) {
+            setTimeout(() => input.focus(), 300);
+          }
         }
-      }
+      });
     });
 
     // T13: Sidebar tab switching
@@ -2722,6 +2880,8 @@ export class TranslationEditorScreen {
     const detail = this.editorState.detail;
     try {
       const response = await this.mutateDraftSync(detail, this.editorState.dirty_fields, isAutosave);
+      this.syncLoadedRevision = response.snapshot.revision;
+      this.syncConflictSnapshot = null;
       this.editorState = applyEditorUpdateResponse(this.editorState, editorUpdatePayloadFromSyncSnapshot(response.snapshot));
       const qaFeedback = buildSaveFeedbackMessage(this.editorState.detail.qa_results, isAutosave);
       this.lastSavedMessage = qaFeedback.lastSaved;
@@ -2733,6 +2893,10 @@ export class TranslationEditorScreen {
       return true;
     } catch (error) {
       if (isStaleRevisionError(error)) {
+        this.syncConflictSnapshot = syncConflictLatestSnapshotFromError(error);
+        if (this.syncConflictSnapshot?.revision) {
+          this.syncLoadedRevision = this.syncConflictSnapshot.revision;
+        }
         this.editorState = applyEditorAutosaveConflict(this.editorState, syncConflictPayloadFromError(error));
         this.feedback = { kind: 'conflict', message: 'Autosave conflict detected. Reload the latest server draft.' };
         this.saving = false;
@@ -2753,7 +2917,17 @@ export class TranslationEditorScreen {
     if (!this.editorState) return;
     const latest = this.editorState.autosave.conflict;
     if (latest && Object.keys(latest).length > 0) {
-      this.editorState = applyEditorUpdateResponse(this.editorState, { data: latest });
+      const snapshot = this.syncConflictSnapshot;
+      this.editorState = snapshot
+        ? applyEditorUpdateResponse(this.editorState, editorUpdatePayloadFromSyncSnapshot(snapshot))
+        : applyEditorUpdateResponse(this.editorState, { data: latest });
+      if (snapshot?.revision) {
+        this.syncLoadedRevision = snapshot.revision;
+      } else {
+        const latestRevision = asNumber(asRecord(latest).row_version || asRecord(latest).version);
+        if (latestRevision > 0) this.syncLoadedRevision = latestRevision;
+      }
+      this.syncConflictSnapshot = null;
       this.feedback = { kind: 'conflict', message: 'Reloaded the latest server draft.' };
       this.saving = false;
       this.render();
@@ -2765,6 +2939,8 @@ export class TranslationEditorScreen {
       if (!isUsableTranslationSyncSnapshot(snapshot)) {
         throw new Error('Sync refresh did not return a usable draft snapshot');
       }
+      this.syncLoadedRevision = snapshot.revision;
+      this.syncConflictSnapshot = null;
       this.editorState = applyEditorUpdateResponse(this.editorState, editorUpdatePayloadFromSyncSnapshot(snapshot));
       this.feedback = { kind: 'conflict', message: 'Reloaded the latest server draft.' };
       this.saving = false;
@@ -2798,13 +2974,20 @@ export class TranslationEditorScreen {
   ): Promise<TranslationSyncMutationResponse<unknown>> {
     await this.ensureDraftSyncLoaded(detail);
     const resource = await this.ensureDraftSyncResource(detail);
+    const snapshotRevision = asNumber(resource.getSnapshot()?.revision);
+    const expectedRevision = this.syncLoadedRevision || snapshotRevision || detail.row_version;
+    const payload: Record<string, unknown> = {
+      autosave: isAutosave,
+      fields,
+    };
+    const currentSourceHash = currentSourceHashFromDetail(detail);
+    if (currentSourceHash) {
+      payload.acknowledged_source_hash = currentSourceHash;
+    }
     return await resource.mutate({
       operation: TRANSLATION_DRAFT_SYNC_OPERATION,
-      expectedRevision: this.editorState?.row_version || detail.row_version,
-      payload: {
-        autosave: isAutosave,
-        fields,
-      },
+      expectedRevision,
+      payload,
       metadata: {
         autosave: isAutosave,
       },
@@ -2856,6 +3039,8 @@ export class TranslationEditorScreen {
     if (!this.syncResource || this.syncResourceKey !== resourceKey) {
       this.syncResourceKey = resourceKey;
       this.syncResource = this.syncEngine.resource(ref);
+      this.syncLoadedRevision = null;
+      this.syncConflictSnapshot = null;
     }
     return this.syncResource;
   }
@@ -2877,6 +3062,8 @@ export class TranslationEditorScreen {
       nextState = applyEditorFieldChange(nextState, fieldPath, fieldValue);
     }
     this.editorState = nextState;
+    this.syncLoadedRevision = snapshot.revision;
+    this.syncConflictSnapshot = null;
     this.loadState = {
       ...this.loadState,
       detail: this.editorState.detail,
@@ -2936,6 +3123,108 @@ export class TranslationEditorScreen {
     };
     this.submitting = false;
     await this.load(this.editorState.detail.history.page);
+  }
+
+  private openPreviewWindow(): Window | null {
+    if (typeof window === 'undefined' || typeof window.open !== 'function') {
+      return null;
+    }
+    try {
+      return window.open('', '_blank', 'noopener');
+    } catch {
+      return null;
+    }
+  }
+
+  private assignmentPreviewEndpoint(detail: TranslationAssignmentEditorDetail): string {
+    return buildURLWithParams(
+      `${this.config.actionEndpointBase}/${encodeURIComponent(detail.assignment_id)}/preview`,
+      {
+        ...this.config.syncScope,
+        channel: detail.preview_action.channel || this.config.syncScope.channel,
+      }
+    );
+  }
+
+  private async previewAssignment(previewWindow: Window | null): Promise<void> {
+    if (!this.editorState || this.previewing || this.saving || this.submitting) {
+      closePreviewWindow(previewWindow);
+      return;
+    }
+    const detail = this.editorState.detail;
+    if (!detail.preview_action.enabled) {
+      closePreviewWindow(previewWindow);
+      this.feedback = { kind: 'error', message: detail.preview_action.reason || 'Preview is unavailable for this assignment.' };
+      this.render();
+      return;
+    }
+    if (!previewWindow) {
+      this.feedback = { kind: 'error', message: 'Preview was blocked by the browser. Allow popups for this site and try again.' };
+      this.render();
+      return;
+    }
+    if (this.editorState.autosave.conflict) {
+      closePreviewWindow(previewWindow);
+      this.feedback = { kind: 'conflict', message: 'Reload the latest server draft before opening preview.' };
+      this.render();
+      return;
+    }
+
+    this.previewing = true;
+    this.render();
+    try {
+      if (Object.keys(this.editorState.dirty_fields).length) {
+        const saved = await this.saveDirtyFields(false);
+        if (!saved || !this.editorState || this.editorState.autosave.conflict) {
+          closePreviewWindow(previewWindow);
+          this.previewing = false;
+          this.render();
+          return;
+        }
+      }
+
+      const response = await httpRequest(this.assignmentPreviewEndpoint(this.editorState.detail), {
+        method: 'GET',
+      });
+      if (!response.ok) {
+        const error = await buildEditorRequestError(response, 'Failed to generate preview');
+        closePreviewWindow(previewWindow);
+        this.feedback = {
+          kind: error.code === 'VERSION_CONFLICT' || error.code === 'POLICY_BLOCKED' ? 'conflict' : 'error',
+          message: error.message,
+        };
+        this.previewing = false;
+        this.render();
+        return;
+      }
+
+      const payload = await response.json();
+      const envelope = asRecord(payload);
+      const previewAction = normalizePreviewAction(
+        envelope.data && typeof envelope.data === 'object' ? envelope.data : payload,
+        this.editorState.detail as unknown as Record<string, unknown>
+      );
+      if (!previewAction.enabled || !previewAction.url) {
+        closePreviewWindow(previewWindow);
+        this.feedback = { kind: 'error', message: previewAction.reason || 'Preview is unavailable for this assignment.' };
+        this.previewing = false;
+        this.render();
+        return;
+      }
+
+      navigatePreviewWindow(previewWindow, previewAction.url);
+      this.previewing = false;
+      this.feedback = null;
+      this.render();
+    } catch (error) {
+      closePreviewWindow(previewWindow);
+      this.previewing = false;
+      this.feedback = {
+        kind: 'error',
+        message: error instanceof Error ? error.message : 'Failed to generate preview',
+      };
+      this.render();
+    }
   }
 
   private async runReviewAction(action: 'approve' | 'reject' | 'archive', rejectInput?: { reason: string; comment?: string }): Promise<void> {

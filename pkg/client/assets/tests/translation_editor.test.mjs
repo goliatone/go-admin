@@ -326,6 +326,37 @@ function makeReviewReadyFixture() {
   return next;
 }
 
+function makeWorkflowBlockedFixture() {
+  const next = makeSubmitReadyFixture();
+  next.data.status = 'assigned';
+  next.data.translation_assignment = {
+    ...next.data.translation_assignment,
+    status: 'assigned',
+    queue_state: 'assigned',
+  };
+  next.data.assignment_action_states = {
+    ...next.data.assignment_action_states,
+    submit_review: {
+      enabled: false,
+      permission: 'admin.translations.edit',
+      reason: 'assignment must be in progress',
+      reason_code: 'INVALID_STATUS',
+    },
+  };
+  return next;
+}
+
+function makePreviewUnavailableFixture() {
+  const next = structuredClone(fixtures.detail);
+  next.data.preview_action = {
+    ...next.data.preview_action,
+    enabled: false,
+    reason: 'Preview is unavailable because the target content has no preview path.',
+    reason_code: 'preview_path_missing',
+  };
+  return next;
+}
+
 function makeAssistUnavailableFixture() {
   const next = structuredClone(fixtures.detail);
   next.data.assist = {
@@ -428,6 +459,47 @@ function makeHashOnlyDriftFixture() {
   return next;
 }
 
+function makeSourceDriftClearedFixture() {
+  const next = structuredClone(fixtures.detail);
+  next.data.source_target_drift = {
+    ...next.data.source_target_drift,
+    source_hash: next.data.source_target_drift.current_source_hash,
+    changed_fields_summary: {
+      count: 0,
+      fields: [],
+    },
+    fields_by_path: Object.fromEntries(
+      Object.entries(next.data.source_target_drift.fields_by_path || {}).map(([path, drift]) => [
+        path,
+        {
+          ...drift,
+          changed: false,
+          previous_source_value: drift.current_source_value,
+        },
+      ])
+    ),
+  };
+  next.data.field_drift = Object.fromEntries(
+    Object.entries(next.data.field_drift).map(([path, drift]) => [
+      path,
+      {
+        ...drift,
+        changed: false,
+        previous_source_value: drift.current_source_value,
+      },
+    ])
+  );
+  next.data.fields = next.data.fields.map((field) => ({
+    ...field,
+    drift: {
+      ...field.drift,
+      changed: false,
+      previous_source_value: field.drift.current_source_value,
+    },
+  }));
+  return next;
+}
+
 function makeAutosaveConflictFixture() {
   const latest = makeSubmitReadyUpdateFixture();
   latest.data.row_version = 3;
@@ -482,6 +554,13 @@ test('translation editor contracts: normalize detail fixture with assist and act
   assert.equal(detail.locale_navigation.locales.find((entry) => entry.locale === 'de')?.href, undefined);
   assert.equal(detail.locale_navigation.locales.find((entry) => entry.locale === 'it')?.disabled, true);
   assert.equal(detail.locale_navigation.locales.find((entry) => entry.locale === 'it')?.href, undefined);
+  assert.equal(detail.preview_action.enabled, true);
+  assert.equal(detail.preview_action.assignment_id, 'asg-editor-1');
+  assert.equal(detail.preview_action.entity_type, 'pages');
+  assert.equal(detail.preview_action.target_record_id, 'page-1-fr');
+  assert.equal(detail.preview_action.target_locale, 'fr');
+  assert.equal(detail.preview_action.channel, 'production');
+  assert.equal(detail.preview_action.url, undefined);
 });
 
 test('translation editor contracts: legacy assist keys and missing assets degrade cleanly', () => {
@@ -578,6 +657,9 @@ test('translation editor runtime: renders full screen with history, attachments,
   assert.match(html, /FR Pages Style Guide/i);
   assert.match(html, /Request req-editor/);
   assert.match(html, /Resolve QA blockers before submitting for review\./i);
+  assert.match(html, /data-action="preview-assignment"/);
+  assert.match(html, />\s*Preview\s*</);
+  assert.doesNotMatch(html, /preview_token/);
   assert.doesNotMatch(html, /data-editor-panel="review-actions"/);
   assert.match(html, /data-editor-panel="management-actions"/);
 
@@ -585,6 +667,33 @@ test('translation editor runtime: renders full screen with history, attachments,
   const unavailableHTML = renderTranslationEditorState({ status: 'ready', detail: assistUnavailable });
   assert.match(unavailableHTML, /Glossary matches unavailable/i);
   assert.match(unavailableHTML, /Style-guide guidance is unavailable/i);
+});
+
+test('translation editor runtime: disabled preview action renders server reason', () => {
+  const detail = normalizeAssignmentEditorDetail(makePreviewUnavailableFixture());
+  const html = renderTranslationEditorState(
+    { status: 'ready', detail },
+    createTranslationEditorState(detail)
+  );
+
+  assert.match(html, /Preview unavailable/);
+  assert.match(html, /data-preview-unavailable-reason="true"/);
+  assert.match(html, /target content has no preview path/);
+  assert.match(html, /data-preview-reason-code="preview_path_missing"/);
+});
+
+test('translation editor runtime: field completion copy is distinct from submit workflow state', () => {
+  const detail = normalizeAssignmentEditorDetail(makeWorkflowBlockedFixture());
+  const html = renderTranslationEditorState(
+    { status: 'ready', detail },
+    createTranslationEditorState(detail)
+  );
+
+  assert.match(html, /Field complete/);
+  assert.doesNotMatch(html, /Ready to submit/);
+  assert.match(html, /Submit unavailable/);
+  assert.match(html, /data-submit-unavailable-reason="true"/);
+  assert.match(html, /assignment must be in progress/);
 });
 
 test('translation editor runtime: renders locale navigation without missing-locale fallbacks', () => {
@@ -622,6 +731,51 @@ test('translation editor runtime: renders locale navigation without missing-loca
 
   const familyLink = summary.querySelector('[data-family-detail-link="true"]');
   assert.equal(familyLink?.getAttribute('href'), '/admin/translations/families/tg-page-1');
+});
+
+test('translation editor runtime: QA finding jump targets the finding field', async () => {
+  const { root, window } = setupDom();
+  installTranslationSyncCoreStub(window);
+  const scrolledFields = [];
+  window.Element.prototype.scrollIntoView = mock.fn(function scrollIntoView() {
+    scrolledFields.push(this.getAttribute('data-editor-field'));
+  });
+  globalThis.fetch = mock.fn(async (input, init = {}) => {
+    const method = String(init.method || 'GET').toUpperCase();
+    const url = String(input);
+    if (method === 'GET' && url.includes('/api/translations/assignments/asg-editor-1')) {
+      return createJsonResponse(fixtures.detail);
+    }
+    if (method === 'GET' && url.includes('/api/translations/sync/resources/translation_variant_draft/')) {
+      return createJsonResponse({
+        data: fixtures.detail.data,
+        revision: 3,
+        updated_at: '2026-01-01T00:00:00Z',
+      });
+    }
+    return createJsonResponse({ error: { message: 'unexpected request' } }, 500, {
+      'content-type': 'application/json',
+    });
+  });
+
+  const screen = new TranslationEditorScreen({
+    endpoint: '/admin/api/translations/assignments/asg-editor-1',
+    actionEndpointBase: '/admin/api/translations/assignments',
+  });
+  screen.mount(root);
+  await flushAsync();
+  await flushAsync();
+
+  root.querySelector('[data-sidebar-tab="qa"]').click();
+  const titleJump = root.querySelector('[data-sidebar-panel="qa"] [data-jump-to-field="title"]');
+  assert.ok(titleJump);
+  titleJump.click();
+  await new Promise((resolve) => setTimeout(resolve, 350));
+
+  assert.equal(scrolledFields.at(-1), 'title');
+  assert.equal(window.document.activeElement?.dataset.fieldInput, 'title');
+
+  screen.unmount();
 });
 
 test('translation editor runtime: renders translation-memory scores on one percent scale', () => {
@@ -713,11 +867,17 @@ test('translation editor runtime: save draft mutates the sync resource through s
     const url = String(input);
     requests.push({ url, method, init });
     if (method === 'GET' && url.includes('/api/translations/assignments/asg-editor-1')) {
-      return createJsonResponse(makeSubmitReadyFixture());
+      const detail = makeSubmitReadyFixture();
+      detail.data.row_version = 15;
+      detail.data.version = 15;
+      return createJsonResponse(detail);
     }
     if (method === 'GET' && url.includes('/admin/api/translations/sync/resources/translation_variant_draft/')) {
+      const detail = makeSubmitReadyFixture();
+      detail.data.row_version = 15;
+      detail.data.version = 15;
       return createJsonResponse({
-        data: makeSubmitReadyFixture().data,
+        data: detail.data,
         revision: 3,
         updated_at: '2026-01-01T00:00:00Z',
       });
@@ -768,6 +928,7 @@ test('translation editor runtime: save draft mutates the sync resource through s
   assert.equal(body.expected_revision, 3);
   assert.equal(body.payload.autosave, false);
   assert.equal(body.payload.fields.title, 'Guide de publication final');
+  assert.equal(body.payload.acknowledged_source_hash, makeSubmitReadyFixture().data.source_target_drift.current_source_hash);
   assert.equal(body.metadata.autosave, false);
   assert.equal(body.idempotency_key, undefined);
   assert.equal(patch.init.headers['X-CSRF-Token'], 'csrf-sync-test');
@@ -775,6 +936,171 @@ test('translation editor runtime: save draft mutates the sync resource through s
   assert.match(root.innerHTML, /Draft saved/);
 
   screen.unmount();
+});
+
+test('translation editor runtime: preview opens blank tab synchronously, saves dirty fields, then navigates', async () => {
+  const { root, window } = setupDom();
+  installTranslationSyncCoreStub(window);
+  const requests = [];
+  const previewTab = {
+    closed: false,
+    navigatedTo: '',
+    close() {
+      this.closed = true;
+    },
+    location: {
+      href: '',
+      assign(url) {
+        previewTab.navigatedTo = url;
+        this.href = url;
+      },
+    },
+  };
+  window.open = mock.fn(() => previewTab);
+  globalThis.fetch = mock.fn(async (input, init = {}) => {
+    const method = String(init.method || 'GET').toUpperCase();
+    const url = String(input);
+    requests.push({ url, method, init });
+    if (method === 'GET' && url.includes('/api/translations/assignments/asg-editor-1') && !url.includes('/preview')) {
+      return createJsonResponse(makeSubmitReadyFixture());
+    }
+    if (method === 'GET' && url.includes('/admin/api/translations/sync/resources/translation_variant_draft/')) {
+      return createJsonResponse({
+        data: makeSubmitReadyFixture().data,
+        revision: 3,
+        updated_at: '2026-01-01T00:00:00Z',
+      });
+    }
+    if (method === 'PATCH' && url.includes('/admin/api/translations/sync/resources/translation_variant_draft/')) {
+      return createJsonResponse({
+        data: makeSubmitReadyUpdateFixture().data,
+        revision: 4,
+        updated_at: '2026-01-01T00:00:00Z',
+        applied: true,
+        replay: false,
+      });
+    }
+    if (method === 'GET' && url.includes('/api/translations/assignments/asg-editor-1/preview')) {
+      return createJsonResponse({
+        data: {
+          ...makeSubmitReadyFixture().data.preview_action,
+          enabled: true,
+          url: '/fr/guide?preview_token=fresh-token',
+        },
+      });
+    }
+    return createJsonResponse({ error: { message: 'unexpected request' } }, 500, {
+      'content-type': 'application/json',
+    });
+  });
+
+  const screen = new TranslationEditorScreen({
+    endpoint: '/admin/api/translations/assignments/asg-editor-1?channel=production',
+    actionEndpointBase: '/admin/api/translations/assignments',
+    syncBaseURL: '/admin/api/translations',
+  });
+  screen.mount(root);
+  await flushAsync();
+  await flushAsync();
+
+  const titleInput = root.querySelector('[data-field-input="title"]');
+  titleInput.value = 'Guide de publication final';
+  titleInput.dispatchEvent(new window.Event('input', { bubbles: true }));
+  root.querySelector('[data-action="preview-assignment"]').click();
+  assert.equal(window.open.mock.callCount(), 1);
+
+  await flushAsync();
+  await flushAsync();
+
+  const patchIndex = requests.findIndex((request) => request.method === 'PATCH');
+  const previewIndex = requests.findIndex((request) => request.method === 'GET' && request.url.includes('/preview'));
+  assert.ok(patchIndex >= 0);
+  assert.ok(previewIndex > patchIndex);
+  assert.match(requests[previewIndex].url, /[?&]channel=production(?:&|$)/);
+  assert.equal(previewTab.closed, false);
+  assert.equal(previewTab.navigatedTo, '/fr/guide?preview_token=fresh-token');
+
+  screen.unmount();
+});
+
+test('translation editor runtime: preview closes blank tab and skips endpoint on save conflict', async () => {
+  const { root, window } = setupDom();
+  installTranslationSyncCoreStub(window);
+  const requests = [];
+  const previewTab = {
+    closed: false,
+    close() {
+      this.closed = true;
+    },
+    location: {
+      href: '',
+      assign() {},
+    },
+  };
+  window.open = mock.fn(() => previewTab);
+  globalThis.fetch = mock.fn(async (input, init = {}) => {
+    const method = String(init.method || 'GET').toUpperCase();
+    const url = String(input);
+    requests.push({ url, method, init });
+    if (method === 'GET' && url.includes('/api/translations/assignments/asg-editor-1') && !url.includes('/preview')) {
+      return createJsonResponse(makeSubmitReadyFixture());
+    }
+    if (method === 'GET' && url.includes('/admin/api/translations/sync/resources/translation_variant_draft/')) {
+      return createJsonResponse({
+        data: makeSubmitReadyFixture().data,
+        revision: 3,
+        updated_at: '2026-01-01T00:00:00Z',
+      });
+    }
+    if (method === 'PATCH' && url.includes('/admin/api/translations/sync/resources/translation_variant_draft/')) {
+      return createJsonResponse(makeAutosaveConflictFixture(), 409, {
+        'content-type': 'application/json',
+      });
+    }
+    return createJsonResponse({ error: { message: 'unexpected request' } }, 500, {
+      'content-type': 'application/json',
+    });
+  });
+
+  const screen = new TranslationEditorScreen({
+    endpoint: '/admin/api/translations/assignments/asg-editor-1?channel=production',
+    actionEndpointBase: '/admin/api/translations/assignments',
+    syncBaseURL: '/admin/api/translations',
+  });
+  screen.mount(root);
+  await flushAsync();
+  await flushAsync();
+
+  const titleInput = root.querySelector('[data-field-input="title"]');
+  titleInput.value = 'Guide de publication conflict';
+  titleInput.dispatchEvent(new window.Event('input', { bubbles: true }));
+  root.querySelector('[data-action="preview-assignment"]').click();
+  assert.equal(window.open.mock.callCount(), 1);
+
+  await flushAsync();
+  await flushAsync();
+
+  assert.equal(previewTab.closed, true);
+  assert.equal(requests.some((request) => request.url.includes('/preview')), false);
+  assert.match(root.innerHTML, /Autosave conflict detected/);
+
+  screen.unmount();
+});
+
+test('translation editor runtime: acknowledged source hash clears source-changed summary after save', () => {
+  const before = normalizeAssignmentEditorDetail(makeHashOnlyDriftFixture());
+  const beforeHTML = renderTranslationEditorState(
+    { status: 'ready', detail: before },
+    createTranslationEditorState(before)
+  );
+  assert.match(beforeHTML, /source changed/i);
+
+  const after = normalizeAssignmentEditorDetail(makeSourceDriftClearedFixture());
+  const afterHTML = renderTranslationEditorState(
+    { status: 'ready', detail: after },
+    createTranslationEditorState(after)
+  );
+  assert.doesNotMatch(afterHTML, /source changed/i);
 });
 
 test('translation editor runtime: autosave sync renders preserve active field and scroll position', async () => {
