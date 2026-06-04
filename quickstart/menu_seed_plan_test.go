@@ -106,8 +106,8 @@ func TestReconcileGeneratedNavigationDryRunAndApplyRepairsMissingRows(t *testing
 	menuSvc := admin.NewInMemoryMenuService()
 	menuCode := "admin.main"
 	locale := "en"
-	if _, err := menuSvc.CreateMenu(ctx, menuCode); err != nil {
-		t.Fatalf("CreateMenu: %v", err)
+	if _, createErr := menuSvc.CreateMenu(ctx, menuCode); createErr != nil {
+		t.Fatalf("CreateMenu: %v", createErr)
 	}
 	if err := menuSvc.AddMenuItem(ctx, menuCode, admin.MenuItem{
 		ID:          NavigationGroupTranslationsID,
@@ -177,8 +177,8 @@ func TestReconcileGeneratedNavigationDoesNotOverwriteUserRowWithMatchingTarget(t
 	menuSvc := admin.NewInMemoryMenuService()
 	menuCode := "admin.main"
 	locale := "en"
-	if _, err := menuSvc.CreateMenu(ctx, menuCode); err != nil {
-		t.Fatalf("CreateMenu: %v", err)
+	if _, createErr := menuSvc.CreateMenu(ctx, menuCode); createErr != nil {
+		t.Fatalf("CreateMenu: %v", createErr)
 	}
 	if err := menuSvc.AddMenuItem(ctx, menuCode, admin.MenuItem{
 		ID:     "custom.translations.queue",
@@ -577,10 +577,10 @@ func TestReconcileGeneratedNavigationKeepsRawGeneratedRowWhenRenderedUserRowShar
 	rawGenerated.Target["path"] = ""
 
 	rendered := admin.NewInMemoryMenuService()
-	if _, err := rendered.CreateMenu(ctx, menuCode); err != nil {
-		t.Fatalf("CreateMenu: %v", err)
+	if _, createErr := rendered.CreateMenu(ctx, menuCode); createErr != nil {
+		t.Fatalf("CreateMenu: %v", createErr)
 	}
-	if err := rendered.AddMenuItem(ctx, menuCode, admin.MenuItem{
+	if addErr := rendered.AddMenuItem(ctx, menuCode, admin.MenuItem{
 		ID:       "custom.translation.queue",
 		Label:    "Custom Queue",
 		Locale:   locale,
@@ -590,8 +590,8 @@ func TestReconcileGeneratedNavigationKeepsRawGeneratedRowWhenRenderedUserRowShar
 			"path": "/admin/translations/queue",
 			"key":  "translation_queue",
 		},
-	}); err != nil {
-		t.Fatalf("seed rendered user row: %v", err)
+	}); addErr != nil {
+		t.Fatalf("seed rendered user row: %v", addErr)
 	}
 	menuSvc := &rawInventoryMenuService{
 		InMemoryMenuService: rendered,
