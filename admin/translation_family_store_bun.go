@@ -971,11 +971,13 @@ func clearFamilySourceVariants(ctx context.Context, tx bun.Tx, family translatio
 	if familyID == "" || len(family.Variants) == 0 {
 		return nil
 	}
+	// content_families.family_id and locale_variants(family_id, locale) are
+	// globally unique in the current schema. A family rebuild is authoritative
+	// for that family ID, including rows left behind by older unscoped syncs.
 	query := tx.NewUpdate().
 		Model((*bunTranslationLocaleVariantRecord)(nil)).
 		Set("is_source = ?", false).
 		Where("family_id = ?", familyID)
-	applyBunScopedUpdateColumns(query, ScopeTenantIDKey, ScopeOrgIDKey, translationservices.Scope{TenantID: family.TenantID, OrgID: family.OrgID})
 	_, err := query.Exec(ctx)
 	return err
 }
@@ -998,7 +1000,6 @@ func deleteStaleFamilyVariants(ctx context.Context, tx bun.Tx, family translatio
 		Model((*bunTranslationLocaleVariantRecord)(nil)).
 		Where("family_id = ?", familyID).
 		Where("variant_id NOT IN (?)", bun.List(ids))
-	applyBunScopedDeleteColumns(query, ScopeTenantIDKey, ScopeOrgIDKey, translationservices.Scope{TenantID: family.TenantID, OrgID: family.OrgID})
 	_, err := query.Exec(ctx)
 	return err
 }
@@ -1020,7 +1021,6 @@ func renameFamilyLocaleVariants(ctx context.Context, tx bun.Tx, family translati
 			Where("family_id = ?", familyID).
 			Where("locale = ?", locale).
 			Where("variant_id <> ?", variantID)
-		applyBunScopedUpdateColumns(query, ScopeTenantIDKey, ScopeOrgIDKey, translationservices.Scope{TenantID: family.TenantID, OrgID: family.OrgID})
 		if _, err := query.Exec(ctx); err != nil {
 			return err
 		}
