@@ -1,5 +1,25 @@
 # Changelog
 
+# [0.85.0](https://github.com/goliatone/go-admin/compare/v0.84.0...v0.85.0) - (2026-06-04)
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Code quality ([a5772ba](https://github.com/goliatone/go-admin/commit/a5772bab6fb8fc15499252311db76537dbc12a16))  - (goliatone)
+- Content editor ([56a82c2](https://github.com/goliatone/go-admin/commit/56a82c2171a2dd150d3ab89f8e28c869ea1d054d))  - (goliatone)
+
+## <!-- 16 -->➕ Add
+
+- Menu provider ([6a543f2](https://github.com/goliatone/go-admin/commit/6a543f256a95f6e8efffa1201586675804aaf355))  - (goliatone)
+- Menu persistence manager ([cf1f181](https://github.com/goliatone/go-admin/commit/cf1f1814661ebc697eb326b4115b057a1c47487e))  - (goliatone)
+- Raw menu items ([fab962b](https://github.com/goliatone/go-admin/commit/fab962b25ac805cce5c50e6aeccaa15095adced9))  - (goliatone)
+- Support for navigation rendering of disabled items ([53724c5](https://github.com/goliatone/go-admin/commit/53724c56effb1bb8bddd2ae3034138fb448ceb6e))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update tests ([0e0b3fa](https://github.com/goliatone/go-admin/commit/0e0b3fa60119c701e4d9b0484709680f333de93e))  - (goliatone)
+- Update examples ([fc94e6c](https://github.com/goliatone/go-admin/commit/fc94e6c692ccbeff911aa3bf7e60321dbafcee97))  - (goliatone)
+- Update dockerfile with go version ([edd70f9](https://github.com/goliatone/go-admin/commit/edd70f9d18d790b590aeb4e3ed2f8022ebf83791))  - (goliatone)
+
 # [0.84.0](https://github.com/goliatone/go-admin/compare/v0.83.0...v0.84.0) - (2026-06-03)
 
 ## <!-- 1 -->🐛 Bug Fixes
@@ -9,6 +29,10 @@
 - Remove legacy fallback ([9674a4f](https://github.com/goliatone/go-admin/commit/9674a4f10c1a8e9295221f7673d7e2c37d58651e))  - (goliatone)
 - Remove reflection ([748688a](https://github.com/goliatone/go-admin/commit/748688a22fedc897cfbcaa1b2f8d8d2040337bf6))  - (goliatone)
 - Expose interfaces ([4cb856e](https://github.com/goliatone/go-admin/commit/4cb856ef80bc966a4bb2e056556ddcbf1a8e76dc))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.84.0 ([a6a7f2c](https://github.com/goliatone/go-admin/commit/a6a7f2c0e8cfbc4be2a29bc4ac4fc65cec4bfa36))  - (goliatone)
 
 ## <!-- 16 -->➕ Add
 
