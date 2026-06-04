@@ -2,16 +2,11 @@ package setup
 
 import (
 	"context"
-	"fmt"
-	"github.com/goliatone/go-admin/internal/primitives"
-	"maps"
-	"path"
 	"strings"
 
 	"github.com/goliatone/go-admin/pkg/admin"
 	"github.com/goliatone/go-admin/quickstart"
-	cms "github.com/goliatone/go-cms"
-	"github.com/google/uuid"
+	"path"
 )
 
 type featureGates interface {
@@ -25,12 +20,13 @@ type menuContributor interface {
 // SeedAdminNavigation converges the example admin navigation menu so parent scaffolding,
 // ordering, and module-contributed items remain deterministic across restarts.
 //
-// When the CMS menu service is backed by go-cms, this uses cms.SeedMenu with Ensure enabled
-// (and PruneUnspecified in development) so sibling ordering is repaired without ad-hoc resets.
+// It delegates convergence to quickstart generated navigation reconciliation so legacy
+// example-only specs cannot prune quickstart-owned rows from a divergent expected plan.
 func SeedAdminNavigation(ctx context.Context, menuSvc admin.CMSMenuService, cfg admin.Config, modules []admin.Module, gates featureGates, isDev bool) error {
 	if menuSvc == nil {
 		return nil
 	}
+	_ = isDev
 	if ctx == nil {
 		ctx = context.Background()
 	}
@@ -48,33 +44,13 @@ func SeedAdminNavigation(ctx context.Context, menuSvc admin.CMSMenuService, cfg 
 		return nil
 	}
 
-	// Prefer go-cms converge flow when possible.
-	if goCMS, ok := menuSvc.(*admin.GoCMSMenuAdapter); ok && goCMS != nil && goCMS.GoCMSMenuService() != nil {
-		seed := toSeedMenuItems(menuCode, locale, items)
-		return cms.SeedMenu(ctx, cms.SeedMenuOptions{
-			Menus:            goCMS.GoCMSMenuService(),
-			MenuCode:         menuCode,
-			Locale:           locale,
-			Actor:            uuid.Nil,
-			Items:            seed,
-			Ensure:           true,
-			PruneUnspecified: isDev,
-		})
-	}
-
-	if _, err := menuSvc.CreateMenu(ctx, menuCode); err != nil {
-		return err
-	}
-	for _, item := range items {
-		item.Menu = menuCode
-		if strings.TrimSpace(item.Locale) == "" {
-			item.Locale = locale
-		}
-		if err := menuSvc.AddMenuItem(ctx, menuCode, item); err != nil {
-			return err
-		}
-	}
-	return nil
+	return quickstart.SeedNavigation(ctx, quickstart.SeedNavigationOptions{
+		MenuSvc:   menuSvc,
+		MenuCode:  menuCode,
+		Locale:    locale,
+		Items:     items,
+		Reconcile: true,
+	})
 }
 
 func buildAdminNavigationSpec(basePath, menuCode, locale string, modules []admin.Module, gates featureGates) []admin.MenuItem {
@@ -182,92 +158,4 @@ func dedupeMenuItemsByID(items []admin.MenuItem) []admin.MenuItem {
 		out = append(out, item)
 	}
 	return out
-}
-
-func toSeedMenuItems(menuCode, locale string, items []admin.MenuItem) []cms.SeedMenuItem {
-	seed := make([]cms.SeedMenuItem, 0, len(items))
-	for _, item := range items {
-		trimmedID := strings.TrimSpace(item.ID)
-		if trimmedID == "" {
-			continue
-		}
-		path := canonicalMenuItemPath(menuCode, trimmedID)
-		if path == "" {
-			continue
-		}
-
-		itemType := strings.TrimSpace(item.Type)
-		if itemType == "" {
-			itemType = admin.MenuItemTypeItem
-		}
-
-		target := cloneAnyMapOrNil(item.Target)
-		if itemType == admin.MenuItemTypeGroup || itemType == admin.MenuItemTypeSeparator {
-			target = nil
-		}
-
-		seedItem := cms.SeedMenuItem{
-			Path:        path,
-			Position:    item.Position,
-			Type:        itemType,
-			Target:      target,
-			Icon:        strings.TrimSpace(item.Icon),
-			Badge:       cloneAnyMapOrNil(item.Badge),
-			Permissions: append([]string{}, item.Permissions...),
-			Classes:     append([]string{}, item.Classes...),
-			Styles:      cloneStringMapOrNil(item.Styles),
-			Collapsible: item.Collapsible,
-			Collapsed:   item.Collapsed,
-			Metadata: map[string]any{
-				"path":        path,
-				"parent_path": canonicalMenuItemPath(menuCode, primitives.FirstNonEmpty(item.ParentID, item.ParentCode)),
-			},
-		}
-
-		if itemType != admin.MenuItemTypeSeparator {
-			tr := cms.MenuItemTranslationInput{Locale: locale}
-			switch itemType {
-			case admin.MenuItemTypeGroup:
-				tr.GroupTitle = primitives.FirstNonEmpty(strings.TrimSpace(item.GroupTitle), strings.TrimSpace(item.GroupTitleKey), fmt.Sprintf("group:%s", path))
-				tr.GroupTitleKey = strings.TrimSpace(item.GroupTitleKey)
-			default:
-				tr.Label = primitives.FirstNonEmpty(strings.TrimSpace(item.Label), strings.TrimSpace(item.LabelKey), fmt.Sprintf("item:%s", path))
-				tr.LabelKey = strings.TrimSpace(item.LabelKey)
-			}
-			seedItem.Translations = []cms.MenuItemTranslationInput{tr}
-		}
-
-		seed = append(seed, seedItem)
-	}
-	return seed
-}
-
-func canonicalMenuItemPath(menuCode, raw string) string {
-	menuCode = strings.TrimSpace(menuCode)
-	raw = strings.TrimSpace(raw)
-	if menuCode == "" || raw == "" {
-		return ""
-	}
-	if raw == menuCode || strings.HasPrefix(raw, menuCode+".") {
-		return raw
-	}
-	return menuCode + "." + strings.TrimPrefix(raw, ".")
-}
-
-func cloneAnyMapOrNil(src map[string]any) map[string]any {
-	if len(src) == 0 {
-		return nil
-	}
-	dst := make(map[string]any, len(src))
-	maps.Copy(dst, src)
-	return dst
-}
-
-func cloneStringMapOrNil(src map[string]string) map[string]string {
-	if len(src) == 0 {
-		return nil
-	}
-	dst := make(map[string]string, len(src))
-	maps.Copy(dst, src)
-	return dst
 }
