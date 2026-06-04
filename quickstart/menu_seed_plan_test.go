@@ -236,8 +236,8 @@ func TestReconcileGeneratedNavigationDoesNotOverwriteSameParentUserShortcut(t *t
 	menuSvc := admin.NewInMemoryMenuService()
 	menuCode := "admin.main"
 	locale := "en"
-	if _, err := menuSvc.CreateMenu(ctx, menuCode); err != nil {
-		t.Fatalf("CreateMenu: %v", err)
+	if _, createErr := menuSvc.CreateMenu(ctx, menuCode); createErr != nil {
+		t.Fatalf("CreateMenu: %v", createErr)
 	}
 	if err := menuSvc.AddMenuItem(ctx, menuCode, admin.MenuItem{
 		ID:       "custom.translation.queue",
@@ -529,8 +529,8 @@ func TestReconcileGeneratedNavigationUsesRawInventoryWhenRenderedMenuHidesRow(t 
 		InMemoryMenuService: admin.NewInMemoryMenuService(),
 		raw:                 []admin.MenuItem{rawOnly},
 	}
-	if _, err := menuSvc.CreateMenu(ctx, menuCode); err != nil {
-		t.Fatalf("CreateMenu: %v", err)
+	if _, createErr := menuSvc.CreateMenu(ctx, menuCode); createErr != nil {
+		t.Fatalf("CreateMenu: %v", createErr)
 	}
 
 	report, err := ReconcileGeneratedNavigation(ctx, NavigationReconcileOptions{
