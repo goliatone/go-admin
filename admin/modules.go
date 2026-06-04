@@ -8,6 +8,7 @@ import (
 	"github.com/goliatone/go-admin/admin/internal/modules"
 	navinternal "github.com/goliatone/go-admin/admin/internal/navigation"
 	"github.com/goliatone/go-admin/admin/routing"
+	"github.com/goliatone/go-admin/internal/primitives"
 	router "github.com/goliatone/go-router"
 )
 
@@ -286,16 +287,18 @@ func (a *Admin) addMenuItems(ctx context.Context, items []MenuItem) error {
 }
 
 func (a *Admin) persistMenuItems(ctx context.Context, items []MenuItem) ([]MenuItem, error) {
-	menuKeys := map[string]map[string]bool{}
+	menuIndexes := map[string]*persistedMenuItemIndex{}
 	menuCodes := map[string]bool{}
 	fallbackItems := []MenuItem{}
 	for _, item := range items {
-		code, normalized, keySet := a.normalizePersistedMenuItem(ctx, item, menuKeys)
-		keys := canonicalMenuKeys(normalized)
-		if hasAnyKey(keySet, keys) {
-			if err := a.updatePersistedMenuItem(code, normalized, keySet); err != nil {
+		code, normalized, index := a.normalizePersistedMenuItem(ctx, item, menuIndexes)
+		match, ok, ambiguous := index.match(normalized)
+		if ok && !ambiguous {
+			persisted, err := a.updatePersistedMenuItem(ctx, code, normalized, match)
+			if err != nil {
 				return nil, err
 			}
+			index.replace(match.Item, persisted)
 			continue
 		}
 		if err := a.ensurePersistentMenu(ctx, code, menuCodes); err != nil {
@@ -307,15 +310,13 @@ func (a *Admin) persistMenuItems(ctx context.Context, items []MenuItem) ([]MenuI
 			}
 			return nil, err
 		}
-		for _, key := range keys {
-			keySet[key] = true
-		}
+		index.add(normalized)
 		fallbackItems = append(fallbackItems, normalized)
 	}
 	return fallbackItems, nil
 }
 
-func (a *Admin) normalizePersistedMenuItem(ctx context.Context, item MenuItem, menuKeys map[string]map[string]bool) (string, MenuItem, map[string]bool) {
+func (a *Admin) normalizePersistedMenuItem(ctx context.Context, item MenuItem, menuIndexes map[string]*persistedMenuItemIndex) (string, MenuItem, *persistedMenuItemIndex) {
 	code := item.Menu
 	if code == "" {
 		code = a.navMenuCode
@@ -326,31 +327,342 @@ func (a *Admin) normalizePersistedMenuItem(ctx context.Context, item MenuItem, m
 	}
 	item = normalizeMenuItem(item, code)
 	item.Permissions = normalizeMenuPermissions(item.Permissions)
-	keySet, ok := menuKeys[code]
+	item = markProgrammaticMenuItem(item)
+	index, ok := menuIndexes[code]
 	if !ok {
-		keySet = map[string]bool{}
-		menuKeys[code] = keySet
+		index = newPersistedMenuItemIndex()
+		menuIndexes[code] = index
 		if menu, err := a.menuSvc.Menu(ctx, code, item.Locale); err == nil && menu != nil {
-			addMenuKeys(menu.Items, keySet)
+			index.addAll(flattenPersistedMenuItems(menu.Items))
 		}
 	}
-	return code, item, keySet
+	return code, item, index
 }
 
-func (a *Admin) updatePersistedMenuItem(code string, item MenuItem, keySet map[string]bool) error {
-	if item.ID == "" || !keySet["path:"+strings.TrimSpace(item.ID)] {
+func (a *Admin) updatePersistedMenuItem(ctx context.Context, code string, item MenuItem, match persistedMenuItemMatch) (MenuItem, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if strings.TrimSpace(item.ID) == "" {
+		return item, nil
+	}
+	update := match.repairItem(item)
+	if err := a.menuSvc.UpdateMenuItem(ctx, code, update); err != nil {
+		if isMenuTargetMissing(err) {
+			if addErr := a.menuSvc.AddMenuItem(ctx, code, item); addErr != nil && !isMenuTargetMissing(addErr) {
+				return item, addErr
+			}
+			return item, nil
+		}
+		return update, err
+	}
+	return update, nil
+}
+
+type persistedMenuItemIndex struct {
+	byKey map[string][]MenuItem
+}
+
+type persistedMenuItemMatch struct {
+	Item MenuItem
+	Key  string
+}
+
+const (
+	menuTargetProgrammaticOwnerKey = "_menu_owner"
+	menuTargetProgrammaticOwner    = "go-admin.programmatic"
+	menuTargetProgrammaticIDKey    = "_menu_owner_id"
+)
+
+func newPersistedMenuItemIndex() *persistedMenuItemIndex {
+	return &persistedMenuItemIndex{byKey: map[string][]MenuItem{}}
+}
+
+func (idx *persistedMenuItemIndex) addAll(items []MenuItem) {
+	for _, item := range items {
+		idx.add(item)
+	}
+}
+
+func (idx *persistedMenuItemIndex) add(item MenuItem) {
+	if idx == nil {
+		return
+	}
+	for _, key := range uniquePersistedMenuItemKeys(item) {
+		idx.byKey[key] = appendUniquePersistedMenuItem(idx.byKey[key], item)
+	}
+}
+
+func (idx *persistedMenuItemIndex) replace(oldItem, newItem MenuItem) {
+	if idx == nil {
+		return
+	}
+	idx.remove(oldItem)
+	idx.add(newItem)
+}
+
+func (idx *persistedMenuItemIndex) remove(item MenuItem) {
+	if idx == nil {
+		return
+	}
+	itemIdentity := persistedMenuItemIdentity(item)
+	for _, key := range uniquePersistedMenuItemKeys(item) {
+		matches := idx.byKey[key]
+		if len(matches) == 0 {
+			continue
+		}
+		filtered := matches[:0]
+		for _, existing := range matches {
+			if persistedMenuItemIdentity(existing) == itemIdentity {
+				continue
+			}
+			filtered = append(filtered, existing)
+		}
+		if len(filtered) == 0 {
+			delete(idx.byKey, key)
+			continue
+		}
+		idx.byKey[key] = filtered
+	}
+}
+
+func (idx *persistedMenuItemIndex) match(item MenuItem) (persistedMenuItemMatch, bool, bool) {
+	if idx == nil {
+		return persistedMenuItemMatch{}, false, false
+	}
+	keys := uniquePersistedMenuItemKeys(item)
+	for _, key := range keys {
+		if !strongPersistedMenuItemKey(key) {
+			continue
+		}
+		matches := compatiblePersistedMenuMatches(item, key, idx.byKey[key])
+		if len(matches) == 0 {
+			continue
+		}
+		if len(matches) > 1 {
+			return persistedMenuItemMatch{}, false, true
+		}
+		return persistedMenuItemMatch{Item: matches[0], Key: key}, true, false
+	}
+	for _, key := range keys {
+		if strongPersistedMenuItemKey(key) {
+			continue
+		}
+		matches := compatiblePersistedMenuMatches(item, key, idx.byKey[key])
+		if len(matches) == 0 {
+			continue
+		}
+		if len(matches) > 1 {
+			return persistedMenuItemMatch{}, false, true
+		}
+		if !legacyProgrammaticMenuRepairCandidate(item, matches[0], key) {
+			continue
+		}
+		return persistedMenuItemMatch{Item: matches[0], Key: key}, true, false
+	}
+	return persistedMenuItemMatch{}, false, false
+}
+
+func strongPersistedMenuItemKey(key string) bool {
+	return strings.HasPrefix(key, "path:") ||
+		strings.HasPrefix(key, "code:") ||
+		strings.HasPrefix(key, "generated_id:") ||
+		strings.HasPrefix(key, "programmatic_id:")
+}
+
+func compatiblePersistedMenuMatches(expected MenuItem, key string, matches []MenuItem) []MenuItem {
+	if len(matches) == 0 {
 		return nil
 	}
-	if err := a.menuSvc.UpdateMenuItem(context.Background(), code, item); err != nil {
-		if isMenuTargetMissing(err) {
-			if addErr := a.menuSvc.AddMenuItem(context.Background(), code, item); addErr != nil && !isMenuTargetMissing(addErr) {
-				return addErr
-			}
-			return nil
+	out := make([]MenuItem, 0, len(matches))
+	for _, match := range matches {
+		if persistedMenuMatchCompatible(expected, match, key) {
+			out = append(out, match)
 		}
-		return err
 	}
-	return nil
+	return out
+}
+
+func persistedMenuMatchCompatible(expected, existing MenuItem, key string) bool {
+	if !strings.HasPrefix(key, "target_path:") {
+		return true
+	}
+	expectedParent := strings.ToLower(strings.TrimSpace(expected.ParentID))
+	existingParent := strings.ToLower(strings.TrimSpace(existing.ParentID))
+	if expectedParent != "" || existingParent != "" {
+		return expectedParent == existingParent
+	}
+	return true
+}
+
+func legacyProgrammaticMenuRepairCandidate(expected, existing MenuItem, key string) bool {
+	if strongPersistedMenuItemKey(key) {
+		return true
+	}
+	if targetStringValue(existing.Target, menuTargetProgrammaticOwnerKey) == menuTargetProgrammaticOwner {
+		return true
+	}
+	expectedPath := targetStringValue(expected.Target, "path")
+	existingPath := targetStringValue(existing.Target, "path")
+	if expectedPath != "" && existingPath == "" {
+		return true
+	}
+	if stringSliceContainsFold(existing.Permissions, "admin.archive.view") && !stringSliceContainsFold(expected.Permissions, "admin.archive.view") {
+		return true
+	}
+	return false
+}
+
+func (match persistedMenuItemMatch) repairItem(expected MenuItem) MenuItem {
+	update := expected
+	existingID := strings.TrimSpace(match.Item.ID)
+	if existingID == "" || strings.EqualFold(existingID, strings.TrimSpace(expected.ID)) {
+		return update
+	}
+	update.ID = existingID
+	update.Code = strings.TrimSpace(match.Item.Code)
+	if update.Code == "" || strings.EqualFold(update.Code, strings.TrimSpace(expected.ID)) {
+		update.Code = existingID
+	}
+	return update
+}
+
+func uniquePersistedMenuItemKeys(item MenuItem) []string {
+	return uniquePersistedMenuKeys(persistedMenuItemKeys(item))
+}
+
+func persistedMenuItemKeys(item MenuItem) []string {
+	keys := []string{}
+	if id := strings.TrimSpace(item.ID); id != "" {
+		keys = append(keys, "path:"+strings.ToLower(id))
+	}
+	if code := strings.TrimSpace(item.Code); code != "" {
+		keys = append(keys, "code:"+strings.ToLower(code))
+	}
+	if generatedID := targetStringValue(item.Target, "_generated_id"); generatedID != "" {
+		keys = append(keys, "generated_id:"+strings.ToLower(generatedID))
+	}
+	if targetStringValue(item.Target, menuTargetProgrammaticOwnerKey) == menuTargetProgrammaticOwner {
+		if ownerID := targetStringValue(item.Target, menuTargetProgrammaticIDKey); ownerID != "" {
+			keys = append(keys, "programmatic_id:"+strings.ToLower(ownerID))
+		}
+	}
+	if key := targetStringValue(item.Target, "key"); key != "" {
+		keys = append(keys, "target_key:"+strings.ToLower(key))
+	}
+	if name := targetStringValue(item.Target, "name"); name != "" {
+		keys = append(keys, "target_name:"+strings.ToLower(name))
+	}
+	if routeName := targetStringValue(item.Target, "route_name"); routeName != "" {
+		keys = append(keys, "target_name:"+strings.ToLower(routeName))
+	}
+	if route := targetStringValue(item.Target, "route"); route != "" {
+		keys = append(keys, "target_name:"+strings.ToLower(route))
+	}
+	if path := targetStringValue(item.Target, "path"); path != "" {
+		keys = append(keys, "target_path:"+strings.ToLower(path))
+	}
+	return keys
+}
+
+func markProgrammaticMenuItem(item MenuItem) MenuItem {
+	itemType := NormalizeMenuItemType(item.Type)
+	if itemType == MenuItemTypeGroup || itemType == MenuItemTypeSeparator || len(item.Target) == 0 {
+		return item
+	}
+	target := primitives.CloneAnyMap(item.Target)
+	target[menuTargetProgrammaticOwnerKey] = menuTargetProgrammaticOwner
+	if strings.TrimSpace(toString(target[menuTargetProgrammaticIDKey])) == "" {
+		target[menuTargetProgrammaticIDKey] = programmaticMenuOwnerID(item)
+	}
+	item.Target = target
+	return item
+}
+
+func programmaticMenuOwnerID(item MenuItem) string {
+	for _, candidate := range []string{
+		targetStringValue(item.Target, "key"),
+		targetStringValue(item.Target, "name"),
+		targetStringValue(item.Target, "route_name"),
+		targetStringValue(item.Target, "route"),
+		strings.TrimSpace(item.ID),
+	} {
+		if candidate != "" {
+			return candidate
+		}
+	}
+	return ""
+}
+
+func targetStringValue(target map[string]any, key string) string {
+	if target == nil {
+		return ""
+	}
+	value, ok := target[key]
+	if !ok || value == nil {
+		return ""
+	}
+	return strings.TrimSpace(toString(value))
+}
+
+func uniquePersistedMenuKeys(values []string) []string {
+	seen := map[string]bool{}
+	out := make([]string, 0, len(values))
+	for _, value := range values {
+		value = strings.TrimSpace(value)
+		if value == "" || seen[value] {
+			continue
+		}
+		seen[value] = true
+		out = append(out, value)
+	}
+	return out
+}
+
+func appendUniquePersistedMenuItem(items []MenuItem, item MenuItem) []MenuItem {
+	key := persistedMenuItemIdentity(item)
+	for _, existing := range items {
+		existingKey := persistedMenuItemIdentity(existing)
+		if key != "" && existingKey == key {
+			return items
+		}
+	}
+	return append(items, item)
+}
+
+func persistedMenuItemIdentity(item MenuItem) string {
+	if id := strings.ToLower(strings.TrimSpace(item.ID)); id != "" {
+		return "id:" + id
+	}
+	if code := strings.ToLower(strings.TrimSpace(item.Code)); code != "" {
+		return "code:" + code
+	}
+	if ownerID := targetStringValue(item.Target, menuTargetProgrammaticIDKey); ownerID != "" {
+		return "programmatic:" + strings.ToLower(ownerID)
+	}
+	return ""
+}
+
+func stringSliceContainsFold(values []string, want string) bool {
+	want = strings.ToLower(strings.TrimSpace(want))
+	if want == "" {
+		return false
+	}
+	for _, value := range values {
+		if strings.ToLower(strings.TrimSpace(value)) == want {
+			return true
+		}
+	}
+	return false
+}
+
+func flattenPersistedMenuItems(items []MenuItem) []MenuItem {
+	out := make([]MenuItem, 0, len(items))
+	for _, item := range items {
+		out = append(out, item)
+		out = append(out, flattenPersistedMenuItems(item.Children)...)
+	}
+	return out
 }
 
 func (a *Admin) ensurePersistentMenu(ctx context.Context, code string, menuCodes map[string]bool) error {
