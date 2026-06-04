@@ -308,6 +308,51 @@ func (a *GoCMSMenuAdapter) Menu(ctx context.Context, code, locale string) (*Menu
 	return &Menu{ID: menuCode, Code: menuCode, Slug: menuCode, Location: code, Items: items}, nil
 }
 
+// RawMenuItems returns persisted go-cms menu rows without localized navigation filtering.
+// It is intentionally separate from Menu, which remains the renderable navigation API.
+func (a *GoCMSMenuAdapter) RawMenuItems(ctx context.Context, code string) ([]MenuItem, error) {
+	if a == nil || a.service == nil {
+		return nil, ErrNotFound
+	}
+	menuCode := cms.CanonicalMenuCode(code)
+	rows, err := a.service.ListMenuItemsByCode(ctx, menuCode)
+	if err != nil {
+		return nil, err
+	}
+	items := make([]MenuItem, 0, len(rows))
+	for _, row := range rows {
+		if row == nil {
+			continue
+		}
+		path := canonicalMenuItemPath(menuCode, row.Path)
+		parent := ""
+		if row.Metadata != nil {
+			if value, ok := row.Metadata["parent_path"].(string); ok {
+				parent = canonicalMenuItemPath(menuCode, value)
+			}
+		}
+		position := row.Position
+		items = append(items, MenuItem{
+			ID:          path,
+			Code:        path,
+			Type:        normalizeMenuItemType(row.Type),
+			Target:      primitives.CloneAnyMap(row.Target),
+			Icon:        strings.TrimSpace(row.Icon),
+			Badge:       primitives.CloneAnyMap(row.Badge),
+			Permissions: cloneStringSliceOrNil(row.Permissions),
+			Classes:     cloneStringSliceOrNil(row.Classes),
+			Styles:      cloneStringMapOrNil(row.Styles),
+			Collapsible: row.Collapsible,
+			Collapsed:   row.Collapsed,
+			Position:    cloneIntPtr(&position),
+			Menu:        menuCode,
+			ParentID:    parent,
+			ParentCode:  parent,
+		})
+	}
+	return items, nil
+}
+
 // MenuByLocation resolves a localized navigation tree using menu locations.
 func (a *GoCMSMenuAdapter) MenuByLocation(ctx context.Context, location, locale string) (*Menu, error) {
 	if a == nil || a.service == nil {
