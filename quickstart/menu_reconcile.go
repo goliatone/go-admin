@@ -166,15 +166,6 @@ func recordRawGeneratedNavigationState(report *NavigationReconcileReport, render
 	}
 }
 
-func reconcileMenuItemAppearsIn(item admin.MenuItem, items []admin.MenuItem) bool {
-	for _, existing := range items {
-		if reconcileMenuItemsShareKey(item, existing) {
-			return true
-		}
-	}
-	return false
-}
-
 func reconcileMenuItemStronglyAppearsIn(item admin.MenuItem, items []admin.MenuItem) bool {
 	itemKeys := map[string]bool{}
 	for _, key := range uniqueStrings(reconcileMenuItemStrongKeys(item)) {
