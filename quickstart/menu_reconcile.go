@@ -25,6 +25,10 @@ type NavigationReconcileOptions struct {
 	AllowDestructive        bool
 }
 
+type rawMenuInventoryProvider interface {
+	RawMenuItems(ctx context.Context, menuCode string) ([]admin.MenuItem, error)
+}
+
 // NavigationReconcileReport describes a dry-run or applied generated-menu reconciliation.
 type NavigationReconcileReport struct {
 	MenuCode string `json:"menu_code"`
@@ -45,6 +49,10 @@ type NavigationReconcileReport struct {
 	PermissionFilteredItems  []string `json:"permission_filtered_items,omitempty"`
 	ParentPrunedItems        []string `json:"parent_pruned_items,omitempty"`
 	PreservedGeneratedFields []string `json:"preserved_generated_fields,omitempty"`
+	PersistedPresent         []string `json:"persisted_present,omitempty"`
+	PersistedMissing         []string `json:"persisted_missing,omitempty"`
+	RawPresentButNotRendered []string `json:"raw_present_but_not_rendered,omitempty"`
+	RawInventoryUnavailable  []string `json:"raw_inventory_unavailable,omitempty"`
 }
 
 // ReconcileGeneratedNavigation converges persisted CMS menu rows to the expected generated plan.
@@ -59,10 +67,16 @@ func ReconcileGeneratedNavigation(ctx context.Context, opts NavigationReconcileO
 	if err != nil {
 		return NavigationReconcileReport{}, err
 	}
-	actual, err := loadGeneratedNavigationActualItems(ctx, opts.MenuSvc, runtime.menuCode, runtime.locale)
+	rendered, err := loadGeneratedNavigationActualItems(ctx, opts.MenuSvc, runtime.menuCode, runtime.locale)
 	if err != nil {
 		return report, err
 	}
+	raw, rawErr := loadGeneratedNavigationRawItems(ctx, opts.MenuSvc, runtime.menuCode)
+	if rawErr != nil {
+		report.RawInventoryUnavailable = append(report.RawInventoryUnavailable, rawErr.Error())
+	}
+	recordRawGeneratedNavigationState(&report, rendered, raw, expected)
+	actual := mergeGeneratedNavigationActualItems(rendered, raw)
 	recordGeneratedNavigationActualState(&report, actual, expected)
 
 	expectedKeys, err := reconcileGeneratedNavigationExpectedItems(ctx, opts, runtime, expected, actual, &report)
@@ -110,6 +124,73 @@ func loadGeneratedNavigationActualItems(ctx context.Context, menuSvc admin.CMSMe
 		return nil, nil
 	}
 	return flattenReconcileMenuItems(menu.Items), nil
+}
+
+func loadGeneratedNavigationRawItems(ctx context.Context, menuSvc admin.CMSMenuService, menuCode string) ([]admin.MenuItem, error) {
+	provider, ok := menuSvc.(rawMenuInventoryProvider)
+	if !ok || provider == nil {
+		return nil, nil
+	}
+	items, err := provider.RawMenuItems(ctx, menuCode)
+	if err != nil {
+		return nil, err
+	}
+	return flattenReconcileMenuItems(items), nil
+}
+
+func mergeGeneratedNavigationActualItems(rendered, raw []admin.MenuItem) []admin.MenuItem {
+	if len(raw) == 0 {
+		return rendered
+	}
+	out := append([]admin.MenuItem{}, rendered...)
+	for _, item := range raw {
+		if reconcileMenuItemStronglyAppearsIn(item, out) {
+			continue
+		}
+		out = append(out, item)
+	}
+	return out
+}
+
+func recordRawGeneratedNavigationState(report *NavigationReconcileReport, rendered, raw, expected []admin.MenuItem) {
+	if report == nil || len(raw) == 0 {
+		return
+	}
+	for _, item := range raw {
+		if reconcileMenuItemStronglyAppearsIn(item, rendered) {
+			continue
+		}
+		if matchesAnyExpectedGeneratedRow(item, expected) {
+			report.RawPresentButNotRendered = append(report.RawPresentButNotRendered, item.ID)
+		}
+	}
+}
+
+func reconcileMenuItemAppearsIn(item admin.MenuItem, items []admin.MenuItem) bool {
+	for _, existing := range items {
+		if reconcileMenuItemsShareKey(item, existing) {
+			return true
+		}
+	}
+	return false
+}
+
+func reconcileMenuItemStronglyAppearsIn(item admin.MenuItem, items []admin.MenuItem) bool {
+	itemKeys := map[string]bool{}
+	for _, key := range uniqueStrings(reconcileMenuItemStrongKeys(item)) {
+		itemKeys[key] = true
+	}
+	if len(itemKeys) == 0 {
+		return false
+	}
+	for _, existing := range items {
+		for _, key := range uniqueStrings(reconcileMenuItemStrongKeys(existing)) {
+			if itemKeys[key] {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func recordGeneratedNavigationActualState(report *NavigationReconcileReport, actual, expected []admin.MenuItem) {
@@ -160,6 +241,7 @@ func reconcileGeneratedNavigationExpectedItem(ctx context.Context, opts Navigati
 
 func createMissingGeneratedNavigationItem(ctx context.Context, opts NavigationReconcileOptions, menuCode string, item admin.MenuItem, report *NavigationReconcileReport) error {
 	report.Creates = append(report.Creates, item.ID)
+	report.PersistedMissing = append(report.PersistedMissing, item.ID)
 	if !opts.Apply {
 		return nil
 	}
@@ -167,6 +249,7 @@ func createMissingGeneratedNavigationItem(ctx context.Context, opts NavigationRe
 }
 
 func reconcileMatchedGeneratedNavigationItem(ctx context.Context, opts NavigationReconcileOptions, menuCode string, item, match admin.MenuItem, report *NavigationReconcileReport) error {
+	report.PersistedPresent = append(report.PersistedPresent, item.ID)
 	if generatedMenuItemHasStaleTargetState(match) {
 		report.StaleTargetStateCleanup = append(report.StaleTargetStateCleanup, match.ID)
 	}
@@ -238,6 +321,10 @@ func (report *NavigationReconcileReport) sort() {
 	sort.Strings(report.PermissionFilteredItems)
 	sort.Strings(report.ParentPrunedItems)
 	sort.Strings(report.PreservedGeneratedFields)
+	sort.Strings(report.PersistedPresent)
+	sort.Strings(report.PersistedMissing)
+	sort.Strings(report.RawPresentButNotRendered)
+	sort.Strings(report.RawInventoryUnavailable)
 }
 
 func flattenReconcileMenuItems(items []admin.MenuItem) []admin.MenuItem {
@@ -271,6 +358,23 @@ func reconcileMenuItemKeys(item admin.MenuItem) []string {
 	}
 	if path := stringTargetValue(item.Target, "path"); path != "" {
 		keys = append(keys, "target_path:"+strings.ToLower(path))
+	}
+	if name := stringTargetValue(item.Target, "name"); name != "" {
+		keys = append(keys, "target_name:"+strings.ToLower(name))
+	}
+	if routeName := stringTargetValue(item.Target, "route_name"); routeName != "" {
+		keys = append(keys, "target_name:"+strings.ToLower(routeName))
+	}
+	return keys
+}
+
+func reconcileMenuItemStrongKeys(item admin.MenuItem) []string {
+	keys := []string{}
+	if id := strings.TrimSpace(item.ID); id != "" {
+		keys = append(keys, "id:"+strings.ToLower(id))
+	}
+	if generatedID := stringTargetValue(item.Target, MenuTargetGeneratedIDKey); generatedID != "" {
+		keys = append(keys, "generated_id:"+strings.ToLower(generatedID))
 	}
 	return keys
 }
@@ -402,6 +506,9 @@ func uniqueStrings(values []string) []string {
 }
 
 func legacyGeneratedMenuItemMatches(expected, actual admin.MenuItem) bool {
+	if legacyGeneratedMenuItemRouteIdentityMatches(expected, actual) {
+		return true
+	}
 	if !legacyMenuItemIDMatches(expected, actual) {
 		return false
 	}
@@ -418,6 +525,53 @@ func legacyGeneratedMenuItemMatches(expected, actual admin.MenuItem) bool {
 	return expectedKey == "" && actualKey == "" && expectedPath == "" && actualPath == ""
 }
 
+func legacyGeneratedMenuItemRouteIdentityMatches(expected, actual admin.MenuItem) bool {
+	expectedParent := strings.ToLower(strings.TrimSpace(expected.ParentID))
+	actualParent := strings.ToLower(strings.TrimSpace(actual.ParentID))
+	if expectedParent == "" || actualParent == "" || expectedParent != actualParent {
+		return false
+	}
+	if !legacyGeneratedMenuItemIDSuffixMatches(expected, actual) {
+		return false
+	}
+	for _, key := range []string{"key", "path", "name", "route_name"} {
+		expectedValue := strings.ToLower(strings.TrimSpace(stringTargetValue(expected.Target, key)))
+		actualValue := strings.ToLower(strings.TrimSpace(stringTargetValue(actual.Target, key)))
+		if expectedValue != "" && actualValue != "" && expectedValue == actualValue {
+			return true
+		}
+	}
+	return false
+}
+
+func legacyGeneratedMenuItemIDSuffixMatches(expected, actual admin.MenuItem) bool {
+	expectedID := strings.ToLower(strings.TrimSpace(expected.ID))
+	actualID := strings.ToLower(strings.TrimSpace(actual.ID))
+	if expectedID == "" || actualID == "" {
+		return false
+	}
+	if !legacyGeneratedMenuItemIDPrefixCompatible(expectedID, actualID) {
+		return false
+	}
+	expectedParts := strings.Split(expectedID, ".")
+	actualParts := strings.Split(actualID, ".")
+	if len(expectedParts) < 2 || len(actualParts) < 2 {
+		return false
+	}
+	expectedSuffix := strings.Join(expectedParts[len(expectedParts)-2:], ".")
+	actualSuffix := strings.Join(actualParts[len(actualParts)-2:], ".")
+	return expectedSuffix != "" && expectedSuffix == actualSuffix
+}
+
+func legacyGeneratedMenuItemIDPrefixCompatible(expectedID, actualID string) bool {
+	expectedParts := strings.Split(strings.ToLower(strings.TrimSpace(expectedID)), ".")
+	actualParts := strings.Split(strings.ToLower(strings.TrimSpace(actualID)), ".")
+	if len(expectedParts) == 0 || len(actualParts) == 0 {
+		return false
+	}
+	return expectedParts[0] != "" && expectedParts[0] == actualParts[0]
+}
+
 func legacyMenuItemIDMatches(expected, actual admin.MenuItem) bool {
 	expectedID := strings.ToLower(strings.TrimSpace(expected.ID))
 	actualID := strings.ToLower(strings.TrimSpace(actual.ID))
@@ -425,6 +579,9 @@ func legacyMenuItemIDMatches(expected, actual admin.MenuItem) bool {
 		return false
 	}
 	if expectedID == actualID {
+		return true
+	}
+	if legacyGeneratedMenuItemIDSuffixMatches(expected, actual) {
 		return true
 	}
 	if idx := strings.Index(expectedID, "."); idx >= 0 && idx+1 < len(expectedID) {
