@@ -28,6 +28,7 @@ func translationQueueRouteSpecs(ctx BootCtx, responder Responder, gates FeatureG
 		translationQueueReadRoute(ctx, responder, gates, "translations.assignments", binding.Assignments),
 		translationQueueFamilyAssignmentsRoute(ctx, responder, gates, binding),
 		translationQueueAssignmentDetailRoute(ctx, responder, gates, binding),
+		translationQueueAssignmentPreviewRoute(ctx, responder, gates, binding),
 		translationQueueAssignmentBulkSnapshotRoute(ctx, responder, gates, binding),
 		translationQueueAssignmentBulkActionRoute(ctx, responder, gates, binding),
 		translationQueueAssignmentActionRoute(ctx, responder, gates, binding),
@@ -79,6 +80,21 @@ func translationQueueAssignmentDetailRoute(ctx BootCtx, responder Responder, gat
 				return errMissingID
 			}
 			payload, err := binding.AssignmentDetail(c, id)
+			return writeJSONOrError(responder, c, payload, err)
+		}),
+	}
+}
+
+func translationQueueAssignmentPreviewRoute(ctx BootCtx, responder Responder, gates FeatureGates, binding TranslationQueueBinding) RouteSpec {
+	return RouteSpec{
+		Method: "GET",
+		Path:   routePath(ctx, ctx.AdminAPIGroup(), "translations.assignments.preview"),
+		Handler: withFeatureGate(responder, gates, FeatureTranslationQueue, func(c router.Context) error {
+			id := c.Param("assignment_id")
+			if id == "" {
+				return errMissingID
+			}
+			payload, err := binding.AssignmentPreview(c, id)
 			return writeJSONOrError(responder, c, payload, err)
 		}),
 	}
