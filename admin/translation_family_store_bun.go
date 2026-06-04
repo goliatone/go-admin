@@ -262,17 +262,6 @@ func applyBunScopedUpdateColumns(query *bun.UpdateQuery, tenantColumn, orgColumn
 	query.Where(expr, args...)
 }
 
-func applyBunScopedDeleteColumns(query *bun.DeleteQuery, tenantColumn, orgColumn string, scope translationservices.Scope) {
-	if query == nil {
-		return
-	}
-	expr, args := bunScopedColumnsPredicate(tenantColumn, orgColumn, scope)
-	if expr == "" {
-		return
-	}
-	query.Where(expr, args...)
-}
-
 func bunFamilyRowsSharedScope(rows []bunTranslationFamilyRecord) (translationservices.Scope, bool) {
 	if len(rows) == 0 {
 		return translationservices.Scope{}, false
