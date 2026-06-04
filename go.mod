@@ -26,11 +26,11 @@ require (
 	github.com/goliatone/go-logger v0.8.0
 	github.com/goliatone/go-masker v0.1.0
 	github.com/goliatone/go-notifications v0.14.0
-	github.com/goliatone/go-options v0.7.1
+	github.com/goliatone/go-options v0.7.2
 	github.com/goliatone/go-persistence-bun v0.16.1
 	github.com/goliatone/go-repository-bun v0.16.1
 	github.com/goliatone/go-router v0.59.0
-	github.com/goliatone/go-search v0.8.0
+	github.com/goliatone/go-search v0.8.1
 	github.com/goliatone/go-search/adapters/goadmin v0.8.0
 	github.com/goliatone/go-theme v0.3.0
 	github.com/goliatone/go-uploader v0.4.0
