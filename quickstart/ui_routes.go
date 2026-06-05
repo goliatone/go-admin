@@ -75,6 +75,7 @@ type uiRouteOptions struct {
 	registerTranslationDashboard    bool
 	registerTranslationExchange     bool
 	translationExchangeUIConfig     TranslationExchangeUIConfig
+	translationSSRPresenter         admin.TranslationSSRPresenter
 	viewContext                     UIViewContextBuilder
 }
 
@@ -367,6 +368,15 @@ func WithUIViewContextBuilder(builder UIViewContextBuilder) UIRouteOption {
 	}
 }
 
+// WithUITranslationSSRPresenter overrides translation SSR hydration for route tests or custom hosts.
+func WithUITranslationSSRPresenter(presenter admin.TranslationSSRPresenter) UIRouteOption {
+	return func(opts *uiRouteOptions) {
+		if opts != nil {
+			opts.translationSSRPresenter = presenter
+		}
+	}
+}
+
 // RegisterAdminUIRoutes registers default UI routes (dashboard + notifications).
 func RegisterAdminUIRoutes[T any](r router.Router[T], cfg admin.Config, adm *admin.Admin, auth admin.HandlerAuthenticator, opts ...UIRouteOption) error {
 	if r == nil {
@@ -448,6 +458,9 @@ func resolveAdminUIRouteOptions(cfg admin.Config, adm *admin.Admin, opts []UIRou
 	applyAdminUITranslationCapabilityGates(&options, queueModuleEnabled, coreModuleEnabled, exchangeModuleEnabled)
 	options.basePath = normalizeQuickstartRouteBasePath(options.basePath)
 	applyAdminUIRoutePathDefaults(&options)
+	if options.translationSSRPresenter == nil {
+		options.translationSSRPresenter = admin.NewTranslationSSRPresenter(adm)
+	}
 	options.viewContext = resolveQuickstartUIViewContextBuilder(adm, cfg, options.viewContext)
 	return options
 }
@@ -578,18 +591,20 @@ func registerAdminUITranslationOverviewRoutes[T any](
 	if options.registerTranslationDashboard {
 		r.Get(options.translationDashboardPath, wrap(func(c router.Context) error {
 			apiBase := resolveAPIBase()
-			return renderView(c, options.translationDashboardTemplate, options.translationDashboardTitle, options.translationDashboardActive, router.ViewContext{
+			view := router.ViewContext{
 				"translation_dashboard_api_path": prefixBasePath(apiBase, path.Join("translations", "dashboard")),
 				"translation_queue_api_path":     prefixBasePath(apiBase, path.Join("translations", "queue")),
 				"translation_families_api_path":  prefixBasePath(apiBase, path.Join("translations", "families")),
-			})
+			}
+			view = withTranslationSSRView(c, view, options, translationSSRInput(c, options, apiBase), options.translationSSRPresenter.Dashboard, "translation_dashboard_ssr")
+			return renderView(c, options.translationDashboardTemplate, options.translationDashboardTitle, options.translationDashboardActive, view)
 		}))
 	}
 
 	if options.registerTranslationQueue {
 		r.Get(options.translationQueuePath, wrap(func(c router.Context) error {
 			apiBase := resolveAPIBase()
-			return renderView(c, options.translationShellTemplate, options.translationQueueTitle, options.translationQueueActive, router.ViewContext{
+			view := router.ViewContext{
 				"translation_shell_surface":              "queue",
 				"translation_shell_title":                options.translationQueueTitle,
 				"translation_shell_description":          "Assignment-centric queue with saved filters, keyboard row navigation, and inline claim/release actions.",
@@ -597,7 +612,11 @@ func registerAdminUITranslationOverviewRoutes[T any](
 				"translation_queue_bulk_action_api_path": prefixBasePath(apiBase, path.Join("translations", "assignment-actions", "bulk")),
 				"translation_queue_editor_base_path":     path.Join(options.basePath, "translations", "assignments"),
 				"translation_queue_initial_preset":       "open",
-			})
+			}
+			input := translationSSRInput(c, options, apiBase)
+			input.InitialPresetID = "open"
+			view = withTranslationSSRView(c, view, options, input, options.translationSSRPresenter.Queue, "translation_queue_ssr")
+			return renderView(c, options.translationShellTemplate, options.translationQueueTitle, options.translationQueueActive, view)
 		}))
 	}
 }
@@ -632,6 +651,7 @@ func registerAdminUITranslationDetailRoutes[T any](
 				Trail:        []BreadcrumbItem{Breadcrumb(options.translationDashboardTitle, options.translationDashboardPath)},
 				CurrentLabel: options.translationFamilyListTitle,
 			})
+			view = withTranslationSSRView(c, view, options, translationSSRInput(c, options, apiBase), options.translationSSRPresenter.FamilyList, "translation_families_ssr")
 			return renderView(c, options.translationFamilyListTemplate, options.translationFamilyListTitle, options.translationFamilyListActive, view)
 		}))
 	}
@@ -650,6 +670,9 @@ func registerAdminUITranslationDetailRoutes[T any](
 				Trail:        []BreadcrumbItem{Breadcrumb(options.translationDashboardTitle, options.translationDashboardPath)},
 				CurrentLabel: fmt.Sprintf("Family %s", familyID),
 			})
+			input := translationSSRInput(c, options, apiBase)
+			input.FamilyID = familyID
+			view = withTranslationSSRView(c, view, options, input, options.translationSSRPresenter.FamilyDetail, "translation_family_detail_ssr")
 			return renderView(c, options.translationFamilyDetailTemplate, options.translationFamilyDetailTitle, options.translationFamilyDetailActive, view)
 		}))
 	}
@@ -676,6 +699,10 @@ func registerAdminUITranslationDetailRoutes[T any](
 				Trail:        []BreadcrumbItem{Breadcrumb(options.translationQueueTitle, options.translationQueuePath)},
 				CurrentLabel: fmt.Sprintf("Assignment %s", assignmentID),
 			})
+			input := translationSSRInput(c, options, apiBase)
+			input.AssignmentID = assignmentID
+			input.Channel = channel
+			view = withTranslationSSRView(c, view, options, input, options.translationSSRPresenter.Editor, "translation_editor_ssr")
 			return renderView(c, options.translationEditorTemplate, options.translationEditorTitle, options.translationEditorActive, view)
 		}))
 	}
@@ -703,6 +730,122 @@ func registerAdminUITranslationDetailRoutes[T any](
 				"translation_exchange_ui_config": options.translationExchangeUIConfig,
 			})
 		}))
+	}
+}
+
+type translationSSRHydrator func(router.Context, admin.TranslationSSRPresenterInput) (admin.TranslationSSRPage, error)
+
+func translationSSRInput(c router.Context, options uiRouteOptions, apiBase string) admin.TranslationSSRPresenterInput {
+	channel := resolveContentChannel(c)
+	return admin.TranslationSSRPresenterInput{
+		BasePath:           options.basePath,
+		APIBasePath:        apiBase,
+		DashboardPath:      options.translationDashboardPath,
+		QueuePath:          options.translationQueuePath,
+		FamilyListPath:     options.translationFamilyListPath,
+		FamilyBasePath:     path.Join(options.basePath, "translations", "families"),
+		MatrixPath:         options.translationMatrixPath,
+		EditorBasePath:     path.Join(options.basePath, "translations", "assignments"),
+		ContentBasePath:    path.Join(options.basePath, "content"),
+		BulkActionAPIPath:  prefixBasePath(apiBase, path.Join("translations", "assignment-actions", "bulk")),
+		Channel:            channel,
+		Query:              translationSSRQueryValues(c),
+		SyncClientBasePath: ResolveSyncClientAssetsPrefix(admin.Config{BasePath: options.basePath}),
+	}
+}
+
+func translationSSRQueryValues(c router.Context) map[string]string {
+	if c == nil {
+		return nil
+	}
+	keys := []string{
+		"assignee_id",
+		"blocker_code",
+		"content_type",
+		"due_state",
+		"family_id",
+		"locale",
+		"missing_locale",
+		"order",
+		"page",
+		"per_page",
+		"priority",
+		"readiness_state",
+		"review_state",
+		"reviewer_id",
+		"sort",
+		"status",
+	}
+	values := map[string]string{}
+	for _, key := range keys {
+		if value := strings.TrimSpace(c.Query(key)); value != "" {
+			values[key] = value
+		}
+	}
+	if len(values) == 0 {
+		return nil
+	}
+	return values
+}
+
+func withTranslationSSRView(
+	c router.Context,
+	view router.ViewContext,
+	options uiRouteOptions,
+	input admin.TranslationSSRPresenterInput,
+	hydrate translationSSRHydrator,
+	key string,
+) router.ViewContext {
+	if view == nil {
+		view = router.ViewContext{}
+	}
+	if options.translationSSRPresenter == nil || hydrate == nil || strings.TrimSpace(key) == "" {
+		return view
+	}
+	page, err := safeHydrateTranslationSSR(c, input, hydrate)
+	if err != nil {
+		page = admin.TranslationSSRPage{
+			Surface: inputSurfaceForSSRKey(key),
+			ErrorState: map[string]any{
+				"title":       "Translation data unavailable",
+				"description": err.Error(),
+			},
+			Enhancement: map[string]any{
+				"api_base_path": strings.TrimRight(input.APIBasePath, "/"),
+				"base_path":     strings.TrimRight(input.BasePath, "/"),
+				"channel":       strings.TrimSpace(input.Channel),
+			},
+		}
+		view["translation_ssr_error"] = err.Error()
+	}
+	view["translation_ssr"] = page
+	view[key] = page
+	return view
+}
+
+func safeHydrateTranslationSSR(c router.Context, input admin.TranslationSSRPresenterInput, hydrate translationSSRHydrator) (page admin.TranslationSSRPage, err error) {
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			err = fmt.Errorf("translation SSR hydration failed: %v", recovered)
+		}
+	}()
+	return hydrate(c, input)
+}
+
+func inputSurfaceForSSRKey(key string) string {
+	switch key {
+	case "translation_dashboard_ssr":
+		return admin.TranslationSSRSurfaceDashboard
+	case "translation_families_ssr":
+		return admin.TranslationSSRSurfaceFamilyList
+	case "translation_family_detail_ssr":
+		return admin.TranslationSSRSurfaceFamilyDetail
+	case "translation_queue_ssr":
+		return admin.TranslationSSRSurfaceQueue
+	case "translation_editor_ssr":
+		return admin.TranslationSSRSurfaceEditor
+	default:
+		return strings.TrimPrefix(strings.TrimSpace(key), "translation_")
 	}
 }
 
