@@ -96,10 +96,10 @@ func TestBuildSitePreviewURL(t *testing.T) {
 			expected:   "/about?lang=en&preview_token=fresh-token",
 		},
 		{
-			name:       "supports absolute url",
+			name:       "rejects absolute url without allowlist",
 			targetPath: "https://preview.example.test/about?lang=en#draft",
 			token:      "fresh-token",
-			expected:   "https://preview.example.test/about?lang=en&preview_token=fresh-token#draft",
+			expected:   "",
 		},
 		{
 			name:       "empty path",
@@ -118,6 +118,60 @@ func TestBuildSitePreviewURL(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			if got := BuildSitePreviewURL(tc.targetPath, tc.token); got != tc.expected {
+				t.Fatalf("expected %q, got %q", tc.expected, got)
+			}
+		})
+	}
+}
+
+func TestBuildSitePreviewURLWithAllowedHosts(t *testing.T) {
+	tests := []struct {
+		name         string
+		targetPath   string
+		token        string
+		allowedHosts []string
+		expected     string
+	}{
+		{
+			name:         "supports allowed absolute url",
+			targetPath:   "https://preview.example.test/about?lang=en#draft",
+			token:        "fresh-token",
+			allowedHosts: []string{"preview.example.test"},
+			expected:     "https://preview.example.test/about?lang=en&preview_token=fresh-token#draft",
+		},
+		{
+			name:         "normalizes allowlist urls to hosts",
+			targetPath:   "https://preview.example.test/about",
+			token:        "fresh-token",
+			allowedHosts: []string{"https://preview.example.test/base"},
+			expected:     "https://preview.example.test/about?preview_token=fresh-token",
+		},
+		{
+			name:         "rejects unlisted absolute url",
+			targetPath:   "https://evil.example.test/about",
+			token:        "fresh-token",
+			allowedHosts: []string{"preview.example.test"},
+			expected:     "",
+		},
+		{
+			name:         "rejects non-http absolute url",
+			targetPath:   "javascript:alert(1)",
+			token:        "fresh-token",
+			allowedHosts: []string{"preview.example.test"},
+			expected:     "",
+		},
+		{
+			name:         "rejects protocol relative url",
+			targetPath:   "//preview.example.test/about",
+			token:        "fresh-token",
+			allowedHosts: []string{"preview.example.test"},
+			expected:     "",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := BuildSitePreviewURLWithAllowedHosts(tc.targetPath, tc.token, tc.allowedHosts); got != tc.expected {
 				t.Fatalf("expected %q, got %q", tc.expected, got)
 			}
 		})

@@ -880,6 +880,360 @@ func TestTranslationFamilyBindingCreateVariantIdempotencyReplayReturnsStablePayl
 	}
 }
 
+func TestTranslationFamilyBindingCreateAssignmentToActorReturnsAssigned(t *testing.T) {
+	fixture := newTranslationFamilyMutationFixture(t, translationFamilyMutationFixtureOptions{
+		RequiredLocales: []string{"fr"},
+	})
+	createVariantStatus, createVariantPayload := doTranslationFamilyJSONRequest(t, fixture.app, http.MethodPost, "/admin/api/translations/families/tg-page-1/variants?channel=production&tenant_id=tenant-1&org_id=org-1", map[string]any{
+		"locale": "fr",
+	}, nil)
+	if createVariantStatus != http.StatusOK {
+		t.Fatalf("create variant status=%d payload=%+v", createVariantStatus, createVariantPayload)
+	}
+
+	status, payload := doTranslationFamilyJSONRequest(t, fixture.app, http.MethodPost, "/admin/api/translations/families/tg-page-1/assignments?channel=production&tenant_id=tenant-1&org_id=org-1", map[string]any{
+		"target_locale": "fr",
+		"assignee_id":   "translator-1",
+		"priority":      "high",
+		"work_scope":    "localization",
+	}, map[string]string{"X-User-ID": "assigner-1"})
+	if status != http.StatusOK {
+		t.Fatalf("status=%d want=200 payload=%+v", status, payload)
+	}
+	assignment := extractMap(extractMap(payload["data"])["assignment"])
+	if got := toString(assignment["queue_state"]); got != string(AssignmentStatusAssigned) {
+		t.Fatalf("expected assigned queue_state, got %q payload=%+v", got, assignment)
+	}
+	if got := toString(assignment["assignee_id"]); got != "translator-1" {
+		t.Fatalf("expected assignee translator-1, got %q", got)
+	}
+	if got := toString(assignment["target_record_id"]); got == "" {
+		t.Fatalf("expected target_record_id from locale variant, got empty")
+	}
+	if got := toString(assignment["content_state"]); got == string(AssignmentStatusInProgress) {
+		t.Fatalf("expected create assignment not to start work, got content_state=%q", got)
+	}
+}
+
+func TestTranslationFamilyBindingCreateAssignmentRequiresAssignPermission(t *testing.T) {
+	fixture := newTranslationFamilyMutationFixture(t, translationFamilyMutationFixtureOptions{
+		RequiredLocales: []string{"fr"},
+	})
+	createVariantStatus, createVariantPayload := doTranslationFamilyJSONRequest(t, fixture.app, http.MethodPost, "/admin/api/translations/families/tg-page-1/variants?channel=production&tenant_id=tenant-1&org_id=org-1", map[string]any{
+		"locale": "fr",
+	}, nil)
+	if createVariantStatus != http.StatusOK {
+		t.Fatalf("create variant status=%d payload=%+v", createVariantStatus, createVariantPayload)
+	}
+	fixture.admin.WithAuthorizer(translationPermissionAuthorizer{
+		allowed: map[string]bool{
+			PermAdminTranslationsView:  true,
+			PermAdminTranslationsClaim: true,
+		},
+	})
+
+	status, payload := doTranslationFamilyJSONRequest(t, fixture.app, http.MethodPost, "/admin/api/translations/families/tg-page-1/assignments?channel=production&tenant_id=tenant-1&org_id=org-1", map[string]any{
+		"target_locale": "fr",
+		"assignee_id":   "translator-1",
+		"work_scope":    "localization",
+	}, map[string]string{"X-User-ID": "assigner-1"})
+	if status != http.StatusForbidden {
+		t.Fatalf("status=%d want=403 payload=%+v", status, payload)
+	}
+	metadata := extractMap(extractMap(payload["error"])["metadata"])
+	if got := toString(metadata["permission"]); got != PermAdminTranslationsAssign {
+		t.Fatalf("expected missing permission %q, got %q payload=%+v", PermAdminTranslationsAssign, got, payload)
+	}
+}
+
+func TestTranslationFamilyBindingDetailIncludesLocaleAssignmentActions(t *testing.T) {
+	fixture := newTranslationFamilyMutationFixture(t, translationFamilyMutationFixtureOptions{
+		RequiredLocales: []string{"fr"},
+	})
+	createVariantStatus, createVariantPayload := doTranslationFamilyJSONRequest(t, fixture.app, http.MethodPost, "/admin/api/translations/families/tg-page-1/variants?channel=production&tenant_id=tenant-1&org_id=org-1", map[string]any{
+		"locale": "fr",
+	}, nil)
+	if createVariantStatus != http.StatusOK {
+		t.Fatalf("create variant status=%d payload=%+v", createVariantStatus, createVariantPayload)
+	}
+	createAssignmentStatus, createAssignmentPayload := doTranslationFamilyJSONRequest(t, fixture.app, http.MethodPost, "/admin/api/translations/families/tg-page-1/assignments?channel=production&tenant_id=tenant-1&org_id=org-1", map[string]any{
+		"target_locale": "fr",
+		"assignee_id":   "translator-1",
+		"work_scope":    "localization",
+	}, map[string]string{"X-User-ID": "assigner-1"})
+	if createAssignmentStatus != http.StatusOK {
+		t.Fatalf("create assignment status=%d payload=%+v", createAssignmentStatus, createAssignmentPayload)
+	}
+
+	status, payload := doTranslationFamilyJSONRequest(t, fixture.app, http.MethodGet, "/admin/api/translations/families/tg-page-1?channel=production&tenant_id=tenant-1&org_id=org-1", nil, map[string]string{"X-User-ID": "translator-1"})
+	if status != http.StatusOK {
+		t.Fatalf("detail status=%d payload=%+v", status, payload)
+	}
+	data := extractMap(payload["data"])
+	activeAssignments := testAnySlice(t, data["active_assignments"], "data.active_assignments")
+	if len(activeAssignments) != 1 {
+		t.Fatalf("expected one active assignment, got %d", len(activeAssignments))
+	}
+	active := extractMap(activeAssignments[0])
+	if got := toString(active["assignment_type"]); got != string(AssignmentTypeDirect) {
+		t.Fatalf("expected queue-compatible assignment_type, got %q", got)
+	}
+	if got := toInt(active["row_version"]); got <= 0 {
+		t.Fatalf("expected row_version, got %d", got)
+	}
+	if got := toString(active["assignee_label"]); got != "translator-1" {
+		t.Fatalf("expected unresolved assignee label fallback, got %q", got)
+	}
+	if got := toString(active["target_record_id"]); got == "" {
+		t.Fatalf("expected target_record_id on active assignment")
+	}
+	if got := toString(active["variant_id"]); got == "" {
+		t.Fatalf("expected variant_id on active assignment")
+	}
+
+	localeAssignments := extractMap(data["locale_assignments"])
+	fr := extractMap(localeAssignments["fr:localization"])
+	if got := toString(fr["state"]); got != "assigned_to_me" {
+		t.Fatalf("expected fr assigned_to_me state, got %q payload=%+v", got, fr)
+	}
+	localeAssignment := extractMap(fr["assignment"])
+	if got := toString(localeAssignment["assignee_label"]); got != "translator-1" {
+		t.Fatalf("expected locale assignment assignee label fallback, got %q", got)
+	}
+	actions := extractMap(fr["actions"])
+	assignToMe := extractMap(actions["assign_to_me"])
+	if testBool(t, assignToMe["enabled"], "assign_to_me.enabled") {
+		t.Fatalf("expected assign_to_me disabled when already assigned, got %+v", assignToMe)
+	}
+	if got := toString(assignToMe["reason_code"]); got != "already_assigned" {
+		t.Fatalf("expected already_assigned reason, got %q", got)
+	}
+	assignToMePayload := extractMap(assignToMe["payload"])
+	if got := toString(assignToMePayload["assignee_id"]); got != "translator-1" {
+		t.Fatalf("expected self assignment payload assignee_id translator-1, got %q", got)
+	}
+	assignToUser := extractMap(actions["assign_to_user"])
+	if !testBool(t, assignToUser["enabled"], "assign_to_user.enabled") {
+		t.Fatalf("expected assign_to_user enabled, got %+v", assignToUser)
+	}
+	if got := toString(assignToUser["endpoint"]); got != "/admin/api/translations/families/tg-page-1/assignments" {
+		t.Fatalf("expected assign endpoint, got %q", got)
+	}
+	claim := extractMap(actions["claim"])
+	if !testBool(t, claim["enabled"], "claim.enabled") {
+		t.Fatalf("expected claim enabled for current assignee, got %+v", claim)
+	}
+	if got := toString(claim["endpoint"]); !strings.Contains(got, "/admin/api/translations/assignments/") || !strings.Contains(got, "/actions/claim") {
+		t.Fatalf("expected claim endpoint, got %q", got)
+	}
+	openEditor := extractMap(actions["open_editor"])
+	if !testBool(t, openEditor["enabled"], "open_editor.enabled") {
+		t.Fatalf("expected open_editor enabled, got %+v", openEditor)
+	}
+	if got := toString(openEditor["href"]); !strings.Contains(got, "/admin/translations/assignments/") {
+		t.Fatalf("expected editor href, got %q", got)
+	}
+}
+
+func TestTranslationFamilyBindingCreateAssignmentOpenPoolReturnsOpen(t *testing.T) {
+	fixture := newTranslationFamilyMutationFixture(t, translationFamilyMutationFixtureOptions{
+		RequiredLocales: []string{"fr"},
+	})
+	createVariantStatus, createVariantPayload := doTranslationFamilyJSONRequest(t, fixture.app, http.MethodPost, "/admin/api/translations/families/tg-page-1/variants?channel=production&tenant_id=tenant-1&org_id=org-1", map[string]any{
+		"locale": "fr",
+	}, nil)
+	if createVariantStatus != http.StatusOK {
+		t.Fatalf("create variant status=%d payload=%+v", createVariantStatus, createVariantPayload)
+	}
+
+	status, payload := doTranslationFamilyJSONRequest(t, fixture.app, http.MethodPost, "/admin/api/translations/families/tg-page-1/assignments?channel=production&tenant_id=tenant-1&org_id=org-1", map[string]any{
+		"target_locale": "fr",
+		"open_pool":     true,
+		"work_scope":    "localization",
+	}, map[string]string{"X-User-ID": "assigner-1"})
+	if status != http.StatusOK {
+		t.Fatalf("status=%d want=200 payload=%+v", status, payload)
+	}
+	assignment := extractMap(extractMap(payload["data"])["assignment"])
+	if got := toString(assignment["queue_state"]); got != string(AssignmentStatusOpen) {
+		t.Fatalf("expected open queue_state, got %q", got)
+	}
+	if got := toString(assignment["assignment_type"]); got != string(AssignmentTypeOpenPool) {
+		t.Fatalf("expected open_pool assignment_type, got %q", got)
+	}
+}
+
+func TestTranslationFamilyBindingCreateAssignmentReassignsExistingOpenPool(t *testing.T) {
+	fixture := newTranslationFamilyMutationFixture(t, translationFamilyMutationFixtureOptions{
+		RequiredLocales: []string{"fr"},
+		Assignments: []TranslationAssignment{
+			{
+				ID:             "asg-open-fr",
+				FamilyID:       "tg-page-1",
+				EntityType:     "pages",
+				TenantID:       "tenant-1",
+				OrgID:          "org-1",
+				SourceRecordID: "page-1",
+				SourceLocale:   "en",
+				TargetLocale:   "fr",
+				WorkScope:      "localization",
+				AssignmentType: AssignmentTypeOpenPool,
+				Status:         AssignmentStatusOpen,
+				Priority:       PriorityNormal,
+				CreatedAt:      time.Date(2026, 2, 17, 9, 0, 0, 0, time.UTC),
+				UpdatedAt:      time.Date(2026, 2, 17, 10, 0, 0, 0, time.UTC),
+			},
+		},
+	})
+
+	status, payload := doTranslationFamilyJSONRequest(t, fixture.app, http.MethodPost, "/admin/api/translations/families/tg-page-1/assignments?channel=production&tenant_id=tenant-1&org_id=org-1", map[string]any{
+		"target_locale": "fr",
+		"assignee_id":   "translator-2",
+		"work_scope":    "localization",
+	}, map[string]string{"X-User-ID": "assigner-1"})
+	if status != http.StatusOK {
+		t.Fatalf("status=%d want=200 payload=%+v", status, payload)
+	}
+	assignment := extractMap(extractMap(payload["data"])["assignment"])
+	if got := toString(assignment["id"]); got != "asg-open-fr" {
+		t.Fatalf("expected existing assignment reused, got %q", got)
+	}
+	if got := toString(assignment["queue_state"]); got != string(AssignmentStatusAssigned) {
+		t.Fatalf("expected assigned queue_state, got %q", got)
+	}
+	if got := toString(assignment["assignee_id"]); got != "translator-2" {
+		t.Fatalf("expected reassigned assignee translator-2, got %q", got)
+	}
+	meta := extractMap(payload["meta"])
+	if !testBool(t, meta["assignment_reused"], "meta.assignment_reused") {
+		t.Fatalf("expected assignment_reused=true, got %+v", meta)
+	}
+}
+
+func TestTranslationFamilyBindingCreateAssignmentSameAssigneeDoesNotResetPriority(t *testing.T) {
+	fixture := newTranslationFamilyMutationFixture(t, translationFamilyMutationFixtureOptions{
+		RequiredLocales: []string{"fr"},
+		Assignments: []TranslationAssignment{
+			{
+				ID:             "asg-assigned-fr",
+				FamilyID:       "tg-page-1",
+				EntityType:     "pages",
+				TenantID:       "tenant-1",
+				OrgID:          "org-1",
+				SourceRecordID: "page-1",
+				SourceLocale:   "en",
+				TargetLocale:   "fr",
+				WorkScope:      "localization",
+				AssignmentType: AssignmentTypeDirect,
+				Status:         AssignmentStatusAssigned,
+				AssigneeID:     "translator-1",
+				Priority:       PriorityHigh,
+				Version:        1,
+				CreatedAt:      time.Date(2026, 2, 17, 9, 0, 0, 0, time.UTC),
+				UpdatedAt:      time.Date(2026, 2, 17, 10, 0, 0, 0, time.UTC),
+			},
+		},
+	})
+
+	status, payload := doTranslationFamilyJSONRequest(t, fixture.app, http.MethodPost, "/admin/api/translations/families/tg-page-1/assignments?channel=production&tenant_id=tenant-1&org_id=org-1", map[string]any{
+		"target_locale": "fr",
+		"assignee_id":   "translator-1",
+		"work_scope":    "localization",
+	}, map[string]string{"X-User-ID": "assigner-1"})
+	if status != http.StatusOK {
+		t.Fatalf("status=%d want=200 payload=%+v", status, payload)
+	}
+	assignment := extractMap(extractMap(payload["data"])["assignment"])
+	if got := toString(assignment["priority"]); got != string(PriorityHigh) {
+		t.Fatalf("expected priority high to be preserved, got %q", got)
+	}
+	if got := toInt(assignment["row_version"]); got != 1 {
+		t.Fatalf("expected row_version to remain 1 for no-op assignment, got %d", got)
+	}
+}
+
+func TestTranslationFamilyBindingCreateAssignmentRejectsInProgressAndInReview(t *testing.T) {
+	for _, status := range []AssignmentStatus{AssignmentStatusInProgress, AssignmentStatusInReview} {
+		t.Run(string(status), func(t *testing.T) {
+			fixture := newTranslationFamilyMutationFixture(t, translationFamilyMutationFixtureOptions{
+				RequiredLocales: []string{"fr"},
+				Assignments: []TranslationAssignment{
+					{
+						ID:             "asg-active-fr",
+						FamilyID:       "tg-page-1",
+						EntityType:     "pages",
+						TenantID:       "tenant-1",
+						OrgID:          "org-1",
+						SourceRecordID: "page-1",
+						SourceLocale:   "en",
+						TargetLocale:   "fr",
+						WorkScope:      "localization",
+						AssignmentType: AssignmentTypeDirect,
+						Status:         status,
+						AssigneeID:     "translator-1",
+						Priority:       PriorityNormal,
+						CreatedAt:      time.Date(2026, 2, 17, 9, 0, 0, 0, time.UTC),
+						UpdatedAt:      time.Date(2026, 2, 17, 10, 0, 0, 0, time.UTC),
+					},
+				},
+			})
+			httpStatus, payload := doTranslationFamilyJSONRequest(t, fixture.app, http.MethodPost, "/admin/api/translations/families/tg-page-1/assignments?channel=production&tenant_id=tenant-1&org_id=org-1", map[string]any{
+				"target_locale": "fr",
+				"assignee_id":   "translator-2",
+				"work_scope":    "localization",
+			}, map[string]string{"X-User-ID": "assigner-1"})
+			if httpStatus != http.StatusConflict {
+				t.Fatalf("expected conflict, got status=%d payload=%+v", httpStatus, payload)
+			}
+			metadata := extractMap(extractMap(payload["error"])["metadata"])
+			if got := toString(metadata["from_status"]); got != string(status) {
+				t.Fatalf("expected from_status %q, got %q", status, got)
+			}
+		})
+	}
+}
+
+func TestTranslationFamilyBindingCreateAssignmentIdempotencyReplayAndConflict(t *testing.T) {
+	fixture := newTranslationFamilyMutationFixture(t, translationFamilyMutationFixtureOptions{
+		RequiredLocales: []string{"fr"},
+	})
+	createVariantStatus, createVariantPayload := doTranslationFamilyJSONRequest(t, fixture.app, http.MethodPost, "/admin/api/translations/families/tg-page-1/variants?channel=production&tenant_id=tenant-1&org_id=org-1", map[string]any{
+		"locale": "fr",
+	}, nil)
+	if createVariantStatus != http.StatusOK {
+		t.Fatalf("create variant status=%d payload=%+v", createVariantStatus, createVariantPayload)
+	}
+
+	path := "/admin/api/translations/families/tg-page-1/assignments?channel=production&tenant_id=tenant-1&org_id=org-1"
+	headers := map[string]string{"X-User-ID": "assigner-1", "X-Idempotency-Key": "assign-fr"}
+	body := map[string]any{
+		"target_locale": "fr",
+		"assignee_id":   "translator-1",
+		"priority":      "normal",
+		"work_scope":    "localization",
+	}
+	firstStatus, firstPayload := doTranslationFamilyJSONRequest(t, fixture.app, http.MethodPost, path, body, headers)
+	if firstStatus != http.StatusOK {
+		t.Fatalf("first status=%d payload=%+v", firstStatus, firstPayload)
+	}
+	secondStatus, secondPayload := doTranslationFamilyJSONRequest(t, fixture.app, http.MethodPost, path, body, headers)
+	if secondStatus != http.StatusOK {
+		t.Fatalf("second status=%d payload=%+v", secondStatus, secondPayload)
+	}
+	if !testBool(t, extractMap(secondPayload["meta"])["idempotency_hit"], "meta.idempotency_hit") {
+		t.Fatalf("expected idempotency replay, got %+v", secondPayload)
+	}
+	conflictStatus, conflictPayload := doTranslationFamilyJSONRequest(t, fixture.app, http.MethodPost, path, map[string]any{
+		"target_locale": "fr",
+		"assignee_id":   "translator-1",
+		"priority":      "high",
+		"work_scope":    "localization",
+	}, headers)
+	if conflictStatus != http.StatusConflict {
+		t.Fatalf("expected idempotency conflict, got status=%d payload=%+v", conflictStatus, conflictPayload)
+	}
+}
+
 func TestTranslationFamilyBindingCreateVariantIdempotencyReplaySurvivesBindingRestart(t *testing.T) {
 	fixture := newTranslationFamilyMutationFixture(t, translationFamilyMutationFixtureOptions{
 		RequiredLocales:      []string{"fr"},
@@ -1096,6 +1450,13 @@ func newTranslationFamilyTestApp(t *testing.T, binding *translationFamilyBinding
 	})
 	r.Post("/admin/api/translations/families/:family_id/variants", func(c router.Context) error {
 		payload, err := binding.Create(c, c.Param("family_id"))
+		if err != nil {
+			return writeError(c, err)
+		}
+		return writeJSON(c, payload)
+	})
+	r.Post("/admin/api/translations/families/:family_id/assignments", func(c router.Context) error {
+		payload, err := binding.CreateAssignment(c, c.Param("family_id"))
 		if err != nil {
 			return writeError(c, err)
 		}
@@ -1357,8 +1718,10 @@ func newTranslationFamilyMutationFixture(t *testing.T, options translationFamily
 	})
 	adm.WithAuthorizer(translationPermissionAuthorizer{
 		allowed: map[string]bool{
-			PermAdminTranslationsView: true,
-			PermAdminTranslationsEdit: true,
+			PermAdminTranslationsView:   true,
+			PermAdminTranslationsEdit:   true,
+			PermAdminTranslationsAssign: true,
+			PermAdminTranslationsClaim:  true,
 		},
 	})
 	adm.UseCMS(&NoopCMSContainer{

@@ -621,6 +621,44 @@ func TestTranslationEditorAssignmentPreviewReturnsUnavailableWhenPathMissing(t *
 	}
 }
 
+func TestTranslationEditorAssignmentPreviewRequiresAllowlistedAbsolutePreviewURL(t *testing.T) {
+	fixture := newTranslationEditorTestFixture(t, translationEditorTestFixtureOptions{})
+	target, err := fixture.content.Page(context.Background(), fixture.targetRecordID, "")
+	if err != nil || target == nil {
+		t.Fatalf("load target page: %v", err)
+	}
+	updated := cloneCMSPage(*target)
+	updated.Slug = " "
+	updated.PreviewURL = "https://preview.example.test/fr/page-1?lang=fr#draft"
+	updated.Data = map[string]any{
+		"body": "Target body with absolute preview URL.",
+	}
+	if _, err := fixture.content.UpdatePage(context.Background(), updated); err != nil {
+		t.Fatalf("update target page with absolute preview url: %v", err)
+	}
+	syncTranslationFamilyFixtureStore(t, fixture.admin, "production")
+
+	status, payload := doTranslationEditorJSONRequest(t, fixture.app, http.MethodGet, "/admin/api/translations/assignments/"+fixture.assignmentID+"/preview?channel=production&tenant_id=tenant-1&org_id=org-1", nil)
+	if status != http.StatusOK {
+		t.Fatalf("status=%d want=200 payload=%+v", status, payload)
+	}
+	assertTranslationPreviewDisabled(t, payload, translationPreviewReasonPathMissing)
+
+	fixture.admin.AddPreviewURLAllowedHost("https://preview.example.test/base")
+	status, payload = doTranslationEditorJSONRequest(t, fixture.app, http.MethodGet, "/admin/api/translations/assignments/"+fixture.assignmentID+"/preview?channel=production&tenant_id=tenant-1&org_id=org-1", nil)
+	if status != http.StatusOK {
+		t.Fatalf("status=%d want=200 payload=%+v", status, payload)
+	}
+	data := extractMap(payload["data"])
+	if !toBool(data["enabled"]) {
+		t.Fatalf("expected allowlisted absolute preview enabled, got %+v", data)
+	}
+	rawURL := toString(data["url"])
+	if !strings.HasPrefix(rawURL, "https://preview.example.test/fr/page-1?lang=fr&preview_token=") || !strings.HasSuffix(rawURL, "#draft") {
+		t.Fatalf("expected allowlisted absolute preview URL with token before fragment, got %q", rawURL)
+	}
+}
+
 func TestTranslationEditorAssignmentPreviewReturnsUnavailableWhenTargetRecordMissing(t *testing.T) {
 	fixture := newTranslationEditorTestFixture(t, translationEditorTestFixtureOptions{})
 	if err := fixture.content.DeletePage(context.Background(), fixture.targetRecordID); err != nil {
@@ -1111,6 +1149,16 @@ func TestTranslationEditorDraftSyncMaintainsSourceHashAndRowVersion(t *testing.T
 	fields := mapString(payloadPath(data, "fields"))
 	if got := fields["title"]; got != "Guide de publication" {
 		t.Fatalf("expected updated title, got %q", got)
+	}
+	preview := extractMap(data["preview_action"])
+	if !toBool(preview["enabled"]) {
+		t.Fatalf("expected draft sync response to refresh enabled preview_action, got %+v", preview)
+	}
+	if got := toString(preview["target_record_id"]); got != fixture.targetRecordID {
+		t.Fatalf("expected draft sync preview target_record_id %q, got %q", fixture.targetRecordID, got)
+	}
+	if got := toString(preview["url"]); got != "" {
+		t.Fatalf("expected draft sync preview_action to omit signed URL, got %q", got)
 	}
 	fieldDrift := extractMap(data["field_drift"])
 	if changed := toBool(extractMap(fieldDrift["title"])["changed"]); !changed {
