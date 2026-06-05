@@ -346,6 +346,28 @@ function makeWorkflowBlockedFixture() {
   return next;
 }
 
+function makeApprovedAssignmentFixture() {
+  const next = makeSubmitReadyFixture();
+  next.data.status = 'approved';
+  next.data.translation_assignment = {
+    ...next.data.translation_assignment,
+    status: 'approved',
+    queue_state: 'approved',
+    version: 6,
+    row_version: 6,
+  };
+  next.data.assignment_action_states = {
+    ...next.data.assignment_action_states,
+    submit_review: {
+      enabled: false,
+      permission: 'admin.translations.edit',
+      reason: 'assignment must be in progress',
+      reason_code: 'INVALID_STATUS',
+    },
+  };
+  return next;
+}
+
 function makePreviewUnavailableFixture() {
   const next = structuredClone(fixtures.detail);
   next.data.preview_action = {
@@ -777,6 +799,22 @@ test('translation editor runtime: field completion copy is distinct from submit 
   assert.match(html, /Submit unavailable/);
   assert.match(html, /data-submit-unavailable-reason="true"/);
   assert.match(html, /assignment must be in progress/);
+});
+
+test('translation editor runtime: approved assignments render as read-only inspection views', () => {
+  const detail = normalizeAssignmentEditorDetail(makeApprovedAssignmentFixture());
+  const html = renderTranslationEditorState(
+    { status: 'ready', detail },
+    createTranslationEditorState(detail)
+  );
+
+  assert.match(html, /data-editor-read-only="true"/);
+  assert.match(html, /can be inspected but not edited/);
+  assert.match(html, /data-action="save-draft"[\s\S]*disabled aria-disabled="true"/);
+  assert.match(html, /data-action="preview-assignment"[\s\S]*disabled aria-disabled="true"/);
+  assert.match(html, /data-action="submit-review"[\s\S]*disabled aria-disabled="true"/);
+  assert.match(html, /data-copy-source="body"[\s\S]*disabled aria-disabled="true"/);
+  assert.match(html, /data-field-input="body"[\s\S]*disabled aria-disabled="true"/);
 });
 
 test('translation editor runtime: renders locale navigation without missing-locale fallbacks', () => {
@@ -1648,6 +1686,118 @@ test('translation editor runtime: submit guard blocks QA-blocked actions before 
   assert.equal(fetchCalls, 2);
   assert.match(container.innerHTML, /Resolve QA blockers before submitting for review\./i);
   assert.match(container.innerHTML, /data-editor-feedback-kind="conflict"/);
+});
+
+test('translation editor runtime: successful submit reloads terminal action state', async () => {
+  const { root, window } = setupDom();
+  installTranslationSyncCoreStub(window);
+  let detailReads = 0;
+  globalThis.fetch = mock.fn(async (input, init = {}) => {
+    const method = String(init.method || 'GET').toUpperCase();
+    const url = String(input);
+    if (method === 'GET' && url.includes('/api/translations/assignments/asg-editor-1')) {
+      detailReads += 1;
+      return createJsonResponse(detailReads === 1 ? makeSubmitReadyFixture() : makeApprovedAssignmentFixture());
+    }
+    if (method === 'GET' && url.includes('/api/translations/sync/resources/translation_variant_draft/')) {
+      return createJsonResponse({
+        data: makeSubmitReadyFixture().data,
+        revision: 6,
+        updated_at: '2026-01-01T00:00:00Z',
+      });
+    }
+    if (method === 'POST' && url.includes('/actions/submit_review')) {
+      return createJsonResponse({
+        data: {
+          status: 'approved',
+        },
+      });
+    }
+    return createJsonResponse({ error: { message: 'unexpected request' } }, 500, {
+      'content-type': 'application/json',
+    });
+  });
+
+  const screen = new TranslationEditorScreen({
+    endpoint: '/admin/api/translations/assignments/asg-editor-1',
+    actionEndpointBase: '/admin/api/translations/assignments',
+  });
+  screen.mount(root);
+  await flushAsync();
+  await flushAsync();
+
+  root.querySelector('[data-action="submit-review"]').click();
+  for (let i = 0; i < 8; i += 1) {
+    await flushAsync();
+    if (detailReads >= 2) break;
+  }
+
+  assert.equal(detailReads, 2);
+  assert.match(root.innerHTML, /data-editor-read-only="true"/);
+  assert.match(root.innerHTML, /data-action="submit-review"[\s\S]*disabled aria-disabled="true"/);
+
+  screen.unmount();
+});
+
+test('translation editor runtime: stale submit status reloads approved read-only state', async () => {
+  const { root, window } = setupDom();
+  installTranslationSyncCoreStub(window);
+  const requests = [];
+  let detailReads = 0;
+  globalThis.fetch = mock.fn(async (input, init = {}) => {
+    const method = String(init.method || 'GET').toUpperCase();
+    const url = String(input);
+    requests.push({ url, method, init });
+    if (method === 'GET' && url.includes('/api/translations/assignments/asg-editor-1')) {
+      detailReads += 1;
+      return createJsonResponse(detailReads === 1 ? makeSubmitReadyFixture() : makeApprovedAssignmentFixture());
+    }
+    if (method === 'GET' && url.includes('/api/translations/sync/resources/translation_variant_draft/')) {
+      return createJsonResponse({
+        data: makeSubmitReadyFixture().data,
+        revision: 6,
+        updated_at: '2026-01-01T00:00:00Z',
+      });
+    }
+    if (method === 'POST' && url.includes('/actions/submit_review')) {
+      return createJsonResponse({
+        error: {
+          text_code: 'INVALID_STATUS_TRANSITION',
+          message: 'assignment must be in progress before it can be submitted',
+          metadata: {
+            status: 'approved',
+          },
+        },
+      }, 409, {
+        'content-type': 'application/json',
+      });
+    }
+    return createJsonResponse({ error: { message: 'unexpected request' } }, 500, {
+      'content-type': 'application/json',
+    });
+  });
+
+  const screen = new TranslationEditorScreen({
+    endpoint: '/admin/api/translations/assignments/asg-editor-1',
+    actionEndpointBase: '/admin/api/translations/assignments',
+  });
+  screen.mount(root);
+  await flushAsync();
+  await flushAsync();
+
+  root.querySelector('[data-action="submit-review"]').click();
+  for (let i = 0; i < 8; i += 1) {
+    await flushAsync();
+    if (detailReads >= 2) break;
+  }
+
+  assert.equal(detailReads, 2);
+  assert.ok(requests.some((request) => request.method === 'POST' && request.url.includes('/actions/submit_review')));
+  assert.match(root.innerHTML, /assignment must be in progress before it can be submitted/);
+  assert.match(root.innerHTML, /data-editor-read-only="true"/);
+  assert.match(root.innerHTML, /data-action="submit-review"[\s\S]*disabled aria-disabled="true"/);
+
+  screen.unmount();
 });
 
 test('translation editor runtime: fetch detail maps conflict diagnostics', async () => {
