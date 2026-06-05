@@ -204,6 +204,7 @@ func translationEditorVariantPayload(ctx context.Context, b *translationQueueBin
 		"review_action_states":     b.reviewActionStates(ctx, currentAssignment),
 		"qa_results":               qaResults,
 		"assist":                   translationEditorAssistPayload(ctx, b, reloaded),
+		"preview_action":           b.assignmentPreviewAction(AdminContext{Context: ctx}, currentAssignment, reloaded, false),
 	}
 }
 
@@ -473,7 +474,10 @@ func (b *translationQueueBinding) assignmentPreviewAction(adminCtx AdminContext,
 	if err != nil {
 		return disabled(translationPreviewReasonTemporarilyUnavailable, "Preview is temporarily unavailable.")
 	}
-	out["url"] = BuildSitePreviewURL(targetPath, token)
+	out["url"] = b.admin.BuildSitePreviewURL(targetPath, token)
+	if out["url"] == "" {
+		return disabled(translationPreviewReasonPathMissing, "Preview is unavailable because the target content has no allowed preview URL.")
+	}
 	return out
 }
 

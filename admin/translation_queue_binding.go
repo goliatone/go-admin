@@ -3133,6 +3133,7 @@ func translationQueueAssignmentContractRow(assignment TranslationAssignment, now
 	row := map[string]any{
 		"id":               strings.TrimSpace(assignment.ID),
 		"family_id":        strings.TrimSpace(assignment.FamilyID),
+		"variant_id":       strings.TrimSpace(assignment.VariantID),
 		"entity_type":      strings.TrimSpace(assignment.EntityType),
 		"source_record_id": strings.TrimSpace(assignment.SourceRecordID),
 		"target_record_id": strings.TrimSpace(assignment.TargetRecordID),
