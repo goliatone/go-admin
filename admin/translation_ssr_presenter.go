@@ -118,12 +118,7 @@ func (a *TranslationAssignmentResourceAdapter) Index(c router.Context, input Tra
 	if err != nil {
 		return TranslationSSRResourceResult{}, err
 	}
-	data, meta := translationSSRPayloadSections(payload)
-	return TranslationSSRResourceResult{
-		Data:     data,
-		Meta:     meta,
-		DataGrid: translationSSRQueueDataGrid(input, data, meta),
-	}, nil
+	return translationSSRQueueResult(input, payload), nil
 }
 
 func (a *TranslationAssignmentResourceAdapter) Show(c router.Context, input TranslationSSRPresenterInput) (TranslationSSRResourceResult, error) {
@@ -250,6 +245,15 @@ func translationSSRPayloadSections(payload any) (map[string]any, map[string]any)
 	data := extractMap(rawData)
 	meta := extractMap(root["meta"])
 	_, rawDataIsMap := rawData.(map[string]any)
+	if !hasRawData && len(root) > 0 {
+		data = map[string]any{}
+		for key, value := range root {
+			if key == "meta" {
+				continue
+			}
+			data[key] = value
+		}
+	}
 	if data == nil || (len(data) == 0 && hasRawData && !rawDataIsMap) {
 		data = map[string]any{}
 		if hasRawData && rawData != nil {
@@ -294,6 +298,51 @@ func translationSSRFamilyListDataGrid(input TranslationSSRPresenterInput, data, 
 		"url_state": map[string]any{"preserve_channel": true, "channel": strings.TrimSpace(input.Channel), "filters": cloneStringMap(input.Query)},
 		"items_key": "families",
 		"count":     len(translationSSRList(data, "families", "items")),
+	}
+}
+
+func translationSSRQueueResult(input TranslationSSRPresenterInput, payload any) TranslationSSRResourceResult {
+	data, meta := translationSSRPayloadSections(payload)
+	rows := translationSSRList(data, "rows", "data", "items", "assignments")
+	if len(rows) > 0 {
+		data["rows"] = rows
+		data["items"] = rows
+	}
+	for _, key := range []string{"total", "page", "per_page", "channel", "updated_at", "summary"} {
+		if _, exists := meta[key]; !exists {
+			if value, ok := data[key]; ok {
+				meta[key] = value
+			}
+		}
+	}
+	if _, exists := meta["supported_sort_keys"]; !exists {
+		meta["supported_sort_keys"] = TranslationQueueSupportedSortKeys()
+	}
+	if _, exists := meta["supported_filter_keys"]; !exists {
+		meta["supported_filter_keys"] = TranslationQueueSupportedFilterKeys()
+	}
+	if _, exists := meta["supported_review_states"]; !exists {
+		meta["supported_review_states"] = TranslationQueueSupportedReviewStates()
+	}
+	if _, exists := meta["default_sort"]; !exists {
+		meta["default_sort"] = translationQueueDefaultSortContract()
+	}
+	if _, exists := meta["saved_filter_presets"]; !exists {
+		meta["saved_filter_presets"] = TranslationQueueSavedFilterPresets()
+	}
+	if _, exists := meta["saved_review_filter_presets"]; !exists {
+		meta["saved_review_filter_presets"] = TranslationQueueSavedReviewFilterPresets()
+	}
+	if _, exists := meta["grouping"]; !exists {
+		meta["grouping"] = map[string]any{"mode": "flat"}
+	}
+	if _, exists := meta["bulk_selection"]; !exists {
+		meta["bulk_selection"] = map[string]any{"mode": "current_page"}
+	}
+	return TranslationSSRResourceResult{
+		Data:     data,
+		Meta:     meta,
+		DataGrid: translationSSRQueueDataGrid(input, data, meta),
 	}
 }
 

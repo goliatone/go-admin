@@ -159,3 +159,29 @@ func TestLoadTranslationExchangeUIRuntimeConfig(t *testing.T) {
 		t.Fatalf("expected dry_run=true decoded")
 	}
 }
+
+func TestExampleAppDeclaresTranslationExchangeUIConfig(t *testing.T) {
+	cfg, _, err := Load(context.Background(), "app.json")
+	if err != nil {
+		t.Fatalf("load example app config: %v", err)
+	}
+	ui := cfg.Translation.ExchangeUI
+	if ui.SourceLocale != "en" {
+		t.Fatalf("expected source locale en, got %q", ui.SourceLocale)
+	}
+	if len(ui.SourceLocales) != 1 || ui.SourceLocales[0].Code != "en" {
+		t.Fatalf("expected explicit source locale options, got %+v", ui.SourceLocales)
+	}
+	if len(ui.TargetLocales) != 2 || ui.TargetLocales[0].Code != "es" || ui.TargetLocales[1].Code != "fr" {
+		t.Fatalf("expected explicit es/fr target locale options, got %+v", ui.TargetLocales)
+	}
+	if len(ui.DefaultTargetLocales) != 2 || ui.DefaultTargetLocales[0] != "es" || ui.DefaultTargetLocales[1] != "fr" {
+		t.Fatalf("expected explicit default targets, got %+v", ui.DefaultTargetLocales)
+	}
+	if len(ui.Resources) != 2 || ui.Resources[0].ID != "pages" || ui.Resources[1].ID != "posts" {
+		t.Fatalf("expected explicit pages/posts resources, got %+v", ui.Resources)
+	}
+	if len(ui.DefaultResources) != 2 || ui.DefaultResources[0] != "pages" || ui.DefaultResources[1] != "posts" {
+		t.Fatalf("expected explicit default resources, got %+v", ui.DefaultResources)
+	}
+}

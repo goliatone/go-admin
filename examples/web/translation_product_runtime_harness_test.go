@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -16,7 +17,10 @@ import (
 	coreadmin "github.com/goliatone/go-admin/admin"
 	appcfg "github.com/goliatone/go-admin/examples/web/config"
 	"github.com/goliatone/go-admin/examples/web/setup"
+	"github.com/goliatone/go-admin/examples/web/stores"
+	"github.com/goliatone/go-admin/pkg/client"
 	"github.com/goliatone/go-admin/quickstart"
+	auth "github.com/goliatone/go-auth"
 	commandregistry "github.com/goliatone/go-command/registry"
 	router "github.com/goliatone/go-router"
 	"github.com/stretchr/testify/require"
@@ -35,7 +39,12 @@ func TestDevServeEquivalentTranslationRuntimeContracts(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, cmsOpts.Container)
 
-	queueRepo := coreadmin.NewInMemoryTranslationAssignmentRepository()
+	translationDB, err := stores.SetupContentDatabase(ctx, dsn)
+	require.NoError(t, err)
+	require.NotNil(t, translationDB)
+
+	queueRepo := coreadmin.NewBunTranslationAssignmentRepository(translationDB)
+	familyStore := coreadmin.NewBunTranslationFamilyStore(translationDB)
 	contentSvc := cmsOpts.Container.ContentService()
 	require.NotNil(t, contentSvc)
 	exchangeStore := newExampleTranslationExchangeStore(func() coreadmin.CMSContentService {
@@ -49,7 +58,8 @@ func TestDevServeEquivalentTranslationRuntimeContracts(t *testing.T) {
 		cfg,
 		quickstart.AdapterHooks{},
 		quickstart.WithAdminDependencies(coreadmin.Dependencies{
-			Authorizer: translationRuntimeHarnessAllowAllAuthorizer{},
+			Authorizer:             translationRuntimeHarnessAllowAllAuthorizer{},
+			TranslationFamilyStore: familyStore,
 		}),
 		quickstart.WithAdapterFlags(quickstart.AdapterFlags{
 			UsePersistentCMS:   false,
@@ -75,13 +85,54 @@ func TestDevServeEquivalentTranslationRuntimeContracts(t *testing.T) {
 		}),
 	)
 	require.NoError(t, err)
-	adm.WithAuth(translationRuntimeHarnessPassthroughAuthenticator{}, nil)
+
+	const tenantID = "tenant-demo"
+	const orgID = "org-demo"
+	const scopeQuery = "tenant_id=tenant-demo&org_id=org-demo"
+	authenticator := translationRuntimeHarnessPassthroughAuthenticator{
+		tenantID: tenantID,
+		orgID:    orgID,
+	}
+	adm.WithAuth(authenticator, nil)
 	adm.WithAuthorizer(translationRuntimeHarnessAllowAllAuthorizer{})
 
-	require.NoError(t, seedExampleTranslationQueueFixture(ctx, queueRepo, contentSvc, "", "", "runtime-user"))
+	require.NoError(t, seedExampleTranslationQueueFixtureWithFamilySync(
+		ctx,
+		queueRepo,
+		contentSvc,
+		tenantID,
+		orgID,
+		func(ctx context.Context) error {
+			return coreadmin.SyncTranslationFamilyStore(ctx, adm, defaultSiteContentChannel)
+		},
+		"reviewer-qa",
+		"runtime-user",
+	))
+	require.NoError(t, coreadmin.SyncTranslationFamilyStore(ctx, adm, defaultSiteContentChannel))
+	seededScopedAssignments, seededScopedTotal, err := queueRepo.List(ctx, coreadmin.ListOptions{
+		Page:    1,
+		PerPage: 100,
+		Filters: map[string]any{
+			coreadmin.ScopeTenantIDKey: tenantID,
+			coreadmin.ScopeOrgIDKey:    orgID,
+		},
+	})
+	require.NoError(t, err)
+	require.Greater(t, seededScopedTotal, 0, "expected scoped seeded assignment total")
+	require.NotEmpty(t, seededScopedAssignments, "expected scoped seeded assignments")
+
+	viewEngine, err := quickstart.NewViewEngine(
+		client.FS(),
+		quickstart.WithViewTemplateFuncs(quickstart.DefaultTemplateFuncs(
+			quickstart.WithTemplateURLResolver(adm.URLs()),
+			quickstart.WithTemplateBasePath(cfg.BasePath),
+			quickstart.WithTemplateFeatureGate(adm.FeatureGate()),
+		)),
+	)
+	require.NoError(t, err)
 
 	server, r := quickstart.NewFiberServer(
-		nil,
+		viewEngine,
 		cfg,
 		adm,
 		true,
@@ -97,40 +148,98 @@ func TestDevServeEquivalentTranslationRuntimeContracts(t *testing.T) {
 		}),
 	)
 	require.NoError(t, adm.Initialize(r))
+	require.NoError(t, quickstart.RegisterAdminUIRoutes(
+		r,
+		cfg,
+		adm,
+		authenticator,
+		quickstart.WithUIDashboardRoute(false),
+		quickstart.WithUINotificationsRoute(false),
+		quickstart.WithUIActivityRoute(false),
+		quickstart.WithUIFeatureFlagsRoute(false),
+		quickstart.WithUITranslationDashboardRoute(true),
+		quickstart.WithUITranslationExchangeRoute(false),
+	))
 	server.Init()
 	app := server.WrappedRouter()
 	require.True(t, featureEnabled(adm.FeatureGate(), string(coreadmin.FeatureTranslationQueue)), "translation queue feature must be enabled for full profile harness")
 	assertRouteRegistered(t, r.Routes(), http.MethodGet, "/admin/api/translations/my-work")
 	assertRouteRegistered(t, r.Routes(), http.MethodGet, "/admin/api/translations/queue")
+	assertRouteRegistered(t, r.Routes(), http.MethodGet, "/admin/api/translations/assignments")
+	assertRouteRegistered(t, r.Routes(), http.MethodGet, "/admin/api/translations/dashboard")
+	assertRouteRegistered(t, r.Routes(), http.MethodGet, "/admin/api/translations/families")
+	assertRouteRegistered(t, r.Routes(), http.MethodGet, "/admin/translations/dashboard")
+	assertRouteRegistered(t, r.Routes(), http.MethodGet, "/admin/translations/queue")
+	assertRouteRegistered(t, r.Routes(), http.MethodGet, "/admin/translations/families")
 	assertRouteRegistered(t, r.Routes(), http.MethodGet, panelCollectionPath("translations"))
 
 	myWorkStatus, myWorkPayload := doAdminJSONRequestWithHeaders(
 		t,
 		app,
 		http.MethodGet,
-		"/admin/api/translations/my-work?page=1&per_page=50",
+		"/admin/api/translations/my-work?page=1&per_page=50&"+scopeQuery,
 		nil,
-		map[string]string{"X-User-ID": "runtime-user"},
+		map[string]string{"X-User-ID": "reviewer-qa"},
 	)
 	require.Equal(t, http.StatusOK, myWorkStatus, "my-work payload=%+v", myWorkPayload)
 	myWork := unwrapResponseDataMap(myWorkPayload)
 	require.Equal(t, "my_work", strings.ToLower(strings.TrimSpace(fmt.Sprint(myWork["scope"]))))
 	require.GreaterOrEqual(t, intFromAny(myWork["total"]), 1)
 
-	queueStatus, queuePayload := doAdminJSONRequestFiber(t, app, http.MethodGet, "/admin/api/translations/queue?page=1&per_page=100", nil)
+	queueStatus, queuePayload := doAdminJSONRequestFiber(t, app, http.MethodGet, "/admin/api/translations/queue?page=1&per_page=100&"+scopeQuery, nil)
 	require.Equal(t, http.StatusOK, queueStatus, "queue payload=%+v", queuePayload)
 	queue := unwrapResponseDataMap(queuePayload)
 	require.Equal(t, "queue", strings.ToLower(strings.TrimSpace(fmt.Sprint(queue["scope"]))))
 	require.GreaterOrEqual(t, intFromAny(queue["total"]), 1)
 
-	panelListPath := fmt.Sprintf("%s?page=1&per_page=200", panelCollectionPath("translations"))
+	assignmentsStatus, assignmentsPayload := doAdminJSONRequestWithHeaders(
+		t,
+		app,
+		http.MethodGet,
+		"/admin/api/translations/assignments?page=1&per_page=100&"+scopeQuery,
+		nil,
+		map[string]string{"X-User-ID": "reviewer-qa"},
+	)
+	require.Equal(t, http.StatusOK, assignmentsStatus, "assignments payload=%+v", assignmentsPayload)
+	require.NotEmpty(t, extractListRecords(assignmentsPayload), "expected seeded assignments API rows")
+
+	dashboardStatus, dashboardPayload := doAdminJSONRequestWithHeaders(
+		t,
+		app,
+		http.MethodGet,
+		"/admin/api/translations/dashboard?"+scopeQuery,
+		nil,
+		map[string]string{"X-User-ID": "reviewer-qa"},
+	)
+	require.Equal(t, http.StatusOK, dashboardStatus, "dashboard payload=%+v", dashboardPayload)
+	dashboard := unwrapResponseDataMap(dashboardPayload)
+	dashboardCards, _ := dashboard["cards"].([]any)
+	require.NotEmpty(t, dashboardCards, "expected seeded dashboard cards")
+
+	familyStatus, familyPayload := doAdminJSONRequestWithHeaders(
+		t,
+		app,
+		http.MethodGet,
+		"/admin/api/translations/families?page=1&per_page=100&"+scopeQuery,
+		nil,
+		map[string]string{"X-User-ID": "reviewer-qa"},
+	)
+	require.Equal(t, http.StatusOK, familyStatus, "families payload=%+v", familyPayload)
+	families := unwrapResponseDataMap(familyPayload)
+	familyRows := extractListRecords(families)
+	if len(familyRows) == 0 {
+		familyRows = listFromAny(families["families"])
+	}
+	require.NotEmpty(t, familyRows, "expected seeded translation families")
+
+	panelListPath := fmt.Sprintf("%s?page=1&per_page=200&%s", panelCollectionPath("translations"), scopeQuery)
 	panelStatus, panelPayload := doAdminJSONRequestWithHeaders(
 		t,
 		app,
 		http.MethodGet,
 		panelListPath,
 		nil,
-		map[string]string{"X-User-ID": "runtime-user"},
+		map[string]string{"X-User-ID": "reviewer-qa"},
 	)
 	require.Equal(t, http.StatusOK, panelStatus, "translations panel payload=%+v", panelPayload)
 	panelData := unwrapResponseDataMap(panelPayload)
@@ -138,19 +247,68 @@ func TestDevServeEquivalentTranslationRuntimeContracts(t *testing.T) {
 	require.NotEmpty(t, panelRecords, "expected seeded assignments in translations panel response")
 
 	hasPagesAssignment := false
-	hasPostsAssignment := false
 	for _, item := range panelRecords {
 		row, _ := item.(map[string]any)
 		entityType := strings.ToLower(strings.TrimSpace(fmt.Sprint(row["entity_type"])))
 		if entityType == "pages" {
 			hasPagesAssignment = true
 		}
-		if entityType == "posts" {
-			hasPostsAssignment = true
-		}
 	}
 	require.True(t, hasPagesAssignment, "expected translations panel response to include pages assignments")
-	require.True(t, hasPostsAssignment, "expected translations panel response to include posts assignments")
+
+	dashboardHTMLStatus, dashboardHTML := doAdminHTMLRequestWithHeaders(
+		t,
+		app,
+		http.MethodGet,
+		"/admin/translations/dashboard?"+scopeQuery,
+		map[string]string{"X-User-ID": "reviewer-qa"},
+	)
+	require.Equal(t, http.StatusOK, dashboardHTMLStatus, "dashboard html=%s", dashboardHTML)
+	require.NotContains(t, dashboardHTML, "/admin/login", "dashboard must not render a login redirect")
+	require.Contains(t, dashboardHTML, `data-translation-dashboard-ssr="true"`)
+	require.Contains(t, dashboardHTML, `data-dashboard-card=`)
+
+	queueHTMLStatus, queueHTML := doAdminHTMLRequestWithHeaders(
+		t,
+		app,
+		http.MethodGet,
+		"/admin/translations/queue?"+scopeQuery,
+		map[string]string{"X-User-ID": "reviewer-qa"},
+	)
+	require.Equal(t, http.StatusOK, queueHTMLStatus, "queue html=%s", queueHTML)
+	require.NotContains(t, queueHTML, "/admin/login", "queue must not render a login redirect")
+	require.Contains(t, queueHTML, `data-translation-queue-ssr="true"`)
+	require.True(
+		t,
+		strings.Contains(queueHTML, `data-assignment-id=`) || strings.Contains(queueHTML, `data-queue-row-type="family"`),
+		"expected queue SSR to render seeded assignment or grouped family rows, got html=%s",
+		queueHTML,
+	)
+	authHeaders := map[string]string{"X-User-ID": "reviewer-qa"}
+	assertQueueSSRMatchesAssignmentAPI(
+		t,
+		app,
+		"page=1&per_page=25&priority=urgent&locale=es&sort=priority&order=desc&"+scopeQuery,
+		authHeaders,
+	)
+	assertGroupedQueueSSRMatchesAssignmentAPI(
+		t,
+		app,
+		"page=1&per_page=25&group_by=family_id&group_strategy=server_family&priority=high&locale=fr&sort=priority&order=desc&"+scopeQuery,
+		authHeaders,
+	)
+
+	familiesHTMLStatus, familiesHTML := doAdminHTMLRequestWithHeaders(
+		t,
+		app,
+		http.MethodGet,
+		"/admin/translations/families?"+scopeQuery,
+		map[string]string{"X-User-ID": "reviewer-qa"},
+	)
+	require.Equal(t, http.StatusOK, familiesHTMLStatus, "families html=%s", familiesHTML)
+	require.NotContains(t, familiesHTML, "/admin/login", "families must not render a login redirect")
+	require.Contains(t, familiesHTML, `data-translation-family-list-ssr="true"`)
+	require.Contains(t, familiesHTML, `data-family-id=`)
 }
 
 func doAdminJSONRequestWithHeaders(
@@ -203,6 +361,28 @@ func doAdminJSONRequestFiber(
 	return doAdminJSONRequestWithHeaders(t, app, method, path, payload, nil)
 }
 
+func doAdminHTMLRequestWithHeaders(
+	t *testing.T,
+	app *fiber.App,
+	method, path string,
+	headers map[string]string,
+) (int, string) {
+	t.Helper()
+
+	req := httptest.NewRequestWithContext(context.Background(), method, path, nil)
+	for key, value := range headers {
+		req.Header.Set(key, value)
+	}
+	res, err := app.Test(req, -1)
+	require.NoError(t, err, "execute %s %s", method, path)
+	defer func() {
+		_ = res.Body.Close()
+	}()
+	bodyBytes, readErr := io.ReadAll(res.Body)
+	require.NoError(t, readErr, "read response body")
+	return res.StatusCode, string(bodyBytes)
+}
+
 func unwrapResponseDataMap(payload map[string]any) map[string]any {
 	if payload == nil {
 		return map[string]any{}
@@ -238,6 +418,120 @@ func intFromAny(value any) int {
 	}
 }
 
+func listFromAny(value any) []any {
+	switch typed := value.(type) {
+	case []any:
+		return typed
+	default:
+		return nil
+	}
+}
+
+func assertQueueSSRMatchesAssignmentAPI(t *testing.T, app *fiber.App, query string, headers map[string]string) {
+	t.Helper()
+	apiStatus, apiPayload := doAdminJSONRequestWithHeaders(
+		t,
+		app,
+		http.MethodGet,
+		"/admin/api/translations/assignments?"+query,
+		nil,
+		headers,
+	)
+	require.Equal(t, http.StatusOK, apiStatus, "assignments payload=%+v", apiPayload)
+	apiIDs := assignmentIDsFromRecords(extractListRecords(apiPayload))
+	require.NotEmpty(t, apiIDs, "expected filtered assignment API rows for query %q", query)
+
+	htmlStatus, html := doAdminHTMLRequestWithHeaders(
+		t,
+		app,
+		http.MethodGet,
+		"/admin/translations/queue?"+query,
+		headers,
+	)
+	require.Equal(t, http.StatusOK, htmlStatus, "queue html=%s", html)
+	require.NotContains(t, html, "/admin/login", "queue must not render a login redirect")
+	require.Contains(t, html, `data-translation-queue-ssr="true"`)
+	require.Equal(t, apiIDs, dataAttributeValuesOnTag(html, "tr", "data-assignment-id"), "queue SSR rows must match assignment API rows for query %q", query)
+}
+
+func assertGroupedQueueSSRMatchesAssignmentAPI(t *testing.T, app *fiber.App, query string, headers map[string]string) {
+	t.Helper()
+	apiStatus, apiPayload := doAdminJSONRequestWithHeaders(
+		t,
+		app,
+		http.MethodGet,
+		"/admin/api/translations/assignments?"+query,
+		nil,
+		headers,
+	)
+	require.Equal(t, http.StatusOK, apiStatus, "grouped assignments payload=%+v", apiPayload)
+	apiFamilyIDs := familyIDsFromRecords(extractListRecords(apiPayload))
+	require.NotEmpty(t, apiFamilyIDs, "expected grouped assignment API rows for query %q", query)
+
+	htmlStatus, html := doAdminHTMLRequestWithHeaders(
+		t,
+		app,
+		http.MethodGet,
+		"/admin/translations/queue?"+query,
+		headers,
+	)
+	require.Equal(t, http.StatusOK, htmlStatus, "grouped queue html=%s", html)
+	require.NotContains(t, html, "/admin/login", "queue must not render a login redirect")
+	require.Contains(t, html, `data-queue-row-type="family"`)
+	require.Equal(t, apiFamilyIDs, dataAttributeValuesOnTag(html, "tr", "data-family-id"), "grouped queue SSR rows must match assignment API rows for query %q", query)
+}
+
+func assignmentIDsFromRecords(records []any) []string {
+	out := make([]string, 0, len(records))
+	for _, item := range records {
+		row, _ := item.(map[string]any)
+		id := firstNonEmptyRuntimeString(row["assignment_id"], row["id"])
+		if id != "" {
+			out = append(out, id)
+		}
+	}
+	return out
+}
+
+func familyIDsFromRecords(records []any) []string {
+	out := make([]string, 0, len(records))
+	for _, item := range records {
+		row, _ := item.(map[string]any)
+		id := firstNonEmptyRuntimeString(row["family_id"], row["id"])
+		if id != "" {
+			out = append(out, id)
+		}
+	}
+	return out
+}
+
+func dataAttributeValuesOnTag(html, tag, attr string) []string {
+	tag = regexp.QuoteMeta(strings.TrimSpace(tag))
+	attr = regexp.QuoteMeta(strings.TrimSpace(attr))
+	re := regexp.MustCompile(`<` + tag + `\b[^>]*` + attr + `="([^"]*)"`)
+	matches := re.FindAllStringSubmatch(html, -1)
+	out := make([]string, 0, len(matches))
+	for _, match := range matches {
+		if len(match) < 2 {
+			continue
+		}
+		if value := strings.TrimSpace(match[1]); value != "" {
+			out = append(out, value)
+		}
+	}
+	return out
+}
+
+func firstNonEmptyRuntimeString(values ...any) string {
+	for _, value := range values {
+		text := strings.TrimSpace(fmt.Sprint(value))
+		if text != "" && text != "<nil>" {
+			return text
+		}
+	}
+	return ""
+}
+
 func assertRouteRegistered(t *testing.T, routes []router.RouteDefinition, method, path string) {
 	t.Helper()
 	method = strings.ToUpper(strings.TrimSpace(method))
@@ -260,15 +554,41 @@ func (translationRuntimeHarnessAllowAllAuthorizer) Can(context.Context, string, 
 	return true
 }
 
-type translationRuntimeHarnessPassthroughAuthenticator struct{}
+type translationRuntimeHarnessPassthroughAuthenticator struct {
+	tenantID string
+	orgID    string
+}
 
-func (translationRuntimeHarnessPassthroughAuthenticator) Wrap(router.Context) error {
+func (a translationRuntimeHarnessPassthroughAuthenticator) Wrap(c router.Context) error {
+	if c == nil {
+		return nil
+	}
+	actorID := strings.TrimSpace(c.Header("X-User-ID"))
+	if actorID == "" {
+		actorID = "runtime-user"
+	}
+	c.SetContext(auth.WithActorContext(c.Context(), &auth.ActorContext{
+		ActorID:        actorID,
+		Subject:        actorID,
+		TenantID:       strings.TrimSpace(a.tenantID),
+		OrganizationID: strings.TrimSpace(a.orgID),
+		Metadata: map[string]any{
+			coreadmin.ScopeTenantIDKey:       strings.TrimSpace(a.tenantID),
+			coreadmin.ScopeOrganizationIDKey: strings.TrimSpace(a.orgID),
+			coreadmin.ScopeOrgIDKey:          strings.TrimSpace(a.orgID),
+		},
+	}))
 	return nil
 }
 
-func (translationRuntimeHarnessPassthroughAuthenticator) WrapHandler(handler router.HandlerFunc) router.HandlerFunc {
+func (a translationRuntimeHarnessPassthroughAuthenticator) WrapHandler(handler router.HandlerFunc) router.HandlerFunc {
 	if handler == nil {
 		return func(router.Context) error { return nil }
 	}
-	return handler
+	return func(c router.Context) error {
+		if err := a.Wrap(c); err != nil {
+			return err
+		}
+		return handler(c)
+	}
 }

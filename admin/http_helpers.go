@@ -2,6 +2,7 @@ package admin
 
 import (
 	"encoding/json"
+	"reflect"
 	"strconv"
 	"strings"
 
@@ -102,6 +103,18 @@ func atoiDefault(val string, def int) int {
 func extractMap(val any) map[string]any {
 	if m, ok := val.(map[string]any); ok {
 		return m
+	}
+	rv := reflect.ValueOf(val)
+	if !rv.IsValid() || rv.Kind() != reflect.Map || rv.Type().Key().Kind() != reflect.String {
+		return map[string]any{}
+	}
+	out := make(map[string]any, rv.Len())
+	iter := rv.MapRange()
+	for iter.Next() {
+		out[iter.Key().String()] = iter.Value().Interface()
+	}
+	if len(out) > 0 {
+		return out
 	}
 	return map[string]any{}
 }

@@ -2,13 +2,18 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/goliatone/go-admin/admin"
 	"github.com/goliatone/go-admin/pkg/client"
+	"github.com/goliatone/go-admin/quickstart"
 	formgen "github.com/goliatone/go-formgen"
 	formgenvanilla "github.com/goliatone/go-formgen/pkg/renderers/vanilla"
 	"github.com/goliatone/go-router"
@@ -24,11 +29,19 @@ func TestEmbeddedAssetsServed(t *testing.T) {
 	})
 	r := adapter.Router()
 
-	client.RegisterAssets(r, "/admin/assets")
+	cfg := admin.Config{BasePath: "/admin"}
+	diskAssetsDir := quickstart.ResolveDiskAssetsDir(
+		"output.css",
+		filepath.Join("..", "..", "pkg", "client", "assets"),
+		filepath.Join("pkg", "client", "assets"),
+		"assets",
+	)
+	quickstart.NewStaticAssets(r, cfg, client.Assets(), quickstart.WithDiskAssetsDir(diskAssetsDir))
 	r.Static("/runtime", ".", router.Static{FS: formgen.RuntimeAssetsFS(), Root: "."})
 	r.Static("/admin/formgen", ".", router.Static{FS: formgenvanilla.AssetsFS(), Root: "."})
 	adapter.Init()
 	app := adapter.WrappedRouter()
+	diagnostics := fmt.Sprintf("disk_assets_dir=%q embedded_assets=true", diskAssetsDir)
 
 	tests := []struct {
 		path string
@@ -37,6 +50,11 @@ func TestEmbeddedAssetsServed(t *testing.T) {
 		{path: "/admin/assets/logo.svg"},
 		{path: "/admin/assets/sidebar.js"},
 		{path: "/admin/assets/dist/dashboard/index.js"},
+		{path: "/admin/assets/dist/runtime/go-admin-browser.js"},
+		{path: "/admin/assets/dist/toast/init.js"},
+		{path: "/admin/assets/dist/translation-dashboard/index.js"},
+		{path: "/admin/assets/dist/translation-queue/index.js"},
+		{path: "/admin/assets/dist/debug/toolbar.js"},
 		{path: "/admin/assets/uploads/media/showcase/product-demo.mp4"},
 		{path: "/admin/assets/uploads/media/showcase/narration.mp3"},
 		// Legacy (example-only) uploader bundle; kept for now.
@@ -55,7 +73,7 @@ func TestEmbeddedAssetsServed(t *testing.T) {
 		if resp.StatusCode != http.StatusOK {
 			body, _ := io.ReadAll(resp.Body)
 			_ = resp.Body.Close()
-			t.Fatalf("GET %s status=%d body=%q", tt.path, resp.StatusCode, string(body))
+			t.Fatalf("GET %s status=%d diagnostics=%s body=%q", tt.path, resp.StatusCode, diagnostics, strings.TrimSpace(string(body)))
 		}
 		_ = resp.Body.Close()
 	}

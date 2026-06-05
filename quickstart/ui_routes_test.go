@@ -836,24 +836,44 @@ func TestRegisterAdminUIRoutesTranslationRoutesInjectSSRViewContext(t *testing.T
 		if !ok {
 			return false
 		}
-		page, ok := viewCtx["translation_family_detail_ssr"].(admin.TranslationSSRPage)
+		page, ok := viewCtx["translation_family_detail_ssr"].(router.ViewContext)
 		if !ok {
 			return false
 		}
-		if page.Surface != admin.TranslationSSRSurfaceFamilyDetail {
+		if fmt.Sprint(page["Surface"]) != admin.TranslationSSRSurfaceFamilyDetail {
 			return false
 		}
-		if fmt.Sprint(page.Data["family_id"]) != "family-123" {
+		data, _ := page["Data"].(map[string]any)
+		if fmt.Sprint(data["family_id"]) != "family-123" {
 			return false
 		}
-		_, hasGeneric := viewCtx["translation_ssr"].(admin.TranslationSSRPage)
-		return hasGeneric
+		_, hasGeneric := viewCtx["translation_ssr"].(router.ViewContext)
+		typed, hasTyped := viewCtx["translation_family_detail_ssr_page"].(admin.TranslationSSRPage)
+		return hasGeneric && hasTyped && typed.Surface == admin.TranslationSSRSurfaceFamilyDetail
 	})).Return(nil)
 
 	if err := handler(ctx); err != nil {
 		t.Fatalf("render family-detail shell: %v", err)
 	}
 	ctx.AssertExpectations(t)
+}
+
+func TestTranslationSSRQueryValuesPreservesScope(t *testing.T) {
+	ctx := router.NewMockContext()
+	ctx.QueriesM[admin.ScopeTenantIDKey] = " tenant-1 "
+	ctx.QueriesM[admin.ScopeOrgIDKey] = "org-1"
+	ctx.QueriesM["status"] = "open"
+
+	values := translationSSRQueryValues(ctx)
+	if values[admin.ScopeTenantIDKey] != "tenant-1" {
+		t.Fatalf("expected tenant scope to be preserved, got %q", values[admin.ScopeTenantIDKey])
+	}
+	if values[admin.ScopeOrgIDKey] != "org-1" {
+		t.Fatalf("expected org scope to be preserved, got %q", values[admin.ScopeOrgIDKey])
+	}
+	if values["status"] != "open" {
+		t.Fatalf("expected existing filter to be preserved, got %q", values["status"])
+	}
 }
 
 func TestRegisterAdminUIRoutesMigratedTranslationRoutesExposeHydratedSSRContext(t *testing.T) {
@@ -913,12 +933,16 @@ func TestRegisterAdminUIRoutesMigratedTranslationRoutesExposeHydratedSSRContext(
 				if !ok {
 					return false
 				}
-				page, ok := viewCtx[tt.ssrKey].(admin.TranslationSSRPage)
-				if !ok || page.Surface != tt.surface {
+				page, ok := viewCtx[tt.ssrKey].(router.ViewContext)
+				if !ok || fmt.Sprint(page["Surface"]) != tt.surface {
 					return false
 				}
-				generic, ok := viewCtx["translation_ssr"].(admin.TranslationSSRPage)
-				return ok && generic.Surface == tt.surface
+				generic, ok := viewCtx["translation_ssr"].(router.ViewContext)
+				if !ok || fmt.Sprint(generic["Surface"]) != tt.surface {
+					return false
+				}
+				typed, ok := viewCtx[tt.ssrKey+"_page"].(admin.TranslationSSRPage)
+				return ok && typed.Surface == tt.surface
 			})).Return(nil)
 
 			if err := handler(ctx); err != nil {

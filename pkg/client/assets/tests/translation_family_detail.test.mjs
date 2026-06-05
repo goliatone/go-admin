@@ -374,7 +374,7 @@ test('translation-family detail: claim action posts expected row version', async
 
   const post = requests.find((entry) => entry.init.method === 'POST');
   assert.equal(post.url, '/admin/api/translations/assignments/asg-ready-fr/actions/claim');
-  assert.deepEqual(JSON.parse(String(post.init.body)), { expected_version: 2 });
+  assert.deepEqual(JSON.parse(String(post.init.body)), { channel: 'default', expected_version: 2 });
 });
 
 test('translation-family detail SSR enhancement: binds assignment actions without first-render fetch', async () => {

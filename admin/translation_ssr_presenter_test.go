@@ -23,6 +23,59 @@ func TestTranslationSSRPayloadSectionsNormalizeListPayloads(t *testing.T) {
 	}
 }
 
+func TestTranslationSSRPayloadSectionsPreserveRootDashboardPayloads(t *testing.T) {
+	data, meta := translationSSRPayloadSections(map[string]any{
+		"cards": []map[string]any{{"id": "my_tasks", "count": 2}},
+		"tables": map[string]any{
+			"top_overdue_assignments": map[string]any{"total": 1},
+		},
+		"meta": map[string]any{"channel": "staging"},
+	})
+
+	if len(translationSSRList(data, "cards")) != 1 {
+		t.Fatalf("expected root-level cards to be preserved, got %+v", data)
+	}
+	if _, ok := data["tables"].(map[string]any); !ok {
+		t.Fatalf("expected root-level tables to be preserved, got %+v", data)
+	}
+	if _, ok := data["meta"]; ok {
+		t.Fatalf("expected root-level meta to stay out of data, got %+v", data)
+	}
+	if got := toString(meta["channel"]); got != "staging" {
+		t.Fatalf("expected root-level meta to be preserved, got %+v", meta)
+	}
+}
+
+func TestTranslationSSRQueueResultNormalizesQueuePayloadRows(t *testing.T) {
+	result := translationSSRQueueResult(TranslationSSRPresenterInput{
+		QueuePath:      "/admin/translations/queue",
+		EditorBasePath: "/admin/translations/assignments",
+	}, map[string]any{
+		"items":    []map[string]any{{"assignment_id": "asg-1"}},
+		"total":    1,
+		"page":     2,
+		"per_page": 25,
+		"channel":  "staging",
+	})
+
+	rows := translationSSRList(result.Data, "rows")
+	if len(rows) != 1 {
+		t.Fatalf("expected queue rows to be normalized, got %+v", result.Data)
+	}
+	if got := toInt(result.Meta["total"]); got != 1 {
+		t.Fatalf("expected queue total metadata, got %d", got)
+	}
+	if got := toString(result.Meta["channel"]); got != "staging" {
+		t.Fatalf("expected queue channel metadata, got %q", got)
+	}
+	if got := toInt(result.DataGrid["count"]); got != 1 {
+		t.Fatalf("expected queue datagrid count, got %d", got)
+	}
+	if presets := translationSSRList(map[string]any{"items": result.DataGrid["saved_filter_presets"]}, "items"); len(presets) == 0 {
+		t.Fatalf("expected default queue preset metadata, got %+v", result.DataGrid["saved_filter_presets"])
+	}
+}
+
 func TestTranslationSSRFamilyListDataGridContract(t *testing.T) {
 	data := map[string]any{
 		"families": []map[string]any{{"family_id": "family-1"}},

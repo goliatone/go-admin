@@ -775,6 +775,8 @@ func translationSSRQueryValues(c router.Context) map[string]string {
 		"reviewer_id",
 		"sort",
 		"status",
+		admin.ScopeTenantIDKey,
+		admin.ScopeOrgIDKey,
 	}
 	values := map[string]string{}
 	for _, key := range keys {
@@ -818,9 +820,28 @@ func withTranslationSSRView(
 		}
 		view["translation_ssr_error"] = err.Error()
 	}
-	view["translation_ssr"] = page
-	view[key] = page
+	pageView := translationSSRPageView(page)
+	view["translation_ssr"] = pageView
+	view[key] = pageView
+	view[key+"_page"] = page
 	return view
+}
+
+func translationSSRPageView(page admin.TranslationSSRPage) router.ViewContext {
+	return router.ViewContext{
+		"Surface":      page.Surface,
+		"Title":        page.Title,
+		"Data":         page.Data,
+		"Meta":         page.Meta,
+		"DataGrid":     page.DataGrid,
+		"Actions":      page.Actions,
+		"Links":        page.Links,
+		"Enhancement":  page.Enhancement,
+		"Assignee":     page.Assignee,
+		"EmptyState":   page.EmptyState,
+		"ErrorState":   page.ErrorState,
+		"ResourceName": page.ResourceName,
+	}
 }
 
 func safeHydrateTranslationSSR(c router.Context, input admin.TranslationSSRPresenterInput, hydrate translationSSRHydrator) (page admin.TranslationSSRPage, err error) {
