@@ -201,6 +201,7 @@ type TranslationFamiliesBinding interface {
 	List(router.Context) (any, error)
 	Detail(router.Context, string) (any, error)
 	Create(router.Context, string) (any, error)
+	CreateAssignment(router.Context, string) (any, error)
 	Matrix(router.Context) (any, error)
 	CreateMissingBulk(router.Context, map[string]any) (any, error)
 	ExportSelectedBulk(router.Context, map[string]any) (any, error)
