@@ -1,14 +1,18 @@
 package quickstart
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"strings"
 	"testing"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/goliatone/go-admin/admin"
+	"github.com/goliatone/go-admin/pkg/client"
 	router "github.com/goliatone/go-router"
 	"github.com/stretchr/testify/mock"
 )
@@ -16,6 +20,41 @@ import (
 type uiRoutesCaptureRouter struct {
 	getHandlers map[string]router.HandlerFunc
 	getPaths    []string
+}
+
+type stubTranslationSSRPresenter struct {
+	pages map[string]admin.TranslationSSRPage
+	err   error
+}
+
+func (s stubTranslationSSRPresenter) Dashboard(router.Context, admin.TranslationSSRPresenterInput) (admin.TranslationSSRPage, error) {
+	return s.page(admin.TranslationSSRSurfaceDashboard)
+}
+
+func (s stubTranslationSSRPresenter) FamilyList(router.Context, admin.TranslationSSRPresenterInput) (admin.TranslationSSRPage, error) {
+	return s.page(admin.TranslationSSRSurfaceFamilyList)
+}
+
+func (s stubTranslationSSRPresenter) FamilyDetail(router.Context, admin.TranslationSSRPresenterInput) (admin.TranslationSSRPage, error) {
+	return s.page(admin.TranslationSSRSurfaceFamilyDetail)
+}
+
+func (s stubTranslationSSRPresenter) Queue(router.Context, admin.TranslationSSRPresenterInput) (admin.TranslationSSRPage, error) {
+	return s.page(admin.TranslationSSRSurfaceQueue)
+}
+
+func (s stubTranslationSSRPresenter) Editor(router.Context, admin.TranslationSSRPresenterInput) (admin.TranslationSSRPage, error) {
+	return s.page(admin.TranslationSSRSurfaceEditor)
+}
+
+func (s stubTranslationSSRPresenter) page(surface string) (admin.TranslationSSRPage, error) {
+	if s.err != nil {
+		return admin.TranslationSSRPage{}, s.err
+	}
+	if page, ok := s.pages[surface]; ok {
+		return page, nil
+	}
+	return admin.TranslationSSRPage{Surface: surface, Data: map[string]any{"hydrated": true}}, nil
 }
 
 func newUIRoutesCaptureRouter() *uiRoutesCaptureRouter {
@@ -166,6 +205,372 @@ func TestTranslationExchangeTemplateSerializesUIConfigAndTemplateMetadata(t *tes
 		if !strings.Contains(template, expected) {
 			t.Fatalf("expected exchange template to contain %q", expected)
 		}
+	}
+}
+
+func TestTranslationFamilyDetailTemplateRendersSSRSections(t *testing.T) {
+	raw, err := os.ReadFile("../pkg/client/templates/resources/translations/family-detail.html")
+	if err != nil {
+		t.Fatalf("read family detail template: %v", err)
+	}
+	template := string(raw)
+	for _, expected := range []string{
+		"translation_family_detail_ssr.Data",
+		"Locale coverage",
+		"Assignments",
+		"Publish gate",
+		"Activity preview",
+		"data-ssr-enhanced=\"true\"",
+		"data-family-assignment-action=\"claim\"",
+	} {
+		if !strings.Contains(template, expected) {
+			t.Fatalf("expected family detail template to contain %q", expected)
+		}
+	}
+	if strings.Contains(template, "id=\"translation-family-detail-root\"") && strings.Contains(template, "></div>") {
+		t.Fatalf("expected family detail root to contain SSR markup, found empty root pattern")
+	}
+}
+
+func TestTranslationDashboardAndFamiliesTemplatesRenderSSRSections(t *testing.T) {
+	tests := []struct {
+		name     string
+		path     string
+		expected []string
+	}{
+		{
+			name: "dashboard",
+			path: "../pkg/client/templates/resources/translations/dashboard.html",
+			expected: []string{
+				"translation_dashboard_ssr.Data",
+				"data-translation-dashboard-ssr=\"true\"",
+				"Translation dashboard metrics",
+				"Translation dashboard triage",
+				"data-ssr-enhanced=\"true\"",
+			},
+		},
+		{
+			name: "families",
+			path: "../pkg/client/templates/resources/translations/families.html",
+			expected: []string{
+				"translation_families_ssr",
+				"data-translation-family-list-ssr=\"true\"",
+				"data-family-list-filters=\"true\"",
+				"translation_family_base_path",
+				"data-ssr-enhanced=\"true\"",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			raw, err := os.ReadFile(tt.path)
+			if err != nil {
+				t.Fatalf("read template: %v", err)
+			}
+			template := string(raw)
+			for _, expected := range tt.expected {
+				if !strings.Contains(template, expected) {
+					t.Fatalf("expected %s template to contain %q", tt.name, expected)
+				}
+			}
+		})
+	}
+}
+
+func TestTranslationQueueTemplateRendersSSRSections(t *testing.T) {
+	raw, err := os.ReadFile("../pkg/client/templates/resources/translations/shell.html")
+	if err != nil {
+		t.Fatalf("read queue shell template: %v", err)
+	}
+	template := string(raw)
+	for _, expected := range []string{
+		"translation_queue_ssr",
+		"data-translation-queue-ssr=\"true\"",
+		"data-queue-filter-summary=\"true\"",
+		"data-queue-row-action=\"claim\"",
+		"data-bulk-action-endpoint",
+		"data-ssr-enhanced",
+	} {
+		if !strings.Contains(template, expected) {
+			t.Fatalf("expected queue template to contain %q", expected)
+		}
+	}
+}
+
+func TestTranslationQueueTemplateRendersUIPresetLinks(t *testing.T) {
+	html := renderTranslationUITemplate(t, "resources/translations/shell", fiber.Map{
+		"translation_shell_surface":              "queue",
+		"translation_shell_title":                "Translation Queue",
+		"translation_shell_description":          "Queue",
+		"translation_shell_api_path":             "/admin/api/translations/assignments",
+		"translation_queue_bulk_action_api_path": "/admin/api/translations/assignment-actions/bulk",
+		"translation_queue_editor_base_path":     "/admin/translations/assignments",
+		"translation_queue_initial_preset":       "open",
+		"translation_queue_ssr": admin.TranslationSSRPage{
+			Surface: admin.TranslationSSRSurfaceQueue,
+			Meta: map[string]any{
+				"total":        1,
+				"page":         1,
+				"per_page":     50,
+				"channel":      "staging",
+				"default_sort": map[string]any{"sort": "updated_at", "order": "desc"},
+			},
+			Data: map[string]any{
+				"rows": []map[string]any{{
+					"assignment_id": "asg-1",
+					"family_id":     "family-1",
+					"target_locale": "es",
+					"status":        "pending",
+					"row_version":   2,
+					"actions": map[string]any{
+						"claim":   map[string]any{"enabled": true},
+						"release": map[string]any{"enabled": false, "reason": "not assigned"},
+					},
+				}, {
+					"id":               "family:family-2",
+					"row_type":         "family",
+					"family_id":        "family-2",
+					"family_label":     "Family Two",
+					"assignment_count": 3,
+					"locale_count":     2,
+					"expansion": map[string]any{
+						"href": "/admin/api/translations/assignments/families/family-2?channel=staging",
+					},
+				}},
+			},
+			DataGrid: map[string]any{
+				"saved_filter_presets": []map[string]any{{
+					"id":    "open",
+					"label": "Open",
+					"href":  "/admin/translations/queue?channel=staging&order=desc&preset=open&sort=updated_at&status=pending%2Cassigned",
+				}},
+				"grouping":       map[string]any{"mode": "none"},
+				"bulk_selection": map[string]any{"mode": "current_page"},
+			},
+			Links:      map[string]any{"queue": "/admin/translations/queue"},
+			EmptyState: map[string]any{"description": "No assignments match."},
+		},
+	})
+
+	if strings.Contains(html, "/admin/api/translations/assignments?preset=") {
+		t.Fatalf("expected queue preset links to use UI route, got %q", html)
+	}
+	if !strings.Contains(html, `href="/admin/translations/queue?channel=staging&amp;order=desc&amp;preset=open&amp;sort=updated_at&amp;status=pending%2Cassigned"`) {
+		t.Fatalf("expected rendered queue preset href to preserve UI route and channel, got %q", html)
+	}
+	if !strings.Contains(html, `data-queue-row-type="family"`) {
+		t.Fatalf("expected grouped family parent row markup, got %q", html)
+	}
+	if !strings.Contains(html, `href="/admin/api/translations/assignments/families/family-2?channel=staging"`) {
+		t.Fatalf("expected grouped family expansion link to preserve channel, got %q", html)
+	}
+	if strings.Contains(html, `data-assignment-id="family:family-2"`) {
+		t.Fatalf("expected grouped family parent not to render assignment action wiring, got %q", html)
+	}
+}
+
+func TestTranslationFamiliesTemplateRendersActiveFilterValues(t *testing.T) {
+	html := renderTranslationUITemplate(t, "resources/translations/families", fiber.Map{
+		"translation_families_api_path": "/admin/api/translations/families",
+		"translation_family_base_path":  "/admin/translations/families",
+		"translation_matrix_path":       "/admin/translations/matrix",
+		"translation_queue_path":        "/admin/translations/queue",
+		"translation_families_ssr": admin.TranslationSSRPage{
+			Surface: admin.TranslationSSRSurfaceFamilyList,
+			Meta: map[string]any{
+				"total":    1,
+				"page":     1,
+				"per_page": 50,
+				"channel":  "staging",
+			},
+			Data: map[string]any{
+				"families": []map[string]any{{
+					"family_id":       "family-1",
+					"source_title":    "Family One",
+					"source_locale":   "en",
+					"content_type":    "pages",
+					"readiness_state": "blocked",
+				}},
+			},
+			DataGrid: map[string]any{
+				"filters": []map[string]any{
+					{"key": "family_id", "label": "Family", "value": "family-1"},
+					{"key": "readiness_state", "label": "Readiness", "value": "blocked"},
+				},
+			},
+			Links: map[string]any{
+				"matrix": "/admin/translations/matrix?channel=staging",
+				"queue":  "/admin/translations/queue?channel=staging",
+			},
+			EmptyState: map[string]any{"description": "No families match."},
+		},
+	})
+
+	for _, expected := range []string{
+		`name="family_id"`,
+		`value="family-1"`,
+		`name="readiness_state"`,
+		`value="blocked"`,
+		`name="channel" value="staging"`,
+		`href="/admin/translations/matrix?channel=staging"`,
+		`href="/admin/translations/queue?channel=staging"`,
+	} {
+		if !strings.Contains(html, expected) {
+			t.Fatalf("expected rendered family list HTML to contain %q, got %q", expected, html)
+		}
+	}
+}
+
+func TestMigratedTranslationTemplatesRenderHydratedSSRData(t *testing.T) {
+	tests := []struct {
+		name     string
+		template string
+		data     fiber.Map
+		expected []string
+	}{
+		{
+			name:     "dashboard",
+			template: "resources/translations/dashboard",
+			data: fiber.Map{
+				"translation_dashboard_api_path": "/admin/api/translations/dashboard",
+				"translation_queue_api_path":     "/admin/api/translations/assignments",
+				"translation_families_api_path":  "/admin/api/translations/families",
+				"translation_dashboard_ssr": admin.TranslationSSRPage{
+					Surface: admin.TranslationSSRSurfaceDashboard,
+					Meta:    map[string]any{"channel": "staging", "refresh_interval_ms": 15000},
+					Data: map[string]any{
+						"cards": []map[string]any{{
+							"id":          "open",
+							"label":       "Open assignments",
+							"count":       7,
+							"description": "Needs work",
+							"drilldown":   map[string]any{"href": "/admin/translations/queue?channel=staging", "label": "Open queue"},
+						}},
+						"tables": map[string]any{
+							"triage": map[string]any{
+								"id":    "triage",
+								"label": "Triage",
+								"total": 1,
+								"rows": []map[string]any{{
+									"title": "Launch page",
+									"href":  "/admin/translations/families/family-1?channel=staging",
+								}},
+							},
+						},
+					},
+				},
+			},
+			expected: []string{"Open assignments", "Launch page", `data-channel="staging"`},
+		},
+		{
+			name:     "family detail",
+			template: "resources/translations/family-detail",
+			data: fiber.Map{
+				"translation_family_api_path": "/admin/api/translations/families/family-1",
+				"translation_family_id":       "family-1",
+				"translation_content_base":    "/admin/content",
+				"translation_family_detail_ssr": admin.TranslationSSRPage{
+					Surface: admin.TranslationSSRSurfaceFamilyDetail,
+					Meta:    map[string]any{"channel": "staging"},
+					Data: map[string]any{
+						"family_id":       "family-1",
+						"content_type":    "pages",
+						"source_locale":   "en",
+						"readiness_state": "blocked",
+						"source_variant":  map[string]any{"fields": map[string]any{"title": "Launch page"}},
+						"policy":          map[string]any{"required_locales": []string{"es"}},
+						"locale_variants": []map[string]any{{"locale": "es", "status": "draft"}},
+						"active_assignments": []map[string]any{{
+							"assignment_id": "asg-1",
+							"target_locale": "es",
+							"status":        "pending",
+							"row_version":   2,
+							"actions": map[string]any{
+								"claim":   map[string]any{"enabled": true},
+								"release": map[string]any{"enabled": false, "reason": "not assigned"},
+							},
+						}},
+					},
+				},
+			},
+			expected: []string{"Launch page", "Locale coverage", `data-channel="staging"`},
+		},
+		{
+			name:     "editor",
+			template: "resources/translations/editor",
+			data: fiber.Map{
+				"translation_assignment_id":          "asg-1",
+				"translation_editor_api_path":        "/admin/api/translations/assignments/asg-1?channel=staging",
+				"translation_editor_action_api_base": "/admin/api/translations/assignments",
+				"translation_editor_channel":         "staging",
+				"translation_editor_ssr": admin.TranslationSSRPage{
+					Surface: admin.TranslationSSRSurfaceEditor,
+					Data: map[string]any{
+						"assignment_id": "asg-1",
+						"source_locale": "en",
+						"target_locale": "es",
+						"translation_assignment": map[string]any{
+							"source_title": "Launch page",
+							"status":       "pending",
+							"queue_state":  "open",
+							"version":      2,
+						},
+						"fields": []map[string]any{{
+							"path":         "title",
+							"label":        "Title",
+							"source_value": "Hello",
+							"target_value": "Hola",
+						}},
+						"locale_navigation":        map[string]any{"locales": []map[string]any{{"locale": "es", "label": "Spanish", "current": true}}},
+						"qa_results":               map[string]any{"summary": map[string]any{"blocker_count": 0}},
+						"preview_action":           map[string]any{"enabled": true},
+						"assignment_action_states": map[string]any{"submit_review": map[string]any{"enabled": true}},
+						"review_action_states": map[string]any{
+							"approve": map[string]any{"enabled": false, "reason": "not in review"},
+							"reject":  map[string]any{"enabled": false, "reason": "not in review"},
+						},
+					},
+				},
+			},
+			expected: []string{"Launch page", "Hello", `data-translation-editor-ssr="true"`},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			html := renderTranslationUITemplate(t, tt.template, tt.data)
+			for _, expected := range tt.expected {
+				if !strings.Contains(html, expected) {
+					t.Fatalf("expected rendered %s HTML to contain %q, got %q", tt.name, expected, html)
+				}
+			}
+		})
+	}
+}
+
+func TestTranslationEditorTemplateRendersSSRSections(t *testing.T) {
+	raw, err := os.ReadFile("../pkg/client/templates/resources/translations/editor.html")
+	if err != nil {
+		t.Fatalf("read editor template: %v", err)
+	}
+	template := string(raw)
+	for _, expected := range []string{
+		"translation_editor_ssr.Data",
+		"data-translation-editor-ssr=\"true\"",
+		"data-translation-editor-initial-state",
+		"Translation fields",
+		"Workflow actions",
+		"QA summary",
+		"Workflow timeline",
+		"data-ssr-enhanced=\"true\"",
+	} {
+		if !strings.Contains(template, expected) {
+			t.Fatalf("expected editor template to contain %q", expected)
+		}
+	}
+	if strings.Contains(template, "id=\"translation-editor-root\"") && strings.Contains(template, "></div>") {
+		t.Fatalf("expected editor root to contain SSR markup, found empty root pattern")
 	}
 }
 
@@ -388,6 +793,142 @@ func TestRegisterAdminUIRoutesTranslationFamiliesShellContext(t *testing.T) {
 	ctx.AssertExpectations(t)
 }
 
+func TestRegisterAdminUIRoutesTranslationRoutesInjectSSRViewContext(t *testing.T) {
+	cfg := NewAdminConfig("/admin", "Admin", "en")
+	adm, _, err := NewAdmin(
+		cfg,
+		AdapterHooks{},
+		WithFeatureDefaults(map[string]bool{
+			string(admin.FeatureCMS):              true,
+			string(admin.FeatureTranslationQueue): true,
+		}),
+	)
+	if err != nil {
+		t.Fatalf("create admin: %v", err)
+	}
+	registerTranslationCapabilities(
+		adm,
+		TranslationProductConfig{Profile: TranslationProfileCoreQueue},
+		nil,
+		translationCapabilityModuleState{HasState: true, QueueEnabled: true},
+	)
+
+	presenter := stubTranslationSSRPresenter{pages: map[string]admin.TranslationSSRPage{
+		admin.TranslationSSRSurfaceFamilyDetail: {
+			Surface: admin.TranslationSSRSurfaceFamilyDetail,
+			Data:    map[string]any{"family_id": "family-123"},
+		},
+	}}
+	captureRouter := newUIRoutesCaptureRouter()
+	if err := RegisterAdminUIRoutes(captureRouter, cfg, adm, nil, WithUITranslationSSRPresenter(presenter)); err != nil {
+		t.Fatalf("register ui routes: %v", err)
+	}
+	handler := captureRouter.getHandlers["/admin/translations/families/:family_id"]
+	if handler == nil {
+		t.Fatalf("expected family-detail route handler")
+	}
+
+	ctx := router.NewMockContext()
+	ctx.ParamsM["family_id"] = "family-123"
+	ctx.On("Context").Return(context.Background())
+	ctx.On("Render", "resources/translations/family-detail", mock.MatchedBy(func(arg any) bool {
+		viewCtx, ok := arg.(router.ViewContext)
+		if !ok {
+			return false
+		}
+		page, ok := viewCtx["translation_family_detail_ssr"].(admin.TranslationSSRPage)
+		if !ok {
+			return false
+		}
+		if page.Surface != admin.TranslationSSRSurfaceFamilyDetail {
+			return false
+		}
+		if fmt.Sprint(page.Data["family_id"]) != "family-123" {
+			return false
+		}
+		_, hasGeneric := viewCtx["translation_ssr"].(admin.TranslationSSRPage)
+		return hasGeneric
+	})).Return(nil)
+
+	if err := handler(ctx); err != nil {
+		t.Fatalf("render family-detail shell: %v", err)
+	}
+	ctx.AssertExpectations(t)
+}
+
+func TestRegisterAdminUIRoutesMigratedTranslationRoutesExposeHydratedSSRContext(t *testing.T) {
+	cfg := NewAdminConfig("/admin", "Admin", "en")
+	adm, _, err := NewAdmin(
+		cfg,
+		AdapterHooks{},
+		WithFeatureDefaults(map[string]bool{
+			string(admin.FeatureCMS):              true,
+			string(admin.FeatureTranslationQueue): true,
+		}),
+	)
+	if err != nil {
+		t.Fatalf("create admin: %v", err)
+	}
+	registerTranslationCapabilities(
+		adm,
+		TranslationProductConfig{Profile: TranslationProfileCoreQueue},
+		nil,
+		translationCapabilityModuleState{HasState: true, QueueEnabled: true},
+	)
+
+	captureRouter := newUIRoutesCaptureRouter()
+	if err := RegisterAdminUIRoutes(captureRouter, cfg, adm, nil, WithUITranslationSSRPresenter(stubTranslationSSRPresenter{})); err != nil {
+		t.Fatalf("register ui routes: %v", err)
+	}
+
+	tests := []struct {
+		name       string
+		route      string
+		template   string
+		ssrKey     string
+		surface    string
+		paramKey   string
+		paramValue string
+	}{
+		{name: "dashboard", route: "/admin/translations/dashboard", template: "resources/translations/dashboard", ssrKey: "translation_dashboard_ssr", surface: admin.TranslationSSRSurfaceDashboard},
+		{name: "queue", route: "/admin/translations/queue", template: "resources/translations/shell", ssrKey: "translation_queue_ssr", surface: admin.TranslationSSRSurfaceQueue},
+		{name: "family list", route: "/admin/translations/families", template: "resources/translations/families", ssrKey: "translation_families_ssr", surface: admin.TranslationSSRSurfaceFamilyList},
+		{name: "family detail", route: "/admin/translations/families/:family_id", template: "resources/translations/family-detail", ssrKey: "translation_family_detail_ssr", surface: admin.TranslationSSRSurfaceFamilyDetail, paramKey: "family_id", paramValue: "family-123"},
+		{name: "editor", route: "/admin/translations/assignments/:assignment_id/edit", template: "resources/translations/editor", ssrKey: "translation_editor_ssr", surface: admin.TranslationSSRSurfaceEditor, paramKey: "assignment_id", paramValue: "asg-123"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			handler := captureRouter.getHandlers[tt.route]
+			if handler == nil {
+				t.Fatalf("expected route handler for %s", tt.route)
+			}
+			ctx := router.NewMockContext()
+			if tt.paramKey != "" {
+				ctx.ParamsM[tt.paramKey] = tt.paramValue
+			}
+			ctx.On("Context").Return(context.Background())
+			ctx.On("Render", tt.template, mock.MatchedBy(func(arg any) bool {
+				viewCtx, ok := arg.(router.ViewContext)
+				if !ok {
+					return false
+				}
+				page, ok := viewCtx[tt.ssrKey].(admin.TranslationSSRPage)
+				if !ok || page.Surface != tt.surface {
+					return false
+				}
+				generic, ok := viewCtx["translation_ssr"].(admin.TranslationSSRPage)
+				return ok && generic.Surface == tt.surface
+			})).Return(nil)
+
+			if err := handler(ctx); err != nil {
+				t.Fatalf("render %s: %v", tt.name, err)
+			}
+			ctx.AssertExpectations(t)
+		})
+	}
+}
+
 func TestRegisterAdminUIRoutesTranslationEditorShellContextIncludesScopedSync(t *testing.T) {
 	cfg := NewAdminConfig("/admin", "Admin", "en")
 	adm, _, err := NewAdmin(
@@ -469,4 +1010,50 @@ func assertRouteRegisteredBefore(t *testing.T, paths []string, before, after str
 	if beforeIndex > afterIndex {
 		t.Fatalf("expected %q to be registered before %q, got %v", before, after, paths)
 	}
+}
+
+func renderTranslationUITemplate(t *testing.T, template string, data fiber.Map) string {
+	t.Helper()
+
+	views, err := NewViewEngine(
+		client.Templates(),
+		WithViewTemplateFuncs(DefaultTemplateFuncs(WithTemplateBasePath("/admin"))),
+	)
+	if err != nil {
+		t.Fatalf("NewViewEngine: %v", err)
+	}
+
+	app := fiber.New(fiber.Config{Views: views})
+	app.Get("/", func(c *fiber.Ctx) error {
+		viewData := fiber.Map{
+			"title":             "Admin",
+			"base_path":         "/admin",
+			"asset_base_path":   "/admin",
+			"theme":             map[string]any{"assets": map[string]any{}},
+			"nav_items":         []map[string]any{},
+			"nav_utility_items": []map[string]any{},
+			"session_user":      map[string]any{},
+			"csrf_field":        "",
+			"breadcrumbs":       []BreadcrumbItem{},
+		}
+		for key, value := range data {
+			viewData[key] = value
+		}
+		return c.Render(template, viewData)
+	})
+
+	resp, err := app.Test(httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/", nil), -1)
+	if err != nil {
+		t.Fatalf("render %s: %v", template, err)
+	}
+	defer closeResponseBody(t, resp)
+
+	var body bytes.Buffer
+	if _, err := body.ReadFrom(resp.Body); err != nil {
+		t.Fatalf("read rendered body: %v", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("render %s returned %d: %s", template, resp.StatusCode, body.String())
+	}
+	return body.String()
 }
