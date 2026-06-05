@@ -5,7 +5,7 @@ import { T as he, Y as z, c as fe, h as ge, i as ve, l as be, o as G, t as ye, v
 import { buildEndpointURL as ke, getStringSearchParam as $e, readLocationSearchParams as xe, setNumberSearchParam as se, setSearchParam as _ } from "../shared/query-state/url-state.js";
 import { StatefulController as qe } from "../shared/stateful-controller.js";
 import { asNumber as h, asRecord as m, asString as o } from "../shared/coercion.js";
-import { B as Se, E as Ae, F as Re, I as Ee, L as R, N as Ie, P as Le, R as E, V as I, _ as Ce, a as Pe, c as Fe, g as Be, h as Me, m as Te, o as ie, p as je, u as y, v as De, z as ze } from "../chunks/translation-shared-kfjHEDZW.js";
+import { B as R, H as Se, I as Ae, L as Re, R as Ee, U as Ie, V as E, W as I, _ as Le, b as Ce, c as Pe, d as Fe, g as Be, k as Me, l as ie, p as y, v as Te, x as je, y as De, z as ze } from "../chunks/translation-shared-DxbdCW0D.js";
 import { formatTranslationShortDateTime as O } from "../translation-shared/formatters.js";
 import { normalizeNumberRecord as C } from "../shared/record-normalization.js";
 var J, j = class extends Error {
@@ -1691,7 +1691,7 @@ ${l.join(`
   renderBody() {
     const e = this.visibleRows;
     if (this.state === "loading" && !this.rows.length) return `
-        <div class="${Ae}" data-queue-state="loading">
+        <div class="${Me}" data-queue-state="loading">
           <svg class="animate-spin h-8 w-8 text-gray-400 mx-auto" fill="none" viewBox="0 0 24 24" aria-hidden="true">
             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
@@ -2002,12 +2002,12 @@ ${l.join(`
   renderEmptyState(e) {
     const t = e === "families" ? "No families found" : "No assignments found", i = e === "families" ? "No families match the current filters. Try adjusting your filters or check back later." : "No assignments match the current filters. Try adjusting your filters or selecting a different preset.", a = this.getActiveFilterCount();
     return `
-      <div class="${je}" data-queue-state="empty">
+      <div class="${Be}" data-queue-state="empty">
         <svg class="h-12 w-12 text-gray-400 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
         </svg>
-        <h3 class="${Me} mt-4">${p(t)}</h3>
-        <p class="${Te} max-w-md mx-auto">${p(i)}</p>
+        <h3 class="${Te} mt-4">${p(t)}</h3>
+        <p class="${Le} max-w-md mx-auto">${p(i)}</p>
         <div class="mt-5 flex items-center justify-center gap-3">
           ${a > 0 ? `
             <button type="button" class="${y}" data-clear-filters="true">
@@ -2026,8 +2026,8 @@ ${l.join(`
   }
   renderErrorState(e, t) {
     return `
-      <div class="${Be} p-6" data-queue-state="${e}" role="alert">
-        <h2 class="${De}">${e === "conflict" ? "Version conflict" : "Queue unavailable"}</h2>
+      <div class="${De} p-6" data-queue-state="${e}" role="alert">
+        <h2 class="${je}">${e === "conflict" ? "Version conflict" : "Queue unavailable"}</h2>
         <p class="${Ce} mt-2">${p(t)}</p>
         <div class="mt-4">
           <button type="button" class="${y}" data-queue-refresh="true">Retry</button>
@@ -2111,7 +2111,7 @@ ${l.join(`
     const t = !!e.assignee_id, i = !!e.reviewer_id, a = !!e.due_date, l = a || e.due_state === "overdue" || e.due_state === "due_soon", d = this.isRowSelected(e.id);
     return `
       <article
-        class="${Ie} ${d ? "is-selected" : ""}"
+        class="${Ae} ${d ? "is-selected" : ""}"
         data-assignment-id="${c(e.id)}"
         data-assignment-card="true"
         data-assignment-nav-group="mobile"
@@ -2119,7 +2119,7 @@ ${l.join(`
         role="button"
         aria-label="${c(Y(e))}"
       >
-        <div class="${Ee}">
+        <div class="${ze}">
           <div class="mobile-card-select">
             <input
               type="checkbox"
@@ -2130,15 +2130,15 @@ ${l.join(`
             />
           </div>
           <div class="mobile-card-title-group">
-            <h3 class="${Se}" title="${c(e.source_title || e.source_path || e.id)}">${p(e.source_title || e.source_path || e.id)}</h3>
-            <p class="${ze}" title="${c(e.source_path && e.source_title ? e.source_path : e.entity_type || e.family_id)}">${p(e.source_path && e.source_title ? e.source_path : e.entity_type || e.family_id)}</p>
+            <h3 class="${Ie}" title="${c(e.source_title || e.source_path || e.id)}">${p(e.source_title || e.source_path || e.id)}</h3>
+            <p class="${Se}" title="${c(e.source_path && e.source_title ? e.source_path : e.entity_type || e.family_id)}">${p(e.source_path && e.source_title ? e.source_path : e.entity_type || e.family_id)}</p>
           </div>
           ${z(e.queue_state, {
       domain: "queue",
       size: "sm"
     })}
         </div>
-        <div class="${Re}">
+        <div class="${Ee}">
           <div class="${E}">
             <span class="${R}">Locale</span>
             <span class="${I}">
@@ -2176,7 +2176,7 @@ ${l.join(`
             </span>
           </div>
         </div>
-        <div class="${Le}">
+        <div class="${Re}">
           ${(() => {
       const r = U(e, this.pendingActions);
       return K(e, r, V(r, e));

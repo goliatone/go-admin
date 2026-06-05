@@ -10,6 +10,7 @@ import {
   asStringArray,
 } from '../shared/coercion.js';
 import { escapeAttribute, escapeHTML } from '../shared/html.js';
+import { renderIcon } from '../shared/icon-renderer.js';
 import { normalizeStringRecord } from '../shared/record-normalization.js';
 import { httpRequest, readCSRFToken, readHTTPError } from '../shared/transport/http-client.js';
 import { renderPanelLoadingState, renderPanelState } from '../services/ui-states.js';
@@ -43,6 +44,9 @@ import {
   getTimelineEntryClasses,
   GLOSSARY_CHIP,
   GLOSSARY_CHIP_TERM,
+  ICON_CLOCK,
+  ICON_COPY,
+  ICON_DOCUMENT,
   formatTranslationTimestampUTC,
   sentenceCaseToken,
   type AutosaveState,
@@ -1310,6 +1314,43 @@ function closePreviewWindow(previewWindow: Window | null): void {
   }
 }
 
+async function writeTextToClipboard(text: string): Promise<boolean> {
+  const value = String(text || '');
+  const clipboard = typeof navigator !== 'undefined' ? navigator.clipboard : undefined;
+  if (clipboard && typeof clipboard.writeText === 'function') {
+    try {
+      await clipboard.writeText(value);
+      return true;
+    } catch {
+      // Fall back for browsers or contexts that expose but block Clipboard API.
+    }
+  }
+  return fallbackWriteTextToClipboard(value);
+}
+
+function fallbackWriteTextToClipboard(text: string): boolean {
+  if (typeof document === 'undefined' || !document.body || typeof document.execCommand !== 'function') {
+    return false;
+  }
+  const textarea = document.createElement('textarea');
+  textarea.value = text;
+  textarea.setAttribute('readonly', 'true');
+  textarea.style.position = 'fixed';
+  textarea.style.left = '-9999px';
+  textarea.style.top = '0';
+  document.body.appendChild(textarea);
+  try {
+    textarea.focus();
+    textarea.select();
+    textarea.setSelectionRange(0, textarea.value.length);
+    return document.execCommand('copy');
+  } catch {
+    return false;
+  } finally {
+    textarea.remove();
+  }
+}
+
 function navigatePreviewWindow(previewWindow: Window, url: string): void {
   try {
     if (previewWindow.location && typeof previewWindow.location.assign === 'function') {
@@ -1417,6 +1458,34 @@ function shouldShowReviewActions(detail: TranslationAssignmentEditorDetail): boo
 
 function shouldShowManagementActions(detail: TranslationAssignmentEditorDetail): boolean {
   return Boolean(detail.assignment_action_states.archive?.enabled);
+}
+
+function isTranslationEditorReadOnly(detail: TranslationAssignmentEditorDetail): boolean {
+  const status = assignmentLifecycleStatus(detail);
+  return status === 'review' || status === 'in_review' || status === 'approved' || status === 'archived';
+}
+
+function readOnlyEditorMessage(detail: TranslationAssignmentEditorDetail): string {
+  const status = sentenceCaseToken(assignmentLifecycleStatus(detail) || 'unavailable').toLowerCase();
+  return `This assignment is ${status} and can be inspected but not edited.`;
+}
+
+function submitActionLabel(detail: TranslationAssignmentEditorDetail, submitting: boolean): string {
+  if (submitting) return 'Submitting...';
+  if (detail.assignment_action_states.submit_review?.enabled) return 'Submit for review';
+  switch (assignmentLifecycleStatus(detail)) {
+    case 'review':
+    case 'in_review':
+      return 'Pending approval';
+    case 'approved':
+      return 'Approved';
+    case 'archived':
+      return 'Archived';
+    case 'changes_requested':
+      return 'Changes requested';
+    default:
+      return 'Submit unavailable';
+  }
 }
 
 function autosaveStateLabel(
@@ -1569,17 +1638,20 @@ function renderHeader(
   saving: boolean,
   previewing: boolean,
   hasConflict: boolean,
+  readOnly: boolean,
   basePath = ''
 ): string {
   const submitState = detail.assignment_action_states.submit_review;
   const previewState = detail.preview_action;
-  const submitDisabled = !submitState?.enabled || saving || submitting || detail.qa_results.submit_blocked;
+  const submitDisabled = readOnly || !submitState?.enabled || saving || submitting || detail.qa_results.submit_blocked;
   const previewDisabled = !previewState?.enabled || saving || submitting || previewing || hasConflict;
-  const saveDisabled = saving || !hasDirtyFields;
+  const saveDisabled = readOnly || saving || !hasDirtyFields;
   const sourceLocale = (detail.source_locale || 'source').toUpperCase();
   const targetLocale = (detail.target_locale || 'target').toUpperCase();
   const assignment = detail.translation_assignment;
-  const submitTitle = detail.qa_results.submit_blocked
+  const submitTitle = readOnly
+    ? readOnlyEditorMessage(detail)
+    : detail.qa_results.submit_blocked
     ? 'Resolve QA blockers before submitting for review.'
     : (submitState?.reason || '');
   const previewTitle = !previewState?.enabled
@@ -1626,7 +1698,7 @@ function renderHeader(
               data-preview-reason-code="${escapeAttribute(previewState?.reason_code || '')}"
               ${previewDisabled ? 'disabled aria-disabled="true"' : ''}
             >
-              ${previewing ? 'Opening…' : (previewState?.enabled ? 'Preview' : 'Preview unavailable')}
+              ${previewing ? 'Opening...' : (previewState?.enabled ? 'Preview' : 'Preview unavailable')}
             </button>
             ${!previewState?.enabled && previewState?.reason ? `<p class="text-xs text-gray-500" data-preview-unavailable-reason="true">${escapeHTML(previewState.reason)}</p>` : ''}
           </div>
@@ -1638,7 +1710,7 @@ function renderHeader(
               title="${escapeAttribute(submitTitle)}"
               ${submitDisabled ? 'disabled aria-disabled="true"' : ''}
             >
-              ${submitting ? 'Submitting…' : (submitState?.enabled ? 'Submit for review' : 'Submit unavailable')}
+              ${escapeHTML(submitActionLabel(detail, submitting))}
             </button>
             ${submitDisabled && submitTitle ? `<p class="text-xs text-gray-500" data-submit-unavailable-reason="true">${escapeHTML(submitTitle)}</p>` : ''}
           </div>
@@ -1913,9 +1985,7 @@ function renderFieldIssueSummary(summary: EditorFieldIssueSummary): string {
         title="Jump to first issue"
       >
         Jump to issue
-        <svg class="h-3.5 w-3.5" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
-          <path d="M8 4a.5.5 0 0 1 .5.5v5.793l2.146-2.147a.5.5 0 0 1 .708.708l-3 3a.5.5 0 0 1-.708 0l-3-3a.5.5 0 1 1 .708-.708L7.5 10.293V4.5A.5.5 0 0 1 8 4z"/>
-        </svg>
+        ${renderEditorIcon('iconoir:nav-arrow-down', '14px')}
       </button>`
     : '';
 
@@ -1944,17 +2014,22 @@ function renderSourceValue(entry: TranslationEditorFieldEntry): string {
 const COPY_SOURCE_BUTTON_CLASS =
   'inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-[11px] font-medium leading-4 text-gray-600 shadow-sm transition-colors hover:border-gray-300 hover:bg-gray-50 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-sky-100';
 
-function renderCopySourceIcon(): string {
-  return `
-    <svg class="h-3 w-3 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-      <rect width="14" height="14" x="8" y="8" rx="2" ry="2"></rect>
-      <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"></path>
-    </svg>
-  `;
+function renderEditorIcon(icon: string, size = '16px'): string {
+  return renderIcon(icon, { size, extraClass: 'text-current' });
 }
 
-function renderFieldList(detail: TranslationAssignmentEditorDetail): string {
+function renderCopySourceIcon(): string {
+  return renderEditorIcon(ICON_COPY, '12px');
+}
+
+function renderFieldList(detail: TranslationAssignmentEditorDetail, readOnly = false): string {
   const summary = computeFieldIssueSummary(detail);
+  const inputClass = readOnly
+    ? 'mt-2 w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-600'
+    : 'mt-2 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-100';
+  const textareaClass = readOnly
+    ? 'mt-2 min-h-[140px] w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-600'
+    : 'mt-2 min-h-[140px] w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-100';
 
   return `
     <section class="space-y-4">
@@ -1972,6 +2047,7 @@ function renderFieldList(detail: TranslationAssignmentEditorDetail): string {
               data-copy-source="${escapeAttribute(entry.path)}"
               data-source-value="${escapeAttribute(entry.source_value)}"
               aria-label="Copy source text to translation field for ${escapeAttribute(entry.label)}"
+              ${readOnly ? 'disabled aria-disabled="true"' : ''}
             >
               ${renderCopySourceIcon()}
               <span>Copy source</span>
@@ -1985,8 +2061,8 @@ function renderFieldList(detail: TranslationAssignmentEditorDetail): string {
             <div class="rounded-xl border ${entry.validation.valid ? 'border-gray-200' : 'border-rose-200'} bg-white p-4">
               <label class="text-xs font-semibold uppercase tracking-[0.18em] text-gray-500" for="editor-field-${escapeAttribute(entry.path)}">Translation</label>
               ${entry.input_type === 'textarea'
-                ? `<textarea id="editor-field-${escapeAttribute(entry.path)}" class="mt-2 min-h-[140px] w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-100" data-field-input="${escapeAttribute(entry.path)}">${escapeHTML(entry.target_value)}</textarea>`
-                : `<input id="editor-field-${escapeAttribute(entry.path)}" type="text" class="mt-2 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-100" data-field-input="${escapeAttribute(entry.path)}" value="${escapeAttribute(entry.target_value)}" />`}
+                ? `<textarea id="editor-field-${escapeAttribute(entry.path)}" class="${textareaClass}" data-field-input="${escapeAttribute(entry.path)}" ${readOnly ? 'disabled aria-disabled="true"' : ''}>${escapeHTML(entry.target_value)}</textarea>`
+                : `<input id="editor-field-${escapeAttribute(entry.path)}" type="text" class="${inputClass}" data-field-input="${escapeAttribute(entry.path)}" value="${escapeAttribute(entry.target_value)}" ${readOnly ? 'disabled aria-disabled="true"' : ''} />`}
               <div class="mt-2 flex flex-wrap gap-2 text-xs">
                 <span class="rounded-full px-2.5 py-1 ${entry.completeness.missing ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'}">
                   ${entry.completeness.missing ? 'Missing required content' : 'Field complete'}
@@ -2419,6 +2495,18 @@ function renderTimelinePanel(detail: TranslationAssignmentEditorDetail): string 
 // T13: Sidebar tab type
 type SidebarTab = 'actions' | 'qa' | 'assist' | 'files' | 'history';
 
+const SIDEBAR_TAB_ICONS: Record<SidebarTab, string> = {
+  actions: 'iconoir:flash',
+  qa: 'iconoir:shield',
+  assist: 'iconoir:chat-bubble',
+  files: ICON_DOCUMENT,
+  history: ICON_CLOCK,
+};
+
+function renderSidebarTabIcon(tab: SidebarTab): string {
+  return renderEditorIcon(SIDEBAR_TAB_ICONS[tab], '16px');
+}
+
 // T13: Compute sidebar tab badges
 function computeSidebarTabBadges(detail: TranslationAssignmentEditorDetail): Record<SidebarTab, string | null> {
   const hasReviewActions = shouldShowReviewActions(detail);
@@ -2446,35 +2534,30 @@ function renderTabbedSidebar(detail: TranslationAssignmentEditorDetail, submitti
   const hasActions = hasReviewActions || hasManagementActions;
 
   // Tab definitions
-  const tabs: Array<{ id: SidebarTab; label: string; icon: string; badge: string | null }> = [
+  const tabs: Array<{ id: SidebarTab; label: string; badge: string | null }> = [
     {
       id: 'actions',
       label: 'Actions',
-      icon: '<svg class="w-4 h-4" viewBox="0 0 16 16" fill="currentColor"><path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/></svg>',
       badge: badges.actions,
     },
     {
       id: 'qa',
       label: 'QA',
-      icon: '<svg class="w-4 h-4" viewBox="0 0 16 16" fill="currentColor"><path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0-1A6 6 0 1 0 8 2a6 6 0 0 0 0 12zM6.5 7.5a.5.5 0 0 1 1 0v2.5a.5.5 0 0 1-1 0V7.5zm2 0a.5.5 0 0 1 1 0v2.5a.5.5 0 0 1-1 0V7.5z"/></svg>',
       badge: badges.qa,
     },
     {
       id: 'assist',
       label: 'Assist',
-      icon: '<svg class="w-4 h-4" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a3 3 0 0 0-3 3v2H4a2 2 0 0 0-2 2v5a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-1V4a3 3 0 0 0-3-3zM6 4a2 2 0 1 1 4 0v2H6V4z"/></svg>',
       badge: badges.assist,
     },
     {
       id: 'files',
       label: 'Files',
-      icon: '<svg class="w-4 h-4" viewBox="0 0 16 16" fill="currentColor"><path d="M4 0h5.5v1H4a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V4.5h1V14a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V2a2 2 0 0 1 2-2z"/><path d="M9.5 3V0L14 4.5h-3A1.5 1.5 0 0 1 9.5 3z"/></svg>',
       badge: badges.files,
     },
     {
       id: 'history',
       label: 'History',
-      icon: '<svg class="w-4 h-4" viewBox="0 0 16 16" fill="currentColor"><path d="M8.515 1.019A7 7 0 0 0 8 1V0a8 8 0 0 1 .589.022l-.074.997zm2.004.45a7.003 7.003 0 0 0-.985-.299l.219-.976c.383.086.76.2 1.126.342l-.36.933zm1.37.71a7.01 7.01 0 0 0-.439-.27l.493-.87a8.025 8.025 0 0 1 .979.654l-.615.789a6.996 6.996 0 0 0-.418-.302zm1.834 1.79a6.99 6.99 0 0 0-.653-.796l.724-.69c.27.285.52.59.747.91l-.818.576zM8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1zm0 1a6 6 0 1 1 0 12A6 6 0 0 1 8 2z"/><path d="M7.5 3a.5.5 0 0 1 .5.5v5.21l3.248 1.856a.5.5 0 0 1-.496.868l-3.5-2A.5.5 0 0 1 7 9V3.5a.5.5 0 0 1 .5-.5z"/></svg>',
       badge: badges.history,
     },
   ];
@@ -2491,7 +2574,7 @@ function renderTabbedSidebar(detail: TranslationAssignmentEditorDetail, submitti
           aria-selected="${activeTab === tab.id}"
           aria-controls="sidebar-panel-${escapeAttribute(tab.id)}"
         >
-          ${tab.icon}
+          ${renderSidebarTabIcon(tab.id)}
           <span class="hidden sm:inline">${escapeHTML(tab.label)}</span>
           ${tab.badge ? `<span class="rounded-full bg-gray-200 px-1.5 py-0.5 text-xs text-gray-700">${escapeHTML(tab.badge)}</span>` : ''}
         </button>
@@ -2559,11 +2642,17 @@ export function renderTranslationEditorState(
   const hasDirtyFields = Boolean(editorState && Object.keys(editorState.dirty_fields).length);
   const autosaveLabel = autosaveStateLabel(editorState || null, hasDirtyFields, runtime.lastSavedMessage || '');
   const conflictState = editorState?.autosave.conflict;
+  const readOnly = isTranslationEditorReadOnly(detail);
   return `
-    <div class="translation-editor-screen space-y-6" data-translation-editor="true">
+    <div class="translation-editor-screen space-y-6" data-translation-editor="true" data-editor-read-only="${readOnly ? 'true' : 'false'}">
       ${renderFeedback(runtime.feedback || null)}
-      ${renderHeader(detail, autosaveLabel, hasDirtyFields, runtime.submitting === true, runtime.saving === true, runtime.previewing === true, Boolean(conflictState), options.basePath || '')}
+      ${renderHeader(detail, autosaveLabel, hasDirtyFields, runtime.submitting === true, runtime.saving === true, runtime.previewing === true, Boolean(conflictState), readOnly, options.basePath || '')}
       ${renderEditorLocaleSummary(detail)}
+      ${readOnly ? `
+        <section class="rounded-xl border border-gray-200 bg-gray-50 p-4" data-editor-read-only-notice="true">
+          <p class="text-sm font-medium text-gray-700">${escapeHTML(readOnlyEditorMessage(detail))}</p>
+        </section>
+      ` : ''}
       ${conflictState ? `
         <section class="rounded-xl border border-amber-200 bg-amber-50 p-5">
           <div class="flex flex-wrap items-center justify-between gap-3">
@@ -2577,7 +2666,7 @@ export function renderTranslationEditorState(
       ` : ''}
       <div class="grid grid-cols-1 gap-4 sm:gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(280px,1fr)]">
         <div class="order-1 space-y-4 sm:space-y-6">
-          ${renderFieldList(detail)}
+          ${renderFieldList(detail, readOnly)}
         </div>
         <div class="order-2">
           ${renderTabbedSidebar(detail, runtime.submitting === true, runtime.activeSidebarTab || 'actions', loadState)}
@@ -2689,7 +2778,9 @@ export class TranslationEditorScreen {
     this.loadState = await fetchTranslationEditorDetailState(endpoint);
     if (this.loadState.status === 'ready' && this.loadState.detail) {
       this.editorState = createTranslationEditorState(this.loadState.detail);
-      await this.hydrateDraftSyncFromRead(this.loadState.detail);
+      if (!isTranslationEditorReadOnly(this.loadState.detail)) {
+        await this.hydrateDraftSyncFromRead(this.loadState.detail);
+      }
     } else {
       this.editorState = null;
     }
@@ -2767,10 +2858,15 @@ export class TranslationEditorScreen {
     }
   }
 
+  private isEditorReadOnly(): boolean {
+    return this.editorState ? isTranslationEditorReadOnly(this.editorState.detail) : true;
+  }
+
   private attachEventListeners(): void {
     if (!this.container || !this.editorState) return;
     this.container.querySelectorAll<HTMLElement>('[data-field-input]').forEach((element) => {
       element.addEventListener('input', (event) => {
+        if (this.isEditorReadOnly()) return;
         const target = event.currentTarget as HTMLInputElement | HTMLTextAreaElement;
         const path = target.dataset.fieldInput || '';
         this.editorState = applyEditorFieldChange(this.editorState as TranslationEditorState, path, target.value);
@@ -2784,14 +2880,16 @@ export class TranslationEditorScreen {
       element.addEventListener('click', (event) => {
         event.preventDefault();
         event.stopPropagation();
+        if (this.isEditorReadOnly()) return;
         const path = element.dataset.copySource || '';
         const entry = this.editorState?.detail.fields.find((item) => item.path === path);
         if (!entry || !this.editorState) return;
-        const sourceValue = entry.source_value || element.dataset.sourceValue || '';
+        const sourceValue = (entry.source_value || element.dataset.sourceValue || '').trim();
+        void writeTextToClipboard(sourceValue);
         this.editorState = applyEditorFieldChange(this.editorState, path, sourceValue);
         const input = this.container?.querySelector<HTMLInputElement | HTMLTextAreaElement>(`[data-field-input="${cssEscape(path)}"]`);
         if (input) {
-          input.value = sourceValue.trim();
+          input.value = sourceValue;
           try {
             input.focus({ preventScroll: true });
           } catch {
@@ -2811,6 +2909,7 @@ export class TranslationEditorScreen {
       });
     });
     this.container.querySelector<HTMLElement>('[data-action="save-draft"]')?.addEventListener('click', () => {
+      if (this.isEditorReadOnly()) return;
       void this.saveDirtyFields(false);
     });
     this.container.querySelector<HTMLElement>('[data-action="submit-review"]')?.addEventListener('click', () => {
@@ -2909,6 +3008,7 @@ export class TranslationEditorScreen {
   }
 
   private scheduleAutosave(): void {
+    if (this.isEditorReadOnly()) return;
     if (this.autosaveTimer) clearTimeout(this.autosaveTimer);
     this.autosaveTimer = setTimeout(() => {
       void this.saveDirtyFields(true);
@@ -2916,6 +3016,7 @@ export class TranslationEditorScreen {
   }
 
   private async saveDirtyFields(isAutosave: boolean): Promise<boolean> {
+    if (this.isEditorReadOnly()) return true;
     if (!this.editorState || !Object.keys(this.editorState.dirty_fields).length || this.saving) return true;
     this.saving = true;
     this.editorState = markEditorAutosavePending(this.editorState);
@@ -3116,6 +3217,11 @@ export class TranslationEditorScreen {
 
   private async submitForReview(): Promise<void> {
     if (!this.editorState || this.submitting) return;
+    if (this.isEditorReadOnly()) {
+      this.feedback = { kind: 'error', message: readOnlyEditorMessage(this.editorState.detail) };
+      this.render();
+      return;
+    }
     const submitState = this.editorState.detail.assignment_action_states.submit_review;
     if (!submitState?.enabled) {
       this.feedback = { kind: 'error', message: submitState?.reason || 'Submit for review is unavailable.' };
@@ -3143,6 +3249,7 @@ export class TranslationEditorScreen {
     }
     this.submitting = true;
     this.render();
+    const historyPage = this.editorState.detail.history.page;
     const assignmentVersion = this.editorState.detail.translation_assignment.version;
     const response = await httpRequest(`${this.config.actionEndpointBase}/${encodeURIComponent(this.editorState.detail.assignment_id)}/actions/submit_review`, {
       method: 'POST',
@@ -3151,10 +3258,14 @@ export class TranslationEditorScreen {
     if (!response.ok) {
       const error = await buildEditorRequestError(response, 'Failed to submit assignment');
       this.feedback = {
-        kind: error.code === 'VERSION_CONFLICT' || error.code === 'POLICY_BLOCKED' ? 'conflict' : 'error',
+        kind: error.status === 409 || error.code === 'VERSION_CONFLICT' || error.code === 'POLICY_BLOCKED' ? 'conflict' : 'error',
         message: error.message,
       };
       this.submitting = false;
+      if (error.status === 409 || error.code === 'INVALID_STATUS_TRANSITION' || error.code === 'INVALID_STATUS') {
+        await this.load(historyPage);
+        return;
+      }
       this.render();
       return;
     }
@@ -3165,7 +3276,7 @@ export class TranslationEditorScreen {
       message: buildSubmitSuccessMessage(this.editorState.detail, status),
     };
     this.submitting = false;
-    await this.load(this.editorState.detail.history.page);
+    await this.load(historyPage);
   }
 
   private openPreviewWindow(): Window | null {

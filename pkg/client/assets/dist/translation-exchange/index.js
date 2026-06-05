@@ -1,7 +1,7 @@
 import { escapeHTML as o } from "../shared/html.js";
-import { httpRequest as q, readHTTPResponsePayload as G } from "../shared/transport/http-client.js";
+import { httpRequest as W, readHTTPResponsePayload as G } from "../shared/transport/http-client.js";
 import { a as k, i as K, o as m, s as T } from "../chunks/translation-contracts-Ct_EG7JJ.js";
-import { S as Y, T as R, W as w, d as F, et as X, f as Q, l as f, q as Z, r as _, s as j, t as E, w as v, x as tt } from "../chunks/translation-shared-kfjHEDZW.js";
+import { D as v, O as R, T as X, X as Y, f, h as Q, i as w, m as F, o as _, q as E, rt as Z, u as j, w as tt } from "../chunks/translation-shared-DxbdCW0D.js";
 import { formatTranslationShortDateTime as C } from "../translation-shared/formatters.js";
 var et = { root: "#translation-exchange-app" }, st = [{
   value: "pages",
@@ -75,7 +75,7 @@ function z(t, e, a = "") {
   }
   return s;
 }
-function W(t, e) {
+function q(t, e) {
   const a = /* @__PURE__ */ new Set(), r = [];
   for (const s of Array.isArray(t) ? t : []) {
     const l = V(s);
@@ -101,7 +101,7 @@ function nt(t) {
       dryRun: !1
     }
   };
-  const e = t?.locale_labels ?? {}, a = lt(t?.resources), r = D(t?.source_locales, e), s = b(t?.source_locale), l = B(s) ? s : r[0]?.code || "", i = D(t?.target_locales, e).filter((h) => h.code && h.code !== l), n = new Set(a.map((h) => h.value ?? "")), d = new Set(i.map((h) => h.code)), u = W(t?.default_resources, n), c = z(t?.default_target_locales, d, l), p = [];
+  const e = t?.locale_labels ?? {}, a = lt(t?.resources), r = D(t?.source_locales, e), s = b(t?.source_locale), l = B(s) ? s : r[0]?.code || "", i = D(t?.target_locales, e).filter((h) => h.code && h.code !== l), n = new Set(a.map((h) => h.value ?? "")), d = new Set(i.map((h) => h.code)), u = q(t?.default_resources, n), c = z(t?.default_target_locales, d, l), p = [];
   return a.length === 0 && p.push("No exchange resources are configured."), (r.length === 0 || !l) && p.push("No source locale is configured."), i.length === 0 && p.push("No target locales are configured."), {
     configured: !0,
     blockedReason: p.join(" "),
@@ -146,9 +146,9 @@ function S(t) {
   }
 }
 function y(t) {
-  return `rounded-full px-3 py-1 text-xs font-medium ${X(t)}`;
+  return `rounded-full px-3 py-1 text-xs font-medium ${Z(t)}`;
 }
-var g = `${F} p-5`, dt = `${F} p-4`, U = `${w} border ${_} ${E} p-5`, A = `${w} border ${_} ${E} p-4`, L = `${w} border ${_} ${E} px-4 py-3`, H = `${w} border ${_} ${E} px-6 py-10 text-center text-sm text-gray-600`, x = "text-xs uppercase tracking-wider text-gray-500", ct = `mt-2 text-2xl font-bold ${Z}`;
+var g = `${F} p-5`, dt = `${F} p-4`, U = `${E} border ${_} ${w} p-5`, A = `${E} border ${_} ${w} p-4`, L = `${E} border ${_} ${w} px-4 py-3`, H = `${E} border ${_} ${w} px-6 py-10 text-center text-sm text-gray-600`, x = "text-xs uppercase tracking-wider text-gray-500", ct = `mt-2 text-2xl font-bold ${Y}`;
 function pt(t, e) {
   const a = typeof window < "u" && typeof window.btoa == "function" ? window.btoa.bind(window) : typeof globalThis.btoa == "function" ? globalThis.btoa.bind(globalThis) : null;
   return a ? `data:${t};base64,${a(encodeURIComponent(e).replace(/%([0-9A-F]{2})/g, (r, s) => String.fromCharCode(parseInt(s, 16))))}` : `data:${t},${encodeURIComponent(e)}`;
@@ -439,7 +439,7 @@ var $t = class {
   readExportDraft(t) {
     const e = new FormData(t), a = new Set(this.exchangeUI.resources.map((i) => i.value ?? "")), r = new Set(this.exchangeUI.targetLocales.map((i) => i.code)), s = b(e.get("source_locale")), l = this.exchangeUI.sourceLocales.some((i) => i.code === s) ? s : this.exchangeUI.defaultSourceLocale;
     return {
-      resources: W(e.getAll("resources"), a),
+      resources: q(e.getAll("resources"), a),
       sourceLocale: l,
       targetLocales: z(e.getAll("target_locales"), r, l),
       includeSourceHash: e.has("include_source_hash")
@@ -764,7 +764,7 @@ var $t = class {
     return this.request(t, { method: "GET" });
   }
   async request(t, e) {
-    const a = await q(t, e), { payload: r } = await G(a);
+    const a = await W(t, e), { payload: r } = await G(a);
     if (!a.ok) {
       if (r && typeof r == "object") {
         const s = r.error?.message ?? r.message;
@@ -790,7 +790,7 @@ var $t = class {
         <header class="px-6 py-5 border-b border-gray-200 bg-gray-50">
           <div class="flex flex-wrap items-start justify-between gap-4">
             <div>
-              <p class="${Y}">Translation Exchange</p>
+              <p class="${X}">Translation Exchange</p>
               <h1 class="${ct}">Translation Exchange Wizard</h1>
               <p class="${tt}">Prepare external translation files, validate row-level conflicts, apply imports with explicit create and conflict controls, and inspect retained job history for retries and audits.</p>
             </div>

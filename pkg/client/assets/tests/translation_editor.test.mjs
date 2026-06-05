@@ -368,6 +368,28 @@ function makeApprovedAssignmentFixture() {
   return next;
 }
 
+function makeInReviewAssignmentFixture() {
+  const next = makeSubmitReadyFixture();
+  next.data.status = 'in_review';
+  next.data.translation_assignment = {
+    ...next.data.translation_assignment,
+    status: 'in_review',
+    queue_state: 'in_review',
+    version: 5,
+    row_version: 5,
+  };
+  next.data.assignment_action_states = {
+    ...next.data.assignment_action_states,
+    submit_review: {
+      enabled: false,
+      permission: 'admin.translations.edit',
+      reason: 'assignment must be in progress',
+      reason_code: 'INVALID_STATUS',
+    },
+  };
+  return next;
+}
+
 function makePreviewUnavailableFixture() {
   const next = structuredClone(fixtures.detail);
   next.data.preview_action = {
@@ -663,6 +685,11 @@ test('translation editor runtime: copy source fills target field and autosaves c
   const { root, window } = setupDom();
   installTranslationSyncCoreStub(window);
   window.scrollTo = mock.fn();
+  const writeText = mock.fn(async () => {});
+  Object.defineProperty(window.navigator, 'clipboard', {
+    value: { writeText },
+    configurable: true,
+  });
   const requests = [];
   const detail = makeSubmitReadyFixture();
   const sourceValue = detail.data.fields.find((field) => field.path === 'body')?.source_value;
@@ -713,13 +740,16 @@ test('translation editor runtime: copy source fills target field and autosaves c
   const button = root.querySelector('[data-copy-source="body"]');
   assert.ok(button);
   assert.match(button.className, /text-\[11px\]/);
-  assert.ok(button.querySelector('svg'));
-  assert.equal(button.querySelector('svg')?.nextElementSibling?.textContent, 'Copy source');
+  assert.ok(button.querySelector('.iconoir-copy'));
+  assert.equal(button.querySelector('.iconoir-copy')?.nextElementSibling?.textContent, 'Copy source');
   button.click();
 
   const input = root.querySelector('[data-field-input="body"]');
   assert.equal(input.value, sourceValue);
   assert.equal(window.document.activeElement?.dataset.fieldInput, 'body');
+  await flushAsync();
+  assert.equal(writeText.mock.callCount(), 1);
+  assert.equal(writeText.mock.calls[0].arguments[0], sourceValue);
 
   await new Promise((resolve) => setTimeout(resolve, 650));
   await flushAsync();
@@ -773,6 +803,31 @@ test('translation editor runtime: disabled preview action renders server reason'
   assert.match(html, /data-preview-reason-code="preview_path_missing"/);
 });
 
+test('translation editor runtime: sidebar tabs use shared icon library classes', () => {
+  const detail = normalizeAssignmentEditorDetail(fixtures.detail);
+  const html = renderTranslationEditorState(
+    { status: 'ready', detail },
+    createTranslationEditorState(detail)
+  );
+  const dom = new JSDOM(html);
+  const tablist = dom.window.document.querySelector('[aria-label="Editor sidebar sections"]');
+  assert.ok(tablist);
+  assert.equal(tablist.querySelectorAll('svg').length, 0);
+
+  const expectedIcons = {
+    actions: 'iconoir-flash',
+    qa: 'iconoir-shield',
+    assist: 'iconoir-chat-bubble',
+    files: 'iconoir-page',
+    history: 'iconoir-clock',
+  };
+  for (const [tab, iconClass] of Object.entries(expectedIcons)) {
+    const button = tablist.querySelector(`[data-sidebar-tab="${tab}"]`);
+    assert.ok(button, `expected ${tab} tab`);
+    assert.ok(button.querySelector(`.${iconClass}`), `expected ${tab} tab to render ${iconClass}`);
+  }
+});
+
 test('translation editor runtime: active autosave conflict disables preview action', () => {
   const detail = normalizeAssignmentEditorDetail(makeSubmitReadyFixture());
   const state = createTranslationEditorState(detail);
@@ -807,14 +862,35 @@ test('translation editor runtime: approved assignments render as read-only inspe
     { status: 'ready', detail },
     createTranslationEditorState(detail)
   );
+  const dom = new JSDOM(html);
+  const previewButton = dom.window.document.querySelector('[data-action="preview-assignment"]');
 
   assert.match(html, /data-editor-read-only="true"/);
   assert.match(html, /can be inspected but not edited/);
   assert.match(html, /data-action="save-draft"[\s\S]*disabled aria-disabled="true"/);
-  assert.match(html, /data-action="preview-assignment"[\s\S]*disabled aria-disabled="true"/);
+  assert.ok(previewButton);
+  assert.equal(previewButton.disabled, false);
   assert.match(html, /data-action="submit-review"[\s\S]*disabled aria-disabled="true"/);
+  assert.match(html, /Approved/);
   assert.match(html, /data-copy-source="body"[\s\S]*disabled aria-disabled="true"/);
   assert.match(html, /data-field-input="body"[\s\S]*disabled aria-disabled="true"/);
+});
+
+test('translation editor runtime: in-review assignments label submit as pending approval', () => {
+  const detail = normalizeAssignmentEditorDetail(makeInReviewAssignmentFixture());
+  const html = renderTranslationEditorState(
+    { status: 'ready', detail },
+    createTranslationEditorState(detail)
+  );
+  const dom = new JSDOM(html);
+  const previewButton = dom.window.document.querySelector('[data-action="preview-assignment"]');
+
+  assert.match(html, /data-editor-read-only="true"/);
+  assert.match(html, /Pending approval/);
+  assert.match(html, /data-action="submit-review"[\s\S]*disabled aria-disabled="true"/);
+  assert.doesNotMatch(html, /Submit unavailable/);
+  assert.ok(previewButton);
+  assert.equal(previewButton.disabled, false);
 });
 
 test('translation editor runtime: renders locale navigation without missing-locale fallbacks', () => {
@@ -1734,7 +1810,9 @@ test('translation editor runtime: successful submit reloads terminal action stat
 
   assert.equal(detailReads, 2);
   assert.match(root.innerHTML, /data-editor-read-only="true"/);
-  assert.match(root.innerHTML, /data-action="submit-review"[\s\S]*disabled aria-disabled="true"/);
+  assert.equal(root.querySelector('[data-action="submit-review"]').disabled, true);
+  assert.match(root.innerHTML, /Approved/);
+  assert.equal(root.querySelector('[data-action="preview-assignment"]').disabled, false);
 
   screen.unmount();
 });
@@ -1795,7 +1873,8 @@ test('translation editor runtime: stale submit status reloads approved read-only
   assert.ok(requests.some((request) => request.method === 'POST' && request.url.includes('/actions/submit_review')));
   assert.match(root.innerHTML, /assignment must be in progress before it can be submitted/);
   assert.match(root.innerHTML, /data-editor-read-only="true"/);
-  assert.match(root.innerHTML, /data-action="submit-review"[\s\S]*disabled aria-disabled="true"/);
+  assert.equal(root.querySelector('[data-action="submit-review"]').disabled, true);
+  assert.equal(root.querySelector('[data-action="preview-assignment"]').disabled, false);
 
   screen.unmount();
 });

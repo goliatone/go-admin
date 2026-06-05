@@ -1,15 +1,15 @@
 import { escapeHTML as c } from "../shared/html.js";
-import { httpRequest as R } from "../shared/transport/http-client.js";
-import { extractStructuredError as q } from "../toast/error-helpers.js";
+import { httpRequest as q } from "../shared/transport/http-client.js";
+import { extractStructuredError as R } from "../toast/error-helpers.js";
 import { r as h, t as N } from "../chunks/translation-contracts-Ct_EG7JJ.js";
-import { G as b, K as I, W as v, n as w, r as A, t as P } from "../chunks/translation-shared-kfjHEDZW.js";
+import { J as b, Y as I, a as w, i as P, o as v, q as A } from "../chunks/translation-shared-DxbdCW0D.js";
 var U = {
   QUEUE: "admin.translations.queue",
   EXCHANGE_UI: "admin.translations.exchange",
   EXCHANGE_EXPORT: "admin.api.translations.export",
   EXCHANGE_IMPORT_VALIDATE: "admin.api.translations.import.validate",
   EXCHANGE_IMPORT_APPLY: "admin.api.translations.import.apply"
-}, C = `${v} border ${A} ${P} px-4 py-4`, k = `${v} border ${A} ${w} px-4 py-4`;
+}, C = `${A} border ${v} ${P} px-4 py-4`, k = `${A} border ${v} ${w} px-4 py-4`;
 function p() {
   if (typeof window < "u" && window.__TRANSLATION_CAPABILITIES__) return h(window.__TRANSLATION_CAPABILITIES__);
   const e = document.querySelector("script[data-translation-capabilities]");
@@ -54,7 +54,7 @@ function $(e) {
 function S(e) {
   return (e ?? p()).modules.queue.enabled;
 }
-function Y(e) {
+function K(e) {
   return $(e) || S(e);
 }
 function E(e, t, n) {
@@ -170,9 +170,9 @@ async function H(e) {
     status: "empty",
     message: "This shell route is ready, but the backing API contract has not been connected yet."
   };
-  const n = await R(t, { method: "GET" }), s = M(n);
+  const n = await q(t, { method: "GET" }), s = M(n);
   if (!n.ok) {
-    const i = await q(n);
+    const i = await R(n);
     return {
       status: n.status === 409 || i.textCode === "VERSION_CONFLICT" ? "conflict" : "error",
       message: i.message,
@@ -344,7 +344,7 @@ export {
   p as extractTranslationCapabilities,
   H as fetchTranslationShellData,
   E as getTranslationRoute,
-  Y as hasTranslationOperations,
+  K as hasTranslationOperations,
   Z as initTranslationOperations,
   W as initTranslationSurfaceShell,
   $ as isExchangeEnabled,
