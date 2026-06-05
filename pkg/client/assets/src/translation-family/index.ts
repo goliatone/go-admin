@@ -3328,9 +3328,7 @@ async function bindTranslationFamilyDetailSSRPage(
       button.disabled = true;
       button.classList.add('opacity-60', 'cursor-not-allowed');
       try {
-        await postTranslationFamilyAssignmentAction(action, channel && action.endpoint.includes('/release')
-          ? { channel }
-          : {}, { fetch: options.fetch });
+        await postTranslationFamilyAssignmentAction(action, channel ? { channel } : {}, { fetch: options.fetch });
         globalToast('success', action.label ? `${action.label} complete.` : 'Assignment updated.');
         if (typeof window !== 'undefined') {
           window.location.reload();
@@ -3437,7 +3435,7 @@ export async function initTranslationFamilyDetailPage(
           }
           payload.assignee_id = assigneeID;
         }
-        if (kind !== 'claim' && channel) {
+        if (channel) {
           payload.channel = channel;
         }
         button.disabled = true;

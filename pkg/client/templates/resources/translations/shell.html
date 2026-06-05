@@ -98,7 +98,7 @@
 	                  <tr data-queue-row-type="family" data-family-id="{{ row.family_id|default:row.id }}">
 	                    <td class="px-3 py-3 font-medium text-gray-900">
 	                      <div>{{ row.family_label|default:row.family_id|default:row.id }}</div>
-	                      <p class="mt-1 text-xs font-normal text-gray-500">{{ row.assignment_count|default:"0" }} assignments · {{ row.locale_count|default:"0" }} locales</p>
+	                      <p class="mt-1 text-xs font-normal text-gray-500">{{ row.assignment_count|default:"0" }} assignments &middot; {{ row.locale_count|default:"0" }} locales</p>
 	                    </td>
 	                    <td class="px-3 py-3 text-gray-600">{{ row.family_id|default:"-" }}</td>
 	                    <td class="px-3 py-3 text-gray-600">{{ row.locale_count|default:"-" }} locales</td>

@@ -381,13 +381,17 @@ test('translation-family detail SSR enhancement: binds assignment actions withou
   const dom = setupDom(`
     <div id="root"
          data-ssr-enhanced="true"
-         data-endpoint="/admin/api/translations/families/family-ready?channel=default"
+         data-endpoint="/admin/api/translations/families/family-ready?channel=staging"
          data-family-id="family-ready"
          data-base-path="/admin">
       <button type="button"
               data-family-assignment-action="claim"
               data-assignment-id="asg-ready-fr"
               data-row-version="2">Claim</button>
+      <button type="button"
+              data-family-assignment-action="release"
+              data-assignment-id="asg-ready-fr"
+              data-row-version="3">Release</button>
     </div>
   `);
   try {
@@ -414,7 +418,17 @@ test('translation-family detail SSR enhancement: binds assignment actions withou
   assert.equal(requests.length, 1);
   assert.equal(requests[0].url, '/admin/api/translations/assignments/asg-ready-fr/actions/claim');
   assert.equal(requests[0].init.method, 'POST');
-  assert.deepEqual(JSON.parse(String(requests[0].init.body)), { expected_version: 2 });
+  assert.deepEqual(JSON.parse(String(requests[0].init.body)), { channel: 'staging', expected_version: 2 });
+
+  root.querySelector('[data-family-assignment-action="release"]')
+    .dispatchEvent(new dom.window.Event('click', { bubbles: true }));
+  await nextTick();
+  await nextTick();
+
+  assert.equal(requests.length, 2);
+  assert.equal(requests[1].url, '/admin/api/translations/assignments/asg-ready-fr/actions/release');
+  assert.equal(requests[1].init.method, 'POST');
+  assert.deepEqual(JSON.parse(String(requests[1].init.body)), { channel: 'staging', expected_version: 3 });
 });
 
 test('translation-family detail SSR enhancement: create locale fetches metadata only on demand', async () => {
