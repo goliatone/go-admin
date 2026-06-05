@@ -210,6 +210,36 @@ func TestInMemoryTranslationAssignmentRepositoryAllowsConcurrentActiveAssignment
 	}
 }
 
+func TestInMemoryTranslationAssignmentRepositoryAllowsConcurrentActiveAssignmentsAcrossScopes(t *testing.T) {
+	repo := NewInMemoryTranslationAssignmentRepository()
+	ctx := context.Background()
+
+	base := TranslationAssignment{
+		FamilyID:       "tg_123",
+		EntityType:     "pages",
+		SourceRecordID: "page_1",
+		SourceLocale:   "en",
+		TargetLocale:   "es",
+		WorkScope:      "__all__",
+		AssignmentType: AssignmentTypeOpenPool,
+		Status:         AssignmentStatusOpen,
+		Priority:       PriorityNormal,
+	}
+	first := base
+	first.TenantID = "tenant-1"
+	first.OrgID = "org-1"
+	if _, err := repo.Create(ctx, first); err != nil {
+		t.Fatalf("create tenant-1 assignment: %v", err)
+	}
+
+	second := base
+	second.TenantID = "tenant-2"
+	second.OrgID = "org-2"
+	if _, err := repo.Create(ctx, second); err != nil {
+		t.Fatalf("expected separate tenant/org assignment to succeed, got %v", err)
+	}
+}
+
 func TestBunTranslationAssignmentRepositoryListFiltersSortsAndCountsInSQL(t *testing.T) {
 	db := newTranslationFamilyStoreSQLiteDB(t)
 	ctx := context.Background()

@@ -629,10 +629,10 @@ func translationAssignmentMatchesFilters(assignment TranslationAssignment, filte
 }
 
 func translationAssignmentMatchesFilter(assignment TranslationAssignment, key string, raw any, now time.Time) bool {
-	value := strings.TrimSpace(strings.ToLower(toString(raw)))
 	if key == "overdue" {
 		return !toBool(raw) || (assignment.DueDate != nil && !assignment.DueDate.After(now))
 	}
+	value := strings.TrimSpace(strings.ToLower(toString(raw)))
 	if key == "due_state" {
 		return value == "" || normalizeTranslationQueueDueState(value) == translationQueueDueState(assignment.DueDate, now)
 	}
@@ -640,7 +640,46 @@ func translationAssignmentMatchesFilter(assignment TranslationAssignment, key st
 	if !handled {
 		return true
 	}
-	return value == "" || expected == value
+	values := normalizedInMemoryAssignmentFilterValues(key, raw)
+	if len(values) == 0 {
+		return true
+	}
+	for _, value := range values {
+		if expected == value {
+			return true
+		}
+	}
+	return false
+}
+
+func normalizedInMemoryAssignmentFilterValues(key string, raw any) []string {
+	values := []string{}
+	if rawString, ok := raw.(string); ok {
+		for part := range strings.SplitSeq(rawString, ",") {
+			values = append(values, part)
+		}
+	} else {
+		values = toStringSlice(raw)
+	}
+	out := make([]string, 0, len(values))
+	for _, value := range values {
+		value = strings.TrimSpace(strings.ToLower(value))
+		if value == "" {
+			continue
+		}
+		switch key {
+		case "status":
+			value = string(normalizeTranslationAssignmentStatus(AssignmentStatus(value)))
+		case "target_locale", "locale", "source_locale":
+			value = strings.TrimSpace(strings.ToLower(value))
+		case "assignment_type", "work_scope", "entity_type":
+			value = strings.ToLower(value)
+		}
+		if value != "" {
+			out = append(out, value)
+		}
+	}
+	return out
 }
 
 func translationAssignmentFilterStringValue(assignment TranslationAssignment, key string) (string, bool) {

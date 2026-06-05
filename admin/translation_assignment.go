@@ -84,12 +84,14 @@ type TranslationAssignment struct {
 	ArchivedAt  *time.Time `json:"archived_at,omitempty"`
 }
 
-// ActiveUniquenessKey returns the canonical idempotency key for active assignments.
+// ActiveUniquenessKey returns the canonical active-assignment uniqueness key.
 func (a TranslationAssignment) ActiveUniquenessKey() string {
+	tenantID := strings.TrimSpace(strings.ToLower(a.TenantID))
+	orgID := strings.TrimSpace(strings.ToLower(a.OrgID))
 	group := strings.TrimSpace(strings.ToLower(a.FamilyID))
 	target := strings.TrimSpace(strings.ToLower(a.TargetLocale))
 	workScope := normalizeTranslationAssignmentWorkScope(a.WorkScope)
-	return strings.Join([]string{group, target, workScope}, ":")
+	return strings.Join([]string{tenantID, orgID, group, target, workScope}, ":")
 }
 
 func (t AssignmentType) IsValid() bool {

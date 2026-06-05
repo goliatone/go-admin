@@ -1591,11 +1591,11 @@ function renderLocaleAssignmentActions(localeAssignment: TranslationFamilyLocale
   }
   if (actions.assignToUser.enabled) {
     enabledActions.push(`
-      <div class="flex min-w-[16rem] flex-wrap items-center gap-2">
+      <div class="flex w-full min-w-0 flex-wrap items-center gap-2 sm:w-auto sm:min-w-[22rem] sm:flex-nowrap">
         ${renderAssigneeSelect({
           key,
           ariaLabel: 'Assignee',
-          className: `${ASSIGNEE_SELECT_CLASS} min-w-0 flex-1`,
+          className: `${ASSIGNEE_SELECT_CLASS} min-w-0 flex-1 sm:w-80 sm:flex-none lg:w-96`,
         })}
         <button type="button" class="${BTN_SECONDARY}" data-family-assign-to-user="true" data-locale-assignment-key="${escapeAttribute(key)}">
           Assign
@@ -1620,7 +1620,7 @@ function renderLocaleAssignmentActions(localeAssignment: TranslationFamilyLocale
     `);
   }
   if (enabledActions.length > 0) {
-    return `<div class="flex flex-wrap items-center justify-end gap-2">${enabledActions.join('')}</div>`;
+    return `<div class="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:justify-end" data-family-locale-actions="true">${enabledActions.join('')}</div>`;
   }
   const reason = localeAssignmentReason(localeAssignment);
   return reason
@@ -1654,7 +1654,8 @@ function emptyPanelDisabledClass(enabled: boolean): string {
   return enabled ? '' : ' opacity-60 cursor-not-allowed';
 }
 
-const ASSIGNEE_SELECT_CLASS = 'py-3 px-4 pe-9 block w-full border border-gray-200 rounded-lg text-sm focus:border-blue-500 focus:ring-blue-500 disabled:opacity-50 disabled:pointer-events-none dark:bg-slate-900 dark:text-gray-400 dark:border-gray-700 dark:focus:ring-gray-600';
+const FAMILY_SELECT_CLASS = 'block h-12 w-full rounded-lg border border-gray-200 bg-white px-4 pr-9 text-sm text-gray-900 focus:border-blue-500 focus:ring-blue-500 disabled:pointer-events-none disabled:opacity-50 dark:border-gray-700 dark:bg-slate-900 dark:text-gray-400 dark:focus:ring-gray-600';
+const ASSIGNEE_SELECT_CLASS = FAMILY_SELECT_CLASS;
 
 function renderAssigneeSelect(config: {
   key: string;
@@ -1804,7 +1805,7 @@ function renderLocalePanel(detail: TranslationFamilyDetail, options: Translation
       : `<span class="text-sm text-gray-400">No content route</span>`;
     const title = variant.fields.title || variant.fields.slug || `${detail.contentType} ${variant.locale.toUpperCase()}`;
     return `
-      <li class="flex flex-col gap-4 rounded-xl border border-gray-200 bg-white p-6 sm:flex-row sm:items-start sm:justify-between">
+      <li class="grid gap-4 rounded-xl border border-gray-200 bg-white p-6 lg:grid-cols-[minmax(18rem,1fr)_minmax(0,44rem)] lg:items-start">
         <div class="min-w-0">
           <div class="flex flex-wrap items-center gap-2">
             <span class="text-sm font-semibold text-gray-900">${escapeHTML(variant.locale.toUpperCase())}</span>
@@ -1815,7 +1816,7 @@ function renderLocalePanel(detail: TranslationFamilyDetail, options: Translation
           <p class="mt-1 text-xs text-gray-500">Updated ${escapeHTML(formatTranslationTimestampUTC(variant.updatedAt || variant.createdAt)) || 'n/a'}</p>
           ${renderLocaleAssignmentSummary(localeAssignment)}
         </div>
-        <div class="flex flex-shrink-0 flex-wrap items-center justify-end gap-2">
+        <div class="flex min-w-0 flex-wrap items-center gap-2 lg:justify-end">
           ${renderLocaleAssignmentActions(localeAssignment)}
           ${openLink}
         </div>
@@ -1825,7 +1826,7 @@ function renderLocalePanel(detail: TranslationFamilyDetail, options: Translation
 
   for (const locale of missingLocales) {
     rows.push(`
-      <li class="flex items-start justify-between gap-4 rounded-xl border border-rose-200 bg-rose-50 p-6">
+      <li class="flex flex-col items-start justify-between gap-4 rounded-xl border border-rose-200 bg-rose-50 p-6 sm:flex-row">
         <div>
           <div class="flex items-center gap-2">
             <span class="text-sm font-semibold text-rose-900">${escapeHTML(locale.toUpperCase())}</span>
@@ -1862,10 +1863,10 @@ function renderAssignmentPanel(detail: TranslationFamilyDetail): string {
     const startControls = assignable.length
       ? `
         <div class="mt-5 rounded-xl border border-gray-200 bg-gray-50 p-4" data-family-empty-assignment-controls="true">
-          <div class="grid gap-3 lg:grid-cols-[minmax(10rem,0.8fr)_minmax(12rem,1fr)_auto_auto] lg:items-end">
+          <div class="grid gap-3 md:grid-cols-2 2xl:grid-cols-[minmax(10rem,0.8fr)_minmax(16rem,1fr)_auto_auto] 2xl:items-end">
             <label class="grid gap-2">
               <span class="text-sm font-medium text-gray-900">Locale</span>
-              <select class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900" data-family-assignment-locale-select="true">
+              <select class="${FAMILY_SELECT_CLASS}" data-family-assignment-locale-select="true">
                 ${assignable.map(([key, localeAssignment]) => `
                   <option value="${escapeAttribute(key)}" ${emptyPanelAssignmentActionMetadata(localeAssignment)}>${escapeHTML(localeAssignment.locale.toUpperCase())} · ${escapeHTML(localeAssignment.workScope || '__all__')}</option>
                 `).join('')}
@@ -1883,12 +1884,12 @@ function renderAssignmentPanel(detail: TranslationFamilyDetail): string {
               </label>
             ` : '<div></div>'}
             ${hasAssignToMe ? `
-              <button type="button" class="${BTN_SECONDARY}${emptyPanelDisabledClass(Boolean(firstAssignable?.actions.assignToMe.enabled))}" data-family-assign-to-me="true" data-locale-assignment-source="empty-panel"${emptyPanelDisabledAttributes(Boolean(firstAssignable?.actions.assignToMe.enabled), firstAssignable?.actions.assignToMe.reason)}>
+              <button type="button" class="${BTN_SECONDARY} w-full 2xl:w-auto${emptyPanelDisabledClass(Boolean(firstAssignable?.actions.assignToMe.enabled))}" data-family-assign-to-me="true" data-locale-assignment-source="empty-panel"${emptyPanelDisabledAttributes(Boolean(firstAssignable?.actions.assignToMe.enabled), firstAssignable?.actions.assignToMe.reason)}>
                 Assign to me
               </button>
             ` : '<div></div>'}
             ${hasAssignToUser ? `
-              <button type="button" class="${BTN_PRIMARY}${emptyPanelDisabledClass(Boolean(firstAssignable?.actions.assignToUser.enabled))}" data-family-assign-to-user="true" data-locale-assignment-source="empty-panel"${emptyPanelDisabledAttributes(Boolean(firstAssignable?.actions.assignToUser.enabled), firstAssignable?.actions.assignToUser.reason)}>
+              <button type="button" class="${BTN_PRIMARY} w-full 2xl:w-auto${emptyPanelDisabledClass(Boolean(firstAssignable?.actions.assignToUser.enabled))}" data-family-assign-to-user="true" data-locale-assignment-source="empty-panel"${emptyPanelDisabledAttributes(Boolean(firstAssignable?.actions.assignToUser.enabled), firstAssignable?.actions.assignToUser.reason)}>
                 Assign
               </button>
             ` : '<div></div>'}

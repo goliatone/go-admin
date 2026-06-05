@@ -234,6 +234,27 @@ test('translation-family detail: renders server-authored assignment controls for
   assert.match(html, /data-family-locale-assignment-state="unassigned"/);
 });
 
+test('translation-family detail: assignment controls share select sizing and locale actions stay constrained', () => {
+  const detail = normalizeFamilyDetail(assignmentActionFixture());
+  const html = renderTranslationFamilyDetailState({ status: 'ready', detail }, {
+    basePath: '/admin',
+    contentBasePath: '/admin/content',
+  });
+  const dom = new JSDOM(html);
+  const localeSelect = dom.window.document.querySelector('[data-family-assignment-locale-select="true"]');
+  const assigneeSelect = dom.window.document.querySelector('[data-family-assignee-select="__empty_panel__"]');
+
+  assert.ok(localeSelect, 'expected locale select in empty assignment panel');
+  assert.ok(assigneeSelect, 'expected assignee select in empty assignment panel');
+  assert.equal(localeSelect.classList.contains('h-12'), true);
+  assert.equal(assigneeSelect.classList.contains('h-12'), true);
+  assert.equal(localeSelect.classList.contains('rounded-lg'), true);
+  assert.equal(assigneeSelect.classList.contains('rounded-lg'), true);
+  assert.match(html, /lg:grid-cols-\[minmax\(18rem,1fr\)_minmax\(0,44rem\)\]/);
+  assert.match(html, /data-family-locale-actions="true"/);
+  assert.doesNotMatch(html, /lg:grid-cols-\[minmax\(10rem,0\.8fr\)_minmax\(12rem,1fr\)_auto_auto\]/);
+});
+
 test('translation-family detail: empty assignment panel hides unavailable self assignment action', () => {
   const detail = normalizeFamilyDetail(assignmentActionFixture({ assignToMeEnabled: false, assignToUserEnabled: true }));
   const html = renderTranslationFamilyDetailState({ status: 'ready', detail }, {

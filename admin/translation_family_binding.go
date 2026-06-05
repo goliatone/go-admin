@@ -1116,7 +1116,7 @@ func (b *translationFamilyBinding) createOrAssignFamilyAssignment(request transl
 	if err != nil {
 		return translationFamilyCreateAssignmentOutcome{}, err
 	}
-	existing, ok, err := b.activeFamilyAssignment(request.AdminCtx.Context, repo, family.ID, request.Input.TargetLocale, request.Input.WorkScope)
+	existing, ok, err := b.activeFamilyAssignment(request.AdminCtx.Context, repo, request.Scope, family.ID, request.Input.TargetLocale, request.Input.WorkScope)
 	if err != nil {
 		return translationFamilyCreateAssignmentOutcome{}, err
 	}
@@ -1131,15 +1131,18 @@ func (b *translationFamilyBinding) createOrAssignFamilyAssignment(request transl
 	return translationFamilyCreateAssignmentOutcome{Assignment: assignment, AssignmentReused: !inserted}, nil
 }
 
-func (b *translationFamilyBinding) activeFamilyAssignment(ctx context.Context, repo TranslationAssignmentRepository, familyID, targetLocale, workScope string) (TranslationAssignment, bool, error) {
+func (b *translationFamilyBinding) activeFamilyAssignment(ctx context.Context, repo TranslationAssignmentRepository, scope translationservices.Scope, familyID, targetLocale, workScope string) (TranslationAssignment, bool, error) {
 	assignments, _, err := repo.List(ctx, ListOptions{
 		Page:    1,
 		PerPage: 200,
 		SortBy:  "updated_at",
 		Filters: map[string]any{
-			"family_id":     strings.TrimSpace(familyID),
-			"target_locale": strings.TrimSpace(strings.ToLower(targetLocale)),
-			"work_scope":    normalizeTranslationAssignmentWorkScope(workScope),
+			ScopeTenantIDKey: strings.TrimSpace(scope.TenantID),
+			ScopeOrgIDKey:    strings.TrimSpace(scope.OrgID),
+			"family_id":      strings.TrimSpace(familyID),
+			"target_locale":  strings.TrimSpace(strings.ToLower(targetLocale)),
+			"work_scope":     normalizeTranslationAssignmentWorkScope(workScope),
+			"status":         translationFamilyActiveAssignmentStatusFilter(),
 		},
 	})
 	if err != nil {
@@ -2075,7 +2078,10 @@ func (b *translationFamilyBinding) familyDetailAssignments(ctx context.Context, 
 		PerPage: 500,
 		SortBy:  "updated_at",
 		Filters: map[string]any{
-			"family_id": strings.TrimSpace(family.ID),
+			ScopeTenantIDKey: strings.TrimSpace(family.TenantID),
+			ScopeOrgIDKey:    strings.TrimSpace(family.OrgID),
+			"family_id":      strings.TrimSpace(family.ID),
+			"status":         translationFamilyActiveAssignmentStatusFilter(),
 		},
 	})
 	if err != nil {
@@ -2234,12 +2240,16 @@ func (b *translationFamilyBinding) familyLocaleAssignmentActions(ctx context.Con
 
 func (b *translationFamilyBinding) familyAssignActionState(ctx context.Context, family translationservices.FamilyRecord, variant translationservices.FamilyVariant, assignment TranslationAssignment, hasAssignment bool, state string, self bool) map[string]any {
 	permission := PermAdminTranslationsAssign
+	queueEnabled := b.translationQueueActionsEnabled()
 	allowed := permissionAllowed(b.admin.Authorizer(), ctx, permission, "translations")
 	actorID := strings.TrimSpace(actorFromContext(ctx))
-	enabled := allowed && (!self || actorID != "") && state != "source_locale" && state != "in_progress" && state != "in_review"
+	enabled := queueEnabled && allowed && (!self || actorID != "") && state != "source_locale" && state != "in_progress" && state != "in_review"
 	reason := ""
 	reasonCode := ""
 	switch {
+	case !queueEnabled:
+		reason = "translation queue feature is disabled"
+		reasonCode = ActionDisabledReasonCodeFeatureDisabled
 	case !allowed:
 		reason = "missing permission: " + permission
 		reasonCode = ActionDisabledReasonCodePermissionDenied
@@ -2264,8 +2274,16 @@ func (b *translationFamilyBinding) familyAssignActionState(ctx context.Context, 
 		"enabled":    enabled,
 		"permission": permission,
 	}
-	if endpoint := b.familyAssignmentEndpoint(family.ID); endpoint != "" {
-		out["endpoint"] = endpoint
+	if queueEnabled {
+		if endpoint := b.familyAssignmentEndpoint(family.ID); endpoint != "" {
+			out["endpoint"] = endpoint
+		}
+	}
+	if _, ok := out["endpoint"]; !ok && enabled {
+		enabled = false
+		out["enabled"] = false
+		reason = "family assignment route is unavailable"
+		reasonCode = ActionDisabledReasonCodeFeatureDisabled
 	}
 	required := []string{"target_locale"}
 	if !self {
@@ -2292,6 +2310,14 @@ func (b *translationFamilyBinding) familyAssignActionState(ctx context.Context, 
 }
 
 func (b *translationFamilyBinding) familyClaimActionState(ctx context.Context, assignment TranslationAssignment, hasAssignment bool) map[string]any {
+	if !b.translationQueueActionsEnabled() {
+		return map[string]any{
+			"enabled":     false,
+			"permission":  PermAdminTranslationsClaim,
+			"reason":      "translation queue feature is disabled",
+			"reason_code": ActionDisabledReasonCodeFeatureDisabled,
+		}
+	}
 	if !hasAssignment {
 		return map[string]any{
 			"enabled":     false,
@@ -2312,6 +2338,14 @@ func (b *translationFamilyBinding) familyClaimActionState(ctx context.Context, a
 }
 
 func (b *translationFamilyBinding) familyOpenEditorActionState(assignment TranslationAssignment, hasAssignment bool) map[string]any {
+	if !b.translationQueueActionsEnabled() {
+		return map[string]any{
+			"enabled":     false,
+			"label":       "Open editor",
+			"reason":      "translation queue feature is disabled",
+			"reason_code": ActionDisabledReasonCodeFeatureDisabled,
+		}
+	}
 	if !hasAssignment {
 		return map[string]any{
 			"enabled":     false,
@@ -2353,6 +2387,20 @@ func (b *translationFamilyBinding) assignmentActionEndpoint(assignmentID, action
 	}
 	base := strings.TrimRight(strings.TrimSpace(firstNonEmpty(adminAPIBasePath(b.admin), "/admin/api")), "/")
 	return base + "/translations/assignments/" + neturl.PathEscape(strings.TrimSpace(assignmentID)) + "/actions/" + neturl.PathEscape(strings.TrimSpace(action))
+}
+
+func translationFamilyActiveAssignmentStatusFilter() []string {
+	return []string{
+		string(AssignmentStatusOpen),
+		string(AssignmentStatusAssigned),
+		string(AssignmentStatusInProgress),
+		string(AssignmentStatusInReview),
+		string(AssignmentStatusChangesRequested),
+	}
+}
+
+func (b *translationFamilyBinding) translationQueueActionsEnabled() bool {
+	return b != nil && b.admin != nil && featureEnabled(b.admin.featureGate, FeatureTranslationQueue)
 }
 
 func translationFamilyLocaleAssignmentKey(locale, workScope string) string {
