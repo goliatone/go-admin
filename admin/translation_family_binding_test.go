@@ -7,6 +7,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -398,6 +399,14 @@ func TestTranslationFamilyBindingDetailReturnsSourceAssignmentsAndPublishGate(t 
 	if got := toString(assignment["status"]); got != string(translationcore.AssignmentStatusInProgress) {
 		t.Fatalf("expected active assignment in_progress, got %q", got)
 	}
+	assignmentLinks := extractMap(assignment["links"])
+	editorLink := extractMap(assignmentLinks["editor"])
+	if got := toString(editorLink["href"]); got != "/admin/translations/assignments/asg-open-es/edit" {
+		t.Fatalf("expected active assignment editor href, got %q", got)
+	}
+	if got := toString(editorLink["label"]); got != "Open editor" {
+		t.Fatalf("expected active assignment editor label, got %q", got)
+	}
 
 	summary := extractMap(data["readiness_summary"])
 	if got := toString(summary["state"]); got != string(translationcore.FamilyReadinessBlocked) {
@@ -671,6 +680,120 @@ func TestTranslationFamilyBindingCreateVariantBlocksWhenPolicyIsUnavailable(t *t
 	}
 	if got := toString(extractMap(payload["error"])["text_code"]); got != string(translationcore.ErrorPolicyBlocked) {
 		t.Fatalf("expected text_code %q, got %q", string(translationcore.ErrorPolicyBlocked), got)
+	}
+}
+
+func TestTranslationFamilyBindingCreateVariantAllowsMissingLocaleWhenHostPolicyDeniedEndToEnd(t *testing.T) {
+	options := translationFamilyMutationFixtureOptions{
+		RequiredLocales: []string{"fr"},
+	}
+	fixture := newTranslationFamilyMutationFixture(t, options)
+	fixture.admin.WithTranslationPolicy(hostPolicyDeniedByEntityStub{
+		readinessPolicyByEntityStub: readinessPolicyByEntityStub{
+			requirements: fixtureTranslationRequirementsByEntity(options),
+		},
+	})
+	syncTranslationFamilyFixtureStore(t, fixture.admin, "production")
+
+	detailStatus, detailPayload := doTranslationFamilyJSONRequest(t, fixture.app, http.MethodGet, "/admin/api/translations/families/tg-page-1?channel=production&tenant_id=tenant-1&org_id=org-1", nil, nil)
+	if detailStatus != http.StatusOK {
+		t.Fatalf("detail status=%d payload=%+v", detailStatus, detailPayload)
+	}
+	detail := extractMap(detailPayload["data"])
+	quickCreate := extractMap(detail["quick_create"])
+	if enabled := testBool(t, quickCreate["enabled"], "quick_create.enabled"); !enabled {
+		t.Fatalf("expected quick_create enabled for host-policy-denied missing locale, got %+v", quickCreate)
+	}
+	if got := toStringSlice(quickCreate["missing_locales"]); len(got) != 1 || got[0] != "fr" {
+		t.Fatalf("expected missing locale fr before create, got %+v", got)
+	}
+	if got := toStringSlice(extractMap(detail["readiness_summary"])["blocker_codes"]); !slices.Contains(got, string(translationcore.FamilyBlockerPolicyDenied)) {
+		t.Fatalf("expected policy_denied blocker before create, got %+v", got)
+	}
+
+	status, payload := doTranslationFamilyJSONRequest(t, fixture.app, http.MethodPost, "/admin/api/translations/families/tg-page-1/variants?channel=production&tenant_id=tenant-1&org_id=org-1", map[string]any{
+		"locale": "fr",
+	}, nil)
+	if status != http.StatusOK {
+		t.Fatalf("status=%d want=200 payload=%+v", status, payload)
+	}
+	data := extractMap(payload["data"])
+	if got := toString(data["locale"]); got != "fr" {
+		t.Fatalf("expected created locale fr, got %q", got)
+	}
+	familyMeta := extractMap(extractMap(payload["meta"])["family"])
+	if got := toStringSlice(familyMeta["blocker_codes"]); len(got) != 1 || got[0] != string(translationcore.FamilyBlockerPolicyDenied) {
+		t.Fatalf("expected family to remain blocked only by policy_denied, got %+v", got)
+	}
+}
+
+func TestTranslationFamilyBindingCreateVariantAllowsMissingLocaleWhenHostPolicyDenied(t *testing.T) {
+	binding := &translationFamilyBinding{}
+	family := translationservices.FamilyRecord{
+		ID:          "family-policy-denied",
+		ContentType: "pages",
+		Blockers: []translationservices.FamilyBlocker{
+			{
+				BlockerCode: string(translationcore.FamilyBlockerPolicyDenied),
+				Locale:      "es",
+				Details: map[string]any{
+					translationcore.FamilyBlockerDetailReason: string(translationcore.FamilyBlockerReasonHostPolicy),
+				},
+			},
+			{
+				BlockerCode: string(translationcore.FamilyBlockerMissingLocale),
+				Locale:      "es",
+			},
+		},
+	}
+	request := translationFamilyCreateVariantRequest{
+		AdminCtx: AdminContext{Context: context.Background()},
+		Input:    translationFamilyCreateVariantInput{Locale: "es", Environment: "default"},
+	}
+
+	if err := binding.ensureCreateVariantAllowed(request, family); err != nil {
+		t.Fatalf("expected missing locale create to be allowed despite host policy denial, got %v", err)
+	}
+
+	missingLocales := translationFamilyQuickCreateLocales(family)
+	enabled, reasonCode, reason := translationFamilyQuickCreateAvailability(family, missingLocales)
+	if !enabled || reasonCode != "" || reason != "" {
+		t.Fatalf("expected quick create enabled for missing locale with host policy denial, got enabled=%v code=%q reason=%q", enabled, reasonCode, reason)
+	}
+}
+
+func TestTranslationFamilyBindingCreateVariantStillBlocksMissingLocaleWhenPolicyUnavailable(t *testing.T) {
+	binding := &translationFamilyBinding{}
+	family := translationservices.FamilyRecord{
+		ID:          "family-policy-unavailable",
+		ContentType: "pages",
+		Blockers: []translationservices.FamilyBlocker{
+			{
+				BlockerCode: string(translationcore.FamilyBlockerPolicyDenied),
+				Locale:      "es",
+				Details: map[string]any{
+					translationcore.FamilyBlockerDetailReason: string(translationcore.FamilyBlockerReasonPolicyUnavailable),
+				},
+			},
+			{
+				BlockerCode: string(translationcore.FamilyBlockerMissingLocale),
+				Locale:      "es",
+			},
+		},
+	}
+	request := translationFamilyCreateVariantRequest{
+		AdminCtx: AdminContext{Context: context.Background()},
+		Input:    translationFamilyCreateVariantInput{Locale: "es", Environment: "default"},
+	}
+
+	if err := binding.ensureCreateVariantAllowed(request, family); err == nil {
+		t.Fatalf("expected policy unavailable family to block missing locale create")
+	}
+
+	missingLocales := translationFamilyQuickCreateLocales(family)
+	enabled, reasonCode, _ := translationFamilyQuickCreateAvailability(family, missingLocales)
+	if enabled || reasonCode != "policy_denied" {
+		t.Fatalf("expected quick create disabled for policy unavailable, got enabled=%v code=%q", enabled, reasonCode)
 	}
 }
 
@@ -1151,6 +1274,28 @@ type translationFamilyMutationFixture struct {
 	content  *translationFamilyMutationContentService
 	admin    *Admin
 	repo     TranslationAssignmentRepository
+}
+
+type hostPolicyDeniedByEntityStub struct {
+	readinessPolicyByEntityStub
+}
+
+func (s hostPolicyDeniedByEntityStub) FamilyPolicyBlockers(_ context.Context, family translationservices.FamilyRecord, _ translationservices.FamilyPolicy, environment string) ([]translationservices.FamilyBlocker, error) {
+	locale := strings.TrimSpace(strings.ToLower(firstNonEmpty(family.SourceLocale, "en")))
+	return []translationservices.FamilyBlocker{{
+		ID:          translationservices.DeterministicBlockerID(translationservices.Scope{TenantID: family.TenantID, OrgID: family.OrgID}, family.ID, string(translationcore.FamilyBlockerPolicyDenied), locale, "host_policy"),
+		FamilyID:    family.ID,
+		TenantID:    family.TenantID,
+		OrgID:       family.OrgID,
+		BlockerCode: string(translationcore.FamilyBlockerPolicyDenied),
+		Locale:      locale,
+		Details: map[string]any{
+			translationcore.FamilyBlockerDetailContentType: family.ContentType,
+			translationcore.FamilyBlockerDetailEnvironment: strings.TrimSpace(environment),
+			translationcore.FamilyBlockerDetailMessage:     "host policy denied publish",
+			translationcore.FamilyBlockerDetailReason:      string(translationcore.FamilyBlockerReasonHostPolicy),
+		},
+	}}, nil
 }
 
 func syncTranslationFamilyFixtureStore(t *testing.T, adm *Admin, environment string) {
