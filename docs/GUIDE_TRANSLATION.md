@@ -470,6 +470,8 @@ Dashboard blocked-family rows can include optional remediation fields:
 
 The optimized dashboard path derives family aggregates from `content_families` and reason detail from `family_blockers`, scoped by tenant, org, channel, and dashboard limits. It should not call broad family or assignment hydration paths, derive family reason buckets from assignment rows, or require a denormalized dashboard projection for the current contract.
 
+Dashboard overdue assignment metrics and top-overdue rows count actionable workflow statuses only: `open`, `assigned`, `in_progress`, `in_review`, and `changes_requested`. Approved assignments can retain a past `due_date` for audit/inspection, but they are not overdue remediation work.
+
 ### Scope policy
 
 Translation family, queue, assignment, dashboard, and sync paths use the
