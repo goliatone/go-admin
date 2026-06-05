@@ -424,6 +424,25 @@ func TestBunTranslationAssignmentRepositoryDashboardSummaryAllowsUnscopedScope(t
 	}); err != nil {
 		t.Fatalf("seed assignment: %v", err)
 	}
+	if _, err := repo.Create(ctx, TranslationAssignment{
+		ID:             "asg-dashboard-approved-overdue",
+		FamilyID:       "family-dashboard-unscoped",
+		EntityType:     "pages",
+		TenantID:       "tenant-1",
+		OrgID:          "org-1",
+		SourceRecordID: "page-dashboard-unscoped",
+		SourceTitle:    "Dashboard Approved",
+		SourceLocale:   "en",
+		TargetLocale:   "fr",
+		AssigneeID:     "manager-1",
+		ReviewerID:     "manager-1",
+		AssignmentType: AssignmentTypeDirect,
+		Status:         AssignmentStatusApproved,
+		Priority:       PriorityUrgent,
+		DueDate:        &overdue,
+	}); err != nil {
+		t.Fatalf("seed approved assignment: %v", err)
+	}
 
 	t.Run("actor present", func(t *testing.T) {
 		summary, err := repo.AssignmentDashboardSummary(ctx, TranslationAssignmentDashboardSummaryInput{
