@@ -59,24 +59,43 @@ func normalizePreviewPath(raw string) string {
 	if trimmed == "" {
 		return ""
 	}
+	if isAbsoluteHTTPPreviewURL(trimmed) {
+		return trimmed
+	}
 	if !strings.HasPrefix(trimmed, "/") {
 		return "/" + trimmed
 	}
 	return trimmed
 }
 
-// BuildSitePreviewURL appends a preview token to a public preview path.
+func isAbsoluteHTTPPreviewURL(raw string) bool {
+	parsed, err := url.Parse(raw)
+	if err != nil {
+		return false
+	}
+	switch strings.ToLower(parsed.Scheme) {
+	case "http", "https":
+		return parsed.Host != ""
+	default:
+		return false
+	}
+}
+
+// BuildSitePreviewURL adds or replaces preview_token on a public preview path.
 func BuildSitePreviewURL(targetPath, token string) string {
 	path := strings.TrimSpace(targetPath)
 	token = strings.TrimSpace(token)
 	if path == "" || token == "" {
 		return ""
 	}
-	separator := "?"
-	if strings.Contains(path, "?") {
-		separator = "&"
+	parsed, err := url.Parse(path)
+	if err != nil {
+		return ""
 	}
-	return path + separator + "preview_token=" + url.QueryEscape(token)
+	query := parsed.Query()
+	query.Set("preview_token", token)
+	parsed.RawQuery = query.Encode()
+	return parsed.String()
 }
 
 // Generate creates a signed preview token for a record.
