@@ -19,6 +19,11 @@ func TestResolveContentPreviewPath(t *testing.T) {
 			expected: "/articles/launch",
 		},
 		{
+			name:     "absolute top-level preview url",
+			record:   map[string]any{"preview_url": "https://preview.example.test/articles/launch"},
+			expected: "https://preview.example.test/articles/launch",
+		},
+		{
 			name:     "nested path",
 			record:   map[string]any{"data": map[string]any{"path": "legal/privacy"}},
 			expected: "/legal/privacy",
@@ -27,6 +32,11 @@ func TestResolveContentPreviewPath(t *testing.T) {
 			name:     "nested preview url",
 			record:   map[string]any{"data": map[string]any{"preview_url": "/preview/page"}},
 			expected: "/preview/page",
+		},
+		{
+			name:     "absolute nested preview url",
+			record:   map[string]any{"data": map[string]any{"preview_url": "https://preview.example.test/preview/page"}},
+			expected: "https://preview.example.test/preview/page",
 		},
 		{
 			name:     "slug fallback",
@@ -72,6 +82,24 @@ func TestBuildSitePreviewURL(t *testing.T) {
 			targetPath: "/about?lang=en",
 			token:      "token-123",
 			expected:   "/about?lang=en&preview_token=token-123",
+		},
+		{
+			name:       "places query before fragment",
+			targetPath: "/about#draft",
+			token:      "token-123",
+			expected:   "/about?preview_token=token-123#draft",
+		},
+		{
+			name:       "replaces stale preview token",
+			targetPath: "/about?preview_token=old&lang=en",
+			token:      "fresh-token",
+			expected:   "/about?lang=en&preview_token=fresh-token",
+		},
+		{
+			name:       "supports absolute url",
+			targetPath: "https://preview.example.test/about?lang=en#draft",
+			token:      "fresh-token",
+			expected:   "https://preview.example.test/about?lang=en&preview_token=fresh-token#draft",
 		},
 		{
 			name:       "empty path",

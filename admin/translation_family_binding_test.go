@@ -1258,14 +1258,15 @@ func testBool(t *testing.T, value any, label string) bool {
 }
 
 type translationFamilyMutationFixtureOptions struct {
-	RequiredLocales      []string
-	ReviewRequired       bool
-	LifecycleMode        string
-	Assignments          []TranslationAssignment
-	DisablePolicy        bool
-	OmitDefaultWorkScope bool
-	Repo                 TranslationAssignmentRepository
-	FamilyStore          translationservices.FamilyStore
+	RequiredLocales         []string
+	ReviewRequired          bool
+	LifecycleMode           string
+	Assignments             []TranslationAssignment
+	DisablePolicy           bool
+	OmitDefaultWorkScope    bool
+	Repo                    TranslationAssignmentRepository
+	FamilyStore             translationservices.FamilyStore
+	PagePanelViewPermission string
 }
 
 type translationFamilyMutationFixture struct {
@@ -1366,10 +1367,14 @@ func newTranslationFamilyMutationFixture(t *testing.T, options translationFamily
 		content: contentSvc.InMemoryContentService,
 	})
 	adm.contentSvc = contentSvc
+	pagePanelViewPermission := strings.TrimSpace(options.PagePanelViewPermission)
+	if pagePanelViewPermission == "" {
+		pagePanelViewPermission = PermAdminTranslationsView
+	}
 	if _, err := adm.RegisterPanel("pages", adm.Panel("pages").
 		WithRepository(NewCMSPageRepository(contentSvc)).
 		Permissions(PanelPermissions{
-			View: PermAdminTranslationsView,
+			View: pagePanelViewPermission,
 		}),
 	); err != nil {
 		t.Fatalf("register pages panel: %v", err)

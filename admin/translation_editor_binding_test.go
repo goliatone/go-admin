@@ -18,19 +18,20 @@ import (
 )
 
 type translationEditorTestFixtureOptions struct {
-	ReviewRequired         bool
-	AssignmentStatus       AssignmentStatus
-	AssignmentVersion      int64
-	TargetFields           map[string]string
-	LastSyncedSourceFields map[string]string
-	VariantRowVersion      int64
-	TargetCMSStatus        string
-	TargetVariantStatus    string
-	LastRejectionReason    string
-	Permissions            map[string]bool
-	FamilyStore            translationservices.FamilyStore
-	RequiredLocales        []string
-	ExtraAssignments       []TranslationAssignment
+	ReviewRequired          bool
+	AssignmentStatus        AssignmentStatus
+	AssignmentVersion       int64
+	TargetFields            map[string]string
+	LastSyncedSourceFields  map[string]string
+	VariantRowVersion       int64
+	TargetCMSStatus         string
+	TargetVariantStatus     string
+	LastRejectionReason     string
+	Permissions             map[string]bool
+	FamilyStore             translationservices.FamilyStore
+	RequiredLocales         []string
+	ExtraAssignments        []TranslationAssignment
+	PagePanelViewPermission string
 }
 
 type translationEditorTestFixture struct {
@@ -173,10 +174,11 @@ func newTranslationEditorTestFixture(t *testing.T, options translationEditorTest
 	}
 	assignments = append(assignments, options.ExtraAssignments...)
 	base := newTranslationFamilyMutationFixture(t, translationFamilyMutationFixtureOptions{
-		RequiredLocales: requiredLocales,
-		ReviewRequired:  options.ReviewRequired,
-		FamilyStore:     options.FamilyStore,
-		Assignments:     assignments,
+		RequiredLocales:         requiredLocales,
+		ReviewRequired:          options.ReviewRequired,
+		FamilyStore:             options.FamilyStore,
+		Assignments:             assignments,
+		PagePanelViewPermission: options.PagePanelViewPermission,
 	})
 
 	permissions := map[string]bool{
@@ -188,7 +190,11 @@ func newTranslationEditorTestFixture(t *testing.T, options translationEditorTest
 		PermAdminTranslationsManage:  true,
 	}
 	maps.Copy(permissions, options.Permissions)
-	base.admin.WithAuthorizer(translationPermissionAuthorizer{allowed: permissions})
+	authorizer := translationPermissionAuthorizer{allowed: permissions}
+	base.admin.WithAuthorizer(authorizer)
+	if pagePanel, ok := base.admin.registry.Panel("pages"); ok && pagePanel != nil {
+		pagePanel.authorizer = authorizer
+	}
 
 	source, err := base.content.Page(context.Background(), "page-1", "")
 	if err != nil || source == nil {
@@ -615,6 +621,67 @@ func TestTranslationEditorAssignmentPreviewReturnsUnavailableWhenPathMissing(t *
 	}
 }
 
+func TestTranslationEditorAssignmentPreviewReturnsUnavailableWhenTargetRecordMissing(t *testing.T) {
+	fixture := newTranslationEditorTestFixture(t, translationEditorTestFixtureOptions{})
+	if err := fixture.content.DeletePage(context.Background(), fixture.targetRecordID); err != nil {
+		t.Fatalf("delete target page: %v", err)
+	}
+
+	status, payload := doTranslationEditorJSONRequest(t, fixture.app, http.MethodGet, "/admin/api/translations/assignments/"+fixture.assignmentID+"/preview?channel=production&tenant_id=tenant-1&org_id=org-1", nil)
+	if status != http.StatusOK {
+		t.Fatalf("status=%d want=200 payload=%+v", status, payload)
+	}
+	assertTranslationPreviewDisabled(t, payload, translationPreviewReasonNoTarget)
+}
+
+func TestTranslationEditorAssignmentPreviewReturnsUnavailableWhenPreviewServiceMissing(t *testing.T) {
+	fixture := newTranslationEditorTestFixture(t, translationEditorTestFixtureOptions{})
+	fixture.admin.preview = nil
+
+	status, payload := doTranslationEditorJSONRequest(t, fixture.app, http.MethodGet, "/admin/api/translations/assignments/"+fixture.assignmentID+"/preview?channel=production&tenant_id=tenant-1&org_id=org-1", nil)
+	if status != http.StatusOK {
+		t.Fatalf("status=%d want=200 payload=%+v", status, payload)
+	}
+	assertTranslationPreviewDisabled(t, payload, translationPreviewReasonPreviewUnavailable)
+}
+
+func TestTranslationEditorAssignmentPreviewReturnsUnavailableForUnsupportedContent(t *testing.T) {
+	fixture := newTranslationEditorTestFixture(t, translationEditorTestFixtureOptions{})
+	family, ok, err := fixture.admin.translationFamilyStore.Family(context.Background(), "tg-page-1")
+	if err != nil {
+		t.Fatalf("load family: %v", err)
+	}
+	if !ok {
+		t.Fatalf("expected family")
+	}
+	family.ContentType = "unsupported_content_type"
+	if err := fixture.admin.translationFamilyStore.SaveFamily(context.Background(), family); err != nil {
+		t.Fatalf("save unsupported family: %v", err)
+	}
+
+	status, payload := doTranslationEditorJSONRequest(t, fixture.app, http.MethodGet, "/admin/api/translations/assignments/"+fixture.assignmentID+"/preview?channel=production&tenant_id=tenant-1&org_id=org-1", nil)
+	if status != http.StatusOK {
+		t.Fatalf("status=%d want=200 payload=%+v", status, payload)
+	}
+	assertTranslationPreviewDisabled(t, payload, translationPreviewReasonUnsupportedContent)
+}
+
+func TestTranslationEditorAssignmentPreviewReturnsUnavailableWhenContentPanelPermissionDenied(t *testing.T) {
+	const pagePreviewPermission = "admin.pages.preview"
+	fixture := newTranslationEditorTestFixture(t, translationEditorTestFixtureOptions{
+		PagePanelViewPermission: pagePreviewPermission,
+		Permissions: map[string]bool{
+			pagePreviewPermission: false,
+		},
+	})
+
+	status, payload := doTranslationEditorJSONRequest(t, fixture.app, http.MethodGet, "/admin/api/translations/assignments/"+fixture.assignmentID+"/preview?channel=production&tenant_id=tenant-1&org_id=org-1", nil)
+	if status != http.StatusOK {
+		t.Fatalf("status=%d want=200 payload=%+v", status, payload)
+	}
+	assertTranslationPreviewDisabled(t, payload, translationPreviewReasonPermissionDenied)
+}
+
 func TestTranslationEditorAssignmentPreviewRequiresViewPermission(t *testing.T) {
 	fixture := newTranslationEditorTestFixture(t, translationEditorTestFixtureOptions{
 		Permissions: map[string]bool{
@@ -625,6 +692,23 @@ func TestTranslationEditorAssignmentPreviewRequiresViewPermission(t *testing.T) 
 	status, payload := doTranslationEditorJSONRequest(t, fixture.app, http.MethodGet, "/admin/api/translations/assignments/"+fixture.assignmentID+"/preview?channel=production&tenant_id=tenant-1&org_id=org-1", nil)
 	if status != http.StatusForbidden {
 		t.Fatalf("status=%d want=403 payload=%+v", status, payload)
+	}
+}
+
+func assertTranslationPreviewDisabled(t *testing.T, payload map[string]any, reasonCode string) {
+	t.Helper()
+	data := extractMap(payload["data"])
+	if toBool(data["enabled"]) {
+		t.Fatalf("expected preview disabled, got %+v", data)
+	}
+	if got := toString(data["reason_code"]); got != reasonCode {
+		t.Fatalf("expected reason_code %q, got %q in %+v", reasonCode, got, data)
+	}
+	if got := toString(data["reason"]); got == "" {
+		t.Fatalf("expected disabled reason in %+v", data)
+	}
+	if got := toString(data["url"]); got != "" {
+		t.Fatalf("expected disabled preview to omit url, got %q", got)
 	}
 }
 
