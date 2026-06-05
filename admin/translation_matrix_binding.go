@@ -1184,20 +1184,7 @@ func translationMatrixCreateQuickAction(
 }
 
 func translationMatrixAssignmentEditorURL(adm *Admin, assignmentID string) string {
-	assignmentID = strings.TrimSpace(assignmentID)
-	if adm == nil || assignmentID == "" {
-		return ""
-	}
-	if href := resolveURLWith(adm.URLs(), "admin", "translations.assignments.id", map[string]string{
-		"assignment_id": assignmentID,
-	}, nil); href != "" {
-		return href
-	}
-	base := strings.TrimRight(strings.TrimSpace(firstNonEmpty(adm.config.BasePath, "/admin")), "/")
-	if base == "" {
-		base = "/admin"
-	}
-	return base + "/translations/assignments/" + assignmentID + "/edit"
+	return translationAssignmentEditorURL(adm, assignmentID)
 }
 
 func translationMatrixFilterMissingLocales(family translationservices.FamilyRecord, locales []string) []string {
@@ -1300,12 +1287,12 @@ func (b *translationFamilyBinding) translationMatrixCreateVariantFamily(adminCtx
 	if !ok {
 		return translationservices.FamilyRecord{}, notFoundDomainError("translation family not found", map[string]any{"family_id": strings.TrimSpace(familyID)})
 	}
-	if translationFamilyPolicyDenied(familyBefore) {
-		return translationservices.FamilyRecord{}, NewDomainError(string(translationcore.ErrorPolicyBlocked), "translation family is blocked by policy", mergeTranslationChannelContract(map[string]any{
-			"family_id":        familyBefore.ID,
-			"content_type":     familyBefore.ContentType,
-			"requested_locale": input.Locale,
-		}, input.Environment))
+	if allowErr := b.ensureCreateVariantAllowed(translationFamilyCreateVariantRequest{
+		AdminCtx: adminCtx,
+		Input:    input,
+		Scope:    scope,
+	}, familyBefore); allowErr != nil {
+		return translationservices.FamilyRecord{}, allowErr
 	}
 	if translationFamilyHasLocale(familyBefore, input.Locale) {
 		source := translationFamilySourceVariant(familyBefore)

@@ -641,6 +641,10 @@ func translationEditorAssignmentNavigationRank(status string) int {
 }
 
 func translationEditorAssignmentEditorURL(adm *Admin, assignmentID string) string {
+	return translationAssignmentEditorURL(adm, assignmentID)
+}
+
+func translationAssignmentEditorURL(adm *Admin, assignmentID string) string {
 	assignmentID = strings.TrimSpace(assignmentID)
 	if adm == nil || assignmentID == "" {
 		return ""

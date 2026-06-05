@@ -216,7 +216,7 @@ func (b *translationFamilyBinding) Detail(c router.Context, id string) (payload 
 		return nil, notFoundDomainError("translation family not found", b.detailNotFoundMetadata(adminCtx, id, channel))
 	}
 	return map[string]any{
-		"data": translationFamilyDetailPayload(family, channel),
+		"data": translationFamilyDetailPayload(family, channel, b.admin),
 		"meta": mergeTranslationChannelContract(nil, channel),
 	}, nil
 }
@@ -391,7 +391,7 @@ func (b *translationFamilyBinding) loadCreateVariantState(familyID string, reque
 }
 
 func (b *translationFamilyBinding) ensureCreateVariantAllowed(request translationFamilyCreateVariantRequest, family translationservices.FamilyRecord) error {
-	if !translationFamilyPolicyDenied(family) {
+	if !translationFamilyPolicyDenied(family) || translationFamilyCanCreateMissingLocaleWithPolicyDenied(family, request.Input.Locale) {
 		return nil
 	}
 	recordTranslationCreateLocaleMetric(request.AdminCtx.Context, translationCreateLocaleEvent{
@@ -672,6 +672,24 @@ func parseTranslationFamilyCreateVariantInput(c router.Context, body map[string]
 func translationFamilyPolicyDenied(family translationservices.FamilyRecord) bool {
 	for _, blocker := range family.Blockers {
 		if strings.EqualFold(strings.TrimSpace(blocker.BlockerCode), string(translationcore.FamilyBlockerPolicyDenied)) {
+			return true
+		}
+	}
+	return false
+}
+
+func translationFamilyCanCreateMissingLocaleWithPolicyDenied(family translationservices.FamilyRecord, locale string) bool {
+	target := strings.TrimSpace(strings.ToLower(locale))
+	if target == "" {
+		return false
+	}
+	for _, blocker := range family.Blockers {
+		if translationFamilyBlockerIsPolicyUnavailable(blocker) {
+			return false
+		}
+	}
+	for _, missingLocale := range translationFamilyQuickCreateLocales(family) {
+		if strings.EqualFold(strings.TrimSpace(missingLocale), target) {
 			return true
 		}
 	}
@@ -1603,11 +1621,11 @@ func translationFamilyBlockerDetailString(blocker translationservices.FamilyBloc
 	return strings.TrimSpace(strings.ToLower(toString(blocker.Details[key])))
 }
 
-func translationFamilyDetailPayload(family translationservices.FamilyRecord, channel string) map[string]any {
+func translationFamilyDetailPayload(family translationservices.FamilyRecord, channel string, adm *Admin) map[string]any {
 	source := translationFamilySourceVariant(family)
 	variants := cloneFamilyVariantPayloads(family.Variants)
 	blockers := cloneFamilyBlockerPayloads(family.Blockers)
-	assignments := cloneFamilyAssignmentPayloads(family.Assignments)
+	assignments := cloneFamilyAssignmentPayloads(family.Assignments, adm)
 	quickCreate := translationFamilyQuickCreatePayload(family)
 	activeAssignments := make([]map[string]any, 0, len(assignments))
 	for _, assignment := range assignments {
@@ -1705,13 +1723,20 @@ func translationFamilyQuickCreateRecommendedLocale(family translationservices.Fa
 }
 
 func translationFamilyQuickCreateAvailability(family translationservices.FamilyRecord, missingLocales []string) (bool, string, string) {
+	hasPolicyDenied := false
 	for _, blocker := range family.Blockers {
 		if strings.EqualFold(strings.TrimSpace(blocker.BlockerCode), string(translationcore.FamilyBlockerPolicyDenied)) {
-			return false, "policy_denied", "Policy currently blocks creating additional locale variants for this family."
+			hasPolicyDenied = true
+			if translationFamilyBlockerIsPolicyUnavailable(blocker) {
+				return false, "policy_denied", "Policy currently blocks creating additional locale variants for this family."
+			}
 		}
 	}
 	if len(missingLocales) > 0 {
 		return true, "", ""
+	}
+	if hasPolicyDenied {
+		return false, "policy_denied", "Policy currently blocks creating additional locale variants for this family."
 	}
 	return false, "no_missing_locales", "All required locales already exist for this family."
 }
@@ -1784,13 +1809,13 @@ func cloneFamilyBlockerPayloads(items []translationservices.FamilyBlocker) []map
 	return out
 }
 
-func cloneFamilyAssignmentPayloads(items []translationservices.FamilyAssignment) []map[string]any {
+func cloneFamilyAssignmentPayloads(items []translationservices.FamilyAssignment, adm *Admin) []map[string]any {
 	if len(items) == 0 {
 		return nil
 	}
 	out := make([]map[string]any, 0, len(items))
 	for _, item := range items {
-		out = append(out, map[string]any{
+		row := map[string]any{
 			"id":             item.ID,
 			"family_id":      item.FamilyID,
 			"variant_id":     item.VariantID,
@@ -1806,7 +1831,20 @@ func cloneFamilyAssignmentPayloads(items []translationservices.FamilyAssignment)
 			"due_date":       item.DueDate,
 			"created_at":     item.CreatedAt,
 			"updated_at":     item.UpdatedAt,
-		})
+		}
+		if href := translationAssignmentEditorURL(adm, item.ID); href != "" {
+			row["links"] = map[string]any{
+				"editor": map[string]any{
+					"href":        href,
+					"label":       "Open editor",
+					"description": "Open the assignment editor for this family assignment.",
+					"relation":    "primary",
+					"entity_type": "assignment",
+					"entity_id":   strings.TrimSpace(item.ID),
+				},
+			}
+		}
+		out = append(out, row)
 	}
 	return out
 }
