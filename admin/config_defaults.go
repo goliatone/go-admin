@@ -32,6 +32,7 @@ func applyCMSAndSiteConfigDefaults(cfg Config) Config {
 	if cfg.PreviewSecret == "" {
 		cfg.PreviewSecret = "admin-preview-secret-change-me"
 	}
+	cfg.PreviewURLAllowedHosts = normalizePreviewURLAllowedHosts(cfg.PreviewURLAllowedHosts)
 	if cfg.Site.AllowLocaleFallback == nil {
 		allow := true
 		cfg.Site.AllowLocaleFallback = &allow
