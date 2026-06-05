@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	defaultEmbeddedSiteThemeName = "garchen-archive-site"
+	defaultEmbeddedSiteThemeName = "go-admin-demo-site"
 	embeddedSiteThemesRoot       = "site_themes"
 )
 

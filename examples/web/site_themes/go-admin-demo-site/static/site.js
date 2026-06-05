@@ -217,7 +217,7 @@
     initSiteTheme(document);
   }
 
-  window.GarchenSiteTheme = {
+  window.GoAdminDemoSite = {
     init: initSiteTheme
   };
 })();

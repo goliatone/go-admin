@@ -1,9 +1,9 @@
 <section class="site-content-list ui-section">
   <div class="ui-container">
     <div class="site-content-list__header">
-      <p class="ui-eyebrow">Archive</p>
-      <h1 class="ui-heading-display">{{ content_type_slug|default:"Browse teachings and guides"|title }}</h1>
-      <p class="site-content-list__copy">Entry-point list view for archive content, suitable for topics, guides, and browse pages.</p>
+      <p class="ui-eyebrow">Collection</p>
+      <h1 class="ui-heading-display">{{ content_type_slug|default:"Browse content"|title }}</h1>
+      <p class="site-content-list__copy">Browse published content with localization support and workflow-managed collections.</p>
       {% if missing_requested_locale %}
         <p class="site-content-list__copy">Requested locale content is unavailable; fallback entries are rendered.</p>
       {% endif %}

@@ -47,9 +47,9 @@ func TestExamplePhase7HTMLSearchUsesSiteTemplatesWhileAdminAndSystemStayOutOfSit
 		t.Fatalf("expected search page 200, got %d body=%s", searchStatus, searchBody)
 	}
 	assertContainsAll(t, searchBody,
-		`data-theme-name="garchen-archive-site"`,
-		`/static/themes/garchen-archive-site/static/site.css`,
-		`/static/themes/garchen-archive-site/static/site.js`,
+		`data-theme-name="go-admin-demo-site"`,
+		`/static/themes/go-admin-demo-site/static/site.css`,
+		`/static/themes/go-admin-demo-site/static/site.js`,
 	)
 	assertDoesNotContainAny(t, searchBody, `/admin/assets/output.css`)
 
@@ -58,15 +58,15 @@ func TestExamplePhase7HTMLSearchUsesSiteTemplatesWhileAdminAndSystemStayOutOfSit
 		t.Fatalf("expected admin 404, got %d body=%s", admin404Status, admin404Body)
 	}
 	assertContainsAll(t, admin404Body, `/admin/assets/output.css`, `/admin/assets/dist/styles/error-page.css`)
-	assertDoesNotContainAny(t, admin404Body, `data-theme-name="garchen-archive-site"`, `Not Found · Site Runtime`)
+	assertDoesNotContainAny(t, admin404Body, `data-theme-name="go-admin-demo-site"`, `Not Found · Site Runtime`)
 
 	system404Status, system404Body := performExampleHTMLRequest(t, app, http.MethodGet, "/.well-known/security.txt")
 	if system404Status != http.StatusNotFound {
 		t.Fatalf("expected system 404, got %d body=%s", system404Status, system404Body)
 	}
 	assertDoesNotContainAny(t, system404Body,
-		`data-theme-name="garchen-archive-site"`,
-		`/static/themes/garchen-archive-site/static/site.css`,
+		`data-theme-name="go-admin-demo-site"`,
+		`/static/themes/go-admin-demo-site/static/site.css`,
 		`Not Found · Site Runtime`,
 	)
 }
@@ -79,9 +79,9 @@ func TestExamplePhase7ThemeIsolationUnderDifferentThemeSelections(t *testing.T) 
 		t.Fatalf("expected light site search 200, got %d body=%s", lightStatus, lightBody)
 	}
 	assertContainsAll(t, lightBody,
-		`data-theme-name="garchen-archive-site"`,
+		`data-theme-name="go-admin-demo-site"`,
 		`data-theme-variant="light"`,
-		`/static/themes/garchen-archive-site/static/site.css`,
+		`/static/themes/go-admin-demo-site/static/site.css`,
 	)
 	assertDoesNotContainAny(t, lightBody, `/admin/assets/output.css`)
 
@@ -90,9 +90,9 @@ func TestExamplePhase7ThemeIsolationUnderDifferentThemeSelections(t *testing.T) 
 		t.Fatalf("expected dark site search 200, got %d body=%s", darkStatus, darkBody)
 	}
 	assertContainsAll(t, darkBody,
-		`data-theme-name="garchen-archive-site"`,
+		`data-theme-name="go-admin-demo-site"`,
 		`data-theme-variant="dark"`,
-		`/static/themes/garchen-archive-site/static/site.css`,
+		`/static/themes/go-admin-demo-site/static/site.css`,
 	)
 	assertDoesNotContainAny(t, darkBody, `/admin/assets/output.css`)
 
@@ -102,8 +102,8 @@ func TestExamplePhase7ThemeIsolationUnderDifferentThemeSelections(t *testing.T) 
 	}
 	assertContainsAll(t, adminBody, `/admin/assets/output.css`, `/admin/assets/dist/styles/error-page.css`)
 	assertDoesNotContainAny(t, adminBody,
-		`data-theme-name="garchen-archive-site"`,
+		`data-theme-name="go-admin-demo-site"`,
 		`data-theme-variant="dark"`,
-		`/static/themes/garchen-archive-site/static/site.css`,
+		`/static/themes/go-admin-demo-site/static/site.css`,
 	)
 }

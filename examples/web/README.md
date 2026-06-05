@@ -301,10 +301,10 @@ Theme override behavior:
 - The example app disables request-time theme-name swaps by default because its template overlays are mounted at startup from a single embedded package.
 - The example app keeps request-time variant swaps enabled by default, so `?variant=<variant>` still works in `dev|staging`.
 - In runtime `prod`, query overrides are ignored and configured defaults are used.
-- The public-site runtime now defaults to the embedded `garchen-archive-site` package under `examples/web/site_themes/garchen-archive-site`.
+- The public-site runtime now defaults to the embedded `go-admin-demo-site` package under `examples/web/site_themes/go-admin-demo-site`.
 - `site.theme` should point to an embedded site theme package that the example app can mount at startup.
 - Admin theme resolution is attached separately from the public-site package, so site theme assets and partials do not leak into `/admin/*` unless the host opts into sharing explicitly.
-- Theme static bundles are mounted at `/static/themes/garchen-archive-site/static/*`, matching the generated package manifest paths.
+- Theme static bundles are mounted at `/static/themes/go-admin-demo-site/static/*`, matching the package manifest paths.
 - Swap variants with `APP_SITE__THEME_VARIANT=<variant>` or use `?variant=<variant>` in non-production runtime modes.
 - The embedded package is a generated site-theme snapshot, including renderer-compatible base, navigation, search, and content templates.
 - The example app uses the generated `site.search.page` template while preserving the runtime search contract for suggestions, filters, pagination, and query state.
@@ -317,8 +317,8 @@ Search UI state demos:
 - Error state (simulated): `/search?q=error`
 
 Routing/theme QA after migration:
-- `GET /search` should render the public-site theme bundles (`/static/themes/garchen-archive-site/static/*`) and never pull admin error-page assets
-- an allowed unknown public content path such as `/teachings/foundations-of-refuge` should resolve through the public-site fallback surface
+- `GET /search` should render the public-site theme bundles (`/static/themes/go-admin-demo-site/static/*`) and never pull admin error-page assets
+- an allowed unknown public content path such as `/resources/publishing-workflow-playbook` should resolve through the public-site fallback surface
 - `GET /missing-page` should render the site 404 template and keep the public-site theme output
 - `GET /admin/missing` should render the admin 404 page and keep `/admin/assets/*` ownership
 - `GET /.well-known/app-info` should return host-owned JSON, and unknown `/.well-known/*` paths should bypass site templates entirely

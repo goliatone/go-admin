@@ -98,7 +98,7 @@
                 </div>
               </div>
               <div>
-                <label>Duration seconds</label>
+                <label>Reading time</label>
                 <div class="site-search-page__range-inputs">
                   <input type="number" name="duration_seconds_gte" value="{{ search_range_values.duration_seconds.gte|default:'' }}" placeholder="Min">
                   <input type="number" name="duration_seconds_lte" value="{{ search_range_values.duration_seconds.lte|default:'' }}" placeholder="Max">
@@ -197,7 +197,7 @@
                     <span>Score {{ hit.score }}</span>
                   {% endif %}
                   {% if hit.anchor and hit.anchor.url %}
-                    <a class="ui-link ui-link--default" href="{{ hit.anchor.url }}">Jump to segment</a>
+                    <a class="ui-link ui-link--default" href="{{ hit.anchor.url }}">Open section</a>
                   {% endif %}
                 </div>
               </div>

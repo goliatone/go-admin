@@ -134,9 +134,9 @@ func TestEmbeddedSiteThemeRendersInitialSlice(t *testing.T) {
 			templateName: "site/home/page",
 			want: []string{
 				"data-site-homepage",
-				"Foundations of Refuge",
-				"Context, commentary, and practice notes for entering refuge.",
-				"Teachings unfold through practice, commentary, and service.",
+				"Publishing Workflow Playbook",
+				"Operational guidance for coordinating reviews, releases, and localized publishing.",
+				"Teams coordinate publishing, localization, approvals, and governance from one public-ready workflow.",
 			},
 			notWant: []string{
 				"partials/jserror-collector.html",
@@ -152,16 +152,16 @@ func TestEmbeddedSiteThemeRendersInitialSlice(t *testing.T) {
 				"data-site-nav-panel",
 				"site-header__locale--active",
 				"site-header__locale--unavailable",
-				"/static/themes/garchen-archive-site/static/site.css",
-				"/static/themes/garchen-archive-site/static/site.js",
-				"Dharma Talks",
+				"/static/themes/go-admin-demo-site/static/site.css",
+				"/static/themes/go-admin-demo-site/static/site.js",
+				"Publishing Workflow Playbook",
 				"/es/search",
-				"Guided discovery across transcripts and practice materials.",
-				"Teaching ×",
+				"Find pages, posts, operational guides, and localized resources.",
+				"Guide ×",
 				"facet_content_type",
-				"content, transcripts",
+				"content, resources",
 				"Page 1 · Total 1",
-				"Jump to segment",
+				"Open section",
 			},
 			notWant: []string{
 				"/assets/output.css",
@@ -175,15 +175,15 @@ func TestEmbeddedSiteThemeRendersInitialSlice(t *testing.T) {
 			want: []string{
 				"site-content-list",
 				"content-card__title",
-				"Foundations of Refuge",
+				"Publishing Workflow Playbook",
 			},
 		},
 		{
 			templateName: "site/content/detail",
 			want: []string{
 				"site-content-detail",
-				"Teachings unfold through practice, commentary, and service.",
-				"/teachings/foundations-of-refuge",
+				"Teams coordinate publishing, localization, approvals, and governance from one public-ready workflow.",
+				"/resources/publishing-workflow-playbook",
 			},
 		},
 	}
@@ -212,7 +212,7 @@ func TestEmbeddedSiteThemeSearchZeroResultsState(t *testing.T) {
 	body := renderEmbeddedSiteTemplate(t, pkg, "dark", "site/search", func(ctx map[string]any) {
 		ctx["search_results"] = nil
 		ctx["search_filter_chips"] = []map[string]any{
-			{"key": "content_type", "label": "Transcript", "remove_url": "/search?q=refuge"},
+			{"key": "content_type", "label": "Resource", "remove_url": "/search?q=workflow"},
 		}
 		ctx["search_state"] = map[string]any{
 			"has_results":  false,
@@ -225,7 +225,7 @@ func TestEmbeddedSiteThemeSearchZeroResultsState(t *testing.T) {
 	for _, want := range []string{
 		"No results found",
 		"Try broadening your terms or removing one of the filter chips.",
-		"Transcript ×",
+		"Resource ×",
 	} {
 		if !strings.Contains(body, want) {
 			t.Fatalf("zero-results render missing %q in body:\n%s", want, body)
@@ -233,6 +233,46 @@ func TestEmbeddedSiteThemeSearchZeroResultsState(t *testing.T) {
 	}
 	if strings.Contains(body, "Search is unavailable") {
 		t.Fatalf("zero-results render leaked error state:\n%s", body)
+	}
+}
+
+func TestEmbeddedSiteThemeContainsNoLegacyDomainCopy(t *testing.T) {
+	pkg, err := loadEmbeddedSiteThemePackage(defaultEmbeddedSiteThemeName)
+	if err != nil {
+		t.Fatalf("load embedded site theme package: %v", err)
+	}
+
+	legacyTerms := []string{
+		"Gar" + "chen",
+		"gar" + "chen",
+		"Dhar" + "ma",
+		"Rin" + "poche",
+		"ref" + "uge",
+		"Search " + "arch" + "ive",
+		"In " + "trans" + "cript",
+		"Gar" + "chen" + "SiteTheme",
+		"arch" + "ive",
+	}
+	if err := fs.WalkDir(pkg.RootFS, ".", func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			return nil
+		}
+		content, err := fs.ReadFile(pkg.RootFS, path)
+		if err != nil {
+			return err
+		}
+		body := string(content)
+		for _, term := range legacyTerms {
+			if strings.Contains(body, term) {
+				t.Fatalf("theme file %s contains legacy domain term %q", path, term)
+			}
+		}
+		return nil
+	}); err != nil {
+		t.Fatalf("scan embedded theme: %v", err)
 	}
 }
 
@@ -331,7 +371,7 @@ func themedSiteTemplateContext(t *testing.T, pkg *embeddedSiteThemePackage, vari
 	cssVars := selection.CSSVariables("")
 
 	return map[string]any{
-		"title":           "Garchen Archive",
+		"title":           "Enterprise Admin",
 		"base_path":       "/",
 		"asset_base_path": "/admin",
 		"active_path":     "/search",
@@ -382,14 +422,14 @@ func themedSiteTemplateContext(t *testing.T, pkg *embeddedSiteThemePackage, vari
 			"items": []map[string]any{
 				{"label": "About", "href": "/about"},
 				{
-					"label": "Teachings",
-					"href":  "/teachings",
+					"label": "Resources",
+					"href":  "/resources",
 					"children": []map[string]any{
-						{"label": "Refuge", "href": "/teachings/refuge"},
-						{"label": "Mahamudra", "href": "/teachings/mahamudra"},
+						{"label": "Workflow", "href": "/resources/workflow"},
+						{"label": "Governance", "href": "/resources/governance"},
 					},
 				},
-				{"label": "Library", "href": "/library"},
+				{"label": "Updates", "href": "/news"},
 			},
 		},
 		"footer_menu": map[string]any{
@@ -400,9 +440,9 @@ func themedSiteTemplateContext(t *testing.T, pkg *embeddedSiteThemePackage, vari
 		},
 		"search_route":            "/search",
 		"search_suggest_endpoint": "/api/v1/site/search/suggest",
-		"search_query":            "refuge",
+		"search_query":            "workflow",
 		"search": map[string]any{
-			"query":  "refuge",
+			"query":  "workflow",
 			"locale": "en",
 			"sort":   "relevance",
 		},
@@ -412,27 +452,28 @@ func themedSiteTemplateContext(t *testing.T, pkg *embeddedSiteThemePackage, vari
 		},
 		"search_clear_url": "/search",
 		"search_range_values": map[string]any{
-			"published_year":   map[string]any{"gte": "1980", "lte": "2026"},
-			"duration_seconds": map[string]any{"gte": "60", "lte": "3600"},
+			"published_year":       map[string]any{"gte": "2024", "lte": "2026"},
+			"duration_seconds":     map[string]any{"gte": "60", "lte": "3600"},
+			"reading_time_minutes": map[string]any{"gte": "2", "lte": "20"},
 		},
 		"search_facets": []map[string]any{
 			{
 				"name": "content_type",
 				"kind": "term",
 				"buckets": []map[string]any{
-					{"value": "teaching", "label": "Teaching", "count": 12, "selected": true},
-					{"value": "transcript", "label": "Transcript", "count": 7},
+					{"value": "guide", "label": "Guide", "count": 12, "selected": true},
+					{"value": "resource", "label": "Resource", "count": 7},
 				},
 			},
 		},
 		"search_filter_chips": []map[string]any{
-			{"key": "content_type", "label": "Teaching", "remove_url": "/search?q=refuge"},
+			{"key": "content_type", "label": "Guide", "remove_url": "/search?q=workflow"},
 		},
-		"search_indexes": []string{"content", "transcripts"},
+		"search_indexes": []string{"content", "resources"},
 		"search_landing": map[string]any{
-			"title":      "Guided discovery across transcripts and practice materials.",
+			"title":      "Find pages, posts, operational guides, and localized resources.",
 			"page_title": "Site Search",
-			"breadcrumb": "Topic",
+			"breadcrumb": "Resource",
 		},
 		"search_state": map[string]any{
 			"has_results":  true,
@@ -441,17 +482,17 @@ func themedSiteTemplateContext(t *testing.T, pkg *embeddedSiteThemePackage, vari
 		},
 		"search_results": []map[string]any{
 			{
-				"title":          "Dharma Talks on Refuge",
-				"url":            "/teachings/refuge",
-				"summary":        "A curated collection of talks and reading material.",
-				"type":           "teaching",
+				"title":          "Publishing Workflow Playbook",
+				"url":            "/resources/publishing-workflow-playbook",
+				"summary":        "A practical guide for planning approvals, releases, and localization.",
+				"type":           "guide",
 				"locale":         "en",
 				"badge":          "Featured",
-				"parent_title":   "Refuge Cycle",
-				"parent_summary": "A curated collection of introductory teachings.",
+				"parent_title":   "Operations Guides",
+				"parent_summary": "A curated collection of content operations guidance.",
 				"score":          "0.98",
 				"anchor": map[string]any{
-					"url": "/teachings/refuge#minute-12",
+					"url": "/resources/publishing-workflow-playbook#approvals",
 				},
 			},
 		},
@@ -463,29 +504,29 @@ func themedSiteTemplateContext(t *testing.T, pkg *embeddedSiteThemePackage, vari
 			"prev_url": "#",
 			"next_url": "#",
 		},
-		"content_type_slug": "teachings",
+		"content_type_slug": "resources",
 		"records": []map[string]any{
 			{
 				"id":      "page-1",
-				"title":   "Foundations of Refuge",
-				"path":    "/teachings/foundations-of-refuge",
-				"summary": "Context, commentary, and practice notes for entering refuge.",
+				"title":   "Publishing Workflow Playbook",
+				"path":    "/resources/publishing-workflow-playbook",
+				"summary": "Operational guidance for coordinating reviews, releases, and localized publishing.",
 				"locale":  "en",
 				"data": map[string]any{
-					"summary": "Context, commentary, and practice notes for entering refuge.",
+					"summary": "Operational guidance for coordinating reviews, releases, and localized publishing.",
 				},
 			},
 		},
 		"record": map[string]any{
-			"title":   "Foundations of Refuge",
-			"path":    "/teachings/foundations-of-refuge",
-			"summary": "Context, commentary, and practice notes for entering refuge.",
+			"title":   "Publishing Workflow Playbook",
+			"path":    "/resources/publishing-workflow-playbook",
+			"summary": "Operational guidance for coordinating reviews, releases, and localized publishing.",
 			"data": map[string]any{
-				"content": "<p>Teachings unfold through practice, commentary, and service.</p>",
+				"content": "<p>Teams coordinate publishing, localization, approvals, and governance from one public-ready workflow.</p>",
 			},
 		},
-		"slug_path": "/teachings/foundations-of-refuge",
-		"family_id": "series-refuge",
+		"slug_path": "/resources/publishing-workflow-playbook",
+		"family_id": "resource-publishing-workflow",
 	}
 }
 

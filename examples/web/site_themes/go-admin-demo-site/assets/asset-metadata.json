@@ -5,11 +5,11 @@
   },
   "site.css": {
     "path": "static/site.css",
-    "size": 30053
+    "size": 21520
   },
   "site.js": {
     "path": "static/site.js",
-    "size": 7273
+    "size": 7272
   },
   "assets.manifest": {
     "path": "assets/manifest.json"

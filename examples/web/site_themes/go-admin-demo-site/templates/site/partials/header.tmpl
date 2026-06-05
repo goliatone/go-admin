@@ -2,8 +2,8 @@
   <div class="site-header__container ui-container">
     <div class="site-header__brand-row">
       <a class="site-header__brand" href="{{ base_path|default:'/' }}">
-        <span class="site-header__brand-mark" aria-hidden="true">GA</span>
-        <span class="site-header__brand-label">{{ title|default:"Garchen Archive" }}</span>
+        <span class="site-header__brand-mark" aria-hidden="true">EA</span>
+        <span class="site-header__brand-label">{{ title|default:"Enterprise Admin" }}</span>
       </a>
       <button
         type="button"
@@ -26,12 +26,12 @@
             id="site-header-search"
             name="q"
             type="search"
-            placeholder="Search archive"
+            placeholder="Search content"
             value="{{ search_query|default:search.query }}"
           >
         </div>
       </label>
-      <span class="site-header__search-mode">In transcript</span>
+      <span class="site-header__search-mode">All content</span>
     </form>
 
     <div class="site-header__actions">

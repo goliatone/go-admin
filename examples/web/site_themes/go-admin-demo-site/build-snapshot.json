@@ -1,8 +1,8 @@
 {
-  "theme": "garchen-archive-site",
+  "theme": "go-admin-demo-site",
   "version": "0.1.0",
-  "generatedAt": "2026-04-08T19:40:14.232Z",
-  "outputDir": "generated/go-theme-site/garchen-archive-site",
+  "generatedAt": "2026-06-04T00:00:00.000Z",
+  "outputDir": "examples/web/site_themes/go-admin-demo-site",
   "templateKeys": [
     "site.layout.base",
     "site.layout.header",
@@ -25,11 +25,11 @@
     },
     "site.css": {
       "path": "static/site.css",
-      "size": 30053
+      "size": 21520
     },
     "site.js": {
       "path": "static/site.js",
-      "size": 7273
+      "size": 7272
     },
     "assets.manifest": {
       "path": "assets/manifest.json"

@@ -13,7 +13,7 @@
     <meta name="site-runtime-active-path" content="{{ site_runtime.active_path|default:active_path|default:'/' }}">
     <meta name="site-locale" content="{{ resolved_locale|default:locale|default:default_locale|default:'en' }}">
     <meta name="site-supported-locales" content="{{ supported_locales|join:',' }}">
-    <title>{% block title %}{{ title|default:"Garchen Archive" }}{% endblock %}</title>
+    <title>{% block title %}{{ title|default:"Enterprise Admin" }}{% endblock %}</title>
     {% if meta_description %}
       <meta name="description" content="{{ meta_description }}">
     {% endif %}
