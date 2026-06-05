@@ -296,6 +296,7 @@ export interface TranslationEditorUpdateResponse {
   qa_results: TranslationEditorQAResults;
   assignment_action_states: Record<string, TranslationActionState>;
   review_action_states: Record<string, TranslationActionState>;
+  preview_action?: TranslationEditorPreviewAction;
 }
 
 export interface TranslationEditorState {
@@ -1028,6 +1029,7 @@ export function normalizeAssignmentEditorDetail(raw: unknown): TranslationAssign
 export function normalizeEditorUpdateResponse(raw: unknown): TranslationEditorUpdateResponse {
   const envelope = asRecord(raw);
   const record = asRecord(envelope.data && typeof envelope.data === 'object' ? envelope.data : raw);
+  const previewActionRecord = asRecord(record.preview_action);
   return {
     variant_id: asString(record.variant_id),
     row_version: asNumber(record.row_version || record.version),
@@ -1040,6 +1042,9 @@ export function normalizeEditorUpdateResponse(raw: unknown): TranslationEditorUp
     qa_results: normalizeQAResults(record.qa_results),
     assignment_action_states: normalizeActionStateMap(record.assignment_action_states),
     review_action_states: normalizeActionStateMap(record.review_action_states),
+    preview_action: Object.keys(previewActionRecord).length
+      ? normalizePreviewAction(previewActionRecord, record)
+      : undefined,
   };
 }
 
@@ -1162,6 +1167,7 @@ export function applyEditorUpdateResponse(
     qa_results: update.qa_results,
     assignment_action_states: update.assignment_action_states,
     review_action_states: update.review_action_states,
+    preview_action: update.preview_action || state.detail.preview_action,
   };
   nextDetail.fields = rebuildFieldEntries(nextDetail);
   return {

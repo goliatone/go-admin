@@ -645,6 +645,27 @@ test('translation editor state model: dirty fields, validation, autosave conflic
   assert.equal(synced.can_submit_review, true);
 });
 
+test('translation editor state model: save response refreshes preview availability', () => {
+  const detail = normalizeAssignmentEditorDetail(makePreviewUnavailableFixture());
+  const initial = createTranslationEditorState(detail);
+  assert.equal(initial.detail.preview_action.enabled, false);
+  assert.equal(initial.detail.preview_action.reason_code, 'preview_path_missing');
+
+  const update = makeSubmitReadyUpdateFixture();
+  update.data.preview_action = {
+    ...makeSubmitReadyFixture().data.preview_action,
+    enabled: true,
+    reason: '',
+    reason_code: '',
+  };
+  const synced = applyEditorUpdateResponse(initial, update);
+
+  assert.equal(synced.detail.preview_action.enabled, true);
+  assert.equal(synced.detail.preview_action.reason, '');
+  assert.equal(synced.detail.preview_action.reason_code, '');
+  assert.equal(synced.detail.preview_action.target_record_id, 'page-1-fr');
+});
+
 test('translation editor runtime: field inputs keep the natural document tab order', async () => {
   const { root, window } = setupDom();
   installTranslationSyncCoreStub(window);

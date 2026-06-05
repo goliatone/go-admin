@@ -96,17 +96,24 @@ export interface TranslationFamilyAssignment {
   id: string;
   familyId: string;
   variantId: string;
+  targetRecordId: string;
   sourceLocale: string;
   targetLocale: string;
   workScope: string;
+  assignmentType: string;
   status: string;
   assigneeId: string;
+  assigneeLabel: string;
   reviewerId: string;
+  reviewerLabel: string;
   priority: string;
   dueDate: string;
+  dueState: string;
+  rowVersion: number;
   createdAt: string;
   updatedAt: string;
   links: TranslationFamilyAssignmentLinks;
+  actions: TranslationFamilyLocaleAssignmentActions;
 }
 
 export interface TranslationFamilyAssignmentLink {
@@ -120,6 +127,35 @@ export interface TranslationFamilyAssignmentLink {
 
 export interface TranslationFamilyAssignmentLinks {
   editor: TranslationFamilyAssignmentLink | null;
+}
+
+export interface TranslationFamilyAssignmentActionState {
+  enabled: boolean;
+  permission: string;
+  endpoint: string;
+  href: string;
+  label: string;
+  reason: string;
+  reasonCode: string;
+  requiredFields: string[];
+  payload: Record<string, unknown>;
+  assignmentId: string;
+  expectedVersion: number;
+}
+
+export interface TranslationFamilyLocaleAssignmentActions {
+  assignToMe: TranslationFamilyAssignmentActionState;
+  assignToUser: TranslationFamilyAssignmentActionState;
+  claim: TranslationFamilyAssignmentActionState;
+  openEditor: TranslationFamilyAssignmentActionState;
+}
+
+export interface TranslationFamilyLocaleAssignment {
+  locale: string;
+  workScope: string;
+  state: string;
+  assignment: TranslationFamilyAssignment | null;
+  actions: TranslationFamilyLocaleAssignmentActions;
 }
 
 export interface TranslationFamilyActivityPreviewItem {
@@ -139,6 +175,7 @@ export interface TranslationFamilyDetail {
   localeVariants: TranslationFamilyVariant[];
   blockers: TranslationFamilyBlocker[];
   activeAssignments: TranslationFamilyAssignment[];
+  localeAssignments: Record<string, TranslationFamilyLocaleAssignment>;
   publishGate: {
     allowed: boolean;
     overrideAllowed: boolean;
@@ -205,6 +242,7 @@ export interface TranslationFamilyClient {
   list(filters?: Partial<TranslationFamilyFilters>): Promise<TranslationFamilyListResponse>;
   detail(familyId: string, channel?: string): Promise<TranslationFamilyDetail>;
   createLocale(familyId: string, input?: Partial<TranslationCreateLocaleRequest>): Promise<TranslationCreateLocaleResult>;
+  createAssignment(familyId: string, input?: Partial<TranslationFamilyAssignmentRequest>): Promise<Record<string, unknown>>;
 }
 
 interface TranslationFamilyClientOptions {
@@ -397,6 +435,17 @@ export interface TranslationCreateLocaleRequest {
   idempotencyKey: string;
 }
 
+export interface TranslationFamilyAssignmentRequest {
+  targetLocale: string;
+  assigneeId: string;
+  openPool: boolean;
+  priority: string;
+  dueDate: string;
+  workScope: string;
+  channel: string;
+  idempotencyKey: string;
+}
+
 export interface TranslationCreateLocaleAssignment {
   assignmentId: string;
   status: string;
@@ -555,6 +604,45 @@ export function serializeCreateLocaleRequest(
   if (request.assigneeId) payload.assignee_id = request.assigneeId;
   if (request.priority) payload.priority = request.priority;
   if (request.dueDate) payload.due_date = request.dueDate;
+  if (request.channel) payload.channel = request.channel;
+
+  return payload;
+}
+
+export function createTranslationFamilyAssignmentRequest(
+  input: Partial<TranslationFamilyAssignmentRequest> = {}
+): TranslationFamilyAssignmentRequest {
+  return {
+    targetLocale: asString(input.targetLocale).toLowerCase(),
+    assigneeId: asString(input.assigneeId),
+    openPool: asBoolean(input.openPool),
+    priority: asString(input.priority).toLowerCase(),
+    dueDate: asString(input.dueDate),
+    workScope: asString(input.workScope),
+    channel: asString(input.channel),
+    idempotencyKey: asString(input.idempotencyKey),
+  };
+}
+
+export function buildFamilyAssignmentURL(basePath: string, familyId: string, channel = ''): string {
+  const query = new URLSearchParams();
+  setSearchParam(query, 'channel', channel);
+  return buildURL(buildFamilyPath(basePath, familyId, '/assignments'), query);
+}
+
+export function serializeFamilyAssignmentRequest(
+  input: Partial<TranslationFamilyAssignmentRequest> = {}
+): Record<string, unknown> {
+  const request = createTranslationFamilyAssignmentRequest(input);
+  const payload: Record<string, unknown> = {
+    target_locale: request.targetLocale,
+  };
+
+  if (request.assigneeId) payload.assignee_id = request.assigneeId;
+  if (request.openPool) payload.open_pool = true;
+  if (request.priority) payload.priority = request.priority;
+  if (request.dueDate) payload.due_date = request.dueDate;
+  if (request.workScope) payload.work_scope = request.workScope;
   if (request.channel) payload.channel = request.channel;
 
   return payload;
@@ -747,22 +835,55 @@ function normalizeBlocker(input: Record<string, unknown>): TranslationFamilyBloc
   };
 }
 
+function normalizeAssignmentActionState(input: Record<string, unknown>): TranslationFamilyAssignmentActionState {
+  const link = asRecord(input.link);
+  return {
+    enabled: asBoolean(input.enabled),
+    permission: asString(input.permission),
+    endpoint: asString(input.endpoint),
+    href: asString(input.href || link.href),
+    label: asString(input.label || link.label),
+    reason: asString(input.reason),
+    reasonCode: asString(input.reason_code ?? input.reasonCode),
+    requiredFields: asStringArray(input.required_fields ?? input.requiredFields),
+    payload: asRecord(input.payload),
+    assignmentId: asString(input.assignment_id ?? input.assignmentId),
+    expectedVersion: asNumber(input.expected_version ?? input.expectedVersion),
+  };
+}
+
+function normalizeLocaleAssignmentActions(input: Record<string, unknown>): TranslationFamilyLocaleAssignmentActions {
+  return {
+    assignToMe: normalizeAssignmentActionState(asRecord(input.assign_to_me ?? input.assignToMe)),
+    assignToUser: normalizeAssignmentActionState(asRecord(input.assign_to_user ?? input.assignToUser)),
+    claim: normalizeAssignmentActionState(asRecord(input.claim)),
+    openEditor: normalizeAssignmentActionState(asRecord(input.open_editor ?? input.openEditor)),
+  };
+}
+
 function normalizeAssignment(input: Record<string, unknown>): TranslationFamilyAssignment {
   return {
     id: asString(input.id),
     familyId: asString(input.family_id),
     variantId: asString(input.variant_id),
+    targetRecordId: asString(input.target_record_id),
     sourceLocale: asString(input.source_locale),
     targetLocale: asString(input.target_locale),
     workScope: asString(input.work_scope),
-    status: asString(input.status),
+    assignmentType: asString(input.assignment_type),
+    status: asString(input.status) || asString(input.queue_state),
     assigneeId: asString(input.assignee_id),
+    assigneeLabel: asString(input.assignee_label),
     reviewerId: asString(input.reviewer_id),
+    reviewerLabel: asString(input.reviewer_label),
     priority: asString(input.priority),
     dueDate: asString(input.due_date),
+    dueState: asString(input.due_state),
+    rowVersion: asNumber(input.row_version ?? input.version),
     createdAt: asString(input.created_at),
     updatedAt: asString(input.updated_at),
     links: normalizeAssignmentLinks(asRecord(input.links)),
+    actions: normalizeLocaleAssignmentActions(asRecord(input.actions)),
   };
 }
 
@@ -787,6 +908,26 @@ function normalizeAssignmentLinks(input: Record<string, unknown>): TranslationFa
   };
 }
 
+function normalizeLocaleAssignment(input: Record<string, unknown>): TranslationFamilyLocaleAssignment {
+  return {
+    locale: asString(input.locale).toLowerCase(),
+    workScope: asString(input.work_scope),
+    state: asString(input.state),
+    assignment: input.assignment ? normalizeAssignment(asRecord(input.assignment)) : null,
+    actions: normalizeLocaleAssignmentActions(asRecord(input.actions)),
+  };
+}
+
+function normalizeLocaleAssignments(input: Record<string, unknown>): Record<string, TranslationFamilyLocaleAssignment> {
+  const out: Record<string, TranslationFamilyLocaleAssignment> = {};
+  for (const [key, value] of Object.entries(input)) {
+    const normalizedKey = asString(key).toLowerCase();
+    if (!normalizedKey) continue;
+    out[normalizedKey] = normalizeLocaleAssignment(asRecord(value));
+  }
+  return out;
+}
+
 export function normalizeFamilyDetail(input: Record<string, unknown>): TranslationFamilyDetail {
   const data = asRecord(input.data);
   const body = Object.keys(data).length ? data : input;
@@ -798,6 +939,7 @@ export function normalizeFamilyDetail(input: Record<string, unknown>): Translati
   const activeAssignments = Array.isArray(body.active_assignments)
     ? body.active_assignments.map((row) => normalizeAssignment(asRecord(row)))
     : [];
+  const localeAssignments = normalizeLocaleAssignments(asRecord(body.locale_assignments ?? body.localeAssignments));
   const publishGate = asRecord(body.publish_gate);
   const readinessSummary = asRecord(body.readiness_summary);
   const quickCreate = normalizeQuickCreateHints(asRecord(body.quick_create), {
@@ -815,6 +957,7 @@ export function normalizeFamilyDetail(input: Record<string, unknown>): Translati
     localeVariants,
     blockers,
     activeAssignments,
+    localeAssignments,
     publishGate: {
       allowed: asBoolean(publishGate.allowed),
       overrideAllowed: asBoolean(publishGate.override_allowed),
@@ -921,17 +1064,24 @@ export function applyCreateLocaleToFamilyDetail(
       id: result.assignment.assignmentId,
       familyId: detail.familyId,
       variantId: result.variantId,
+      targetRecordId: '',
       sourceLocale: detail.sourceLocale,
       targetLocale: result.assignment.targetLocale || locale,
       workScope: result.assignment.workScope || detail.quickCreate.defaultAssignment.workScope,
+      assignmentType: '',
       status: result.assignment.status,
       assigneeId: result.assignment.assigneeId,
+      assigneeLabel: result.assignment.assigneeId,
       reviewerId: '',
+      reviewerLabel: '',
       priority: result.assignment.priority,
       dueDate: result.assignment.dueDate,
+      dueState: '',
+      rowVersion: 0,
       createdAt: '',
       updatedAt: '',
       links: { editor: null },
+      actions: normalizeLocaleAssignmentActions({}),
     };
     const matchIndex = activeAssignments.findIndex((assignment) =>
       assignment.id === nextAssignment.id || assignment.targetLocale === nextAssignment.targetLocale
@@ -1086,6 +1236,51 @@ async function createLocaleErrorFromResponse(response: Response): Promise<Transl
   error.traceId = requestTraceID(response.headers);
   error.metadata = asRecord(structured.metadata);
   return error;
+}
+
+async function assignmentActionErrorFromResponse(response: Response): Promise<TranslationCreateLocaleError> {
+  const structured = await extractStructuredError(response);
+  const error = new Error(structured.message || 'Failed to update assignment.') as TranslationCreateLocaleError;
+  error.statusCode = response.status;
+  error.textCode = structured.textCode;
+  error.requestId = asString(response.headers.get('x-request-id'));
+  error.traceId = requestTraceID(response.headers);
+  error.metadata = asRecord(structured.metadata);
+  return error;
+}
+
+async function postTranslationFamilyAssignmentAction(
+  action: TranslationFamilyAssignmentActionState,
+  payload: Record<string, unknown> = {},
+  options: TranslationFamilyDetailFetchOptions = {}
+): Promise<Record<string, unknown>> {
+  const endpoint = asString(action.endpoint);
+  if (!endpoint) {
+    throw new Error('Assignment action endpoint is unavailable.');
+  }
+  const body: Record<string, unknown> = {
+    ...action.payload,
+    ...payload,
+  };
+  if (action.expectedVersion > 0 && body.expected_version == null && body.expectedVersion == null) {
+    body.expected_version = action.expectedVersion;
+  }
+  const headers = new Headers({
+    Accept: 'application/json',
+    'Content-Type': 'application/json',
+  });
+  const init: RequestInit = {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers,
+    body: JSON.stringify(body),
+  };
+  appendCSRFHeader(endpoint, init, headers);
+  const response = await (options.fetch ? options.fetch(endpoint, init) : httpRequest(endpoint, init));
+  if (!response.ok) {
+    throw await assignmentActionErrorFromResponse(response);
+  }
+  return readHTTPJSON<Record<string, unknown>>(response);
 }
 
 function variantStatusSeverity(status: string): string {
@@ -1247,6 +1442,133 @@ function deriveDueState(dueDate: string): 'none' | 'on_track' | 'due_soon' | 'ov
   return 'on_track';
 }
 
+function translationFamilyLocaleAssignmentKey(locale: string, workScope = ''): string {
+  const normalizedLocale = asString(locale).toLowerCase();
+  const normalizedScope = asString(workScope) || '__all__';
+  return `${normalizedLocale}:${normalizedScope}`;
+}
+
+function localeAssignmentFor(
+  detail: TranslationFamilyDetail,
+  locale: string,
+  workScope = ''
+): TranslationFamilyLocaleAssignment | null {
+  const normalizedLocale = asString(locale).toLowerCase();
+  if (!normalizedLocale) return null;
+  const exactKey = translationFamilyLocaleAssignmentKey(normalizedLocale, workScope);
+  if (detail.localeAssignments[exactKey]) return detail.localeAssignments[exactKey];
+  for (const [key, value] of Object.entries(detail.localeAssignments)) {
+    if (key.startsWith(`${normalizedLocale}:`)) {
+      return value;
+    }
+  }
+  return null;
+}
+
+function assignmentOwnerLabel(assignment: TranslationFamilyAssignment | null): string {
+  if (!assignment) return 'Unassigned';
+  return assignment.assigneeLabel || assignment.assigneeId || 'Unassigned';
+}
+
+function localeAssignmentReason(localeAssignment: TranslationFamilyLocaleAssignment | null): string {
+  if (!localeAssignment) return '';
+  const actions = localeAssignment.actions;
+  return actions.assignToMe.reason ||
+    actions.assignToUser.reason ||
+    actions.claim.reason ||
+    actions.openEditor.reason ||
+    '';
+}
+
+function hasEnabledLocaleAssignmentAction(localeAssignment: TranslationFamilyLocaleAssignment | null): boolean {
+  if (!localeAssignment) return false;
+  const actions = localeAssignment.actions;
+  return actions.assignToMe.enabled || actions.assignToUser.enabled || actions.claim.enabled || actions.openEditor.enabled;
+}
+
+function renderLocaleAssignmentSummary(localeAssignment: TranslationFamilyLocaleAssignment | null): string {
+  if (!localeAssignment || localeAssignment.state === 'source_locale') {
+    return '';
+  }
+  const assignment = localeAssignment.assignment;
+  if (!assignment) {
+    return `<p class="mt-1 text-xs text-gray-500" data-family-locale-assignment-state="${escapeAttribute(localeAssignment.state)}">No active assignment.</p>`;
+  }
+  const dueState = assignment.dueState || deriveDueState(assignment.dueDate);
+  const dueLabel = dueState === 'none' ? 'No due date' : sentenceCaseToken(dueState);
+  return `
+    <div class="mt-2 flex flex-wrap items-center gap-2 text-xs text-gray-500" data-family-locale-assignment-state="${escapeAttribute(localeAssignment.state)}">
+      <span class="rounded-full px-2 py-0.5 font-medium ${assignmentTone(assignment.status)}">${escapeHTML(sentenceCaseToken(assignment.status))}</span>
+      <span>${escapeHTML(assignmentOwnerLabel(assignment))}</span>
+      <span class="text-gray-300">·</span>
+      <span>Priority ${escapeHTML(assignment.priority || 'normal')}</span>
+      <span class="rounded-full px-2 py-0.5 font-medium ${dueTone(dueState)}">${escapeHTML(dueLabel)}</span>
+    </div>
+  `;
+}
+
+function renderLocaleAssignmentActions(localeAssignment: TranslationFamilyLocaleAssignment | null): string {
+  if (!localeAssignment || localeAssignment.state === 'source_locale') {
+    return '';
+  }
+  const key = translationFamilyLocaleAssignmentKey(localeAssignment.locale, localeAssignment.workScope);
+  const actions = localeAssignment.actions;
+  const enabledActions: string[] = [];
+  if (actions.assignToMe.enabled) {
+    enabledActions.push(`
+      <button type="button" class="${BTN_SECONDARY}" data-family-assign-to-me="true" data-locale-assignment-key="${escapeAttribute(key)}">
+        Assign to me
+      </button>
+    `);
+  }
+  if (actions.assignToUser.enabled) {
+    enabledActions.push(`
+      <div class="flex min-w-[16rem] flex-wrap items-center gap-2">
+        <input
+          type="text"
+          class="min-w-0 flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900"
+          data-family-assignee-input="${escapeAttribute(key)}"
+          placeholder="Assignee ID"
+          aria-label="Assignee ID"
+        >
+        <button type="button" class="${BTN_SECONDARY}" data-family-assign-to-user="true" data-locale-assignment-key="${escapeAttribute(key)}">
+          Assign
+        </button>
+      </div>
+    `);
+  }
+  if (actions.claim.enabled) {
+    enabledActions.push(`
+      <button type="button" class="${BTN_SECONDARY}" data-family-claim-assignment="true" data-locale-assignment-key="${escapeAttribute(key)}">
+        Claim
+      </button>
+    `);
+  }
+  if (actions.openEditor.enabled && actions.openEditor.href) {
+    enabledActions.push(`
+      <a
+        class="inline-flex items-center justify-center rounded-md border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-sky-700 hover:border-sky-200 hover:bg-sky-50 hover:text-sky-900 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2"
+        data-family-locale-editor-link="${escapeAttribute(key)}"
+        href="${escapeAttribute(actions.openEditor.href)}"
+      >${escapeHTML(actions.openEditor.label || 'Open editor')}</a>
+    `);
+  }
+  if (enabledActions.length > 0) {
+    return `<div class="flex flex-wrap items-center justify-end gap-2">${enabledActions.join('')}</div>`;
+  }
+  const reason = localeAssignmentReason(localeAssignment);
+  return reason
+    ? `<p class="max-w-xs text-right text-xs text-gray-500" data-family-assignment-action-reason="${escapeAttribute(key)}">${escapeHTML(reason)}</p>`
+    : '';
+}
+
+function assignableLocaleAssignments(detail: TranslationFamilyDetail): Array<[string, TranslationFamilyLocaleAssignment]> {
+  return Object.entries(detail.localeAssignments)
+    .filter(([, localeAssignment]) => localeAssignment.state !== 'source_locale')
+    .filter(([, localeAssignment]) => hasEnabledLocaleAssignmentAction(localeAssignment))
+    .sort(([leftKey], [rightKey]) => leftKey.localeCompare(rightKey));
+}
+
 export function buildFamilyActivityPreview(
   detail: TranslationFamilyDetail,
   limit = 5
@@ -1353,12 +1675,13 @@ function renderLocalePanel(detail: TranslationFamilyDetail, options: Translation
   };
   const rows = detail.localeVariants.map((variant) => {
     const href = buildContentLink(contentBasePath, detail, variant);
+    const localeAssignment = localeAssignmentFor(detail, variant.locale);
     const openLink = href
       ? `<a href="${escapeAttribute(href)}" class="text-sm font-medium text-sky-700 hover:text-sky-800">Open locale</a>`
       : `<span class="text-sm text-gray-400">No content route</span>`;
     const title = variant.fields.title || variant.fields.slug || `${detail.contentType} ${variant.locale.toUpperCase()}`;
     return `
-      <li class="flex items-start justify-between gap-4 rounded-xl border border-gray-200 bg-white p-6">
+      <li class="flex flex-col gap-4 rounded-xl border border-gray-200 bg-white p-6 sm:flex-row sm:items-start sm:justify-between">
         <div class="min-w-0">
           <div class="flex flex-wrap items-center gap-2">
             <span class="text-sm font-semibold text-gray-900">${escapeHTML(variant.locale.toUpperCase())}</span>
@@ -1367,8 +1690,12 @@ function renderLocalePanel(detail: TranslationFamilyDetail, options: Translation
           </div>
           <p class="mt-2 text-sm text-gray-600">${escapeHTML(title)}</p>
           <p class="mt-1 text-xs text-gray-500">Updated ${escapeHTML(formatTranslationTimestampUTC(variant.updatedAt || variant.createdAt)) || 'n/a'}</p>
+          ${renderLocaleAssignmentSummary(localeAssignment)}
         </div>
-        <div class="flex-shrink-0">${openLink}</div>
+        <div class="flex flex-shrink-0 flex-wrap items-center justify-end gap-2">
+          ${renderLocaleAssignmentActions(localeAssignment)}
+          ${openLink}
+        </div>
       </li>
     `;
   });
@@ -1405,10 +1732,42 @@ function renderLocalePanel(detail: TranslationFamilyDetail, options: Translation
 
 function renderAssignmentPanel(detail: TranslationFamilyDetail): string {
   if (!detail.activeAssignments.length) {
+    const assignable = assignableLocaleAssignments(detail);
+    const startControls = assignable.length
+      ? `
+        <div class="mt-5 rounded-xl border border-gray-200 bg-gray-50 p-4" data-family-empty-assignment-controls="true">
+          <div class="grid gap-3 lg:grid-cols-[minmax(10rem,0.8fr)_minmax(12rem,1fr)_auto_auto] lg:items-end">
+            <label class="grid gap-2">
+              <span class="text-sm font-medium text-gray-900">Locale</span>
+              <select class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900" data-family-assignment-locale-select="true">
+                ${assignable.map(([key, localeAssignment]) => `
+                  <option value="${escapeAttribute(key)}">${escapeHTML(localeAssignment.locale.toUpperCase())} · ${escapeHTML(localeAssignment.workScope || '__all__')}</option>
+                `).join('')}
+              </select>
+            </label>
+            <label class="grid gap-2">
+              <span class="text-sm font-medium text-gray-900">Assignee</span>
+              <input type="text" class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900" data-family-assignee-input="__empty_panel__" placeholder="Assignee ID">
+            </label>
+            <button type="button" class="${BTN_SECONDARY}" data-family-assign-to-me="true" data-locale-assignment-source="empty-panel">
+              Assign to me
+            </button>
+            <button type="button" class="${BTN_PRIMARY}" data-family-assign-to-user="true" data-locale-assignment-source="empty-panel">
+              Assign
+            </button>
+          </div>
+        </div>
+      `
+      : (() => {
+          const first = Object.values(detail.localeAssignments).find((entry) => entry.state !== 'source_locale') || null;
+          const reason = localeAssignmentReason(first) || 'No assignable locale is available for this family.';
+          return `<p class="mt-4 text-sm text-gray-500" data-family-assignment-action-reason="empty">${escapeHTML(reason)}</p>`;
+        })();
     return `
       <section class="${CARD} p-6 shadow-sm" aria-labelledby="translation-family-assignments">
         <h2 id="translation-family-assignments" class="text-lg font-semibold text-gray-900">Assignments</h2>
         <p class="mt-1 text-sm text-gray-500">No active assignments are attached to this family.</p>
+        ${startControls}
       </section>
     `;
   }
@@ -1432,7 +1791,7 @@ function renderAssignmentPanel(detail: TranslationFamilyDetail): string {
                     <span class="rounded-full px-2 py-0.5 text-xs font-medium ${dueTone(dueState)}">${escapeHTML(dueLabel)}</span>
                   </div>
                   <p class="mt-2 text-sm text-gray-600">
-                    ${escapeHTML(assignment.assigneeId || 'Unassigned')}
+                    ${escapeHTML(assignmentOwnerLabel(assignment))}
                     <span class="text-gray-400">·</span>
                     Priority ${escapeHTML(assignment.priority || 'normal')}
                   </p>
@@ -2579,6 +2938,40 @@ export function initTranslationSummaryCards(root: ParentNode = document): void {
   });
 }
 
+function selectedLocaleAssignmentKey(root: HTMLElement, trigger: HTMLElement): string {
+  const explicit = asString(trigger.dataset.localeAssignmentKey).toLowerCase();
+  if (explicit) return explicit;
+  if (asString(trigger.dataset.localeAssignmentSource) === 'empty-panel') {
+    const select = root.querySelector<HTMLSelectElement>('[data-family-assignment-locale-select="true"]');
+    return asString(select?.value).toLowerCase();
+  }
+  return '';
+}
+
+function assignmentActionForKind(
+  localeAssignment: TranslationFamilyLocaleAssignment,
+  kind: 'self' | 'user' | 'claim'
+): TranslationFamilyAssignmentActionState {
+  switch (kind) {
+    case 'self':
+      return localeAssignment.actions.assignToMe;
+    case 'user':
+      return localeAssignment.actions.assignToUser;
+    case 'claim':
+      return localeAssignment.actions.claim;
+  }
+}
+
+function assigneeInputForAction(root: HTMLElement, key: string, trigger: HTMLElement): HTMLInputElement | null {
+  if (asString(trigger.dataset.localeAssignmentSource) === 'empty-panel') {
+    return root.querySelector<HTMLInputElement>('[data-family-assignee-input="__empty_panel__"]');
+  }
+  for (const input of Array.from(root.querySelectorAll<HTMLInputElement>('[data-family-assignee-input]'))) {
+    if (asString(input.dataset.familyAssigneeInput).toLowerCase() === key) return input;
+  }
+  return null;
+}
+
 export async function initTranslationFamilyDetailPage(
   root: HTMLElement | null,
   options: TranslationFamilyDetailRenderOptions & {
@@ -2630,6 +3023,73 @@ export async function initTranslationFamilyDetailPage(
               await initTranslationFamilyDetailPage(root as HTMLElement, { ...options, ...renderOptions, endpoint });
             },
           });
+        });
+      });
+
+      const runLocaleAssignmentAction = async (
+        button: HTMLButtonElement,
+        kind: 'self' | 'user' | 'claim'
+      ): Promise<void> => {
+        const detail = state.detail;
+        if (!detail) {
+          globalToast('error', 'Translation family detail is unavailable.');
+          return;
+        }
+        const key = selectedLocaleAssignmentKey(root as HTMLElement, button);
+        const localeAssignment = key ? detail.localeAssignments[key] : null;
+        if (!localeAssignment) {
+          globalToast('error', 'Assignment action metadata is unavailable.');
+          return;
+        }
+        const action = assignmentActionForKind(localeAssignment, kind);
+        if (!action.enabled) {
+          globalToast('warning', action.reason || 'Assignment action is unavailable.');
+          return;
+        }
+        const payload: Record<string, unknown> = {};
+        if (kind === 'user') {
+          const input = assigneeInputForAction(root as HTMLElement, key, button);
+          const assigneeID = asString(input?.value);
+          if (!assigneeID) {
+            globalToast('warning', 'Assignee ID is required.');
+            input?.focus();
+            return;
+          }
+          payload.assignee_id = assigneeID;
+        }
+        if (kind !== 'claim' && channel) {
+          payload.channel = channel;
+        }
+        button.disabled = true;
+        button.classList.add('opacity-60', 'cursor-not-allowed');
+        try {
+          await postTranslationFamilyAssignmentAction(action, payload, { fetch: options.fetch });
+          globalToast('success', kind === 'claim' ? 'Assignment claimed.' : 'Assignment updated.');
+          await initTranslationFamilyDetailPage(root as HTMLElement, { ...options, ...renderOptions, endpoint });
+        } catch (error) {
+          const message = error instanceof Error ? error.message : 'Failed to update assignment.';
+          globalToast('error', message);
+          button.disabled = false;
+          button.classList.remove('opacity-60', 'cursor-not-allowed');
+        }
+      };
+
+      (root as HTMLElement).querySelectorAll<HTMLButtonElement>('[data-family-assign-to-me="true"]').forEach((button) => {
+        button.addEventListener('click', (event) => {
+          event.preventDefault();
+          void runLocaleAssignmentAction(button, 'self');
+        });
+      });
+      (root as HTMLElement).querySelectorAll<HTMLButtonElement>('[data-family-assign-to-user="true"]').forEach((button) => {
+        button.addEventListener('click', (event) => {
+          event.preventDefault();
+          void runLocaleAssignmentAction(button, 'user');
+        });
+      });
+      (root as HTMLElement).querySelectorAll<HTMLButtonElement>('[data-family-claim-assignment="true"]').forEach((button) => {
+        button.addEventListener('click', (event) => {
+          event.preventDefault();
+          void runLocaleAssignmentAction(button, 'claim');
         });
       });
     }
@@ -2745,6 +3205,30 @@ export function createTranslationFamilyClient(options: TranslationFamilyClientOp
       }
       const payload = await readTranslationFamilyClientRecord(response);
       return normalizeCreateLocaleResult(payload);
+    },
+
+    async createAssignment(familyId, input = {}) {
+      const request = createTranslationFamilyAssignmentRequest(input);
+      const endpoint = buildFamilyAssignmentURL(basePath, familyId, request.channel);
+      const headers = new Headers({
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+      });
+      if (request.idempotencyKey) {
+        headers.set('X-Idempotency-Key', request.idempotencyKey);
+      }
+      const init: RequestInit = {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers,
+        body: JSON.stringify(serializeFamilyAssignmentRequest(request)),
+      };
+      appendCSRFHeader(endpoint, init, headers);
+      const response = await fetchImpl(endpoint, init);
+      if (!response.ok) {
+        throw await assignmentActionErrorFromResponse(response);
+      }
+      return readTranslationFamilyClientRecord(response);
     },
   };
 }

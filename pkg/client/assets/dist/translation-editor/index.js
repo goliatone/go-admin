@@ -1,13 +1,13 @@
 import { escapeAttribute as f, escapeHTML as d } from "../shared/html.js";
 import { t as ye } from "../chunks/icon-renderer-a2WAOpSe.js";
 import { httpRequest as C, readCSRFToken as ve, readHTTPError as _e } from "../shared/transport/http-client.js";
-import { extractStructuredError as Z } from "../toast/error-helpers.js";
+import { extractStructuredError as ee } from "../toast/error-helpers.js";
 import { n as xe } from "../chunks/translation-contracts-Ct_EG7JJ.js";
-import { asBoolean as h, asNumber as m, asRecord as c, asString as n, asStringArray as ee } from "../shared/coercion.js";
-import { $ as y, C as we, E as Se, G as $e, K as ke, Q as Re, S as Ce, T as Ee, Z as Te, _ as Ae, at as je, b as qe, et as Le, f as E, g as De, it as Oe, k as Pe, l as Ie, m as I, n as Fe, ot as Me, p as Y, r as Be, s as Ne, t as ze, tt as Ue, u as te, v as Ke, x as He, y as Ve } from "../chunks/translation-shared-DxbdCW0D.js";
-import { formatTranslationTimestampUTC as se, sentenceCaseToken as S } from "../translation-shared/formatters.js";
+import { asBoolean as h, asNumber as m, asRecord as c, asString as n, asStringArray as te } from "../shared/coercion.js";
+import { $ as y, C as we, E as Se, G as $e, K as ke, Q as Re, S as Ce, T as Ee, Z as Te, _ as Ae, at as je, b as qe, et as Le, f as E, g as De, it as Oe, k as Pe, l as Ie, m as I, n as Fe, ot as Me, p as Q, r as Be, s as Ne, t as ze, tt as Ue, u as se, v as Ke, x as He, y as Ve } from "../chunks/translation-shared-DxbdCW0D.js";
+import { formatTranslationTimestampUTC as re, sentenceCaseToken as S } from "../translation-shared/formatters.js";
 import { normalizeStringRecord as D } from "../shared/record-normalization.js";
-import { c as re, s as Ye } from "../chunks/ui-states-1McZ5upU.js";
+import { c as ae, s as Ye } from "../chunks/ui-states-1McZ5upU.js";
 var Qe = "translation_variant_draft", Ge = "autosave", q = /* @__PURE__ */ new Map();
 async function We(e) {
   const t = w(e);
@@ -103,7 +103,7 @@ function at(e) {
       term: a,
       preferred_translation: i,
       notes: n(r.notes) || void 0,
-      field_paths: ee(r.field_paths)
+      field_paths: te(r.field_paths)
     });
   }
   return t;
@@ -114,10 +114,10 @@ function it(e) {
     available: h(t.available),
     title: n(t.title),
     summary: n(t.summary) || n(t.summary_markdown),
-    rules: ee(t.rules)
+    rules: te(t.rules)
   };
 }
-function ae(e) {
+function ie(e) {
   return n(e.get("x-trace-id") || e.get("x-correlation-id") || e.get("traceparent"));
 }
 function nt(e) {
@@ -219,7 +219,7 @@ function gt(e, t) {
     blocker_count: m(s.blocker_count)
   };
 }
-function ie(e) {
+function ne(e) {
   const t = c(e), s = c(t.summary), r = c(t.categories), a = {};
   for (const [o, l] of Object.entries(r))
     o.trim() && (a[o.trim()] = gt(l, o.trim()));
@@ -283,7 +283,7 @@ function yt(e, t) {
     locales: i
   };
 }
-function ne(e, t) {
+function N(e, t) {
   const s = c(e), r = h(s.enabled), a = n(s.target_record_id) || n(s.record_id) || n(t.target_record_id), i = n(s.reason), o = n(s.reason_code);
   return {
     enabled: r,
@@ -398,15 +398,15 @@ function vt(e) {
     assist: oe(s.assist, s),
     last_rejection_reason: n(s.last_rejection_reason) || void 0,
     review_feedback: mt(s.review_feedback, s.last_rejection_reason),
-    qa_results: ie(s.qa_results),
+    qa_results: ne(s.qa_results),
     assignment_action_states: T(s.assignment_action_states ?? s.editor_actions ?? s.actions),
     review_action_states: T(s.review_action_states ?? s.review_actions),
     locale_navigation: yt(s.locale_navigation, s),
-    preview_action: ne(s.preview_action, s)
+    preview_action: N(s.preview_action, s)
   };
 }
 function _t(e) {
-  const t = c(e), s = c(t.data && typeof t.data == "object" ? t.data : e);
+  const t = c(e), s = c(t.data && typeof t.data == "object" ? t.data : e), r = c(s.preview_action);
   return {
     variant_id: n(s.variant_id),
     row_version: m(s.row_version || s.version),
@@ -419,15 +419,16 @@ function _t(e) {
     field_validations: v(s.field_validations, B),
     source_target_drift: c(s.source_target_drift),
     assist: oe(s.assist, s),
-    qa_results: ie(s.qa_results),
+    qa_results: ne(s.qa_results),
     assignment_action_states: T(s.assignment_action_states),
-    review_action_states: T(s.review_action_states)
+    review_action_states: T(s.review_action_states),
+    preview_action: Object.keys(r).length ? N(r, s) : void 0
   };
 }
-function N(e) {
+function z(e) {
   return ce({ fields: e.fields }, e.source_fields, e.target_fields, e.field_completeness, e.field_drift, e.field_validations);
 }
-function z(e) {
+function U(e) {
   if (!e.assignment_action_states.submit_review?.enabled || e.qa_results.submit_blocked) return !1;
   for (const t of Object.values(e.field_completeness)) if (t.required && t.missing) return !1;
   return !0;
@@ -436,12 +437,12 @@ function xt(e) {
   return {
     detail: {
       ...e,
-      fields: N(e)
+      fields: z(e)
     },
     dirty_fields: {},
     assignment_row_version: e.assignment_row_version,
     row_version: e.row_version,
-    can_submit_review: z(e),
+    can_submit_review: U(e),
     autosave: {
       pending: !1,
       conflict: null
@@ -473,7 +474,7 @@ function k(e, t, s) {
     field_completeness: o,
     field_validations: l
   };
-  return u.fields = N(u), {
+  return u.fields = z(u), {
     ...e,
     detail: u,
     dirty_fields: {
@@ -481,7 +482,7 @@ function k(e, t, s) {
       [r]: s.trim()
     },
     assignment_row_version: e.assignment_row_version,
-    can_submit_review: z(u)
+    can_submit_review: U(u)
   };
 }
 function wt(e) {
@@ -509,15 +510,16 @@ function x(e, t) {
     assist: s.assist,
     qa_results: s.qa_results,
     assignment_action_states: s.assignment_action_states,
-    review_action_states: s.review_action_states
+    review_action_states: s.review_action_states,
+    preview_action: s.preview_action || e.detail.preview_action
   };
-  return r.fields = N(r), {
+  return r.fields = z(r), {
     ...e,
     detail: r,
     dirty_fields: {},
     assignment_row_version: e.assignment_row_version,
     row_version: s.row_version,
-    can_submit_review: z(r),
+    can_submit_review: U(r),
     autosave: {
       pending: !1,
       conflict: null
@@ -532,7 +534,7 @@ function R(e) {
     version: s
   } };
 }
-function Q(e) {
+function G(e) {
   return Object.keys(c(e?.data)).length > 0;
 }
 function St(e, t) {
@@ -577,14 +579,14 @@ function $t(e) {
 function kt(e) {
   return n(c(e.source_target_drift).current_source_hash);
 }
-function G(e) {
+function W(e) {
   return typeof CSS < "u" && typeof CSS.escape == "function" ? CSS.escape(e) : e.replace(/["\\]/g, "\\$&");
 }
 function Rt(e) {
   const t = c(e), s = c(t.cause);
   return t.code === "STALE_REVISION" || s.code === "STALE_REVISION";
 }
-function W(e, t) {
+function X(e, t) {
   const s = new URL(e, typeof window < "u" ? window.location.origin : "http://localhost");
   for (const [r, a] of Object.entries(t))
     a == null || `${a}`.trim() === "" || s.searchParams.set(r, String(a));
@@ -634,20 +636,20 @@ var At = class extends Error {
   }
 };
 async function L(e, t) {
-  const s = await Z(e);
+  const s = await ee(e);
   return new At({
     message: s.message || await _e(e, t),
     status: e.status,
     code: s.textCode,
     metadata: s.metadata,
     requestId: n(e.headers.get("x-request-id")) || void 0,
-    traceId: ae(e.headers) || void 0
+    traceId: ie(e.headers) || void 0
   });
 }
 async function jt(e) {
-  const t = await C(e, { method: "GET" }), s = n(t.headers.get("x-request-id")) || void 0, r = ae(t.headers) || void 0;
+  const t = await C(e, { method: "GET" }), s = n(t.headers.get("x-request-id")) || void 0, r = ie(t.headers) || void 0;
   if (!t.ok) {
-    const i = await Z(t);
+    const i = await ee(t);
     return {
       status: i.textCode === "VERSION_CONFLICT" ? "conflict" : "error",
       message: i.message || `Failed to load assignment (${t.status})`,
@@ -681,17 +683,17 @@ function A(e) {
 function Lt(e) {
   return e === "review" || e === "in_review";
 }
-function U(e) {
+function K(e) {
   return Lt(A(e)) ? !0 : !!(e.review_action_states.approve?.enabled || e.review_action_states.reject?.enabled);
 }
-function K(e) {
+function H(e) {
   return !!e.assignment_action_states.archive?.enabled;
 }
 function P(e) {
   const t = A(e);
   return t === "review" || t === "in_review" || t === "approved" || t === "archived";
 }
-function H(e) {
+function V(e) {
   return `This assignment is ${S(A(e) || "unavailable").toLowerCase()} and can be inspected but not edited.`;
 }
 function Dt(e, t) {
@@ -775,8 +777,8 @@ function Nt() {
     textClass: "text-sm font-medium text-gray-500"
   });
 }
-function X(e, t) {
-  return re({
+function J(e, t) {
+  return ae({
     tag: "section",
     containerClass: `${De} p-8 text-center shadow-sm`,
     bodyClass: "",
@@ -788,8 +790,8 @@ function X(e, t) {
     messageClass: `${Ae} mt-2`
   });
 }
-function J(e, t, s) {
-  return re({
+function Z(e, t, s) {
+  return ae({
     tag: "section",
     containerClass: `${Ve} p-8 shadow-sm`,
     bodyClass: "",
@@ -804,7 +806,7 @@ function J(e, t, s) {
   });
 }
 function zt(e, t, s, r, a, i, o, l, u = "") {
-  const g = e.assignment_action_states.submit_review, p = e.preview_action, _ = l || !g?.enabled || a || r || e.qa_results.submit_blocked, me = !p?.enabled || a || r || i || o, pe = l || a || !s, ge = (e.source_locale || "source").toUpperCase(), he = (e.target_locale || "target").toUpperCase(), $ = e.translation_assignment, j = l ? H(e) : e.qa_results.submit_blocked ? "Resolve QA blockers before submitting for review." : g?.reason || "", be = p?.enabled ? o ? "Reload the latest server draft before opening preview." : i ? "Opening preview." : "Open preview in a new tab." : p?.reason || "Preview is unavailable for this assignment.";
+  const g = e.assignment_action_states.submit_review, p = e.preview_action, _ = l || !g?.enabled || a || r || e.qa_results.submit_blocked, me = !p?.enabled || a || r || i || o, pe = l || a || !s, ge = (e.source_locale || "source").toUpperCase(), he = (e.target_locale || "target").toUpperCase(), $ = e.translation_assignment, j = l ? V(e) : e.qa_results.submit_blocked ? "Resolve QA blockers before submitting for review." : g?.reason || "", be = p?.enabled ? o ? "Reload the latest server draft before opening preview." : i ? "Opening preview." : "Open preview in a new tab." : p?.reason || "Preview is unavailable for this assignment.";
   return `
     <section class="${I} p-6 shadow-sm">
       <div class="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
@@ -849,7 +851,7 @@ function zt(e, t, s, r, a, i, o, l, u = "") {
           <div class="flex max-w-xs flex-col items-start gap-1">
             <button
               type="button"
-              class="${te}"
+              class="${se}"
               data-action="submit-review"
               title="${f(j)}"
               ${_ ? 'disabled aria-disabled="true"' : ""}
@@ -991,7 +993,7 @@ function Qt(e) {
         title="Jump to first issue"
       >
         Jump to issue
-        ${V("iconoir:nav-arrow-down", "14px")}
+        ${Y("iconoir:nav-arrow-down", "14px")}
       </button>` : "";
   return `
     <section class="flex flex-wrap items-center justify-between gap-3 rounded-xl border p-3 ${i}" aria-label="Field progress summary" data-editor-summary="true">
@@ -1004,14 +1006,14 @@ function Gt(e) {
   return e.source_value && e.source_value.trim() ? d(e.source_value) : e.required ? '<span class="text-amber-600 italic">Source text pending - required field</span>' : '<span class="text-gray-400 italic text-xs">Optional source content not provided</span>';
 }
 var Wt = "inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-[11px] font-medium leading-4 text-gray-600 shadow-sm transition-colors hover:border-gray-300 hover:bg-gray-50 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-sky-100";
-function V(e, t = "16px") {
+function Y(e, t = "16px") {
   return ye(e, {
     size: t,
     extraClass: "text-current"
   });
 }
 function Xt() {
-  return V(Fe, "12px");
+  return Y(Fe, "12px");
 }
 function Jt(e, t = !1) {
   const s = Yt(e), r = t ? "mt-2 w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-600" : "mt-2 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-100", a = t ? "mt-2 min-h-[140px] w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-600" : "mt-2 min-h-[140px] w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-100";
@@ -1243,7 +1245,7 @@ function as(e) {
 }
 function is(e, t) {
   const s = e.review_action_states.approve, r = e.review_action_states.reject;
-  return U(e) ? `
+  return K(e) ? `
     <section
       class="rounded-xl border border-gray-200 bg-white p-5"
       data-editor-panel="review-actions"
@@ -1309,7 +1311,7 @@ function ns(e, t) {
   ` : "";
 }
 function os(e, t) {
-  if (!K(e)) return "";
+  if (!H(e)) return "";
   const s = e.assignment_action_states.archive, r = !s?.enabled || t;
   return `
     <section
@@ -1349,7 +1351,7 @@ function cs(e) {
                 <span class="text-xs text-gray-500">${d(qt(t.byte_size))}</span>
               </div>
               ${t.description ? `<p class="mt-2 text-xs text-gray-500">${d(t.description)}</p>` : ""}
-              ${t.uploaded_at ? `<p class="mt-2 text-xs text-gray-500">Uploaded ${d(se(t.uploaded_at))}</p>` : ""}
+              ${t.uploaded_at ? `<p class="mt-2 text-xs text-gray-500">Uploaded ${d(re(t.uploaded_at))}</p>` : ""}
             </li>
           `).join("")}</ul>` : '<p class="mt-4 text-sm text-gray-500">No reference attachments for this assignment.</p>'}
     </section>
@@ -1372,15 +1374,15 @@ function ls(e) {
                   <p class="${a.title}">${d(r.title)}</p>
                   <span class="${a.badge}">${d(r.badge)}</span>
                 </div>
-                <span class="${a.time}">${d(se(r.created_at) || "Current")}</span>
+                <span class="${a.time}">${d(re(r.created_at) || "Current")}</span>
               </div>
               ${r.body ? `<p class="mt-2 text-sm">${d(r.body)}</p>` : ""}
             </li>
           `;
   }).join("")}</ol>` : '<p class="mt-4 text-sm text-gray-500">No workflow entries available.</p>'}
       <div class="mt-4 flex items-center justify-between gap-3">
-        <button type="button" class="${Y}" data-history-prev="true" ${t.page <= 1 ? 'disabled aria-disabled="true"' : ""}>Previous</button>
-        <button type="button" class="${Y}" data-history-next="true" ${t.has_more ? "" : 'disabled aria-disabled="true"'}>Next</button>
+        <button type="button" class="${Q}" data-history-prev="true" ${t.page <= 1 ? 'disabled aria-disabled="true"' : ""}>Previous</button>
+        <button type="button" class="${Q}" data-history-next="true" ${t.has_more ? "" : 'disabled aria-disabled="true"'}>Next</button>
       </div>
     </section>
   `;
@@ -1393,10 +1395,10 @@ var ds = {
   history: ze
 };
 function us(e) {
-  return V(ds[e], "16px");
+  return Y(ds[e], "16px");
 }
 function fs(e) {
-  const t = U(e), s = K(e), r = e.qa_results.enabled ? e.qa_results.summary.finding_count : 0, a = fe(e.assist.translation_memory_suggestions).length, i = e.assist.glossary_matches.length, o = e.attachment_summary.total, l = e.history.total;
+  const t = K(e), s = H(e), r = e.qa_results.enabled ? e.qa_results.summary.finding_count : 0, a = fe(e.assist.translation_memory_suggestions).length, i = e.assist.glossary_matches.length, o = e.attachment_summary.total, l = e.history.total;
   return {
     actions: null,
     qa: r > 0 ? String(r) : null,
@@ -1406,7 +1408,7 @@ function fs(e) {
   };
 }
 function ms(e, t, s = "actions", r) {
-  const a = fs(e), i = U(e), o = K(e), l = i || o, u = `
+  const a = fs(e), i = K(e), o = H(e), l = i || o, u = `
     <nav class="flex flex-wrap gap-1 rounded-xl border border-gray-200 bg-gray-50 p-1" role="tablist" aria-label="Editor sidebar sections">
       ${[
     {
@@ -1496,11 +1498,11 @@ function ms(e, t, s = "actions", r) {
 }
 function ps(e, t, s = {}, r = {}) {
   if (e.status === "loading") return Nt();
-  if (e.status === "empty") return X("Assignment unavailable", e.message || "No assignment detail payload was returned.");
-  if (e.status === "error") return J("Editor unavailable", e.message || "Unable to load the assignment editor.", e);
-  if (e.status === "conflict") return J("Editor conflict", e.message || "A newer version of this assignment is available.", e);
+  if (e.status === "empty") return J("Assignment unavailable", e.message || "No assignment detail payload was returned.");
+  if (e.status === "error") return Z("Editor unavailable", e.message || "Unable to load the assignment editor.", e);
+  if (e.status === "conflict") return Z("Editor conflict", e.message || "A newer version of this assignment is available.", e);
   const a = t?.detail || e.detail;
-  if (!a) return X("Assignment unavailable", "No assignment detail payload was returned.");
+  if (!a) return J("Assignment unavailable", "No assignment detail payload was returned.");
   const i = !!(t && Object.keys(t.dirty_fields).length), o = Ot(t || null, i, r.lastSavedMessage || ""), l = t?.autosave.conflict, u = P(a);
   return `
     <div class="translation-editor-screen space-y-6" data-translation-editor="true" data-editor-read-only="${u ? "true" : "false"}">
@@ -1509,7 +1511,7 @@ function ps(e, t, s = {}, r = {}) {
       ${Kt(a)}
       ${u ? `
         <section class="rounded-xl border border-gray-200 bg-gray-50 p-4" data-editor-read-only-notice="true">
-          <p class="text-sm font-medium text-gray-700">${d(H(a))}</p>
+          <p class="text-sm font-medium text-gray-700">${d(V(a))}</p>
         </section>
       ` : ""}
       ${l ? `
@@ -1519,7 +1521,7 @@ function ps(e, t, s = {}, r = {}) {
               <h2 class="text-lg font-semibold text-amber-900">Autosave conflict</h2>
               <p class="mt-1 text-sm text-amber-800">A newer server draft exists. Reload it before continuing.</p>
             </div>
-            <button type="button" class="${te}" data-action="reload-server-state">Reload server draft</button>
+            <button type="button" class="${se}" data-action="reload-server-state">Reload server draft</button>
           </div>
         </section>
       ` : ""}
@@ -1562,7 +1564,7 @@ var hs = class {
     this.autosaveTimer && clearTimeout(this.autosaveTimer), this.keyboardHandler && (document.removeEventListener("keydown", this.keyboardHandler), this.keyboardHandler = null), this.focusTrapCleanup && (this.focusTrapCleanup(), this.focusTrapCleanup = null), this.container && (this.container.innerHTML = ""), this.container = null, this.syncResource = null, this.syncResourceKey = "", this.syncLoadedResourceKey = "", this.syncLoadedRevision = null, this.syncConflictSnapshot = null;
   }
   async load(e) {
-    this.loadState = { status: "loading" }, this.render(), this.loadState = await jt(e ? W(this.config.endpoint, {
+    this.loadState = { status: "loading" }, this.render(), this.loadState = await jt(e ? X(this.config.endpoint, {
       history_page: e,
       history_per_page: this.editorState?.detail.history.per_page || this.loadState.detail?.history.per_page || 10
     }) : this.config.endpoint), this.loadState.status === "ready" && this.loadState.detail ? (this.editorState = xt(this.loadState.detail), P(this.loadState.detail) || await this.hydrateDraftSyncFromRead(this.loadState.detail)) : this.editorState = null, this.render();
@@ -1633,7 +1635,7 @@ var hs = class {
         if (!r || !this.editorState) return;
         const a = (r.source_value || e.dataset.sourceValue || "").trim();
         Ct(a), this.editorState = k(this.editorState, s, a);
-        const i = this.container?.querySelector(`[data-field-input="${G(s)}"]`);
+        const i = this.container?.querySelector(`[data-field-input="${W(s)}"]`);
         if (i) {
           i.value = a;
           try {
@@ -1698,7 +1700,7 @@ var hs = class {
       e.addEventListener("click", (t) => {
         const s = t.currentTarget.dataset.jumpToField;
         if (!s || !this.container) return;
-        const r = this.container.querySelector(`[data-editor-field="${G(s)}"]`);
+        const r = this.container.querySelector(`[data-editor-field="${W(s)}"]`);
         if (r) {
           r.scrollIntoView({
             behavior: "smooth",
@@ -1768,7 +1770,7 @@ var hs = class {
     }
     try {
       const t = await (await this.ensureDraftSyncResource(this.editorState.detail)).refresh({ force: !0 });
-      if (!Q(t)) throw new Error("Sync refresh did not return a usable draft snapshot");
+      if (!G(t)) throw new Error("Sync refresh did not return a usable draft snapshot");
       this.syncLoadedRevision = t.revision, this.syncConflictSnapshot = null, this.editorState = x(this.editorState, R(t)), this.feedback = {
         kind: "conflict",
         message: "Reloaded the latest server draft."
@@ -1836,7 +1838,7 @@ var hs = class {
     const t = await this.ensureDraftSyncResource(e), s = this.syncResourceKey;
     if (this.syncLoadedResourceKey === s) return;
     const r = this.editorState ? { ...this.editorState.dirty_fields } : {}, a = await t.load();
-    if (!Q(a)) throw new Error("Sync draft load did not return a usable draft snapshot");
+    if (!G(a)) throw new Error("Sync draft load did not return a usable draft snapshot");
     if (!this.editorState || this.editorState.detail.variant_id !== e.variant_id) return;
     let i = x(this.editorState, R(a));
     for (const [o, l] of Object.entries(r)) i = k(i, o, l);
@@ -1850,7 +1852,7 @@ var hs = class {
     if (this.isEditorReadOnly()) {
       this.feedback = {
         kind: "error",
-        message: H(this.editorState.detail)
+        message: V(this.editorState.detail)
       }, this.render();
       return;
     }
@@ -1935,7 +1937,7 @@ var hs = class {
     };
   }
   assignmentPreviewEndpoint(e) {
-    return W(`${this.config.actionEndpointBase}/${encodeURIComponent(e.assignment_id)}/preview`, {
+    return X(`${this.config.actionEndpointBase}/${encodeURIComponent(e.assignment_id)}/preview`, {
       ...this.config.syncScope,
       channel: e.preview_action.channel || this.config.syncScope.channel
     });
@@ -1982,7 +1984,7 @@ var hs = class {
         }, this.previewing = !1, this.render();
         return;
       }
-      const r = await s.json(), a = c(r), i = ne(a.data && typeof a.data == "object" ? a.data : r, this.editorState.detail);
+      const r = await s.json(), a = c(r), i = N(a.data && typeof a.data == "object" ? a.data : r, this.editorState.detail);
       if (!i.enabled || !i.url) {
         b(e), this.feedback = {
           kind: "error",
