@@ -13,6 +13,7 @@ import (
 	"time"
 
 	coreadmin "github.com/goliatone/go-admin/admin"
+	translationcore "github.com/goliatone/go-admin/translations/core"
 )
 
 const (
@@ -1071,52 +1072,47 @@ func ensureQueuePostTargetVariant(
 }
 
 func seedOrRefreshQueueAssignment(ctx context.Context, repo coreadmin.TranslationAssignmentRepository, assignment coreadmin.TranslationAssignment) error {
-	persisted, inserted, err := repo.CreateOrReuseActive(ctx, assignment)
+	persisted, found, err := findActiveQueueFixtureAssignment(ctx, repo, assignment)
 	if err != nil {
-		return fmt.Errorf(
-			"queue assignment create_or_reuse failed family=%s entity=%s source_record=%s source_locale=%s target_locale=%s target_record=%s status=%s: %w",
-			strings.TrimSpace(assignment.FamilyID),
-			strings.TrimSpace(assignment.EntityType),
-			strings.TrimSpace(assignment.SourceRecordID),
-			strings.TrimSpace(assignment.SourceLocale),
-			strings.TrimSpace(assignment.TargetLocale),
-			strings.TrimSpace(assignment.TargetRecordID),
-			string(assignment.Status),
-			err,
-		)
+		return err
 	}
-	if inserted {
+	if !found {
+		if _, err := repo.Create(ctx, assignment); err != nil {
+			return fmt.Errorf(
+				"queue assignment create failed family=%s entity=%s source_record=%s source_locale=%s target_locale=%s target_record=%s status=%s: %w",
+				strings.TrimSpace(assignment.FamilyID),
+				strings.TrimSpace(assignment.EntityType),
+				strings.TrimSpace(assignment.SourceRecordID),
+				strings.TrimSpace(assignment.SourceLocale),
+				strings.TrimSpace(assignment.TargetLocale),
+				strings.TrimSpace(assignment.TargetRecordID),
+				string(assignment.Status),
+				err,
+			)
+		}
 		return nil
 	}
 
 	updated := persisted
 	changed := false
-	if updated.Status != assignment.Status {
-		updated.Status = assignment.Status
+	if strings.TrimSpace(updated.EntityType) == "" && strings.TrimSpace(assignment.EntityType) != "" {
+		updated.EntityType = strings.TrimSpace(assignment.EntityType)
 		changed = true
 	}
-	if updated.AssignmentType != assignment.AssignmentType {
-		updated.AssignmentType = assignment.AssignmentType
+	if strings.TrimSpace(updated.SourceRecordID) == "" && strings.TrimSpace(assignment.SourceRecordID) != "" {
+		updated.SourceRecordID = strings.TrimSpace(assignment.SourceRecordID)
 		changed = true
 	}
-	if strings.TrimSpace(updated.AssigneeID) != strings.TrimSpace(assignment.AssigneeID) {
-		updated.AssigneeID = strings.TrimSpace(assignment.AssigneeID)
+	if strings.TrimSpace(updated.TargetRecordID) == "" && strings.TrimSpace(assignment.TargetRecordID) != "" {
+		updated.TargetRecordID = strings.TrimSpace(assignment.TargetRecordID)
 		changed = true
 	}
-	if updated.Priority != assignment.Priority {
-		updated.Priority = assignment.Priority
+	if strings.TrimSpace(updated.SourceTitle) == "" && strings.TrimSpace(assignment.SourceTitle) != "" {
+		updated.SourceTitle = strings.TrimSpace(assignment.SourceTitle)
 		changed = true
 	}
-	if !fixtureTimesEqual(updated.ClaimedAt, assignment.ClaimedAt) {
-		updated.ClaimedAt = fixtureTimePtrValue(assignment.ClaimedAt)
-		changed = true
-	}
-	if !fixtureTimesEqual(updated.SubmittedAt, assignment.SubmittedAt) {
-		updated.SubmittedAt = fixtureTimePtrValue(assignment.SubmittedAt)
-		changed = true
-	}
-	if !fixtureTimesEqual(updated.DueDate, assignment.DueDate) {
-		updated.DueDate = fixtureTimePtrValue(assignment.DueDate)
+	if strings.TrimSpace(updated.SourcePath) == "" && strings.TrimSpace(assignment.SourcePath) != "" {
+		updated.SourcePath = strings.TrimSpace(assignment.SourcePath)
 		changed = true
 	}
 	if !changed {
@@ -1138,6 +1134,61 @@ func seedOrRefreshQueueAssignment(ctx context.Context, repo coreadmin.Translatio
 		)
 	}
 	return nil
+}
+
+func findActiveQueueFixtureAssignment(ctx context.Context, repo coreadmin.TranslationAssignmentRepository, assignment coreadmin.TranslationAssignment) (coreadmin.TranslationAssignment, bool, error) {
+	filters := map[string]any{
+		"family_id":     strings.TrimSpace(assignment.FamilyID),
+		"target_locale": strings.ToLower(strings.TrimSpace(assignment.TargetLocale)),
+		"work_scope":    strings.TrimSpace(assignment.WorkScope),
+	}
+	if strings.TrimSpace(filters["work_scope"].(string)) == "" {
+		filters["work_scope"] = translationcore.DefaultWorkScope
+	}
+	if tenantID := strings.TrimSpace(assignment.TenantID); tenantID != "" {
+		filters[coreadmin.ScopeTenantIDKey] = tenantID
+	}
+	if orgID := strings.TrimSpace(assignment.OrgID); orgID != "" {
+		filters[coreadmin.ScopeOrgIDKey] = orgID
+	}
+
+	assignments, _, err := repo.List(ctx, coreadmin.ListOptions{
+		PerPage: 25,
+		Filters: filters,
+	})
+	if err != nil {
+		return coreadmin.TranslationAssignment{}, false, fmt.Errorf(
+			"queue assignment lookup failed family=%s target_locale=%s work_scope=%s: %w",
+			strings.TrimSpace(assignment.FamilyID),
+			strings.TrimSpace(assignment.TargetLocale),
+			strings.TrimSpace(fmt.Sprint(filters["work_scope"])),
+			err,
+		)
+	}
+
+	for _, candidate := range assignments {
+		if candidate.Status.IsActive() &&
+			strings.EqualFold(strings.TrimSpace(candidate.FamilyID), strings.TrimSpace(assignment.FamilyID)) &&
+			strings.EqualFold(strings.TrimSpace(candidate.TargetLocale), strings.TrimSpace(assignment.TargetLocale)) &&
+			normalizeQueueFixtureWorkScope(candidate.WorkScope) == normalizeQueueFixtureWorkScope(assignment.WorkScope) &&
+			queueFixtureScopeMatches(candidate.TenantID, assignment.TenantID) &&
+			queueFixtureScopeMatches(candidate.OrgID, assignment.OrgID) {
+			return candidate, true, nil
+		}
+	}
+	return coreadmin.TranslationAssignment{}, false, nil
+}
+
+func normalizeQueueFixtureWorkScope(scope string) string {
+	scope = strings.TrimSpace(scope)
+	if scope == "" {
+		return translationcore.DefaultWorkScope
+	}
+	return strings.ToLower(scope)
+}
+
+func queueFixtureScopeMatches(candidate, requested string) bool {
+	return strings.EqualFold(strings.TrimSpace(candidate), strings.TrimSpace(requested))
 }
 
 func normalizeQueueFixtureAssignees(values []string) []string {
