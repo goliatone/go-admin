@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	neturl "net/url"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -683,10 +684,8 @@ func translationFamilyCanCreateMissingLocaleWithPolicyDenied(family translations
 	if target == "" {
 		return false
 	}
-	for _, blocker := range family.Blockers {
-		if translationFamilyBlockerIsPolicyUnavailable(blocker) {
-			return false
-		}
+	if slices.ContainsFunc(family.Blockers, translationFamilyBlockerIsPolicyUnavailable) {
+		return false
 	}
 	for _, missingLocale := range translationFamilyQuickCreateLocales(family) {
 		if strings.EqualFold(strings.TrimSpace(missingLocale), target) {
