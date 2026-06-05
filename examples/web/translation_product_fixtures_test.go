@@ -121,6 +121,62 @@ func TestSeedExampleTranslationQueueFixtureRequiresDependencies(t *testing.T) {
 	require.Contains(t, strings.ToLower(err.Error()), "content service is required")
 }
 
+func TestSeedOrRefreshQueueAssignmentPreservesExistingLifecycleState(t *testing.T) {
+	ctx := context.Background()
+	repo := coreadmin.NewInMemoryTranslationAssignmentRepository()
+	claimedAt := time.Date(2026, 6, 4, 18, 0, 0, 0, time.UTC)
+	submittedAt := time.Date(2026, 6, 4, 19, 0, 0, 0, time.UTC)
+	dueAt := time.Date(2026, 6, 7, 12, 0, 0, 0, time.UTC)
+
+	existing, err := repo.Create(ctx, coreadmin.TranslationAssignment{
+		FamilyID:       "family-live",
+		EntityType:     "pages",
+		SourceRecordID: "page-source",
+		SourceLocale:   "en",
+		TargetLocale:   "es",
+		TargetRecordID: "page-target-es",
+		WorkScope:      translationcore.DefaultWorkScope,
+		AssignmentType: coreadmin.AssignmentTypeDirect,
+		Status:         coreadmin.AssignmentStatusInReview,
+		Priority:       coreadmin.PriorityUrgent,
+		AssigneeID:     "translator-live",
+		ReviewerID:     "reviewer-live",
+		ClaimedAt:      &claimedAt,
+		SubmittedAt:    &submittedAt,
+		DueDate:        &dueAt,
+	})
+	require.NoError(t, err)
+
+	err = seedOrRefreshQueueAssignment(ctx, repo, coreadmin.TranslationAssignment{
+		FamilyID:       "family-live",
+		EntityType:     "pages",
+		SourceRecordID: "page-source",
+		SourceLocale:   "en",
+		TargetLocale:   "es",
+		TargetRecordID: "page-target-es",
+		WorkScope:      translationcore.DefaultWorkScope,
+		AssignmentType: coreadmin.AssignmentTypeDirect,
+		Status:         coreadmin.AssignmentStatusInProgress,
+		Priority:       coreadmin.PriorityHigh,
+		AssigneeID:     "translator-fixture",
+		ReviewerID:     "reviewer-fixture",
+		ClaimedAt:      fixtureTimePtr(claimedAt.Add(2 * time.Hour)),
+	})
+	require.NoError(t, err)
+
+	after, err := repo.Get(ctx, existing.ID)
+	require.NoError(t, err)
+	require.Equal(t, coreadmin.AssignmentStatusInReview, after.Status)
+	require.Equal(t, coreadmin.AssignmentTypeDirect, after.AssignmentType)
+	require.Equal(t, coreadmin.PriorityUrgent, after.Priority)
+	require.Equal(t, "translator-live", after.AssigneeID)
+	require.Equal(t, "reviewer-live", after.ReviewerID)
+	require.True(t, fixtureTimesEqual(after.ClaimedAt, &claimedAt))
+	require.True(t, fixtureTimesEqual(after.SubmittedAt, &submittedAt))
+	require.True(t, fixtureTimesEqual(after.DueDate, &dueAt))
+	require.Equal(t, existing.Version, after.Version)
+}
+
 func TestSeedExampleTranslationQueueFixtureFailsWhenRequiredSourceFixtureMissing(t *testing.T) {
 	ctx := context.Background()
 	repo := coreadmin.NewInMemoryTranslationAssignmentRepository()
