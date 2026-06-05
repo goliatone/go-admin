@@ -39,6 +39,8 @@ const (
 	translationPreviewReasonTemporarilyUnavailable       = "temporarily_unavailable"
 )
 
+var errTranslationPreviewUnsupportedContent = errors.New("translation preview unsupported content")
+
 type translationEditorContext struct {
 	Environment          string                            `json:"environment"`
 	Family               translationservices.FamilyRecord  `json:"family"`
@@ -448,6 +450,9 @@ func (b *translationQueueBinding) assignmentPreviewAction(adminCtx AdminContext,
 		if errors.Is(err, ErrForbidden) {
 			return disabled(translationPreviewReasonPermissionDenied, "Preview is unavailable because you do not have access to the target content.")
 		}
+		if errors.Is(err, errTranslationPreviewUnsupportedContent) {
+			return disabled(translationPreviewReasonUnsupportedContent, "Preview is unavailable for this content type.")
+		}
 		if errors.Is(err, ErrNotFound) {
 			return disabled(translationPreviewReasonNoTarget, "Preview is unavailable because the target record could not be loaded.")
 		}
@@ -494,10 +499,13 @@ func (b *translationQueueBinding) assignmentPreviewTargetRecord(adminCtx AdminCo
 
 	_, panel, err := b.admin.resolveContentNavigationPanel(contentCtx, entityType)
 	if err != nil {
+		if errors.Is(err, ErrNotFound) {
+			return nil, errTranslationPreviewUnsupportedContent
+		}
 		return nil, err
 	}
 	if panel == nil {
-		return nil, ErrNotFound
+		return nil, errTranslationPreviewUnsupportedContent
 	}
 	return panel.Get(contentAdminCtx, targetRecordID)
 }
