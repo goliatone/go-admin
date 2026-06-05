@@ -26,6 +26,7 @@ const {
   fetchTranslationEditorDetailState,
   renderTranslationEditorState,
   TranslationEditorScreen,
+  initTranslationEditorPage,
 } = await import('../dist/translation-editor/index.js');
 
 function createContainer(dataset = {}) {
@@ -664,6 +665,30 @@ test('translation editor state model: save response refreshes preview availabili
   assert.equal(synced.detail.preview_action.reason, '');
   assert.equal(synced.detail.preview_action.reason_code, '');
   assert.equal(synced.detail.preview_action.target_record_id, 'page-1-fr');
+});
+
+test('translation editor runtime: SSR root hydrates from embedded detail without first-render fetch', async () => {
+  const { root, window } = setupDom();
+  installTranslationSyncCoreStub(window);
+  root.dataset.ssrEnhanced = 'true';
+  root.innerHTML = `<section data-translation-editor-ssr="true">Server editor</section><script type="application/json" data-translation-editor-initial-state>${JSON.stringify(fixtures.detail.data)}</script>`;
+  globalThis.fetch = mock.fn(async () => {
+    throw new Error('unexpected first-render fetch');
+  });
+
+  const screen = await initTranslationEditorPage(root, {
+    endpoint: '/admin/api/translations/assignments/asg-editor-1',
+    actionEndpointBase: '/admin/api/translations/assignments',
+    syncBaseURL: '/admin/api/translations',
+    syncClientBasePath: '/admin/sync-client/sync-core',
+  });
+
+  assert.equal(root.dataset.translationEditorEnhanced, 'true');
+  assert.equal(globalThis.fetch.mock.callCount(), 0);
+  assert.match(root.innerHTML, /Homepage localization brief/i);
+  assert.ok(root.querySelector('[data-field-input="title"]'));
+
+  screen.unmount();
 });
 
 test('translation editor runtime: field inputs keep the natural document tab order', async () => {

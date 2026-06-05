@@ -377,6 +377,81 @@ test('translation-family detail: claim action posts expected row version', async
   assert.deepEqual(JSON.parse(String(post.init.body)), { expected_version: 2 });
 });
 
+test('translation-family detail SSR enhancement: binds assignment actions without first-render fetch', async () => {
+  const dom = setupDom(`
+    <div id="root"
+         data-ssr-enhanced="true"
+         data-endpoint="/admin/api/translations/families/family-ready?channel=default"
+         data-family-id="family-ready"
+         data-base-path="/admin">
+      <button type="button"
+              data-family-assignment-action="claim"
+              data-assignment-id="asg-ready-fr"
+              data-row-version="2">Claim</button>
+    </div>
+  `);
+  try {
+    Object.defineProperty(dom.window.location, 'reload', { value() {}, configurable: true });
+  } catch {}
+  const root = dom.window.document.getElementById('root');
+  const requests = [];
+  const fetchImpl = async (url, init = {}) => {
+    requests.push({ url: String(url), init });
+    return new Response(JSON.stringify({ data: { assignment_id: 'asg-ready-fr' } }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  };
+
+  await initTranslationFamilyDetailPage(root, { fetch: fetchImpl });
+  assert.equal(requests.length, 0, 'SSR enhancement should not fetch on first render');
+
+  root.querySelector('[data-family-assignment-action="claim"]')
+    .dispatchEvent(new dom.window.Event('click', { bubbles: true }));
+  await nextTick();
+  await nextTick();
+
+  assert.equal(requests.length, 1);
+  assert.equal(requests[0].url, '/admin/api/translations/assignments/asg-ready-fr/actions/claim');
+  assert.equal(requests[0].init.method, 'POST');
+  assert.deepEqual(JSON.parse(String(requests[0].init.body)), { expected_version: 2 });
+});
+
+test('translation-family detail SSR enhancement: create locale fetches metadata only on demand', async () => {
+  const dom = setupDom(`
+    <div id="root"
+         data-ssr-enhanced="true"
+         data-endpoint="/admin/api/translations/families/family-missing?channel=default"
+         data-family-id="family-missing"
+         data-base-path="/admin">
+      <button type="button"
+              data-translation-create-locale-trigger="true"
+              data-family-id="family-missing"
+              data-locale="fr">Create locale</button>
+    </div>
+  `);
+  const root = dom.window.document.getElementById('root');
+  const requests = [];
+  const fetchImpl = async (url, init = {}) => {
+    requests.push({ url: String(url), init });
+    return new Response(JSON.stringify({ data: cloneFixture('missing_locale') }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  };
+
+  await initTranslationFamilyDetailPage(root, { fetch: fetchImpl });
+  assert.equal(requests.length, 0, 'SSR enhancement should not fetch before opening create locale');
+
+  root.querySelector('[data-translation-create-locale-trigger="true"]')
+    .dispatchEvent(new dom.window.Event('click', { bubbles: true }));
+  await nextTick();
+  await nextTick();
+
+  assert.equal(requests[0].url, '/admin/api/translations/families/family-missing?channel=default');
+  assert.ok(dom.window.document.querySelector('[data-translation-create-locale-modal="true"]'));
+});
+
 test('translation-family detail: missing-locale quick create opens the create modal', async () => {
   const dom = setupDom('<div id="root" data-endpoint="/admin/api/translations/families/family-missing?channel=default" data-base-path="/admin"></div>');
   const root = dom.window.document.getElementById('root');

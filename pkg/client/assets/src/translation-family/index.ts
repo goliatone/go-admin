@@ -2748,6 +2748,13 @@ export async function initTranslationFamilyListPage(
   if (!renderOptions.familyBasePath) {
     renderOptions.familyBasePath = defaultFamilyBasePath(renderOptions.basePath);
   }
+  if (dataset.ssrEnhanced === 'true') {
+    root.dataset.translationFamilyListEnhanced = 'true';
+    return {
+      status: 'ready',
+      filters: readFamilyListFiltersFromLocation(),
+    };
+  }
 
   let filters = readFamilyListFiltersFromLocation();
   let lastState: TranslationFamilyListLoadState | null = null;
@@ -3231,6 +3238,114 @@ function syncEmptyAssignmentPanelControls(root: HTMLElement): void {
   );
 }
 
+function assignmentActionFromSSRButton(button: HTMLButtonElement, apiBasePath: string): TranslationFamilyAssignmentActionState {
+  const assignmentId = asString(button.dataset.assignmentId);
+  const action = asString(button.dataset.familyAssignmentAction);
+  const expectedVersion = asNumber(button.dataset.rowVersion, 0);
+  return {
+    enabled: !button.disabled && button.getAttribute('aria-disabled') !== 'true',
+    permission: '',
+    endpoint: assignmentId && action
+      ? `${trimTrailingSlash(apiBasePath)}/translations/assignments/${encodeURIComponent(assignmentId)}/actions/${encodeURIComponent(action)}`
+      : '',
+    href: '',
+    label: button.textContent?.trim() || action,
+    reason: button.getAttribute('title') || '',
+    reasonCode: '',
+    requiredFields: [],
+    payload: {},
+    assignmentId,
+    expectedVersion,
+  };
+}
+
+async function bindTranslationFamilyDetailSSRPage(
+  root: HTMLElement,
+  endpoint: string,
+  renderOptions: TranslationFamilyDetailRenderOptions,
+  options: TranslationFamilyDetailRenderOptions & {
+    endpoint?: string;
+    fetch?: typeof fetch;
+  }
+): Promise<TranslationFamilyDetailLoadState> {
+  const apiBasePath = deriveFamilyAPIBasePath(endpoint, renderOptions.basePath || '/admin');
+  const familyId = asString(root.dataset.familyId);
+  const channel = translationFamilyDetailChannel(endpoint) || asString(root.dataset.channel);
+  const client = createTranslationFamilyClient({ basePath: apiBasePath, fetch: options.fetch });
+
+  root.querySelectorAll<HTMLButtonElement>('[data-translation-create-locale-trigger="true"]').forEach((button) => {
+    if (button.dataset.translationCreateBound === 'true') return;
+    button.dataset.translationCreateBound = 'true';
+    button.addEventListener('click', async (event) => {
+      event.preventDefault();
+      if (button.disabled || button.getAttribute('aria-disabled') === 'true') {
+        globalToast('warning', button.getAttribute('title') || 'Locale creation is unavailable.');
+        return;
+      }
+      button.disabled = true;
+      button.classList.add('opacity-60', 'cursor-not-allowed');
+      try {
+        const state = await fetchTranslationFamilyDetailState(endpoint, { fetch: options.fetch });
+        if (state.status !== 'ready' || !state.detail) {
+          globalToast('error', state.message || 'Translation family detail is unavailable.');
+          return;
+        }
+        const locale = asString(button.dataset.locale).toLowerCase() || state.detail.quickCreate.recommendedLocale || '';
+        openCreateLocaleDialog({
+          familyId: state.detail.familyId || familyId,
+          quickCreate: quickCreateHintsForFamilyLocale(state.detail, locale),
+          initialLocale: locale,
+          heading: `Create ${locale.toUpperCase()} locale`,
+          assigneeOptionsBasePath: apiBasePath,
+          fetch: options.fetch,
+          onSubmit: (input) => client.createLocale(state.detail?.familyId || familyId, { ...input, channel }),
+          onSuccess: async (result) => {
+            globalToast('success', `${result.locale.toUpperCase()} locale created.`);
+            if (typeof window !== 'undefined') {
+              window.location.reload();
+            }
+          },
+        });
+      } catch (error) {
+        globalToast('error', error instanceof Error ? error.message : 'Failed to open locale creation.');
+      } finally {
+        button.disabled = false;
+        button.classList.remove('opacity-60', 'cursor-not-allowed');
+      }
+    });
+  });
+
+  root.querySelectorAll<HTMLButtonElement>('[data-family-assignment-action]').forEach((button) => {
+    if (button.dataset.translationAssignmentBound === 'true') return;
+    button.dataset.translationAssignmentBound = 'true';
+    button.addEventListener('click', async (event) => {
+      event.preventDefault();
+      const action = assignmentActionFromSSRButton(button, apiBasePath);
+      if (!action.enabled) {
+        globalToast('warning', action.reason || 'Assignment action is unavailable.');
+        return;
+      }
+      button.disabled = true;
+      button.classList.add('opacity-60', 'cursor-not-allowed');
+      try {
+        await postTranslationFamilyAssignmentAction(action, channel && action.endpoint.includes('/release')
+          ? { channel }
+          : {}, { fetch: options.fetch });
+        globalToast('success', action.label ? `${action.label} complete.` : 'Assignment updated.');
+        if (typeof window !== 'undefined') {
+          window.location.reload();
+        }
+      } catch (error) {
+        globalToast('error', error instanceof Error ? error.message : 'Failed to update assignment.');
+        button.disabled = false;
+        button.classList.remove('opacity-60', 'cursor-not-allowed');
+      }
+    });
+  });
+
+  return { status: 'ready' };
+}
+
 export async function initTranslationFamilyDetailPage(
   root: HTMLElement | null,
   options: TranslationFamilyDetailRenderOptions & {
@@ -3245,6 +3360,9 @@ export async function initTranslationFamilyDetailPage(
     basePath: asString(options.basePath || dataset.basePath || '/admin'),
     contentBasePath: asString(options.contentBasePath || dataset.contentBasePath),
   };
+  if (dataset.ssrEnhanced === 'true') {
+    return bindTranslationFamilyDetailSSRPage(root, endpoint, renderOptions, options);
+  }
 
   renderTranslationFamilyDetailPage(root, { status: 'loading' }, renderOptions);
   const state = await fetchTranslationFamilyDetailState(endpoint, { fetch: options.fetch });

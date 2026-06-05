@@ -186,6 +186,28 @@ test('translation dashboard runtime: mount renders manager toolbar, cards, table
   page.unmount();
 });
 
+test('translation dashboard runtime: SSR root is enhanced without first-render fetch', async () => {
+  let fetchCalls = 0;
+  const root = createContainer({
+    endpoint: '/admin/api/translations/dashboard',
+    ssrEnhanced: 'true',
+  });
+  root.innerHTML = '<section data-translation-dashboard-ssr="true">SSR dashboard</section>';
+
+  const page = initTranslationDashboardPage(root, {
+    fetch: async () => {
+      fetchCalls += 1;
+      return createJsonResponse(fixtureState('healthy'));
+    },
+  });
+  await flushAsync();
+
+  assert.equal(page, null);
+  assert.equal(fetchCalls, 0);
+  assert.match(root.innerHTML, /SSR dashboard/);
+  assert.equal(root.dataset.translationDashboardEnhanced, 'true');
+});
+
 test('translation dashboard runtime: mount renders empty state from published fixtures', async () => {
   const root = createContainer({
     endpoint: '/admin/api/translations/dashboard',

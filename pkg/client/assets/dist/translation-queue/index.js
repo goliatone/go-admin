@@ -1,14 +1,14 @@
 import { escapeAttribute as c, escapeHTML as p } from "../shared/html.js";
-import { httpRequest as F, readHTTPError as pe } from "../shared/transport/http-client.js";
-import { extractStructuredError as me } from "../toast/error-helpers.js";
-import { T as he, Y as z, c as fe, h as ge, i as ve, l as be, o as G, t as ye, v as q, x as _e, y as we } from "../chunks/grouped-mode-D5oZzoVA.js";
-import { buildEndpointURL as ke, getStringSearchParam as $e, readLocationSearchParams as xe, setNumberSearchParam as se, setSearchParam as _ } from "../shared/query-state/url-state.js";
+import { httpRequest as F, readHTTPError as he } from "../shared/transport/http-client.js";
+import { extractStructuredError as fe } from "../toast/error-helpers.js";
+import { T as ge, Y as G, c as ve, h as be, i as ye, l as _e, o as O, t as we, v as q, x as ke, y as $e } from "../chunks/grouped-mode-D5oZzoVA.js";
+import { buildEndpointURL as xe, getStringSearchParam as de, readLocationSearchParams as ce, setNumberSearchParam as se, setSearchParam as _ } from "../shared/query-state/url-state.js";
 import { StatefulController as qe } from "../shared/stateful-controller.js";
 import { asNumber as h, asRecord as m, asString as o } from "../shared/coercion.js";
 import { B as R, H as Se, I as Ae, L as Re, R as Ee, U as Ie, V as E, W as I, _ as Le, b as Ce, c as Pe, d as Fe, g as Be, k as Me, l as ie, p as y, v as Te, x as je, y as De, z as ze } from "../chunks/translation-shared-DxbdCW0D.js";
-import { formatTranslationShortDateTime as O } from "../translation-shared/formatters.js";
+import { formatTranslationShortDateTime as N } from "../translation-shared/formatters.js";
 import { normalizeNumberRecord as C } from "../shared/record-normalization.js";
-var J, j = class extends Error {
+var Z, j = class extends Error {
   constructor(s) {
     super(s.message), this.name = "AssignmentQueueRequestError", this.status = s.status, this.code = s.code ?? null, this.metadata = s.metadata ?? null, this.requestId = s.requestId, this.traceId = s.traceId;
   }
@@ -64,7 +64,7 @@ var J, j = class extends Error {
       order: "asc"
     }
   }
-], Z = [
+], ee = [
   {
     id: "review_inbox",
     label: "Review Inbox",
@@ -139,7 +139,7 @@ function Oe(s) {
       finding_count: l
     };
 }
-function W(s) {
+function X(s) {
   switch (o(s)) {
     case "pending":
       return "open";
@@ -161,28 +161,28 @@ function W(s) {
       return "open";
   }
 }
-function N(s, e) {
+function Q(s, e) {
   const t = s.headers.get(e);
   return typeof t == "string" ? t.trim() : "";
 }
 function Ne(s) {
-  const e = N(s, "x-request-id"), t = N(s, "x-correlation-id"), i = N(s, "x-trace-id") || t || void 0;
+  const e = Q(s, "x-request-id"), t = Q(s, "x-correlation-id"), i = Q(s, "x-trace-id") || t || void 0;
   return {
     requestId: e || void 0,
     traceId: i
   };
 }
-async function He(s, e) {
-  return typeof s.clone == "function" ? me(s.clone()) : {
+async function Qe(s, e) {
+  return typeof s.clone == "function" ? fe(s.clone()) : {
     textCode: null,
-    message: await pe(s, e),
+    message: await he(s, e),
     metadata: null,
     fields: null,
     validationErrors: null
   };
 }
 async function B(s, e) {
-  const t = await He(s, e), i = Ne(s);
+  const t = await Qe(s, e), i = Ne(s);
   return new j({
     message: t.message || `${e}: ${s.status}`,
     status: s.status,
@@ -192,7 +192,7 @@ async function B(s, e) {
     traceId: i.traceId
   });
 }
-function Qe(s) {
+function He(s) {
   const e = m(s), t = o(e.id), i = o(e.label);
   if (!t || !i) return null;
   const a = m(e.query);
@@ -215,7 +215,7 @@ function Qe(s) {
   };
 }
 function ae(s, e = A) {
-  const t = (Array.isArray(s) ? s : []).map((i) => Qe(i)).filter((i) => i !== null);
+  const t = (Array.isArray(s) ? s : []).map((i) => He(i)).filter((i) => i !== null);
   return t.length ? t : e.map(P);
 }
 function P(s) {
@@ -253,7 +253,7 @@ function Ue(s) {
       order: o(i.order) || "desc"
     },
     saved_filter_presets: ae(e.saved_filter_presets, A),
-    saved_review_filter_presets: ae(e.saved_review_filter_presets, Z),
+    saved_review_filter_presets: ae(e.saved_review_filter_presets, ee),
     default_review_filter_preset: o(e.default_review_filter_preset) || void 0,
     review_actor_id: o(e.review_actor_id) || void 0,
     review_aggregate_counts: C(e.review_aggregate_counts, {
@@ -326,7 +326,7 @@ function Xe(s = {}) {
 }
 function Je(s, e = {}) {
   const t = We(e);
-  return t ? ke(s, new URLSearchParams(t), { preserveAbsolute: !0 }) : s;
+  return t ? xe(s, new URLSearchParams(t), { preserveAbsolute: !0 }) : s;
 }
 function $(s) {
   const e = m(s);
@@ -347,8 +347,8 @@ function $(s) {
     reviewer_label: o(e.reviewer_label) || void 0,
     assignment_type: o(e.assignment_type),
     content_state: o(e.content_state),
-    queue_state: W(e.queue_state),
-    status: W(e.status),
+    queue_state: X(e.queue_state),
+    status: X(e.status),
     priority: o(e.priority) || "normal",
     due_state: o(e.due_state) || "none",
     due_date: o(e.due_date) || void 0,
@@ -444,7 +444,7 @@ function st(s) {
   return {
     data: {
       assignment_id: o(i.assignment_id),
-      status: W(i.status),
+      status: X(i.status),
       row_version: h(i.row_version),
       updated_at: o(i.updated_at),
       assignment: $(i.assignment)
@@ -457,9 +457,9 @@ async function it(s, e = {}) {
   if (!t.ok) throw await B(t, "Failed to load assignments");
   return et(await t.json());
 }
-async function ee(s, e, t, i) {
+async function z(s, e, t, i) {
   const a = { expected_version: i.expected_version };
-  i.idempotency_key && (a.idempotency_key = i.idempotency_key), i.reason && (a.reason = i.reason);
+  i.idempotency_key && (a.idempotency_key = i.idempotency_key), i.reason && (a.reason = i.reason), i.channel && (a.channel = i.channel);
   const l = await F(`${s}/${encodeURIComponent(e)}/actions/${t}`, {
     method: "POST",
     json: a
@@ -468,10 +468,10 @@ async function ee(s, e, t, i) {
   return st(await l.json());
 }
 function at(s, e, t) {
-  return ee(s, e, "claim", t);
+  return z(s, e, "claim", t);
 }
 function rt(s, e, t) {
-  return ee(s, e, "release", t);
+  return z(s, e, "release", t);
 }
 function M(s) {
   return {
@@ -502,7 +502,7 @@ function ot(s) {
     kind: "standard",
     preset: t
   };
-  const i = Z.find((a) => a.id === e);
+  const i = ee.find((a) => a.id === e);
   return i ? {
     kind: "review",
     preset: i
@@ -525,7 +525,7 @@ function w(s) {
     qa_summary: s.qa_summary ? { ...s.qa_summary } : void 0
   };
 }
-function Q(s, e) {
+function U(s, e) {
   return {
     enabled: !1,
     permission: s,
@@ -535,7 +535,7 @@ function Q(s, e) {
 }
 function lt(s, e) {
   const t = w(s);
-  return e === "claim" ? (t.queue_state = "in_progress", t.status = "in_progress", t.actions.claim = Q(s.actions.claim.permission, "assignment must be open pool or already assigned to you before it can be claimed"), t.actions.release = {
+  return e === "claim" ? (t.queue_state = "in_progress", t.status = "in_progress", t.actions.claim = U(s.actions.claim.permission, "assignment must be open pool or already assigned to you before it can be claimed"), t.actions.release = {
     enabled: !0,
     permission: s.actions.release.permission
   }, t.review_actions.submit_review = {
@@ -544,7 +544,7 @@ function lt(s, e) {
   }, t) : (t.assignment_type = "open_pool", t.queue_state = "open", t.status = "open", t.assignee_id = "", t.actions.claim = {
     enabled: !0,
     permission: s.actions.claim.permission
-  }, t.actions.release = Q(s.actions.release.permission, "assignment must be assigned or in progress before it can be released"), t.review_actions.submit_review = Q(s.review_actions.submit_review.permission, "assignment must be in progress"), t);
+  }, t.actions.release = U(s.actions.release.permission, "assignment must be assigned or in progress before it can be released"), t.review_actions.submit_review = U(s.review_actions.submit_review.permission, "assignment must be in progress"), t);
 }
 function L(s, e) {
   return s instanceof j ? {
@@ -561,19 +561,19 @@ function L(s, e) {
     message: e
   };
 }
-function de(s) {
+function ue(s) {
   return o(s.queue_state || s.status);
 }
-function ce(s) {
+function pe(s) {
   return s === "review" || s === "in_review";
 }
 function dt(s) {
-  return ce(de(s)) ? !0 : !!(s.review_actions.approve.enabled || s.review_actions.reject.enabled);
+  return pe(ue(s)) ? !0 : !!(s.review_actions.approve.enabled || s.review_actions.reject.enabled);
 }
 function ct(s) {
   return !!s.review_actions.archive.enabled;
 }
-function U(s, e) {
+function V(s, e) {
   const t = [], i = e.has(`claim:${s.id}`), a = e.has(`release:${s.id}`), l = e.has(`approve:${s.id}`), d = e.has(`reject:${s.id}`), r = e.has(`archive:${s.id}`), n = s.actions.claim.enabled && !i;
   t.push({
     type: "claim",
@@ -644,8 +644,8 @@ function U(s, e) {
   }
   return t;
 }
-function V(s, e) {
-  if (ce(de(e))) {
+function K(s, e) {
+  if (pe(ue(e))) {
     const a = s.find((l) => l.category === "review" && l.enabled);
     if (a) return a;
   }
@@ -654,7 +654,7 @@ function V(s, e) {
   const i = s.find((a) => a.enabled);
   return i || s[0];
 }
-function K(s, e, t) {
+function Y(s, e, t) {
   const i = (d) => d === "review" ? "review" : d === "management" ? "manage" : "lifecycle";
   if (e.length <= 2) return e.map((d) => `
       <button
@@ -721,7 +721,7 @@ function K(s, e, t) {
     </div>
   `;
 }
-var ue = class k extends qe {
+var me = class k extends qe {
   constructor(e) {
     super("loading"), this.container = null, this.response = null, this.rows = [], this.activeReviewPresetId = "", this.activeReviewState = null, this.feedback = null, this.error = null, this.pendingActions = /* @__PURE__ */ new Set(), this.selectedRows = /* @__PURE__ */ new Map(), this.bulkActionPending = !1, this.bulkSnapshotPending = !1, this.filterSnapshot = null, this.viewMode = "flat", this.groupedData = null, this.serverFamilyRows = [], this.expandedGroups = /* @__PURE__ */ new Set(), this.filtersExpanded = !1;
     const t = o(e.initialPresetId);
@@ -745,8 +745,8 @@ var ue = class k extends qe {
       order: "desc",
       page: 1
     };
-    const l = be(k.PANEL_ID);
-    l && (this.viewMode = l, this.viewMode === "grouped" ? this.queryState.groupBy = "family_id" : this.viewMode === "server_family" && (this.queryState.groupBy = "family_id", this.queryState.groupStrategy = "server_family")), this.expandedGroups = fe(k.PANEL_ID);
+    const l = _e(k.PANEL_ID);
+    l && (this.viewMode = l, this.viewMode === "grouped" ? this.queryState.groupBy = "family_id" : this.viewMode === "server_family" && (this.queryState.groupBy = "family_id", this.queryState.groupStrategy = "server_family")), this.expandedGroups = ve(k.PANEL_ID);
   }
   mount(e) {
     this.container = e, this.loadFiltersExpandedState(), this.render(), this.load();
@@ -977,7 +977,7 @@ ${l.join(`
         return;
       }
       if (this.serverFamilyRows = [], this.viewMode === "grouped" && e.meta.grouping?.enabled) {
-        const t = ge(e.data, {
+        const t = be(e.data, {
           defaultExpanded: !0,
           expandMode: "explicit",
           expandedGroups: this.expandedGroups
@@ -1001,7 +1001,7 @@ ${l.join(`
   }
   setViewMode(e) {
     if (this.viewMode !== e) {
-      if (this.viewMode = e, we(k.PANEL_ID, e), e === "grouped") {
+      if (this.viewMode = e, $e(k.PANEL_ID, e), e === "grouped") {
         const { groupStrategy: t, ...i } = this.queryState;
         this.queryState = {
           ...i,
@@ -1034,7 +1034,7 @@ ${l.join(`
       this.toggleServerFamilyExpansion(e);
       return;
     }
-    this.groupedData && (this.groupedData = he(this.groupedData, e), this.expandedGroups = G(this.groupedData), q(k.PANEL_ID, this.expandedGroups), this.render());
+    this.groupedData && (this.groupedData = ge(this.groupedData, e), this.expandedGroups = O(this.groupedData), q(k.PANEL_ID, this.expandedGroups), this.render());
   }
   async toggleServerFamilyExpansion(e) {
     const t = this.serverFamilyRows.find((i) => i.family_id === e);
@@ -1061,7 +1061,7 @@ ${l.join(`
       q(k.PANEL_ID, this.expandedGroups), this.render();
       return;
     }
-    this.groupedData && (this.groupedData = ve(this.groupedData), this.expandedGroups = G(this.groupedData), q(k.PANEL_ID, this.expandedGroups), this.render());
+    this.groupedData && (this.groupedData = ye(this.groupedData), this.expandedGroups = O(this.groupedData), q(k.PANEL_ID, this.expandedGroups), this.render());
   }
   collapseAllFamilyGroups() {
     if (this.viewMode === "server_family") {
@@ -1070,7 +1070,7 @@ ${l.join(`
       q(k.PANEL_ID, this.expandedGroups), this.render();
       return;
     }
-    this.groupedData && (this.groupedData = ye(this.groupedData), this.expandedGroups = G(this.groupedData), q(k.PANEL_ID, this.expandedGroups), this.render());
+    this.groupedData && (this.groupedData = we(this.groupedData), this.expandedGroups = O(this.groupedData), q(k.PANEL_ID, this.expandedGroups), this.render());
   }
   async runInlineAction(e, t) {
     const i = this.rows.findIndex((n) => n.id === t);
@@ -1135,7 +1135,7 @@ ${l.join(`
     const r = `${e}:${t}`;
     this.pendingActions.add(r), this.feedback = null, this.render();
     try {
-      const n = await ee(this.config.endpoint, t, e, d);
+      const n = await z(this.config.endpoint, t, e, d);
       this.rows[i] = w(n.data.assignment), this.replaceCachedRow(this.rows[i]), this.feedback = {
         kind: "success",
         message: e === "approve" ? "Assignment approved." : e === "reject" ? "Changes requested." : "Assignment archived."
@@ -1165,7 +1165,7 @@ ${l.join(`
     return this.response?.meta.saved_filter_presets?.length ? this.response.meta.saved_filter_presets.map(P) : A.map(P);
   }
   get savedReviewFilterPresets() {
-    return this.response?.meta.saved_review_filter_presets?.length ? this.response.meta.saved_review_filter_presets.map(P) : Z.map(P);
+    return this.response?.meta.saved_review_filter_presets?.length ? this.response.meta.saved_review_filter_presets.map(P) : ee.map(P);
   }
   get visibleRows() {
     return this.rows;
@@ -1865,7 +1865,7 @@ ${l.join(`
     `;
   }
   renderFamilyGroupRows(e, t) {
-    const i = _e(e, { size: "sm" }), a = p(e.displayLabel || this.deriveFamilyGroupLabel(e)), l = e.records.length, d = e.expanded ? "▼" : "▶";
+    const i = ke(e, { size: "sm" }), a = p(e.displayLabel || this.deriveFamilyGroupLabel(e)), l = e.records.length, d = e.expanded ? "▼" : "▶";
     return `
       <tr class="family-group-header ${e.expanded ? "is-expanded" : "is-collapsed"}"
           data-group-id="${c(e.groupId)}"
@@ -1905,7 +1905,7 @@ ${l.join(`
           data-assignment-row="true"
           data-assignment-nav-group="table"
           tabindex="0"
-          aria-label="${c(Y(e))}">
+          aria-label="${c(W(e))}">
         <td class="queue-select-col">
           <input
             type="checkbox"
@@ -1930,7 +1930,7 @@ ${l.join(`
         </td>
         <td class="queue-status-col">
           <div class="queue-status-cell">
-            ${z(e.queue_state, {
+            ${G(e.queue_state, {
       domain: "queue",
       size: "sm"
     })}
@@ -1950,7 +1950,7 @@ ${l.join(`
         <td class="queue-due-col">
           <div class="queue-due-cell">
             ${d ? `<span class="due-pill due-${c(e.due_state)}">${p(b(e.due_state))}</span>` : ""}
-            ${l ? `<span class="queue-due-date">${p(O(e.due_date, ""))}</span>` : ""}
+            ${l ? `<span class="queue-due-date">${p(N(e.due_date, ""))}</span>` : ""}
           </div>
         </td>
         <td class="queue-priority-col">
@@ -1962,8 +1962,8 @@ ${l.join(`
         <td class="queue-action-col">
           <div class="queue-action-cell">
             ${(() => {
-      const n = U(e, this.pendingActions);
-      return K(e, n, V(n, e));
+      const n = V(e, this.pendingActions);
+      return Y(e, n, K(n, e));
     })()}
           </div>
         </td>
@@ -2040,7 +2040,7 @@ ${l.join(`
     e.entity_type && d.push(e.entity_type), e.family_id && e.family_id !== e.source_path && d.push(e.family_id);
     const r = d.join(" · "), n = this.isRowSelected(e.id);
     return `
-      <tr class="assignment-queue-row ${n ? "is-selected" : ""}" tabindex="0" data-assignment-id="${c(e.id)}" data-assignment-row="true" data-assignment-nav-group="table" aria-label="${c(Y(e))}">
+      <tr class="assignment-queue-row ${n ? "is-selected" : ""}" tabindex="0" data-assignment-id="${c(e.id)}" data-assignment-row="true" data-assignment-nav-group="table" aria-label="${c(W(e))}">
         <td class="queue-select-col">
           <input
             type="checkbox"
@@ -2066,7 +2066,7 @@ ${l.join(`
         </td>
         <td class="queue-status-col">
           <div class="queue-status-cell">
-            ${z(e.queue_state, {
+            ${G(e.queue_state, {
       domain: "queue",
       size: "sm"
     })}
@@ -2087,7 +2087,7 @@ ${l.join(`
         <td class="queue-due-col">
           <div class="queue-due-cell">
             ${l ? `<span class="due-pill due-${c(e.due_state)}">${p(b(e.due_state))}</span>` : ""}
-            ${a ? `<span class="queue-due-date">${p(O(e.due_date, ""))}</span>` : ""}
+            ${a ? `<span class="queue-due-date">${p(N(e.due_date, ""))}</span>` : ""}
           </div>
         </td>
         <td class="queue-priority-col">
@@ -2099,8 +2099,8 @@ ${l.join(`
         <td class="queue-action-col">
           <div class="queue-action-cell">
             ${(() => {
-      const u = U(e, this.pendingActions);
-      return K(e, u, V(u, e));
+      const u = V(e, this.pendingActions);
+      return Y(e, u, K(u, e));
     })()}
           </div>
         </td>
@@ -2117,7 +2117,7 @@ ${l.join(`
         data-assignment-nav-group="mobile"
         tabindex="0"
         role="button"
-        aria-label="${c(Y(e))}"
+        aria-label="${c(W(e))}"
       >
         <div class="${ze}">
           <div class="mobile-card-select">
@@ -2133,7 +2133,7 @@ ${l.join(`
             <h3 class="${Ie}" title="${c(e.source_title || e.source_path || e.id)}">${p(e.source_title || e.source_path || e.id)}</h3>
             <p class="${Se}" title="${c(e.source_path && e.source_title ? e.source_path : e.entity_type || e.family_id)}">${p(e.source_path && e.source_title ? e.source_path : e.entity_type || e.family_id)}</p>
           </div>
-          ${z(e.queue_state, {
+          ${G(e.queue_state, {
       domain: "queue",
       size: "sm"
     })}
@@ -2150,13 +2150,13 @@ ${l.join(`
           ${t ? `
           <div class="${E}">
             <span class="${R}">Assignee</span>
-            <span class="${I}" title="${c(X("Assignee", e.assignee_id, e.assignee_label))}">${p(D(e.assignee_id, e.assignee_label))}</span>
+            <span class="${I}" title="${c(J("Assignee", e.assignee_id, e.assignee_label))}">${p(D(e.assignee_id, e.assignee_label))}</span>
           </div>
           ` : ""}
           ${i ? `
           <div class="${E}">
             <span class="${R}">Reviewer</span>
-            <span class="${I}" title="${c(X("Reviewer", e.reviewer_id, e.reviewer_label))}">${p(D(e.reviewer_id, e.reviewer_label))}</span>
+            <span class="${I}" title="${c(J("Reviewer", e.reviewer_id, e.reviewer_label))}">${p(D(e.reviewer_id, e.reviewer_label))}</span>
           </div>
           ` : ""}
           ${a || l ? `
@@ -2164,7 +2164,7 @@ ${l.join(`
             <span class="${R}">Due</span>
             <span class="${I}">
               ${l ? `<span class="due-pill due-${c(e.due_state)}">${p(b(e.due_state))}</span>` : ""}
-              ${a ? `<span class="text-gray-600 ml-1">${p(O(e.due_date, ""))}</span>` : ""}
+              ${a ? `<span class="text-gray-600 ml-1">${p(N(e.due_date, ""))}</span>` : ""}
             </span>
           </div>
           ` : ""}
@@ -2178,8 +2178,8 @@ ${l.join(`
         </div>
         <div class="${Re}">
           ${(() => {
-      const r = U(e, this.pendingActions);
-      return K(e, r, V(r, e));
+      const r = V(e, this.pendingActions);
+      return Y(e, r, K(r, e));
     })()}
         </div>
       </article>
@@ -2401,10 +2401,10 @@ ${l.join(`
     !t || !e || typeof window > "u" || (window.location.href = `${t}/${encodeURIComponent(e)}/edit`);
   }
 };
-J = ue;
-J.PANEL_ID = "translation-queue";
-J.FILTERS_STORAGE_KEY = "go-admin:queue-filters-expanded";
-function Y(s) {
+Z = me;
+Z.PANEL_ID = "translation-queue";
+Z.FILTERS_STORAGE_KEY = "go-admin:queue-filters-expanded";
+function W(s) {
   return [
     s.source_title || s.source_path || s.id,
     `${s.source_locale.toUpperCase()} to ${s.target_locale.toUpperCase()}`,
@@ -2415,7 +2415,7 @@ function Y(s) {
 function D(s, e) {
   return (e || s || "").trim();
 }
-function X(s, e, t) {
+function J(s, e, t) {
   const i = D(e, t);
   if (!i) return "";
   const a = (e || "").trim();
@@ -2424,7 +2424,7 @@ function X(s, e, t) {
 function T(s, e, t, i) {
   const a = D(t, i);
   if (!a) return "";
-  const l = X(e, t, i);
+  const l = J(e, t, i);
   return `<span class="${c(s)}" title="${c(l)}" aria-label="${c(l)}">${p(a)}</span>`;
 }
 function b(s) {
@@ -3460,13 +3460,34 @@ function pt() {
 }
 function mt(s, e) {
   pt();
-  const t = new ue(e);
+  const t = new me(e);
   return t.mount(s), t;
 }
-function xt(s) {
+function ht(s, e) {
+  !s || s.dataset.assignmentQueueEnhanced === "true" || (s.dataset.assignmentQueueEnhanced = "true", s.querySelectorAll("[data-queue-row-action]").forEach((t) => {
+    t.addEventListener("click", async (i) => {
+      i.preventDefault();
+      const a = o(t.dataset.queueRowAction), l = o(t.dataset.assignmentId), d = Number.parseInt(o(t.dataset.rowVersion), 10), r = Number.isFinite(d) ? d : 0, n = o(s.dataset.channel) || (typeof window < "u" ? de(ce(window.location) ?? new URLSearchParams(), "channel") : "");
+      if (!(!l || !a) && !(t.disabled || t.getAttribute("aria-disabled") === "true")) {
+        t.disabled = !0;
+        try {
+          await z(e, l, a, {
+            expected_version: r,
+            ...n ? { channel: n } : {}
+          }), typeof window < "u" && window.location.reload();
+        } catch (u) {
+          t.disabled = !1, console.error(u);
+        }
+      }
+    });
+  }));
+}
+function qt(s) {
   const e = s.dataset.endpoint || s.dataset.assignmentListEndpoint || "";
   if (!e) return null;
-  const t = typeof window < "u" ? xe(window.location) : null;
+  if (s.dataset.ssrEnhanced === "true")
+    return ht(s, e), null;
+  const t = typeof window < "u" ? ce(window.location) : null;
   return mt(s, {
     endpoint: e,
     bulkActionEndpoint: s.dataset.bulkActionEndpoint || s.dataset.bulkActionsEndpoint || "",
@@ -3474,7 +3495,7 @@ function xt(s) {
     editorBasePath: s.dataset.editorBasePath || "",
     title: s.dataset.title,
     description: s.dataset.description,
-    initialPresetId: s.dataset.initialPresetId || $e(t ?? new URLSearchParams(), "preset") || ""
+    initialPresetId: s.dataset.initialPresetId || de(t ?? new URLSearchParams(), "preset") || ""
   });
 }
 function oe(s) {
@@ -3491,8 +3512,8 @@ function le(s) {
 }
 export {
   j as AssignmentQueueRequestError,
-  ue as AssignmentQueueScreen,
-  Z as DEFAULT_ASSIGNMENT_QUEUE_REVIEW_FILTERS,
+  me as AssignmentQueueScreen,
+  ee as DEFAULT_ASSIGNMENT_QUEUE_REVIEW_FILTERS,
   A as DEFAULT_ASSIGNMENT_QUEUE_SAVED_FILTERS,
   lt as applyOptimisticAssignmentAction,
   We as buildAssignmentListQuery,
@@ -3501,7 +3522,7 @@ export {
   mt as createAssignmentQueueScreen,
   it as fetchAssignmentList,
   ut as getAssignmentQueueStyles,
-  xt as initAssignmentQueueScreen,
+  qt as initAssignmentQueueScreen,
   st as normalizeAssignmentActionResponse,
   Ue as normalizeAssignmentListMeta,
   et as normalizeAssignmentListResponse,

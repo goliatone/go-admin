@@ -1060,6 +1060,8 @@ var Ge = class extends re {
 };
 function at(t, e = {}) {
   if (!t) return null;
+  if (t.dataset?.ssrEnhanced === "true")
+    return t.dataset.translationDashboardEnhanced = "true", null;
   const a = new Ge({
     endpoint: e.endpoint ?? t.dataset.endpoint ?? "",
     queueEndpoint: e.queueEndpoint ?? t.dataset.queueEndpoint ?? "",

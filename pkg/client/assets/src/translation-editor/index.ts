@@ -351,6 +351,7 @@ export interface TranslationEditorScreenConfig {
   syncResourceKind?: string;
   syncScope?: Record<string, string>;
   basePath?: string;
+  initialDetail?: unknown;
 }
 
 interface TranslationEditorRenderViewportState {
@@ -2734,6 +2735,7 @@ export class TranslationEditorScreen {
       syncResourceKind: config.syncResourceKind || TRANSLATION_DRAFT_SYNC_RESOURCE_KIND,
       syncScope: deriveTranslationSyncScope(config),
       basePath,
+      initialDetail: config.initialDetail,
     };
   }
 
@@ -2751,6 +2753,24 @@ export class TranslationEditorScreen {
     document.addEventListener('keydown', this.keyboardHandler);
     this.render();
     void this.load();
+  }
+
+  mountWithInitialDetail(container: HTMLElement, rawDetail: unknown): void {
+    this.container = container;
+    this.keyboardHandler = (event: KeyboardEvent) => {
+      if ((event.ctrlKey || event.metaKey) && event.key === 's') {
+        event.preventDefault();
+        void this.saveDirtyFields(false);
+      }
+      if (event.key === 'Escape' && this.rejectDraft) {
+        this.closeRejectDialog();
+      }
+    };
+    document.addEventListener('keydown', this.keyboardHandler);
+    const detail = normalizeAssignmentEditorDetail(rawDetail);
+    this.loadState = { status: 'ready', detail };
+    this.editorState = createTranslationEditorState(detail);
+    this.render();
   }
 
   unmount(): void {
@@ -3516,6 +3536,23 @@ export async function initTranslationEditorPage(
   config: TranslationEditorScreenConfig
 ): Promise<TranslationEditorScreen> {
   const screen = new TranslationEditorScreen(config);
-  screen.mount(root);
+  const initialDetail = config.initialDetail || readTranslationEditorSSRDetail(root);
+  if ((root.dataset.ssrEnhanced || '').trim() === 'true' && initialDetail) {
+    root.dataset.translationEditorEnhanced = 'true';
+    screen.mountWithInitialDetail(root, initialDetail);
+  } else {
+    screen.mount(root);
+  }
   return screen;
+}
+
+function readTranslationEditorSSRDetail(root: HTMLElement): unknown {
+  const script = root.querySelector<HTMLScriptElement>('script[type="application/json"][data-translation-editor-initial-state]');
+  const raw = script?.textContent?.trim() || '';
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
 }

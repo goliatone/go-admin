@@ -279,6 +279,7 @@ export interface AssignmentActionRequest {
   expected_version: number;
   idempotency_key?: string;
   reason?: string;
+  channel?: string;
 }
 
 // T10: Bulk action types
@@ -911,6 +912,9 @@ async function runAssignmentAction(
   }
   if (request.reason) {
     payload.reason = request.reason;
+  }
+  if (request.channel) {
+    payload.channel = request.channel;
   }
   const response = await httpRequest(`${endpoint}/${encodeURIComponent(assignmentId)}/actions/${action}`, {
     method: 'POST',
@@ -4860,9 +4864,52 @@ export function createAssignmentQueueScreen(
   return screen;
 }
 
+function bindAssignmentQueueSSR(container: HTMLElement, endpoint: string): void {
+  if (!container || container.dataset.assignmentQueueEnhanced === 'true') {
+    return;
+  }
+  container.dataset.assignmentQueueEnhanced = 'true';
+  container.querySelectorAll<HTMLButtonElement>('[data-queue-row-action]').forEach((button) => {
+    button.addEventListener('click', async (event) => {
+      event.preventDefault();
+      const action = asString(button.dataset.queueRowAction) as 'claim' | 'release';
+      const assignmentId = asString(button.dataset.assignmentId);
+      const parsedVersion = Number.parseInt(asString(button.dataset.rowVersion), 10);
+      const expectedVersion = Number.isFinite(parsedVersion) ? parsedVersion : 0;
+      const channel = asString(container.dataset.channel)
+        || (typeof window !== 'undefined'
+          ? getStringSearchParam(readLocationSearchParams(window.location) ?? new URLSearchParams(), 'channel')
+          : '');
+      if (!assignmentId || !action) {
+        return;
+      }
+      if (button.disabled || button.getAttribute('aria-disabled') === 'true') {
+        return;
+      }
+      button.disabled = true;
+      try {
+        await runAssignmentAction(endpoint, assignmentId, action, {
+          expected_version: expectedVersion,
+          ...(channel ? { channel } : {}),
+        });
+        if (typeof window !== 'undefined') {
+          window.location.reload();
+        }
+      } catch (error) {
+        button.disabled = false;
+        console.error(error);
+      }
+    });
+  });
+}
+
 export function initAssignmentQueueScreen(container: HTMLElement): AssignmentQueueScreen | null {
   const endpoint = container.dataset.endpoint || container.dataset.assignmentListEndpoint || '';
   if (!endpoint) {
+    return null;
+  }
+  if (container.dataset.ssrEnhanced === 'true') {
+    bindAssignmentQueueSSR(container, endpoint);
     return null;
   }
   const locationSearch = typeof window !== 'undefined'

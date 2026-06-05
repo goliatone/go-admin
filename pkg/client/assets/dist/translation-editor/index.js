@@ -1,20 +1,20 @@
 import { escapeAttribute as f, escapeHTML as d } from "../shared/html.js";
-import { t as ye } from "../chunks/icon-renderer-a2WAOpSe.js";
-import { httpRequest as C, readCSRFToken as ve, readHTTPError as _e } from "../shared/transport/http-client.js";
-import { extractStructuredError as ee } from "../toast/error-helpers.js";
-import { n as xe } from "../chunks/translation-contracts-Ct_EG7JJ.js";
-import { asBoolean as h, asNumber as m, asRecord as c, asString as n, asStringArray as te } from "../shared/coercion.js";
-import { $ as y, C as we, E as Se, G as $e, K as ke, Q as Re, S as Ce, T as Ee, Z as Te, _ as Ae, at as je, b as qe, et as Le, f as E, g as De, it as Oe, k as Pe, l as Ie, m as I, n as Fe, ot as Me, p as Q, r as Be, s as Ne, t as ze, tt as Ue, u as se, v as Ke, x as He, y as Ve } from "../chunks/translation-shared-DxbdCW0D.js";
+import { t as _e } from "../chunks/icon-renderer-a2WAOpSe.js";
+import { httpRequest as C, readCSRFToken as xe, readHTTPError as we } from "../shared/transport/http-client.js";
+import { extractStructuredError as te } from "../toast/error-helpers.js";
+import { n as Se } from "../chunks/translation-contracts-Ct_EG7JJ.js";
+import { asBoolean as h, asNumber as m, asRecord as c, asString as n, asStringArray as se } from "../shared/coercion.js";
+import { $ as y, C as $e, E as ke, G as Re, K as Ce, Q as Ee, S as Te, T as Ae, Z as je, _ as qe, at as Le, b as De, et as Oe, f as E, g as Pe, it as Ie, k as Fe, l as Me, m as I, n as Be, ot as Ne, p as Q, r as ze, s as Ue, t as Ke, tt as He, u as ae, v as Ve, x as Ye, y as Qe } from "../chunks/translation-shared-DxbdCW0D.js";
 import { formatTranslationTimestampUTC as re, sentenceCaseToken as S } from "../translation-shared/formatters.js";
 import { normalizeStringRecord as D } from "../shared/record-normalization.js";
-import { c as ae, s as Ye } from "../chunks/ui-states-1McZ5upU.js";
-var Qe = "translation_variant_draft", Ge = "autosave", q = /* @__PURE__ */ new Map();
-async function We(e) {
+import { c as ie, s as Ge } from "../chunks/ui-states-1McZ5upU.js";
+var We = "translation_variant_draft", Xe = "autosave", q = /* @__PURE__ */ new Map();
+async function Je(e) {
   const t = w(e);
   if (!t) throw new Error("syncClientBasePath is required to load sync-core");
-  return typeof window < "u" && window.__translationSyncCoreModule ? O(window.__translationSyncCoreModule) : (q.has(t) || q.set(t, Xe(t)), q.get(t));
+  return typeof window < "u" && window.__translationSyncCoreModule ? O(window.__translationSyncCoreModule) : (q.has(t) || q.set(t, Ze(t)), q.get(t));
 }
-async function Xe(e) {
+async function Ze(e) {
   return typeof window < "u" && typeof window.__translationSyncCoreLoader == "function" ? O(await window.__translationSyncCoreLoader(e)) : O(await import(
     /* @vite-ignore */
     `${e}/index.js`
@@ -27,26 +27,26 @@ function O(e) {
 function w(e) {
   return String(e || "").trim().replace(/\/+$/, "");
 }
-function Je(e, t, s) {
-  const r = w(e);
-  if (/\/variants$/i.test(r)) return r.replace(/\/variants$/i, "");
-  const a = w(t);
-  if (/\/assignments$/i.test(a)) return a.replace(/\/assignments$/i, "");
+function et(e, t, s) {
+  const a = w(e);
+  if (/\/variants$/i.test(a)) return a.replace(/\/variants$/i, "");
+  const r = w(t);
+  if (/\/assignments$/i.test(r)) return r.replace(/\/assignments$/i, "");
   const i = w(s), o = i.match(/^(.*)\/assignments(?:\/.*)?$/i);
-  return o ? o[1] : r || a || i;
+  return o ? o[1] : a || r || i;
 }
-function Ze(e) {
+function tt(e) {
   return `${w(e) || "/admin"}/sync-client/sync-core`;
 }
-function et(e) {
+function st(e) {
   const t = {};
-  for (const [s, r] of Object.entries(e || {})) {
-    const a = String(s || "").trim(), i = String(r || "").trim();
-    !a || !i || (t[a] = i);
+  for (const [s, a] of Object.entries(e || {})) {
+    const r = String(s || "").trim(), i = String(a || "").trim();
+    !r || !i || (t[r] = i);
   }
   return t;
 }
-function tt(e) {
+function at(e) {
   try {
     const t = new URL(e, typeof window < "u" ? window.location.origin : "http://localhost"), s = String(t.searchParams.get("channel") || "").trim();
     return s ? { channel: s } : {};
@@ -54,14 +54,14 @@ function tt(e) {
     return {};
   }
 }
-function st(e) {
-  return et({
-    ...tt(e.endpoint),
+function rt(e) {
+  return st({
+    ...at(e.endpoint),
     ...e.syncScope || {}
   });
 }
-function rt(e) {
-  const t = Object.entries(e.scope || {}).filter(([s, r]) => s.trim() !== "" && r.trim() !== "").sort(([s], [r]) => s.localeCompare(r)).map(([s, r]) => `${encodeURIComponent(s)}=${encodeURIComponent(r)}`).join("&");
+function it(e) {
+  const t = Object.entries(e.scope || {}).filter(([s, a]) => s.trim() !== "" && a.trim() !== "").sort(([s], [a]) => s.localeCompare(a)).map(([s, a]) => `${encodeURIComponent(s)}=${encodeURIComponent(a)}`).join("&");
   return `${encodeURIComponent(e.kind)}::${encodeURIComponent(e.id)}::${t}`;
 }
 function F(e) {
@@ -89,72 +89,72 @@ function B(e) {
   };
 }
 function v(e, t) {
-  const s = c(e), r = {};
-  for (const [a, i] of Object.entries(s))
-    a.trim() && (r[a.trim()] = t(i));
-  return r;
+  const s = c(e), a = {};
+  for (const [r, i] of Object.entries(s))
+    r.trim() && (a[r.trim()] = t(i));
+  return a;
 }
-function at(e) {
+function nt(e) {
   if (!Array.isArray(e)) return [];
   const t = [];
   for (const s of e) {
-    const r = c(s), a = n(r.term), i = n(r.preferred_translation);
-    !a || !i || t.push({
-      term: a,
+    const a = c(s), r = n(a.term), i = n(a.preferred_translation);
+    !r || !i || t.push({
+      term: r,
       preferred_translation: i,
-      notes: n(r.notes) || void 0,
-      field_paths: te(r.field_paths)
+      notes: n(a.notes) || void 0,
+      field_paths: se(a.field_paths)
     });
   }
   return t;
 }
-function it(e) {
+function ot(e) {
   const t = c(e);
   return {
     available: h(t.available),
     title: n(t.title),
     summary: n(t.summary) || n(t.summary_markdown),
-    rules: te(t.rules)
+    rules: se(t.rules)
   };
 }
-function ie(e) {
+function ne(e) {
   return n(e.get("x-trace-id") || e.get("x-correlation-id") || e.get("traceparent"));
 }
-function nt(e) {
-  const t = c(e), s = n(t.id), r = n(t.filename);
-  return !s && !r ? null : {
-    id: s || r || "attachment",
+function ct(e) {
+  const t = c(e), s = n(t.id), a = n(t.filename);
+  return !s && !a ? null : {
+    id: s || a || "attachment",
     kind: n(t.kind) || "reference",
-    filename: r || s || "attachment",
+    filename: a || s || "attachment",
     byte_size: m(t.byte_size),
     uploaded_at: n(t.uploaded_at),
     description: n(t.description),
     url: n(t.url)
   };
 }
-function ot(e) {
-  return Array.isArray(e) ? e.map((t) => nt(t)).filter((t) => t !== null) : [];
+function lt(e) {
+  return Array.isArray(e) ? e.map((t) => ct(t)).filter((t) => t !== null) : [];
 }
-function ct(e, t) {
-  const s = c(e), r = c(s.kinds), a = {};
-  for (const [i, o] of Object.entries(r)) {
+function dt(e, t) {
+  const s = c(e), a = c(s.kinds), r = {};
+  for (const [i, o] of Object.entries(a)) {
     const l = m(o);
-    i.trim() && (a[i.trim()] = l);
+    i.trim() && (r[i.trim()] = l);
   }
-  if (!Object.keys(a).length) for (const i of t) a[i.kind] = (a[i.kind] || 0) + 1;
+  if (!Object.keys(r).length) for (const i of t) r[i.kind] = (r[i.kind] || 0) + 1;
   return {
     total: m(s.total, t.length),
-    kinds: a
+    kinds: r
   };
 }
-function lt(e) {
+function ut(e) {
   return n(e) === "comment" ? "comment" : "event";
 }
-function dt(e) {
+function ft(e) {
   const t = c(e), s = n(t.id);
   return s ? {
     id: s,
-    entry_type: lt(t.entry_type),
+    entry_type: ut(t.entry_type),
     title: n(t.title),
     body: n(t.body),
     action: n(t.action),
@@ -165,8 +165,8 @@ function dt(e) {
     metadata: c(t.metadata)
   } : null;
 }
-function ut(e) {
-  const t = c(e), s = Array.isArray(t.items) ? t.items.map((r) => dt(r)).filter((r) => r !== null) : [];
+function mt(e) {
+  const t = c(e), s = Array.isArray(t.items) ? t.items.map((a) => ft(a)).filter((a) => a !== null) : [];
   return {
     items: s,
     page: m(t.page, 1) || 1,
@@ -176,39 +176,39 @@ function ut(e) {
     next_page: m(t.next_page)
   };
 }
-function ft(e) {
-  const t = c(e), s = n(t.id), r = n(t.body);
-  return !s && !r ? null : {
-    id: s || r || "review-feedback",
-    body: r,
+function pt(e) {
+  const t = c(e), s = n(t.id), a = n(t.body);
+  return !s && !a ? null : {
+    id: s || a || "review-feedback",
+    body: a,
     kind: n(t.kind) || "review_feedback",
     created_at: n(t.created_at),
     author_id: n(t.author_id) || void 0
   };
 }
-function mt(e, t) {
-  const s = c(e), r = Array.isArray(s.comments) ? s.comments.map((i) => ft(i)).filter((i) => i !== null) : [], a = n(s.last_rejection_reason || t) || void 0;
-  return !r.length && a && r.push({
+function gt(e, t) {
+  const s = c(e), a = Array.isArray(s.comments) ? s.comments.map((i) => pt(i)).filter((i) => i !== null) : [], r = n(s.last_rejection_reason || t) || void 0;
+  return !a.length && r && a.push({
     id: "last-rejection-reason",
-    body: a,
+    body: r,
     kind: "review_feedback",
     created_at: ""
   }), {
-    last_rejection_reason: a,
-    comments: r
+    last_rejection_reason: r,
+    comments: a
   };
 }
-function pt(e) {
-  const t = c(e), s = n(t.id), r = n(t.message);
-  return !s || !r ? null : {
+function ht(e) {
+  const t = c(e), s = n(t.id), a = n(t.message);
+  return !s || !a ? null : {
     id: s,
     category: n(t.category) === "style" ? "style" : "terminology",
     severity: n(t.severity) === "blocker" ? "blocker" : "warning",
     field_path: n(t.field_path),
-    message: r
+    message: a
   };
 }
-function gt(e, t) {
+function bt(e, t) {
   const s = c(e);
   return {
     category: n(s.category) || t,
@@ -219,11 +219,11 @@ function gt(e, t) {
     blocker_count: m(s.blocker_count)
   };
 }
-function ne(e) {
-  const t = c(e), s = c(t.summary), r = c(t.categories), a = {};
-  for (const [o, l] of Object.entries(r))
-    o.trim() && (a[o.trim()] = gt(l, o.trim()));
-  const i = Array.isArray(t.findings) ? t.findings.map((o) => pt(o)).filter((o) => o !== null) : [];
+function oe(e) {
+  const t = c(e), s = c(t.summary), a = c(t.categories), r = {};
+  for (const [o, l] of Object.entries(a))
+    o.trim() && (r[o.trim()] = bt(l, o.trim()));
+  const i = Array.isArray(t.findings) ? t.findings.map((o) => ht(o)).filter((o) => o !== null) : [];
   return {
     enabled: h(t.enabled),
     summary: {
@@ -231,13 +231,13 @@ function ne(e) {
       warning_count: m(s.warning_count),
       blocker_count: m(s.blocker_count)
     },
-    categories: a,
+    categories: r,
     findings: i,
     save_blocked: h(t.save_blocked),
     submit_blocked: h(t.submit_blocked)
   };
 }
-function ht(e) {
+function yt(e) {
   const t = c(e);
   return {
     id: n(t.id || t.assignment_id),
@@ -254,67 +254,67 @@ function ht(e) {
     updated_at: n(t.updated_at)
   };
 }
-function bt(e, t = "") {
-  const s = c(e), r = n(s.locale).trim().toLowerCase();
-  if (!r) return null;
-  const a = n(s.href).trim(), i = h(s.enabled) && a !== "", o = n(s.reason || s.disabled_reason);
+function vt(e, t = "") {
+  const s = c(e), a = n(s.locale).trim().toLowerCase();
+  if (!a) return null;
+  const r = n(s.href).trim(), i = h(s.enabled) && r !== "", o = n(s.reason || s.disabled_reason);
   return {
-    locale: r,
-    label: n(s.label) || r.toUpperCase(),
-    current: h(s.current) || t !== "" && r === t,
+    locale: a,
+    label: n(s.label) || a.toUpperCase(),
+    current: h(s.current) || t !== "" && a === t,
     source: h(s.source),
     enabled: i,
     disabled: h(s.disabled) || !i,
     reason: o,
-    href: i ? a : void 0,
+    href: i ? r : void 0,
     assignment_id: n(s.assignment_id) || void 0,
     status: n(s.status) || void 0,
     work_scope: n(s.work_scope) || void 0
   };
 }
-function yt(e, t) {
-  const s = c(e), r = (n(s.current_locale) || n(t.target_locale) || n(t.locale)).trim().toLowerCase(), a = (n(s.source_locale) || n(t.source_locale)).trim().toLowerCase(), i = Array.isArray(s.locales) ? s.locales.map((o) => bt(o, r)).filter((o) => o !== null) : [];
+function _t(e, t) {
+  const s = c(e), a = (n(s.current_locale) || n(t.target_locale) || n(t.locale)).trim().toLowerCase(), r = (n(s.source_locale) || n(t.source_locale)).trim().toLowerCase(), i = Array.isArray(s.locales) ? s.locales.map((o) => vt(o, a)).filter((o) => o !== null) : [];
   return {
     family_id: n(s.family_id) || n(t.family_id),
-    current_locale: r,
-    source_locale: a,
+    current_locale: a,
+    source_locale: r,
     current_work_scope: n(s.current_work_scope),
     family_detail_url: n(s.family_detail_url),
     locales: i
   };
 }
 function N(e, t) {
-  const s = c(e), r = h(s.enabled), a = n(s.target_record_id) || n(s.record_id) || n(t.target_record_id), i = n(s.reason), o = n(s.reason_code);
+  const s = c(e), a = h(s.enabled), r = n(s.target_record_id) || n(s.record_id) || n(t.target_record_id), i = n(s.reason), o = n(s.reason_code);
   return {
-    enabled: r,
+    enabled: a,
     url: n(s.url) || void 0,
-    reason: i || (r ? "" : "Preview is unavailable for this assignment."),
-    reason_code: o || (r ? "" : "preview_unavailable"),
+    reason: i || (a ? "" : "Preview is unavailable for this assignment."),
+    reason_code: o || (a ? "" : "preview_unavailable"),
     assignment_id: n(s.assignment_id) || n(t.assignment_id),
     entity_type: n(s.entity_type) || n(t.entity_type),
-    record_id: n(s.record_id) || a,
-    target_record_id: a,
+    record_id: n(s.record_id) || r,
+    target_record_id: r,
     target_locale: n(s.target_locale) || n(t.target_locale),
     channel: n(s.channel) || n(t.channel)
   };
 }
-function oe(e, t) {
-  const s = c(e), r = c(t);
+function ce(e, t) {
+  const s = c(e), a = c(t);
   return {
-    glossary_matches: at(s.glossary_matches ?? r.glossary_matches),
-    style_guide_summary: it(s.style_guide_summary ?? r.style_guide_summary),
-    translation_memory_suggestions: Array.isArray(s.translation_memory_suggestions) ? s.translation_memory_suggestions.filter((a) => a && typeof a == "object") : []
+    glossary_matches: nt(s.glossary_matches ?? a.glossary_matches),
+    style_guide_summary: ot(s.style_guide_summary ?? a.style_guide_summary),
+    translation_memory_suggestions: Array.isArray(s.translation_memory_suggestions) ? s.translation_memory_suggestions.filter((r) => r && typeof r == "object") : []
   };
 }
 function T(e) {
   const t = c(e), s = {};
-  for (const [r, a] of Object.entries(t)) {
-    const i = xe(a);
-    !i || !r.trim() || (s[r.trim()] = i);
+  for (const [a, r] of Object.entries(t)) {
+    const i = Se(r);
+    !i || !a.trim() || (s[a.trim()] = i);
   }
   return s;
 }
-function ce(e, t, s, r, a, i) {
+function le(e, t, s, a, r, i) {
   if (Array.isArray(e.fields)) return e.fields.map((l) => {
     const u = c(l), g = n(u.path);
     if (!g) return null;
@@ -326,8 +326,8 @@ function ce(e, t, s, r, a, i) {
       required: h(u.required),
       source_value: n(u.source_value) || t[g] || "",
       target_value: p ? s[g] : n(u.target_value),
-      completeness: F(u.completeness ?? r[g]),
-      drift: M(u.drift ?? a[g]),
+      completeness: F(u.completeness ?? a[g]),
+      drift: M(u.drift ?? r[g]),
       validation: B(u.validation ?? i[g]),
       glossary_hits: Array.isArray(u.glossary_hits) ? u.glossary_hits.filter((_) => _ && typeof _ == "object") : []
     };
@@ -335,23 +335,23 @@ function ce(e, t, s, r, a, i) {
   const o = /* @__PURE__ */ new Set([
     ...Object.keys(t),
     ...Object.keys(s),
-    ...Object.keys(r),
     ...Object.keys(a),
+    ...Object.keys(r),
     ...Object.keys(i)
   ]);
   return Array.from(o).sort().map((l) => ({
     path: l,
     label: l,
     input_type: "text",
-    required: r[l]?.required === !0,
+    required: a[l]?.required === !0,
     source_value: t[l] || "",
     target_value: s[l] || "",
-    completeness: r[l] ?? {
+    completeness: a[l] ?? {
       required: !1,
       complete: !0,
       missing: !1
     },
-    drift: a[l] ?? {
+    drift: r[l] ?? {
       changed: !1,
       comparison_mode: "snapshot",
       previous_source_value: "",
@@ -364,14 +364,14 @@ function ce(e, t, s, r, a, i) {
     glossary_hits: []
   }));
 }
-function vt(e) {
-  const t = c(e), s = c(t.data && typeof t.data == "object" ? t.data : e), r = D(s.source_fields, {
+function de(e) {
+  const t = c(e), s = c(t.data && typeof t.data == "object" ? t.data : e), a = D(s.source_fields, {
     trimKeys: !0,
     omitBlankKeys: !0
-  }), a = D(s.target_fields ?? s.fields, {
+  }), r = D(s.target_fields ?? s.fields, {
     trimKeys: !0,
     omitBlankKeys: !0
-  }), i = v(s.field_completeness, F), o = v(s.field_drift, M), l = v(s.field_validations, B), u = ot(s.attachments);
+  }), i = v(s.field_completeness, F), o = v(s.field_drift, M), l = v(s.field_validations, B), u = lt(s.attachments);
   return {
     assignment_id: n(s.assignment_id),
     assignment_row_version: m(s.assignment_row_version || s.assignment_version || c(s.translation_assignment).row_version || c(s.translation_assignment).version),
@@ -384,29 +384,29 @@ function vt(e) {
     priority: n(s.priority) || void 0,
     due_date: n(s.due_date) || void 0,
     row_version: m(s.row_version || s.version),
-    source_fields: r,
-    target_fields: a,
-    fields: ce(s, r, a, i, o, l),
+    source_fields: a,
+    target_fields: r,
+    fields: le(s, a, r, i, o, l),
     field_completeness: i,
     field_drift: o,
     field_validations: l,
     source_target_drift: c(s.source_target_drift),
-    history: ut(s.history),
+    history: mt(s.history),
     attachments: u,
-    attachment_summary: ct(s.attachment_summary, u),
-    translation_assignment: ht(s.translation_assignment),
-    assist: oe(s.assist, s),
+    attachment_summary: dt(s.attachment_summary, u),
+    translation_assignment: yt(s.translation_assignment),
+    assist: ce(s.assist, s),
     last_rejection_reason: n(s.last_rejection_reason) || void 0,
-    review_feedback: mt(s.review_feedback, s.last_rejection_reason),
-    qa_results: ne(s.qa_results),
+    review_feedback: gt(s.review_feedback, s.last_rejection_reason),
+    qa_results: oe(s.qa_results),
     assignment_action_states: T(s.assignment_action_states ?? s.editor_actions ?? s.actions),
     review_action_states: T(s.review_action_states ?? s.review_actions),
-    locale_navigation: yt(s.locale_navigation, s),
+    locale_navigation: _t(s.locale_navigation, s),
     preview_action: N(s.preview_action, s)
   };
 }
-function _t(e) {
-  const t = c(e), s = c(t.data && typeof t.data == "object" ? t.data : e), r = c(s.preview_action);
+function xt(e) {
+  const t = c(e), s = c(t.data && typeof t.data == "object" ? t.data : e), a = c(s.preview_action);
   return {
     variant_id: n(s.variant_id),
     row_version: m(s.row_version || s.version),
@@ -418,22 +418,22 @@ function _t(e) {
     field_drift: v(s.field_drift, M),
     field_validations: v(s.field_validations, B),
     source_target_drift: c(s.source_target_drift),
-    assist: oe(s.assist, s),
-    qa_results: ne(s.qa_results),
+    assist: ce(s.assist, s),
+    qa_results: oe(s.qa_results),
     assignment_action_states: T(s.assignment_action_states),
     review_action_states: T(s.review_action_states),
-    preview_action: Object.keys(r).length ? N(r, s) : void 0
+    preview_action: Object.keys(a).length ? N(a, s) : void 0
   };
 }
 function z(e) {
-  return ce({ fields: e.fields }, e.source_fields, e.target_fields, e.field_completeness, e.field_drift, e.field_validations);
+  return le({ fields: e.fields }, e.source_fields, e.target_fields, e.field_completeness, e.field_drift, e.field_validations);
 }
 function U(e) {
   if (!e.assignment_action_states.submit_review?.enabled || e.qa_results.submit_blocked) return !1;
   for (const t of Object.values(e.field_completeness)) if (t.required && t.missing) return !1;
   return !0;
 }
-function xt(e) {
+function G(e) {
   return {
     detail: {
       ...e,
@@ -450,27 +450,27 @@ function xt(e) {
   };
 }
 function k(e, t, s) {
-  const r = t.trim();
-  if (!r) return e;
-  const a = {
+  const a = t.trim();
+  if (!a) return e;
+  const r = {
     ...e.detail.target_fields,
-    [r]: s.trim()
-  }, i = e.detail.field_completeness[r]?.required === !0, o = {
+    [a]: s.trim()
+  }, i = e.detail.field_completeness[a]?.required === !0, o = {
     ...e.detail.field_completeness,
-    [r]: {
+    [a]: {
       required: i,
       complete: !i || s.trim() !== "",
       missing: i && s.trim() === ""
     }
   }, l = {
     ...e.detail.field_validations,
-    [r]: {
-      valid: !o[r].missing,
-      message: o[r].missing ? e.detail.field_validations[r]?.message || `${r} is required` : ""
+    [a]: {
+      valid: !o[a].missing,
+      message: o[a].missing ? e.detail.field_validations[a]?.message || `${a} is required` : ""
     }
   }, u = {
     ...e.detail,
-    target_fields: a,
+    target_fields: r,
     field_completeness: o,
     field_validations: l
   };
@@ -479,7 +479,7 @@ function k(e, t, s) {
     detail: u,
     dirty_fields: {
       ...e.dirty_fields,
-      [r]: s.trim()
+      [a]: s.trim()
     },
     assignment_row_version: e.assignment_row_version,
     can_submit_review: U(u)
@@ -496,7 +496,7 @@ function wt(e) {
   };
 }
 function x(e, t) {
-  const s = _t(t), r = {
+  const s = xt(t), a = {
     ...e.detail,
     row_version: s.row_version,
     target_fields: {
@@ -513,13 +513,13 @@ function x(e, t) {
     review_action_states: s.review_action_states,
     preview_action: s.preview_action || e.detail.preview_action
   };
-  return r.fields = z(r), {
+  return a.fields = z(a), {
     ...e,
-    detail: r,
+    detail: a,
     dirty_fields: {},
     assignment_row_version: e.assignment_row_version,
     row_version: s.row_version,
-    can_submit_review: U(r),
+    can_submit_review: U(a),
     autosave: {
       pending: !1,
       conflict: null
@@ -534,11 +534,11 @@ function R(e) {
     version: s
   } };
 }
-function G(e) {
+function W(e) {
   return Object.keys(c(e?.data)).length > 0;
 }
 function St(e, t) {
-  const s = c(t), r = c(s.error), a = c(r.details ?? s.details), i = c(s.resource || a.resource || c(s.conflict).latestSnapshot || c(r.conflict).latestSnapshot), o = i.data && typeof i.data == "object" ? c(i.data) : {}, l = m(i.revision), u = c(r.metadata), g = Object.keys(o).length ? {
+  const s = c(t), a = c(s.error), r = c(a.details ?? s.details), i = c(s.resource || r.resource || c(s.conflict).latestSnapshot || c(a.conflict).latestSnapshot), o = i.data && typeof i.data == "object" ? c(i.data) : {}, l = m(i.revision), u = c(a.metadata), g = Object.keys(o).length ? {
     ...o,
     row_version: m(o.row_version || o.version, l) || l
   } : c(u.latest_server_state_record);
@@ -551,45 +551,45 @@ function St(e, t) {
     }
   };
 }
-function le(e) {
-  const t = c(e), s = c(t.cause), r = c(t.details), a = t.resource || r.resource;
+function ue(e) {
+  const t = c(e), s = c(t.cause), a = c(t.details), r = t.resource || a.resource;
   return t.code === "STALE_REVISION" ? {
     error: {
       code: "STALE_REVISION",
       message: n(t.message) || "stale revision",
       details: {
-        current_revision: m(t.currentRevision || r.current_revision),
-        resource: a
+        current_revision: m(t.currentRevision || a.current_revision),
+        resource: r
       }
     },
-    resource: a,
+    resource: r,
     conflict: t.conflict
-  } : s.code === "STALE_REVISION" ? le(s) : t;
+  } : s.code === "STALE_REVISION" ? ue(s) : t;
 }
 function $t(e) {
-  const t = c(e), s = c(t.details), r = c(t.conflict), a = c(t.resource || s.resource || r.latestSnapshot), i = c(a.data), o = m(a.revision || t.currentRevision || s.current_revision), l = n(a.updatedAt || a.updated_at) || (/* @__PURE__ */ new Date()).toISOString();
+  const t = c(e), s = c(t.details), a = c(t.conflict), r = c(t.resource || s.resource || a.latestSnapshot), i = c(r.data), o = m(r.revision || t.currentRevision || s.current_revision), l = n(r.updatedAt || r.updated_at) || (/* @__PURE__ */ new Date()).toISOString();
   return !Object.keys(i).length || o <= 0 ? null : {
-    ref: c(a.ref),
+    ref: c(r.ref),
     data: i,
     revision: o,
     updatedAt: l,
-    metadata: c(a.metadata)
+    metadata: c(r.metadata)
   };
 }
 function kt(e) {
   return n(c(e.source_target_drift).current_source_hash);
 }
-function W(e) {
+function X(e) {
   return typeof CSS < "u" && typeof CSS.escape == "function" ? CSS.escape(e) : e.replace(/["\\]/g, "\\$&");
 }
 function Rt(e) {
   const t = c(e), s = c(t.cause);
   return t.code === "STALE_REVISION" || s.code === "STALE_REVISION";
 }
-function X(e, t) {
+function J(e, t) {
   const s = new URL(e, typeof window < "u" ? window.location.origin : "http://localhost");
-  for (const [r, a] of Object.entries(t))
-    a == null || `${a}`.trim() === "" || s.searchParams.set(r, String(a));
+  for (const [a, r] of Object.entries(t))
+    r == null || `${r}`.trim() === "" || s.searchParams.set(a, String(r));
   return /^https?:\/\//i.test(e) ? s.toString() : `${s.pathname}${s.search}`;
 }
 function b(e) {
@@ -636,41 +636,41 @@ var At = class extends Error {
   }
 };
 async function L(e, t) {
-  const s = await ee(e);
+  const s = await te(e);
   return new At({
-    message: s.message || await _e(e, t),
+    message: s.message || await we(e, t),
     status: e.status,
     code: s.textCode,
     metadata: s.metadata,
     requestId: n(e.headers.get("x-request-id")) || void 0,
-    traceId: ie(e.headers) || void 0
+    traceId: ne(e.headers) || void 0
   });
 }
 async function jt(e) {
-  const t = await C(e, { method: "GET" }), s = n(t.headers.get("x-request-id")) || void 0, r = ie(t.headers) || void 0;
+  const t = await C(e, { method: "GET" }), s = n(t.headers.get("x-request-id")) || void 0, a = ne(t.headers) || void 0;
   if (!t.ok) {
-    const i = await ee(t);
+    const i = await te(t);
     return {
       status: i.textCode === "VERSION_CONFLICT" ? "conflict" : "error",
       message: i.message || `Failed to load assignment (${t.status})`,
       requestId: s,
-      traceId: r,
+      traceId: a,
       statusCode: t.status,
       errorCode: i.textCode
     };
   }
-  const a = vt(await t.json());
-  return a.assignment_id ? {
+  const r = de(await t.json());
+  return r.assignment_id ? {
     status: "ready",
-    detail: a,
+    detail: r,
     requestId: s,
-    traceId: r,
+    traceId: a,
     statusCode: t.status
   } : {
     status: "empty",
     message: "Assignment detail payload was empty.",
     requestId: s,
-    traceId: r,
+    traceId: a,
     statusCode: t.status
   };
 }
@@ -714,14 +714,14 @@ function Dt(e, t) {
   }
 }
 function Ot(e, t, s) {
-  let r = "idle";
-  return e?.autosave.conflict ? r = "conflict" : e?.autosave.pending ? r = "saving" : t ? r = "dirty" : s && (r = "saved"), {
-    tone: Te(r),
-    text: Re(r, s),
-    state: r
+  let a = "idle";
+  return e?.autosave.conflict ? a = "conflict" : e?.autosave.pending ? a = "saving" : t ? a = "dirty" : s && (a = "saved"), {
+    tone: je(a),
+    text: Ee(a, s),
+    state: a
   };
 }
-function de(e) {
+function fe(e) {
   const t = [
     e.requestId ? `Request ${d(e.requestId)}` : "",
     e.traceId ? `Trace ${d(e.traceId)}` : "",
@@ -739,10 +739,10 @@ function Pt(e) {
 function It(e) {
   const t = e.qa_results;
   if (!t.enabled || t.summary.finding_count <= 0) return "";
-  const s = t.summary.blocker_count > 0 ? y("error") : y("success"), r = t.summary.blocker_count > 0 ? `Blockers ${t.summary.blocker_count}` : "No blockers";
+  const s = t.summary.blocker_count > 0 ? y("error") : y("success"), a = t.summary.blocker_count > 0 ? `Blockers ${t.summary.blocker_count}` : "No blockers";
   return `
     <span class="${y("warning")}">Warnings ${t.summary.warning_count}</span>
-    <span class="${s}">${r}</span>
+    <span class="${s}">${a}</span>
   `;
 }
 function Ft(e, t) {
@@ -765,57 +765,57 @@ function Mt(e) {
   return t.submit_blocked ? `Resolve ${t.summary.blocker_count} QA blocker${t.summary.blocker_count === 1 ? "" : "s"} before submitting for review. ${t.summary.warning_count} warning${t.summary.warning_count === 1 ? "" : "s"} remain advisory.` : "Submit for review is unavailable.";
 }
 function Bt(e, t) {
-  const s = e.qa_results, r = s.summary.warning_count > 0 ? ` ${s.summary.warning_count} QA warning${s.summary.warning_count === 1 ? "" : "s"} remain visible to reviewers.` : "";
-  return t === "approved" ? `Submitted and auto-approved.${r}` : `Submitted for review.${r}`;
+  const s = e.qa_results, a = s.summary.warning_count > 0 ? ` ${s.summary.warning_count} QA warning${s.summary.warning_count === 1 ? "" : "s"} remain visible to reviewers.` : "";
+  return t === "approved" ? `Submitted and auto-approved.${a}` : `Submitted for review.${a}`;
 }
 function Nt() {
-  return Ye({
+  return Ge({
     tag: "section",
     text: "Loading translation assignment…",
     showSpinner: !1,
-    containerClass: `${Pe} p-8 shadow-sm`,
+    containerClass: `${Fe} p-8 shadow-sm`,
     textClass: "text-sm font-medium text-gray-500"
   });
 }
-function J(e, t) {
-  return ae({
+function Z(e, t) {
+  return ie({
     tag: "section",
-    containerClass: `${De} p-8 text-center shadow-sm`,
+    containerClass: `${Pe} p-8 text-center shadow-sm`,
     bodyClass: "",
     contentClass: "",
     title: e,
     titleTag: "h2",
-    titleClass: Ke,
+    titleClass: Ve,
     message: t,
-    messageClass: `${Ae} mt-2`
+    messageClass: `${qe} mt-2`
   });
 }
-function Z(e, t, s) {
-  return ae({
+function ee(e, t, s) {
+  return ie({
     tag: "section",
-    containerClass: `${Ve} p-8 shadow-sm`,
+    containerClass: `${Qe} p-8 shadow-sm`,
     bodyClass: "",
     contentClass: "",
     title: e,
     titleTag: "h2",
-    titleClass: He,
+    titleClass: Ye,
     message: t,
-    messageClass: `${qe} mt-2`,
-    actionsHtml: de(s),
+    messageClass: `${De} mt-2`,
+    actionsHtml: fe(s),
     role: "alert"
   });
 }
-function zt(e, t, s, r, a, i, o, l, u = "") {
-  const g = e.assignment_action_states.submit_review, p = e.preview_action, _ = l || !g?.enabled || a || r || e.qa_results.submit_blocked, me = !p?.enabled || a || r || i || o, pe = l || a || !s, ge = (e.source_locale || "source").toUpperCase(), he = (e.target_locale || "target").toUpperCase(), $ = e.translation_assignment, j = l ? V(e) : e.qa_results.submit_blocked ? "Resolve QA blockers before submitting for review." : g?.reason || "", be = p?.enabled ? o ? "Reload the latest server draft before opening preview." : i ? "Opening preview." : "Open preview in a new tab." : p?.reason || "Preview is unavailable for this assignment.";
+function zt(e, t, s, a, r, i, o, l, u = "") {
+  const g = e.assignment_action_states.submit_review, p = e.preview_action, _ = l || !g?.enabled || r || a || e.qa_results.submit_blocked, ge = !p?.enabled || r || a || i || o, he = l || r || !s, be = (e.source_locale || "source").toUpperCase(), ye = (e.target_locale || "target").toUpperCase(), $ = e.translation_assignment, j = l ? V(e) : e.qa_results.submit_blocked ? "Resolve QA blockers before submitting for review." : g?.reason || "", ve = p?.enabled ? o ? "Reload the latest server draft before opening preview." : i ? "Opening preview." : "Open preview in a new tab." : p?.reason || "Preview is unavailable for this assignment.";
   return `
     <section class="${I} p-6 shadow-sm">
       <div class="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
         <div class="space-y-3">
-          <p class="${Ee}">Assignment editor</p>
+          <p class="${Ae}">Assignment editor</p>
           <div>
-            <h1 class="${Se}">${d($.source_title || "Translation assignment")}</h1>
+            <h1 class="${ke}">${d($.source_title || "Translation assignment")}</h1>
             <p class="mt-2 text-sm text-gray-600">
-              ${d(ge)} to ${d(he)} • ${d(S(e.status || $.status || "draft"))} • Priority ${d(e.priority || "normal")}
+              ${d(be)} to ${d(ye)} • ${d(S(e.status || $.status || "draft"))} • Priority ${d(e.priority || "normal")}
             </p>
           </div>
           <div class="flex flex-wrap gap-2 text-xs text-gray-600">
@@ -830,19 +830,19 @@ function zt(e, t, s, r, a, i, o, l, u = "") {
             type="button"
             class="${E}"
             data-action="save-draft"
-            ${pe ? 'disabled aria-disabled="true"' : ""}
+            ${he ? 'disabled aria-disabled="true"' : ""}
           >
-            ${a ? "Saving…" : "Save draft"}
+            ${r ? "Saving…" : "Save draft"}
           </button>
           <div class="flex max-w-xs flex-col items-start gap-1">
             <button
               type="button"
               class="${E}"
               data-action="preview-assignment"
-              title="${f(be)}"
+              title="${f(ve)}"
               data-preview-enabled="${p?.enabled ? "true" : "false"}"
               data-preview-reason-code="${f(p?.reason_code || "")}"
-              ${me ? 'disabled aria-disabled="true"' : ""}
+              ${ge ? 'disabled aria-disabled="true"' : ""}
             >
               ${i ? "Opening..." : p?.enabled ? "Preview" : "Preview unavailable"}
             </button>
@@ -851,12 +851,12 @@ function zt(e, t, s, r, a, i, o, l, u = "") {
           <div class="flex max-w-xs flex-col items-start gap-1">
             <button
               type="button"
-              class="${se}"
+              class="${ae}"
               data-action="submit-review"
               title="${f(j)}"
               ${_ ? 'disabled aria-disabled="true"' : ""}
             >
-              ${d(Dt(e, r))}
+              ${d(Dt(e, a))}
             </button>
             ${_ && j ? `<p class="text-xs text-gray-500" data-submit-unavailable-reason="true">${d(j)}</p>` : ""}
           </div>
@@ -866,26 +866,26 @@ function zt(e, t, s, r, a, i, o, l, u = "") {
   `;
 }
 function Ut(e) {
-  const t = d(e.label || e.locale.toUpperCase()), s = "inline-flex min-h-[24px] items-center rounded px-2 py-1 text-xs font-medium transition-colors", r = "bg-blue-100 text-blue-700", a = "bg-gray-100 text-gray-700 hover:bg-gray-200 hover:text-gray-900", i = "cursor-not-allowed bg-gray-50 text-gray-400 ring-1 ring-inset ring-gray-200", o = [
+  const t = d(e.label || e.locale.toUpperCase()), s = "inline-flex min-h-[24px] items-center rounded px-2 py-1 text-xs font-medium transition-colors", a = "bg-blue-100 text-blue-700", r = "bg-gray-100 text-gray-700 hover:bg-gray-200 hover:text-gray-900", i = "cursor-not-allowed bg-gray-50 text-gray-400 ring-1 ring-inset ring-gray-200", o = [
     `data-locale-chip="${f(e.locale)}"`,
     e.current ? 'data-locale-current="true"' : "",
     e.disabled ? 'data-locale-disabled="true"' : "",
     e.assignment_id ? `data-assignment-id="${f(e.assignment_id)}"` : ""
   ].filter(Boolean).join(" ");
   if (e.enabled && e.href) {
-    const u = e.current ? r : a, g = e.current ? ' aria-current="page"' : "";
+    const u = e.current ? a : r, g = e.current ? ' aria-current="page"' : "";
     return `<a href="${f(e.href)}" class="${s} ${u}" ${o}${g} aria-label="Open ${f(e.label || e.locale.toUpperCase())} assignment">${t}</a>`;
   }
-  if (e.current) return `<span class="${s} ${r}" ${o} aria-current="page">${t}</span>`;
+  if (e.current) return `<span class="${s} ${a}" ${o} aria-current="page">${t}</span>`;
   const l = e.reason || "No translation assignment exists for this locale.";
   return `<span class="${s} ${i}" ${o} aria-disabled="true" title="${f(l)}" aria-label="${f(`${e.label || e.locale.toUpperCase()} unavailable: ${l}`)}">${t}</span>`;
 }
 function Kt(e) {
-  const t = e.locale_navigation, s = t.locales, r = t.current_locale || (e.target_locale || "").toLowerCase(), a = (r || "target").toUpperCase();
+  const t = e.locale_navigation, s = t.locales, a = t.current_locale || (e.target_locale || "").toLowerCase(), r = (a || "target").toUpperCase();
   if (!t.family_id && s.length === 0 && !t.family_detail_url) return "";
   const i = s.length > 0 ? s : [{
-    locale: r,
-    label: a,
+    locale: a,
+    label: r,
     current: !0,
     source: !1,
     enabled: !1,
@@ -893,7 +893,7 @@ function Kt(e) {
     reason: ""
   }];
   return `
-    <section class="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm" data-editor-locale-summary="true" data-family-id="${f(t.family_id || e.family_id)}" data-current-locale="${f(r)}">
+    <section class="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm" data-editor-locale-summary="true" data-family-id="${f(t.family_id || e.family_id)}" data-current-locale="${f(a)}">
       <div class="p-4">
         <div class="flex flex-wrap items-center justify-between gap-4">
           <div class="flex flex-wrap items-center gap-2">
@@ -917,7 +917,7 @@ function Kt(e) {
   `;
 }
 function Ht(e) {
-  if (!ue(e)) return "";
+  if (!me(e)) return "";
   const t = !!(e.drift.previous_source_value && e.drift.previous_source_value.trim()), s = !!(e.drift.current_source_value || e.source_value);
   return !t && !s ? `
       <div class="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800" data-field-drift="${f(e.path)}">
@@ -937,7 +937,7 @@ function Ht(e) {
       </div>
     `;
 }
-function ue(e) {
+function me(e) {
   if (!e.drift.changed) return !1;
   const t = !!(e.drift.previous_source_value && e.drift.previous_source_value.trim());
   return e.drift.comparison_mode !== "hash_only" || t;
@@ -947,8 +947,8 @@ function Vt(e) {
   return t.length ? `
     <div class="mt-3 flex flex-wrap gap-2">
       ${t.map((s) => `
-        <span class="${Ce}">
-          <span class="${we}">${d(n(s.term))}</span>
+        <span class="${Te}">
+          <span class="${$e}">${d(n(s.term))}</span>
           → ${d(n(s.preferred_translation))}
         </span>
       `).join("")}
@@ -956,36 +956,36 @@ function Vt(e) {
   ` : "";
 }
 function Yt(e) {
-  const t = e.fields || [], s = e.qa_results, r = {
+  const t = e.fields || [], s = e.qa_results, a = {
     missing: null,
     validation: null,
     qaBlocker: null,
     qaFinding: null,
     sourceDrift: null
   };
-  let a = 0, i = 0, o = 0, l = 0;
+  let r = 0, i = 0, o = 0, l = 0;
   for (const u of t)
-    u.completeness.complete && !u.completeness.missing && a++, u.completeness.required && u.completeness.missing && (i++, r.missing || (r.missing = u.path)), u.drift.changed && (o++, r.sourceDrift || (r.sourceDrift = u.path)), u.validation.valid || (l++, r.validation || (r.validation = u.path));
+    u.completeness.complete && !u.completeness.missing && r++, u.completeness.required && u.completeness.missing && (i++, a.missing || (a.missing = u.path)), u.drift.changed && (o++, a.sourceDrift || (a.sourceDrift = u.path)), u.validation.valid || (l++, a.validation || (a.validation = u.path));
   if (s.enabled && s.findings.length > 0) {
     const u = s.findings.find((p) => p.severity === "blocker");
-    u?.field_path && (r.qaBlocker = u.field_path);
+    u?.field_path && (a.qaBlocker = u.field_path);
     const g = s.findings.find((p) => p.field_path);
-    g?.field_path && (r.qaFinding = g.field_path);
+    g?.field_path && (a.qaFinding = g.field_path);
   }
   return {
     totalFields: t.length,
-    completeFields: a,
+    completeFields: r,
     missingRequiredFields: i,
     sourceChangedFields: o,
     validationErrors: l,
     qaBlockers: s.enabled ? s.summary.blocker_count : 0,
     qaWarnings: s.enabled ? s.summary.warning_count : 0,
-    firstIssuePath: r.missing || r.validation || r.qaBlocker || r.qaFinding || r.sourceDrift
+    firstIssuePath: a.missing || a.validation || a.qaBlocker || a.qaFinding || a.sourceDrift
   };
 }
 function Qt(e) {
-  const t = e.missingRequiredFields > 0 || e.sourceChangedFields > 0 || e.validationErrors > 0 || e.qaBlockers > 0, s = e.completeFields === e.totalFields && e.missingRequiredFields === 0 && e.validationErrors === 0 && e.qaBlockers === 0, r = [], a = s ? "bg-emerald-100 text-emerald-700 border-emerald-200" : "bg-gray-100 text-gray-700 border-gray-200";
-  r.push(`<span class="inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-medium ${a}">${e.completeFields}/${e.totalFields} complete</span>`), e.missingRequiredFields > 0 && r.push(`<span class="inline-flex items-center gap-1 rounded-full border border-rose-200 bg-rose-100 px-2.5 py-1 text-xs font-medium text-rose-700">${e.missingRequiredFields} missing required</span>`), e.sourceChangedFields > 0 && r.push(`<span class="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-700">${e.sourceChangedFields} source changed</span>`), e.validationErrors > 0 && r.push(`<span class="inline-flex items-center gap-1 rounded-full border border-rose-200 bg-rose-100 px-2.5 py-1 text-xs font-medium text-rose-700">${e.validationErrors} validation ${e.validationErrors === 1 ? "error" : "errors"}</span>`), e.qaBlockers > 0 && r.push(`<span class="inline-flex items-center gap-1 rounded-full border border-rose-200 bg-rose-100 px-2.5 py-1 text-xs font-medium text-rose-700">${e.qaBlockers} QA ${e.qaBlockers === 1 ? "blocker" : "blockers"}</span>`), e.qaWarnings > 0 && r.push(`<span class="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-700">${e.qaWarnings} QA ${e.qaWarnings === 1 ? "warning" : "warnings"}</span>`);
+  const t = e.missingRequiredFields > 0 || e.sourceChangedFields > 0 || e.validationErrors > 0 || e.qaBlockers > 0, s = e.completeFields === e.totalFields && e.missingRequiredFields === 0 && e.validationErrors === 0 && e.qaBlockers === 0, a = [], r = s ? "bg-emerald-100 text-emerald-700 border-emerald-200" : "bg-gray-100 text-gray-700 border-gray-200";
+  a.push(`<span class="inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-medium ${r}">${e.completeFields}/${e.totalFields} complete</span>`), e.missingRequiredFields > 0 && a.push(`<span class="inline-flex items-center gap-1 rounded-full border border-rose-200 bg-rose-100 px-2.5 py-1 text-xs font-medium text-rose-700">${e.missingRequiredFields} missing required</span>`), e.sourceChangedFields > 0 && a.push(`<span class="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-700">${e.sourceChangedFields} source changed</span>`), e.validationErrors > 0 && a.push(`<span class="inline-flex items-center gap-1 rounded-full border border-rose-200 bg-rose-100 px-2.5 py-1 text-xs font-medium text-rose-700">${e.validationErrors} validation ${e.validationErrors === 1 ? "error" : "errors"}</span>`), e.qaBlockers > 0 && a.push(`<span class="inline-flex items-center gap-1 rounded-full border border-rose-200 bg-rose-100 px-2.5 py-1 text-xs font-medium text-rose-700">${e.qaBlockers} QA ${e.qaBlockers === 1 ? "blocker" : "blockers"}</span>`), e.qaWarnings > 0 && a.push(`<span class="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-700">${e.qaWarnings} QA ${e.qaWarnings === 1 ? "warning" : "warnings"}</span>`);
   const i = s ? "border-emerald-200 bg-emerald-50" : t ? "border-amber-200 bg-amber-50" : "border-gray-200 bg-gray-50", o = e.firstIssuePath ? `<button
         type="button"
         class="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 shadow-sm transition-all hover:bg-gray-50 hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-sky-100"
@@ -997,7 +997,7 @@ function Qt(e) {
       </button>` : "";
   return `
     <section class="flex flex-wrap items-center justify-between gap-3 rounded-xl border p-3 ${i}" aria-label="Field progress summary" data-editor-summary="true">
-      <div class="flex flex-wrap items-center gap-2">${r.join("")}</div>
+      <div class="flex flex-wrap items-center gap-2">${a.join("")}</div>
       ${o}
     </section>
   `;
@@ -1007,16 +1007,16 @@ function Gt(e) {
 }
 var Wt = "inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-[11px] font-medium leading-4 text-gray-600 shadow-sm transition-colors hover:border-gray-300 hover:bg-gray-50 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-sky-100";
 function Y(e, t = "16px") {
-  return ye(e, {
+  return _e(e, {
     size: t,
     extraClass: "text-current"
   });
 }
 function Xt() {
-  return Y(Fe, "12px");
+  return Y(Be, "12px");
 }
 function Jt(e, t = !1) {
-  const s = Yt(e), r = t ? "mt-2 w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-600" : "mt-2 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-100", a = t ? "mt-2 min-h-[140px] w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-600" : "mt-2 min-h-[140px] w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-100";
+  const s = Yt(e), a = t ? "mt-2 w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-600" : "mt-2 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-100", r = t ? "mt-2 min-h-[140px] w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-600" : "mt-2 min-h-[140px] w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-100";
   return `
     <section class="space-y-4">
       ${Qt(s)}
@@ -1046,12 +1046,12 @@ function Jt(e, t = !1) {
             </div>
             <div class="rounded-xl border ${i.validation.valid ? "border-gray-200" : "border-rose-200"} bg-white p-4">
               <label class="text-xs font-semibold uppercase tracking-[0.18em] text-gray-500" for="editor-field-${f(i.path)}">Translation</label>
-              ${i.input_type === "textarea" ? `<textarea id="editor-field-${f(i.path)}" class="${a}" data-field-input="${f(i.path)}" ${t ? 'disabled aria-disabled="true"' : ""}>${d(i.target_value)}</textarea>` : `<input id="editor-field-${f(i.path)}" type="text" class="${r}" data-field-input="${f(i.path)}" value="${f(i.target_value)}" ${t ? 'disabled aria-disabled="true"' : ""} />`}
+              ${i.input_type === "textarea" ? `<textarea id="editor-field-${f(i.path)}" class="${r}" data-field-input="${f(i.path)}" ${t ? 'disabled aria-disabled="true"' : ""}>${d(i.target_value)}</textarea>` : `<input id="editor-field-${f(i.path)}" type="text" class="${a}" data-field-input="${f(i.path)}" value="${f(i.target_value)}" ${t ? 'disabled aria-disabled="true"' : ""} />`}
               <div class="mt-2 flex flex-wrap gap-2 text-xs">
                 <span class="rounded-full px-2.5 py-1 ${i.completeness.missing ? "bg-rose-100 text-rose-700" : "bg-emerald-100 text-emerald-700"}">
                   ${i.completeness.missing ? "Missing required content" : "Field complete"}
                 </span>
-                ${ue(i) ? '<span class="rounded-full bg-amber-100 px-2.5 py-1 text-amber-700">Source changed</span>' : ""}
+                ${me(i) ? '<span class="rounded-full bg-amber-100 px-2.5 py-1 text-amber-700">Source changed</span>' : ""}
               </div>
               ${i.validation.valid ? "" : `<p class="mt-3 text-sm font-medium text-rose-700" data-field-validation="${f(i.path)}">${d(i.validation.message || "Validation error")}</p>`}
               ${Ht(i)}
@@ -1063,28 +1063,28 @@ function Jt(e, t = !1) {
     </section>
   `;
 }
-function fe(e) {
+function pe(e) {
   if (!Array.isArray(e)) return [];
   const t = [];
   for (const s of e) {
-    const r = c(s), a = n(r.suggested_text) || n(r.target_text);
-    a && t.push({
-      id: n(r.id) || `tm-${t.length}`,
-      score: Zt(r.score, r.match_score),
-      sourceLabel: n(r.source_label) || n(r.source) || "Internal TM",
-      localePair: n(r.locale_pair) || "",
-      fieldPath: n(r.field_path) || "",
-      suggestedText: a,
-      isStaleSource: h(r.is_stale_source) || h(r.stale_source)
+    const a = c(s), r = n(a.suggested_text) || n(a.target_text);
+    r && t.push({
+      id: n(a.id) || `tm-${t.length}`,
+      score: Zt(a.score, a.match_score),
+      sourceLabel: n(a.source_label) || n(a.source) || "Internal TM",
+      localePair: n(a.locale_pair) || "",
+      fieldPath: n(a.field_path) || "",
+      suggestedText: r,
+      isStaleSource: h(a.is_stale_source) || h(a.stale_source)
     });
   }
-  return t.sort((s, r) => r.score - s.score);
+  return t.sort((s, a) => a.score - s.score);
 }
 function Zt(e, t) {
   const s = m(e) || m(t);
   if (!Number.isFinite(s) || s <= 0) return 0;
-  const r = s <= 1 ? s * 100 : s;
-  return Math.max(0, Math.min(100, Math.round(r)));
+  const a = s <= 1 ? s * 100 : s;
+  return Math.max(0, Math.min(100, Math.round(a)));
 }
 function es(e) {
   return e >= 99 ? "Exact" : e >= 80 ? "High" : "Fuzzy";
@@ -1135,13 +1135,13 @@ function ss(e) {
     <section class="rounded-xl border border-gray-200 bg-white p-5" data-editor-panel="assist">
       <h2 class="text-lg font-semibold text-gray-900">Assist</h2>
       <div class="mt-4 space-y-4">
-        ${ts(fe(e.assist.translation_memory_suggestions))}
+        ${ts(pe(e.assist.translation_memory_suggestions))}
         <div data-assist-section="glossary">
           <h3 class="text-sm font-semibold text-gray-800">Glossary</h3>
-          ${t.length ? `<ul class="mt-3 space-y-2">${t.map((r) => `
+          ${t.length ? `<ul class="mt-3 space-y-2">${t.map((a) => `
                 <li class="rounded-xl border border-gray-200 bg-gray-50 px-3 py-3 text-sm text-gray-700">
-                  <strong class="text-gray-900">${d(r.term)}</strong> → ${d(r.preferred_translation)}
-                  ${r.notes ? `<p class="mt-1 text-xs text-gray-500">${d(r.notes)}</p>` : ""}
+                  <strong class="text-gray-900">${d(a.term)}</strong> → ${d(a.preferred_translation)}
+                  ${a.notes ? `<p class="mt-1 text-xs text-gray-500">${d(a.notes)}</p>` : ""}
                 </li>
               `).join("")}</ul>` : '<p class="mt-3 text-sm text-gray-500">Glossary matches unavailable for this assignment.</p>'}
         </div>
@@ -1152,7 +1152,7 @@ function ss(e) {
                 <p class="text-sm font-semibold text-gray-900">${d(s.title)}</p>
                 <p class="mt-2 text-sm text-gray-700">${d(s.summary)}</p>
                 <ul class="mt-3 space-y-2 text-sm text-gray-700">
-                  ${s.rules.map((r) => `<li>• ${d(r)}</li>`).join("")}
+                  ${s.rules.map((a) => `<li>• ${d(a)}</li>`).join("")}
                 </ul>
               </div>
             ` : '<p class="mt-3 text-sm text-gray-500">Style-guide guidance is unavailable. Editing remains enabled.</p>'}
@@ -1161,7 +1161,7 @@ function ss(e) {
     </section>
   `;
 }
-function rs(e) {
+function as(e) {
   const t = e.history.items.map((s) => ({
     id: s.id,
     title: s.title || S(s.entry_type),
@@ -1184,17 +1184,17 @@ function rs(e) {
     created_at: e.translation_assignment.updated_at || "",
     badge: "Reviewer feedback",
     tone: "review"
-  }), t.sort((s, r) => {
-    const a = s.created_at ? Date.parse(s.created_at) : 0;
-    return (r.created_at ? Date.parse(r.created_at) : 0) - a;
+  }), t.sort((s, a) => {
+    const r = s.created_at ? Date.parse(s.created_at) : 0;
+    return (a.created_at ? Date.parse(a.created_at) : 0) - r;
   });
 }
-function as(e) {
+function rs(e) {
   const t = e.qa_results;
   if (!t.enabled) return "";
-  const s = t.findings.filter((i) => i.severity === "blocker"), r = t.findings.filter((i) => i.severity !== "blocker"), a = (i, o) => {
+  const s = t.findings.filter((i) => i.severity === "blocker"), a = t.findings.filter((i) => i.severity !== "blocker"), r = (i, o) => {
     if (!i.length) return "";
-    const l = Le(o);
+    const l = Oe(o);
     return `
       <section data-qa-group="${f(o === "blocker" ? "blockers" : "warnings")}">
         <h3 class="text-sm font-semibold ${o === "blocker" ? "text-rose-800" : "text-amber-800"}">
@@ -1223,7 +1223,7 @@ function as(e) {
     `;
   };
   return `
-    <section class="${Ue(t.submit_blocked)}">
+    <section class="${He(t.submit_blocked)}">
       <div class="flex items-center justify-between gap-3">
         <div>
           <h2 class="text-lg font-semibold text-gray-900">QA checks</h2>
@@ -1239,12 +1239,12 @@ function as(e) {
         <span class="${y("warning")}">Warnings ${t.summary.warning_count}</span>
         <span class="${y("error")}">Blockers ${t.summary.blocker_count}</span>
       </div>
-      ${s.length || r.length ? `<div class="mt-4 space-y-4">${a(s, "blocker")}${a(r, "warning")}</div>` : '<p class="mt-4 text-sm text-gray-500">No QA findings for this assignment.</p>'}
+      ${s.length || a.length ? `<div class="mt-4 space-y-4">${r(s, "blocker")}${r(a, "warning")}</div>` : '<p class="mt-4 text-sm text-gray-500">No QA findings for this assignment.</p>'}
     </section>
   `;
 }
 function is(e, t) {
-  const s = e.review_action_states.approve, r = e.review_action_states.reject;
+  const s = e.review_action_states.approve, a = e.review_action_states.reject;
   return K(e) ? `
     <section
       class="rounded-xl border border-gray-200 bg-white p-5"
@@ -1261,19 +1261,19 @@ function is(e, t) {
   }, {
     key: "reject",
     label: "Request changes",
-    state: r,
+    state: a,
     tone: "border-rose-300 text-rose-700"
-  }].map((a) => {
-    const i = !a.state?.enabled || t;
+  }].map((r) => {
+    const i = !r.state?.enabled || t;
     return `
             <button
               type="button"
-              class="rounded-lg border px-4 py-2 text-sm font-semibold ${a.tone} ${i ? "cursor-not-allowed opacity-60" : "hover:bg-gray-50"}"
-              data-action="${f(a.key)}"
-              title="${f(a.state?.reason || "")}"
+              class="rounded-lg border px-4 py-2 text-sm font-semibold ${r.tone} ${i ? "cursor-not-allowed opacity-60" : "hover:bg-gray-50"}"
+              data-action="${f(r.key)}"
+              title="${f(r.state?.reason || "")}"
               ${i ? 'disabled aria-disabled="true"' : ""}
             >
-              ${d(a.label)}
+              ${d(r.label)}
             </button>
           `;
   }).join("")}
@@ -1283,15 +1283,15 @@ function is(e, t) {
 }
 function ns(e, t) {
   return e ? `
-    <div class="${ke}" data-reject-modal="true">
-      <section class="${$e}" role="dialog" aria-modal="true" aria-labelledby="translation-reject-title">
+    <div class="${Ce}" data-reject-modal="true">
+      <section class="${Re}" role="dialog" aria-modal="true" aria-labelledby="translation-reject-title">
         <div class="flex items-start justify-between gap-4">
           <div>
             <p class="text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">Review action</p>
             <h2 id="translation-reject-title" class="mt-2 text-2xl font-semibold text-gray-900">Request changes</h2>
             <p class="mt-2 text-sm text-gray-600">Capture the rejection reason so translators can see it directly in the editor timeline.</p>
           </div>
-          <button type="button" class="${Ie}" data-action="cancel-reject">Close</button>
+          <button type="button" class="${Me}" data-action="cancel-reject">Close</button>
         </div>
         <label class="mt-5 block text-sm font-medium text-gray-700">
           Reject reason
@@ -1304,7 +1304,7 @@ function ns(e, t) {
         ${e.error ? `<p class="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-3 text-sm font-medium text-rose-800">${d(e.error)}</p>` : ""}
         <div class="mt-5 flex items-center justify-end gap-3">
           <button type="button" class="${E}" data-action="cancel-reject">Cancel</button>
-          <button type="button" class="${Ne}" data-action="confirm-reject" ${t ? 'disabled aria-disabled="true"' : ""}>${t ? "Submitting…" : "Request changes"}</button>
+          <button type="button" class="${Ue}" data-action="confirm-reject" ${t ? 'disabled aria-disabled="true"' : ""}>${t ? "Submitting…" : "Request changes"}</button>
         </div>
       </section>
     </div>
@@ -1312,7 +1312,7 @@ function ns(e, t) {
 }
 function os(e, t) {
   if (!H(e)) return "";
-  const s = e.assignment_action_states.archive, r = !s?.enabled || t;
+  const s = e.assignment_action_states.archive, a = !s?.enabled || t;
   return `
     <section
       class="${I} p-5"
@@ -1326,7 +1326,7 @@ function os(e, t) {
           class="${E}"
           data-action="archive"
           title="${f(s?.reason || "")}"
-          ${r ? 'disabled aria-disabled="true"' : ""}
+          ${a ? 'disabled aria-disabled="true"' : ""}
         >
           Archive
         </button>
@@ -1358,25 +1358,25 @@ function cs(e) {
   `;
 }
 function ls(e) {
-  const t = e.history, s = rs(e);
+  const t = e.history, s = as(e);
   return `
     <section class="rounded-xl border border-gray-200 bg-white p-5">
       <div class="flex items-center justify-between gap-3">
         <h2 class="text-lg font-semibold text-gray-900">Workflow timeline</h2>
         <span class="text-xs text-gray-500">Page ${t.page} of ${Math.max(1, Math.ceil(t.total / Math.max(1, t.per_page)))}</span>
       </div>
-      ${s.length ? `<ol class="mt-4 space-y-3">${s.map((r) => {
-    const a = Oe(r.tone);
+      ${s.length ? `<ol class="mt-4 space-y-3">${s.map((a) => {
+    const r = Ie(a.tone);
     return `
-            <li class="${a.container}" data-history-entry="${f(r.id)}">
+            <li class="${r.container}" data-history-entry="${f(a.id)}">
               <div class="flex items-start justify-between gap-3">
                 <div class="space-y-2">
-                  <p class="${a.title}">${d(r.title)}</p>
-                  <span class="${a.badge}">${d(r.badge)}</span>
+                  <p class="${r.title}">${d(a.title)}</p>
+                  <span class="${r.badge}">${d(a.badge)}</span>
                 </div>
-                <span class="${a.time}">${d(re(r.created_at) || "Current")}</span>
+                <span class="${r.time}">${d(re(a.created_at) || "Current")}</span>
               </div>
-              ${r.body ? `<p class="mt-2 text-sm">${d(r.body)}</p>` : ""}
+              ${a.body ? `<p class="mt-2 text-sm">${d(a.body)}</p>` : ""}
             </li>
           `;
   }).join("")}</ol>` : '<p class="mt-4 text-sm text-gray-500">No workflow entries available.</p>'}
@@ -1391,50 +1391,50 @@ var ds = {
   actions: "iconoir:flash",
   qa: "iconoir:shield",
   assist: "iconoir:chat-bubble",
-  files: Be,
-  history: ze
+  files: ze,
+  history: Ke
 };
 function us(e) {
   return Y(ds[e], "16px");
 }
 function fs(e) {
-  const t = K(e), s = H(e), r = e.qa_results.enabled ? e.qa_results.summary.finding_count : 0, a = fe(e.assist.translation_memory_suggestions).length, i = e.assist.glossary_matches.length, o = e.attachment_summary.total, l = e.history.total;
+  const t = K(e), s = H(e), a = e.qa_results.enabled ? e.qa_results.summary.finding_count : 0, r = pe(e.assist.translation_memory_suggestions).length, i = e.assist.glossary_matches.length, o = e.attachment_summary.total, l = e.history.total;
   return {
     actions: null,
-    qa: r > 0 ? String(r) : null,
-    assist: a + i > 0 ? String(a + i) : null,
+    qa: a > 0 ? String(a) : null,
+    assist: r + i > 0 ? String(r + i) : null,
     files: o > 0 ? String(o) : null,
     history: l > 0 ? String(l) : null
   };
 }
-function ms(e, t, s = "actions", r) {
-  const a = fs(e), i = K(e), o = H(e), l = i || o, u = `
+function ms(e, t, s = "actions", a) {
+  const r = fs(e), i = K(e), o = H(e), l = i || o, u = `
     <nav class="flex flex-wrap gap-1 rounded-xl border border-gray-200 bg-gray-50 p-1" role="tablist" aria-label="Editor sidebar sections">
       ${[
     {
       id: "actions",
       label: "Actions",
-      badge: a.actions
+      badge: r.actions
     },
     {
       id: "qa",
       label: "QA",
-      badge: a.qa
+      badge: r.qa
     },
     {
       id: "assist",
       label: "Assist",
-      badge: a.assist
+      badge: r.assist
     },
     {
       id: "files",
       label: "Files",
-      badge: a.files
+      badge: r.files
     },
     {
       id: "history",
       label: "History",
-      badge: a.history
+      badge: r.history
     }
   ].map((p) => `
         <button
@@ -1466,7 +1466,7 @@ function ms(e, t, s = "actions", r) {
     `,
     qa: `
       <div id="sidebar-panel-qa" class="space-y-4" role="tabpanel" data-sidebar-panel="qa" ${s !== "qa" ? "hidden" : ""}>
-        ${as(e)}
+        ${rs(e)}
       </div>
     `,
     assist: `
@@ -1482,7 +1482,7 @@ function ms(e, t, s = "actions", r) {
     history: `
       <div id="sidebar-panel-history" class="space-y-4" role="tabpanel" data-sidebar-panel="history" ${s !== "history" ? "hidden" : ""}>
         ${ls(e)}
-        ${de(r || {
+        ${fe(a || {
       status: "ready",
       detail: e
     })}
@@ -1496,22 +1496,22 @@ function ms(e, t, s = "actions", r) {
     </aside>
   `;
 }
-function ps(e, t, s = {}, r = {}) {
+function ps(e, t, s = {}, a = {}) {
   if (e.status === "loading") return Nt();
-  if (e.status === "empty") return J("Assignment unavailable", e.message || "No assignment detail payload was returned.");
-  if (e.status === "error") return Z("Editor unavailable", e.message || "Unable to load the assignment editor.", e);
-  if (e.status === "conflict") return Z("Editor conflict", e.message || "A newer version of this assignment is available.", e);
-  const a = t?.detail || e.detail;
-  if (!a) return J("Assignment unavailable", "No assignment detail payload was returned.");
-  const i = !!(t && Object.keys(t.dirty_fields).length), o = Ot(t || null, i, r.lastSavedMessage || ""), l = t?.autosave.conflict, u = P(a);
+  if (e.status === "empty") return Z("Assignment unavailable", e.message || "No assignment detail payload was returned.");
+  if (e.status === "error") return ee("Editor unavailable", e.message || "Unable to load the assignment editor.", e);
+  if (e.status === "conflict") return ee("Editor conflict", e.message || "A newer version of this assignment is available.", e);
+  const r = t?.detail || e.detail;
+  if (!r) return Z("Assignment unavailable", "No assignment detail payload was returned.");
+  const i = !!(t && Object.keys(t.dirty_fields).length), o = Ot(t || null, i, a.lastSavedMessage || ""), l = t?.autosave.conflict, u = P(r);
   return `
     <div class="translation-editor-screen space-y-6" data-translation-editor="true" data-editor-read-only="${u ? "true" : "false"}">
-      ${Pt(r.feedback || null)}
-      ${zt(a, o, i, r.submitting === !0, r.saving === !0, r.previewing === !0, !!l, u, s.basePath || "")}
-      ${Kt(a)}
+      ${Pt(a.feedback || null)}
+      ${zt(r, o, i, a.submitting === !0, a.saving === !0, a.previewing === !0, !!l, u, s.basePath || "")}
+      ${Kt(r)}
       ${u ? `
         <section class="rounded-xl border border-gray-200 bg-gray-50 p-4" data-editor-read-only-notice="true">
-          <p class="text-sm font-medium text-gray-700">${d(V(a))}</p>
+          <p class="text-sm font-medium text-gray-700">${d(V(r))}</p>
         </section>
       ` : ""}
       ${l ? `
@@ -1521,24 +1521,24 @@ function ps(e, t, s = {}, r = {}) {
               <h2 class="text-lg font-semibold text-amber-900">Autosave conflict</h2>
               <p class="mt-1 text-sm text-amber-800">A newer server draft exists. Reload it before continuing.</p>
             </div>
-            <button type="button" class="${se}" data-action="reload-server-state">Reload server draft</button>
+            <button type="button" class="${ae}" data-action="reload-server-state">Reload server draft</button>
           </div>
         </section>
       ` : ""}
       <div class="grid grid-cols-1 gap-4 sm:gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(280px,1fr)]">
         <div class="order-1 space-y-4 sm:space-y-6">
-          ${Jt(a, u)}
+          ${Jt(r, u)}
         </div>
         <div class="order-2">
-          ${ms(a, r.submitting === !0, r.activeSidebarTab || "actions", e)}
+          ${ms(r, a.submitting === !0, a.activeSidebarTab || "actions", e)}
         </div>
       </div>
-      ${ns(r.rejectDraft || null, r.submitting === !0)}
+      ${ns(a.rejectDraft || null, a.submitting === !0)}
     </div>
   `;
 }
-function gs(e, t, s, r = {}, a = {}) {
-  e.innerHTML = ps(t, s, r, a);
+function gs(e, t, s, a = {}, r = {}) {
+  e.innerHTML = ps(t, s, a, r);
 }
 var hs = class {
   constructor(e) {
@@ -1548,11 +1548,12 @@ var hs = class {
       endpoint: e.endpoint,
       variantEndpointBase: e.variantEndpointBase || "",
       actionEndpointBase: e.actionEndpointBase,
-      syncBaseURL: e.syncBaseURL || Je(e.variantEndpointBase || "", e.actionEndpointBase, e.endpoint),
-      syncClientBasePath: e.syncClientBasePath || Ze(t),
-      syncResourceKind: e.syncResourceKind || Qe,
-      syncScope: st(e),
-      basePath: t
+      syncBaseURL: e.syncBaseURL || et(e.variantEndpointBase || "", e.actionEndpointBase, e.endpoint),
+      syncClientBasePath: e.syncClientBasePath || tt(t),
+      syncResourceKind: e.syncResourceKind || We,
+      syncScope: rt(e),
+      basePath: t,
+      initialDetail: e.initialDetail
     };
   }
   mount(e) {
@@ -1560,14 +1561,24 @@ var hs = class {
       (t.ctrlKey || t.metaKey) && t.key === "s" && (t.preventDefault(), this.saveDirtyFields(!1)), t.key === "Escape" && this.rejectDraft && this.closeRejectDialog();
     }, document.addEventListener("keydown", this.keyboardHandler), this.render(), this.load();
   }
+  mountWithInitialDetail(e, t) {
+    this.container = e, this.keyboardHandler = (a) => {
+      (a.ctrlKey || a.metaKey) && a.key === "s" && (a.preventDefault(), this.saveDirtyFields(!1)), a.key === "Escape" && this.rejectDraft && this.closeRejectDialog();
+    }, document.addEventListener("keydown", this.keyboardHandler);
+    const s = de(t);
+    this.loadState = {
+      status: "ready",
+      detail: s
+    }, this.editorState = G(s), this.render();
+  }
   unmount() {
     this.autosaveTimer && clearTimeout(this.autosaveTimer), this.keyboardHandler && (document.removeEventListener("keydown", this.keyboardHandler), this.keyboardHandler = null), this.focusTrapCleanup && (this.focusTrapCleanup(), this.focusTrapCleanup = null), this.container && (this.container.innerHTML = ""), this.container = null, this.syncResource = null, this.syncResourceKey = "", this.syncLoadedResourceKey = "", this.syncLoadedRevision = null, this.syncConflictSnapshot = null;
   }
   async load(e) {
-    this.loadState = { status: "loading" }, this.render(), this.loadState = await jt(e ? X(this.config.endpoint, {
+    this.loadState = { status: "loading" }, this.render(), this.loadState = await jt(e ? J(this.config.endpoint, {
       history_page: e,
       history_per_page: this.editorState?.detail.history.per_page || this.loadState.detail?.history.per_page || 10
-    }) : this.config.endpoint), this.loadState.status === "ready" && this.loadState.detail ? (this.editorState = xt(this.loadState.detail), P(this.loadState.detail) || await this.hydrateDraftSyncFromRead(this.loadState.detail)) : this.editorState = null, this.render();
+    }) : this.config.endpoint), this.loadState.status === "ready" && this.loadState.detail ? (this.editorState = G(this.loadState.detail), P(this.loadState.detail) || await this.hydrateDraftSyncFromRead(this.loadState.detail)) : this.editorState = null, this.render();
   }
   render() {
     if (!this.container) return;
@@ -1580,7 +1591,7 @@ var hs = class {
       previewing: this.previewing,
       rejectDraft: this.rejectDraft,
       activeSidebarTab: this.activeSidebarTab
-    }), this.attachEventListeners(), je(this.container), this.restoreRenderViewportState(e);
+    }), this.attachEventListeners(), Le(this.container), this.restoreRenderViewportState(e);
   }
   captureRenderViewportState() {
     if (!this.container || typeof document > "u") return null;
@@ -1604,8 +1615,8 @@ var hs = class {
         t.focus();
       }
       if (e.selectionStart !== null && e.selectionEnd !== null && typeof t.setSelectionRange == "function") {
-        const s = t.value.length, r = Math.min(e.selectionStart, s), a = Math.min(e.selectionEnd, s);
-        t.setSelectionRange(r, a, e.selectionDirection || "none");
+        const s = t.value.length, a = Math.min(e.selectionStart, s), r = Math.min(e.selectionEnd, s);
+        t.setSelectionRange(a, r, e.selectionDirection || "none");
       }
       this.restoreWindowScroll(e), typeof window < "u" && typeof window.requestAnimationFrame == "function" && window.requestAnimationFrame(() => this.restoreWindowScroll(e));
     }
@@ -1625,19 +1636,19 @@ var hs = class {
     !this.container || !this.editorState || (this.container.querySelectorAll("[data-field-input]").forEach((e) => {
       e.addEventListener("input", (t) => {
         if (this.isEditorReadOnly()) return;
-        const s = t.currentTarget, r = s.dataset.fieldInput || "";
-        this.editorState = k(this.editorState, r, s.value), this.feedback = null, this.lastSavedMessage = "", this.scheduleAutosave(), this.render();
+        const s = t.currentTarget, a = s.dataset.fieldInput || "";
+        this.editorState = k(this.editorState, a, s.value), this.feedback = null, this.lastSavedMessage = "", this.scheduleAutosave(), this.render();
       });
     }), this.container.querySelectorAll("[data-copy-source]").forEach((e) => {
       e.addEventListener("click", (t) => {
         if (t.preventDefault(), t.stopPropagation(), this.isEditorReadOnly()) return;
-        const s = e.dataset.copySource || "", r = this.editorState?.detail.fields.find((o) => o.path === s);
-        if (!r || !this.editorState) return;
-        const a = (r.source_value || e.dataset.sourceValue || "").trim();
-        Ct(a), this.editorState = k(this.editorState, s, a);
-        const i = this.container?.querySelector(`[data-field-input="${W(s)}"]`);
+        const s = e.dataset.copySource || "", a = this.editorState?.detail.fields.find((o) => o.path === s);
+        if (!a || !this.editorState) return;
+        const r = (a.source_value || e.dataset.sourceValue || "").trim();
+        Ct(r), this.editorState = k(this.editorState, s, r);
+        const i = this.container?.querySelector(`[data-field-input="${X(s)}"]`);
         if (i) {
-          i.value = a;
+          i.value = r;
           try {
             i.focus({ preventScroll: !0 });
           } catch {
@@ -1700,14 +1711,14 @@ var hs = class {
       e.addEventListener("click", (t) => {
         const s = t.currentTarget.dataset.jumpToField;
         if (!s || !this.container) return;
-        const r = this.container.querySelector(`[data-editor-field="${W(s)}"]`);
-        if (r) {
-          r.scrollIntoView({
+        const a = this.container.querySelector(`[data-editor-field="${X(s)}"]`);
+        if (a) {
+          a.scrollIntoView({
             behavior: "smooth",
             block: "center"
           });
-          const a = r.querySelector("[data-field-input]");
-          a && setTimeout(() => a.focus(), 300);
+          const r = a.querySelector("[data-field-input]");
+          r && setTimeout(() => r.focus(), 300);
         }
       });
     }), this.container.querySelectorAll("[data-sidebar-tab]").forEach((e) => {
@@ -1737,13 +1748,13 @@ var hs = class {
     try {
       const s = await this.mutateDraftSync(t, this.editorState.dirty_fields, e);
       this.syncLoadedRevision = s.snapshot.revision, this.syncConflictSnapshot = null, this.editorState = x(this.editorState, R(s.snapshot));
-      const r = Ft(this.editorState.detail.qa_results, e);
-      return this.lastSavedMessage = r.lastSaved, (!e || r.kind === "conflict") && (this.feedback = {
-        kind: r.kind,
-        message: r.message
+      const a = Ft(this.editorState.detail.qa_results, e);
+      return this.lastSavedMessage = a.lastSaved, (!e || a.kind === "conflict") && (this.feedback = {
+        kind: a.kind,
+        message: a.message
       }), this.saving = !1, this.render(), !0;
     } catch (s) {
-      return Rt(s) ? (this.syncConflictSnapshot = $t(s), this.syncConflictSnapshot?.revision && (this.syncLoadedRevision = this.syncConflictSnapshot.revision), this.editorState = St(this.editorState, le(s)), this.feedback = {
+      return Rt(s) ? (this.syncConflictSnapshot = $t(s), this.syncConflictSnapshot?.revision && (this.syncLoadedRevision = this.syncConflictSnapshot.revision), this.editorState = St(this.editorState, ue(s)), this.feedback = {
         kind: "conflict",
         message: "Autosave conflict detected. Reload the latest server draft."
       }, this.saving = !1, this.render(), !1) : (this.feedback = {
@@ -1770,7 +1781,7 @@ var hs = class {
     }
     try {
       const t = await (await this.ensureDraftSyncResource(this.editorState.detail)).refresh({ force: !0 });
-      if (!G(t)) throw new Error("Sync refresh did not return a usable draft snapshot");
+      if (!W(t)) throw new Error("Sync refresh did not return a usable draft snapshot");
       this.syncLoadedRevision = t.revision, this.syncConflictSnapshot = null, this.editorState = x(this.editorState, R(t)), this.feedback = {
         kind: "conflict",
         message: "Reloaded the latest server draft."
@@ -1795,34 +1806,34 @@ var hs = class {
   }
   async mutateDraftSync(e, t, s) {
     await this.ensureDraftSyncLoaded(e);
-    const r = await this.ensureDraftSyncResource(e), a = m(r.getSnapshot()?.revision), i = this.syncLoadedRevision || a || e.row_version, o = {
+    const a = await this.ensureDraftSyncResource(e), r = m(a.getSnapshot()?.revision), i = this.syncLoadedRevision || r || e.row_version, o = {
       autosave: s,
       fields: t
     }, l = kt(e);
-    return l && (o.acknowledged_source_hash = l), await r.mutate({
-      operation: Ge,
+    return l && (o.acknowledged_source_hash = l), await a.mutate({
+      operation: Xe,
       expectedRevision: i,
       payload: o,
       metadata: { autosave: s }
     });
   }
   async ensureDraftSyncResource(e) {
-    if (this.syncCoreModule || (this.syncCoreModulePromise || (this.syncCoreModulePromise = We(this.config.syncClientBasePath)), this.syncCoreModule = await this.syncCoreModulePromise), this.syncCache || (this.syncCache = this.syncCoreModule.createInMemoryCache()), !this.syncEngine) {
-      const a = this.syncCoreModule.createFetchSyncTransport({
+    if (this.syncCoreModule || (this.syncCoreModulePromise || (this.syncCoreModulePromise = Je(this.config.syncClientBasePath)), this.syncCoreModule = await this.syncCoreModulePromise), this.syncCache || (this.syncCache = this.syncCoreModule.createInMemoryCache()), !this.syncEngine) {
+      const r = this.syncCoreModule.createFetchSyncTransport({
         baseURL: this.config.syncBaseURL,
         credentials: "same-origin",
         fetch: typeof fetch == "function" ? fetch.bind(globalThis) : void 0,
         headers: (i) => {
           const o = {};
           if (String(i?.method || "GET").toUpperCase() !== "GET") {
-            const l = ve();
+            const l = xe();
             l && (o["X-CSRF-Token"] = l);
           }
           return o;
         }
       });
       this.syncEngine = this.syncCoreModule.createSyncEngine({
-        transport: a,
+        transport: r,
         cache: this.syncCache,
         retry: { maxAttempts: 1 }
       });
@@ -1831,18 +1842,18 @@ var hs = class {
       kind: this.config.syncResourceKind,
       id: t,
       scope: Object.keys(this.config.syncScope).length > 0 ? this.config.syncScope : void 0
-    }, r = rt(s);
-    return (!this.syncResource || this.syncResourceKey !== r) && (this.syncResourceKey = r, this.syncResource = this.syncEngine.resource(s), this.syncLoadedRevision = null, this.syncConflictSnapshot = null), this.syncResource;
+    }, a = it(s);
+    return (!this.syncResource || this.syncResourceKey !== a) && (this.syncResourceKey = a, this.syncResource = this.syncEngine.resource(s), this.syncLoadedRevision = null, this.syncConflictSnapshot = null), this.syncResource;
   }
   async ensureDraftSyncLoaded(e) {
     const t = await this.ensureDraftSyncResource(e), s = this.syncResourceKey;
     if (this.syncLoadedResourceKey === s) return;
-    const r = this.editorState ? { ...this.editorState.dirty_fields } : {}, a = await t.load();
-    if (!G(a)) throw new Error("Sync draft load did not return a usable draft snapshot");
+    const a = this.editorState ? { ...this.editorState.dirty_fields } : {}, r = await t.load();
+    if (!W(r)) throw new Error("Sync draft load did not return a usable draft snapshot");
     if (!this.editorState || this.editorState.detail.variant_id !== e.variant_id) return;
-    let i = x(this.editorState, R(a));
-    for (const [o, l] of Object.entries(r)) i = k(i, o, l);
-    this.editorState = i, this.syncLoadedRevision = a.revision, this.syncConflictSnapshot = null, this.loadState = {
+    let i = x(this.editorState, R(r));
+    for (const [o, l] of Object.entries(a)) i = k(i, o, l);
+    this.editorState = i, this.syncLoadedRevision = r.revision, this.syncConflictSnapshot = null, this.loadState = {
       ...this.loadState,
       detail: this.editorState.detail
     }, this.syncLoadedResourceKey = s;
@@ -1875,12 +1886,12 @@ var hs = class {
     if (Object.keys(this.editorState.dirty_fields).length && !await this.saveDirtyFields(!1))
       return;
     this.submitting = !0, this.render();
-    const t = this.editorState.detail.history.page, s = this.editorState.detail.translation_assignment.version, r = await C(`${this.config.actionEndpointBase}/${encodeURIComponent(this.editorState.detail.assignment_id)}/actions/submit_review`, {
+    const t = this.editorState.detail.history.page, s = this.editorState.detail.translation_assignment.version, a = await C(`${this.config.actionEndpointBase}/${encodeURIComponent(this.editorState.detail.assignment_id)}/actions/submit_review`, {
       method: "POST",
       json: { expected_version: s }
     });
-    if (!r.ok) {
-      const o = await L(r, "Failed to submit assignment");
+    if (!a.ok) {
+      const o = await L(a, "Failed to submit assignment");
       if (this.feedback = {
         kind: o.status === 409 || o.code === "VERSION_CONFLICT" || o.code === "POLICY_BLOCKED" ? "conflict" : "error",
         message: o.message
@@ -1891,7 +1902,7 @@ var hs = class {
       this.render();
       return;
     }
-    const a = await r.json(), i = n(c(a).data && c(c(a).data).status);
+    const r = await a.json(), i = n(c(r).data && c(c(r).data).status);
     this.feedback = {
       kind: "success",
       message: Bt(this.editorState.detail, i)
@@ -1937,7 +1948,7 @@ var hs = class {
     };
   }
   assignmentPreviewEndpoint(e) {
-    return X(`${this.config.actionEndpointBase}/${encodeURIComponent(e.assignment_id)}/preview`, {
+    return J(`${this.config.actionEndpointBase}/${encodeURIComponent(e.assignment_id)}/preview`, {
       ...this.config.syncScope,
       channel: e.preview_action.channel || this.config.syncScope.channel
     });
@@ -1984,7 +1995,7 @@ var hs = class {
         }, this.previewing = !1, this.render();
         return;
       }
-      const r = await s.json(), a = c(r), i = N(a.data && typeof a.data == "object" ? a.data : r, this.editorState.detail);
+      const a = await s.json(), r = c(a), i = N(r.data && typeof r.data == "object" ? r.data : a, this.editorState.detail);
       if (!i.enabled || !i.url) {
         b(e), this.feedback = {
           kind: "error",
@@ -2002,27 +2013,27 @@ var hs = class {
   }
   async runReviewAction(e, t) {
     if (!this.editorState || this.submitting) return;
-    const s = this.editorState.detail, r = e === "archive" ? s.assignment_action_states.archive : s.review_action_states[e];
-    if (!r?.enabled) {
+    const s = this.editorState.detail, a = e === "archive" ? s.assignment_action_states.archive : s.review_action_states[e];
+    if (!a?.enabled) {
       this.feedback = {
         kind: "error",
-        message: r?.reason || `${S(e)} is unavailable.`
+        message: a?.reason || `${S(e)} is unavailable.`
       }, this.render();
       return;
     }
-    const a = { expected_version: s.translation_assignment.version };
+    const r = { expected_version: s.translation_assignment.version };
     if (e === "reject") {
       const o = t?.reason || "";
       if (!o || !o.trim()) {
         this.openRejectDialog("Reject reason is required."), this.render();
         return;
       }
-      a.reason = o.trim(), t?.comment?.trim() && (a.comment = t.comment.trim());
+      r.reason = o.trim(), t?.comment?.trim() && (r.comment = t.comment.trim());
     }
     this.submitting = !0, this.render();
     const i = await C(`${this.config.actionEndpointBase}/${encodeURIComponent(s.assignment_id)}/actions/${e}`, {
       method: "POST",
-      json: a
+      json: r
     });
     if (!i.ok) {
       const o = await L(i, `Failed to ${e} assignment`);
@@ -2044,7 +2055,7 @@ var hs = class {
       error: e
     }, this.render();
     const t = this.container?.querySelector('[data-reject-modal] [role="dialog"]');
-    t && (this.focusTrapCleanup = Me(t, () => this.closeRejectDialog()));
+    t && (this.focusTrapCleanup = Ne(t, () => this.closeRejectDialog()));
   }
   closeRejectDialog() {
     this.focusTrapCleanup && (this.focusTrapCleanup(), this.focusTrapCleanup = null), this.rejectDraft = null, this.render();
@@ -2065,9 +2076,18 @@ var hs = class {
     });
   }
 };
-async function Cs(e, t) {
-  const s = new hs(t);
-  return s.mount(e), s;
+async function Es(e, t) {
+  const s = new hs(t), a = t.initialDetail || bs(e);
+  return (e.dataset.ssrEnhanced || "").trim() === "true" && a ? (e.dataset.translationEditorEnhanced = "true", s.mountWithInitialDetail(e, a)) : s.mount(e), s;
+}
+function bs(e) {
+  const t = e.querySelector('script[type="application/json"][data-translation-editor-initial-state]')?.textContent?.trim() || "";
+  if (!t) return null;
+  try {
+    return JSON.parse(t);
+  } catch {
+    return null;
+  }
 }
 export {
   At as TranslationEditorRequestError,
@@ -2075,14 +2095,14 @@ export {
   St as applyEditorAutosaveConflict,
   k as applyEditorFieldChange,
   x as applyEditorUpdateResponse,
-  xt as createTranslationEditorState,
+  G as createTranslationEditorState,
   jt as fetchTranslationEditorDetailState,
-  Cs as initTranslationEditorPage,
-  We as loadTranslationSyncCoreModule,
+  Es as initTranslationEditorPage,
+  Je as loadTranslationSyncCoreModule,
   wt as markEditorAutosavePending,
-  vt as normalizeAssignmentEditorDetail,
-  oe as normalizeEditorAssistPayload,
-  _t as normalizeEditorUpdateResponse,
+  de as normalizeAssignmentEditorDetail,
+  ce as normalizeEditorAssistPayload,
+  xt as normalizeEditorUpdateResponse,
   gs as renderTranslationEditorPage,
   ps as renderTranslationEditorState
 };

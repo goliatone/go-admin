@@ -212,6 +212,38 @@ test('translation-family list page: renders loading empty error and populated st
   assert.equal(/data-family-primary-action="true"[^>]*href="\/admin\/api\//.test(readyHTML), false);
 });
 
+test('translation-family list page: SSR root is enhanced without first-render fetch', async () => {
+  const dom = new JSDOM(`
+    <div id="root"
+         data-ssr-enhanced="true"
+         data-endpoint="/admin/api/translations/families?channel=default"
+         data-base-path="/admin"
+         data-family-base-path="/admin/translations/families">
+      <section data-translation-family-list-ssr="true">SSR families</section>
+    </div>
+  `, {
+    url: 'http://localhost:8082/admin/translations/families?channel=default',
+  });
+  setGlobals(dom.window);
+  const root = dom.window.document.getElementById('root');
+  let fetchCalls = 0;
+
+  const state = await initTranslationFamilyListPage(root, {
+    fetch: async () => {
+      fetchCalls += 1;
+      return new Response(JSON.stringify({ data: { items: [] }, meta: { total: 0 } }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    },
+  });
+
+  assert.equal(fetchCalls, 0);
+  assert.equal(state.status, 'ready');
+  assert.match(root.innerHTML, /SSR families/);
+  assert.equal(root.dataset.translationFamilyListEnhanced, 'true');
+});
+
 test('translation-family list page: builds UI context URLs without API paths', () => {
   const filters = createFamilyFilters({ channel: 'production', readinessState: 'blocked', blockerCode: 'missing_locale' });
   const row = normalizeFamilyListResponse({
@@ -435,6 +467,6 @@ test('translation-family contracts: client routes typed response readers through
   assert.match(source, /from '\.\.\/shared\/transport\/http-client\.js'/);
   assert.match(source, /async function readTranslationFamilyClientRecord\(response: Response\): Promise<Record<string, unknown>>/);
   assert.match(source, /return readHTTPJSON<Record<string, unknown>>\(response\)/);
-  assert.equal((source.match(/readTranslationFamilyClientRecord\(response\)/g) || []).length, 3);
+  assert.equal((source.match(/readTranslationFamilyClientRecord\(response\)/g) || []).length, 4);
   assert.equal((source.match(/response\.json\(\) as Record<string, unknown>/g) || []).length, 0);
 });

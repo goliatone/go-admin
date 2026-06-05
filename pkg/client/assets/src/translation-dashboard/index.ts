@@ -1836,6 +1836,10 @@ export function initTranslationDashboardPage(root: HTMLElement, options: Partial
   if (!root) {
     return null;
   }
+  if (root.dataset?.ssrEnhanced === 'true') {
+    root.dataset.translationDashboardEnhanced = 'true';
+    return null;
+  }
   const page = new TranslationDashboardPage({
     endpoint: options.endpoint ?? root.dataset.endpoint ?? '',
     queueEndpoint: options.queueEndpoint ?? root.dataset.queueEndpoint ?? '',

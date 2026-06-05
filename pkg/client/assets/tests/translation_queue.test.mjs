@@ -1205,6 +1205,47 @@ test('translation queue runtime: review presets can bootstrap from explicit conf
   assert.match(firstURL, /reviewer_id=__me__/);
 });
 
+test('translation queue runtime: SSR root binds row actions without first-render fetch', async () => {
+  const { root } = setupDom('http://localhost/admin/translations/queue?channel=default');
+  root.dataset.ssrEnhanced = 'true';
+  root.dataset.endpoint = '/admin/api/translations/assignments';
+  root.dataset.channel = 'default';
+  root.innerHTML = `
+    <section data-translation-queue-ssr="true">
+      <button type="button"
+              data-queue-row-action="claim"
+              data-assignment-id="asg-open-1"
+              data-row-version="2">Claim</button>
+    </section>
+  `;
+  try {
+    Object.defineProperty(globalThis.window.location, 'reload', { value() {}, configurable: true });
+  } catch {}
+  const requests = [];
+  globalThis.fetch = mock.fn(async (url, init = {}) => {
+    requests.push({ url: String(url), init });
+    return createJsonResponse({
+      data: { assignment: fixtures.states.open_pool.data[0] },
+      meta: {},
+    });
+  });
+
+  const screen = initAssignmentQueueScreen(root);
+  assert.equal(screen, null);
+  assert.equal(requests.length, 0);
+  assert.equal(root.dataset.assignmentQueueEnhanced, 'true');
+
+  root.querySelector('[data-queue-row-action="claim"]')
+    .dispatchEvent(new globalThis.window.Event('click', { bubbles: true }));
+  await flushAsync();
+  await flushAsync();
+
+  assert.equal(requests.length, 1);
+  assert.equal(requests[0].url, '/admin/api/translations/assignments/asg-open-1/actions/claim');
+  assert.equal(requests[0].init.method, 'POST');
+  assert.deepEqual(JSON.parse(String(requests[0].init.body)), { expected_version: 2, channel: 'default' });
+});
+
 test('translation queue runtime: qa-blocked review preset requests server-side review_state filtering', async () => {
   let firstURL = '';
   globalThis.fetch = mock.fn(async (input) => {
