@@ -204,7 +204,7 @@ func (h *contentEntryHandlers) previewURLForRecord(ctx context.Context, panelNam
 	if err != nil {
 		return "", err
 	}
-	return admin.BuildSitePreviewURL(targetPath, token), nil
+	return h.admin.BuildSitePreviewURL(targetPath, token), nil
 }
 
 func contentEntryValues(record map[string]any) map[string]any {
