@@ -176,7 +176,8 @@
         "query": {
           "due_state": "overdue",
           "order": "asc",
-          "sort": "due_date"
+          "sort": "due_date",
+          "status": "open,assigned,in_progress,in_review,changes_requested"
         },
         "resolver_key": "admin.translations.queue",
         "route": "translations.queue",

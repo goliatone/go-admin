@@ -895,14 +895,7 @@ func (r *BunTranslationAssignmentRepository) AssignmentDashboardSummary(ctx cont
 	}
 	overdueFilters := cloneAssignmentFilterMap(scope)
 	overdueFilters["due_state"] = translationQueueDueStateOverdue
-	overdueFilters["status"] = strings.Join([]string{
-		string(AssignmentStatusOpen),
-		string(AssignmentStatusAssigned),
-		string(AssignmentStatusInProgress),
-		string(AssignmentStatusInReview),
-		string(AssignmentStatusChangesRequested),
-		string(AssignmentStatusApproved),
-	}, ",")
+	overdueFilters["status"] = translationDashboardActionableStatusFilter()
 	var err error
 	out.OverdueTasks, err = r.countAssignments(ctx, ListOptions{Filters: overdueFilters}, now)
 	if err != nil {

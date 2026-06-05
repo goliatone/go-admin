@@ -175,6 +175,7 @@ func translationDashboardRunbookCatalog() []map[string]any {
 			"route":        "translations.queue",
 			"resolver_key": "admin.translations.queue",
 			"query": map[string]any{
+				"status":    translationDashboardActionableStatusFilter(),
 				"due_state": "overdue",
 				"sort":      "due_date",
 				"order":     "asc",

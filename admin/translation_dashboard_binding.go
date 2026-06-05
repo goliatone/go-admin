@@ -20,6 +20,16 @@ const (
 	translationDashboardLatencyTargetMS     = 300
 )
 
+func translationDashboardActionableStatusFilter() string {
+	return strings.Join([]string{
+		string(AssignmentStatusOpen),
+		string(AssignmentStatusAssigned),
+		string(AssignmentStatusInProgress),
+		string(AssignmentStatusInReview),
+		string(AssignmentStatusChangesRequested),
+	}, ",")
+}
+
 func (b *translationQueueBinding) Dashboard(c router.Context) (payload any, err error) {
 	startedAt := time.Now()
 	obsCtx := c.Context()
@@ -268,7 +278,7 @@ func (b *translationQueueBinding) translationDashboardOptimizedCards(channel str
 			assignments.OverdueTasks,
 			map[string]any{"high_priority": assignments.HighPriorityOverdue},
 			translationDashboardCardAlert(assignments.OverdueTasks, assignments.OverdueTasks > 0, false),
-			translationDashboardLink(b.admin.URLs(), "admin", "translations.queue", "admin.translations.queue", nil, translationDashboardQuery(nil, channel, map[string]string{"due_state": "overdue", "sort": "due_date", "order": "asc"}), map[string]any{"label": "Open overdue queue", "description": "Open the queue filtered to overdue assignments.", "relation": "primary"}),
+			translationDashboardLink(b.admin.URLs(), "admin", "translations.queue", "admin.translations.queue", nil, translationDashboardQuery(nil, channel, map[string]string{"status": translationDashboardActionableStatusFilter(), "due_state": "overdue", "sort": "due_date", "order": "asc"}), map[string]any{"label": "Open overdue queue", "description": "Open the queue filtered to overdue assignments.", "relation": "primary"}),
 			"translations.dashboard.overdue_tasks",
 			"translations.dashboard.overdue_triage",
 		),
@@ -461,6 +471,7 @@ func translationDashboardOverdueTasksCard(urls urlkit.Resolver, channel string, 
 		},
 		translationDashboardCardAlert(len(overdueAssignments), len(overdueAssignments) > 0, false),
 		translationDashboardLink(urls, "admin", "translations.queue", "admin.translations.queue", nil, translationDashboardQuery(nil, channel, map[string]string{
+			"status":    translationDashboardActionableStatusFilter(),
 			"due_state": "overdue",
 			"sort":      "due_date",
 			"order":     "asc",
@@ -617,7 +628,7 @@ func translationDashboardNeedsReview(assignments []TranslationAssignment, actorI
 func translationDashboardOverdueAssignments(assignments []TranslationAssignment, now time.Time) []TranslationAssignment {
 	out := make([]TranslationAssignment, 0, len(assignments))
 	for _, assignment := range assignments {
-		if assignment.Status.IsTerminal() {
+		if !assignment.Status.IsActive() {
 			continue
 		}
 		if translationQueueDueState(assignment.DueDate, now) != translationQueueDueStateOverdue {
