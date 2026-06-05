@@ -331,7 +331,24 @@ test('translation-family contracts: normalize detail payloads and render readine
         { id: 'blocker-2', family_id: 'tg-page-1', blocker_code: 'pending_review', locale: 'es' },
       ],
       active_assignments: [
-        { id: 'asg-1', family_id: 'tg-page-1', source_locale: 'en', target_locale: 'es', work_scope: '__all__', status: 'in_progress' },
+        {
+          id: 'asg-1',
+          family_id: 'tg-page-1',
+          source_locale: 'en',
+          target_locale: 'es',
+          work_scope: '__all__',
+          status: 'in_progress',
+          links: {
+            editor: {
+              href: '/admin/translations/assignments/asg-1/edit',
+              label: 'Open editor',
+              description: 'Open the assignment editor for this family assignment.',
+              relation: 'primary',
+              entity_type: 'assignment',
+              entity_id: 'asg-1',
+            },
+          },
+        },
       ],
       publish_gate: {
         allowed: false,
@@ -355,6 +372,7 @@ test('translation-family contracts: normalize detail payloads and render readine
 
   assert.equal(detail.sourceVariant?.locale, 'en');
   assert.equal(detail.blockers[0].blockerCode, 'missing_locale');
+  assert.equal(detail.activeAssignments[0].links.editor?.href, '/admin/translations/assignments/asg-1/edit');
   assert.equal(detail.publishGate.overrideAllowed, true);
   assert.equal(detail.readinessSummary.pendingReviewCount, 1);
 

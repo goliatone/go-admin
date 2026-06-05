@@ -100,8 +100,23 @@ test('translation-family detail: renders complete surface from ready fixture', (
   assert.match(html, /Publish gate/i);
   assert.match(html, /Activity preview/i);
   assert.match(html, /Open locale/i);
+  assert.match(html, /Open editor/i);
+  assert.match(html, /href="\/admin\/translations\/assignments\/asg-ready-fr\/edit"/);
+  assert.match(html, /data-family-assignment-editor-link="asg-ready-fr"/);
   assert.match(html, /Request req-ready/);
   assert.match(html, /Trace trace-ready/);
+});
+
+test('translation-family detail: publish gate stacks policy before blockers', () => {
+  const detail = normalizeFamilyDetail(fixtures.blocked);
+  const html = renderTranslationFamilyDetailState({ status: 'ready', detail });
+
+  assert.doesNotMatch(html, /md:grid-cols-2/);
+  const policyIndex = html.indexOf('>Policy</h3>');
+  const blockersIndex = html.indexOf('>Blockers</h3>');
+  assert.notEqual(policyIndex, -1);
+  assert.notEqual(blockersIndex, -1);
+  assert.equal(policyIndex < blockersIndex, true);
 });
 
 test('translation-family detail: missing-locale fixture renders blocked locale row', () => {
@@ -115,6 +130,84 @@ test('translation-family detail: missing-locale fixture renders blocked locale r
   assert.match(html, /FR/);
   assert.match(html, /Create locale/i);
   assert.match(html, /data-family-create-locale="true"/i);
+});
+
+test('translation-family detail: missing-locale quick create opens the create modal', async () => {
+  const dom = setupDom('<div id="root" data-endpoint="/admin/api/translations/families/family-missing?channel=default" data-base-path="/admin"></div>');
+  const root = dom.window.document.getElementById('root');
+  const fetchImpl = async () => new Response(JSON.stringify({ data: fixtures.missing_locale }), {
+    status: 200,
+    headers: { 'Content-Type': 'application/json' },
+  });
+
+  await initTranslationFamilyDetailPage(root, { fetch: fetchImpl });
+  const button = root.querySelector('[data-family-create-locale="true"][data-locale="fr"]');
+
+  assert.ok(button, 'expected FR quick-create button');
+  assert.equal(button.hasAttribute('disabled'), false);
+  button.dispatchEvent(new dom.window.Event('click', { bubbles: true }));
+
+  assert.ok(dom.window.document.querySelector('[data-translation-create-locale-modal="true"]'));
+  assert.match(dom.window.document.body.innerHTML, /Create FR locale/i);
+});
+
+test('translation-family detail: coverage missing locale buttons stay enabled when quick-create hints are stale or policy denied', async () => {
+  const stale = JSON.parse(JSON.stringify(fixtures.missing_locale));
+  stale.locale_variants = stale.locale_variants.filter((variant) => variant.locale !== 'es');
+  stale.readiness_summary.available_locales = ['en'];
+  stale.readiness_summary.missing_locales = ['es', 'fr'];
+  stale.readiness_summary.missing_required_locale_count = 2;
+  stale.quick_create.enabled = false;
+  stale.quick_create.missing_locales = [];
+  stale.quick_create.recommended_locale = '';
+  stale.quick_create.disabled_reason_code = 'policy_denied';
+  stale.quick_create.disabled_reason = 'Policy currently blocks creating additional locale variants for this family.';
+  const dom = setupDom('<div id="root" data-endpoint="/admin/api/translations/families/family-missing?channel=default" data-base-path="/admin"></div>');
+  const root = dom.window.document.getElementById('root');
+  const fetchImpl = async () => new Response(JSON.stringify({ data: stale }), {
+    status: 200,
+    headers: { 'Content-Type': 'application/json' },
+  });
+
+  await initTranslationFamilyDetailPage(root, { fetch: fetchImpl });
+  const buttons = Array.from(root.querySelectorAll('[data-family-create-locale="true"]'));
+  const esButtons = buttons.filter((button) => button.dataset.locale === 'es');
+  const frButtons = buttons.filter((button) => button.dataset.locale === 'fr');
+
+  assert.equal(esButtons.length > 0, true);
+  assert.equal(frButtons.length > 0, true);
+  assert.equal(esButtons.every((button) => button.getAttribute('aria-disabled') !== 'true'), true);
+  assert.equal(frButtons.every((button) => button.getAttribute('aria-disabled') !== 'true'), true);
+
+  esButtons[0].dispatchEvent(new dom.window.Event('click', { bubbles: true }));
+  assert.ok(dom.window.document.querySelector('[data-translation-create-locale-modal="true"]'));
+  assert.match(dom.window.document.body.innerHTML, /Create ES locale/i);
+  assert.match(dom.window.document.body.innerHTML, />\s*ES/i);
+  assert.match(dom.window.document.body.innerHTML, />\s*FR/i);
+});
+
+test('translation-family detail: policy unavailable keeps missing locale buttons disabled', async () => {
+  const blocked = JSON.parse(JSON.stringify(fixtures.policy_unavailable));
+  blocked.readiness_summary.required_locales = ['en', 'es'];
+  blocked.readiness_summary.missing_locales = ['es'];
+  blocked.readiness_summary.missing_required_locale_count = 1;
+  blocked.quick_create.enabled = false;
+  blocked.quick_create.missing_locales = ['es'];
+  blocked.quick_create.recommended_locale = 'es';
+  const dom = setupDom('<div id="root" data-endpoint="/admin/api/translations/families/family-policy-unavailable?channel=default" data-base-path="/admin"></div>');
+  const root = dom.window.document.getElementById('root');
+  const fetchImpl = async () => new Response(JSON.stringify({ data: blocked }), {
+    status: 200,
+    headers: { 'Content-Type': 'application/json' },
+  });
+
+  await initTranslationFamilyDetailPage(root, { fetch: fetchImpl });
+  const buttons = Array.from(root.querySelectorAll('[data-family-create-locale="true"][data-locale="es"]'));
+
+  assert.equal(buttons.length > 0, true);
+  assert.equal(buttons.every((button) => button.getAttribute('aria-disabled') === 'true'), true);
+  buttons[0].dispatchEvent(new dom.window.Event('click', { bubbles: true }));
+  assert.equal(dom.window.document.querySelector('[data-translation-create-locale-modal="true"]'), null);
 });
 
 test('translation-family detail: blocker fixtures render canonical blocker labels', () => {

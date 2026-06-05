@@ -106,6 +106,20 @@ export interface TranslationFamilyAssignment {
   dueDate: string;
   createdAt: string;
   updatedAt: string;
+  links: TranslationFamilyAssignmentLinks;
+}
+
+export interface TranslationFamilyAssignmentLink {
+  href: string;
+  label: string;
+  description: string;
+  relation: string;
+  entityType: string;
+  entityId: string;
+}
+
+export interface TranslationFamilyAssignmentLinks {
+  editor: TranslationFamilyAssignmentLink | null;
 }
 
 export interface TranslationFamilyActivityPreviewItem {
@@ -748,6 +762,28 @@ function normalizeAssignment(input: Record<string, unknown>): TranslationFamilyA
     dueDate: asString(input.due_date),
     createdAt: asString(input.created_at),
     updatedAt: asString(input.updated_at),
+    links: normalizeAssignmentLinks(asRecord(input.links)),
+  };
+}
+
+function normalizeAssignmentLink(input: Record<string, unknown>): TranslationFamilyAssignmentLink | null {
+  const href = asString(input.href);
+  if (!href) {
+    return null;
+  }
+  return {
+    href,
+    label: asString(input.label) || 'Open editor',
+    description: asString(input.description),
+    relation: asString(input.relation),
+    entityType: asString(input.entity_type),
+    entityId: asString(input.entity_id),
+  };
+}
+
+function normalizeAssignmentLinks(input: Record<string, unknown>): TranslationFamilyAssignmentLinks {
+  return {
+    editor: normalizeAssignmentLink(asRecord(input.editor)),
   };
 }
 
@@ -818,6 +854,35 @@ function withoutLocale(values: string[], locale: string): string[] {
     .filter((entry) => entry && entry !== target);
 }
 
+function familyCreateLocaleCandidates(detail: TranslationFamilyDetail): string[] {
+  return uniqueLocaleList(detail.quickCreate.missingLocales, detail.readinessSummary.missingLocales);
+}
+
+function familyCreateLocaleBlockedByPolicyUnavailable(detail: TranslationFamilyDetail): boolean {
+  return detail.blockers.some(isPolicyUnavailableBlocker);
+}
+
+function canCreateFamilyLocale(detail: TranslationFamilyDetail, locale: string): boolean {
+  const target = asString(locale).toLowerCase();
+  if (!target) return false;
+  if (familyCreateLocaleBlockedByPolicyUnavailable(detail)) return false;
+  return familyCreateLocaleCandidates(detail).includes(target);
+}
+
+function quickCreateHintsForFamilyLocale(detail: TranslationFamilyDetail, locale: string): TranslationFamilyQuickCreateHints {
+  const candidates = familyCreateLocaleCandidates(detail);
+  const target = asString(locale).toLowerCase();
+  const canCreate = canCreateFamilyLocale(detail, target);
+  return {
+    ...detail.quickCreate,
+    enabled: canCreate,
+    missingLocales: candidates,
+    recommendedLocale: candidates.includes(target) ? target : detail.quickCreate.recommendedLocale,
+    disabledReason: canCreate ? '' : detail.quickCreate.disabledReason,
+    disabledReasonCode: canCreate ? '' : detail.quickCreate.disabledReasonCode,
+  };
+}
+
 export function applyCreateLocaleToFamilyDetail(
   detail: TranslationFamilyDetail,
   result: TranslationCreateLocaleResult
@@ -866,6 +931,7 @@ export function applyCreateLocaleToFamilyDetail(
       dueDate: result.assignment.dueDate,
       createdAt: '',
       updatedAt: '',
+      links: { editor: null },
     };
     const matchIndex = activeAssignments.findIndex((assignment) =>
       assignment.id === nextAssignment.id || assignment.targetLocale === nextAssignment.targetLocale
@@ -1271,14 +1337,14 @@ function renderLocalePanel(detail: TranslationFamilyDetail, options: Translation
   const missingLocales = detail.readinessSummary.missingLocales;
   const quickCreateReason = detail.quickCreate.disabledReason || 'Locale creation is unavailable for this family.';
   const createLocaleButton = (locale: string): string => {
-    const disabled = !detail.quickCreate.enabled;
+    const disabled = !canCreateFamilyLocale(detail, locale);
     return `
       <button
         type="button"
-        class="${BTN_PRIMARY}"
+        class="${BTN_PRIMARY}${disabled ? ' opacity-60 cursor-not-allowed' : ''}"
         data-family-create-locale="true"
         data-locale="${escapeAttribute(locale)}"
-        ${disabled ? 'disabled aria-disabled="true"' : ''}
+        ${disabled ? 'aria-disabled="true"' : ''}
         title="${escapeAttribute(disabled ? quickCreateReason : `Create ${locale.toUpperCase()} locale`)}"
       >
         Create locale
@@ -1356,19 +1422,30 @@ function renderAssignmentPanel(detail: TranslationFamilyDetail): string {
           .map((assignment) => {
             const dueState = deriveDueState(assignment.dueDate);
             const dueLabel = dueState === 'none' ? 'No due date' : sentenceCaseToken(dueState);
+            const editorLink = assignment.links.editor;
             return `
-              <li class="rounded-xl border border-gray-200 bg-gray-50 p-6">
-                <div class="flex flex-wrap items-center gap-2">
-                  <span class="text-sm font-semibold text-gray-900">${escapeHTML(assignment.targetLocale.toUpperCase())}</span>
-                  <span class="rounded-full px-2 py-0.5 text-xs font-medium ${assignmentTone(assignment.status)}">${escapeHTML(sentenceCaseToken(assignment.status))}</span>
-                  <span class="rounded-full px-2 py-0.5 text-xs font-medium ${dueTone(dueState)}">${escapeHTML(dueLabel)}</span>
+              <li class="flex flex-col gap-4 rounded-xl border border-gray-200 bg-gray-50 p-6 sm:flex-row sm:items-start sm:justify-between">
+                <div class="min-w-0">
+                  <div class="flex flex-wrap items-center gap-2">
+                    <span class="text-sm font-semibold text-gray-900">${escapeHTML(assignment.targetLocale.toUpperCase())}</span>
+                    <span class="rounded-full px-2 py-0.5 text-xs font-medium ${assignmentTone(assignment.status)}">${escapeHTML(sentenceCaseToken(assignment.status))}</span>
+                    <span class="rounded-full px-2 py-0.5 text-xs font-medium ${dueTone(dueState)}">${escapeHTML(dueLabel)}</span>
+                  </div>
+                  <p class="mt-2 text-sm text-gray-600">
+                    ${escapeHTML(assignment.assigneeId || 'Unassigned')}
+                    <span class="text-gray-400">·</span>
+                    Priority ${escapeHTML(assignment.priority || 'normal')}
+                  </p>
+                  <p class="mt-1 text-xs text-gray-500">Updated ${escapeHTML(formatTranslationTimestampUTC(assignment.updatedAt || assignment.createdAt)) || 'n/a'}</p>
                 </div>
-                <p class="mt-2 text-sm text-gray-600">
-                  ${escapeHTML(assignment.assigneeId || 'Unassigned')}
-                  <span class="text-gray-400">·</span>
-                  Priority ${escapeHTML(assignment.priority || 'normal')}
-                </p>
-                <p class="mt-1 text-xs text-gray-500">Updated ${escapeHTML(formatTranslationTimestampUTC(assignment.updatedAt || assignment.createdAt)) || 'n/a'}</p>
+                ${editorLink ? `
+                  <a
+                    class="inline-flex flex-shrink-0 items-center justify-center rounded-md border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-sky-700 hover:border-sky-200 hover:bg-sky-50 hover:text-sky-900 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2"
+                    data-family-assignment-editor-link="${escapeAttribute(assignment.id)}"
+                    href="${escapeAttribute(editorLink.href)}"
+                    title="${escapeAttribute(editorLink.description || editorLink.label)}"
+                  >${escapeHTML(editorLink.label || 'Open editor')}</a>
+                ` : ''}
               </li>
             `;
           })
@@ -1412,11 +1489,7 @@ function renderPublishGatePanel(detail: TranslationFamilyDetail): string {
             : 'No override path is available for this family.'}
         </p>
       </div>
-      <div class="mt-5 grid gap-4 md:grid-cols-2">
-        <div>
-          <h3 class="text-sm font-semibold uppercase tracking-[0.18em] text-gray-500">Blockers</h3>
-          <ul class="mt-3 space-y-2" role="list">${blockers}</ul>
-        </div>
+      <div class="mt-5 grid gap-5">
         <div>
           <h3 class="text-sm font-semibold uppercase tracking-[0.18em] text-gray-500">Policy</h3>
           <ul class="mt-3 space-y-2 text-sm text-gray-600" role="list">
@@ -1424,6 +1497,10 @@ function renderPublishGatePanel(detail: TranslationFamilyDetail): string {
             <li>Override allowed: <strong class="text-gray-900">${detail.publishGate.overrideAllowed ? 'Yes' : 'No'}</strong></li>
             <li>Available locales: <strong class="text-gray-900">${escapeHTML(detail.readinessSummary.availableLocales.join(', ') || 'None')}</strong></li>
           </ul>
+        </div>
+        <div>
+          <h3 class="text-sm font-semibold uppercase tracking-[0.18em] text-gray-500">Blockers</h3>
+          <ul class="mt-3 space-y-2" role="list">${blockers}</ul>
         </div>
       </div>
     </section>
@@ -1587,18 +1664,20 @@ export function renderTranslationFamilyDetailState(
   const blockerSummary = detail.readinessSummary.blockerCodes.length
     ? detail.readinessSummary.blockerCodes.map(sentenceCaseToken).join(', ')
     : 'No blockers';
-  const quickCreateDisabled = !detail.quickCreate.enabled;
-  const createLocaleCTA = detail.quickCreate.recommendedLocale
+  const createLocaleCandidates = familyCreateLocaleCandidates(detail);
+  const recommendedCreateLocale = detail.quickCreate.recommendedLocale || createLocaleCandidates[0] || '';
+  const quickCreateDisabled = !canCreateFamilyLocale(detail, recommendedCreateLocale);
+  const createLocaleCTA = recommendedCreateLocale
     ? `
       <button
         type="button"
-        class="${BTN_PRIMARY}"
+        class="${BTN_PRIMARY}${quickCreateDisabled ? ' opacity-60 cursor-not-allowed' : ''}"
         data-family-create-locale="true"
-        data-locale="${escapeAttribute(detail.quickCreate.recommendedLocale)}"
-        ${quickCreateDisabled ? 'disabled aria-disabled="true"' : ''}
-        title="${escapeAttribute(quickCreateDisabled ? detail.quickCreate.disabledReason || 'Locale creation is unavailable.' : `Create ${detail.quickCreate.recommendedLocale.toUpperCase()} locale`)}"
+        data-locale="${escapeAttribute(recommendedCreateLocale)}"
+        ${quickCreateDisabled ? 'aria-disabled="true"' : ''}
+        title="${escapeAttribute(quickCreateDisabled ? detail.quickCreate.disabledReason || 'Locale creation is unavailable.' : `Create ${recommendedCreateLocale.toUpperCase()} locale`)}"
       >
-        Create ${escapeHTML(detail.quickCreate.recommendedLocale.toUpperCase())}
+        Create ${escapeHTML(recommendedCreateLocale.toUpperCase())}
       </button>
     `
     : '';
@@ -1699,6 +1778,20 @@ export async function fetchTranslationFamilyDetailState(
       status: 'error',
       message: error instanceof Error ? error.message : 'Failed to load translation family detail.',
     };
+  }
+}
+
+function translationFamilyDetailChannel(endpoint: string): string {
+  const locationParams = readLocationSearchParams();
+  const locationChannel = locationParams ? getStringSearchParam(locationParams, 'channel') : '';
+  if (locationChannel) {
+    return locationChannel;
+  }
+  try {
+    const endpointURL = new URL(asString(endpoint), 'http://localhost');
+    return getStringSearchParam(endpointURL.searchParams, 'channel') || '';
+  } catch {
+    return '';
   }
 }
 
@@ -2504,6 +2597,7 @@ export async function initTranslationFamilyDetailPage(
   renderTranslationFamilyDetailPage(root, { status: 'loading' }, renderOptions);
   const state = await fetchTranslationFamilyDetailState(endpoint, { fetch: options.fetch });
   renderTranslationFamilyDetailPage(root, state, renderOptions);
+  const channel = translationFamilyDetailChannel(endpoint);
 
   if (typeof (root as HTMLElement).querySelector === 'function') {
     if (state.status === 'ready' && state.detail) {
@@ -2524,12 +2618,13 @@ export async function initTranslationFamilyDetailPage(
             return;
           }
           const locale = asString(button.dataset.locale).toLowerCase() || detail.quickCreate.recommendedLocale || '';
+          const quickCreate = quickCreateHintsForFamilyLocale(detail, locale);
           openCreateLocaleDialog({
             familyId: detail.familyId,
-            quickCreate: detail.quickCreate,
+            quickCreate,
             initialLocale: locale,
             heading: `Create ${locale.toUpperCase()} locale`,
-            onSubmit: (input) => client.createLocale(detail.familyId, input),
+            onSubmit: (input) => client.createLocale(detail.familyId, { ...input, channel }),
             onSuccess: async (result) => {
               globalToast('success', `${result.locale.toUpperCase()} locale created.`);
               await initTranslationFamilyDetailPage(root as HTMLElement, { ...options, ...renderOptions, endpoint });
@@ -2636,11 +2731,15 @@ export function createTranslationFamilyClient(options: TranslationFamilyClientOp
         familyId,
         basePath,
       });
-      const response = await fetchImpl(action.endpoint, {
+      const headers = new Headers(action.headers);
+      const init: RequestInit = {
         method: 'POST',
-        headers: action.headers,
+        credentials: 'same-origin',
+        headers,
         body: JSON.stringify(serializeCreateLocaleRequest(action.request)),
-      });
+      };
+      appendCSRFHeader(action.endpoint, init, headers);
+      const response = await fetchImpl(action.endpoint, init);
       if (!response.ok) {
         throw await createLocaleErrorFromResponse(response);
       }

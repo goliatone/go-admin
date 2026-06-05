@@ -76,7 +76,17 @@
         "priority": "normal",
         "due_date": "2026-03-16T12:00:00Z",
         "created_at": "2026-03-03T11:00:00Z",
-        "updated_at": "2026-03-04T11:00:00Z"
+        "updated_at": "2026-03-04T11:00:00Z",
+        "links": {
+          "editor": {
+            "href": "/admin/translations/assignments/asg-ready-fr/edit",
+            "label": "Open editor",
+            "description": "Open the assignment editor for this family assignment.",
+            "relation": "primary",
+            "entity_type": "assignment",
+            "entity_id": "asg-ready-fr"
+          }
+        }
       }
     ],
     "publish_gate": {
