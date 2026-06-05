@@ -250,6 +250,14 @@ interface TranslationFamilyClientOptions {
   fetch?: typeof fetch;
 }
 
+interface TranslationFamilyAssigneeOption {
+  value: string;
+  label: string;
+  description: string;
+  displayName: string;
+  avatarURL: string;
+}
+
 interface TranslationFamilyDetailFetchOptions {
   fetch?: typeof fetch;
 }
@@ -1283,6 +1291,66 @@ async function postTranslationFamilyAssignmentAction(
   return readHTTPJSON<Record<string, unknown>>(response);
 }
 
+function normalizeAssigneeOption(input: unknown): TranslationFamilyAssigneeOption | null {
+  const record = asRecord(input);
+  const value = asString(record.value || record.id || record.user_id);
+  if (!value) return null;
+  const label = asString(record.label || record.display_name || record.username || record.email || value);
+  return {
+    value,
+    label,
+    description: asString(record.description || record.email || record.username),
+    displayName: asString(record.display_name || record.displayName || label),
+    avatarURL: asString(record.avatar_url || record.avatarURL),
+  };
+}
+
+function normalizeAssigneeOptionsPayload(input: unknown): TranslationFamilyAssigneeOption[] {
+  const record = asRecord(input);
+  const rawItems = Array.isArray(input)
+    ? input
+    : Array.isArray(record.data)
+      ? record.data
+      : Array.isArray(record.options)
+        ? record.options
+        : Array.isArray(record.items)
+          ? record.items
+          : [];
+  const seen = new Set<string>();
+  const options: TranslationFamilyAssigneeOption[] = [];
+  for (const item of rawItems) {
+    const option = normalizeAssigneeOption(item);
+    if (!option || seen.has(option.value)) continue;
+    seen.add(option.value);
+    options.push(option);
+  }
+  return options;
+}
+
+function buildAssigneeOptionsURL(basePath: string, selectedValues: string[] = []): string {
+  const params = new URLSearchParams();
+  params.set('per_page', '200');
+  const selected = selectedValues.map((value) => asString(value)).find(Boolean);
+  if (selected) params.set('assignee_id', selected);
+  return buildURL(`${trimTrailingSlash(basePath || '/admin/api')}/translations/options/assignees`, params);
+}
+
+async function fetchAssigneeOptions(
+  basePath: string,
+  selectedValues: string[] = [],
+  options: TranslationFamilyDetailFetchOptions = {}
+): Promise<TranslationFamilyAssigneeOption[]> {
+  const endpoint = buildAssigneeOptionsURL(basePath, selectedValues);
+  const response = await (options.fetch
+    ? options.fetch(endpoint, { headers: { Accept: 'application/json' } })
+    : httpRequest(endpoint, { headers: { Accept: 'application/json' } }));
+  if (!response.ok) {
+    throw await assignmentActionErrorFromResponse(response);
+  }
+  const payload = await readHTTPJSON<unknown>(response);
+  return normalizeAssigneeOptionsPayload(payload);
+}
+
 function variantStatusSeverity(status: string): string {
   switch (asString(status)) {
     case 'published':
@@ -1524,13 +1592,11 @@ function renderLocaleAssignmentActions(localeAssignment: TranslationFamilyLocale
   if (actions.assignToUser.enabled) {
     enabledActions.push(`
       <div class="flex min-w-[16rem] flex-wrap items-center gap-2">
-        <input
-          type="text"
-          class="min-w-0 flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900"
-          data-family-assignee-input="${escapeAttribute(key)}"
-          placeholder="Assignee ID"
-          aria-label="Assignee ID"
-        >
+        ${renderAssigneeSelect({
+          key,
+          ariaLabel: 'Assignee',
+          className: `${ASSIGNEE_SELECT_CLASS} min-w-0 flex-1`,
+        })}
         <button type="button" class="${BTN_SECONDARY}" data-family-assign-to-user="true" data-locale-assignment-key="${escapeAttribute(key)}">
           Assign
         </button>
@@ -1567,6 +1633,63 @@ function assignableLocaleAssignments(detail: TranslationFamilyDetail): Array<[st
     .filter(([, localeAssignment]) => localeAssignment.state !== 'source_locale')
     .filter(([, localeAssignment]) => hasEnabledLocaleAssignmentAction(localeAssignment))
     .sort(([leftKey], [rightKey]) => leftKey.localeCompare(rightKey));
+}
+
+function emptyPanelAssignmentActionMetadata(localeAssignment: TranslationFamilyLocaleAssignment): string {
+  return [
+    `data-assign-to-me-enabled="${localeAssignment.actions.assignToMe.enabled ? 'true' : 'false'}"`,
+    `data-assign-to-me-reason="${escapeAttribute(localeAssignment.actions.assignToMe.reason)}"`,
+    `data-assign-to-user-enabled="${localeAssignment.actions.assignToUser.enabled ? 'true' : 'false'}"`,
+    `data-assign-to-user-reason="${escapeAttribute(localeAssignment.actions.assignToUser.reason)}"`,
+  ].join(' ');
+}
+
+function emptyPanelDisabledAttributes(enabled: boolean, reason = ''): string {
+  return enabled
+    ? ''
+    : ` disabled aria-disabled="true" title="${escapeAttribute(reason || 'Assignment action is unavailable.')}"`;
+}
+
+function emptyPanelDisabledClass(enabled: boolean): string {
+  return enabled ? '' : ' opacity-60 cursor-not-allowed';
+}
+
+const ASSIGNEE_SELECT_CLASS = 'py-3 px-4 pe-9 block w-full border border-gray-200 rounded-lg text-sm focus:border-blue-500 focus:ring-blue-500 disabled:opacity-50 disabled:pointer-events-none dark:bg-slate-900 dark:text-gray-400 dark:border-gray-700 dark:focus:ring-gray-600';
+
+function renderAssigneeSelect(config: {
+  key: string;
+  name?: string;
+  initialValue?: string;
+  enabled?: boolean;
+  reason?: string;
+  placeholder?: string;
+  ariaLabel?: string;
+  className?: string;
+}): string {
+  const key = asString(config.key);
+  const initialValue = asString(config.initialValue);
+  const enabled = config.enabled !== false;
+  const placeholder = asString(config.placeholder) || 'Select assignee';
+  const reason = asString(config.reason);
+  const name = asString(config.name);
+  const disabled = emptyPanelDisabledAttributes(enabled, reason);
+  return `
+    <select
+      ${name ? `name="${escapeAttribute(name)}"` : ''}
+      class="${escapeAttribute(config.className || ASSIGNEE_SELECT_CLASS)}"
+      data-family-assignee-select="${escapeAttribute(key)}"
+      data-initial-assignee-id="${escapeAttribute(initialValue)}"
+      data-endpoint-url="/api/translations/options/assignees"
+      data-relationship-type="belongsTo"
+      data-relationship-target="#/components/schemas/User"
+      data-relationship-cardinality="one"
+      aria-label="${escapeAttribute(config.ariaLabel || 'Assignee')}"
+      ${disabled}
+    >
+      <option value="">${escapeHTML(enabled ? 'Loading assignees...' : (reason || placeholder))}</option>
+      ${initialValue ? `<option value="${escapeAttribute(initialValue)}" selected>${escapeHTML(initialValue)}</option>` : ''}
+    </select>
+  `;
 }
 
 export function buildFamilyActivityPreview(
@@ -1733,6 +1856,9 @@ function renderLocalePanel(detail: TranslationFamilyDetail, options: Translation
 function renderAssignmentPanel(detail: TranslationFamilyDetail): string {
   if (!detail.activeAssignments.length) {
     const assignable = assignableLocaleAssignments(detail);
+    const firstAssignable = assignable[0]?.[1] || null;
+    const hasAssignToMe = assignable.some(([, localeAssignment]) => localeAssignment.actions.assignToMe.enabled);
+    const hasAssignToUser = assignable.some(([, localeAssignment]) => localeAssignment.actions.assignToUser.enabled);
     const startControls = assignable.length
       ? `
         <div class="mt-5 rounded-xl border border-gray-200 bg-gray-50 p-4" data-family-empty-assignment-controls="true">
@@ -1741,20 +1867,31 @@ function renderAssignmentPanel(detail: TranslationFamilyDetail): string {
               <span class="text-sm font-medium text-gray-900">Locale</span>
               <select class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900" data-family-assignment-locale-select="true">
                 ${assignable.map(([key, localeAssignment]) => `
-                  <option value="${escapeAttribute(key)}">${escapeHTML(localeAssignment.locale.toUpperCase())} · ${escapeHTML(localeAssignment.workScope || '__all__')}</option>
+                  <option value="${escapeAttribute(key)}" ${emptyPanelAssignmentActionMetadata(localeAssignment)}>${escapeHTML(localeAssignment.locale.toUpperCase())} · ${escapeHTML(localeAssignment.workScope || '__all__')}</option>
                 `).join('')}
               </select>
             </label>
-            <label class="grid gap-2">
-              <span class="text-sm font-medium text-gray-900">Assignee</span>
-              <input type="text" class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900" data-family-assignee-input="__empty_panel__" placeholder="Assignee ID">
-            </label>
-            <button type="button" class="${BTN_SECONDARY}" data-family-assign-to-me="true" data-locale-assignment-source="empty-panel">
-              Assign to me
-            </button>
-            <button type="button" class="${BTN_PRIMARY}" data-family-assign-to-user="true" data-locale-assignment-source="empty-panel">
-              Assign
-            </button>
+            ${hasAssignToUser ? `
+              <label class="grid gap-2">
+                <span class="text-sm font-medium text-gray-900">Assignee</span>
+                ${renderAssigneeSelect({
+                  key: '__empty_panel__',
+                  enabled: Boolean(firstAssignable?.actions.assignToUser.enabled),
+                  reason: firstAssignable?.actions.assignToUser.reason,
+                  ariaLabel: 'Assignee',
+                })}
+              </label>
+            ` : '<div></div>'}
+            ${hasAssignToMe ? `
+              <button type="button" class="${BTN_SECONDARY}${emptyPanelDisabledClass(Boolean(firstAssignable?.actions.assignToMe.enabled))}" data-family-assign-to-me="true" data-locale-assignment-source="empty-panel"${emptyPanelDisabledAttributes(Boolean(firstAssignable?.actions.assignToMe.enabled), firstAssignable?.actions.assignToMe.reason)}>
+                Assign to me
+              </button>
+            ` : '<div></div>'}
+            ${hasAssignToUser ? `
+              <button type="button" class="${BTN_PRIMARY}${emptyPanelDisabledClass(Boolean(firstAssignable?.actions.assignToUser.enabled))}" data-family-assign-to-user="true" data-locale-assignment-source="empty-panel"${emptyPanelDisabledAttributes(Boolean(firstAssignable?.actions.assignToUser.enabled), firstAssignable?.actions.assignToUser.reason)}>
+                Assign
+              </button>
+            ` : '<div></div>'}
           </div>
         </div>
       `
@@ -2733,6 +2870,8 @@ interface CreateLocaleDialogConfig {
   initialLocale?: string;
   heading: string;
   submitLabel?: string;
+  assigneeOptionsBasePath?: string;
+  fetch?: typeof fetch;
   onSubmit: (input: Partial<TranslationCreateLocaleRequest>) => Promise<TranslationCreateLocaleResult>;
   onSuccess?: (result: TranslationCreateLocaleResult) => Promise<void> | void;
 }
@@ -2788,7 +2927,12 @@ function openCreateLocaleDialog(config: CreateLocaleDialogConfig): void {
           <div data-assignment-fields="true" class="grid gap-4 rounded-xl border border-gray-200 p-6">
             <label class="grid gap-2">
               <span class="text-sm font-medium text-gray-900">Assignee</span>
-              <input type="text" name="assignee_id" value="${escapeAttribute(quickCreate.defaultAssignment.assigneeId)}" class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900">
+              ${renderAssigneeSelect({
+                key: 'create-locale',
+                name: 'assignee_id',
+                initialValue: quickCreate.defaultAssignment.assigneeId,
+                ariaLabel: 'Assignee',
+              })}
             </label>
             <label class="grid gap-2">
               <span class="text-sm font-medium text-gray-900">Priority</span>
@@ -2813,12 +2957,13 @@ function openCreateLocaleDialog(config: CreateLocaleDialogConfig): void {
     </div>
   `;
   doc.body.appendChild(overlay);
+  void hydrateFamilyAssigneeSelects(overlay, config.assigneeOptionsBasePath || '/admin/api', { fetch: config.fetch });
 
   const modalContent = overlay.querySelector<HTMLElement>('[role="dialog"]');
   const form = overlay.querySelector('form');
   const localeField = overlay.querySelector<HTMLSelectElement>('select[name="locale"]');
   const autoCreateAssignmentField = overlay.querySelector<HTMLInputElement>('input[name="auto_create_assignment"]');
-  const assigneeField = overlay.querySelector<HTMLInputElement>('input[name="assignee_id"]');
+  const assigneeField = overlay.querySelector<HTMLSelectElement>('select[name="assignee_id"]');
   const priorityField = overlay.querySelector<HTMLSelectElement>('select[name="priority"]');
   const dueDateField = overlay.querySelector<HTMLInputElement>('input[name="due_date"]');
   const assignmentFields = overlay.querySelector<HTMLElement>('[data-assignment-fields="true"]');
@@ -2919,6 +3064,7 @@ export function initTranslationSummaryCards(root: ParentNode = document): void {
           quickCreate: config.quickCreate,
           initialLocale: preferredLocale,
           heading: `Create ${preferredLocale.toUpperCase() || config.quickCreate.recommendedLocale.toUpperCase()} locale`,
+          assigneeOptionsBasePath: config.apiBasePath,
           onSubmit: (input) => client.createLocale(config.familyId, input),
           onSuccess: async (result) => {
             globalToast('success', `${result.locale.toUpperCase()} locale created.`);
@@ -2962,14 +3108,126 @@ function assignmentActionForKind(
   }
 }
 
-function assigneeInputForAction(root: HTMLElement, key: string, trigger: HTMLElement): HTMLInputElement | null {
+function assigneeControlForAction(root: HTMLElement, key: string, trigger: HTMLElement): HTMLSelectElement | null {
   if (asString(trigger.dataset.localeAssignmentSource) === 'empty-panel') {
-    return root.querySelector<HTMLInputElement>('[data-family-assignee-input="__empty_panel__"]');
+    return root.querySelector<HTMLSelectElement>('[data-family-assignee-select="__empty_panel__"]');
   }
-  for (const input of Array.from(root.querySelectorAll<HTMLInputElement>('[data-family-assignee-input]'))) {
-    if (asString(input.dataset.familyAssigneeInput).toLowerCase() === key) return input;
+  for (const input of Array.from(root.querySelectorAll<HTMLSelectElement>('[data-family-assignee-select]'))) {
+    const selectKey = asString(input.dataset.familyAssigneeSelect).toLowerCase();
+    if (selectKey === key) return input;
   }
   return null;
+}
+
+function optionLabel(option: TranslationFamilyAssigneeOption): string {
+  return option.description && option.description !== option.label
+    ? `${option.label} - ${option.description}`
+    : option.label;
+}
+
+function populateAssigneeSelect(select: HTMLSelectElement, options: TranslationFamilyAssigneeOption[]): void {
+  const selected = asString(select.value || select.dataset.initialAssigneeId);
+  const placeholder = select.getAttribute('aria-label') || 'Assignee';
+  const next = select.ownerDocument.createDocumentFragment();
+  const emptyOption = select.ownerDocument.createElement('option');
+  emptyOption.value = '';
+  emptyOption.textContent = `Select ${placeholder.toLowerCase()}`;
+  next.appendChild(emptyOption);
+  let hasSelected = selected === '';
+  for (const option of options) {
+    const node = select.ownerDocument.createElement('option');
+    node.value = option.value;
+    node.textContent = optionLabel(option);
+    if (option.description) node.setAttribute('data-description', option.description);
+    if (option.displayName) node.setAttribute('data-display-name', option.displayName);
+    if (option.avatarURL) node.setAttribute('data-avatar-url', option.avatarURL);
+    if (selected && selected === option.value) {
+      node.selected = true;
+      hasSelected = true;
+    }
+    next.appendChild(node);
+  }
+  if (selected && !hasSelected) {
+    const fallback = select.ownerDocument.createElement('option');
+    fallback.value = selected;
+    fallback.textContent = selected;
+    fallback.selected = true;
+    next.appendChild(fallback);
+  }
+  select.replaceChildren(next);
+}
+
+async function hydrateFamilyAssigneeSelects(
+  root: ParentNode,
+  basePath: string,
+  options: TranslationFamilyDetailFetchOptions = {}
+): Promise<void> {
+  const selects = Array.from(root.querySelectorAll<HTMLSelectElement>('[data-family-assignee-select]'));
+  if (selects.length === 0) return;
+  const selectedValues = selects.map((select) => asString(select.dataset.initialAssigneeId || select.value)).filter(Boolean);
+  try {
+    const assignees = await fetchAssigneeOptions(basePath, selectedValues, options);
+    for (const select of selects) {
+      populateAssigneeSelect(select, assignees);
+    }
+  } catch {
+    for (const select of selects) {
+      const selected = asString(select.dataset.initialAssigneeId || select.value);
+      select.replaceChildren();
+      const option = select.ownerDocument.createElement('option');
+      option.value = selected;
+      option.textContent = selected || 'Assignees unavailable';
+      option.selected = true;
+      select.appendChild(option);
+      if (!selected) select.disabled = true;
+      select.setAttribute('title', 'Assignee options are unavailable.');
+    }
+  }
+}
+
+function setEmptyPanelControlAvailability(
+  element: HTMLElement | null,
+  enabled: boolean,
+  reason = ''
+): void {
+  if (!element) return;
+  if ('disabled' in element) {
+    (element as HTMLButtonElement | HTMLInputElement | HTMLSelectElement).disabled = !enabled;
+  }
+  element.classList.toggle('opacity-60', !enabled);
+  element.classList.toggle('cursor-not-allowed', !enabled);
+  if (enabled) {
+    element.removeAttribute('aria-disabled');
+    element.removeAttribute('title');
+  } else {
+    element.setAttribute('aria-disabled', 'true');
+    element.setAttribute('title', reason || 'Assignment action is unavailable.');
+  }
+}
+
+function syncEmptyAssignmentPanelControls(root: HTMLElement): void {
+  const select = root.querySelector<HTMLSelectElement>('[data-family-assignment-locale-select="true"]');
+  if (!select) return;
+  const selected = select.selectedOptions[0];
+  const assignToMeEnabled = asString(selected?.dataset.assignToMeEnabled) === 'true';
+  const assignToUserEnabled = asString(selected?.dataset.assignToUserEnabled) === 'true';
+  const assignToMeReason = asString(selected?.dataset.assignToMeReason);
+  const assignToUserReason = asString(selected?.dataset.assignToUserReason);
+  setEmptyPanelControlAvailability(
+    root.querySelector<HTMLElement>('[data-family-assign-to-me="true"][data-locale-assignment-source="empty-panel"]'),
+    assignToMeEnabled,
+    assignToMeReason
+  );
+  setEmptyPanelControlAvailability(
+    root.querySelector<HTMLElement>('[data-family-assign-to-user="true"][data-locale-assignment-source="empty-panel"]'),
+    assignToUserEnabled,
+    assignToUserReason
+  );
+  setEmptyPanelControlAvailability(
+    root.querySelector<HTMLElement>('[data-family-assignee-select="__empty_panel__"]'),
+    assignToUserEnabled,
+    assignToUserReason
+  );
 }
 
 export async function initTranslationFamilyDetailPage(
@@ -2996,6 +3254,7 @@ export async function initTranslationFamilyDetailPage(
     if (state.status === 'ready' && state.detail) {
       const apiBasePath = `${trimTrailingSlash(renderOptions.basePath || '/admin')}/api`;
       const client = createTranslationFamilyClient({ basePath: apiBasePath, fetch: options.fetch });
+      await hydrateFamilyAssigneeSelects(root as HTMLElement, apiBasePath, { fetch: options.fetch });
       (root as HTMLElement).querySelectorAll<HTMLElement>('[data-family-create-locale="true"]').forEach((button) => {
         if (button.dataset.translationCreateBound === 'true') return;
         button.dataset.translationCreateBound = 'true';
@@ -3017,6 +3276,8 @@ export async function initTranslationFamilyDetailPage(
             quickCreate,
             initialLocale: locale,
             heading: `Create ${locale.toUpperCase()} locale`,
+            assigneeOptionsBasePath: apiBasePath,
+            fetch: options.fetch,
             onSubmit: (input) => client.createLocale(detail.familyId, { ...input, channel }),
             onSuccess: async (result) => {
               globalToast('success', `${result.locale.toUpperCase()} locale created.`);
@@ -3026,7 +3287,7 @@ export async function initTranslationFamilyDetailPage(
         });
       });
 
-      const runLocaleAssignmentAction = async (
+	      const runLocaleAssignmentAction = async (
         button: HTMLButtonElement,
         kind: 'self' | 'user' | 'claim'
       ): Promise<void> => {
@@ -3048,10 +3309,10 @@ export async function initTranslationFamilyDetailPage(
         }
         const payload: Record<string, unknown> = {};
         if (kind === 'user') {
-          const input = assigneeInputForAction(root as HTMLElement, key, button);
+          const input = assigneeControlForAction(root as HTMLElement, key, button);
           const assigneeID = asString(input?.value);
           if (!assigneeID) {
-            globalToast('warning', 'Assignee ID is required.');
+            globalToast('warning', 'Assignee is required.');
             input?.focus();
             return;
           }
@@ -3072,9 +3333,14 @@ export async function initTranslationFamilyDetailPage(
           button.disabled = false;
           button.classList.remove('opacity-60', 'cursor-not-allowed');
         }
-      };
+	      };
 
-      (root as HTMLElement).querySelectorAll<HTMLButtonElement>('[data-family-assign-to-me="true"]').forEach((button) => {
+	      syncEmptyAssignmentPanelControls(root as HTMLElement);
+	      (root as HTMLElement).querySelector<HTMLSelectElement>('[data-family-assignment-locale-select="true"]')?.addEventListener('change', () => {
+	        syncEmptyAssignmentPanelControls(root as HTMLElement);
+	      });
+
+	      (root as HTMLElement).querySelectorAll<HTMLButtonElement>('[data-family-assign-to-me="true"]').forEach((button) => {
         button.addEventListener('click', (event) => {
           event.preventDefault();
           void runLocaleAssignmentAction(button, 'self');
