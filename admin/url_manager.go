@@ -463,6 +463,7 @@ func defaultAdminAPIRoutes() map[string]string {
 		"users.import":                        "/users-import",
 		"users.import.template":               "/users-import/template",
 		"translations.dashboard":              "/translations/dashboard",
+		"translations.families.assignments":   "/translations/families/:family_id/assignments",
 		"translations.options.entity_types":   "/translations/options/entity-types",
 		"translations.options.source_records": "/translations/options/source-records",
 		"translations.options.locales":        "/translations/options/locales",
