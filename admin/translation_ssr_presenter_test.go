@@ -4,6 +4,7 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestTranslationSSRPayloadSectionsNormalizeListPayloads(t *testing.T) {
@@ -90,7 +91,15 @@ func TestTranslationSSRDecorateDashboardAddsReferenceTableVariants(t *testing.T)
 	if got := toString(extractMap(data["alert_summary"])["label"]); got != "1 critical" {
 		t.Fatalf("expected alert summary label, got %q", got)
 	}
+	alerts := translationSSRAnyList(data["alerts"])
+	if got := toString(alerts[0]["display_card_label"]); got != "Blocked" {
+		t.Fatalf("expected alert card label to be display-safe, got %q", got)
+	}
 	tables := extractMap(data["tables"])
+	ordered := translationSSRAnyList(data["ordered_tables"])
+	if len(ordered) != 2 || toString(ordered[0]["id"]) != "blocked_families" || toString(ordered[1]["id"]) != "top_overdue_assignments" {
+		t.Fatalf("expected deterministic dashboard table order, got %+v", ordered)
+	}
 	overdue := extractMap(tables["top_overdue_assignments"])
 	if got := toString(overdue["variant"]); got != "overdue_assignments" {
 		t.Fatalf("expected overdue variant, got %q", got)
@@ -114,6 +123,64 @@ func TestTranslationSSRDecorateDashboardAddsReferenceTableVariants(t *testing.T)
 	locales := translationSSRAnyList(blockedRows[0]["display_locales"])
 	if len(locales) != 4 || toString(locales[3]["label"]) != "+1" {
 		t.Fatalf("expected locale overflow chip, got %+v", locales)
+	}
+}
+
+func TestTranslationSSRDashboardAlertSummaryUsesHighestActualSeverity(t *testing.T) {
+	data := map[string]any{
+		"cards": []map[string]any{
+			{"id": "needs_review"},
+			{"id": "missing_required_locales"},
+		},
+		"alerts": []map[string]any{
+			{"state": "warning", "message": "Needs attention", "card_id": "needs_review"},
+			{"state": "degraded", "message": "Degraded", "card_id": "missing_required_locales"},
+		},
+	}
+
+	translationSSRDecorateDashboard(data, nil)
+
+	summary := extractMap(data["alert_summary"])
+	if got := toString(summary["label"]); got != "1 warning" {
+		t.Fatalf("expected warning summary from actual alert severity, got %q", got)
+	}
+	if got := toString(summary["status"]); got != "warning" {
+		t.Fatalf("expected warning summary status, got %q", got)
+	}
+}
+
+func TestTranslationSSRDecoratorsFormatTypedTimeValues(t *testing.T) {
+	due := time.Date(2026, 3, 13, 15, 30, 0, 0, time.UTC)
+	queue := translationSSRQueueResult(TranslationSSRPresenterInput{
+		QueuePath:      "/admin/translations/queue",
+		EditorBasePath: "/admin/translations/assignments",
+	}, map[string]any{
+		"rows": []map[string]any{{
+			"assignment_id": "asg-1",
+			"due_date":      &due,
+		}},
+	})
+	rows := translationSSRList(queue.Data, "rows")
+	if got := toString(rows[0]["display_due_date"]); got != "Mar 13, 2026" {
+		t.Fatalf("expected typed queue due date to be formatted, got %q", got)
+	}
+
+	family := map[string]any{
+		"locale_variants": []map[string]any{{"locale": "es", "updated_at": due}},
+		"active_assignments": []map[string]any{{
+			"assignment_id": "asg-1",
+			"status":        "pending",
+			"updated_at":    &due,
+		}},
+	}
+	translationSSRDecorateFamilyDetail(family)
+	variants := translationSSRAnyList(family["locale_variants"])
+	if got := toString(variants[0]["display_updated"]); got != "Mar 13, 2026" {
+		t.Fatalf("expected typed locale variant date to be formatted, got %q", got)
+	}
+	assignments := translationSSRAnyList(family["active_assignments"])
+	if got := toString(assignments[0]["display_updated"]); got != "Mar 13, 2026" {
+		t.Fatalf("expected typed assignment activity date to be formatted, got %q", got)
 	}
 }
 

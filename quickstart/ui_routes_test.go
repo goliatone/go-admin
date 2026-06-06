@@ -383,6 +383,12 @@ func TestTranslationQueueTemplateRendersUIPresetLinks(t *testing.T) {
 	if strings.Contains(html, `data-assignment-id="family:family-2"`) {
 		t.Fatalf("expected grouped family parent not to render assignment action wiring, got %q", html)
 	}
+	if !strings.Contains(html, `data-queue-filter-details="true"`) || !strings.Contains(html, `Filter assignments`) {
+		t.Fatalf("expected queue filters to render a no-JS disclosure control, got %q", html)
+	}
+	if strings.Contains(html, `id="queue-filters-panel" class="mt-4 hidden`) {
+		t.Fatalf("expected queue filters not to be hidden without a disclosure control, got %q", html)
+	}
 }
 
 func TestTranslationFamiliesTemplateRendersActiveFilterValues(t *testing.T) {
@@ -481,6 +487,16 @@ func TestMigratedTranslationTemplatesRenderHydratedSSRData(t *testing.T) {
 								}},
 							},
 						},
+						"ordered_tables": []map[string]any{{
+							"id":            "triage",
+							"display_label": "Triage",
+							"variant":       "generic",
+							"total":         1,
+							"rows": []map[string]any{{
+								"title": "Launch page",
+								"href":  "/admin/translations/families/family-1?channel=staging",
+							}},
+						}},
 					},
 				},
 			},
