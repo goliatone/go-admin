@@ -102,6 +102,15 @@ type translationFamilyIdempotencyRecord struct {
 	CreatedAt   time.Time      `json:"created_at"`
 }
 
+type translationFamilyAssignActionDecision struct {
+	Enabled      bool
+	QueueEnabled bool
+	Permission   string
+	ActorID      string
+	Reason       string
+	ReasonCode   string
+}
+
 type translationFamilyBinding struct {
 	admin          *Admin
 	loadRuntime    func(context.Context, string) (*translationFamilyRuntime, error)
@@ -1389,29 +1398,7 @@ func (b *translationFamilyBinding) lookupCreateVariantIdempotency(adminCtx Admin
 	if err != nil {
 		return nil, err
 	}
-	now := b.now()
-	b.idempotencyMu.Lock()
-	defer b.idempotencyMu.Unlock()
-	record, ok := b.idempotencyMap[recordKey]
-	if !ok {
-		return nil, nil
-	}
-	if now.Sub(record.CreatedAt) > translationFamilyCreateVariantIdempotencyTTL {
-		delete(b.idempotencyMap, recordKey)
-		return nil, nil
-	}
-	if record.RequestHash != requestHash {
-		return nil, NewDomainError(string(translationcore.ErrorVersionConflict), "idempotency key was already used with a different create-locale payload", map[string]any{
-			"family_id":        familyID,
-			"idempotency_key":  input.IdempotencyKey,
-			"expected_request": record.RequestHash,
-			"actual_request":   requestHash,
-		})
-	}
-	out := cloneAnyMap(record.Payload)
-	meta := translationFamilyPayloadMap(out, "meta")
-	meta["idempotency_hit"] = true
-	return out, nil
+	return b.lookupCreateIdempotencyRecord(recordKey, requestHash, familyID, input.IdempotencyKey, "idempotency key was already used with a different create-locale payload")
 }
 
 func (b *translationFamilyBinding) lookupCreateAssignmentIdempotency(adminCtx AdminContext, familyID string, input translationFamilyCreateAssignmentInput) (map[string]any, error) {
@@ -1423,6 +1410,10 @@ func (b *translationFamilyBinding) lookupCreateAssignmentIdempotency(adminCtx Ad
 	if err != nil {
 		return nil, err
 	}
+	return b.lookupCreateIdempotencyRecord(recordKey, requestHash, familyID, input.IdempotencyKey, "idempotency key was already used with a different family assignment payload")
+}
+
+func (b *translationFamilyBinding) lookupCreateIdempotencyRecord(recordKey, requestHash, familyID, idempotencyKey, conflictMessage string) (map[string]any, error) {
 	now := b.now()
 	b.idempotencyMu.Lock()
 	defer b.idempotencyMu.Unlock()
@@ -1435,9 +1426,9 @@ func (b *translationFamilyBinding) lookupCreateAssignmentIdempotency(adminCtx Ad
 		return nil, nil
 	}
 	if record.RequestHash != requestHash {
-		return nil, NewDomainError(string(translationcore.ErrorVersionConflict), "idempotency key was already used with a different family assignment payload", map[string]any{
+		return nil, NewDomainError(string(translationcore.ErrorVersionConflict), conflictMessage, map[string]any{
 			"family_id":        familyID,
-			"idempotency_key":  input.IdempotencyKey,
+			"idempotency_key":  idempotencyKey,
 			"expected_request": record.RequestHash,
 			"actual_request":   requestHash,
 		})
@@ -2239,51 +2230,21 @@ func (b *translationFamilyBinding) familyLocaleAssignmentActions(ctx context.Con
 }
 
 func (b *translationFamilyBinding) familyAssignActionState(ctx context.Context, family translationservices.FamilyRecord, variant translationservices.FamilyVariant, assignment TranslationAssignment, hasAssignment bool, state string, self bool) map[string]any {
-	permission := PermAdminTranslationsAssign
-	queueEnabled := b.translationQueueActionsEnabled()
-	allowed := permissionAllowed(b.admin.Authorizer(), ctx, permission, "translations")
-	actorID := strings.TrimSpace(actorFromContext(ctx))
-	enabled := queueEnabled && allowed && (!self || actorID != "") && state != "source_locale" && state != "in_progress" && state != "in_review"
-	reason := ""
-	reasonCode := ""
-	switch {
-	case !queueEnabled:
-		reason = "translation queue feature is disabled"
-		reasonCode = ActionDisabledReasonCodeFeatureDisabled
-	case !allowed:
-		reason = "missing permission: " + permission
-		reasonCode = ActionDisabledReasonCodePermissionDenied
-	case self && actorID == "":
-		reason = "current user identity is required"
-		reasonCode = ActionDisabledReasonCodePermissionDenied
-	case state == "source_locale":
-		reason = "source locale does not need assignment"
-		reasonCode = ActionDisabledReasonCodeInvalidStatus
-	case state == "in_progress":
-		reason = "assignment is already in progress"
-		reasonCode = ActionDisabledReasonCodeInvalidStatus
-	case state == "in_review":
-		reason = "assignment is already in review"
-		reasonCode = ActionDisabledReasonCodeInvalidStatus
-	case self && state == "assigned_to_me":
-		enabled = false
-		reason = "assignment already belongs to you"
-		reasonCode = "already_assigned"
-	}
+	decision := b.familyAssignActionDecision(ctx, state, self)
 	out := map[string]any{
-		"enabled":    enabled,
-		"permission": permission,
+		"enabled":    decision.Enabled,
+		"permission": decision.Permission,
 	}
-	if queueEnabled {
+	if decision.QueueEnabled {
 		if endpoint := b.familyAssignmentEndpoint(family.ID); endpoint != "" {
 			out["endpoint"] = endpoint
 		}
 	}
-	if _, ok := out["endpoint"]; !ok && enabled {
-		enabled = false
+	if _, ok := out["endpoint"]; !ok && decision.Enabled {
+		decision.Enabled = false
 		out["enabled"] = false
-		reason = "family assignment route is unavailable"
-		reasonCode = ActionDisabledReasonCodeFeatureDisabled
+		decision.Reason = "family assignment route is unavailable"
+		decision.ReasonCode = ActionDisabledReasonCodeFeatureDisabled
 	}
 	required := []string{"target_locale"}
 	if !self {
@@ -2294,19 +2255,73 @@ func (b *translationFamilyBinding) familyAssignActionState(ctx context.Context, 
 		"target_locale": strings.TrimSpace(strings.ToLower(variant.Locale)),
 		"work_scope":    normalizeTranslationAssignmentWorkScope(firstNonEmpty(assignment.WorkScope, translationFamilyDefaultWorkScope(family))),
 	}
-	if self && actorID != "" {
-		payload["assignee_id"] = actorID
+	if self && decision.ActorID != "" {
+		payload["assignee_id"] = decision.ActorID
 	}
 	out["payload"] = payload
-	if !enabled {
-		out["reason"] = reason
-		out["reason_code"] = reasonCode
+	if !decision.Enabled {
+		out["reason"] = decision.Reason
+		out["reason_code"] = decision.ReasonCode
 	}
 	if hasAssignment {
 		out["assignment_id"] = strings.TrimSpace(assignment.ID)
 		out["expected_version"] = assignment.Version
 	}
 	return out
+}
+
+func (b *translationFamilyBinding) familyAssignActionDecision(ctx context.Context, state string, self bool) translationFamilyAssignActionDecision {
+	permission := PermAdminTranslationsAssign
+	actorID := strings.TrimSpace(actorFromContext(ctx))
+	allowed := permissionAllowed(b.admin.Authorizer(), ctx, permission, "translations")
+	queueEnabled := b.translationQueueActionsEnabled()
+	decision := translationFamilyAssignActionDecision{
+		Enabled:      queueEnabled && allowed && (!self || actorID != ""),
+		QueueEnabled: queueEnabled,
+		Permission:   permission,
+		ActorID:      actorID,
+	}
+	if reason, code, blocked := translationFamilyAssignPrerequisiteBlocker(queueEnabled, allowed, self, actorID); blocked {
+		decision.Enabled = false
+		decision.Reason = reason
+		decision.ReasonCode = code
+		return decision
+	}
+	if reason, code, blocked := translationFamilyAssignStateBlocker(state, self); blocked {
+		decision.Enabled = false
+		decision.Reason = reason
+		decision.ReasonCode = code
+	}
+	return decision
+}
+
+func translationFamilyAssignPrerequisiteBlocker(queueEnabled, allowed, self bool, actorID string) (string, string, bool) {
+	if !queueEnabled {
+		return "translation queue feature is disabled", ActionDisabledReasonCodeFeatureDisabled, true
+	}
+	if !allowed {
+		return "missing permission: " + PermAdminTranslationsAssign, ActionDisabledReasonCodePermissionDenied, true
+	}
+	if self && actorID == "" {
+		return "current user identity is required", ActionDisabledReasonCodePermissionDenied, true
+	}
+	return "", "", false
+}
+
+func translationFamilyAssignStateBlocker(state string, self bool) (string, string, bool) {
+	switch state {
+	case "source_locale":
+		return "source locale does not need assignment", ActionDisabledReasonCodeInvalidStatus, true
+	case "in_progress":
+		return "assignment is already in progress", ActionDisabledReasonCodeInvalidStatus, true
+	case "in_review":
+		return "assignment is already in review", ActionDisabledReasonCodeInvalidStatus, true
+	case "assigned_to_me":
+		if self {
+			return "assignment already belongs to you", "already_assigned", true
+		}
+	}
+	return "", "", false
 }
 
 func (b *translationFamilyBinding) familyClaimActionState(ctx context.Context, assignment TranslationAssignment, hasAssignment bool) map[string]any {
