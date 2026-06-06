@@ -47,6 +47,76 @@ func TestTranslationSSRPayloadSectionsPreserveRootDashboardPayloads(t *testing.T
 	}
 }
 
+func TestTranslationSSRDecorateDashboardAddsReferenceTableVariants(t *testing.T) {
+	data := map[string]any{
+		"generated": "2026-06-06T00:58:55Z",
+		"cards": []map[string]any{
+			{"id": "blocked_families", "label": "Blocked Families", "alert": map[string]any{"message": "ACTION REQUIRED"}},
+		},
+		"alerts": []map[string]any{
+			{"message": "Action required", "card_id": "blocked_families"},
+		},
+		"tables": map[string]any{
+			"top_overdue_assignments": map[string]any{
+				"rows": []map[string]any{{
+					"assignment_id":   "11111111-1111-1111-1111-111111111201",
+					"source_locale":   "en",
+					"target_locale":   "es",
+					"priority":        "urgent",
+					"status":          "in_progress",
+					"overdue_minutes": 361,
+					"source_title":    "Hero",
+				}},
+			},
+			"blocked_families": map[string]any{
+				"rows": []map[string]any{{
+					"family_id":                     "22222222-2222-2222-2222-222222222202",
+					"content_type":                  "pages",
+					"blocker_codes":                 []string{"missing_locale"},
+					"affected_locales":              []string{"fr", "es", "de", "it"},
+					"missing_required_locale_count": 2,
+					"pending_review_count":          1,
+				}},
+			},
+		},
+	}
+
+	translationSSRDecorateDashboard(data, map[string]any{"refresh_interval_ms": 30000, "latency_target_ms": 300})
+
+	display := extractMap(data["display"])
+	if got := toString(display["refresh_interval_label"]); got != "30s" {
+		t.Fatalf("expected display refresh interval, got %q", got)
+	}
+	if got := toString(extractMap(data["alert_summary"])["label"]); got != "1 critical" {
+		t.Fatalf("expected alert summary label, got %q", got)
+	}
+	tables := extractMap(data["tables"])
+	overdue := extractMap(tables["top_overdue_assignments"])
+	if got := toString(overdue["variant"]); got != "overdue_assignments" {
+		t.Fatalf("expected overdue variant, got %q", got)
+	}
+	overdueRows := translationSSRAnyList(overdue["rows"])
+	if got := toString(overdueRows[0]["display_locale"]); got != "EN -> ES" {
+		t.Fatalf("expected formatted locale route, got %q", got)
+	}
+	if got := toString(overdueRows[0]["display_status"]); got != "In Progress" {
+		t.Fatalf("expected formatted status, got %q", got)
+	}
+	blocked := extractMap(tables["blocked_families"])
+	if got := toString(blocked["variant"]); got != "blocked_families" {
+		t.Fatalf("expected blocked variant, got %q", got)
+	}
+	blockedRows := translationSSRAnyList(blocked["rows"])
+	chips := translationSSRAnyList(blockedRows[0]["display_blockers"])
+	if got := toString(chips[0]["label"]); got != "Missing locale" {
+		t.Fatalf("expected readable blocker chip, got %+v", chips)
+	}
+	locales := translationSSRAnyList(blockedRows[0]["display_locales"])
+	if len(locales) != 4 || toString(locales[3]["label"]) != "+1" {
+		t.Fatalf("expected locale overflow chip, got %+v", locales)
+	}
+}
+
 func TestTranslationSSRQueueResultNormalizesQueuePayloadRows(t *testing.T) {
 	result := translationSSRQueueResult(TranslationSSRPresenterInput{
 		QueuePath:      "/admin/translations/queue",
@@ -310,6 +380,17 @@ func TestTranslationSSRQueueDataGridContract(t *testing.T) {
 	}
 	if got := familiesURL.Query().Get("group_strategy"); got != "server_family" {
 		t.Fatalf("expected families view server strategy, got %q", familiesURL.String())
+	}
+	chips := translationSSRAnyList(grid["active_filter_chips"])
+	if len(chips) != 1 {
+		t.Fatalf("expected only visible non-scope active filters, got %+v", chips)
+	}
+	if got := toString(chips[0]["value"]); got != "Open" {
+		t.Fatalf("expected formatted status chip, got %+v", chips)
+	}
+	sort := extractMap(grid["sort"])
+	if got := toString(sort["label"]); got != "Due Date ASC" {
+		t.Fatalf("expected readable sort label, got %q", got)
 	}
 }
 

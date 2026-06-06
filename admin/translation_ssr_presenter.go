@@ -2,7 +2,10 @@ package admin
 
 import (
 	"net/url"
+	"sort"
+	"strconv"
 	"strings"
+	"time"
 
 	router "github.com/goliatone/go-router"
 )
@@ -155,6 +158,7 @@ func (p *translationSSRPresenter) Dashboard(c router.Context, input TranslationS
 		return TranslationSSRPage{}, err
 	}
 	data, meta := translationSSRPayloadSections(payload)
+	translationSSRDecorateDashboard(data, meta)
 	return TranslationSSRPage{
 		Surface:     TranslationSSRSurfaceDashboard,
 		Title:       "Translation Dashboard",
@@ -189,6 +193,7 @@ func (p *translationSSRPresenter) FamilyDetail(c router.Context, input Translati
 	if err != nil {
 		return TranslationSSRPage{}, err
 	}
+	translationSSRDecorateFamilyDetail(result.Data)
 	return TranslationSSRPage{
 		Surface:      TranslationSSRSurfaceFamilyDetail,
 		Title:        "Translation Family",
@@ -306,6 +311,7 @@ func translationSSRQueueResult(input TranslationSSRPresenterInput, payload any) 
 	data, meta := translationSSRPayloadSections(payload)
 	rows := translationSSRList(data, "rows", "data", "items", "assignments")
 	if len(rows) > 0 {
+		translationSSRDecorateQueueRows(input, rows)
 		data["rows"] = rows
 		data["items"] = rows
 	}
@@ -348,6 +354,7 @@ func translationSSRQueueResult(input TranslationSSRPresenterInput, payload any) 
 }
 
 func translationSSRQueueDataGrid(input TranslationSSRPresenterInput, data, meta map[string]any) map[string]any {
+	filters := translationSSRQueueFilterControls(meta["supported_filter_keys"], input.Query)
 	return map[string]any{
 		"resource": "translation_assignments",
 		"columns": []map[string]any{
@@ -359,8 +366,9 @@ func translationSSRQueueDataGrid(input TranslationSSRPresenterInput, data, meta 
 			{"key": "due_date", "label": "Due", "sortable": true},
 			{"key": "updated_at", "label": "Updated", "sortable": true},
 		},
-		"filters":                 translationSSRQueueFilterControls(meta["supported_filter_keys"], input.Query),
-		"sort":                    map[string]any{"default": meta["default_sort"], "supported": meta["supported_sort_keys"]},
+		"filters":                 filters,
+		"active_filter_chips":     translationSSRQueueActiveFilterChips(input.Query, filters),
+		"sort":                    map[string]any{"default": meta["default_sort"], "supported": meta["supported_sort_keys"], "label": translationSSRQueueSortLabel(meta["default_sort"])},
 		"saved_filter_presets":    translationSSREnrichQueuePresets(input, meta["saved_filter_presets"]),
 		"review_filter_presets":   translationSSREnrichQueuePresets(input, meta["saved_review_filter_presets"]),
 		"grouping":                meta["grouping"],
@@ -403,6 +411,471 @@ func translationSSRQueueFilterControls(raw any, query map[string]string) []map[s
 		})
 	}
 	return out
+}
+
+func translationSSRDecorateDashboard(data, meta map[string]any) {
+	if data == nil {
+		return
+	}
+	display := extractMap(data["display"])
+	if display == nil {
+		display = map[string]any{}
+	}
+	generated := firstNonEmpty(toString(meta["generated_at"]), toString(data["generated"]), toString(data["generated_at"]))
+	display["generated_label"] = translationSSRFormatTimestamp(generated)
+	display["refresh_interval_label"] = translationSSRFormatMilliseconds(firstNonEmpty(toString(meta["refresh_interval_ms"]), toString(data["refresh_interval_ms"])))
+	display["latency_target_label"] = translationSSRFormatMilliseconds(firstNonEmpty(toString(meta["latency_target_ms"]), toString(data["latency_target_ms"]), "300"))
+	data["display"] = display
+
+	cards := translationSSRList(data, "cards")
+	cardLabels := map[string]string{}
+	for _, card := range cards {
+		label := translationSSRDashboardCardLabel(card)
+		card["display_label"] = label
+		card["display_status"] = translationSSRAlertLabel(extractMap(card["alert"]))
+		cardLabels[strings.TrimSpace(toString(card["id"]))] = label
+	}
+	if len(cards) > 0 {
+		data["cards"] = cards
+	}
+
+	alerts := translationSSRAnyList(data["alerts"])
+	for _, alert := range alerts {
+		alert["display_label"] = translationSSRAlertLabel(alert)
+	}
+	if len(alerts) > 0 {
+		data["alerts"] = alerts
+		data["alert_summary"] = translationSSRDashboardAlertSummary(alerts, cardLabels)
+	}
+
+	tables := extractMap(data["tables"])
+	for key, raw := range tables {
+		table := extractMap(raw)
+		if len(table) == 0 {
+			continue
+		}
+		tableID := firstNonEmpty(toString(table["id"]), key)
+		table["id"] = tableID
+		switch tableID {
+		case "blocked_families":
+			table["variant"] = "blocked_families"
+			table["display_label"] = "Blocked"
+			table["columns"] = []map[string]any{
+				{"key": "family", "label": "Family"},
+				{"key": "blockers", "label": "Blockers"},
+				{"key": "affected", "label": "Affected"},
+				{"key": "missing", "label": "Missing"},
+				{"key": "review", "label": "Review"},
+				{"key": "actions", "label": "Actions"},
+			}
+			rows := translationSSRAnyList(table["rows"])
+			for _, row := range rows {
+				translationSSRDecorateDashboardBlockedRow(row)
+			}
+			table["rows"] = rows
+		case "top_overdue_assignments":
+			table["variant"] = "overdue_assignments"
+			table["display_label"] = "Overdue"
+			table["columns"] = []map[string]any{
+				{"key": "assignment", "label": "Assignment"},
+				{"key": "locale", "label": "Locale"},
+				{"key": "priority", "label": "Priority"},
+				{"key": "status", "label": "Status"},
+				{"key": "overdue", "label": "Overdue"},
+				{"key": "actions", "label": "Actions"},
+			}
+			rows := translationSSRAnyList(table["rows"])
+			for _, row := range rows {
+				translationSSRDecorateDashboardOverdueRow(row)
+			}
+			table["rows"] = rows
+		default:
+			table["variant"] = "generic"
+			table["display_label"] = translationSSRHumanLabel(firstNonEmpty(toString(table["label"]), tableID))
+		}
+		tables[key] = table
+	}
+	if len(tables) > 0 {
+		data["tables"] = tables
+	}
+}
+
+func translationSSRDashboardCardLabel(card map[string]any) string {
+	id := strings.TrimSpace(toString(card["id"]))
+	switch id {
+	case "my_tasks":
+		return "Tasks"
+	case "needs_review":
+		return "Review"
+	case "overdue_assignments":
+		return "Overdue"
+	case "blocked_families":
+		return "Blocked"
+	case "missing_required_locales":
+		return "Missing"
+	default:
+		return firstNonEmpty(toString(card["short_label"]), toString(card["label"]), translationSSRHumanLabel(id), "Metric")
+	}
+}
+
+func translationSSRDashboardAlertSummary(alerts []map[string]any, cardLabels map[string]string) map[string]any {
+	chips := []map[string]any{}
+	seen := map[string]bool{}
+	for _, alert := range alerts {
+		cardID := firstNonEmpty(toString(alert["card_id"]), toString(alert["cardId"]))
+		label := firstNonEmpty(cardLabels[cardID], translationSSRAlertLabel(alert))
+		key := strings.ToLower(label)
+		if label == "" || seen[key] {
+			continue
+		}
+		seen[key] = true
+		chips = append(chips, map[string]any{"label": label, "card_id": cardID})
+	}
+	return map[string]any{
+		"count":  len(alerts),
+		"label":  strconv.Itoa(len(alerts)) + " critical",
+		"chips":  chips,
+		"status": "critical",
+	}
+}
+
+func translationSSRDecorateDashboardOverdueRow(row map[string]any) {
+	row["display_title"] = firstNonEmpty(toString(row["source_title"]), toString(row["title"]), toString(row["assignment_id"]), "Assignment")
+	row["display_identifier"] = translationSSRShortID(firstNonEmpty(toString(row["assignment_id"]), toString(row["id"])))
+	row["display_locale"] = translationSSRLocaleRoute(toString(row["source_locale"]), toString(row["target_locale"]))
+	row["display_priority"] = translationSSRHumanLabel(toString(row["priority"]))
+	row["display_status"] = translationSSRHumanLabel(firstNonEmpty(toString(row["status"]), toString(row["queue_state"])))
+	row["display_overdue"] = translationSSRMinutesLabel(row["overdue_minutes"])
+}
+
+func translationSSRDecorateDashboardBlockedRow(row map[string]any) {
+	row["display_title"] = firstNonEmpty(toString(row["source_title"]), toString(row["content_type"]), toString(row["family_id"]), "Family")
+	row["display_identifier"] = translationSSRShortID(firstNonEmpty(toString(row["family_id"]), toString(row["id"])))
+	row["display_missing"] = toString(row["missing_required_locale_count"])
+	row["display_review"] = toString(row["pending_review_count"])
+	row["display_blockers"] = translationSSRBlockerChips(row)
+	locales := row["affected_locales"]
+	if locales == nil {
+		locales = row["affectedLocales"]
+	}
+	row["display_locales"] = translationSSRLocaleChips(locales)
+}
+
+func translationSSRDecorateQueueRows(input TranslationSSRPresenterInput, rows []map[string]any) {
+	for _, row := range rows {
+		if rowType := strings.TrimSpace(toString(row["row_type"])); rowType == "family" || rowType == "group" {
+			row["display_due"] = translationSSRHumanLabel(firstNonEmpty(toString(row["due_state"]), toString(row["family_blocker_count"])))
+			row["display_locales"] = translationSSRLocaleChips(row["target_locales"])
+			continue
+		}
+		row["display_title"] = firstNonEmpty(toString(row["source_title"]), toString(row["source_path"]), toString(row["assignment_id"]), toString(row["id"]))
+		row["display_type"] = translationSSRHumanLabel(firstNonEmpty(toString(row["entity_type"]), "content"))
+		row["display_identifier"] = translationSSRShortID(firstNonEmpty(toString(row["family_id"]), toString(row["assignment_id"]), toString(row["id"])))
+		row["display_locale"] = translationSSRLocaleRoute(toString(row["source_locale"]), toString(row["target_locale"]))
+		row["display_status"] = translationSSRHumanLabel(firstNonEmpty(toString(row["status"]), toString(row["queue_state"]), "unknown"))
+		row["display_priority"] = translationSSRHumanLabel(toString(row["priority"]))
+		row["display_due_state"] = translationSSRHumanLabel(toString(row["due_state"]))
+		row["display_due_date"] = translationSSRFormatDate(toString(row["due_date"]))
+		row["display_assignee"] = firstNonEmpty(toString(row["assignee_label"]), translationSSRActorFallback(toString(row["assignee_id"])), "Unassigned")
+		row["display_reviewer"] = firstNonEmpty(toString(row["reviewer_label"]), translationSSRActorFallback(toString(row["reviewer_id"])))
+		row["editor_href"] = translationSSRHrefWithQuery(
+			strings.TrimRight(strings.TrimSpace(input.EditorBasePath), "/")+"/"+url.PathEscape(firstNonEmpty(toString(row["assignment_id"]), toString(row["id"])))+"/edit",
+			nil,
+			map[string]string{"channel": strings.TrimSpace(input.Channel)},
+		)
+	}
+}
+
+func translationSSRQueueActiveFilterChips(query map[string]string, controls []map[string]any) []map[string]any {
+	visible := map[string]map[string]any{}
+	orderedKeys := []string{}
+	for _, control := range controls {
+		key := strings.TrimSpace(toString(control["key"]))
+		if key == "" {
+			continue
+		}
+		visible[key] = control
+		orderedKeys = append(orderedKeys, key)
+	}
+	chips := []map[string]any{}
+	seen := map[string]bool{}
+	appendChip := func(key string) {
+		key = strings.TrimSpace(key)
+		value := strings.TrimSpace(query[key])
+		if key == "" || value == "" || translationSSRQueueFilterChipHidden(key) {
+			return
+		}
+		if seen[key] {
+			return
+		}
+		seen[key] = true
+		label := translationSSRHumanLabel(key)
+		if control, ok := visible[key]; ok {
+			label = firstNonEmpty(toString(control["label"]), label)
+		}
+		chips = append(chips, map[string]any{
+			"key":   key,
+			"label": label,
+			"value": translationSSRFormatFilterValue(value),
+		})
+	}
+	for _, key := range orderedKeys {
+		appendChip(key)
+	}
+	extraKeys := make([]string, 0, len(query))
+	for key := range query {
+		if _, ok := visible[key]; ok {
+			continue
+		}
+		extraKeys = append(extraKeys, key)
+	}
+	sort.Strings(extraKeys)
+	for _, key := range extraKeys {
+		appendChip(key)
+	}
+	return chips
+}
+
+func translationSSRQueueFilterChipHidden(key string) bool {
+	switch strings.TrimSpace(key) {
+	case "channel", "tenant_id", "org_id", "group_by", "group_strategy", "page", "per_page", "sort", "order", "sort_by", "sort_desc", "preset":
+		return true
+	default:
+		return false
+	}
+}
+
+func translationSSRQueueSortLabel(raw any) string {
+	sort := "due_date"
+	order := "asc"
+	values := extractMap(raw)
+	if len(values) > 0 {
+		sort = firstNonEmpty(toString(values["sort"]), sort)
+		order = firstNonEmpty(toString(values["order"]), order)
+	}
+	return strings.TrimSpace(translationSSRHumanLabel(sort) + " " + strings.ToUpper(order))
+}
+
+func translationSSRDecorateFamilyDetail(data map[string]any) {
+	if data == nil {
+		return
+	}
+	blockers := translationSSRAnyList(data["blockers"])
+	for _, blocker := range blockers {
+		blocker["display_label"] = translationSSRBlockerLabel(firstNonEmpty(toString(blocker["blocker_code"]), toString(blocker["code"])))
+	}
+	if len(blockers) > 0 {
+		data["blockers"] = blockers
+	}
+	variants := translationSSRAnyList(data["locale_variants"])
+	for _, variant := range variants {
+		variant["display_status"] = translationSSRHumanLabel(firstNonEmpty(toString(variant["status"]), "unknown"))
+		variant["display_updated"] = translationSSRFormatDate(toString(variant["updated_at"]))
+	}
+	if len(variants) > 0 {
+		data["locale_variants"] = variants
+	}
+	assignments := translationSSRAnyList(data["active_assignments"])
+	for _, assignment := range assignments {
+		assignment["display_status"] = translationSSRHumanLabel(firstNonEmpty(toString(assignment["status"]), "open"))
+		assignment["display_priority"] = translationSSRHumanLabel(firstNonEmpty(toString(assignment["priority"]), "normal"))
+		assignment["display_assignee"] = firstNonEmpty(toString(assignment["assignee_label"]), translationSSRActorFallback(toString(assignment["assignee_id"])), "Unassigned")
+	}
+	if len(assignments) > 0 {
+		data["active_assignments"] = assignments
+	}
+	localeAssignments := extractMap(data["locale_assignments"])
+	for key, raw := range localeAssignments {
+		item := extractMap(raw)
+		if len(item) == 0 {
+			continue
+		}
+		item["display_state"] = translationSSRHumanLabel(firstNonEmpty(toString(item["state"]), "unassigned"))
+		assignment := extractMap(item["assignment"])
+		if len(assignment) > 0 {
+			assignment["display_status"] = translationSSRHumanLabel(toString(assignment["status"]))
+			assignment["display_assignee"] = firstNonEmpty(toString(assignment["assignee_label"]), translationSSRActorFallback(toString(assignment["assignee_id"])), "No active assignment")
+			item["assignment"] = assignment
+		}
+		localeAssignments[key] = item
+	}
+	if len(localeAssignments) > 0 {
+		data["locale_assignments"] = localeAssignments
+	}
+}
+
+func translationSSRAlertLabel(alert map[string]any) string {
+	message := strings.TrimSpace(firstNonEmpty(toString(alert["display_label"]), toString(alert["message"]), toString(alert["code"])))
+	switch strings.ToLower(strings.ReplaceAll(message, "_", " ")) {
+	case "action required":
+		return "Action"
+	case "needs attention":
+		return "Attention"
+	case "healthy":
+		return "Healthy"
+	}
+	return firstNonEmpty(translationSSRHumanLabel(message), "Action")
+}
+
+func translationSSRBlockerChips(row map[string]any) []map[string]any {
+	codes := translationSSRStringSlice(row["blocker_codes"])
+	if len(codes) == 0 {
+		codes = translationSSRStringSlice(row["blockerCodes"])
+	}
+	labels := extractMap(row["blocker_labels"])
+	if len(labels) == 0 {
+		labels = extractMap(row["blockerLabels"])
+	}
+	out := make([]map[string]any, 0, len(codes)+len(labels))
+	seen := map[string]bool{}
+	for _, code := range codes {
+		label := firstNonEmpty(toString(labels[code]), translationSSRBlockerLabel(code))
+		key := strings.ToLower(label)
+		if label == "" || seen[key] {
+			continue
+		}
+		seen[key] = true
+		out = append(out, map[string]any{"code": code, "label": label, "tone": translationSSRBlockerTone(code)})
+	}
+	for code, rawLabel := range labels {
+		label := firstNonEmpty(toString(rawLabel), translationSSRBlockerLabel(code))
+		key := strings.ToLower(label)
+		if label == "" || seen[key] {
+			continue
+		}
+		seen[key] = true
+		out = append(out, map[string]any{"code": code, "label": label, "tone": translationSSRBlockerTone(code)})
+	}
+	return out
+}
+
+func translationSSRLocaleChips(raw any) []map[string]any {
+	locales := translationSSRStringSlice(raw)
+	out := make([]map[string]any, 0, len(locales))
+	for i, locale := range locales {
+		if i >= 3 {
+			out = append(out, map[string]any{"label": "+" + strconv.Itoa(len(locales)-i), "overflow": true})
+			break
+		}
+		out = append(out, map[string]any{"label": strings.ToUpper(strings.TrimSpace(locale))})
+	}
+	return out
+}
+
+func translationSSRBlockerLabel(code string) string {
+	switch strings.ToLower(strings.TrimSpace(code)) {
+	case "missing_locale":
+		return "Missing locale"
+	case "pending_review":
+		return "Pending review"
+	case "outdated_source":
+		return "Outdated source"
+	case "qa_blocked":
+		return "QA blocked"
+	default:
+		return translationSSRHumanLabel(code)
+	}
+}
+
+func translationSSRBlockerTone(code string) string {
+	switch strings.ToLower(strings.TrimSpace(code)) {
+	case "missing_locale":
+		return "warning"
+	case "pending_review":
+		return "info"
+	case "outdated_source", "qa_blocked":
+		return "danger"
+	default:
+		return "neutral"
+	}
+}
+
+func translationSSRActorFallback(id string) string {
+	id = strings.TrimSpace(id)
+	if id == "" || id == "__me__" || id == "__missing_actor__" {
+		return ""
+	}
+	return id
+}
+
+func translationSSRFormatFilterValue(value string) string {
+	parts := strings.Split(value, ",")
+	formatted := make([]string, 0, len(parts))
+	for _, part := range parts {
+		if text := translationSSRHumanLabel(part); text != "" {
+			formatted = append(formatted, text)
+		}
+	}
+	return strings.Join(formatted, ", ")
+}
+
+func translationSSRLocaleRoute(source, target string) string {
+	source = strings.ToUpper(strings.TrimSpace(source))
+	target = strings.ToUpper(strings.TrimSpace(target))
+	if source == "" {
+		source = "-"
+	}
+	if target == "" {
+		target = "-"
+	}
+	return source + " -> " + target
+}
+
+func translationSSRShortID(id string) string {
+	id = strings.TrimSpace(id)
+	if len(id) <= 12 {
+		return id
+	}
+	return id[:8] + "..." + id[len(id)-4:]
+}
+
+func translationSSRMinutesLabel(raw any) string {
+	value := strings.TrimSpace(toString(raw))
+	if value == "" {
+		return "-"
+	}
+	return value + "m"
+}
+
+func translationSSRFormatMilliseconds(value string) string {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return ""
+	}
+	ms, err := strconv.Atoi(value)
+	if err != nil {
+		return value
+	}
+	if ms > 0 && ms%1000 == 0 {
+		return strconv.Itoa(ms/1000) + "s"
+	}
+	return strconv.Itoa(ms) + "ms"
+}
+
+func translationSSRFormatTimestamp(value string) string {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return "now"
+	}
+	for _, layout := range []string{time.RFC3339Nano, time.RFC3339, "2006-01-02T15:04:05Z07:00"} {
+		if parsed, err := time.Parse(layout, value); err == nil {
+			return parsed.Local().Format("1/2/2006, 3:04:05 PM")
+		}
+	}
+	return value
+}
+
+func translationSSRFormatDate(value string) string {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return ""
+	}
+	for _, layout := range []string{time.RFC3339Nano, time.RFC3339, "2006-01-02"} {
+		if parsed, err := time.Parse(layout, value); err == nil {
+			return parsed.Local().Format("Jan 2, 2006")
+		}
+	}
+	return value
 }
 
 func translationSSRHumanLabel(key string) string {
