@@ -3259,6 +3259,57 @@ function assignmentActionFromSSRButton(button: HTMLButtonElement, apiBasePath: s
   };
 }
 
+function selectedLocaleAssignmentOption(root: HTMLElement, trigger: HTMLElement): HTMLOptionElement | null {
+  if (asString(trigger.dataset.localeAssignmentSource) !== 'empty-panel') return null;
+  const select = root.querySelector<HTMLSelectElement>('[data-family-assignment-locale-select="true"]');
+  return select?.selectedOptions[0] ?? null;
+}
+
+function assignmentActionFromSSRLocaleControl(
+  root: HTMLElement,
+  button: HTMLButtonElement,
+  kind: 'self' | 'user' | 'claim'
+): TranslationFamilyAssignmentActionState {
+  const selected = selectedLocaleAssignmentOption(root, button);
+  const targetLocale = asString(button.dataset.assignmentTargetLocale || selected?.dataset.assignmentTargetLocale);
+  const workScope = asString(button.dataset.assignmentWorkScope || selected?.dataset.assignmentWorkScope);
+  const endpoint = kind === 'self'
+    ? asString(button.dataset.assignmentEndpoint || selected?.dataset.assignToMeEndpoint || selected?.dataset.assignmentEndpoint)
+    : kind === 'user'
+      ? asString(button.dataset.assignmentEndpoint || selected?.dataset.assignToUserEndpoint || selected?.dataset.assignmentEndpoint)
+      : asString(button.dataset.assignmentEndpoint);
+  const assignmentId = asString(button.dataset.assignmentId);
+  const expectedVersion = asNumber(button.dataset.rowVersion, 0);
+  const payload: Record<string, unknown> = {};
+  if (targetLocale) payload.target_locale = targetLocale;
+  if (workScope) payload.work_scope = workScope;
+  if (kind === 'self') {
+    const assigneeID = asString(button.dataset.assignmentAssigneeId || selected?.dataset.assignToMeAssigneeId);
+    if (assigneeID) payload.assignee_id = assigneeID;
+  }
+  let reason = button.getAttribute('title') || '';
+  if (!endpoint) {
+    reason = reason || 'Assignment action endpoint is unavailable.';
+  } else if ((kind === 'self' || kind === 'user') && !targetLocale) {
+    reason = reason || 'Assignment target locale is unavailable.';
+  } else if (kind === 'self' && !asString(payload.assignee_id)) {
+    reason = reason || 'Self-assignment payload is unavailable.';
+  }
+  return {
+    enabled: !button.disabled && button.getAttribute('aria-disabled') !== 'true' && !reason,
+    permission: '',
+    endpoint,
+    href: '',
+    label: button.textContent?.trim() || kind,
+    reason,
+    reasonCode: '',
+    requiredFields: [],
+    payload,
+    assignmentId,
+    expectedVersion,
+  };
+}
+
 async function bindTranslationFamilyDetailSSRPage(
   root: HTMLElement,
   endpoint: string,
@@ -3272,6 +3323,12 @@ async function bindTranslationFamilyDetailSSRPage(
   const familyId = asString(root.dataset.familyId);
   const channel = translationFamilyDetailChannel(endpoint) || asString(root.dataset.channel);
   const client = createTranslationFamilyClient({ basePath: apiBasePath, fetch: options.fetch });
+
+  await hydrateFamilyAssigneeSelects(root, apiBasePath, { fetch: options.fetch });
+  syncEmptyAssignmentPanelControls(root);
+  root.querySelector<HTMLSelectElement>('[data-family-assignment-locale-select="true"]')?.addEventListener('change', () => {
+    syncEmptyAssignmentPanelControls(root);
+  });
 
   root.querySelectorAll<HTMLButtonElement>('[data-translation-create-locale-trigger="true"]').forEach((button) => {
     if (button.dataset.translationCreateBound === 'true') return;
@@ -3312,6 +3369,72 @@ async function bindTranslationFamilyDetailSSRPage(
         button.disabled = false;
         button.classList.remove('opacity-60', 'cursor-not-allowed');
       }
+    });
+  });
+
+  const runLocaleAssignmentAction = async (
+    button: HTMLButtonElement,
+    kind: 'self' | 'user' | 'claim'
+  ): Promise<void> => {
+    const action = assignmentActionFromSSRLocaleControl(root, button, kind);
+    if (!action.enabled) {
+      globalToast('warning', action.reason || 'Assignment action is unavailable.');
+      return;
+    }
+    const payload: Record<string, unknown> = {};
+    if (kind === 'user') {
+      const key = selectedLocaleAssignmentKey(root, button);
+      const input = assigneeControlForAction(root, key, button);
+      const assigneeID = asString(input?.value);
+      if (!assigneeID) {
+        globalToast('warning', 'Assignee is required.');
+        input?.focus();
+        return;
+      }
+      payload.assignee_id = assigneeID;
+    }
+    if (channel) {
+      payload.channel = channel;
+    }
+    button.disabled = true;
+    button.classList.add('opacity-60', 'cursor-not-allowed');
+    try {
+      await postTranslationFamilyAssignmentAction(action, payload, { fetch: options.fetch });
+      globalToast('success', kind === 'claim' ? 'Assignment claimed.' : 'Assignment updated.');
+      if (typeof window !== 'undefined') {
+        window.location.reload();
+      }
+    } catch (error) {
+      globalToast('error', error instanceof Error ? error.message : 'Failed to update assignment.');
+      button.disabled = false;
+      button.classList.remove('opacity-60', 'cursor-not-allowed');
+    }
+  };
+
+  root.querySelectorAll<HTMLButtonElement>('[data-family-assign-to-me="true"]').forEach((button) => {
+    if (button.dataset.translationAssignmentBound === 'true') return;
+    button.dataset.translationAssignmentBound = 'true';
+    button.addEventListener('click', (event) => {
+      event.preventDefault();
+      void runLocaleAssignmentAction(button, 'self');
+    });
+  });
+
+  root.querySelectorAll<HTMLButtonElement>('[data-family-assign-to-user="true"]').forEach((button) => {
+    if (button.dataset.translationAssignmentBound === 'true') return;
+    button.dataset.translationAssignmentBound = 'true';
+    button.addEventListener('click', (event) => {
+      event.preventDefault();
+      void runLocaleAssignmentAction(button, 'user');
+    });
+  });
+
+  root.querySelectorAll<HTMLButtonElement>('[data-family-claim-assignment="true"]').forEach((button) => {
+    if (button.dataset.translationAssignmentBound === 'true') return;
+    button.dataset.translationAssignmentBound = 'true';
+    button.addEventListener('click', (event) => {
+      event.preventDefault();
+      void runLocaleAssignmentAction(button, 'claim');
     });
   });
 

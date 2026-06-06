@@ -45,7 +45,7 @@
           <div>
             <h2 id="translation-family-list-results" class="text-lg font-semibold text-gray-900">Families</h2>
             <p class="mt-1 text-sm text-gray-500">
-              {{ page.Meta.total|default:"0" }} total · page {{ page.Meta.page|default:"1" }} · {{ page.Meta.per_page|default:"50" }} per page
+              {{ page.Meta.total|default:"0" }} total &middot; page {{ page.Meta.page|default:"1" }} &middot; {{ page.Meta.per_page|default:"50" }} per page
             </p>
           </div>
           <div class="flex flex-wrap items-center gap-2 text-sm">
@@ -59,7 +59,15 @@
         </div>
 
         {% if page.DataGrid.filters %}
-        <form class="mt-5 grid gap-3 md:grid-cols-5" data-family-list-filters="true" method="get">
+        <form class="mt-5 rounded-lg border border-gray-200 bg-gray-50 p-4 shadow-sm" data-family-list-filters="true" method="get">
+          <div class="grid gap-3 md:grid-cols-3 xl:grid-cols-7">
+          <label class="grid gap-1 text-sm">
+            <span class="text-xs font-semibold uppercase tracking-wide text-gray-500">Channel</span>
+            <input class="rounded-md border border-gray-300 px-3 py-2 text-sm"
+                   type="text"
+                   name="channel" value="{{ page.Meta.channel|default:"" }}"
+                   placeholder="default">
+          </label>
           {% for filter in page.DataGrid.filters %}
           <label class="grid gap-1 text-sm">
             <span class="text-xs font-semibold uppercase tracking-wide text-gray-500">{{ filter.label|default:filter.key }}</span>
@@ -70,58 +78,116 @@
                    placeholder="{{ filter.label|default:filter.key }}">
           </label>
           {% endfor %}
-          {% if page.Meta.channel %}
-          <input type="hidden" name="channel" value="{{ page.Meta.channel }}">
-          {% endif %}
           <div class="flex items-end">
             <button type="submit" class="btn btn-primary w-full">Apply</button>
+          </div>
           </div>
         </form>
         {% endif %}
 
         {% if page.Data.families %}
-        <div class="mt-5 overflow-x-auto">
-          <table class="min-w-full divide-y divide-gray-200 text-sm">
-            <thead class="bg-gray-50 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+        <div class="mt-5 overflow-x-auto rounded-lg border border-gray-200">
+          <table class="min-w-full text-left text-sm">
+            <thead class="bg-gray-50 text-xs font-semibold uppercase tracking-wide text-gray-500">
               <tr>
-                <th class="px-3 py-2">Family</th>
-                <th class="px-3 py-2">Content type</th>
-                <th class="px-3 py-2">Readiness</th>
-                <th class="px-3 py-2">Locales</th>
-                <th class="px-3 py-2">Blockers</th>
-                <th class="px-3 py-2">Updated</th>
-                <th class="px-3 py-2">Action</th>
+                <th class="px-4 py-3">Family</th>
+                <th class="px-4 py-3">Readiness</th>
+                <th class="px-4 py-3">Blockers</th>
+                <th class="px-4 py-3">Pressure</th>
+                <th class="px-4 py-3">Locales</th>
+                <th class="px-4 py-3 text-right">Actions</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-gray-100 bg-white">
               {% for family in page.Data.families %}
               <tr data-family-id="{{ family.family_id }}">
-                <td class="px-3 py-3">
-                  <div class="font-medium text-gray-900">{{ family.source_title|default:family.family_id }}</div>
-                  <div class="text-xs text-gray-500">{{ family.source_locale|default:"-" }} source</div>
+                <td class="max-w-md px-4 py-5 align-top">
+                  <a class="font-semibold text-gray-900 hover:text-sky-700"
+                     href="{{ family.ssr_links.detail }}">
+                    {{ family.source_title|default:family.family_id }}
+                  </a>
+                  <p class="mt-1 break-all text-xs text-gray-500">{{ family.family_id }}</p>
+                  <p class="mt-2 text-xs text-gray-500">{{ family.content_type|default:"content" }} &middot; Source {{ family.source_locale|default:"-" }}</p>
                 </td>
-                <td class="px-3 py-3 text-gray-600">{{ family.content_type|default:"-" }}</td>
-                <td class="px-3 py-3">
-                  <span class="inline-flex rounded-full border border-gray-200 bg-gray-50 px-2 py-1 text-xs font-medium text-gray-700">
+                <td class="px-4 py-5 align-top">
+                  <span class="{% if family.readiness_state == "blocked" %}bg-rose-50 text-rose-700{% elif family.readiness_state == "ready" %}bg-emerald-50 text-emerald-700{% else %}bg-gray-100 text-gray-700{% endif %} inline-flex rounded-full px-2.5 py-1 text-xs font-semibold">
                     {{ family.readiness_state|default:"unknown" }}
                   </span>
                 </td>
-                <td class="px-3 py-3 text-gray-600">
-                  {{ family.available_locales|length|default:"0" }} available · {{ family.missing_locales|length|default:"0" }} missing
-                </td>
-                <td class="px-3 py-3 text-gray-600">
+                <td class="px-4 py-5 align-top">
                   {% if family.blocker_labels %}
-                    {{ family.blocker_labels|join:", " }}
+                  <div class="flex flex-wrap gap-1.5">
+                    {% for blocker_code, blocker_label in family.blocker_labels %}
+                    <span class="{% if blocker_code == "missing_locale" %}bg-amber-50 text-amber-700{% elif blocker_code == "pending_review" %}bg-blue-50 text-blue-700{% else %}bg-gray-100 text-gray-700{% endif %} rounded-full px-2 py-1 text-xs font-medium">{{ blocker_label }}</span>
+                    {% endfor %}
+                  </div>
                   {% else %}
-                    -
+                  <span class="text-sm text-gray-400">No blockers</span>
                   {% endif %}
                 </td>
-                <td class="px-3 py-3 text-gray-500">{{ family.updated_at|default:"-" }}</td>
-                <td class="px-3 py-3">
-                  <a class="text-sm font-medium text-sky-700 hover:text-sky-900"
-                     href="{{ translation_family_base_path }}/{{ family.family_id }}{% if page.Meta.channel %}?channel={{ page.Meta.channel }}{% endif %}">
-                    Open
-                  </a>
+                <td class="px-4 py-5 align-top">
+                  <div class="flex flex-wrap gap-2">
+                    <span class="inline-flex min-w-16 flex-col rounded-md bg-gray-50 px-2 py-1">
+                      <span class="font-semibold {% if family.missing_required_locale_count %}text-rose-700{% else %}text-gray-900{% endif %}">{{ family.missing_required_locale_count|default:"0" }}</span>
+                      <span class="text-[11px] font-semibold uppercase tracking-wide text-gray-500">Missing</span>
+                    </span>
+                    <span class="inline-flex min-w-16 flex-col rounded-md bg-gray-50 px-2 py-1">
+                      <span class="font-semibold {% if family.pending_review_count %}text-amber-700{% else %}text-gray-900{% endif %}">{{ family.pending_review_count|default:"0" }}</span>
+                      <span class="text-[11px] font-semibold uppercase tracking-wide text-gray-500">Review</span>
+                    </span>
+                    <span class="inline-flex min-w-16 flex-col rounded-md bg-gray-50 px-2 py-1">
+                      <span class="font-semibold {% if family.outdated_locale_count %}text-violet-700{% else %}text-gray-900{% endif %}">{{ family.outdated_locale_count|default:"0" }}</span>
+                      <span class="text-[11px] font-semibold uppercase tracking-wide text-gray-500">Outdated</span>
+                    </span>
+                  </div>
+                </td>
+                <td class="px-4 py-5 align-top">
+                  <div class="space-y-2">
+                    <div>
+                      <span class="block text-xs font-semibold uppercase tracking-wide text-gray-500">Available</span>
+                      <div class="mt-1 flex flex-wrap gap-1">
+                        {% if family.available_locales %}
+                        {% for locale in family.available_locales %}
+                        <span class="rounded bg-gray-100 px-2 py-1 text-xs font-semibold uppercase text-gray-700">{{ locale }}</span>
+                        {% endfor %}
+                        {% else %}
+                        <span class="text-sm text-gray-400">None</span>
+                        {% endif %}
+                      </div>
+                    </div>
+                    <div>
+                      <span class="block text-xs font-semibold uppercase tracking-wide text-gray-500">Missing</span>
+                      <div class="mt-1 flex flex-wrap gap-1">
+                        {% if family.missing_locales %}
+                        {% for locale in family.missing_locales %}
+                        <span class="rounded bg-rose-50 px-2 py-1 text-xs font-semibold uppercase text-rose-700">{{ locale }}</span>
+                        {% endfor %}
+                        {% else %}
+                        <span class="text-sm text-gray-400">None</span>
+                        {% endif %}
+                      </div>
+                    </div>
+                  </div>
+                </td>
+                <td class="px-4 py-5 align-top">
+                  <div class="flex flex-col items-stretch gap-2 text-center">
+                    <a class="rounded-md bg-gray-950 px-4 py-3 text-sm font-semibold text-white hover:bg-gray-800"
+                       href="{{ family.ssr_links.detail }}">
+                      Open family
+                    </a>
+                    {% if family.ssr_links.matrix %}
+                    <a class="text-sm font-semibold text-gray-700 hover:text-sky-700"
+                       href="{{ family.ssr_links.matrix }}">
+                      Matrix
+                    </a>
+                    {% endif %}
+                    {% if family.ssr_links.queue %}
+                    <a class="text-sm font-semibold text-gray-500 hover:text-sky-700"
+                       href="{{ family.ssr_links.queue }}">
+                      Queue
+                    </a>
+                    {% endif %}
+                  </div>
                 </td>
               </tr>
               {% endfor %}

@@ -431,6 +431,84 @@ test('translation-family detail SSR enhancement: binds assignment actions withou
   assert.deepEqual(JSON.parse(String(requests[1].init.body)), { channel: 'staging', expected_version: 3 });
 });
 
+test('translation-family detail SSR enhancement: binds assignment planning controls from server markup', async () => {
+  const dom = setupDom(`
+    <div id="root"
+         data-ssr-enhanced="true"
+         data-endpoint="/admin/api/translations/families/family-missing?channel=default"
+         data-family-id="family-missing"
+         data-base-path="/admin">
+      <select data-family-assignment-locale-select="true">
+        <option value="es:localization"
+                data-assign-to-me-enabled="true"
+                data-assign-to-me-endpoint="/admin/api/translations/families/family-missing/assignments"
+                data-assign-to-me-assignee-id="translator-self"
+                data-assign-to-user-enabled="true"
+                data-assign-to-user-endpoint="/admin/api/translations/families/family-missing/assignments"
+                data-assignment-target-locale="es"
+                data-assignment-work-scope="localization">ES - localization</option>
+      </select>
+      <select data-family-assignee-select="__empty_panel__" aria-label="Assignee">
+        <option value="">Loading assignees...</option>
+      </select>
+      <button type="button" data-family-assign-to-me="true" data-locale-assignment-source="empty-panel">Assign to me</button>
+      <button type="button" data-family-assign-to-user="true" data-locale-assignment-source="empty-panel">Assign</button>
+    </div>
+  `);
+  try {
+    Object.defineProperty(dom.window.location, 'reload', { value() {}, configurable: true });
+  } catch {}
+  const root = dom.window.document.getElementById('root');
+  const requests = [];
+  const fetchImpl = async (url, init = {}) => {
+    requests.push({ url: String(url), init });
+    if (String(url).includes('/translations/options/assignees')) {
+      return assigneeOptionsResponse();
+    }
+    if (init.method === 'POST') {
+      return new Response(JSON.stringify({ data: { assignment_id: 'asg-es' } }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+    throw new Error(`unexpected fetch: ${url}`);
+  };
+
+  await initTranslationFamilyDetailPage(root, { fetch: fetchImpl });
+  assert.equal(requests.length, 1, 'SSR assignment controls should only hydrate assignee options');
+  assert.equal(requests[0].url.includes('/translations/options/assignees'), true);
+
+  root.querySelector('[data-family-assign-to-me="true"]')
+    .dispatchEvent(new dom.window.Event('click', { bubbles: true }));
+  await nextTick();
+  await nextTick();
+
+  const selfPost = requests.find((entry) => entry.init.method === 'POST');
+  assert.equal(selfPost.url, '/admin/api/translations/families/family-missing/assignments');
+  assert.deepEqual(JSON.parse(String(selfPost.init.body)), {
+    target_locale: 'es',
+    work_scope: 'localization',
+    assignee_id: 'translator-self',
+    channel: 'default',
+  });
+
+  const assigneeSelect = root.querySelector('[data-family-assignee-select="__empty_panel__"]');
+  assigneeSelect.value = 'translator-2';
+  root.querySelector('[data-family-assign-to-user="true"]')
+    .dispatchEvent(new dom.window.Event('click', { bubbles: true }));
+  await nextTick();
+  await nextTick();
+
+  const posts = requests.filter((entry) => entry.init.method === 'POST');
+  assert.equal(posts.length, 2);
+  assert.deepEqual(JSON.parse(String(posts[1].init.body)), {
+    target_locale: 'es',
+    work_scope: 'localization',
+    assignee_id: 'translator-2',
+    channel: 'default',
+  });
+});
+
 test('translation-family detail SSR enhancement: create locale fetches metadata only on demand', async () => {
   const dom = setupDom(`
     <div id="root"
