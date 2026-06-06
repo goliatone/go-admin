@@ -45,7 +45,7 @@
             </div>
             <div class="flex flex-col items-start gap-3 lg:items-end">
               <p class="text-xs font-semibold uppercase tracking-wider text-gray-500">
-                Last updated {{ translation_dashboard_ssr.Meta.generated_at|default:translation_dashboard_ssr.Data.generated|default:"now" }}
+                Last updated {{ translation_dashboard_ssr.Data.display.generated_label|default:translation_dashboard_ssr.Meta.generated_at|default:translation_dashboard_ssr.Data.generated|default:"now" }}
               </p>
               <a class="btn btn-primary" data-dashboard-refresh="true" href="{{ translation_dashboard_ssr.Links.dashboard|default:"/admin/translations/dashboard" }}">Refresh dashboard</a>
             </div>
@@ -58,11 +58,11 @@
               </span>
               <span class="inline-flex items-center gap-1.5 rounded-md border border-gray-200 bg-white px-2.5 py-1 font-medium" title="Refresh interval">
                 <i class="iconoir-clock text-gray-400" aria-hidden="true"></i>
-                {{ translation_dashboard_ssr.Meta.refresh_interval_ms|default:"30000" }}ms
+                {{ translation_dashboard_ssr.Data.display.refresh_interval_label|default:"30s" }}
               </span>
               <span class="inline-flex items-center gap-1.5 rounded-md border border-gray-200 bg-white px-2.5 py-1 font-medium" title="Latency target">
                 <i class="iconoir-info-circle text-gray-400" aria-hidden="true"></i>
-                {{ translation_dashboard_ssr.Meta.latency_target_ms|default:"300" }}ms
+                {{ translation_dashboard_ssr.Data.display.latency_target_label|default:"300ms" }}
               </span>
             </div>
             <button type="button"
@@ -78,7 +78,7 @@
             <dl class="grid gap-3 sm:grid-cols-3">
               <div>
                 <dt class="font-semibold uppercase tracking-wider text-gray-500">Generated</dt>
-                <dd class="mt-1 text-gray-900">{{ translation_dashboard_ssr.Meta.generated_at|default:translation_dashboard_ssr.Data.generated|default:"now" }}</dd>
+                <dd class="mt-1 text-gray-900">{{ translation_dashboard_ssr.Data.display.generated_label|default:translation_dashboard_ssr.Meta.generated_at|default:translation_dashboard_ssr.Data.generated|default:"now" }}</dd>
               </div>
               <div>
                 <dt class="font-semibold uppercase tracking-wider text-gray-500">Channel</dt>
@@ -86,7 +86,7 @@
               </div>
               <div>
                 <dt class="font-semibold uppercase tracking-wider text-gray-500">Target</dt>
-                <dd class="mt-1 text-gray-900">{{ translation_dashboard_ssr.Meta.latency_target_ms|default:"300" }}ms latency</dd>
+                <dd class="mt-1 text-gray-900">{{ translation_dashboard_ssr.Data.display.latency_target_label|default:"300ms" }} latency</dd>
               </div>
             </dl>
           </div>
@@ -100,10 +100,10 @@
                   aria-expanded="false">
             <div class="flex flex-wrap items-center gap-2">
               <i class="iconoir-warning-triangle text-rose-700" aria-hidden="true"></i>
-              <span class="font-semibold">{{ translation_dashboard_ssr.Data.alerts|length }} alerts</span>
-              {% for alert in translation_dashboard_ssr.Data.alerts %}
+              <span class="font-semibold">{{ translation_dashboard_ssr.Data.alert_summary.label|default:translation_dashboard_ssr.Data.alerts|length|default:"0 alerts" }}</span>
+              {% for alert_chip in translation_dashboard_ssr.Data.alert_summary.chips %}
               <span class="rounded-md bg-white px-2 py-1 text-xs font-medium text-rose-700">
-                {% if alert.message == "Action required" or alert.message == "ACTION REQUIRED" %}Action{% elif alert.message == "Needs attention" %}Attention{% else %}{{ alert.message|default:alert.code|default:"Action" }}{% endif %}
+                {{ alert_chip.label|default:"Action" }}
               </span>
               {% endfor %}
             </div>
@@ -113,7 +113,7 @@
             <ul class="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
               {% for alert in translation_dashboard_ssr.Data.alerts %}
               <li class="rounded-md bg-white/70 px-3 py-2 text-xs">
-                <span class="font-semibold">{% if alert.message == "Action required" or alert.message == "ACTION REQUIRED" %}Action{% elif alert.message == "Needs attention" %}Attention{% else %}{{ alert.message|default:"Action" }}{% endif %}</span>
+                <span class="font-semibold">{{ alert.display_label|default:"Action" }}</span>
                 {% if alert.card_id or alert.cardId %}
                 <span class="ml-1 text-rose-700/70">{{ alert.card_id|default:alert.cardId }}</span>
                 {% endif %}
@@ -129,9 +129,9 @@
           {% for card in translation_dashboard_ssr.Data.cards %}
           <article class="rounded-lg border border-gray-200 bg-white p-4 shadow-sm" data-dashboard-card="{{ card.id }}">
             <div class="flex items-start justify-between gap-3">
-              <p class="max-w-32 truncate text-xs font-semibold uppercase tracking-wider text-gray-500">{{ card.label|default:"Metric" }}</p>
+              <p class="text-xs font-semibold uppercase tracking-wider text-gray-500">{{ card.display_label|default:card.label|default:"Metric" }}</p>
               <span class="{% if card.alert.state == "critical" %}bg-rose-50 text-rose-700{% elif card.alert.state == "warning" %}bg-amber-50 text-amber-700{% else %}bg-emerald-50 text-emerald-700{% endif %} rounded-full px-2 py-1 text-xs font-semibold">
-                {% if card.alert.message == "Action required" or card.alert.message == "ACTION REQUIRED" %}Action{% elif card.alert.message == "Needs attention" %}Attention{% else %}{{ card.alert.message|default:"Healthy" }}{% endif %}
+                {{ card.display_status|default:"Healthy" }}
               </span>
             </div>
             <p class="mt-4 text-3xl font-semibold text-gray-900">{{ card.count|default:"0" }}</p>
@@ -190,6 +190,57 @@
             </div>
             {% if table.rows %}
             <div class="overflow-x-auto">
+              {% if table.variant == "blocked_families" %}
+              <table class="min-w-full text-sm">
+                <caption class="sr-only">Blocked families with family detail, blocker codes, affected locales, and drill-down actions.</caption>
+                <thead class="bg-gray-50 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
+                  <tr>
+                    <th class="px-5 py-3">Family</th>
+                    <th class="px-5 py-3">Blockers</th>
+                    <th class="px-5 py-3">Affected</th>
+                    <th class="px-5 py-3 text-right">Missing</th>
+                    <th class="px-5 py-3 text-right">Review</th>
+                    <th class="px-5 py-3 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100 bg-white">
+                  {% for row in table.rows %}
+                  <tr>
+                    <td class="px-5 py-4">
+                      <div class="font-semibold text-gray-900">{{ row.display_title|default:row.content_type|default:row.family_id|default:"Family" }}</div>
+                      <div class="mt-1 text-xs text-gray-500">{{ row.display_identifier|default:row.family_id|default:"" }}</div>
+                    </td>
+                    <td class="px-5 py-4">
+                      <div class="flex flex-wrap gap-1">
+                        {% for chip in row.display_blockers %}
+                        <span class="{% if chip.tone == "warning" %}bg-amber-100 text-amber-800{% elif chip.tone == "danger" %}bg-rose-100 text-rose-800{% elif chip.tone == "info" %}bg-sky-100 text-sky-800{% else %}bg-gray-100 text-gray-700{% endif %} inline-flex rounded-md px-2 py-0.5 text-xs font-medium">{{ chip.label }}</span>
+                        {% endfor %}
+                      </div>
+                    </td>
+                    <td class="px-5 py-4">
+                      <div class="flex flex-wrap gap-1">
+                        {% for chip in row.display_locales %}
+                        <span class="inline-flex rounded-md bg-gray-100 px-1.5 py-0.5 text-xs font-medium text-gray-600">{{ chip.label }}</span>
+                        {% endfor %}
+                      </div>
+                    </td>
+                    <td class="px-5 py-4 text-right font-semibold text-amber-700">{{ row.display_missing|default:"0" }}</td>
+                    <td class="px-5 py-4 text-right font-semibold text-gray-700">{{ row.display_review|default:"0" }}</td>
+                    <td class="px-5 py-4">
+                      <div class="flex justify-end gap-2">
+                        {% if row.links.family.href %}
+                        <a class="btn btn-secondary" href="{{ row.links.family.href }}">{{ row.links.family.label|default:"Open family" }}</a>
+                        {% endif %}
+                        {% if row.links.queue.href %}
+                        <a class="btn btn-secondary" href="{{ row.links.queue.href }}">{{ row.links.queue.label|default:"Open queue" }}</a>
+                        {% endif %}
+                      </div>
+                    </td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+              {% else %}
               <table class="min-w-full text-sm">
                 <thead class="bg-gray-50 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
                   <tr>
@@ -205,24 +256,18 @@
                   {% for row in table.rows %}
                   <tr>
                     <td class="px-5 py-4">
-                      <div class="font-semibold text-gray-900">{{ row.source_title|default:row.title|default:row.family_id|default:row.assignment_id|default:"-" }}</div>
-                      <div class="mt-1 text-xs text-gray-500">{{ row.assignment_id|default:row.family_id|default:"" }}</div>
+                      <div class="font-semibold text-gray-900">{{ row.display_title|default:row.source_title|default:row.assignment_id|default:"-" }}</div>
+                      <div class="mt-1 text-xs text-gray-500">{{ row.display_identifier|default:row.assignment_id|default:"" }}</div>
                     </td>
                     <td class="px-5 py-4 text-gray-700">
-                      {% if row.source_locale or row.target_locale %}
-                      {{ row.source_locale|default:"-" }} to {{ row.target_locale|default:"-" }}
-                      {% elif row.affected_locales %}
-                      {{ row.affected_locales|join:", " }}
-                      {% else %}
-                      -
-                      {% endif %}
+                      {{ row.display_locale|default:"-" }}
                     </td>
-                    <td class="px-5 py-4 text-gray-700">{{ row.priority|default:"-" }}</td>
+                    <td class="px-5 py-4 text-gray-700">{{ row.display_priority|default:row.priority|default:"-" }}</td>
                     <td class="px-5 py-4">
-                      <span class="rounded-md bg-gray-100 px-2 py-1 text-xs font-medium text-gray-700">{{ row.status|default:row.readiness_state|default:row.due_state|default:"-" }}</span>
+                      <span class="rounded-md bg-gray-100 px-2 py-1 text-xs font-medium text-gray-700">{{ row.display_status|default:row.status|default:"-" }}</span>
                     </td>
                     <td class="px-5 py-4 font-semibold {% if row.due_state == "overdue" or row.overdue_minutes %}text-rose-700{% else %}text-gray-500{% endif %}">
-                      {% if row.overdue_minutes %}{{ row.overdue_minutes }}m{% else %}{{ row.missing_required_locale_count|default:row.pending_review_count|default:"-" }}{% endif %}
+                      {{ row.display_overdue|default:"-" }}
                     </td>
                     <td class="px-5 py-4">
                       <div class="flex justify-end gap-2">
@@ -244,6 +289,7 @@
                   {% endfor %}
                 </tbody>
               </table>
+              {% endif %}
             </div>
             {% else %}
             <p class="m-5 rounded-md border border-dashed border-gray-300 bg-gray-50 p-4 text-sm text-gray-500">

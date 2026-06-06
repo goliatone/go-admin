@@ -102,10 +102,10 @@
                       {% if variant.is_source %}
                       <span class="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700">Source</span>
                       {% endif %}
-                      <span class="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700">{{ variant.status|default:"unknown" }}</span>
+                      <span class="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700">{{ variant.display_status|default:variant.status|default:"Unknown" }}</span>
                     </div>
                     <p class="mt-2 text-sm text-gray-600">{{ variant.fields.title|default:family.source_variant.fields.title|default:family.family_id }}</p>
-                    <p class="mt-1 text-xs text-gray-500">Updated {{ variant.updated_at|default:"n/a" }}</p>
+                    <p class="mt-1 text-xs text-gray-500">Updated {{ variant.display_updated|default:variant.updated_at|default:"n/a" }}</p>
                   </div>
                   <div class="flex flex-wrap items-center gap-2 lg:justify-end">
                     <a class="text-sm font-semibold text-sky-700 hover:text-sky-900" href="{{ translation_content_base|default:"/admin/content" }}/{{ family.content_type|default:"content" }}/{{ variant.source_record_id|default:variant.id|default:"" }}?locale={{ variant.locale|default:"" }}">
@@ -128,13 +128,13 @@
                   <div>
                     <div class="flex flex-wrap items-center gap-2">
                       <span class="text-sm font-semibold uppercase text-gray-900">{{ locale_assignment.locale|default:"-" }}</span>
-                      <span class="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-semibold text-gray-700">{{ locale_assignment.state|default:"unassigned" }}</span>
+                      <span class="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-semibold text-gray-700">{{ locale_assignment.display_state|default:locale_assignment.state|default:"Unassigned" }}</span>
                       {% if locale_assignment.assignment.status %}
-                      <span class="rounded-full bg-blue-50 px-2 py-0.5 text-xs font-semibold text-blue-700">{{ locale_assignment.assignment.status }}</span>
+                      <span class="rounded-full bg-blue-50 px-2 py-0.5 text-xs font-semibold text-blue-700">{{ locale_assignment.assignment.display_status|default:locale_assignment.assignment.status }}</span>
                       {% endif %}
                     </div>
                     <p class="mt-1 text-xs text-gray-500">
-                      {{ locale_assignment.assignment.assignee_label|default:locale_assignment.assignment.assignee_id|default:"No active assignment." }}
+                      {{ locale_assignment.assignment.display_assignee|default:locale_assignment.assignment.assignee_label|default:locale_assignment.assignment.assignee_id|default:"No active assignment." }}
                     </p>
                   </div>
                   <div class="flex flex-wrap items-center gap-2 lg:justify-end">
@@ -206,11 +206,11 @@
                     <div>
                       <div class="flex flex-wrap items-center gap-2">
                         <span class="text-sm font-semibold uppercase text-gray-900">{{ assignment.target_locale|default:"-" }}</span>
-                        <span class="rounded-full bg-blue-50 px-2 py-0.5 text-xs font-semibold text-blue-700">{{ assignment.status|default:"open" }}</span>
-                        <span class="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-semibold text-gray-700">{{ assignment.priority|default:"normal" }}</span>
+                        <span class="rounded-full bg-blue-50 px-2 py-0.5 text-xs font-semibold text-blue-700">{{ assignment.display_status|default:assignment.status|default:"Open" }}</span>
+                        <span class="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-semibold text-gray-700">{{ assignment.display_priority|default:assignment.priority|default:"Normal" }}</span>
                       </div>
                       <p class="mt-2 text-sm text-gray-600">
-                        {{ assignment.assignee_label|default:assignment.assignee_id|default:"Unassigned" }}
+                        {{ assignment.display_assignee|default:assignment.assignee_label|default:assignment.assignee_id|default:"Unassigned" }}
                       </p>
                     </div>
                     <div class="flex flex-wrap items-center gap-2">
@@ -329,7 +329,7 @@
               <ul class="mt-4 space-y-3">
                 {% for blocker in family.blockers %}
                 <li class="rounded-lg border border-gray-200 bg-gray-50 p-3 text-sm">
-                  <span class="rounded-full bg-rose-50 px-2 py-0.5 text-xs font-semibold text-rose-700">{{ blocker.blocker_code|default:blocker.code|default:"blocker" }}</span>
+                  <span class="rounded-full bg-rose-50 px-2 py-0.5 text-xs font-semibold text-rose-700">{{ blocker.display_label|default:blocker.blocker_code|default:blocker.code|default:"Blocker" }}</span>
                   <dl class="mt-2 grid grid-cols-[5rem_1fr] gap-x-3 gap-y-1 text-xs text-gray-600">
                     <dt>Locale</dt>
                     <dd>{{ blocker.locale|default:"-" }}</dd>
@@ -350,7 +350,7 @@
               <ol class="mt-4 space-y-3 text-sm text-gray-600">
                 {% for assignment in family.active_assignments %}
                 <li class="rounded-md border border-gray-100 bg-gray-50 p-3">
-                  {{ assignment.target_locale|default:"-" }} assignment {{ assignment.status|default:"updated" }}{% if assignment.updated_at %} &middot; {{ assignment.updated_at }}{% endif %}
+                  {{ assignment.target_locale|default:"-" }} assignment {{ assignment.display_status|default:assignment.status|default:"Updated" }}{% if assignment.updated_at %} &middot; {{ assignment.updated_at }}{% endif %}
                 </li>
                 {% endfor %}
               </ol>
