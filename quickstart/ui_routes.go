@@ -596,7 +596,14 @@ func registerAdminUITranslationOverviewRoutes[T any](
 				"translation_queue_api_path":     prefixBasePath(apiBase, path.Join("translations", "queue")),
 				"translation_families_api_path":  prefixBasePath(apiBase, path.Join("translations", "families")),
 			}
-			view = withTranslationSSRView(c, view, options, translationSSRInput(c, options, apiBase), options.translationSSRPresenter.Dashboard, "translation_dashboard_ssr")
+			input := translationSSRInput(c, options, apiBase)
+			if !options.registerTranslationQueue {
+				input.QueuePath = ""
+			}
+			if !options.registerTranslationFamilyList {
+				input.FamilyListPath = ""
+			}
+			view = withTranslationSSRView(c, view, options, input, options.translationSSRPresenter.Dashboard, "translation_dashboard_ssr")
 			return renderView(c, options.translationDashboardTemplate, options.translationDashboardTitle, options.translationDashboardActive, view)
 		}))
 	}
@@ -651,7 +658,10 @@ func registerAdminUITranslationDetailRoutes[T any](
 				Trail:        []BreadcrumbItem{Breadcrumb(options.translationDashboardTitle, options.translationDashboardPath)},
 				CurrentLabel: options.translationFamilyListTitle,
 			})
-			view = withTranslationSSRView(c, view, options, translationSSRInput(c, options, apiBase), options.translationSSRPresenter.FamilyList, "translation_families_ssr")
+			input := translationSSRInput(c, options, apiBase)
+			input.MatrixPath = matrixPath
+			input.QueuePath = queuePath
+			view = withTranslationSSRView(c, view, options, input, options.translationSSRPresenter.FamilyList, "translation_families_ssr")
 			return renderView(c, options.translationFamilyListTemplate, options.translationFamilyListTitle, options.translationFamilyListActive, view)
 		}))
 	}

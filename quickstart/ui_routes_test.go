@@ -27,12 +27,22 @@ type stubTranslationSSRPresenter struct {
 	err   error
 }
 
+type capturingTranslationSSRPresenter struct {
+	stubTranslationSSRPresenter
+	familyListInput admin.TranslationSSRPresenterInput
+}
+
 func (s stubTranslationSSRPresenter) Dashboard(router.Context, admin.TranslationSSRPresenterInput) (admin.TranslationSSRPage, error) {
 	return s.page(admin.TranslationSSRSurfaceDashboard)
 }
 
 func (s stubTranslationSSRPresenter) FamilyList(router.Context, admin.TranslationSSRPresenterInput) (admin.TranslationSSRPage, error) {
 	return s.page(admin.TranslationSSRSurfaceFamilyList)
+}
+
+func (p *capturingTranslationSSRPresenter) FamilyList(c router.Context, input admin.TranslationSSRPresenterInput) (admin.TranslationSSRPage, error) {
+	p.familyListInput = input
+	return p.stubTranslationSSRPresenter.FamilyList(c, input)
 }
 
 func (s stubTranslationSSRPresenter) FamilyDetail(router.Context, admin.TranslationSSRPresenterInput) (admin.TranslationSSRPage, error) {
@@ -222,6 +232,7 @@ func TestTranslationFamilyDetailTemplateRendersSSRSections(t *testing.T) {
 		"Activity preview",
 		"data-ssr-enhanced=\"true\"",
 		"data-family-assignment-action=\"claim\"",
+		"data-locale-assignment-source=\"empty-panel\" aria-disabled=\"true\" disabled",
 	} {
 		if !strings.Contains(template, expected) {
 			t.Fatalf("expected family detail template to contain %q", expected)
@@ -391,6 +402,11 @@ func TestTranslationFamiliesTemplateRendersActiveFilterValues(t *testing.T) {
 					"source_locale":   "en",
 					"content_type":    "pages",
 					"readiness_state": "blocked",
+					"ssr_links": map[string]any{
+						"detail": "/admin/translations/families/family-1?channel=staging",
+						"matrix": "/admin/translations/matrix?channel=staging&content_type=pages&family_id=family-1&readiness_state=blocked",
+						"queue":  "/admin/translations/queue?channel=staging&family_id=family-1",
+					},
 				}},
 			},
 			DataGrid: map[string]any{
@@ -415,6 +431,9 @@ func TestTranslationFamiliesTemplateRendersActiveFilterValues(t *testing.T) {
 		`name="channel" value="staging"`,
 		`href="/admin/translations/matrix?channel=staging"`,
 		`href="/admin/translations/queue?channel=staging"`,
+		`href="/admin/translations/families/family-1?channel=staging"`,
+		`href="/admin/translations/matrix?channel=staging&amp;content_type=pages&amp;family_id=family-1&amp;readiness_state=blocked"`,
+		`href="/admin/translations/queue?channel=staging&amp;family_id=family-1"`,
 	} {
 		if !strings.Contains(html, expected) {
 			t.Fatalf("expected rendered family list HTML to contain %q, got %q", expected, html)
@@ -560,7 +579,8 @@ func TestTranslationEditorTemplateRendersSSRSections(t *testing.T) {
 		"data-translation-editor-ssr=\"true\"",
 		"data-translation-editor-initial-state",
 		"Translation fields",
-		"Workflow actions",
+		"Review actions",
+		"Management actions",
 		"QA summary",
 		"Workflow timeline",
 		"data-ssr-enhanced=\"true\"",
@@ -755,8 +775,9 @@ func TestRegisterAdminUIRoutesTranslationFamiliesShellContext(t *testing.T) {
 		translationCapabilityModuleState{HasState: true},
 	)
 
+	presenter := &capturingTranslationSSRPresenter{}
 	captureRouter := newUIRoutesCaptureRouter()
-	if err := RegisterAdminUIRoutes(captureRouter, cfg, adm, nil); err != nil {
+	if err := RegisterAdminUIRoutes(captureRouter, cfg, adm, nil, WithUITranslationSSRPresenter(presenter)); err != nil {
 		t.Fatalf("register core ui routes: %v", err)
 	}
 	handler := captureRouter.getHandlers["/admin/translations/families"]
@@ -789,6 +810,12 @@ func TestRegisterAdminUIRoutesTranslationFamiliesShellContext(t *testing.T) {
 
 	if err := handler(ctx); err != nil {
 		t.Fatalf("render family-list shell: %v", err)
+	}
+	if got := strings.TrimSpace(presenter.familyListInput.MatrixPath); got != "/admin/translations/matrix" {
+		t.Fatalf("expected family-list presenter to receive registered matrix path, got %q", got)
+	}
+	if got := strings.TrimSpace(presenter.familyListInput.QueuePath); got != "" {
+		t.Fatalf("expected family-list presenter to omit disabled queue path, got %q", got)
 	}
 	ctx.AssertExpectations(t)
 }
