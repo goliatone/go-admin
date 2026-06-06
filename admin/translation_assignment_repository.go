@@ -3,6 +3,7 @@ package admin
 import (
 	"context"
 	"errors"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -644,12 +645,7 @@ func translationAssignmentMatchesFilter(assignment TranslationAssignment, key st
 	if len(values) == 0 {
 		return true
 	}
-	for _, value := range values {
-		if expected == value {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(values, expected)
 }
 
 func normalizedInMemoryAssignmentFilterValues(key string, raw any) []string {
