@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"net/url"
 	"strings"
 	"testing"
 )
@@ -137,6 +138,72 @@ func TestTranslationSSRFamilyListLinksPreserveChannel(t *testing.T) {
 	}
 }
 
+func TestTranslationSSRFamilyListRowLinksRespectRouteAvailability(t *testing.T) {
+	row := map[string]any{
+		"family_id":       "family 1",
+		"content_type":    "pages",
+		"readiness_state": "blocked",
+	}
+	links := translationSSRFamilyListRowLinks(TranslationSSRPresenterInput{
+		FamilyBasePath: "/admin/translations/families",
+		Channel:        "staging",
+		Query: map[string]string{
+			"blocker_code":   "missing_locale",
+			"missing_locale": "es",
+		},
+	}, row)
+
+	if got := toString(links["detail"]); got != "/admin/translations/families/family%201?channel=staging" {
+		t.Fatalf("expected detail link to preserve channel and escape family id, got %q", got)
+	}
+	if got := toString(links["matrix"]); got != "" {
+		t.Fatalf("expected disabled matrix route to be omitted, got %q", got)
+	}
+	if got := toString(links["queue"]); got != "" {
+		t.Fatalf("expected disabled queue route to be omitted, got %q", got)
+	}
+
+	links = translationSSRFamilyListRowLinks(TranslationSSRPresenterInput{
+		FamilyBasePath: "/admin/translations/families",
+		MatrixPath:     "/admin/translations/matrix?view=compact",
+		QueuePath:      "/admin/translations/queue?review_state=needs_review",
+		Channel:        "staging",
+		Query: map[string]string{
+			"blocker_code":   "missing_locale",
+			"missing_locale": "es",
+		},
+	}, row)
+
+	matrixURL, err := url.Parse(toString(links["matrix"]))
+	if err != nil {
+		t.Fatalf("parse matrix url: %v", err)
+	}
+	matrixQuery := matrixURL.Query()
+	for key, want := range map[string]string{
+		"family_id":       "family 1",
+		"channel":         "staging",
+		"content_type":    "pages",
+		"readiness_state": "blocked",
+		"blocker_code":    "missing_locale",
+		"missing_locale":  "es",
+		"view":            "compact",
+	} {
+		if got := matrixQuery.Get(key); got != want {
+			t.Fatalf("expected matrix query %s=%q, got %q in %q", key, want, got, matrixURL.String())
+		}
+	}
+	queueURL, err := url.Parse(toString(links["queue"]))
+	if err != nil {
+		t.Fatalf("parse queue url: %v", err)
+	}
+	if got := queueURL.Query().Get("family_id"); got != "family 1" {
+		t.Fatalf("expected queue family filter, got %q", got)
+	}
+	if got := queueURL.Query().Get("review_state"); got != "needs_review" {
+		t.Fatalf("expected existing queue query to be preserved, got %q", got)
+	}
+}
+
 func TestTranslationSSRQueueDataGridContract(t *testing.T) {
 	data := map[string]any{
 		"rows": []map[string]any{{"assignment_id": "asg-1"}},
@@ -158,6 +225,13 @@ func TestTranslationSSRQueueDataGridContract(t *testing.T) {
 		EditorBasePath: "/admin/translations/assignments",
 		QueuePath:      "/admin/translations/queue",
 		Channel:        "staging",
+		Query: map[string]string{
+			"status":         "open",
+			"tenant_id":      "tenant-1",
+			"org_id":         "org-1",
+			"group_by":       "family_id",
+			"group_strategy": "server_family",
+		},
 	}, data, meta)
 
 	if got := toString(grid["resource"]); got != "translation_assignments" {
@@ -172,6 +246,10 @@ func TestTranslationSSRQueueDataGridContract(t *testing.T) {
 	if actions, ok := grid["row_actions"].([]map[string]any); !ok || len(actions) == 0 {
 		t.Fatalf("expected row actions, got %+v", grid["row_actions"])
 	}
+	filters, ok := grid["filters"].([]map[string]any)
+	if !ok || len(filters) == 0 || toString(filters[0]["key"]) != "status" || toString(filters[0]["value"]) != "open" {
+		t.Fatalf("expected active filter metadata, got %+v", grid["filters"])
+	}
 	presets, ok := grid["saved_filter_presets"].([]map[string]any)
 	if !ok || len(presets) != 1 {
 		t.Fatalf("expected enriched saved filter presets, got %+v", grid["saved_filter_presets"])
@@ -185,6 +263,53 @@ func TestTranslationSSRQueueDataGridContract(t *testing.T) {
 		if !strings.Contains(href, expected) {
 			t.Fatalf("expected preset href %q to contain %q", href, expected)
 		}
+	}
+	viewLinks := extractMap(grid["view_links"])
+	currentURL, err := url.Parse(toString(viewLinks["current"]))
+	if err != nil {
+		t.Fatalf("parse current view url: %v", err)
+	}
+	if got := currentURL.Query().Get("group_strategy"); got != "server_family" {
+		t.Fatalf("expected current link to preserve active grouping, got %q", currentURL.String())
+	}
+	clearURL, err := url.Parse(toString(viewLinks["clear_all"]))
+	if err != nil {
+		t.Fatalf("parse clear-all url: %v", err)
+	}
+	if got := clearURL.Query().Get("status"); got != "" {
+		t.Fatalf("expected clear-all link to remove filters, got %q", clearURL.String())
+	}
+	if got := clearURL.Query().Get("channel"); got != "staging" {
+		t.Fatalf("expected clear-all link to preserve channel, got %q", clearURL.String())
+	}
+	listURL, err := url.Parse(toString(viewLinks["list"]))
+	if err != nil {
+		t.Fatalf("parse list view url: %v", err)
+	}
+	if got := listURL.Query().Get("group_by"); got != "" {
+		t.Fatalf("expected list view link to clear grouping, got %q", listURL.String())
+	}
+	for key, want := range map[string]string{"status": "open", "tenant_id": "tenant-1", "org_id": "org-1", "channel": "staging"} {
+		if got := listURL.Query().Get(key); got != want {
+			t.Fatalf("expected list query %s=%q, got %q in %q", key, want, got, listURL.String())
+		}
+	}
+	groupedURL, err := url.Parse(toString(viewLinks["grouped"]))
+	if err != nil {
+		t.Fatalf("parse grouped view url: %v", err)
+	}
+	if got := groupedURL.Query().Get("group_by"); got != "family_id" {
+		t.Fatalf("expected grouped view family grouping, got %q", groupedURL.String())
+	}
+	if got := groupedURL.Query().Get("group_strategy"); got != "page_local" {
+		t.Fatalf("expected grouped view local strategy, got %q", groupedURL.String())
+	}
+	familiesURL, err := url.Parse(toString(viewLinks["families"]))
+	if err != nil {
+		t.Fatalf("parse families view url: %v", err)
+	}
+	if got := familiesURL.Query().Get("group_strategy"); got != "server_family" {
+		t.Fatalf("expected families view server strategy, got %q", familiesURL.String())
 	}
 }
 

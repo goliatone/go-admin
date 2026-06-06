@@ -559,7 +559,7 @@ func (b *translationQueueBinding) translationEditorLocaleNavigationPayload(edito
 		"current_locale":     currentLocale,
 		"source_locale":      sourceLocale,
 		"current_work_scope": currentWorkScope,
-		"family_detail_url":  translationEditorFamilyDetailURL(b.admin, family.ID),
+		"family_detail_url":  translationSSRHrefWithChannel(translationEditorFamilyDetailURL(b.admin, family.ID), editorCtx.Environment),
 		"locales":            entries,
 	}
 }
