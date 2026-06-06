@@ -1,4 +1,5 @@
 import { escapeAttribute, escapeHTML } from '../shared/html.js';
+import { renderIcon } from '../shared/icon-renderer.js';
 import { asNumberish as asNumber, asRecord, asString } from '../shared/coercion.js';
 import { buildEndpointURL } from '../shared/query-state/url-state.js';
 import { normalizeNumberRecord, normalizeStringRecord } from '../shared/record-normalization.js';
@@ -22,6 +23,21 @@ import {
   CARD,
   getStatusColorClass,
 } from '../translation-shared/index.js';
+import {
+  ICON_BAN,
+  ICON_CHECK,
+  ICON_CHEVRON_DOWN,
+  ICON_CHEVRON_RIGHT,
+  ICON_CLOSE,
+  ICON_CLOCK,
+  ICON_COPY,
+  ICON_DOCUMENT,
+  ICON_GLOBE,
+  ICON_INFO,
+  ICON_REFRESH,
+  ICON_SETTINGS,
+  ICON_WARNING,
+} from '../translation-shared/icon-constants.js';
 
 export type DashboardAlertState = 'ok' | 'warning' | 'critical' | 'degraded';
 export type TranslationDashboardScreenState = 'idle' | 'loading' | 'ready' | 'error';
@@ -691,12 +707,12 @@ const TABLE_TAB_CONFIG: Record<string, { label: string; shortLabel: string; icon
   top_overdue_assignments: {
     label: 'Top Overdue Assignments',
     shortLabel: 'Overdue',
-    icon: '<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>',
+    icon: ICON_CLOCK,
   },
   blocked_families: {
     label: 'Blocked Families',
     shortLabel: 'Blocked',
-    icon: '<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/></svg>',
+    icon: ICON_BAN,
   },
 };
 
@@ -704,17 +720,17 @@ const RUNBOOK_LABELS: Record<string, { label: string; shortLabel: string; icon: 
   'translations.dashboard.overdue_triage': {
     label: 'Overdue Assignment Triage',
     shortLabel: 'Overdue Triage',
-    icon: '<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>',
+    icon: ICON_CLOCK,
   },
   'translations.dashboard.review_backlog': {
     label: 'Reviewer Backlog Triage',
     shortLabel: 'Review Backlog',
-    icon: '<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>',
+    icon: ICON_CHECK,
   },
   'translations.dashboard.publish_blockers': {
     label: 'Publish Blocker Remediation',
     shortLabel: 'Fix Blockers',
-    icon: '<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>',
+    icon: ICON_WARNING,
   },
 };
 
@@ -747,7 +763,24 @@ function getRunbookShortLabel(runbookId: string, fallback: string): string {
 }
 
 function getRunbookIcon(runbookId: string): string {
-  return RUNBOOK_LABELS[runbookId]?.icon || '';
+  const icon = RUNBOOK_LABELS[runbookId]?.icon;
+  return icon ? renderIcon(icon, { size: '16px', extraClass: 'text-current' }) : '';
+}
+
+function renderDashboardIcon(icon: string, extraClass = '', size = '16px'): string {
+  return renderIcon(icon, { size, extraClass: `text-current ${extraClass}`.trim() });
+}
+
+function shortAlertLabel(message: string, state: DashboardAlertState): string {
+  const normalized = message.trim().toLowerCase().replace(/[_-]+/g, ' ');
+  if (normalized === 'action required') return 'Action';
+  if (normalized === 'needs attention') return 'Attention';
+  if (normalized === 'healthy') return 'Healthy';
+  if (normalized === 'ok') return 'Healthy';
+  if (!normalized) {
+    return state === 'critical' ? 'Action' : state === 'warning' ? 'Attention' : formatMetricLabel(state);
+  }
+  return formatMetricLabel(normalized);
 }
 
 // Button variant styles (Fix 4)
@@ -767,9 +800,7 @@ function renderTruncatedUUID(uuid: string): string {
             data-copy-uuid="${escapeAttribute(trimmed)}"
             title="Click to copy: ${escapeAttribute(trimmed)}">
       <span>${escapeHTML(truncated)}</span>
-      <svg class="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
-      </svg>
+      ${renderDashboardIcon(ICON_COPY, 'h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity text-gray-400', '12px')}
     </button>
   `;
 }
@@ -834,9 +865,7 @@ function renderCardDrilldown(card: TranslationDashboardCard): string {
       title="${escapeAttribute(card.drilldown.description || card.drilldown.label || 'Open drilldown')}"
     >
       <span>${escapeHTML(card.drilldown.label || 'Open')}</span>
-      <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-      </svg>
+      ${renderDashboardIcon(ICON_CHEVRON_RIGHT, 'h-3.5 w-3.5', '14px')}
     </a>
   `;
 }
@@ -855,7 +884,7 @@ function renderCardRunbookLink(card: TranslationDashboardCard, runbooks: Transla
       data-dashboard-card-runbook="${escapeAttribute(card.id)}"
       title="${escapeAttribute(runbook.description || fullLabel)}"
     >
-      ${icon || `<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>`}
+      ${icon || renderDashboardIcon(ICON_DOCUMENT, 'h-4 w-4', '16px')}
       <span>${escapeHTML(shortLabel)}</span>
     </a>
   `;
@@ -870,8 +899,8 @@ function renderCard(card: TranslationDashboardCard, runbooks: TranslationDashboa
     <article class="${CARD} p-4 shadow-sm flex flex-col" data-dashboard-card="${escapeAttribute(card.id)}" title="${escapeAttribute(titleText)}">
       <div class="flex items-start justify-between gap-2">
         <p class="text-xs font-semibold uppercase tracking-[0.24em] text-gray-500 truncate">${escapeHTML(cardShortLabel)}</p>
-        <span class="flex-shrink-0 inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.16em] ${escapeAttribute(alertToneClass(card.alert.state))}">
-          ${escapeHTML(card.alert.message || card.alert.state)}
+        <span class="flex-shrink-0 inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold ${escapeAttribute(alertToneClass(card.alert.state))}">
+          ${escapeHTML(shortAlertLabel(card.alert.message, card.alert.state))}
         </span>
       </div>
       <div class="mt-3">
@@ -917,9 +946,7 @@ function renderDismissibleAlert(alert: TranslationDashboardAlert, cards: Transla
               class="flex-shrink-0 p-1 rounded hover:bg-gray-200/50 transition-colors"
               data-dismiss-alert="${escapeAttribute(alert.code)}"
               aria-label="Dismiss alert for ${escapeHTML(cardLabel)}">
-        <svg class="h-4 w-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-        </svg>
+        ${renderDashboardIcon(ICON_CLOSE, 'h-4 w-4 text-gray-500', '16px')}
       </button>
     </div>
   `;
@@ -968,15 +995,11 @@ function renderAlertSummaryBanner(
               data-alerts-toggle="true"
               aria-expanded="${expanded}">
         <div class="flex items-center gap-3 flex-wrap min-w-0 flex-1">
-          <svg class="h-5 w-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
-          </svg>
+          ${renderDashboardIcon(ICON_WARNING, 'h-5 w-5 flex-shrink-0', '20px')}
           <span class="text-sm font-semibold">${escapeHTML(summaryParts)}</span>
           ${!expanded ? `<div class="flex items-center gap-1.5 flex-wrap">${affectedCardChips}</div>` : ''}
         </div>
-        <svg class="h-5 w-5 flex-shrink-0 transition-transform ${chevronRotation}" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
-        </svg>
+        ${renderDashboardIcon(ICON_CHEVRON_DOWN, `h-5 w-5 flex-shrink-0 transition-transform ${chevronRotation}`, '20px')}
       </button>
       <div class="${expanded ? '' : 'hidden'}" data-alerts-content="true">
         <div class="border-t border-current/20 px-4 py-3 space-y-2">
@@ -1079,8 +1102,8 @@ function renderReasonDataState(row: TranslationDashboardTableRow): string {
   const isDegraded = reasonData.state === 'degraded';
   const iconColor = isDegraded ? 'text-amber-500' : 'text-gray-400';
   const icon = isDegraded
-    ? `<svg class="h-3.5 w-3.5 ${iconColor}" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>`
-    : `<svg class="h-3.5 w-3.5 ${iconColor}" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>`;
+    ? renderDashboardIcon(ICON_WARNING, `h-3.5 w-3.5 ${iconColor}`, '14px')
+    : renderDashboardIcon(ICON_INFO, `h-3.5 w-3.5 ${iconColor}`, '14px');
 
   return `
     <span class="inline-flex items-center gap-1 text-xs text-gray-500" title="${escapeAttribute(reasonData.message || 'Reason data is ' + reasonData.state)}">
@@ -1229,7 +1252,7 @@ function renderTabbedTables(
                 role="tab"
                 aria-selected="${isActive}"
                 aria-controls="table-panel-${escapeAttribute(id)}">
-          ${tabConfig.icon}
+          ${tabConfig.icon ? renderDashboardIcon(tabConfig.icon, 'h-4 w-4', '16px') : ''}
           <span>${escapeHTML(tabConfig.shortLabel)}</span>
           <span class="sr-only">${escapeHTML(tabConfig.label)}</span>
           <span class="ml-1 px-2 py-0.5 text-xs rounded-full ${isActive ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'}">
@@ -1324,15 +1347,10 @@ function renderCollapsibleMeta(payload: TranslationDashboardResponse, expanded: 
               data-meta-toggle="true"
               aria-expanded="${expanded}">
         <div class="flex items-center gap-2">
-          <svg class="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
-          </svg>
+          ${renderDashboardIcon(ICON_SETTINGS, 'h-4 w-4 text-gray-400', '16px')}
           <span class="text-sm font-medium text-gray-700">Technical Details</span>
         </div>
-        <svg class="h-4 w-4 text-gray-400 transition-transform ${chevronRotation}" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
-        </svg>
+        ${renderDashboardIcon(ICON_CHEVRON_DOWN, `h-4 w-4 text-gray-400 transition-transform ${chevronRotation}`, '16px')}
       </button>
       <div class="${expanded ? '' : 'hidden'}" data-meta-content="true">
         <dl class="border-t border-gray-200 px-4 py-3 grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-4">
@@ -1389,6 +1407,7 @@ function renderToolbar(payload: TranslationDashboardResponse | null, refreshing 
               ${escapeHTML(refreshing ? 'Refreshing dashboard…' : `Last updated ${generatedAt}`)}
             </span>
             <button type="button" class="${BTN_PRIMARY}" data-dashboard-refresh-button="true" aria-label="Refresh translation dashboard" ${refreshing ? 'disabled' : ''}>
+              ${renderDashboardIcon(ICON_REFRESH, refreshing ? 'h-4 w-4 animate-spin' : 'h-4 w-4', '16px')}
               ${escapeHTML(refreshing ? 'Refreshing…' : 'Refresh dashboard')}
             </button>
           </div>
@@ -1399,21 +1418,15 @@ function renderToolbar(payload: TranslationDashboardResponse | null, refreshing 
           <div class="flex items-center justify-between gap-3">
             <div class="flex items-center gap-2 flex-wrap">
               <span class="inline-flex items-center gap-1.5 px-2 py-1 text-xs font-medium text-gray-600 bg-white rounded border border-gray-200" title="Dashboard channel">
-                <svg class="h-3 w-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14"/>
-                </svg>
+                ${renderDashboardIcon(ICON_GLOBE, 'h-3 w-3 text-gray-400', '12px')}
                 <span>${escapeHTML(channel)}</span>
               </span>
               <span class="inline-flex items-center gap-1.5 px-2 py-1 text-xs font-medium text-gray-600 bg-white rounded border border-gray-200" title="Refresh interval: ${escapeHTML(refreshDisplay)}">
-                <svg class="h-3 w-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                </svg>
+                ${renderDashboardIcon(ICON_CLOCK, 'h-3 w-3 text-gray-400', '12px')}
                 <span>${escapeHTML(refreshDisplay)}</span>
               </span>
               <span class="inline-flex items-center gap-1.5 px-2 py-1 text-xs font-medium text-gray-600 bg-white rounded border border-gray-200" title="Latency target: ${escapeHTML(latencyDisplay)}">
-                <svg class="h-3 w-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
-                </svg>
+                ${renderDashboardIcon(ICON_INFO, 'h-3 w-3 text-gray-400', '12px')}
                 <span>${escapeHTML(latencyDisplay)}</span>
               </span>
             </div>
@@ -1422,13 +1435,9 @@ function renderToolbar(payload: TranslationDashboardResponse | null, refreshing 
                     data-meta-toggle="true"
                     aria-expanded="${metaExpanded}"
                     aria-label="Toggle technical details">
-              <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-              </svg>
+              ${renderDashboardIcon(ICON_INFO, 'h-3.5 w-3.5', '14px')}
               <span>Details</span>
-              <svg class="h-3 w-3 transition-transform ${chevronRotation}" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
-              </svg>
+              ${renderDashboardIcon(ICON_CHEVRON_DOWN, `h-3 w-3 transition-transform ${chevronRotation}`, '12px')}
             </button>
           </div>
           <div class="${metaExpanded ? 'mt-3' : 'hidden'}" data-meta-content="true">
@@ -1461,10 +1470,10 @@ function renderToolbar(payload: TranslationDashboardResponse | null, refreshing 
 
 // Health indicator icons (Fix 6)
 const HEALTH_ICONS: Record<DashboardAlertState, string> = {
-  ok: '<svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>',
-  warning: '<svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>',
-  critical: '<svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>',
-  degraded: '<svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>',
+  ok: renderDashboardIcon(ICON_CHECK, 'h-5 w-5', '20px'),
+  warning: renderDashboardIcon(ICON_WARNING, 'h-5 w-5', '20px'),
+  critical: renderDashboardIcon(ICON_BAN, 'h-5 w-5', '20px'),
+  degraded: renderDashboardIcon(ICON_INFO, 'h-5 w-5', '20px'),
 };
 
 function renderHealthIndicator(payload: TranslationDashboardResponse): string {
@@ -1817,9 +1826,7 @@ export class TranslationDashboardPage extends StatefulController<TranslationDash
           const originalHTML = btn.innerHTML;
           btn.innerHTML = `
             <span class="text-green-600">Copied!</span>
-            <svg class="h-3 w-3 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
-            </svg>
+            ${renderDashboardIcon(ICON_CHECK, 'h-3 w-3 text-green-500', '12px')}
           `;
           setTimeout(() => {
             btn.innerHTML = originalHTML;
@@ -1832,12 +1839,58 @@ export class TranslationDashboardPage extends StatefulController<TranslationDash
   }
 }
 
+function setSSRDashboardTableTab(root: HTMLElement, tabId: string): void {
+  root.querySelectorAll<HTMLButtonElement>('[data-dashboard-ssr-table-tab]').forEach((button) => {
+    const isActive = button.dataset.dashboardSsrTableTab === tabId;
+    button.setAttribute('aria-selected', isActive ? 'true' : 'false');
+    button.tabIndex = isActive ? 0 : -1;
+    button.classList.toggle('border-blue-500', isActive);
+    button.classList.toggle('text-blue-700', isActive);
+    button.classList.toggle('border-transparent', !isActive);
+    button.classList.toggle('text-gray-600', !isActive);
+  });
+  root.querySelectorAll<HTMLElement>('[data-dashboard-ssr-table-panel]').forEach((panel) => {
+    const isActive = panel.dataset.dashboardSsrTablePanel === tabId;
+    panel.hidden = !isActive;
+    panel.classList.toggle('hidden', !isActive);
+  });
+}
+
+function enhanceSSRDashboard(root: HTMLElement): void {
+  root.dataset.translationDashboardEnhanced = 'true';
+  if (typeof root.querySelectorAll !== 'function') {
+    return;
+  }
+
+  root.querySelectorAll<HTMLButtonElement>('[data-dashboard-ssr-table-tab]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const tabId = button.dataset.dashboardSsrTableTab;
+      if (tabId) {
+        setSSRDashboardTableTab(root, tabId);
+      }
+    });
+  });
+
+  root.querySelectorAll<HTMLButtonElement>('[data-dashboard-ssr-disclosure]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const targetId = button.dataset.dashboardSsrDisclosure;
+      const target = targetId ? root.querySelector<HTMLElement>(`[data-dashboard-ssr-disclosure-panel="${targetId}"]`) : null;
+      if (!target) return;
+      const expanded = button.getAttribute('aria-expanded') === 'true';
+      button.setAttribute('aria-expanded', expanded ? 'false' : 'true');
+      target.hidden = expanded;
+      target.classList.toggle('hidden', expanded);
+      button.querySelector<HTMLElement>('[data-dashboard-ssr-disclosure-icon]')?.classList.toggle('rotate-180', !expanded);
+    });
+  });
+}
+
 export function initTranslationDashboardPage(root: HTMLElement, options: Partial<TranslationDashboardPageConfig> = {}): TranslationDashboardPage | null {
   if (!root) {
     return null;
   }
   if (root.dataset?.ssrEnhanced === 'true') {
-    root.dataset.translationDashboardEnhanced = 'true';
+    enhanceSSRDashboard(root);
     return null;
   }
   const page = new TranslationDashboardPage({

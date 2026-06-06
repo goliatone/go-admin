@@ -1,15 +1,15 @@
 import { escapeHTML as c } from "../shared/html.js";
-import { httpRequest as q } from "../shared/transport/http-client.js";
-import { extractStructuredError as R } from "../toast/error-helpers.js";
+import { httpRequest as R } from "../shared/transport/http-client.js";
+import { extractStructuredError as q } from "../toast/error-helpers.js";
 import { r as h, t as N } from "../chunks/translation-contracts-Ct_EG7JJ.js";
-import { J as b, Y as I, a as w, i as P, o as v, q as A } from "../chunks/translation-shared-DxbdCW0D.js";
+import { h as I, it as v, m as w, nt as A, p as P, rt as b } from "../chunks/translation-shared-CdZJJA93.js";
 var U = {
   QUEUE: "admin.translations.queue",
   EXCHANGE_UI: "admin.translations.exchange",
   EXCHANGE_EXPORT: "admin.api.translations.export",
   EXCHANGE_IMPORT_VALIDATE: "admin.api.translations.import.validate",
   EXCHANGE_IMPORT_APPLY: "admin.api.translations.import.apply"
-}, C = `${A} border ${v} ${P} px-4 py-4`, k = `${A} border ${v} ${w} px-4 py-4`;
+}, C = `${A} border ${I} ${P} px-4 py-4`, k = `${A} border ${I} ${w} px-4 py-4`;
 function p() {
   if (typeof window < "u" && window.__TRANSLATION_CAPABILITIES__) return h(window.__TRANSLATION_CAPABILITIES__);
   const e = document.querySelector("script[data-translation-capabilities]");
@@ -170,9 +170,9 @@ async function H(e) {
     status: "empty",
     message: "This shell route is ready, but the backing API contract has not been connected yet."
   };
-  const n = await q(t, { method: "GET" }), s = M(n);
+  const n = await R(t, { method: "GET" }), s = M(n);
   if (!n.ok) {
-    const i = await R(n);
+    const i = await q(n);
     return {
       status: n.status === 409 || i.textCode === "VERSION_CONFLICT" ? "conflict" : "error",
       message: i.message,
@@ -238,7 +238,7 @@ function B(e, t) {
   return `
     <div class="${C}">
       <p class="text-sm font-semibold ${b}">${c(e)}</p>
-      <p class="mt-1 text-sm ${I}">${c(t)}</p>
+      <p class="mt-1 text-sm ${v}">${c(t)}</p>
     </div>
   `;
 }
@@ -254,7 +254,7 @@ function F() {
   return `
     <div class="${k}">
       <p class="text-sm font-medium ${b}">Loading translation shell...</p>
-      <p class="mt-1 text-sm ${I}">Waiting for the backing API response.</p>
+      <p class="mt-1 text-sm ${v}">Waiting for the backing API response.</p>
     </div>
   `;
 }

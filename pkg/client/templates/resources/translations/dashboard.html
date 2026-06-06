@@ -52,24 +52,74 @@
           </div>
           <div class="flex flex-wrap items-center justify-between gap-3 bg-gray-50 px-5 py-3 text-xs text-gray-600">
             <div class="flex flex-wrap items-center gap-2">
-              <span class="inline-flex rounded-md border border-gray-200 bg-white px-2.5 py-1 font-medium"># {{ translation_dashboard_ssr.Meta.channel|default:"default" }}</span>
-              <span class="inline-flex rounded-md border border-gray-200 bg-white px-2.5 py-1 font-medium">{{ translation_dashboard_ssr.Meta.refresh_interval_ms|default:"30000" }}ms refresh</span>
-              <span class="inline-flex rounded-md border border-gray-200 bg-white px-2.5 py-1 font-medium">{{ translation_dashboard_ssr.Meta.latency_target_ms|default:"300" }}ms target</span>
+              <span class="inline-flex items-center gap-1.5 rounded-md border border-gray-200 bg-white px-2.5 py-1 font-medium" title="Dashboard channel">
+                <i class="iconoir-globe text-gray-400" aria-hidden="true"></i>
+                {{ translation_dashboard_ssr.Meta.channel|default:"default" }}
+              </span>
+              <span class="inline-flex items-center gap-1.5 rounded-md border border-gray-200 bg-white px-2.5 py-1 font-medium" title="Refresh interval">
+                <i class="iconoir-clock text-gray-400" aria-hidden="true"></i>
+                {{ translation_dashboard_ssr.Meta.refresh_interval_ms|default:"30000" }}ms
+              </span>
+              <span class="inline-flex items-center gap-1.5 rounded-md border border-gray-200 bg-white px-2.5 py-1 font-medium" title="Latency target">
+                <i class="iconoir-info-circle text-gray-400" aria-hidden="true"></i>
+                {{ translation_dashboard_ssr.Meta.latency_target_ms|default:"300" }}ms
+              </span>
             </div>
-            <span class="font-medium">Details</span>
+            <button type="button"
+                    class="inline-flex items-center gap-1.5 rounded px-2 py-1 font-medium hover:bg-white"
+                    data-dashboard-ssr-disclosure="details"
+                    aria-expanded="false">
+              <i class="iconoir-info-circle" aria-hidden="true"></i>
+              <span>Details</span>
+              <i class="iconoir-nav-arrow-down transition-transform" data-dashboard-ssr-disclosure-icon aria-hidden="true"></i>
+            </button>
+          </div>
+          <div class="hidden border-t border-gray-100 bg-white px-5 py-3 text-xs text-gray-600" data-dashboard-ssr-disclosure-panel="details" hidden>
+            <dl class="grid gap-3 sm:grid-cols-3">
+              <div>
+                <dt class="font-semibold uppercase tracking-wider text-gray-500">Generated</dt>
+                <dd class="mt-1 text-gray-900">{{ translation_dashboard_ssr.Meta.generated_at|default:translation_dashboard_ssr.Data.generated|default:"now" }}</dd>
+              </div>
+              <div>
+                <dt class="font-semibold uppercase tracking-wider text-gray-500">Channel</dt>
+                <dd class="mt-1 text-gray-900">{{ translation_dashboard_ssr.Meta.channel|default:"default" }}</dd>
+              </div>
+              <div>
+                <dt class="font-semibold uppercase tracking-wider text-gray-500">Target</dt>
+                <dd class="mt-1 text-gray-900">{{ translation_dashboard_ssr.Meta.latency_target_ms|default:"300" }}ms latency</dd>
+              </div>
+            </dl>
           </div>
         </section>
 
         {% if translation_dashboard_ssr.Data.alerts %}
-        <section class="rounded-lg border border-rose-200 bg-rose-50 px-5 py-3 text-sm text-rose-800" aria-label="Translation dashboard alerts">
-          <div class="flex flex-wrap items-center justify-between gap-3">
+        <section class="overflow-hidden rounded-lg border border-rose-200 bg-rose-50 text-sm text-rose-800" aria-label="Translation dashboard alerts">
+          <button type="button"
+                  class="flex w-full flex-wrap items-center justify-between gap-3 px-5 py-3 text-left"
+                  data-dashboard-ssr-disclosure="alerts"
+                  aria-expanded="false">
             <div class="flex flex-wrap items-center gap-2">
+              <i class="iconoir-warning-triangle text-rose-700" aria-hidden="true"></i>
               <span class="font-semibold">{{ translation_dashboard_ssr.Data.alerts|length }} alerts</span>
               {% for alert in translation_dashboard_ssr.Data.alerts %}
-              <span class="rounded-md bg-white px-2 py-1 text-xs font-medium text-rose-700">{{ alert.message|default:alert.code|default:"Action required" }}</span>
+              <span class="rounded-md bg-white px-2 py-1 text-xs font-medium text-rose-700">
+                {% if alert.message == "Action required" or alert.message == "ACTION REQUIRED" %}Action{% elif alert.message == "Needs attention" %}Attention{% else %}{{ alert.message|default:alert.code|default:"Action" }}{% endif %}
+              </span>
               {% endfor %}
             </div>
-            <span class="text-lg leading-none">v</span>
+            <i class="iconoir-nav-arrow-down text-lg leading-none transition-transform" data-dashboard-ssr-disclosure-icon aria-hidden="true"></i>
+          </button>
+          <div class="hidden border-t border-rose-200 px-5 py-3" data-dashboard-ssr-disclosure-panel="alerts" hidden>
+            <ul class="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              {% for alert in translation_dashboard_ssr.Data.alerts %}
+              <li class="rounded-md bg-white/70 px-3 py-2 text-xs">
+                <span class="font-semibold">{% if alert.message == "Action required" or alert.message == "ACTION REQUIRED" %}Action{% elif alert.message == "Needs attention" %}Attention{% else %}{{ alert.message|default:"Action" }}{% endif %}</span>
+                {% if alert.card_id or alert.cardId %}
+                <span class="ml-1 text-rose-700/70">{{ alert.card_id|default:alert.cardId }}</span>
+                {% endif %}
+              </li>
+              {% endfor %}
+            </ul>
           </div>
         </section>
         {% endif %}
@@ -80,8 +130,8 @@
           <article class="rounded-lg border border-gray-200 bg-white p-4 shadow-sm" data-dashboard-card="{{ card.id }}">
             <div class="flex items-start justify-between gap-3">
               <p class="max-w-32 truncate text-xs font-semibold uppercase tracking-wider text-gray-500">{{ card.label|default:"Metric" }}</p>
-              <span class="{% if card.alert.state == "critical" %}bg-rose-50 text-rose-700{% elif card.alert.state == "warning" %}bg-amber-50 text-amber-700{% else %}bg-emerald-50 text-emerald-700{% endif %} rounded-full px-2 py-1 text-xs font-semibold uppercase">
-                {{ card.alert.message|default:"Healthy" }}
+              <span class="{% if card.alert.state == "critical" %}bg-rose-50 text-rose-700{% elif card.alert.state == "warning" %}bg-amber-50 text-amber-700{% else %}bg-emerald-50 text-emerald-700{% endif %} rounded-full px-2 py-1 text-xs font-semibold">
+                {% if card.alert.message == "Action required" or card.alert.message == "ACTION REQUIRED" %}Action{% elif card.alert.message == "Needs attention" %}Attention{% else %}{{ card.alert.message|default:"Healthy" }}{% endif %}
               </span>
             </div>
             <p class="mt-4 text-3xl font-semibold text-gray-900">{{ card.count|default:"0" }}</p>
@@ -89,7 +139,7 @@
             {% if card.drilldown.href %}
             <a class="mt-4 inline-flex w-full items-center justify-between rounded-md bg-gray-950 px-3 py-2 text-sm font-semibold text-white hover:bg-gray-800" href="{{ card.drilldown.href }}">
               <span>{{ card.drilldown.label|default:"Open" }}</span>
-              <span aria-hidden="true">&gt;</span>
+              <i class="iconoir-nav-arrow-right" aria-hidden="true"></i>
             </a>
             {% endif %}
           </article>
@@ -99,16 +149,33 @@
 
         {% if translation_dashboard_ssr.Data.tables %}
         <section class="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm" aria-label="Translation dashboard triage">
-          <div class="flex flex-wrap items-center gap-6 border-b border-gray-200 px-5 text-sm font-medium text-gray-600">
+          <div class="flex flex-wrap items-center gap-6 border-b border-gray-200 px-5 text-sm font-medium text-gray-600" role="tablist" aria-label="Translation dashboard triage views">
             {% for table_id, table in translation_dashboard_ssr.Data.tables %}
-            <span class="inline-flex items-center gap-2 border-b-2 {% if table.id == "top_overdue_assignments" or table_id == "top_overdue_assignments" %}border-blue-500 text-blue-700{% else %}border-transparent{% endif %} py-3">
-              {{ table.label|default:"Triage" }}
+            <button type="button"
+                    class="inline-flex items-center gap-2 border-b-2 {% if table.id == "top_overdue_assignments" or table_id == "top_overdue_assignments" %}border-blue-500 text-blue-700{% else %}border-transparent text-gray-600{% endif %} py-3"
+                    data-dashboard-ssr-table-tab="{{ table.id|default:table_id }}"
+                    role="tab"
+                    aria-selected="{% if table.id == "top_overdue_assignments" or table_id == "top_overdue_assignments" %}true{% else %}false{% endif %}"
+                    aria-controls="dashboard-table-panel-{{ table.id|default:table_id }}">
+              {% if table.id == "blocked_families" or table_id == "blocked_families" %}
+              <i class="iconoir-prohibition" aria-hidden="true"></i>
+              <span>Blocked</span>
+              {% elif table.id == "top_overdue_assignments" or table_id == "top_overdue_assignments" %}
+              <i class="iconoir-clock" aria-hidden="true"></i>
+              <span>Overdue</span>
+              {% else %}
+              <span>{{ table.label|default:"Triage" }}</span>
+              {% endif %}
               <span class="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600">{{ table.total|default:"0" }}</span>
-            </span>
+            </button>
             {% endfor %}
           </div>
           {% for table_id, table in translation_dashboard_ssr.Data.tables %}
-          <article data-dashboard-table="{{ table.id|default:table_id }}">
+          <article id="dashboard-table-panel-{{ table.id|default:table_id }}"
+                   data-dashboard-table="{{ table.id|default:table_id }}"
+                   data-dashboard-ssr-table-panel="{{ table.id|default:table_id }}"
+                   role="tabpanel"
+                   {% if table.id != "top_overdue_assignments" and table_id != "top_overdue_assignments" %}class="hidden" hidden{% endif %}>
             <div class="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 px-5 py-4">
               <p class="text-sm text-gray-500">Showing top {{ table.rows|length|default:"0" }} of {{ table.total|default:"0" }}</p>
               {% if table.id == "top_overdue_assignments" or table_id == "top_overdue_assignments" %}

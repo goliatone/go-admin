@@ -1,8 +1,8 @@
 import { escapeHTML as o } from "../shared/html.js";
-import { httpRequest as W, readHTTPResponsePayload as G } from "../shared/transport/http-client.js";
-import { a as k, i as K, o as m, s as T } from "../chunks/translation-contracts-Ct_EG7JJ.js";
-import { D as v, O as R, T as X, X as Y, f, h as Q, i as w, m as F, o as _, q as E, rt as Z, u as j, w as tt } from "../chunks/translation-shared-DxbdCW0D.js";
-import { formatTranslationShortDateTime as C } from "../translation-shared/formatters.js";
+import { httpRequest as q, readHTTPResponsePayload as G } from "../shared/transport/http-client.js";
+import { a as k, i as K, o as m, s as C } from "../chunks/translation-contracts-Ct_EG7JJ.js";
+import { C as F, I as v, L as R, N as Y, P as X, at as Q, ft as Z, h as w, nt as _, p as E, w as tt, x as f, y as j } from "../chunks/translation-shared-CdZJJA93.js";
+import { formatTranslationShortDateTime as T } from "../translation-shared/formatters.js";
 var et = { root: "#translation-exchange-app" }, st = [{
   value: "pages",
   label: "pages"
@@ -75,7 +75,7 @@ function z(t, e, a = "") {
   }
   return s;
 }
-function q(t, e) {
+function W(t, e) {
   const a = /* @__PURE__ */ new Set(), r = [];
   for (const s of Array.isArray(t) ? t : []) {
     const l = V(s);
@@ -101,7 +101,7 @@ function nt(t) {
       dryRun: !1
     }
   };
-  const e = t?.locale_labels ?? {}, a = lt(t?.resources), r = D(t?.source_locales, e), s = b(t?.source_locale), l = B(s) ? s : r[0]?.code || "", i = D(t?.target_locales, e).filter((h) => h.code && h.code !== l), n = new Set(a.map((h) => h.value ?? "")), d = new Set(i.map((h) => h.code)), u = q(t?.default_resources, n), c = z(t?.default_target_locales, d, l), p = [];
+  const e = t?.locale_labels ?? {}, a = lt(t?.resources), r = D(t?.source_locales, e), s = b(t?.source_locale), l = B(s) ? s : r[0]?.code || "", i = D(t?.target_locales, e).filter((h) => h.code && h.code !== l), n = new Set(a.map((h) => h.value ?? "")), d = new Set(i.map((h) => h.code)), u = W(t?.default_resources, n), c = z(t?.default_target_locales, d, l), p = [];
   return a.length === 0 && p.push("No exchange resources are configured."), (r.length === 0 || !l) && p.push("No source locale is configured."), i.length === 0 && p.push("No target locales are configured."), {
     configured: !0,
     blockedReason: p.join(" "),
@@ -148,7 +148,7 @@ function S(t) {
 function y(t) {
   return `rounded-full px-3 py-1 text-xs font-medium ${Z(t)}`;
 }
-var g = `${F} p-5`, dt = `${F} p-4`, U = `${E} border ${_} ${w} p-5`, A = `${E} border ${_} ${w} p-4`, L = `${E} border ${_} ${w} px-4 py-3`, H = `${E} border ${_} ${w} px-6 py-10 text-center text-sm text-gray-600`, x = "text-xs uppercase tracking-wider text-gray-500", ct = `mt-2 text-2xl font-bold ${Y}`;
+var g = `${F} p-5`, dt = `${F} p-4`, U = `${_} border ${w} ${E} p-5`, A = `${_} border ${w} ${E} p-4`, L = `${_} border ${w} ${E} px-4 py-3`, H = `${_} border ${w} ${E} px-6 py-10 text-center text-sm text-gray-600`, x = "text-xs uppercase tracking-wider text-gray-500", ct = `mt-2 text-2xl font-bold ${Q}`;
 function pt(t, e) {
   const a = typeof window < "u" && typeof window.btoa == "function" ? window.btoa.bind(window) : typeof globalThis.btoa == "function" ? globalThis.btoa.bind(globalThis) : null;
   return a ? `data:${t};base64,${a(encodeURIComponent(e).replace(/%([0-9A-F]{2})/g, (r, s) => String.fromCharCode(parseInt(s, 16))))}` : `data:${t},${encodeURIComponent(e)}`;
@@ -189,7 +189,7 @@ function N(t) {
 }
 function I(t) {
   return t?.result ? {
-    ...T({
+    ...C({
       ...t.result,
       job: t
     }),
@@ -399,7 +399,7 @@ var $t = class {
     const e = await this.postJSON(`${this.config.apiPath}/import/apply`, {
       ...t,
       async: t.async !== !1
-    }), a = T(e);
+    }), a = C(e);
     return a.job && this.loadHistory(!0), this.emitAnalytics("exchange_apply_completion", {
       processed: a.summary.processed,
       succeeded: a.summary.succeeded,
@@ -439,7 +439,7 @@ var $t = class {
   readExportDraft(t) {
     const e = new FormData(t), a = new Set(this.exchangeUI.resources.map((i) => i.value ?? "")), r = new Set(this.exchangeUI.targetLocales.map((i) => i.code)), s = b(e.get("source_locale")), l = this.exchangeUI.sourceLocales.some((i) => i.code === s) ? s : this.exchangeUI.defaultSourceLocale;
     return {
-      resources: q(e.getAll("resources"), a),
+      resources: W(e.getAll("resources"), a),
       sourceLocale: l,
       targetLocales: z(e.getAll("target_locales"), r, l),
       includeSourceHash: e.has("include_source_hash")
@@ -533,7 +533,7 @@ var $t = class {
     try {
       const t = new FormData();
       t.set("file", this.validateState.file);
-      const e = T(await this.postForm(`${this.config.apiPath}/import/validate`, t));
+      const e = C(await this.postForm(`${this.config.apiPath}/import/validate`, t));
       this.validateState.result = e, this.validateState.decisions = gt(e), this.validateState.upload = m({
         state: "validated",
         filename: this.validateState.file.name,
@@ -764,7 +764,7 @@ var $t = class {
     return this.request(t, { method: "GET" });
   }
   async request(t, e) {
-    const a = await W(t, e), { payload: r } = await G(a);
+    const a = await q(t, e), { payload: r } = await G(a);
     if (!a.ok) {
       if (r && typeof r == "object") {
         const s = r.error?.message ?? r.message;
@@ -786,13 +786,13 @@ var $t = class {
     if (!this.root) return;
     const t = M(this.exportState.draft), e = Object.values(this.validateState.decisions).filter((l) => l === "accepted").length, a = Object.values(this.validateState.decisions).filter((l) => l === "rejected").length, r = this.historyExamples(), s = this.filteredHistoryItems();
     this.root.innerHTML = `
-      <section class="${Q} overflow-hidden">
+      <section class="${tt} overflow-hidden">
         <header class="px-6 py-5 border-b border-gray-200 bg-gray-50">
           <div class="flex flex-wrap items-start justify-between gap-4">
             <div>
               <p class="${X}">Translation Exchange</p>
               <h1 class="${ct}">Translation Exchange Wizard</h1>
-              <p class="${tt}">Prepare external translation files, validate row-level conflicts, apply imports with explicit create and conflict controls, and inspect retained job history for retries and audits.</p>
+              <p class="${Y}">Prepare external translation files, validate row-level conflicts, apply imports with explicit create and conflict controls, and inspect retained job history for retries and audits.</p>
             </div>
             <a class="${f}" href="${o(`${this.config.apiPath}/template?format=json`)}">
               Download JSON Template
@@ -1243,7 +1243,7 @@ var $t = class {
                             ${i.fixture ? `<span class="${y("warning")}">Fixture</span>` : ""}
                           </div>
                           <h3 class="mt-3 text-lg font-semibold text-gray-900">${o(i.file?.name ?? i.id)}</h3>
-                          <p class="mt-1 text-sm text-gray-600">Actor ${o(i.actor?.label ?? "system")} • ${o(C(i.created_at, "Pending"))}</p>
+                          <p class="mt-1 text-sm text-gray-600">Actor ${o(i.actor?.label ?? "system")} • ${o(T(i.created_at, "Pending"))}</p>
                         </div>
                         <div class="text-sm text-gray-600">
                           <div>${o(i.progress.processed)} / ${o(i.progress.total ?? 0)} processed</div>
@@ -1258,7 +1258,7 @@ var $t = class {
                   <div class="flex flex-wrap items-start justify-between gap-4">
                     <div>
                       <h2 class="text-lg font-semibold text-gray-900">${o(s.file?.name ?? s.id)}</h2>
-                      <p class="mt-1 text-sm text-gray-600">${o(s.kind.replace(/_/g, " "))} • ${o(s.status)} • ${o(C(s.updated_at, "Pending"))}</p>
+                      <p class="mt-1 text-sm text-gray-600">${o(s.kind.replace(/_/g, " "))} • ${o(s.status)} • ${o(T(s.updated_at, "Pending"))}</p>
                     </div>
                     <div class="flex flex-wrap gap-3">
                       <button class="${f}" type="button" data-history-load-apply="all">Load in apply step</button>
@@ -1321,7 +1321,7 @@ export {
   K as normalizeTranslationExchangeHistoryResponse,
   k as normalizeTranslationExchangeJob,
   m as normalizeTranslationExchangeUploadDescriptor,
-  T as normalizeTranslationExchangeValidationResult
+  C as normalizeTranslationExchangeValidationResult
 };
 
 //# sourceMappingURL=index.js.map

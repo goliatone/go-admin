@@ -5,7 +5,7 @@ import { buildURL as E, getNumberSearchParam as _e, getStringSearchParam as P, r
 import { trimTrailingSlash as $ } from "../shared/path-normalization.js";
 import { parseJSONValue as Le } from "../shared/json-parse.js";
 import { asLooseBoolean as L, asNumberish as w, asRecord as y, asString as n, asStringArray as x } from "../shared/coercion.js";
-import { E as ra, G as oa, K as la, T as ca, _ as da, b as Ie, f as I, g as ma, k as ua, l as Re, m as B, nt as Q, ot as fa, u as F, v as ya, x as Pe, y as Ee } from "../chunks/translation-shared-DxbdCW0D.js";
+import { A as Ie, C as B, D as ra, E as oa, F as la, O as Re, P as ca, R as da, T as ma, dt as Q, et as ua, ht as fa, k as Pe, tt as ya, v as Ee, x as I, y as F } from "../chunks/translation-shared-CdZJJA93.js";
 import { formatTranslationTimestampUTC as oe, sentenceCaseToken as S } from "../translation-shared/formatters.js";
 import { normalizeStringRecord as ga } from "../shared/record-normalization.js";
 function pa(e, a = {}) {
@@ -1142,7 +1142,7 @@ function K(e) {
 }
 function ea(e) {
   return `
-    <div class="${ua}" aria-busy="true" aria-label="Loading">
+    <div class="${da}" aria-busy="true" aria-label="Loading">
       <div class="flex flex-col items-center gap-3 text-gray-500">
         <span class="h-8 w-8 animate-spin rounded-full border-4 border-gray-200 border-t-gray-500"></span>
         <span class="text-sm">${m(e)}</span>
@@ -1154,8 +1154,8 @@ function ne(e, a) {
   return `
     <div class="flex items-center justify-center py-16" role="status" aria-label="Empty">
       <div class="max-w-md ${ma} p-8 text-center shadow-sm">
-        <h2 class="${ya}">${m(e)}</h2>
-        <p class="${da} mt-2">${m(a)}</p>
+        <h2 class="${ra}">${m(e)}</h2>
+        <p class="${oa} mt-2">${m(a)}</p>
       </div>
     </div>
   `;
@@ -1175,9 +1175,9 @@ function dt(e, a, t) {
       </button>
     ` : "", r = t.syncMessage ? m(t.syncMessage) : "";
   return `
-    <div class="${Ee} p-6" role="alert">
-      <h2 class="${Pe}">${m(e)}</h2>
-      <p class="${Ie} mt-2">${m(a)}</p>
+    <div class="${Re} p-6" role="alert">
+      <h2 class="${Ie}">${m(e)}</h2>
+      <p class="${Pe} mt-2">${m(a)}</p>
       <p
         data-family-sync-feedback="true"
         class="mt-3 text-sm ${t.syncStatus === "failed" ? "text-rose-700" : "text-amber-700"}"
@@ -1224,7 +1224,7 @@ function mt(e, a = {}) {
         <div class="flex flex-wrap items-start justify-between gap-4">
           <div>
             <p class="${ca}">Translation family</p>
-            <h1 class="${ra} mt-2">${m(s)}</h1>
+            <h1 class="${la} mt-2">${m(s)}</h1>
             <p class="mt-2 text-sm text-gray-600">${m(t.contentType)} · Source locale ${m(t.sourceLocale.toUpperCase())} · Family ${m(t.familyId)}</p>
           </div>
           <div class="flex flex-wrap items-center gap-2">
@@ -1493,7 +1493,7 @@ function _t(e, a, t) {
           <div class="flex flex-col gap-2">
             <a href="${g(r)}" class="${F} text-center" data-family-primary-action="true">Open family</a>
             ${o ? `<a href="${g(o)}" class="${I} text-center">Matrix</a>` : ""}
-            ${c ? `<a href="${g(c)}" class="${Re} text-center">Queue</a>` : ""}
+            ${c ? `<a href="${g(c)}" class="${Ee} text-center">Queue</a>` : ""}
           </div>
         </td>
       </tr>
@@ -1538,9 +1538,9 @@ function wt(e, a, t) {
 }
 function Lt(e) {
   return `
-    <div class="${Ee} mt-6 p-6" role="alert">
-      <h2 class="${Pe}">Families failed to load</h2>
-      <p class="${Ie} mt-2">${m(e.message || "The translation families request failed.")}</p>
+    <div class="${Re} mt-6 p-6" role="alert">
+      <h2 class="${Ie}">Families failed to load</h2>
+      <p class="${Pe} mt-2">${m(e.message || "The translation families request failed.")}</p>
       ${e.requestURL ? `<p class="mt-3 break-all text-xs text-gray-500">Request ${m(e.requestURL)}</p>` : ""}
       ${K({
     status: "error",
@@ -1711,8 +1711,8 @@ function be(e) {
     return;
   }
   const s = n(e.initialLocale || t.recommendedLocale || t.missingLocales[0]).toLowerCase(), i = t.missingLocales.includes(s) ? s : t.missingLocales[0], r = a.createElement("div");
-  r.className = la, r.setAttribute("data-translation-create-locale-modal", "true"), r.innerHTML = `
-    <div class="${oa}" role="dialog" aria-modal="true" aria-labelledby="translation-create-locale-title">
+  r.className = ya, r.setAttribute("data-translation-create-locale-modal", "true"), r.innerHTML = `
+    <div class="${ua}" role="dialog" aria-modal="true" aria-labelledby="translation-create-locale-title">
       <form class="p-6">
         <div class="flex items-start justify-between gap-4">
           <div>
@@ -1720,7 +1720,7 @@ function be(e) {
             <h2 id="translation-create-locale-title" class="mt-2 text-2xl font-semibold text-gray-900">${m(e.heading)}</h2>
             <p class="mt-2 text-sm text-gray-600">Server-authored recommendations and publish requirements for family ${m(e.familyId)}.</p>
           </div>
-          <button type="button" data-close-modal="true" class="${Re}">Close</button>
+          <button type="button" data-close-modal="true" class="${Ee}">Close</button>
         </div>
         <div class="mt-6 grid gap-4">
           <label class="grid gap-2">

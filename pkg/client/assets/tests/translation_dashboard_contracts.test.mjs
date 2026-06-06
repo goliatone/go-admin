@@ -29,6 +29,63 @@ function createContainer(dataset = {}) {
   };
 }
 
+function createFakeClassList() {
+  return {
+    toggle() {},
+  };
+}
+
+function createFakeElement(dataset = {}, attrs = {}) {
+  const listeners = new Map();
+  return {
+    dataset,
+    hidden: false,
+    tabIndex: 0,
+    classList: createFakeClassList(),
+    setAttribute(name, value) {
+      attrs[name] = String(value);
+    },
+    getAttribute(name) {
+      return attrs[name] ?? null;
+    },
+    addEventListener(name, handler) {
+      listeners.set(name, handler);
+    },
+    click() {
+      listeners.get('click')?.();
+    },
+    querySelector() {
+      return null;
+    },
+  };
+}
+
+function createSSRDashboardContainer() {
+  const blockedTab = createFakeElement({ dashboardSsrTableTab: 'blocked_families' }, { 'aria-selected': 'false' });
+  const overdueTab = createFakeElement({ dashboardSsrTableTab: 'top_overdue_assignments' }, { 'aria-selected': 'true' });
+  const blockedPanel = createFakeElement({ dashboardSsrTablePanel: 'blocked_families' });
+  blockedPanel.hidden = true;
+  const overduePanel = createFakeElement({ dashboardSsrTablePanel: 'top_overdue_assignments' });
+  return {
+    root: {
+      dataset: {
+        endpoint: '/admin/api/translations/dashboard',
+        ssrEnhanced: 'true',
+      },
+      innerHTML: '<section data-translation-dashboard-ssr="true">Overdue panel</section>',
+      querySelectorAll(selector) {
+        if (selector === '[data-dashboard-ssr-table-tab]') return [blockedTab, overdueTab];
+        if (selector === '[data-dashboard-ssr-table-panel]') return [blockedPanel, overduePanel];
+        if (selector === '[data-dashboard-ssr-disclosure]') return [];
+        return [];
+      },
+    },
+    blockedTab,
+    blockedPanel,
+    overduePanel,
+  };
+}
+
 function createJsonResponse(body, status = 200, headers = {}) {
   return {
     ok: status >= 200 && status < 300,
@@ -188,11 +245,7 @@ test('translation dashboard runtime: mount renders manager toolbar, cards, table
 
 test('translation dashboard runtime: SSR root is enhanced without first-render fetch', async () => {
   let fetchCalls = 0;
-  const root = createContainer({
-    endpoint: '/admin/api/translations/dashboard',
-    ssrEnhanced: 'true',
-  });
-  root.innerHTML = '<section data-translation-dashboard-ssr="true">SSR dashboard</section>';
+  const { root, blockedTab, blockedPanel, overduePanel } = createSSRDashboardContainer();
 
   const page = initTranslationDashboardPage(root, {
     fetch: async () => {
@@ -204,8 +257,14 @@ test('translation dashboard runtime: SSR root is enhanced without first-render f
 
   assert.equal(page, null);
   assert.equal(fetchCalls, 0);
-  assert.match(root.innerHTML, /SSR dashboard/);
+  assert.match(root.innerHTML, /Overdue panel/);
   assert.equal(root.dataset.translationDashboardEnhanced, 'true');
+
+  blockedTab.click();
+
+  assert.equal(blockedTab.getAttribute('aria-selected'), 'true');
+  assert.equal(blockedPanel.hidden, false);
+  assert.equal(overduePanel.hidden, true);
 });
 
 test('translation dashboard runtime: mount renders empty state from published fixtures', async () => {

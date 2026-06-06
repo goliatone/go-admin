@@ -1,19 +1,19 @@
 import { escapeAttribute as f, escapeHTML as u } from "../shared/html.js";
-import { readHTTPError as M } from "../shared/transport/http-client.js";
-import { extractStructuredError as C } from "../toast/error-helpers.js";
+import { readHTTPError as C } from "../shared/transport/http-client.js";
+import { extractStructuredError as M } from "../toast/error-helpers.js";
 import { buildEndpointURL as Q, getNumberSearchParam as v, getStringSearchParam as _, readLocationSearchParams as X, setJoinedSearchParam as Y, setNumberSearchParam as T, setSearchParam as y } from "../shared/query-state/url-state.js";
-import { deriveBasePathFromAPIEndpoint as G, trimTrailingSlash as R } from "../shared/path-normalization.js";
+import { deriveBasePathFromAPIEndpoint as V, trimTrailingSlash as R } from "../shared/path-normalization.js";
 import { n as S } from "../chunks/translation-contracts-Ct_EG7JJ.js";
-import { StatefulController as K } from "../shared/stateful-controller.js";
+import { StatefulController as G } from "../shared/stateful-controller.js";
 import { asBoolean as x, asNumberish as m, asRecord as l, asString as i, asUniqueStringArray as p } from "../shared/coercion.js";
-import { A as V, E as W, F as J, M as Z, N as ee, P as te, T as ae, _ as L, b as re, g as I, j as se, k as ie, nt as oe, p as $, s as ne, u as le, v as q, w as ce, x as de, y as ue } from "../chunks/translation-shared-DxbdCW0D.js";
+import { A as K, B as W, D as L, E as I, F as J, H as Z, N as ee, O as te, P as ae, R as re, S as $, T as q, U as se, V as ie, W as oe, dt as ne, g as le, k as ce, y as de, z as ue } from "../chunks/translation-shared-CdZJJA93.js";
 import { c as P, s as me } from "../chunks/ui-states-1McZ5upU.js";
 function b(t) {
   return Array.isArray(t) ? t.map((e) => l(e)).filter((e) => Object.keys(e).length > 0) : [];
 }
 function pe(t, e) {
   const a = R(i(t));
-  return a || G(i(e)) || "/admin";
+  return a || V(i(e)) || "/admin";
 }
 function fe(t) {
   const e = l(t), a = i(e.href), r = i(e.label);
@@ -300,13 +300,13 @@ function Ee(t, e = {}) {
     ...e
   };
 }
-function Me(t) {
+function Ce(t) {
   return !!(t && t.state === "not_required");
 }
 function tt(t) {
   return t.meta.locale_policy.length > 0 ? t.meta.locale_policy : t.data.columns.map((e) => {
     const a = [];
-    for (const r of t.data.rows) Me(r.cells[e.locale]) && a.push(r.family_id);
+    for (const r of t.data.rows) Ce(r.cells[e.locale]) && a.push(r.family_id);
     return {
       locale: e.locale,
       label: e.label,
@@ -336,16 +336,16 @@ function F(t, e) {
     type: ""
   };
 }
-function Ce(t) {
+function Me(t) {
   const e = N(t.endpoint), a = t.fetch ?? globalThis.fetch?.bind(globalThis);
   if (!a) throw new Error("Fetch is not available for the translation matrix client.");
   return {
     async fetchMatrix(r = {}) {
       const s = await a($e(e, r), { headers: { Accept: "application/json" } });
       if (!s.ok) {
-        const o = await C(s);
+        const o = await M(s);
         throw new A({
-          message: o.message || await M(s, "Failed to load translation matrix"),
+          message: o.message || await C(s, "Failed to load translation matrix"),
           status: s.status,
           code: o.textCode,
           requestId: s.headers.get("x-request-id") ?? void 0,
@@ -367,9 +367,9 @@ function Ce(t) {
         body: JSON.stringify(s)
       });
       if (!c.ok) {
-        const d = await C(c);
+        const d = await M(c);
         throw new A({
-          message: d.message || await M(c, "Matrix action failed"),
+          message: d.message || await C(c, "Matrix action failed"),
           status: c.status,
           code: d.textCode,
           requestId: c.headers.get("x-request-id") ?? void 0,
@@ -435,7 +435,7 @@ function qe(t) {
   }
 }
 function Pe(t) {
-  const e = `border ${oe(qe(t.state))}`, a = t.assignment?.status || t.variant?.status || E(t.state);
+  const e = `border ${ne(qe(t.state))}`, a = t.assignment?.status || t.variant?.status || E(t.state);
   return `
     <div class="flex items-center justify-between gap-2">
       <span class="inline-flex rounded-full border px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] ${f(e)}">${u(E(t.state))}</span>
@@ -449,11 +449,11 @@ function U(t) {
 function Oe(t, e) {
   const a = t.data.columns, r = t.data.rows;
   return `
-    <div class="${Z}" data-matrix-grid="true">
-      <table class="${J}">
-        <thead class="${ee}">
+    <div class="${ie}" data-matrix-grid="true">
+      <table class="${oe}">
+        <thead class="${Z}">
           <tr>
-            <th scope="col" class="${se} border-b border-gray-200 px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-500">
+            <th scope="col" class="${W} border-b border-gray-200 px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-500">
               <label class="inline-flex items-center gap-2">
                 <input type="checkbox" data-matrix-toggle-all-families="true" ${e.family_ids.length === r.length && r.length > 0 ? "checked" : ""}>
                 <span>Families</span>
@@ -476,7 +476,7 @@ function Oe(t, e) {
         <tbody>
           ${r.map((s, o) => `
             <tr data-matrix-row="${f(s.family_id)}">
-              <th scope="row" class="${te} border-b border-gray-200 px-4 py-4 text-left align-top">
+              <th scope="row" class="${se} border-b border-gray-200 px-4 py-4 text-left align-top">
                 <div class="flex items-start gap-3">
                   <input type="checkbox" data-matrix-family-toggle="${f(s.family_id)}" ${e.family_ids.includes(s.family_id) ? "checked" : ""} class="mt-1">
                   <div class="min-w-0">
@@ -495,7 +495,7 @@ function Oe(t, e) {
               ${a.map((n, c) => {
     const d = s.cells[n.locale], g = U(d);
     return `
-                  <td class="${V}">
+                  <td class="${ue}">
                     <div class="min-w-[10rem] rounded-xl border border-gray-200 bg-gray-50 p-3">
                       ${Pe(d)}
                       <div class="mt-3">
@@ -578,7 +578,7 @@ function ze(t, e = !1) {
           <input name="locales" value="${f((t.locales || []).join(", "))}" class="mt-2 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm text-gray-900" placeholder="fr, es">
         </label>
         <div class="flex items-end gap-3">
-          <button type="submit" class="${le} w-full" ${e ? "disabled" : ""}>${u(e ? "Loading…" : "Apply filters")}</button>
+          <button type="submit" class="${de} w-full" ${e ? "disabled" : ""}>${u(e ? "Loading…" : "Apply filters")}</button>
         </div>
       </form>
     </section>
@@ -589,7 +589,7 @@ function De() {
     tag: "section",
     text: "Loading translation matrix…",
     showSpinner: !1,
-    containerClass: `${ie} p-8 shadow-sm`,
+    containerClass: `${re} p-8 shadow-sm`,
     attributes: { "data-matrix-loading": "true" },
     ariaLive: "polite"
   });
@@ -597,16 +597,16 @@ function De() {
 function Ne() {
   return P({
     tag: "section",
-    containerClass: `${I} p-8 shadow-sm`,
+    containerClass: `${q} p-8 shadow-sm`,
     bodyClass: "",
     contentClass: "",
     title: "No rows",
-    titleClass: q,
+    titleClass: L,
     heading: "No families match this matrix scope.",
     headingTag: "h2",
     headingClass: "mt-2 text-xl font-semibold text-gray-900",
     message: "Adjust the filters, widen the locale window, or clear blocker constraints to inspect additional family coverage.",
-    messageClass: `${L} mt-3 max-w-2xl leading-6`,
+    messageClass: `${I} mt-3 max-w-2xl leading-6`,
     attributes: { "data-matrix-empty": "true" },
     ariaLive: "polite"
   });
@@ -615,19 +615,19 @@ function Fe(t) {
   const e = t instanceof A ? t.requestId : "", a = t instanceof A ? t.traceId : "";
   return P({
     tag: "section",
-    containerClass: `${ue} p-6 shadow-sm`,
+    containerClass: `${te} p-6 shadow-sm`,
     bodyClass: "",
     contentClass: "",
     title: "Matrix unavailable",
-    titleClass: de,
+    titleClass: K,
     heading: "The matrix payload could not be loaded.",
     headingTag: "h2",
     headingClass: "mt-2 text-xl font-semibold text-rose-900",
     message: t instanceof Error ? t.message : "Failed to load the translation matrix",
-    messageClass: `${re} mt-3 leading-6`,
+    messageClass: `${ce} mt-3 leading-6`,
     metadata: e || a ? [e ? `Request ${e}` : "", a ? `Trace ${a}` : ""].filter(Boolean).join(" • ") : "",
     metadataClass: "mt-3 text-xs uppercase tracking-[0.16em] text-rose-700",
-    actionsHtml: `<div class="mt-4"><button type="button" data-matrix-retry="true" class="${ne}">Retry matrix</button></div>`,
+    actionsHtml: `<div class="mt-4"><button type="button" data-matrix-retry="true" class="${le}">Retry matrix</button></div>`,
     role: "alert",
     attributes: { "data-matrix-error": "true" }
   });
@@ -645,8 +645,8 @@ function He(t, e, a, r, s, o, n, c = !1, d = "/admin") {
               <span class="text-gray-600">${u(t)}</span>
             </nav>
             <p class="${ae}">Translation Coverage</p>
-            <h1 class="${W} mt-2">${u(t)}</h1>
-            <p class="${ce} mt-3 max-w-3xl leading-6">Dense family-by-locale coverage with sticky headers, row pagination, locale windows, and quick actions for missing or in-flight work.</p>
+            <h1 class="${J} mt-2">${u(t)}</h1>
+            <p class="${ee} mt-3 max-w-3xl leading-6">Dense family-by-locale coverage with sticky headers, row pagination, locale windows, and quick actions for missing or in-flight work.</p>
           </div>
           ${g ? `<p class="rounded-full border border-white/70 bg-white/80 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">${u(g)}</p>` : ""}
         </div>
@@ -656,7 +656,7 @@ function He(t, e, a, r, s, o, n, c = !1, d = "/admin") {
     </div>
   `;
 }
-var Ue = class extends K {
+var Ue = class extends G {
   constructor(t) {
     super("loading"), this.root = null, this.payload = null, this.error = null, this.selection = w(), this.feedback = "", this.working = !1, this.handleSubmit = (a) => {
       const r = a.target;
@@ -749,7 +749,7 @@ var Ue = class extends K {
       ...t,
       basePath: e,
       title: t.title || "Translation Matrix"
-    }, this.client = Ce(this.config), this.query = Re();
+    }, this.client = Me(this.config), this.query = Re();
   }
   mount(t) {
     this.root = t, this.render(), this.load(), t.addEventListener("click", this.handleClick), t.addEventListener("submit", this.handleSubmit), t.addEventListener("keydown", this.handleKeydown);
@@ -828,7 +828,7 @@ var Ue = class extends K {
 function at(t, e = {}) {
   const a = i(e.endpoint) || i(t.dataset.endpoint);
   if (!a)
-    return t.innerHTML = `<section class="${I} p-6" data-matrix-empty="true"><p class="${q}">Configuration required</p><p class="${L} mt-2">Configure a matrix endpoint before initializing the translation matrix page.</p></section>`, null;
+    return t.innerHTML = `<section class="${q} p-6" data-matrix-empty="true"><p class="${L}">Configuration required</p><p class="${I} mt-2">Configure a matrix endpoint before initializing the translation matrix page.</p></section>`, null;
   const r = new Ue({
     endpoint: a,
     fetch: e.fetch,
@@ -843,10 +843,10 @@ export {
   Ee as buildTranslationMatrixBulkActionPayload,
   tt as buildTranslationMatrixLocalePolicyMetadata,
   $e as buildTranslationMatrixURL,
-  Ce as createTranslationMatrixClient,
+  Me as createTranslationMatrixClient,
   w as createTranslationMatrixSelectionState,
   at as initTranslationMatrixPage,
-  Me as isTranslationMatrixNotRequiredCell,
+  Ce as isTranslationMatrixNotRequiredCell,
   Te as normalizeTranslationMatrixBulkActionResponse,
   be as normalizeTranslationMatrixCell,
   B as normalizeTranslationMatrixCellState,
