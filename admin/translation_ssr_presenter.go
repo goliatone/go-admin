@@ -756,9 +756,7 @@ func translationSSRAnyList(raw any) []map[string]any {
 	switch typed := raw.(type) {
 	case []map[string]any:
 		out := make([]map[string]any, 0, len(typed))
-		for _, item := range typed {
-			out = append(out, item)
-		}
+		out = append(out, typed...)
 		return out
 	case []any:
 		out := make([]map[string]any, 0, len(typed))
