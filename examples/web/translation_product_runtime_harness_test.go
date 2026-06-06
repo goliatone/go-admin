@@ -118,7 +118,7 @@ func TestDevServeEquivalentTranslationRuntimeContracts(t *testing.T) {
 		},
 	})
 	require.NoError(t, err)
-	require.Greater(t, seededScopedTotal, 0, "expected scoped seeded assignment total")
+	require.Positive(t, seededScopedTotal, "expected scoped seeded assignment total")
 	require.NotEmpty(t, seededScopedAssignments, "expected scoped seeded assignments")
 
 	viewEngine, err := quickstart.NewViewEngine(

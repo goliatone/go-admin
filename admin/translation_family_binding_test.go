@@ -1292,7 +1292,7 @@ func TestTranslationFamilyBindingCreateAssignmentIgnoresOtherScopeActiveAssignme
 
 func TestTranslationFamilyBindingCreateAssignmentFindsActiveAssignmentAfterTerminalRows(t *testing.T) {
 	assignments := make([]TranslationAssignment, 0, 206)
-	for i := 0; i < 205; i++ {
+	for i := range 205 {
 		assignments = append(assignments, TranslationAssignment{
 			ID:             fmt.Sprintf("asg-archived-fr-%03d", i),
 			FamilyID:       "tg-page-1",

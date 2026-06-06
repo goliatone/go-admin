@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"maps"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -257,6 +258,9 @@ func TestTranslationDashboardAndFamiliesTemplatesRenderSSRSections(t *testing.T)
 				"data-translation-dashboard-ssr=\"true\"",
 				"Translation dashboard metrics",
 				"Translation dashboard triage",
+				"data-dashboard-ssr-table-tab",
+				"data-dashboard-ssr-table-panel",
+				"iconoir-nav-arrow-right",
 				"data-ssr-enhanced=\"true\"",
 			},
 		},
@@ -870,7 +874,10 @@ func TestRegisterAdminUIRoutesTranslationRoutesInjectSSRViewContext(t *testing.T
 		if fmt.Sprint(page["Surface"]) != admin.TranslationSSRSurfaceFamilyDetail {
 			return false
 		}
-		data, _ := page["Data"].(map[string]any)
+		data, ok := page["Data"].(map[string]any)
+		if !ok {
+			return false
+		}
 		if fmt.Sprint(data["family_id"]) != "family-123" {
 			return false
 		}
@@ -1087,9 +1094,7 @@ func renderTranslationUITemplate(t *testing.T, template string, data fiber.Map) 
 			"csrf_field":        "",
 			"breadcrumbs":       []BreadcrumbItem{},
 		}
-		for key, value := range data {
-			viewData[key] = value
-		}
+		maps.Copy(viewData, data)
 		return c.Render(template, viewData)
 	})
 
