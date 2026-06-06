@@ -350,7 +350,7 @@
               <ol class="mt-4 space-y-3 text-sm text-gray-600">
                 {% for assignment in family.active_assignments %}
                 <li class="rounded-md border border-gray-100 bg-gray-50 p-3">
-                  {{ assignment.target_locale|default:"-" }} assignment {{ assignment.display_status|default:assignment.status|default:"Updated" }}{% if assignment.updated_at %} &middot; {{ assignment.updated_at }}{% endif %}
+                  {{ assignment.target_locale|default:"-" }} assignment {{ assignment.display_status|default:assignment.status|default:"Updated" }}{% if assignment.display_updated or assignment.updated_at %} &middot; {{ assignment.display_updated|default:assignment.updated_at }}{% endif %}
                 </li>
                 {% endfor %}
               </ol>

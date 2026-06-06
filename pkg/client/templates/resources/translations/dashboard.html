@@ -115,7 +115,7 @@
               <li class="rounded-md bg-white/70 px-3 py-2 text-xs">
                 <span class="font-semibold">{{ alert.display_label|default:"Action" }}</span>
                 {% if alert.card_id or alert.cardId %}
-                <span class="ml-1 text-rose-700/70">{{ alert.card_id|default:alert.cardId }}</span>
+                <span class="ml-1 text-rose-700/70">{{ alert.display_card_label|default:alert.card_id|default:alert.cardId }}</span>
                 {% endif %}
               </li>
               {% endfor %}
@@ -147,42 +147,42 @@
         </section>
         {% endif %}
 
-        {% if translation_dashboard_ssr.Data.tables %}
+        {% if translation_dashboard_ssr.Data.ordered_tables|default:translation_dashboard_ssr.Data.tables %}
         <section class="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm" aria-label="Translation dashboard triage">
           <div class="flex flex-wrap items-center gap-6 border-b border-gray-200 px-5 text-sm font-medium text-gray-600" role="tablist" aria-label="Translation dashboard triage views">
-            {% for table_id, table in translation_dashboard_ssr.Data.tables %}
+            {% for table in translation_dashboard_ssr.Data.ordered_tables|default:translation_dashboard_ssr.Data.tables %}
             <button type="button"
-                    class="inline-flex items-center gap-2 border-b-2 {% if table.id == "top_overdue_assignments" or table_id == "top_overdue_assignments" %}border-blue-500 text-blue-700{% else %}border-transparent text-gray-600{% endif %} py-3"
-                    data-dashboard-ssr-table-tab="{{ table.id|default:table_id }}"
+                    class="inline-flex items-center gap-2 border-b-2 {% if table.id == "top_overdue_assignments" %}border-blue-500 text-blue-700{% else %}border-transparent text-gray-600{% endif %} py-3"
+                    data-dashboard-ssr-table-tab="{{ table.id }}"
                     role="tab"
-                    aria-selected="{% if table.id == "top_overdue_assignments" or table_id == "top_overdue_assignments" %}true{% else %}false{% endif %}"
-                    aria-controls="dashboard-table-panel-{{ table.id|default:table_id }}">
-              {% if table.id == "blocked_families" or table_id == "blocked_families" %}
+                    aria-selected="{% if table.id == "top_overdue_assignments" %}true{% else %}false{% endif %}"
+                    aria-controls="dashboard-table-panel-{{ table.id }}">
+              {% if table.id == "blocked_families" %}
               <i class="iconoir-prohibition" aria-hidden="true"></i>
               <span>Blocked</span>
-              {% elif table.id == "top_overdue_assignments" or table_id == "top_overdue_assignments" %}
+              {% elif table.id == "top_overdue_assignments" %}
               <i class="iconoir-clock" aria-hidden="true"></i>
               <span>Overdue</span>
               {% else %}
-              <span>{{ table.label|default:"Triage" }}</span>
+              <span>{{ table.display_label|default:table.label|default:"Triage" }}</span>
               {% endif %}
               <span class="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600">{{ table.total|default:"0" }}</span>
             </button>
             {% endfor %}
           </div>
-          {% for table_id, table in translation_dashboard_ssr.Data.tables %}
-          <article id="dashboard-table-panel-{{ table.id|default:table_id }}"
-                   data-dashboard-table="{{ table.id|default:table_id }}"
-                   data-dashboard-ssr-table-panel="{{ table.id|default:table_id }}"
+          {% for table in translation_dashboard_ssr.Data.ordered_tables|default:translation_dashboard_ssr.Data.tables %}
+          <article id="dashboard-table-panel-{{ table.id }}"
+                   data-dashboard-table="{{ table.id }}"
+                   data-dashboard-ssr-table-panel="{{ table.id }}"
                    role="tabpanel"
-                   {% if table.id != "top_overdue_assignments" and table_id != "top_overdue_assignments" %}class="hidden" hidden{% endif %}>
+                   {% if table.id != "top_overdue_assignments" %}class="hidden" hidden{% endif %}>
             <div class="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 px-5 py-4">
               <p class="text-sm text-gray-500">Showing top {{ table.rows|length|default:"0" }} of {{ table.total|default:"0" }}</p>
-              {% if table.id == "top_overdue_assignments" or table_id == "top_overdue_assignments" %}
+              {% if table.id == "top_overdue_assignments" %}
               {% if translation_dashboard_ssr.Links.queue %}
               <a class="btn btn-secondary" href="{{ translation_dashboard_ssr.Links.queue }}">Overdue Triage</a>
               {% endif %}
-              {% elif table.id == "blocked_families" or table_id == "blocked_families" %}
+              {% elif table.id == "blocked_families" %}
               {% if translation_dashboard_ssr.Links.families %}
               <a class="btn btn-secondary" href="{{ translation_dashboard_ssr.Links.families }}">Blocked Families</a>
               {% endif %}
@@ -256,8 +256,8 @@
                   {% for row in table.rows %}
                   <tr>
                     <td class="px-5 py-4">
-                      <div class="font-semibold text-gray-900">{{ row.display_title|default:row.source_title|default:row.assignment_id|default:"-" }}</div>
-                      <div class="mt-1 text-xs text-gray-500">{{ row.display_identifier|default:row.assignment_id|default:"" }}</div>
+                      <div class="font-semibold text-gray-900">{{ row.display_title|default:row.source_title|default:row.title|default:row.assignment_id|default:"-" }}</div>
+                      <div class="mt-1 text-xs text-gray-500">{{ row.display_identifier|default:row.source_path|default:row.assignment_id|default:row.id|default:"" }}</div>
                     </td>
                     <td class="px-5 py-4 text-gray-700">
                       {{ row.display_locale|default:"-" }}

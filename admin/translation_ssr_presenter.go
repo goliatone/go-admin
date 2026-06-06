@@ -417,16 +417,25 @@ func translationSSRDecorateDashboard(data, meta map[string]any) {
 	if data == nil {
 		return
 	}
+	cardLabels := translationSSRDecorateDashboardCards(data)
+	translationSSRDecorateDashboardDisplay(data, meta)
+	translationSSRDecorateDashboardAlerts(data, cardLabels)
+	translationSSRDecorateDashboardTables(data)
+}
+
+func translationSSRDecorateDashboardDisplay(data, meta map[string]any) {
 	display := extractMap(data["display"])
 	if display == nil {
 		display = map[string]any{}
 	}
-	generated := firstNonEmpty(toString(meta["generated_at"]), toString(data["generated"]), toString(data["generated_at"]))
+	generated := translationSSRFirstPresentValue(meta["generated_at"], data["generated"], data["generated_at"])
 	display["generated_label"] = translationSSRFormatTimestamp(generated)
 	display["refresh_interval_label"] = translationSSRFormatMilliseconds(firstNonEmpty(toString(meta["refresh_interval_ms"]), toString(data["refresh_interval_ms"])))
 	display["latency_target_label"] = translationSSRFormatMilliseconds(firstNonEmpty(toString(meta["latency_target_ms"]), toString(data["latency_target_ms"]), "300"))
 	data["display"] = display
+}
 
+func translationSSRDecorateDashboardCards(data map[string]any) map[string]string {
 	cards := translationSSRList(data, "cards")
 	cardLabels := map[string]string{}
 	for _, card := range cards {
@@ -438,16 +447,23 @@ func translationSSRDecorateDashboard(data, meta map[string]any) {
 	if len(cards) > 0 {
 		data["cards"] = cards
 	}
+	return cardLabels
+}
 
+func translationSSRDecorateDashboardAlerts(data map[string]any, cardLabels map[string]string) {
 	alerts := translationSSRAnyList(data["alerts"])
 	for _, alert := range alerts {
 		alert["display_label"] = translationSSRAlertLabel(alert)
+		cardID := firstNonEmpty(toString(alert["card_id"]), toString(alert["cardId"]))
+		alert["display_card_label"] = firstNonEmpty(cardLabels[cardID], translationSSRHumanLabel(cardID))
 	}
 	if len(alerts) > 0 {
 		data["alerts"] = alerts
 		data["alert_summary"] = translationSSRDashboardAlertSummary(alerts, cardLabels)
 	}
+}
 
+func translationSSRDecorateDashboardTables(data map[string]any) {
 	tables := extractMap(data["tables"])
 	for key, raw := range tables {
 		table := extractMap(raw)
@@ -497,7 +513,41 @@ func translationSSRDecorateDashboard(data, meta map[string]any) {
 	}
 	if len(tables) > 0 {
 		data["tables"] = tables
+		data["ordered_tables"] = translationSSRDashboardOrderedTables(tables)
 	}
+}
+
+func translationSSRDashboardOrderedTables(tables map[string]any) []map[string]any {
+	if len(tables) == 0 {
+		return nil
+	}
+	out := make([]map[string]any, 0, len(tables))
+	seen := map[string]bool{}
+	appendTable := func(key string) {
+		if seen[key] {
+			return
+		}
+		table := extractMap(tables[key])
+		if len(table) == 0 {
+			return
+		}
+		seen[key] = true
+		out = append(out, table)
+	}
+	for _, key := range []string{"blocked_families", "top_overdue_assignments"} {
+		appendTable(key)
+	}
+	extras := make([]string, 0, len(tables))
+	for key := range tables {
+		if !seen[key] {
+			extras = append(extras, key)
+		}
+	}
+	sort.Strings(extras)
+	for _, key := range extras {
+		appendTable(key)
+	}
+	return out
 }
 
 func translationSSRDashboardCardLabel(card map[string]any) string {
@@ -521,9 +571,14 @@ func translationSSRDashboardCardLabel(card map[string]any) string {
 func translationSSRDashboardAlertSummary(alerts []map[string]any, cardLabels map[string]string) map[string]any {
 	chips := []map[string]any{}
 	seen := map[string]bool{}
+	severityCounts := map[string]int{}
 	for _, alert := range alerts {
 		cardID := firstNonEmpty(toString(alert["card_id"]), toString(alert["cardId"]))
 		label := firstNonEmpty(cardLabels[cardID], translationSSRAlertLabel(alert))
+		severity := translationSSRAlertSeverity(alert)
+		if severity != "" {
+			severityCounts[severity]++
+		}
 		key := strings.ToLower(label)
 		if label == "" || seen[key] {
 			continue
@@ -531,11 +586,65 @@ func translationSSRDashboardAlertSummary(alerts []map[string]any, cardLabels map
 		seen[key] = true
 		chips = append(chips, map[string]any{"label": label, "card_id": cardID})
 	}
+	status := "alert"
+	count := len(alerts)
+	labelSeverity := "alert"
+	for _, severity := range []string{"critical", "warning", "degraded", "info"} {
+		if severityCounts[severity] == 0 {
+			continue
+		}
+		status = severity
+		count = severityCounts[severity]
+		labelSeverity = severity
+		break
+	}
 	return map[string]any{
 		"count":  len(alerts),
-		"label":  strconv.Itoa(len(alerts)) + " critical",
+		"label":  strconv.Itoa(count) + " " + translationSSRAlertSummaryNoun(labelSeverity, count),
 		"chips":  chips,
-		"status": "critical",
+		"status": status,
+	}
+}
+
+func translationSSRAlertSeverity(alert map[string]any) string {
+	state := strings.ToLower(strings.TrimSpace(firstNonEmpty(toString(alert["state"]), toString(alert["severity"]), toString(alert["status"]))))
+	switch state {
+	case "critical", "warning", "degraded", "info":
+		return state
+	case "healthy", "ok", "success":
+		return ""
+	}
+	message := strings.ToLower(strings.TrimSpace(firstNonEmpty(toString(alert["message"]), toString(alert["code"]))))
+	switch {
+	case strings.Contains(message, "critical"), strings.Contains(message, "action required"), strings.Contains(message, "blocked"):
+		return "critical"
+	case strings.Contains(message, "warning"), strings.Contains(message, "attention"), strings.Contains(message, "overdue"):
+		return "warning"
+	case strings.Contains(message, "degraded"):
+		return "degraded"
+	default:
+		return "info"
+	}
+}
+
+func translationSSRAlertSummaryNoun(severity string, count int) string {
+	switch severity {
+	case "critical":
+		return "critical"
+	case "warning":
+		if count == 1 {
+			return "warning"
+		}
+		return "warnings"
+	case "degraded":
+		return "degraded"
+	case "info":
+		return "info"
+	default:
+		if count == 1 {
+			return "alert"
+		}
+		return "alerts"
 	}
 }
 
@@ -575,7 +684,7 @@ func translationSSRDecorateQueueRows(input TranslationSSRPresenterInput, rows []
 		row["display_status"] = translationSSRHumanLabel(firstNonEmpty(toString(row["status"]), toString(row["queue_state"]), "unknown"))
 		row["display_priority"] = translationSSRHumanLabel(toString(row["priority"]))
 		row["display_due_state"] = translationSSRHumanLabel(toString(row["due_state"]))
-		row["display_due_date"] = translationSSRFormatDate(toString(row["due_date"]))
+		row["display_due_date"] = translationSSRFormatDate(row["due_date"])
 		row["display_assignee"] = firstNonEmpty(toString(row["assignee_label"]), translationSSRActorFallback(toString(row["assignee_id"])), "Unassigned")
 		row["display_reviewer"] = firstNonEmpty(toString(row["reviewer_label"]), translationSSRActorFallback(toString(row["reviewer_id"])))
 		row["editor_href"] = translationSSRHrefWithQuery(
@@ -670,7 +779,7 @@ func translationSSRDecorateFamilyDetail(data map[string]any) {
 	variants := translationSSRAnyList(data["locale_variants"])
 	for _, variant := range variants {
 		variant["display_status"] = translationSSRHumanLabel(firstNonEmpty(toString(variant["status"]), "unknown"))
-		variant["display_updated"] = translationSSRFormatDate(toString(variant["updated_at"]))
+		variant["display_updated"] = translationSSRFormatDate(variant["updated_at"])
 	}
 	if len(variants) > 0 {
 		data["locale_variants"] = variants
@@ -680,6 +789,7 @@ func translationSSRDecorateFamilyDetail(data map[string]any) {
 		assignment["display_status"] = translationSSRHumanLabel(firstNonEmpty(toString(assignment["status"]), "open"))
 		assignment["display_priority"] = translationSSRHumanLabel(firstNonEmpty(toString(assignment["priority"]), "normal"))
 		assignment["display_assignee"] = firstNonEmpty(toString(assignment["assignee_label"]), translationSSRActorFallback(toString(assignment["assignee_id"])), "Unassigned")
+		assignment["display_updated"] = translationSSRFormatDate(assignment["updated_at"])
 	}
 	if len(assignments) > 0 {
 		data["active_assignments"] = assignments
@@ -852,30 +962,72 @@ func translationSSRFormatMilliseconds(value string) string {
 	return strconv.Itoa(ms) + "ms"
 }
 
-func translationSSRFormatTimestamp(value string) string {
-	value = strings.TrimSpace(value)
-	if value == "" {
+func translationSSRFormatTimestamp(value any) string {
+	if parsed, ok := translationSSRTimeFromAny(value); ok {
+		return parsed.Local().Format("1/2/2006, 3:04:05 PM")
+	}
+	text := strings.TrimSpace(toString(value))
+	if text == "" {
 		return "now"
 	}
-	for _, layout := range []string{time.RFC3339Nano, time.RFC3339, "2006-01-02T15:04:05Z07:00"} {
-		if parsed, err := time.Parse(layout, value); err == nil {
-			return parsed.Local().Format("1/2/2006, 3:04:05 PM")
-		}
-	}
-	return value
+	return text
 }
 
-func translationSSRFormatDate(value string) string {
-	value = strings.TrimSpace(value)
-	if value == "" {
+func translationSSRFormatDate(value any) string {
+	if parsed, ok := translationSSRTimeFromAny(value); ok {
+		return parsed.Local().Format("Jan 2, 2006")
+	}
+	text := strings.TrimSpace(toString(value))
+	if text == "" {
 		return ""
 	}
-	for _, layout := range []string{time.RFC3339Nano, time.RFC3339, "2006-01-02"} {
-		if parsed, err := time.Parse(layout, value); err == nil {
-			return parsed.Local().Format("Jan 2, 2006")
+	return text
+}
+
+func translationSSRFirstPresentValue(values ...any) any {
+	for _, value := range values {
+		if t, ok := value.(time.Time); ok && !t.IsZero() {
+			return value
+		}
+		if t, ok := value.(*time.Time); ok && t != nil && !t.IsZero() {
+			return value
+		}
+		if strings.TrimSpace(toString(value)) != "" {
+			return value
 		}
 	}
-	return value
+	return nil
+}
+
+func translationSSRTimeFromAny(value any) (time.Time, bool) {
+	switch typed := value.(type) {
+	case time.Time:
+		if typed.IsZero() {
+			return time.Time{}, false
+		}
+		return typed, true
+	case *time.Time:
+		if typed == nil || typed.IsZero() {
+			return time.Time{}, false
+		}
+		return *typed, true
+	}
+	text := strings.TrimSpace(toString(value))
+	if text == "" {
+		return time.Time{}, false
+	}
+	for _, layout := range []string{
+		time.RFC3339Nano,
+		time.RFC3339,
+		"2006-01-02T15:04:05Z07:00",
+		"2006-01-02 15:04:05 -0700 MST",
+		"2006-01-02",
+	} {
+		if parsed, err := time.Parse(layout, text); err == nil {
+			return parsed, true
+		}
+	}
+	return time.Time{}, false
 }
 
 func translationSSRHumanLabel(key string) string {
