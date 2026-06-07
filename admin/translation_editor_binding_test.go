@@ -26,6 +26,8 @@ type translationEditorTestFixtureOptions struct {
 	VariantRowVersion       int64
 	TargetCMSStatus         string
 	TargetVariantStatus     string
+	AssignmentAssigneeID    string
+	AssignmentReviewerID    string
 	LastRejectionReason     string
 	Permissions             map[string]bool
 	FamilyStore             translationservices.FamilyStore
@@ -132,6 +134,9 @@ func newTranslationEditorTestFixture(t *testing.T, options translationEditorTest
 	if strings.TrimSpace(options.TargetVariantStatus) == "" {
 		options.TargetVariantStatus = string(translationcore.VariantStatusInProgress)
 	}
+	if strings.TrimSpace(options.AssignmentAssigneeID) == "" {
+		options.AssignmentAssigneeID = "translator-1"
+	}
 	if len(options.TargetFields) == 0 {
 		options.TargetFields = map[string]string{
 			"title": "Guide de traduction",
@@ -167,7 +172,8 @@ func newTranslationEditorTestFixture(t *testing.T, options translationEditorTest
 			AssignmentType:      AssignmentTypeDirect,
 			Status:              options.AssignmentStatus,
 			Priority:            PriorityHigh,
-			AssigneeID:          "translator-1",
+			AssigneeID:          strings.TrimSpace(options.AssignmentAssigneeID),
+			ReviewerID:          strings.TrimSpace(options.AssignmentReviewerID),
 			Version:             options.AssignmentVersion,
 			LastRejectionReason: options.LastRejectionReason,
 		},
@@ -460,6 +466,55 @@ func TestTranslationEditorAssignmentDetailReturnsDriftAssistTimelineAndActions(t
 	}
 	if autoApprove := toBool(submitReview["auto_approve"]); autoApprove {
 		t.Fatalf("expected submit_review auto_approve false when review is required")
+	}
+}
+
+func TestTranslationEditorAssignmentDetailIncludesActorDisplayLabels(t *testing.T) {
+	fixture := newTranslationEditorTestFixture(t, translationEditorTestFixtureOptions{
+		AssignmentAssigneeID: "9e838c81-6d3e-49d7-ad8f-b6616a040a44",
+		AssignmentReviewerID: "173c7e5b-50cb-37d0-8ced-a24b570863e6",
+	})
+	ctx := context.Background()
+	if _, err := fixture.admin.users.users.Create(ctx, UserRecord{
+		ID:       "9e838c81-6d3e-49d7-ad8f-b6616a040a44",
+		Username: "translator.jane",
+		Email:    "jane@example.com",
+		Status:   "active",
+	}); err != nil {
+		t.Fatalf("seed assignee user: %v", err)
+	}
+	if _, err := fixture.admin.users.users.Create(ctx, UserRecord{
+		ID:       "173c7e5b-50cb-37d0-8ced-a24b570863e6",
+		Username: "",
+		Email:    "reviewer.sam@example.com",
+		Status:   "active",
+	}); err != nil {
+		t.Fatalf("seed reviewer user: %v", err)
+	}
+
+	status, payload := doTranslationEditorJSONRequest(t, fixture.app, http.MethodGet, "/admin/api/translations/assignments/"+fixture.assignmentID+"?channel=production&tenant_id=tenant-1&org_id=org-1", nil)
+	if status != http.StatusOK {
+		t.Fatalf("status=%d want=200 payload=%+v", status, payload)
+	}
+
+	assignment := extractMap(extractMap(payload["data"])["translation_assignment"])
+	if got := strings.TrimSpace(toString(assignment["assignee_id"])); got != "9e838c81-6d3e-49d7-ad8f-b6616a040a44" {
+		t.Fatalf("expected assignee_id to remain stable, got %q", got)
+	}
+	if got := strings.TrimSpace(toString(assignment["reviewer_id"])); got != "173c7e5b-50cb-37d0-8ced-a24b570863e6" {
+		t.Fatalf("expected reviewer_id to remain stable, got %q", got)
+	}
+	if got := strings.TrimSpace(toString(assignment["assignee_label"])); got != "translator.jane" {
+		t.Fatalf("expected assignee_label translator.jane, got %q", got)
+	}
+	if got := strings.TrimSpace(toString(assignment["display_assignee"])); got != "translator.jane" {
+		t.Fatalf("expected display_assignee translator.jane, got %q", got)
+	}
+	if got := strings.TrimSpace(toString(assignment["reviewer_label"])); got != "reviewer.sam@example.com" {
+		t.Fatalf("expected reviewer_label reviewer.sam@example.com, got %q", got)
+	}
+	if got := strings.TrimSpace(toString(assignment["display_reviewer"])); got != "reviewer.sam@example.com" {
+		t.Fatalf("expected display_reviewer reviewer.sam@example.com, got %q", got)
 	}
 }
 

@@ -237,7 +237,10 @@ func TestTranslationFamilyDetailTemplateRendersSSRSections(t *testing.T) {
 		"data-locale-coverage-kind=\"{{ row.kind|default:\"variant\" }}\"",
 		"data-family-assignee-select=\"{{ row.locale_assignment_key }}\"",
 		"data-formgen-relationship=\"true\"",
+		"data-formgen-auto-init=\"true\"",
+		"data-endpoint-renderer=\"{{ translation_family_detail_ssr.Assignee.endpoint_renderer|default:\"typeahead\" }}\"",
 		"data-translation-create-locale-trigger=\"true\"",
+		"runtime/formgen-relationships.min.js",
 	} {
 		if !strings.Contains(template, expected) {
 			t.Fatalf("expected family detail template to contain %q", expected)
@@ -275,6 +278,8 @@ func TestTranslationDashboardAndFamiliesTemplatesRenderSSRSections(t *testing.T)
 				"translation_families_ssr",
 				"data-translation-family-list-ssr=\"true\"",
 				"data-family-list-filters=\"true\"",
+				"data-action-menu-trigger",
+				"Translation family views",
 				"translation_family_base_path",
 				"data-ssr-enhanced=\"true\"",
 			},
@@ -554,10 +559,14 @@ func TestMigratedTranslationTemplatesRenderHydratedSSRData(t *testing.T) {
 						"source_locale": "en",
 						"target_locale": "es",
 						"translation_assignment": map[string]any{
-							"source_title": "Launch page",
-							"status":       "pending",
-							"queue_state":  "open",
-							"version":      2,
+							"source_title":     "Launch page",
+							"status":           "pending",
+							"queue_state":      "open",
+							"version":          2,
+							"assignee_id":      "9e838c81-6d3e-49d7-ad8f-b6616a040a44",
+							"display_assignee": "translator.jane",
+							"reviewer_id":      "173c7e5b-50cb-37d0-8ced-a24b570863e6",
+							"display_reviewer": "reviewer.sam@example.com",
 						},
 						"fields": []map[string]any{{
 							"path":         "title",
@@ -576,7 +585,7 @@ func TestMigratedTranslationTemplatesRenderHydratedSSRData(t *testing.T) {
 					},
 				},
 			},
-			expected: []string{"Launch page", "Hello", `data-translation-editor-ssr="true"`},
+			expected: []string{"Launch page", "Hello", "Assignee translator.jane", "Reviewer reviewer.sam@example.com", `data-translation-editor-ssr="true"`},
 		},
 	}
 
@@ -615,6 +624,84 @@ func TestTranslationEditorTemplateRendersSSRSections(t *testing.T) {
 	}
 	if strings.Contains(template, "id=\"translation-editor-root\"") && strings.Contains(template, "></div>") {
 		t.Fatalf("expected editor root to contain SSR markup, found empty root pattern")
+	}
+}
+
+func TestTranslationEditorTemplateRendersResumeWorkState(t *testing.T) {
+	baseData := func(claim map[string]any) fiber.Map {
+		return fiber.Map{
+			"translation_assignment_id":          "asg-changes",
+			"translation_editor_api_path":        "/admin/api/translations/assignments/asg-changes?channel=staging",
+			"translation_editor_action_api_base": "/admin/api/translations/assignments",
+			"translation_editor_channel":         "staging",
+			"translation_editor_ssr": admin.TranslationSSRPage{
+				Surface: admin.TranslationSSRSurfaceEditor,
+				Data: map[string]any{
+					"assignment_id": "asg-changes",
+					"source_locale": "en",
+					"target_locale": "es",
+					"translation_assignment": map[string]any{
+						"source_title": "Launch page",
+						"status":       "changes_requested",
+						"queue_state":  "changes_requested",
+						"version":      7,
+					},
+					"status": "changes_requested",
+					"fields": []map[string]any{{
+						"path":         "title",
+						"label":        "Title",
+						"source_value": "Hello",
+						"target_value": "Hola",
+					}},
+					"locale_navigation": map[string]any{"locales": []map[string]any{{"locale": "es", "label": "Spanish", "current": true}}},
+					"qa_results":        map[string]any{"summary": map[string]any{"blocker_count": 0}},
+					"preview_action":    map[string]any{"enabled": true},
+					"assignment_action_states": map[string]any{
+						"claim":         claim,
+						"submit_review": map[string]any{"enabled": false, "reason": "assignment must be in progress"},
+					},
+					"review_action_states": map[string]any{
+						"approve": map[string]any{"enabled": false, "reason": "assignment must be in review"},
+						"reject":  map[string]any{"enabled": false, "reason": "assignment must be in review"},
+					},
+				},
+			},
+		}
+	}
+
+	enabledHTML := renderTranslationUITemplate(t, "resources/translations/editor", baseData(map[string]any{"enabled": true}))
+	for _, expected := range []string{
+		`data-editor-panel="resume-actions"`,
+		`data-action="resume-work"`,
+		`Resume work`,
+		`assignment must be in progress`,
+	} {
+		if !strings.Contains(enabledHTML, expected) {
+			t.Fatalf("expected enabled resume HTML to contain %q, got %q", expected, enabledHTML)
+		}
+	}
+	if strings.Contains(enabledHTML, `data-resume-unavailable-reason="true"`) {
+		t.Fatalf("did not expect enabled resume state to render disabled reason: %s", enabledHTML)
+	}
+	for _, blockedAction := range []string{`data-action="approve"`, `data-action="reject"`} {
+		if strings.Contains(enabledHTML, blockedAction) {
+			t.Fatalf("did not expect changes-requested editor to render %q: %s", blockedAction, enabledHTML)
+		}
+	}
+
+	disabledHTML := renderTranslationUITemplate(t, "resources/translations/editor", baseData(map[string]any{
+		"enabled": false,
+		"reason":  "assignment is assigned to a different translator",
+	}))
+	for _, expected := range []string{
+		`data-action="resume-work"`,
+		`disabled aria-disabled="true"`,
+		`data-resume-unavailable-reason="true"`,
+		`assignment is assigned to a different translator`,
+	} {
+		if !strings.Contains(disabledHTML, expected) {
+			t.Fatalf("expected disabled resume HTML to contain %q, got %q", expected, disabledHTML)
+		}
 	}
 }
 

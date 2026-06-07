@@ -675,8 +675,17 @@ func TestTranslationSSRFamilyAssigneeContractUsesSelectedLabelsFallback(t *testi
 		},
 	})
 
-	if got := toString(contract["mode"]); got != "selected-labels-with-enhancement" {
+	if got := toString(contract["mode"]); got != "formgen-relationship-typeahead" {
 		t.Fatalf("expected selected label fallback mode, got %q", got)
+	}
+	if got := toString(contract["endpoint_url"]); got != "/api/translations/options/assignees?per_page=200" {
+		t.Fatalf("expected assignee formgen endpoint, got %q", got)
+	}
+	if got := toString(contract["endpoint_renderer"]); got != "typeahead" {
+		t.Fatalf("expected assignee formgen typeahead renderer, got %q", got)
+	}
+	if got := toString(contract["endpoint_mode"]); got != "" {
+		t.Fatalf("expected assignee typeahead to preload options instead of search-only mode, got %q", got)
 	}
 	selected, ok := contract["selected"].([]map[string]any)
 	if !ok || len(selected) != 1 {
