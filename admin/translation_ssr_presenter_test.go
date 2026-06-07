@@ -184,6 +184,213 @@ func TestTranslationSSRDecoratorsFormatTypedTimeValues(t *testing.T) {
 	}
 }
 
+func TestTranslationSSRFamilyDetailLocaleCoverageRowsIncludeMissingRequiredLocales(t *testing.T) {
+	data := map[string]any{
+		"family_id":     "family-missing",
+		"content_type":  "pages",
+		"source_locale": "en",
+		"source_variant": map[string]any{
+			"fields": map[string]any{"title": "Privacy Policy"},
+		},
+		"locale_variants": []map[string]any{{
+			"id":               "variant-en",
+			"locale":           "en",
+			"is_source":        true,
+			"status":           "published",
+			"source_record_id": "page-en",
+			"fields":           map[string]any{"title": "Privacy Policy"},
+		}, {
+			"id":               "variant-fr",
+			"locale":           "fr",
+			"status":           "published",
+			"source_record_id": "page-fr",
+		}},
+		"readiness_summary": map[string]any{
+			"missing_locales": []string{"es"},
+		},
+		"quick_create": map[string]any{
+			"enabled":            true,
+			"missing_locales":    []string{"es"},
+			"recommended_locale": "es",
+		},
+		"blockers": []map[string]any{{
+			"blocker_code": "missing_locale",
+			"locale":       "es",
+		}},
+		"locale_assignments": map[string]any{
+			"en:localization": map[string]any{
+				"locale": "en",
+				"state":  "source_locale",
+			},
+			"fr:localization": map[string]any{
+				"locale":        "fr",
+				"work_scope":    "localization",
+				"state":         "open_pool",
+				"display_state": "Open Pool",
+				"assignment": map[string]any{
+					"assignment_id":    "asg-fr",
+					"status":           "open",
+					"display_status":   "Open",
+					"assignee_label":   "",
+					"display_assignee": "",
+					"row_version":      7,
+				},
+				"actions": map[string]any{
+					"assign_to_me": map[string]any{
+						"enabled":  true,
+						"endpoint": "/admin/api/translations/families/family-missing/assignments",
+						"payload": map[string]any{
+							"target_locale": "fr",
+							"work_scope":    "localization",
+							"assignee_id":   "translator-self",
+						},
+					},
+					"assign_to_user": map[string]any{
+						"enabled":  true,
+						"endpoint": "/admin/api/translations/families/family-missing/assignments",
+						"payload": map[string]any{
+							"target_locale": "fr",
+							"work_scope":    "localization",
+						},
+					},
+					"claim": map[string]any{
+						"enabled":  true,
+						"endpoint": "/admin/api/translations/assignments/asg-fr/actions/claim",
+					},
+					"open_editor": map[string]any{
+						"href": "/admin/translations/assignments/asg-fr/edit?channel=default",
+					},
+				},
+			},
+		},
+	}
+
+	translationSSRDecorateFamilyDetail(data)
+
+	rows := translationSSRAnyList(data["locale_coverage_rows"])
+	if len(rows) != 3 {
+		t.Fatalf("expected source, variant, and missing locale rows, got %+v", rows)
+	}
+	if got := toString(rows[0]["locale"]); got != "en" {
+		t.Fatalf("expected source locale first, got %+v", rows)
+	}
+	fr := rows[1]
+	if got := toString(fr["locale_assignment_key"]); got != "fr:localization" {
+		t.Fatalf("expected fr row to carry assignment key, got %+v", fr)
+	}
+	if !translationSSRTestBadgeLabels(fr["badges"])["Open Pool"] || !translationSSRTestBadgeLabels(fr["badges"])["Open"] {
+		t.Fatalf("expected fr row to preserve assignment badges, got %+v", fr["badges"])
+	}
+	if got := toString(extractMap(extractMap(fr["assign_to_user_action"])["payload"])["work_scope"]); got != "localization" {
+		t.Fatalf("expected assign-to-user payload work_scope localization, got %+v", fr["assign_to_user_action"])
+	}
+	if got := toString(fr["open_locale_href"]); got != "/admin/translations/assignments/asg-fr/edit?channel=default" {
+		t.Fatalf("expected open editor href from action state, got %q", got)
+	}
+	missing := rows[2]
+	if got := toString(missing["locale"]); got != "es" {
+		t.Fatalf("expected missing locale es, got %+v", missing)
+	}
+	if got := toString(missing["kind"]); got != "missing_required" {
+		t.Fatalf("expected missing_required row kind, got %+v", missing)
+	}
+	action := extractMap(missing["create_locale_action"])
+	if !translationSSRTruthy(action["enabled"]) || toString(action["locale"]) != "es" {
+		t.Fatalf("expected enabled create locale action for es, got %+v", action)
+	}
+}
+
+func TestTranslationSSRFamilyDetailLocaleCoverageRowsKeepMultipleWorkScopes(t *testing.T) {
+	data := map[string]any{
+		"family_id":     "family-scoped",
+		"content_type":  "pages",
+		"source_locale": "en",
+		"source_variant": map[string]any{
+			"fields": map[string]any{"title": "Release Notes"},
+		},
+		"locale_variants": []map[string]any{{
+			"id":               "variant-en",
+			"locale":           "en",
+			"is_source":        true,
+			"source_record_id": "page-en",
+		}, {
+			"id":               "variant-fr",
+			"locale":           "fr",
+			"status":           "draft",
+			"source_record_id": "page-fr",
+		}},
+		"locale_assignments": map[string]any{
+			"fr:localization": map[string]any{
+				"locale":        "fr",
+				"work_scope":    "localization",
+				"state":         "open_pool",
+				"display_state": "Open Pool",
+				"assignment": map[string]any{
+					"assignment_id":  "asg-fr-localization",
+					"status":         "open",
+					"display_status": "Open",
+				},
+			},
+			"fr:seo": map[string]any{
+				"locale":        "fr",
+				"work_scope":    "seo",
+				"state":         "assigned",
+				"display_state": "Assigned",
+				"assignment": map[string]any{
+					"assignment_id":  "asg-fr-seo",
+					"status":         "in_progress",
+					"display_status": "In Progress",
+				},
+			},
+		},
+	}
+
+	translationSSRDecorateFamilyDetail(data)
+
+	rows := translationSSRAnyList(data["locale_coverage_rows"])
+	var scoped []map[string]any
+	for _, row := range rows {
+		if toString(row["locale"]) == "fr" {
+			scoped = append(scoped, row)
+		}
+	}
+	if len(scoped) != 2 {
+		t.Fatalf("expected both fr work scopes to render, got %+v", rows)
+	}
+	keys := map[string]bool{}
+	for _, row := range scoped {
+		keys[toString(row["locale_assignment_key"])] = true
+	}
+	if !keys["fr:localization"] || !keys["fr:seo"] {
+		t.Fatalf("expected stable assignment keys for both work scopes, got %+v", scoped)
+	}
+}
+
+func TestTranslationSSRFamilyVariantHrefPreservesChannel(t *testing.T) {
+	href := translationSSRFamilyVariantHref(map[string]any{
+		"content_base_path": "/admin/content",
+		"content_type":      "pages",
+		"channel":           "staging",
+	}, map[string]any{
+		"id":     "page-fr",
+		"locale": "fr",
+	})
+
+	parsed, err := url.Parse(href)
+	if err != nil {
+		t.Fatalf("parse href: %v", err)
+	}
+	if got := parsed.Path; got != "/admin/content/pages/page-fr" {
+		t.Fatalf("expected content path to be preserved, got %q", got)
+	}
+	if got := parsed.Query().Get("locale"); got != "fr" {
+		t.Fatalf("expected locale query, got %q", got)
+	}
+	if got := parsed.Query().Get("channel"); got != "staging" {
+		t.Fatalf("expected channel query, got %q", got)
+	}
+}
+
 func TestTranslationSSRQueueResultNormalizesQueuePayloadRows(t *testing.T) {
 	result := translationSSRQueueResult(TranslationSSRPresenterInput{
 		QueuePath:      "/admin/translations/queue",
@@ -478,4 +685,12 @@ func TestTranslationSSRFamilyAssigneeContractUsesSelectedLabelsFallback(t *testi
 	if got := toString(selected[0]["label"]); got != "Maya Chen" {
 		t.Fatalf("expected selected assignee label, got %q", got)
 	}
+}
+
+func translationSSRTestBadgeLabels(raw any) map[string]bool {
+	out := map[string]bool{}
+	for _, badge := range translationSSRAnyList(raw) {
+		out[toString(badge["label"])] = true
+	}
+	return out
 }

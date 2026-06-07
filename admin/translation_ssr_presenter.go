@@ -812,6 +812,317 @@ func translationSSRDecorateFamilyDetail(data map[string]any) {
 	if len(localeAssignments) > 0 {
 		data["locale_assignments"] = localeAssignments
 	}
+	translationSSRDecorateFamilyLocaleCoverageRows(data, variants, localeAssignments)
+}
+
+func translationSSRDecorateFamilyLocaleCoverageRows(data map[string]any, variants []map[string]any, localeAssignments map[string]any) {
+	if data == nil {
+		return
+	}
+	if len(variants) == 0 {
+		variants = translationSSRAnyList(data["locale_variants"])
+	}
+	if len(localeAssignments) == 0 {
+		localeAssignments = extractMap(data["locale_assignments"])
+	}
+
+	type localeAssignmentEntry struct {
+		key        string
+		locale     string
+		workScope  string
+		assignment map[string]any
+	}
+	assignmentsByLocale := map[string][]localeAssignmentEntry{}
+	for assignmentKey, raw := range localeAssignments {
+		item := extractMap(raw)
+		locale := translationSSRNormalizeLocale(firstNonEmpty(toString(item["locale"]), strings.Split(assignmentKey, ":")[0]))
+		if locale == "" {
+			continue
+		}
+		workScope := firstNonEmpty(toString(item["work_scope"]), translationSSRFamilyAssignmentWorkScopeFromKey(assignmentKey))
+		assignmentsByLocale[locale] = append(assignmentsByLocale[locale], localeAssignmentEntry{
+			key:        assignmentKey,
+			locale:     locale,
+			workScope:  workScope,
+			assignment: item,
+		})
+	}
+	for locale, entries := range assignmentsByLocale {
+		sort.SliceStable(entries, func(i, j int) bool {
+			leftRank := translationSSRFamilyLocaleAssignmentStateRank(entries[i].assignment)
+			rightRank := translationSSRFamilyLocaleAssignmentStateRank(entries[j].assignment)
+			if leftRank != rightRank {
+				return leftRank < rightRank
+			}
+			if !strings.EqualFold(entries[i].workScope, entries[j].workScope) {
+				return strings.ToLower(entries[i].workScope) < strings.ToLower(entries[j].workScope)
+			}
+			return entries[i].key < entries[j].key
+		})
+		assignmentsByLocale[locale] = entries
+	}
+
+	sourceLocale := translationSSRNormalizeLocale(firstNonEmpty(toString(data["source_locale"]), toString(extractMap(data["policy"])["source_locale"])))
+	rows := make([]map[string]any, 0, len(variants)+len(localeAssignments))
+	seen := map[string]bool{}
+	for _, variant := range variants {
+		locale := translationSSRNormalizeLocale(toString(variant["locale"]))
+		if locale == "" {
+			continue
+		}
+		entries := assignmentsByLocale[locale]
+		var primary localeAssignmentEntry
+		if len(entries) > 0 {
+			primary = entries[0]
+		}
+		row := translationSSRFamilyLocaleCoverageVariantRow(data, variant, primary.assignment, primary.key, sourceLocale)
+		rows = append(rows, row)
+		if len(entries) > 1 {
+			for _, extra := range entries[1:] {
+				if toString(extra.assignment["state"]) == "source_locale" {
+					continue
+				}
+				rows = append(rows, translationSSRFamilyLocaleCoverageAssignmentOnlyRow(data, locale, extra.assignment, extra.key))
+			}
+		}
+		seen[locale] = true
+	}
+
+	assignmentLocales := make([]string, 0, len(assignmentsByLocale))
+	for locale := range assignmentsByLocale {
+		if seen[locale] {
+			continue
+		}
+		assignmentLocales = append(assignmentLocales, locale)
+	}
+	sort.Strings(assignmentLocales)
+	for _, locale := range assignmentLocales {
+		for _, entry := range assignmentsByLocale[locale] {
+			if toString(entry.assignment["state"]) == "source_locale" {
+				continue
+			}
+			rows = append(rows, translationSSRFamilyLocaleCoverageAssignmentOnlyRow(data, locale, entry.assignment, entry.key))
+		}
+		seen[locale] = true
+	}
+
+	missingLocales := translationSSRFamilyMissingRequiredLocales(data)
+	for _, locale := range missingLocales {
+		if seen[locale] {
+			continue
+		}
+		rows = append(rows, translationSSRFamilyLocaleCoverageMissingRow(data, locale))
+		seen[locale] = true
+	}
+	if len(rows) > 0 {
+		data["locale_coverage_rows"] = rows
+	}
+}
+
+func translationSSRFamilyLocaleCoverageVariantRow(data map[string]any, variant, assignment map[string]any, assignmentKey, sourceLocale string) map[string]any {
+	locale := translationSSRNormalizeLocale(toString(variant["locale"]))
+	isSource := translationSSRTruthy(variant["is_source"]) || (sourceLocale != "" && locale == sourceLocale)
+	row := map[string]any{
+		"locale":                locale,
+		"display_locale":        strings.ToUpper(locale),
+		"kind":                  "variant",
+		"tone":                  "neutral",
+		"title":                 firstNonEmpty(toString(extractMap(variant["fields"])["title"]), toString(extractMap(extractMap(data["source_variant"])["fields"])["title"]), toString(data["family_id"])),
+		"updated_label":         firstNonEmpty(toString(variant["display_updated"]), translationSSRFormatDate(variant["updated_at"]), "n/a"),
+		"locale_assignment":     assignment,
+		"locale_assignment_key": assignmentKey,
+		"open_locale_href":      translationSSRFamilyVariantHref(data, variant),
+	}
+	badges := []map[string]any{}
+	if isSource {
+		row["kind"] = "source"
+		row["tone"] = "source"
+		badges = append(badges, map[string]any{"label": "Source", "tone": "neutral"})
+	}
+	status := firstNonEmpty(toString(variant["display_status"]), translationSSRHumanLabel(toString(variant["status"])), "Unknown")
+	if status != "" {
+		badges = append(badges, map[string]any{"label": status, "tone": translationSSRFamilyStatusTone(status)})
+	}
+	row["badges"] = badges
+	translationSSRApplyLocaleAssignmentToRow(row, assignment, assignmentKey)
+	return row
+}
+
+func translationSSRFamilyLocaleCoverageAssignmentOnlyRow(data map[string]any, locale string, assignment map[string]any, assignmentKey string) map[string]any {
+	row := map[string]any{
+		"locale":                locale,
+		"display_locale":        strings.ToUpper(locale),
+		"kind":                  "assignment",
+		"tone":                  "neutral",
+		"title":                 firstNonEmpty(toString(extractMap(extractMap(data["source_variant"])["fields"])["title"]), toString(data["family_id"])),
+		"updated_label":         "n/a",
+		"locale_assignment":     assignment,
+		"locale_assignment_key": assignmentKey,
+		"badges":                []map[string]any{},
+	}
+	translationSSRApplyLocaleAssignmentToRow(row, assignment, assignmentKey)
+	return row
+}
+
+func translationSSRFamilyLocaleCoverageMissingRow(data map[string]any, locale string) map[string]any {
+	quickCreate := extractMap(data["quick_create"])
+	enabled := translationSSRTruthy(quickCreate["enabled"])
+	reason := firstNonEmpty(toString(quickCreate["disabled_reason"]), toString(quickCreate["reason"]))
+	return map[string]any{
+		"locale":         locale,
+		"display_locale": strings.ToUpper(locale),
+		"kind":           "missing_required",
+		"tone":           "danger",
+		"title":          "This locale is required by policy before the family is publish-ready.",
+		"badges": []map[string]any{{
+			"label": "Missing required locale",
+			"tone":  "danger",
+		}},
+		"create_locale_action": map[string]any{
+			"enabled": enabled,
+			"locale":  locale,
+			"label":   "Create locale",
+			"reason":  reason,
+		},
+	}
+}
+
+func translationSSRApplyLocaleAssignmentToRow(row, assignment map[string]any, assignmentKey string) {
+	if row == nil || len(assignment) == 0 {
+		return
+	}
+	row["locale_assignment"] = assignment
+	row["locale_assignment_key"] = assignmentKey
+	row["assignment"] = extractMap(assignment["assignment"])
+	actions := extractMap(assignment["actions"])
+	row["assign_to_me_action"] = extractMap(actions["assign_to_me"])
+	row["assign_to_user_action"] = extractMap(actions["assign_to_user"])
+	row["claim_action"] = extractMap(actions["claim"])
+	openAction := extractMap(actions["open_editor"])
+	row["open_locale_action"] = openAction
+	if href := toString(openAction["href"]); href != "" {
+		row["open_locale_href"] = href
+	}
+	row["assignment_summary"] = firstNonEmpty(
+		toString(extractMap(assignment["assignment"])["display_assignee"]),
+		toString(extractMap(assignment["assignment"])["assignee_label"]),
+		toString(extractMap(assignment["assignment"])["assignee_id"]),
+		"No active assignment",
+	)
+	state := firstNonEmpty(toString(assignment["display_state"]), translationSSRHumanLabel(toString(assignment["state"])))
+	if state == "" {
+		return
+	}
+	badges := translationSSRAnyList(row["badges"])
+	if toString(assignment["state"]) != "source_locale" {
+		badges = append(badges, map[string]any{"label": state, "tone": "info"})
+	}
+	if status := firstNonEmpty(toString(extractMap(assignment["assignment"])["display_status"]), translationSSRHumanLabel(toString(extractMap(assignment["assignment"])["status"]))); status != "" {
+		badges = append(badges, map[string]any{"label": status, "tone": "info"})
+	}
+	row["badges"] = badges
+}
+
+func translationSSRFamilyMissingRequiredLocales(data map[string]any) []string {
+	seen := map[string]bool{}
+	out := []string{}
+	appendLocale := func(raw string) {
+		locale := translationSSRNormalizeLocale(raw)
+		if locale == "" || seen[locale] {
+			return
+		}
+		seen[locale] = true
+		out = append(out, locale)
+	}
+	for _, container := range []map[string]any{data, extractMap(data["readiness_summary"]), extractMap(data["quick_create"])} {
+		for _, key := range []string{"missing_locales", "missing_required_locales"} {
+			for _, locale := range translationSSRStringSlice(container[key]) {
+				appendLocale(locale)
+			}
+		}
+	}
+	for _, blocker := range translationSSRAnyList(data["blockers"]) {
+		code := firstNonEmpty(toString(blocker["blocker_code"]), toString(blocker["code"]))
+		if strings.EqualFold(strings.TrimSpace(code), "missing_locale") {
+			appendLocale(toString(blocker["locale"]))
+		}
+	}
+	sort.Strings(out)
+	return out
+}
+
+func translationSSRFamilyVariantHref(data map[string]any, variant map[string]any) string {
+	base := firstNonEmpty(toString(data["content_base_path"]), "/admin/content")
+	contentType := firstNonEmpty(toString(data["content_type"]), toString(extractMap(data["policy"])["content_type"]), "content")
+	recordID := firstNonEmpty(toString(variant["source_record_id"]), toString(variant["id"]))
+	if recordID == "" {
+		return ""
+	}
+	href := strings.TrimRight(base, "/") + "/" + contentType + "/" + recordID
+	return translationSSRHrefWithQuery(href, nil, map[string]string{
+		"locale":  toString(variant["locale"]),
+		"channel": translationSSRFamilyChannel(data),
+	})
+}
+
+func translationSSRFamilyChannel(data map[string]any) string {
+	return firstNonEmpty(
+		toString(data["channel"]),
+		toString(extractMap(data["meta"])["channel"]),
+		toString(extractMap(data["request"])["channel"]),
+	)
+}
+
+func translationSSRFamilyAssignmentWorkScopeFromKey(key string) string {
+	parts := strings.SplitN(strings.TrimSpace(key), ":", 2)
+	if len(parts) != 2 {
+		return ""
+	}
+	return strings.TrimSpace(parts[1])
+}
+
+func translationSSRFamilyLocaleAssignmentStateRank(assignment map[string]any) int {
+	state := strings.ToLower(strings.TrimSpace(toString(assignment["state"])))
+	switch state {
+	case "source_locale":
+		return 0
+	case "assigned", "in_progress", "review", "in_review", "open_pool", "open":
+		return 1
+	case "unassigned", "":
+		return 3
+	default:
+		return 2
+	}
+}
+
+func translationSSRFamilyStatusTone(status string) string {
+	switch strings.ToLower(strings.TrimSpace(status)) {
+	case "published", "ready", "complete":
+		return "success"
+	case "draft", "pending", "pending review":
+		return "warning"
+	case "blocked", "failed":
+		return "danger"
+	default:
+		return "neutral"
+	}
+}
+
+func translationSSRNormalizeLocale(locale string) string {
+	return strings.ToLower(strings.TrimSpace(locale))
+}
+
+func translationSSRTruthy(raw any) bool {
+	switch value := raw.(type) {
+	case bool:
+		return value
+	case string:
+		switch strings.ToLower(strings.TrimSpace(value)) {
+		case "true", "1", "yes", "y", "enabled":
+			return true
+		}
+	}
+	return false
 }
 
 func translationSSRAlertLabel(alert map[string]any) string {
