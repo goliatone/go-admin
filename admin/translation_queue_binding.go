@@ -2523,12 +2523,21 @@ func (b *translationQueueBinding) assignmentRepository() (TranslationAssignmentR
 
 func (b *translationQueueBinding) assignmentContractRow(ctx context.Context, assignment TranslationAssignment, now time.Time, environment string, actorLabels map[string]string) map[string]any {
 	row := translationQueueAssignmentContractRow(assignment, now)
-	if label := actorLabels[strings.TrimSpace(assignment.AssigneeID)]; label != "" {
-		row["assignee_label"] = label
+	assigneeID := strings.TrimSpace(assignment.AssigneeID)
+	assigneeLabel := strings.TrimSpace(actorLabels[assigneeID])
+	if assigneeLabel != "" {
+		row["assignee_label"] = assigneeLabel
+	}
+	if displayAssignee := strings.TrimSpace(firstNonEmpty(assigneeLabel, assigneeID)); displayAssignee != "" {
+		row["display_assignee"] = displayAssignee
 	}
 	reviewerID := strings.TrimSpace(firstNonEmpty(assignment.ReviewerID, assignment.LastReviewerID))
-	if label := actorLabels[reviewerID]; label != "" {
-		row["reviewer_label"] = label
+	reviewerLabel := strings.TrimSpace(actorLabels[reviewerID])
+	if reviewerLabel != "" {
+		row["reviewer_label"] = reviewerLabel
+	}
+	if displayReviewer := strings.TrimSpace(firstNonEmpty(reviewerLabel, reviewerID)); displayReviewer != "" {
+		row["display_reviewer"] = displayReviewer
 	}
 	row["actions"] = b.assignmentActionStates(ctx, assignment)
 	row["review_actions"] = b.reviewActionStates(ctx, assignment)
