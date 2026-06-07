@@ -1654,7 +1654,7 @@ function emptyPanelDisabledClass(enabled: boolean): string {
   return enabled ? '' : ' opacity-60 cursor-not-allowed';
 }
 
-const FAMILY_SELECT_CLASS = 'block h-12 w-full rounded-lg border border-gray-200 bg-white px-4 pr-9 text-sm text-gray-900 focus:border-blue-500 focus:ring-blue-500 disabled:pointer-events-none disabled:opacity-50 dark:border-gray-700 dark:bg-slate-900 dark:text-gray-400 dark:focus:ring-gray-600';
+const FAMILY_SELECT_CLASS = 'block h-12 w-full rounded-lg border border-gray-300 bg-white px-3 pr-9 text-sm text-gray-900 shadow-sm transition focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 disabled:pointer-events-none disabled:opacity-50 dark:border-gray-700 dark:bg-slate-900 dark:text-gray-400 dark:focus:ring-gray-600';
 const ASSIGNEE_SELECT_CLASS = FAMILY_SELECT_CLASS;
 
 function renderAssigneeSelect(config: {
@@ -1680,6 +1680,7 @@ function renderAssigneeSelect(config: {
       class="${escapeAttribute(config.className || ASSIGNEE_SELECT_CLASS)}"
       data-family-assignee-select="${escapeAttribute(key)}"
       data-initial-assignee-id="${escapeAttribute(initialValue)}"
+      data-formgen-relationship="true"
       data-endpoint-url="/api/translations/options/assignees"
       data-relationship-type="belongsTo"
       data-relationship-target="#/components/schemas/User"

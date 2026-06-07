@@ -37,7 +37,7 @@
       </section>
       {% else %}
       {% with family=translation_family_detail_ssr.Data %}
-      <div class="translation-family-detail space-y-6" data-family-id="{{ family.family_id|default:translation_family_id }}" data-readiness-state="{{ family.readiness_state|default:"unknown" }}">
+      <div class="translation-family-detail space-y-6" data-translation-family-detail-ssr="true" data-family-id="{{ family.family_id|default:translation_family_id }}" data-readiness-state="{{ family.readiness_state|default:"unknown" }}">
         <section class="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm" aria-labelledby="translation-family-summary">
           <div class="flex flex-wrap items-start justify-between gap-4">
             <div>
@@ -92,25 +92,91 @@
                 <h2 id="translation-family-locales" class="text-lg font-semibold text-gray-900">Locale coverage</h2>
                 <p class="mt-1 text-sm text-gray-500">Server-authored locale availability and variant state for this family.</p>
               </div>
-              {% if family.locale_variants %}
+              {% if family.locale_coverage_rows %}
               <ul class="mt-5 space-y-3" role="list">
-                {% for variant in family.locale_variants %}
-                <li class="grid gap-4 rounded-xl border border-gray-200 bg-white p-5 lg:grid-cols-[minmax(18rem,1fr)_minmax(0,22rem)] lg:items-start" data-locale="{{ variant.locale }}">
+                {% for row in family.locale_coverage_rows %}
+                <li class="grid gap-4 rounded-xl border p-5 {% if row.tone == "danger" %}border-rose-200 bg-rose-50{% else %}border-gray-200 bg-white{% endif %} lg:grid-cols-[minmax(18rem,1fr)_minmax(0,44rem)] lg:items-start" data-locale="{{ row.locale }}" data-locale-coverage-kind="{{ row.kind|default:"variant" }}" data-locale-assignment-key="{{ row.locale_assignment_key|default:"" }}">
                   <div>
                     <div class="flex flex-wrap items-center gap-2">
-                      <span class="text-sm font-semibold uppercase text-gray-900">{{ variant.locale|default:"-" }}</span>
-                      {% if variant.is_source %}
-                      <span class="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700">Source</span>
-                      {% endif %}
-                      <span class="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700">{{ variant.display_status|default:variant.status|default:"Unknown" }}</span>
+                      <span class="text-sm font-semibold uppercase text-gray-900">{{ row.display_locale|default:row.locale|default:"-" }}</span>
+                      {% for badge in row.badges %}
+                      <span class="{% if badge.tone == "danger" %}bg-rose-100 text-rose-700{% elif badge.tone == "success" %}bg-emerald-50 text-emerald-700{% elif badge.tone == "warning" %}bg-amber-50 text-amber-700{% elif badge.tone == "info" %}bg-sky-50 text-sky-700{% else %}bg-gray-100 text-gray-700{% endif %} rounded-full px-2 py-0.5 text-xs font-semibold">{{ badge.label }}</span>
+                      {% endfor %}
                     </div>
-                    <p class="mt-2 text-sm text-gray-600">{{ variant.fields.title|default:family.source_variant.fields.title|default:family.family_id }}</p>
-                    <p class="mt-1 text-xs text-gray-500">Updated {{ variant.display_updated|default:variant.updated_at|default:"n/a" }}</p>
+                    <p class="mt-2 text-sm text-gray-600">{{ row.title|default:family.source_variant.fields.title|default:family.family_id }}</p>
+                    {% if row.kind != "missing_required" %}
+                    <p class="mt-1 text-xs text-gray-500">{{ row.assignment_summary|default:"No active assignment" }}</p>
+                    <p class="mt-1 text-xs text-gray-500">Updated {{ row.updated_label|default:"n/a" }}</p>
+                    {% endif %}
                   </div>
-                  <div class="flex flex-wrap items-center gap-2 lg:justify-end">
-                    <a class="text-sm font-semibold text-sky-700 hover:text-sky-900" href="{{ translation_content_base|default:"/admin/content" }}/{{ family.content_type|default:"content" }}/{{ variant.source_record_id|default:variant.id|default:"" }}?locale={{ variant.locale|default:"" }}">
-                      Open locale
-                    </a>
+                  <div class="flex flex-wrap items-center gap-2 lg:justify-end" data-family-locale-actions="true">
+                    {% if row.kind == "missing_required" %}
+                    <button type="button"
+                            class="btn btn-primary"
+                            data-translation-create-locale-trigger="true"
+                            data-family-create-locale="true"
+                            data-family-id="{{ family.family_id|default:translation_family_id }}"
+                            data-locale="{{ row.create_locale_action.locale|default:row.locale }}"
+                            {% if row.create_locale_action.enabled == false %}disabled aria-disabled="true" title="{{ row.create_locale_action.reason|default:"Create locale is unavailable" }}"{% endif %}>
+                      {{ row.create_locale_action.label|default:"Create locale" }}
+                    </button>
+                    {% else %}
+                    {% if row.assign_to_me_action.enabled %}
+                    <button type="button"
+                            class="btn btn-secondary h-12"
+                            data-family-assign-to-me="true"
+                            data-locale-assignment-key="{{ row.locale_assignment_key }}"
+                            data-assignment-endpoint="{{ row.assign_to_me_action.endpoint }}"
+                            data-assignment-target-locale="{{ row.assign_to_me_action.payload.target_locale|default:row.locale }}"
+                            data-assignment-work-scope="{{ row.assign_to_me_action.payload.work_scope|default:row.locale_assignment.work_scope }}"
+                            data-assignment-assignee-id="{{ row.assign_to_me_action.payload.assignee_id|default:"" }}">
+                      Assign to me
+                    </button>
+                    {% elif row.assign_to_me_action.reason %}
+                    <span class="text-xs text-gray-500">{{ row.assign_to_me_action.reason }}</span>
+                    {% endif %}
+                    {% if row.assign_to_user_action.enabled %}
+                    <select class="block h-12 min-w-64 rounded-lg border border-gray-300 bg-white px-3 text-sm shadow-sm transition focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                            data-family-assignee-select="{{ row.locale_assignment_key }}"
+                            data-initial-assignee-id="{{ row.assignment.assignee_id|default:"" }}"
+                            data-formgen-relationship="true"
+                            data-endpoint-url="/api/translations/options/assignees"
+                            data-relationship-type="belongsTo"
+                            data-relationship-target="#/components/schemas/User"
+                            data-relationship-cardinality="one"
+                            aria-label="Assignee">
+                      <option value="">Loading assignees...</option>
+                      {% if row.assignment.assignee_id %}
+                      <option value="{{ row.assignment.assignee_id }}" selected>{{ row.assignment.display_assignee|default:row.assignment.assignee_label|default:row.assignment.assignee_id }}</option>
+                      {% endif %}
+                    </select>
+                    <button type="button"
+                            class="btn btn-primary h-12"
+                            data-family-assign-to-user="true"
+                            data-locale-assignment-key="{{ row.locale_assignment_key }}"
+                            data-assignment-endpoint="{{ row.assign_to_user_action.endpoint }}"
+                            data-assignment-target-locale="{{ row.assign_to_user_action.payload.target_locale|default:row.locale }}"
+                            data-assignment-work-scope="{{ row.assign_to_user_action.payload.work_scope|default:row.locale_assignment.work_scope }}">
+                      Assign
+                    </button>
+                    {% elif row.assign_to_user_action.reason %}
+                    <span class="text-xs text-gray-500">{{ row.assign_to_user_action.reason }}</span>
+                    {% endif %}
+                    {% if row.claim_action.enabled %}
+                    <button type="button"
+                            class="btn btn-secondary h-12"
+                            data-family-claim-assignment="true"
+                            data-locale-assignment-key="{{ row.locale_assignment_key }}"
+                            data-assignment-endpoint="{{ row.claim_action.endpoint }}"
+                            data-assignment-id="{{ row.assignment.assignment_id|default:row.assignment.id }}"
+                            data-row-version="{{ row.assignment.row_version|default:row.assignment.version }}">
+                      Claim
+                    </button>
+                    {% endif %}
+                    {% if row.open_locale_href %}
+                    <a class="btn btn-secondary h-12" href="{{ row.open_locale_href }}">Open locale</a>
+                    {% endif %}
+                    {% endif %}
                   </div>
                 </li>
                 {% endfor %}
@@ -119,80 +185,6 @@
               <p class="mt-4 rounded-md border border-dashed border-gray-300 bg-gray-50 p-4 text-sm text-gray-500">
                 {{ translation_family_detail_ssr.EmptyState.description|default:"No locale variants are available for this family." }}
               </p>
-              {% endif %}
-              {% if family.locale_assignments %}
-              <div class="mt-5 space-y-3" data-family-locale-actions="true">
-                {% for assignment_key, locale_assignment in family.locale_assignments %}
-                {% if locale_assignment.state != "source_locale" %}
-                <div class="grid gap-3 rounded-xl border border-gray-200 bg-gray-50 p-4 lg:grid-cols-[minmax(10rem,1fr)_minmax(0,28rem)] lg:items-center" data-locale-assignment-key="{{ assignment_key }}">
-                  <div>
-                    <div class="flex flex-wrap items-center gap-2">
-                      <span class="text-sm font-semibold uppercase text-gray-900">{{ locale_assignment.locale|default:"-" }}</span>
-                      <span class="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-semibold text-gray-700">{{ locale_assignment.display_state|default:locale_assignment.state|default:"Unassigned" }}</span>
-                      {% if locale_assignment.assignment.status %}
-                      <span class="rounded-full bg-blue-50 px-2 py-0.5 text-xs font-semibold text-blue-700">{{ locale_assignment.assignment.display_status|default:locale_assignment.assignment.status }}</span>
-                      {% endif %}
-                    </div>
-                    <p class="mt-1 text-xs text-gray-500">
-                      {{ locale_assignment.assignment.display_assignee|default:locale_assignment.assignment.assignee_label|default:locale_assignment.assignment.assignee_id|default:"No active assignment." }}
-                    </p>
-                  </div>
-                  <div class="flex flex-wrap items-center gap-2 lg:justify-end">
-                    {% if locale_assignment.actions.assign_to_me.enabled %}
-                    <button type="button"
-                            class="btn btn-secondary"
-                            data-family-assign-to-me="true"
-                            data-locale-assignment-key="{{ assignment_key }}"
-                            data-assignment-endpoint="{{ locale_assignment.actions.assign_to_me.endpoint }}"
-                            data-assignment-target-locale="{{ locale_assignment.actions.assign_to_me.payload.target_locale|default:locale_assignment.locale }}"
-                            data-assignment-work-scope="{{ locale_assignment.actions.assign_to_me.payload.work_scope|default:locale_assignment.work_scope }}"
-                            data-assignment-assignee-id="{{ locale_assignment.actions.assign_to_me.payload.assignee_id|default:"" }}">
-                      Assign to me
-                    </button>
-                    {% elif locale_assignment.actions.assign_to_me.reason %}
-                    <span class="text-xs text-gray-500">{{ locale_assignment.actions.assign_to_me.reason }}</span>
-                    {% endif %}
-                    {% if locale_assignment.actions.assign_to_user.enabled %}
-                    <select class="block h-10 min-w-56 rounded-md border border-gray-300 bg-white px-3 text-sm"
-                            data-family-assignee-select="{{ assignment_key }}"
-                            data-endpoint-url="/api/translations/options/assignees"
-                            data-relationship-type="belongsTo"
-                            data-relationship-target="#/components/schemas/User"
-                            data-relationship-cardinality="one"
-                            aria-label="Assignee">
-                      <option value="">Loading assignees...</option>
-                    </select>
-                    <button type="button"
-                            class="btn btn-secondary"
-                            data-family-assign-to-user="true"
-                            data-locale-assignment-key="{{ assignment_key }}"
-                            data-assignment-endpoint="{{ locale_assignment.actions.assign_to_user.endpoint }}"
-                            data-assignment-target-locale="{{ locale_assignment.actions.assign_to_user.payload.target_locale|default:locale_assignment.locale }}"
-                            data-assignment-work-scope="{{ locale_assignment.actions.assign_to_user.payload.work_scope|default:locale_assignment.work_scope }}">
-                      Assign
-                    </button>
-                    {% elif locale_assignment.actions.assign_to_user.reason %}
-                    <span class="text-xs text-gray-500">{{ locale_assignment.actions.assign_to_user.reason }}</span>
-                    {% endif %}
-                    {% if locale_assignment.actions.claim.enabled %}
-                    <button type="button"
-                            class="btn btn-secondary"
-                            data-family-claim-assignment="true"
-                            data-locale-assignment-key="{{ assignment_key }}"
-                            data-assignment-endpoint="{{ locale_assignment.actions.claim.endpoint }}"
-                            data-assignment-id="{{ locale_assignment.assignment.assignment_id|default:locale_assignment.assignment.id }}"
-                            data-row-version="{{ locale_assignment.assignment.row_version|default:locale_assignment.assignment.version }}">
-                      Claim
-                    </button>
-                    {% endif %}
-                    {% if locale_assignment.actions.open_editor.href %}
-                    <a class="text-sm font-semibold text-sky-700 hover:text-sky-900" href="{{ locale_assignment.actions.open_editor.href }}">Open locale</a>
-                    {% endif %}
-                  </div>
-                </div>
-                {% endif %}
-                {% endfor %}
-              </div>
               {% endif %}
             </section>
 
@@ -247,51 +239,6 @@
               <p class="mt-4 rounded-md border border-dashed border-gray-300 bg-gray-50 p-4 text-sm text-gray-500">
                 No active assignments are attached to this family.
               </p>
-              {% endif %}
-              {% if family.locale_assignments %}
-              <div class="mt-5 rounded-xl border border-gray-200 bg-gray-50 p-4" data-family-empty-assignment-controls="true">
-                <div class="grid gap-3 xl:grid-cols-[minmax(10rem,0.8fr)_minmax(16rem,1fr)_auto_auto] xl:items-end">
-                  <label class="grid gap-2">
-                    <span class="text-sm font-medium text-gray-900">Locale</span>
-                    <select class="block h-10 rounded-md border border-gray-300 bg-white px-3 text-sm" data-family-assignment-locale-select="true">
-                      {% for assignment_key, locale_assignment in family.locale_assignments %}
-                      {% if locale_assignment.state != "source_locale" %}
-                      <option value="{{ assignment_key }}"
-                              data-assign-to-me-enabled="{% if locale_assignment.actions.assign_to_me.enabled %}true{% else %}false{% endif %}"
-                              data-assign-to-me-reason="{{ locale_assignment.actions.assign_to_me.reason|default:"" }}"
-                              data-assign-to-me-endpoint="{{ locale_assignment.actions.assign_to_me.endpoint|default:"" }}"
-                              data-assign-to-me-assignee-id="{{ locale_assignment.actions.assign_to_me.payload.assignee_id|default:"" }}"
-                              data-assign-to-user-enabled="{% if locale_assignment.actions.assign_to_user.enabled %}true{% else %}false{% endif %}"
-                              data-assign-to-user-reason="{{ locale_assignment.actions.assign_to_user.reason|default:"" }}"
-                              data-assign-to-user-endpoint="{{ locale_assignment.actions.assign_to_user.endpoint|default:"" }}"
-                              data-assignment-endpoint="{{ locale_assignment.actions.assign_to_user.endpoint|default:locale_assignment.actions.assign_to_me.endpoint }}"
-                              data-assignment-target-locale="{{ locale_assignment.locale }}"
-                              data-assignment-work-scope="{{ locale_assignment.work_scope }}">
-                        {{ locale_assignment.locale|default:"-" }} - {{ locale_assignment.work_scope|default:"translation" }}
-                      </option>
-                      {% endif %}
-                      {% endfor %}
-                    </select>
-                  </label>
-                  <label class="grid gap-2">
-                    <span class="text-sm font-medium text-gray-900">Assignee</span>
-                    <select class="block h-10 rounded-md border border-gray-300 bg-white px-3 text-sm"
-                            data-family-assignee-select="__empty_panel__"
-                            data-endpoint-url="/api/translations/options/assignees"
-                            data-relationship-type="belongsTo"
-                            data-relationship-target="#/components/schemas/User"
-                            data-relationship-cardinality="one"
-                            aria-label="Assignee"
-                            aria-disabled="true"
-                            disabled
-                            title="Select a locale to load assignment controls">
-                      <option value="">Loading assignees...</option>
-                    </select>
-                  </label>
-                  <button type="button" class="btn btn-secondary" data-family-assign-to-me="true" data-locale-assignment-source="empty-panel" aria-disabled="true" disabled title="Select a locale to load assignment controls">Assign to me</button>
-                  <button type="button" class="btn btn-primary" data-family-assign-to-user="true" data-locale-assignment-source="empty-panel" aria-disabled="true" disabled title="Select a locale to load assignment controls">Assign</button>
-                </div>
-              </div>
               {% endif %}
             </section>
           </div>

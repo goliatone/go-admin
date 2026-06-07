@@ -840,7 +840,7 @@ function se(e, a = "") {
 function $e(e) {
   return e ? "" : " opacity-60 cursor-not-allowed";
 }
-var Xe = "block h-12 w-full rounded-lg border border-gray-200 bg-white px-4 pr-9 text-sm text-gray-900 focus:border-blue-500 focus:ring-blue-500 disabled:pointer-events-none disabled:opacity-50 dark:border-gray-700 dark:bg-slate-900 dark:text-gray-400 dark:focus:ring-gray-600", Ze = Xe;
+var Xe = "block h-12 w-full rounded-lg border border-gray-300 bg-white px-3 pr-9 text-sm text-gray-900 shadow-sm transition focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 disabled:pointer-events-none disabled:opacity-50 dark:border-gray-700 dark:bg-slate-900 dark:text-gray-400 dark:focus:ring-gray-600", Ze = Xe;
 function ge(e) {
   const a = n(e.key), t = n(e.initialValue), s = e.enabled !== !1, i = n(e.placeholder) || "Select assignee", r = n(e.reason), o = n(e.name), c = se(s, r);
   return `
@@ -849,6 +849,7 @@ function ge(e) {
       class="${g(e.className || Ze)}"
       data-family-assignee-select="${g(a)}"
       data-initial-assignee-id="${g(t)}"
+      data-formgen-relationship="true"
       data-endpoint-url="/api/translations/options/assignees"
       data-relationship-type="belongsTo"
       data-relationship-target="#/components/schemas/User"
