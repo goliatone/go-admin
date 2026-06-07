@@ -281,7 +281,7 @@ func main() {
 
 	adapterHooks := quickstart.AdapterHooks{
 		PersistentCMS: func(ctx context.Context, locale string) (admin.CMSOptions, string, error) {
-			opts, err := setup.SetupPersistentCMS(ctx, locale, "")
+			opts, err := setup.SetupPersistentCMS(ctx, locale, runtimeConfig.Databases.CMSDSN)
 			return opts, "go-cms (sqlite)", err
 		},
 		GoOptions: func(adm *admin.Admin) (string, error) {
@@ -406,7 +406,7 @@ func main() {
 	var queueRepository coreadmin.TranslationAssignmentRepository
 	var scopeDriftInspector *quickstart.BunScopeDriftInspector
 	if adapterFlags.UsePersistentCMS {
-		translationDB, err := stores.SetupContentDatabase(context.Background(), "")
+		translationDB, err := stores.SetupContentDatabase(context.Background(), runtimeConfig.Databases.ContentDSN)
 		if err != nil {
 			fatalf("failed to setup translation persistence: %v", err)
 		}
@@ -439,7 +439,7 @@ func main() {
 		coreadmin.NewInMemoryWorkflowBindingRepository(),
 	)
 	if adapterFlags.UsePersistentCMS {
-		workflowRuntime, err = setup.SetupPersistentWorkflowRuntime(context.Background(), "")
+		workflowRuntime, err = setup.SetupPersistentWorkflowRuntime(context.Background(), runtimeConfig.Databases.ContentDSN)
 		if err != nil {
 			fatalf("failed to setup persistent workflow runtime: %v", err)
 		}

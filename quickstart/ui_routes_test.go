@@ -233,7 +233,11 @@ func TestTranslationFamilyDetailTemplateRendersSSRSections(t *testing.T) {
 		"Activity preview",
 		"data-ssr-enhanced=\"true\"",
 		"data-family-assignment-action=\"claim\"",
-		"data-locale-assignment-source=\"empty-panel\" aria-disabled=\"true\" disabled",
+		"family.locale_coverage_rows",
+		"data-locale-coverage-kind=\"{{ row.kind|default:\"variant\" }}\"",
+		"data-family-assignee-select=\"{{ row.locale_assignment_key }}\"",
+		"data-formgen-relationship=\"true\"",
+		"data-translation-create-locale-trigger=\"true\"",
 	} {
 		if !strings.Contains(template, expected) {
 			t.Fatalf("expected family detail template to contain %q", expected)
