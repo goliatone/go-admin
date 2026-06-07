@@ -45,6 +45,7 @@ export default defineConfig({
         'translation-shared/formatters': resolve(__dirname, 'src/translation-shared/formatters.ts'),
         'services/index': resolve(__dirname, 'src/services/index.ts'),
         'shared/html': resolve(__dirname, 'src/shared/html.ts'),
+        'shared/action-menu': resolve(__dirname, 'src/shared/action-menu.ts'),
         'shared/coercion': resolve(__dirname, 'src/shared/coercion.ts'),
         'shared/deep-clone': resolve(__dirname, 'src/shared/deep-clone.ts'),
         'shared/json-parse': resolve(__dirname, 'src/shared/json-parse.ts'),

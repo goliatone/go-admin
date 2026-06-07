@@ -202,10 +202,14 @@ test('translation-family list page: renders loading empty error and populated st
 
   const readyHTML = renderTranslationFamilyListState({ status: 'ready', filters, response: row }, options);
   assert.match(readyHTML, /Landing Page/);
-  assert.match(readyHTML, /Missing locale/);
-  assert.match(readyHTML, /Policy unavailable/);
+  assert.match(readyHTML, /MISSING LOCALE/);
+  assert.match(readyHTML, /POLICY UNAVAILABLE/);
   assert.match(readyHTML, /FR/);
   assert.match(readyHTML, /Open family/);
+  assert.match(readyHTML, /data-action-menu/);
+  assert.match(readyHTML, /data-action-menu-trigger/);
+  assert.match(readyHTML, /data-action-menu-content/);
+  assert.match(readyHTML, /inline-flex items-center gap-1 whitespace-nowrap rounded-md bg-gray-50 px-2 py-1 text-xs/);
   assert.match(readyHTML, /href="\/admin\/translations\/families\/tg-page-1\?channel=production"/);
   assert.match(readyHTML, /href="\/admin\/translations\/matrix\?family_id=tg-page-1&amp;channel=production/);
   assert.match(readyHTML, /href="\/admin\/translations\/queue\?family_id=tg-page-1&amp;channel=production"/);
@@ -309,6 +313,8 @@ test('translation-family list page: initializer hydrates filters and updates bro
   assert.equal(state.status, 'ready');
   assert.equal(requests[0], '/admin/api/translations/families?content_type=pages&readiness_state=blocked&channel=default&page=1&per_page=50');
   assert.match(root.innerHTML, /Open family/);
+  assert.match(root.innerHTML, /BLOCKED/);
+  assert.match(root.innerHTML, /data-action-menu-trigger/);
   assert.match(root.innerHTML, /data-family-list-page="next"/);
   assert.match(root.innerHTML, /Page 1/);
 

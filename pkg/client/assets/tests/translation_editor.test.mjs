@@ -68,6 +68,14 @@ async function flushAsync() {
   await new Promise((resolve) => setTimeout(resolve, 0));
 }
 
+async function waitForCondition(predicate, attempts = 20) {
+  for (let i = 0; i < attempts; i += 1) {
+    if (predicate()) return true;
+    await flushAsync();
+  }
+  return predicate();
+}
+
 function setGlobals(win) {
   globalThis.window = win;
   globalThis.document = win.document;
@@ -391,6 +399,58 @@ function makeInReviewAssignmentFixture() {
   return next;
 }
 
+function makeChangesRequestedAssignmentFixture({ claimEnabled = true } = {}) {
+  const next = makeSubmitReadyFixture();
+  next.data.status = 'changes_requested';
+  next.data.assignment_row_version = 7;
+  next.data.row_version = 7;
+  next.data.version = 7;
+  next.data.last_rejection_reason = 'Please preserve the CTA token.';
+  next.data.translation_assignment = {
+    ...next.data.translation_assignment,
+    status: 'changes_requested',
+    queue_state: 'changes_requested',
+    version: 7,
+    row_version: 7,
+  };
+  next.data.assignment_action_states = {
+    ...next.data.assignment_action_states,
+    claim: claimEnabled
+      ? {
+          enabled: true,
+          permission: 'admin.translations.claim',
+        }
+      : {
+          enabled: false,
+          permission: 'admin.translations.claim',
+          reason: 'assignment is assigned to a different translator',
+          reason_code: 'permission_denied',
+        },
+    submit_review: {
+      enabled: false,
+      permission: 'admin.translations.edit',
+      reason: 'assignment must be in progress',
+      reason_code: 'INVALID_STATUS',
+    },
+  };
+  next.data.review_action_states = {
+    ...next.data.review_action_states,
+    approve: {
+      enabled: false,
+      permission: 'admin.translations.approve',
+      reason: 'assignment must be in review',
+      reason_code: 'INVALID_STATUS',
+    },
+    reject: {
+      enabled: false,
+      permission: 'admin.translations.approve',
+      reason: 'assignment must be in review',
+      reason_code: 'INVALID_STATUS',
+    },
+  };
+  return next;
+}
+
 function makePreviewUnavailableFixture() {
   const next = structuredClone(fixtures.detail);
   next.data.preview_action = {
@@ -606,6 +666,29 @@ test('translation editor contracts: normalize detail fixture with assist and act
   assert.equal(detail.preview_action.target_locale, 'fr');
   assert.equal(detail.preview_action.channel, 'production');
   assert.equal(detail.preview_action.url, undefined);
+});
+
+test('translation editor contracts: render assignment actor display labels instead of UUIDs', () => {
+  const payload = structuredClone(fixtures.detail);
+  payload.data.translation_assignment = {
+    ...payload.data.translation_assignment,
+    assignee_id: '9e838c81-6d3e-49d7-ad8f-b6616a040a44',
+    assignee_label: 'translator.jane',
+    display_assignee: 'translator.jane',
+    reviewer_id: '173c7e5b-50cb-37d0-8ced-a24b570863e6',
+    reviewer_label: 'reviewer.sam@example.com',
+    display_reviewer: 'reviewer.sam@example.com',
+  };
+  const detail = normalizeAssignmentEditorDetail(payload);
+  const html = renderTranslationEditorState(
+    { status: 'ready', detail },
+    createTranslationEditorState(detail)
+  );
+
+  assert.match(html, /Assignee translator\.jane/);
+  assert.match(html, /Reviewer reviewer\.sam@example\.com/);
+  assert.doesNotMatch(html, /Assignee 9e838c81-6d3e-49d7-ad8f-b6616a040a44/);
+  assert.doesNotMatch(html, /Reviewer 173c7e5b-50cb-37d0-8ced-a24b570863e6/);
 });
 
 test('translation editor contracts: legacy assist keys and missing assets degrade cleanly', () => {
@@ -937,6 +1020,57 @@ test('translation editor runtime: in-review assignments label submit as pending 
   assert.doesNotMatch(html, /Submit unavailable/);
   assert.ok(previewButton);
   assert.equal(previewButton.disabled, false);
+});
+
+test('translation editor runtime: changes-requested assignments expose resume workflow state', () => {
+  const detail = normalizeAssignmentEditorDetail(makeChangesRequestedAssignmentFixture());
+  const html = renderTranslationEditorState(
+    { status: 'ready', detail },
+    createTranslationEditorState(detail)
+  );
+  const dom = new JSDOM(html);
+  const resumeButtons = dom.window.document.querySelectorAll('[data-action="resume-work"]');
+
+  assert.match(html, /Changes requested/);
+  assert.match(html, /Resume work/);
+  assert.equal(resumeButtons.length, 2);
+  assert.equal(resumeButtons[0].disabled, false);
+  assert.match(html, /data-editor-panel="resume-actions"/);
+  assert.match(html, /assignment must be in progress/);
+  assert.doesNotMatch(html, /data-action="approve"/);
+  assert.doesNotMatch(html, /data-action="reject"/);
+
+  const blocked = normalizeAssignmentEditorDetail(makeChangesRequestedAssignmentFixture({ claimEnabled: false }));
+  const blockedHTML = renderTranslationEditorState(
+    { status: 'ready', detail: blocked },
+    createTranslationEditorState(blocked)
+  );
+  const blockedDOM = new JSDOM(blockedHTML);
+  const blockedResume = blockedDOM.window.document.querySelector('[data-action="resume-work"]');
+
+  assert.ok(blockedResume);
+  assert.equal(blockedResume.disabled, true);
+  assert.match(blockedHTML, /assignment is assigned to a different translator/);
+  assert.match(blockedHTML, /data-resume-unavailable-reason="true"/);
+});
+
+test('translation editor runtime: autosave conflict disables changes-requested resume controls', () => {
+  const detail = normalizeAssignmentEditorDetail(makeChangesRequestedAssignmentFixture());
+  const conflicted = applyEditorAutosaveConflict(
+    createTranslationEditorState(detail),
+    makeAutosaveConflictFixture()
+  );
+  const html = renderTranslationEditorState(
+    { status: 'ready', detail },
+    conflicted
+  );
+  const dom = new JSDOM(html);
+  const resumeButtons = Array.from(dom.window.document.querySelectorAll('[data-action="resume-work"]'));
+
+  assert.equal(resumeButtons.length, 2);
+  assert.equal(resumeButtons.every((button) => button.disabled), true);
+  assert.match(html, /Reload the latest server draft before resuming work\./);
+  assert.match(html, /data-resume-unavailable-reason="true"/);
 });
 
 test('translation editor runtime: renders locale navigation without missing-locale fallbacks', () => {
@@ -1859,6 +1993,71 @@ test('translation editor runtime: successful submit reloads terminal action stat
   assert.equal(root.querySelector('[data-action="submit-review"]').disabled, true);
   assert.match(root.innerHTML, /Approved/);
   assert.equal(root.querySelector('[data-action="preview-assignment"]').disabled, false);
+
+  screen.unmount();
+});
+
+test('translation editor runtime: resume work posts claim and reloads in-progress state', async () => {
+  const { root, window } = setupDom();
+  installTranslationSyncCoreStub(window);
+  const requests = [];
+  let detailReads = 0;
+  globalThis.fetch = mock.fn(async (input, init = {}) => {
+    const method = String(init.method || 'GET').toUpperCase();
+    const url = String(input);
+    requests.push({ url, method, init });
+    if (method === 'GET' && url.includes('/api/translations/assignments/asg-editor-1')) {
+      detailReads += 1;
+      return createJsonResponse(detailReads === 1 ? makeChangesRequestedAssignmentFixture() : makeSubmitReadyFixture());
+    }
+    if (method === 'GET' && url.includes('/api/translations/sync/resources/translation_variant_draft/')) {
+      return createJsonResponse({
+        data: makeSubmitReadyFixture().data,
+        revision: 7,
+        updated_at: '2026-01-01T00:00:00Z',
+      });
+    }
+    if (method === 'POST' && url.includes('/actions/claim')) {
+      const body = JSON.parse(init.body);
+      assert.equal(body.expected_version, 7);
+      return createJsonResponse({
+        data: {
+          status: 'in_progress',
+        },
+      });
+    }
+    return createJsonResponse({ error: { message: 'unexpected request' } }, 500, {
+      'content-type': 'application/json',
+    });
+  });
+
+  const screen = new TranslationEditorScreen({
+    endpoint: '/admin/api/translations/assignments/asg-editor-1?channel=staging',
+    actionEndpointBase: '/admin/api/translations/assignments',
+  });
+  screen.mount(root);
+  await flushAsync();
+  await flushAsync();
+
+  assert.equal(await waitForCondition(() => {
+    const button = root.querySelector('[data-action="resume-work"]');
+    return Boolean(button && !button.disabled);
+  }), true);
+  const resumeButton = root.querySelector('[data-action="resume-work"]');
+  assert.ok(resumeButton);
+  assert.equal(resumeButton.disabled, false);
+  assert.equal(root.querySelector('[data-action="submit-review"]').disabled, true);
+
+  resumeButton.click();
+  assert.equal(await waitForCondition(() => detailReads >= 2 && root.querySelector('[data-action="resume-work"]') === null), true);
+
+  const claim = requests.find((request) => request.method === 'POST' && request.url.includes('/actions/claim'));
+  assert.ok(claim);
+  assert.match(claim.url, /[?&]channel=staging(?:&|$)/);
+  assert.equal(detailReads, 2);
+  assert.equal(root.querySelector('[data-action="resume-work"]'), null);
+  assert.equal(root.querySelector('[data-action="submit-review"]').disabled, false);
+  assert.match(root.innerHTML, /Submit for review/);
 
   screen.unmount();
 });

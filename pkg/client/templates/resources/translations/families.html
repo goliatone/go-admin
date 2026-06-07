@@ -48,12 +48,12 @@
               {{ page.Meta.total|default:"0" }} total &middot; page {{ page.Meta.page|default:"1" }} &middot; {{ page.Meta.per_page|default:"50" }} per page
             </p>
           </div>
-          <div class="flex flex-wrap items-center gap-2 text-sm">
+          <div class="inline-flex items-center gap-1 rounded-lg border border-gray-200 bg-white p-1 text-sm" aria-label="Translation family views">
             {% if page.Links.matrix %}
-            <a class="btn btn-secondary" href="{{ page.Links.matrix }}">Matrix</a>
+            <a class="rounded px-2.5 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1" href="{{ page.Links.matrix }}">Matrix</a>
             {% endif %}
             {% if page.Links.queue %}
-            <a class="btn btn-secondary" href="{{ page.Links.queue }}">Queue</a>
+            <a class="rounded px-2.5 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1" href="{{ page.Links.queue }}">Queue</a>
             {% endif %}
           </div>
         </div>
@@ -111,14 +111,14 @@
                 </td>
                 <td class="px-4 py-5 align-top">
                   <span class="{% if family.readiness_state == "blocked" %}bg-rose-50 text-rose-700{% elif family.readiness_state == "ready" %}bg-emerald-50 text-emerald-700{% else %}bg-gray-100 text-gray-700{% endif %} inline-flex rounded-full px-2.5 py-1 text-xs font-semibold">
-                    {{ family.readiness_state|default:"unknown" }}
+                    {{ family.readiness_state|default:"unknown"|upper }}
                   </span>
                 </td>
                 <td class="px-4 py-5 align-top">
                   {% if family.blocker_labels %}
                   <div class="flex flex-wrap gap-1.5">
                     {% for blocker_code, blocker_label in family.blocker_labels %}
-                    <span class="{% if blocker_code == "missing_locale" %}bg-amber-50 text-amber-700{% elif blocker_code == "pending_review" %}bg-blue-50 text-blue-700{% else %}bg-gray-100 text-gray-700{% endif %} rounded-full px-2 py-1 text-xs font-medium">{{ blocker_label }}</span>
+                    <span class="{% if blocker_code == "missing_locale" %}bg-amber-50 text-amber-700{% elif blocker_code == "pending_review" %}bg-blue-50 text-blue-700{% else %}bg-gray-100 text-gray-700{% endif %} rounded-full px-2 py-1 text-xs font-medium">{{ blocker_label|upper }}</span>
                     {% endfor %}
                   </div>
                   {% else %}
@@ -126,18 +126,18 @@
                   {% endif %}
                 </td>
                 <td class="px-4 py-5 align-top">
-                  <div class="flex flex-wrap gap-2">
-                    <span class="inline-flex min-w-16 flex-col rounded-md bg-gray-50 px-2 py-1">
+                  <div class="flex flex-nowrap gap-1.5">
+                    <span class="inline-flex items-center gap-1 whitespace-nowrap rounded-md bg-gray-50 px-2 py-1 text-xs">
                       <span class="font-semibold {% if family.missing_required_locale_count %}text-rose-700{% else %}text-gray-900{% endif %}">{{ family.missing_required_locale_count|default:"0" }}</span>
-                      <span class="text-[11px] font-semibold uppercase tracking-wide text-gray-500">Missing</span>
+                      <span class="font-semibold uppercase tracking-wide text-gray-500">MISSING</span>
                     </span>
-                    <span class="inline-flex min-w-16 flex-col rounded-md bg-gray-50 px-2 py-1">
+                    <span class="inline-flex items-center gap-1 whitespace-nowrap rounded-md bg-gray-50 px-2 py-1 text-xs">
                       <span class="font-semibold {% if family.pending_review_count %}text-amber-700{% else %}text-gray-900{% endif %}">{{ family.pending_review_count|default:"0" }}</span>
-                      <span class="text-[11px] font-semibold uppercase tracking-wide text-gray-500">Review</span>
+                      <span class="font-semibold uppercase tracking-wide text-gray-500">REVIEW</span>
                     </span>
-                    <span class="inline-flex min-w-16 flex-col rounded-md bg-gray-50 px-2 py-1">
+                    <span class="inline-flex items-center gap-1 whitespace-nowrap rounded-md bg-gray-50 px-2 py-1 text-xs">
                       <span class="font-semibold {% if family.outdated_locale_count %}text-violet-700{% else %}text-gray-900{% endif %}">{{ family.outdated_locale_count|default:"0" }}</span>
-                      <span class="text-[11px] font-semibold uppercase tracking-wide text-gray-500">Outdated</span>
+                      <span class="font-semibold uppercase tracking-wide text-gray-500">OUTDATED</span>
                     </span>
                   </div>
                 </td>
@@ -148,7 +148,7 @@
                       <div class="mt-1 flex flex-wrap gap-1">
                         {% if family.available_locales %}
                         {% for locale in family.available_locales %}
-                        <span class="rounded bg-gray-100 px-2 py-1 text-xs font-semibold uppercase text-gray-700">{{ locale }}</span>
+                        <span class="rounded bg-gray-100 px-2 py-1 text-xs font-semibold uppercase text-gray-700">{{ locale|upper }}</span>
                         {% endfor %}
                         {% else %}
                         <span class="text-sm text-gray-400">None</span>
@@ -160,7 +160,7 @@
                       <div class="mt-1 flex flex-wrap gap-1">
                         {% if family.missing_locales %}
                         {% for locale in family.missing_locales %}
-                        <span class="rounded bg-rose-50 px-2 py-1 text-xs font-semibold uppercase text-rose-700">{{ locale }}</span>
+                        <span class="rounded bg-rose-50 px-2 py-1 text-xs font-semibold uppercase text-rose-700">{{ locale|upper }}</span>
                         {% endfor %}
                         {% else %}
                         <span class="text-sm text-gray-400">None</span>
@@ -170,23 +170,44 @@
                   </div>
                 </td>
                 <td class="px-4 py-5 align-top">
-                  <div class="flex flex-col items-stretch gap-2 text-center">
-                    <a class="rounded-md bg-gray-950 px-4 py-3 text-sm font-semibold text-white hover:bg-gray-800"
-                       href="{{ family.ssr_links.detail }}">
-                      Open family
-                    </a>
-                    {% if family.ssr_links.matrix %}
-                    <a class="text-sm font-semibold text-gray-700 hover:text-sky-700"
-                       href="{{ family.ssr_links.matrix }}">
-                      Matrix
-                    </a>
-                    {% endif %}
-                    {% if family.ssr_links.queue %}
-                    <a class="text-sm font-semibold text-gray-500 hover:text-sky-700"
-                       href="{{ family.ssr_links.queue }}">
-                      Queue
-                    </a>
-                    {% endif %}
+                  <div class="relative flex justify-end" data-action-menu>
+                    <button type="button"
+                            class="actions-menu-trigger rounded-md p-2 text-gray-500 transition-colors hover:bg-gray-100"
+                            data-action-menu-trigger
+                            aria-label="Actions for {{ family.source_title|default:family.family_id }}"
+                            aria-haspopup="true"
+                            aria-expanded="false">
+                      <svg class="h-5 w-5" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+                        <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z"/>
+                      </svg>
+                    </button>
+                    <div class="actions-menu hidden absolute right-0 z-20 mt-2 w-48 rounded-lg border border-gray-200 bg-white py-1 shadow-lg"
+                         data-action-menu-content
+                         role="menu"
+                         aria-orientation="vertical">
+                      <a class="action-item flex w-full items-center px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                         data-action-menu-item
+                         role="menuitem"
+                         href="{{ family.ssr_links.detail }}">
+                        Open family
+                      </a>
+                      {% if family.ssr_links.matrix %}
+                      <a class="action-item flex w-full items-center px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                         data-action-menu-item
+                         role="menuitem"
+                         href="{{ family.ssr_links.matrix }}">
+                        Matrix
+                      </a>
+                      {% endif %}
+                      {% if family.ssr_links.queue %}
+                      <a class="action-item flex w-full items-center px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                         data-action-menu-item
+                         role="menuitem"
+                         href="{{ family.ssr_links.queue }}">
+                        Queue
+                      </a>
+                      {% endif %}
+                    </div>
                   </div>
                 </td>
               </tr>
@@ -208,6 +229,20 @@
 {% endblock %}
 
 {% block scripts %}
+<script type="module">
+import { initActionMenus } from '{{ adminURL("assets/dist/shared/action-menu.js") }}';
+
+const familyListMenuRoot = document.getElementById('translation-families-root');
+if (familyListMenuRoot && familyListMenuRoot.dataset.translationFamilyListActionMenusStandalone !== 'true') {
+  initActionMenus(familyListMenuRoot, {
+    containerSelector: '[data-action-menu]',
+    triggerSelector: '[data-action-menu-trigger]',
+    menuSelector: '[data-action-menu-content]',
+    itemSelector: '[data-action-menu-item], [role="menuitem"], .action-item',
+  });
+  familyListMenuRoot.dataset.translationFamilyListActionMenusStandalone = 'true';
+}
+</script>
 <script type="module">
 import { initTranslationFamilyListPage } from '{{ adminURL("assets/dist/translation-family/index.js") }}';
 

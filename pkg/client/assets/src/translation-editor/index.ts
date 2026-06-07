@@ -207,7 +207,11 @@ export interface TranslationEditorAssignmentSummary {
   source_title: string;
   source_path: string;
   assignee_id: string;
+  assignee_label: string;
+  display_assignee: string;
   reviewer_id: string;
+  reviewer_label: string;
+  display_reviewer: string;
   due_state: string;
   due_date: string;
   version: number;
@@ -809,7 +813,11 @@ function normalizeAssignmentSummary(value: unknown): TranslationEditorAssignment
     source_title: asString(record.source_title),
     source_path: asString(record.source_path),
     assignee_id: asString(record.assignee_id),
+    assignee_label: asString(record.assignee_label),
+    display_assignee: asString(record.display_assignee || record.assignee_label || record.assignee_id),
     reviewer_id: asString(record.reviewer_id),
+    reviewer_label: asString(record.reviewer_label),
+    display_reviewer: asString(record.display_reviewer || record.reviewer_label || record.reviewer_id),
     due_state: asString(record.due_state),
     due_date: asString(record.due_date),
     version: asNumber(record.version || record.row_version),
@@ -1151,6 +1159,12 @@ export function applyEditorUpdateResponse(
   payload: unknown
 ): TranslationEditorState {
   const update = normalizeEditorUpdateResponse(payload);
+  const assignmentActionStates = Object.keys(update.assignment_action_states).length
+    ? update.assignment_action_states
+    : state.detail.assignment_action_states;
+  const reviewActionStates = Object.keys(update.review_action_states).length
+    ? update.review_action_states
+    : state.detail.review_action_states;
   const nextDetail: TranslationAssignmentEditorDetail = {
     ...state.detail,
     row_version: update.row_version,
@@ -1166,8 +1180,8 @@ export function applyEditorUpdateResponse(
       : state.detail.source_target_drift,
     assist: update.assist,
     qa_results: update.qa_results,
-    assignment_action_states: update.assignment_action_states,
-    review_action_states: update.review_action_states,
+    assignment_action_states: assignmentActionStates,
+    review_action_states: reviewActionStates,
     preview_action: update.preview_action || state.detail.preview_action,
   };
   nextDetail.fields = rebuildFieldEntries(nextDetail);
@@ -1189,10 +1203,16 @@ function editorUpdatePayloadFromSyncSnapshot(
   snapshot: TranslationSyncResourceSnapshot<unknown>
 ): Record<string, unknown> {
   const data = asRecord(snapshot.data);
+  const draftData = { ...data };
+  delete draftData.assignment_action_states;
+  delete draftData.editor_actions;
+  delete draftData.actions;
+  delete draftData.review_action_states;
+  delete draftData.review_actions;
   const rowVersion = snapshot.revision || asNumber(data.row_version || data.version);
   return {
     data: {
-      ...data,
+      ...draftData,
       row_version: rowVersion,
       version: rowVersion,
     },
@@ -1457,6 +1477,14 @@ function isReviewLifecycleStatus(status: string): boolean {
   return status === 'review' || status === 'in_review';
 }
 
+function isChangesRequestedLifecycleStatus(status: string): boolean {
+  return status === 'changes_requested';
+}
+
+function shouldShowResumeWorkAction(detail: TranslationAssignmentEditorDetail): boolean {
+  return isChangesRequestedLifecycleStatus(assignmentLifecycleStatus(detail));
+}
+
 function shouldShowReviewActions(detail: TranslationAssignmentEditorDetail): boolean {
   const status = assignmentLifecycleStatus(detail);
   if (isReviewLifecycleStatus(status)) return true;
@@ -1649,7 +1677,10 @@ function renderHeader(
   basePath = ''
 ): string {
   const submitState = detail.assignment_action_states.submit_review;
+  const resumeState = detail.assignment_action_states.claim;
   const previewState = detail.preview_action;
+  const showResume = shouldShowResumeWorkAction(detail);
+  const resumeDisabled = !resumeState?.enabled || saving || submitting || hasConflict;
   const submitDisabled = readOnly || !submitState?.enabled || saving || submitting || detail.qa_results.submit_blocked;
   const previewDisabled = !previewState?.enabled || saving || submitting || previewing || hasConflict;
   const saveDisabled = readOnly || saving || !hasDirtyFields;
@@ -1668,6 +1699,11 @@ function renderHeader(
     : previewing
       ? 'Opening preview.'
       : 'Open preview in a new tab.';
+  const resumeTitle = hasConflict
+    ? 'Reload the latest server draft before resuming work.'
+    : saving
+      ? 'Wait for the current save to finish before resuming work.'
+      : resumeState?.reason || 'Resume work on this assignment.';
   return `
     <section class="${CARD} p-6 shadow-sm">
       <div class="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
@@ -1680,8 +1716,8 @@ function renderHeader(
             </p>
           </div>
           <div class="flex flex-wrap gap-2 text-xs text-gray-600">
-            <span class="rounded-full bg-gray-100 px-3 py-1 font-medium">Assignee ${escapeHTML(assignment.assignee_id || 'Unassigned')}</span>
-            <span class="rounded-full bg-gray-100 px-3 py-1 font-medium">Reviewer ${escapeHTML(assignment.reviewer_id || 'Not set')}</span>
+            <span class="rounded-full bg-gray-100 px-3 py-1 font-medium">Assignee ${escapeHTML(assignment.display_assignee || assignment.assignee_label || assignment.assignee_id || 'Unassigned')}</span>
+            <span class="rounded-full bg-gray-100 px-3 py-1 font-medium">Reviewer ${escapeHTML(assignment.display_reviewer || assignment.reviewer_label || assignment.reviewer_id || 'Not set')}</span>
             <span class="rounded-full px-3 py-1 font-medium ${autosaveLabel.tone}" data-autosave-state="${escapeAttribute(autosaveLabel.state)}">${escapeHTML(autosaveLabel.text)}</span>
             ${qaSummaryChips(detail)}
           </div>
@@ -1709,6 +1745,20 @@ function renderHeader(
             </button>
             ${!previewState?.enabled && previewState?.reason ? `<p class="text-xs text-gray-500" data-preview-unavailable-reason="true">${escapeHTML(previewState.reason)}</p>` : ''}
           </div>
+          ${showResume ? `
+            <div class="flex max-w-xs flex-col items-start gap-1">
+              <button
+                type="button"
+                class="${BTN_PRIMARY}"
+                data-action="resume-work"
+                title="${escapeAttribute(resumeTitle)}"
+                ${resumeDisabled ? 'disabled aria-disabled="true"' : ''}
+              >
+                ${submitting && resumeState?.enabled ? 'Resuming...' : 'Resume work'}
+              </button>
+              ${resumeDisabled && resumeTitle ? `<p class="text-xs text-gray-500" data-resume-unavailable-reason="true">${escapeHTML(resumeTitle)}</p>` : ''}
+            </div>
+          ` : ''}
           <div class="flex max-w-xs flex-col items-start gap-1">
             <button
               type="button"
@@ -2378,6 +2428,48 @@ function renderReviewActionsPanel(detail: TranslationAssignmentEditorDetail, sub
   `;
 }
 
+function renderResumeWorkPanel(
+  detail: TranslationAssignmentEditorDetail,
+  submitting: boolean,
+  saving: boolean,
+  hasConflict: boolean
+): string {
+  if (!shouldShowResumeWorkAction(detail)) {
+    return '';
+  }
+  const resumeState = detail.assignment_action_states.claim;
+  const disabled = !resumeState?.enabled || saving || submitting || hasConflict;
+  const disabledReason = hasConflict
+    ? 'Reload the latest server draft before resuming work.'
+    : saving
+      ? 'Wait for the current save to finish before resuming work.'
+      : submitting
+        ? 'Resume is already in progress.'
+        : resumeState?.reason || '';
+  return `
+    <section
+      class="${CARD} p-5"
+      data-editor-panel="resume-actions"
+      aria-label="Resume work"
+    >
+      <h2 class="text-lg font-semibold text-gray-900">Resume work</h2>
+      <p class="mt-2 text-sm text-gray-600">This assignment has requested changes. Resume it before submitting the updated draft for review.</p>
+      <div class="mt-4 flex max-w-xs flex-col items-start gap-2">
+        <button
+          type="button"
+          class="${BTN_PRIMARY}"
+          data-action="resume-work"
+          title="${escapeAttribute(disabledReason || 'Resume work on this assignment.')}"
+          ${disabled ? 'disabled aria-disabled="true"' : ''}
+        >
+          ${submitting && resumeState?.enabled ? 'Resuming...' : 'Resume work'}
+        </button>
+        ${disabled && disabledReason ? `<p class="text-xs text-gray-500" data-resume-unavailable-reason="true">${escapeHTML(disabledReason)}</p>` : ''}
+      </div>
+    </section>
+  `;
+}
+
 function renderRejectModal(rejectDraft: TranslationEditorRejectDraft | null, submitting: boolean): string {
   if (!rejectDraft) {
     return '';
@@ -2516,6 +2608,7 @@ function renderSidebarTabIcon(tab: SidebarTab): string {
 
 // T13: Compute sidebar tab badges
 function computeSidebarTabBadges(detail: TranslationAssignmentEditorDetail): Record<SidebarTab, string | null> {
+  const hasResumeAction = shouldShowResumeWorkAction(detail);
   const hasReviewActions = shouldShowReviewActions(detail);
   const hasManagementActions = shouldShowManagementActions(detail);
   const qaCount = detail.qa_results.enabled ? detail.qa_results.summary.finding_count : 0;
@@ -2525,7 +2618,7 @@ function computeSidebarTabBadges(detail: TranslationAssignmentEditorDetail): Rec
   const historyCount = detail.history.total;
 
   return {
-    actions: (hasReviewActions || hasManagementActions) ? null : null,
+    actions: (hasResumeAction || hasReviewActions || hasManagementActions) ? null : null,
     qa: qaCount > 0 ? String(qaCount) : null,
     assist: (tmCount + glossaryCount) > 0 ? String(tmCount + glossaryCount) : null,
     files: fileCount > 0 ? String(fileCount) : null,
@@ -2534,11 +2627,19 @@ function computeSidebarTabBadges(detail: TranslationAssignmentEditorDetail): Rec
 }
 
 // T13: Render tabbed sidebar
-function renderTabbedSidebar(detail: TranslationAssignmentEditorDetail, submitting: boolean, activeTab: SidebarTab = 'actions', loadState?: TranslationEditorLoadState): string {
+function renderTabbedSidebar(
+  detail: TranslationAssignmentEditorDetail,
+  submitting: boolean,
+  activeTab: SidebarTab = 'actions',
+  loadState?: TranslationEditorLoadState,
+  saving = false,
+  hasConflict = false
+): string {
   const badges = computeSidebarTabBadges(detail);
+  const hasResumeAction = shouldShowResumeWorkAction(detail);
   const hasReviewActions = shouldShowReviewActions(detail);
   const hasManagementActions = shouldShowManagementActions(detail);
-  const hasActions = hasReviewActions || hasManagementActions;
+  const hasActions = hasResumeAction || hasReviewActions || hasManagementActions;
 
   // Tab definitions
   const tabs: Array<{ id: SidebarTab; label: string; badge: string | null }> = [
@@ -2593,6 +2694,7 @@ function renderTabbedSidebar(detail: TranslationAssignmentEditorDetail, submitti
   const panels: Record<SidebarTab, string> = {
     actions: `
       <div id="sidebar-panel-actions" class="space-y-4" role="tabpanel" data-sidebar-panel="actions" ${activeTab !== 'actions' ? 'hidden' : ''}>
+        ${hasResumeAction ? renderResumeWorkPanel(detail, submitting, saving, hasConflict) : ''}
         ${hasReviewActions ? renderReviewActionsPanel(detail, submitting) : ''}
         ${hasManagementActions ? renderManagementActionsPanel(detail, submitting) : ''}
         ${!hasActions ? `
@@ -2676,7 +2778,7 @@ export function renderTranslationEditorState(
           ${renderFieldList(detail, readOnly)}
         </div>
         <div class="order-2">
-          ${renderTabbedSidebar(detail, runtime.submitting === true, runtime.activeSidebarTab || 'actions', loadState)}
+          ${renderTabbedSidebar(detail, runtime.submitting === true, runtime.activeSidebarTab || 'actions', loadState, runtime.saving === true, Boolean(conflictState))}
         </div>
       </div>
       ${renderRejectModal(runtime.rejectDraft || null, runtime.submitting === true)}
@@ -2940,6 +3042,11 @@ export class TranslationEditorScreen {
     });
     this.container.querySelector<HTMLElement>('[data-action="submit-review"]')?.addEventListener('click', () => {
       void this.submitForReview();
+    });
+    this.container.querySelectorAll<HTMLElement>('[data-action="resume-work"]').forEach((element) => {
+      element.addEventListener('click', () => {
+        void this.resumeWork();
+      });
     });
     this.container.querySelector<HTMLElement>('[data-action="preview-assignment"]')?.addEventListener('click', () => {
       const blockedMessage = this.previewBlockedBeforeOpenMessage();
@@ -3277,7 +3384,7 @@ export class TranslationEditorScreen {
     this.render();
     const historyPage = this.editorState.detail.history.page;
     const assignmentVersion = this.editorState.detail.translation_assignment.version;
-    const response = await httpRequest(`${this.config.actionEndpointBase}/${encodeURIComponent(this.editorState.detail.assignment_id)}/actions/submit_review`, {
+    const response = await httpRequest(this.assignmentActionEndpoint(this.editorState.detail, 'submit_review'), {
       method: 'POST',
       json: { expected_version: assignmentVersion },
     });
@@ -3301,6 +3408,58 @@ export class TranslationEditorScreen {
       kind: 'success',
       message: buildSubmitSuccessMessage(this.editorState.detail, status),
     };
+    this.submitting = false;
+    await this.load(historyPage);
+  }
+
+  private assignmentActionEndpoint(detail: TranslationAssignmentEditorDetail, action: string): string {
+    return buildURLWithParams(
+      `${this.config.actionEndpointBase}/${encodeURIComponent(detail.assignment_id)}/actions/${action}`,
+      this.config.syncScope
+    );
+  }
+
+  private async resumeWork(): Promise<void> {
+    if (!this.editorState || this.submitting) return;
+    if (!shouldShowResumeWorkAction(this.editorState.detail)) {
+      this.feedback = { kind: 'error', message: 'Resume work is unavailable for this assignment.' };
+      this.render();
+      return;
+    }
+    const resumeState = this.editorState.detail.assignment_action_states.claim;
+    if (!resumeState?.enabled) {
+      this.feedback = { kind: 'error', message: resumeState?.reason || 'Resume work is unavailable.' };
+      this.render();
+      return;
+    }
+    if (this.editorState.autosave.conflict) {
+      this.feedback = { kind: 'conflict', message: 'Reload the latest server draft before resuming work.' };
+      this.render();
+      return;
+    }
+    if (Object.keys(this.editorState.dirty_fields).length) {
+      const saved = await this.saveDirtyFields(false);
+      if (!saved || !this.editorState) return;
+    }
+    this.submitting = true;
+    this.render();
+    const historyPage = this.editorState.detail.history.page;
+    const assignmentVersion = this.editorState.detail.translation_assignment.version;
+    const response = await httpRequest(this.assignmentActionEndpoint(this.editorState.detail, 'claim'), {
+      method: 'POST',
+      json: { expected_version: assignmentVersion },
+    });
+    if (!response.ok) {
+      const error = await buildEditorRequestError(response, 'Failed to resume assignment');
+      this.feedback = {
+        kind: error.status === 409 || error.code === 'VERSION_CONFLICT' || error.code === 'POLICY_BLOCKED' ? 'conflict' : 'error',
+        message: error.message,
+      };
+      this.submitting = false;
+      this.render();
+      return;
+    }
+    this.feedback = { kind: 'success', message: 'Assignment resumed.' };
     this.submitting = false;
     await this.load(historyPage);
   }
@@ -3466,7 +3625,7 @@ export class TranslationEditorScreen {
     }
     this.submitting = true;
     this.render();
-    const response = await httpRequest(`${this.config.actionEndpointBase}/${encodeURIComponent(detail.assignment_id)}/actions/${action}`, {
+    const response = await httpRequest(this.assignmentActionEndpoint(detail, action), {
       method: 'POST',
       json: request,
     });

@@ -56,8 +56,8 @@
                 </p>
               </div>
               <div class="flex flex-wrap gap-2 text-xs text-gray-600">
-                <span class="rounded-full bg-gray-100 px-3 py-1 font-medium">Assignee {{ editor.translation_assignment.assignee_label|default:editor.translation_assignment.assignee_id|default:"Unassigned" }}</span>
-                <span class="rounded-full bg-gray-100 px-3 py-1 font-medium">Reviewer {{ editor.translation_assignment.reviewer_label|default:editor.translation_assignment.reviewer_id|default:"Not set" }}</span>
+                <span class="rounded-full bg-gray-100 px-3 py-1 font-medium">Assignee {{ editor.translation_assignment.display_assignee|default:editor.translation_assignment.assignee_label|default:editor.translation_assignment.assignee_id|default:"Unassigned" }}</span>
+                <span class="rounded-full bg-gray-100 px-3 py-1 font-medium">Reviewer {{ editor.translation_assignment.display_reviewer|default:editor.translation_assignment.reviewer_label|default:editor.translation_assignment.reviewer_id|default:"Not set" }}</span>
                 <span class="rounded-full bg-gray-100 px-3 py-1 font-medium">No pending changes</span>
                 <span class="rounded-full bg-amber-50 px-3 py-1 font-medium text-amber-700">Warnings {{ editor.qa_results.summary.warning_count|default:"0" }}</span>
                 <span class="rounded-full bg-emerald-50 px-3 py-1 font-medium text-emerald-700">Blockers {{ editor.qa_results.summary.blocker_count|default:"0" }}</span>
@@ -71,6 +71,19 @@
                       {% if editor.preview_action.enabled == false %}disabled aria-disabled="true" title="{{ editor.preview_action.reason|default:"Preview unavailable" }}"{% endif %}>
                 Preview
               </button>
+              {% if editor.translation_assignment.status == "changes_requested" or editor.status == "changes_requested" %}
+              <div class="flex max-w-xs flex-col items-start gap-1">
+                <button type="button"
+                        class="btn btn-primary"
+                        data-action="resume-work"
+                        {% if editor.assignment_action_states.claim.enabled == false %}disabled aria-disabled="true" title="{{ editor.assignment_action_states.claim.reason|default:"Resume unavailable" }}"{% endif %}>
+                  Resume work
+                </button>
+                {% if editor.assignment_action_states.claim.enabled == false and editor.assignment_action_states.claim.reason %}
+                <p class="text-xs text-gray-500" data-resume-unavailable-reason="true">{{ editor.assignment_action_states.claim.reason }}</p>
+                {% endif %}
+              </div>
+              {% endif %}
               <button type="button"
                       class="btn btn-primary"
                       data-action="submit-review"
@@ -196,6 +209,25 @@
               <button type="button" class="rounded-lg px-3 py-1.5 text-xs font-medium text-gray-600" data-sidebar-tab="history">History</button>
             </nav>
 
+            {% if editor.translation_assignment.status == "changes_requested" or editor.status == "changes_requested" %}
+            <section class="rounded-xl border border-gray-200 bg-white p-5" aria-labelledby="translation-editor-resume" data-editor-panel="resume-actions">
+              <h2 id="translation-editor-resume" class="text-lg font-semibold text-gray-900">Resume work</h2>
+              <p class="mt-2 text-sm text-gray-600">This assignment has requested changes. Resume it before submitting the updated draft for review.</p>
+              <div class="mt-4 flex max-w-xs flex-col items-start gap-2">
+                <button type="button"
+                        class="btn btn-primary"
+                        data-action="resume-work"
+                        {% if editor.assignment_action_states.claim.enabled == false %}disabled aria-disabled="true" title="{{ editor.assignment_action_states.claim.reason|default:"Resume unavailable" }}"{% endif %}>
+                  Resume work
+                </button>
+                {% if editor.assignment_action_states.claim.enabled == false and editor.assignment_action_states.claim.reason %}
+                <p class="text-xs text-gray-500" data-resume-unavailable-reason="true">{{ editor.assignment_action_states.claim.reason }}</p>
+                {% endif %}
+              </div>
+            </section>
+            {% endif %}
+
+            {% if editor.translation_assignment.status == "review" or editor.translation_assignment.status == "in_review" or editor.status == "review" or editor.status == "in_review" or editor.review_action_states.approve.enabled or editor.review_action_states.reject.enabled %}
             <section class="rounded-xl border border-gray-200 bg-white p-5" aria-labelledby="translation-editor-actions" data-editor-panel="review-actions">
               <h2 id="translation-editor-actions" class="text-lg font-semibold text-gray-900">Review actions</h2>
               <div class="mt-4 flex flex-wrap gap-3">
@@ -213,6 +245,7 @@
                 </button>
               </div>
             </section>
+            {% endif %}
 
             <section class="rounded-xl border border-gray-200 bg-white p-5" aria-labelledby="translation-editor-management" data-editor-panel="management-actions">
               <h2 id="translation-editor-management" class="text-lg font-semibold text-gray-900">Management actions</h2>

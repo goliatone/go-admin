@@ -82,6 +82,9 @@ func TestTranslationFamilyDetailTemplateBootstrapsClientRenderer(t *testing.T) {
 		`id="translation-family-detail-root"`,
 		`data-endpoint="{{ translation_family_api_path|default:"" }}"`,
 		`data-content-base-path="{{ translation_content_base|default:"" }}"`,
+		`data-formgen-auto-init="true"`,
+		`runtime/formgen-relationships.min.js`,
+		`data-endpoint-renderer="{{ translation_family_detail_ssr.Assignee.endpoint_renderer|default:"typeahead" }}"`,
 		`initTranslationFamilyDetailPage`,
 	}
 	for _, fragment := range required {
@@ -104,6 +107,10 @@ func TestTranslationFamiliesTemplateBootstrapsClientRenderer(t *testing.T) {
 		`data-queue-path="{{ translation_queue_path|default:"" }}"`,
 		`data-title="Translation Families"`,
 		`data-surface="translation-families"`,
+		`data-action-menu`,
+		`data-action-menu-trigger`,
+		`data-action-menu-content`,
+		`Translation family views`,
 		`initTranslationFamilyListPage`,
 	}
 	for _, fragment := range required {

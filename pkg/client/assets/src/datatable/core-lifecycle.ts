@@ -13,6 +13,7 @@ import {
 } from '../toast/error-helpers.js';
 import { addDelegatedEventListener } from '../shared/events/delegation.js';
 import { httpRequest } from '../shared/transport/http-client.js';
+import { initActionMenus } from '../shared/action-menu.js';
 
 export function bindSearchInput(grid: any): void {
     const input = document.querySelector<HTMLInputElement>(grid.selectors.searchInput);
@@ -905,6 +906,16 @@ export function bindDropdownToggles(grid: any): void {
       }
     });
 
+    const closeGenericDropdowns = () => {
+      document.querySelectorAll('[data-dropdown-toggle]').forEach((toggle) => {
+        const targetId = (toggle as HTMLElement).dataset.dropdownToggle;
+        const target = document.getElementById(targetId || '');
+        if (target) {
+          target.classList.add('hidden');
+        }
+      });
+    };
+
     addDelegatedEventListener(document, 'click', '[data-dropdown-toggle]', (event, toggle) => {
       event.stopPropagation();
       const targetId = toggle.dataset.dropdownToggle;
@@ -923,69 +934,32 @@ export function bindDropdownToggles(grid: any): void {
       }
     }, { signal });
 
-    // Action dropdown menus (row actions)
     document.addEventListener('click', (e) => {
-      const trigger = (e.target as HTMLElement).closest('[data-dropdown-trigger]');
-
-      if (trigger) {
-        e.stopPropagation();
-        const dropdown = trigger.closest('[data-dropdown]');
-        const menu = dropdown?.querySelector('.actions-menu') as HTMLElement;
-
-        // Close other action dropdowns
-        document.querySelectorAll('.actions-menu').forEach(m => {
-          if (m !== menu) m.classList.add('hidden');
-        });
-
-        // Toggle this dropdown
-        const isOpening = menu?.classList.contains('hidden');
-        menu?.classList.toggle('hidden');
-        trigger.setAttribute('aria-expanded', isOpening ? 'true' : 'false');
-
-        // Position the dropdown intelligently (only when opening)
-        if (isOpening && menu) {
-          grid.positionDropdownMenu(trigger as HTMLElement, menu);
-        }
-      } else {
-        // Check if the click is inside an open dropdown menu (e.g., column toggle menu)
-        const clickedInsideDropdownMenu = (e.target as HTMLElement).closest('[data-dropdown-toggle], #column-toggle-menu, #export-menu');
-
-        if (!clickedInsideDropdownMenu) {
-          // Close all action dropdowns when clicking outside
-          document.querySelectorAll('.actions-menu').forEach(m =>
-            m.classList.add('hidden')
-          );
-
-          // Also close existing dropdowns
-          document.querySelectorAll('[data-dropdown-toggle]').forEach((toggle) => {
-            const targetId = (toggle as HTMLElement).dataset.dropdownToggle;
-            const target = document.getElementById(targetId || '');
-            if (target) {
-              target.classList.add('hidden');
-            }
-          });
-        }
+      const target = e.target as Element | null;
+      const clickedInsideGenericDropdown = target && typeof target.closest === 'function'
+        ? target.closest('[data-dropdown-toggle], #column-toggle-menu, #export-menu')
+        : null;
+      if (!clickedInsideGenericDropdown) {
+        closeGenericDropdowns();
       }
     }, { signal });
 
-    // ESC key closes all dropdowns
+    initActionMenus(document, {
+      containerSelector: '[data-dropdown], .actions-dropdown',
+      triggerSelector: '[data-dropdown-trigger], .actions-menu-trigger',
+      menuSelector: '.actions-menu',
+      itemSelector: '[role="menuitem"], .action-item',
+      outsideIgnoreSelector: '[data-dropdown-toggle], #column-toggle-menu, #export-menu',
+      positionMenu: ({ trigger, menu }) => {
+        grid.positionDropdownMenu(trigger, menu);
+      },
+      signal,
+    });
+
+    // ESC key closes all generic dropdowns. Row action menus are closed by the shared primitive.
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') {
-        // Close action dropdowns
-        document.querySelectorAll('.actions-menu').forEach(m => {
-          m.classList.add('hidden');
-          const trigger = m.closest('[data-dropdown]')?.querySelector('[data-dropdown-trigger]');
-          if (trigger) trigger.setAttribute('aria-expanded', 'false');
-        });
-
-        // Close toggle dropdowns (column visibility, export, etc.)
-        document.querySelectorAll('[data-dropdown-toggle]').forEach((toggle) => {
-          const targetId = (toggle as HTMLElement).dataset.dropdownToggle;
-          const target = document.getElementById(targetId || '');
-          if (target) {
-            target.classList.add('hidden');
-          }
-        });
+        closeGenericDropdowns();
       }
     }, { signal });
   }

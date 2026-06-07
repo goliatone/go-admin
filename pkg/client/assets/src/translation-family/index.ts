@@ -18,6 +18,7 @@ import {
   setSearchParam,
 } from '../shared/query-state/url-state.js';
 import { parseJSONValue } from '../shared/json-parse.js';
+import { initActionMenus, type ActionMenuController } from '../shared/action-menu.js';
 import { extractStructuredError } from '../toast/error-helpers.js';
 import {
   BTN_PRIMARY,
@@ -40,6 +41,16 @@ import {
   trapFocus,
   getStatusColorClass,
 } from '../translation-shared/index.js';
+
+declare global {
+  interface Window {
+    FormgenRelationships?: {
+      initRelationships?: () => Promise<unknown> | unknown;
+    };
+  }
+}
+
+const familyListActionMenus = new WeakMap<HTMLElement, ActionMenuController>();
 
 export type FamilyReadinessState = 'ready' | 'blocked';
 
@@ -1232,7 +1243,7 @@ export function getReadinessChip(state: string): ReadinessChip {
 
 export function renderReadinessChip(state: string): string {
   const chip = getReadinessChip(state);
-  return `<span class="translation-family-chip translation-family-chip--${chip.tone}" data-readiness-state="${chip.state}">${chip.label}</span>`;
+  return `<span class="translation-family-chip translation-family-chip--${chip.tone}" data-readiness-state="${chip.state}">${chip.label.toUpperCase()}</span>`;
 }
 
 async function createLocaleErrorFromResponse(response: Response): Promise<TranslationCreateLocaleError> {
@@ -1656,6 +1667,7 @@ function emptyPanelDisabledClass(enabled: boolean): string {
 
 const FAMILY_SELECT_CLASS = 'block h-12 w-full rounded-lg border border-gray-300 bg-white px-3 pr-9 text-sm text-gray-900 shadow-sm transition focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 disabled:pointer-events-none disabled:opacity-50 dark:border-gray-700 dark:bg-slate-900 dark:text-gray-400 dark:focus:ring-gray-600';
 const ASSIGNEE_SELECT_CLASS = FAMILY_SELECT_CLASS;
+const ASSIGNEE_OPTIONS_FORMGEN_ENDPOINT = '/api/translations/options/assignees?per_page=200';
 
 function renderAssigneeSelect(config: {
   key: string;
@@ -1680,15 +1692,24 @@ function renderAssigneeSelect(config: {
       class="${escapeAttribute(config.className || ASSIGNEE_SELECT_CLASS)}"
       data-family-assignee-select="${escapeAttribute(key)}"
       data-initial-assignee-id="${escapeAttribute(initialValue)}"
+      data-formgen-managed="true"
       data-formgen-relationship="true"
-      data-endpoint-url="/api/translations/options/assignees"
+      data-endpoint-url="${ASSIGNEE_OPTIONS_FORMGEN_ENDPOINT}"
+      data-endpoint-method="GET"
+      data-endpoint-renderer="typeahead"
+      data-endpoint-search-param="q"
+      data-endpoint-value-field="value"
+      data-endpoint-label-field="label"
+      data-endpoint-placeholder="${escapeAttribute(placeholder)}"
+      data-endpoint-search-placeholder="Search assignees"
       data-relationship-type="belongsTo"
       data-relationship-target="#/components/schemas/User"
       data-relationship-cardinality="one"
+      ${initialValue ? `data-relationship-current="${escapeAttribute(initialValue)}"` : ''}
       aria-label="${escapeAttribute(config.ariaLabel || 'Assignee')}"
       ${disabled}
     >
-      <option value="">${escapeHTML(enabled ? 'Loading assignees...' : (reason || placeholder))}</option>
+      <option value="">${escapeHTML(enabled ? placeholder : (reason || placeholder))}</option>
       ${initialValue ? `<option value="${escapeAttribute(initialValue)}" selected>${escapeHTML(initialValue)}</option>` : ''}
     </select>
   `;
@@ -2488,7 +2509,7 @@ function renderLocaleList(locales: string[], empty = 'None'): string {
   }
   return `
     <span class="flex flex-wrap gap-1">
-      ${locales.map((locale) => `<span class="rounded bg-gray-100 px-1.5 py-0.5 text-xs font-medium text-gray-700">${escapeHTML(locale.toUpperCase())}</span>`).join('')}
+      ${locales.map((locale) => `<span class="rounded bg-gray-100 px-1.5 py-0.5 text-xs font-medium uppercase text-gray-700">${escapeHTML(locale.toUpperCase())}</span>`).join('')}
     </span>
   `;
 }
@@ -2512,17 +2533,56 @@ function renderFamilyBlockers(row: TranslationFamilyListItem): string {
     chips.push({ code: asString(code), label });
   }
   return chips
-    .map(({ code, label }) => `<span class="rounded-full px-2 py-0.5 text-xs font-medium ${blockerTone(code)}">${escapeHTML(label)}</span>`)
+    .map(({ code, label }) => `<span class="rounded-full px-2 py-0.5 text-xs font-medium ${blockerTone(code)}">${escapeHTML(label.toUpperCase())}</span>`)
     .join(' ');
 }
 
 function renderFamilyMetric(value: number, label: string, tone = 'text-gray-900'): string {
   return `
-    <span class="inline-flex min-w-[4.25rem] flex-col rounded-md bg-gray-50 px-2 py-1">
-      <span class="text-sm font-semibold ${tone}">${escapeHTML(value)}</span>
-      <span class="text-[11px] font-medium uppercase tracking-wide text-gray-500">${escapeHTML(label)}</span>
+    <span class="inline-flex items-center gap-1 whitespace-nowrap rounded-md bg-gray-50 px-2 py-1 text-xs">
+      <span class="font-semibold ${tone}">${escapeHTML(value)}</span>
+      <span class="font-semibold uppercase tracking-wide text-gray-500">${escapeHTML(label.toUpperCase())}</span>
     </span>
   `;
+}
+
+function renderFamilyActionMenu(row: TranslationFamilyListItem, detailURL: string, matrixURL: string, queueURL: string): string {
+  const label = familyDisplayTitle(row);
+  return `
+    <div class="relative flex justify-end" data-action-menu>
+      <button type="button"
+              class="actions-menu-trigger rounded-md p-2 text-gray-500 transition-colors hover:bg-gray-100"
+              data-action-menu-trigger
+              aria-label="Actions for ${escapeAttribute(label)}"
+              aria-haspopup="true"
+              aria-expanded="false">
+        <svg class="h-5 w-5" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+          <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z"/>
+        </svg>
+      </button>
+      <div class="actions-menu hidden absolute right-0 z-20 mt-2 w-48 rounded-lg border border-gray-200 bg-white py-1 shadow-lg"
+           data-action-menu-content
+           role="menu"
+           aria-orientation="vertical">
+        <a class="action-item flex w-full items-center px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+           data-action-menu-item
+           role="menuitem"
+           href="${escapeAttribute(detailURL)}">Open family</a>
+        ${matrixURL ? `<a class="action-item flex w-full items-center px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50" data-action-menu-item role="menuitem" href="${escapeAttribute(matrixURL)}">Matrix</a>` : ''}
+        ${queueURL ? `<a class="action-item flex w-full items-center px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50" data-action-menu-item role="menuitem" href="${escapeAttribute(queueURL)}">Queue</a>` : ''}
+      </div>
+    </div>
+  `;
+}
+
+function buildFamilyViewURL(path: string, filters: Partial<TranslationFamilyFilters>): string {
+  return buildFamilyContextURL(path, {
+    channel: asString(filters.channel),
+    content_type: asString(filters.contentType),
+    readiness_state: asString(filters.readinessState),
+    blocker_code: asString(filters.blockerCode),
+    missing_locale: asString(filters.missingLocale),
+  });
 }
 
 function renderFamilyListRows(
@@ -2548,7 +2608,7 @@ function renderFamilyListRows(
         <td class="px-4 py-4 align-top">${renderReadinessChip(row.readinessState)}</td>
         <td class="px-4 py-4 align-top">${renderFamilyBlockers(row)}</td>
         <td class="px-4 py-4 align-top">
-          <div class="flex flex-wrap gap-2">
+          <div class="flex flex-nowrap gap-1.5">
             ${renderFamilyMetric(row.missingRequiredLocaleCount, 'Missing', row.missingRequiredLocaleCount > 0 ? 'text-rose-700' : 'text-gray-900')}
             ${renderFamilyMetric(row.pendingReviewCount, 'Review', row.pendingReviewCount > 0 ? 'text-amber-700' : 'text-gray-900')}
             ${renderFamilyMetric(row.outdatedLocaleCount, 'Outdated', row.outdatedLocaleCount > 0 ? 'text-violet-700' : 'text-gray-900')}
@@ -2561,11 +2621,7 @@ function renderFamilyListRows(
           </div>
         </td>
         <td class="px-4 py-4 align-top">
-          <div class="flex flex-col gap-2">
-            <a href="${escapeAttribute(detailURL)}" class="${BTN_PRIMARY} text-center" data-family-primary-action="true">Open family</a>
-            ${matrixURL ? `<a href="${escapeAttribute(matrixURL)}" class="${BTN_SECONDARY} text-center">Matrix</a>` : ''}
-            ${queueURL ? `<a href="${escapeAttribute(queueURL)}" class="${BTN_GHOST} text-center">Queue</a>` : ''}
-          </div>
+          ${renderFamilyActionMenu(row, detailURL, matrixURL, queueURL)}
         </td>
       </tr>
     `;
@@ -2581,6 +2637,14 @@ function renderTranslationFamilyListTable(
   const end = Math.min(response.total, (response.page - 1) * response.perPage + response.items.length);
   const hasPrevious = response.page > 1;
   const hasNext = response.page * response.perPage < response.total;
+  const viewLinks = options.matrixPath || options.queuePath
+    ? `
+      <div class="inline-flex items-center gap-1 rounded-lg border border-gray-200 bg-white p-1" aria-label="Translation family views">
+        ${options.matrixPath ? `<a class="rounded px-2.5 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1" href="${escapeAttribute(buildFamilyViewURL(options.matrixPath, filters))}">Matrix</a>` : ''}
+        ${options.queuePath ? `<a class="rounded px-2.5 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1" href="${escapeAttribute(buildFamilyViewURL(options.queuePath, filters))}">Queue</a>` : ''}
+      </div>
+    `
+    : '';
   return `
     <section class="mt-6 rounded-lg border border-gray-200 bg-white shadow-sm" aria-labelledby="translation-family-list-results">
       <div class="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 px-4 py-3">
@@ -2588,7 +2652,8 @@ function renderTranslationFamilyListTable(
           <h2 id="translation-family-list-results" class="text-base font-semibold text-gray-900">Families</h2>
           <p class="text-sm text-gray-500">${escapeHTML(start)}-${escapeHTML(end)} of ${escapeHTML(response.total)} families</p>
         </div>
-        <div class="flex items-center gap-2">
+        <div class="flex flex-wrap items-center gap-2">
+          ${viewLinks}
           <button type="button" class="${BTN_SECONDARY}" data-family-list-page="prev" ${hasPrevious ? '' : 'disabled'}>Previous</button>
           <span class="text-sm text-gray-500">Page ${escapeHTML(response.page)}</span>
           <button type="button" class="${BTN_SECONDARY}" data-family-list-page="next" ${hasNext ? '' : 'disabled'}>Next</button>
@@ -2751,6 +2816,7 @@ export async function initTranslationFamilyListPage(
   }
   if (dataset.ssrEnhanced === 'true') {
     root.dataset.translationFamilyListEnhanced = 'true';
+    initTranslationFamilyListActionMenus(root);
     return {
       status: 'ready',
       filters: readFamilyListFiltersFromLocation(),
@@ -2785,6 +2851,7 @@ function bindTranslationFamilyListPage(
   state: TranslationFamilyListLoadState,
   load: (filters: TranslationFamilyFilters, pushURL?: boolean) => Promise<TranslationFamilyListLoadState>
 ): void {
+  initTranslationFamilyListActionMenus(root);
   const form = root.querySelector<HTMLFormElement>('[data-family-list-filters="true"]');
   if (form) {
     form.addEventListener('submit', (event) => {
@@ -2810,6 +2877,19 @@ function bindTranslationFamilyListPage(
       void load({ ...state.filters, page: Math.max(1, state.filters.page + delta) }, true);
     });
   });
+}
+
+function initTranslationFamilyListActionMenus(root: HTMLElement): void {
+  if (root.dataset.translationFamilyListActionMenusStandalone === 'true') {
+    return;
+  }
+  familyListActionMenus.get(root)?.destroy();
+  familyListActionMenus.set(root, initActionMenus(root, {
+    containerSelector: '[data-action-menu]',
+    triggerSelector: '[data-action-menu-trigger]',
+    menuSelector: '[data-action-menu-content]',
+    itemSelector: '[data-action-menu-item], [role="menuitem"], .action-item',
+  }));
 }
 
 function globalToast(kind: 'success' | 'error' | 'warning' | 'info', message: string): void {
@@ -2902,6 +2982,7 @@ function openCreateLocaleDialog(config: CreateLocaleDialogConfig): void {
   const overlay = doc.createElement('div');
   overlay.className = MODAL_OVERLAY;
   overlay.setAttribute('data-translation-create-locale-modal', 'true');
+  overlay.setAttribute('data-formgen-auto-init', 'true');
   overlay.innerHTML = `
     <div class="${MODAL_CONTENT}" role="dialog" aria-modal="true" aria-labelledby="translation-create-locale-title">
       <form class="p-6">
@@ -2966,7 +3047,7 @@ function openCreateLocaleDialog(config: CreateLocaleDialogConfig): void {
     </div>
   `;
   doc.body.appendChild(overlay);
-  void hydrateFamilyAssigneeSelects(overlay, config.assigneeOptionsBasePath || '/admin/api', { fetch: config.fetch });
+  void initFamilyAssigneeControls(overlay, config.assigneeOptionsBasePath || '/admin/api', { fetch: config.fetch });
 
   const modalContent = overlay.querySelector<HTMLElement>('[role="dialog"]');
   const form = overlay.querySelector('form');
@@ -3128,6 +3209,15 @@ function assigneeControlForAction(root: HTMLElement, key: string, trigger: HTMLE
   return null;
 }
 
+function focusAssigneeControl(select: HTMLSelectElement | null): void {
+  if (!select) return;
+  const previous = select.previousElementSibling;
+  const input = hasFormgenAssigneeTypeahead(select) && previous instanceof HTMLElement
+    ? previous.querySelector<HTMLInputElement>('input')
+    : null;
+  (input || select).focus();
+}
+
 function optionLabel(option: TranslationFamilyAssigneeOption): string {
   return option.description && option.description !== option.label
     ? `${option.label} - ${option.description}`
@@ -3166,12 +3256,95 @@ function populateAssigneeSelect(select: HTMLSelectElement, options: TranslationF
   select.replaceChildren(next);
 }
 
+function assigneeSelects(root: ParentNode): HTMLSelectElement[] {
+  return Array.from(root.querySelectorAll<HTMLSelectElement>('[data-family-assignee-select]'));
+}
+
+function formgenAssigneeSelects(root: ParentNode): HTMLSelectElement[] {
+  return assigneeSelects(root).filter((select) => select.dataset.formgenManaged === 'true');
+}
+
+function hasFormgenAssigneeTypeahead(select: HTMLSelectElement): boolean {
+  const previous = select.previousElementSibling;
+  return previous instanceof HTMLElement && previous.getAttribute('data-fg-typeahead-root') === 'true';
+}
+
+function isFormgenAssigneeReady(select: HTMLSelectElement): boolean {
+  return select.dataset.familyAssigneeFormgenReady === 'true';
+}
+
+function markReadyFormgenAssigneeSelects(root: ParentNode): void {
+  for (const select of formgenAssigneeSelects(root)) {
+    if (hasFormgenAssigneeTypeahead(select)) {
+      select.dataset.familyAssigneeFormgenReady = 'true';
+    }
+  }
+}
+
+function clearPartialFormgenAssigneeSelects(selects: HTMLSelectElement[]): void {
+  for (const select of selects) {
+    delete select.dataset.familyAssigneeFormgenReady;
+    if (hasFormgenAssigneeTypeahead(select)) {
+      select.previousElementSibling?.remove();
+    }
+  }
+}
+
+function normalizeAssigneeEndpointForFormgen(root: ParentNode, apiBasePath: string): void {
+  const normalizedAPIBase = trimTrailingSlash(apiBasePath || '/admin/api');
+  const adminBase = normalizedAPIBase.endsWith('/api')
+    ? normalizedAPIBase.slice(0, -4) || '/admin'
+    : trimTrailingSlash(normalizedAPIBase);
+  for (const select of formgenAssigneeSelects(root)) {
+    const raw = asString(select.dataset.endpointUrl);
+    if (!raw || /^https?:\/\//i.test(raw)) continue;
+    if (raw === '/api') {
+      select.dataset.endpointUrl = `${adminBase}/api`;
+      continue;
+    }
+    if (raw.startsWith('/api/')) {
+      select.dataset.endpointUrl = `${adminBase}${raw}`;
+    }
+  }
+}
+
+async function initFamilyAssigneeControls(
+  root: ParentNode,
+  apiBasePath: string,
+  options: TranslationFamilyDetailFetchOptions = {}
+): Promise<void> {
+  const managed = formgenAssigneeSelects(root);
+  if (managed.length > 0 && typeof window !== 'undefined') {
+    normalizeAssigneeEndpointForFormgen(root, apiBasePath);
+    const api = window.FormgenRelationships;
+    if (api && typeof api.initRelationships === 'function') {
+      const autoRoot = root instanceof HTMLElement ? root : null;
+      const hadAutoInit = autoRoot?.hasAttribute('data-formgen-auto-init') ?? false;
+      if (autoRoot && !hadAutoInit) {
+        autoRoot.setAttribute('data-formgen-auto-init', 'true');
+      }
+      try {
+        await api.initRelationships();
+        markReadyFormgenAssigneeSelects(root);
+      } catch {
+        clearPartialFormgenAssigneeSelects(managed);
+      } finally {
+        if (autoRoot && !hadAutoInit) {
+          autoRoot.removeAttribute('data-formgen-auto-init');
+        }
+      }
+    }
+  }
+  await hydrateFamilyAssigneeSelects(root, apiBasePath, options);
+}
+
 async function hydrateFamilyAssigneeSelects(
   root: ParentNode,
   basePath: string,
   options: TranslationFamilyDetailFetchOptions = {}
 ): Promise<void> {
-  const selects = Array.from(root.querySelectorAll<HTMLSelectElement>('[data-family-assignee-select]'));
+  const selects = assigneeSelects(root)
+    .filter((select) => !isFormgenAssigneeReady(select));
   if (selects.length === 0) return;
   const selectedValues = selects.map((select) => asString(select.dataset.initialAssigneeId || select.value)).filter(Boolean);
   try {
@@ -3325,7 +3498,7 @@ async function bindTranslationFamilyDetailSSRPage(
   const channel = translationFamilyDetailChannel(endpoint) || asString(root.dataset.channel);
   const client = createTranslationFamilyClient({ basePath: apiBasePath, fetch: options.fetch });
 
-  await hydrateFamilyAssigneeSelects(root, apiBasePath, { fetch: options.fetch });
+  await initFamilyAssigneeControls(root, apiBasePath, { fetch: options.fetch });
   syncEmptyAssignmentPanelControls(root);
   root.querySelector<HTMLSelectElement>('[data-family-assignment-locale-select="true"]')?.addEventListener('change', () => {
     syncEmptyAssignmentPanelControls(root);
@@ -3389,7 +3562,7 @@ async function bindTranslationFamilyDetailSSRPage(
       const assigneeID = asString(input?.value);
       if (!assigneeID) {
         globalToast('warning', 'Assignee is required.');
-        input?.focus();
+        focusAssigneeControl(input);
         return;
       }
       payload.assignee_id = assigneeID;
@@ -3495,7 +3668,7 @@ export async function initTranslationFamilyDetailPage(
     if (state.status === 'ready' && state.detail) {
       const apiBasePath = `${trimTrailingSlash(renderOptions.basePath || '/admin')}/api`;
       const client = createTranslationFamilyClient({ basePath: apiBasePath, fetch: options.fetch });
-      await hydrateFamilyAssigneeSelects(root as HTMLElement, apiBasePath, { fetch: options.fetch });
+      await initFamilyAssigneeControls(root as HTMLElement, apiBasePath, { fetch: options.fetch });
       (root as HTMLElement).querySelectorAll<HTMLElement>('[data-family-create-locale="true"]').forEach((button) => {
         if (button.dataset.translationCreateBound === 'true') return;
         button.dataset.translationCreateBound = 'true';

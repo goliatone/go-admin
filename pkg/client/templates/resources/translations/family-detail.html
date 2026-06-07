@@ -29,6 +29,7 @@
       data-content-base-path="{{ translation_content_base|default:"" }}"
       data-ssr-enhanced="true"
       data-channel="{{ translation_family_detail_ssr.Meta.channel|default:"" }}"
+      data-formgen-auto-init="true"
     >
       {% if translation_family_detail_ssr.ErrorState %}
       <section class="rounded-lg border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900" data-translation-ssr-error="true">
@@ -136,20 +137,33 @@
                     <span class="text-xs text-gray-500">{{ row.assign_to_me_action.reason }}</span>
                     {% endif %}
                     {% if row.assign_to_user_action.enabled %}
-                    <select class="block h-12 min-w-64 rounded-lg border border-gray-300 bg-white px-3 text-sm shadow-sm transition focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                            data-family-assignee-select="{{ row.locale_assignment_key }}"
-                            data-initial-assignee-id="{{ row.assignment.assignee_id|default:"" }}"
-                            data-formgen-relationship="true"
-                            data-endpoint-url="/api/translations/options/assignees"
-                            data-relationship-type="belongsTo"
-                            data-relationship-target="#/components/schemas/User"
-                            data-relationship-cardinality="one"
-                            aria-label="Assignee">
-                      <option value="">Loading assignees...</option>
-                      {% if row.assignment.assignee_id %}
-                      <option value="{{ row.assignment.assignee_id }}" selected>{{ row.assignment.display_assignee|default:row.assignment.assignee_label|default:row.assignment.assignee_id }}</option>
-                      {% endif %}
-                    </select>
+                    <div class="min-w-64 flex-1 sm:w-80 sm:flex-none lg:w-96">
+                      <select class="block h-12 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm shadow-sm transition focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                              name="assignee_id"
+                              data-family-assignee-select="{{ row.locale_assignment_key }}"
+                              data-initial-assignee-id="{{ row.assignment.assignee_id|default:"" }}"
+                              data-formgen-managed="true"
+                              data-formgen-relationship="true"
+                              data-endpoint-url="{{ translation_family_detail_ssr.Assignee.endpoint_url|default:"/api/translations/options/assignees?per_page=200" }}"
+                              data-endpoint-method="{{ translation_family_detail_ssr.Assignee.endpoint_method|default:"GET" }}"
+                              data-endpoint-renderer="{{ translation_family_detail_ssr.Assignee.endpoint_renderer|default:"typeahead" }}"
+                              {% if translation_family_detail_ssr.Assignee.endpoint_mode %}data-endpoint-mode="{{ translation_family_detail_ssr.Assignee.endpoint_mode }}"{% endif %}
+                              data-endpoint-search-param="{{ translation_family_detail_ssr.Assignee.endpoint_search|default:"q" }}"
+                              data-endpoint-value-field="{{ translation_family_detail_ssr.Assignee.endpoint_value|default:"value" }}"
+                              data-endpoint-label-field="{{ translation_family_detail_ssr.Assignee.endpoint_label|default:"label" }}"
+                              data-endpoint-placeholder="{{ translation_family_detail_ssr.Assignee.placeholder|default:"Select assignee" }}"
+                              data-endpoint-search-placeholder="{{ translation_family_detail_ssr.Assignee.search_placeholder|default:"Search assignees" }}"
+                              data-relationship-type="belongsTo"
+                              data-relationship-target="#/components/schemas/User"
+                              data-relationship-cardinality="one"
+                              {% if row.assignment.assignee_id %}data-relationship-current="{{ row.assignment.assignee_id }}"{% endif %}
+                              aria-label="Assignee">
+                        <option value="">{{ translation_family_detail_ssr.Assignee.placeholder|default:"Select assignee" }}</option>
+                        {% if row.assignment.assignee_id %}
+                        <option value="{{ row.assignment.assignee_id }}" selected>{{ row.assignment.display_assignee|default:row.assignment.assignee_label|default:row.assignment.assignee_id }}</option>
+                        {% endif %}
+                      </select>
+                    </div>
                     <button type="button"
                             class="btn btn-primary h-12"
                             data-family-assign-to-user="true"
@@ -316,6 +330,7 @@
 {% endblock %}
 
 {% block scripts %}
+<script src="{{ adminURL("runtime/formgen-relationships.min.js") }}" defer></script>
 <script type="module">
 import { initTranslationFamilyDetailPage } from '{{ adminURL("assets/dist/translation-family/index.js") }}';
 
