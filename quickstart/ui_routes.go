@@ -76,6 +76,7 @@ type uiRouteOptions struct {
 	registerTranslationExchange     bool
 	translationExchangeUIConfig     TranslationExchangeUIConfig
 	translationSSRPresenter         admin.TranslationSSRPresenter
+	enhancedActionRuntime           admin.EnhancedActionRuntimeOptions
 	viewContext                     UIViewContextBuilder
 }
 
@@ -449,6 +450,7 @@ func resolveAdminUIRouteOptions(cfg admin.Config, adm *admin.Admin, opts []UIRou
 		registerTranslationDashboard:    queueModuleEnabled,
 		registerTranslationExchange:     exchangeModuleEnabled,
 		translationExchangeUIConfig:     translationExchangeUIConfigForAdmin(adm),
+		enhancedActionRuntime:           adm.EnhancedActionRuntimeOptions(),
 	}
 	for _, opt := range opts {
 		if opt != nil {
@@ -611,6 +613,7 @@ func registerAdminUITranslationOverviewRoutes[T any](
 	if options.registerTranslationQueue {
 		r.Get(options.translationQueuePath, wrap(func(c router.Context) error {
 			apiBase := resolveAPIBase()
+			initialPresetID := translationSSRQueueInitialPreset(c)
 			view := router.ViewContext{
 				"translation_shell_surface":              "queue",
 				"translation_shell_title":                options.translationQueueTitle,
@@ -618,10 +621,10 @@ func registerAdminUITranslationOverviewRoutes[T any](
 				"translation_shell_api_path":             prefixBasePath(apiBase, path.Join("translations", "assignments")),
 				"translation_queue_bulk_action_api_path": prefixBasePath(apiBase, path.Join("translations", "assignment-actions", "bulk")),
 				"translation_queue_editor_base_path":     path.Join(options.basePath, "translations", "assignments"),
-				"translation_queue_initial_preset":       "open",
+				"translation_queue_initial_preset":       initialPresetID,
 			}
 			input := translationSSRInput(c, options, apiBase)
-			input.InitialPresetID = "open"
+			input.InitialPresetID = initialPresetID
 			view = withTranslationSSRView(c, view, options, input, options.translationSSRPresenter.Queue, "translation_queue_ssr")
 			return renderView(c, options.translationShellTemplate, options.translationQueueTitle, options.translationQueueActive, view)
 		}))
@@ -761,7 +764,17 @@ func translationSSRInput(c router.Context, options uiRouteOptions, apiBase strin
 		Channel:            channel,
 		Query:              translationSSRQueryValues(c),
 		SyncClientBasePath: ResolveSyncClientAssetsPrefix(admin.Config{BasePath: options.basePath}),
+		EnhancedAction:     options.enhancedActionRuntime,
 	}
+}
+
+func translationSSRQueueInitialPreset(c router.Context) string {
+	if c != nil {
+		if preset := strings.TrimSpace(c.Query("preset")); preset != "" {
+			return preset
+		}
+	}
+	return "open"
 }
 
 func translationSSRQueryValues(c router.Context) map[string]string {
@@ -779,6 +792,7 @@ func translationSSRQueryValues(c router.Context) map[string]string {
 		"order",
 		"page",
 		"per_page",
+		"preset",
 		"priority",
 		"readiness_state",
 		"review_state",
