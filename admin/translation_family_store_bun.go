@@ -1126,9 +1126,11 @@ func familyAssignmentFromAssignment(assignment TranslationAssignment) translatio
 		WorkScope:    normalizeTranslationAssignmentWorkScope(assignment.WorkScope),
 		Status:       strings.TrimSpace(strings.ToLower(string(assignment.Status))),
 		AssigneeID:   strings.TrimSpace(assignment.AssigneeID),
+		AssignerID:   strings.TrimSpace(assignment.AssignerID),
 		ReviewerID:   strings.TrimSpace(firstNonEmpty(assignment.ReviewerID, assignment.LastReviewerID)),
 		Priority:     strings.TrimSpace(strings.ToLower(string(assignment.Priority))),
 		DueDate:      cloneTimePtr(assignment.DueDate),
+		AssignedAt:   cloneTimePtr(assignment.AssignedAt),
 		CreatedAt:    assignment.CreatedAt,
 		UpdatedAt:    assignment.UpdatedAt,
 	}

@@ -3152,6 +3152,7 @@ func translationQueueAssignmentContractRow(assignment TranslationAssignment, now
 		"source_title":     strings.TrimSpace(assignment.SourceTitle),
 		"source_path":      strings.TrimSpace(assignment.SourcePath),
 		"assignee_id":      strings.TrimSpace(assignment.AssigneeID),
+		"assigner_id":      strings.TrimSpace(assignment.AssignerID),
 		"reviewer_id":      strings.TrimSpace(firstNonEmpty(assignment.ReviewerID, assignment.LastReviewerID)),
 		"assignment_type":  strings.TrimSpace(string(assignment.AssignmentType)),
 		"content_state":    contentState,
@@ -3163,6 +3164,9 @@ func translationQueueAssignmentContractRow(assignment TranslationAssignment, now
 		"version":          assignment.Version,
 		"updated_at":       assignment.UpdatedAt,
 		"created_at":       assignment.CreatedAt,
+	}
+	if assignment.AssignedAt != nil {
+		row["assigned_at"] = assignment.AssignedAt
 	}
 	if assignment.DueDate != nil {
 		row["due_date"] = assignment.DueDate

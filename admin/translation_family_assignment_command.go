@@ -65,8 +65,8 @@ func (c *TranslationFamilyAssignCommand) Execute(ctx context.Context, msg Transl
 	if !ok {
 		return notFoundDomainError("translation family not found", map[string]any{"family_id": msg.FamilyID})
 	}
-	if err := validateFamilyAssignmentTargetLocale(family, msg.TargetLocale); err != nil {
-		return err
+	if validationErr := validateFamilyAssignmentTargetLocale(family, msg.TargetLocale); validationErr != nil {
+		return validationErr
 	}
 	request := msg.createAssignmentRequest(ctx)
 	outcome, err := c.Binding.createOrAssignFamilyAssignment(request, family)

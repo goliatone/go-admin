@@ -1402,9 +1402,9 @@ func TestTranslationFamilyBindingCreateAssignmentEnhancedReturnsFragments(t *tes
 		"assignee_id":   "translator-1",
 		"work_scope":    "localization",
 	}, map[string]string{
-		"X-User-ID":          "assigner-1",
-		"X-Enhanced-Action":  "1",
-		"Accept":             "application/vnd.admin.enhanced+json",
+		"X-User-ID":         "assigner-1",
+		"X-Enhanced-Action": "1",
+		"Accept":            "application/vnd.admin.enhanced+json",
 	})
 	if status != http.StatusOK {
 		t.Fatalf("status=%d want=200 payload=%+v", status, payload)

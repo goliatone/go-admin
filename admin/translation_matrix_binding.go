@@ -567,10 +567,15 @@ func parseTranslationMatrixCreateMissingInput(c router.Context, body map[string]
 		dueDate = dueDate.UTC()
 		input.Plan.DueDate = &dueDate
 	}
-	if !input.Plan.AutoCreateAssignment && (input.Plan.AssigneeID != "" || input.Plan.Priority != "" || input.Plan.DueDate != nil) {
+	if !input.Plan.AutoCreateAssignment && translationCreateVariantHasAssignmentIntent(input.Plan) {
 		return translationMatrixCreateMissingInput{}, validationDomainError("assignment fields require auto_create_assignment=true", map[string]any{
 			"field": "auto_create_assignment",
 		})
+	}
+	if !input.Plan.AutoCreateAssignment {
+		input.Plan.AssigneeID = ""
+		input.Plan.Priority = ""
+		input.Plan.DueDate = nil
 	}
 	return input, nil
 }
@@ -1245,6 +1250,11 @@ func (b *translationFamilyBinding) translationMatrixCreateVariant(adminCtx Admin
 	if err != nil {
 		return nil, err
 	}
+	if input.AutoCreateAssignment {
+		if validationErr := validateFamilyAssignmentTargetLocale(familyBefore, input.Locale); validationErr != nil {
+			return nil, validationErr
+		}
+	}
 	assignmentPlan, err := b.translationMatrixCreateVariantAssignmentPlan(adminCtx, familyBefore, input)
 	if err != nil {
 		return nil, err
@@ -1253,12 +1263,17 @@ func (b *translationFamilyBinding) translationMatrixCreateVariant(adminCtx Admin
 	if err != nil {
 		return nil, err
 	}
+	outcomeFamily := familyBefore
 	if input.AutoCreateAssignment {
 		if syncErr := SyncTranslationFamilyStore(adminCtx.Context, b.admin, input.Environment); syncErr != nil {
 			return nil, b.rollbackCreatedFamilyVariant(adminCtx.Context, createdVariant, syncErr, input.Environment)
 		}
+		outcomeFamily, err = b.loadCreateVariantFamily(adminCtx.Context, scope, familyBefore.ID, input)
+		if err != nil {
+			return nil, b.rollbackCreatedFamilyVariant(adminCtx.Context, createdVariant, err, input.Environment)
+		}
 	}
-	outcome, err := b.translationMatrixCreateVariantOutcome(adminCtx, familyBefore, input, assignmentPlan, createdVariant)
+	outcome, err := b.translationMatrixCreateVariantOutcome(adminCtx, outcomeFamily, input, assignmentPlan, createdVariant)
 	if err != nil {
 		return nil, err
 	}

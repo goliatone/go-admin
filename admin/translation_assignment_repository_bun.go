@@ -39,6 +39,7 @@ type bunTranslationAssignmentRecord struct {
 	LastRejectionReason string         `bun:"last_rejection_reason" json:"last_rejection_reason"`
 	Priority            string         `bun:"priority" json:"priority"`
 	DueDate             string         `bun:"due_date,nullzero" json:"due_date"`
+	AssignedAt          *time.Time     `bun:"assigned_at,nullzero" json:"assigned_at"`
 	RowVersion          int64          `bun:"row_version" json:"row_version"`
 	ClaimedAt           *time.Time     `bun:"claimed_at,nullzero" json:"claimed_at"`
 	SubmittedAt         *time.Time     `bun:"submitted_at,nullzero" json:"submitted_at"`
@@ -1115,12 +1116,7 @@ func (r *BunTranslationAssignmentRepository) Update(ctx context.Context, assignm
 				ActualVersion:   current.Version,
 			}
 		}
-		next := normalizeAssignmentForCreate(assignment)
-		if next.CreatedAt.IsZero() {
-			next.CreatedAt = current.CreatedAt
-		}
-		next.Version = current.Version + 1
-		next.UpdatedAt = time.Now().UTC()
+		next := prepareUpdatedAssignment(assignment, current)
 		if validateErr := next.Validate(); validateErr != nil {
 			return validateErr
 		}
@@ -1174,6 +1170,7 @@ func (r *BunTranslationAssignmentRepository) create(ctx context.Context, assignm
 		normalized.CreatedAt = now
 	}
 	normalized.UpdatedAt = now
+	ensureTranslationAssignmentAssignedAt(&normalized, now)
 	if normalized.Version == 0 {
 		normalized.Version = 1
 	}
@@ -1339,6 +1336,7 @@ func bunTranslationAssignmentRecordFromAssignment(assignment TranslationAssignme
 		LastRejectionReason: strings.TrimSpace(assignment.LastRejectionReason),
 		Priority:            strings.TrimSpace(strings.ToLower(string(assignment.Priority))),
 		DueDate:             bunAssignmentStorageDatePtr(assignment.DueDate),
+		AssignedAt:          cloneTimePtr(assignment.AssignedAt),
 		RowVersion:          assignment.Version,
 		ClaimedAt:           cloneTimePtr(assignment.ClaimedAt),
 		SubmittedAt:         cloneTimePtr(assignment.SubmittedAt),
@@ -1369,6 +1367,7 @@ func translationAssignmentFromBunRecord(record bunTranslationAssignmentRecord) T
 		Status:              normalizeTranslationAssignmentStatus(AssignmentStatus(record.Status)),
 		Priority:            Priority(strings.TrimSpace(strings.ToLower(record.Priority))),
 		DueDate:             queueTimePtr(record.DueDate),
+		AssignedAt:          cloneTimePtr(record.AssignedAt),
 		AssigneeID:          strings.TrimSpace(record.AssigneeID),
 		ReviewerID:          strings.TrimSpace(record.ReviewerID),
 		AssignerID:          strings.TrimSpace(record.AssignerID),
@@ -1386,7 +1385,7 @@ func translationAssignmentFromBunRecord(record bunTranslationAssignmentRecord) T
 }
 
 func assignmentStorageVariantID(assignment TranslationAssignment) string {
-	return strings.TrimSpace(firstNonEmpty(assignment.VariantID, assignment.TargetRecordID))
+	return strings.TrimSpace(assignment.VariantID)
 }
 
 func legacyAssignmentStorageVariantID(assignment TranslationAssignment) string {

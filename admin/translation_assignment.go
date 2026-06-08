@@ -72,6 +72,7 @@ type TranslationAssignment struct {
 	AssignerID          string           `json:"assigner_id,omitempty"`
 	LastReviewerID      string           `json:"last_reviewer_id,omitempty"`
 	LastRejectionReason string           `json:"last_rejection_reason,omitempty"`
+	AssignedAt          *time.Time       `json:"assigned_at,omitempty"`
 
 	Version int64 `json:"version"`
 

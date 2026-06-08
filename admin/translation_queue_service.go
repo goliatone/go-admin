@@ -115,6 +115,8 @@ func (s *DefaultTranslationQueueService) Assign(ctx context.Context, input Trans
 	assignment.Status = AssignmentStatusAssigned
 	assignment.AssigneeID = strings.TrimSpace(input.AssigneeID)
 	assignment.AssignerID = strings.TrimSpace(input.AssignerID)
+	now := time.Now().UTC()
+	assignment.AssignedAt = &now
 	if input.Priority.IsValid() {
 		assignment.Priority = input.Priority
 	}
