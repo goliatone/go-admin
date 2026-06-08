@@ -88,7 +88,7 @@
 
         <div class="grid gap-6 xl:grid-cols-[minmax(0,1fr)_24rem]">
           <div class="space-y-6">
-            <section class="rounded-lg border border-gray-200 bg-white p-6 shadow-sm" aria-labelledby="translation-family-locales">
+            <section class="rounded-lg border border-gray-200 bg-white p-6 shadow-sm" aria-labelledby="translation-family-locales" data-family-locale-coverage>
               <div>
                 <h2 id="translation-family-locales" class="text-lg font-semibold text-gray-900">Locale coverage</h2>
                 <p class="mt-1 text-sm text-gray-500">Server-authored locale availability and variant state for this family.</p>
@@ -123,21 +123,41 @@
                     </button>
                     {% else %}
                     {% if row.assign_to_me_action.enabled %}
+                    <form method="post"
+                          action="{{ row.assign_to_me_action.endpoint }}"
+                          data-enhance-action="true"
+                          data-locale-assignment-key="{{ row.locale_assignment_key }}"
+                          data-enhance-error-target="[data-family-assignment-error-for='{{ row.locale_assignment_key }}']">
+                      {{ csrf_field|safe }}
+                      <input type="hidden" name="target_locale" value="{{ row.assign_to_me_action.payload.target_locale|default:row.locale }}">
+                      <input type="hidden" name="work_scope" value="{{ row.assign_to_me_action.payload.work_scope|default:row.locale_assignment.work_scope }}">
+                      <input type="hidden" name="assignee_id" value="{{ row.assign_to_me_action.payload.assignee_id|default:"" }}">
+                      <input type="hidden" name="channel" value="{{ translation_family_detail_ssr.Meta.channel|default:"" }}">
+                      <button type="submit" class="btn btn-secondary h-12">Assign to me</button>
+                      <div class="w-full text-xs text-rose-600" data-family-assignment-error-for="{{ row.locale_assignment_key }}" hidden></div>
+                    </form>
+                    {% elif row.assign_to_me_action.reason_code == "already_assigned" %}
                     <button type="button"
                             class="btn btn-secondary h-12"
-                            data-family-assign-to-me="true"
-                            data-locale-assignment-key="{{ row.locale_assignment_key }}"
-                            data-assignment-endpoint="{{ row.assign_to_me_action.endpoint }}"
-                            data-assignment-target-locale="{{ row.assign_to_me_action.payload.target_locale|default:row.locale }}"
-                            data-assignment-work-scope="{{ row.assign_to_me_action.payload.work_scope|default:row.locale_assignment.work_scope }}"
-                            data-assignment-assignee-id="{{ row.assign_to_me_action.payload.assignee_id|default:"" }}">
+                            disabled
+                            aria-disabled="true"
+                            title="{{ row.assign_to_me_action.reason|default:"Assignment already belongs to you" }}">
                       Assign to me
                     </button>
                     {% elif row.assign_to_me_action.reason %}
                     <span class="text-xs text-gray-500">{{ row.assign_to_me_action.reason }}</span>
                     {% endif %}
                     {% if row.assign_to_user_action.enabled %}
-                    <div class="min-w-64 flex-1 sm:w-80 sm:flex-none lg:w-96">
+                    <form class="flex min-w-64 flex-1 flex-wrap items-center gap-2 sm:w-80 sm:flex-none lg:w-96"
+                          method="post"
+                          action="{{ row.assign_to_user_action.endpoint }}"
+                          data-enhance-action="true"
+                          data-locale-assignment-key="{{ row.locale_assignment_key }}"
+                          data-enhance-error-target="[data-family-assignment-error-for='{{ row.locale_assignment_key }}']">
+                      {{ csrf_field|safe }}
+                      <input type="hidden" name="target_locale" value="{{ row.assign_to_user_action.payload.target_locale|default:row.locale }}">
+                      <input type="hidden" name="work_scope" value="{{ row.assign_to_user_action.payload.work_scope|default:row.locale_assignment.work_scope }}">
+                      <input type="hidden" name="channel" value="{{ translation_family_detail_ssr.Meta.channel|default:"" }}">
                       <select class="block h-12 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm shadow-sm transition focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                               name="assignee_id"
                               data-family-assignee-select="{{ row.locale_assignment_key }}"
@@ -163,16 +183,9 @@
                         <option value="{{ row.assignment.assignee_id }}" selected>{{ row.assignment.display_assignee|default:row.assignment.assignee_label|default:row.assignment.assignee_id }}</option>
                         {% endif %}
                       </select>
-                    </div>
-                    <button type="button"
-                            class="btn btn-primary h-12"
-                            data-family-assign-to-user="true"
-                            data-locale-assignment-key="{{ row.locale_assignment_key }}"
-                            data-assignment-endpoint="{{ row.assign_to_user_action.endpoint }}"
-                            data-assignment-target-locale="{{ row.assign_to_user_action.payload.target_locale|default:row.locale }}"
-                            data-assignment-work-scope="{{ row.assign_to_user_action.payload.work_scope|default:row.locale_assignment.work_scope }}">
-                      Assign
-                    </button>
+                      <button type="submit" class="btn btn-primary h-12">Assign</button>
+                      <div class="w-full text-xs text-rose-600" data-family-assignment-error-for="{{ row.locale_assignment_key }}" hidden></div>
+                    </form>
                     {% elif row.assign_to_user_action.reason %}
                     <span class="text-xs text-gray-500">{{ row.assign_to_user_action.reason }}</span>
                     {% endif %}
@@ -202,7 +215,7 @@
               {% endif %}
             </section>
 
-            <section class="rounded-lg border border-gray-200 bg-white p-6 shadow-sm" aria-labelledby="translation-family-assignments">
+            <section class="rounded-lg border border-gray-200 bg-white p-6 shadow-sm" aria-labelledby="translation-family-assignments" data-family-assignments>
               <h2 id="translation-family-assignments" class="text-lg font-semibold text-gray-900">Assignments</h2>
               {% if family.active_assignments %}
               <div class="mt-5 grid gap-3">
@@ -258,7 +271,7 @@
           </div>
 
           <aside class="space-y-6">
-            <section class="rounded-lg border border-gray-200 bg-white p-6 shadow-sm" aria-labelledby="translation-family-publish-gate">
+            <section class="rounded-lg border border-gray-200 bg-white p-6 shadow-sm" aria-labelledby="translation-family-publish-gate" data-family-publish-gate>
               <h2 id="translation-family-publish-gate" class="text-lg font-semibold text-gray-900">Publish gate</h2>
               <div class="mt-4 rounded-lg border {% if family.publish_gate.allowed %}border-emerald-200 bg-emerald-50 text-emerald-800{% else %}border-amber-200 bg-amber-50 text-amber-800{% endif %} p-4">
                 <p class="font-semibold">{% if family.publish_gate.allowed %}Ready{% else %}Blocked{% endif %}</p>
@@ -305,13 +318,13 @@
               {% endif %}
             </section>
 
-            <section class="rounded-lg border border-gray-200 bg-white p-6 shadow-sm" aria-labelledby="translation-family-activity">
+            <section class="rounded-lg border border-gray-200 bg-white p-6 shadow-sm" aria-labelledby="translation-family-activity" data-family-activity>
               <h2 id="translation-family-activity" class="text-lg font-semibold text-gray-900">Activity preview</h2>
               {% if family.active_assignments %}
               <ol class="mt-4 space-y-3 text-sm text-gray-600">
                 {% for assignment in family.active_assignments %}
                 <li class="rounded-md border border-gray-100 bg-gray-50 p-3">
-                  {{ assignment.target_locale|default:"-" }} assignment {{ assignment.display_status|default:assignment.status|default:"Updated" }}{% if assignment.display_updated or assignment.updated_at %} &middot; {{ assignment.display_updated|default:assignment.updated_at }}{% endif %}
+                  {{ assignment.activity_sentence|default:"" }}{% if not assignment.activity_sentence %}{{ assignment.target_locale|default:"-" }} assignment {{ assignment.display_status|default:assignment.status|default:"Updated" }}{% if assignment.display_updated or assignment.updated_at %} &middot; {{ assignment.display_updated|default:assignment.updated_at }}{% endif %}{% endif %}
                 </li>
                 {% endfor %}
               </ol>

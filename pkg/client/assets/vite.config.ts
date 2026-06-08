@@ -1,6 +1,8 @@
 import { defineConfig } from 'vite';
 import { resolve } from 'path';
 
+const outDir = process.env.GO_ADMIN_ASSET_OUT_DIR || 'dist';
+
 export default defineConfig({
   build: {
     // Library mode configuration
@@ -48,6 +50,7 @@ export default defineConfig({
         'shared/action-menu': resolve(__dirname, 'src/shared/action-menu.ts'),
         'shared/coercion': resolve(__dirname, 'src/shared/coercion.ts'),
         'shared/deep-clone': resolve(__dirname, 'src/shared/deep-clone.ts'),
+        'shared/enhanced-action': resolve(__dirname, 'src/shared/enhanced-action.ts'),
         'shared/json-parse': resolve(__dirname, 'src/shared/json-parse.ts'),
         'shared/query-state/url-state': resolve(__dirname, 'src/shared/query-state/url-state.ts'),
         'shared/record-normalization': resolve(__dirname, 'src/shared/record-normalization.ts'),
@@ -88,7 +91,7 @@ export default defineConfig({
       fileName: (format, entryName) => `${entryName}.js`,
     },
     // Output to dist to match embedded asset layout
-    outDir: 'dist',
+    outDir,
     // Clean output directory before build
     emptyDirBeforeWrite: true,
     // Generate source maps only in production

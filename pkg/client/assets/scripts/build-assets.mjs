@@ -29,10 +29,11 @@ function resolveLocalBinary(command) {
   return command;
 }
 
-function run(command, args) {
+function run(command, args, env = {}) {
   const result = spawnSync(resolveLocalBinary(command), args, {
     cwd: root,
     stdio: 'inherit',
+    env: { ...process.env, ...env },
     shell: process.platform === 'win32',
   });
 
@@ -66,7 +67,7 @@ function writeConcatenatedFile(target, sources) {
 
 function stageRuntimeAssets() {
   // Build JS bundles into a staging directory first to avoid exposing partial outputs.
-  run('vite', ['build', '--outDir', distStagingDir, '--emptyOutDir']);
+  run('vite', ['build'], { GO_ADMIN_ASSET_OUT_DIR: distStagingDir });
 
   const esbuildArgs = [
     'src/shared/transport/browser-globals.ts',

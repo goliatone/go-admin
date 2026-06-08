@@ -1,28 +1,29 @@
-import { escapeAttribute as g, escapeHTML as m } from "../shared/html.js";
-import { appendCSRFHeader as Y, httpRequest as W, readHTTPJSON as le } from "../shared/transport/http-client.js";
-import { extractStructuredError as O } from "../toast/error-helpers.js";
-import { buildURL as E, getNumberSearchParam as Ce, getStringSearchParam as P, readLocationSearchParams as Fe, setNumberSearchParam as $e, setSearchParam as q } from "../shared/query-state/url-state.js";
-import { initActionMenus as ga } from "../shared/action-menu.js";
+import { escapeAttribute as y, escapeHTML as u } from "../shared/html.js";
+import { appendCSRFHeader as W, httpRequest as J, readHTTPJSON as me } from "../shared/transport/http-client.js";
+import { extractStructuredError as j } from "../toast/error-helpers.js";
+import { buildURL as F, getNumberSearchParam as Ce, getStringSearchParam as E, readLocationSearchParams as Ne, setNumberSearchParam as Ae, setSearchParam as I } from "../shared/query-state/url-state.js";
+import { initActionMenus as ha } from "../shared/action-menu.js";
 import { trimTrailingSlash as C } from "../shared/path-normalization.js";
-import { parseJSONValue as Ae } from "../shared/json-parse.js";
-import { asLooseBoolean as L, asNumberish as w, asRecord as y, asString as n, asStringArray as v } from "../shared/coercion.js";
-import { A as Ue, C as B, D as ya, E as pa, F as ba, O as De, P as ha, R as va, T as xa, dt as J, et as _a, ht as wa, k as Be, tt as La, v as Ca, x as R, y as F } from "../chunks/translation-shared-CdZJJA93.js";
-import { formatTranslationTimestampUTC as ce, sentenceCaseToken as S } from "../translation-shared/formatters.js";
-import { normalizeStringRecord as $a } from "../shared/record-normalization.js";
-var Se = /* @__PURE__ */ new WeakMap();
-function Aa(e, a = {}) {
-  const t = y(e), s = L(t.can_sync ?? t.canSync), i = n(t.family_id ?? t.familyId ?? a.familyId), r = n((t.command_name ?? t.commandName ?? a.commandName) || "translation.families.sync"), o = n(t.rpc_invoke_path ?? t.rpcInvokePath ?? a.rpcInvokePath), c = n((t.environment ?? t.channel ?? a.environment) || "default");
+import { parseJSONValue as Se } from "../shared/json-parse.js";
+import { asLooseBoolean as w, asNumberish as L, asRecord as p, asString as n, asStringArray as _ } from "../shared/coercion.js";
+import { A as Me, C as N, D as va, E as xa, F as _a, O as Oe, P as wa, R as La, T as $a, dt as X, et as Ca, ht as Aa, k as je, tt as Sa, v as ka, x as R, y as U } from "../chunks/translation-shared-CdZJJA93.js";
+import { formatTranslationTimestampUTC as ue, sentenceCaseToken as T } from "../translation-shared/formatters.js";
+import { normalizeStringRecord as Ta } from "../shared/record-normalization.js";
+import { initEnhancedActions as qa } from "../shared/enhanced-action.js";
+var ke = /* @__PURE__ */ new WeakMap();
+function Ia(e, a = {}) {
+  const t = p(e), s = w(t.can_sync ?? t.canSync), i = n(t.family_id ?? t.familyId ?? a.familyId), r = n((t.command_name ?? t.commandName ?? a.commandName) || "translation.families.sync"), o = n(t.rpc_invoke_path ?? t.rpcInvokePath ?? a.rpcInvokePath), d = n((t.environment ?? t.channel ?? a.environment) || "default");
   return !s || !i || !r || !o ? null : {
     canSync: s,
     permission: n((t.permission ?? a.permission) || "admin.translations.sync"),
     commandName: r,
     rpcInvokePath: o,
-    environment: c,
+    environment: d,
     familyId: i
   };
 }
-function Sa(e, a = "") {
-  const t = n(a), s = ka(e);
+function Ra(e, a = "") {
+  const t = n(a), s = Pa(e);
   return {
     method: "admin.commands.dispatch",
     params: {
@@ -48,18 +49,18 @@ function Sa(e, a = "") {
     }
   };
 }
-function ka(e) {
+function Pa(e) {
   return [
     e.commandName || "translation.families.sync",
     e.environment || "default",
     e.familyId || "all"
   ].map((a) => encodeURIComponent(n(a).trim() || "default")).join(":");
 }
-function Ta(e, a) {
-  const t = y(e);
-  return Object.keys(t).length === 0 || !L(t.accepted ?? t.Accepted) || n(t.command_id ?? t.commandId ?? t.CommandID ?? t.command_name ?? t.commandName) !== a ? null : t;
+function Ea(e, a) {
+  const t = p(e);
+  return Object.keys(t).length === 0 || !w(t.accepted ?? t.Accepted) || n(t.command_id ?? t.commandId ?? t.CommandID ?? t.command_name ?? t.commandName) !== a ? null : t;
 }
-async function qa(e, a = {}) {
+async function Fa(e, a = {}) {
   const t = a.fetch ?? globalThis.fetch?.bind(globalThis);
   if (!t) throw new Error("translation family sync requires fetch");
   if (!e.canSync) throw new Error("translation family sync is not available for this request");
@@ -70,30 +71,30 @@ async function qa(e, a = {}) {
     method: "POST",
     credentials: "same-origin",
     headers: s,
-    body: JSON.stringify(Sa(e, a.correlationId))
+    body: JSON.stringify(Ra(e, a.correlationId))
   };
-  Y(e.rpcInvokePath, i, s);
+  W(e.rpcInvokePath, i, s);
   const r = await t(e.rpcInvokePath, i);
   if (!r.ok) {
-    const f = await O(r);
-    throw new Error(f.message || "Failed to sync translation families.");
+    const m = await j(r);
+    throw new Error(m.message || "Failed to sync translation families.");
   }
-  const o = y(await r.json().catch(() => ({}))), c = y(o.error);
-  if (Object.keys(c).length > 0) throw new Error(n(c.message) || "Failed to sync translation families.");
-  const d = y(o.data), l = Ta(d.receipt, e.commandName);
+  const o = p(await r.json().catch(() => ({}))), d = p(o.error);
+  if (Object.keys(d).length > 0) throw new Error(n(d.message) || "Failed to sync translation families.");
+  const c = p(o.data), l = Ea(c.receipt, e.commandName);
   if (!l) throw new Error("Translation family sync did not return a valid dispatch receipt.");
   return {
-    ...d,
+    ...c,
     receipt: l
   };
 }
-function X(e) {
+function Z(e) {
   return n(e.get("x-trace-id") || e.get("x-correlation-id") || e.get("traceparent"));
 }
-function N(e) {
+function M(e) {
   return n(e) === "ready" ? "ready" : "blocked";
 }
-function Ne(e) {
+function ze(e) {
   const a = n(e);
   switch (a) {
     case "missing_locale":
@@ -106,38 +107,38 @@ function Ne(e) {
       return "policy_denied";
   }
 }
-function Z(e = {}) {
+function ee(e = {}) {
   const a = n(e.channel);
   return {
     contentType: n(e.contentType),
     readinessState: n(e.readinessState),
     blockerCode: n(e.blockerCode),
     missingLocale: n(e.missingLocale),
-    page: Math.max(1, w(e.page, 1)),
-    perPage: Math.max(1, w(e.perPage, 50)),
+    page: Math.max(1, L(e.page, 1)),
+    perPage: Math.max(1, L(e.perPage, 50)),
     channel: a
   };
 }
-function Me(e = {}) {
-  const a = Z(e), t = new URLSearchParams();
-  return q(t, "content_type", a.contentType), q(t, "readiness_state", a.readinessState), q(t, "blocker_code", a.blockerCode), q(t, "missing_locale", a.missingLocale), q(t, "channel", a.channel), $e(t, "page", a.page, { min: 1 }), $e(t, "per_page", a.perPage, { min: 1 }), t;
+function Ve(e = {}) {
+  const a = ee(e), t = new URLSearchParams();
+  return I(t, "content_type", a.contentType), I(t, "readiness_state", a.readinessState), I(t, "blocker_code", a.blockerCode), I(t, "missing_locale", a.missingLocale), I(t, "channel", a.channel), Ae(t, "page", a.page, { min: 1 }), Ae(t, "per_page", a.perPage, { min: 1 }), t;
 }
-function ee(e, a = "", t = "") {
+function ae(e, a = "", t = "") {
   const s = C(e);
   return a ? `${s}/translations/families/${encodeURIComponent(n(a))}${t}` : `${s}/translations/families`;
 }
-function Oe(e, a = {}) {
-  return E(ee(e), Me(a));
+function He(e, a = {}) {
+  return F(ae(e), Ve(a));
 }
-function Ia(e, a, t = "") {
+function Ua(e, a, t = "") {
   const s = new URLSearchParams();
-  return q(s, "channel", t), E(ee(e, a), s);
+  return I(s, "channel", t), F(ae(e, a), s);
 }
-function je(e = {}) {
+function Ge(e = {}) {
   const a = n(e.channel);
   return {
     locale: n(e.locale).toLowerCase(),
-    autoCreateAssignment: L(e.autoCreateAssignment),
+    autoCreateAssignment: w(e.autoCreateAssignment),
     assigneeId: n(e.assigneeId),
     priority: n(e.priority).toLowerCase(),
     dueDate: n(e.dueDate),
@@ -145,19 +146,19 @@ function je(e = {}) {
     idempotencyKey: n(e.idempotencyKey)
   };
 }
-function Ra(e, a, t = "") {
+function Da(e, a, t = "") {
   const s = new URLSearchParams();
-  return q(s, "channel", t), E(ee(e, a, "/variants"), s);
+  return I(s, "channel", t), F(ae(e, a, "/variants"), s);
 }
-function Pa(e = {}) {
-  const a = je(e), t = { locale: a.locale };
+function Ba(e = {}) {
+  const a = Ge(e), t = { locale: a.locale };
   return a.autoCreateAssignment && (t.auto_create_assignment = !0, a.assigneeId && (t.assignee_id = a.assigneeId), a.priority && (t.priority = a.priority), a.dueDate && (t.due_date = a.dueDate)), a.channel && (t.channel = a.channel), t;
 }
-function Ve(e = {}) {
+function Ke(e = {}) {
   return {
     targetLocale: n(e.targetLocale).toLowerCase(),
     assigneeId: n(e.assigneeId),
-    openPool: L(e.openPool),
+    openPool: w(e.openPool),
     priority: n(e.priority).toLowerCase(),
     dueDate: n(e.dueDate),
     workScope: n(e.workScope),
@@ -165,15 +166,15 @@ function Ve(e = {}) {
     idempotencyKey: n(e.idempotencyKey)
   };
 }
-function Ea(e, a, t = "") {
+function Na(e, a, t = "") {
   const s = new URLSearchParams();
-  return q(s, "channel", t), E(ee(e, a, "/assignments"), s);
+  return I(s, "channel", t), F(ae(e, a, "/assignments"), s);
 }
-function Fa(e = {}) {
-  const a = Ve(e), t = { target_locale: a.targetLocale };
+function Ma(e = {}) {
+  const a = Ke(e), t = { target_locale: a.targetLocale };
   return a.assigneeId && (t.assignee_id = a.assigneeId), a.openPool && (t.open_pool = !0), a.priority && (t.priority = a.priority), a.dueDate && (t.due_date = a.dueDate), a.workScope && (t.work_scope = a.workScope), a.channel && (t.channel = a.channel), t;
 }
-function Ua(e) {
+function Oa(e) {
   return {
     assignmentId: n(e.assignment_id),
     status: n(e.status),
@@ -181,26 +182,27 @@ function Ua(e) {
     workScope: n(e.work_scope),
     assigneeId: n(e.assignee_id),
     priority: n(e.priority),
-    dueDate: n(e.due_date)
+    dueDate: n(e.due_date),
+    assignedAt: n(e.assigned_at)
   };
 }
-function Da(e) {
+function ja(e) {
   return {
-    autoCreateAssignment: L(e.auto_create_assignment),
+    autoCreateAssignment: w(e.auto_create_assignment),
     workScope: n(e.work_scope),
     priority: n(e.priority) || "normal",
     assigneeId: n(e.assignee_id),
     dueDate: n(e.due_date)
   };
 }
-function de(e, a = {}) {
-  const t = y(e.default_assignment), s = v(e.missing_locales ?? a.missingLocales), i = v(e.required_for_publish ?? a.requiredForPublish), r = n(e.recommended_locale || a.recommendedLocale);
+function fe(e, a = {}) {
+  const t = p(e.default_assignment), s = _(e.missing_locales ?? a.missingLocales), i = _(e.required_for_publish ?? a.requiredForPublish), r = n(e.recommended_locale || a.recommendedLocale);
   return {
-    enabled: typeof e.enabled == "boolean" ? L(e.enabled) : s.length > 0,
+    enabled: typeof e.enabled == "boolean" ? w(e.enabled) : s.length > 0,
     missingLocales: s,
     recommendedLocale: r,
     requiredForPublish: i,
-    defaultAssignment: Da({
+    defaultAssignment: ja({
       auto_create_assignment: t.auto_create_assignment ?? a.defaultAssignment?.autoCreateAssignment,
       work_scope: t.work_scope ?? a.defaultAssignment?.workScope,
       priority: t.priority ?? a.defaultAssignment?.priority,
@@ -211,8 +213,8 @@ function de(e, a = {}) {
     disabledReason: n(e.disabled_reason || a.disabledReason)
   };
 }
-function Ba(e) {
-  const a = y(e.data), t = y(e.meta), s = y(t.family), i = y(t.refresh), r = y(a.navigation), o = de(y(s.quick_create), { missingLocales: v(s.missing_locales) });
+function za(e) {
+  const a = p(e.data), t = p(e.meta), s = p(t.family), i = p(t.refresh), r = p(a.navigation), o = fe(p(s.quick_create), { missingLocales: _(s.missing_locales) });
   return {
     variantId: n(a.variant_id),
     familyId: n(a.family_id) || n(s.family_id),
@@ -220,24 +222,24 @@ function Ba(e) {
     status: n(a.status),
     recordId: n(a.record_id),
     contentType: n(a.content_type),
-    assignment: a.assignment ? Ua(y(a.assignment)) : null,
-    idempotencyHit: L(t.idempotency_hit),
-    assignmentReused: L(t.assignment_reused),
+    assignment: a.assignment ? Oa(p(a.assignment)) : null,
+    idempotencyHit: w(t.idempotency_hit),
+    assignmentReused: w(t.assignment_reused),
     family: {
       familyId: n(s.family_id),
-      readinessState: N(s.readiness_state),
-      missingRequiredLocaleCount: w(s.missing_required_locale_count),
-      pendingReviewCount: w(s.pending_review_count),
-      outdatedLocaleCount: w(s.outdated_locale_count),
-      blockerCodes: v(s.blocker_codes),
-      missingLocales: v(s.missing_locales),
-      availableLocales: v(s.available_locales),
+      readinessState: M(s.readiness_state),
+      missingRequiredLocaleCount: L(s.missing_required_locale_count),
+      pendingReviewCount: L(s.pending_review_count),
+      outdatedLocaleCount: L(s.outdated_locale_count),
+      blockerCodes: _(s.blocker_codes),
+      missingLocales: _(s.missing_locales),
+      availableLocales: _(s.available_locales),
       quickCreate: o
     },
     refresh: {
-      familyDetail: L(i.family_detail),
-      familyList: L(i.family_list),
-      contentSummary: L(i.content_summary)
+      familyDetail: w(i.family_detail),
+      familyList: w(i.family_list),
+      contentSummary: w(i.content_summary)
     },
     navigation: {
       contentDetailURL: n(r.content_detail_url),
@@ -245,21 +247,21 @@ function Ba(e) {
     }
   };
 }
-function Na(e) {
-  const a = n(e.familyId), t = je(e), s = {
+function Va(e) {
+  const a = n(e.familyId), t = Ge(e), s = {
     Accept: "application/json",
     "Content-Type": "application/json"
   };
   return t.idempotencyKey && (s["X-Idempotency-Key"] = t.idempotencyKey), {
     familyId: a,
-    endpoint: Ra(n(e.basePath) || "/admin/api", a, t.channel),
+    endpoint: Da(n(e.basePath) || "/admin/api", a, t.channel),
     headers: s,
     request: t
   };
 }
-function Ma(e) {
+function Ha(e) {
   const a = {};
-  for (const [t, s] of Object.entries(y(e.blocker_labels))) {
+  for (const [t, s] of Object.entries(p(e.blocker_labels))) {
     const i = n(t), r = n(s);
     i && r && (a[i] = r);
   }
@@ -272,36 +274,36 @@ function Ma(e) {
     sourceVariantId: n(e.source_variant_id),
     sourceRecordId: n(e.source_record_id),
     sourceTitle: n(e.source_title),
-    readinessState: N(e.readiness_state),
-    missingRequiredLocaleCount: w(e.missing_required_locale_count),
-    pendingReviewCount: w(e.pending_review_count),
-    outdatedLocaleCount: w(e.outdated_locale_count),
-    blockerCodes: v(e.blocker_codes).map(Ne),
+    readinessState: M(e.readiness_state),
+    missingRequiredLocaleCount: L(e.missing_required_locale_count),
+    pendingReviewCount: L(e.pending_review_count),
+    outdatedLocaleCount: L(e.outdated_locale_count),
+    blockerCodes: _(e.blocker_codes).map(ze),
     blockerLabels: a,
-    missingLocales: v(e.missing_locales),
-    availableLocales: v(e.available_locales)
+    missingLocales: _(e.missing_locales),
+    availableLocales: _(e.available_locales)
   };
 }
-function ze(e) {
-  const a = y(e.data), t = y(e.meta), s = Object.keys(a).length ? a : e, i = Object.keys(t).length ? t : e, r = s.items ?? s.families;
+function Ye(e) {
+  const a = p(e.data), t = p(e.meta), s = Object.keys(a).length ? a : e, i = Object.keys(t).length ? t : e, r = s.items ?? s.families;
   return {
-    items: (Array.isArray(r) ? r : []).map((o) => Ma(y(o))),
-    total: w(i.total),
-    page: w(i.page, 1),
-    perPage: w(i.per_page, 50),
+    items: (Array.isArray(r) ? r : []).map((o) => Ha(p(o))),
+    total: L(i.total),
+    page: L(i.page, 1),
+    perPage: L(i.per_page, 50),
     channel: n(i.channel)
   };
 }
-function ke(e) {
+function Te(e) {
   return {
     id: n(e.id),
     familyId: n(e.family_id),
     locale: n(e.locale),
     status: n(e.status),
-    isSource: L(e.is_source),
+    isSource: w(e.is_source),
     sourceRecordId: n(e.source_record_id),
     sourceHashAtLastSync: n(e.source_hash_at_last_sync),
-    fields: $a(e.fields, {
+    fields: Ta(e.fields, {
       omitBlankKeys: !0,
       omitEmptyValues: !0
     }),
@@ -310,41 +312,41 @@ function ke(e) {
     publishedAt: n(e.published_at)
   };
 }
-function Oa(e) {
+function Ga(e) {
   return {
     id: n(e.id),
     familyId: n(e.family_id),
-    blockerCode: Ne(e.blocker_code),
+    blockerCode: ze(e.blocker_code),
     locale: n(e.locale),
     fieldPath: n(e.field_path),
-    details: y(e.details)
+    details: p(e.details)
   };
 }
-function z(e) {
-  const a = y(e.link);
+function H(e) {
+  const a = p(e.link);
   return {
-    enabled: L(e.enabled),
+    enabled: w(e.enabled),
     permission: n(e.permission),
     endpoint: n(e.endpoint),
     href: n(e.href || a.href),
     label: n(e.label || a.label),
     reason: n(e.reason),
     reasonCode: n(e.reason_code ?? e.reasonCode),
-    requiredFields: v(e.required_fields ?? e.requiredFields),
-    payload: y(e.payload),
+    requiredFields: _(e.required_fields ?? e.requiredFields),
+    payload: p(e.payload),
     assignmentId: n(e.assignment_id ?? e.assignmentId),
-    expectedVersion: w(e.expected_version ?? e.expectedVersion)
+    expectedVersion: L(e.expected_version ?? e.expectedVersion)
   };
 }
-function me(e) {
+function te(e) {
   return {
-    assignToMe: z(y(e.assign_to_me ?? e.assignToMe)),
-    assignToUser: z(y(e.assign_to_user ?? e.assignToUser)),
-    claim: z(y(e.claim)),
-    openEditor: z(y(e.open_editor ?? e.openEditor))
+    assignToMe: H(p(e.assign_to_me ?? e.assignToMe)),
+    assignToUser: H(p(e.assign_to_user ?? e.assignToUser)),
+    claim: H(p(e.claim)),
+    openEditor: H(p(e.open_editor ?? e.openEditor))
   };
 }
-function He(e) {
+function We(e) {
   return {
     id: n(e.id),
     familyId: n(e.family_id),
@@ -357,19 +359,26 @@ function He(e) {
     status: n(e.status) || n(e.queue_state),
     assigneeId: n(e.assignee_id),
     assigneeLabel: n(e.assignee_label),
+    displayAssignee: n(e.display_assignee),
+    assignerId: n(e.assigner_id ?? e.assignerId),
+    displayAssigner: n(e.display_assigner ?? e.displayAssigner),
     reviewerId: n(e.reviewer_id),
     reviewerLabel: n(e.reviewer_label),
     priority: n(e.priority),
     dueDate: n(e.due_date),
+    assignedAt: n(e.assigned_at ?? e.assignedAt),
+    displayAssignedAt: n(e.display_assigned_at ?? e.displayAssignedAt),
+    assignedAtLegacyFallback: w(e.assigned_at_legacy_fallback ?? e.assignedAtLegacyFallback),
+    activitySentence: n(e.activity_sentence ?? e.activitySentence),
     dueState: n(e.due_state),
-    rowVersion: w(e.row_version ?? e.version),
+    rowVersion: L(e.row_version ?? e.version),
     createdAt: n(e.created_at),
     updatedAt: n(e.updated_at),
-    links: Va(y(e.links)),
-    actions: me(y(e.actions))
+    links: Ya(p(e.links)),
+    actions: te(p(e.actions))
   };
 }
-function ja(e) {
+function Ka(e) {
   const a = n(e.href);
   return a ? {
     href: a,
@@ -380,63 +389,110 @@ function ja(e) {
     entityId: n(e.entity_id)
   } : null;
 }
-function Va(e) {
-  return { editor: ja(y(e.editor)) };
+function Ya(e) {
+  return { editor: Ka(p(e.editor)) };
 }
-function za(e) {
+function Wa(e) {
   return {
     locale: n(e.locale).toLowerCase(),
     workScope: n(e.work_scope),
     state: n(e.state),
-    assignment: e.assignment ? He(y(e.assignment)) : null,
-    actions: me(y(e.actions))
+    assignment: e.assignment ? We(p(e.assignment)) : null,
+    actions: te(p(e.actions))
   };
 }
-function Ha(e) {
+function Qa(e) {
   const a = {};
   for (const [t, s] of Object.entries(e)) {
     const i = n(t).toLowerCase();
-    i && (a[i] = za(y(s)));
+    i && (a[i] = Wa(p(s)));
   }
   return a;
 }
-function Ke(e) {
-  const a = y(e.data), t = Object.keys(a).length ? a : e, s = t.source_variant ? ke(y(t.source_variant)) : null, i = Array.isArray(t.blockers) ? t.blockers.map((u) => Oa(y(u))) : [], r = Array.isArray(t.locale_variants) ? t.locale_variants.map((u) => ke(y(u))) : [], o = Array.isArray(t.active_assignments) ? t.active_assignments.map((u) => He(y(u))) : [], c = Ha(y(t.locale_assignments ?? t.localeAssignments)), d = y(t.publish_gate), l = y(t.readiness_summary), f = de(y(t.quick_create), {
-    missingLocales: v(l.missing_locales),
+function Ja(e, a) {
+  if (!a.length) return e;
+  const t = { ...e };
+  for (const s of a) {
+    const i = n(s.targetLocale).toLowerCase();
+    if (!i) continue;
+    const r = n(s.workScope) || "localization", [o, d] = Xa(t, sa(i, r), i, r), c = d ? { ...d } : {
+      locale: i,
+      workScope: r,
+      state: "",
+      assignment: null,
+      actions: te({})
+    };
+    c.assignment || (c.assignment = s), (!c.state || c.state === "unassigned") && (c.state = et(s)), c.locale || (c.locale = i), c.workScope || (c.workScope = r), t[o] = c;
+  }
+  return t;
+}
+function Xa(e, a, t, s) {
+  if (e[a]) return [a, e[a]];
+  const i = `${t}:`, r = n(s).toLowerCase() || "localization", o = Za(r);
+  for (const [d, c] of Object.entries(e))
+    if (d.startsWith(i)) {
+      if (o) return [d, c];
+      if (!c.assignment && (n(c.workScope) || d.slice(i.length) || "localization").toLowerCase() === r)
+        return [d, c];
+    }
+  return [a, null];
+}
+function Za(e) {
+  const a = n(e).toLowerCase();
+  return !a || a === "__all__";
+}
+function et(e) {
+  switch (e.status) {
+    case "open":
+      return "open_pool";
+    case "assigned":
+    case "changes_requested":
+      return "assigned_to_other";
+    case "in_progress":
+      return "in_progress";
+    case "in_review":
+      return "in_review";
+    default:
+      return "terminal";
+  }
+}
+function Qe(e) {
+  const a = p(e.data), t = Object.keys(a).length ? a : e, s = t.source_variant ? Te(p(t.source_variant)) : null, i = Array.isArray(t.blockers) ? t.blockers.map((f) => Ga(p(f))) : [], r = Array.isArray(t.locale_variants) ? t.locale_variants.map((f) => Te(p(f))) : [], o = Array.isArray(t.active_assignments) ? t.active_assignments.map((f) => We(p(f))) : [], d = Ja(Qa(p(t.locale_assignments ?? t.localeAssignments)), o), c = p(t.publish_gate), l = p(t.readiness_summary), m = fe(p(t.quick_create), {
+    missingLocales: _(l.missing_locales),
     recommendedLocale: n(l.recommended_locale),
-    requiredForPublish: v(l.required_for_publish ?? l.required_locales)
+    requiredForPublish: _(l.required_for_publish ?? l.required_locales)
   });
   return {
     familyId: n(t.family_id),
     contentType: n(t.content_type),
     sourceLocale: n(t.source_locale),
-    readinessState: N(t.readiness_state),
+    readinessState: M(t.readiness_state),
     sourceVariant: s,
     localeVariants: r,
     blockers: i,
     activeAssignments: o,
-    localeAssignments: c,
+    localeAssignments: d,
     publishGate: {
-      allowed: L(d.allowed),
-      overrideAllowed: L(d.override_allowed),
-      blockedBy: v(d.blocked_by),
-      reviewRequired: L(d.review_required)
+      allowed: w(c.allowed),
+      overrideAllowed: w(c.override_allowed),
+      blockedBy: _(c.blocked_by),
+      reviewRequired: w(c.review_required)
     },
     readinessSummary: {
-      state: N(l.state),
-      requiredLocales: v(l.required_locales),
-      missingLocales: v(l.missing_locales),
-      availableLocales: v(l.available_locales),
-      blockerCodes: v(l.blocker_codes),
-      missingRequiredLocaleCount: w(l.missing_required_locale_count),
-      pendingReviewCount: w(l.pending_review_count),
-      outdatedLocaleCount: w(l.outdated_locale_count),
-      publishReady: L(l.publish_ready)
+      state: M(l.state),
+      requiredLocales: _(l.required_locales),
+      missingLocales: _(l.missing_locales),
+      availableLocales: _(l.available_locales),
+      blockerCodes: _(l.blocker_codes),
+      missingRequiredLocaleCount: L(l.missing_required_locale_count),
+      pendingReviewCount: L(l.pending_review_count),
+      outdatedLocaleCount: L(l.outdated_locale_count),
+      publishReady: w(l.publish_ready)
     },
-    quickCreate: f
+    quickCreate: m
   };
 }
-function M(...e) {
+function O(...e) {
   const a = /* @__PURE__ */ new Set();
   for (const t of e) for (const s of t) {
     const i = n(s).toLowerCase();
@@ -444,22 +500,22 @@ function M(...e) {
   }
   return Array.from(a).sort();
 }
-function Ge(e, a) {
+function Je(e, a) {
   const t = n(a).toLowerCase();
   return e.map((s) => n(s).toLowerCase()).filter((s) => s && s !== t);
 }
-function ue(e) {
-  return M(e.quickCreate.missingLocales, e.readinessSummary.missingLocales);
+function ge(e) {
+  return O(e.quickCreate.missingLocales, e.readinessSummary.missingLocales);
 }
-function Ka(e) {
-  return e.blockers.some(pe);
+function at(e) {
+  return e.blockers.some(he);
 }
-function fe(e, a) {
+function ye(e, a) {
   const t = n(a).toLowerCase();
-  return !t || Ka(e) ? !1 : ue(e).includes(t);
+  return !t || at(e) ? !1 : ge(e).includes(t);
 }
-function Ye(e, a) {
-  const t = ue(e), s = n(a).toLowerCase(), i = fe(e, s);
+function Xe(e, a) {
+  const t = ge(e), s = n(a).toLowerCase(), i = ye(e, s);
   return {
     ...e.quickCreate,
     enabled: i,
@@ -469,13 +525,13 @@ function Ye(e, a) {
     disabledReasonCode: i ? "" : e.quickCreate.disabledReasonCode
   };
 }
-function ys(e, a) {
+function As(e, a) {
   if (!e || !a || !a.familyId || e.familyId !== a.familyId) return e;
-  const t = n(a.locale).toLowerCase(), s = e.localeVariants.some((d) => d.locale === t) ? e.localeVariants.map((d) => d.locale === t ? {
-    ...d,
-    id: d.id || a.variantId,
-    status: a.status || d.status
-  } : { ...d }) : [...e.localeVariants.map((d) => ({ ...d })), {
+  const t = n(a.locale).toLowerCase(), s = e.localeVariants.some((c) => c.locale === t) ? e.localeVariants.map((c) => c.locale === t ? {
+    ...c,
+    id: c.id || a.variantId,
+    status: a.status || c.status
+  } : { ...c }) : [...e.localeVariants.map((c) => ({ ...c })), {
     id: a.variantId,
     familyId: e.familyId,
     locale: t,
@@ -487,10 +543,10 @@ function ys(e, a) {
     createdAt: "",
     updatedAt: "",
     publishedAt: ""
-  }].sort((d, l) => d.locale.localeCompare(l.locale));
-  let i = e.activeAssignments.map((d) => ({ ...d }));
+  }].sort((c, l) => c.locale.localeCompare(l.locale));
+  let i = e.activeAssignments.map((c) => ({ ...c }));
   if (a.assignment) {
-    const d = {
+    const c = {
       id: a.assignment.assignmentId,
       familyId: e.familyId,
       variantId: a.variantId,
@@ -502,20 +558,27 @@ function ys(e, a) {
       status: a.assignment.status,
       assigneeId: a.assignment.assigneeId,
       assigneeLabel: a.assignment.assigneeId,
+      displayAssignee: a.assignment.assigneeId,
+      assignerId: "",
+      displayAssigner: "",
       reviewerId: "",
       reviewerLabel: "",
       priority: a.assignment.priority,
       dueDate: a.assignment.dueDate,
+      assignedAt: a.assignment.assignedAt || "",
+      displayAssignedAt: "",
+      assignedAtLegacyFallback: !1,
+      activitySentence: "",
       dueState: "",
       rowVersion: 0,
       createdAt: "",
       updatedAt: "",
       links: { editor: null },
-      actions: me({})
-    }, l = i.findIndex((f) => f.id === d.id || f.targetLocale === d.targetLocale);
-    l >= 0 ? i[l] = d : i = [...i, d].sort((f, u) => f.targetLocale.localeCompare(u.targetLocale));
+      actions: te({})
+    }, l = i.findIndex((m) => m.id === c.id || m.targetLocale === c.targetLocale);
+    l >= 0 ? i[l] = c : i = [...i, c].sort((m, f) => m.targetLocale.localeCompare(f.targetLocale));
   }
-  const r = e.blockers.map((d) => ({ ...d })).filter((d) => !(d.blockerCode === "missing_locale" && d.locale === t)), o = M(e.readinessSummary.availableLocales, a.family.availableLocales, [t]), c = Ge(M(e.readinessSummary.missingLocales, a.family.missingLocales), t);
+  const r = e.blockers.map((c) => ({ ...c })).filter((c) => !(c.blockerCode === "missing_locale" && c.locale === t)), o = O(e.readinessSummary.availableLocales, a.family.availableLocales, [t]), d = Je(O(e.readinessSummary.missingLocales, a.family.missingLocales), t);
   return {
     ...e,
     readinessState: a.family.readinessState,
@@ -532,7 +595,7 @@ function ys(e, a) {
       ...e.readinessSummary,
       state: a.family.readinessState,
       availableLocales: o,
-      missingLocales: c,
+      missingLocales: d,
       blockerCodes: [...a.family.blockerCodes],
       missingRequiredLocaleCount: a.family.missingRequiredLocaleCount,
       pendingReviewCount: a.family.pendingReviewCount,
@@ -542,11 +605,11 @@ function ys(e, a) {
     quickCreate: { ...a.family.quickCreate }
   };
 }
-function ps(e, a) {
-  const t = { ...e }, s = { ...y(t.translation_readiness) }, i = n(a.locale).toLowerCase(), r = n(t.requested_locale).toLowerCase(), o = n(t.translation_family_id || t.family_id || s.family_id || s.family_id);
+function Ss(e, a) {
+  const t = { ...e }, s = { ...p(t.translation_readiness) }, i = n(a.locale).toLowerCase(), r = n(t.requested_locale).toLowerCase(), o = n(t.translation_family_id || t.family_id || s.family_id || s.family_id);
   if (o && o !== a.familyId) return t;
-  const c = M(v(t.available_locales), v(s.available_locales), a.family.availableLocales, [i]), d = Ge(M(v(t.missing_required_locales), v(s.missing_required_locales), a.family.missingLocales), i);
-  return t.available_locales = c, t.missing_required_locales = d, t.translation_family_id = o || a.familyId, s.family_id = o || a.familyId, s.state = a.family.readinessState, s.available_locales = c, s.missing_required_locales = d, s.blocker_codes = [...a.family.blockerCodes], s.missing_required_locale_count = a.family.missingRequiredLocaleCount, s.pending_review_count = a.family.pendingReviewCount, s.outdated_locale_count = a.family.outdatedLocaleCount, s.missing_locales = [...a.family.quickCreate.missingLocales], s.recommended_locale = a.family.quickCreate.recommendedLocale, s.required_for_publish = [...a.family.quickCreate.requiredForPublish], s.default_assignment = {
+  const d = O(_(t.available_locales), _(s.available_locales), a.family.availableLocales, [i]), c = Je(O(_(t.missing_required_locales), _(s.missing_required_locales), a.family.missingLocales), i);
+  return t.available_locales = d, t.missing_required_locales = c, t.translation_family_id = o || a.familyId, s.family_id = o || a.familyId, s.state = a.family.readinessState, s.available_locales = d, s.missing_required_locales = c, s.blocker_codes = [...a.family.blockerCodes], s.missing_required_locale_count = a.family.missingRequiredLocaleCount, s.pending_review_count = a.family.pendingReviewCount, s.outdated_locale_count = a.family.outdatedLocaleCount, s.missing_locales = [...a.family.quickCreate.missingLocales], s.recommended_locale = a.family.quickCreate.recommendedLocale, s.required_for_publish = [...a.family.quickCreate.requiredForPublish], s.default_assignment = {
     auto_create_assignment: a.family.quickCreate.defaultAssignment.autoCreateAssignment,
     work_scope: a.family.quickCreate.defaultAssignment.workScope,
     priority: a.family.quickCreate.defaultAssignment.priority,
@@ -568,8 +631,8 @@ function ps(e, a) {
     disabled_reason: a.family.quickCreate.disabledReason
   }, t.translation_readiness = s, r && r === i && (t.missing_requested_locale = !1, t.fallback_used = !1, t.resolved_locale = i), t;
 }
-function Ga(e) {
-  const a = N(e);
+function tt(e) {
+  const a = M(e);
   return a === "ready" ? {
     state: a,
     label: "Ready",
@@ -580,19 +643,19 @@ function Ga(e) {
     tone: "warning"
   };
 }
-function ge(e) {
-  const a = Ga(e);
+function pe(e) {
+  const a = tt(e);
   return `<span class="translation-family-chip translation-family-chip--${a.tone}" data-readiness-state="${a.state}">${a.label.toUpperCase()}</span>`;
 }
-async function Ya(e) {
-  const a = await O(e), t = new Error(a.message || "Failed to create locale.");
-  return t.statusCode = e.status, t.textCode = a.textCode, t.requestId = n(e.headers.get("x-request-id")), t.traceId = X(e.headers), t.metadata = y(a.metadata), t;
+async function st(e) {
+  const a = await j(e), t = new Error(a.message || "Failed to create locale.");
+  return t.statusCode = e.status, t.textCode = a.textCode, t.requestId = n(e.headers.get("x-request-id")), t.traceId = Z(e.headers), t.metadata = p(a.metadata), t;
 }
-async function ye(e) {
-  const a = await O(e), t = new Error(a.message || "Failed to update assignment.");
-  return t.statusCode = e.status, t.textCode = a.textCode, t.requestId = n(e.headers.get("x-request-id")), t.traceId = X(e.headers), t.metadata = y(a.metadata), t;
+async function be(e) {
+  const a = await j(e), t = new Error(a.message || "Failed to update assignment.");
+  return t.statusCode = e.status, t.textCode = a.textCode, t.requestId = n(e.headers.get("x-request-id")), t.traceId = Z(e.headers), t.metadata = p(a.metadata), t;
 }
-async function ne(e, a = {}, t = {}) {
+async function re(e, a = {}, t = {}) {
   const s = n(e.endpoint);
   if (!s) throw new Error("Assignment action endpoint is unavailable.");
   const i = {
@@ -609,13 +672,13 @@ async function ne(e, a = {}, t = {}) {
     headers: r,
     body: JSON.stringify(i)
   };
-  Y(s, o, r);
-  const c = await (t.fetch ? t.fetch(s, o) : W(s, o));
-  if (!c.ok) throw await ye(c);
-  return le(c);
+  W(s, o, r);
+  const d = await (t.fetch ? t.fetch(s, o) : J(s, o));
+  if (!d.ok) throw await be(d);
+  return me(d);
 }
-function Qa(e) {
-  const a = y(e), t = n(a.value || a.id || a.user_id);
+function nt(e) {
+  const a = p(e), t = n(a.value || a.id || a.user_id);
   if (!t) return null;
   const s = n(a.label || a.display_name || a.username || a.email || t);
   return {
@@ -626,26 +689,26 @@ function Qa(e) {
     avatarURL: n(a.avatar_url || a.avatarURL)
   };
 }
-function Wa(e) {
-  const a = y(e), t = Array.isArray(e) ? e : Array.isArray(a.data) ? a.data : Array.isArray(a.options) ? a.options : Array.isArray(a.items) ? a.items : [], s = /* @__PURE__ */ new Set(), i = [];
+function it(e) {
+  const a = p(e), t = Array.isArray(e) ? e : Array.isArray(a.data) ? a.data : Array.isArray(a.options) ? a.options : Array.isArray(a.items) ? a.items : [], s = /* @__PURE__ */ new Set(), i = [];
   for (const r of t) {
-    const o = Qa(r);
+    const o = nt(r);
     !o || s.has(o.value) || (s.add(o.value), i.push(o));
   }
   return i;
 }
-function Ja(e, a = []) {
+function rt(e, a = []) {
   const t = new URLSearchParams();
   t.set("per_page", "200");
   const s = a.map((i) => n(i)).find(Boolean);
-  return s && t.set("assignee_id", s), E(`${C(e || "/admin/api")}/translations/options/assignees`, t);
+  return s && t.set("assignee_id", s), F(`${C(e || "/admin/api")}/translations/options/assignees`, t);
 }
-async function Xa(e, a = [], t = {}) {
-  const s = Ja(e, a), i = await (t.fetch ? t.fetch(s, { headers: { Accept: "application/json" } }) : W(s, { headers: { Accept: "application/json" } }));
-  if (!i.ok) throw await ye(i);
-  return Wa(await le(i));
+async function ot(e, a = [], t = {}) {
+  const s = rt(e, a), i = await (t.fetch ? t.fetch(s, { headers: { Accept: "application/json" } }) : J(s, { headers: { Accept: "application/json" } }));
+  if (!i.ok) throw await be(i);
+  return it(await me(i));
 }
-function Za(e) {
+function lt(e) {
   switch (n(e)) {
     case "published":
     case "approved":
@@ -658,10 +721,10 @@ function Za(e) {
       return "neutral";
   }
 }
-function et(e) {
-  return J(Za(e));
+function ct(e) {
+  return X(lt(e));
 }
-function at(e) {
+function dt(e) {
   switch (n(e)) {
     case "in_review":
       return "warning";
@@ -674,10 +737,10 @@ function at(e) {
       return "neutral";
   }
 }
-function Qe(e) {
-  return J(at(e));
+function Ze(e) {
+  return X(dt(e));
 }
-function tt(e) {
+function mt(e) {
   switch (n(e)) {
     case "missing_locale":
       return "error";
@@ -691,45 +754,45 @@ function tt(e) {
       return "neutral";
   }
 }
-function We(e) {
-  return J(tt(e));
+function ea(e) {
+  return X(mt(e));
 }
-function A(e, a) {
+function k(e, a) {
   return n(e[a]);
 }
-function pe(e) {
+function he(e) {
   if (e.blockerCode !== "policy_denied") return !1;
-  const a = A(e.details, "reason").toLowerCase(), t = A(e.details, "reason_code").toLowerCase();
+  const a = k(e.details, "reason").toLowerCase(), t = k(e.details, "reason_code").toLowerCase();
   if (a === "policy_unavailable" || t === "policy_unavailable") return !0;
   if (a === "host_policy" || t === "host_policy") return !1;
-  const s = !!(A(e.details, "content_type") || A(e.details, "environment")), i = !!(A(e.details, "message") || A(e.details, "policy_reason"));
+  const s = !!(k(e.details, "content_type") || k(e.details, "environment")), i = !!(k(e.details, "message") || k(e.details, "policy_reason"));
   return s && !a && !i;
 }
-function st(e) {
-  return pe(e) ? "Policy unavailable" : S(e.blockerCode);
+function ut(e) {
+  return he(e) ? "Policy unavailable" : T(e.blockerCode);
 }
-function nt(e) {
+function ft(e) {
   const a = e.details || {}, t = [
     ["Code", e.blockerCode],
     ["Locale", e.locale.toUpperCase()],
     ["Field", e.fieldPath],
-    ["Content type", A(a, "content_type")],
-    ["Environment", A(a, "environment")]
-  ], s = A(a, "reason"), i = A(a, "message"), r = A(a, "remediation");
-  return pe(e) ? t.push(["Reason", "Policy unavailable"]) : s && t.push(["Reason", s]), i && i !== s && t.push(["Message", i]), r && t.push(["Remediation", r]), t.filter(([, o]) => o.trim() !== "");
+    ["Content type", k(a, "content_type")],
+    ["Environment", k(a, "environment")]
+  ], s = k(a, "reason"), i = k(a, "message"), r = k(a, "remediation");
+  return he(e) ? t.push(["Reason", "Policy unavailable"]) : s && t.push(["Reason", s]), i && i !== s && t.push(["Message", i]), r && t.push(["Remediation", r]), t.filter(([, o]) => o.trim() !== "");
 }
-function it(e) {
-  const a = nt(e);
+function gt(e) {
+  const a = ft(e);
   return a.length ? `
     <dl class="mt-2 grid gap-x-4 gap-y-1 text-xs text-gray-600 sm:grid-cols-[7rem_minmax(0,1fr)]">
       ${a.map(([t, s]) => `
-          <dt class="font-medium text-gray-500">${m(t)}</dt>
-          <dd class="min-w-0 break-words text-gray-700">${m(s)}</dd>
+          <dt class="font-medium text-gray-500">${u(t)}</dt>
+          <dd class="min-w-0 break-words text-gray-700">${u(s)}</dd>
         `).join("")}
     </dl>
   ` : "";
 }
-function rt(e) {
+function yt(e) {
   switch (e) {
     case "overdue":
       return "error";
@@ -739,14 +802,14 @@ function rt(e) {
       return "neutral";
   }
 }
-function Je(e) {
-  return J(rt(e));
+function aa(e) {
+  return X(yt(e));
 }
-function ot(e, a, t) {
+function pt(e, a, t) {
   const s = C(e), i = n(t.sourceRecordId);
   return !s || !i || !a.contentType ? "" : `${s}/${encodeURIComponent(a.contentType)}/${encodeURIComponent(i)}?locale=${encodeURIComponent(t.locale)}`;
 }
-function Xe(e) {
+function ta(e) {
   const a = n(e);
   if (!a) return "none";
   const t = new Date(a);
@@ -754,133 +817,163 @@ function Xe(e) {
   const s = t.getTime() - Date.now();
   return s < 0 ? "overdue" : s <= 2880 * 60 * 1e3 ? "due_soon" : "on_track";
 }
-function Ze(e, a = "") {
+function sa(e, a = "") {
   return `${n(e).toLowerCase()}:${n(a) || "__all__"}`;
 }
-function lt(e, a, t = "") {
-  const s = n(a).toLowerCase();
-  if (!s) return null;
-  const i = Ze(s, t);
-  if (e.localeAssignments[i]) return e.localeAssignments[i];
-  for (const [r, o] of Object.entries(e.localeAssignments)) if (r.startsWith(`${s}:`)) return o;
-  return null;
+function bt(e, a) {
+  const t = n(a).toLowerCase();
+  return t ? Object.entries(e.localeAssignments).filter(([s, i]) => (n(i.locale).toLowerCase() || s.split(":")[0]) === t).sort(([s, i], [r, o]) => {
+    const d = qe(i), c = qe(o);
+    if (d !== c) return d - c;
+    const l = n(i.workScope).toLowerCase(), m = n(o.workScope).toLowerCase();
+    return l !== m ? l.localeCompare(m) : s.localeCompare(r);
+  }) : [];
 }
-function ea(e) {
-  return e && (e.assigneeLabel || e.assigneeId) || "Unassigned";
+function qe(e) {
+  switch (e.state) {
+    case "assigned_to_me":
+      return 0;
+    case "assigned_to_other":
+    case "in_progress":
+    case "in_review":
+      return 1;
+    case "open_pool":
+      return 2;
+    case "unassigned":
+    case "":
+      return 3;
+    case "source_locale":
+      return 5;
+    default:
+      return 4;
+  }
 }
-function aa(e) {
+function na(e) {
+  return e && (e.displayAssignee || e.assigneeLabel || e.assigneeId) || "Unassigned";
+}
+function ia(e) {
   if (!e) return "";
   const a = e.actions;
   return a.assignToMe.reason || a.assignToUser.reason || a.claim.reason || a.openEditor.reason || "";
 }
-function ct(e) {
+function ht(e) {
   if (!e) return !1;
   const a = e.actions;
   return a.assignToMe.enabled || a.assignToUser.enabled || a.claim.enabled || a.openEditor.enabled;
 }
-function dt(e) {
+function Ie(e) {
   if (!e || e.state === "source_locale") return "";
   const a = e.assignment;
-  if (!a) return `<p class="mt-1 text-xs text-gray-500" data-family-locale-assignment-state="${g(e.state)}">No active assignment.</p>`;
-  const t = a.dueState || Xe(a.dueDate), s = t === "none" ? "No due date" : S(t);
+  if (!a) return `<p class="mt-1 text-xs text-gray-500" data-family-locale-assignment-state="${y(e.state)}">No active assignment.</p>`;
+  const t = a.dueState || ta(a.dueDate), s = t === "none" ? "No due date" : T(t), i = e.state === "assigned_to_me" ? "me" : na(a);
   return `
-    <div class="mt-2 flex flex-wrap items-center gap-2 text-xs text-gray-500" data-family-locale-assignment-state="${g(e.state)}">
-      <span class="rounded-full px-2 py-0.5 font-medium ${Qe(a.status)}">${m(S(a.status))}</span>
-      <span>${m(ea(a))}</span>
+    <div class="mt-2 flex flex-wrap items-center gap-2 text-xs text-gray-500" data-family-locale-assignment-state="${y(e.state)}">
+      <span class="rounded-full px-2 py-0.5 font-medium ${Ze(a.status)}">${u(T(a.status))}</span>
+      <span>${u(i)}</span>
       <span class="text-gray-300">·</span>
-      <span>Priority ${m(a.priority || "normal")}</span>
-      <span class="rounded-full px-2 py-0.5 font-medium ${Je(t)}">${m(s)}</span>
+      <span>Priority ${u(a.priority || "normal")}</span>
+      <span class="rounded-full px-2 py-0.5 font-medium ${aa(t)}">${u(s)}</span>
     </div>
   `;
 }
-function mt(e) {
+function Re(e) {
   if (!e || e.state === "source_locale") return "";
-  const a = Ze(e.locale, e.workScope), t = e.actions, s = [];
-  if (t.assignToMe.enabled && s.push(`
-      <button type="button" class="${R}" data-family-assign-to-me="true" data-locale-assignment-key="${g(a)}">
+  const a = sa(e.locale, e.workScope), t = e.actions, s = [];
+  if (t.assignToMe.enabled ? s.push(`
+      <button type="button" class="${R}" data-family-assign-to-me="true" data-locale-assignment-key="${y(a)}">
+        Assign to me
+      </button>
+    `) : t.assignToMe.reasonCode === "already_assigned" && s.push(`
+      <button
+        type="button"
+        class="${R}${le(!1)}"
+        disabled
+        aria-disabled="true"
+        title="${y(t.assignToMe.reason || "Assignment already belongs to you")}"
+      >
         Assign to me
       </button>
     `), t.assignToUser.enabled && s.push(`
       <div class="flex w-full min-w-0 flex-wrap items-center gap-2 sm:w-auto sm:min-w-[22rem] sm:flex-nowrap">
-        ${be({
+        ${ve({
     key: a,
     ariaLabel: "Assignee",
-    className: `${sa} min-w-0 flex-1 sm:w-80 sm:flex-none lg:w-96`
+    className: `${oa} min-w-0 flex-1 sm:w-80 sm:flex-none lg:w-96`
   })}
-        <button type="button" class="${R}" data-family-assign-to-user="true" data-locale-assignment-key="${g(a)}">
+        <button type="button" class="${R}" data-family-assign-to-user="true" data-locale-assignment-key="${y(a)}">
           Assign
         </button>
       </div>
     `), t.claim.enabled && s.push(`
-      <button type="button" class="${R}" data-family-claim-assignment="true" data-locale-assignment-key="${g(a)}">
+      <button type="button" class="${R}" data-family-claim-assignment="true" data-locale-assignment-key="${y(a)}">
         Claim
       </button>
     `), t.openEditor.enabled && t.openEditor.href && s.push(`
       <a
         class="inline-flex items-center justify-center rounded-md border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-sky-700 hover:border-sky-200 hover:bg-sky-50 hover:text-sky-900 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2"
-        data-family-locale-editor-link="${g(a)}"
-        href="${g(t.openEditor.href)}"
-      >${m(t.openEditor.label || "Open editor")}</a>
+        data-family-locale-editor-link="${y(a)}"
+        href="${y(t.openEditor.href)}"
+      >${u(t.openEditor.label || "Open editor")}</a>
     `), s.length > 0) return `<div class="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:justify-end" data-family-locale-actions="true">${s.join("")}</div>`;
-  const i = aa(e);
-  return i ? `<p class="max-w-xs text-right text-xs text-gray-500" data-family-assignment-action-reason="${g(a)}">${m(i)}</p>` : "";
+  const i = ia(e);
+  return i ? `<p class="max-w-xs text-right text-xs text-gray-500" data-family-assignment-action-reason="${y(a)}">${u(i)}</p>` : "";
 }
-function ut(e) {
-  return Object.entries(e.localeAssignments).filter(([, a]) => a.state !== "source_locale").filter(([, a]) => ct(a)).sort(([a], [t]) => a.localeCompare(t));
+function vt(e) {
+  return Object.entries(e.localeAssignments).filter(([, a]) => a.state !== "source_locale").filter(([, a]) => ht(a)).sort(([a], [t]) => a.localeCompare(t));
 }
-function ft(e) {
+function xt(e) {
   return [
     `data-assign-to-me-enabled="${e.actions.assignToMe.enabled ? "true" : "false"}"`,
-    `data-assign-to-me-reason="${g(e.actions.assignToMe.reason)}"`,
+    `data-assign-to-me-reason="${y(e.actions.assignToMe.reason)}"`,
     `data-assign-to-user-enabled="${e.actions.assignToUser.enabled ? "true" : "false"}"`,
-    `data-assign-to-user-reason="${g(e.actions.assignToUser.reason)}"`
+    `data-assign-to-user-reason="${y(e.actions.assignToUser.reason)}"`
   ].join(" ");
 }
-function ie(e, a = "") {
-  return e ? "" : ` disabled aria-disabled="true" title="${g(a || "Assignment action is unavailable.")}"`;
+function oe(e, a = "") {
+  return e ? "" : ` disabled aria-disabled="true" title="${y(a || "Assignment action is unavailable.")}"`;
 }
-function Te(e) {
+function le(e) {
   return e ? "" : " opacity-60 cursor-not-allowed";
 }
-var ta = "block h-12 w-full rounded-lg border border-gray-300 bg-white px-3 pr-9 text-sm text-gray-900 shadow-sm transition focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 disabled:pointer-events-none disabled:opacity-50 dark:border-gray-700 dark:bg-slate-900 dark:text-gray-400 dark:focus:ring-gray-600", sa = ta, gt = "/api/translations/options/assignees?per_page=200";
-function be(e) {
-  const a = n(e.key), t = n(e.initialValue), s = e.enabled !== !1, i = n(e.placeholder) || "Select assignee", r = n(e.reason), o = n(e.name), c = ie(s, r);
+var ra = "block h-12 w-full rounded-lg border border-gray-300 bg-white px-3 pr-9 text-sm text-gray-900 shadow-sm transition focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 disabled:pointer-events-none disabled:opacity-50 dark:border-gray-700 dark:bg-slate-900 dark:text-gray-400 dark:focus:ring-gray-600", oa = ra, _t = "/api/translations/options/assignees?per_page=200";
+function ve(e) {
+  const a = n(e.key), t = n(e.initialValue), s = e.enabled !== !1, i = n(e.placeholder) || "Select assignee", r = n(e.reason), o = n(e.name), d = oe(s, r);
   return `
     <select
-      ${o ? `name="${g(o)}"` : ""}
-      class="${g(e.className || sa)}"
-      data-family-assignee-select="${g(a)}"
-      data-initial-assignee-id="${g(t)}"
+      ${o ? `name="${y(o)}"` : ""}
+      class="${y(e.className || oa)}"
+      data-family-assignee-select="${y(a)}"
+      data-initial-assignee-id="${y(t)}"
       data-formgen-managed="true"
       data-formgen-relationship="true"
-      data-endpoint-url="${gt}"
+      data-endpoint-url="${_t}"
       data-endpoint-method="GET"
       data-endpoint-renderer="typeahead"
       data-endpoint-search-param="q"
       data-endpoint-value-field="value"
       data-endpoint-label-field="label"
-      data-endpoint-placeholder="${g(i)}"
+      data-endpoint-placeholder="${y(i)}"
       data-endpoint-search-placeholder="Search assignees"
       data-relationship-type="belongsTo"
       data-relationship-target="#/components/schemas/User"
       data-relationship-cardinality="one"
-      ${t ? `data-relationship-current="${g(t)}"` : ""}
-      aria-label="${g(e.ariaLabel || "Assignee")}"
-      ${c}
+      ${t ? `data-relationship-current="${y(t)}"` : ""}
+      aria-label="${y(e.ariaLabel || "Assignee")}"
+      ${d}
     >
-      <option value="">${m(s ? i : r || i)}</option>
-      ${t ? `<option value="${g(t)}" selected>${m(t)}</option>` : ""}
+      <option value="">${u(s ? i : r || i)}</option>
+      ${t ? `<option value="${y(t)}" selected>${u(t)}</option>` : ""}
     </select>
   `;
 }
-function yt(e, a = 5) {
+function wt(e, a = 5) {
   const t = [];
   for (const s of e.localeVariants)
     s.createdAt && t.push({
       id: `variant-created-${s.id}`,
       timestamp: s.createdAt,
       title: `${s.locale.toUpperCase()} variant created`,
-      detail: s.isSource ? "Source locale registered for this family." : `Variant entered ${S(s.status)} state.`,
+      detail: s.isSource ? "Source locale registered for this family." : `Variant entered ${T(s.status)} state.`,
       tone: s.isSource ? "neutral" : "success"
     }), s.publishedAt && t.push({
       id: `variant-published-${s.id}`,
@@ -890,20 +983,45 @@ function yt(e, a = 5) {
       tone: "success"
     });
   for (const s of e.activeAssignments) {
-    const i = s.updatedAt || s.createdAt;
+    const i = s.assignedAt || s.updatedAt || s.createdAt;
     if (!i) continue;
-    const r = s.assigneeId ? `Assigned to ${s.assigneeId}.` : "Currently unassigned.";
+    const r = $t(s);
     t.push({
       id: `assignment-${s.id}`,
       timestamp: i,
-      title: `${s.targetLocale.toUpperCase()} assignment ${S(s.status)}`,
-      detail: `${r} Priority ${s.priority || "normal"}.`,
+      title: r || `${s.targetLocale.toUpperCase()} assignment ${T(s.status)}`,
+      detail: r ? `Priority ${s.priority || "normal"}.` : `${Lt(s)} Priority ${s.priority || "normal"}.`,
       tone: s.status === "changes_requested" ? "warning" : "neutral"
     });
   }
   return t.sort((s, i) => i.timestamp.localeCompare(s.timestamp)).slice(0, Math.max(1, a));
 }
-function pt(e) {
+function Lt(e) {
+  return e.assigneeId ? `Assigned to ${e.displayAssignee || e.assigneeLabel || e.assigneeId}.` : "Currently unassigned.";
+}
+function $t(e) {
+  if (e.activitySentence) return e.activitySentence;
+  const a = e.displayAssigner || Pe(e.assignerId, "System"), t = (e.targetLocale || "").toUpperCase(), s = e.displayAssignee || e.assigneeLabel || Pe(e.assigneeId, "Unassigned");
+  if (!a || !t || !s) return "";
+  const i = e.displayAssignedAt || Ct(e.assignedAt);
+  return i ? e.assignedAtLegacyFallback ? `${a} assigned ${t} to ${s}; created ${i}` : `${a} assigned ${t} to ${s} on ${i}` : `${a} assigned ${t} to ${s}`;
+}
+function Pe(e, a) {
+  const t = n(e);
+  return !t || t === "__me__" || t === "__missing_actor__" ? a : t.length > 12 ? `${t.slice(0, 8)}...` : t;
+}
+function Ct(e) {
+  const a = n(e);
+  if (!a) return "";
+  const t = new Date(a);
+  return Number.isNaN(t.getTime()) ? a : new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    timeZone: "UTC"
+  }).format(t);
+}
+function At(e) {
   return [
     {
       label: "Required locales",
@@ -927,61 +1045,93 @@ function pt(e) {
     }
   ].map((a) => `
         <div class="rounded-xl border border-gray-200 bg-white p-6">
-          <div class="text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">${m(a.label)}</div>
-          <div class="mt-2 text-2xl font-semibold ${a.tone}">${m(a.value)}</div>
+          <div class="text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">${u(a.label)}</div>
+          <div class="mt-2 text-2xl font-semibold ${a.tone}">${u(a.value)}</div>
         </div>
       `).join("");
 }
-function bt(e, a) {
-  const t = C(a.contentBasePath || `${C(a.basePath || "/admin")}/content`), s = e.readinessSummary.missingLocales, i = e.quickCreate.disabledReason || "Locale creation is unavailable for this family.", r = (c) => {
-    const d = !fe(e, c);
+function St(e, a) {
+  const t = C(a.contentBasePath || `${C(a.basePath || "/admin")}/content`), s = e.readinessSummary.missingLocales, i = e.quickCreate.disabledReason || "Locale creation is unavailable for this family.", r = /* @__PURE__ */ new Set(), o = /* @__PURE__ */ new Set(), d = (m) => {
+    const f = !ye(e, m);
     return `
       <button
         type="button"
-        class="${F}${d ? " opacity-60 cursor-not-allowed" : ""}"
+        class="${U}${f ? " opacity-60 cursor-not-allowed" : ""}"
         data-family-create-locale="true"
-        data-locale="${g(c)}"
-        ${d ? 'aria-disabled="true"' : ""}
-        title="${g(d ? i : `Create ${c.toUpperCase()} locale`)}"
+        data-locale="${y(m)}"
+        ${f ? 'aria-disabled="true"' : ""}
+        title="${y(f ? i : `Create ${m.toUpperCase()} locale`)}"
       >
         Create locale
       </button>
     `;
-  }, o = e.localeVariants.map((c) => {
-    const d = ot(t, e, c), l = lt(e, c.locale), f = d ? `<a href="${g(d)}" class="text-sm font-medium text-sky-700 hover:text-sky-800">Open locale</a>` : '<span class="text-sm text-gray-400">No content route</span>', u = c.fields.title || c.fields.slug || `${e.contentType} ${c.locale.toUpperCase()}`;
+  }, c = (m, f) => {
+    const g = m.locale || f.split(":")[0] || "", b = m.workScope || f.split(":")[1] || "__all__", v = `${e.contentType || "translation"} ${g.toUpperCase()}`;
     return `
-      <li class="grid gap-4 rounded-xl border border-gray-200 bg-white p-6 lg:grid-cols-[minmax(18rem,1fr)_minmax(0,44rem)] lg:items-start">
+      <li class="grid gap-4 rounded-xl border border-gray-200 bg-white p-6 lg:grid-cols-[minmax(18rem,1fr)_minmax(0,44rem)] lg:items-start" data-family-locale-assignment-key="${y(f)}">
         <div class="min-w-0">
           <div class="flex flex-wrap items-center gap-2">
-            <span class="text-sm font-semibold text-gray-900">${m(c.locale.toUpperCase())}</span>
-            ${c.isSource ? '<span class="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700">Source</span>' : ""}
-            <span class="rounded-full px-2 py-0.5 text-xs font-medium ${et(c.status)}">${m(S(c.status))}</span>
+            <span class="text-sm font-semibold text-gray-900">${u(g.toUpperCase())}</span>
+            <span class="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700">${u(b)}</span>
+            <span class="rounded-full bg-sky-50 px-2 py-0.5 text-xs font-medium text-sky-700">Assignment</span>
           </div>
-          <p class="mt-2 text-sm text-gray-600">${m(u)}</p>
-          <p class="mt-1 text-xs text-gray-500">Updated ${m(ce(c.updatedAt || c.createdAt)) || "n/a"}</p>
-          ${dt(l)}
+          <p class="mt-2 text-sm text-gray-600">${u(v)}</p>
+          <p class="mt-1 text-xs text-gray-500">Additional work scope</p>
+          ${Ie(m)}
         </div>
         <div class="flex min-w-0 flex-wrap items-center gap-2 lg:justify-end">
-          ${mt(l)}
-          ${f}
+          ${Re(m)}
         </div>
       </li>
     `;
+  }, l = e.localeVariants.flatMap((m) => {
+    const f = n(m.locale).toLowerCase();
+    f && o.add(f);
+    const g = pt(t, e, m), b = bt(e, m.locale), [v, $] = b[0] || ["", null];
+    v && r.add(v);
+    const S = g ? `<a href="${y(g)}" class="text-sm font-medium text-sky-700 hover:text-sky-800">Open locale</a>` : '<span class="text-sm text-gray-400">No content route</span>', A = m.fields.title || m.fields.slug || `${e.contentType} ${m.locale.toUpperCase()}`;
+    return [`
+      <li class="grid gap-4 rounded-xl border border-gray-200 bg-white p-6 lg:grid-cols-[minmax(18rem,1fr)_minmax(0,44rem)] lg:items-start">
+        <div class="min-w-0">
+          <div class="flex flex-wrap items-center gap-2">
+            <span class="text-sm font-semibold text-gray-900">${u(m.locale.toUpperCase())}</span>
+            ${m.isSource ? '<span class="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700">Source</span>' : ""}
+            <span class="rounded-full px-2 py-0.5 text-xs font-medium ${ct(m.status)}">${u(T(m.status))}</span>
+          </div>
+          <p class="mt-2 text-sm text-gray-600">${u(A)}</p>
+          <p class="mt-1 text-xs text-gray-500">Updated ${u(ue(m.updatedAt || m.createdAt)) || "n/a"}</p>
+          ${Ie($)}
+        </div>
+        <div class="flex min-w-0 flex-wrap items-center gap-2 lg:justify-end">
+          ${Re($)}
+          ${S}
+        </div>
+      </li>
+    `, ...b.slice(1).map(([P, x]) => (r.add(P), c(x, P)))];
   });
-  for (const c of s) o.push(`
+  for (const [m, f] of Object.entries(e.localeAssignments).sort(([g], [b]) => g.localeCompare(b))) {
+    if (r.has(m) || f.state === "source_locale") continue;
+    l.push(c(f, m)), r.add(m);
+    const g = n(f.locale).toLowerCase() || m.split(":")[0];
+    g && o.add(g);
+  }
+  for (const m of s) {
+    const f = n(m).toLowerCase();
+    o.has(f) || l.push(`
       <li class="flex flex-col items-start justify-between gap-4 rounded-xl border border-rose-200 bg-rose-50 p-6 sm:flex-row">
         <div>
           <div class="flex items-center gap-2">
-            <span class="text-sm font-semibold text-rose-900">${m(c.toUpperCase())}</span>
+            <span class="text-sm font-semibold text-rose-900">${u(m.toUpperCase())}</span>
             <span class="rounded-full bg-rose-100 px-2 py-0.5 text-xs font-medium text-rose-700">Missing required locale</span>
           </div>
           <p class="mt-2 text-sm text-rose-800">This locale is required by policy before the family is publish-ready.</p>
         </div>
-        <div class="flex-shrink-0">${r(c)}</div>
+        <div class="flex-shrink-0">${d(m)}</div>
       </li>
     `);
+  }
   return `
-    <section class="${B} p-6 shadow-sm" aria-labelledby="translation-family-locales">
+    <section class="${N} p-6 shadow-sm" aria-labelledby="translation-family-locales">
       <div class="flex items-center justify-between gap-3">
         <div>
           <h2 id="translation-family-locales" class="text-lg font-semibold text-gray-900">Locale coverage</h2>
@@ -989,16 +1139,16 @@ function bt(e, a) {
         </div>
       </div>
       <ul class="mt-5 space-y-3" role="list">
-        ${o.join("") || '<li class="rounded-xl border border-gray-200 bg-gray-50 p-6 text-sm text-gray-500">No locale variants available.</li>'}
+        ${l.join("") || '<li class="rounded-xl border border-gray-200 bg-gray-50 p-6 text-sm text-gray-500">No locale variants available.</li>'}
       </ul>
     </section>
   `;
 }
-function ht(e) {
+function kt(e) {
   if (!e.activeAssignments.length) {
-    const a = ut(e), t = a[0]?.[1] || null, s = a.some(([, r]) => r.actions.assignToMe.enabled), i = a.some(([, r]) => r.actions.assignToUser.enabled);
+    const a = vt(e), t = a[0]?.[1] || null, s = a.some(([, r]) => r.actions.assignToMe.enabled), i = a.some(([, r]) => r.actions.assignToUser.enabled);
     return `
-      <section class="${B} p-6 shadow-sm" aria-labelledby="translation-family-assignments">
+      <section class="${N} p-6 shadow-sm" aria-labelledby="translation-family-assignments">
         <h2 id="translation-family-assignments" class="text-lg font-semibold text-gray-900">Assignments</h2>
         <p class="mt-1 text-sm text-gray-500">No active assignments are attached to this family.</p>
         ${a.length ? `
@@ -1006,16 +1156,16 @@ function ht(e) {
           <div class="grid gap-3 md:grid-cols-2 2xl:grid-cols-[minmax(10rem,0.8fr)_minmax(16rem,1fr)_auto_auto] 2xl:items-end">
             <label class="grid gap-2">
               <span class="text-sm font-medium text-gray-900">Locale</span>
-              <select class="${ta}" data-family-assignment-locale-select="true">
+              <select class="${ra}" data-family-assignment-locale-select="true">
                 ${a.map(([r, o]) => `
-                  <option value="${g(r)}" ${ft(o)}>${m(o.locale.toUpperCase())} · ${m(o.workScope || "__all__")}</option>
+                  <option value="${y(r)}" ${xt(o)}>${u(o.locale.toUpperCase())} · ${u(o.workScope || "__all__")}</option>
                 `).join("")}
               </select>
             </label>
             ${i ? `
               <label class="grid gap-2">
                 <span class="text-sm font-medium text-gray-900">Assignee</span>
-                ${be({
+                ${ve({
       key: "__empty_panel__",
       enabled: !!t?.actions.assignToUser.enabled,
       reason: t?.actions.assignToUser.reason,
@@ -1024,50 +1174,50 @@ function ht(e) {
               </label>
             ` : "<div></div>"}
             ${s ? `
-              <button type="button" class="${R} w-full 2xl:w-auto${Te(!!t?.actions.assignToMe.enabled)}" data-family-assign-to-me="true" data-locale-assignment-source="empty-panel"${ie(!!t?.actions.assignToMe.enabled, t?.actions.assignToMe.reason)}>
+              <button type="button" class="${R} w-full 2xl:w-auto${le(!!t?.actions.assignToMe.enabled)}" data-family-assign-to-me="true" data-locale-assignment-source="empty-panel"${oe(!!t?.actions.assignToMe.enabled, t?.actions.assignToMe.reason)}>
                 Assign to me
               </button>
             ` : "<div></div>"}
             ${i ? `
-              <button type="button" class="${F} w-full 2xl:w-auto${Te(!!t?.actions.assignToUser.enabled)}" data-family-assign-to-user="true" data-locale-assignment-source="empty-panel"${ie(!!t?.actions.assignToUser.enabled, t?.actions.assignToUser.reason)}>
+              <button type="button" class="${U} w-full 2xl:w-auto${le(!!t?.actions.assignToUser.enabled)}" data-family-assign-to-user="true" data-locale-assignment-source="empty-panel"${oe(!!t?.actions.assignToUser.enabled, t?.actions.assignToUser.reason)}>
                 Assign
               </button>
             ` : "<div></div>"}
           </div>
         </div>
-      ` : `<p class="mt-4 text-sm text-gray-500" data-family-assignment-action-reason="empty">${m(aa(Object.values(e.localeAssignments).find((r) => r.state !== "source_locale") || null) || "No assignable locale is available for this family.")}</p>`}
+      ` : `<p class="mt-4 text-sm text-gray-500" data-family-assignment-action-reason="empty">${u(ia(Object.values(e.localeAssignments).find((r) => r.state !== "source_locale") || null) || "No assignable locale is available for this family.")}</p>`}
       </section>
     `;
   }
   return `
-    <section class="${B} p-6 shadow-sm" aria-labelledby="translation-family-assignments">
+    <section class="${N} p-6 shadow-sm" aria-labelledby="translation-family-assignments">
       <h2 id="translation-family-assignments" class="text-lg font-semibold text-gray-900">Assignments</h2>
       <p class="mt-1 text-sm text-gray-500">Current cross-locale work in progress for this family.</p>
       <ul class="mt-5 space-y-3" role="list">
         ${e.activeAssignments.map((a) => {
-    const t = Xe(a.dueDate), s = t === "none" ? "No due date" : S(t), i = a.links.editor;
+    const t = ta(a.dueDate), s = t === "none" ? "No due date" : T(t), i = a.links.editor;
     return `
               <li class="flex flex-col gap-4 rounded-xl border border-gray-200 bg-gray-50 p-6 sm:flex-row sm:items-start sm:justify-between">
                 <div class="min-w-0">
                   <div class="flex flex-wrap items-center gap-2">
-                    <span class="text-sm font-semibold text-gray-900">${m(a.targetLocale.toUpperCase())}</span>
-                    <span class="rounded-full px-2 py-0.5 text-xs font-medium ${Qe(a.status)}">${m(S(a.status))}</span>
-                    <span class="rounded-full px-2 py-0.5 text-xs font-medium ${Je(t)}">${m(s)}</span>
+                    <span class="text-sm font-semibold text-gray-900">${u(a.targetLocale.toUpperCase())}</span>
+                    <span class="rounded-full px-2 py-0.5 text-xs font-medium ${Ze(a.status)}">${u(T(a.status))}</span>
+                    <span class="rounded-full px-2 py-0.5 text-xs font-medium ${aa(t)}">${u(s)}</span>
                   </div>
                   <p class="mt-2 text-sm text-gray-600">
-                    ${m(ea(a))}
+                    ${u(na(a))}
                     <span class="text-gray-400">·</span>
-                    Priority ${m(a.priority || "normal")}
+                    Priority ${u(a.priority || "normal")}
                   </p>
-                  <p class="mt-1 text-xs text-gray-500">Updated ${m(ce(a.updatedAt || a.createdAt)) || "n/a"}</p>
+                  <p class="mt-1 text-xs text-gray-500">Updated ${u(ue(a.updatedAt || a.createdAt)) || "n/a"}</p>
                 </div>
                 ${i ? `
                   <a
                     class="inline-flex flex-shrink-0 items-center justify-center rounded-md border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-sky-700 hover:border-sky-200 hover:bg-sky-50 hover:text-sky-900 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2"
-                    data-family-assignment-editor-link="${g(a.id)}"
-                    href="${g(i.href)}"
-                    title="${g(i.description || i.label)}"
-                  >${m(i.label || "Open editor")}</a>
+                    data-family-assignment-editor-link="${y(a.id)}"
+                    href="${y(i.href)}"
+                    title="${y(i.description || i.label)}"
+                  >${u(i.label || "Open editor")}</a>
                 ` : ""}
               </li>
             `;
@@ -1076,25 +1226,25 @@ function ht(e) {
     </section>
   `;
 }
-function vt(e) {
+function Tt(e) {
   const a = e.blockers.length ? e.blockers.map((t) => {
     const s = [t.locale && t.locale.toUpperCase(), t.fieldPath].filter(Boolean).join(" · ");
     return `
             <li class="rounded-lg border border-gray-200 bg-white p-3">
               <div class="flex flex-wrap items-center gap-2">
-                <span class="rounded-full px-2 py-0.5 text-xs font-medium ${We(t.blockerCode)}">${m(st(t))}</span>
-                ${s ? `<span class="text-sm text-gray-600">${m(s)}</span>` : ""}
+                <span class="rounded-full px-2 py-0.5 text-xs font-medium ${ea(t.blockerCode)}">${u(ut(t))}</span>
+                ${s ? `<span class="text-sm text-gray-600">${u(s)}</span>` : ""}
               </div>
-              ${it(t)}
+              ${gt(t)}
             </li>
           `;
   }).join("") : '<li class="text-sm text-gray-500">No blockers recorded.</li>';
   return `
-    <section class="${B} p-6 shadow-sm" aria-labelledby="translation-family-publish-gate">
+    <section class="${N} p-6 shadow-sm" aria-labelledby="translation-family-publish-gate">
       <h2 id="translation-family-publish-gate" class="text-lg font-semibold text-gray-900">Publish gate</h2>
       <div class="mt-4 rounded-xl ${e.publishGate.allowed ? "border border-emerald-200 bg-emerald-50" : "border border-amber-200 bg-amber-50"} p-6">
         <div class="flex flex-wrap items-center gap-3">
-          ${ge(e.readinessState)}
+          ${pe(e.readinessState)}
           <span class="text-sm font-medium ${e.publishGate.allowed ? "text-emerald-800" : "text-amber-800"}">
             ${e.publishGate.allowed ? "Eligible to publish." : "Publishing is blocked until blockers are cleared."}
           </span>
@@ -1109,7 +1259,7 @@ function vt(e) {
           <ul class="mt-3 space-y-2 text-sm text-gray-600" role="list">
             <li>Review required: <strong class="text-gray-900">${e.publishGate.reviewRequired ? "Yes" : "No"}</strong></li>
             <li>Override allowed: <strong class="text-gray-900">${e.publishGate.overrideAllowed ? "Yes" : "No"}</strong></li>
-            <li>Available locales: <strong class="text-gray-900">${m(e.readinessSummary.availableLocales.join(", ") || "None")}</strong></li>
+            <li>Available locales: <strong class="text-gray-900">${u(e.readinessSummary.availableLocales.join(", ") || "None")}</strong></li>
           </ul>
         </div>
         <div>
@@ -1120,31 +1270,31 @@ function vt(e) {
     </section>
   `;
 }
-function xt(e) {
-  const a = yt(e);
+function qt(e) {
+  const a = wt(e);
   return `
-    <section class="${B} p-6 shadow-sm" aria-labelledby="translation-family-activity">
+    <section class="${N} p-6 shadow-sm" aria-labelledby="translation-family-activity">
       <h2 id="translation-family-activity" class="text-lg font-semibold text-gray-900">Activity preview</h2>
       <p class="mt-1 text-sm text-gray-500">Recent server timestamps across variants and active assignments.</p>
       ${a.length ? `<ol class="mt-5 space-y-3" role="list">
               ${a.map((t) => `
                     <li class="rounded-xl border border-gray-200 bg-gray-50 p-6">
                       <div class="flex flex-wrap items-center gap-2">
-                        <span class="text-sm font-semibold text-gray-900">${m(t.title)}</span>
-                        <span class="rounded-full px-2 py-0.5 text-xs font-medium ${t.tone === "success" ? "bg-emerald-100 text-emerald-700" : t.tone === "warning" ? "bg-amber-100 text-amber-700" : "bg-gray-100 text-gray-700"}">${m(ce(t.timestamp))}</span>
+                        <span class="text-sm font-semibold text-gray-900">${u(t.title)}</span>
+                        <span class="rounded-full px-2 py-0.5 text-xs font-medium ${t.tone === "success" ? "bg-emerald-100 text-emerald-700" : t.tone === "warning" ? "bg-amber-100 text-amber-700" : "bg-gray-100 text-gray-700"}">${u(ue(t.timestamp))}</span>
                       </div>
-                      <p class="mt-2 text-sm text-gray-600">${m(t.detail)}</p>
+                      <p class="mt-2 text-sm text-gray-600">${u(t.detail)}</p>
                     </li>
                   `).join("")}
             </ol>` : '<p class="mt-4 text-sm text-gray-500">No activity timestamps are available for this family yet.</p>'}
     </section>
   `;
 }
-function G(e) {
+function Y(e) {
   const a = [
-    e.requestId ? `Request ${m(e.requestId)}` : "",
-    e.traceId ? `Trace ${m(e.traceId)}` : "",
-    e.errorCode ? `Code ${m(e.errorCode)}` : ""
+    e.requestId ? `Request ${u(e.requestId)}` : "",
+    e.traceId ? `Trace ${u(e.traceId)}` : "",
+    e.errorCode ? `Code ${u(e.errorCode)}` : ""
   ].filter(Boolean);
   return a.length ? `
     <div class="mt-4 flex flex-wrap gap-2" aria-label="Diagnostics">
@@ -1152,44 +1302,44 @@ function G(e) {
     </div>
   ` : "";
 }
-function na(e) {
+function la(e) {
   return `
-    <div class="${va}" aria-busy="true" aria-label="Loading">
+    <div class="${La}" aria-busy="true" aria-label="Loading">
       <div class="flex flex-col items-center gap-3 text-gray-500">
         <span class="h-8 w-8 animate-spin rounded-full border-4 border-gray-200 border-t-gray-500"></span>
-        <span class="text-sm">${m(e)}</span>
+        <span class="text-sm">${u(e)}</span>
       </div>
     </div>
   `;
 }
-function re(e, a) {
+function ce(e, a) {
   return `
     <div class="flex items-center justify-center py-16" role="status" aria-label="Empty">
-      <div class="max-w-md ${xa} p-8 text-center shadow-sm">
-        <h2 class="${ya}">${m(e)}</h2>
-        <p class="${pa} mt-2">${m(a)}</p>
+      <div class="max-w-md ${$a} p-8 text-center shadow-sm">
+        <h2 class="${va}">${u(e)}</h2>
+        <p class="${xa} mt-2">${u(a)}</p>
       </div>
     </div>
   `;
 }
-function _t(e, a, t) {
+function It(e, a, t) {
   const s = t.syncRecovery, i = s?.canSync && t.syncStatus !== "completed" ? `
       <button
         type="button"
-        class="mt-4 ${F}"
+        class="mt-4 ${U}"
         data-family-sync-action="true"
-        data-family-sync-rpc="${g(s.rpcInvokePath)}"
-        data-family-sync-command="${g(s.commandName)}"
-        data-family-sync-family-id="${g(s.familyId)}"
-        data-family-sync-environment="${g(s.environment)}"
+        data-family-sync-rpc="${y(s.rpcInvokePath)}"
+        data-family-sync-command="${y(s.commandName)}"
+        data-family-sync-family-id="${y(s.familyId)}"
+        data-family-sync-environment="${y(s.environment)}"
       >
         Sync translation families
       </button>
-    ` : "", r = t.syncMessage ? m(t.syncMessage) : "";
+    ` : "", r = t.syncMessage ? u(t.syncMessage) : "";
   return `
-    <div class="${De} p-6" role="alert">
-      <h2 class="${Ue}">${m(e)}</h2>
-      <p class="${Be} mt-2">${m(a)}</p>
+    <div class="${Oe} p-6" role="alert">
+      <h2 class="${Me}">${u(e)}</h2>
+      <p class="${je} mt-2">${u(a)}</p>
       <p
         data-family-sync-feedback="true"
         class="mt-3 text-sm ${t.syncStatus === "failed" ? "text-rose-700" : "text-amber-700"}"
@@ -1204,86 +1354,86 @@ function _t(e, a, t) {
     </div>
   `;
 }
-function wt(e, a = {}) {
-  if (e.status === "loading") return na("Loading translation family...");
+function Rt(e, a = {}) {
+  if (e.status === "loading") return la("Loading translation family...");
   if (e.status === "empty") return `
-      ${re("Family detail unavailable", e.message || "This family detail view does not have a backing payload yet.")}
-      ${G(e)}
+      ${ce("Family detail unavailable", e.message || "This family detail view does not have a backing payload yet.")}
+      ${Y(e)}
     `;
   if (e.status === "error" || e.status === "conflict") return `
       <div class="translation-family-detail-error">
-        ${_t(e.status === "conflict" ? "Family detail conflict" : "Family detail failed to load", e.message || (e.status === "conflict" ? "The family detail payload is out of date. Reload to fetch the latest state." : "The translation family detail request failed."), e)}
-        ${G(e)}
+        ${It(e.status === "conflict" ? "Family detail conflict" : "Family detail failed to load", e.message || (e.status === "conflict" ? "The family detail payload is out of date. Reload to fetch the latest state." : "The translation family detail request failed."), e)}
+        ${Y(e)}
       </div>
     `;
   const t = e.detail;
-  if (!t) return re("Family detail unavailable", "No family detail payload was returned.");
-  const s = t.sourceVariant?.fields.title || t.sourceVariant?.fields.slug || `${t.contentType} family`, i = t.readinessSummary.blockerCodes.length ? t.readinessSummary.blockerCodes.map(S).join(", ") : "No blockers", r = ue(t), o = t.quickCreate.recommendedLocale || r[0] || "", c = !fe(t, o), d = o ? `
+  if (!t) return ce("Family detail unavailable", "No family detail payload was returned.");
+  const s = t.sourceVariant?.fields.title || t.sourceVariant?.fields.slug || `${t.contentType} family`, i = t.readinessSummary.blockerCodes.length ? t.readinessSummary.blockerCodes.map(T).join(", ") : "No blockers", r = ge(t), o = t.quickCreate.recommendedLocale || r[0] || "", d = !ye(t, o), c = o ? `
       <button
         type="button"
-        class="${F}${c ? " opacity-60 cursor-not-allowed" : ""}"
+        class="${U}${d ? " opacity-60 cursor-not-allowed" : ""}"
         data-family-create-locale="true"
-        data-locale="${g(o)}"
-        ${c ? 'aria-disabled="true"' : ""}
-        title="${g(c ? t.quickCreate.disabledReason || "Locale creation is unavailable." : `Create ${o.toUpperCase()} locale`)}"
+        data-locale="${y(o)}"
+        ${d ? 'aria-disabled="true"' : ""}
+        title="${y(d ? t.quickCreate.disabledReason || "Locale creation is unavailable." : `Create ${o.toUpperCase()} locale`)}"
       >
-        Create ${m(o.toUpperCase())}
+        Create ${u(o.toUpperCase())}
       </button>
     ` : "";
   return `
-    <div class="translation-family-detail space-y-6" data-family-id="${g(t.familyId)}" data-readiness-state="${g(t.readinessState)}">
+    <div class="translation-family-detail space-y-6" data-family-id="${y(t.familyId)}" data-readiness-state="${y(t.readinessState)}">
       <section class="rounded-[28px] border border-gray-200 bg-[linear-gradient(135deg,#f8fafc,white)] p-6 shadow-sm">
         <div class="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <p class="${ha}">Translation family</p>
-            <h1 class="${ba} mt-2">${m(s)}</h1>
-            <p class="mt-2 text-sm text-gray-600">${m(t.contentType)} · Source locale ${m(t.sourceLocale.toUpperCase())} · Family ${m(t.familyId)}</p>
+            <p class="${wa}">Translation family</p>
+            <h1 class="${_a} mt-2">${u(s)}</h1>
+            <p class="mt-2 text-sm text-gray-600">${u(t.contentType)} · Source locale ${u(t.sourceLocale.toUpperCase())} · Family ${u(t.familyId)}</p>
           </div>
           <div class="flex flex-wrap items-center gap-2">
-            ${ge(t.readinessState)}
-            <span class="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700">${m(i)}</span>
-            ${d}
+            ${pe(t.readinessState)}
+            <span class="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700">${u(i)}</span>
+            ${c}
           </div>
         </div>
         <div class="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          ${pt(t)}
+          ${At(t)}
         </div>
-        ${G(e)}
+        ${Y(e)}
       </section>
       <div class="grid gap-6 xl:grid-cols-[minmax(0,1.3fr)_minmax(320px,0.7fr)]">
         <div class="space-y-6">
-          ${bt(t, a)}
-          ${ht(t)}
+          ${St(t, a)}
+          ${kt(t)}
         </div>
         <div class="space-y-6">
-          ${vt(t)}
-          ${xt(t)}
+          ${Tt(t)}
+          ${qt(t)}
         </div>
       </div>
     </div>
   `;
 }
-async function oe(e, a = {}) {
+async function de(e, a = {}) {
   const t = n(e);
   if (!t) return {
     status: "empty",
     message: "The family detail route is missing its backing API endpoint."
   };
   try {
-    const s = await (a.fetch ? a.fetch(t, { headers: { Accept: "application/json" } }) : W(t, { headers: { Accept: "application/json" } })), i = n(s.headers.get("x-request-id")), r = X(s.headers);
+    const s = await (a.fetch ? a.fetch(t, { headers: { Accept: "application/json" } }) : J(t, { headers: { Accept: "application/json" } })), i = n(s.headers.get("x-request-id")), r = Z(s.headers);
     if (!s.ok) {
-      const c = await O(s), d = y(c.metadata?.sync_recovery), l = c.textCode === "NOT_FOUND" || L(d.syncable);
+      const d = await j(s), c = p(d.metadata?.sync_recovery), l = d.textCode === "NOT_FOUND" || w(c.syncable);
       return {
         status: s.status === 409 ? "conflict" : "error",
-        message: c.message,
+        message: d.message,
         requestId: i,
         traceId: r,
         statusCode: s.status,
-        errorCode: c.textCode,
-        syncRecovery: l ? Aa(d, { familyId: n(c.metadata?.family_id) }) : null
+        errorCode: d.textCode,
+        syncRecovery: l ? Ia(c, { familyId: n(d.metadata?.family_id) }) : null
       };
     }
-    const o = Ke(y(await s.json()));
+    const o = Qe(p(await s.json()));
     return o.familyId ? {
       status: "ready",
       detail: o,
@@ -1304,19 +1454,19 @@ async function oe(e, a = {}) {
     };
   }
 }
-function ia(e) {
-  const a = Fe(), t = a ? P(a, "channel") : "";
+function ca(e) {
+  const a = Ne(), t = a ? E(a, "channel") : "";
   if (t) return t;
   try {
-    return P(new URL(n(e), "http://localhost").searchParams, "channel") || "";
+    return E(new URL(n(e), "http://localhost").searchParams, "channel") || "";
   } catch {
     return "";
   }
 }
-function H(e, a, t = {}) {
-  e.innerHTML = wt(a, t);
+function G(e, a, t = {}) {
+  e.innerHTML = Rt(a, t);
 }
-var Lt = [
+var Pt = [
   "channel",
   "content_type",
   "readiness_state",
@@ -1325,46 +1475,46 @@ var Lt = [
   "page",
   "per_page"
 ];
-function Ct(e) {
+function Et(e) {
   const a = e ?? new URLSearchParams();
-  return Z({
-    channel: P(a, "channel") || "",
-    contentType: P(a, "content_type") || "",
-    readinessState: P(a, "readiness_state") || "",
-    blockerCode: P(a, "blocker_code") || "",
-    missingLocale: P(a, "missing_locale") || "",
+  return ee({
+    channel: E(a, "channel") || "",
+    contentType: E(a, "content_type") || "",
+    readinessState: E(a, "readiness_state") || "",
+    blockerCode: E(a, "blocker_code") || "",
+    missingLocale: E(a, "missing_locale") || "",
     page: Ce(a, "page") || 1,
     perPage: Ce(a, "per_page") || 50
   });
 }
-function qe(e = globalThis.location) {
-  return Ct(Fe(e));
+function Ee(e = globalThis.location) {
+  return Et(Ne(e));
 }
-function $t(e, a) {
+function Ft(e, a) {
   const t = new URLSearchParams(e ?? void 0);
-  for (const s of Lt) t.delete(s);
-  return Me(a).forEach((s, i) => t.set(i, s)), t.toString();
+  for (const s of Pt) t.delete(s);
+  return Ve(a).forEach((s, i) => t.set(i, s)), t.toString();
 }
-function ra(e, a = "/admin") {
+function da(e, a = "/admin") {
   const t = C(e);
   return t.endsWith("/translations/families") ? t.slice(0, -22) || "/" : `${C(a || "/admin")}/api`;
 }
-function he(e = "/admin") {
+function xe(e = "/admin") {
   return `${C(e || "/admin")}/translations/families`;
 }
-function At(e, a, t = "") {
-  const s = C(e || he("/admin")), i = new URLSearchParams();
-  return q(i, "channel", t), E(`${s}/${encodeURIComponent(n(a))}`, i);
+function Ut(e, a, t = "") {
+  const s = C(e || xe("/admin")), i = new URLSearchParams();
+  return I(i, "channel", t), F(`${s}/${encodeURIComponent(n(a))}`, i);
 }
-function ve(e, a) {
+function _e(e, a) {
   const t = n(e);
   if (!t) return "";
   const s = new URLSearchParams();
-  for (const [i, r] of Object.entries(a)) q(s, i, r);
-  return E(t, s);
+  for (const [i, r] of Object.entries(a)) I(s, i, r);
+  return F(t, s);
 }
-function St(e, a, t = {}) {
-  return ve(e, {
+function Dt(e, a, t = {}) {
+  return _e(e, {
     family_id: a.familyId,
     channel: n(t.channel),
     content_type: a.contentType || n(t.contentType),
@@ -1373,53 +1523,53 @@ function St(e, a, t = {}) {
     missing_locale: n(t.missingLocale)
   });
 }
-function kt(e, a, t = {}) {
-  return ve(e, {
+function Bt(e, a, t = {}) {
+  return _e(e, {
     family_id: a.familyId,
     channel: n(t.channel)
   });
 }
-function oa(e) {
+function ma(e) {
   return e.sourceTitle || e.sourceRecordId || e.familyId || "Translation family";
 }
-function T(e, a, t) {
-  return `<option value="${g(e)}" ${e === t ? "selected" : ""}>${m(a)}</option>`;
+function q(e, a, t) {
+  return `<option value="${y(e)}" ${e === t ? "selected" : ""}>${u(a)}</option>`;
 }
-function Tt(e) {
+function Nt(e) {
   const a = String(e.perPage || 50);
   return `
     <form class="rounded-lg border border-gray-200 bg-white p-4 shadow-sm" data-family-list-filters="true">
       <div class="grid gap-4 md:grid-cols-3 xl:grid-cols-7">
         <label class="block text-sm font-medium text-gray-700">
           <span>Channel</span>
-          <input name="channel" value="${g(e.channel)}" class="mt-1 block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-sky-500 focus:ring-sky-500" placeholder="default">
+          <input name="channel" value="${y(e.channel)}" class="mt-1 block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-sky-500 focus:ring-sky-500" placeholder="default">
         </label>
         <label class="block text-sm font-medium text-gray-700">
           <span>Readiness</span>
           <select name="readiness_state" class="mt-1 block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-sky-500 focus:ring-sky-500">
-            ${T("", "Any", e.readinessState)}
-            ${T("blocked", "Blocked", e.readinessState)}
-            ${T("ready", "Ready", e.readinessState)}
+            ${q("", "Any", e.readinessState)}
+            ${q("blocked", "Blocked", e.readinessState)}
+            ${q("ready", "Ready", e.readinessState)}
           </select>
         </label>
         <label class="block text-sm font-medium text-gray-700">
           <span>Blocker</span>
           <select name="blocker_code" class="mt-1 block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-sky-500 focus:ring-sky-500">
-            ${T("", "Any", e.blockerCode)}
-            ${T("missing_locale", "Missing locale", e.blockerCode)}
-            ${T("missing_field", "Missing field", e.blockerCode)}
-            ${T("pending_review", "Pending review", e.blockerCode)}
-            ${T("outdated_source", "Outdated source", e.blockerCode)}
-            ${T("policy_denied", "Policy issue", e.blockerCode)}
+            ${q("", "Any", e.blockerCode)}
+            ${q("missing_locale", "Missing locale", e.blockerCode)}
+            ${q("missing_field", "Missing field", e.blockerCode)}
+            ${q("pending_review", "Pending review", e.blockerCode)}
+            ${q("outdated_source", "Outdated source", e.blockerCode)}
+            ${q("policy_denied", "Policy issue", e.blockerCode)}
           </select>
         </label>
         <label class="block text-sm font-medium text-gray-700">
           <span>Missing locale</span>
-          <input name="missing_locale" value="${g(e.missingLocale)}" class="mt-1 block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-sky-500 focus:ring-sky-500" placeholder="fr">
+          <input name="missing_locale" value="${y(e.missingLocale)}" class="mt-1 block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-sky-500 focus:ring-sky-500" placeholder="fr">
         </label>
         <label class="block text-sm font-medium text-gray-700">
           <span>Content type</span>
-          <input name="content_type" value="${g(e.contentType)}" class="mt-1 block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-sky-500 focus:ring-sky-500" placeholder="pages">
+          <input name="content_type" value="${y(e.contentType)}" class="mt-1 block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-sky-500 focus:ring-sky-500" placeholder="pages">
         </label>
         <label class="block text-sm font-medium text-gray-700">
           <span>Per page</span>
@@ -1429,28 +1579,28 @@ function Tt(e) {
     "25",
     "50",
     "100"
-  ].map((t) => T(t, t, a)).join("")}
+  ].map((t) => q(t, t, a)).join("")}
           </select>
         </label>
         <div class="flex items-end gap-2">
-          <button type="submit" class="${F} w-full">Apply</button>
+          <button type="submit" class="${U} w-full">Apply</button>
         </div>
       </div>
-      <input type="hidden" name="page" value="${g(e.page)}">
+      <input type="hidden" name="page" value="${y(e.page)}">
     </form>
   `;
 }
-function Ie(e, a = "None") {
+function Fe(e, a = "None") {
   return e.length ? `
     <span class="flex flex-wrap gap-1">
-      ${e.map((t) => `<span class="rounded bg-gray-100 px-1.5 py-0.5 text-xs font-medium uppercase text-gray-700">${m(t.toUpperCase())}</span>`).join("")}
+      ${e.map((t) => `<span class="rounded bg-gray-100 px-1.5 py-0.5 text-xs font-medium uppercase text-gray-700">${u(t.toUpperCase())}</span>`).join("")}
     </span>
-  ` : `<span class="text-gray-400">${m(a)}</span>`;
+  ` : `<span class="text-gray-400">${u(a)}</span>`;
 }
-function qt(e) {
+function Mt(e) {
   if (!e.blockerCodes.length) return '<span class="text-gray-400">No blockers</span>';
   const a = /* @__PURE__ */ new Set(), t = e.blockerCodes.map((s) => {
-    const i = e.blockerLabels[s] || S(s);
+    const i = e.blockerLabels[s] || T(s);
     return a.add(i.toLowerCase()), {
       code: s,
       label: i
@@ -1463,23 +1613,23 @@ function qt(e) {
       label: i
     }));
   }
-  return t.map(({ code: s, label: i }) => `<span class="rounded-full px-2 py-0.5 text-xs font-medium ${We(s)}">${m(i.toUpperCase())}</span>`).join(" ");
+  return t.map(({ code: s, label: i }) => `<span class="rounded-full px-2 py-0.5 text-xs font-medium ${ea(s)}">${u(i.toUpperCase())}</span>`).join(" ");
 }
-function te(e, a, t = "text-gray-900") {
+function ne(e, a, t = "text-gray-900") {
   return `
     <span class="inline-flex items-center gap-1 whitespace-nowrap rounded-md bg-gray-50 px-2 py-1 text-xs">
-      <span class="font-semibold ${t}">${m(e)}</span>
-      <span class="font-semibold uppercase tracking-wide text-gray-500">${m(a.toUpperCase())}</span>
+      <span class="font-semibold ${t}">${u(e)}</span>
+      <span class="font-semibold uppercase tracking-wide text-gray-500">${u(a.toUpperCase())}</span>
     </span>
   `;
 }
-function It(e, a, t, s) {
+function Ot(e, a, t, s) {
   return `
     <div class="relative flex justify-end" data-action-menu>
       <button type="button"
               class="actions-menu-trigger rounded-md p-2 text-gray-500 transition-colors hover:bg-gray-100"
               data-action-menu-trigger
-              aria-label="Actions for ${g(oa(e))}"
+              aria-label="Actions for ${y(ma(e))}"
               aria-haspopup="true"
               aria-expanded="false">
         <svg class="h-5 w-5" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
@@ -1493,15 +1643,15 @@ function It(e, a, t, s) {
         <a class="action-item flex w-full items-center px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
            data-action-menu-item
            role="menuitem"
-           href="${g(a)}">Open family</a>
-        ${t ? `<a class="action-item flex w-full items-center px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50" data-action-menu-item role="menuitem" href="${g(t)}">Matrix</a>` : ""}
-        ${s ? `<a class="action-item flex w-full items-center px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50" data-action-menu-item role="menuitem" href="${g(s)}">Queue</a>` : ""}
+           href="${y(a)}">Open family</a>
+        ${t ? `<a class="action-item flex w-full items-center px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50" data-action-menu-item role="menuitem" href="${y(t)}">Matrix</a>` : ""}
+        ${s ? `<a class="action-item flex w-full items-center px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50" data-action-menu-item role="menuitem" href="${y(s)}">Queue</a>` : ""}
       </div>
     </div>
   `;
 }
-function Re(e, a) {
-  return ve(e, {
+function Ue(e, a) {
+  return _e(e, {
     channel: n(a.channel),
     content_type: n(a.contentType),
     readiness_state: n(a.readinessState),
@@ -1509,46 +1659,46 @@ function Re(e, a) {
     missing_locale: n(a.missingLocale)
   });
 }
-function Rt(e, a, t) {
-  const s = t.familyBasePath || he(t.basePath || "/admin");
+function jt(e, a, t) {
+  const s = t.familyBasePath || xe(t.basePath || "/admin");
   return e.map((i) => {
-    const r = At(s, i.familyId, a.channel), o = t.matrixPath ? St(t.matrixPath, i, a) : "", c = t.queuePath ? kt(t.queuePath, i, a) : "", d = oa(i);
+    const r = Ut(s, i.familyId, a.channel), o = t.matrixPath ? Dt(t.matrixPath, i, a) : "", d = t.queuePath ? Bt(t.queuePath, i, a) : "", c = ma(i);
     return `
-      <tr class="border-b border-gray-200 last:border-0" data-family-id="${g(i.familyId)}">
+      <tr class="border-b border-gray-200 last:border-0" data-family-id="${y(i.familyId)}">
         <td class="max-w-[22rem] px-4 py-4 align-top">
           <div class="min-w-0">
-            <a href="${g(r)}" class="font-semibold text-gray-900 hover:text-sky-700">${m(d)}</a>
-            <p class="mt-1 break-all text-xs text-gray-500">${m(i.familyId)}</p>
-            <p class="mt-2 text-xs text-gray-500">${m(i.contentType || "unknown")} · Source ${m(i.sourceLocale.toUpperCase() || "n/a")}</p>
+            <a href="${y(r)}" class="font-semibold text-gray-900 hover:text-sky-700">${u(c)}</a>
+            <p class="mt-1 break-all text-xs text-gray-500">${u(i.familyId)}</p>
+            <p class="mt-2 text-xs text-gray-500">${u(i.contentType || "unknown")} · Source ${u(i.sourceLocale.toUpperCase() || "n/a")}</p>
           </div>
         </td>
-        <td class="px-4 py-4 align-top">${ge(i.readinessState)}</td>
-        <td class="px-4 py-4 align-top">${qt(i)}</td>
+        <td class="px-4 py-4 align-top">${pe(i.readinessState)}</td>
+        <td class="px-4 py-4 align-top">${Mt(i)}</td>
         <td class="px-4 py-4 align-top">
           <div class="flex flex-nowrap gap-1.5">
-            ${te(i.missingRequiredLocaleCount, "Missing", i.missingRequiredLocaleCount > 0 ? "text-rose-700" : "text-gray-900")}
-            ${te(i.pendingReviewCount, "Review", i.pendingReviewCount > 0 ? "text-amber-700" : "text-gray-900")}
-            ${te(i.outdatedLocaleCount, "Outdated", i.outdatedLocaleCount > 0 ? "text-violet-700" : "text-gray-900")}
+            ${ne(i.missingRequiredLocaleCount, "Missing", i.missingRequiredLocaleCount > 0 ? "text-rose-700" : "text-gray-900")}
+            ${ne(i.pendingReviewCount, "Review", i.pendingReviewCount > 0 ? "text-amber-700" : "text-gray-900")}
+            ${ne(i.outdatedLocaleCount, "Outdated", i.outdatedLocaleCount > 0 ? "text-violet-700" : "text-gray-900")}
           </div>
         </td>
         <td class="px-4 py-4 align-top">
           <div class="space-y-2 text-sm">
-            <div><span class="text-xs font-semibold uppercase tracking-wide text-gray-500">Available</span>${Ie(i.availableLocales)}</div>
-            <div><span class="text-xs font-semibold uppercase tracking-wide text-gray-500">Missing</span>${Ie(i.missingLocales)}</div>
+            <div><span class="text-xs font-semibold uppercase tracking-wide text-gray-500">Available</span>${Fe(i.availableLocales)}</div>
+            <div><span class="text-xs font-semibold uppercase tracking-wide text-gray-500">Missing</span>${Fe(i.missingLocales)}</div>
           </div>
         </td>
         <td class="px-4 py-4 align-top">
-          ${It(i, r, o, c)}
+          ${Ot(i, r, o, d)}
         </td>
       </tr>
     `;
   }).join("");
 }
-function Pt(e, a, t) {
-  const s = e.items.length ? (e.page - 1) * e.perPage + 1 : 0, i = Math.min(e.total, (e.page - 1) * e.perPage + e.items.length), r = e.page > 1, o = e.page * e.perPage < e.total, c = t.matrixPath || t.queuePath ? `
+function zt(e, a, t) {
+  const s = e.items.length ? (e.page - 1) * e.perPage + 1 : 0, i = Math.min(e.total, (e.page - 1) * e.perPage + e.items.length), r = e.page > 1, o = e.page * e.perPage < e.total, d = t.matrixPath || t.queuePath ? `
       <div class="inline-flex items-center gap-1 rounded-lg border border-gray-200 bg-white p-1" aria-label="Translation family views">
-        ${t.matrixPath ? `<a class="rounded px-2.5 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1" href="${g(Re(t.matrixPath, a))}">Matrix</a>` : ""}
-        ${t.queuePath ? `<a class="rounded px-2.5 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1" href="${g(Re(t.queuePath, a))}">Queue</a>` : ""}
+        ${t.matrixPath ? `<a class="rounded px-2.5 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1" href="${y(Ue(t.matrixPath, a))}">Matrix</a>` : ""}
+        ${t.queuePath ? `<a class="rounded px-2.5 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1" href="${y(Ue(t.queuePath, a))}">Queue</a>` : ""}
       </div>
     ` : "";
   return `
@@ -1556,12 +1706,12 @@ function Pt(e, a, t) {
       <div class="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 px-4 py-3">
         <div>
           <h2 id="translation-family-list-results" class="text-base font-semibold text-gray-900">Families</h2>
-          <p class="text-sm text-gray-500">${m(s)}-${m(i)} of ${m(e.total)} families</p>
+          <p class="text-sm text-gray-500">${u(s)}-${u(i)} of ${u(e.total)} families</p>
         </div>
         <div class="flex flex-wrap items-center gap-2">
-          ${c}
+          ${d}
           <button type="button" class="${R}" data-family-list-page="prev" ${r ? "" : "disabled"}>Previous</button>
-          <span class="text-sm text-gray-500">Page ${m(e.page)}</span>
+          <span class="text-sm text-gray-500">Page ${u(e.page)}</span>
           <button type="button" class="${R}" data-family-list-page="next" ${o ? "" : "disabled"}>Next</button>
         </div>
       </div>
@@ -1579,20 +1729,20 @@ function Pt(e, a, t) {
             </tr>
           </thead>
           <tbody class="divide-y divide-gray-100">
-            ${Rt(e.items, a, t)}
+            ${jt(e.items, a, t)}
           </tbody>
         </table>
       </div>
     </section>
   `;
 }
-function Et(e) {
+function Vt(e) {
   return `
-    <div class="${De} mt-6 p-6" role="alert">
-      <h2 class="${Ue}">Families failed to load</h2>
-      <p class="${Be} mt-2">${m(e.message || "The translation families request failed.")}</p>
-      ${e.requestURL ? `<p class="mt-3 break-all text-xs text-gray-500">Request ${m(e.requestURL)}</p>` : ""}
-      ${G({
+    <div class="${Oe} mt-6 p-6" role="alert">
+      <h2 class="${Me}">Families failed to load</h2>
+      <p class="${je} mt-2">${u(e.message || "The translation families request failed.")}</p>
+      ${e.requestURL ? `<p class="mt-3 break-all text-xs text-gray-500">Request ${u(e.requestURL)}</p>` : ""}
+      ${Y({
     status: "error",
     requestId: e.requestId,
     traceId: e.traceId,
@@ -1602,41 +1752,41 @@ function Et(e) {
     </div>
   `;
 }
-function Ft(e, a = {}) {
-  const t = e.filters, s = Tt(t);
-  if (e.status === "loading") return `${s}${na("Loading translation families...")}`;
-  if (e.status === "error") return `${s}${Et(e)}`;
+function Ht(e, a = {}) {
+  const t = e.filters, s = Nt(t);
+  if (e.status === "loading") return `${s}${la("Loading translation families...")}`;
+  if (e.status === "error") return `${s}${Vt(e)}`;
   const i = e.response;
-  return !i || e.status === "empty" || i.items.length === 0 ? `${s}${re("No translation families found", "No families match the current filters.")}` : `${s}${Pt(i, t, a)}`;
+  return !i || e.status === "empty" || i.items.length === 0 ? `${s}${ce("No translation families found", "No families match the current filters.")}` : `${s}${zt(i, t, a)}`;
 }
-function Pe(e, a, t = {}) {
-  e.innerHTML = Ft(a, t);
+function De(e, a, t = {}) {
+  e.innerHTML = Ht(a, t);
 }
-async function Ut(e, a, t = {}) {
-  const s = Oe(ra(e, t.basePath), a), i = t.fetch;
+async function Gt(e, a, t = {}) {
+  const s = He(da(e, t.basePath), a), i = t.fetch;
   try {
-    const r = await (i ? i(s, { headers: { Accept: "application/json" } }) : W(s, { headers: { Accept: "application/json" } })), o = n(r.headers.get("x-request-id")), c = X(r.headers);
+    const r = await (i ? i(s, { headers: { Accept: "application/json" } }) : J(s, { headers: { Accept: "application/json" } })), o = n(r.headers.get("x-request-id")), d = Z(r.headers);
     if (!r.ok) {
-      const l = await O(r);
+      const l = await j(r);
       return {
         status: "error",
         filters: a,
         message: l.message,
         requestURL: s,
         requestId: o,
-        traceId: c,
+        traceId: d,
         statusCode: r.status,
         errorCode: l.textCode
       };
     }
-    const d = ze(y(await r.json()));
+    const c = Ye(p(await r.json()));
     return {
-      status: d.items.length ? "ready" : "empty",
+      status: c.items.length ? "ready" : "empty",
       filters: a,
-      response: d,
+      response: c,
       requestURL: s,
       requestId: o,
-      traceId: c,
+      traceId: d,
       statusCode: r.status
     };
   } catch (r) {
@@ -1648,9 +1798,9 @@ async function Ut(e, a, t = {}) {
     };
   }
 }
-function Ee(e, a) {
-  const t = new FormData(e), s = (r, o) => t.has(r) ? n(t.get(r)) : o, i = (r, o) => t.has(r) ? w(t.get(r), o) : o;
-  return Z({
+function Be(e, a) {
+  const t = new FormData(e), s = (r, o) => t.has(r) ? n(t.get(r)) : o, i = (r, o) => t.has(r) ? L(t.get(r), o) : o;
+  return ee({
     channel: s("channel", a.channel),
     contentType: s("content_type", a.contentType),
     readinessState: s("readiness_state", a.readinessState),
@@ -1660,12 +1810,12 @@ function Ee(e, a) {
     perPage: i("per_page", a.perPage)
   });
 }
-function Dt(e) {
+function Kt(e) {
   if (typeof window > "u" || !window.history || !window.location) return;
-  const a = $t(new URLSearchParams(window.location.search), e), t = `${window.location.pathname}${a ? `?${a}` : ""}${window.location.hash || ""}`;
+  const a = Ft(new URLSearchParams(window.location.search), e), t = `${window.location.pathname}${a ? `?${a}` : ""}${window.location.hash || ""}`;
   window.history.pushState({}, "", t);
 }
-async function bs(e, a = {}) {
+async function ks(e, a = {}) {
   if (!e) return null;
   const t = e.dataset || {}, s = {
     endpoint: n(a.endpoint || t.endpoint),
@@ -1674,37 +1824,37 @@ async function bs(e, a = {}) {
     matrixPath: n(a.matrixPath || t.matrixPath),
     queuePath: n(a.queuePath || t.queuePath)
   };
-  if (s.familyBasePath || (s.familyBasePath = he(s.basePath)), t.ssrEnhanced === "true")
-    return e.dataset.translationFamilyListEnhanced = "true", la(e), {
+  if (s.familyBasePath || (s.familyBasePath = xe(s.basePath)), t.ssrEnhanced === "true")
+    return e.dataset.translationFamilyListEnhanced = "true", ua(e), {
       status: "ready",
-      filters: qe()
+      filters: Ee()
     };
-  let i = qe(), r = null;
-  const o = async (c, d = !1) => {
-    i = Z(c), d && Dt(i), Pe(e, {
+  let i = Ee(), r = null;
+  const o = async (d, c = !1) => {
+    i = ee(d), c && Kt(i), De(e, {
       status: "loading",
       filters: i
     }, s);
-    const l = await Ut(n(s.endpoint), i, {
+    const l = await Gt(n(s.endpoint), i, {
       fetch: a.fetch,
       basePath: s.basePath
     });
-    return r = l, Pe(e, l, s), Bt(e, l, o), l;
+    return r = l, De(e, l, s), Yt(e, l, o), l;
   };
   return r = await o(i, !1), r;
 }
-function Bt(e, a, t) {
-  la(e);
+function Yt(e, a, t) {
+  ua(e);
   const s = e.querySelector('[data-family-list-filters="true"]');
   s && (s.addEventListener("submit", (i) => {
     i.preventDefault(), t({
-      ...Ee(s, a.filters),
+      ...Be(s, a.filters),
       page: 1
     }, !0);
   }), s.querySelectorAll("select").forEach((i) => {
     i.addEventListener("change", () => {
       t({
-        ...Ee(s, a.filters),
+        ...Be(s, a.filters),
         page: 1
       }, !0);
     });
@@ -1721,19 +1871,19 @@ function Bt(e, a, t) {
     });
   });
 }
-function la(e) {
-  e.dataset.translationFamilyListActionMenusStandalone !== "true" && (Se.get(e)?.destroy(), Se.set(e, ga(e, {
+function ua(e) {
+  e.dataset.translationFamilyListActionMenusStandalone !== "true" && (ke.get(e)?.destroy(), ke.set(e, ha(e, {
     containerSelector: "[data-action-menu]",
     triggerSelector: "[data-action-menu-trigger]",
     menuSelector: "[data-action-menu-content]",
     itemSelector: '[data-action-menu-item], [role="menuitem"], .action-item'
   })));
 }
-function b(e, a) {
+function h(e, a) {
   const t = globalThis.toastManager, s = t?.[e];
   typeof s == "function" && s.call(t, a);
 }
-function Nt(e, a) {
+function Wt(e, a) {
   switch (e.textCode) {
     case "TRANSLATION_EXISTS":
       return `${a.toUpperCase()} already exists. Reload to open the existing locale.`;
@@ -1745,57 +1895,57 @@ function Nt(e, a) {
       return e.message || "Failed to create locale.";
   }
 }
-function Mt(e) {
+function Qt(e) {
   const a = n(e);
   if (!a) return "";
   const t = new Date(a);
   return Number.isNaN(t.getTime()) ? "" : `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, "0")}-${String(t.getDate()).padStart(2, "0")}T${String(t.getHours()).padStart(2, "0")}:${String(t.getMinutes()).padStart(2, "0")}`;
 }
-function Ot(e) {
+function Jt(e) {
   const a = n(e);
   if (!a) return "";
   const t = new Date(a);
   return Number.isNaN(t.getTime()) ? "" : t.toISOString();
 }
-function jt(e, a, t, s) {
+function Xt(e, a, t, s) {
   const i = n(e.locale).toLowerCase(), r = n(t).toLowerCase(), o = s ? e.navigation.contentEditURL || e.navigation.contentDetailURL : e.navigation.contentDetailURL || e.navigation.contentEditURL;
   return r && r === i && o ? o : i && a[i] ? a[i] : o;
 }
-function xe(e) {
+function we(e) {
   const a = typeof document < "u" ? document : null;
   if (!a) return;
   const t = e.quickCreate;
   if (!t.enabled || t.missingLocales.length === 0) {
-    b("warning", t.disabledReason || "Locale creation is unavailable.");
+    h("warning", t.disabledReason || "Locale creation is unavailable.");
     return;
   }
   const s = n(e.initialLocale || t.recommendedLocale || t.missingLocales[0]).toLowerCase(), i = t.missingLocales.includes(s) ? s : t.missingLocales[0], r = a.createElement("div");
-  r.className = La, r.setAttribute("data-translation-create-locale-modal", "true"), r.setAttribute("data-formgen-auto-init", "true"), r.innerHTML = `
-    <div class="${_a}" role="dialog" aria-modal="true" aria-labelledby="translation-create-locale-title">
+  r.className = Sa, r.setAttribute("data-translation-create-locale-modal", "true"), r.setAttribute("data-formgen-auto-init", "true"), r.innerHTML = `
+    <div class="${Ca}" role="dialog" aria-modal="true" aria-labelledby="translation-create-locale-title">
       <form class="p-6">
         <div class="flex items-start justify-between gap-4">
           <div>
             <p class="text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">Create locale</p>
-            <h2 id="translation-create-locale-title" class="mt-2 text-2xl font-semibold text-gray-900">${m(e.heading)}</h2>
-            <p class="mt-2 text-sm text-gray-600">Server-authored recommendations and publish requirements for family ${m(e.familyId)}.</p>
+            <h2 id="translation-create-locale-title" class="mt-2 text-2xl font-semibold text-gray-900">${u(e.heading)}</h2>
+            <p class="mt-2 text-sm text-gray-600">Server-authored recommendations and publish requirements for family ${u(e.familyId)}.</p>
           </div>
-          <button type="button" data-close-modal="true" class="${Ca}">Close</button>
+          <button type="button" data-close-modal="true" class="${ka}">Close</button>
         </div>
         <div class="mt-6 grid gap-4">
           <label class="grid gap-2">
             <span class="text-sm font-medium text-gray-900">Locale</span>
             <select name="locale" class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900">
-              ${t.missingLocales.map((_) => `
-                <option value="${g(_)}" ${_ === i ? "selected" : ""}>
-                  ${m(_.toUpperCase())}${_ === t.recommendedLocale ? " (recommended)" : ""}
+              ${t.missingLocales.map((x) => `
+                <option value="${y(x)}" ${x === i ? "selected" : ""}>
+                  ${u(x.toUpperCase())}${x === t.recommendedLocale ? " (recommended)" : ""}
                 </option>
               `).join("")}
             </select>
           </label>
           <div class="rounded-xl border border-gray-200 bg-gray-50 p-6 text-sm text-gray-700">
-            <p><strong>Required for publish:</strong> ${m(t.requiredForPublish.join(", ") || "None")}</p>
-            <p class="mt-2"><strong>Recommended locale:</strong> ${m(t.recommendedLocale.toUpperCase() || "N/A")}</p>
-            <p class="mt-2"><strong>Default work scope:</strong> ${m(t.defaultAssignment.workScope || "__all__")}</p>
+            <p><strong>Required for publish:</strong> ${u(t.requiredForPublish.join(", ") || "None")}</p>
+            <p class="mt-2"><strong>Recommended locale:</strong> ${u(t.recommendedLocale.toUpperCase() || "N/A")}</p>
+            <p class="mt-2"><strong>Default work scope:</strong> ${u(t.defaultAssignment.workScope || "__all__")}</p>
           </div>
           <label class="flex items-center gap-3 rounded-xl border border-gray-200 px-6 py-4">
             <input type="checkbox" name="auto_create_assignment" class="h-4 w-4 rounded border-gray-300 text-sky-600" ${t.defaultAssignment.autoCreateAssignment ? "checked" : ""}>
@@ -1804,7 +1954,7 @@ function xe(e) {
           <div data-assignment-fields="true" class="grid gap-4 rounded-xl border border-gray-200 p-6">
             <label class="grid gap-2">
               <span class="text-sm font-medium text-gray-900">Assignee</span>
-              ${be({
+              ${ve({
     key: "create-locale",
     name: "assignee_id",
     initialValue: t.defaultAssignment.assigneeId,
@@ -1819,87 +1969,87 @@ function xe(e) {
     "normal",
     "high",
     "urgent"
-  ].map((_) => `
-                  <option value="${_}" ${_ === (t.defaultAssignment.priority || "normal") ? "selected" : ""}>${S(_)}</option>
+  ].map((x) => `
+                  <option value="${x}" ${x === (t.defaultAssignment.priority || "normal") ? "selected" : ""}>${T(x)}</option>
                 `).join("")}
               </select>
             </label>
             <label class="grid gap-2">
               <span class="text-sm font-medium text-gray-900">Due date</span>
-              <input type="datetime-local" name="due_date" value="${g(Mt(t.defaultAssignment.dueDate))}" class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900">
+              <input type="datetime-local" name="due_date" value="${y(Qt(t.defaultAssignment.dueDate))}" class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900">
             </label>
           </div>
         </div>
         <div data-create-locale-feedback="true" class="mt-4 hidden rounded-xl border border-rose-200 bg-rose-50 px-6 py-4 text-sm text-rose-700"></div>
         <div class="mt-6 flex items-center justify-end gap-3">
           <button type="button" data-close-modal="true" class="${R}">Cancel</button>
-          <button type="submit" class="${F}">${m(e.submitLabel || "Create locale")}</button>
+          <button type="submit" class="${U}">${u(e.submitLabel || "Create locale")}</button>
         </div>
       </form>
     </div>
-  `, a.body.appendChild(r), we(r, e.assigneeOptionsBasePath || "/admin/api", { fetch: e.fetch });
-  const o = r.querySelector('[role="dialog"]'), c = r.querySelector("form"), d = r.querySelector('select[name="locale"]'), l = r.querySelector('input[name="auto_create_assignment"]'), f = r.querySelector('select[name="assignee_id"]'), u = r.querySelector('select[name="priority"]'), p = r.querySelector('input[name="due_date"]'), h = r.querySelector('[data-assignment-fields="true"]'), x = r.querySelector('[data-create-locale-feedback="true"]'), $ = r.querySelector('button[type="submit"]'), I = () => {
-    U(), r.remove();
-  }, k = () => {
-    !h || !l || (h.hidden = !l.checked);
-  }, U = o ? wa(o, I) : () => {
+  `, a.body.appendChild(r), Q(r, e.assigneeOptionsBasePath || "/admin/api", { fetch: e.fetch });
+  const o = r.querySelector('[role="dialog"]'), d = r.querySelector("form"), c = r.querySelector('select[name="locale"]'), l = r.querySelector('input[name="auto_create_assignment"]'), m = r.querySelector('select[name="assignee_id"]'), f = r.querySelector('select[name="priority"]'), g = r.querySelector('input[name="due_date"]'), b = r.querySelector('[data-assignment-fields="true"]'), v = r.querySelector('[data-create-locale-feedback="true"]'), $ = r.querySelector('button[type="submit"]'), S = () => {
+    P(), r.remove();
+  }, A = () => {
+    !b || !l || (b.hidden = !l.checked);
+  }, P = o ? Aa(o, S) : () => {
   };
-  k(), l?.addEventListener("change", k), r.querySelectorAll('[data-close-modal="true"]').forEach((_) => {
-    _.addEventListener("click", I);
-  }), r.addEventListener("click", (_) => {
-    _.target === r && I();
-  }), c?.addEventListener("submit", async (_) => {
-    if (_.preventDefault(), !d || !$) return;
-    x && (x.hidden = !0, x.textContent = ""), $.disabled = !0, $.classList.add("opacity-60", "cursor-not-allowed");
-    const D = n(d.value).toLowerCase();
+  A(), l?.addEventListener("change", A), r.querySelectorAll('[data-close-modal="true"]').forEach((x) => {
+    x.addEventListener("click", S);
+  }), r.addEventListener("click", (x) => {
+    x.target === r && S();
+  }), d?.addEventListener("submit", async (x) => {
+    if (x.preventDefault(), !c || !$) return;
+    v && (v.hidden = !0, v.textContent = ""), $.disabled = !0, $.classList.add("opacity-60", "cursor-not-allowed");
+    const D = n(c.value).toLowerCase();
     try {
-      const j = !!l?.checked, V = j ? {
-        assigneeId: f?.value,
-        priority: u?.value,
-        dueDate: Ot(p?.value || "")
-      } : {}, fa = await e.onSubmit({
+      const z = !!l?.checked, V = z ? {
+        assigneeId: m?.value,
+        priority: f?.value,
+        dueDate: Jt(g?.value || "")
+      } : {}, ba = await e.onSubmit({
         locale: D,
-        autoCreateAssignment: j,
+        autoCreateAssignment: z,
         ...V
       });
-      I(), await e.onSuccess?.(fa);
-    } catch (j) {
-      const V = Nt(j, D);
-      x && (x.hidden = !1, x.textContent = V), b("error", V);
+      S(), await e.onSuccess?.(ba);
+    } catch (z) {
+      const V = Wt(z, D);
+      v && (v.hidden = !1, v.textContent = V), h("error", V);
     } finally {
       $.disabled = !1, $.classList.remove("opacity-60", "cursor-not-allowed");
     }
   });
 }
-function Vt(e) {
+function Zt(e) {
   return {
     familyId: n(e.dataset.familyId),
     requestedLocale: n(e.dataset.requestedLocale).toLowerCase(),
     resolvedLocale: n(e.dataset.resolvedLocale).toLowerCase(),
     apiBasePath: n(e.dataset.apiBasePath || "/admin/api"),
-    quickCreate: de(Ae(e.dataset.quickCreate, {}), {}),
-    localeURLs: Ae(e.dataset.localeUrls, {})
+    quickCreate: fe(Se(e.dataset.quickCreate, {}), {}),
+    localeURLs: Se(e.dataset.localeUrls, {})
   };
 }
-function hs(e = document) {
+function Ts(e = document) {
   typeof document > "u" || e.querySelectorAll('[data-translation-summary-card="true"]').forEach((a) => {
     if (a.dataset.translationCreateBound === "true") return;
     a.dataset.translationCreateBound = "true";
-    const t = Vt(a), s = Le({ basePath: t.apiBasePath });
+    const t = Zt(a), s = $e({ basePath: t.apiBasePath });
     a.querySelectorAll('[data-action="create-locale"]').forEach((i) => {
       i.addEventListener("click", (r) => {
         r.preventDefault();
         const o = n(i.dataset.locale).toLowerCase() || t.quickCreate.recommendedLocale;
-        xe({
+        we({
           familyId: t.familyId,
           quickCreate: t.quickCreate,
           initialLocale: o,
           heading: `Create ${o.toUpperCase() || t.quickCreate.recommendedLocale.toUpperCase()} locale`,
           assigneeOptionsBasePath: t.apiBasePath,
-          onSubmit: (c) => s.createLocale(t.familyId, c),
-          onSuccess: async (c) => {
-            b("success", `${c.locale.toUpperCase()} locale created.`);
-            const d = typeof window < "u" && window.location.pathname.endsWith("/edit"), l = jt(c, t.localeURLs, t.requestedLocale, d);
+          onSubmit: (d) => s.createLocale(t.familyId, d),
+          onSuccess: async (d) => {
+            h("success", `${d.locale.toUpperCase()} locale created.`);
+            const c = typeof window < "u" && window.location.pathname.endsWith("/edit"), l = Xt(d, t.localeURLs, t.requestedLocale, c);
             if (l && typeof window < "u") {
               window.location.href = l;
               return;
@@ -1911,11 +2061,11 @@ function hs(e = document) {
     });
   });
 }
-function ca(e, a) {
+function fa(e, a) {
   const t = n(a.dataset.localeAssignmentKey).toLowerCase();
   return t || (n(a.dataset.localeAssignmentSource) === "empty-panel" ? n(e.querySelector('[data-family-assignment-locale-select="true"]')?.value).toLowerCase() : "");
 }
-function zt(e, a) {
+function es(e, a) {
   switch (a) {
     case "self":
       return e.actions.assignToMe;
@@ -1925,13 +2075,13 @@ function zt(e, a) {
       return e.actions.claim;
   }
 }
-function Ht(e, a, t) {
+function as(e, a, t) {
   if (n(t.dataset.localeAssignmentSource) === "empty-panel") return e.querySelector('[data-family-assignee-select="__empty_panel__"]');
   for (const s of Array.from(e.querySelectorAll("[data-family-assignee-select]"))) if (n(s.dataset.familyAssigneeSelect).toLowerCase() === a) return s;
   return null;
 }
-function Kt(e) {
-  if (!ae(e)) return "";
+function ts(e) {
+  if (!se(e)) return "";
   const a = e.previousElementSibling;
   if (!(a instanceof HTMLElement)) return "";
   const t = [
@@ -1953,8 +2103,8 @@ function Kt(e) {
     s?.getAttribute("data-relationship-value")
   ].map(n).find(Boolean) || "";
 }
-function da(e, a, t) {
-  const s = Ht(e, a, t);
+function ga(e, a, t) {
+  const s = as(e, a, t);
   if (!s) return {
     select: s,
     assigneeID: ""
@@ -1968,55 +2118,55 @@ function da(e, a, t) {
       s.dataset.value,
       s.dataset.selectedValue,
       s.dataset.initialAssigneeId,
-      Kt(s)
+      ts(s)
     ].map(n).find(Boolean) || ""
   };
 }
-function ma(e) {
+function ya(e) {
   if (!e) return;
   const a = e.previousElementSibling;
-  ((ae(e) && a instanceof HTMLElement ? a.querySelector("input") : null) || e).focus();
+  ((se(e) && a instanceof HTMLElement ? a.querySelector("input") : null) || e).focus();
 }
-function Gt(e) {
+function ss(e) {
   return e.description && e.description !== e.label ? `${e.label} - ${e.description}` : e.label;
 }
-function Yt(e, a) {
+function ns(e, a) {
   const t = n(e.value || e.dataset.initialAssigneeId), s = e.getAttribute("aria-label") || "Assignee", i = e.ownerDocument.createDocumentFragment(), r = e.ownerDocument.createElement("option");
   r.value = "", r.textContent = `Select ${s.toLowerCase()}`, i.appendChild(r);
   let o = t === "";
-  for (const c of a) {
-    const d = e.ownerDocument.createElement("option");
-    d.value = c.value, d.textContent = Gt(c), c.description && d.setAttribute("data-description", c.description), c.displayName && d.setAttribute("data-display-name", c.displayName), c.avatarURL && d.setAttribute("data-avatar-url", c.avatarURL), t && t === c.value && (d.selected = !0, o = !0), i.appendChild(d);
+  for (const d of a) {
+    const c = e.ownerDocument.createElement("option");
+    c.value = d.value, c.textContent = ss(d), d.description && c.setAttribute("data-description", d.description), d.displayName && c.setAttribute("data-display-name", d.displayName), d.avatarURL && c.setAttribute("data-avatar-url", d.avatarURL), t && t === d.value && (c.selected = !0, o = !0), i.appendChild(c);
   }
   if (t && !o) {
-    const c = e.ownerDocument.createElement("option");
-    c.value = t, c.textContent = t, c.selected = !0, i.appendChild(c);
+    const d = e.ownerDocument.createElement("option");
+    d.value = t, d.textContent = t, d.selected = !0, i.appendChild(d);
   }
   e.replaceChildren(i);
 }
-function ua(e) {
+function pa(e) {
   return Array.from(e.querySelectorAll("[data-family-assignee-select]"));
 }
-function _e(e) {
-  return ua(e).filter((a) => a.dataset.formgenManaged === "true");
+function Le(e) {
+  return pa(e).filter((a) => a.dataset.formgenManaged === "true");
 }
-function ae(e) {
+function se(e) {
   const a = e.previousElementSibling;
   return a instanceof HTMLElement && a.getAttribute("data-fg-typeahead-root") === "true";
 }
-function Qt(e) {
+function is(e) {
   return e.dataset.familyAssigneeFormgenReady === "true";
 }
-function Wt(e) {
-  for (const a of _e(e)) ae(a) && (a.dataset.familyAssigneeFormgenReady = "true");
+function rs(e) {
+  for (const a of Le(e)) se(a) && (a.dataset.familyAssigneeFormgenReady = "true");
 }
-function Jt(e) {
+function os(e) {
   for (const a of e)
-    delete a.dataset.familyAssigneeFormgenReady, ae(a) && a.previousElementSibling?.remove();
+    delete a.dataset.familyAssigneeFormgenReady, se(a) && a.previousElementSibling?.remove();
 }
-function Xt(e, a) {
+function ls(e, a) {
   const t = C(a || "/admin/api"), s = t.endsWith("/api") ? t.slice(0, -4) || "/admin" : C(t);
-  for (const i of _e(e)) {
+  for (const i of Le(e)) {
     const r = n(i.dataset.endpointUrl);
     if (!(!r || /^https?:\/\//i.test(r))) {
       if (r === "/api") {
@@ -2027,52 +2177,52 @@ function Xt(e, a) {
     }
   }
 }
-async function we(e, a, t = {}) {
-  const s = _e(e);
+async function Q(e, a, t = {}) {
+  const s = Le(e);
   if (s.length > 0 && typeof window < "u") {
-    Xt(e, a);
+    ls(e, a);
     const i = window.FormgenRelationships;
     if (i && typeof i.initRelationships == "function") {
       const r = e instanceof HTMLElement ? e : null, o = r?.hasAttribute("data-formgen-auto-init") ?? !1;
       r && !o && r.setAttribute("data-formgen-auto-init", "true");
       try {
-        await i.initRelationships(), Wt(e);
+        await i.initRelationships(), rs(e);
       } catch {
-        Jt(s);
+        os(s);
       } finally {
         r && !o && r.removeAttribute("data-formgen-auto-init");
       }
     }
   }
-  await Zt(e, a, t);
+  await cs(e, a, t);
 }
-async function Zt(e, a, t = {}) {
-  const s = ua(e).filter((r) => !Qt(r));
+async function cs(e, a, t = {}) {
+  const s = pa(e).filter((r) => !is(r));
   if (s.length === 0) return;
   const i = s.map((r) => n(r.dataset.initialAssigneeId || r.value)).filter(Boolean);
   try {
-    const r = await Xa(a, i, t);
-    for (const o of s) Yt(o, r);
+    const r = await ot(a, i, t);
+    for (const o of s) ns(o, r);
   } catch {
     for (const r of s) {
       const o = n(r.dataset.initialAssigneeId || r.value);
       r.replaceChildren();
-      const c = r.ownerDocument.createElement("option");
-      c.value = o, c.textContent = o || "Assignees unavailable", c.selected = !0, r.appendChild(c), o || (r.disabled = !0), r.setAttribute("title", "Assignee options are unavailable.");
+      const d = r.ownerDocument.createElement("option");
+      d.value = o, d.textContent = o || "Assignees unavailable", d.selected = !0, r.appendChild(d), o || (r.disabled = !0), r.setAttribute("title", "Assignee options are unavailable.");
     }
   }
 }
-function se(e, a, t = "") {
+function ie(e, a, t = "") {
   e && ("disabled" in e && (e.disabled = !a), e.classList.toggle("opacity-60", !a), e.classList.toggle("cursor-not-allowed", !a), a ? (e.removeAttribute("aria-disabled"), e.removeAttribute("title")) : (e.setAttribute("aria-disabled", "true"), e.setAttribute("title", t || "Assignment action is unavailable.")));
 }
-function Q(e) {
+function B(e) {
   const a = e.querySelector('[data-family-assignment-locale-select="true"]');
   if (!a) return;
   const t = a.selectedOptions[0], s = n(t?.dataset.assignToMeEnabled) === "true", i = n(t?.dataset.assignToUserEnabled) === "true", r = n(t?.dataset.assignToMeReason), o = n(t?.dataset.assignToUserReason);
-  se(e.querySelector('[data-family-assign-to-me="true"][data-locale-assignment-source="empty-panel"]'), s, r), se(e.querySelector('[data-family-assign-to-user="true"][data-locale-assignment-source="empty-panel"]'), i, o), se(e.querySelector('[data-family-assignee-select="__empty_panel__"]'), i, o);
+  ie(e.querySelector('[data-family-assign-to-me="true"][data-locale-assignment-source="empty-panel"]'), s, r), ie(e.querySelector('[data-family-assign-to-user="true"][data-locale-assignment-source="empty-panel"]'), i, o), ie(e.querySelector('[data-family-assignee-select="__empty_panel__"]'), i, o);
 }
-function es(e, a) {
-  const t = n(e.dataset.assignmentId), s = n(e.dataset.familyAssignmentAction), i = w(e.dataset.rowVersion, 0);
+function ds(e, a) {
+  const t = n(e.dataset.assignmentId), s = n(e.dataset.familyAssignmentAction), i = L(e.dataset.rowVersion, 0);
   return {
     enabled: !e.disabled && e.getAttribute("aria-disabled") !== "true",
     permission: "",
@@ -2087,120 +2237,125 @@ function es(e, a) {
     expectedVersion: i
   };
 }
-function as(e, a) {
+function ms(e, a) {
   return n(a.dataset.localeAssignmentSource) !== "empty-panel" ? null : e.querySelector('[data-family-assignment-locale-select="true"]')?.selectedOptions[0] ?? null;
 }
-function ts(e, a, t) {
-  const s = as(e, a), i = n(a.dataset.assignmentTargetLocale || s?.dataset.assignmentTargetLocale), r = n(a.dataset.assignmentWorkScope || s?.dataset.assignmentWorkScope), o = t === "self" ? n(a.dataset.assignmentEndpoint || s?.dataset.assignToMeEndpoint || s?.dataset.assignmentEndpoint) : t === "user" ? n(a.dataset.assignmentEndpoint || s?.dataset.assignToUserEndpoint || s?.dataset.assignmentEndpoint) : n(a.dataset.assignmentEndpoint), c = n(a.dataset.assignmentId), d = w(a.dataset.rowVersion, 0), l = {};
+function us(e, a, t) {
+  const s = ms(e, a), i = n(a.dataset.assignmentTargetLocale || s?.dataset.assignmentTargetLocale), r = n(a.dataset.assignmentWorkScope || s?.dataset.assignmentWorkScope), o = t === "self" ? n(a.dataset.assignmentEndpoint || s?.dataset.assignToMeEndpoint || s?.dataset.assignmentEndpoint) : t === "user" ? n(a.dataset.assignmentEndpoint || s?.dataset.assignToUserEndpoint || s?.dataset.assignmentEndpoint) : n(a.dataset.assignmentEndpoint), d = n(a.dataset.assignmentId), c = L(a.dataset.rowVersion, 0), l = {};
   if (i && (l.target_locale = i), r && (l.work_scope = r), t === "self") {
-    const u = n(a.dataset.assignmentAssigneeId || s?.dataset.assignToMeAssigneeId);
-    u && (l.assignee_id = u);
+    const f = n(a.dataset.assignmentAssigneeId || s?.dataset.assignToMeAssigneeId);
+    f && (l.assignee_id = f);
   }
-  let f = a.getAttribute("title") || "";
-  return o ? (t === "self" || t === "user") && !i ? f = f || "Assignment target locale is unavailable." : t === "self" && !n(l.assignee_id) && (f = f || "Self-assignment payload is unavailable.") : f = f || "Assignment action endpoint is unavailable.", {
-    enabled: !a.disabled && a.getAttribute("aria-disabled") !== "true" && !f,
+  let m = a.getAttribute("title") || "";
+  return o ? (t === "self" || t === "user") && !i ? m = m || "Assignment target locale is unavailable." : t === "self" && !n(l.assignee_id) && (m = m || "Self-assignment payload is unavailable.") : m = m || "Assignment action endpoint is unavailable.", {
+    enabled: !a.disabled && a.getAttribute("aria-disabled") !== "true" && !m,
     permission: "",
     endpoint: o,
     href: "",
     label: a.textContent?.trim() || t,
-    reason: f,
+    reason: m,
     reasonCode: "",
     requiredFields: [],
     payload: l,
-    assignmentId: c,
-    expectedVersion: d
+    assignmentId: d,
+    expectedVersion: c
   };
 }
-async function ss(e, a, t, s) {
-  const i = ra(a, t.basePath || "/admin"), r = n(e.dataset.familyId), o = ia(a) || n(e.dataset.channel), c = Le({
+async function fs(e, a, t, s) {
+  const i = da(a, t.basePath || "/admin"), r = n(e.dataset.familyId), o = ca(a) || n(e.dataset.channel), d = $e({
     basePath: i,
     fetch: s.fetch
   });
-  await we(e, i, { fetch: s.fetch }), Q(e), e.querySelector('[data-family-assignment-locale-select="true"]')?.addEventListener("change", () => {
-    Q(e);
+  await Q(e, i, { fetch: s.fetch }), e.dataset.translationEnhancedActionsBound !== "true" && (e.dataset.translationEnhancedActionsBound = "true", qa(e, {
+    fetch: s.fetch,
+    onFragmentsApplied: async () => {
+      await Q(e, i, { fetch: s.fetch }), B(e);
+    }
+  })), B(e), e.querySelector('[data-family-assignment-locale-select="true"]')?.addEventListener("change", () => {
+    B(e);
   }), e.querySelectorAll('[data-translation-create-locale-trigger="true"]').forEach((l) => {
-    l.dataset.translationCreateBound !== "true" && (l.dataset.translationCreateBound = "true", l.addEventListener("click", async (f) => {
-      if (f.preventDefault(), l.disabled || l.getAttribute("aria-disabled") === "true") {
-        b("warning", l.getAttribute("title") || "Locale creation is unavailable.");
+    l.dataset.translationCreateBound !== "true" && (l.dataset.translationCreateBound = "true", l.addEventListener("click", async (m) => {
+      if (m.preventDefault(), l.disabled || l.getAttribute("aria-disabled") === "true") {
+        h("warning", l.getAttribute("title") || "Locale creation is unavailable.");
         return;
       }
       l.disabled = !0, l.classList.add("opacity-60", "cursor-not-allowed");
       try {
-        const u = await oe(a, { fetch: s.fetch });
-        if (u.status !== "ready" || !u.detail) {
-          b("error", u.message || "Translation family detail is unavailable.");
+        const f = await de(a, { fetch: s.fetch });
+        if (f.status !== "ready" || !f.detail) {
+          h("error", f.message || "Translation family detail is unavailable.");
           return;
         }
-        const p = n(l.dataset.locale).toLowerCase() || u.detail.quickCreate.recommendedLocale || "";
-        xe({
-          familyId: u.detail.familyId || r,
-          quickCreate: Ye(u.detail, p),
-          initialLocale: p,
-          heading: `Create ${p.toUpperCase()} locale`,
+        const g = n(l.dataset.locale).toLowerCase() || f.detail.quickCreate.recommendedLocale || "";
+        we({
+          familyId: f.detail.familyId || r,
+          quickCreate: Xe(f.detail, g),
+          initialLocale: g,
+          heading: `Create ${g.toUpperCase()} locale`,
           assigneeOptionsBasePath: i,
           fetch: s.fetch,
-          onSubmit: (h) => c.createLocale(u.detail?.familyId || r, {
-            ...h,
+          onSubmit: (b) => d.createLocale(f.detail?.familyId || r, {
+            ...b,
             channel: o
           }),
-          onSuccess: async (h) => {
-            b("success", `${h.locale.toUpperCase()} locale created.`), typeof window < "u" && window.location.reload();
+          onSuccess: async (b) => {
+            h("success", `${b.locale.toUpperCase()} locale created.`), typeof window < "u" && window.location.reload();
           }
         });
-      } catch (u) {
-        b("error", u instanceof Error ? u.message : "Failed to open locale creation.");
+      } catch (f) {
+        h("error", f instanceof Error ? f.message : "Failed to open locale creation.");
       } finally {
         l.disabled = !1, l.classList.remove("opacity-60", "cursor-not-allowed");
       }
     }));
   });
-  const d = async (l, f) => {
-    const u = ts(e, l, f);
-    if (!u.enabled) {
-      b("warning", u.reason || "Assignment action is unavailable.");
+  const c = async (l, m) => {
+    const f = us(e, l, m);
+    if (!f.enabled) {
+      h("warning", f.reason || "Assignment action is unavailable.");
       return;
     }
-    const p = {};
-    if (f === "user") {
-      const { select: h, assigneeID: x } = da(e, ca(e, l), l);
-      if (!x) {
-        b("warning", "Assignee is required."), ma(h);
+    const g = {};
+    if (m === "user") {
+      const { select: b, assigneeID: v } = ga(e, fa(e, l), l);
+      if (!v) {
+        h("warning", "Assignee is required."), ya(b);
         return;
       }
-      p.assignee_id = x;
+      g.assignee_id = v;
     }
-    o && (p.channel = o), l.disabled = !0, l.classList.add("opacity-60", "cursor-not-allowed");
+    o && (g.channel = o), l.disabled = !0, l.classList.add("opacity-60", "cursor-not-allowed");
     try {
-      await ne(u, p, { fetch: s.fetch }), b("success", f === "claim" ? "Assignment claimed." : "Assignment updated."), typeof window < "u" && window.location.reload();
-    } catch (h) {
-      b("error", h instanceof Error ? h.message : "Failed to update assignment."), l.disabled = !1, l.classList.remove("opacity-60", "cursor-not-allowed");
+      await re(f, g, { fetch: s.fetch }), h("success", m === "claim" ? "Assignment claimed." : "Assignment updated."), typeof window < "u" && window.location.reload();
+    } catch (b) {
+      h("error", b instanceof Error ? b.message : "Failed to update assignment."), l.disabled = !1, l.classList.remove("opacity-60", "cursor-not-allowed");
     }
   };
   return e.querySelectorAll('[data-family-assign-to-me="true"]').forEach((l) => {
-    l.dataset.translationAssignmentBound !== "true" && (l.dataset.translationAssignmentBound = "true", l.addEventListener("click", (f) => {
-      f.preventDefault(), d(l, "self");
+    l.dataset.translationAssignmentBound !== "true" && (l.dataset.translationAssignmentBound = "true", l.addEventListener("click", (m) => {
+      m.preventDefault(), c(l, "self");
     }));
   }), e.querySelectorAll('[data-family-assign-to-user="true"]').forEach((l) => {
-    l.dataset.translationAssignmentBound !== "true" && (l.dataset.translationAssignmentBound = "true", l.addEventListener("click", (f) => {
-      f.preventDefault(), d(l, "user");
+    l.dataset.translationAssignmentBound !== "true" && (l.dataset.translationAssignmentBound = "true", l.addEventListener("click", (m) => {
+      m.preventDefault(), c(l, "user");
     }));
   }), e.querySelectorAll('[data-family-claim-assignment="true"]').forEach((l) => {
-    l.dataset.translationAssignmentBound !== "true" && (l.dataset.translationAssignmentBound = "true", l.addEventListener("click", (f) => {
-      f.preventDefault(), d(l, "claim");
+    l.dataset.translationAssignmentBound !== "true" && (l.dataset.translationAssignmentBound = "true", l.addEventListener("click", (m) => {
+      m.preventDefault(), c(l, "claim");
     }));
   }), e.querySelectorAll("[data-family-assignment-action]").forEach((l) => {
-    l.dataset.translationAssignmentBound !== "true" && (l.dataset.translationAssignmentBound = "true", l.addEventListener("click", async (f) => {
-      f.preventDefault();
-      const u = es(l, i);
-      if (!u.enabled) {
-        b("warning", u.reason || "Assignment action is unavailable.");
+    l.dataset.translationAssignmentBound !== "true" && (l.dataset.translationAssignmentBound = "true", l.addEventListener("click", async (m) => {
+      m.preventDefault();
+      const f = ds(l, i);
+      if (!f.enabled) {
+        h("warning", f.reason || "Assignment action is unavailable.");
         return;
       }
       l.disabled = !0, l.classList.add("opacity-60", "cursor-not-allowed");
       try {
-        await ne(u, o ? { channel: o } : {}, { fetch: s.fetch }), b("success", u.label ? `${u.label} complete.` : "Assignment updated."), typeof window < "u" && window.location.reload();
-      } catch (p) {
-        b("error", p instanceof Error ? p.message : "Failed to update assignment."), l.disabled = !1, l.classList.remove("opacity-60", "cursor-not-allowed");
+        await re(f, o ? { channel: o } : {}, { fetch: s.fetch }), h("success", f.label ? `${f.label} complete.` : "Assignment updated."), typeof window < "u" && window.location.reload();
+      } catch (g) {
+        h("error", g instanceof Error ? g.message : "Failed to update assignment."), l.disabled = !1, l.classList.remove("opacity-60", "cursor-not-allowed");
       }
     }));
   }), { status: "ready" };
@@ -2211,43 +2366,43 @@ async function K(e, a = {}) {
     basePath: n(a.basePath || t.basePath || "/admin"),
     contentBasePath: n(a.contentBasePath || t.contentBasePath)
   };
-  if (t.ssrEnhanced === "true") return ss(e, s, i, a);
-  H(e, { status: "loading" }, i);
-  const r = await oe(s, { fetch: a.fetch });
-  H(e, r, i);
-  const o = ia(s);
+  if (t.ssrEnhanced === "true") return fs(e, s, i, a);
+  G(e, { status: "loading" }, i);
+  const r = await de(s, { fetch: a.fetch });
+  G(e, r, i);
+  const o = ca(s);
   if (typeof e.querySelector == "function") {
     if (r.status === "ready" && r.detail) {
-      const l = `${C(i.basePath || "/admin")}/api`, f = Le({
+      const l = `${C(i.basePath || "/admin")}/api`, m = $e({
         basePath: l,
         fetch: a.fetch
       });
-      await we(e, l, { fetch: a.fetch }), e.querySelectorAll('[data-family-create-locale="true"]').forEach((p) => {
-        p.dataset.translationCreateBound !== "true" && (p.dataset.translationCreateBound = "true", p.addEventListener("click", (h) => {
-          h.preventDefault();
-          const x = r.detail;
-          if (!x) {
-            b("error", "Translation family detail is unavailable.");
+      await Q(e, l, { fetch: a.fetch }), e.querySelectorAll('[data-family-create-locale="true"]').forEach((g) => {
+        g.dataset.translationCreateBound !== "true" && (g.dataset.translationCreateBound = "true", g.addEventListener("click", (b) => {
+          b.preventDefault();
+          const v = r.detail;
+          if (!v) {
+            h("error", "Translation family detail is unavailable.");
             return;
           }
-          if (p.getAttribute("aria-disabled") === "true") {
-            b("warning", x.quickCreate.disabledReason || "Locale creation is unavailable.");
+          if (g.getAttribute("aria-disabled") === "true") {
+            h("warning", v.quickCreate.disabledReason || "Locale creation is unavailable.");
             return;
           }
-          const $ = n(p.dataset.locale).toLowerCase() || x.quickCreate.recommendedLocale || "", I = Ye(x, $);
-          xe({
-            familyId: x.familyId,
-            quickCreate: I,
+          const $ = n(g.dataset.locale).toLowerCase() || v.quickCreate.recommendedLocale || "", S = Xe(v, $);
+          we({
+            familyId: v.familyId,
+            quickCreate: S,
             initialLocale: $,
             heading: `Create ${$.toUpperCase()} locale`,
             assigneeOptionsBasePath: l,
             fetch: a.fetch,
-            onSubmit: (k) => f.createLocale(x.familyId, {
-              ...k,
+            onSubmit: (A) => m.createLocale(v.familyId, {
+              ...A,
               channel: o
             }),
-            onSuccess: async (k) => {
-              b("success", `${k.locale.toUpperCase()} locale created.`), await K(e, {
+            onSuccess: async (A) => {
+              h("success", `${A.locale.toUpperCase()} locale created.`), await K(e, {
                 ...a,
                 ...i,
                 endpoint: s
@@ -2256,59 +2411,59 @@ async function K(e, a = {}) {
           });
         }));
       });
-      const u = async (p, h) => {
-        const x = r.detail;
-        if (!x) {
-          b("error", "Translation family detail is unavailable.");
+      const f = async (g, b) => {
+        const v = r.detail;
+        if (!v) {
+          h("error", "Translation family detail is unavailable.");
           return;
         }
-        const $ = ca(e, p), I = $ ? x.localeAssignments[$] : null;
-        if (!I) {
-          b("error", "Assignment action metadata is unavailable.");
+        const $ = fa(e, g), S = $ ? v.localeAssignments[$] : null;
+        if (!S) {
+          h("error", "Assignment action metadata is unavailable.");
           return;
         }
-        const k = zt(I, h);
-        if (!k.enabled) {
-          b("warning", k.reason || "Assignment action is unavailable.");
+        const A = es(S, b);
+        if (!A.enabled) {
+          h("warning", A.reason || "Assignment action is unavailable.");
           return;
         }
-        const U = {};
-        if (h === "user") {
-          const { select: _, assigneeID: D } = da(e, $, p);
+        const P = {};
+        if (b === "user") {
+          const { select: x, assigneeID: D } = ga(e, $, g);
           if (!D) {
-            b("warning", "Assignee is required."), ma(_);
+            h("warning", "Assignee is required."), ya(x);
             return;
           }
-          U.assignee_id = D;
+          P.assignee_id = D;
         }
-        o && (U.channel = o), p.disabled = !0, p.classList.add("opacity-60", "cursor-not-allowed");
+        o && (P.channel = o), g.disabled = !0, g.classList.add("opacity-60", "cursor-not-allowed");
         try {
-          await ne(k, U, { fetch: a.fetch }), b("success", h === "claim" ? "Assignment claimed." : "Assignment updated."), await K(e, {
+          await re(A, P, { fetch: a.fetch }), h("success", b === "claim" ? "Assignment claimed." : "Assignment updated."), await K(e, {
             ...a,
             ...i,
             endpoint: s
           });
-        } catch (_) {
-          b("error", _ instanceof Error ? _.message : "Failed to update assignment."), p.disabled = !1, p.classList.remove("opacity-60", "cursor-not-allowed");
+        } catch (x) {
+          h("error", x instanceof Error ? x.message : "Failed to update assignment."), g.disabled = !1, g.classList.remove("opacity-60", "cursor-not-allowed");
         }
       };
-      Q(e), e.querySelector('[data-family-assignment-locale-select="true"]')?.addEventListener("change", () => {
-        Q(e);
-      }), e.querySelectorAll('[data-family-assign-to-me="true"]').forEach((p) => {
-        p.addEventListener("click", (h) => {
-          h.preventDefault(), u(p, "self");
+      B(e), e.querySelector('[data-family-assignment-locale-select="true"]')?.addEventListener("change", () => {
+        B(e);
+      }), e.querySelectorAll('[data-family-assign-to-me="true"]').forEach((g) => {
+        g.addEventListener("click", (b) => {
+          b.preventDefault(), f(g, "self");
         });
-      }), e.querySelectorAll('[data-family-assign-to-user="true"]').forEach((p) => {
-        p.addEventListener("click", (h) => {
-          h.preventDefault(), u(p, "user");
+      }), e.querySelectorAll('[data-family-assign-to-user="true"]').forEach((g) => {
+        g.addEventListener("click", (b) => {
+          b.preventDefault(), f(g, "user");
         });
-      }), e.querySelectorAll('[data-family-claim-assignment="true"]').forEach((p) => {
-        p.addEventListener("click", (h) => {
-          h.preventDefault(), u(p, "claim");
+      }), e.querySelectorAll('[data-family-claim-assignment="true"]').forEach((g) => {
+        g.addEventListener("click", (b) => {
+          b.preventDefault(), f(g, "claim");
         });
       });
     }
-    const c = () => {
+    const d = () => {
       const l = e.querySelector(".ui-state-retry-btn");
       l && l.addEventListener("click", () => {
         K(e, {
@@ -2318,141 +2473,141 @@ async function K(e, a = {}) {
         });
       });
     };
-    c();
-    const d = e.querySelector('[data-family-sync-action="true"]');
-    d && r.syncRecovery?.canSync && d.addEventListener("click", async (l) => {
-      l.preventDefault(), d.disabled = !0, d.classList.add("opacity-60", "cursor-not-allowed");
+    d();
+    const c = e.querySelector('[data-family-sync-action="true"]');
+    c && r.syncRecovery?.canSync && c.addEventListener("click", async (l) => {
+      l.preventDefault(), c.disabled = !0, c.classList.add("opacity-60", "cursor-not-allowed");
       try {
-        const f = r.syncRecovery;
-        if (!f) return;
-        await qa(f, {
+        const m = r.syncRecovery;
+        if (!m) return;
+        await Fa(m, {
           fetch: a.fetch,
           correlationId: r.requestId || ""
         });
-        const u = await oe(s, { fetch: a.fetch });
-        if (u.status === "error" && (u.errorCode === "NOT_FOUND" || u.statusCode === 404)) {
-          H(e, {
-            ...u,
-            syncRecovery: f,
+        const f = await de(s, { fetch: a.fetch });
+        if (f.status === "error" && (f.errorCode === "NOT_FOUND" || f.statusCode === 404)) {
+          G(e, {
+            ...f,
+            syncRecovery: m,
             syncStatus: "completed",
             syncMessage: "Sync completed; family detail still returned NOT_FOUND."
-          }, i), c();
+          }, i), d();
           return;
         }
-        if (u.status !== "ready") {
-          const p = u.message || "Sync completed, but family detail reload failed.";
-          H(e, {
-            ...u,
-            syncRecovery: f,
+        if (f.status !== "ready") {
+          const g = f.message || "Sync completed, but family detail reload failed.";
+          G(e, {
+            ...f,
+            syncRecovery: m,
             syncStatus: "failed",
-            syncMessage: p
-          }, i), c(), b("error", p);
+            syncMessage: g
+          }, i), d(), h("error", g);
           return;
         }
-        b("success", "Translation families synced."), await K(e, {
+        h("success", "Translation families synced."), await K(e, {
           ...a,
           ...i,
           endpoint: s
         });
-      } catch (f) {
-        const u = f instanceof Error ? f.message : "Failed to sync translation families.", p = e.querySelector('[data-family-sync-feedback="true"]');
-        p && (p.hidden = !1, p.textContent = u), d.disabled = !1, d.classList.remove("opacity-60", "cursor-not-allowed"), b("error", u);
+      } catch (m) {
+        const f = m instanceof Error ? m.message : "Failed to sync translation families.", g = e.querySelector('[data-family-sync-feedback="true"]');
+        g && (g.hidden = !1, g.textContent = f), c.disabled = !1, c.classList.remove("opacity-60", "cursor-not-allowed"), h("error", f);
       }
     });
   }
   return r;
 }
-function Le(e = {}) {
+function $e(e = {}) {
   const a = e.fetch ?? globalThis.fetch?.bind(globalThis);
   if (!a) throw new Error("translation-family client requires fetch");
   const t = C(e.basePath || "/admin/api");
   async function s(i) {
-    return le(i);
+    return me(i);
   }
   return {
     async list(i = {}) {
-      return ze(await s(await a(Oe(t, i), { headers: { Accept: "application/json" } })));
+      return Ye(await s(await a(He(t, i), { headers: { Accept: "application/json" } })));
     },
     async detail(i, r = "") {
-      return Ke(await s(await a(Ia(t, i, r), { headers: { Accept: "application/json" } })));
+      return Qe(await s(await a(Ua(t, i, r), { headers: { Accept: "application/json" } })));
     },
     async createLocale(i, r = {}) {
-      const o = Na({
+      const o = Va({
         ...r,
         familyId: i,
         basePath: t
-      }), c = new Headers(o.headers), d = {
-        method: "POST",
-        credentials: "same-origin",
-        headers: c,
-        body: JSON.stringify(Pa(o.request))
-      };
-      Y(o.endpoint, d, c);
-      const l = await a(o.endpoint, d);
-      if (!l.ok) throw await Ya(l);
-      return Ba(await s(l));
-    },
-    async createAssignment(i, r = {}) {
-      const o = Ve(r), c = Ea(t, i, o.channel), d = new Headers({
-        Accept: "application/json",
-        "Content-Type": "application/json"
-      });
-      o.idempotencyKey && d.set("X-Idempotency-Key", o.idempotencyKey);
-      const l = {
+      }), d = new Headers(o.headers), c = {
         method: "POST",
         credentials: "same-origin",
         headers: d,
-        body: JSON.stringify(Fa(o))
+        body: JSON.stringify(Ba(o.request))
       };
-      Y(c, l, d);
-      const f = await a(c, l);
-      if (!f.ok) throw await ye(f);
-      return s(f);
+      W(o.endpoint, c, d);
+      const l = await a(o.endpoint, c);
+      if (!l.ok) throw await st(l);
+      return za(await s(l));
+    },
+    async createAssignment(i, r = {}) {
+      const o = Ke(r), d = Na(t, i, o.channel), c = new Headers({
+        Accept: "application/json",
+        "Content-Type": "application/json"
+      });
+      o.idempotencyKey && c.set("X-Idempotency-Key", o.idempotencyKey);
+      const l = {
+        method: "POST",
+        credentials: "same-origin",
+        headers: c,
+        body: JSON.stringify(Ma(o))
+      };
+      W(d, l, c);
+      const m = await a(d, l);
+      if (!m.ok) throw await be(m);
+      return s(m);
     }
   };
 }
 export {
-  ys as applyCreateLocaleToFamilyDetail,
-  ps as applyCreateLocaleToSummaryState,
-  Ra as buildCreateLocaleURL,
-  yt as buildFamilyActivityPreview,
-  Ea as buildFamilyAssignmentURL,
-  At as buildFamilyDetailUIURL,
-  Ia as buildFamilyDetailURL,
-  $t as buildFamilyListBrowserSearch,
-  Me as buildFamilyListQuery,
-  Oe as buildFamilyListURL,
-  St as buildFamilyMatrixURL,
-  kt as buildFamilyQueueURL,
-  Sa as buildTranslationFamilySyncRPCRequest,
-  Z as createFamilyFilters,
-  Na as createTranslationCreateLocaleActionModel,
-  je as createTranslationCreateLocaleRequest,
-  Ve as createTranslationFamilyAssignmentRequest,
-  Le as createTranslationFamilyClient,
-  qa as dispatchTranslationFamilySync,
-  oe as fetchTranslationFamilyDetailState,
-  Ut as fetchTranslationFamilyListState,
-  Ga as getReadinessChip,
+  As as applyCreateLocaleToFamilyDetail,
+  Ss as applyCreateLocaleToSummaryState,
+  Da as buildCreateLocaleURL,
+  wt as buildFamilyActivityPreview,
+  Na as buildFamilyAssignmentURL,
+  Ut as buildFamilyDetailUIURL,
+  Ua as buildFamilyDetailURL,
+  Ft as buildFamilyListBrowserSearch,
+  Ve as buildFamilyListQuery,
+  He as buildFamilyListURL,
+  Dt as buildFamilyMatrixURL,
+  Bt as buildFamilyQueueURL,
+  Ra as buildTranslationFamilySyncRPCRequest,
+  ee as createFamilyFilters,
+  Va as createTranslationCreateLocaleActionModel,
+  Ge as createTranslationCreateLocaleRequest,
+  Ke as createTranslationFamilyAssignmentRequest,
+  $e as createTranslationFamilyClient,
+  Fa as dispatchTranslationFamilySync,
+  de as fetchTranslationFamilyDetailState,
+  Gt as fetchTranslationFamilyListState,
+  tt as getReadinessChip,
   K as initTranslationFamilyDetailPage,
-  bs as initTranslationFamilyListPage,
-  hs as initTranslationSummaryCards,
-  Ba as normalizeCreateLocaleResult,
-  Ke as normalizeFamilyDetail,
-  ze as normalizeFamilyListResponse,
-  Ma as normalizeFamilyListRow,
-  de as normalizeQuickCreateHints,
-  Aa as normalizeTranslationFamilySyncRecoveryCapability,
-  Ct as parseFamilyListFiltersFromSearchParams,
-  qe as readFamilyListFiltersFromLocation,
-  ge as renderReadinessChip,
-  H as renderTranslationFamilyDetailPage,
-  wt as renderTranslationFamilyDetailState,
-  Pe as renderTranslationFamilyListPage,
-  Ft as renderTranslationFamilyListState,
-  Pa as serializeCreateLocaleRequest,
-  Fa as serializeFamilyAssignmentRequest,
-  Mt as toDateTimeLocalInputValue
+  ks as initTranslationFamilyListPage,
+  Ts as initTranslationSummaryCards,
+  za as normalizeCreateLocaleResult,
+  Qe as normalizeFamilyDetail,
+  Ye as normalizeFamilyListResponse,
+  Ha as normalizeFamilyListRow,
+  fe as normalizeQuickCreateHints,
+  Ia as normalizeTranslationFamilySyncRecoveryCapability,
+  Et as parseFamilyListFiltersFromSearchParams,
+  Ee as readFamilyListFiltersFromLocation,
+  pe as renderReadinessChip,
+  G as renderTranslationFamilyDetailPage,
+  Rt as renderTranslationFamilyDetailState,
+  De as renderTranslationFamilyListPage,
+  Ht as renderTranslationFamilyListState,
+  Ba as serializeCreateLocaleRequest,
+  Ma as serializeFamilyAssignmentRequest,
+  Qt as toDateTimeLocalInputValue
 };
 
 //# sourceMappingURL=index.js.map

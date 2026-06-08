@@ -103,7 +103,17 @@ function cloneFixture(name) {
   return JSON.parse(JSON.stringify(fixtures[name]));
 }
 
-function assignmentActionFixture({ active = false, state = 'unassigned', assignToMeEnabled = !active, assignToUserEnabled = true } = {}) {
+function assignmentActionFixture({
+  active = false,
+  state = 'unassigned',
+  assignToMeEnabled = !active,
+  assignToUserEnabled = true,
+  assignToMeReason = assignToMeEnabled ? '' : 'current user identity is required',
+  assignToMeReasonCode = assignToMeEnabled ? '' : 'permission_denied',
+  claimEnabled = active,
+  claimReason = claimEnabled ? '' : 'no active assignment to claim',
+  claimReasonCode = claimEnabled ? '' : 'invalid_status',
+} = {}) {
   const detail = cloneFixture(active ? 'ready' : 'missing_locale');
   const locale = active ? 'fr' : 'es';
   const key = `${locale}:localization`;
@@ -111,11 +121,14 @@ function assignmentActionFixture({ active = false, state = 'unassigned', assignT
     ...detail.active_assignments[0],
     row_version: 2,
     assignee_label: 'Marie Curie',
+    display_assignee: 'Marie Curie <marie@example.test>',
     due_state: 'on_track',
     actions: {},
   } : null;
   if (!active) {
     detail.active_assignments = [];
+  } else {
+    detail.active_assignments = [assignment];
   }
   detail.locale_assignments = {
     [key]: {
@@ -129,8 +142,8 @@ function assignmentActionFixture({ active = false, state = 'unassigned', assignT
 	          permission: 'admin.translations.assign',
 	          endpoint: '/admin/api/translations/families/family-missing/assignments',
 	          required_fields: ['target_locale'],
-	          reason: assignToMeEnabled ? '' : 'current user identity is required',
-	          reason_code: assignToMeEnabled ? '' : 'permission_denied',
+	          reason: assignToMeReason,
+	          reason_code: assignToMeReasonCode,
 	          payload: {
 	            target_locale: locale,
 	            work_scope: 'localization',
@@ -150,9 +163,11 @@ function assignmentActionFixture({ active = false, state = 'unassigned', assignT
           },
         },
         claim: {
-          enabled: active,
+          enabled: claimEnabled,
           permission: 'admin.translations.claim',
           endpoint: '/admin/api/translations/assignments/asg-ready-fr/actions/claim',
+          reason: claimReason,
+          reason_code: claimReasonCode,
           required_fields: ['expected_version'],
           assignment_id: 'asg-ready-fr',
           expected_version: 2,
@@ -270,6 +285,134 @@ test('translation-family detail: empty assignment panel hides unavailable self a
   assert.doesNotMatch(html, /data-family-assign-to-me="true"/);
   assert.match(html, /data-family-assign-to-user="true"/);
   assert.match(html, /data-assign-to-me-enabled="false"/);
+});
+
+test('translation-family detail: current assignee coverage renders me and disabled assign-to-me', () => {
+  const detail = normalizeFamilyDetail(assignmentActionFixture({
+    active: true,
+    state: 'assigned_to_me',
+    assignToMeEnabled: false,
+    assignToMeReason: 'assignment already belongs to you',
+    assignToMeReasonCode: 'already_assigned',
+    claimEnabled: false,
+    claimReason: 'assignment already belongs to you',
+    claimReasonCode: 'already_assigned',
+  }));
+  const html = renderTranslationFamilyDetailState({ status: 'ready', detail }, {
+    basePath: '/admin',
+    contentBasePath: '/admin/content',
+  });
+  const dom = new JSDOM(html);
+  const summary = dom.window.document.querySelector('[data-family-locale-assignment-state="assigned_to_me"]');
+  const disabledAssignToMe = [...dom.window.document.querySelectorAll('button')]
+    .find((button) => button.textContent.trim() === 'Assign to me' && button.disabled);
+
+  assert.ok(summary, 'expected assigned_to_me locale summary');
+  assert.match(summary.textContent, /\bme\b/);
+  assert.doesNotMatch(summary.textContent, /No active assignment/i);
+  assert.ok(disabledAssignToMe, 'expected disabled Assign to me button');
+  assert.equal(disabledAssignToMe.getAttribute('aria-disabled'), 'true');
+  assert.match(disabledAssignToMe.getAttribute('title'), /already belongs to you/i);
+  assert.match(html, /Marie Curie &lt;marie@example.test&gt;/);
+});
+
+test('translation-family detail: reconciles stale locale coverage with active assignments', () => {
+  const payload = assignmentActionFixture({
+    active: true,
+    state: 'unassigned',
+    assignToMeEnabled: false,
+    assignToMeReason: 'assignment already belongs to you',
+    assignToMeReasonCode: 'already_assigned',
+    claimEnabled: false,
+  });
+  payload.locale_assignments['fr:localization'].assignment = null;
+  const detail = normalizeFamilyDetail(payload);
+  const html = renderTranslationFamilyDetailState({ status: 'ready', detail }, {
+    basePath: '/admin',
+    contentBasePath: '/admin/content',
+  });
+  const dom = new JSDOM(html);
+  const summary = dom.window.document.querySelector('[data-family-locale-assignment-state="assigned_to_other"]');
+
+  assert.ok(summary, 'expected reconciled assigned locale summary');
+  assert.match(summary.textContent, /Marie Curie <marie@example.test>/);
+  assert.doesNotMatch(summary.textContent, /No active assignment/i);
+});
+
+test('translation-family detail: skips stale missing-locale rows when an active assignment exists', () => {
+  const payload = assignmentActionFixture({
+    active: true,
+    state: 'unassigned',
+    assignToMeEnabled: false,
+    assignToMeReason: 'assignment already belongs to you',
+    assignToMeReasonCode: 'already_assigned',
+    claimEnabled: false,
+  });
+  const frAssignment = {
+    ...payload.active_assignments[0],
+    target_locale: 'fr',
+    work_scope: 'localization',
+    display_assignee: 'Marie Curie <marie@example.test>',
+  };
+  payload.locale_variants = payload.locale_variants.filter((variant) => variant.locale !== 'fr');
+  payload.active_assignments = [frAssignment];
+  payload.locale_assignments = {};
+  payload.readiness_summary = {
+    ...payload.readiness_summary,
+    missing_locales: ['fr'],
+    missing_required_locale_count: 1,
+  };
+
+  const detail = normalizeFamilyDetail(payload);
+  const html = renderTranslationFamilyDetailState({ status: 'ready', detail }, {
+    basePath: '/admin',
+    contentBasePath: '/admin/content',
+  });
+  const dom = new JSDOM(html);
+  const localePanel = dom.window.document.querySelector('[aria-labelledby="translation-family-locales"]');
+
+  assert.match(html, /Marie Curie &lt;marie@example.test&gt;/);
+  assert.ok(localePanel, 'expected locale coverage panel');
+  assert.doesNotMatch(localePanel.textContent, /Missing required locale/i);
+  assert.equal(localePanel.querySelector('[data-family-create-locale="true"]'), null);
+});
+
+test('translation-family detail: reconciles active assignments without collapsing work scopes', () => {
+  const payload = assignmentActionFixture({ active: true, state: 'unassigned' });
+  const seoAssignment = {
+    ...payload.active_assignments[0],
+    id: 'asg-ready-fr-seo',
+    work_scope: 'seo',
+    display_assignee: 'SEO Translator <seo@example.test>',
+  };
+  payload.active_assignments = [seoAssignment];
+  payload.locale_assignments = {
+    'fr:localization': {
+      ...payload.locale_assignments['fr:localization'],
+      work_scope: 'localization',
+      state: 'unassigned',
+      assignment: null,
+    },
+  };
+
+  const detail = normalizeFamilyDetail(payload);
+
+  assert.equal(detail.localeAssignments['fr:localization'].assignment, null);
+  assert.equal(detail.localeAssignments['fr:localization'].state, 'unassigned');
+  assert.equal(detail.localeAssignments['fr:seo'].assignment?.id, 'asg-ready-fr-seo');
+  assert.equal(detail.localeAssignments['fr:seo'].state, 'assigned_to_other');
+
+  const html = renderTranslationFamilyDetailState({ status: 'ready', detail }, {
+    basePath: '/admin',
+    contentBasePath: '/admin/content',
+  });
+  const dom = new JSDOM(html);
+  const seoSummary = dom.window.document.querySelector('[data-family-locale-assignment-state="assigned_to_other"]');
+  const unassignedSummary = dom.window.document.querySelector('[data-family-locale-assignment-state="unassigned"]');
+
+  assert.ok(seoSummary, 'expected synthesized seo assignment row');
+  assert.match(seoSummary.textContent, /SEO Translator <seo@example.test>/);
+  assert.ok(unassignedSummary, 'expected original localization row to remain unassigned');
 });
 
 test('translation-family detail: assign-to-me posts server-authored family assignment payload and reloads detail', async () => {
@@ -845,11 +988,19 @@ test('translation-family detail: distinguishes host policy denial from unavailab
 });
 
 test('translation-family detail: derives activity preview from variant and assignment timestamps', () => {
-  const detail = normalizeFamilyDetail(fixtures.outdated_source);
+  const payload = cloneFixture('outdated_source');
+  payload.active_assignments[0] = {
+    ...payload.active_assignments[0],
+    assigner_id: 'manager.fr',
+    display_assigner: 'Manager FR <manager.fr@example.test>',
+    display_assignee: 'Translator FR <translator.fr@example.test>',
+    assigned_at: '2026-03-09T13:00:00Z',
+  };
+  const detail = normalizeFamilyDetail(payload);
   const preview = buildFamilyActivityPreview(detail, 3);
 
   assert.equal(preview.length, 3);
-  assert.equal(preview[0].title.includes('variant published') || preview[0].title.includes('assignment'), true);
+  assert.equal(preview[0].title, 'Manager FR <manager.fr@example.test> assigned FR to Translator FR <translator.fr@example.test> on Mar 9, 2026');
   assert.equal(preview[0].timestamp >= preview[1].timestamp, true);
 });
 

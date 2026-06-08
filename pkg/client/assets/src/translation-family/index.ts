@@ -19,6 +19,7 @@ import {
 } from '../shared/query-state/url-state.js';
 import { parseJSONValue } from '../shared/json-parse.js';
 import { initActionMenus, type ActionMenuController } from '../shared/action-menu.js';
+import { initEnhancedActions } from '../shared/enhanced-action.js';
 import { extractStructuredError } from '../toast/error-helpers.js';
 import {
   BTN_PRIMARY,
@@ -115,10 +116,17 @@ export interface TranslationFamilyAssignment {
   status: string;
   assigneeId: string;
   assigneeLabel: string;
+  displayAssignee: string;
+  assignerId: string;
+  displayAssigner: string;
   reviewerId: string;
   reviewerLabel: string;
   priority: string;
   dueDate: string;
+  assignedAt: string;
+  displayAssignedAt: string;
+  assignedAtLegacyFallback: boolean;
+  activitySentence: string;
   dueState: string;
   rowVersion: number;
   createdAt: string;
@@ -473,6 +481,7 @@ export interface TranslationCreateLocaleAssignment {
   assigneeId: string;
   priority: string;
   dueDate: string;
+  assignedAt: string;
 }
 
 export interface TranslationCreateLocaleResult {
@@ -678,6 +687,7 @@ function normalizeCreateLocaleAssignment(input: Record<string, unknown>): Transl
     assigneeId: asString(input.assignee_id),
     priority: asString(input.priority),
     dueDate: asString(input.due_date),
+    assignedAt: asString(input.assigned_at),
   };
 }
 
@@ -895,10 +905,17 @@ function normalizeAssignment(input: Record<string, unknown>): TranslationFamilyA
     status: asString(input.status) || asString(input.queue_state),
     assigneeId: asString(input.assignee_id),
     assigneeLabel: asString(input.assignee_label),
+    displayAssignee: asString(input.display_assignee),
+    assignerId: asString(input.assigner_id ?? input.assignerId),
+    displayAssigner: asString(input.display_assigner ?? input.displayAssigner),
     reviewerId: asString(input.reviewer_id),
     reviewerLabel: asString(input.reviewer_label),
     priority: asString(input.priority),
     dueDate: asString(input.due_date),
+    assignedAt: asString(input.assigned_at ?? input.assignedAt),
+    displayAssignedAt: asString(input.display_assigned_at ?? input.displayAssignedAt),
+    assignedAtLegacyFallback: asBoolean(input.assigned_at_legacy_fallback ?? input.assignedAtLegacyFallback),
+    activitySentence: asString(input.activity_sentence ?? input.activitySentence),
     dueState: asString(input.due_state),
     rowVersion: asNumber(input.row_version ?? input.version),
     createdAt: asString(input.created_at),
@@ -949,6 +966,87 @@ function normalizeLocaleAssignments(input: Record<string, unknown>): Record<stri
   return out;
 }
 
+function reconcileLocaleAssignmentsWithActiveAssignments(
+  input: Record<string, TranslationFamilyLocaleAssignment>,
+  activeAssignments: TranslationFamilyAssignment[]
+): Record<string, TranslationFamilyLocaleAssignment> {
+  if (!activeAssignments.length) return input;
+  const out: Record<string, TranslationFamilyLocaleAssignment> = { ...input };
+  for (const assignment of activeAssignments) {
+    const locale = asString(assignment.targetLocale).toLowerCase();
+    if (!locale) continue;
+    const workScope = asString(assignment.workScope) || 'localization';
+    const exactKey = translationFamilyLocaleAssignmentKey(locale, workScope);
+    const [key, existing] = findLocaleAssignmentForReconciliation(out, exactKey, locale, workScope);
+    const next: TranslationFamilyLocaleAssignment = existing ? { ...existing } : {
+      locale,
+      workScope,
+      state: '',
+      assignment: null,
+      actions: normalizeLocaleAssignmentActions({}),
+    };
+    if (!next.assignment) {
+      next.assignment = assignment;
+    }
+    if (!next.state || next.state === 'unassigned') {
+      next.state = localeAssignmentStateFromAssignment(assignment);
+    }
+    if (!next.locale) next.locale = locale;
+    if (!next.workScope) next.workScope = workScope;
+    out[key] = next;
+  }
+  return out;
+}
+
+function findLocaleAssignmentForReconciliation(
+  input: Record<string, TranslationFamilyLocaleAssignment>,
+  exactKey: string,
+  locale: string,
+  workScope: string
+): [string, TranslationFamilyLocaleAssignment | null] {
+  if (input[exactKey]) return [exactKey, input[exactKey]];
+  const prefix = `${locale}:`;
+  const normalizedScope = asString(workScope).toLowerCase() || 'localization';
+  const genericScope = isGenericFamilyAssignmentWorkScope(normalizedScope);
+  for (const [key, value] of Object.entries(input)) {
+    if (!key.startsWith(prefix)) {
+      continue;
+    }
+    if (genericScope) {
+      return [key, value];
+    }
+    if (value.assignment) {
+      continue;
+    }
+    const valueScope = (asString(value.workScope) || key.slice(prefix.length) || 'localization').toLowerCase();
+    if (valueScope === normalizedScope) {
+      return [key, value];
+    }
+  }
+  return [exactKey, null];
+}
+
+function isGenericFamilyAssignmentWorkScope(workScope: string): boolean {
+  const normalized = asString(workScope).toLowerCase();
+  return !normalized || normalized === '__all__';
+}
+
+function localeAssignmentStateFromAssignment(assignment: TranslationFamilyAssignment): string {
+  switch (assignment.status) {
+    case 'open':
+      return 'open_pool';
+    case 'assigned':
+    case 'changes_requested':
+      return 'assigned_to_other';
+    case 'in_progress':
+      return 'in_progress';
+    case 'in_review':
+      return 'in_review';
+    default:
+      return 'terminal';
+  }
+}
+
 export function normalizeFamilyDetail(input: Record<string, unknown>): TranslationFamilyDetail {
   const data = asRecord(input.data);
   const body = Object.keys(data).length ? data : input;
@@ -960,7 +1058,10 @@ export function normalizeFamilyDetail(input: Record<string, unknown>): Translati
   const activeAssignments = Array.isArray(body.active_assignments)
     ? body.active_assignments.map((row) => normalizeAssignment(asRecord(row)))
     : [];
-  const localeAssignments = normalizeLocaleAssignments(asRecord(body.locale_assignments ?? body.localeAssignments));
+  const localeAssignments = reconcileLocaleAssignmentsWithActiveAssignments(
+    normalizeLocaleAssignments(asRecord(body.locale_assignments ?? body.localeAssignments)),
+    activeAssignments
+  );
   const publishGate = asRecord(body.publish_gate);
   const readinessSummary = asRecord(body.readiness_summary);
   const quickCreate = normalizeQuickCreateHints(asRecord(body.quick_create), {
@@ -1093,10 +1194,17 @@ export function applyCreateLocaleToFamilyDetail(
       status: result.assignment.status,
       assigneeId: result.assignment.assigneeId,
       assigneeLabel: result.assignment.assigneeId,
+      displayAssignee: result.assignment.assigneeId,
+      assignerId: '',
+      displayAssigner: '',
       reviewerId: '',
       reviewerLabel: '',
       priority: result.assignment.priority,
       dueDate: result.assignment.dueDate,
+      assignedAt: result.assignment.assignedAt || '',
+      displayAssignedAt: '',
+      assignedAtLegacyFallback: false,
+      activitySentence: '',
       dueState: '',
       rowVersion: 0,
       createdAt: '',
@@ -1546,9 +1654,51 @@ function localeAssignmentFor(
   return null;
 }
 
+function localeAssignmentEntriesFor(
+  detail: TranslationFamilyDetail,
+  locale: string
+): Array<[string, TranslationFamilyLocaleAssignment]> {
+  const normalizedLocale = asString(locale).toLowerCase();
+  if (!normalizedLocale) return [];
+  return Object.entries(detail.localeAssignments)
+    .filter(([key, value]) => {
+      const entryLocale = asString(value.locale).toLowerCase() || key.split(':')[0];
+      return entryLocale === normalizedLocale;
+    })
+    .sort(([leftKey, left], [rightKey, right]) => {
+      const leftRank = localeAssignmentStateRank(left);
+      const rightRank = localeAssignmentStateRank(right);
+      if (leftRank !== rightRank) return leftRank - rightRank;
+      const leftScope = asString(left.workScope).toLowerCase();
+      const rightScope = asString(right.workScope).toLowerCase();
+      if (leftScope !== rightScope) return leftScope.localeCompare(rightScope);
+      return leftKey.localeCompare(rightKey);
+    });
+}
+
+function localeAssignmentStateRank(localeAssignment: TranslationFamilyLocaleAssignment): number {
+  switch (localeAssignment.state) {
+    case 'assigned_to_me':
+      return 0;
+    case 'assigned_to_other':
+    case 'in_progress':
+    case 'in_review':
+      return 1;
+    case 'open_pool':
+      return 2;
+    case 'unassigned':
+    case '':
+      return 3;
+    case 'source_locale':
+      return 5;
+    default:
+      return 4;
+  }
+}
+
 function assignmentOwnerLabel(assignment: TranslationFamilyAssignment | null): string {
   if (!assignment) return 'Unassigned';
-  return assignment.assigneeLabel || assignment.assigneeId || 'Unassigned';
+  return assignment.displayAssignee || assignment.assigneeLabel || assignment.assigneeId || 'Unassigned';
 }
 
 function localeAssignmentReason(localeAssignment: TranslationFamilyLocaleAssignment | null): string {
@@ -1577,10 +1727,11 @@ function renderLocaleAssignmentSummary(localeAssignment: TranslationFamilyLocale
   }
   const dueState = assignment.dueState || deriveDueState(assignment.dueDate);
   const dueLabel = dueState === 'none' ? 'No due date' : sentenceCaseToken(dueState);
+  const ownerLabel = localeAssignment.state === 'assigned_to_me' ? 'me' : assignmentOwnerLabel(assignment);
   return `
     <div class="mt-2 flex flex-wrap items-center gap-2 text-xs text-gray-500" data-family-locale-assignment-state="${escapeAttribute(localeAssignment.state)}">
       <span class="rounded-full px-2 py-0.5 font-medium ${assignmentTone(assignment.status)}">${escapeHTML(sentenceCaseToken(assignment.status))}</span>
-      <span>${escapeHTML(assignmentOwnerLabel(assignment))}</span>
+      <span>${escapeHTML(ownerLabel)}</span>
       <span class="text-gray-300">·</span>
       <span>Priority ${escapeHTML(assignment.priority || 'normal')}</span>
       <span class="rounded-full px-2 py-0.5 font-medium ${dueTone(dueState)}">${escapeHTML(dueLabel)}</span>
@@ -1598,6 +1749,18 @@ function renderLocaleAssignmentActions(localeAssignment: TranslationFamilyLocale
   if (actions.assignToMe.enabled) {
     enabledActions.push(`
       <button type="button" class="${BTN_SECONDARY}" data-family-assign-to-me="true" data-locale-assignment-key="${escapeAttribute(key)}">
+        Assign to me
+      </button>
+    `);
+  } else if (actions.assignToMe.reasonCode === 'already_assigned') {
+    enabledActions.push(`
+      <button
+        type="button"
+        class="${BTN_SECONDARY}${emptyPanelDisabledClass(false)}"
+        disabled
+        aria-disabled="true"
+        title="${escapeAttribute(actions.assignToMe.reason || 'Assignment already belongs to you')}"
+      >
         Assign to me
       </button>
     `);
@@ -1747,16 +1910,14 @@ export function buildFamilyActivityPreview(
   }
 
   for (const assignment of detail.activeAssignments) {
-    const timestamp = assignment.updatedAt || assignment.createdAt;
+    const timestamp = assignment.assignedAt || assignment.updatedAt || assignment.createdAt;
     if (!timestamp) continue;
-    const owner = assignment.assigneeId
-      ? `Assigned to ${assignment.assigneeId}.`
-      : 'Currently unassigned.';
+    const sentence = assignmentActivitySentence(assignment);
     items.push({
       id: `assignment-${assignment.id}`,
       timestamp,
-      title: `${assignment.targetLocale.toUpperCase()} assignment ${sentenceCaseToken(assignment.status)}`,
-      detail: `${owner} Priority ${assignment.priority || 'normal'}.`,
+      title: sentence || `${assignment.targetLocale.toUpperCase()} assignment ${sentenceCaseToken(assignment.status)}`,
+      detail: sentence ? `Priority ${assignment.priority || 'normal'}.` : `${assignmentOwnerDetail(assignment)} Priority ${assignment.priority || 'normal'}.`,
       tone: assignment.status === 'changes_requested' ? 'warning' : 'neutral',
     });
   }
@@ -1764,6 +1925,45 @@ export function buildFamilyActivityPreview(
   return items
     .sort((left, right) => right.timestamp.localeCompare(left.timestamp))
     .slice(0, Math.max(1, limit));
+}
+
+function assignmentOwnerDetail(assignment: TranslationFamilyAssignment): string {
+  return assignment.assigneeId
+    ? `Assigned to ${assignment.displayAssignee || assignment.assigneeLabel || assignment.assigneeId}.`
+    : 'Currently unassigned.';
+}
+
+function assignmentActivitySentence(assignment: TranslationFamilyAssignment): string {
+  if (assignment.activitySentence) return assignment.activitySentence;
+  const assigner = assignment.displayAssigner || actorFallback(assignment.assignerId, 'System');
+  const locale = (assignment.targetLocale || '').toUpperCase();
+  const assignee = assignment.displayAssignee || assignment.assigneeLabel || actorFallback(assignment.assigneeId, 'Unassigned');
+  if (!assigner || !locale || !assignee) return '';
+  const date = assignment.displayAssignedAt || formatActivityDate(assignment.assignedAt);
+  if (!date) return `${assigner} assigned ${locale} to ${assignee}`;
+  if (assignment.assignedAtLegacyFallback) {
+    return `${assigner} assigned ${locale} to ${assignee}; created ${date}`;
+  }
+  return `${assigner} assigned ${locale} to ${assignee} on ${date}`;
+}
+
+function actorFallback(id: string, fallback: string): string {
+  const value = asString(id);
+  if (!value || value === '__me__' || value === '__missing_actor__') return fallback;
+  return value.length > 12 ? `${value.slice(0, 8)}...` : value;
+}
+
+function formatActivityDate(value: string): string {
+  const text = asString(value);
+  if (!text) return '';
+  const parsed = new Date(text);
+  if (Number.isNaN(parsed.getTime())) return text;
+  return new Intl.DateTimeFormat('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    timeZone: 'UTC',
+  }).format(parsed);
 }
 
 function renderFamilySummaryMetrics(detail: TranslationFamilyDetail): string {
@@ -1806,6 +2006,8 @@ function renderLocalePanel(detail: TranslationFamilyDetail, options: Translation
   const contentBasePath = trimTrailingSlash(options.contentBasePath || `${trimTrailingSlash(options.basePath || '/admin')}/content`);
   const missingLocales = detail.readinessSummary.missingLocales;
   const quickCreateReason = detail.quickCreate.disabledReason || 'Locale creation is unavailable for this family.';
+  const seenAssignmentKeys = new Set<string>();
+  const seenLocales = new Set<string>();
   const createLocaleButton = (locale: string): string => {
     const disabled = !canCreateFamilyLocale(detail, locale);
     return `
@@ -1821,14 +2023,44 @@ function renderLocalePanel(detail: TranslationFamilyDetail, options: Translation
       </button>
     `;
   };
-  const rows = detail.localeVariants.map((variant) => {
+  const renderAssignmentOnlyRow = (localeAssignment: TranslationFamilyLocaleAssignment, key: string): string => {
+    const locale = localeAssignment.locale || key.split(':')[0] || '';
+    const workScope = localeAssignment.workScope || key.split(':')[1] || '__all__';
+    const title = `${detail.contentType || 'translation'} ${locale.toUpperCase()}`;
+    return `
+      <li class="grid gap-4 rounded-xl border border-gray-200 bg-white p-6 lg:grid-cols-[minmax(18rem,1fr)_minmax(0,44rem)] lg:items-start" data-family-locale-assignment-key="${escapeAttribute(key)}">
+        <div class="min-w-0">
+          <div class="flex flex-wrap items-center gap-2">
+            <span class="text-sm font-semibold text-gray-900">${escapeHTML(locale.toUpperCase())}</span>
+            <span class="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700">${escapeHTML(workScope)}</span>
+            <span class="rounded-full bg-sky-50 px-2 py-0.5 text-xs font-medium text-sky-700">Assignment</span>
+          </div>
+          <p class="mt-2 text-sm text-gray-600">${escapeHTML(title)}</p>
+          <p class="mt-1 text-xs text-gray-500">Additional work scope</p>
+          ${renderLocaleAssignmentSummary(localeAssignment)}
+        </div>
+        <div class="flex min-w-0 flex-wrap items-center gap-2 lg:justify-end">
+          ${renderLocaleAssignmentActions(localeAssignment)}
+        </div>
+      </li>
+    `;
+  };
+  const rows = detail.localeVariants.flatMap((variant) => {
+    const variantLocale = asString(variant.locale).toLowerCase();
+    if (variantLocale) {
+      seenLocales.add(variantLocale);
+    }
     const href = buildContentLink(contentBasePath, detail, variant);
-    const localeAssignment = localeAssignmentFor(detail, variant.locale);
+    const assignmentEntries = localeAssignmentEntriesFor(detail, variant.locale);
+    const [primaryKey, localeAssignment] = assignmentEntries[0] || ['', null];
+    if (primaryKey) {
+      seenAssignmentKeys.add(primaryKey);
+    }
     const openLink = href
       ? `<a href="${escapeAttribute(href)}" class="text-sm font-medium text-sky-700 hover:text-sky-800">Open locale</a>`
       : `<span class="text-sm text-gray-400">No content route</span>`;
     const title = variant.fields.title || variant.fields.slug || `${detail.contentType} ${variant.locale.toUpperCase()}`;
-    return `
+    const variantRow = `
       <li class="grid gap-4 rounded-xl border border-gray-200 bg-white p-6 lg:grid-cols-[minmax(18rem,1fr)_minmax(0,44rem)] lg:items-start">
         <div class="min-w-0">
           <div class="flex flex-wrap items-center gap-2">
@@ -1846,9 +2078,30 @@ function renderLocalePanel(detail: TranslationFamilyDetail, options: Translation
         </div>
       </li>
     `;
+    const extraRows = assignmentEntries.slice(1).map(([key, extraAssignment]) => {
+      seenAssignmentKeys.add(key);
+      return renderAssignmentOnlyRow(extraAssignment, key);
+    });
+    return [variantRow, ...extraRows];
   });
 
+  for (const [key, localeAssignment] of Object.entries(detail.localeAssignments).sort(([left], [right]) => left.localeCompare(right))) {
+    if (seenAssignmentKeys.has(key) || localeAssignment.state === 'source_locale') {
+      continue;
+    }
+    rows.push(renderAssignmentOnlyRow(localeAssignment, key));
+    seenAssignmentKeys.add(key);
+    const locale = asString(localeAssignment.locale).toLowerCase() || key.split(':')[0];
+    if (locale) {
+      seenLocales.add(locale);
+    }
+  }
+
   for (const locale of missingLocales) {
+    const normalizedLocale = asString(locale).toLowerCase();
+    if (seenLocales.has(normalizedLocale)) {
+      continue;
+    }
     rows.push(`
       <li class="flex flex-col items-start justify-between gap-4 rounded-xl border border-rose-200 bg-rose-50 p-6 sm:flex-row">
         <div>
@@ -3546,6 +3799,16 @@ async function bindTranslationFamilyDetailSSRPage(
   const client = createTranslationFamilyClient({ basePath: apiBasePath, fetch: options.fetch });
 
   await initFamilyAssigneeControls(root, apiBasePath, { fetch: options.fetch });
+  if (root.dataset.translationEnhancedActionsBound !== 'true') {
+    root.dataset.translationEnhancedActionsBound = 'true';
+    initEnhancedActions(root, {
+      fetch: options.fetch,
+      onFragmentsApplied: async () => {
+        await initFamilyAssigneeControls(root, apiBasePath, { fetch: options.fetch });
+        syncEmptyAssignmentPanelControls(root);
+      },
+    });
+  }
   syncEmptyAssignmentPanelControls(root);
   root.querySelector<HTMLSelectElement>('[data-family-assignment-locale-select="true"]')?.addEventListener('change', () => {
     syncEmptyAssignmentPanelControls(root);
