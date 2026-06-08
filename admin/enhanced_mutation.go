@@ -25,8 +25,8 @@ type EnhancedActionNegotiationConfig struct {
 }
 
 type EnhancedActionRuntimeOptions struct {
-	RequestHeader      string `json:"requestHeader,omitempty"`
-	RequestHeaderValue string `json:"requestHeaderValue,omitempty"`
+	RequestHeader      string `json:"request_header,omitempty"`
+	RequestHeaderValue string `json:"request_header_value,omitempty"`
 	Accept             string `json:"accept,omitempty"`
 }
 

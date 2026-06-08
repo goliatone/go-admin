@@ -104,6 +104,23 @@ func TestEnhancedActionRuntimeOptionsUseNormalizedNegotiationConfig(t *testing.T
 	assert.Equal(t, "application/vnd.example.response+json", options.Accept)
 }
 
+func TestEnhancedActionRuntimeOptionsMarshalSnakeCase(t *testing.T) {
+	options := EnhancedActionRuntimeOptions{
+		RequestHeader:      "X-App-Action",
+		RequestHeaderValue: "opaque-marker",
+		Accept:             "application/vnd.example.action+json",
+	}
+
+	raw, err := json.Marshal(options)
+
+	require.NoError(t, err)
+	assert.JSONEq(t, `{
+		"request_header": "X-App-Action",
+		"request_header_value": "opaque-marker",
+		"accept": "application/vnd.example.action+json"
+	}`, string(raw))
+}
+
 func TestTranslationSSREnhancementCarriesEnhancedActionRuntimeOptions(t *testing.T) {
 	options := EnhancedActionRuntimeOptions{
 		RequestHeader:      "X-App-Action",
