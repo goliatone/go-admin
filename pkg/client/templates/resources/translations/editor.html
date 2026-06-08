@@ -76,11 +76,11 @@
                 <button type="button"
                         class="btn btn-primary"
                         data-action="resume-work"
-                        {% if editor.assignment_action_states.claim.enabled == false %}disabled aria-disabled="true" title="{{ editor.assignment_action_states.claim.reason|default:"Resume unavailable" }}"{% endif %}>
+                        {% if not editor.assignment_action_states.claim.enabled %}disabled aria-disabled="true" title="{{ editor.assignment_action_states.claim.reason|default:"Resume unavailable" }}"{% endif %}>
                   Resume work
                 </button>
-                {% if editor.assignment_action_states.claim.enabled == false and editor.assignment_action_states.claim.reason %}
-                <p class="text-xs text-gray-500" data-resume-unavailable-reason="true">{{ editor.assignment_action_states.claim.reason }}</p>
+                {% if not editor.assignment_action_states.claim.enabled %}
+                <p class="text-xs text-gray-500" data-resume-unavailable-reason="true">{{ editor.assignment_action_states.claim.reason|default:"Resume unavailable" }}</p>
                 {% endif %}
               </div>
               {% endif %}
@@ -88,7 +88,7 @@
                       class="btn btn-primary"
                       data-action="submit-review"
                       {% if editor.assignment_action_states.submit_review.enabled == false %}disabled aria-disabled="true" title="{{ editor.assignment_action_states.submit_review.reason|default:"Submit unavailable" }}"{% endif %}>
-                {% if editor.assignment_action_states.submit_review.enabled %}Submit review{% else %}Pending approval{% endif %}
+                {% if editor.assignment_action_states.submit_review.enabled %}Submit review{% elif editor.translation_assignment.status == "changes_requested" or editor.status == "changes_requested" %}Changes requested{% elif editor.translation_assignment.status == "review" or editor.translation_assignment.status == "in_review" or editor.status == "review" or editor.status == "in_review" %}Pending approval{% elif editor.translation_assignment.status == "approved" or editor.status == "approved" %}Approved{% elif editor.translation_assignment.status == "archived" or editor.status == "archived" %}Archived{% else %}Submit unavailable{% endif %}
               </button>
               {% if editor.assignment_action_states.submit_review.reason %}
               <p class="max-w-xs text-xs text-gray-500">{{ editor.assignment_action_states.submit_review.reason }}</p>
@@ -217,11 +217,11 @@
                 <button type="button"
                         class="btn btn-primary"
                         data-action="resume-work"
-                        {% if editor.assignment_action_states.claim.enabled == false %}disabled aria-disabled="true" title="{{ editor.assignment_action_states.claim.reason|default:"Resume unavailable" }}"{% endif %}>
+                        {% if not editor.assignment_action_states.claim.enabled %}disabled aria-disabled="true" title="{{ editor.assignment_action_states.claim.reason|default:"Resume unavailable" }}"{% endif %}>
                   Resume work
                 </button>
-                {% if editor.assignment_action_states.claim.enabled == false and editor.assignment_action_states.claim.reason %}
-                <p class="text-xs text-gray-500" data-resume-unavailable-reason="true">{{ editor.assignment_action_states.claim.reason }}</p>
+                {% if not editor.assignment_action_states.claim.enabled %}
+                <p class="text-xs text-gray-500" data-resume-unavailable-reason="true">{{ editor.assignment_action_states.claim.reason|default:"Resume unavailable" }}</p>
                 {% endif %}
               </div>
             </section>

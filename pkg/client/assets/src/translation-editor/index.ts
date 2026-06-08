@@ -526,11 +526,17 @@ function normalizeTranslationSyncScope(scope: Record<string, string> | undefined
   return normalized;
 }
 
-function translationSyncScopeFromEndpoint(endpoint: string): Record<string, string> {
+const TRANSLATION_EDITOR_SCOPE_QUERY_KEYS = ['channel', 'tenant_id', 'org_id'] as const;
+
+function translationScopeFromEndpoint(endpoint: string): Record<string, string> {
   try {
     const url = new URL(endpoint, typeof window !== 'undefined' ? window.location.origin : 'http://localhost');
-    const channel = String(url.searchParams.get('channel') || '').trim();
-    return channel ? { channel } : {};
+    const scope: Record<string, string> = {};
+    for (const key of TRANSLATION_EDITOR_SCOPE_QUERY_KEYS) {
+      const value = String(url.searchParams.get(key) || '').trim();
+      if (value) scope[key] = value;
+    }
+    return scope;
   } catch {
     return {};
   }
@@ -538,7 +544,7 @@ function translationSyncScopeFromEndpoint(endpoint: string): Record<string, stri
 
 function deriveTranslationSyncScope(config: TranslationEditorScreenConfig): Record<string, string> {
   return normalizeTranslationSyncScope({
-    ...translationSyncScopeFromEndpoint(config.endpoint),
+    ...translationScopeFromEndpoint(config.endpoint),
     ...(config.syncScope || {}),
   });
 }
@@ -3456,6 +3462,10 @@ export class TranslationEditorScreen {
         message: error.message,
       };
       this.submitting = false;
+      if (error.status === 409 || error.code === 'INVALID_STATUS_TRANSITION' || error.code === 'INVALID_STATUS') {
+        await this.load(historyPage);
+        return;
+      }
       this.render();
       return;
     }

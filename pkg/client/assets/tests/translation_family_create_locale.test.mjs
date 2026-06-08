@@ -132,6 +132,20 @@ test('translation-family create-locale: action model serializes canonical reques
   assert.equal(result.refresh.contentSummary, true);
 });
 
+test('translation-family create-locale: assignment fields are omitted when auto assignment is disabled', () => {
+  assert.deepEqual(serializeCreateLocaleRequest({
+    locale: 'FR',
+    channel: 'production',
+    autoCreateAssignment: false,
+    assigneeId: 'translator-1',
+    priority: 'normal',
+    dueDate: '2026-03-20T00:00:00Z',
+  }), {
+    locale: 'fr',
+    channel: 'production',
+  });
+});
+
 test('translation-family create-locale: optimistic detail update removes missing locale blockers and seeds assignment state', () => {
   const detail = normalizeFamilyDetail({
     family_id: 'tg-page-1',

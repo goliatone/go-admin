@@ -1052,6 +1052,20 @@ test('translation editor runtime: changes-requested assignments expose resume wo
   assert.equal(blockedResume.disabled, true);
   assert.match(blockedHTML, /assignment is assigned to a different translator/);
   assert.match(blockedHTML, /data-resume-unavailable-reason="true"/);
+
+  const missingClaimPayload = makeChangesRequestedAssignmentFixture();
+  delete missingClaimPayload.data.assignment_action_states.claim;
+  const missingClaim = normalizeAssignmentEditorDetail(missingClaimPayload);
+  const missingClaimHTML = renderTranslationEditorState(
+    { status: 'ready', detail: missingClaim },
+    createTranslationEditorState(missingClaim)
+  );
+  const missingClaimDOM = new JSDOM(missingClaimHTML);
+  const missingClaimResume = missingClaimDOM.window.document.querySelector('[data-action="resume-work"]');
+
+  assert.ok(missingClaimResume);
+  assert.equal(missingClaimResume.disabled, true);
+  assert.match(missingClaimHTML, /Resume work on this assignment\./);
 });
 
 test('translation editor runtime: autosave conflict disables changes-requested resume controls', () => {
@@ -2032,7 +2046,7 @@ test('translation editor runtime: resume work posts claim and reloads in-progres
   });
 
   const screen = new TranslationEditorScreen({
-    endpoint: '/admin/api/translations/assignments/asg-editor-1?channel=staging',
+    endpoint: '/admin/api/translations/assignments/asg-editor-1?channel=staging&tenant_id=tenant-1&org_id=org-1',
     actionEndpointBase: '/admin/api/translations/assignments',
   });
   screen.mount(root);
@@ -2054,10 +2068,132 @@ test('translation editor runtime: resume work posts claim and reloads in-progres
   const claim = requests.find((request) => request.method === 'POST' && request.url.includes('/actions/claim'));
   assert.ok(claim);
   assert.match(claim.url, /[?&]channel=staging(?:&|$)/);
+  assert.match(claim.url, /[?&]tenant_id=tenant-1(?:&|$)/);
+  assert.match(claim.url, /[?&]org_id=org-1(?:&|$)/);
   assert.equal(detailReads, 2);
   assert.equal(root.querySelector('[data-action="resume-work"]'), null);
   assert.equal(root.querySelector('[data-action="submit-review"]').disabled, false);
   assert.match(root.innerHTML, /Submit for review/);
+
+  screen.unmount();
+});
+
+test('translation editor runtime: resume work saves dirty fields before claim', async () => {
+  const { root, window } = setupDom();
+  installTranslationSyncCoreStub(window);
+  const requests = [];
+  let detailReads = 0;
+  globalThis.fetch = mock.fn(async (input, init = {}) => {
+    const method = String(init.method || 'GET').toUpperCase();
+    const url = String(input);
+    requests.push({ url, method, init });
+    if (method === 'GET' && url.includes('/api/translations/assignments/asg-editor-1')) {
+      detailReads += 1;
+      return createJsonResponse(detailReads === 1 ? makeChangesRequestedAssignmentFixture() : makeSubmitReadyFixture());
+    }
+    if (method === 'GET' && url.includes('/api/translations/sync/resources/translation_variant_draft/')) {
+      return createJsonResponse({
+        data: makeChangesRequestedAssignmentFixture().data,
+        revision: 7,
+        updated_at: '2026-01-01T00:00:00Z',
+      });
+    }
+    if (method === 'PATCH' && url.includes('/api/translations/sync/resources/translation_variant_draft/')) {
+      const body = JSON.parse(init.body);
+      assert.equal(body.payload.autosave, false);
+      assert.equal(body.payload.fields.title, 'Hola actualizado');
+      return createJsonResponse({
+        data: makeChangesRequestedAssignmentFixture().data,
+        revision: 8,
+        updated_at: '2026-01-01T00:00:01Z',
+        applied: true,
+        replay: false,
+      });
+    }
+    if (method === 'POST' && url.includes('/actions/claim')) {
+      return createJsonResponse({
+        data: {
+          status: 'in_progress',
+        },
+      });
+    }
+    return createJsonResponse({ error: { message: 'unexpected request' } }, 500, {
+      'content-type': 'application/json',
+    });
+  });
+
+  const screen = new TranslationEditorScreen({
+    endpoint: '/admin/api/translations/assignments/asg-editor-1?channel=staging',
+    actionEndpointBase: '/admin/api/translations/assignments',
+    syncBaseURL: '/admin/api/translations',
+  });
+  screen.mount(root);
+  assert.equal(await waitForCondition(() => {
+    const button = root.querySelector('[data-action="resume-work"]');
+    return Boolean(button && !button.disabled);
+  }), true);
+
+  const titleInput = root.querySelector('[data-field-input="title"]');
+  titleInput.value = 'Hola actualizado';
+  titleInput.dispatchEvent(new window.Event('input', { bubbles: true }));
+  root.querySelector('[data-action="resume-work"]').click();
+
+  assert.equal(await waitForCondition(() => detailReads >= 2 && root.querySelector('[data-action="resume-work"]') === null), true);
+  const patch = requests.find((request) => request.method === 'PATCH');
+  const claim = requests.find((request) => request.method === 'POST' && request.url.includes('/actions/claim'));
+  assert.ok(patch);
+  assert.ok(claim);
+  assert.ok(requests.indexOf(patch) < requests.indexOf(claim));
+
+  screen.unmount();
+});
+
+test('translation editor runtime: stale resume work response reloads assignment state', async () => {
+  const { root, window } = setupDom();
+  installTranslationSyncCoreStub(window);
+  let detailReads = 0;
+  globalThis.fetch = mock.fn(async (input, init = {}) => {
+    const method = String(init.method || 'GET').toUpperCase();
+    const url = String(input);
+    if (method === 'GET' && url.includes('/api/translations/assignments/asg-editor-1')) {
+      detailReads += 1;
+      return createJsonResponse(detailReads === 1 ? makeChangesRequestedAssignmentFixture() : makeSubmitReadyFixture());
+    }
+    if (method === 'GET' && url.includes('/api/translations/sync/resources/translation_variant_draft/')) {
+      return createJsonResponse({
+        data: makeSubmitReadyFixture().data,
+        revision: 7,
+        updated_at: '2026-01-01T00:00:00Z',
+      });
+    }
+    if (method === 'POST' && url.includes('/actions/claim')) {
+      return createJsonResponse({
+        error: {
+          code: 'INVALID_STATUS',
+          message: 'assignment is already in progress',
+        },
+      }, 409, {
+        'content-type': 'application/json',
+      });
+    }
+    return createJsonResponse({ error: { message: 'unexpected request' } }, 500, {
+      'content-type': 'application/json',
+    });
+  });
+
+  const screen = new TranslationEditorScreen({
+    endpoint: '/admin/api/translations/assignments/asg-editor-1?channel=staging',
+    actionEndpointBase: '/admin/api/translations/assignments',
+  });
+  screen.mount(root);
+  assert.equal(await waitForCondition(() => {
+    const button = root.querySelector('[data-action="resume-work"]');
+    return Boolean(button && !button.disabled);
+  }), true);
+
+  root.querySelector('[data-action="resume-work"]').click();
+  assert.equal(await waitForCondition(() => detailReads >= 2 && root.querySelector('[data-action="resume-work"]') === null), true);
+  assert.equal(root.querySelector('[data-action="submit-review"]').disabled, false);
 
   screen.unmount();
 });

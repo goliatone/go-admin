@@ -4,7 +4,7 @@ import { httpRequest as $, readCSRFToken as Re, readHTTPError as Ee } from "../s
 import { extractStructuredError as oe } from "../toast/error-helpers.js";
 import { n as Ce } from "../chunks/translation-contracts-Ct_EG7JJ.js";
 import { asBoolean as h, asNumber as m, asRecord as c, asString as n, asStringArray as ce } from "../shared/coercion.js";
-import { A as Te, C as O, D as Ae, E as je, F as qe, M as Le, O as De, P as Oe, R as Pe, S as te, T as Ie, a as Fe, c as Me, ct as x, et as Be, g as Ne, ht as ze, j as Ue, k as Ke, lt as He, mt as Ve, ot as Ye, pt as We, s as Qe, st as Ge, tt as Xe, ut as Je, v as Ze, x as q, y as L } from "../chunks/translation-shared-CdZJJA93.js";
+import { A as Te, C as O, D as Ae, E as je, F as qe, M as Le, O as De, P as Oe, R as Ie, S as te, T as Pe, a as Fe, c as Me, ct as x, et as Be, g as Ne, ht as ze, j as Ue, k as Ke, lt as He, mt as Ve, ot as Ye, pt as Qe, s as We, st as Ge, tt as Xe, ut as Je, v as Ze, x as q, y as L } from "../chunks/translation-shared-CdZJJA93.js";
 import { formatTranslationTimestampUTC as le, sentenceCaseToken as R } from "../translation-shared/formatters.js";
 import { normalizeStringRecord as N } from "../shared/record-normalization.js";
 import { c as de, s as et } from "../chunks/ui-states-1McZ5upU.js";
@@ -46,21 +46,30 @@ function ot(e) {
   }
   return t;
 }
-function ct(e) {
+var ct = [
+  "channel",
+  "tenant_id",
+  "org_id"
+];
+function lt(e) {
   try {
-    const t = new URL(e, typeof window < "u" ? window.location.origin : "http://localhost"), s = String(t.searchParams.get("channel") || "").trim();
-    return s ? { channel: s } : {};
+    const t = new URL(e, typeof window < "u" ? window.location.origin : "http://localhost"), s = {};
+    for (const a of ct) {
+      const r = String(t.searchParams.get(a) || "").trim();
+      r && (s[a] = r);
+    }
+    return s;
   } catch {
     return {};
   }
 }
-function lt(e) {
+function dt(e) {
   return ot({
-    ...ct(e.endpoint),
+    ...lt(e.endpoint),
     ...e.syncScope || {}
   });
 }
-function dt(e) {
+function ut(e) {
   const t = Object.entries(e.scope || {}).filter(([s, a]) => s.trim() !== "" && a.trim() !== "").sort(([s], [a]) => s.localeCompare(a)).map(([s, a]) => `${encodeURIComponent(s)}=${encodeURIComponent(a)}`).join("&");
   return `${encodeURIComponent(e.kind)}::${encodeURIComponent(e.id)}::${t}`;
 }
@@ -94,7 +103,7 @@ function w(e, t) {
     r.trim() && (a[r.trim()] = t(i));
   return a;
 }
-function ut(e) {
+function ft(e) {
   if (!Array.isArray(e)) return [];
   const t = [];
   for (const s of e) {
@@ -108,7 +117,7 @@ function ut(e) {
   }
   return t;
 }
-function ft(e) {
+function mt(e) {
   const t = c(e);
   return {
     available: h(t.available),
@@ -120,7 +129,7 @@ function ft(e) {
 function ue(e) {
   return n(e.get("x-trace-id") || e.get("x-correlation-id") || e.get("traceparent"));
 }
-function mt(e) {
+function pt(e) {
   const t = c(e), s = n(t.id), a = n(t.filename);
   return !s && !a ? null : {
     id: s || a || "attachment",
@@ -132,10 +141,10 @@ function mt(e) {
     url: n(t.url)
   };
 }
-function pt(e) {
-  return Array.isArray(e) ? e.map((t) => mt(t)).filter((t) => t !== null) : [];
+function ht(e) {
+  return Array.isArray(e) ? e.map((t) => pt(t)).filter((t) => t !== null) : [];
 }
-function ht(e, t) {
+function gt(e, t) {
   const s = c(e), a = c(s.kinds), r = {};
   for (const [i, o] of Object.entries(a)) {
     const l = m(o);
@@ -147,14 +156,14 @@ function ht(e, t) {
     kinds: r
   };
 }
-function gt(e) {
+function bt(e) {
   return n(e) === "comment" ? "comment" : "event";
 }
-function bt(e) {
+function yt(e) {
   const t = c(e), s = n(t.id);
   return s ? {
     id: s,
-    entry_type: gt(t.entry_type),
+    entry_type: bt(t.entry_type),
     title: n(t.title),
     body: n(t.body),
     action: n(t.action),
@@ -165,8 +174,8 @@ function bt(e) {
     metadata: c(t.metadata)
   } : null;
 }
-function yt(e) {
-  const t = c(e), s = Array.isArray(t.items) ? t.items.map((a) => bt(a)).filter((a) => a !== null) : [];
+function vt(e) {
+  const t = c(e), s = Array.isArray(t.items) ? t.items.map((a) => yt(a)).filter((a) => a !== null) : [];
   return {
     items: s,
     page: m(t.page, 1) || 1,
@@ -176,7 +185,7 @@ function yt(e) {
     next_page: m(t.next_page)
   };
 }
-function vt(e) {
+function _t(e) {
   const t = c(e), s = n(t.id), a = n(t.body);
   return !s && !a ? null : {
     id: s || a || "review-feedback",
@@ -186,8 +195,8 @@ function vt(e) {
     author_id: n(t.author_id) || void 0
   };
 }
-function _t(e, t) {
-  const s = c(e), a = Array.isArray(s.comments) ? s.comments.map((i) => vt(i)).filter((i) => i !== null) : [], r = n(s.last_rejection_reason || t) || void 0;
+function xt(e, t) {
+  const s = c(e), a = Array.isArray(s.comments) ? s.comments.map((i) => _t(i)).filter((i) => i !== null) : [], r = n(s.last_rejection_reason || t) || void 0;
   return !a.length && r && a.push({
     id: "last-rejection-reason",
     body: r,
@@ -198,7 +207,7 @@ function _t(e, t) {
     comments: a
   };
 }
-function xt(e) {
+function wt(e) {
   const t = c(e), s = n(t.id), a = n(t.message);
   return !s || !a ? null : {
     id: s,
@@ -208,7 +217,7 @@ function xt(e) {
     message: a
   };
 }
-function wt(e, t) {
+function St(e, t) {
   const s = c(e);
   return {
     category: n(s.category) || t,
@@ -222,8 +231,8 @@ function wt(e, t) {
 function fe(e) {
   const t = c(e), s = c(t.summary), a = c(t.categories), r = {};
   for (const [o, l] of Object.entries(a))
-    o.trim() && (r[o.trim()] = wt(l, o.trim()));
-  const i = Array.isArray(t.findings) ? t.findings.map((o) => xt(o)).filter((o) => o !== null) : [];
+    o.trim() && (r[o.trim()] = St(l, o.trim()));
+  const i = Array.isArray(t.findings) ? t.findings.map((o) => wt(o)).filter((o) => o !== null) : [];
   return {
     enabled: h(t.enabled),
     summary: {
@@ -237,7 +246,7 @@ function fe(e) {
     submit_blocked: h(t.submit_blocked)
   };
 }
-function St(e) {
+function $t(e) {
   const t = c(e);
   return {
     id: n(t.id || t.assignment_id),
@@ -258,7 +267,7 @@ function St(e) {
     updated_at: n(t.updated_at)
   };
 }
-function $t(e, t = "") {
+function kt(e, t = "") {
   const s = c(e), a = n(s.locale).trim().toLowerCase();
   if (!a) return null;
   const r = n(s.href).trim(), i = h(s.enabled) && r !== "", o = n(s.reason || s.disabled_reason);
@@ -276,8 +285,8 @@ function $t(e, t = "") {
     work_scope: n(s.work_scope) || void 0
   };
 }
-function kt(e, t) {
-  const s = c(e), a = (n(s.current_locale) || n(t.target_locale) || n(t.locale)).trim().toLowerCase(), r = (n(s.source_locale) || n(t.source_locale)).trim().toLowerCase(), i = Array.isArray(s.locales) ? s.locales.map((o) => $t(o, a)).filter((o) => o !== null) : [];
+function Rt(e, t) {
+  const s = c(e), a = (n(s.current_locale) || n(t.target_locale) || n(t.locale)).trim().toLowerCase(), r = (n(s.source_locale) || n(t.source_locale)).trim().toLowerCase(), i = Array.isArray(s.locales) ? s.locales.map((o) => kt(o, a)).filter((o) => o !== null) : [];
   return {
     family_id: n(s.family_id) || n(t.family_id),
     current_locale: a,
@@ -305,8 +314,8 @@ function Y(e, t) {
 function me(e, t) {
   const s = c(e), a = c(t);
   return {
-    glossary_matches: ut(s.glossary_matches ?? a.glossary_matches),
-    style_guide_summary: ft(s.style_guide_summary ?? a.style_guide_summary),
+    glossary_matches: ft(s.glossary_matches ?? a.glossary_matches),
+    style_guide_summary: mt(s.style_guide_summary ?? a.style_guide_summary),
     translation_memory_suggestions: Array.isArray(s.translation_memory_suggestions) ? s.translation_memory_suggestions.filter((r) => r && typeof r == "object") : []
   };
 }
@@ -375,7 +384,7 @@ function he(e) {
   }), r = N(s.target_fields ?? s.fields, {
     trimKeys: !0,
     omitBlankKeys: !0
-  }), i = w(s.field_completeness, K), o = w(s.field_drift, H), l = w(s.field_validations, V), u = pt(s.attachments);
+  }), i = w(s.field_completeness, K), o = w(s.field_drift, H), l = w(s.field_validations, V), u = ht(s.attachments);
   return {
     assignment_id: n(s.assignment_id),
     assignment_row_version: m(s.assignment_row_version || s.assignment_version || c(s.translation_assignment).row_version || c(s.translation_assignment).version),
@@ -395,21 +404,21 @@ function he(e) {
     field_drift: o,
     field_validations: l,
     source_target_drift: c(s.source_target_drift),
-    history: yt(s.history),
+    history: vt(s.history),
     attachments: u,
-    attachment_summary: ht(s.attachment_summary, u),
-    translation_assignment: St(s.translation_assignment),
+    attachment_summary: gt(s.attachment_summary, u),
+    translation_assignment: $t(s.translation_assignment),
     assist: me(s.assist, s),
     last_rejection_reason: n(s.last_rejection_reason) || void 0,
-    review_feedback: _t(s.review_feedback, s.last_rejection_reason),
+    review_feedback: xt(s.review_feedback, s.last_rejection_reason),
     qa_results: fe(s.qa_results),
     assignment_action_states: D(s.assignment_action_states ?? s.editor_actions ?? s.actions),
     review_action_states: D(s.review_action_states ?? s.review_actions),
-    locale_navigation: kt(s.locale_navigation, s),
+    locale_navigation: Rt(s.locale_navigation, s),
     preview_action: Y(s.preview_action, s)
   };
 }
-function Rt(e) {
+function Et(e) {
   const t = c(e), s = c(t.data && typeof t.data == "object" ? t.data : e), a = c(s.preview_action);
   return {
     variant_id: n(s.variant_id),
@@ -429,10 +438,10 @@ function Rt(e) {
     preview_action: Object.keys(a).length ? Y(a, s) : void 0
   };
 }
-function W(e) {
+function Q(e) {
   return pe({ fields: e.fields }, e.source_fields, e.target_fields, e.field_completeness, e.field_drift, e.field_validations);
 }
-function Q(e) {
+function W(e) {
   if (!e.assignment_action_states.submit_review?.enabled || e.qa_results.submit_blocked) return !1;
   for (const t of Object.values(e.field_completeness)) if (t.required && t.missing) return !1;
   return !0;
@@ -441,12 +450,12 @@ function se(e) {
   return {
     detail: {
       ...e,
-      fields: W(e)
+      fields: Q(e)
     },
     dirty_fields: {},
     assignment_row_version: e.assignment_row_version,
     row_version: e.row_version,
-    can_submit_review: Q(e),
+    can_submit_review: W(e),
     autosave: {
       pending: !1,
       conflict: null
@@ -478,7 +487,7 @@ function T(e, t, s) {
     field_completeness: o,
     field_validations: l
   };
-  return u.fields = W(u), {
+  return u.fields = Q(u), {
     ...e,
     detail: u,
     dirty_fields: {
@@ -486,10 +495,10 @@ function T(e, t, s) {
       [a]: s.trim()
     },
     assignment_row_version: e.assignment_row_version,
-    can_submit_review: Q(u)
+    can_submit_review: W(u)
   };
 }
-function Et(e) {
+function Ct(e) {
   return {
     ...e,
     assignment_row_version: e.assignment_row_version,
@@ -500,7 +509,7 @@ function Et(e) {
   };
 }
 function S(e, t) {
-  const s = Rt(t), a = Object.keys(s.assignment_action_states).length ? s.assignment_action_states : e.detail.assignment_action_states, r = Object.keys(s.review_action_states).length ? s.review_action_states : e.detail.review_action_states, i = {
+  const s = Et(t), a = Object.keys(s.assignment_action_states).length ? s.assignment_action_states : e.detail.assignment_action_states, r = Object.keys(s.review_action_states).length ? s.review_action_states : e.detail.review_action_states, i = {
     ...e.detail,
     row_version: s.row_version,
     target_fields: {
@@ -517,13 +526,13 @@ function S(e, t) {
     review_action_states: r,
     preview_action: s.preview_action || e.detail.preview_action
   };
-  return i.fields = W(i), {
+  return i.fields = Q(i), {
     ...e,
     detail: i,
     dirty_fields: {},
     assignment_row_version: e.assignment_row_version,
     row_version: s.row_version,
-    can_submit_review: Q(i),
+    can_submit_review: W(i),
     autosave: {
       pending: !1,
       conflict: null
@@ -543,7 +552,7 @@ function A(e) {
 function ae(e) {
   return Object.keys(c(e?.data)).length > 0;
 }
-function Ct(e, t) {
+function Tt(e, t) {
   const s = c(t), a = c(s.error), r = c(a.details ?? s.details), i = c(s.resource || r.resource || c(s.conflict).latestSnapshot || c(a.conflict).latestSnapshot), o = i.data && typeof i.data == "object" ? c(i.data) : {}, l = m(i.revision), u = c(a.metadata), p = Object.keys(o).length ? {
     ...o,
     row_version: m(o.row_version || o.version, l) || l
@@ -572,7 +581,7 @@ function ge(e) {
     conflict: t.conflict
   } : s.code === "STALE_REVISION" ? ge(s) : t;
 }
-function Tt(e) {
+function At(e) {
   const t = c(e), s = c(t.details), a = c(t.conflict), r = c(t.resource || s.resource || a.latestSnapshot), i = c(r.data), o = m(r.revision || t.currentRevision || s.current_revision), l = n(r.updatedAt || r.updated_at) || (/* @__PURE__ */ new Date()).toISOString();
   return !Object.keys(i).length || o <= 0 ? null : {
     ref: c(r.ref),
@@ -582,13 +591,13 @@ function Tt(e) {
     metadata: c(r.metadata)
   };
 }
-function At(e) {
+function jt(e) {
   return n(c(e.source_target_drift).current_source_hash);
 }
 function re(e) {
   return typeof CSS < "u" && typeof CSS.escape == "function" ? CSS.escape(e) : e.replace(/["\\]/g, "\\$&");
 }
-function jt(e) {
+function qt(e) {
   const t = c(e), s = c(t.cause);
   return t.code === "STALE_REVISION" || s.code === "STALE_REVISION";
 }
@@ -606,15 +615,15 @@ function _(e) {
       return;
     }
 }
-async function qt(e) {
+async function Lt(e) {
   const t = String(e || ""), s = typeof navigator < "u" ? navigator.clipboard : void 0;
   if (s && typeof s.writeText == "function") try {
     return await s.writeText(t), !0;
   } catch {
   }
-  return Lt(t);
+  return Dt(t);
 }
-function Lt(e) {
+function Dt(e) {
   if (typeof document > "u" || !document.body || typeof document.execCommand != "function") return !1;
   const t = document.createElement("textarea");
   t.value = e, t.setAttribute("readonly", "true"), t.style.position = "fixed", t.style.left = "-9999px", t.style.top = "0", document.body.appendChild(t);
@@ -626,7 +635,7 @@ function Lt(e) {
     t.remove();
   }
 }
-function Dt(e, t) {
+function Ot(e, t) {
   try {
     if (e.location && typeof e.location.assign == "function") {
       e.location.assign(t);
@@ -636,14 +645,14 @@ function Dt(e, t) {
   }
   e.location.href = t;
 }
-var Ot = class extends Error {
+var It = class extends Error {
   constructor(e) {
     super(e.message), this.name = "TranslationEditorRequestError", this.status = e.status, this.code = e.code ?? null, this.metadata = e.metadata ?? null, this.requestId = e.requestId, this.traceId = e.traceId;
   }
 };
 async function j(e, t) {
   const s = await oe(e);
-  return new Ot({
+  return new It({
     message: s.message || await Ee(e, t),
     status: e.status,
     code: s.textCode,
@@ -680,23 +689,23 @@ async function Pt(e) {
     statusCode: t.status
   };
 }
-function It(e) {
+function Ft(e) {
   return !e || e <= 0 ? "0 B" : e < 1024 ? `${e} B` : e < 1024 * 1024 ? `${(e / 1024).toFixed(1)} KB` : `${(e / (1024 * 1024)).toFixed(1)} MB`;
 }
 function E(e) {
   return n(e.status || e.translation_assignment.status || e.translation_assignment.queue_state);
 }
-function Ft(e) {
+function Mt(e) {
   return e === "review" || e === "in_review";
 }
-function Mt(e) {
+function Bt(e) {
   return e === "changes_requested";
 }
 function C(e) {
-  return Mt(E(e));
+  return Bt(E(e));
 }
 function G(e) {
-  return Ft(E(e)) ? !0 : !!(e.review_action_states.approve?.enabled || e.review_action_states.reject?.enabled);
+  return Mt(E(e)) ? !0 : !!(e.review_action_states.approve?.enabled || e.review_action_states.reject?.enabled);
 }
 function X(e) {
   return !!e.assignment_action_states.archive?.enabled;
@@ -708,7 +717,7 @@ function U(e) {
 function J(e) {
   return `This assignment is ${R(E(e) || "unavailable").toLowerCase()} and can be inspected but not edited.`;
 }
-function Bt(e, t) {
+function Nt(e, t) {
   if (t) return "Submitting...";
   if (e.assignment_action_states.submit_review?.enabled) return "Submit for review";
   switch (E(e)) {
@@ -725,7 +734,7 @@ function Bt(e, t) {
       return "Submit unavailable";
   }
 }
-function Nt(e, t, s) {
+function zt(e, t, s) {
   let a = "idle";
   return e?.autosave.conflict ? a = "conflict" : e?.autosave.pending ? a = "saving" : t ? a = "dirty" : s && (a = "saved"), {
     tone: Ye(a),
@@ -741,14 +750,14 @@ function be(e) {
   ].filter(Boolean);
   return t.length ? `<p class="mt-3 text-xs text-gray-500">${t.join(" · ")}</p>` : "";
 }
-function zt(e) {
+function Ut(e) {
   return e ? `
     <div class="rounded-xl border px-4 py-3 text-sm font-medium ${e.kind === "success" ? "border-emerald-200 bg-emerald-50 text-emerald-800" : e.kind === "conflict" ? "border-amber-200 bg-amber-50 text-amber-800" : "border-rose-200 bg-rose-50 text-rose-800"}" data-editor-feedback-kind="${f(e.kind)}" role="status" aria-live="polite">
       ${d(e.message)}
     </div>
   ` : "";
 }
-function Ut(e) {
+function Kt(e) {
   const t = e.qa_results;
   if (!t.enabled || t.summary.finding_count <= 0) return "";
   const s = t.summary.blocker_count > 0 ? x("error") : x("success"), a = t.summary.blocker_count > 0 ? `Blockers ${t.summary.blocker_count}` : "No blockers";
@@ -757,7 +766,7 @@ function Ut(e) {
     <span class="${s}">${a}</span>
   `;
 }
-function Kt(e, t) {
+function Ht(e, t) {
   return e.summary.blocker_count > 0 ? {
     kind: "conflict",
     message: `Draft saved with ${e.summary.blocker_count} QA blocker${e.summary.blocker_count === 1 ? "" : "s"} and ${e.summary.warning_count} warning${e.summary.warning_count === 1 ? "" : "s"}. Submit remains blocked.`,
@@ -772,27 +781,27 @@ function Kt(e, t) {
     lastSaved: t ? "Draft saved automatically" : "Draft saved"
   };
 }
-function Ht(e) {
+function Vt(e) {
   const t = e.qa_results;
   return t.submit_blocked ? `Resolve ${t.summary.blocker_count} QA blocker${t.summary.blocker_count === 1 ? "" : "s"} before submitting for review. ${t.summary.warning_count} warning${t.summary.warning_count === 1 ? "" : "s"} remain advisory.` : "Submit for review is unavailable.";
 }
-function Vt(e, t) {
+function Yt(e, t) {
   const s = e.qa_results, a = s.summary.warning_count > 0 ? ` ${s.summary.warning_count} QA warning${s.summary.warning_count === 1 ? "" : "s"} remain visible to reviewers.` : "";
   return t === "approved" ? `Submitted and auto-approved.${a}` : `Submitted for review.${a}`;
 }
-function Yt() {
+function Qt() {
   return et({
     tag: "section",
     text: "Loading translation assignment…",
     showSpinner: !1,
-    containerClass: `${Pe} p-8 shadow-sm`,
+    containerClass: `${Ie} p-8 shadow-sm`,
     textClass: "text-sm font-medium text-gray-500"
   });
 }
 function ie(e, t) {
   return de({
     tag: "section",
-    containerClass: `${Ie} p-8 text-center shadow-sm`,
+    containerClass: `${Pe} p-8 text-center shadow-sm`,
     bodyClass: "",
     contentClass: "",
     title: e,
@@ -818,7 +827,7 @@ function ne(e, t, s) {
   });
 }
 function Wt(e, t, s, a, r, i, o, l, u = "") {
-  const p = e.assignment_action_states.submit_review, b = e.assignment_action_states.claim, g = e.preview_action, P = C(e), y = !b?.enabled || r || a || o, ee = l || !p?.enabled || r || a || e.qa_results.submit_blocked, _e = !g?.enabled || r || a || i || o, xe = l || r || !s, we = (e.source_locale || "source").toUpperCase(), Se = (e.target_locale || "target").toUpperCase(), v = e.translation_assignment, I = l ? J(e) : e.qa_results.submit_blocked ? "Resolve QA blockers before submitting for review." : p?.reason || "", $e = g?.enabled ? o ? "Reload the latest server draft before opening preview." : i ? "Opening preview." : "Open preview in a new tab." : g?.reason || "Preview is unavailable for this assignment.", F = o ? "Reload the latest server draft before resuming work." : r ? "Wait for the current save to finish before resuming work." : b?.reason || "Resume work on this assignment.";
+  const p = e.assignment_action_states.submit_review, b = e.assignment_action_states.claim, g = e.preview_action, I = C(e), y = !b?.enabled || r || a || o, ee = l || !p?.enabled || r || a || e.qa_results.submit_blocked, _e = !g?.enabled || r || a || i || o, xe = l || r || !s, we = (e.source_locale || "source").toUpperCase(), Se = (e.target_locale || "target").toUpperCase(), v = e.translation_assignment, P = l ? J(e) : e.qa_results.submit_blocked ? "Resolve QA blockers before submitting for review." : p?.reason || "", $e = g?.enabled ? o ? "Reload the latest server draft before opening preview." : i ? "Opening preview." : "Open preview in a new tab." : g?.reason || "Preview is unavailable for this assignment.", F = o ? "Reload the latest server draft before resuming work." : r ? "Wait for the current save to finish before resuming work." : b?.reason || "Resume work on this assignment.";
   return `
     <section class="${O} p-6 shadow-sm">
       <div class="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
@@ -834,7 +843,7 @@ function Wt(e, t, s, a, r, i, o, l, u = "") {
             <span class="rounded-full bg-gray-100 px-3 py-1 font-medium">Assignee ${d(v.display_assignee || v.assignee_label || v.assignee_id || "Unassigned")}</span>
             <span class="rounded-full bg-gray-100 px-3 py-1 font-medium">Reviewer ${d(v.display_reviewer || v.reviewer_label || v.reviewer_id || "Not set")}</span>
             <span class="rounded-full px-3 py-1 font-medium ${t.tone}" data-autosave-state="${f(t.state)}">${d(t.text)}</span>
-            ${Ut(e)}
+            ${Kt(e)}
           </div>
         </div>
         <div class="flex flex-wrap items-start gap-3">
@@ -860,7 +869,7 @@ function Wt(e, t, s, a, r, i, o, l, u = "") {
             </button>
             ${!g?.enabled && g?.reason ? `<p class="text-xs text-gray-500" data-preview-unavailable-reason="true">${d(g.reason)}</p>` : ""}
           </div>
-          ${P ? `
+          ${I ? `
             <div class="flex max-w-xs flex-col items-start gap-1">
               <button
                 type="button"
@@ -879,19 +888,19 @@ function Wt(e, t, s, a, r, i, o, l, u = "") {
               type="button"
               class="${L}"
               data-action="submit-review"
-              title="${f(I)}"
+              title="${f(P)}"
               ${ee ? 'disabled aria-disabled="true"' : ""}
             >
-              ${d(Bt(e, a))}
+              ${d(Nt(e, a))}
             </button>
-            ${ee && I ? `<p class="text-xs text-gray-500" data-submit-unavailable-reason="true">${d(I)}</p>` : ""}
+            ${ee && P ? `<p class="text-xs text-gray-500" data-submit-unavailable-reason="true">${d(P)}</p>` : ""}
           </div>
         </div>
       </div>
     </section>
   `;
 }
-function Qt(e) {
+function Gt(e) {
   const t = d(e.label || e.locale.toUpperCase()), s = "inline-flex min-h-[24px] items-center rounded px-2 py-1 text-xs font-medium transition-colors", a = "bg-blue-100 text-blue-700", r = "bg-gray-100 text-gray-700 hover:bg-gray-200 hover:text-gray-900", i = "cursor-not-allowed bg-gray-50 text-gray-400 ring-1 ring-inset ring-gray-200", o = [
     `data-locale-chip="${f(e.locale)}"`,
     e.current ? 'data-locale-current="true"' : "",
@@ -906,7 +915,7 @@ function Qt(e) {
   const l = e.reason || "No translation assignment exists for this locale.";
   return `<span class="${s} ${i}" ${o} aria-disabled="true" title="${f(l)}" aria-label="${f(`${e.label || e.locale.toUpperCase()} unavailable: ${l}`)}">${t}</span>`;
 }
-function Gt(e) {
+function Xt(e) {
   const t = e.locale_navigation, s = t.locales, a = t.current_locale || (e.target_locale || "").toLowerCase(), r = (a || "target").toUpperCase();
   if (!t.family_id && s.length === 0 && !t.family_detail_url) return "";
   const i = s.length > 0 ? s : [{
@@ -925,7 +934,7 @@ function Gt(e) {
           <div class="flex flex-wrap items-center gap-2">
             <span class="text-xs font-medium uppercase tracking-wide text-gray-500">Locale</span>
             <div class="flex flex-wrap items-center gap-1" data-editor-locale-chips="true">
-              ${i.map(Qt).join("")}
+              ${i.map(Gt).join("")}
             </div>
           </div>
         </div>
@@ -942,7 +951,7 @@ function Gt(e) {
     </section>
   `;
 }
-function Xt(e) {
+function Jt(e) {
   if (!ye(e)) return "";
   const t = !!(e.drift.previous_source_value && e.drift.previous_source_value.trim()), s = !!(e.drift.current_source_value || e.source_value);
   return !t && !s ? `
@@ -968,7 +977,7 @@ function ye(e) {
   const t = !!(e.drift.previous_source_value && e.drift.previous_source_value.trim());
   return e.drift.comparison_mode !== "hash_only" || t;
 }
-function Jt(e) {
+function Zt(e) {
   const t = Array.isArray(e.glossary_hits) ? e.glossary_hits : [];
   return t.length ? `
     <div class="mt-3 flex flex-wrap gap-2">
@@ -981,7 +990,7 @@ function Jt(e) {
     </div>
   ` : "";
 }
-function Zt(e) {
+function es(e) {
   const t = e.fields || [], s = e.qa_results, a = {
     missing: null,
     validation: null,
@@ -1009,7 +1018,7 @@ function Zt(e) {
     firstIssuePath: a.missing || a.validation || a.qaBlocker || a.qaFinding || a.sourceDrift
   };
 }
-function es(e) {
+function ts(e) {
   const t = e.missingRequiredFields > 0 || e.sourceChangedFields > 0 || e.validationErrors > 0 || e.qaBlockers > 0, s = e.completeFields === e.totalFields && e.missingRequiredFields === 0 && e.validationErrors === 0 && e.qaBlockers === 0, a = [], r = s ? "bg-emerald-100 text-emerald-700 border-emerald-200" : "bg-gray-100 text-gray-700 border-gray-200";
   a.push(`<span class="inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-medium ${r}">${e.completeFields}/${e.totalFields} complete</span>`), e.missingRequiredFields > 0 && a.push(`<span class="inline-flex items-center gap-1 rounded-full border border-rose-200 bg-rose-100 px-2.5 py-1 text-xs font-medium text-rose-700">${e.missingRequiredFields} missing required</span>`), e.sourceChangedFields > 0 && a.push(`<span class="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-700">${e.sourceChangedFields} source changed</span>`), e.validationErrors > 0 && a.push(`<span class="inline-flex items-center gap-1 rounded-full border border-rose-200 bg-rose-100 px-2.5 py-1 text-xs font-medium text-rose-700">${e.validationErrors} validation ${e.validationErrors === 1 ? "error" : "errors"}</span>`), e.qaBlockers > 0 && a.push(`<span class="inline-flex items-center gap-1 rounded-full border border-rose-200 bg-rose-100 px-2.5 py-1 text-xs font-medium text-rose-700">${e.qaBlockers} QA ${e.qaBlockers === 1 ? "blocker" : "blockers"}</span>`), e.qaWarnings > 0 && a.push(`<span class="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-700">${e.qaWarnings} QA ${e.qaWarnings === 1 ? "warning" : "warnings"}</span>`);
   const i = s ? "border-emerald-200 bg-emerald-50" : t ? "border-amber-200 bg-amber-50" : "border-gray-200 bg-gray-50", o = e.firstIssuePath ? `<button
@@ -1028,24 +1037,24 @@ function es(e) {
     </section>
   `;
 }
-function ts(e) {
+function ss(e) {
   return e.source_value && e.source_value.trim() ? d(e.source_value) : e.required ? '<span class="text-amber-600 italic">Source text pending - required field</span>' : '<span class="text-gray-400 italic text-xs">Optional source content not provided</span>';
 }
-var ss = "inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-[11px] font-medium leading-4 text-gray-600 shadow-sm transition-colors hover:border-gray-300 hover:bg-gray-50 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-sky-100";
+var as = "inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-[11px] font-medium leading-4 text-gray-600 shadow-sm transition-colors hover:border-gray-300 hover:bg-gray-50 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-sky-100";
 function Z(e, t = "16px") {
   return ke(e, {
     size: t,
     extraClass: "text-current"
   });
 }
-function as() {
-  return Z(Qe, "12px");
+function rs() {
+  return Z(We, "12px");
 }
-function rs(e, t = !1) {
-  const s = Zt(e), a = t ? "mt-2 w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-600" : "mt-2 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-100", r = t ? "mt-2 min-h-[140px] w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-600" : "mt-2 min-h-[140px] w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-100";
+function is(e, t = !1) {
+  const s = es(e), a = t ? "mt-2 w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-600" : "mt-2 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-100", r = t ? "mt-2 min-h-[140px] w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-600" : "mt-2 min-h-[140px] w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-100";
   return `
     <section class="space-y-4">
-      ${es(s)}
+      ${ts(s)}
       ${e.fields.map((i) => `
         <article class="rounded-xl border border-gray-200 bg-white p-5" data-editor-field="${f(i.path)}" id="field-${f(i.path)}">
           <div class="flex flex-wrap items-start justify-between gap-3">
@@ -1055,20 +1064,20 @@ function rs(e, t = !1) {
             </div>
             <button
               type="button"
-              class="${ss}"
+              class="${as}"
               data-copy-source="${f(i.path)}"
               data-source-value="${f(i.source_value)}"
               aria-label="Copy source text to translation field for ${f(i.label)}"
               ${t ? 'disabled aria-disabled="true"' : ""}
             >
-              ${as()}
+              ${rs()}
               <span>Copy source</span>
             </button>
           </div>
           <div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
             <div class="rounded-xl border border-gray-200 bg-gray-50 p-4">
               <p class="text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">Source</p>
-              <div class="mt-2 whitespace-pre-wrap text-sm text-gray-800">${ts(i)}</div>
+              <div class="mt-2 whitespace-pre-wrap text-sm text-gray-800">${ss(i)}</div>
             </div>
             <div class="rounded-xl border ${i.validation.valid ? "border-gray-200" : "border-rose-200"} bg-white p-4">
               <label class="text-xs font-semibold uppercase tracking-[0.18em] text-gray-500" for="editor-field-${f(i.path)}">Translation</label>
@@ -1080,8 +1089,8 @@ function rs(e, t = !1) {
                 ${ye(i) ? '<span class="rounded-full bg-amber-100 px-2.5 py-1 text-amber-700">Source changed</span>' : ""}
               </div>
               ${i.validation.valid ? "" : `<p class="mt-3 text-sm font-medium text-rose-700" data-field-validation="${f(i.path)}">${d(i.validation.message || "Validation error")}</p>`}
-              ${Xt(i)}
               ${Jt(i)}
+              ${Zt(i)}
             </div>
           </div>
         </article>
@@ -1096,7 +1105,7 @@ function ve(e) {
     const a = c(s), r = n(a.suggested_text) || n(a.target_text);
     r && t.push({
       id: n(a.id) || `tm-${t.length}`,
-      score: is(a.score, a.match_score),
+      score: ns(a.score, a.match_score),
       sourceLabel: n(a.source_label) || n(a.source) || "Internal TM",
       localePair: n(a.locale_pair) || "",
       fieldPath: n(a.field_path) || "",
@@ -1106,16 +1115,16 @@ function ve(e) {
   }
   return t.sort((s, a) => a.score - s.score);
 }
-function is(e, t) {
+function ns(e, t) {
   const s = m(e) || m(t);
   if (!Number.isFinite(s) || s <= 0) return 0;
   const a = s <= 1 ? s * 100 : s;
   return Math.max(0, Math.min(100, Math.round(a)));
 }
-function ns(e) {
+function os(e) {
   return e >= 99 ? "Exact" : e >= 80 ? "High" : "Fuzzy";
 }
-function os(e) {
+function cs(e) {
   return e.length ? `
     <div class="mt-4" data-assist-section="tm">
       <h3 class="text-sm font-semibold text-gray-800">Translation Memory</h3>
@@ -1126,7 +1135,7 @@ function os(e) {
               <div class="flex-1 min-w-0">
                 <p class="font-medium text-gray-900 break-words">${d(t.suggestedText)}</p>
                 <div class="mt-2 flex flex-wrap items-center gap-2 text-xs text-gray-500">
-                  <span class="rounded-full bg-sky-100 px-2 py-0.5 text-sky-700">${ns(t.score)} ${t.score}%</span>
+                  <span class="rounded-full bg-sky-100 px-2 py-0.5 text-sky-700">${os(t.score)} ${t.score}%</span>
                   <span>${d(t.sourceLabel)}</span>
                   ${t.localePair ? `<span class="text-gray-400">${d(t.localePair)}</span>` : ""}
                   ${t.isStaleSource ? '<span class="text-amber-600">Source changed</span>' : ""}
@@ -1155,13 +1164,13 @@ function os(e) {
       </div>
     `;
 }
-function cs(e) {
+function ls(e) {
   const t = e.assist.glossary_matches, s = e.assist.style_guide_summary;
   return `
     <section class="rounded-xl border border-gray-200 bg-white p-5" data-editor-panel="assist">
       <h2 class="text-lg font-semibold text-gray-900">Assist</h2>
       <div class="mt-4 space-y-4">
-        ${os(ve(e.assist.translation_memory_suggestions))}
+        ${cs(ve(e.assist.translation_memory_suggestions))}
         <div data-assist-section="glossary">
           <h3 class="text-sm font-semibold text-gray-800">Glossary</h3>
           ${t.length ? `<ul class="mt-3 space-y-2">${t.map((a) => `
@@ -1187,7 +1196,7 @@ function cs(e) {
     </section>
   `;
 }
-function ls(e) {
+function ds(e) {
   const t = e.history.items.map((s) => ({
     id: s.id,
     title: s.title || R(s.entry_type),
@@ -1215,7 +1224,7 @@ function ls(e) {
     return (a.created_at ? Date.parse(a.created_at) : 0) - r;
   });
 }
-function ds(e) {
+function us(e) {
   const t = e.qa_results;
   if (!t.enabled) return "";
   const s = t.findings.filter((i) => i.severity === "blocker"), a = t.findings.filter((i) => i.severity !== "blocker"), r = (i, o) => {
@@ -1269,7 +1278,7 @@ function ds(e) {
     </section>
   `;
 }
-function us(e, t) {
+function fs(e, t) {
   const s = e.review_action_states.approve, a = e.review_action_states.reject;
   return G(e) ? `
     <section
@@ -1307,7 +1316,7 @@ function us(e, t) {
     </section>
   ` : "";
 }
-function fs(e, t, s, a) {
+function ms(e, t, s, a) {
   if (!C(e)) return "";
   const r = e.assignment_action_states.claim, i = !r?.enabled || s || t || a, o = a ? "Reload the latest server draft before resuming work." : s ? "Wait for the current save to finish before resuming work." : t ? "Resume is already in progress." : r?.reason || "";
   return `
@@ -1333,7 +1342,7 @@ function fs(e, t, s, a) {
     </section>
   `;
 }
-function ms(e, t) {
+function ps(e, t) {
   return e ? `
     <div class="${Xe}" data-reject-modal="true">
       <section class="${Be}" role="dialog" aria-modal="true" aria-labelledby="translation-reject-title">
@@ -1362,7 +1371,7 @@ function ms(e, t) {
     </div>
   ` : "";
 }
-function ps(e, t) {
+function hs(e, t) {
   if (!X(e)) return "";
   const s = e.assignment_action_states.archive, a = !s?.enabled || t;
   return `
@@ -1386,7 +1395,7 @@ function ps(e, t) {
     </section>
   `;
 }
-function hs(e) {
+function gs(e) {
   return `
     <section class="${O} p-5">
       <div class="flex items-center justify-between gap-3">
@@ -1400,7 +1409,7 @@ function hs(e) {
                   <p class="font-semibold text-gray-900">${d(t.filename)}</p>
                   <p class="mt-1 text-xs uppercase tracking-[0.18em] text-gray-500">${d(t.kind)}</p>
                 </div>
-                <span class="text-xs text-gray-500">${d(It(t.byte_size))}</span>
+                <span class="text-xs text-gray-500">${d(Ft(t.byte_size))}</span>
               </div>
               ${t.description ? `<p class="mt-2 text-xs text-gray-500">${d(t.description)}</p>` : ""}
               ${t.uploaded_at ? `<p class="mt-2 text-xs text-gray-500">Uploaded ${d(le(t.uploaded_at))}</p>` : ""}
@@ -1409,8 +1418,8 @@ function hs(e) {
     </section>
   `;
 }
-function gs(e) {
-  const t = e.history, s = ls(e);
+function bs(e) {
+  const t = e.history, s = ds(e);
   return `
     <section class="rounded-xl border border-gray-200 bg-white p-5">
       <div class="flex items-center justify-between gap-3">
@@ -1418,7 +1427,7 @@ function gs(e) {
         <span class="text-xs text-gray-500">Page ${t.page} of ${Math.max(1, Math.ceil(t.total / Math.max(1, t.per_page)))}</span>
       </div>
       ${s.length ? `<ol class="mt-4 space-y-3">${s.map((a) => {
-    const r = We(a.tone);
+    const r = Qe(a.tone);
     return `
             <li class="${r.container}" data-history-entry="${f(a.id)}">
               <div class="flex items-start justify-between gap-3">
@@ -1439,17 +1448,17 @@ function gs(e) {
     </section>
   `;
 }
-var bs = {
+var ys = {
   actions: "iconoir:flash",
   qa: "iconoir:shield",
   assist: "iconoir:chat-bubble",
   files: Me,
   history: Fe
 };
-function ys(e) {
-  return Z(bs[e], "16px");
-}
 function vs(e) {
+  return Z(ys[e], "16px");
+}
+function _s(e) {
   const t = C(e), s = G(e), a = X(e), r = e.qa_results.enabled ? e.qa_results.summary.finding_count : 0, i = ve(e.assist.translation_memory_suggestions).length, o = e.assist.glossary_matches.length, l = e.attachment_summary.total, u = e.history.total;
   return {
     actions: null,
@@ -1459,8 +1468,8 @@ function vs(e) {
     history: u > 0 ? String(u) : null
   };
 }
-function _s(e, t, s = "actions", a, r = !1, i = !1) {
-  const o = vs(e), l = C(e), u = G(e), p = X(e), b = l || u || p, g = `
+function xs(e, t, s = "actions", a, r = !1, i = !1) {
+  const o = _s(e), l = C(e), u = G(e), p = X(e), b = l || u || p, g = `
     <nav class="flex flex-wrap gap-1 rounded-xl border border-gray-200 bg-gray-50 p-1" role="tablist" aria-label="Editor sidebar sections">
       ${[
     {
@@ -1497,18 +1506,18 @@ function _s(e, t, s = "actions", a, r = !1, i = !1) {
           aria-selected="${s === y.id}"
           aria-controls="sidebar-panel-${f(y.id)}"
         >
-          ${ys(y.id)}
+          ${vs(y.id)}
           <span class="hidden sm:inline">${d(y.label)}</span>
           ${y.badge ? `<span class="rounded-full bg-gray-200 px-1.5 py-0.5 text-xs text-gray-700">${d(y.badge)}</span>` : ""}
         </button>
       `).join("")}
     </nav>
-  `, P = {
+  `, I = {
     actions: `
       <div id="sidebar-panel-actions" class="space-y-4" role="tabpanel" data-sidebar-panel="actions" ${s !== "actions" ? "hidden" : ""}>
-        ${l ? fs(e, t, r, i) : ""}
-        ${u ? us(e, t) : ""}
-        ${p ? ps(e, t) : ""}
+        ${l ? ms(e, t, r, i) : ""}
+        ${u ? fs(e, t) : ""}
+        ${p ? hs(e, t) : ""}
         ${b ? "" : `
           <div class="rounded-xl border border-gray-200 bg-white p-5">
             <h2 class="text-lg font-semibold text-gray-900">Actions</h2>
@@ -1519,22 +1528,22 @@ function _s(e, t, s = "actions", a, r = !1, i = !1) {
     `,
     qa: `
       <div id="sidebar-panel-qa" class="space-y-4" role="tabpanel" data-sidebar-panel="qa" ${s !== "qa" ? "hidden" : ""}>
-        ${ds(e)}
+        ${us(e)}
       </div>
     `,
     assist: `
       <div id="sidebar-panel-assist" class="space-y-4" role="tabpanel" data-sidebar-panel="assist" ${s !== "assist" ? "hidden" : ""}>
-        ${cs(e)}
+        ${ls(e)}
       </div>
     `,
     files: `
       <div id="sidebar-panel-files" class="space-y-4" role="tabpanel" data-sidebar-panel="files" ${s !== "files" ? "hidden" : ""}>
-        ${hs(e)}
+        ${gs(e)}
       </div>
     `,
     history: `
       <div id="sidebar-panel-history" class="space-y-4" role="tabpanel" data-sidebar-panel="history" ${s !== "history" ? "hidden" : ""}>
-        ${gs(e)}
+        ${bs(e)}
         ${be(a || {
       status: "ready",
       detail: e
@@ -1545,23 +1554,23 @@ function _s(e, t, s = "actions", a, r = !1, i = !1) {
   return `
     <aside class="space-y-4 sm:space-y-6" data-editor-sidebar="true">
       ${g}
-      ${Object.values(P).join("")}
+      ${Object.values(I).join("")}
     </aside>
   `;
 }
-function xs(e, t, s = {}, a = {}) {
-  if (e.status === "loading") return Yt();
+function ws(e, t, s = {}, a = {}) {
+  if (e.status === "loading") return Qt();
   if (e.status === "empty") return ie("Assignment unavailable", e.message || "No assignment detail payload was returned.");
   if (e.status === "error") return ne("Editor unavailable", e.message || "Unable to load the assignment editor.", e);
   if (e.status === "conflict") return ne("Editor conflict", e.message || "A newer version of this assignment is available.", e);
   const r = t?.detail || e.detail;
   if (!r) return ie("Assignment unavailable", "No assignment detail payload was returned.");
-  const i = !!(t && Object.keys(t.dirty_fields).length), o = Nt(t || null, i, a.lastSavedMessage || ""), l = t?.autosave.conflict, u = U(r);
+  const i = !!(t && Object.keys(t.dirty_fields).length), o = zt(t || null, i, a.lastSavedMessage || ""), l = t?.autosave.conflict, u = U(r);
   return `
     <div class="translation-editor-screen space-y-6" data-translation-editor="true" data-editor-read-only="${u ? "true" : "false"}">
-      ${zt(a.feedback || null)}
+      ${Ut(a.feedback || null)}
       ${Wt(r, o, i, a.submitting === !0, a.saving === !0, a.previewing === !0, !!l, u, s.basePath || "")}
-      ${Gt(r)}
+      ${Xt(r)}
       ${u ? `
         <section class="rounded-xl border border-gray-200 bg-gray-50 p-4" data-editor-read-only-notice="true">
           <p class="text-sm font-medium text-gray-700">${d(J(r))}</p>
@@ -1580,20 +1589,20 @@ function xs(e, t, s = {}, a = {}) {
       ` : ""}
       <div class="grid grid-cols-1 gap-4 sm:gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(280px,1fr)]">
         <div class="order-1 space-y-4 sm:space-y-6">
-          ${rs(r, u)}
+          ${is(r, u)}
         </div>
         <div class="order-2">
-          ${_s(r, a.submitting === !0, a.activeSidebarTab || "actions", e, a.saving === !0, !!l)}
+          ${xs(r, a.submitting === !0, a.activeSidebarTab || "actions", e, a.saving === !0, !!l)}
         </div>
       </div>
-      ${ms(a.rejectDraft || null, a.submitting === !0)}
+      ${ps(a.rejectDraft || null, a.submitting === !0)}
     </div>
   `;
 }
-function ws(e, t, s, a = {}, r = {}) {
-  e.innerHTML = xs(t, s, a, r);
+function Ss(e, t, s, a = {}, r = {}) {
+  e.innerHTML = ws(t, s, a, r);
 }
-var Ss = class {
+var $s = class {
   constructor(e) {
     this.container = null, this.loadState = { status: "loading" }, this.editorState = null, this.feedback = null, this.lastSavedMessage = "", this.autosaveTimer = null, this.keyboardHandler = null, this.focusTrapCleanup = null, this.saving = !1, this.submitting = !1, this.previewing = !1, this.rejectDraft = null, this.syncCoreModulePromise = null, this.syncCoreModule = null, this.syncCache = null, this.syncEngine = null, this.syncResource = null, this.syncResourceKey = "", this.syncLoadedResourceKey = "", this.syncLoadedRevision = null, this.syncConflictSnapshot = null, this.activeSidebarTab = "actions";
     const t = e.basePath || "/admin";
@@ -1604,7 +1613,7 @@ var Ss = class {
       syncBaseURL: e.syncBaseURL || it(e.variantEndpointBase || "", e.actionEndpointBase, e.endpoint),
       syncClientBasePath: e.syncClientBasePath || nt(t),
       syncResourceKind: e.syncResourceKind || tt,
-      syncScope: lt(e),
+      syncScope: dt(e),
       basePath: t,
       initialDetail: e.initialDetail
     };
@@ -1636,7 +1645,7 @@ var Ss = class {
   render() {
     if (!this.container) return;
     const e = this.captureRenderViewportState();
-    ws(this.container, this.loadState, this.editorState, { basePath: this.config.basePath }, {
+    Ss(this.container, this.loadState, this.editorState, { basePath: this.config.basePath }, {
       feedback: this.feedback,
       lastSavedMessage: this.lastSavedMessage,
       saving: this.saving,
@@ -1698,7 +1707,7 @@ var Ss = class {
         const s = e.dataset.copySource || "", a = this.editorState?.detail.fields.find((o) => o.path === s);
         if (!a || !this.editorState) return;
         const r = (a.source_value || e.dataset.sourceValue || "").trim();
-        qt(r), this.editorState = T(this.editorState, s, r);
+        Lt(r), this.editorState = T(this.editorState, s, r);
         const i = this.container?.querySelector(`[data-field-input="${re(s)}"]`);
         if (i) {
           i.value = r;
@@ -1800,18 +1809,18 @@ var Ss = class {
   }
   async saveDirtyFields(e) {
     if (this.isEditorReadOnly() || !this.editorState || !Object.keys(this.editorState.dirty_fields).length || this.saving) return !0;
-    this.saving = !0, this.editorState = Et(this.editorState), this.render();
+    this.saving = !0, this.editorState = Ct(this.editorState), this.render();
     const t = this.editorState.detail;
     try {
       const s = await this.mutateDraftSync(t, this.editorState.dirty_fields, e);
       this.syncLoadedRevision = s.snapshot.revision, this.syncConflictSnapshot = null, this.editorState = S(this.editorState, A(s.snapshot));
-      const a = Kt(this.editorState.detail.qa_results, e);
+      const a = Ht(this.editorState.detail.qa_results, e);
       return this.lastSavedMessage = a.lastSaved, (!e || a.kind === "conflict") && (this.feedback = {
         kind: a.kind,
         message: a.message
       }), this.saving = !1, this.render(), !0;
     } catch (s) {
-      return jt(s) ? (this.syncConflictSnapshot = Tt(s), this.syncConflictSnapshot?.revision && (this.syncLoadedRevision = this.syncConflictSnapshot.revision), this.editorState = Ct(this.editorState, ge(s)), this.feedback = {
+      return qt(s) ? (this.syncConflictSnapshot = At(s), this.syncConflictSnapshot?.revision && (this.syncLoadedRevision = this.syncConflictSnapshot.revision), this.editorState = Tt(this.editorState, ge(s)), this.feedback = {
         kind: "conflict",
         message: "Autosave conflict detected. Reload the latest server draft."
       }, this.saving = !1, this.render(), !1) : (this.feedback = {
@@ -1866,7 +1875,7 @@ var Ss = class {
     const a = await this.ensureDraftSyncResource(e), r = m(a.getSnapshot()?.revision), i = this.syncLoadedRevision || r || e.row_version, o = {
       autosave: s,
       fields: t
-    }, l = At(e);
+    }, l = jt(e);
     return l && (o.acknowledged_source_hash = l), await a.mutate({
       operation: st,
       expectedRevision: i,
@@ -1899,7 +1908,7 @@ var Ss = class {
       kind: this.config.syncResourceKind,
       id: t,
       scope: Object.keys(this.config.syncScope).length > 0 ? this.config.syncScope : void 0
-    }, a = dt(s);
+    }, a = ut(s);
     return (!this.syncResource || this.syncResourceKey !== a) && (this.syncResourceKey = a, this.syncResource = this.syncEngine.resource(s), this.syncLoadedRevision = null, this.syncConflictSnapshot = null), this.syncResource;
   }
   async ensureDraftSyncLoaded(e) {
@@ -1936,7 +1945,7 @@ var Ss = class {
       const o = Object.entries(this.editorState.detail.field_completeness).filter(([, l]) => l.required && l.missing).map(([l]) => l);
       this.feedback = {
         kind: this.editorState.detail.qa_results.submit_blocked ? "conflict" : "error",
-        message: this.editorState.detail.qa_results.submit_blocked ? Ht(this.editorState.detail) : o.length ? `Complete required fields before submitting for review: ${o.join(", ")}.` : "Submit for review is unavailable."
+        message: this.editorState.detail.qa_results.submit_blocked ? Vt(this.editorState.detail) : o.length ? `Complete required fields before submitting for review: ${o.join(", ")}.` : "Submit for review is unavailable."
       }, this.render();
       return;
     }
@@ -1962,7 +1971,7 @@ var Ss = class {
     const r = await a.json(), i = n(c(r).data && c(c(r).data).status);
     this.feedback = {
       kind: "success",
-      message: Vt(this.editorState.detail, i)
+      message: Yt(this.editorState.detail, i)
     }, this.submitting = !1, await this.load(t);
   }
   assignmentActionEndpoint(e, t) {
@@ -2001,10 +2010,14 @@ var Ss = class {
     });
     if (!a.ok) {
       const r = await j(a, "Failed to resume assignment");
-      this.feedback = {
+      if (this.feedback = {
         kind: r.status === 409 || r.code === "VERSION_CONFLICT" || r.code === "POLICY_BLOCKED" ? "conflict" : "error",
         message: r.message
-      }, this.submitting = !1, this.render();
+      }, this.submitting = !1, r.status === 409 || r.code === "INVALID_STATUS_TRANSITION" || r.code === "INVALID_STATUS") {
+        await this.load(t);
+        return;
+      }
+      this.render();
       return;
     }
     this.feedback = {
@@ -2107,7 +2120,7 @@ var Ss = class {
         }, this.previewing = !1, this.render();
         return;
       }
-      Dt(e, i.url), this.previewing = !1, this.feedback = null, this.render();
+      Ot(e, i.url), this.previewing = !1, this.feedback = null, this.render();
     } catch (s) {
       _(e), this.previewing = !1, this.feedback = {
         kind: "error",
@@ -2180,11 +2193,11 @@ var Ss = class {
     });
   }
 };
-async function Os(e, t) {
-  const s = new Ss(t), a = t.initialDetail || $s(e);
+async function Is(e, t) {
+  const s = new $s(t), a = t.initialDetail || ks(e);
   return (e.dataset.ssrEnhanced || "").trim() === "true" && a ? (e.dataset.translationEditorEnhanced = "true", s.mountWithInitialDetail(e, a)) : s.mount(e), s;
 }
-function $s(e) {
+function ks(e) {
   const t = e.querySelector('script[type="application/json"][data-translation-editor-initial-state]')?.textContent?.trim() || "";
   if (!t) return null;
   try {
@@ -2194,21 +2207,21 @@ function $s(e) {
   }
 }
 export {
-  Ot as TranslationEditorRequestError,
-  Ss as TranslationEditorScreen,
-  Ct as applyEditorAutosaveConflict,
+  It as TranslationEditorRequestError,
+  $s as TranslationEditorScreen,
+  Tt as applyEditorAutosaveConflict,
   T as applyEditorFieldChange,
   S as applyEditorUpdateResponse,
   se as createTranslationEditorState,
   Pt as fetchTranslationEditorDetailState,
-  Os as initTranslationEditorPage,
+  Is as initTranslationEditorPage,
   at as loadTranslationSyncCoreModule,
-  Et as markEditorAutosavePending,
+  Ct as markEditorAutosavePending,
   he as normalizeAssignmentEditorDetail,
   me as normalizeEditorAssistPayload,
-  Rt as normalizeEditorUpdateResponse,
-  ws as renderTranslationEditorPage,
-  xs as renderTranslationEditorState
+  Et as normalizeEditorUpdateResponse,
+  Ss as renderTranslationEditorPage,
+  ws as renderTranslationEditorState
 };
 
 //# sourceMappingURL=index.js.map

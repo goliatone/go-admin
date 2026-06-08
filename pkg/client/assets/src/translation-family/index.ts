@@ -619,10 +619,12 @@ export function serializeCreateLocaleRequest(
     locale: request.locale,
   };
 
-  if (request.autoCreateAssignment) payload.auto_create_assignment = true;
-  if (request.assigneeId) payload.assignee_id = request.assigneeId;
-  if (request.priority) payload.priority = request.priority;
-  if (request.dueDate) payload.due_date = request.dueDate;
+  if (request.autoCreateAssignment) {
+    payload.auto_create_assignment = true;
+    if (request.assigneeId) payload.assignee_id = request.assigneeId;
+    if (request.priority) payload.priority = request.priority;
+    if (request.dueDate) payload.due_date = request.dueDate;
+  }
   if (request.channel) payload.channel = request.channel;
 
   return payload;
@@ -3091,12 +3093,18 @@ function openCreateLocaleDialog(config: CreateLocaleDialogConfig): void {
     submitButton.classList.add('opacity-60', 'cursor-not-allowed');
     const locale = asString(localeField.value).toLowerCase();
     try {
+      const autoCreateAssignment = Boolean(autoCreateAssignmentField?.checked);
+      const assignmentInput = autoCreateAssignment
+        ? {
+            assigneeId: assigneeField?.value,
+            priority: priorityField?.value,
+            dueDate: toRFC3339(dueDateField?.value || ''),
+          }
+        : {};
       const result = await config.onSubmit({
         locale,
-        autoCreateAssignment: autoCreateAssignmentField?.checked,
-        assigneeId: assigneeField?.value,
-        priority: priorityField?.value,
-        dueDate: toRFC3339(dueDateField?.value || ''),
+        autoCreateAssignment,
+        ...assignmentInput,
       });
       close();
       await config.onSuccess?.(result);
@@ -3207,6 +3215,45 @@ function assigneeControlForAction(root: HTMLElement, key: string, trigger: HTMLE
     if (selectKey === key) return input;
   }
   return null;
+}
+
+function formgenAssigneeValue(select: HTMLSelectElement): string {
+  if (!hasFormgenAssigneeTypeahead(select)) return '';
+  const root = select.previousElementSibling;
+  if (!(root instanceof HTMLElement)) return '';
+  const explicit = [
+    root.dataset.value,
+    root.dataset.selectedValue,
+    root.dataset.selectedId,
+    root.dataset.relationshipValue,
+  ].map(asString).find(Boolean);
+  if (explicit) return explicit;
+  const input = root.querySelector<HTMLInputElement>('input');
+  return [
+    input?.dataset.value,
+    input?.dataset.selectedValue,
+    input?.dataset.selectedId,
+    input?.dataset.relationshipValue,
+    input?.getAttribute('data-value'),
+    input?.getAttribute('data-selected-value'),
+    input?.getAttribute('data-selected-id'),
+    input?.getAttribute('data-relationship-value'),
+  ].map(asString).find(Boolean) || '';
+}
+
+function assigneeIDForAction(root: HTMLElement, key: string, trigger: HTMLElement): { select: HTMLSelectElement | null; assigneeID: string } {
+  const select = assigneeControlForAction(root, key, trigger);
+  if (!select) return { select, assigneeID: '' };
+  const selectedOptionValue = asString(select.selectedOptions[0]?.value);
+  const assigneeID = [
+    select.value,
+    selectedOptionValue,
+    select.dataset.value,
+    select.dataset.selectedValue,
+    select.dataset.initialAssigneeId,
+    formgenAssigneeValue(select),
+  ].map(asString).find(Boolean) || '';
+  return { select, assigneeID };
 }
 
 function focusAssigneeControl(select: HTMLSelectElement | null): void {
@@ -3558,11 +3605,10 @@ async function bindTranslationFamilyDetailSSRPage(
     const payload: Record<string, unknown> = {};
     if (kind === 'user') {
       const key = selectedLocaleAssignmentKey(root, button);
-      const input = assigneeControlForAction(root, key, button);
-      const assigneeID = asString(input?.value);
+      const { select, assigneeID } = assigneeIDForAction(root, key, button);
       if (!assigneeID) {
         globalToast('warning', 'Assignee is required.');
-        focusAssigneeControl(input);
+        focusAssigneeControl(select);
         return;
       }
       payload.assignee_id = assigneeID;
@@ -3723,11 +3769,10 @@ export async function initTranslationFamilyDetailPage(
         }
         const payload: Record<string, unknown> = {};
         if (kind === 'user') {
-          const input = assigneeControlForAction(root as HTMLElement, key, button);
-          const assigneeID = asString(input?.value);
+          const { select, assigneeID } = assigneeIDForAction(root as HTMLElement, key, button);
           if (!assigneeID) {
             globalToast('warning', 'Assignee is required.');
-            input?.focus();
+            focusAssigneeControl(select);
             return;
           }
           payload.assignee_id = assigneeID;

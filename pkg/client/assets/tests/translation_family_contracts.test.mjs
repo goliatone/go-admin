@@ -248,6 +248,57 @@ test('translation-family list page: SSR root is enhanced without first-render fe
   assert.equal(root.dataset.translationFamilyListEnhanced, 'true');
 });
 
+test('translation-family list page: SSR row action menu opens through shared primitive', async () => {
+  const dom = new JSDOM(`
+    <div id="root"
+         data-ssr-enhanced="true"
+         data-endpoint="/admin/api/translations/families?channel=default"
+         data-base-path="/admin"
+         data-family-base-path="/admin/translations/families">
+      <section data-translation-family-list-ssr="true">
+        <div class="relative actions-dropdown" data-action-menu>
+          <button type="button"
+                  data-action-menu-trigger
+                  aria-expanded="false"
+                  aria-haspopup="menu">
+            Actions
+          </button>
+          <div class="actions-menu hidden" data-action-menu-content role="menu">
+            <a href="/admin/translations/families/tg-page-1?channel=default"
+               data-action-menu-item
+               role="menuitem">Open family</a>
+            <a href="/admin/translations/matrix?family_id=tg-page-1&channel=default"
+               data-action-menu-item
+               role="menuitem">Matrix</a>
+          </div>
+        </div>
+      </section>
+    </div>
+    <button id="outside" type="button">Outside</button>
+  `, {
+    url: 'http://localhost:8082/admin/translations/families?channel=default',
+  });
+  setGlobals(dom.window);
+  const root = dom.window.document.getElementById('root');
+  const trigger = root.querySelector('[data-action-menu-trigger]');
+  const menu = root.querySelector('[data-action-menu-content]');
+
+  const state = await initTranslationFamilyListPage(root, {
+    fetch: async () => {
+      throw new Error('SSR action-menu initialization must not fetch');
+    },
+  });
+
+  assert.equal(state.status, 'ready');
+  trigger.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }));
+  assert.equal(menu.classList.contains('hidden'), false);
+  assert.equal(trigger.getAttribute('aria-expanded'), 'true');
+
+  dom.window.document.getElementById('outside').dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }));
+  assert.equal(menu.classList.contains('hidden'), true);
+  assert.equal(trigger.getAttribute('aria-expanded'), 'false');
+});
+
 test('translation-family list page: builds UI context URLs without API paths', () => {
   const filters = createFamilyFilters({ channel: 'production', readinessState: 'blocked', blockerCode: 'missing_locale' });
   const row = normalizeFamilyListResponse({

@@ -530,6 +530,95 @@ test('translation-family detail SSR enhancement: binds assignment planning contr
   });
 });
 
+test('translation-family detail SSR enhancement: binds inline assign buttons and formgen assignee value', async () => {
+  const dom = setupDom(`
+    <div id="root"
+         data-ssr-enhanced="true"
+         data-endpoint="/admin/api/translations/families/family-ready?channel=default"
+         data-family-id="family-ready"
+         data-base-path="/admin">
+      <select data-family-assignee-select="es:localization"
+              data-formgen-managed="true"
+              data-endpoint-renderer="typeahead"
+              data-endpoint-url="/api/translations/options/assignees?per_page=200"
+              aria-label="Assignee">
+        <option value="">Select assignee</option>
+      </select>
+      <button type="button"
+              data-family-assign-to-me="true"
+              data-locale-assignment-key="es:localization"
+              data-assignment-endpoint="/admin/api/translations/families/family-ready/assignments"
+              data-assignment-target-locale="es"
+              data-assignment-work-scope="localization"
+              data-assignment-assignee-id="translator-self">Assign to me</button>
+      <button type="button"
+              data-family-assign-to-user="true"
+              data-locale-assignment-key="es:localization"
+              data-assignment-endpoint="/admin/api/translations/families/family-ready/assignments"
+              data-assignment-target-locale="es"
+              data-assignment-work-scope="localization">Assign</button>
+    </div>
+  `);
+  try {
+    Object.defineProperty(dom.window.location, 'reload', { value() {}, configurable: true });
+  } catch {}
+  const root = dom.window.document.getElementById('root');
+  const requests = [];
+  const fetchImpl = async (url, init = {}) => {
+    requests.push({ url: String(url), init });
+    if (init.method === 'POST') {
+      return new Response(JSON.stringify({ data: { assignment_id: 'asg-es' } }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+    throw new Error(`unexpected fetch: ${url}`);
+  };
+  dom.window.FormgenRelationships = {
+    initRelationships() {
+      const select = root.querySelector('[data-family-assignee-select="es:localization"]');
+      const typeahead = dom.window.document.createElement('div');
+      typeahead.setAttribute('data-fg-typeahead-root', 'true');
+      const input = dom.window.document.createElement('input');
+      input.type = 'text';
+      input.dataset.selectedId = 'translator-2';
+      typeahead.appendChild(input);
+      select.before(typeahead);
+    },
+  };
+
+  await initTranslationFamilyDetailPage(root, { fetch: fetchImpl });
+  assert.equal(requests.length, 0, 'formgen-ready inline controls should not fetch fallback assignees');
+
+  root.querySelector('[data-family-assign-to-me="true"]')
+    .dispatchEvent(new dom.window.Event('click', { bubbles: true }));
+  await nextTick();
+  await nextTick();
+
+  const selfPost = requests.find((entry) => entry.init.method === 'POST');
+  assert.equal(selfPost.url, '/admin/api/translations/families/family-ready/assignments');
+  assert.deepEqual(JSON.parse(String(selfPost.init.body)), {
+    target_locale: 'es',
+    work_scope: 'localization',
+    assignee_id: 'translator-self',
+    channel: 'default',
+  });
+
+  root.querySelector('[data-family-assign-to-user="true"]')
+    .dispatchEvent(new dom.window.Event('click', { bubbles: true }));
+  await nextTick();
+  await nextTick();
+
+  const posts = requests.filter((entry) => entry.init.method === 'POST');
+  assert.equal(posts.length, 2);
+  assert.deepEqual(JSON.parse(String(posts[1].init.body)), {
+    target_locale: 'es',
+    work_scope: 'localization',
+    assignee_id: 'translator-2',
+    channel: 'default',
+  });
+});
+
 test('translation-family detail SSR enhancement: managed assignee select falls back when formgen runtime is absent', async () => {
   const dom = setupDom(`
     <div id="root"
