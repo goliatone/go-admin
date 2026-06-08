@@ -105,13 +105,13 @@ Translation family assignment is the first enhanced SSR action pilot.
 Implemented contracts:
 
 - `go.mod` uses `replace github.com/goliatone/go-crud => ../go-crud` so this checkout can consume local go-crud enhanced mutation helpers during cross-repo development.
-- go-crud detects mutation response mode with `X-GoAdmin-Enhance: 1`, `Accept: application/vnd.go-admin.enhanced+json`, normal browser form posts, and JSON clients.
+- go-crud detects mutation response mode with `X-Enhanced-Action: 1`, the enhanced `Accept` media type, normal browser form posts, and JSON clients. go-admin emits and accepts `application/vnd.admin.enhanced+json` for enhanced SSR mutation envelopes.
 - go-admin defines `MutationPresentation`, `EnhancedMutationResponder`, toast/fragment/error envelopes, and known family-detail fragment targets in `admin/enhanced_mutation.go` and `admin/enhanced_family_fragments.go`.
 - The shared browser runtime in `pkg/client/assets/src/shared/enhanced-action.ts` progressively enhances `form[data-enhance-action]`, sends enhanced headers, applies `replace` fragments, shows toasts, renders field errors, restores focus, and reinitializes Formgen relationships.
 - Family detail SSR contains stable replacement roots: `data-family-locale-coverage`, `data-family-assignments`, `data-family-publish-gate`, and `data-family-activity`.
 - Family detail `Assign to me` and `Assign` controls are semantic POST forms with CSRF, hidden command fields, `data-enhance-action="true"`, and scoped error targets.
 - The family assignment endpoint executes one command-backed mutation path and negotiates three response shapes at the presentation boundary:
-  - enhanced browser requests return `application/vnd.go-admin.enhanced+json` with fragments, toast, focus, and redirect fallback
+  - enhanced browser requests return `application/vnd.admin.enhanced+json` with fragments, toast, focus, and redirect fallback
   - normal HTML form posts redirect to the family detail page with flash headers
   - existing JSON clients keep the existing JSON response shape when they do not send the enhanced marker
 

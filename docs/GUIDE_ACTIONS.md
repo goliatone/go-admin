@@ -177,8 +177,8 @@ inside command inputs/results.
 
 go-crud provides the transport detection helpers:
 
-- `X-GoAdmin-Enhance: 1`
-- `Accept: application/vnd.go-admin.enhanced+json`
+- `X-Enhanced-Action: 1`
+- `Accept: application/vnd.admin.enhanced+json`
 - form content with HTML-oriented `Accept`
 - JSON clients without the enhanced marker
 
