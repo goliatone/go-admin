@@ -1,200 +1,210 @@
 import { appendCSRFHeader as T } from "./transport/http-client.js";
-var S = "X-GoAdmin-Enhance", D = "application/vnd.go-admin.enhanced+json";
-function O(t = document, e = {}) {
-  const n = e.document ?? U(t), o = (i) => {
-    const r = R(i.target, n);
-    !r || !r.matches("form[data-enhance-action]") || E(e.fetch ?? globalThis.fetch, r.ownerDocument) && (i.preventDefault(), H(r, i.submitter, {
-      ...e,
+var G = "X-Enhanced-Action", z = "application/vnd.admin.enhanced+json", P = "1";
+function W(e = document, t = {}) {
+  const n = t.document ?? U(e), o = (i) => {
+    const r = F(i.target, n);
+    !r || !r.matches("form[data-enhance-action]") || E(t.fetch ?? globalThis.fetch, r.ownerDocument) && (i.preventDefault(), H(r, i.submitter, {
+      ...t,
       document: n
     }));
   };
-  return t.addEventListener("submit", o), { destroy() {
-    t.removeEventListener("submit", o);
+  return e.addEventListener("submit", o), { destroy() {
+    e.removeEventListener("submit", o);
   } };
 }
-async function H(t, e, n = {}) {
+async function H(e, t, n = {}) {
   const o = n.fetch ?? globalThis.fetch;
-  if (!E(o, t.ownerDocument)) return null;
-  const i = F(t, e);
+  if (!E(o, e.ownerDocument)) return null;
+  const i = C(e, t);
   if (!i) return null;
-  const r = M(t, e), a = g(t.ownerDocument), s = y(t.ownerDocument), u = new a(t);
-  $(u, e);
-  const l = q(i, r, u);
-  N(t);
-  const d = new s();
-  d.set(S, "1"), d.set("Accept", D), T(l, { method: r }, d);
-  const w = I(t, !0);
+  const r = L(e, t), a = g(e.ownerDocument), c = y(e.ownerDocument), u = new a(e);
+  $(u, t);
+  const l = N(i, r, u);
+  j(e);
+  const d = new c();
+  d.set(q(n), M(n)), d.set("Accept", R(n)), T(l, { method: r }, d);
+  const w = I(e, !0);
   try {
     const f = await o(l, {
       method: r,
       headers: d,
       body: r === "GET" || r === "HEAD" ? void 0 : u,
       credentials: "same-origin"
-    }), c = await C(f);
-    return !f.ok || c.ok === !1 ? (p(t, c), h(c, n.toast), b(c, n.document ?? t.ownerDocument), c) : (await v(c, n), c);
+    }), s = await v(f);
+    return !f.ok || s.ok === !1 ? (p(e, s), h(s, n.toast), A(s, n.document ?? e.ownerDocument), s) : (await S(s, n), s);
   } catch (f) {
-    const c = f instanceof Error ? f.message : "Request failed", m = {
+    const s = f instanceof Error ? f.message : "Request failed", m = {
       ok: !1,
-      error: { message: c },
+      error: { message: s },
       toasts: [{
         type: "error",
-        message: c
+        message: s
       }]
     };
-    return p(t, m), h(m, n.toast), m;
+    return p(e, m), h(m, n.toast), m;
   } finally {
-    k(t, w);
+    V(e, w);
   }
 }
-async function v(t, e = {}) {
-  const n = e.document ?? globalThis.document, o = [];
-  for (const i of t.fragments ?? []) L(n, i) && o.push(i);
-  o.length > 0 && (await j(e), await e.onFragmentsApplied?.(o), G(n, o)), h(t, e.toast), b(t, n);
+async function S(e, t = {}) {
+  const n = t.document ?? globalThis.document, o = [];
+  for (const i of e.fragments ?? []) D(n, i) && o.push(i);
+  o.length > 0 && (await _(t), await t.onFragmentsApplied?.(o), B(n, o)), h(e, t.toast), A(e, n);
 }
-function L(t, e) {
-  const n = String(e.selector ?? "").trim(), o = String(e.html ?? "").trim(), i = String(e.mode ?? "replace").trim() || "replace";
+function D(e, t) {
+  const n = String(t.selector ?? "").trim(), o = String(t.html ?? "").trim(), i = String(t.mode ?? "replace").trim() || "replace";
   if (!n || !o || i !== "replace") return !1;
-  const r = t.querySelector(n);
+  const r = e.querySelector(n);
   if (!r) return !1;
-  const a = t.createElement("template");
+  const a = e.createElement("template");
   a.innerHTML = o;
-  const s = a.content.firstElementChild;
-  return s ? (r.replaceWith(s), !0) : !1;
+  const c = a.content.firstElementChild;
+  return c ? (r.replaceWith(c), !0) : !1;
 }
-function E(t, e) {
-  return typeof t == "function" && !!g(e) && !!y(e);
+function E(e, t) {
+  return typeof e == "function" && !!g(t) && !!y(t);
 }
-async function C(t) {
+async function v(e) {
   try {
-    const e = await t.json();
-    if (e && typeof e == "object" && !Array.isArray(e)) return e;
+    const t = await e.json();
+    if (t && typeof t == "object" && !Array.isArray(t)) return t;
   } catch {
   }
   return {
-    ok: t.ok,
-    error: t.ok ? void 0 : { message: `Request failed (${t.status})` }
+    ok: e.ok,
+    error: e.ok ? void 0 : { message: `Request failed (${e.status})` }
   };
 }
-function F(t, e) {
-  return e?.getAttribute("formaction")?.trim() || t.getAttribute("action")?.trim() || t.action || "";
+function C(e, t) {
+  return t?.getAttribute("formaction")?.trim() || e.getAttribute("action")?.trim() || e.action || "";
 }
-function M(t, e) {
-  return (e?.getAttribute("formmethod")?.trim() || t.getAttribute("method") || t.method || "GET").trim().toUpperCase() || "GET";
+function L(e, t) {
+  return (t?.getAttribute("formmethod")?.trim() || e.getAttribute("method") || e.method || "GET").trim().toUpperCase() || "GET";
 }
-function R(t, e) {
-  const n = e.defaultView;
-  return n?.HTMLFormElement && t instanceof n.HTMLFormElement || typeof HTMLFormElement < "u" && t instanceof HTMLFormElement ? t : null;
+function F(e, t) {
+  const n = t.defaultView;
+  return n?.HTMLFormElement && e instanceof n.HTMLFormElement || typeof HTMLFormElement < "u" && e instanceof HTMLFormElement ? e : null;
 }
-function g(t) {
-  return t?.defaultView?.FormData ?? globalThis.FormData;
+function g(e) {
+  return e?.defaultView?.FormData ?? globalThis.FormData;
 }
-function y(t) {
-  return t?.defaultView?.Headers ?? globalThis.Headers;
+function y(e) {
+  return e?.defaultView?.Headers ?? globalThis.Headers;
 }
-function q(t, e, n) {
-  if (e !== "GET" && e !== "HEAD") return t;
+function q(e) {
+  return String(e.requestHeader || "X-Enhanced-Action").trim() || "X-Enhanced-Action";
+}
+function M(e) {
+  return String(e.requestHeaderValue || "1").trim() || "1";
+}
+function R(e) {
+  return String(e.accept || "application/vnd.admin.enhanced+json").trim() || "application/vnd.admin.enhanced+json";
+}
+function N(e, t, n) {
+  if (t !== "GET" && t !== "HEAD") return e;
   const o = new URLSearchParams();
   n.forEach((r, a) => {
     o.append(a, typeof r == "string" ? r : r.name);
   });
   const i = o.toString();
-  if (!i) return t;
+  if (!i) return e;
   try {
-    const r = typeof location < "u" && location?.href ? location.href : void 0, a = new URL(t, r);
-    return o.forEach((s, u) => {
-      a.searchParams.append(u, s);
-    }), /^[a-zA-Z][a-zA-Z\d+\-.]*:/.test(t) || t.startsWith("//") ? a.toString() : `${a.pathname}${a.search}${a.hash}`;
+    const r = typeof location < "u" && location?.href ? location.href : void 0, a = new URL(e, r);
+    return o.forEach((c, u) => {
+      a.searchParams.append(u, c);
+    }), /^[a-zA-Z][a-zA-Z\d+\-.]*:/.test(e) || e.startsWith("//") ? a.toString() : `${a.pathname}${a.search}${a.hash}`;
   } catch {
-    const r = t.indexOf("#"), a = r >= 0 ? t.slice(0, r) : t, s = r >= 0 ? t.slice(r) : "";
-    return `${a}${a.includes("?") ? "&" : "?"}${i}${s}`;
+    const r = e.indexOf("#"), a = r >= 0 ? e.slice(0, r) : e, c = r >= 0 ? e.slice(r) : "";
+    return `${a}${a.includes("?") ? "&" : "?"}${i}${c}`;
   }
 }
-function $(t, e) {
-  if (!x(e)) return;
-  const n = e.getAttribute("name")?.trim();
-  !n || t.has(n) || t.append(n, e.getAttribute("value") ?? "");
+function $(e, t) {
+  if (!x(t)) return;
+  const n = t.getAttribute("name")?.trim();
+  !n || e.has(n) || e.append(n, t.getAttribute("value") ?? "");
 }
-function x(t) {
-  if (!t) return !1;
-  const e = t.ownerDocument?.defaultView;
-  return e?.HTMLButtonElement && t instanceof e.HTMLButtonElement || e?.HTMLInputElement && t instanceof e.HTMLInputElement || typeof HTMLButtonElement < "u" && t instanceof HTMLButtonElement ? !0 : typeof HTMLInputElement < "u" && t instanceof HTMLInputElement;
+function x(e) {
+  if (!e) return !1;
+  const t = e.ownerDocument?.defaultView;
+  return t?.HTMLButtonElement && e instanceof t.HTMLButtonElement || t?.HTMLInputElement && e instanceof t.HTMLInputElement || typeof HTMLButtonElement < "u" && e instanceof HTMLButtonElement ? !0 : typeof HTMLInputElement < "u" && e instanceof HTMLInputElement;
 }
-function I(t, e) {
+function I(e, t) {
   const n = {
     controls: [],
-    busy: t.getAttribute("aria-busy")
+    busy: e.getAttribute("aria-busy")
   };
-  t.setAttribute("aria-busy", e ? "true" : "false");
-  for (const o of Array.from(t.querySelectorAll('button, input[type="submit"], input[type="button"]')))
+  e.setAttribute("aria-busy", t ? "true" : "false");
+  for (const o of Array.from(e.querySelectorAll('button, input[type="submit"], input[type="button"]')))
     n.controls.push({
       control: o,
       disabled: o.disabled
-    }), o.disabled = e || o.disabled;
+    }), o.disabled = t || o.disabled;
   return n;
 }
-function k(t, e) {
-  e.busy === null ? t.removeAttribute("aria-busy") : t.setAttribute("aria-busy", e.busy);
-  for (const n of e.controls) n.control.disabled = n.disabled;
+function V(e, t) {
+  t.busy === null ? e.removeAttribute("aria-busy") : e.setAttribute("aria-busy", t.busy);
+  for (const n of t.controls) n.control.disabled = n.disabled;
 }
-function h(t, e) {
-  const n = e ?? A().toastManager, o = [...t.toasts ?? []];
-  t.toast && o.unshift(t.toast);
+function h(e, t) {
+  const n = t ?? b().toastManager, o = [...e.toasts ?? []];
+  e.toast && o.unshift(e.toast);
   for (const i of o) {
     const r = String(i.message ?? "").trim();
     if (!r) continue;
-    const a = String(i.type ?? "info").trim() || "info", s = n?.[a];
-    typeof s == "function" ? s.call(n, r) : typeof n?.show == "function" && n.show(r, a);
+    const a = String(i.type ?? "info").trim() || "info", c = n?.[a];
+    typeof c == "function" ? c.call(n, r) : typeof n?.show == "function" && n.show(r, a);
   }
 }
-function b(t, e) {
-  const n = String(t.focus ?? "").trim();
-  n && e.querySelector(n)?.focus?.();
+function A(e, t) {
+  const n = String(e.focus ?? "").trim();
+  n && t.querySelector(n)?.focus?.();
 }
-function N(t) {
-  for (const e of Array.from(t.querySelectorAll("[data-enhance-generated-error]"))) e.remove();
-  for (const e of Array.from(t.querySelectorAll('[aria-invalid="true"]'))) e.removeAttribute("aria-invalid");
+function j(e) {
+  for (const t of Array.from(e.querySelectorAll("[data-enhance-generated-error]"))) t.remove();
+  for (const t of Array.from(e.querySelectorAll('[aria-invalid="true"]'))) t.removeAttribute("aria-invalid");
 }
-function p(t, e) {
-  const n = e.error?.fields ?? {};
-  for (const [a, s] of Object.entries(n)) {
-    const u = t.querySelector(`[name="${B(a)}"]`);
+function p(e, t) {
+  const n = t.error?.fields ?? {};
+  for (const [a, c] of Object.entries(n)) {
+    const u = e.querySelector(`[name="${k(a)}"]`);
     if (!u) continue;
     u.setAttribute("aria-invalid", "true");
-    const l = t.ownerDocument.createElement("div");
-    l.setAttribute("data-enhance-generated-error", "true"), l.setAttribute("data-enhance-field-error-for", a), l.className = "mt-1 text-xs text-rose-600", l.textContent = s, u.insertAdjacentElement("afterend", l);
+    const l = e.ownerDocument.createElement("div");
+    l.setAttribute("data-enhance-generated-error", "true"), l.setAttribute("data-enhance-field-error-for", a), l.className = "mt-1 text-xs text-rose-600", l.textContent = c, u.insertAdjacentElement("afterend", l);
   }
-  const o = String(e.error?.message ?? "").trim();
+  const o = String(t.error?.message ?? "").trim();
   if (!o) return;
-  const i = t.getAttribute("data-enhance-error-target")?.trim(), r = i ? t.ownerDocument.querySelector(i) : null;
+  const i = e.getAttribute("data-enhance-error-target")?.trim(), r = i ? e.ownerDocument.querySelector(i) : null;
   r && (r.textContent = o, r.removeAttribute("hidden"));
 }
-function B(t) {
-  const e = globalThis.CSS;
-  return typeof e?.escape == "function" ? e.escape(t) : t.replace(/["\\]/g, "\\$&");
+function k(e) {
+  const t = globalThis.CSS;
+  return typeof t?.escape == "function" ? t.escape(e) : e.replace(/["\\]/g, "\\$&");
 }
-async function j(t) {
-  const e = A().FormgenRelationships;
-  typeof e?.initRelationships == "function" && await e.initRelationships();
+async function _(e) {
+  const t = b().FormgenRelationships;
+  typeof t?.initRelationships == "function" && await t.initRelationships();
 }
-function A() {
+function b() {
   return globalThis.window ?? {};
 }
-function G(t, e) {
+function B(e, t) {
   const n = new CustomEvent("go-admin:enhanced-fragments-applied", {
     bubbles: !0,
-    detail: { fragments: e }
+    detail: { fragments: t }
   });
-  t.dispatchEvent(n);
+  e.dispatchEvent(n);
 }
-function U(t) {
-  return t instanceof Document ? t : t.ownerDocument;
+function U(e) {
+  return e instanceof Document ? e : e.ownerDocument;
 }
 export {
-  D as ENHANCED_ACTION_ACCEPT,
-  S as ENHANCED_ACTION_HEADER,
-  v as applyEnhancedEnvelope,
-  L as applyEnhancedFragment,
-  O as initEnhancedActions,
+  z as ENHANCED_ACTION_ACCEPT,
+  G as ENHANCED_ACTION_HEADER,
+  P as ENHANCED_ACTION_HEADER_VALUE,
+  S as applyEnhancedEnvelope,
+  D as applyEnhancedFragment,
+  W as initEnhancedActions,
   H as submitEnhancedForm
 };
 
