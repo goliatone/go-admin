@@ -99,17 +99,20 @@ func TestFamilyServicePolicyOverrideAndSourceLocaleSelection(t *testing.T) {
 	family, err := svc.Recompute(context.Background(), "family-override", "staging")
 	requireNoErr(t, err)
 
-	if family.SourceLocale != "es" || family.SourceVariantID != "variant-es" {
-		t.Fatalf("expected fallback source locale selection to choose es, got locale=%q variant=%q", family.SourceLocale, family.SourceVariantID)
+	if family.SourceLocale != "en" || family.SourceVariantID != "" {
+		t.Fatalf("expected policy source locale to remain canonical when source variant is missing, got locale=%q variant=%q", family.SourceLocale, family.SourceVariantID)
 	}
 	if !family.Policy.AllowPublishOverride {
 		t.Fatalf("expected allow_publish_override=true in policy")
 	}
-	if family.OutdatedLocaleCount != 1 {
-		t.Fatalf("expected outdated locale count 1, got %d", family.OutdatedLocaleCount)
+	if family.OutdatedLocaleCount != 0 {
+		t.Fatalf("expected no outdated locale count without a source variant, got %d", family.OutdatedLocaleCount)
 	}
-	if !familyHasBlockerCode(family, string(translationcore.FamilyBlockerOutdatedSource)) {
-		t.Fatalf("expected outdated_source blocker, got %+v", family.Blockers)
+	if familyHasBlockerCode(family, string(translationcore.FamilyBlockerOutdatedSource)) {
+		t.Fatalf("did not expect outdated_source blocker without a source variant, got %+v", family.Blockers)
+	}
+	if !familyHasBlocker(family, string(translationcore.FamilyBlockerMissingLocale), "en") {
+		t.Fatalf("expected missing source locale blocker, got %+v", family.Blockers)
 	}
 }
 
@@ -433,6 +436,20 @@ func percentile95(samples []time.Duration) time.Duration {
 
 func fmtFamilyID(i int) string {
 	return "family-perf-" + strconv.Itoa(i)
+}
+
+func familyHasBlocker(family FamilyRecord, code, locale string) bool {
+	code = strings.TrimSpace(code)
+	locale = strings.TrimSpace(strings.ToLower(locale))
+	for _, blocker := range family.Blockers {
+		if !strings.EqualFold(strings.TrimSpace(blocker.BlockerCode), code) {
+			continue
+		}
+		if locale == "" || strings.EqualFold(strings.TrimSpace(blocker.Locale), locale) {
+			return true
+		}
+	}
+	return false
 }
 
 func requireNoErr(t *testing.T, err error) {

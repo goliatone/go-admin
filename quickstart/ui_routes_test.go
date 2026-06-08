@@ -629,6 +629,12 @@ func TestTranslationEditorTemplateRendersSSRSections(t *testing.T) {
 
 func TestTranslationEditorTemplateRendersResumeWorkState(t *testing.T) {
 	baseData := func(claim map[string]any) fiber.Map {
+		assignmentActionStates := map[string]any{
+			"submit_review": map[string]any{"enabled": false, "reason": "assignment must be in progress"},
+		}
+		if claim != nil {
+			assignmentActionStates["claim"] = claim
+		}
 		return fiber.Map{
 			"translation_assignment_id":          "asg-changes",
 			"translation_editor_api_path":        "/admin/api/translations/assignments/asg-changes?channel=staging",
@@ -653,13 +659,10 @@ func TestTranslationEditorTemplateRendersResumeWorkState(t *testing.T) {
 						"source_value": "Hello",
 						"target_value": "Hola",
 					}},
-					"locale_navigation": map[string]any{"locales": []map[string]any{{"locale": "es", "label": "Spanish", "current": true}}},
-					"qa_results":        map[string]any{"summary": map[string]any{"blocker_count": 0}},
-					"preview_action":    map[string]any{"enabled": true},
-					"assignment_action_states": map[string]any{
-						"claim":         claim,
-						"submit_review": map[string]any{"enabled": false, "reason": "assignment must be in progress"},
-					},
+					"locale_navigation":        map[string]any{"locales": []map[string]any{{"locale": "es", "label": "Spanish", "current": true}}},
+					"qa_results":               map[string]any{"summary": map[string]any{"blocker_count": 0}},
+					"preview_action":           map[string]any{"enabled": true},
+					"assignment_action_states": assignmentActionStates,
 					"review_action_states": map[string]any{
 						"approve": map[string]any{"enabled": false, "reason": "assignment must be in review"},
 						"reject":  map[string]any{"enabled": false, "reason": "assignment must be in review"},
@@ -675,6 +678,7 @@ func TestTranslationEditorTemplateRendersResumeWorkState(t *testing.T) {
 		`data-action="resume-work"`,
 		`Resume work`,
 		`assignment must be in progress`,
+		`Changes requested`,
 	} {
 		if !strings.Contains(enabledHTML, expected) {
 			t.Fatalf("expected enabled resume HTML to contain %q, got %q", expected, enabledHTML)
@@ -701,6 +705,18 @@ func TestTranslationEditorTemplateRendersResumeWorkState(t *testing.T) {
 	} {
 		if !strings.Contains(disabledHTML, expected) {
 			t.Fatalf("expected disabled resume HTML to contain %q, got %q", expected, disabledHTML)
+		}
+	}
+
+	missingClaimHTML := renderTranslationUITemplate(t, "resources/translations/editor", baseData(nil))
+	for _, expected := range []string{
+		`data-action="resume-work"`,
+		`disabled aria-disabled="true"`,
+		`data-resume-unavailable-reason="true"`,
+		`Resume unavailable`,
+	} {
+		if !strings.Contains(missingClaimHTML, expected) {
+			t.Fatalf("expected missing claim HTML to contain %q, got %q", expected, missingClaimHTML)
 		}
 	}
 }

@@ -472,13 +472,42 @@ func TestTranslationSSRFamilyListLinksPreserveChannel(t *testing.T) {
 		MatrixPath:     "/admin/translations/matrix",
 		QueuePath:      "/admin/translations/queue?review_state=needs_review",
 		Channel:        "staging",
+		Query: map[string]string{
+			"tenant_id":       "tenant-1",
+			"org_id":          "org-1",
+			"readiness_state": "blocked",
+			"blocker_code":    "missing_locale",
+		},
 	})
 
-	if got := toString(links["matrix"]); got != "/admin/translations/matrix?channel=staging" {
-		t.Fatalf("expected matrix link to preserve channel, got %q", got)
+	matrixURL, err := url.Parse(toString(links["matrix"]))
+	if err != nil {
+		t.Fatalf("parse matrix link: %v", err)
 	}
-	if got := toString(links["queue"]); got != "/admin/translations/queue?channel=staging&review_state=needs_review" {
-		t.Fatalf("expected queue link to preserve channel and existing query, got %q", got)
+	for key, want := range map[string]string{
+		"channel":         "staging",
+		"tenant_id":       "tenant-1",
+		"org_id":          "org-1",
+		"readiness_state": "blocked",
+		"blocker_code":    "missing_locale",
+	} {
+		if got := matrixURL.Query().Get(key); got != want {
+			t.Fatalf("expected matrix query %s=%q, got %q in %q", key, want, got, matrixURL.String())
+		}
+	}
+	queueURL, err := url.Parse(toString(links["queue"]))
+	if err != nil {
+		t.Fatalf("parse queue link: %v", err)
+	}
+	for key, want := range map[string]string{
+		"channel":      "staging",
+		"tenant_id":    "tenant-1",
+		"org_id":       "org-1",
+		"review_state": "needs_review",
+	} {
+		if got := queueURL.Query().Get(key); got != want {
+			t.Fatalf("expected queue query %s=%q, got %q in %q", key, want, got, queueURL.String())
+		}
 	}
 }
 
@@ -494,10 +523,12 @@ func TestTranslationSSRFamilyListRowLinksRespectRouteAvailability(t *testing.T) 
 		Query: map[string]string{
 			"blocker_code":   "missing_locale",
 			"missing_locale": "es",
+			"tenant_id":      "tenant-1",
+			"org_id":         "org-1",
 		},
 	}, row)
 
-	if got := toString(links["detail"]); got != "/admin/translations/families/family%201?channel=staging" {
+	if got := toString(links["detail"]); got != "/admin/translations/families/family%201?blocker_code=missing_locale&channel=staging&missing_locale=es&org_id=org-1&tenant_id=tenant-1" {
 		t.Fatalf("expected detail link to preserve channel and escape family id, got %q", got)
 	}
 	if got := toString(links["matrix"]); got != "" {
@@ -515,6 +546,8 @@ func TestTranslationSSRFamilyListRowLinksRespectRouteAvailability(t *testing.T) 
 		Query: map[string]string{
 			"blocker_code":   "missing_locale",
 			"missing_locale": "es",
+			"tenant_id":      "tenant-1",
+			"org_id":         "org-1",
 		},
 	}, row)
 
@@ -530,6 +563,8 @@ func TestTranslationSSRFamilyListRowLinksRespectRouteAvailability(t *testing.T) 
 		"readiness_state": "blocked",
 		"blocker_code":    "missing_locale",
 		"missing_locale":  "es",
+		"tenant_id":       "tenant-1",
+		"org_id":          "org-1",
 		"view":            "compact",
 	} {
 		if got := matrixQuery.Get(key); got != want {
@@ -545,6 +580,12 @@ func TestTranslationSSRFamilyListRowLinksRespectRouteAvailability(t *testing.T) 
 	}
 	if got := queueURL.Query().Get("review_state"); got != "needs_review" {
 		t.Fatalf("expected existing queue query to be preserved, got %q", got)
+	}
+	if got := queueURL.Query().Get("tenant_id"); got != "tenant-1" {
+		t.Fatalf("expected queue tenant scope to be preserved, got %q", got)
+	}
+	if got := queueURL.Query().Get("org_id"); got != "org-1" {
+		t.Fatalf("expected queue org scope to be preserved, got %q", got)
 	}
 }
 

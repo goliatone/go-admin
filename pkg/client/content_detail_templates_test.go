@@ -111,6 +111,9 @@ func TestTranslationFamiliesTemplateBootstrapsClientRenderer(t *testing.T) {
 		`data-action-menu-trigger`,
 		`data-action-menu-content`,
 		`Translation family views`,
+		`dist/shared/action-menu.js`,
+		`initActionMenus(familyListMenuRoot`,
+		`translationFamilyListActionMenusStandalone`,
 		`initTranslationFamilyListPage`,
 	}
 	for _, fragment := range required {

@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"testing"
 	"time"
@@ -702,6 +703,73 @@ func TestBunTranslationAssignmentRepositoryCreateResolvesVariantIDWithinScope(t 
 	}
 	if created.VariantID != "" {
 		t.Fatalf("expected wrong-scope variant not to be linked, got %+v", created)
+	}
+}
+
+func TestBunTranslationAssignmentRepositoryCreateDoesNotUseTargetRecordAsVariantIDWhenScopedVariantMissing(t *testing.T) {
+	db := newTranslationFamilyStoreSQLiteDB(t)
+	ctx := context.Background()
+	now := time.Date(2026, 2, 17, 12, 0, 0, 0, time.UTC)
+	if _, err := db.NewInsert().Model(&bunTranslationFamilyRecord{
+		FamilyID:       "family-missing-scoped-variant",
+		TenantID:       "tenant-1",
+		OrgID:          "org-1",
+		ContentType:    "pages",
+		SourceLocale:   "en",
+		ReadinessState: "ready",
+		CreatedAt:      now,
+		UpdatedAt:      now,
+	}).Exec(ctx); err != nil {
+		t.Fatalf("seed scoped family: %v", err)
+	}
+	if _, err := db.NewInsert().Model(&bunTranslationLocaleVariantRecord{
+		VariantID:      "family-missing-scoped-variant::fr-wrong-scope",
+		FamilyID:       "family-missing-scoped-variant",
+		TenantID:       "tenant-2",
+		OrgID:          "org-9",
+		Locale:         "fr",
+		Status:         "draft",
+		SourceRecordID: "page-target-fr",
+		FieldsJSON:     "{}",
+		CreatedAt:      now,
+		UpdatedAt:      now,
+	}).Exec(ctx); err != nil {
+		t.Fatalf("seed wrong-scope variant: %v", err)
+	}
+
+	repo := NewBunTranslationAssignmentRepository(db)
+	created, err := repo.Create(ctx, TranslationAssignment{
+		ID:             "asg-missing-scoped-variant",
+		FamilyID:       "family-missing-scoped-variant",
+		EntityType:     "pages",
+		TenantID:       "tenant-1",
+		OrgID:          "org-1",
+		SourceRecordID: "page-source",
+		SourceLocale:   "en",
+		TargetLocale:   "fr",
+		TargetRecordID: "page-target-fr",
+		SourceTitle:    "Scoped page",
+		AssignmentType: AssignmentTypeOpenPool,
+		Status:         AssignmentStatusOpen,
+		Priority:       PriorityNormal,
+		CreatedAt:      now,
+		UpdatedAt:      now,
+	})
+	if err != nil {
+		t.Fatalf("create assignment: %v", err)
+	}
+	if created.VariantID != "" {
+		t.Fatalf("expected unresolved variant_id to stay empty, got %+v", created)
+	}
+	if created.TargetRecordID != "page-target-fr" {
+		t.Fatalf("expected target_record_id preserved, got %+v", created)
+	}
+	var stored sql.NullString
+	if err := db.QueryRowContext(ctx, `SELECT variant_id FROM translation_assignments WHERE assignment_id = ?`, created.ID).Scan(&stored); err != nil {
+		t.Fatalf("query stored variant_id: %v", err)
+	}
+	if stored.Valid {
+		t.Fatalf("expected stored variant_id NULL when scoped variant is missing, got %q", stored.String)
 	}
 }
 

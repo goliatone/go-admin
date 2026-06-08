@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
+	goerrors "github.com/goliatone/go-errors"
 	router "github.com/goliatone/go-router"
 
 	translationcore "github.com/goliatone/go-admin/translations/core"
@@ -645,6 +646,367 @@ func TestTranslationFamilyBindingCreateVariantRecomputesReadinessAndRecordsAudit
 	}
 }
 
+func TestTranslationFamilyBindingCreateVariantAssignmentPersistsScopedVariantID(t *testing.T) {
+	db := newTranslationFamilyStoreSQLiteDB(t)
+	ctx := context.Background()
+	now := time.Date(2026, 6, 7, 20, 0, 0, 0, time.UTC)
+	store := NewBunTranslationFamilyStore(db)
+	family := translationservices.FamilyRecord{
+		ID:              "family-create-locale-scope",
+		TenantID:        "tenant-1",
+		OrgID:           "org-1",
+		ContentType:     "pages",
+		SourceLocale:    "en",
+		SourceVariantID: "page-source::en",
+		ReadinessState:  "blocked",
+		Variants: []translationservices.FamilyVariant{
+			{
+				ID:             "page-source::en",
+				FamilyID:       "family-create-locale-scope",
+				TenantID:       "tenant-1",
+				OrgID:          "org-1",
+				Locale:         "en",
+				Status:         string(translationcore.VariantStatusPublished),
+				IsSource:       true,
+				SourceRecordID: "page-source",
+				Fields:         map[string]string{"title": "Source page", "path": "/source"},
+				CreatedAt:      now,
+				UpdatedAt:      now,
+			},
+			{
+				ID:             "page-target-es::es",
+				FamilyID:       "family-create-locale-scope",
+				TenantID:       "tenant-1",
+				OrgID:          "org-1",
+				Locale:         "es",
+				Status:         string(translationcore.VariantStatusDraft),
+				SourceRecordID: "page-target-es",
+				Fields:         map[string]string{"title": "Target page", "path": "/source-es"},
+				CreatedAt:      now,
+				UpdatedAt:      now,
+			},
+		},
+	}
+	if err := store.SaveFamily(ctx, family); err != nil {
+		t.Fatalf("seed family: %v", err)
+	}
+
+	repo := NewBunTranslationAssignmentRepository(db)
+	binding := &translationFamilyBinding{}
+	created, inserted, err := binding.createVariantAssignment(ctx, repo, family, translationFamilyCreateVariantInput{
+		Locale:     "es",
+		AssigneeID: "translator-1",
+		Priority:   PriorityHigh,
+	}, translationFamilyCreateVariantAssignmentPlan{
+		WorkScope: translationcore.DefaultWorkScope,
+	}, &CMSContent{
+		ID:              "page-target-es",
+		ContentType:     "pages",
+		ContentTypeSlug: "pages",
+		Locale:          "es",
+	})
+	if err != nil {
+		t.Fatalf("create scoped assignment: %v", err)
+	}
+	if !inserted {
+		t.Fatalf("expected assignment insert")
+	}
+	if created.TenantID != "tenant-1" || created.OrgID != "org-1" {
+		t.Fatalf("expected scoped assignment, got %+v", created)
+	}
+	if created.VariantID != "page-target-es::es" {
+		t.Fatalf("expected canonical locale variant id, got %+v", created)
+	}
+	if created.TargetRecordID != "page-target-es" {
+		t.Fatalf("expected target record id preserved, got %+v", created)
+	}
+}
+
+func TestTranslationFamilyBindingCreateVariantAssignmentRejectsMissingVariantLink(t *testing.T) {
+	db := newTranslationFamilyStoreSQLiteDB(t)
+	ctx := context.Background()
+	now := time.Date(2026, 6, 7, 20, 0, 0, 0, time.UTC)
+	store := NewBunTranslationFamilyStore(db)
+	family := translationservices.FamilyRecord{
+		ID:              "family-create-locale-missing-link",
+		TenantID:        "tenant-1",
+		OrgID:           "org-1",
+		ContentType:     "pages",
+		SourceLocale:    "en",
+		SourceVariantID: "page-source::en",
+		Variants: []translationservices.FamilyVariant{
+			{
+				ID:             "page-source::en",
+				FamilyID:       "family-create-locale-missing-link",
+				TenantID:       "tenant-1",
+				OrgID:          "org-1",
+				Locale:         "en",
+				Status:         string(translationcore.VariantStatusPublished),
+				IsSource:       true,
+				SourceRecordID: "page-source",
+				Fields:         map[string]string{"title": "Source page", "path": "/source"},
+				CreatedAt:      now,
+				UpdatedAt:      now,
+			},
+		},
+	}
+	if err := store.SaveFamily(ctx, family); err != nil {
+		t.Fatalf("seed family: %v", err)
+	}
+
+	repo := NewBunTranslationAssignmentRepository(db)
+	binding := &translationFamilyBinding{}
+	_, _, err := binding.createVariantAssignment(ctx, repo, family, translationFamilyCreateVariantInput{
+		Locale:     "es",
+		AssigneeID: "translator-1",
+		Priority:   PriorityHigh,
+	}, translationFamilyCreateVariantAssignmentPlan{
+		WorkScope: translationcore.DefaultWorkScope,
+	}, &CMSContent{
+		ID:              "page-target-es",
+		ContentType:     "pages",
+		ContentTypeSlug: "pages",
+		Locale:          "es",
+	})
+	if err == nil {
+		t.Fatalf("expected missing variant link error")
+	}
+	var domainErr *goerrors.Error
+	if !errors.As(err, &domainErr) {
+		t.Fatalf("expected domain error, got %T %v", err, err)
+	}
+	if got := toString(domainErr.Metadata["reason_code"]); got != "missing_locale_variant" {
+		t.Fatalf("expected missing_locale_variant reason, got %q", got)
+	}
+}
+
+func TestTranslationFamilyBindingReuseCreateVariantAssignmentRelinksScopedVariant(t *testing.T) {
+	ctx := context.Background()
+	family := translationservices.FamilyRecord{
+		ID:              "family-reuse-create-locale",
+		TenantID:        "tenant-1",
+		OrgID:           "org-1",
+		ContentType:     "pages",
+		SourceLocale:    "",
+		SourceVariantID: "page-source::en",
+		Policy:          translationservices.FamilyPolicy{SourceLocale: "en"},
+		Variants: []translationservices.FamilyVariant{
+			{
+				ID:             "page-source::en",
+				FamilyID:       "family-reuse-create-locale",
+				TenantID:       "tenant-1",
+				OrgID:          "org-1",
+				Locale:         "en",
+				Status:         string(translationcore.VariantStatusPublished),
+				IsSource:       true,
+				SourceRecordID: "page-source",
+				Fields:         map[string]string{"title": "Source page", "path": "/source"},
+			},
+		},
+	}
+	existing := TranslationAssignment{
+		ID:           "assignment-existing",
+		FamilyID:     "family-reuse-create-locale",
+		TargetLocale: "es",
+		WorkScope:    translationcore.DefaultWorkScope,
+		Status:       AssignmentStatusOpen,
+		Version:      7,
+	}
+	repo := &translationFamilyAssignmentUpdateRepo{
+		update: func(_ context.Context, assignment TranslationAssignment, expectedVersion int64) (TranslationAssignment, error) {
+			if expectedVersion != 7 {
+				t.Fatalf("expected version 7, got %d", expectedVersion)
+			}
+			if assignment.TenantID != "tenant-1" || assignment.OrgID != "org-1" {
+				t.Fatalf("expected family scope on reused assignment, got %+v", assignment)
+			}
+			if assignment.SourceLocale != "en" {
+				t.Fatalf("expected canonical source locale en, got %+v", assignment)
+			}
+			if assignment.TargetRecordID != "page-target-es" {
+				t.Fatalf("expected target record link, got %+v", assignment)
+			}
+			assignment.VariantID = "page-target-es::es"
+			return assignment, nil
+		},
+	}
+	binding := &translationFamilyBinding{}
+	reused, err := binding.reuseCreateVariantAssignment(ctx, repo, family, translationFamilyCreateVariantInput{
+		Locale:     "es",
+		AssigneeID: "translator-1",
+		Priority:   PriorityHigh,
+	}, translationFamilyCreateVariantAssignmentPlan{
+		WorkScope:       translationcore.DefaultWorkScope,
+		ReuseAssignment: &existing,
+	}, &CMSContent{ID: "page-target-es", Locale: "es"})
+	if err != nil {
+		t.Fatalf("reuse assignment: %v", err)
+	}
+	if reused.VariantID != "page-target-es::es" {
+		t.Fatalf("expected linked variant id, got %+v", reused)
+	}
+	if repo.updateCalls != 1 {
+		t.Fatalf("expected one update call, got %d", repo.updateCalls)
+	}
+}
+
+func TestTranslationFamilyBindingCreateVariantAutoAssignmentPersistsScopeThroughHTTP(t *testing.T) {
+	db := newTranslationFamilyStoreSQLiteDB(t)
+	fixture := newTranslationFamilyMutationFixture(t, translationFamilyMutationFixtureOptions{
+		RequiredLocales: []string{"fr"},
+		ReviewRequired:  true,
+		LifecycleMode:   string(translationcore.AssignmentLifecycleSingleActivePerLang),
+		FamilyStore:     NewBunTranslationFamilyStore(db),
+		Repo:            NewBunTranslationAssignmentRepository(db),
+	})
+
+	status, payload := doTranslationFamilyJSONRequest(t, fixture.app, http.MethodPost, "/admin/api/translations/families/tg-page-1/variants?channel=production&tenant_id=tenant-1&org_id=org-1", map[string]any{
+		"locale":                 "fr",
+		"auto_create_assignment": true,
+		"assignee_id":            "translator-9",
+		"priority":               "high",
+	}, map[string]string{
+		"X-User-ID": "assigner-1",
+	})
+	if status != http.StatusOK {
+		t.Fatalf("status=%d want=200 payload=%+v", status, payload)
+	}
+
+	assignments, _, err := fixture.repo.List(context.Background(), ListOptions{
+		Page:    1,
+		PerPage: 20,
+		Filters: map[string]any{
+			ScopeTenantIDKey: "tenant-1",
+			ScopeOrgIDKey:    "org-1",
+			"family_id":      "tg-page-1",
+			"target_locale":  "fr",
+		},
+	})
+	if err != nil {
+		t.Fatalf("list assignments: %v", err)
+	}
+	if len(assignments) != 1 {
+		t.Fatalf("expected one scoped auto-created assignment, got %+v", assignments)
+	}
+	assignment := assignments[0]
+	if assignment.TenantID != "tenant-1" || assignment.OrgID != "org-1" {
+		t.Fatalf("expected scoped assignment, got %+v", assignment)
+	}
+	if assignment.VariantID == "" {
+		t.Fatalf("expected canonical variant_id, got %+v", assignment)
+	}
+	if assignment.TargetRecordID == "" {
+		t.Fatalf("expected target_record_id, got %+v", assignment)
+	}
+}
+
+func TestTranslationFamilyBindingCreateVariantAllowsDefaultAssignmentFieldsWhenAutoAssignDisabled(t *testing.T) {
+	fixture := newTranslationFamilyMutationFixture(t, translationFamilyMutationFixtureOptions{
+		RequiredLocales: []string{"fr"},
+	})
+
+	status, payload := doTranslationFamilyJSONRequest(t, fixture.app, http.MethodPost, "/admin/api/translations/families/tg-page-1/variants?channel=production&tenant_id=tenant-1&org_id=org-1", map[string]any{
+		"locale":   "fr",
+		"priority": "normal",
+	}, map[string]string{"X-User-ID": "assigner-1"})
+	if status != http.StatusOK {
+		t.Fatalf("expected create locale success, got status=%d payload=%+v", status, payload)
+	}
+	data := extractMap(payload["data"])
+	if assignment := extractMap(data["assignment"]); len(assignment) > 0 {
+		t.Fatalf("did not expect assignment when auto_create_assignment=false, got %+v", assignment)
+	}
+	assignments, _, err := fixture.repo.List(context.Background(), ListOptions{
+		Page:    1,
+		PerPage: 20,
+		Filters: map[string]any{
+			"family_id":     "tg-page-1",
+			"target_locale": "fr",
+		},
+	})
+	if err != nil {
+		t.Fatalf("list assignments: %v", err)
+	}
+	if len(assignments) != 0 {
+		t.Fatalf("expected no seeded assignments, got %+v", assignments)
+	}
+}
+
+type translationFamilyAssignmentUpdateRepo struct {
+	update      func(context.Context, TranslationAssignment, int64) (TranslationAssignment, error)
+	updateCalls int
+}
+
+func (repo *translationFamilyAssignmentUpdateRepo) List(context.Context, ListOptions) ([]TranslationAssignment, int, error) {
+	return nil, 0, nil
+}
+
+func (repo *translationFamilyAssignmentUpdateRepo) Create(context.Context, TranslationAssignment) (TranslationAssignment, error) {
+	return TranslationAssignment{}, errors.New("unexpected create")
+}
+
+func (repo *translationFamilyAssignmentUpdateRepo) CreateOrReuseActive(context.Context, TranslationAssignment) (TranslationAssignment, bool, error) {
+	return TranslationAssignment{}, false, errors.New("unexpected create-or-reuse")
+}
+
+func (repo *translationFamilyAssignmentUpdateRepo) Get(context.Context, string) (TranslationAssignment, error) {
+	return TranslationAssignment{}, errors.New("unexpected get")
+}
+
+func (repo *translationFamilyAssignmentUpdateRepo) Update(ctx context.Context, assignment TranslationAssignment, expectedVersion int64) (TranslationAssignment, error) {
+	repo.updateCalls++
+	if repo.update != nil {
+		return repo.update(ctx, assignment, expectedVersion)
+	}
+	return assignment, nil
+}
+
+func TestTranslationFamilyBindingCreateVariantRejectsSourceLocaleAutoAssignment(t *testing.T) {
+	store := translationservices.NewInMemoryFamilyStore()
+	fixture := newTranslationFamilyMutationFixture(t, translationFamilyMutationFixtureOptions{
+		RequiredLocales: []string{"en", "fr"},
+		FamilyStore:     store,
+	})
+	ctx := context.Background()
+	family, ok, err := store.Family(ctx, "tg-page-1")
+	if err != nil || !ok {
+		t.Fatalf("load fixture family ok=%v err=%v", ok, err)
+	}
+	family.SourceLocale = "fr"
+	family.SourceVariantID = "page-1-fr"
+	family.Variants = []translationservices.FamilyVariant{{
+		ID:             "page-1-fr",
+		FamilyID:       "tg-page-1",
+		TenantID:       "tenant-1",
+		OrgID:          "org-1",
+		Locale:         "fr",
+		Status:         string(translationcore.VariantStatusDraft),
+		IsSource:       true,
+		SourceRecordID: "page-1-fr",
+		Fields:         map[string]string{"title": "Page 1 FR", "body": "Bonjour"},
+		CreatedAt:      time.Date(2026, 2, 17, 10, 0, 0, 0, time.UTC),
+		UpdatedAt:      time.Date(2026, 2, 17, 10, 0, 0, 0, time.UTC),
+	}}
+	if err := store.SaveFamily(ctx, family); err != nil {
+		t.Fatalf("save malformed family: %v", err)
+	}
+
+	status, payload := doTranslationFamilyJSONRequest(t, fixture.app, http.MethodPost, "/admin/api/translations/families/tg-page-1/variants?channel=production&tenant_id=tenant-1&org_id=org-1", map[string]any{
+		"locale":                 "en",
+		"auto_create_assignment": true,
+	}, map[string]string{"X-User-ID": "assigner-1"})
+	if status != http.StatusBadRequest {
+		t.Fatalf("expected source-locale auto assignment rejection, got status=%d payload=%+v", status, payload)
+	}
+	metadata := extractMap(extractMap(payload["error"])["metadata"])
+	if got := toString(metadata["reason_code"]); got != ActionDisabledReasonCodeInvalidStatus {
+		t.Fatalf("expected invalid status reason, got %q payload=%+v", got, payload)
+	}
+	if got := toString(metadata["source_locale"]); got != "en" {
+		t.Fatalf("expected source_locale en metadata, got %q", got)
+	}
+}
+
 func TestTranslationFamilyBindingCreateVariantRejectsDuplicateLocaleWithoutIdempotencyReplay(t *testing.T) {
 	fixture := newTranslationFamilyMutationFixture(t, translationFamilyMutationFixtureOptions{
 		RequiredLocales: []string{"fr"},
@@ -1033,6 +1395,231 @@ func TestTranslationFamilyBindingDetailIncludesLocaleAssignmentActions(t *testin
 	}
 	if got := toString(openEditor["href"]); !strings.Contains(got, "/admin/translations/assignments/") {
 		t.Fatalf("expected editor href, got %q", got)
+	}
+}
+
+func TestTranslationFamilyBindingDetailAllowsTargetAssignmentWhenVariantSourceFlagConflictsWithPolicy(t *testing.T) {
+	store := translationservices.NewInMemoryFamilyStore()
+	fixture := newTranslationFamilyMutationFixture(t, translationFamilyMutationFixtureOptions{
+		RequiredLocales: []string{"en", "fr"},
+		FamilyStore:     store,
+	})
+	ctx := context.Background()
+	family, ok, err := store.Family(ctx, "tg-page-1")
+	if err != nil || !ok {
+		t.Fatalf("load fixture family ok=%v err=%v", ok, err)
+	}
+	family.SourceLocale = "fr"
+	family.SourceVariantID = "page-1-fr"
+	family.Variants = []translationservices.FamilyVariant{
+		{
+			ID:             "page-1-en",
+			FamilyID:       "tg-page-1",
+			TenantID:       "tenant-1",
+			OrgID:          "org-1",
+			Locale:         "en",
+			Status:         string(translationcore.VariantStatusPublished),
+			IsSource:       false,
+			SourceRecordID: "page-1",
+			Fields:         map[string]string{"title": "Page 1 EN", "body": "Hello"},
+			CreatedAt:      time.Date(2026, 2, 17, 9, 0, 0, 0, time.UTC),
+			UpdatedAt:      time.Date(2026, 2, 17, 9, 0, 0, 0, time.UTC),
+		},
+		{
+			ID:             "page-1-fr",
+			FamilyID:       "tg-page-1",
+			TenantID:       "tenant-1",
+			OrgID:          "org-1",
+			Locale:         "fr",
+			Status:         string(translationcore.VariantStatusDraft),
+			IsSource:       true,
+			SourceRecordID: "page-1-fr",
+			Fields:         map[string]string{"title": "Page 1 FR", "body": "Bonjour"},
+			CreatedAt:      time.Date(2026, 2, 17, 10, 0, 0, 0, time.UTC),
+			UpdatedAt:      time.Date(2026, 2, 17, 10, 0, 0, 0, time.UTC),
+		},
+	}
+	if err := store.SaveFamily(ctx, family); err != nil {
+		t.Fatalf("save malformed family: %v", err)
+	}
+
+	status, payload := doTranslationFamilyJSONRequest(t, fixture.app, http.MethodGet, "/admin/api/translations/families/tg-page-1?channel=production&tenant_id=tenant-1&org_id=org-1", nil, map[string]string{"X-User-ID": "translator-self"})
+	if status != http.StatusOK {
+		t.Fatalf("detail status=%d payload=%+v", status, payload)
+	}
+	data := extractMap(payload["data"])
+	if got := toString(data["source_locale"]); got != "en" {
+		t.Fatalf("expected policy source_locale en, got %q", got)
+	}
+	localeAssignments := extractMap(data["locale_assignments"])
+	fr := extractMap(localeAssignments["fr:localization"])
+	if got := toString(fr["state"]); got != "unassigned" {
+		t.Fatalf("expected fr to remain assignable target locale, got state=%q payload=%+v", got, fr)
+	}
+	actions := extractMap(fr["actions"])
+	assignToMe := extractMap(actions["assign_to_me"])
+	if !testBool(t, assignToMe["enabled"], "assign_to_me.enabled") {
+		t.Fatalf("expected assign_to_me enabled for fr target locale, got %+v", assignToMe)
+	}
+	if got := toString(extractMap(assignToMe["payload"])["assignee_id"]); got != "translator-self" {
+		t.Fatalf("expected assign_to_me payload to use actor id, got %q", got)
+	}
+	assignToUser := extractMap(actions["assign_to_user"])
+	if !testBool(t, assignToUser["enabled"], "assign_to_user.enabled") {
+		t.Fatalf("expected assign_to_user enabled for fr target locale, got %+v", assignToUser)
+	}
+
+	assignStatus, assignPayload := doTranslationFamilyJSONRequest(t, fixture.app, http.MethodPost, "/admin/api/translations/families/tg-page-1/assignments?channel=production&tenant_id=tenant-1&org_id=org-1", map[string]any{
+		"target_locale": "fr",
+		"assignee_id":   "translator-self",
+		"work_scope":    "localization",
+	}, map[string]string{"X-User-ID": "translator-self"})
+	if assignStatus != http.StatusOK {
+		t.Fatalf("assign to me status=%d payload=%+v", assignStatus, assignPayload)
+	}
+	assignment := extractMap(extractMap(assignPayload["data"])["assignment"])
+	if got := toString(assignment["queue_state"]); got != string(AssignmentStatusAssigned) {
+		t.Fatalf("expected assigned queue_state, got %q payload=%+v", got, assignment)
+	}
+	if got := toString(assignment["assignee_id"]); got != "translator-self" {
+		t.Fatalf("expected assignee translator-self, got %q", got)
+	}
+	if got := toString(assignment["source_locale"]); got != "en" {
+		t.Fatalf("expected assignment source_locale en, got %q payload=%+v", got, assignment)
+	}
+	if got := toString(assignment["source_record_id"]); got != "page-1" {
+		t.Fatalf("expected assignment source_record_id page-1, got %q payload=%+v", got, assignment)
+	}
+	if got := toString(assignment["source_title"]); got != "Page 1 EN" {
+		t.Fatalf("expected assignment source_title from canonical source, got %q payload=%+v", got, assignment)
+	}
+
+	refreshStatus, refreshPayload := doTranslationFamilyJSONRequest(t, fixture.app, http.MethodGet, "/admin/api/translations/families/tg-page-1?channel=production&tenant_id=tenant-1&org_id=org-1", nil, map[string]string{"X-User-ID": "translator-self"})
+	if refreshStatus != http.StatusOK {
+		t.Fatalf("refresh detail status=%d payload=%+v", refreshStatus, refreshPayload)
+	}
+	refreshAssignments := extractMap(extractMap(refreshPayload["data"])["locale_assignments"])
+	refreshFR := extractMap(refreshAssignments["fr:localization"])
+	if got := toString(refreshFR["state"]); got != "assigned_to_me" {
+		t.Fatalf("expected refreshed fr row assigned_to_me, got state=%q payload=%+v", got, refreshFR)
+	}
+}
+
+func TestTranslationFamilyBindingCreateAssignmentRejectsCanonicalSourceLocale(t *testing.T) {
+	fixture := newTranslationFamilyMutationFixture(t, translationFamilyMutationFixtureOptions{
+		RequiredLocales: []string{"en", "fr"},
+	})
+
+	status, payload := doTranslationFamilyJSONRequest(t, fixture.app, http.MethodPost, "/admin/api/translations/families/tg-page-1/assignments?channel=production&tenant_id=tenant-1&org_id=org-1", map[string]any{
+		"target_locale": "en",
+		"assignee_id":   "translator-1",
+		"work_scope":    "localization",
+	}, map[string]string{"X-User-ID": "assigner-1"})
+	if status != http.StatusBadRequest {
+		t.Fatalf("expected source-locale assignment to be rejected, got status=%d payload=%+v", status, payload)
+	}
+	metadata := extractMap(extractMap(payload["error"])["metadata"])
+	if got := toString(metadata["reason_code"]); got != ActionDisabledReasonCodeInvalidStatus {
+		t.Fatalf("expected invalid status reason, got %q payload=%+v", got, payload)
+	}
+	if got := toString(metadata["source_locale"]); got != "en" {
+		t.Fatalf("expected source_locale en metadata, got %q", got)
+	}
+}
+
+func TestTranslationFamilyBindingCreateAssignmentRejectsMissingCanonicalSourceVariant(t *testing.T) {
+	store := translationservices.NewInMemoryFamilyStore()
+	fixture := newTranslationFamilyMutationFixture(t, translationFamilyMutationFixtureOptions{
+		RequiredLocales: []string{"en", "fr"},
+		FamilyStore:     store,
+	})
+	ctx := context.Background()
+	family, ok, err := store.Family(ctx, "tg-page-1")
+	if err != nil || !ok {
+		t.Fatalf("load fixture family ok=%v err=%v", ok, err)
+	}
+	family.SourceLocale = "fr"
+	family.SourceVariantID = "page-1-fr"
+	family.Variants = []translationservices.FamilyVariant{{
+		ID:             "page-1-fr",
+		FamilyID:       "tg-page-1",
+		TenantID:       "tenant-1",
+		OrgID:          "org-1",
+		Locale:         "fr",
+		Status:         string(translationcore.VariantStatusDraft),
+		IsSource:       true,
+		SourceRecordID: "page-1-fr",
+		Fields:         map[string]string{"title": "Page 1 FR", "body": "Bonjour"},
+		CreatedAt:      time.Date(2026, 2, 17, 10, 0, 0, 0, time.UTC),
+		UpdatedAt:      time.Date(2026, 2, 17, 10, 0, 0, 0, time.UTC),
+	}}
+	if err := store.SaveFamily(ctx, family); err != nil {
+		t.Fatalf("save malformed family: %v", err)
+	}
+
+	status, payload := doTranslationFamilyJSONRequest(t, fixture.app, http.MethodPost, "/admin/api/translations/families/tg-page-1/assignments?channel=production&tenant_id=tenant-1&org_id=org-1", map[string]any{
+		"target_locale": "fr",
+		"assignee_id":   "translator-self",
+		"work_scope":    "localization",
+	}, map[string]string{"X-User-ID": "translator-self"})
+	if status != http.StatusBadRequest {
+		t.Fatalf("expected missing source variant rejection, got status=%d payload=%+v", status, payload)
+	}
+	metadata := extractMap(extractMap(payload["error"])["metadata"])
+	if got := toString(metadata["reason_code"]); got != "missing_source_variant" {
+		t.Fatalf("expected missing_source_variant reason, got %q payload=%+v", got, payload)
+	}
+	if got := toString(metadata["source_locale"]); got != "en" {
+		t.Fatalf("expected canonical source locale en, got %q", got)
+	}
+}
+
+func TestTranslationFamilyBindingDetailSurfacesLegacySourceLocaleAssignment(t *testing.T) {
+	fixture := newTranslationFamilyMutationFixture(t, translationFamilyMutationFixtureOptions{
+		RequiredLocales: []string{"en", "fr"},
+		Assignments: []TranslationAssignment{{
+			ID:             "asg-source-en",
+			FamilyID:       "tg-page-1",
+			EntityType:     "pages",
+			TenantID:       "tenant-1",
+			OrgID:          "org-1",
+			SourceRecordID: "page-1",
+			SourceLocale:   "en",
+			TargetLocale:   "en",
+			WorkScope:      "localization",
+			AssignmentType: AssignmentTypeDirect,
+			Status:         AssignmentStatusAssigned,
+			AssigneeID:     "translator-1",
+			Priority:       PriorityNormal,
+			CreatedAt:      time.Date(2026, 2, 17, 9, 0, 0, 0, time.UTC),
+			UpdatedAt:      time.Date(2026, 2, 17, 10, 0, 0, 0, time.UTC),
+		}},
+	})
+
+	status, payload := doTranslationFamilyJSONRequest(t, fixture.app, http.MethodGet, "/admin/api/translations/families/tg-page-1?channel=production&tenant_id=tenant-1&org_id=org-1", nil, map[string]string{"X-User-ID": "translator-1"})
+	if status != http.StatusOK {
+		t.Fatalf("detail status=%d payload=%+v", status, payload)
+	}
+	localeAssignments := extractMap(extractMap(payload["data"])["locale_assignments"])
+	sourceRow := extractMap(localeAssignments["en:localization"])
+	if got := toString(sourceRow["state"]); got != "invalid_source_assignment" {
+		t.Fatalf("expected invalid_source_assignment state, got %q payload=%+v", got, sourceRow)
+	}
+	assignment := extractMap(sourceRow["assignment"])
+	if got := toString(assignment["id"]); got != "asg-source-en" {
+		t.Fatalf("expected legacy assignment to remain visible, got %+v", assignment)
+	}
+	actions := extractMap(sourceRow["actions"])
+	assignToMe := extractMap(actions["assign_to_me"])
+	if testBool(t, assignToMe["enabled"], "assign_to_me.enabled") {
+		t.Fatalf("expected assign_to_me disabled for invalid source assignment, got %+v", assignToMe)
+	}
+	if got := toString(assignToMe["reason_code"]); got != ActionDisabledReasonCodeInvalidStatus {
+		t.Fatalf("expected invalid status reason, got %q", got)
+	}
+	openEditor := extractMap(actions["open_editor"])
+	if !testBool(t, openEditor["enabled"], "open_editor.enabled") {
+		t.Fatalf("expected open_editor enabled for visible legacy assignment, got %+v", openEditor)
 	}
 }
 
@@ -1430,23 +2017,25 @@ func TestTranslationFamilyBindingCreateVariantIdempotencyReplaySurvivesBindingRe
 
 func TestTranslationFamilyBindingCreateVariantRollsBackVariantWhenAssignmentSeedingFails(t *testing.T) {
 	baseRepo := NewInMemoryTranslationAssignmentRepository()
+	approvedAssignment := TranslationAssignment{
+		ID:             "asg-approved-fr",
+		FamilyID:       "tg-page-1",
+		EntityType:     "pages",
+		SourceRecordID: "page-1",
+		SourceLocale:   "en",
+		TargetLocale:   "fr",
+		WorkScope:      "localization",
+		Status:         AssignmentStatusApproved,
+		Priority:       PriorityNormal,
+		CreatedAt:      time.Date(2026, 2, 17, 9, 0, 0, 0, time.UTC),
+		UpdatedAt:      time.Date(2026, 2, 17, 10, 0, 0, 0, time.UTC),
+	}
+	if _, err := baseRepo.Create(context.Background(), approvedAssignment); err != nil {
+		t.Fatalf("seed approved assignment repo: %v", err)
+	}
 	fixture := newTranslationFamilyMutationFixture(t, translationFamilyMutationFixtureOptions{
 		RequiredLocales: []string{"fr"},
-		Assignments: []TranslationAssignment{
-			{
-				ID:             "asg-approved-fr",
-				FamilyID:       "tg-page-1",
-				EntityType:     "pages",
-				SourceRecordID: "page-1",
-				SourceLocale:   "en",
-				TargetLocale:   "fr",
-				WorkScope:      "localization",
-				Status:         AssignmentStatusApproved,
-				Priority:       PriorityNormal,
-				CreatedAt:      time.Date(2026, 2, 17, 9, 0, 0, 0, time.UTC),
-				UpdatedAt:      time.Date(2026, 2, 17, 10, 0, 0, 0, time.UTC),
-			},
-		},
+		Assignments:     []TranslationAssignment{approvedAssignment},
 		Repo: &translationAssignmentFailingRepository{
 			base:            baseRepo,
 			failCreateReuse: errors.New("assignment create failed"),
