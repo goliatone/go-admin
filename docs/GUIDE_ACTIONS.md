@@ -184,6 +184,21 @@ go-crud provides the transport detection helpers:
 
 go-admin consumes that result through `EnhancedMutationResponder`.
 
+Apps that do not want to expose the default marker names can configure both the
+server and browser runtime:
+
+```go
+adm.WithEnhancedActionNegotiation(admin.EnhancedActionNegotiationConfig{
+    RequestHeader:      "X-App-Action",
+    RequestHeaderValue: "opaque-marker",
+    RequestMediaTypes:  []string{"application/vnd.example.action+json"},
+    ResponseMediaType:  "application/vnd.example.action+json",
+})
+```
+
+Pass the same values to `initEnhancedActions` or page initializers that expose an
+`enhancedAction` option.
+
 Normal form posts redirect with flash headers:
 
 - `X-GoAdmin-Flash-Type`

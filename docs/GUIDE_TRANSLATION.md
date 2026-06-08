@@ -106,6 +106,7 @@ Implemented contracts:
 
 - `go.mod` uses `replace github.com/goliatone/go-crud => ../go-crud` so this checkout can consume local go-crud enhanced mutation helpers during cross-repo development.
 - go-crud detects mutation response mode with `X-Enhanced-Action: 1`, the enhanced `Accept` media type, normal browser form posts, and JSON clients. go-admin emits and accepts `application/vnd.admin.enhanced+json` for enhanced SSR mutation envelopes.
+- Apps can override enhanced action request header/value, request media types, and response media type with `admin.EnhancedActionNegotiationConfig`; the translation-family page initializer accepts matching `enhancedAction` runtime options for custom browser markers.
 - go-admin defines `MutationPresentation`, `EnhancedMutationResponder`, toast/fragment/error envelopes, and known family-detail fragment targets in `admin/enhanced_mutation.go` and `admin/enhanced_family_fragments.go`.
 - The shared browser runtime in `pkg/client/assets/src/shared/enhanced-action.ts` progressively enhances `form[data-enhance-action]`, sends enhanced headers, applies `replace` fragments, shows toasts, renders field errors, restores focus, and reinitializes Formgen relationships.
 - Family detail SSR contains stable replacement roots: `data-family-locale-coverage`, `data-family-assignments`, `data-family-publish-gate`, and `data-family-activity`.
