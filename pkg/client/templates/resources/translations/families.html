@@ -40,6 +40,15 @@
       </section>
       {% else %}
       {% with page=translation_families_ssr %}
+      {# Summary metric cards #}
+      {% if page.Data.summary_cards %}
+      <section class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6" aria-label="Translation families summary">
+        {% for card in page.Data.summary_cards %}
+        {% include "partials/metric-card.html" with card=card %}
+        {% endfor %}
+      </section>
+      {% endif %}
+
       <section class="rounded-lg border border-gray-200 bg-white p-6 shadow-sm" data-translation-family-list-ssr="true">
         <div class="flex flex-wrap items-center justify-between gap-4">
           <div>
@@ -58,31 +67,62 @@
           </div>
         </div>
 
+        {# Quick filters #}
+        {% if page.DataGrid.quick_filters %}
+        <div class="mt-5 flex flex-wrap items-center gap-3" data-family-quick-filters="true">
+          <span class="text-xs font-semibold uppercase tracking-wide text-gray-500">Status</span>
+          <div class="inline-flex flex-wrap items-center gap-2" role="group" aria-label="Quick status filters">
+            {% for qf in page.DataGrid.quick_filters %}
+            {% set is_active = (qf.value == "" and not page.Meta.readiness_state) or (qf.value != "" and page.Meta.readiness_state == qf.value) %}
+            <a href="?{% if page.Meta.channel %}channel={{ page.Meta.channel }}&{% endif %}{% if qf.value %}readiness_state={{ qf.value }}{% endif %}"
+               class="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-colors
+                      {% if is_active %}
+                      {% if qf.tone == "error" %}bg-rose-100 text-rose-800 ring-2 ring-rose-500 ring-offset-1{% elif qf.tone == "warning" %}bg-amber-100 text-amber-800 ring-2 ring-amber-500 ring-offset-1{% elif qf.tone == "success" %}bg-emerald-100 text-emerald-800 ring-2 ring-emerald-500 ring-offset-1{% else %}bg-gray-200 text-gray-900 ring-2 ring-gray-500 ring-offset-1{% endif %}
+                      {% else %}
+                      {% if qf.tone == "error" %}bg-rose-50 text-rose-700 hover:bg-rose-100{% elif qf.tone == "warning" %}bg-amber-50 text-amber-700 hover:bg-amber-100{% elif qf.tone == "success" %}bg-emerald-50 text-emerald-700 hover:bg-emerald-100{% else %}bg-gray-100 text-gray-700 hover:bg-gray-200{% endif %}
+                      {% endif %}"
+               {% if is_active %}aria-current="true"{% endif %}>
+              {{ qf.label }}
+            </a>
+            {% endfor %}
+          </div>
+        </div>
+        {% endif %}
+
+        {# Advanced filters (collapsible) #}
         {% if page.DataGrid.filters %}
-        <form class="mt-5 rounded-lg border border-gray-200 bg-gray-50 p-4 shadow-sm" data-family-list-filters="true" method="get">
-          <div class="grid gap-3 md:grid-cols-3 xl:grid-cols-7">
-          <label class="grid gap-1 text-sm">
-            <span class="text-xs font-semibold uppercase tracking-wide text-gray-500">Channel</span>
-            <input class="rounded-md border border-gray-300 px-3 py-2 text-sm"
-                   type="text"
-                   name="channel" value="{{ page.Meta.channel|default:"" }}"
-                   placeholder="default">
-          </label>
-          {% for filter in page.DataGrid.filters %}
-          <label class="grid gap-1 text-sm">
-            <span class="text-xs font-semibold uppercase tracking-wide text-gray-500">{{ filter.label|default:filter.key }}</span>
-            <input class="rounded-md border border-gray-300 px-3 py-2 text-sm"
-                   type="text"
-                   name="{{ filter.key }}"
-                   value="{{ filter.value|default:"" }}"
-                   placeholder="{{ filter.label|default:filter.key }}">
-          </label>
-          {% endfor %}
-          <div class="flex items-end">
-            <button type="submit" class="btn btn-primary w-full">Apply</button>
-          </div>
-          </div>
-        </form>
+        <details class="mt-4 rounded-lg border border-gray-200 bg-gray-50" data-family-advanced-filters="true">
+          <summary class="cursor-pointer px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-100 select-none">
+            <span class="inline-flex items-center gap-2">
+              <i class="iconoir-filter text-gray-500" aria-hidden="true"></i>
+              Advanced Filters
+            </span>
+          </summary>
+          <form class="p-4 border-t border-gray-200" data-family-list-filters="true" method="get">
+            <div class="grid gap-3 md:grid-cols-3 xl:grid-cols-7">
+            <label class="grid gap-1 text-sm">
+              <span class="text-xs font-semibold uppercase tracking-wide text-gray-500">Channel</span>
+              <input class="rounded-md border border-gray-300 px-3 py-2 text-sm"
+                     type="text"
+                     name="channel" value="{{ page.Meta.channel|default:"" }}"
+                     placeholder="default">
+            </label>
+            {% for filter in page.DataGrid.filters %}
+            <label class="grid gap-1 text-sm">
+              <span class="text-xs font-semibold uppercase tracking-wide text-gray-500">{{ filter.label|default:filter.key }}</span>
+              <input class="rounded-md border border-gray-300 px-3 py-2 text-sm"
+                     type="text"
+                     name="{{ filter.key }}"
+                     value="{{ filter.value|default:"" }}"
+                     placeholder="{{ filter.label|default:filter.key }}">
+            </label>
+            {% endfor %}
+            <div class="flex items-end">
+              <button type="submit" class="btn btn-primary w-full">Apply</button>
+            </div>
+            </div>
+          </form>
+        </details>
         {% endif %}
 
         {% if page.Data.families %}
@@ -110,9 +150,9 @@
                   <p class="mt-2 text-xs text-gray-500">{{ family.content_type|default:"content" }} &middot; Source {{ family.source_locale|default:"-" }}</p>
                 </td>
                 <td class="px-4 py-5 align-top">
-                  <span class="{% if family.readiness_state == "blocked" %}bg-rose-50 text-rose-700{% elif family.readiness_state == "ready" %}bg-emerald-50 text-emerald-700{% else %}bg-gray-100 text-gray-700{% endif %} inline-flex rounded-full px-2.5 py-1 text-xs font-semibold">
-                    {{ family.readiness_state|default:"unknown"|upper }}
-                  </span>
+                  {% set readiness_tone = "neutral" %}
+                  {% if family.readiness_state == "blocked" %}{% set readiness_tone = "error" %}{% elif family.readiness_state == "ready" %}{% set readiness_tone = "success" %}{% elif family.readiness_state == "missing_locales" or family.readiness_state == "missing_locales_and_fields" %}{% set readiness_tone = "warning" %}{% endif %}
+                  {% include "partials/status-badge.html" with badge={"status": family.readiness_state, "tone": readiness_tone, "label": family.readiness_state|default:"unknown"|upper} %}
                 </td>
                 <td class="px-4 py-5 align-top">
                   {% if family.blocker_labels %}

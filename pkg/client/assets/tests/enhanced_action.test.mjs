@@ -157,6 +157,80 @@ test('enhanced-action runtime renders field errors without clearing user input',
   assert.deepEqual(errors, ['Validation failed']);
 });
 
+test('enhanced-action runtime clears action errors before a later successful submission', async () => {
+  const dom = setupDom(`
+    <form data-enhance-action action="/admin/api/assign" method="post" data-enhance-error-target="#action-error">
+      <input name="assignee_id" value="translator-2">
+      <button type="submit">Assign</button>
+    </form>
+    <div id="action-error" hidden></div>
+  `);
+  let calls = 0;
+  const fetchImpl = async () => {
+    calls += 1;
+    if (calls === 1) {
+      return new Response(JSON.stringify({
+        ok: false,
+        error: { message: 'Validation failed' },
+      }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/vnd.admin.enhanced+json' },
+      });
+    }
+    return new Response(JSON.stringify({ ok: true }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/vnd.admin.enhanced+json' },
+    });
+  };
+
+  initEnhancedActions(dom.window.document, { fetch: fetchImpl });
+
+  const form = dom.window.document.querySelector('form');
+  form.dispatchEvent(new dom.window.Event('submit', { bubbles: true, cancelable: true }));
+  await nextTick();
+  assert.equal(dom.window.document.querySelector('#action-error').textContent, 'Validation failed');
+  assert.equal(dom.window.document.querySelector('#action-error').hasAttribute('hidden'), false);
+
+  form.dispatchEvent(new dom.window.Event('submit', { bubbles: true, cancelable: true }));
+  await nextTick();
+
+  assert.equal(calls, 2);
+  assert.equal(dom.window.document.querySelector('#action-error').textContent, '');
+  assert.equal(dom.window.document.querySelector('#action-error').hasAttribute('hidden'), true);
+});
+
+test('enhanced-action runtime navigates when fetch follows an HTML redirect fallback', async () => {
+  const dom = setupDom(`
+    <form data-enhance-action action="/admin/api/assign" method="post">
+      <input name="target_locale" value="fr">
+      <button type="submit">Assign</button>
+    </form>
+  `);
+  const navigations = [];
+  const fetchImpl = async () => {
+    const response = new Response('<!doctype html><title>Family Detail</title>', {
+      status: 200,
+      headers: { 'Content-Type': 'text/html; charset=utf-8' },
+    });
+    Object.defineProperty(response, 'redirected', { value: true });
+    Object.defineProperty(response, 'url', { value: 'http://localhost:8082/admin/translations/families/f1?channel=staging' });
+    return response;
+  };
+
+  initEnhancedActions(dom.window.document, {
+    fetch: fetchImpl,
+    navigate(url) {
+      navigations.push(url);
+    },
+  });
+
+  dom.window.document.querySelector('form')
+    .dispatchEvent(new dom.window.Event('submit', { bubbles: true, cancelable: true }));
+  await nextTick();
+
+  assert.deepEqual(navigations, ['http://localhost:8082/admin/translations/families/f1?channel=staging']);
+});
+
 test('enhanced-action runtime serializes GET form data into the request URL', async () => {
   const dom = setupDom(`
     <form data-enhance-action action="/admin/api/search?existing=1#results" method="get">

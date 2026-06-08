@@ -1,0 +1,35 @@
+{# Status badge partial - renders a consistent status badge with icon and color #}
+{# Usage: {% include "partials/status-badge.html" with badge={"status": "blocked", "tone": "error", "label": "Blocked"} %} #}
+
+{% set tone_classes = {
+  "error": "bg-rose-50 text-rose-700",
+  "danger": "bg-rose-50 text-rose-700",
+  "warning": "bg-amber-50 text-amber-700",
+  "success": "bg-emerald-50 text-emerald-700",
+  "info": "bg-sky-50 text-sky-700",
+  "neutral": "bg-gray-100 text-gray-700",
+  "source": "bg-slate-100 text-slate-700"
+} %}
+
+{% set status_icons = {
+  "blocked": "block",
+  "missing_locales": "circle",
+  "missing_locales_and_fields": "circle",
+  "ready": "check",
+  "in_review": "clock",
+  "in_progress": "arrow-right",
+  "overdue": "alert-triangle",
+  "open": "inbox",
+  "assigned": "user",
+  "changes_requested": "edit",
+  "approved": "check-circle",
+  "archived": "archive",
+  "unknown": "help-circle"
+} %}
+
+<span class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold {{ tone_classes[badge.tone]|default:tone_classes.neutral }}">
+  {% if badge.show_icon|default:true %}
+  <i class="iconoir-{{ status_icons[badge.status]|default:status_icons.unknown }} text-[10px]" aria-hidden="true"></i>
+  {% endif %}
+  {{ badge.label|default:badge.status|upper }}
+</span>

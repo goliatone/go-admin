@@ -2268,6 +2268,7 @@ async function fs(e, a, t, s) {
   });
   await Q(e, i, { fetch: s.fetch }), e.dataset.translationEnhancedActionsBound !== "true" && (e.dataset.translationEnhancedActionsBound = "true", qa(e, {
     fetch: s.fetch,
+    ...s.enhancedAction,
     onFragmentsApplied: async () => {
       await Q(e, i, { fetch: s.fetch }), B(e);
     }

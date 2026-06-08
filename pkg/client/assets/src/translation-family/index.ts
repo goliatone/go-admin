@@ -19,7 +19,7 @@ import {
 } from '../shared/query-state/url-state.js';
 import { parseJSONValue } from '../shared/json-parse.js';
 import { initActionMenus, type ActionMenuController } from '../shared/action-menu.js';
-import { initEnhancedActions } from '../shared/enhanced-action.js';
+import { initEnhancedActions, type EnhancedActionRuntimeOptions } from '../shared/enhanced-action.js';
 import { extractStructuredError } from '../toast/error-helpers.js';
 import {
   BTN_PRIMARY,
@@ -297,6 +297,7 @@ export interface TranslationFamilyDetailLoadState {
 export interface TranslationFamilyDetailRenderOptions {
   basePath?: string;
   contentBasePath?: string;
+  enhancedAction?: Pick<EnhancedActionRuntimeOptions, 'requestHeader' | 'requestHeaderValue' | 'accept'>;
 }
 
 export interface TranslationFamilySyncRecoveryCapability {
@@ -3791,6 +3792,7 @@ async function bindTranslationFamilyDetailSSRPage(
   options: TranslationFamilyDetailRenderOptions & {
     endpoint?: string;
     fetch?: typeof fetch;
+    enhancedAction?: Pick<EnhancedActionRuntimeOptions, 'requestHeader' | 'requestHeaderValue' | 'accept'>;
   }
 ): Promise<TranslationFamilyDetailLoadState> {
   const apiBasePath = deriveFamilyAPIBasePath(endpoint, renderOptions.basePath || '/admin');
@@ -3803,6 +3805,7 @@ async function bindTranslationFamilyDetailSSRPage(
     root.dataset.translationEnhancedActionsBound = 'true';
     initEnhancedActions(root, {
       fetch: options.fetch,
+      ...options.enhancedAction,
       onFragmentsApplied: async () => {
         await initFamilyAssigneeControls(root, apiBasePath, { fetch: options.fetch });
         syncEmptyAssignmentPanelControls(root);
@@ -3955,6 +3958,7 @@ export async function initTranslationFamilyDetailPage(
   options: TranslationFamilyDetailRenderOptions & {
     endpoint?: string;
     fetch?: typeof fetch;
+    enhancedAction?: Pick<EnhancedActionRuntimeOptions, 'requestHeader' | 'requestHeaderValue' | 'accept'>;
   } = {}
 ): Promise<TranslationFamilyDetailLoadState | null> {
   if (!root) return null;

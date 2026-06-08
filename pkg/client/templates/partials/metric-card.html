@@ -1,0 +1,57 @@
+{# Metric card partial - renders a clickable summary card with count, label, and optional filter link #}
+{# Usage: {% include "partials/metric-card.html" with card={"key": "total", "label": "Total", "count": 42, "tone": "neutral", "filter_key": "status", "filter_value": "blocked"} %} #}
+
+{% set tone_borders = {
+  "error": "border-l-rose-500",
+  "danger": "border-l-rose-500",
+  "warning": "border-l-amber-500",
+  "success": "border-l-emerald-500",
+  "info": "border-l-sky-500",
+  "neutral": "border-l-gray-300"
+} %}
+
+{% set tone_text = {
+  "error": "text-rose-700",
+  "danger": "text-rose-700",
+  "warning": "text-amber-700",
+  "success": "text-emerald-700",
+  "info": "text-sky-700",
+  "neutral": "text-gray-900"
+} %}
+
+{% if card.filter_key and card.filter_value %}
+<a href="?{{ card.filter_key }}={{ card.filter_value }}"
+   class="block bg-white border border-gray-200 border-l-4 {{ tone_borders[card.tone]|default:tone_borders.neutral }} rounded-xl p-4 hover:shadow-md hover:border-gray-300 transition-all group"
+   data-metric-card="{{ card.key }}">
+  <div class="text-4xl font-bold {{ tone_text[card.tone]|default:tone_text.neutral }}">{{ card.count|default:"0" }}</div>
+  <div class="text-sm font-medium text-gray-600 mt-1">{{ card.label }}</div>
+  {% if card.description %}
+  <div class="text-xs text-gray-500 mt-1">{{ card.description }}</div>
+  {% endif %}
+  <div class="mt-2 text-xs text-gray-400 group-hover:text-blue-600 transition-colors">
+    View {{ card.label|lower }} &rarr;
+  </div>
+</a>
+{% elif card.preset %}
+<a href="?preset={{ card.preset }}"
+   class="block bg-white border border-gray-200 border-l-4 {{ tone_borders[card.tone]|default:tone_borders.neutral }} rounded-xl p-4 hover:shadow-md hover:border-gray-300 transition-all group"
+   data-metric-card="{{ card.key }}">
+  <div class="text-4xl font-bold {{ tone_text[card.tone]|default:tone_text.neutral }}">{{ card.count|default:"0" }}</div>
+  <div class="text-sm font-medium text-gray-600 mt-1">{{ card.label }}</div>
+  {% if card.description %}
+  <div class="text-xs text-gray-500 mt-1">{{ card.description }}</div>
+  {% endif %}
+  <div class="mt-2 text-xs text-gray-400 group-hover:text-blue-600 transition-colors">
+    View {{ card.label|lower }} &rarr;
+  </div>
+</a>
+{% else %}
+<div class="bg-white border border-gray-200 border-l-4 {{ tone_borders[card.tone]|default:tone_borders.neutral }} rounded-xl p-4"
+     data-metric-card="{{ card.key }}">
+  <div class="text-4xl font-bold {{ tone_text[card.tone]|default:tone_text.neutral }}">{{ card.count|default:"0" }}</div>
+  <div class="text-sm font-medium text-gray-600 mt-1">{{ card.label }}</div>
+  {% if card.description %}
+  <div class="text-xs text-gray-500 mt-1">{{ card.description }}</div>
+  {% endif %}
+</div>
+{% endif %}

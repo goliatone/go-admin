@@ -38,6 +38,7 @@ export interface EnhancedActionRuntimeOptions {
   fetch?: typeof fetch;
   document?: Document;
   toast?: EnhancedToastSink;
+  navigate?: (url: string) => void;
   requestHeader?: string;
   requestHeaderValue?: string;
   accept?: string;
@@ -59,6 +60,12 @@ export interface EnhancedToastSink {
 type BusyState = {
   controls: Array<{ control: HTMLButtonElement | HTMLInputElement; disabled: boolean }>;
   busy: string | null;
+};
+
+type EnhancedResponseRead = {
+  envelope: EnhancedActionEnvelope;
+  enhanced: boolean;
+  navigationURL?: string;
 };
 
 export function initEnhancedActions(
@@ -118,7 +125,12 @@ export async function submitEnhancedForm(
       body: method === 'GET' || method === 'HEAD' ? undefined : formData,
       credentials: 'same-origin',
     });
-    const envelope = await readEnhancedEnvelope(response);
+    const result = await readEnhancedResponse(response);
+    const envelope = result.envelope;
+    if (result.navigationURL && response.ok) {
+      navigateEnhancedFallback(result.navigationURL, options, form.ownerDocument);
+      return envelope;
+    }
     if (!response.ok || envelope.ok === false) {
       applyEnhancedErrors(form, envelope);
       showEnhancedToasts(envelope, options.toast);
@@ -187,19 +199,65 @@ function canEnhance(fetchImpl?: typeof fetch, doc?: Document): fetchImpl is type
   return typeof fetchImpl === 'function' && !!formDataConstructor(doc) && !!headersConstructor(doc);
 }
 
-async function readEnhancedEnvelope(response: Response): Promise<EnhancedActionEnvelope> {
+async function readEnhancedResponse(response: Response): Promise<EnhancedResponseRead> {
+  const contentType = response.headers?.get('Content-Type') ?? '';
+  if (!isEnhancedActionContentType(contentType)) {
+    const navigationURL = enhancedFallbackNavigationURL(response);
+    if (response.ok && navigationURL) {
+      return {
+        enhanced: false,
+        navigationURL,
+        envelope: { ok: true, redirect: navigationURL },
+      };
+    }
+    return {
+      enhanced: false,
+      envelope: {
+        ok: false,
+        error: {
+          message: response.ok
+            ? 'Expected an enhanced action response.'
+            : `Request failed (${response.status})`,
+        },
+      },
+    };
+  }
   try {
     const payload = await response.json() as unknown;
     if (payload && typeof payload === 'object' && !Array.isArray(payload)) {
-      return payload as EnhancedActionEnvelope;
+      return { enhanced: true, envelope: payload as EnhancedActionEnvelope };
     }
   } catch {
     // Fall through to a generic envelope.
   }
   return {
-    ok: response.ok,
-    error: response.ok ? undefined : { message: `Request failed (${response.status})` },
+    enhanced: true,
+    envelope: {
+      ok: response.ok,
+      error: response.ok ? undefined : { message: `Request failed (${response.status})` },
+    },
   };
+}
+
+function isEnhancedActionContentType(contentType: string): boolean {
+  const normalized = contentType.toLowerCase();
+  return normalized.includes('json') || normalized.includes(ENHANCED_ACTION_ACCEPT);
+}
+
+function enhancedFallbackNavigationURL(response: Response): string {
+  const url = String(response.url ?? '').trim();
+  if (!url || !response.redirected) {
+    return '';
+  }
+  return url;
+}
+
+function navigateEnhancedFallback(url: string, options: EnhancedActionRuntimeOptions, doc: Document): void {
+  if (typeof options.navigate === 'function') {
+    options.navigate(url);
+    return;
+  }
+  doc.defaultView?.location.assign(url);
 }
 
 function resolveFormAction(form: HTMLFormElement, submitter: HTMLElement | null): string {
@@ -364,6 +422,12 @@ function clearEnhancedErrors(form: HTMLFormElement): void {
   }
   for (const field of Array.from(form.querySelectorAll<HTMLElement>('[aria-invalid="true"]'))) {
     field.removeAttribute('aria-invalid');
+  }
+  const targetSelector = form.getAttribute('data-enhance-error-target')?.trim();
+  const target = targetSelector ? form.ownerDocument.querySelector<HTMLElement>(targetSelector) : null;
+  if (target) {
+    target.textContent = '';
+    target.setAttribute('hidden', '');
   }
 }
 
