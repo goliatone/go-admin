@@ -46,6 +46,7 @@ type TranslationSSRPresenterInput struct {
 	Query              map[string]string
 	InitialPresetID    string
 	SyncClientBasePath string
+	EnhancedAction     EnhancedActionRuntimeOptions
 }
 
 type TranslationSSRPage struct {
@@ -87,6 +88,11 @@ func (a *TranslationFamilyResourceAdapter) Index(c router.Context, input Transla
 	}
 	data, meta := translationSSRPayloadSections(payload)
 	translationSSRAttachFamilyListRowLinks(input, data)
+	data["summary_cards"] = translationSSRFamilySummaryCards(input, data)
+	// Include current filter values in meta for quick filter active state detection
+	if readinessState := translationSSRQueryValue(input, "readiness_state"); readinessState != "" {
+		meta["readiness_state"] = readinessState
+	}
 	return TranslationSSRResourceResult{
 		Data:     data,
 		Meta:     meta,
@@ -209,6 +215,7 @@ func (p *translationSSRPresenter) FamilyDetail(c router.Context, input Translati
 }
 
 func (p *translationSSRPresenter) Queue(c router.Context, input TranslationSSRPresenterInput) (TranslationSSRPage, error) {
+	input = translationSSRQueueInputWithPreset(input)
 	result, err := p.assignments.Index(c, input)
 	if err != nil {
 		return TranslationSSRPage{}, err
@@ -292,6 +299,7 @@ func translationSSRFamilyListDataGrid(input TranslationSSRPresenterInput, data, 
 			{"key": "blocker_code", "label": "Blocker", "value": translationSSRQueryValue(input, "blocker_code")},
 			{"key": "missing_locale", "label": "Missing locale", "value": translationSSRQueryValue(input, "missing_locale")},
 		},
+		"quick_filters": translationSSRFamilyQuickFilters(input),
 		"row_actions": []map[string]any{
 			{"key": "open", "label": "Open family", "href_base": strings.TrimRight(input.FamilyBasePath, "/")},
 		},
@@ -304,6 +312,181 @@ func translationSSRFamilyListDataGrid(input TranslationSSRPresenterInput, data, 
 		"url_state": map[string]any{"preserve_channel": true, "channel": strings.TrimSpace(input.Channel), "filters": cloneStringMap(input.Query)},
 		"items_key": "families",
 		"count":     len(translationSSRList(data, "families", "items")),
+	}
+}
+
+func translationSSRFamilyQuickFilters(input TranslationSSRPresenterInput) []map[string]any {
+	channel := strings.TrimSpace(input.Channel)
+	basePath := strings.TrimSpace(input.FamilyListPath)
+	preservedFilters := translationSSRPreserveFilterQuery(input.Query, translationSSRFamilyStatusFilterPreserveKeys()...)
+	return []map[string]any{
+		{
+			"key":   "all",
+			"label": "All",
+			"field": "",
+			"value": "",
+			"tone":  "neutral",
+			"href":  translationSSRSummaryCardHref(basePath, channel, preservedFilters, "", ""),
+		},
+		{
+			"key":   "blocked",
+			"label": "Blocked",
+			"field": "readiness_state",
+			"value": "blocked",
+			"tone":  "error",
+			"href":  translationSSRSummaryCardHref(basePath, channel, preservedFilters, "readiness_state", "blocked"),
+		},
+		{
+			"key":   "missing",
+			"label": "Missing Locales",
+			"field": "readiness_state",
+			"value": "missing_locales",
+			"tone":  "warning",
+			"href":  translationSSRSummaryCardHref(basePath, channel, preservedFilters, "readiness_state", "missing_locales"),
+		},
+		{
+			"key":   "ready",
+			"label": "Ready",
+			"field": "readiness_state",
+			"value": "ready",
+			"tone":  "success",
+			"href":  translationSSRSummaryCardHref(basePath, channel, preservedFilters, "readiness_state", "ready"),
+		},
+	}
+}
+
+func translationSSRFamilySummaryCards(input TranslationSSRPresenterInput, data map[string]any) []map[string]any {
+	families := translationSSRList(data, "families", "items")
+	var total, blocked, missing, ready int
+	for _, fam := range families {
+		total++
+		state := strings.ToLower(strings.TrimSpace(toString(fam["readiness_state"])))
+		switch state {
+		case "blocked":
+			blocked++
+		case "missing_locales", "missing_locales_and_fields":
+			missing++
+		case "ready":
+			ready++
+		}
+	}
+	channel := strings.TrimSpace(input.Channel)
+	baseQuery := translationSSRPreserveFilterQuery(input.Query, translationSSRFamilyStatusFilterPreserveKeys()...)
+	return []map[string]any{
+		{
+			"key":   "total",
+			"label": "Total Families",
+			"count": total,
+			"tone":  "neutral",
+			"href":  translationSSRSummaryCardHref(input.FamilyListPath, channel, baseQuery, "", ""),
+		},
+		{
+			"key":          "blocked",
+			"label":        "Blocked",
+			"count":        blocked,
+			"tone":         "error",
+			"filter_key":   "readiness_state",
+			"filter_value": "blocked",
+			"href":         translationSSRSummaryCardHref(input.FamilyListPath, channel, baseQuery, "readiness_state", "blocked"),
+		},
+		{
+			"key":          "missing",
+			"label":        "Missing Locales",
+			"count":        missing,
+			"tone":         "warning",
+			"filter_key":   "readiness_state",
+			"filter_value": "missing_locales",
+			"href":         translationSSRSummaryCardHref(input.FamilyListPath, channel, baseQuery, "readiness_state", "missing_locales"),
+		},
+		{
+			"key":          "ready",
+			"label":        "Ready",
+			"count":        ready,
+			"tone":         "success",
+			"filter_key":   "readiness_state",
+			"filter_value": "ready",
+			"href":         translationSSRSummaryCardHref(input.FamilyListPath, channel, baseQuery, "readiness_state", "ready"),
+		},
+	}
+}
+
+func translationSSRQueueSummaryCards(input TranslationSSRPresenterInput, data map[string]any) []map[string]any {
+	rows := translationSSRList(data, "rows", "data", "items", "assignments")
+	var total, active, review, overdue, highPri int
+	for _, row := range rows {
+		// Skip family/group rows
+		if rowType := strings.TrimSpace(toString(row["row_type"])); rowType == "family" || rowType == "group" {
+			continue
+		}
+		total++
+		status := strings.ToLower(strings.TrimSpace(toString(row["status"])))
+		switch status {
+		case "open", "assigned", "in_progress", "changes_requested":
+			active++
+		case "in_review":
+			review++
+		}
+		if strings.ToLower(strings.TrimSpace(toString(row["due_state"]))) == "overdue" {
+			overdue++
+		}
+		priority := strings.ToLower(strings.TrimSpace(toString(row["priority"])))
+		if priority == "high" || priority == "urgent" {
+			highPri++
+		}
+	}
+	channel := strings.TrimSpace(input.Channel)
+	basePath := strings.TrimSpace(input.QueuePath)
+	if basePath == "" {
+		basePath = strings.TrimRight(input.BasePath, "/") + "/translations/queue"
+	}
+	totalHrefSet := map[string]string{}
+	if channel != "" {
+		totalHrefSet["channel"] = channel
+	}
+	return []map[string]any{
+		{
+			"key":   "total",
+			"label": "Total",
+			"count": total,
+			"tone":  "neutral",
+			"href": translationSSRHrefWithQuery(
+				basePath,
+				translationSSRPreserveFilterQuery(input.Query, translationSSRQueuePresetContextFilterPreserveKeys(nil)...),
+				totalHrefSet,
+			),
+		},
+		{
+			"key":    "active",
+			"label":  "Active",
+			"count":  active,
+			"tone":   "info",
+			"preset": "open",
+			"href":   translationSSRQueuePresetCardHref(input, basePath, channel, "open"),
+		},
+		{
+			"key":    "review",
+			"label":  "Awaiting Review",
+			"count":  review,
+			"tone":   "warning",
+			"preset": "needs_review",
+			"href":   translationSSRQueuePresetCardHref(input, basePath, channel, "needs_review"),
+		},
+		{
+			"key":    "overdue",
+			"label":  "Overdue",
+			"count":  overdue,
+			"tone":   "error",
+			"preset": "overdue",
+			"href":   translationSSRQueuePresetCardHref(input, basePath, channel, "overdue"),
+		},
+		{
+			"key":    "high_priority",
+			"label":  "High Priority",
+			"count":  highPri,
+			"tone":   "warning",
+			"preset": "high_priority",
+			"href":   translationSSRQueuePresetCardHref(input, basePath, channel, "high_priority"),
+		},
 	}
 }
 
@@ -346,6 +529,8 @@ func translationSSRQueueResult(input TranslationSSRPresenterInput, payload any) 
 	if _, exists := meta["bulk_selection"]; !exists {
 		meta["bulk_selection"] = map[string]any{"mode": "current_page"}
 	}
+	// Add summary cards for queue overview
+	data["summary_cards"] = translationSSRQueueSummaryCards(input, data)
 	return TranslationSSRResourceResult{
 		Data:     data,
 		Meta:     meta,
@@ -367,6 +552,7 @@ func translationSSRQueueDataGrid(input TranslationSSRPresenterInput, data, meta 
 			{"key": "updated_at", "label": "Updated", "sortable": true},
 		},
 		"filters":                 filters,
+		"quick_filters":           translationSSRQueueQuickFilters(input),
 		"active_filter_chips":     translationSSRQueueActiveFilterChips(input.Query, filters),
 		"sort":                    map[string]any{"default": meta["default_sort"], "supported": meta["supported_sort_keys"], "label": translationSSRQueueSortLabel(meta["default_sort"])},
 		"saved_filter_presets":    translationSSREnrichQueuePresets(input, meta["saved_filter_presets"]),
@@ -393,6 +579,89 @@ func translationSSRQueueDataGrid(input TranslationSSRPresenterInput, data, meta 
 		"url_state": map[string]any{"preserve_channel": true, "channel": strings.TrimSpace(input.Channel), "filters": cloneStringMap(input.Query)},
 		"items_key": "data",
 		"count":     len(translationSSRList(data)),
+	}
+}
+
+func translationSSRQueueInputWithPreset(input TranslationSSRPresenterInput) TranslationSSRPresenterInput {
+	presetID := strings.TrimSpace(input.Query["preset"])
+	if presetID == "" {
+		return input
+	}
+	presetQuery := TranslationQueuePresetQuery(presetID)
+	if len(presetQuery) == 0 {
+		return input
+	}
+	expanded := cloneStringMap(presetQuery)
+	if expanded == nil {
+		expanded = map[string]string{}
+	}
+	for key, value := range input.Query {
+		if key = strings.TrimSpace(key); key == "" {
+			continue
+		}
+		if value = strings.TrimSpace(value); value != "" {
+			expanded[key] = value
+		}
+	}
+	expanded["preset"] = presetID
+	input.Query = expanded
+	return input
+}
+
+func translationSSRQueueQuickFilters(input TranslationSSRPresenterInput) []map[string]any {
+	channel := strings.TrimSpace(input.Channel)
+	basePath := strings.TrimSpace(input.QueuePath)
+	if basePath == "" {
+		basePath = strings.TrimRight(input.BasePath, "/") + "/translations/queue"
+	}
+	preservedFilters := translationSSRPreserveFilterQuery(input.Query, translationSSRQueueStatusFilterPreserveKeys()...)
+	currentStatus := strings.ToLower(strings.TrimSpace(input.Query["status"]))
+	return []map[string]any{
+		{
+			"key":    "all",
+			"label":  "All",
+			"field":  "",
+			"value":  "",
+			"tone":   "neutral",
+			"href":   translationSSRSummaryCardHref(basePath, channel, preservedFilters, "", ""),
+			"active": currentStatus == "",
+		},
+		{
+			"key":    "assigned",
+			"label":  "Assigned",
+			"field":  "status",
+			"value":  "assigned",
+			"tone":   "info",
+			"href":   translationSSRSummaryCardHref(basePath, channel, preservedFilters, "status", "assigned"),
+			"active": currentStatus == "assigned",
+		},
+		{
+			"key":    "in_progress",
+			"label":  "In Progress",
+			"field":  "status",
+			"value":  "in_progress",
+			"tone":   "info",
+			"href":   translationSSRSummaryCardHref(basePath, channel, preservedFilters, "status", "in_progress"),
+			"active": currentStatus == "in_progress",
+		},
+		{
+			"key":    "in_review",
+			"label":  "In Review",
+			"field":  "status",
+			"value":  "in_review",
+			"tone":   "warning",
+			"href":   translationSSRSummaryCardHref(basePath, channel, preservedFilters, "status", "in_review"),
+			"active": currentStatus == "in_review",
+		},
+		{
+			"key":    "changes_requested",
+			"label":  "Changes Requested",
+			"field":  "status",
+			"value":  "changes_requested",
+			"tone":   "error",
+			"href":   translationSSRSummaryCardHref(basePath, channel, preservedFilters, "status", "changes_requested"),
+			"active": currentStatus == "changes_requested",
+		},
 	}
 }
 
@@ -1521,6 +1790,10 @@ func translationSSRStringSlice(raw any) []string {
 }
 
 func translationSSREnhancement(input TranslationSSRPresenterInput) map[string]any {
+	enhancedAction := input.EnhancedAction
+	if enhancedAction == (EnhancedActionRuntimeOptions{}) {
+		enhancedAction = EnhancedActionRuntimeOptionsFromConfig(DefaultEnhancedActionNegotiationConfig())
+	}
 	return map[string]any{
 		"api_base_path":          strings.TrimRight(input.APIBasePath, "/"),
 		"base_path":              strings.TrimRight(input.BasePath, "/"),
@@ -1529,6 +1802,7 @@ func translationSSREnhancement(input TranslationSSRPresenterInput) map[string]an
 		"sync_client_base_path":  strings.TrimSpace(input.SyncClientBasePath),
 		"initial_preset_id":      strings.TrimSpace(input.InitialPresetID),
 		"preserve_channel_query": strings.TrimSpace(input.Channel) != "",
+		"enhanced_action":        enhancedAction,
 	}
 }
 
@@ -1802,25 +2076,14 @@ func translationSSRQueuePresetHref(input TranslationSSRPresenterInput, preset ma
 	if base == "" {
 		base = strings.TrimRight(input.BasePath, "/") + "/translations/queue"
 	}
-	values := url.Values{}
+	set := translationSSRQueuePresetMapQuery(preset)
 	if id := strings.TrimSpace(toString(preset["id"])); id != "" {
-		values.Set("preset", id)
+		set["preset"] = id
 	}
 	if channel := strings.TrimSpace(input.Channel); channel != "" {
-		values.Set("channel", channel)
+		set["channel"] = channel
 	}
-	for key, value := range extractMap(preset["query"]) {
-		if encoded := strings.TrimSpace(toString(value)); encoded != "" {
-			values.Set(key, encoded)
-		}
-	}
-	if reviewState := strings.TrimSpace(toString(preset["review_state"])); reviewState != "" {
-		values.Set("review_state", reviewState)
-	}
-	if encoded := values.Encode(); encoded != "" {
-		return base + "?" + encoded
-	}
-	return base
+	return translationSSRHrefWithQuery(base, nil, set)
 }
 
 func translationSSRHrefWithChannel(href, channel string) string {
@@ -1841,6 +2104,125 @@ func translationSSRHrefWithChannel(href, channel string) string {
 	query.Set("channel", channel)
 	parsed.RawQuery = query.Encode()
 	return parsed.String()
+}
+
+// translationSSRPreserveFilterQuery extracts specified filter keys from query to preserve them in links.
+func translationSSRPreserveFilterQuery(query map[string]string, keys ...string) map[string]string {
+	if len(query) == 0 || len(keys) == 0 {
+		return nil
+	}
+	out := map[string]string{}
+	for _, key := range keys {
+		if value := strings.TrimSpace(query[key]); value != "" {
+			out[key] = value
+		}
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+func translationSSRFamilyStatusFilterPreserveKeys() []string {
+	return []string{
+		"family_id",
+		"content_type",
+		"blocker_code",
+		"missing_locale",
+	}
+}
+
+func translationSSRQueueStatusFilterPreserveKeys() []string {
+	return []string{
+		"family_id",
+		"locale",
+		"target_locale",
+		"priority",
+		"due_state",
+		"review_state",
+		"assignee_id",
+		"reviewer_id",
+	}
+}
+
+func translationSSRQueuePresetFilterPreserveKeys() []string {
+	return []string{
+		"family_id",
+		"locale",
+		"target_locale",
+		"assignee_id",
+		"reviewer_id",
+	}
+}
+
+func translationSSRQueuePresetContextFilterPreserveKeys(presetQuery map[string]string) []string {
+	keys := translationSSRQueuePresetFilterPreserveKeys()
+	if len(presetQuery) == 0 {
+		return keys
+	}
+	out := make([]string, 0, len(keys))
+	for _, key := range keys {
+		if _, owned := presetQuery[key]; owned {
+			continue
+		}
+		out = append(out, key)
+	}
+	return out
+}
+
+func translationSSRQueuePresetCardHref(input TranslationSSRPresenterInput, basePath, channel, presetID string) string {
+	presetID = strings.TrimSpace(presetID)
+	presetQuery := TranslationQueuePresetQuery(presetID)
+	set := cloneStringMap(presetQuery)
+	if set == nil {
+		set = map[string]string{}
+	}
+	if presetID != "" {
+		set["preset"] = presetID
+	}
+	if channel = strings.TrimSpace(channel); channel != "" {
+		set["channel"] = channel
+	}
+	return translationSSRHrefWithQuery(
+		basePath,
+		translationSSRPreserveFilterQuery(input.Query, translationSSRQueuePresetContextFilterPreserveKeys(presetQuery)...),
+		set,
+	)
+}
+
+func translationSSRQueuePresetMapQuery(preset map[string]any) map[string]string {
+	out := map[string]string{}
+	for key, value := range extractMap(preset["query"]) {
+		key = strings.TrimSpace(key)
+		if key == "" {
+			continue
+		}
+		if encoded := strings.TrimSpace(toString(value)); encoded != "" {
+			out[key] = encoded
+		}
+	}
+	if reviewState := strings.TrimSpace(toString(preset["review_state"])); reviewState != "" {
+		out["review_state"] = reviewState
+	}
+	return out
+}
+
+// translationSSRSummaryCardHref builds a URL for a summary card with channel, preserved filters, and an optional filter.
+func translationSSRSummaryCardHref(basePath, channel string, preservedFilters map[string]string, filterKey, filterValue string) string {
+	basePath = strings.TrimSpace(basePath)
+	if basePath == "" {
+		return ""
+	}
+	set := map[string]string{}
+	if channel = strings.TrimSpace(channel); channel != "" {
+		set["channel"] = channel
+	}
+	if filterKey = strings.TrimSpace(filterKey); filterKey != "" {
+		if filterValue = strings.TrimSpace(filterValue); filterValue != "" {
+			set[filterKey] = filterValue
+		}
+	}
+	return translationSSRHrefWithQuery(basePath, preservedFilters, set)
 }
 
 func translationSSRAnyList(raw any) []map[string]any {
