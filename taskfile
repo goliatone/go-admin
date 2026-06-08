@@ -562,6 +562,325 @@ function go:all {
     go:quality:all "$@"
 }
 
+function _translation_dashboard_ssr_webcap:require {
+    if ! command -v webcap >/dev/null 2>&1; then
+        echo "webcap CLI not found in PATH" >&2
+        return 1
+    fi
+    if ! command -v curl >/dev/null 2>&1; then
+        echo "curl not found in PATH" >&2
+        return 1
+    fi
+}
+
+function _translation_dashboard_ssr_webcap:base_url {
+    printf '%s\n' "${WEBCAP_BASE_URL:-http://localhost:18080}"
+}
+
+function _translation_dashboard_ssr_webcap:listen_addr {
+    local base_url
+    base_url="$(_translation_dashboard_ssr_webcap:base_url)"
+    printf '%s\n' "${WEBCAP_LISTEN_ADDR:-:${base_url##*:}}"
+}
+
+function _translation_dashboard_ssr_webcap:server_ready {
+    local base_url
+    base_url="$(_translation_dashboard_ssr_webcap:base_url)"
+    curl -fsS --max-time 2 "${base_url}/admin/login" >/dev/null 2>&1
+}
+
+function _translation_dashboard_ssr_webcap:start_server {
+    local root_dir
+    local listen_addr
+    local log_file
+    local db_path
+    local db_dsn
+    root_dir="$(pwd)"
+    listen_addr="$(_translation_dashboard_ssr_webcap:listen_addr)"
+    log_file="${WEBCAP_SERVER_LOG:-webcap-output/translation-dashboard-ssr/server.log}"
+    db_path="${WEBCAP_DATABASE_PATH:-${root_dir}/webcap-output/translation-dashboard-ssr/admin.db}"
+    db_dsn="${WEBCAP_DATABASE_DSN:-file:${db_path}?cache=shared&_fk=1}"
+
+    mkdir -p "$(dirname "${log_file}")"
+    mkdir -p "$(dirname "${db_path}")"
+    if [ -z "${WEBCAP_DATABASE_DSN:-}" ] && [ "${WEBCAP_RESET_DATABASE:-true}" = "true" ]; then
+        rm -f "${db_path}"
+    fi
+    echo "Starting examples/web on ${listen_addr}; log: ${log_file}"
+
+    (
+        export APP_SERVER__ADDRESS="${listen_addr}"
+        export APP_APP__ENV=development
+        export APP_SITE__RUNTIME_ENV=dev
+        export APP_SITE__CONTENT_CHANNEL=default
+        export APP_SITE__ALLOW_LOCALE_FALLBACK=true
+        export APP_SITE__CANONICAL_REDIRECT_MODE=requested_locale_sticky
+        export APP_NAVIGATION__RESET_MENU=true
+        export APP_NAVIGATION__DEBUG=false
+        export APP_FEATURES__PERSISTENT_CMS="${APP_FEATURES__PERSISTENT_CMS:-true}"
+        export APP_ADMIN__DEBUG__ENABLED=true
+        export APP_SEEDS__ENABLED="${APP_SEEDS__ENABLED:-true}"
+        export APP_SEEDS__TRUNCATE="${APP_SEEDS__TRUNCATE:-true}"
+        export APP_DATABASES__CMS_DSN="${APP_DATABASES__CMS_DSN:-${db_dsn}}"
+        export APP_DATABASES__CONTENT_DSN="${APP_DATABASES__CONTENT_DSN:-${db_dsn}}"
+        export APP_ADMIN__DEBUG__REPL_ENABLED=true
+        export APP_ADMIN__DEBUG__SCOPE_ENABLED=true
+        export APP_ADMIN__DEBUG__LAYOUT=admin
+        export APP_ADMIN__DEBUG__REPL_READ_ONLY=false
+        export APP_TRANSLATION__PROFILE=full
+        export APP_ADMIN__ASSETS_DIR="${root_dir}/pkg/client/assets"
+        cd "${root_dir}/examples/web" && go run .
+    ) >"${log_file}" 2>&1 &
+
+    WEBCAP_EXAMPLE_PID=$!
+    export WEBCAP_EXAMPLE_PID
+}
+
+function _translation_dashboard_ssr_webcap:wait_for_server {
+    local deadline
+    deadline=$((SECONDS + ${WEBCAP_SERVER_TIMEOUT_SECONDS:-60}))
+    until _translation_dashboard_ssr_webcap:server_ready; do
+        if [ "${SECONDS}" -ge "${deadline}" ]; then
+            echo "Timed out waiting for $(_translation_dashboard_ssr_webcap:base_url)" >&2
+            if [ -n "${WEBCAP_EXAMPLE_PID:-}" ]; then
+                kill "${WEBCAP_EXAMPLE_PID}" >/dev/null 2>&1 || true
+            fi
+            return 1
+        fi
+        sleep 1
+    done
+}
+
+function _translation_dashboard_ssr_webcap:ensure_server {
+    if _translation_dashboard_ssr_webcap:server_ready; then
+        echo "Using existing server at $(_translation_dashboard_ssr_webcap:base_url)"
+        return 0
+    fi
+
+    _translation_dashboard_ssr_webcap:start_server || return 1
+    _translation_dashboard_ssr_webcap:wait_for_server || return 1
+}
+
+function _translation_dashboard_ssr_webcap:stop_server {
+    if [ -n "${WEBCAP_EXAMPLE_PID:-}" ]; then
+        echo "Stopping examples/web (${WEBCAP_EXAMPLE_PID})"
+        kill "${WEBCAP_EXAMPLE_PID}" >/dev/null 2>&1 || true
+        wait "${WEBCAP_EXAMPLE_PID}" >/dev/null 2>&1 || true
+    fi
+}
+
+function _translation_dashboard_ssr_webcap:login {
+    local base_url
+    local cookie_jar
+    base_url="$(_translation_dashboard_ssr_webcap:base_url)"
+    cookie_jar="${WEBCAP_COOKIE_JAR:-webcap-output/translation-dashboard-ssr/auth.cookies}"
+
+    mkdir -p "$(dirname "${cookie_jar}")"
+    export WEBCAP_ADMIN_PASSWORD="${WEBCAP_ADMIN_PASSWORD:-superadmin.pwd}"
+
+    webcap auth login \
+        --base-url "${base_url}" \
+        --login-path /admin/login \
+        --target-url "${base_url}/admin/translations/dashboard" \
+        --cookie-jar "${cookie_jar}" \
+        --identifier "${WEBCAP_ADMIN_IDENTIFIER:-superadmin@example.com}" \
+        --password-env WEBCAP_ADMIN_PASSWORD \
+        --expect-cookie admin_user \
+        --timeout "${WEBCAP_AUTH_TIMEOUT:-30s}" \
+        --json \
+        --no-color || return 1
+
+    webcap auth inspect \
+        --cookie-jar "${cookie_jar}" \
+        --url "${base_url}/admin/translations/dashboard" \
+        --expect-cookie admin_user \
+        --json \
+        --no-color
+}
+
+function _translation_dashboard_ssr_webcap:shot {
+    local name=$1
+    local route=$2
+    local wait_for=$3
+    local base_url
+    local out_dir
+    local cookie_jar
+    base_url="$(_translation_dashboard_ssr_webcap:base_url)"
+    out_dir="${WEBCAP_OUTPUT_DIR:-webcap-output/translation-dashboard-ssr/artifacts/current}"
+    cookie_jar="${WEBCAP_COOKIE_JAR:-webcap-output/translation-dashboard-ssr/auth.cookies}"
+
+    mkdir -p "${out_dir}"
+    echo "Capturing ${name}: ${route}"
+    webcap shot \
+        --cookie-jar "${cookie_jar}" \
+        --expect-url "${route}" \
+        --fail-on-url /admin/login \
+        --fail-on-selector 'form[action*="/login"]' \
+        --wait-for "${wait_for}" \
+        --wait-for-fonts \
+        --readiness "${WEBCAP_READINESS:-complete}" \
+        --disable-animations \
+        --reduced-motion \
+        --timeout "${WEBCAP_SHOT_TIMEOUT:-90s}" \
+        --output "${out_dir}/${name}.png" \
+        "${base_url}${route}"
+}
+
+function _translation_dashboard_ssr_webcap:section {
+    local name=$1
+    local route=$2
+    local selector=$3
+    local base_url
+    local out_dir
+    local cookie_jar
+    base_url="$(_translation_dashboard_ssr_webcap:base_url)"
+    out_dir="${WEBCAP_OUTPUT_DIR:-webcap-output/translation-dashboard-ssr/artifacts/current}"
+    cookie_jar="${WEBCAP_COOKIE_JAR:-webcap-output/translation-dashboard-ssr/auth.cookies}"
+
+    mkdir -p "${out_dir}"
+    echo "Capturing ${name}: ${route} (${selector})"
+    webcap shot \
+        --cookie-jar "${cookie_jar}" \
+        --expect-url "${route}" \
+        --fail-on-url /admin/login \
+        --fail-on-selector 'form[action*="/login"]' \
+        --wait-for "${selector}" \
+        --selector "${selector}" \
+        --wait-for-fonts \
+        --readiness "${WEBCAP_READINESS:-complete}" \
+        --disable-animations \
+        --reduced-motion \
+        --timeout "${WEBCAP_SHOT_TIMEOUT:-90s}" \
+        --output "${out_dir}/${name}.png" \
+        "${base_url}${route}"
+}
+
+function _translation_dashboard_ssr_webcap:visible {
+    local name=$1
+    local route=$2
+    local wait_for=$3
+    local base_url
+    local out_dir
+    local cookie_jar
+    base_url="$(_translation_dashboard_ssr_webcap:base_url)"
+    out_dir="${WEBCAP_OUTPUT_DIR:-webcap-output/translation-dashboard-ssr/artifacts/current}"
+    cookie_jar="${WEBCAP_COOKIE_JAR:-webcap-output/translation-dashboard-ssr/auth.cookies}"
+
+    mkdir -p "${out_dir}"
+    echo "Capturing ${name}: ${route} (visible viewport)"
+    webcap shot \
+        --cookie-jar "${cookie_jar}" \
+        --expect-url "${route}" \
+        --fail-on-url /admin/login \
+        --fail-on-selector 'form[action*="/login"]' \
+        --wait-for "${wait_for}" \
+        --readiness "${WEBCAP_VISIBLE_READINESS:-interactive}" \
+        --disable-animations \
+        --reduced-motion \
+        --visible \
+        --timeout "${WEBCAP_SHOT_TIMEOUT:-90s}" \
+        --output "${out_dir}/${name}.png" \
+        "${base_url}${route}"
+}
+
+function _translation_dashboard_ssr_webcap:html_contains {
+    local route=$1
+    local marker=$2
+    local base_url
+    local cookie_jar
+    base_url="$(_translation_dashboard_ssr_webcap:base_url)"
+    cookie_jar="${WEBCAP_COOKIE_JAR:-webcap-output/translation-dashboard-ssr/auth.cookies}"
+
+    echo "Checking SSR marker on ${route}: ${marker}"
+    curl -fsS \
+        --max-time "${WEBCAP_HTML_TIMEOUT_SECONDS:-15}" \
+        --cookie "${cookie_jar}" \
+        "${base_url}${route}" | grep -F -- "${marker}" >/dev/null
+}
+
+function _translation_dashboard_ssr_webcap:diff_one {
+    local name=$1
+    local reference_dir
+    local current_dir
+    local diff_dir
+    reference_dir="${WEBCAP_REFERENCE_DIR:-webcap-output/translation-dashboard-ssr/artifacts/reference}"
+    current_dir="${WEBCAP_OUTPUT_DIR:-webcap-output/translation-dashboard-ssr/artifacts/current}"
+    diff_dir="${WEBCAP_DIFF_DIR:-webcap-output/translation-dashboard-ssr/artifacts/diff}"
+
+    if [ ! -f "${reference_dir}/${name}.png" ] || [ ! -f "${current_dir}/${name}.png" ]; then
+        echo "Skipping ${name} diff; missing reference or current capture"
+        return 0
+    fi
+
+    mkdir -p "${diff_dir}"
+    webcap diff \
+        --threshold "${WEBCAP_DIFF_THRESHOLD:-0.05}" \
+        --output "${diff_dir}/${name}.png" \
+        --metadata "${diff_dir}/${name}.json" \
+        "${reference_dir}/${name}.png" \
+        "${current_dir}/${name}.png"
+}
+
+function translation:dashboard:ssr:webcap {
+    local channel
+    local family_id
+    local assignment_id
+    local family_route
+    local editor_route
+    channel="${WEBCAP_CHANNEL:-default}"
+    family_id="${WEBCAP_FAMILY_ID:-11111111-1111-1111-1111-111111111201}"
+    assignment_id="${WEBCAP_ASSIGNMENT_ID:-tqa_editor}"
+    family_route="/admin/translations/families/${family_id}?channel=${channel}"
+    editor_route="/admin/translations/assignments/${assignment_id}/edit?channel=${channel}"
+
+    _translation_dashboard_ssr_webcap:require || return 1
+    trap _translation_dashboard_ssr_webcap:stop_server EXIT
+
+    _translation_dashboard_ssr_webcap:ensure_server || return 1
+    _translation_dashboard_ssr_webcap:login || return 1
+
+    _translation_dashboard_ssr_webcap:shot dashboard "/admin/translations/dashboard?channel=${channel}" '[data-translation-dashboard-ssr="true"]' || return 1
+    _translation_dashboard_ssr_webcap:shot queue "/admin/translations/queue?channel=${channel}" '[data-translation-queue-ssr="true"]' || return 1
+    _translation_dashboard_ssr_webcap:shot families "/admin/translations/families?channel=${channel}" '[data-translation-family-list-ssr="true"]' || return 1
+    _translation_dashboard_ssr_webcap:visible family-detail "${family_route}" '[data-translation-family-detail-ssr="true"]' || return 1
+    _translation_dashboard_ssr_webcap:shot matrix "/admin/translations/matrix?channel=${channel}" '#translation-matrix-root' || return 1
+    if [ "${WEBCAP_SKIP_EDITOR:-false}" = "true" ]; then
+        echo "Skipping editor capture because WEBCAP_SKIP_EDITOR=true"
+    else
+        _translation_dashboard_ssr_webcap:html_contains "${editor_route}" 'data-translation-editor-ssr="true"' || return 1
+        WEBCAP_VISIBLE_READINESS="${WEBCAP_EDITOR_VISIBLE_READINESS:-none}" \
+            _translation_dashboard_ssr_webcap:visible editor "${editor_route}" '#translation-editor-root' || return 1
+    fi
+    _translation_dashboard_ssr_webcap:shot exchange "/admin/translations/exchange?channel=${channel}" '#translation-exchange-app' || return 1
+
+    echo "Current captures written to ${WEBCAP_OUTPUT_DIR:-webcap-output/translation-dashboard-ssr/artifacts/current}"
+}
+
+function translation:dashboard:ssr:webcap:reference {
+    local root_dir
+    root_dir="$(pwd)"
+    export WEBCAP_BASE_URL="${WEBCAP_BASE_URL:-http://127.0.0.1:8080}"
+    export WEBCAP_DATABASE_DSN="${WEBCAP_DATABASE_DSN:-file:${root_dir}/examples/web/admin.db?cache=shared&_fk=1}"
+    export WEBCAP_RESET_DATABASE=false
+    export APP_SEEDS__ENABLED="${APP_SEEDS__ENABLED:-false}"
+    export APP_SEEDS__TRUNCATE="${APP_SEEDS__TRUNCATE:-false}"
+    export WEBCAP_FAMILY_ID="${WEBCAP_FAMILY_ID:-77c6921d-5796-490c-9851-9f753309d9e7}"
+    export WEBCAP_ASSIGNMENT_ID="${WEBCAP_ASSIGNMENT_ID:-tqa_379aa54e-1d65-4658-91f0-61c1e1321d16}"
+    translation:dashboard:ssr:webcap
+}
+
+function translation:dashboard:ssr:webcap:diff {
+    _translation_dashboard_ssr_webcap:require || return 1
+    _translation_dashboard_ssr_webcap:diff_one dashboard || return 1
+    _translation_dashboard_ssr_webcap:diff_one queue || return 1
+    _translation_dashboard_ssr_webcap:diff_one families || return 1
+    _translation_dashboard_ssr_webcap:diff_one family-detail || return 1
+    _translation_dashboard_ssr_webcap:diff_one matrix || return 1
+    _translation_dashboard_ssr_webcap:diff_one editor || return 1
+    _translation_dashboard_ssr_webcap:diff_one exchange || return 1
+    echo "Diff artifacts written to ${WEBCAP_DIFF_DIR:-webcap-output/translation-dashboard-ssr/artifacts/diff}"
+}
+
 function dev:install {
     cd "$(pwd)/src" || exit "$?"
 
