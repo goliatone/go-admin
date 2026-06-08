@@ -353,6 +353,11 @@ func validateCreateVariantAssignmentTarget(family translationservices.FamilyReco
 }
 
 func (b *translationFamilyBinding) CreateAssignment(c router.Context, id string) (payload any, opErr error) {
+	payloadMap, _, err := b.createAssignmentPayload(c, id)
+	return payloadMap, err
+}
+
+func (b *translationFamilyBinding) createAssignmentPayload(c router.Context, id string) (payload map[string]any, request translationFamilyCreateAssignmentRequest, opErr error) {
 	startedAt := time.Now()
 	obsCtx := c.Context()
 	defer func() {
@@ -368,18 +373,18 @@ func (b *translationFamilyBinding) CreateAssignment(c router.Context, id string)
 		})
 	}()
 	if b == nil || b.admin == nil {
-		return nil, serviceNotConfiguredDomainError("translation family binding", map[string]any{"component": "translation_family_binding"})
+		return nil, translationFamilyCreateAssignmentRequest{}, serviceNotConfiguredDomainError("translation family binding", map[string]any{"component": "translation_family_binding"})
 	}
 	request, cached, err := b.prepareCreateAssignmentRequest(c, id)
 	if err != nil || cached != nil {
-		return cached, err
+		return cached, request, err
 	}
 	obsCtx = request.AdminCtx.Context
 	familyID := strings.TrimSpace(id)
 	var result TranslationFamilyAssignResult
 	command := &TranslationFamilyAssignCommand{Binding: b}
 	if executeErr := command.Execute(request.AdminCtx.Context, translationFamilyAssignInputFromRequest(familyID, request, &result)); executeErr != nil {
-		return nil, executeErr
+		return nil, request, executeErr
 	}
 	outcome := translationFamilyCreateAssignmentOutcome{
 		Assignment:       result.Assignment,
@@ -388,17 +393,21 @@ func (b *translationFamilyBinding) CreateAssignment(c router.Context, id string)
 	payloadMap := b.createAssignmentResponsePayload(request, outcome)
 	if request.Input.IdempotencyKey != "" {
 		if storeErr := b.storeCreateAssignmentIdempotency(request.AdminCtx, result.Family.ID, request.Input, payloadMap); storeErr != nil {
-			return nil, storeErr
+			return nil, request, storeErr
 		}
 	}
-	return payloadMap, nil
+	return payloadMap, request, nil
 }
 
 func (b *translationFamilyBinding) CreateAssignmentMutation(c router.Context, id string) error {
-	req := detectEnhancedMutationRequest(c)
-	redirect := b.translationFamilyDetailRedirect(c, id)
-	payload, err := b.CreateAssignment(c, id)
-	responder := NewEnhancedMutationResponder()
+	var adm *Admin
+	if b != nil {
+		adm = b.admin
+	}
+	req := adm.detectEnhancedMutationRequest(c)
+	responder := NewEnhancedMutationResponder().WithMediaType(adm.enhancedActionResponseMediaType())
+	payload, request, err := b.createAssignmentPayload(c, id)
+	redirect := b.translationFamilyDetailRedirectForAssignment(c, id, request, payload)
 	if err != nil {
 		return responder.RespondError(c, req, err, MutationFallback{
 			Redirect: redirect,
@@ -426,6 +435,21 @@ func (b *translationFamilyBinding) CreateAssignmentMutation(c router.Context, id
 		})
 	}
 	return responder.Respond(c, req, presentation, fallback)
+}
+
+func (b *translationFamilyBinding) translationFamilyDetailRedirectForAssignment(c router.Context, familyID string, request translationFamilyCreateAssignmentRequest, payload map[string]any) string {
+	channel := strings.TrimSpace(request.Input.Channel)
+	if channel == "" {
+		channel = mutationPayloadChannel(payload)
+	}
+	if channel == "" {
+		channel = translationFamilyCreateAssignmentChannelFromRequest(c)
+	}
+	basePath := "/admin"
+	if b != nil && b.admin != nil {
+		basePath = adminBasePath(b.admin.config)
+	}
+	return translationFamilyDetailRedirectWithChannel(c, basePath, familyID, channel)
 }
 
 func (b *translationFamilyBinding) createAssignmentMutationPresentation(c router.Context, familyID string, payload any, redirect string, channel string) (MutationPresentation, error) {
@@ -495,20 +519,20 @@ func translationFamilyAssignmentFocusSelector(payload any) string {
 	return `[data-assignment-id="` + strings.ReplaceAll(assignmentID, `"`, `\"`) + `"]`
 }
 
-func (b *translationFamilyBinding) translationFamilyDetailRedirect(c router.Context, familyID string) string {
-	basePath := "/admin"
-	if b != nil && b.admin != nil {
-		basePath = adminBasePath(b.admin.config)
-	}
-	return translationFamilyDetailRedirect(c, basePath, familyID)
+func translationFamilyDetailRedirect(c router.Context, basePath string, familyID string) string {
+	return translationFamilyDetailRedirectWithChannel(c, basePath, familyID, "")
 }
 
-func translationFamilyDetailRedirect(c router.Context, basePath string, familyID string) string {
+func translationFamilyDetailRedirectWithChannel(c router.Context, basePath string, familyID string, channel string) string {
 	path := joinBasePath(firstNonEmpty(strings.TrimSpace(basePath), "/admin"), "translations/families/"+neturl.PathEscape(strings.TrimSpace(familyID)))
 	values := neturl.Values{}
 	for _, key := range []string{"channel", ScopeTenantIDKey, ScopeOrgIDKey} {
-		if value := strings.TrimSpace(firstNonEmpty(c.Query(key), c.FormValue(key))); value != "" {
-			values.Set(key, value)
+		value := firstNonEmpty(c.Query(key), c.FormValue(key))
+		if key == "channel" {
+			value = firstNonEmpty(channel, value)
+		}
+		if trimmedValue := strings.TrimSpace(value); trimmedValue != "" {
+			values.Set(key, trimmedValue)
 		}
 	}
 	if encoded := values.Encode(); encoded != "" {
@@ -976,7 +1000,26 @@ func (b *translationFamilyBinding) prepareCreateAssignmentRequest(c router.Conte
 
 func parseTranslationFamilyCreateAssignmentBody(c router.Context) (map[string]any, error) {
 	raw := c.Body()
-	keys := []string{
+	keys := translationFamilyCreateAssignmentBodyKeys()
+	if translationFamilyRequestIsForm(c) || translationFamilyBodyLooksForm(raw) {
+		return translationFamilyFormBody(c, raw, keys), nil
+	}
+	if len(bytes.TrimSpace(raw)) == 0 && translationFamilyHasFormValues(c, keys) {
+		return translationFamilyFormBody(c, raw, keys), nil
+	}
+	return parseOptionalJSONMap(raw)
+}
+
+func translationFamilyCreateAssignmentChannelFromRequest(c router.Context) string {
+	body, err := parseTranslationFamilyCreateAssignmentBody(c)
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(toString(body["channel"]))
+}
+
+func translationFamilyCreateAssignmentBodyKeys() []string {
+	return []string{
 		"target_locale",
 		"locale",
 		"assignee_id",
@@ -987,13 +1030,6 @@ func parseTranslationFamilyCreateAssignmentBody(c router.Context) (map[string]an
 		"channel",
 		"idempotency_key",
 	}
-	if translationFamilyRequestIsForm(c) || translationFamilyBodyLooksForm(raw) {
-		return translationFamilyFormBody(c, raw, keys), nil
-	}
-	if len(bytes.TrimSpace(raw)) == 0 && translationFamilyHasFormValues(c, keys) {
-		return translationFamilyFormBody(c, raw, keys), nil
-	}
-	return parseOptionalJSONMap(raw)
 }
 
 func translationFamilyRequestIsForm(c router.Context) bool {
