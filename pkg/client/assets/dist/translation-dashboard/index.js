@@ -5,7 +5,7 @@ import { extractStructuredError as de } from "../toast/error-helpers.js";
 import { buildEndpointURL as ce } from "../shared/query-state/url-state.js";
 import { StatefulController as ue } from "../shared/stateful-controller.js";
 import { asNumberish as x, asRecord as p, asString as n } from "../shared/coercion.js";
-import { A as H, C as $, D as P, E as z, F as pe, N as he, O as U, P as fe, R as ge, T as G, a as S, d as be, dt as K, f as _, g as me, i as xe, k as E, l as ye, n as R, o as ve, r as V, s as $e, t as X, u as w, y as Y } from "../chunks/translation-shared-CdZJJA93.js";
+import { A as H, C as $, D as P, E as z, F as pe, N as he, O as U, P as fe, R as ge, T as G, a as R, d as be, dt as K, f as _, g as me, i as xe, k as E, l as ye, n as S, o as ve, r as V, s as $e, t as X, u as w, y as Y } from "../chunks/translation-shared-CdZJJA93.js";
 import { normalizeNumberRecord as I, normalizeStringRecord as k } from "../shared/record-normalization.js";
 import { c as L, s as we } from "../chunks/ui-states-1McZ5upU.js";
 var v = class extends Error {
@@ -185,7 +185,7 @@ function Ae(t) {
     runbooks: g(e.runbooks, Q)
   };
 }
-function Se(t) {
+function Re(t) {
   const e = p(t), a = n(e.code);
   return a ? {
     state: D(e.state),
@@ -195,13 +195,13 @@ function Se(t) {
     runbookId: n(e.runbook_id)
   } : null;
 }
-function Re(t, e) {
+function Se(t, e) {
   if (e.cardIds.length === 0) return t;
   const a = /* @__PURE__ */ new Map();
   return e.cardIds.forEach((s, r) => a.set(s, r)), [...t].sort((s, r) => (a.get(s.id) ?? Number.MAX_SAFE_INTEGER) - (a.get(r.id) ?? Number.MAX_SAFE_INTEGER));
 }
 function Ie(t) {
-  const e = p(t), a = p(e.data), s = p(e.meta), r = Ae(s.contracts), i = Re(g(a.cards, Te), r), l = {};
+  const e = p(t), a = p(e.data), s = p(e.meta), r = Ae(s.contracts), i = Se(g(a.cards, Te), r), l = {};
   for (const [h, u] of Object.entries(p(a.tables))) l[h] = Ce(u, h);
   const b = { ...r.queryModels };
   for (const [h, u] of Object.entries(p(s.query_models))) {
@@ -212,7 +212,7 @@ function Ie(t) {
     data: {
       cards: i,
       tables: l,
-      alerts: g(a.alerts, Se),
+      alerts: g(a.alerts, Re),
       runbooks: g(a.runbooks, Q),
       summary: I(a.summary)
     },
@@ -347,7 +347,7 @@ var C = {
   top_overdue_assignments: {
     label: "Top Overdue Assignments",
     shortLabel: "Overdue",
-    icon: S
+    icon: R
   },
   blocked_families: {
     label: "Blocked Families",
@@ -358,12 +358,12 @@ var C = {
   "translations.dashboard.overdue_triage": {
     label: "Overdue Assignment Triage",
     shortLabel: "Overdue Triage",
-    icon: S
+    icon: R
   },
   "translations.dashboard.review_backlog": {
     label: "Reviewer Backlog Triage",
     shortLabel: "Review Backlog",
-    icon: R
+    icon: S
   },
   "translations.dashboard.publish_blockers": {
     label: "Publish Blocker Remediation",
@@ -806,7 +806,7 @@ function tt(t, e = !1, a = !1) {
                 <span>${o(b)}</span>
               </span>
               <span class="inline-flex items-center gap-1.5 px-2 py-1 text-xs font-medium text-gray-600 bg-white rounded border border-gray-200" title="Refresh interval: ${o(i)}">
-                ${f(S, "h-3 w-3 text-gray-400", "12px")}
+                ${f(R, "h-3 w-3 text-gray-400", "12px")}
                 <span>${o(i)}</span>
               </span>
               <span class="inline-flex items-center gap-1.5 px-2 py-1 text-xs font-medium text-gray-600 bg-white rounded border border-gray-200" title="Latency target: ${o(l)}">
@@ -851,7 +851,7 @@ function tt(t, e = !1, a = !1) {
     </section>
   `;
 }
-f(R, "h-5 w-5", "20px"), f(_, "h-5 w-5", "20px"), f(X, "h-5 w-5", "20px"), f(w, "h-5 w-5", "20px");
+f(S, "h-5 w-5", "20px"), f(_, "h-5 w-5", "20px"), f(X, "h-5 w-5", "20px"), f(w, "h-5 w-5", "20px");
 function at(t) {
   const e = t.data.runbooks[0], a = e?.href ? `<a class="inline-flex items-center rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-900 hover:bg-gray-50" href="${c(e.href)}">${o(e.title || "Open runbook")}</a>` : "";
   return L({
@@ -1042,7 +1042,7 @@ var it = class extends ue {
             const i = a.innerHTML;
             a.innerHTML = `
             <span class="text-green-600">Copied!</span>
-            ${f(R, "h-3 w-3 text-green-500", "12px")}
+            ${f(S, "h-3 w-3 text-green-500", "12px")}
           `, setTimeout(() => {
               a.innerHTML = i;
             }, 1500);
@@ -1054,26 +1054,26 @@ var it = class extends ue {
   }
 };
 function ot(t, e) {
-  t.querySelectorAll("[data-dashboard-ssr-table-tab]").forEach((a) => {
-    const s = a.dataset.dashboardSsrTableTab === e;
+  t.querySelectorAll("[data-translation-table-tab]").forEach((a) => {
+    const s = a.dataset.translationTableTab === e;
     a.setAttribute("aria-selected", s ? "true" : "false"), a.tabIndex = s ? 0 : -1, a.classList.toggle("border-blue-500", s), a.classList.toggle("text-blue-700", s), a.classList.toggle("border-transparent", !s), a.classList.toggle("text-gray-600", !s);
-  }), t.querySelectorAll("[data-dashboard-ssr-table-panel]").forEach((a) => {
-    const s = a.dataset.dashboardSsrTablePanel === e;
+  }), t.querySelectorAll("[data-translation-table-panel]").forEach((a) => {
+    const s = a.dataset.translationTablePanel === e;
     a.hidden = !s, a.classList.toggle("hidden", !s);
   });
 }
 function lt(t) {
-  t.dataset.translationDashboardEnhanced = "true", typeof t.querySelectorAll == "function" && (t.querySelectorAll("[data-dashboard-ssr-table-tab]").forEach((e) => {
+  t.dataset.translationDashboardEnhanced = "true", typeof t.querySelectorAll == "function" && (t.querySelectorAll("[data-translation-table-tab]").forEach((e) => {
     e.addEventListener("click", () => {
-      const a = e.dataset.dashboardSsrTableTab;
+      const a = e.dataset.translationTableTab;
       a && ot(t, a);
     });
-  }), t.querySelectorAll("[data-dashboard-ssr-disclosure]").forEach((e) => {
+  }), t.querySelectorAll("[data-translation-disclosure]").forEach((e) => {
     e.addEventListener("click", () => {
-      const a = e.dataset.dashboardSsrDisclosure, s = a ? t.querySelector(`[data-dashboard-ssr-disclosure-panel="${a}"]`) : null;
+      const a = e.dataset.translationDisclosure, s = a ? t.querySelector(`[data-translation-disclosure-panel="${a}"]`) : null;
       if (!s) return;
       const r = e.getAttribute("aria-expanded") === "true";
-      e.setAttribute("aria-expanded", r ? "false" : "true"), s.hidden = r, s.classList.toggle("hidden", r), e.querySelector("[data-dashboard-ssr-disclosure-icon]")?.classList.toggle("rotate-180", !r);
+      e.setAttribute("aria-expanded", r ? "false" : "true"), s.hidden = r, s.classList.toggle("hidden", r), e.querySelector("[data-translation-disclosure-icon]")?.classList.toggle("rotate-180", !r);
     });
   }));
 }

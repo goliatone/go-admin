@@ -137,6 +137,7 @@
                   <p class="mt-2 text-xs text-gray-500">{{ family.content_type|default:"content" }} &middot; Source {{ family.source_locale|default:"-" }}</p>
                 </td>
                 <td class="px-4 py-5 align-top">
+                  {# Tone mapping mirrors status-vocabulary.ts - prefer server-side computed tones (see family-detail.html) #}
                   {% set readiness_tone = "neutral" %}
                   {% if family.readiness_state == "blocked" %}{% set readiness_tone = "error" %}{% elif family.readiness_state == "ready" %}{% set readiness_tone = "success" %}{% elif family.readiness_state == "missing_locales" or family.readiness_state == "missing_locales_and_fields" %}{% set readiness_tone = "warning" %}{% endif %}
                   {% include "partials/status-badge.html" with badge_status=family.readiness_state badge_tone=readiness_tone %}

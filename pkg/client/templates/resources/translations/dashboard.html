@@ -3,22 +3,7 @@
 {% block title %}Translation Dashboard - {{ title }}{% endblock %}
 
 {% block content %}
-{# Compact Header (Option 3: Integrated Breadcrumb) #}
-<header class="admin-page-header px-8 py-3 bg-white border-b border-gray-200">
-  <div class="flex items-center justify-between gap-4">
-    {# Left: Breadcrumb | Title #}
-    <div class="flex items-center gap-4 min-w-0 flex-1">
-      {% include "partials/breadcrumbs.html" with breadcrumbs=breadcrumbs %}
-      <h1 class="text-2xl font-bold text-gray-900 truncate">Translation Dashboard</h1>
-    </div>
-
-    {# Right: Actions #}
-    <div id="dashboard-header-actions" class="flex items-center gap-3 flex-shrink-0">
-      <!-- Header actions mount here via JS -->
-    </div>
-  </div>
-  <p class="mt-2 text-sm text-gray-500">Monitor queue health, overdue work, and readiness blockers.</p>
-</header>
+{% include "partials/admin-page-header.html" with page_title="Translation Dashboard" page_subtitle="Monitor queue health, overdue work, and readiness blockers." header_actions_id="dashboard-header-actions" %}
 
 <div class="flex-1 overflow-y-auto bg-gray-50 p-8">
   <div class="mx-auto">
@@ -29,7 +14,8 @@
          data-title="Translation Dashboard"
          data-refresh-interval="{{ translation_dashboard_ssr.Meta.refresh_interval_ms|default:"30000" }}"
          data-ssr-enhanced="true"
-         data-channel="{{ translation_dashboard_ssr.Meta.channel|default:"" }}">
+         data-channel="{{ translation_dashboard_ssr.Meta.channel|default:"" }}"
+         data-translation-surface="dashboard">
       {% if translation_dashboard_ssr.ErrorState %}
       <section class="rounded-lg border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900" data-translation-ssr-error="true">
         <h2 class="text-base font-semibold">{{ translation_dashboard_ssr.ErrorState.title|default:"Translation data unavailable" }}</h2>
@@ -70,14 +56,14 @@
             </div>
             <button type="button"
                     class="inline-flex items-center gap-1.5 rounded px-2 py-1 font-medium hover:bg-white"
-                    data-dashboard-ssr-disclosure="details"
+                    data-translation-disclosure="details"
                     aria-expanded="false">
               <i class="iconoir-info-circle" aria-hidden="true"></i>
               <span>Details</span>
-              <i class="iconoir-nav-arrow-down transition-transform" data-dashboard-ssr-disclosure-icon aria-hidden="true"></i>
+              <i class="iconoir-nav-arrow-down transition-transform" data-translation-disclosure-icon aria-hidden="true"></i>
             </button>
           </div>
-          <div class="hidden border-t border-gray-100 bg-white px-5 py-3 text-xs text-gray-600" data-dashboard-ssr-disclosure-panel="details" hidden>
+          <div class="hidden border-t border-gray-100 bg-white px-5 py-3 text-xs text-gray-600" data-translation-disclosure-panel="details" hidden>
             <dl class="grid gap-3 sm:grid-cols-3">
               <div>
                 <dt class="font-semibold uppercase tracking-wider text-gray-500">Generated</dt>
@@ -99,7 +85,7 @@
         <section class="overflow-hidden rounded-lg border border-rose-200 bg-rose-50 text-sm text-rose-800" aria-label="Translation dashboard alerts">
           <button type="button"
                   class="flex w-full flex-wrap items-center justify-between gap-3 px-5 py-3 text-left"
-                  data-dashboard-ssr-disclosure="alerts"
+                  data-translation-disclosure="alerts"
                   aria-expanded="false">
             <div class="flex flex-wrap items-center gap-2">
               <i class="iconoir-warning-triangle text-rose-700" aria-hidden="true"></i>
@@ -110,9 +96,9 @@
               </span>
               {% endfor %}
             </div>
-            <i class="iconoir-nav-arrow-down text-lg leading-none transition-transform" data-dashboard-ssr-disclosure-icon aria-hidden="true"></i>
+            <i class="iconoir-nav-arrow-down text-lg leading-none transition-transform" data-translation-disclosure-icon aria-hidden="true"></i>
           </button>
-          <div class="hidden border-t border-rose-200 px-5 py-3" data-dashboard-ssr-disclosure-panel="alerts" hidden>
+          <div class="hidden border-t border-rose-200 px-5 py-3" data-translation-disclosure-panel="alerts" hidden>
             <ul class="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
               {% for alert in translation_dashboard_ssr.Data.alerts %}
               <li class="rounded-md bg-white/70 px-3 py-2 text-xs">
@@ -130,7 +116,7 @@
         {% if translation_dashboard_ssr.Data.cards %}
         <section class="grid gap-4 md:grid-cols-2 xl:grid-cols-5" aria-label="Translation dashboard metrics">
           {% for card in translation_dashboard_ssr.Data.cards %}
-          {% include "partials/dashboard-card.html" with card=card %}
+          {% include "partials/metric-card.html" with card=card %}
           {% endfor %}
         </section>
         {% endif %}
@@ -141,7 +127,7 @@
             {% for table in translation_dashboard_ssr.Data.ordered_tables|default:translation_dashboard_ssr.Data.tables %}
             <button type="button"
                     class="inline-flex items-center gap-2 border-b-2 {% if table.id == "blocked_families" %}border-blue-500 text-blue-700{% else %}border-transparent text-gray-600{% endif %} py-3"
-                    data-dashboard-ssr-table-tab="{{ table.id }}"
+                    data-translation-table-tab="{{ table.id }}"
                     role="tab"
                     aria-selected="{% if table.id == "blocked_families" %}true{% else %}false{% endif %}"
                     aria-controls="dashboard-table-panel-{{ table.id }}">
@@ -160,8 +146,8 @@
           </div>
           {% for table in translation_dashboard_ssr.Data.ordered_tables|default:translation_dashboard_ssr.Data.tables %}
           <article id="dashboard-table-panel-{{ table.id }}"
-                   data-dashboard-table="{{ table.id }}"
-                   data-dashboard-ssr-table-panel="{{ table.id }}"
+                   data-translation-table="{{ table.id }}"
+                   data-translation-table-panel="{{ table.id }}"
                    role="tabpanel"
                    {% if table.id != "blocked_families" %}class="hidden" hidden{% endif %}>
             <div class="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 px-5 py-4">
@@ -252,6 +238,7 @@
 	                    </td>
 	                    <td class="px-5 py-4 text-gray-700">{{ row.display_priority|default:row.priority|default:"-" }}</td>
 	                    <td class="px-5 py-4">
+	                      {# Tone mapping mirrors status-vocabulary.ts - prefer server-side computed tones (see family-detail.html) #}
 	                      {% set dashboard_status_tone = "info" %}
 	                      {% if row.status == "in_review" %}{% set dashboard_status_tone = "warning" %}{% elif row.status == "changes_requested" %}{% set dashboard_status_tone = "error" %}{% elif row.status == "approved" or row.status == "completed" %}{% set dashboard_status_tone = "success" %}{% endif %}
 	                      {% include "partials/status-badge.html" with badge_status=row.status|default:row.queue_state|default:"unknown" badge_tone=dashboard_status_tone badge_label=row.display_status|default:row.status|default:row.queue_state %}

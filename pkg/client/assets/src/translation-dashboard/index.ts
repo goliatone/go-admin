@@ -1840,8 +1840,8 @@ export class TranslationDashboardPage extends StatefulController<TranslationDash
 }
 
 function setSSRDashboardTableTab(root: HTMLElement, tabId: string): void {
-  root.querySelectorAll<HTMLButtonElement>('[data-dashboard-ssr-table-tab]').forEach((button) => {
-    const isActive = button.dataset.dashboardSsrTableTab === tabId;
+  root.querySelectorAll<HTMLButtonElement>('[data-translation-table-tab]').forEach((button) => {
+    const isActive = button.dataset.translationTableTab === tabId;
     button.setAttribute('aria-selected', isActive ? 'true' : 'false');
     button.tabIndex = isActive ? 0 : -1;
     button.classList.toggle('border-blue-500', isActive);
@@ -1849,8 +1849,8 @@ function setSSRDashboardTableTab(root: HTMLElement, tabId: string): void {
     button.classList.toggle('border-transparent', !isActive);
     button.classList.toggle('text-gray-600', !isActive);
   });
-  root.querySelectorAll<HTMLElement>('[data-dashboard-ssr-table-panel]').forEach((panel) => {
-    const isActive = panel.dataset.dashboardSsrTablePanel === tabId;
+  root.querySelectorAll<HTMLElement>('[data-translation-table-panel]').forEach((panel) => {
+    const isActive = panel.dataset.translationTablePanel === tabId;
     panel.hidden = !isActive;
     panel.classList.toggle('hidden', !isActive);
   });
@@ -1862,25 +1862,25 @@ function enhanceSSRDashboard(root: HTMLElement): void {
     return;
   }
 
-  root.querySelectorAll<HTMLButtonElement>('[data-dashboard-ssr-table-tab]').forEach((button) => {
+  root.querySelectorAll<HTMLButtonElement>('[data-translation-table-tab]').forEach((button) => {
     button.addEventListener('click', () => {
-      const tabId = button.dataset.dashboardSsrTableTab;
+      const tabId = button.dataset.translationTableTab;
       if (tabId) {
         setSSRDashboardTableTab(root, tabId);
       }
     });
   });
 
-  root.querySelectorAll<HTMLButtonElement>('[data-dashboard-ssr-disclosure]').forEach((button) => {
+  root.querySelectorAll<HTMLButtonElement>('[data-translation-disclosure]').forEach((button) => {
     button.addEventListener('click', () => {
-      const targetId = button.dataset.dashboardSsrDisclosure;
-      const target = targetId ? root.querySelector<HTMLElement>(`[data-dashboard-ssr-disclosure-panel="${targetId}"]`) : null;
+      const targetId = button.dataset.translationDisclosure;
+      const target = targetId ? root.querySelector<HTMLElement>(`[data-translation-disclosure-panel="${targetId}"]`) : null;
       if (!target) return;
       const expanded = button.getAttribute('aria-expanded') === 'true';
       button.setAttribute('aria-expanded', expanded ? 'false' : 'true');
       target.hidden = expanded;
       target.classList.toggle('hidden', expanded);
-      button.querySelector<HTMLElement>('[data-dashboard-ssr-disclosure-icon]')?.classList.toggle('rotate-180', !expanded);
+      button.querySelector<HTMLElement>('[data-translation-disclosure-icon]')?.classList.toggle('rotate-180', !expanded);
     });
   });
 }
