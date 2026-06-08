@@ -297,7 +297,7 @@ export interface TranslationFamilyDetailLoadState {
 export interface TranslationFamilyDetailRenderOptions {
   basePath?: string;
   contentBasePath?: string;
-  enhancedAction?: Pick<EnhancedActionRuntimeOptions, 'requestHeader' | 'requestHeaderValue' | 'accept'>;
+  enhancedAction?: Pick<EnhancedActionRuntimeOptions, 'requestHeader' | 'requestHeaderValue' | 'request_header' | 'request_header_value' | 'accept'>;
 }
 
 export interface TranslationFamilySyncRecoveryCapability {
@@ -3792,7 +3792,7 @@ async function bindTranslationFamilyDetailSSRPage(
   options: TranslationFamilyDetailRenderOptions & {
     endpoint?: string;
     fetch?: typeof fetch;
-    enhancedAction?: Pick<EnhancedActionRuntimeOptions, 'requestHeader' | 'requestHeaderValue' | 'accept'>;
+    enhancedAction?: Pick<EnhancedActionRuntimeOptions, 'requestHeader' | 'requestHeaderValue' | 'request_header' | 'request_header_value' | 'accept'>;
   }
 ): Promise<TranslationFamilyDetailLoadState> {
   const apiBasePath = deriveFamilyAPIBasePath(endpoint, renderOptions.basePath || '/admin');
@@ -3958,7 +3958,7 @@ export async function initTranslationFamilyDetailPage(
   options: TranslationFamilyDetailRenderOptions & {
     endpoint?: string;
     fetch?: typeof fetch;
-    enhancedAction?: Pick<EnhancedActionRuntimeOptions, 'requestHeader' | 'requestHeaderValue' | 'accept'>;
+    enhancedAction?: Pick<EnhancedActionRuntimeOptions, 'requestHeader' | 'requestHeaderValue' | 'request_header' | 'request_header_value' | 'accept'>;
   } = {}
 ): Promise<TranslationFamilyDetailLoadState | null> {
   if (!root) return null;

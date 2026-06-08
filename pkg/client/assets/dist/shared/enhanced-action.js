@@ -23,7 +23,7 @@ async function S(e, t, n = {}) {
   P(e);
   const m = new c();
   m.set($(n), j(n)), m.set("Accept", O(n)), v(l, { method: r }, m);
-  const T = B(e, !0);
+  const T = I(e, !0);
   try {
     const d = await a(l, {
       method: r,
@@ -43,7 +43,7 @@ async function S(e, t, n = {}) {
     };
     return g(e, s), p(s, n.toast), s;
   } finally {
-    _(e, T);
+    B(e, T);
   }
 }
 async function H(e, t = {}) {
@@ -67,7 +67,7 @@ function E(e, t) {
 async function D(e, t = {}) {
   const n = e.headers?.get("Content-Type") ?? "", a = L(n, t), o = R(n);
   if (!a && !o) {
-    const r = q(e);
+    const r = F(e);
     return e.ok && r ? {
       enhanced: !1,
       navigationURL: r,
@@ -85,7 +85,7 @@ async function D(e, t = {}) {
   }
   try {
     const r = await e.json();
-    if (r && typeof r == "object" && !Array.isArray(r) && (a || F(r)))
+    if (r && typeof r == "object" && !Array.isArray(r) && (a || q(r)))
       return {
         enhanced: !0,
         envelope: r
@@ -110,7 +110,7 @@ function R(e) {
 function h(e) {
   return String(e ?? "").split(";", 1)[0].trim().toLowerCase();
 }
-function F(e) {
+function q(e) {
   return e.version !== 1 ? !1 : [
     "ok",
     "toast",
@@ -121,7 +121,7 @@ function F(e) {
     "error"
   ].some((t) => Object.prototype.hasOwnProperty.call(e, t));
 }
-function q(e) {
+function F(e) {
   const t = String(e.url ?? "").trim();
   return !t || !e.redirected ? "" : t;
 }
@@ -149,10 +149,10 @@ function A(e) {
   return e?.defaultView?.Headers ?? globalThis.Headers;
 }
 function $(e) {
-  return String(e.requestHeader || "X-Enhanced-Action").trim() || "X-Enhanced-Action";
+  return String(e.requestHeader || e.request_header || "X-Enhanced-Action").trim() || "X-Enhanced-Action";
 }
 function j(e) {
-  return String(e.requestHeaderValue || "1").trim() || "1";
+  return String(e.requestHeaderValue || e.request_header_value || "1").trim() || "1";
 }
 function O(e) {
   return String(e.accept || "application/vnd.admin.enhanced+json").trim() || "application/vnd.admin.enhanced+json";
@@ -176,16 +176,16 @@ function U(e, t, n) {
   }
 }
 function V(e, t) {
-  if (!I(t)) return;
+  if (!_(t)) return;
   const n = t.getAttribute("name")?.trim();
   !n || e.has(n) || e.append(n, t.getAttribute("value") ?? "");
 }
-function I(e) {
+function _(e) {
   if (!e) return !1;
   const t = e.ownerDocument?.defaultView;
   return t?.HTMLButtonElement && e instanceof t.HTMLButtonElement || t?.HTMLInputElement && e instanceof t.HTMLInputElement || typeof HTMLButtonElement < "u" && e instanceof HTMLButtonElement ? !0 : typeof HTMLInputElement < "u" && e instanceof HTMLInputElement;
 }
-function B(e, t) {
+function I(e, t) {
   const n = {
     controls: [],
     busy: e.getAttribute("aria-busy")
@@ -198,7 +198,7 @@ function B(e, t) {
     }), a.disabled = t || a.disabled;
   return n;
 }
-function _(e, t) {
+function B(e, t) {
   t.busy === null ? e.removeAttribute("aria-busy") : e.setAttribute("aria-busy", t.busy);
   for (const n of t.controls) n.control.disabled = n.disabled;
 }

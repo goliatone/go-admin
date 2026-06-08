@@ -41,6 +41,8 @@ export interface EnhancedActionRuntimeOptions {
   navigate?: (url: string) => void;
   requestHeader?: string;
   requestHeaderValue?: string;
+  request_header?: string;
+  request_header_value?: string;
   accept?: string;
   onFragmentsApplied?: (fragments: EnhancedActionFragment[]) => void | Promise<void>;
 }
@@ -339,11 +341,11 @@ function headersConstructor(doc?: Document): typeof Headers {
 }
 
 function enhancedRequestHeader(options: EnhancedActionRuntimeOptions): string {
-  return String(options.requestHeader || ENHANCED_ACTION_HEADER).trim() || ENHANCED_ACTION_HEADER;
+  return String(options.requestHeader || options.request_header || ENHANCED_ACTION_HEADER).trim() || ENHANCED_ACTION_HEADER;
 }
 
 function enhancedRequestHeaderValue(options: EnhancedActionRuntimeOptions): string {
-  return String(options.requestHeaderValue || ENHANCED_ACTION_HEADER_VALUE).trim() || ENHANCED_ACTION_HEADER_VALUE;
+  return String(options.requestHeaderValue || options.request_header_value || ENHANCED_ACTION_HEADER_VALUE).trim() || ENHANCED_ACTION_HEADER_VALUE;
 }
 
 function enhancedActionAccept(options: EnhancedActionRuntimeOptions): string {

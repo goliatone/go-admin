@@ -352,6 +352,40 @@ test('enhanced-action runtime accepts custom negotiation markers', async () => {
   assert.equal(headers.get('Accept'), 'application/vnd.example.action+json');
 });
 
+test('enhanced-action runtime accepts snake-case negotiation options from SSR JSON', async () => {
+  const dom = setupDom(`
+    <form data-enhance-action action="/admin/api/custom" method="post">
+      <input name="target_locale" value="de">
+      <button type="submit">Assign</button>
+    </form>
+  `);
+  const requests = [];
+  const fetchImpl = async (url, init) => {
+    requests.push({ url, init });
+    return new Response(JSON.stringify({ ok: true }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/vnd.example.action+json' },
+    });
+  };
+
+  initEnhancedActions(dom.window.document, {
+    fetch: fetchImpl,
+    request_header: 'X-App-Action',
+    request_header_value: 'opaque-marker',
+    accept: 'application/vnd.example.action+json',
+  });
+
+  dom.window.document.querySelector('form')
+    .dispatchEvent(new dom.window.Event('submit', { bubbles: true, cancelable: true }));
+  await nextTick();
+
+  assert.equal(requests.length, 1);
+  const headers = new Headers(requests[0].init.headers);
+  assert.equal(headers.get('X-App-Action'), 'opaque-marker');
+  assert.equal(headers.get(ENHANCED_ACTION_HEADER), null);
+  assert.equal(headers.get('Accept'), 'application/vnd.example.action+json');
+});
+
 test('enhanced-action runtime rejects default enhanced media when custom accept is configured', async () => {
   const dom = setupDom(`
     <form data-enhance-action action="/admin/api/custom" method="post" data-enhance-error-target="#action-error">
