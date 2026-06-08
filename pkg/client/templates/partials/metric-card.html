@@ -2,25 +2,20 @@
 {# Usage: {% include "partials/metric-card.html" with card={"key": "total", "label": "Total", "count": 42, "tone": "neutral", "href": "/path?filter=value"} %} #}
 
 {% set tone = card.tone|default:"neutral" %}
-{% set tone_border = "border-l-gray-300" %}
 {% set tone_count = "text-gray-900" %}
 {% if tone == "error" or tone == "danger" %}
-  {% set tone_border = "border-l-rose-500" %}
   {% set tone_count = "text-rose-700" %}
 {% elif tone == "warning" %}
-  {% set tone_border = "border-l-amber-500" %}
   {% set tone_count = "text-amber-700" %}
 {% elif tone == "success" %}
-  {% set tone_border = "border-l-emerald-500" %}
   {% set tone_count = "text-emerald-700" %}
 {% elif tone == "info" %}
-  {% set tone_border = "border-l-sky-500" %}
   {% set tone_count = "text-sky-700" %}
 {% endif %}
 
 {% if card.href %}
 <a href="{{ card.href }}"
-   class="block bg-white border border-gray-200 border-l-4 {{ tone_border }} rounded-xl p-4 hover:shadow-md hover:border-gray-300 transition-all group"
+   class="block bg-white border border-gray-200 rounded-xl p-4 hover:shadow-md hover:border-gray-300 transition-all group"
    data-metric-card="{{ card.key }}">
   <div class="text-4xl font-bold {{ tone_count }}">{{ card.count|default:"0" }}</div>
   <div class="text-sm font-medium text-gray-600 mt-1">{{ card.label }}</div>
@@ -32,7 +27,7 @@
   </div>
 </a>
 {% else %}
-<div class="bg-white border border-gray-200 border-l-4 {{ tone_border }} rounded-xl p-4"
+<div class="bg-white border border-gray-200 rounded-xl p-4"
      data-metric-card="{{ card.key }}">
   <div class="text-4xl font-bold {{ tone_count }}">{{ card.count|default:"0" }}</div>
   <div class="text-sm font-medium text-gray-600 mt-1">{{ card.label }}</div>

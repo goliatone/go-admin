@@ -1,13 +1,13 @@
-{% extends "layout.html" %}
+{% comment %}
+  Variables:
+    - breadcrumbs: array of {label, href, current} objects
+    - page_title: main heading text (required)
+    - page_subtitle: optional description text
+    - header_actions_id: optional ID for JS-mounted actions div
 
-{% block title %}{% block detail_title %}{{ title }}{% endblock %}{% endblock %}
-
-{% block head_extra %}
-{% block detail_head_extra %}{% endblock %}
-{% endblock %}
-
-{% block content %}
-{# Compact Header (Option 3: Integrated Breadcrumb) #}
+  Usage: include this partial with breadcrumbs, page_title, and optional
+  page_subtitle values.
+{% endcomment %}
 <header class="admin-page-header px-8 py-3 bg-white border-b border-gray-200">
   <div class="flex items-center justify-between gap-4">
     {# Left: Breadcrumb | Title #}
@@ -27,26 +27,18 @@
       </nav>
       <div class="h-4 w-px bg-gray-200 flex-shrink-0" aria-hidden="true"></div>
       {% endif %}
-      <h1 class="text-2xl font-bold text-gray-900 truncate">{% block header_title %}{{ page_heading_title }}{% endblock %}</h1>
+      <div class="min-w-0 flex-1">
+        <h1 class="text-2xl font-bold text-gray-900 truncate">{{ page_title }}</h1>
+      </div>
     </div>
 
     {# Right: Actions #}
-    <div class="flex items-center gap-3 flex-shrink-0">
-      {% block header_actions %}{% endblock %}
+    <div class="flex items-center gap-3 flex-shrink-0"{% if header_actions_id %} id="{{ header_actions_id }}"{% endif %}>
+      {{ header_actions_slot }}
     </div>
   </div>
-  {% if page_heading_summary %}
-  <p class="mt-2 text-sm text-gray-500">{{ page_heading_summary }}</p>
+
+  {% if page_subtitle %}
+  <p class="mt-2 text-sm text-gray-500">{{ page_subtitle }}</p>
   {% endif %}
 </header>
-
-{% block tabs_area %}{% endblock %}
-
-<div class="flex-1 p-8 overflow-y-auto">
-  {% block detail_shell %}{% endblock %}
-</div>
-{% endblock %}
-
-{% block scripts %}
-{% block detail_scripts %}{% endblock %}
-{% endblock %}

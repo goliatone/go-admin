@@ -3,10 +3,13 @@
 {% block title %}Dashboard - {{ title }}{% endblock %}
 
 {% block content %}
-<header class="px-8 py-6 bg-white border-b border-gray-200 flex justify-between items-center">
-  <h1 class="text-3xl font-bold text-admin-dark">Dashboard</h1>
-  <div class="flex gap-3">
-    <button id="dashboard-export" class="btn btn-secondary">↑ Export</button>
+{# Compact Header (Option 3: Integrated Breadcrumb) #}
+<header class="admin-page-header px-8 py-3 bg-white border-b border-gray-200">
+  <div class="flex items-center justify-between gap-4">
+    <h1 class="text-2xl font-bold text-gray-900">Dashboard</h1>
+    <div class="flex items-center gap-3 flex-shrink-0">
+      <button id="dashboard-export" class="btn btn-secondary">↑ Export</button>
+    </div>
   </div>
 </header>
 

@@ -3,15 +3,31 @@
 {% block title %}Translation Exchange - {{ title }}{% endblock %}
 
 {% block content %}
-<header class="px-8 py-6 bg-white border-b border-gray-200">
-  <div class="flex flex-wrap items-center justify-between gap-4">
-    <div>
-      {% include "partials/breadcrumbs.html" with breadcrumbs=breadcrumbs %}
-      <p class="text-xs font-semibold uppercase tracking-wider text-gray-500">Translations</p>
-      <h1 class="mt-2 text-3xl font-bold text-admin-dark">Translation Exchange</h1>
-      <p class="text-sm text-gray-500 mt-1">Export packages, validate imports, and apply translation files with conflict resolution.</p>
+{# Compact Header (Option 3: Integrated Breadcrumb) #}
+<header class="admin-page-header px-8 py-3 bg-white border-b border-gray-200">
+  <div class="flex items-center justify-between gap-4">
+    {# Left: Breadcrumb | Title #}
+    <div class="flex items-center gap-4 min-w-0 flex-1">
+      {% if breadcrumbs %}
+      <nav class="text-xs text-gray-400 flex-shrink-0" aria-label="Breadcrumb">
+        <ol class="flex items-center gap-1.5">
+          {% for crumb in breadcrumbs %}
+            {% if not forloop.Last %}
+            <li>
+              <a href="{{ crumb.href }}" class="hover:text-gray-600 transition-colors">{{ crumb.label }}</a>
+            </li>
+            <li class="text-gray-300" aria-hidden="true">/</li>
+            {% endif %}
+          {% endfor %}
+        </ol>
+      </nav>
+      <div class="h-4 w-px bg-gray-200 flex-shrink-0" aria-hidden="true"></div>
+      {% endif %}
+      <h1 class="text-2xl font-bold text-gray-900 truncate">Translation Exchange</h1>
     </div>
-    <div class="flex items-center gap-3">
+
+    {# Right: Actions #}
+    <div class="flex items-center gap-3 flex-shrink-0">
       <a href="{% if translation_exchange_ui_config.template.href %}{{ translation_exchange_ui_config.template.href }}{% else %}{{ translation_exchange_api_path|default:"" }}/template?format={{ translation_exchange_ui_config.template.format|default:"json" }}{% endif %}"
          class="btn btn-secondary"
          download="{{ translation_exchange_ui_config.template.filename|default:"translation_exchange_template.json" }}">
@@ -19,6 +35,7 @@
       </a>
     </div>
   </div>
+  <p class="mt-2 text-sm text-gray-500">Export packages, validate imports, and apply translation files with conflict resolution.</p>
 </header>
 
 <div class="flex-1 overflow-y-auto bg-gray-50 p-8">

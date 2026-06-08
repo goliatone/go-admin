@@ -3,20 +3,35 @@
 {% block title %}{{ translation_family_id|default:"Translation Family" }} - {{ title }}{% endblock %}
 
 {% block content %}
-<header class="px-8 py-6 border-b border-gray-200 bg-white">
-  <div class="flex flex-wrap items-center justify-between gap-4">
-    <div>
-      {% include "partials/breadcrumbs.html" with breadcrumbs=breadcrumbs %}
-      <p class="text-xs font-semibold uppercase tracking-wider text-gray-500">Translations</p>
-      <h1 class="mt-2 text-3xl font-bold text-admin-dark">Family detail</h1>
-      <p class="text-sm text-gray-500 mt-1">
-        View locale coverage, assignments, and family activity.
-      </p>
+{# Compact Header (Option 3: Integrated Breadcrumb) #}
+<header class="admin-page-header px-8 py-3 bg-white border-b border-gray-200">
+  <div class="flex items-center justify-between gap-4">
+    {# Left: Breadcrumb | Title #}
+    <div class="flex items-center gap-4 min-w-0 flex-1">
+      {% if breadcrumbs %}
+      <nav class="text-xs text-gray-400 flex-shrink-0" aria-label="Breadcrumb">
+        <ol class="flex items-center gap-1.5">
+          {% for crumb in breadcrumbs %}
+            {% if not forloop.Last %}
+            <li>
+              <a href="{{ crumb.href }}" class="hover:text-gray-600 transition-colors">{{ crumb.label }}</a>
+            </li>
+            <li class="text-gray-300" aria-hidden="true">/</li>
+            {% endif %}
+          {% endfor %}
+        </ol>
+      </nav>
+      <div class="h-4 w-px bg-gray-200 flex-shrink-0" aria-hidden="true"></div>
+      {% endif %}
+      <h1 class="text-2xl font-bold text-gray-900 truncate">Family detail</h1>
     </div>
-    <div id="family-detail-header-actions" class="flex items-center gap-3">
+
+    {# Right: Actions #}
+    <div id="family-detail-header-actions" class="flex items-center gap-3 flex-shrink-0">
       <!-- Header actions mount here via JS -->
     </div>
   </div>
+  <p class="mt-2 text-sm text-gray-500">View locale coverage, assignments, and family activity.</p>
 </header>
 
 <div class="flex-1 overflow-y-auto bg-gray-50 p-8">
