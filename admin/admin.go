@@ -136,6 +136,16 @@ func (a *Admin) WithModuleStartupPolicy(policy ModuleStartupPolicy) *Admin {
 	return a
 }
 
+// WithEnhancedActionNegotiation configures how enhanced SSR mutation requests
+// are detected and which media type enhanced responses emit.
+func (a *Admin) WithEnhancedActionNegotiation(cfg EnhancedActionNegotiationConfig) *Admin {
+	if a == nil {
+		return a
+	}
+	a.config.EnhancedActions = normalizeEnhancedActionNegotiationConfig(cfg)
+	return a
+}
+
 // RoutingReport exposes the current routing diagnostics snapshot.
 func (a *Admin) RoutingReport() routing.StartupReport {
 	if a == nil {
