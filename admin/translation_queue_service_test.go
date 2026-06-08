@@ -5,6 +5,7 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"time"
 
 	goerrors "github.com/goliatone/go-errors"
 )
@@ -137,6 +138,10 @@ func TestDefaultTranslationQueueServiceAssignRelease(t *testing.T) {
 	if assigned.Status != AssignmentStatusAssigned || assigned.AssignmentType != AssignmentTypeDirect {
 		t.Fatalf("expected assigned/direct, got status=%q type=%q", assigned.Status, assigned.AssignmentType)
 	}
+	if assigned.AssignedAt == nil {
+		t.Fatalf("expected assigned_at after assign")
+	}
+	assignedAt := *assigned.AssignedAt
 
 	released, err := svc.Release(ctx, TranslationQueueReleaseInput{AssignmentID: assigned.ID, ActorID: "manager_1", ExpectedVersion: assigned.Version})
 	if err != nil {
@@ -147,6 +152,49 @@ func TestDefaultTranslationQueueServiceAssignRelease(t *testing.T) {
 	}
 	if released.AssigneeID != "" {
 		t.Fatalf("expected assignee cleared on release, got %q", released.AssigneeID)
+	}
+	if released.AssignedAt == nil || !released.AssignedAt.Equal(assignedAt) {
+		t.Fatalf("expected release to preserve assigned_at %v, got %v", assignedAt, released.AssignedAt)
+	}
+}
+
+func TestDefaultTranslationQueueServiceReassignOverwritesAssignedAt(t *testing.T) {
+	repo := NewInMemoryTranslationAssignmentRepository()
+	svc := &DefaultTranslationQueueService{Repository: repo}
+	ctx := context.Background()
+	past := time.Date(2026, 1, 1, 8, 0, 0, 0, time.UTC)
+
+	created, err := repo.Create(ctx, TranslationAssignment{
+		FamilyID:       "tg-reassign-assigned-at",
+		EntityType:     "posts",
+		SourceRecordID: "post-reassign",
+		SourceLocale:   "en",
+		TargetLocale:   "es",
+		AssignmentType: AssignmentTypeDirect,
+		Status:         AssignmentStatusAssigned,
+		AssigneeID:     "translator-old",
+		AssignerID:     "manager-old",
+		AssignedAt:     &past,
+		Priority:       PriorityNormal,
+	})
+	if err != nil {
+		t.Fatalf("create assignment: %v", err)
+	}
+
+	reassigned, err := svc.Assign(ctx, TranslationQueueAssignInput{
+		AssignmentID:    created.ID,
+		AssigneeID:      "translator-new",
+		AssignerID:      "manager-new",
+		ExpectedVersion: created.Version,
+	})
+	if err != nil {
+		t.Fatalf("reassign: %v", err)
+	}
+	if reassigned.AssigneeID != "translator-new" || reassigned.AssignerID != "manager-new" {
+		t.Fatalf("expected reassignment actors, got %+v", reassigned)
+	}
+	if reassigned.AssignedAt == nil || !reassigned.AssignedAt.After(past) {
+		t.Fatalf("expected reassignment to overwrite assigned_at after %v, got %v", past, reassigned.AssignedAt)
 	}
 }
 

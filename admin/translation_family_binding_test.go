@@ -6,14 +6,17 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	neturl "net/url"
 	"slices"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
+	auth "github.com/goliatone/go-auth"
 	goerrors "github.com/goliatone/go-errors"
 	router "github.com/goliatone/go-router"
 
@@ -588,6 +591,9 @@ func TestTranslationFamilyBindingCreateVariantRecomputesReadinessAndRecordsAudit
 	}
 	if got := toString(assignment["assignee_id"]); got != "translator-9" {
 		t.Fatalf("expected assignee translator-9, got %q", got)
+	}
+	if got := toString(assignment["assigned_at"]); got == "" {
+		t.Fatalf("expected auto-created assignment assigned_at, got %+v", assignment)
 	}
 
 	meta := extractMap(payload["meta"])
@@ -1273,9 +1279,315 @@ func TestTranslationFamilyBindingCreateAssignmentToActorReturnsAssigned(t *testi
 	if got := toString(assignment["target_record_id"]); got == "" {
 		t.Fatalf("expected target_record_id from locale variant, got empty")
 	}
+	if got := toString(assignment["assigned_at"]); got == "" {
+		t.Fatalf("expected family assignment assigned_at, got %+v", assignment)
+	}
 	if got := toString(assignment["content_state"]); got == string(AssignmentStatusInProgress) {
 		t.Fatalf("expected create assignment not to start work, got content_state=%q", got)
 	}
+}
+
+func TestTranslationFamilyBindingCreateAssignmentJSONSkipsFragmentRefresh(t *testing.T) {
+	fixture := newTranslationFamilyMutationFixture(t, translationFamilyMutationFixtureOptions{
+		RequiredLocales: []string{"fr"},
+	})
+	seedTranslationFamilyLocaleVariant(t, fixture, "fr")
+
+	binding := newTranslationFamilyBinding(fixture.admin)
+	binding.now = func() time.Time { return time.Date(2026, 2, 17, 12, 0, 0, 0, time.UTC) }
+	runtime, err := binding.runtime(context.Background(), "production")
+	if err != nil {
+		t.Fatalf("load runtime: %v", err)
+	}
+	loads := 0
+	binding.loadRuntime = func(context.Context, string) (*translationFamilyRuntime, error) {
+		loads++
+		if loads > 1 {
+			return nil, errors.New("detail refresh should not run for JSON requests")
+		}
+		return runtime, nil
+	}
+	app := newTranslationFamilyTestApp(t, binding)
+
+	status, payload := doTranslationFamilyJSONRequest(t, app, http.MethodPost, "/admin/api/translations/families/tg-page-1/assignments?channel=production&tenant_id=tenant-1&org_id=org-1", map[string]any{
+		"target_locale": "fr",
+		"assignee_id":   "translator-1",
+		"work_scope":    "localization",
+	}, map[string]string{"X-User-ID": "assigner-1"})
+	if status != http.StatusOK {
+		t.Fatalf("status=%d want=200 payload=%+v", status, payload)
+	}
+	if loads != 1 {
+		t.Fatalf("expected one runtime load for JSON mutation, got %d", loads)
+	}
+	if got := toString(extractMap(extractMap(payload["data"])["assignment"])["assignee_id"]); got != "translator-1" {
+		t.Fatalf("expected JSON assignment payload, got assignee %q payload=%+v", got, payload)
+	}
+}
+
+func TestTranslationFamilyAssignCommandExecutesWithoutRouterContext(t *testing.T) {
+	fixture := newTranslationFamilyMutationFixture(t, translationFamilyMutationFixtureOptions{
+		RequiredLocales: []string{"fr"},
+	})
+	if _, err := fixture.content.CreatePage(context.Background(), CMSPage{
+		ID:       "page-1-fr",
+		Title:    "Page 1 FR",
+		Slug:     "page-1-fr",
+		Locale:   "fr",
+		FamilyID: "tg-page-1",
+		Status:   "draft",
+		Data: map[string]any{
+			"path": "/fr/page-1",
+			"body": "Bonjour",
+		},
+		Metadata: map[string]any{
+			"tenant_id": "tenant-1",
+			"org_id":    "org-1",
+		},
+	}); err != nil {
+		t.Fatalf("seed fr page: %v", err)
+	}
+	syncTranslationFamilyFixtureStore(t, fixture.admin, "production")
+
+	binding := newTranslationFamilyBinding(fixture.admin)
+	var result TranslationFamilyAssignResult
+	cmd := &TranslationFamilyAssignCommand{Binding: binding}
+	err := cmd.Execute(context.Background(), TranslationFamilyAssignInput{
+		FamilyID:     "tg-page-1",
+		Scope:        translationservices.Scope{TenantID: "tenant-1", OrgID: "org-1"},
+		ActorID:      "assigner-1",
+		TargetLocale: "fr",
+		AssigneeID:   "translator-command",
+		Priority:     PriorityHigh,
+		PrioritySet:  true,
+		WorkScope:    "localization",
+		Channel:      "production",
+		Result:       &result,
+	})
+	if err != nil {
+		t.Fatalf("execute command: %v", err)
+	}
+	if result.Family.ID != "tg-page-1" {
+		t.Fatalf("expected command to load family tg-page-1, got %q", result.Family.ID)
+	}
+	if result.Assignment.ID == "" {
+		t.Fatalf("expected command assignment id")
+	}
+	if result.Assignment.AssigneeID != "translator-command" {
+		t.Fatalf("expected command assignee translator-command, got %q", result.Assignment.AssigneeID)
+	}
+	if result.Assignment.Priority != PriorityHigh {
+		t.Fatalf("expected command priority high, got %q", result.Assignment.Priority)
+	}
+	if result.Assignment.TargetRecordID == "" {
+		t.Fatalf("expected command assignment target record")
+	}
+	persisted, err := fixture.repo.Get(context.Background(), result.Assignment.ID)
+	if err != nil {
+		t.Fatalf("load persisted assignment: %v", err)
+	}
+	if persisted.AssigneeID != "translator-command" || persisted.Status != AssignmentStatusAssigned {
+		t.Fatalf("unexpected persisted assignment: %+v", persisted)
+	}
+}
+
+func TestTranslationFamilyBindingCreateAssignmentEnhancedReturnsFragments(t *testing.T) {
+	fixture := newTranslationFamilyMutationFixture(t, translationFamilyMutationFixtureOptions{
+		RequiredLocales: []string{"fr"},
+	})
+	seedTranslationFamilyLocaleVariant(t, fixture, "fr")
+
+	status, payload := doTranslationFamilyJSONRequest(t, fixture.app, http.MethodPost, "/admin/api/translations/families/tg-page-1/assignments?channel=production&tenant_id=tenant-1&org_id=org-1", map[string]any{
+		"target_locale": "fr",
+		"assignee_id":   "translator-1",
+		"work_scope":    "localization",
+	}, map[string]string{
+		"X-User-ID":          "assigner-1",
+		"X-Enhanced-Action":  "1",
+		"Accept":             "application/vnd.admin.enhanced+json",
+	})
+	if status != http.StatusOK {
+		t.Fatalf("status=%d want=200 payload=%+v", status, payload)
+	}
+	if !testBool(t, payload["ok"], "ok") {
+		t.Fatalf("expected enhanced ok payload, got %+v", payload)
+	}
+	fragments := testAnySlice(t, payload["fragments"], "fragments")
+	if len(fragments) != 4 {
+		t.Fatalf("expected four family fragments, got %d payload=%+v", len(fragments), payload)
+	}
+	seen := map[string]string{}
+	for _, raw := range fragments {
+		fragment := extractMap(raw)
+		seen[toString(fragment["selector"])] = toString(fragment["html"])
+		if got := toString(fragment["mode"]); got != EnhancedFragmentModeReplace {
+			t.Fatalf("expected replace fragment, got %q", got)
+		}
+	}
+	if !strings.Contains(seen["[data-family-assignments]"], "Open editor") {
+		t.Fatalf("expected assignments fragment to expose Open editor, got %q", seen["[data-family-assignments]"])
+	}
+	if !strings.Contains(seen["[data-family-locale-coverage]"], `data-enhance-action="true"`) {
+		t.Fatalf("expected locale coverage fragment to contain enhanced forms, got %q", seen["[data-family-locale-coverage]"])
+	}
+	toasts := testAnySlice(t, payload["toasts"], "toasts")
+	if got := toString(extractMap(toasts[0])["message"]); got != "Assignment updated." {
+		t.Fatalf("expected success toast, got %q", got)
+	}
+	if got := toString(payload["redirect"]); !strings.Contains(got, "/admin/translations/families/tg-page-1") {
+		t.Fatalf("expected family detail redirect, got %q", got)
+	}
+}
+
+func TestTranslationFamilyBindingCreateAssignmentEnhancedUsesSubmittedChannelForFragments(t *testing.T) {
+	fixture := newTranslationFamilyMutationFixture(t, translationFamilyMutationFixtureOptions{
+		RequiredLocales: []string{"fr"},
+	})
+	seedTranslationFamilyLocaleVariant(t, fixture, "fr")
+	syncTranslationFamilyFixtureStore(t, fixture.admin, "staging")
+
+	form := neturl.Values{}
+	form.Set("target_locale", "fr")
+	form.Set("assignee_id", "translator-staging")
+	form.Set("work_scope", "localization")
+	form.Set("channel", "staging")
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/api/translations/families/tg-page-1/assignments?tenant_id=tenant-1&org_id=org-1", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("Accept", "application/vnd.admin.enhanced+json")
+	req.Header.Set("X-Enhanced-Action", "1")
+	req.Header.Set("X-User-ID", "assigner-1")
+	resp, err := fixture.app.Test(req)
+	if err != nil {
+		t.Fatalf("request error: %v", err)
+	}
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			t.Fatalf("close response body: %v", closeErr)
+		}
+	}()
+	payload := map[string]any{}
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode payload: %v", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status=%d want=200 payload=%+v", resp.StatusCode, payload)
+	}
+	fragments := testAnySlice(t, payload["fragments"], "fragments")
+	seen := map[string]string{}
+	for _, raw := range fragments {
+		fragment := extractMap(raw)
+		seen[toString(fragment["selector"])] = toString(fragment["html"])
+	}
+	if got := seen["[data-family-locale-coverage]"]; !strings.Contains(got, `name="channel" value="staging"`) {
+		t.Fatalf("expected enhanced fragment forms to preserve submitted staging channel, got %q", got)
+	}
+	if got := toString(payload["redirect"]); !strings.Contains(got, "channel=staging") {
+		t.Fatalf("expected redirect fallback to preserve staging channel, got %q", got)
+	}
+}
+
+func TestTranslationFamilyBindingCreateAssignmentFormRedirectsWithFlash(t *testing.T) {
+	fixture := newTranslationFamilyMutationFixture(t, translationFamilyMutationFixtureOptions{
+		RequiredLocales: []string{"fr"},
+	})
+	seedTranslationFamilyLocaleVariant(t, fixture, "fr")
+
+	form := neturl.Values{}
+	form.Set("target_locale", "fr")
+	form.Set("assignee_id", "translator-1")
+	form.Set("work_scope", "localization")
+	form.Set("channel", "production")
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/api/translations/families/tg-page-1/assignments?tenant_id=tenant-1&org_id=org-1", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("Accept", "text/html")
+	req.Header.Set("X-User-ID", "assigner-1")
+	resp, err := fixture.app.Test(req)
+	if err != nil {
+		t.Fatalf("request error: %v", err)
+	}
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			t.Fatalf("close response body: %v", closeErr)
+		}
+	}()
+	bodyBytes, readErr := io.ReadAll(resp.Body)
+	if readErr != nil {
+		t.Fatalf("read response body: %v", readErr)
+	}
+	if resp.StatusCode != http.StatusSeeOther {
+		t.Fatalf("expected 303 redirect, got %d body=%s", resp.StatusCode, string(bodyBytes))
+	}
+	if got := resp.Header.Get("Location"); !strings.Contains(got, "/admin/translations/families/tg-page-1") || !strings.Contains(got, "channel=production") {
+		t.Fatalf("expected family detail redirect with channel, got %q", got)
+	}
+	if got := resp.Header.Get("X-GoAdmin-Flash-Message"); got != "Assignment updated." {
+		t.Fatalf("expected flash header, got %q type=%q body=%s location=%q", got, resp.Header.Get("X-GoAdmin-Flash-Type"), string(bodyBytes), resp.Header.Get("Location"))
+	}
+}
+
+func TestTranslationFamilyBindingCreateAssignmentFormDoesNotRequireFragmentRefresh(t *testing.T) {
+	fixture := newTranslationFamilyMutationFixture(t, translationFamilyMutationFixtureOptions{
+		RequiredLocales: []string{"fr"},
+	})
+	seedTranslationFamilyLocaleVariant(t, fixture, "fr")
+	fixture.admin.WithAuthorizer(translationPermissionAuthorizer{
+		allowed: map[string]bool{
+			PermAdminTranslationsAssign: true,
+		},
+	})
+
+	form := neturl.Values{}
+	form.Set("target_locale", "fr")
+	form.Set("assignee_id", "translator-1")
+	form.Set("work_scope", "localization")
+	form.Set("channel", "production")
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/api/translations/families/tg-page-1/assignments?tenant_id=tenant-1&org_id=org-1", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("Accept", "text/html")
+	req.Header.Set("X-User-ID", "assigner-1")
+	resp, err := fixture.app.Test(req)
+	if err != nil {
+		t.Fatalf("request error: %v", err)
+	}
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			t.Fatalf("close response body: %v", closeErr)
+		}
+	}()
+	bodyBytes, readErr := io.ReadAll(resp.Body)
+	if readErr != nil {
+		t.Fatalf("read response body: %v", readErr)
+	}
+	if resp.StatusCode != http.StatusSeeOther {
+		t.Fatalf("expected 303 redirect, got %d body=%s", resp.StatusCode, string(bodyBytes))
+	}
+	if got := resp.Header.Get("X-GoAdmin-Flash-Message"); got != "Assignment updated." {
+		t.Fatalf("expected success flash without fragment refresh, got %q type=%q body=%s", got, resp.Header.Get("X-GoAdmin-Flash-Type"), string(bodyBytes))
+	}
+}
+
+func seedTranslationFamilyLocaleVariant(t *testing.T, fixture translationFamilyMutationFixture, locale string) {
+	t.Helper()
+	locale = strings.TrimSpace(strings.ToLower(locale))
+	if _, err := fixture.content.CreatePage(context.Background(), CMSPage{
+		ID:       "page-1-" + locale,
+		Title:    "Page 1 " + strings.ToUpper(locale),
+		Slug:     "page-1-" + locale,
+		Locale:   locale,
+		FamilyID: "tg-page-1",
+		Status:   "draft",
+		Data: map[string]any{
+			"path": "/" + locale + "/page-1",
+			"body": "Translated",
+		},
+		Metadata: map[string]any{
+			"tenant_id": "tenant-1",
+			"org_id":    "org-1",
+		},
+	}); err != nil {
+		t.Fatalf("seed %s page: %v", locale, err)
+	}
+	syncTranslationFamilyFixtureStore(t, fixture.admin, "production")
 }
 
 func TestTranslationFamilyBindingCreateAssignmentRequiresAssignPermission(t *testing.T) {
@@ -1312,6 +1624,14 @@ func TestTranslationFamilyBindingCreateAssignmentRequiresAssignPermission(t *tes
 func TestTranslationFamilyBindingDetailIncludesLocaleAssignmentActions(t *testing.T) {
 	fixture := newTranslationFamilyMutationFixture(t, translationFamilyMutationFixtureOptions{
 		RequiredLocales: []string{"fr"},
+		Users: []UserRecord{{
+			ID:        "translator-1",
+			Username:  "translator.one",
+			Email:     "translator.one@example.com",
+			FirstName: "Translator",
+			LastName:  "One",
+			Status:    "active",
+		}},
 	})
 	createVariantStatus, createVariantPayload := doTranslationFamilyJSONRequest(t, fixture.app, http.MethodPost, "/admin/api/translations/families/tg-page-1/variants?channel=production&tenant_id=tenant-1&org_id=org-1", map[string]any{
 		"locale": "fr",
@@ -1344,8 +1664,8 @@ func TestTranslationFamilyBindingDetailIncludesLocaleAssignmentActions(t *testin
 	if got := toInt(active["row_version"]); got <= 0 {
 		t.Fatalf("expected row_version, got %d", got)
 	}
-	if got := toString(active["assignee_label"]); got != "translator-1" {
-		t.Fatalf("expected unresolved assignee label fallback, got %q", got)
+	if got := toString(active["display_assignee"]); got != "Translator One <translator.one@example.com>" {
+		t.Fatalf("expected family display assignee with name and email, got %q", got)
 	}
 	if got := toString(active["target_record_id"]); got == "" {
 		t.Fatalf("expected target_record_id on active assignment")
@@ -1360,8 +1680,8 @@ func TestTranslationFamilyBindingDetailIncludesLocaleAssignmentActions(t *testin
 		t.Fatalf("expected fr assigned_to_me state, got %q payload=%+v", got, fr)
 	}
 	localeAssignment := extractMap(fr["assignment"])
-	if got := toString(localeAssignment["assignee_label"]); got != "translator-1" {
-		t.Fatalf("expected locale assignment assignee label fallback, got %q", got)
+	if got := toString(localeAssignment["display_assignee"]); got != "Translator One <translator.one@example.com>" {
+		t.Fatalf("expected locale assignment display assignee with name and email, got %q", got)
 	}
 	actions := extractMap(fr["actions"])
 	assignToMe := extractMap(actions["assign_to_me"])
@@ -1383,8 +1703,11 @@ func TestTranslationFamilyBindingDetailIncludesLocaleAssignmentActions(t *testin
 		t.Fatalf("expected assign endpoint, got %q", got)
 	}
 	claim := extractMap(actions["claim"])
-	if !testBool(t, claim["enabled"], "claim.enabled") {
-		t.Fatalf("expected claim enabled for current assignee, got %+v", claim)
+	if testBool(t, claim["enabled"], "claim.enabled") {
+		t.Fatalf("expected claim disabled for current assignee, got %+v", claim)
+	}
+	if got := toString(claim["reason_code"]); got != "already_assigned" {
+		t.Fatalf("expected already_assigned claim reason, got %q", got)
 	}
 	if got := toString(claim["endpoint"]); !strings.Contains(got, "/admin/api/translations/assignments/") || !strings.Contains(got, "/actions/claim") {
 		t.Fatalf("expected claim endpoint, got %q", got)
@@ -1395,6 +1718,78 @@ func TestTranslationFamilyBindingDetailIncludesLocaleAssignmentActions(t *testin
 	}
 	if got := toString(openEditor["href"]); !strings.Contains(got, "/admin/translations/assignments/") {
 		t.Fatalf("expected editor href, got %q", got)
+	}
+}
+
+func TestTranslationFamilyBindingAssignmentDisplayUsesCurrentActorMetadataFallback(t *testing.T) {
+	adm := mustNewAdmin(t, translationFamilyScopedTestConfig(), Dependencies{
+		FeatureGate: featureGateFromKeys(FeatureCMS, FeatureTranslationQueue),
+	})
+	binding := newTranslationFamilyBinding(adm)
+	claims := &auth.JWTClaims{
+		UID:      "translator-claims",
+		UserRole: string(auth.RoleMember),
+		Metadata: map[string]any{
+			"display_name": "Claims Translator",
+			"email":        "claims.translator@example.com",
+		},
+	}
+	ctx := auth.WithClaimsContext(context.Background(), claims)
+	ctx = auth.WithActorContext(ctx, auth.ActorContextFromClaims(claims))
+
+	row := map[string]any{
+		"assignee_id": "translator-claims",
+	}
+	binding.decorateFamilyAssignmentRow(ctx, row, TranslationAssignment{
+		ID:         "asg-claims",
+		AssigneeID: "translator-claims",
+	})
+
+	if got := toString(row["display_assignee"]); got != "Claims Translator <claims.translator@example.com>" {
+		t.Fatalf("expected current actor metadata display assignee, got %q row=%+v", got, row)
+	}
+	if got := toString(row["assignee_label"]); got != "translator-claims" {
+		t.Fatalf("expected raw assignee label fallback to remain for payload compatibility, got %q", got)
+	}
+}
+
+func TestTranslationFamilyBindingAssignmentDisplayMergesCurrentActorMetadataWithUserRecord(t *testing.T) {
+	userStore := NewInMemoryUserStore()
+	if _, err := userStore.CreateUser(context.Background(), UserRecord{
+		ID:        "translator-claims",
+		Username:  "claims.translator",
+		FirstName: "Claims",
+		LastName:  "Translator",
+		Status:    "active",
+	}); err != nil {
+		t.Fatalf("seed user: %v", err)
+	}
+	adm := mustNewAdmin(t, translationFamilyScopedTestConfig(), Dependencies{
+		FeatureGate:    featureGateFromKeys(FeatureCMS, FeatureTranslationQueue),
+		UserRepository: &inMemoryUserRepoAdapter{store: userStore},
+		RoleRepository: &inMemoryRoleRepoAdapter{store: userStore},
+	})
+	binding := newTranslationFamilyBinding(adm)
+	claims := &auth.JWTClaims{
+		UID:      "translator-claims",
+		UserRole: string(auth.RoleMember),
+		Metadata: map[string]any{
+			"email": "claims.translator@example.com",
+		},
+	}
+	ctx := auth.WithClaimsContext(context.Background(), claims)
+	ctx = auth.WithActorContext(ctx, auth.ActorContextFromClaims(claims))
+
+	row := map[string]any{
+		"assignee_id": "translator-claims",
+	}
+	binding.decorateFamilyAssignmentRow(ctx, row, TranslationAssignment{
+		ID:         "asg-claims",
+		AssigneeID: "translator-claims",
+	})
+
+	if got := toString(row["display_assignee"]); got != "Claims Translator <claims.translator@example.com>" {
+		t.Fatalf("expected user display name merged with current actor email metadata, got %q row=%+v", got, row)
 	}
 }
 
@@ -1691,6 +2086,9 @@ func TestTranslationFamilyBindingCreateAssignmentReassignsExistingOpenPool(t *te
 	}
 	if got := toString(assignment["assignee_id"]); got != "translator-2" {
 		t.Fatalf("expected reassigned assignee translator-2, got %q", got)
+	}
+	if got := toString(assignment["assigned_at"]); got == "" {
+		t.Fatalf("expected reassigned family assignment assigned_at, got %+v", assignment)
 	}
 	meta := extractMap(payload["meta"])
 	if !testBool(t, meta["assignment_reused"], "meta.assignment_reused") {
@@ -2188,11 +2586,7 @@ func newTranslationFamilyTestApp(t *testing.T, binding *translationFamilyBinding
 		return writeJSON(c, payload)
 	})
 	r.Post("/admin/api/translations/families/:family_id/assignments", func(c router.Context) error {
-		payload, err := binding.CreateAssignment(c, c.Param("family_id"))
-		if err != nil {
-			return writeError(c, err)
-		}
-		return writeJSON(c, payload)
+		return binding.CreateAssignmentMutation(c, c.Param("family_id"))
 	})
 	r.Get("/admin/api/translations/matrix", func(c router.Context) error {
 		payload, err := binding.Matrix(c)
@@ -2359,6 +2753,7 @@ type translationFamilyMutationFixtureOptions struct {
 	OmitDefaultWorkScope    bool
 	Repo                    TranslationAssignmentRepository
 	FamilyStore             translationservices.FamilyStore
+	Users                   []UserRecord
 	PagePanelViewPermission string
 	DisableQueueFeature     bool
 }
@@ -2449,10 +2844,21 @@ func newTranslationFamilyMutationFixture(t *testing.T, options translationFamily
 	if !options.DisableQueueFeature {
 		features = append(features, FeatureTranslationQueue)
 	}
-	adm := mustNewAdmin(t, translationFamilyScopedTestConfig(), Dependencies{
+	deps := Dependencies{
 		FeatureGate:  featureGateFromKeys(features...),
 		ActivitySink: activityFeed,
-	})
+	}
+	if len(options.Users) > 0 {
+		userStore := NewInMemoryUserStore()
+		for _, user := range options.Users {
+			if _, err := userStore.CreateUser(context.Background(), user); err != nil {
+				t.Fatalf("seed user %q: %v", user.ID, err)
+			}
+		}
+		deps.UserRepository = &inMemoryUserRepoAdapter{store: userStore}
+		deps.RoleRepository = &inMemoryRoleRepoAdapter{store: userStore}
+	}
+	adm := mustNewAdmin(t, translationFamilyScopedTestConfig(), deps)
 	adm.WithAuthorizer(translationPermissionAuthorizer{
 		allowed: map[string]bool{
 			PermAdminTranslationsView:   true,

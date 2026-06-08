@@ -168,9 +168,15 @@ func TestTranslationSSRDecoratorsFormatTypedTimeValues(t *testing.T) {
 	family := map[string]any{
 		"locale_variants": []map[string]any{{"locale": "es", "updated_at": due}},
 		"active_assignments": []map[string]any{{
-			"assignment_id": "asg-1",
-			"status":        "pending",
-			"updated_at":    &due,
+			"assignment_id":    "asg-1",
+			"status":           "pending",
+			"target_locale":    "es",
+			"assigner_id":      "manager-1",
+			"display_assigner": "Manager One <manager.one@example.com>",
+			"assignee_id":      "translator-1",
+			"display_assignee": "Translator One <translator.one@example.com>",
+			"assigned_at":      &due,
+			"updated_at":       &due,
 		}},
 	}
 	translationSSRDecorateFamilyDetail(family)
@@ -181,6 +187,39 @@ func TestTranslationSSRDecoratorsFormatTypedTimeValues(t *testing.T) {
 	assignments := translationSSRAnyList(family["active_assignments"])
 	if got := toString(assignments[0]["display_updated"]); got != "Mar 13, 2026" {
 		t.Fatalf("expected typed assignment activity date to be formatted, got %q", got)
+	}
+	if got := toString(assignments[0]["display_assigned_at"]); got != "Mar 13, 2026" {
+		t.Fatalf("expected typed assignment assigned_at to be formatted, got %q", got)
+	}
+	if got := toString(assignments[0]["activity_sentence"]); got != "Manager One <manager.one@example.com> assigned ES to Translator One <translator.one@example.com> on Mar 13, 2026" {
+		t.Fatalf("expected assignment activity sentence, got %q", got)
+	}
+}
+
+func TestTranslationSSRFamilyDetailActivitySentenceDoesNotPreferRawAssigneeLabel(t *testing.T) {
+	assignedAt := time.Date(2026, 6, 7, 18, 30, 0, 0, time.UTC)
+	rawID := "173c7e5b-50cb-37d0-8ced-a24b570863e6"
+	family := map[string]any{
+		"active_assignments": []map[string]any{{
+			"assignment_id":    "asg-1",
+			"status":           "in_progress",
+			"target_locale":    "fr",
+			"assigner_id":      "superadmin",
+			"display_assigner": "superadmin",
+			"assignee_id":      rawID,
+			"assignee_label":   rawID,
+			"assigned_at":      &assignedAt,
+		}},
+	}
+
+	translationSSRDecorateFamilyDetail(family)
+
+	assignments := translationSSRAnyList(family["active_assignments"])
+	if got := toString(assignments[0]["display_assignee"]); got != "173c7e5b..." {
+		t.Fatalf("expected raw assignee id to be shortened, got %q", got)
+	}
+	if got := toString(assignments[0]["activity_sentence"]); got != "superadmin assigned FR to 173c7e5b... on Jun 7, 2026" {
+		t.Fatalf("expected shortened assignee in activity sentence, got %q", got)
 	}
 }
 
@@ -297,6 +336,143 @@ func TestTranslationSSRFamilyDetailLocaleCoverageRowsIncludeMissingRequiredLocal
 	action := extractMap(missing["create_locale_action"])
 	if !translationSSRTruthy(action["enabled"]) || toString(action["locale"]) != "es" {
 		t.Fatalf("expected enabled create locale action for es, got %+v", action)
+	}
+}
+
+func TestTranslationSSRFamilyDetailLocaleCoverageRowsReconcileActiveAssignments(t *testing.T) {
+	data := map[string]any{
+		"family_id":     "family-active",
+		"content_type":  "pages",
+		"source_locale": "en",
+		"source_variant": map[string]any{
+			"fields": map[string]any{"title": "Translation Demo"},
+		},
+		"locale_variants": []map[string]any{{
+			"id":               "variant-fr",
+			"locale":           "fr",
+			"status":           "draft",
+			"source_record_id": "page-fr",
+		}},
+		"active_assignments": []map[string]any{{
+			"assignment_id":    "asg-fr",
+			"id":               "asg-fr",
+			"target_locale":    "fr",
+			"work_scope":       "localization",
+			"status":           "assigned",
+			"assignee_id":      "translator-1",
+			"display_assignee": "Maya Chen <maya@example.com>",
+		}},
+		"locale_assignments": map[string]any{
+			"fr:localization": map[string]any{
+				"locale":     "fr",
+				"work_scope": "localization",
+				"state":      "unassigned",
+				"actions": map[string]any{
+					"assign_to_me":   map[string]any{"enabled": false, "reason_code": "already_assigned", "reason": "assignment already belongs to you"},
+					"assign_to_user": map[string]any{"enabled": true},
+					"claim":          map[string]any{"enabled": false},
+					"open_editor":    map[string]any{"href": "/admin/translations/assignments/asg-fr/edit?channel=default"},
+				},
+			},
+		},
+	}
+
+	translationSSRDecorateFamilyDetail(data)
+
+	rows := translationSSRAnyList(data["locale_coverage_rows"])
+	if len(rows) != 1 {
+		t.Fatalf("expected one locale coverage row, got %+v", rows)
+	}
+	row := rows[0]
+	if got := toString(row["assignment_summary"]); got != "Maya Chen <maya@example.com>" {
+		t.Fatalf("expected active assignment summary, got %q row=%+v", got, row)
+	}
+	assignment := extractMap(row["assignment"])
+	if got := toString(assignment["assignment_id"]); got != "asg-fr" {
+		t.Fatalf("expected reconciled assignment row, got %+v", assignment)
+	}
+}
+
+func TestTranslationSSRFamilyDetailLocaleCoverageRowsReconcileEmptyLocaleAssignments(t *testing.T) {
+	data := map[string]any{
+		"family_id":     "family-empty-assignments",
+		"content_type":  "pages",
+		"source_locale": "en",
+		"locale_variants": []map[string]any{{
+			"id":               "variant-fr",
+			"locale":           "fr",
+			"status":           "draft",
+			"source_record_id": "page-fr",
+		}},
+		"active_assignments": []map[string]any{{
+			"assignment_id":    "asg-fr",
+			"id":               "asg-fr",
+			"target_locale":    "fr",
+			"work_scope":       "localization",
+			"status":           "assigned",
+			"assignee_id":      "translator-1",
+			"display_assignee": "Maya Chen <maya@example.com>",
+		}},
+		"locale_assignments": map[string]any{},
+	}
+
+	translationSSRDecorateFamilyDetail(data)
+
+	rows := translationSSRAnyList(data["locale_coverage_rows"])
+	if len(rows) != 1 {
+		t.Fatalf("expected one locale coverage row, got %+v", rows)
+	}
+	row := rows[0]
+	if got := toString(row["assignment_summary"]); got != "Maya Chen <maya@example.com>" {
+		t.Fatalf("expected active assignment summary, got %q row=%+v", got, row)
+	}
+	if got := toString(row["locale_assignment_key"]); got != "fr:localization" {
+		t.Fatalf("expected synthesized locale assignment key, got %q row=%+v", got, row)
+	}
+	localeAssignments := extractMap(data["locale_assignments"])
+	if assignment := extractMap(extractMap(localeAssignments["fr:localization"])["assignment"]); toString(assignment["assignment_id"]) != "asg-fr" {
+		t.Fatalf("expected synthesized locale assignment payload, got %+v", localeAssignments)
+	}
+}
+
+func TestTranslationSSRFamilyDetailLocaleCoverageRowsDisplayCurrentAssigneeAsMe(t *testing.T) {
+	data := map[string]any{
+		"family_id":     "family-me",
+		"content_type":  "pages",
+		"source_locale": "en",
+		"locale_variants": []map[string]any{{
+			"id":               "variant-es",
+			"locale":           "es",
+			"status":           "draft",
+			"source_record_id": "page-es",
+		}},
+		"locale_assignments": map[string]any{
+			"es:localization": map[string]any{
+				"locale":     "es",
+				"work_scope": "localization",
+				"state":      "assigned_to_me",
+				"assignment": map[string]any{
+					"assignment_id":    "asg-es",
+					"target_locale":    "es",
+					"status":           "assigned",
+					"assignee_id":      "translator-1",
+					"display_assignee": "Maya Chen <maya@example.com>",
+				},
+				"actions": map[string]any{
+					"assign_to_me": map[string]any{"enabled": false, "reason_code": "already_assigned", "reason": "assignment already belongs to you"},
+				},
+			},
+		},
+	}
+
+	translationSSRDecorateFamilyDetail(data)
+
+	rows := translationSSRAnyList(data["locale_coverage_rows"])
+	if len(rows) != 1 {
+		t.Fatalf("expected one locale coverage row, got %+v", rows)
+	}
+	if got := toString(rows[0]["assignment_summary"]); got != "me" {
+		t.Fatalf("expected current assignee summary me, got %q row=%+v", got, rows[0])
 	}
 }
 

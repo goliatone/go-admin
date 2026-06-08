@@ -5,9 +5,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"html"
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -309,6 +311,17 @@ func TestDevServeEquivalentTranslationRuntimeContracts(t *testing.T) {
 	require.NotContains(t, familiesHTML, "/admin/login", "families must not render a login redirect")
 	require.Contains(t, familiesHTML, `data-translation-family-list-ssr="true"`)
 	require.Contains(t, familiesHTML, `data-family-id=`)
+
+	detailFamilyID, detailHTML := requireEnhancedFamilyDetailHTML(t, app, familyRows, scopeQuery, authHeaders)
+	require.Contains(t, detailHTML, `data-translation-family-detail-ssr="true"`)
+	require.Contains(t, detailHTML, `assets/dist/translation-family/index.js`)
+	require.Contains(t, detailHTML, `data-enhance-action="true"`)
+	require.Contains(t, detailHTML, `method="post"`)
+	require.Contains(t, detailHTML, `data-family-locale-coverage`)
+	require.Contains(t, detailHTML, `data-family-assignments`)
+	require.Contains(t, detailHTML, `data-family-publish-gate`)
+	require.Contains(t, detailHTML, `data-family-activity`)
+	assertEnhancedFamilyFormRedirects(t, app, detailHTML, detailFamilyID, authHeaders)
 }
 
 func doAdminJSONRequestWithHeaders(
@@ -381,6 +394,93 @@ func doAdminHTMLRequestWithHeaders(
 	bodyBytes, readErr := io.ReadAll(res.Body)
 	require.NoError(t, readErr, "read response body")
 	return res.StatusCode, string(bodyBytes)
+}
+
+func requireEnhancedFamilyDetailHTML(
+	t *testing.T,
+	app *fiber.App,
+	familyRows []any,
+	scopeQuery string,
+	headers map[string]string,
+) (string, string) {
+	t.Helper()
+	for _, item := range familyRows {
+		row, _ := item.(map[string]any)
+		familyID := firstNonEmptyRuntimeString(row["family_id"], row["id"])
+		if familyID == "" {
+			continue
+		}
+		status, body := doAdminHTMLRequestWithHeaders(
+			t,
+			app,
+			http.MethodGet,
+			"/admin/translations/families/"+url.PathEscape(familyID)+"?"+scopeQuery,
+			headers,
+		)
+		require.Equal(t, http.StatusOK, status, "family detail html=%s", body)
+		require.NotContains(t, body, "/admin/login", "family detail must not render a login redirect")
+		if strings.Contains(body, `data-enhance-action="true"`) {
+			return familyID, body
+		}
+	}
+	require.Fail(t, "expected at least one seeded family detail with enhanced assignment forms")
+	return "", ""
+}
+
+func assertEnhancedFamilyFormRedirects(
+	t *testing.T,
+	app *fiber.App,
+	detailHTML string,
+	familyID string,
+	headers map[string]string,
+) {
+	t.Helper()
+	action, fields := firstEnhancedAssignmentForm(t, detailHTML)
+	form := url.Values{}
+	for key, value := range fields {
+		form.Set(key, value)
+	}
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, action, strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("Accept", "text/html")
+	for key, value := range headers {
+		req.Header.Set(key, value)
+	}
+	res, err := app.Test(req, -1)
+	require.NoError(t, err, "execute fallback family assignment form")
+	defer func() {
+		_ = res.Body.Close()
+	}()
+	bodyBytes, readErr := io.ReadAll(res.Body)
+	require.NoError(t, readErr, "read fallback assignment body")
+	require.Equal(t, http.StatusSeeOther, res.StatusCode, "body=%s", string(bodyBytes))
+	require.Contains(t, res.Header.Get("Location"), "/admin/translations/families/"+familyID)
+	require.Equal(t, "success", res.Header.Get("X-GoAdmin-Flash-Type"))
+	require.Contains(t, res.Header.Get("X-GoAdmin-Flash-Message"), "Assignment updated.")
+}
+
+func firstEnhancedAssignmentForm(t *testing.T, detailHTML string) (string, map[string]string) {
+	t.Helper()
+	formRe := regexp.MustCompile(`(?s)<form\b[^>]*\baction="([^"]+)"[^>]*\bdata-enhance-action="true"[^>]*>(.*?)</form>`)
+	match := formRe.FindStringSubmatch(detailHTML)
+	require.Len(t, match, 3, "expected enhanced assignment form in detail html")
+	action := html.UnescapeString(strings.TrimSpace(match[1]))
+	require.NotEmpty(t, action, "expected enhanced assignment form action")
+	fields := map[string]string{}
+	inputRe := regexp.MustCompile(`<input\b[^>]*\bname="([^"]+)"[^>]*\bvalue="([^"]*)"[^>]*>`)
+	for _, input := range inputRe.FindAllStringSubmatch(match[2], -1) {
+		if len(input) != 3 {
+			continue
+		}
+		name := html.UnescapeString(strings.TrimSpace(input[1]))
+		if name == "" {
+			continue
+		}
+		fields[name] = html.UnescapeString(input[2])
+	}
+	require.NotEmpty(t, fields["target_locale"], "expected target_locale hidden input")
+	require.NotEmpty(t, fields["work_scope"], "expected work_scope hidden input")
+	return action, fields
 }
 
 func unwrapResponseDataMap(payload map[string]any) map[string]any {

@@ -31,7 +31,7 @@ func TestEnhancedMutationResponderReturnsEnhancedEnvelope(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Equal(t, http.StatusAccepted, ctx.status)
-	assert.Equal(t, crud.EnhancedMutationMediaType, ctx.headers["Content-Type"])
+	assert.Equal(t, EnhancedMutationMediaType, ctx.headers["Content-Type"])
 	payload, ok := ctx.payload.(MutationPresentation)
 	require.True(t, ok)
 	assert.True(t, payload.OK)

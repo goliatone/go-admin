@@ -69,6 +69,38 @@ func TestFamilyServiceRecomputeOrdersBlockersAndMaterializesCounters(t *testing.
 	}
 }
 
+func TestCloneFamilyRecordClonesAssignmentTiming(t *testing.T) {
+	assignedAt := time.Date(2026, 6, 7, 12, 30, 0, 0, time.UTC)
+	due := time.Date(2026, 6, 8, 9, 0, 0, 0, time.UTC)
+	family := FamilyRecord{
+		ID: "family-assignment-timing",
+		Assignments: []FamilyAssignment{{
+			ID:         "asg-1",
+			FamilyID:   "family-assignment-timing",
+			AssigneeID: "translator-1",
+			AssignerID: "manager-1",
+			AssignedAt: &assignedAt,
+			DueDate:    &due,
+		}},
+	}
+
+	clone := cloneFamilyRecord(family)
+	if len(clone.Assignments) != 1 {
+		t.Fatalf("expected cloned assignment")
+	}
+	if clone.Assignments[0].AssignerID != "manager-1" {
+		t.Fatalf("expected assigner to survive clone, got %+v", clone.Assignments[0])
+	}
+	if clone.Assignments[0].AssignedAt == nil || !clone.Assignments[0].AssignedAt.Equal(assignedAt) {
+		t.Fatalf("expected assigned_at clone, got %+v", clone.Assignments[0].AssignedAt)
+	}
+	assignedAt = assignedAt.Add(24 * time.Hour)
+	due = due.Add(24 * time.Hour)
+	if clone.Assignments[0].AssignedAt.Equal(assignedAt) || clone.Assignments[0].DueDate.Equal(due) {
+		t.Fatalf("expected cloned assignment times not to alias source pointers")
+	}
+}
+
 func TestFamilyServicePolicyOverrideAndSourceLocaleSelection(t *testing.T) {
 	store := NewInMemoryFamilyStore()
 	requireNoErr(t, seedFamilyStore(store, FamilyRecord{

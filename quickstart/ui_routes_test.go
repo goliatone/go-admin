@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -246,7 +247,7 @@ func TestTranslationFamilyDetailTemplateRendersSSRSections(t *testing.T) {
 			t.Fatalf("expected family detail template to contain %q", expected)
 		}
 	}
-	if strings.Contains(template, "id=\"translation-family-detail-root\"") && strings.Contains(template, "></div>") {
+	if regexp.MustCompile(`<div\s+id="translation-family-detail-root"[^>]*>\s*</div>`).MatchString(template) {
 		t.Fatalf("expected family detail root to contain SSR markup, found empty root pattern")
 	}
 }
@@ -530,10 +531,11 @@ func TestMigratedTranslationTemplatesRenderHydratedSSRData(t *testing.T) {
 						"policy":          map[string]any{"required_locales": []string{"es"}},
 						"locale_variants": []map[string]any{{"locale": "es", "status": "draft"}},
 						"active_assignments": []map[string]any{{
-							"assignment_id": "asg-1",
-							"target_locale": "es",
-							"status":        "pending",
-							"row_version":   2,
+							"assignment_id":     "asg-1",
+							"target_locale":     "es",
+							"status":            "pending",
+							"row_version":       2,
+							"activity_sentence": "Manager One assigned ES to Translator One on Jun 7, 2026",
 							"actions": map[string]any{
 								"claim":   map[string]any{"enabled": true},
 								"release": map[string]any{"enabled": false, "reason": "not assigned"},
@@ -542,7 +544,7 @@ func TestMigratedTranslationTemplatesRenderHydratedSSRData(t *testing.T) {
 					},
 				},
 			},
-			expected: []string{"Launch page", "Locale coverage", `data-channel="staging"`},
+			expected: []string{"Launch page", "Locale coverage", "Manager One assigned ES to Translator One on Jun 7, 2026", `data-channel="staging"`},
 		},
 		{
 			name:     "editor",

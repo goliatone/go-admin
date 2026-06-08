@@ -9,6 +9,39 @@ import (
 	translationservices "github.com/goliatone/go-admin/translations/services"
 )
 
+func TestFamilyAssignmentFromAssignmentCarriesAssignerAndAssignedAt(t *testing.T) {
+	assignedAt := time.Date(2026, 6, 7, 12, 30, 0, 0, time.UTC)
+	assignment := familyAssignmentFromAssignment(TranslationAssignment{
+		ID:           "asg-family-assigned-at",
+		FamilyID:     "family-assigned-at",
+		VariantID:    "family-assigned-at::es",
+		TenantID:     "tenant-1",
+		OrgID:        "org-1",
+		SourceLocale: "en",
+		TargetLocale: "es",
+		WorkScope:    "localization",
+		Status:       AssignmentStatusAssigned,
+		AssigneeID:   "translator-1",
+		AssignerID:   "manager-1",
+		ReviewerID:   "reviewer-1",
+		Priority:     PriorityHigh,
+		AssignedAt:   &assignedAt,
+		CreatedAt:    assignedAt.Add(-time.Hour),
+		UpdatedAt:    assignedAt,
+	})
+
+	if assignment.AssignerID != "manager-1" {
+		t.Fatalf("expected assigner_id to survive conversion, got %+v", assignment)
+	}
+	if assignment.AssignedAt == nil || !assignment.AssignedAt.Equal(assignedAt) {
+		t.Fatalf("expected assigned_at to survive conversion, got %+v", assignment.AssignedAt)
+	}
+	assignedAt = assignedAt.Add(24 * time.Hour)
+	if assignment.AssignedAt.Equal(assignedAt) {
+		t.Fatalf("expected converted assigned_at not to alias source pointer")
+	}
+}
+
 func TestBunTranslationFamilyStoreTranslationEditorMemorySuggestions(t *testing.T) {
 	ctx := context.Background()
 	store := NewBunTranslationFamilyStore(newTranslationFamilyStoreSQLiteDB(t))

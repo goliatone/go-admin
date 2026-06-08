@@ -30,6 +30,7 @@ func TestTranslationFlowPostgresAdditiveOverridesAreRetrySafe(t *testing.T) {
 	for _, path := range []string{
 		"postgres/0009_translation_exchange_runtime.up.sql",
 		"postgres/0010_translation_flow_admin_fields.up.sql",
+		"postgres/0014_translation_assignment_assigned_at.up.sql",
 	} {
 		data, err := fs.ReadFile(migrationsFS, path)
 		if err != nil {
@@ -86,27 +87,91 @@ func TestTranslationFlowSQLiteSubsetAppliesCleanly(t *testing.T) {
 		"0009_translation_exchange_runtime.up.sql",
 		"0010_translation_flow_admin_fields.up.sql",
 		"sqlite/0011_translation_flow_assignment_variant_fk.up.sql",
+		"0014_translation_assignment_assigned_at.up.sql",
 	)
 }
 
-func applySQLiteMigrations(t *testing.T, migrationsFS fs.FS, paths ...string) {
-	t.Helper()
-	db, err := sql.Open("sqlite3", ":memory:")
-	if err != nil {
-		t.Fatalf("open sqlite: %v", err)
-	}
+func TestTranslationFlowSQLiteSubsetAddsAssignmentAssignedAt(t *testing.T) {
+	migrationsFS := GetTranslationFlowSQLiteMigrationsFS()
+	db := migratedSQLiteDB(t, migrationsFS,
+		"0007_translation_flow_foundation.up.sql",
+		"sqlite/0008_translation_flow_active_unique.up.sql",
+		"0009_translation_exchange_runtime.up.sql",
+		"0010_translation_flow_admin_fields.up.sql",
+		"sqlite/0011_translation_flow_assignment_variant_fk.up.sql",
+		"0014_translation_assignment_assigned_at.up.sql",
+	)
 	defer func() {
 		if closeErr := db.Close(); closeErr != nil {
 			t.Fatalf("close sqlite: %v", closeErr)
 		}
 	}()
+	if !sqliteColumnExists(t, db, "translation_assignments", "assigned_at") {
+		t.Fatalf("expected translation_assignments.assigned_at column")
+	}
+}
+
+func applySQLiteMigrations(t *testing.T, migrationsFS fs.FS, paths ...string) {
+	t.Helper()
+	db := migratedSQLiteDB(t, migrationsFS, paths...)
+	if closeErr := db.Close(); closeErr != nil {
+		t.Fatalf("close sqlite: %v", closeErr)
+	}
+}
+
+func migratedSQLiteDB(t *testing.T, migrationsFS fs.FS, paths ...string) *sql.DB {
+	t.Helper()
+	db, err := sql.Open("sqlite3", ":memory:")
+	if err != nil {
+		t.Fatalf("open sqlite: %v", err)
+	}
 	for _, path := range paths {
 		data, readErr := fs.ReadFile(migrationsFS, path)
 		if readErr != nil {
+			closeSQLiteDB(t, db)
 			t.Fatalf("read migration %s: %v", path, readErr)
 		}
 		if _, execErr := db.ExecContext(context.Background(), string(data)); execErr != nil {
+			closeSQLiteDB(t, db)
 			t.Fatalf("apply migration %s: %v", path, execErr)
 		}
 	}
+	return db
+}
+
+func closeSQLiteDB(t *testing.T, db *sql.DB) {
+	t.Helper()
+	if closeErr := db.Close(); closeErr != nil {
+		t.Fatalf("close sqlite: %v", closeErr)
+	}
+}
+
+func sqliteColumnExists(t *testing.T, db *sql.DB, table, column string) bool {
+	t.Helper()
+	rows, err := db.QueryContext(context.Background(), "PRAGMA table_info("+table+")")
+	if err != nil {
+		t.Fatalf("inspect sqlite table %s: %v", table, err)
+	}
+	defer func() {
+		if closeErr := rows.Close(); closeErr != nil {
+			t.Fatalf("close pragma rows: %v", closeErr)
+		}
+	}()
+	for rows.Next() {
+		var cid int
+		var name, typ string
+		var notNull int
+		var defaultValue sql.NullString
+		var pk int
+		if err := rows.Scan(&cid, &name, &typ, &notNull, &defaultValue, &pk); err != nil {
+			t.Fatalf("scan pragma row: %v", err)
+		}
+		if name == column {
+			return true
+		}
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatalf("iterate pragma rows: %v", err)
+	}
+	return false
 }
