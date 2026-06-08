@@ -3,36 +3,19 @@
 {% block title %}{{ translation_shell_title|default:"Translation" }} - {{ title }}{% endblock %}
 
 {% block content %}
-{# Compact Header (Option 3: Integrated Breadcrumb) #}
-<header class="admin-page-header px-8 py-3 bg-white border-b border-gray-200">
-  <div class="flex items-center justify-between gap-4">
-    {# Left: Breadcrumb | Title #}
-    <div class="flex items-center gap-4 min-w-0 flex-1">
-      {% if breadcrumbs %}
-      <nav class="text-xs text-gray-400 flex-shrink-0" aria-label="Breadcrumb">
-        <ol class="flex items-center gap-1.5">
-          {% for crumb in breadcrumbs %}
-            {% if not forloop.Last %}
-            <li>
-              <a href="{{ crumb.href }}" class="hover:text-gray-600 transition-colors">{{ crumb.label }}</a>
-            </li>
-            <li class="text-gray-300" aria-hidden="true">/</li>
-            {% endif %}
-          {% endfor %}
-        </ol>
-      </nav>
-      <div class="h-4 w-px bg-gray-200 flex-shrink-0" aria-hidden="true"></div>
-      {% endif %}
-      <h1 class="text-2xl font-bold text-gray-900 truncate">{{ translation_shell_title|default:"Translation" }}</h1>
-    </div>
-  </div>
-  <p class="mt-2 text-sm text-gray-500">{{ translation_shell_description|default:"Translation work surface with feature-based routing." }}</p>
-</header>
+{# Page Header - using shared partial #}
+{% include "partials/admin-page-header.html" with
+   breadcrumbs=breadcrumbs
+   page_title=translation_shell_title|default:"Translation"
+   page_subtitle=translation_shell_description|default:"Translation work surface with feature-based routing."
+   header_actions_id="translation-shell-header-actions"
+%}
 
 <div class="flex-1 overflow-y-auto bg-gray-50 p-8">
   <div class="mx-auto">
     <section class="{% if translation_shell_surface != "queue" %}rounded-xl border border-gray-200 bg-white p-6 shadow-sm{% endif %}">
       <div id="translation-shell-root"
+           data-translation-surface="{{ translation_shell_surface|default:"surface" }}"
            data-surface="{{ translation_shell_surface|default:"surface" }}"
            data-title="{{ translation_shell_title|default:"Translation" }}"
            data-description="{{ translation_shell_description|default:"" }}"
@@ -65,35 +48,26 @@
               {% for preset in queue.DataGrid.saved_filter_presets %}
               <a class="border-b-2 {% if preset.id == translation_queue_initial_preset or preset.id == queue.Meta.initial_preset_id %}border-blue-500 text-blue-700{% else %}border-transparent hover:text-gray-900{% endif %} py-4"
                  href="{{ preset.href|default:queue.Links.queue }}"
-                 data-queue-preset="{{ preset.id }}">
+                 data-translation-preset="{{ preset.id }}">
                 {{ preset.label|default:preset.id }}
               </a>
               {% endfor %}
             </nav>
             {% endif %}
 
-            {# Quick filters for assignment status #}
+            {# Quick filters for assignment status - using shared partial #}
             {% if queue.DataGrid.quick_filters %}
-            <div class="flex flex-wrap items-center gap-3 border-b border-gray-100 bg-white px-5 py-3" data-queue-quick-filters="true">
-              <span class="text-xs font-semibold uppercase tracking-wide text-gray-500">Status</span>
-              <div class="inline-flex flex-wrap items-center gap-2" role="group" aria-label="Quick status filters">
-                {% for qf in queue.DataGrid.quick_filters %}
-                <a href="{{ qf.href }}"
-                   class="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-colors
-                          {% if qf.active %}
-                          {% if qf.tone == "error" %}bg-rose-100 text-rose-800 ring-2 ring-rose-500 ring-offset-1{% elif qf.tone == "warning" %}bg-amber-100 text-amber-800 ring-2 ring-amber-500 ring-offset-1{% elif qf.tone == "info" %}bg-sky-100 text-sky-800 ring-2 ring-sky-500 ring-offset-1{% else %}bg-gray-200 text-gray-900 ring-2 ring-gray-500 ring-offset-1{% endif %}
-                          {% else %}
-                          {% if qf.tone == "error" %}bg-rose-50 text-rose-700 hover:bg-rose-100{% elif qf.tone == "warning" %}bg-amber-50 text-amber-700 hover:bg-amber-100{% elif qf.tone == "info" %}bg-sky-50 text-sky-700 hover:bg-sky-100{% else %}bg-gray-100 text-gray-700 hover:bg-gray-200{% endif %}
-                          {% endif %}"
-                   {% if qf.active %}aria-current="true"{% endif %}>
-                  {{ qf.label }}
-                </a>
-                {% endfor %}
-              </div>
+            <div class="border-b border-gray-100 bg-white px-5 py-3" data-translation-quick-filters>
+              {% include "partials/quick-filters.html" with
+                 filters=queue.DataGrid.quick_filters
+                 active_value=queue.DataGrid.active_quick_filter
+                 label="Status"
+              %}
             </div>
             {% endif %}
 
-            <div class="border-b border-gray-100 bg-gray-50 px-5 py-4" data-queue-filter-summary="true">
+            {# Filter toolbar with sort and refresh #}
+            <div class="border-b border-gray-100 bg-gray-50 px-5 py-4" data-translation-filter-toolbar>
               <div class="flex flex-wrap items-center justify-between gap-4">
                 <div class="flex flex-wrap items-center gap-5 text-sm text-gray-700">
                   <span class="inline-flex items-center gap-2 font-semibold text-gray-900">
@@ -105,43 +79,28 @@
                 <div class="flex flex-wrap items-center gap-3 text-sm text-gray-600">
                   <span>Sort by</span>
                   <span class="rounded-md border border-gray-200 bg-white px-3 py-2 font-medium text-gray-800">{{ queue.DataGrid.sort.label|default:"Due Date ASC" }}</span>
-                  <a class="btn btn-secondary" href="{{ queue.DataGrid.view_links.current|default:queue.Links.queue|default:"/admin/translations/queue" }}" data-queue-refresh="true">Refresh</a>
+                  <a class="btn btn-secondary" href="{{ queue.DataGrid.view_links.current|default:queue.Links.queue|default:"/admin/translations/queue" }}" data-translation-refresh>Refresh</a>
                 </div>
               </div>
 
-              <details class="mt-4 border-t border-gray-100 pt-4" data-queue-filter-details="true">
-                <summary class="inline-flex cursor-pointer list-none items-center gap-2 rounded-md border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gray-700 hover:border-blue-200 hover:text-blue-700">
-                  <i class="iconoir-filter" aria-hidden="true"></i>
-                  <span>Filter assignments</span>
-                  <i class="iconoir-nav-arrow-down text-base" aria-hidden="true"></i>
-                </summary>
-                <form id="queue-filters-panel" class="mt-4" data-queue-filters="true" method="get">
-                  <div class="grid gap-3 md:grid-cols-4">
-                    {% for filter in queue.DataGrid.filters %}
-                    <label class="queue-filter-field">
-                      <span>{{ filter.label|default:filter }}</span>
-                      <input class="rounded-md border border-gray-300 px-3 py-2 text-sm" data-filter-name="{{ filter.key|default:filter }}" name="{{ filter.key|default:filter }}" value="{{ filter.value|default:"" }}" placeholder="Any">
-                    </label>
-                    {% endfor %}
-                    {% if queue.Meta.channel %}
-                    <input type="hidden" name="channel" value="{{ queue.Meta.channel }}">
-                    {% endif %}
-                    <div class="flex items-end">
-                      <button type="submit" class="btn btn-primary w-full">Apply</button>
-                    </div>
-                  </div>
-                </form>
-              </details>
+              {# Advanced Filters Panel - using shared partial #}
+              <div class="mt-4 border-t border-gray-100 pt-4" data-translation-filter-panel>
+                {% include "partials/filter-panel.html" with
+                   filters=queue.DataGrid.filters
+                   form_action=queue.DataGrid.view_links.current|default:queue.Links.queue|default:"/admin/translations/queue"
+                   channel=queue.Meta.channel
+                   active_count=queue.DataGrid.active_filter_chips|length
+                   grid_cols=5
+                %}
+              </div>
 
-              <div class="mt-4 flex flex-wrap items-center gap-2">
+              {# Active Filter Summary - using shared partial #}
+              <div class="mt-4" data-translation-filter-summary>
                 {% if queue.DataGrid.active_filter_chips %}
-                {% for filter in queue.DataGrid.active_filter_chips %}
-                <span class="queue-filter-chip">
-                  <span class="queue-filter-chip-label">{{ filter.label }}:</span>
-                  <span class="queue-filter-chip-value">{{ filter.value }}</span>
-                </span>
-                {% endfor %}
-                <a class="queue-filter-chip queue-filter-chip-clear-all" href="{{ queue.DataGrid.view_links.clear_all|default:queue.Links.queue|default:"/admin/translations/queue" }}">Clear all</a>
+                {% include "partials/filter-summary.html" with
+                   filters=queue.DataGrid.active_filter_chips
+                   clear_all_url=queue.DataGrid.view_links.clear_all|default:queue.Links.queue|default:"/admin/translations/queue"
+                %}
                 {% else %}
                 <span class="rounded-md border border-gray-200 bg-white px-3 py-2 text-sm text-gray-500">All visible assignments</span>
                 {% endif %}
@@ -164,7 +123,7 @@
               <table class="min-w-full text-sm">
                 <thead class="bg-gray-50 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
                   <tr>
-                    <th class="w-12 px-4 py-3"><input type="checkbox" data-select-all="true" aria-label="Select all assignments"></th>
+                    <th class="w-12 px-4 py-3"><input type="checkbox" data-translation-select-all aria-label="Select all assignments"></th>
                     <th class="px-4 py-3">Content</th>
                     <th class="px-4 py-3">Locale</th>
                     <th class="px-4 py-3">Status</th>
@@ -176,7 +135,7 @@
                 <tbody class="divide-y divide-gray-100 bg-white">
                   {% for row in queue.Data.rows %}
                   {% if row.row_type == "family" or row.row_type == "group" %}
-                  <tr class="bg-gray-50/70" data-queue-row-type="family" data-family-id="{{ row.family_id|default:row.id }}">
+                  <tr class="bg-gray-50/70" data-translation-row-type="family" data-translation-family-id="{{ row.family_id|default:row.id }}">
                     <td class="px-4 py-4"></td>
                     <td class="px-4 py-4" colspan="3">
                       <div class="font-semibold text-gray-900">{{ row.source_title|default:row.family_label|default:row.family_id|default:row.id }}</div>
@@ -205,9 +164,9 @@
                     </td>
                   </tr>
                   {% else %}
-                  <tr class="assignment-queue-row" tabindex="0" data-assignment-row="true" data-assignment-id="{{ row.assignment_id|default:row.id }}" data-row-version="{{ row.row_version|default:row.version }}" data-assignment-nav-group="table">
+                  <tr class="assignment-queue-row" tabindex="0" data-translation-row data-translation-row-id="{{ row.assignment_id|default:row.id }}" data-translation-row-version="{{ row.row_version|default:row.version }}" data-translation-nav-group="table">
                     <td class="px-4 py-4 align-top">
-                      <input type="checkbox" class="queue-row-select" data-select-row="{{ row.assignment_id|default:row.id }}" aria-label="Select assignment {{ row.source_title|default:row.assignment_id|default:row.id }}">
+                      <input type="checkbox" class="translation-row-select" data-translation-select-row="{{ row.assignment_id|default:row.id }}" aria-label="Select assignment {{ row.source_title|default:row.assignment_id|default:row.id }}">
                     </td>
                     <td class="px-4 py-4 align-top">
                       <div class="font-semibold text-gray-900">{{ row.display_title|default:row.source_title|default:row.source_path|default:row.assignment_id|default:row.id }}</div>
@@ -244,27 +203,62 @@
                       <div class="mt-1 text-sm text-gray-600">{{ row.display_due_date|default:"" }}</div>
                     </td>
                     <td class="px-4 py-4 align-top">
-                      <div class="flex flex-wrap items-center justify-end gap-2">
-                        <a class="text-sm font-semibold text-sky-700 hover:text-sky-900"
-                           href="{% if row.editor_href %}{{ row.editor_href }}{% else %}{{ translation_queue_editor_base_path }}/{{ row.assignment_id|default:row.id }}/edit{% if queue.Meta.channel %}?channel={{ queue.Meta.channel }}{% endif %}{% endif %}">
-                          Open
-                        </a>
+                      {# Action menu dropdown #}
+                      <div class="action-menu relative flex justify-end"
+                           data-action-menu
+                           data-row-id="{{ row.assignment_id|default:row.id }}"
+                           data-row-version="{{ row.row_version|default:row.version }}">
                         <button type="button"
-                                class="text-sm font-semibold text-sky-700 disabled:text-gray-400"
-                                data-queue-row-action="claim"
-                                data-assignment-id="{{ row.assignment_id|default:row.id }}"
-                                data-row-version="{{ row.row_version|default:row.version }}"
-                                {% if row.actions.claim.enabled == false %}disabled aria-disabled="true" title="{{ row.actions.claim.reason|default:"Action unavailable" }}"{% endif %}>
-                          Claim
+                                class="action-menu__trigger rounded-md p-2 text-gray-500 transition-colors hover:bg-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1"
+                                data-action-menu-trigger
+                                aria-label="Actions for {{ row.display_title|default:row.source_title|default:row.assignment_id|default:row.id }}"
+                                aria-haspopup="true"
+                                aria-expanded="false">
+                          <svg class="h-5 w-5" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+                            <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z"/>
+                          </svg>
                         </button>
-                        <button type="button"
-                                class="text-sm font-semibold text-sky-700 disabled:text-gray-400"
-                                data-queue-row-action="release"
-                                data-assignment-id="{{ row.assignment_id|default:row.id }}"
-                                data-row-version="{{ row.row_version|default:row.version }}"
-                                {% if row.actions.release.enabled == false %}disabled aria-disabled="true" title="{{ row.actions.release.reason|default:"Action unavailable" }}"{% endif %}>
-                          Release
-                        </button>
+                        <div class="action-menu__content hidden absolute right-0 z-20 mt-2 w-48 rounded-lg border border-gray-200 bg-white py-1 shadow-lg"
+                             data-action-menu-content
+                             role="menu"
+                             aria-orientation="vertical">
+                          {# Open in Editor #}
+                          <a class="action-menu__item flex w-full items-center gap-2 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:bg-gray-50 focus:outline-none"
+                             data-action-menu-item
+                             data-action="open"
+                             role="menuitem"
+                             href="{% if row.editor_href %}{{ row.editor_href }}{% else %}{{ translation_queue_editor_base_path }}/{{ row.assignment_id|default:row.id }}/edit{% if queue.Meta.channel %}?channel={{ queue.Meta.channel }}{% endif %}{% endif %}">
+                            <i class="iconoir-edit w-4 h-4 flex-shrink-0" aria-hidden="true"></i>
+                            <span>Open in Editor</span>
+                          </a>
+                          <div class="action-menu__divider my-1 border-t border-gray-100" role="separator"></div>
+                          {# Claim action #}
+                          <button type="button"
+                                  class="action-menu__item flex w-full items-center gap-2 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:bg-gray-50 focus:outline-none {% if row.actions.claim.enabled == false %}opacity-50 cursor-not-allowed{% endif %}"
+                                  data-action-menu-item
+                                  data-action="claim"
+                                  data-translation-action="claim"
+                                  data-assignment-id="{{ row.assignment_id|default:row.id }}"
+                                  data-row-version="{{ row.row_version|default:row.version }}"
+                                  role="menuitem"
+                                  {% if row.actions.claim.enabled == false %}disabled aria-disabled="true" title="{{ row.actions.claim.reason|default:"Action unavailable" }}"{% endif %}>
+                            <i class="iconoir-user-plus w-4 h-4 flex-shrink-0" aria-hidden="true"></i>
+                            <span>Claim</span>
+                          </button>
+                          {# Release action #}
+                          <button type="button"
+                                  class="action-menu__item flex w-full items-center gap-2 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:bg-gray-50 focus:outline-none {% if row.actions.release.enabled == false %}opacity-50 cursor-not-allowed{% endif %}"
+                                  data-action-menu-item
+                                  data-action="release"
+                                  data-translation-action="release"
+                                  data-assignment-id="{{ row.assignment_id|default:row.id }}"
+                                  data-row-version="{{ row.row_version|default:row.version }}"
+                                  role="menuitem"
+                                  {% if row.actions.release.enabled == false %}disabled aria-disabled="true" title="{{ row.actions.release.reason|default:"Action unavailable" }}"{% endif %}>
+                            <i class="iconoir-user-minus w-4 h-4 flex-shrink-0" aria-hidden="true"></i>
+                            <span>Release</span>
+                          </button>
+                        </div>
                       </div>
                     </td>
                   </tr>

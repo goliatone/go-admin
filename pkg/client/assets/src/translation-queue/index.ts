@@ -3431,7 +3431,8 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
       });
     });
 
-    this.container.querySelectorAll<HTMLElement>('[data-queue-refresh]').forEach((button) => {
+    // Refresh button - supports both new (data-translation-refresh) and legacy (data-queue-refresh) conventions
+    this.container.querySelectorAll<HTMLElement>('[data-translation-refresh], [data-queue-refresh]').forEach((button) => {
       button.addEventListener('click', () => {
         void this.load();
       });
@@ -3483,8 +3484,8 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
       });
     });
 
-    // T10: Selection event handlers
-    const selectAllCheckbox = this.container.querySelector<HTMLInputElement>('[data-select-all]');
+    // T10: Selection event handlers - supports both new (data-translation-*) and legacy (data-select-*) conventions
+    const selectAllCheckbox = this.container.querySelector<HTMLInputElement>('[data-translation-select-all], [data-select-all]');
     if (selectAllCheckbox) {
       selectAllCheckbox.addEventListener('change', () => {
         if (selectAllCheckbox.checked) {
@@ -3495,10 +3496,10 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
       });
     }
 
-    this.container.querySelectorAll<HTMLInputElement>('[data-select-row]').forEach((checkbox) => {
+    this.container.querySelectorAll<HTMLInputElement>('[data-translation-select-row], [data-select-row]').forEach((checkbox) => {
       checkbox.addEventListener('change', (event) => {
         event.stopPropagation();
-        const assignmentId = checkbox.dataset.selectRow;
+        const assignmentId = checkbox.dataset.translationSelectRow || checkbox.dataset.selectRow;
         if (assignmentId) {
           this.toggleRowSelection(assignmentId);
         }
@@ -3717,7 +3718,8 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
       }
     });
 
-    this.attachAssignmentNavigationTargets('[data-assignment-row]');
+    // Navigation targets - supports both new (data-translation-*) and legacy (data-assignment-*) conventions
+    this.attachAssignmentNavigationTargets('[data-translation-row], [data-assignment-row]');
     this.attachAssignmentNavigationTargets('[data-assignment-card]');
   }
 
@@ -3726,30 +3728,34 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
       return;
     }
     this.container.querySelectorAll<HTMLElement>(selector).forEach((element) => {
+      // Get row ID from either new (data-translation-row-id) or legacy (data-assignment-id) convention
+      const getRowId = () => element.dataset.translationRowId || element.dataset.assignmentId || '';
       element.addEventListener('click', (event) => {
         const target = event.target as HTMLElement | null;
         if (target?.closest('button, a, input, select, textarea')) {
           return;
         }
-        this.openAssignment(element.dataset.assignmentId || '');
+        this.openAssignment(getRowId());
       });
       element.addEventListener('keydown', (event) => {
         const key = event.key;
         if (key === 'Enter' || key === ' ') {
           event.preventDefault();
-          this.openAssignment(element.dataset.assignmentId || '');
+          this.openAssignment(getRowId());
           return;
         }
         if (key !== 'ArrowDown' && key !== 'ArrowUp') {
           return;
         }
-        const group = element.dataset.assignmentNavGroup;
+        // Get nav group from either new (data-translation-nav-group) or legacy (data-assignment-nav-group) convention
+        const group = element.dataset.translationNavGroup || element.dataset.assignmentNavGroup;
         if (!group) {
           return;
         }
         event.preventDefault();
+        // Query for both conventions
         const elements = Array.from(
-          this.container?.querySelectorAll<HTMLElement>(`[data-assignment-nav-group="${group}"]`) || []
+          this.container?.querySelectorAll<HTMLElement>(`[data-translation-nav-group="${group}"], [data-assignment-nav-group="${group}"]`) || []
         );
         const index = elements.indexOf(element);
         if (index < 0) {
@@ -4869,10 +4875,12 @@ function bindAssignmentQueueSSR(container: HTMLElement, endpoint: string): void 
     return;
   }
   container.dataset.assignmentQueueEnhanced = 'true';
-  container.querySelectorAll<HTMLButtonElement>('[data-queue-row-action]').forEach((button) => {
+  // Bind to action menu items with data-translation-action (new convention)
+  // Also supports legacy data-queue-row-action for backwards compatibility
+  container.querySelectorAll<HTMLButtonElement>('[data-translation-action], [data-queue-row-action]').forEach((button) => {
     button.addEventListener('click', async (event) => {
       event.preventDefault();
-      const action = asString(button.dataset.queueRowAction) as 'claim' | 'release';
+      const action = asString(button.dataset.translationAction || button.dataset.queueRowAction) as 'claim' | 'release';
       const assignmentId = asString(button.dataset.assignmentId);
       const parsedVersion = Number.parseInt(asString(button.dataset.rowVersion), 10);
       const expectedVersion = Number.isFinite(parsedVersion) ? parsedVersion : 0;

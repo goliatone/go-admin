@@ -1,0 +1,159 @@
+/**
+ * Quick Filters Component Styles
+ *
+ * Inline status filter badges for rapid filtering.
+ * Used with partials/quick-filters.html
+ *
+ * Structure:
+ * .quick-filters (container)
+ *   .quick-filters__label (optional label)
+ *   .quick-filters__items (badges container)
+ *     .quick-filter (individual badge)
+ *       .quick-filter__count (optional count)
+ */
+
+/* Container */
+.quick-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+/* Label */
+.quick-filters__label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #6b7280;
+}
+
+/* Items container */
+.quick-filters__items {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* Individual filter badge */
+.quick-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  border-radius: 9999px;
+  padding: 0.375rem 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  text-decoration: none;
+  transition: background-color 150ms, box-shadow 150ms;
+}
+
+.quick-filter:focus {
+  outline: none;
+}
+
+.quick-filter:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+/* Count badge */
+.quick-filter__count {
+  border-radius: 9999px;
+  background-color: rgba(255, 255, 255, 0.5);
+  padding: 0.125rem 0.375rem;
+  font-size: 0.625rem;
+  font-weight: 700;
+}
+
+/* ==========================================================================
+   Tone-based styling (via data-tone attribute or CSS variables)
+   ========================================================================== */
+
+/* Neutral (default) */
+.quick-filter[data-tone="neutral"],
+.quick-filter:not([data-tone]) {
+  background-color: #f3f4f6;
+  color: #374151;
+}
+
+.quick-filter[data-tone="neutral"]:hover,
+.quick-filter:not([data-tone]):hover {
+  background-color: #e5e7eb;
+}
+
+.quick-filter[data-tone="neutral"][aria-current="true"],
+.quick-filter:not([data-tone])[aria-current="true"] {
+  background-color: #e5e7eb;
+  color: #111827;
+  box-shadow: 0 0 0 2px #6b7280, 0 0 0 4px white;
+}
+
+/* Error/Danger */
+.quick-filter[data-tone="error"],
+.quick-filter[data-tone="danger"] {
+  background-color: #fef2f2;
+  color: #be123c;
+}
+
+.quick-filter[data-tone="error"]:hover,
+.quick-filter[data-tone="danger"]:hover {
+  background-color: #fee2e2;
+}
+
+.quick-filter[data-tone="error"][aria-current="true"],
+.quick-filter[data-tone="danger"][aria-current="true"] {
+  background-color: #fecdd3;
+  color: #9f1239;
+  box-shadow: 0 0 0 2px #f43f5e, 0 0 0 4px white;
+}
+
+/* Warning */
+.quick-filter[data-tone="warning"] {
+  background-color: #fffbeb;
+  color: #b45309;
+}
+
+.quick-filter[data-tone="warning"]:hover {
+  background-color: #fef3c7;
+}
+
+.quick-filter[data-tone="warning"][aria-current="true"] {
+  background-color: #fde68a;
+  color: #92400e;
+  box-shadow: 0 0 0 2px #f59e0b, 0 0 0 4px white;
+}
+
+/* Success */
+.quick-filter[data-tone="success"] {
+  background-color: #ecfdf5;
+  color: #047857;
+}
+
+.quick-filter[data-tone="success"]:hover {
+  background-color: #d1fae5;
+}
+
+.quick-filter[data-tone="success"][aria-current="true"] {
+  background-color: #a7f3d0;
+  color: #065f46;
+  box-shadow: 0 0 0 2px #10b981, 0 0 0 4px white;
+}
+
+/* Info */
+.quick-filter[data-tone="info"] {
+  background-color: #eff6ff;
+  color: #1d4ed8;
+}
+
+.quick-filter[data-tone="info"]:hover {
+  background-color: #dbeafe;
+}
+
+.quick-filter[data-tone="info"][aria-current="true"] {
+  background-color: #bfdbfe;
+  color: #1e40af;
+  box-shadow: 0 0 0 2px #3b82f6, 0 0 0 4px white;
+}

@@ -10,24 +10,10 @@
 {# Compact Header (Option 3: Integrated Breadcrumb) #}
 <header class="admin-page-header px-8 py-3 bg-white border-b border-gray-200">
   <div class="flex items-center justify-between gap-4">
-    {# Left: Breadcrumb | Title #}
-    <div class="flex items-center gap-4 min-w-0 flex-1">
-      {% if breadcrumbs %}
-      <nav class="text-xs text-gray-400 flex-shrink-0" aria-label="Breadcrumb">
-        <ol class="flex items-center gap-1.5">
-          {% for crumb in breadcrumbs %}
-            {% if not forloop.Last %}
-            <li>
-              <a href="{{ crumb.href }}" class="hover:text-gray-600 transition-colors">{{ crumb.label }}</a>
-            </li>
-            <li class="text-gray-300" aria-hidden="true">/</li>
-            {% endif %}
-          {% endfor %}
-        </ol>
-      </nav>
-      <div class="h-4 w-px bg-gray-200 flex-shrink-0" aria-hidden="true"></div>
-      {% endif %}
-      <h1 class="text-2xl font-bold text-gray-900 truncate">{% block header_title %}{{ page_heading_title }}{% endblock %}</h1>
+    <div class="min-w-0 flex-1">
+      {% block header_heading %}
+        {% include "partials/admin-page-heading.html" with breadcrumbs=breadcrumbs page_heading_title=page_heading_title page_heading_summary=page_heading_summary %}
+      {% endblock %}
     </div>
 
     {# Right: Actions #}
@@ -35,9 +21,6 @@
       {% block header_actions %}{% endblock %}
     </div>
   </div>
-  {% if page_heading_summary %}
-  <p class="mt-2 text-sm text-gray-500">{{ page_heading_summary }}</p>
-  {% endif %}
 </header>
 
 {% block tabs_area %}{% endblock %}

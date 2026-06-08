@@ -2711,7 +2711,7 @@ function renderFilterOption(value: string, label: string, selected: string): str
 function renderTranslationFamilyListFilters(filters: TranslationFamilyFilters): string {
   const perPage = String(filters.perPage || 50);
   return `
-    <form class="rounded-lg border border-gray-200 bg-white p-4 shadow-sm" data-family-list-filters="true">
+    <form class="rounded-lg border border-gray-200 bg-white p-4 shadow-sm" data-translation-filter-form="true">
       <div class="grid gap-4 md:grid-cols-3 xl:grid-cols-7">
         <label class="block text-sm font-medium text-gray-700">
           <span>Channel</span>
@@ -2805,9 +2805,9 @@ function renderFamilyMetric(value: number, label: string, tone = 'text-gray-900'
 function renderFamilyActionMenu(row: TranslationFamilyListItem, detailURL: string, matrixURL: string, queueURL: string): string {
   const label = familyDisplayTitle(row);
   return `
-    <div class="relative flex justify-end" data-action-menu>
+    <div class="action-menu relative flex justify-end" data-action-menu data-row-id="${escapeAttribute(row.familyId)}">
       <button type="button"
-              class="actions-menu-trigger rounded-md p-2 text-gray-500 transition-colors hover:bg-gray-100"
+              class="action-menu__trigger rounded-md p-2 text-gray-500 transition-colors hover:bg-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1"
               data-action-menu-trigger
               aria-label="Actions for ${escapeAttribute(label)}"
               aria-haspopup="true"
@@ -2816,16 +2816,20 @@ function renderFamilyActionMenu(row: TranslationFamilyListItem, detailURL: strin
           <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z"/>
         </svg>
       </button>
-      <div class="actions-menu hidden absolute right-0 z-20 mt-2 w-48 rounded-lg border border-gray-200 bg-white py-1 shadow-lg"
+      <div class="action-menu__content hidden absolute right-0 z-20 mt-2 w-48 rounded-lg border border-gray-200 bg-white py-1 shadow-lg"
            data-action-menu-content
            role="menu"
            aria-orientation="vertical">
-        <a class="action-item flex w-full items-center px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+        <a class="action-menu__item flex w-full items-center gap-2 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:bg-gray-50 focus:outline-none"
            data-action-menu-item
+           data-action="open"
            role="menuitem"
-           href="${escapeAttribute(detailURL)}">Open family</a>
-        ${matrixURL ? `<a class="action-item flex w-full items-center px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50" data-action-menu-item role="menuitem" href="${escapeAttribute(matrixURL)}">Matrix</a>` : ''}
-        ${queueURL ? `<a class="action-item flex w-full items-center px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50" data-action-menu-item role="menuitem" href="${escapeAttribute(queueURL)}">Queue</a>` : ''}
+           href="${escapeAttribute(detailURL)}">
+          <i class="iconoir-folder w-4 h-4 flex-shrink-0" aria-hidden="true"></i>
+          <span>Open family</span>
+        </a>
+        ${matrixURL ? `<a class="action-menu__item flex w-full items-center gap-2 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:bg-gray-50 focus:outline-none" data-action-menu-item data-action="matrix" role="menuitem" href="${escapeAttribute(matrixURL)}"><i class="iconoir-table-2-columns w-4 h-4 flex-shrink-0" aria-hidden="true"></i><span>Matrix</span></a>` : ''}
+        ${queueURL ? `<a class="action-menu__item flex w-full items-center gap-2 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:bg-gray-50 focus:outline-none" data-action-menu-item data-action="queue" role="menuitem" href="${escapeAttribute(queueURL)}"><i class="iconoir-list w-4 h-4 flex-shrink-0" aria-hidden="true"></i><span>Queue</span></a>` : ''}
       </div>
     </div>
   `;
@@ -2853,7 +2857,7 @@ function renderFamilyListRows(
     const queueURL = options.queuePath ? buildFamilyQueueURL(options.queuePath, row, filters) : '';
     const title = familyDisplayTitle(row);
     return `
-      <tr class="border-b border-gray-200 last:border-0" data-family-id="${escapeAttribute(row.familyId)}">
+      <tr class="border-b border-gray-200 last:border-0" data-translation-row data-translation-row-id="${escapeAttribute(row.familyId)}">
         <td class="max-w-[22rem] px-4 py-4 align-top">
           <div class="min-w-0">
             <a href="${escapeAttribute(detailURL)}" class="font-semibold text-gray-900 hover:text-sky-700">${escapeHTML(title)}</a>
@@ -3108,7 +3112,7 @@ function bindTranslationFamilyListPage(
   load: (filters: TranslationFamilyFilters, pushURL?: boolean) => Promise<TranslationFamilyListLoadState>
 ): void {
   initTranslationFamilyListActionMenus(root);
-  const form = root.querySelector<HTMLFormElement>('[data-family-list-filters="true"]');
+  const form = root.querySelector<HTMLFormElement>('[data-translation-filter-form="true"]');
   if (form) {
     form.addEventListener('submit', (event) => {
       event.preventDefault();

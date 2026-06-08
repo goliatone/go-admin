@@ -1,5 +1,5 @@
-import { escapeAttribute as y, escapeHTML as u } from "../shared/html.js";
-import { appendCSRFHeader as W, httpRequest as J, readHTTPJSON as me } from "../shared/transport/http-client.js";
+import { escapeAttribute as y, escapeHTML as m } from "../shared/html.js";
+import { appendCSRFHeader as W, httpRequest as J, readHTTPJSON as ue } from "../shared/transport/http-client.js";
 import { extractStructuredError as j } from "../toast/error-helpers.js";
 import { buildURL as F, getNumberSearchParam as Ce, getStringSearchParam as E, readLocationSearchParams as Ne, setNumberSearchParam as Ae, setSearchParam as I } from "../shared/query-state/url-state.js";
 import { initActionMenus as ha } from "../shared/action-menu.js";
@@ -7,7 +7,7 @@ import { trimTrailingSlash as C } from "../shared/path-normalization.js";
 import { parseJSONValue as Se } from "../shared/json-parse.js";
 import { asLooseBoolean as w, asNumberish as L, asRecord as p, asString as n, asStringArray as _ } from "../shared/coercion.js";
 import { A as Me, C as N, D as va, E as xa, F as _a, O as Oe, P as wa, R as La, T as $a, dt as X, et as Ca, ht as Aa, k as je, tt as Sa, v as ka, x as R, y as U } from "../chunks/translation-shared-CdZJJA93.js";
-import { formatTranslationTimestampUTC as ue, sentenceCaseToken as T } from "../translation-shared/formatters.js";
+import { formatTranslationTimestampUTC as me, sentenceCaseToken as T } from "../translation-shared/formatters.js";
 import { normalizeStringRecord as Ta } from "../shared/record-normalization.js";
 import { initEnhancedActions as qa } from "../shared/enhanced-action.js";
 var ke = /* @__PURE__ */ new WeakMap();
@@ -76,8 +76,8 @@ async function Fa(e, a = {}) {
   W(e.rpcInvokePath, i, s);
   const r = await t(e.rpcInvokePath, i);
   if (!r.ok) {
-    const m = await j(r);
-    throw new Error(m.message || "Failed to sync translation families.");
+    const u = await j(r);
+    throw new Error(u.message || "Failed to sync translation families.");
   }
   const o = p(await r.json().catch(() => ({}))), d = p(o.error);
   if (Object.keys(d).length > 0) throw new Error(n(d.message) || "Failed to sync translation families.");
@@ -457,7 +457,7 @@ function et(e) {
   }
 }
 function Qe(e) {
-  const a = p(e.data), t = Object.keys(a).length ? a : e, s = t.source_variant ? Te(p(t.source_variant)) : null, i = Array.isArray(t.blockers) ? t.blockers.map((f) => Ga(p(f))) : [], r = Array.isArray(t.locale_variants) ? t.locale_variants.map((f) => Te(p(f))) : [], o = Array.isArray(t.active_assignments) ? t.active_assignments.map((f) => We(p(f))) : [], d = Ja(Qa(p(t.locale_assignments ?? t.localeAssignments)), o), c = p(t.publish_gate), l = p(t.readiness_summary), m = fe(p(t.quick_create), {
+  const a = p(e.data), t = Object.keys(a).length ? a : e, s = t.source_variant ? Te(p(t.source_variant)) : null, i = Array.isArray(t.blockers) ? t.blockers.map((f) => Ga(p(f))) : [], r = Array.isArray(t.locale_variants) ? t.locale_variants.map((f) => Te(p(f))) : [], o = Array.isArray(t.active_assignments) ? t.active_assignments.map((f) => We(p(f))) : [], d = Ja(Qa(p(t.locale_assignments ?? t.localeAssignments)), o), c = p(t.publish_gate), l = p(t.readiness_summary), u = fe(p(t.quick_create), {
     missingLocales: _(l.missing_locales),
     recommendedLocale: n(l.recommended_locale),
     requiredForPublish: _(l.required_for_publish ?? l.required_locales)
@@ -489,7 +489,7 @@ function Qe(e) {
       outdatedLocaleCount: L(l.outdated_locale_count),
       publishReady: w(l.publish_ready)
     },
-    quickCreate: m
+    quickCreate: u
   };
 }
 function O(...e) {
@@ -575,8 +575,8 @@ function As(e, a) {
       updatedAt: "",
       links: { editor: null },
       actions: te({})
-    }, l = i.findIndex((m) => m.id === c.id || m.targetLocale === c.targetLocale);
-    l >= 0 ? i[l] = c : i = [...i, c].sort((m, f) => m.targetLocale.localeCompare(f.targetLocale));
+    }, l = i.findIndex((u) => u.id === c.id || u.targetLocale === c.targetLocale);
+    l >= 0 ? i[l] = c : i = [...i, c].sort((u, f) => u.targetLocale.localeCompare(f.targetLocale));
   }
   const r = e.blockers.map((c) => ({ ...c })).filter((c) => !(c.blockerCode === "missing_locale" && c.locale === t)), o = O(e.readinessSummary.availableLocales, a.family.availableLocales, [t]), d = Je(O(e.readinessSummary.missingLocales, a.family.missingLocales), t);
   return {
@@ -675,7 +675,7 @@ async function re(e, a = {}, t = {}) {
   W(s, o, r);
   const d = await (t.fetch ? t.fetch(s, o) : J(s, o));
   if (!d.ok) throw await be(d);
-  return me(d);
+  return ue(d);
 }
 function nt(e) {
   const a = p(e), t = n(a.value || a.id || a.user_id);
@@ -706,7 +706,7 @@ function rt(e, a = []) {
 async function ot(e, a = [], t = {}) {
   const s = rt(e, a), i = await (t.fetch ? t.fetch(s, { headers: { Accept: "application/json" } }) : J(s, { headers: { Accept: "application/json" } }));
   if (!i.ok) throw await be(i);
-  return it(await me(i));
+  return it(await ue(i));
 }
 function lt(e) {
   switch (n(e)) {
@@ -740,7 +740,7 @@ function dt(e) {
 function Ze(e) {
   return X(dt(e));
 }
-function mt(e) {
+function ut(e) {
   switch (n(e)) {
     case "missing_locale":
       return "error";
@@ -755,7 +755,7 @@ function mt(e) {
   }
 }
 function ea(e) {
-  return X(mt(e));
+  return X(ut(e));
 }
 function k(e, a) {
   return n(e[a]);
@@ -768,7 +768,7 @@ function he(e) {
   const s = !!(k(e.details, "content_type") || k(e.details, "environment")), i = !!(k(e.details, "message") || k(e.details, "policy_reason"));
   return s && !a && !i;
 }
-function ut(e) {
+function mt(e) {
   return he(e) ? "Policy unavailable" : T(e.blockerCode);
 }
 function ft(e) {
@@ -786,8 +786,8 @@ function gt(e) {
   return a.length ? `
     <dl class="mt-2 grid gap-x-4 gap-y-1 text-xs text-gray-600 sm:grid-cols-[7rem_minmax(0,1fr)]">
       ${a.map(([t, s]) => `
-          <dt class="font-medium text-gray-500">${u(t)}</dt>
-          <dd class="min-w-0 break-words text-gray-700">${u(s)}</dd>
+          <dt class="font-medium text-gray-500">${m(t)}</dt>
+          <dd class="min-w-0 break-words text-gray-700">${m(s)}</dd>
         `).join("")}
     </dl>
   ` : "";
@@ -825,8 +825,8 @@ function bt(e, a) {
   return t ? Object.entries(e.localeAssignments).filter(([s, i]) => (n(i.locale).toLowerCase() || s.split(":")[0]) === t).sort(([s, i], [r, o]) => {
     const d = qe(i), c = qe(o);
     if (d !== c) return d - c;
-    const l = n(i.workScope).toLowerCase(), m = n(o.workScope).toLowerCase();
-    return l !== m ? l.localeCompare(m) : s.localeCompare(r);
+    const l = n(i.workScope).toLowerCase(), u = n(o.workScope).toLowerCase();
+    return l !== u ? l.localeCompare(u) : s.localeCompare(r);
   }) : [];
 }
 function qe(e) {
@@ -868,11 +868,11 @@ function Ie(e) {
   const t = a.dueState || ta(a.dueDate), s = t === "none" ? "No due date" : T(t), i = e.state === "assigned_to_me" ? "me" : na(a);
   return `
     <div class="mt-2 flex flex-wrap items-center gap-2 text-xs text-gray-500" data-family-locale-assignment-state="${y(e.state)}">
-      <span class="rounded-full px-2 py-0.5 font-medium ${Ze(a.status)}">${u(T(a.status))}</span>
-      <span>${u(i)}</span>
+      <span class="rounded-full px-2 py-0.5 font-medium ${Ze(a.status)}">${m(T(a.status))}</span>
+      <span>${m(i)}</span>
       <span class="text-gray-300">·</span>
-      <span>Priority ${u(a.priority || "normal")}</span>
-      <span class="rounded-full px-2 py-0.5 font-medium ${aa(t)}">${u(s)}</span>
+      <span>Priority ${m(a.priority || "normal")}</span>
+      <span class="rounded-full px-2 py-0.5 font-medium ${aa(t)}">${m(s)}</span>
     </div>
   `;
 }
@@ -913,10 +913,10 @@ function Re(e) {
         class="inline-flex items-center justify-center rounded-md border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-sky-700 hover:border-sky-200 hover:bg-sky-50 hover:text-sky-900 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2"
         data-family-locale-editor-link="${y(a)}"
         href="${y(t.openEditor.href)}"
-      >${u(t.openEditor.label || "Open editor")}</a>
+      >${m(t.openEditor.label || "Open editor")}</a>
     `), s.length > 0) return `<div class="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:justify-end" data-family-locale-actions="true">${s.join("")}</div>`;
   const i = ia(e);
-  return i ? `<p class="max-w-xs text-right text-xs text-gray-500" data-family-assignment-action-reason="${y(a)}">${u(i)}</p>` : "";
+  return i ? `<p class="max-w-xs text-right text-xs text-gray-500" data-family-assignment-action-reason="${y(a)}">${m(i)}</p>` : "";
 }
 function vt(e) {
   return Object.entries(e.localeAssignments).filter(([, a]) => a.state !== "source_locale").filter(([, a]) => ht(a)).sort(([a], [t]) => a.localeCompare(t));
@@ -961,8 +961,8 @@ function ve(e) {
       aria-label="${y(e.ariaLabel || "Assignee")}"
       ${d}
     >
-      <option value="">${u(s ? i : r || i)}</option>
-      ${t ? `<option value="${y(t)}" selected>${u(t)}</option>` : ""}
+      <option value="">${m(s ? i : r || i)}</option>
+      ${t ? `<option value="${y(t)}" selected>${m(t)}</option>` : ""}
     </select>
   `;
 }
@@ -1045,61 +1045,61 @@ function At(e) {
     }
   ].map((a) => `
         <div class="rounded-xl border border-gray-200 bg-white p-6">
-          <div class="text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">${u(a.label)}</div>
-          <div class="mt-2 text-2xl font-semibold ${a.tone}">${u(a.value)}</div>
+          <div class="text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">${m(a.label)}</div>
+          <div class="mt-2 text-2xl font-semibold ${a.tone}">${m(a.value)}</div>
         </div>
       `).join("");
 }
 function St(e, a) {
-  const t = C(a.contentBasePath || `${C(a.basePath || "/admin")}/content`), s = e.readinessSummary.missingLocales, i = e.quickCreate.disabledReason || "Locale creation is unavailable for this family.", r = /* @__PURE__ */ new Set(), o = /* @__PURE__ */ new Set(), d = (m) => {
-    const f = !ye(e, m);
+  const t = C(a.contentBasePath || `${C(a.basePath || "/admin")}/content`), s = e.readinessSummary.missingLocales, i = e.quickCreate.disabledReason || "Locale creation is unavailable for this family.", r = /* @__PURE__ */ new Set(), o = /* @__PURE__ */ new Set(), d = (u) => {
+    const f = !ye(e, u);
     return `
       <button
         type="button"
         class="${U}${f ? " opacity-60 cursor-not-allowed" : ""}"
         data-family-create-locale="true"
-        data-locale="${y(m)}"
+        data-locale="${y(u)}"
         ${f ? 'aria-disabled="true"' : ""}
-        title="${y(f ? i : `Create ${m.toUpperCase()} locale`)}"
+        title="${y(f ? i : `Create ${u.toUpperCase()} locale`)}"
       >
         Create locale
       </button>
     `;
-  }, c = (m, f) => {
-    const g = m.locale || f.split(":")[0] || "", b = m.workScope || f.split(":")[1] || "__all__", v = `${e.contentType || "translation"} ${g.toUpperCase()}`;
+  }, c = (u, f) => {
+    const g = u.locale || f.split(":")[0] || "", b = u.workScope || f.split(":")[1] || "__all__", v = `${e.contentType || "translation"} ${g.toUpperCase()}`;
     return `
       <li class="grid gap-4 rounded-xl border border-gray-200 bg-white p-6 lg:grid-cols-[minmax(18rem,1fr)_minmax(0,44rem)] lg:items-start" data-family-locale-assignment-key="${y(f)}">
         <div class="min-w-0">
           <div class="flex flex-wrap items-center gap-2">
-            <span class="text-sm font-semibold text-gray-900">${u(g.toUpperCase())}</span>
-            <span class="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700">${u(b)}</span>
+            <span class="text-sm font-semibold text-gray-900">${m(g.toUpperCase())}</span>
+            <span class="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700">${m(b)}</span>
             <span class="rounded-full bg-sky-50 px-2 py-0.5 text-xs font-medium text-sky-700">Assignment</span>
           </div>
-          <p class="mt-2 text-sm text-gray-600">${u(v)}</p>
+          <p class="mt-2 text-sm text-gray-600">${m(v)}</p>
           <p class="mt-1 text-xs text-gray-500">Additional work scope</p>
-          ${Ie(m)}
+          ${Ie(u)}
         </div>
         <div class="flex min-w-0 flex-wrap items-center gap-2 lg:justify-end">
-          ${Re(m)}
+          ${Re(u)}
         </div>
       </li>
     `;
-  }, l = e.localeVariants.flatMap((m) => {
-    const f = n(m.locale).toLowerCase();
+  }, l = e.localeVariants.flatMap((u) => {
+    const f = n(u.locale).toLowerCase();
     f && o.add(f);
-    const g = pt(t, e, m), b = bt(e, m.locale), [v, $] = b[0] || ["", null];
+    const g = pt(t, e, u), b = bt(e, u.locale), [v, $] = b[0] || ["", null];
     v && r.add(v);
-    const S = g ? `<a href="${y(g)}" class="text-sm font-medium text-sky-700 hover:text-sky-800">Open locale</a>` : '<span class="text-sm text-gray-400">No content route</span>', A = m.fields.title || m.fields.slug || `${e.contentType} ${m.locale.toUpperCase()}`;
+    const S = g ? `<a href="${y(g)}" class="text-sm font-medium text-sky-700 hover:text-sky-800">Open locale</a>` : '<span class="text-sm text-gray-400">No content route</span>', A = u.fields.title || u.fields.slug || `${e.contentType} ${u.locale.toUpperCase()}`;
     return [`
       <li class="grid gap-4 rounded-xl border border-gray-200 bg-white p-6 lg:grid-cols-[minmax(18rem,1fr)_minmax(0,44rem)] lg:items-start">
         <div class="min-w-0">
           <div class="flex flex-wrap items-center gap-2">
-            <span class="text-sm font-semibold text-gray-900">${u(m.locale.toUpperCase())}</span>
-            ${m.isSource ? '<span class="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700">Source</span>' : ""}
-            <span class="rounded-full px-2 py-0.5 text-xs font-medium ${ct(m.status)}">${u(T(m.status))}</span>
+            <span class="text-sm font-semibold text-gray-900">${m(u.locale.toUpperCase())}</span>
+            ${u.isSource ? '<span class="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700">Source</span>' : ""}
+            <span class="rounded-full px-2 py-0.5 text-xs font-medium ${ct(u.status)}">${m(T(u.status))}</span>
           </div>
-          <p class="mt-2 text-sm text-gray-600">${u(A)}</p>
-          <p class="mt-1 text-xs text-gray-500">Updated ${u(ue(m.updatedAt || m.createdAt)) || "n/a"}</p>
+          <p class="mt-2 text-sm text-gray-600">${m(A)}</p>
+          <p class="mt-1 text-xs text-gray-500">Updated ${m(me(u.updatedAt || u.createdAt)) || "n/a"}</p>
           ${Ie($)}
         </div>
         <div class="flex min-w-0 flex-wrap items-center gap-2 lg:justify-end">
@@ -1109,24 +1109,24 @@ function St(e, a) {
       </li>
     `, ...b.slice(1).map(([P, x]) => (r.add(P), c(x, P)))];
   });
-  for (const [m, f] of Object.entries(e.localeAssignments).sort(([g], [b]) => g.localeCompare(b))) {
-    if (r.has(m) || f.state === "source_locale") continue;
-    l.push(c(f, m)), r.add(m);
-    const g = n(f.locale).toLowerCase() || m.split(":")[0];
+  for (const [u, f] of Object.entries(e.localeAssignments).sort(([g], [b]) => g.localeCompare(b))) {
+    if (r.has(u) || f.state === "source_locale") continue;
+    l.push(c(f, u)), r.add(u);
+    const g = n(f.locale).toLowerCase() || u.split(":")[0];
     g && o.add(g);
   }
-  for (const m of s) {
-    const f = n(m).toLowerCase();
+  for (const u of s) {
+    const f = n(u).toLowerCase();
     o.has(f) || l.push(`
       <li class="flex flex-col items-start justify-between gap-4 rounded-xl border border-rose-200 bg-rose-50 p-6 sm:flex-row">
         <div>
           <div class="flex items-center gap-2">
-            <span class="text-sm font-semibold text-rose-900">${u(m.toUpperCase())}</span>
+            <span class="text-sm font-semibold text-rose-900">${m(u.toUpperCase())}</span>
             <span class="rounded-full bg-rose-100 px-2 py-0.5 text-xs font-medium text-rose-700">Missing required locale</span>
           </div>
           <p class="mt-2 text-sm text-rose-800">This locale is required by policy before the family is publish-ready.</p>
         </div>
-        <div class="flex-shrink-0">${d(m)}</div>
+        <div class="flex-shrink-0">${d(u)}</div>
       </li>
     `);
   }
@@ -1158,7 +1158,7 @@ function kt(e) {
               <span class="text-sm font-medium text-gray-900">Locale</span>
               <select class="${ra}" data-family-assignment-locale-select="true">
                 ${a.map(([r, o]) => `
-                  <option value="${y(r)}" ${xt(o)}>${u(o.locale.toUpperCase())} · ${u(o.workScope || "__all__")}</option>
+                  <option value="${y(r)}" ${xt(o)}>${m(o.locale.toUpperCase())} · ${m(o.workScope || "__all__")}</option>
                 `).join("")}
               </select>
             </label>
@@ -1185,7 +1185,7 @@ function kt(e) {
             ` : "<div></div>"}
           </div>
         </div>
-      ` : `<p class="mt-4 text-sm text-gray-500" data-family-assignment-action-reason="empty">${u(ia(Object.values(e.localeAssignments).find((r) => r.state !== "source_locale") || null) || "No assignable locale is available for this family.")}</p>`}
+      ` : `<p class="mt-4 text-sm text-gray-500" data-family-assignment-action-reason="empty">${m(ia(Object.values(e.localeAssignments).find((r) => r.state !== "source_locale") || null) || "No assignable locale is available for this family.")}</p>`}
       </section>
     `;
   }
@@ -1200,16 +1200,16 @@ function kt(e) {
               <li class="flex flex-col gap-4 rounded-xl border border-gray-200 bg-gray-50 p-6 sm:flex-row sm:items-start sm:justify-between">
                 <div class="min-w-0">
                   <div class="flex flex-wrap items-center gap-2">
-                    <span class="text-sm font-semibold text-gray-900">${u(a.targetLocale.toUpperCase())}</span>
-                    <span class="rounded-full px-2 py-0.5 text-xs font-medium ${Ze(a.status)}">${u(T(a.status))}</span>
-                    <span class="rounded-full px-2 py-0.5 text-xs font-medium ${aa(t)}">${u(s)}</span>
+                    <span class="text-sm font-semibold text-gray-900">${m(a.targetLocale.toUpperCase())}</span>
+                    <span class="rounded-full px-2 py-0.5 text-xs font-medium ${Ze(a.status)}">${m(T(a.status))}</span>
+                    <span class="rounded-full px-2 py-0.5 text-xs font-medium ${aa(t)}">${m(s)}</span>
                   </div>
                   <p class="mt-2 text-sm text-gray-600">
-                    ${u(na(a))}
+                    ${m(na(a))}
                     <span class="text-gray-400">·</span>
-                    Priority ${u(a.priority || "normal")}
+                    Priority ${m(a.priority || "normal")}
                   </p>
-                  <p class="mt-1 text-xs text-gray-500">Updated ${u(ue(a.updatedAt || a.createdAt)) || "n/a"}</p>
+                  <p class="mt-1 text-xs text-gray-500">Updated ${m(me(a.updatedAt || a.createdAt)) || "n/a"}</p>
                 </div>
                 ${i ? `
                   <a
@@ -1217,7 +1217,7 @@ function kt(e) {
                     data-family-assignment-editor-link="${y(a.id)}"
                     href="${y(i.href)}"
                     title="${y(i.description || i.label)}"
-                  >${u(i.label || "Open editor")}</a>
+                  >${m(i.label || "Open editor")}</a>
                 ` : ""}
               </li>
             `;
@@ -1232,8 +1232,8 @@ function Tt(e) {
     return `
             <li class="rounded-lg border border-gray-200 bg-white p-3">
               <div class="flex flex-wrap items-center gap-2">
-                <span class="rounded-full px-2 py-0.5 text-xs font-medium ${ea(t.blockerCode)}">${u(ut(t))}</span>
-                ${s ? `<span class="text-sm text-gray-600">${u(s)}</span>` : ""}
+                <span class="rounded-full px-2 py-0.5 text-xs font-medium ${ea(t.blockerCode)}">${m(mt(t))}</span>
+                ${s ? `<span class="text-sm text-gray-600">${m(s)}</span>` : ""}
               </div>
               ${gt(t)}
             </li>
@@ -1259,7 +1259,7 @@ function Tt(e) {
           <ul class="mt-3 space-y-2 text-sm text-gray-600" role="list">
             <li>Review required: <strong class="text-gray-900">${e.publishGate.reviewRequired ? "Yes" : "No"}</strong></li>
             <li>Override allowed: <strong class="text-gray-900">${e.publishGate.overrideAllowed ? "Yes" : "No"}</strong></li>
-            <li>Available locales: <strong class="text-gray-900">${u(e.readinessSummary.availableLocales.join(", ") || "None")}</strong></li>
+            <li>Available locales: <strong class="text-gray-900">${m(e.readinessSummary.availableLocales.join(", ") || "None")}</strong></li>
           </ul>
         </div>
         <div>
@@ -1280,10 +1280,10 @@ function qt(e) {
               ${a.map((t) => `
                     <li class="rounded-xl border border-gray-200 bg-gray-50 p-6">
                       <div class="flex flex-wrap items-center gap-2">
-                        <span class="text-sm font-semibold text-gray-900">${u(t.title)}</span>
-                        <span class="rounded-full px-2 py-0.5 text-xs font-medium ${t.tone === "success" ? "bg-emerald-100 text-emerald-700" : t.tone === "warning" ? "bg-amber-100 text-amber-700" : "bg-gray-100 text-gray-700"}">${u(ue(t.timestamp))}</span>
+                        <span class="text-sm font-semibold text-gray-900">${m(t.title)}</span>
+                        <span class="rounded-full px-2 py-0.5 text-xs font-medium ${t.tone === "success" ? "bg-emerald-100 text-emerald-700" : t.tone === "warning" ? "bg-amber-100 text-amber-700" : "bg-gray-100 text-gray-700"}">${m(me(t.timestamp))}</span>
                       </div>
-                      <p class="mt-2 text-sm text-gray-600">${u(t.detail)}</p>
+                      <p class="mt-2 text-sm text-gray-600">${m(t.detail)}</p>
                     </li>
                   `).join("")}
             </ol>` : '<p class="mt-4 text-sm text-gray-500">No activity timestamps are available for this family yet.</p>'}
@@ -1292,9 +1292,9 @@ function qt(e) {
 }
 function Y(e) {
   const a = [
-    e.requestId ? `Request ${u(e.requestId)}` : "",
-    e.traceId ? `Trace ${u(e.traceId)}` : "",
-    e.errorCode ? `Code ${u(e.errorCode)}` : ""
+    e.requestId ? `Request ${m(e.requestId)}` : "",
+    e.traceId ? `Trace ${m(e.traceId)}` : "",
+    e.errorCode ? `Code ${m(e.errorCode)}` : ""
   ].filter(Boolean);
   return a.length ? `
     <div class="mt-4 flex flex-wrap gap-2" aria-label="Diagnostics">
@@ -1307,7 +1307,7 @@ function la(e) {
     <div class="${La}" aria-busy="true" aria-label="Loading">
       <div class="flex flex-col items-center gap-3 text-gray-500">
         <span class="h-8 w-8 animate-spin rounded-full border-4 border-gray-200 border-t-gray-500"></span>
-        <span class="text-sm">${u(e)}</span>
+        <span class="text-sm">${m(e)}</span>
       </div>
     </div>
   `;
@@ -1316,8 +1316,8 @@ function ce(e, a) {
   return `
     <div class="flex items-center justify-center py-16" role="status" aria-label="Empty">
       <div class="max-w-md ${$a} p-8 text-center shadow-sm">
-        <h2 class="${va}">${u(e)}</h2>
-        <p class="${xa} mt-2">${u(a)}</p>
+        <h2 class="${va}">${m(e)}</h2>
+        <p class="${xa} mt-2">${m(a)}</p>
       </div>
     </div>
   `;
@@ -1335,11 +1335,11 @@ function It(e, a, t) {
       >
         Sync translation families
       </button>
-    ` : "", r = t.syncMessage ? u(t.syncMessage) : "";
+    ` : "", r = t.syncMessage ? m(t.syncMessage) : "";
   return `
     <div class="${Oe} p-6" role="alert">
-      <h2 class="${Me}">${u(e)}</h2>
-      <p class="${je} mt-2">${u(a)}</p>
+      <h2 class="${Me}">${m(e)}</h2>
+      <p class="${je} mt-2">${m(a)}</p>
       <p
         data-family-sync-feedback="true"
         class="mt-3 text-sm ${t.syncStatus === "failed" ? "text-rose-700" : "text-amber-700"}"
@@ -1377,7 +1377,7 @@ function Rt(e, a = {}) {
         ${d ? 'aria-disabled="true"' : ""}
         title="${y(d ? t.quickCreate.disabledReason || "Locale creation is unavailable." : `Create ${o.toUpperCase()} locale`)}"
       >
-        Create ${u(o.toUpperCase())}
+        Create ${m(o.toUpperCase())}
       </button>
     ` : "";
   return `
@@ -1386,12 +1386,12 @@ function Rt(e, a = {}) {
         <div class="flex flex-wrap items-start justify-between gap-4">
           <div>
             <p class="${wa}">Translation family</p>
-            <h1 class="${_a} mt-2">${u(s)}</h1>
-            <p class="mt-2 text-sm text-gray-600">${u(t.contentType)} · Source locale ${u(t.sourceLocale.toUpperCase())} · Family ${u(t.familyId)}</p>
+            <h1 class="${_a} mt-2">${m(s)}</h1>
+            <p class="mt-2 text-sm text-gray-600">${m(t.contentType)} · Source locale ${m(t.sourceLocale.toUpperCase())} · Family ${m(t.familyId)}</p>
           </div>
           <div class="flex flex-wrap items-center gap-2">
             ${pe(t.readinessState)}
-            <span class="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700">${u(i)}</span>
+            <span class="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700">${m(i)}</span>
             ${c}
           </div>
         </div>
@@ -1529,16 +1529,16 @@ function Bt(e, a, t = {}) {
     channel: n(t.channel)
   });
 }
-function ma(e) {
+function ua(e) {
   return e.sourceTitle || e.sourceRecordId || e.familyId || "Translation family";
 }
 function q(e, a, t) {
-  return `<option value="${y(e)}" ${e === t ? "selected" : ""}>${u(a)}</option>`;
+  return `<option value="${y(e)}" ${e === t ? "selected" : ""}>${m(a)}</option>`;
 }
 function Nt(e) {
   const a = String(e.perPage || 50);
   return `
-    <form class="rounded-lg border border-gray-200 bg-white p-4 shadow-sm" data-family-list-filters="true">
+    <form class="rounded-lg border border-gray-200 bg-white p-4 shadow-sm" data-translation-filter-form="true">
       <div class="grid gap-4 md:grid-cols-3 xl:grid-cols-7">
         <label class="block text-sm font-medium text-gray-700">
           <span>Channel</span>
@@ -1593,9 +1593,9 @@ function Nt(e) {
 function Fe(e, a = "None") {
   return e.length ? `
     <span class="flex flex-wrap gap-1">
-      ${e.map((t) => `<span class="rounded bg-gray-100 px-1.5 py-0.5 text-xs font-medium uppercase text-gray-700">${u(t.toUpperCase())}</span>`).join("")}
+      ${e.map((t) => `<span class="rounded bg-gray-100 px-1.5 py-0.5 text-xs font-medium uppercase text-gray-700">${m(t.toUpperCase())}</span>`).join("")}
     </span>
-  ` : `<span class="text-gray-400">${u(a)}</span>`;
+  ` : `<span class="text-gray-400">${m(a)}</span>`;
 }
 function Mt(e) {
   if (!e.blockerCodes.length) return '<span class="text-gray-400">No blockers</span>';
@@ -1613,39 +1613,44 @@ function Mt(e) {
       label: i
     }));
   }
-  return t.map(({ code: s, label: i }) => `<span class="rounded-full px-2 py-0.5 text-xs font-medium ${ea(s)}">${u(i.toUpperCase())}</span>`).join(" ");
+  return t.map(({ code: s, label: i }) => `<span class="rounded-full px-2 py-0.5 text-xs font-medium ${ea(s)}">${m(i.toUpperCase())}</span>`).join(" ");
 }
 function ne(e, a, t = "text-gray-900") {
   return `
     <span class="inline-flex items-center gap-1 whitespace-nowrap rounded-md bg-gray-50 px-2 py-1 text-xs">
-      <span class="font-semibold ${t}">${u(e)}</span>
-      <span class="font-semibold uppercase tracking-wide text-gray-500">${u(a.toUpperCase())}</span>
+      <span class="font-semibold ${t}">${m(e)}</span>
+      <span class="font-semibold uppercase tracking-wide text-gray-500">${m(a.toUpperCase())}</span>
     </span>
   `;
 }
 function Ot(e, a, t, s) {
+  const i = ua(e);
   return `
-    <div class="relative flex justify-end" data-action-menu>
+    <div class="action-menu relative flex justify-end" data-action-menu data-row-id="${y(e.familyId)}">
       <button type="button"
-              class="actions-menu-trigger rounded-md p-2 text-gray-500 transition-colors hover:bg-gray-100"
+              class="action-menu__trigger rounded-md p-2 text-gray-500 transition-colors hover:bg-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1"
               data-action-menu-trigger
-              aria-label="Actions for ${y(ma(e))}"
+              aria-label="Actions for ${y(i)}"
               aria-haspopup="true"
               aria-expanded="false">
         <svg class="h-5 w-5" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
           <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z"/>
         </svg>
       </button>
-      <div class="actions-menu hidden absolute right-0 z-20 mt-2 w-48 rounded-lg border border-gray-200 bg-white py-1 shadow-lg"
+      <div class="action-menu__content hidden absolute right-0 z-20 mt-2 w-48 rounded-lg border border-gray-200 bg-white py-1 shadow-lg"
            data-action-menu-content
            role="menu"
            aria-orientation="vertical">
-        <a class="action-item flex w-full items-center px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+        <a class="action-menu__item flex w-full items-center gap-2 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:bg-gray-50 focus:outline-none"
            data-action-menu-item
+           data-action="open"
            role="menuitem"
-           href="${y(a)}">Open family</a>
-        ${t ? `<a class="action-item flex w-full items-center px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50" data-action-menu-item role="menuitem" href="${y(t)}">Matrix</a>` : ""}
-        ${s ? `<a class="action-item flex w-full items-center px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50" data-action-menu-item role="menuitem" href="${y(s)}">Queue</a>` : ""}
+           href="${y(a)}">
+          <i class="iconoir-folder w-4 h-4 flex-shrink-0" aria-hidden="true"></i>
+          <span>Open family</span>
+        </a>
+        ${t ? `<a class="action-menu__item flex w-full items-center gap-2 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:bg-gray-50 focus:outline-none" data-action-menu-item data-action="matrix" role="menuitem" href="${y(t)}"><i class="iconoir-table-2-columns w-4 h-4 flex-shrink-0" aria-hidden="true"></i><span>Matrix</span></a>` : ""}
+        ${s ? `<a class="action-menu__item flex w-full items-center gap-2 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:bg-gray-50 focus:outline-none" data-action-menu-item data-action="queue" role="menuitem" href="${y(s)}"><i class="iconoir-list w-4 h-4 flex-shrink-0" aria-hidden="true"></i><span>Queue</span></a>` : ""}
       </div>
     </div>
   `;
@@ -1662,14 +1667,14 @@ function Ue(e, a) {
 function jt(e, a, t) {
   const s = t.familyBasePath || xe(t.basePath || "/admin");
   return e.map((i) => {
-    const r = Ut(s, i.familyId, a.channel), o = t.matrixPath ? Dt(t.matrixPath, i, a) : "", d = t.queuePath ? Bt(t.queuePath, i, a) : "", c = ma(i);
+    const r = Ut(s, i.familyId, a.channel), o = t.matrixPath ? Dt(t.matrixPath, i, a) : "", d = t.queuePath ? Bt(t.queuePath, i, a) : "", c = ua(i);
     return `
-      <tr class="border-b border-gray-200 last:border-0" data-family-id="${y(i.familyId)}">
+      <tr class="border-b border-gray-200 last:border-0" data-translation-row data-translation-row-id="${y(i.familyId)}">
         <td class="max-w-[22rem] px-4 py-4 align-top">
           <div class="min-w-0">
-            <a href="${y(r)}" class="font-semibold text-gray-900 hover:text-sky-700">${u(c)}</a>
-            <p class="mt-1 break-all text-xs text-gray-500">${u(i.familyId)}</p>
-            <p class="mt-2 text-xs text-gray-500">${u(i.contentType || "unknown")} · Source ${u(i.sourceLocale.toUpperCase() || "n/a")}</p>
+            <a href="${y(r)}" class="font-semibold text-gray-900 hover:text-sky-700">${m(c)}</a>
+            <p class="mt-1 break-all text-xs text-gray-500">${m(i.familyId)}</p>
+            <p class="mt-2 text-xs text-gray-500">${m(i.contentType || "unknown")} · Source ${m(i.sourceLocale.toUpperCase() || "n/a")}</p>
           </div>
         </td>
         <td class="px-4 py-4 align-top">${pe(i.readinessState)}</td>
@@ -1706,12 +1711,12 @@ function zt(e, a, t) {
       <div class="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 px-4 py-3">
         <div>
           <h2 id="translation-family-list-results" class="text-base font-semibold text-gray-900">Families</h2>
-          <p class="text-sm text-gray-500">${u(s)}-${u(i)} of ${u(e.total)} families</p>
+          <p class="text-sm text-gray-500">${m(s)}-${m(i)} of ${m(e.total)} families</p>
         </div>
         <div class="flex flex-wrap items-center gap-2">
           ${d}
           <button type="button" class="${R}" data-family-list-page="prev" ${r ? "" : "disabled"}>Previous</button>
-          <span class="text-sm text-gray-500">Page ${u(e.page)}</span>
+          <span class="text-sm text-gray-500">Page ${m(e.page)}</span>
           <button type="button" class="${R}" data-family-list-page="next" ${o ? "" : "disabled"}>Next</button>
         </div>
       </div>
@@ -1740,8 +1745,8 @@ function Vt(e) {
   return `
     <div class="${Oe} mt-6 p-6" role="alert">
       <h2 class="${Me}">Families failed to load</h2>
-      <p class="${je} mt-2">${u(e.message || "The translation families request failed.")}</p>
-      ${e.requestURL ? `<p class="mt-3 break-all text-xs text-gray-500">Request ${u(e.requestURL)}</p>` : ""}
+      <p class="${je} mt-2">${m(e.message || "The translation families request failed.")}</p>
+      ${e.requestURL ? `<p class="mt-3 break-all text-xs text-gray-500">Request ${m(e.requestURL)}</p>` : ""}
       ${Y({
     status: "error",
     requestId: e.requestId,
@@ -1825,7 +1830,7 @@ async function ks(e, a = {}) {
     queuePath: n(a.queuePath || t.queuePath)
   };
   if (s.familyBasePath || (s.familyBasePath = xe(s.basePath)), t.ssrEnhanced === "true")
-    return e.dataset.translationFamilyListEnhanced = "true", ua(e), {
+    return e.dataset.translationFamilyListEnhanced = "true", ma(e), {
       status: "ready",
       filters: Ee()
     };
@@ -1844,8 +1849,8 @@ async function ks(e, a = {}) {
   return r = await o(i, !1), r;
 }
 function Yt(e, a, t) {
-  ua(e);
-  const s = e.querySelector('[data-family-list-filters="true"]');
+  ma(e);
+  const s = e.querySelector('[data-translation-filter-form="true"]');
   s && (s.addEventListener("submit", (i) => {
     i.preventDefault(), t({
       ...Be(s, a.filters),
@@ -1871,7 +1876,7 @@ function Yt(e, a, t) {
     });
   });
 }
-function ua(e) {
+function ma(e) {
   e.dataset.translationFamilyListActionMenusStandalone !== "true" && (ke.get(e)?.destroy(), ke.set(e, ha(e, {
     containerSelector: "[data-action-menu]",
     triggerSelector: "[data-action-menu-trigger]",
@@ -1926,8 +1931,8 @@ function we(e) {
         <div class="flex items-start justify-between gap-4">
           <div>
             <p class="text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">Create locale</p>
-            <h2 id="translation-create-locale-title" class="mt-2 text-2xl font-semibold text-gray-900">${u(e.heading)}</h2>
-            <p class="mt-2 text-sm text-gray-600">Server-authored recommendations and publish requirements for family ${u(e.familyId)}.</p>
+            <h2 id="translation-create-locale-title" class="mt-2 text-2xl font-semibold text-gray-900">${m(e.heading)}</h2>
+            <p class="mt-2 text-sm text-gray-600">Server-authored recommendations and publish requirements for family ${m(e.familyId)}.</p>
           </div>
           <button type="button" data-close-modal="true" class="${ka}">Close</button>
         </div>
@@ -1937,15 +1942,15 @@ function we(e) {
             <select name="locale" class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900">
               ${t.missingLocales.map((x) => `
                 <option value="${y(x)}" ${x === i ? "selected" : ""}>
-                  ${u(x.toUpperCase())}${x === t.recommendedLocale ? " (recommended)" : ""}
+                  ${m(x.toUpperCase())}${x === t.recommendedLocale ? " (recommended)" : ""}
                 </option>
               `).join("")}
             </select>
           </label>
           <div class="rounded-xl border border-gray-200 bg-gray-50 p-6 text-sm text-gray-700">
-            <p><strong>Required for publish:</strong> ${u(t.requiredForPublish.join(", ") || "None")}</p>
-            <p class="mt-2"><strong>Recommended locale:</strong> ${u(t.recommendedLocale.toUpperCase() || "N/A")}</p>
-            <p class="mt-2"><strong>Default work scope:</strong> ${u(t.defaultAssignment.workScope || "__all__")}</p>
+            <p><strong>Required for publish:</strong> ${m(t.requiredForPublish.join(", ") || "None")}</p>
+            <p class="mt-2"><strong>Recommended locale:</strong> ${m(t.recommendedLocale.toUpperCase() || "N/A")}</p>
+            <p class="mt-2"><strong>Default work scope:</strong> ${m(t.defaultAssignment.workScope || "__all__")}</p>
           </div>
           <label class="flex items-center gap-3 rounded-xl border border-gray-200 px-6 py-4">
             <input type="checkbox" name="auto_create_assignment" class="h-4 w-4 rounded border-gray-300 text-sky-600" ${t.defaultAssignment.autoCreateAssignment ? "checked" : ""}>
@@ -1983,12 +1988,12 @@ function we(e) {
         <div data-create-locale-feedback="true" class="mt-4 hidden rounded-xl border border-rose-200 bg-rose-50 px-6 py-4 text-sm text-rose-700"></div>
         <div class="mt-6 flex items-center justify-end gap-3">
           <button type="button" data-close-modal="true" class="${R}">Cancel</button>
-          <button type="submit" class="${U}">${u(e.submitLabel || "Create locale")}</button>
+          <button type="submit" class="${U}">${m(e.submitLabel || "Create locale")}</button>
         </div>
       </form>
     </div>
   `, a.body.appendChild(r), Q(r, e.assigneeOptionsBasePath || "/admin/api", { fetch: e.fetch });
-  const o = r.querySelector('[role="dialog"]'), d = r.querySelector("form"), c = r.querySelector('select[name="locale"]'), l = r.querySelector('input[name="auto_create_assignment"]'), m = r.querySelector('select[name="assignee_id"]'), f = r.querySelector('select[name="priority"]'), g = r.querySelector('input[name="due_date"]'), b = r.querySelector('[data-assignment-fields="true"]'), v = r.querySelector('[data-create-locale-feedback="true"]'), $ = r.querySelector('button[type="submit"]'), S = () => {
+  const o = r.querySelector('[role="dialog"]'), d = r.querySelector("form"), c = r.querySelector('select[name="locale"]'), l = r.querySelector('input[name="auto_create_assignment"]'), u = r.querySelector('select[name="assignee_id"]'), f = r.querySelector('select[name="priority"]'), g = r.querySelector('input[name="due_date"]'), b = r.querySelector('[data-assignment-fields="true"]'), v = r.querySelector('[data-create-locale-feedback="true"]'), $ = r.querySelector('button[type="submit"]'), S = () => {
     P(), r.remove();
   }, A = () => {
     !b || !l || (b.hidden = !l.checked);
@@ -2004,7 +2009,7 @@ function we(e) {
     const D = n(c.value).toLowerCase();
     try {
       const z = !!l?.checked, V = z ? {
-        assigneeId: m?.value,
+        assigneeId: u?.value,
         priority: f?.value,
         dueDate: Jt(g?.value || "")
       } : {}, ba = await e.onSubmit({
@@ -2237,23 +2242,23 @@ function ds(e, a) {
     expectedVersion: i
   };
 }
-function ms(e, a) {
+function us(e, a) {
   return n(a.dataset.localeAssignmentSource) !== "empty-panel" ? null : e.querySelector('[data-family-assignment-locale-select="true"]')?.selectedOptions[0] ?? null;
 }
-function us(e, a, t) {
-  const s = ms(e, a), i = n(a.dataset.assignmentTargetLocale || s?.dataset.assignmentTargetLocale), r = n(a.dataset.assignmentWorkScope || s?.dataset.assignmentWorkScope), o = t === "self" ? n(a.dataset.assignmentEndpoint || s?.dataset.assignToMeEndpoint || s?.dataset.assignmentEndpoint) : t === "user" ? n(a.dataset.assignmentEndpoint || s?.dataset.assignToUserEndpoint || s?.dataset.assignmentEndpoint) : n(a.dataset.assignmentEndpoint), d = n(a.dataset.assignmentId), c = L(a.dataset.rowVersion, 0), l = {};
+function ms(e, a, t) {
+  const s = us(e, a), i = n(a.dataset.assignmentTargetLocale || s?.dataset.assignmentTargetLocale), r = n(a.dataset.assignmentWorkScope || s?.dataset.assignmentWorkScope), o = t === "self" ? n(a.dataset.assignmentEndpoint || s?.dataset.assignToMeEndpoint || s?.dataset.assignmentEndpoint) : t === "user" ? n(a.dataset.assignmentEndpoint || s?.dataset.assignToUserEndpoint || s?.dataset.assignmentEndpoint) : n(a.dataset.assignmentEndpoint), d = n(a.dataset.assignmentId), c = L(a.dataset.rowVersion, 0), l = {};
   if (i && (l.target_locale = i), r && (l.work_scope = r), t === "self") {
     const f = n(a.dataset.assignmentAssigneeId || s?.dataset.assignToMeAssigneeId);
     f && (l.assignee_id = f);
   }
-  let m = a.getAttribute("title") || "";
-  return o ? (t === "self" || t === "user") && !i ? m = m || "Assignment target locale is unavailable." : t === "self" && !n(l.assignee_id) && (m = m || "Self-assignment payload is unavailable.") : m = m || "Assignment action endpoint is unavailable.", {
-    enabled: !a.disabled && a.getAttribute("aria-disabled") !== "true" && !m,
+  let u = a.getAttribute("title") || "";
+  return o ? (t === "self" || t === "user") && !i ? u = u || "Assignment target locale is unavailable." : t === "self" && !n(l.assignee_id) && (u = u || "Self-assignment payload is unavailable.") : u = u || "Assignment action endpoint is unavailable.", {
+    enabled: !a.disabled && a.getAttribute("aria-disabled") !== "true" && !u,
     permission: "",
     endpoint: o,
     href: "",
     label: a.textContent?.trim() || t,
-    reason: m,
+    reason: u,
     reasonCode: "",
     requiredFields: [],
     payload: l,
@@ -2275,8 +2280,8 @@ async function fs(e, a, t, s) {
   })), B(e), e.querySelector('[data-family-assignment-locale-select="true"]')?.addEventListener("change", () => {
     B(e);
   }), e.querySelectorAll('[data-translation-create-locale-trigger="true"]').forEach((l) => {
-    l.dataset.translationCreateBound !== "true" && (l.dataset.translationCreateBound = "true", l.addEventListener("click", async (m) => {
-      if (m.preventDefault(), l.disabled || l.getAttribute("aria-disabled") === "true") {
+    l.dataset.translationCreateBound !== "true" && (l.dataset.translationCreateBound = "true", l.addEventListener("click", async (u) => {
+      if (u.preventDefault(), l.disabled || l.getAttribute("aria-disabled") === "true") {
         h("warning", l.getAttribute("title") || "Locale creation is unavailable.");
         return;
       }
@@ -2310,14 +2315,14 @@ async function fs(e, a, t, s) {
       }
     }));
   });
-  const c = async (l, m) => {
-    const f = us(e, l, m);
+  const c = async (l, u) => {
+    const f = ms(e, l, u);
     if (!f.enabled) {
       h("warning", f.reason || "Assignment action is unavailable.");
       return;
     }
     const g = {};
-    if (m === "user") {
+    if (u === "user") {
       const { select: b, assigneeID: v } = ga(e, fa(e, l), l);
       if (!v) {
         h("warning", "Assignee is required."), ya(b);
@@ -2327,26 +2332,26 @@ async function fs(e, a, t, s) {
     }
     o && (g.channel = o), l.disabled = !0, l.classList.add("opacity-60", "cursor-not-allowed");
     try {
-      await re(f, g, { fetch: s.fetch }), h("success", m === "claim" ? "Assignment claimed." : "Assignment updated."), typeof window < "u" && window.location.reload();
+      await re(f, g, { fetch: s.fetch }), h("success", u === "claim" ? "Assignment claimed." : "Assignment updated."), typeof window < "u" && window.location.reload();
     } catch (b) {
       h("error", b instanceof Error ? b.message : "Failed to update assignment."), l.disabled = !1, l.classList.remove("opacity-60", "cursor-not-allowed");
     }
   };
   return e.querySelectorAll('[data-family-assign-to-me="true"]').forEach((l) => {
-    l.dataset.translationAssignmentBound !== "true" && (l.dataset.translationAssignmentBound = "true", l.addEventListener("click", (m) => {
-      m.preventDefault(), c(l, "self");
+    l.dataset.translationAssignmentBound !== "true" && (l.dataset.translationAssignmentBound = "true", l.addEventListener("click", (u) => {
+      u.preventDefault(), c(l, "self");
     }));
   }), e.querySelectorAll('[data-family-assign-to-user="true"]').forEach((l) => {
-    l.dataset.translationAssignmentBound !== "true" && (l.dataset.translationAssignmentBound = "true", l.addEventListener("click", (m) => {
-      m.preventDefault(), c(l, "user");
+    l.dataset.translationAssignmentBound !== "true" && (l.dataset.translationAssignmentBound = "true", l.addEventListener("click", (u) => {
+      u.preventDefault(), c(l, "user");
     }));
   }), e.querySelectorAll('[data-family-claim-assignment="true"]').forEach((l) => {
-    l.dataset.translationAssignmentBound !== "true" && (l.dataset.translationAssignmentBound = "true", l.addEventListener("click", (m) => {
-      m.preventDefault(), c(l, "claim");
+    l.dataset.translationAssignmentBound !== "true" && (l.dataset.translationAssignmentBound = "true", l.addEventListener("click", (u) => {
+      u.preventDefault(), c(l, "claim");
     }));
   }), e.querySelectorAll("[data-family-assignment-action]").forEach((l) => {
-    l.dataset.translationAssignmentBound !== "true" && (l.dataset.translationAssignmentBound = "true", l.addEventListener("click", async (m) => {
-      m.preventDefault();
+    l.dataset.translationAssignmentBound !== "true" && (l.dataset.translationAssignmentBound = "true", l.addEventListener("click", async (u) => {
+      u.preventDefault();
       const f = ds(l, i);
       if (!f.enabled) {
         h("warning", f.reason || "Assignment action is unavailable.");
@@ -2374,7 +2379,7 @@ async function K(e, a = {}) {
   const o = ca(s);
   if (typeof e.querySelector == "function") {
     if (r.status === "ready" && r.detail) {
-      const l = `${C(i.basePath || "/admin")}/api`, m = $e({
+      const l = `${C(i.basePath || "/admin")}/api`, u = $e({
         basePath: l,
         fetch: a.fetch
       });
@@ -2398,7 +2403,7 @@ async function K(e, a = {}) {
             heading: `Create ${$.toUpperCase()} locale`,
             assigneeOptionsBasePath: l,
             fetch: a.fetch,
-            onSubmit: (A) => m.createLocale(v.familyId, {
+            onSubmit: (A) => u.createLocale(v.familyId, {
               ...A,
               channel: o
             }),
@@ -2479,9 +2484,9 @@ async function K(e, a = {}) {
     c && r.syncRecovery?.canSync && c.addEventListener("click", async (l) => {
       l.preventDefault(), c.disabled = !0, c.classList.add("opacity-60", "cursor-not-allowed");
       try {
-        const m = r.syncRecovery;
-        if (!m) return;
-        await Fa(m, {
+        const u = r.syncRecovery;
+        if (!u) return;
+        await Fa(u, {
           fetch: a.fetch,
           correlationId: r.requestId || ""
         });
@@ -2489,7 +2494,7 @@ async function K(e, a = {}) {
         if (f.status === "error" && (f.errorCode === "NOT_FOUND" || f.statusCode === 404)) {
           G(e, {
             ...f,
-            syncRecovery: m,
+            syncRecovery: u,
             syncStatus: "completed",
             syncMessage: "Sync completed; family detail still returned NOT_FOUND."
           }, i), d();
@@ -2499,7 +2504,7 @@ async function K(e, a = {}) {
           const g = f.message || "Sync completed, but family detail reload failed.";
           G(e, {
             ...f,
-            syncRecovery: m,
+            syncRecovery: u,
             syncStatus: "failed",
             syncMessage: g
           }, i), d(), h("error", g);
@@ -2510,8 +2515,8 @@ async function K(e, a = {}) {
           ...i,
           endpoint: s
         });
-      } catch (m) {
-        const f = m instanceof Error ? m.message : "Failed to sync translation families.", g = e.querySelector('[data-family-sync-feedback="true"]');
+      } catch (u) {
+        const f = u instanceof Error ? u.message : "Failed to sync translation families.", g = e.querySelector('[data-family-sync-feedback="true"]');
         g && (g.hidden = !1, g.textContent = f), c.disabled = !1, c.classList.remove("opacity-60", "cursor-not-allowed"), h("error", f);
       }
     });
@@ -2523,7 +2528,7 @@ function $e(e = {}) {
   if (!a) throw new Error("translation-family client requires fetch");
   const t = C(e.basePath || "/admin/api");
   async function s(i) {
-    return me(i);
+    return ue(i);
   }
   return {
     async list(i = {}) {
@@ -2561,9 +2566,9 @@ function $e(e = {}) {
         body: JSON.stringify(Ma(o))
       };
       W(d, l, c);
-      const m = await a(d, l);
-      if (!m.ok) throw await be(m);
-      return s(m);
+      const u = await a(d, l);
+      if (!u.ok) throw await be(u);
+      return s(u);
     }
   };
 }

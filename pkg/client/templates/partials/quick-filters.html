@@ -1,0 +1,77 @@
+{# Quick filters component - inline status filter badges for rapid filtering #}
+{#
+Usage:
+  {% include "partials/quick-filters.html" with
+     filters=[
+       {"value": "", "label": "All", "href": "/items"},
+       {"value": "active", "label": "Active", "tone": "success", "href": "/items?status=active", "count": 5},
+       {"value": "pending", "label": "Pending", "tone": "warning", "href": "/items?status=pending"},
+       {"value": "blocked", "label": "Blocked", "tone": "error", "href": "/items?status=blocked"}
+     ]
+     active_value="active"
+     label="Status"
+  %}
+
+Props:
+  - filters: Array of filter objects
+    - value: Filter value for matching active state (string)
+    - label: Display text (string)
+    - href: Link URL (string)
+    - tone: Visual tone - "error", "warning", "info", "success", "neutral" (string, default: "neutral")
+    - count: Optional count badge (number)
+  - active_value: Currently active filter value (string)
+  - label: Optional label prefix (string, default: none)
+  - show_label: Whether to show the label (bool, default: true if label is set)
+#}
+
+{% set show_label_flag = show_label|default:label %}
+
+<div class="quick-filters flex flex-wrap items-center gap-3" data-quick-filters>
+  {% if show_label_flag and label %}
+  <span class="quick-filters__label text-xs font-semibold uppercase tracking-wide text-gray-500">{{ label }}</span>
+  {% endif %}
+  <div class="quick-filters__items inline-flex flex-wrap items-center gap-2" role="group" aria-label="{{ label|default:"Quick filters" }}">
+    {% for qf in filters %}
+      {% set is_active = qf.value == active_value or (qf.value == "" and not active_value) %}
+      {% set tone = qf.tone|default:"neutral" %}
+
+      {# Determine tone-based classes #}
+      {% if is_active %}
+        {% if tone == "error" or tone == "danger" %}
+          {% set tone_class = "bg-rose-100 text-rose-800 ring-2 ring-rose-500 ring-offset-1" %}
+        {% elif tone == "warning" %}
+          {% set tone_class = "bg-amber-100 text-amber-800 ring-2 ring-amber-500 ring-offset-1" %}
+        {% elif tone == "success" %}
+          {% set tone_class = "bg-emerald-100 text-emerald-800 ring-2 ring-emerald-500 ring-offset-1" %}
+        {% elif tone == "info" %}
+          {% set tone_class = "bg-sky-100 text-sky-800 ring-2 ring-sky-500 ring-offset-1" %}
+        {% else %}
+          {% set tone_class = "bg-gray-200 text-gray-900 ring-2 ring-gray-500 ring-offset-1" %}
+        {% endif %}
+      {% else %}
+        {% if tone == "error" or tone == "danger" %}
+          {% set tone_class = "bg-rose-50 text-rose-700 hover:bg-rose-100" %}
+        {% elif tone == "warning" %}
+          {% set tone_class = "bg-amber-50 text-amber-700 hover:bg-amber-100" %}
+        {% elif tone == "success" %}
+          {% set tone_class = "bg-emerald-50 text-emerald-700 hover:bg-emerald-100" %}
+        {% elif tone == "info" %}
+          {% set tone_class = "bg-sky-50 text-sky-700 hover:bg-sky-100" %}
+        {% else %}
+          {% set tone_class = "bg-gray-100 text-gray-700 hover:bg-gray-200" %}
+        {% endif %}
+      {% endif %}
+
+    <a href="{{ qf.href }}"
+       class="quick-filter inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-colors {{ tone_class }}"
+       data-quick-filter-value="{{ qf.value }}"
+       data-tone="{{ tone }}"
+       {% if is_active %}aria-current="true"{% endif %}>
+      <span>{{ qf.label }}</span>
+      {% if qf.count is defined %}
+      <span class="quick-filter__count rounded-full bg-white/50 px-1.5 py-0.5 text-[10px] font-bold">{{ qf.count }}</span>
+      {% endif %}
+    </a>
+    {% endfor %}
+  </div>
+</div>

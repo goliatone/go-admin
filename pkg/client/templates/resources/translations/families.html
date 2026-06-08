@@ -3,36 +3,13 @@
 {% block title %}Translation Families - {{ title }}{% endblock %}
 
 {% block content %}
-{# Compact Header (Option 3: Integrated Breadcrumb) #}
-<header class="admin-page-header px-8 py-3 bg-white border-b border-gray-200">
-  <div class="flex items-center justify-between gap-4">
-    {# Left: Breadcrumb | Title #}
-    <div class="flex items-center gap-4 min-w-0 flex-1">
-      {% if breadcrumbs %}
-      <nav class="text-xs text-gray-400 flex-shrink-0" aria-label="Breadcrumb">
-        <ol class="flex items-center gap-1.5">
-          {% for crumb in breadcrumbs %}
-            {% if not forloop.Last %}
-            <li>
-              <a href="{{ crumb.href }}" class="hover:text-gray-600 transition-colors">{{ crumb.label }}</a>
-            </li>
-            <li class="text-gray-300" aria-hidden="true">/</li>
-            {% endif %}
-          {% endfor %}
-        </ol>
-      </nav>
-      <div class="h-4 w-px bg-gray-200 flex-shrink-0" aria-hidden="true"></div>
-      {% endif %}
-      <h1 class="text-2xl font-bold text-gray-900 truncate">Translation Families</h1>
-    </div>
-
-    {# Right: Actions #}
-    <div id="translation-families-header-actions" class="flex items-center gap-3 flex-shrink-0">
-      <!-- Header actions mount here via JS -->
-    </div>
-  </div>
-  <p class="mt-2 text-sm text-gray-500">Triage readiness blockers, locale coverage, and review pressure across translation families.</p>
-</header>
+{# Page Header using standard partial #}
+{% include "partials/admin-page-header.html" with
+   breadcrumbs=breadcrumbs
+   page_title="Translation Families"
+   page_subtitle="Triage readiness blockers, locale coverage, and review pressure across translation families."
+   header_actions_id="translation-families-header-actions"
+%}
 
 <div class="flex-1 overflow-y-auto bg-gray-50 p-8">
   <div class="mx-auto">
@@ -64,7 +41,7 @@
       </section>
       {% endif %}
 
-      <section class="rounded-lg border border-gray-200 bg-white p-6 shadow-sm" data-translation-family-list-ssr="true">
+      <section class="rounded-lg border border-gray-200 bg-white p-6 shadow-sm" data-translation-surface="families">
         <div class="flex flex-wrap items-center justify-between gap-4">
           <div>
             <h2 id="translation-family-list-results" class="text-lg font-semibold text-gray-900">Families</h2>
@@ -82,66 +59,61 @@
           </div>
         </div>
 
-        {# Quick filters #}
+        {# Quick filters using standard partial #}
         {% if page.DataGrid.quick_filters %}
-        <div class="mt-5 flex flex-wrap items-center gap-3" data-family-quick-filters="true">
-          <span class="text-xs font-semibold uppercase tracking-wide text-gray-500">Status</span>
-          <div class="inline-flex flex-wrap items-center gap-2" role="group" aria-label="Quick status filters">
-            {% for qf in page.DataGrid.quick_filters %}
-            {% set is_active = (qf.value == "" and not page.Meta.readiness_state) or (qf.value != "" and page.Meta.readiness_state == qf.value) %}
-            <a href="{{ qf.href }}"
-               class="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-colors
-                      {% if is_active %}
-                      {% if qf.tone == "error" %}bg-rose-100 text-rose-800 ring-2 ring-rose-500 ring-offset-1{% elif qf.tone == "warning" %}bg-amber-100 text-amber-800 ring-2 ring-amber-500 ring-offset-1{% elif qf.tone == "success" %}bg-emerald-100 text-emerald-800 ring-2 ring-emerald-500 ring-offset-1{% else %}bg-gray-200 text-gray-900 ring-2 ring-gray-500 ring-offset-1{% endif %}
-                      {% else %}
-                      {% if qf.tone == "error" %}bg-rose-50 text-rose-700 hover:bg-rose-100{% elif qf.tone == "warning" %}bg-amber-50 text-amber-700 hover:bg-amber-100{% elif qf.tone == "success" %}bg-emerald-50 text-emerald-700 hover:bg-emerald-100{% else %}bg-gray-100 text-gray-700 hover:bg-gray-200{% endif %}
-                      {% endif %}"
-               {% if is_active %}aria-current="true"{% endif %}>
-              {{ qf.label }}
-            </a>
-            {% endfor %}
-          </div>
+        <div class="mt-5" data-translation-quick-filters="true">
+          {% include "partials/quick-filters.html" with
+             filters=page.DataGrid.quick_filters
+             active_value=page.Meta.readiness_state
+             label="Status"
+          %}
         </div>
         {% endif %}
 
-        {# Advanced filters (collapsible) #}
+        {# Advanced filters using standard partial - NOTE: We need to build filter array from DataGrid.filters #}
         {% if page.DataGrid.filters %}
-        <details class="mt-4 rounded-lg border border-gray-200 bg-gray-50" data-family-advanced-filters="true">
-          <summary class="cursor-pointer px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-100 select-none">
-            <span class="inline-flex items-center gap-2">
-              <i class="iconoir-filter text-gray-500" aria-hidden="true"></i>
-              Advanced Filters
-            </span>
-          </summary>
-          <form class="p-4 border-t border-gray-200" data-family-list-filters="true" method="get">
-            <div class="grid gap-3 md:grid-cols-3 xl:grid-cols-7">
-            <label class="grid gap-1 text-sm">
-              <span class="text-xs font-semibold uppercase tracking-wide text-gray-500">Channel</span>
-              <input class="rounded-md border border-gray-300 px-3 py-2 text-sm"
-                     type="text"
-                     name="channel" value="{{ page.Meta.channel|default:"" }}"
-                     placeholder="default">
-            </label>
-            {% for filter in page.DataGrid.filters %}
-            <label class="grid gap-1 text-sm">
-              <span class="text-xs font-semibold uppercase tracking-wide text-gray-500">{{ filter.label|default:filter.key }}</span>
-              <input class="rounded-md border border-gray-300 px-3 py-2 text-sm"
-                     type="text"
-                     name="{{ filter.key }}"
-                     value="{{ filter.value|default:"" }}"
-                     placeholder="{{ filter.label|default:filter.key }}">
-            </label>
-            {% endfor %}
-            <div class="flex items-end">
-              <button type="submit" class="btn btn-primary w-full">Apply</button>
-            </div>
-            </div>
-          </form>
-        </details>
+        <div class="mt-4" data-translation-filter-panel="true">
+          <details class="filter-panel rounded-lg border border-gray-200 bg-gray-50" data-filter-panel>
+            <summary class="filter-panel__trigger cursor-pointer px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-100 select-none list-none">
+              <span class="inline-flex items-center gap-2">
+                <i class="iconoir-filter text-gray-500" aria-hidden="true"></i>
+                <span>Advanced Filters</span>
+                <i class="iconoir-nav-arrow-down text-gray-400 transition-transform" aria-hidden="true"></i>
+              </span>
+            </summary>
+            <form class="filter-panel__form p-4 border-t border-gray-200" method="get" data-translation-filter-form="true">
+              <div class="filter-panel__grid grid gap-3 md:grid-cols-3 xl:grid-cols-7">
+                <label class="filter-panel__field grid gap-1 text-sm">
+                  <span class="text-xs font-semibold uppercase tracking-wide text-gray-500">Channel</span>
+                  <input class="rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+                         type="text"
+                         name="channel"
+                         value="{{ page.Meta.channel|default:"" }}"
+                         placeholder="default"
+                         data-filter-field="channel">
+                </label>
+                {% for filter in page.DataGrid.filters %}
+                <label class="filter-panel__field grid gap-1 text-sm">
+                  <span class="text-xs font-semibold uppercase tracking-wide text-gray-500">{{ filter.label|default:filter.key }}</span>
+                  <input class="rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+                         type="text"
+                         name="{{ filter.key }}"
+                         value="{{ filter.value|default:"" }}"
+                         placeholder="{{ filter.label|default:filter.key }}"
+                         data-filter-field="{{ filter.key }}">
+                </label>
+                {% endfor %}
+                <div class="filter-panel__actions flex items-end gap-2">
+                  <button type="submit" class="btn btn-primary flex-1">Apply</button>
+                </div>
+              </div>
+            </form>
+          </details>
+        </div>
         {% endif %}
 
         {% if page.Data.families %}
-        <div class="mt-5 overflow-x-auto rounded-lg border border-gray-200">
+        <div class="mt-5 overflow-x-auto rounded-lg border border-gray-200" data-translation-table="families">
           <table class="min-w-full text-left text-sm">
             <thead class="bg-gray-50 text-xs font-semibold uppercase tracking-wide text-gray-500">
               <tr>
@@ -155,7 +127,7 @@
             </thead>
             <tbody class="divide-y divide-gray-100 bg-white">
               {% for family in page.Data.families %}
-              <tr data-family-id="{{ family.family_id }}">
+              <tr data-translation-row data-translation-row-id="{{ family.family_id }}">
                 <td class="max-w-md px-4 py-5 align-top">
                   <a class="font-semibold text-gray-900 hover:text-sky-700"
                      href="{{ family.ssr_links.detail }}">
@@ -225,9 +197,12 @@
                   </div>
                 </td>
                 <td class="px-4 py-5 align-top">
-                  <div class="relative flex justify-end" data-action-menu>
+                  {# Action menu - using consistent structure from action-menu.html partial #}
+                  <div class="action-menu relative flex justify-end"
+                       data-action-menu
+                       data-row-id="{{ family.family_id }}">
                     <button type="button"
-                            class="actions-menu-trigger rounded-md p-2 text-gray-500 transition-colors hover:bg-gray-100"
+                            class="action-menu__trigger rounded-md p-2 text-gray-500 transition-colors hover:bg-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1"
                             data-action-menu-trigger
                             aria-label="Actions for {{ family.source_title|default:family.family_id }}"
                             aria-haspopup="true"
@@ -236,30 +211,36 @@
                         <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z"/>
                       </svg>
                     </button>
-                    <div class="actions-menu hidden absolute right-0 z-20 mt-2 w-48 rounded-lg border border-gray-200 bg-white py-1 shadow-lg"
+                    <div class="action-menu__content hidden absolute right-0 z-20 mt-2 w-48 rounded-lg border border-gray-200 bg-white py-1 shadow-lg"
                          data-action-menu-content
                          role="menu"
                          aria-orientation="vertical">
-                      <a class="action-item flex w-full items-center px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                      <a class="action-menu__item flex w-full items-center gap-2 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:bg-gray-50 focus:outline-none"
                          data-action-menu-item
+                         data-action="open"
                          role="menuitem"
                          href="{{ family.ssr_links.detail }}">
-                        Open family
+                        <i class="iconoir-folder w-4 h-4 flex-shrink-0" aria-hidden="true"></i>
+                        <span>Open family</span>
                       </a>
                       {% if family.ssr_links.matrix %}
-                      <a class="action-item flex w-full items-center px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                      <a class="action-menu__item flex w-full items-center gap-2 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:bg-gray-50 focus:outline-none"
                          data-action-menu-item
+                         data-action="matrix"
                          role="menuitem"
                          href="{{ family.ssr_links.matrix }}">
-                        Matrix
+                        <i class="iconoir-table-2-columns w-4 h-4 flex-shrink-0" aria-hidden="true"></i>
+                        <span>Matrix</span>
                       </a>
                       {% endif %}
                       {% if family.ssr_links.queue %}
-                      <a class="action-item flex w-full items-center px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                      <a class="action-menu__item flex w-full items-center gap-2 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:bg-gray-50 focus:outline-none"
                          data-action-menu-item
+                         data-action="queue"
                          role="menuitem"
                          href="{{ family.ssr_links.queue }}">
-                        Queue
+                        <i class="iconoir-list w-4 h-4 flex-shrink-0" aria-hidden="true"></i>
+                        <span>Queue</span>
                       </a>
                       {% endif %}
                     </div>

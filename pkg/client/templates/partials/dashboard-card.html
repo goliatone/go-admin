@@ -1,5 +1,6 @@
 {# Dashboard card partial - renders a dashboard metric card with alert status and drilldown #}
-{# Usage: {% include "partials/dashboard-card.html" with card={"id": "my_tasks", "label": "Tasks", "count": 5, "alert": {"state": "warning"}, "description": "...", "drilldown": {"href": "/...", "label": "View all"}} %} #}
+{# DEPRECATED: Use partials/metric-card.html instead, which now supports all dashboard-card features #}
+{# Usage: {% include "partials/dashboard-card.html" with card={"id": "my_tasks", "label": "Tasks", "count": 5, "alert": {"state": "warning"}, "description": "...", "drilldown": {"href": "/...", "label": "View all"}} #}
 
 {% set alert_state = card.alert.state|default:"healthy" %}
 {% set tone_badge = "bg-gray-100 text-gray-700" %}

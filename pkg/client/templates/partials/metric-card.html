@@ -1,7 +1,46 @@
-{# Metric card partial - renders a clickable summary card with count, label, and optional filter link #}
-{# Usage: {% include "partials/metric-card.html" with card={"key": "total", "label": "Total", "count": 42, "tone": "neutral", "href": "/path?filter=value"} %} #}
+{# Unified Metric Card Partial #}
+{#
+Renders a metric/summary card with count, label, and optional features.
+This partial unifies the previous metric-card and dashboard-card partials.
+
+Basic Usage:
+  {% include "partials/metric-card.html" with card={"key": "total", "label": "Total", "count": 42} %}
+
+Full Usage:
+  {% include "partials/metric-card.html" with card={
+    "key": "overdue",
+    "label": "Overdue Tasks",
+    "count": 5,
+    "tone": "error",
+    "description": "Tasks past their due date",
+    "href": "/tasks?filter=overdue",
+    "icon": "clock",
+    "alert": {"state": "warning", "text": "Attention needed"},
+    "drilldown": {"href": "/tasks/overdue", "label": "View all overdue"}
+  } %}
+
+Props:
+  - key: Identifier for the card (string)
+  - label / display_label: Card title (string)
+  - count: Main metric value (number/string)
+  - tone: Visual tone - "neutral", "info", "success", "warning", "error" (string)
+  - description: Supporting text (string)
+  - href: Simple link for the entire card (string) - for backward compatibility
+  - icon: Iconoir icon name (string)
+  - alert: Alert badge object with state and text
+    - state: "healthy", "warning", "critical", "error", "info" (string)
+    - text / display_status: Badge text (string)
+  - drilldown: Action link at bottom
+    - href: Link URL (string)
+    - label: Link text (string)
+#}
 
 {% set tone = card.tone|default:"neutral" %}
+{% set has_drilldown = card.drilldown.href %}
+{% set has_alert = card.alert.state or card.alert.text or card.display_status %}
+{% set label_text = card.display_label|default:card.label|default:"Metric" %}
+
+{# Tone-based count color #}
 {% set tone_count = "text-gray-900" %}
 {% if tone == "error" or tone == "danger" %}
   {% set tone_count = "text-rose-700" %}
@@ -13,24 +52,81 @@
   {% set tone_count = "text-sky-700" %}
 {% endif %}
 
-{% if card.href %}
+{# Alert badge styling #}
+{% set alert_state = card.alert.state|default:"healthy" %}
+{% set alert_badge_class = "bg-gray-100 text-gray-700" %}
+{% if alert_state == "critical" or alert_state == "error" %}
+  {% set alert_badge_class = "bg-rose-50 text-rose-700" %}
+  {% set tone_count = "text-rose-700" %}
+{% elif alert_state == "warning" %}
+  {% set alert_badge_class = "bg-amber-50 text-amber-700" %}
+{% elif alert_state == "success" or alert_state == "healthy" %}
+  {% set alert_badge_class = "bg-emerald-50 text-emerald-700" %}
+{% elif alert_state == "info" %}
+  {% set alert_badge_class = "bg-sky-50 text-sky-700" %}
+{% endif %}
+
+{# Card variant: with drilldown (dashboard style) vs simple (original style) #}
+{% if has_drilldown or has_alert %}
+{# Enhanced card with header, alert badge, and drilldown #}
+<article class="metric-card rounded-xl border border-gray-200 bg-white p-5 shadow-sm hover:shadow-md transition-shadow"
+         data-metric-card="{{ card.key|default:card.id }}"
+         data-tone="{{ tone }}">
+  <div class="flex items-start justify-between gap-3">
+    <p class="text-xs font-semibold uppercase tracking-wider text-gray-500">
+      {% if card.icon %}<i class="iconoir-{{ card.icon }} mr-1" aria-hidden="true"></i>{% endif %}
+      {{ label_text }}
+    </p>
+    {% if has_alert %}
+    <span class="{{ alert_badge_class }} rounded-full px-2 py-1 text-xs font-semibold">
+      {{ card.display_status|default:card.alert.text|default:"Healthy" }}
+    </span>
+    {% endif %}
+  </div>
+  <p class="mt-4 text-4xl font-bold {{ tone_count }}">{{ card.count|default:"0" }}</p>
+  {% if card.description %}
+  <p class="mt-2 min-h-10 text-sm font-medium leading-5 text-gray-600">{{ card.description }}</p>
+  {% endif %}
+  {% if has_drilldown %}
+  <a class="mt-4 inline-flex w-full items-center justify-between rounded-md bg-gray-950 px-4 py-2.5 text-sm font-semibold text-white hover:bg-gray-800 transition-colors"
+     href="{{ card.drilldown.href }}">
+    <span>{{ card.drilldown.label|default:"View all" }}</span>
+    <i class="iconoir-nav-arrow-right text-lg" aria-hidden="true"></i>
+  </a>
+  {% endif %}
+</article>
+{% elif card.href %}
+{# Clickable card (original behavior) #}
 <a href="{{ card.href }}"
-   class="block bg-white border border-gray-200 rounded-xl p-4 hover:shadow-md hover:border-gray-300 transition-all group"
-   data-metric-card="{{ card.key }}">
+   class="metric-card block bg-white border border-gray-200 rounded-xl p-4 hover:shadow-md hover:border-gray-300 transition-all group"
+   data-metric-card="{{ card.key }}"
+   data-tone="{{ tone }}">
+  {% if card.icon %}
+  <div class="flex items-center gap-2 mb-2">
+    <i class="iconoir-{{ card.icon }} text-gray-400" aria-hidden="true"></i>
+  </div>
+  {% endif %}
   <div class="text-4xl font-bold {{ tone_count }}">{{ card.count|default:"0" }}</div>
-  <div class="text-sm font-medium text-gray-600 mt-1">{{ card.label }}</div>
+  <div class="text-sm font-medium text-gray-600 mt-1">{{ label_text }}</div>
   {% if card.description %}
   <div class="text-xs text-gray-500 mt-1">{{ card.description }}</div>
   {% endif %}
   <div class="mt-2 text-xs text-gray-400 group-hover:text-blue-600 transition-colors">
-    View {{ card.label|lower }} &rarr;
+    View {{ label_text|lower }} &rarr;
   </div>
 </a>
 {% else %}
-<div class="bg-white border border-gray-200 rounded-xl p-4"
-     data-metric-card="{{ card.key }}">
+{# Static card (original behavior) #}
+<div class="metric-card bg-white border border-gray-200 rounded-xl p-4"
+     data-metric-card="{{ card.key }}"
+     data-tone="{{ tone }}">
+  {% if card.icon %}
+  <div class="flex items-center gap-2 mb-2">
+    <i class="iconoir-{{ card.icon }} text-gray-400" aria-hidden="true"></i>
+  </div>
+  {% endif %}
   <div class="text-4xl font-bold {{ tone_count }}">{{ card.count|default:"0" }}</div>
-  <div class="text-sm font-medium text-gray-600 mt-1">{{ card.label }}</div>
+  <div class="text-sm font-medium text-gray-600 mt-1">{{ label_text }}</div>
   {% if card.description %}
   <div class="text-xs text-gray-500 mt-1">{{ card.description }}</div>
   {% endif %}

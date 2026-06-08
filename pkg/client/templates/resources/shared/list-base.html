@@ -8,21 +8,7 @@
   <div class="flex items-center justify-between gap-4">
     {# Left: Breadcrumb | Title #}
     <div class="flex items-center gap-4 min-w-0 flex-1">
-      {% if breadcrumbs %}
-      <nav class="text-xs text-gray-400 flex-shrink-0" aria-label="Breadcrumb">
-        <ol class="flex items-center gap-1.5">
-          {% for crumb in breadcrumbs %}
-            {% if not forloop.Last %}
-            <li>
-              <a href="{{ crumb.href }}" class="hover:text-gray-600 transition-colors">{{ crumb.label }}</a>
-            </li>
-            <li class="text-gray-300" aria-hidden="true">/</li>
-            {% endif %}
-          {% endfor %}
-        </ol>
-      </nav>
-      <div class="h-4 w-px bg-gray-200 flex-shrink-0" aria-hidden="true"></div>
-      {% endif %}
+      {% include "partials/breadcrumbs.html" with breadcrumbs=breadcrumbs %}
       <h1 class="text-2xl font-bold text-gray-900 truncate">{{ resource_label|default:resource|title }}</h1>
     </div>
 
