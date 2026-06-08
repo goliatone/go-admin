@@ -153,6 +153,115 @@ Patterns:
 Delete paths should use the shared structured delete executor so delete and
 POST-style actions do not diverge in error quality.
 
+## Enhanced SSR Actions
+
+Use enhanced SSR actions when a server-rendered page needs a mutation to update
+small page sections without a full reload. The HTML must remain a valid normal
+form first; JavaScript enhancement is an optional fetch path.
+
+### Server layering
+
+Keep one mutation path:
+
+- HTTP handler maps request fields into a command input.
+- Command adapter executes transport-neutral business logic and returns a typed
+  result.
+- Presenter loads the current SSR view model and builds fragments/toasts.
+- Responder chooses enhanced JSON, normal HTML redirect/flash, or the existing
+  JSON API shape.
+
+Do not put templates, DOM selectors, request headers, flash, or toast concepts
+inside command inputs/results.
+
+### Request negotiation
+
+go-crud provides the transport detection helpers:
+
+- `X-GoAdmin-Enhance: 1`
+- `Accept: application/vnd.go-admin.enhanced+json`
+- form content with HTML-oriented `Accept`
+- JSON clients without the enhanced marker
+
+go-admin consumes that result through `EnhancedMutationResponder`.
+
+Normal form posts redirect with flash headers:
+
+- `X-GoAdmin-Flash-Type`
+- `X-GoAdmin-Flash-Message`
+
+Enhanced requests return an envelope shaped like:
+
+```json
+{
+  "version": 1,
+  "ok": true,
+  "toasts": [{ "type": "success", "message": "Assignment updated." }],
+  "fragments": [
+    {
+      "selector": "[data-family-assignments]",
+      "mode": "replace",
+      "html": "<section data-family-assignments>...</section>"
+    }
+  ],
+  "focus": "[data-family-assignment-row=\"fr:localization\"]",
+  "redirect": "/admin/translations/families/example"
+}
+```
+
+Errors use the same envelope with `ok: false`, `error.message`,
+`error.fields`, and status-specific HTTP codes. The client keeps form values and
+renders field/action errors into `data-enhance-error-target` when present.
+
+### Markup and client attributes
+
+Use semantic forms:
+
+```html
+<form method="post"
+      action="/admin/api/translations/families/example/assignments"
+      data-enhance-action="true"
+      data-enhance-error-target="[data-family-assignment-error-for='fr:localization']">
+  {{ csrf_field|safe }}
+  <input type="hidden" name="target_locale" value="fr">
+  <input type="hidden" name="work_scope" value="localization">
+  <input type="hidden" name="assignee_id" value="translator-1">
+  <button type="submit">Assign</button>
+  <div data-family-assignment-error-for="fr:localization" hidden></div>
+</form>
+```
+
+The shared runtime lives in `pkg/client/assets/src/shared/enhanced-action.ts`.
+Page modules import `initEnhancedActions(...)`, then reinitialize local widgets
+from `onFragmentsApplied` when fragments replace controls.
+
+### Fragment rules
+
+- Fragments are server-rendered trusted HTML.
+- Use server-authored selectors from a known page registry.
+- Use `replace` mode until a page has a proven append/prepend need.
+- Do not execute inline scripts from fragments.
+- Reuse the same presenter data as first-paint SSR.
+
+The translation family pilot uses:
+
+- `[data-family-locale-coverage]`
+- `[data-family-assignments]`
+- `[data-family-publish-gate]`
+- `[data-family-activity]`
+
+### Tests
+
+For each enhanced action, cover:
+
+- command adapter execution without router context
+- enhanced response with fragments/toast/focus
+- normal form redirect and flash
+- JSON compatibility without the enhanced marker
+- template roots and valid CSRF form markup
+- client headers, busy state, fragment replacement, toast, focus, validation
+  errors, and no reload on success
+- example app or host smoke proving required dist assets are served
+
 ## Diagnostics
 
 Phase 8 adds a shared diagnostics surface for action disablements, resolver

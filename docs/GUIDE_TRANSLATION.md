@@ -60,10 +60,15 @@ Optional overrides:
 
 `examples/web` no longer uses QA-only shortcut menu items.
 
-The seeded `Translations` menu now reflects the production navigation model:
+The seeded `Translations` menu reflects the production navigation model. In the
+default `full` example profile, queue-enabled entries are:
 
 - `Dashboard`
 - `Queue`
+- `Assignments`
+
+Exchange-enabled profiles also add:
+
 - `Exchange`
 
 Other translation surfaces still exist, but they are contextual or deep-linked rather than top-level menu items:
@@ -76,14 +81,15 @@ Other translation surfaces still exist, but they are contextual or deep-linked r
 Queue navigation details:
 
 - Direct queue UI route: `/admin/translations/queue`
-- Compatibility alias used by the seeded menu entry: `/admin/content/translations`
+- Assignments compatibility route: `/admin/content/translations`
+- Generated queue menu entries resolve to `/admin/translations/queue`; the compatibility route remains available for callers that still resolve the `translations.assignments` route key.
 
 Productized UI/nav exposure follows the selected profile:
 
-- `core`: family detail and matrix UI routes are exposed.
-- `core+queue`: core UI plus dashboard, queue, assignment editor UI, and queue APIs.
-- `core+exchange`: core UI plus exchange UI/API routes.
-- `full`: all productized core UI, queue/dashboard/editor UI, queue API, and exchange UI/API routes.
+- `core`: family detail and matrix UI routes are exposed as contextual/deep-link surfaces.
+- `core+queue`: core UI plus dashboard, queue, assignments compatibility route, assignment editor UI, queue APIs, and queue menu entries.
+- `core+exchange`: core UI plus exchange UI/API routes and exchange menu entry.
+- `full`: all productized core UI, queue/dashboard/editor UI, queue API, exchange UI/API routes, and generated translation menu entries.
 
 Backend route gating is more granular than the product profile:
 
@@ -91,6 +97,33 @@ Backend route gating is more granular than the product profile:
 - Queue APIs are registered only when the translation queue feature is enabled.
 - Exchange APIs are registered only when the translation exchange feature is enabled.
 - `none` removes productized translation UI/nav exposure and disabled module capability routes, but does not by itself disable CMS-backed translation-family internals for a CMS-enabled host.
+
+### Enhanced SSR action status
+
+Translation family assignment is the first enhanced SSR action pilot.
+
+Implemented contracts:
+
+- `go.mod` uses `replace github.com/goliatone/go-crud => ../go-crud` so this checkout can consume local go-crud enhanced mutation helpers during cross-repo development.
+- go-crud detects mutation response mode with `X-GoAdmin-Enhance: 1`, `Accept: application/vnd.go-admin.enhanced+json`, normal browser form posts, and JSON clients.
+- go-admin defines `MutationPresentation`, `EnhancedMutationResponder`, toast/fragment/error envelopes, and known family-detail fragment targets in `admin/enhanced_mutation.go` and `admin/enhanced_family_fragments.go`.
+- The shared browser runtime in `pkg/client/assets/src/shared/enhanced-action.ts` progressively enhances `form[data-enhance-action]`, sends enhanced headers, applies `replace` fragments, shows toasts, renders field errors, restores focus, and reinitializes Formgen relationships.
+- Family detail SSR contains stable replacement roots: `data-family-locale-coverage`, `data-family-assignments`, `data-family-publish-gate`, and `data-family-activity`.
+- Family detail `Assign to me` and `Assign` controls are semantic POST forms with CSRF, hidden command fields, `data-enhance-action="true"`, and scoped error targets.
+- The family assignment endpoint executes one command-backed mutation path and negotiates three response shapes at the presentation boundary:
+  - enhanced browser requests return `application/vnd.go-admin.enhanced+json` with fragments, toast, focus, and redirect fallback
+  - normal HTML form posts redirect to the family detail page with flash headers
+  - existing JSON clients keep the existing JSON response shape when they do not send the enhanced marker
+
+Authoring rules for future translation-family enhanced actions:
+
+- Keep business logic in transport-neutral command adapters. Do not pass HTTP, DOM selectors, templates, toasts, or redirects into commands.
+- Render enhanced fragments from the same family detail presenter data used by first-paint SSR.
+- Use only the known family detail fragment roots unless a new root is documented and tested.
+- Use `replace` fragments only; defer append/prepend until a real page needs them.
+- Preserve no-JS behavior by keeping valid `method`, `action`, CSRF, and hidden command fields on the form.
+- Preserve JSON compatibility by requiring the enhanced marker before returning fragment envelopes.
+- Test the Go responder path, template roots, no-JS redirect/flash, JSON compatibility, built assets, and client fragment/toast/error handling.
 
 ## 3. Core Model
 
@@ -286,7 +319,9 @@ Typical edit routes:
 Editor API routes used by the assignment editor:
 
 - `GET /admin/api/translations/assignments/:assignment_id`
-- `PATCH /admin/api/translations/variants/:variant_id`
+- `GET /admin/api/translations/assignments/:assignment_id/preview`
+- `GET /admin/api/translations/sync/resources/:kind/:id`
+- `PATCH /admin/api/translations/sync/resources/:kind/:id`
 - `POST /admin/api/translations/assignments/:assignment_id/actions/:action`
 
 ### Step 5: Use family and matrix views when needed
@@ -321,8 +356,8 @@ Use the queue for work coordination and lifecycle management.
 
 Open:
 
-- seeded nav entry: `/admin/content/translations`
-- direct UI route: `/admin/translations/queue`
+- seeded queue nav entry: `/admin/translations/queue`
+- assignments compatibility route: `/admin/content/translations`
 
 Typical queue actions:
 
@@ -351,10 +386,12 @@ Core queue API routes:
 - `GET /admin/api/translations/my-work`
 - `GET /admin/api/translations/assignments`
 - `GET /admin/api/translations/assignments/:assignment_id`
+- `GET /admin/api/translations/assignments/:assignment_id/preview`
 - `POST /admin/api/translations/assignments/:assignment_id/actions/:action`
 - `POST /admin/api/translations/assignment-actions/snapshot`
 - `POST /admin/api/translations/assignment-actions/bulk`
-- `PATCH /admin/api/translations/variants/:variant_id`
+- `GET /admin/api/translations/sync/resources/:kind/:id`
+- `PATCH /admin/api/translations/sync/resources/:kind/:id`
 
 Queue option endpoints also exist under `/admin/api/translations/options/*` for entity types, source records, locales, families, and assignees.
 
@@ -593,13 +630,14 @@ When validating a production-style setup in `examples/web`, verify:
 2. The sidebar contains the seeded `Translations` group with:
    - dashboard
    - queue
+   - assignments
    - exchange
 3. Expected contextual UI routes remain reachable for their enabled module:
    - core: family detail and matrix
    - queue: assignment editor
 4. Disabled profiles behave correctly:
-   - `core`: family detail and matrix UI are exposed; queue/dashboard/editor/exchange are not
-   - `core+queue`: queue/dashboard/editor are exposed; exchange is not
+   - `core`: family detail and matrix UI are exposed as deep links; queue/dashboard/editor/exchange menu entries are not
+   - `core+queue`: queue/dashboard/assignments/editor are exposed; exchange is not
    - `core+exchange`: exchange is exposed; queue/dashboard/editor are not
    - `none`: no productized translation menu or module UI entrypoints
 5. Privileged roles retain required translation permissions.
@@ -678,14 +716,14 @@ You still need content-panel permissions such as:
 
 ## 12. Troubleshooting
 
-### “I can open the queue directly, but the sidebar link goes somewhere different”
+### “I have both `/admin/translations/queue` and `/admin/content/translations` links”
 
 Expected.
 
-- direct queue shell route: `/admin/translations/queue`
-- seeded sidebar entry target: `/admin/content/translations`
+- direct queue shell route and generated queue nav target: `/admin/translations/queue`
+- assignments compatibility route: `/admin/content/translations`
 
-They both lead to the queue experience.
+They both remain valid entrypoints for queue/assignment workflows.
 
 ### “I requested FR but I still see EN”
 
@@ -754,6 +792,8 @@ Quickstart/productization references:
 Translation backend/UI bindings:
 
 - `admin/translation_*`
+- `admin/enhanced_mutation.go`
+- `admin/enhanced_family_fragments.go`
 - `admin/internal/boot/step_translation_*.go`
 - `translations/adapters/goadmin/module_contract.go`
 - `translations/core/`
@@ -761,6 +801,7 @@ Translation backend/UI bindings:
 - `translations/ui/openapi/translations.json` (partial OpenAPI snapshot; confirm against boot route steps before treating it as a complete route inventory)
 - `pkg/client/templates/resources/translations/`
 - `pkg/client/templates/resources/shared/list-base.html`
+- `pkg/client/assets/src/shared/enhanced-action.ts`
 - `pkg/client/assets/src/translation-*`
 - `pkg/client/assets/src/datatable/translation-*`
 - `pkg/client/assets/src/datatable/grouped-mode.ts`
