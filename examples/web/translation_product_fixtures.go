@@ -431,6 +431,10 @@ func seedExampleTranslationQueueFixtureWithFamilySync(
 	}
 
 	now := time.Now().UTC()
+	fixtureAssignerID := assignees[0]
+	if len(assignees) > 1 {
+		fixtureAssignerID = assignees[1]
+	}
 	primaryGroupID := normalizeFamilyID(sourcePage.FamilyID, sourcePage.ID)
 	if strings.TrimSpace(primaryGroupID) == "" {
 		return fmt.Errorf("translation queue fixture source page %q missing family_id", exampleTranslationQueueSourceSlug)
@@ -555,10 +559,12 @@ func seedExampleTranslationQueueFixtureWithFamilySync(
 					Status:              coreadmin.AssignmentStatusReview,
 					Priority:            coreadmin.PriorityHigh,
 					AssigneeID:          assignees[0],
+					AssignerID:          fixtureAssignerID,
 					ReviewerID:          assignees[0],
 					SourceTitle:         strings.TrimSpace(firstNonEmpty(editorSource.Title, sourceFields["title"])),
 					SourcePath:          strings.TrimSpace(firstNonEmpty(exchangePagePath(*editorSource), sourceFields["path"])),
 					LastRejectionReason: "Please tighten the CTA tone.",
+					AssignedAt:          fixtureTimePtr(now.Add(-3 * time.Hour)),
 					ClaimedAt:           fixtureTimePtr(now.Add(-90 * time.Minute)),
 					SubmittedAt:         fixtureTimePtr(now.Add(-45 * time.Minute)),
 				}
@@ -583,6 +589,8 @@ func seedExampleTranslationQueueFixtureWithFamilySync(
 		Status:         coreadmin.AssignmentStatusInProgress,
 		Priority:       coreadmin.PriorityHigh,
 		AssigneeID:     assignees[0],
+		AssignerID:     fixtureAssignerID,
+		AssignedAt:     fixtureTimePtr(now.Add(-45 * time.Minute)),
 		ClaimedAt:      fixtureTimePtr(now),
 	}
 	if err := seedOrRefreshQueueAssignment(ctx, repo, inProgress); err != nil {
@@ -611,8 +619,10 @@ func seedExampleTranslationQueueFixtureWithFamilySync(
 		Status:         coreadmin.AssignmentStatusReview,
 		Priority:       coreadmin.PriorityHigh,
 		AssigneeID:     assignees[0],
+		AssignerID:     fixtureAssignerID,
 		ReviewerID:     assignees[0],
 		DueDate:        &reviewDueDate,
+		AssignedAt:     fixtureTimePtr(now.Add(-4 * time.Hour)),
 		ClaimedAt:      fixtureTimePtr(now),
 		SubmittedAt:    fixtureTimePtr(now.Add(-2 * time.Hour)),
 	}
@@ -645,6 +655,7 @@ func seedExampleTranslationQueueFixtureWithFamilySync(
 		Status:         coreadmin.AssignmentStatusAssigned,
 		Priority:       coreadmin.PriorityNormal,
 		AssigneeID:     assignedAssignee,
+		AssignerID:     fixtureAssignerID,
 		ReviewerID:     assignees[0],
 		DueDate:        &assignedDueDate,
 	}
@@ -667,7 +678,9 @@ func seedExampleTranslationQueueFixtureWithFamilySync(
 		Status:         coreadmin.AssignmentStatusInProgress,
 		Priority:       coreadmin.PriorityUrgent,
 		AssigneeID:     assignees[0],
+		AssignerID:     fixtureAssignerID,
 		DueDate:        &overdueDueDate,
+		AssignedAt:     fixtureTimePtr(now.Add(-72 * time.Hour)),
 		ClaimedAt:      fixtureTimePtr(now.Add(-24 * time.Hour)),
 	}
 	if err := seedOrRefreshQueueAssignment(ctx, repo, overdueQueueItem); err != nil {
@@ -754,6 +767,10 @@ func seedPersistentQueueFixture(
 	}
 
 	now := time.Now().UTC()
+	fixtureAssignerID := assignees[0]
+	if len(assignees) > 1 {
+		fixtureAssignerID = assignees[1]
+	}
 	primaryGroupID := strings.TrimSpace(normalizeFamilyID(sourcePage.FamilyID, sourcePage.ID))
 	if primaryGroupID == "" {
 		return fmt.Errorf("persistent queue fixture source page %q missing family_id", exampleTranslationQueueSourceSlug)
@@ -848,10 +865,12 @@ func seedPersistentQueueFixture(
 		Status:              coreadmin.AssignmentStatusInReview,
 		Priority:            coreadmin.PriorityHigh,
 		AssigneeID:          assignees[0],
+		AssignerID:          fixtureAssignerID,
 		ReviewerID:          assignees[0],
 		SourceTitle:         strings.TrimSpace(firstNonEmpty(editorSource.Title, sourceFields["title"])),
 		SourcePath:          strings.TrimSpace(firstNonEmpty(exchangePagePath(*editorSource), sourceFields["path"])),
 		LastRejectionReason: "Please tighten the CTA tone.",
+		AssignedAt:          fixtureTimePtr(now.Add(-3 * time.Hour)),
 		ClaimedAt:           fixtureTimePtr(now.Add(-90 * time.Minute)),
 		SubmittedAt:         fixtureTimePtr(now.Add(-45 * time.Minute)),
 	}
@@ -889,6 +908,8 @@ func seedPersistentQueueFixture(
 		Status:         coreadmin.AssignmentStatusInProgress,
 		Priority:       coreadmin.PriorityHigh,
 		AssigneeID:     assignees[0],
+		AssignerID:     fixtureAssignerID,
+		AssignedAt:     fixtureTimePtr(now.Add(-45 * time.Minute)),
 		ClaimedAt:      fixtureTimePtr(now),
 	}
 	if err := persistAssignment(inProgress); err != nil {
@@ -953,7 +974,9 @@ func seedPersistentQueueFixture(
 			Status:         coreadmin.AssignmentStatusInProgress,
 			Priority:       coreadmin.PriorityUrgent,
 			AssigneeID:     assignees[0],
+			AssignerID:     fixtureAssignerID,
 			DueDate:        &overduePageDueDate,
+			AssignedAt:     fixtureTimePtr(now.Add(-72 * time.Hour)),
 			ClaimedAt:      fixtureTimePtr(now.Add(-24 * time.Hour)),
 		}
 		if err := persistAssignment(overduePage); err != nil {
@@ -1113,6 +1136,14 @@ func seedOrRefreshQueueAssignment(ctx context.Context, repo coreadmin.Translatio
 	}
 	if strings.TrimSpace(updated.SourcePath) == "" && strings.TrimSpace(assignment.SourcePath) != "" {
 		updated.SourcePath = strings.TrimSpace(assignment.SourcePath)
+		changed = true
+	}
+	if strings.TrimSpace(updated.AssignerID) == "" && strings.TrimSpace(assignment.AssignerID) != "" {
+		updated.AssignerID = strings.TrimSpace(assignment.AssignerID)
+		changed = true
+	}
+	if updated.AssignedAt == nil && assignment.AssignedAt != nil {
+		updated.AssignedAt = fixtureTimePtr(assignment.AssignedAt.UTC())
 		changed = true
 	}
 	if !changed {
