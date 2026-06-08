@@ -88,6 +88,39 @@ func TestEnhancedMutationResponderUsesCustomMediaType(t *testing.T) {
 	assert.Equal(t, "application/vnd.example.action+json", ctx.headers["Content-Type"])
 }
 
+func TestEnhancedActionRuntimeOptionsUseNormalizedNegotiationConfig(t *testing.T) {
+	adm := mustNewAdmin(t, Config{}, Dependencies{})
+	adm.WithEnhancedActionNegotiation(EnhancedActionNegotiationConfig{
+		RequestHeader:      "X-App-Action",
+		RequestHeaderValue: "opaque-marker",
+		RequestMediaTypes:  []string{"application/vnd.example.request+json"},
+		ResponseMediaType:  "application/vnd.example.response+json",
+	})
+
+	options := adm.EnhancedActionRuntimeOptions()
+
+	assert.Equal(t, "X-App-Action", options.RequestHeader)
+	assert.Equal(t, "opaque-marker", options.RequestHeaderValue)
+	assert.Equal(t, "application/vnd.example.response+json", options.Accept)
+}
+
+func TestTranslationSSREnhancementCarriesEnhancedActionRuntimeOptions(t *testing.T) {
+	options := EnhancedActionRuntimeOptions{
+		RequestHeader:      "X-App-Action",
+		RequestHeaderValue: "opaque-marker",
+		Accept:             "application/vnd.example.action+json",
+	}
+
+	enhancement := translationSSREnhancement(TranslationSSRPresenterInput{
+		APIBasePath:       "/admin/api/",
+		BasePath:          "/admin/",
+		EnhancedAction:    options,
+		BulkActionAPIPath: "/admin/api/translations/actions",
+	})
+
+	assert.Equal(t, options, enhancement["enhanced_action"])
+}
+
 func TestEnhancedMutationResponderRedirectsNormalFormWithFlash(t *testing.T) {
 	ctx := newEnhancedMutationTestContext()
 	ctx.referer = "/admin/fallback"

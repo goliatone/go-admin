@@ -920,3 +920,457 @@ func translationSSRTestBadgeLabels(raw any) map[string]bool {
 	}
 	return out
 }
+
+func TestTranslationSSRFamilySummaryCardsCountsStatuses(t *testing.T) {
+	input := TranslationSSRPresenterInput{
+		FamilyListPath: "/admin/translations/families",
+		Channel:        "staging",
+		Query: map[string]string{
+			"family_id":    "family-1",
+			"content_type": "pages",
+			"blocker_code": "missing_locale",
+		},
+	}
+	data := map[string]any{
+		"families": []map[string]any{
+			{"family_id": "fam-1", "readiness_state": "blocked"},
+			{"family_id": "fam-2", "readiness_state": "blocked"},
+			{"family_id": "fam-3", "readiness_state": "missing_locales"},
+			{"family_id": "fam-4", "readiness_state": "missing_locales_and_fields"},
+			{"family_id": "fam-5", "readiness_state": "ready"},
+		},
+	}
+
+	cards := translationSSRFamilySummaryCards(input, data)
+
+	if len(cards) != 4 {
+		t.Fatalf("expected 4 summary cards, got %d", len(cards))
+	}
+
+	cardByKey := map[string]map[string]any{}
+	for _, card := range cards {
+		cardByKey[toString(card["key"])] = card
+	}
+
+	if got := toInt(cardByKey["total"]["count"]); got != 5 {
+		t.Fatalf("expected total count 5, got %d", got)
+	}
+	if got := toInt(cardByKey["blocked"]["count"]); got != 2 {
+		t.Fatalf("expected blocked count 2, got %d", got)
+	}
+	if got := toInt(cardByKey["missing"]["count"]); got != 2 {
+		t.Fatalf("expected missing count 2 (includes missing_locales_and_fields), got %d", got)
+	}
+	if got := toInt(cardByKey["ready"]["count"]); got != 1 {
+		t.Fatalf("expected ready count 1, got %d", got)
+	}
+}
+
+func TestTranslationSSRFamilySummaryCardsPreservesChannelAndFilters(t *testing.T) {
+	input := TranslationSSRPresenterInput{
+		FamilyListPath: "/admin/translations/families",
+		Channel:        "staging",
+		Query: map[string]string{
+			"family_id":    "family-1",
+			"content_type": "pages",
+			"blocker_code": "missing_locale",
+		},
+	}
+	data := map[string]any{
+		"families": []map[string]any{},
+	}
+
+	cards := translationSSRFamilySummaryCards(input, data)
+
+	blockedCard := cards[1]
+	href := toString(blockedCard["href"])
+	parsed, err := url.Parse(href)
+	if err != nil {
+		t.Fatalf("parse href: %v", err)
+	}
+	if got := parsed.Query().Get("channel"); got != "staging" {
+		t.Fatalf("expected channel preserved, got %q in %q", got, href)
+	}
+	if got := parsed.Query().Get("family_id"); got != "family-1" {
+		t.Fatalf("expected family_id preserved, got %q in %q", got, href)
+	}
+	if got := parsed.Query().Get("content_type"); got != "pages" {
+		t.Fatalf("expected content_type preserved, got %q in %q", got, href)
+	}
+	if got := parsed.Query().Get("blocker_code"); got != "missing_locale" {
+		t.Fatalf("expected blocker_code preserved, got %q in %q", got, href)
+	}
+	if got := parsed.Query().Get("readiness_state"); got != "blocked" {
+		t.Fatalf("expected readiness_state filter applied, got %q in %q", got, href)
+	}
+}
+
+func TestTranslationSSRQueueSummaryCardsCountsStatuses(t *testing.T) {
+	input := TranslationSSRPresenterInput{
+		QueuePath: "/admin/translations/queue",
+		Channel:   "staging",
+	}
+	data := map[string]any{
+		"rows": []map[string]any{
+			{"assignment_id": "asg-0", "status": "open", "priority": "normal"},
+			{"assignment_id": "asg-1", "status": "assigned", "priority": "normal"},
+			{"assignment_id": "asg-2", "status": "in_progress", "priority": "high"},
+			{"assignment_id": "asg-3", "status": "in_review", "priority": "normal"},
+			{"assignment_id": "asg-4", "status": "changes_requested", "priority": "urgent"},
+			{"assignment_id": "asg-5", "status": "assigned", "due_state": "overdue", "priority": "normal"},
+			{"row_type": "family", "family_id": "fam-1"}, // Should be skipped
+		},
+	}
+
+	cards := translationSSRQueueSummaryCards(input, data)
+
+	if len(cards) != 5 {
+		t.Fatalf("expected 5 summary cards, got %d", len(cards))
+	}
+
+	cardByKey := map[string]map[string]any{}
+	for _, card := range cards {
+		cardByKey[toString(card["key"])] = card
+	}
+
+	if got := toInt(cardByKey["total"]["count"]); got != 6 {
+		t.Fatalf("expected total count 6 (skipping family row), got %d", got)
+	}
+	if got := toInt(cardByKey["active"]["count"]); got != 5 {
+		t.Fatalf("expected active count 5 (open, assigned, in_progress, changes_requested), got %d", got)
+	}
+	if got := toInt(cardByKey["review"]["count"]); got != 1 {
+		t.Fatalf("expected review count 1, got %d", got)
+	}
+	if got := toInt(cardByKey["overdue"]["count"]); got != 1 {
+		t.Fatalf("expected overdue count 1, got %d", got)
+	}
+	if got := toInt(cardByKey["high_priority"]["count"]); got != 2 {
+		t.Fatalf("expected high_priority count 2 (high and urgent), got %d", got)
+	}
+}
+
+func TestTranslationSSRQueueSummaryCardsPreservesChannel(t *testing.T) {
+	input := TranslationSSRPresenterInput{
+		QueuePath: "/admin/translations/queue?group_strategy=server_family",
+		Channel:   "staging",
+		Query: map[string]string{
+			"family_id":    "fam-1",
+			"locale":       "fr",
+			"assignee_id":  "user-1",
+			"due_state":    "soon",
+			"priority":     "urgent",
+			"review_state": "qa_blocked",
+		},
+	}
+	data := map[string]any{"rows": []map[string]any{}}
+
+	cards := translationSSRQueueSummaryCards(input, data)
+
+	activeCard := cards[1]
+	href := toString(activeCard["href"])
+	parsed, err := url.Parse(href)
+	if err != nil {
+		t.Fatalf("parse href: %v", err)
+	}
+	if got := parsed.Query().Get("channel"); got != "staging" {
+		t.Fatalf("expected channel preserved, got %q in %q", got, href)
+	}
+	if got := parsed.Query().Get("group_strategy"); got != "server_family" {
+		t.Fatalf("expected existing queue path query preserved, got %q in %q", got, href)
+	}
+	if got := parsed.Query().Get("family_id"); got != "fam-1" {
+		t.Fatalf("expected family_id preserved, got %q in %q", got, href)
+	}
+	if got := parsed.Query().Get("locale"); got != "fr" {
+		t.Fatalf("expected locale preserved, got %q in %q", got, href)
+	}
+	if got := parsed.Query().Get("assignee_id"); got != "user-1" {
+		t.Fatalf("expected assignee_id preserved, got %q in %q", got, href)
+	}
+	if got := parsed.Query().Get("preset"); got != "open" {
+		t.Fatalf("expected preset filter applied, got %q in %q", got, href)
+	}
+	if got := parsed.Query().Get("status"); got != "open,assigned,in_progress,changes_requested" {
+		t.Fatalf("expected expanded open preset status, got %q in %q", got, href)
+	}
+	if got := parsed.Query().Get("sort"); got != "updated_at" {
+		t.Fatalf("expected expanded open preset sort, got %q in %q", got, href)
+	}
+	if got := parsed.Query().Get("order"); got != "desc" {
+		t.Fatalf("expected expanded open preset order, got %q in %q", got, href)
+	}
+	if got := parsed.Query().Get("due_state"); got != "" {
+		t.Fatalf("expected preset card to clear conflicting due_state, got %q in %q", got, href)
+	}
+	if got := parsed.Query().Get("priority"); got != "" {
+		t.Fatalf("expected preset card to clear conflicting priority, got %q in %q", got, href)
+	}
+	if got := parsed.Query().Get("review_state"); got != "" {
+		t.Fatalf("expected standard preset card to clear review_state, got %q in %q", got, href)
+	}
+}
+
+func TestTranslationSSRQueuePresetHrefPreservesExistingBaseQuery(t *testing.T) {
+	href := translationSSRQueuePresetHref(TranslationSSRPresenterInput{
+		QueuePath: "/admin/translations/queue?group_strategy=server_family",
+		Channel:   "staging",
+	}, map[string]any{
+		"id": "open",
+		"query": map[string]any{
+			"status": "open,assigned",
+			"sort":   "updated_at",
+			"order":  "desc",
+		},
+	})
+
+	parsed, err := url.Parse(href)
+	if err != nil {
+		t.Fatalf("parse href: %v", err)
+	}
+	for key, want := range map[string]string{
+		"group_strategy": "server_family",
+		"channel":        "staging",
+		"preset":         "open",
+		"status":         "open,assigned",
+		"sort":           "updated_at",
+		"order":          "desc",
+	} {
+		if got := parsed.Query().Get(key); got != want {
+			t.Fatalf("expected query %s=%q, got %q in %q", key, want, got, href)
+		}
+	}
+	if strings.Count(href, "?") != 1 {
+		t.Fatalf("expected exactly one query separator, got %q", href)
+	}
+}
+
+func TestTranslationSSRQueueInputWithPresetExpandsQueryForPresenter(t *testing.T) {
+	input := translationSSRQueueInputWithPreset(TranslationSSRPresenterInput{
+		Query: map[string]string{
+			"preset":    "overdue",
+			"family_id": "fam-1",
+		},
+	})
+
+	if got := input.Query["preset"]; got != "overdue" {
+		t.Fatalf("expected preset preserved, got %q", got)
+	}
+	if got := input.Query["due_state"]; got != "overdue" {
+		t.Fatalf("expected overdue preset due_state expansion, got %+v", input.Query)
+	}
+	if got := input.Query["sort"]; got != "due_date" {
+		t.Fatalf("expected overdue preset sort expansion, got %+v", input.Query)
+	}
+	if got := input.Query["family_id"]; got != "fam-1" {
+		t.Fatalf("expected explicit family_id preserved, got %+v", input.Query)
+	}
+}
+
+func TestTranslationSSRFamilyQuickFiltersPreservesFilters(t *testing.T) {
+	input := TranslationSSRPresenterInput{
+		FamilyListPath: "/admin/translations/families",
+		Channel:        "staging",
+		Query: map[string]string{
+			"family_id":       "family-1",
+			"content_type":    "pages",
+			"blocker_code":    "missing_locale",
+			"missing_locale":  "fr",
+			"readiness_state": "blocked",
+		},
+	}
+
+	filters := translationSSRFamilyQuickFilters(input)
+
+	if len(filters) != 4 {
+		t.Fatalf("expected 4 quick filters (all, blocked, missing, ready), got %d", len(filters))
+	}
+
+	blockedFilter := filters[1]
+	if got := toString(blockedFilter["key"]); got != "blocked" {
+		t.Fatalf("expected blocked filter key, got %q", got)
+	}
+
+	href := toString(blockedFilter["href"])
+	parsed, err := url.Parse(href)
+	if err != nil {
+		t.Fatalf("parse href: %v", err)
+	}
+	if got := parsed.Query().Get("channel"); got != "staging" {
+		t.Fatalf("expected channel preserved, got %q in %q", got, href)
+	}
+	if got := parsed.Query().Get("family_id"); got != "family-1" {
+		t.Fatalf("expected family_id preserved, got %q in %q", got, href)
+	}
+	if got := parsed.Query().Get("content_type"); got != "pages" {
+		t.Fatalf("expected content_type preserved, got %q in %q", got, href)
+	}
+	if got := parsed.Query().Get("blocker_code"); got != "missing_locale" {
+		t.Fatalf("expected blocker_code preserved, got %q in %q", got, href)
+	}
+	if got := parsed.Query().Get("missing_locale"); got != "fr" {
+		t.Fatalf("expected missing_locale preserved, got %q in %q", got, href)
+	}
+	if got := parsed.Query().Get("readiness_state"); got != "blocked" {
+		t.Fatalf("expected readiness_state replaced with filter value, got %q in %q", got, href)
+	}
+}
+
+func TestTranslationSSRQueueQuickFiltersTracksActiveState(t *testing.T) {
+	input := TranslationSSRPresenterInput{
+		QueuePath: "/admin/translations/queue",
+		Channel:   "staging",
+		Query: map[string]string{
+			"status":       "in_progress",
+			"family_id":    "fam-1",
+			"locale":       "fr",
+			"due_state":    "soon",
+			"review_state": "qa_blocked",
+			"priority":     "high",
+			"assignee_id":  "user-1",
+			"reviewer_id":  "reviewer-1",
+		},
+	}
+
+	filters := translationSSRQueueQuickFilters(input)
+
+	if len(filters) != 5 {
+		t.Fatalf("expected 5 quick filters, got %d", len(filters))
+	}
+
+	activeFilter := map[string]bool{}
+	for _, filter := range filters {
+		if toBool(filter["active"]) {
+			activeFilter[toString(filter["key"])] = true
+		}
+	}
+
+	if activeFilter["all"] {
+		t.Fatalf("expected all filter to be inactive when status is set")
+	}
+	if !activeFilter["in_progress"] {
+		t.Fatalf("expected in_progress filter to be active")
+	}
+
+	href := toString(filters[2]["href"])
+	parsed, err := url.Parse(href)
+	if err != nil {
+		t.Fatalf("parse href: %v", err)
+	}
+	if got := parsed.Query().Get("family_id"); got != "fam-1" {
+		t.Fatalf("expected family_id preserved, got %q in %q", got, href)
+	}
+	if got := parsed.Query().Get("channel"); got != "staging" {
+		t.Fatalf("expected channel preserved, got %q in %q", got, href)
+	}
+	for key, want := range map[string]string{
+		"locale":       "fr",
+		"due_state":    "soon",
+		"review_state": "qa_blocked",
+		"priority":     "high",
+		"assignee_id":  "user-1",
+		"reviewer_id":  "reviewer-1",
+	} {
+		if got := parsed.Query().Get(key); got != want {
+			t.Fatalf("expected %s preserved as %q, got %q in %q", key, want, got, href)
+		}
+	}
+}
+
+func TestTranslationSSRPreserveFilterQueryReturnsNilWhenEmpty(t *testing.T) {
+	if got := translationSSRPreserveFilterQuery(nil, "key1"); got != nil {
+		t.Fatalf("expected nil for nil query, got %+v", got)
+	}
+	if got := translationSSRPreserveFilterQuery(map[string]string{}, "key1"); got != nil {
+		t.Fatalf("expected nil for empty query, got %+v", got)
+	}
+	if got := translationSSRPreserveFilterQuery(map[string]string{"key1": "value1"}); got != nil {
+		t.Fatalf("expected nil for no keys, got %+v", got)
+	}
+	if got := translationSSRPreserveFilterQuery(map[string]string{"key1": "value1"}, "key2"); got != nil {
+		t.Fatalf("expected nil for non-matching keys, got %+v", got)
+	}
+}
+
+func TestTranslationSSRPreserveFilterQueryExtractsRequestedKeys(t *testing.T) {
+	query := map[string]string{
+		"key1": "value1",
+		"key2": "value2",
+		"key3": "value3",
+	}
+
+	result := translationSSRPreserveFilterQuery(query, "key1", "key3", "key4")
+
+	if len(result) != 2 {
+		t.Fatalf("expected 2 preserved keys, got %+v", result)
+	}
+	if result["key1"] != "value1" {
+		t.Fatalf("expected key1=value1, got %+v", result)
+	}
+	if result["key3"] != "value3" {
+		t.Fatalf("expected key3=value3, got %+v", result)
+	}
+}
+
+func TestTranslationSSRSummaryCardHrefBuildsCorrectURL(t *testing.T) {
+	href := translationSSRSummaryCardHref(
+		"/admin/translations/families",
+		"staging",
+		map[string]string{"content_type": "pages"},
+		"readiness_state",
+		"blocked",
+	)
+
+	parsed, err := url.Parse(href)
+	if err != nil {
+		t.Fatalf("parse href: %v", err)
+	}
+	if got := parsed.Path; got != "/admin/translations/families" {
+		t.Fatalf("expected base path, got %q", got)
+	}
+	if got := parsed.Query().Get("channel"); got != "staging" {
+		t.Fatalf("expected channel, got %q", got)
+	}
+	if got := parsed.Query().Get("content_type"); got != "pages" {
+		t.Fatalf("expected preserved content_type, got %q", got)
+	}
+	if got := parsed.Query().Get("readiness_state"); got != "blocked" {
+		t.Fatalf("expected filter readiness_state, got %q", got)
+	}
+}
+
+func TestTranslationSSRSummaryCardHrefOmitsEmptyValues(t *testing.T) {
+	href := translationSSRSummaryCardHref("/admin/path", "", nil, "", "")
+
+	if href != "/admin/path" {
+		t.Fatalf("expected clean path without query string, got %q", href)
+	}
+}
+
+func TestTranslationSSRSummaryCardHrefPreservesExistingBaseQuery(t *testing.T) {
+	href := translationSSRSummaryCardHref(
+		"/admin/translations/queue?review_state=needs_review",
+		"staging",
+		map[string]string{"family_id": "fam-1"},
+		"preset",
+		"open",
+	)
+
+	parsed, err := url.Parse(href)
+	if err != nil {
+		t.Fatalf("parse href: %v", err)
+	}
+	for key, want := range map[string]string{
+		"review_state": "needs_review",
+		"channel":      "staging",
+		"family_id":    "fam-1",
+		"preset":       "open",
+	} {
+		if got := parsed.Query().Get(key); got != want {
+			t.Fatalf("expected query %s=%q, got %q in %q", key, want, got, href)
+		}
+	}
+	if strings.Count(href, "?") != 1 {
+		t.Fatalf("expected exactly one query separator, got %q", href)
+	}
+}

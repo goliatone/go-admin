@@ -32,6 +32,7 @@ type stubTranslationSSRPresenter struct {
 type capturingTranslationSSRPresenter struct {
 	stubTranslationSSRPresenter
 	familyListInput admin.TranslationSSRPresenterInput
+	queueInput      admin.TranslationSSRPresenterInput
 }
 
 func (s stubTranslationSSRPresenter) Dashboard(router.Context, admin.TranslationSSRPresenterInput) (admin.TranslationSSRPage, error) {
@@ -53,6 +54,11 @@ func (s stubTranslationSSRPresenter) FamilyDetail(router.Context, admin.Translat
 
 func (s stubTranslationSSRPresenter) Queue(router.Context, admin.TranslationSSRPresenterInput) (admin.TranslationSSRPage, error) {
 	return s.page(admin.TranslationSSRSurfaceQueue)
+}
+
+func (p *capturingTranslationSSRPresenter) Queue(c router.Context, input admin.TranslationSSRPresenterInput) (admin.TranslationSSRPage, error) {
+	p.queueInput = input
+	return p.stubTranslationSSRPresenter.Queue(c, input)
 }
 
 func (s stubTranslationSSRPresenter) Editor(router.Context, admin.TranslationSSRPresenterInput) (admin.TranslationSSRPage, error) {
@@ -1022,6 +1028,7 @@ func TestTranslationSSRQueryValuesPreservesScope(t *testing.T) {
 	ctx.QueriesM[admin.ScopeTenantIDKey] = " tenant-1 "
 	ctx.QueriesM[admin.ScopeOrgIDKey] = "org-1"
 	ctx.QueriesM["status"] = "open"
+	ctx.QueriesM["preset"] = "overdue"
 
 	values := translationSSRQueryValues(ctx)
 	if values[admin.ScopeTenantIDKey] != "tenant-1" {
@@ -1033,6 +1040,62 @@ func TestTranslationSSRQueryValuesPreservesScope(t *testing.T) {
 	if values["status"] != "open" {
 		t.Fatalf("expected existing filter to be preserved, got %q", values["status"])
 	}
+	if values["preset"] != "overdue" {
+		t.Fatalf("expected preset to be preserved, got %q", values["preset"])
+	}
+}
+
+func TestRegisterAdminUIRoutesTranslationQueueUsesPresetFromQuery(t *testing.T) {
+	cfg := NewAdminConfig("/admin", "Admin", "en")
+	adm, _, err := NewAdmin(
+		cfg,
+		AdapterHooks{},
+		WithFeatureDefaults(map[string]bool{
+			string(admin.FeatureCMS):              true,
+			string(admin.FeatureTranslationQueue): true,
+		}),
+	)
+	if err != nil {
+		t.Fatalf("create admin: %v", err)
+	}
+	registerTranslationCapabilities(
+		adm,
+		TranslationProductConfig{Profile: TranslationProfileCoreQueue},
+		nil,
+		translationCapabilityModuleState{HasState: true, QueueEnabled: true},
+	)
+
+	presenter := &capturingTranslationSSRPresenter{}
+	captureRouter := newUIRoutesCaptureRouter()
+	if err := RegisterAdminUIRoutes(captureRouter, cfg, adm, nil, WithUITranslationSSRPresenter(presenter)); err != nil {
+		t.Fatalf("register ui routes: %v", err)
+	}
+	handler := captureRouter.getHandlers["/admin/translations/queue"]
+	if handler == nil {
+		t.Fatalf("expected queue route handler")
+	}
+
+	ctx := router.NewMockContext()
+	ctx.QueriesM["preset"] = "overdue"
+	ctx.On("Context").Return(context.Background())
+	ctx.On("Render", "resources/translations/shell", mock.MatchedBy(func(arg any) bool {
+		viewCtx, ok := arg.(router.ViewContext)
+		if !ok {
+			return false
+		}
+		return fmt.Sprint(viewCtx["translation_queue_initial_preset"]) == "overdue"
+	})).Return(nil)
+
+	if err := handler(ctx); err != nil {
+		t.Fatalf("render queue shell: %v", err)
+	}
+	if presenter.queueInput.InitialPresetID != "overdue" {
+		t.Fatalf("expected queue initial preset from query, got %+v", presenter.queueInput)
+	}
+	if presenter.queueInput.Query["preset"] != "overdue" {
+		t.Fatalf("expected queue input query to preserve preset, got %+v", presenter.queueInput.Query)
+	}
+	ctx.AssertExpectations(t)
 }
 
 func TestRegisterAdminUIRoutesMigratedTranslationRoutesExposeHydratedSSRContext(t *testing.T) {
