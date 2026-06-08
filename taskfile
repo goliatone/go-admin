@@ -583,10 +583,117 @@ function _translation_dashboard_ssr_webcap:listen_addr {
     printf '%s\n' "${WEBCAP_LISTEN_ADDR:-:${base_url##*:}}"
 }
 
+function _translation_dashboard_ssr_webcap:port {
+    local base_url
+    local without_scheme
+    local host_port
+    local port
+    base_url="$(_translation_dashboard_ssr_webcap:base_url)"
+    without_scheme="${base_url#*://}"
+    host_port="${without_scheme%%/*}"
+    port="${host_port##*:}"
+    if [ "${port}" = "${host_port}" ]; then
+        case "${base_url}" in
+            https://*) port=443 ;;
+            *) port=80 ;;
+        esac
+    fi
+    printf '%s\n' "${port}"
+}
+
+function _translation_dashboard_ssr_webcap:pid_file {
+    printf '%s\n' "${WEBCAP_SERVER_PID_FILE:-webcap-output/translation-dashboard-ssr/server.pid}"
+}
+
+function _translation_dashboard_ssr_webcap:reuse_server {
+    [ "${WEBCAP_REUSE_SERVER:-false}" = "true" ]
+}
+
+function _translation_dashboard_ssr_webcap:stop_existing_server {
+    if [ -n "${WEBCAP_STOP_EXISTING_SERVER+x}" ]; then
+        [ "${WEBCAP_STOP_EXISTING_SERVER}" = "true" ]
+        return $?
+    fi
+
+    case "$(_translation_dashboard_ssr_webcap:base_url)" in
+        http://localhost:18080|http://127.0.0.1:18080) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
 function _translation_dashboard_ssr_webcap:server_ready {
     local base_url
     base_url="$(_translation_dashboard_ssr_webcap:base_url)"
     curl -fsS --max-time 2 "${base_url}/admin/login" >/dev/null 2>&1
+}
+
+function _translation_dashboard_ssr_webcap:listener_pids {
+    local port
+    port="$(_translation_dashboard_ssr_webcap:port)"
+    if command -v lsof >/dev/null 2>&1; then
+        lsof -tiTCP:"${port}" -sTCP:LISTEN 2>/dev/null | sort -u
+        return 0
+    fi
+
+    echo "Cannot inspect listener on port ${port}; install lsof or stop the server manually." >&2
+    return 1
+}
+
+function _translation_dashboard_ssr_webcap:terminate_pids {
+    local pids=$1
+    local deadline
+    if [ -z "${pids}" ]; then
+        return 0
+    fi
+
+    # shellcheck disable=SC2086
+    kill ${pids} >/dev/null 2>&1 || true
+    deadline=$((SECONDS + ${WEBCAP_SERVER_STOP_TIMEOUT_SECONDS:-10}))
+    while [ "${SECONDS}" -lt "${deadline}" ]; do
+        # shellcheck disable=SC2086
+        if ! kill -0 ${pids} >/dev/null 2>&1; then
+            return 0
+        fi
+        sleep 1
+    done
+
+    # shellcheck disable=SC2086
+    kill -KILL ${pids} >/dev/null 2>&1 || true
+}
+
+function _translation_dashboard_ssr_webcap:stop_managed_server {
+    local pid_file
+    local pid
+    pid_file="$(_translation_dashboard_ssr_webcap:pid_file)"
+    if [ ! -f "${pid_file}" ]; then
+        return 1
+    fi
+
+    pid="$(cat "${pid_file}")"
+    rm -f "${pid_file}"
+    if [ -z "${pid}" ]; then
+        return 1
+    fi
+
+    if kill -0 "${pid}" >/dev/null 2>&1; then
+        echo "Stopping managed examples/web process (${pid})"
+        _translation_dashboard_ssr_webcap:terminate_pids "${pid}" || return 1
+        _translation_dashboard_ssr_webcap:stop_listeners >/dev/null 2>&1 || true
+        return 0
+    fi
+
+    return 1
+}
+
+function _translation_dashboard_ssr_webcap:stop_listeners {
+    local pids
+    pids="$(_translation_dashboard_ssr_webcap:listener_pids)" || return 1
+    if [ -z "${pids}" ]; then
+        return 0
+    fi
+
+    echo "Stopping listener(s) on $(_translation_dashboard_ssr_webcap:base_url): ${pids//$'\n'/ }"
+    _translation_dashboard_ssr_webcap:terminate_pids "${pids}" || return 1
 }
 
 function _translation_dashboard_ssr_webcap:start_server {
@@ -595,14 +702,17 @@ function _translation_dashboard_ssr_webcap:start_server {
     local log_file
     local db_path
     local db_dsn
+    local pid_file
     root_dir="$(pwd)"
     listen_addr="$(_translation_dashboard_ssr_webcap:listen_addr)"
     log_file="${WEBCAP_SERVER_LOG:-webcap-output/translation-dashboard-ssr/server.log}"
     db_path="${WEBCAP_DATABASE_PATH:-${root_dir}/webcap-output/translation-dashboard-ssr/admin.db}"
     db_dsn="${WEBCAP_DATABASE_DSN:-file:${db_path}?cache=shared&_fk=1}"
+    pid_file="$(_translation_dashboard_ssr_webcap:pid_file)"
 
     mkdir -p "$(dirname "${log_file}")"
     mkdir -p "$(dirname "${db_path}")"
+    mkdir -p "$(dirname "${pid_file}")"
     if [ -z "${WEBCAP_DATABASE_DSN:-}" ] && [ "${WEBCAP_RESET_DATABASE:-true}" = "true" ]; then
         rm -f "${db_path}"
     fi
@@ -634,6 +744,7 @@ function _translation_dashboard_ssr_webcap:start_server {
 
     WEBCAP_EXAMPLE_PID=$!
     export WEBCAP_EXAMPLE_PID
+    printf '%s\n' "${WEBCAP_EXAMPLE_PID}" >"${pid_file}"
 }
 
 function _translation_dashboard_ssr_webcap:wait_for_server {
@@ -653,8 +764,23 @@ function _translation_dashboard_ssr_webcap:wait_for_server {
 
 function _translation_dashboard_ssr_webcap:ensure_server {
     if _translation_dashboard_ssr_webcap:server_ready; then
-        echo "Using existing server at $(_translation_dashboard_ssr_webcap:base_url)"
-        return 0
+        if _translation_dashboard_ssr_webcap:reuse_server; then
+            echo "Using existing server at $(_translation_dashboard_ssr_webcap:base_url)"
+            return 0
+        fi
+
+        echo "Existing server detected at $(_translation_dashboard_ssr_webcap:base_url); restarting for fresh webcap captures"
+        if ! _translation_dashboard_ssr_webcap:stop_managed_server; then
+            if _translation_dashboard_ssr_webcap:stop_existing_server; then
+                _translation_dashboard_ssr_webcap:stop_listeners || return 1
+            else
+                echo "Refusing to reuse an existing server because it may be stale." >&2
+                echo "Stop it manually, set WEBCAP_STOP_EXISTING_SERVER=true to let this task stop it, or set WEBCAP_REUSE_SERVER=true to opt into reuse." >&2
+                return 1
+            fi
+        fi
+    elif ! _translation_dashboard_ssr_webcap:reuse_server; then
+        _translation_dashboard_ssr_webcap:stop_managed_server >/dev/null 2>&1 || true
     fi
 
     _translation_dashboard_ssr_webcap:start_server || return 1
@@ -662,10 +788,14 @@ function _translation_dashboard_ssr_webcap:ensure_server {
 }
 
 function _translation_dashboard_ssr_webcap:stop_server {
+    local pid_file
+    pid_file="$(_translation_dashboard_ssr_webcap:pid_file)"
     if [ -n "${WEBCAP_EXAMPLE_PID:-}" ]; then
         echo "Stopping examples/web (${WEBCAP_EXAMPLE_PID})"
         kill "${WEBCAP_EXAMPLE_PID}" >/dev/null 2>&1 || true
         wait "${WEBCAP_EXAMPLE_PID}" >/dev/null 2>&1 || true
+        _translation_dashboard_ssr_webcap:stop_listeners >/dev/null 2>&1 || true
+        rm -f "${pid_file}"
     fi
 }
 
