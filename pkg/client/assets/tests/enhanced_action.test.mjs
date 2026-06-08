@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 const {
   ENHANCED_ACTION_ACCEPT,
   ENHANCED_ACTION_HEADER,
+  ENHANCED_ACTION_HEADER_VALUE,
   applyEnhancedEnvelope,
   initEnhancedActions,
 } = await import('../dist/shared/enhanced-action.js');
@@ -76,7 +77,7 @@ test('enhanced-action runtime intercepts forms, sends headers, applies fragments
       focus: '#new-focus',
     }), {
       status: 200,
-      headers: { 'Content-Type': 'application/vnd.go-admin.enhanced+json' },
+      headers: { 'Content-Type': 'application/vnd.admin.enhanced+json' },
     });
   };
 
@@ -103,6 +104,7 @@ test('enhanced-action runtime intercepts forms, sends headers, applies fragments
   assert.equal(requests[0].url, '/admin/api/assign');
   const headers = new Headers(requests[0].init.headers);
   assert.equal(headers.get(ENHANCED_ACTION_HEADER), '1');
+  assert.equal(headers.get(ENHANCED_ACTION_HEADER), ENHANCED_ACTION_HEADER_VALUE);
   assert.equal(headers.get('Accept'), ENHANCED_ACTION_ACCEPT);
   assert.equal(headers.get('X-CSRF-Token'), 'enhanced-csrf');
   assert.equal(requests[0].init.method, 'POST');
@@ -134,7 +136,7 @@ test('enhanced-action runtime renders field errors without clearing user input',
     toasts: [{ type: 'error', message: 'Validation failed' }],
   }), {
     status: 400,
-    headers: { 'Content-Type': 'application/vnd.go-admin.enhanced+json' },
+    headers: { 'Content-Type': 'application/vnd.admin.enhanced+json' },
   });
 
   initEnhancedActions(dom.window.document, {
@@ -167,7 +169,7 @@ test('enhanced-action runtime serializes GET form data into the request URL', as
     requests.push({ url, init });
     return new Response(JSON.stringify({ ok: true }), {
       status: 200,
-      headers: { 'Content-Type': 'application/vnd.go-admin.enhanced+json' },
+      headers: { 'Content-Type': 'application/vnd.admin.enhanced+json' },
     });
   };
 
@@ -224,7 +226,7 @@ test('enhanced-action runtime updates assignment fragments without reloading det
     ],
   }), {
     status: 200,
-    headers: { 'Content-Type': 'application/vnd.go-admin.enhanced+json' },
+    headers: { 'Content-Type': 'application/vnd.admin.enhanced+json' },
   });
 
   initEnhancedActions(dom.window.document, {
@@ -242,6 +244,40 @@ test('enhanced-action runtime updates assignment fragments without reloading det
   assert.deepEqual(toasts, ['Assignment updated.']);
 });
 
+test('enhanced-action runtime accepts custom negotiation markers', async () => {
+  const dom = setupDom(`
+    <form data-enhance-action action="/admin/api/custom" method="post">
+      <input name="target_locale" value="de">
+      <button type="submit">Assign</button>
+    </form>
+  `);
+  const requests = [];
+  const fetchImpl = async (url, init) => {
+    requests.push({ url, init });
+    return new Response(JSON.stringify({ ok: true }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/vnd.example.action+json' },
+    });
+  };
+
+  initEnhancedActions(dom.window.document, {
+    fetch: fetchImpl,
+    requestHeader: 'X-App-Action',
+    requestHeaderValue: 'opaque-marker',
+    accept: 'application/vnd.example.action+json',
+  });
+
+  dom.window.document.querySelector('form')
+    .dispatchEvent(new dom.window.Event('submit', { bubbles: true, cancelable: true }));
+  await nextTick();
+
+  assert.equal(requests.length, 1);
+  const headers = new Headers(requests[0].init.headers);
+  assert.equal(headers.get('X-App-Action'), 'opaque-marker');
+  assert.equal(headers.get(ENHANCED_ACTION_HEADER), null);
+  assert.equal(headers.get('Accept'), 'application/vnd.example.action+json');
+});
+
 test('enhanced-action runtime uses global fetch when no fetch option is provided', async () => {
   const dom = setupDom(`
     <form data-enhance-action action="/admin/api/global-fetch" method="post">
@@ -255,7 +291,7 @@ test('enhanced-action runtime uses global fetch when no fetch option is provided
     requests.push({ url, init });
     return new Response(JSON.stringify({ ok: true }), {
       status: 200,
-      headers: { 'Content-Type': 'application/vnd.go-admin.enhanced+json' },
+      headers: { 'Content-Type': 'application/vnd.admin.enhanced+json' },
     });
   };
 

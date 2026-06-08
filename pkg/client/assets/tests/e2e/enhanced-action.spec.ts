@@ -17,10 +17,10 @@ test('enhanced action applies fragments and toast without navigating', async ({ 
     assignRequests += 1;
     const request = route.request();
     expect(request.method()).toBe('POST');
-    expect(request.headers()['x-goadmin-enhance']).toBe('1');
-    expect(request.headers().accept).toBe('application/vnd.go-admin.enhanced+json');
+    expect(request.headers()['x-enhanced-action']).toBe('1');
+    expect(request.headers().accept).toBe('application/vnd.admin.enhanced+json');
     await route.fulfill({
-      contentType: 'application/vnd.go-admin.enhanced+json',
+      contentType: 'application/vnd.admin.enhanced+json',
       body: JSON.stringify({
         ok: true,
         toasts: [{ type: 'success', message: 'Assignment updated.' }],

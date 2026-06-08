@@ -1,7 +1,8 @@
 import { appendCSRFHeader } from './transport/http-client.js';
 
-export const ENHANCED_ACTION_HEADER = 'X-GoAdmin-Enhance';
-export const ENHANCED_ACTION_ACCEPT = 'application/vnd.go-admin.enhanced+json';
+export const ENHANCED_ACTION_HEADER = 'X-Enhanced-Action';
+export const ENHANCED_ACTION_ACCEPT = 'application/vnd.admin.enhanced+json';
+export const ENHANCED_ACTION_HEADER_VALUE = '1';
 
 export type EnhancedFragmentMode = 'replace';
 export type EnhancedToastType = 'success' | 'error' | 'warning' | 'info' | string;
@@ -37,6 +38,9 @@ export interface EnhancedActionRuntimeOptions {
   fetch?: typeof fetch;
   document?: Document;
   toast?: EnhancedToastSink;
+  requestHeader?: string;
+  requestHeaderValue?: string;
+  accept?: string;
   onFragmentsApplied?: (fragments: EnhancedActionFragment[]) => void | Promise<void>;
 }
 
@@ -102,8 +106,8 @@ export async function submitEnhancedForm(
   const requestURL = resolveRequestURL(action, method, formData);
   clearEnhancedErrors(form);
   const headers = new HeadersCtor();
-  headers.set(ENHANCED_ACTION_HEADER, '1');
-  headers.set('Accept', ENHANCED_ACTION_ACCEPT);
+  headers.set(enhancedRequestHeader(options), enhancedRequestHeaderValue(options));
+  headers.set('Accept', enhancedActionAccept(options));
   appendCSRFHeader(requestURL, { method }, headers);
 
   const busy = setEnhancedBusy(form, true);
@@ -227,6 +231,18 @@ function formDataConstructor(doc?: Document): typeof FormData {
 function headersConstructor(doc?: Document): typeof Headers {
   const win = doc?.defaultView;
   return win?.Headers ?? globalThis.Headers;
+}
+
+function enhancedRequestHeader(options: EnhancedActionRuntimeOptions): string {
+  return String(options.requestHeader || ENHANCED_ACTION_HEADER).trim() || ENHANCED_ACTION_HEADER;
+}
+
+function enhancedRequestHeaderValue(options: EnhancedActionRuntimeOptions): string {
+  return String(options.requestHeaderValue || ENHANCED_ACTION_HEADER_VALUE).trim() || ENHANCED_ACTION_HEADER_VALUE;
+}
+
+function enhancedActionAccept(options: EnhancedActionRuntimeOptions): string {
+  return String(options.accept || ENHANCED_ACTION_ACCEPT).trim() || ENHANCED_ACTION_ACCEPT;
 }
 
 function resolveRequestURL(action: string, method: string, body: FormData): string {
