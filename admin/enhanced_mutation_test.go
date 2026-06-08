@@ -42,6 +42,20 @@ func TestEnhancedMutationResponderReturnsEnhancedEnvelope(t *testing.T) {
 	assert.Equal(t, "/admin/translations/families/f1", payload.Redirect)
 }
 
+func TestDetectEnhancedMutationRequestUsesGenericHeaderAndAdminMediaType(t *testing.T) {
+	headerCtx := newEnhancedMutationTestContext()
+	headerCtx.headers[crud.EnhancedRequestHeader] = crud.EnhancedRequestHeaderValue
+	headerCtx.headers["Accept"] = "application/json"
+	adminAcceptCtx := newEnhancedMutationTestContext()
+	adminAcceptCtx.headers["Accept"] = EnhancedMutationMediaType
+	crudAcceptCtx := newEnhancedMutationTestContext()
+	crudAcceptCtx.headers["Accept"] = crud.EnhancedMutationMediaType
+
+	assert.Equal(t, crud.MutationResponseModeEnhanced, detectEnhancedMutationRequest(headerCtx).Mode)
+	assert.Equal(t, crud.MutationResponseModeEnhanced, detectEnhancedMutationRequest(adminAcceptCtx).Mode)
+	assert.Equal(t, crud.MutationResponseModeEnhanced, detectEnhancedMutationRequest(crudAcceptCtx).Mode)
+}
+
 func TestEnhancedMutationResponderRedirectsNormalFormWithFlash(t *testing.T) {
 	ctx := newEnhancedMutationTestContext()
 	ctx.referer = "/admin/fallback"

@@ -3,7 +3,6 @@ package admin
 import (
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -62,7 +61,7 @@ func TestFamilyDetailTemplateContainsFragmentRoots(t *testing.T) {
 		`method="post"`,
 		`csrf_field|safe`,
 	} {
-		assert.True(t, strings.Contains(html, attr), "template should contain %s", attr)
+		assert.Contains(t, html, attr, "template should contain %s", attr)
 	}
 }
 
