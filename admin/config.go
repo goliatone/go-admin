@@ -91,6 +91,8 @@ type Config struct {
 
 	AuthConfig *AuthConfig `json:"auth_config"`
 
+	EnhancedActions EnhancedActionNegotiationConfig `json:"enhanced_actions"`
+
 	NavMenuCode string `json:"nav_menu_code"`
 	NavDebug    bool   `json:"nav_debug"`
 	NavDebugLog bool   `json:"nav_debug_log"`
