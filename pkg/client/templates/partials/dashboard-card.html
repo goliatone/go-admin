@@ -1,0 +1,42 @@
+{# Dashboard card partial - renders a dashboard metric card with alert status and drilldown #}
+{# Usage: {% include "partials/dashboard-card.html" with card={"id": "my_tasks", "label": "Tasks", "count": 5, "alert": {"state": "warning"}, "description": "...", "drilldown": {"href": "/...", "label": "View all"}} %} #}
+
+{% set alert_state = card.alert.state|default:"healthy" %}
+{% set tone_border = "border-l-gray-300" %}
+{% set tone_badge = "bg-gray-100 text-gray-700" %}
+{% set tone_count = "text-gray-900" %}
+{% if alert_state == "critical" or alert_state == "error" %}
+  {% set tone_border = "border-l-rose-500" %}
+  {% set tone_badge = "bg-rose-50 text-rose-700" %}
+  {% set tone_count = "text-rose-700" %}
+{% elif alert_state == "warning" %}
+  {% set tone_border = "border-l-amber-500" %}
+  {% set tone_badge = "bg-amber-50 text-amber-700" %}
+  {% set tone_count = "text-amber-700" %}
+{% elif alert_state == "success" or alert_state == "healthy" %}
+  {% set tone_border = "border-l-emerald-500" %}
+  {% set tone_badge = "bg-emerald-50 text-emerald-700" %}
+{% elif alert_state == "info" %}
+  {% set tone_border = "border-l-sky-500" %}
+  {% set tone_badge = "bg-sky-50 text-sky-700" %}
+  {% set tone_count = "text-sky-700" %}
+{% endif %}
+
+<article class="rounded-xl border border-gray-200 border-l-4 {{ tone_border }} bg-white p-5 shadow-sm hover:shadow-md transition-shadow" data-dashboard-card="{{ card.id }}">
+  <div class="flex items-start justify-between gap-3">
+    <p class="text-xs font-semibold uppercase tracking-wider text-gray-500">{{ card.display_label|default:card.label|default:"Metric" }}</p>
+    <span class="{{ tone_badge }} rounded-full px-2 py-1 text-xs font-semibold">
+      {{ card.display_status|default:"Healthy" }}
+    </span>
+  </div>
+  <p class="mt-4 text-4xl font-bold {{ tone_count }}">{{ card.count|default:"0" }}</p>
+  {% if card.description %}
+  <p class="mt-2 min-h-10 text-sm font-medium leading-5 text-gray-600">{{ card.description }}</p>
+  {% endif %}
+  {% if card.drilldown.href %}
+  <a class="mt-4 inline-flex w-full items-center justify-between rounded-md bg-gray-950 px-4 py-2.5 text-sm font-semibold text-white hover:bg-gray-800 transition-colors" href="{{ card.drilldown.href }}">
+    <span>{{ card.drilldown.label|default:"View all" }}</span>
+    <i class="iconoir-nav-arrow-right text-lg" aria-hidden="true"></i>
+  </a>
+  {% endif %}
+</article>

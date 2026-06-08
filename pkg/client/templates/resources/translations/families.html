@@ -74,7 +74,7 @@
           <div class="inline-flex flex-wrap items-center gap-2" role="group" aria-label="Quick status filters">
             {% for qf in page.DataGrid.quick_filters %}
             {% set is_active = (qf.value == "" and not page.Meta.readiness_state) or (qf.value != "" and page.Meta.readiness_state == qf.value) %}
-            <a href="?{% if page.Meta.channel %}channel={{ page.Meta.channel }}&{% endif %}{% if qf.value %}readiness_state={{ qf.value }}{% endif %}"
+            <a href="{{ qf.href }}"
                class="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-colors
                       {% if is_active %}
                       {% if qf.tone == "error" %}bg-rose-100 text-rose-800 ring-2 ring-rose-500 ring-offset-1{% elif qf.tone == "warning" %}bg-amber-100 text-amber-800 ring-2 ring-amber-500 ring-offset-1{% elif qf.tone == "success" %}bg-emerald-100 text-emerald-800 ring-2 ring-emerald-500 ring-offset-1{% else %}bg-gray-200 text-gray-900 ring-2 ring-gray-500 ring-offset-1{% endif %}
@@ -152,7 +152,7 @@
                 <td class="px-4 py-5 align-top">
                   {% set readiness_tone = "neutral" %}
                   {% if family.readiness_state == "blocked" %}{% set readiness_tone = "error" %}{% elif family.readiness_state == "ready" %}{% set readiness_tone = "success" %}{% elif family.readiness_state == "missing_locales" or family.readiness_state == "missing_locales_and_fields" %}{% set readiness_tone = "warning" %}{% endif %}
-                  {% include "partials/status-badge.html" with badge={"status": family.readiness_state, "tone": readiness_tone, "label": family.readiness_state|default:"unknown"|upper} %}
+                  {% include "partials/status-badge.html" with badge_status=family.readiness_state badge_tone=readiness_tone %}
                 </td>
                 <td class="px-4 py-5 align-top">
                   {% if family.blocker_labels %}

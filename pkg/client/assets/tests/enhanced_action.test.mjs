@@ -352,6 +352,97 @@ test('enhanced-action runtime accepts custom negotiation markers', async () => {
   assert.equal(headers.get('Accept'), 'application/vnd.example.action+json');
 });
 
+test('enhanced-action runtime rejects default enhanced media when custom accept is configured', async () => {
+  const dom = setupDom(`
+    <form data-enhance-action action="/admin/api/custom" method="post" data-enhance-error-target="#action-error">
+      <input name="target_locale" value="de">
+      <button type="submit">Assign</button>
+    </form>
+    <div id="action-error" hidden></div>
+  `);
+  const fetchImpl = async () => new Response(JSON.stringify({
+    version: 1,
+    ok: true,
+  }), {
+    status: 200,
+    headers: { 'Content-Type': 'application/vnd.admin.enhanced+json' },
+  });
+
+  initEnhancedActions(dom.window.document, {
+    fetch: fetchImpl,
+    requestHeader: 'X-App-Action',
+    requestHeaderValue: 'opaque-marker',
+    accept: 'application/vnd.example.action+json',
+  });
+
+  dom.window.document.querySelector('form')
+    .dispatchEvent(new dom.window.Event('submit', { bubbles: true, cancelable: true }));
+  await nextTick();
+
+  const error = dom.window.document.querySelector('#action-error');
+  assert.equal(error.textContent, 'Expected an enhanced action response.');
+  assert.equal(error.hasAttribute('hidden'), false);
+});
+
+test('enhanced-action runtime rejects plain JSON API payloads as non-enhanced responses', async () => {
+  const dom = setupDom(`
+    <form data-enhance-action action="/admin/api/assign" method="post" data-enhance-error-target="#action-error">
+      <input name="target_locale" value="fr">
+      <button type="submit">Assign</button>
+    </form>
+    <div id="action-error" hidden></div>
+    <section data-family-assignments>Original</section>
+  `);
+  const fetchImpl = async () => new Response(JSON.stringify({
+    ok: true,
+    data: { assignment_id: 'asg-1' },
+  }), {
+    status: 200,
+    headers: { 'Content-Type': 'application/json; charset=utf-8' },
+  });
+
+  initEnhancedActions(dom.window.document, { fetch: fetchImpl });
+
+  dom.window.document.querySelector('form')
+    .dispatchEvent(new dom.window.Event('submit', { bubbles: true, cancelable: true }));
+  await nextTick();
+
+  const error = dom.window.document.querySelector('#action-error');
+  assert.equal(error.textContent, 'Expected an enhanced action response.');
+  assert.equal(error.hasAttribute('hidden'), false);
+  assert.equal(dom.window.document.querySelector('[data-family-assignments]').textContent, 'Original');
+});
+
+test('enhanced-action runtime accepts an enhanced envelope sent with plain JSON content type', async () => {
+  const dom = setupDom(`
+    <form data-enhance-action action="/admin/api/assign" method="post">
+      <input name="target_locale" value="fr">
+      <button type="submit">Assign</button>
+    </form>
+    <section data-family-assignments>Original</section>
+  `);
+  const fetchImpl = async () => new Response(JSON.stringify({
+    version: 1,
+    ok: true,
+    fragments: [{
+      selector: '[data-family-assignments]',
+      mode: 'replace',
+      html: '<section data-family-assignments>Enhanced</section>',
+    }],
+  }), {
+    status: 200,
+    headers: { 'Content-Type': 'application/json' },
+  });
+
+  initEnhancedActions(dom.window.document, { fetch: fetchImpl });
+
+  dom.window.document.querySelector('form')
+    .dispatchEvent(new dom.window.Event('submit', { bubbles: true, cancelable: true }));
+  await nextTick();
+
+  assert.equal(dom.window.document.querySelector('[data-family-assignments]').textContent, 'Enhanced');
+});
+
 test('enhanced-action runtime uses global fetch when no fetch option is provided', async () => {
   const dom = setupDom(`
     <form data-enhance-action action="/admin/api/global-fetch" method="post">

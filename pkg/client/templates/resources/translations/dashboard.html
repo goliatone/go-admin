@@ -127,24 +127,7 @@
         {% if translation_dashboard_ssr.Data.cards %}
         <section class="grid gap-4 md:grid-cols-2 xl:grid-cols-5" aria-label="Translation dashboard metrics">
           {% for card in translation_dashboard_ssr.Data.cards %}
-          {% set card_border = "border-l-gray-300" %}
-          {% if card.alert.state == "critical" %}{% set card_border = "border-l-rose-500" %}{% elif card.alert.state == "warning" %}{% set card_border = "border-l-amber-500" %}{% else %}{% set card_border = "border-l-emerald-500" %}{% endif %}
-          <article class="rounded-lg border border-gray-200 border-l-4 {{ card_border }} bg-white p-5 shadow-sm" data-dashboard-card="{{ card.id }}">
-            <div class="flex items-start justify-between gap-3">
-              <p class="text-xs font-semibold uppercase tracking-wider text-gray-500">{{ card.display_label|default:card.label|default:"Metric" }}</p>
-              <span class="{% if card.alert.state == "critical" %}bg-rose-50 text-rose-700{% elif card.alert.state == "warning" %}bg-amber-50 text-amber-700{% else %}bg-emerald-50 text-emerald-700{% endif %} rounded-full px-2 py-1 text-xs font-semibold">
-                {{ card.display_status|default:"Healthy" }}
-              </span>
-            </div>
-            <p class="mt-4 text-4xl font-bold text-gray-900">{{ card.count|default:"0" }}</p>
-            <p class="mt-2 min-h-10 text-sm font-medium leading-5 text-gray-600">{{ card.description|default:"" }}</p>
-            {% if card.drilldown.href %}
-            <a class="mt-4 inline-flex w-full items-center justify-between rounded-md bg-gray-950 px-4 py-2.5 text-sm font-semibold text-white hover:bg-gray-800 transition-colors" href="{{ card.drilldown.href }}">
-              <span>{{ card.drilldown.label|default:"Open" }}</span>
-              <i class="iconoir-nav-arrow-right text-lg" aria-hidden="true"></i>
-            </a>
-            {% endif %}
-          </article>
+          {% include "partials/dashboard-card.html" with card=card %}
           {% endfor %}
         </section>
         {% endif %}
@@ -154,10 +137,10 @@
           <div class="flex flex-wrap items-center gap-6 border-b border-gray-200 px-5 text-sm font-medium text-gray-600" role="tablist" aria-label="Translation dashboard triage views">
             {% for table in translation_dashboard_ssr.Data.ordered_tables|default:translation_dashboard_ssr.Data.tables %}
             <button type="button"
-                    class="inline-flex items-center gap-2 border-b-2 {% if table.id == "top_overdue_assignments" %}border-blue-500 text-blue-700{% else %}border-transparent text-gray-600{% endif %} py-3"
+                    class="inline-flex items-center gap-2 border-b-2 {% if table.id == "blocked_families" %}border-blue-500 text-blue-700{% else %}border-transparent text-gray-600{% endif %} py-3"
                     data-dashboard-ssr-table-tab="{{ table.id }}"
                     role="tab"
-                    aria-selected="{% if table.id == "top_overdue_assignments" %}true{% else %}false{% endif %}"
+                    aria-selected="{% if table.id == "blocked_families" %}true{% else %}false{% endif %}"
                     aria-controls="dashboard-table-panel-{{ table.id }}">
               {% if table.id == "blocked_families" %}
               <i class="iconoir-prohibition" aria-hidden="true"></i>
@@ -177,7 +160,7 @@
                    data-dashboard-table="{{ table.id }}"
                    data-dashboard-ssr-table-panel="{{ table.id }}"
                    role="tabpanel"
-                   {% if table.id != "top_overdue_assignments" %}class="hidden" hidden{% endif %}>
+                   {% if table.id != "blocked_families" %}class="hidden" hidden{% endif %}>
             <div class="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 px-5 py-4">
               <p class="text-sm text-gray-500">Showing top {{ table.rows|length|default:"0" }} of {{ table.total|default:"0" }}</p>
               {% if table.id == "top_overdue_assignments" %}
@@ -263,11 +246,13 @@
                     </td>
                     <td class="px-5 py-4 text-gray-700">
                       {{ row.display_locale|default:"-" }}
-                    </td>
-                    <td class="px-5 py-4 text-gray-700">{{ row.display_priority|default:row.priority|default:"-" }}</td>
-                    <td class="px-5 py-4">
-                      <span class="rounded-md bg-gray-100 px-2 py-1 text-xs font-medium text-gray-700">{{ row.display_status|default:row.status|default:"-" }}</span>
-                    </td>
+	                    </td>
+	                    <td class="px-5 py-4 text-gray-700">{{ row.display_priority|default:row.priority|default:"-" }}</td>
+	                    <td class="px-5 py-4">
+	                      {% set dashboard_status_tone = "info" %}
+	                      {% if row.status == "in_review" %}{% set dashboard_status_tone = "warning" %}{% elif row.status == "changes_requested" %}{% set dashboard_status_tone = "error" %}{% elif row.status == "approved" or row.status == "completed" %}{% set dashboard_status_tone = "success" %}{% endif %}
+	                      {% include "partials/status-badge.html" with badge_status=row.status|default:row.queue_state|default:"unknown" badge_tone=dashboard_status_tone badge_label=row.display_status|default:row.status|default:row.queue_state %}
+	                    </td>
                     <td class="px-5 py-4 font-semibold {% if row.due_state == "overdue" or row.overdue_minutes %}text-rose-700{% else %}text-gray-500{% endif %}">
                       {{ row.display_overdue|default:"-" }}
                     </td>

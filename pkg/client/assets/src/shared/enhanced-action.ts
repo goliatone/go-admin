@@ -125,7 +125,7 @@ export async function submitEnhancedForm(
       body: method === 'GET' || method === 'HEAD' ? undefined : formData,
       credentials: 'same-origin',
     });
-    const result = await readEnhancedResponse(response);
+    const result = await readEnhancedResponse(response, options);
     const envelope = result.envelope;
     if (result.navigationURL && response.ok) {
       navigateEnhancedFallback(result.navigationURL, options, form.ownerDocument);
@@ -199,9 +199,14 @@ function canEnhance(fetchImpl?: typeof fetch, doc?: Document): fetchImpl is type
   return typeof fetchImpl === 'function' && !!formDataConstructor(doc) && !!headersConstructor(doc);
 }
 
-async function readEnhancedResponse(response: Response): Promise<EnhancedResponseRead> {
+async function readEnhancedResponse(
+  response: Response,
+  options: EnhancedActionRuntimeOptions = {},
+): Promise<EnhancedResponseRead> {
   const contentType = response.headers?.get('Content-Type') ?? '';
-  if (!isEnhancedActionContentType(contentType)) {
+  const enhancedContentType = isEnhancedActionContentType(contentType, options);
+  const plainJSONContentType = isPlainJSONContentType(contentType);
+  if (!enhancedContentType && !plainJSONContentType) {
     const navigationURL = enhancedFallbackNavigationURL(response);
     if (response.ok && navigationURL) {
       return {
@@ -225,23 +230,65 @@ async function readEnhancedResponse(response: Response): Promise<EnhancedRespons
   try {
     const payload = await response.json() as unknown;
     if (payload && typeof payload === 'object' && !Array.isArray(payload)) {
-      return { enhanced: true, envelope: payload as EnhancedActionEnvelope };
+      if (enhancedContentType || isVersionedEnhancedActionEnvelopePayload(payload)) {
+        return { enhanced: true, envelope: payload as EnhancedActionEnvelope };
+      }
     }
   } catch {
     // Fall through to a generic envelope.
   }
   return {
-    enhanced: true,
+    enhanced: enhancedContentType,
     envelope: {
-      ok: response.ok,
-      error: response.ok ? undefined : { message: `Request failed (${response.status})` },
+      ok: false,
+      error: {
+        message: response.ok
+          ? 'Expected an enhanced action response.'
+          : `Request failed (${response.status})`,
+      },
     },
   };
 }
 
-function isEnhancedActionContentType(contentType: string): boolean {
-  const normalized = contentType.toLowerCase();
-  return normalized.includes('json') || normalized.includes(ENHANCED_ACTION_ACCEPT);
+function isEnhancedActionContentType(
+  contentType: string,
+  options: EnhancedActionRuntimeOptions = {},
+): boolean {
+  const actual = mediaTypeOnly(contentType);
+  if (!actual) {
+    return false;
+  }
+  const configuredAccept = String(options.accept ?? '').trim();
+  const expected = (configuredAccept || ENHANCED_ACTION_ACCEPT)
+    .split(',')
+    .map(mediaTypeOnly)
+    .filter(Boolean);
+  return expected.includes(actual);
+}
+
+function isPlainJSONContentType(contentType: string): boolean {
+  const actual = mediaTypeOnly(contentType);
+  return actual === 'application/json';
+}
+
+function mediaTypeOnly(contentType: string): string {
+  return String(contentType ?? '').split(';', 1)[0].trim().toLowerCase();
+}
+
+function isVersionedEnhancedActionEnvelopePayload(payload: object): boolean {
+  const record = payload as Record<string, unknown>;
+  if (record.version !== 1) {
+    return false;
+  }
+  return [
+    'ok',
+    'toast',
+    'toasts',
+    'fragments',
+    'focus',
+    'redirect',
+    'error',
+  ].some((key) => Object.prototype.hasOwnProperty.call(payload, key));
 }
 
 function enhancedFallbackNavigationURL(response: Response): string {
