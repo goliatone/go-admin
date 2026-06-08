@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"encoding/json"
 	"net/http"
 	"strings"
 
@@ -16,16 +17,103 @@ const (
 	EnhancedMutationMediaType   = "application/vnd.admin.enhanced+json"
 )
 
+type EnhancedActionNegotiationConfig struct {
+	RequestHeader      string   `json:"request_header,omitempty"`
+	RequestHeaderValue string   `json:"request_header_value,omitempty"`
+	RequestMediaTypes  []string `json:"request_media_types,omitempty"`
+	ResponseMediaType  string   `json:"response_media_type,omitempty"`
+}
+
+type EnhancedActionRuntimeOptions struct {
+	RequestHeader      string `json:"requestHeader,omitempty"`
+	RequestHeaderValue string `json:"requestHeaderValue,omitempty"`
+	Accept             string `json:"accept,omitempty"`
+}
+
+func DefaultEnhancedActionNegotiationConfig() EnhancedActionNegotiationConfig {
+	return EnhancedActionNegotiationConfig{
+		RequestHeader:      crud.EnhancedRequestHeader,
+		RequestHeaderValue: crud.EnhancedRequestHeaderValue,
+		RequestMediaTypes:  []string{EnhancedMutationMediaType, crud.EnhancedMutationMediaType},
+		ResponseMediaType:  EnhancedMutationMediaType,
+	}
+}
+
+func normalizeEnhancedActionNegotiationConfig(cfg EnhancedActionNegotiationConfig) EnhancedActionNegotiationConfig {
+	defaults := DefaultEnhancedActionNegotiationConfig()
+	if strings.TrimSpace(cfg.RequestHeader) == "" {
+		cfg.RequestHeader = defaults.RequestHeader
+	}
+	if strings.TrimSpace(cfg.RequestHeaderValue) == "" {
+		cfg.RequestHeaderValue = defaults.RequestHeaderValue
+	}
+	if len(cfg.RequestMediaTypes) == 0 {
+		cfg.RequestMediaTypes = append([]string{}, defaults.RequestMediaTypes...)
+	} else {
+		mediaTypes := make([]string, 0, len(cfg.RequestMediaTypes))
+		for _, mediaType := range cfg.RequestMediaTypes {
+			if mediaType = strings.TrimSpace(mediaType); mediaType != "" {
+				mediaTypes = append(mediaTypes, mediaType)
+			}
+		}
+		if len(mediaTypes) == 0 {
+			mediaTypes = append([]string{}, defaults.RequestMediaTypes...)
+		}
+		cfg.RequestMediaTypes = mediaTypes
+	}
+	if strings.TrimSpace(cfg.ResponseMediaType) == "" {
+		cfg.ResponseMediaType = defaults.ResponseMediaType
+	}
+	return cfg
+}
+
+func EnhancedActionRuntimeOptionsFromConfig(cfg EnhancedActionNegotiationConfig) EnhancedActionRuntimeOptions {
+	cfg = normalizeEnhancedActionNegotiationConfig(cfg)
+	return EnhancedActionRuntimeOptions{
+		RequestHeader:      cfg.RequestHeader,
+		RequestHeaderValue: cfg.RequestHeaderValue,
+		Accept:             cfg.ResponseMediaType,
+	}
+}
+
 func enhancedMutationNegotiationConfig() crud.MutationNegotiationConfig {
+	return enhancedMutationNegotiationConfigFromAdminConfig(DefaultEnhancedActionNegotiationConfig())
+}
+
+func enhancedMutationNegotiationConfigFromAdminConfig(cfg EnhancedActionNegotiationConfig) crud.MutationNegotiationConfig {
+	cfg = normalizeEnhancedActionNegotiationConfig(cfg)
 	return crud.MutationNegotiationConfig{
-		EnhancedHeader:      crud.EnhancedRequestHeader,
-		EnhancedHeaderValue: crud.EnhancedRequestHeaderValue,
-		EnhancedMediaTypes:  []string{EnhancedMutationMediaType, crud.EnhancedMutationMediaType},
+		EnhancedHeader:      cfg.RequestHeader,
+		EnhancedHeaderValue: cfg.RequestHeaderValue,
+		EnhancedMediaTypes:  append([]string{}, cfg.RequestMediaTypes...),
 	}
 }
 
 func detectEnhancedMutationRequest(ctx any) crud.MutationRequest {
 	return crud.DetectMutationRequestWithConfig(ctx, enhancedMutationNegotiationConfig())
+}
+
+func detectEnhancedMutationRequestWithConfig(ctx any, cfg EnhancedActionNegotiationConfig) crud.MutationRequest {
+	return crud.DetectMutationRequestWithConfig(ctx, enhancedMutationNegotiationConfigFromAdminConfig(cfg))
+}
+
+func (a *Admin) enhancedActionNegotiationConfig() EnhancedActionNegotiationConfig {
+	if a == nil {
+		return DefaultEnhancedActionNegotiationConfig()
+	}
+	return normalizeEnhancedActionNegotiationConfig(a.config.EnhancedActions)
+}
+
+func (a *Admin) detectEnhancedMutationRequest(ctx any) crud.MutationRequest {
+	return detectEnhancedMutationRequestWithConfig(ctx, a.enhancedActionNegotiationConfig())
+}
+
+func (a *Admin) enhancedActionResponseMediaType() string {
+	return a.enhancedActionNegotiationConfig().ResponseMediaType
+}
+
+func (a *Admin) EnhancedActionRuntimeOptions() EnhancedActionRuntimeOptions {
+	return EnhancedActionRuntimeOptionsFromConfig(a.enhancedActionNegotiationConfig())
 }
 
 type EnhancedToast struct {
@@ -69,14 +157,29 @@ type MutationFallback struct {
 
 type EnhancedMutationResponder struct {
 	ErrorPresenter ErrorPresenter
+	MediaType      string
 }
 
 func NewEnhancedMutationResponder(presenter ...ErrorPresenter) EnhancedMutationResponder {
-	responder := EnhancedMutationResponder{ErrorPresenter: DefaultErrorPresenter()}
+	responder := EnhancedMutationResponder{ErrorPresenter: DefaultErrorPresenter(), MediaType: EnhancedMutationMediaType}
 	if len(presenter) > 0 {
 		responder.ErrorPresenter = presenter[0]
 	}
 	return responder
+}
+
+func (r EnhancedMutationResponder) WithMediaType(mediaType string) EnhancedMutationResponder {
+	if strings.TrimSpace(mediaType) != "" {
+		r.MediaType = strings.TrimSpace(mediaType)
+	}
+	return r
+}
+
+func (r EnhancedMutationResponder) mediaType() string {
+	if mediaType := strings.TrimSpace(r.MediaType); mediaType != "" {
+		return mediaType
+	}
+	return EnhancedMutationMediaType
 }
 
 func NewMutationPresentation(opts ...func(*MutationPresentation)) MutationPresentation {
@@ -149,8 +252,7 @@ func (r EnhancedMutationResponder) Respond(c router.Context, req crud.MutationRe
 
 	switch req.Mode {
 	case crud.MutationResponseModeEnhanced:
-		c.SetHeader("Content-Type", EnhancedMutationMediaType)
-		return c.JSON(presentation.Status, presentation)
+		return writeEnhancedMutationJSON(c, presentation.Status, r.mediaType(), presentation)
 	case crud.MutationResponseModeHTML:
 		applyMutationFlash(c, fallback.Toast, presentation.Toasts)
 		redirect := firstNonEmpty(strings.TrimSpace(fallback.Redirect), strings.TrimSpace(presentation.Redirect), c.Referer(), "/")
@@ -196,8 +298,7 @@ func (r EnhancedMutationResponder) RespondError(c router.Context, req crud.Mutat
 
 	switch req.Mode {
 	case crud.MutationResponseModeEnhanced:
-		c.SetHeader("Content-Type", EnhancedMutationMediaType)
-		return c.JSON(status, errPresentation)
+		return writeEnhancedMutationJSON(c, status, r.mediaType(), errPresentation)
 	case crud.MutationResponseModeHTML:
 		applyMutationFlash(c, fallback.Toast, errPresentation.Toasts)
 		redirect := firstNonEmpty(strings.TrimSpace(fallback.Redirect), c.Referer(), "/")
@@ -212,6 +313,15 @@ func (r EnhancedMutationResponder) RespondError(c router.Context, req crud.Mutat
 		}
 		return writeError(c, err)
 	}
+}
+
+func writeEnhancedMutationJSON(c router.Context, status int, mediaType string, payload any) error {
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return err
+	}
+	c.SetHeader("Content-Type", mediaType)
+	return c.Status(status).Send(body)
 }
 
 func normalizeMutationPresentation(presentation MutationPresentation) MutationPresentation {
