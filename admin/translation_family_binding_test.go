@@ -1439,6 +1439,60 @@ func TestTranslationFamilyBindingCreateAssignmentEnhancedReturnsFragments(t *tes
 	}
 }
 
+func TestTranslationFamilyBindingCreateAssignmentEnhancedUsesConfiguredNegotiation(t *testing.T) {
+	fixture := newTranslationFamilyMutationFixture(t, translationFamilyMutationFixtureOptions{
+		RequiredLocales: []string{"fr"},
+	})
+	seedTranslationFamilyLocaleVariant(t, fixture, "fr")
+	fixture.admin.WithEnhancedActionNegotiation(EnhancedActionNegotiationConfig{
+		RequestHeader:      "X-App-Action",
+		RequestHeaderValue: "opaque-marker",
+		RequestMediaTypes:  []string{"application/vnd.example.action+json"},
+		ResponseMediaType:  "application/vnd.example.action+json",
+	})
+
+	body := map[string]any{
+		"target_locale": "fr",
+		"assignee_id":   "translator-1",
+		"work_scope":    "localization",
+	}
+	encoded, err := json.Marshal(body)
+	if err != nil {
+		t.Fatalf("marshal body: %v", err)
+	}
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/api/translations/families/tg-page-1/assignments?channel=production&tenant_id=tenant-1&org_id=org-1", bytes.NewReader(encoded))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/vnd.example.action+json")
+	req.Header.Set("X-App-Action", "opaque-marker")
+	req.Header.Set("X-User-ID", "assigner-1")
+	resp, err := fixture.app.Test(req)
+	if err != nil {
+		t.Fatalf("request error: %v", err)
+	}
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			t.Fatalf("close response body: %v", closeErr)
+		}
+	}()
+	payload := map[string]any{}
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode payload: %v", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status=%d want=200 payload=%+v", resp.StatusCode, payload)
+	}
+	if got := resp.Header.Get("Content-Type"); !strings.Contains(got, "application/vnd.example.action+json") {
+		t.Fatalf("expected configured content type, got %q", got)
+	}
+	if !testBool(t, payload["ok"], "ok") {
+		t.Fatalf("expected enhanced ok payload, got %+v", payload)
+	}
+	fragments := testAnySlice(t, payload["fragments"], "fragments")
+	if len(fragments) == 0 {
+		t.Fatalf("expected enhanced fragments, got %+v", payload)
+	}
+}
+
 func TestTranslationFamilyBindingCreateAssignmentEnhancedUsesSubmittedChannelForFragments(t *testing.T) {
 	fixture := newTranslationFamilyMutationFixture(t, translationFamilyMutationFixtureOptions{
 		RequiredLocales: []string{"fr"},
@@ -1483,6 +1537,67 @@ func TestTranslationFamilyBindingCreateAssignmentEnhancedUsesSubmittedChannelFor
 	}
 	if got := toString(payload["redirect"]); !strings.Contains(got, "channel=staging") {
 		t.Fatalf("expected redirect fallback to preserve staging channel, got %q", got)
+	}
+}
+
+func TestTranslationFamilyBindingCreateAssignmentEnhancedJSONBodyChannelPreservesRedirectFallback(t *testing.T) {
+	fixture := newTranslationFamilyMutationFixture(t, translationFamilyMutationFixtureOptions{
+		RequiredLocales: []string{"fr"},
+	})
+	seedTranslationFamilyLocaleVariant(t, fixture, "fr")
+	syncTranslationFamilyFixtureStore(t, fixture.admin, "staging")
+
+	status, payload := doTranslationFamilyJSONRequest(t, fixture.app, http.MethodPost, "/admin/api/translations/families/tg-page-1/assignments?tenant_id=tenant-1&org_id=org-1", map[string]any{
+		"target_locale": "fr",
+		"assignee_id":   "translator-staging",
+		"work_scope":    "localization",
+		"channel":       "staging",
+	}, map[string]string{
+		"X-User-ID":         "assigner-1",
+		"X-Enhanced-Action": "1",
+		"Accept":            "application/vnd.admin.enhanced+json",
+	})
+	if status != http.StatusOK {
+		t.Fatalf("status=%d want=200 payload=%+v", status, payload)
+	}
+	if got := toString(payload["redirect"]); !strings.Contains(got, "channel=staging") {
+		t.Fatalf("expected JSON body channel to preserve redirect fallback channel, got %q", got)
+	}
+	fragments := testAnySlice(t, payload["fragments"], "fragments")
+	seen := map[string]string{}
+	for _, raw := range fragments {
+		fragment := extractMap(raw)
+		seen[toString(fragment["selector"])] = toString(fragment["html"])
+	}
+	if got := seen["[data-family-locale-coverage]"]; !strings.Contains(got, `name="channel" value="staging"`) {
+		t.Fatalf("expected JSON body channel to preserve fragment channel, got %q", got)
+	}
+}
+
+func TestTranslationFamilyBindingCreateAssignmentEnhancedJSONErrorPreservesBodyChannelRedirectFallback(t *testing.T) {
+	fixture := newTranslationFamilyMutationFixture(t, translationFamilyMutationFixtureOptions{
+		RequiredLocales: []string{"fr"},
+	})
+
+	status, payload := doTranslationFamilyJSONRequest(t, fixture.app, http.MethodPost, "/admin/api/translations/families/tg-page-1/assignments?tenant_id=tenant-1&org_id=org-1", map[string]any{
+		"target_locale": "fr",
+		"work_scope":    "localization",
+		"channel":       "staging",
+	}, map[string]string{
+		"X-User-ID":         "assigner-1",
+		"X-Enhanced-Action": "1",
+		"Accept":            "application/vnd.admin.enhanced+json",
+	})
+	if status < http.StatusBadRequest {
+		t.Fatalf("expected validation failure status, got %d payload=%+v", status, payload)
+	}
+	if got := toString(payload["redirect"]); !strings.Contains(got, "channel=staging") {
+		t.Fatalf("expected JSON error redirect fallback to preserve body channel, got %q", got)
+	}
+	errorPayload := extractMap(payload["error"])
+	fields := extractMap(errorPayload["fields"])
+	if got := toString(fields["assignee_id"]); got == "" {
+		t.Fatalf("expected assignee_id validation error, got %+v", errorPayload)
 	}
 }
 

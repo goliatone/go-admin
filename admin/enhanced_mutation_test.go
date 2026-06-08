@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"encoding/json"
 	"io"
 	"maps"
 	"mime/multipart"
@@ -32,8 +33,7 @@ func TestEnhancedMutationResponderReturnsEnhancedEnvelope(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, http.StatusAccepted, ctx.status)
 	assert.Equal(t, EnhancedMutationMediaType, ctx.headers["Content-Type"])
-	payload, ok := ctx.payload.(MutationPresentation)
-	require.True(t, ok)
+	payload := requireEnhancedMutationPayload(t, ctx.payload)
 	assert.True(t, payload.OK)
 	assert.Equal(t, EnhancedMutationResponseVersion, payload.Version)
 	assert.Equal(t, "[data-family-assignments]", payload.Fragments[0].Selector)
@@ -54,6 +54,38 @@ func TestDetectEnhancedMutationRequestUsesGenericHeaderAndAdminMediaType(t *test
 	assert.Equal(t, crud.MutationResponseModeEnhanced, detectEnhancedMutationRequest(headerCtx).Mode)
 	assert.Equal(t, crud.MutationResponseModeEnhanced, detectEnhancedMutationRequest(adminAcceptCtx).Mode)
 	assert.Equal(t, crud.MutationResponseModeEnhanced, detectEnhancedMutationRequest(crudAcceptCtx).Mode)
+}
+
+func TestDetectEnhancedMutationRequestUsesCustomAdminNegotiationConfig(t *testing.T) {
+	cfg := EnhancedActionNegotiationConfig{
+		RequestHeader:      "X-App-Action",
+		RequestHeaderValue: "opaque-marker",
+		RequestMediaTypes:  []string{"application/vnd.example.action+json"},
+		ResponseMediaType:  "application/vnd.example.action+json",
+	}
+	headerCtx := newEnhancedMutationTestContext()
+	headerCtx.headers["X-App-Action"] = "opaque-marker"
+	headerCtx.headers["Accept"] = "application/json"
+	acceptCtx := newEnhancedMutationTestContext()
+	acceptCtx.headers["Accept"] = "application/vnd.example.action+json"
+	defaultCtx := newEnhancedMutationTestContext()
+	defaultCtx.headers[crud.EnhancedRequestHeader] = crud.EnhancedRequestHeaderValue
+
+	assert.Equal(t, crud.MutationResponseModeEnhanced, detectEnhancedMutationRequestWithConfig(headerCtx, cfg).Mode)
+	assert.Equal(t, crud.MutationResponseModeEnhanced, detectEnhancedMutationRequestWithConfig(acceptCtx, cfg).Mode)
+	assert.NotEqual(t, crud.MutationResponseModeEnhanced, detectEnhancedMutationRequestWithConfig(defaultCtx, cfg).Mode)
+}
+
+func TestEnhancedMutationResponderUsesCustomMediaType(t *testing.T) {
+	ctx := newEnhancedMutationTestContext()
+	req := crud.MutationRequest{Mode: crud.MutationResponseModeEnhanced}
+
+	err := NewEnhancedMutationResponder().
+		WithMediaType("application/vnd.example.action+json").
+		Respond(ctx, req, NewMutationPresentation(), MutationFallback{})
+
+	require.NoError(t, err)
+	assert.Equal(t, "application/vnd.example.action+json", ctx.headers["Content-Type"])
 }
 
 func TestEnhancedMutationResponderRedirectsNormalFormWithFlash(t *testing.T) {
@@ -101,8 +133,7 @@ func TestEnhancedMutationResponderReturnsStructuredEnhancedError(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Equal(t, http.StatusBadRequest, ctx.status)
-	payload, ok := ctx.payload.(MutationPresentation)
-	require.True(t, ok)
+	payload := requireEnhancedMutationPayload(t, ctx.payload)
 	require.NotNil(t, payload.Error)
 	assert.False(t, payload.OK)
 	assert.Equal(t, "VALIDATION_FAILED", payload.Error.TextCode)
@@ -149,6 +180,24 @@ func TestTranslationFamilyDetailRedirectUsesConfiguredBasePath(t *testing.T) {
 	redirect := translationFamilyDetailRedirect(ctx, "/console", "family/with space")
 
 	assert.Equal(t, "/console/translations/families/family%2Fwith%20space?channel=production&tenant_id=tenant-1", redirect)
+}
+
+func requireEnhancedMutationPayload(t *testing.T, payload any) MutationPresentation {
+	t.Helper()
+	switch typed := payload.(type) {
+	case MutationPresentation:
+		return typed
+	case *MutationPresentation:
+		require.NotNil(t, typed)
+		return *typed
+	default:
+		raw, err := json.Marshal(payload)
+		require.NoError(t, err)
+		var presentation MutationPresentation
+		require.NoError(t, json.Unmarshal(raw, &presentation))
+		require.NotZero(t, presentation.Version)
+		return presentation
+	}
 }
 
 type enhancedMutationTestContext struct {
@@ -264,6 +313,10 @@ func (c *enhancedMutationTestContext) Status(code int) router.Context {
 }
 func (c *enhancedMutationTestContext) Send(body []byte) error {
 	c.body = body
+	var payload MutationPresentation
+	if err := json.Unmarshal(body, &payload); err == nil && payload.Version != 0 {
+		c.payload = payload
+	}
 	return nil
 }
 func (c *enhancedMutationTestContext) SendString(body string) error {
