@@ -153,6 +153,9 @@ RPC transport is intentionally closed by default:
 - Command dispatch is deny-by-default until command rules are configured.
 - Each command rule needs a permission unless the rule explicitly allows
   unauthenticated dispatch.
+- Command rules default to resource-role permission checks. Use exact
+  permission mode for operational or capability grants that must not be inferred
+  from generic resource roles.
 
 Keep these defaults for production hosts. Only enable unauthenticated RPC for a
 specific command when the command is intentionally public and safe to execute
@@ -169,7 +172,9 @@ Core methods:
 
 `admin.commands.list` is hidden unless `commands.rpc.discovery_enabled` is
 true. When enabled, it still requires an authenticated actor and
-`admin.commands.read` on the default `commands` resource.
+`admin.commands.read` on the default `commands` resource. If
+`commands.rpc.permission_mode` is `exact`, discovery requires the exact
+`admin.commands.read` grant in the resolved permission set.
 
 ## Command Dispatch Contract
 
@@ -250,6 +255,7 @@ dispatch:
 type RPCCommandRule struct {
     Permission           string
     Resource             string
+    PermissionMode       admin.RPCCommandPermissionMode
     AllowUnauthenticated bool
 }
 ```
@@ -284,6 +290,35 @@ dispatch returns not found even when the command exists in the command bus.
 
 If `Resource` is omitted, it defaults to `commands`. If `Permission` is omitted,
 the rule must set `AllowUnauthenticated: true`.
+
+`PermissionMode` controls how the rule is authorized:
+
+| Mode | Behavior | Use when |
+| --- | --- | --- |
+| `resource_role` | Calls the configured `Authorizer.Can(ctx, permission, resource)` and lets the authorizer map the permission to a resource/action capability. This is the default for compatibility. | CRUD-style permissions where resource roles are the source of truth. |
+| `exact` | Requires the exact permission string to appear in `ResolvedPermissionsFromAuthorizer(ctx, authorizer)`. Resource roles and normalized action aliases do not grant access. | Operational commands, capability grants, transport permissions, or other non-CRUD permissions. |
+
+You can set a default mode for all command rules and command discovery:
+
+```go
+cfg.Commands.RPC.PermissionMode = admin.RPCCommandPermissionModeExact
+```
+
+Or set it per command:
+
+```go
+cfg.Commands.RPC.Commands = map[string]admin.RPCCommandRule{
+    "search.reindex": {
+        Permission:     "admin.operations.search.manage",
+        Resource:       "search",
+        PermissionMode: admin.RPCCommandPermissionModeExact,
+    },
+}
+```
+
+Exact mode requires an authorizer that exposes resolved permissions, such as
+`admin.GoAuthAuthorizer` configured with `ResolvePermissions`. If the
+authorizer cannot resolve permissions, exact mode denies the request.
 
 ## Unauthenticated RPC Exposure
 
