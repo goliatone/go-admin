@@ -1,0 +1,73 @@
+{% comment %}
+  Bulk Action Overlay - Sticky toolbar for bulk operations
+
+  Variables:
+    - selection_count: number of selected items (default: 0)
+    - actions: array of action objects with:
+      - key: action identifier (e.g., "claim", "release", "assign")
+      - label: display text
+      - icon: iconoir icon name (optional)
+      - variant: "primary", "secondary", "danger", "warning" (default: secondary)
+    - disabled: boolean
+    - disabled_reason: tooltip text when disabled
+    - clear_label: label for clear selection button (default: "Clear selection")
+    - position: "top" or "bottom" (default: "bottom")
+    - bulk_base: optional bulk action base URL for DataGrid bulk actions
+
+  Data attributes emitted:
+    - data-bulk-action-overlay: root container
+    - data-bulk-selection-count: element showing count
+    - data-bulk-action="<key>": action buttons
+    - data-bulk-clear: clear selection button
+
+  Usage:
+    {% include "partials/bulk-action-overlay.html" with selection_count=3 actions=bulk_actions %}
+{% endcomment %}
+
+{% set overlay_position = position|default:"bottom" %}
+{% set count = selection_count|default:0 %}
+
+<div class="bulk-action-overlay fixed {% if overlay_position == "top" %}top-0{% else %}bottom-0{% endif %} inset-x-0 z-50 transform transition-transform duration-200 ease-out {% if count == 0 %}{% if overlay_position == "top" %}-translate-y-full{% else %}translate-y-full{% endif %} pointer-events-none{% else %}translate-y-0{% endif %}"
+     data-bulk-action-overlay
+     data-bulk-overlay-position="{{ overlay_position }}"
+     data-selection-count="{{ count }}"
+     {% if bulk_base %}data-bulk-base="{{ bulk_base }}"{% endif %}
+     role="toolbar"
+     aria-label="Bulk actions"
+     {% if count == 0 %}aria-hidden="true"{% endif %}>
+  <div class="mx-auto max-w-screen-xl px-4 py-3">
+    <div class="flex items-center justify-between gap-4 rounded-xl border border-gray-200 bg-white px-5 py-3 shadow-lg">
+      <div class="flex items-center gap-4">
+        <span class="flex items-center gap-2 text-sm font-medium text-gray-900">
+          <span class="inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-blue-100 px-2 text-xs font-bold text-blue-700" data-bulk-selection-count>{{ count }}</span>
+          <span>selected</span>
+        </span>
+        <button type="button"
+                class="text-sm font-medium text-gray-500 hover:text-gray-700 focus:outline-none focus:underline"
+                data-bulk-clear>
+          {{ clear_label|default:"Clear selection" }}
+        </button>
+      </div>
+
+      <div class="flex items-center gap-2">
+        {% for action in actions %}
+          {% set btn_class = "btn btn-secondary" %}
+          {% if action.variant == "primary" %}
+            {% set btn_class = "btn btn-primary" %}
+          {% elif action.variant == "danger" %}
+            {% set btn_class = "btn btn-secondary text-rose-700 hover:bg-rose-50 hover:border-rose-200" %}
+          {% elif action.variant == "warning" %}
+            {% set btn_class = "btn btn-secondary text-amber-700 hover:bg-amber-50 hover:border-amber-200" %}
+          {% endif %}
+        <button type="button"
+                class="{{ btn_class }} inline-flex items-center gap-2{% if action.disabled %} opacity-50 cursor-not-allowed{% endif %}"
+                data-bulk-action="{{ action.key }}"
+                {% if action.disabled %}disabled aria-disabled="true" title="{{ action.disabled_reason|default:"This action is not available" }}"{% endif %}>
+          {% if action.icon %}<i class="iconoir-{{ action.icon }}" aria-hidden="true"></i>{% endif %}
+          <span>{{ action.label }}</span>
+        </button>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>

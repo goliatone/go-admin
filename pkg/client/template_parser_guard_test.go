@@ -3,13 +3,16 @@ package client
 import (
 	"fmt"
 	"io/fs"
+	"regexp"
 	"strings"
 	"testing"
 )
 
-func TestTemplatesAvoidUnsupportedLiteralDefaults(t *testing.T) {
+func TestTemplatesAvoidUnsupportedSyntax(t *testing.T) {
 	tplFS := Templates()
 	violations := []string{}
+	unsupportedIfTest := regexp.MustCompile(`{%\s*(?:if|elif)\b[^%}]*\bis\b`)
+	unsupportedTagConcat := regexp.MustCompile(`{%(?:[^%}]|"[^"]*"|'[^']*')*~`)
 
 	err := fs.WalkDir(tplFS, ".", func(path string, d fs.DirEntry, walkErr error) error {
 		if walkErr != nil {
@@ -33,6 +36,12 @@ func TestTemplatesAvoidUnsupportedLiteralDefaults(t *testing.T) {
 				continue
 			}
 			if strings.Contains(line, "|default:[]") || strings.Contains(line, "|default:{}") {
+				violations = append(violations, fmt.Sprintf("%s:%d", path, idx+1))
+			}
+			if unsupportedIfTest.MatchString(line) {
+				violations = append(violations, fmt.Sprintf("%s:%d", path, idx+1))
+			}
+			if unsupportedTagConcat.MatchString(line) {
 				violations = append(violations, fmt.Sprintf("%s:%d", path, idx+1))
 			}
 		}

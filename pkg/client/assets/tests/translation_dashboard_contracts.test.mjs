@@ -35,7 +35,7 @@ function createFakeClassList() {
   };
 }
 
-function createFakeElement(dataset = {}, attrs = {}) {
+function createFakeElement(dataset = {}, attrs = {}, options = {}) {
   const listeners = new Map();
   return {
     dataset,
@@ -49,13 +49,17 @@ function createFakeElement(dataset = {}, attrs = {}) {
       return attrs[name] ?? null;
     },
     addEventListener(name, handler) {
-      listeners.set(name, handler);
+      const handlers = listeners.get(name) ?? [];
+      handlers.push(handler);
+      listeners.set(name, handlers);
     },
     click() {
-      listeners.get('click')?.();
+      for (const handler of listeners.get('click') ?? []) {
+        handler();
+      }
     },
     querySelector() {
-      return null;
+      return options.querySelectorResult ?? null;
     },
   };
 }
@@ -66,6 +70,12 @@ function createSSRDashboardContainer() {
   const blockedPanel = createFakeElement({ translationTablePanel: 'blocked_families' });
   blockedPanel.hidden = true;
   const overduePanel = createFakeElement({ translationTablePanel: 'top_overdue_assignments' });
+  const disclosurePanel = createFakeElement({ translationDisclosurePanel: 'alerts' });
+  disclosurePanel.hidden = true;
+  const disclosureButton = createFakeElement(
+    { translationDisclosure: 'alerts' },
+    { 'aria-expanded': 'false' }
+  );
   return {
     root: {
       dataset: {
@@ -76,12 +86,18 @@ function createSSRDashboardContainer() {
       querySelectorAll(selector) {
         if (selector === '[data-translation-table-tab]') return [blockedTab, overdueTab];
         if (selector === '[data-translation-table-panel]') return [blockedPanel, overduePanel];
-        if (selector === '[data-translation-disclosure]') return [];
+        if (selector === '[data-translation-disclosure]') return [disclosureButton];
         return [];
+      },
+      querySelector(selector) {
+        if (selector === '[data-translation-disclosure-panel="alerts"]') return disclosurePanel;
+        return null;
       },
     },
     blockedTab,
     blockedPanel,
+    disclosureButton,
+    disclosurePanel,
     overduePanel,
   };
 }
@@ -265,6 +281,23 @@ test('translation dashboard runtime: SSR root is enhanced without first-render f
   assert.equal(blockedTab.getAttribute('aria-selected'), 'true');
   assert.equal(blockedPanel.hidden, false);
   assert.equal(overduePanel.hidden, true);
+});
+
+test('translation dashboard runtime: SSR enhancement is idempotent', async () => {
+  const { root, disclosureButton, disclosurePanel } = createSSRDashboardContainer();
+
+  const firstPage = initTranslationDashboardPage(root);
+  const secondPage = initTranslationDashboardPage(root);
+  await flushAsync();
+
+  assert.equal(firstPage, null);
+  assert.equal(secondPage, null);
+  assert.equal(root.dataset.translationDashboardEnhanced, 'true');
+
+  disclosureButton.click();
+
+  assert.equal(disclosureButton.getAttribute('aria-expanded'), 'true');
+  assert.equal(disclosurePanel.hidden, false);
 });
 
 test('translation dashboard runtime: mount renders empty state from published fixtures', async () => {

@@ -1856,12 +1856,34 @@ function setSSRDashboardTableTab(root: HTMLElement, tabId: string): void {
   });
 }
 
+/**
+ * Enhances SSR-rendered dashboard with interactive behaviors.
+ *
+ * Data attribute conventions (data-translation-*):
+ * - data-translation-surface="dashboard" - Root surface identifier
+ * - data-translation-toolbar - Operations toolbar container
+ * - data-translation-refresh - Refresh button/link
+ * - data-translation-disclosure="<id>" - Disclosure toggle button
+ * - data-translation-disclosure-panel="<id>" - Disclosure content panel
+ * - data-translation-disclosure-icon - Chevron icon for rotation animation
+ * - data-translation-table-tab="<id>" - Table tab button
+ * - data-translation-table-panel="<id>" - Table content panel
+ * - data-translation-metrics-grid - Metrics cards container
+ * - data-translation-triage - Triage tables container
+ * - data-translation-triage-link="<target>" - Triage navigation link
+ * - data-translation-row-actions - Row action buttons container
+ * - data-translation-action="<action>" - Individual action trigger
+ */
 function enhanceSSRDashboard(root: HTMLElement): void {
+  if (root.dataset.translationDashboardEnhanced === 'true') {
+    return;
+  }
   root.dataset.translationDashboardEnhanced = 'true';
   if (typeof root.querySelectorAll !== 'function') {
     return;
   }
 
+  // Table tab switching with keyboard support
   root.querySelectorAll<HTMLButtonElement>('[data-translation-table-tab]').forEach((button) => {
     button.addEventListener('click', () => {
       const tabId = button.dataset.translationTableTab;
@@ -1869,8 +1891,22 @@ function enhanceSSRDashboard(root: HTMLElement): void {
         setSSRDashboardTableTab(root, tabId);
       }
     });
+    // Keyboard navigation for tabs
+    button.addEventListener('keydown', (event) => {
+      if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+        event.preventDefault();
+        const tabs = Array.from(root.querySelectorAll<HTMLButtonElement>('[data-translation-table-tab]'));
+        const currentIndex = tabs.indexOf(button);
+        const nextIndex = event.key === 'ArrowRight'
+          ? (currentIndex + 1) % tabs.length
+          : (currentIndex - 1 + tabs.length) % tabs.length;
+        tabs[nextIndex]?.focus();
+        tabs[nextIndex]?.click();
+      }
+    });
   });
 
+  // Disclosure panel toggling (details, alerts)
   root.querySelectorAll<HTMLButtonElement>('[data-translation-disclosure]').forEach((button) => {
     button.addEventListener('click', () => {
       const targetId = button.dataset.translationDisclosure;
@@ -1880,7 +1916,11 @@ function enhanceSSRDashboard(root: HTMLElement): void {
       button.setAttribute('aria-expanded', expanded ? 'false' : 'true');
       target.hidden = expanded;
       target.classList.toggle('hidden', expanded);
-      button.querySelector<HTMLElement>('[data-translation-disclosure-icon]')?.classList.toggle('rotate-180', !expanded);
+      // Rotate chevron icon
+      const icon = button.querySelector<HTMLElement>('[data-translation-disclosure-icon]');
+      if (icon) {
+        icon.classList.toggle('rotate-180', !expanded);
+      }
     });
   });
 }

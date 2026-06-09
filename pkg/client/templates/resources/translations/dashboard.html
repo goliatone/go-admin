@@ -23,7 +23,7 @@
       </section>
       {% else %}
       <div class="translation-dashboard-ssr space-y-4" data-translation-dashboard-ssr="true">
-        <section class="rounded-lg border border-gray-200 bg-white shadow-sm" aria-label="Translation dashboard operations workspace" data-dashboard-toolbar="true">
+        <section class="rounded-xl border border-gray-200 bg-white shadow-sm" aria-label="Translation dashboard operations workspace" data-translation-toolbar>
           <div class="grid gap-6 border-b border-gray-200 p-5 lg:grid-cols-[minmax(0,1fr)_28rem]">
             <div>
               <p class="text-xs font-semibold uppercase tracking-wider text-gray-500">Manager monitoring</p>
@@ -36,7 +36,7 @@
               <p class="text-xs font-semibold uppercase tracking-wider text-gray-500">
                 Last updated {{ translation_dashboard_ssr.Data.display.generated_label|default:translation_dashboard_ssr.Meta.generated_at|default:translation_dashboard_ssr.Data.generated|default:"now" }}
               </p>
-              <a class="btn btn-primary" data-dashboard-refresh="true" href="{{ translation_dashboard_ssr.Links.dashboard|default:"/admin/translations/dashboard" }}">Refresh dashboard</a>
+              <a class="btn btn-primary" data-translation-refresh href="{{ translation_dashboard_ssr.Links.dashboard|default:"/admin/translations/dashboard" }}">Refresh dashboard</a>
             </div>
           </div>
           <div class="flex flex-wrap items-center justify-between gap-3 bg-gray-50 px-5 py-3 text-xs text-gray-600">
@@ -55,15 +55,15 @@
               </span>
             </div>
             <button type="button"
-                    class="inline-flex items-center gap-1.5 rounded px-2 py-1 font-medium hover:bg-white"
+                    class="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium text-gray-600 hover:bg-white hover:text-gray-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1 transition-colors"
                     data-translation-disclosure="details"
                     aria-expanded="false">
               <i class="iconoir-info-circle" aria-hidden="true"></i>
               <span>Details</span>
-              <i class="iconoir-nav-arrow-down transition-transform" data-translation-disclosure-icon aria-hidden="true"></i>
+              <i class="iconoir-nav-arrow-down text-gray-400 transition-transform duration-200" data-translation-disclosure-icon aria-hidden="true"></i>
             </button>
           </div>
-          <div class="hidden border-t border-gray-100 bg-white px-5 py-3 text-xs text-gray-600" data-translation-disclosure-panel="details" hidden>
+          <div class="hidden border-t border-gray-200 bg-white px-5 py-4 text-xs text-gray-600" data-translation-disclosure-panel="details" hidden>
             <dl class="grid gap-3 sm:grid-cols-3">
               <div>
                 <dt class="font-semibold uppercase tracking-wider text-gray-500">Generated</dt>
@@ -82,30 +82,33 @@
         </section>
 
         {% if translation_dashboard_ssr.Data.alerts %}
-        <section class="overflow-hidden rounded-lg border border-rose-200 bg-rose-50 text-sm text-rose-800" aria-label="Translation dashboard alerts">
+        <section class="overflow-hidden rounded-xl border border-rose-200 bg-rose-50 text-sm text-rose-800 shadow-sm" aria-label="Translation dashboard alerts">
           <button type="button"
-                  class="flex w-full flex-wrap items-center justify-between gap-3 px-5 py-3 text-left"
+                  class="flex w-full items-center justify-between gap-3 px-5 py-3 text-left hover:bg-rose-100/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:ring-inset transition-colors"
                   data-translation-disclosure="alerts"
                   aria-expanded="false">
             <div class="flex flex-wrap items-center gap-2">
-              <i class="iconoir-warning-triangle text-rose-700" aria-hidden="true"></i>
-              <span class="font-semibold">{{ translation_dashboard_ssr.Data.alert_summary.label|default:translation_dashboard_ssr.Data.alerts|length|default:"0 alerts" }}</span>
+              <i class="iconoir-warning-triangle text-rose-600" aria-hidden="true"></i>
+              <span class="font-semibold text-rose-900">{{ translation_dashboard_ssr.Data.alert_summary.label|default:translation_dashboard_ssr.Data.alerts|length|default:"0 alerts" }}</span>
               {% for alert_chip in translation_dashboard_ssr.Data.alert_summary.chips %}
-              <span class="rounded-md bg-white px-2 py-1 text-xs font-medium text-rose-700">
+              <span class="rounded-md bg-white/80 px-2 py-0.5 text-xs font-medium text-rose-700">
                 {{ alert_chip.label|default:"Action" }}
               </span>
               {% endfor %}
             </div>
-            <i class="iconoir-nav-arrow-down text-lg leading-none transition-transform" data-translation-disclosure-icon aria-hidden="true"></i>
+            <i class="iconoir-nav-arrow-down text-rose-400 transition-transform duration-200" data-translation-disclosure-icon aria-hidden="true"></i>
           </button>
-          <div class="hidden border-t border-rose-200 px-5 py-3" data-translation-disclosure-panel="alerts" hidden>
+          <div class="hidden border-t border-rose-200 bg-rose-50/50 px-5 py-4" data-translation-disclosure-panel="alerts" hidden>
             <ul class="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
               {% for alert in translation_dashboard_ssr.Data.alerts %}
-              <li class="rounded-md bg-white/70 px-3 py-2 text-xs">
-                <span class="font-semibold">{{ alert.display_label|default:"Action" }}</span>
-                {% if alert.card_id or alert.cardId %}
-                <span class="ml-1 text-rose-700/70">{{ alert.display_card_label|default:alert.card_id|default:alert.cardId }}</span>
-                {% endif %}
+              <li class="flex items-start gap-2 rounded-lg bg-white/70 px-3 py-2.5 text-xs">
+                <i class="iconoir-warning-circle text-rose-500 flex-shrink-0 mt-0.5" aria-hidden="true"></i>
+                <div>
+                  <span class="font-semibold text-rose-900">{{ alert.display_label|default:"Action" }}</span>
+                  {% if alert.card_id or alert.cardId %}
+                  <span class="ml-1 text-rose-600">{{ alert.display_card_label|default:alert.card_id|default:alert.cardId }}</span>
+                  {% endif %}
+                </div>
               </li>
               {% endfor %}
             </ul>
@@ -114,7 +117,7 @@
         {% endif %}
 
         {% if translation_dashboard_ssr.Data.cards %}
-        <section class="grid gap-4 md:grid-cols-2 xl:grid-cols-5" aria-label="Translation dashboard metrics">
+        <section class="grid gap-4 md:grid-cols-2 xl:grid-cols-5" aria-label="Translation dashboard metrics" data-translation-metrics-grid>
           {% for card in translation_dashboard_ssr.Data.cards %}
           {% include "partials/metric-card.html" with card=card %}
           {% endfor %}
@@ -122,7 +125,7 @@
         {% endif %}
 
         {% if translation_dashboard_ssr.Data.ordered_tables|default:translation_dashboard_ssr.Data.tables %}
-        <section class="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm" aria-label="Translation dashboard triage">
+        <section class="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm" aria-label="Translation dashboard triage" data-translation-triage>
           <div class="flex flex-wrap items-center gap-6 border-b border-gray-200 px-5 text-sm font-medium text-gray-600" role="tablist" aria-label="Translation dashboard triage views">
             {% for table in translation_dashboard_ssr.Data.ordered_tables|default:translation_dashboard_ssr.Data.tables %}
             <button type="button"
@@ -154,11 +157,11 @@
               <p class="text-sm text-gray-500">Showing top {{ table.rows|length|default:"0" }} of {{ table.total|default:"0" }}</p>
               {% if table.id == "top_overdue_assignments" %}
               {% if translation_dashboard_ssr.Links.queue %}
-              <a class="btn btn-secondary" href="{{ translation_dashboard_ssr.Links.queue }}">Overdue Triage</a>
+              <a class="btn btn-secondary" href="{{ translation_dashboard_ssr.Links.queue }}" data-translation-triage-link="queue">Overdue Triage</a>
               {% endif %}
               {% elif table.id == "blocked_families" %}
               {% if translation_dashboard_ssr.Links.families %}
-              <a class="btn btn-secondary" href="{{ translation_dashboard_ssr.Links.families }}">Blocked Families</a>
+              <a class="btn btn-secondary" href="{{ translation_dashboard_ssr.Links.families }}" data-translation-triage-link="families">Blocked Families</a>
               {% endif %}
               {% endif %}
             </div>
@@ -201,12 +204,12 @@
                     <td class="px-5 py-4 text-right font-semibold text-amber-700">{{ row.display_missing|default:"0" }}</td>
                     <td class="px-5 py-4 text-right font-semibold text-gray-700">{{ row.display_review|default:"0" }}</td>
                     <td class="px-5 py-4">
-                      <div class="flex justify-end gap-2">
+                      <div class="flex justify-end gap-2" data-translation-row-actions>
                         {% if row.links.family.href %}
-                        <a class="btn btn-secondary" href="{{ row.links.family.href }}">{{ row.links.family.label|default:"Open family" }}</a>
+                        <a class="btn btn-secondary" href="{{ row.links.family.href }}" data-translation-action="open-family">{{ row.links.family.label|default:"Open family" }}</a>
                         {% endif %}
                         {% if row.links.queue.href %}
-                        <a class="btn btn-secondary" href="{{ row.links.queue.href }}">{{ row.links.queue.label|default:"Open queue" }}</a>
+                        <a class="btn btn-secondary" href="{{ row.links.queue.href }}" data-translation-action="open-queue">{{ row.links.queue.label|default:"Open queue" }}</a>
                         {% endif %}
                       </div>
                     </td>
@@ -247,18 +250,18 @@
                       {{ row.display_overdue|default:"-" }}
                     </td>
                     <td class="px-5 py-4">
-                      <div class="flex justify-end gap-2">
+                      <div class="flex justify-end gap-2" data-translation-row-actions>
                         {% if row.links.assignment.href %}
-                        <a class="btn btn-secondary" href="{{ row.links.assignment.href }}">{{ row.links.assignment.label|default:"Open assignment" }}</a>
+                        <a class="btn btn-secondary" href="{{ row.links.assignment.href }}" data-translation-action="open-assignment">{{ row.links.assignment.label|default:"Open assignment" }}</a>
                         {% endif %}
                         {% if row.links.family.href %}
-                        <a class="btn btn-secondary" href="{{ row.links.family.href }}">{{ row.links.family.label|default:"Open family" }}</a>
+                        <a class="btn btn-secondary" href="{{ row.links.family.href }}" data-translation-action="open-family">{{ row.links.family.label|default:"Open family" }}</a>
                         {% endif %}
                         {% if row.links.queue.href %}
-                        <a class="btn btn-secondary" href="{{ row.links.queue.href }}">{{ row.links.queue.label|default:"Open queue context" }}</a>
+                        <a class="btn btn-secondary" href="{{ row.links.queue.href }}" data-translation-action="open-queue">{{ row.links.queue.label|default:"Open queue context" }}</a>
                         {% endif %}
                         {% if row.href %}
-                        <a class="btn btn-secondary" href="{{ row.href }}">Open</a>
+                        <a class="btn btn-secondary" href="{{ row.href }}" data-translation-action="open">Open</a>
                         {% endif %}
                       </div>
                     </td>
