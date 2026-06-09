@@ -1,6 +1,25 @@
 # Changelog
 
+# [0.87.0](https://github.com/goliatone/go-admin/compare/v0.86.1...v0.87.0) - (2026-06-09)
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Navigation sort menu items ([9ec5ea3](https://github.com/goliatone/go-admin/commit/9ec5ea32f3a244d70f55cb291fcbd8dee960b919))  - (goliatone)
+
+## <!-- 16 -->➕ Add
+
+- Sort order key for menu seed ([b6dfb25](https://github.com/goliatone/go-admin/commit/b6dfb2540be13df5ae1b61dbe64ae5d7fdd0194d))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update docs ([58cc957](https://github.com/goliatone/go-admin/commit/58cc9579bddf8fefd372a308a20b0f09c08d9ad5))  - (goliatone)
+- Update tests ([3ee7d7e](https://github.com/goliatone/go-admin/commit/3ee7d7e7d1b6c21cea97c00825b8082510b40368))  - (goliatone)
+
 # [0.86.1](https://github.com/goliatone/go-admin/compare/v0.86.0...v0.86.1) - (2026-06-09)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.86.1 ([f300b4e](https://github.com/goliatone/go-admin/commit/f300b4eaa569981660b68e30de6dfa866153a801))  - (goliatone)
 
 ## <!-- 7 -->⚙️ Miscellaneous Tasks
 
