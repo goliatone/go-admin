@@ -62,6 +62,16 @@ func (e *queuedDispatchExecutor) Execute(ctx context.Context, msg any, commandID
 	return e.receipt, nil
 }
 
+type resultDispatchTestMessage struct {
+	Value string
+}
+
+func (resultDispatchTestMessage) Type() string { return "command_bus.test.result_dispatch" }
+
+type resultDispatchTestResult struct {
+	Value string
+}
+
 func TestCommandBusDispatchByNameStaysInlineWhenPolicyQueued(t *testing.T) {
 	commandregistry.WithTestRegistry(func() {
 		bus := NewCommandBus(true)
@@ -88,6 +98,42 @@ func TestCommandBusDispatchByNameStaysInlineWhenPolicyQueued(t *testing.T) {
 		}
 		if inline.last.Value != "legacy-inline" {
 			t.Fatalf("expected payload value legacy-inline, got %q", inline.last.Value)
+		}
+	})
+}
+
+func TestCommandBusDispatchByNameWithOutcomeReturnsInlineResult(t *testing.T) {
+	commandregistry.WithTestRegistry(func() {
+		bus := NewCommandBus(true)
+		if _, err := RegisterCommand(bus, command.CommandFunc[resultDispatchTestMessage](func(ctx context.Context, msg resultDispatchTestMessage) error {
+			if result := command.ResultFromContext[resultDispatchTestResult](ctx); result != nil {
+				result.Store(resultDispatchTestResult{Value: msg.Value + "-result"})
+			}
+			return nil
+		})); err != nil {
+			t.Fatalf("RegisterCommand: %v", err)
+		}
+		if err := RegisterMessageResultFactory[resultDispatchTestMessage, resultDispatchTestResult](bus, "result.dispatch", func(payload map[string]any, _ []string) (resultDispatchTestMessage, error) {
+			return resultDispatchTestMessage{Value: toString(payload["value"])}, nil
+		}); err != nil {
+			t.Fatalf("RegisterMessageResultFactory: %v", err)
+		}
+
+		outcome, err := bus.DispatchByNameWithOutcome(context.Background(), "result.dispatch", map[string]any{"value": "ok"}, nil, command.DispatchOptions{
+			Mode: command.ExecutionModeInline,
+		})
+		if err != nil {
+			t.Fatalf("DispatchByNameWithOutcome: %v", err)
+		}
+		if !outcome.Receipt.Accepted || outcome.Receipt.Mode != command.ExecutionModeInline {
+			t.Fatalf("expected accepted inline receipt, got %+v", outcome.Receipt)
+		}
+		result, ok := outcome.Result.(resultDispatchTestResult)
+		if !ok {
+			t.Fatalf("expected typed result, got %T", outcome.Result)
+		}
+		if result.Value != "ok-result" {
+			t.Fatalf("expected ok-result, got %q", result.Value)
 		}
 	})
 }

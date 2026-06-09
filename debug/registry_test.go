@@ -63,7 +63,14 @@ func TestPanelDefinitionRichUINormalizesWireContract(t *testing.T) {
 			Filters: []PanelUIFilter{{ID: "Status", Label: "Status", Kind: "select", Bind: "status", Options: []string{"ok", "warn"}}},
 			Events:  &PanelUIEventPolicy{Mode: "upsert", Bind: "items", Key: "id", MaxEntries: 50},
 			Actions: []PanelUIAction{
-				{ID: "Refresh", Label: "Refresh", Refresh: true},
+				{
+					ID:      "Refresh",
+					Label:   "Refresh",
+					Refresh: true,
+					Fields: []PanelUIActionField{
+						{Name: "File_ID", Label: "File ID", Kind: "string", PayloadPath: "payload.file_id", Required: true},
+					},
+				},
 				{ID: "Refresh", Label: "Duplicate"},
 				{ID: "Missing", Label: "Missing"},
 			},
@@ -104,6 +111,9 @@ func TestPanelDefinitionRichUINormalizesWireContract(t *testing.T) {
 	}
 	if len(def.UI.Actions) != 1 || def.UI.Actions[0].ID != "refresh" {
 		t.Fatalf("expected only handled unique action, got %+v", def.UI.Actions)
+	}
+	if len(def.UI.Actions[0].Fields) != 1 || def.UI.Actions[0].Fields[0].Name != "file_id" || def.UI.Actions[0].Fields[0].PayloadPath != "payload.file_id" {
+		t.Fatalf("expected normalized action field, got %+v", def.UI.Actions[0].Fields)
 	}
 	if len(registration.Actions) != 1 || registration.Actions["refresh"] == nil {
 		t.Fatalf("expected normalized handler storage, got %+v", registration.Actions)

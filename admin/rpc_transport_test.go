@@ -126,6 +126,63 @@ func TestAdminRPCDispatchEndpointRoutesCommandBusWhenAuthorized(t *testing.T) {
 	}
 }
 
+func TestAdminRPCDispatchEndpointReturnsInlineResult(t *testing.T) {
+	adm := mustNewAdmin(t, Config{
+		Commands: CommandConfig{
+			RPC: RPCCommandConfig{
+				Commands: map[string]RPCCommandRule{
+					"rpc.dispatch.result": {Permission: "admin.commands.dispatch"},
+				},
+			},
+		},
+	}, Dependencies{
+		FeatureGate: featureGateFromKeys(FeatureCommands),
+		Authorizer: rpcTestAuthorizer{allow: map[string]bool{
+			"admin.commands.dispatch|commands": true,
+		}},
+	})
+	bus := adm.Commands()
+	if bus == nil {
+		t.Fatalf("expected command bus")
+	}
+	if _, err := RegisterCommand(bus, command.CommandFunc[rpcDispatchTestMessage](func(ctx context.Context, msg rpcDispatchTestMessage) error {
+		if result := command.ResultFromContext[map[string]any](ctx); result != nil {
+			result.Store(map[string]any{"value": msg.Value + "-result"})
+		}
+		return nil
+	})); err != nil {
+		t.Fatalf("register command: %v", err)
+	}
+	if err := RegisterMessageResultFactory[rpcDispatchTestMessage, map[string]any](bus, "rpc.dispatch.result", func(payload map[string]any, ids []string) (rpcDispatchTestMessage, error) {
+		_ = ids
+		return rpcDispatchTestMessage{Value: toString(payload["value"])}, nil
+	}); err != nil {
+		t.Fatalf("register message result factory: %v", err)
+	}
+
+	ctx := auth.WithActorContext(context.Background(), &auth.ActorContext{ActorID: "rpc-user", Subject: "rpc-user"})
+	result, err := adm.RPCServer().Invoke(ctx, RPCMethodCommandDispatch, &cmdrpc.RequestEnvelope[RPCCommandDispatchRequest]{
+		Data: RPCCommandDispatchRequest{
+			Name:    "rpc.dispatch.result",
+			Payload: map[string]any{"value": "ok"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("invoke rpc dispatch: %v", err)
+	}
+	resp, ok := result.(cmdrpc.ResponseEnvelope[RPCCommandDispatchResponse])
+	if !ok {
+		t.Fatalf("unexpected rpc response type %T", result)
+	}
+	payload, ok := resp.Data.Result.(map[string]any)
+	if !ok {
+		t.Fatalf("expected result payload, got %T", resp.Data.Result)
+	}
+	if payload["value"] != "ok-result" {
+		t.Fatalf("expected ok-result, got %#v", payload["value"])
+	}
+}
+
 func TestAdminRPCDispatchEndpointAcceptsAuthenticatedRequestMarkerWithoutActorContext(t *testing.T) {
 	adm := mustNewAdmin(t, Config{
 		Commands: CommandConfig{
