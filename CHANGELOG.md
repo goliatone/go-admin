@@ -1,10 +1,24 @@
 # Changelog
 
+# [0.88.1](https://github.com/goliatone/go-admin/compare/v0.88.0...v0.88.1) - (2026-06-09)
+
+## <!-- 16 -->➕ Add
+
+- Panel registration from context ([7ce83dc](https://github.com/goliatone/go-admin/commit/7ce83dc2743b5279bfce62b29757747308dbe68a))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update tests ([3a93109](https://github.com/goliatone/go-admin/commit/3a931096e4e891fd912284e09098a1a7b4c50b1f))  - (goliatone)
+
 # [0.88.0](https://github.com/goliatone/go-admin/compare/v0.87.0...v0.88.0) - (2026-06-09)
 
 ## <!-- 1 -->🐛 Bug Fixes
 
 - Code quality ([f99202a](https://github.com/goliatone/go-admin/commit/f99202a455956edea2036cfa4ea825a9be9a98e5))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.88.0 ([4ebfad0](https://github.com/goliatone/go-admin/commit/4ebfad01dbb656646895f04fc685b20de4fb8262))  - (goliatone)
 
 ## <!-- 16 -->➕ Add
 
