@@ -309,7 +309,7 @@ func (m *DebugModule) handleDebugPanels(c router.Context) error {
 	if m == nil || m.collector == nil {
 		return writeJSON(c, debugPanelsResponse{Panels: []debugregistry.PanelDefinition{}})
 	}
-	response := debugPanelsResponse{Panels: m.collector.PanelDefinitions()}
+	response := debugPanelsResponse{Panels: m.collector.PanelDefinitionsWithContext(c.Context())}
 	if version := debugregistry.RegistryVersion(); version != "" {
 		response.Version = version
 	}
