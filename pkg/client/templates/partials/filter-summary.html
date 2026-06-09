@@ -1,23 +1,5 @@
-{# Filter summary component - displays active filter chips with clear actions #}
-{#
-Usage:
-  {% include "partials/filter-summary.html" with
-     filters=[
-       {"label": "Status", "value": "Active", "clear_url": "/items?status="},
-       {"label": "Category", "value": "Products", "clear_url": "/items?category="}
-     ]
-     clear_all_url="/items"
-     total_count=2
-  %}
 
-Props:
-  - filters: Array of active filter objects
-    - label: Filter field label (string)
-    - value: Filter value display text (string)
-    - clear_url: URL to clear this specific filter (string)
-  - clear_all_url: URL to clear all filters (string)
-  - total_count: Total number of active filters (number, optional - will use filters length)
-#}
+
 
 {% set count = total_count|default:filters|length %}
 

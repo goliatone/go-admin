@@ -1715,9 +1715,9 @@ function zt(e, a, t) {
         </div>
         <div class="flex flex-wrap items-center gap-2">
           ${d}
-          <button type="button" class="${R}" data-family-list-page="prev" ${r ? "" : "disabled"}>Previous</button>
+          <button type="button" class="${R}" data-translation-list-page="prev" ${r ? "" : "disabled"}>Previous</button>
           <span class="text-sm text-gray-500">Page ${m(e.page)}</span>
-          <button type="button" class="${R}" data-family-list-page="next" ${o ? "" : "disabled"}>Next</button>
+          <button type="button" class="${R}" data-translation-list-page="next" ${o ? "" : "disabled"}>Next</button>
         </div>
       </div>
       <div class="overflow-x-auto">
@@ -1865,10 +1865,10 @@ function Yt(e, a, t) {
     });
   })), e.querySelector(".ui-state-retry-btn")?.addEventListener("click", () => {
     t(a.filters, !1);
-  }), e.querySelectorAll("[data-family-list-page]").forEach((i) => {
+  }), e.querySelectorAll("[data-translation-list-page]").forEach((i) => {
     i.addEventListener("click", () => {
       if (i.disabled) return;
-      const r = i.dataset.familyListPage === "next" ? 1 : -1;
+      const r = i.dataset.translationListPage === "next" ? 1 : -1;
       t({
         ...a.filters,
         page: Math.max(1, a.filters.page + r)

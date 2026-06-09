@@ -1,46 +1,12 @@
-{# Unified Metric Card Partial #}
-{#
-Renders a metric/summary card with count, label, and optional features.
-This partial unifies the previous metric-card and dashboard-card partials.
 
-Basic Usage:
-  {% include "partials/metric-card.html" with card={"key": "total", "label": "Total", "count": 42} %}
 
-Full Usage:
-  {% include "partials/metric-card.html" with card={
-    "key": "overdue",
-    "label": "Overdue Tasks",
-    "count": 5,
-    "tone": "error",
-    "description": "Tasks past their due date",
-    "href": "/tasks?filter=overdue",
-    "icon": "clock",
-    "alert": {"state": "warning", "text": "Attention needed"},
-    "drilldown": {"href": "/tasks/overdue", "label": "View all overdue"}
-  } %}
-
-Props:
-  - key: Identifier for the card (string)
-  - label / display_label: Card title (string)
-  - count: Main metric value (number/string)
-  - tone: Visual tone - "neutral", "info", "success", "warning", "error" (string)
-  - description: Supporting text (string)
-  - href: Simple link for the entire card (string) - for backward compatibility
-  - icon: Iconoir icon name (string)
-  - alert: Alert badge object with state and text
-    - state: "healthy", "warning", "critical", "error", "info" (string)
-    - text / display_status: Badge text (string)
-  - drilldown: Action link at bottom
-    - href: Link URL (string)
-    - label: Link text (string)
-#}
 
 {% set tone = card.tone|default:"neutral" %}
 {% set has_drilldown = card.drilldown.href %}
 {% set has_alert = card.alert.state or card.alert.text or card.display_status %}
 {% set label_text = card.display_label|default:card.label|default:"Metric" %}
 
-{# Tone-based count color #}
+
 {% set tone_count = "text-gray-900" %}
 {% if tone == "error" or tone == "danger" %}
   {% set tone_count = "text-rose-700" %}
@@ -52,7 +18,7 @@ Props:
   {% set tone_count = "text-sky-700" %}
 {% endif %}
 
-{# Alert badge styling #}
+
 {% set alert_state = card.alert.state|default:"healthy" %}
 {% set alert_badge_class = "bg-gray-100 text-gray-700" %}
 {% if alert_state == "critical" or alert_state == "error" %}
@@ -66,9 +32,9 @@ Props:
   {% set alert_badge_class = "bg-sky-50 text-sky-700" %}
 {% endif %}
 
-{# Card variant: with drilldown (dashboard style) vs simple (original style) #}
+
 {% if has_drilldown or has_alert %}
-{# Enhanced card with header, alert badge, and drilldown #}
+
 <article class="metric-card rounded-xl border border-gray-200 bg-white p-5 shadow-sm hover:shadow-md transition-shadow"
          data-metric-card="{{ card.key|default:card.id }}"
          data-tone="{{ tone }}">
@@ -96,7 +62,7 @@ Props:
   {% endif %}
 </article>
 {% elif card.href %}
-{# Clickable card (original behavior) #}
+
 <a href="{{ card.href }}"
    class="metric-card block bg-white border border-gray-200 rounded-xl p-4 hover:shadow-md hover:border-gray-300 transition-all group"
    data-metric-card="{{ card.key }}"
@@ -116,7 +82,7 @@ Props:
   </div>
 </a>
 {% else %}
-{# Static card (original behavior) #}
+
 <div class="metric-card bg-white border border-gray-200 rounded-xl p-4"
      data-metric-card="{{ card.key }}"
      data-tone="{{ tone }}">

@@ -366,7 +366,7 @@ test('translation-family list page: initializer hydrates filters and updates bro
   assert.match(root.innerHTML, /Open family/);
   assert.match(root.innerHTML, /BLOCKED/);
   assert.match(root.innerHTML, /data-action-menu-trigger/);
-  assert.match(root.innerHTML, /data-family-list-page="next"/);
+  assert.match(root.innerHTML, /data-translation-list-page="next"/);
   assert.match(root.innerHTML, /Page 1/);
 
   const readiness = root.querySelector('select[name="readiness_state"]');
@@ -380,14 +380,14 @@ test('translation-family list page: initializer hydrates filters and updates bro
 
   const contentType = root.querySelector('input[name="content_type"]');
   contentType.value = '';
-  root.querySelector('[data-family-list-filters="true"]').dispatchEvent(new dom.window.Event('submit', { bubbles: true, cancelable: true }));
+  root.querySelector('[data-translation-filter-form="true"]').dispatchEvent(new dom.window.Event('submit', { bubbles: true, cancelable: true }));
   await nextTick();
   await nextTick();
 
   assert.equal(requests[2], '/admin/api/translations/families?readiness_state=ready&channel=default&page=1&per_page=50');
   assert.equal(dom.window.location.search, '?debug=1&readiness_state=ready&channel=default&page=1&per_page=50');
 
-  root.querySelector('[data-family-list-page="next"]').dispatchEvent(new dom.window.Event('click', { bubbles: true }));
+  root.querySelector('[data-translation-list-page="next"]').dispatchEvent(new dom.window.Event('click', { bubbles: true }));
   await nextTick();
   await nextTick();
 

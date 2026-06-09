@@ -944,12 +944,21 @@ test('translation queue runtime: filter chips render for active filters', async 
   screen.mount(root);
   await flushAsync();
 
-  // Manually set filters to trigger chip rendering
-  const statusFilter = root.querySelector('[data-filter-status="open"]');
-  if (statusFilter) {
-    statusFilter.click();
-    await flushAsync();
-  }
+  screen.queryState = {
+    ...screen.queryState,
+    status: 'open',
+    dueState: 'overdue',
+    priority: 'high',
+    locale: 'es',
+    assigneeId: 'user-1',
+    reviewerId: 'user-2',
+    familyId: 'family-1',
+    sort: 'priority',
+    order: 'asc',
+  };
+  screen.activeReviewState = 'pending';
+  screen.render();
+  await flushAsync();
 
   // Verify filter chips are rendered when filters are active (T08: unconditional)
   assert.match(root.innerHTML, /data-remove-filter="[^"]+"/,
@@ -958,6 +967,10 @@ test('translation queue runtime: filter chips render for active filters', async 
   // Verify chip has proper label and value
   assert.match(root.innerHTML, /queue-filter-chip/,
     'Filter chips should have queue-filter-chip class');
+  for (const filterName of ['status', 'due_state', 'priority', 'locale', 'assignee_id', 'reviewer_id', 'family_id', 'review_state', 'sort', 'order']) {
+    assert.ok(root.querySelector(`[data-remove-filter="${filterName}"]`), `expected ${filterName} chip`);
+  }
+  assert.match(root.querySelector('[data-filters-toggle]').textContent, /10/);
 });
 
 test('translation queue runtime: removing individual filter chip clears that filter', async () => {
@@ -994,16 +1007,14 @@ test('translation queue runtime: removing individual filter chip clears that fil
   screen.render();
   await flushAsync();
 
-  // Find and click a remove chip button if it exists
   const removeButton = root.querySelector('[data-remove-filter="status"]');
-  if (removeButton) {
-    removeButton.click();
-    await flushAsync();
+  assert.ok(removeButton, 'expected status remove chip');
+  removeButton.click();
+  await flushAsync();
 
-    // Verify that only the status filter was cleared
-    assert.equal(lastQuery.status, null);
-    assert.equal(lastQuery.priority, 'high');
-  }
+  // Verify that only the status filter was cleared
+  assert.equal(lastQuery.status, null);
+  assert.equal(lastQuery.priority, 'high');
 });
 
 test('translation queue runtime: clear all filters button clears filter snapshot', async () => {
@@ -1044,27 +1055,25 @@ test('translation queue runtime: clear all filters button clears filter snapshot
   screen.render();
   await flushAsync();
 
-  // Find and click clear all filters button
   const clearButton = root.querySelector('[data-clear-filters]');
-  if (clearButton) {
-    clearButton.click();
-    await flushAsync();
+  assert.ok(clearButton, 'expected clear all filters button');
+  clearButton.click();
+  await flushAsync();
 
-    // Verify filter snapshot was cleared
-    assert.equal(screen.filterSnapshot, null);
+  // Verify filter snapshot was cleared
+  assert.equal(screen.filterSnapshot, null);
 
-    // Verify all filter fields were cleared
-    assert.equal(screen.queryState.status, undefined);
-    assert.equal(screen.queryState.priority, undefined);
-    assert.equal(screen.queryState.dueState, undefined);
-    assert.equal(screen.queryState.locale, undefined);
-    assert.equal(screen.queryState.assigneeId, undefined);
-    assert.equal(screen.queryState.reviewerId, undefined);
-    assert.equal(screen.queryState.familyId, undefined);
-    assert.equal(screen.queryState.sort, undefined);
-    assert.equal(screen.queryState.order, undefined);
-    assert.equal(screen.activeReviewState, null);
-  }
+  // Verify all filter fields were cleared
+  assert.equal(screen.queryState.status, undefined);
+  assert.equal(screen.queryState.priority, undefined);
+  assert.equal(screen.queryState.dueState, undefined);
+  assert.equal(screen.queryState.locale, undefined);
+  assert.equal(screen.queryState.assigneeId, undefined);
+  assert.equal(screen.queryState.reviewerId, undefined);
+  assert.equal(screen.queryState.familyId, undefined);
+  assert.equal(screen.queryState.sort, undefined);
+  assert.equal(screen.queryState.order, undefined);
+  assert.equal(screen.activeReviewState, null);
 });
 
 test('translation queue runtime: mobile cards are keyboard-accessible navigation targets', async () => {
@@ -1213,7 +1222,7 @@ test('translation queue runtime: SSR root binds row actions without first-render
   root.innerHTML = `
     <section data-translation-queue-ssr="true">
       <button type="button"
-              data-queue-row-action="claim"
+              data-translation-action="claim"
               data-assignment-id="asg-open-1"
               data-row-version="2">Claim</button>
     </section>
@@ -1235,7 +1244,7 @@ test('translation queue runtime: SSR root binds row actions without first-render
   assert.equal(requests.length, 0);
   assert.equal(root.dataset.assignmentQueueEnhanced, 'true');
 
-  root.querySelector('[data-queue-row-action="claim"]')
+  root.querySelector('[data-translation-action="claim"]')
     .dispatchEvent(new globalThis.window.Event('click', { bubbles: true }));
   await flushAsync();
   await flushAsync();
@@ -1361,6 +1370,39 @@ test('translation queue runtime: rows with 3+ actions show overflow menu', async
 
   // Check for menu items with role="menuitem"
   assert.match(container.innerHTML, /role="menuitem"/);
+});
+
+test('translation queue runtime: nested overflow controls do not trigger row keyboard navigation', async () => {
+  const { root } = setupDom();
+  globalThis.fetch = mock.fn(async () => createJsonResponse(fixtures.states.review_ready));
+
+  const screen = new AssignmentQueueScreen({
+    endpoint: '/admin/api/translations/assignments',
+    editorBasePath: '/admin/translations/assignments',
+  });
+  const opened = [];
+  screen.mount(root);
+  await flushAsync();
+  screen.openAssignment = (assignmentId) => {
+    opened.push(assignmentId);
+  };
+
+  const trigger = root.querySelector('.queue-action-overflow-trigger');
+  const navTarget = trigger?.closest('[data-assignment-row="true"], [data-assignment-card="true"]');
+  const menu = root.querySelector('.queue-action-overflow-menu');
+  assert.ok(trigger);
+  assert.ok(navTarget);
+  assert.ok(menu);
+
+  trigger.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+  assert.deepEqual(opened, []);
+
+  trigger.click();
+  assert.equal(menu.hidden, false);
+  assert.equal(trigger.getAttribute('aria-expanded'), 'true');
+
+  navTarget.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+  assert.deepEqual(opened, ['asg-review-1']);
 });
 
 test('translation queue runtime: overflow menu preserves action data attributes', async () => {

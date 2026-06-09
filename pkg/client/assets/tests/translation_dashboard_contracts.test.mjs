@@ -61,11 +61,11 @@ function createFakeElement(dataset = {}, attrs = {}) {
 }
 
 function createSSRDashboardContainer() {
-  const blockedTab = createFakeElement({ dashboardSsrTableTab: 'blocked_families' }, { 'aria-selected': 'false' });
-  const overdueTab = createFakeElement({ dashboardSsrTableTab: 'top_overdue_assignments' }, { 'aria-selected': 'true' });
-  const blockedPanel = createFakeElement({ dashboardSsrTablePanel: 'blocked_families' });
+  const blockedTab = createFakeElement({ translationTableTab: 'blocked_families' }, { 'aria-selected': 'false' });
+  const overdueTab = createFakeElement({ translationTableTab: 'top_overdue_assignments' }, { 'aria-selected': 'true' });
+  const blockedPanel = createFakeElement({ translationTablePanel: 'blocked_families' });
   blockedPanel.hidden = true;
-  const overduePanel = createFakeElement({ dashboardSsrTablePanel: 'top_overdue_assignments' });
+  const overduePanel = createFakeElement({ translationTablePanel: 'top_overdue_assignments' });
   return {
     root: {
       dataset: {
@@ -74,9 +74,9 @@ function createSSRDashboardContainer() {
       },
       innerHTML: '<section data-translation-dashboard-ssr="true">Overdue panel</section>',
       querySelectorAll(selector) {
-        if (selector === '[data-dashboard-ssr-table-tab]') return [blockedTab, overdueTab];
-        if (selector === '[data-dashboard-ssr-table-panel]') return [blockedPanel, overduePanel];
-        if (selector === '[data-dashboard-ssr-disclosure]') return [];
+        if (selector === '[data-translation-table-tab]') return [blockedTab, overdueTab];
+        if (selector === '[data-translation-table-panel]') return [blockedPanel, overduePanel];
+        if (selector === '[data-translation-disclosure]') return [];
         return [];
       },
     },

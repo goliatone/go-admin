@@ -1,28 +1,5 @@
-{# Quick filters component - inline status filter badges for rapid filtering #}
-{#
-Usage:
-  {% include "partials/quick-filters.html" with
-     filters=[
-       {"value": "", "label": "All", "href": "/items"},
-       {"value": "active", "label": "Active", "tone": "success", "href": "/items?status=active", "count": 5},
-       {"value": "pending", "label": "Pending", "tone": "warning", "href": "/items?status=pending"},
-       {"value": "blocked", "label": "Blocked", "tone": "error", "href": "/items?status=blocked"}
-     ]
-     active_value="active"
-     label="Status"
-  %}
 
-Props:
-  - filters: Array of filter objects
-    - value: Filter value for matching active state (string)
-    - label: Display text (string)
-    - href: Link URL (string)
-    - tone: Visual tone - "error", "warning", "info", "success", "neutral" (string, default: "neutral")
-    - count: Optional count badge (number)
-  - active_value: Currently active filter value (string)
-  - label: Optional label prefix (string, default: none)
-  - show_label: Whether to show the label (bool, default: true if label is set)
-#}
+
 
 {% set show_label_flag = show_label|default:label %}
 
@@ -35,7 +12,7 @@ Props:
       {% set is_active = qf.value == active_value or (qf.value == "" and not active_value) %}
       {% set tone = qf.tone|default:"neutral" %}
 
-      {# Determine tone-based classes #}
+      
       {% if is_active %}
         {% if tone == "error" or tone == "danger" %}
           {% set tone_class = "bg-rose-100 text-rose-800 ring-2 ring-rose-500 ring-offset-1" %}
@@ -68,7 +45,7 @@ Props:
        data-tone="{{ tone }}"
        {% if is_active %}aria-current="true"{% endif %}>
       <span>{{ qf.label }}</span>
-      {% if qf.count is defined %}
+      {% if qf.count %}
       <span class="quick-filter__count rounded-full bg-white/50 px-1.5 py-0.5 text-[10px] font-bold">{{ qf.count }}</span>
       {% endif %}
     </a>

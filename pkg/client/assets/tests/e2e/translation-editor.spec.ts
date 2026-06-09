@@ -265,7 +265,7 @@ test.describe('Translation Assignment Editor', () => {
       });
     });
 
-    await page.goto(`/admin/translations/assignments/${assignmentID}/edit`);
+    await page.goto(`/admin/translations/assignments/${assignmentID}/edit?translation_client_render=true`);
     await page.waitForLoadState('networkidle');
 
     await expect(page.locator('[data-translation-editor="true"]')).toBeVisible();
@@ -290,7 +290,7 @@ test.describe('Translation Assignment Editor', () => {
       });
     });
 
-    await page.goto(`/admin/translations/assignments/${assignmentID}/edit`);
+    await page.goto(`/admin/translations/assignments/${assignmentID}/edit?translation_client_render=true`);
     await page.waitForLoadState('networkidle');
 
     const summary = page.locator('[data-editor-locale-summary="true"]');
@@ -345,7 +345,7 @@ test.describe('Translation Assignment Editor', () => {
       });
     });
 
-    await page.goto(`/admin/translations/assignments/${assignmentID}/edit`);
+    await page.goto(`/admin/translations/assignments/${assignmentID}/edit?translation_client_render=true`);
     await page.waitForLoadState('networkidle');
 
     await page.locator('[data-field-input="body"]').fill('Conflit autosave');
@@ -373,7 +373,7 @@ test.describe('Translation Assignment Editor', () => {
         body: JSON.stringify(submitted ? makeApprovedDetailFixture() : makeSubmitReadyFixture()),
       });
     });
-    await page.goto(`/admin/translations/assignments/${assignmentID}/edit`);
+    await page.goto(`/admin/translations/assignments/${assignmentID}/edit?translation_client_render=true`);
     await page.waitForLoadState('networkidle');
 
     await page.locator('[data-action="submit-review"]').click();
@@ -392,7 +392,7 @@ test.describe('Translation Assignment Editor', () => {
       });
     });
 
-    await page.goto(`/admin/translations/assignments/${assignmentID}/edit`);
+    await page.goto(`/admin/translations/assignments/${assignmentID}/edit?translation_client_render=true`);
     await page.waitForLoadState('networkidle');
 
     const submitButton = page.locator('[data-action="submit-review"]');
@@ -425,7 +425,7 @@ test.describe('Translation Assignment Editor', () => {
       });
     });
 
-    await page.goto(`/admin/translations/assignments/${assignmentID}/edit`);
+    await page.goto(`/admin/translations/assignments/${assignmentID}/edit?translation_client_render=true`);
     await page.waitForLoadState('networkidle');
 
     await expect(page.locator('[data-editor-panel="review-actions"]')).toBeVisible();
@@ -460,7 +460,7 @@ test.describe('Translation Assignment Editor', () => {
       });
     });
 
-    await page.goto(`/admin/translations/assignments/${assignmentID}/edit`);
+    await page.goto(`/admin/translations/assignments/${assignmentID}/edit?translation_client_render=true`);
     await page.waitForLoadState('networkidle');
 
     await page.locator('[data-editor-panel="review-actions"] [data-action="reject"]').click();

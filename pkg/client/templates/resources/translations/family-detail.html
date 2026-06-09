@@ -3,12 +3,7 @@
 {% block title %}{{ translation_family_id|default:"Translation Family" }} - {{ title }}{% endblock %}
 
 {% block content %}
-{% include "partials/admin-page-header.html" with
-   breadcrumbs=breadcrumbs
-   page_title="Family detail"
-   page_subtitle="View locale coverage, assignments, and family activity."
-   header_actions_id="family-detail-header-actions"
-%}
+{% include "partials/admin-page-header.html" with breadcrumbs=breadcrumbs page_title="Family detail" page_subtitle="View locale coverage, assignments, and family activity." header_actions_id="family-detail-header-actions" %}
 
 <div class="flex-1 overflow-y-auto bg-gray-50 p-8">
   <div class="mx-auto">
@@ -42,7 +37,7 @@
               </p>
             </div>
             <div class="flex flex-wrap items-center gap-2">
-              {% include "partials/status-badge.html" with badge={"status": family.readiness_state|default:"unknown", "tone": family.readiness_tone|default:family.readiness_state|default:"neutral", "label": family.readiness_state|default:"unknown", "show_icon": true} %}
+              {% include "partials/status-badge.html" with badge_status=family.readiness_state|default:"unknown" badge_tone=family.readiness_tone|default:family.readiness_state|default:"neutral" badge_label=family.readiness_state|default:"unknown" %}
               {% if family.quick_create.enabled %}
               <button type="button"
                       class="btn btn-primary"
@@ -90,7 +85,7 @@
                     <div class="flex flex-wrap items-center gap-2">
                       <span class="text-sm font-semibold uppercase text-gray-900">{{ row.display_locale|default:row.locale|default:"-" }}</span>
                       {% for badge in row.badges %}
-                      {% include "partials/status-badge.html" with badge={"status": badge.status|default:badge.label, "tone": badge.tone|default:"neutral", "label": badge.label, "show_icon": false} %}
+                      {% include "partials/status-badge.html" with badge_status=badge.status|default:badge.label badge_tone=badge.tone|default:"neutral" badge_label=badge.label show_icon=false %}
                       {% endfor %}
                     </div>
                     <p class="mt-2 text-sm text-gray-600">{{ row.title|default:family.source_variant.fields.title|default:family.family_id }}</p>
@@ -122,12 +117,12 @@
                       <input type="hidden" name="work_scope" value="{{ row.assign_to_me_action.payload.work_scope|default:row.locale_assignment.work_scope }}">
                       <input type="hidden" name="assignee_id" value="{{ row.assign_to_me_action.payload.assignee_id|default:"" }}">
                       <input type="hidden" name="channel" value="{{ translation_family_detail_ssr.Meta.channel|default:"" }}">
-                      <button type="submit" class="btn btn-secondary h-12">Assign to me</button>
+                      <button type="submit" class="btn btn-secondary h-10">Assign to me</button>
                       <div class="w-full text-xs text-rose-600" data-family-assignment-error-for="{{ row.locale_assignment_key }}" hidden></div>
                     </form>
                     {% elif row.assign_to_me_action.reason_code == "already_assigned" %}
                     <button type="button"
-                            class="btn btn-secondary h-12"
+                            class="btn btn-secondary h-10"
                             disabled
                             aria-disabled="true"
                             title="{{ row.assign_to_me_action.reason|default:"Assignment already belongs to you" }}">
@@ -147,7 +142,7 @@
                       <input type="hidden" name="target_locale" value="{{ row.assign_to_user_action.payload.target_locale|default:row.locale }}">
                       <input type="hidden" name="work_scope" value="{{ row.assign_to_user_action.payload.work_scope|default:row.locale_assignment.work_scope }}">
                       <input type="hidden" name="channel" value="{{ translation_family_detail_ssr.Meta.channel|default:"" }}">
-                      <select class="block h-12 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm shadow-sm transition focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                      <select class="block h-10 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm shadow-sm transition focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                               name="assignee_id"
                               data-family-assignee-select="{{ row.locale_assignment_key }}"
                               data-initial-assignee-id="{{ row.assignment.assignee_id|default:"" }}"
@@ -172,7 +167,7 @@
                         <option value="{{ row.assignment.assignee_id }}" selected>{{ row.assignment.display_assignee|default:row.assignment.assignee_label|default:row.assignment.assignee_id }}</option>
                         {% endif %}
                       </select>
-                      <button type="submit" class="btn btn-primary h-12">Assign</button>
+                      <button type="submit" class="btn btn-primary h-10">Assign</button>
                       <div class="w-full text-xs text-rose-600" data-family-assignment-error-for="{{ row.locale_assignment_key }}" hidden></div>
                     </form>
                     {% elif row.assign_to_user_action.reason %}
@@ -180,7 +175,7 @@
                     {% endif %}
                     {% if row.claim_action.enabled %}
                     <button type="button"
-                            class="btn btn-secondary h-12"
+                            class="btn btn-secondary h-10"
                             data-family-claim-assignment="true"
                             data-locale-assignment-key="{{ row.locale_assignment_key }}"
                             data-assignment-endpoint="{{ row.claim_action.endpoint }}"
@@ -190,7 +185,7 @@
                     </button>
                     {% endif %}
                     {% if row.open_locale_href %}
-                    <a class="btn btn-secondary h-12" href="{{ row.open_locale_href }}">Open locale</a>
+                    <a class="btn btn-secondary h-10" href="{{ row.open_locale_href }}">Open locale</a>
                     {% endif %}
                     {% endif %}
                   </div>
@@ -214,8 +209,8 @@
                     <div>
                       <div class="flex flex-wrap items-center gap-2">
                         <span class="text-sm font-semibold uppercase text-gray-900">{{ assignment.target_locale|default:"-" }}</span>
-                        {% include "partials/status-badge.html" with badge={"status": assignment.status|default:"open", "tone": assignment.status_tone|default:"info", "label": assignment.display_status|default:assignment.status|default:"Open", "show_icon": true} %}
-                        {% include "partials/status-badge.html" with badge={"status": assignment.priority|default:"normal", "tone": assignment.priority_tone|default:"neutral", "label": assignment.display_priority|default:assignment.priority|default:"Normal", "show_icon": false} %}
+                        {% include "partials/status-badge.html" with badge_status=assignment.status|default:"open" badge_tone=assignment.status_tone|default:"info" badge_label=assignment.display_status|default:assignment.status|default:"Open" %}
+                        {% include "partials/status-badge.html" with badge_status=assignment.priority|default:"normal" badge_tone=assignment.priority_tone|default:"neutral" badge_label=assignment.display_priority|default:assignment.priority|default:"Normal" show_icon=false %}
                       </div>
                       <p class="mt-2 text-sm text-gray-600">
                         {{ assignment.display_assignee|default:assignment.assignee_label|default:assignment.assignee_id|default:"Unassigned" }}

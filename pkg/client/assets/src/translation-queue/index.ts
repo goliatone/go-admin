@@ -1300,6 +1300,15 @@ interface SelectionEntry {
   expectedVersion: number;
 }
 
+function isNestedInteractiveTarget(event: Event, owner: HTMLElement): boolean {
+  const target = event.target as HTMLElement | null;
+  return Boolean(
+    target &&
+    target !== owner &&
+    target.closest('button, a, input, select, textarea, [role="button"], [role="menuitem"]')
+  );
+}
+
 export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScreenState> {
   private config: Required<AssignmentQueueScreenConfig>;
   private container: HTMLElement | null = null;
@@ -2051,6 +2060,10 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
     if (this.queryState.locale) count++;
     if (this.queryState.assigneeId) count++;
     if (this.queryState.reviewerId) count++;
+    if (this.queryState.familyId) count++;
+    if (this.activeReviewState) count++;
+    if (this.queryState.sort && this.queryState.sort !== (this.response?.meta.default_sort.key ?? 'updated_at')) count++;
+    if (this.queryState.order && this.queryState.order !== (this.response?.meta.default_sort.order ?? 'desc')) count++;
     return count;
   }
 
@@ -3707,6 +3720,9 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
           }
         });
         header.addEventListener('keydown', (event) => {
+          if (isNestedInteractiveTarget(event, header)) {
+            return;
+          }
           if (event.key === 'Enter' || event.key === ' ') {
             event.preventDefault();
             const groupId = header.dataset.groupId;
@@ -3738,6 +3754,9 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
         this.openAssignment(getRowId());
       });
       element.addEventListener('keydown', (event) => {
+        if (isNestedInteractiveTarget(event, element)) {
+          return;
+        }
         const key = event.key;
         if (key === 'Enter' || key === ' ') {
           event.preventDefault();
@@ -4875,12 +4894,10 @@ function bindAssignmentQueueSSR(container: HTMLElement, endpoint: string): void 
     return;
   }
   container.dataset.assignmentQueueEnhanced = 'true';
-  // Bind to action menu items with data-translation-action (new convention)
-  // Also supports legacy data-queue-row-action for backwards compatibility
-  container.querySelectorAll<HTMLButtonElement>('[data-translation-action], [data-queue-row-action]').forEach((button) => {
+  container.querySelectorAll<HTMLButtonElement>('[data-translation-action]').forEach((button) => {
     button.addEventListener('click', async (event) => {
       event.preventDefault();
-      const action = asString(button.dataset.translationAction || button.dataset.queueRowAction) as 'claim' | 'release';
+      const action = asString(button.dataset.translationAction) as 'claim' | 'release';
       const assignmentId = asString(button.dataset.assignmentId);
       const parsedVersion = Number.parseInt(asString(button.dataset.rowVersion), 10);
       const expectedVersion = Number.isFinite(parsedVersion) ? parsedVersion : 0;
@@ -4911,12 +4928,19 @@ function bindAssignmentQueueSSR(container: HTMLElement, endpoint: string): void 
   });
 }
 
+function shouldUseTranslationClientRender(): boolean {
+  if (typeof window === 'undefined' || !window.location) return false;
+  const params = readLocationSearchParams(window.location) ?? new URLSearchParams();
+  const value = params.get('translation_client_render') || params.get('translationClientRender');
+  return value === '1' || value === 'true';
+}
+
 export function initAssignmentQueueScreen(container: HTMLElement): AssignmentQueueScreen | null {
   const endpoint = container.dataset.endpoint || container.dataset.assignmentListEndpoint || '';
   if (!endpoint) {
     return null;
   }
-  if (container.dataset.ssrEnhanced === 'true') {
+  if (container.dataset.ssrEnhanced === 'true' && !shouldUseTranslationClientRender()) {
     bindAssignmentQueueSSR(container, endpoint);
     return null;
   }

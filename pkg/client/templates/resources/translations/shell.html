@@ -3,13 +3,8 @@
 {% block title %}{{ translation_shell_title|default:"Translation" }} - {{ title }}{% endblock %}
 
 {% block content %}
-{# Page Header - using shared partial #}
-{% include "partials/admin-page-header.html" with
-   breadcrumbs=breadcrumbs
-   page_title=translation_shell_title|default:"Translation"
-   page_subtitle=translation_shell_description|default:"Translation work surface with feature-based routing."
-   header_actions_id="translation-shell-header-actions"
-%}
+
+{% include "partials/admin-page-header.html" with breadcrumbs=breadcrumbs page_title=translation_shell_title|default:"Translation" page_subtitle=translation_shell_description|default:"Translation work surface with feature-based routing." header_actions_id="translation-shell-header-actions" %}
 
 <div class="flex-1 overflow-y-auto bg-gray-50 p-8">
   <div class="mx-auto">
@@ -33,7 +28,7 @@
           </section>
           {% else %}
           {% with queue=translation_queue_ssr %}
-          {# Summary metric cards for queue #}
+          
           {% if queue.Data.summary_cards %}
           <section class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6" aria-label="Translation queue summary">
             {% for card in queue.Data.summary_cards %}
@@ -55,18 +50,14 @@
             </nav>
             {% endif %}
 
-            {# Quick filters for assignment status - using shared partial #}
+            
             {% if queue.DataGrid.quick_filters %}
             <div class="border-b border-gray-100 bg-white px-5 py-3" data-translation-quick-filters>
-              {% include "partials/quick-filters.html" with
-                 filters=queue.DataGrid.quick_filters
-                 active_value=queue.DataGrid.active_quick_filter
-                 label="Status"
-              %}
+              {% include "partials/quick-filters.html" with filters=queue.DataGrid.quick_filters active_value=queue.DataGrid.active_quick_filter label="Status" %}
             </div>
             {% endif %}
 
-            {# Filter toolbar with sort and refresh #}
+            
             <div class="border-b border-gray-100 bg-gray-50 px-5 py-4" data-translation-filter-toolbar>
               <div class="flex flex-wrap items-center justify-between gap-4">
                 <div class="flex flex-wrap items-center gap-5 text-sm text-gray-700">
@@ -83,24 +74,15 @@
                 </div>
               </div>
 
-              {# Advanced Filters Panel - using shared partial #}
+              
               <div class="mt-4 border-t border-gray-100 pt-4" data-translation-filter-panel>
-                {% include "partials/filter-panel.html" with
-                   filters=queue.DataGrid.filters
-                   form_action=queue.DataGrid.view_links.current|default:queue.Links.queue|default:"/admin/translations/queue"
-                   channel=queue.Meta.channel
-                   active_count=queue.DataGrid.active_filter_chips|length
-                   grid_cols=5
-                %}
+                {% include "partials/filter-panel.html" with filters=queue.DataGrid.filters form_action=queue.DataGrid.view_links.current|default:queue.Links.queue|default:"/admin/translations/queue" channel=queue.Meta.channel active_count=queue.DataGrid.active_filter_chips|length grid_cols=5 %}
               </div>
 
-              {# Active Filter Summary - using shared partial #}
+              
               <div class="mt-4" data-translation-filter-summary>
                 {% if queue.DataGrid.active_filter_chips %}
-                {% include "partials/filter-summary.html" with
-                   filters=queue.DataGrid.active_filter_chips
-                   clear_all_url=queue.DataGrid.view_links.clear_all|default:queue.Links.queue|default:"/admin/translations/queue"
-                %}
+                {% include "partials/filter-summary.html" with filters=queue.DataGrid.active_filter_chips clear_all_url=queue.DataGrid.view_links.clear_all|default:queue.Links.queue|default:"/admin/translations/queue" %}
                 {% else %}
                 <span class="rounded-md border border-gray-200 bg-white px-3 py-2 text-sm text-gray-500">All visible assignments</span>
                 {% endif %}
@@ -180,7 +162,7 @@
                     </td>
                     <td class="px-4 py-4 align-top">
                       <div class="grid gap-1">
-                        {# Tone mapping mirrors status-vocabulary.ts - prefer server-side computed tones (see family-detail.html) #}
+                        
                         {% set status_tone = "info" %}
                         {% if row.status == "in_review" %}{% set status_tone = "warning" %}{% elif row.status == "changes_requested" %}{% set status_tone = "error" %}{% elif row.status == "approved" or row.status == "completed" %}{% set status_tone = "success" %}{% endif %}
                         {% include "partials/status-badge.html" with badge_status=row.status|default:"unknown" badge_tone=status_tone badge_label=row.display_status|default:row.status|default:row.queue_state %}
@@ -204,7 +186,7 @@
                       <div class="mt-1 text-sm text-gray-600">{{ row.display_due_date|default:"" }}</div>
                     </td>
                     <td class="px-4 py-4 align-top">
-                      {# Action menu dropdown #}
+                      
                       <div class="action-menu relative flex justify-end"
                            data-action-menu
                            data-row-id="{{ row.assignment_id|default:row.id }}"
@@ -223,7 +205,7 @@
                              data-action-menu-content
                              role="menu"
                              aria-orientation="vertical">
-                          {# Open in Editor #}
+                          
                           <a class="action-menu__item flex w-full items-center gap-2 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:bg-gray-50 focus:outline-none"
                              data-action-menu-item
                              data-action="open"
@@ -233,7 +215,7 @@
                             <span>Open in Editor</span>
                           </a>
                           <div class="action-menu__divider my-1 border-t border-gray-100" role="separator"></div>
-                          {# Claim action #}
+                          
                           <button type="button"
                                   class="action-menu__item flex w-full items-center gap-2 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:bg-gray-50 focus:outline-none {% if row.actions.claim.enabled == false %}opacity-50 cursor-not-allowed{% endif %}"
                                   data-action-menu-item
@@ -246,7 +228,7 @@
                             <i class="iconoir-user-plus w-4 h-4 flex-shrink-0" aria-hidden="true"></i>
                             <span>Claim</span>
                           </button>
-                          {# Release action #}
+                          
                           <button type="button"
                                   class="action-menu__item flex w-full items-center gap-2 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:bg-gray-50 focus:outline-none {% if row.actions.release.enabled == false %}opacity-50 cursor-not-allowed{% endif %}"
                                   data-action-menu-item

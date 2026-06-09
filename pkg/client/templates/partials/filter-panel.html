@@ -1,33 +1,5 @@
-{# Filter panel component - collapsible advanced filters form #}
-{#
-Usage:
-  {% include "partials/filter-panel.html" with
-     filters=[
-       {"name": "status", "label": "Status", "type": "select", "options": [{"value": "active", "label": "Active"}], "current_value": "active"},
-       {"name": "search", "label": "Search", "type": "text", "placeholder": "Search...", "current_value": ""},
-       {"name": "created_at", "label": "Created After", "type": "date"}
-     ]
-     form_action="/items"
-     channel="default"
-     active_count=2
-     open=false
-  %}
 
-Props:
-  - filters: Array of filter field definitions
-    - name: Field name for form submission (string)
-    - label: Display label (string)
-    - type: Input type - "text", "select", "date", "number" (string, default: "text")
-    - options: For select type, array of {value, label} objects
-    - current_value: Pre-filled value (string)
-    - placeholder: Placeholder text (string)
-  - form_action: Form submission URL (string)
-  - form_method: Form method (string, default: "get")
-  - channel: Optional hidden channel field value (string)
-  - active_count: Count of active filters for badge display (number)
-  - open: Whether the panel is initially open (bool, default: false)
-  - grid_cols: Number of grid columns on xl screens (number, default: based on filter count)
-#}
+
 
 {% set method = form_method|default:"get" %}
 {% set is_open = open|default:false %}

@@ -137,7 +137,7 @@ export async function navigateToPanel(
  * Navigate to translation dashboard
  */
 export async function navigateToTranslationDashboard(page: Page): Promise<void> {
-  await page.goto('/admin/translations/dashboard', { waitUntil: 'domcontentloaded' });
+  await page.goto('/admin/translations/dashboard?translation_client_render=true', { waitUntil: 'domcontentloaded' });
   await page.waitForSelector(
     '[data-dashboard-toolbar="true"], [data-dashboard="true"], [data-dashboard-table], [data-dashboard-error="true"], [data-dashboard-refresh-button]',
     { timeout: 10000 }
@@ -145,8 +145,10 @@ export async function navigateToTranslationDashboard(page: Page): Promise<void> 
 }
 
 export async function navigateToTranslationQueue(page: Page): Promise<void> {
-  await page.goto('/admin/translations/queue', { waitUntil: 'domcontentloaded' });
-  await page.waitForSelector('[data-assignment-id], [data-queue-state="empty"], [data-review-preset-id]', { timeout: 10000 });
+  await page.goto('/admin/translations/queue?translation_client_render=true', { waitUntil: 'domcontentloaded' });
+  await page.locator(
+    '[data-assignment-row="true"]:visible, [data-assignment-card="true"]:visible, [data-queue-state="empty"]:visible'
+  ).first().waitFor({ timeout: 10000 });
 }
 
 /**

@@ -2914,9 +2914,9 @@ function renderTranslationFamilyListTable(
         </div>
         <div class="flex flex-wrap items-center gap-2">
           ${viewLinks}
-          <button type="button" class="${BTN_SECONDARY}" data-family-list-page="prev" ${hasPrevious ? '' : 'disabled'}>Previous</button>
+          <button type="button" class="${BTN_SECONDARY}" data-translation-list-page="prev" ${hasPrevious ? '' : 'disabled'}>Previous</button>
           <span class="text-sm text-gray-500">Page ${escapeHTML(response.page)}</span>
-          <button type="button" class="${BTN_SECONDARY}" data-family-list-page="next" ${hasNext ? '' : 'disabled'}>Next</button>
+          <button type="button" class="${BTN_SECONDARY}" data-translation-list-page="next" ${hasNext ? '' : 'disabled'}>Next</button>
         </div>
       </div>
       <div class="overflow-x-auto">
@@ -3129,10 +3129,10 @@ function bindTranslationFamilyListPage(
   root.querySelector<HTMLButtonElement>('.ui-state-retry-btn')?.addEventListener('click', () => {
     void load(state.filters, false);
   });
-  root.querySelectorAll<HTMLButtonElement>('[data-family-list-page]').forEach((button) => {
+  root.querySelectorAll<HTMLButtonElement>('[data-translation-list-page]').forEach((button) => {
     button.addEventListener('click', () => {
       if (button.disabled) return;
-      const direction = button.dataset.familyListPage;
+      const direction = button.dataset.translationListPage;
       const delta = direction === 'next' ? 1 : -1;
       void load({ ...state.filters, page: Math.max(1, state.filters.page + delta) }, true);
     });

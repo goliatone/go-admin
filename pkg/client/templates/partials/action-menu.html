@@ -1,31 +1,5 @@
-{# Action menu dropdown component - renders a row action dropdown with trigger button #}
-{#
-Usage:
-  {% include "partials/action-menu.html" with
-     actions=[
-       {"key": "edit", "label": "Edit", "href": "/edit/123", "icon": "edit"},
-       {"key": "delete", "label": "Delete", "variant": "danger", "icon": "trash"},
-       {"divider": true},
-       {"key": "archive", "label": "Archive", "disabled": true, "disabled_reason": "Cannot archive active item"}
-     ]
-     row_id="123"
-     trigger_label="Actions for item"
-  %}
 
-Props:
-  - actions: Array of action objects
-    - key: Action identifier for JS handlers (string)
-    - label: Display text (string)
-    - href: Optional link URL (string) - renders as <a> instead of <button>
-    - icon: Optional iconoir icon name without prefix (string)
-    - variant: Optional visual variant - "danger", "warning", "success" (string)
-    - disabled: Disable the action (bool)
-    - disabled_reason: Tooltip for disabled state (string)
-    - divider: Render as separator instead of action (bool)
-  - row_id: Identifier for the row (string)
-  - trigger_label: Accessibility label for trigger button (string, default: "Actions")
-  - position: Menu position - "right" (default), "left" (string)
-#}
+
 
 {% set trigger_label_text = trigger_label|default:"Actions" %}
 {% set menu_position = position|default:"right" %}
@@ -51,20 +25,8 @@ Props:
       {% if action.divider %}
     <div class="action-menu__divider my-1 border-t border-gray-100" role="separator"></div>
       {% else %}
-        {% set item_class = "action-menu__item flex w-full items-center gap-2 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:bg-gray-50 focus:outline-none" %}
-        {% if action.variant == "danger" %}
-          {% set item_class = item_class ~ " text-rose-700 hover:bg-rose-50 focus:bg-rose-50" %}
-        {% elif action.variant == "warning" %}
-          {% set item_class = item_class ~ " text-amber-700 hover:bg-amber-50 focus:bg-amber-50" %}
-        {% elif action.variant == "success" %}
-          {% set item_class = item_class ~ " text-emerald-700 hover:bg-emerald-50 focus:bg-emerald-50" %}
-        {% endif %}
-        {% if action.disabled %}
-          {% set item_class = item_class ~ " opacity-50 cursor-not-allowed" %}
-        {% endif %}
-
         {% if action.href and not action.disabled %}
-    <a class="{{ item_class }}"
+    <a class="action-menu__item flex w-full items-center gap-2 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:bg-gray-50 focus:outline-none{% if action.variant == "danger" %} text-rose-700 hover:bg-rose-50 focus:bg-rose-50{% elif action.variant == "warning" %} text-amber-700 hover:bg-amber-50 focus:bg-amber-50{% elif action.variant == "success" %} text-emerald-700 hover:bg-emerald-50 focus:bg-emerald-50{% endif %}"
        data-action-menu-item
        data-action="{{ action.key }}"
        role="menuitem"
@@ -74,7 +36,7 @@ Props:
     </a>
         {% else %}
     <button type="button"
-            class="{{ item_class }}"
+            class="action-menu__item flex w-full items-center gap-2 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:bg-gray-50 focus:outline-none{% if action.variant == "danger" %} text-rose-700 hover:bg-rose-50 focus:bg-rose-50{% elif action.variant == "warning" %} text-amber-700 hover:bg-amber-50 focus:bg-amber-50{% elif action.variant == "success" %} text-emerald-700 hover:bg-emerald-50 focus:bg-emerald-50{% endif %}{% if action.disabled %} opacity-50 cursor-not-allowed{% endif %}"
             data-action-menu-item
             data-action="{{ action.key }}"
             role="menuitem"

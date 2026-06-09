@@ -2,12 +2,12 @@ import { escapeAttribute as c, escapeHTML as o } from "../shared/html.js";
 import { t as F } from "../chunks/icon-renderer-a2WAOpSe.js";
 import { readHTTPError as le } from "../shared/transport/http-client.js";
 import { extractStructuredError as de } from "../toast/error-helpers.js";
-import { buildEndpointURL as ce } from "../shared/query-state/url-state.js";
-import { StatefulController as ue } from "../shared/stateful-controller.js";
+import { buildEndpointURL as ce, readLocationSearchParams as ue } from "../shared/query-state/url-state.js";
+import { StatefulController as pe } from "../shared/stateful-controller.js";
 import { asNumberish as x, asRecord as p, asString as n } from "../shared/coercion.js";
-import { A as H, C as $, D as P, E as z, F as pe, N as he, O as U, P as fe, R as ge, T as G, a as R, d as be, dt as K, f as _, g as me, i as xe, k as E, l as ye, n as S, o as ve, r as V, s as $e, t as X, u as w, y as Y } from "../chunks/translation-shared-CdZJJA93.js";
-import { normalizeNumberRecord as I, normalizeStringRecord as k } from "../shared/record-normalization.js";
-import { c as L, s as we } from "../chunks/ui-states-1McZ5upU.js";
+import { A as H, C as $, D as P, E as z, F as he, N as fe, O as U, P as ge, R as be, T as G, a as R, d as me, dt as K, f as _, g as xe, i as ye, k as E, l as ve, n as S, o as $e, r as V, s as we, t as X, u as w, y as Y } from "../chunks/translation-shared-CdZJJA93.js";
+import { normalizeNumberRecord as I, normalizeStringRecord as T } from "../shared/record-normalization.js";
+import { c as L, s as Te } from "../chunks/ui-states-1McZ5upU.js";
 var v = class extends Error {
   constructor(t) {
     super(t.message), this.name = "TranslationDashboardRequestError", this.status = t.status, this.code = t.code ?? null, this.requestId = t.requestId, this.traceId = t.traceId, this.metadata = t.metadata ?? null;
@@ -41,8 +41,8 @@ function W(t) {
     group: n(e.group),
     route: n(e.route),
     resolverKey: n(e.resolver_key),
-    params: k(e.params, { omitEmptyValues: !0 }),
-    query: k(e.query, { omitEmptyValues: !0 }),
+    params: T(e.params, { omitEmptyValues: !0 }),
+    query: T(e.query, { omitEmptyValues: !0 }),
     key: n(e.key),
     label: n(e.label),
     description: n(e.description),
@@ -65,7 +65,7 @@ function ke(t) {
     entityType: n(e.entity_type)
   } : null;
 }
-function Te(t) {
+function _e(t) {
   const e = p(t), a = n(e.id);
   if (!a) return null;
   const s = p(e.alert);
@@ -84,7 +84,7 @@ function Te(t) {
     runbookId: n(e.runbook_id)
   };
 }
-function _e(t) {
+function Le(t) {
   const e = p(t), a = n(e.code);
   return a ? {
     code: a,
@@ -93,7 +93,7 @@ function _e(t) {
     affectedLocales: g(e.affected_locales, (s) => n(s) || null)
   } : null;
 }
-function Le(t) {
+function Ee(t) {
   const e = p(t), a = n(e.state);
   if (!(!a || a !== "available" && a !== "unavailable" && a !== "degraded"))
     return {
@@ -101,7 +101,7 @@ function Le(t) {
       message: n(e.message)
     };
 }
-function Ee(t) {
+function Ce(t) {
   const e = p(t);
   if (Object.keys(e).length === 0) return null;
   const a = {};
@@ -114,7 +114,7 @@ function Ee(t) {
     const d = n(u);
     d && (r[h] = d);
   }
-  const i = g(e.reason_breakdown, _e), l = g(e.affected_locales, (h) => n(h) || null), b = Le(e.reason_data);
+  const i = g(e.reason_breakdown, Le), l = g(e.affected_locales, (h) => n(h) || null), b = Ee(e.reason_data);
   return {
     ...e,
     links: a,
@@ -125,8 +125,8 @@ function Ee(t) {
     reasonData: b
   };
 }
-function Ce(t, e = "") {
-  const a = p(t), s = g(a.rows, Ee);
+function Ae(t, e = "") {
+  const a = p(t), s = g(a.rows, Ce);
   return {
     id: n(a.id) || e,
     label: n(a.label) || e,
@@ -144,7 +144,7 @@ function Q(t) {
     route: n(e.route),
     resolverKey: n(e.resolver_key),
     href: n(e.href),
-    query: k(e.query, { omitEmptyValues: !0 })
+    query: T(e.query, { omitEmptyValues: !0 })
   } : null;
 }
 function J(t) {
@@ -170,7 +170,7 @@ function J(t) {
     drilldownLinks: s
   };
 }
-function Ae(t) {
+function Re(t) {
   const e = p(t), a = {};
   for (const [s, r] of Object.entries(p(e.query_models))) {
     const i = J(r);
@@ -185,7 +185,7 @@ function Ae(t) {
     runbooks: g(e.runbooks, Q)
   };
 }
-function Re(t) {
+function Se(t) {
   const e = p(t), a = n(e.code);
   return a ? {
     state: D(e.state),
@@ -195,14 +195,14 @@ function Re(t) {
     runbookId: n(e.runbook_id)
   } : null;
 }
-function Se(t, e) {
+function Ie(t, e) {
   if (e.cardIds.length === 0) return t;
   const a = /* @__PURE__ */ new Map();
   return e.cardIds.forEach((s, r) => a.set(s, r)), [...t].sort((s, r) => (a.get(s.id) ?? Number.MAX_SAFE_INTEGER) - (a.get(r.id) ?? Number.MAX_SAFE_INTEGER));
 }
-function Ie(t) {
-  const e = p(t), a = p(e.data), s = p(e.meta), r = Ae(s.contracts), i = Se(g(a.cards, Te), r), l = {};
-  for (const [h, u] of Object.entries(p(a.tables))) l[h] = Ce(u, h);
+function De(t) {
+  const e = p(t), a = p(e.data), s = p(e.meta), r = Re(s.contracts), i = Ie(g(a.cards, _e), r), l = {};
+  for (const [h, u] of Object.entries(p(a.tables))) l[h] = Ae(u, h);
   const b = { ...r.queryModels };
   for (const [h, u] of Object.entries(p(s.query_models))) {
     const d = J(u);
@@ -212,7 +212,7 @@ function Ie(t) {
     data: {
       cards: i,
       tables: l,
-      alerts: g(a.alerts, Re),
+      alerts: g(a.alerts, Se),
       runbooks: g(a.runbooks, Q),
       summary: I(a.summary)
     },
@@ -230,7 +230,7 @@ function Ie(t) {
         };
       }),
       familyReport: p(s.family_report),
-      scope: k(s.scope, { omitEmptyValues: !0 }),
+      scope: T(s.scope, { omitEmptyValues: !0 }),
       metrics: g(s.metrics, (h) => {
         const u = p(h), d = n(u.key);
         return d ? {
@@ -247,7 +247,7 @@ function Ie(t) {
     }
   };
 }
-function De(t, e = {}) {
+function Oe(t, e = {}) {
   const a = new URLSearchParams(), s = [
     ["channel", n(e.channel)],
     ["tenant_id", n(e.tenantId)],
@@ -258,7 +258,7 @@ function De(t, e = {}) {
   for (const [r, i] of s) i && a.set(r, i);
   return ce(t, a, { preserveAbsolute: !0 });
 }
-function Oe(t) {
+function Ne(t) {
   const e = n(t.endpoint), a = t.fetch ?? globalThis.fetch?.bind(globalThis);
   return { async fetchDashboard(s = {}) {
     if (!e) throw new v({
@@ -266,7 +266,7 @@ function Oe(t) {
       status: 0,
       code: "MISSING_CONTEXT"
     });
-    const r = De(e, s);
+    const r = Oe(e, s);
     if (!a) throw new v({
       message: "Fetch implementation is not available",
       status: 0,
@@ -284,10 +284,10 @@ function Oe(t) {
         metadata: l.metadata
       });
     }
-    return Ie(await i.json());
+    return De(await i.json());
   } };
 }
-function Ne(t) {
+function je(t) {
   const e = Math.max(0, t.intervalMs ?? 3e4);
   let a = null, s = null;
   const r = async () => s || (s = (async () => {
@@ -340,10 +340,10 @@ var C = {
     label: "Missing Required Locales",
     shortLabel: "Missing"
   }
-}, je = {
+}, Me = {
   top_overdue_assignments: "Top Overdue Assignments",
   blocked_families: "Blocked Families"
-}, Me = {
+}, qe = {
   top_overdue_assignments: {
     label: "Top Overdue Assignments",
     shortLabel: "Overdue",
@@ -354,7 +354,7 @@ var C = {
     shortLabel: "Blocked",
     icon: X
   }
-}, T = {
+}, k = {
   "translations.dashboard.overdue_triage": {
     label: "Overdue Assignment Triage",
     shortLabel: "Overdue Triage",
@@ -378,16 +378,16 @@ function ee(t, e) {
   return C[t]?.shortLabel || C[t]?.label || e || m(t);
 }
 function A(t, e) {
-  return je[t] || e || m(t);
+  return Me[t] || e || m(t);
 }
 function O(t, e) {
-  return T[t]?.label || e || m(t);
+  return k[t]?.label || e || m(t);
 }
 function N(t, e) {
-  return T[t]?.shortLabel || T[t]?.label || e || m(t);
+  return k[t]?.shortLabel || k[t]?.label || e || m(t);
 }
 function j(t) {
-  const e = T[t]?.icon;
+  const e = k[t]?.icon;
   return e ? F(e, {
     size: "16px",
     extraClass: "text-current"
@@ -399,7 +399,7 @@ function f(t, e = "", a = "16px") {
     extraClass: `text-current ${e}`.trim()
   });
 }
-function qe(t, e) {
+function Be(t, e) {
   const a = t.trim().toLowerCase().replace(/[_-]+/g, " ");
   return a === "action required" ? "Action" : a === "needs attention" ? "Attention" : a === "healthy" || a === "ok" ? "Healthy" : a ? m(a) : e === "critical" ? "Action" : e === "warning" ? "Attention" : m(e);
 }
@@ -414,35 +414,35 @@ function te(t) {
             data-copy-uuid="${c(e)}"
             title="Click to copy: ${c(e)}">
       <span>${o(a)}</span>
-      ${f($e, "h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity text-gray-400", "12px")}
+      ${f(we, "h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity text-gray-400", "12px")}
     </button>
   `;
 }
-function Be(t) {
+function Fe(t) {
   if (t < 1e3) return `${t}ms`;
   const e = Math.floor(t / 1e3);
   return e < 60 ? `${e}s` : `${Math.floor(e / 60)}m`;
 }
-function Fe(t) {
+function He(t) {
   return t <= 0 ? "N/A" : t < 1e3 ? `${t}ms` : `${(t / 1e3).toFixed(1)}s`;
 }
 function ae(t, e, a = "") {
   const s = o(t);
   return e?.href ? `<a class="${c(a)} text-sky-700 hover:text-sky-900 hover:underline" href="${c(e.href)}">${s}</a>` : `<span class="${c(a)}">${s}</span>`;
 }
-function He(t) {
+function Pe(t) {
   return [...t].sort((e, a) => {
     const s = (r) => r === "primary" ? 0 : 1;
     return s(e.relation) - s(a.relation);
   });
 }
 function se(t, e = "No drill-downs") {
-  return t.length === 0 ? `<span class="text-gray-400">${o(e)}</span>` : He(t).map((a) => {
+  return t.length === 0 ? `<span class="text-gray-400">${o(e)}</span>` : Pe(t).map((a) => {
     const s = a.label || "Open";
     return a.href ? `<a class="inline-flex items-center rounded-full border border-gray-200 px-3 py-1 text-xs font-medium text-gray-700 hover:border-gray-300 hover:text-gray-900" data-dashboard-link="${c(a.key || s.toLowerCase())}" href="${c(a.href)}">${o(s)}</a>` : `<span class="inline-flex items-center rounded-full border border-gray-200 px-3 py-1 text-xs font-medium text-gray-400">${o(s)}</span>`;
   }).join("");
 }
-function Pe(t) {
+function ze(t) {
   return t.drilldown?.href ? `
     <a
       href="${c(t.drilldown.href)}"
@@ -451,30 +451,30 @@ function Pe(t) {
       title="${c(t.drilldown.description || t.drilldown.label || "Open drilldown")}"
     >
       <span>${o(t.drilldown.label || "Open")}</span>
-      ${f(xe, "h-3.5 w-3.5", "14px")}
+      ${f(ye, "h-3.5 w-3.5", "14px")}
     </a>
   ` : '<span class="text-xs text-gray-400">No drilldown available</span>';
 }
-function ze(t, e = []) {
+function Ue(t, e = []) {
   const a = ee(t.id, t.label), s = Z(t.id, t.label), r = t.description ? `${s} - ${t.description}` : s;
   return `
     <article class="${$} p-4 shadow-sm flex flex-col" data-dashboard-card="${c(t.id)}" title="${c(r)}">
       <div class="flex items-start justify-between gap-2">
         <p class="text-xs font-semibold uppercase tracking-[0.24em] text-gray-500 truncate">${o(a)}</p>
         <span class="flex-shrink-0 inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold ${c(ne(t.alert.state))}">
-          ${o(qe(t.alert.message, t.alert.state))}
+          ${o(Be(t.alert.message, t.alert.state))}
         </span>
       </div>
       <div class="mt-3">
         <p class="text-3xl font-semibold tracking-tight text-gray-900">${o(String(t.count))}</p>
       </div>
       <div class="mt-auto pt-4">
-        ${Pe(t)}
+        ${ze(t)}
       </div>
     </article>
   `;
 }
-function Ue(t) {
+function Ge(t) {
   const e = {
     critical: 4,
     warning: 3,
@@ -483,7 +483,7 @@ function Ue(t) {
   };
   return t.reduce((a, s) => e[s.state] > e[a] ? s.state : a, "ok");
 }
-function Ge(t, e) {
+function Ke(t, e) {
   const a = e.find((r) => r.id === t.cardId), s = a ? Z(t.cardId, a.label) : m(t.cardId);
   return `
     <div class="flex items-start justify-between gap-3 p-3 rounded-lg bg-white/50"
@@ -500,20 +500,20 @@ function Ge(t, e) {
               class="flex-shrink-0 p-1 rounded hover:bg-gray-200/50 transition-colors"
               data-dismiss-alert="${c(t.code)}"
               aria-label="Dismiss alert for ${o(s)}">
-        ${f(ve, "h-4 w-4 text-gray-500", "16px")}
+        ${f($e, "h-4 w-4 text-gray-500", "16px")}
       </button>
     </div>
   `;
 }
-function Ke(t, e, a, s) {
+function Ve(t, e, a, s) {
   const r = t.filter((d) => !s.has(d.code));
   if (r.length === 0) return "";
-  const i = Ue(r), l = r.reduce((d, y) => (d[y.state] = (d[y.state] || 0) + 1, d), {}), b = Object.entries(l).filter(([, d]) => d > 0).map(([d, y]) => `${y} ${d}`).join(", "), h = r.map((d) => {
+  const i = Ge(r), l = r.reduce((d, y) => (d[y.state] = (d[y.state] || 0) + 1, d), {}), b = Object.entries(l).filter(([, d]) => d > 0).map(([d, y]) => `${y} ${d}`).join(", "), h = r.map((d) => {
     const y = e.find((oe) => oe.id === d.cardId), ie = y ? ee(d.cardId, y.label) : m(d.cardId);
     return `<span class="inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium bg-white/60 text-gray-700" data-alert-card="${c(d.cardId)}">${o(ie)}</span>`;
   }).join(""), u = a ? "rotate-180" : "";
   return `
-    <section class="rounded-xl border ${et(i)} shadow-sm overflow-hidden"
+    <section class="rounded-xl border ${tt(i)} shadow-sm overflow-hidden"
              data-dashboard-alerts-section="true"
              role="region"
              aria-label="Dashboard alerts">
@@ -530,13 +530,13 @@ function Ke(t, e, a, s) {
       </button>
       <div class="${a ? "" : "hidden"}" data-alerts-content="true">
         <div class="border-t border-current/20 px-4 py-3 space-y-2">
-          ${r.map((d) => Ge(d, e)).join("")}
+          ${r.map((d) => Ke(d, e)).join("")}
         </div>
       </div>
     </section>
   `;
 }
-function Ve(t) {
+function Xe(t) {
   return `
     <table class="min-w-full divide-y divide-gray-200 text-sm">
       <caption class="sr-only">Top overdue assignments with assignment and queue drill-down actions.</caption>
@@ -570,7 +570,7 @@ function Ve(t) {
     </table>
   `;
 }
-function Xe(t) {
+function Ye(t) {
   const e = t.blockerCodes || [], a = t.blockerLabels || {};
   if (e.length === 0) return "";
   const s = /* @__PURE__ */ new Set(), r = e.map((i) => {
@@ -589,13 +589,13 @@ function Xe(t) {
   }
   return r.map(({ code: i, label: l }) => `<span class="inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium ${i === "missing_locale" ? "bg-amber-100 text-amber-800" : i === "pending_review" ? "bg-sky-100 text-sky-800" : i === "outdated_source" ? "bg-rose-100 text-rose-800" : "bg-gray-100 text-gray-700"}" data-blocker-code="${c(i)}">${o(l)}</span>`).join("");
 }
-function Ye(t) {
+function We(t) {
   const e = t.affectedLocales || [];
   if (e.length === 0) return "";
   const a = 3, s = e.slice(0, a), r = e.length - a;
   return `<div class="flex flex-wrap items-center gap-1">${s.map((i) => `<span class="inline-flex items-center rounded-md bg-gray-100 px-1.5 py-0.5 text-xs font-medium text-gray-600">${o(i.toUpperCase())}</span>`).join("")}${r > 0 ? `<span class="inline-flex items-center text-xs text-gray-500">+${r}</span>` : ""}</div>`;
 }
-function We(t) {
+function Qe(t) {
   const e = t.reasonData;
   if (!e || e.state === "available") return "";
   const a = e.state === "degraded", s = a ? "text-amber-500" : "text-gray-400", r = a ? f(_, `h-3.5 w-3.5 ${s}`, "14px") : f(w, `h-3.5 w-3.5 ${s}`, "14px");
@@ -606,7 +606,7 @@ function We(t) {
     </span>
   `;
 }
-function Qe(t) {
+function Je(t) {
   return `
     <table class="min-w-full divide-y divide-gray-200 text-sm">
       <caption class="sr-only">Blocked families with family detail, blocker codes, affected locales, and drill-down actions.</caption>
@@ -627,14 +627,14 @@ function Qe(t) {
               <div class="font-medium text-gray-900">${ae(n(e.content_type) || "Family", e.links.family)}</div>
               <div class="mt-1 flex items-center gap-2">
                 ${te(n(e.family_id))}
-                ${We(e)}
+                ${Qe(e)}
               </div>
             </td>
             <td class="px-4 py-3">
-              <div class="flex flex-wrap gap-1">${Xe(e)}</div>
+              <div class="flex flex-wrap gap-1">${Ye(e)}</div>
             </td>
             <td class="px-4 py-3">
-              ${Ye(e)}
+              ${We(e)}
             </td>
             <td class="px-4 py-3 text-right font-medium text-amber-700">${o(String(x(e.missing_required_locale_count)))}</td>
             <td class="px-4 py-3 text-right font-medium text-gray-700">${o(String(x(e.pending_review_count)))}</td>
@@ -648,7 +648,7 @@ function Qe(t) {
   `;
 }
 function q(t, e = [], a = {}) {
-  const s = t.id === "top_overdue_assignments" ? Ve(t) : Qe(t), r = A(t.id, t.label), i = {
+  const s = t.id === "top_overdue_assignments" ? Xe(t) : Je(t), r = A(t.id, t.label), i = {
     top_overdue_assignments: "translations.dashboard.overdue_triage",
     blocked_families: "translations.dashboard.publish_blockers"
   }[t.id], l = i ? e.find((b) => b.id === i) : void 0;
@@ -695,13 +695,13 @@ function q(t, e = [], a = {}) {
     </section>
   `;
 }
-function Je(t, e, a) {
+function Ze(t, e, a) {
   const s = Object.keys(t);
   return s.length === 0 ? "" : s.length === 1 ? `<section class="space-y-4">${q(t[s[0]], e)}</section>` : `
     <section class="${$} shadow-sm overflow-hidden" data-dashboard-tables="true">
       <nav class="flex border-b border-gray-200 bg-gray-50 px-4" role="tablist" aria-label="Data tables">
         ${s.map((r) => {
-    const i = Me[r] || {
+    const i = qe[r] || {
       label: A(r, r),
       shortLabel: A(r, r),
       icon: ""
@@ -739,7 +739,7 @@ function Je(t, e, a) {
     </section>
   `;
 }
-function Ze(t) {
+function et(t) {
   return t.length === 0 ? "" : `
     <section class="${$} p-4 shadow-sm" data-dashboard-runbooks="true">
       <h2 class="text-sm font-semibold uppercase tracking-[0.22em] text-gray-500">Runbooks</h2>
@@ -769,29 +769,29 @@ function re(t) {
 function ne(t) {
   return K(re(t));
 }
-function et(t) {
+function tt(t) {
   return `border ${K(re(t))}`;
 }
-function tt(t, e = !1, a = !1) {
+function at(t, e = !1, a = !1) {
   const s = t?.meta.generatedAt ? new Date(t.meta.generatedAt).toLocaleString() : "Unavailable", r = t ? Object.entries(t.meta.scope).filter(([, u]) => u).filter(([u]) => u !== "actor_id").map(([u, d]) => ({
     key: m(u),
     value: String(d)
-  })) : [], i = t ? Be(t.meta.refreshIntervalMs) : "N/A", l = t ? Fe(t.meta.latencyTargetMs) : "N/A", b = t?.meta.channel || "default", h = a ? "rotate-180" : "";
+  })) : [], i = t ? Fe(t.meta.refreshIntervalMs) : "N/A", l = t ? He(t.meta.latencyTargetMs) : "N/A", b = t?.meta.channel || "default", h = a ? "rotate-180" : "";
   return `
     <section class="${$} shadow-sm overflow-hidden" data-dashboard-toolbar="true">
       <div class="px-5 py-4">
         <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <p class="${fe}">Manager Monitoring</p>
-            <h2 class="${pe} text-xl mt-2">Queue health and publish blockers</h2>
-            <p class="${he} mt-2">Track overdue work, review backlog, and family readiness without rebuilding aggregate state in the browser.</p>
+            <p class="${ge}">Manager Monitoring</p>
+            <h2 class="${he} text-xl mt-2">Queue health and publish blockers</h2>
+            <p class="${fe} mt-2">Track overdue work, review backlog, and family readiness without rebuilding aggregate state in the browser.</p>
           </div>
           <div class="flex flex-wrap items-center gap-3">
             <span class="text-xs uppercase tracking-[0.18em] text-gray-500" aria-live="polite" data-dashboard-refresh-status="true">
               ${o(e ? "Refreshing dashboard…" : `Last updated ${s}`)}
             </span>
             <button type="button" class="${Y}" data-dashboard-refresh-button="true" aria-label="Refresh translation dashboard" ${e ? "disabled" : ""}>
-              ${f(be, e ? "h-4 w-4 animate-spin" : "h-4 w-4", "16px")}
+              ${f(me, e ? "h-4 w-4 animate-spin" : "h-4 w-4", "16px")}
               ${o(e ? "Refreshing…" : "Refresh dashboard")}
             </button>
           </div>
@@ -802,7 +802,7 @@ function tt(t, e = !1, a = !1) {
           <div class="flex items-center justify-between gap-3">
             <div class="flex items-center gap-2 flex-wrap">
               <span class="inline-flex items-center gap-1.5 px-2 py-1 text-xs font-medium text-gray-600 bg-white rounded border border-gray-200" title="Dashboard channel">
-                ${f(ye, "h-3 w-3 text-gray-400", "12px")}
+                ${f(ve, "h-3 w-3 text-gray-400", "12px")}
                 <span>${o(b)}</span>
               </span>
               <span class="inline-flex items-center gap-1.5 px-2 py-1 text-xs font-medium text-gray-600 bg-white rounded border border-gray-200" title="Refresh interval: ${o(i)}">
@@ -852,7 +852,7 @@ function tt(t, e = !1, a = !1) {
   `;
 }
 f(S, "h-5 w-5", "20px"), f(_, "h-5 w-5", "20px"), f(X, "h-5 w-5", "20px"), f(w, "h-5 w-5", "20px");
-function at(t) {
+function st(t) {
   const e = t.data.runbooks[0], a = e?.href ? `<a class="inline-flex items-center rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-900 hover:bg-gray-50" href="${c(e.href)}">${o(e.title || "Open runbook")}</a>` : "";
   return L({
     tag: "section",
@@ -876,7 +876,7 @@ function at(t) {
     ariaLive: "polite"
   });
 }
-function st(t) {
+function rt(t) {
   const e = t instanceof v ? t.requestId : void 0, a = t instanceof v ? t.traceId : void 0, s = [e ? `Request ${e}` : "", a ? `Trace ${a}` : ""].filter(Boolean).join(" • ");
   return L({
     tag: "section",
@@ -893,7 +893,7 @@ function st(t) {
     attributes: { "data-dashboard-inline-error": "true" }
   });
 }
-function rt(t) {
+function nt(t) {
   const e = t instanceof Error ? t.message : "Failed to load translation dashboard", a = t instanceof v ? t.requestId : void 0, s = t instanceof v ? t.traceId : void 0, r = [a ? `Request ${a}` : "", s ? `Trace ${s}` : ""].filter(Boolean).join(" • ");
   return L({
     tag: "section",
@@ -909,12 +909,12 @@ function rt(t) {
     messageClass: `${E} mt-2`,
     metadata: r,
     metadataClass: "mt-2 text-xs uppercase tracking-[0.16em] text-rose-700",
-    actionsHtml: `<div class="mt-4"><button type="button" class="${me}" data-dashboard-refresh-button="true">Retry dashboard</button></div>`,
+    actionsHtml: `<div class="mt-4"><button type="button" class="${xe}" data-dashboard-refresh-button="true">Retry dashboard</button></div>`,
     role: "alert",
     attributes: { "data-dashboard-error": "true" }
   });
 }
-function nt() {
+function it() {
   return L({
     tag: "section",
     containerClass: `${G} p-5`,
@@ -928,29 +928,29 @@ function nt() {
   });
 }
 function B() {
-  return we({
+  return Te({
     tag: "section",
     text: "Loading translation dashboard aggregates...",
     showSpinner: !1,
-    containerClass: `${ge} p-5`,
+    containerClass: `${be} p-5`,
     attributes: { "data-dashboard-loading": "true" },
     ariaLive: "polite"
   });
 }
-var it = class extends ue {
+var ot = class extends pe {
   constructor(t) {
     super("idle"), this.refreshController = null, this.container = null, this.payload = null, this.refreshing = !1, this.lastError = null, this.metaExpanded = !1, this.alertsExpanded = !1, this.dismissedAlerts = /* @__PURE__ */ new Set(), this.activeTableTab = "top_overdue_assignments", this.config = {
       refreshInterval: 3e4,
       title: "Translation Dashboard",
       ...t
-    }, this.client = Oe(t);
+    }, this.client = Ne(t);
   }
   mount(t) {
     if (this.container = t, !n(this.config.endpoint)) {
-      this.state = "error", t.innerHTML = nt();
+      this.state = "error", t.innerHTML = it();
       return;
     }
-    this.state = "loading", this.refreshing = !1, this.lastError = null, t.innerHTML = B(), this.refreshController = Ne({
+    this.state = "loading", this.refreshing = !1, this.lastError = null, t.innerHTML = B(), this.refreshController = je({
       intervalMs: this.config.refreshInterval,
       load: () => this.client.fetchDashboard(),
       onData: (e) => {
@@ -961,7 +961,7 @@ var it = class extends ue {
           this.state = "ready", this.render();
           return;
         }
-        this.state = "error", this.container && (this.container.innerHTML = rt(e), this.bindActions());
+        this.state = "error", this.container && (this.container.innerHTML = nt(e), this.bindActions());
       }
     }), this.refreshController.start().catch(() => {
     });
@@ -985,24 +985,24 @@ var it = class extends ue {
   }
   render() {
     if (!this.container || !this.payload) return;
-    const t = this.payload, e = t.data.runbooks, a = t.data.cards.map((l) => ze(l, e)).join(""), s = Object.values(t.data.summary).every((l) => l === 0) && Object.values(t.data.tables).every((l) => l.rows.length === 0), r = t.meta.degraded ? `
+    const t = this.payload, e = t.data.runbooks, a = t.data.cards.map((l) => Ue(l, e)).join(""), s = Object.values(t.data.summary).every((l) => l === 0) && Object.values(t.data.tables).every((l) => l.rows.length === 0), r = t.meta.degraded ? `
         <section class="rounded-xl border border-gray-200 bg-gray-100 p-4 text-sm text-gray-700" data-dashboard-degraded="true" role="status" aria-live="polite">
           <p class="font-semibold text-gray-900">Family aggregate data is degraded.</p>
           <p class="mt-2">Managers can continue triage, but family readiness figures may be incomplete until the aggregate recovers.</p>
           <p class="mt-2">${o(t.meta.degradedReasons.map((l) => `${l.component}: ${l.message}`).join(" | ") || "Retry the dashboard request to refresh family blocker data.")}</p>
         </section>
-      ` : "", i = this.lastError ? st(this.lastError) : "";
+      ` : "", i = this.lastError ? rt(this.lastError) : "";
     this.container.innerHTML = `
       <div class="space-y-4" data-dashboard="true">
-        ${tt(t, this.refreshing, this.metaExpanded)}
+        ${at(t, this.refreshing, this.metaExpanded)}
         ${i}
         ${r}
-        ${Ke(t.data.alerts, t.data.cards, this.alertsExpanded, this.dismissedAlerts)}
-        ${s ? at(t) : `
+        ${Ve(t.data.alerts, t.data.cards, this.alertsExpanded, this.dismissedAlerts)}
+        ${s ? st(t) : `
             <section class="grid gap-4 md:grid-cols-2 xl:grid-cols-5">${a}</section>
-            ${Je(t.data.tables, e, this.activeTableTab)}
+            ${Ze(t.data.tables, e, this.activeTableTab)}
           `}
-        ${Ze(t.data.runbooks)}
+        ${et(t.data.runbooks)}
       </div>
     `, this.bindActions();
   }
@@ -1053,7 +1053,7 @@ var it = class extends ue {
     });
   }
 };
-function ot(t, e) {
+function lt(t, e) {
   t.querySelectorAll("[data-translation-table-tab]").forEach((a) => {
     const s = a.dataset.translationTableTab === e;
     a.setAttribute("aria-selected", s ? "true" : "false"), a.tabIndex = s ? 0 : -1, a.classList.toggle("border-blue-500", s), a.classList.toggle("text-blue-700", s), a.classList.toggle("border-transparent", !s), a.classList.toggle("text-gray-600", !s);
@@ -1062,11 +1062,11 @@ function ot(t, e) {
     a.hidden = !s, a.classList.toggle("hidden", !s);
   });
 }
-function lt(t) {
+function dt(t) {
   t.dataset.translationDashboardEnhanced = "true", typeof t.querySelectorAll == "function" && (t.querySelectorAll("[data-translation-table-tab]").forEach((e) => {
     e.addEventListener("click", () => {
       const a = e.dataset.translationTableTab;
-      a && ot(t, a);
+      a && lt(t, a);
     });
   }), t.querySelectorAll("[data-translation-disclosure]").forEach((e) => {
     e.addEventListener("click", () => {
@@ -1077,11 +1077,16 @@ function lt(t) {
     });
   }));
 }
-function yt(t, e = {}) {
+function ct() {
+  if (typeof window > "u" || !window.location) return !1;
+  const t = ue(window.location) ?? new URLSearchParams(), e = t.get("translation_client_render") || t.get("translationClientRender");
+  return e === "1" || e === "true";
+}
+function $t(t, e = {}) {
   if (!t) return null;
-  if (t.dataset?.ssrEnhanced === "true")
-    return lt(t), null;
-  const a = new it({
+  if (t.dataset?.ssrEnhanced === "true" && !ct())
+    return dt(t), null;
+  const a = new ot({
     endpoint: e.endpoint ?? t.dataset.endpoint ?? "",
     queueEndpoint: e.queueEndpoint ?? t.dataset.queueEndpoint ?? "",
     familiesEndpoint: e.familiesEndpoint ?? t.dataset.familiesEndpoint ?? "",
@@ -1092,19 +1097,19 @@ function yt(t, e = {}) {
   return a.mount(t), a;
 }
 export {
-  it as TranslationDashboardPage,
+  ot as TranslationDashboardPage,
   v as TranslationDashboardRequestError,
-  De as buildTranslationDashboardURL,
-  Oe as createTranslationDashboardClient,
-  Ne as createTranslationDashboardRefreshController,
-  yt as initTranslationDashboardPage,
-  Te as normalizeTranslationDashboardCard,
+  Oe as buildTranslationDashboardURL,
+  Ne as createTranslationDashboardClient,
+  je as createTranslationDashboardRefreshController,
+  $t as initTranslationDashboardPage,
+  _e as normalizeTranslationDashboardCard,
   W as normalizeTranslationDashboardLink,
   J as normalizeTranslationDashboardQueryModel,
-  Ie as normalizeTranslationDashboardResponse,
+  De as normalizeTranslationDashboardResponse,
   Q as normalizeTranslationDashboardRunbook,
-  Ce as normalizeTranslationDashboardTable,
-  Ee as normalizeTranslationDashboardTableRow
+  Ae as normalizeTranslationDashboardTable,
+  Ce as normalizeTranslationDashboardTableRow
 };
 
 //# sourceMappingURL=index.js.map

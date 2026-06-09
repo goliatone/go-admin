@@ -238,7 +238,7 @@
 	                    </td>
 	                    <td class="px-5 py-4 text-gray-700">{{ row.display_priority|default:row.priority|default:"-" }}</td>
 	                    <td class="px-5 py-4">
-	                      {# Tone mapping mirrors status-vocabulary.ts - prefer server-side computed tones (see family-detail.html) #}
+	                      
 	                      {% set dashboard_status_tone = "info" %}
 	                      {% if row.status == "in_review" %}{% set dashboard_status_tone = "warning" %}{% elif row.status == "changes_requested" %}{% set dashboard_status_tone = "error" %}{% elif row.status == "approved" or row.status == "completed" %}{% set dashboard_status_tone = "success" %}{% endif %}
 	                      {% include "partials/status-badge.html" with badge_status=row.status|default:row.queue_state|default:"unknown" badge_tone=dashboard_status_tone badge_label=row.display_status|default:row.status|default:row.queue_state %}

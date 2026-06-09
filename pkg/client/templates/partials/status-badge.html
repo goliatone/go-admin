@@ -1,7 +1,3 @@
-{# Status badge partial - renders a consistent status badge with icon and color #}
-{# Usage: {% include "partials/status-badge.html" with badge={"status": "blocked", "tone": "error", "label": "Blocked"} %} #}
-{# Note: If label is not provided, status will be humanized (snake_case -> Title Case) #}
-
 {% set tone = badge.tone|default:badge_tone|default:"neutral" %}
 {% set status = badge.status|default:badge_status|default:"unknown" %}
 {% set label = badge.label|default:badge_label %}
@@ -21,7 +17,7 @@
 {% set status_icon = "help-circle" %}
 {% set status_label = "Unknown" %}
 {% if status == "blocked" %}
-  {% set status_icon = "block" %}
+  {% set status_icon = "prohibition" %}
   {% set status_label = "Blocked" %}
 {% elif status == "missing_locales" or status == "missing_locales_and_fields" %}
   {% set status_icon = "circle" %}
@@ -56,7 +52,7 @@
 {% endif %}
 
 <span class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold {{ tone_class }}">
-  {% if badge.show_icon|default:true %}
+  {% if badge.show_icon|default:show_icon|default:true %}
   <i class="iconoir-{{ status_icon }} text-[10px]" aria-hidden="true"></i>
   {% endif %}
   {{ label|default:status_label|default:status|default:"Unknown" }}

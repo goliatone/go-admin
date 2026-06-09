@@ -1,7 +1,7 @@
 import { escapeAttribute, escapeHTML } from '../shared/html.js';
 import { renderIcon } from '../shared/icon-renderer.js';
 import { asNumberish as asNumber, asRecord, asString } from '../shared/coercion.js';
-import { buildEndpointURL } from '../shared/query-state/url-state.js';
+import { buildEndpointURL, readLocationSearchParams } from '../shared/query-state/url-state.js';
 import { normalizeNumberRecord, normalizeStringRecord } from '../shared/record-normalization.js';
 import { StatefulController } from '../shared/stateful-controller.js';
 import { readHTTPError } from '../shared/transport/http-client.js';
@@ -1885,11 +1885,18 @@ function enhanceSSRDashboard(root: HTMLElement): void {
   });
 }
 
+function shouldUseTranslationClientRender(): boolean {
+  if (typeof window === 'undefined' || !window.location) return false;
+  const params = readLocationSearchParams(window.location) ?? new URLSearchParams();
+  const value = params.get('translation_client_render') || params.get('translationClientRender');
+  return value === '1' || value === 'true';
+}
+
 export function initTranslationDashboardPage(root: HTMLElement, options: Partial<TranslationDashboardPageConfig> = {}): TranslationDashboardPage | null {
   if (!root) {
     return null;
   }
-  if (root.dataset?.ssrEnhanced === 'true') {
+  if (root.dataset?.ssrEnhanced === 'true' && !shouldUseTranslationClientRender()) {
     enhanceSSRDashboard(root);
     return null;
   }

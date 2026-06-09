@@ -11,6 +11,7 @@ import {
 } from '../shared/coercion.js';
 import { escapeAttribute, escapeHTML } from '../shared/html.js';
 import { renderIcon } from '../shared/icon-renderer.js';
+import { readLocationSearchParams } from '../shared/query-state/url-state.js';
 import { normalizeStringRecord } from '../shared/record-normalization.js';
 import { httpRequest, readCSRFToken, readHTTPError } from '../shared/transport/http-client.js';
 import { renderPanelLoadingState, renderPanelState } from '../services/ui-states.js';
@@ -3706,13 +3707,20 @@ export async function initTranslationEditorPage(
 ): Promise<TranslationEditorScreen> {
   const screen = new TranslationEditorScreen(config);
   const initialDetail = config.initialDetail || readTranslationEditorSSRDetail(root);
-  if ((root.dataset.ssrEnhanced || '').trim() === 'true' && initialDetail) {
+  if ((root.dataset.ssrEnhanced || '').trim() === 'true' && initialDetail && !shouldUseTranslationClientRender()) {
     root.dataset.translationEditorEnhanced = 'true';
     screen.mountWithInitialDetail(root, initialDetail);
   } else {
     screen.mount(root);
   }
   return screen;
+}
+
+function shouldUseTranslationClientRender(): boolean {
+  if (typeof window === 'undefined' || !window.location) return false;
+  const params = readLocationSearchParams(window.location) ?? new URLSearchParams();
+  const value = params.get('translation_client_render') || params.get('translationClientRender');
+  return value === '1' || value === 'true';
 }
 
 function readTranslationEditorSSRDetail(root: HTMLElement): unknown {

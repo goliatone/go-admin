@@ -3,12 +3,7 @@
 {% block title %}{{ translation_assignment_id|default:"Translation Editor" }} - {{ title }}{% endblock %}
 
 {% block content %}
-{% include "partials/admin-page-header.html" with
-   breadcrumbs=breadcrumbs
-   page_title="Assignment editor"
-   page_subtitle="Edit translations with autosave, drift detection, and review workflow."
-   header_actions_id="editor-header-actions"
-%}
+{% include "partials/admin-page-header.html" with breadcrumbs=breadcrumbs page_title="Assignment editor" page_subtitle="Edit translations with autosave, drift detection, and review workflow." header_actions_id="editor-header-actions" %}
 
 <div class="flex-1 overflow-y-auto bg-gray-50 p-8">
   <div class="mx-auto">
@@ -52,11 +47,11 @@
                 <span class="rounded-full bg-gray-100 px-3 py-1 font-medium">No pending changes</span>
                 {% set warning_count = editor.qa_results.summary.warning_count|default:"0" %}
                 {% set blocker_count = editor.qa_results.summary.blocker_count|default:"0" %}
-                {% include "partials/status-badge.html" with badge={"status": "warning", "tone": "warning", "label": "Warnings " ~ warning_count, "show_icon": false} %}
+                <span class="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700">Warnings {{ warning_count }}</span>
                 {% if blocker_count != "0" and blocker_count != 0 %}
-                {% include "partials/status-badge.html" with badge={"status": "blocker", "tone": "error", "label": "Blockers " ~ blocker_count, "show_icon": false} %}
+                <span class="inline-flex items-center gap-1.5 rounded-full bg-rose-50 px-2.5 py-1 text-xs font-semibold text-rose-700">Blockers {{ blocker_count }}</span>
                 {% else %}
-                {% include "partials/status-badge.html" with badge={"status": "blocker", "tone": "success", "label": "Blockers " ~ blocker_count, "show_icon": false} %}
+                <span class="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">Blockers {{ blocker_count }}</span>
                 {% endif %}
               </div>
             </div>
@@ -134,9 +129,9 @@
                 {% set field_count = editor.fields|length|default:"0" %}
                 {% set drift_count = editor.source_target_drift.changed_fields|length|default:"0" %}
                 {% set qa_warning_count = editor.qa_results.summary.warning_count|default:"0" %}
-                {% include "partials/status-badge.html" with badge={"status": "fields", "tone": "success", "label": field_count ~ " fields", "show_icon": false} %}
-                {% include "partials/status-badge.html" with badge={"status": "drift", "tone": "warning", "label": drift_count ~ " source changed", "show_icon": false} %}
-                {% include "partials/status-badge.html" with badge={"status": "warning", "tone": "warning", "label": qa_warning_count ~ " QA warning", "show_icon": false} %}
+                <span class="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">{{ field_count }} fields</span>
+                <span class="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700">{{ drift_count }} source changed</span>
+                <span class="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700">{{ qa_warning_count }} QA warning</span>
               </div>
               <button type="button" class="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 opacity-60 shadow-sm" disabled aria-disabled="true" title="Issue jump is available after editor enhancement">
                 Jump to issue
@@ -174,12 +169,12 @@
                               {% if editor.translation_assignment.status == "approved" or editor.translation_assignment.status == "archived" or editor.translation_assignment.status == "in_review" %}disabled aria-disabled="true"{% endif %}>{{ field.target_value|default:"" }}</textarea>
                     <div class="mt-2 flex flex-wrap gap-2 text-xs">
                       {% if field.completeness.missing %}
-                      {% include "partials/status-badge.html" with badge={"status": "missing", "tone": "error", "label": "Missing required content", "show_icon": false} %}
+                      {% include "partials/status-badge.html" with badge_status="missing" badge_tone="error" badge_label="Missing required content" show_icon=false %}
                       {% else %}
-                      {% include "partials/status-badge.html" with badge={"status": "complete", "tone": "success", "label": "Field complete", "show_icon": false} %}
+                      {% include "partials/status-badge.html" with badge_status="complete" badge_tone="success" badge_label="Field complete" show_icon=false %}
                       {% endif %}
                       {% if field.drift.changed %}
-                      {% include "partials/status-badge.html" with badge={"status": "drift", "tone": "warning", "label": "Source changed", "show_icon": false} %}
+                      {% include "partials/status-badge.html" with badge_status="drift" badge_tone="warning" badge_label="Source changed" show_icon=false %}
                       {% endif %}
                     </div>
                     {% if field.validation.message %}
