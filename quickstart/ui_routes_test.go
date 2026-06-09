@@ -272,8 +272,8 @@ func TestTranslationDashboardAndFamiliesTemplatesRenderSSRSections(t *testing.T)
 				"data-translation-dashboard-ssr=\"true\"",
 				"Translation dashboard metrics",
 				"Translation dashboard triage",
-				"data-dashboard-ssr-table-tab",
-				"data-dashboard-ssr-table-panel",
+				"data-translation-table-tab",
+				"data-translation-table-panel",
 				"iconoir-nav-arrow-right",
 				"data-ssr-enhanced=\"true\"",
 			},
@@ -284,7 +284,7 @@ func TestTranslationDashboardAndFamiliesTemplatesRenderSSRSections(t *testing.T)
 			expected: []string{
 				"translation_families_ssr",
 				"data-translation-family-list-ssr=\"true\"",
-				"data-family-list-filters=\"true\"",
+				"data-translation-filter-form=\"true\"",
 				"data-action-menu-trigger",
 				"Translation family views",
 				"translation_family_base_path",
@@ -318,8 +318,8 @@ func TestTranslationQueueTemplateRendersSSRSections(t *testing.T) {
 	for _, expected := range []string{
 		"translation_queue_ssr",
 		"data-translation-queue-ssr=\"true\"",
-		"data-queue-filter-summary=\"true\"",
-		"data-queue-row-action=\"claim\"",
+		"data-translation-filter-summary",
+		"data-translation-action=\"claim\"",
 		"data-bulk-action-endpoint",
 		"data-ssr-enhanced",
 	} {
@@ -390,7 +390,7 @@ func TestTranslationQueueTemplateRendersUIPresetLinks(t *testing.T) {
 	if !strings.Contains(html, `href="/admin/translations/queue?channel=staging&amp;order=desc&amp;preset=open&amp;sort=updated_at&amp;status=pending%2Cassigned"`) {
 		t.Fatalf("expected rendered queue preset href to preserve UI route and channel, got %q", html)
 	}
-	if !strings.Contains(html, `data-queue-row-type="family"`) {
+	if !strings.Contains(html, `data-translation-row-type="family"`) {
 		t.Fatalf("expected grouped family parent row markup, got %q", html)
 	}
 	if !strings.Contains(html, `href="/admin/api/translations/assignments/families/family-2?channel=staging"`) {
@@ -399,7 +399,7 @@ func TestTranslationQueueTemplateRendersUIPresetLinks(t *testing.T) {
 	if strings.Contains(html, `data-assignment-id="family:family-2"`) {
 		t.Fatalf("expected grouped family parent not to render assignment action wiring, got %q", html)
 	}
-	if !strings.Contains(html, `data-queue-filter-details="true"`) || !strings.Contains(html, `Filter assignments`) {
+	if !strings.Contains(html, `data-translation-filter-panel`) || !strings.Contains(html, `Advanced Filters`) {
 		t.Fatalf("expected queue filters to render a no-JS disclosure control, got %q", html)
 	}
 	if strings.Contains(html, `id="queue-filters-panel" class="mt-4 hidden`) {
