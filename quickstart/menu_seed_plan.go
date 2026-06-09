@@ -8,10 +8,11 @@ import (
 )
 
 const (
-	MenuTargetGeneratedByKey  = "_generated_by"
-	MenuTargetGeneratedIDKey  = "_generated_id"
-	MenuTargetGeneratedOwner  = "quickstart"
-	MenuTargetGeneratedSource = "quickstart.menu_seed_plan"
+	MenuTargetGeneratedByKey        = "_generated_by"
+	MenuTargetGeneratedIDKey        = "_generated_id"
+	MenuTargetGeneratedSortOrderKey = "_generated_sort_order"
+	MenuTargetGeneratedOwner        = "quickstart"
+	MenuTargetGeneratedSource       = "quickstart.menu_seed_plan"
 )
 
 // MenuSeedItemTransform can adjust expected generated menu rows before they are normalized.
