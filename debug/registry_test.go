@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestPanelDefinitionLegacyRegistrationOmitsRichUI(t *testing.T) {
@@ -179,6 +180,38 @@ func TestPanelDefinitionsWithContextAppliesDefinitionFilter(t *testing.T) {
 	}
 	if allowed.UI.Actions[0].Payload["command_id"] != "secret.command" {
 		t.Fatalf("expected original action payload, got %+v", allowed.UI.Actions[0].Payload)
+	}
+}
+
+func TestPanelDefinitionsWithContextDoesNotHoldLockDuringFilter(t *testing.T) {
+	registry := NewPanelRegistry()
+	err := registry.Register("commands", PanelConfig{
+		Definition: func(ctx context.Context, definition PanelDefinition) PanelDefinition {
+			if ctx.Value("register-late") == true {
+				_ = registry.Register("late", PanelConfig{Label: "Late"})
+			}
+			return definition
+		},
+	})
+	if err != nil {
+		t.Fatalf("register panel: %v", err)
+	}
+
+	done := make(chan []PanelDefinition, 1)
+	go func() {
+		done <- registry.DefinitionsWithContext(context.WithValue(context.Background(), "register-late", true))
+	}()
+
+	select {
+	case defs := <-done:
+		if len(defs) != 1 || defs[0].ID != "commands" {
+			t.Fatalf("expected snapshot definitions before reentrant registration, got %+v", defs)
+		}
+	case <-time.After(500 * time.Millisecond):
+		t.Fatal("DefinitionsWithContext held registry lock while executing definition filter")
+	}
+	if _, ok := registry.Registration("late"); !ok {
+		t.Fatal("expected definition filter to register late panel without deadlock")
 	}
 }
 

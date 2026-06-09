@@ -26,6 +26,12 @@ func (headerDebugAuthenticator) Wrap(c router.Context) error {
 	return nil
 }
 
+type allowAllDebugAuthorizer struct{}
+
+func (allowAllDebugAuthorizer) Can(context.Context, string, string) bool {
+	return true
+}
+
 func TestDebugRoutesRequirePermission(t *testing.T) {
 	cfg := Config{
 		BasePath:      "/admin",
@@ -163,6 +169,89 @@ func TestDebugPanelsEndpointExposesEnabledRichUIDefinitions(t *testing.T) {
 	}
 	if panel.UI.Views.Console.Renderer != debugregistry.PanelRendererTable {
 		t.Fatalf("expected table renderer, got %+v", panel.UI.Views.Console)
+	}
+}
+
+func TestDebugPanelsEndpointAppliesContextDefinitionFilter(t *testing.T) {
+	const panelID = "filtered_transport_panel"
+
+	debugregistry.UnregisterPanel(panelID)
+	defer debugregistry.UnregisterPanel(panelID)
+	if err := debugregistry.RegisterPanel(panelID, debugregistry.PanelConfig{
+		Label:       "Filtered Transport",
+		SnapshotKey: panelID,
+		UI: &debugregistry.PanelUI{
+			Views: debugregistry.PanelUIViews{
+				Console: &debugregistry.PanelUIView{Renderer: debugregistry.PanelRendererJSON},
+			},
+			Actions: []debugregistry.PanelUIAction{
+				{ID: "read_action", Label: "Read", Payload: map[string]any{"command_id": "safe.read"}},
+				{ID: "super_action", Label: "Super", Payload: map[string]any{"command_id": "secret.mutate"}},
+			},
+		},
+		Definition: func(ctx context.Context, definition debugregistry.PanelDefinition) debugregistry.PanelDefinition {
+			actor, _ := auth.ActorFromContext(ctx)
+			filtered := definition
+			if definition.UI != nil {
+				ui := *definition.UI
+				ui.Actions = append([]debugregistry.PanelUIAction(nil), definition.UI.Actions...)
+				filtered.UI = &ui
+			}
+			if actor != nil && actor.ActorID == "read-admin" {
+				filtered.UI.Actions = filtered.UI.Actions[:1]
+			}
+			return filtered
+		},
+		Actions: map[string]debugregistry.PanelActionHandler{
+			"read_action": func(context.Context, debugregistry.PanelActionRequest) (debugregistry.PanelActionResult, error) {
+				return debugregistry.PanelActionResult{OK: true}, nil
+			},
+			"super_action": func(context.Context, debugregistry.PanelActionRequest) (debugregistry.PanelActionResult, error) {
+				return debugregistry.PanelActionResult{OK: true}, nil
+			},
+		},
+	}); err != nil {
+		t.Fatalf("register filtered panel: %v", err)
+	}
+
+	debugCfg := DebugConfig{
+		Enabled: true,
+		Panels:  []string{panelID},
+	}
+	cfg := Config{BasePath: "/admin", DefaultLocale: "en", Debug: debugCfg}
+	adm := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromFlags(map[string]bool{"debug": true})})
+	adm.WithAuth(headerDebugAuthenticator{}, nil)
+	adm.WithAuthorizer(allowAllDebugAuthorizer{})
+	if err := adm.RegisterModule(NewDebugModule(debugCfg)); err != nil {
+		t.Fatalf("register debug module: %v", err)
+	}
+
+	server := router.NewHTTPServer()
+	if err := adm.Initialize(server.Router()); err != nil {
+		t.Fatalf("initialize: %v", err)
+	}
+
+	req := httptest.NewRequestWithContext(context.Background(), "GET", debugAPIPath(t, adm, debugCfg, "panels"), nil)
+	req.Header.Set("X-Test-User", "read-admin")
+	rr := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected debug panels ok, got %d body=%s", rr.Code, rr.Body.String())
+	}
+	if strings.Contains(rr.Body.String(), "secret.mutate") {
+		t.Fatalf("filtered action payload leaked through transport response: %s", rr.Body.String())
+	}
+
+	var response debugPanelsResponse
+	if err := json.Unmarshal(rr.Body.Bytes(), &response); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if len(response.Panels) != 1 || response.Panels[0].UI == nil {
+		t.Fatalf("expected one rich panel response, got %+v", response.Panels)
+	}
+	actions := response.Panels[0].UI.Actions
+	if len(actions) != 1 || actions[0].ID != "read_action" {
+		t.Fatalf("expected request-filtered actions, got %+v", actions)
 	}
 }
 
