@@ -1,10 +1,34 @@
 # Changelog
 
+# [0.88.0](https://github.com/goliatone/go-admin/compare/v0.87.0...v0.88.0) - (2026-06-09)
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Code quality ([f99202a](https://github.com/goliatone/go-admin/commit/f99202a455956edea2036cfa4ea825a9be9a98e5))  - (goliatone)
+
+## <!-- 16 -->➕ Add
+
+- Panel definition with context ([e5a5c2e](https://github.com/goliatone/go-admin/commit/e5a5c2e352f1988da4d6ddfe8539895c4175377a))  - (goliatone)
+- Rpc transport propagate outcome ([1013bbb](https://github.com/goliatone/go-admin/commit/1013bbb1ea49305dd65a70dc1ac76b16efa8a009))  - (goliatone)
+- Debug toolbar ([fd2ed17](https://github.com/goliatone/go-admin/commit/fd2ed17ccb2fdc6a1218dc8958ed5831ef7dd54c))  - (goliatone)
+- Registry panel action ([4ceec37](https://github.com/goliatone/go-admin/commit/4ceec373797878738220e20631462cf7de92bb03))  - (goliatone)
+- Command bus return results ([3aea11d](https://github.com/goliatone/go-admin/commit/3aea11db08d66da7769fbfb578af67bd203676cd))  - (goliatone)
+- Debug panels ([2ea50ca](https://github.com/goliatone/go-admin/commit/2ea50ca6249c522f6361febdc09d620eebfa76a5))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update deps ([c6330ed](https://github.com/goliatone/go-admin/commit/c6330edc2c66fb6180ef5e08bd0e4980f7cdb816))  - (goliatone)
+- Update tests ([b9d3733](https://github.com/goliatone/go-admin/commit/b9d3733f75011b194e030eab7ebe1736e6ca5604))  - (goliatone)
+
 # [0.87.0](https://github.com/goliatone/go-admin/compare/v0.86.1...v0.87.0) - (2026-06-09)
 
 ## <!-- 1 -->🐛 Bug Fixes
 
 - Navigation sort menu items ([9ec5ea3](https://github.com/goliatone/go-admin/commit/9ec5ea32f3a244d70f55cb291fcbd8dee960b919))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.87.0 ([95c7a06](https://github.com/goliatone/go-admin/commit/95c7a06ccc4873bd38a74dd362194e2d920d55a3))  - (goliatone)
 
 ## <!-- 16 -->➕ Add
 
