@@ -781,6 +781,11 @@ func (c *DebugCollector) SessionSnapshot(sessionID string, opts DebugSessionSnap
 
 // PanelDefinitions returns metadata for enabled panels.
 func (c *DebugCollector) PanelDefinitions() []debugregistry.PanelDefinition {
+	return c.PanelDefinitionsWithContext(context.Background())
+}
+
+// PanelDefinitionsWithContext returns metadata for enabled panels using the provided context.
+func (c *DebugCollector) PanelDefinitionsWithContext(ctx context.Context) []debugregistry.PanelDefinition {
 	if c == nil {
 		return nil
 	}
@@ -790,7 +795,7 @@ func (c *DebugCollector) PanelDefinitions() []debugregistry.PanelDefinition {
 	ensureDebugBuiltinPanels()
 	defs := make([]debugregistry.PanelDefinition, 0, len(c.config.Panels))
 	for _, panelID := range c.config.Panels {
-		def := debugPanelDefinitionFor(panelID)
+		def := debugPanelDefinitionForContext(ctx, panelID)
 		if def.ID == "" {
 			continue
 		}
