@@ -500,6 +500,124 @@ func TestReconcileGeneratedNavigationUpdatesStaleGeneratedRows(t *testing.T) {
 	}
 }
 
+func TestSeedNavigationCompactsSparseGeneratedPositionsByParent(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	menuSvc := admin.NewInMemoryMenuService()
+	menuCode := "admin.main"
+	runtime := newSeedNavigationRuntime(ctx, SeedNavigationOptions{
+		MenuSvc:  menuSvc,
+		MenuCode: menuCode,
+		Locale:   "en",
+		Items: []admin.MenuItem{
+			{
+				ID:          "content",
+				Type:        admin.MenuItemTypeGroup,
+				GroupTitle:  "Content",
+				Collapsible: true,
+				Position:    intPtr(10),
+			},
+			testGeneratedMenuItem("content.media", "content", "Media", "media", "/admin/media", 35),
+			testGeneratedMenuItem("content.events", "content", "Events", "events", "/admin/events", 36),
+			testGeneratedMenuItem("content.sessions", "content", "Sessions", "sessions", "/admin/sessions", 37),
+			{
+				ID:          "utility",
+				Type:        admin.MenuItemTypeGroup,
+				GroupTitle:  "Utility",
+				Collapsible: true,
+				Position:    intPtr(90),
+			},
+		},
+	})
+
+	seedItems, err := runtime.seedItems()
+	if err != nil {
+		t.Fatalf("seedItems: %v", err)
+	}
+
+	assertSeedPosition(t, seedItems, "admin_main.content", 0)
+	assertSeedPosition(t, seedItems, "admin_main.utility", 1)
+	assertSeedPosition(t, seedItems, "admin_main.content.media", 0)
+	assertSeedPosition(t, seedItems, "admin_main.content.events", 1)
+	assertSeedPosition(t, seedItems, "admin_main.content.sessions", 2)
+	assertGeneratedSortOrder(t, seedItems, "admin_main.content.media", 35)
+	assertGeneratedSortOrder(t, seedItems, "admin_main.content.events", 36)
+	assertGeneratedSortOrder(t, seedItems, "admin_main.content.sessions", 37)
+}
+
+func TestReconcileGeneratedNavigationRepairsSparseSiblingPositions(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	menuSvc := admin.NewInMemoryMenuService()
+	menuCode := "admin.main"
+	locale := "en"
+	if _, err := menuSvc.CreateMenu(ctx, menuCode); err != nil {
+		t.Fatalf("CreateMenu: %v", err)
+	}
+
+	items := []admin.MenuItem{
+		{
+			ID:          "nav.content",
+			Type:        admin.MenuItemTypeGroup,
+			GroupTitle:  "Content",
+			Collapsible: true,
+			Position:    intPtr(10),
+		},
+		testGeneratedMenuItem("nav.content.media", "nav.content", "Media", "media", "/admin/media", 35),
+		testGeneratedMenuItem("nav.content.events", "nav.content", "Events", "events", "/admin/events", 36),
+	}
+	runtime := newSeedNavigationRuntime(ctx, SeedNavigationOptions{
+		MenuSvc:  menuSvc,
+		MenuCode: menuCode,
+		Locale:   locale,
+		Items:    items,
+	})
+	stale, err := runtime.seedItems()
+	if err != nil {
+		t.Fatalf("seedItems: %v", err)
+	}
+	for _, item := range stale {
+		if item.ID == "admin_main.nav.content.media" {
+			item.Position = intPtr(35)
+		}
+		if item.ID == "admin_main.nav.content.events" {
+			item.Position = intPtr(35)
+		}
+		if addErr := menuSvc.AddMenuItem(ctx, menuCode, item); addErr != nil {
+			t.Fatalf("seed stale row %s: %v", item.ID, addErr)
+		}
+	}
+
+	report, err := ReconcileGeneratedNavigation(ctx, NavigationReconcileOptions{
+		MenuSvc:  menuSvc,
+		MenuCode: menuCode,
+		Locale:   locale,
+		Items:    items,
+		Apply:    true,
+	})
+	if err != nil {
+		t.Fatalf("reconcile: %v", err)
+	}
+	if len(report.Updates) == 0 {
+		t.Fatalf("expected stale position updates, got %#v", report)
+	}
+
+	menu, err := menuSvc.Menu(ctx, menuCode, locale)
+	if err != nil {
+		t.Fatalf("read menu: %v", err)
+	}
+	media := findMenuItemByTargetKeyForTest(menu.Items, "media")
+	events := findMenuItemByTargetKeyForTest(menu.Items, "events")
+	if media == nil || media.Position == nil || *media.Position != 0 {
+		t.Fatalf("expected media compact position 0, got %#v", media)
+	}
+	if events == nil || events.Position == nil || *events.Position != 1 {
+		t.Fatalf("expected events compact position 1, got %#v", events)
+	}
+}
+
 func TestReconcileGeneratedNavigationUsesRawInventoryWhenRenderedMenuHidesRow(t *testing.T) {
 	t.Parallel()
 
@@ -708,6 +826,38 @@ func findMenuItemByIDForTest(items []admin.MenuItem, id string) *admin.MenuItem 
 		}
 		if child := findMenuItemByIDForTest(items[idx].Children, id); child != nil {
 			return child
+		}
+	}
+	return nil
+}
+
+func assertSeedPosition(t *testing.T, items []admin.MenuItem, id string, want int) {
+	t.Helper()
+	item := findSeedItemByIDForTest(items, id)
+	if item == nil {
+		t.Fatalf("expected seed item %s", id)
+	}
+	if item.Position == nil || *item.Position != want {
+		t.Fatalf("expected %s position %d, got %#v", id, want, item.Position)
+	}
+}
+
+func assertGeneratedSortOrder(t *testing.T, items []admin.MenuItem, id string, want int) {
+	t.Helper()
+	item := findSeedItemByIDForTest(items, id)
+	if item == nil {
+		t.Fatalf("expected seed item %s", id)
+	}
+	got, ok := intTargetValue(item.Target, MenuTargetGeneratedSortOrderKey)
+	if !ok || got != want {
+		t.Fatalf("expected %s generated sort order %d, got target %#v", id, want, item.Target)
+	}
+}
+
+func findSeedItemByIDForTest(items []admin.MenuItem, id string) *admin.MenuItem {
+	for idx := range items {
+		if strings.EqualFold(strings.TrimSpace(items[idx].ID), strings.TrimSpace(id)) {
+			return &items[idx]
 		}
 	}
 	return nil

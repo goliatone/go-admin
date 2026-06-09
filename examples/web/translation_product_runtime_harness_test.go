@@ -268,7 +268,7 @@ func TestDevServeEquivalentTranslationRuntimeContracts(t *testing.T) {
 	require.Equal(t, http.StatusOK, dashboardHTMLStatus, "dashboard html=%s", dashboardHTML)
 	require.NotContains(t, dashboardHTML, "/admin/login", "dashboard must not render a login redirect")
 	require.Contains(t, dashboardHTML, `data-translation-dashboard-ssr="true"`)
-	require.Contains(t, dashboardHTML, `data-dashboard-card=`)
+	require.Contains(t, dashboardHTML, `data-metric-card=`)
 
 	queueHTMLStatus, queueHTML := doAdminHTMLRequestWithHeaders(
 		t,
@@ -282,7 +282,7 @@ func TestDevServeEquivalentTranslationRuntimeContracts(t *testing.T) {
 	require.Contains(t, queueHTML, `data-translation-queue-ssr="true"`)
 	require.True(
 		t,
-		strings.Contains(queueHTML, `data-assignment-id=`) || strings.Contains(queueHTML, `data-queue-row-type="family"`),
+		strings.Contains(queueHTML, `data-translation-row-id=`) || strings.Contains(queueHTML, `data-translation-row-type="family"`),
 		"expected queue SSR to render seeded assignment or grouped family rows, got html=%s",
 		queueHTML,
 	)
@@ -310,7 +310,7 @@ func TestDevServeEquivalentTranslationRuntimeContracts(t *testing.T) {
 	require.Equal(t, http.StatusOK, familiesHTMLStatus, "families html=%s", familiesHTML)
 	require.NotContains(t, familiesHTML, "/admin/login", "families must not render a login redirect")
 	require.Contains(t, familiesHTML, `data-translation-family-list-ssr="true"`)
-	require.Contains(t, familiesHTML, `data-family-id=`)
+	require.Contains(t, familiesHTML, `data-translation-row-id=`)
 
 	detailFamilyID, detailHTML := requireEnhancedFamilyDetailHTML(t, app, familyRows, scopeQuery, authHeaders)
 	require.Contains(t, detailHTML, `data-translation-family-detail-ssr="true"`)
@@ -551,7 +551,7 @@ func assertQueueSSRMatchesAssignmentAPI(t *testing.T, app *fiber.App, query stri
 	require.Equal(t, http.StatusOK, htmlStatus, "queue html=%s", html)
 	require.NotContains(t, html, "/admin/login", "queue must not render a login redirect")
 	require.Contains(t, html, `data-translation-queue-ssr="true"`)
-	require.Equal(t, apiIDs, dataAttributeValuesOnTag(html, "tr", "data-assignment-id"), "queue SSR rows must match assignment API rows for query %q", query)
+	require.Equal(t, apiIDs, dataAttributeValuesOnTag(html, "tr", "data-translation-row-id"), "queue SSR rows must match assignment API rows for query %q", query)
 }
 
 func assertGroupedQueueSSRMatchesAssignmentAPI(t *testing.T, app *fiber.App, query string, headers map[string]string) {
@@ -577,8 +577,8 @@ func assertGroupedQueueSSRMatchesAssignmentAPI(t *testing.T, app *fiber.App, que
 	)
 	require.Equal(t, http.StatusOK, htmlStatus, "grouped queue html=%s", html)
 	require.NotContains(t, html, "/admin/login", "queue must not render a login redirect")
-	require.Contains(t, html, `data-queue-row-type="family"`)
-	require.Equal(t, apiFamilyIDs, dataAttributeValuesOnTag(html, "tr", "data-family-id"), "grouped queue SSR rows must match assignment API rows for query %q", query)
+	require.Contains(t, html, `data-translation-row-type="family"`)
+	require.Equal(t, apiFamilyIDs, dataAttributeValuesOnTag(html, "tr", "data-translation-family-id"), "grouped queue SSR rows must match assignment API rows for query %q", query)
 }
 
 func assignmentIDsFromRecords(records []any) []string {
