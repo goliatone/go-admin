@@ -27,6 +27,7 @@ type RPCCommandDispatchRequest struct {
 // RPCCommandDispatchResponse returns command dispatch receipt metadata.
 type RPCCommandDispatchResponse struct {
 	Receipt command.DispatchReceipt `json:"receipt"`
+	Result  any                     `json:"result,omitempty"`
 }
 
 // RPCCommandListResponse describes available command names.
@@ -156,13 +157,14 @@ func commandDispatchRPCEndpoint(adm *Admin) cmdrpc.EndpointDefinition {
 				}
 			}
 
-			receipt, err := adm.Commands().DispatchByNameWithOptions(ctx, name, payload, req.Data.IDs, opts)
+			outcome, err := adm.Commands().DispatchByNameWithOutcome(ctx, name, payload, req.Data.IDs, opts)
 			if err != nil {
 				return cmdrpc.ResponseEnvelope[RPCCommandDispatchResponse]{}, err
 			}
 			return cmdrpc.ResponseEnvelope[RPCCommandDispatchResponse]{
 				Data: RPCCommandDispatchResponse{
-					Receipt: receipt,
+					Receipt: outcome.Receipt,
+					Result:  outcome.Result,
 				},
 			}, nil
 		},
