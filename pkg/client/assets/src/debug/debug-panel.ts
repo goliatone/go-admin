@@ -88,6 +88,12 @@ type PanelRenderer = {
   filters?: () => string;
 };
 
+type PanelActionResultView = {
+  status: 'ok' | 'error';
+  message: string;
+  data?: unknown;
+};
+
 type PanelOrderPreferenceResponse = {
   available?: boolean;
   found?: boolean;
@@ -194,6 +200,7 @@ export class DebugPanel {
   private unsubscribeRegistry: (() => void) | null = null;
   private expandedRequests: Set<string> = new Set();
   private tabsSortable: Sortable | null = null;
+  private panelActionResults: Map<string, PanelActionResultView> = new Map();
 
   constructor(container: HTMLElement) {
     this.container = container;
@@ -977,6 +984,7 @@ export class DebugPanel {
       this.attachSessionActions();
     }
     this.attachPanelActionListeners();
+    this.renderStoredPanelActionResult(panel);
   }
 
   private attachPanelActionListeners(): void {
@@ -1049,15 +1057,24 @@ export class DebugPanel {
   }
 
   private showPanelActionResult(panelID: string, status: 'ok' | 'error', message: string, data?: unknown): void {
+    this.panelActionResults.set(panelID, { status, message, data });
+    this.renderStoredPanelActionResult(panelID);
+  }
+
+  private renderStoredPanelActionResult(panelID: string): void {
+    const result = this.panelActionResults.get(panelID);
+    if (!result) {
+      return;
+    }
     const target = Array.from(this.panelEl.querySelectorAll<HTMLElement>('[data-panel-action-result]'))
       .find((element) => element.dataset.panelActionResult === panelID);
     if (!target) {
       return;
     }
-    const dataHTML = data === undefined
+    const dataHTML = result.data === undefined
       ? ''
-      : `<pre class="${consoleStyles.jsonPanel}" style="margin-top:0.5rem;max-height:18rem;overflow:auto;white-space:pre-wrap">${escapeHTML(formatJSON(data, { nullAsEmptyObject: false }))}</pre>`;
-    target.innerHTML = `<div class="${status === 'error' ? consoleStyles.badgeError : consoleStyles.badge}">${escapeHTML(message)}</div>${dataHTML}`;
+      : `<pre class="${consoleStyles.jsonPanel}" style="margin-top:0.5rem;max-height:18rem;overflow:auto;white-space:pre-wrap">${escapeHTML(formatJSON(result.data, { nullAsEmptyObject: false }))}</pre>`;
+    target.innerHTML = `<div class="${result.status === 'error' ? consoleStyles.badgeError : consoleStyles.badge}">${escapeHTML(result.message)}</div>${dataHTML}`;
   }
 
   private attachExpandableRowListeners(): void {

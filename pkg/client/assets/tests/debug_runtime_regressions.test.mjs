@@ -32,6 +32,7 @@ function setGlobals(win) {
   globalThis.Element = win.Element;
   globalThis.HTMLElement = win.HTMLElement;
   globalThis.HTMLButtonElement = win.HTMLButtonElement;
+  globalThis.HTMLFormElement = win.HTMLFormElement;
   globalThis.HTMLInputElement = win.HTMLInputElement;
   globalThis.HTMLSelectElement = win.HTMLSelectElement;
   globalThis.HTMLTextAreaElement = win.HTMLTextAreaElement;
@@ -112,6 +113,24 @@ function createSiteRenderCacheDebugDOM() {
 
 function flushMicrotasks() {
   return new Promise((resolve) => setTimeout(resolve, 0));
+}
+
+async function waitForAssertion(assertion, timeoutMs = 1000) {
+  const deadline = Date.now() + timeoutMs;
+  let lastError;
+  while (Date.now() < deadline) {
+    try {
+      assertion();
+      return;
+    } catch (error) {
+      lastError = error;
+      await flushMicrotasks();
+    }
+  }
+  if (lastError) {
+    throw lastError;
+  }
+  assertion();
 }
 
 function debugTabOrder(doc) {
@@ -757,6 +776,95 @@ test('debug panel re-renders content when the active dynamic panel is unregister
   );
   assert.doesNotMatch(dom.window.document.querySelector('[data-debug-panel]').innerHTML, /Ephemeral Active/);
   assert.match(dom.window.document.querySelector('[data-debug-panel]').innerHTML, /req-dynamic|Template Context/);
+});
+
+test('debug panel preserves action result data across refresh rerender', async (t) => {
+  const panelID = 'ops-result-refresh';
+  debugModule.panelRegistry.unregister(panelID);
+  t.after(() => debugModule.panelRegistry.unregister(panelID));
+
+  const dom = createDebugDOM();
+  setGlobals(dom.window);
+  globalThis.WebSocket = OpenWebSocket;
+  dom.window.WebSocket = OpenWebSocket;
+  const consoleEl = dom.window.document.querySelector('[data-debug-console]');
+  consoleEl.dataset.debugPath = '/admin/debug-action-result-refresh';
+  consoleEl.dataset.panels = JSON.stringify([panelID]);
+  dom.window.sessionStorage.setItem('debug-console-active-panel', panelID);
+  const requests = [];
+  globalThis.fetch = async (input, init = {}) => {
+    const url = String(input);
+    requests.push({ url, method: init.method || 'GET' });
+    if (url.endsWith('/api/panels')) {
+      return new Response(JSON.stringify({
+        panels: [{
+          id: panelID,
+          label: 'Operational Commands',
+          snapshot_key: panelID,
+          ui: {
+            views: {
+              console: { renderer: 'json', title: 'Operational Commands' },
+            },
+            actions: [{
+              id: 'health',
+              label: 'Health',
+              refresh: true,
+            }],
+          },
+        }],
+      }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+    if (url.endsWith(`/api/panels/${panelID}/actions/health`)) {
+      return new Response(JSON.stringify({
+        ok: true,
+        message: 'Command completed',
+        refresh: true,
+        data: {
+          status: 'healthy',
+          indexes: ['archive_media'],
+        },
+      }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+    if (url.endsWith('/api/snapshot')) {
+      return new Response(JSON.stringify({
+        [panelID]: { rendered_at: requests.filter((request) => request.url.endsWith('/api/snapshot')).length },
+      }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+    return new Response(JSON.stringify({ sessions: [] }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
+  };
+
+  debugModule.initDebugPanel(consoleEl);
+  await waitForAssertion(() => {
+    assert.ok(dom.window.document.querySelector(`[data-panel-action][data-action-id="health"]`));
+  });
+
+  dom.window.document
+    .querySelector(`[data-panel-action][data-action-id="health"]`)
+    .dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }));
+
+  await waitForAssertion(() => {
+    const result = dom.window.document.querySelector(`[data-panel-action-result="${panelID}"]`);
+    assert.ok(result, 'expected panel action result target');
+    assert.match(result.textContent, /Command completed/);
+    assert.match(result.textContent, /healthy/);
+    assert.match(result.textContent, /archive_media/);
+  });
+  assert.ok(
+    requests.filter((request) => request.url.endsWith('/api/snapshot')).length >= 2,
+    `expected action refresh to fetch a new snapshot, got ${JSON.stringify(requests)}`,
+  );
 });
 
 test('debug panel restores built-in Site Cache when it remains enabled', async () => {

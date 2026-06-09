@@ -39,6 +39,12 @@ import '../shared/builtin-panels.js';
 
 const DEBUG_TOOLBAR_ACTIVE_PANEL_KEY = 'debug-toolbar-active-panel';
 
+type PanelActionResultView = {
+  status: 'ok' | 'error';
+  message: string;
+  data?: unknown;
+};
+
 export class DebugToolbar extends HTMLElement {
   private shadow: ShadowRoot;
   private stream: DebugStream | null = null;
@@ -67,6 +73,7 @@ export class DebugToolbar extends HTMLElement {
   // Expanded request detail state (preserved across re-renders)
   private expandedRequests: Set<string> = new Set();
   private initializeGeneration = 0;
+  private panelActionResults: Map<string, PanelActionResultView> = new Map();
 
   private static readonly MIN_HEIGHT = 150;
   private static readonly MAX_HEIGHT_RATIO = 0.8;
@@ -511,6 +518,7 @@ export class DebugToolbar extends HTMLElement {
     `;
 
     this.attachEventListeners();
+    this.renderStoredPanelActionResult(this.activePanel);
   }
 
   private updateContent(): void {
@@ -530,6 +538,7 @@ export class DebugToolbar extends HTMLElement {
             attachRequestDetailListeners(this.shadow, this.expandedRequests);
           }
           this.attachPanelActionListeners();
+          this.renderStoredPanelActionResult(this.activePanel);
         }
       }
       // Update tab counts
@@ -788,15 +797,24 @@ export class DebugToolbar extends HTMLElement {
   }
 
   private showPanelActionResult(panelID: string, status: 'ok' | 'error', message: string, data?: unknown): void {
+    this.panelActionResults.set(panelID, { status, message, data });
+    this.renderStoredPanelActionResult(panelID);
+  }
+
+  private renderStoredPanelActionResult(panelID: string): void {
+    const result = this.panelActionResults.get(panelID);
+    if (!result) {
+      return;
+    }
     const target = Array.from(this.shadow.querySelectorAll<HTMLElement>('[data-panel-action-result]'))
       .find((element) => element.dataset.panelActionResult === panelID);
     if (!target) {
       return;
     }
-    const dataHTML = data === undefined
+    const dataHTML = result.data === undefined
       ? ''
-      : `<pre style="margin-top:0.5rem;max-height:14rem;overflow:auto;white-space:pre-wrap;font-size:11px">${escapeHTML(formatJSON(data, { nullAsEmptyObject: false }))}</pre>`;
-    target.innerHTML = `<div class="${status === 'error' ? 'badge error' : 'badge'}">${escapeHTML(message)}</div>${dataHTML}`;
+      : `<pre style="margin-top:0.5rem;max-height:14rem;overflow:auto;white-space:pre-wrap;font-size:11px">${escapeHTML(formatJSON(result.data, { nullAsEmptyObject: false }))}</pre>`;
+    target.innerHTML = `<div class="${result.status === 'error' ? 'badge error' : 'badge'}">${escapeHTML(result.message)}</div>${dataHTML}`;
   }
 
   private renderReplPanel(container: HTMLElement, panel: string): void {

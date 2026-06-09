@@ -1,5 +1,5 @@
 import { escapeHTML as m } from "../shared/html.js";
-import { httpRequest as C } from "../shared/transport/http-client.js";
+import { httpRequest as A } from "../shared/transport/http-client.js";
 import { t as Q } from "../chunks/sortable.esm-CnodmHaR.js";
 import { E as ze, S as X, T as F, _ as Qe, a as Xe, b as Y, c as G, d as V, f as Z, g as Ye, h as Ge, i as Ve, l as W, m as P, n as Ze, o as We, p as ee, r as et, s as tt, t as te, u as se, v as st, w as rt, x as re, y as ie } from "../chunks/builtin-panels-BZg1Mdx5.js";
 import { t as ne } from "../chunks/repl-panel-TBK_l2hR.js";
@@ -456,7 +456,7 @@ v.plugins.register({
     });
   }
 });
-var B = 47, xe = 92, Ce = {
+var B = 47, xe = 92, Ae = {
   name: "regex",
   init(t) {
     t.hooks.add("gobble-token", function(s) {
@@ -490,7 +490,7 @@ var B = 47, xe = 92, Ce = {
       }
     });
   }
-}, $ = 43, A = {
+}, R = 43, C = {
   name: "assignment",
   assignmentOperators: /* @__PURE__ */ new Set([
     "=",
@@ -510,24 +510,24 @@ var B = 47, xe = 92, Ce = {
     "&&=",
     "??="
   ]),
-  updateOperators: [$, 45],
+  updateOperators: [R, 45],
   assignmentPrecedence: 0.9,
   init(t) {
     const e = [t.IDENTIFIER, t.MEMBER_EXP];
-    A.assignmentOperators.forEach((r) => t.addBinaryOp(r, A.assignmentPrecedence, !0)), t.hooks.add("gobble-token", function(i) {
+    C.assignmentOperators.forEach((r) => t.addBinaryOp(r, C.assignmentPrecedence, !0)), t.hooks.add("gobble-token", function(i) {
       const n = this.code;
-      A.updateOperators.some((o) => o === n && o === this.expr.charCodeAt(this.index + 1)) && (this.index += 2, i.node = {
+      C.updateOperators.some((o) => o === n && o === this.expr.charCodeAt(this.index + 1)) && (this.index += 2, i.node = {
         type: "UpdateExpression",
-        operator: n === $ ? "++" : "--",
+        operator: n === R ? "++" : "--",
         argument: this.gobbleTokenProperty(this.gobbleIdentifier()),
         prefix: !0
       }, (!i.node.argument || !e.includes(i.node.argument.type)) && this.throwError(`Unexpected ${i.node.operator}`));
     }), t.hooks.add("after-token", function(i) {
       if (i.node) {
         const n = this.code;
-        A.updateOperators.some((o) => o === n && o === this.expr.charCodeAt(this.index + 1)) && (e.includes(i.node.type) || this.throwError(`Unexpected ${i.node.operator}`), this.index += 2, i.node = {
+        C.updateOperators.some((o) => o === n && o === this.expr.charCodeAt(this.index + 1)) && (e.includes(i.node.type) || this.throwError(`Unexpected ${i.node.operator}`), this.index += 2, i.node = {
           type: "UpdateExpression",
-          operator: n === $ ? "++" : "--",
+          operator: n === R ? "++" : "--",
           argument: i.node,
           prefix: !1
         });
@@ -536,17 +536,17 @@ var B = 47, xe = 92, Ce = {
       i.node && s(i.node);
     });
     function s(r) {
-      A.assignmentOperators.has(r.operator) ? (r.type = "AssignmentExpression", s(r.left), s(r.right)) : r.operator || Object.values(r).forEach((i) => {
+      C.assignmentOperators.has(r.operator) ? (r.type = "AssignmentExpression", s(r.left), s(r.right)) : r.operator || Object.values(r).forEach((i) => {
         i && typeof i == "object" && s(i);
       });
     }
   }
 };
-v.plugins.register(Ce, A);
+v.plugins.register(Ae, C);
 v.addUnaryOp("typeof");
 v.addLiteral("null", null);
 v.addLiteral("undefined", void 0);
-var Ae = /* @__PURE__ */ new Set([
+var Ce = /* @__PURE__ */ new Set([
   "constructor",
   "__proto__",
   "__defineGetter__",
@@ -630,7 +630,7 @@ var Ae = /* @__PURE__ */ new Set([
   evalMemberExpression(t, e) {
     const s = String(t.computed ? p.evalAst(t.property) : t.property.name), r = p.evalAst(t.object, e);
     if (r == null) throw TypeError(`Cannot read properties of ${r} (reading '${s}')`);
-    if (!Object.hasOwn(r, s) && Ae.has(s)) throw TypeError(`Cannot read properties of ${r} (reading '${s}')`);
+    if (!Object.hasOwn(r, s) && Ce.has(s)) throw TypeError(`Cannot read properties of ${r} (reading '${s}')`);
     const i = r[s];
     return typeof i == "function" ? i.bind(r) : i;
   },
@@ -970,17 +970,17 @@ function Ie(t, e) {
     return [];
   }
 }
-function $e(t, e) {
+function Re(t, e) {
   if (!e || !t) return t || {};
   const s = Le(e);
   if (console.log("[jsonpath-search] search:", e, "isJsonPath:", s), s) {
     const i = qe(t, e);
     return console.log("[jsonpath-search] JSONPath result:", i), i;
   }
-  const r = Re(t, e);
+  const r = $e(t, e);
   return console.log("[jsonpath-search] key match result:", r), r;
 }
-function Re(t, e) {
+function $e(t, e) {
   const s = e.toLowerCase(), r = {};
   for (const [i, n] of Object.entries(t || {})) i.toLowerCase().includes(s) && (r[i] = n);
   return r;
@@ -1013,7 +1013,7 @@ var K = "debug-console-active-panel", J = "debug-console-panel-order", Ne = /^[a
   } catch {
     return null;
   }
-}, Fe = (t) => Array.isArray(t) && t.length > 0 ? t.filter((e) => typeof e == "string" && e.trim()).map((e) => e.trim()) : ce(), R = (t, e) => $e(t, e), je = (t, e, s) => {
+}, Fe = (t) => Array.isArray(t) && t.length > 0 ? t.filter((e) => typeof e == "string" && e.trim()).map((e) => e.trim()) : ce(), $ = (t, e) => Re(t, e), je = (t, e, s) => {
   if (!t || !e) return;
   const r = e.split(".").map((n) => n.trim()).filter(Boolean);
   if (r.length === 0) return;
@@ -1029,7 +1029,7 @@ var K = "debug-console-active-panel", J = "debug-console-panel-order", Ne = /^[a
   return Number.isNaN(s) ? e : s;
 }, Me = class {
   constructor(t) {
-    this.savedPanelOrder = null, this.customFilterState = {}, this.paused = !1, this.eventCount = 0, this.lastEventAt = null, this.sessions = [], this.sessionsLoading = !1, this.sessionsLoaded = !1, this.sessionsError = null, this.sessionsUpdatedAt = null, this.activeSessionId = null, this.activeSession = null, this.sessionBannerEl = null, this.sessionMetaEl = null, this.sessionDetachEl = null, this.unsubscribeRegistry = null, this.expandedRequests = /* @__PURE__ */ new Set(), this.tabsSortable = null, this.container = t;
+    this.savedPanelOrder = null, this.customFilterState = {}, this.paused = !1, this.eventCount = 0, this.lastEventAt = null, this.sessions = [], this.sessionsLoading = !1, this.sessionsLoaded = !1, this.sessionsError = null, this.sessionsUpdatedAt = null, this.activeSessionId = null, this.activeSession = null, this.sessionBannerEl = null, this.sessionMetaEl = null, this.sessionDetachEl = null, this.unsubscribeRegistry = null, this.expandedRequests = /* @__PURE__ */ new Set(), this.tabsSortable = null, this.panelActionResults = /* @__PURE__ */ new Map(), this.container = t;
     const e = Fe(H(t.dataset.panels));
     e.includes("sessions") || e.push("sessions"), this.availablePanels = this.normalizeAvailablePanelIDs(e), this.savedPanelOrder = this.loadStoredPanelOrder(), this.panels = this.mergePanelOrder(this.availablePanels, this.savedPanelOrder), this.activePanel = this.panels[0] || "template", this.debugPath = t.dataset.debugPath || "", this.panelOrderPreferencesPath = t.dataset.panelOrderPreferencesPath || "", this.streamBasePath = this.debugPath, this.maxLogEntries = q(t.dataset.maxLogEntries, 500), this.maxSQLQueries = q(t.dataset.maxSqlQueries, 200), this.slowThresholdMs = q(t.dataset.slowThresholdMs, 50), this.replCommands = fe(H(t.dataset.replCommands)), this.state = {
       template: {},
@@ -1121,7 +1121,7 @@ var K = "debug-console-active-panel", J = "debug-console-panel-order", Ne = /^[a
     const t = this.panelOrderPreferencesPath.trim();
     if (!t) return !1;
     try {
-      const e = await C(t, {
+      const e = await A(t, {
         method: "GET",
         credentials: "same-origin"
       });
@@ -1136,7 +1136,7 @@ var K = "debug-console-active-panel", J = "debug-console-panel-order", Ne = /^[a
     const e = this.panelOrderPreferencesPath.trim();
     if (e)
       try {
-        await C(e, {
+        await A(e, {
           method: "PUT",
           credentials: "same-origin",
           json: { panel_order: t }
@@ -1529,12 +1529,12 @@ var K = "debug-console-active-panel", J = "debug-console-panel-order", Ne = /^[a
           n = r.applyFilters(n, o);
         } else if (!r.renderFilters && r.showFilters !== !1) {
           const o = this.filters.objects.search.trim();
-          o && n && typeof n == "object" && !Array.isArray(n) && (n = R(n, o));
+          o && n && typeof n == "object" && !Array.isArray(n) && (n = $(n, o));
         }
         s = (r.renderConsole || r.render)(n, P, { newestFirst: this.filters.logs.newestFirst });
       } else s = this.renderJSONPanel(M(t), this.state.extra[t], this.filters.objects.search);
     }
-    this.panelEl.innerHTML = s, t === "logs" && this.filters.logs.autoScroll && (this.panelEl.scrollTop = this.filters.logs.newestFirst ? 0 : this.panelEl.scrollHeight), this.attachExpandableRowListeners(), this.attachCopyButtonListeners(), t === "requests" && re(this.panelEl, this.expandedRequests), t === "sql" && this.attachSQLSelectionListeners(), t === "sessions" && this.attachSessionActions(), this.attachPanelActionListeners();
+    this.panelEl.innerHTML = s, t === "logs" && this.filters.logs.autoScroll && (this.panelEl.scrollTop = this.filters.logs.newestFirst ? 0 : this.panelEl.scrollHeight), this.attachExpandableRowListeners(), this.attachCopyButtonListeners(), t === "requests" && re(this.panelEl, this.expandedRequests), t === "sql" && this.attachSQLSelectionListeners(), t === "sessions" && this.attachSessionActions(), this.attachPanelActionListeners(), this.renderStoredPanelActionResult(t);
   }
   attachPanelActionListeners() {
     this.panelEl.querySelectorAll("[data-panel-action]").forEach((t) => {
@@ -1557,7 +1557,7 @@ var K = "debug-console-active-panel", J = "debug-console-panel-order", Ne = /^[a
     const n = te(t);
     e && (e.disabled = !0);
     try {
-      const o = await C(`${this.debugPath}/api/panels/${encodeURIComponent(s)}/actions/${encodeURIComponent(r)}`, {
+      const o = await A(`${this.debugPath}/api/panels/${encodeURIComponent(s)}/actions/${encodeURIComponent(r)}`, {
         method: "POST",
         credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
@@ -1574,10 +1574,19 @@ var K = "debug-console-active-panel", J = "debug-console-panel-order", Ne = /^[a
     }
   }
   showPanelActionResult(t, e, s, r) {
-    const i = Array.from(this.panelEl.querySelectorAll("[data-panel-action-result]")).find((o) => o.dataset.panelActionResult === t);
-    if (!i) return;
-    const n = r === void 0 ? "" : `<pre class="${P.jsonPanel}" style="margin-top:0.5rem;max-height:18rem;overflow:auto;white-space:pre-wrap">${m(j(r, { nullAsEmptyObject: !1 }))}</pre>`;
-    i.innerHTML = `<div class="${e === "error" ? P.badgeError : P.badge}">${m(s)}</div>${n}`;
+    this.panelActionResults.set(t, {
+      status: e,
+      message: s,
+      data: r
+    }), this.renderStoredPanelActionResult(t);
+  }
+  renderStoredPanelActionResult(t) {
+    const e = this.panelActionResults.get(t);
+    if (!e) return;
+    const s = Array.from(this.panelEl.querySelectorAll("[data-panel-action-result]")).find((i) => i.dataset.panelActionResult === t);
+    if (!s) return;
+    const r = e.data === void 0 ? "" : `<pre class="${P.jsonPanel}" style="margin-top:0.5rem;max-height:18rem;overflow:auto;white-space:pre-wrap">${m(j(e.data, { nullAsEmptyObject: !1 }))}</pre>`;
+    s.innerHTML = `<div class="${e.status === "error" ? P.badgeError : P.badge}">${m(e.message)}</div>${r}`;
   }
   attachExpandableRowListeners() {
     Y(this.panelEl);
@@ -1719,7 +1728,7 @@ var K = "debug-console-active-panel", J = "debug-console-panel-order", Ne = /^[a
       maxLogEntries: this.maxLogEntries,
       useIconCopyButton: !0,
       showCount: !0,
-      dataFilterFn: t ? (r) => R(r, t) : void 0
+      dataFilterFn: t ? (r) => $(r, t) : void 0
     });
   }
   renderJSONPanel(t, e, s) {
@@ -1727,7 +1736,7 @@ var K = "debug-console-active-panel", J = "debug-console-panel-order", Ne = /^[a
     return r && Object.keys(e || {}).length === 0 || i && (e || []).length === 0 || !r && !i && !e ? this.renderEmptyState(`No ${t.toLowerCase()} data available.`) : he(t, e, P, {
       useIconCopyButton: !0,
       showCount: !0,
-      filterFn: s ? (n) => R(n, s) : void 0
+      filterFn: s ? (n) => $(n, s) : void 0
     });
   }
   attachSessionActions() {
@@ -2029,7 +2038,7 @@ var K = "debug-console-active-panel", J = "debug-console-panel-order", Ne = /^[a
       }
   }
   clearAll() {
-    this.debugPath && (this.stream.clear(), !this.activeSessionId && C(`${this.debugPath}/api/clear`, {
+    this.debugPath && (this.stream.clear(), !this.activeSessionId && A(`${this.debugPath}/api/clear`, {
       method: "POST",
       credentials: "same-origin"
     }).catch(() => {
@@ -2038,7 +2047,7 @@ var K = "debug-console-active-panel", J = "debug-console-panel-order", Ne = /^[a
   clearActivePanel() {
     if (!this.debugPath) return;
     const t = this.activePanel;
-    this.stream.clear([t]), !this.activeSessionId && C(`${this.debugPath}/api/clear/${t}`, {
+    this.stream.clear([t]), !this.activeSessionId && A(`${this.debugPath}/api/clear/${t}`, {
       method: "POST",
       credentials: "same-origin"
     }).catch(() => {
@@ -2100,7 +2109,7 @@ var K = "debug-console-active-panel", J = "debug-console-panel-order", Ne = /^[a
       if (!window.confirm(n)) return;
     }
     try {
-      const n = await C(`${this.debugPath}/api/doctor/${encodeURIComponent(r)}/action`, {
+      const n = await A(`${this.debugPath}/api/doctor/${encodeURIComponent(r)}/action`, {
         method: "POST",
         credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
