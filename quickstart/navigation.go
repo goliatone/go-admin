@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"reflect"
 	"regexp"
 	"sort"
 	"strconv"
@@ -453,27 +454,11 @@ func intTargetValue(target map[string]any, key string) (int, bool) {
 	if !ok {
 		return 0, false
 	}
+	return targetValueAsInt(value)
+}
+
+func targetValueAsInt(value any) (int, bool) {
 	switch typed := value.(type) {
-	case int:
-		return typed, true
-	case int8:
-		return int(typed), true
-	case int16:
-		return int(typed), true
-	case int32:
-		return int(typed), true
-	case int64:
-		return int(typed), true
-	case uint:
-		return int(typed), true
-	case uint8:
-		return int(typed), true
-	case uint16:
-		return int(typed), true
-	case uint32:
-		return int(typed), true
-	case uint64:
-		return int(typed), true
 	case float32:
 		return int(typed), true
 	case float64:
@@ -484,6 +469,18 @@ func intTargetValue(target map[string]any, key string) (int, bool) {
 			return 0, false
 		}
 		return parsed, true
+	default:
+		return reflectedIntValue(value)
+	}
+}
+
+func reflectedIntValue(value any) (int, bool) {
+	reflected := reflect.ValueOf(value)
+	switch reflected.Kind() {
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		return int(reflected.Int()), true
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		return int(reflected.Uint()), true
 	default:
 		return 0, false
 	}
