@@ -2283,6 +2283,12 @@ blindly appending duplicates. The registrar builds the expected tree with
 metadata, preserves host-authored rows, updates stale generated rows, and reports
 ambiguous or destructive candidates through `NavigationReconcileReport`.
 
+Use `admin.MenuItem.Position` in module-contributed menu items as a sparse sort
+weight, not as a CMS insertion index. Quickstart sorts generated siblings by
+that sparse weight and writes compact per-parent positions to CMS-backed menus.
+The original generated weight is retained on generated leaf targets as
+`_generated_sort_order` for troubleshooting.
+
 Use seed-plan options for host-owned sidebar layout:
 
 ```go

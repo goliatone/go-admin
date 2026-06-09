@@ -221,7 +221,13 @@ If quickstart-generated admin navigation is stale, duplicated, or missing:
       because a feature or permission gate filtered them out.
 4.  Do not reseed or delete menu data until the dry-run report explains the
     mismatch. Keep `AllowDestructive` off unless the candidates were reviewed.
-5.  Run focused quickstart navigation tests:
+5.  Treat `admin.MenuItem.Position` in generated/module navigation as a sparse
+    sort weight. Quickstart compacts those weights to per-parent `0..n-1`
+    sibling indexes before writing to CMS-backed menus, because CMS/menu-builder
+    storage treats `position` as an insertion index. If persisted siblings have
+    tied positions, inspect `_generated_sort_order` in generated item targets to
+    see the original module sort weight.
+6.  Run focused quickstart navigation tests:
     - `go test ./quickstart -run 'TestBuildMenuSeedPlan|TestReconcileGeneratedNavigation|TestSeedNavigation'`
 
 If site menu links are locale-prefixed but final page URL drops locale prefix (for example `/es/...` -\> `/...`):

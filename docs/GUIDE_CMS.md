@@ -456,6 +456,13 @@ duplicate identities, destructive candidates, stale target-state cleanup,
 capability omissions, and permission-filtered generated rows. See
 `quickstart/README.md` for the generated navigation contract.
 
+Generated/module `admin.MenuItem.Position` values are sparse sort weights, so
+independent modules can reserve ordering bands without knowing current sibling
+counts. CMS-backed menu persistence stores compact per-parent sibling indexes.
+Quickstart reconciles that boundary by sorting generated siblings by sparse
+weight, then stable identity, and writing compact `0..n-1` positions. Generated
+leaf targets retain `_generated_sort_order` for diagnostics.
+
 ```go
 type Menu struct {
     ID       string

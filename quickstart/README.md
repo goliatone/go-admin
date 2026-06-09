@@ -120,7 +120,7 @@ auth wiring, password-change gate, and recovery flow.
 - `WithMenuSeedParents(parents ...admin.MenuItem) ModuleRegistrarOption` - Inputs: host-defined parent/group rows. Outputs: option that replaces default quickstart parent groups for the primary menu while retaining module and translation capability collection.
 - `WithMenuSeedTargetParentOverride(targetKey, parentID string) ModuleRegistrarOption` - Inputs: stable menu target key and parent ID. Outputs: option that moves matching generated rows without copying quickstart seed internals.
 - `WithMenuSeedModuleParentOverride(moduleID, parentID string) ModuleRegistrarOption` - Inputs: module ID and parent ID. Outputs: option that moves all menu rows contributed by that module under the given parent.
-- `WithMenuSeedItemTransform(transforms ...MenuSeedItemTransform) ModuleRegistrarOption` - Inputs: transforms for module-contributed menu rows. Outputs: option for host label, permission, parent, or position tweaks before generated rows are reconciled.
+- `WithMenuSeedItemTransform(transforms ...MenuSeedItemTransform) ModuleRegistrarOption` - Inputs: transforms for module-contributed menu rows. Outputs: option for host label, permission, parent, or sparse sort-weight tweaks before generated rows are reconciled.
 - `ReconcileGeneratedNavigation(ctx context.Context, opts NavigationReconcileOptions) (NavigationReconcileReport, error)` - Inputs: menu service, expected items, locale, menu code, apply/dry-run mode, and optional destructive cleanup. Outputs: creates, updates, preserved user rows, duplicate identities, destructive candidates, stale target cleanup, route failures, capability omissions, permission-filtered rows, preserved generated fields, and parent-prune diagnostics.
 - `DefaultContentParentPermissions() []string` - Outputs: canonical permission set used by the default sidebar `Content` parent (`media`, `content_types`, `block_definitions`).
 - `WithGoAuth(adm *admin.Admin, routeAuth *auth.RouteAuthenticator, cfg auth.Config, authz admin.GoAuthAuthorizerConfig, authCfg *admin.AuthConfig, opts ...admin.GoAuthAuthenticatorOption) (*admin.GoAuthAuthenticator, *admin.GoAuthAuthorizer)` - Inputs: admin, route auth, auth config, authz config, admin auth config, options. Outputs: adapters.
@@ -1960,6 +1960,14 @@ report, err := quickstart.ReconcileGeneratedNavigation(ctx, quickstart.Navigatio
     Apply:    false,
 })
 ```
+
+Generated navigation treats `admin.MenuItem.Position` as a sparse sort weight.
+This lets independent modules reserve ordering bands without knowing current
+sibling counts. Before writing to CMS-backed menu storage, quickstart sorts
+siblings by sparse weight and stable identity, then writes compact per-parent
+`0..n-1` positions because CMS/menu-builder APIs treat `position` as an
+insertion index. Generated leaf targets keep the original sparse weight in
+`_generated_sort_order` for diagnostics.
 
 The report separates normal updates from operational diagnostics:
 
