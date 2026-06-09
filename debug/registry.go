@@ -97,14 +97,27 @@ type PanelUIEventPolicy struct {
 
 // PanelUIAction declares a UI action backed by a Go handler.
 type PanelUIAction struct {
-	ID              string         `json:"id"`
-	Label           string         `json:"label"`
-	Kind            string         `json:"kind,omitempty"`
-	ConfirmText     string         `json:"confirm_text,omitempty"`
-	RequiresConfirm bool           `json:"requires_confirm,omitempty"`
-	Refresh         bool           `json:"refresh,omitempty"`
-	UpdatePolicy    string         `json:"update_policy,omitempty"`
-	Payload         map[string]any `json:"payload,omitempty"`
+	ID              string               `json:"id"`
+	Label           string               `json:"label"`
+	Kind            string               `json:"kind,omitempty"`
+	ConfirmText     string               `json:"confirm_text,omitempty"`
+	RequiresConfirm bool                 `json:"requires_confirm,omitempty"`
+	Refresh         bool                 `json:"refresh,omitempty"`
+	UpdatePolicy    string               `json:"update_policy,omitempty"`
+	Payload         map[string]any       `json:"payload,omitempty"`
+	Fields          []PanelUIActionField `json:"fields,omitempty"`
+}
+
+// PanelUIActionField declares a typed input that is merged into an action payload.
+type PanelUIActionField struct {
+	Name        string   `json:"name"`
+	Label       string   `json:"label,omitempty"`
+	Kind        string   `json:"kind,omitempty"`
+	PayloadPath string   `json:"payload_path,omitempty"`
+	Placeholder string   `json:"placeholder,omitempty"`
+	Description string   `json:"description,omitempty"`
+	Required    bool     `json:"required,omitempty"`
+	Options     []string `json:"options,omitempty"`
 }
 
 // PanelUIColumn declares a table column option.
@@ -726,6 +739,44 @@ func normalizePanelUIActions(actions []PanelUIAction, handlers map[string]PanelA
 			Refresh:         action.Refresh,
 			UpdatePolicy:    normalizeEventPolicyMode(action.UpdatePolicy),
 			Payload:         cloneJSONSafeMap(action.Payload),
+			Fields:          normalizePanelUIActionFields(action.Fields),
+		})
+	}
+	return out
+}
+
+func normalizePanelUIActionFields(fields []PanelUIActionField) []PanelUIActionField {
+	if len(fields) == 0 {
+		return nil
+	}
+	seen := map[string]bool{}
+	out := make([]PanelUIActionField, 0, len(fields))
+	for _, field := range fields {
+		name := normalizeID(field.Name)
+		if name == "" || seen[name] {
+			continue
+		}
+		seen[name] = true
+		label := trimSafeText(field.Label)
+		if label == "" {
+			label = formatPanelLabel(name)
+		}
+		options := make([]string, 0, len(field.Options))
+		for _, option := range field.Options {
+			option = trimSafeText(option)
+			if option != "" {
+				options = append(options, option)
+			}
+		}
+		out = append(out, PanelUIActionField{
+			Name:        name,
+			Label:       label,
+			Kind:        normalizeID(field.Kind),
+			PayloadPath: trimSafeText(field.PayloadPath),
+			Placeholder: trimSafeText(field.Placeholder),
+			Description: trimSafeText(field.Description),
+			Required:    field.Required,
+			Options:     options,
 		})
 	}
 	return out
