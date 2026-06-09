@@ -131,6 +131,57 @@ func TestPanelDefinitionRichUINormalizesWireContract(t *testing.T) {
 	}
 }
 
+func TestPanelDefinitionsWithContextAppliesDefinitionFilter(t *testing.T) {
+	type contextKey string
+	const allowActionsKey contextKey = "allow-actions"
+	handler := func(context.Context, PanelActionRequest) (PanelActionResult, error) {
+		return PanelActionResult{OK: true}, nil
+	}
+	registry := NewPanelRegistry()
+	err := registry.Register("commands", PanelConfig{
+		UI: &PanelUI{
+			Views: PanelUIViews{
+				Console: &PanelUIView{Renderer: PanelRendererJSON},
+			},
+			Actions: []PanelUIAction{{ID: "run", Label: "Run", Payload: map[string]any{"command_id": "secret.command"}}},
+		},
+		Definition: func(ctx context.Context, definition PanelDefinition) PanelDefinition {
+			if ctx.Value(allowActionsKey) == true {
+				return definition
+			}
+			if definition.UI != nil {
+				ui := *definition.UI
+				ui.Actions = nil
+				definition.UI = &ui
+			}
+			return definition
+		},
+		Actions: map[string]PanelActionHandler{"run": handler},
+	})
+	if err != nil {
+		t.Fatalf("register panel: %v", err)
+	}
+
+	filtered, ok := registry.DefinitionForContext(context.Background(), "commands")
+	if !ok {
+		t.Fatalf("expected panel definition")
+	}
+	if filtered.UI == nil || len(filtered.UI.Actions) != 0 {
+		t.Fatalf("expected filtered actions without context grant, got %+v", filtered.UI)
+	}
+
+	allowed, ok := registry.DefinitionForContext(context.WithValue(context.Background(), allowActionsKey, true), "commands")
+	if !ok {
+		t.Fatalf("expected panel definition")
+	}
+	if allowed.UI == nil || len(allowed.UI.Actions) != 1 {
+		t.Fatalf("expected action with context grant, got %+v", allowed.UI)
+	}
+	if allowed.UI.Actions[0].Payload["command_id"] != "secret.command" {
+		t.Fatalf("expected original action payload, got %+v", allowed.UI.Actions[0].Payload)
+	}
+}
+
 func TestPanelUINormalizationDropsUnsupportedSchemaParts(t *testing.T) {
 	registry := NewPanelRegistry()
 	err := registry.Register("unsafe", PanelConfig{
