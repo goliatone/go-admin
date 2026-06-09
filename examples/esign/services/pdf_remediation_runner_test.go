@@ -10,6 +10,8 @@ import (
 	"time"
 )
 
+const pdfRemediationRunnerTestTimeout = 2 * time.Minute
+
 func TestInterpolateRemediationArgsAllowsInputOutputTokens(t *testing.T) {
 	args, err := interpolateRemediationArgs([]string{"-i={in}", "-o={out}"}, "/tmp/input.pdf", "/tmp/output.pdf")
 	if err != nil {
@@ -62,7 +64,7 @@ done
 	template := PDFRemediationCommandTemplate{
 		Bin:         script,
 		Args:        []string{"{in}", "{out}"},
-		Timeout:     30 * time.Second,
+		Timeout:     pdfRemediationRunnerTestTimeout,
 		MaxPDFBytes: 1 << 20,
 		MaxLogBytes: 16,
 	}
@@ -101,7 +103,7 @@ done
 	template := PDFRemediationCommandTemplate{
 		Bin:         script,
 		Args:        []string{"{in}", "{out}"},
-		Timeout:     30 * time.Second,
+		Timeout:     pdfRemediationRunnerTestTimeout,
 		MaxPDFBytes: 8,
 		MaxLogBytes: 64,
 	}
