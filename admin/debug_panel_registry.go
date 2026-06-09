@@ -103,13 +103,13 @@ func registerDebugPanelFromInterface(panel DebugPanel) {
 	_ = debugregistry.RegisterPanel(id, config) //nolint:errcheck // registration happens during optional bootstrap and remains best-effort here.
 }
 
-func debugPanelDefinitionFor(panelID string) debugregistry.PanelDefinition {
+func debugPanelDefinitionForContext(ctx context.Context, panelID string) debugregistry.PanelDefinition {
 	ensureDebugBuiltinPanels()
 	normalized := debugpanels.NormalizePanelID(panelID)
 	if normalized == "" {
 		return debugregistry.PanelDefinition{}
 	}
-	def, ok := debugregistry.PanelDefinitionFor(normalized)
+	def, ok := debugregistry.PanelDefinitionForContext(ctx, normalized)
 	if !ok {
 		return defaultDebugPanelDefinition(normalized)
 	}
