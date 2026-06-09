@@ -435,11 +435,15 @@ func (r *PanelRegistry) DefinitionsWithContext(ctx context.Context) []PanelDefin
 		return nil
 	}
 	r.mu.RLock()
-	defs := make([]PanelDefinition, 0, len(r.panels))
+	registrations := make([]PanelRegistration, 0, len(r.panels))
 	for _, reg := range r.panels {
-		defs = append(defs, reg.definitionForContext(ctx))
+		registrations = append(registrations, reg)
 	}
 	r.mu.RUnlock()
+	defs := make([]PanelDefinition, 0, len(registrations))
+	for _, reg := range registrations {
+		defs = append(defs, reg.definitionForContext(ctx))
+	}
 	sort.Slice(defs, func(i, j int) bool {
 		return defs[i].ID < defs[j].ID
 	})
