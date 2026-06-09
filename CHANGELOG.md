@@ -1,5 +1,11 @@
 # Changelog
 
+# [0.86.1](https://github.com/goliatone/go-admin/compare/v0.86.0...v0.86.1) - (2026-06-09)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update deps ([08c83c9](https://github.com/goliatone/go-admin/commit/08c83c97ff6e6db3c915b48572f14c7a8f5f65b1))  - (goliatone)
+
 # [0.86.0](https://github.com/goliatone/go-admin/compare/v0.85.1...v0.86.0) - (2026-06-09)
 
 ## <!-- 1 -->🐛 Bug Fixes
@@ -7,6 +13,10 @@
 - Code quality ([6fd64a4](https://github.com/goliatone/go-admin/commit/6fd64a45175f14a19b6b0710d1848dc770c1087f))  - (goliatone)
 - Assignee label display ([3e68633](https://github.com/goliatone/go-admin/commit/3e686331783c203eeac073f0378912fb7dc63c57))  - (goliatone)
 - Preview url build use URL ([009e951](https://github.com/goliatone/go-admin/commit/009e9512ccc52ca30f09d3efe901417a811a6906))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.86.0 ([c1e8d36](https://github.com/goliatone/go-admin/commit/c1e8d36a02c7899ade2a860d33993200ba6a4230))  - (goliatone)
 
 ## <!-- 16 -->➕ Add
 
