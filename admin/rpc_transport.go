@@ -162,10 +162,7 @@ func commandDispatchRPCEndpoint(adm *Admin) cmdrpc.EndpointDefinition {
 				return cmdrpc.ResponseEnvelope[RPCCommandDispatchResponse]{}, err
 			}
 			return cmdrpc.ResponseEnvelope[RPCCommandDispatchResponse]{
-				Data: RPCCommandDispatchResponse{
-					Receipt: outcome.Receipt,
-					Result:  outcome.Result,
-				},
+				Data: RPCCommandDispatchResponse(outcome),
 			}, nil
 		},
 	)
