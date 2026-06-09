@@ -284,6 +284,7 @@ Quickstart defaults to inline command execution. To opt into queued execution, c
 - Unauthenticated RPC transport must be opted into explicitly with `allow_unauthenticated=true`.
 - Discovery route mounting is disabled by default (`discovery_enabled=false`).
 - Admin command RPC dispatch is deny-by-default until command rules are configured (`command_rules` / `commands.rpc.commands`).
+- Command RPC permission checks use resource-role authorization by default. Set `permission_mode=exact` on the transport or individual command rules when commands require explicit grants such as operational permissions.
 
 See `../docs/GUIDE_RPC.md` for the full RPC transport, command dispatch, and workflow RPC contract.
 

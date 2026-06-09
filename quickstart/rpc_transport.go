@@ -18,9 +18,10 @@ type RPCTransportConfig struct {
 
 	InvokePath string `json:"invoke_path,omitempty"`
 
-	RequireAuth          bool `json:"require_auth,omitempty"`
-	AllowUnauthenticated bool `json:"allow_unauthenticated,omitempty"`
-	DiscoveryEnabled     bool `json:"discovery_enabled,omitempty"`
+	RequireAuth          bool                           `json:"require_auth,omitempty"`
+	AllowUnauthenticated bool                           `json:"allow_unauthenticated,omitempty"`
+	DiscoveryEnabled     bool                           `json:"discovery_enabled,omitempty"`
+	PermissionMode       admin.RPCCommandPermissionMode `json:"permission_mode,omitempty"`
 
 	CommandRules map[string]admin.RPCCommandRule `json:"command_rules,omitempty"`
 	Authorize    admin.RPCCommandPolicyHook      `json:"-"`
@@ -47,6 +48,7 @@ func applyRPCTransportPolicyConfig(cfg *admin.Config, opts *adminOptions) {
 	}
 	transport := normalizeRPCTransportConfig(nil, opts.rpcTransportConfig)
 	cfg.Commands.RPC.DiscoveryEnabled = transport.DiscoveryEnabled
+	cfg.Commands.RPC.PermissionMode = transport.PermissionMode
 	if transport.CommandRules != nil {
 		cfg.Commands.RPC.Commands = cloneQuickstartRPCCommandRules(transport.CommandRules)
 	}
@@ -149,6 +151,9 @@ func normalizeRPCTransportConfig(adm *admin.Admin, cfg RPCTransportConfig) RPCTr
 	}
 	cfg.InvokePath = normalizeRPCPath(cfg.InvokePath, path.Join(apiBase, "rpc"))
 	cfg.RequireAuth = resolveRPCTransportRequireAuth(cfg)
+	if strings.TrimSpace(string(cfg.PermissionMode)) == "" {
+		cfg.PermissionMode = admin.RPCCommandPermissionModeResourceRole
+	}
 	cfg.CommandRules = cloneQuickstartRPCCommandRules(cfg.CommandRules)
 	return cfg
 }
@@ -191,6 +196,7 @@ func cloneQuickstartRPCCommandRules(in map[string]admin.RPCCommandRule) map[stri
 		out[name] = admin.RPCCommandRule{
 			Permission:           strings.TrimSpace(rawRule.Permission),
 			Resource:             strings.TrimSpace(rawRule.Resource),
+			PermissionMode:       rawRule.PermissionMode,
 			AllowUnauthenticated: rawRule.AllowUnauthenticated,
 		}
 	}

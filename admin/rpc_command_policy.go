@@ -13,16 +13,32 @@ const (
 
 var defaultRPCMetadataAllowlist = []string{"request_id", "correlation_id"}
 
+// RPCCommandPermissionMode selects how RPC command permissions are evaluated.
+type RPCCommandPermissionMode string
+
+const (
+	// RPCCommandPermissionModeResourceRole uses the configured Authorizer's
+	// resource/action semantics. This preserves the historical behavior where
+	// permissions such as admin.posts.publish can authorize through an edit role
+	// on the posts resource.
+	RPCCommandPermissionModeResourceRole RPCCommandPermissionMode = "resource_role"
+	// RPCCommandPermissionModeExact requires the exact permission string to be
+	// present in the authorizer's resolved permission set.
+	RPCCommandPermissionModeExact RPCCommandPermissionMode = "exact"
+)
+
 // RPCCommandRule maps a command id to the permission/resource required for RPC dispatch.
 type RPCCommandRule struct {
-	Permission           string `json:"permission,omitempty"`
-	Resource             string `json:"resource,omitempty"`
-	AllowUnauthenticated bool   `json:"allow_unauthenticated,omitempty"`
+	Permission           string                   `json:"permission,omitempty"`
+	Resource             string                   `json:"resource,omitempty"`
+	PermissionMode       RPCCommandPermissionMode `json:"permission_mode,omitempty"`
+	AllowUnauthenticated bool                     `json:"allow_unauthenticated,omitempty"`
 }
 
 // RPCCommandConfig controls command RPC exposure and authorization behavior.
 type RPCCommandConfig struct {
 	DiscoveryEnabled  bool                      `json:"discovery_enabled,omitempty"`
+	PermissionMode    RPCCommandPermissionMode  `json:"permission_mode,omitempty"`
 	Commands          map[string]RPCCommandRule `json:"commands,omitempty"`
 	MetadataAllowlist []string                  `json:"metadata_allowlist,omitempty"`
 }
@@ -52,6 +68,7 @@ func applyRPCCommandConfigDefaults(cfg RPCCommandConfig) RPCCommandConfig {
 	if cfg.Commands == nil {
 		cfg.Commands = map[string]RPCCommandRule{}
 	}
+	cfg.PermissionMode = normalizeRPCCommandPermissionModeOrDefault(cfg.PermissionMode, RPCCommandPermissionModeResourceRole)
 	cfg.MetadataAllowlist = normalizeRPCMetadataAllowlist(cfg.MetadataAllowlist)
 	if len(cfg.MetadataAllowlist) == 0 {
 		cfg.MetadataAllowlist = append([]string(nil), defaultRPCMetadataAllowlist...)
@@ -62,6 +79,12 @@ func applyRPCCommandConfigDefaults(cfg RPCCommandConfig) RPCCommandConfig {
 func normalizeRPCCommandConfig(cfg RPCCommandConfig) (RPCCommandConfig, error) {
 	normalized := applyRPCCommandConfigDefaults(cfg)
 	normalized.Commands = map[string]RPCCommandRule{}
+	if _, err := normalizeRPCCommandPermissionMode(cfg.PermissionMode, RPCCommandPermissionModeResourceRole); err != nil {
+		return RPCCommandConfig{}, validationDomainError("rpc command permission mode invalid", map[string]any{
+			"field": "commands.rpc.permission_mode",
+			"value": strings.TrimSpace(string(cfg.PermissionMode)),
+		})
+	}
 
 	for rawName, rawRule := range cfg.Commands {
 		name := strings.TrimSpace(rawName)
@@ -73,7 +96,15 @@ func normalizeRPCCommandConfig(cfg RPCCommandConfig) (RPCCommandConfig, error) {
 		rule := RPCCommandRule{
 			Permission:           strings.TrimSpace(rawRule.Permission),
 			Resource:             strings.TrimSpace(rawRule.Resource),
+			PermissionMode:       normalizeRPCCommandPermissionModeOrDefault(rawRule.PermissionMode, normalized.PermissionMode),
 			AllowUnauthenticated: rawRule.AllowUnauthenticated,
+		}
+		if _, err := normalizeRPCCommandPermissionMode(rawRule.PermissionMode, normalized.PermissionMode); err != nil {
+			return RPCCommandConfig{}, validationDomainError("rpc command rule permission mode invalid", map[string]any{
+				"field":        "commands.rpc.commands.permission_mode",
+				"command_name": name,
+				"value":        strings.TrimSpace(string(rawRule.PermissionMode)),
+			})
 		}
 		if rule.Permission == "" && !rule.AllowUnauthenticated {
 			return RPCCommandConfig{}, validationDomainError("rpc command rule permission required", map[string]any{
@@ -103,8 +134,34 @@ func (c RPCCommandConfig) ResolveRule(commandName string) (RPCCommandRule, bool)
 	return RPCCommandRule{
 		Permission:           strings.TrimSpace(rule.Permission),
 		Resource:             strings.TrimSpace(rule.Resource),
+		PermissionMode:       normalizeRPCCommandPermissionModeOrDefault(rule.PermissionMode, c.PermissionMode),
 		AllowUnauthenticated: rule.AllowUnauthenticated,
 	}, true
+}
+
+func normalizeRPCCommandPermissionMode(mode, fallback RPCCommandPermissionMode) (RPCCommandPermissionMode, error) {
+	value := strings.ToLower(strings.TrimSpace(string(mode)))
+	if value == "" {
+		value = strings.ToLower(strings.TrimSpace(string(fallback)))
+	}
+	switch RPCCommandPermissionMode(value) {
+	case RPCCommandPermissionModeResourceRole:
+		return RPCCommandPermissionModeResourceRole, nil
+	case RPCCommandPermissionModeExact:
+		return RPCCommandPermissionModeExact, nil
+	default:
+		return "", validationDomainError("rpc command permission mode invalid", map[string]any{
+			"value": value,
+		})
+	}
+}
+
+func normalizeRPCCommandPermissionModeOrDefault(mode, fallback RPCCommandPermissionMode) RPCCommandPermissionMode {
+	normalized, err := normalizeRPCCommandPermissionMode(mode, fallback)
+	if err != nil {
+		return RPCCommandPermissionModeResourceRole
+	}
+	return normalized
 }
 
 func normalizeRPCMetadataAllowlist(values []string) []string {
@@ -143,6 +200,7 @@ func cloneRPCCommandRules(in map[string]RPCCommandRule) map[string]RPCCommandRul
 		out[name] = RPCCommandRule{
 			Permission:           strings.TrimSpace(rawRule.Permission),
 			Resource:             strings.TrimSpace(rawRule.Resource),
+			PermissionMode:       normalizeRPCCommandPermissionModeOrDefault(rawRule.PermissionMode, RPCCommandPermissionModeResourceRole),
 			AllowUnauthenticated: rawRule.AllowUnauthenticated,
 		}
 	}

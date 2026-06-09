@@ -121,7 +121,7 @@ func commandDispatchRPCEndpoint(adm *Admin) cmdrpc.EndpointDefinition {
 				return cmdrpc.ResponseEnvelope[RPCCommandDispatchResponse]{}, ErrNotFound
 			}
 			if rpcRequestHasActor(ctx) {
-				if err := authorizeRPCPermission(ctx, adm.Authorizer(), rule.Permission, rule.Resource); err != nil {
+				if err := authorizeRPCPermissionWithMode(ctx, adm.Authorizer(), rule.Permission, rule.Resource, rule.PermissionMode); err != nil {
 					return cmdrpc.ResponseEnvelope[RPCCommandDispatchResponse]{}, err
 				}
 			} else if !rule.AllowUnauthenticated {
@@ -191,7 +191,7 @@ func commandListRPCEndpoint(adm *Admin) cmdrpc.EndpointDefinition {
 			if !rpcRequestHasActor(ctx) {
 				return cmdrpc.ResponseEnvelope[RPCCommandListResponse]{}, ErrForbidden
 			}
-			if err := authorizeRPCPermission(ctx, adm.Authorizer(), "admin.commands.read", defaultRPCCommandResource); err != nil {
+			if err := authorizeRPCPermissionWithMode(ctx, adm.Authorizer(), "admin.commands.read", defaultRPCCommandResource, adm.config.Commands.RPC.PermissionMode); err != nil {
 				return cmdrpc.ResponseEnvelope[RPCCommandListResponse]{}, err
 			}
 
@@ -224,6 +224,10 @@ func rpcRequestHasActor(ctx context.Context) bool {
 }
 
 func authorizeRPCPermission(ctx context.Context, authorizer Authorizer, permission, resource string) error {
+	return authorizeRPCPermissionWithMode(ctx, authorizer, permission, resource, RPCCommandPermissionModeResourceRole)
+}
+
+func authorizeRPCPermissionWithMode(ctx context.Context, authorizer Authorizer, permission, resource string, mode RPCCommandPermissionMode) error {
 	permission = strings.TrimSpace(permission)
 	resource = strings.TrimSpace(resource)
 	if permission == "" {
@@ -232,8 +236,20 @@ func authorizeRPCPermission(ctx context.Context, authorizer Authorizer, permissi
 	if resource == "" {
 		resource = defaultRPCCommandResource
 	}
-	if authorizer == nil || !authorizer.Can(ctx, permission, resource) {
+	mode = normalizeRPCCommandPermissionModeOrDefault(mode, RPCCommandPermissionModeResourceRole)
+	if authorizer == nil {
 		return permissionDenied(permission, resource)
+	}
+	switch mode {
+	case RPCCommandPermissionModeExact:
+		ctx = WithResolvedPermissionsCache(ctx)
+		if !permissionListed(ResolvedPermissionsFromAuthorizer(ctx, authorizer), permission) {
+			return permissionDenied(permission, resource)
+		}
+	default:
+		if !authorizer.Can(ctx, permission, resource) {
+			return permissionDenied(permission, resource)
+		}
 	}
 	return nil
 }
