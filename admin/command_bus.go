@@ -18,23 +18,34 @@ type MessageFactory func(payload map[string]any, ids []string) (command.Message,
 // DispatchFactory executes a typed dispatch using the provided payload.
 type DispatchFactory func(ctx context.Context, payload map[string]any, ids []string, opts command.DispatchOptions) (command.DispatchReceipt, error)
 
+// DispatchOutcome contains the receipt and optional inline result from a dispatch.
+type DispatchOutcome struct {
+	Receipt command.DispatchReceipt
+	Result  any
+}
+
+// ResultDispatchFactory executes a typed dispatch and returns an inline result when available.
+type ResultDispatchFactory func(ctx context.Context, payload map[string]any, ids []string, opts command.DispatchOptions) (command.DispatchReceipt, any, error)
+
 // CommandBus registers command/query handlers and dispatches by name.
 type CommandBus struct {
-	enabled         bool
-	mu              sync.Mutex
-	subs            []dispatcher.Subscription
-	factories       map[string]MessageFactory
-	dispatchers     map[string]DispatchFactory
-	executionPolicy CommandExecutionPolicy
+	enabled           bool
+	mu                sync.Mutex
+	subs              []dispatcher.Subscription
+	factories         map[string]MessageFactory
+	dispatchers       map[string]DispatchFactory
+	resultDispatchers map[string]ResultDispatchFactory
+	executionPolicy   CommandExecutionPolicy
 }
 
 // NewCommandBus constructs a command bus that can be toggled off.
 func NewCommandBus(enabled bool) *CommandBus {
 	return &CommandBus{
-		enabled:         enabled,
-		factories:       map[string]MessageFactory{},
-		dispatchers:     map[string]DispatchFactory{},
-		executionPolicy: CommandExecutionPolicy{DefaultMode: command.ExecutionModeInline, PerCommand: map[string]command.ExecutionMode{}},
+		enabled:           enabled,
+		factories:         map[string]MessageFactory{},
+		dispatchers:       map[string]DispatchFactory{},
+		resultDispatchers: map[string]ResultDispatchFactory{},
+		executionPolicy:   CommandExecutionPolicy{DefaultMode: command.ExecutionModeInline, PerCommand: map[string]command.ExecutionMode{}},
 	}
 }
 
@@ -99,7 +110,7 @@ func (b *CommandBus) RegisterFactory(name string, factory MessageFactory) error 
 	if b.factories == nil {
 		b.factories = map[string]MessageFactory{}
 	}
-	if _, exists := b.factories[name]; exists {
+	if _, exists := b.factories[name]; exists || b.dispatchers[name] != nil || b.resultDispatchers[name] != nil {
 		return validationDomainError("command factory already registered", map[string]any{
 			"command_name": name,
 		})
@@ -132,7 +143,10 @@ func RegisterMessageFactory[T any](bus *CommandBus, name string, build func(payl
 	if bus.dispatchers == nil {
 		bus.dispatchers = map[string]DispatchFactory{}
 	}
-	if _, exists := bus.factories[name]; exists || bus.dispatchers[name] != nil {
+	if bus.resultDispatchers == nil {
+		bus.resultDispatchers = map[string]ResultDispatchFactory{}
+	}
+	if _, exists := bus.factories[name]; exists || bus.dispatchers[name] != nil || bus.resultDispatchers[name] != nil {
 		return validationDomainError("command factory already registered", map[string]any{
 			"command_name": name,
 		})
@@ -161,6 +175,88 @@ func RegisterMessageFactory[T any](bus *CommandBus, name string, build func(payl
 	return nil
 }
 
+// RegisterMessageResultFactory registers a name-based command dispatcher that can return inline result data.
+func RegisterMessageResultFactory[T any, R any](bus *CommandBus, name string, build func(payload map[string]any, ids []string) (T, error)) error {
+	if bus == nil {
+		return nil
+	}
+	if name == "" {
+		return validationDomainError("command name required", map[string]any{
+			"field": "command_name",
+		})
+	}
+	if build == nil {
+		return validationDomainError("command factory required", map[string]any{
+			"field": "command_factory",
+		})
+	}
+
+	bus.mu.Lock()
+	defer bus.mu.Unlock()
+	if bus.factories == nil {
+		bus.factories = map[string]MessageFactory{}
+	}
+	if bus.dispatchers == nil {
+		bus.dispatchers = map[string]DispatchFactory{}
+	}
+	if bus.resultDispatchers == nil {
+		bus.resultDispatchers = map[string]ResultDispatchFactory{}
+	}
+	if _, exists := bus.factories[name]; exists || bus.dispatchers[name] != nil || bus.resultDispatchers[name] != nil {
+		return validationDomainError("command factory already registered", map[string]any{
+			"command_name": name,
+		})
+	}
+
+	bus.factories[name] = func(payload map[string]any, ids []string) (command.Message, error) {
+		msg, err := build(payload, ids)
+		if err != nil {
+			return nil, err
+		}
+		typed, ok := any(msg).(command.Message)
+		if !ok {
+			return nil, validationDomainError("message does not implement command.Message", map[string]any{
+				"command_name": name,
+			})
+		}
+		return typed, nil
+	}
+	bus.dispatchers[name] = func(ctx context.Context, payload map[string]any, ids []string, opts command.DispatchOptions) (command.DispatchReceipt, error) {
+		msg, err := build(payload, ids)
+		if err != nil {
+			return command.DispatchReceipt{}, err
+		}
+		return dispatcher.DispatchWith(ctx, msg, opts)
+	}
+	bus.resultDispatchers[name] = func(ctx context.Context, payload map[string]any, ids []string, opts command.DispatchOptions) (command.DispatchReceipt, any, error) {
+		msg, err := build(payload, ids)
+		if err != nil {
+			return command.DispatchReceipt{}, nil, err
+		}
+		if opts.Mode != command.ExecutionModeInline {
+			receipt, err := dispatcher.DispatchWith(ctx, msg, opts)
+			return receipt, nil, err
+		}
+		result := command.NewResult[R]()
+		ctx = command.ContextWithResult(ctx, result)
+		receipt, err := dispatcher.DispatchWith(ctx, msg, opts)
+		if err != nil {
+			return command.DispatchReceipt{}, nil, err
+		}
+		value, stored := result.Load()
+		if !stored {
+			return command.DispatchReceipt{}, nil, serviceUnavailableDomainError("command result was not stored", map[string]any{
+				"command_name": name,
+			})
+		}
+		if err := result.Error(); err != nil {
+			return command.DispatchReceipt{}, nil, err
+		}
+		return receipt, value, nil
+	}
+	return nil
+}
+
 // DispatchByName routes a named command through the dispatcher.
 func (b *CommandBus) DispatchByName(ctx context.Context, name string, payload map[string]any, ids []string) error {
 	_, err := b.DispatchByNameWithOptions(ctx, name, payload, ids, command.DispatchOptions{
@@ -171,35 +267,56 @@ func (b *CommandBus) DispatchByName(ctx context.Context, name string, payload ma
 
 // DispatchByNameWithOptions routes a named command through the dispatcher using explicit dispatch options.
 func (b *CommandBus) DispatchByNameWithOptions(ctx context.Context, name string, payload map[string]any, ids []string, opts command.DispatchOptions) (command.DispatchReceipt, error) {
+	outcome, err := b.DispatchByNameWithOutcome(ctx, name, payload, ids, opts)
+	if err != nil {
+		return command.DispatchReceipt{}, err
+	}
+	return outcome.Receipt, nil
+}
+
+// DispatchByNameWithOutcome routes a named command and returns an optional inline result.
+func (b *CommandBus) DispatchByNameWithOutcome(ctx context.Context, name string, payload map[string]any, ids []string, opts command.DispatchOptions) (DispatchOutcome, error) {
 	if b == nil || !b.enabled {
-		return command.DispatchReceipt{}, FeatureDisabledError{Feature: string(FeatureCommands)}
+		return DispatchOutcome{}, FeatureDisabledError{Feature: string(FeatureCommands)}
 	}
 	if name == "" {
-		return command.DispatchReceipt{}, ErrNotFound
+		return DispatchOutcome{}, ErrNotFound
 	}
 
 	b.mu.Lock()
 	dispatch := b.dispatchers[name]
+	resultDispatch := b.resultDispatchers[name]
 	factory := b.factories[name]
 	policy := b.executionPolicy
 	b.mu.Unlock()
 
 	resolvedMode, err := resolveDispatchModeForCommand(name, opts.Mode, policy)
 	if err != nil {
-		return command.DispatchReceipt{}, err
+		return DispatchOutcome{}, err
 	}
 	opts.Mode = resolvedMode
 
+	if resultDispatch != nil {
+		receipt, result, err := resultDispatch(ctx, payload, ids, opts)
+		if err != nil {
+			return DispatchOutcome{}, err
+		}
+		return DispatchOutcome{Receipt: receipt, Result: result}, nil
+	}
 	if dispatch != nil {
-		return dispatch(ctx, payload, ids, opts)
+		receipt, err := dispatch(ctx, payload, ids, opts)
+		if err != nil {
+			return DispatchOutcome{}, err
+		}
+		return DispatchOutcome{Receipt: receipt}, nil
 	}
 	if factory == nil {
-		return command.DispatchReceipt{}, ErrNotFound
+		return DispatchOutcome{}, ErrNotFound
 	}
 	if _, err := factory(payload, ids); err != nil {
-		return command.DispatchReceipt{}, err
+		return DispatchOutcome{}, err
 	}
-	return command.DispatchReceipt{}, serviceUnavailableDomainError("command dispatcher not registered", map[string]any{
+	return DispatchOutcome{}, serviceUnavailableDomainError("command dispatcher not registered", map[string]any{
 		"command_name": name,
 	})
 }
@@ -266,6 +383,7 @@ func (b *CommandBus) Reset() {
 	b.subs = nil
 	b.factories = map[string]MessageFactory{}
 	b.dispatchers = map[string]DispatchFactory{}
+	b.resultDispatchers = map[string]ResultDispatchFactory{}
 	b.mu.Unlock()
 
 	for _, sub := range subs {
