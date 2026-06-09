@@ -1,6 +1,21 @@
 # Changelog
 
+# [0.89.0](https://github.com/goliatone/go-admin/compare/v0.88.1...v0.89.0) - (2026-06-09)
+
+## <!-- 16 -->➕ Add
+
+- Rpc command mode ([302ee46](https://github.com/goliatone/go-admin/commit/302ee464da4d39ec40c7773727ab54d43bdf0097))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update tests ([46b8af2](https://github.com/goliatone/go-admin/commit/46b8af26b3777b0c312220a70d26c2c3de08a362))  - (goliatone)
+- Update docs ([00aed66](https://github.com/goliatone/go-admin/commit/00aed666ce1a7f7de343b260fca5ef5b7a389d6b))  - (goliatone)
+
 # [0.88.1](https://github.com/goliatone/go-admin/compare/v0.88.0...v0.88.1) - (2026-06-09)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.88.1 ([5900c75](https://github.com/goliatone/go-admin/commit/5900c75e1d64f77492fb8cdebeb3338fa45b5881))  - (goliatone)
 
 ## <!-- 16 -->➕ Add
 
