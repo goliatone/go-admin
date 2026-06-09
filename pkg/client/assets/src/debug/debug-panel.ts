@@ -1025,8 +1025,13 @@ export class DebugPanel {
       if (!response.ok) {
         throw new Error(`Action failed (${response.status})`);
       }
-      const result = await response.json() as { ok?: boolean; message?: string; refresh?: boolean; event?: DebugEvent };
-      this.showPanelActionResult(panelID, result.ok === false ? 'error' : 'ok', result.message || (result.ok === false ? 'Action failed' : 'Action complete'));
+      const result = await response.json() as { ok?: boolean; message?: string; data?: unknown; refresh?: boolean; event?: DebugEvent };
+      this.showPanelActionResult(
+        panelID,
+        result.ok === false ? 'error' : 'ok',
+        result.message || (result.ok === false ? 'Action failed' : 'Action complete'),
+        result.data
+      );
       if (result.event) {
         this.handleEvent(result.event);
       }
@@ -1043,13 +1048,16 @@ export class DebugPanel {
     }
   }
 
-  private showPanelActionResult(panelID: string, status: 'ok' | 'error', message: string): void {
+  private showPanelActionResult(panelID: string, status: 'ok' | 'error', message: string, data?: unknown): void {
     const target = Array.from(this.panelEl.querySelectorAll<HTMLElement>('[data-panel-action-result]'))
       .find((element) => element.dataset.panelActionResult === panelID);
     if (!target) {
       return;
     }
-    target.innerHTML = `<div class="${status === 'error' ? consoleStyles.badgeError : consoleStyles.badge}">${escapeHTML(message)}</div>`;
+    const dataHTML = data === undefined
+      ? ''
+      : `<pre class="${consoleStyles.jsonPanel}" style="margin-top:0.5rem;max-height:18rem;overflow:auto;white-space:pre-wrap">${escapeHTML(formatJSON(data, { nullAsEmptyObject: false }))}</pre>`;
+    target.innerHTML = `<div class="${status === 'error' ? consoleStyles.badgeError : consoleStyles.badge}">${escapeHTML(message)}</div>${dataHTML}`;
   }
 
   private attachExpandableRowListeners(): void {

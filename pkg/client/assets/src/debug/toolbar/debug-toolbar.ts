@@ -6,7 +6,7 @@ import { DebugStream, type DebugEvent, type DebugStreamStatus } from '../debug-s
 import { DebugReplPanel, type DebugReplCommand } from '../repl/repl-panel.js';
 import { toolbarStyles } from './toolbar-styles.js';
 import { renderPanel, getCounts, type DebugSnapshot, type PanelOptions } from './panel-renderers.js';
-import { escapeHTML } from '../shared/utils.js';
+import { escapeHTML, formatJSON } from '../shared/utils.js';
 import {
   attachCopyListeners,
   attachExpandableRowListeners,
@@ -764,8 +764,13 @@ export class DebugToolbar extends HTMLElement {
       if (!response.ok) {
         throw new Error(`Action failed (${response.status})`);
       }
-      const result = await response.json() as { ok?: boolean; message?: string; refresh?: boolean; event?: DebugEvent };
-      this.showPanelActionResult(panelID, result.ok === false ? 'error' : 'ok', result.message || (result.ok === false ? 'Action failed' : 'Action complete'));
+      const result = await response.json() as { ok?: boolean; message?: string; data?: unknown; refresh?: boolean; event?: DebugEvent };
+      this.showPanelActionResult(
+        panelID,
+        result.ok === false ? 'error' : 'ok',
+        result.message || (result.ok === false ? 'Action failed' : 'Action complete'),
+        result.data
+      );
       if (result.event) {
         this.handleEvent(result.event);
       }
@@ -782,13 +787,16 @@ export class DebugToolbar extends HTMLElement {
     }
   }
 
-  private showPanelActionResult(panelID: string, status: 'ok' | 'error', message: string): void {
+  private showPanelActionResult(panelID: string, status: 'ok' | 'error', message: string, data?: unknown): void {
     const target = Array.from(this.shadow.querySelectorAll<HTMLElement>('[data-panel-action-result]'))
       .find((element) => element.dataset.panelActionResult === panelID);
     if (!target) {
       return;
     }
-    target.innerHTML = `<div class="${status === 'error' ? 'badge error' : 'badge'}">${escapeHTML(message)}</div>`;
+    const dataHTML = data === undefined
+      ? ''
+      : `<pre style="margin-top:0.5rem;max-height:14rem;overflow:auto;white-space:pre-wrap;font-size:11px">${escapeHTML(formatJSON(data, { nullAsEmptyObject: false }))}</pre>`;
+    target.innerHTML = `<div class="${status === 'error' ? 'badge error' : 'badge'}">${escapeHTML(message)}</div>${dataHTML}`;
   }
 
   private renderReplPanel(container: HTMLElement, panel: string): void {
