@@ -31,6 +31,7 @@ import {
   replPanelIDs,
 } from '../shared/runtime-helpers.js';
 import { renderDebugIconRef } from '../shared/icons.js';
+import { buildPanelActionPayload } from '../shared/panel-actions.js';
 import { hydrateServerPanelDefinitions } from '../shared/server-definitions.js';
 import { httpRequest } from '../../shared/transport/http-client.js';
 // Import to ensure built-in panels are registered
@@ -723,32 +724,36 @@ export class DebugToolbar extends HTMLElement {
     this.shadow.querySelectorAll<HTMLButtonElement>('[data-panel-action]').forEach((button) => {
       button.addEventListener('click', () => {
         if (!button.disabled) {
-          this.runPanelAction(button);
+          this.runPanelAction(button, button);
+        }
+      });
+    });
+    this.shadow.querySelectorAll<HTMLFormElement>('[data-panel-action-form]').forEach((form) => {
+      form.addEventListener('submit', (event) => {
+        event.preventDefault();
+        const button = form.querySelector<HTMLButtonElement>('button[type="submit"]') || undefined;
+        if (!button?.disabled) {
+          this.runPanelAction(form, button);
         }
       });
     });
   }
 
-  private async runPanelAction(button: HTMLButtonElement): Promise<void> {
-    const panelID = button.dataset.panelId || '';
-    const actionID = button.dataset.actionId || '';
+  private async runPanelAction(element: HTMLElement, button?: HTMLButtonElement): Promise<void> {
+    const panelID = element.dataset.panelId || '';
+    const actionID = element.dataset.actionId || '';
     if (!panelID || !actionID) {
       return;
     }
-    const confirmText = button.dataset.actionConfirm || '';
-    const requiresConfirm = button.dataset.actionRequiresConfirm === 'true';
+    const confirmText = element.dataset.actionConfirm || '';
+    const requiresConfirm = element.dataset.actionRequiresConfirm === 'true';
     if ((requiresConfirm || confirmText) && !window.confirm(confirmText || 'Run this debug panel action?')) {
       return;
     }
-    let payload: Record<string, unknown> = {};
-    if (button.dataset.actionPayload) {
-      try {
-        payload = JSON.parse(button.dataset.actionPayload) as Record<string, unknown>;
-      } catch {
-        payload = {};
-      }
+    const payload = buildPanelActionPayload(element);
+    if (button) {
+      button.disabled = true;
     }
-    button.disabled = true;
     try {
       const response = await httpRequest(`${this.debugPath}/api/panels/${encodeURIComponent(panelID)}/actions/${encodeURIComponent(actionID)}`, {
         method: 'POST',
@@ -771,7 +776,9 @@ export class DebugToolbar extends HTMLElement {
       const message = error instanceof Error ? error.message : 'Action failed';
       this.showPanelActionResult(panelID, 'error', message);
     } finally {
-      button.disabled = false;
+      if (button) {
+        button.disabled = false;
+      }
     }
   }
 

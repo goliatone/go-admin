@@ -150,6 +150,16 @@ export type ServerPanelUI = {
     refresh?: boolean;
     update_policy?: string;
     payload?: Record<string, unknown>;
+    fields?: Array<{
+      name?: string;
+      label?: string;
+      kind?: string;
+      payload_path?: string;
+      placeholder?: string;
+      description?: string;
+      required?: boolean;
+      options?: string[];
+    }>;
   }>;
   metadata?: Record<string, unknown>;
 };

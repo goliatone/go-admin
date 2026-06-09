@@ -297,7 +297,24 @@ function renderPanelActionControls(serverDef: ServerPanelDefinition, styles: Sty
         if (!actionID) {
           return '';
         }
-        const payload = action.payload ? escapeHTML(JSON.stringify(action.payload)).replace(/'/g, '&#39;') : '';
+        const payload = renderActionPayload(action.payload);
+        const fields = Array.isArray(action.fields) ? action.fields : [];
+        if (fields.length > 0) {
+          return `
+            <form
+              data-panel-action-form
+              data-panel-id="${escapeHTML(panelID)}"
+              data-action-id="${escapeHTML(actionID)}"
+              data-action-confirm="${escapeHTML(normalizeText(action.confirm_text))}"
+              data-action-requires-confirm="${action.requires_confirm ? 'true' : 'false'}"
+              data-action-payload='${payload}'
+              style="display:flex;flex-wrap:wrap;gap:0.5rem;align-items:flex-end"
+            >
+              ${fields.map((field, index) => renderPanelActionField(panelID, actionID, field, index)).join('')}
+              <button type="submit" class="${styles.sortToggle}">${escapeHTML(normalizeText(action.label) || actionID)}</button>
+            </form>
+          `;
+        }
         return `
           <button
             type="button"
@@ -312,6 +329,54 @@ function renderPanelActionControls(serverDef: ServerPanelDefinition, styles: Sty
         `;
       }).join('')}
     </div>
+  `;
+}
+
+function renderActionPayload(payload: Record<string, unknown> | undefined): string {
+  if (!payload) {
+    return '';
+  }
+  return escapeHTML(JSON.stringify(payload)).replace(/'/g, '&#39;');
+}
+
+function renderPanelActionField(
+  panelID: string,
+  actionID: string,
+  field: NonNullable<NonNullable<ServerPanelUI['actions']>[number]['fields']>[number],
+  index: number
+): string {
+  const name = normalizeID(field.name);
+  if (!name) {
+    return '';
+  }
+  const kind = normalizeID(field.kind) || 'text';
+  const label = normalizeText(field.label) || name;
+  const fieldID = `debug-action-${panelID}-${actionID}-${name}-${index}`;
+  const payloadPath = normalizeText(field.payload_path) || name;
+  const required = field.required ? ' required' : '';
+  const placeholder = normalizeText(field.placeholder);
+  const placeholderAttr = placeholder ? ` placeholder="${escapeHTML(placeholder)}"` : '';
+  const description = normalizeText(field.description);
+  const baseAttrs = `id="${escapeHTML(fieldID)}" data-action-field="${escapeHTML(name)}" data-action-field-kind="${escapeHTML(kind)}" data-action-field-path="${escapeHTML(payloadPath)}"${required}`;
+  const options = Array.isArray(field.options) ? field.options.map((option) => normalizeText(option)).filter(Boolean) : [];
+  let control = '';
+  if (kind === 'boolean' || kind === 'checkbox') {
+    control = `<input type="checkbox" ${baseAttrs}>`;
+  } else if (kind === 'select' || options.length > 0) {
+    control = `<select ${baseAttrs}><option value=""></option>${options.map((option) => `<option value="${escapeHTML(option)}">${escapeHTML(option)}</option>`).join('')}</select>`;
+  } else if (kind === 'number' || kind === 'integer') {
+    control = `<input type="number" ${baseAttrs}${placeholderAttr}>`;
+  } else if (kind === 'textarea' || kind === 'json' || kind === 'string_list') {
+    control = `<textarea ${baseAttrs}${placeholderAttr} rows="2"></textarea>`;
+  } else {
+    control = `<input type="text" ${baseAttrs}${placeholderAttr}>`;
+  }
+  return `
+    <label for="${escapeHTML(fieldID)}" style="display:flex;flex-direction:column;gap:0.25rem;font-size:0.8125rem">
+      <span>${escapeHTML(label)}</span>
+      ${control}
+      ${description ? `<small>${escapeHTML(description)}</small>` : ''}
+    </label>
   `;
 }
 
