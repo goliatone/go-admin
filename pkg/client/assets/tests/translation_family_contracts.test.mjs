@@ -202,14 +202,101 @@ test('translation-family list page: renders loading empty error and populated st
 
   const readyHTML = renderTranslationFamilyListState({ status: 'ready', filters, response: row }, options);
   assert.match(readyHTML, /Landing Page/);
-  assert.match(readyHTML, /Missing locale/);
-  assert.match(readyHTML, /Policy unavailable/);
+  assert.match(readyHTML, /MISSING LOCALE/);
+  assert.match(readyHTML, /POLICY UNAVAILABLE/);
   assert.match(readyHTML, /FR/);
   assert.match(readyHTML, /Open family/);
+  assert.match(readyHTML, /data-action-menu/);
+  assert.match(readyHTML, /data-action-menu-trigger/);
+  assert.match(readyHTML, /data-action-menu-content/);
+  assert.match(readyHTML, /inline-flex items-center gap-1 whitespace-nowrap rounded-md bg-gray-50 px-2 py-1 text-xs/);
   assert.match(readyHTML, /href="\/admin\/translations\/families\/tg-page-1\?channel=production"/);
   assert.match(readyHTML, /href="\/admin\/translations\/matrix\?family_id=tg-page-1&amp;channel=production/);
   assert.match(readyHTML, /href="\/admin\/translations\/queue\?family_id=tg-page-1&amp;channel=production"/);
   assert.equal(/data-family-primary-action="true"[^>]*href="\/admin\/api\//.test(readyHTML), false);
+});
+
+test('translation-family list page: SSR root is enhanced without first-render fetch', async () => {
+  const dom = new JSDOM(`
+    <div id="root"
+         data-ssr-enhanced="true"
+         data-endpoint="/admin/api/translations/families?channel=default"
+         data-base-path="/admin"
+         data-family-base-path="/admin/translations/families">
+      <section data-translation-family-list-ssr="true">SSR families</section>
+    </div>
+  `, {
+    url: 'http://localhost:8082/admin/translations/families?channel=default',
+  });
+  setGlobals(dom.window);
+  const root = dom.window.document.getElementById('root');
+  let fetchCalls = 0;
+
+  const state = await initTranslationFamilyListPage(root, {
+    fetch: async () => {
+      fetchCalls += 1;
+      return new Response(JSON.stringify({ data: { items: [] }, meta: { total: 0 } }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    },
+  });
+
+  assert.equal(fetchCalls, 0);
+  assert.equal(state.status, 'ready');
+  assert.match(root.innerHTML, /SSR families/);
+  assert.equal(root.dataset.translationFamilyListEnhanced, 'true');
+});
+
+test('translation-family list page: SSR row action menu opens through shared primitive', async () => {
+  const dom = new JSDOM(`
+    <div id="root"
+         data-ssr-enhanced="true"
+         data-endpoint="/admin/api/translations/families?channel=default"
+         data-base-path="/admin"
+         data-family-base-path="/admin/translations/families">
+      <section data-translation-family-list-ssr="true">
+        <div class="relative actions-dropdown" data-action-menu>
+          <button type="button"
+                  data-action-menu-trigger
+                  aria-expanded="false"
+                  aria-haspopup="menu">
+            Actions
+          </button>
+          <div class="actions-menu hidden" data-action-menu-content role="menu">
+            <a href="/admin/translations/families/tg-page-1?channel=default"
+               data-action-menu-item
+               role="menuitem">Open family</a>
+            <a href="/admin/translations/matrix?family_id=tg-page-1&channel=default"
+               data-action-menu-item
+               role="menuitem">Matrix</a>
+          </div>
+        </div>
+      </section>
+    </div>
+    <button id="outside" type="button">Outside</button>
+  `, {
+    url: 'http://localhost:8082/admin/translations/families?channel=default',
+  });
+  setGlobals(dom.window);
+  const root = dom.window.document.getElementById('root');
+  const trigger = root.querySelector('[data-action-menu-trigger]');
+  const menu = root.querySelector('[data-action-menu-content]');
+
+  const state = await initTranslationFamilyListPage(root, {
+    fetch: async () => {
+      throw new Error('SSR action-menu initialization must not fetch');
+    },
+  });
+
+  assert.equal(state.status, 'ready');
+  trigger.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }));
+  assert.equal(menu.classList.contains('hidden'), false);
+  assert.equal(trigger.getAttribute('aria-expanded'), 'true');
+
+  dom.window.document.getElementById('outside').dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }));
+  assert.equal(menu.classList.contains('hidden'), true);
+  assert.equal(trigger.getAttribute('aria-expanded'), 'false');
 });
 
 test('translation-family list page: builds UI context URLs without API paths', () => {
@@ -277,7 +364,9 @@ test('translation-family list page: initializer hydrates filters and updates bro
   assert.equal(state.status, 'ready');
   assert.equal(requests[0], '/admin/api/translations/families?content_type=pages&readiness_state=blocked&channel=default&page=1&per_page=50');
   assert.match(root.innerHTML, /Open family/);
-  assert.match(root.innerHTML, /data-family-list-page="next"/);
+  assert.match(root.innerHTML, /BLOCKED/);
+  assert.match(root.innerHTML, /data-action-menu-trigger/);
+  assert.match(root.innerHTML, /data-translation-list-page="next"/);
   assert.match(root.innerHTML, /Page 1/);
 
   const readiness = root.querySelector('select[name="readiness_state"]');
@@ -291,14 +380,14 @@ test('translation-family list page: initializer hydrates filters and updates bro
 
   const contentType = root.querySelector('input[name="content_type"]');
   contentType.value = '';
-  root.querySelector('[data-family-list-filters="true"]').dispatchEvent(new dom.window.Event('submit', { bubbles: true, cancelable: true }));
+  root.querySelector('[data-translation-filter-form="true"]').dispatchEvent(new dom.window.Event('submit', { bubbles: true, cancelable: true }));
   await nextTick();
   await nextTick();
 
   assert.equal(requests[2], '/admin/api/translations/families?readiness_state=ready&channel=default&page=1&per_page=50');
   assert.equal(dom.window.location.search, '?debug=1&readiness_state=ready&channel=default&page=1&per_page=50');
 
-  root.querySelector('[data-family-list-page="next"]').dispatchEvent(new dom.window.Event('click', { bubbles: true }));
+  root.querySelector('[data-translation-list-page="next"]').dispatchEvent(new dom.window.Event('click', { bubbles: true }));
   await nextTick();
   await nextTick();
 
@@ -331,7 +420,24 @@ test('translation-family contracts: normalize detail payloads and render readine
         { id: 'blocker-2', family_id: 'tg-page-1', blocker_code: 'pending_review', locale: 'es' },
       ],
       active_assignments: [
-        { id: 'asg-1', family_id: 'tg-page-1', source_locale: 'en', target_locale: 'es', work_scope: '__all__', status: 'in_progress' },
+        {
+          id: 'asg-1',
+          family_id: 'tg-page-1',
+          source_locale: 'en',
+          target_locale: 'es',
+          work_scope: '__all__',
+          status: 'in_progress',
+          links: {
+            editor: {
+              href: '/admin/translations/assignments/asg-1/edit',
+              label: 'Open editor',
+              description: 'Open the assignment editor for this family assignment.',
+              relation: 'primary',
+              entity_type: 'assignment',
+              entity_id: 'asg-1',
+            },
+          },
+        },
       ],
       publish_gate: {
         allowed: false,
@@ -355,6 +461,7 @@ test('translation-family contracts: normalize detail payloads and render readine
 
   assert.equal(detail.sourceVariant?.locale, 'en');
   assert.equal(detail.blockers[0].blockerCode, 'missing_locale');
+  assert.equal(detail.activeAssignments[0].links.editor?.href, '/admin/translations/assignments/asg-1/edit');
   assert.equal(detail.publishGate.overrideAllowed, true);
   assert.equal(detail.readinessSummary.pendingReviewCount, 1);
 
@@ -417,6 +524,6 @@ test('translation-family contracts: client routes typed response readers through
   assert.match(source, /from '\.\.\/shared\/transport\/http-client\.js'/);
   assert.match(source, /async function readTranslationFamilyClientRecord\(response: Response\): Promise<Record<string, unknown>>/);
   assert.match(source, /return readHTTPJSON<Record<string, unknown>>\(response\)/);
-  assert.equal((source.match(/readTranslationFamilyClientRecord\(response\)/g) || []).length, 3);
+  assert.equal((source.match(/readTranslationFamilyClientRecord\(response\)/g) || []).length, 4);
   assert.equal((source.match(/response\.json\(\) as Record<string, unknown>/g) || []).length, 0);
 });

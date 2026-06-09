@@ -1,0 +1,69 @@
+{% comment %}
+  Locale Badge - Display locale code with optional status or percentage
+
+  Variables:
+    - locale: locale code (e.g., "en", "es-MX") - required
+    - display_locale: formatted display text (optional, defaults to locale)
+    - variant: "simple", "with-status", "with-percentage" (default: simple)
+    - status: status text when variant is "with-status" (e.g., "Ready", "Draft")
+    - status_icon: iconoir icon name for status (optional)
+    - status_tone: "success", "warning", "error", "info", "neutral" (default: neutral)
+    - percentage: completion percentage when variant is "with-percentage" (0-100)
+    - size: "sm", "md" (default: md)
+    - is_source: boolean, marks this as source locale with distinct styling
+
+  Usage:
+    Simple: {% include "partials/locale-badge.html" with locale="en" %}
+    With status: {% include "partials/locale-badge.html" with locale="es" variant="with-status" status="Ready" status_icon="check" status_tone="success" %}
+    With percentage: {% include "partials/locale-badge.html" with locale="fr" variant="with-percentage" percentage=75 %}
+    Source locale: {% include "partials/locale-badge.html" with locale="en" is_source=true %}
+{% endcomment %}
+
+{% set badge_variant = variant|default:"simple" %}
+{% set badge_size = size|default:"md" %}
+{% set tone = status_tone|default:"neutral" %}
+
+{% if badge_size == "sm" %}
+  {% set size_class = "text-[10px] px-1.5 py-0.5" %}
+  {% set icon_size = "text-[8px]" %}
+{% else %}
+  {% set size_class = "text-xs px-2 py-1" %}
+  {% set icon_size = "text-[10px]" %}
+{% endif %}
+
+{% if is_source %}
+  {% set bg_class = "bg-slate-100 text-slate-700 border border-slate-200" %}
+{% else %}
+  {% set bg_class = "bg-blue-50 text-blue-700" %}
+{% endif %}
+
+{% if tone == "success" %}
+  {% set status_class = "text-emerald-600" %}
+{% elif tone == "warning" %}
+  {% set status_class = "text-amber-600" %}
+{% elif tone == "error" or tone == "danger" %}
+  {% set status_class = "text-rose-600" %}
+{% elif tone == "info" %}
+  {% set status_class = "text-sky-600" %}
+{% else %}
+  {% set status_class = "text-gray-500" %}
+{% endif %}
+
+<span class="locale-badge inline-flex items-center gap-1.5 rounded font-semibold uppercase {{ size_class }} {{ bg_class }}"
+      data-locale="{{ locale }}"
+      {% if is_source %}data-locale-source="true"{% endif %}>
+  <span class="locale-badge__code">{{ display_locale|default:locale }}</span>
+
+  {% if badge_variant == "with-status" and status %}
+  <span class="locale-badge__status inline-flex items-center gap-0.5 {{ status_class }}">
+    {% if status_icon %}<i class="iconoir-{{ status_icon }} {{ icon_size }}" aria-hidden="true"></i>{% endif %}
+    <span class="font-medium normal-case">{{ status }}</span>
+  </span>
+  {% endif %}
+
+  {% if badge_variant == "with-percentage" and percentage|default_if_none:"" != "" %}
+  <span class="locale-badge__percentage inline-flex items-center gap-1 {{ status_class }}">
+    <span class="font-medium">{{ percentage }}%</span>
+  </span>
+  {% endif %}
+</span>

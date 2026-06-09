@@ -1,0 +1,51 @@
+
+
+
+{% set trigger_label_text = trigger_label|default:"Actions" %}
+{% set menu_position = position|default:"right" %}
+
+<div class="action-menu relative flex {% if menu_position == "left" %}justify-start{% else %}justify-end{% endif %}"
+     data-action-menu
+     {% if row_id %}data-row-id="{{ row_id }}"{% endif %}>
+  <button type="button"
+          class="action-menu__trigger rounded-md p-2 text-gray-500 transition-colors hover:bg-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1"
+          data-action-menu-trigger
+          aria-label="{{ trigger_label_text }}"
+          aria-haspopup="true"
+          aria-expanded="false">
+    <svg class="h-5 w-5" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+      <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z"/>
+    </svg>
+  </button>
+  <div class="action-menu__content hidden absolute {% if menu_position == "left" %}left-0{% else %}right-0{% endif %} z-20 mt-2 w-48 rounded-lg border border-gray-200 bg-white py-1 shadow-lg"
+       data-action-menu-content
+       role="menu"
+       aria-orientation="vertical">
+    {% for action in actions %}
+      {% if action.divider %}
+    <div class="action-menu__divider my-1 border-t border-gray-100" role="separator"></div>
+      {% else %}
+        {% if action.href and not action.disabled %}
+    <a class="action-menu__item flex w-full items-center gap-2 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:bg-gray-50 focus:outline-none{% if action.variant == "danger" %} text-rose-700 hover:bg-rose-50 focus:bg-rose-50{% elif action.variant == "warning" %} text-amber-700 hover:bg-amber-50 focus:bg-amber-50{% elif action.variant == "success" %} text-emerald-700 hover:bg-emerald-50 focus:bg-emerald-50{% endif %}"
+       data-action-menu-item
+       data-action="{{ action.key }}"
+       role="menuitem"
+       href="{{ action.href }}">
+      {% if action.icon %}<i class="iconoir-{{ action.icon }} w-4 h-4 flex-shrink-0" aria-hidden="true"></i>{% endif %}
+      <span>{{ action.label }}</span>
+    </a>
+        {% else %}
+    <button type="button"
+            class="action-menu__item flex w-full items-center gap-2 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:bg-gray-50 focus:outline-none{% if action.variant == "danger" %} text-rose-700 hover:bg-rose-50 focus:bg-rose-50{% elif action.variant == "warning" %} text-amber-700 hover:bg-amber-50 focus:bg-amber-50{% elif action.variant == "success" %} text-emerald-700 hover:bg-emerald-50 focus:bg-emerald-50{% endif %}{% if action.disabled %} opacity-50 cursor-not-allowed{% endif %}"
+            data-action-menu-item
+            data-action="{{ action.key }}"
+            role="menuitem"
+            {% if action.disabled %}disabled aria-disabled="true" title="{{ action.disabled_reason|default:"This action is not available" }}"{% endif %}>
+      {% if action.icon %}<i class="iconoir-{{ action.icon }} w-4 h-4 flex-shrink-0" aria-hidden="true"></i>{% endif %}
+      <span>{{ action.label }}</span>
+    </button>
+        {% endif %}
+      {% endif %}
+    {% endfor %}
+  </div>
+</div>

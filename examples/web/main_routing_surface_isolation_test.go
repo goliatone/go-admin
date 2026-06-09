@@ -30,7 +30,7 @@ func TestExamplePhase6MigratedHostPreservesOwnershipAfterAdoption(t *testing.T) 
 
 	assertExampleHandler(t, app, http.MethodGet, "/", http.StatusOK, "site")
 	assertExampleHandler(t, app, http.MethodGet, quicksite.DefaultSearchRoute, http.StatusOK, "search")
-	assertExampleHandler(t, app, http.MethodGet, "/teachings/foundations-of-refuge", http.StatusOK, "site")
+	assertExampleHandler(t, app, http.MethodGet, "/resources/publishing-workflow-playbook", http.StatusOK, "site")
 	assertExampleAppInfo(t, app, http.MethodGet, exampleAppInfoPath, http.StatusOK)
 	assertExampleJSONStatus(t, app, http.MethodGet, "/readyz", http.StatusOK)
 	assertExampleJSONStatus(t, app, http.MethodGet, "/ops/status", http.StatusOK)
@@ -56,9 +56,9 @@ func TestExamplePhase6HTMLSurfacesKeep404AndThemeOutputsSeparated(t *testing.T) 
 		t.Fatalf("expected search page 200, got %d body=%s", searchStatus, searchBody)
 	}
 	assertContainsAll(t, searchBody,
-		`data-theme-name="garchen-archive-site"`,
-		`/static/themes/garchen-archive-site/static/site.css`,
-		`/static/themes/garchen-archive-site/static/site.js`,
+		`data-theme-name="go-admin-demo-site"`,
+		`/static/themes/go-admin-demo-site/static/site.css`,
+		`/static/themes/go-admin-demo-site/static/site.js`,
 	)
 	assertDoesNotContainAny(t, searchBody,
 		`/admin/assets/output.css`,
@@ -71,8 +71,8 @@ func TestExamplePhase6HTMLSurfacesKeep404AndThemeOutputsSeparated(t *testing.T) 
 	}
 	assertContainsAll(t, site404Body,
 		`Not Found · Site Runtime`,
-		`data-theme-name="garchen-archive-site"`,
-		`/static/themes/garchen-archive-site/static/site.css`,
+		`data-theme-name="go-admin-demo-site"`,
+		`/static/themes/go-admin-demo-site/static/site.css`,
 	)
 	assertDoesNotContainAny(t, site404Body,
 		`/admin/assets/output.css`,
@@ -89,7 +89,7 @@ func TestExamplePhase6HTMLSurfacesKeep404AndThemeOutputsSeparated(t *testing.T) 
 		`/admin/assets/dist/styles/error-page.css`,
 	)
 	assertDoesNotContainAny(t, admin404Body,
-		`/static/themes/garchen-archive-site/static/site.css`,
+		`/static/themes/go-admin-demo-site/static/site.css`,
 		`Not Found · Site Runtime`,
 	)
 
@@ -98,8 +98,8 @@ func TestExamplePhase6HTMLSurfacesKeep404AndThemeOutputsSeparated(t *testing.T) 
 		t.Fatalf("expected /.well-known/security.txt to return 404, got %d body=%s", system404Status, system404Body)
 	}
 	assertDoesNotContainAny(t, system404Body,
-		`data-theme-name="garchen-archive-site"`,
-		`/static/themes/garchen-archive-site/static/site.css`,
+		`data-theme-name="go-admin-demo-site"`,
+		`/static/themes/go-admin-demo-site/static/site.css`,
 		`/admin/assets/output.css`,
 	)
 

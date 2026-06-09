@@ -40,11 +40,13 @@ func TestAssignmentPriorityIsValid(t *testing.T) {
 
 func TestTranslationAssignmentActiveUniquenessKeyNormalizesInput(t *testing.T) {
 	assignment := TranslationAssignment{
+		TenantID:     " Tenant-1 ",
+		OrgID:        " Org-1 ",
 		FamilyID:     " TG_123 ",
 		TargetLocale: " ES ",
 		WorkScope:    " editorial.review ",
 	}
-	if got := assignment.ActiveUniquenessKey(); got != "tg_123:es:editorial.review" {
+	if got := assignment.ActiveUniquenessKey(); got != "tenant-1:org-1:tg_123:es:editorial.review" {
 		t.Fatalf("expected normalized active key, got %q", got)
 	}
 }

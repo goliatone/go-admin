@@ -13,6 +13,7 @@ func applyConfigDefaults(cfg Config) Config {
 	cfg = applyRoutingAndDebugConfigDefaults(cfg)
 	cfg = applyPermissionConfigDefaults(cfg)
 	cfg.MediaDelivery = normalizeMediaDeliveryConfig(cfg.MediaDelivery)
+	cfg.EnhancedActions = normalizeEnhancedActionNegotiationConfig(cfg.EnhancedActions)
 	cfg = applyThemeTokenConfigDefaults(cfg)
 	cfg.Errors = normalizeErrorConfig(cfg.Errors, cfg.Debug)
 	cfg = applyCommandConfigDefaults(cfg)
@@ -32,6 +33,7 @@ func applyCMSAndSiteConfigDefaults(cfg Config) Config {
 	if cfg.PreviewSecret == "" {
 		cfg.PreviewSecret = "admin-preview-secret-change-me"
 	}
+	cfg.PreviewURLAllowedHosts = normalizePreviewURLAllowedHosts(cfg.PreviewURLAllowedHosts)
 	if cfg.Site.AllowLocaleFallback == nil {
 		allow := true
 		cfg.Site.AllowLocaleFallback = &allow

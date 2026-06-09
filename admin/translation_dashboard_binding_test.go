@@ -51,6 +51,23 @@ func TestTranslationQueueBindingDashboardAggregatesCardsTablesAndLinks(t *testin
 		OrgID:          "org-1",
 	})
 	mustCreate(TranslationAssignment{
+		ID:             "asg-approved-overdue",
+		FamilyID:       "tg-page-1",
+		EntityType:     "pages",
+		SourceRecordID: "page-1",
+		SourceTitle:    "Approved page",
+		SourceLocale:   "en",
+		TargetLocale:   "it",
+		AssigneeID:     "translator-1",
+		ReviewerID:     "reviewer-1",
+		AssignmentType: AssignmentTypeDirect,
+		Status:         AssignmentStatusApproved,
+		Priority:       PriorityUrgent,
+		DueDate:        &overdue,
+		TenantID:       "tenant-1",
+		OrgID:          "org-1",
+	})
+	mustCreate(TranslationAssignment{
 		ID:             "asg-review-1",
 		FamilyID:       "tg-post-1",
 		EntityType:     "posts",
@@ -143,6 +160,11 @@ func TestTranslationQueueBindingDashboardAggregatesCardsTablesAndLinks(t *testin
 	}
 	if got := toInt(cardByID[translationDashboardCardOverdueTasks]["count"]); got != 1 {
 		t.Fatalf("expected overdue_tasks count=1, got %d", got)
+	}
+	overdueDrilldown := extractMap(cardByID[translationDashboardCardOverdueTasks]["drilldown"])
+	overdueHref := toString(overdueDrilldown["href"])
+	if !strings.Contains(overdueHref, "due_state=overdue") || !strings.Contains(overdueHref, "status=") || strings.Contains(overdueHref, "approved") {
+		t.Fatalf("expected overdue drilldown to target actionable overdue work, got %q", overdueHref)
 	}
 	if got := toInt(cardByID[translationDashboardCardBlockedFamilies]["count"]); got != 1 {
 		t.Fatalf("expected blocked_families count=1, got %d", got)

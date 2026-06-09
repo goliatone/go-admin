@@ -87,6 +87,106 @@ function readyFamilyResponse() {
   });
 }
 
+function assigneeOptionsResponse() {
+  return new Response(JSON.stringify({
+    data: [
+      { value: 'translator-self', label: 'Translator Self', description: 'self@example.com' },
+      { value: 'translator-2', label: 'Translator Two', description: 'translator2@example.com' },
+    ],
+  }), {
+    status: 200,
+    headers: { 'Content-Type': 'application/json' },
+  });
+}
+
+function cloneFixture(name) {
+  return JSON.parse(JSON.stringify(fixtures[name]));
+}
+
+function assignmentActionFixture({
+  active = false,
+  state = 'unassigned',
+  assignToMeEnabled = !active,
+  assignToUserEnabled = true,
+  assignToMeReason = assignToMeEnabled ? '' : 'current user identity is required',
+  assignToMeReasonCode = assignToMeEnabled ? '' : 'permission_denied',
+  claimEnabled = active,
+  claimReason = claimEnabled ? '' : 'no active assignment to claim',
+  claimReasonCode = claimEnabled ? '' : 'invalid_status',
+} = {}) {
+  const detail = cloneFixture(active ? 'ready' : 'missing_locale');
+  const locale = active ? 'fr' : 'es';
+  const key = `${locale}:localization`;
+  const assignment = active ? {
+    ...detail.active_assignments[0],
+    row_version: 2,
+    assignee_label: 'Marie Curie',
+    display_assignee: 'Marie Curie <marie@example.test>',
+    due_state: 'on_track',
+    actions: {},
+  } : null;
+  if (!active) {
+    detail.active_assignments = [];
+  } else {
+    detail.active_assignments = [assignment];
+  }
+  detail.locale_assignments = {
+    [key]: {
+      locale,
+      work_scope: 'localization',
+      state,
+      assignment,
+      actions: {
+	        assign_to_me: {
+	          enabled: assignToMeEnabled,
+	          permission: 'admin.translations.assign',
+	          endpoint: '/admin/api/translations/families/family-missing/assignments',
+	          required_fields: ['target_locale'],
+	          reason: assignToMeReason,
+	          reason_code: assignToMeReasonCode,
+	          payload: {
+	            target_locale: locale,
+	            work_scope: 'localization',
+	            ...(assignToMeEnabled ? { assignee_id: 'translator-self' } : {}),
+	          },
+	        },
+	        assign_to_user: {
+	          enabled: assignToUserEnabled,
+	          permission: 'admin.translations.assign',
+	          endpoint: '/admin/api/translations/families/family-missing/assignments',
+	          required_fields: ['target_locale', 'assignee_id'],
+	          reason: assignToUserEnabled ? '' : 'missing permission: admin.translations.assign',
+	          reason_code: assignToUserEnabled ? '' : 'permission_denied',
+	          payload: {
+	            target_locale: locale,
+	            work_scope: 'localization',
+          },
+        },
+        claim: {
+          enabled: claimEnabled,
+          permission: 'admin.translations.claim',
+          endpoint: '/admin/api/translations/assignments/asg-ready-fr/actions/claim',
+          reason: claimReason,
+          reason_code: claimReasonCode,
+          required_fields: ['expected_version'],
+          assignment_id: 'asg-ready-fr',
+          expected_version: 2,
+        },
+        open_editor: active ? {
+          enabled: true,
+          label: 'Open editor',
+          href: '/admin/translations/assignments/asg-ready-fr/edit',
+        } : {
+          enabled: false,
+          reason: 'no active assignment to open',
+          reason_code: 'invalid_status',
+        },
+      },
+    },
+  };
+  return detail;
+}
+
 test('translation-family detail: renders complete surface from ready fixture', () => {
   const detail = normalizeFamilyDetail(fixtures.ready);
   const html = renderTranslationFamilyDetailState(
@@ -100,8 +200,23 @@ test('translation-family detail: renders complete surface from ready fixture', (
   assert.match(html, /Publish gate/i);
   assert.match(html, /Activity preview/i);
   assert.match(html, /Open locale/i);
+  assert.match(html, /Open editor/i);
+  assert.match(html, /href="\/admin\/translations\/assignments\/asg-ready-fr\/edit"/);
+  assert.match(html, /data-family-assignment-editor-link="asg-ready-fr"/);
   assert.match(html, /Request req-ready/);
   assert.match(html, /Trace trace-ready/);
+});
+
+test('translation-family detail: publish gate stacks policy before blockers', () => {
+  const detail = normalizeFamilyDetail(fixtures.blocked);
+  const html = renderTranslationFamilyDetailState({ status: 'ready', detail });
+
+  assert.doesNotMatch(html, /md:grid-cols-2/);
+  const policyIndex = html.indexOf('>Policy</h3>');
+  const blockersIndex = html.indexOf('>Blockers</h3>');
+  assert.notEqual(policyIndex, -1);
+  assert.notEqual(blockersIndex, -1);
+  assert.equal(policyIndex < blockersIndex, true);
 });
 
 test('translation-family detail: missing-locale fixture renders blocked locale row', () => {
@@ -115,6 +230,722 @@ test('translation-family detail: missing-locale fixture renders blocked locale r
   assert.match(html, /FR/);
   assert.match(html, /Create locale/i);
   assert.match(html, /data-family-create-locale="true"/i);
+});
+
+test('translation-family detail: renders server-authored assignment controls for unassigned locales', () => {
+  const detail = normalizeFamilyDetail(assignmentActionFixture());
+  const html = renderTranslationFamilyDetailState({ status: 'ready', detail }, {
+    basePath: '/admin',
+    contentBasePath: '/admin/content',
+  });
+
+  assert.equal(detail.localeAssignments['es:localization'].actions.assignToMe.payload.assignee_id, 'translator-self');
+  assert.match(html, /data-family-empty-assignment-controls="true"/);
+  assert.match(html, /data-family-assign-to-me="true"/);
+  assert.match(html, /data-family-assign-to-user="true"/);
+  assert.match(html, /data-family-assignee-select="__empty_panel__"/);
+  assert.match(html, /data-family-assignee-select="es:localization"/);
+  assert.match(html, /data-formgen-managed="true"/);
+  assert.match(html, /data-endpoint-renderer="typeahead"/);
+  assert.match(html, /data-endpoint-url="\/api\/translations\/options\/assignees\?per_page=200"/);
+  assert.doesNotMatch(html, /data-endpoint-mode="search"/);
+  assert.doesNotMatch(html, /placeholder="Assignee ID"/);
+  assert.match(html, /data-family-locale-assignment-state="unassigned"/);
+});
+
+test('translation-family detail: assignment controls share select sizing and locale actions stay constrained', () => {
+  const detail = normalizeFamilyDetail(assignmentActionFixture());
+  const html = renderTranslationFamilyDetailState({ status: 'ready', detail }, {
+    basePath: '/admin',
+    contentBasePath: '/admin/content',
+  });
+  const dom = new JSDOM(html);
+  const localeSelect = dom.window.document.querySelector('[data-family-assignment-locale-select="true"]');
+  const assigneeSelect = dom.window.document.querySelector('[data-family-assignee-select="__empty_panel__"]');
+
+  assert.ok(localeSelect, 'expected locale select in empty assignment panel');
+  assert.ok(assigneeSelect, 'expected assignee select in empty assignment panel');
+  assert.equal(localeSelect.classList.contains('h-12'), true);
+  assert.equal(assigneeSelect.classList.contains('h-12'), true);
+  assert.equal(localeSelect.classList.contains('rounded-lg'), true);
+  assert.equal(assigneeSelect.classList.contains('rounded-lg'), true);
+  assert.match(html, /lg:grid-cols-\[minmax\(18rem,1fr\)_minmax\(0,44rem\)\]/);
+  assert.match(html, /data-family-locale-actions="true"/);
+  assert.doesNotMatch(html, /lg:grid-cols-\[minmax\(10rem,0\.8fr\)_minmax\(12rem,1fr\)_auto_auto\]/);
+});
+
+test('translation-family detail: empty assignment panel hides unavailable self assignment action', () => {
+  const detail = normalizeFamilyDetail(assignmentActionFixture({ assignToMeEnabled: false, assignToUserEnabled: true }));
+  const html = renderTranslationFamilyDetailState({ status: 'ready', detail }, {
+    basePath: '/admin',
+    contentBasePath: '/admin/content',
+  });
+
+  assert.match(html, /data-family-empty-assignment-controls="true"/);
+  assert.doesNotMatch(html, /data-family-assign-to-me="true"/);
+  assert.match(html, /data-family-assign-to-user="true"/);
+  assert.match(html, /data-assign-to-me-enabled="false"/);
+});
+
+test('translation-family detail: current assignee coverage renders me and disabled assign-to-me', () => {
+  const detail = normalizeFamilyDetail(assignmentActionFixture({
+    active: true,
+    state: 'assigned_to_me',
+    assignToMeEnabled: false,
+    assignToMeReason: 'assignment already belongs to you',
+    assignToMeReasonCode: 'already_assigned',
+    claimEnabled: false,
+    claimReason: 'assignment already belongs to you',
+    claimReasonCode: 'already_assigned',
+  }));
+  const html = renderTranslationFamilyDetailState({ status: 'ready', detail }, {
+    basePath: '/admin',
+    contentBasePath: '/admin/content',
+  });
+  const dom = new JSDOM(html);
+  const summary = dom.window.document.querySelector('[data-family-locale-assignment-state="assigned_to_me"]');
+  const disabledAssignToMe = [...dom.window.document.querySelectorAll('button')]
+    .find((button) => button.textContent.trim() === 'Assign to me' && button.disabled);
+
+  assert.ok(summary, 'expected assigned_to_me locale summary');
+  assert.match(summary.textContent, /\bme\b/);
+  assert.doesNotMatch(summary.textContent, /No active assignment/i);
+  assert.ok(disabledAssignToMe, 'expected disabled Assign to me button');
+  assert.equal(disabledAssignToMe.getAttribute('aria-disabled'), 'true');
+  assert.match(disabledAssignToMe.getAttribute('title'), /already belongs to you/i);
+  assert.match(html, /Marie Curie &lt;marie@example.test&gt;/);
+});
+
+test('translation-family detail: reconciles stale locale coverage with active assignments', () => {
+  const payload = assignmentActionFixture({
+    active: true,
+    state: 'unassigned',
+    assignToMeEnabled: false,
+    assignToMeReason: 'assignment already belongs to you',
+    assignToMeReasonCode: 'already_assigned',
+    claimEnabled: false,
+  });
+  payload.locale_assignments['fr:localization'].assignment = null;
+  const detail = normalizeFamilyDetail(payload);
+  const html = renderTranslationFamilyDetailState({ status: 'ready', detail }, {
+    basePath: '/admin',
+    contentBasePath: '/admin/content',
+  });
+  const dom = new JSDOM(html);
+  const summary = dom.window.document.querySelector('[data-family-locale-assignment-state="assigned_to_other"]');
+
+  assert.ok(summary, 'expected reconciled assigned locale summary');
+  assert.match(summary.textContent, /Marie Curie <marie@example.test>/);
+  assert.doesNotMatch(summary.textContent, /No active assignment/i);
+});
+
+test('translation-family detail: skips stale missing-locale rows when an active assignment exists', () => {
+  const payload = assignmentActionFixture({
+    active: true,
+    state: 'unassigned',
+    assignToMeEnabled: false,
+    assignToMeReason: 'assignment already belongs to you',
+    assignToMeReasonCode: 'already_assigned',
+    claimEnabled: false,
+  });
+  const frAssignment = {
+    ...payload.active_assignments[0],
+    target_locale: 'fr',
+    work_scope: 'localization',
+    display_assignee: 'Marie Curie <marie@example.test>',
+  };
+  payload.locale_variants = payload.locale_variants.filter((variant) => variant.locale !== 'fr');
+  payload.active_assignments = [frAssignment];
+  payload.locale_assignments = {};
+  payload.readiness_summary = {
+    ...payload.readiness_summary,
+    missing_locales: ['fr'],
+    missing_required_locale_count: 1,
+  };
+
+  const detail = normalizeFamilyDetail(payload);
+  const html = renderTranslationFamilyDetailState({ status: 'ready', detail }, {
+    basePath: '/admin',
+    contentBasePath: '/admin/content',
+  });
+  const dom = new JSDOM(html);
+  const localePanel = dom.window.document.querySelector('[aria-labelledby="translation-family-locales"]');
+
+  assert.match(html, /Marie Curie &lt;marie@example.test&gt;/);
+  assert.ok(localePanel, 'expected locale coverage panel');
+  assert.doesNotMatch(localePanel.textContent, /Missing required locale/i);
+  assert.equal(localePanel.querySelector('[data-family-create-locale="true"]'), null);
+});
+
+test('translation-family detail: reconciles active assignments without collapsing work scopes', () => {
+  const payload = assignmentActionFixture({ active: true, state: 'unassigned' });
+  const seoAssignment = {
+    ...payload.active_assignments[0],
+    id: 'asg-ready-fr-seo',
+    work_scope: 'seo',
+    display_assignee: 'SEO Translator <seo@example.test>',
+  };
+  payload.active_assignments = [seoAssignment];
+  payload.locale_assignments = {
+    'fr:localization': {
+      ...payload.locale_assignments['fr:localization'],
+      work_scope: 'localization',
+      state: 'unassigned',
+      assignment: null,
+    },
+  };
+
+  const detail = normalizeFamilyDetail(payload);
+
+  assert.equal(detail.localeAssignments['fr:localization'].assignment, null);
+  assert.equal(detail.localeAssignments['fr:localization'].state, 'unassigned');
+  assert.equal(detail.localeAssignments['fr:seo'].assignment?.id, 'asg-ready-fr-seo');
+  assert.equal(detail.localeAssignments['fr:seo'].state, 'assigned_to_other');
+
+  const html = renderTranslationFamilyDetailState({ status: 'ready', detail }, {
+    basePath: '/admin',
+    contentBasePath: '/admin/content',
+  });
+  const dom = new JSDOM(html);
+  const seoSummary = dom.window.document.querySelector('[data-family-locale-assignment-state="assigned_to_other"]');
+  const unassignedSummary = dom.window.document.querySelector('[data-family-locale-assignment-state="unassigned"]');
+
+  assert.ok(seoSummary, 'expected synthesized seo assignment row');
+  assert.match(seoSummary.textContent, /SEO Translator <seo@example.test>/);
+  assert.ok(unassignedSummary, 'expected original localization row to remain unassigned');
+});
+
+test('translation-family detail: assign-to-me posts server-authored family assignment payload and reloads detail', async () => {
+  const dom = setupDom('<div id="root" data-endpoint="/admin/api/translations/families/family-missing?channel=default" data-base-path="/admin"></div>');
+  const root = dom.window.document.getElementById('root');
+  const payload = assignmentActionFixture();
+  const requests = [];
+  const fetchImpl = async (url, init = {}) => {
+    requests.push({ url: String(url), init });
+    if (String(url).includes('/translations/options/assignees')) {
+      return assigneeOptionsResponse();
+    }
+    if (init.method === 'POST') {
+      return new Response(JSON.stringify({ data: { assignment_id: 'asg-es' } }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+    return new Response(JSON.stringify({ data: payload }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  };
+
+  await initTranslationFamilyDetailPage(root, { fetch: fetchImpl });
+  root.querySelector('[data-family-assign-to-me="true"][data-locale-assignment-source="empty-panel"]')
+    .dispatchEvent(new dom.window.Event('click', { bubbles: true }));
+  await nextTick();
+  await nextTick();
+
+  const post = requests.find((entry) => entry.init.method === 'POST');
+  assert.equal(post.url, '/admin/api/translations/families/family-missing/assignments');
+  const body = JSON.parse(String(post.init.body));
+  assert.equal(body.target_locale, 'es');
+  assert.equal(body.work_scope, 'localization');
+  assert.equal(body.assignee_id, 'translator-self');
+  assert.equal(body.channel, 'default');
+  assert.equal(requests.filter((entry) => entry.url.includes('/translations/families/family-missing?channel=default')).length >= 2, true);
+});
+
+test('translation-family detail: assign-to-user posts selected assignee from empty assignment panel', async () => {
+  const dom = setupDom('<div id="root" data-endpoint="/admin/api/translations/families/family-missing?channel=default" data-base-path="/admin"></div>');
+  const root = dom.window.document.getElementById('root');
+  const payload = assignmentActionFixture();
+  const requests = [];
+  const fetchImpl = async (url, init = {}) => {
+    requests.push({ url: String(url), init });
+    if (String(url).includes('/translations/options/assignees')) {
+      return assigneeOptionsResponse();
+    }
+    if (init.method === 'POST') {
+      return new Response(JSON.stringify({ data: { assignment_id: 'asg-es' } }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+    return new Response(JSON.stringify({ data: payload }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  };
+
+  await initTranslationFamilyDetailPage(root, { fetch: fetchImpl });
+  const select = root.querySelector('[data-family-assignee-select="__empty_panel__"]');
+  assert.ok(select, 'expected assignee select');
+  assert.equal(
+    requests.some((entry) => entry.url.includes('/translations/options/assignees')),
+    true
+  );
+  select.value = 'translator-2';
+  root.querySelector('[data-family-assign-to-user="true"][data-locale-assignment-source="empty-panel"]')
+    .dispatchEvent(new dom.window.Event('click', { bubbles: true }));
+  await nextTick();
+  await nextTick();
+
+  const post = requests.find((entry) => entry.init.method === 'POST');
+  const body = JSON.parse(String(post.init.body));
+  assert.equal(body.target_locale, 'es');
+  assert.equal(body.assignee_id, 'translator-2');
+});
+
+test('translation-family detail: claim action posts expected row version', async () => {
+  const dom = setupDom('<div id="root" data-endpoint="/admin/api/translations/families/family-ready?channel=default" data-base-path="/admin"></div>');
+  const root = dom.window.document.getElementById('root');
+  const payload = assignmentActionFixture({ active: true, state: 'assigned_to_me' });
+  const requests = [];
+  const fetchImpl = async (url, init = {}) => {
+    requests.push({ url: String(url), init });
+    if (init.method === 'POST') {
+      return new Response(JSON.stringify({ data: { assignment_id: 'asg-ready-fr' } }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+    return new Response(JSON.stringify({ data: payload }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  };
+
+  await initTranslationFamilyDetailPage(root, { fetch: fetchImpl });
+  root.querySelector('[data-family-claim-assignment="true"][data-locale-assignment-key="fr:localization"]')
+    .dispatchEvent(new dom.window.Event('click', { bubbles: true }));
+  await nextTick();
+  await nextTick();
+
+  const post = requests.find((entry) => entry.init.method === 'POST');
+  assert.equal(post.url, '/admin/api/translations/assignments/asg-ready-fr/actions/claim');
+  assert.deepEqual(JSON.parse(String(post.init.body)), { channel: 'default', expected_version: 2 });
+});
+
+test('translation-family detail SSR enhancement: binds assignment actions without first-render fetch', async () => {
+  const dom = setupDom(`
+    <div id="root"
+         data-ssr-enhanced="true"
+         data-endpoint="/admin/api/translations/families/family-ready?channel=staging"
+         data-family-id="family-ready"
+         data-base-path="/admin">
+      <button type="button"
+              data-family-assignment-action="claim"
+              data-assignment-id="asg-ready-fr"
+              data-row-version="2">Claim</button>
+      <button type="button"
+              data-family-assignment-action="release"
+              data-assignment-id="asg-ready-fr"
+              data-row-version="3">Release</button>
+    </div>
+  `);
+  try {
+    Object.defineProperty(dom.window.location, 'reload', { value() {}, configurable: true });
+  } catch {}
+  const root = dom.window.document.getElementById('root');
+  const requests = [];
+  const fetchImpl = async (url, init = {}) => {
+    requests.push({ url: String(url), init });
+    return new Response(JSON.stringify({ data: { assignment_id: 'asg-ready-fr' } }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  };
+
+  await initTranslationFamilyDetailPage(root, { fetch: fetchImpl });
+  assert.equal(requests.length, 0, 'SSR enhancement should not fetch on first render');
+
+  root.querySelector('[data-family-assignment-action="claim"]')
+    .dispatchEvent(new dom.window.Event('click', { bubbles: true }));
+  await nextTick();
+  await nextTick();
+
+  assert.equal(requests.length, 1);
+  assert.equal(requests[0].url, '/admin/api/translations/assignments/asg-ready-fr/actions/claim');
+  assert.equal(requests[0].init.method, 'POST');
+  assert.deepEqual(JSON.parse(String(requests[0].init.body)), { channel: 'staging', expected_version: 2 });
+
+  root.querySelector('[data-family-assignment-action="release"]')
+    .dispatchEvent(new dom.window.Event('click', { bubbles: true }));
+  await nextTick();
+  await nextTick();
+
+  assert.equal(requests.length, 2);
+  assert.equal(requests[1].url, '/admin/api/translations/assignments/asg-ready-fr/actions/release');
+  assert.equal(requests[1].init.method, 'POST');
+  assert.deepEqual(JSON.parse(String(requests[1].init.body)), { channel: 'staging', expected_version: 3 });
+});
+
+test('translation-family detail SSR enhancement: binds assignment planning controls from server markup', async () => {
+  const dom = setupDom(`
+    <div id="root"
+         data-ssr-enhanced="true"
+         data-endpoint="/admin/api/translations/families/family-missing?channel=default"
+         data-family-id="family-missing"
+         data-base-path="/admin">
+      <select data-family-assignment-locale-select="true">
+        <option value="es:localization"
+                data-assign-to-me-enabled="true"
+                data-assign-to-me-endpoint="/admin/api/translations/families/family-missing/assignments"
+                data-assign-to-me-assignee-id="translator-self"
+                data-assign-to-user-enabled="true"
+                data-assign-to-user-endpoint="/admin/api/translations/families/family-missing/assignments"
+                data-assignment-target-locale="es"
+                data-assignment-work-scope="localization">ES - localization</option>
+      </select>
+      <select data-family-assignee-select="__empty_panel__"
+              data-formgen-managed="true"
+              data-endpoint-renderer="typeahead"
+              data-endpoint-url="/api/translations/options/assignees?per_page=200"
+              aria-label="Assignee">
+        <option value="">Select assignee</option>
+        <option value="translator-2">Translator Two</option>
+      </select>
+      <button type="button" data-family-assign-to-me="true" data-locale-assignment-source="empty-panel">Assign to me</button>
+      <button type="button" data-family-assign-to-user="true" data-locale-assignment-source="empty-panel">Assign</button>
+    </div>
+  `);
+  try {
+    Object.defineProperty(dom.window.location, 'reload', { value() {}, configurable: true });
+  } catch {}
+  const root = dom.window.document.getElementById('root');
+  const requests = [];
+  const fetchImpl = async (url, init = {}) => {
+    requests.push({ url: String(url), init });
+    if (init.method === 'POST') {
+      return new Response(JSON.stringify({ data: { assignment_id: 'asg-es' } }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+    throw new Error(`unexpected fetch: ${url}`);
+  };
+  dom.window.FormgenRelationships = {
+    initRelationships() {
+      for (const select of root.querySelectorAll('[data-family-assignee-select][data-formgen-managed="true"]')) {
+        if (select.previousElementSibling?.getAttribute('data-fg-typeahead-root') === 'true') continue;
+        const typeahead = dom.window.document.createElement('div');
+        typeahead.setAttribute('data-fg-typeahead-root', 'true');
+        const input = dom.window.document.createElement('input');
+        input.type = 'text';
+        typeahead.appendChild(input);
+        select.before(typeahead);
+      }
+    },
+  };
+
+  await initTranslationFamilyDetailPage(root, { fetch: fetchImpl });
+  assert.equal(requests.length, 0, 'formgen-ready SSR assignment controls should not be repopulated by translation-family');
+  const assigneeSelect = root.querySelector('[data-family-assignee-select="__empty_panel__"]');
+  assert.equal(assigneeSelect.dataset.endpointUrl, '/admin/api/translations/options/assignees?per_page=200');
+  assert.equal(assigneeSelect.dataset.familyAssigneeFormgenReady, 'true');
+  assert.ok(root.querySelector('[data-fg-typeahead-root="true"] input'), 'expected formgen typeahead input');
+
+  root.querySelector('[data-family-assign-to-me="true"]')
+    .dispatchEvent(new dom.window.Event('click', { bubbles: true }));
+  await nextTick();
+  await nextTick();
+
+  const selfPost = requests.find((entry) => entry.init.method === 'POST');
+  assert.equal(selfPost.url, '/admin/api/translations/families/family-missing/assignments');
+  assert.deepEqual(JSON.parse(String(selfPost.init.body)), {
+    target_locale: 'es',
+    work_scope: 'localization',
+    assignee_id: 'translator-self',
+    channel: 'default',
+  });
+
+  assigneeSelect.value = 'translator-2';
+  root.querySelector('[data-family-assign-to-user="true"]')
+    .dispatchEvent(new dom.window.Event('click', { bubbles: true }));
+  await nextTick();
+  await nextTick();
+
+  const posts = requests.filter((entry) => entry.init.method === 'POST');
+  assert.equal(posts.length, 2);
+  assert.deepEqual(JSON.parse(String(posts[1].init.body)), {
+    target_locale: 'es',
+    work_scope: 'localization',
+    assignee_id: 'translator-2',
+    channel: 'default',
+  });
+});
+
+test('translation-family detail SSR enhancement: binds inline assign buttons and formgen assignee value', async () => {
+  const dom = setupDom(`
+    <div id="root"
+         data-ssr-enhanced="true"
+         data-endpoint="/admin/api/translations/families/family-ready?channel=default"
+         data-family-id="family-ready"
+         data-base-path="/admin">
+      <select data-family-assignee-select="es:localization"
+              data-formgen-managed="true"
+              data-endpoint-renderer="typeahead"
+              data-endpoint-url="/api/translations/options/assignees?per_page=200"
+              aria-label="Assignee">
+        <option value="">Select assignee</option>
+      </select>
+      <button type="button"
+              data-family-assign-to-me="true"
+              data-locale-assignment-key="es:localization"
+              data-assignment-endpoint="/admin/api/translations/families/family-ready/assignments"
+              data-assignment-target-locale="es"
+              data-assignment-work-scope="localization"
+              data-assignment-assignee-id="translator-self">Assign to me</button>
+      <button type="button"
+              data-family-assign-to-user="true"
+              data-locale-assignment-key="es:localization"
+              data-assignment-endpoint="/admin/api/translations/families/family-ready/assignments"
+              data-assignment-target-locale="es"
+              data-assignment-work-scope="localization">Assign</button>
+    </div>
+  `);
+  try {
+    Object.defineProperty(dom.window.location, 'reload', { value() {}, configurable: true });
+  } catch {}
+  const root = dom.window.document.getElementById('root');
+  const requests = [];
+  const fetchImpl = async (url, init = {}) => {
+    requests.push({ url: String(url), init });
+    if (init.method === 'POST') {
+      return new Response(JSON.stringify({ data: { assignment_id: 'asg-es' } }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+    throw new Error(`unexpected fetch: ${url}`);
+  };
+  dom.window.FormgenRelationships = {
+    initRelationships() {
+      const select = root.querySelector('[data-family-assignee-select="es:localization"]');
+      const typeahead = dom.window.document.createElement('div');
+      typeahead.setAttribute('data-fg-typeahead-root', 'true');
+      const input = dom.window.document.createElement('input');
+      input.type = 'text';
+      input.dataset.selectedId = 'translator-2';
+      typeahead.appendChild(input);
+      select.before(typeahead);
+    },
+  };
+
+  await initTranslationFamilyDetailPage(root, { fetch: fetchImpl });
+  assert.equal(requests.length, 0, 'formgen-ready inline controls should not fetch fallback assignees');
+
+  root.querySelector('[data-family-assign-to-me="true"]')
+    .dispatchEvent(new dom.window.Event('click', { bubbles: true }));
+  await nextTick();
+  await nextTick();
+
+  const selfPost = requests.find((entry) => entry.init.method === 'POST');
+  assert.equal(selfPost.url, '/admin/api/translations/families/family-ready/assignments');
+  assert.deepEqual(JSON.parse(String(selfPost.init.body)), {
+    target_locale: 'es',
+    work_scope: 'localization',
+    assignee_id: 'translator-self',
+    channel: 'default',
+  });
+
+  root.querySelector('[data-family-assign-to-user="true"]')
+    .dispatchEvent(new dom.window.Event('click', { bubbles: true }));
+  await nextTick();
+  await nextTick();
+
+  const posts = requests.filter((entry) => entry.init.method === 'POST');
+  assert.equal(posts.length, 2);
+  assert.deepEqual(JSON.parse(String(posts[1].init.body)), {
+    target_locale: 'es',
+    work_scope: 'localization',
+    assignee_id: 'translator-2',
+    channel: 'default',
+  });
+});
+
+test('translation-family detail SSR enhancement: managed assignee select falls back when formgen runtime is absent', async () => {
+  const dom = setupDom(`
+    <div id="root"
+         data-ssr-enhanced="true"
+         data-endpoint="/admin/api/translations/families/family-missing?channel=default"
+         data-family-id="family-missing"
+         data-base-path="/admin">
+      <select data-family-assignment-locale-select="true">
+        <option value="es:localization"
+                data-assign-to-user-enabled="true"
+                data-assign-to-user-endpoint="/admin/api/translations/families/family-missing/assignments"
+                data-assignment-target-locale="es"
+                data-assignment-work-scope="localization">ES - localization</option>
+      </select>
+      <select data-family-assignee-select="__empty_panel__"
+              data-formgen-managed="true"
+              data-endpoint-renderer="typeahead"
+              data-endpoint-url="/api/translations/options/assignees?per_page=200"
+              aria-label="Assignee">
+        <option value="">Select assignee</option>
+      </select>
+      <button type="button" data-family-assign-to-user="true" data-locale-assignment-source="empty-panel">Assign</button>
+    </div>
+  `);
+  try {
+    Object.defineProperty(dom.window.location, 'reload', { value() {}, configurable: true });
+  } catch {}
+  const root = dom.window.document.getElementById('root');
+  const requests = [];
+  const fetchImpl = async (url, init = {}) => {
+    requests.push({ url: String(url), init });
+    if (init.method === 'POST') {
+      return new Response(JSON.stringify({ data: { assignment_id: 'asg-es' } }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+    return new Response(JSON.stringify({
+      data: [
+        { value: 'translator-2', label: 'Translator Two', email: 'two@example.test' },
+      ],
+    }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  };
+
+  await initTranslationFamilyDetailPage(root, { fetch: fetchImpl });
+
+  const getRequest = requests.find((entry) => !entry.init.method);
+  assert.equal(getRequest.url, '/admin/api/translations/options/assignees?per_page=200');
+  const assigneeSelect = root.querySelector('[data-family-assignee-select="__empty_panel__"]');
+  assert.equal(assigneeSelect.dataset.familyAssigneeFormgenReady, undefined);
+  assert.equal(assigneeSelect.querySelector('option[value="translator-2"]').textContent, 'Translator Two - two@example.test');
+
+  assigneeSelect.value = 'translator-2';
+  root.querySelector('[data-family-assign-to-user="true"]')
+    .dispatchEvent(new dom.window.Event('click', { bubbles: true }));
+  await nextTick();
+  await nextTick();
+
+  const post = requests.find((entry) => entry.init.method === 'POST');
+  assert.equal(post.url, '/admin/api/translations/families/family-missing/assignments');
+  assert.deepEqual(JSON.parse(String(post.init.body)), {
+    target_locale: 'es',
+    work_scope: 'localization',
+    assignee_id: 'translator-2',
+    channel: 'default',
+  });
+});
+
+test('translation-family detail SSR enhancement: create locale fetches metadata only on demand', async () => {
+  const dom = setupDom(`
+    <div id="root"
+         data-ssr-enhanced="true"
+         data-endpoint="/admin/api/translations/families/family-missing?channel=default"
+         data-family-id="family-missing"
+         data-base-path="/admin">
+      <button type="button"
+              data-translation-create-locale-trigger="true"
+              data-family-id="family-missing"
+              data-locale="fr">Create locale</button>
+    </div>
+  `);
+  const root = dom.window.document.getElementById('root');
+  const requests = [];
+  const fetchImpl = async (url, init = {}) => {
+    requests.push({ url: String(url), init });
+    return new Response(JSON.stringify({ data: cloneFixture('missing_locale') }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  };
+
+  await initTranslationFamilyDetailPage(root, { fetch: fetchImpl });
+  assert.equal(requests.length, 0, 'SSR enhancement should not fetch before opening create locale');
+
+  root.querySelector('[data-translation-create-locale-trigger="true"]')
+    .dispatchEvent(new dom.window.Event('click', { bubbles: true }));
+  await nextTick();
+  await nextTick();
+
+  assert.equal(requests[0].url, '/admin/api/translations/families/family-missing?channel=default');
+  assert.ok(dom.window.document.querySelector('[data-translation-create-locale-modal="true"]'));
+});
+
+test('translation-family detail: missing-locale quick create opens the create modal', async () => {
+  const dom = setupDom('<div id="root" data-endpoint="/admin/api/translations/families/family-missing?channel=default" data-base-path="/admin"></div>');
+  const root = dom.window.document.getElementById('root');
+  const fetchImpl = async () => new Response(JSON.stringify({ data: fixtures.missing_locale }), {
+    status: 200,
+    headers: { 'Content-Type': 'application/json' },
+  });
+
+  await initTranslationFamilyDetailPage(root, { fetch: fetchImpl });
+  const button = root.querySelector('[data-family-create-locale="true"][data-locale="fr"]');
+
+  assert.ok(button, 'expected FR quick-create button');
+  assert.equal(button.hasAttribute('disabled'), false);
+  button.dispatchEvent(new dom.window.Event('click', { bubbles: true }));
+
+  assert.ok(dom.window.document.querySelector('[data-translation-create-locale-modal="true"]'));
+  assert.match(dom.window.document.body.innerHTML, /Create FR locale/i);
+  assert.ok(dom.window.document.querySelector('[data-translation-create-locale-modal="true"] [data-family-assignee-select="create-locale"]'));
+  assert.equal(dom.window.document.querySelector('[data-translation-create-locale-modal="true"] input[name="assignee_id"]'), null);
+});
+
+test('translation-family detail: coverage missing locale buttons stay enabled when quick-create hints are stale or policy denied', async () => {
+  const stale = JSON.parse(JSON.stringify(fixtures.missing_locale));
+  stale.locale_variants = stale.locale_variants.filter((variant) => variant.locale !== 'es');
+  stale.readiness_summary.available_locales = ['en'];
+  stale.readiness_summary.missing_locales = ['es', 'fr'];
+  stale.readiness_summary.missing_required_locale_count = 2;
+  stale.quick_create.enabled = false;
+  stale.quick_create.missing_locales = [];
+  stale.quick_create.recommended_locale = '';
+  stale.quick_create.disabled_reason_code = 'policy_denied';
+  stale.quick_create.disabled_reason = 'Policy currently blocks creating additional locale variants for this family.';
+  const dom = setupDom('<div id="root" data-endpoint="/admin/api/translations/families/family-missing?channel=default" data-base-path="/admin"></div>');
+  const root = dom.window.document.getElementById('root');
+  const fetchImpl = async () => new Response(JSON.stringify({ data: stale }), {
+    status: 200,
+    headers: { 'Content-Type': 'application/json' },
+  });
+
+  await initTranslationFamilyDetailPage(root, { fetch: fetchImpl });
+  const buttons = Array.from(root.querySelectorAll('[data-family-create-locale="true"]'));
+  const esButtons = buttons.filter((button) => button.dataset.locale === 'es');
+  const frButtons = buttons.filter((button) => button.dataset.locale === 'fr');
+
+  assert.equal(esButtons.length > 0, true);
+  assert.equal(frButtons.length > 0, true);
+  assert.equal(esButtons.every((button) => button.getAttribute('aria-disabled') !== 'true'), true);
+  assert.equal(frButtons.every((button) => button.getAttribute('aria-disabled') !== 'true'), true);
+
+  esButtons[0].dispatchEvent(new dom.window.Event('click', { bubbles: true }));
+  assert.ok(dom.window.document.querySelector('[data-translation-create-locale-modal="true"]'));
+  assert.match(dom.window.document.body.innerHTML, /Create ES locale/i);
+  assert.match(dom.window.document.body.innerHTML, />\s*ES/i);
+  assert.match(dom.window.document.body.innerHTML, />\s*FR/i);
+});
+
+test('translation-family detail: policy unavailable keeps missing locale buttons disabled', async () => {
+  const blocked = JSON.parse(JSON.stringify(fixtures.policy_unavailable));
+  blocked.readiness_summary.required_locales = ['en', 'es'];
+  blocked.readiness_summary.missing_locales = ['es'];
+  blocked.readiness_summary.missing_required_locale_count = 1;
+  blocked.quick_create.enabled = false;
+  blocked.quick_create.missing_locales = ['es'];
+  blocked.quick_create.recommended_locale = 'es';
+  const dom = setupDom('<div id="root" data-endpoint="/admin/api/translations/families/family-policy-unavailable?channel=default" data-base-path="/admin"></div>');
+  const root = dom.window.document.getElementById('root');
+  const fetchImpl = async () => new Response(JSON.stringify({ data: blocked }), {
+    status: 200,
+    headers: { 'Content-Type': 'application/json' },
+  });
+
+  await initTranslationFamilyDetailPage(root, { fetch: fetchImpl });
+  const buttons = Array.from(root.querySelectorAll('[data-family-create-locale="true"][data-locale="es"]'));
+
+  assert.equal(buttons.length > 0, true);
+  assert.equal(buttons.every((button) => button.getAttribute('aria-disabled') === 'true'), true);
+  buttons[0].dispatchEvent(new dom.window.Event('click', { bubbles: true }));
+  assert.equal(dom.window.document.querySelector('[data-translation-create-locale-modal="true"]'), null);
 });
 
 test('translation-family detail: blocker fixtures render canonical blocker labels', () => {
@@ -157,11 +988,19 @@ test('translation-family detail: distinguishes host policy denial from unavailab
 });
 
 test('translation-family detail: derives activity preview from variant and assignment timestamps', () => {
-  const detail = normalizeFamilyDetail(fixtures.outdated_source);
+  const payload = cloneFixture('outdated_source');
+  payload.active_assignments[0] = {
+    ...payload.active_assignments[0],
+    assigner_id: 'manager.fr',
+    display_assigner: 'Manager FR <manager.fr@example.test>',
+    display_assignee: 'Translator FR <translator.fr@example.test>',
+    assigned_at: '2026-03-09T13:00:00Z',
+  };
+  const detail = normalizeFamilyDetail(payload);
   const preview = buildFamilyActivityPreview(detail, 3);
 
   assert.equal(preview.length, 3);
-  assert.equal(preview[0].title.includes('variant published') || preview[0].title.includes('assignment'), true);
+  assert.equal(preview[0].title, 'Manager FR <manager.fr@example.test> assigned FR to Translator FR <translator.fr@example.test> on Mar 9, 2026');
   assert.equal(preview[0].timestamp >= preview[1].timestamp, true);
 });
 

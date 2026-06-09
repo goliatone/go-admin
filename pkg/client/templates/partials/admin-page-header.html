@@ -1,0 +1,44 @@
+{% comment %}
+  Variables:
+    - breadcrumbs: array of {label, href, current} objects
+    - page_title: main heading text (required)
+    - page_subtitle: optional description text
+    - header_actions_id: optional ID for JS-mounted actions div
+
+  Usage: include this partial with breadcrumbs, page_title, and optional
+  page_subtitle values.
+{% endcomment %}
+<header class="admin-page-header px-8 py-3 bg-white border-b border-gray-200">
+  <div class="flex items-center justify-between gap-4">
+    {# Left: Breadcrumb | Title #}
+    <div class="flex items-center gap-4 min-w-0 flex-1">
+      {% if breadcrumbs %}
+      <nav class="text-xs text-gray-400 flex-shrink-0" aria-label="Breadcrumb">
+        <ol class="flex items-center gap-1.5">
+          {% for crumb in breadcrumbs %}
+            {% if crumb.label and not forloop.Last %}
+            <li>
+              <a href="{{ crumb.href }}" class="hover:text-gray-600 transition-colors">{{ crumb.label }}</a>
+            </li>
+            <li class="text-gray-300" aria-hidden="true">/</li>
+            {% endif %}
+          {% endfor %}
+        </ol>
+      </nav>
+      <div class="h-4 w-px bg-gray-200 flex-shrink-0" aria-hidden="true"></div>
+      {% endif %}
+      <div class="min-w-0 flex-1">
+        <h1 class="text-2xl font-bold text-gray-900 truncate">{{ page_title }}</h1>
+      </div>
+    </div>
+
+    {# Right: Actions #}
+    <div class="flex items-center gap-3 flex-shrink-0"{% if header_actions_id %} id="{{ header_actions_id }}"{% endif %}>
+      {{ header_actions_slot }}
+    </div>
+  </div>
+
+  {% if page_subtitle %}
+  <p class="mt-2 text-sm text-gray-500">{{ page_subtitle }}</p>
+  {% endif %}
+</header>

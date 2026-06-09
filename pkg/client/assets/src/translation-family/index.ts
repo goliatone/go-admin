@@ -18,6 +18,8 @@ import {
   setSearchParam,
 } from '../shared/query-state/url-state.js';
 import { parseJSONValue } from '../shared/json-parse.js';
+import { initActionMenus, type ActionMenuController } from '../shared/action-menu.js';
+import { initEnhancedActions, type EnhancedActionRuntimeOptions } from '../shared/enhanced-action.js';
 import { extractStructuredError } from '../toast/error-helpers.js';
 import {
   BTN_PRIMARY,
@@ -40,6 +42,16 @@ import {
   trapFocus,
   getStatusColorClass,
 } from '../translation-shared/index.js';
+
+declare global {
+  interface Window {
+    FormgenRelationships?: {
+      initRelationships?: () => Promise<unknown> | unknown;
+    };
+  }
+}
+
+const familyListActionMenus = new WeakMap<HTMLElement, ActionMenuController>();
 
 export type FamilyReadinessState = 'ready' | 'blocked';
 
@@ -96,16 +108,73 @@ export interface TranslationFamilyAssignment {
   id: string;
   familyId: string;
   variantId: string;
+  targetRecordId: string;
   sourceLocale: string;
   targetLocale: string;
   workScope: string;
+  assignmentType: string;
   status: string;
   assigneeId: string;
+  assigneeLabel: string;
+  displayAssignee: string;
+  assignerId: string;
+  displayAssigner: string;
   reviewerId: string;
+  reviewerLabel: string;
   priority: string;
   dueDate: string;
+  assignedAt: string;
+  displayAssignedAt: string;
+  assignedAtLegacyFallback: boolean;
+  activitySentence: string;
+  dueState: string;
+  rowVersion: number;
   createdAt: string;
   updatedAt: string;
+  links: TranslationFamilyAssignmentLinks;
+  actions: TranslationFamilyLocaleAssignmentActions;
+}
+
+export interface TranslationFamilyAssignmentLink {
+  href: string;
+  label: string;
+  description: string;
+  relation: string;
+  entityType: string;
+  entityId: string;
+}
+
+export interface TranslationFamilyAssignmentLinks {
+  editor: TranslationFamilyAssignmentLink | null;
+}
+
+export interface TranslationFamilyAssignmentActionState {
+  enabled: boolean;
+  permission: string;
+  endpoint: string;
+  href: string;
+  label: string;
+  reason: string;
+  reasonCode: string;
+  requiredFields: string[];
+  payload: Record<string, unknown>;
+  assignmentId: string;
+  expectedVersion: number;
+}
+
+export interface TranslationFamilyLocaleAssignmentActions {
+  assignToMe: TranslationFamilyAssignmentActionState;
+  assignToUser: TranslationFamilyAssignmentActionState;
+  claim: TranslationFamilyAssignmentActionState;
+  openEditor: TranslationFamilyAssignmentActionState;
+}
+
+export interface TranslationFamilyLocaleAssignment {
+  locale: string;
+  workScope: string;
+  state: string;
+  assignment: TranslationFamilyAssignment | null;
+  actions: TranslationFamilyLocaleAssignmentActions;
 }
 
 export interface TranslationFamilyActivityPreviewItem {
@@ -125,6 +194,7 @@ export interface TranslationFamilyDetail {
   localeVariants: TranslationFamilyVariant[];
   blockers: TranslationFamilyBlocker[];
   activeAssignments: TranslationFamilyAssignment[];
+  localeAssignments: Record<string, TranslationFamilyLocaleAssignment>;
   publishGate: {
     allowed: boolean;
     overrideAllowed: boolean;
@@ -191,11 +261,20 @@ export interface TranslationFamilyClient {
   list(filters?: Partial<TranslationFamilyFilters>): Promise<TranslationFamilyListResponse>;
   detail(familyId: string, channel?: string): Promise<TranslationFamilyDetail>;
   createLocale(familyId: string, input?: Partial<TranslationCreateLocaleRequest>): Promise<TranslationCreateLocaleResult>;
+  createAssignment(familyId: string, input?: Partial<TranslationFamilyAssignmentRequest>): Promise<Record<string, unknown>>;
 }
 
 interface TranslationFamilyClientOptions {
   basePath?: string;
   fetch?: typeof fetch;
+}
+
+interface TranslationFamilyAssigneeOption {
+  value: string;
+  label: string;
+  description: string;
+  displayName: string;
+  avatarURL: string;
 }
 
 interface TranslationFamilyDetailFetchOptions {
@@ -218,6 +297,7 @@ export interface TranslationFamilyDetailLoadState {
 export interface TranslationFamilyDetailRenderOptions {
   basePath?: string;
   contentBasePath?: string;
+  enhancedAction?: Pick<EnhancedActionRuntimeOptions, 'requestHeader' | 'requestHeaderValue' | 'request_header' | 'request_header_value' | 'accept'>;
 }
 
 export interface TranslationFamilySyncRecoveryCapability {
@@ -383,6 +463,17 @@ export interface TranslationCreateLocaleRequest {
   idempotencyKey: string;
 }
 
+export interface TranslationFamilyAssignmentRequest {
+  targetLocale: string;
+  assigneeId: string;
+  openPool: boolean;
+  priority: string;
+  dueDate: string;
+  workScope: string;
+  channel: string;
+  idempotencyKey: string;
+}
+
 export interface TranslationCreateLocaleAssignment {
   assignmentId: string;
   status: string;
@@ -391,6 +482,7 @@ export interface TranslationCreateLocaleAssignment {
   assigneeId: string;
   priority: string;
   dueDate: string;
+  assignedAt: string;
 }
 
 export interface TranslationCreateLocaleResult {
@@ -537,10 +629,51 @@ export function serializeCreateLocaleRequest(
     locale: request.locale,
   };
 
-  if (request.autoCreateAssignment) payload.auto_create_assignment = true;
+  if (request.autoCreateAssignment) {
+    payload.auto_create_assignment = true;
+    if (request.assigneeId) payload.assignee_id = request.assigneeId;
+    if (request.priority) payload.priority = request.priority;
+    if (request.dueDate) payload.due_date = request.dueDate;
+  }
+  if (request.channel) payload.channel = request.channel;
+
+  return payload;
+}
+
+export function createTranslationFamilyAssignmentRequest(
+  input: Partial<TranslationFamilyAssignmentRequest> = {}
+): TranslationFamilyAssignmentRequest {
+  return {
+    targetLocale: asString(input.targetLocale).toLowerCase(),
+    assigneeId: asString(input.assigneeId),
+    openPool: asBoolean(input.openPool),
+    priority: asString(input.priority).toLowerCase(),
+    dueDate: asString(input.dueDate),
+    workScope: asString(input.workScope),
+    channel: asString(input.channel),
+    idempotencyKey: asString(input.idempotencyKey),
+  };
+}
+
+export function buildFamilyAssignmentURL(basePath: string, familyId: string, channel = ''): string {
+  const query = new URLSearchParams();
+  setSearchParam(query, 'channel', channel);
+  return buildURL(buildFamilyPath(basePath, familyId, '/assignments'), query);
+}
+
+export function serializeFamilyAssignmentRequest(
+  input: Partial<TranslationFamilyAssignmentRequest> = {}
+): Record<string, unknown> {
+  const request = createTranslationFamilyAssignmentRequest(input);
+  const payload: Record<string, unknown> = {
+    target_locale: request.targetLocale,
+  };
+
   if (request.assigneeId) payload.assignee_id = request.assigneeId;
+  if (request.openPool) payload.open_pool = true;
   if (request.priority) payload.priority = request.priority;
   if (request.dueDate) payload.due_date = request.dueDate;
+  if (request.workScope) payload.work_scope = request.workScope;
   if (request.channel) payload.channel = request.channel;
 
   return payload;
@@ -555,6 +688,7 @@ function normalizeCreateLocaleAssignment(input: Record<string, unknown>): Transl
     assigneeId: asString(input.assignee_id),
     priority: asString(input.priority),
     dueDate: asString(input.due_date),
+    assignedAt: asString(input.assigned_at),
   };
 }
 
@@ -733,22 +867,185 @@ function normalizeBlocker(input: Record<string, unknown>): TranslationFamilyBloc
   };
 }
 
+function normalizeAssignmentActionState(input: Record<string, unknown>): TranslationFamilyAssignmentActionState {
+  const link = asRecord(input.link);
+  return {
+    enabled: asBoolean(input.enabled),
+    permission: asString(input.permission),
+    endpoint: asString(input.endpoint),
+    href: asString(input.href || link.href),
+    label: asString(input.label || link.label),
+    reason: asString(input.reason),
+    reasonCode: asString(input.reason_code ?? input.reasonCode),
+    requiredFields: asStringArray(input.required_fields ?? input.requiredFields),
+    payload: asRecord(input.payload),
+    assignmentId: asString(input.assignment_id ?? input.assignmentId),
+    expectedVersion: asNumber(input.expected_version ?? input.expectedVersion),
+  };
+}
+
+function normalizeLocaleAssignmentActions(input: Record<string, unknown>): TranslationFamilyLocaleAssignmentActions {
+  return {
+    assignToMe: normalizeAssignmentActionState(asRecord(input.assign_to_me ?? input.assignToMe)),
+    assignToUser: normalizeAssignmentActionState(asRecord(input.assign_to_user ?? input.assignToUser)),
+    claim: normalizeAssignmentActionState(asRecord(input.claim)),
+    openEditor: normalizeAssignmentActionState(asRecord(input.open_editor ?? input.openEditor)),
+  };
+}
+
 function normalizeAssignment(input: Record<string, unknown>): TranslationFamilyAssignment {
   return {
     id: asString(input.id),
     familyId: asString(input.family_id),
     variantId: asString(input.variant_id),
+    targetRecordId: asString(input.target_record_id),
     sourceLocale: asString(input.source_locale),
     targetLocale: asString(input.target_locale),
     workScope: asString(input.work_scope),
-    status: asString(input.status),
+    assignmentType: asString(input.assignment_type),
+    status: asString(input.status) || asString(input.queue_state),
     assigneeId: asString(input.assignee_id),
+    assigneeLabel: asString(input.assignee_label),
+    displayAssignee: asString(input.display_assignee),
+    assignerId: asString(input.assigner_id ?? input.assignerId),
+    displayAssigner: asString(input.display_assigner ?? input.displayAssigner),
     reviewerId: asString(input.reviewer_id),
+    reviewerLabel: asString(input.reviewer_label),
     priority: asString(input.priority),
     dueDate: asString(input.due_date),
+    assignedAt: asString(input.assigned_at ?? input.assignedAt),
+    displayAssignedAt: asString(input.display_assigned_at ?? input.displayAssignedAt),
+    assignedAtLegacyFallback: asBoolean(input.assigned_at_legacy_fallback ?? input.assignedAtLegacyFallback),
+    activitySentence: asString(input.activity_sentence ?? input.activitySentence),
+    dueState: asString(input.due_state),
+    rowVersion: asNumber(input.row_version ?? input.version),
     createdAt: asString(input.created_at),
     updatedAt: asString(input.updated_at),
+    links: normalizeAssignmentLinks(asRecord(input.links)),
+    actions: normalizeLocaleAssignmentActions(asRecord(input.actions)),
   };
+}
+
+function normalizeAssignmentLink(input: Record<string, unknown>): TranslationFamilyAssignmentLink | null {
+  const href = asString(input.href);
+  if (!href) {
+    return null;
+  }
+  return {
+    href,
+    label: asString(input.label) || 'Open editor',
+    description: asString(input.description),
+    relation: asString(input.relation),
+    entityType: asString(input.entity_type),
+    entityId: asString(input.entity_id),
+  };
+}
+
+function normalizeAssignmentLinks(input: Record<string, unknown>): TranslationFamilyAssignmentLinks {
+  return {
+    editor: normalizeAssignmentLink(asRecord(input.editor)),
+  };
+}
+
+function normalizeLocaleAssignment(input: Record<string, unknown>): TranslationFamilyLocaleAssignment {
+  return {
+    locale: asString(input.locale).toLowerCase(),
+    workScope: asString(input.work_scope),
+    state: asString(input.state),
+    assignment: input.assignment ? normalizeAssignment(asRecord(input.assignment)) : null,
+    actions: normalizeLocaleAssignmentActions(asRecord(input.actions)),
+  };
+}
+
+function normalizeLocaleAssignments(input: Record<string, unknown>): Record<string, TranslationFamilyLocaleAssignment> {
+  const out: Record<string, TranslationFamilyLocaleAssignment> = {};
+  for (const [key, value] of Object.entries(input)) {
+    const normalizedKey = asString(key).toLowerCase();
+    if (!normalizedKey) continue;
+    out[normalizedKey] = normalizeLocaleAssignment(asRecord(value));
+  }
+  return out;
+}
+
+function reconcileLocaleAssignmentsWithActiveAssignments(
+  input: Record<string, TranslationFamilyLocaleAssignment>,
+  activeAssignments: TranslationFamilyAssignment[]
+): Record<string, TranslationFamilyLocaleAssignment> {
+  if (!activeAssignments.length) return input;
+  const out: Record<string, TranslationFamilyLocaleAssignment> = { ...input };
+  for (const assignment of activeAssignments) {
+    const locale = asString(assignment.targetLocale).toLowerCase();
+    if (!locale) continue;
+    const workScope = asString(assignment.workScope) || 'localization';
+    const exactKey = translationFamilyLocaleAssignmentKey(locale, workScope);
+    const [key, existing] = findLocaleAssignmentForReconciliation(out, exactKey, locale, workScope);
+    const next: TranslationFamilyLocaleAssignment = existing ? { ...existing } : {
+      locale,
+      workScope,
+      state: '',
+      assignment: null,
+      actions: normalizeLocaleAssignmentActions({}),
+    };
+    if (!next.assignment) {
+      next.assignment = assignment;
+    }
+    if (!next.state || next.state === 'unassigned') {
+      next.state = localeAssignmentStateFromAssignment(assignment);
+    }
+    if (!next.locale) next.locale = locale;
+    if (!next.workScope) next.workScope = workScope;
+    out[key] = next;
+  }
+  return out;
+}
+
+function findLocaleAssignmentForReconciliation(
+  input: Record<string, TranslationFamilyLocaleAssignment>,
+  exactKey: string,
+  locale: string,
+  workScope: string
+): [string, TranslationFamilyLocaleAssignment | null] {
+  if (input[exactKey]) return [exactKey, input[exactKey]];
+  const prefix = `${locale}:`;
+  const normalizedScope = asString(workScope).toLowerCase() || 'localization';
+  const genericScope = isGenericFamilyAssignmentWorkScope(normalizedScope);
+  for (const [key, value] of Object.entries(input)) {
+    if (!key.startsWith(prefix)) {
+      continue;
+    }
+    if (genericScope) {
+      return [key, value];
+    }
+    if (value.assignment) {
+      continue;
+    }
+    const valueScope = (asString(value.workScope) || key.slice(prefix.length) || 'localization').toLowerCase();
+    if (valueScope === normalizedScope) {
+      return [key, value];
+    }
+  }
+  return [exactKey, null];
+}
+
+function isGenericFamilyAssignmentWorkScope(workScope: string): boolean {
+  const normalized = asString(workScope).toLowerCase();
+  return !normalized || normalized === '__all__';
+}
+
+function localeAssignmentStateFromAssignment(assignment: TranslationFamilyAssignment): string {
+  switch (assignment.status) {
+    case 'open':
+      return 'open_pool';
+    case 'assigned':
+    case 'changes_requested':
+      return 'assigned_to_other';
+    case 'in_progress':
+      return 'in_progress';
+    case 'in_review':
+      return 'in_review';
+    default:
+      return 'terminal';
+  }
 }
 
 export function normalizeFamilyDetail(input: Record<string, unknown>): TranslationFamilyDetail {
@@ -762,6 +1059,10 @@ export function normalizeFamilyDetail(input: Record<string, unknown>): Translati
   const activeAssignments = Array.isArray(body.active_assignments)
     ? body.active_assignments.map((row) => normalizeAssignment(asRecord(row)))
     : [];
+  const localeAssignments = reconcileLocaleAssignmentsWithActiveAssignments(
+    normalizeLocaleAssignments(asRecord(body.locale_assignments ?? body.localeAssignments)),
+    activeAssignments
+  );
   const publishGate = asRecord(body.publish_gate);
   const readinessSummary = asRecord(body.readiness_summary);
   const quickCreate = normalizeQuickCreateHints(asRecord(body.quick_create), {
@@ -779,6 +1080,7 @@ export function normalizeFamilyDetail(input: Record<string, unknown>): Translati
     localeVariants,
     blockers,
     activeAssignments,
+    localeAssignments,
     publishGate: {
       allowed: asBoolean(publishGate.allowed),
       overrideAllowed: asBoolean(publishGate.override_allowed),
@@ -816,6 +1118,35 @@ function withoutLocale(values: string[], locale: string): string[] {
   return values
     .map((entry) => asString(entry).toLowerCase())
     .filter((entry) => entry && entry !== target);
+}
+
+function familyCreateLocaleCandidates(detail: TranslationFamilyDetail): string[] {
+  return uniqueLocaleList(detail.quickCreate.missingLocales, detail.readinessSummary.missingLocales);
+}
+
+function familyCreateLocaleBlockedByPolicyUnavailable(detail: TranslationFamilyDetail): boolean {
+  return detail.blockers.some(isPolicyUnavailableBlocker);
+}
+
+function canCreateFamilyLocale(detail: TranslationFamilyDetail, locale: string): boolean {
+  const target = asString(locale).toLowerCase();
+  if (!target) return false;
+  if (familyCreateLocaleBlockedByPolicyUnavailable(detail)) return false;
+  return familyCreateLocaleCandidates(detail).includes(target);
+}
+
+function quickCreateHintsForFamilyLocale(detail: TranslationFamilyDetail, locale: string): TranslationFamilyQuickCreateHints {
+  const candidates = familyCreateLocaleCandidates(detail);
+  const target = asString(locale).toLowerCase();
+  const canCreate = canCreateFamilyLocale(detail, target);
+  return {
+    ...detail.quickCreate,
+    enabled: canCreate,
+    missingLocales: candidates,
+    recommendedLocale: candidates.includes(target) ? target : detail.quickCreate.recommendedLocale,
+    disabledReason: canCreate ? '' : detail.quickCreate.disabledReason,
+    disabledReasonCode: canCreate ? '' : detail.quickCreate.disabledReasonCode,
+  };
 }
 
 export function applyCreateLocaleToFamilyDetail(
@@ -856,16 +1187,31 @@ export function applyCreateLocaleToFamilyDetail(
       id: result.assignment.assignmentId,
       familyId: detail.familyId,
       variantId: result.variantId,
+      targetRecordId: '',
       sourceLocale: detail.sourceLocale,
       targetLocale: result.assignment.targetLocale || locale,
       workScope: result.assignment.workScope || detail.quickCreate.defaultAssignment.workScope,
+      assignmentType: '',
       status: result.assignment.status,
       assigneeId: result.assignment.assigneeId,
+      assigneeLabel: result.assignment.assigneeId,
+      displayAssignee: result.assignment.assigneeId,
+      assignerId: '',
+      displayAssigner: '',
       reviewerId: '',
+      reviewerLabel: '',
       priority: result.assignment.priority,
       dueDate: result.assignment.dueDate,
+      assignedAt: result.assignment.assignedAt || '',
+      displayAssignedAt: '',
+      assignedAtLegacyFallback: false,
+      activitySentence: '',
+      dueState: '',
+      rowVersion: 0,
       createdAt: '',
       updatedAt: '',
+      links: { editor: null },
+      actions: normalizeLocaleAssignmentActions({}),
     };
     const matchIndex = activeAssignments.findIndex((assignment) =>
       assignment.id === nextAssignment.id || assignment.targetLocale === nextAssignment.targetLocale
@@ -1008,7 +1354,7 @@ export function getReadinessChip(state: string): ReadinessChip {
 
 export function renderReadinessChip(state: string): string {
   const chip = getReadinessChip(state);
-  return `<span class="translation-family-chip translation-family-chip--${chip.tone}" data-readiness-state="${chip.state}">${chip.label}</span>`;
+  return `<span class="translation-family-chip translation-family-chip--${chip.tone}" data-readiness-state="${chip.state}">${chip.label.toUpperCase()}</span>`;
 }
 
 async function createLocaleErrorFromResponse(response: Response): Promise<TranslationCreateLocaleError> {
@@ -1020,6 +1366,111 @@ async function createLocaleErrorFromResponse(response: Response): Promise<Transl
   error.traceId = requestTraceID(response.headers);
   error.metadata = asRecord(structured.metadata);
   return error;
+}
+
+async function assignmentActionErrorFromResponse(response: Response): Promise<TranslationCreateLocaleError> {
+  const structured = await extractStructuredError(response);
+  const error = new Error(structured.message || 'Failed to update assignment.') as TranslationCreateLocaleError;
+  error.statusCode = response.status;
+  error.textCode = structured.textCode;
+  error.requestId = asString(response.headers.get('x-request-id'));
+  error.traceId = requestTraceID(response.headers);
+  error.metadata = asRecord(structured.metadata);
+  return error;
+}
+
+async function postTranslationFamilyAssignmentAction(
+  action: TranslationFamilyAssignmentActionState,
+  payload: Record<string, unknown> = {},
+  options: TranslationFamilyDetailFetchOptions = {}
+): Promise<Record<string, unknown>> {
+  const endpoint = asString(action.endpoint);
+  if (!endpoint) {
+    throw new Error('Assignment action endpoint is unavailable.');
+  }
+  const body: Record<string, unknown> = {
+    ...action.payload,
+    ...payload,
+  };
+  if (action.expectedVersion > 0 && body.expected_version == null && body.expectedVersion == null) {
+    body.expected_version = action.expectedVersion;
+  }
+  const headers = new Headers({
+    Accept: 'application/json',
+    'Content-Type': 'application/json',
+  });
+  const init: RequestInit = {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers,
+    body: JSON.stringify(body),
+  };
+  appendCSRFHeader(endpoint, init, headers);
+  const response = await (options.fetch ? options.fetch(endpoint, init) : httpRequest(endpoint, init));
+  if (!response.ok) {
+    throw await assignmentActionErrorFromResponse(response);
+  }
+  return readHTTPJSON<Record<string, unknown>>(response);
+}
+
+function normalizeAssigneeOption(input: unknown): TranslationFamilyAssigneeOption | null {
+  const record = asRecord(input);
+  const value = asString(record.value || record.id || record.user_id);
+  if (!value) return null;
+  const label = asString(record.label || record.display_name || record.username || record.email || value);
+  return {
+    value,
+    label,
+    description: asString(record.description || record.email || record.username),
+    displayName: asString(record.display_name || record.displayName || label),
+    avatarURL: asString(record.avatar_url || record.avatarURL),
+  };
+}
+
+function normalizeAssigneeOptionsPayload(input: unknown): TranslationFamilyAssigneeOption[] {
+  const record = asRecord(input);
+  const rawItems = Array.isArray(input)
+    ? input
+    : Array.isArray(record.data)
+      ? record.data
+      : Array.isArray(record.options)
+        ? record.options
+        : Array.isArray(record.items)
+          ? record.items
+          : [];
+  const seen = new Set<string>();
+  const options: TranslationFamilyAssigneeOption[] = [];
+  for (const item of rawItems) {
+    const option = normalizeAssigneeOption(item);
+    if (!option || seen.has(option.value)) continue;
+    seen.add(option.value);
+    options.push(option);
+  }
+  return options;
+}
+
+function buildAssigneeOptionsURL(basePath: string, selectedValues: string[] = []): string {
+  const params = new URLSearchParams();
+  params.set('per_page', '200');
+  const selected = selectedValues.map((value) => asString(value)).find(Boolean);
+  if (selected) params.set('assignee_id', selected);
+  return buildURL(`${trimTrailingSlash(basePath || '/admin/api')}/translations/options/assignees`, params);
+}
+
+async function fetchAssigneeOptions(
+  basePath: string,
+  selectedValues: string[] = [],
+  options: TranslationFamilyDetailFetchOptions = {}
+): Promise<TranslationFamilyAssigneeOption[]> {
+  const endpoint = buildAssigneeOptionsURL(basePath, selectedValues);
+  const response = await (options.fetch
+    ? options.fetch(endpoint, { headers: { Accept: 'application/json' } })
+    : httpRequest(endpoint, { headers: { Accept: 'application/json' } }));
+  if (!response.ok) {
+    throw await assignmentActionErrorFromResponse(response);
+  }
+  const payload = await readHTTPJSON<unknown>(response);
+  return normalizeAssigneeOptionsPayload(payload);
 }
 
 function variantStatusSeverity(status: string): string {
@@ -1181,6 +1632,255 @@ function deriveDueState(dueDate: string): 'none' | 'on_track' | 'due_soon' | 'ov
   return 'on_track';
 }
 
+function translationFamilyLocaleAssignmentKey(locale: string, workScope = ''): string {
+  const normalizedLocale = asString(locale).toLowerCase();
+  const normalizedScope = asString(workScope) || '__all__';
+  return `${normalizedLocale}:${normalizedScope}`;
+}
+
+function localeAssignmentFor(
+  detail: TranslationFamilyDetail,
+  locale: string,
+  workScope = ''
+): TranslationFamilyLocaleAssignment | null {
+  const normalizedLocale = asString(locale).toLowerCase();
+  if (!normalizedLocale) return null;
+  const exactKey = translationFamilyLocaleAssignmentKey(normalizedLocale, workScope);
+  if (detail.localeAssignments[exactKey]) return detail.localeAssignments[exactKey];
+  for (const [key, value] of Object.entries(detail.localeAssignments)) {
+    if (key.startsWith(`${normalizedLocale}:`)) {
+      return value;
+    }
+  }
+  return null;
+}
+
+function localeAssignmentEntriesFor(
+  detail: TranslationFamilyDetail,
+  locale: string
+): Array<[string, TranslationFamilyLocaleAssignment]> {
+  const normalizedLocale = asString(locale).toLowerCase();
+  if (!normalizedLocale) return [];
+  return Object.entries(detail.localeAssignments)
+    .filter(([key, value]) => {
+      const entryLocale = asString(value.locale).toLowerCase() || key.split(':')[0];
+      return entryLocale === normalizedLocale;
+    })
+    .sort(([leftKey, left], [rightKey, right]) => {
+      const leftRank = localeAssignmentStateRank(left);
+      const rightRank = localeAssignmentStateRank(right);
+      if (leftRank !== rightRank) return leftRank - rightRank;
+      const leftScope = asString(left.workScope).toLowerCase();
+      const rightScope = asString(right.workScope).toLowerCase();
+      if (leftScope !== rightScope) return leftScope.localeCompare(rightScope);
+      return leftKey.localeCompare(rightKey);
+    });
+}
+
+function localeAssignmentStateRank(localeAssignment: TranslationFamilyLocaleAssignment): number {
+  switch (localeAssignment.state) {
+    case 'assigned_to_me':
+      return 0;
+    case 'assigned_to_other':
+    case 'in_progress':
+    case 'in_review':
+      return 1;
+    case 'open_pool':
+      return 2;
+    case 'unassigned':
+    case '':
+      return 3;
+    case 'source_locale':
+      return 5;
+    default:
+      return 4;
+  }
+}
+
+function assignmentOwnerLabel(assignment: TranslationFamilyAssignment | null): string {
+  if (!assignment) return 'Unassigned';
+  return assignment.displayAssignee || assignment.assigneeLabel || assignment.assigneeId || 'Unassigned';
+}
+
+function localeAssignmentReason(localeAssignment: TranslationFamilyLocaleAssignment | null): string {
+  if (!localeAssignment) return '';
+  const actions = localeAssignment.actions;
+  return actions.assignToMe.reason ||
+    actions.assignToUser.reason ||
+    actions.claim.reason ||
+    actions.openEditor.reason ||
+    '';
+}
+
+function hasEnabledLocaleAssignmentAction(localeAssignment: TranslationFamilyLocaleAssignment | null): boolean {
+  if (!localeAssignment) return false;
+  const actions = localeAssignment.actions;
+  return actions.assignToMe.enabled || actions.assignToUser.enabled || actions.claim.enabled || actions.openEditor.enabled;
+}
+
+function renderLocaleAssignmentSummary(localeAssignment: TranslationFamilyLocaleAssignment | null): string {
+  if (!localeAssignment || localeAssignment.state === 'source_locale') {
+    return '';
+  }
+  const assignment = localeAssignment.assignment;
+  if (!assignment) {
+    return `<p class="mt-1 text-xs text-gray-500" data-family-locale-assignment-state="${escapeAttribute(localeAssignment.state)}">No active assignment.</p>`;
+  }
+  const dueState = assignment.dueState || deriveDueState(assignment.dueDate);
+  const dueLabel = dueState === 'none' ? 'No due date' : sentenceCaseToken(dueState);
+  const ownerLabel = localeAssignment.state === 'assigned_to_me' ? 'me' : assignmentOwnerLabel(assignment);
+  return `
+    <div class="mt-2 flex flex-wrap items-center gap-2 text-xs text-gray-500" data-family-locale-assignment-state="${escapeAttribute(localeAssignment.state)}">
+      <span class="rounded-full px-2 py-0.5 font-medium ${assignmentTone(assignment.status)}">${escapeHTML(sentenceCaseToken(assignment.status))}</span>
+      <span>${escapeHTML(ownerLabel)}</span>
+      <span class="text-gray-300">·</span>
+      <span>Priority ${escapeHTML(assignment.priority || 'normal')}</span>
+      <span class="rounded-full px-2 py-0.5 font-medium ${dueTone(dueState)}">${escapeHTML(dueLabel)}</span>
+    </div>
+  `;
+}
+
+function renderLocaleAssignmentActions(localeAssignment: TranslationFamilyLocaleAssignment | null): string {
+  if (!localeAssignment || localeAssignment.state === 'source_locale') {
+    return '';
+  }
+  const key = translationFamilyLocaleAssignmentKey(localeAssignment.locale, localeAssignment.workScope);
+  const actions = localeAssignment.actions;
+  const enabledActions: string[] = [];
+  if (actions.assignToMe.enabled) {
+    enabledActions.push(`
+      <button type="button" class="${BTN_SECONDARY}" data-family-assign-to-me="true" data-locale-assignment-key="${escapeAttribute(key)}">
+        Assign to me
+      </button>
+    `);
+  } else if (actions.assignToMe.reasonCode === 'already_assigned') {
+    enabledActions.push(`
+      <button
+        type="button"
+        class="${BTN_SECONDARY}${emptyPanelDisabledClass(false)}"
+        disabled
+        aria-disabled="true"
+        title="${escapeAttribute(actions.assignToMe.reason || 'Assignment already belongs to you')}"
+      >
+        Assign to me
+      </button>
+    `);
+  }
+  if (actions.assignToUser.enabled) {
+    enabledActions.push(`
+      <div class="flex w-full min-w-0 flex-wrap items-center gap-2 sm:w-auto sm:min-w-[22rem] sm:flex-nowrap">
+        ${renderAssigneeSelect({
+          key,
+          ariaLabel: 'Assignee',
+          className: `${ASSIGNEE_SELECT_CLASS} min-w-0 flex-1 sm:w-80 sm:flex-none lg:w-96`,
+        })}
+        <button type="button" class="${BTN_SECONDARY}" data-family-assign-to-user="true" data-locale-assignment-key="${escapeAttribute(key)}">
+          Assign
+        </button>
+      </div>
+    `);
+  }
+  if (actions.claim.enabled) {
+    enabledActions.push(`
+      <button type="button" class="${BTN_SECONDARY}" data-family-claim-assignment="true" data-locale-assignment-key="${escapeAttribute(key)}">
+        Claim
+      </button>
+    `);
+  }
+  if (actions.openEditor.enabled && actions.openEditor.href) {
+    enabledActions.push(`
+      <a
+        class="inline-flex items-center justify-center rounded-md border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-sky-700 hover:border-sky-200 hover:bg-sky-50 hover:text-sky-900 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2"
+        data-family-locale-editor-link="${escapeAttribute(key)}"
+        href="${escapeAttribute(actions.openEditor.href)}"
+      >${escapeHTML(actions.openEditor.label || 'Open editor')}</a>
+    `);
+  }
+  if (enabledActions.length > 0) {
+    return `<div class="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:justify-end" data-family-locale-actions="true">${enabledActions.join('')}</div>`;
+  }
+  const reason = localeAssignmentReason(localeAssignment);
+  return reason
+    ? `<p class="max-w-xs text-right text-xs text-gray-500" data-family-assignment-action-reason="${escapeAttribute(key)}">${escapeHTML(reason)}</p>`
+    : '';
+}
+
+function assignableLocaleAssignments(detail: TranslationFamilyDetail): Array<[string, TranslationFamilyLocaleAssignment]> {
+  return Object.entries(detail.localeAssignments)
+    .filter(([, localeAssignment]) => localeAssignment.state !== 'source_locale')
+    .filter(([, localeAssignment]) => hasEnabledLocaleAssignmentAction(localeAssignment))
+    .sort(([leftKey], [rightKey]) => leftKey.localeCompare(rightKey));
+}
+
+function emptyPanelAssignmentActionMetadata(localeAssignment: TranslationFamilyLocaleAssignment): string {
+  return [
+    `data-assign-to-me-enabled="${localeAssignment.actions.assignToMe.enabled ? 'true' : 'false'}"`,
+    `data-assign-to-me-reason="${escapeAttribute(localeAssignment.actions.assignToMe.reason)}"`,
+    `data-assign-to-user-enabled="${localeAssignment.actions.assignToUser.enabled ? 'true' : 'false'}"`,
+    `data-assign-to-user-reason="${escapeAttribute(localeAssignment.actions.assignToUser.reason)}"`,
+  ].join(' ');
+}
+
+function emptyPanelDisabledAttributes(enabled: boolean, reason = ''): string {
+  return enabled
+    ? ''
+    : ` disabled aria-disabled="true" title="${escapeAttribute(reason || 'Assignment action is unavailable.')}"`;
+}
+
+function emptyPanelDisabledClass(enabled: boolean): string {
+  return enabled ? '' : ' opacity-60 cursor-not-allowed';
+}
+
+const FAMILY_SELECT_CLASS = 'block h-12 w-full rounded-lg border border-gray-300 bg-white px-3 pr-9 text-sm text-gray-900 shadow-sm transition focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 disabled:pointer-events-none disabled:opacity-50 dark:border-gray-700 dark:bg-slate-900 dark:text-gray-400 dark:focus:ring-gray-600';
+const ASSIGNEE_SELECT_CLASS = FAMILY_SELECT_CLASS;
+const ASSIGNEE_OPTIONS_FORMGEN_ENDPOINT = '/api/translations/options/assignees?per_page=200';
+
+function renderAssigneeSelect(config: {
+  key: string;
+  name?: string;
+  initialValue?: string;
+  enabled?: boolean;
+  reason?: string;
+  placeholder?: string;
+  ariaLabel?: string;
+  className?: string;
+}): string {
+  const key = asString(config.key);
+  const initialValue = asString(config.initialValue);
+  const enabled = config.enabled !== false;
+  const placeholder = asString(config.placeholder) || 'Select assignee';
+  const reason = asString(config.reason);
+  const name = asString(config.name);
+  const disabled = emptyPanelDisabledAttributes(enabled, reason);
+  return `
+    <select
+      ${name ? `name="${escapeAttribute(name)}"` : ''}
+      class="${escapeAttribute(config.className || ASSIGNEE_SELECT_CLASS)}"
+      data-family-assignee-select="${escapeAttribute(key)}"
+      data-initial-assignee-id="${escapeAttribute(initialValue)}"
+      data-formgen-managed="true"
+      data-formgen-relationship="true"
+      data-endpoint-url="${ASSIGNEE_OPTIONS_FORMGEN_ENDPOINT}"
+      data-endpoint-method="GET"
+      data-endpoint-renderer="typeahead"
+      data-endpoint-search-param="q"
+      data-endpoint-value-field="value"
+      data-endpoint-label-field="label"
+      data-endpoint-placeholder="${escapeAttribute(placeholder)}"
+      data-endpoint-search-placeholder="Search assignees"
+      data-relationship-type="belongsTo"
+      data-relationship-target="#/components/schemas/User"
+      data-relationship-cardinality="one"
+      ${initialValue ? `data-relationship-current="${escapeAttribute(initialValue)}"` : ''}
+      aria-label="${escapeAttribute(config.ariaLabel || 'Assignee')}"
+      ${disabled}
+    >
+      <option value="">${escapeHTML(enabled ? placeholder : (reason || placeholder))}</option>
+      ${initialValue ? `<option value="${escapeAttribute(initialValue)}" selected>${escapeHTML(initialValue)}</option>` : ''}
+    </select>
+  `;
+}
+
 export function buildFamilyActivityPreview(
   detail: TranslationFamilyDetail,
   limit = 5
@@ -1211,16 +1911,14 @@ export function buildFamilyActivityPreview(
   }
 
   for (const assignment of detail.activeAssignments) {
-    const timestamp = assignment.updatedAt || assignment.createdAt;
+    const timestamp = assignment.assignedAt || assignment.updatedAt || assignment.createdAt;
     if (!timestamp) continue;
-    const owner = assignment.assigneeId
-      ? `Assigned to ${assignment.assigneeId}.`
-      : 'Currently unassigned.';
+    const sentence = assignmentActivitySentence(assignment);
     items.push({
       id: `assignment-${assignment.id}`,
       timestamp,
-      title: `${assignment.targetLocale.toUpperCase()} assignment ${sentenceCaseToken(assignment.status)}`,
-      detail: `${owner} Priority ${assignment.priority || 'normal'}.`,
+      title: sentence || `${assignment.targetLocale.toUpperCase()} assignment ${sentenceCaseToken(assignment.status)}`,
+      detail: sentence ? `Priority ${assignment.priority || 'normal'}.` : `${assignmentOwnerDetail(assignment)} Priority ${assignment.priority || 'normal'}.`,
       tone: assignment.status === 'changes_requested' ? 'warning' : 'neutral',
     });
   }
@@ -1228,6 +1926,45 @@ export function buildFamilyActivityPreview(
   return items
     .sort((left, right) => right.timestamp.localeCompare(left.timestamp))
     .slice(0, Math.max(1, limit));
+}
+
+function assignmentOwnerDetail(assignment: TranslationFamilyAssignment): string {
+  return assignment.assigneeId
+    ? `Assigned to ${assignment.displayAssignee || assignment.assigneeLabel || assignment.assigneeId}.`
+    : 'Currently unassigned.';
+}
+
+function assignmentActivitySentence(assignment: TranslationFamilyAssignment): string {
+  if (assignment.activitySentence) return assignment.activitySentence;
+  const assigner = assignment.displayAssigner || actorFallback(assignment.assignerId, 'System');
+  const locale = (assignment.targetLocale || '').toUpperCase();
+  const assignee = assignment.displayAssignee || assignment.assigneeLabel || actorFallback(assignment.assigneeId, 'Unassigned');
+  if (!assigner || !locale || !assignee) return '';
+  const date = assignment.displayAssignedAt || formatActivityDate(assignment.assignedAt);
+  if (!date) return `${assigner} assigned ${locale} to ${assignee}`;
+  if (assignment.assignedAtLegacyFallback) {
+    return `${assigner} assigned ${locale} to ${assignee}; created ${date}`;
+  }
+  return `${assigner} assigned ${locale} to ${assignee} on ${date}`;
+}
+
+function actorFallback(id: string, fallback: string): string {
+  const value = asString(id);
+  if (!value || value === '__me__' || value === '__missing_actor__') return fallback;
+  return value.length > 12 ? `${value.slice(0, 8)}...` : value;
+}
+
+function formatActivityDate(value: string): string {
+  const text = asString(value);
+  if (!text) return '';
+  const parsed = new Date(text);
+  if (Number.isNaN(parsed.getTime())) return text;
+  return new Intl.DateTimeFormat('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    timeZone: 'UTC',
+  }).format(parsed);
 }
 
 function renderFamilySummaryMetrics(detail: TranslationFamilyDetail): string {
@@ -1270,29 +2007,62 @@ function renderLocalePanel(detail: TranslationFamilyDetail, options: Translation
   const contentBasePath = trimTrailingSlash(options.contentBasePath || `${trimTrailingSlash(options.basePath || '/admin')}/content`);
   const missingLocales = detail.readinessSummary.missingLocales;
   const quickCreateReason = detail.quickCreate.disabledReason || 'Locale creation is unavailable for this family.';
+  const seenAssignmentKeys = new Set<string>();
+  const seenLocales = new Set<string>();
   const createLocaleButton = (locale: string): string => {
-    const disabled = !detail.quickCreate.enabled;
+    const disabled = !canCreateFamilyLocale(detail, locale);
     return `
       <button
         type="button"
-        class="${BTN_PRIMARY}"
+        class="${BTN_PRIMARY}${disabled ? ' opacity-60 cursor-not-allowed' : ''}"
         data-family-create-locale="true"
         data-locale="${escapeAttribute(locale)}"
-        ${disabled ? 'disabled aria-disabled="true"' : ''}
+        ${disabled ? 'aria-disabled="true"' : ''}
         title="${escapeAttribute(disabled ? quickCreateReason : `Create ${locale.toUpperCase()} locale`)}"
       >
         Create locale
       </button>
     `;
   };
-  const rows = detail.localeVariants.map((variant) => {
+  const renderAssignmentOnlyRow = (localeAssignment: TranslationFamilyLocaleAssignment, key: string): string => {
+    const locale = localeAssignment.locale || key.split(':')[0] || '';
+    const workScope = localeAssignment.workScope || key.split(':')[1] || '__all__';
+    const title = `${detail.contentType || 'translation'} ${locale.toUpperCase()}`;
+    return `
+      <li class="grid gap-4 rounded-xl border border-gray-200 bg-white p-6 lg:grid-cols-[minmax(18rem,1fr)_minmax(0,44rem)] lg:items-start" data-family-locale-assignment-key="${escapeAttribute(key)}">
+        <div class="min-w-0">
+          <div class="flex flex-wrap items-center gap-2">
+            <span class="text-sm font-semibold text-gray-900">${escapeHTML(locale.toUpperCase())}</span>
+            <span class="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700">${escapeHTML(workScope)}</span>
+            <span class="rounded-full bg-sky-50 px-2 py-0.5 text-xs font-medium text-sky-700">Assignment</span>
+          </div>
+          <p class="mt-2 text-sm text-gray-600">${escapeHTML(title)}</p>
+          <p class="mt-1 text-xs text-gray-500">Additional work scope</p>
+          ${renderLocaleAssignmentSummary(localeAssignment)}
+        </div>
+        <div class="flex min-w-0 flex-wrap items-center gap-2 lg:justify-end">
+          ${renderLocaleAssignmentActions(localeAssignment)}
+        </div>
+      </li>
+    `;
+  };
+  const rows = detail.localeVariants.flatMap((variant) => {
+    const variantLocale = asString(variant.locale).toLowerCase();
+    if (variantLocale) {
+      seenLocales.add(variantLocale);
+    }
     const href = buildContentLink(contentBasePath, detail, variant);
+    const assignmentEntries = localeAssignmentEntriesFor(detail, variant.locale);
+    const [primaryKey, localeAssignment] = assignmentEntries[0] || ['', null];
+    if (primaryKey) {
+      seenAssignmentKeys.add(primaryKey);
+    }
     const openLink = href
       ? `<a href="${escapeAttribute(href)}" class="text-sm font-medium text-sky-700 hover:text-sky-800">Open locale</a>`
       : `<span class="text-sm text-gray-400">No content route</span>`;
     const title = variant.fields.title || variant.fields.slug || `${detail.contentType} ${variant.locale.toUpperCase()}`;
-    return `
-      <li class="flex items-start justify-between gap-4 rounded-xl border border-gray-200 bg-white p-6">
+    const variantRow = `
+      <li class="grid gap-4 rounded-xl border border-gray-200 bg-white p-6 lg:grid-cols-[minmax(18rem,1fr)_minmax(0,44rem)] lg:items-start">
         <div class="min-w-0">
           <div class="flex flex-wrap items-center gap-2">
             <span class="text-sm font-semibold text-gray-900">${escapeHTML(variant.locale.toUpperCase())}</span>
@@ -1301,15 +2071,40 @@ function renderLocalePanel(detail: TranslationFamilyDetail, options: Translation
           </div>
           <p class="mt-2 text-sm text-gray-600">${escapeHTML(title)}</p>
           <p class="mt-1 text-xs text-gray-500">Updated ${escapeHTML(formatTranslationTimestampUTC(variant.updatedAt || variant.createdAt)) || 'n/a'}</p>
+          ${renderLocaleAssignmentSummary(localeAssignment)}
         </div>
-        <div class="flex-shrink-0">${openLink}</div>
+        <div class="flex min-w-0 flex-wrap items-center gap-2 lg:justify-end">
+          ${renderLocaleAssignmentActions(localeAssignment)}
+          ${openLink}
+        </div>
       </li>
     `;
+    const extraRows = assignmentEntries.slice(1).map(([key, extraAssignment]) => {
+      seenAssignmentKeys.add(key);
+      return renderAssignmentOnlyRow(extraAssignment, key);
+    });
+    return [variantRow, ...extraRows];
   });
 
+  for (const [key, localeAssignment] of Object.entries(detail.localeAssignments).sort(([left], [right]) => left.localeCompare(right))) {
+    if (seenAssignmentKeys.has(key) || localeAssignment.state === 'source_locale') {
+      continue;
+    }
+    rows.push(renderAssignmentOnlyRow(localeAssignment, key));
+    seenAssignmentKeys.add(key);
+    const locale = asString(localeAssignment.locale).toLowerCase() || key.split(':')[0];
+    if (locale) {
+      seenLocales.add(locale);
+    }
+  }
+
   for (const locale of missingLocales) {
+    const normalizedLocale = asString(locale).toLowerCase();
+    if (seenLocales.has(normalizedLocale)) {
+      continue;
+    }
     rows.push(`
-      <li class="flex items-start justify-between gap-4 rounded-xl border border-rose-200 bg-rose-50 p-6">
+      <li class="flex flex-col items-start justify-between gap-4 rounded-xl border border-rose-200 bg-rose-50 p-6 sm:flex-row">
         <div>
           <div class="flex items-center gap-2">
             <span class="text-sm font-semibold text-rose-900">${escapeHTML(locale.toUpperCase())}</span>
@@ -1339,10 +2134,56 @@ function renderLocalePanel(detail: TranslationFamilyDetail, options: Translation
 
 function renderAssignmentPanel(detail: TranslationFamilyDetail): string {
   if (!detail.activeAssignments.length) {
+    const assignable = assignableLocaleAssignments(detail);
+    const firstAssignable = assignable[0]?.[1] || null;
+    const hasAssignToMe = assignable.some(([, localeAssignment]) => localeAssignment.actions.assignToMe.enabled);
+    const hasAssignToUser = assignable.some(([, localeAssignment]) => localeAssignment.actions.assignToUser.enabled);
+    const startControls = assignable.length
+      ? `
+        <div class="mt-5 rounded-xl border border-gray-200 bg-gray-50 p-4" data-family-empty-assignment-controls="true">
+          <div class="grid gap-3 md:grid-cols-2 2xl:grid-cols-[minmax(10rem,0.8fr)_minmax(16rem,1fr)_auto_auto] 2xl:items-end">
+            <label class="grid gap-2">
+              <span class="text-sm font-medium text-gray-900">Locale</span>
+              <select class="${FAMILY_SELECT_CLASS}" data-family-assignment-locale-select="true">
+                ${assignable.map(([key, localeAssignment]) => `
+                  <option value="${escapeAttribute(key)}" ${emptyPanelAssignmentActionMetadata(localeAssignment)}>${escapeHTML(localeAssignment.locale.toUpperCase())} · ${escapeHTML(localeAssignment.workScope || '__all__')}</option>
+                `).join('')}
+              </select>
+            </label>
+            ${hasAssignToUser ? `
+              <label class="grid gap-2">
+                <span class="text-sm font-medium text-gray-900">Assignee</span>
+                ${renderAssigneeSelect({
+                  key: '__empty_panel__',
+                  enabled: Boolean(firstAssignable?.actions.assignToUser.enabled),
+                  reason: firstAssignable?.actions.assignToUser.reason,
+                  ariaLabel: 'Assignee',
+                })}
+              </label>
+            ` : '<div></div>'}
+            ${hasAssignToMe ? `
+              <button type="button" class="${BTN_SECONDARY} w-full 2xl:w-auto${emptyPanelDisabledClass(Boolean(firstAssignable?.actions.assignToMe.enabled))}" data-family-assign-to-me="true" data-locale-assignment-source="empty-panel"${emptyPanelDisabledAttributes(Boolean(firstAssignable?.actions.assignToMe.enabled), firstAssignable?.actions.assignToMe.reason)}>
+                Assign to me
+              </button>
+            ` : '<div></div>'}
+            ${hasAssignToUser ? `
+              <button type="button" class="${BTN_PRIMARY} w-full 2xl:w-auto${emptyPanelDisabledClass(Boolean(firstAssignable?.actions.assignToUser.enabled))}" data-family-assign-to-user="true" data-locale-assignment-source="empty-panel"${emptyPanelDisabledAttributes(Boolean(firstAssignable?.actions.assignToUser.enabled), firstAssignable?.actions.assignToUser.reason)}>
+                Assign
+              </button>
+            ` : '<div></div>'}
+          </div>
+        </div>
+      `
+      : (() => {
+          const first = Object.values(detail.localeAssignments).find((entry) => entry.state !== 'source_locale') || null;
+          const reason = localeAssignmentReason(first) || 'No assignable locale is available for this family.';
+          return `<p class="mt-4 text-sm text-gray-500" data-family-assignment-action-reason="empty">${escapeHTML(reason)}</p>`;
+        })();
     return `
       <section class="${CARD} p-6 shadow-sm" aria-labelledby="translation-family-assignments">
         <h2 id="translation-family-assignments" class="text-lg font-semibold text-gray-900">Assignments</h2>
         <p class="mt-1 text-sm text-gray-500">No active assignments are attached to this family.</p>
+        ${startControls}
       </section>
     `;
   }
@@ -1356,19 +2197,30 @@ function renderAssignmentPanel(detail: TranslationFamilyDetail): string {
           .map((assignment) => {
             const dueState = deriveDueState(assignment.dueDate);
             const dueLabel = dueState === 'none' ? 'No due date' : sentenceCaseToken(dueState);
+            const editorLink = assignment.links.editor;
             return `
-              <li class="rounded-xl border border-gray-200 bg-gray-50 p-6">
-                <div class="flex flex-wrap items-center gap-2">
-                  <span class="text-sm font-semibold text-gray-900">${escapeHTML(assignment.targetLocale.toUpperCase())}</span>
-                  <span class="rounded-full px-2 py-0.5 text-xs font-medium ${assignmentTone(assignment.status)}">${escapeHTML(sentenceCaseToken(assignment.status))}</span>
-                  <span class="rounded-full px-2 py-0.5 text-xs font-medium ${dueTone(dueState)}">${escapeHTML(dueLabel)}</span>
+              <li class="flex flex-col gap-4 rounded-xl border border-gray-200 bg-gray-50 p-6 sm:flex-row sm:items-start sm:justify-between">
+                <div class="min-w-0">
+                  <div class="flex flex-wrap items-center gap-2">
+                    <span class="text-sm font-semibold text-gray-900">${escapeHTML(assignment.targetLocale.toUpperCase())}</span>
+                    <span class="rounded-full px-2 py-0.5 text-xs font-medium ${assignmentTone(assignment.status)}">${escapeHTML(sentenceCaseToken(assignment.status))}</span>
+                    <span class="rounded-full px-2 py-0.5 text-xs font-medium ${dueTone(dueState)}">${escapeHTML(dueLabel)}</span>
+                  </div>
+                  <p class="mt-2 text-sm text-gray-600">
+                    ${escapeHTML(assignmentOwnerLabel(assignment))}
+                    <span class="text-gray-400">·</span>
+                    Priority ${escapeHTML(assignment.priority || 'normal')}
+                  </p>
+                  <p class="mt-1 text-xs text-gray-500">Updated ${escapeHTML(formatTranslationTimestampUTC(assignment.updatedAt || assignment.createdAt)) || 'n/a'}</p>
                 </div>
-                <p class="mt-2 text-sm text-gray-600">
-                  ${escapeHTML(assignment.assigneeId || 'Unassigned')}
-                  <span class="text-gray-400">·</span>
-                  Priority ${escapeHTML(assignment.priority || 'normal')}
-                </p>
-                <p class="mt-1 text-xs text-gray-500">Updated ${escapeHTML(formatTranslationTimestampUTC(assignment.updatedAt || assignment.createdAt)) || 'n/a'}</p>
+                ${editorLink ? `
+                  <a
+                    class="inline-flex flex-shrink-0 items-center justify-center rounded-md border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-sky-700 hover:border-sky-200 hover:bg-sky-50 hover:text-sky-900 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2"
+                    data-family-assignment-editor-link="${escapeAttribute(assignment.id)}"
+                    href="${escapeAttribute(editorLink.href)}"
+                    title="${escapeAttribute(editorLink.description || editorLink.label)}"
+                  >${escapeHTML(editorLink.label || 'Open editor')}</a>
+                ` : ''}
               </li>
             `;
           })
@@ -1412,11 +2264,7 @@ function renderPublishGatePanel(detail: TranslationFamilyDetail): string {
             : 'No override path is available for this family.'}
         </p>
       </div>
-      <div class="mt-5 grid gap-4 md:grid-cols-2">
-        <div>
-          <h3 class="text-sm font-semibold uppercase tracking-[0.18em] text-gray-500">Blockers</h3>
-          <ul class="mt-3 space-y-2" role="list">${blockers}</ul>
-        </div>
+      <div class="mt-5 grid gap-5">
         <div>
           <h3 class="text-sm font-semibold uppercase tracking-[0.18em] text-gray-500">Policy</h3>
           <ul class="mt-3 space-y-2 text-sm text-gray-600" role="list">
@@ -1424,6 +2272,10 @@ function renderPublishGatePanel(detail: TranslationFamilyDetail): string {
             <li>Override allowed: <strong class="text-gray-900">${detail.publishGate.overrideAllowed ? 'Yes' : 'No'}</strong></li>
             <li>Available locales: <strong class="text-gray-900">${escapeHTML(detail.readinessSummary.availableLocales.join(', ') || 'None')}</strong></li>
           </ul>
+        </div>
+        <div>
+          <h3 class="text-sm font-semibold uppercase tracking-[0.18em] text-gray-500">Blockers</h3>
+          <ul class="mt-3 space-y-2" role="list">${blockers}</ul>
         </div>
       </div>
     </section>
@@ -1587,18 +2439,20 @@ export function renderTranslationFamilyDetailState(
   const blockerSummary = detail.readinessSummary.blockerCodes.length
     ? detail.readinessSummary.blockerCodes.map(sentenceCaseToken).join(', ')
     : 'No blockers';
-  const quickCreateDisabled = !detail.quickCreate.enabled;
-  const createLocaleCTA = detail.quickCreate.recommendedLocale
+  const createLocaleCandidates = familyCreateLocaleCandidates(detail);
+  const recommendedCreateLocale = detail.quickCreate.recommendedLocale || createLocaleCandidates[0] || '';
+  const quickCreateDisabled = !canCreateFamilyLocale(detail, recommendedCreateLocale);
+  const createLocaleCTA = recommendedCreateLocale
     ? `
       <button
         type="button"
-        class="${BTN_PRIMARY}"
+        class="${BTN_PRIMARY}${quickCreateDisabled ? ' opacity-60 cursor-not-allowed' : ''}"
         data-family-create-locale="true"
-        data-locale="${escapeAttribute(detail.quickCreate.recommendedLocale)}"
-        ${quickCreateDisabled ? 'disabled aria-disabled="true"' : ''}
-        title="${escapeAttribute(quickCreateDisabled ? detail.quickCreate.disabledReason || 'Locale creation is unavailable.' : `Create ${detail.quickCreate.recommendedLocale.toUpperCase()} locale`)}"
+        data-locale="${escapeAttribute(recommendedCreateLocale)}"
+        ${quickCreateDisabled ? 'aria-disabled="true"' : ''}
+        title="${escapeAttribute(quickCreateDisabled ? detail.quickCreate.disabledReason || 'Locale creation is unavailable.' : `Create ${recommendedCreateLocale.toUpperCase()} locale`)}"
       >
-        Create ${escapeHTML(detail.quickCreate.recommendedLocale.toUpperCase())}
+        Create ${escapeHTML(recommendedCreateLocale.toUpperCase())}
       </button>
     `
     : '';
@@ -1699,6 +2553,20 @@ export async function fetchTranslationFamilyDetailState(
       status: 'error',
       message: error instanceof Error ? error.message : 'Failed to load translation family detail.',
     };
+  }
+}
+
+function translationFamilyDetailChannel(endpoint: string): string {
+  const locationParams = readLocationSearchParams();
+  const locationChannel = locationParams ? getStringSearchParam(locationParams, 'channel') : '';
+  if (locationChannel) {
+    return locationChannel;
+  }
+  try {
+    const endpointURL = new URL(asString(endpoint), 'http://localhost');
+    return getStringSearchParam(endpointURL.searchParams, 'channel') || '';
+  } catch {
+    return '';
   }
 }
 
@@ -1843,7 +2711,7 @@ function renderFilterOption(value: string, label: string, selected: string): str
 function renderTranslationFamilyListFilters(filters: TranslationFamilyFilters): string {
   const perPage = String(filters.perPage || 50);
   return `
-    <form class="rounded-lg border border-gray-200 bg-white p-4 shadow-sm" data-family-list-filters="true">
+    <form class="rounded-lg border border-gray-200 bg-white p-4 shadow-sm" data-translation-filter-form="true">
       <div class="grid gap-4 md:grid-cols-3 xl:grid-cols-7">
         <label class="block text-sm font-medium text-gray-700">
           <span>Channel</span>
@@ -1897,7 +2765,7 @@ function renderLocaleList(locales: string[], empty = 'None'): string {
   }
   return `
     <span class="flex flex-wrap gap-1">
-      ${locales.map((locale) => `<span class="rounded bg-gray-100 px-1.5 py-0.5 text-xs font-medium text-gray-700">${escapeHTML(locale.toUpperCase())}</span>`).join('')}
+      ${locales.map((locale) => `<span class="rounded bg-gray-100 px-1.5 py-0.5 text-xs font-medium uppercase text-gray-700">${escapeHTML(locale.toUpperCase())}</span>`).join('')}
     </span>
   `;
 }
@@ -1921,17 +2789,60 @@ function renderFamilyBlockers(row: TranslationFamilyListItem): string {
     chips.push({ code: asString(code), label });
   }
   return chips
-    .map(({ code, label }) => `<span class="rounded-full px-2 py-0.5 text-xs font-medium ${blockerTone(code)}">${escapeHTML(label)}</span>`)
+    .map(({ code, label }) => `<span class="rounded-full px-2 py-0.5 text-xs font-medium ${blockerTone(code)}">${escapeHTML(label.toUpperCase())}</span>`)
     .join(' ');
 }
 
 function renderFamilyMetric(value: number, label: string, tone = 'text-gray-900'): string {
   return `
-    <span class="inline-flex min-w-[4.25rem] flex-col rounded-md bg-gray-50 px-2 py-1">
-      <span class="text-sm font-semibold ${tone}">${escapeHTML(value)}</span>
-      <span class="text-[11px] font-medium uppercase tracking-wide text-gray-500">${escapeHTML(label)}</span>
+    <span class="inline-flex items-center gap-1 whitespace-nowrap rounded-md bg-gray-50 px-2 py-1 text-xs">
+      <span class="font-semibold ${tone}">${escapeHTML(value)}</span>
+      <span class="font-semibold uppercase tracking-wide text-gray-500">${escapeHTML(label.toUpperCase())}</span>
     </span>
   `;
+}
+
+function renderFamilyActionMenu(row: TranslationFamilyListItem, detailURL: string, matrixURL: string, queueURL: string): string {
+  const label = familyDisplayTitle(row);
+  return `
+    <div class="action-menu relative flex justify-end" data-action-menu data-row-id="${escapeAttribute(row.familyId)}">
+      <button type="button"
+              class="action-menu__trigger rounded-md p-2 text-gray-500 transition-colors hover:bg-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1"
+              data-action-menu-trigger
+              aria-label="Actions for ${escapeAttribute(label)}"
+              aria-haspopup="true"
+              aria-expanded="false">
+        <svg class="h-5 w-5" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+          <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z"/>
+        </svg>
+      </button>
+      <div class="action-menu__content hidden absolute right-0 z-20 mt-2 w-48 rounded-lg border border-gray-200 bg-white py-1 shadow-lg"
+           data-action-menu-content
+           role="menu"
+           aria-orientation="vertical">
+        <a class="action-menu__item flex w-full items-center gap-2 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:bg-gray-50 focus:outline-none"
+           data-action-menu-item
+           data-action="open"
+           role="menuitem"
+           href="${escapeAttribute(detailURL)}">
+          <i class="iconoir-folder w-4 h-4 flex-shrink-0" aria-hidden="true"></i>
+          <span>Open family</span>
+        </a>
+        ${matrixURL ? `<a class="action-menu__item flex w-full items-center gap-2 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:bg-gray-50 focus:outline-none" data-action-menu-item data-action="matrix" role="menuitem" href="${escapeAttribute(matrixURL)}"><i class="iconoir-table-2-columns w-4 h-4 flex-shrink-0" aria-hidden="true"></i><span>Matrix</span></a>` : ''}
+        ${queueURL ? `<a class="action-menu__item flex w-full items-center gap-2 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:bg-gray-50 focus:outline-none" data-action-menu-item data-action="queue" role="menuitem" href="${escapeAttribute(queueURL)}"><i class="iconoir-list w-4 h-4 flex-shrink-0" aria-hidden="true"></i><span>Queue</span></a>` : ''}
+      </div>
+    </div>
+  `;
+}
+
+function buildFamilyViewURL(path: string, filters: Partial<TranslationFamilyFilters>): string {
+  return buildFamilyContextURL(path, {
+    channel: asString(filters.channel),
+    content_type: asString(filters.contentType),
+    readiness_state: asString(filters.readinessState),
+    blocker_code: asString(filters.blockerCode),
+    missing_locale: asString(filters.missingLocale),
+  });
 }
 
 function renderFamilyListRows(
@@ -1946,7 +2857,7 @@ function renderFamilyListRows(
     const queueURL = options.queuePath ? buildFamilyQueueURL(options.queuePath, row, filters) : '';
     const title = familyDisplayTitle(row);
     return `
-      <tr class="border-b border-gray-200 last:border-0" data-family-id="${escapeAttribute(row.familyId)}">
+      <tr class="border-b border-gray-200 last:border-0" data-translation-row data-translation-row-id="${escapeAttribute(row.familyId)}">
         <td class="max-w-[22rem] px-4 py-4 align-top">
           <div class="min-w-0">
             <a href="${escapeAttribute(detailURL)}" class="font-semibold text-gray-900 hover:text-sky-700">${escapeHTML(title)}</a>
@@ -1957,7 +2868,7 @@ function renderFamilyListRows(
         <td class="px-4 py-4 align-top">${renderReadinessChip(row.readinessState)}</td>
         <td class="px-4 py-4 align-top">${renderFamilyBlockers(row)}</td>
         <td class="px-4 py-4 align-top">
-          <div class="flex flex-wrap gap-2">
+          <div class="flex flex-nowrap gap-1.5">
             ${renderFamilyMetric(row.missingRequiredLocaleCount, 'Missing', row.missingRequiredLocaleCount > 0 ? 'text-rose-700' : 'text-gray-900')}
             ${renderFamilyMetric(row.pendingReviewCount, 'Review', row.pendingReviewCount > 0 ? 'text-amber-700' : 'text-gray-900')}
             ${renderFamilyMetric(row.outdatedLocaleCount, 'Outdated', row.outdatedLocaleCount > 0 ? 'text-violet-700' : 'text-gray-900')}
@@ -1970,11 +2881,7 @@ function renderFamilyListRows(
           </div>
         </td>
         <td class="px-4 py-4 align-top">
-          <div class="flex flex-col gap-2">
-            <a href="${escapeAttribute(detailURL)}" class="${BTN_PRIMARY} text-center" data-family-primary-action="true">Open family</a>
-            ${matrixURL ? `<a href="${escapeAttribute(matrixURL)}" class="${BTN_SECONDARY} text-center">Matrix</a>` : ''}
-            ${queueURL ? `<a href="${escapeAttribute(queueURL)}" class="${BTN_GHOST} text-center">Queue</a>` : ''}
-          </div>
+          ${renderFamilyActionMenu(row, detailURL, matrixURL, queueURL)}
         </td>
       </tr>
     `;
@@ -1990,6 +2897,14 @@ function renderTranslationFamilyListTable(
   const end = Math.min(response.total, (response.page - 1) * response.perPage + response.items.length);
   const hasPrevious = response.page > 1;
   const hasNext = response.page * response.perPage < response.total;
+  const viewLinks = options.matrixPath || options.queuePath
+    ? `
+      <div class="inline-flex items-center gap-1 rounded-lg border border-gray-200 bg-white p-1" aria-label="Translation family views">
+        ${options.matrixPath ? `<a class="rounded px-2.5 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1" href="${escapeAttribute(buildFamilyViewURL(options.matrixPath, filters))}">Matrix</a>` : ''}
+        ${options.queuePath ? `<a class="rounded px-2.5 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1" href="${escapeAttribute(buildFamilyViewURL(options.queuePath, filters))}">Queue</a>` : ''}
+      </div>
+    `
+    : '';
   return `
     <section class="mt-6 rounded-lg border border-gray-200 bg-white shadow-sm" aria-labelledby="translation-family-list-results">
       <div class="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 px-4 py-3">
@@ -1997,10 +2912,11 @@ function renderTranslationFamilyListTable(
           <h2 id="translation-family-list-results" class="text-base font-semibold text-gray-900">Families</h2>
           <p class="text-sm text-gray-500">${escapeHTML(start)}-${escapeHTML(end)} of ${escapeHTML(response.total)} families</p>
         </div>
-        <div class="flex items-center gap-2">
-          <button type="button" class="${BTN_SECONDARY}" data-family-list-page="prev" ${hasPrevious ? '' : 'disabled'}>Previous</button>
+        <div class="flex flex-wrap items-center gap-2">
+          ${viewLinks}
+          <button type="button" class="${BTN_SECONDARY}" data-translation-list-page="prev" ${hasPrevious ? '' : 'disabled'}>Previous</button>
           <span class="text-sm text-gray-500">Page ${escapeHTML(response.page)}</span>
-          <button type="button" class="${BTN_SECONDARY}" data-family-list-page="next" ${hasNext ? '' : 'disabled'}>Next</button>
+          <button type="button" class="${BTN_SECONDARY}" data-translation-list-page="next" ${hasNext ? '' : 'disabled'}>Next</button>
         </div>
       </div>
       <div class="overflow-x-auto">
@@ -2158,6 +3074,14 @@ export async function initTranslationFamilyListPage(
   if (!renderOptions.familyBasePath) {
     renderOptions.familyBasePath = defaultFamilyBasePath(renderOptions.basePath);
   }
+  if (dataset.ssrEnhanced === 'true') {
+    root.dataset.translationFamilyListEnhanced = 'true';
+    initTranslationFamilyListActionMenus(root);
+    return {
+      status: 'ready',
+      filters: readFamilyListFiltersFromLocation(),
+    };
+  }
 
   let filters = readFamilyListFiltersFromLocation();
   let lastState: TranslationFamilyListLoadState | null = null;
@@ -2187,7 +3111,8 @@ function bindTranslationFamilyListPage(
   state: TranslationFamilyListLoadState,
   load: (filters: TranslationFamilyFilters, pushURL?: boolean) => Promise<TranslationFamilyListLoadState>
 ): void {
-  const form = root.querySelector<HTMLFormElement>('[data-family-list-filters="true"]');
+  initTranslationFamilyListActionMenus(root);
+  const form = root.querySelector<HTMLFormElement>('[data-translation-filter-form="true"]');
   if (form) {
     form.addEventListener('submit', (event) => {
       event.preventDefault();
@@ -2204,14 +3129,27 @@ function bindTranslationFamilyListPage(
   root.querySelector<HTMLButtonElement>('.ui-state-retry-btn')?.addEventListener('click', () => {
     void load(state.filters, false);
   });
-  root.querySelectorAll<HTMLButtonElement>('[data-family-list-page]').forEach((button) => {
+  root.querySelectorAll<HTMLButtonElement>('[data-translation-list-page]').forEach((button) => {
     button.addEventListener('click', () => {
       if (button.disabled) return;
-      const direction = button.dataset.familyListPage;
+      const direction = button.dataset.translationListPage;
       const delta = direction === 'next' ? 1 : -1;
       void load({ ...state.filters, page: Math.max(1, state.filters.page + delta) }, true);
     });
   });
+}
+
+function initTranslationFamilyListActionMenus(root: HTMLElement): void {
+  if (root.dataset.translationFamilyListActionMenusStandalone === 'true') {
+    return;
+  }
+  familyListActionMenus.get(root)?.destroy();
+  familyListActionMenus.set(root, initActionMenus(root, {
+    containerSelector: '[data-action-menu]',
+    triggerSelector: '[data-action-menu-trigger]',
+    menuSelector: '[data-action-menu-content]',
+    itemSelector: '[data-action-menu-item], [role="menuitem"], .action-item',
+  }));
 }
 
 function globalToast(kind: 'success' | 'error' | 'warning' | 'info', message: string): void {
@@ -2281,6 +3219,8 @@ interface CreateLocaleDialogConfig {
   initialLocale?: string;
   heading: string;
   submitLabel?: string;
+  assigneeOptionsBasePath?: string;
+  fetch?: typeof fetch;
   onSubmit: (input: Partial<TranslationCreateLocaleRequest>) => Promise<TranslationCreateLocaleResult>;
   onSuccess?: (result: TranslationCreateLocaleResult) => Promise<void> | void;
 }
@@ -2302,6 +3242,7 @@ function openCreateLocaleDialog(config: CreateLocaleDialogConfig): void {
   const overlay = doc.createElement('div');
   overlay.className = MODAL_OVERLAY;
   overlay.setAttribute('data-translation-create-locale-modal', 'true');
+  overlay.setAttribute('data-formgen-auto-init', 'true');
   overlay.innerHTML = `
     <div class="${MODAL_CONTENT}" role="dialog" aria-modal="true" aria-labelledby="translation-create-locale-title">
       <form class="p-6">
@@ -2336,7 +3277,12 @@ function openCreateLocaleDialog(config: CreateLocaleDialogConfig): void {
           <div data-assignment-fields="true" class="grid gap-4 rounded-xl border border-gray-200 p-6">
             <label class="grid gap-2">
               <span class="text-sm font-medium text-gray-900">Assignee</span>
-              <input type="text" name="assignee_id" value="${escapeAttribute(quickCreate.defaultAssignment.assigneeId)}" class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900">
+              ${renderAssigneeSelect({
+                key: 'create-locale',
+                name: 'assignee_id',
+                initialValue: quickCreate.defaultAssignment.assigneeId,
+                ariaLabel: 'Assignee',
+              })}
             </label>
             <label class="grid gap-2">
               <span class="text-sm font-medium text-gray-900">Priority</span>
@@ -2361,12 +3307,13 @@ function openCreateLocaleDialog(config: CreateLocaleDialogConfig): void {
     </div>
   `;
   doc.body.appendChild(overlay);
+  void initFamilyAssigneeControls(overlay, config.assigneeOptionsBasePath || '/admin/api', { fetch: config.fetch });
 
   const modalContent = overlay.querySelector<HTMLElement>('[role="dialog"]');
   const form = overlay.querySelector('form');
   const localeField = overlay.querySelector<HTMLSelectElement>('select[name="locale"]');
   const autoCreateAssignmentField = overlay.querySelector<HTMLInputElement>('input[name="auto_create_assignment"]');
-  const assigneeField = overlay.querySelector<HTMLInputElement>('input[name="assignee_id"]');
+  const assigneeField = overlay.querySelector<HTMLSelectElement>('select[name="assignee_id"]');
   const priorityField = overlay.querySelector<HTMLSelectElement>('select[name="priority"]');
   const dueDateField = overlay.querySelector<HTMLInputElement>('input[name="due_date"]');
   const assignmentFields = overlay.querySelector<HTMLElement>('[data-assignment-fields="true"]');
@@ -2404,12 +3351,18 @@ function openCreateLocaleDialog(config: CreateLocaleDialogConfig): void {
     submitButton.classList.add('opacity-60', 'cursor-not-allowed');
     const locale = asString(localeField.value).toLowerCase();
     try {
+      const autoCreateAssignment = Boolean(autoCreateAssignmentField?.checked);
+      const assignmentInput = autoCreateAssignment
+        ? {
+            assigneeId: assigneeField?.value,
+            priority: priorityField?.value,
+            dueDate: toRFC3339(dueDateField?.value || ''),
+          }
+        : {};
       const result = await config.onSubmit({
         locale,
-        autoCreateAssignment: autoCreateAssignmentField?.checked,
-        assigneeId: assigneeField?.value,
-        priority: priorityField?.value,
-        dueDate: toRFC3339(dueDateField?.value || ''),
+        autoCreateAssignment,
+        ...assignmentInput,
       });
       close();
       await config.onSuccess?.(result);
@@ -2467,6 +3420,7 @@ export function initTranslationSummaryCards(root: ParentNode = document): void {
           quickCreate: config.quickCreate,
           initialLocale: preferredLocale,
           heading: `Create ${preferredLocale.toUpperCase() || config.quickCreate.recommendedLocale.toUpperCase()} locale`,
+          assigneeOptionsBasePath: config.apiBasePath,
           onSubmit: (input) => client.createLocale(config.familyId, input),
           onSuccess: async (result) => {
             globalToast('success', `${result.locale.toUpperCase()} locale created.`);
@@ -2486,11 +3440,529 @@ export function initTranslationSummaryCards(root: ParentNode = document): void {
   });
 }
 
+function selectedLocaleAssignmentKey(root: HTMLElement, trigger: HTMLElement): string {
+  const explicit = asString(trigger.dataset.localeAssignmentKey).toLowerCase();
+  if (explicit) return explicit;
+  if (asString(trigger.dataset.localeAssignmentSource) === 'empty-panel') {
+    const select = root.querySelector<HTMLSelectElement>('[data-family-assignment-locale-select="true"]');
+    return asString(select?.value).toLowerCase();
+  }
+  return '';
+}
+
+function assignmentActionForKind(
+  localeAssignment: TranslationFamilyLocaleAssignment,
+  kind: 'self' | 'user' | 'claim'
+): TranslationFamilyAssignmentActionState {
+  switch (kind) {
+    case 'self':
+      return localeAssignment.actions.assignToMe;
+    case 'user':
+      return localeAssignment.actions.assignToUser;
+    case 'claim':
+      return localeAssignment.actions.claim;
+  }
+}
+
+function assigneeControlForAction(root: HTMLElement, key: string, trigger: HTMLElement): HTMLSelectElement | null {
+  if (asString(trigger.dataset.localeAssignmentSource) === 'empty-panel') {
+    return root.querySelector<HTMLSelectElement>('[data-family-assignee-select="__empty_panel__"]');
+  }
+  for (const input of Array.from(root.querySelectorAll<HTMLSelectElement>('[data-family-assignee-select]'))) {
+    const selectKey = asString(input.dataset.familyAssigneeSelect).toLowerCase();
+    if (selectKey === key) return input;
+  }
+  return null;
+}
+
+function formgenAssigneeValue(select: HTMLSelectElement): string {
+  if (!hasFormgenAssigneeTypeahead(select)) return '';
+  const root = select.previousElementSibling;
+  if (!(root instanceof HTMLElement)) return '';
+  const explicit = [
+    root.dataset.value,
+    root.dataset.selectedValue,
+    root.dataset.selectedId,
+    root.dataset.relationshipValue,
+  ].map(asString).find(Boolean);
+  if (explicit) return explicit;
+  const input = root.querySelector<HTMLInputElement>('input');
+  return [
+    input?.dataset.value,
+    input?.dataset.selectedValue,
+    input?.dataset.selectedId,
+    input?.dataset.relationshipValue,
+    input?.getAttribute('data-value'),
+    input?.getAttribute('data-selected-value'),
+    input?.getAttribute('data-selected-id'),
+    input?.getAttribute('data-relationship-value'),
+  ].map(asString).find(Boolean) || '';
+}
+
+function assigneeIDForAction(root: HTMLElement, key: string, trigger: HTMLElement): { select: HTMLSelectElement | null; assigneeID: string } {
+  const select = assigneeControlForAction(root, key, trigger);
+  if (!select) return { select, assigneeID: '' };
+  const selectedOptionValue = asString(select.selectedOptions[0]?.value);
+  const assigneeID = [
+    select.value,
+    selectedOptionValue,
+    select.dataset.value,
+    select.dataset.selectedValue,
+    select.dataset.initialAssigneeId,
+    formgenAssigneeValue(select),
+  ].map(asString).find(Boolean) || '';
+  return { select, assigneeID };
+}
+
+function focusAssigneeControl(select: HTMLSelectElement | null): void {
+  if (!select) return;
+  const previous = select.previousElementSibling;
+  const input = hasFormgenAssigneeTypeahead(select) && previous instanceof HTMLElement
+    ? previous.querySelector<HTMLInputElement>('input')
+    : null;
+  (input || select).focus();
+}
+
+function optionLabel(option: TranslationFamilyAssigneeOption): string {
+  return option.description && option.description !== option.label
+    ? `${option.label} - ${option.description}`
+    : option.label;
+}
+
+function populateAssigneeSelect(select: HTMLSelectElement, options: TranslationFamilyAssigneeOption[]): void {
+  const selected = asString(select.value || select.dataset.initialAssigneeId);
+  const placeholder = select.getAttribute('aria-label') || 'Assignee';
+  const next = select.ownerDocument.createDocumentFragment();
+  const emptyOption = select.ownerDocument.createElement('option');
+  emptyOption.value = '';
+  emptyOption.textContent = `Select ${placeholder.toLowerCase()}`;
+  next.appendChild(emptyOption);
+  let hasSelected = selected === '';
+  for (const option of options) {
+    const node = select.ownerDocument.createElement('option');
+    node.value = option.value;
+    node.textContent = optionLabel(option);
+    if (option.description) node.setAttribute('data-description', option.description);
+    if (option.displayName) node.setAttribute('data-display-name', option.displayName);
+    if (option.avatarURL) node.setAttribute('data-avatar-url', option.avatarURL);
+    if (selected && selected === option.value) {
+      node.selected = true;
+      hasSelected = true;
+    }
+    next.appendChild(node);
+  }
+  if (selected && !hasSelected) {
+    const fallback = select.ownerDocument.createElement('option');
+    fallback.value = selected;
+    fallback.textContent = selected;
+    fallback.selected = true;
+    next.appendChild(fallback);
+  }
+  select.replaceChildren(next);
+}
+
+function assigneeSelects(root: ParentNode): HTMLSelectElement[] {
+  return Array.from(root.querySelectorAll<HTMLSelectElement>('[data-family-assignee-select]'));
+}
+
+function formgenAssigneeSelects(root: ParentNode): HTMLSelectElement[] {
+  return assigneeSelects(root).filter((select) => select.dataset.formgenManaged === 'true');
+}
+
+function hasFormgenAssigneeTypeahead(select: HTMLSelectElement): boolean {
+  const previous = select.previousElementSibling;
+  return previous instanceof HTMLElement && previous.getAttribute('data-fg-typeahead-root') === 'true';
+}
+
+function isFormgenAssigneeReady(select: HTMLSelectElement): boolean {
+  return select.dataset.familyAssigneeFormgenReady === 'true';
+}
+
+function markReadyFormgenAssigneeSelects(root: ParentNode): void {
+  for (const select of formgenAssigneeSelects(root)) {
+    if (hasFormgenAssigneeTypeahead(select)) {
+      select.dataset.familyAssigneeFormgenReady = 'true';
+    }
+  }
+}
+
+function clearPartialFormgenAssigneeSelects(selects: HTMLSelectElement[]): void {
+  for (const select of selects) {
+    delete select.dataset.familyAssigneeFormgenReady;
+    if (hasFormgenAssigneeTypeahead(select)) {
+      select.previousElementSibling?.remove();
+    }
+  }
+}
+
+function normalizeAssigneeEndpointForFormgen(root: ParentNode, apiBasePath: string): void {
+  const normalizedAPIBase = trimTrailingSlash(apiBasePath || '/admin/api');
+  const adminBase = normalizedAPIBase.endsWith('/api')
+    ? normalizedAPIBase.slice(0, -4) || '/admin'
+    : trimTrailingSlash(normalizedAPIBase);
+  for (const select of formgenAssigneeSelects(root)) {
+    const raw = asString(select.dataset.endpointUrl);
+    if (!raw || /^https?:\/\//i.test(raw)) continue;
+    if (raw === '/api') {
+      select.dataset.endpointUrl = `${adminBase}/api`;
+      continue;
+    }
+    if (raw.startsWith('/api/')) {
+      select.dataset.endpointUrl = `${adminBase}${raw}`;
+    }
+  }
+}
+
+async function initFamilyAssigneeControls(
+  root: ParentNode,
+  apiBasePath: string,
+  options: TranslationFamilyDetailFetchOptions = {}
+): Promise<void> {
+  const managed = formgenAssigneeSelects(root);
+  if (managed.length > 0 && typeof window !== 'undefined') {
+    normalizeAssigneeEndpointForFormgen(root, apiBasePath);
+    const api = window.FormgenRelationships;
+    if (api && typeof api.initRelationships === 'function') {
+      const autoRoot = root instanceof HTMLElement ? root : null;
+      const hadAutoInit = autoRoot?.hasAttribute('data-formgen-auto-init') ?? false;
+      if (autoRoot && !hadAutoInit) {
+        autoRoot.setAttribute('data-formgen-auto-init', 'true');
+      }
+      try {
+        await api.initRelationships();
+        markReadyFormgenAssigneeSelects(root);
+      } catch {
+        clearPartialFormgenAssigneeSelects(managed);
+      } finally {
+        if (autoRoot && !hadAutoInit) {
+          autoRoot.removeAttribute('data-formgen-auto-init');
+        }
+      }
+    }
+  }
+  await hydrateFamilyAssigneeSelects(root, apiBasePath, options);
+}
+
+async function hydrateFamilyAssigneeSelects(
+  root: ParentNode,
+  basePath: string,
+  options: TranslationFamilyDetailFetchOptions = {}
+): Promise<void> {
+  const selects = assigneeSelects(root)
+    .filter((select) => !isFormgenAssigneeReady(select));
+  if (selects.length === 0) return;
+  const selectedValues = selects.map((select) => asString(select.dataset.initialAssigneeId || select.value)).filter(Boolean);
+  try {
+    const assignees = await fetchAssigneeOptions(basePath, selectedValues, options);
+    for (const select of selects) {
+      populateAssigneeSelect(select, assignees);
+    }
+  } catch {
+    for (const select of selects) {
+      const selected = asString(select.dataset.initialAssigneeId || select.value);
+      select.replaceChildren();
+      const option = select.ownerDocument.createElement('option');
+      option.value = selected;
+      option.textContent = selected || 'Assignees unavailable';
+      option.selected = true;
+      select.appendChild(option);
+      if (!selected) select.disabled = true;
+      select.setAttribute('title', 'Assignee options are unavailable.');
+    }
+  }
+}
+
+function setEmptyPanelControlAvailability(
+  element: HTMLElement | null,
+  enabled: boolean,
+  reason = ''
+): void {
+  if (!element) return;
+  if ('disabled' in element) {
+    (element as HTMLButtonElement | HTMLInputElement | HTMLSelectElement).disabled = !enabled;
+  }
+  element.classList.toggle('opacity-60', !enabled);
+  element.classList.toggle('cursor-not-allowed', !enabled);
+  if (enabled) {
+    element.removeAttribute('aria-disabled');
+    element.removeAttribute('title');
+  } else {
+    element.setAttribute('aria-disabled', 'true');
+    element.setAttribute('title', reason || 'Assignment action is unavailable.');
+  }
+}
+
+function syncEmptyAssignmentPanelControls(root: HTMLElement): void {
+  const select = root.querySelector<HTMLSelectElement>('[data-family-assignment-locale-select="true"]');
+  if (!select) return;
+  const selected = select.selectedOptions[0];
+  const assignToMeEnabled = asString(selected?.dataset.assignToMeEnabled) === 'true';
+  const assignToUserEnabled = asString(selected?.dataset.assignToUserEnabled) === 'true';
+  const assignToMeReason = asString(selected?.dataset.assignToMeReason);
+  const assignToUserReason = asString(selected?.dataset.assignToUserReason);
+  setEmptyPanelControlAvailability(
+    root.querySelector<HTMLElement>('[data-family-assign-to-me="true"][data-locale-assignment-source="empty-panel"]'),
+    assignToMeEnabled,
+    assignToMeReason
+  );
+  setEmptyPanelControlAvailability(
+    root.querySelector<HTMLElement>('[data-family-assign-to-user="true"][data-locale-assignment-source="empty-panel"]'),
+    assignToUserEnabled,
+    assignToUserReason
+  );
+  setEmptyPanelControlAvailability(
+    root.querySelector<HTMLElement>('[data-family-assignee-select="__empty_panel__"]'),
+    assignToUserEnabled,
+    assignToUserReason
+  );
+}
+
+function assignmentActionFromSSRButton(button: HTMLButtonElement, apiBasePath: string): TranslationFamilyAssignmentActionState {
+  const assignmentId = asString(button.dataset.assignmentId);
+  const action = asString(button.dataset.familyAssignmentAction);
+  const expectedVersion = asNumber(button.dataset.rowVersion, 0);
+  return {
+    enabled: !button.disabled && button.getAttribute('aria-disabled') !== 'true',
+    permission: '',
+    endpoint: assignmentId && action
+      ? `${trimTrailingSlash(apiBasePath)}/translations/assignments/${encodeURIComponent(assignmentId)}/actions/${encodeURIComponent(action)}`
+      : '',
+    href: '',
+    label: button.textContent?.trim() || action,
+    reason: button.getAttribute('title') || '',
+    reasonCode: '',
+    requiredFields: [],
+    payload: {},
+    assignmentId,
+    expectedVersion,
+  };
+}
+
+function selectedLocaleAssignmentOption(root: HTMLElement, trigger: HTMLElement): HTMLOptionElement | null {
+  if (asString(trigger.dataset.localeAssignmentSource) !== 'empty-panel') return null;
+  const select = root.querySelector<HTMLSelectElement>('[data-family-assignment-locale-select="true"]');
+  return select?.selectedOptions[0] ?? null;
+}
+
+function assignmentActionFromSSRLocaleControl(
+  root: HTMLElement,
+  button: HTMLButtonElement,
+  kind: 'self' | 'user' | 'claim'
+): TranslationFamilyAssignmentActionState {
+  const selected = selectedLocaleAssignmentOption(root, button);
+  const targetLocale = asString(button.dataset.assignmentTargetLocale || selected?.dataset.assignmentTargetLocale);
+  const workScope = asString(button.dataset.assignmentWorkScope || selected?.dataset.assignmentWorkScope);
+  const endpoint = kind === 'self'
+    ? asString(button.dataset.assignmentEndpoint || selected?.dataset.assignToMeEndpoint || selected?.dataset.assignmentEndpoint)
+    : kind === 'user'
+      ? asString(button.dataset.assignmentEndpoint || selected?.dataset.assignToUserEndpoint || selected?.dataset.assignmentEndpoint)
+      : asString(button.dataset.assignmentEndpoint);
+  const assignmentId = asString(button.dataset.assignmentId);
+  const expectedVersion = asNumber(button.dataset.rowVersion, 0);
+  const payload: Record<string, unknown> = {};
+  if (targetLocale) payload.target_locale = targetLocale;
+  if (workScope) payload.work_scope = workScope;
+  if (kind === 'self') {
+    const assigneeID = asString(button.dataset.assignmentAssigneeId || selected?.dataset.assignToMeAssigneeId);
+    if (assigneeID) payload.assignee_id = assigneeID;
+  }
+  let reason = button.getAttribute('title') || '';
+  if (!endpoint) {
+    reason = reason || 'Assignment action endpoint is unavailable.';
+  } else if ((kind === 'self' || kind === 'user') && !targetLocale) {
+    reason = reason || 'Assignment target locale is unavailable.';
+  } else if (kind === 'self' && !asString(payload.assignee_id)) {
+    reason = reason || 'Self-assignment payload is unavailable.';
+  }
+  return {
+    enabled: !button.disabled && button.getAttribute('aria-disabled') !== 'true' && !reason,
+    permission: '',
+    endpoint,
+    href: '',
+    label: button.textContent?.trim() || kind,
+    reason,
+    reasonCode: '',
+    requiredFields: [],
+    payload,
+    assignmentId,
+    expectedVersion,
+  };
+}
+
+async function bindTranslationFamilyDetailSSRPage(
+  root: HTMLElement,
+  endpoint: string,
+  renderOptions: TranslationFamilyDetailRenderOptions,
+  options: TranslationFamilyDetailRenderOptions & {
+    endpoint?: string;
+    fetch?: typeof fetch;
+    enhancedAction?: Pick<EnhancedActionRuntimeOptions, 'requestHeader' | 'requestHeaderValue' | 'request_header' | 'request_header_value' | 'accept'>;
+  }
+): Promise<TranslationFamilyDetailLoadState> {
+  const apiBasePath = deriveFamilyAPIBasePath(endpoint, renderOptions.basePath || '/admin');
+  const familyId = asString(root.dataset.familyId);
+  const channel = translationFamilyDetailChannel(endpoint) || asString(root.dataset.channel);
+  const client = createTranslationFamilyClient({ basePath: apiBasePath, fetch: options.fetch });
+
+  await initFamilyAssigneeControls(root, apiBasePath, { fetch: options.fetch });
+  if (root.dataset.translationEnhancedActionsBound !== 'true') {
+    root.dataset.translationEnhancedActionsBound = 'true';
+    initEnhancedActions(root, {
+      fetch: options.fetch,
+      ...options.enhancedAction,
+      onFragmentsApplied: async () => {
+        await initFamilyAssigneeControls(root, apiBasePath, { fetch: options.fetch });
+        syncEmptyAssignmentPanelControls(root);
+      },
+    });
+  }
+  syncEmptyAssignmentPanelControls(root);
+  root.querySelector<HTMLSelectElement>('[data-family-assignment-locale-select="true"]')?.addEventListener('change', () => {
+    syncEmptyAssignmentPanelControls(root);
+  });
+
+  root.querySelectorAll<HTMLButtonElement>('[data-translation-create-locale-trigger="true"]').forEach((button) => {
+    if (button.dataset.translationCreateBound === 'true') return;
+    button.dataset.translationCreateBound = 'true';
+    button.addEventListener('click', async (event) => {
+      event.preventDefault();
+      if (button.disabled || button.getAttribute('aria-disabled') === 'true') {
+        globalToast('warning', button.getAttribute('title') || 'Locale creation is unavailable.');
+        return;
+      }
+      button.disabled = true;
+      button.classList.add('opacity-60', 'cursor-not-allowed');
+      try {
+        const state = await fetchTranslationFamilyDetailState(endpoint, { fetch: options.fetch });
+        if (state.status !== 'ready' || !state.detail) {
+          globalToast('error', state.message || 'Translation family detail is unavailable.');
+          return;
+        }
+        const locale = asString(button.dataset.locale).toLowerCase() || state.detail.quickCreate.recommendedLocale || '';
+        openCreateLocaleDialog({
+          familyId: state.detail.familyId || familyId,
+          quickCreate: quickCreateHintsForFamilyLocale(state.detail, locale),
+          initialLocale: locale,
+          heading: `Create ${locale.toUpperCase()} locale`,
+          assigneeOptionsBasePath: apiBasePath,
+          fetch: options.fetch,
+          onSubmit: (input) => client.createLocale(state.detail?.familyId || familyId, { ...input, channel }),
+          onSuccess: async (result) => {
+            globalToast('success', `${result.locale.toUpperCase()} locale created.`);
+            if (typeof window !== 'undefined') {
+              window.location.reload();
+            }
+          },
+        });
+      } catch (error) {
+        globalToast('error', error instanceof Error ? error.message : 'Failed to open locale creation.');
+      } finally {
+        button.disabled = false;
+        button.classList.remove('opacity-60', 'cursor-not-allowed');
+      }
+    });
+  });
+
+  const runLocaleAssignmentAction = async (
+    button: HTMLButtonElement,
+    kind: 'self' | 'user' | 'claim'
+  ): Promise<void> => {
+    const action = assignmentActionFromSSRLocaleControl(root, button, kind);
+    if (!action.enabled) {
+      globalToast('warning', action.reason || 'Assignment action is unavailable.');
+      return;
+    }
+    const payload: Record<string, unknown> = {};
+    if (kind === 'user') {
+      const key = selectedLocaleAssignmentKey(root, button);
+      const { select, assigneeID } = assigneeIDForAction(root, key, button);
+      if (!assigneeID) {
+        globalToast('warning', 'Assignee is required.');
+        focusAssigneeControl(select);
+        return;
+      }
+      payload.assignee_id = assigneeID;
+    }
+    if (channel) {
+      payload.channel = channel;
+    }
+    button.disabled = true;
+    button.classList.add('opacity-60', 'cursor-not-allowed');
+    try {
+      await postTranslationFamilyAssignmentAction(action, payload, { fetch: options.fetch });
+      globalToast('success', kind === 'claim' ? 'Assignment claimed.' : 'Assignment updated.');
+      if (typeof window !== 'undefined') {
+        window.location.reload();
+      }
+    } catch (error) {
+      globalToast('error', error instanceof Error ? error.message : 'Failed to update assignment.');
+      button.disabled = false;
+      button.classList.remove('opacity-60', 'cursor-not-allowed');
+    }
+  };
+
+  root.querySelectorAll<HTMLButtonElement>('[data-family-assign-to-me="true"]').forEach((button) => {
+    if (button.dataset.translationAssignmentBound === 'true') return;
+    button.dataset.translationAssignmentBound = 'true';
+    button.addEventListener('click', (event) => {
+      event.preventDefault();
+      void runLocaleAssignmentAction(button, 'self');
+    });
+  });
+
+  root.querySelectorAll<HTMLButtonElement>('[data-family-assign-to-user="true"]').forEach((button) => {
+    if (button.dataset.translationAssignmentBound === 'true') return;
+    button.dataset.translationAssignmentBound = 'true';
+    button.addEventListener('click', (event) => {
+      event.preventDefault();
+      void runLocaleAssignmentAction(button, 'user');
+    });
+  });
+
+  root.querySelectorAll<HTMLButtonElement>('[data-family-claim-assignment="true"]').forEach((button) => {
+    if (button.dataset.translationAssignmentBound === 'true') return;
+    button.dataset.translationAssignmentBound = 'true';
+    button.addEventListener('click', (event) => {
+      event.preventDefault();
+      void runLocaleAssignmentAction(button, 'claim');
+    });
+  });
+
+  root.querySelectorAll<HTMLButtonElement>('[data-family-assignment-action]').forEach((button) => {
+    if (button.dataset.translationAssignmentBound === 'true') return;
+    button.dataset.translationAssignmentBound = 'true';
+    button.addEventListener('click', async (event) => {
+      event.preventDefault();
+      const action = assignmentActionFromSSRButton(button, apiBasePath);
+      if (!action.enabled) {
+        globalToast('warning', action.reason || 'Assignment action is unavailable.');
+        return;
+      }
+      button.disabled = true;
+      button.classList.add('opacity-60', 'cursor-not-allowed');
+      try {
+        await postTranslationFamilyAssignmentAction(action, channel ? { channel } : {}, { fetch: options.fetch });
+        globalToast('success', action.label ? `${action.label} complete.` : 'Assignment updated.');
+        if (typeof window !== 'undefined') {
+          window.location.reload();
+        }
+      } catch (error) {
+        globalToast('error', error instanceof Error ? error.message : 'Failed to update assignment.');
+        button.disabled = false;
+        button.classList.remove('opacity-60', 'cursor-not-allowed');
+      }
+    });
+  });
+
+  return { status: 'ready' };
+}
+
 export async function initTranslationFamilyDetailPage(
   root: HTMLElement | null,
   options: TranslationFamilyDetailRenderOptions & {
     endpoint?: string;
     fetch?: typeof fetch;
+    enhancedAction?: Pick<EnhancedActionRuntimeOptions, 'requestHeader' | 'requestHeaderValue' | 'request_header' | 'request_header_value' | 'accept'>;
   } = {}
 ): Promise<TranslationFamilyDetailLoadState | null> {
   if (!root) return null;
@@ -2500,15 +3972,20 @@ export async function initTranslationFamilyDetailPage(
     basePath: asString(options.basePath || dataset.basePath || '/admin'),
     contentBasePath: asString(options.contentBasePath || dataset.contentBasePath),
   };
+  if (dataset.ssrEnhanced === 'true') {
+    return bindTranslationFamilyDetailSSRPage(root, endpoint, renderOptions, options);
+  }
 
   renderTranslationFamilyDetailPage(root, { status: 'loading' }, renderOptions);
   const state = await fetchTranslationFamilyDetailState(endpoint, { fetch: options.fetch });
   renderTranslationFamilyDetailPage(root, state, renderOptions);
+  const channel = translationFamilyDetailChannel(endpoint);
 
   if (typeof (root as HTMLElement).querySelector === 'function') {
     if (state.status === 'ready' && state.detail) {
       const apiBasePath = `${trimTrailingSlash(renderOptions.basePath || '/admin')}/api`;
       const client = createTranslationFamilyClient({ basePath: apiBasePath, fetch: options.fetch });
+      await initFamilyAssigneeControls(root as HTMLElement, apiBasePath, { fetch: options.fetch });
       (root as HTMLElement).querySelectorAll<HTMLElement>('[data-family-create-locale="true"]').forEach((button) => {
         if (button.dataset.translationCreateBound === 'true') return;
         button.dataset.translationCreateBound = 'true';
@@ -2524,17 +4001,91 @@ export async function initTranslationFamilyDetailPage(
             return;
           }
           const locale = asString(button.dataset.locale).toLowerCase() || detail.quickCreate.recommendedLocale || '';
+          const quickCreate = quickCreateHintsForFamilyLocale(detail, locale);
           openCreateLocaleDialog({
             familyId: detail.familyId,
-            quickCreate: detail.quickCreate,
+            quickCreate,
             initialLocale: locale,
             heading: `Create ${locale.toUpperCase()} locale`,
-            onSubmit: (input) => client.createLocale(detail.familyId, input),
+            assigneeOptionsBasePath: apiBasePath,
+            fetch: options.fetch,
+            onSubmit: (input) => client.createLocale(detail.familyId, { ...input, channel }),
             onSuccess: async (result) => {
               globalToast('success', `${result.locale.toUpperCase()} locale created.`);
               await initTranslationFamilyDetailPage(root as HTMLElement, { ...options, ...renderOptions, endpoint });
             },
           });
+        });
+      });
+
+	      const runLocaleAssignmentAction = async (
+        button: HTMLButtonElement,
+        kind: 'self' | 'user' | 'claim'
+      ): Promise<void> => {
+        const detail = state.detail;
+        if (!detail) {
+          globalToast('error', 'Translation family detail is unavailable.');
+          return;
+        }
+        const key = selectedLocaleAssignmentKey(root as HTMLElement, button);
+        const localeAssignment = key ? detail.localeAssignments[key] : null;
+        if (!localeAssignment) {
+          globalToast('error', 'Assignment action metadata is unavailable.');
+          return;
+        }
+        const action = assignmentActionForKind(localeAssignment, kind);
+        if (!action.enabled) {
+          globalToast('warning', action.reason || 'Assignment action is unavailable.');
+          return;
+        }
+        const payload: Record<string, unknown> = {};
+        if (kind === 'user') {
+          const { select, assigneeID } = assigneeIDForAction(root as HTMLElement, key, button);
+          if (!assigneeID) {
+            globalToast('warning', 'Assignee is required.');
+            focusAssigneeControl(select);
+            return;
+          }
+          payload.assignee_id = assigneeID;
+        }
+        if (channel) {
+          payload.channel = channel;
+        }
+        button.disabled = true;
+        button.classList.add('opacity-60', 'cursor-not-allowed');
+        try {
+          await postTranslationFamilyAssignmentAction(action, payload, { fetch: options.fetch });
+          globalToast('success', kind === 'claim' ? 'Assignment claimed.' : 'Assignment updated.');
+          await initTranslationFamilyDetailPage(root as HTMLElement, { ...options, ...renderOptions, endpoint });
+        } catch (error) {
+          const message = error instanceof Error ? error.message : 'Failed to update assignment.';
+          globalToast('error', message);
+          button.disabled = false;
+          button.classList.remove('opacity-60', 'cursor-not-allowed');
+        }
+	      };
+
+	      syncEmptyAssignmentPanelControls(root as HTMLElement);
+	      (root as HTMLElement).querySelector<HTMLSelectElement>('[data-family-assignment-locale-select="true"]')?.addEventListener('change', () => {
+	        syncEmptyAssignmentPanelControls(root as HTMLElement);
+	      });
+
+	      (root as HTMLElement).querySelectorAll<HTMLButtonElement>('[data-family-assign-to-me="true"]').forEach((button) => {
+        button.addEventListener('click', (event) => {
+          event.preventDefault();
+          void runLocaleAssignmentAction(button, 'self');
+        });
+      });
+      (root as HTMLElement).querySelectorAll<HTMLButtonElement>('[data-family-assign-to-user="true"]').forEach((button) => {
+        button.addEventListener('click', (event) => {
+          event.preventDefault();
+          void runLocaleAssignmentAction(button, 'user');
+        });
+      });
+      (root as HTMLElement).querySelectorAll<HTMLButtonElement>('[data-family-claim-assignment="true"]').forEach((button) => {
+        button.addEventListener('click', (event) => {
+          event.preventDefault();
+          void runLocaleAssignmentAction(button, 'claim');
         });
       });
     }
@@ -2636,16 +4187,44 @@ export function createTranslationFamilyClient(options: TranslationFamilyClientOp
         familyId,
         basePath,
       });
-      const response = await fetchImpl(action.endpoint, {
+      const headers = new Headers(action.headers);
+      const init: RequestInit = {
         method: 'POST',
-        headers: action.headers,
+        credentials: 'same-origin',
+        headers,
         body: JSON.stringify(serializeCreateLocaleRequest(action.request)),
-      });
+      };
+      appendCSRFHeader(action.endpoint, init, headers);
+      const response = await fetchImpl(action.endpoint, init);
       if (!response.ok) {
         throw await createLocaleErrorFromResponse(response);
       }
       const payload = await readTranslationFamilyClientRecord(response);
       return normalizeCreateLocaleResult(payload);
+    },
+
+    async createAssignment(familyId, input = {}) {
+      const request = createTranslationFamilyAssignmentRequest(input);
+      const endpoint = buildFamilyAssignmentURL(basePath, familyId, request.channel);
+      const headers = new Headers({
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+      });
+      if (request.idempotencyKey) {
+        headers.set('X-Idempotency-Key', request.idempotencyKey);
+      }
+      const init: RequestInit = {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers,
+        body: JSON.stringify(serializeFamilyAssignmentRequest(request)),
+      };
+      appendCSRFHeader(endpoint, init, headers);
+      const response = await fetchImpl(endpoint, init);
+      if (!response.ok) {
+        throw await assignmentActionErrorFromResponse(response);
+      }
+      return readTranslationFamilyClientRecord(response);
     },
   };
 }

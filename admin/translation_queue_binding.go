@@ -2523,12 +2523,21 @@ func (b *translationQueueBinding) assignmentRepository() (TranslationAssignmentR
 
 func (b *translationQueueBinding) assignmentContractRow(ctx context.Context, assignment TranslationAssignment, now time.Time, environment string, actorLabels map[string]string) map[string]any {
 	row := translationQueueAssignmentContractRow(assignment, now)
-	if label := actorLabels[strings.TrimSpace(assignment.AssigneeID)]; label != "" {
-		row["assignee_label"] = label
+	assigneeID := strings.TrimSpace(assignment.AssigneeID)
+	assigneeLabel := strings.TrimSpace(actorLabels[assigneeID])
+	if assigneeLabel != "" {
+		row["assignee_label"] = assigneeLabel
+	}
+	if displayAssignee := strings.TrimSpace(firstNonEmpty(assigneeLabel, assigneeID)); displayAssignee != "" {
+		row["display_assignee"] = displayAssignee
 	}
 	reviewerID := strings.TrimSpace(firstNonEmpty(assignment.ReviewerID, assignment.LastReviewerID))
-	if label := actorLabels[reviewerID]; label != "" {
-		row["reviewer_label"] = label
+	reviewerLabel := strings.TrimSpace(actorLabels[reviewerID])
+	if reviewerLabel != "" {
+		row["reviewer_label"] = reviewerLabel
+	}
+	if displayReviewer := strings.TrimSpace(firstNonEmpty(reviewerLabel, reviewerID)); displayReviewer != "" {
+		row["display_reviewer"] = displayReviewer
 	}
 	row["actions"] = b.assignmentActionStates(ctx, assignment)
 	row["review_actions"] = b.reviewActionStates(ctx, assignment)
@@ -3133,6 +3142,7 @@ func translationQueueAssignmentContractRow(assignment TranslationAssignment, now
 	row := map[string]any{
 		"id":               strings.TrimSpace(assignment.ID),
 		"family_id":        strings.TrimSpace(assignment.FamilyID),
+		"variant_id":       strings.TrimSpace(assignment.VariantID),
 		"entity_type":      strings.TrimSpace(assignment.EntityType),
 		"source_record_id": strings.TrimSpace(assignment.SourceRecordID),
 		"target_record_id": strings.TrimSpace(assignment.TargetRecordID),
@@ -3142,6 +3152,7 @@ func translationQueueAssignmentContractRow(assignment TranslationAssignment, now
 		"source_title":     strings.TrimSpace(assignment.SourceTitle),
 		"source_path":      strings.TrimSpace(assignment.SourcePath),
 		"assignee_id":      strings.TrimSpace(assignment.AssigneeID),
+		"assigner_id":      strings.TrimSpace(assignment.AssignerID),
 		"reviewer_id":      strings.TrimSpace(firstNonEmpty(assignment.ReviewerID, assignment.LastReviewerID)),
 		"assignment_type":  strings.TrimSpace(string(assignment.AssignmentType)),
 		"content_state":    contentState,
@@ -3153,6 +3164,9 @@ func translationQueueAssignmentContractRow(assignment TranslationAssignment, now
 		"version":          assignment.Version,
 		"updated_at":       assignment.UpdatedAt,
 		"created_at":       assignment.CreatedAt,
+	}
+	if assignment.AssignedAt != nil {
+		row["assigned_at"] = assignment.AssignedAt
 	}
 	if assignment.DueDate != nil {
 		row["due_date"] = assignment.DueDate

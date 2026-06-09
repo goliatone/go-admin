@@ -187,6 +187,24 @@ func ReviewAggregateCountKeys() []string {
 	}
 }
 
+func AssignmentPresetQuery(presetID string) map[string]string {
+	presetID = strings.TrimSpace(presetID)
+	if presetID == "" {
+		return nil
+	}
+	for _, preset := range append(SavedFilterPresets(), SavedReviewFilterPresets()...) {
+		if assignmentPresetString(preset["id"]) != presetID {
+			continue
+		}
+		query := assignmentPresetQueryMap(preset)
+		if len(query) == 0 {
+			return nil
+		}
+		return query
+	}
+	return nil
+}
+
 func DefaultSortContract() map[string]any {
 	return map[string]any{
 		"key":   "updated_at",
@@ -195,12 +213,7 @@ func DefaultSortContract() map[string]any {
 }
 
 func AssignmentFilterFromQuery(query func(string) string, actorID, tenantID, orgID string) AssignmentListFilter {
-	get := func(key string) string {
-		if query == nil {
-			return ""
-		}
-		return query(key)
-	}
+	get := AssignmentQueryWithPreset(query)
 	filter := AssignmentListFilter{
 		Status:      strings.TrimSpace(strings.ToLower(get("status"))),
 		AssigneeID:  ResolveActorFilter(get("assignee_id"), actorID),
@@ -232,6 +245,54 @@ func AssignmentFilterFromQuery(query func(string) string, actorID, tenantID, org
 		filter.Status = "in_review"
 	}
 	return filter
+}
+
+func AssignmentQueryWithPreset(query func(string) string) func(string) string {
+	raw := func(key string) string {
+		if query == nil {
+			return ""
+		}
+		return query(key)
+	}
+	presetQuery := AssignmentPresetQuery(raw("preset"))
+	return func(key string) string {
+		if value := strings.TrimSpace(raw(key)); value != "" {
+			return value
+		}
+		if len(presetQuery) == 0 {
+			return ""
+		}
+		return presetQuery[strings.TrimSpace(key)]
+	}
+}
+
+func assignmentPresetQueryMap(preset map[string]any) map[string]string {
+	query := map[string]string{}
+	if raw, ok := preset["query"].(map[string]any); ok {
+		for key, value := range raw {
+			key = strings.TrimSpace(key)
+			if key == "" {
+				continue
+			}
+			if encoded := assignmentPresetString(value); encoded != "" {
+				query[key] = encoded
+			}
+		}
+	}
+	if reviewState := assignmentPresetString(preset["review_state"]); reviewState != "" {
+		query["review_state"] = reviewState
+	}
+	if len(query) == 0 {
+		return nil
+	}
+	return query
+}
+
+func assignmentPresetString(value any) string {
+	if value == nil {
+		return ""
+	}
+	return strings.TrimSpace(fmt.Sprint(value))
 }
 
 func ResolveActorFilter(value, actorID string) string {

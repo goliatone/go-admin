@@ -42,6 +42,19 @@ func TranslationFamiliesRouteStep(ctx BootCtx) error {
 			}),
 		},
 		{
+			Method: "POST",
+			Path:   routePath(ctx, ctx.AdminAPIGroup(), "translations.families.assignments"),
+			Handler: withFeatureGate(responder, gates, FeatureTranslationQueue, func(c router.Context) error {
+				if enhanced, ok := binding.(interface {
+					CreateAssignmentMutation(router.Context, string) error
+				}); ok {
+					return enhanced.CreateAssignmentMutation(c, c.Param("family_id"))
+				}
+				payload, err := binding.CreateAssignment(c, c.Param("family_id"))
+				return writeJSONOrError(responder, c, payload, err)
+			}),
+		},
+		{
 			Method: "GET",
 			Path:   routePath(ctx, ctx.AdminAPIGroup(), "translations.matrix"),
 			Handler: withFeatureGate(responder, gates, FeatureCMS, func(c router.Context) error {

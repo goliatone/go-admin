@@ -3,19 +3,7 @@
 {% block title %}Translation Dashboard - {{ title }}{% endblock %}
 
 {% block content %}
-<header class="px-8 py-6 bg-white border-b border-gray-200">
-  <div class="flex flex-wrap items-center justify-between gap-4">
-    <div>
-      {% include "partials/breadcrumbs.html" with breadcrumbs=breadcrumbs %}
-      <p class="text-xs font-semibold uppercase tracking-wider text-gray-500">Translations</p>
-      <h1 class="mt-2 text-3xl font-bold text-admin-dark">Translation Dashboard</h1>
-      <p class="text-sm text-gray-500 mt-1">Monitor queue health, overdue work, and readiness blockers.</p>
-    </div>
-    <div id="dashboard-header-actions" class="flex items-center gap-3">
-      <!-- Header actions mount here via JS -->
-    </div>
-  </div>
-</header>
+{% include "partials/admin-page-header.html" with page_title="Translation Dashboard" page_subtitle="Monitor queue health, overdue work, and readiness blockers." header_actions_id="dashboard-header-actions" %}
 
 <div class="flex-1 overflow-y-auto bg-gray-50 p-8">
   <div class="mx-auto">
@@ -24,7 +12,300 @@
          data-queue-endpoint="{{ translation_queue_api_path|default:"" }}"
          data-families-endpoint="{{ translation_families_api_path|default:"" }}"
          data-title="Translation Dashboard"
-         data-refresh-interval="30000">
+         data-refresh-interval="{{ translation_dashboard_ssr.Meta.refresh_interval_ms|default:"30000" }}"
+         data-ssr-enhanced="true"
+         data-channel="{{ translation_dashboard_ssr.Meta.channel|default:"" }}"
+         data-translation-surface="dashboard">
+      {% if translation_dashboard_ssr.ErrorState %}
+      <section class="rounded-lg border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900" data-translation-ssr-error="true">
+        <h2 class="text-base font-semibold">{{ translation_dashboard_ssr.ErrorState.title|default:"Translation data unavailable" }}</h2>
+        <p class="mt-1">{{ translation_dashboard_ssr.ErrorState.description|default:"Dashboard metrics could not be loaded server-side." }}</p>
+      </section>
+      {% else %}
+      <div class="translation-dashboard-ssr space-y-4" data-translation-dashboard-ssr="true">
+        <section class="rounded-xl border border-gray-200 bg-white shadow-sm" aria-label="Translation dashboard operations workspace" data-translation-toolbar>
+          <div class="grid gap-6 border-b border-gray-200 p-5 lg:grid-cols-[minmax(0,1fr)_28rem]">
+            <div>
+              <p class="text-xs font-semibold uppercase tracking-wider text-gray-500">Manager monitoring</p>
+              <h2 class="mt-2 text-xl font-semibold text-gray-900">Queue health and publish blockers</h2>
+              <p class="mt-2 max-w-3xl text-sm leading-6 text-gray-500">
+                Track overdue work, review backlog, and family readiness without rebuilding aggregate state in the browser.
+              </p>
+            </div>
+            <div class="flex flex-col items-start gap-3 lg:items-end">
+              <p class="text-xs font-semibold uppercase tracking-wider text-gray-500">
+                Last updated {{ translation_dashboard_ssr.Data.display.generated_label|default:translation_dashboard_ssr.Meta.generated_at|default:translation_dashboard_ssr.Data.generated|default:"now" }}
+              </p>
+              <a class="btn btn-primary" data-translation-refresh href="{{ translation_dashboard_ssr.Links.dashboard|default:"/admin/translations/dashboard" }}">Refresh dashboard</a>
+            </div>
+          </div>
+          <div class="flex flex-wrap items-center justify-between gap-3 bg-gray-50 px-5 py-3 text-xs text-gray-600">
+            <div class="flex flex-wrap items-center gap-2">
+              <span class="inline-flex items-center gap-1.5 rounded-md border border-gray-200 bg-white px-2.5 py-1 font-medium" title="Dashboard channel">
+                <i class="iconoir-globe text-gray-400" aria-hidden="true"></i>
+                {{ translation_dashboard_ssr.Meta.channel|default:"default" }}
+              </span>
+              <span class="inline-flex items-center gap-1.5 rounded-md border border-gray-200 bg-white px-2.5 py-1 font-medium" title="Refresh interval">
+                <i class="iconoir-clock text-gray-400" aria-hidden="true"></i>
+                {{ translation_dashboard_ssr.Data.display.refresh_interval_label|default:"30s" }}
+              </span>
+              <span class="inline-flex items-center gap-1.5 rounded-md border border-gray-200 bg-white px-2.5 py-1 font-medium" title="Latency target">
+                <i class="iconoir-info-circle text-gray-400" aria-hidden="true"></i>
+                {{ translation_dashboard_ssr.Data.display.latency_target_label|default:"300ms" }}
+              </span>
+            </div>
+            <button type="button"
+                    class="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium text-gray-600 hover:bg-white hover:text-gray-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1 transition-colors"
+                    data-translation-disclosure="details"
+                    aria-expanded="false">
+              <i class="iconoir-info-circle" aria-hidden="true"></i>
+              <span>Details</span>
+              <i class="iconoir-nav-arrow-down text-gray-400 transition-transform duration-200" data-translation-disclosure-icon aria-hidden="true"></i>
+            </button>
+          </div>
+          <div class="hidden border-t border-gray-200 bg-white px-5 py-4 text-xs text-gray-600" data-translation-disclosure-panel="details" hidden>
+            <dl class="grid gap-3 sm:grid-cols-3">
+              <div>
+                <dt class="font-semibold uppercase tracking-wider text-gray-500">Generated</dt>
+                <dd class="mt-1 text-gray-900">{{ translation_dashboard_ssr.Data.display.generated_label|default:translation_dashboard_ssr.Meta.generated_at|default:translation_dashboard_ssr.Data.generated|default:"now" }}</dd>
+              </div>
+              <div>
+                <dt class="font-semibold uppercase tracking-wider text-gray-500">Channel</dt>
+                <dd class="mt-1 text-gray-900">{{ translation_dashboard_ssr.Meta.channel|default:"default" }}</dd>
+              </div>
+              <div>
+                <dt class="font-semibold uppercase tracking-wider text-gray-500">Target</dt>
+                <dd class="mt-1 text-gray-900">{{ translation_dashboard_ssr.Data.display.latency_target_label|default:"300ms" }} latency</dd>
+              </div>
+            </dl>
+          </div>
+        </section>
+
+        {% if translation_dashboard_ssr.Data.alerts %}
+        <section class="overflow-hidden rounded-xl border border-rose-200 bg-rose-50 text-sm text-rose-800 shadow-sm" aria-label="Translation dashboard alerts">
+          <button type="button"
+                  class="flex w-full items-center justify-between gap-3 px-5 py-3 text-left hover:bg-rose-100/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:ring-inset transition-colors"
+                  data-translation-disclosure="alerts"
+                  aria-expanded="false">
+            <div class="flex flex-wrap items-center gap-2">
+              <i class="iconoir-warning-triangle text-rose-600" aria-hidden="true"></i>
+              <span class="font-semibold text-rose-900">{{ translation_dashboard_ssr.Data.alert_summary.label|default:translation_dashboard_ssr.Data.alerts|length|default:"0 alerts" }}</span>
+              {% for alert_chip in translation_dashboard_ssr.Data.alert_summary.chips %}
+              <span class="rounded-md bg-white/80 px-2 py-0.5 text-xs font-medium text-rose-700">
+                {{ alert_chip.label|default:"Action" }}
+              </span>
+              {% endfor %}
+            </div>
+            <i class="iconoir-nav-arrow-down text-rose-400 transition-transform duration-200" data-translation-disclosure-icon aria-hidden="true"></i>
+          </button>
+          <div class="hidden border-t border-rose-200 bg-rose-50/50 px-5 py-4" data-translation-disclosure-panel="alerts" hidden>
+            <ul class="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              {% for alert in translation_dashboard_ssr.Data.alerts %}
+              <li class="flex items-start gap-2 rounded-lg bg-white/70 px-3 py-2.5 text-xs">
+                <i class="iconoir-warning-circle text-rose-500 flex-shrink-0 mt-0.5" aria-hidden="true"></i>
+                <div>
+                  <span class="font-semibold text-rose-900">{{ alert.display_label|default:"Action" }}</span>
+                  {% if alert.card_id or alert.cardId %}
+                  <span class="ml-1 text-rose-600">{{ alert.display_card_label|default:alert.card_id|default:alert.cardId }}</span>
+                  {% endif %}
+                </div>
+              </li>
+              {% endfor %}
+            </ul>
+          </div>
+        </section>
+        {% endif %}
+
+        {% if translation_dashboard_ssr.Data.cards %}
+        <section class="grid gap-4 md:grid-cols-2 xl:grid-cols-5" aria-label="Translation dashboard metrics" data-translation-metrics-grid>
+          {% for card in translation_dashboard_ssr.Data.cards %}
+          {% include "partials/metric-card.html" with card=card %}
+          {% endfor %}
+        </section>
+        {% endif %}
+
+        {% if translation_dashboard_ssr.Data.ordered_tables|default:translation_dashboard_ssr.Data.tables %}
+        <section class="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm" aria-label="Translation dashboard triage" data-translation-triage>
+          <div class="flex flex-wrap items-center gap-6 border-b border-gray-200 px-5 text-sm font-medium text-gray-600" role="tablist" aria-label="Translation dashboard triage views">
+            {% for table in translation_dashboard_ssr.Data.ordered_tables|default:translation_dashboard_ssr.Data.tables %}
+            <button type="button"
+                    class="inline-flex items-center gap-2 border-b-2 {% if table.id == "blocked_families" %}border-blue-500 text-blue-700{% else %}border-transparent text-gray-600{% endif %} py-3"
+                    data-translation-table-tab="{{ table.id }}"
+                    role="tab"
+                    aria-selected="{% if table.id == "blocked_families" %}true{% else %}false{% endif %}"
+                    aria-controls="dashboard-table-panel-{{ table.id }}">
+              {% if table.id == "blocked_families" %}
+              <i class="iconoir-prohibition" aria-hidden="true"></i>
+              <span>Blocked</span>
+              {% elif table.id == "top_overdue_assignments" %}
+              <i class="iconoir-clock" aria-hidden="true"></i>
+              <span>Overdue</span>
+              {% else %}
+              <span>{{ table.display_label|default:table.label|default:"Triage" }}</span>
+              {% endif %}
+              <span class="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600">{{ table.total|default:"0" }}</span>
+            </button>
+            {% endfor %}
+          </div>
+          {% for table in translation_dashboard_ssr.Data.ordered_tables|default:translation_dashboard_ssr.Data.tables %}
+          <article id="dashboard-table-panel-{{ table.id }}"
+                   data-translation-table="{{ table.id }}"
+                   data-translation-table-panel="{{ table.id }}"
+                   role="tabpanel"
+                   {% if table.id != "blocked_families" %}class="hidden" hidden{% endif %}>
+            <div class="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 px-5 py-4">
+              <p class="text-sm text-gray-500">Showing top {{ table.rows|length|default:"0" }} of {{ table.total|default:"0" }}</p>
+              {% if table.id == "top_overdue_assignments" %}
+              {% if translation_dashboard_ssr.Links.queue %}
+              <a class="btn btn-secondary" href="{{ translation_dashboard_ssr.Links.queue }}" data-translation-triage-link="queue">Overdue Triage</a>
+              {% endif %}
+              {% elif table.id == "blocked_families" %}
+              {% if translation_dashboard_ssr.Links.families %}
+              <a class="btn btn-secondary" href="{{ translation_dashboard_ssr.Links.families }}" data-translation-triage-link="families">Blocked Families</a>
+              {% endif %}
+              {% endif %}
+            </div>
+            {% if table.rows %}
+            <div class="overflow-x-auto">
+              {% if table.variant == "blocked_families" %}
+              <table class="min-w-full text-sm">
+                <caption class="sr-only">Blocked families with family detail, blocker codes, affected locales, and drill-down actions.</caption>
+                <thead class="bg-gray-50 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
+                  <tr>
+                    <th class="px-5 py-3">Family</th>
+                    <th class="px-5 py-3">Blockers</th>
+                    <th class="px-5 py-3">Affected</th>
+                    <th class="px-5 py-3 text-right">Missing</th>
+                    <th class="px-5 py-3 text-right">Review</th>
+                    <th class="px-5 py-3 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100 bg-white">
+                  {% for row in table.rows %}
+                  <tr>
+                    <td class="px-5 py-4">
+                      <div class="font-semibold text-gray-900">{{ row.display_title|default:row.content_type|default:row.family_id|default:"Family" }}</div>
+                      <div class="mt-1 text-xs text-gray-500">{{ row.display_identifier|default:row.family_id|default:"" }}</div>
+                    </td>
+                    <td class="px-5 py-4">
+                      <div class="flex flex-wrap gap-1">
+                        {% for chip in row.display_blockers %}
+                        <span class="{% if chip.tone == "warning" %}bg-amber-100 text-amber-800{% elif chip.tone == "danger" %}bg-rose-100 text-rose-800{% elif chip.tone == "info" %}bg-sky-100 text-sky-800{% else %}bg-gray-100 text-gray-700{% endif %} inline-flex rounded-md px-2 py-0.5 text-xs font-medium">{{ chip.label }}</span>
+                        {% endfor %}
+                      </div>
+                    </td>
+                    <td class="px-5 py-4">
+                      <div class="flex flex-wrap gap-1">
+                        {% for chip in row.display_locales %}
+                        <span class="inline-flex rounded-md bg-gray-100 px-1.5 py-0.5 text-xs font-medium text-gray-600">{{ chip.label }}</span>
+                        {% endfor %}
+                      </div>
+                    </td>
+                    <td class="px-5 py-4 text-right font-semibold text-amber-700">{{ row.display_missing|default:"0" }}</td>
+                    <td class="px-5 py-4 text-right font-semibold text-gray-700">{{ row.display_review|default:"0" }}</td>
+                    <td class="px-5 py-4">
+                      <div class="flex justify-end gap-2" data-translation-row-actions>
+                        {% if row.links.family.href %}
+                        <a class="btn btn-secondary" href="{{ row.links.family.href }}" data-translation-action="open-family">{{ row.links.family.label|default:"Open family" }}</a>
+                        {% endif %}
+                        {% if row.links.queue.href %}
+                        <a class="btn btn-secondary" href="{{ row.links.queue.href }}" data-translation-action="open-queue">{{ row.links.queue.label|default:"Open queue" }}</a>
+                        {% endif %}
+                      </div>
+                    </td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+              {% else %}
+              <table class="min-w-full text-sm">
+                <thead class="bg-gray-50 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
+                  <tr>
+                    <th class="px-5 py-3">Assignment</th>
+                    <th class="px-5 py-3">Locale</th>
+                    <th class="px-5 py-3">Priority</th>
+                    <th class="px-5 py-3">Status</th>
+                    <th class="px-5 py-3">Overdue</th>
+                    <th class="px-5 py-3 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100 bg-white">
+                  {% for row in table.rows %}
+                  <tr>
+                    <td class="px-5 py-4">
+                      <div class="font-semibold text-gray-900">{{ row.display_title|default:row.source_title|default:row.title|default:row.assignment_id|default:"-" }}</div>
+                      <div class="mt-1 text-xs text-gray-500">{{ row.display_identifier|default:row.source_path|default:row.assignment_id|default:row.id|default:"" }}</div>
+                    </td>
+                    <td class="px-5 py-4 text-gray-700">
+                      {{ row.display_locale|default:"-" }}
+	                    </td>
+	                    <td class="px-5 py-4 text-gray-700">{{ row.display_priority|default:row.priority|default:"-" }}</td>
+	                    <td class="px-5 py-4">
+	                      
+	                      {% set dashboard_status_tone = "info" %}
+	                      {% if row.status == "in_review" %}{% set dashboard_status_tone = "warning" %}{% elif row.status == "changes_requested" %}{% set dashboard_status_tone = "error" %}{% elif row.status == "approved" or row.status == "completed" %}{% set dashboard_status_tone = "success" %}{% endif %}
+	                      {% include "partials/status-badge.html" with badge_status=row.status|default:row.queue_state|default:"unknown" badge_tone=dashboard_status_tone badge_label=row.display_status|default:row.status|default:row.queue_state %}
+	                    </td>
+                    <td class="px-5 py-4 font-semibold {% if row.due_state == "overdue" or row.overdue_minutes %}text-rose-700{% else %}text-gray-500{% endif %}">
+                      {{ row.display_overdue|default:"-" }}
+                    </td>
+                    <td class="px-5 py-4">
+                      <div class="flex justify-end gap-2" data-translation-row-actions>
+                        {% if row.links.assignment.href %}
+                        <a class="btn btn-secondary" href="{{ row.links.assignment.href }}" data-translation-action="open-assignment">{{ row.links.assignment.label|default:"Open assignment" }}</a>
+                        {% endif %}
+                        {% if row.links.family.href %}
+                        <a class="btn btn-secondary" href="{{ row.links.family.href }}" data-translation-action="open-family">{{ row.links.family.label|default:"Open family" }}</a>
+                        {% endif %}
+                        {% if row.links.queue.href %}
+                        <a class="btn btn-secondary" href="{{ row.links.queue.href }}" data-translation-action="open-queue">{{ row.links.queue.label|default:"Open queue context" }}</a>
+                        {% endif %}
+                        {% if row.href %}
+                        <a class="btn btn-secondary" href="{{ row.href }}" data-translation-action="open">Open</a>
+                        {% endif %}
+                      </div>
+                    </td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+              {% endif %}
+            </div>
+            {% else %}
+            <p class="m-5 rounded-md border border-dashed border-gray-300 bg-gray-50 p-4 text-sm text-gray-500">
+              No rows match this triage list.
+            </p>
+            {% endif %}
+          </article>
+          {% endfor %}
+        </section>
+        {% else %}
+        <section class="rounded-lg border border-dashed border-gray-300 bg-white p-6 text-sm text-gray-500">
+          {{ translation_dashboard_ssr.EmptyState.description|default:"No dashboard activity is available yet." }}
+        </section>
+        {% endif %}
+
+        {% if translation_dashboard_ssr.Data.runbooks %}
+        <section class="rounded-lg border border-gray-200 bg-white p-5 shadow-sm" aria-label="Translation dashboard runbooks">
+          <h2 class="text-xs font-semibold uppercase tracking-wider text-gray-500">Runbooks</h2>
+          <div class="mt-4 grid gap-4 lg:grid-cols-3">
+            {% for runbook in translation_dashboard_ssr.Data.runbooks %}
+            <article class="rounded-lg border border-gray-200 bg-white p-5 hover:shadow-md transition-shadow">
+              <h3 class="text-base font-semibold text-gray-900">{{ runbook.title|default:"Translation runbook" }}</h3>
+              <p class="mt-3 text-sm leading-6 text-gray-600">{{ runbook.description|default:"" }}</p>
+              {% if runbook.href %}
+              <a class="mt-4 inline-flex items-center gap-1.5 text-sm font-semibold text-sky-700 hover:text-sky-900 transition-colors" href="{{ runbook.href }}">
+                Open runbook
+                <i class="iconoir-nav-arrow-right" aria-hidden="true"></i>
+              </a>
+              {% endif %}
+            </article>
+            {% endfor %}
+          </div>
+        </section>
+        {% endif %}
+      </div>
+      {% endif %}
     </div>
   </div>
 </div>

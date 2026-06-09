@@ -6,6 +6,8 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"net/url"
+	"slices"
 	"strings"
 	"time"
 )
@@ -27,6 +29,130 @@ func NewPreviewService(secret string) *PreviewService {
 	return &PreviewService{
 		secret: []byte(secret),
 	}
+}
+
+// ResolveContentPreviewPath resolves the public preview path for a content record.
+func ResolveContentPreviewPath(record map[string]any) string {
+	if record == nil {
+		return ""
+	}
+	for _, key := range []string{"path", "preview_url"} {
+		if resolved := normalizePreviewPath(anyToString(record[key])); resolved != "" {
+			return resolved
+		}
+	}
+	if data, ok := record["data"].(map[string]any); ok {
+		for _, key := range []string{"path", "preview_url"} {
+			if resolved := normalizePreviewPath(anyToString(data[key])); resolved != "" {
+				return resolved
+			}
+		}
+	}
+	slug := strings.TrimSpace(anyToString(record["slug"]))
+	if slug == "" {
+		return ""
+	}
+	return normalizePreviewPath(slug)
+}
+
+func normalizePreviewPath(raw string) string {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return ""
+	}
+	if isAbsoluteHTTPPreviewURL(trimmed) {
+		return trimmed
+	}
+	if !strings.HasPrefix(trimmed, "/") {
+		return "/" + trimmed
+	}
+	return trimmed
+}
+
+func isAbsoluteHTTPPreviewURL(raw string) bool {
+	parsed, err := url.Parse(raw)
+	if err != nil {
+		return false
+	}
+	switch strings.ToLower(parsed.Scheme) {
+	case "http", "https":
+		return parsed.Host != ""
+	default:
+		return false
+	}
+}
+
+func normalizePreviewURLAllowedHosts(hosts []string) []string {
+	seen := map[string]struct{}{}
+	out := make([]string, 0, len(hosts))
+	for _, host := range hosts {
+		normalized := normalizePreviewURLAllowedHost(host)
+		if normalized == "" {
+			continue
+		}
+		if _, ok := seen[normalized]; ok {
+			continue
+		}
+		seen[normalized] = struct{}{}
+		out = append(out, normalized)
+	}
+	return out
+}
+
+func normalizePreviewURLAllowedHost(raw string) string {
+	host := strings.TrimSpace(raw)
+	if host == "" {
+		return ""
+	}
+	if parsed, err := url.Parse(host); err == nil && parsed.Host != "" {
+		host = parsed.Host
+	}
+	host = strings.TrimSpace(strings.TrimSuffix(host, "/"))
+	if host == "" || strings.ContainsAny(host, "/?#") {
+		return ""
+	}
+	return strings.ToLower(host)
+}
+
+func previewURLHostAllowed(host string, allowedHosts []string) bool {
+	host = normalizePreviewURLAllowedHost(host)
+	if host == "" {
+		return false
+	}
+	return slices.Contains(normalizePreviewURLAllowedHosts(allowedHosts), host)
+}
+
+// BuildSitePreviewURL adds or replaces preview_token on a public preview path.
+// Absolute HTTP(S) preview URLs require BuildSitePreviewURLWithAllowedHosts.
+func BuildSitePreviewURL(targetPath, token string) string {
+	return BuildSitePreviewURLWithAllowedHosts(targetPath, token, nil)
+}
+
+// BuildSitePreviewURLWithAllowedHosts adds or replaces preview_token on a
+// preview path. Relative paths are always allowed; absolute HTTP(S) URLs are
+// allowed only when their host is present in allowedHosts.
+func BuildSitePreviewURLWithAllowedHosts(targetPath, token string, allowedHosts []string) string {
+	path := strings.TrimSpace(targetPath)
+	token = strings.TrimSpace(token)
+	if path == "" || token == "" {
+		return ""
+	}
+	parsed, err := url.Parse(path)
+	if err != nil {
+		return ""
+	}
+	if parsed.Scheme != "" || parsed.Host != "" {
+		if parsed.Host == "" || !isAbsoluteHTTPPreviewURL(path) {
+			return ""
+		}
+		if !previewURLHostAllowed(parsed.Host, allowedHosts) {
+			return ""
+		}
+	}
+	query := parsed.Query()
+	query.Set("preview_token", token)
+	parsed.RawQuery = query.Encode()
+	return parsed.String()
 }
 
 // Generate creates a signed preview token for a record.

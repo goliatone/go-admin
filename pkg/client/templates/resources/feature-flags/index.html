@@ -3,14 +3,15 @@
 {% block title %}Feature Flags - {{ title }}{% endblock %}
 
 {% block content %}
-<header class="px-8 py-6 bg-white border-b border-gray-200 flex flex-wrap gap-4 items-center justify-between">
-  <div>
-    <h1 class="text-3xl font-bold text-admin-dark">Feature Flags</h1>
-    <p class="text-sm text-gray-500 mt-1">Review defaults, overrides, and update runtime flags.</p>
+{# Compact Header (Option 3: Integrated Breadcrumb) #}
+<header class="admin-page-header px-8 py-3 bg-white border-b border-gray-200">
+  <div class="flex items-center justify-between gap-4">
+    <h1 class="text-2xl font-bold text-gray-900">Feature Flags</h1>
+    <div class="flex items-center gap-3 flex-shrink-0">
+      <button id="refresh-flags" class="btn btn-secondary">Refresh</button>
+    </div>
   </div>
-  <div class="flex items-center gap-3">
-    <button id="refresh-flags" class="btn btn-secondary">Refresh</button>
-  </div>
+  <p class="mt-2 text-sm text-gray-500">Review defaults, overrides, and update runtime flags.</p>
 </header>
 
 <div class="flex-1 p-8 overflow-y-auto">

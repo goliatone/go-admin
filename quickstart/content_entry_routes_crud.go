@@ -3,7 +3,6 @@ package quickstart
 import (
 	"context"
 	"net/http"
-	"net/url"
 	"strings"
 	"time"
 
@@ -193,7 +192,7 @@ func (h *contentEntryHandlers) previewURLForRecord(ctx context.Context, panelNam
 	if h == nil || h.admin == nil || strings.TrimSpace(id) == "" {
 		return "", nil
 	}
-	targetPath := resolveContentEntryPreviewPath(panelName, record)
+	targetPath := admin.ResolveContentPreviewPath(record)
 	if targetPath == "" {
 		return "", nil
 	}
@@ -205,55 +204,7 @@ func (h *contentEntryHandlers) previewURLForRecord(ctx context.Context, panelNam
 	if err != nil {
 		return "", err
 	}
-	return buildSitePreviewURL(targetPath, token), nil
-}
-
-func resolveContentEntryPreviewPath(panelName string, record map[string]any) string {
-	_ = panelName
-	if record == nil {
-		return ""
-	}
-	for _, key := range []string{"path", "preview_url"} {
-		if resolved := normalizePreviewPath(anyToString(record[key])); resolved != "" {
-			return resolved
-		}
-	}
-	if data, ok := record["data"].(map[string]any); ok {
-		for _, key := range []string{"path", "preview_url"} {
-			if resolved := normalizePreviewPath(anyToString(data[key])); resolved != "" {
-				return resolved
-			}
-		}
-	}
-	slug := strings.TrimSpace(anyToString(record["slug"]))
-	if slug == "" {
-		return ""
-	}
-	return normalizePreviewPath(slug)
-}
-
-func normalizePreviewPath(raw string) string {
-	trimmed := strings.TrimSpace(raw)
-	if trimmed == "" {
-		return ""
-	}
-	if !strings.HasPrefix(trimmed, "/") {
-		return "/" + trimmed
-	}
-	return trimmed
-}
-
-func buildSitePreviewURL(targetPath, token string) string {
-	path := strings.TrimSpace(targetPath)
-	token = strings.TrimSpace(token)
-	if path == "" || token == "" {
-		return ""
-	}
-	separator := "?"
-	if strings.Contains(path, "?") {
-		separator = "&"
-	}
-	return path + separator + "preview_token=" + url.QueryEscape(token)
+	return h.admin.BuildSitePreviewURL(targetPath, token), nil
 }
 
 func contentEntryValues(record map[string]any) map[string]any {

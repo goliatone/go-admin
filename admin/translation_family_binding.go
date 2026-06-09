@@ -1,17 +1,24 @@
 package admin
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"maps"
 	neturl "net/url"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
 	"time"
 
+	auth "github.com/goliatone/go-auth"
+	csrfmw "github.com/goliatone/go-auth/middleware/csrf"
+	crud "github.com/goliatone/go-crud"
 	router "github.com/goliatone/go-router"
 
 	translationcore "github.com/goliatone/go-admin/translations/core"
@@ -46,6 +53,30 @@ type translationFamilyCreateVariantInput struct {
 	IdempotencyKey       string     `json:"idempotency_key"`
 }
 
+type translationFamilyCreateAssignmentInput struct {
+	TargetLocale   string     `json:"target_locale"`
+	AssigneeID     string     `json:"assignee_id"`
+	OpenPool       bool       `json:"open_pool"`
+	Priority       Priority   `json:"priority"`
+	PrioritySet    bool       `json:"-"`
+	DueDate        *time.Time `json:"due_date"`
+	WorkScope      string     `json:"work_scope"`
+	Channel        string     `json:"channel"`
+	IdempotencyKey string     `json:"idempotency_key"`
+}
+
+type translationFamilyCreateAssignmentRequest struct {
+	AdminCtx AdminContext
+	Body     map[string]any
+	Input    translationFamilyCreateAssignmentInput
+	Scope    translationservices.Scope
+}
+
+type translationFamilyCreateAssignmentOutcome struct {
+	Assignment       TranslationAssignment `json:"assignment"`
+	AssignmentReused bool                  `json:"assignment_reused"`
+}
+
 type translationFamilyCreateVariantAssignmentPlan struct {
 	ReuseAssignment    *TranslationAssignment  `json:"reuse_assignment"`
 	ArchiveAssignments []TranslationAssignment `json:"archive_assignments"`
@@ -75,6 +106,15 @@ type translationFamilyIdempotencyRecord struct {
 	RequestHash string         `json:"request_hash"`
 	Payload     map[string]any `json:"payload"`
 	CreatedAt   time.Time      `json:"created_at"`
+}
+
+type translationFamilyAssignActionDecision struct {
+	Enabled      bool
+	QueueEnabled bool
+	Permission   string
+	ActorID      string
+	Reason       string
+	ReasonCode   string
 }
 
 type translationFamilyBinding struct {
@@ -216,7 +256,7 @@ func (b *translationFamilyBinding) Detail(c router.Context, id string) (payload 
 		return nil, notFoundDomainError("translation family not found", b.detailNotFoundMetadata(adminCtx, id, channel))
 	}
 	return map[string]any{
-		"data": translationFamilyDetailPayload(family, channel),
+		"data": b.translationFamilyDetailPayload(adminCtx.Context, family, channel),
 		"meta": mergeTranslationChannelContract(nil, channel),
 	}, nil
 }
@@ -246,7 +286,7 @@ func (b *translationFamilyBinding) detailNotFoundMetadata(adminCtx AdminContext,
 	return meta
 }
 
-func (b *translationFamilyBinding) Create(c router.Context, id string) (payload any, err error) {
+func (b *translationFamilyBinding) Create(c router.Context, id string) (payload any, opErr error) {
 	startedAt := time.Now()
 	obsCtx := c.Context()
 	defer func() {
@@ -258,7 +298,7 @@ func (b *translationFamilyBinding) Create(c router.Context, id string) (payload 
 			TenantID:  tenantIDFromContext(obsCtx),
 			OrgID:     orgIDFromContext(obsCtx),
 			Duration:  time.Since(startedAt),
-			Err:       err,
+			Err:       opErr,
 		})
 	}()
 	if b == nil || b.admin == nil {
@@ -273,6 +313,9 @@ func (b *translationFamilyBinding) Create(c router.Context, id string) (payload 
 	if err != nil || cached != nil {
 		return cached, err
 	}
+	if validationErr := validateCreateVariantAssignmentTarget(state.Family, request.Input); validationErr != nil {
+		return nil, validationErr
+	}
 	assignmentPlan, err := b.translationMatrixCreateVariantAssignmentPlan(request.AdminCtx, state.Family, request.Input)
 	if err != nil {
 		return nil, err
@@ -282,12 +325,17 @@ func (b *translationFamilyBinding) Create(c router.Context, id string) (payload 
 	if err != nil {
 		return b.handleCreateVariantError(request, state, err)
 	}
+	outcomeFamily := state.Family
 	if request.Input.AutoCreateAssignment {
 		if syncErr := SyncTranslationFamilyStore(request.AdminCtx.Context, b.admin, request.Input.Environment); syncErr != nil {
 			return nil, b.rollbackCreatedFamilyVariant(request.AdminCtx.Context, createdVariant, syncErr, request.Input.Environment)
 		}
+		outcomeFamily, err = b.loadCreateVariantFamily(request.AdminCtx.Context, state.Scope, state.Family.ID, request.Input)
+		if err != nil {
+			return nil, b.rollbackCreatedFamilyVariant(request.AdminCtx.Context, createdVariant, err, request.Input.Environment)
+		}
 	}
-	outcome, err := b.translationMatrixCreateVariantOutcome(request.AdminCtx, state.Family, request.Input, assignmentPlan, createdVariant)
+	outcome, err := b.translationMatrixCreateVariantOutcome(request.AdminCtx, outcomeFamily, request.Input, assignmentPlan, createdVariant)
 	if err != nil {
 		return nil, err
 	}
@@ -295,6 +343,215 @@ func (b *translationFamilyBinding) Create(c router.Context, id string) (payload 
 		return nil, syncErr
 	}
 	return b.finalizeCreateVariantPayload(request, state, actorID, createdVariant, outcome)
+}
+
+func validateCreateVariantAssignmentTarget(family translationservices.FamilyRecord, input translationFamilyCreateVariantInput) error {
+	if !input.AutoCreateAssignment {
+		return nil
+	}
+	return validateFamilyAssignmentTargetLocale(family, input.Locale)
+}
+
+func (b *translationFamilyBinding) CreateAssignment(c router.Context, id string) (payload any, opErr error) {
+	payloadMap, _, err := b.createAssignmentPayload(c, id)
+	return payloadMap, err
+}
+
+func (b *translationFamilyBinding) createAssignmentPayload(c router.Context, id string) (payload map[string]any, request translationFamilyCreateAssignmentRequest, opErr error) {
+	startedAt := time.Now()
+	obsCtx := c.Context()
+	defer func() {
+		recordTranslationAPIOperation(obsCtx, translationAPIObservation{
+			Operation: "translations.families.assignments.create",
+			Kind:      "write",
+			RequestID: requestIDFromContext(obsCtx),
+			TraceID:   traceIDFromContext(obsCtx),
+			TenantID:  tenantIDFromContext(obsCtx),
+			OrgID:     orgIDFromContext(obsCtx),
+			Duration:  time.Since(startedAt),
+			Err:       opErr,
+		})
+	}()
+	if b == nil || b.admin == nil {
+		return nil, translationFamilyCreateAssignmentRequest{}, serviceNotConfiguredDomainError("translation family binding", map[string]any{"component": "translation_family_binding"})
+	}
+	request, cached, err := b.prepareCreateAssignmentRequest(c, id)
+	if err != nil || cached != nil {
+		return cached, request, err
+	}
+	obsCtx = request.AdminCtx.Context
+	familyID := strings.TrimSpace(id)
+	var result TranslationFamilyAssignResult
+	command := &TranslationFamilyAssignCommand{Binding: b}
+	if executeErr := command.Execute(request.AdminCtx.Context, translationFamilyAssignInputFromRequest(familyID, request, &result)); executeErr != nil {
+		return nil, request, executeErr
+	}
+	outcome := translationFamilyCreateAssignmentOutcome{
+		Assignment:       result.Assignment,
+		AssignmentReused: result.AssignmentReused,
+	}
+	payloadMap := b.createAssignmentResponsePayload(request, outcome)
+	if request.Input.IdempotencyKey != "" {
+		if storeErr := b.storeCreateAssignmentIdempotency(request.AdminCtx, result.Family.ID, request.Input, payloadMap); storeErr != nil {
+			return nil, request, storeErr
+		}
+	}
+	return payloadMap, request, nil
+}
+
+func (b *translationFamilyBinding) CreateAssignmentMutation(c router.Context, id string) error {
+	var adm *Admin
+	if b != nil {
+		adm = b.admin
+	}
+	req := adm.detectEnhancedMutationRequest(c)
+	responder := NewEnhancedMutationResponder().WithMediaType(adm.enhancedActionResponseMediaType())
+	payload, request, err := b.createAssignmentPayload(c, id)
+	redirect := b.translationFamilyDetailRedirectForAssignment(c, id, request, payload)
+	if err != nil {
+		return responder.RespondError(c, req, err, MutationFallback{
+			Redirect: redirect,
+			Toast:    &EnhancedToast{Type: "error", Message: "Assignment could not be updated."},
+		})
+	}
+	fallback := MutationFallback{
+		Redirect: redirect,
+		Toast:    &EnhancedToast{Type: "success", Message: "Assignment updated."},
+		JSON:     payload,
+	}
+	successPresentation := NewMutationPresentation(
+		WithMutationToast(EnhancedToast{Type: "success", Message: "Assignment updated."}),
+		WithMutationRedirect(redirect),
+	)
+	if req.Mode != crud.MutationResponseModeEnhanced {
+		return responder.Respond(c, req, successPresentation, fallback)
+	}
+	presentation, err := b.createAssignmentMutationPresentation(c, id, payload, redirect, mutationPayloadChannel(payload))
+	if err != nil {
+		return responder.RespondError(c, req, err, MutationFallback{
+			Redirect: redirect,
+			Toast:    &EnhancedToast{Type: "error", Message: "Assignment was saved, but the family view could not be refreshed."},
+			JSON:     payload,
+		})
+	}
+	return responder.Respond(c, req, presentation, fallback)
+}
+
+func (b *translationFamilyBinding) translationFamilyDetailRedirectForAssignment(c router.Context, familyID string, request translationFamilyCreateAssignmentRequest, payload map[string]any) string {
+	channel := strings.TrimSpace(request.Input.Channel)
+	if channel == "" {
+		channel = mutationPayloadChannel(payload)
+	}
+	if channel == "" {
+		channel = translationFamilyCreateAssignmentChannelFromRequest(c)
+	}
+	basePath := "/admin"
+	if b != nil && b.admin != nil {
+		basePath = adminBasePath(b.admin.config)
+	}
+	return translationFamilyDetailRedirectWithChannel(c, basePath, familyID, channel)
+}
+
+func (b *translationFamilyBinding) createAssignmentMutationPresentation(c router.Context, familyID string, payload any, redirect string, channel string) (MutationPresentation, error) {
+	data, err := b.familyDetailMutationData(c, familyID, channel)
+	if err != nil {
+		return MutationPresentation{}, err
+	}
+	fragments, err := RenderFamilyDetailFragmentsFromData(data)
+	if err != nil {
+		return MutationPresentation{}, err
+	}
+	presentation := NewMutationPresentation(
+		WithMutationToast(EnhancedToast{Type: "success", Message: "Assignment updated."}),
+		WithMutationRedirect(redirect),
+		WithMutationFocus(translationFamilyAssignmentFocusSelector(payload)),
+	)
+	presentation.Fragments = append(presentation.Fragments, fragments...)
+	return presentation, nil
+}
+
+func (b *translationFamilyBinding) familyDetailMutationData(c router.Context, familyID string, channel string) (map[string]any, error) {
+	if b == nil || b.admin == nil {
+		return nil, serviceNotConfiguredDomainError("translation family binding", map[string]any{"component": "translation_family_binding"})
+	}
+	adminCtx := b.admin.adminContextFromRequest(c, b.admin.config.DefaultLocale)
+	setTranslationTraceHeaders(c, adminCtx.Context)
+	if permissionErr := b.admin.requirePermission(adminCtx, PermAdminTranslationsView, "translations"); permissionErr != nil {
+		return nil, permissionErr
+	}
+	resolvedChannel := translationChannelFromRequest(c, adminCtx, nil, channel)
+	runtime, err := b.runtime(adminCtx.Context, resolvedChannel)
+	if err != nil {
+		return nil, err
+	}
+	scope := translationservices.Scope{
+		TenantID: translationIdentityFromAdminContext(adminCtx).TenantID,
+		OrgID:    translationIdentityFromAdminContext(adminCtx).OrgID,
+	}
+	family, ok, err := runtime.service.Detail(adminCtx.Context, translationservices.GetFamilyInput{
+		Scope:       scope,
+		Environment: resolvedChannel,
+		FamilyID:    strings.TrimSpace(familyID),
+	})
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return nil, notFoundDomainError("translation family not found", b.detailNotFoundMetadata(adminCtx, familyID, resolvedChannel))
+	}
+	data := b.translationFamilyDetailPayload(adminCtx.Context, family, resolvedChannel)
+	translationSSRDecorateFamilyDetail(data)
+	data["meta"] = mergeTranslationChannelContract(nil, resolvedChannel)
+	data["assignee"] = translationSSRFamilyAssigneeContract(data)
+	attachFamilyDetailCSRFData(c, data)
+	return data, nil
+}
+
+func mutationPayloadChannel(payload any) string {
+	return strings.TrimSpace(toString(extractMap(extractMap(payload)["meta"])["channel"]))
+}
+
+func translationFamilyAssignmentFocusSelector(payload any) string {
+	assignmentID := strings.TrimSpace(toString(extractMap(extractMap(payload)["data"])["assignment_id"]))
+	if assignmentID == "" {
+		return "[data-family-assignments]"
+	}
+	return `[data-assignment-id="` + strings.ReplaceAll(assignmentID, `"`, `\"`) + `"]`
+}
+
+func translationFamilyDetailRedirect(c router.Context, basePath string, familyID string) string {
+	return translationFamilyDetailRedirectWithChannel(c, basePath, familyID, "")
+}
+
+func translationFamilyDetailRedirectWithChannel(c router.Context, basePath string, familyID string, channel string) string {
+	path := joinBasePath(firstNonEmpty(strings.TrimSpace(basePath), "/admin"), "translations/families/"+neturl.PathEscape(strings.TrimSpace(familyID)))
+	values := neturl.Values{}
+	for _, key := range []string{"channel", ScopeTenantIDKey, ScopeOrgIDKey} {
+		value := firstNonEmpty(c.Query(key), c.FormValue(key))
+		if key == "channel" {
+			value = firstNonEmpty(channel, value)
+		}
+		if trimmedValue := strings.TrimSpace(value); trimmedValue != "" {
+			values.Set(key, trimmedValue)
+		}
+	}
+	if encoded := values.Encode(); encoded != "" {
+		return path + "?" + encoded
+	}
+	return path
+}
+
+func attachFamilyDetailCSRFData(c router.Context, data map[string]any) {
+	if c == nil || data == nil {
+		return
+	}
+	token := strings.TrimSpace(toString(c.Locals(csrfmw.DefaultContextKey)))
+	if token == "" {
+		return
+	}
+	fieldName := firstNonEmpty(toString(c.Locals(csrfmw.DefaultContextKey+"_field")), csrfmw.DefaultFormFieldName)
+	data["csrf_token"] = token
+	data["csrf_field_name"] = fieldName
 }
 
 func (b *translationFamilyBinding) prepareAuthorizedCreateVariantRequest(c router.Context, id string) (translationFamilyCreateVariantRequest, map[string]any, error) {
@@ -391,7 +648,7 @@ func (b *translationFamilyBinding) loadCreateVariantState(familyID string, reque
 }
 
 func (b *translationFamilyBinding) ensureCreateVariantAllowed(request translationFamilyCreateVariantRequest, family translationservices.FamilyRecord) error {
-	if !translationFamilyPolicyDenied(family) {
+	if !translationFamilyPolicyDenied(family) || translationFamilyCanCreateMissingLocaleWithPolicyDenied(family, request.Input.Locale) {
 		return nil
 	}
 	recordTranslationCreateLocaleMetric(request.AdminCtx.Context, translationCreateLocaleEvent{
@@ -507,6 +764,27 @@ func (b *translationFamilyBinding) runtime(ctx context.Context, channel string) 
 			},
 		},
 	}, nil
+}
+
+func (b *translationFamilyBinding) loadCreateVariantFamily(ctx context.Context, scope translationservices.Scope, familyID string, input translationFamilyCreateVariantInput) (translationservices.FamilyRecord, error) {
+	runtime, err := b.runtime(ctx, input.Environment)
+	if err != nil {
+		return translationservices.FamilyRecord{}, err
+	}
+	family, ok, err := runtime.service.Detail(ctx, translationservices.GetFamilyInput{
+		Scope:       scope,
+		Environment: input.Environment,
+		FamilyID:    strings.TrimSpace(familyID),
+	})
+	if err != nil {
+		return translationservices.FamilyRecord{}, err
+	}
+	if !ok {
+		return translationservices.FamilyRecord{}, notFoundDomainError("translation family not found after create-locale sync", map[string]any{
+			"family_id": strings.TrimSpace(familyID),
+		})
+	}
+	return family, nil
 }
 
 type translationFamilyPolicyResolver struct {
@@ -661,17 +939,233 @@ func parseTranslationFamilyCreateVariantInput(c router.Context, body map[string]
 		dueDate = dueDate.UTC()
 		input.DueDate = &dueDate
 	}
-	if !input.AutoCreateAssignment && (input.AssigneeID != "" || input.Priority != "" || input.DueDate != nil) {
+	if !input.AutoCreateAssignment && translationCreateVariantHasAssignmentIntent(input) {
 		return translationFamilyCreateVariantInput{}, validationDomainError("assignment fields require auto_create_assignment=true", map[string]any{
 			"field": "auto_create_assignment",
 		})
 	}
+	if !input.AutoCreateAssignment {
+		input.AssigneeID = ""
+		input.Priority = ""
+		input.DueDate = nil
+	}
 	return input, nil
+}
+
+func translationCreateVariantHasAssignmentIntent(input translationFamilyCreateVariantInput) bool {
+	if strings.TrimSpace(input.AssigneeID) != "" || input.DueDate != nil {
+		return true
+	}
+	priority := strings.TrimSpace(strings.ToLower(string(input.Priority)))
+	return priority != "" && priority != string(PriorityNormal)
+}
+
+func (b *translationFamilyBinding) prepareCreateAssignmentRequest(c router.Context, familyID string) (translationFamilyCreateAssignmentRequest, map[string]any, error) {
+	adminCtx := b.admin.adminContextFromRequest(c, b.admin.config.DefaultLocale)
+	setTranslationTraceHeaders(c, adminCtx.Context)
+	if permissionErr := b.admin.requirePermission(adminCtx, PermAdminTranslationsAssign, "translations"); permissionErr != nil {
+		return translationFamilyCreateAssignmentRequest{}, nil, permissionErr
+	}
+	if translationIdentityFromAdminContext(adminCtx).ActorID == "" {
+		return translationFamilyCreateAssignmentRequest{}, nil, NewDomainError(string(translationcore.ErrorPermissionDenied), "family assignment creation requires an authenticated actor", map[string]any{
+			"component": "translation_family_binding",
+		})
+	}
+	body, err := parseTranslationFamilyCreateAssignmentBody(c)
+	if err != nil {
+		return translationFamilyCreateAssignmentRequest{}, nil, err
+	}
+	if identityErr := rejectTranslationClientIdentityFields(body); identityErr != nil {
+		return translationFamilyCreateAssignmentRequest{}, nil, identityErr
+	}
+	channel := translationChannelFromRequest(c, adminCtx, body)
+	input, err := parseTranslationFamilyCreateAssignmentInput(c, body, channel)
+	if err != nil {
+		return translationFamilyCreateAssignmentRequest{}, nil, err
+	}
+	cached, err := b.lookupCreateAssignmentIdempotency(adminCtx, strings.TrimSpace(familyID), input)
+	if err != nil || cached != nil {
+		return translationFamilyCreateAssignmentRequest{}, cached, err
+	}
+	return translationFamilyCreateAssignmentRequest{
+		AdminCtx: adminCtx,
+		Body:     body,
+		Input:    input,
+		Scope: translationservices.Scope{
+			TenantID: translationIdentityFromAdminContext(adminCtx).TenantID,
+			OrgID:    translationIdentityFromAdminContext(adminCtx).OrgID,
+		},
+	}, nil, nil
+}
+
+func parseTranslationFamilyCreateAssignmentBody(c router.Context) (map[string]any, error) {
+	raw := c.Body()
+	keys := translationFamilyCreateAssignmentBodyKeys()
+	if translationFamilyRequestIsForm(c) || translationFamilyBodyLooksForm(raw) {
+		return translationFamilyFormBody(c, raw, keys), nil
+	}
+	if len(bytes.TrimSpace(raw)) == 0 && translationFamilyHasFormValues(c, keys) {
+		return translationFamilyFormBody(c, raw, keys), nil
+	}
+	return parseOptionalJSONMap(raw)
+}
+
+func translationFamilyCreateAssignmentChannelFromRequest(c router.Context) string {
+	body, err := parseTranslationFamilyCreateAssignmentBody(c)
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(toString(body["channel"]))
+}
+
+func translationFamilyCreateAssignmentBodyKeys() []string {
+	return []string{
+		"target_locale",
+		"locale",
+		"assignee_id",
+		"open_pool",
+		"priority",
+		"due_date",
+		"work_scope",
+		"channel",
+		"idempotency_key",
+	}
+}
+
+func translationFamilyRequestIsForm(c router.Context) bool {
+	contentType := strings.TrimSpace(strings.ToLower(c.Header("Content-Type")))
+	if idx := strings.Index(contentType, ";"); idx >= 0 {
+		contentType = strings.TrimSpace(contentType[:idx])
+	}
+	return contentType == "application/x-www-form-urlencoded" || contentType == "multipart/form-data"
+}
+
+func translationFamilyBodyLooksForm(raw []byte) bool {
+	payload := strings.TrimSpace(string(raw))
+	return payload != "" && strings.Contains(payload, "=") && !strings.HasPrefix(payload, "{") && !strings.HasPrefix(payload, "[")
+}
+
+func translationFamilyHasFormValues(c router.Context, keys []string) bool {
+	for _, key := range keys {
+		if strings.TrimSpace(c.FormValue(key)) != "" {
+			return true
+		}
+	}
+	return false
+}
+
+func translationFamilyFormBody(c router.Context, raw []byte, keys []string) map[string]any {
+	body := map[string]any{}
+	rawValues := neturl.Values{}
+	if values, err := neturl.ParseQuery(string(raw)); err == nil {
+		rawValues = values
+	}
+	for _, key := range keys {
+		if value := strings.TrimSpace(c.FormValue(key)); value != "" {
+			body[key] = value
+			continue
+		}
+		if value := strings.TrimSpace(rawValues.Get(key)); value != "" {
+			body[key] = value
+		}
+	}
+	return body
+}
+
+func parseTranslationFamilyCreateAssignmentInput(c router.Context, body map[string]any, channel string) (translationFamilyCreateAssignmentInput, error) {
+	input := translationFamilyCreateAssignmentInput{
+		TargetLocale: normalizeCreateTranslationLocale(firstNonEmpty(toString(body["target_locale"]), toString(body["locale"]))),
+		AssigneeID:   strings.TrimSpace(toString(body["assignee_id"])),
+		OpenPool:     toBool(body["open_pool"]),
+		WorkScope:    normalizeTranslationAssignmentWorkScope(toString(body["work_scope"])),
+		Channel:      strings.TrimSpace(channel),
+		IdempotencyKey: strings.TrimSpace(firstNonEmpty(
+			toString(body["idempotency_key"]),
+			c.Header("X-Idempotency-Key"),
+			c.Header("Idempotency-Key"),
+		)),
+	}
+	if input.TargetLocale == "" {
+		return translationFamilyCreateAssignmentInput{}, validationDomainError("target_locale required", map[string]any{"field": "target_locale"})
+	}
+	rawPriority := strings.TrimSpace(strings.ToLower(toString(body["priority"])))
+	if rawPriority != "" {
+		input.Priority = Priority(rawPriority)
+		input.PrioritySet = true
+	} else {
+		input.Priority = PriorityNormal
+	}
+	if input.Priority != "" && !input.Priority.IsValid() {
+		return translationFamilyCreateAssignmentInput{}, validationDomainError("invalid priority", map[string]any{"field": "priority"})
+	}
+	if input.OpenPool && input.AssigneeID != "" {
+		return translationFamilyCreateAssignmentInput{}, validationDomainError("open_pool assignments cannot include assignee_id", map[string]any{
+			"field": "assignee_id",
+		})
+	}
+	if !input.OpenPool && input.AssigneeID == "" {
+		return translationFamilyCreateAssignmentInput{}, requiredFieldDomainError("assignee_id", map[string]any{
+			"hint": "set open_pool=true to create an open-pool assignment",
+		})
+	}
+	if rawDueDate := strings.TrimSpace(toString(body["due_date"])); rawDueDate != "" {
+		dueDate, err := time.Parse(time.RFC3339, rawDueDate)
+		if err != nil {
+			return translationFamilyCreateAssignmentInput{}, validationDomainError("invalid due_date", map[string]any{"field": "due_date"})
+		}
+		dueDate = dueDate.UTC()
+		input.DueDate = &dueDate
+	}
+	return input, nil
+}
+
+func validateFamilyAssignmentTargetLocale(family translationservices.FamilyRecord, targetLocale string) error {
+	targetLocale = normalizeCreateTranslationLocale(targetLocale)
+	if targetLocale == "" {
+		return validationDomainError("target_locale required", map[string]any{"field": "target_locale"})
+	}
+	sourceLocale := translationFamilyCanonicalSourceLocale(family)
+	if sourceLocale != "" && strings.EqualFold(targetLocale, sourceLocale) {
+		return validationDomainError("source locale does not need assignment", map[string]any{
+			"field":         "target_locale",
+			"target_locale": targetLocale,
+			"source_locale": sourceLocale,
+			"reason_code":   ActionDisabledReasonCodeInvalidStatus,
+		})
+	}
+	return nil
+}
+
+func translationFamilyCanonicalSourceLocale(family translationservices.FamilyRecord) string {
+	return normalizeCreateTranslationLocale(firstNonEmpty(family.Policy.SourceLocale, family.SourceLocale))
+}
+
+func translationFamilyAssignmentSourceLocale(family translationservices.FamilyRecord, source translationservices.FamilyVariant) string {
+	if locale := translationFamilyCanonicalSourceLocale(family); locale != "" {
+		return locale
+	}
+	return normalizeCreateTranslationLocale(source.Locale)
 }
 
 func translationFamilyPolicyDenied(family translationservices.FamilyRecord) bool {
 	for _, blocker := range family.Blockers {
 		if strings.EqualFold(strings.TrimSpace(blocker.BlockerCode), string(translationcore.FamilyBlockerPolicyDenied)) {
+			return true
+		}
+	}
+	return false
+}
+
+func translationFamilyCanCreateMissingLocaleWithPolicyDenied(family translationservices.FamilyRecord, locale string) bool {
+	target := strings.TrimSpace(strings.ToLower(locale))
+	if target == "" {
+		return false
+	}
+	if slices.ContainsFunc(family.Blockers, translationFamilyBlockerIsPolicyUnavailable) {
+		return false
+	}
+	for _, missingLocale := range translationFamilyQuickCreateLocales(family) {
+		if strings.EqualFold(strings.TrimSpace(missingLocale), target) {
 			return true
 		}
 	}
@@ -803,7 +1297,7 @@ func (b *translationFamilyBinding) applyCreateVariantAssignmentPlan(ctx context.
 	}
 	outcome.ArchivedAssignmentIDs = append(outcome.ArchivedAssignmentIDs, archivedIDs...)
 	if plan.ReuseAssignment != nil {
-		reused, reuseErr := b.reuseCreateVariantAssignment(ctx, repo, input, plan)
+		reused, reuseErr := b.reuseCreateVariantAssignment(ctx, repo, family, input, plan, createdVariant)
 		if reuseErr != nil {
 			return translationFamilyCreateVariantOutcome{}, b.rollbackArchivedAssignments(ctx, repo, archivedSnapshots, reuseErr)
 		}
@@ -862,19 +1356,58 @@ func (b *translationFamilyBinding) rollbackArchivedAssignments(
 		}
 	}
 	if rollbackErr != nil {
-		return errors.Join(cause, rollbackErr)
+		return translationFamilyRollbackError(cause, rollbackErr)
 	}
 	return cause
+}
+
+func translationFamilyRollbackError(cause, rollbackErr error) error {
+	if rollbackErr == nil {
+		return cause
+	}
+	if cause == nil {
+		return rollbackErr
+	}
+	return fmt.Errorf("%w; rollback failed: %w", cause, rollbackErr)
 }
 
 func (b *translationFamilyBinding) reuseCreateVariantAssignment(
 	ctx context.Context,
 	repo TranslationAssignmentRepository,
+	family translationservices.FamilyRecord,
 	input translationFamilyCreateVariantInput,
 	plan translationFamilyCreateVariantAssignmentPlan,
+	createdVariant *CMSContent,
 ) (TranslationAssignment, error) {
+	source, err := translationFamilyRequiredSourceVariant(family)
+	if err != nil {
+		return TranslationAssignment{}, err
+	}
 	reused := cloneTranslationAssignment(*plan.ReuseAssignment)
+	reused.TenantID = strings.TrimSpace(firstNonEmpty(reused.TenantID, family.TenantID))
+	reused.OrgID = strings.TrimSpace(firstNonEmpty(reused.OrgID, family.OrgID))
+	reused.SourceLocale = translationFamilyAssignmentSourceLocale(family, source)
 	reused.WorkScope = plan.WorkScope
+	applyCreateVariantAssignmentTarget(&reused, family, input, createdVariant)
+	linkCreateVariantAssignmentTarget(family, input.Locale, createdVariant, &reused)
+	applyCreateVariantAssignmentReuseInput(&reused, input)
+	if !createVariantAssignmentReuseChanged(reused, *plan.ReuseAssignment) {
+		return reused, validateCreateVariantAssignmentLinked(family, input.Locale, reused)
+	}
+	updated, err := repo.Update(ctx, reused, plan.ReuseAssignment.Version)
+	if err != nil {
+		return TranslationAssignment{}, err
+	}
+	if validationErr := validateCreateVariantAssignmentLinked(family, input.Locale, updated); validationErr != nil {
+		return TranslationAssignment{}, validationErr
+	}
+	return updated, nil
+}
+
+func applyCreateVariantAssignmentReuseInput(reused *TranslationAssignment, input translationFamilyCreateVariantInput) {
+	if reused == nil {
+		return
+	}
 	if input.AssigneeID != "" && reused.AssigneeID == "" {
 		reused.AssigneeID = input.AssigneeID
 		reused.AssignmentType = AssignmentTypeDirect
@@ -886,14 +1419,66 @@ func (b *translationFamilyBinding) reuseCreateVariantAssignment(
 	if input.DueDate != nil {
 		reused.DueDate = cloneTimePtr(input.DueDate)
 	}
-	if reused.Version == plan.ReuseAssignment.Version &&
-		reused.AssigneeID == plan.ReuseAssignment.AssigneeID &&
-		reused.Priority == plan.ReuseAssignment.Priority &&
-		reused.WorkScope == plan.ReuseAssignment.WorkScope &&
-		timesEqual(reused.DueDate, plan.ReuseAssignment.DueDate) {
-		return reused, nil
+}
+
+func createVariantAssignmentReuseChanged(reused, original TranslationAssignment) bool {
+	if reused.Version != original.Version {
+		return true
 	}
-	return repo.Update(ctx, reused, plan.ReuseAssignment.Version)
+	if reused.AssigneeID != original.AssigneeID || reused.Priority != original.Priority || reused.WorkScope != original.WorkScope {
+		return true
+	}
+	if reused.TenantID != original.TenantID || reused.OrgID != original.OrgID || reused.SourceLocale != original.SourceLocale {
+		return true
+	}
+	if reused.VariantID != original.VariantID || reused.TargetRecordID != original.TargetRecordID {
+		return true
+	}
+	return !timesEqual(reused.DueDate, original.DueDate)
+}
+
+func validateCreateVariantAssignmentLinked(family translationservices.FamilyRecord, targetLocale string, assignment TranslationAssignment) error {
+	if strings.TrimSpace(family.TenantID) != "" && strings.TrimSpace(assignment.TenantID) == "" {
+		return validationDomainError("created locale assignment missing tenant scope", map[string]any{
+			"family_id":     strings.TrimSpace(family.ID),
+			"target_locale": normalizeCreateTranslationLocale(targetLocale),
+			"reason_code":   "missing_assignment_scope",
+		})
+	}
+	if strings.TrimSpace(family.OrgID) != "" && strings.TrimSpace(assignment.OrgID) == "" {
+		return validationDomainError("created locale assignment missing organization scope", map[string]any{
+			"family_id":     strings.TrimSpace(family.ID),
+			"target_locale": normalizeCreateTranslationLocale(targetLocale),
+			"reason_code":   "missing_assignment_scope",
+		})
+	}
+	if strings.TrimSpace(assignment.VariantID) == "" {
+		return validationDomainError("created locale assignment missing synced locale variant", map[string]any{
+			"family_id":         strings.TrimSpace(family.ID),
+			"target_locale":     normalizeCreateTranslationLocale(targetLocale),
+			"target_record_id":  strings.TrimSpace(assignment.TargetRecordID),
+			"tenant_id":         strings.TrimSpace(assignment.TenantID),
+			"organization_id":   strings.TrimSpace(assignment.OrgID),
+			"assignment_id":     strings.TrimSpace(assignment.ID),
+			"assignment_status": strings.TrimSpace(string(assignment.Status)),
+			"reason_code":       "missing_locale_variant",
+		})
+	}
+	return nil
+}
+
+func linkCreateVariantAssignmentTarget(family translationservices.FamilyRecord, targetLocale string, createdVariant *CMSContent, assignment *TranslationAssignment) {
+	if assignment == nil {
+		return
+	}
+	if variant, ok := translationFamilyVariantByLocale(family, targetLocale); ok {
+		assignment.VariantID = strings.TrimSpace(firstNonEmpty(variant.ID, variant.SourceRecordID, assignment.VariantID))
+		assignment.TargetRecordID = strings.TrimSpace(firstNonEmpty(variant.SourceRecordID, assignment.TargetRecordID))
+		return
+	}
+	if createdVariant != nil {
+		assignment.TargetRecordID = strings.TrimSpace(firstNonEmpty(createdVariant.ID, assignment.TargetRecordID))
+	}
 }
 
 func (b *translationFamilyBinding) createVariantAssignment(
@@ -904,22 +1489,26 @@ func (b *translationFamilyBinding) createVariantAssignment(
 	plan translationFamilyCreateVariantAssignmentPlan,
 	createdVariant *CMSContent,
 ) (TranslationAssignment, bool, error) {
-	source := translationFamilySourceVariant(family)
+	source, err := translationFamilyRequiredSourceVariant(family)
+	if err != nil {
+		return TranslationAssignment{}, false, err
+	}
 	assignment := TranslationAssignment{
 		FamilyID:       family.ID,
 		EntityType:     family.ContentType,
+		TenantID:       strings.TrimSpace(family.TenantID),
+		OrgID:          strings.TrimSpace(family.OrgID),
 		SourceRecordID: strings.TrimSpace(source.SourceRecordID),
-		SourceLocale:   strings.TrimSpace(strings.ToLower(family.SourceLocale)),
-		TargetLocale:   input.Locale,
+		SourceLocale:   translationFamilyAssignmentSourceLocale(family, source),
+		TargetLocale:   strings.TrimSpace(strings.ToLower(input.Locale)),
 		SourceTitle:    strings.TrimSpace(source.Fields["title"]),
 		SourcePath:     strings.TrimSpace(source.Fields["path"]),
 		Priority:       Priority(firstNonEmpty(string(input.Priority), string(PriorityNormal))),
 		WorkScope:      plan.WorkScope,
 		DueDate:        cloneTimePtr(input.DueDate),
 	}
-	if createdVariant != nil {
-		assignment.TargetRecordID = strings.TrimSpace(createdVariant.ID)
-	}
+	applyCreateVariantAssignmentTarget(&assignment, family, input, createdVariant)
+	linkCreateVariantAssignmentTarget(family, input.Locale, createdVariant, &assignment)
 	if input.AssigneeID != "" {
 		assignment.AssignmentType = AssignmentTypeDirect
 		assignment.Status = AssignmentStatusAssigned
@@ -929,11 +1518,212 @@ func (b *translationFamilyBinding) createVariantAssignment(
 		assignment.AssignmentType = AssignmentTypeOpenPool
 		assignment.Status = AssignmentStatusOpen
 	}
-	return repo.CreateOrReuseActive(ctx, assignment)
+	created, inserted, err := repo.CreateOrReuseActive(ctx, assignment)
+	if err != nil {
+		return TranslationAssignment{}, false, err
+	}
+	if err := validateCreateVariantAssignmentLinked(family, input.Locale, created); err != nil {
+		return TranslationAssignment{}, false, err
+	}
+	return created, inserted, nil
+}
+
+func applyCreateVariantAssignmentTarget(assignment *TranslationAssignment, family translationservices.FamilyRecord, input translationFamilyCreateVariantInput, createdVariant *CMSContent) {
+	if assignment == nil {
+		return
+	}
+	if createdVariant != nil {
+		assignment.TargetRecordID = strings.TrimSpace(createdVariant.ID)
+		if assignment.VariantID == "" {
+			assignment.VariantID = translationFamilyLocaleVariantID(createdVariant.ID, input.Locale)
+		}
+	}
+	if variant, ok := translationFamilyVariantByLocale(family, input.Locale); ok {
+		assignment.VariantID = strings.TrimSpace(firstNonEmpty(variant.ID, variant.SourceRecordID, assignment.VariantID))
+		assignment.TargetRecordID = strings.TrimSpace(firstNonEmpty(variant.SourceRecordID, assignment.TargetRecordID))
+	}
+}
+
+func (b *translationFamilyBinding) createOrAssignFamilyAssignment(request translationFamilyCreateAssignmentRequest, family translationservices.FamilyRecord) (translationFamilyCreateAssignmentOutcome, error) {
+	queueBinding := &translationQueueBinding{admin: b.admin}
+	repo, err := queueBinding.assignmentRepository()
+	if err != nil {
+		return translationFamilyCreateAssignmentOutcome{}, err
+	}
+	existing, ok, err := b.activeFamilyAssignment(request.AdminCtx.Context, repo, request.Scope, family.ID, request.Input.TargetLocale, request.Input.WorkScope)
+	if err != nil {
+		return translationFamilyCreateAssignmentOutcome{}, err
+	}
+	if ok {
+		updated, reused, updateErr := b.applyExistingFamilyAssignment(request, repo, existing)
+		return translationFamilyCreateAssignmentOutcome{Assignment: updated, AssignmentReused: reused}, updateErr
+	}
+	assignment, inserted, err := b.createFamilyAssignment(request, repo, family)
+	if err != nil {
+		return translationFamilyCreateAssignmentOutcome{}, err
+	}
+	return translationFamilyCreateAssignmentOutcome{Assignment: assignment, AssignmentReused: !inserted}, nil
+}
+
+func (b *translationFamilyBinding) activeFamilyAssignment(ctx context.Context, repo TranslationAssignmentRepository, scope translationservices.Scope, familyID, targetLocale, workScope string) (TranslationAssignment, bool, error) {
+	assignments, _, err := repo.List(ctx, ListOptions{
+		Page:    1,
+		PerPage: 200,
+		SortBy:  "updated_at",
+		Filters: map[string]any{
+			ScopeTenantIDKey: strings.TrimSpace(scope.TenantID),
+			ScopeOrgIDKey:    strings.TrimSpace(scope.OrgID),
+			"family_id":      strings.TrimSpace(familyID),
+			"target_locale":  strings.TrimSpace(strings.ToLower(targetLocale)),
+			"work_scope":     normalizeTranslationAssignmentWorkScope(workScope),
+			"status":         translationFamilyActiveAssignmentStatusFilter(),
+		},
+	})
+	if err != nil {
+		return TranslationAssignment{}, false, err
+	}
+	active := make([]TranslationAssignment, 0, len(assignments))
+	for _, assignment := range assignments {
+		if assignment.Status.IsActive() {
+			active = append(active, assignment)
+		}
+	}
+	if len(active) == 0 {
+		return TranslationAssignment{}, false, nil
+	}
+	sort.SliceStable(active, func(i, j int) bool {
+		if active[i].UpdatedAt.Equal(active[j].UpdatedAt) {
+			return active[i].ID < active[j].ID
+		}
+		return active[i].UpdatedAt.After(active[j].UpdatedAt)
+	})
+	return active[0], true, nil
+}
+
+func (b *translationFamilyBinding) applyExistingFamilyAssignment(request translationFamilyCreateAssignmentRequest, repo TranslationAssignmentRepository, existing TranslationAssignment) (TranslationAssignment, bool, error) {
+	queueBinding := &translationQueueBinding{admin: b.admin}
+	if scopeErr := queueBinding.ensureAssignmentScope(translationIdentityFromAdminContext(request.AdminCtx), existing); scopeErr != nil {
+		return TranslationAssignment{}, false, scopeErr
+	}
+	switch existing.Status {
+	case AssignmentStatusInProgress, AssignmentStatusInReview:
+		return TranslationAssignment{}, false, invalidQueueTransitionError(existing.Status, "family_assign", existing)
+	case AssignmentStatusOpen:
+		if request.Input.OpenPool {
+			return existing, true, nil
+		}
+	case AssignmentStatusAssigned, AssignmentStatusChangesRequested:
+		if request.Input.OpenPool {
+			return TranslationAssignment{}, false, validationDomainError("existing direct assignment cannot be converted to open pool from family assignment creation", map[string]any{
+				"assignment_id": strings.TrimSpace(existing.ID),
+				"family_id":     strings.TrimSpace(existing.FamilyID),
+				"target_locale": strings.TrimSpace(existing.TargetLocale),
+				"reason_code":   ActionDisabledReasonCodeInvalidStatus,
+			})
+		}
+	default:
+		return existing, true, nil
+	}
+	if request.Input.AssigneeID == "" {
+		return existing, true, nil
+	}
+	if strings.EqualFold(strings.TrimSpace(existing.AssigneeID), strings.TrimSpace(request.Input.AssigneeID)) &&
+		!request.Input.PrioritySet &&
+		request.Input.DueDate == nil &&
+		existing.AssignmentType == AssignmentTypeDirect &&
+		existing.Status == AssignmentStatusAssigned {
+		return existing, true, nil
+	}
+	priority := Priority("")
+	if request.Input.PrioritySet {
+		priority = request.Input.Priority
+	}
+	service := &DefaultTranslationQueueService{
+		Repository:    repo,
+		Activity:      b.admin.ActivityFeed(),
+		Notifications: b.admin.NotificationService(),
+		URLs:          b.admin.URLs(),
+	}
+	updated, err := service.Assign(request.AdminCtx.Context, TranslationQueueAssignInput{
+		AssignmentID:    strings.TrimSpace(existing.ID),
+		AssigneeID:      strings.TrimSpace(request.Input.AssigneeID),
+		AssignerID:      translationIdentityFromAdminContext(request.AdminCtx).ActorID,
+		Priority:        priority,
+		DueDate:         cloneTimePtr(request.Input.DueDate),
+		ExpectedVersion: existing.Version,
+	})
+	if err != nil {
+		return TranslationAssignment{}, false, err
+	}
+	return updated, true, nil
+}
+
+func (b *translationFamilyBinding) createFamilyAssignment(request translationFamilyCreateAssignmentRequest, repo TranslationAssignmentRepository, family translationservices.FamilyRecord) (TranslationAssignment, bool, error) {
+	source, err := translationFamilyRequiredSourceVariant(family)
+	if err != nil {
+		return TranslationAssignment{}, false, err
+	}
+	assignment := TranslationAssignment{
+		FamilyID:       strings.TrimSpace(family.ID),
+		EntityType:     strings.TrimSpace(family.ContentType),
+		TenantID:       strings.TrimSpace(family.TenantID),
+		OrgID:          strings.TrimSpace(family.OrgID),
+		SourceRecordID: strings.TrimSpace(source.SourceRecordID),
+		SourceLocale:   translationFamilyAssignmentSourceLocale(family, source),
+		TargetLocale:   strings.TrimSpace(strings.ToLower(request.Input.TargetLocale)),
+		SourceTitle:    strings.TrimSpace(source.Fields["title"]),
+		SourcePath:     strings.TrimSpace(source.Fields["path"]),
+		Priority:       Priority(firstNonEmpty(string(request.Input.Priority), string(PriorityNormal))),
+		WorkScope:      normalizeTranslationAssignmentWorkScope(request.Input.WorkScope),
+		DueDate:        cloneTimePtr(request.Input.DueDate),
+	}
+	variant, ok := translationFamilyVariantByLocale(family, request.Input.TargetLocale)
+	if !ok {
+		return TranslationAssignment{}, false, validationDomainError("target locale variant required before assignment creation", map[string]any{
+			"family_id":     family.ID,
+			"target_locale": request.Input.TargetLocale,
+			"reason_code":   "missing_locale_variant",
+		})
+	}
+	assignment.VariantID = strings.TrimSpace(firstNonEmpty(variant.ID, variant.SourceRecordID))
+	assignment.TargetRecordID = strings.TrimSpace(variant.SourceRecordID)
+	if strings.TrimSpace(assignment.SourceRecordID) == "" {
+		return TranslationAssignment{}, false, validationDomainError("family source variant missing source_record_id", map[string]any{
+			"family_id": family.ID,
+		})
+	}
+	if request.Input.OpenPool {
+		assignment.AssignmentType = AssignmentTypeOpenPool
+		assignment.Status = AssignmentStatusOpen
+	} else {
+		assignment.AssignmentType = AssignmentTypeDirect
+		assignment.Status = AssignmentStatusAssigned
+		assignment.AssigneeID = strings.TrimSpace(request.Input.AssigneeID)
+		assignment.AssignerID = translationIdentityFromAdminContext(request.AdminCtx).ActorID
+	}
+	return repo.CreateOrReuseActive(request.AdminCtx.Context, assignment)
+}
+
+func (b *translationFamilyBinding) createAssignmentResponsePayload(request translationFamilyCreateAssignmentRequest, outcome translationFamilyCreateAssignmentOutcome) map[string]any {
+	queueBinding := &translationQueueBinding{admin: b.admin}
+	now := b.now().UTC()
+	actorLabels := queueBinding.newAssignmentActorLabelResolver().labelsForAssignments(request.AdminCtx.Context, []TranslationAssignment{outcome.Assignment})
+	row := queueBinding.assignmentContractRow(request.AdminCtx.Context, outcome.Assignment, now, request.Input.Channel, actorLabels)
+	return map[string]any{
+		"data": map[string]any{
+			"assignment_id": strings.TrimSpace(outcome.Assignment.ID),
+			"assignment":    row,
+		},
+		"meta": mergeTranslationChannelContract(map[string]any{
+			"idempotency_hit":   false,
+			"assignment_reused": outcome.AssignmentReused,
+			"family_refresh":    true,
+		}, request.Input.Channel),
+	}
 }
 
 func translationCreateVariantAssignmentPayload(assignment TranslationAssignment) map[string]any {
-	return map[string]any{
+	payload := map[string]any{
 		"assignment_id": strings.TrimSpace(assignment.ID),
 		"status":        translationFamilyAssignmentStatus(assignment.Status),
 		"target_locale": strings.TrimSpace(strings.ToLower(assignment.TargetLocale)),
@@ -942,6 +1732,10 @@ func translationCreateVariantAssignmentPayload(assignment TranslationAssignment)
 		"priority":      strings.TrimSpace(strings.ToLower(string(assignment.Priority))),
 		"due_date":      cloneTimePtr(assignment.DueDate),
 	}
+	if assignment.AssignedAt != nil {
+		payload["assigned_at"] = cloneTimePtr(assignment.AssignedAt)
+	}
+	return payload
 }
 
 func (b *translationFamilyBinding) rebuildCreateVariantPayloadWithFamily(ctx context.Context, scope translationservices.Scope, familyID string, input translationFamilyCreateVariantInput) (map[string]any, translationservices.FamilyRecord, error) {
@@ -1033,6 +1827,22 @@ func (b *translationFamilyBinding) lookupCreateVariantIdempotency(adminCtx Admin
 	if err != nil {
 		return nil, err
 	}
+	return b.lookupCreateIdempotencyRecord(recordKey, requestHash, familyID, input.IdempotencyKey, "idempotency key was already used with a different create-locale payload")
+}
+
+func (b *translationFamilyBinding) lookupCreateAssignmentIdempotency(adminCtx AdminContext, familyID string, input translationFamilyCreateAssignmentInput) (map[string]any, error) {
+	if b == nil || strings.TrimSpace(input.IdempotencyKey) == "" {
+		return nil, nil
+	}
+	recordKey := b.createAssignmentIdempotencyStoreKey(translationIdentityFromAdminContext(adminCtx).ActorID, familyID, input.IdempotencyKey)
+	requestHash, err := translationFamilyCreateAssignmentRequestHash(familyID, input)
+	if err != nil {
+		return nil, err
+	}
+	return b.lookupCreateIdempotencyRecord(recordKey, requestHash, familyID, input.IdempotencyKey, "idempotency key was already used with a different family assignment payload")
+}
+
+func (b *translationFamilyBinding) lookupCreateIdempotencyRecord(recordKey, requestHash, familyID, idempotencyKey, conflictMessage string) (map[string]any, error) {
 	now := b.now()
 	b.idempotencyMu.Lock()
 	defer b.idempotencyMu.Unlock()
@@ -1045,9 +1855,9 @@ func (b *translationFamilyBinding) lookupCreateVariantIdempotency(adminCtx Admin
 		return nil, nil
 	}
 	if record.RequestHash != requestHash {
-		return nil, NewDomainError(string(translationcore.ErrorVersionConflict), "idempotency key was already used with a different create-locale payload", map[string]any{
+		return nil, NewDomainError(string(translationcore.ErrorVersionConflict), conflictMessage, map[string]any{
 			"family_id":        familyID,
-			"idempotency_key":  input.IdempotencyKey,
+			"idempotency_key":  idempotencyKey,
 			"expected_request": record.RequestHash,
 			"actual_request":   requestHash,
 		})
@@ -1067,6 +1877,25 @@ func (b *translationFamilyBinding) storeCreateVariantIdempotency(adminCtx AdminC
 		return err
 	}
 	recordKey := b.createVariantIdempotencyStoreKey(translationIdentityFromAdminContext(adminCtx).ActorID, familyID, input.IdempotencyKey)
+	b.idempotencyMu.Lock()
+	defer b.idempotencyMu.Unlock()
+	b.idempotencyMap[recordKey] = translationFamilyIdempotencyRecord{
+		RequestHash: requestHash,
+		Payload:     cloneAnyMap(payload),
+		CreatedAt:   b.now(),
+	}
+	return nil
+}
+
+func (b *translationFamilyBinding) storeCreateAssignmentIdempotency(adminCtx AdminContext, familyID string, input translationFamilyCreateAssignmentInput, payload map[string]any) error {
+	if b == nil || strings.TrimSpace(input.IdempotencyKey) == "" {
+		return nil
+	}
+	requestHash, err := translationFamilyCreateAssignmentRequestHash(familyID, input)
+	if err != nil {
+		return err
+	}
+	recordKey := b.createAssignmentIdempotencyStoreKey(translationIdentityFromAdminContext(adminCtx).ActorID, familyID, input.IdempotencyKey)
 	b.idempotencyMu.Lock()
 	defer b.idempotencyMu.Unlock()
 	b.idempotencyMap[recordKey] = translationFamilyIdempotencyRecord{
@@ -1122,6 +1951,16 @@ func (b *translationFamilyBinding) lookupCreateVariantReplayFromStore(adminCtx A
 
 func (b *translationFamilyBinding) createVariantIdempotencyStoreKey(actorID, familyID, idempotencyKey string) string {
 	return strings.Join([]string{
+		"variant",
+		strings.TrimSpace(actorID),
+		strings.TrimSpace(familyID),
+		strings.TrimSpace(idempotencyKey),
+	}, "|")
+}
+
+func (b *translationFamilyBinding) createAssignmentIdempotencyStoreKey(actorID, familyID, idempotencyKey string) string {
+	return strings.Join([]string{
+		"assignment",
 		strings.TrimSpace(actorID),
 		strings.TrimSpace(familyID),
 		strings.TrimSpace(idempotencyKey),
@@ -1136,6 +1975,27 @@ func translationFamilyCreateVariantRequestHash(familyID string, input translatio
 		"auto_create_assignment": input.AutoCreateAssignment,
 		"assignee_id":            strings.TrimSpace(input.AssigneeID),
 		"priority":               strings.TrimSpace(strings.ToLower(string(input.Priority))),
+	}
+	if input.DueDate != nil {
+		payload["due_date"] = input.DueDate.UTC().Format(time.RFC3339)
+	}
+	raw, err := json.Marshal(payload)
+	if err != nil {
+		return "", err
+	}
+	sum := sha256.Sum256(raw)
+	return hex.EncodeToString(sum[:]), nil
+}
+
+func translationFamilyCreateAssignmentRequestHash(familyID string, input translationFamilyCreateAssignmentInput) (string, error) {
+	payload := map[string]any{
+		"family_id":     strings.TrimSpace(familyID),
+		"channel":       strings.TrimSpace(input.Channel),
+		"target_locale": strings.TrimSpace(strings.ToLower(input.TargetLocale)),
+		"assignee_id":   strings.TrimSpace(input.AssigneeID),
+		"open_pool":     input.OpenPool,
+		"priority":      strings.TrimSpace(strings.ToLower(string(input.Priority))),
+		"work_scope":    normalizeTranslationAssignmentWorkScope(input.WorkScope),
 	}
 	if input.DueDate != nil {
 		payload["due_date"] = input.DueDate.UTC().Format(time.RFC3339)
@@ -1359,10 +2219,10 @@ func (b *translationFamilyBinding) deleteFamilyVariant(ctx context.Context, crea
 
 func (b *translationFamilyBinding) rollbackCreatedFamilyVariant(ctx context.Context, created *CMSContent, cause error, environment string) error {
 	if rollbackErr := b.deleteFamilyVariant(ctx, created); rollbackErr != nil {
-		return errors.Join(cause, rollbackErr)
+		return translationFamilyRollbackError(cause, rollbackErr)
 	}
 	if syncErr := SyncTranslationFamilyStore(ctx, b.admin, environment); syncErr != nil {
-		return errors.Join(cause, syncErr)
+		return translationFamilyRollbackError(cause, syncErr)
 	}
 	return cause
 }
@@ -1537,10 +2397,12 @@ func (b *translationFamilyBinding) collectAssignments(ctx context.Context) []tra
 			TargetLocale: strings.TrimSpace(strings.ToLower(assignment.TargetLocale)),
 			Status:       status,
 			AssigneeID:   strings.TrimSpace(assignment.AssigneeID),
+			AssignerID:   strings.TrimSpace(assignment.AssignerID),
 			ReviewerID:   strings.TrimSpace(firstNonEmpty(assignment.ReviewerID, assignment.LastReviewerID)),
 			Priority:     strings.TrimSpace(strings.ToLower(string(assignment.Priority))),
 			WorkScope:    normalizeTranslationAssignmentWorkScope(assignment.WorkScope),
 			DueDate:      cloneTimePtr(assignment.DueDate),
+			AssignedAt:   cloneTimePtr(assignment.AssignedAt),
 			UpdatedAt:    assignment.UpdatedAt,
 			CreatedAt:    assignment.CreatedAt,
 		})
@@ -1603,11 +2465,647 @@ func translationFamilyBlockerDetailString(blocker translationservices.FamilyBloc
 	return strings.TrimSpace(strings.ToLower(toString(blocker.Details[key])))
 }
 
-func translationFamilyDetailPayload(family translationservices.FamilyRecord, channel string) map[string]any {
+func (b *translationFamilyBinding) translationFamilyDetailPayload(ctx context.Context, family translationservices.FamilyRecord, channel string) map[string]any {
+	payload := translationFamilyDetailPayload(family, channel, b.admin)
+	assignments := b.familyDetailAssignments(ctx, family)
+	if len(assignments) == 0 {
+		payload["locale_assignments"] = b.familyLocaleAssignmentsPayload(ctx, family, nil, channel)
+		return payload
+	}
+	queueBinding := &translationQueueBinding{admin: b.admin}
+	now := b.now().UTC()
+	actorLabels := queueBinding.newAssignmentActorLabelResolver().labelsForAssignments(ctx, assignments)
+	activeRows := make([]map[string]any, 0, len(assignments))
+	for _, assignment := range assignments {
+		if !assignment.Status.IsActive() {
+			continue
+		}
+		row := queueBinding.assignmentContractRow(ctx, assignment, now, channel, actorLabels)
+		b.decorateFamilyAssignmentRow(ctx, row, assignment)
+		activeRows = append(activeRows, row)
+	}
+	payload["active_assignments"] = activeRows
+	payload["locale_assignments"] = b.familyLocaleAssignmentsPayload(ctx, family, assignments, channel)
+	return payload
+}
+
+func (b *translationFamilyBinding) familyDetailAssignments(ctx context.Context, family translationservices.FamilyRecord) []TranslationAssignment {
+	queueBinding := &translationQueueBinding{admin: b.admin}
+	repo, err := queueBinding.assignmentRepository()
+	if err != nil || repo == nil {
+		return nil
+	}
+	assignments, _, err := repo.List(ctx, ListOptions{
+		Page:    1,
+		PerPage: 500,
+		SortBy:  "updated_at",
+		Filters: map[string]any{
+			ScopeTenantIDKey: strings.TrimSpace(family.TenantID),
+			ScopeOrgIDKey:    strings.TrimSpace(family.OrgID),
+			"family_id":      strings.TrimSpace(family.ID),
+			"status":         translationFamilyActiveAssignmentStatusFilter(),
+		},
+	})
+	if err != nil {
+		return nil
+	}
+	sort.SliceStable(assignments, func(i, j int) bool {
+		if assignments[i].UpdatedAt.Equal(assignments[j].UpdatedAt) {
+			return assignments[i].ID < assignments[j].ID
+		}
+		return assignments[i].UpdatedAt.After(assignments[j].UpdatedAt)
+	})
+	return assignments
+}
+
+func (b *translationFamilyBinding) decorateFamilyAssignmentRow(ctx context.Context, row map[string]any, assignment TranslationAssignment) {
+	if row == nil {
+		return
+	}
+	b.decorateFamilyAssignmentAssignee(ctx, row, assignment)
+	assignerID := b.decorateFamilyAssignmentAssigner(ctx, row, assignment)
+	decorateFamilyAssignmentDates(row, assignment)
+	if sentence := translationFamilyAssignmentActivitySentence(row); sentence != "" {
+		row["activity_sentence"] = sentence
+	}
+	decorateFamilyAssignmentReviewer(row, assignment)
+	b.decorateFamilyAssignmentLinks(row, assignment)
+	b.decorateFamilyAssignmentActions(row, assignment)
+	if strings.TrimSpace(toString(row["display_assigner"])) == "" {
+		row["display_assigner"] = translationFamilyActorFallback(assignerID, "System")
+	}
+}
+
+func (b *translationFamilyBinding) decorateFamilyAssignmentAssignee(ctx context.Context, row map[string]any, assignment TranslationAssignment) string {
+	assigneeID := strings.TrimSpace(assignment.AssigneeID)
+	if assigneeID != "" && strings.TrimSpace(toString(row["assignee_label"])) == "" {
+		row["assignee_label"] = assigneeID
+	}
+	if assigneeID != "" {
+		if label := b.familyActorDisplayLabel(ctx, assigneeID); label != "" {
+			row["display_assignee"] = label
+		}
+	}
+	return assigneeID
+}
+
+func (b *translationFamilyBinding) decorateFamilyAssignmentAssigner(ctx context.Context, row map[string]any, assignment TranslationAssignment) string {
+	assignerID := strings.TrimSpace(assignment.AssignerID)
+	if assignerID != "" {
+		row["assigner_id"] = assignerID
+		if label := b.familyActorDisplayLabel(ctx, assignerID); label != "" {
+			row["display_assigner"] = label
+		}
+	}
+	return assignerID
+}
+
+func decorateFamilyAssignmentDates(row map[string]any, assignment TranslationAssignment) {
+	if assignment.AssignedAt != nil {
+		row["assigned_at"] = cloneTimePtr(assignment.AssignedAt)
+		row["display_assigned_at"] = translationSSRFormatDate(assignment.AssignedAt)
+	} else if !assignment.CreatedAt.IsZero() {
+		row["display_assigned_at"] = translationSSRFormatDate(assignment.CreatedAt)
+		row["assigned_at_legacy_fallback"] = true
+	}
+}
+
+func decorateFamilyAssignmentReviewer(row map[string]any, assignment TranslationAssignment) {
+	reviewerID := strings.TrimSpace(firstNonEmpty(assignment.ReviewerID, assignment.LastReviewerID))
+	if reviewerID != "" && strings.TrimSpace(toString(row["reviewer_label"])) == "" {
+		row["reviewer_label"] = reviewerID
+	}
+}
+
+func (b *translationFamilyBinding) decorateFamilyAssignmentLinks(row map[string]any, assignment TranslationAssignment) {
+	if href := translationAssignmentEditorURL(b.admin, assignment.ID); href != "" {
+		row["links"] = map[string]any{
+			"editor": translationFamilyEditorLink(assignment.ID, href),
+		}
+	}
+}
+
+func (b *translationFamilyBinding) decorateFamilyAssignmentActions(row map[string]any, assignment TranslationAssignment) {
+	if actions := extractMap(row["actions"]); len(actions) > 0 {
+		if claim := extractMap(actions["claim"]); len(claim) > 0 {
+			if endpoint := b.assignmentActionEndpoint(assignment.ID, "claim"); endpoint != "" {
+				claim["endpoint"] = endpoint
+			}
+			claim["required_fields"] = []string{"expected_version"}
+			actions["claim"] = claim
+		}
+		row["actions"] = actions
+	}
+}
+
+func translationFamilyActorFallback(id, fallback string) string {
+	id = strings.TrimSpace(id)
+	if id == "" || id == "__me__" || id == "__missing_actor__" {
+		return strings.TrimSpace(fallback)
+	}
+	if len(id) > 12 {
+		return id[:8] + "..."
+	}
+	return id
+}
+
+func translationFamilyAssignmentActivitySentence(row map[string]any) string {
+	if row == nil {
+		return ""
+	}
+	assigner := strings.TrimSpace(firstNonEmpty(toString(row["display_assigner"]), translationFamilyActorFallback(toString(row["assigner_id"]), "System")))
+	locale := strings.ToUpper(strings.TrimSpace(firstNonEmpty(toString(row["target_locale"]), toString(row["locale"]))))
+	assignee := translationFamilyDisplayActorLabel(
+		toString(row["display_assignee"]),
+		toString(row["assignee_label"]),
+		toString(row["assignee_id"]),
+		"Unassigned",
+	)
+	if assigner == "" || locale == "" || assignee == "" {
+		return ""
+	}
+	if date := strings.TrimSpace(toString(row["display_assigned_at"])); date != "" {
+		if toBool(row["assigned_at_legacy_fallback"]) {
+			return fmt.Sprintf("%s assigned %s to %s; created %s", assigner, locale, assignee, date)
+		}
+		return fmt.Sprintf("%s assigned %s to %s on %s", assigner, locale, assignee, date)
+	}
+	return fmt.Sprintf("%s assigned %s to %s", assigner, locale, assignee)
+}
+
+func translationFamilyDisplayActorLabel(display, label, id, fallback string) string {
+	id = strings.TrimSpace(id)
+	for _, candidate := range []string{display, label} {
+		candidate = strings.TrimSpace(candidate)
+		if candidate != "" && !strings.EqualFold(candidate, id) {
+			return candidate
+		}
+	}
+	return translationFamilyActorFallback(id, fallback)
+}
+
+func (b *translationFamilyBinding) familyActorDisplayLabel(ctx context.Context, id string) string {
+	id = strings.TrimSpace(id)
+	if b == nil || b.admin == nil || id == "" {
+		return ""
+	}
+	if b.admin.users != nil {
+		user, err := b.admin.users.GetUser(ctx, id)
+		if err == nil && strings.TrimSpace(user.ID) != "" {
+			return translationFamilyActorDisplayLabelForContext(ctx, id, userToRecord(user))
+		}
+	}
+	if b.admin.registry != nil {
+		usersPanel, ok := b.admin.registry.Panel(usersModuleID)
+		if ok && usersPanel != nil && usersPanel.repo != nil {
+			record, err := usersPanel.repo.Get(ctx, id)
+			if err == nil && len(record) > 0 {
+				return translationFamilyActorDisplayLabelForContext(ctx, id, record)
+			}
+		}
+	}
+	if label := translationFamilyCurrentActorDisplayLabel(ctx, id); label != "" {
+		return label
+	}
+	return ""
+}
+
+func translationFamilyActorDisplayLabelForContext(ctx context.Context, id string, record map[string]any) string {
+	if len(record) == 0 {
+		return ""
+	}
+	if current := translationFamilyCurrentActorRecord(ctx, id); len(current) > 0 {
+		record = translationFamilyMergeMissingActorRecord(record, current)
+	}
+	return translationFamilyActorDisplayLabelFromRecord(record)
+}
+
+func translationFamilyCurrentActorDisplayLabel(ctx context.Context, id string) string {
+	record := translationFamilyCurrentActorRecord(ctx, id)
+	if len(record) == 0 {
+		return ""
+	}
+	label := translationFamilyActorDisplayLabelFromRecord(record)
+	if label != "" && !strings.EqualFold(label, strings.TrimSpace(id)) {
+		return label
+	}
+	return ""
+}
+
+func translationFamilyCurrentActorRecord(ctx context.Context, id string) map[string]any {
+	id = strings.TrimSpace(id)
+	if ctx == nil || id == "" {
+		return nil
+	}
+	record := map[string]any{}
+	if actor, ok := auth.ActorFromContext(ctx); ok && translationFamilyActorMatchesID(actor, id) {
+		record = translationFamilyMergeMissingActorRecord(record, translationFamilyActorContextRecord(actor))
+	}
+	if claims, ok := auth.GetClaims(ctx); ok && claims != nil && translationFamilyClaimsMatchID(claims, id) {
+		claimsRecord := map[string]any{
+			"id": id,
+		}
+		if carrier, ok := claims.(interface{ ClaimsMetadata() map[string]any }); ok && carrier != nil {
+			maps.Copy(claimsRecord, carrier.ClaimsMetadata())
+		}
+		record = translationFamilyMergeMissingActorRecord(record, claimsRecord)
+	}
+	return record
+}
+
+func translationFamilyMergeMissingActorRecord(base, fallback map[string]any) map[string]any {
+	if len(base) == 0 && len(fallback) == 0 {
+		return nil
+	}
+	out := make(map[string]any, len(base)+len(fallback))
+	maps.Copy(out, base)
+	for key, value := range fallback {
+		if strings.TrimSpace(toString(out[key])) == "" && strings.TrimSpace(toString(value)) != "" {
+			out[key] = value
+		}
+	}
+	return out
+}
+
+func translationFamilyActorMatchesID(actor *auth.ActorContext, id string) bool {
+	if actor == nil {
+		return false
+	}
+	return strings.EqualFold(strings.TrimSpace(actor.ActorID), id) || strings.EqualFold(strings.TrimSpace(actor.Subject), id)
+}
+
+func translationFamilyClaimsMatchID(claims auth.AuthClaims, id string) bool {
+	if claims == nil {
+		return false
+	}
+	return strings.EqualFold(strings.TrimSpace(claims.UserID()), id) || strings.EqualFold(strings.TrimSpace(claims.Subject()), id)
+}
+
+func translationFamilyActorContextRecord(actor *auth.ActorContext) map[string]any {
+	record := map[string]any{}
+	if actor == nil {
+		return record
+	}
+	maps.Copy(record, actor.Metadata)
+	record["id"] = firstNonEmpty(strings.TrimSpace(actor.ActorID), strings.TrimSpace(actor.Subject))
+	if _, ok := record["role"]; !ok && strings.TrimSpace(actor.Role) != "" {
+		record["role"] = strings.TrimSpace(actor.Role)
+	}
+	return record
+}
+
+func translationFamilyActorDisplayLabelFromRecord(record map[string]any) string {
+	if len(record) == 0 {
+		return ""
+	}
+	displayName := strings.TrimSpace(firstNonEmpty(
+		toString(record["display_name"]),
+		toString(record["full_name"]),
+		toString(record["name"]),
+		toString(record["username"]),
+	))
+	email := strings.TrimSpace(toString(record["email"]))
+	if displayName == "" {
+		return email
+	}
+	if email == "" || strings.EqualFold(displayName, email) {
+		return displayName
+	}
+	return displayName + " <" + email + ">"
+}
+
+func (b *translationFamilyBinding) familyLocaleAssignmentsPayload(ctx context.Context, family translationservices.FamilyRecord, assignments []TranslationAssignment, channel string) map[string]any {
+	workScope := translationFamilyDefaultWorkScope(family)
+	assignmentsByKey := map[string]TranslationAssignment{}
+	for _, assignment := range assignments {
+		if !assignment.Status.IsActive() {
+			continue
+		}
+		key := translationFamilyLocaleAssignmentKey(assignment.TargetLocale, assignment.WorkScope)
+		if _, exists := assignmentsByKey[key]; !exists {
+			assignmentsByKey[key] = assignment
+		}
+	}
+	locales := map[string]translationservices.FamilyVariant{}
+	for _, variant := range family.Variants {
+		locale := strings.TrimSpace(strings.ToLower(variant.Locale))
+		if locale != "" {
+			locales[locale] = variant
+		}
+	}
+	for _, assignment := range assignments {
+		locale := strings.TrimSpace(strings.ToLower(assignment.TargetLocale))
+		if locale != "" {
+			locales[locale] = translationservices.FamilyVariant{
+				ID:                   strings.TrimSpace(assignment.VariantID),
+				FamilyID:             strings.TrimSpace(assignment.FamilyID),
+				TenantID:             strings.TrimSpace(assignment.TenantID),
+				OrgID:                strings.TrimSpace(assignment.OrgID),
+				Locale:               locale,
+				SourceRecordID:       strings.TrimSpace(assignment.TargetRecordID),
+				SourceHashAtLastSync: "",
+			}
+		}
+	}
+	keys := make([]string, 0, len(locales))
+	for locale := range locales {
+		keys = append(keys, locale)
+	}
+	sort.Strings(keys)
+	out := map[string]any{}
+	for _, locale := range keys {
+		variant := locales[locale]
+		scope := workScope
+		if assignment, ok := assignmentsByKey[translationFamilyLocaleAssignmentKey(locale, scope)]; ok {
+			scope = normalizeTranslationAssignmentWorkScope(assignment.WorkScope)
+		}
+		key := translationFamilyLocaleAssignmentKey(locale, scope)
+		assignment, hasAssignment := assignmentsByKey[key]
+		out[key] = b.familyLocaleAssignmentPayload(ctx, family, variant, assignment, hasAssignment, scope, channel)
+	}
+	return out
+}
+
+func (b *translationFamilyBinding) familyLocaleAssignmentPayload(
+	ctx context.Context,
+	family translationservices.FamilyRecord,
+	variant translationservices.FamilyVariant,
+	assignment TranslationAssignment,
+	hasAssignment bool,
+	workScope string,
+	channel string,
+) map[string]any {
+	state := b.familyLocaleAssignmentState(ctx, family, variant, assignment, hasAssignment)
+	payload := map[string]any{
+		"locale":     strings.TrimSpace(strings.ToLower(variant.Locale)),
+		"work_scope": normalizeTranslationAssignmentWorkScope(workScope),
+		"state":      state,
+		"actions":    b.familyLocaleAssignmentActions(ctx, family, variant, assignment, hasAssignment, state),
+	}
+	if hasAssignment {
+		queueBinding := &translationQueueBinding{admin: b.admin}
+		labels := queueBinding.newAssignmentActorLabelResolver().labelsForAssignments(ctx, []TranslationAssignment{assignment})
+		row := queueBinding.assignmentContractRow(ctx, assignment, b.now().UTC(), channel, labels)
+		b.decorateFamilyAssignmentRow(ctx, row, assignment)
+		payload["assignment"] = row
+	}
+	return payload
+}
+
+func (b *translationFamilyBinding) familyLocaleAssignmentState(ctx context.Context, family translationservices.FamilyRecord, variant translationservices.FamilyVariant, assignment TranslationAssignment, hasAssignment bool) string {
+	locale := strings.TrimSpace(strings.ToLower(variant.Locale))
+	if sourceLocale := translationFamilyCanonicalSourceLocale(family); sourceLocale != "" && strings.EqualFold(locale, sourceLocale) {
+		if hasAssignment {
+			return "invalid_source_assignment"
+		}
+		return "source_locale"
+	}
+	if !hasAssignment {
+		return "unassigned"
+	}
+	switch assignment.Status {
+	case AssignmentStatusOpen:
+		return "open_pool"
+	case AssignmentStatusAssigned, AssignmentStatusChangesRequested:
+		actorID := strings.TrimSpace(actorFromContext(ctx))
+		if actorID != "" && strings.EqualFold(strings.TrimSpace(assignment.AssigneeID), actorID) {
+			return "assigned_to_me"
+		}
+		return "assigned_to_other"
+	case AssignmentStatusInProgress:
+		return "in_progress"
+	case AssignmentStatusInReview:
+		return "in_review"
+	default:
+		return "terminal"
+	}
+}
+
+func (b *translationFamilyBinding) familyLocaleAssignmentActions(ctx context.Context, family translationservices.FamilyRecord, variant translationservices.FamilyVariant, assignment TranslationAssignment, hasAssignment bool, state string) map[string]any {
+	return map[string]any{
+		"assign_to_me":   b.familyAssignActionState(ctx, family, variant, assignment, hasAssignment, state, true),
+		"assign_to_user": b.familyAssignActionState(ctx, family, variant, assignment, hasAssignment, state, false),
+		"claim":          b.familyClaimActionState(ctx, assignment, hasAssignment),
+		"open_editor":    b.familyOpenEditorActionState(assignment, hasAssignment),
+	}
+}
+
+func (b *translationFamilyBinding) familyAssignActionState(ctx context.Context, family translationservices.FamilyRecord, variant translationservices.FamilyVariant, assignment TranslationAssignment, hasAssignment bool, state string, self bool) map[string]any {
+	decision := b.familyAssignActionDecision(ctx, state, self)
+	out := map[string]any{
+		"enabled":    decision.Enabled,
+		"permission": decision.Permission,
+	}
+	if decision.QueueEnabled {
+		if endpoint := b.familyAssignmentEndpoint(family.ID); endpoint != "" {
+			out["endpoint"] = endpoint
+		}
+	}
+	if _, ok := out["endpoint"]; !ok && decision.Enabled {
+		decision.Enabled = false
+		out["enabled"] = false
+		decision.Reason = "family assignment route is unavailable"
+		decision.ReasonCode = ActionDisabledReasonCodeFeatureDisabled
+	}
+	required := []string{"target_locale"}
+	if !self {
+		required = append(required, "assignee_id")
+	}
+	out["required_fields"] = required
+	payload := map[string]any{
+		"target_locale": strings.TrimSpace(strings.ToLower(variant.Locale)),
+		"work_scope":    normalizeTranslationAssignmentWorkScope(firstNonEmpty(assignment.WorkScope, translationFamilyDefaultWorkScope(family))),
+	}
+	if self && decision.ActorID != "" {
+		payload["assignee_id"] = decision.ActorID
+	}
+	out["payload"] = payload
+	if !decision.Enabled {
+		out["reason"] = decision.Reason
+		out["reason_code"] = decision.ReasonCode
+	}
+	if hasAssignment {
+		out["assignment_id"] = strings.TrimSpace(assignment.ID)
+		out["expected_version"] = assignment.Version
+	}
+	return out
+}
+
+func (b *translationFamilyBinding) familyAssignActionDecision(ctx context.Context, state string, self bool) translationFamilyAssignActionDecision {
+	permission := PermAdminTranslationsAssign
+	actorID := strings.TrimSpace(actorFromContext(ctx))
+	allowed := permissionAllowed(b.admin.Authorizer(), ctx, permission, "translations")
+	queueEnabled := b.translationQueueActionsEnabled()
+	decision := translationFamilyAssignActionDecision{
+		Enabled:      queueEnabled && allowed && (!self || actorID != ""),
+		QueueEnabled: queueEnabled,
+		Permission:   permission,
+		ActorID:      actorID,
+	}
+	if reason, code, blocked := translationFamilyAssignPrerequisiteBlocker(queueEnabled, allowed, self, actorID); blocked {
+		decision.Enabled = false
+		decision.Reason = reason
+		decision.ReasonCode = code
+		return decision
+	}
+	if reason, code, blocked := translationFamilyAssignStateBlocker(state, self); blocked {
+		decision.Enabled = false
+		decision.Reason = reason
+		decision.ReasonCode = code
+	}
+	return decision
+}
+
+func translationFamilyAssignPrerequisiteBlocker(queueEnabled, allowed, self bool, actorID string) (string, string, bool) {
+	if !queueEnabled {
+		return "translation queue feature is disabled", ActionDisabledReasonCodeFeatureDisabled, true
+	}
+	if !allowed {
+		return "missing permission: " + PermAdminTranslationsAssign, ActionDisabledReasonCodePermissionDenied, true
+	}
+	if self && actorID == "" {
+		return "current user identity is required", ActionDisabledReasonCodePermissionDenied, true
+	}
+	return "", "", false
+}
+
+func translationFamilyAssignStateBlocker(state string, self bool) (string, string, bool) {
+	switch state {
+	case "source_locale":
+		return "source locale does not need assignment", ActionDisabledReasonCodeInvalidStatus, true
+	case "invalid_source_assignment":
+		return "source locale assignment must be resolved from the queue", ActionDisabledReasonCodeInvalidStatus, true
+	case "in_progress":
+		return "assignment is already in progress", ActionDisabledReasonCodeInvalidStatus, true
+	case "in_review":
+		return "assignment is already in review", ActionDisabledReasonCodeInvalidStatus, true
+	case "assigned_to_me":
+		if self {
+			return "assignment already belongs to you", "already_assigned", true
+		}
+	}
+	return "", "", false
+}
+
+func (b *translationFamilyBinding) familyClaimActionState(ctx context.Context, assignment TranslationAssignment, hasAssignment bool) map[string]any {
+	if !b.translationQueueActionsEnabled() {
+		return map[string]any{
+			"enabled":     false,
+			"permission":  PermAdminTranslationsClaim,
+			"reason":      "translation queue feature is disabled",
+			"reason_code": ActionDisabledReasonCodeFeatureDisabled,
+		}
+	}
+	if !hasAssignment {
+		return map[string]any{
+			"enabled":     false,
+			"permission":  PermAdminTranslationsClaim,
+			"reason":      "no active assignment to claim",
+			"reason_code": ActionDisabledReasonCodeInvalidStatus,
+		}
+	}
+	queueBinding := &translationQueueBinding{admin: b.admin}
+	state := queueBinding.claimActionState(ctx, assignment)
+	if actorID := strings.TrimSpace(actorFromContext(ctx)); actorID != "" && strings.EqualFold(strings.TrimSpace(assignment.AssigneeID), actorID) {
+		state["enabled"] = false
+		state["reason"] = "assignment already belongs to you"
+		state["reason_code"] = "already_assigned"
+	}
+	if endpoint := b.assignmentActionEndpoint(assignment.ID, "claim"); endpoint != "" {
+		state["endpoint"] = endpoint
+	}
+	state["required_fields"] = []string{"expected_version"}
+	state["assignment_id"] = strings.TrimSpace(assignment.ID)
+	state["expected_version"] = assignment.Version
+	return state
+}
+
+func (b *translationFamilyBinding) familyOpenEditorActionState(assignment TranslationAssignment, hasAssignment bool) map[string]any {
+	if !b.translationQueueActionsEnabled() {
+		return map[string]any{
+			"enabled":     false,
+			"label":       "Open editor",
+			"reason":      "translation queue feature is disabled",
+			"reason_code": ActionDisabledReasonCodeFeatureDisabled,
+		}
+	}
+	if !hasAssignment {
+		return map[string]any{
+			"enabled":     false,
+			"reason":      "no active assignment to open",
+			"reason_code": ActionDisabledReasonCodeInvalidStatus,
+		}
+	}
+	href := translationAssignmentEditorURL(b.admin, assignment.ID)
+	out := map[string]any{
+		"enabled": href != "",
+		"label":   "Open editor",
+	}
+	if href != "" {
+		out["href"] = href
+		out["link"] = translationFamilyEditorLink(assignment.ID, href)
+	} else {
+		out["reason"] = "assignment editor route is unavailable"
+		out["reason_code"] = ActionDisabledReasonCodeFeatureDisabled
+	}
+	return out
+}
+
+func (b *translationFamilyBinding) familyAssignmentEndpoint(familyID string) string {
+	if endpoint := resolveURLWith(b.admin.URLs(), adminAPIGroupName(b.admin.config), "translations.families.assignments", map[string]string{
+		"family_id": strings.TrimSpace(familyID),
+	}, nil); endpoint != "" {
+		return endpoint
+	}
+	base := strings.TrimRight(strings.TrimSpace(firstNonEmpty(adminAPIBasePath(b.admin), "/admin/api")), "/")
+	return base + "/translations/families/" + neturl.PathEscape(strings.TrimSpace(familyID)) + "/assignments"
+}
+
+func (b *translationFamilyBinding) assignmentActionEndpoint(assignmentID, action string) string {
+	if endpoint := resolveURLWith(b.admin.URLs(), adminAPIGroupName(b.admin.config), "translations.assignments.actions", map[string]string{
+		"assignment_id": strings.TrimSpace(assignmentID),
+		"action":        strings.TrimSpace(action),
+	}, nil); endpoint != "" {
+		return endpoint
+	}
+	base := strings.TrimRight(strings.TrimSpace(firstNonEmpty(adminAPIBasePath(b.admin), "/admin/api")), "/")
+	return base + "/translations/assignments/" + neturl.PathEscape(strings.TrimSpace(assignmentID)) + "/actions/" + neturl.PathEscape(strings.TrimSpace(action))
+}
+
+func translationFamilyActiveAssignmentStatusFilter() []string {
+	return []string{
+		string(AssignmentStatusOpen),
+		string(AssignmentStatusAssigned),
+		string(AssignmentStatusInProgress),
+		string(AssignmentStatusInReview),
+		string(AssignmentStatusChangesRequested),
+	}
+}
+
+func (b *translationFamilyBinding) translationQueueActionsEnabled() bool {
+	return b != nil && b.admin != nil && featureEnabled(b.admin.featureGate, FeatureTranslationQueue)
+}
+
+func translationFamilyLocaleAssignmentKey(locale, workScope string) string {
+	return strings.TrimSpace(strings.ToLower(locale)) + ":" + normalizeTranslationAssignmentWorkScope(workScope)
+}
+
+func translationFamilyEditorLink(assignmentID, href string) map[string]any {
+	return map[string]any{
+		"href":        href,
+		"label":       "Open editor",
+		"description": "Open the assignment editor for this family assignment.",
+		"relation":    "primary",
+		"entity_type": "assignment",
+		"entity_id":   strings.TrimSpace(assignmentID),
+	}
+}
+
+func translationFamilyDetailPayload(family translationservices.FamilyRecord, channel string, adm *Admin) map[string]any {
 	source := translationFamilySourceVariant(family)
 	variants := cloneFamilyVariantPayloads(family.Variants)
 	blockers := cloneFamilyBlockerPayloads(family.Blockers)
-	assignments := cloneFamilyAssignmentPayloads(family.Assignments)
+	assignments := cloneFamilyAssignmentPayloads(family.Assignments, adm)
 	quickCreate := translationFamilyQuickCreatePayload(family)
 	activeAssignments := make([]map[string]any, 0, len(assignments))
 	for _, assignment := range assignments {
@@ -1705,20 +3203,53 @@ func translationFamilyQuickCreateRecommendedLocale(family translationservices.Fa
 }
 
 func translationFamilyQuickCreateAvailability(family translationservices.FamilyRecord, missingLocales []string) (bool, string, string) {
+	hasPolicyDenied := false
 	for _, blocker := range family.Blockers {
 		if strings.EqualFold(strings.TrimSpace(blocker.BlockerCode), string(translationcore.FamilyBlockerPolicyDenied)) {
-			return false, "policy_denied", "Policy currently blocks creating additional locale variants for this family."
+			hasPolicyDenied = true
+			if translationFamilyBlockerIsPolicyUnavailable(blocker) {
+				return false, "policy_denied", "Policy currently blocks creating additional locale variants for this family."
+			}
 		}
 	}
 	if len(missingLocales) > 0 {
 		return true, "", ""
 	}
+	if hasPolicyDenied {
+		return false, "policy_denied", "Policy currently blocks creating additional locale variants for this family."
+	}
 	return false, "no_missing_locales", "All required locales already exist for this family."
+}
+
+func translationFamilyRequiredSourceVariant(family translationservices.FamilyRecord) (translationservices.FamilyVariant, error) {
+	source := translationFamilySourceVariant(family)
+	if strings.TrimSpace(source.SourceRecordID) != "" {
+		return source, nil
+	}
+	return translationservices.FamilyVariant{}, validationDomainError("family source variant missing source_record_id", map[string]any{
+		"family_id":      strings.TrimSpace(family.ID),
+		"source_locale":  translationFamilyCanonicalSourceLocale(family),
+		"source_variant": strings.TrimSpace(family.SourceVariantID),
+		"reason_code":    "missing_source_variant",
+	})
 }
 
 func translationFamilySourceVariant(family translationservices.FamilyRecord) translationservices.FamilyVariant {
 	for _, variant := range family.Variants {
 		if strings.EqualFold(strings.TrimSpace(variant.ID), strings.TrimSpace(family.SourceVariantID)) {
+			return variant
+		}
+	}
+	if sourceLocale := translationFamilyCanonicalSourceLocale(family); sourceLocale != "" {
+		for _, variant := range family.Variants {
+			if strings.EqualFold(strings.TrimSpace(variant.Locale), sourceLocale) {
+				return variant
+			}
+		}
+		return translationservices.FamilyVariant{}
+	}
+	for _, variant := range family.Variants {
+		if variant.IsSource {
 			return variant
 		}
 	}
@@ -1784,13 +3315,13 @@ func cloneFamilyBlockerPayloads(items []translationservices.FamilyBlocker) []map
 	return out
 }
 
-func cloneFamilyAssignmentPayloads(items []translationservices.FamilyAssignment) []map[string]any {
+func cloneFamilyAssignmentPayloads(items []translationservices.FamilyAssignment, adm *Admin) []map[string]any {
 	if len(items) == 0 {
 		return nil
 	}
 	out := make([]map[string]any, 0, len(items))
 	for _, item := range items {
-		out = append(out, map[string]any{
+		row := map[string]any{
 			"id":             item.ID,
 			"family_id":      item.FamilyID,
 			"variant_id":     item.VariantID,
@@ -1801,12 +3332,27 @@ func cloneFamilyAssignmentPayloads(items []translationservices.FamilyAssignment)
 			"work_scope":     item.WorkScope,
 			"status":         item.Status,
 			"assignee_id":    item.AssigneeID,
+			"assigner_id":    item.AssignerID,
 			"reviewer_id":    item.ReviewerID,
 			"priority":       item.Priority,
 			"due_date":       item.DueDate,
+			"assigned_at":    item.AssignedAt,
 			"created_at":     item.CreatedAt,
 			"updated_at":     item.UpdatedAt,
-		})
+		}
+		if href := translationAssignmentEditorURL(adm, item.ID); href != "" {
+			row["links"] = map[string]any{
+				"editor": map[string]any{
+					"href":        href,
+					"label":       "Open editor",
+					"description": "Open the assignment editor for this family assignment.",
+					"relation":    "primary",
+					"entity_type": "assignment",
+					"entity_id":   strings.TrimSpace(item.ID),
+				},
+			}
+		}
+		out = append(out, row)
 	}
 	return out
 }

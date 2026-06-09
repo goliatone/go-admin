@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"maps"
 	"sort"
@@ -18,19 +19,27 @@ import (
 )
 
 const (
-	translationEditorMetadataKey                     = "translation_editor"
-	translationEditorAcknowledgedSourceHashKey       = "acknowledged_source_hash"
-	translationEditorRowVersionKey                   = "row_version"
-	translationEditorSourceHashAtLastSyncKey         = "source_hash_at_last_sync"
-	translationEditorLastSyncedSourceFieldsKey       = "last_synced_source_fields"
-	translationEditorLastSavedAtKey                  = "last_saved_at"
-	translationEditorLastSavedByKey                  = "last_saved_by"
-	translationEditorVariantStatusKey                = "variant_status"
-	translationVariantStatusMetadataKey              = "translation_variant_status"
-	translationEditorComparisonModeSnapshot          = "snapshot"
-	translationEditorComparisonModeHashOnly          = "hash_only"
-	translationEditorDefaultVersion            int64 = 1
+	translationEditorMetadataKey                         = "translation_editor"
+	translationEditorAcknowledgedSourceHashKey           = "acknowledged_source_hash"
+	translationEditorRowVersionKey                       = "row_version"
+	translationEditorSourceHashAtLastSyncKey             = "source_hash_at_last_sync"
+	translationEditorLastSyncedSourceFieldsKey           = "last_synced_source_fields"
+	translationEditorLastSavedAtKey                      = "last_saved_at"
+	translationEditorLastSavedByKey                      = "last_saved_by"
+	translationEditorVariantStatusKey                    = "variant_status"
+	translationVariantStatusMetadataKey                  = "translation_variant_status"
+	translationEditorComparisonModeSnapshot              = "snapshot"
+	translationEditorComparisonModeHashOnly              = "hash_only"
+	translationEditorDefaultVersion                int64 = 1
+	translationPreviewReasonNoTarget                     = "target_record_missing"
+	translationPreviewReasonPreviewUnavailable           = "preview_service_unavailable"
+	translationPreviewReasonUnsupportedContent           = "unsupported_content"
+	translationPreviewReasonPermissionDenied             = "permission_denied"
+	translationPreviewReasonPathMissing                  = "preview_path_missing"
+	translationPreviewReasonTemporarilyUnavailable       = "temporarily_unavailable"
 )
+
+var errTranslationPreviewUnsupportedContent = errors.New("translation preview unsupported content")
 
 type translationEditorContext struct {
 	Environment          string                            `json:"environment"`
@@ -105,6 +114,55 @@ func (b *translationQueueBinding) AssignmentDetail(c router.Context, assignmentI
 	}, nil
 }
 
+func (b *translationQueueBinding) AssignmentPreview(c router.Context, assignmentID string) (payload any, err error) {
+	if c != nil {
+		c.SetHeader("Cache-Control", "no-store")
+		c.SetHeader("Pragma", "no-cache")
+	}
+	startedAt := time.Now()
+	obsCtx := c.Context()
+	defer func() {
+		recordTranslationAPIOperation(obsCtx, translationAPIObservation{
+			Operation: "translations.assignments.preview",
+			Kind:      "read",
+			RequestID: requestIDFromContext(obsCtx),
+			TraceID:   traceIDFromContext(obsCtx),
+			TenantID:  tenantIDFromContext(obsCtx),
+			OrgID:     orgIDFromContext(obsCtx),
+			Duration:  time.Since(startedAt),
+			Err:       err,
+		})
+	}()
+
+	adminCtx, repo, _, err := b.prepareAssignmentRequest(c)
+	if err != nil {
+		return nil, err
+	}
+	obsCtx = adminCtx.Context
+	identity := translationIdentityFromAdminContext(adminCtx)
+
+	assignment, err := repo.Get(adminCtx.Context, strings.TrimSpace(assignmentID))
+	if err != nil {
+		return nil, err
+	}
+	if scopeErr := b.ensureAssignmentScope(identity, assignment); scopeErr != nil {
+		return nil, scopeErr
+	}
+
+	channel := translationChannelFromRequest(c, adminCtx, nil)
+	editorCtx, err := b.loadAssignmentEditorContext(adminCtx.Context, assignment, channel)
+	if err != nil {
+		return nil, err
+	}
+
+	return map[string]any{
+		"data": b.assignmentPreviewAction(adminCtx, assignment, editorCtx, true),
+		"meta": mergeTranslationChannelContract(map[string]any{
+			"cache": "no-store",
+		}, channel),
+	}, nil
+}
+
 func (b *translationQueueBinding) recordVariantUpdateActivity(ctx context.Context, editorCtx translationEditorContext, actorID string, nextVersion int64, autosave bool) {
 	if b == nil || b.admin == nil || b.admin.activity == nil {
 		return
@@ -146,6 +204,7 @@ func translationEditorVariantPayload(ctx context.Context, b *translationQueueBin
 		"review_action_states":     b.reviewActionStates(ctx, currentAssignment),
 		"qa_results":               qaResults,
 		"assist":                   translationEditorAssistPayload(ctx, b, reloaded),
+		"preview_action":           b.assignmentPreviewAction(AdminContext{Context: ctx}, currentAssignment, reloaded, false),
 	}
 }
 
@@ -343,11 +402,125 @@ func (b *translationQueueBinding) assignmentDetailPayload(ctx context.Context, a
 		"style_guide_summary":      translationEditorStyleGuideSummary(editorCtx),
 		"translation_assignment":   row,
 		"locale_navigation":        b.translationEditorLocaleNavigationPayload(editorCtx, assignment),
+		"preview_action":           b.assignmentPreviewAction(AdminContext{Context: ctx}, assignment, editorCtx, false),
 	}
 	if assignment.DueDate != nil {
 		payload["due_date"] = assignment.DueDate
 	}
 	return payload
+}
+
+func (b *translationQueueBinding) assignmentPreviewAction(adminCtx AdminContext, assignment TranslationAssignment, editorCtx translationEditorContext, includeURL bool) map[string]any {
+	channel := strings.TrimSpace(editorCtx.Environment)
+	targetLocale := strings.TrimSpace(firstNonEmpty(assignment.TargetLocale, editorCtx.TargetVariant.Locale))
+	entityType := strings.TrimSpace(editorCtx.Family.ContentType)
+	targetRecordID := strings.TrimSpace(editorCtx.TargetRecordID)
+
+	base := map[string]any{
+		"enabled":          false,
+		"assignment_id":    strings.TrimSpace(assignment.ID),
+		"entity_type":      entityType,
+		"record_id":        targetRecordID,
+		"target_record_id": targetRecordID,
+		"target_locale":    targetLocale,
+		"channel":          channel,
+	}
+	disabled := func(reasonCode, reason string) map[string]any {
+		out := maps.Clone(base)
+		out["reason_code"] = strings.TrimSpace(reasonCode)
+		out["reason"] = strings.TrimSpace(reason)
+		return out
+	}
+
+	if !editorCtx.HasTarget || targetRecordID == "" {
+		return disabled(translationPreviewReasonNoTarget, "Preview is unavailable because the target record does not exist.")
+	}
+	if entityType == "" {
+		return disabled(translationPreviewReasonUnsupportedContent, "Preview is unavailable because this assignment has no content type.")
+	}
+	if b == nil || b.admin == nil {
+		return disabled(translationPreviewReasonTemporarilyUnavailable, "Preview is temporarily unavailable.")
+	}
+	previewSvc := b.admin.Preview()
+	if previewSvc == nil {
+		return disabled(translationPreviewReasonPreviewUnavailable, "Preview is unavailable because the preview service is not configured.")
+	}
+
+	record, err := b.assignmentPreviewTargetRecord(adminCtx, entityType, targetRecordID, targetLocale, channel)
+	if err != nil {
+		if errors.Is(err, ErrForbidden) {
+			return disabled(translationPreviewReasonPermissionDenied, "Preview is unavailable because you do not have access to the target content.")
+		}
+		if errors.Is(err, errTranslationPreviewUnsupportedContent) {
+			return disabled(translationPreviewReasonUnsupportedContent, "Preview is unavailable for this content type.")
+		}
+		if errors.Is(err, ErrNotFound) {
+			return disabled(translationPreviewReasonNoTarget, "Preview is unavailable because the target record could not be loaded.")
+		}
+		return disabled(translationPreviewReasonUnsupportedContent, "Preview is unavailable for this content type.")
+	}
+
+	targetPath := ResolveContentPreviewPath(record)
+	if targetPath == "" {
+		return disabled(translationPreviewReasonPathMissing, "Preview is unavailable because the target content has no preview path.")
+	}
+
+	out := maps.Clone(base)
+	out["enabled"] = true
+	if !includeURL {
+		return out
+	}
+	token, err := previewSvc.Generate(translationPreviewEntityType(entityType, channel), targetRecordID, time.Hour)
+	if err != nil {
+		return disabled(translationPreviewReasonTemporarilyUnavailable, "Preview is temporarily unavailable.")
+	}
+	out["url"] = b.admin.BuildSitePreviewURL(targetPath, token)
+	if out["url"] == "" {
+		return disabled(translationPreviewReasonPathMissing, "Preview is unavailable because the target content has no allowed preview URL.")
+	}
+	return out
+}
+
+func (b *translationQueueBinding) assignmentPreviewTargetRecord(adminCtx AdminContext, entityType, targetRecordID, targetLocale, channel string) (map[string]any, error) {
+	if b == nil || b.admin == nil {
+		return nil, serviceNotConfiguredDomainError("translation queue binding", map[string]any{"component": "translation_preview"})
+	}
+	contentCtx := adminCtx.Context
+	if contentCtx == nil {
+		contentCtx = context.Background()
+	}
+	if channel = strings.TrimSpace(channel); channel != "" {
+		contentCtx = WithContentChannel(contentCtx, channel)
+	}
+	if targetLocale = strings.TrimSpace(targetLocale); targetLocale != "" {
+		contentCtx = WithLocale(contentCtx, targetLocale)
+	}
+	contentAdminCtx := adminCtx
+	contentAdminCtx.Context = contentCtx
+	contentAdminCtx.Channel = channel
+	contentAdminCtx.Environment = channel
+	contentAdminCtx.Locale = targetLocale
+
+	_, panel, err := b.admin.resolveContentNavigationPanel(contentCtx, entityType)
+	if err != nil {
+		if errors.Is(err, ErrNotFound) {
+			return nil, errTranslationPreviewUnsupportedContent
+		}
+		return nil, err
+	}
+	if panel == nil {
+		return nil, errTranslationPreviewUnsupportedContent
+	}
+	return panel.Get(contentAdminCtx, targetRecordID)
+}
+
+func translationPreviewEntityType(entityType, channel string) string {
+	entityType = strings.TrimSpace(entityType)
+	channel = strings.TrimSpace(channel)
+	if entityType == "" || channel == "" {
+		return entityType
+	}
+	return entityType + "@" + channel
 }
 
 func (b *translationQueueBinding) translationEditorLocaleNavigationPayload(editorCtx translationEditorContext, currentAssignment TranslationAssignment) map[string]any {
@@ -386,7 +559,7 @@ func (b *translationQueueBinding) translationEditorLocaleNavigationPayload(edito
 		"current_locale":     currentLocale,
 		"source_locale":      sourceLocale,
 		"current_work_scope": currentWorkScope,
-		"family_detail_url":  translationEditorFamilyDetailURL(b.admin, family.ID),
+		"family_detail_url":  translationSSRHrefWithChannel(translationEditorFamilyDetailURL(b.admin, family.ID), editorCtx.Environment),
 		"locales":            entries,
 	}
 }
@@ -480,6 +653,10 @@ func translationEditorAssignmentNavigationRank(status string) int {
 }
 
 func translationEditorAssignmentEditorURL(adm *Admin, assignmentID string) string {
+	return translationAssignmentEditorURL(adm, assignmentID)
+}
+
+func translationAssignmentEditorURL(adm *Admin, assignmentID string) string {
 	assignmentID = strings.TrimSpace(assignmentID)
 	if adm == nil || assignmentID == "" {
 		return ""

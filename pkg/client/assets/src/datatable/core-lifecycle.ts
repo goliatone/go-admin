@@ -13,6 +13,7 @@ import {
 } from '../toast/error-helpers.js';
 import { addDelegatedEventListener } from '../shared/events/delegation.js';
 import { httpRequest } from '../shared/transport/http-client.js';
+import { initActionMenus } from '../shared/action-menu.js';
 
 export function bindSearchInput(grid: any): void {
     const input = document.querySelector<HTMLInputElement>(grid.selectors.searchInput);
@@ -460,8 +461,104 @@ export function updateSelectionBindings(grid: any): void {
     });
   }
 
-function bulkActionButtons(): HTMLElement[] {
+function uniqueElements<T extends HTMLElement>(elements: Array<T | null | undefined>): T[] {
+  return Array.from(new Set(elements.filter(Boolean) as T[]));
+}
+
+function queryFirst<T extends HTMLElement>(root: ParentNode, selectors: string[]): T | null {
+  for (const selector of selectors) {
+    const element = root.querySelector<T>(selector);
+    if (element) {
+      return element;
+    }
+  }
+  return null;
+}
+
+function configuredBulkRoot(grid: any): HTMLElement | null {
+  const selector = grid?.selectors?.bulkActionsBar;
+  if (!selector) {
+    return null;
+  }
+  try {
+    return document.querySelector<HTMLElement>(selector);
+  } catch (_error) {
+    return null;
+  }
+}
+
+function bulkActionRoot(grid?: any): HTMLElement | null {
+  const configured = configuredBulkRoot(grid);
+  if (configured && grid?.selectors?.bulkActionsBar !== '#bulk-actions-bar') {
+    return configured;
+  }
+  return queryFirst<HTMLElement>(document, [
+    '[data-bulk-action-overlay]',
+    '#bulk-actions-overlay',
+    '[data-bulk-action-bar="true"]',
+  ]) || configured;
+}
+
+function bulkActionButtons(grid?: any): HTMLElement[] {
+  const root = bulkActionRoot(grid);
+  if (root) {
+    return Array.from(root.querySelectorAll<HTMLElement>('[data-bulk-action]'));
+  }
   return Array.from(document.querySelectorAll<HTMLElement>('[data-bulk-action]'));
+}
+
+function bulkSelectionCountElement(grid?: any): HTMLElement | null {
+  const root = bulkActionRoot(grid);
+  const selectors = ['[data-bulk-selection-count]', '#selected-count', grid?.selectors?.selectedCount].filter(Boolean);
+  return (root ? queryFirst<HTMLElement>(root, selectors) : null)
+    || queryFirst<HTMLElement>(document, selectors);
+}
+
+function bulkClearButtons(grid?: any): HTMLButtonElement[] {
+  const root = bulkActionRoot(grid);
+  const selectors = ['[data-bulk-clear]', '#bulk-clear-selection', '#clear-selection-btn'];
+  const matches = selectors.flatMap((selector) => {
+    const scope = root || document;
+    return Array.from(scope.querySelectorAll<HTMLButtonElement>(selector));
+  });
+  if (matches.length) {
+    return uniqueElements(matches);
+  }
+  return uniqueElements(selectors.flatMap((selector) => Array.from(document.querySelectorAll<HTMLButtonElement>(selector))));
+}
+
+function bindBulkClearButtons(grid: any): void {
+  bulkClearButtons(grid).forEach((clearBtn) => {
+    if (clearBtn.dataset.bulkClearBound === 'true') {
+      return;
+    }
+    clearBtn.dataset.bulkClearBound = 'true';
+    clearBtn.addEventListener('click', () => {
+      grid.clearSelection();
+    });
+  });
+}
+
+function setBulkOverlayVisibility(root: HTMLElement, selectedCount: number): void {
+  if (root.hasAttribute('data-selection-count')) {
+    root.dataset.selectionCount = String(selectedCount);
+  }
+  if (selectedCount > 0) {
+    root.classList.remove('hidden', 'pointer-events-none', 'translate-y-full', '-translate-y-full');
+    root.classList.add('translate-y-0');
+    root.removeAttribute('aria-hidden');
+    return;
+  }
+
+  root.classList.remove('translate-y-0');
+  if (root.hasAttribute('data-bulk-action-overlay')) {
+    const position = root.dataset.bulkOverlayPosition || (root.classList.contains('top-0') ? 'top' : 'bottom');
+    root.classList.add('pointer-events-none', position === 'top' ? '-translate-y-full' : 'translate-y-full');
+    root.setAttribute('aria-hidden', 'true');
+    return;
+  }
+
+  root.classList.add('hidden');
 }
 
 function ensureBulkReasonContainer(overlay: HTMLElement | null): HTMLElement | null {
@@ -479,8 +576,8 @@ function ensureBulkReasonContainer(overlay: HTMLElement | null): HTMLElement | n
   return container;
 }
 
-function renderBulkActionReasons(reasons: Array<{ actionId: string; label: string; reason: string }>): void {
-  const overlay = document.getElementById('bulk-actions-overlay');
+function renderBulkActionReasons(reasons: Array<{ actionId: string; label: string; reason: string }>, grid?: any): void {
+  const overlay = bulkActionRoot(grid);
   const container = ensureBulkReasonContainer(overlay);
   if (!container) {
     return;
@@ -519,7 +616,7 @@ function applyButtonState(button: HTMLElement, state: Record<string, unknown> | 
 }
 
 function applyPendingBulkActionState(grid: any): void {
-  const buttons = bulkActionButtons();
+  const buttons = bulkActionButtons(grid);
   const pendingReason = 'Checking selected records...';
   const reasons: Array<{ actionId: string; label: string; reason: string }> = [];
   buttons.forEach((button) => {
@@ -534,7 +631,7 @@ function applyPendingBulkActionState(grid: any): void {
       reason: pendingReason,
     });
   });
-  renderBulkActionReasons(reasons);
+  renderBulkActionReasons(reasons, grid);
 }
 
 function currentBulkActionStateConfig(grid: any): Record<string, unknown> | null {
@@ -551,7 +648,7 @@ export function applyBulkActionState(grid: any, state: Record<string, any> | nul
   const normalized = normalizeBulkActionStateMap(state);
   grid.bulkActionState = normalized;
   const reasons: Array<{ actionId: string; label: string; reason: string }> = [];
-  bulkActionButtons().forEach((button) => {
+  bulkActionButtons(grid).forEach((button) => {
     const actionId = button.dataset.bulkAction;
     if (!actionId) {
       return;
@@ -565,7 +662,7 @@ export function applyBulkActionState(grid: any, state: Record<string, any> | nul
       reasons.push(reason);
     }
   });
-  renderBulkActionReasons(reasons);
+  renderBulkActionReasons(reasons, grid);
 }
 
 async function fetchSelectionSensitiveBulkActionState(grid: any): Promise<void> {
@@ -650,11 +747,11 @@ export function syncBulkActionState(grid: any): void {
    * Bind bulk action buttons
    */
 export function bindBulkActions(grid: any): void {
-    const overlay = document.getElementById('bulk-actions-overlay');
+    const overlay = bulkActionRoot(grid);
     const bulkBase = overlay?.dataset?.bulkBase || '';
-    const bulkActionButtons = document.querySelectorAll('[data-bulk-action]');
+    const actionButtons = bulkActionButtons(grid);
 
-    bulkActionButtons.forEach((btn) => {
+    actionButtons.forEach((btn) => {
       btn.addEventListener('click', async () => {
         const el = btn as HTMLElement;
         const actionId = el.dataset.bulkAction;
@@ -744,19 +841,7 @@ export function bindBulkActions(grid: any): void {
       });
     });
 
-    // Bind clear selection button
-    const clearBtn = document.getElementById('clear-selection-btn');
-    if (clearBtn) {
-      clearBtn.addEventListener('click', () => {
-        grid.state.selectedRows.clear();
-        grid.updateBulkActionsBar();
-        // Uncheck all checkboxes
-        const checkboxes = document.querySelectorAll<HTMLInputElement>('.table-checkbox');
-        checkboxes.forEach(cb => cb.checked = false);
-        const selectAll = document.querySelector<HTMLInputElement>(grid.selectors.selectAllCheckbox);
-        if (selectAll) selectAll.checked = false;
-      });
-    }
+    bindBulkClearButtons(grid);
 
     // Bind overflow menu toggle
     grid.bindOverflowMenu();
@@ -797,27 +882,20 @@ export function bindOverflowMenu(grid: any): void {
    * Update bulk actions bar visibility with animation
    */
 export function updateBulkActionsBar(grid: any): void {
-    const overlay = document.getElementById('bulk-actions-overlay');
-    const countEl = document.getElementById('selected-count');
+    const overlay = bulkActionRoot(grid);
+    const countEl = bulkSelectionCountElement(grid);
     const selectedCount = grid.state.selectedRows.size;
 
-    console.log('[DataGrid] updateBulkActionsBar - overlay:', overlay, 'countEl:', countEl, 'count:', selectedCount);
-
     if (!overlay || !countEl) {
-      console.error('[DataGrid] Missing bulk actions elements!');
       return;
     }
 
     // Update count
     countEl.textContent = String(selectedCount);
 
-    // Show/hide with animation
+    setBulkOverlayVisibility(overlay, selectedCount);
     if (selectedCount > 0) {
-      overlay.classList.remove('hidden');
-      // Trigger reflow for animation
       void overlay.offsetHeight;
-    } else {
-      overlay.classList.add('hidden');
     }
     grid.syncBulkActionState();
   }
@@ -826,16 +904,7 @@ export function updateBulkActionsBar(grid: any): void {
    * Bind clear selection button
    */
 export function bindBulkClearButton(grid: any): void {
-    const clearBtn = document.getElementById('bulk-clear-selection');
-    console.log('[DataGrid] Binding clear button:', clearBtn);
-    if (clearBtn) {
-      clearBtn.addEventListener('click', () => {
-        console.log('[DataGrid] Clear button clicked!');
-        grid.clearSelection();
-      });
-    } else {
-      console.error('[DataGrid] Clear button not found!');
-    }
+    bindBulkClearButtons(grid);
   }
 
   /**
@@ -905,6 +974,16 @@ export function bindDropdownToggles(grid: any): void {
       }
     });
 
+    const closeGenericDropdowns = () => {
+      document.querySelectorAll('[data-dropdown-toggle]').forEach((toggle) => {
+        const targetId = (toggle as HTMLElement).dataset.dropdownToggle;
+        const target = document.getElementById(targetId || '');
+        if (target) {
+          target.classList.add('hidden');
+        }
+      });
+    };
+
     addDelegatedEventListener(document, 'click', '[data-dropdown-toggle]', (event, toggle) => {
       event.stopPropagation();
       const targetId = toggle.dataset.dropdownToggle;
@@ -923,69 +1002,32 @@ export function bindDropdownToggles(grid: any): void {
       }
     }, { signal });
 
-    // Action dropdown menus (row actions)
     document.addEventListener('click', (e) => {
-      const trigger = (e.target as HTMLElement).closest('[data-dropdown-trigger]');
-
-      if (trigger) {
-        e.stopPropagation();
-        const dropdown = trigger.closest('[data-dropdown]');
-        const menu = dropdown?.querySelector('.actions-menu') as HTMLElement;
-
-        // Close other action dropdowns
-        document.querySelectorAll('.actions-menu').forEach(m => {
-          if (m !== menu) m.classList.add('hidden');
-        });
-
-        // Toggle this dropdown
-        const isOpening = menu?.classList.contains('hidden');
-        menu?.classList.toggle('hidden');
-        trigger.setAttribute('aria-expanded', isOpening ? 'true' : 'false');
-
-        // Position the dropdown intelligently (only when opening)
-        if (isOpening && menu) {
-          grid.positionDropdownMenu(trigger as HTMLElement, menu);
-        }
-      } else {
-        // Check if the click is inside an open dropdown menu (e.g., column toggle menu)
-        const clickedInsideDropdownMenu = (e.target as HTMLElement).closest('[data-dropdown-toggle], #column-toggle-menu, #export-menu');
-
-        if (!clickedInsideDropdownMenu) {
-          // Close all action dropdowns when clicking outside
-          document.querySelectorAll('.actions-menu').forEach(m =>
-            m.classList.add('hidden')
-          );
-
-          // Also close existing dropdowns
-          document.querySelectorAll('[data-dropdown-toggle]').forEach((toggle) => {
-            const targetId = (toggle as HTMLElement).dataset.dropdownToggle;
-            const target = document.getElementById(targetId || '');
-            if (target) {
-              target.classList.add('hidden');
-            }
-          });
-        }
+      const target = e.target as Element | null;
+      const clickedInsideGenericDropdown = target && typeof target.closest === 'function'
+        ? target.closest('[data-dropdown-toggle], #column-toggle-menu, #export-menu')
+        : null;
+      if (!clickedInsideGenericDropdown) {
+        closeGenericDropdowns();
       }
     }, { signal });
 
-    // ESC key closes all dropdowns
+    initActionMenus(document, {
+      containerSelector: '[data-dropdown], .actions-dropdown',
+      triggerSelector: '[data-dropdown-trigger], .actions-menu-trigger',
+      menuSelector: '.actions-menu',
+      itemSelector: '[role="menuitem"], .action-item',
+      outsideIgnoreSelector: '[data-dropdown-toggle], #column-toggle-menu, #export-menu',
+      positionMenu: ({ trigger, menu }) => {
+        grid.positionDropdownMenu(trigger, menu);
+      },
+      signal,
+    });
+
+    // ESC key closes all generic dropdowns. Row action menus are closed by the shared primitive.
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') {
-        // Close action dropdowns
-        document.querySelectorAll('.actions-menu').forEach(m => {
-          m.classList.add('hidden');
-          const trigger = m.closest('[data-dropdown]')?.querySelector('[data-dropdown-trigger]');
-          if (trigger) trigger.setAttribute('aria-expanded', 'false');
-        });
-
-        // Close toggle dropdowns (column visibility, export, etc.)
-        document.querySelectorAll('[data-dropdown-toggle]').forEach((toggle) => {
-          const targetId = (toggle as HTMLElement).dataset.dropdownToggle;
-          const target = document.getElementById(targetId || '');
-          if (target) {
-            target.classList.add('hidden');
-          }
-        });
+        closeGenericDropdowns();
       }
     }, { signal });
   }

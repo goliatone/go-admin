@@ -13,6 +13,27 @@ const {
   toDateTimeLocalInputValue,
 } = await import('../dist/translation-family/index.js');
 
+function withDocument(token = 'csrf-token') {
+  const originalDocument = globalThis.document;
+  globalThis.document = {
+    querySelector(selector) {
+      if (selector !== 'meta[name="csrf-token"]') return null;
+      return {
+        getAttribute(name) {
+          return name === 'content' ? token : null;
+        },
+      };
+    },
+  };
+  return () => {
+    if (originalDocument === undefined) {
+      delete globalThis.document;
+    } else {
+      globalThis.document = originalDocument;
+    }
+  };
+}
+
 function createLocaleEnvelope(overrides = {}) {
   return {
     data: {
@@ -109,6 +130,20 @@ test('translation-family create-locale: action model serializes canonical reques
   assert.equal(result.family.availableLocales.includes('fr'), true);
   assert.equal(result.family.quickCreate.enabled, false);
   assert.equal(result.refresh.contentSummary, true);
+});
+
+test('translation-family create-locale: assignment fields are omitted when auto assignment is disabled', () => {
+  assert.deepEqual(serializeCreateLocaleRequest({
+    locale: 'FR',
+    channel: 'production',
+    autoCreateAssignment: false,
+    assigneeId: 'translator-1',
+    priority: 'normal',
+    dueDate: '2026-03-20T00:00:00Z',
+  }), {
+    locale: 'fr',
+    channel: 'production',
+  });
 });
 
 test('translation-family create-locale: optimistic detail update removes missing locale blockers and seeds assignment state', () => {
@@ -239,82 +274,91 @@ test('translation-family create-locale: due-date hints are normalized for dateti
 });
 
 test('translation-family create-locale: client createLocale posts canonical payload and parses response', async () => {
-  const requests = [];
-  const client = createTranslationFamilyClient({
-    basePath: '/admin/api',
-    fetch: async (url, options = {}) => {
-      requests.push({
-        url: String(url),
-        method: options.method,
-        headers: options.headers,
-        body: options.body,
-      });
-      return {
-        ok: true,
-        async json() {
-          return createLocaleEnvelope({
-            meta: {
-              idempotency_hit: true,
-              assignment_reused: true,
-              family: {
-                family_id: 'tg-page-1',
-                readiness_state: 'ready',
-                missing_required_locale_count: 0,
-                pending_review_count: 0,
-                outdated_locale_count: 0,
-                blocker_codes: [],
-                missing_locales: [],
-                available_locales: ['en', 'es', 'fr'],
-                quick_create: {
-                  enabled: false,
+  const restoreDocument = withDocument('create-locale-csrf');
+  try {
+    const requests = [];
+    const client = createTranslationFamilyClient({
+      basePath: '/admin/api',
+      fetch: async (url, options = {}) => {
+        requests.push({
+          url: String(url),
+          method: options.method,
+          credentials: options.credentials,
+          headers: options.headers,
+          body: options.body,
+        });
+        return {
+          ok: true,
+          async json() {
+            return createLocaleEnvelope({
+              meta: {
+                idempotency_hit: true,
+                assignment_reused: true,
+                family: {
+                  family_id: 'tg-page-1',
+                  readiness_state: 'ready',
+                  missing_required_locale_count: 0,
+                  pending_review_count: 0,
+                  outdated_locale_count: 0,
+                  blocker_codes: [],
                   missing_locales: [],
-                  recommended_locale: '',
-                  required_for_publish: ['es', 'fr'],
-                  default_assignment: {
-                    auto_create_assignment: false,
-                    work_scope: 'localization',
-                    priority: 'normal',
-                    assignee_id: '',
-                    due_date: '',
+                  available_locales: ['en', 'es', 'fr'],
+                  quick_create: {
+                    enabled: false,
+                    missing_locales: [],
+                    recommended_locale: '',
+                    required_for_publish: ['es', 'fr'],
+                    default_assignment: {
+                      auto_create_assignment: false,
+                      work_scope: 'localization',
+                      priority: 'normal',
+                      assignee_id: '',
+                      due_date: '',
+                    },
                   },
                 },
+                refresh: {
+                  family_detail: true,
+                  family_list: true,
+                  content_summary: true,
+                },
               },
-              refresh: {
-                family_detail: true,
-                family_list: true,
-                content_summary: true,
-              },
-            },
-          });
-        },
-      };
-    },
-  });
+            });
+          },
+        };
+      },
+    });
 
-  const result = await client.createLocale('tg-page-1', {
-    locale: 'fr',
-    channel: 'production',
-    autoCreateAssignment: true,
-    assigneeId: 'translator-1',
-    priority: 'high',
-    idempotencyKey: 'idem-fr',
-  });
+    const result = await client.createLocale('tg-page-1', {
+      locale: 'fr',
+      channel: 'production',
+      autoCreateAssignment: true,
+      assigneeId: 'translator-1',
+      priority: 'high',
+      idempotencyKey: 'idem-fr',
+    });
 
-  assert.equal(requests[0].url, '/admin/api/translations/families/tg-page-1/variants?channel=production');
-  assert.equal(requests[0].method, 'POST');
-  assert.equal(requests[0].headers['X-Idempotency-Key'], 'idem-fr');
-  assert.equal(requests[0].headers['Content-Type'], 'application/json');
-  assert.deepEqual(JSON.parse(requests[0].body), {
-    locale: 'fr',
-    auto_create_assignment: true,
-    assignee_id: 'translator-1',
-    priority: 'high',
-    channel: 'production',
-  });
-  assert.equal(result.idempotencyHit, true);
-  assert.equal(result.assignmentReused, true);
-  assert.equal(result.family.readinessState, 'ready');
-  assert.equal(result.recordId, 'page-fr-1');
+    assert.equal(requests[0].url, '/admin/api/translations/families/tg-page-1/variants?channel=production');
+    assert.equal(requests[0].method, 'POST');
+    assert.equal(requests[0].credentials, 'same-origin');
+    const headers = new Headers(requests[0].headers);
+    assert.equal(headers.get('X-Idempotency-Key'), 'idem-fr');
+    assert.equal(headers.get('Content-Type'), 'application/json');
+    assert.equal(headers.get('X-CSRF-Token'), 'create-locale-csrf');
+    assert.deepEqual(JSON.parse(requests[0].body), {
+      locale: 'fr',
+      auto_create_assignment: true,
+      assignee_id: 'translator-1',
+      priority: 'high',
+      channel: 'production',
+    });
+    assert.equal(result.idempotencyHit, true);
+    assert.equal(result.assignmentReused, true);
+    assert.equal(result.family.readinessState, 'ready');
+    assert.equal(result.recordId, 'page-fr-1');
+  } finally {
+    restoreDocument();
+  }
 });
 
 test('translation-family create-locale: client throws structured error on non-2xx responses', async () => {

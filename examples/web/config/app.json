@@ -139,7 +139,23 @@
   "translation": {
     "profile": "full",
     "exchange": true,
-    "queue": true
+    "queue": true,
+    "exchange_ui": {
+      "source_locale": "en",
+      "source_locales": [
+        {"code": "en", "label": "English"}
+      ],
+      "target_locales": [
+        {"code": "es", "label": "Spanish"},
+        {"code": "fr", "label": "French"}
+      ],
+      "default_target_locales": ["es", "fr"],
+      "resources": [
+        {"id": "pages", "label": "Pages"},
+        {"id": "posts", "label": "Posts"}
+      ],
+      "default_resources": ["pages", "posts"]
+    }
   },
   "datagrid": {
     "state_store_mode": "",

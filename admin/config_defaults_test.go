@@ -78,6 +78,9 @@ func TestNewAppliesPermissionAndFeatureDefaults(t *testing.T) {
 	if adm.config.Site.ViewProfileOverridePermission != "admin.site.view_profile_override" {
 		t.Fatalf("expected site view profile override permission default, got %q", adm.config.Site.ViewProfileOverridePermission)
 	}
+	if len(adm.config.PreviewURLAllowedHosts) != 0 {
+		t.Fatalf("expected preview URL allowed hosts to default empty, got %v", adm.config.PreviewURLAllowedHosts)
+	}
 	if adm.config.PreferencesPermission != "admin.preferences.view" {
 		t.Fatalf("expected preferences permission default, got %q", adm.config.PreferencesPermission)
 	}
@@ -182,6 +185,46 @@ func TestNewAppliesPermissionAndFeatureDefaults(t *testing.T) {
 	}
 	if adm3.config.Routing.Modules[debugRoutingSlug].Mount.UIBase != "/control/tools/debug" {
 		t.Fatalf("expected custom routing debug root /control/tools/debug, got %q", adm3.config.Routing.Modules[debugRoutingSlug].Mount.UIBase)
+	}
+}
+
+func TestPreviewURLAllowedHostsNormalizeAndUpdateAtRuntime(t *testing.T) {
+	adm, err := New(Config{
+		BasePath: "/admin",
+		PreviewURLAllowedHosts: []string{
+			" https://preview.example.test/root ",
+			"PREVIEW.EXAMPLE.TEST",
+			"",
+		},
+	}, Dependencies{})
+	if err != nil {
+		t.Fatalf("admin.New: %v", err)
+	}
+	if got := adm.PreviewURLAllowedHosts(); len(got) != 1 || got[0] != "preview.example.test" {
+		t.Fatalf("expected normalized preview host, got %v", got)
+	}
+	if got := adm.BuildSitePreviewURL("https://preview.example.test/about", "token-123"); got != "https://preview.example.test/about?preview_token=token-123" {
+		t.Fatalf("expected allowed absolute preview URL, got %q", got)
+	}
+	if got := adm.BuildSitePreviewURL("https://evil.example.test/about", "token-123"); got != "" {
+		t.Fatalf("expected unlisted absolute preview URL denied, got %q", got)
+	}
+
+	adm.AddPreviewURLAllowedHost("https://second.example.test/path")
+	if got := adm.BuildSitePreviewURL("https://second.example.test/about", "token-123"); got != "https://second.example.test/about?preview_token=token-123" {
+		t.Fatalf("expected runtime-added preview host allowed, got %q", got)
+	}
+	adm.RemovePreviewURLAllowedHost("second.example.test")
+	if got := adm.BuildSitePreviewURL("https://second.example.test/about", "token-123"); got != "" {
+		t.Fatalf("expected runtime-removed preview host denied, got %q", got)
+	}
+
+	adm.WithPreviewURLAllowedHosts("third.example.test")
+	if got := adm.BuildSitePreviewURL("https://third.example.test/about", "token-123"); got != "https://third.example.test/about?preview_token=token-123" {
+		t.Fatalf("expected replaced preview host allowed, got %q", got)
+	}
+	if got := adm.BuildSitePreviewURL("https://preview.example.test/about", "token-123"); got != "" {
+		t.Fatalf("expected replaced preview host to remove previous host, got %q", got)
 	}
 }
 

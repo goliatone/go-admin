@@ -1047,6 +1047,7 @@ func newTranslationFamilyStoreSQLiteDB(t *testing.T) *bun.DB {
 			assigner_id TEXT,
 			last_reviewer_id TEXT,
 			last_rejection_reason TEXT,
+			assigned_at TEXT,
 			priority TEXT,
 			due_date TEXT,
 			row_version BIGINT,

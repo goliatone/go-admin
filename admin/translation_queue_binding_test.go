@@ -2517,6 +2517,13 @@ func newTranslationQueueTestApp(t *testing.T, binding *translationQueueBinding) 
 		}
 		return writeJSON(c, payload)
 	})
+	r.Get("/admin/api/translations/assignments/:assignment_id/preview", func(c router.Context) error {
+		payload, err := binding.AssignmentPreview(c, c.Param("assignment_id"))
+		if err != nil {
+			return writeError(c, err)
+		}
+		return writeJSON(c, payload)
+	})
 	r.Post("/admin/api/translations/assignments/:assignment_id/actions/:action", func(c router.Context) error {
 		body, err := parseJSONBody(c)
 		if err != nil {

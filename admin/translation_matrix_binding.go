@@ -567,10 +567,15 @@ func parseTranslationMatrixCreateMissingInput(c router.Context, body map[string]
 		dueDate = dueDate.UTC()
 		input.Plan.DueDate = &dueDate
 	}
-	if !input.Plan.AutoCreateAssignment && (input.Plan.AssigneeID != "" || input.Plan.Priority != "" || input.Plan.DueDate != nil) {
+	if !input.Plan.AutoCreateAssignment && translationCreateVariantHasAssignmentIntent(input.Plan) {
 		return translationMatrixCreateMissingInput{}, validationDomainError("assignment fields require auto_create_assignment=true", map[string]any{
 			"field": "auto_create_assignment",
 		})
+	}
+	if !input.Plan.AutoCreateAssignment {
+		input.Plan.AssigneeID = ""
+		input.Plan.Priority = ""
+		input.Plan.DueDate = nil
 	}
 	return input, nil
 }
@@ -1184,20 +1189,7 @@ func translationMatrixCreateQuickAction(
 }
 
 func translationMatrixAssignmentEditorURL(adm *Admin, assignmentID string) string {
-	assignmentID = strings.TrimSpace(assignmentID)
-	if adm == nil || assignmentID == "" {
-		return ""
-	}
-	if href := resolveURLWith(adm.URLs(), "admin", "translations.assignments.id", map[string]string{
-		"assignment_id": assignmentID,
-	}, nil); href != "" {
-		return href
-	}
-	base := strings.TrimRight(strings.TrimSpace(firstNonEmpty(adm.config.BasePath, "/admin")), "/")
-	if base == "" {
-		base = "/admin"
-	}
-	return base + "/translations/assignments/" + assignmentID + "/edit"
+	return translationAssignmentEditorURL(adm, assignmentID)
 }
 
 func translationMatrixFilterMissingLocales(family translationservices.FamilyRecord, locales []string) []string {
@@ -1258,6 +1250,11 @@ func (b *translationFamilyBinding) translationMatrixCreateVariant(adminCtx Admin
 	if err != nil {
 		return nil, err
 	}
+	if input.AutoCreateAssignment {
+		if validationErr := validateFamilyAssignmentTargetLocale(familyBefore, input.Locale); validationErr != nil {
+			return nil, validationErr
+		}
+	}
 	assignmentPlan, err := b.translationMatrixCreateVariantAssignmentPlan(adminCtx, familyBefore, input)
 	if err != nil {
 		return nil, err
@@ -1266,12 +1263,17 @@ func (b *translationFamilyBinding) translationMatrixCreateVariant(adminCtx Admin
 	if err != nil {
 		return nil, err
 	}
+	outcomeFamily := familyBefore
 	if input.AutoCreateAssignment {
 		if syncErr := SyncTranslationFamilyStore(adminCtx.Context, b.admin, input.Environment); syncErr != nil {
 			return nil, b.rollbackCreatedFamilyVariant(adminCtx.Context, createdVariant, syncErr, input.Environment)
 		}
+		outcomeFamily, err = b.loadCreateVariantFamily(adminCtx.Context, scope, familyBefore.ID, input)
+		if err != nil {
+			return nil, b.rollbackCreatedFamilyVariant(adminCtx.Context, createdVariant, err, input.Environment)
+		}
 	}
-	outcome, err := b.translationMatrixCreateVariantOutcome(adminCtx, familyBefore, input, assignmentPlan, createdVariant)
+	outcome, err := b.translationMatrixCreateVariantOutcome(adminCtx, outcomeFamily, input, assignmentPlan, createdVariant)
 	if err != nil {
 		return nil, err
 	}
@@ -1300,12 +1302,12 @@ func (b *translationFamilyBinding) translationMatrixCreateVariantFamily(adminCtx
 	if !ok {
 		return translationservices.FamilyRecord{}, notFoundDomainError("translation family not found", map[string]any{"family_id": strings.TrimSpace(familyID)})
 	}
-	if translationFamilyPolicyDenied(familyBefore) {
-		return translationservices.FamilyRecord{}, NewDomainError(string(translationcore.ErrorPolicyBlocked), "translation family is blocked by policy", mergeTranslationChannelContract(map[string]any{
-			"family_id":        familyBefore.ID,
-			"content_type":     familyBefore.ContentType,
-			"requested_locale": input.Locale,
-		}, input.Environment))
+	if allowErr := b.ensureCreateVariantAllowed(translationFamilyCreateVariantRequest{
+		AdminCtx: adminCtx,
+		Input:    input,
+		Scope:    scope,
+	}, familyBefore); allowErr != nil {
+		return translationservices.FamilyRecord{}, allowErr
 	}
 	if translationFamilyHasLocale(familyBefore, input.Locale) {
 		source := translationFamilySourceVariant(familyBefore)

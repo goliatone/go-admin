@@ -20,6 +20,16 @@ const (
 	translationDashboardLatencyTargetMS     = 300
 )
 
+func translationDashboardActionableStatusFilter() string {
+	return strings.Join([]string{
+		string(AssignmentStatusOpen),
+		string(AssignmentStatusAssigned),
+		string(AssignmentStatusInProgress),
+		string(AssignmentStatusInReview),
+		string(AssignmentStatusChangesRequested),
+	}, ",")
+}
+
 func (b *translationQueueBinding) Dashboard(c router.Context) (payload any, err error) {
 	startedAt := time.Now()
 	obsCtx := c.Context()
@@ -246,7 +256,7 @@ func (b *translationQueueBinding) translationDashboardOptimizedCards(channel str
 			assignments.MyTasks,
 			map[string]any{"in_progress": assignments.MyInProgress, "due_soon": assignments.MyDueSoon, "overdue": assignments.MyOverdue},
 			translationDashboardCardAlert(assignments.MyTasks, assignments.MyOverdue > 0, assignments.MyDueSoon > 0),
-			translationDashboardLink(b.admin.URLs(), "admin", "translations.queue", "admin.translations.queue", nil, translationDashboardQuery(nil, channel, map[string]string{"assignee_id": "__me__", "sort": "due_date", "order": "asc"}), map[string]any{"label": "Open my tasks", "description": "Open the queue filtered to assignments owned by the active actor.", "relation": "primary"}),
+			translationDashboardLink(b.admin.URLs(), "admin", "translations.queue", "admin.translations.queue", nil, translationDashboardQuery(nil, channel, map[string]string{"assignee_id": "__me__", "sort": "due_date", "order": "asc"}), map[string]any{"label": "My tasks", "description": "Open the queue filtered to assignments owned by the active actor.", "relation": "primary"}),
 			"translations.dashboard.my_tasks",
 			"translations.dashboard.overdue_triage",
 		),
@@ -257,7 +267,7 @@ func (b *translationQueueBinding) translationDashboardOptimizedCards(channel str
 			assignments.NeedsReview,
 			map[string]any{"overdue": assignments.NeedsReviewOverdue},
 			translationDashboardCardAlert(assignments.NeedsReview, assignments.NeedsReviewOverdue > 0, assignments.NeedsReview > 0),
-			translationDashboardLink(b.admin.URLs(), "admin", "translations.queue", "admin.translations.queue", nil, translationDashboardQuery(nil, channel, map[string]string{"status": string(AssignmentStatusInReview), "reviewer_id": "__me__", "sort": "due_date", "order": "asc"}), map[string]any{"label": "Open reviewer backlog", "description": "Open the queue filtered to review work owned by the active reviewer.", "relation": "primary"}),
+			translationDashboardLink(b.admin.URLs(), "admin", "translations.queue", "admin.translations.queue", nil, translationDashboardQuery(nil, channel, map[string]string{"status": string(AssignmentStatusInReview), "reviewer_id": "__me__", "sort": "due_date", "order": "asc"}), map[string]any{"label": "Reviewer backlog", "description": "Open the queue filtered to review work owned by the active reviewer.", "relation": "primary"}),
 			"translations.dashboard.needs_review",
 			"translations.dashboard.review_backlog",
 		),
@@ -268,7 +278,7 @@ func (b *translationQueueBinding) translationDashboardOptimizedCards(channel str
 			assignments.OverdueTasks,
 			map[string]any{"high_priority": assignments.HighPriorityOverdue},
 			translationDashboardCardAlert(assignments.OverdueTasks, assignments.OverdueTasks > 0, false),
-			translationDashboardLink(b.admin.URLs(), "admin", "translations.queue", "admin.translations.queue", nil, translationDashboardQuery(nil, channel, map[string]string{"due_state": "overdue", "sort": "due_date", "order": "asc"}), map[string]any{"label": "Open overdue queue", "description": "Open the queue filtered to overdue assignments.", "relation": "primary"}),
+			translationDashboardLink(b.admin.URLs(), "admin", "translations.queue", "admin.translations.queue", nil, translationDashboardQuery(nil, channel, map[string]string{"status": translationDashboardActionableStatusFilter(), "due_state": "overdue", "sort": "due_date", "order": "asc"}), map[string]any{"label": "Overdue queue", "description": "Open the queue filtered to overdue assignments.", "relation": "primary"}),
 			"translations.dashboard.overdue_tasks",
 			"translations.dashboard.overdue_triage",
 		),
@@ -279,7 +289,7 @@ func (b *translationQueueBinding) translationDashboardOptimizedCards(channel str
 			families.BlockedFamilies,
 			map[string]any{"missing_required_locales": families.MissingRequiredFamilies},
 			translationDashboardCardAlert(families.BlockedFamilies, families.BlockedFamilies > 0, false),
-			translationDashboardLink(b.admin.URLs(), "admin", "translations.families", "admin.translations.families", nil, translationDashboardQuery(nil, channel, map[string]string{"readiness_state": "blocked"}), map[string]any{"label": "Open blocked families", "description": "Open the blocked families workbench for the current scope.", "relation": "primary"}),
+			translationDashboardLink(b.admin.URLs(), "admin", "translations.families", "admin.translations.families", nil, translationDashboardQuery(nil, channel, map[string]string{"readiness_state": "blocked"}), map[string]any{"label": "Blocked families", "description": "Open the blocked families workbench for the current scope.", "relation": "primary"}),
 			"translations.dashboard.blocked_families",
 			"translations.dashboard.publish_blockers",
 		),
@@ -290,7 +300,7 @@ func (b *translationQueueBinding) translationDashboardOptimizedCards(channel str
 			families.MissingRequiredFamilies,
 			map[string]any{"families_blocked": families.BlockedFamilies},
 			translationDashboardCardAlert(families.MissingRequiredFamilies, families.MissingRequiredFamilies > 0, false),
-			translationDashboardLink(b.admin.URLs(), "admin", "translations.families", "admin.translations.families", nil, translationDashboardQuery(nil, channel, map[string]string{"readiness_state": "blocked", "blocker_code": "missing_locale"}), map[string]any{"label": "Open missing locale blockers", "description": "Open the families workbench filtered to missing locale blockers.", "relation": "primary"}),
+			translationDashboardLink(b.admin.URLs(), "admin", "translations.families", "admin.translations.families", nil, translationDashboardQuery(nil, channel, map[string]string{"readiness_state": "blocked", "blocker_code": "missing_locale"}), map[string]any{"label": "Missing locale blockers", "description": "Open the families workbench filtered to missing locale blockers.", "relation": "primary"}),
 			"translations.dashboard.missing_required_locales",
 			"translations.dashboard.publish_blockers",
 		),
@@ -416,7 +426,7 @@ func translationDashboardMyTasksCard(urls urlkit.Resolver, channel string, myTas
 			"sort":        "due_date",
 			"order":       "asc",
 		}), map[string]any{
-			"label":       "Open my tasks",
+			"label":       "My tasks",
 			"description": "Open the queue filtered to assignments owned by the active actor.",
 			"relation":    "primary",
 		}),
@@ -441,7 +451,7 @@ func translationDashboardNeedsReviewCard(urls urlkit.Resolver, channel string, n
 			"sort":        "due_date",
 			"order":       "asc",
 		}), map[string]any{
-			"label":       "Open reviewer backlog",
+			"label":       "Reviewer backlog",
 			"description": "Open the queue filtered to review work owned by the active reviewer.",
 			"relation":    "primary",
 		}),
@@ -461,11 +471,12 @@ func translationDashboardOverdueTasksCard(urls urlkit.Resolver, channel string, 
 		},
 		translationDashboardCardAlert(len(overdueAssignments), len(overdueAssignments) > 0, false),
 		translationDashboardLink(urls, "admin", "translations.queue", "admin.translations.queue", nil, translationDashboardQuery(nil, channel, map[string]string{
+			"status":    translationDashboardActionableStatusFilter(),
 			"due_state": "overdue",
 			"sort":      "due_date",
 			"order":     "asc",
 		}), map[string]any{
-			"label":       "Open overdue queue",
+			"label":       "Overdue queue",
 			"description": "Open the queue filtered to overdue assignments.",
 			"relation":    "primary",
 		}),
@@ -486,7 +497,7 @@ func translationDashboardBlockedFamiliesCard(urls urlkit.Resolver, adminAPIGroup
 		translationDashboardLink(urls, "admin", "translations.families", "admin.translations.families", nil, translationDashboardQuery(nil, channel, map[string]string{
 			"readiness_state": "blocked",
 		}), map[string]any{
-			"label":       "Open blocked families",
+			"label":       "Blocked families",
 			"description": "Open the blocked families workbench for the current scope.",
 			"relation":    "primary",
 		}),
@@ -508,7 +519,7 @@ func translationDashboardMissingLocalesCard(urls urlkit.Resolver, adminAPIGroup,
 			"readiness_state": "blocked",
 			"blocker_code":    "missing_locale",
 		}), map[string]any{
-			"label":       "Open missing locale blockers",
+			"label":       "Missing locale blockers",
 			"description": "Open the families workbench filtered to missing locale blockers.",
 			"relation":    "primary",
 		}),
@@ -617,7 +628,7 @@ func translationDashboardNeedsReview(assignments []TranslationAssignment, actorI
 func translationDashboardOverdueAssignments(assignments []TranslationAssignment, now time.Time) []TranslationAssignment {
 	out := make([]TranslationAssignment, 0, len(assignments))
 	for _, assignment := range assignments {
-		if assignment.Status.IsTerminal() {
+		if !assignment.Status.IsActive() {
 			continue
 		}
 		if translationQueueDueState(assignment.DueDate, now) != translationQueueDueStateOverdue {

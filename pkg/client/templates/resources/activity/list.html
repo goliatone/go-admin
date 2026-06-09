@@ -7,27 +7,28 @@
 {% endblock %}
 
 {% block content %}
-<header class="px-8 py-6 bg-white border-b border-gray-200 flex justify-between items-center">
-  <div>
-    <h1 class="text-3xl font-bold text-admin-dark">Activity</h1>
-    <p class="text-sm text-gray-500 mt-1">Track actions and changes across your system.</p>
-  </div>
-  <div class="flex items-center gap-4">
-    <div id="activity-view-switcher" class="activity-view-switcher">
-      <button type="button" class="activity-view-tab active" data-view-tab="table" aria-selected="true">
-        <i class="iconoir-table-rows"></i>
-        <span>Table</span>
-      </button>
-      <button type="button" class="activity-view-tab" data-view-tab="timeline" aria-selected="false">
-        <i class="iconoir-list"></i>
-        <span>Timeline</span>
+{# Compact Header (Option 3: Integrated Breadcrumb) #}
+<header class="admin-page-header px-8 py-3 bg-white border-b border-gray-200">
+  <div class="flex items-center justify-between gap-4">
+    <h1 class="text-2xl font-bold text-gray-900">Activity</h1>
+    <div class="flex items-center gap-4 flex-shrink-0">
+      <div id="activity-view-switcher" class="activity-view-switcher">
+        <button type="button" class="activity-view-tab active" data-view-tab="table" aria-selected="true">
+          <i class="iconoir-table-rows"></i>
+          <span>Table</span>
+        </button>
+        <button type="button" class="activity-view-tab" data-view-tab="timeline" aria-selected="false">
+          <i class="iconoir-list"></i>
+          <span>Timeline</span>
+        </button>
+      </div>
+      <button type="button" id="activity-refresh" class="btn btn-secondary">
+        <i class="iconoir-refresh"></i>
+        <span>Refresh</span>
       </button>
     </div>
-    <button type="button" id="activity-refresh" class="btn btn-secondary">
-      <i class="iconoir-refresh"></i>
-      <span>Refresh</span>
-    </button>
   </div>
+  <p class="mt-2 text-sm text-gray-500">Track actions and changes across your system.</p>
 </header>
 
 <div class="flex-1 p-8 overflow-y-auto">

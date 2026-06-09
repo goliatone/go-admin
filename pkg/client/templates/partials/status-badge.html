@@ -1,0 +1,59 @@
+{% set tone = badge.tone|default:badge_tone|default:"neutral" %}
+{% set status = badge.status|default:badge_status|default:"unknown" %}
+{% set label = badge.label|default:badge_label %}
+{% set tone_class = "bg-gray-100 text-gray-700" %}
+{% if tone == "error" or tone == "danger" %}
+  {% set tone_class = "bg-rose-50 text-rose-700" %}
+{% elif tone == "warning" %}
+  {% set tone_class = "bg-amber-50 text-amber-700" %}
+{% elif tone == "success" %}
+  {% set tone_class = "bg-emerald-50 text-emerald-700" %}
+{% elif tone == "info" %}
+  {% set tone_class = "bg-sky-50 text-sky-700" %}
+{% elif tone == "source" %}
+  {% set tone_class = "bg-slate-100 text-slate-700" %}
+{% endif %}
+
+{% set status_icon = "help-circle" %}
+{% set status_label = "Unknown" %}
+{% if status == "blocked" %}
+  {% set status_icon = "prohibition" %}
+  {% set status_label = "Blocked" %}
+{% elif status == "missing_locales" or status == "missing_locales_and_fields" %}
+  {% set status_icon = "circle" %}
+  {% set status_label = "Missing Locales" %}
+{% elif status == "ready" %}
+  {% set status_icon = "check" %}
+  {% set status_label = "Ready" %}
+{% elif status == "in_review" %}
+  {% set status_icon = "clock" %}
+  {% set status_label = "In Review" %}
+{% elif status == "in_progress" %}
+  {% set status_icon = "arrow-right" %}
+  {% set status_label = "In Progress" %}
+{% elif status == "overdue" %}
+  {% set status_icon = "alert-triangle" %}
+  {% set status_label = "Overdue" %}
+{% elif status == "open" %}
+  {% set status_icon = "inbox" %}
+  {% set status_label = "Open" %}
+{% elif status == "assigned" %}
+  {% set status_icon = "user" %}
+  {% set status_label = "Assigned" %}
+{% elif status == "changes_requested" %}
+  {% set status_icon = "edit" %}
+  {% set status_label = "Changes Requested" %}
+{% elif status == "approved" %}
+  {% set status_icon = "check-circle" %}
+  {% set status_label = "Approved" %}
+{% elif status == "archived" %}
+  {% set status_icon = "archive" %}
+  {% set status_label = "Archived" %}
+{% endif %}
+
+<span class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold {{ tone_class }}">
+  {% if badge.show_icon|default:show_icon|default:true %}
+  <i class="iconoir-{{ status_icon }} text-[10px]" aria-hidden="true"></i>
+  {% endif %}
+  {{ label|default:status_label|default:status|default:"Unknown" }}
+</span>

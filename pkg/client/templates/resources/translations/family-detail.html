@@ -3,21 +3,7 @@
 {% block title %}{{ translation_family_id|default:"Translation Family" }} - {{ title }}{% endblock %}
 
 {% block content %}
-<header class="px-8 py-6 border-b border-gray-200 bg-white">
-  <div class="flex flex-wrap items-center justify-between gap-4">
-    <div>
-      {% include "partials/breadcrumbs.html" with breadcrumbs=breadcrumbs %}
-      <p class="text-xs font-semibold uppercase tracking-wider text-gray-500">Translations</p>
-      <h1 class="mt-2 text-3xl font-bold text-admin-dark">Family detail</h1>
-      <p class="text-sm text-gray-500 mt-1">
-        View locale coverage, assignments, and family activity.
-      </p>
-    </div>
-    <div id="family-detail-header-actions" class="flex items-center gap-3">
-      <!-- Header actions mount here via JS -->
-    </div>
-  </div>
-</header>
+{% include "partials/admin-page-header.html" with breadcrumbs=breadcrumbs page_title="Family detail" page_subtitle="View locale coverage, assignments, and family activity." header_actions_id="family-detail-header-actions" %}
 
 <div class="flex-1 overflow-y-auto bg-gray-50 p-8">
   <div class="mx-auto">
@@ -27,21 +13,332 @@
       data-family-id="{{ translation_family_id|default:"" }}"
       data-base-path="{{ base_path|default:"/admin" }}"
       data-content-base-path="{{ translation_content_base|default:"" }}"
-    ></div>
+      data-ssr-enhanced="true"
+      data-channel="{{ translation_family_detail_ssr.Meta.channel|default:"" }}"
+      data-formgen-auto-init="true"
+    >
+      {% if translation_family_detail_ssr.ErrorState %}
+      <section class="rounded-lg border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900" data-translation-ssr-error="true">
+        <h2 class="text-base font-semibold">{{ translation_family_detail_ssr.ErrorState.title|default:"Translation data unavailable" }}</h2>
+        <p class="mt-1">{{ translation_family_detail_ssr.ErrorState.description|default:"Family detail could not be loaded server-side." }}</p>
+      </section>
+      {% else %}
+      {% with family=translation_family_detail_ssr.Data %}
+      <div class="translation-family-detail space-y-6" data-translation-family-detail-ssr="true" data-family-id="{{ family.family_id|default:translation_family_id }}" data-readiness-state="{{ family.readiness_state|default:"unknown" }}">
+        <section class="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm" aria-labelledby="translation-family-summary">
+          <div class="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <p class="text-xs font-semibold uppercase tracking-wider text-gray-500">Translation family</p>
+              <h2 id="translation-family-summary" class="mt-2 text-3xl font-semibold text-gray-900">
+                {{ family.source_variant.fields.title|default:family.family_id|default:translation_family_id }}
+              </h2>
+              <p class="mt-2 text-sm text-gray-600">
+                {{ family.content_type|default:"content" }} &middot; Source locale {{ family.source_locale|default:"-" }} &middot; Family {{ family.family_id|default:translation_family_id }}
+              </p>
+            </div>
+            <div class="flex flex-wrap items-center gap-2">
+              {% include "partials/status-badge.html" with badge_status=family.readiness_state|default:"unknown" badge_tone=family.readiness_tone|default:family.readiness_state|default:"neutral" badge_label=family.readiness_state|default:"unknown" %}
+              {% if family.quick_create.enabled %}
+              <button type="button"
+                      class="btn btn-primary"
+                      data-translation-create-locale-trigger="true"
+                      data-family-id="{{ family.family_id|default:translation_family_id }}"
+                      data-locale="{{ family.quick_create.recommended_locale|default:"" }}">
+                Create {{ family.quick_create.recommended_locale|default:"locale" }}
+              </button>
+              {% endif %}
+            </div>
+          </div>
+
+          <dl class="mt-6 grid gap-4 md:grid-cols-4">
+            <div class="rounded-lg border border-gray-200 bg-white p-5">
+              <dt class="text-xs font-semibold uppercase tracking-wider text-gray-500">Required locales</dt>
+              <dd class="mt-2 text-2xl font-semibold text-gray-900">{{ family.policy.required_locales|length|default:"0" }}</dd>
+            </div>
+            <div class="rounded-lg border border-gray-200 bg-white p-5">
+              <dt class="text-xs font-semibold uppercase tracking-wider text-gray-500">Missing locales</dt>
+              <dd class="mt-2 text-2xl font-semibold {% if family.readiness_summary.missing_required_locale_count %}text-rose-700{% else %}text-gray-900{% endif %}">{{ family.readiness_summary.missing_required_locale_count|default:"0" }}</dd>
+            </div>
+            <div class="rounded-lg border border-gray-200 bg-white p-5">
+              <dt class="text-xs font-semibold uppercase tracking-wider text-gray-500">Pending review</dt>
+              <dd class="mt-2 text-2xl font-semibold {% if family.readiness_summary.pending_review_count %}text-amber-700{% else %}text-gray-900{% endif %}">{{ family.readiness_summary.pending_review_count|default:"0" }}</dd>
+            </div>
+            <div class="rounded-lg border border-gray-200 bg-white p-5">
+              <dt class="text-xs font-semibold uppercase tracking-wider text-gray-500">Outdated locales</dt>
+              <dd class="mt-2 text-2xl font-semibold {% if family.readiness_summary.outdated_locale_count %}text-violet-700{% else %}text-gray-900{% endif %}">{{ family.readiness_summary.outdated_locale_count|default:"0" }}</dd>
+            </div>
+          </dl>
+        </section>
+
+        <div class="grid gap-6 xl:grid-cols-[minmax(0,1fr)_24rem]">
+          <div class="space-y-6">
+            <section class="rounded-lg border border-gray-200 bg-white p-6 shadow-sm" aria-labelledby="translation-family-locales" data-family-locale-coverage>
+              <div>
+                <h2 id="translation-family-locales" class="text-lg font-semibold text-gray-900">Locale coverage</h2>
+                <p class="mt-1 text-sm text-gray-500">Server-authored locale availability and variant state for this family.</p>
+              </div>
+              {% if family.locale_coverage_rows %}
+              <ul class="mt-5 space-y-3" role="list">
+                {% for row in family.locale_coverage_rows %}
+                <li class="grid gap-4 rounded-xl border p-5 {% if row.tone == "danger" %}border-rose-200 bg-rose-50{% else %}border-gray-200 bg-white{% endif %} lg:grid-cols-[minmax(18rem,1fr)_minmax(0,44rem)] lg:items-start" data-locale="{{ row.locale }}" data-locale-coverage-kind="{{ row.kind|default:"variant" }}" data-locale-assignment-key="{{ row.locale_assignment_key|default:"" }}">
+                  <div>
+                    <div class="flex flex-wrap items-center gap-2">
+                      <span class="text-sm font-semibold uppercase text-gray-900">{{ row.display_locale|default:row.locale|default:"-" }}</span>
+                      {% for badge in row.badges %}
+                      {% include "partials/status-badge.html" with badge_status=badge.status|default:badge.label badge_tone=badge.tone|default:"neutral" badge_label=badge.label show_icon=false %}
+                      {% endfor %}
+                    </div>
+                    <p class="mt-2 text-sm text-gray-600">{{ row.title|default:family.source_variant.fields.title|default:family.family_id }}</p>
+                    {% if row.kind != "missing_required" %}
+                    <p class="mt-1 text-xs text-gray-500">{{ row.assignment_summary|default:"No active assignment" }}</p>
+                    <p class="mt-1 text-xs text-gray-500">Updated {{ row.updated_label|default:"n/a" }}</p>
+                    {% endif %}
+                  </div>
+                  <div class="flex flex-wrap items-center gap-2 lg:justify-end" data-family-locale-actions="true">
+                    {% if row.kind == "missing_required" %}
+                    <button type="button"
+                            class="btn btn-primary h-10"
+                            data-translation-create-locale-trigger="true"
+                            data-family-create-locale="true"
+                            data-family-id="{{ family.family_id|default:translation_family_id }}"
+                            data-locale="{{ row.create_locale_action.locale|default:row.locale }}"
+                            {% if row.create_locale_action.enabled == false %}disabled aria-disabled="true" title="{{ row.create_locale_action.reason|default:"Create locale is unavailable" }}"{% endif %}>
+                      {{ row.create_locale_action.label|default:"Create locale" }}
+                    </button>
+                    {% else %}
+                    {% if row.assign_to_me_action.enabled %}
+                    <form method="post"
+                          action="{{ row.assign_to_me_action.endpoint }}"
+                          data-enhance-action="true"
+                          data-locale-assignment-key="{{ row.locale_assignment_key }}"
+                          data-enhance-error-target="[data-family-assignment-error-for='{{ row.locale_assignment_key }}']">
+                      {{ csrf_field|safe }}
+                      <input type="hidden" name="target_locale" value="{{ row.assign_to_me_action.payload.target_locale|default:row.locale }}">
+                      <input type="hidden" name="work_scope" value="{{ row.assign_to_me_action.payload.work_scope|default:row.locale_assignment.work_scope }}">
+                      <input type="hidden" name="assignee_id" value="{{ row.assign_to_me_action.payload.assignee_id|default:"" }}">
+                      <input type="hidden" name="channel" value="{{ translation_family_detail_ssr.Meta.channel|default:"" }}">
+                      <button type="submit" class="btn btn-secondary h-10">Assign to me</button>
+                      <div class="w-full text-xs text-rose-600" data-family-assignment-error-for="{{ row.locale_assignment_key }}" hidden></div>
+                    </form>
+                    {% elif row.assign_to_me_action.reason_code == "already_assigned" %}
+                    <button type="button"
+                            class="btn btn-secondary h-10"
+                            disabled
+                            aria-disabled="true"
+                            title="{{ row.assign_to_me_action.reason|default:"Assignment already belongs to you" }}">
+                      Assign to me
+                    </button>
+                    {% elif row.assign_to_me_action.reason %}
+                    <span class="text-xs text-gray-500">{{ row.assign_to_me_action.reason }}</span>
+                    {% endif %}
+                    {% if row.assign_to_user_action.enabled %}
+                    <form class="flex min-w-64 flex-1 flex-wrap items-center gap-2 sm:w-80 sm:flex-none lg:w-96"
+                          method="post"
+                          action="{{ row.assign_to_user_action.endpoint }}"
+                          data-enhance-action="true"
+                          data-locale-assignment-key="{{ row.locale_assignment_key }}"
+                          data-enhance-error-target="[data-family-assignment-error-for='{{ row.locale_assignment_key }}']">
+                      {{ csrf_field|safe }}
+                      <input type="hidden" name="target_locale" value="{{ row.assign_to_user_action.payload.target_locale|default:row.locale }}">
+                      <input type="hidden" name="work_scope" value="{{ row.assign_to_user_action.payload.work_scope|default:row.locale_assignment.work_scope }}">
+                      <input type="hidden" name="channel" value="{{ translation_family_detail_ssr.Meta.channel|default:"" }}">
+                      <select class="block h-10 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm shadow-sm transition focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                              name="assignee_id"
+                              data-family-assignee-select="{{ row.locale_assignment_key }}"
+                              data-initial-assignee-id="{{ row.assignment.assignee_id|default:"" }}"
+                              data-formgen-managed="true"
+                              data-formgen-relationship="true"
+                              data-endpoint-url="{{ translation_family_detail_ssr.Assignee.endpoint_url|default:"/api/translations/options/assignees?per_page=200" }}"
+                              data-endpoint-method="{{ translation_family_detail_ssr.Assignee.endpoint_method|default:"GET" }}"
+                              data-endpoint-renderer="{{ translation_family_detail_ssr.Assignee.endpoint_renderer|default:"typeahead" }}"
+                              {% if translation_family_detail_ssr.Assignee.endpoint_mode %}data-endpoint-mode="{{ translation_family_detail_ssr.Assignee.endpoint_mode }}"{% endif %}
+                              data-endpoint-search-param="{{ translation_family_detail_ssr.Assignee.endpoint_search|default:"q" }}"
+                              data-endpoint-value-field="{{ translation_family_detail_ssr.Assignee.endpoint_value|default:"value" }}"
+                              data-endpoint-label-field="{{ translation_family_detail_ssr.Assignee.endpoint_label|default:"label" }}"
+                              data-endpoint-placeholder="{{ translation_family_detail_ssr.Assignee.placeholder|default:"Select assignee" }}"
+                              data-endpoint-search-placeholder="{{ translation_family_detail_ssr.Assignee.search_placeholder|default:"Search assignees" }}"
+                              data-relationship-type="belongsTo"
+                              data-relationship-target="#/components/schemas/User"
+                              data-relationship-cardinality="one"
+                              {% if row.assignment.assignee_id %}data-relationship-current="{{ row.assignment.assignee_id }}"{% endif %}
+                              aria-label="Assignee">
+                        <option value="">{{ translation_family_detail_ssr.Assignee.placeholder|default:"Select assignee" }}</option>
+                        {% if row.assignment.assignee_id %}
+                        <option value="{{ row.assignment.assignee_id }}" selected>{{ row.assignment.display_assignee|default:row.assignment.assignee_label|default:row.assignment.assignee_id }}</option>
+                        {% endif %}
+                      </select>
+                      <button type="submit" class="btn btn-primary h-10">Assign</button>
+                      <div class="w-full text-xs text-rose-600" data-family-assignment-error-for="{{ row.locale_assignment_key }}" hidden></div>
+                    </form>
+                    {% elif row.assign_to_user_action.reason %}
+                    <span class="text-xs text-gray-500">{{ row.assign_to_user_action.reason }}</span>
+                    {% endif %}
+                    {% if row.claim_action.enabled %}
+                    <button type="button"
+                            class="btn btn-secondary h-10"
+                            data-family-claim-assignment="true"
+                            data-locale-assignment-key="{{ row.locale_assignment_key }}"
+                            data-assignment-endpoint="{{ row.claim_action.endpoint }}"
+                            data-assignment-id="{{ row.assignment.assignment_id|default:row.assignment.id }}"
+                            data-row-version="{{ row.assignment.row_version|default:row.assignment.version }}">
+                      Claim
+                    </button>
+                    {% endif %}
+                    {% if row.open_locale_href %}
+                    <a class="btn btn-secondary h-10" href="{{ row.open_locale_href }}">Open locale</a>
+                    {% endif %}
+                    {% endif %}
+                  </div>
+                </li>
+                {% endfor %}
+              </ul>
+              {% else %}
+              <p class="mt-4 rounded-md border border-dashed border-gray-300 bg-gray-50 p-4 text-sm text-gray-500">
+                {{ translation_family_detail_ssr.EmptyState.description|default:"No locale variants are available for this family." }}
+              </p>
+              {% endif %}
+            </section>
+
+            <section class="rounded-lg border border-gray-200 bg-white p-6 shadow-sm" aria-labelledby="translation-family-assignments" data-family-assignments>
+              <h2 id="translation-family-assignments" class="text-lg font-semibold text-gray-900">Assignments</h2>
+              {% if family.active_assignments %}
+              <div class="mt-5 grid gap-3">
+                {% for assignment in family.active_assignments %}
+                <article class="rounded-xl border border-gray-200 bg-gray-50 p-5" data-assignment-id="{{ assignment.assignment_id|default:assignment.id }}" data-row-version="{{ assignment.row_version|default:assignment.version }}">
+                  <div class="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <div class="flex flex-wrap items-center gap-2">
+                        <span class="text-sm font-semibold uppercase text-gray-900">{{ assignment.target_locale|default:"-" }}</span>
+                        {% include "partials/status-badge.html" with badge_status=assignment.status|default:"open" badge_tone=assignment.status_tone|default:"info" badge_label=assignment.display_status|default:assignment.status|default:"Open" %}
+                        {% include "partials/status-badge.html" with badge_status=assignment.priority|default:"normal" badge_tone=assignment.priority_tone|default:"neutral" badge_label=assignment.display_priority|default:assignment.priority|default:"Normal" show_icon=false %}
+                      </div>
+                      <p class="mt-2 text-sm text-gray-600">
+                        {{ assignment.display_assignee|default:assignment.assignee_label|default:assignment.assignee_id|default:"Unassigned" }}
+                      </p>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-2">
+                      {% if assignment.links.editor.href %}
+                      <a class="btn btn-secondary" href="{{ assignment.links.editor.href }}">Open editor</a>
+                      {% endif %}
+                      <button type="button"
+                              class="btn btn-secondary"
+                              data-family-assignment-action="claim"
+                              data-assignment-id="{{ assignment.assignment_id|default:assignment.id }}"
+                              data-row-version="{{ assignment.row_version|default:assignment.version }}"
+                              {% if assignment.actions.claim.enabled == false %}disabled aria-disabled="true" title="{{ assignment.actions.claim.reason|default:"Action unavailable" }}"{% endif %}>
+                        Claim
+                      </button>
+                      <button type="button"
+                              class="btn btn-secondary"
+                              data-family-assignment-action="release"
+                              data-assignment-id="{{ assignment.assignment_id|default:assignment.id }}"
+                              data-row-version="{{ assignment.row_version|default:assignment.version }}"
+                              {% if assignment.actions.release.enabled == false %}disabled aria-disabled="true" title="{{ assignment.actions.release.reason|default:"Action unavailable" }}"{% endif %}>
+                        Release
+                      </button>
+                    </div>
+                  </div>
+                  {% if assignment.actions.claim.reason or assignment.actions.release.reason %}
+                  <p class="mt-3 text-xs text-gray-500">
+                    {{ assignment.actions.claim.reason|default:assignment.actions.release.reason }}
+                  </p>
+                  {% endif %}
+                </article>
+                {% endfor %}
+              </div>
+              {% else %}
+              <p class="mt-4 rounded-md border border-dashed border-gray-300 bg-gray-50 p-4 text-sm text-gray-500">
+                No active assignments are attached to this family.
+              </p>
+              {% endif %}
+            </section>
+          </div>
+
+          <aside class="space-y-6">
+            <section class="rounded-lg border border-gray-200 bg-white p-6 shadow-sm" aria-labelledby="translation-family-publish-gate" data-family-publish-gate>
+              <h2 id="translation-family-publish-gate" class="text-lg font-semibold text-gray-900">Publish gate</h2>
+              <div class="mt-4 rounded-lg border {% if family.publish_gate.allowed %}border-emerald-200 bg-emerald-50 text-emerald-800{% else %}border-amber-200 bg-amber-50 text-amber-800{% endif %} p-4">
+                <p class="font-semibold">{% if family.publish_gate.allowed %}Ready{% else %}Blocked{% endif %}</p>
+                <p class="mt-2 text-sm">{% if family.publish_gate.allowed %}Publishing can proceed for this family.{% else %}Publishing is blocked until blockers are cleared.{% endif %}</p>
+              </div>
+            </section>
+
+            <section class="rounded-lg border border-gray-200 bg-white p-6 shadow-sm" aria-labelledby="translation-family-policy">
+              <h2 id="translation-family-policy" class="text-xs font-semibold uppercase tracking-wider text-gray-500">Policy</h2>
+              <dl class="mt-4 space-y-3 text-sm text-gray-700">
+                <div class="flex justify-between gap-3">
+                  <dt>Review required</dt>
+                  <dd class="font-semibold">{% if family.policy.review_required %}Yes{% else %}No{% endif %}</dd>
+                </div>
+                <div class="flex justify-between gap-3">
+                  <dt>Override allowed</dt>
+                  <dd class="font-semibold">{% if family.policy.allow_publish_override %}Yes{% else %}No{% endif %}</dd>
+                </div>
+                <div>
+                  <dt>Available locales</dt>
+                  <dd class="mt-1 font-semibold">{{ family.readiness_summary.available_locales|join:", "|default:"-" }}</dd>
+                </div>
+              </dl>
+            </section>
+
+            <section class="rounded-lg border border-gray-200 bg-white p-6 shadow-sm" aria-labelledby="translation-family-blockers">
+              <h2 id="translation-family-blockers" class="text-xs font-semibold uppercase tracking-wider text-gray-500">Blockers</h2>
+              {% if family.blockers %}
+              <ul class="mt-4 space-y-3">
+                {% for blocker in family.blockers %}
+                <li class="rounded-lg border border-gray-200 bg-gray-50 p-3 text-sm">
+                  <span class="rounded-full bg-rose-50 px-2 py-0.5 text-xs font-semibold text-rose-700">{{ blocker.display_label|default:blocker.blocker_code|default:blocker.code|default:"Blocker" }}</span>
+                  <dl class="mt-2 grid grid-cols-[5rem_1fr] gap-x-3 gap-y-1 text-xs text-gray-600">
+                    <dt>Locale</dt>
+                    <dd>{{ blocker.locale|default:"-" }}</dd>
+                    <dt>Field</dt>
+                    <dd>{{ blocker.field_path|default:"-" }}</dd>
+                  </dl>
+                </li>
+                {% endfor %}
+              </ul>
+              {% else %}
+              <p class="mt-3 text-sm text-gray-500">No blockers are recorded.</p>
+              {% endif %}
+            </section>
+
+            <section class="rounded-lg border border-gray-200 bg-white p-6 shadow-sm" aria-labelledby="translation-family-activity" data-family-activity>
+              <h2 id="translation-family-activity" class="text-lg font-semibold text-gray-900">Activity preview</h2>
+              {% if family.active_assignments %}
+              <ol class="mt-4 space-y-3 text-sm text-gray-600">
+                {% for assignment in family.active_assignments %}
+                <li class="rounded-md border border-gray-100 bg-gray-50 p-3">
+                  {{ assignment.activity_sentence|default:"" }}{% if not assignment.activity_sentence %}{{ assignment.target_locale|default:"-" }} assignment {{ assignment.display_status|default:assignment.status|default:"Updated" }}{% if assignment.display_updated or assignment.updated_at %} &middot; {{ assignment.display_updated|default:assignment.updated_at }}{% endif %}{% endif %}
+                </li>
+                {% endfor %}
+              </ol>
+              {% else %}
+              <p class="mt-3 text-sm text-gray-500">No recent assignment activity is available.</p>
+              {% endif %}
+            </section>
+          </aside>
+        </div>
+      </div>
+      {% endwith %}
+      {% endif %}
+    </div>
   </div>
 </div>
 {% endblock %}
 
 {% block scripts %}
+<script src="{{ adminURL("runtime/formgen-relationships.min.js") }}" defer></script>
 <script type="module">
 import { initTranslationFamilyDetailPage } from '{{ adminURL("assets/dist/translation-family/index.js") }}';
 
 const root = document.getElementById('translation-family-detail-root');
+const enhancedAction = {{ toJSON(translation_family_detail_ssr.Enhancement.enhanced_action)|safe }};
 if (root) {
   void initTranslationFamilyDetailPage(root, {
     endpoint: root.dataset.endpoint || '',
     basePath: root.dataset.basePath || '{{ base_path|default:"/admin" }}',
     contentBasePath: root.dataset.contentBasePath || '',
+    enhancedAction: enhancedAction || undefined,
   });
 }
 </script>

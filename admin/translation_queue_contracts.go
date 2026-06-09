@@ -26,6 +26,10 @@ func TranslationQueueSavedReviewFilterPresets() []map[string]any {
 	return translationqueue.SavedReviewFilterPresets()
 }
 
+func TranslationQueuePresetQuery(presetID string) map[string]string {
+	return translationqueue.AssignmentPresetQuery(presetID)
+}
+
 func TranslationQueueReviewAggregateCountKeys() []string {
 	return translationqueue.ReviewAggregateCountKeys()
 }

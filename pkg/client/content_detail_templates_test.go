@@ -82,7 +82,12 @@ func TestTranslationFamilyDetailTemplateBootstrapsClientRenderer(t *testing.T) {
 		`id="translation-family-detail-root"`,
 		`data-endpoint="{{ translation_family_api_path|default:"" }}"`,
 		`data-content-base-path="{{ translation_content_base|default:"" }}"`,
+		`data-formgen-auto-init="true"`,
+		`runtime/formgen-relationships.min.js`,
+		`data-endpoint-renderer="{{ translation_family_detail_ssr.Assignee.endpoint_renderer|default:"typeahead" }}"`,
+		`const enhancedAction = {{ toJSON(translation_family_detail_ssr.Enhancement.enhanced_action)|safe }};`,
 		`initTranslationFamilyDetailPage`,
+		`enhancedAction: enhancedAction || undefined`,
 	}
 	for _, fragment := range required {
 		if strings.Contains(template, fragment) {
@@ -104,6 +109,13 @@ func TestTranslationFamiliesTemplateBootstrapsClientRenderer(t *testing.T) {
 		`data-queue-path="{{ translation_queue_path|default:"" }}"`,
 		`data-title="Translation Families"`,
 		`data-surface="translation-families"`,
+		`data-action-menu`,
+		`data-action-menu-trigger`,
+		`data-action-menu-content`,
+		`Translation family views`,
+		`dist/shared/action-menu.js`,
+		`initActionMenus(familyListMenuRoot`,
+		`translationFamilyListActionMenusStandalone`,
 		`initTranslationFamilyListPage`,
 	}
 	for _, fragment := range required {
@@ -111,6 +123,54 @@ func TestTranslationFamiliesTemplateBootstrapsClientRenderer(t *testing.T) {
 			continue
 		}
 		t.Fatalf("expected translation families template fragment not found: %q", fragment)
+	}
+}
+
+func TestTranslationFamiliesTemplateLetsStatusBadgeMapReadinessLabel(t *testing.T) {
+	template := mustReadClientTemplate(t, "resources/translations/families.html")
+
+	required := `{% include "partials/status-badge.html" with badge_status=family.readiness_state badge_tone=readiness_tone %}`
+	if !strings.Contains(template, required) {
+		t.Fatalf("expected families template to let status badge map readiness labels")
+	}
+	if strings.Contains(template, `badge_label=family.readiness_state`) {
+		t.Fatalf("families template must not pass raw readiness_state as a badge label")
+	}
+}
+
+func TestTranslationDashboardTemplateUsesSharedStatusBadgeForRows(t *testing.T) {
+	template := mustReadClientTemplate(t, "resources/translations/dashboard.html")
+
+	required := []string{
+		`{% set dashboard_status_tone = "info" %}`,
+		`partials/status-badge.html`,
+		`badge_status=row.status|default:row.queue_state|default:"unknown"`,
+	}
+	for _, fragment := range required {
+		if strings.Contains(template, fragment) {
+			continue
+		}
+		t.Fatalf("expected dashboard template fragment not found: %q", fragment)
+	}
+	if strings.Contains(template, `<span class="rounded-md bg-gray-100 px-2 py-1 text-xs font-medium text-gray-700">{{ row.display_status`) {
+		t.Fatalf("dashboard rows must use the shared status badge partial")
+	}
+}
+
+func TestStatusBadgeTemplateFallsBackToMappedLabel(t *testing.T) {
+	template := mustReadClientTemplate(t, "partials/status-badge.html")
+
+	for _, fragment := range []string{
+		`{% set label = badge.label|default:badge_label %}`,
+		`{{ label|default:status_label|default:status|default:"Unknown" }}`,
+	} {
+		if strings.Contains(template, fragment) {
+			continue
+		}
+		t.Fatalf("expected status badge template fragment not found: %q", fragment)
+	}
+	if strings.Contains(template, `{% set label = badge.label|default:badge_label|default:status %}`) {
+		t.Fatalf("status badge label must not default to raw status before mapped labels")
 	}
 }
 

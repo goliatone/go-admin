@@ -262,17 +262,6 @@ func applyBunScopedUpdateColumns(query *bun.UpdateQuery, tenantColumn, orgColumn
 	query.Where(expr, args...)
 }
 
-func applyBunScopedDeleteColumns(query *bun.DeleteQuery, tenantColumn, orgColumn string, scope translationservices.Scope) {
-	if query == nil {
-		return
-	}
-	expr, args := bunScopedColumnsPredicate(tenantColumn, orgColumn, scope)
-	if expr == "" {
-		return
-	}
-	query.Where(expr, args...)
-}
-
 func bunFamilyRowsSharedScope(rows []bunTranslationFamilyRecord) (translationservices.Scope, bool) {
 	if len(rows) == 0 {
 		return translationservices.Scope{}, false
@@ -971,11 +960,13 @@ func clearFamilySourceVariants(ctx context.Context, tx bun.Tx, family translatio
 	if familyID == "" || len(family.Variants) == 0 {
 		return nil
 	}
+	// content_families.family_id and locale_variants(family_id, locale) are
+	// globally unique in the current schema. A family rebuild is authoritative
+	// for that family ID, including rows left behind by older unscoped syncs.
 	query := tx.NewUpdate().
 		Model((*bunTranslationLocaleVariantRecord)(nil)).
 		Set("is_source = ?", false).
 		Where("family_id = ?", familyID)
-	applyBunScopedUpdateColumns(query, ScopeTenantIDKey, ScopeOrgIDKey, translationservices.Scope{TenantID: family.TenantID, OrgID: family.OrgID})
 	_, err := query.Exec(ctx)
 	return err
 }
@@ -998,7 +989,6 @@ func deleteStaleFamilyVariants(ctx context.Context, tx bun.Tx, family translatio
 		Model((*bunTranslationLocaleVariantRecord)(nil)).
 		Where("family_id = ?", familyID).
 		Where("variant_id NOT IN (?)", bun.List(ids))
-	applyBunScopedDeleteColumns(query, ScopeTenantIDKey, ScopeOrgIDKey, translationservices.Scope{TenantID: family.TenantID, OrgID: family.OrgID})
 	_, err := query.Exec(ctx)
 	return err
 }
@@ -1020,7 +1010,6 @@ func renameFamilyLocaleVariants(ctx context.Context, tx bun.Tx, family translati
 			Where("family_id = ?", familyID).
 			Where("locale = ?", locale).
 			Where("variant_id <> ?", variantID)
-		applyBunScopedUpdateColumns(query, ScopeTenantIDKey, ScopeOrgIDKey, translationservices.Scope{TenantID: family.TenantID, OrgID: family.OrgID})
 		if _, err := query.Exec(ctx); err != nil {
 			return err
 		}
@@ -1137,9 +1126,11 @@ func familyAssignmentFromAssignment(assignment TranslationAssignment) translatio
 		WorkScope:    normalizeTranslationAssignmentWorkScope(assignment.WorkScope),
 		Status:       strings.TrimSpace(strings.ToLower(string(assignment.Status))),
 		AssigneeID:   strings.TrimSpace(assignment.AssigneeID),
+		AssignerID:   strings.TrimSpace(assignment.AssignerID),
 		ReviewerID:   strings.TrimSpace(firstNonEmpty(assignment.ReviewerID, assignment.LastReviewerID)),
 		Priority:     strings.TrimSpace(strings.ToLower(string(assignment.Priority))),
 		DueDate:      cloneTimePtr(assignment.DueDate),
+		AssignedAt:   cloneTimePtr(assignment.AssignedAt),
 		CreatedAt:    assignment.CreatedAt,
 		UpdatedAt:    assignment.UpdatedAt,
 	}

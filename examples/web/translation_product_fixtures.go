@@ -13,6 +13,7 @@ import (
 	"time"
 
 	coreadmin "github.com/goliatone/go-admin/admin"
+	translationcore "github.com/goliatone/go-admin/translations/core"
 )
 
 const (
@@ -430,6 +431,10 @@ func seedExampleTranslationQueueFixtureWithFamilySync(
 	}
 
 	now := time.Now().UTC()
+	fixtureAssignerID := assignees[0]
+	if len(assignees) > 1 {
+		fixtureAssignerID = assignees[1]
+	}
 	primaryGroupID := normalizeFamilyID(sourcePage.FamilyID, sourcePage.ID)
 	if strings.TrimSpace(primaryGroupID) == "" {
 		return fmt.Errorf("translation queue fixture source page %q missing family_id", exampleTranslationQueueSourceSlug)
@@ -554,10 +559,12 @@ func seedExampleTranslationQueueFixtureWithFamilySync(
 					Status:              coreadmin.AssignmentStatusReview,
 					Priority:            coreadmin.PriorityHigh,
 					AssigneeID:          assignees[0],
+					AssignerID:          fixtureAssignerID,
 					ReviewerID:          assignees[0],
 					SourceTitle:         strings.TrimSpace(firstNonEmpty(editorSource.Title, sourceFields["title"])),
 					SourcePath:          strings.TrimSpace(firstNonEmpty(exchangePagePath(*editorSource), sourceFields["path"])),
 					LastRejectionReason: "Please tighten the CTA tone.",
+					AssignedAt:          fixtureTimePtr(now.Add(-3 * time.Hour)),
 					ClaimedAt:           fixtureTimePtr(now.Add(-90 * time.Minute)),
 					SubmittedAt:         fixtureTimePtr(now.Add(-45 * time.Minute)),
 				}
@@ -582,6 +589,8 @@ func seedExampleTranslationQueueFixtureWithFamilySync(
 		Status:         coreadmin.AssignmentStatusInProgress,
 		Priority:       coreadmin.PriorityHigh,
 		AssigneeID:     assignees[0],
+		AssignerID:     fixtureAssignerID,
+		AssignedAt:     fixtureTimePtr(now.Add(-45 * time.Minute)),
 		ClaimedAt:      fixtureTimePtr(now),
 	}
 	if err := seedOrRefreshQueueAssignment(ctx, repo, inProgress); err != nil {
@@ -610,8 +619,10 @@ func seedExampleTranslationQueueFixtureWithFamilySync(
 		Status:         coreadmin.AssignmentStatusReview,
 		Priority:       coreadmin.PriorityHigh,
 		AssigneeID:     assignees[0],
+		AssignerID:     fixtureAssignerID,
 		ReviewerID:     assignees[0],
 		DueDate:        &reviewDueDate,
+		AssignedAt:     fixtureTimePtr(now.Add(-4 * time.Hour)),
 		ClaimedAt:      fixtureTimePtr(now),
 		SubmittedAt:    fixtureTimePtr(now.Add(-2 * time.Hour)),
 	}
@@ -644,6 +655,7 @@ func seedExampleTranslationQueueFixtureWithFamilySync(
 		Status:         coreadmin.AssignmentStatusAssigned,
 		Priority:       coreadmin.PriorityNormal,
 		AssigneeID:     assignedAssignee,
+		AssignerID:     fixtureAssignerID,
 		ReviewerID:     assignees[0],
 		DueDate:        &assignedDueDate,
 	}
@@ -666,7 +678,9 @@ func seedExampleTranslationQueueFixtureWithFamilySync(
 		Status:         coreadmin.AssignmentStatusInProgress,
 		Priority:       coreadmin.PriorityUrgent,
 		AssigneeID:     assignees[0],
+		AssignerID:     fixtureAssignerID,
 		DueDate:        &overdueDueDate,
+		AssignedAt:     fixtureTimePtr(now.Add(-72 * time.Hour)),
 		ClaimedAt:      fixtureTimePtr(now.Add(-24 * time.Hour)),
 	}
 	if err := seedOrRefreshQueueAssignment(ctx, repo, overdueQueueItem); err != nil {
@@ -753,6 +767,10 @@ func seedPersistentQueueFixture(
 	}
 
 	now := time.Now().UTC()
+	fixtureAssignerID := assignees[0]
+	if len(assignees) > 1 {
+		fixtureAssignerID = assignees[1]
+	}
 	primaryGroupID := strings.TrimSpace(normalizeFamilyID(sourcePage.FamilyID, sourcePage.ID))
 	if primaryGroupID == "" {
 		return fmt.Errorf("persistent queue fixture source page %q missing family_id", exampleTranslationQueueSourceSlug)
@@ -847,10 +865,12 @@ func seedPersistentQueueFixture(
 		Status:              coreadmin.AssignmentStatusInReview,
 		Priority:            coreadmin.PriorityHigh,
 		AssigneeID:          assignees[0],
+		AssignerID:          fixtureAssignerID,
 		ReviewerID:          assignees[0],
 		SourceTitle:         strings.TrimSpace(firstNonEmpty(editorSource.Title, sourceFields["title"])),
 		SourcePath:          strings.TrimSpace(firstNonEmpty(exchangePagePath(*editorSource), sourceFields["path"])),
 		LastRejectionReason: "Please tighten the CTA tone.",
+		AssignedAt:          fixtureTimePtr(now.Add(-3 * time.Hour)),
 		ClaimedAt:           fixtureTimePtr(now.Add(-90 * time.Minute)),
 		SubmittedAt:         fixtureTimePtr(now.Add(-45 * time.Minute)),
 	}
@@ -888,6 +908,8 @@ func seedPersistentQueueFixture(
 		Status:         coreadmin.AssignmentStatusInProgress,
 		Priority:       coreadmin.PriorityHigh,
 		AssigneeID:     assignees[0],
+		AssignerID:     fixtureAssignerID,
+		AssignedAt:     fixtureTimePtr(now.Add(-45 * time.Minute)),
 		ClaimedAt:      fixtureTimePtr(now),
 	}
 	if err := persistAssignment(inProgress); err != nil {
@@ -952,7 +974,9 @@ func seedPersistentQueueFixture(
 			Status:         coreadmin.AssignmentStatusInProgress,
 			Priority:       coreadmin.PriorityUrgent,
 			AssigneeID:     assignees[0],
+			AssignerID:     fixtureAssignerID,
 			DueDate:        &overduePageDueDate,
+			AssignedAt:     fixtureTimePtr(now.Add(-72 * time.Hour)),
 			ClaimedAt:      fixtureTimePtr(now.Add(-24 * time.Hour)),
 		}
 		if err := persistAssignment(overduePage); err != nil {
@@ -1071,52 +1095,55 @@ func ensureQueuePostTargetVariant(
 }
 
 func seedOrRefreshQueueAssignment(ctx context.Context, repo coreadmin.TranslationAssignmentRepository, assignment coreadmin.TranslationAssignment) error {
-	persisted, inserted, err := repo.CreateOrReuseActive(ctx, assignment)
+	persisted, found, err := findActiveQueueFixtureAssignment(ctx, repo, assignment)
 	if err != nil {
-		return fmt.Errorf(
-			"queue assignment create_or_reuse failed family=%s entity=%s source_record=%s source_locale=%s target_locale=%s target_record=%s status=%s: %w",
-			strings.TrimSpace(assignment.FamilyID),
-			strings.TrimSpace(assignment.EntityType),
-			strings.TrimSpace(assignment.SourceRecordID),
-			strings.TrimSpace(assignment.SourceLocale),
-			strings.TrimSpace(assignment.TargetLocale),
-			strings.TrimSpace(assignment.TargetRecordID),
-			string(assignment.Status),
-			err,
-		)
+		return err
 	}
-	if inserted {
+	if !found {
+		if _, err := repo.Create(ctx, assignment); err != nil {
+			return fmt.Errorf(
+				"queue assignment create failed family=%s entity=%s source_record=%s source_locale=%s target_locale=%s target_record=%s status=%s: %w",
+				strings.TrimSpace(assignment.FamilyID),
+				strings.TrimSpace(assignment.EntityType),
+				strings.TrimSpace(assignment.SourceRecordID),
+				strings.TrimSpace(assignment.SourceLocale),
+				strings.TrimSpace(assignment.TargetLocale),
+				strings.TrimSpace(assignment.TargetRecordID),
+				string(assignment.Status),
+				err,
+			)
+		}
 		return nil
 	}
 
 	updated := persisted
 	changed := false
-	if updated.Status != assignment.Status {
-		updated.Status = assignment.Status
+	if strings.TrimSpace(updated.EntityType) == "" && strings.TrimSpace(assignment.EntityType) != "" {
+		updated.EntityType = strings.TrimSpace(assignment.EntityType)
 		changed = true
 	}
-	if updated.AssignmentType != assignment.AssignmentType {
-		updated.AssignmentType = assignment.AssignmentType
+	if strings.TrimSpace(updated.SourceRecordID) == "" && strings.TrimSpace(assignment.SourceRecordID) != "" {
+		updated.SourceRecordID = strings.TrimSpace(assignment.SourceRecordID)
 		changed = true
 	}
-	if strings.TrimSpace(updated.AssigneeID) != strings.TrimSpace(assignment.AssigneeID) {
-		updated.AssigneeID = strings.TrimSpace(assignment.AssigneeID)
+	if strings.TrimSpace(updated.TargetRecordID) == "" && strings.TrimSpace(assignment.TargetRecordID) != "" {
+		updated.TargetRecordID = strings.TrimSpace(assignment.TargetRecordID)
 		changed = true
 	}
-	if updated.Priority != assignment.Priority {
-		updated.Priority = assignment.Priority
+	if strings.TrimSpace(updated.SourceTitle) == "" && strings.TrimSpace(assignment.SourceTitle) != "" {
+		updated.SourceTitle = strings.TrimSpace(assignment.SourceTitle)
 		changed = true
 	}
-	if !fixtureTimesEqual(updated.ClaimedAt, assignment.ClaimedAt) {
-		updated.ClaimedAt = fixtureTimePtrValue(assignment.ClaimedAt)
+	if strings.TrimSpace(updated.SourcePath) == "" && strings.TrimSpace(assignment.SourcePath) != "" {
+		updated.SourcePath = strings.TrimSpace(assignment.SourcePath)
 		changed = true
 	}
-	if !fixtureTimesEqual(updated.SubmittedAt, assignment.SubmittedAt) {
-		updated.SubmittedAt = fixtureTimePtrValue(assignment.SubmittedAt)
+	if strings.TrimSpace(updated.AssignerID) == "" && strings.TrimSpace(assignment.AssignerID) != "" {
+		updated.AssignerID = strings.TrimSpace(assignment.AssignerID)
 		changed = true
 	}
-	if !fixtureTimesEqual(updated.DueDate, assignment.DueDate) {
-		updated.DueDate = fixtureTimePtrValue(assignment.DueDate)
+	if updated.AssignedAt == nil && assignment.AssignedAt != nil {
+		updated.AssignedAt = fixtureTimePtr(assignment.AssignedAt.UTC())
 		changed = true
 	}
 	if !changed {
@@ -1138,6 +1165,61 @@ func seedOrRefreshQueueAssignment(ctx context.Context, repo coreadmin.Translatio
 		)
 	}
 	return nil
+}
+
+func findActiveQueueFixtureAssignment(ctx context.Context, repo coreadmin.TranslationAssignmentRepository, assignment coreadmin.TranslationAssignment) (coreadmin.TranslationAssignment, bool, error) {
+	filters := map[string]any{
+		"family_id":     strings.TrimSpace(assignment.FamilyID),
+		"target_locale": strings.ToLower(strings.TrimSpace(assignment.TargetLocale)),
+		"work_scope":    strings.TrimSpace(assignment.WorkScope),
+	}
+	if strings.TrimSpace(filters["work_scope"].(string)) == "" {
+		filters["work_scope"] = translationcore.DefaultWorkScope
+	}
+	if tenantID := strings.TrimSpace(assignment.TenantID); tenantID != "" {
+		filters[coreadmin.ScopeTenantIDKey] = tenantID
+	}
+	if orgID := strings.TrimSpace(assignment.OrgID); orgID != "" {
+		filters[coreadmin.ScopeOrgIDKey] = orgID
+	}
+
+	assignments, _, err := repo.List(ctx, coreadmin.ListOptions{
+		PerPage: 25,
+		Filters: filters,
+	})
+	if err != nil {
+		return coreadmin.TranslationAssignment{}, false, fmt.Errorf(
+			"queue assignment lookup failed family=%s target_locale=%s work_scope=%s: %w",
+			strings.TrimSpace(assignment.FamilyID),
+			strings.TrimSpace(assignment.TargetLocale),
+			strings.TrimSpace(fmt.Sprint(filters["work_scope"])),
+			err,
+		)
+	}
+
+	for _, candidate := range assignments {
+		if candidate.Status.IsActive() &&
+			strings.EqualFold(strings.TrimSpace(candidate.FamilyID), strings.TrimSpace(assignment.FamilyID)) &&
+			strings.EqualFold(strings.TrimSpace(candidate.TargetLocale), strings.TrimSpace(assignment.TargetLocale)) &&
+			normalizeQueueFixtureWorkScope(candidate.WorkScope) == normalizeQueueFixtureWorkScope(assignment.WorkScope) &&
+			queueFixtureScopeMatches(candidate.TenantID, assignment.TenantID) &&
+			queueFixtureScopeMatches(candidate.OrgID, assignment.OrgID) {
+			return candidate, true, nil
+		}
+	}
+	return coreadmin.TranslationAssignment{}, false, nil
+}
+
+func normalizeQueueFixtureWorkScope(scope string) string {
+	scope = strings.TrimSpace(scope)
+	if scope == "" {
+		return translationcore.DefaultWorkScope
+	}
+	return strings.ToLower(scope)
+}
+
+func queueFixtureScopeMatches(candidate, requested string) bool {
+	return strings.EqualFold(strings.TrimSpace(candidate), strings.TrimSpace(requested))
 }
 
 func normalizeQueueFixtureAssignees(values []string) []string {

@@ -57,6 +57,36 @@ function setupDOM() {
   return dom;
 }
 
+function setupPrimitiveBulkOverlayDOM() {
+  const dom = new JSDOM(`
+    <div>
+      <table id="documents-datatable">
+        <thead>
+          <tr>
+            <th data-role="selection" data-fixed="left">
+              <input id="table-checkbox-all" type="checkbox">
+            </th>
+            <th data-column="title">Title</th>
+            <th data-column="status">Status</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+      <div class="bulk-action-overlay -translate-y-full pointer-events-none"
+           data-bulk-action-overlay
+           data-bulk-overlay-position="top"
+           data-selection-count="0"
+           aria-hidden="true">
+        <button data-bulk-clear type="button">Clear</button>
+        <span data-bulk-selection-count>0</span>
+        <button data-bulk-action="delete" type="button">Delete</button>
+      </div>
+    </div>
+  `, { url: 'http://localhost/admin/content/documents' });
+  setGlobals(dom.window);
+  return dom;
+}
+
 function buildListPayload(fixture) {
   return {
     records: [
@@ -135,6 +165,57 @@ test('Phase 7 fixture: datagrid debounces selection-sensitive bulk state and sho
     assert.equal(deleteButton?.getAttribute('aria-disabled'), 'true');
     assert.equal(deleteButton?.getAttribute('title'), fixture.selection_contracts.mixed_selection.bulk_action_state.delete.reason);
     assert.match(reasonContainer?.textContent || '', /Some selected records cannot be deleted\./i);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('DataGrid bulk runtime supports data-attribute primitive overlay selectors', async () => {
+  const fixture = await loadFixture();
+  const dom = setupPrimitiveBulkOverlayDOM();
+  const originalFetch = globalThis.fetch;
+
+  globalThis.fetch = async () => new Response(JSON.stringify(buildListPayload(fixture)), {
+    status: 200,
+    headers: { 'Content-Type': 'application/json' },
+  });
+
+  try {
+    const notifier = {
+      async confirm() { return true; },
+      success() {},
+      error() {},
+    };
+    const grid = createGrid(notifier);
+    grid.init();
+    await wait(20);
+
+    const overlay = dom.window.document.querySelector('[data-bulk-action-overlay]');
+    const count = dom.window.document.querySelector('[data-bulk-selection-count]');
+    const clear = dom.window.document.querySelector('[data-bulk-clear]');
+    const checkbox = dom.window.document.querySelector('.table-checkbox');
+
+    assert.ok(overlay, 'expected primitive bulk overlay');
+    assert.ok(checkbox, 'expected rendered row checkbox');
+
+    checkbox.checked = true;
+    checkbox.dispatchEvent(new dom.window.Event('change', { bubbles: true }));
+    await wait(0);
+
+    assert.equal(count?.textContent, '1');
+    assert.equal(overlay?.dataset.selectionCount, '1');
+    assert.equal(overlay?.classList.contains('translate-y-0'), true);
+    assert.equal(overlay?.classList.contains('-translate-y-full'), false);
+    assert.equal(overlay?.hasAttribute('aria-hidden'), false);
+
+    clear?.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }));
+    await wait(0);
+
+    assert.equal(count?.textContent, '0');
+    assert.equal(overlay?.dataset.selectionCount, '0');
+    assert.equal(overlay?.classList.contains('pointer-events-none'), true);
+    assert.equal(overlay?.classList.contains('-translate-y-full'), true);
+    assert.equal(overlay?.getAttribute('aria-hidden'), 'true');
   } finally {
     globalThis.fetch = originalFetch;
   }

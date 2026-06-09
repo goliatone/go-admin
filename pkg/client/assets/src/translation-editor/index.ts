@@ -10,6 +10,8 @@ import {
   asStringArray,
 } from '../shared/coercion.js';
 import { escapeAttribute, escapeHTML } from '../shared/html.js';
+import { renderIcon } from '../shared/icon-renderer.js';
+import { readLocationSearchParams } from '../shared/query-state/url-state.js';
 import { normalizeStringRecord } from '../shared/record-normalization.js';
 import { httpRequest, readCSRFToken, readHTTPError } from '../shared/transport/http-client.js';
 import { renderPanelLoadingState, renderPanelState } from '../services/ui-states.js';
@@ -43,6 +45,9 @@ import {
   getTimelineEntryClasses,
   GLOSSARY_CHIP,
   GLOSSARY_CHIP_TERM,
+  ICON_CLOCK,
+  ICON_COPY,
+  ICON_DOCUMENT,
   formatTranslationTimestampUTC,
   sentenceCaseToken,
   type AutosaveState,
@@ -115,6 +120,14 @@ export interface TranslationEditorQAResults {
   findings: TranslationEditorQAFinding[];
   save_blocked: boolean;
   submit_blocked: boolean;
+}
+
+interface TranslationEditorIssueTargets {
+  missing: string | null;
+  validation: string | null;
+  qaBlocker: string | null;
+  qaFinding: string | null;
+  sourceDrift: string | null;
 }
 
 export interface TranslationEditorReviewFeedbackComment {
@@ -195,7 +208,11 @@ export interface TranslationEditorAssignmentSummary {
   source_title: string;
   source_path: string;
   assignee_id: string;
+  assignee_label: string;
+  display_assignee: string;
   reviewer_id: string;
+  reviewer_label: string;
+  display_reviewer: string;
   due_state: string;
   due_date: string;
   version: number;
@@ -224,6 +241,19 @@ export interface TranslationEditorLocaleNavigation {
   current_work_scope: string;
   family_detail_url: string;
   locales: TranslationEditorLocaleNavigationEntry[];
+}
+
+export interface TranslationEditorPreviewAction {
+  enabled: boolean;
+  url?: string;
+  reason: string;
+  reason_code: string;
+  assignment_id: string;
+  entity_type: string;
+  record_id: string;
+  target_record_id: string;
+  target_locale: string;
+  channel: string;
 }
 
 export interface TranslationAssignmentEditorDetail {
@@ -256,6 +286,7 @@ export interface TranslationAssignmentEditorDetail {
   assignment_action_states: Record<string, TranslationActionState>;
   review_action_states: Record<string, TranslationActionState>;
   locale_navigation: TranslationEditorLocaleNavigation;
+  preview_action: TranslationEditorPreviewAction;
 }
 
 export interface TranslationEditorUpdateResponse {
@@ -265,10 +296,12 @@ export interface TranslationEditorUpdateResponse {
   field_completeness: Record<string, TranslationEditorFieldCompleteness>;
   field_drift: Record<string, TranslationEditorFieldDrift>;
   field_validations: Record<string, TranslationEditorFieldValidation>;
+  source_target_drift?: Record<string, unknown>;
   assist: TranslationEditorAssistPayload;
   qa_results: TranslationEditorQAResults;
   assignment_action_states: Record<string, TranslationActionState>;
   review_action_states: Record<string, TranslationActionState>;
+  preview_action?: TranslationEditorPreviewAction;
 }
 
 export interface TranslationEditorState {
@@ -308,6 +341,7 @@ export interface TranslationEditorRuntimeState {
   lastSavedMessage?: string;
   saving?: boolean;
   submitting?: boolean;
+  previewing?: boolean;
   rejectDraft?: TranslationEditorRejectDraft | null;
   // T13: Active sidebar tab
   activeSidebarTab?: 'actions' | 'qa' | 'assist' | 'files' | 'history';
@@ -322,6 +356,7 @@ export interface TranslationEditorScreenConfig {
   syncResourceKind?: string;
   syncScope?: Record<string, string>;
   basePath?: string;
+  initialDetail?: unknown;
 }
 
 interface TranslationEditorRenderViewportState {
@@ -492,11 +527,17 @@ function normalizeTranslationSyncScope(scope: Record<string, string> | undefined
   return normalized;
 }
 
-function translationSyncScopeFromEndpoint(endpoint: string): Record<string, string> {
+const TRANSLATION_EDITOR_SCOPE_QUERY_KEYS = ['channel', 'tenant_id', 'org_id'] as const;
+
+function translationScopeFromEndpoint(endpoint: string): Record<string, string> {
   try {
     const url = new URL(endpoint, typeof window !== 'undefined' ? window.location.origin : 'http://localhost');
-    const channel = String(url.searchParams.get('channel') || '').trim();
-    return channel ? { channel } : {};
+    const scope: Record<string, string> = {};
+    for (const key of TRANSLATION_EDITOR_SCOPE_QUERY_KEYS) {
+      const value = String(url.searchParams.get(key) || '').trim();
+      if (value) scope[key] = value;
+    }
+    return scope;
   } catch {
     return {};
   }
@@ -504,7 +545,7 @@ function translationSyncScopeFromEndpoint(endpoint: string): Record<string, stri
 
 function deriveTranslationSyncScope(config: TranslationEditorScreenConfig): Record<string, string> {
   return normalizeTranslationSyncScope({
-    ...translationSyncScopeFromEndpoint(config.endpoint),
+    ...translationScopeFromEndpoint(config.endpoint),
     ...(config.syncScope || {}),
   });
 }
@@ -779,7 +820,11 @@ function normalizeAssignmentSummary(value: unknown): TranslationEditorAssignment
     source_title: asString(record.source_title),
     source_path: asString(record.source_path),
     assignee_id: asString(record.assignee_id),
+    assignee_label: asString(record.assignee_label),
+    display_assignee: asString(record.display_assignee || record.assignee_label || record.assignee_id),
     reviewer_id: asString(record.reviewer_id),
+    reviewer_label: asString(record.reviewer_label),
+    display_reviewer: asString(record.display_reviewer || record.reviewer_label || record.reviewer_id),
     due_state: asString(record.due_state),
     due_date: asString(record.due_date),
     version: asNumber(record.version || record.row_version),
@@ -833,6 +878,26 @@ function normalizeLocaleNavigation(value: unknown, fallback: Record<string, unkn
     current_work_scope: asString(record.current_work_scope),
     family_detail_url: asString(record.family_detail_url),
     locales,
+  };
+}
+
+function normalizePreviewAction(value: unknown, fallback: Record<string, unknown>): TranslationEditorPreviewAction {
+  const record = asRecord(value);
+  const enabled = asBoolean(record.enabled);
+  const targetRecordID = asString(record.target_record_id) || asString(record.record_id) || asString(fallback.target_record_id);
+  const reason = asString(record.reason);
+  const reasonCode = asString(record.reason_code);
+  return {
+    enabled,
+    url: asString(record.url) || undefined,
+    reason: reason || (enabled ? '' : 'Preview is unavailable for this assignment.'),
+    reason_code: reasonCode || (enabled ? '' : 'preview_unavailable'),
+    assignment_id: asString(record.assignment_id) || asString(fallback.assignment_id),
+    entity_type: asString(record.entity_type) || asString(fallback.entity_type),
+    record_id: asString(record.record_id) || targetRecordID,
+    target_record_id: targetRecordID,
+    target_locale: asString(record.target_locale) || asString(fallback.target_locale),
+    channel: asString(record.channel) || asString(fallback.channel),
   };
 }
 
@@ -973,12 +1038,14 @@ export function normalizeAssignmentEditorDetail(raw: unknown): TranslationAssign
       record.review_action_states ?? record.review_actions
     ),
     locale_navigation: normalizeLocaleNavigation(record.locale_navigation, record),
+    preview_action: normalizePreviewAction(record.preview_action, record),
   };
 }
 
 export function normalizeEditorUpdateResponse(raw: unknown): TranslationEditorUpdateResponse {
   const envelope = asRecord(raw);
   const record = asRecord(envelope.data && typeof envelope.data === 'object' ? envelope.data : raw);
+  const previewActionRecord = asRecord(record.preview_action);
   return {
     variant_id: asString(record.variant_id),
     row_version: asNumber(record.row_version || record.version),
@@ -986,10 +1053,14 @@ export function normalizeEditorUpdateResponse(raw: unknown): TranslationEditorUp
     field_completeness: normalizeFieldMap(record.field_completeness, normalizeFieldCompleteness),
     field_drift: normalizeFieldMap(record.field_drift, normalizeFieldDrift),
     field_validations: normalizeFieldMap(record.field_validations, normalizeFieldValidation),
+    source_target_drift: asRecord(record.source_target_drift),
     assist: normalizeEditorAssistPayload(record.assist, record),
     qa_results: normalizeQAResults(record.qa_results),
     assignment_action_states: normalizeActionStateMap(record.assignment_action_states),
     review_action_states: normalizeActionStateMap(record.review_action_states),
+    preview_action: Object.keys(previewActionRecord).length
+      ? normalizePreviewAction(previewActionRecord, record)
+      : undefined,
   };
 }
 
@@ -1095,6 +1166,12 @@ export function applyEditorUpdateResponse(
   payload: unknown
 ): TranslationEditorState {
   const update = normalizeEditorUpdateResponse(payload);
+  const assignmentActionStates = Object.keys(update.assignment_action_states).length
+    ? update.assignment_action_states
+    : state.detail.assignment_action_states;
+  const reviewActionStates = Object.keys(update.review_action_states).length
+    ? update.review_action_states
+    : state.detail.review_action_states;
   const nextDetail: TranslationAssignmentEditorDetail = {
     ...state.detail,
     row_version: update.row_version,
@@ -1105,10 +1182,14 @@ export function applyEditorUpdateResponse(
     field_completeness: update.field_completeness,
     field_drift: update.field_drift,
     field_validations: update.field_validations,
+    source_target_drift: Object.keys(asRecord(update.source_target_drift)).length
+      ? update.source_target_drift
+      : state.detail.source_target_drift,
     assist: update.assist,
     qa_results: update.qa_results,
-    assignment_action_states: update.assignment_action_states,
-    review_action_states: update.review_action_states,
+    assignment_action_states: assignmentActionStates,
+    review_action_states: reviewActionStates,
+    preview_action: update.preview_action || state.detail.preview_action,
   };
   nextDetail.fields = rebuildFieldEntries(nextDetail);
   return {
@@ -1129,11 +1210,18 @@ function editorUpdatePayloadFromSyncSnapshot(
   snapshot: TranslationSyncResourceSnapshot<unknown>
 ): Record<string, unknown> {
   const data = asRecord(snapshot.data);
-  const rowVersion = asNumber(data.row_version || data.version, snapshot.revision) || snapshot.revision;
+  const draftData = { ...data };
+  delete draftData.assignment_action_states;
+  delete draftData.editor_actions;
+  delete draftData.actions;
+  delete draftData.review_action_states;
+  delete draftData.review_actions;
+  const rowVersion = snapshot.revision || asNumber(data.row_version || data.version);
   return {
     data: {
-      ...data,
+      ...draftData,
       row_version: rowVersion,
+      version: rowVersion,
     },
   };
 }
@@ -1201,6 +1289,38 @@ function syncConflictPayloadFromError(error: unknown): Record<string, unknown> {
   return record;
 }
 
+function syncConflictLatestSnapshotFromError(error: unknown): TranslationSyncResourceSnapshot<unknown> | null {
+  const record = asRecord(error);
+  const details = asRecord(record.details);
+  const conflict = asRecord(record.conflict);
+  const resource = record.resource || details.resource || conflict.latestSnapshot;
+  const resourceRecord = asRecord(resource);
+  const latestData = asRecord(resourceRecord.data);
+  const revision = asNumber(resourceRecord.revision || record.currentRevision || details.current_revision);
+  const updatedAt = asString(resourceRecord.updatedAt || resourceRecord.updated_at) || new Date().toISOString();
+  if (!Object.keys(latestData).length || revision <= 0) {
+    return null;
+  }
+  return {
+    ref: asRecord(resourceRecord.ref) as unknown as TranslationSyncResourceRef,
+    data: latestData,
+    revision,
+    updatedAt,
+    metadata: asRecord(resourceRecord.metadata),
+  };
+}
+
+function currentSourceHashFromDetail(detail: TranslationAssignmentEditorDetail): string {
+  return asString(asRecord(detail.source_target_drift).current_source_hash);
+}
+
+function cssEscape(value: string): string {
+  if (typeof CSS !== 'undefined' && typeof CSS.escape === 'function') {
+    return CSS.escape(value);
+  }
+  return value.replace(/["\\]/g, '\\$&');
+}
+
 function isStaleRevisionError(error: unknown): error is TranslationSyncError {
   const record = asRecord(error);
   const cause = asRecord(record.cause);
@@ -1217,6 +1337,64 @@ function buildURLWithParams(endpoint: string, params: Record<string, string | nu
     return url.toString();
   }
   return `${url.pathname}${url.search}`;
+}
+
+function closePreviewWindow(previewWindow: Window | null): void {
+  if (!previewWindow || typeof previewWindow.close !== 'function') return;
+  try {
+    previewWindow.close();
+  } catch {
+    return;
+  }
+}
+
+async function writeTextToClipboard(text: string): Promise<boolean> {
+  const value = String(text || '');
+  const clipboard = typeof navigator !== 'undefined' ? navigator.clipboard : undefined;
+  if (clipboard && typeof clipboard.writeText === 'function') {
+    try {
+      await clipboard.writeText(value);
+      return true;
+    } catch {
+      // Fall back for browsers or contexts that expose but block Clipboard API.
+    }
+  }
+  return fallbackWriteTextToClipboard(value);
+}
+
+function fallbackWriteTextToClipboard(text: string): boolean {
+  if (typeof document === 'undefined' || !document.body || typeof document.execCommand !== 'function') {
+    return false;
+  }
+  const textarea = document.createElement('textarea');
+  textarea.value = text;
+  textarea.setAttribute('readonly', 'true');
+  textarea.style.position = 'fixed';
+  textarea.style.left = '-9999px';
+  textarea.style.top = '0';
+  document.body.appendChild(textarea);
+  try {
+    textarea.focus();
+    textarea.select();
+    textarea.setSelectionRange(0, textarea.value.length);
+    return document.execCommand('copy');
+  } catch {
+    return false;
+  } finally {
+    textarea.remove();
+  }
+}
+
+function navigatePreviewWindow(previewWindow: Window, url: string): void {
+  try {
+    if (previewWindow.location && typeof previewWindow.location.assign === 'function') {
+      previewWindow.location.assign(url);
+      return;
+    }
+  } catch {
+    // Fall back to href assignment below.
+  }
+  previewWindow.location.href = url;
 }
 
 export class TranslationEditorRequestError extends Error {
@@ -1306,6 +1484,14 @@ function isReviewLifecycleStatus(status: string): boolean {
   return status === 'review' || status === 'in_review';
 }
 
+function isChangesRequestedLifecycleStatus(status: string): boolean {
+  return status === 'changes_requested';
+}
+
+function shouldShowResumeWorkAction(detail: TranslationAssignmentEditorDetail): boolean {
+  return isChangesRequestedLifecycleStatus(assignmentLifecycleStatus(detail));
+}
+
 function shouldShowReviewActions(detail: TranslationAssignmentEditorDetail): boolean {
   const status = assignmentLifecycleStatus(detail);
   if (isReviewLifecycleStatus(status)) return true;
@@ -1314,6 +1500,34 @@ function shouldShowReviewActions(detail: TranslationAssignmentEditorDetail): boo
 
 function shouldShowManagementActions(detail: TranslationAssignmentEditorDetail): boolean {
   return Boolean(detail.assignment_action_states.archive?.enabled);
+}
+
+function isTranslationEditorReadOnly(detail: TranslationAssignmentEditorDetail): boolean {
+  const status = assignmentLifecycleStatus(detail);
+  return status === 'review' || status === 'in_review' || status === 'approved' || status === 'archived';
+}
+
+function readOnlyEditorMessage(detail: TranslationAssignmentEditorDetail): string {
+  const status = sentenceCaseToken(assignmentLifecycleStatus(detail) || 'unavailable').toLowerCase();
+  return `This assignment is ${status} and can be inspected but not edited.`;
+}
+
+function submitActionLabel(detail: TranslationAssignmentEditorDetail, submitting: boolean): string {
+  if (submitting) return 'Submitting...';
+  if (detail.assignment_action_states.submit_review?.enabled) return 'Submit for review';
+  switch (assignmentLifecycleStatus(detail)) {
+    case 'review':
+    case 'in_review':
+      return 'Pending approval';
+    case 'approved':
+      return 'Approved';
+    case 'archived':
+      return 'Archived';
+    case 'changes_requested':
+      return 'Changes requested';
+    default:
+      return 'Submit unavailable';
+  }
 }
 
 function autosaveStateLabel(
@@ -1464,17 +1678,39 @@ function renderHeader(
   hasDirtyFields: boolean,
   submitting: boolean,
   saving: boolean,
+  previewing: boolean,
+  hasConflict: boolean,
+  readOnly: boolean,
   basePath = ''
 ): string {
   const submitState = detail.assignment_action_states.submit_review;
-  const submitDisabled = !submitState?.enabled || saving || submitting || detail.qa_results.submit_blocked;
-  const saveDisabled = saving || !hasDirtyFields;
+  const resumeState = detail.assignment_action_states.claim;
+  const previewState = detail.preview_action;
+  const showResume = shouldShowResumeWorkAction(detail);
+  const resumeDisabled = !resumeState?.enabled || saving || submitting || hasConflict;
+  const submitDisabled = readOnly || !submitState?.enabled || saving || submitting || detail.qa_results.submit_blocked;
+  const previewDisabled = !previewState?.enabled || saving || submitting || previewing || hasConflict;
+  const saveDisabled = readOnly || saving || !hasDirtyFields;
   const sourceLocale = (detail.source_locale || 'source').toUpperCase();
   const targetLocale = (detail.target_locale || 'target').toUpperCase();
   const assignment = detail.translation_assignment;
-  const submitTitle = detail.qa_results.submit_blocked
+  const submitTitle = readOnly
+    ? readOnlyEditorMessage(detail)
+    : detail.qa_results.submit_blocked
     ? 'Resolve QA blockers before submitting for review.'
     : (submitState?.reason || '');
+  const previewTitle = !previewState?.enabled
+    ? (previewState?.reason || 'Preview is unavailable for this assignment.')
+    : hasConflict
+      ? 'Reload the latest server draft before opening preview.'
+    : previewing
+      ? 'Opening preview.'
+      : 'Open preview in a new tab.';
+  const resumeTitle = hasConflict
+    ? 'Reload the latest server draft before resuming work.'
+    : saving
+      ? 'Wait for the current save to finish before resuming work.'
+      : resumeState?.reason || 'Resume work on this assignment.';
   return `
     <section class="${CARD} p-6 shadow-sm">
       <div class="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
@@ -1487,13 +1723,13 @@ function renderHeader(
             </p>
           </div>
           <div class="flex flex-wrap gap-2 text-xs text-gray-600">
-            <span class="rounded-full bg-gray-100 px-3 py-1 font-medium">Assignee ${escapeHTML(assignment.assignee_id || 'Unassigned')}</span>
-            <span class="rounded-full bg-gray-100 px-3 py-1 font-medium">Reviewer ${escapeHTML(assignment.reviewer_id || 'Not set')}</span>
+            <span class="rounded-full bg-gray-100 px-3 py-1 font-medium">Assignee ${escapeHTML(assignment.display_assignee || assignment.assignee_label || assignment.assignee_id || 'Unassigned')}</span>
+            <span class="rounded-full bg-gray-100 px-3 py-1 font-medium">Reviewer ${escapeHTML(assignment.display_reviewer || assignment.reviewer_label || assignment.reviewer_id || 'Not set')}</span>
             <span class="rounded-full px-3 py-1 font-medium ${autosaveLabel.tone}" data-autosave-state="${escapeAttribute(autosaveLabel.state)}">${escapeHTML(autosaveLabel.text)}</span>
             ${qaSummaryChips(detail)}
           </div>
         </div>
-        <div class="flex flex-wrap items-center gap-3">
+        <div class="flex flex-wrap items-start gap-3">
           <button
             type="button"
             class="${BTN_SECONDARY}"
@@ -1502,15 +1738,46 @@ function renderHeader(
           >
             ${saving ? 'Saving…' : 'Save draft'}
           </button>
-          <button
-            type="button"
-            class="${BTN_PRIMARY}"
-            data-action="submit-review"
-            title="${escapeAttribute(submitTitle)}"
-            ${submitDisabled ? 'disabled aria-disabled="true"' : ''}
-          >
-            ${submitting ? 'Submitting…' : (submitState?.enabled ? 'Submit for review' : 'Submit unavailable')}
-          </button>
+          <div class="flex max-w-xs flex-col items-start gap-1">
+            <button
+              type="button"
+              class="${BTN_SECONDARY}"
+              data-action="preview-assignment"
+              title="${escapeAttribute(previewTitle)}"
+              data-preview-enabled="${previewState?.enabled ? 'true' : 'false'}"
+              data-preview-reason-code="${escapeAttribute(previewState?.reason_code || '')}"
+              ${previewDisabled ? 'disabled aria-disabled="true"' : ''}
+            >
+              ${previewing ? 'Opening...' : (previewState?.enabled ? 'Preview' : 'Preview unavailable')}
+            </button>
+            ${!previewState?.enabled && previewState?.reason ? `<p class="text-xs text-gray-500" data-preview-unavailable-reason="true">${escapeHTML(previewState.reason)}</p>` : ''}
+          </div>
+          ${showResume ? `
+            <div class="flex max-w-xs flex-col items-start gap-1">
+              <button
+                type="button"
+                class="${BTN_PRIMARY}"
+                data-action="resume-work"
+                title="${escapeAttribute(resumeTitle)}"
+                ${resumeDisabled ? 'disabled aria-disabled="true"' : ''}
+              >
+                ${submitting && resumeState?.enabled ? 'Resuming...' : 'Resume work'}
+              </button>
+              ${resumeDisabled && resumeTitle ? `<p class="text-xs text-gray-500" data-resume-unavailable-reason="true">${escapeHTML(resumeTitle)}</p>` : ''}
+            </div>
+          ` : ''}
+          <div class="flex max-w-xs flex-col items-start gap-1">
+            <button
+              type="button"
+              class="${BTN_PRIMARY}"
+              data-action="submit-review"
+              title="${escapeAttribute(submitTitle)}"
+              ${submitDisabled ? 'disabled aria-disabled="true"' : ''}
+            >
+              ${escapeHTML(submitActionLabel(detail, submitting))}
+            </button>
+            ${submitDisabled && submitTitle ? `<p class="text-xs text-gray-500" data-submit-unavailable-reason="true">${escapeHTML(submitTitle)}</p>` : ''}
+          </div>
         </div>
       </div>
     </section>
@@ -1660,12 +1927,18 @@ interface EditorFieldIssueSummary {
 function computeFieldIssueSummary(detail: TranslationAssignmentEditorDetail): EditorFieldIssueSummary {
   const fields = detail.fields || [];
   const qa = detail.qa_results;
+  const targets: TranslationEditorIssueTargets = {
+    missing: null,
+    validation: null,
+    qaBlocker: null,
+    qaFinding: null,
+    sourceDrift: null,
+  };
 
   let completeFields = 0;
   let missingRequiredFields = 0;
   let sourceChangedFields = 0;
   let validationErrors = 0;
-  let firstIssuePath: string | null = null;
 
   for (const field of fields) {
     // Count completeness
@@ -1676,27 +1949,30 @@ function computeFieldIssueSummary(detail: TranslationAssignmentEditorDetail): Ed
     // Count missing required
     if (field.completeness.required && field.completeness.missing) {
       missingRequiredFields++;
-      if (!firstIssuePath) firstIssuePath = field.path;
+      if (!targets.missing) targets.missing = field.path;
     }
 
     // Count source drift
     if (field.drift.changed) {
       sourceChangedFields++;
-      if (!firstIssuePath) firstIssuePath = field.path;
+      if (!targets.sourceDrift) targets.sourceDrift = field.path;
     }
 
     // Count validation errors
     if (!field.validation.valid) {
       validationErrors++;
-      if (!firstIssuePath) firstIssuePath = field.path;
+      if (!targets.validation) targets.validation = field.path;
     }
   }
 
-  // If no field-level issues but we have QA blockers, use first QA finding path
-  if (!firstIssuePath && qa.enabled && qa.summary.blocker_count > 0 && qa.findings.length > 0) {
+  if (qa.enabled && qa.findings.length > 0) {
     const blockerFinding = qa.findings.find(f => f.severity === 'blocker');
     if (blockerFinding?.field_path) {
-      firstIssuePath = blockerFinding.field_path;
+      targets.qaBlocker = blockerFinding.field_path;
+    }
+    const firstFinding = qa.findings.find(finding => finding.field_path);
+    if (firstFinding?.field_path) {
+      targets.qaFinding = firstFinding.field_path;
     }
   }
 
@@ -1708,7 +1984,7 @@ function computeFieldIssueSummary(detail: TranslationAssignmentEditorDetail): Ed
     validationErrors,
     qaBlockers: qa.enabled ? qa.summary.blocker_count : 0,
     qaWarnings: qa.enabled ? qa.summary.warning_count : 0,
-    firstIssuePath,
+    firstIssuePath: targets.missing || targets.validation || targets.qaBlocker || targets.qaFinding || targets.sourceDrift,
   };
 }
 
@@ -1773,9 +2049,7 @@ function renderFieldIssueSummary(summary: EditorFieldIssueSummary): string {
         title="Jump to first issue"
       >
         Jump to issue
-        <svg class="h-3.5 w-3.5" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
-          <path d="M8 4a.5.5 0 0 1 .5.5v5.793l2.146-2.147a.5.5 0 0 1 .708.708l-3 3a.5.5 0 0 1-.708 0l-3-3a.5.5 0 1 1 .708-.708L7.5 10.293V4.5A.5.5 0 0 1 8 4z"/>
-        </svg>
+        ${renderEditorIcon('iconoir:nav-arrow-down', '14px')}
       </button>`
     : '';
 
@@ -1801,8 +2075,25 @@ function renderSourceValue(entry: TranslationEditorFieldEntry): string {
   return '<span class="text-gray-400 italic text-xs">Optional source content not provided</span>';
 }
 
-function renderFieldList(detail: TranslationAssignmentEditorDetail): string {
+const COPY_SOURCE_BUTTON_CLASS =
+  'inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-[11px] font-medium leading-4 text-gray-600 shadow-sm transition-colors hover:border-gray-300 hover:bg-gray-50 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-sky-100';
+
+function renderEditorIcon(icon: string, size = '16px'): string {
+  return renderIcon(icon, { size, extraClass: 'text-current' });
+}
+
+function renderCopySourceIcon(): string {
+  return renderEditorIcon(ICON_COPY, '12px');
+}
+
+function renderFieldList(detail: TranslationAssignmentEditorDetail, readOnly = false): string {
   const summary = computeFieldIssueSummary(detail);
+  const inputClass = readOnly
+    ? 'mt-2 w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-600'
+    : 'mt-2 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-100';
+  const textareaClass = readOnly
+    ? 'mt-2 min-h-[140px] w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-600'
+    : 'mt-2 min-h-[140px] w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-100';
 
   return `
     <section class="space-y-4">
@@ -1816,11 +2107,14 @@ function renderFieldList(detail: TranslationAssignmentEditorDetail): string {
             </div>
             <button
               type="button"
-              class="${BTN_GHOST}"
+              class="${COPY_SOURCE_BUTTON_CLASS}"
               data-copy-source="${escapeAttribute(entry.path)}"
+              data-source-value="${escapeAttribute(entry.source_value)}"
               aria-label="Copy source text to translation field for ${escapeAttribute(entry.label)}"
+              ${readOnly ? 'disabled aria-disabled="true"' : ''}
             >
-              Copy source
+              ${renderCopySourceIcon()}
+              <span>Copy source</span>
             </button>
           </div>
           <div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -1831,11 +2125,11 @@ function renderFieldList(detail: TranslationAssignmentEditorDetail): string {
             <div class="rounded-xl border ${entry.validation.valid ? 'border-gray-200' : 'border-rose-200'} bg-white p-4">
               <label class="text-xs font-semibold uppercase tracking-[0.18em] text-gray-500" for="editor-field-${escapeAttribute(entry.path)}">Translation</label>
               ${entry.input_type === 'textarea'
-                ? `<textarea id="editor-field-${escapeAttribute(entry.path)}" class="mt-2 min-h-[140px] w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-100" data-field-input="${escapeAttribute(entry.path)}">${escapeHTML(entry.target_value)}</textarea>`
-                : `<input id="editor-field-${escapeAttribute(entry.path)}" type="text" class="mt-2 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-100" data-field-input="${escapeAttribute(entry.path)}" value="${escapeAttribute(entry.target_value)}" />`}
+                ? `<textarea id="editor-field-${escapeAttribute(entry.path)}" class="${textareaClass}" data-field-input="${escapeAttribute(entry.path)}" ${readOnly ? 'disabled aria-disabled="true"' : ''}>${escapeHTML(entry.target_value)}</textarea>`
+                : `<input id="editor-field-${escapeAttribute(entry.path)}" type="text" class="${inputClass}" data-field-input="${escapeAttribute(entry.path)}" value="${escapeAttribute(entry.target_value)}" ${readOnly ? 'disabled aria-disabled="true"' : ''} />`}
               <div class="mt-2 flex flex-wrap gap-2 text-xs">
                 <span class="rounded-full px-2.5 py-1 ${entry.completeness.missing ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'}">
-                  ${entry.completeness.missing ? 'Missing required content' : 'Ready to submit'}
+                  ${entry.completeness.missing ? 'Missing required content' : 'Field complete'}
                 </span>
                 ${shouldRenderFieldDriftDetail(entry) ? '<span class="rounded-full bg-amber-100 px-2.5 py-1 text-amber-700">Source changed</span>' : ''}
               </div>
@@ -2055,7 +2349,16 @@ function renderQAPanel(detail: TranslationAssignmentEditorDetail): string {
               <span class="${classes.badge}">${escapeHTML(finding.severity)}</span>
             </div>
             <p class="mt-2">${escapeHTML(finding.message)}</p>
-            ${finding.field_path ? `<p class="mt-2 text-xs opacity-80">Field ${escapeHTML(finding.field_path)}</p>` : ''}
+            ${finding.field_path ? `
+              <button
+                type="button"
+                class="mt-2 inline-flex items-center rounded-md border border-current px-2 py-1 text-xs font-medium opacity-80 transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-current/20"
+                data-jump-to-field="${escapeAttribute(finding.field_path)}"
+                title="Jump to ${escapeAttribute(finding.field_path)}"
+              >
+                Field ${escapeHTML(finding.field_path)}
+              </button>
+            ` : ''}
           </li>
         `).join('')}</ol>
       </section>
@@ -2127,6 +2430,48 @@ function renderReviewActionsPanel(detail: TranslationAssignmentEditorDetail, sub
             </button>
           `;
         }).join('')}
+      </div>
+    </section>
+  `;
+}
+
+function renderResumeWorkPanel(
+  detail: TranslationAssignmentEditorDetail,
+  submitting: boolean,
+  saving: boolean,
+  hasConflict: boolean
+): string {
+  if (!shouldShowResumeWorkAction(detail)) {
+    return '';
+  }
+  const resumeState = detail.assignment_action_states.claim;
+  const disabled = !resumeState?.enabled || saving || submitting || hasConflict;
+  const disabledReason = hasConflict
+    ? 'Reload the latest server draft before resuming work.'
+    : saving
+      ? 'Wait for the current save to finish before resuming work.'
+      : submitting
+        ? 'Resume is already in progress.'
+        : resumeState?.reason || '';
+  return `
+    <section
+      class="${CARD} p-5"
+      data-editor-panel="resume-actions"
+      aria-label="Resume work"
+    >
+      <h2 class="text-lg font-semibold text-gray-900">Resume work</h2>
+      <p class="mt-2 text-sm text-gray-600">This assignment has requested changes. Resume it before submitting the updated draft for review.</p>
+      <div class="mt-4 flex max-w-xs flex-col items-start gap-2">
+        <button
+          type="button"
+          class="${BTN_PRIMARY}"
+          data-action="resume-work"
+          title="${escapeAttribute(disabledReason || 'Resume work on this assignment.')}"
+          ${disabled ? 'disabled aria-disabled="true"' : ''}
+        >
+          ${submitting && resumeState?.enabled ? 'Resuming...' : 'Resume work'}
+        </button>
+        ${disabled && disabledReason ? `<p class="text-xs text-gray-500" data-resume-unavailable-reason="true">${escapeHTML(disabledReason)}</p>` : ''}
       </div>
     </section>
   `;
@@ -2256,8 +2601,21 @@ function renderTimelinePanel(detail: TranslationAssignmentEditorDetail): string 
 // T13: Sidebar tab type
 type SidebarTab = 'actions' | 'qa' | 'assist' | 'files' | 'history';
 
+const SIDEBAR_TAB_ICONS: Record<SidebarTab, string> = {
+  actions: 'iconoir:flash',
+  qa: 'iconoir:shield',
+  assist: 'iconoir:chat-bubble',
+  files: ICON_DOCUMENT,
+  history: ICON_CLOCK,
+};
+
+function renderSidebarTabIcon(tab: SidebarTab): string {
+  return renderEditorIcon(SIDEBAR_TAB_ICONS[tab], '16px');
+}
+
 // T13: Compute sidebar tab badges
 function computeSidebarTabBadges(detail: TranslationAssignmentEditorDetail): Record<SidebarTab, string | null> {
+  const hasResumeAction = shouldShowResumeWorkAction(detail);
   const hasReviewActions = shouldShowReviewActions(detail);
   const hasManagementActions = shouldShowManagementActions(detail);
   const qaCount = detail.qa_results.enabled ? detail.qa_results.summary.finding_count : 0;
@@ -2267,7 +2625,7 @@ function computeSidebarTabBadges(detail: TranslationAssignmentEditorDetail): Rec
   const historyCount = detail.history.total;
 
   return {
-    actions: (hasReviewActions || hasManagementActions) ? null : null,
+    actions: (hasResumeAction || hasReviewActions || hasManagementActions) ? null : null,
     qa: qaCount > 0 ? String(qaCount) : null,
     assist: (tmCount + glossaryCount) > 0 ? String(tmCount + glossaryCount) : null,
     files: fileCount > 0 ? String(fileCount) : null,
@@ -2276,42 +2634,45 @@ function computeSidebarTabBadges(detail: TranslationAssignmentEditorDetail): Rec
 }
 
 // T13: Render tabbed sidebar
-function renderTabbedSidebar(detail: TranslationAssignmentEditorDetail, submitting: boolean, activeTab: SidebarTab = 'actions', loadState?: TranslationEditorLoadState): string {
+function renderTabbedSidebar(
+  detail: TranslationAssignmentEditorDetail,
+  submitting: boolean,
+  activeTab: SidebarTab = 'actions',
+  loadState?: TranslationEditorLoadState,
+  saving = false,
+  hasConflict = false
+): string {
   const badges = computeSidebarTabBadges(detail);
+  const hasResumeAction = shouldShowResumeWorkAction(detail);
   const hasReviewActions = shouldShowReviewActions(detail);
   const hasManagementActions = shouldShowManagementActions(detail);
-  const hasActions = hasReviewActions || hasManagementActions;
+  const hasActions = hasResumeAction || hasReviewActions || hasManagementActions;
 
   // Tab definitions
-  const tabs: Array<{ id: SidebarTab; label: string; icon: string; badge: string | null }> = [
+  const tabs: Array<{ id: SidebarTab; label: string; badge: string | null }> = [
     {
       id: 'actions',
       label: 'Actions',
-      icon: '<svg class="w-4 h-4" viewBox="0 0 16 16" fill="currentColor"><path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/></svg>',
       badge: badges.actions,
     },
     {
       id: 'qa',
       label: 'QA',
-      icon: '<svg class="w-4 h-4" viewBox="0 0 16 16" fill="currentColor"><path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0-1A6 6 0 1 0 8 2a6 6 0 0 0 0 12zM6.5 7.5a.5.5 0 0 1 1 0v2.5a.5.5 0 0 1-1 0V7.5zm2 0a.5.5 0 0 1 1 0v2.5a.5.5 0 0 1-1 0V7.5z"/></svg>',
       badge: badges.qa,
     },
     {
       id: 'assist',
       label: 'Assist',
-      icon: '<svg class="w-4 h-4" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a3 3 0 0 0-3 3v2H4a2 2 0 0 0-2 2v5a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-1V4a3 3 0 0 0-3-3zM6 4a2 2 0 1 1 4 0v2H6V4z"/></svg>',
       badge: badges.assist,
     },
     {
       id: 'files',
       label: 'Files',
-      icon: '<svg class="w-4 h-4" viewBox="0 0 16 16" fill="currentColor"><path d="M4 0h5.5v1H4a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V4.5h1V14a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V2a2 2 0 0 1 2-2z"/><path d="M9.5 3V0L14 4.5h-3A1.5 1.5 0 0 1 9.5 3z"/></svg>',
       badge: badges.files,
     },
     {
       id: 'history',
       label: 'History',
-      icon: '<svg class="w-4 h-4" viewBox="0 0 16 16" fill="currentColor"><path d="M8.515 1.019A7 7 0 0 0 8 1V0a8 8 0 0 1 .589.022l-.074.997zm2.004.45a7.003 7.003 0 0 0-.985-.299l.219-.976c.383.086.76.2 1.126.342l-.36.933zm1.37.71a7.01 7.01 0 0 0-.439-.27l.493-.87a8.025 8.025 0 0 1 .979.654l-.615.789a6.996 6.996 0 0 0-.418-.302zm1.834 1.79a6.99 6.99 0 0 0-.653-.796l.724-.69c.27.285.52.59.747.91l-.818.576zM8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1zm0 1a6 6 0 1 1 0 12A6 6 0 0 1 8 2z"/><path d="M7.5 3a.5.5 0 0 1 .5.5v5.21l3.248 1.856a.5.5 0 0 1-.496.868l-3.5-2A.5.5 0 0 1 7 9V3.5a.5.5 0 0 1 .5-.5z"/></svg>',
       badge: badges.history,
     },
   ];
@@ -2328,7 +2689,7 @@ function renderTabbedSidebar(detail: TranslationAssignmentEditorDetail, submitti
           aria-selected="${activeTab === tab.id}"
           aria-controls="sidebar-panel-${escapeAttribute(tab.id)}"
         >
-          ${tab.icon}
+          ${renderSidebarTabIcon(tab.id)}
           <span class="hidden sm:inline">${escapeHTML(tab.label)}</span>
           ${tab.badge ? `<span class="rounded-full bg-gray-200 px-1.5 py-0.5 text-xs text-gray-700">${escapeHTML(tab.badge)}</span>` : ''}
         </button>
@@ -2340,6 +2701,7 @@ function renderTabbedSidebar(detail: TranslationAssignmentEditorDetail, submitti
   const panels: Record<SidebarTab, string> = {
     actions: `
       <div id="sidebar-panel-actions" class="space-y-4" role="tabpanel" data-sidebar-panel="actions" ${activeTab !== 'actions' ? 'hidden' : ''}>
+        ${hasResumeAction ? renderResumeWorkPanel(detail, submitting, saving, hasConflict) : ''}
         ${hasReviewActions ? renderReviewActionsPanel(detail, submitting) : ''}
         ${hasManagementActions ? renderManagementActionsPanel(detail, submitting) : ''}
         ${!hasActions ? `
@@ -2396,11 +2758,17 @@ export function renderTranslationEditorState(
   const hasDirtyFields = Boolean(editorState && Object.keys(editorState.dirty_fields).length);
   const autosaveLabel = autosaveStateLabel(editorState || null, hasDirtyFields, runtime.lastSavedMessage || '');
   const conflictState = editorState?.autosave.conflict;
+  const readOnly = isTranslationEditorReadOnly(detail);
   return `
-    <div class="translation-editor-screen space-y-6" data-translation-editor="true">
+    <div class="translation-editor-screen space-y-6" data-translation-editor="true" data-editor-read-only="${readOnly ? 'true' : 'false'}">
       ${renderFeedback(runtime.feedback || null)}
-      ${renderHeader(detail, autosaveLabel, hasDirtyFields, runtime.submitting === true, runtime.saving === true, options.basePath || '')}
+      ${renderHeader(detail, autosaveLabel, hasDirtyFields, runtime.submitting === true, runtime.saving === true, runtime.previewing === true, Boolean(conflictState), readOnly, options.basePath || '')}
       ${renderEditorLocaleSummary(detail)}
+      ${readOnly ? `
+        <section class="rounded-xl border border-gray-200 bg-gray-50 p-4" data-editor-read-only-notice="true">
+          <p class="text-sm font-medium text-gray-700">${escapeHTML(readOnlyEditorMessage(detail))}</p>
+        </section>
+      ` : ''}
       ${conflictState ? `
         <section class="rounded-xl border border-amber-200 bg-amber-50 p-5">
           <div class="flex flex-wrap items-center justify-between gap-3">
@@ -2414,10 +2782,10 @@ export function renderTranslationEditorState(
       ` : ''}
       <div class="grid grid-cols-1 gap-4 sm:gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(280px,1fr)]">
         <div class="order-1 space-y-4 sm:space-y-6">
-          ${renderFieldList(detail)}
+          ${renderFieldList(detail, readOnly)}
         </div>
         <div class="order-2">
-          ${renderTabbedSidebar(detail, runtime.submitting === true, runtime.activeSidebarTab || 'actions', loadState)}
+          ${renderTabbedSidebar(detail, runtime.submitting === true, runtime.activeSidebarTab || 'actions', loadState, runtime.saving === true, Boolean(conflictState))}
         </div>
       </div>
       ${renderRejectModal(runtime.rejectDraft || null, runtime.submitting === true)}
@@ -2447,6 +2815,7 @@ export class TranslationEditorScreen {
   private focusTrapCleanup: (() => void) | null = null;
   private saving = false;
   private submitting = false;
+  private previewing = false;
   private rejectDraft: TranslationEditorRejectDraft | null = null;
   private syncCoreModulePromise: Promise<TranslationSyncCoreModule> | null = null;
   private syncCoreModule: TranslationSyncCoreModule | null = null;
@@ -2455,6 +2824,8 @@ export class TranslationEditorScreen {
   private syncResource: TranslationSyncResource<unknown, unknown> | null = null;
   private syncResourceKey = '';
   private syncLoadedResourceKey = '';
+  private syncLoadedRevision: number | null = null;
+  private syncConflictSnapshot: TranslationSyncResourceSnapshot<unknown> | null = null;
   // T13: Active sidebar tab
   private activeSidebarTab: SidebarTab = 'actions';
 
@@ -2473,6 +2844,7 @@ export class TranslationEditorScreen {
       syncResourceKind: config.syncResourceKind || TRANSLATION_DRAFT_SYNC_RESOURCE_KIND,
       syncScope: deriveTranslationSyncScope(config),
       basePath,
+      initialDetail: config.initialDetail,
     };
   }
 
@@ -2492,6 +2864,24 @@ export class TranslationEditorScreen {
     void this.load();
   }
 
+  mountWithInitialDetail(container: HTMLElement, rawDetail: unknown): void {
+    this.container = container;
+    this.keyboardHandler = (event: KeyboardEvent) => {
+      if ((event.ctrlKey || event.metaKey) && event.key === 's') {
+        event.preventDefault();
+        void this.saveDirtyFields(false);
+      }
+      if (event.key === 'Escape' && this.rejectDraft) {
+        this.closeRejectDialog();
+      }
+    };
+    document.addEventListener('keydown', this.keyboardHandler);
+    const detail = normalizeAssignmentEditorDetail(rawDetail);
+    this.loadState = { status: 'ready', detail };
+    this.editorState = createTranslationEditorState(detail);
+    this.render();
+  }
+
   unmount(): void {
     if (this.autosaveTimer) clearTimeout(this.autosaveTimer);
     if (this.keyboardHandler) {
@@ -2507,6 +2897,8 @@ export class TranslationEditorScreen {
     this.syncResource = null;
     this.syncResourceKey = '';
     this.syncLoadedResourceKey = '';
+    this.syncLoadedRevision = null;
+    this.syncConflictSnapshot = null;
   }
 
   async load(historyPage?: number): Promise<void> {
@@ -2521,7 +2913,9 @@ export class TranslationEditorScreen {
     this.loadState = await fetchTranslationEditorDetailState(endpoint);
     if (this.loadState.status === 'ready' && this.loadState.detail) {
       this.editorState = createTranslationEditorState(this.loadState.detail);
-      await this.hydrateDraftSyncFromRead(this.loadState.detail);
+      if (!isTranslationEditorReadOnly(this.loadState.detail)) {
+        await this.hydrateDraftSyncFromRead(this.loadState.detail);
+      }
     } else {
       this.editorState = null;
     }
@@ -2536,6 +2930,7 @@ export class TranslationEditorScreen {
       lastSavedMessage: this.lastSavedMessage,
       saving: this.saving,
       submitting: this.submitting,
+      previewing: this.previewing,
       rejectDraft: this.rejectDraft,
       activeSidebarTab: this.activeSidebarTab,
     });
@@ -2598,10 +2993,15 @@ export class TranslationEditorScreen {
     }
   }
 
+  private isEditorReadOnly(): boolean {
+    return this.editorState ? isTranslationEditorReadOnly(this.editorState.detail) : true;
+  }
+
   private attachEventListeners(): void {
     if (!this.container || !this.editorState) return;
     this.container.querySelectorAll<HTMLElement>('[data-field-input]').forEach((element) => {
       element.addEventListener('input', (event) => {
+        if (this.isEditorReadOnly()) return;
         const target = event.currentTarget as HTMLInputElement | HTMLTextAreaElement;
         const path = target.dataset.fieldInput || '';
         this.editorState = applyEditorFieldChange(this.editorState as TranslationEditorState, path, target.value);
@@ -2612,20 +3012,58 @@ export class TranslationEditorScreen {
       });
     });
     this.container.querySelectorAll<HTMLElement>('[data-copy-source]').forEach((element) => {
-      element.addEventListener('click', () => {
+      element.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        if (this.isEditorReadOnly()) return;
         const path = element.dataset.copySource || '';
         const entry = this.editorState?.detail.fields.find((item) => item.path === path);
         if (!entry || !this.editorState) return;
-        this.editorState = applyEditorFieldChange(this.editorState, path, entry.source_value);
+        const sourceValue = (entry.source_value || element.dataset.sourceValue || '').trim();
+        void writeTextToClipboard(sourceValue);
+        this.editorState = applyEditorFieldChange(this.editorState, path, sourceValue);
+        const input = this.container?.querySelector<HTMLInputElement | HTMLTextAreaElement>(`[data-field-input="${cssEscape(path)}"]`);
+        if (input) {
+          input.value = sourceValue;
+          try {
+            input.focus({ preventScroll: true });
+          } catch {
+            input.focus();
+          }
+          const selectionEnd = input.value.length;
+          try {
+            input.setSelectionRange(selectionEnd, selectionEnd);
+          } catch {
+            // Non-text inputs do not support selection ranges.
+          }
+        }
+        this.feedback = null;
+        this.lastSavedMessage = '';
         this.scheduleAutosave();
         this.render();
       });
     });
     this.container.querySelector<HTMLElement>('[data-action="save-draft"]')?.addEventListener('click', () => {
+      if (this.isEditorReadOnly()) return;
       void this.saveDirtyFields(false);
     });
     this.container.querySelector<HTMLElement>('[data-action="submit-review"]')?.addEventListener('click', () => {
       void this.submitForReview();
+    });
+    this.container.querySelectorAll<HTMLElement>('[data-action="resume-work"]').forEach((element) => {
+      element.addEventListener('click', () => {
+        void this.resumeWork();
+      });
+    });
+    this.container.querySelector<HTMLElement>('[data-action="preview-assignment"]')?.addEventListener('click', () => {
+      const blockedMessage = this.previewBlockedBeforeOpenMessage();
+      if (blockedMessage) {
+        this.feedback = blockedMessage;
+        this.render();
+        return;
+      }
+      const previewWindow = this.openPreviewWindow();
+      void this.previewAssignment(previewWindow);
     });
     this.container.querySelector<HTMLElement>('[data-action="approve"]')?.addEventListener('click', () => {
       void this.runReviewAction('approve');
@@ -2667,19 +3105,21 @@ export class TranslationEditorScreen {
     });
 
     // T12: Jump to first issue handler
-    this.container.querySelector<HTMLElement>('[data-jump-to-field]')?.addEventListener('click', (event) => {
-      const button = event.currentTarget as HTMLElement;
-      const fieldPath = button.dataset.jumpToField;
-      if (!fieldPath || !this.container) return;
-      const fieldElement = this.container.querySelector<HTMLElement>(`[data-editor-field="${CSS.escape(fieldPath)}"]`);
-      if (fieldElement) {
-        fieldElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        // Focus the input field within
-        const input = fieldElement.querySelector<HTMLInputElement | HTMLTextAreaElement>('[data-field-input]');
-        if (input) {
-          setTimeout(() => input.focus(), 300);
+    this.container.querySelectorAll<HTMLElement>('[data-jump-to-field]').forEach((element) => {
+      element.addEventListener('click', (event) => {
+        const button = event.currentTarget as HTMLElement;
+        const fieldPath = button.dataset.jumpToField;
+        if (!fieldPath || !this.container) return;
+        const fieldElement = this.container.querySelector<HTMLElement>(`[data-editor-field="${cssEscape(fieldPath)}"]`);
+        if (fieldElement) {
+          fieldElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          // Focus the input field within
+          const input = fieldElement.querySelector<HTMLInputElement | HTMLTextAreaElement>('[data-field-input]');
+          if (input) {
+            setTimeout(() => input.focus(), 300);
+          }
         }
-      }
+      });
     });
 
     // T13: Sidebar tab switching
@@ -2708,6 +3148,7 @@ export class TranslationEditorScreen {
   }
 
   private scheduleAutosave(): void {
+    if (this.isEditorReadOnly()) return;
     if (this.autosaveTimer) clearTimeout(this.autosaveTimer);
     this.autosaveTimer = setTimeout(() => {
       void this.saveDirtyFields(true);
@@ -2715,6 +3156,7 @@ export class TranslationEditorScreen {
   }
 
   private async saveDirtyFields(isAutosave: boolean): Promise<boolean> {
+    if (this.isEditorReadOnly()) return true;
     if (!this.editorState || !Object.keys(this.editorState.dirty_fields).length || this.saving) return true;
     this.saving = true;
     this.editorState = markEditorAutosavePending(this.editorState);
@@ -2722,6 +3164,8 @@ export class TranslationEditorScreen {
     const detail = this.editorState.detail;
     try {
       const response = await this.mutateDraftSync(detail, this.editorState.dirty_fields, isAutosave);
+      this.syncLoadedRevision = response.snapshot.revision;
+      this.syncConflictSnapshot = null;
       this.editorState = applyEditorUpdateResponse(this.editorState, editorUpdatePayloadFromSyncSnapshot(response.snapshot));
       const qaFeedback = buildSaveFeedbackMessage(this.editorState.detail.qa_results, isAutosave);
       this.lastSavedMessage = qaFeedback.lastSaved;
@@ -2733,6 +3177,10 @@ export class TranslationEditorScreen {
       return true;
     } catch (error) {
       if (isStaleRevisionError(error)) {
+        this.syncConflictSnapshot = syncConflictLatestSnapshotFromError(error);
+        if (this.syncConflictSnapshot?.revision) {
+          this.syncLoadedRevision = this.syncConflictSnapshot.revision;
+        }
         this.editorState = applyEditorAutosaveConflict(this.editorState, syncConflictPayloadFromError(error));
         this.feedback = { kind: 'conflict', message: 'Autosave conflict detected. Reload the latest server draft.' };
         this.saving = false;
@@ -2753,7 +3201,17 @@ export class TranslationEditorScreen {
     if (!this.editorState) return;
     const latest = this.editorState.autosave.conflict;
     if (latest && Object.keys(latest).length > 0) {
-      this.editorState = applyEditorUpdateResponse(this.editorState, { data: latest });
+      const snapshot = this.syncConflictSnapshot;
+      this.editorState = snapshot
+        ? applyEditorUpdateResponse(this.editorState, editorUpdatePayloadFromSyncSnapshot(snapshot))
+        : applyEditorUpdateResponse(this.editorState, { data: latest });
+      if (snapshot?.revision) {
+        this.syncLoadedRevision = snapshot.revision;
+      } else {
+        const latestRevision = asNumber(asRecord(latest).row_version || asRecord(latest).version);
+        if (latestRevision > 0) this.syncLoadedRevision = latestRevision;
+      }
+      this.syncConflictSnapshot = null;
       this.feedback = { kind: 'conflict', message: 'Reloaded the latest server draft.' };
       this.saving = false;
       this.render();
@@ -2765,6 +3223,8 @@ export class TranslationEditorScreen {
       if (!isUsableTranslationSyncSnapshot(snapshot)) {
         throw new Error('Sync refresh did not return a usable draft snapshot');
       }
+      this.syncLoadedRevision = snapshot.revision;
+      this.syncConflictSnapshot = null;
       this.editorState = applyEditorUpdateResponse(this.editorState, editorUpdatePayloadFromSyncSnapshot(snapshot));
       this.feedback = { kind: 'conflict', message: 'Reloaded the latest server draft.' };
       this.saving = false;
@@ -2798,13 +3258,20 @@ export class TranslationEditorScreen {
   ): Promise<TranslationSyncMutationResponse<unknown>> {
     await this.ensureDraftSyncLoaded(detail);
     const resource = await this.ensureDraftSyncResource(detail);
+    const snapshotRevision = asNumber(resource.getSnapshot()?.revision);
+    const expectedRevision = this.syncLoadedRevision || snapshotRevision || detail.row_version;
+    const payload: Record<string, unknown> = {
+      autosave: isAutosave,
+      fields,
+    };
+    const currentSourceHash = currentSourceHashFromDetail(detail);
+    if (currentSourceHash) {
+      payload.acknowledged_source_hash = currentSourceHash;
+    }
     return await resource.mutate({
       operation: TRANSLATION_DRAFT_SYNC_OPERATION,
-      expectedRevision: this.editorState?.row_version || detail.row_version,
-      payload: {
-        autosave: isAutosave,
-        fields,
-      },
+      expectedRevision,
+      payload,
       metadata: {
         autosave: isAutosave,
       },
@@ -2856,6 +3323,8 @@ export class TranslationEditorScreen {
     if (!this.syncResource || this.syncResourceKey !== resourceKey) {
       this.syncResourceKey = resourceKey;
       this.syncResource = this.syncEngine.resource(ref);
+      this.syncLoadedRevision = null;
+      this.syncConflictSnapshot = null;
     }
     return this.syncResource;
   }
@@ -2877,6 +3346,8 @@ export class TranslationEditorScreen {
       nextState = applyEditorFieldChange(nextState, fieldPath, fieldValue);
     }
     this.editorState = nextState;
+    this.syncLoadedRevision = snapshot.revision;
+    this.syncConflictSnapshot = null;
     this.loadState = {
       ...this.loadState,
       detail: this.editorState.detail,
@@ -2886,6 +3357,11 @@ export class TranslationEditorScreen {
 
   private async submitForReview(): Promise<void> {
     if (!this.editorState || this.submitting) return;
+    if (this.isEditorReadOnly()) {
+      this.feedback = { kind: 'error', message: readOnlyEditorMessage(this.editorState.detail) };
+      this.render();
+      return;
+    }
     const submitState = this.editorState.detail.assignment_action_states.submit_review;
     if (!submitState?.enabled) {
       this.feedback = { kind: 'error', message: submitState?.reason || 'Submit for review is unavailable.' };
@@ -2913,18 +3389,23 @@ export class TranslationEditorScreen {
     }
     this.submitting = true;
     this.render();
+    const historyPage = this.editorState.detail.history.page;
     const assignmentVersion = this.editorState.detail.translation_assignment.version;
-    const response = await httpRequest(`${this.config.actionEndpointBase}/${encodeURIComponent(this.editorState.detail.assignment_id)}/actions/submit_review`, {
+    const response = await httpRequest(this.assignmentActionEndpoint(this.editorState.detail, 'submit_review'), {
       method: 'POST',
       json: { expected_version: assignmentVersion },
     });
     if (!response.ok) {
       const error = await buildEditorRequestError(response, 'Failed to submit assignment');
       this.feedback = {
-        kind: error.code === 'VERSION_CONFLICT' || error.code === 'POLICY_BLOCKED' ? 'conflict' : 'error',
+        kind: error.status === 409 || error.code === 'VERSION_CONFLICT' || error.code === 'POLICY_BLOCKED' ? 'conflict' : 'error',
         message: error.message,
       };
       this.submitting = false;
+      if (error.status === 409 || error.code === 'INVALID_STATUS_TRANSITION' || error.code === 'INVALID_STATUS') {
+        await this.load(historyPage);
+        return;
+      }
       this.render();
       return;
     }
@@ -2935,7 +3416,196 @@ export class TranslationEditorScreen {
       message: buildSubmitSuccessMessage(this.editorState.detail, status),
     };
     this.submitting = false;
-    await this.load(this.editorState.detail.history.page);
+    await this.load(historyPage);
+  }
+
+  private assignmentActionEndpoint(detail: TranslationAssignmentEditorDetail, action: string): string {
+    return buildURLWithParams(
+      `${this.config.actionEndpointBase}/${encodeURIComponent(detail.assignment_id)}/actions/${action}`,
+      this.config.syncScope
+    );
+  }
+
+  private async resumeWork(): Promise<void> {
+    if (!this.editorState || this.submitting) return;
+    if (!shouldShowResumeWorkAction(this.editorState.detail)) {
+      this.feedback = { kind: 'error', message: 'Resume work is unavailable for this assignment.' };
+      this.render();
+      return;
+    }
+    const resumeState = this.editorState.detail.assignment_action_states.claim;
+    if (!resumeState?.enabled) {
+      this.feedback = { kind: 'error', message: resumeState?.reason || 'Resume work is unavailable.' };
+      this.render();
+      return;
+    }
+    if (this.editorState.autosave.conflict) {
+      this.feedback = { kind: 'conflict', message: 'Reload the latest server draft before resuming work.' };
+      this.render();
+      return;
+    }
+    if (Object.keys(this.editorState.dirty_fields).length) {
+      const saved = await this.saveDirtyFields(false);
+      if (!saved || !this.editorState) return;
+    }
+    this.submitting = true;
+    this.render();
+    const historyPage = this.editorState.detail.history.page;
+    const assignmentVersion = this.editorState.detail.translation_assignment.version;
+    const response = await httpRequest(this.assignmentActionEndpoint(this.editorState.detail, 'claim'), {
+      method: 'POST',
+      json: { expected_version: assignmentVersion },
+    });
+    if (!response.ok) {
+      const error = await buildEditorRequestError(response, 'Failed to resume assignment');
+      this.feedback = {
+        kind: error.status === 409 || error.code === 'VERSION_CONFLICT' || error.code === 'POLICY_BLOCKED' ? 'conflict' : 'error',
+        message: error.message,
+      };
+      this.submitting = false;
+      if (error.status === 409 || error.code === 'INVALID_STATUS_TRANSITION' || error.code === 'INVALID_STATUS') {
+        await this.load(historyPage);
+        return;
+      }
+      this.render();
+      return;
+    }
+    this.feedback = { kind: 'success', message: 'Assignment resumed.' };
+    this.submitting = false;
+    await this.load(historyPage);
+  }
+
+  private openPreviewWindow(): Window | null {
+    if (typeof window === 'undefined' || typeof window.open !== 'function') {
+      return null;
+    }
+    try {
+      const previewWindow = window.open('about:blank', '_blank');
+      if (previewWindow) {
+        try {
+          previewWindow.opener = null;
+        } catch {
+          // Some browser policies prevent assignment; preview can still proceed.
+        }
+      }
+      return previewWindow;
+    } catch {
+      return null;
+    }
+  }
+
+  private previewBlockedBeforeOpenMessage(): NonNullable<TranslationEditorRuntimeState['feedback']> | null {
+    if (!this.editorState) {
+      return { kind: 'error', message: 'Preview is unavailable for this assignment.' };
+    }
+    if (this.previewing) {
+      return { kind: 'error', message: 'Preview is already opening.' };
+    }
+    if (this.saving) {
+      return { kind: 'error', message: 'Wait for the current save to finish before opening preview.' };
+    }
+    if (this.submitting) {
+      return { kind: 'error', message: 'Wait for the current action to finish before opening preview.' };
+    }
+    const previewAction = this.editorState.detail.preview_action;
+    if (!previewAction.enabled) {
+      return { kind: 'error', message: previewAction.reason || 'Preview is unavailable for this assignment.' };
+    }
+    if (this.editorState.autosave.conflict) {
+      return { kind: 'conflict', message: 'Reload the latest server draft before opening preview.' };
+    }
+    return null;
+  }
+
+  private assignmentPreviewEndpoint(detail: TranslationAssignmentEditorDetail): string {
+    return buildURLWithParams(
+      `${this.config.actionEndpointBase}/${encodeURIComponent(detail.assignment_id)}/preview`,
+      {
+        ...this.config.syncScope,
+        channel: detail.preview_action.channel || this.config.syncScope.channel,
+      }
+    );
+  }
+
+  private async previewAssignment(previewWindow: Window | null): Promise<void> {
+    if (!this.editorState || this.previewing || this.saving || this.submitting) {
+      closePreviewWindow(previewWindow);
+      return;
+    }
+    const detail = this.editorState.detail;
+    if (!detail.preview_action.enabled) {
+      closePreviewWindow(previewWindow);
+      this.feedback = { kind: 'error', message: detail.preview_action.reason || 'Preview is unavailable for this assignment.' };
+      this.render();
+      return;
+    }
+    if (!previewWindow) {
+      this.feedback = { kind: 'error', message: 'Preview was blocked by the browser. Allow popups for this site and try again.' };
+      this.render();
+      return;
+    }
+    if (this.editorState.autosave.conflict) {
+      closePreviewWindow(previewWindow);
+      this.feedback = { kind: 'conflict', message: 'Reload the latest server draft before opening preview.' };
+      this.render();
+      return;
+    }
+
+    this.previewing = true;
+    this.render();
+    try {
+      if (Object.keys(this.editorState.dirty_fields).length) {
+        const saved = await this.saveDirtyFields(false);
+        if (!saved || !this.editorState || this.editorState.autosave.conflict) {
+          closePreviewWindow(previewWindow);
+          this.previewing = false;
+          this.render();
+          return;
+        }
+      }
+
+      const response = await httpRequest(this.assignmentPreviewEndpoint(this.editorState.detail), {
+        method: 'GET',
+      });
+      if (!response.ok) {
+        const error = await buildEditorRequestError(response, 'Failed to generate preview');
+        closePreviewWindow(previewWindow);
+        this.feedback = {
+          kind: error.code === 'VERSION_CONFLICT' || error.code === 'POLICY_BLOCKED' ? 'conflict' : 'error',
+          message: error.message,
+        };
+        this.previewing = false;
+        this.render();
+        return;
+      }
+
+      const payload = await response.json();
+      const envelope = asRecord(payload);
+      const previewAction = normalizePreviewAction(
+        envelope.data && typeof envelope.data === 'object' ? envelope.data : payload,
+        this.editorState.detail as unknown as Record<string, unknown>
+      );
+      if (!previewAction.enabled || !previewAction.url) {
+        closePreviewWindow(previewWindow);
+        this.feedback = { kind: 'error', message: previewAction.reason || 'Preview is unavailable for this assignment.' };
+        this.previewing = false;
+        this.render();
+        return;
+      }
+
+      navigatePreviewWindow(previewWindow, previewAction.url);
+      this.previewing = false;
+      this.feedback = null;
+      this.render();
+    } catch (error) {
+      closePreviewWindow(previewWindow);
+      this.previewing = false;
+      this.feedback = {
+        kind: 'error',
+        message: error instanceof Error ? error.message : 'Failed to generate preview',
+      };
+      this.render();
+    }
   }
 
   private async runReviewAction(action: 'approve' | 'reject' | 'archive', rejectInput?: { reason: string; comment?: string }): Promise<void> {
@@ -2966,7 +3636,7 @@ export class TranslationEditorScreen {
     }
     this.submitting = true;
     this.render();
-    const response = await httpRequest(`${this.config.actionEndpointBase}/${encodeURIComponent(detail.assignment_id)}/actions/${action}`, {
+    const response = await httpRequest(this.assignmentActionEndpoint(detail, action), {
       method: 'POST',
       json: request,
     });
@@ -3036,6 +3706,30 @@ export async function initTranslationEditorPage(
   config: TranslationEditorScreenConfig
 ): Promise<TranslationEditorScreen> {
   const screen = new TranslationEditorScreen(config);
-  screen.mount(root);
+  const initialDetail = config.initialDetail || readTranslationEditorSSRDetail(root);
+  if ((root.dataset.ssrEnhanced || '').trim() === 'true' && initialDetail && !shouldUseTranslationClientRender()) {
+    root.dataset.translationEditorEnhanced = 'true';
+    screen.mountWithInitialDetail(root, initialDetail);
+  } else {
+    screen.mount(root);
+  }
   return screen;
+}
+
+function shouldUseTranslationClientRender(): boolean {
+  if (typeof window === 'undefined' || !window.location) return false;
+  const params = readLocationSearchParams(window.location) ?? new URLSearchParams();
+  const value = params.get('translation_client_render') || params.get('translationClientRender');
+  return value === '1' || value === 'true';
+}
+
+function readTranslationEditorSSRDetail(root: HTMLElement): unknown {
+  const script = root.querySelector<HTMLScriptElement>('script[type="application/json"][data-translation-editor-initial-state]');
+  const raw = script?.textContent?.trim() || '';
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
 }

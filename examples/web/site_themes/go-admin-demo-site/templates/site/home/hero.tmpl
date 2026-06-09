@@ -1,0 +1,15 @@
+<section class="site-home-hero ui-section" data-site-home-hero="true">
+  <div class="ui-container">
+    <p class="ui-eyebrow">{{ home_hero.eyebrow|default:"Modern content operations platform" }}</p>
+    <h1 class="ui-heading-display">{{ home_hero.title|default:"Manage, publish, and govern enterprise content with confidence." }}</h1>
+    <p class="site-home-hero__copy">{{ home_hero.copy|default:"A composable admin framework for Go with role-based access, workflow automation, multi-language support, and extensible content operations." }}</p>
+    <div class="site-home-hero__actions">
+      <a class="ui-button ui-button--primary ui-button--md" href="{{ home_hero.primary_href|default:'/content' }}">
+        <span class="ui-button__label">{{ home_hero.primary_label|default:"Explore content" }}</span>
+      </a>
+      <a class="ui-button ui-button--secondary ui-button--md" href="{{ home_hero.secondary_href|default:'/search' }}">
+        <span class="ui-button__label">{{ home_hero.secondary_label|default:"Search" }}</span>
+      </a>
+    </div>
+  </div>
+</section>

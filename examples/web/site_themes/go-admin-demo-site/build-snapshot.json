@@ -1,0 +1,38 @@
+{
+  "theme": "go-admin-demo-site",
+  "version": "0.1.0",
+  "generatedAt": "2026-06-04T00:00:00.000Z",
+  "outputDir": "examples/web/site_themes/go-admin-demo-site",
+  "templateKeys": [
+    "site.layout.base",
+    "site.layout.header",
+    "site.layout.footer",
+    "site.nav.main",
+    "site.nav.footer",
+    "site.search.page",
+    "site.content.list",
+    "site.content.detail"
+  ],
+  "bundleKeys": [
+    "tokens.css",
+    "site.css",
+    "site.js"
+  ],
+  "assetMetadata": {
+    "tokens.css": {
+      "path": "static/tokens.css",
+      "size": 2037
+    },
+    "site.css": {
+      "path": "static/site.css",
+      "size": 21520
+    },
+    "site.js": {
+      "path": "static/site.js",
+      "size": 7272
+    },
+    "assets.manifest": {
+      "path": "assets/manifest.json"
+    }
+  }
+}

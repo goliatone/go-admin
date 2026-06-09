@@ -1,0 +1,225 @@
+/**
+ * Filter Panel Component Styles
+ *
+ * Collapsible advanced filters form.
+ * Used with partials/filter-panel.html
+ *
+ * Structure:
+ * .filter-panel (details element)
+ *   .filter-panel__trigger (summary element)
+ *     .filter-panel__badge (active count)
+ *   .filter-panel__form (form container)
+ *     .filter-panel__grid (fields grid)
+ *       .filter-panel__field (field wrapper)
+ *     .filter-panel__actions (submit/clear)
+ */
+
+/* Container */
+.filter-panel {
+  border-radius: 0.5rem;
+  border: 1px solid #e5e7eb;
+  background-color: #f9fafb;
+}
+
+/* Trigger/Summary */
+.filter-panel__trigger {
+  cursor: pointer;
+  padding: 0.75rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #374151;
+  user-select: none;
+  display: flex;
+  align-items: center;
+  transition: background-color 150ms;
+}
+
+.filter-panel__trigger:hover {
+  background-color: #f3f4f6;
+}
+
+/* Remove default marker */
+.filter-panel__trigger::-webkit-details-marker,
+.filter-panel__trigger::marker {
+  display: none;
+  content: "";
+}
+
+/* Icon container in trigger */
+.filter-panel__trigger > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* Chevron rotation on open */
+.filter-panel[open] .filter-panel__trigger .iconoir-nav-arrow-down,
+.filter-panel[open] .filter-panel__trigger [class*="nav-arrow-down"] {
+  transform: rotate(180deg);
+}
+
+.filter-panel__trigger .iconoir-nav-arrow-down,
+.filter-panel__trigger [class*="nav-arrow-down"] {
+  transition: transform 200ms ease;
+}
+
+/* Badge */
+.filter-panel__badge {
+  border-radius: 9999px;
+  background-color: #dbeafe;
+  padding: 0.125rem 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #1d4ed8;
+}
+
+/* Form container */
+.filter-panel__form {
+  padding: 1rem;
+  border-top: 1px solid #e5e7eb;
+  background-color: #ffffff;
+  border-bottom-left-radius: 0.5rem;
+  border-bottom-right-radius: 0.5rem;
+}
+
+/* Fields grid */
+.filter-panel__grid {
+  display: grid;
+  gap: 0.75rem;
+}
+
+@media (min-width: 768px) {
+  .filter-panel__grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1280px) {
+  .filter-panel__grid {
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+  }
+}
+
+/* Field wrapper */
+.filter-panel__field {
+  display: grid;
+  gap: 0.25rem;
+  font-size: 0.875rem;
+}
+
+.filter-panel__field > span:first-child {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #6b7280;
+}
+
+/* Form inputs */
+.filter-panel__field input,
+.filter-panel__field select {
+  border-radius: 0.375rem;
+  border: 1px solid #d1d5db;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  background-color: #ffffff;
+  transition: border-color 150ms, box-shadow 150ms;
+}
+
+.filter-panel__field input:focus,
+.filter-panel__field select:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 1px #3b82f6;
+}
+
+.filter-panel__field input::placeholder {
+  color: #9ca3af;
+}
+
+/* Actions container */
+.filter-panel__actions {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.5rem;
+}
+
+/* ==========================================================================
+   Filter Summary Styles (companion component)
+   ========================================================================== */
+
+.filter-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  border-radius: 0.5rem;
+  border: 1px solid #e5e7eb;
+  background-color: #ffffff;
+  padding: 0.75rem 1rem;
+}
+
+.filter-summary__header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.filter-summary__count {
+  border-radius: 9999px;
+  background-color: #dbeafe;
+  padding: 0.125rem 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #1d4ed8;
+}
+
+.filter-summary__chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.filter-summary__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  border-radius: 9999px;
+  background-color: #f3f4f6;
+  padding: 0.375rem 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #374151;
+}
+
+.filter-summary__chip-label {
+  color: #6b7280;
+}
+
+.filter-summary__chip-clear {
+  margin-left: 0.25rem;
+  border-radius: 9999px;
+  padding: 0.125rem;
+  color: #9ca3af;
+  transition: background-color 150ms, color 150ms;
+}
+
+.filter-summary__chip-clear:hover {
+  background-color: #e5e7eb;
+  color: #374151;
+}
+
+.filter-summary__clear-all {
+  margin-left: auto;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #2563eb;
+  text-decoration: none;
+  transition: color 150ms;
+}
+
+.filter-summary__clear-all:hover {
+  color: #1d4ed8;
+  text-decoration: underline;
+}

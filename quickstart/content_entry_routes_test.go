@@ -654,7 +654,7 @@ func TestResolveContentEntryPreviewPathUsesGenericSlugFallback(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			got := resolveContentEntryPreviewPath(tc.panelName, tc.record)
+			got := admin.ResolveContentPreviewPath(tc.record)
 			if got != tc.expected {
 				t.Fatalf("expected %q got %q", tc.expected, got)
 			}
@@ -663,7 +663,7 @@ func TestResolveContentEntryPreviewPathUsesGenericSlugFallback(t *testing.T) {
 }
 
 func TestBuildSitePreviewURLAppendsTokenQueryParam(t *testing.T) {
-	got := buildSitePreviewURL("/about?lang=en", "token-123")
+	got := admin.BuildSitePreviewURL("/about?lang=en", "token-123")
 	if got != "/about?lang=en&preview_token=token-123" {
 		t.Fatalf("expected preview token appended, got %q", got)
 	}
@@ -2238,5 +2238,37 @@ func TestPreviewURLForRecordUsesSignedPreviewToken(t *testing.T) {
 	}
 	if decoded.ContentID != "42" {
 		t.Fatalf("expected content id 42, got %q", decoded.ContentID)
+	}
+}
+
+func TestPreviewURLForRecordRequiresAllowlistedAbsolutePreviewURL(t *testing.T) {
+	adm, err := admin.New(admin.Config{
+		BasePath:               "/admin",
+		DefaultLocale:          "en",
+		PreviewSecret:          "quickstart-preview-test-secret",
+		PreviewURLAllowedHosts: []string{"preview.example.test"},
+	}, admin.Dependencies{})
+	if err != nil {
+		t.Fatalf("new admin: %v", err)
+	}
+	handler := &contentEntryHandlers{admin: adm}
+	urlWithToken, err := handler.previewURLForRecord(context.Background(), "pages", "42", map[string]any{
+		"preview_url": "https://preview.example.test/about?lang=en#draft",
+	})
+	if err != nil {
+		t.Fatalf("preview url: %v", err)
+	}
+	if !strings.HasPrefix(urlWithToken, "https://preview.example.test/about?lang=en&preview_token=") || !strings.HasSuffix(urlWithToken, "#draft") {
+		t.Fatalf("expected allowlisted absolute preview url with token before fragment, got %q", urlWithToken)
+	}
+
+	deniedURL, err := handler.previewURLForRecord(context.Background(), "pages", "42", map[string]any{
+		"preview_url": "https://evil.example.test/about",
+	})
+	if err != nil {
+		t.Fatalf("preview url denied host: %v", err)
+	}
+	if deniedURL != "" {
+		t.Fatalf("expected unlisted absolute preview url to be unavailable, got %q", deniedURL)
 	}
 }

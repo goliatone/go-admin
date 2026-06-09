@@ -29,6 +29,79 @@ function createContainer(dataset = {}) {
   };
 }
 
+function createFakeClassList() {
+  return {
+    toggle() {},
+  };
+}
+
+function createFakeElement(dataset = {}, attrs = {}, options = {}) {
+  const listeners = new Map();
+  return {
+    dataset,
+    hidden: false,
+    tabIndex: 0,
+    classList: createFakeClassList(),
+    setAttribute(name, value) {
+      attrs[name] = String(value);
+    },
+    getAttribute(name) {
+      return attrs[name] ?? null;
+    },
+    addEventListener(name, handler) {
+      const handlers = listeners.get(name) ?? [];
+      handlers.push(handler);
+      listeners.set(name, handlers);
+    },
+    click() {
+      for (const handler of listeners.get('click') ?? []) {
+        handler();
+      }
+    },
+    querySelector() {
+      return options.querySelectorResult ?? null;
+    },
+  };
+}
+
+function createSSRDashboardContainer() {
+  const blockedTab = createFakeElement({ translationTableTab: 'blocked_families' }, { 'aria-selected': 'false' });
+  const overdueTab = createFakeElement({ translationTableTab: 'top_overdue_assignments' }, { 'aria-selected': 'true' });
+  const blockedPanel = createFakeElement({ translationTablePanel: 'blocked_families' });
+  blockedPanel.hidden = true;
+  const overduePanel = createFakeElement({ translationTablePanel: 'top_overdue_assignments' });
+  const disclosurePanel = createFakeElement({ translationDisclosurePanel: 'alerts' });
+  disclosurePanel.hidden = true;
+  const disclosureButton = createFakeElement(
+    { translationDisclosure: 'alerts' },
+    { 'aria-expanded': 'false' }
+  );
+  return {
+    root: {
+      dataset: {
+        endpoint: '/admin/api/translations/dashboard',
+        ssrEnhanced: 'true',
+      },
+      innerHTML: '<section data-translation-dashboard-ssr="true">Overdue panel</section>',
+      querySelectorAll(selector) {
+        if (selector === '[data-translation-table-tab]') return [blockedTab, overdueTab];
+        if (selector === '[data-translation-table-panel]') return [blockedPanel, overduePanel];
+        if (selector === '[data-translation-disclosure]') return [disclosureButton];
+        return [];
+      },
+      querySelector(selector) {
+        if (selector === '[data-translation-disclosure-panel="alerts"]') return disclosurePanel;
+        return null;
+      },
+    },
+    blockedTab,
+    blockedPanel,
+    disclosureButton,
+    disclosurePanel,
+    overduePanel,
+  };
+}
+
 function createJsonResponse(body, status = 200, headers = {}) {
   return {
     ok: status >= 200 && status < 300,
@@ -184,6 +257,47 @@ test('translation dashboard runtime: mount renders manager toolbar, cards, table
   assert.match(root.innerHTML, /Top Overdue Assignments/);
 
   page.unmount();
+});
+
+test('translation dashboard runtime: SSR root is enhanced without first-render fetch', async () => {
+  let fetchCalls = 0;
+  const { root, blockedTab, blockedPanel, overduePanel } = createSSRDashboardContainer();
+
+  const page = initTranslationDashboardPage(root, {
+    fetch: async () => {
+      fetchCalls += 1;
+      return createJsonResponse(fixtureState('healthy'));
+    },
+  });
+  await flushAsync();
+
+  assert.equal(page, null);
+  assert.equal(fetchCalls, 0);
+  assert.match(root.innerHTML, /Overdue panel/);
+  assert.equal(root.dataset.translationDashboardEnhanced, 'true');
+
+  blockedTab.click();
+
+  assert.equal(blockedTab.getAttribute('aria-selected'), 'true');
+  assert.equal(blockedPanel.hidden, false);
+  assert.equal(overduePanel.hidden, true);
+});
+
+test('translation dashboard runtime: SSR enhancement is idempotent', async () => {
+  const { root, disclosureButton, disclosurePanel } = createSSRDashboardContainer();
+
+  const firstPage = initTranslationDashboardPage(root);
+  const secondPage = initTranslationDashboardPage(root);
+  await flushAsync();
+
+  assert.equal(firstPage, null);
+  assert.equal(secondPage, null);
+  assert.equal(root.dataset.translationDashboardEnhanced, 'true');
+
+  disclosureButton.click();
+
+  assert.equal(disclosureButton.getAttribute('aria-expanded'), 'true');
+  assert.equal(disclosurePanel.hidden, false);
 });
 
 test('translation dashboard runtime: mount renders empty state from published fixtures', async () => {

@@ -27,7 +27,7 @@
                 "sort": "due_date",
                 "order": "asc"
               },
-              "label": "Open my tasks",
+              "label": "My tasks",
               "description": "Open the queue filtered to assignments owned by the active actor.",
               "relation": "primary"
             },
@@ -57,7 +57,7 @@
                 "sort": "due_date",
                 "order": "asc"
               },
-              "label": "Open reviewer backlog",
+              "label": "Reviewer backlog",
               "description": "Open the queue filtered to review work owned by the active reviewer.",
               "relation": "primary"
             },
@@ -86,7 +86,7 @@
                 "sort": "due_date",
                 "order": "asc"
               },
-              "label": "Open overdue queue",
+              "label": "Overdue queue",
               "description": "Open the queue filtered to overdue assignments.",
               "relation": "primary"
             },
@@ -113,7 +113,7 @@
               "query": {
                 "readiness_state": "blocked"
               },
-              "label": "Open blocked families",
+              "label": "Blocked families",
               "description": "Open the blocked families workbench for the current scope.",
               "relation": "primary"
             },
@@ -141,7 +141,7 @@
                 "readiness_state": "blocked",
                 "blocker_code": "missing_locale"
               },
-              "label": "Open missing locale blockers",
+              "label": "Missing locale blockers",
               "description": "Open the families workbench filtered to missing locale blockers.",
               "relation": "primary"
             },
@@ -610,7 +610,7 @@
                 "sort": "due_date",
                 "order": "asc"
               },
-              "label": "Open my tasks",
+              "label": "My tasks",
               "description": "Open the queue filtered to assignments owned by the active actor.",
               "relation": "primary"
             },
@@ -640,7 +640,7 @@
                 "sort": "due_date",
                 "order": "asc"
               },
-              "label": "Open reviewer backlog",
+              "label": "Reviewer backlog",
               "description": "Open the queue filtered to review work owned by the active reviewer.",
               "relation": "primary"
             },
@@ -669,7 +669,7 @@
                 "sort": "due_date",
                 "order": "asc"
               },
-              "label": "Open overdue queue",
+              "label": "Overdue queue",
               "description": "Open the queue filtered to overdue assignments.",
               "relation": "primary"
             },
@@ -696,7 +696,7 @@
               "query": {
                 "readiness_state": "blocked"
               },
-              "label": "Open blocked families",
+              "label": "Blocked families",
               "description": "Open the blocked families workbench for the current scope.",
               "relation": "primary"
             },
@@ -724,7 +724,7 @@
                 "readiness_state": "blocked",
                 "blocker_code": "missing_locale"
               },
-              "label": "Open missing locale blockers",
+              "label": "Missing locale blockers",
               "description": "Open the families workbench filtered to missing locale blockers.",
               "relation": "primary"
             },
@@ -1149,7 +1149,7 @@
                 "sort": "due_date",
                 "order": "asc"
               },
-              "label": "Open my tasks",
+              "label": "My tasks",
               "description": "Open the queue filtered to assignments owned by the active actor.",
               "relation": "primary"
             },
@@ -1179,7 +1179,7 @@
                 "sort": "due_date",
                 "order": "asc"
               },
-              "label": "Open reviewer backlog",
+              "label": "Reviewer backlog",
               "description": "Open the queue filtered to review work owned by the active reviewer.",
               "relation": "primary"
             },
@@ -1208,7 +1208,7 @@
                 "sort": "due_date",
                 "order": "asc"
               },
-              "label": "Open overdue queue",
+              "label": "Overdue queue",
               "description": "Open the queue filtered to overdue assignments.",
               "relation": "primary"
             },
@@ -1235,7 +1235,7 @@
               "query": {
                 "readiness_state": "blocked"
               },
-              "label": "Open blocked families",
+              "label": "Blocked families",
               "description": "Open the blocked families workbench for the current scope.",
               "relation": "primary"
             },
@@ -1263,7 +1263,7 @@
                 "readiness_state": "blocked",
                 "blocker_code": "missing_locale"
               },
-              "label": "Open missing locale blockers",
+              "label": "Missing locale blockers",
               "description": "Open the families workbench filtered to missing locale blockers.",
               "relation": "primary"
             },
@@ -1622,7 +1622,7 @@
                 "sort": "due_date",
                 "order": "asc"
               },
-              "label": "Open my tasks",
+              "label": "My tasks",
               "description": "Open the queue filtered to assignments owned by the active actor.",
               "relation": "primary"
             },
@@ -1652,7 +1652,7 @@
                 "sort": "due_date",
                 "order": "asc"
               },
-              "label": "Open reviewer backlog",
+              "label": "Reviewer backlog",
               "description": "Open the queue filtered to review work owned by the active reviewer.",
               "relation": "primary"
             },
@@ -1681,7 +1681,7 @@
                 "sort": "due_date",
                 "order": "asc"
               },
-              "label": "Open overdue queue",
+              "label": "Overdue queue",
               "description": "Open the queue filtered to overdue assignments.",
               "relation": "primary"
             },
@@ -1708,7 +1708,7 @@
               "query": {
                 "readiness_state": "blocked"
               },
-              "label": "Open blocked families",
+              "label": "Blocked families",
               "description": "Open the blocked families workbench for the current scope.",
               "relation": "primary"
             },
@@ -1736,7 +1736,7 @@
                 "readiness_state": "blocked",
                 "blocker_code": "missing_locale"
               },
-              "label": "Open missing locale blockers",
+              "label": "Missing locale blockers",
               "description": "Open the families workbench filtered to missing locale blockers.",
               "relation": "primary"
             },

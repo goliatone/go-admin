@@ -285,6 +285,41 @@ func TestTranslationMatrixBindingCreateMissingBulkReturnsTypedSummary(t *testing
 	}
 }
 
+func TestTranslationMatrixBindingCreateMissingBulkAllowsHostPolicyDeniedMissingLocale(t *testing.T) {
+	options := translationFamilyMutationFixtureOptions{
+		RequiredLocales: []string{"fr"},
+	}
+	fixture := newTranslationFamilyMutationFixture(t, options)
+	fixture.admin.WithTranslationPolicy(hostPolicyDeniedByEntityStub{
+		readinessPolicyByEntityStub: readinessPolicyByEntityStub{
+			requirements: fixtureTranslationRequirementsByEntity(options),
+		},
+	})
+	syncTranslationFamilyFixtureStore(t, fixture.admin, "production")
+
+	status, payload := doTranslationMatrixJSONRequest(t, fixture.app, http.MethodPost, "/admin/api/translations/matrix/actions/create-missing?channel=production&tenant_id=tenant-1&org_id=org-1", map[string]any{
+		"family_ids": []string{"tg-page-1"},
+		"locales":    []string{"fr"},
+	}, nil)
+	if status != http.StatusOK {
+		t.Fatalf("status=%d want=200 payload=%+v", status, payload)
+	}
+
+	data := extractMap(payload["data"])
+	summary := extractMap(data["summary"])
+	if got := toInt(summary["created"]); got != 1 {
+		t.Fatalf("expected summary.created=1, got %d in %+v", got, summary)
+	}
+	results := extractListMaps(data["results"])
+	if len(results) != 1 || toString(results[0]["status"]) != translationMatrixBulkResultStatusCreated {
+		t.Fatalf("expected one created result, got %+v", results)
+	}
+	created := extractListMaps(results[0]["created"])
+	if len(created) != 1 || toString(created[0]["locale"]) != "fr" {
+		t.Fatalf("expected created fr locale, got %+v", created)
+	}
+}
+
 func TestTranslationMatrixBindingExportSelectedReturnsPreviewAndPermissionChecks(t *testing.T) {
 	adm := mustNewAdmin(t, translationFamilyScopedTestConfig(), Dependencies{
 		FeatureGate: featureGateFromKeys(FeatureCMS),

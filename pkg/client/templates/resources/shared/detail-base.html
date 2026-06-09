@@ -12,36 +12,42 @@
 {% if not canonical_panel_base_path %}
   {% set canonical_panel_base_path = base_path + "/" + canonical_panel_name %}
 {% endif %}
-<header class="px-8 py-6 bg-white border-b border-gray-200 flex justify-between items-center">
-  <div>
-    {% include "partials/breadcrumbs.html" with breadcrumbs=breadcrumbs %}
-    {% block header_pretitle %}{% endblock %}
-    <h1 class="text-3xl font-bold text-admin-dark">{% block header_title %}{{ singularize(resource_label|default:resource)|title }}{% endblock %}</h1>
-  </div>
-  <div class="flex items-center justify-end gap-3">
-    {% block header_actions %}
-      {% block header_actions_prepend %}{% endblock %}
-      {% if routes.index %}
-        <a href="{{ routes.index }}" class="btn btn-secondary">
-          <i class="iconoir-arrow-left"></i>
-          Back to {{ resource_label|default:resource|title }}
-        </a>
-      {% endif %}
-      {% block detail_action_mount %}
-      <div
-        data-panel-detail-actions
-        data-panel="{{ canonical_panel_name }}"
-        data-record-id="{{ resource_item.id|default:'' }}"
-        data-base-path="{{ base_path }}"
-        data-api-base-path="{{ api_base_path }}"
-        data-panel-base-path="{{ canonical_panel_base_path }}"
-        data-back-href="{{ routes.index|default:canonical_panel_base_path }}"
-        aria-live="polite"
-      ></div>
+{# Compact Header (Option 3: Integrated Breadcrumb) #}
+<header class="admin-page-header px-8 py-3 bg-white border-b border-gray-200">
+  <div class="flex items-center justify-between gap-4">
+    {# Left: Breadcrumb | Title #}
+    <div class="flex items-center gap-4 min-w-0 flex-1">
+      {% include "partials/breadcrumbs.html" with breadcrumbs=breadcrumbs %}
+      <h1 class="text-2xl font-bold text-gray-900 truncate">{% block header_title %}{{ singularize(resource_label|default:resource)|title }}{% endblock %}</h1>
+    </div>
+
+    {# Right: Actions #}
+    <div class="flex items-center gap-3 flex-shrink-0">
+      {% block header_actions %}
+        {% block header_actions_prepend %}{% endblock %}
+        {% if routes.index %}
+          <a href="{{ routes.index }}" class="btn btn-secondary">
+            <i class="iconoir-arrow-left"></i>
+            Back to {{ resource_label|default:resource|title }}
+          </a>
+        {% endif %}
+        {% block detail_action_mount %}
+        <div
+          data-panel-detail-actions
+          data-panel="{{ canonical_panel_name }}"
+          data-record-id="{{ resource_item.id|default:'' }}"
+          data-base-path="{{ base_path }}"
+          data-api-base-path="{{ api_base_path }}"
+          data-panel-base-path="{{ canonical_panel_base_path }}"
+          data-back-href="{{ routes.index|default:canonical_panel_base_path }}"
+          aria-live="polite"
+        ></div>
+        {% endblock %}
+        {% block header_actions_append %}{% endblock %}
       {% endblock %}
-      {% block header_actions_append %}{% endblock %}
-    {% endblock %}
+    </div>
   </div>
+  {% block header_pretitle %}{% endblock %}
 </header>
 
 {% block tabs_area %}

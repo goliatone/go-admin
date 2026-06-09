@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"testing"
 	"time"
@@ -107,6 +108,75 @@ func TestInMemoryTranslationAssignmentRepositoryCreateOrReuseActiveIsIdempotent(
 	}
 }
 
+func TestInMemoryTranslationAssignmentRepositoryAssignedAtCreateAndReuse(t *testing.T) {
+	repo := NewInMemoryTranslationAssignmentRepository()
+	ctx := context.Background()
+
+	direct, err := repo.Create(ctx, TranslationAssignment{
+		FamilyID:       "tg-assigned-at-create",
+		EntityType:     "pages",
+		SourceRecordID: "page-assigned-at-create",
+		SourceLocale:   "en",
+		TargetLocale:   "es",
+		AssignmentType: AssignmentTypeDirect,
+		Status:         AssignmentStatusAssigned,
+		AssigneeID:     "translator-1",
+		AssignerID:     "manager-1",
+		Priority:       PriorityNormal,
+	})
+	if err != nil {
+		t.Fatalf("create direct assignment: %v", err)
+	}
+	if direct.AssignedAt == nil {
+		t.Fatalf("expected assigned_at on direct assignment create")
+	}
+
+	open, created, err := repo.CreateOrReuseActive(ctx, TranslationAssignment{
+		FamilyID:       "tg-assigned-at-reuse",
+		EntityType:     "pages",
+		SourceRecordID: "page-assigned-at-reuse",
+		SourceLocale:   "en",
+		TargetLocale:   "fr",
+		AssignmentType: AssignmentTypeOpenPool,
+		Status:         AssignmentStatusOpen,
+		Priority:       PriorityNormal,
+	})
+	if err != nil {
+		t.Fatalf("create open assignment: %v", err)
+	}
+	if !created {
+		t.Fatalf("expected first create/reuse to create")
+	}
+	if open.AssignedAt != nil {
+		t.Fatalf("expected open assignment assigned_at to stay nil")
+	}
+
+	reused, created, err := repo.CreateOrReuseActive(ctx, TranslationAssignment{
+		FamilyID:       "tg-assigned-at-reuse",
+		EntityType:     "pages",
+		SourceRecordID: "page-assigned-at-reuse",
+		SourceLocale:   "en",
+		TargetLocale:   "fr",
+		AssignmentType: AssignmentTypeDirect,
+		Status:         AssignmentStatusAssigned,
+		AssigneeID:     "translator-2",
+		AssignerID:     "manager-2",
+		Priority:       PriorityHigh,
+	})
+	if err != nil {
+		t.Fatalf("reuse as direct assignment: %v", err)
+	}
+	if created {
+		t.Fatalf("expected active assignment to be reused")
+	}
+	if reused.ID != open.ID || reused.Status != AssignmentStatusAssigned || reused.AssignmentType != AssignmentTypeDirect || reused.AssigneeID != "translator-2" {
+		t.Fatalf("expected reused direct assignment, got %+v", reused)
+	}
+	if reused.AssignedAt == nil {
+		t.Fatalf("expected assigned_at on direct reuse")
+	}
+}
+
 func TestInMemoryTranslationAssignmentRepositoryUpdateVersionConflict(t *testing.T) {
 	repo := NewInMemoryTranslationAssignmentRepository()
 	ctx := context.Background()
@@ -207,6 +277,36 @@ func TestInMemoryTranslationAssignmentRepositoryAllowsConcurrentActiveAssignment
 		Priority:       PriorityNormal,
 	}); err != nil {
 		t.Fatalf("expected separate work_scope assignment to succeed, got %v", err)
+	}
+}
+
+func TestInMemoryTranslationAssignmentRepositoryAllowsConcurrentActiveAssignmentsAcrossScopes(t *testing.T) {
+	repo := NewInMemoryTranslationAssignmentRepository()
+	ctx := context.Background()
+
+	base := TranslationAssignment{
+		FamilyID:       "tg_123",
+		EntityType:     "pages",
+		SourceRecordID: "page_1",
+		SourceLocale:   "en",
+		TargetLocale:   "es",
+		WorkScope:      "__all__",
+		AssignmentType: AssignmentTypeOpenPool,
+		Status:         AssignmentStatusOpen,
+		Priority:       PriorityNormal,
+	}
+	first := base
+	first.TenantID = "tenant-1"
+	first.OrgID = "org-1"
+	if _, err := repo.Create(ctx, first); err != nil {
+		t.Fatalf("create tenant-1 assignment: %v", err)
+	}
+
+	second := base
+	second.TenantID = "tenant-2"
+	second.OrgID = "org-2"
+	if _, err := repo.Create(ctx, second); err != nil {
+		t.Fatalf("expected separate tenant/org assignment to succeed, got %v", err)
 	}
 }
 
@@ -423,6 +523,25 @@ func TestBunTranslationAssignmentRepositoryDashboardSummaryAllowsUnscopedScope(t
 		DueDate:        &overdue,
 	}); err != nil {
 		t.Fatalf("seed assignment: %v", err)
+	}
+	if _, err := repo.Create(ctx, TranslationAssignment{
+		ID:             "asg-dashboard-approved-overdue",
+		FamilyID:       "family-dashboard-unscoped",
+		EntityType:     "pages",
+		TenantID:       "tenant-1",
+		OrgID:          "org-1",
+		SourceRecordID: "page-dashboard-unscoped",
+		SourceTitle:    "Dashboard Approved",
+		SourceLocale:   "en",
+		TargetLocale:   "fr",
+		AssigneeID:     "manager-1",
+		ReviewerID:     "manager-1",
+		AssignmentType: AssignmentTypeDirect,
+		Status:         AssignmentStatusApproved,
+		Priority:       PriorityUrgent,
+		DueDate:        &overdue,
+	}); err != nil {
+		t.Fatalf("seed approved assignment: %v", err)
 	}
 
 	t.Run("actor present", func(t *testing.T) {
@@ -653,6 +772,123 @@ func TestBunTranslationAssignmentRepositoryCreateResolvesVariantIDWithinScope(t 
 	}
 	if created.VariantID != "" {
 		t.Fatalf("expected wrong-scope variant not to be linked, got %+v", created)
+	}
+}
+
+func TestBunTranslationAssignmentRepositoryCreateDoesNotUseTargetRecordAsVariantIDWhenScopedVariantMissing(t *testing.T) {
+	db := newTranslationFamilyStoreSQLiteDB(t)
+	ctx := context.Background()
+	now := time.Date(2026, 2, 17, 12, 0, 0, 0, time.UTC)
+	if _, err := db.NewInsert().Model(&bunTranslationFamilyRecord{
+		FamilyID:       "family-missing-scoped-variant",
+		TenantID:       "tenant-1",
+		OrgID:          "org-1",
+		ContentType:    "pages",
+		SourceLocale:   "en",
+		ReadinessState: "ready",
+		CreatedAt:      now,
+		UpdatedAt:      now,
+	}).Exec(ctx); err != nil {
+		t.Fatalf("seed scoped family: %v", err)
+	}
+	if _, err := db.NewInsert().Model(&bunTranslationLocaleVariantRecord{
+		VariantID:      "family-missing-scoped-variant::fr-wrong-scope",
+		FamilyID:       "family-missing-scoped-variant",
+		TenantID:       "tenant-2",
+		OrgID:          "org-9",
+		Locale:         "fr",
+		Status:         "draft",
+		SourceRecordID: "page-target-fr",
+		FieldsJSON:     "{}",
+		CreatedAt:      now,
+		UpdatedAt:      now,
+	}).Exec(ctx); err != nil {
+		t.Fatalf("seed wrong-scope variant: %v", err)
+	}
+
+	repo := NewBunTranslationAssignmentRepository(db)
+	created, err := repo.Create(ctx, TranslationAssignment{
+		ID:             "asg-missing-scoped-variant",
+		FamilyID:       "family-missing-scoped-variant",
+		EntityType:     "pages",
+		TenantID:       "tenant-1",
+		OrgID:          "org-1",
+		SourceRecordID: "page-source",
+		SourceLocale:   "en",
+		TargetLocale:   "fr",
+		TargetRecordID: "page-target-fr",
+		SourceTitle:    "Scoped page",
+		AssignmentType: AssignmentTypeOpenPool,
+		Status:         AssignmentStatusOpen,
+		Priority:       PriorityNormal,
+		CreatedAt:      now,
+		UpdatedAt:      now,
+	})
+	if err != nil {
+		t.Fatalf("create assignment: %v", err)
+	}
+	if created.VariantID != "" {
+		t.Fatalf("expected unresolved variant_id to stay empty, got %+v", created)
+	}
+	if created.TargetRecordID != "page-target-fr" {
+		t.Fatalf("expected target_record_id preserved, got %+v", created)
+	}
+	var stored sql.NullString
+	if err := db.QueryRowContext(ctx, `SELECT variant_id FROM translation_assignments WHERE assignment_id = ?`, created.ID).Scan(&stored); err != nil {
+		t.Fatalf("query stored variant_id: %v", err)
+	}
+	if stored.Valid {
+		t.Fatalf("expected stored variant_id NULL when scoped variant is missing, got %q", stored.String)
+	}
+}
+
+func TestBunTranslationAssignmentRepositoryAssignedAtRoundTrip(t *testing.T) {
+	db := newTranslationFamilyStoreSQLiteDB(t)
+	ctx := context.Background()
+	store := NewBunTranslationFamilyStore(db)
+	if err := store.SaveFamily(ctx, translationservices.FamilyRecord{
+		ID:              "family-assigned-at-round-trip",
+		TenantID:        "tenant-1",
+		OrgID:           "org-1",
+		ContentType:     "pages",
+		SourceLocale:    "en",
+		SourceVariantID: "family-assigned-at-round-trip::en",
+		ReadinessState:  "ready",
+		Variants: []translationservices.FamilyVariant{
+			{ID: "family-assigned-at-round-trip::en", FamilyID: "family-assigned-at-round-trip", TenantID: "tenant-1", OrgID: "org-1", Locale: "en", Status: "published", IsSource: true, SourceRecordID: "page-assigned-at"},
+			{ID: "family-assigned-at-round-trip::es", FamilyID: "family-assigned-at-round-trip", TenantID: "tenant-1", OrgID: "org-1", Locale: "es", Status: "draft", SourceRecordID: "page-assigned-at-es"},
+		},
+	}); err != nil {
+		t.Fatalf("seed family: %v", err)
+	}
+	repo := NewBunTranslationAssignmentRepository(db)
+	created, err := repo.Create(ctx, TranslationAssignment{
+		ID:             "asg-assigned-at-round-trip",
+		FamilyID:       "family-assigned-at-round-trip",
+		EntityType:     "pages",
+		TenantID:       "tenant-1",
+		OrgID:          "org-1",
+		SourceRecordID: "page-assigned-at",
+		SourceLocale:   "en",
+		TargetLocale:   "es",
+		AssignmentType: AssignmentTypeDirect,
+		Status:         AssignmentStatusAssigned,
+		AssigneeID:     "translator-1",
+		AssignerID:     "manager-1",
+		Priority:       PriorityNormal,
+	})
+	if err != nil {
+		t.Fatalf("create assignment: %v", err)
+	}
+	if created.AssignedAt == nil {
+		t.Fatalf("expected assigned_at on create")
+	}
+	loaded, err := repo.Get(ctx, created.ID)
+	if err != nil {
+		t.Fatalf("get assignment: %v", err)
+	}
+	if loaded.AssignedAt == nil || !loaded.AssignedAt.Equal(*created.AssignedAt) {
+		t.Fatalf("expected assigned_at round trip, created=%v loaded=%v", created.AssignedAt, loaded.AssignedAt)
 	}
 }
 

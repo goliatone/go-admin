@@ -368,7 +368,7 @@ func Defaults() *Config {
 			CanonicalRedirectMode:     "requested_locale_sticky",
 			StrictLocalizedPaths:      false,
 			EnvironmentStrict:         false,
-			Theme:                     "garchen-archive-site",
+			Theme:                     "go-admin-demo-site",
 			ThemeVariant:              "",
 			AllowThemeNameOverride:    false,
 			AllowThemeVariantOverride: true,

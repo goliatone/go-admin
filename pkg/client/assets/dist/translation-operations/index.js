@@ -2,14 +2,14 @@ import { escapeHTML as c } from "../shared/html.js";
 import { httpRequest as R } from "../shared/transport/http-client.js";
 import { extractStructuredError as q } from "../toast/error-helpers.js";
 import { r as h, t as N } from "../chunks/translation-contracts-Ct_EG7JJ.js";
-import { G as b, K as I, W as v, n as w, r as A, t as P } from "../chunks/translation-shared-kfjHEDZW.js";
+import { h as I, it as v, m as w, nt as A, p as P, rt as b } from "../chunks/translation-shared-CdZJJA93.js";
 var U = {
   QUEUE: "admin.translations.queue",
   EXCHANGE_UI: "admin.translations.exchange",
   EXCHANGE_EXPORT: "admin.api.translations.export",
   EXCHANGE_IMPORT_VALIDATE: "admin.api.translations.import.validate",
   EXCHANGE_IMPORT_APPLY: "admin.api.translations.import.apply"
-}, C = `${v} border ${A} ${P} px-4 py-4`, k = `${v} border ${A} ${w} px-4 py-4`;
+}, C = `${A} border ${I} ${P} px-4 py-4`, k = `${A} border ${I} ${w} px-4 py-4`;
 function p() {
   if (typeof window < "u" && window.__TRANSLATION_CAPABILITIES__) return h(window.__TRANSLATION_CAPABILITIES__);
   const e = document.querySelector("script[data-translation-capabilities]");
@@ -54,7 +54,7 @@ function $(e) {
 function S(e) {
   return (e ?? p()).modules.queue.enabled;
 }
-function Y(e) {
+function K(e) {
   return $(e) || S(e);
 }
 function E(e, t, n) {
@@ -238,7 +238,7 @@ function B(e, t) {
   return `
     <div class="${C}">
       <p class="text-sm font-semibold ${b}">${c(e)}</p>
-      <p class="mt-1 text-sm ${I}">${c(t)}</p>
+      <p class="mt-1 text-sm ${v}">${c(t)}</p>
     </div>
   `;
 }
@@ -254,7 +254,7 @@ function F() {
   return `
     <div class="${k}">
       <p class="text-sm font-medium ${b}">Loading translation shell...</p>
-      <p class="mt-1 text-sm ${I}">Waiting for the backing API response.</p>
+      <p class="mt-1 text-sm ${v}">Waiting for the backing API response.</p>
     </div>
   `;
 }
@@ -344,7 +344,7 @@ export {
   p as extractTranslationCapabilities,
   H as fetchTranslationShellData,
   E as getTranslationRoute,
-  Y as hasTranslationOperations,
+  K as hasTranslationOperations,
   Z as initTranslationOperations,
   W as initTranslationSurfaceShell,
   $ as isExchangeEnabled,

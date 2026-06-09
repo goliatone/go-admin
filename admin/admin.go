@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"slices"
 	"strings"
 	"sync"
 
@@ -97,6 +98,7 @@ type Admin struct {
 	cmsWorkflowActions           []Action
 	cmsWorkflowActionsSet        bool
 	preview                      *PreviewService
+	previewURLPolicyMu           sync.RWMutex
 	panelTabPermissionEvaluator  PanelTabPermissionEvaluator
 	panelTabCollisionHandler     PanelTabCollisionHandler
 	cmsRoutesRegistered          bool
@@ -131,6 +133,16 @@ func (a *Admin) WithModuleStartupPolicy(policy ModuleStartupPolicy) *Admin {
 	default:
 		a.moduleStartupPolicy = ModuleStartupPolicyEnforce
 	}
+	return a
+}
+
+// WithEnhancedActionNegotiation configures how enhanced SSR mutation requests
+// are detected and which media type enhanced responses emit.
+func (a *Admin) WithEnhancedActionNegotiation(cfg EnhancedActionNegotiationConfig) *Admin {
+	if a == nil {
+		return a
+	}
+	a.config.EnhancedActions = normalizeEnhancedActionNegotiationConfig(cfg)
 	return a
 }
 
@@ -406,6 +418,84 @@ func (a *Admin) WithMediaDeliveryConfig(cfg MediaDeliveryConfig) *Admin {
 	}
 	a.config.MediaDelivery = normalizeMediaDeliveryConfig(cfg)
 	return a
+}
+
+// WithPreviewURLAllowedHosts replaces the external preview URL host allowlist.
+// Relative preview paths do not require allowlisting.
+func (a *Admin) WithPreviewURLAllowedHosts(hosts ...string) *Admin {
+	if a == nil {
+		return a
+	}
+	a.SetPreviewURLAllowedHosts(hosts)
+	return a
+}
+
+// SetPreviewURLAllowedHosts replaces the external preview URL host allowlist at runtime.
+func (a *Admin) SetPreviewURLAllowedHosts(hosts []string) {
+	if a == nil {
+		return
+	}
+	a.previewURLPolicyMu.Lock()
+	defer a.previewURLPolicyMu.Unlock()
+	a.config.PreviewURLAllowedHosts = normalizePreviewURLAllowedHosts(hosts)
+}
+
+// AddPreviewURLAllowedHost adds a host or URL host to the external preview URL allowlist.
+func (a *Admin) AddPreviewURLAllowedHost(host string) {
+	if a == nil {
+		return
+	}
+	normalized := normalizePreviewURLAllowedHost(host)
+	if normalized == "" {
+		return
+	}
+	a.previewURLPolicyMu.Lock()
+	defer a.previewURLPolicyMu.Unlock()
+	hosts := normalizePreviewURLAllowedHosts(a.config.PreviewURLAllowedHosts)
+	if slices.Contains(hosts, normalized) {
+		a.config.PreviewURLAllowedHosts = hosts
+		return
+	}
+	a.config.PreviewURLAllowedHosts = append(hosts, normalized)
+}
+
+// RemovePreviewURLAllowedHost removes a host or URL host from the external preview URL allowlist.
+func (a *Admin) RemovePreviewURLAllowedHost(host string) {
+	if a == nil {
+		return
+	}
+	normalized := normalizePreviewURLAllowedHost(host)
+	if normalized == "" {
+		return
+	}
+	a.previewURLPolicyMu.Lock()
+	defer a.previewURLPolicyMu.Unlock()
+	hosts := normalizePreviewURLAllowedHosts(a.config.PreviewURLAllowedHosts)
+	out := hosts[:0]
+	for _, existing := range hosts {
+		if existing != normalized {
+			out = append(out, existing)
+		}
+	}
+	a.config.PreviewURLAllowedHosts = append([]string{}, out...)
+}
+
+// PreviewURLAllowedHosts returns the normalized external preview URL host allowlist.
+func (a *Admin) PreviewURLAllowedHosts() []string {
+	if a == nil {
+		return nil
+	}
+	a.previewURLPolicyMu.RLock()
+	defer a.previewURLPolicyMu.RUnlock()
+	return append([]string{}, a.config.PreviewURLAllowedHosts...)
+}
+
+// BuildSitePreviewURL applies this admin instance's external preview URL policy.
+func (a *Admin) BuildSitePreviewURL(targetPath, token string) string {
+	if a == nil {
+		return BuildSitePreviewURL(targetPath, token)
+	}
+	return BuildSitePreviewURLWithAllowedHosts(targetPath, token, a.PreviewURLAllowedHosts())
 }
 
 // WithMediaDeliveryRegistry replaces the provider delivery adapter registry.

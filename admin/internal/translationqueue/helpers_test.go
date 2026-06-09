@@ -27,6 +27,56 @@ func TestAssignmentFilterFromQueryNormalizesActorAndSort(t *testing.T) {
 	}
 }
 
+func TestAssignmentFilterFromQueryExpandsPreset(t *testing.T) {
+	values := map[string]string{"preset": "open"}
+
+	filter := AssignmentFilterFromQuery(func(key string) string {
+		return values[key]
+	}, "actor_1", "tenant_1", "org_1")
+
+	if filter.Status != "open,assigned,in_progress,changes_requested" {
+		t.Fatalf("expected open preset status expansion, got %+v", filter)
+	}
+	if filter.SortBy != "updated_at" || !filter.SortDesc {
+		t.Fatalf("expected open preset sort expansion, got %+v", filter)
+	}
+}
+
+func TestAssignmentFilterFromQueryExplicitValuesOverridePreset(t *testing.T) {
+	values := map[string]string{
+		"preset": "open",
+		"status": "assigned",
+		"sort":   "due_date",
+		"order":  "asc",
+	}
+
+	filter := AssignmentFilterFromQuery(func(key string) string {
+		return values[key]
+	}, "actor_1", "tenant_1", "org_1")
+
+	if filter.Status != "assigned" {
+		t.Fatalf("expected explicit status to override preset, got %+v", filter)
+	}
+	if filter.SortBy != "due_date" || filter.SortDesc {
+		t.Fatalf("expected explicit due_date asc sort, got %+v", filter)
+	}
+}
+
+func TestAssignmentFilterFromQueryExpandsActorPreset(t *testing.T) {
+	values := map[string]string{"preset": "needs_review"}
+
+	filter := AssignmentFilterFromQuery(func(key string) string {
+		return values[key]
+	}, "reviewer_1", "tenant_1", "org_1")
+
+	if filter.Status != "in_review" {
+		t.Fatalf("expected needs_review status expansion, got %+v", filter)
+	}
+	if filter.ReviewerID != "reviewer_1" {
+		t.Fatalf("expected needs_review actor substitution, got %+v", filter)
+	}
+}
+
 func TestSourceRecordOptionIncludesLocaleAndFamilyID(t *testing.T) {
 	option := SourceRecordOption(map[string]any{
 		"id":            "page_1",

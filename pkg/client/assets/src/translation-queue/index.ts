@@ -279,6 +279,7 @@ export interface AssignmentActionRequest {
   expected_version: number;
   idempotency_key?: string;
   reason?: string;
+  channel?: string;
 }
 
 // T10: Bulk action types
@@ -912,6 +913,9 @@ async function runAssignmentAction(
   if (request.reason) {
     payload.reason = request.reason;
   }
+  if (request.channel) {
+    payload.channel = request.channel;
+  }
   const response = await httpRequest(`${endpoint}/${encodeURIComponent(assignmentId)}/actions/${action}`, {
     method: 'POST',
     json: payload,
@@ -1294,6 +1298,15 @@ function renderActionOverflow(row: AssignmentListRow, actions: QueueAction[], pr
 interface SelectionEntry {
   assignmentId: string;
   expectedVersion: number;
+}
+
+function isNestedInteractiveTarget(event: Event, owner: HTMLElement): boolean {
+  const target = event.target as HTMLElement | null;
+  return Boolean(
+    target &&
+    target !== owner &&
+    target.closest('button, a, input, select, textarea, [role="button"], [role="menuitem"]')
+  );
 }
 
 export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScreenState> {
@@ -2047,6 +2060,10 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
     if (this.queryState.locale) count++;
     if (this.queryState.assigneeId) count++;
     if (this.queryState.reviewerId) count++;
+    if (this.queryState.familyId) count++;
+    if (this.activeReviewState) count++;
+    if (this.queryState.sort && this.queryState.sort !== (this.response?.meta.default_sort.key ?? 'updated_at')) count++;
+    if (this.queryState.order && this.queryState.order !== (this.response?.meta.default_sort.order ?? 'desc')) count++;
     return count;
   }
 
@@ -3427,7 +3444,8 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
       });
     });
 
-    this.container.querySelectorAll<HTMLElement>('[data-queue-refresh]').forEach((button) => {
+    // Refresh button - supports both new (data-translation-refresh) and legacy (data-queue-refresh) conventions
+    this.container.querySelectorAll<HTMLElement>('[data-translation-refresh], [data-queue-refresh]').forEach((button) => {
       button.addEventListener('click', () => {
         void this.load();
       });
@@ -3479,8 +3497,8 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
       });
     });
 
-    // T10: Selection event handlers
-    const selectAllCheckbox = this.container.querySelector<HTMLInputElement>('[data-select-all]');
+    // T10: Selection event handlers - supports both new (data-translation-*) and legacy (data-select-*) conventions
+    const selectAllCheckbox = this.container.querySelector<HTMLInputElement>('[data-translation-select-all], [data-select-all]');
     if (selectAllCheckbox) {
       selectAllCheckbox.addEventListener('change', () => {
         if (selectAllCheckbox.checked) {
@@ -3491,10 +3509,10 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
       });
     }
 
-    this.container.querySelectorAll<HTMLInputElement>('[data-select-row]').forEach((checkbox) => {
+    this.container.querySelectorAll<HTMLInputElement>('[data-translation-select-row], [data-select-row]').forEach((checkbox) => {
       checkbox.addEventListener('change', (event) => {
         event.stopPropagation();
-        const assignmentId = checkbox.dataset.selectRow;
+        const assignmentId = checkbox.dataset.translationSelectRow || checkbox.dataset.selectRow;
         if (assignmentId) {
           this.toggleRowSelection(assignmentId);
         }
@@ -3702,6 +3720,9 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
           }
         });
         header.addEventListener('keydown', (event) => {
+          if (isNestedInteractiveTarget(event, header)) {
+            return;
+          }
           if (event.key === 'Enter' || event.key === ' ') {
             event.preventDefault();
             const groupId = header.dataset.groupId;
@@ -3713,7 +3734,8 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
       }
     });
 
-    this.attachAssignmentNavigationTargets('[data-assignment-row]');
+    // Navigation targets - supports both new (data-translation-*) and legacy (data-assignment-*) conventions
+    this.attachAssignmentNavigationTargets('[data-translation-row], [data-assignment-row]');
     this.attachAssignmentNavigationTargets('[data-assignment-card]');
   }
 
@@ -3722,30 +3744,37 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
       return;
     }
     this.container.querySelectorAll<HTMLElement>(selector).forEach((element) => {
+      // Get row ID from either new (data-translation-row-id) or legacy (data-assignment-id) convention
+      const getRowId = () => element.dataset.translationRowId || element.dataset.assignmentId || '';
       element.addEventListener('click', (event) => {
         const target = event.target as HTMLElement | null;
         if (target?.closest('button, a, input, select, textarea')) {
           return;
         }
-        this.openAssignment(element.dataset.assignmentId || '');
+        this.openAssignment(getRowId());
       });
       element.addEventListener('keydown', (event) => {
+        if (isNestedInteractiveTarget(event, element)) {
+          return;
+        }
         const key = event.key;
         if (key === 'Enter' || key === ' ') {
           event.preventDefault();
-          this.openAssignment(element.dataset.assignmentId || '');
+          this.openAssignment(getRowId());
           return;
         }
         if (key !== 'ArrowDown' && key !== 'ArrowUp') {
           return;
         }
-        const group = element.dataset.assignmentNavGroup;
+        // Get nav group from either new (data-translation-nav-group) or legacy (data-assignment-nav-group) convention
+        const group = element.dataset.translationNavGroup || element.dataset.assignmentNavGroup;
         if (!group) {
           return;
         }
         event.preventDefault();
+        // Query for both conventions
         const elements = Array.from(
-          this.container?.querySelectorAll<HTMLElement>(`[data-assignment-nav-group="${group}"]`) || []
+          this.container?.querySelectorAll<HTMLElement>(`[data-translation-nav-group="${group}"], [data-assignment-nav-group="${group}"]`) || []
         );
         const index = elements.indexOf(element);
         if (index < 0) {
@@ -4860,9 +4889,59 @@ export function createAssignmentQueueScreen(
   return screen;
 }
 
+function bindAssignmentQueueSSR(container: HTMLElement, endpoint: string): void {
+  if (!container || container.dataset.assignmentQueueEnhanced === 'true') {
+    return;
+  }
+  container.dataset.assignmentQueueEnhanced = 'true';
+  container.querySelectorAll<HTMLButtonElement>('[data-translation-action]').forEach((button) => {
+    button.addEventListener('click', async (event) => {
+      event.preventDefault();
+      const action = asString(button.dataset.translationAction) as 'claim' | 'release';
+      const assignmentId = asString(button.dataset.assignmentId);
+      const parsedVersion = Number.parseInt(asString(button.dataset.rowVersion), 10);
+      const expectedVersion = Number.isFinite(parsedVersion) ? parsedVersion : 0;
+      const channel = asString(container.dataset.channel)
+        || (typeof window !== 'undefined'
+          ? getStringSearchParam(readLocationSearchParams(window.location) ?? new URLSearchParams(), 'channel')
+          : '');
+      if (!assignmentId || !action) {
+        return;
+      }
+      if (button.disabled || button.getAttribute('aria-disabled') === 'true') {
+        return;
+      }
+      button.disabled = true;
+      try {
+        await runAssignmentAction(endpoint, assignmentId, action, {
+          expected_version: expectedVersion,
+          ...(channel ? { channel } : {}),
+        });
+        if (typeof window !== 'undefined') {
+          window.location.reload();
+        }
+      } catch (error) {
+        button.disabled = false;
+        console.error(error);
+      }
+    });
+  });
+}
+
+function shouldUseTranslationClientRender(): boolean {
+  if (typeof window === 'undefined' || !window.location) return false;
+  const params = readLocationSearchParams(window.location) ?? new URLSearchParams();
+  const value = params.get('translation_client_render') || params.get('translationClientRender');
+  return value === '1' || value === 'true';
+}
+
 export function initAssignmentQueueScreen(container: HTMLElement): AssignmentQueueScreen | null {
   const endpoint = container.dataset.endpoint || container.dataset.assignmentListEndpoint || '';
   if (!endpoint) {
+    return null;
+  }
+  if (container.dataset.ssrEnhanced === 'true' && !shouldUseTranslationClientRender()) {
+    bindAssignmentQueueSSR(container, endpoint);
     return null;
   }
   const locationSearch = typeof window !== 'undefined'

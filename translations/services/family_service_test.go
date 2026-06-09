@@ -69,6 +69,38 @@ func TestFamilyServiceRecomputeOrdersBlockersAndMaterializesCounters(t *testing.
 	}
 }
 
+func TestCloneFamilyRecordClonesAssignmentTiming(t *testing.T) {
+	assignedAt := time.Date(2026, 6, 7, 12, 30, 0, 0, time.UTC)
+	due := time.Date(2026, 6, 8, 9, 0, 0, 0, time.UTC)
+	family := FamilyRecord{
+		ID: "family-assignment-timing",
+		Assignments: []FamilyAssignment{{
+			ID:         "asg-1",
+			FamilyID:   "family-assignment-timing",
+			AssigneeID: "translator-1",
+			AssignerID: "manager-1",
+			AssignedAt: &assignedAt,
+			DueDate:    &due,
+		}},
+	}
+
+	clone := cloneFamilyRecord(family)
+	if len(clone.Assignments) != 1 {
+		t.Fatalf("expected cloned assignment")
+	}
+	if clone.Assignments[0].AssignerID != "manager-1" {
+		t.Fatalf("expected assigner to survive clone, got %+v", clone.Assignments[0])
+	}
+	if clone.Assignments[0].AssignedAt == nil || !clone.Assignments[0].AssignedAt.Equal(assignedAt) {
+		t.Fatalf("expected assigned_at clone, got %+v", clone.Assignments[0].AssignedAt)
+	}
+	assignedAt = assignedAt.Add(24 * time.Hour)
+	due = due.Add(24 * time.Hour)
+	if clone.Assignments[0].AssignedAt.Equal(assignedAt) || clone.Assignments[0].DueDate.Equal(due) {
+		t.Fatalf("expected cloned assignment times not to alias source pointers")
+	}
+}
+
 func TestFamilyServicePolicyOverrideAndSourceLocaleSelection(t *testing.T) {
 	store := NewInMemoryFamilyStore()
 	requireNoErr(t, seedFamilyStore(store, FamilyRecord{
@@ -99,17 +131,20 @@ func TestFamilyServicePolicyOverrideAndSourceLocaleSelection(t *testing.T) {
 	family, err := svc.Recompute(context.Background(), "family-override", "staging")
 	requireNoErr(t, err)
 
-	if family.SourceLocale != "es" || family.SourceVariantID != "variant-es" {
-		t.Fatalf("expected fallback source locale selection to choose es, got locale=%q variant=%q", family.SourceLocale, family.SourceVariantID)
+	if family.SourceLocale != "en" || family.SourceVariantID != "" {
+		t.Fatalf("expected policy source locale to remain canonical when source variant is missing, got locale=%q variant=%q", family.SourceLocale, family.SourceVariantID)
 	}
 	if !family.Policy.AllowPublishOverride {
 		t.Fatalf("expected allow_publish_override=true in policy")
 	}
-	if family.OutdatedLocaleCount != 1 {
-		t.Fatalf("expected outdated locale count 1, got %d", family.OutdatedLocaleCount)
+	if family.OutdatedLocaleCount != 0 {
+		t.Fatalf("expected no outdated locale count without a source variant, got %d", family.OutdatedLocaleCount)
 	}
-	if !familyHasBlockerCode(family, string(translationcore.FamilyBlockerOutdatedSource)) {
-		t.Fatalf("expected outdated_source blocker, got %+v", family.Blockers)
+	if familyHasBlockerCode(family, string(translationcore.FamilyBlockerOutdatedSource)) {
+		t.Fatalf("did not expect outdated_source blocker without a source variant, got %+v", family.Blockers)
+	}
+	if !familyHasBlocker(family, string(translationcore.FamilyBlockerMissingLocale), "en") {
+		t.Fatalf("expected missing source locale blocker, got %+v", family.Blockers)
 	}
 }
 
@@ -433,6 +468,20 @@ func percentile95(samples []time.Duration) time.Duration {
 
 func fmtFamilyID(i int) string {
 	return "family-perf-" + strconv.Itoa(i)
+}
+
+func familyHasBlocker(family FamilyRecord, code, locale string) bool {
+	code = strings.TrimSpace(code)
+	locale = strings.TrimSpace(strings.ToLower(locale))
+	for _, blocker := range family.Blockers {
+		if !strings.EqualFold(strings.TrimSpace(blocker.BlockerCode), code) {
+			continue
+		}
+		if locale == "" || strings.EqualFold(strings.TrimSpace(blocker.Locale), locale) {
+			return true
+		}
+	}
+	return false
 }
 
 func requireNoErr(t *testing.T, err error) {

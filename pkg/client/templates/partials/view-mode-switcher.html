@@ -1,0 +1,72 @@
+{% comment %}
+  View Mode Switcher - Toggle button group for switching between view modes
+
+  Variables:
+    - modes: array of mode objects with:
+      - key: mode identifier (e.g., "list", "grid", "matrix")
+      - label: display text
+      - href: link URL for this mode
+      - icon: iconoir icon name (optional)
+      - active: boolean indicating current mode
+    - active_mode: key of currently active mode (alternative to setting active on each mode)
+    - size: "sm", "md" (default: md)
+    - aria_label: accessible label for the group (default: "View mode")
+
+  Data attributes emitted:
+    - data-view-mode-switcher: root container
+    - data-view-mode="<key>": individual mode buttons/links
+
+  Usage:
+    {% include "partials/view-mode-switcher.html" with modes=view_modes active_mode="list" %}
+
+  Example modes array:
+    [
+      { key: "list", label: "List", href: "/list", icon: "list" },
+      { key: "grid", label: "Grid", href: "/grid", icon: "view-grid" },
+      { key: "matrix", label: "Matrix", href: "/matrix", icon: "table-2-columns" }
+    ]
+{% endcomment %}
+
+{% set switcher_size = size|default:"md" %}
+
+{% if switcher_size == "sm" %}
+  {% set container_class = "p-0.5 text-xs" %}
+  {% set item_class = "px-2 py-1" %}
+  {% set icon_class = "text-sm" %}
+{% else %}
+  {% set container_class = "p-1 text-sm" %}
+  {% set item_class = "px-3 py-1.5" %}
+  {% set icon_class = "text-base" %}
+{% endif %}
+
+<div class="view-mode-switcher inline-flex rounded-md border border-gray-200 bg-white font-medium text-gray-600 {{ container_class }}"
+     data-view-mode-switcher
+     role="group"
+     aria-label="{{ aria_label|default:"View mode" }}">
+  {% for mode in modes %}
+    {% set is_active = mode.active or mode.key == active_mode %}
+    {% if is_active %}
+      {% set mode_state_class = "bg-gray-100 text-gray-900 rounded" %}
+    {% else %}
+      {% set mode_state_class = "hover:bg-gray-50 rounded" %}
+    {% endif %}
+
+    {% if mode.href %}
+    <a href="{{ mode.href }}"
+       class="view-mode-switcher__item inline-flex items-center gap-1.5 transition-colors {{ item_class }} {{ mode_state_class }}"
+       data-view-mode="{{ mode.key }}"
+       {% if is_active %}aria-current="true"{% endif %}>
+      {% if mode.icon %}<i class="iconoir-{{ mode.icon }} {{ icon_class }}" aria-hidden="true"></i>{% endif %}
+      {% if mode.label %}<span>{{ mode.label }}</span>{% endif %}
+    </a>
+    {% else %}
+    <button type="button"
+            class="view-mode-switcher__item inline-flex items-center gap-1.5 transition-colors {{ item_class }} {{ mode_state_class }}"
+            data-view-mode="{{ mode.key }}"
+            aria-pressed="{% if is_active %}true{% else %}false{% endif %}">
+      {% if mode.icon %}<i class="iconoir-{{ mode.icon }} {{ icon_class }}" aria-hidden="true"></i>{% endif %}
+      {% if mode.label %}<span>{{ mode.label }}</span>{% endif %}
+    </button>
+    {% endif %}
+  {% endfor %}
+</div>

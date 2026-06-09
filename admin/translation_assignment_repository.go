@@ -3,6 +3,7 @@ package admin
 import (
 	"context"
 	"errors"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -451,6 +452,13 @@ func prepareUpdatedAssignment(assignment, current TranslationAssignment) Transla
 	if next.CreatedAt.IsZero() {
 		next.CreatedAt = current.CreatedAt
 	}
+	if next.AssignedAt == nil {
+		next.AssignedAt = cloneTimePtr(current.AssignedAt)
+	}
+	if translationAssignmentNeedsAssignedAtRefresh(next, current) {
+		now := time.Now().UTC()
+		next.AssignedAt = &now
+	}
 	next.Version = current.Version + 1
 	next.UpdatedAt = time.Now().UTC()
 	return next
@@ -478,6 +486,7 @@ func (r *InMemoryTranslationAssignmentRepository) createLocked(assignment Transl
 	if normalized.UpdatedAt.IsZero() {
 		normalized.UpdatedAt = now
 	}
+	ensureTranslationAssignmentAssignedAt(&normalized, now)
 	if normalized.Version == 0 {
 		normalized.Version = 1
 	}
@@ -550,8 +559,7 @@ func normalizeAssignmentForCreate(assignment TranslationAssignment) TranslationA
 
 func refreshExistingAssignment(existing TranslationAssignment, incoming TranslationAssignment, now time.Time) TranslationAssignment {
 	updated := existing
-	changed := false
-
+	changed := refreshExistingDirectAssignment(&updated, incoming, now)
 	if incoming.SourceTitle != "" && incoming.SourceTitle != existing.SourceTitle {
 		updated.SourceTitle = incoming.SourceTitle
 		changed = true
@@ -579,6 +587,34 @@ func refreshExistingAssignment(existing TranslationAssignment, incoming Translat
 	return updated
 }
 
+func refreshExistingDirectAssignment(updated *TranslationAssignment, incoming TranslationAssignment, now time.Time) bool {
+	if updated == nil || incoming.AssignmentType != AssignmentTypeDirect || incoming.Status != AssignmentStatusAssigned {
+		return false
+	}
+	changed := false
+	if updated.AssignmentType != AssignmentTypeDirect {
+		updated.AssignmentType = AssignmentTypeDirect
+		changed = true
+	}
+	if updated.Status != AssignmentStatusAssigned {
+		updated.Status = AssignmentStatusAssigned
+		changed = true
+	}
+	if incoming.AssigneeID != "" && incoming.AssigneeID != updated.AssigneeID {
+		updated.AssigneeID = incoming.AssigneeID
+		changed = true
+	}
+	if incoming.AssignerID != "" && incoming.AssignerID != updated.AssignerID {
+		updated.AssignerID = incoming.AssignerID
+		changed = true
+	}
+	if changed || updated.AssignedAt == nil {
+		updated.AssignedAt = cloneTimePtr(firstTimePtr(incoming.AssignedAt, &now))
+		return true
+	}
+	return changed
+}
+
 func newTranslationAssignmentConflict(assignment TranslationAssignment, existingID string) error {
 	return TranslationAssignmentConflictError{
 		AssignmentID:         strings.TrimSpace(assignment.ID),
@@ -595,12 +631,51 @@ func cloneTranslationAssignment(assignment TranslationAssignment) TranslationAss
 	copy := assignment
 	copy.WorkScope = normalizeTranslationAssignmentWorkScope(assignment.WorkScope)
 	copy.DueDate = cloneTimePtr(assignment.DueDate)
+	copy.AssignedAt = cloneTimePtr(assignment.AssignedAt)
 	copy.ClaimedAt = cloneTimePtr(assignment.ClaimedAt)
 	copy.SubmittedAt = cloneTimePtr(assignment.SubmittedAt)
 	copy.ApprovedAt = cloneTimePtr(assignment.ApprovedAt)
 	copy.PublishedAt = cloneTimePtr(assignment.PublishedAt)
 	copy.ArchivedAt = cloneTimePtr(assignment.ArchivedAt)
 	return copy
+}
+
+func ensureTranslationAssignmentAssignedAt(assignment *TranslationAssignment, now time.Time) {
+	if assignment == nil || assignment.AssignedAt != nil {
+		return
+	}
+	if assignment.AssignmentType == AssignmentTypeDirect && assignment.Status == AssignmentStatusAssigned {
+		if now.IsZero() {
+			now = time.Now().UTC()
+		}
+		now = now.UTC()
+		assignment.AssignedAt = &now
+	}
+}
+
+func translationAssignmentNeedsAssignedAtRefresh(next, current TranslationAssignment) bool {
+	if next.AssignmentType != AssignmentTypeDirect || next.Status != AssignmentStatusAssigned {
+		return false
+	}
+	if current.AssignmentType != AssignmentTypeDirect || current.Status != AssignmentStatusAssigned {
+		return true
+	}
+	if strings.TrimSpace(next.AssigneeID) != strings.TrimSpace(current.AssigneeID) {
+		return true
+	}
+	if strings.TrimSpace(next.AssignerID) != strings.TrimSpace(current.AssignerID) && strings.TrimSpace(next.AssignerID) != "" {
+		return true
+	}
+	return next.AssignedAt == nil
+}
+
+func firstTimePtr(values ...*time.Time) *time.Time {
+	for _, value := range values {
+		if value != nil && !value.IsZero() {
+			return value
+		}
+	}
+	return nil
 }
 
 func cloneTimePtr(value *time.Time) *time.Time {
@@ -629,10 +704,10 @@ func translationAssignmentMatchesFilters(assignment TranslationAssignment, filte
 }
 
 func translationAssignmentMatchesFilter(assignment TranslationAssignment, key string, raw any, now time.Time) bool {
-	value := strings.TrimSpace(strings.ToLower(toString(raw)))
 	if key == "overdue" {
 		return !toBool(raw) || (assignment.DueDate != nil && !assignment.DueDate.After(now))
 	}
+	value := strings.TrimSpace(strings.ToLower(toString(raw)))
 	if key == "due_state" {
 		return value == "" || normalizeTranslationQueueDueState(value) == translationQueueDueState(assignment.DueDate, now)
 	}
@@ -640,7 +715,41 @@ func translationAssignmentMatchesFilter(assignment TranslationAssignment, key st
 	if !handled {
 		return true
 	}
-	return value == "" || expected == value
+	values := normalizedInMemoryAssignmentFilterValues(key, raw)
+	if len(values) == 0 {
+		return true
+	}
+	return slices.Contains(values, expected)
+}
+
+func normalizedInMemoryAssignmentFilterValues(key string, raw any) []string {
+	values := []string{}
+	if rawString, ok := raw.(string); ok {
+		for part := range strings.SplitSeq(rawString, ",") {
+			values = append(values, part)
+		}
+	} else {
+		values = toStringSlice(raw)
+	}
+	out := make([]string, 0, len(values))
+	for _, value := range values {
+		value = strings.TrimSpace(strings.ToLower(value))
+		if value == "" {
+			continue
+		}
+		switch key {
+		case "status":
+			value = string(normalizeTranslationAssignmentStatus(AssignmentStatus(value)))
+		case "target_locale", "locale", "source_locale":
+			value = strings.TrimSpace(strings.ToLower(value))
+		case "assignment_type", "work_scope", "entity_type":
+			value = strings.ToLower(value)
+		}
+		if value != "" {
+			out = append(out, value)
+		}
+	}
+	return out
 }
 
 func translationAssignmentFilterStringValue(assignment TranslationAssignment, key string) (string, bool) {

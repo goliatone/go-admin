@@ -1,19 +1,19 @@
 import { escapeAttribute as f, escapeHTML as u } from "../shared/html.js";
 import { readHTTPError as C } from "../shared/transport/http-client.js";
 import { extractStructuredError as M } from "../toast/error-helpers.js";
-import { buildEndpointURL as Q, getNumberSearchParam as v, getStringSearchParam as _, readLocationSearchParams as X, setJoinedSearchParam as Y, setNumberSearchParam as $, setSearchParam as y } from "../shared/query-state/url-state.js";
-import { deriveBasePathFromAPIEndpoint as G, trimTrailingSlash as R } from "../shared/path-normalization.js";
+import { buildEndpointURL as Q, getNumberSearchParam as v, getStringSearchParam as _, readLocationSearchParams as X, setJoinedSearchParam as Y, setNumberSearchParam as T, setSearchParam as y } from "../shared/query-state/url-state.js";
+import { deriveBasePathFromAPIEndpoint as V, trimTrailingSlash as R } from "../shared/path-normalization.js";
 import { n as S } from "../chunks/translation-contracts-Ct_EG7JJ.js";
-import { StatefulController as K } from "../shared/stateful-controller.js";
+import { StatefulController as G } from "../shared/stateful-controller.js";
 import { asBoolean as x, asNumberish as m, asRecord as l, asString as i, asUniqueStringArray as p } from "../shared/coercion.js";
-import { $ as V, A as W, C as J, D as Z, E as ee, M as te, O as ae, S as re, _ as se, g as ie, h as L, i as oe, j as ne, k as le, m as I, p as q, s as ce, u as T, v as de, x as ue } from "../chunks/translation-shared-kfjHEDZW.js";
+import { A as K, B as W, D as L, E as I, F as J, H as Z, N as ee, O as te, P as ae, R as re, S as $, T as q, U as se, V as ie, W as oe, dt as ne, g as le, k as ce, y as de, z as ue } from "../chunks/translation-shared-CdZJJA93.js";
 import { c as P, s as me } from "../chunks/ui-states-1McZ5upU.js";
 function b(t) {
   return Array.isArray(t) ? t.map((e) => l(e)).filter((e) => Object.keys(e).length > 0) : [];
 }
 function pe(t, e) {
   const a = R(i(t));
-  return a || G(i(e)) || "/admin";
+  return a || V(i(e)) || "/admin";
 }
 function fe(t) {
   const e = l(t), a = i(e.href), r = i(e.label);
@@ -245,7 +245,7 @@ function ve(t) {
     estimated_rows: m(e.estimated_rows)
   };
 }
-function $e(t) {
+function Te(t) {
   const e = l(t), a = l(e.data), r = l(a.summary), s = {};
   for (const [o, n] of Object.entries(r)) s[o] = m(n);
   return {
@@ -262,9 +262,9 @@ function $e(t) {
     }
   };
 }
-function Te(t, e = {}) {
+function $e(t, e = {}) {
   const a = new URLSearchParams();
-  return y(a, "channel", e.channel), y(a, "tenant_id", e.tenantId), y(a, "org_id", e.orgId), y(a, "family_id", e.familyId), y(a, "content_type", e.contentType), y(a, "readiness_state", e.readinessState), y(a, "blocker_code", e.blockerCode), Y(a, "locales", e.locales), $(a, "page", e.page), $(a, "per_page", e.perPage), $(a, "locale_offset", e.localeOffset, { min: 0 }), $(a, "locale_limit", e.localeLimit, { min: 0 }), Q(t, a);
+  return y(a, "channel", e.channel), y(a, "tenant_id", e.tenantId), y(a, "org_id", e.orgId), y(a, "family_id", e.familyId), y(a, "content_type", e.contentType), y(a, "readiness_state", e.readinessState), y(a, "blocker_code", e.blockerCode), Y(a, "locales", e.locales), T(a, "page", e.page), T(a, "per_page", e.perPage), T(a, "locale_offset", e.localeOffset, { min: 0 }), T(a, "locale_limit", e.localeLimit, { min: 0 }), Q(t, a);
 }
 function w(t = {}) {
   const e = p(t.family_ids), a = p(t.locales), r = {};
@@ -341,7 +341,7 @@ function Me(t) {
   if (!a) throw new Error("Fetch is not available for the translation matrix client.");
   return {
     async fetchMatrix(r = {}) {
-      const s = await a(Te(e, r), { headers: { Accept: "application/json" } });
+      const s = await a($e(e, r), { headers: { Accept: "application/json" } });
       if (!s.ok) {
         const o = await M(s);
         throw new A({
@@ -377,7 +377,7 @@ function Me(t) {
           metadata: d.metadata
         });
       }
-      return $e(await c.json());
+      return Te(await c.json());
     }
   };
 }
@@ -435,7 +435,7 @@ function qe(t) {
   }
 }
 function Pe(t) {
-  const e = `border ${V(qe(t.state))}`, a = t.assignment?.status || t.variant?.status || E(t.state);
+  const e = `border ${ne(qe(t.state))}`, a = t.assignment?.status || t.variant?.status || E(t.state);
   return `
     <div class="flex items-center justify-between gap-2">
       <span class="inline-flex rounded-full border px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] ${f(e)}">${u(E(t.state))}</span>
@@ -449,11 +449,11 @@ function U(t) {
 function Oe(t, e) {
   const a = t.data.columns, r = t.data.rows;
   return `
-    <div class="${le}" data-matrix-grid="true">
-      <table class="${te}">
-        <thead class="${W}">
+    <div class="${ie}" data-matrix-grid="true">
+      <table class="${oe}">
+        <thead class="${Z}">
           <tr>
-            <th scope="col" class="${ae} border-b border-gray-200 px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-500">
+            <th scope="col" class="${W} border-b border-gray-200 px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-500">
               <label class="inline-flex items-center gap-2">
                 <input type="checkbox" data-matrix-toggle-all-families="true" ${e.family_ids.length === r.length && r.length > 0 ? "checked" : ""}>
                 <span>Families</span>
@@ -476,7 +476,7 @@ function Oe(t, e) {
         <tbody>
           ${r.map((s, o) => `
             <tr data-matrix-row="${f(s.family_id)}">
-              <th scope="row" class="${ne} border-b border-gray-200 px-4 py-4 text-left align-top">
+              <th scope="row" class="${se} border-b border-gray-200 px-4 py-4 text-left align-top">
                 <div class="flex items-start gap-3">
                   <input type="checkbox" data-matrix-family-toggle="${f(s.family_id)}" ${e.family_ids.includes(s.family_id) ? "checked" : ""} class="mt-1">
                   <div class="min-w-0">
@@ -495,7 +495,7 @@ function Oe(t, e) {
               ${a.map((n, c) => {
     const d = s.cells[n.locale], g = U(d);
     return `
-                  <td class="${Z}">
+                  <td class="${ue}">
                     <div class="min-w-[10rem] rounded-xl border border-gray-200 bg-gray-50 p-3">
                       ${Pe(d)}
                       <div class="mt-3">
@@ -548,10 +548,10 @@ function Be(t) {
           <p class="mt-2 text-sm text-gray-600">Rows ${u(String(t.data.rows.length))} of ${u(String(t.meta.total))} · Locales ${u(String(t.meta.locale_offset + 1))}-${u(String(Math.min(t.meta.locale_offset + t.meta.locale_limit, t.meta.total_locales)))} of ${u(String(t.meta.total_locales))}</p>
         </div>
         <div class="flex flex-wrap gap-3 text-xs font-semibold uppercase tracking-[0.16em]">
-          <button type="button" data-matrix-page="prev" class="${T}" ${e ? "disabled" : ""}>Prev families</button>
-          <button type="button" data-matrix-page="next" class="${T}" ${a ? "disabled" : ""}>Next families</button>
-          <button type="button" data-matrix-locales="prev" class="${T}" ${r ? "disabled" : ""}>Prev locales</button>
-          <button type="button" data-matrix-locales="next" class="${T}" ${s ? "disabled" : ""}>Next locales</button>
+          <button type="button" data-matrix-page="prev" class="${$}" ${e ? "disabled" : ""}>Prev families</button>
+          <button type="button" data-matrix-page="next" class="${$}" ${a ? "disabled" : ""}>Next families</button>
+          <button type="button" data-matrix-locales="prev" class="${$}" ${r ? "disabled" : ""}>Prev locales</button>
+          <button type="button" data-matrix-locales="next" class="${$}" ${s ? "disabled" : ""}>Next locales</button>
         </div>
       </div>
     </section>
@@ -578,7 +578,7 @@ function ze(t, e = !1) {
           <input name="locales" value="${f((t.locales || []).join(", "))}" class="mt-2 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm text-gray-900" placeholder="fr, es">
         </label>
         <div class="flex items-end gap-3">
-          <button type="submit" class="${ce} w-full" ${e ? "disabled" : ""}>${u(e ? "Loading…" : "Apply filters")}</button>
+          <button type="submit" class="${de} w-full" ${e ? "disabled" : ""}>${u(e ? "Loading…" : "Apply filters")}</button>
         </div>
       </form>
     </section>
@@ -589,7 +589,7 @@ function De() {
     tag: "section",
     text: "Loading translation matrix…",
     showSpinner: !1,
-    containerClass: `${ee} p-8 shadow-sm`,
+    containerClass: `${re} p-8 shadow-sm`,
     attributes: { "data-matrix-loading": "true" },
     ariaLive: "polite"
   });
@@ -615,19 +615,19 @@ function Fe(t) {
   const e = t instanceof A ? t.requestId : "", a = t instanceof A ? t.traceId : "";
   return P({
     tag: "section",
-    containerClass: `${ie} p-6 shadow-sm`,
+    containerClass: `${te} p-6 shadow-sm`,
     bodyClass: "",
     contentClass: "",
     title: "Matrix unavailable",
-    titleClass: de,
+    titleClass: K,
     heading: "The matrix payload could not be loaded.",
     headingTag: "h2",
     headingClass: "mt-2 text-xl font-semibold text-rose-900",
     message: t instanceof Error ? t.message : "Failed to load the translation matrix",
-    messageClass: `${se} mt-3 leading-6`,
+    messageClass: `${ce} mt-3 leading-6`,
     metadata: e || a ? [e ? `Request ${e}` : "", a ? `Trace ${a}` : ""].filter(Boolean).join(" • ") : "",
     metadataClass: "mt-3 text-xs uppercase tracking-[0.16em] text-rose-700",
-    actionsHtml: `<div class="mt-4"><button type="button" data-matrix-retry="true" class="${oe}">Retry matrix</button></div>`,
+    actionsHtml: `<div class="mt-4"><button type="button" data-matrix-retry="true" class="${le}">Retry matrix</button></div>`,
     role: "alert",
     attributes: { "data-matrix-error": "true" }
   });
@@ -644,9 +644,9 @@ function He(t, e, a, r, s, o, n, c = !1, d = "/admin") {
               <span class="px-2 text-gray-400">/</span>
               <span class="text-gray-600">${u(t)}</span>
             </nav>
-            <p class="${re}">Translation Coverage</p>
+            <p class="${ae}">Translation Coverage</p>
             <h1 class="${J} mt-2">${u(t)}</h1>
-            <p class="${ue} mt-3 max-w-3xl leading-6">Dense family-by-locale coverage with sticky headers, row pagination, locale windows, and quick actions for missing or in-flight work.</p>
+            <p class="${ee} mt-3 max-w-3xl leading-6">Dense family-by-locale coverage with sticky headers, row pagination, locale windows, and quick actions for missing or in-flight work.</p>
           </div>
           ${g ? `<p class="rounded-full border border-white/70 bg-white/80 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">${u(g)}</p>` : ""}
         </div>
@@ -656,7 +656,7 @@ function He(t, e, a, r, s, o, n, c = !1, d = "/admin") {
     </div>
   `;
 }
-var Ue = class extends K {
+var Ue = class extends G {
   constructor(t) {
     super("loading"), this.root = null, this.payload = null, this.error = null, this.selection = w(), this.feedback = "", this.working = !1, this.handleSubmit = (a) => {
       const r = a.target;
@@ -842,12 +842,12 @@ export {
   A as TranslationMatrixRequestError,
   Ee as buildTranslationMatrixBulkActionPayload,
   tt as buildTranslationMatrixLocalePolicyMetadata,
-  Te as buildTranslationMatrixURL,
+  $e as buildTranslationMatrixURL,
   Me as createTranslationMatrixClient,
   w as createTranslationMatrixSelectionState,
   at as initTranslationMatrixPage,
   Ce as isTranslationMatrixNotRequiredCell,
-  $e as normalizeTranslationMatrixBulkActionResponse,
+  Te as normalizeTranslationMatrixBulkActionResponse,
   be as normalizeTranslationMatrixCell,
   B as normalizeTranslationMatrixCellState,
   he as normalizeTranslationMatrixColumn,

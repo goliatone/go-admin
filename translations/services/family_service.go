@@ -56,9 +56,11 @@ type FamilyAssignment struct {
 	WorkScope    string     `json:"work_scope,omitempty"`
 	Status       string     `json:"status"`
 	AssigneeID   string     `json:"assignee_id,omitempty"`
+	AssignerID   string     `json:"assigner_id,omitempty"`
 	ReviewerID   string     `json:"reviewer_id,omitempty"`
 	Priority     string     `json:"priority,omitempty"`
 	DueDate      *time.Time `json:"due_date,omitempty"`
+	AssignedAt   *time.Time `json:"assigned_at,omitempty"`
 	UpdatedAt    time.Time  `json:"updated_at"`
 	CreatedAt    time.Time  `json:"created_at"`
 }
@@ -440,8 +442,11 @@ func (s *FamilyService) recomputeFamily(ctx context.Context, family FamilyRecord
 	if found {
 		family.Policy = policy
 	}
-	source := selectSourceVariant(family, policy)
-	if source.Locale != "" {
+	source := selectSourceVariant(family, policy, found)
+	if found {
+		family.SourceLocale = strings.TrimSpace(strings.ToLower(policy.SourceLocale))
+		family.SourceVariantID = strings.TrimSpace(source.ID)
+	} else if source.Locale != "" {
 		family.SourceLocale = source.Locale
 		family.SourceVariantID = source.ID
 	}
@@ -507,7 +512,7 @@ func normalizeFamilyPolicy(policy FamilyPolicy) FamilyPolicy {
 	return policy
 }
 
-func selectSourceVariant(family FamilyRecord, policy FamilyPolicy) FamilyVariant {
+func selectSourceVariant(family FamilyRecord, policy FamilyPolicy, policyFound bool) FamilyVariant {
 	locales := make([]FamilyVariant, 0, len(family.Variants))
 	locales = append(locales, family.Variants...)
 	sort.SliceStable(locales, func(i, j int) bool {
@@ -529,6 +534,9 @@ func selectSourceVariant(family FamilyRecord, policy FamilyPolicy) FamilyVariant
 		if strings.EqualFold(strings.TrimSpace(variant.Locale), target) {
 			return variant
 		}
+	}
+	if policyFound && target != "" {
+		return FamilyVariant{}
 	}
 	for _, variant := range locales {
 		if variant.IsSource {
@@ -559,10 +567,7 @@ func recomputeLocaleBlockers(family FamilyRecord, policy FamilyPolicy, source Fa
 		}
 		existingMissingLocaleBlockers[locale] = blocker
 	}
-	requiredLocales := normalizedStringSlice(policy.RequiredLocales)
-	if len(requiredLocales) == 0 && source.Locale != "" {
-		requiredLocales = []string{source.Locale}
-	}
+	requiredLocales := requiredLocalesForBlockers(family, policy, source)
 	for _, locale := range requiredLocales {
 		variant, ok := variantsByLocale[locale]
 		if !ok {
@@ -596,6 +601,18 @@ func recomputeLocaleBlockers(family FamilyRecord, policy FamilyPolicy, source Fa
 		}
 	}
 	return blockers
+}
+
+func requiredLocalesForBlockers(family FamilyRecord, policy FamilyPolicy, source FamilyVariant) []string {
+	requiredLocales := normalizedStringSlice(policy.RequiredLocales)
+	if len(requiredLocales) == 0 && source.Locale != "" {
+		requiredLocales = []string{source.Locale}
+	}
+	sourceLocale := strings.TrimSpace(strings.ToLower(firstNonEmpty(policy.SourceLocale, family.SourceLocale)))
+	if sourceLocale != "" && strings.TrimSpace(source.ID) == "" && !containsString(requiredLocales, sourceLocale) {
+		requiredLocales = append([]string{sourceLocale}, requiredLocales...)
+	}
+	return requiredLocales
 }
 
 func recomputePendingReviewBlockers(family FamilyRecord, policy FamilyPolicy) []FamilyBlocker {
@@ -869,7 +886,12 @@ func cloneFamilyAssignments(items []FamilyAssignment) []FamilyAssignment {
 		return nil
 	}
 	out := make([]FamilyAssignment, 0, len(items))
-	out = append(out, items...)
+	for _, item := range items {
+		clone := item
+		clone.DueDate = cloneTimePtr(item.DueDate)
+		clone.AssignedAt = cloneTimePtr(item.AssignedAt)
+		out = append(out, clone)
+	}
 	return out
 }
 
@@ -899,6 +921,14 @@ func cloneFamilies(items []FamilyRecord) []FamilyRecord {
 	return out
 }
 
+func cloneTimePtr(value *time.Time) *time.Time {
+	if value == nil {
+		return nil
+	}
+	copied := *value
+	return &copied
+}
+
 func normalizeWorkScope(scope string) string {
 	scope = strings.TrimSpace(scope)
 	if scope == "" {
@@ -915,6 +945,15 @@ func containsString(values []string, candidate string) bool {
 		}
 	}
 	return false
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, value := range values {
+		if strings.TrimSpace(value) != "" {
+			return value
+		}
+	}
+	return ""
 }
 
 func clampPositive(value, fallback int) int {
