@@ -18,6 +18,9 @@ type PanelClearFunc func(ctx context.Context) error
 // PanelActionHandler executes a schema-declared debug panel action.
 type PanelActionHandler func(ctx context.Context, req PanelActionRequest) (PanelActionResult, error)
 
+// PanelDefinitionFilter adapts panel discovery metadata for a request context.
+type PanelDefinitionFilter func(ctx context.Context, definition PanelDefinition) PanelDefinition
+
 const (
 	// PanelUISchemaVersion is the current declarative panel UI schema version.
 	PanelUISchemaVersion = "1"
@@ -235,6 +238,7 @@ type PanelConfig struct {
 	Version         string                        `json:"version"`
 	Metadata        map[string]any                `json:"metadata"`
 	UI              *PanelUI                      `json:"ui,omitempty"`
+	Definition      PanelDefinitionFilter         `json:"-"`
 	Actions         map[string]PanelActionHandler `json:"-"`
 }
 
@@ -257,6 +261,7 @@ type PanelDefinition struct {
 // PanelRegistration stores definition metadata and server hooks.
 type PanelRegistration struct {
 	Definition PanelDefinition               `json:"definition"`
+	Filter     PanelDefinitionFilter         `json:"-"`
 	Snapshot   PanelSnapshotFunc             `json:"snapshot"`
 	Clear      PanelClearFunc                `json:"clear"`
 	Actions    map[string]PanelActionHandler `json:"-"`
@@ -304,9 +309,19 @@ func PanelDefinitionFor(id string) (PanelDefinition, bool) {
 	return reg.Definition, true
 }
 
+// PanelDefinitionForContext retrieves panel metadata adapted for a request context.
+func PanelDefinitionForContext(ctx context.Context, id string) (PanelDefinition, bool) {
+	return defaultRegistry.DefinitionForContext(ctx, id)
+}
+
 // PanelDefinitions returns definitions for all registered panels.
 func PanelDefinitions() []PanelDefinition {
 	return defaultRegistry.Definitions()
+}
+
+// PanelDefinitionsWithContext returns definitions adapted for a request context.
+func PanelDefinitionsWithContext(ctx context.Context) []PanelDefinition {
+	return defaultRegistry.DefinitionsWithContext(ctx)
 }
 
 // PanelRegistrations returns all registered panels with hooks.
@@ -400,15 +415,29 @@ func (r *PanelRegistry) Registration(id string) (PanelRegistration, bool) {
 	return reg, ok
 }
 
+// DefinitionForContext returns a panel definition adapted for a request context.
+func (r *PanelRegistry) DefinitionForContext(ctx context.Context, id string) (PanelDefinition, bool) {
+	reg, ok := r.Registration(id)
+	if !ok {
+		return PanelDefinition{}, false
+	}
+	return reg.definitionForContext(ctx), true
+}
+
 // Definitions returns a sorted list of registered panel definitions.
 func (r *PanelRegistry) Definitions() []PanelDefinition {
+	return r.DefinitionsWithContext(context.Background())
+}
+
+// DefinitionsWithContext returns a sorted list of context-adapted panel definitions.
+func (r *PanelRegistry) DefinitionsWithContext(ctx context.Context) []PanelDefinition {
 	if r == nil {
 		return nil
 	}
 	r.mu.RLock()
 	defs := make([]PanelDefinition, 0, len(r.panels))
 	for _, reg := range r.panels {
-		defs = append(defs, reg.Definition)
+		defs = append(defs, reg.definitionForContext(ctx))
 	}
 	r.mu.RUnlock()
 	sort.Slice(defs, func(i, j int) bool {
@@ -502,10 +531,22 @@ func buildRegistration(id string, config PanelConfig) PanelRegistration {
 	}
 	return PanelRegistration{
 		Definition: def,
+		Filter:     config.Definition,
 		Snapshot:   config.Snapshot,
 		Clear:      config.Clear,
 		Actions:    normalizeActionHandlers(def.UI, config.Actions),
 	}
+}
+
+func (r PanelRegistration) definitionForContext(ctx context.Context) PanelDefinition {
+	def := r.Definition
+	if r.Filter != nil {
+		filtered := r.Filter(ctx, def)
+		if filtered.ID != "" {
+			return filtered
+		}
+	}
+	return def
 }
 
 func supportsToolbar(value *bool) bool {
