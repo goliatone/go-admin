@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/goliatone/go-admin/admin"
@@ -166,6 +168,7 @@ func (runtime seedNavigationRuntime) seedItems() ([]admin.MenuItem, error) {
 	if autoCreateParents {
 		seedItems = withAutoCreatedParentItems(runtime.menuCode, runtime.locale, seedItems)
 	}
+	seedItems = compactGeneratedMenuItemPositions(seedItems)
 	return seedItems, nil
 }
 
@@ -188,6 +191,10 @@ func normalizeSeedMenuItem(menuCode string, defaultLocale string, item admin.Men
 	path := derived.Path
 
 	target := cloneAnyMap(item.Target)
+	if item.Position != nil {
+		target = ensureMenuTarget(target)
+		target[MenuTargetGeneratedSortOrderKey] = *item.Position
+	}
 	if itemType == admin.MenuItemTypeGroup || itemType == admin.MenuItemTypeSeparator {
 		target = breadcrumbTargetForStructuralMenuItem(target)
 	}
@@ -247,6 +254,7 @@ func breadcrumbTargetForStructuralMenuItem(target map[string]any) map[string]any
 		"path",
 		"name",
 		"key",
+		MenuTargetGeneratedSortOrderKey,
 		"breadcrumb_label",
 		"breadcrumb_href",
 		"breadcrumb_hidden",
@@ -259,6 +267,13 @@ func breadcrumbTargetForStructuralMenuItem(target map[string]any) map[string]any
 		return nil
 	}
 	return out
+}
+
+func ensureMenuTarget(target map[string]any) map[string]any {
+	if target != nil {
+		return target
+	}
+	return map[string]any{}
 }
 
 func validateSeedMenuIdentity(item admin.MenuItem, defaultLocale string) error {
@@ -355,6 +370,123 @@ func withAutoCreatedParentItems(menuCode string, locale string, items []admin.Me
 	}
 
 	return out
+}
+
+func compactGeneratedMenuItemPositions(items []admin.MenuItem) []admin.MenuItem {
+	if len(items) == 0 {
+		return items
+	}
+	out := cloneMenuItems(items)
+	siblingsByParent := map[string][]int{}
+	for idx := range out {
+		parent := menuItemParentKey(out[idx])
+		siblingsByParent[parent] = append(siblingsByParent[parent], idx)
+	}
+	for _, siblings := range siblingsByParent {
+		sort.SliceStable(siblings, func(i, j int) bool {
+			left := out[siblings[i]]
+			right := out[siblings[j]]
+			leftOrder, leftOK := generatedMenuSortOrder(left)
+			rightOrder, rightOK := generatedMenuSortOrder(right)
+			if leftOK != rightOK {
+				return leftOK
+			}
+			if leftOrder != rightOrder {
+				return leftOrder < rightOrder
+			}
+			leftKey := generatedMenuItemStableSortKey(left)
+			rightKey := generatedMenuItemStableSortKey(right)
+			if leftKey != rightKey {
+				return leftKey < rightKey
+			}
+			return siblings[i] < siblings[j]
+		})
+		for position, idx := range siblings {
+			out[idx].Position = intPtr(position)
+		}
+	}
+	return out
+}
+
+func menuItemParentKey(item admin.MenuItem) string {
+	parent := strings.TrimSpace(firstNonEmpty(item.ParentID, item.ParentCode))
+	if parent != "" {
+		return parent
+	}
+	if parent = parentPath(item.ID); parent != "" {
+		return parent
+	}
+	if menu := strings.TrimSpace(item.Menu); menu != "" {
+		return menu
+	}
+	return "__root__"
+}
+
+func generatedMenuSortOrder(item admin.MenuItem) (int, bool) {
+	if value, ok := intTargetValue(item.Target, MenuTargetGeneratedSortOrderKey); ok {
+		return value, true
+	}
+	if item.Position != nil {
+		return *item.Position, true
+	}
+	return 0, false
+}
+
+func generatedMenuItemStableSortKey(item admin.MenuItem) string {
+	if id := strings.TrimSpace(item.ID); id != "" {
+		return id
+	}
+	if key := stringTargetValue(item.Target, "key"); key != "" {
+		return key
+	}
+	if path := stringTargetValue(item.Target, "path"); path != "" {
+		return path
+	}
+	return strings.TrimSpace(firstNonEmpty(item.Label, item.GroupTitle, item.LabelKey, item.GroupTitleKey))
+}
+
+func intTargetValue(target map[string]any, key string) (int, bool) {
+	if len(target) == 0 || strings.TrimSpace(key) == "" {
+		return 0, false
+	}
+	value, ok := target[key]
+	if !ok {
+		return 0, false
+	}
+	switch typed := value.(type) {
+	case int:
+		return typed, true
+	case int8:
+		return int(typed), true
+	case int16:
+		return int(typed), true
+	case int32:
+		return int(typed), true
+	case int64:
+		return int(typed), true
+	case uint:
+		return int(typed), true
+	case uint8:
+		return int(typed), true
+	case uint16:
+		return int(typed), true
+	case uint32:
+		return int(typed), true
+	case uint64:
+		return int(typed), true
+	case float32:
+		return int(typed), true
+	case float64:
+		return int(typed), true
+	case string:
+		parsed, err := strconv.Atoi(strings.TrimSpace(typed))
+		if err != nil {
+			return 0, false
+		}
+		return parsed, true
+	default:
+		return 0, false
+	}
 }
 
 func parentPath(path string) string {
