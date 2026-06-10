@@ -153,6 +153,9 @@ RPC transport is intentionally closed by default:
 - Command dispatch is deny-by-default until command rules are configured.
 - Each command rule needs a permission unless the rule explicitly allows
   unauthenticated dispatch.
+- Authenticated command dispatch requires both `admin.commands.dispatch` on the
+  default `commands` resource and the permission configured on the selected
+  command rule.
 - Command rules default to resource-role permission checks. Use exact
   permission mode for operational or capability grants that must not be inferred
   from generic resource roles.
@@ -298,7 +301,8 @@ the rule must set `AllowUnauthenticated: true`.
 | `resource_role` | Calls the configured `Authorizer.Can(ctx, permission, resource)` and lets the authorizer map the permission to a resource/action capability. This is the default for compatibility. | CRUD-style permissions where resource roles are the source of truth. |
 | `exact` | Requires the exact permission string to appear in `ResolvedPermissionsFromAuthorizer(ctx, authorizer)`. Resource roles and normalized action aliases do not grant access. | Operational commands, capability grants, transport permissions, or other non-CRUD permissions. |
 
-You can set a default mode for all command rules and command discovery:
+You can set a default mode for command dispatch, all command rules, and command
+discovery:
 
 ```go
 cfg.Commands.RPC.PermissionMode = admin.RPCCommandPermissionModeExact
