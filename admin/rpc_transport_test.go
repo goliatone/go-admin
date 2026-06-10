@@ -269,6 +269,31 @@ func TestAdminRPCDispatchEndpointRequiresPermission(t *testing.T) {
 	}
 }
 
+func TestAdminRPCDispatchEndpointRequiresDispatchPermission(t *testing.T) {
+	adm := mustNewAdmin(t, Config{
+		Commands: CommandConfig{
+			RPC: RPCCommandConfig{
+				Commands: map[string]RPCCommandRule{
+					"rpc.dispatch.test": {Permission: "admin.operations.search.read", Resource: "search"},
+				},
+			},
+		},
+	}, Dependencies{
+		FeatureGate: featureGateFromKeys(FeatureCommands),
+		Authorizer: rpcTestAuthorizer{allow: map[string]bool{
+			"admin.operations.search.read|search": true,
+		}},
+	})
+	ctx := auth.WithActorContext(context.Background(), &auth.ActorContext{ActorID: "rpc-user", Subject: "rpc-user"})
+	_, err := adm.RPCServer().Invoke(ctx, RPCMethodCommandDispatch, &cmdrpc.RequestEnvelope[RPCCommandDispatchRequest]{
+		Data: RPCCommandDispatchRequest{Name: "rpc.dispatch.test"},
+	})
+	var denied PermissionDeniedError
+	if !errors.As(err, &denied) {
+		t.Fatalf("expected dispatch PermissionDeniedError, got %T (%v)", err, err)
+	}
+}
+
 func TestAdminRPCDispatchEndpointExactPermissionModeIgnoresResourceRoleAllow(t *testing.T) {
 	adm := mustNewAdmin(t, Config{
 		Commands: CommandConfig{
@@ -286,6 +311,7 @@ func TestAdminRPCDispatchEndpointExactPermissionModeIgnoresResourceRoleAllow(t *
 		FeatureGate: featureGateFromKeys(FeatureCommands),
 		Authorizer: rpcExactPermissionAuthorizer{
 			allow: map[string]bool{
+				"admin.commands.dispatch|commands":      true,
 				"admin.operations.search.manage|search": true,
 			},
 			permissions: []string{"admin.commands.dispatch"},
@@ -298,6 +324,39 @@ func TestAdminRPCDispatchEndpointExactPermissionModeIgnoresResourceRoleAllow(t *
 	var denied PermissionDeniedError
 	if !errors.As(err, &denied) {
 		t.Fatalf("expected exact permission denial, got %T (%v)", err, err)
+	}
+}
+
+func TestAdminRPCDispatchEndpointGlobalExactPermissionModeAppliesToRules(t *testing.T) {
+	adm := mustNewAdmin(t, Config{
+		Commands: CommandConfig{
+			RPC: RPCCommandConfig{
+				PermissionMode: RPCCommandPermissionModeExact,
+				Commands: map[string]RPCCommandRule{
+					"rpc.dispatch.test": {
+						Permission: "admin.operations.search.manage",
+						Resource:   "search",
+					},
+				},
+			},
+		},
+	}, Dependencies{
+		FeatureGate: featureGateFromKeys(FeatureCommands),
+		Authorizer: rpcExactPermissionAuthorizer{
+			allow: map[string]bool{
+				"admin.commands.dispatch|commands":      true,
+				"admin.operations.search.manage|search": true,
+			},
+			permissions: []string{"admin.commands.dispatch"},
+		},
+	})
+	ctx := auth.WithActorContext(context.Background(), &auth.ActorContext{ActorID: "rpc-user", Subject: "rpc-user"})
+	_, err := adm.RPCServer().Invoke(ctx, RPCMethodCommandDispatch, &cmdrpc.RequestEnvelope[RPCCommandDispatchRequest]{
+		Data: RPCCommandDispatchRequest{Name: "rpc.dispatch.test"},
+	})
+	var denied PermissionDeniedError
+	if !errors.As(err, &denied) {
+		t.Fatalf("expected inherited exact permission denial, got %T (%v)", err, err)
 	}
 }
 
@@ -317,6 +376,9 @@ func TestAdminRPCDispatchEndpointExactPermissionModeAllowsResolvedPermission(t *
 	}, Dependencies{
 		FeatureGate: featureGateFromKeys(FeatureCommands),
 		Authorizer: rpcExactPermissionAuthorizer{
+			allow: map[string]bool{
+				"admin.commands.dispatch|commands": true,
+			},
 			permissions: []string{"admin.operations.search.manage"},
 		},
 	})

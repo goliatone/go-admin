@@ -329,7 +329,8 @@ func TestWithRPCTransportAppliesCommandRulesAndPolicyHook(t *testing.T) {
 		WithAdminDependencies(admin.Dependencies{
 			Authenticator: &rpcTestAuthenticator{},
 			Authorizer: rpcTestAuthorizer{allow: map[string]bool{
-				"admin.rpc.custom|commands": true,
+				"admin.commands.dispatch|commands": true,
+				"admin.rpc.custom|commands":        true,
 			}},
 		}),
 		WithRPCTransport(RPCTransportConfig{
