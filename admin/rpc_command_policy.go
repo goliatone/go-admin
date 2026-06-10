@@ -200,7 +200,7 @@ func cloneRPCCommandRules(in map[string]RPCCommandRule) map[string]RPCCommandRul
 		out[name] = RPCCommandRule{
 			Permission:           strings.TrimSpace(rawRule.Permission),
 			Resource:             strings.TrimSpace(rawRule.Resource),
-			PermissionMode:       normalizeRPCCommandPermissionModeOrDefault(rawRule.PermissionMode, RPCCommandPermissionModeResourceRole),
+			PermissionMode:       rawRule.PermissionMode,
 			AllowUnauthenticated: rawRule.AllowUnauthenticated,
 		}
 	}
