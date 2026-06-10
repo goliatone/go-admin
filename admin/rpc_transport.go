@@ -121,6 +121,9 @@ func commandDispatchRPCEndpoint(adm *Admin) cmdrpc.EndpointDefinition {
 				return cmdrpc.ResponseEnvelope[RPCCommandDispatchResponse]{}, ErrNotFound
 			}
 			if rpcRequestHasActor(ctx) {
+				if err := authorizeRPCPermissionWithMode(ctx, adm.Authorizer(), RPCMethodCommandDispatch, defaultRPCCommandResource, adm.config.Commands.RPC.PermissionMode); err != nil {
+					return cmdrpc.ResponseEnvelope[RPCCommandDispatchResponse]{}, err
+				}
 				if err := authorizeRPCPermissionWithMode(ctx, adm.Authorizer(), rule.Permission, rule.Resource, rule.PermissionMode); err != nil {
 					return cmdrpc.ResponseEnvelope[RPCCommandDispatchResponse]{}, err
 				}
