@@ -196,11 +196,15 @@ func TestPanelDefinitionsWithContextAppliesDefinitionFilter(t *testing.T) {
 }
 
 func TestPanelDefinitionsWithContextDoesNotHoldLockDuringFilter(t *testing.T) {
+	type registryContextKey string
+	const registerLateKey registryContextKey = "register-late"
 	registry := NewPanelRegistry()
 	err := registry.Register("commands", PanelConfig{
 		Definition: func(ctx context.Context, definition PanelDefinition) PanelDefinition {
-			if ctx.Value("register-late") == true {
-				_ = registry.Register("late", PanelConfig{Label: "Late"})
+			if ctx.Value(registerLateKey) == true {
+				if err := registry.Register("late", PanelConfig{Label: "Late"}); err != nil {
+					t.Errorf("register late panel: %v", err)
+				}
 			}
 			return definition
 		},
@@ -211,7 +215,7 @@ func TestPanelDefinitionsWithContextDoesNotHoldLockDuringFilter(t *testing.T) {
 
 	done := make(chan []PanelDefinition, 1)
 	go func() {
-		done <- registry.DefinitionsWithContext(context.WithValue(context.Background(), "register-late", true))
+		done <- registry.DefinitionsWithContext(context.WithValue(context.Background(), registerLateKey, true))
 	}()
 
 	select {
