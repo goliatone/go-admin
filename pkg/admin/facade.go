@@ -248,6 +248,7 @@ const (
 	NavigationOwnerUser                            = core.NavigationOwnerUser
 	NavigationPermissionDeniedModeDisable          = core.NavigationPermissionDeniedModeDisable
 	NavigationPermissionDeniedModeHide             = core.NavigationPermissionDeniedModeHide
+	NavigationRouteMissingPolicyAuto               = core.NavigationRouteMissingPolicyAuto
 	NavigationRouteMissingPolicyReport             = core.NavigationRouteMissingPolicyReport
 	NavigationRouteMissingPolicyStrict             = core.NavigationRouteMissingPolicyStrict
 	NotificationMarkCommandName                    = core.NotificationMarkCommandName
