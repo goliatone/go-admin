@@ -93,7 +93,7 @@ func PlanExpectedItem(expected Item, actual []Item, opts ConvergenceOptions) Pla
 	if planned.Action == ConvergenceReplace {
 		return planned
 	}
-	if EquivalentManagedFields(match.Item, planned.Update) {
+	if EquivalentManagedFields(match.Item, planned.Update) && !planned.StaleTargetState {
 		planned.Action = ConvergenceNoop
 		return planned
 	}
