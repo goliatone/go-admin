@@ -2,7 +2,9 @@ package navigation
 
 import (
 	"fmt"
+	"maps"
 	"reflect"
+	"slices"
 	"sort"
 	"strings"
 )
@@ -722,9 +724,7 @@ func cloneMap(input map[string]any) map[string]any {
 		return nil
 	}
 	out := make(map[string]any, len(input))
-	for key, value := range input {
-		out[key] = value
-	}
+	maps.Copy(out, input)
 	return out
 }
 
@@ -743,12 +743,7 @@ func unique(values []string) []string {
 }
 
 func contains(values []string, want string) bool {
-	for _, value := range values {
-		if value == want {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(values, want)
 }
 
 func containsFold(values []string, want string) bool {
