@@ -82,11 +82,20 @@ func (a *Admin) loadModules(ctx context.Context) error {
 		return err
 	}
 	authMiddleware, publicRouter, protectedRouter := a.moduleRouters()
-	err = modules.Load(ctx, a.moduleLoadOptions(ctx, modulesToLoad, routingContexts, authMiddleware, publicRouter, protectedRouter))
+	pendingMenuItems := []MenuItem{}
+	loadOptions := a.moduleLoadOptions(ctx, modulesToLoad, routingContexts, authMiddleware, publicRouter, protectedRouter)
+	loadOptions.AddMenuItems = func(ctx context.Context, items []navinternal.MenuItem) error {
+		pendingMenuItems = append(pendingMenuItems, cloneNavigationContributionItems(items)...)
+		return nil
+	}
+	err = modules.Load(ctx, loadOptions)
 	if err != nil {
 		return err
 	}
 	a.CloseNavigationContributions()
+	if err := a.addMenuItemsNow(ctx, pendingMenuItems); err != nil {
+		return err
+	}
 	a.modulesLoaded = true
 	return nil
 }
