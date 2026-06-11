@@ -172,7 +172,3 @@ func generatedMenuItemIdentity(item admin.MenuItem, menuCode string) string {
 func cleanGeneratedMenuTarget(target map[string]any) map[string]any {
 	return navcontract.CleanTarget(target)
 }
-
-func requestScopedMenuTargetKeys() []string {
-	return navcontract.RequestScopedTargetKeys()
-}
