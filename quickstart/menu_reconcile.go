@@ -170,10 +170,6 @@ func recordRawGeneratedNavigationState(report *NavigationReconcileReport, render
 	}
 }
 
-func reconcileMenuItemStronglyAppearsIn(item admin.MenuItem, items []admin.MenuItem) bool {
-	return navcontract.StronglyAppearsIn(navigationContractItem(item), navigationContractItems(items))
-}
-
 func recordGeneratedNavigationActualState(report *NavigationReconcileReport, actual, expected []admin.MenuItem) {
 	actualIdentityCount := map[string]int{}
 	for _, item := range actual {
@@ -211,15 +207,6 @@ func reconcileGeneratedNavigationExpectedItems(ctx context.Context, opts Navigat
 		}
 	}
 	return expectedKeys, nil
-}
-
-func reconcileGeneratedNavigationExpectedItem(ctx context.Context, opts NavigationReconcileOptions, runtime seedNavigationRuntime, item admin.MenuItem, actual []admin.MenuItem, report *NavigationReconcileReport) error {
-	planned := navcontract.PlanExpectedItem(navigationContractItem(item), navigationContractItems(actual), navcontract.ConvergenceOptions{
-		MatchPolicy: navcontract.MatchPolicy{Owner: navcontract.OwnerQuickstart},
-		Apply:       opts.Apply,
-		Preserve:    preserveGeneratedNavigationContractFields,
-	})
-	return reconcileGeneratedNavigationPlannedItem(ctx, opts, runtime.menuCode, planned, report)
 }
 
 func reconcileGeneratedNavigationPlannedItem(ctx context.Context, opts NavigationReconcileOptions, menuCode string, planned navcontract.PlannedItem, report *NavigationReconcileReport) error {
@@ -282,50 +269,10 @@ func createMissingGeneratedNavigationItem(ctx context.Context, opts NavigationRe
 	return opts.MenuSvc.AddMenuItem(ctx, menuCode, item)
 }
 
-func reconcileMatchedGeneratedNavigationItem(ctx context.Context, opts NavigationReconcileOptions, menuCode string, item, match admin.MenuItem, report *NavigationReconcileReport) error {
-	report.PersistedPresent = append(report.PersistedPresent, item.ID)
-	if generatedMenuItemHasStaleTargetState(match) {
-		report.StaleTargetStateCleanup = append(report.StaleTargetStateCleanup, match.ID)
-	}
-	updateItem := item
-	report.PreservedGeneratedFields = append(report.PreservedGeneratedFields, preserveGeneratedMenuItemFields(match, &updateItem)...)
-	replaced, err := replaceGeneratedNavigationItemWhenNeeded(ctx, opts, menuCode, match, &updateItem, report)
-	if err != nil || replaced {
-		return err
-	}
-	if generatedMenuItemsEquivalent(match, updateItem) {
-		return nil
-	}
-	report.Updates = append(report.Updates, item.ID)
-	if !opts.Apply {
-		return nil
-	}
-	return opts.MenuSvc.UpdateMenuItem(ctx, menuCode, updateItem)
-}
-
 func preserveGeneratedNavigationContractFields(actual, expected navcontract.Item) (navcontract.Item, []string) {
 	update := adminMenuItemFromNavigationContract(expected)
 	preserved := preserveGeneratedMenuItemFields(adminMenuItemFromNavigationContract(actual), &update)
 	return navigationContractItem(update), preserved
-}
-
-func replaceGeneratedNavigationItemWhenNeeded(ctx context.Context, opts NavigationReconcileOptions, menuCode string, match admin.MenuItem, updateItem *admin.MenuItem, report *NavigationReconcileReport) (bool, error) {
-	matchID := strings.TrimSpace(match.ID)
-	updateID := strings.TrimSpace(updateItem.ID)
-	if strings.EqualFold(matchID, updateID) || matchID == "" {
-		return false, nil
-	}
-	report.DestructiveCandidates = append(report.DestructiveCandidates, match.ID)
-	if opts.Apply && (opts.AllowDestructive || generatedMenuItemOwned(match)) {
-		if err := opts.MenuSvc.DeleteMenuItem(ctx, menuCode, match.ID); err != nil && !errors.Is(err, admin.ErrMenuTargetNotFound) && !errors.Is(err, admin.ErrNotFound) {
-			return false, err
-		}
-		report.Creates = append(report.Creates, updateItem.ID)
-		return true, opts.MenuSvc.AddMenuItem(ctx, menuCode, *updateItem)
-	}
-	updateItem.ID = match.ID
-	report.PreservedGeneratedFields = append(report.PreservedGeneratedFields, updateItem.ID+":id")
-	return false, nil
 }
 
 func recordStaleGeneratedNavigationRows(report *NavigationReconcileReport, actual []admin.MenuItem, expectedKeys map[string]bool) {
@@ -376,33 +323,6 @@ func flattenReconcileMenuItems(items []admin.MenuItem) []admin.MenuItem {
 	return out
 }
 
-func reconcileMenuItemKeys(item admin.MenuItem) []string {
-	return navcontract.IdentityKeys(navigationContractItem(item))
-}
-
-func reconcileMenuItemStrongKeys(item admin.MenuItem) []string {
-	return navcontract.StrongIdentityKeys(navigationContractItem(item))
-}
-
-func findActualGeneratedMatch(expected admin.MenuItem, actual []admin.MenuItem) (admin.MenuItem, bool, bool) {
-	match := navcontract.FindMatch(navigationContractItem(expected), navigationContractItems(actual), navcontract.MatchPolicy{Owner: navcontract.OwnerQuickstart})
-	return adminMenuItemFromNavigationContract(match.Item), match.Matched, match.Ambiguous
-}
-
-func generatedOwnedMatches(expected admin.MenuItem, actual []admin.MenuItem) []admin.MenuItem {
-	out := []admin.MenuItem{}
-	seen := map[string]bool{}
-	for _, item := range actual {
-		if !generatedMenuItemOwned(item) {
-			continue
-		}
-		if reconcileMenuItemsShareKey(expected, item) {
-			out = appendUniqueMenuItemByID(out, seen, item)
-		}
-	}
-	return out
-}
-
 func generatedMetadataMatches(expected admin.MenuItem, actual []admin.MenuItem) []admin.MenuItem {
 	expectedGeneratedID := strings.ToLower(strings.TrimSpace(stringTargetValue(expected.Target, MenuTargetGeneratedIDKey)))
 	if expectedGeneratedID == "" {
@@ -415,20 +335,6 @@ func generatedMetadataMatches(expected admin.MenuItem, actual []admin.MenuItem) 
 			continue
 		}
 		if actualGeneratedID := strings.ToLower(strings.TrimSpace(stringTargetValue(item.Target, MenuTargetGeneratedIDKey))); actualGeneratedID == expectedGeneratedID {
-			out = appendUniqueMenuItemByID(out, seen, item)
-		}
-	}
-	return out
-}
-
-func legacyGeneratedMatches(expected admin.MenuItem, actual []admin.MenuItem) []admin.MenuItem {
-	out := []admin.MenuItem{}
-	seen := map[string]bool{}
-	for _, item := range actual {
-		if generatedMenuItemOwned(item) || strings.TrimSpace(stringTargetValue(item.Target, MenuTargetGeneratedIDKey)) != "" {
-			continue
-		}
-		if legacyGeneratedMenuItemMatches(expected, item) {
 			out = appendUniqueMenuItemByID(out, seen, item)
 		}
 	}
@@ -466,22 +372,6 @@ func matchesAnyExpectedGeneratedRow(actual admin.MenuItem, expected []admin.Menu
 
 func reconcileMenuItemsShareKey(a, b admin.MenuItem) bool {
 	return navcontract.ShareIdentityKey(navigationContractItem(a), navigationContractItem(b))
-}
-
-func uniqueStrings(values []string) []string {
-	if len(values) == 0 {
-		return nil
-	}
-	seen := map[string]bool{}
-	out := make([]string, 0, len(values))
-	for _, value := range values {
-		if value == "" || seen[value] {
-			continue
-		}
-		seen[value] = true
-		out = append(out, value)
-	}
-	return out
 }
 
 func legacyGeneratedMenuItemMatches(expected, actual admin.MenuItem) bool {
@@ -582,33 +472,6 @@ func generatedMenuItemOwned(item admin.MenuItem) bool {
 	return navcontract.ResolveOwner(navigationContractItem(item)) == navcontract.OwnerQuickstart
 }
 
-func generatedMenuItemsEquivalent(actual, expected admin.MenuItem) bool {
-	return navcontract.EquivalentManagedFields(navigationContractItem(actual), navigationContractItem(expected))
-}
-
-func generatedMenuItemForCompare(item admin.MenuItem) admin.MenuItem {
-	item.Children = nil
-	item.Code = ""
-	item.Menu = ""
-	item.Target = cleanGeneratedMenuTarget(item.Target)
-	if len(item.Target) == 0 {
-		item.Target = nil
-	}
-	if len(item.Badge) == 0 {
-		item.Badge = nil
-	}
-	if len(item.Classes) == 0 {
-		item.Classes = nil
-	}
-	if len(item.Styles) == 0 {
-		item.Styles = nil
-	}
-	if len(item.Permissions) == 0 {
-		item.Permissions = nil
-	}
-	return item
-}
-
 func preserveGeneratedMenuItemFields(actual admin.MenuItem, expected *admin.MenuItem) []string {
 	if expected == nil {
 		return nil
@@ -619,10 +482,6 @@ func preserveGeneratedMenuItemFields(actual admin.MenuItem, expected *admin.Menu
 		preserved = append(preserved, expected.ID+":collapsed")
 	}
 	return preserved
-}
-
-func generatedMenuItemHasStaleTargetState(item admin.MenuItem) bool {
-	return navcontract.HasRequestScopedTargetState(navigationContractItem(item))
 }
 
 func menuRouteResolutionFailures(items []admin.MenuItem) []string {
@@ -645,6 +504,7 @@ func navigationContractItems(items []admin.MenuItem) []navcontract.Item {
 	return out
 }
 
+//nolint:dupl // Bidirectional conversion intentionally mirrors every persisted menu field across package boundaries.
 func navigationContractItem(item admin.MenuItem) navcontract.Item {
 	return navcontract.Item{
 		ID:            item.ID,
@@ -671,6 +531,7 @@ func navigationContractItem(item admin.MenuItem) navcontract.Item {
 	}
 }
 
+//nolint:dupl // Bidirectional conversion intentionally mirrors every persisted menu field across package boundaries.
 func adminMenuItemFromNavigationContract(item navcontract.Item) admin.MenuItem {
 	return admin.MenuItem{
 		ID:            item.ID,
