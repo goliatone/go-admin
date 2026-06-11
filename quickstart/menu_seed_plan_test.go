@@ -598,6 +598,55 @@ func TestReconcileGeneratedNavigationUpdatesStaleGeneratedRows(t *testing.T) {
 	}
 }
 
+func TestReconcileGeneratedNavigationAppliesStaleTargetStateCleanup(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	menuCode := "admin.main"
+	locale := "en"
+	expected := testGeneratedMenuItem("translations.queue", "", "Translation Queue", "translation_queue", "/admin/translations/queue", 50)
+	runtime := newSeedNavigationRuntime(ctx, SeedNavigationOptions{
+		MenuCode: menuCode,
+		Locale:   locale,
+		Items:    []admin.MenuItem{expected},
+	})
+	seedItems, err := runtime.seedItems()
+	if err != nil {
+		t.Fatalf("seedItems: %v", err)
+	}
+	stale := seedItems[0]
+	stale.Target["disabled_reason"] = "Permission denied"
+	stale.Target["disabled_reason_code"] = "permission_denied"
+	menuSvc := &staleTargetMenuService{code: menuCode, locale: locale, items: []admin.MenuItem{stale}}
+
+	report, err := ReconcileGeneratedNavigation(ctx, NavigationReconcileOptions{
+		MenuSvc:  menuSvc,
+		MenuCode: menuCode,
+		Locale:   locale,
+		Items:    []admin.MenuItem{expected},
+		Apply:    true,
+	})
+	if err != nil {
+		t.Fatalf("reconcile stale target state: %v", err)
+	}
+	if len(report.Updates) == 0 {
+		t.Fatalf("expected stale target cleanup update, got %#v", report)
+	}
+	if !containsStringWithSuffix(report.StaleTargetStateCleanup, "translations.queue") {
+		t.Fatalf("expected stale target cleanup diagnostic, got %#v", report)
+	}
+	updated := findMenuItemByTargetKeyForTest(menuSvc.items, "translation_queue")
+	if updated == nil {
+		t.Fatalf("expected updated translation queue row")
+	}
+	if _, ok := updated.Target["disabled_reason"]; ok {
+		t.Fatalf("expected disabled_reason to be removed, got target %#v", updated.Target)
+	}
+	if _, ok := updated.Target["disabled_reason_code"]; ok {
+		t.Fatalf("expected disabled_reason_code to be removed, got target %#v", updated.Target)
+	}
+}
+
 func TestSeedNavigationCompactsSparseGeneratedPositionsByParent(t *testing.T) {
 	t.Parallel()
 
@@ -879,6 +928,53 @@ type rawInventoryMenuService struct {
 
 func (s *rawInventoryMenuService) RawMenuItems(context.Context, string) ([]admin.MenuItem, error) {
 	return append([]admin.MenuItem{}, s.raw...), nil
+}
+
+type staleTargetMenuService struct {
+	code   string
+	locale string
+	items  []admin.MenuItem
+}
+
+func (s *staleTargetMenuService) CreateMenu(context.Context, string) (*admin.Menu, error) {
+	return &admin.Menu{Code: s.code, Slug: s.code, ID: s.code, Location: s.code}, nil
+}
+
+func (s *staleTargetMenuService) AddMenuItem(_ context.Context, _ string, item admin.MenuItem) error {
+	s.items = append(s.items, item)
+	return nil
+}
+
+func (s *staleTargetMenuService) UpdateMenuItem(_ context.Context, _ string, item admin.MenuItem) error {
+	for idx := range s.items {
+		if strings.EqualFold(strings.TrimSpace(s.items[idx].ID), strings.TrimSpace(item.ID)) {
+			s.items[idx] = item
+			return nil
+		}
+	}
+	return admin.ErrNotFound
+}
+
+func (s *staleTargetMenuService) DeleteMenuItem(_ context.Context, _ string, id string) error {
+	for idx := range s.items {
+		if strings.EqualFold(strings.TrimSpace(s.items[idx].ID), strings.TrimSpace(id)) {
+			s.items = append(s.items[:idx], s.items[idx+1:]...)
+			return nil
+		}
+	}
+	return admin.ErrNotFound
+}
+
+func (s *staleTargetMenuService) ReorderMenu(context.Context, string, []string) error {
+	return nil
+}
+
+func (s *staleTargetMenuService) Menu(context.Context, string, string) (*admin.Menu, error) {
+	return &admin.Menu{Code: s.code, Slug: s.code, ID: s.code, Location: s.code, Items: append([]admin.MenuItem{}, s.items...)}, nil
+}
+
+func (s *staleTargetMenuService) MenuByLocation(ctx context.Context, location, locale string) (*admin.Menu, error) {
+	return s.Menu(ctx, location, locale)
 }
 
 func testGeneratedMenuItem(id, parent, label, key, itemPath string, position int) admin.MenuItem {
