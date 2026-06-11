@@ -913,7 +913,6 @@ detail reads unchanged.
 - [Search Guide](GUIDE_SEARCH.md) — Admin global search, public site search, and go-search adapter wiring.
 - [Block Editor Guide](GUIDE_BLOCK_EDITOR.md) — Block editor setup, drag/drop, icon picker, and custom icon tabs.
 - [Development Guide RFC Guardrails](GUIDE_DEVELOPMENT.md#10-rfc-contract-and-security-guardrails) — Core backend contract/security rules for async jobs, action ordering, and degraded supplemental payloads.
-- [CMS TDD](../CMS_TDD.md) — Technical design document for the CMS extension.
 
 ---
 

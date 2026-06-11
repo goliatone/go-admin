@@ -303,5 +303,6 @@ go test ./examples/web -run 'Test.*Form|Test.*Content.*Panel'
 - `docs/GUIDE_CMS.md`: dynamic content types, content entry UI routes, and list/detail rendering.
 - `docs/GUIDE_MODULE_MEDIA.md`: media module and media field integration.
 - `docs/GUIDES_PERMISSION_MATRIX.md`: permission matrix component details.
+- `docs/GUIDE_AUTH_PERMISSIONS.md`: auth, permission, scope, and debug workflow.
 - `docs/GUIDE_MOD_PREFERENCES.md`: preferences schema override pattern.
 - `quickstart/README.md`: quickstart helpers and bootstrap options.

@@ -1,6 +1,9 @@
 # Debug Module Guide
 
-This guide explains how to enable, configure, and integrate the Debug Module into your go-admin application for development introspection and troubleshooting.
+This guide explains how to enable, configure, and integrate the Debug Module
+into your go-admin application for development introspection and troubleshooting.
+For authentication and permission-specific debugging using the debug console,
+doctor checks, and permissions panels, see `GUIDE_AUTH_PERMISSIONS.md`.
 
 ## What it provides
 
@@ -243,7 +246,7 @@ const (
 | `MaxLogEntries` | `500` |
 | `MaxSQLQueries` | `200` |
 | `SlowQueryThreshold` | `50ms` |
-| `Panels` | `["template", "session", "requests", "sql", "logs", "config", "routes", "custom", "jserrors"]` |
+| `Panels` | `["template", "session", "requests", "sql", "logs", "config", "routes", "custom", "jserrors", "permissions", "actions"]` |
 | `ToolbarPanels` | `["requests", "sql", "logs", "jserrors", "routes", "config"]` |
 | `CaptureJSErrors` | `false` |
 | `ToolbarExcludePaths` | `["{debug_path}"]` |
@@ -491,7 +494,7 @@ hook := admin.NewDebugQueryHookProvider(adm.Debug)
 db.AddQueryHook(hook)
 ```
 
-**Important**: The hook must be attached to each `bun.DB` instance you want to monitor. See [DEBUG_SQL_BUG.md](../DEBUG_SQL_BUG.md) for details on multi-database scenarios.
+**Important**: The hook must be attached to each `bun.DB` instance you want to monitor.
 
 ### Request Capture
 
@@ -715,16 +718,27 @@ The Permissions panel provides a 3-way diff diagnostic view for debugging author
 **PermissionsSnapshot**:
 ```go
 type PermissionsDebugSnapshot struct {
-    Verdict             string            `json:"verdict"`              // healthy, missing_grants, claims_stale, scope_mismatch
+    Verdict             string            `json:"verdict"`              // healthy, missing_grants, claims_stale, scope_mismatch, error
     EnabledModules      []string          `json:"enabled_modules"`
     RequiredPermissions map[string]string `json:"required_permissions"` // permission -> module
     ClaimsPermissions   []string          `json:"claims_permissions"`
     PermissionChecks    map[string]bool   `json:"permission_checks"`
     MissingPermissions  []string          `json:"missing_permissions"`
     Entries             []PermissionEntry `json:"entries"`
-    Summary             PermissionsSummary `json:"summary"`
+    Summary             struct {
+        ModuleCount  int `json:"module_count"`
+        RequiredKeys int `json:"required_keys"`
+        ClaimsKeys   int `json:"claims_keys"`
+        MissingKeys  int `json:"missing_keys"`
+    } `json:"summary"`
     NextActions         []string          `json:"next_actions"`
-    UserInfo            PermissionsUserInfo `json:"user_info"`
+    UserInfo            struct {
+        UserID   string `json:"user_id,omitempty"`
+        Username string `json:"username,omitempty"`
+        Role     string `json:"role,omitempty"`
+        TenantID string `json:"tenant_id,omitempty"`
+        OrgID    string `json:"org_id,omitempty"`
+    } `json:"user_info"`
 }
 ```
 
@@ -1636,7 +1650,8 @@ repoOptions := adm.DebugQueryHookOptions()
 // Pass to ALL repositories/databases
 ```
 
-See [DEBUG_SQL_BUG.md](../DEBUG_SQL_BUG.md) for detailed analysis of multi-database scenarios.
+For multi-database scenarios, verify that every repository or raw `bun.DB`
+instance receives a debug query hook.
 
 ### Logs Not Appearing
 
@@ -1870,5 +1885,5 @@ cd pkg/client/assets && npm run build
 - [Module Development Guide](GUIDE_MODULES.md) - General module patterns
 - [View Customization Guide](GUIDE_VIEW_CUSTOMIZATION.md) - Template and view engine customization
 - [Theme Guide](GUIDE_THEME.md) - Admin go-theme wiring and theme payloads
+- [Authentication and Permissions Guide](GUIDE_AUTH_PERMISSIONS.md) - Auth, permission, scope, and debug workflow
 - [Auth Guide](AUTH.md) - Authentication and authorization patterns
-- [DEBUG_SQL_BUG.md](../DEBUG_SQL_BUG.md) - SQL capture troubleshooting

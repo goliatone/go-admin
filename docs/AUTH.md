@@ -1,6 +1,13 @@
 # go-admin Auth/Authz Guide
 
-This guide covers how authentication and authorization are wired inside go-admin and how consumers should configure them. It is split into two sections: **Development (extending go-admin)** and **Consumers (using go-admin in an app)**.
+This guide covers how authentication and authorization are wired inside
+go-admin and how consumers should configure them. It is split into two sections:
+**Development (extending go-admin)** and **Consumers (using go-admin in an
+app)**.
+
+For the dedicated operator guide that covers permissions, roles, scope,
+debugging with the debug console, doctor checks, and permissions panels, see
+`GUIDE_AUTH_PERMISSIONS.md`.
 
 ## Development (extending go-admin)
 

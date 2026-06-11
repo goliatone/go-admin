@@ -281,7 +281,8 @@ The quickstart package provides a bridge to go-users preferences:
 - `Upsert`/`Delete` map to go-users preference commands so clears fall back to lower scopes.
 - Use `quickstart.WithGoUsersPreferencesRepository` (or the factory variant) with `quickstart.NewAdmin` to wire the store.
 
-Reference: go-users guide `../../go-users/docs/GUIDE_PROFILES_PREFERENCES.md` (profiles, scoped preference levels, resolver behavior, and delete semantics).
+The go-users profile/preferences guide covers profile storage, scoped preference
+levels, resolver behavior, and delete semantics on the go-users side.
 
 ## Quickstart recipe
 
@@ -382,4 +383,5 @@ If you need dedicated tenant/org/system management UIs, build a custom module or
 - `quickstart/preferences_options.go` (quickstart options)
 - `quickstart/preferences_module.go` (quickstart module defaults)
 - `quickstart/preferences_permissions.go` (default permissions)
+- `docs/GUIDE_AUTH_PERMISSIONS.md` (permissions, scope, and debugging workflow)
 - `docs/AUTH.md` (permissions + troubleshooting)
