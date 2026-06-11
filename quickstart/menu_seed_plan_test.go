@@ -2,6 +2,7 @@ package quickstart
 
 import (
 	"context"
+	"reflect"
 	"slices"
 	"strings"
 	"testing"
@@ -169,6 +170,58 @@ func TestReconcileGeneratedNavigationDryRunAndApplyRepairsMissingRows(t *testing
 		t.Fatalf("expected translation queue after apply, got %#v", menu.Items)
 	}
 
+}
+
+func TestReconcileGeneratedNavigationPreservesExtendedMenuFields(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	menuSvc := admin.NewInMemoryMenuService()
+	menuCode := "admin.main"
+	locale := "en"
+	if _, createErr := menuSvc.CreateMenu(ctx, menuCode); createErr != nil {
+		t.Fatalf("CreateMenu: %v", createErr)
+	}
+
+	urlOverride := "/admin/translations/queue?layout=compact"
+	expectedBadge := map[string]any{"label": "Beta", "tone": "warning"}
+	expectedClasses := []string{"nav-translations", "is-emphasized"}
+	expectedStyles := map[string]string{"--accent": "#f80"}
+	item := testGeneratedMenuItem("translations.queue", "", "Translation Queue", "translation_queue", "/admin/translations/queue", 50)
+	item.URLOverride = &urlOverride
+	item.Badge = expectedBadge
+	item.Classes = expectedClasses
+	item.Styles = expectedStyles
+
+	if _, err := ReconcileGeneratedNavigation(ctx, NavigationReconcileOptions{
+		MenuSvc:  menuSvc,
+		MenuCode: menuCode,
+		Locale:   locale,
+		Items:    []admin.MenuItem{item},
+		Apply:    true,
+	}); err != nil {
+		t.Fatalf("apply reconcile: %v", err)
+	}
+	menu, err := menuSvc.Menu(ctx, menuCode, locale)
+	if err != nil {
+		t.Fatalf("read menu: %v", err)
+	}
+	got := findMenuItemByTargetKeyForTest(menu.Items, "translation_queue")
+	if got == nil {
+		t.Fatalf("expected translation queue row, got %#v", menu.Items)
+	}
+	if got.URLOverride == nil || *got.URLOverride != urlOverride {
+		t.Fatalf("expected URLOverride %q, got %#v", urlOverride, got.URLOverride)
+	}
+	if !reflect.DeepEqual(got.Badge, expectedBadge) {
+		t.Fatalf("expected badge %#v, got %#v", expectedBadge, got.Badge)
+	}
+	if !reflect.DeepEqual(got.Classes, expectedClasses) {
+		t.Fatalf("expected classes %#v, got %#v", expectedClasses, got.Classes)
+	}
+	if !reflect.DeepEqual(got.Styles, expectedStyles) {
+		t.Fatalf("expected styles %#v, got %#v", expectedStyles, got.Styles)
+	}
 }
 
 func TestReconcileGeneratedNavigationSecondPassIsIdempotent(t *testing.T) {

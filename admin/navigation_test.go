@@ -3,6 +3,7 @@ package admin
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"reflect"
 	"strings"
 	"sync"
@@ -535,6 +536,61 @@ func TestAdminPersistMenuItemsUsesRawInventoryWhenRenderedMenuHidesRow(t *testin
 	}
 }
 
+func TestAdminPersistMenuItemsPreservesExtendedMenuFields(t *testing.T) {
+	ctx := context.Background()
+	menuSvc := NewInMemoryMenuService()
+	adm := mustNewAdmin(t, Config{
+		DefaultLocale: "en",
+		NavMenuCode:   "admin_main",
+	}, Dependencies{FeatureGate: featureGateFromKeys(FeatureCMS)})
+	adm.UseCMS(&stubCMSContainer{menu: menuSvc})
+	mustCreateNavigationTestMenu(t, menuSvc, ctx, "admin_main")
+	mustAddNavigationTestMenuItem(t, menuSvc, ctx, "admin_main", MenuItem{
+		ID:     "legacy.media",
+		Label:  "Media",
+		Locale: "en",
+		Target: map[string]any{"type": "url", "path": "", "key": "media"},
+	})
+
+	urlOverride := "/admin/media?layout=compact"
+	expectedBadge := map[string]any{"label": "New", "tone": "info"}
+	expectedClasses := []string{"nav-media", "is-promoted"}
+	expectedStyles := map[string]string{"--accent": "#0a7"}
+	if err := adm.addMenuItems(ctx, []MenuItem{{
+		Label:       "Media",
+		Locale:      "en",
+		Menu:        "admin_main",
+		URLOverride: &urlOverride,
+		Badge:       expectedBadge,
+		Classes:     expectedClasses,
+		Styles:      expectedStyles,
+		Target:      map[string]any{"type": "url", "path": "/admin/media", "key": "media"},
+	}}); err != nil {
+		t.Fatalf("addMenuItems: %v", err)
+	}
+
+	menu, err := menuSvc.Menu(ctx, "admin_main", "en")
+	if err != nil {
+		t.Fatalf("menu: %v", err)
+	}
+	item := findMenuItemByTargetKey(menu.Items, "media")
+	if item == nil {
+		t.Fatalf("expected media row, got %#v", menu.Items)
+	}
+	if item.URLOverride == nil || *item.URLOverride != urlOverride {
+		t.Fatalf("expected URLOverride %q, got %#v", urlOverride, item.URLOverride)
+	}
+	if !reflect.DeepEqual(item.Badge, expectedBadge) {
+		t.Fatalf("expected badge %#v, got %#v", expectedBadge, item.Badge)
+	}
+	if !reflect.DeepEqual(item.Classes, expectedClasses) {
+		t.Fatalf("expected classes %#v, got %#v", expectedClasses, item.Classes)
+	}
+	if !reflect.DeepEqual(item.Styles, expectedStyles) {
+		t.Fatalf("expected styles %#v, got %#v", expectedStyles, item.Styles)
+	}
+}
+
 func TestAdminPersistMenuItemsFailsLoudlyForRouteMissingModuleItem(t *testing.T) {
 	ctx := context.Background()
 	menuSvc := NewInMemoryMenuService()
@@ -556,6 +612,75 @@ func TestAdminPersistMenuItemsFailsLoudlyForRouteMissingModuleItem(t *testing.T)
 	}
 	if !strings.Contains(err.Error(), "navigation route target missing") {
 		t.Fatalf("expected route-missing error, got %v", err)
+	}
+	report := adm.NavigationLifecycleReport()
+	if !stringSliceContains(report.RouteMissingItems, "admin_main.broken") && !stringSliceContains(report.RouteMissingItems, "broken") {
+		t.Fatalf("expected route-missing lifecycle diagnostic, got %#v", report)
+	}
+}
+
+func TestAdminPersistMenuItemsReportsAndSkipsRouteMissingItemsInReportMode(t *testing.T) {
+	ctx := context.Background()
+	menuSvc := NewInMemoryMenuService()
+	adm := mustNewAdmin(t, Config{
+		DefaultLocale: "en",
+		NavMenuCode:   "admin_main",
+	}, Dependencies{FeatureGate: featureGateFromKeys(FeatureCMS)})
+	adm.UseCMS(&stubCMSContainer{menu: menuSvc})
+	adm.WithNavigationRouteMissingPolicy(NavigationRouteMissingPolicyReport)
+	mustCreateNavigationTestMenu(t, menuSvc, ctx, "admin_main")
+
+	err := adm.addMenuItems(ctx, []MenuItem{{
+		Label:  "Broken",
+		Locale: "en",
+		Menu:   "admin_main",
+		Target: map[string]any{"type": "url", "key": "broken"},
+	}})
+	if err != nil {
+		t.Fatalf("expected report-mode route-missing item to be skipped, got %v", err)
+	}
+	report := adm.NavigationLifecycleReport()
+	if report.RouteMissingPolicy != NavigationRouteMissingPolicyReport {
+		t.Fatalf("expected report route-missing policy, got %#v", report)
+	}
+	if !stringSliceContains(report.RouteMissingItems, "admin_main.broken") && !stringSliceContains(report.RouteMissingItems, "broken") {
+		t.Fatalf("expected route-missing lifecycle diagnostic, got %#v", report)
+	}
+	menu, err := menuSvc.Menu(ctx, "admin_main", "en")
+	if err != nil {
+		t.Fatalf("menu: %v", err)
+	}
+	if countMenuItemsByTargetKey(menu.Items, "broken") != 0 {
+		t.Fatalf("expected broken item to be skipped in report mode, got %#v", menu.Items)
+	}
+}
+
+func TestAdminPersistMenuItemsFailsWhenRawInventoryProviderErrors(t *testing.T) {
+	ctx := context.Background()
+	rawErr := errors.New("raw inventory unavailable")
+	menuSvc := &adminRawInventoryErrorMenuService{
+		InMemoryMenuService: NewInMemoryMenuService(),
+		err:                 rawErr,
+	}
+	adm := mustNewAdmin(t, Config{
+		DefaultLocale: "en",
+		NavMenuCode:   "admin_main",
+	}, Dependencies{FeatureGate: featureGateFromKeys(FeatureCMS)})
+	adm.UseCMS(&stubCMSContainer{menu: menuSvc})
+	mustCreateNavigationTestMenu(t, menuSvc, ctx, "admin_main")
+
+	err := adm.addMenuItems(ctx, []MenuItem{{
+		Label:  "Media",
+		Locale: "en",
+		Menu:   "admin_main",
+		Target: map[string]any{"type": "url", "path": "/admin/media", "key": "media"},
+	}})
+	if err == nil || !strings.Contains(err.Error(), "navigation raw inventory unavailable") {
+		t.Fatalf("expected raw inventory error, got %v", err)
+	}
+	report := adm.NavigationLifecycleReport()
+	if len(report.RawInventoryErrors) != 1 || !strings.Contains(report.RawInventoryErrors[0], rawErr.Error()) {
+		t.Fatalf("expected raw inventory lifecycle diagnostic, got %#v", report)
 	}
 }
 
@@ -810,6 +935,15 @@ type adminRawInventoryOnlyMenuService struct {
 
 func (s *adminRawInventoryOnlyMenuService) RawMenuItems(context.Context, string) ([]MenuItem, error) {
 	return append([]MenuItem{}, s.raw...), nil
+}
+
+type adminRawInventoryErrorMenuService struct {
+	*InMemoryMenuService
+	err error
+}
+
+func (s *adminRawInventoryErrorMenuService) RawMenuItems(context.Context, string) ([]MenuItem, error) {
+	return nil, s.err
 }
 
 func (s *contextRecordingMenuService) UpdateMenuItem(ctx context.Context, menuCode string, item MenuItem) error {
