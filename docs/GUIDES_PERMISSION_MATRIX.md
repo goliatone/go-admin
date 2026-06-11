@@ -1,6 +1,10 @@
 # Permission Matrix Guide
 
-This guide explains the `permission-matrix` form component used by Roles and other generated forms in `go-admin`, including the split role permission model, chips-based additional permissions, and customization hooks.
+This guide explains the `permission-matrix` form component used by Roles and
+other generated forms in `go-admin`, including the split role permission model,
+chips-based additional permissions, and customization hooks. For the broader
+authentication, permissions, scope, and debugging workflow, see
+`GUIDE_AUTH_PERMISSIONS.md`.
 
 ## What it provides
 
@@ -55,7 +59,14 @@ Roles use three permission-matrix fields. The Users module schema in `admin/user
 | `permissions_debug` | `admin.debug` | `repl`, `repl.exec` | Dedicated debug REPL row with `showExtra: false`. |
 | `permissions_translation` | `admin.translations` | `view`, `edit`, `manage`, `assign`, `approve`, `claim`, `export`, `import.view`, `import.validate`, `import.apply` | Dedicated translation row with `showExtra: false`. |
 
-Role records still store one merged permission list. `roleToRecord` splits `admin.debug.*` and `admin.translations.*` into the dedicated form fields for editing, and `recordToRole` merges `permissions`, `permissions_debug`, and `permissions_translation` back together on save.
+Role records still store one merged permission list. The Users module conversion
+splits `admin.debug.*` and `admin.translations.*` into the dedicated form fields
+for editing, then merges `permissions`, `permissions_debug`, and
+`permissions_translation` back together on save. Custom handlers must do the
+same for every split field they render. The quickstart HTML roles handler
+currently merges `permissions` and `permissions_debug`; do not rely on
+`permissions_translation` round-tripping through that route unless the host adds
+the merge.
 
 The primary `permissions` matrix sets `extraIgnorePrefixes` for:
 
@@ -203,6 +214,6 @@ Without relationship runtime initialization, the select still works as a plain `
 - `GUIDE_FORMGEN.md`
 - `GUIDE_MODULES.md`
 - `GUIDE_ROLES.md`
+- `GUIDE_AUTH_PERMISSIONS.md`
 - `GUIDE_VIEW_CUSTOMIZATION.md`
 - `GUIDE_FEATURE_GATES.md`
-- `../quickstart/README.md`

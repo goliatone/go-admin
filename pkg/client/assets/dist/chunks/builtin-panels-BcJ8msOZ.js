@@ -1,7 +1,7 @@
 import { escapeHTML as s } from "../shared/html.js";
 import { normalizeDebugBasePath as te } from "../debug/shared/path-helpers.js";
 import { r as m } from "./icons-munwu0_3.js";
-import { C as f, D as P, F as h, I as U, L as oe, M as j, N as C, O as re, P as b, T as y, i as ne, j as A, k as se, v as S, z as k } from "./server-definitions-D9oC1-kz.js";
+import { C as f, D as P, F as h, I as U, L as oe, M as j, N as C, O as re, P as b, T as y, i as ne, j as A, k as se, v as S, z as k } from "./server-definitions-b9gaGPLu.js";
 var ae = 1e3, ie = 12e3, le = 8, de = 1, ce = 3e4, pe = (e) => {
   const t = window.location.protocol === "https:" ? "wss:" : "ws:", o = te(e);
   return `${t}//${window.location.host}${o}/ws`;
@@ -3259,4 +3259,4 @@ export {
   Kt as y
 };
 
-//# sourceMappingURL=builtin-panels-BZg1Mdx5.js.map
+//# sourceMappingURL=builtin-panels-BcJ8msOZ.js.map

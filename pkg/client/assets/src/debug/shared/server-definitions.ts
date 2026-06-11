@@ -290,6 +290,33 @@ function renderPanelActionControls(serverDef: ServerPanelDefinition, styles: Sty
   if (!panelID || actions.length === 0) {
     return '';
   }
+  const layoutMode = normalizeID(serverDef.ui?.action_layout?.mode) || 'list';
+  if (layoutMode === 'select') {
+    const pickerLabel = normalizeText(serverDef.ui?.action_layout?.picker_label) || 'Action';
+    const emptyText = normalizeText(serverDef.ui?.action_layout?.empty_text) || 'Select an action to continue.';
+    return `
+      <div class="${styles.panelControls}" data-panel-action-launcher="${escapeHTML(panelID)}" style="display:flex;flex-direction:column;gap:0.75rem;align-items:stretch">
+        <div class="debug-filter debug-filter--grow">
+          <label>${escapeHTML(pickerLabel)}</label>
+          <select data-panel-action-picker="${escapeHTML(panelID)}">
+            <option value="">${escapeHTML(emptyText)}</option>
+            ${actions.map((action) => {
+              const actionID = normalizeID(action.id);
+              const label = normalizeText(action.label) || actionID;
+              return actionID ? `<option value="${escapeHTML(actionID)}">${escapeHTML(label)}</option>` : '';
+            }).join('')}
+          </select>
+        </div>
+        ${actions.map((action) => {
+          const actionID = normalizeID(action.id);
+          if (!actionID) {
+            return '';
+          }
+          return `<div data-panel-action-choice="${escapeHTML(actionID)}" hidden>${renderPanelActionControl(panelID, actionID, action, styles)}</div>`;
+        }).join('')}
+      </div>
+    `;
+  }
   return `
     <div class="${styles.panelControls}">
       ${actions.map((action) => {
@@ -297,38 +324,48 @@ function renderPanelActionControls(serverDef: ServerPanelDefinition, styles: Sty
         if (!actionID) {
           return '';
         }
-        const payload = renderActionPayload(action.payload);
-        const fields = Array.isArray(action.fields) ? action.fields : [];
-        if (fields.length > 0) {
-          return `
-            <form
-              data-panel-action-form
-              data-panel-id="${escapeHTML(panelID)}"
-              data-action-id="${escapeHTML(actionID)}"
-              data-action-confirm="${escapeHTML(normalizeText(action.confirm_text))}"
-              data-action-requires-confirm="${action.requires_confirm ? 'true' : 'false'}"
-              data-action-payload='${payload}'
-              style="display:flex;flex-wrap:wrap;gap:0.5rem;align-items:flex-end"
-            >
-              ${fields.map((field, index) => renderPanelActionField(panelID, actionID, field, index)).join('')}
-              <button type="submit" class="${styles.sortToggle}">${escapeHTML(normalizeText(action.label) || actionID)}</button>
-            </form>
-          `;
-        }
-        return `
-          <button
-            type="button"
-            class="${styles.sortToggle}"
-            data-panel-action
-            data-panel-id="${escapeHTML(panelID)}"
-            data-action-id="${escapeHTML(actionID)}"
-            data-action-confirm="${escapeHTML(normalizeText(action.confirm_text))}"
-            data-action-requires-confirm="${action.requires_confirm ? 'true' : 'false'}"
-            data-action-payload='${payload}'
-          >${escapeHTML(normalizeText(action.label) || actionID)}</button>
-        `;
+        return renderPanelActionControl(panelID, actionID, action, styles);
       }).join('')}
     </div>
+  `;
+}
+
+function renderPanelActionControl(
+  panelID: string,
+  actionID: string,
+  action: NonNullable<ServerPanelUI['actions']>[number],
+  styles: StyleConfig
+): string {
+  const payload = renderActionPayload(action.payload);
+  const fields = Array.isArray(action.fields) ? action.fields : [];
+  const submitLabel = normalizeText(action.submit_label) || normalizeText(action.label) || actionID;
+  if (fields.length > 0) {
+    return `
+      <form
+        data-panel-action-form
+        data-panel-id="${escapeHTML(panelID)}"
+        data-action-id="${escapeHTML(actionID)}"
+        data-action-confirm="${escapeHTML(normalizeText(action.confirm_text))}"
+        data-action-requires-confirm="${action.requires_confirm ? 'true' : 'false'}"
+        data-action-payload='${payload}'
+        style="display:flex;flex-wrap:wrap;gap:0.5rem;align-items:flex-end"
+      >
+        ${fields.map((field, index) => renderPanelActionField(panelID, actionID, field, index)).join('')}
+        <button type="submit" class="${styles.sortToggle}">${escapeHTML(submitLabel)}</button>
+      </form>
+    `;
+  }
+  return `
+    <button
+      type="button"
+      class="${styles.sortToggle}"
+      data-panel-action
+      data-panel-id="${escapeHTML(panelID)}"
+      data-action-id="${escapeHTML(actionID)}"
+      data-action-confirm="${escapeHTML(normalizeText(action.confirm_text))}"
+      data-action-requires-confirm="${action.requires_confirm ? 'true' : 'false'}"
+      data-action-payload='${payload}'
+    >${escapeHTML(submitLabel)}</button>
   `;
 }
 
@@ -375,6 +412,12 @@ function renderPanelActionField(
     <label for="${escapeHTML(fieldID)}" style="display:flex;flex-direction:column;gap:0.25rem;font-size:0.8125rem">
       <span>${escapeHTML(label)}</span>
       ${control}
+      <small
+        data-action-field-error="${escapeHTML(payloadPath)}"
+        data-action-field-name="${escapeHTML(name)}"
+        data-action-id="${escapeHTML(actionID)}"
+        hidden
+      ></small>
       ${description ? `<small>${escapeHTML(description)}</small>` : ''}
     </label>
   `;

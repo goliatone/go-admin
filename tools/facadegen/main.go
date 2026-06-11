@@ -194,6 +194,9 @@ type facadeBuilder struct {
 	typeDecls  []string
 	funcDecls  []string
 	hasIntPtr  bool
+
+	hasRegisterMessageFactory       bool
+	generatedRegisterMessageFactory bool
 }
 
 func newFacadeBuilder(corePath string) *facadeBuilder {
@@ -249,6 +252,9 @@ func (b *facadeBuilder) collectFunc(name string, fn *types.Func) error {
 	if name == "IntPtr" {
 		b.hasIntPtr = true
 	}
+	if name == "RegisterMessageFactory" {
+		b.hasRegisterMessageFactory = true
+	}
 	sig, ok := fn.Type().(*types.Signature)
 	if !ok {
 		return fmt.Errorf("expected function signature for %s", name)
@@ -261,6 +267,9 @@ func (b *facadeBuilder) collectFunc(name string, fn *types.Func) error {
 		return err
 	}
 	b.funcDecls = append(b.funcDecls, decl)
+	if name == "RegisterMessageFactory" {
+		b.generatedRegisterMessageFactory = true
+	}
 	return nil
 }
 
@@ -275,6 +284,9 @@ func (b *facadeBuilder) manualDecls() []string {
 	manualDecls := make([]string, 0, 1)
 	if !b.hasIntPtr {
 		manualDecls = append(manualDecls, "func IntPtr(v int) *int {\n\treturn &v\n}")
+	}
+	if b.hasRegisterMessageFactory && !b.generatedRegisterMessageFactory {
+		manualDecls = append(manualDecls, "func RegisterMessageFactory[T any](bus *CommandBus, name string, build func(map[string]any, []string) (T, error)) error {\n\treturn core.RegisterMessageFactory[T](bus, name, build)\n}")
 	}
 	return manualDecls
 }
@@ -343,7 +355,7 @@ func writeManualDecls(buf *strings.Builder, funcDecls []string, manualDecls []st
 			buf.WriteString("\n\n")
 		}
 		buf.WriteString("// ---- MANUAL COMPATIBILITY SECTION (MINIMAL) ----\n")
-		buf.WriteString("// IntPtr is retained for backward compatibility with existing pkg/admin consumers.\n")
+		buf.WriteString("// These declarations bridge exported core APIs that cannot be rendered mechanically.\n")
 		for i, decl := range manualDecls {
 			buf.WriteString(decl)
 			if i != len(manualDecls)-1 {

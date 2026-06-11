@@ -2,6 +2,7 @@ package quickstart
 
 import (
 	"context"
+	"reflect"
 	"slices"
 	"strings"
 	"testing"
@@ -167,6 +168,103 @@ func TestReconcileGeneratedNavigationDryRunAndApplyRepairsMissingRows(t *testing
 	}
 	if item := findMenuItemByTargetKeyForTest(menu.Items, "translation_queue"); item == nil {
 		t.Fatalf("expected translation queue after apply, got %#v", menu.Items)
+	}
+
+}
+
+func TestReconcileGeneratedNavigationPreservesExtendedMenuFields(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	menuSvc := admin.NewInMemoryMenuService()
+	menuCode := "admin.main"
+	locale := "en"
+	if _, createErr := menuSvc.CreateMenu(ctx, menuCode); createErr != nil {
+		t.Fatalf("CreateMenu: %v", createErr)
+	}
+
+	urlOverride := "/admin/translations/queue?layout=compact"
+	expectedBadge := map[string]any{"label": "Beta", "tone": "warning"}
+	expectedClasses := []string{"nav-translations", "is-emphasized"}
+	expectedStyles := map[string]string{"--accent": "#f80"}
+	item := testGeneratedMenuItem("translations.queue", "", "Translation Queue", "translation_queue", "/admin/translations/queue", 50)
+	item.URLOverride = &urlOverride
+	item.Badge = expectedBadge
+	item.Classes = expectedClasses
+	item.Styles = expectedStyles
+
+	if _, err := ReconcileGeneratedNavigation(ctx, NavigationReconcileOptions{
+		MenuSvc:  menuSvc,
+		MenuCode: menuCode,
+		Locale:   locale,
+		Items:    []admin.MenuItem{item},
+		Apply:    true,
+	}); err != nil {
+		t.Fatalf("apply reconcile: %v", err)
+	}
+	menu, err := menuSvc.Menu(ctx, menuCode, locale)
+	if err != nil {
+		t.Fatalf("read menu: %v", err)
+	}
+	got := findMenuItemByTargetKeyForTest(menu.Items, "translation_queue")
+	if got == nil {
+		t.Fatalf("expected translation queue row, got %#v", menu.Items)
+	}
+	if got.URLOverride == nil || *got.URLOverride != urlOverride {
+		t.Fatalf("expected URLOverride %q, got %#v", urlOverride, got.URLOverride)
+	}
+	if !reflect.DeepEqual(got.Badge, expectedBadge) {
+		t.Fatalf("expected badge %#v, got %#v", expectedBadge, got.Badge)
+	}
+	if !reflect.DeepEqual(got.Classes, expectedClasses) {
+		t.Fatalf("expected classes %#v, got %#v", expectedClasses, got.Classes)
+	}
+	if !reflect.DeepEqual(got.Styles, expectedStyles) {
+		t.Fatalf("expected styles %#v, got %#v", expectedStyles, got.Styles)
+	}
+}
+
+func TestReconcileGeneratedNavigationSecondPassIsIdempotent(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	menuSvc := admin.NewInMemoryMenuService()
+	menuCode := "admin.main"
+	locale := "en"
+	if _, createErr := menuSvc.CreateMenu(ctx, menuCode); createErr != nil {
+		t.Fatalf("CreateMenu: %v", createErr)
+	}
+	expected := []admin.MenuItem{
+		{
+			ID:          NavigationGroupTranslationsID,
+			Type:        admin.MenuItemTypeGroup,
+			GroupTitle:  "Translations",
+			Collapsible: true,
+		},
+		testGeneratedMenuItem("translations.queue", NavigationGroupTranslationsID, "Translation Queue", "translation_queue", "/admin/translations/queue", 50),
+	}
+	if _, err := ReconcileGeneratedNavigation(ctx, NavigationReconcileOptions{
+		MenuSvc:  menuSvc,
+		MenuCode: menuCode,
+		Locale:   locale,
+		Items:    expected,
+		Apply:    true,
+	}); err != nil {
+		t.Fatalf("first apply reconcile: %v", err)
+	}
+
+	second, err := ReconcileGeneratedNavigation(ctx, NavigationReconcileOptions{
+		MenuSvc:  menuSvc,
+		MenuCode: menuCode,
+		Locale:   locale,
+		Items:    expected,
+		Apply:    true,
+	})
+	if err != nil {
+		t.Fatalf("second apply reconcile: %v", err)
+	}
+	if len(second.Creates) != 0 || len(second.Updates) != 0 || len(second.DestructiveCandidates) != 0 || len(second.DuplicateIdentities) != 0 || len(second.StaleTargetStateCleanup) != 0 {
+		t.Fatalf("expected second pass to be normalized-idempotent, got %#v", second)
 	}
 }
 
@@ -478,8 +576,8 @@ func TestReconcileGeneratedNavigationUpdatesStaleGeneratedRows(t *testing.T) {
 	if len(report.Updates) == 0 {
 		t.Fatalf("expected update for stale generated row, got %#v", report)
 	}
-	if len(report.StaleTargetStateCleanup) == 0 {
-		t.Fatalf("expected stale target-state cleanup diagnostic, got %#v", report)
+	if len(report.StaleTargetStateCleanup) != 0 {
+		t.Fatalf("expected in-memory persistence boundary to strip target-state cleanup before reconcile, got %#v", report)
 	}
 	menu, err := menuSvc.Menu(ctx, menuCode, locale)
 	if err != nil {
@@ -497,6 +595,55 @@ func TestReconcileGeneratedNavigationUpdatesStaleGeneratedRows(t *testing.T) {
 	}
 	if _, ok := item.Target["disabled_reason"]; ok {
 		t.Fatalf("expected transient disabled_reason cleared, got %#v", item.Target)
+	}
+}
+
+func TestReconcileGeneratedNavigationAppliesStaleTargetStateCleanup(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	menuCode := "admin.main"
+	locale := "en"
+	expected := testGeneratedMenuItem("translations.queue", "", "Translation Queue", "translation_queue", "/admin/translations/queue", 50)
+	runtime := newSeedNavigationRuntime(ctx, SeedNavigationOptions{
+		MenuCode: menuCode,
+		Locale:   locale,
+		Items:    []admin.MenuItem{expected},
+	})
+	seedItems, err := runtime.seedItems()
+	if err != nil {
+		t.Fatalf("seedItems: %v", err)
+	}
+	stale := seedItems[0]
+	stale.Target["disabled_reason"] = "Permission denied"
+	stale.Target["disabled_reason_code"] = "permission_denied"
+	menuSvc := &staleTargetMenuService{code: menuCode, locale: locale, items: []admin.MenuItem{stale}}
+
+	report, err := ReconcileGeneratedNavigation(ctx, NavigationReconcileOptions{
+		MenuSvc:  menuSvc,
+		MenuCode: menuCode,
+		Locale:   locale,
+		Items:    []admin.MenuItem{expected},
+		Apply:    true,
+	})
+	if err != nil {
+		t.Fatalf("reconcile stale target state: %v", err)
+	}
+	if len(report.Updates) == 0 {
+		t.Fatalf("expected stale target cleanup update, got %#v", report)
+	}
+	if !containsStringWithSuffix(report.StaleTargetStateCleanup, "translations.queue") {
+		t.Fatalf("expected stale target cleanup diagnostic, got %#v", report)
+	}
+	updated := findMenuItemByTargetKeyForTest(menuSvc.items, "translation_queue")
+	if updated == nil {
+		t.Fatalf("expected updated translation queue row")
+	}
+	if _, ok := updated.Target["disabled_reason"]; ok {
+		t.Fatalf("expected disabled_reason to be removed, got target %#v", updated.Target)
+	}
+	if _, ok := updated.Target["disabled_reason_code"]; ok {
+		t.Fatalf("expected disabled_reason_code to be removed, got target %#v", updated.Target)
 	}
 }
 
@@ -781,6 +928,53 @@ type rawInventoryMenuService struct {
 
 func (s *rawInventoryMenuService) RawMenuItems(context.Context, string) ([]admin.MenuItem, error) {
 	return append([]admin.MenuItem{}, s.raw...), nil
+}
+
+type staleTargetMenuService struct {
+	code   string
+	locale string
+	items  []admin.MenuItem
+}
+
+func (s *staleTargetMenuService) CreateMenu(context.Context, string) (*admin.Menu, error) {
+	return &admin.Menu{Code: s.code, Slug: s.code, ID: s.code, Location: s.code}, nil
+}
+
+func (s *staleTargetMenuService) AddMenuItem(_ context.Context, _ string, item admin.MenuItem) error {
+	s.items = append(s.items, item)
+	return nil
+}
+
+func (s *staleTargetMenuService) UpdateMenuItem(_ context.Context, _ string, item admin.MenuItem) error {
+	for idx := range s.items {
+		if strings.EqualFold(strings.TrimSpace(s.items[idx].ID), strings.TrimSpace(item.ID)) {
+			s.items[idx] = item
+			return nil
+		}
+	}
+	return admin.ErrNotFound
+}
+
+func (s *staleTargetMenuService) DeleteMenuItem(_ context.Context, _ string, id string) error {
+	for idx := range s.items {
+		if strings.EqualFold(strings.TrimSpace(s.items[idx].ID), strings.TrimSpace(id)) {
+			s.items = append(s.items[:idx], s.items[idx+1:]...)
+			return nil
+		}
+	}
+	return admin.ErrNotFound
+}
+
+func (s *staleTargetMenuService) ReorderMenu(context.Context, string, []string) error {
+	return nil
+}
+
+func (s *staleTargetMenuService) Menu(context.Context, string, string) (*admin.Menu, error) {
+	return &admin.Menu{Code: s.code, Slug: s.code, ID: s.code, Location: s.code, Items: append([]admin.MenuItem{}, s.items...)}, nil
+}
+
+func (s *staleTargetMenuService) MenuByLocation(ctx context.Context, location, locale string) (*admin.Menu, error) {
+	return s.Menu(ctx, location, locale)
 }
 
 func testGeneratedMenuItem(id, parent, label, key, itemPath string, position int) admin.MenuItem {

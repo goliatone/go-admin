@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/goliatone/go-admin/admin"
+	navcontract "github.com/goliatone/go-admin/internal/navigation"
 )
 
 const (
@@ -169,23 +170,5 @@ func generatedMenuItemIdentity(item admin.MenuItem, menuCode string) string {
 }
 
 func cleanGeneratedMenuTarget(target map[string]any) map[string]any {
-	if len(target) == 0 {
-		return nil
-	}
-	out := cloneAnyMap(target)
-	for _, key := range requestScopedMenuTargetKeys() {
-		delete(out, key)
-	}
-	return out
-}
-
-func requestScopedMenuTargetKeys() []string {
-	return []string{
-		"enabled",
-		"disabled",
-		"aria_disabled",
-		"disabled_reason",
-		"disabled_reason_code",
-		"missing_permission",
-	}
+	return navcontract.CleanTarget(target)
 }

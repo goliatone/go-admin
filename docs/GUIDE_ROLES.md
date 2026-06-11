@@ -1,9 +1,10 @@
 # Roles Guide
 
 This guide explains how roles work in go-admin, how to wire the roles UI, and how
-to seed role definitions and assignments. For the broader authentication and
-authorization contract, see `AUTH.md`. For the role form permission editor, see
-`GUIDES_PERMISSION_MATRIX.md`.
+to seed role definitions and assignments. For the broader authentication,
+permissions, scope, and debugging workflow, see `GUIDE_AUTH_PERMISSIONS.md`. For
+the low-level auth/authz contracts, see `AUTH.md`. For the role form permission
+editor, see `GUIDES_PERMISSION_MATRIX.md`.
 
 ## Overview
 
@@ -112,12 +113,16 @@ The default roles form uses three permission matrix fields:
 - `permissions_debug`: debug permissions under `admin.debug.`.
 - `permissions_translation`: translation permissions under `admin.translations.`.
 
-The canonical role record conversion merges those fields back into
+The Users module role conversion merges those fields back into
 `RoleRecord.Permissions` and deduplicates the result. If a host renders the
 embedded Roles schema through a custom handler, that handler must read and merge
-all split permission fields it exposes. The split keeps debug and translation
-permissions from being buried in the primary grid while preserving one role
-permission list in storage.
+all split permission fields it exposes. The quickstart HTML roles handler
+currently merges `permissions` and `permissions_debug`; hosts that need
+translation grants in that route should either keep those grants in the primary
+permissions payload or provide a handler that also merges
+`permissions_translation`. The split keeps debug and translation permissions from
+being buried in the primary grid while preserving one role permission list in
+storage.
 
 Default primary resources include:
 
@@ -502,5 +507,6 @@ Seeded data exists but roles/profiles are empty:
 - `quickstart/user_role_routes.go`
 - `quickstart/user_roles_context.go`
 - `examples/web/setup/users.go`
+- `docs/GUIDE_AUTH_PERMISSIONS.md`
 - `docs/AUTH.md`
 - `docs/GUIDES_PERMISSION_MATRIX.md`

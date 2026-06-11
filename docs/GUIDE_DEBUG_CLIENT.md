@@ -669,5 +669,6 @@ will pick up new panels automatically.
 ## See Also
 
 - [Debug Module Guide](GUIDE_DEBUG_MODULE.md) — Backend configuration, data capture, security, and API reference
+- [Authentication and Permissions Guide](GUIDE_AUTH_PERMISSIONS.md) — Auth, permission, scope, and debug workflow
 - [View Customization Guide](GUIDE_VIEW_CUSTOMIZATION.md) — Template and asset pipeline
 - [Module Development Guide](GUIDE_MODULES.md) — General module patterns

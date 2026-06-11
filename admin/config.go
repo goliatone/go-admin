@@ -100,6 +100,10 @@ type Config struct {
 	// hidden or retained as disabled diagnostics. Empty and unknown values
 	// normalize to "hide".
 	NavPermissionDeniedMode NavigationPermissionDeniedMode `json:"nav_permission_denied_mode"`
+	// NavRouteMissingPolicy controls route-missing module menu behavior.
+	// Empty auto mode is strict in dev/test-like environments and report-only
+	// otherwise. Explicit "strict" and "report" override auto behavior.
+	NavRouteMissingPolicy NavigationRouteMissingPolicy `json:"nav_route_missing_policy"`
 
 	FeatureFlagKeys    []string   `json:"feature_flag_keys"`
 	FeatureCatalogPath string     `json:"feature_catalog_path"`

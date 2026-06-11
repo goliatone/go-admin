@@ -959,4 +959,4 @@ submission sends the hidden `data-block-output` value as a string.
 - [CMS Module Development Guide](GUIDE_CMS.md) - Content management and block storage.
 - [View Customization Guide](GUIDE_VIEW_CUSTOMIZATION.md) - Template and view engine customization.
 - [Theme Guide](GUIDE_THEME.md) - Admin go-theme wiring and theme payloads.
-- [Schema Editor Component](../pkg/client/assets/src/formgen/schema_editor.ts) - JSON schema editing.
+- `pkg/client/assets/src/formgen/schema_editor.ts` - JSON schema editing.

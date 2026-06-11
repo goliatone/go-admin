@@ -3,8 +3,10 @@ package admin
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"reflect"
 	"strings"
+	"sync"
 	"testing"
 
 	router "github.com/goliatone/go-router"
@@ -68,13 +70,23 @@ func TestNavigationPermissionDeniedModeFacadeAndConfigJSON(t *testing.T) {
 	if got := field.Tag.Get("json"); got != "nav_permission_denied_mode" {
 		t.Fatalf("expected nav_permission_denied_mode JSON tag, got %q", got)
 	}
+	field, ok = reflect.TypeFor[Config]().FieldByName("NavRouteMissingPolicy")
+	if !ok {
+		t.Fatalf("expected Config.NavRouteMissingPolicy field")
+	}
+	if got := field.Tag.Get("json"); got != "nav_route_missing_policy" {
+		t.Fatalf("expected nav_route_missing_policy JSON tag, got %q", got)
+	}
 
 	var cfg Config
-	if err := json.Unmarshal([]byte(`{"nav_permission_denied_mode":"disable"}`), &cfg); err != nil {
+	if err := json.Unmarshal([]byte(`{"nav_permission_denied_mode":"disable","nav_route_missing_policy":"report"}`), &cfg); err != nil {
 		t.Fatalf("unmarshal config: %v", err)
 	}
 	if cfg.NavPermissionDeniedMode != NavigationPermissionDeniedModeDisable {
 		t.Fatalf("expected disable mode after unmarshal, got %q", cfg.NavPermissionDeniedMode)
+	}
+	if cfg.NavRouteMissingPolicy != NavigationRouteMissingPolicyReport {
+		t.Fatalf("expected report route missing policy after unmarshal, got %q", cfg.NavRouteMissingPolicy)
 	}
 }
 
@@ -272,12 +284,88 @@ func TestAdminPersistMenuItemsRepairsExistingRowMatchedByTargetKey(t *testing.T)
 	}
 }
 
-func TestAdminPersistMenuItemsPreservesUserRowMatchedOnlyByBroadTargetKey(t *testing.T) {
+func TestAdminPersistMenuItemsReportsRouteMissingItemsByDefaultOutsideDev(t *testing.T) {
 	ctx := context.Background()
 	menuSvc := NewInMemoryMenuService()
 	adm := mustNewAdmin(t, Config{
 		DefaultLocale: "en",
 		NavMenuCode:   "admin_main",
+		Debug:         DebugConfig{Environment: "production"},
+	}, Dependencies{FeatureGate: featureGateFromKeys(FeatureCMS)})
+	adm.UseCMS(&stubCMSContainer{menu: menuSvc})
+	mustCreateNavigationTestMenu(t, menuSvc, ctx, "admin_main")
+
+	err := adm.addMenuItems(ctx, []MenuItem{{
+		Label:  "Broken",
+		Locale: "en",
+		Menu:   "admin_main",
+		Target: map[string]any{"type": "url", "key": "broken"},
+	}})
+	if err != nil {
+		t.Fatalf("expected production default route-missing item to be reported, got %v", err)
+	}
+	report := adm.NavigationLifecycleReport()
+	if report.RouteMissingPolicy != NavigationRouteMissingPolicyReport {
+		t.Fatalf("expected production default report policy, got %#v", report)
+	}
+	if !stringSliceContains(report.RouteMissingItems, "admin_main.broken") && !stringSliceContains(report.RouteMissingItems, "broken") {
+		t.Fatalf("expected route-missing lifecycle diagnostic, got %#v", report)
+	}
+}
+
+func TestNavigationRouteMissingAutoPolicyUsesDevModeSignals(t *testing.T) {
+	tests := []struct {
+		name string
+		cfg  Config
+		want NavigationRouteMissingPolicy
+	}{
+		{
+			name: "errors dev mode is strict",
+			cfg:  Config{Errors: ErrorConfig{DevMode: true}},
+			want: NavigationRouteMissingPolicyStrict,
+		},
+		{
+			name: "debug enabled normalizes to dev mode strict",
+			cfg:  Config{Debug: DebugConfig{Enabled: true}},
+			want: NavigationRouteMissingPolicyStrict,
+		},
+		{
+			name: "test environment is strict",
+			cfg:  Config{Debug: DebugConfig{Environment: "testing"}},
+			want: NavigationRouteMissingPolicyStrict,
+		},
+		{
+			name: "production environment reports",
+			cfg:  Config{Debug: DebugConfig{Environment: "production"}},
+			want: NavigationRouteMissingPolicyReport,
+		},
+		{
+			name: "explicit report overrides dev mode",
+			cfg: Config{
+				Errors:                ErrorConfig{DevMode: true},
+				NavRouteMissingPolicy: NavigationRouteMissingPolicyReport,
+			},
+			want: NavigationRouteMissingPolicyReport,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			adm := mustNewAdmin(t, tc.cfg, Dependencies{})
+			if got := adm.NavigationLifecycleReport().RouteMissingPolicy; got != tc.want {
+				t.Fatalf("expected route missing policy %q, got %q", tc.want, got)
+			}
+		})
+	}
+}
+
+func TestAdminPersistMenuItemsPreservesUserRowMatchedOnlyByBroadTargetKey(t *testing.T) {
+	ctx := context.Background()
+	menuSvc := NewInMemoryMenuService()
+	adm := mustNewAdmin(t, Config{
+		DefaultLocale:         "en",
+		NavMenuCode:           "admin_main",
+		NavRouteMissingPolicy: NavigationRouteMissingPolicyStrict,
 	}, Dependencies{FeatureGate: featureGateFromKeys(FeatureCMS)})
 	adm.UseCMS(&stubCMSContainer{menu: menuSvc})
 
@@ -488,6 +576,455 @@ func TestAdminPersistMenuItemsPreservesCallerContextOnRepair(t *testing.T) {
 	}
 }
 
+func TestAdminPersistMenuItemsUsesRawInventoryWhenRenderedMenuHidesRow(t *testing.T) {
+	ctx := context.Background()
+	rawOnly := MenuItem{
+		ID:          "legacy.media",
+		Label:       "Media",
+		Locale:      "en",
+		Permissions: []string{"admin.archive.view"},
+		Target:      map[string]any{"type": "url", "path": "", "key": "media"},
+	}
+	menuSvc := &adminRawInventoryOnlyMenuService{
+		InMemoryMenuService: NewInMemoryMenuService(),
+		raw:                 []MenuItem{rawOnly},
+	}
+	adm := mustNewAdmin(t, Config{
+		DefaultLocale: "en",
+		NavMenuCode:   "admin_main",
+	}, Dependencies{FeatureGate: featureGateFromKeys(FeatureCMS)})
+	adm.UseCMS(&stubCMSContainer{menu: menuSvc})
+	mustCreateNavigationTestMenu(t, menuSvc, ctx, "admin_main")
+
+	if err := adm.addMenuItems(ctx, []MenuItem{{
+		Label:       "Media",
+		Locale:      "en",
+		Menu:        "admin_main",
+		Permissions: []string{"admin.media.view"},
+		Target:      map[string]any{"type": "url", "path": "/admin/media", "key": "media"},
+	}}); err != nil {
+		t.Fatalf("addMenuItems: %v", err)
+	}
+
+	menu, err := menuSvc.Menu(ctx, "admin_main", "en")
+	if err != nil {
+		t.Fatalf("menu: %v", err)
+	}
+	if got := countMenuItemsByTargetKey(menu.Items, "media"); got != 1 {
+		t.Fatalf("expected one repaired media row from raw inventory, got %d in %#v", got, menu.Items)
+	}
+	item := findMenuItemByTargetKey(menu.Items, "media")
+	if item == nil {
+		t.Fatalf("expected media row")
+	}
+	if got := strings.TrimSpace(toString(item.Target["path"])); got != "/admin/media" {
+		t.Fatalf("expected raw hidden media row to be repaired, got path %q", got)
+	}
+}
+
+func TestAdminPersistMenuItemsPreservesExtendedMenuFields(t *testing.T) {
+	ctx := context.Background()
+	menuSvc := NewInMemoryMenuService()
+	adm := mustNewAdmin(t, Config{
+		DefaultLocale: "en",
+		NavMenuCode:   "admin_main",
+	}, Dependencies{FeatureGate: featureGateFromKeys(FeatureCMS)})
+	adm.UseCMS(&stubCMSContainer{menu: menuSvc})
+	mustCreateNavigationTestMenu(t, menuSvc, ctx, "admin_main")
+	mustAddNavigationTestMenuItem(t, menuSvc, ctx, "admin_main", MenuItem{
+		ID:     "legacy.media",
+		Label:  "Media",
+		Locale: "en",
+		Target: map[string]any{"type": "url", "path": "", "key": "media"},
+	})
+
+	urlOverride := "/admin/media?layout=compact"
+	expectedBadge := map[string]any{"label": "New", "tone": "info"}
+	expectedClasses := []string{"nav-media", "is-promoted"}
+	expectedStyles := map[string]string{"--accent": "#0a7"}
+	if err := adm.addMenuItems(ctx, []MenuItem{{
+		Label:       "Media",
+		Locale:      "en",
+		Menu:        "admin_main",
+		URLOverride: &urlOverride,
+		Badge:       expectedBadge,
+		Classes:     expectedClasses,
+		Styles:      expectedStyles,
+		Target:      map[string]any{"type": "url", "path": "/admin/media", "key": "media"},
+	}}); err != nil {
+		t.Fatalf("addMenuItems: %v", err)
+	}
+
+	menu, err := menuSvc.Menu(ctx, "admin_main", "en")
+	if err != nil {
+		t.Fatalf("menu: %v", err)
+	}
+	item := findMenuItemByTargetKey(menu.Items, "media")
+	if item == nil {
+		t.Fatalf("expected media row, got %#v", menu.Items)
+	}
+	if item.URLOverride == nil || *item.URLOverride != urlOverride {
+		t.Fatalf("expected URLOverride %q, got %#v", urlOverride, item.URLOverride)
+	}
+	if !reflect.DeepEqual(item.Badge, expectedBadge) {
+		t.Fatalf("expected badge %#v, got %#v", expectedBadge, item.Badge)
+	}
+	if !reflect.DeepEqual(item.Classes, expectedClasses) {
+		t.Fatalf("expected classes %#v, got %#v", expectedClasses, item.Classes)
+	}
+	if !reflect.DeepEqual(item.Styles, expectedStyles) {
+		t.Fatalf("expected styles %#v, got %#v", expectedStyles, item.Styles)
+	}
+}
+
+func TestAdminPersistMenuItemsFailsLoudlyForRouteMissingModuleItem(t *testing.T) {
+	ctx := context.Background()
+	menuSvc := NewInMemoryMenuService()
+	adm := mustNewAdmin(t, Config{
+		DefaultLocale:         "en",
+		NavMenuCode:           "admin_main",
+		NavRouteMissingPolicy: NavigationRouteMissingPolicyStrict,
+	}, Dependencies{FeatureGate: featureGateFromKeys(FeatureCMS)})
+	adm.UseCMS(&stubCMSContainer{menu: menuSvc})
+	mustCreateNavigationTestMenu(t, menuSvc, ctx, "admin_main")
+
+	err := adm.addMenuItems(ctx, []MenuItem{{
+		Label:  "Broken",
+		Locale: "en",
+		Menu:   "admin_main",
+		Target: map[string]any{"type": "url", "key": "broken"},
+	}})
+	if err == nil {
+		t.Fatalf("expected route-missing module item to fail")
+	}
+	if !strings.Contains(err.Error(), "navigation route target missing") {
+		t.Fatalf("expected route-missing error, got %v", err)
+	}
+	report := adm.NavigationLifecycleReport()
+	if !stringSliceContains(report.RouteMissingItems, "admin_main.broken") && !stringSliceContains(report.RouteMissingItems, "broken") {
+		t.Fatalf("expected route-missing lifecycle diagnostic, got %#v", report)
+	}
+}
+
+func TestAdminPersistMenuItemsFailsForRouteMissingModuleItemInAutoDevMode(t *testing.T) {
+	ctx := context.Background()
+	menuSvc := NewInMemoryMenuService()
+	adm := mustNewAdmin(t, Config{
+		DefaultLocale: "en",
+		NavMenuCode:   "admin_main",
+		Errors:        ErrorConfig{DevMode: true},
+	}, Dependencies{FeatureGate: featureGateFromKeys(FeatureCMS)})
+	adm.UseCMS(&stubCMSContainer{menu: menuSvc})
+	mustCreateNavigationTestMenu(t, menuSvc, ctx, "admin_main")
+
+	err := adm.addMenuItems(ctx, []MenuItem{{
+		Label:  "Broken",
+		Locale: "en",
+		Menu:   "admin_main",
+		Target: map[string]any{"type": "url", "key": "broken"},
+	}})
+	if err == nil {
+		t.Fatalf("expected route-missing module item to fail in dev auto mode")
+	}
+	if !strings.Contains(err.Error(), "navigation route target missing") {
+		t.Fatalf("expected route-missing error, got %v", err)
+	}
+	report := adm.NavigationLifecycleReport()
+	if report.RouteMissingPolicy != NavigationRouteMissingPolicyStrict {
+		t.Fatalf("expected strict route-missing policy in dev auto mode, got %#v", report)
+	}
+	if !stringSliceContains(report.RouteMissingItems, "admin_main.broken") && !stringSliceContains(report.RouteMissingItems, "broken") {
+		t.Fatalf("expected route-missing lifecycle diagnostic, got %#v", report)
+	}
+}
+
+func TestAdminPersistMenuItemsReportsAndSkipsRouteMissingItemsInReportMode(t *testing.T) {
+	ctx := context.Background()
+	menuSvc := NewInMemoryMenuService()
+	adm := mustNewAdmin(t, Config{
+		DefaultLocale: "en",
+		NavMenuCode:   "admin_main",
+	}, Dependencies{FeatureGate: featureGateFromKeys(FeatureCMS)})
+	adm.UseCMS(&stubCMSContainer{menu: menuSvc})
+	adm.WithNavigationRouteMissingPolicy(NavigationRouteMissingPolicyReport)
+	mustCreateNavigationTestMenu(t, menuSvc, ctx, "admin_main")
+
+	err := adm.addMenuItems(ctx, []MenuItem{{
+		Label:  "Broken",
+		Locale: "en",
+		Menu:   "admin_main",
+		Target: map[string]any{"type": "url", "key": "broken"},
+	}})
+	if err != nil {
+		t.Fatalf("expected report-mode route-missing item to be skipped, got %v", err)
+	}
+	report := adm.NavigationLifecycleReport()
+	if report.RouteMissingPolicy != NavigationRouteMissingPolicyReport {
+		t.Fatalf("expected report route-missing policy, got %#v", report)
+	}
+	if !stringSliceContains(report.RouteMissingItems, "admin_main.broken") && !stringSliceContains(report.RouteMissingItems, "broken") {
+		t.Fatalf("expected route-missing lifecycle diagnostic, got %#v", report)
+	}
+	menu, err := menuSvc.Menu(ctx, "admin_main", "en")
+	if err != nil {
+		t.Fatalf("menu: %v", err)
+	}
+	if countMenuItemsByTargetKey(menu.Items, "broken") != 0 {
+		t.Fatalf("expected broken item to be skipped in report mode, got %#v", menu.Items)
+	}
+}
+
+func TestAdminPersistMenuItemsFailsWhenRawInventoryProviderErrors(t *testing.T) {
+	ctx := context.Background()
+	rawErr := errors.New("raw inventory unavailable")
+	menuSvc := &adminRawInventoryErrorMenuService{
+		InMemoryMenuService: NewInMemoryMenuService(),
+		err:                 rawErr,
+	}
+	adm := mustNewAdmin(t, Config{
+		DefaultLocale: "en",
+		NavMenuCode:   "admin_main",
+	}, Dependencies{FeatureGate: featureGateFromKeys(FeatureCMS)})
+	adm.UseCMS(&stubCMSContainer{menu: menuSvc})
+	mustCreateNavigationTestMenu(t, menuSvc, ctx, "admin_main")
+
+	err := adm.addMenuItems(ctx, []MenuItem{{
+		Label:  "Media",
+		Locale: "en",
+		Menu:   "admin_main",
+		Target: map[string]any{"type": "url", "path": "/admin/media", "key": "media"},
+	}})
+	if err == nil || !strings.Contains(err.Error(), "navigation raw inventory unavailable") {
+		t.Fatalf("expected raw inventory error, got %v", err)
+	}
+	report := adm.NavigationLifecycleReport()
+	if len(report.RawInventoryErrors) != 1 || !strings.Contains(report.RawInventoryErrors[0], rawErr.Error()) {
+		t.Fatalf("expected raw inventory lifecycle diagnostic, got %#v", report)
+	}
+}
+
+func TestInMemoryMenuServiceStripsRequestScopedTargetState(t *testing.T) {
+	ctx := context.Background()
+	menuSvc := NewInMemoryMenuService()
+	mustCreateNavigationTestMenu(t, menuSvc, ctx, "admin_main")
+
+	if err := menuSvc.AddMenuItem(ctx, "admin_main", MenuItem{
+		ID:     "admin_main.debug",
+		Label:  "Debug",
+		Locale: "en",
+		Target: map[string]any{
+			"type":                 "url",
+			"path":                 "/admin/debug",
+			"enabled":              false,
+			"disabled":             true,
+			"disabled_reason":      "Permission denied",
+			"disabled_reason_code": "permission_denied",
+		},
+	}); err != nil {
+		t.Fatalf("AddMenuItem: %v", err)
+	}
+	raw, err := menuSvc.RawMenuItems(ctx, "admin_main")
+	if err != nil {
+		t.Fatalf("RawMenuItems: %v", err)
+	}
+	if len(raw) != 1 {
+		t.Fatalf("expected one raw row, got %#v", raw)
+	}
+	for _, key := range []string{"enabled", "disabled", "disabled_reason", "disabled_reason_code"} {
+		if _, ok := raw[0].Target[key]; ok {
+			t.Fatalf("expected request scoped key %q to be stripped, got target %#v", key, raw[0].Target)
+		}
+	}
+}
+
+func TestAdminDiagnoseNavigationUsesSharedClassifierAndRawInventory(t *testing.T) {
+	ctx := context.Background()
+	menuSvc := &adminRawInventoryOnlyMenuService{
+		InMemoryMenuService: NewInMemoryMenuService(),
+		raw: []MenuItem{{
+			ID:     "admin_main.media",
+			Label:  "Media",
+			Locale: "en",
+			Target: map[string]any{
+				"_menu_owner":    "go-admin.programmatic",
+				"_menu_owner_id": "media",
+				"type":           "url",
+				"path":           "/admin/media",
+				"key":            "media",
+			},
+		}},
+	}
+	adm := mustNewAdmin(t, Config{
+		DefaultLocale: "en",
+		NavMenuCode:   "admin_main",
+	}, Dependencies{FeatureGate: featureGateFromKeys(FeatureCMS)})
+	adm.UseCMS(&stubCMSContainer{menu: menuSvc})
+	mustCreateNavigationTestMenu(t, menuSvc, ctx, "admin_main")
+
+	report, err := adm.DiagnoseNavigation(ctx, NavigationDoctorOptions{
+		MenuCode: "admin_main",
+		Locale:   "en",
+		Expected: []NavigationDoctorExpectedItem{{
+			Owner: NavigationOwnerModule,
+			Item: MenuItem{
+				ID:     "admin_main.media",
+				Label:  "Media",
+				Locale: "en",
+				Target: map[string]any{
+					"_menu_owner":    "go-admin.programmatic",
+					"_menu_owner_id": "media",
+					"type":           "url",
+					"path":           "/admin/media",
+					"key":            "media",
+				},
+			},
+		}},
+	})
+	if err != nil {
+		t.Fatalf("DiagnoseNavigation: %v", err)
+	}
+	if report.EngineIdentity == "" || report.EngineVersion == "" {
+		t.Fatalf("expected engine stamp, got %#v", report)
+	}
+	if len(report.Items) != 1 {
+		t.Fatalf("expected one classified item, got %#v", report.Items)
+	}
+	if report.Items[0].Classification != NavigationClassificationRawPresentNotRendered {
+		t.Fatalf("expected raw-present-not-rendered classification, got %#v", report.Items[0])
+	}
+}
+
+func TestNavigationContributionLifecycleRejectsLateWritesInStrictMode(t *testing.T) {
+	menuSvc := NewInMemoryMenuService()
+	adm := mustNewAdmin(t, Config{
+		DefaultLocale: "en",
+		NavMenuCode:   "admin.main",
+	}, Dependencies{FeatureGate: featureGateFromKeys(FeatureCMS)})
+	adm.UseCMS(&stubCMSContainer{menu: menuSvc})
+	adm.WithNavigationContributionPolicy(NavigationContributionPolicyStrict)
+	report := adm.CloseNavigationContributions()
+	if !report.ContributionsClosed || report.Policy != NavigationContributionPolicyStrict {
+		t.Fatalf("expected strict closed lifecycle report, got %#v", report)
+	}
+
+	err := adm.addMenuItems(context.Background(), []MenuItem{{
+		ID:     "admin_main.late",
+		Label:  "Late",
+		Locale: "en",
+		Target: map[string]any{"type": "url", "path": "/admin/late", "key": "late"},
+	}})
+	if err == nil || !strings.Contains(err.Error(), "navigation contributions closed") {
+		t.Fatalf("expected late write rejection, got %v", err)
+	}
+}
+
+func TestNavigationContributionLifecycleQueuesLateWritesInTolerantMode(t *testing.T) {
+	ctx := context.Background()
+	menuSvc := NewInMemoryMenuService()
+	adm := mustNewAdmin(t, Config{
+		DefaultLocale: "en",
+		NavMenuCode:   "admin.main",
+	}, Dependencies{FeatureGate: featureGateFromKeys(FeatureCMS)})
+	adm.UseCMS(&stubCMSContainer{menu: menuSvc})
+	adm.WithNavigationContributionPolicy(NavigationContributionPolicyTolerant)
+	adm.CloseNavigationContributions()
+
+	err := adm.addMenuItems(ctx, []MenuItem{{
+		ID:     "admin_main.late",
+		Label:  "Late",
+		Locale: "en",
+		Target: map[string]any{"type": "url", "path": "/admin/late", "key": "late"},
+	}})
+	if err != nil {
+		t.Fatalf("expected tolerant late write to queue, got %v", err)
+	}
+	if got := adm.NavigationLifecycleReport().QueuedItems; got != 1 {
+		t.Fatalf("expected one queued item, got %d", got)
+	}
+	if flushErr := adm.FlushQueuedNavigationContributions(ctx); flushErr != nil {
+		t.Fatalf("flush queued navigation contributions: %v", flushErr)
+	}
+	if got := adm.NavigationLifecycleReport().QueuedItems; got != 0 {
+		t.Fatalf("expected queue to drain, got %d", got)
+	}
+	menu, err := menuSvc.Menu(ctx, "admin.main", "en")
+	if err != nil {
+		t.Fatalf("menu: %v", err)
+	}
+	if countMenuItemsByTargetKey(menu.Items, "late") != 1 {
+		t.Fatalf("expected flushed late item, got %#v", menu.Items)
+	}
+}
+
+func TestNavigationContributionLifecycleRetainsQueuedWritesWhenFlushFails(t *testing.T) {
+	ctx := context.Background()
+	menuSvc := &adminRawInventoryErrorMenuService{
+		InMemoryMenuService: NewInMemoryMenuService(),
+		err:                 errors.New("raw inventory failed"),
+	}
+	adm := mustNewAdmin(t, Config{
+		DefaultLocale: "en",
+		NavMenuCode:   "admin.main",
+	}, Dependencies{FeatureGate: featureGateFromKeys(FeatureCMS)})
+	adm.UseCMS(&stubCMSContainer{menu: menuSvc})
+	adm.WithNavigationContributionPolicy(NavigationContributionPolicyTolerant)
+	adm.CloseNavigationContributions()
+
+	if err := adm.addMenuItems(ctx, []MenuItem{{
+		ID:     "admin_main.late",
+		Label:  "Late",
+		Locale: "en",
+		Target: map[string]any{"type": "url", "path": "/admin/late", "key": "late"},
+	}}); err != nil {
+		t.Fatalf("queue late navigation item: %v", err)
+	}
+	err := adm.FlushQueuedNavigationContributions(ctx)
+	if err == nil || !strings.Contains(err.Error(), "navigation raw inventory unavailable") {
+		t.Fatalf("expected raw inventory flush error, got %v", err)
+	}
+	if got := adm.NavigationLifecycleReport().QueuedItems; got != 1 {
+		t.Fatalf("expected failed flush to retain queued item, got %d", got)
+	}
+}
+
+func TestNavigationConvergenceSerializesConcurrentModuleWrites(t *testing.T) {
+	ctx := context.Background()
+	menuSvc := NewInMemoryMenuService()
+	adm := mustNewAdmin(t, Config{
+		DefaultLocale: "en",
+		NavMenuCode:   "admin.main",
+	}, Dependencies{FeatureGate: featureGateFromKeys(FeatureCMS)})
+	adm.UseCMS(&stubCMSContainer{menu: menuSvc})
+
+	item := MenuItem{
+		ID:     "admin_main.concurrent",
+		Label:  "Concurrent",
+		Locale: "en",
+		Target: map[string]any{"type": "url", "path": "/admin/concurrent", "key": "concurrent"},
+	}
+	var wg sync.WaitGroup
+	errs := make(chan error, 2)
+	for range 2 {
+		wg.Go(func() {
+			errs <- adm.addMenuItems(ctx, []MenuItem{item})
+		})
+	}
+	wg.Wait()
+	close(errs)
+	for err := range errs {
+		if err != nil {
+			t.Fatalf("addMenuItems: %v", err)
+		}
+	}
+	menu, err := menuSvc.Menu(ctx, "admin.main", "en")
+	if err != nil {
+		t.Fatalf("menu: %v", err)
+	}
+	if countMenuItemsByTargetKey(menu.Items, "concurrent") != 1 {
+		t.Fatalf("expected one concurrent item, got %#v", menu.Items)
+	}
+}
+
 type denySettingsNav struct{}
 
 func (denySettingsNav) Can(ctx context.Context, action string, resource string) bool {
@@ -537,6 +1074,24 @@ type contextRecordingMenuService struct {
 	*InMemoryMenuService
 	key                any
 	updateContextValue any
+}
+
+type adminRawInventoryOnlyMenuService struct {
+	*InMemoryMenuService
+	raw []MenuItem
+}
+
+func (s *adminRawInventoryOnlyMenuService) RawMenuItems(context.Context, string) ([]MenuItem, error) {
+	return append([]MenuItem{}, s.raw...), nil
+}
+
+type adminRawInventoryErrorMenuService struct {
+	*InMemoryMenuService
+	err error
+}
+
+func (s *adminRawInventoryErrorMenuService) RawMenuItems(context.Context, string) ([]MenuItem, error) {
+	return nil, s.err
 }
 
 func (s *contextRecordingMenuService) UpdateMenuItem(ctx context.Context, menuCode string, item MenuItem) error {

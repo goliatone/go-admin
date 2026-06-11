@@ -209,6 +209,7 @@ func normalizeSeedMenuItem(menuCode string, defaultLocale string, item admin.Men
 		ID:          path,
 		Position:    position,
 		Type:        itemType,
+		URLOverride: cloneStringPtr(item.URLOverride),
 		Target:      target,
 		Icon:        strings.TrimSpace(item.Icon),
 		Badge:       cloneAnyMap(item.Badge),

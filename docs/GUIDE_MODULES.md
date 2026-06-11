@@ -232,7 +232,7 @@ Features:
 - User listing with filters (status, role)
 - Role assignment and permission management
 - Search adapter for global user search
-- Role form permission matrix with dedicated debug/translation rows and chips-based Additional permissions (see `GUIDES_PERMISSION_MATRIX.md`)
+- Role form permission matrix with dedicated debug/translation rows and chips-based Additional permissions (see `GUIDES_PERMISSION_MATRIX.md`; for broader auth, permissions, scope, and debugging, see `GUIDE_AUTH_PERMISSIONS.md`)
 
 ### Tenants Module
 
@@ -2363,6 +2363,5 @@ reconciliation contract.
 - [Search Guide](GUIDE_SEARCH.md) — Admin global search, public site search, and go-search adapters
 - [Debug Module Guide](GUIDE_DEBUG_MODULE.md) — Debug module configuration and APIs
 - [Routing Guide](GUIDE_ROUTING.md) — Module route ownership and mount policy
+- [Authentication and Permissions Guide](GUIDE_AUTH_PERMISSIONS.md) — Auth, permission, scope, and debug workflow
 - [Auth Guide](AUTH.md) — Authentication and authorization patterns
-- [Quickstart README](../quickstart/README.md) — Bootstrap helpers and adapters
-- [Architecture & Design](../CLAUDE.md) — Package structure and design principles

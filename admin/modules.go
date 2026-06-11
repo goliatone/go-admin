@@ -2,12 +2,14 @@ package admin
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
 	"github.com/goliatone/go-admin/admin/internal/modules"
 	navinternal "github.com/goliatone/go-admin/admin/internal/navigation"
 	"github.com/goliatone/go-admin/admin/routing"
+	navcontract "github.com/goliatone/go-admin/internal/navigation"
 	"github.com/goliatone/go-admin/internal/primitives"
 	router "github.com/goliatone/go-router"
 )
@@ -80,8 +82,18 @@ func (a *Admin) loadModules(ctx context.Context) error {
 		return err
 	}
 	authMiddleware, publicRouter, protectedRouter := a.moduleRouters()
-	err = modules.Load(ctx, a.moduleLoadOptions(ctx, modulesToLoad, routingContexts, authMiddleware, publicRouter, protectedRouter))
+	pendingMenuItems := []MenuItem{}
+	loadOptions := a.moduleLoadOptions(ctx, modulesToLoad, routingContexts, authMiddleware, publicRouter, protectedRouter)
+	loadOptions.AddMenuItems = func(ctx context.Context, items []navinternal.MenuItem) error {
+		pendingMenuItems = append(pendingMenuItems, cloneNavigationContributionItems(items)...)
+		return nil
+	}
+	err = modules.Load(ctx, loadOptions)
 	if err != nil {
+		return err
+	}
+	a.CloseNavigationContributions()
+	if err := a.addMenuItemsNow(ctx, pendingMenuItems); err != nil {
 		return err
 	}
 	a.modulesLoaded = true
@@ -271,6 +283,19 @@ func (a *Admin) addMenuItems(ctx context.Context, items []MenuItem) error {
 	if len(items) == 0 {
 		return nil
 	}
+	handled, err := a.queueOrRejectLateNavigationItems(items)
+	if handled || err != nil {
+		return err
+	}
+	return a.addMenuItemsNow(ctx, items)
+}
+
+func (a *Admin) addMenuItemsNow(ctx context.Context, items []MenuItem) error {
+	if len(items) == 0 {
+		return nil
+	}
+	a.navigationConvergenceMu.Lock()
+	defer a.navigationConvergenceMu.Unlock()
 	cmsEnabled := featureEnabled(a.featureGate, FeatureCMS)
 	fallbackItems := []MenuItem{}
 	if a.menuSvc != nil {
@@ -291,14 +316,36 @@ func (a *Admin) persistMenuItems(ctx context.Context, items []MenuItem) ([]MenuI
 	menuCodes := map[string]bool{}
 	fallbackItems := []MenuItem{}
 	for _, item := range items {
-		code, normalized, index := a.normalizePersistedMenuItem(ctx, item, menuIndexes)
-		match, ok, ambiguous := index.match(normalized)
-		if ok && !ambiguous {
-			persisted, err := a.updatePersistedMenuItem(ctx, code, normalized, match)
+		code, normalized, index, err := a.normalizePersistedMenuItem(ctx, item, menuIndexes)
+		if err != nil {
+			return nil, err
+		}
+		if navcontract.MissingRoute(navigationContractItem(normalized)) {
+			a.recordNavigationRouteMissing(normalized)
+			if a.navigationRouteMissingPolicyStrict() {
+				return nil, validationDomainError("navigation route target missing", map[string]any{
+					"component": "navigation",
+					"menu":      code,
+					"id":        strings.TrimSpace(normalized.ID),
+				})
+			}
+			a.loggerFor("admin.navigation").Warn("navigation route target missing",
+				"component", "navigation",
+				"menu", code,
+				"id", strings.TrimSpace(normalized.ID),
+			)
+			continue
+		}
+		planned := index.plan(normalized)
+		if planned.Matched && !planned.Ambiguous && !planned.UnsafeBroad {
+			persisted, err := a.updatePersistedMenuItem(ctx, code, adminMenuItemFromNavigationContract(planned.Update), persistedMenuItemMatch{
+				Item: adminMenuItemFromNavigationContract(planned.Actual),
+				Key:  planned.MatchKey,
+			})
 			if err != nil {
 				return nil, err
 			}
-			index.replace(match.Item, persisted)
+			index.replace(adminMenuItemFromNavigationContract(planned.Actual), persisted)
 			continue
 		}
 		if err := a.ensurePersistentMenu(ctx, code, menuCodes); err != nil {
@@ -316,7 +363,7 @@ func (a *Admin) persistMenuItems(ctx context.Context, items []MenuItem) ([]MenuI
 	return fallbackItems, nil
 }
 
-func (a *Admin) normalizePersistedMenuItem(ctx context.Context, item MenuItem, menuIndexes map[string]*persistedMenuItemIndex) (string, MenuItem, *persistedMenuItemIndex) {
+func (a *Admin) normalizePersistedMenuItem(ctx context.Context, item MenuItem, menuIndexes map[string]*persistedMenuItemIndex) (string, MenuItem, *persistedMenuItemIndex, error) {
 	code := item.Menu
 	if code == "" {
 		code = a.navMenuCode
@@ -332,11 +379,31 @@ func (a *Admin) normalizePersistedMenuItem(ctx context.Context, item MenuItem, m
 	if !ok {
 		index = newPersistedMenuItemIndex()
 		menuIndexes[code] = index
-		if menu, err := a.menuSvc.Menu(ctx, code, item.Locale); err == nil && menu != nil {
+		if raw, err := a.rawPersistedMenuItems(ctx, code); err == nil {
+			index.addAll(flattenPersistedMenuItems(raw))
+		} else if !errors.Is(err, ErrNotFound) {
+			a.recordNavigationRawInventoryUnavailable(code, err)
+			return code, item, index, validationDomainError("navigation raw inventory unavailable", map[string]any{
+				"component": "navigation",
+				"menu":      code,
+				"error":     strings.TrimSpace(err.Error()),
+			})
+		} else if menu, err := a.menuSvc.Menu(ctx, code, item.Locale); err == nil && menu != nil {
 			index.addAll(flattenPersistedMenuItems(menu.Items))
 		}
 	}
-	return code, item, index
+	return code, item, index, nil
+}
+
+func (a *Admin) rawPersistedMenuItems(ctx context.Context, code string) ([]MenuItem, error) {
+	if a == nil || a.menuSvc == nil {
+		return nil, ErrNotFound
+	}
+	provider, ok := a.menuSvc.(rawMenuItemsProvider)
+	if !ok || provider == nil {
+		return nil, ErrNotFound
+	}
+	return provider.RawMenuItems(ctx, code)
 }
 
 func (a *Admin) updatePersistedMenuItem(ctx context.Context, code string, item MenuItem, match persistedMenuItemMatch) (MenuItem, error) {
@@ -368,10 +435,14 @@ type persistedMenuItemMatch struct {
 	Key  string
 }
 
+type rawMenuItemsProvider interface {
+	RawMenuItems(ctx context.Context, menuCode string) ([]MenuItem, error)
+}
+
 const (
-	menuTargetProgrammaticOwnerKey = "_menu_owner"
-	menuTargetProgrammaticOwner    = "go-admin.programmatic"
-	menuTargetProgrammaticIDKey    = "_menu_owner_id"
+	menuTargetProgrammaticOwnerKey = navcontract.TargetProgrammaticOwnerKey
+	menuTargetProgrammaticOwner    = navcontract.TargetProgrammaticOwner
+	menuTargetProgrammaticIDKey    = navcontract.TargetProgrammaticIDKey
 )
 
 func newPersistedMenuItemIndex() *persistedMenuItemIndex {
@@ -426,91 +497,35 @@ func (idx *persistedMenuItemIndex) remove(item MenuItem) {
 	}
 }
 
-func (idx *persistedMenuItemIndex) match(item MenuItem) (persistedMenuItemMatch, bool, bool) {
+func (idx *persistedMenuItemIndex) plan(item MenuItem) navcontract.PlannedItem {
 	if idx == nil {
-		return persistedMenuItemMatch{}, false, false
+		return navcontract.PlannedItem{Action: navcontract.ConvergenceCreate, Expected: navigationContractItem(item), Update: navigationContractItem(item)}
 	}
-	keys := uniquePersistedMenuItemKeys(item)
-	for _, key := range keys {
-		if !strongPersistedMenuItemKey(key) {
-			continue
-		}
-		matches := compatiblePersistedMenuMatches(item, key, idx.byKey[key])
-		if len(matches) == 0 {
-			continue
-		}
-		if len(matches) > 1 {
-			return persistedMenuItemMatch{}, false, true
-		}
-		return persistedMenuItemMatch{Item: matches[0], Key: key}, true, false
-	}
-	for _, key := range keys {
-		if strongPersistedMenuItemKey(key) {
-			continue
-		}
-		matches := compatiblePersistedMenuMatches(item, key, idx.byKey[key])
-		if len(matches) == 0 {
-			continue
-		}
-		if len(matches) > 1 {
-			return persistedMenuItemMatch{}, false, true
-		}
-		if !legacyProgrammaticMenuRepairCandidate(item, matches[0], key) {
-			continue
-		}
-		return persistedMenuItemMatch{Item: matches[0], Key: key}, true, false
-	}
-	return persistedMenuItemMatch{}, false, false
+	return navcontract.PlanExpectedItem(navigationContractItem(item), navigationContractItems(idx.items()), navcontract.ConvergenceOptions{
+		MatchPolicy: navcontract.MatchPolicy{Owner: navcontract.OwnerModule},
+		Apply:       true,
+	})
 }
 
-func strongPersistedMenuItemKey(key string) bool {
-	return strings.HasPrefix(key, "path:") ||
-		strings.HasPrefix(key, "code:") ||
-		strings.HasPrefix(key, "generated_id:") ||
-		strings.HasPrefix(key, "programmatic_id:")
-}
-
-func compatiblePersistedMenuMatches(expected MenuItem, key string, matches []MenuItem) []MenuItem {
-	if len(matches) == 0 {
+func (idx *persistedMenuItemIndex) items() []MenuItem {
+	if idx == nil {
 		return nil
 	}
-	out := make([]MenuItem, 0, len(matches))
-	for _, match := range matches {
-		if persistedMenuMatchCompatible(expected, match, key) {
-			out = append(out, match)
+	seen := map[string]bool{}
+	out := []MenuItem{}
+	for _, matches := range idx.byKey {
+		for _, item := range matches {
+			key := persistedMenuItemIdentity(item)
+			if key != "" && seen[key] {
+				continue
+			}
+			if key != "" {
+				seen[key] = true
+			}
+			out = append(out, item)
 		}
 	}
 	return out
-}
-
-func persistedMenuMatchCompatible(expected, existing MenuItem, key string) bool {
-	if !strings.HasPrefix(key, "target_path:") {
-		return true
-	}
-	expectedParent := strings.ToLower(strings.TrimSpace(expected.ParentID))
-	existingParent := strings.ToLower(strings.TrimSpace(existing.ParentID))
-	if expectedParent != "" || existingParent != "" {
-		return expectedParent == existingParent
-	}
-	return true
-}
-
-func legacyProgrammaticMenuRepairCandidate(expected, existing MenuItem, key string) bool {
-	if strongPersistedMenuItemKey(key) {
-		return true
-	}
-	if targetStringValue(existing.Target, menuTargetProgrammaticOwnerKey) == menuTargetProgrammaticOwner {
-		return true
-	}
-	expectedPath := targetStringValue(expected.Target, "path")
-	existingPath := targetStringValue(existing.Target, "path")
-	if expectedPath != "" && existingPath == "" {
-		return true
-	}
-	if stringSliceContainsFold(existing.Permissions, "admin.archive.view") && !stringSliceContainsFold(expected.Permissions, "admin.archive.view") {
-		return true
-	}
-	return false
 }
 
 func (match persistedMenuItemMatch) repairItem(expected MenuItem) MenuItem {
@@ -532,77 +547,15 @@ func uniquePersistedMenuItemKeys(item MenuItem) []string {
 }
 
 func persistedMenuItemKeys(item MenuItem) []string {
-	keys := []string{}
-	if id := strings.TrimSpace(item.ID); id != "" {
-		keys = append(keys, "path:"+strings.ToLower(id))
-	}
-	if code := strings.TrimSpace(item.Code); code != "" {
-		keys = append(keys, "code:"+strings.ToLower(code))
-	}
-	if generatedID := targetStringValue(item.Target, "_generated_id"); generatedID != "" {
-		keys = append(keys, "generated_id:"+strings.ToLower(generatedID))
-	}
-	if targetStringValue(item.Target, menuTargetProgrammaticOwnerKey) == menuTargetProgrammaticOwner {
-		if ownerID := targetStringValue(item.Target, menuTargetProgrammaticIDKey); ownerID != "" {
-			keys = append(keys, "programmatic_id:"+strings.ToLower(ownerID))
-		}
-	}
-	if key := targetStringValue(item.Target, "key"); key != "" {
-		keys = append(keys, "target_key:"+strings.ToLower(key))
-	}
-	if name := targetStringValue(item.Target, "name"); name != "" {
-		keys = append(keys, "target_name:"+strings.ToLower(name))
-	}
-	if routeName := targetStringValue(item.Target, "route_name"); routeName != "" {
-		keys = append(keys, "target_name:"+strings.ToLower(routeName))
-	}
-	if route := targetStringValue(item.Target, "route"); route != "" {
-		keys = append(keys, "target_name:"+strings.ToLower(route))
-	}
-	if path := targetStringValue(item.Target, "path"); path != "" {
-		keys = append(keys, "target_path:"+strings.ToLower(path))
-	}
-	return keys
+	return navcontract.IdentityKeys(navigationContractItem(item))
 }
 
 func markProgrammaticMenuItem(item MenuItem) MenuItem {
-	itemType := NormalizeMenuItemType(item.Type)
-	if itemType == MenuItemTypeGroup || itemType == MenuItemTypeSeparator || len(item.Target) == 0 {
-		return item
-	}
-	target := primitives.CloneAnyMap(item.Target)
-	target[menuTargetProgrammaticOwnerKey] = menuTargetProgrammaticOwner
-	if strings.TrimSpace(toString(target[menuTargetProgrammaticIDKey])) == "" {
-		target[menuTargetProgrammaticIDKey] = programmaticMenuOwnerID(item)
-	}
-	item.Target = target
-	return item
-}
-
-func programmaticMenuOwnerID(item MenuItem) string {
-	for _, candidate := range []string{
-		targetStringValue(item.Target, "key"),
-		targetStringValue(item.Target, "name"),
-		targetStringValue(item.Target, "route_name"),
-		targetStringValue(item.Target, "route"),
-		strings.TrimSpace(item.ID),
-	} {
-		if candidate != "" {
-			return candidate
-		}
-	}
-	return ""
+	return adminMenuItemFromNavigationContract(navcontract.MarkProgrammatic(navigationContractItem(item)))
 }
 
 func targetStringValue(target map[string]any, key string) string {
-	if target == nil {
-		return ""
-	}
-	value, ok := target[key]
-	if !ok || value == nil {
-		return ""
-	}
-	return strings.TrimSpace(toString(value))
+	return navcontract.TargetString(target, key)
 }
 
 func uniquePersistedMenuKeys(values []string) []string {
@@ -643,19 +596,6 @@ func persistedMenuItemIdentity(item MenuItem) string {
 	return ""
 }
 
-func stringSliceContainsFold(values []string, want string) bool {
-	want = strings.ToLower(strings.TrimSpace(want))
-	if want == "" {
-		return false
-	}
-	for _, value := range values {
-		if strings.ToLower(strings.TrimSpace(value)) == want {
-			return true
-		}
-	}
-	return false
-}
-
 func flattenPersistedMenuItems(items []MenuItem) []MenuItem {
 	out := make([]MenuItem, 0, len(items))
 	for _, item := range items {
@@ -663,6 +603,66 @@ func flattenPersistedMenuItems(items []MenuItem) []MenuItem {
 		out = append(out, flattenPersistedMenuItems(item.Children)...)
 	}
 	return out
+}
+
+func navigationContractItems(items []MenuItem) []navcontract.Item {
+	out := make([]navcontract.Item, 0, len(items))
+	for _, item := range items {
+		out = append(out, navigationContractItem(item))
+	}
+	return out
+}
+
+func navigationContractItem(item MenuItem) navcontract.Item {
+	return navcontract.Item{
+		ID:            item.ID,
+		Code:          item.Code,
+		Type:          item.Type,
+		Label:         item.Label,
+		LabelKey:      item.LabelKey,
+		GroupTitle:    item.GroupTitle,
+		GroupTitleKey: item.GroupTitleKey,
+		URLOverride:   cloneStringPtr(item.URLOverride),
+		Target:        primitives.CloneAnyMap(item.Target),
+		Icon:          item.Icon,
+		Position:      cloneIntPtr(item.Position),
+		Permissions:   cloneStringSliceOrNil(item.Permissions),
+		Badge:         primitives.CloneAnyMap(item.Badge),
+		Classes:       cloneStringSliceOrNil(item.Classes),
+		Styles:        cloneStringMapOrNil(item.Styles),
+		Menu:          item.Menu,
+		ParentID:      item.ParentID,
+		ParentCode:    item.ParentCode,
+		Locale:        item.Locale,
+		Collapsible:   item.Collapsible,
+		Collapsed:     item.Collapsed,
+	}
+}
+
+func adminMenuItemFromNavigationContract(item navcontract.Item) MenuItem {
+	return MenuItem{
+		ID:            item.ID,
+		Code:          item.Code,
+		Type:          item.Type,
+		Label:         item.Label,
+		LabelKey:      item.LabelKey,
+		GroupTitle:    item.GroupTitle,
+		GroupTitleKey: item.GroupTitleKey,
+		URLOverride:   cloneStringPtr(item.URLOverride),
+		Target:        primitives.CloneAnyMap(item.Target),
+		Icon:          item.Icon,
+		Position:      cloneIntPtr(item.Position),
+		Permissions:   cloneStringSliceOrNil(item.Permissions),
+		Badge:         primitives.CloneAnyMap(item.Badge),
+		Classes:       cloneStringSliceOrNil(item.Classes),
+		Styles:        cloneStringMapOrNil(item.Styles),
+		Menu:          item.Menu,
+		ParentID:      item.ParentID,
+		ParentCode:    item.ParentCode,
+		Locale:        item.Locale,
+		Collapsible:   item.Collapsible,
+		Collapsed:     item.Collapsed,
+	}
 }
 
 func (a *Admin) ensurePersistentMenu(ctx context.Context, code string, menuCodes map[string]bool) error {

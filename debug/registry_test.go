@@ -63,11 +63,17 @@ func TestPanelDefinitionRichUINormalizesWireContract(t *testing.T) {
 			Count:   &PanelUICount{Bind: "$.items", Mode: "array_length", Label: "entries"},
 			Filters: []PanelUIFilter{{ID: "Status", Label: "Status", Kind: "select", Bind: "status", Options: []string{"ok", "warn"}}},
 			Events:  &PanelUIEventPolicy{Mode: "upsert", Bind: "items", Key: "id", MaxEntries: 50},
+			ActionLayout: &PanelUIActionLayout{
+				Mode:        " SELECT ",
+				PickerLabel: "Command",
+				EmptyText:   "Choose a command",
+			},
 			Actions: []PanelUIAction{
 				{
-					ID:      "Refresh",
-					Label:   "Refresh",
-					Refresh: true,
+					ID:          "Refresh",
+					Label:       "Refresh",
+					SubmitLabel: "Run refresh",
+					Refresh:     true,
 					Fields: []PanelUIActionField{
 						{Name: "File_ID", Label: "File ID", Kind: "string", PayloadPath: "payload.file_id", Required: true},
 					},
@@ -110,8 +116,14 @@ func TestPanelDefinitionRichUINormalizesWireContract(t *testing.T) {
 	if def.UI.Events == nil || def.UI.Events.Mode != PanelEventUpsert || def.UI.Events.Key != "id" {
 		t.Fatalf("expected normalized event policy, got %+v", def.UI.Events)
 	}
+	if def.UI.ActionLayout == nil || def.UI.ActionLayout.Mode != PanelActionLayoutSelect || def.UI.ActionLayout.PickerLabel != "Command" {
+		t.Fatalf("expected normalized action layout, got %+v", def.UI.ActionLayout)
+	}
 	if len(def.UI.Actions) != 1 || def.UI.Actions[0].ID != "refresh" {
 		t.Fatalf("expected only handled unique action, got %+v", def.UI.Actions)
+	}
+	if def.UI.Actions[0].SubmitLabel != "Run refresh" {
+		t.Fatalf("expected submit label to remain, got %+v", def.UI.Actions[0])
 	}
 	if len(def.UI.Actions[0].Fields) != 1 || def.UI.Actions[0].Fields[0].Name != "file_id" || def.UI.Actions[0].Fields[0].PayloadPath != "payload.file_id" {
 		t.Fatalf("expected normalized action field, got %+v", def.UI.Actions[0].Fields)
@@ -184,11 +196,15 @@ func TestPanelDefinitionsWithContextAppliesDefinitionFilter(t *testing.T) {
 }
 
 func TestPanelDefinitionsWithContextDoesNotHoldLockDuringFilter(t *testing.T) {
+	type registryContextKey string
+	const registerLateKey registryContextKey = "register-late"
 	registry := NewPanelRegistry()
 	err := registry.Register("commands", PanelConfig{
 		Definition: func(ctx context.Context, definition PanelDefinition) PanelDefinition {
-			if ctx.Value("register-late") == true {
-				_ = registry.Register("late", PanelConfig{Label: "Late"})
+			if ctx.Value(registerLateKey) == true {
+				if err := registry.Register("late", PanelConfig{Label: "Late"}); err != nil {
+					t.Errorf("register late panel: %v", err)
+				}
 			}
 			return definition
 		},
@@ -199,7 +215,7 @@ func TestPanelDefinitionsWithContextDoesNotHoldLockDuringFilter(t *testing.T) {
 
 	done := make(chan []PanelDefinition, 1)
 	go func() {
-		done <- registry.DefinitionsWithContext(context.WithValue(context.Background(), "register-late", true))
+		done <- registry.DefinitionsWithContext(context.WithValue(context.Background(), registerLateKey, true))
 	}()
 
 	select {
