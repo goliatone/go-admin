@@ -141,9 +141,15 @@ export type ServerPanelUI = {
     key?: string;
     max_entries?: number;
   };
+  action_layout?: {
+    mode?: string;
+    picker_label?: string;
+    empty_text?: string;
+  };
   actions?: Array<{
     id?: string;
     label?: string;
+    submit_label?: string;
     kind?: string;
     confirm_text?: string;
     requires_confirm?: boolean;

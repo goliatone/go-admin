@@ -91,7 +91,9 @@ type PanelRenderer = {
 type PanelActionResultView = {
   status: 'ok' | 'error';
   message: string;
+  actionID?: string;
   data?: unknown;
+  errors?: Record<string, unknown>;
 };
 
 type PanelOrderPreferenceResponse = {
@@ -988,6 +990,11 @@ export class DebugPanel {
   }
 
   private attachPanelActionListeners(): void {
+    this.panelEl.querySelectorAll<HTMLSelectElement>('[data-panel-action-picker]').forEach((picker) => {
+      const update = () => this.updatePanelActionPicker(picker);
+      picker.addEventListener('change', update);
+      update();
+    });
     this.panelEl.querySelectorAll<HTMLButtonElement>('[data-panel-action]').forEach((button) => {
       button.addEventListener('click', () => {
         if (button.disabled) {
@@ -1033,12 +1040,14 @@ export class DebugPanel {
       if (!response.ok) {
         throw new Error(`Action failed (${response.status})`);
       }
-      const result = await response.json() as { ok?: boolean; message?: string; data?: unknown; refresh?: boolean; event?: DebugEvent };
+      const result = await response.json() as { ok?: boolean; message?: string; data?: unknown; errors?: Record<string, unknown>; refresh?: boolean; event?: DebugEvent };
       this.showPanelActionResult(
         panelID,
         result.ok === false ? 'error' : 'ok',
         result.message || (result.ok === false ? 'Action failed' : 'Action complete'),
-        result.data
+        actionID,
+        result.data,
+        result.errors
       );
       if (result.event) {
         this.handleEvent(result.event);
@@ -1056,8 +1065,8 @@ export class DebugPanel {
     }
   }
 
-  private showPanelActionResult(panelID: string, status: 'ok' | 'error', message: string, data?: unknown): void {
-    this.panelActionResults.set(panelID, { status, message, data });
+  private showPanelActionResult(panelID: string, status: 'ok' | 'error', message: string, actionID?: string, data?: unknown, errors?: Record<string, unknown>): void {
+    this.panelActionResults.set(panelID, { status, message, actionID, data, errors });
     this.renderStoredPanelActionResult(panelID);
   }
 
@@ -1066,15 +1075,80 @@ export class DebugPanel {
     if (!result) {
       return;
     }
+    this.clearPanelActionErrors();
     const target = Array.from(this.panelEl.querySelectorAll<HTMLElement>('[data-panel-action-result]'))
       .find((element) => element.dataset.panelActionResult === panelID);
     if (!target) {
       return;
     }
+    const formErrors = this.renderPanelActionErrors(result.errors, result.actionID);
     const dataHTML = result.data === undefined
       ? ''
       : `<pre class="${consoleStyles.jsonPanel}" style="margin-top:0.5rem;max-height:18rem;overflow:auto;white-space:pre-wrap">${escapeHTML(formatJSON(result.data, { nullAsEmptyObject: false }))}</pre>`;
-    target.innerHTML = `<div class="${result.status === 'error' ? consoleStyles.badgeError : consoleStyles.badge}">${escapeHTML(result.message)}</div>${dataHTML}`;
+    target.innerHTML = `<div class="${result.status === 'error' ? consoleStyles.badgeError : consoleStyles.badge}">${escapeHTML(result.message)}</div>${formErrors}${dataHTML}`;
+  }
+
+  private updatePanelActionPicker(picker: HTMLSelectElement): void {
+    const launcher = picker.closest<HTMLElement>('[data-panel-action-launcher]');
+    if (!launcher) {
+      return;
+    }
+    const selected = picker.value || '';
+    launcher.querySelectorAll<HTMLElement>('[data-panel-action-choice]').forEach((choice) => {
+      choice.hidden = choice.dataset.panelActionChoice !== selected;
+    });
+  }
+
+  private clearPanelActionErrors(): void {
+    this.panelEl.querySelectorAll<HTMLElement>('[data-action-field-error]').forEach((element) => {
+      element.textContent = '';
+      element.hidden = true;
+    });
+  }
+
+  private renderPanelActionErrors(errors?: Record<string, unknown>, actionID?: string): string {
+    if (!errors || typeof errors !== 'object') {
+      return '';
+    }
+    const remaining: string[] = [];
+    Object.entries(errors).forEach(([path, value]) => {
+      const message = this.stringifyActionError(value);
+      if (!message) {
+        return;
+      }
+      const normalizedPath = path.trim();
+      const field = Array.from(this.panelEl.querySelectorAll<HTMLElement>('[data-action-field-error]')).find((element) => {
+        if (actionID && element.dataset.actionId !== actionID) {
+          return false;
+        }
+        return element.dataset.actionFieldError === normalizedPath ||
+          element.dataset.actionFieldName === normalizedPath ||
+          element.dataset.actionFieldError === `payload.${normalizedPath}`;
+      });
+      if (field) {
+        field.textContent = message;
+        field.hidden = false;
+        return;
+      }
+      remaining.push(message);
+    });
+    if (remaining.length === 0) {
+      return '';
+    }
+    return `<ul class="${consoleStyles.badgeError}" style="margin-top:0.5rem">${remaining.map((message) => `<li>${escapeHTML(message)}</li>`).join('')}</ul>`;
+  }
+
+  private stringifyActionError(value: unknown): string {
+    if (typeof value === 'string') {
+      return value.trim();
+    }
+    if (Array.isArray(value)) {
+      return value.map((item) => this.stringifyActionError(item)).filter(Boolean).join('; ');
+    }
+    if (value && typeof value === 'object' && typeof (value as { message?: unknown }).message === 'string') {
+      return ((value as { message: string }).message || '').trim();
+    }
+    return value == null ? '' : String(value);
   }
 
   private attachExpandableRowListeners(): void {

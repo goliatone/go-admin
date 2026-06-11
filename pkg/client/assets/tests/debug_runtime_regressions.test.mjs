@@ -867,6 +867,128 @@ test('debug panel preserves action result data across refresh rerender', async (
   );
 });
 
+test('debug panel renders selectable action forms and field validation errors', async (t) => {
+  const panelID = 'ops-selectable-actions';
+  debugModule.panelRegistry.unregister(panelID);
+  t.after(() => debugModule.panelRegistry.unregister(panelID));
+
+  const dom = createDebugDOM();
+  setGlobals(dom.window);
+  globalThis.WebSocket = OpenWebSocket;
+  dom.window.WebSocket = OpenWebSocket;
+  const consoleEl = dom.window.document.querySelector('[data-debug-console]');
+  consoleEl.dataset.debugPath = '/admin/debug-selectable-actions';
+  consoleEl.dataset.panels = JSON.stringify([panelID]);
+  dom.window.sessionStorage.setItem('debug-console-active-panel', panelID);
+  let submittedPayload = null;
+  globalThis.fetch = async (input, init = {}) => {
+    const url = String(input);
+    if (url.endsWith('/api/panels')) {
+      return new Response(JSON.stringify({
+        panels: [{
+          id: panelID,
+          label: 'Operational Commands',
+          snapshot_key: panelID,
+          ui: {
+            views: {
+              console: { renderer: 'json', title: 'Operational Commands' },
+            },
+            action_layout: {
+              mode: 'select',
+              picker_label: 'Command',
+              empty_text: 'Choose command',
+            },
+            actions: [{
+              id: 'archive_repair',
+              label: 'Archive repair',
+              payload: { command_id: 'archive.repair', payload: {} },
+              fields: [{
+                name: 'indexes',
+                label: 'Indexes',
+                kind: 'string_list',
+                payload_path: 'payload.indexes',
+              }],
+            }, {
+              id: 'search_reindex',
+              label: 'Reindex search',
+              submit_label: 'Queue reindex',
+              payload: { command_id: 'search.reindex', payload: {} },
+              fields: [{
+                name: 'indexes',
+                label: 'Indexes',
+                kind: 'string_list',
+                payload_path: 'payload.indexes',
+              }],
+            }],
+          },
+        }],
+      }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+    if (url.endsWith(`/api/panels/${panelID}/actions/search_reindex`)) {
+      submittedPayload = JSON.parse(init.body);
+      return new Response(JSON.stringify({
+        ok: false,
+        message: 'Validation failed',
+        errors: {
+          'payload.indexes': 'Unknown index',
+          form: 'Review the selected command payload',
+        },
+      }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+    if (url.endsWith('/api/snapshot')) {
+      return new Response(JSON.stringify({ [panelID]: { ready: true } }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+    return new Response(JSON.stringify({ sessions: [] }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
+  };
+
+  debugModule.initDebugPanel(consoleEl);
+  await waitForAssertion(() => {
+    assert.ok(dom.window.document.querySelector(`[data-panel-action-picker="${panelID}"]`));
+  });
+
+  const launcher = dom.window.document.querySelector(`[data-panel-action-launcher="${panelID}"]`);
+  const choice = dom.window.document.querySelector('[data-panel-action-choice="search_reindex"]');
+  assert.ok(launcher);
+  assert.equal(choice.hidden, true);
+
+  const picker = dom.window.document.querySelector(`[data-panel-action-picker="${panelID}"]`);
+  picker.value = 'search_reindex';
+  picker.dispatchEvent(new dom.window.Event('change', { bubbles: true }));
+  assert.equal(choice.hidden, false);
+
+  const field = choice.querySelector('[data-action-field="indexes"]');
+  field.value = 'archive_media, archive_events';
+  dom.window.document
+    .querySelector(`[data-panel-action-form][data-action-id="search_reindex"]`)
+    .dispatchEvent(new dom.window.Event('submit', { bubbles: true, cancelable: true }));
+
+  await waitForAssertion(() => {
+    assert.deepEqual(submittedPayload, {
+      command_id: 'search.reindex',
+      payload: { indexes: ['archive_media', 'archive_events'] },
+    });
+    const result = dom.window.document.querySelector(`[data-panel-action-result="${panelID}"]`);
+    assert.match(result.textContent, /Validation failed/);
+    assert.match(result.textContent, /Review the selected command payload/);
+    const selectedError = dom.window.document.querySelector('[data-action-field-error="payload.indexes"][data-action-id="search_reindex"]');
+    const hiddenError = dom.window.document.querySelector('[data-action-field-error="payload.indexes"][data-action-id="archive_repair"]');
+    assert.match(selectedError.textContent, /Unknown index/);
+    assert.equal(hiddenError.textContent, '');
+  });
+});
+
 test('debug panel restores built-in Site Cache when it remains enabled', async () => {
   const dom = new JSDOM(`
     <!doctype html>

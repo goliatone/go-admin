@@ -248,6 +248,8 @@ const (
 	NavigationOwnerUser                            = core.NavigationOwnerUser
 	NavigationPermissionDeniedModeDisable          = core.NavigationPermissionDeniedModeDisable
 	NavigationPermissionDeniedModeHide             = core.NavigationPermissionDeniedModeHide
+	NavigationRouteMissingPolicyReport             = core.NavigationRouteMissingPolicyReport
+	NavigationRouteMissingPolicyStrict             = core.NavigationRouteMissingPolicyStrict
 	NotificationMarkCommandName                    = core.NotificationMarkCommandName
 	PanelActionDefaultsModeCRUD                    = core.PanelActionDefaultsModeCRUD
 	PanelActionDefaultsModeConservative            = core.PanelActionDefaultsModeConservative
@@ -928,6 +930,7 @@ type (
 	NavigationLifecycleReport                         = core.NavigationLifecycleReport
 	NavigationOwner                                   = core.NavigationOwner
 	NavigationPermissionDeniedMode                    = core.NavigationPermissionDeniedMode
+	NavigationRouteMissingPolicy                      = core.NavigationRouteMissingPolicy
 	NoopCLIHandler                                    = core.NoopCLIHandler
 	NoopCMSContainer                                  = core.NoopCMSContainer
 	NoopTranslator                                    = core.NoopTranslator
@@ -2806,9 +2809,13 @@ func WithWorkflowPermission(resource string, permission string) RoleWorkflowAuth
 }
 
 // ---- MANUAL COMPATIBILITY SECTION (MINIMAL) ----
-// IntPtr is retained for backward compatibility with existing pkg/admin consumers.
+// These declarations bridge exported core APIs that cannot be rendered mechanically.
 func IntPtr(v int) *int {
 	return &v
+}
+
+func RegisterMessageFactory[T any](bus *CommandBus, name string, build func(map[string]any, []string) (T, error)) error {
+	return core.RegisterMessageFactory[T](bus, name, build)
 }
 
 // ---- END MANUAL COMPATIBILITY SECTION ----
