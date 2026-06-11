@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -306,13 +307,25 @@ func (a *Admin) persistMenuItems(ctx context.Context, items []MenuItem) ([]MenuI
 	menuCodes := map[string]bool{}
 	fallbackItems := []MenuItem{}
 	for _, item := range items {
-		code, normalized, index := a.normalizePersistedMenuItem(ctx, item, menuIndexes)
+		code, normalized, index, err := a.normalizePersistedMenuItem(ctx, item, menuIndexes)
+		if err != nil {
+			return nil, err
+		}
 		if navcontract.MissingRoute(navigationContractItem(normalized)) {
-			return nil, validationDomainError("navigation route target missing", map[string]any{
+			a.recordNavigationRouteMissing(normalized)
+			if a.navigationRouteMissingPolicyStrict() {
+				return nil, validationDomainError("navigation route target missing", map[string]any{
+					"component": "navigation",
+					"menu":      code,
+					"id":        strings.TrimSpace(normalized.ID),
+				})
+			}
+			a.loggerFor("admin.navigation").Warn("navigation route target missing",
 				"component": "navigation",
 				"menu":      code,
 				"id":        strings.TrimSpace(normalized.ID),
-			})
+			)
+			continue
 		}
 		planned := index.plan(normalized)
 		if planned.Matched && !planned.Ambiguous && !planned.UnsafeBroad {
@@ -341,7 +354,7 @@ func (a *Admin) persistMenuItems(ctx context.Context, items []MenuItem) ([]MenuI
 	return fallbackItems, nil
 }
 
-func (a *Admin) normalizePersistedMenuItem(ctx context.Context, item MenuItem, menuIndexes map[string]*persistedMenuItemIndex) (string, MenuItem, *persistedMenuItemIndex) {
+func (a *Admin) normalizePersistedMenuItem(ctx context.Context, item MenuItem, menuIndexes map[string]*persistedMenuItemIndex) (string, MenuItem, *persistedMenuItemIndex, error) {
 	code := item.Menu
 	if code == "" {
 		code = a.navMenuCode
@@ -359,11 +372,18 @@ func (a *Admin) normalizePersistedMenuItem(ctx context.Context, item MenuItem, m
 		menuIndexes[code] = index
 		if raw, err := a.rawPersistedMenuItems(ctx, code); err == nil {
 			index.addAll(flattenPersistedMenuItems(raw))
+		} else if !errors.Is(err, ErrNotFound) {
+			a.recordNavigationRawInventoryUnavailable(code, err)
+			return code, item, index, validationDomainError("navigation raw inventory unavailable", map[string]any{
+				"component": "navigation",
+				"menu":      code,
+				"error":     strings.TrimSpace(err.Error()),
+			})
 		} else if menu, err := a.menuSvc.Menu(ctx, code, item.Locale); err == nil && menu != nil {
 			index.addAll(flattenPersistedMenuItems(menu.Items))
 		}
 	}
-	return code, item, index
+	return code, item, index, nil
 }
 
 func (a *Admin) rawPersistedMenuItems(ctx context.Context, code string) ([]MenuItem, error) {
@@ -682,10 +702,14 @@ func navigationContractItem(item MenuItem) navcontract.Item {
 		LabelKey:      item.LabelKey,
 		GroupTitle:    item.GroupTitle,
 		GroupTitleKey: item.GroupTitleKey,
+		URLOverride:   cloneStringPtr(item.URLOverride),
 		Target:        primitives.CloneAnyMap(item.Target),
 		Icon:          item.Icon,
 		Position:      cloneIntPtr(item.Position),
 		Permissions:   cloneStringSliceOrNil(item.Permissions),
+		Badge:         primitives.CloneAnyMap(item.Badge),
+		Classes:       cloneStringSliceOrNil(item.Classes),
+		Styles:        cloneStringMapOrNil(item.Styles),
 		Menu:          item.Menu,
 		ParentID:      item.ParentID,
 		ParentCode:    item.ParentCode,
@@ -704,10 +728,14 @@ func adminMenuItemFromNavigationContract(item navcontract.Item) MenuItem {
 		LabelKey:      item.LabelKey,
 		GroupTitle:    item.GroupTitle,
 		GroupTitleKey: item.GroupTitleKey,
+		URLOverride:   cloneStringPtr(item.URLOverride),
 		Target:        primitives.CloneAnyMap(item.Target),
 		Icon:          item.Icon,
 		Position:      cloneIntPtr(item.Position),
 		Permissions:   cloneStringSliceOrNil(item.Permissions),
+		Badge:         primitives.CloneAnyMap(item.Badge),
+		Classes:       cloneStringSliceOrNil(item.Classes),
+		Styles:        cloneStringMapOrNil(item.Styles),
 		Menu:          item.Menu,
 		ParentID:      item.ParentID,
 		ParentCode:    item.ParentCode,

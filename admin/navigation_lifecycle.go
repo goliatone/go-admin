@@ -119,6 +119,7 @@ func cloneNavigationContributionItems(items []MenuItem) []MenuItem {
 	out := make([]MenuItem, 0, len(items))
 	for _, item := range items {
 		clone := item
+		clone.URLOverride = cloneStringPtr(item.URLOverride)
 		clone.Target = primitives.CloneAnyMap(item.Target)
 		clone.Badge = primitives.CloneAnyMap(item.Badge)
 		clone.Classes = cloneStringSliceOrNil(item.Classes)

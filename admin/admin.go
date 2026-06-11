@@ -115,8 +115,11 @@ type Admin struct {
 	navigationLifecycleMu           sync.Mutex
 	navigationContributionPolicy    NavigationContributionPolicy
 	navigationContributionPolicySet bool
+	navigationRouteMissingPolicy    NavigationRouteMissingPolicy
 	navigationContributionsClosed   bool
 	queuedNavigationItems           []MenuItem
+	navigationRouteMissingItems     []string
+	navigationRawInventoryErrors    []string
 	navigationConvergenceMu         sync.Mutex
 }
 
