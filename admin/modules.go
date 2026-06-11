@@ -497,20 +497,6 @@ func (idx *persistedMenuItemIndex) remove(item MenuItem) {
 	}
 }
 
-func (idx *persistedMenuItemIndex) match(item MenuItem) (persistedMenuItemMatch, bool, bool) {
-	if idx == nil {
-		return persistedMenuItemMatch{}, false, false
-	}
-	planned := idx.plan(item)
-	if planned.Ambiguous {
-		return persistedMenuItemMatch{}, false, true
-	}
-	if planned.UnsafeBroad || !planned.Matched {
-		return persistedMenuItemMatch{}, false, false
-	}
-	return persistedMenuItemMatch{Item: adminMenuItemFromNavigationContract(planned.Actual), Key: planned.MatchKey}, true, false
-}
-
 func (idx *persistedMenuItemIndex) plan(item MenuItem) navcontract.PlannedItem {
 	if idx == nil {
 		return navcontract.PlannedItem{Action: navcontract.ConvergenceCreate, Expected: navigationContractItem(item), Update: navigationContractItem(item)}
@@ -542,53 +528,6 @@ func (idx *persistedMenuItemIndex) items() []MenuItem {
 	return out
 }
 
-func strongPersistedMenuItemKey(key string) bool {
-	return navcontract.StrongIdentityKey(key)
-}
-
-func compatiblePersistedMenuMatches(expected MenuItem, key string, matches []MenuItem) []MenuItem {
-	if len(matches) == 0 {
-		return nil
-	}
-	out := make([]MenuItem, 0, len(matches))
-	for _, match := range matches {
-		if persistedMenuMatchCompatible(expected, match, key) {
-			out = append(out, match)
-		}
-	}
-	return out
-}
-
-func persistedMenuMatchCompatible(expected, existing MenuItem, key string) bool {
-	if !strings.HasPrefix(key, "target_path:") {
-		return true
-	}
-	expectedParent := strings.ToLower(strings.TrimSpace(expected.ParentID))
-	existingParent := strings.ToLower(strings.TrimSpace(existing.ParentID))
-	if expectedParent != "" || existingParent != "" {
-		return expectedParent == existingParent
-	}
-	return true
-}
-
-func legacyProgrammaticMenuRepairCandidate(expected, existing MenuItem, key string) bool {
-	if strongPersistedMenuItemKey(key) {
-		return true
-	}
-	if targetStringValue(existing.Target, menuTargetProgrammaticOwnerKey) == menuTargetProgrammaticOwner {
-		return true
-	}
-	expectedPath := targetStringValue(expected.Target, "path")
-	existingPath := targetStringValue(existing.Target, "path")
-	if expectedPath != "" && existingPath == "" {
-		return true
-	}
-	if stringSliceContainsFold(existing.Permissions, "admin.archive.view") && !stringSliceContainsFold(expected.Permissions, "admin.archive.view") {
-		return true
-	}
-	return false
-}
-
 func (match persistedMenuItemMatch) repairItem(expected MenuItem) MenuItem {
 	update := expected
 	existingID := strings.TrimSpace(match.Item.ID)
@@ -613,21 +552,6 @@ func persistedMenuItemKeys(item MenuItem) []string {
 
 func markProgrammaticMenuItem(item MenuItem) MenuItem {
 	return adminMenuItemFromNavigationContract(navcontract.MarkProgrammatic(navigationContractItem(item)))
-}
-
-func programmaticMenuOwnerID(item MenuItem) string {
-	for _, candidate := range []string{
-		targetStringValue(item.Target, "key"),
-		targetStringValue(item.Target, "name"),
-		targetStringValue(item.Target, "route_name"),
-		targetStringValue(item.Target, "route"),
-		strings.TrimSpace(item.ID),
-	} {
-		if candidate != "" {
-			return candidate
-		}
-	}
-	return ""
 }
 
 func targetStringValue(target map[string]any, key string) string {
@@ -670,19 +594,6 @@ func persistedMenuItemIdentity(item MenuItem) string {
 		return "programmatic:" + strings.ToLower(ownerID)
 	}
 	return ""
-}
-
-func stringSliceContainsFold(values []string, want string) bool {
-	want = strings.ToLower(strings.TrimSpace(want))
-	if want == "" {
-		return false
-	}
-	for _, value := range values {
-		if strings.ToLower(strings.TrimSpace(value)) == want {
-			return true
-		}
-	}
-	return false
 }
 
 func flattenPersistedMenuItems(items []MenuItem) []MenuItem {
