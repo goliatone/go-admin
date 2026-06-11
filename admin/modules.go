@@ -330,9 +330,9 @@ func (a *Admin) persistMenuItems(ctx context.Context, items []MenuItem) ([]MenuI
 				})
 			}
 			a.loggerFor("admin.navigation").Warn("navigation route target missing",
-				"component": "navigation",
-				"menu":      code,
-				"id":        strings.TrimSpace(normalized.ID),
+				"component", "navigation",
+				"menu", code,
+				"id", strings.TrimSpace(normalized.ID),
 			)
 			continue
 		}
