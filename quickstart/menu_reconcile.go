@@ -654,10 +654,14 @@ func navigationContractItem(item admin.MenuItem) navcontract.Item {
 		LabelKey:      item.LabelKey,
 		GroupTitle:    item.GroupTitle,
 		GroupTitleKey: item.GroupTitleKey,
+		URLOverride:   cloneStringPtr(item.URLOverride),
 		Target:        cloneAnyMap(item.Target),
 		Icon:          item.Icon,
 		Position:      cloneNavigationIntPtr(item.Position),
 		Permissions:   append([]string{}, item.Permissions...),
+		Badge:         cloneAnyMap(item.Badge),
+		Classes:       append([]string{}, item.Classes...),
+		Styles:        cloneStringMap(item.Styles),
 		Menu:          item.Menu,
 		ParentID:      item.ParentID,
 		ParentCode:    item.ParentCode,
@@ -676,10 +680,14 @@ func adminMenuItemFromNavigationContract(item navcontract.Item) admin.MenuItem {
 		LabelKey:      item.LabelKey,
 		GroupTitle:    item.GroupTitle,
 		GroupTitleKey: item.GroupTitleKey,
+		URLOverride:   cloneStringPtr(item.URLOverride),
 		Target:        cloneAnyMap(item.Target),
 		Icon:          item.Icon,
 		Position:      cloneNavigationIntPtr(item.Position),
 		Permissions:   append([]string{}, item.Permissions...),
+		Badge:         cloneAnyMap(item.Badge),
+		Classes:       append([]string{}, item.Classes...),
+		Styles:        cloneStringMap(item.Styles),
 		Menu:          item.Menu,
 		ParentID:      item.ParentID,
 		ParentCode:    item.ParentCode,
@@ -690,6 +698,14 @@ func adminMenuItemFromNavigationContract(item navcontract.Item) admin.MenuItem {
 }
 
 func cloneNavigationIntPtr(value *int) *int {
+	if value == nil {
+		return nil
+	}
+	cloned := *value
+	return &cloned
+}
+
+func cloneStringPtr(value *string) *string {
 	if value == nil {
 		return nil
 	}
