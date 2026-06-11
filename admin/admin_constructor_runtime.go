@@ -223,6 +223,9 @@ func newAdminFromConstructorState(state adminConstructorState, deps Dependencies
 		iconService:              state.iconService,
 		menuBuilder:              NewMenuBuilderService(),
 		doctorChecks:             map[string]DoctorCheck{},
+		navigationRouteMissingPolicy: normalizeNavigationRouteMissingPolicy(
+			state.cfg.NavRouteMissingPolicy,
+		),
 	}
 }
 
