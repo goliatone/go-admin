@@ -18,8 +18,8 @@ For first-instance provisioning, keep orchestration in `go-users` and enforcemen
 
 The metadata contract is migration-free: `password_temporary`, `password_change_required`, `password_temporary_issued_at`, and `password_temporary_expires_at`. Expired temporary passwords are rejected by local `go-auth` password verification.
 
-See `../docs/GUIDE_ADMIN_TEMPORARY_PASSWORD.md` for the full provisioning,
-auth wiring, password-change gate, and recovery flow.
+The admin temporary password guide covers the full provisioning, auth wiring,
+password-change gate, and recovery flow.
 
 ## Storage-backed uploads
 - `NewStorageBundle(ctx context.Context, cfg StorageBundleConfig) (*StorageBundle, error)` - Inputs: shared `go-uploader` provider config, optional validator/logger/startup validation toggle. Outputs: configured storage provider plus uploader manager for host apps.
@@ -45,7 +45,7 @@ auth wiring, password-change gate, and recovery flow.
 - `WithStartupPolicy(policy StartupPolicy) AdminOption` - Inputs: startup policy (`enforce` or `warn`); outputs: option controlling module startup validation handling.
 - `WithCommandExecutionPolicy(policy admin.CommandExecutionPolicy) AdminOption` - Inputs: command execution policy (global default + per-command overrides); outputs: option that injects command routing policy into bootstrap.
 - `WithCommandQueueRouting(cfg CommandQueueRoutingConfig) AdminOption` - Inputs: queue routing config (`enabled`, `enqueuer`, optional command registry + dedupe store); outputs: option that attaches the queued dispatcher executor.
-- `WithRPCTransport(cfg RPCTransportConfig) AdminOption` - Inputs: RPC transport config (`enabled`, optional `invoke_path`, `require_auth`, explicit `allow_unauthenticated` opt-out, `discovery_enabled`, optional command rules/policy hook); outputs: option that mounts Fiber RPC invoke routes and wires admin RPC command policy defaults. See `../docs/GUIDE_RPC.md`.
+- `WithRPCTransport(cfg RPCTransportConfig) AdminOption` - Inputs: RPC transport config (`enabled`, optional `invoke_path`, `require_auth`, explicit `allow_unauthenticated` opt-out, `discovery_enabled`, optional command rules/policy hook); outputs: option that mounts Fiber RPC invoke routes and wires admin RPC command policy defaults.
 - `TranslationExchangeCommandIDs() []string` - Outputs: canonical translation-exchange command ids for policy configuration.
 - `TranslationQueueCommandIDs() []string` - Outputs: canonical translation-queue command ids for policy configuration.
 - `WithTranslationProfile(profile TranslationProfile) AdminOption` - Inputs: profile (`none`, `core`, `core+exchange`, `core+queue`, `full`); outputs: option that applies productized translation defaults.
@@ -82,7 +82,7 @@ auth wiring, password-change gate, and recovery flow.
 - `MergeTemplateFuncs(overrides map[string]any, opts ...TemplateFuncOption) map[string]any` - Inputs: overrides + optional template options. Outputs: merged map for `WithViewTemplateFuncs`.
 - `WithTemplateURLResolver(urls urlkit.Resolver) TemplateFuncOption` - Inputs: URLKit resolver; outputs: option that configures `adminURL` to resolve via URLKit.
 - `WithViewURLResolver(urls urlkit.Resolver) ViewEngineOption` - Inputs: URLKit resolver; outputs: option that configures `adminURL` to resolve via URLKit.
-- `WithThemeContext(ctx router.ViewContext, adm *admin.Admin, req router.Context) router.ViewContext` - Inputs: view context, admin, request. Outputs: context enriched with theme tokens/selection and query-string theme preview overrides. See `../docs/GUIDE_THEME.md`.
+- `WithThemeContext(ctx router.ViewContext, adm *admin.Admin, req router.Context) router.ViewContext` - Inputs: view context, admin, request. Outputs: context enriched with theme tokens/selection and query-string theme preview overrides.
 - `WithNav(ctx router.ViewContext, adm *admin.Admin, cfg admin.Config, active string, reqCtx context.Context) router.ViewContext` - Inputs: base view context + admin/config/request state. Outputs: context enriched with feature flags (`activity_enabled`, `activity_feature_enabled`, `translation_capabilities`, `body_classes`), session user payload, nav items, theme payload, and path helpers.
 - `WithNavPlacements(ctx router.ViewContext, adm *admin.Admin, cfg admin.Config, placements PlacementConfig, placement MenuPlacementKey, active string, reqCtx context.Context) router.ViewContext` - Inputs: same as `WithNav`, plus placement mapping. Outputs: placement-aware nav context for non-sidebar menus while preserving the same feature/session/theme enrichment.
 - `ResolveDashboardArea(placements PlacementConfig, placement placement.DashboardPlacementKey, fallback string) string` - Inputs: placement config, shared dashboard placement key, fallback area code. Outputs: resolved dashboard area code for quickstart-owned widget wiring.
@@ -134,7 +134,7 @@ auth wiring, password-change gate, and recovery flow.
 - `WithComponentRegistry(reg *components.Registry) FormGeneratorOption` - Inputs: custom registry; outputs: option that replaces default components (clean replace).
 - `WithComponentRegistryMergeDefaults(reg *components.Registry) FormGeneratorOption` - Inputs: custom registry; outputs: option that merges into defaults, overriding matching names.
 - `WithVanillaOption(opt formgenvanilla.Option) FormGeneratorOption` - Inputs: vanilla renderer option; outputs: option applied last so it can override templates/styles/registry.
-- Form generation guide: `../docs/GUIDE_FORMGEN.md` covers the end-to-end form generation pipeline, UI schema overlays, component registration, and submission parsing.
+- The form generation guide covers the end-to-end form generation pipeline, UI schema overlays, component registration, and submission parsing.
 
 - `DefaultSecureLinkConfig(basePath string) SecureLinkConfig` - Inputs: base path; outputs: securelink defaults.
 - `DefaultSecureLinkRoutes(basePath string) map[string]string` - Inputs: base path; outputs: securelink routes map.
@@ -157,7 +157,7 @@ Release policy for quickstart matches core:
   `adm.RoutingPlanner().Manifest()`, startup logs, and the `quickstart.routing`
   doctor check
 
-See `../docs/GUIDE_ROUTING.md` for the published external-module contract,
+The routing guide covers the published external-module contract,
 manifest-diff workflow, and PR review guidance.
 
 ```go
@@ -286,7 +286,8 @@ Quickstart defaults to inline command execution. To opt into queued execution, c
 - Admin command RPC dispatch is deny-by-default until command rules are configured (`command_rules` / `commands.rpc.commands`).
 - Command RPC permission checks use resource-role authorization by default. Set `permission_mode=exact` on the transport or individual command rules when commands require explicit grants such as operational permissions.
 
-See `../docs/GUIDE_RPC.md` for the full RPC transport, command dispatch, and workflow RPC contract.
+The RPC guide covers the full transport, command dispatch, and workflow RPC
+contract.
 
 ### Dev inline (default)
 ```go
@@ -533,8 +534,8 @@ Product wiring and legacy manual wiring can coexist during migration.
 - Legacy manual wiring options remain supported for at least two minor releases
   after product API GA.
 
-Detailed contract and rollout rules:
-`../docs/GUIDE_CMS.md#177-translation-productization-contract`.
+The CMS guide contains the detailed translation productization contract and
+rollout rules.
 
 Minimal in-process wiring:
 
@@ -733,6 +734,9 @@ when `ScopeResolver` is omitted. Custom repositories, handlers, or direct
 go-users registry calls must use `quickstart.ScopeBuilder(cfg)` or an
 equivalent config-aware resolver themselves.
 
+The authentication and permissions guide covers the broader role, scope, debug
+console, doctor, and permissions-panel workflow.
+
 go-admin request and service paths should resolve trusted tenant/org scope
 through `Admin.EffectiveScope(...)` or `Admin.EffectiveScopeFromRequest(...)`.
 These helpers preserve explicit trusted scope, apply configured defaults only in
@@ -886,9 +890,9 @@ State persistence behavior:
 
 Compatibility keys (`datatable_id`, `list_api`, `action_base`, `export_config`) are still present for legacy templates, but new/updated templates should read from `datagrid_config` first.
 
-See `docs/GUIDE_CRUD.md` for the full CRUD/DataGrid/action wiring contract.
-See `../docs/GUIDE_SEARCH.md` for admin global search, public site search,
-`go-search` adapter wiring, and panel DataGrid search distinctions.
+The CRUD guide covers the full CRUD/DataGrid/action wiring contract. The search
+guide covers admin global search, public site search, `go-search` adapter
+wiring, and panel DataGrid search distinctions.
 
 Password reset UI defaults to two pages:
 
@@ -1006,7 +1010,7 @@ Templates use a conditional fallback pattern:
 
 ## CMS workflow defaults
 Quickstart wires CMS workflows through the shared go-admin workflow system. This
-section covers startup helpers; see `../docs/GUIDE_WORKFLOW.md` for the full
+section covers startup helpers; the workflow guide covers the full
 workflow/state-machine contract.
 
 To start from defaults and override only a subset, register defaults before your
@@ -1148,8 +1152,8 @@ Workflow management API endpoints:
 - `PUT /admin/api/workflows/bindings/:id` (`expected_version` required)
 - `DELETE /admin/api/workflows/bindings/:id`
 
-Operational migration, rollback, and persistence details:
-`../docs/GUIDE_WORKFLOW.md#persisted-workflow-runtime`.
+The workflow guide covers operational migration, rollback, and persistence
+details.
 
 CMS demo panels default to the `submit_for_approval` and `publish` actions. Override them with:
 
@@ -1228,7 +1232,7 @@ Behavior notes:
 - `policy_denied` with `details.reason=policy_unavailable` means policy
   configuration or checker wiring is missing; it is not a missing-translation
   task for editors.
-- Operational contract and troubleshooting workflow: `../docs/GUIDE_CMS.md#17-translation-workflow-operations`.
+- The CMS guide covers the operational contract and troubleshooting workflow.
 
 Wiring example:
 
@@ -1261,7 +1265,9 @@ if err != nil {
 ```
 
 ### Theme selector + manifest
-When using go-theme, pass the selector + manifest into quickstart so the Preferences UI can list available variants. The full theme contract, resolution order, and payload shape are documented in `../docs/GUIDE_THEME.md`.
+When using go-theme, pass the selector + manifest into quickstart so the
+Preferences UI can list available variants. The theme guide covers the full
+theme contract, resolution order, and payload shape.
 
 ```go
 selector, manifest, err := quickstart.NewThemeSelector(
@@ -1289,7 +1295,10 @@ if err != nil {
 _ = adm
 ```
 
-If you build the admin manually, call `adm.WithAdminTheme(selector)` and `adm.WithThemeManifest(manifest)` after initialization. Public-site theme selection is separate; attach it with `quicksite.WithSiteTheme(selector)` or `SiteConfig.ThemeProvider` as described in `../docs/GUIDE_THEME.md#public-site-theme-isolation`.
+If you build the admin manually, call `adm.WithAdminTheme(selector)` and
+`adm.WithThemeManifest(manifest)` after initialization. Public-site theme
+selection is separate; attach it with `quicksite.WithSiteTheme(selector)` or
+`SiteConfig.ThemeProvider`.
 
 The default quickstart manifest also exposes these sidebar brand tokens:
 
@@ -1304,7 +1313,9 @@ If you have local CSS that forces the sidebar logo to `width: 100%`, remove that
 
 ## Public-site theme precedence
 
-For `quickstart/site`, the packaged theme should be the primary public-site HTML source and host-local wrappers should stay limited to compatibility glue. See `../docs/GUIDE_THEME.md` for admin/site provider isolation. The supported diagnostics surfaces are:
+For `quickstart/site`, the packaged theme should be the primary public-site HTML
+source and host-local wrappers should stay limited to compatibility glue. The
+supported diagnostics surfaces are:
 
 - `site_theme.manifest_partials` plus `site_theme.partials` in request/view context
 - `site_theme.baseline` for selected-versus-approved variant checks
@@ -1383,7 +1394,7 @@ When migrating a host from the old shared-root quickstart/site setup to the expl
 - register system, internal-ops, admin UI, admin API, public API, public site, and static routes through `quickstart.NewHostRouter(...)`; do not rely on calling `RegisterSiteRoutes(...)` before or after admin wiring to make ownership work
 - replace callback matchers or magic fallback mode strings with `quicksite.SiteFallbackPolicy` plus the exported mode constants (`SiteFallbackModeDisabled`, `SiteFallbackModePublicContentOnly`, `SiteFallbackModeExplicitPathsOnly`)
 - remove handler-level prefix guards for `/admin`, `/api`, `/.well-known`, `/assets`, and `/static`; reserved-prefix enforcement now belongs in the grouped router surfaces and the declarative fallback policy
-- migrate old shared theme wiring from `adm.WithGoTheme(...)` to `adm.WithAdminTheme(...)`, and attach the public-site selector separately with `quicksite.WithSiteTheme(...)` or `SiteConfig.ThemeProvider`; see `../docs/GUIDE_THEME.md#migration-notes`
+- migrate old shared theme wiring from `adm.WithGoTheme(...)` to `adm.WithAdminTheme(...)`, and attach the public-site selector separately with `quicksite.WithSiteTheme(...)` or `SiteConfig.ThemeProvider`
 - keep `/healthz` and `/status` on the internal-ops surface when enabled so those endpoints never resolve through site fallback
 
 Recommended QA after migration:
@@ -1394,8 +1405,7 @@ Recommended QA after migration:
 - `GET /.well-known/...` bypasses site templates entirely
 - enabled `/healthz` and `/status` endpoints return host-owned diagnostics payloads
 
-Search route ownership and request/response contracts are covered in
-`../docs/GUIDE_SEARCH.md`.
+The search guide covers route ownership and request/response contracts.
 
 ## Onboarding + secure links
 
@@ -1605,7 +1615,7 @@ _ = formgen
 
 `WithVanillaOption(...)` is applied last, so it can override templates/styles/registry. Use `WithComponentRegistry(...)` instead of the merge option to replace defaults entirely.
 
-For full formgen customization guidance, see `../docs/GUIDE_FORMGEN.md`.
+The formgen guide covers full customization guidance.
 
 ## Debug quickstart
 Debug is opt-in and requires module registration plus middleware/log wiring. Configure panels before constructing the admin; attach middleware/log helpers after the debug module is registered so the collector is available.
@@ -1725,7 +1735,7 @@ r.Get(path.Join(cfg.BasePath, "api", "debug", "scope"), wrapAuthed(quickstart.Sc
 - Clear/delete semantics: send `clear_raw_keys` or `clear: true` (for all raw keys), plus empty values for known keys to delete user-level overrides.
 - Non-user writes (tenant/org/system) require `admin.preferences.manage_tenant`, `admin.preferences.manage_org`, `admin.preferences.manage_system`.
 - Dashboard preferences endpoints default to preferences permissions; override with `cfg.DashboardPreferencesPermission` / `cfg.DashboardPreferencesUpdatePermission` if needed.
-- See `../docs/GUIDE_MOD_PREFERENCES.md` for module behavior, traces, and clear semantics.
+- The preferences guide covers module behavior, traces, and clear semantics.
 - If you want quickstart to build the repo (for example, to enable caching), pass `WithGoUsersPreferencesRepositoryFactory` to `NewAdmin`.
 - Use `NewPreferencesModule` with `WithPreferencesSchemaPath` to override the form schema (file path or a directory containing `schema.json`).
 - Use `WithPreferencesJSONEditorStrict(true)` to enforce client-side JSON validation of `raw_ui` (default is lenient; server-side validation still applies).
@@ -1884,11 +1894,6 @@ log.Printf("Translation profile: %s", caps["profile"])
 log.Printf("Exchange enabled: %v", caps["modules"].(map[string]any)["exchange"].(map[string]any)["enabled"])
 log.Printf("Registered routes: %v", caps["routes"])
 ```
-
-## References
-- `../QUICKBOOT_TDD.md`
-- `../QUICKBOOT_TSK.md`
-- `../docs/GUIDE_FORMGEN.md`
 
 ## Compatibility note
 If you previously imported quickstart as part of the root module, keep the same import path but add a direct `require` on `github.com/goliatone/go-admin/quickstart` in your `go.mod` (or use a local `replace`/`go.work` entry during dev). The APIs are unchanged; only the module boundary moved.

@@ -93,6 +93,8 @@ if err := adm.Initialize(server.Router()); err != nil {
 - Panels: control canonical UI ownership (`PanelUIRouteMode*`) and canonical entry behavior (`PanelEntryMode*`).
 - Themes: wire admin `go-theme` selectors separately from public-site theme
   packages; see `docs/GUIDE_THEME.md`.
+- Auth and permissions: wire authentication, authorization, roles, scope, and
+  diagnostics consistently; see `docs/GUIDE_AUTH_PERMISSIONS.md`.
 
 ## Search Setup
 
@@ -242,7 +244,7 @@ For queued command flows (for example `esign.pdf.remediate`), dispatch logs incl
 - `dispatch_id`
 - `correlation_id`
 
-See `GUIDE_BKG_CMD_OBSERVABILITY.md` for dispatch/remediation metrics, alert signals, and activity/audit lifecycle contracts.
+See `docs/GUIDE_BKG_CMD_OBSERVABILITY.md` for dispatch/remediation metrics, alert signals, and activity/audit lifecycle contracts.
 
 ## FSM Lifecycle Activity Projection
 
@@ -296,9 +298,9 @@ Mapping behavior:
 - Theme and go-theme integration: `docs/GUIDE_THEME.md`
 - Workflow/state-machine wiring: `docs/GUIDE_WORKFLOW.md`
 - RPC transport and command dispatch: `docs/GUIDE_RPC.md`
+- Authentication, permissions, scope, and debugging: `docs/GUIDE_AUTH_PERMISSIONS.md`
 - Roles and role seeding: `docs/GUIDE_ROLES.md`
 - Routing policy contract and CI review workflow: `docs/GUIDE_ROUTING.md`
-- Routing execution/signoff chain: `ROUTING_ARD.md`, `ROUTING_TSK.md`, `docs/ROUTING_RELEASE_CHECKLIST.md`
 - Example runtime config conventions: `examples/web/config/app.json` and `examples/web/README.md`
 - CMS and translation workflow guide: `docs/GUIDE_CMS.md`
 - Background command routing observability: `docs/GUIDE_BKG_CMD_OBSERVABILITY.md`
