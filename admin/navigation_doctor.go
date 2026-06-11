@@ -102,7 +102,7 @@ func navigationExpectedContractItems(items []NavigationDoctorExpectedItem) []nav
 	for _, item := range items {
 		out = append(out, navcontract.ExpectedItem{
 			Item:               navigationContractItem(item.Item),
-			Owner:              navcontract.Owner(item.Owner),
+			Owner:              item.Owner,
 			OwnerID:            item.OwnerID,
 			Retired:            item.Retired,
 			RouteMissing:       item.RouteMissing,
