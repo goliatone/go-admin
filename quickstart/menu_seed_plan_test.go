@@ -168,6 +168,51 @@ func TestReconcileGeneratedNavigationDryRunAndApplyRepairsMissingRows(t *testing
 	if item := findMenuItemByTargetKeyForTest(menu.Items, "translation_queue"); item == nil {
 		t.Fatalf("expected translation queue after apply, got %#v", menu.Items)
 	}
+
+}
+
+func TestReconcileGeneratedNavigationSecondPassIsIdempotent(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	menuSvc := admin.NewInMemoryMenuService()
+	menuCode := "admin.main"
+	locale := "en"
+	if _, createErr := menuSvc.CreateMenu(ctx, menuCode); createErr != nil {
+		t.Fatalf("CreateMenu: %v", createErr)
+	}
+	expected := []admin.MenuItem{
+		{
+			ID:          NavigationGroupTranslationsID,
+			Type:        admin.MenuItemTypeGroup,
+			GroupTitle:  "Translations",
+			Collapsible: true,
+		},
+		testGeneratedMenuItem("translations.queue", NavigationGroupTranslationsID, "Translation Queue", "translation_queue", "/admin/translations/queue", 50),
+	}
+	if _, err := ReconcileGeneratedNavigation(ctx, NavigationReconcileOptions{
+		MenuSvc:  menuSvc,
+		MenuCode: menuCode,
+		Locale:   locale,
+		Items:    expected,
+		Apply:    true,
+	}); err != nil {
+		t.Fatalf("first apply reconcile: %v", err)
+	}
+
+	second, err := ReconcileGeneratedNavigation(ctx, NavigationReconcileOptions{
+		MenuSvc:  menuSvc,
+		MenuCode: menuCode,
+		Locale:   locale,
+		Items:    expected,
+		Apply:    true,
+	})
+	if err != nil {
+		t.Fatalf("second apply reconcile: %v", err)
+	}
+	if len(second.Creates) != 0 || len(second.Updates) != 0 || len(second.DestructiveCandidates) != 0 || len(second.DuplicateIdentities) != 0 || len(second.StaleTargetStateCleanup) != 0 {
+		t.Fatalf("expected second pass to be normalized-idempotent, got %#v", second)
+	}
 }
 
 func TestReconcileGeneratedNavigationDoesNotOverwriteUserRowWithMatchingTarget(t *testing.T) {
@@ -478,8 +523,8 @@ func TestReconcileGeneratedNavigationUpdatesStaleGeneratedRows(t *testing.T) {
 	if len(report.Updates) == 0 {
 		t.Fatalf("expected update for stale generated row, got %#v", report)
 	}
-	if len(report.StaleTargetStateCleanup) == 0 {
-		t.Fatalf("expected stale target-state cleanup diagnostic, got %#v", report)
+	if len(report.StaleTargetStateCleanup) != 0 {
+		t.Fatalf("expected in-memory persistence boundary to strip target-state cleanup before reconcile, got %#v", report)
 	}
 	menu, err := menuSvc.Menu(ctx, menuCode, locale)
 	if err != nil {
