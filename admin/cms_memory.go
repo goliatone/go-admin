@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	cmsadapter "github.com/goliatone/go-admin/admin/internal/cmsadapter"
+	navcontract "github.com/goliatone/go-admin/internal/navigation"
 	"github.com/goliatone/go-admin/internal/primitives"
 	"maps"
 	"net/http"
@@ -514,6 +515,7 @@ func (s *InMemoryMenuService) AddMenuItem(ctx context.Context, menuCode string, 
 	if strings.TrimSpace(item.Type) == "" {
 		item.Type = MenuItemTypeItem
 	}
+	item.Target = navcontract.CleanTarget(item.Target)
 	state.insertSeq++
 	navinternal.SetMenuItemOrder(&item, state.insertSeq)
 	item.Menu = state.slug
@@ -558,6 +560,7 @@ func (s *InMemoryMenuService) UpdateMenuItem(ctx context.Context, menuCode strin
 	if strings.TrimSpace(item.Type) == "" {
 		item.Type = MenuItemTypeItem
 	}
+	item.Target = navcontract.CleanTarget(item.Target)
 	if err := validateMenuParentLink(item.ID, item.ParentID); err != nil {
 		s.mu.Unlock()
 		return err
@@ -672,6 +675,39 @@ func (s *InMemoryMenuService) Menu(_ context.Context, code, locale string) (*Men
 	tree := buildMenuTree(items)
 	sortMenuChildren(&tree)
 	return &Menu{Code: state.slug, Slug: state.slug, ID: state.id, Location: state.location, Items: tree}, nil
+}
+
+// RawMenuItems returns persisted in-memory rows without locale or render filtering.
+func (s *InMemoryMenuService) RawMenuItems(_ context.Context, code string) ([]MenuItem, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	state, slug := s.resolveMenuState(code)
+	if state == nil {
+		if slug == "" {
+			return nil, nil
+		}
+		return []MenuItem{}, nil
+	}
+	items := make([]MenuItem, 0, len(state.items))
+	for _, item := range state.items {
+		item.Children = nil
+		item.Target = primitives.CloneAnyMap(item.Target)
+		item.Badge = primitives.CloneAnyMap(item.Badge)
+		item.Classes = cloneStringSliceOrNil(item.Classes)
+		item.Styles = cloneStringMapOrNil(item.Styles)
+		item.Permissions = cloneStringSliceOrNil(item.Permissions)
+		item.Position = cloneIntPtr(item.Position)
+		items = append(items, item)
+	}
+	sort.SliceStable(items, func(i, j int) bool {
+		leftPos := intFromPtr(items[i].Position)
+		rightPos := intFromPtr(items[j].Position)
+		if leftPos == rightPos {
+			return items[i].ID < items[j].ID
+		}
+		return leftPos < rightPos
+	})
+	return items, nil
 }
 
 // MenuByLocation returns a menu resolved by location.

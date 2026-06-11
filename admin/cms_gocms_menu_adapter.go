@@ -5,6 +5,7 @@ import (
 	"errors"
 	"strings"
 
+	navcontract "github.com/goliatone/go-admin/internal/navigation"
 	"github.com/goliatone/go-admin/internal/navigationutil"
 	"github.com/goliatone/go-admin/internal/primitives"
 
@@ -590,7 +591,7 @@ func navigationNodePath(node cms.NavigationNode, menuCode string) string {
 }
 
 func mergeMenuTarget(item MenuItem) map[string]any {
-	return primitives.CloneAnyMap(item.Target)
+	return navcontract.CleanTarget(item.Target)
 }
 
 func normalizedURLOverride(raw *string) *string {
