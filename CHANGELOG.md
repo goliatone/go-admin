@@ -1,6 +1,37 @@
 # Changelog
 
+# [0.90.0](https://github.com/goliatone/go-admin/compare/v0.89.1...v0.90.0) - (2026-06-11)
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Code quality ([70a3e11](https://github.com/goliatone/go-admin/commit/70a3e115aade0d247c2f94183eca2ba580e99d43))  - (goliatone)
+
+## <!-- 16 -->➕ Add
+
+- Navigation lifeccle and contract ([9dc3507](https://github.com/goliatone/go-admin/commit/9dc35072eaa6af515d40d626e39841a7d7942652))  - (goliatone)
+- Navigatio route missing policy ([9cac4ae](https://github.com/goliatone/go-admin/commit/9cac4ae80be31393683425a9bdc5f9f6ca0be932))  - (goliatone)
+- Navigation route missing policy ([65024df](https://github.com/goliatone/go-admin/commit/65024df40e688db686c1a82df9c768f522961520))  - (goliatone)
+- Menu item management; ([a05fa5d](https://github.com/goliatone/go-admin/commit/a05fa5d585c067587cf67da842f6ec7c8a987128))  - (goliatone)
+- Menu reconcile setup ([bfa5efa](https://github.com/goliatone/go-admin/commit/bfa5efa9a990c8c395d359143904a815f38fc492))  - (goliatone)
+- Debug panel ui for commands ([07a441a](https://github.com/goliatone/go-admin/commit/07a441a6eb0cf86cfd28c72dee127a47049c497b))  - (goliatone)
+- Module loader menu items handler ([73d2350](https://github.com/goliatone/go-admin/commit/73d23502bf080424173b62ea85bb6ab715d37cd9))  - (goliatone)
+- Navigation contract and management ([8b3992b](https://github.com/goliatone/go-admin/commit/8b3992b92f87518b89d96234578c1cc07a433ed8))  - (goliatone)
+- Menu management and building strategy ([e002809](https://github.com/goliatone/go-admin/commit/e002809749b69949bc2a58c3c008a665f1eaac47))  - (goliatone)
+
+## <!-- 30 -->📝 Other
+
+- PR [#5](https://github.com/goliatone/go-admin/pull/5): system overhaul ([8057c69](https://github.com/goliatone/go-admin/commit/8057c6923a17f6d211a80cdb53d1b067bbb8167f))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update tests ([1c70cd5](https://github.com/goliatone/go-admin/commit/1c70cd5c462ac479e573ecde90c2b73cb80f53fa))  - (goliatone)
+- Update docs ([f20b951](https://github.com/goliatone/go-admin/commit/f20b9516a45149f6b42bd127ca00c2b77b1ae332))  - (goliatone)
+
 # [0.89.1](https://github.com/goliatone/go-admin/compare/v0.89.0...v0.89.1) - (2026-06-10)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.89.1 ([c90c4ad](https://github.com/goliatone/go-admin/commit/c90c4ad74d483ba2e86469dbc4d8aabdca46d83a))  - (goliatone)
 
 ## <!-- 16 -->➕ Add
 
