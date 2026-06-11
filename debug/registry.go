@@ -46,17 +46,21 @@ const (
 	PanelEventAppend  = "append"
 	PanelEventMerge   = "merge"
 	PanelEventUpsert  = "upsert"
+
+	PanelActionLayoutList   = "list"
+	PanelActionLayoutSelect = "select"
 )
 
 // PanelUI is a JSON-safe declarative UI schema for Go-registered panels.
 type PanelUI struct {
-	SchemaVersion string              `json:"schema_version"`
-	Views         PanelUIViews        `json:"views"`
-	Count         *PanelUICount       `json:"count,omitempty"`
-	Filters       []PanelUIFilter     `json:"filters,omitempty"`
-	Events        *PanelUIEventPolicy `json:"events,omitempty"`
-	Actions       []PanelUIAction     `json:"actions,omitempty"`
-	Metadata      map[string]any      `json:"metadata,omitempty"`
+	SchemaVersion string               `json:"schema_version"`
+	Views         PanelUIViews         `json:"views"`
+	Count         *PanelUICount        `json:"count,omitempty"`
+	Filters       []PanelUIFilter      `json:"filters,omitempty"`
+	Events        *PanelUIEventPolicy  `json:"events,omitempty"`
+	ActionLayout  *PanelUIActionLayout `json:"action_layout,omitempty"`
+	Actions       []PanelUIAction      `json:"actions,omitempty"`
+	Metadata      map[string]any       `json:"metadata,omitempty"`
 }
 
 // PanelUIViews declares console and toolbar renderers.
@@ -98,10 +102,18 @@ type PanelUIEventPolicy struct {
 	MaxEntries int    `json:"max_entries,omitempty"`
 }
 
+// PanelUIActionLayout declares how panel actions are presented.
+type PanelUIActionLayout struct {
+	Mode        string `json:"mode,omitempty"`
+	PickerLabel string `json:"picker_label,omitempty"`
+	EmptyText   string `json:"empty_text,omitempty"`
+}
+
 // PanelUIAction declares a UI action backed by a Go handler.
 type PanelUIAction struct {
 	ID              string               `json:"id"`
 	Label           string               `json:"label"`
+	SubmitLabel     string               `json:"submit_label,omitempty"`
 	Kind            string               `json:"kind,omitempty"`
 	ConfirmText     string               `json:"confirm_text,omitempty"`
 	RequiresConfirm bool                 `json:"requires_confirm,omitempty"`
@@ -662,6 +674,11 @@ func normalizePanelUI(input *PanelUI, handlers map[string]PanelActionHandler) *P
 			ui.Events = events
 		}
 	}
+	if input.ActionLayout != nil {
+		if layout := normalizePanelUIActionLayout(input.ActionLayout); layout != nil {
+			ui.ActionLayout = layout
+		}
+	}
 	ui.Actions = normalizePanelUIActions(input.Actions, handlers)
 	if len(input.Metadata) > 0 {
 		ui.Metadata = cloneJSONSafeMap(input.Metadata)
@@ -756,6 +773,22 @@ func normalizePanelUIEventPolicy(input *PanelUIEventPolicy) *PanelUIEventPolicy 
 	return out
 }
 
+func normalizePanelUIActionLayout(input *PanelUIActionLayout) *PanelUIActionLayout {
+	mode := normalizeID(input.Mode)
+	switch mode {
+	case "", PanelActionLayoutList:
+		mode = PanelActionLayoutList
+	case PanelActionLayoutSelect:
+	default:
+		return nil
+	}
+	return &PanelUIActionLayout{
+		Mode:        mode,
+		PickerLabel: trimSafeText(input.PickerLabel),
+		EmptyText:   trimSafeText(input.EmptyText),
+	}
+}
+
 func normalizePanelUIActions(actions []PanelUIAction, handlers map[string]PanelActionHandler) []PanelUIAction {
 	if len(actions) == 0 || len(handlers) == 0 {
 		return nil
@@ -778,6 +811,7 @@ func normalizePanelUIActions(actions []PanelUIAction, handlers map[string]PanelA
 		out = append(out, PanelUIAction{
 			ID:              id,
 			Label:           label,
+			SubmitLabel:     trimSafeText(action.SubmitLabel),
 			Kind:            normalizeID(action.Kind),
 			ConfirmText:     trimSafeText(action.ConfirmText),
 			RequiresConfirm: action.RequiresConfirm,

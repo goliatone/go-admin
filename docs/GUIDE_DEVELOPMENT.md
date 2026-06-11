@@ -219,15 +219,29 @@ If quickstart-generated admin navigation is stale, duplicated, or missing:
     - `DestructiveCandidates` before enabling destructive cleanup.
     - `CapabilityOmissions` and `PermissionFilteredItems` when links disappear
       because a feature or permission gate filtered them out.
-4.  Do not reseed or delete menu data until the dry-run report explains the
+    - `EngineIdentity` / `EngineVersion` when comparing startup reports across binaries
+4.  Use `Admin.DiagnoseNavigation` or `ClassifyNavigation` for module-owned and host diagnostics. The shared classification vocabulary is:
+    - `rendered`
+    - `persisted_missing`
+    - `raw_present_not_rendered`
+    - `permission_filtered`
+    - `capability_omitted`
+    - `route_missing`
+    - `stale_fields`
+    - `ambiguous_duplicate`
+    - `retired`
+    - `custom`
+    - `unsafe_broad_match`
+5.  Treat `route_missing` and `unsafe_broad_match` as stop-and-inspect states. Module-owned expected rows with `target.type=url` and no `target.path` or `target.url` fail before persistence; raw rows with missing paths remain diagnosable and repairable.
+6.  Do not reseed or delete menu data until the dry-run report explains the
     mismatch. Keep `AllowDestructive` off unless the candidates were reviewed.
-5.  Treat `admin.MenuItem.Position` in generated/module navigation as a sparse
+7.  Treat `admin.MenuItem.Position` in generated/module navigation as a sparse
     sort weight. Quickstart compacts those weights to per-parent `0..n-1`
     sibling indexes before writing to CMS-backed menus, because CMS/menu-builder
     storage treats `position` as an insertion index. If persisted siblings have
     tied positions, inspect `_generated_sort_order` in generated item targets to
     see the original module sort weight.
-6.  Run focused quickstart navigation tests:
+8.  Run focused quickstart navigation tests:
     - `go test ./quickstart -run 'TestBuildMenuSeedPlan|TestReconcileGeneratedNavigation|TestSeedNavigation'`
 
 If site menu links are locale-prefixed but final page URL drops locale prefix (for example `/es/...` -\> `/...`):

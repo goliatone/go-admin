@@ -15,12 +15,23 @@ const (
 	NavigationContributionPolicyTolerant NavigationContributionPolicy = "tolerant"
 )
 
+type NavigationRouteMissingPolicy string
+
+const (
+	NavigationRouteMissingPolicyStrict NavigationRouteMissingPolicy = "strict"
+	NavigationRouteMissingPolicyReport NavigationRouteMissingPolicy = "report"
+)
+
 type NavigationLifecycleReport struct {
-	ContributionsClosed bool                         `json:"contributions_closed"`
-	Policy              NavigationContributionPolicy `json:"policy"`
-	QueuedItems         int                          `json:"queued_items"`
-	EngineIdentity      string                       `json:"engine_identity,omitempty"`
-	EngineVersion       string                       `json:"engine_version,omitempty"`
+	ContributionsClosed        bool                         `json:"contributions_closed"`
+	Policy                     NavigationContributionPolicy `json:"policy"`
+	ContributionPolicyEnforced bool                         `json:"contribution_policy_enforced"`
+	RouteMissingPolicy         NavigationRouteMissingPolicy `json:"route_missing_policy"`
+	QueuedItems                int                          `json:"queued_items"`
+	EngineIdentity             string                       `json:"engine_identity,omitempty"`
+	EngineVersion              string                       `json:"engine_version,omitempty"`
+	RouteMissingItems          []string                     `json:"route_missing_items,omitempty"`
+	RawInventoryErrors         []string                     `json:"raw_inventory_errors,omitempty"`
 }
 
 func (a *Admin) WithNavigationContributionPolicy(policy NavigationContributionPolicy) *Admin {
@@ -31,6 +42,16 @@ func (a *Admin) WithNavigationContributionPolicy(policy NavigationContributionPo
 	defer a.navigationLifecycleMu.Unlock()
 	a.navigationContributionPolicy = normalizeNavigationContributionPolicy(policy)
 	a.navigationContributionPolicySet = true
+	return a
+}
+
+func (a *Admin) WithNavigationRouteMissingPolicy(policy NavigationRouteMissingPolicy) *Admin {
+	if a == nil {
+		return a
+	}
+	a.navigationLifecycleMu.Lock()
+	defer a.navigationLifecycleMu.Unlock()
+	a.navigationRouteMissingPolicy = normalizeNavigationRouteMissingPolicy(policy)
 	return a
 }
 
@@ -93,11 +114,15 @@ func (a *Admin) queueOrRejectLateNavigationItems(items []MenuItem) (bool, error)
 
 func (a *Admin) navigationLifecycleReportLocked() NavigationLifecycleReport {
 	return NavigationLifecycleReport{
-		ContributionsClosed: a.navigationContributionsClosed,
-		Policy:              normalizeNavigationContributionPolicy(a.navigationContributionPolicy),
-		QueuedItems:         len(a.queuedNavigationItems),
-		EngineIdentity:      navcontract.EngineIdentity,
-		EngineVersion:       navcontract.EngineVersion,
+		ContributionsClosed:        a.navigationContributionsClosed,
+		Policy:                     normalizeNavigationContributionPolicy(a.navigationContributionPolicy),
+		ContributionPolicyEnforced: a.navigationContributionPolicySet,
+		RouteMissingPolicy:         normalizeNavigationRouteMissingPolicy(a.navigationRouteMissingPolicy),
+		QueuedItems:                len(a.queuedNavigationItems),
+		EngineIdentity:             navcontract.EngineIdentity,
+		EngineVersion:              navcontract.EngineVersion,
+		RouteMissingItems:          append([]string{}, a.navigationRouteMissingItems...),
+		RawInventoryErrors:         append([]string{}, a.navigationRawInventoryErrors...),
 	}
 }
 
@@ -110,6 +135,78 @@ func normalizeNavigationContributionPolicy(policy NavigationContributionPolicy) 
 	default:
 		return NavigationContributionPolicyStrict
 	}
+}
+
+func normalizeNavigationRouteMissingPolicy(policy NavigationRouteMissingPolicy) NavigationRouteMissingPolicy {
+	switch strings.ToLower(strings.TrimSpace(string(policy))) {
+	case string(NavigationRouteMissingPolicyReport):
+		return NavigationRouteMissingPolicyReport
+	default:
+		return NavigationRouteMissingPolicyStrict
+	}
+}
+
+func (a *Admin) navigationRouteMissingPolicyStrict() bool {
+	if a == nil {
+		return true
+	}
+	a.navigationLifecycleMu.Lock()
+	defer a.navigationLifecycleMu.Unlock()
+	return normalizeNavigationRouteMissingPolicy(a.navigationRouteMissingPolicy) == NavigationRouteMissingPolicyStrict
+}
+
+func (a *Admin) recordNavigationRouteMissing(item MenuItem) {
+	if a == nil {
+		return
+	}
+	id := strings.TrimSpace(item.ID)
+	if id == "" {
+		id = strings.TrimSpace(item.Code)
+	}
+	if id == "" {
+		id = strings.TrimSpace(targetStringValue(item.Target, "key"))
+	}
+	if id == "" {
+		id = "unknown"
+	}
+	a.navigationLifecycleMu.Lock()
+	defer a.navigationLifecycleMu.Unlock()
+	a.navigationRouteMissingItems = appendUniqueString(a.navigationRouteMissingItems, id)
+}
+
+func (a *Admin) recordNavigationRawInventoryUnavailable(menuCode string, err error) {
+	if a == nil || err == nil {
+		return
+	}
+	value := strings.TrimSpace(menuCode)
+	if value == "" {
+		value = "unknown"
+	}
+	value += ": " + strings.TrimSpace(err.Error())
+	a.navigationLifecycleMu.Lock()
+	defer a.navigationLifecycleMu.Unlock()
+	a.navigationRawInventoryErrors = appendUniqueString(a.navigationRawInventoryErrors, value)
+}
+
+func appendUniqueString(values []string, value string) []string {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return values
+	}
+	for _, existing := range values {
+		if strings.EqualFold(strings.TrimSpace(existing), value) {
+			return values
+		}
+	}
+	return append(values, value)
+}
+
+func cloneStringPtr(value *string) *string {
+	if value == nil {
+		return nil
+	}
+	cloned := *value
+	return &cloned
 }
 
 func cloneNavigationContributionItems(items []MenuItem) []MenuItem {
