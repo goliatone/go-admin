@@ -84,6 +84,8 @@ const (
 	AssignmentStatusReview                         = core.AssignmentStatusReview
 	AssignmentTypeDirect                           = core.AssignmentTypeDirect
 	AssignmentTypeOpenPool                         = core.AssignmentTypeOpenPool
+	CMSPageContentTypeSlug                         = core.CMSPageContentTypeSlug
+	CMSPagePolicyEntity                            = core.CMSPagePolicyEntity
 	ContentChannelScopeQueryParam                  = core.ContentChannelScopeQueryParam
 	ContentTypeCapabilityKeyBlockTypes             = core.ContentTypeCapabilityKeyBlockTypes
 	ContentTypeCapabilityKeyBlocks                 = core.ContentTypeCapabilityKeyBlocks
@@ -140,6 +142,13 @@ const (
 	DoctorSeverityInfo                             = core.DoctorSeverityInfo
 	DoctorSeverityOK                               = core.DoctorSeverityOK
 	DoctorSeverityWarn                             = core.DoctorSeverityWarn
+	EnhancedFragmentModeReplace                    = core.EnhancedFragmentModeReplace
+	EnhancedMutationMediaType                      = core.EnhancedMutationMediaType
+	EnhancedMutationResponseVersion                = core.EnhancedMutationResponseVersion
+	FamilyDetailFragmentActivity                   = core.FamilyDetailFragmentActivity
+	FamilyDetailFragmentAssignments                = core.FamilyDetailFragmentAssignments
+	FamilyDetailFragmentLocaleCoverage             = core.FamilyDetailFragmentLocaleCoverage
+	FamilyDetailFragmentPublishGate                = core.FamilyDetailFragmentPublishGate
 	FeatureActivity                                = core.FeatureActivity
 	FeatureBulk                                    = core.FeatureBulk
 	FeatureCMS                                     = core.FeatureCMS
@@ -216,10 +225,27 @@ const (
 	MenuRecordStatusPublished                      = core.MenuRecordStatusPublished
 	ModuleStartupPolicyEnforce                     = core.ModuleStartupPolicyEnforce
 	ModuleStartupPolicyWarn                        = core.ModuleStartupPolicyWarn
+	NavigationClassificationAmbiguousDuplicate     = core.NavigationClassificationAmbiguousDuplicate
+	NavigationClassificationCapabilityOmitted      = core.NavigationClassificationCapabilityOmitted
+	NavigationClassificationCustom                 = core.NavigationClassificationCustom
+	NavigationClassificationPermissionFiltered     = core.NavigationClassificationPermissionFiltered
+	NavigationClassificationPersistedMissing       = core.NavigationClassificationPersistedMissing
+	NavigationClassificationRawPresentNotRendered  = core.NavigationClassificationRawPresentNotRendered
+	NavigationClassificationRendered               = core.NavigationClassificationRendered
+	NavigationClassificationRetired                = core.NavigationClassificationRetired
+	NavigationClassificationRouteMissing           = core.NavigationClassificationRouteMissing
+	NavigationClassificationStaleFields            = core.NavigationClassificationStaleFields
+	NavigationClassificationUnsafeBroadMatch       = core.NavigationClassificationUnsafeBroadMatch
+	NavigationContributionPolicyStrict             = core.NavigationContributionPolicyStrict
+	NavigationContributionPolicyTolerant           = core.NavigationContributionPolicyTolerant
 	NavigationDisabledReasonCodePermissionDenied   = core.NavigationDisabledReasonCodePermissionDenied
 	NavigationOverrideHide                         = core.NavigationOverrideHide
 	NavigationOverrideInherit                      = core.NavigationOverrideInherit
 	NavigationOverrideShow                         = core.NavigationOverrideShow
+	NavigationOwnerHost                            = core.NavigationOwnerHost
+	NavigationOwnerModule                          = core.NavigationOwnerModule
+	NavigationOwnerQuickstart                      = core.NavigationOwnerQuickstart
+	NavigationOwnerUser                            = core.NavigationOwnerUser
 	NavigationPermissionDeniedModeDisable          = core.NavigationPermissionDeniedModeDisable
 	NavigationPermissionDeniedModeHide             = core.NavigationPermissionDeniedModeHide
 	NotificationMarkCommandName                    = core.NotificationMarkCommandName
@@ -326,6 +352,8 @@ const (
 	PriorityUrgent                                 = core.PriorityUrgent
 	ProtectedSurfaceScopeAdmin                     = core.ProtectedSurfaceScopeAdmin
 	ProtectedSurfaceScopeProtectedApp              = core.ProtectedSurfaceScopeProtectedApp
+	RPCCommandPermissionModeExact                  = core.RPCCommandPermissionModeExact
+	RPCCommandPermissionModeResourceRole           = core.RPCCommandPermissionModeResourceRole
 	RPCMethodCommandDispatch                       = core.RPCMethodCommandDispatch
 	RPCMethodCommandList                           = core.RPCMethodCommandList
 	RPCMethodWorkflowBindingsDelete                = core.RPCMethodWorkflowBindingsDelete
@@ -410,6 +438,11 @@ const (
 	TextCodeValidationError                        = core.TextCodeValidationError
 	TextCodeWorkflowInvalidTransition              = core.TextCodeWorkflowInvalidTransition
 	TextCodeWorkflowNotFound                       = core.TextCodeWorkflowNotFound
+	TranslationSSRSurfaceDashboard                 = core.TranslationSSRSurfaceDashboard
+	TranslationSSRSurfaceEditor                    = core.TranslationSSRSurfaceEditor
+	TranslationSSRSurfaceFamilyDetail              = core.TranslationSSRSurfaceFamilyDetail
+	TranslationSSRSurfaceFamilyList                = core.TranslationSSRSurfaceFamilyList
+	TranslationSSRSurfaceQueue                     = core.TranslationSSRSurfaceQueue
 	UpdateRoleOperation                            = core.UpdateRoleOperation
 	WidgetActivityFeed                             = core.WidgetActivityFeed
 	WidgetBarChart                                 = core.WidgetBarChart
@@ -470,6 +503,7 @@ var (
 	ErrTranslationExchangeMissingLinkage              = core.ErrTranslationExchangeMissingLinkage
 	ErrTranslationExchangeStaleSourceHash             = core.ErrTranslationExchangeStaleSourceHash
 	ErrTranslationExchangeUnsupportedFormat           = core.ErrTranslationExchangeUnsupportedFormat
+	ErrTranslationSourceNotFound                      = core.ErrTranslationSourceNotFound
 	ErrWorkflowBindingConflict                        = core.ErrWorkflowBindingConflict
 	ErrWorkflowBindingVersionConflict                 = core.ErrWorkflowBindingVersionConflict
 	ErrWorkflowInvalidTransition                      = core.ErrWorkflowInvalidTransition
@@ -524,6 +558,7 @@ type (
 	AdminPageRecord                                   = core.AdminPageRecord
 	AdminPageWriteService                             = core.AdminPageWriteService
 	AdminRouter                                       = core.AdminRouter
+	AdminStaticRouter[T any]                          = core.AdminStaticRouter[T]
 	AssignmentStatus                                  = core.AssignmentStatus
 	AssignmentType                                    = core.AssignmentType
 	AuthConfig                                        = core.AuthConfig
@@ -660,6 +695,7 @@ type (
 	DisabledMediaLibrary                              = core.DisabledMediaLibrary
 	DisabledNotificationService                       = core.DisabledNotificationService
 	DispatchFactory                                   = core.DispatchFactory
+	DispatchOutcome                                   = core.DispatchOutcome
 	DoctorAction                                      = core.DoctorAction
 	DoctorActionExecution                             = core.DoctorActionExecution
 	DoctorActionKind                                  = core.DoctorActionKind
@@ -678,6 +714,12 @@ type (
 	DynamicPanelFactoryOption                         = core.DynamicPanelFactoryOption
 	DynamicPanelHooks                                 = core.DynamicPanelHooks
 	EffectiveScope                                    = core.EffectiveScope
+	EnhancedActionNegotiationConfig                   = core.EnhancedActionNegotiationConfig
+	EnhancedActionRuntimeOptions                      = core.EnhancedActionRuntimeOptions
+	EnhancedFragment                                  = core.EnhancedFragment
+	EnhancedMutationError                             = core.EnhancedMutationError
+	EnhancedMutationResponder                         = core.EnhancedMutationResponder
+	EnhancedToast                                     = core.EnhancedToast
 	EnsureMenuParentsOptions                          = core.EnsureMenuParentsOptions
 	EnvironmentInfo                                   = core.EnvironmentInfo
 	ErrorConfig                                       = core.ErrorConfig
@@ -694,6 +736,8 @@ type (
 	FSMLifecycleActivitySinkAdapter                   = core.FSMLifecycleActivitySinkAdapter
 	FSMWorkflowEngine                                 = core.FSMWorkflowEngine
 	FSMWorkflowEngineOption                           = core.FSMWorkflowEngineOption
+	FamilyDetailFragmentRenderer                      = core.FamilyDetailFragmentRenderer
+	FamilyDetailFragmentTarget                        = core.FamilyDetailFragmentTarget
 	FeatureDependencyError                            = core.FeatureDependencyError
 	FeatureDisabledError                              = core.FeatureDisabledError
 	FeatureFlagsModule                                = core.FeatureFlagsModule
@@ -871,8 +915,18 @@ type (
 	ModuleManifest                                    = core.ModuleManifest
 	ModuleStartupPolicy                               = core.ModuleStartupPolicy
 	ModuleStartupValidator                            = core.ModuleStartupValidator
+	MutationFallback                                  = core.MutationFallback
+	MutationPresentation                              = core.MutationPresentation
 	Navigation                                        = core.Navigation
+	NavigationClassification                          = core.NavigationClassification
+	NavigationContributionPolicy                      = core.NavigationContributionPolicy
+	NavigationDoctorExpectedItem                      = core.NavigationDoctorExpectedItem
+	NavigationDoctorItem                              = core.NavigationDoctorItem
+	NavigationDoctorOptions                           = core.NavigationDoctorOptions
+	NavigationDoctorReport                            = core.NavigationDoctorReport
 	NavigationItem                                    = core.NavigationItem
+	NavigationLifecycleReport                         = core.NavigationLifecycleReport
+	NavigationOwner                                   = core.NavigationOwner
 	NavigationPermissionDeniedMode                    = core.NavigationPermissionDeniedMode
 	NoopCLIHandler                                    = core.NoopCLIHandler
 	NoopCMSContainer                                  = core.NoopCMSContainer
@@ -955,6 +1009,7 @@ type (
 	RPCCommandDispatchRequest                         = core.RPCCommandDispatchRequest
 	RPCCommandDispatchResponse                        = core.RPCCommandDispatchResponse
 	RPCCommandListResponse                            = core.RPCCommandListResponse
+	RPCCommandPermissionMode                          = core.RPCCommandPermissionMode
 	RPCCommandPolicyHook                              = core.RPCCommandPolicyHook
 	RPCCommandPolicyInput                             = core.RPCCommandPolicyInput
 	RPCCommandRule                                    = core.RPCCommandRule
@@ -970,6 +1025,7 @@ type (
 	ResolveResult                                     = core.ResolveResult
 	ResolveSource                                     = core.ResolveSource
 	ResolvedSetting                                   = core.ResolvedSetting
+	ResultDispatchFactory                             = core.ResultDispatchFactory
 	RingBuffer[T any]                                 = core.RingBuffer[T]
 	RoleAssignmentLookup                              = core.RoleAssignmentLookup
 	RolePanelRepository                               = core.RolePanelRepository
@@ -1073,6 +1129,7 @@ type (
 	TranslationAssignmentQueueSummary                 = core.TranslationAssignmentQueueSummary
 	TranslationAssignmentQueueSummaryInput            = core.TranslationAssignmentQueueSummaryInput
 	TranslationAssignmentRepository                   = core.TranslationAssignmentRepository
+	TranslationAssignmentResourceAdapter              = core.TranslationAssignmentResourceAdapter
 	TranslationAssignmentReviewerAggregateInput       = core.TranslationAssignmentReviewerAggregateInput
 	TranslationAssignmentReviewerSummaryStore         = core.TranslationAssignmentReviewerSummaryStore
 	TranslationAssignmentSnapshotQueryInput           = core.TranslationAssignmentSnapshotQueryInput
@@ -1114,6 +1171,10 @@ type (
 	TranslationExportFilter                           = core.TranslationExportFilter
 	TranslationExportInput                            = core.TranslationExportInput
 	TranslationExportResult                           = core.TranslationExportResult
+	TranslationFamilyAssignCommand                    = core.TranslationFamilyAssignCommand
+	TranslationFamilyAssignInput                      = core.TranslationFamilyAssignInput
+	TranslationFamilyAssignResult                     = core.TranslationFamilyAssignResult
+	TranslationFamilyResourceAdapter                  = core.TranslationFamilyResourceAdapter
 	TranslationImportApplyCommand                     = core.TranslationImportApplyCommand
 	TranslationImportApplyInput                       = core.TranslationImportApplyInput
 	TranslationImportRunCommand                       = core.TranslationImportRunCommand
@@ -1163,6 +1224,10 @@ type (
 	TranslationRequirements                           = core.TranslationRequirements
 	TranslationRequirementsResolver                   = core.TranslationRequirementsResolver
 	TranslationRequirementsResolverFunc               = core.TranslationRequirementsResolverFunc
+	TranslationSSRPage                                = core.TranslationSSRPage
+	TranslationSSRPresenter                           = core.TranslationSSRPresenter
+	TranslationSSRPresenterInput                      = core.TranslationSSRPresenterInput
+	TranslationSSRResourceResult                      = core.TranslationSSRResourceResult
 	TranslationSummaryWidgetPayload                   = core.TranslationSummaryWidgetPayload
 	Translator                                        = core.Translator
 	TranslatorAware                                   = core.TranslatorAware
@@ -1292,6 +1357,14 @@ func BuildMediaDeliveryURLsWithOptions(urls urlkit.Resolver, adminGroup string, 
 	return core.BuildMediaDeliveryURLsWithOptions(urls, adminGroup, publicGroup, id, opts)
 }
 
+func BuildSitePreviewURL(targetPath string, token string) string {
+	return core.BuildSitePreviewURL(targetPath, token)
+}
+
+func BuildSitePreviewURLWithAllowedHosts(targetPath string, token string, allowedHosts []string) string {
+	return core.BuildSitePreviewURLWithAllowedHosts(targetPath, token, allowedHosts)
+}
+
 func BuiltinEmojiLibrary() IconLibrary {
 	return core.BuiltinEmojiLibrary()
 }
@@ -1346,6 +1419,10 @@ func CaptureViewContext(collector *DebugCollector, viewCtx router.ViewContext) r
 
 func CaptureViewContextForRequest(collector *DebugCollector, c router.Context, viewCtx router.ViewContext) router.ViewContext {
 	return core.CaptureViewContextForRequest(collector, c, viewCtx)
+}
+
+func ClassifyNavigation(expected []NavigationDoctorExpectedItem, rendered []MenuItem, raw []MenuItem) NavigationDoctorReport {
+	return core.ClassifyNavigation(expected, rendered, raw)
 }
 
 func CollectIconContributions(contributor IconContributor, callbacks IconContributorCallbacks) error {
@@ -1412,6 +1489,10 @@ func DefaultDebugToolbarPanels() []string {
 	return core.DefaultDebugToolbarPanels()
 }
 
+func DefaultEnhancedActionNegotiationConfig() EnhancedActionNegotiationConfig {
+	return core.DefaultEnhancedActionNegotiationConfig()
+}
+
 func DefaultErrorPresenter() ErrorPresenter {
 	return core.DefaultErrorPresenter()
 }
@@ -1438,6 +1519,10 @@ func DomainErrorCodes() []DomainErrorCode {
 
 func EmptyWidgetPayload() WidgetPayload {
 	return core.EmptyWidgetPayload()
+}
+
+func EnhancedActionRuntimeOptionsFromConfig(cfg EnhancedActionNegotiationConfig) EnhancedActionRuntimeOptions {
+	return core.EnhancedActionRuntimeOptionsFromConfig(cfg)
 }
 
 func EnrichLayoutViewContext(adm *Admin, c router.Context, view router.ViewContext, active string) router.ViewContext {
@@ -1472,6 +1557,14 @@ func ExtractSourceContext(filePath string, errorLine int, contextLines int) *Sou
 	return core.ExtractSourceContext(filePath, errorLine, contextLines)
 }
 
+func FamilyDetailFragmentSelector(target FamilyDetailFragmentTarget) (string, bool) {
+	return core.FamilyDetailFragmentSelector(target)
+}
+
+func FamilyDetailFragmentTargets() []FamilyDetailFragmentTarget {
+	return core.FamilyDetailFragmentTargets()
+}
+
 func GetSVGFieldTypeMapping() map[string]string {
 	return core.GetSVGFieldTypeMapping()
 }
@@ -1490,6 +1583,18 @@ func GetTranslationFlowSQLiteMigrationsFS() fs.FS {
 
 func GetWorkflowRuntimeMigrationsFS() fs.FS {
 	return core.GetWorkflowRuntimeMigrationsFS()
+}
+
+func IsCMSPageContentRecord(contentType string, contentTypeSlug string) bool {
+	return core.IsCMSPageContentRecord(contentType, contentTypeSlug)
+}
+
+func IsCMSPageContentTypeSlug(value string) bool {
+	return core.IsCMSPageContentTypeSlug(value)
+}
+
+func IsCMSPagePolicyEntity(value string) bool {
+	return core.IsCMSPagePolicyEntity(value)
 }
 
 func IsTranslationMissing(err error) bool {
@@ -1518,6 +1623,10 @@ func ManagementGraphQLControllers() []registrar.Controller {
 
 func MenuUUIDFromSlug(slug string) string {
 	return core.MenuUUIDFromSlug(slug)
+}
+
+func NavigationClassifications() []NavigationClassification {
+	return core.NavigationClassifications()
 }
 
 func New(cfg Config, deps Dependencies) (*Admin, error) {
@@ -1714,6 +1823,10 @@ func NewDomainError(code string, message string, meta map[string]any) *errors.Er
 
 func NewDynamicPanelFactory(admin *Admin, opts ...DynamicPanelFactoryOption) *DynamicPanelFactory {
 	return core.NewDynamicPanelFactory(admin, opts...)
+}
+
+func NewEnhancedMutationResponder(presenter ...ErrorPresenter) EnhancedMutationResponder {
+	return core.NewEnhancedMutationResponder(presenter...)
 }
 
 func NewErrorPresenter(cfg ErrorConfig, mappers ...errors.ErrorMapper) ErrorPresenter {
@@ -1944,6 +2057,10 @@ func NewMenuBuilderService() *MenuBuilderService {
 	return core.NewMenuBuilderService()
 }
 
+func NewMutationPresentation(opts ...func(*MutationPresentation)) MutationPresentation {
+	return core.NewMutationPresentation(opts...)
+}
+
 func NewNavigation(menuSvc CMSMenuService, authorizer Authorizer) *Navigation {
 	return core.NewNavigation(menuSvc, authorizer)
 }
@@ -2052,6 +2169,10 @@ func NewTranslationAssignmentPanelRepository(repo TranslationAssignmentRepositor
 	return core.NewTranslationAssignmentPanelRepository(repo)
 }
 
+func NewTranslationAssignmentResourceAdapter(a *Admin) *TranslationAssignmentResourceAdapter {
+	return core.NewTranslationAssignmentResourceAdapter(a)
+}
+
 func NewTranslationExchangeRuntime(store TranslationExchangeRuntimeStore, exporter TranslationExchangeExporter, applyService *TranslationExchangeService) *TranslationExchangeRuntime {
 	return core.NewTranslationExchangeRuntime(store, exporter, applyService)
 }
@@ -2060,8 +2181,16 @@ func NewTranslationExchangeService(store TranslationExchangeStore, opts ...Trans
 	return core.NewTranslationExchangeService(store, opts...)
 }
 
+func NewTranslationFamilyResourceAdapter(a *Admin) *TranslationFamilyResourceAdapter {
+	return core.NewTranslationFamilyResourceAdapter(a)
+}
+
 func NewTranslationQueuePanel(repo Repository) *PanelBuilder {
 	return core.NewTranslationQueuePanel(repo)
+}
+
+func NewTranslationSSRPresenter(a *Admin) TranslationSSRPresenter {
+	return core.NewTranslationSSRPresenter(a)
 }
 
 func NewUserManagementModule(opts ...UserManagementModuleOption) *UserManagementModule {
@@ -2204,10 +2333,6 @@ func RegisterManagementGraphQLSchemas() {
 	core.RegisterManagementGraphQLSchemas()
 }
 
-func RegisterMessageFactory[T any](bus *CommandBus, name string, build func(payload map[string]any, ids []string) (T, error)) error {
-	return core.RegisterMessageFactory[T](bus, name, build)
-}
-
 func RegisterPermissionsDebugPanel(admin *Admin) {
 	core.RegisterPermissionsDebugPanel(admin)
 }
@@ -2240,6 +2365,14 @@ func RegisterTranslationQueueTabs(admin *Admin) error {
 	return core.RegisterTranslationQueueTabs(admin)
 }
 
+func RenderFamilyDetailFragments(targets []FamilyDetailFragmentTarget, renderer FamilyDetailFragmentRenderer) ([]EnhancedFragment, error) {
+	return core.RenderFamilyDetailFragments(targets, renderer)
+}
+
+func RenderFamilyDetailFragmentsFromData(data map[string]any) ([]EnhancedFragment, error) {
+	return core.RenderFamilyDetailFragmentsFromData(data)
+}
+
 func RenderOptionsForAPI(trusted bool) IconRenderOptions {
 	return core.RenderOptionsForAPI(trusted)
 }
@@ -2262,6 +2395,10 @@ func ResolveAuthenticatedRequestIdentity(c router.Context, defaults Authenticate
 
 func ResolveContentPath(content CMSContent, fallback string) string {
 	return core.ResolveContentPath(content, fallback)
+}
+
+func ResolveContentPreviewPath(record map[string]any) string {
+	return core.ResolveContentPreviewPath(record)
 }
 
 func ResolveTranslationExchangeLinkageKey(row TranslationExchangeRow) (TranslationExchangeLinkageKey, error) {
@@ -2330,6 +2467,10 @@ func TranslationMatrixQueryModel() map[string]any {
 
 func TranslationQueueContractPayload() map[string]any {
 	return core.TranslationQueueContractPayload()
+}
+
+func TranslationQueuePresetQuery(presetID string) map[string]string {
+	return core.TranslationQueuePresetQuery(presetID)
 }
 
 func TranslationQueueReviewAggregateCountKeys() []string {
@@ -2570,6 +2711,26 @@ func WithLocaleVariants() CMSContentListOption {
 
 func WithMenuPositions(usersPos *int, rolesPos *int) UserManagementModuleOption {
 	return core.WithMenuPositions(usersPos, rolesPos)
+}
+
+func WithMutationFocus(selector string) func(*MutationPresentation) {
+	return core.WithMutationFocus(selector)
+}
+
+func WithMutationFragment(fragment EnhancedFragment) func(*MutationPresentation) {
+	return core.WithMutationFragment(fragment)
+}
+
+func WithMutationRedirect(redirect string) func(*MutationPresentation) {
+	return core.WithMutationRedirect(redirect)
+}
+
+func WithMutationStatus(status int) func(*MutationPresentation) {
+	return core.WithMutationStatus(status)
+}
+
+func WithMutationToast(toast EnhancedToast) func(*MutationPresentation) {
+	return core.WithMutationToast(toast)
 }
 
 func WithOptionalAuth(optional bool) GoAuthAuthenticatorOption {
