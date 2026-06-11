@@ -18,6 +18,7 @@ const (
 type NavigationRouteMissingPolicy string
 
 const (
+	NavigationRouteMissingPolicyAuto   NavigationRouteMissingPolicy = ""
 	NavigationRouteMissingPolicyStrict NavigationRouteMissingPolicy = "strict"
 	NavigationRouteMissingPolicyReport NavigationRouteMissingPolicy = "report"
 )
@@ -85,7 +86,13 @@ func (a *Admin) FlushQueuedNavigationContributions(ctx context.Context) error {
 	if len(items) == 0 {
 		return nil
 	}
-	return a.addMenuItemsNow(ctx, items)
+	if err := a.addMenuItemsNow(ctx, items); err != nil {
+		a.navigationLifecycleMu.Lock()
+		a.queuedNavigationItems = append(cloneNavigationContributionItems(items), a.queuedNavigationItems...)
+		a.navigationLifecycleMu.Unlock()
+		return err
+	}
+	return nil
 }
 
 func (a *Admin) queueOrRejectLateNavigationItems(items []MenuItem) (bool, error) {
@@ -117,7 +124,7 @@ func (a *Admin) navigationLifecycleReportLocked() NavigationLifecycleReport {
 		ContributionsClosed:        a.navigationContributionsClosed,
 		Policy:                     normalizeNavigationContributionPolicy(a.navigationContributionPolicy),
 		ContributionPolicyEnforced: a.navigationContributionPolicySet,
-		RouteMissingPolicy:         normalizeNavigationRouteMissingPolicy(a.navigationRouteMissingPolicy),
+		RouteMissingPolicy:         a.effectiveNavigationRouteMissingPolicyLocked(),
 		QueuedItems:                len(a.queuedNavigationItems),
 		EngineIdentity:             navcontract.EngineIdentity,
 		EngineVersion:              navcontract.EngineVersion,
@@ -141,8 +148,10 @@ func normalizeNavigationRouteMissingPolicy(policy NavigationRouteMissingPolicy) 
 	switch strings.ToLower(strings.TrimSpace(string(policy))) {
 	case string(NavigationRouteMissingPolicyReport):
 		return NavigationRouteMissingPolicyReport
-	default:
+	case string(NavigationRouteMissingPolicyStrict):
 		return NavigationRouteMissingPolicyStrict
+	default:
+		return NavigationRouteMissingPolicyAuto
 	}
 }
 
@@ -152,7 +161,30 @@ func (a *Admin) navigationRouteMissingPolicyStrict() bool {
 	}
 	a.navigationLifecycleMu.Lock()
 	defer a.navigationLifecycleMu.Unlock()
-	return normalizeNavigationRouteMissingPolicy(a.navigationRouteMissingPolicy) == NavigationRouteMissingPolicyStrict
+	return a.effectiveNavigationRouteMissingPolicyLocked() == NavigationRouteMissingPolicyStrict
+}
+
+func (a *Admin) effectiveNavigationRouteMissingPolicyLocked() NavigationRouteMissingPolicy {
+	if a == nil {
+		return NavigationRouteMissingPolicyStrict
+	}
+	policy := normalizeNavigationRouteMissingPolicy(a.navigationRouteMissingPolicy)
+	if policy != NavigationRouteMissingPolicyAuto {
+		return policy
+	}
+	if a.config.Errors.DevMode || a.config.Debug.Enabled || navigationRouteMissingStrictEnvironment(a.config.Debug.Environment) {
+		return NavigationRouteMissingPolicyStrict
+	}
+	return NavigationRouteMissingPolicyReport
+}
+
+func navigationRouteMissingStrictEnvironment(environment string) bool {
+	switch strings.ToLower(strings.TrimSpace(environment)) {
+	case "dev", "develop", "development", "local", "test", "testing":
+		return true
+	default:
+		return false
+	}
 }
 
 func (a *Admin) recordNavigationRouteMissing(item MenuItem) {

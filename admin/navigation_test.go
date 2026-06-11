@@ -313,6 +313,52 @@ func TestAdminPersistMenuItemsReportsRouteMissingItemsByDefaultOutsideDev(t *tes
 	}
 }
 
+func TestNavigationRouteMissingAutoPolicyUsesDevModeSignals(t *testing.T) {
+	tests := []struct {
+		name string
+		cfg  Config
+		want NavigationRouteMissingPolicy
+	}{
+		{
+			name: "errors dev mode is strict",
+			cfg:  Config{Errors: ErrorConfig{DevMode: true}},
+			want: NavigationRouteMissingPolicyStrict,
+		},
+		{
+			name: "debug enabled normalizes to dev mode strict",
+			cfg:  Config{Debug: DebugConfig{Enabled: true}},
+			want: NavigationRouteMissingPolicyStrict,
+		},
+		{
+			name: "test environment is strict",
+			cfg:  Config{Debug: DebugConfig{Environment: "testing"}},
+			want: NavigationRouteMissingPolicyStrict,
+		},
+		{
+			name: "production environment reports",
+			cfg:  Config{Debug: DebugConfig{Environment: "production"}},
+			want: NavigationRouteMissingPolicyReport,
+		},
+		{
+			name: "explicit report overrides dev mode",
+			cfg: Config{
+				Errors:                ErrorConfig{DevMode: true},
+				NavRouteMissingPolicy: NavigationRouteMissingPolicyReport,
+			},
+			want: NavigationRouteMissingPolicyReport,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			adm := mustNewAdmin(t, tc.cfg, Dependencies{})
+			if got := adm.NavigationLifecycleReport().RouteMissingPolicy; got != tc.want {
+				t.Fatalf("expected route missing policy %q, got %q", tc.want, got)
+			}
+		})
+	}
+}
+
 func TestAdminPersistMenuItemsPreservesUserRowMatchedOnlyByBroadTargetKey(t *testing.T) {
 	ctx := context.Background()
 	menuSvc := NewInMemoryMenuService()
@@ -660,6 +706,38 @@ func TestAdminPersistMenuItemsFailsLoudlyForRouteMissingModuleItem(t *testing.T)
 	}
 }
 
+func TestAdminPersistMenuItemsFailsForRouteMissingModuleItemInAutoDevMode(t *testing.T) {
+	ctx := context.Background()
+	menuSvc := NewInMemoryMenuService()
+	adm := mustNewAdmin(t, Config{
+		DefaultLocale: "en",
+		NavMenuCode:   "admin_main",
+		Errors:        ErrorConfig{DevMode: true},
+	}, Dependencies{FeatureGate: featureGateFromKeys(FeatureCMS)})
+	adm.UseCMS(&stubCMSContainer{menu: menuSvc})
+	mustCreateNavigationTestMenu(t, menuSvc, ctx, "admin_main")
+
+	err := adm.addMenuItems(ctx, []MenuItem{{
+		Label:  "Broken",
+		Locale: "en",
+		Menu:   "admin_main",
+		Target: map[string]any{"type": "url", "key": "broken"},
+	}})
+	if err == nil {
+		t.Fatalf("expected route-missing module item to fail in dev auto mode")
+	}
+	if !strings.Contains(err.Error(), "navigation route target missing") {
+		t.Fatalf("expected route-missing error, got %v", err)
+	}
+	report := adm.NavigationLifecycleReport()
+	if report.RouteMissingPolicy != NavigationRouteMissingPolicyStrict {
+		t.Fatalf("expected strict route-missing policy in dev auto mode, got %#v", report)
+	}
+	if !stringSliceContains(report.RouteMissingItems, "admin_main.broken") && !stringSliceContains(report.RouteMissingItems, "broken") {
+		t.Fatalf("expected route-missing lifecycle diagnostic, got %#v", report)
+	}
+}
+
 func TestAdminPersistMenuItemsReportsAndSkipsRouteMissingItemsInReportMode(t *testing.T) {
 	ctx := context.Background()
 	menuSvc := NewInMemoryMenuService()
@@ -863,8 +941,8 @@ func TestNavigationContributionLifecycleQueuesLateWritesInTolerantMode(t *testin
 	if got := adm.NavigationLifecycleReport().QueuedItems; got != 1 {
 		t.Fatalf("expected one queued item, got %d", got)
 	}
-	if err := adm.FlushQueuedNavigationContributions(ctx); err != nil {
-		t.Fatalf("flush queued navigation contributions: %v", err)
+	if flushErr := adm.FlushQueuedNavigationContributions(ctx); flushErr != nil {
+		t.Fatalf("flush queued navigation contributions: %v", flushErr)
 	}
 	if got := adm.NavigationLifecycleReport().QueuedItems; got != 0 {
 		t.Fatalf("expected queue to drain, got %d", got)
@@ -927,11 +1005,9 @@ func TestNavigationConvergenceSerializesConcurrentModuleWrites(t *testing.T) {
 	var wg sync.WaitGroup
 	errs := make(chan error, 2)
 	for range 2 {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			errs <- adm.addMenuItems(ctx, []MenuItem{item})
-		}()
+		})
 	}
 	wg.Wait()
 	close(errs)
