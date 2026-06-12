@@ -59,7 +59,7 @@ var debugPanelDefaults = map[string]debugPanelMeta{
 	DebugPanelJSErrors:    {Label: "JS Errors", Icon: "iconoir-warning-triangle", Span: debugPanelDefaultSpan},
 	DebugPanelPermissions: {Label: "Permissions", Icon: "iconoir-shield-check", Span: debugPanelDefaultSpan},
 	DebugPanelActions:     {Label: "Actions", Icon: "iconoir-flash", Span: debugPanelDefaultSpan},
-	DebugPanelDoctor:      {Label: "Doctor", Icon: "iconoir-heartbeat", Span: debugPanelDefaultSpan},
+	DebugPanelDoctor:      {Label: "Doctor", Icon: "iconoir-heart", Span: debugPanelDefaultSpan},
 }
 
 // DebugModule registers the debug dashboard integration and menu entry.
