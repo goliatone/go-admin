@@ -780,7 +780,7 @@ func TestTranslationSSRQueueDataGridContract(t *testing.T) {
 		"saved_review_filter_presets":      []map[string]any{{"id": "review_inbox"}},
 		"server_family_grouping_supported": true,
 		"bulk_selection":                   map[string]any{"mode": "current_page"},
-		"grouping":                         map[string]any{"mode": "family_id"},
+		"grouping":                         map[string]any{"mode": "family_id", "enabled": true, "strategy": "server_family"},
 	}
 	grid := translationSSRQueueDataGrid(TranslationSSRPresenterInput{
 		EditorBasePath: "/admin/translations/assignments",
@@ -882,6 +882,148 @@ func TestTranslationSSRQueueDataGridContract(t *testing.T) {
 	sort := extractMap(grid["sort"])
 	if got := toString(sort["label"]); got != "Due Date, ascending" {
 		t.Fatalf("expected readable sort label, got %q", got)
+	}
+	if got := toString(grid["view_mode"]); got != "families" {
+		t.Fatalf("expected families view mode from grouping meta, got %q", got)
+	}
+}
+
+func TestTranslationSSRQueueViewMode(t *testing.T) {
+	cases := []struct {
+		name string
+		meta map[string]any
+		want string
+	}{
+		{name: "missing grouping", meta: map[string]any{}, want: "list"},
+		{name: "flat default", meta: map[string]any{"grouping": map[string]any{"mode": "flat"}}, want: "list"},
+		{name: "disabled grouping", meta: map[string]any{"grouping": map[string]any{"enabled": false, "strategy": "page_local"}}, want: "list"},
+		{name: "page local", meta: map[string]any{"grouping": map[string]any{"enabled": true, "strategy": "page_local"}}, want: "grouped"},
+		{name: "default strategy", meta: map[string]any{"grouping": map[string]any{"enabled": true}}, want: "grouped"},
+		{name: "server family", meta: map[string]any{"grouping": map[string]any{"enabled": true, "strategy": "server_family"}}, want: "families"},
+	}
+	for _, tc := range cases {
+		if got := translationSSRQueueViewMode(tc.meta); got != tc.want {
+			t.Fatalf("%s: expected view mode %q, got %q", tc.name, tc.want, got)
+		}
+	}
+}
+
+func TestTranslationSSRQueueFamilyRowsUseFamilyAssignmentsUIHref(t *testing.T) {
+	rows := []map[string]any{{
+		"row_type":       "family",
+		"family_id":      "family-123",
+		"family_label":   "Homepage",
+		"target_locales": []string{"es", "fr"},
+		"expansion": map[string]any{
+			"href":  "/admin/api/translations/families/family-123/assignments?page=1&per_page=25",
+			"route": "translations.assignments.family_assignments",
+			"query": map[string]any{
+				"status":       "assigned",
+				"sort":         "updated_at",
+				"order":        "desc",
+				"page":         1,
+				"per_page":     25,
+				"tenant_id":    "tenant-1",
+				"org_id":       "org-1",
+				"review_state": "needs_review",
+			},
+		},
+	}}
+
+	translationSSRDecorateQueueRows(TranslationSSRPresenterInput{
+		BasePath:       "/admin",
+		FamilyBasePath: "/admin/translations/families",
+		QueuePath:      "/admin/translations/queue",
+		Channel:        "staging",
+		Query:          map[string]string{"status": "open"},
+	}, rows)
+
+	href := toString(rows[0]["assignments_href"])
+	parsed, err := url.Parse(href)
+	if err != nil {
+		t.Fatalf("parse assignments href %q: %v", href, err)
+	}
+	if parsed.Path != "/admin/translations/families/family-123/assignments" {
+		t.Fatalf("expected family assignments ui path, got %q", parsed.Path)
+	}
+	if strings.Contains(href, "/admin/api/") {
+		t.Fatalf("expected ui href not api href, got %q", href)
+	}
+	for key, want := range map[string]string{
+		"channel":      "staging",
+		"status":       "assigned",
+		"review_state": "needs_review",
+		"sort":         "updated_at",
+		"order":        "desc",
+		"page":         "1",
+		"per_page":     "25",
+		"tenant_id":    "tenant-1",
+		"org_id":       "org-1",
+	} {
+		if got := parsed.Query().Get(key); got != want {
+			t.Fatalf("expected query %s=%q, got %q in %q", key, want, got, href)
+		}
+	}
+	if expansion := extractMap(rows[0]["expansion"]); !strings.Contains(toString(expansion["href"]), "/admin/api/translations/families/family-123/assignments") {
+		t.Fatalf("expected expansion href to remain api endpoint, got %+v", expansion)
+	}
+}
+
+func TestTranslationSSRFamilyAssignmentsLinksPreservePaginationQuery(t *testing.T) {
+	links := translationSSRFamilyAssignmentsLinks(TranslationSSRPresenterInput{
+		BasePath:       "/admin",
+		FamilyBasePath: "/admin/translations/families",
+		QueuePath:      "/admin/translations/queue",
+		EditorBasePath: "/admin/translations/assignments",
+		FamilyID:       "family-123",
+		Channel:        "staging",
+		Query: map[string]string{
+			"status":       "assigned",
+			"review_state": "needs_review",
+			"sort":         "updated_at",
+			"order":        "desc",
+			"page":         "2",
+			"per_page":     "25",
+			"tenant_id":    "tenant-1",
+			"org_id":       "org-1",
+		},
+	}, map[string]any{"page": 2, "per_page": 25, "total": 75, "has_next": true})
+
+	if got := toString(links["family_detail"]); !strings.HasPrefix(got, "/admin/translations/families/family-123?") {
+		t.Fatalf("expected family detail link, got %q", got)
+	}
+	nextURL, err := url.Parse(toString(links["next"]))
+	if err != nil {
+		t.Fatalf("parse next link: %v", err)
+	}
+	prevURL, err := url.Parse(toString(links["previous"]))
+	if err != nil {
+		t.Fatalf("parse previous link: %v", err)
+	}
+	if nextURL.Path != "/admin/translations/families/family-123/assignments" || prevURL.Path != nextURL.Path {
+		t.Fatalf("expected family assignments pagination paths, prev=%q next=%q", prevURL.String(), nextURL.String())
+	}
+	for _, parsed := range []*url.URL{prevURL, nextURL} {
+		for key, want := range map[string]string{
+			"channel":      "staging",
+			"status":       "assigned",
+			"review_state": "needs_review",
+			"sort":         "updated_at",
+			"order":        "desc",
+			"per_page":     "25",
+			"tenant_id":    "tenant-1",
+			"org_id":       "org-1",
+		} {
+			if got := parsed.Query().Get(key); got != want {
+				t.Fatalf("expected %s=%q in %q, got %q", key, want, parsed.String(), got)
+			}
+		}
+	}
+	if got := prevURL.Query().Get("page"); got != "1" {
+		t.Fatalf("expected previous page 1, got %q", got)
+	}
+	if got := nextURL.Query().Get("page"); got != "3" {
+		t.Fatalf("expected next page 3, got %q", got)
 	}
 }
 

@@ -664,6 +664,9 @@ func TestTranslationQueueBindingAssignmentsSupportsServerFamilyGrouping(t *testi
 	if !strings.Contains(toString(expansion["href"]), "/admin/api/translations/families/family-server-1/assignments") {
 		t.Fatalf("expected expansion href for family child endpoint, got %+v", expansion)
 	}
+	if href := strings.TrimSpace(toString(parent["assignments_href"])); href != "" {
+		t.Fatalf("expected API parent row not to expose SSR assignments href, got %q", href)
+	}
 	if toBool(parent["family_blocker_count_available"]) {
 		t.Fatalf("expected in-memory blocker aggregate to be degraded, got %+v", parent)
 	}

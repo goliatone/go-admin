@@ -613,6 +613,9 @@ func TestNewModuleRegistrarSeedsTranslationCapabilityMenuItemsWhenEnabled(t *tes
 				if len(queueItem.Permissions) != 0 {
 					t.Fatalf("expected queue menu item to be module/profile-gated only, got permissions %v", queueItem.Permissions)
 				}
+				if got := strings.TrimSpace(queueItem.Icon); got != "language" {
+					t.Fatalf("expected queue icon language, got %q", got)
+				}
 				assertNoPersistedTranslationPermissionState(t, queueItem)
 			}
 			assignmentsItem := findMenuItemByRouteName(menu.Items, "admin.translations.assignments")
@@ -626,6 +629,9 @@ func TestNewModuleRegistrarSeedsTranslationCapabilityMenuItemsWhenEnabled(t *tes
 				}
 				if len(assignmentsItem.Permissions) != 0 {
 					t.Fatalf("expected assignments menu item to be module/profile-gated only, got permissions %v", assignmentsItem.Permissions)
+				}
+				if got := strings.TrimSpace(assignmentsItem.Icon); got != "clipboard-check" {
+					t.Fatalf("expected assignments icon clipboard-check, got %q", got)
 				}
 				assertNoPersistedTranslationPermissionState(t, assignmentsItem)
 			}
@@ -646,6 +652,9 @@ func TestNewModuleRegistrarSeedsTranslationCapabilityMenuItemsWhenEnabled(t *tes
 				if len(dashboardItem.Permissions) != 0 {
 					t.Fatalf("expected dashboard menu item to be module/profile-gated only, got permissions %v", dashboardItem.Permissions)
 				}
+				if got := strings.TrimSpace(dashboardItem.Icon); got != "dashboard-dots" {
+					t.Fatalf("expected dashboard icon dashboard-dots, got %q", got)
+				}
 				assertNoPersistedTranslationPermissionState(t, dashboardItem)
 			}
 
@@ -664,6 +673,9 @@ func TestNewModuleRegistrarSeedsTranslationCapabilityMenuItemsWhenEnabled(t *tes
 				}
 				if len(exchangeItem.Permissions) != 0 {
 					t.Fatalf("expected exchange menu item to be module/profile-gated only, got permissions %v", exchangeItem.Permissions)
+				}
+				if got := strings.TrimSpace(exchangeItem.Icon); got != "translate" {
+					t.Fatalf("expected exchange icon translate, got %q", got)
 				}
 				assertNoPersistedTranslationPermissionState(t, exchangeItem)
 			}

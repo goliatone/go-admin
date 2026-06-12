@@ -31,10 +31,11 @@ type stubTranslationSSRPresenter struct {
 
 type capturingTranslationSSRPresenter struct {
 	stubTranslationSSRPresenter
-	familyListInput admin.TranslationSSRPresenterInput
-	queueInput      admin.TranslationSSRPresenterInput
-	matrixInput     admin.TranslationSSRPresenterInput
-	exchangeInput   admin.TranslationSSRPresenterInput
+	familyListInput        admin.TranslationSSRPresenterInput
+	familyAssignmentsInput admin.TranslationSSRPresenterInput
+	queueInput             admin.TranslationSSRPresenterInput
+	matrixInput            admin.TranslationSSRPresenterInput
+	exchangeInput          admin.TranslationSSRPresenterInput
 }
 
 func (s stubTranslationSSRPresenter) Dashboard(router.Context, admin.TranslationSSRPresenterInput) (admin.TranslationSSRPage, error) {
@@ -52,6 +53,15 @@ func (p *capturingTranslationSSRPresenter) FamilyList(c router.Context, input ad
 
 func (s stubTranslationSSRPresenter) FamilyDetail(router.Context, admin.TranslationSSRPresenterInput) (admin.TranslationSSRPage, error) {
 	return s.page(admin.TranslationSSRSurfaceFamilyDetail)
+}
+
+func (s stubTranslationSSRPresenter) FamilyAssignments(router.Context, admin.TranslationSSRPresenterInput) (admin.TranslationSSRPage, error) {
+	return s.page(admin.TranslationSSRSurfaceFamilyAssignments)
+}
+
+func (p *capturingTranslationSSRPresenter) FamilyAssignments(c router.Context, input admin.TranslationSSRPresenterInput) (admin.TranslationSSRPage, error) {
+	p.familyAssignmentsInput = input
+	return p.stubTranslationSSRPresenter.FamilyAssignments(c, input)
 }
 
 func (s stubTranslationSSRPresenter) Queue(router.Context, admin.TranslationSSRPresenterInput) (admin.TranslationSSRPage, error) {
@@ -557,6 +567,63 @@ func TestTranslationQueueTemplateRendersSSRSections(t *testing.T) {
 	}
 }
 
+func TestTranslationFamilyAssignmentsTemplateRendersSSRSections(t *testing.T) {
+	raw, err := os.ReadFile("../pkg/client/templates/resources/translations/family-assignments.html")
+	if err != nil {
+		t.Fatalf("read family assignments template: %v", err)
+	}
+	template := string(raw)
+	for _, expected := range []string{
+		"translation_family_assignments_ssr",
+		`data-translation-family-assignments-ssr="true"`,
+		"Family assignments",
+		"page.Data.rows",
+		"Open editor",
+		"Family detail",
+		"Family assignments pagination",
+		"data-action-menu-trigger",
+		"data-translation-action=\"claim\"",
+		"dist/shared/action-menu.js",
+	} {
+		if !strings.Contains(template, expected) {
+			t.Fatalf("expected family assignments template to contain %q", expected)
+		}
+	}
+	if regexp.MustCompile(`<div\s+id="translation-family-assignments-root"[^>]*>\s*</div>`).MatchString(template) {
+		t.Fatalf("expected family assignments root to contain SSR markup, found empty root pattern")
+	}
+}
+
+func TestTranslationFamilyAssignmentsTemplateRendersEmptyAndErrorStates(t *testing.T) {
+	emptyHTML := renderTranslationUITemplate(t, "resources/translations/family-assignments", fiber.Map{
+		"translation_family_id": "family-empty",
+		"translation_family_assignments_ssr": admin.TranslationSSRPage{
+			Surface:    admin.TranslationSSRSurfaceFamilyAssignments,
+			Meta:       map[string]any{"family_id": "family-empty", "page": 1, "per_page": 25, "total": 0},
+			Data:       map[string]any{"rows": []map[string]any{}},
+			Links:      map[string]any{"family_detail": "/admin/translations/families/family-empty", "queue": "/admin/translations/queue"},
+			EmptyState: map[string]any{"description": "No family assignments."},
+		},
+	})
+	if !strings.Contains(emptyHTML, "No family assignments.") {
+		t.Fatalf("expected empty state copy, got %q", emptyHTML)
+	}
+	if !strings.Contains(emptyHTML, `aria-label="Family assignments pagination"`) {
+		t.Fatalf("expected pagination controls in empty state, got %q", emptyHTML)
+	}
+
+	errorHTML := renderTranslationUITemplate(t, "resources/translations/family-assignments", fiber.Map{
+		"translation_family_id": "family-error",
+		"translation_family_assignments_ssr": admin.TranslationSSRPage{
+			Surface:    admin.TranslationSSRSurfaceFamilyAssignments,
+			ErrorState: map[string]any{"title": "Family unavailable", "description": "Repository unavailable"},
+		},
+	})
+	if !strings.Contains(errorHTML, `data-translation-ssr-error="true"`) || !strings.Contains(errorHTML, "Repository unavailable") {
+		t.Fatalf("expected rendered error state, got %q", errorHTML)
+	}
+}
+
 func TestTranslationQueueTemplateRendersUIPresetLinks(t *testing.T) {
 	html := renderTranslationUITemplate(t, "resources/translations/shell", fiber.Map{
 		"translation_shell_surface":              "queue",
@@ -593,6 +660,7 @@ func TestTranslationQueueTemplateRendersUIPresetLinks(t *testing.T) {
 					"family_label":     "Family Two",
 					"assignment_count": 3,
 					"locale_count":     2,
+					"assignments_href": "/admin/translations/families/family-2/assignments?channel=staging&page=1&per_page=25",
 					"expansion": map[string]any{
 						"href": "/admin/api/translations/assignments/families/family-2?channel=staging",
 					},
@@ -621,8 +689,11 @@ func TestTranslationQueueTemplateRendersUIPresetLinks(t *testing.T) {
 	if !strings.Contains(html, `data-translation-row-type="family"`) {
 		t.Fatalf("expected grouped family parent row markup, got %q", html)
 	}
-	if !strings.Contains(html, `href="/admin/api/translations/assignments/families/family-2?channel=staging"`) {
-		t.Fatalf("expected grouped family expansion link to preserve channel, got %q", html)
+	if !strings.Contains(html, `href="/admin/translations/families/family-2/assignments?channel=staging&amp;page=1&amp;per_page=25"`) {
+		t.Fatalf("expected grouped family view link to use SSR family assignments URL, got %q", html)
+	}
+	if strings.Contains(html, `href="/admin/api/translations/assignments/families/family-2?channel=staging"`) {
+		t.Fatalf("expected grouped family view link not to use API expansion URL, got %q", html)
 	}
 	if strings.Contains(html, `data-assignment-id="family:family-2"`) {
 		t.Fatalf("expected grouped family parent not to render assignment action wiring, got %q", html)
@@ -822,6 +893,69 @@ func TestMigratedTranslationTemplatesRenderHydratedSSRData(t *testing.T) {
 				},
 			},
 			expected: []string{"Launch page", "Hello", "Assignee translator.jane", "Reviewer reviewer.sam@example.com", `data-translation-editor-ssr="true"`},
+		},
+		{
+			name:     "family assignments",
+			template: "resources/translations/family-assignments",
+			data: fiber.Map{
+				"translation_family_id":                   "family-1",
+				"translation_family_assignments_api_path": "/admin/api/translations/families/family-1/assignments",
+				"translation_queue_editor_base_path":      "/admin/translations/assignments",
+				"translation_family_assignments_ssr": admin.TranslationSSRPage{
+					Surface: admin.TranslationSSRSurfaceFamilyAssignments,
+					Meta: map[string]any{
+						"family_id": "family-1",
+						"total":     1,
+						"page":      2,
+						"per_page":  25,
+						"has_next":  true,
+						"sort":      "updated_at",
+						"order":     "desc",
+						"channel":   "staging",
+					},
+					Data: map[string]any{
+						"rows": []map[string]any{{
+							"assignment_id":    "asg-1",
+							"family_id":        "family-1",
+							"display_title":    "Launch page",
+							"source_path":      "/launch",
+							"display_locale":   "EN -> ES",
+							"status":           "assigned",
+							"display_status":   "Assigned",
+							"priority":         "high",
+							"display_priority": "High",
+							"display_assignee": "Translator One",
+							"display_reviewer": "Reviewer One",
+							"due_state":        "overdue",
+							"display_due_date": "Jun 12, 2026",
+							"row_version":      2,
+							"editor_href":      "/admin/translations/assignments/asg-1/edit?channel=staging",
+							"actions": map[string]any{
+								"claim":   map[string]any{"enabled": false, "reason": "already assigned"},
+								"release": map[string]any{"enabled": true},
+							},
+						}},
+					},
+					Links: map[string]any{
+						"family_detail": "/admin/translations/families/family-1?channel=staging",
+						"queue":         "/admin/translations/queue?channel=staging",
+						"editor_base":   "/admin/translations/assignments",
+						"previous":      "/admin/translations/families/family-1/assignments?channel=staging&page=1",
+						"next":          "/admin/translations/families/family-1/assignments?channel=staging&page=3",
+					},
+					EmptyState: map[string]any{"description": "No family assignments."},
+				},
+			},
+			expected: []string{
+				`data-translation-family-assignments-ssr="true"`,
+				`data-endpoint="/admin/api/translations/families/family-1/assignments"`,
+				`Launch page`,
+				`Translator One`,
+				`href="/admin/translations/assignments/asg-1/edit?channel=staging"`,
+				`href="/admin/translations/families/family-1?channel=staging"`,
+				`href="/admin/translations/families/family-1/assignments?channel=staging&amp;page=3"`,
+				`already assigned`,
+			},
 		},
 	}
 
@@ -1062,6 +1196,9 @@ func TestRegisterAdminUIRoutesTranslationRoutesEnabledByCapabilityDefaults(t *te
 	if captureRouter.getHandlers["/admin/translations/assignments/:assignment_id/edit"] == nil {
 		t.Fatalf("expected translation editor shell route handler by default when queue capability enabled")
 	}
+	if captureRouter.getHandlers["/admin/translations/families/:family_id/assignments"] == nil {
+		t.Fatalf("expected family assignments route handler by default when queue capability enabled")
+	}
 	if captureRouter.getHandlers["/admin/translations/exchange"] == nil {
 		t.Fatalf("expected translation exchange route handler by default when exchange capability enabled")
 	}
@@ -1086,6 +1223,9 @@ func TestRegisterAdminUIRoutesTranslationCoreShellsAreCapabilityGuarded(t *testi
 	}
 	if disabledRouter.getHandlers["/admin/translations/matrix"] != nil {
 		t.Fatalf("expected matrix shell route to be absent when core capability disabled")
+	}
+	if disabledRouter.getHandlers["/admin/translations/families/:family_id/assignments"] != nil {
+		t.Fatalf("expected family assignments route to be absent when queue capability disabled")
 	}
 
 	coreAdm, _, err := NewAdmin(
@@ -1117,6 +1257,9 @@ func TestRegisterAdminUIRoutesTranslationCoreShellsAreCapabilityGuarded(t *testi
 	}
 	if enabledRouter.getHandlers["/admin/translations/matrix"] == nil {
 		t.Fatalf("expected matrix shell route handler when core capability enabled")
+	}
+	if enabledRouter.getHandlers["/admin/translations/families/:family_id/assignments"] != nil {
+		t.Fatalf("expected family assignments route to remain absent without queue capability")
 	}
 	assertRouteRegisteredBefore(t, enabledRouter.getPaths, "/admin/translations/families", "/admin/translations/families/:family_id")
 }
@@ -1390,6 +1533,86 @@ func TestRegisterAdminUIRoutesTranslationRoutesInjectSSRViewContext(t *testing.T
 	ctx.AssertExpectations(t)
 }
 
+func TestRegisterAdminUIRoutesTranslationFamilyAssignmentsHydratesPresenterView(t *testing.T) {
+	cfg := NewAdminConfig("/admin", "Admin", "en")
+	adm, _, err := NewAdmin(
+		cfg,
+		AdapterHooks{},
+		WithFeatureDefaults(map[string]bool{
+			string(admin.FeatureCMS):              true,
+			string(admin.FeatureTranslationQueue): true,
+		}),
+	)
+	if err != nil {
+		t.Fatalf("create admin: %v", err)
+	}
+	registerTranslationCapabilities(
+		adm,
+		TranslationProductConfig{Profile: TranslationProfileCoreQueue},
+		nil,
+		translationCapabilityModuleState{HasState: true, QueueEnabled: true},
+	)
+
+	presenter := &capturingTranslationSSRPresenter{}
+	captureRouter := newUIRoutesCaptureRouter()
+	if err := RegisterAdminUIRoutes(captureRouter, cfg, adm, nil, WithUITranslationSSRPresenter(presenter)); err != nil {
+		t.Fatalf("register ui routes: %v", err)
+	}
+	handler := captureRouter.getHandlers["/admin/translations/families/:family_id/assignments"]
+	if handler == nil {
+		t.Fatalf("expected family assignments route handler")
+	}
+
+	ctx := router.NewMockContext()
+	ctx.ParamsM["family_id"] = "family-123"
+	ctx.QueriesM["channel"] = "production"
+	ctx.QueriesM["status"] = "assigned"
+	ctx.QueriesM["review_state"] = "needs_review"
+	ctx.QueriesM["sort"] = "due_date"
+	ctx.QueriesM["order"] = "asc"
+	ctx.QueriesM["page"] = "2"
+	ctx.QueriesM["per_page"] = "10"
+	ctx.QueriesM[admin.ScopeTenantIDKey] = "tenant-1"
+	ctx.QueriesM[admin.ScopeOrgIDKey] = "org-1"
+	ctx.On("Context").Return(context.Background())
+	ctx.On("Render", "resources/translations/family-assignments", mock.MatchedBy(func(arg any) bool {
+		viewCtx, ok := arg.(router.ViewContext)
+		if !ok {
+			return false
+		}
+		if got := strings.TrimSpace(fmt.Sprint(viewCtx["translation_family_assignments_api_path"])); got != "/admin/api/translations/families/family-123/assignments" {
+			return false
+		}
+		page, ok := viewCtx["translation_family_assignments_ssr"].(router.ViewContext)
+		return ok && fmt.Sprint(page["Surface"]) == admin.TranslationSSRSurfaceFamilyAssignments
+	})).Return(nil)
+
+	if err := handler(ctx); err != nil {
+		t.Fatalf("render family assignments shell: %v", err)
+	}
+	if got := presenter.familyAssignmentsInput.FamilyID; got != "family-123" {
+		t.Fatalf("expected family id family-123, got %q", got)
+	}
+	if got := presenter.familyAssignmentsInput.Channel; got != "production" {
+		t.Fatalf("expected channel production, got %q", got)
+	}
+	for key, want := range map[string]string{
+		"status":               "assigned",
+		"review_state":         "needs_review",
+		"sort":                 "due_date",
+		"order":                "asc",
+		"page":                 "2",
+		"per_page":             "10",
+		admin.ScopeTenantIDKey: "tenant-1",
+		admin.ScopeOrgIDKey:    "org-1",
+	} {
+		if got := presenter.familyAssignmentsInput.Query[key]; got != want {
+			t.Fatalf("expected query %s=%q, got %q in %+v", key, want, got, presenter.familyAssignmentsInput.Query)
+		}
+	}
+	ctx.AssertExpectations(t)
+}
+
 func TestTranslationSSRQueryValuesPreservesScope(t *testing.T) {
 	ctx := router.NewMockContext()
 	ctx.QueriesM[admin.ScopeTenantIDKey] = " tenant-1 "
@@ -1513,6 +1736,7 @@ func TestRegisterAdminUIRoutesMigratedTranslationRoutesExposeHydratedSSRContext(
 		{name: "dashboard", route: "/admin/translations/dashboard", template: "resources/translations/dashboard", ssrKey: "translation_dashboard_ssr", surface: admin.TranslationSSRSurfaceDashboard},
 		{name: "queue", route: "/admin/translations/queue", template: "resources/translations/shell", ssrKey: "translation_queue_ssr", surface: admin.TranslationSSRSurfaceQueue},
 		{name: "family list", route: "/admin/translations/families", template: "resources/translations/families", ssrKey: "translation_families_ssr", surface: admin.TranslationSSRSurfaceFamilyList},
+		{name: "family assignments", route: "/admin/translations/families/:family_id/assignments", template: "resources/translations/family-assignments", ssrKey: "translation_family_assignments_ssr", surface: admin.TranslationSSRSurfaceFamilyAssignments, paramKey: "family_id", paramValue: "family-123"},
 		{name: "family detail", route: "/admin/translations/families/:family_id", template: "resources/translations/family-detail", ssrKey: "translation_family_detail_ssr", surface: admin.TranslationSSRSurfaceFamilyDetail, paramKey: "family_id", paramValue: "family-123"},
 		{name: "editor", route: "/admin/translations/assignments/:assignment_id/edit", template: "resources/translations/editor", ssrKey: "translation_editor_ssr", surface: admin.TranslationSSRSurfaceEditor, paramKey: "assignment_id", paramValue: "asg-123"},
 	}
