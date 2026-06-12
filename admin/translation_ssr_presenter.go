@@ -13,13 +13,14 @@ import (
 )
 
 const (
-	TranslationSSRSurfaceDashboard    = "dashboard"
-	TranslationSSRSurfaceQueue        = "queue"
-	TranslationSSRSurfaceFamilyList   = "family_list"
-	TranslationSSRSurfaceFamilyDetail = "family_detail"
-	TranslationSSRSurfaceEditor       = "editor"
-	TranslationSSRSurfaceMatrix       = "matrix"
-	TranslationSSRSurfaceExchange     = "exchange"
+	TranslationSSRSurfaceDashboard         = "dashboard"
+	TranslationSSRSurfaceQueue             = "queue"
+	TranslationSSRSurfaceFamilyList        = "family_list"
+	TranslationSSRSurfaceFamilyDetail      = "family_detail"
+	TranslationSSRSurfaceFamilyAssignments = "family_assignments"
+	TranslationSSRSurfaceEditor            = "editor"
+	TranslationSSRSurfaceMatrix            = "matrix"
+	TranslationSSRSurfaceExchange          = "exchange"
 )
 
 // TranslationSSRPresenter is the exported boundary consumed by UI route wiring.
@@ -29,6 +30,7 @@ type TranslationSSRPresenter interface {
 	Dashboard(router.Context, TranslationSSRPresenterInput) (TranslationSSRPage, error)
 	FamilyList(router.Context, TranslationSSRPresenterInput) (TranslationSSRPage, error)
 	FamilyDetail(router.Context, TranslationSSRPresenterInput) (TranslationSSRPage, error)
+	FamilyAssignments(router.Context, TranslationSSRPresenterInput) (TranslationSSRPage, error)
 	Queue(router.Context, TranslationSSRPresenterInput) (TranslationSSRPage, error)
 	Editor(router.Context, TranslationSSRPresenterInput) (TranslationSSRPage, error)
 	Matrix(router.Context, TranslationSSRPresenterInput) (TranslationSSRPage, error)
@@ -141,6 +143,17 @@ func (a *TranslationAssignmentResourceAdapter) Index(c router.Context, input Tra
 	return translationSSRQueueResult(input, payload), nil
 }
 
+func (a *TranslationAssignmentResourceAdapter) FamilyAssignments(c router.Context, input TranslationSSRPresenterInput) (TranslationSSRResourceResult, error) {
+	if a == nil || a.binding == nil {
+		return TranslationSSRResourceResult{}, serviceNotConfiguredDomainError("translation assignment resource adapter", nil)
+	}
+	payload, err := a.binding.FamilyAssignments(c, strings.TrimSpace(input.FamilyID))
+	if err != nil {
+		return TranslationSSRResourceResult{}, err
+	}
+	return translationSSRQueueResult(input, payload), nil
+}
+
 func (a *TranslationAssignmentResourceAdapter) Show(c router.Context, input TranslationSSRPresenterInput) (TranslationSSRResourceResult, error) {
 	if a == nil || a.binding == nil {
 		return TranslationSSRResourceResult{}, serviceNotConfiguredDomainError("translation assignment resource adapter", nil)
@@ -241,6 +254,34 @@ func (p *translationSSRPresenter) Queue(c router.Context, input TranslationSSRPr
 		Links:        translationSSRQueueLinks(input),
 		Enhancement:  translationSSREnhancement(input),
 		EmptyState:   translationSSREmptyState("No assignments in this queue", "Adjust filters or create translation assignments to populate the queue."),
+	}, nil
+}
+
+func (p *translationSSRPresenter) FamilyAssignments(c router.Context, input TranslationSSRPresenterInput) (TranslationSSRPage, error) {
+	result, err := p.assignments.FamilyAssignments(c, input)
+	if err != nil {
+		return TranslationSSRPage{}, err
+	}
+	familyID := strings.TrimSpace(input.FamilyID)
+	if result.Data == nil {
+		result.Data = map[string]any{}
+	}
+	if result.Meta == nil {
+		result.Meta = map[string]any{}
+	}
+	result.Data["family_id"] = familyID
+	result.Meta["family_id"] = familyID
+	return TranslationSSRPage{
+		Surface:      TranslationSSRSurfaceFamilyAssignments,
+		Title:        "Family Assignments",
+		ResourceName: "translation_family_assignments",
+		Data:         result.Data,
+		Meta:         result.Meta,
+		DataGrid:     result.DataGrid,
+		Actions:      translationSSRQueueActions(input, result.Meta),
+		Links:        translationSSRFamilyAssignmentsLinks(input, result.Meta),
+		Enhancement:  translationSSREnhancement(input),
+		EmptyState:   translationSSREmptyState("No assignments for this family", "Assignments for this translation family will appear here when available."),
 	}, nil
 }
 
@@ -677,6 +718,7 @@ func translationSSRQueueDataGrid(input TranslationSSRPresenterInput, data, meta 
 		"bulk_selection":          meta["bulk_selection"],
 		"server_family_supported": meta["server_family_grouping_supported"],
 		"view_links":              translationSSRQueueViewLinks(input),
+		"view_mode":               translationSSRQueueViewMode(meta),
 		"row_actions": []map[string]any{
 			{"key": "open_editor", "label": "Open editor", "href_base": strings.TrimRight(input.EditorBasePath, "/")},
 			{"key": "claim", "label": "Claim", "action_state": "actions.claim"},
@@ -1060,6 +1102,23 @@ func translationSSRDecorateQueueRows(input TranslationSSRPresenterInput, rows []
 		if rowType := strings.TrimSpace(toString(row["row_type"])); rowType == "family" || rowType == "group" {
 			row["display_due"] = translationSSRHumanLabel(firstNonEmpty(toString(row["due_state"]), toString(row["family_blocker_count"])))
 			row["display_locales"] = translationSSRLocaleChips(row["target_locales"])
+			// UI drill-down to this family's assignments; expansion.href stays
+			// the JSON child-assignments endpoint for client-side expansion.
+			if familyID := strings.TrimSpace(toString(row["family_id"])); familyID != "" {
+				base := strings.TrimSpace(input.FamilyBasePath)
+				if base == "" {
+					base = strings.TrimRight(strings.TrimSpace(input.BasePath), "/") + "/translations/families"
+				}
+				query := cloneStringMap(input.Query)
+				if expansionQuery := translationSSRStringMap(extractMap(extractMap(row["expansion"])["query"])); len(expansionQuery) > 0 {
+					query = expansionQuery
+				}
+				row["assignments_href"] = translationSSRHrefWithQuery(
+					strings.TrimRight(base, "/")+"/"+url.PathEscape(familyID)+"/assignments",
+					query,
+					map[string]string{"channel": strings.TrimSpace(input.Channel)},
+				)
+			}
 			continue
 		}
 		row["display_title"] = firstNonEmpty(toString(row["source_title"]), toString(row["source_path"]), toString(row["assignment_id"]), toString(row["id"]))
@@ -1974,6 +2033,51 @@ func translationSSRQueueLinks(input TranslationSSRPresenterInput) map[string]any
 	}
 }
 
+func translationSSRFamilyAssignmentsLinks(input TranslationSSRPresenterInput, meta map[string]any) map[string]any {
+	familyID := strings.TrimSpace(input.FamilyID)
+	familyDetail := ""
+	if strings.TrimSpace(input.FamilyBasePath) != "" && familyID != "" {
+		familyDetail = translationSSRHrefWithQuery(
+			strings.TrimRight(strings.TrimSpace(input.FamilyBasePath), "/")+"/"+url.PathEscape(familyID),
+			input.Query,
+			map[string]string{"channel": strings.TrimSpace(input.Channel)},
+		)
+	}
+	links := map[string]any{
+		"queue":         translationSSRHrefWithQuery(input.QueuePath, input.Query, map[string]string{"channel": strings.TrimSpace(input.Channel)}),
+		"family_detail": familyDetail,
+		"family_id":     familyID,
+		"editor_base":   input.EditorBasePath,
+	}
+	page := atoiDefault(toString(meta["page"]), 1)
+	if page <= 0 {
+		page = 1
+	}
+	if page > 1 {
+		links["previous"] = translationSSRFamilyAssignmentsPageLink(input, page-1)
+	}
+	if toBool(meta["has_next"]) {
+		links["next"] = translationSSRFamilyAssignmentsPageLink(input, page+1)
+	}
+	return links
+}
+
+func translationSSRFamilyAssignmentsPageLink(input TranslationSSRPresenterInput, page int) string {
+	familyID := strings.TrimSpace(input.FamilyID)
+	base := strings.TrimSpace(input.FamilyBasePath)
+	if base == "" {
+		base = strings.TrimRight(strings.TrimSpace(input.BasePath), "/") + "/translations/families"
+	}
+	return translationSSRHrefWithQuery(
+		strings.TrimRight(base, "/")+"/"+url.PathEscape(familyID)+"/assignments",
+		input.Query,
+		map[string]string{
+			"channel": strings.TrimSpace(input.Channel),
+			"page":    strconv.Itoa(page),
+		},
+	)
+}
+
 func translationSSREditorLinks(input TranslationSSRPresenterInput, data map[string]any) map[string]any {
 	return map[string]any{
 		"queue":         input.QueuePath,
@@ -2395,6 +2499,24 @@ func translationSSRQueueViewLinks(input TranslationSSRPresenterInput) map[string
 	}
 }
 
+// translationSSRQueueViewMode resolves the active queue view ("list",
+// "grouped", or "families") from the grouping contract the binding actually
+// applied, so the toggle reflects fallbacks rather than raw query params.
+func translationSSRQueueViewMode(meta map[string]any) string {
+	grouping, _ := meta["grouping"].(map[string]any)
+	if grouping == nil {
+		return "list"
+	}
+	enabled, _ := grouping["enabled"].(bool)
+	if !enabled {
+		return "list"
+	}
+	if strategy, _ := grouping["strategy"].(string); strings.EqualFold(strings.TrimSpace(strategy), "server_family") {
+		return "families"
+	}
+	return "grouped"
+}
+
 func translationSSRHrefWithQuery(href string, preserve map[string]string, set map[string]string, remove ...string) string {
 	href = strings.TrimSpace(href)
 	if href == "" {
@@ -2432,6 +2554,25 @@ func translationSSRHrefWithQuery(href string, preserve map[string]string, set ma
 	}
 	parsed.RawQuery = query.Encode()
 	return parsed.String()
+}
+
+func translationSSRStringMap(input map[string]any) map[string]string {
+	if len(input) == 0 {
+		return nil
+	}
+	out := make(map[string]string, len(input))
+	for key, raw := range input {
+		key = strings.TrimSpace(key)
+		value := strings.TrimSpace(toString(raw))
+		if key == "" || value == "" {
+			continue
+		}
+		out[key] = value
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
 }
 
 func translationSSREnrichQueuePresets(input TranslationSSRPresenterInput, raw any) []map[string]any {
