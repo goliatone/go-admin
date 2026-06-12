@@ -147,6 +147,20 @@ func TestDoctorDebugPanelCollectWithoutAdmin(t *testing.T) {
 	}
 }
 
+func TestDoctorDebugPanelUsesRegisteredIcon(t *testing.T) {
+	panel := NewDoctorDebugPanel(nil)
+	if got := panel.Icon(); got != "iconoir-heart" {
+		t.Fatalf("expected doctor panel iconoir heart icon, got %q", got)
+	}
+	meta := debugPanelDefaults[DebugPanelDoctor]
+	if got := meta.Icon; got != "iconoir-heart" {
+		t.Fatalf("expected doctor debug metadata iconoir heart icon, got %q", got)
+	}
+	if !iconDefinitionsContain(BuiltinIconoirLibrary().Icons, "heart") {
+		t.Fatalf("expected built-in iconoir library to include heart icon")
+	}
+}
+
 func TestRegisterDoctorDebugPanelExposesSnapshot(t *testing.T) {
 	adm := &Admin{
 		doctorChecks: map[string]DoctorCheck{},
@@ -175,6 +189,15 @@ func TestRegisterDoctorDebugPanelExposesSnapshot(t *testing.T) {
 	if _, ok := panelData["verdict"]; !ok {
 		t.Fatalf("expected verdict in doctor snapshot, got %+v", panelData)
 	}
+}
+
+func iconDefinitionsContain(icons []IconDefinition, name string) bool {
+	for _, icon := range icons {
+		if icon.Name == name {
+			return true
+		}
+	}
+	return false
 }
 
 func doctorCheckIDsContain(checks []DoctorCheck, id string) bool {

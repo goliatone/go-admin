@@ -627,6 +627,18 @@ func TestTranslationQueueBindingAssignmentsSupportsServerFamilyGrouping(t *testi
 	if intValue(meta["total"]) != 2 || intValue(meta["assignment_total"]) != 3 {
 		t.Fatalf("expected family total 2 and assignment total 3, got %+v", meta)
 	}
+	reviewCounts := extractMap(meta["review_aggregate_counts"])
+	for _, key := range TranslationQueueReviewAggregateCountKeys() {
+		if _, ok := reviewCounts[key]; !ok {
+			t.Fatalf("expected server-family review aggregate count key %q in %+v", key, reviewCounts)
+		}
+	}
+	if unavailable := toStringSlice(meta["review_aggregate_counts_unavailable"]); len(unavailable) != len(TranslationQueueReviewAggregateCountKeys()) {
+		t.Fatalf("expected server-family reviewer aggregate counts unavailable, got %+v", unavailable)
+	}
+	if degraded := toStringSlice(meta["review_aggregate_counts_degraded"]); len(degraded) != 0 {
+		t.Fatalf("expected server-family reviewer aggregate counts not degraded, got %+v", degraded)
+	}
 	grouping := extractMap(meta["grouping"])
 	if toString(grouping["strategy"]) != "server_family" || intValue(grouping["family_total"]) != 2 || intValue(grouping["assignment_total"]) != 3 {
 		t.Fatalf("expected server_family grouping totals, got %+v", grouping)
@@ -801,11 +813,226 @@ func TestTranslationQueueBindingAssignmentsUsesOptimizedPageAndReviewerSummary(t
 	if repo.reviewerCalls != 1 {
 		t.Fatalf("expected one optimized reviewer summary call, got %d", repo.reviewerCalls)
 	}
+	payload := map[string]any{}
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	meta := extractMap(payload["meta"])
+	reviewCounts := extractMap(meta["review_aggregate_counts"])
+	for _, key := range TranslationQueueReviewAggregateCountKeys() {
+		if _, ok := reviewCounts[key]; !ok {
+			t.Fatalf("expected review aggregate count key %q in %+v", key, reviewCounts)
+		}
+	}
+	if unavailable := toStringSlice(meta["review_aggregate_counts_unavailable"]); len(unavailable) != 0 {
+		t.Fatalf("expected no unavailable reviewer aggregate keys, got %+v", unavailable)
+	}
+	if degraded := toStringSlice(meta["review_aggregate_counts_degraded"]); len(degraded) != 0 {
+		t.Fatalf("expected no degraded reviewer aggregate keys, got %+v", degraded)
+	}
+}
+
+func TestTranslationQueueBindingAssignmentsOptimizedPageDoesNotFallbackWhenReviewerSummaryUnsupported(t *testing.T) {
+	now := time.Date(2026, 2, 17, 12, 0, 0, 0, time.UTC)
+	adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{
+		FeatureGate: featureGateFromKeys(FeatureCMS, FeatureTranslationQueue),
+	})
+	adm.WithAuthorizer(translationPermissionAuthorizer{allowed: map[string]bool{PermAdminTranslationsView: true}})
+	repo := &optimizedAssignmentReadRepo{
+		pageItems: []TranslationAssignment{{
+			ID:             "asg-optimized-page",
+			FamilyID:       "family-optimized-page",
+			EntityType:     "pages",
+			SourceRecordID: "page-optimized",
+			SourceLocale:   "en",
+			TargetLocale:   "es",
+			AssignmentType: AssignmentTypeOpenPool,
+			Status:         AssignmentStatusOpen,
+			Priority:       PriorityNormal,
+			UpdatedAt:      now,
+			CreatedAt:      now,
+		}},
+		reviewerErr: ErrTranslationAssignmentQueryUnsupported,
+	}
+	if _, err := RegisterTranslationQueuePanel(adm, repo); err != nil {
+		t.Fatalf("register queue panel: %v", err)
+	}
+	binding := newTranslationQueueBinding(adm)
+	binding.now = func() time.Time { return now }
+	app := newTranslationQueueTestApp(t, binding)
+
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/translations/assignments?tenant_id=tenant-1&org_id=org-1&per_page=5", nil)
+	req.Header.Set("X-User-ID", "manager-1")
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("request error: %v", err)
+	}
+	defer resp.Body.Close() //nolint:errcheck // test response body cleanup is best-effort
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status=%d want=200", resp.StatusCode)
+	}
+	if repo.listCalls != 0 {
+		t.Fatalf("optimized assignment endpoint called List %d times after unsupported reviewer summary", repo.listCalls)
+	}
+	if repo.pageCalls != 1 {
+		t.Fatalf("expected one optimized page call, got %d", repo.pageCalls)
+	}
+	if repo.reviewerCalls != 1 {
+		t.Fatalf("expected one optimized reviewer summary call, got %d", repo.reviewerCalls)
+	}
+	payload := map[string]any{}
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	meta := extractMap(payload["meta"])
+	reviewCounts := extractMap(meta["review_aggregate_counts"])
+	for _, key := range TranslationQueueReviewAggregateCountKeys() {
+		if _, ok := reviewCounts[key]; !ok {
+			t.Fatalf("expected review aggregate count key %q in %+v", key, reviewCounts)
+		}
+	}
+	unavailable := toStringSlice(meta["review_aggregate_counts_unavailable"])
+	if len(unavailable) != len(TranslationQueueReviewAggregateCountKeys()) {
+		t.Fatalf("expected all reviewer aggregate keys unavailable, got %+v", unavailable)
+	}
+	if degraded := toStringSlice(meta["review_aggregate_counts_degraded"]); len(degraded) != 0 {
+		t.Fatalf("expected no degraded reviewer aggregate keys for unsupported summary, got %+v", degraded)
+	}
+}
+
+func TestTranslationQueueBindingAssignmentsOptimizedPageDoesNotFallbackWhenReviewerSummaryFails(t *testing.T) {
+	now := time.Date(2026, 2, 17, 12, 0, 0, 0, time.UTC)
+	adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{
+		FeatureGate: featureGateFromKeys(FeatureCMS, FeatureTranslationQueue),
+	})
+	adm.WithAuthorizer(translationPermissionAuthorizer{allowed: map[string]bool{PermAdminTranslationsView: true}})
+	repo := &optimizedAssignmentReadRepo{
+		pageItems: []TranslationAssignment{{
+			ID:             "asg-optimized-page",
+			FamilyID:       "family-optimized-page",
+			EntityType:     "pages",
+			SourceRecordID: "page-optimized",
+			SourceLocale:   "en",
+			TargetLocale:   "es",
+			AssignmentType: AssignmentTypeOpenPool,
+			Status:         AssignmentStatusOpen,
+			Priority:       PriorityNormal,
+			UpdatedAt:      now,
+			CreatedAt:      now,
+		}},
+		reviewerErr: errors.New("reviewer aggregate failed"),
+	}
+	if _, err := RegisterTranslationQueuePanel(adm, repo); err != nil {
+		t.Fatalf("register queue panel: %v", err)
+	}
+	binding := newTranslationQueueBinding(adm)
+	binding.now = func() time.Time { return now }
+	app := newTranslationQueueTestApp(t, binding)
+
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/translations/assignments?tenant_id=tenant-1&org_id=org-1&per_page=5", nil)
+	req.Header.Set("X-User-ID", "manager-1")
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("request error: %v", err)
+	}
+	defer resp.Body.Close() //nolint:errcheck // test response body cleanup is best-effort
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status=%d want=200", resp.StatusCode)
+	}
+	if repo.listCalls != 0 {
+		t.Fatalf("optimized assignment endpoint called List %d times after failed reviewer summary", repo.listCalls)
+	}
+	payload := map[string]any{}
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	meta := extractMap(payload["meta"])
+	degraded := toStringSlice(meta["review_aggregate_counts_degraded"])
+	if len(degraded) != len(TranslationQueueReviewAggregateCountKeys()) {
+		t.Fatalf("expected all reviewer aggregate keys degraded, got %+v", degraded)
+	}
+	if unavailable := toStringSlice(meta["review_aggregate_counts_unavailable"]); len(unavailable) != 0 {
+		t.Fatalf("expected no unavailable reviewer aggregate keys for failed summary, got %+v", unavailable)
+	}
+}
+
+func TestTranslationQueueBindingAssignmentsPrefersPartialReviewerAggregateSummary(t *testing.T) {
+	now := time.Date(2026, 2, 17, 12, 0, 0, 0, time.UTC)
+	adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{
+		FeatureGate: featureGateFromKeys(FeatureCMS, FeatureTranslationQueue),
+	})
+	adm.WithAuthorizer(translationPermissionAuthorizer{allowed: map[string]bool{PermAdminTranslationsView: true}})
+	baseRepo := &optimizedAssignmentReadRepo{
+		pageItems: []TranslationAssignment{{
+			ID:             "asg-optimized-page",
+			FamilyID:       "family-optimized-page",
+			EntityType:     "pages",
+			SourceRecordID: "page-optimized",
+			SourceLocale:   "en",
+			TargetLocale:   "es",
+			AssignmentType: AssignmentTypeOpenPool,
+			Status:         AssignmentStatusInReview,
+			Priority:       PriorityNormal,
+			UpdatedAt:      now,
+			CreatedAt:      now,
+		}},
+		reviewerCounts: map[string]int{"review_inbox": 99},
+	}
+	repo := &partialAggregateAssignmentReadRepo{
+		optimizedAssignmentReadRepo: baseRepo,
+		summary: TranslationAssignmentReviewerAggregateSummary{
+			Counts:      map[string]int{"review_inbox": 2, "review_overdue": 1, "review_changes_requested": 3},
+			Unavailable: []string{"review_blocked"},
+		},
+	}
+	if _, err := RegisterTranslationQueuePanel(adm, repo); err != nil {
+		t.Fatalf("register queue panel: %v", err)
+	}
+	binding := newTranslationQueueBinding(adm)
+	binding.now = func() time.Time { return now }
+	app := newTranslationQueueTestApp(t, binding)
+
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/translations/assignments?tenant_id=tenant-1&org_id=org-1&per_page=5", nil)
+	req.Header.Set("X-User-ID", "manager-1")
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("request error: %v", err)
+	}
+	defer resp.Body.Close() //nolint:errcheck // test response body cleanup is best-effort
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status=%d want=200", resp.StatusCode)
+	}
+	if repo.listCalls != 0 {
+		t.Fatalf("optimized assignment endpoint called List %d times", repo.listCalls)
+	}
+	if repo.summaryCalls != 1 {
+		t.Fatalf("expected one partial reviewer aggregate call, got %d", repo.summaryCalls)
+	}
+	if repo.reviewerCalls != 0 {
+		t.Fatalf("expected legacy reviewer aggregate not to be called, got %d", repo.reviewerCalls)
+	}
+	payload := map[string]any{}
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	meta := extractMap(payload["meta"])
+	reviewCounts := extractMap(meta["review_aggregate_counts"])
+	if got := intValue(reviewCounts["review_inbox"]); got != 2 {
+		t.Fatalf("expected partial review_inbox count 2, got %+v", reviewCounts)
+	}
+	if got := intValue(reviewCounts["review_blocked"]); got != 0 {
+		t.Fatalf("expected initialized blocked placeholder 0, got %+v", reviewCounts)
+	}
+	unavailable := toStringSlice(meta["review_aggregate_counts_unavailable"])
+	if len(unavailable) != 1 || unavailable[0] != "review_blocked" {
+		t.Fatalf("expected review_blocked unavailable, got %+v", unavailable)
+	}
 }
 
 type optimizedAssignmentReadRepo struct {
 	pageItems      []TranslationAssignment
 	reviewerCounts map[string]int
+	reviewerErr    error
 	listCalls      int
 	pageCalls      int
 	reviewerCalls  int
@@ -825,7 +1052,7 @@ func (r *optimizedAssignmentReadRepo) AssignmentReviewerAggregateCounts(context.
 	r.reviewerCalls++
 	out := map[string]int{}
 	maps.Copy(out, r.reviewerCounts)
-	return out, nil
+	return out, r.reviewerErr
 }
 
 func (r *optimizedAssignmentReadRepo) Create(context.Context, TranslationAssignment) (TranslationAssignment, error) {
@@ -842,6 +1069,18 @@ func (r *optimizedAssignmentReadRepo) Get(context.Context, string) (TranslationA
 
 func (r *optimizedAssignmentReadRepo) Update(context.Context, TranslationAssignment, int64) (TranslationAssignment, error) {
 	return TranslationAssignment{}, errors.New("not implemented")
+}
+
+type partialAggregateAssignmentReadRepo struct {
+	*optimizedAssignmentReadRepo
+	summary      TranslationAssignmentReviewerAggregateSummary
+	summaryErr   error
+	summaryCalls int
+}
+
+func (r *partialAggregateAssignmentReadRepo) AssignmentReviewerAggregateSummary(context.Context, TranslationAssignmentReviewerAggregateInput) (TranslationAssignmentReviewerAggregateSummary, error) {
+	r.summaryCalls++
+	return r.summary, r.summaryErr
 }
 
 func TestTranslationQueueBindingAssignmentsExposeReviewerGuardFeedbackAndQASummary(t *testing.T) {

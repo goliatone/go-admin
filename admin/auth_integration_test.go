@@ -116,6 +116,180 @@ func TestGoAuthAuthorizerAllowsCustomPermissionFromResolver(t *testing.T) {
 	}
 }
 
+func TestGoAuthAuthorizerAllowsActionResourceFromExactResolverGrant(t *testing.T) {
+	claims := &auth.JWTClaims{
+		UID:      "actor-1",
+		UserRole: string(auth.RoleMember),
+		Resources: map[string]string{
+			"admin.users": string(auth.RoleMember),
+		},
+	}
+	ctx := auth.WithClaimsContext(context.Background(), claims)
+	authz := NewGoAuthAuthorizer(GoAuthAuthorizerConfig{
+		DefaultResource: "admin",
+		ResolvePermissions: func(context.Context) ([]string, error) {
+			return []string{"admin.users.view"}, nil
+		},
+	})
+
+	if !authz.Can(ctx, "view", "admin.users") {
+		t.Fatalf("expected exact resolved grant to allow action/resource permission check")
+	}
+	if authz.Can(ctx, "delete", "admin.users") {
+		t.Fatalf("did not expect view grant to allow delete action")
+	}
+}
+
+func TestGoAuthAuthorizerAllowsMappedPermissionFromWildcardResolverGrant(t *testing.T) {
+	claims := &auth.JWTClaims{
+		UID:      "actor-1",
+		UserRole: string(auth.RoleAdmin),
+		Resources: map[string]string{
+			"admin.users": string(auth.RoleMember),
+		},
+	}
+	ctx := auth.WithClaimsContext(context.Background(), claims)
+	authz := NewGoAuthAuthorizer(GoAuthAuthorizerConfig{
+		DefaultResource: "admin",
+		ResolvePermissions: func(context.Context) ([]string, error) {
+			return []string{"admin.*"}, nil
+		},
+	})
+
+	if !authz.Can(ctx, "admin.users.delete", "admin.users") {
+		t.Fatalf("expected admin wildcard grant to allow mapped delete permission")
+	}
+}
+
+func TestGoAuthAuthorizerAllowsSplitActionResourceFromResolverGrant(t *testing.T) {
+	claims := &auth.JWTClaims{
+		UID:      "actor-1",
+		UserRole: string(auth.RoleGuest),
+	}
+	ctx := auth.WithClaimsContext(context.Background(), claims)
+
+	t.Run("admin wildcard covers short admin resource", func(t *testing.T) {
+		authz := NewGoAuthAuthorizer(GoAuthAuthorizerConfig{
+			DefaultResource: "admin",
+			ResolvePermissions: func(context.Context) ([]string, error) {
+				return []string{"admin.*"}, nil
+			},
+		})
+		if !authz.Can(ctx, "delete", "users") {
+			t.Fatalf("expected admin wildcard grant to allow split delete/users check")
+		}
+		if !authz.Can(ctx, "read", "users") {
+			t.Fatalf("expected admin wildcard grant to allow normalized read/users check")
+		}
+		if authz.Can(ctx, "inspect", "reports") {
+			t.Fatalf("did not expect admin wildcard grant to allow split non-admin reports check")
+		}
+	})
+
+	t.Run("exact admin grant covers short admin resource", func(t *testing.T) {
+		authz := NewGoAuthAuthorizer(GoAuthAuthorizerConfig{
+			DefaultResource: "admin",
+			ResolvePermissions: func(context.Context) ([]string, error) {
+				return []string{"admin.users.view", "admin.users.delete"}, nil
+			},
+		})
+		if !authz.Can(ctx, "view", "users") {
+			t.Fatalf("expected exact admin grant to allow split view/users check")
+		}
+		if !authz.Can(ctx, "delete", "users") {
+			t.Fatalf("expected exact admin grant to allow split delete/users check")
+		}
+		if authz.Can(ctx, "delete", "roles") {
+			t.Fatalf("did not expect users grant to allow split delete/roles check")
+		}
+	})
+
+	t.Run("custom admin alias extends split resource matching", func(t *testing.T) {
+		authz := NewGoAuthAuthorizer(GoAuthAuthorizerConfig{
+			DefaultResource:      "admin",
+			AdminResourceAliases: []string{"reports"},
+			ResolvePermissions: func(context.Context) ([]string, error) {
+				return []string{"admin.*"}, nil
+			},
+		})
+		if !authz.Can(ctx, "inspect", "reports") {
+			t.Fatalf("expected configured admin reports alias to be covered by admin wildcard")
+		}
+	})
+}
+
+func TestGoAuthAuthorizerAllowsCustomAndFutureAdminPermissionsFromWildcardResolverGrant(t *testing.T) {
+	claims := &auth.JWTClaims{
+		UID:      "actor-1",
+		UserRole: string(auth.RoleAdmin),
+	}
+	ctx := auth.WithClaimsContext(context.Background(), claims)
+	authz := NewGoAuthAuthorizer(GoAuthAuthorizerConfig{
+		DefaultResource: "admin",
+		ResolvePermissions: func(context.Context) ([]string, error) {
+			return []string{"admin.*"}, nil
+		},
+	})
+
+	if !authz.Can(ctx, "admin.translations.import.apply", "admin.translations.import") {
+		t.Fatalf("expected admin wildcard grant to allow custom admin permission")
+	}
+	if !authz.Can(ctx, "admin.some_new_feature.execute", "") {
+		t.Fatalf("expected admin wildcard grant to allow future admin permission")
+	}
+	if authz.Can(ctx, "reports.some_new_feature.apply", "") {
+		t.Fatalf("did not expect admin wildcard grant to allow non-admin permission")
+	}
+}
+
+func TestGoAuthAuthorizerHonorsNarrowAdminWildcardGrant(t *testing.T) {
+	claims := &auth.JWTClaims{
+		UID:      "actor-1",
+		UserRole: string(auth.RoleGuest),
+	}
+	ctx := auth.WithClaimsContext(context.Background(), claims)
+	authz := NewGoAuthAuthorizer(GoAuthAuthorizerConfig{
+		DefaultResource: "admin",
+		ResolvePermissions: func(context.Context) ([]string, error) {
+			return []string{"admin.translations.*"}, nil
+		},
+	})
+
+	if !authz.Can(ctx, "admin.translations.import.apply", "admin.translations.import") {
+		t.Fatalf("expected narrow admin wildcard to allow translation import apply")
+	}
+	if authz.Can(ctx, "admin.users.delete", "admin.users") {
+		t.Fatalf("did not expect narrow admin wildcard to allow unrelated users permission")
+	}
+}
+
+func TestPermissionGrantMatchesAdminWildcards(t *testing.T) {
+	tests := []struct {
+		name       string
+		grant      string
+		permission string
+		want       bool
+	}{
+		{name: "exact", grant: "admin.users.view", permission: "admin.users.view", want: true},
+		{name: "exact trims and folds case", grant: " Admin.Users.View ", permission: "admin.users.view", want: true},
+		{name: "admin wildcard covers user permission", grant: "admin.*", permission: "admin.users.view", want: true},
+		{name: "admin wildcard covers custom permission", grant: "admin.*", permission: "admin.translations.import.apply", want: true},
+		{name: "admin wildcard covers future permission", grant: "admin.*", permission: "admin.some_new_feature.execute", want: true},
+		{name: "narrow wildcard covers namespace", grant: "admin.translations.*", permission: "admin.translations.import.apply", want: true},
+		{name: "narrow wildcard does not cover sibling", grant: "admin.translations.*", permission: "admin.users.view", want: false},
+		{name: "admin wildcard does not cover non admin", grant: "admin.*", permission: "reports.users.view", want: false},
+		{name: "non admin wildcard is literal only", grant: "reports.*", permission: "reports.users.view", want: false},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := permissionGrantMatches(tc.grant, tc.permission); got != tc.want {
+				t.Fatalf("permissionGrantMatches(%q, %q) = %v, want %v", tc.grant, tc.permission, got, tc.want)
+			}
+		})
+	}
+}
+
 func TestGoAuthAuthorizerResolvedPermissionsUsesRequestCache(t *testing.T) {
 	claims := &auth.JWTClaims{
 		UID:      "actor-1",

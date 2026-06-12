@@ -417,6 +417,16 @@ func TestAdminRPCDispatchEndpointExactPermissionModeAllowsResolvedPermission(t *
 	}
 }
 
+func TestAuthorizeRPCPermissionExactModeHonorsAdminWildcardGrant(t *testing.T) {
+	authorizer := rpcExactPermissionAuthorizer{permissions: []string{"admin.*"}}
+	if err := authorizeRPCPermissionWithMode(context.Background(), authorizer, "admin.operations.search.manage", "search", RPCCommandPermissionModeExact); err != nil {
+		t.Fatalf("expected admin wildcard to allow exact RPC permission: %v", err)
+	}
+	if err := authorizeRPCPermissionWithMode(context.Background(), authorizer, "reports.operations.search.manage", "search", RPCCommandPermissionModeExact); err == nil {
+		t.Fatalf("expected admin wildcard to deny non-admin exact RPC permission")
+	}
+}
+
 func TestAdminRPCCommandListExactPermissionModeRequiresReadGrant(t *testing.T) {
 	adm := mustNewAdmin(t, Config{
 		Commands: CommandConfig{

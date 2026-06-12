@@ -8,9 +8,10 @@ import (
 	"time"
 
 	userstypes "github.com/goliatone/go-users/pkg/types"
+	"github.com/google/uuid"
 )
 
-func TestSetupUsersSeededPrivilegedRolesIncludeTranslationOperationPermissions(t *testing.T) {
+func TestSetupUsersSeededSuperadminRoleUsesWildcardGrant(t *testing.T) {
 	ctx := context.Background()
 	dsn := fmt.Sprintf("file:users_role_seed_permissions_%d?mode=memory&cache=shared&_fk=1", time.Now().UnixNano())
 
@@ -19,7 +20,45 @@ func TestSetupUsersSeededPrivilegedRolesIncludeTranslationOperationPermissions(t
 		t.Fatalf("setup users: %v", err)
 	}
 
-	required := []string{
+	role, err := findSeedRole(ctx, deps.RoleRegistry, "superadmin")
+	if err != nil {
+		t.Fatalf("find superadmin role: %v", err)
+	}
+	if role == nil {
+		t.Fatalf("expected seeded superadmin role")
+	}
+	if !permissionIncluded(role.Permissions, "admin.*") {
+		t.Fatalf("expected superadmin permissions to include wildcard grant, got %v", role.Permissions)
+	}
+	for _, perm := range []string{
+		"admin.translations.import.apply",
+		"admin.pages.view",
+		"admin.users.delete",
+	} {
+		if permissionIncluded(role.Permissions, perm) {
+			t.Fatalf("expected fresh superadmin role to avoid explicit %q, got %v", perm, role.Permissions)
+		}
+	}
+}
+
+func TestSetupUsersSeededOwnerRoleKeepsExplicitTranslationOperationPermissions(t *testing.T) {
+	ctx := context.Background()
+	dsn := fmt.Sprintf("file:users_owner_role_seed_permissions_%d?mode=memory&cache=shared&_fk=1", time.Now().UnixNano())
+
+	deps, _, _, err := SetupUsers(ctx, dsn)
+	if err != nil {
+		t.Fatalf("setup users: %v", err)
+	}
+
+	role, err := findSeedRole(ctx, deps.RoleRegistry, "owner")
+	if err != nil {
+		t.Fatalf("find owner role: %v", err)
+	}
+	if role == nil {
+		t.Fatalf("expected seeded owner role")
+	}
+
+	for _, perm := range []string{
 		"admin.translations.view",
 		"admin.translations.edit",
 		"admin.translations.manage",
@@ -30,26 +69,14 @@ func TestSetupUsersSeededPrivilegedRolesIncludeTranslationOperationPermissions(t
 		"admin.translations.import.view",
 		"admin.translations.import.validate",
 		"admin.translations.import.apply",
-	}
-
-	for _, roleKey := range []string{"superadmin", "owner"} {
-		role, err := findSeedRole(ctx, deps.RoleRegistry, roleKey)
-		if err != nil {
-			t.Fatalf("find role %q: %v", roleKey, err)
-		}
-		if role == nil {
-			t.Fatalf("expected seeded role %q", roleKey)
-		}
-
-		for _, perm := range required {
-			if !permissionIncluded(role.Permissions, perm) {
-				t.Fatalf("expected role %q permissions to include %q, got %v", roleKey, perm, role.Permissions)
-			}
+	} {
+		if !permissionIncluded(role.Permissions, perm) {
+			t.Fatalf("expected owner permissions to include %q, got %v", perm, role.Permissions)
 		}
 	}
 }
 
-func TestResolveRolePermissionsSuperadminIncludesTranslationOperationPermissions(t *testing.T) {
+func TestResolveRolePermissionsSuperadminIncludesWildcardGrant(t *testing.T) {
 	ctx := context.Background()
 	dsn := fmt.Sprintf("file:users_superadmin_permissions_%d?mode=memory&cache=shared&_fk=1", time.Now().UnixNano())
 
@@ -74,22 +101,8 @@ func TestResolveRolePermissionsSuperadminIncludesTranslationOperationPermissions
 		t.Fatalf("resolve superadmin permissions: %v", err)
 	}
 
-	required := []string{
-		"admin.translations.view",
-		"admin.translations.edit",
-		"admin.translations.manage",
-		"admin.translations.assign",
-		"admin.translations.approve",
-		"admin.translations.claim",
-		"admin.translations.export",
-		"admin.translations.import.view",
-		"admin.translations.import.validate",
-		"admin.translations.import.apply",
-	}
-	for _, perm := range required {
-		if !permissionIncluded(perms, perm) {
-			t.Fatalf("expected superadmin permissions to include %q, got %v", perm, perms)
-		}
+	if !permissionIncluded(perms, "admin.*") {
+		t.Fatalf("expected superadmin resolved permissions to include wildcard grant, got %v", perms)
 	}
 }
 
@@ -136,7 +149,7 @@ func TestResolveRolePermissionsViewerExcludesTranslationOperationPermissions(t *
 	}
 }
 
-func TestResolveRolePermissionsSuperadminIncludesContentNavigationPermissions(t *testing.T) {
+func TestResolveRolePermissionsSuperadminContentAccessUsesWildcardGrant(t *testing.T) {
 	ctx := context.Background()
 	dsn := fmt.Sprintf("file:users_superadmin_content_permissions_%d?mode=memory&cache=shared&_fk=1", time.Now().UnixNano())
 
@@ -161,16 +174,8 @@ func TestResolveRolePermissionsSuperadminIncludesContentNavigationPermissions(t 
 		t.Fatalf("resolve superadmin permissions: %v", err)
 	}
 
-	for _, perm := range []string{
-		"admin.pages.view",
-		"admin.posts.view",
-		"admin.media.view",
-		"admin.content_types.view",
-		"admin.block_definitions.view",
-	} {
-		if !permissionIncluded(perms, perm) {
-			t.Fatalf("expected superadmin permissions to include %q, got %v", perm, perms)
-		}
+	if !permissionIncluded(perms, "admin.*") {
+		t.Fatalf("expected superadmin resolved permissions to include wildcard grant, got %v", perms)
 	}
 }
 
@@ -244,6 +249,67 @@ func TestResolveRolePermissionsEditorIncludesCoreContentViewPermissions(t *testi
 		if !permissionIncluded(perms, perm) {
 			t.Fatalf("expected editor permissions to include %q, got %v", perm, perms)
 		}
+	}
+}
+
+func TestEnsureContentNavigationSeedPermissionsAddsOnlyWildcardForSuperadmin(t *testing.T) {
+	roleID := uuid.New()
+	registry := &testRoleRegistry{
+		roles: userstypes.RolePage{Roles: []userstypes.RoleDefinition{
+			{
+				ID:          roleID,
+				RoleKey:     "superadmin",
+				Name:        "Super Admin",
+				Permissions: []string{"admin.legacy.custom"},
+				Scope:       seedScopeDefaults(),
+			},
+		}},
+	}
+
+	if err := ensureContentNavigationSeedPermissions(context.Background(), registry); err != nil {
+		t.Fatalf("ensure content permissions: %v", err)
+	}
+	if len(registry.updates) != 1 {
+		t.Fatalf("expected one superadmin update, got %d", len(registry.updates))
+	}
+	perms := registry.updates[0].Permissions
+	if !permissionIncluded(perms, "admin.*") {
+		t.Fatalf("expected superadmin repair to add wildcard, got %v", perms)
+	}
+	if !permissionIncluded(perms, "admin.legacy.custom") {
+		t.Fatalf("expected superadmin repair to preserve unknown legacy grant, got %v", perms)
+	}
+	for _, perm := range []string{
+		"admin.pages.view",
+		"admin.posts.view",
+		"admin.media.view",
+		"admin.content_types.view",
+		"admin.block_definitions.view",
+	} {
+		if permissionIncluded(perms, perm) {
+			t.Fatalf("expected superadmin repair not to re-add explicit %q, got %v", perm, perms)
+		}
+	}
+}
+
+func TestEnsureTranslationExchangeSeedPermissionsDoesNotExpandWildcardSuperadmin(t *testing.T) {
+	registry := &testRoleRegistry{
+		roles: userstypes.RolePage{Roles: []userstypes.RoleDefinition{
+			{
+				ID:          uuid.New(),
+				RoleKey:     "superadmin",
+				Name:        "Super Admin",
+				Permissions: []string{"admin.*", "admin.legacy.custom"},
+				Scope:       seedScopeDefaults(),
+			},
+		}},
+	}
+
+	if err := ensureTranslationExchangeSeedPermissions(context.Background(), registry); err != nil {
+		t.Fatalf("ensure translation permissions: %v", err)
+	}
+	if len(registry.updates) != 0 {
+		t.Fatalf("expected wildcard superadmin not to be re-expanded, got updates %+v", registry.updates)
 	}
 }
 

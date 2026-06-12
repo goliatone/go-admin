@@ -37,6 +37,9 @@ func mustNewAdminWithDeps(t *testing.T, cfg Config, deps Dependencies) *Admin {
 	if adm != nil && adm.Commands() != nil {
 		t.Cleanup(func() {
 			adm.Commands().Reset()
+			if err := registry.Stop(context.Background()); err != nil {
+				t.Fatalf("stop command registry cleanup: %v", err)
+			}
 		})
 	}
 	return adm

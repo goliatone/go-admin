@@ -1027,6 +1027,171 @@ func TestBunTranslationAssignmentRepositoryReviewerAggregateDeclinesQABlockedPla
 	}
 }
 
+func TestBunTranslationAssignmentRepositoryReviewerAggregateSummaryCountsSQLSafeStates(t *testing.T) {
+	db := newTranslationFamilyStoreSQLiteDB(t)
+	repo := NewBunTranslationAssignmentRepository(db)
+	familyStore := NewBunTranslationFamilyStore(db)
+	ctx := context.Background()
+	now := time.Date(2026, 2, 17, 12, 0, 0, 0, time.UTC)
+	overdue := now.Add(-2 * time.Hour)
+	future := now.Add(24 * time.Hour)
+	createAssignment := func(input TranslationAssignment) {
+		t.Helper()
+		if err := familyStore.SaveFamily(ctx, translationservices.FamilyRecord{
+			ID:              input.FamilyID,
+			TenantID:        input.TenantID,
+			OrgID:           input.OrgID,
+			ContentType:     input.EntityType,
+			SourceLocale:    input.SourceLocale,
+			SourceVariantID: input.FamilyID + "::" + input.SourceLocale,
+			ReadinessState:  "ready",
+			Variants: []translationservices.FamilyVariant{
+				{ID: input.FamilyID + "::" + input.SourceLocale, FamilyID: input.FamilyID, TenantID: input.TenantID, OrgID: input.OrgID, Locale: input.SourceLocale, Status: "published", IsSource: true, SourceRecordID: input.SourceRecordID},
+				{ID: input.FamilyID + "::" + input.TargetLocale, FamilyID: input.FamilyID, TenantID: input.TenantID, OrgID: input.OrgID, Locale: input.TargetLocale, Status: "draft", SourceRecordID: input.SourceRecordID},
+			},
+		}); err != nil {
+			t.Fatalf("seed family %s: %v", input.FamilyID, err)
+		}
+		if _, err := repo.Create(ctx, input); err != nil {
+			t.Fatalf("create assignment %s: %v", input.ID, err)
+		}
+	}
+	createAssignment(TranslationAssignment{
+		ID:             "asg-review-inbox-future",
+		FamilyID:       "family-review-inbox-future",
+		EntityType:     "pages",
+		TenantID:       "tenant-1",
+		OrgID:          "org-1",
+		SourceRecordID: "page-review-inbox-future",
+		SourceLocale:   "en",
+		TargetLocale:   "es",
+		AssignmentType: AssignmentTypeDirect,
+		Status:         AssignmentStatusInReview,
+		ReviewerID:     "reviewer-1",
+		Priority:       PriorityNormal,
+		DueDate:        &future,
+	})
+	createAssignment(TranslationAssignment{
+		ID:             "asg-review-inbox-overdue",
+		FamilyID:       "family-review-inbox-overdue",
+		EntityType:     "pages",
+		TenantID:       "tenant-1",
+		OrgID:          "org-1",
+		SourceRecordID: "page-review-inbox-overdue",
+		SourceLocale:   "en",
+		TargetLocale:   "fr",
+		AssignmentType: AssignmentTypeDirect,
+		Status:         AssignmentStatusInReview,
+		ReviewerID:     "reviewer-1",
+		Priority:       PriorityNormal,
+		DueDate:        &overdue,
+	})
+	createAssignment(TranslationAssignment{
+		ID:             "asg-review-fallback-overdue",
+		FamilyID:       "family-review-fallback-overdue",
+		EntityType:     "posts",
+		TenantID:       "tenant-1",
+		OrgID:          "org-1",
+		SourceRecordID: "post-review-fallback-overdue",
+		SourceLocale:   "en",
+		TargetLocale:   "de",
+		AssignmentType: AssignmentTypeDirect,
+		Status:         AssignmentStatusInReview,
+		LastReviewerID: "reviewer-1",
+		Priority:       PriorityNormal,
+		DueDate:        &overdue,
+	})
+	createAssignment(TranslationAssignment{
+		ID:             "asg-review-changes-requested",
+		FamilyID:       "family-review-changes-requested",
+		EntityType:     "pages",
+		TenantID:       "tenant-1",
+		OrgID:          "org-1",
+		SourceRecordID: "page-review-changes-requested",
+		SourceLocale:   "en",
+		TargetLocale:   "it",
+		AssignmentType: AssignmentTypeDirect,
+		Status:         AssignmentStatusChangesRequested,
+		ReviewerID:     "reviewer-1",
+		Priority:       PriorityNormal,
+	})
+	createAssignment(TranslationAssignment{
+		ID:             "asg-review-changes-fallback",
+		FamilyID:       "family-review-changes-fallback",
+		EntityType:     "pages",
+		TenantID:       "tenant-1",
+		OrgID:          "org-1",
+		SourceRecordID: "page-review-changes-fallback",
+		SourceLocale:   "en",
+		TargetLocale:   "pt",
+		AssignmentType: AssignmentTypeDirect,
+		Status:         AssignmentStatusChangesRequested,
+		LastReviewerID: "reviewer-1",
+		Priority:       PriorityNormal,
+	})
+	createAssignment(TranslationAssignment{
+		ID:             "asg-review-other-reviewer",
+		FamilyID:       "family-review-other-reviewer",
+		EntityType:     "pages",
+		TenantID:       "tenant-1",
+		OrgID:          "org-1",
+		SourceRecordID: "page-review-other-reviewer",
+		SourceLocale:   "en",
+		TargetLocale:   "nl",
+		AssignmentType: AssignmentTypeDirect,
+		Status:         AssignmentStatusInReview,
+		ReviewerID:     "reviewer-2",
+		Priority:       PriorityNormal,
+		DueDate:        &overdue,
+	})
+	createAssignment(TranslationAssignment{
+		ID:             "asg-review-other-scope",
+		FamilyID:       "family-review-other-scope",
+		EntityType:     "pages",
+		TenantID:       "tenant-2",
+		OrgID:          "org-2",
+		SourceRecordID: "page-review-other-scope",
+		SourceLocale:   "en",
+		TargetLocale:   "sv",
+		AssignmentType: AssignmentTypeDirect,
+		Status:         AssignmentStatusInReview,
+		ReviewerID:     "reviewer-1",
+		Priority:       PriorityNormal,
+		DueDate:        &overdue,
+	})
+
+	summary, err := repo.AssignmentReviewerAggregateSummary(ctx, TranslationAssignmentReviewerAggregateInput{
+		TenantID: "tenant-1",
+		OrgID:    "org-1",
+		ActorID:  "reviewer-1",
+		Now:      now,
+	})
+	if err != nil {
+		t.Fatalf("reviewer aggregate summary: %v", err)
+	}
+	if got := summary.Counts["review_inbox"]; got != 3 {
+		t.Fatalf("expected review_inbox=3, got %+v", summary.Counts)
+	}
+	if got := summary.Counts["review_overdue"]; got != 2 {
+		t.Fatalf("expected review_overdue=2, got %+v", summary.Counts)
+	}
+	if got := summary.Counts["review_changes_requested"]; got != 2 {
+		t.Fatalf("expected review_changes_requested=2, got %+v", summary.Counts)
+	}
+	if _, ok := summary.Counts["review_blocked"]; !ok {
+		t.Fatalf("expected initialized review_blocked key, got %+v", summary.Counts)
+	}
+	if got := summary.Counts["review_blocked"]; got != 0 {
+		t.Fatalf("expected review_blocked compatibility placeholder 0, got %+v", summary.Counts)
+	}
+	if len(summary.Unavailable) != 1 || summary.Unavailable[0] != "review_blocked" {
+		t.Fatalf("expected review_blocked unavailable, got %+v", summary.Unavailable)
+	}
+	if len(summary.Degraded) != 0 {
+		t.Fatalf("expected no degraded reviewer aggregate keys, got %+v", summary.Degraded)
+	}
+}
+
 func TestInMemoryTranslationAssignmentRepositoryApprovedAssignmentsDoNotOccupyActiveKey(t *testing.T) {
 	repo := NewInMemoryTranslationAssignmentRepository()
 	ctx := context.Background()

@@ -2,6 +2,7 @@ package setup
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -13,6 +14,7 @@ import (
 type testRoleRegistry struct {
 	assignments []userstypes.RoleAssignment
 	roles       userstypes.RolePage
+	updates     []userstypes.RoleMutation
 	listAssignN int
 	listRolesN  int
 }
@@ -21,7 +23,20 @@ func (r *testRoleRegistry) CreateRole(context.Context, userstypes.RoleMutation) 
 	return nil, nil
 }
 
-func (r *testRoleRegistry) UpdateRole(context.Context, uuid.UUID, userstypes.RoleMutation) (*userstypes.RoleDefinition, error) {
+func (r *testRoleRegistry) UpdateRole(_ context.Context, id uuid.UUID, mutation userstypes.RoleMutation) (*userstypes.RoleDefinition, error) {
+	recorded := mutation
+	recorded.Permissions = append([]string(nil), mutation.Permissions...)
+	r.updates = append(r.updates, recorded)
+	for idx := range r.roles.Roles {
+		if r.roles.Roles[idx].ID != id {
+			continue
+		}
+		r.roles.Roles[idx].Name = mutation.Name
+		r.roles.Roles[idx].RoleKey = mutation.RoleKey
+		r.roles.Roles[idx].Permissions = append([]string(nil), mutation.Permissions...)
+		r.roles.Roles[idx].Scope = mutation.Scope
+		return &r.roles.Roles[idx], nil
+	}
 	return nil, nil
 }
 
@@ -37,9 +52,26 @@ func (r *testRoleRegistry) UnassignRole(context.Context, uuid.UUID, uuid.UUID, u
 	return nil
 }
 
-func (r *testRoleRegistry) ListRoles(context.Context, userstypes.RoleFilter) (userstypes.RolePage, error) {
+func (r *testRoleRegistry) ListRoles(_ context.Context, filter userstypes.RoleFilter) (userstypes.RolePage, error) {
 	r.listRolesN++
-	return r.roles, nil
+	if strings.TrimSpace(filter.RoleKey) == "" && len(filter.RoleIDs) == 0 {
+		return r.roles, nil
+	}
+	roleIDs := map[uuid.UUID]bool{}
+	for _, id := range filter.RoleIDs {
+		roleIDs[id] = true
+	}
+	out := userstypes.RolePage{}
+	for _, role := range r.roles.Roles {
+		if strings.TrimSpace(filter.RoleKey) != "" && !strings.EqualFold(role.RoleKey, filter.RoleKey) {
+			continue
+		}
+		if len(roleIDs) > 0 && !roleIDs[role.ID] {
+			continue
+		}
+		out.Roles = append(out.Roles, role)
+	}
+	return out, nil
 }
 
 func (r *testRoleRegistry) GetRole(context.Context, uuid.UUID, userstypes.ScopeFilter) (*userstypes.RoleDefinition, error) {
