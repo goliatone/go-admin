@@ -1,10 +1,63 @@
 # Changelog
 
+# [0.92.0](https://github.com/goliatone/go-admin/compare/v0.91.0...v0.92.0) - (2026-06-12)
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Code quality ([04d4265](https://github.com/goliatone/go-admin/commit/04d42655d8e5efea71727432d6137bd078fa931d))  - (goliatone)
+- Permission check ([2df8edd](https://github.com/goliatone/go-admin/commit/2df8edd0cf9e88991dce87779a0414dff11ff0b6))  - (goliatone)
+
+## <!-- 16 -->➕ Add
+
+- Translation SSR implementation ([539530a](https://github.com/goliatone/go-admin/commit/539530ab5e55f6cbdf4b521dc82bba6b3a69b746))  - (goliatone)
+- Translation dashbaord ([ee34e6b](https://github.com/goliatone/go-admin/commit/ee34e6bad16233bb8410b1993765f0da9439a42a))  - (goliatone)
+- Translation dashboard SSR implementation ([a7467a3](https://github.com/goliatone/go-admin/commit/a7467a30d99de0fcb534cf17f54f55464e2d1c5b))  - (goliatone)
+- Ssr translation dashboard ([a6d0e77](https://github.com/goliatone/go-admin/commit/a6d0e77b8ac7f7a74e3642f66b76c969181c5243))  - (goliatone)
+- Translation exchange ui config ([e52c2cc](https://github.com/goliatone/go-admin/commit/e52c2cc611182b2e8b3b8e62c06f68334497df1b))  - (goliatone)
+
+## <!-- 2 -->🚜 Refactor
+
+- Translation dashboard UI ([0597f9c](https://github.com/goliatone/go-admin/commit/0597f9c587d6c00177b7475884c0c1d8369385ff))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update tasks ([e1b0ea3](https://github.com/goliatone/go-admin/commit/e1b0ea3ed9b362cca408dfd19864058b2aef5eab))  - (goliatone)
+- Update tests ([f0d6385](https://github.com/goliatone/go-admin/commit/f0d638524618b2cb449176ec14cf038791e0e732))  - (goliatone)
+- Update deps ([21ad61f](https://github.com/goliatone/go-admin/commit/21ad61f213a82e34da8d06aba470ba9237090651))  - (goliatone)
+
+# [0.91.0](https://github.com/goliatone/go-admin/compare/v0.90.0...v0.91.0) - (2026-06-12)
+
+## <!-- 0 -->🚀 Features
+
+- Add lifecycle runner package ([ba5e445](https://github.com/goliatone/go-admin/commit/ba5e4456015001082f3828823d8abec5863b0e2f))  - (goliatone)
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Icon id ([57ecec8](https://github.com/goliatone/go-admin/commit/57ecec8df9a465a5637d41aaab6d74bc0268ece9))  - (goliatone)
+
+## <!-- 16 -->➕ Add
+
+- Expose admin wild card and translation assignments ([b0241bb](https://github.com/goliatone/go-admin/commit/b0241bb7613b8b01ea83382bb3f41283054f5138))  - (goliatone)
+- Translation assignment reviewr aggregate summary ([f65cf37](https://github.com/goliatone/go-admin/commit/f65cf3782bc50ecd55bcb1515bbe1b8645d039a1))  - (goliatone)
+- Permission grant listed ([bccb0c1](https://github.com/goliatone/go-admin/commit/bccb0c16a3eb1ae2326ca2c0d6b7e48feca78f26))  - (goliatone)
+- Permission debug panel ([6f8744b](https://github.com/goliatone/go-admin/commit/6f8744b7713b1973543105350ea293d808b3b7dd))  - (goliatone)
+- Admin wildcard perm ([bd2fadd](https://github.com/goliatone/go-admin/commit/bd2fadd10950f07908d115db4022cf9368c99da4))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update examples ([4d3d5e3](https://github.com/goliatone/go-admin/commit/4d3d5e3f5e494787f636640476a4131119d45b54))  - (goliatone)
+- Update docs ([37ffd15](https://github.com/goliatone/go-admin/commit/37ffd15c4c356147ec67f8db38242b22974beee8))  - (goliatone)
+- Update tests ([14df837](https://github.com/goliatone/go-admin/commit/14df837aacaf9f53f9b67867d1d4d5e40b1ea797))  - (goliatone)
+
 # [0.90.0](https://github.com/goliatone/go-admin/compare/v0.89.1...v0.90.0) - (2026-06-11)
 
 ## <!-- 1 -->🐛 Bug Fixes
 
 - Code quality ([70a3e11](https://github.com/goliatone/go-admin/commit/70a3e115aade0d247c2f94183eca2ba580e99d43))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.90.0 ([f275da9](https://github.com/goliatone/go-admin/commit/f275da9e7ce8558f1a108d23e964549faf1cec1d))  - (goliatone)
 
 ## <!-- 16 -->➕ Add
 
