@@ -175,20 +175,21 @@ func (b *translationQueueBinding) Assignments(c router.Context) (payload any, er
 	rows := b.assignmentListRows(adminCtx.Context, assignments, now, channel, grouping)
 	var reviewAssignments []TranslationAssignment
 	if optimizedPage {
-		optimizedCounts, countsErr := b.optimizedReviewerAggregateCounts(adminCtx.Context, repo, filter, actorID, now)
+		optimizedSummary, countsErr := b.optimizedReviewerAggregateMetadata(adminCtx.Context, repo, filter, actorID, now)
 		if countsErr == nil {
 			return map[string]any{
 				"data": rows,
-				"meta": b.assignmentListMeta(page, perPage, total, now, actorID, optimizedCounts, grouping, len(rows), len(assignments), channel, translationQueueRepositorySupportsServerFamily(repo)),
+				"meta": b.assignmentListMeta(page, perPage, total, now, actorID, optimizedSummary, grouping, len(rows), len(assignments), channel, translationQueueRepositorySupportsServerFamily(repo)),
 			}, nil
 		}
-		reviewAssignments, err = b.listAssignmentsForSummary(adminCtx.Context, repo, "updated_at", map[string]any{
-			ScopeTenantIDKey: filter.TenantID,
-			ScopeOrgIDKey:    filter.OrgID,
-		})
-		if err != nil {
-			return nil, err
+		metadata := unavailableReviewerAggregateMetadata(TranslationQueueReviewAggregateCountKeys())
+		if !errors.Is(countsErr, ErrTranslationAssignmentQueryUnsupported) {
+			metadata = degradedReviewerAggregateMetadata(TranslationQueueReviewAggregateCountKeys())
 		}
+		return map[string]any{
+			"data": rows,
+			"meta": b.assignmentListMeta(page, perPage, total, now, actorID, metadata, grouping, len(rows), len(assignments), channel, translationQueueRepositorySupportsServerFamily(repo)),
+		}, nil
 	} else {
 		reviewAssignments, err = b.listAssignmentsForSummary(adminCtx.Context, repo, filter.SortBy, nil)
 		if err != nil {
@@ -201,40 +202,111 @@ func (b *translationQueueBinding) Assignments(c router.Context) (payload any, er
 	}
 	return map[string]any{
 		"data": rows,
-		"meta": b.assignmentListMeta(page, perPage, total, now, actorID, reviewAggregateCounts, grouping, len(rows), len(assignments), channel, translationQueueRepositorySupportsServerFamily(repo)),
+		"meta": b.assignmentListMeta(page, perPage, total, now, actorID, reviewerAggregateMetadataFromCounts(reviewAggregateCounts), grouping, len(rows), len(assignments), channel, translationQueueRepositorySupportsServerFamily(repo)),
 	}, nil
 }
 
-func (b *translationQueueBinding) assignmentListMeta(page, perPage, total int, now time.Time, actorID string, reviewAggregateCounts map[string]int, grouping translationQueueGroupingRequest, rowCount, assignmentCount int, channel string, serverFamilySupported bool) map[string]any {
+func (b *translationQueueBinding) assignmentListMeta(page, perPage, total int, now time.Time, actorID string, reviewAggregateMetadata TranslationAssignmentReviewerAggregateSummary, grouping translationQueueGroupingRequest, rowCount, assignmentCount int, channel string, serverFamilySupported bool) map[string]any {
+	reviewAggregateMetadata = normalizedReviewerAggregateMetadata(reviewAggregateMetadata)
 	return mergeTranslationChannelContract(map[string]any{
-		"page":                         page,
-		"per_page":                     perPage,
-		"total":                        total,
-		"updated_at":                   now,
-		"supported_sort_keys":          TranslationQueueSupportedSortKeys(),
-		"supported_filter_keys":        TranslationQueueSupportedFilterKeys(),
-		"supported_review_states":      TranslationQueueSupportedReviewStates(),
-		"default_sort":                 translationQueueDefaultSortContract(),
-		"saved_filter_presets":         TranslationQueueSavedFilterPresets(),
-		"saved_review_filter_presets":  TranslationQueueSavedReviewFilterPresets(),
-		"default_review_filter_preset": "review_inbox",
-		"review_actor_id":              actorID,
-		"review_aggregate_counts":      reviewAggregateCounts,
-		"grouping":                     translationQueueGroupingContract(grouping, rowCount, assignmentCount, serverFamilySupported),
+		"page":                                page,
+		"per_page":                            perPage,
+		"total":                               total,
+		"updated_at":                          now,
+		"supported_sort_keys":                 TranslationQueueSupportedSortKeys(),
+		"supported_filter_keys":               TranslationQueueSupportedFilterKeys(),
+		"supported_review_states":             TranslationQueueSupportedReviewStates(),
+		"default_sort":                        translationQueueDefaultSortContract(),
+		"saved_filter_presets":                TranslationQueueSavedFilterPresets(),
+		"saved_review_filter_presets":         TranslationQueueSavedReviewFilterPresets(),
+		"default_review_filter_preset":        "review_inbox",
+		"review_actor_id":                     actorID,
+		"review_aggregate_counts":             reviewAggregateMetadata.Counts,
+		"review_aggregate_counts_unavailable": reviewAggregateMetadata.Unavailable,
+		"review_aggregate_counts_degraded":    reviewAggregateMetadata.Degraded,
+		"grouping":                            translationQueueGroupingContract(grouping, rowCount, assignmentCount, serverFamilySupported),
 	}, channel)
 }
 
-func (b *translationQueueBinding) optimizedReviewerAggregateCounts(ctx context.Context, repo TranslationAssignmentRepository, filter translationAssignmentListFilter, actorID string, now time.Time) (map[string]int, error) {
+func (b *translationQueueBinding) optimizedReviewerAggregateMetadata(ctx context.Context, repo TranslationAssignmentRepository, filter translationAssignmentListFilter, actorID string, now time.Time) (TranslationAssignmentReviewerAggregateSummary, error) {
+	aggregateStore, ok := repo.(TranslationAssignmentReviewerAggregateStore)
+	if ok && aggregateStore != nil {
+		summary, err := aggregateStore.AssignmentReviewerAggregateSummary(ctx, TranslationAssignmentReviewerAggregateInput{
+			TenantID: filter.TenantID,
+			OrgID:    filter.OrgID,
+			ActorID:  actorID,
+			Now:      now,
+		})
+		if err != nil {
+			return TranslationAssignmentReviewerAggregateSummary{}, err
+		}
+		return normalizedReviewerAggregateMetadata(summary), nil
+	}
 	reviewerStore, ok := repo.(TranslationAssignmentReviewerSummaryStore)
 	if !ok || reviewerStore == nil {
-		return nil, ErrTranslationAssignmentQueryUnsupported
+		return TranslationAssignmentReviewerAggregateSummary{}, ErrTranslationAssignmentQueryUnsupported
 	}
-	return reviewerStore.AssignmentReviewerAggregateCounts(ctx, TranslationAssignmentReviewerAggregateInput{
+	counts, err := reviewerStore.AssignmentReviewerAggregateCounts(ctx, TranslationAssignmentReviewerAggregateInput{
 		TenantID: filter.TenantID,
 		OrgID:    filter.OrgID,
 		ActorID:  actorID,
 		Now:      now,
 	})
+	if err != nil {
+		return TranslationAssignmentReviewerAggregateSummary{}, err
+	}
+	return reviewerAggregateMetadataFromCounts(counts), nil
+}
+
+func reviewerAggregateMetadataFromCounts(counts map[string]int) TranslationAssignmentReviewerAggregateSummary {
+	return TranslationAssignmentReviewerAggregateSummary{Counts: counts}
+}
+
+func unavailableReviewerAggregateMetadata(keys []string) TranslationAssignmentReviewerAggregateSummary {
+	return TranslationAssignmentReviewerAggregateSummary{Unavailable: normalizedReviewerAggregateKeys(keys)}
+}
+
+func degradedReviewerAggregateMetadata(keys []string) TranslationAssignmentReviewerAggregateSummary {
+	return TranslationAssignmentReviewerAggregateSummary{Degraded: normalizedReviewerAggregateKeys(keys)}
+}
+
+func normalizedReviewerAggregateMetadata(metadata TranslationAssignmentReviewerAggregateSummary) TranslationAssignmentReviewerAggregateSummary {
+	counts := map[string]int{}
+	for _, key := range TranslationQueueReviewAggregateCountKeys() {
+		counts[key] = 0
+	}
+	for key, value := range metadata.Counts {
+		key = strings.TrimSpace(key)
+		if key == "" {
+			continue
+		}
+		counts[key] = value
+	}
+	metadata.Counts = counts
+	metadata.Unavailable = normalizedReviewerAggregateKeys(metadata.Unavailable)
+	metadata.Degraded = normalizedReviewerAggregateKeys(metadata.Degraded)
+	return metadata
+}
+
+func normalizedReviewerAggregateKeys(keys []string) []string {
+	if len(keys) == 0 {
+		return []string{}
+	}
+	known := map[string]bool{}
+	for _, key := range TranslationQueueReviewAggregateCountKeys() {
+		known[key] = true
+	}
+	out := make([]string, 0, len(keys))
+	seen := map[string]bool{}
+	for _, key := range keys {
+		key = strings.TrimSpace(key)
+		if key == "" || seen[key] || !known[key] {
+			continue
+		}
+		seen[key] = true
+		out = append(out, key)
+	}
+	return out
 }
 
 func (b *translationQueueBinding) serverFamilyAssignmentGroups(adminCtx AdminContext, repo TranslationAssignmentRepository, filter translationAssignmentListFilter, page, perPage int, channel string, now time.Time, grouping translationQueueGroupingRequest) (map[string]any, error) {
@@ -264,7 +336,14 @@ func (b *translationQueueBinding) serverFamilyAssignmentGroups(adminCtx AdminCon
 		rows = append(rows, b.serverFamilyParentRow(family, filter, page, perPage, channel))
 	}
 	actorID := strings.TrimSpace(primitives.FirstNonEmptyRaw(adminCtx.UserID, actorFromContext(adminCtx.Context)))
-	meta := b.assignmentListMeta(page, perPage, result.FamilyTotal, now, actorID, map[string]int{}, grouping, len(rows), result.AssignmentTotal, channel, true)
+	reviewerMetadata, countsErr := b.optimizedReviewerAggregateMetadata(adminCtx.Context, repo, filter, actorID, now)
+	if countsErr != nil {
+		reviewerMetadata = unavailableReviewerAggregateMetadata(TranslationQueueReviewAggregateCountKeys())
+		if !errors.Is(countsErr, ErrTranslationAssignmentQueryUnsupported) {
+			reviewerMetadata = degradedReviewerAggregateMetadata(TranslationQueueReviewAggregateCountKeys())
+		}
+	}
+	meta := b.assignmentListMeta(page, perPage, result.FamilyTotal, now, actorID, reviewerMetadata, grouping, len(rows), result.AssignmentTotal, channel, true)
 	meta["total"] = result.FamilyTotal
 	meta["family_total"] = result.FamilyTotal
 	meta["assignment_total"] = result.AssignmentTotal
