@@ -1836,6 +1836,57 @@ func TestTranslationFamilyBindingDetailIncludesLocaleAssignmentActions(t *testin
 	}
 }
 
+func TestTranslationFamilyBindingDetailSurfacesLocaleAssignmentWithNonDefaultWorkScope(t *testing.T) {
+	assignedAt := time.Date(2026, 6, 1, 10, 0, 0, 0, time.UTC)
+	fixture := newTranslationFamilyMutationFixture(t, translationFamilyMutationFixtureOptions{
+		RequiredLocales: []string{"fr"},
+		// Policy default work scope is "localization"; the active assignment
+		// lives under the global scope. The locale row must still surface it
+		// and block "Assign to me" for the current assignee.
+		Assignments: []TranslationAssignment{{
+			ID:             "asg-fr-global-scope",
+			FamilyID:       "tg-page-1",
+			EntityType:     "pages",
+			TenantID:       "tenant-1",
+			OrgID:          "org-1",
+			SourceRecordID: "page-1",
+			SourceLocale:   "en",
+			TargetLocale:   "fr",
+			WorkScope:      translationcore.DefaultWorkScope,
+			Status:         AssignmentStatusAssigned,
+			Priority:       PriorityNormal,
+			AssigneeID:     "translator-1",
+			AssignedAt:     &assignedAt,
+		}},
+	})
+
+	status, payload := doTranslationFamilyJSONRequest(t, fixture.app, http.MethodGet, "/admin/api/translations/families/tg-page-1?channel=production&tenant_id=tenant-1&org_id=org-1", nil, map[string]string{"X-User-ID": "translator-1"})
+	if status != http.StatusOK {
+		t.Fatalf("detail status=%d payload=%+v", status, payload)
+	}
+	data := extractMap(payload["data"])
+	localeAssignments := extractMap(data["locale_assignments"])
+	frKey := "fr:" + translationcore.DefaultWorkScope
+	fr := extractMap(localeAssignments[frKey])
+	if len(fr) == 0 {
+		t.Fatalf("expected locale assignment under %q, got %+v", frKey, localeAssignments)
+	}
+	if got := toString(fr["state"]); got != "assigned_to_me" {
+		t.Fatalf("expected fr assigned_to_me state for non-default work scope assignment, got %q payload=%+v", got, fr)
+	}
+	assignment := extractMap(fr["assignment"])
+	if got := toString(assignment["assignee_id"]); got != "translator-1" {
+		t.Fatalf("expected surfaced assignment assignee, got %q", got)
+	}
+	assignToMe := extractMap(extractMap(fr["actions"])["assign_to_me"])
+	if testBool(t, assignToMe["enabled"], "assign_to_me.enabled") {
+		t.Fatalf("expected assign_to_me disabled when already assigned, got %+v", assignToMe)
+	}
+	if got := toString(assignToMe["reason_code"]); got != "already_assigned" {
+		t.Fatalf("expected already_assigned reason, got %q", got)
+	}
+}
+
 func TestTranslationFamilyBindingAssignmentDisplayUsesCurrentActorMetadataFallback(t *testing.T) {
 	adm := mustNewAdmin(t, translationFamilyScopedTestConfig(), Dependencies{
 		FeatureGate: featureGateFromKeys(FeatureCMS, FeatureTranslationQueue),

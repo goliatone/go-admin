@@ -2777,6 +2777,10 @@ func translationFamilyActorDisplayLabelFromRecord(record map[string]any) string 
 func (b *translationFamilyBinding) familyLocaleAssignmentsPayload(ctx context.Context, family translationservices.FamilyRecord, assignments []TranslationAssignment, channel string) map[string]any {
 	workScope := translationFamilyDefaultWorkScope(family)
 	assignmentsByKey := map[string]TranslationAssignment{}
+	// Most recent active assignment per locale regardless of work scope:
+	// locale rows must surface assignments whose scope differs from the
+	// family default, otherwise they render as unassigned.
+	assignmentsByLocale := map[string]TranslationAssignment{}
 	for _, assignment := range assignments {
 		if !assignment.Status.IsActive() {
 			continue
@@ -2784,6 +2788,12 @@ func (b *translationFamilyBinding) familyLocaleAssignmentsPayload(ctx context.Co
 		key := translationFamilyLocaleAssignmentKey(assignment.TargetLocale, assignment.WorkScope)
 		if _, exists := assignmentsByKey[key]; !exists {
 			assignmentsByKey[key] = assignment
+		}
+		locale := strings.TrimSpace(strings.ToLower(assignment.TargetLocale))
+		if locale != "" {
+			if _, exists := assignmentsByLocale[locale]; !exists {
+				assignmentsByLocale[locale] = assignment
+			}
 		}
 	}
 	locales := map[string]translationservices.FamilyVariant{}
@@ -2816,7 +2826,7 @@ func (b *translationFamilyBinding) familyLocaleAssignmentsPayload(ctx context.Co
 	for _, locale := range keys {
 		variant := locales[locale]
 		scope := workScope
-		if assignment, ok := assignmentsByKey[translationFamilyLocaleAssignmentKey(locale, scope)]; ok {
+		if assignment, ok := assignmentsByLocale[locale]; ok {
 			scope = normalizeTranslationAssignmentWorkScope(assignment.WorkScope)
 		}
 		key := translationFamilyLocaleAssignmentKey(locale, scope)
