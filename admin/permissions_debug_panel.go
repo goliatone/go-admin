@@ -15,13 +15,15 @@ const (
 
 // PermissionEntry represents a single permission with its diagnostic status.
 type PermissionEntry struct {
-	Permission string `json:"permission"`
-	Required   bool   `json:"required"`
-	InClaims   bool   `json:"in_claims"`
-	Allows     bool   `json:"allows"`
-	Diagnosis  string `json:"diagnosis"`
-	Status     string `json:"status"` // ok, error, warning, info
-	Module     string `json:"module,omitempty"`
+	Permission     string `json:"permission"`
+	Required       bool   `json:"required"`
+	InClaims       bool   `json:"in_claims"`
+	CoveredByGrant bool   `json:"covered_by_grant,omitempty"`
+	CoveringGrant  string `json:"covering_grant,omitempty"`
+	Allows         bool   `json:"allows"`
+	Diagnosis      string `json:"diagnosis"`
+	Status         string `json:"status"` // ok, error, warning, info
+	Module         string `json:"module,omitempty"`
 }
 
 // PermissionsDebugSnapshot contains the full permissions diagnostic data.
@@ -120,11 +122,7 @@ func (p *PermissionsDebugPanel) buildSnapshot(ctx context.Context) PermissionsDe
 	// Collect user info
 	p.collectUserInfo(ctx, &snapshot)
 
-	// Build claims set for quick lookup
-	claimsSet := make(map[string]bool, len(snapshot.ClaimsPermissions))
-	for _, perm := range snapshot.ClaimsPermissions {
-		claimsSet[perm] = true
-	}
+	grantCoverage := permissionGrantCoverage(snapshot.ClaimsPermissions, snapshot.RequiredPermissions)
 
 	// Check each required permission against authorizer
 	allPerms := p.collectAllPermissions(snapshot.RequiredPermissions, snapshot.ClaimsPermissions)
@@ -134,10 +132,10 @@ func (p *PermissionsDebugPanel) buildSnapshot(ctx context.Context) PermissionsDe
 	}
 
 	// Identify true missing grants (not in claims and denied by authorizer).
-	snapshot.MissingPermissions = p.findMissingPermissions(snapshot.RequiredPermissions, claimsSet, snapshot.PermissionChecks)
+	snapshot.MissingPermissions = p.findMissingPermissions(snapshot.RequiredPermissions, snapshot.ClaimsPermissions, grantCoverage, snapshot.PermissionChecks)
 
 	// Build detailed entries with diagnosis
-	snapshot.Entries = p.buildEntries(snapshot.RequiredPermissions, claimsSet, snapshot.PermissionChecks)
+	snapshot.Entries = p.buildEntries(snapshot.RequiredPermissions, snapshot.ClaimsPermissions, grantCoverage, snapshot.PermissionChecks)
 
 	// Compute verdict
 	snapshot.Verdict = p.computeVerdict(&snapshot)
@@ -325,18 +323,20 @@ func (p *PermissionsDebugPanel) checkPermission(ctx context.Context, permission 
 
 func (p *PermissionsDebugPanel) classifyRequiredPermissions(
 	required map[string]string,
-	claimsSet map[string]bool,
+	claims []string,
+	grantCoverage map[string]string,
 	checks map[string]bool,
 ) (missingGrants []string, claimsStale []string, scopeMismatch []string) {
 	for perm := range required {
-		inClaims := claimsSet[perm]
+		inClaims := permissionExactListed(claims, perm)
+		covered := grantCoverage[perm] != ""
 		allows := checks[perm]
 		switch {
-		case !inClaims && !allows:
+		case !inClaims && !covered && !allows:
 			missingGrants = append(missingGrants, perm)
-		case !inClaims && allows:
+		case !inClaims && !covered && allows:
 			claimsStale = append(claimsStale, perm)
-		case inClaims && !allows:
+		case (inClaims || covered) && !allows:
 			scopeMismatch = append(scopeMismatch, perm)
 		}
 	}
@@ -348,14 +348,15 @@ func (p *PermissionsDebugPanel) classifyRequiredPermissions(
 
 func (p *PermissionsDebugPanel) findMissingPermissions(
 	required map[string]string,
-	claimsSet map[string]bool,
+	claims []string,
+	grantCoverage map[string]string,
 	checks map[string]bool,
 ) []string {
-	missingGrants, _, _ := p.classifyRequiredPermissions(required, claimsSet, checks)
+	missingGrants, _, _ := p.classifyRequiredPermissions(required, claims, grantCoverage, checks)
 	return missingGrants
 }
 
-func (p *PermissionsDebugPanel) buildEntries(required map[string]string, claimsSet map[string]bool, checks map[string]bool) []PermissionEntry {
+func (p *PermissionsDebugPanel) buildEntries(required map[string]string, claims []string, grantCoverage map[string]string, checks map[string]bool) []PermissionEntry {
 	// Build entries for all permissions (required + claims)
 	seen := make(map[string]bool)
 	var entries []PermissionEntry
@@ -366,26 +367,36 @@ func (p *PermissionsDebugPanel) buildEntries(required map[string]string, claimsS
 			continue
 		}
 		seen[perm] = true
-		inClaims := claimsSet[perm]
+		inClaims := permissionExactListed(claims, perm)
+		coveringGrant := ""
+		if !inClaims {
+			coveringGrant = grantCoverage[perm]
+		}
 		allows := checks[perm]
-		diagnosis, status := p.diagnose(true, inClaims, allows)
+		diagnosis, status := p.diagnose(true, inClaims, coveringGrant, allows)
 		entries = append(entries, PermissionEntry{
-			Permission: perm,
-			Required:   true,
-			InClaims:   inClaims,
-			Allows:     allows,
-			Diagnosis:  diagnosis,
-			Status:     status,
-			Module:     module,
+			Permission:     perm,
+			Required:       true,
+			InClaims:       inClaims,
+			CoveredByGrant: coveringGrant != "",
+			CoveringGrant:  coveringGrant,
+			Allows:         allows,
+			Diagnosis:      diagnosis,
+			Status:         status,
+			Module:         module,
 		})
 	}
 
 	// Add claims permissions that aren't required
-	for perm := range claimsSet {
-		if seen[perm] {
+	for _, perm := range claims {
+		if permissionRequired(required, perm) {
 			continue
 		}
-		seen[perm] = true
+		seenKey := strings.ToLower(strings.TrimSpace(perm))
+		if seen[seenKey] {
+			continue
+		}
+		seen[seenKey] = true
 		allows := checks[perm]
 		entries = append(entries, PermissionEntry{
 			Permission: perm,
@@ -409,9 +420,15 @@ func (p *PermissionsDebugPanel) buildEntries(required map[string]string, claimsS
 	return entries
 }
 
-func (p *PermissionsDebugPanel) diagnose(required, inClaims, allows bool) (string, string) {
+func (p *PermissionsDebugPanel) diagnose(required, inClaims bool, coveringGrant string, allows bool) (string, string) {
 	if required && inClaims && allows {
 		return "OK", "ok"
+	}
+	if required && coveringGrant != "" && allows {
+		return "Covered by resolved grant " + coveringGrant, "ok"
+	}
+	if required && coveringGrant != "" && !allows {
+		return "Scope/policy mismatch - permission covered by resolved grant but authorizer denies", "warning"
 	}
 	if required && !inClaims && !allows {
 		return "Grant missing permission in role assignment", "error"
@@ -430,14 +447,12 @@ func (p *PermissionsDebugPanel) computeVerdict(snapshot *PermissionsDebugSnapsho
 		return "error"
 	}
 
-	claimsSet := make(map[string]bool, len(snapshot.ClaimsPermissions))
-	for _, perm := range snapshot.ClaimsPermissions {
-		claimsSet[perm] = true
-	}
+	grantCoverage := permissionGrantCoverage(snapshot.ClaimsPermissions, snapshot.RequiredPermissions)
 
 	missingGrants, claimsStale, scopeMismatch := p.classifyRequiredPermissions(
 		snapshot.RequiredPermissions,
-		claimsSet,
+		snapshot.ClaimsPermissions,
+		grantCoverage,
 		snapshot.PermissionChecks,
 	)
 
@@ -460,13 +475,11 @@ func (p *PermissionsDebugPanel) computeNextActions(snapshot *PermissionsDebugSna
 		return []string{"Unable to determine next actions"}
 	}
 
-	claimsSet := make(map[string]bool, len(snapshot.ClaimsPermissions))
-	for _, perm := range snapshot.ClaimsPermissions {
-		claimsSet[perm] = true
-	}
+	grantCoverage := permissionGrantCoverage(snapshot.ClaimsPermissions, snapshot.RequiredPermissions)
 	missingGrants, claimsStale, scopeMismatch := p.classifyRequiredPermissions(
 		snapshot.RequiredPermissions,
-		claimsSet,
+		snapshot.ClaimsPermissions,
+		grantCoverage,
 		snapshot.PermissionChecks,
 	)
 
@@ -479,10 +492,10 @@ func (p *PermissionsDebugPanel) computeNextActions(snapshot *PermissionsDebugSna
 		actions = append(actions, "After updating the role, reload the page")
 
 	case "scope_mismatch":
-		actions = append(actions, "Permission is listed but authorizer denies access")
+		actions = append(actions, scopeMismatchSummary(scopeMismatch, snapshot.ClaimsPermissions, grantCoverage))
 		actions = append(actions, "Mismatched permissions:")
 		for _, perm := range scopeMismatch {
-			actions = append(actions, "  - "+perm)
+			actions = append(actions, formatScopeMismatchPermission(perm, snapshot.ClaimsPermissions, grantCoverage))
 		}
 		actions = append(actions, "Check tenant/organization scope restrictions")
 		actions = append(actions, "Verify authorizer policy and resource binding configuration")
@@ -504,6 +517,80 @@ func (p *PermissionsDebugPanel) computeNextActions(snapshot *PermissionsDebugSna
 	}
 
 	return actions
+}
+
+func scopeMismatchSummary(perms []string, claims []string, grantCoverage map[string]string) string {
+	hasListed := false
+	hasCovered := false
+	for _, perm := range perms {
+		if permissionExactListed(claims, perm) {
+			hasListed = true
+		}
+		if grantCoverage[perm] != "" {
+			hasCovered = true
+		}
+	}
+
+	switch {
+	case hasListed && hasCovered:
+		return "Permission is listed or covered by a resolved grant, but authorizer denies access"
+	case hasCovered:
+		return "Permission is covered by a resolved grant, but authorizer denies access"
+	default:
+		return "Permission is listed but authorizer denies access"
+	}
+}
+
+func formatScopeMismatchPermission(perm string, claims []string, grantCoverage map[string]string) string {
+	switch {
+	case grantCoverage[perm] != "":
+		return "  - " + perm + " (covered by " + grantCoverage[perm] + ")"
+	case permissionExactListed(claims, perm):
+		return "  - " + perm + " (listed)"
+	default:
+		return "  - " + perm
+	}
+}
+
+func permissionGrantCoverage(claims []string, required map[string]string) map[string]string {
+	coverage := map[string]string{}
+	if len(claims) == 0 || len(required) == 0 {
+		return coverage
+	}
+	for perm := range required {
+		grant := permissionGrantCovering(claims, perm)
+		if grant == "" || strings.EqualFold(grant, perm) {
+			continue
+		}
+		coverage[perm] = grant
+	}
+	return coverage
+}
+
+func permissionExactListed(claims []string, permission string) bool {
+	permission = strings.TrimSpace(permission)
+	if permission == "" {
+		return false
+	}
+	for _, claim := range claims {
+		if strings.EqualFold(strings.TrimSpace(claim), permission) {
+			return true
+		}
+	}
+	return false
+}
+
+func permissionRequired(required map[string]string, permission string) bool {
+	permission = strings.TrimSpace(permission)
+	if permission == "" {
+		return false
+	}
+	for requiredPermission := range required {
+		if strings.EqualFold(requiredPermission, permission) {
+			return true
+		}
+	}
+	return false
 }
 
 // RegisterPermissionsDebugPanel registers the permissions panel with the debug collector.
