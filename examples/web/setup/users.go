@@ -720,43 +720,7 @@ func seedDebugRoles(ctx context.Context, registry types.RoleRegistry, users map[
 			Key:  "superadmin",
 			Name: "Super Admin",
 			Permissions: []string{
-				admin.PermAdminDashboardView,
-				admin.PermAdminPagesView,
-				admin.PermAdminPostsView,
-				admin.PermAdminMediaView,
-				admin.PermAdminContentTypesView,
-				admin.PermAdminBlockDefinitionsView,
-				admin.PermAdminUsersView,
-				admin.PermAdminUsersCreate,
-				admin.PermAdminUsersEdit,
-				admin.PermAdminUsersDelete,
-				admin.PermAdminRolesView,
-				admin.PermAdminRolesCreate,
-				admin.PermAdminRolesEdit,
-				admin.PermAdminRolesDelete,
-				admin.PermAdminActivityView,
-				admin.PermAdminSettingsView,
-				admin.PermAdminSettingsEdit,
-				admin.PermAdminJobsView,
-				admin.PermAdminJobsEdit,
-				admin.PermAdminSearchView,
-				admin.PermAdminPreferencesView,
-				admin.PermAdminPreferencesEdit,
-				admin.PermAdminProfileView,
-				admin.PermAdminProfileEdit,
-				admin.PermAdminDebugView,
-				admin.PermAdminDebugRepl,
-				admin.PermAdminDebugReplExec,
-				admin.PermAdminTranslationsView,
-				admin.PermAdminTranslationsEdit,
-				admin.PermAdminTranslationsManage,
-				admin.PermAdminTranslationsAssign,
-				admin.PermAdminTranslationsApprove,
-				admin.PermAdminTranslationsClaim,
-				admin.PermAdminTranslationsExport,
-				admin.PermAdminTranslationsImportView,
-				admin.PermAdminTranslationsImportValidate,
-				admin.PermAdminTranslationsImportApply,
+				admin.PermAdminWildcard,
 			},
 		},
 		{
@@ -962,32 +926,11 @@ func ensureTranslationExchangeSeedPermissions(ctx context.Context, registry type
 		admin.PermAdminTranslationsImportApply,
 	}
 	scope := seedScopeDefaults()
-	for _, roleKey := range []string{"superadmin", "owner"} {
-		page, err := registry.ListRoles(ctx, types.RoleFilter{
-			RoleKey:       roleKey,
-			IncludeSystem: true,
-			Scope:         scope,
-		})
-		if err != nil {
-			return err
-		}
-		if len(page.Roles) == 0 {
-			continue
-		}
-
-		role := page.Roles[0]
-		merged, changed := mergeRolePermissions(role.Permissions, required)
-		if !changed {
-			continue
-		}
-		if _, err := registry.UpdateRole(ctx, role.ID, types.RoleMutation{
-			Name:        role.Name,
-			RoleKey:     role.RoleKey,
-			Permissions: merged,
-			Scope:       role.Scope,
-		}); err != nil {
-			return err
-		}
+	if err := ensureRolePermissions(ctx, registry, scope, "superadmin", []string{admin.PermAdminWildcard}); err != nil {
+		return err
+	}
+	if err := ensureRolePermissions(ctx, registry, scope, "owner", required); err != nil {
+		return err
 	}
 
 	return nil
@@ -1003,11 +946,7 @@ func ensureContentNavigationSeedPermissions(ctx context.Context, registry types.
 
 	requiredByRole := map[string][]string{
 		"superadmin": {
-			admin.PermAdminPagesView,
-			admin.PermAdminPostsView,
-			admin.PermAdminMediaView,
-			admin.PermAdminContentTypesView,
-			admin.PermAdminBlockDefinitionsView,
+			admin.PermAdminWildcard,
 		},
 		"owner": {
 			admin.PermAdminPagesView,
@@ -1035,34 +974,39 @@ func ensureContentNavigationSeedPermissions(ctx context.Context, registry types.
 		if len(required) == 0 {
 			continue
 		}
-		page, err := registry.ListRoles(ctx, types.RoleFilter{
-			RoleKey:       roleKey,
-			IncludeSystem: true,
-			Scope:         scope,
-		})
-		if err != nil {
-			return err
-		}
-		if len(page.Roles) == 0 {
-			continue
-		}
-
-		role := page.Roles[0]
-		merged, changed := mergeRolePermissions(role.Permissions, required)
-		if !changed {
-			continue
-		}
-		if _, err := registry.UpdateRole(ctx, role.ID, types.RoleMutation{
-			Name:        role.Name,
-			RoleKey:     role.RoleKey,
-			Permissions: merged,
-			Scope:       role.Scope,
-		}); err != nil {
+		if err := ensureRolePermissions(ctx, registry, scope, roleKey, required); err != nil {
 			return err
 		}
 	}
 
 	return nil
+}
+
+func ensureRolePermissions(ctx context.Context, registry types.RoleRegistry, scope types.ScopeFilter, roleKey string, required []string) error {
+	page, err := registry.ListRoles(ctx, types.RoleFilter{
+		RoleKey:       roleKey,
+		IncludeSystem: true,
+		Scope:         scope,
+	})
+	if err != nil {
+		return err
+	}
+	if len(page.Roles) == 0 {
+		return nil
+	}
+
+	role := page.Roles[0]
+	merged, changed := mergeRolePermissions(role.Permissions, required)
+	if !changed {
+		return nil
+	}
+	_, err = registry.UpdateRole(ctx, role.ID, types.RoleMutation{
+		Name:        role.Name,
+		RoleKey:     role.RoleKey,
+		Permissions: merged,
+		Scope:       role.Scope,
+	})
+	return err
 }
 
 func setDefaultPassword(ctx context.Context, repo types.AuthRepository, id uuid.UUID, username string) error {
