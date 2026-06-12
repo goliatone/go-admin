@@ -273,6 +273,7 @@ const (
 	PermAdminContentModelingManage                 = core.PermAdminContentModelingManage
 	PermAdminContentTypesView                      = core.PermAdminContentTypesView
 	PermAdminDashboardView                         = core.PermAdminDashboardView
+	PermAdminWildcard                              = core.PermAdminWildcard
 	PermAdminDebugRepl                             = core.PermAdminDebugRepl
 	PermAdminDebugReplExec                         = core.PermAdminDebugReplExec
 	PermAdminDebugSessionAttach                    = core.PermAdminDebugSessionAttach
@@ -1135,6 +1136,8 @@ type (
 	TranslationAssignmentRepository                   = core.TranslationAssignmentRepository
 	TranslationAssignmentResourceAdapter              = core.TranslationAssignmentResourceAdapter
 	TranslationAssignmentReviewerAggregateInput       = core.TranslationAssignmentReviewerAggregateInput
+	TranslationAssignmentReviewerAggregateStore       = core.TranslationAssignmentReviewerAggregateStore
+	TranslationAssignmentReviewerAggregateSummary     = core.TranslationAssignmentReviewerAggregateSummary
 	TranslationAssignmentReviewerSummaryStore         = core.TranslationAssignmentReviewerSummaryStore
 	TranslationAssignmentSnapshotQueryInput           = core.TranslationAssignmentSnapshotQueryInput
 	TranslationAssignmentSnapshotQueryResult          = core.TranslationAssignmentSnapshotQueryResult
