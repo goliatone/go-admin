@@ -40,6 +40,16 @@ type TranslationAssignmentReviewerSummaryStore interface {
 	AssignmentReviewerAggregateCounts(ctx context.Context, input TranslationAssignmentReviewerAggregateInput) (map[string]int, error)
 }
 
+type TranslationAssignmentReviewerAggregateStore interface {
+	AssignmentReviewerAggregateSummary(ctx context.Context, input TranslationAssignmentReviewerAggregateInput) (TranslationAssignmentReviewerAggregateSummary, error)
+}
+
+type TranslationAssignmentReviewerAggregateSummary struct {
+	Counts      map[string]int
+	Unavailable []string
+	Degraded    []string
+}
+
 type TranslationAssignmentFamilyGroupingStore interface {
 	ListAssignmentFamilyGroups(ctx context.Context, input TranslationAssignmentFamilyGroupQueryInput) (TranslationAssignmentFamilyGroupQueryResult, error)
 	ListFamilyAssignments(ctx context.Context, input TranslationAssignmentFamilyAssignmentsQueryInput) (TranslationAssignmentFamilyAssignmentsQueryResult, error)
