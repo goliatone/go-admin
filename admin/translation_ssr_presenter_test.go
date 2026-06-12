@@ -1368,7 +1368,10 @@ func TestTranslationSSRMatrixEnhancementPreservesLocaleViewport(t *testing.T) {
 	if got := parsedReady.Query().Get("readiness_state"); got != "ready" {
 		t.Fatalf("expected ready matrix link to set readiness_state, got %q in %q", got, readyHref)
 	}
-	preserved := links["preserve_query"].(map[string]string)
+	preserved, ok := links["preserve_query"].(map[string]string)
+	if !ok {
+		t.Fatalf("expected preserve_query link metadata, got %T: %+v", links["preserve_query"], links["preserve_query"])
+	}
 	for _, key := range []string{"locales", "locale_offset", "locale_limit"} {
 		if preserved[key] == "" {
 			t.Fatalf("expected preserved query key %q, got %+v", key, preserved)

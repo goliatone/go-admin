@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"maps"
 	"net/url"
 	"sort"
 	"strconv"
@@ -296,9 +297,7 @@ func (p *translationSSRPresenter) Exchange(c router.Context, input TranslationSS
 		"contracts":             TranslationExchangeContractPayload(),
 		"history_source_policy": translationSSRExchangeHistoryPolicy(input),
 	}
-	for key, value := range meta {
-		exchangeMeta[key] = value
-	}
+	maps.Copy(exchangeMeta, meta)
 	page := TranslationSSRPage{
 		Surface:      TranslationSSRSurfaceExchange,
 		Title:        "Translation Exchange",
