@@ -18,66 +18,71 @@ type UIViewContextBuilder func(ctx router.ViewContext, active string, c router.C
 type UIRouteOption func(*uiRouteOptions)
 
 type uiRouteOptions struct {
-	basePath                        string
-	dashboardPath                   string
-	notificationsPath               string
-	activityPath                    string
-	featureFlagsPath                string
-	translationQueuePath            string
-	translationFamilyListPath       string
-	translationFamilyDetailPath     string
-	translationEditorPath           string
-	translationMatrixPath           string
-	translationDashboardPath        string
-	translationExchangePath         string
-	dashboardTemplate               string
-	notificationsTemplate           string
-	activityTemplate                string
-	featureFlagsTemplate            string
-	translationShellTemplate        string
-	translationFamilyListTemplate   string
-	translationFamilyDetailTemplate string
-	translationEditorTemplate       string
-	translationMatrixTemplate       string
-	translationDashboardTemplate    string
-	translationExchangeTemplate     string
-	dashboardTitle                  string
-	notificationsTitle              string
-	activityTitle                   string
-	featureFlagsTitle               string
-	translationQueueTitle           string
-	translationFamilyListTitle      string
-	translationFamilyDetailTitle    string
-	translationEditorTitle          string
-	translationMatrixTitle          string
-	translationDashboardTitle       string
-	translationExchangeTitle        string
-	dashboardActive                 string
-	notificationsActive             string
-	activityActive                  string
-	featureFlagsActive              string
-	translationQueueActive          string
-	translationFamilyListActive     string
-	translationFamilyDetailActive   string
-	translationEditorActive         string
-	translationMatrixActive         string
-	translationDashboardActive      string
-	translationExchangeActive       string
-	registerDashboard               bool
-	registerNotifications           bool
-	registerActivity                bool
-	registerFeatureFlags            bool
-	registerTranslationQueue        bool
-	registerTranslationFamilyList   bool
-	registerTranslationFamilyDetail bool
-	registerTranslationEditor       bool
-	registerTranslationMatrix       bool
-	registerTranslationDashboard    bool
-	registerTranslationExchange     bool
-	translationExchangeUIConfig     TranslationExchangeUIConfig
-	translationSSRPresenter         admin.TranslationSSRPresenter
-	enhancedActionRuntime           admin.EnhancedActionRuntimeOptions
-	viewContext                     UIViewContextBuilder
+	basePath                             string
+	dashboardPath                        string
+	notificationsPath                    string
+	activityPath                         string
+	featureFlagsPath                     string
+	translationQueuePath                 string
+	translationFamilyListPath            string
+	translationFamilyDetailPath          string
+	translationFamilyAssignmentsPath     string
+	translationEditorPath                string
+	translationMatrixPath                string
+	translationDashboardPath             string
+	translationExchangePath              string
+	dashboardTemplate                    string
+	notificationsTemplate                string
+	activityTemplate                     string
+	featureFlagsTemplate                 string
+	translationShellTemplate             string
+	translationFamilyListTemplate        string
+	translationFamilyDetailTemplate      string
+	translationFamilyAssignmentsTemplate string
+	translationEditorTemplate            string
+	translationMatrixTemplate            string
+	translationDashboardTemplate         string
+	translationExchangeTemplate          string
+	dashboardTitle                       string
+	notificationsTitle                   string
+	activityTitle                        string
+	featureFlagsTitle                    string
+	translationQueueTitle                string
+	translationFamilyListTitle           string
+	translationFamilyDetailTitle         string
+	translationFamilyAssignmentsTitle    string
+	translationEditorTitle               string
+	translationMatrixTitle               string
+	translationDashboardTitle            string
+	translationExchangeTitle             string
+	dashboardActive                      string
+	notificationsActive                  string
+	activityActive                       string
+	featureFlagsActive                   string
+	translationQueueActive               string
+	translationFamilyListActive          string
+	translationFamilyDetailActive        string
+	translationFamilyAssignmentsActive   string
+	translationEditorActive              string
+	translationMatrixActive              string
+	translationDashboardActive           string
+	translationExchangeActive            string
+	registerDashboard                    bool
+	registerNotifications                bool
+	registerActivity                     bool
+	registerFeatureFlags                 bool
+	registerTranslationQueue             bool
+	registerTranslationFamilyList        bool
+	registerTranslationFamilyDetail      bool
+	registerTranslationFamilyAssignments bool
+	registerTranslationEditor            bool
+	registerTranslationMatrix            bool
+	registerTranslationDashboard         bool
+	registerTranslationExchange          bool
+	translationExchangeUIConfig          TranslationExchangeUIConfig
+	translationSSRPresenter              admin.TranslationSSRPresenter
+	enhancedActionRuntime                admin.EnhancedActionRuntimeOptions
+	viewContext                          UIViewContextBuilder
 }
 
 // WithUIBasePath overrides the base path used to build default routes.
@@ -404,53 +409,57 @@ func resolveAdminUIRouteOptions(cfg admin.Config, adm *admin.Admin, opts []UIRou
 	coreModuleEnabled := translationCoreModuleEnabled(adm)
 
 	options := uiRouteOptions{
-		basePath:                        strings.TrimSpace(cfg.BasePath),
-		dashboardTemplate:               "admin",
-		notificationsTemplate:           "notifications",
-		activityTemplate:                "resources/activity/list",
-		featureFlagsTemplate:            "resources/feature-flags/index",
-		translationShellTemplate:        "resources/translations/shell",
-		translationFamilyListTemplate:   "resources/translations/families",
-		translationFamilyDetailTemplate: "resources/translations/family-detail",
-		translationEditorTemplate:       "resources/translations/editor",
-		translationMatrixTemplate:       "resources/translations/matrix",
-		translationDashboardTemplate:    "resources/translations/dashboard",
-		translationExchangeTemplate:     "resources/translations/exchange",
-		dashboardTitle:                  strings.TrimSpace(cfg.Title),
-		notificationsTitle:              strings.TrimSpace(cfg.Title),
-		activityTitle:                   "Activity",
-		featureFlagsTitle:               "Feature Flags",
-		translationQueueTitle:           "Translation Queue",
-		translationFamilyListTitle:      "Translation Families",
-		translationFamilyDetailTitle:    "Translation Family",
-		translationEditorTitle:          "Translation Editor",
-		translationMatrixTitle:          "Translation Matrix",
-		translationDashboardTitle:       "Translation Dashboard",
-		translationExchangeTitle:        "Translation Exchange",
-		dashboardActive:                 "dashboard",
-		notificationsActive:             "notifications",
-		activityActive:                  "activity",
-		featureFlagsActive:              "feature_flags",
-		translationQueueActive:          "translation_queue",
-		translationFamilyListActive:     "translation_families",
-		translationFamilyDetailActive:   "translation_families",
-		translationEditorActive:         "translation_editor",
-		translationMatrixActive:         "translation_matrix",
-		translationDashboardActive:      "translation_dashboard",
-		translationExchangeActive:       "translation_exchange",
-		registerDashboard:               true,
-		registerNotifications:           true,
-		registerActivity:                true,
-		registerFeatureFlags:            true,
-		registerTranslationQueue:        queueModuleEnabled,
-		registerTranslationFamilyList:   coreModuleEnabled,
-		registerTranslationFamilyDetail: coreModuleEnabled,
-		registerTranslationEditor:       queueModuleEnabled,
-		registerTranslationMatrix:       coreModuleEnabled,
-		registerTranslationDashboard:    queueModuleEnabled,
-		registerTranslationExchange:     exchangeModuleEnabled,
-		translationExchangeUIConfig:     translationExchangeUIConfigForAdmin(adm),
-		enhancedActionRuntime:           adm.EnhancedActionRuntimeOptions(),
+		basePath:                             strings.TrimSpace(cfg.BasePath),
+		dashboardTemplate:                    "admin",
+		notificationsTemplate:                "notifications",
+		activityTemplate:                     "resources/activity/list",
+		featureFlagsTemplate:                 "resources/feature-flags/index",
+		translationShellTemplate:             "resources/translations/shell",
+		translationFamilyListTemplate:        "resources/translations/families",
+		translationFamilyDetailTemplate:      "resources/translations/family-detail",
+		translationFamilyAssignmentsTemplate: "resources/translations/family-assignments",
+		translationEditorTemplate:            "resources/translations/editor",
+		translationMatrixTemplate:            "resources/translations/matrix",
+		translationDashboardTemplate:         "resources/translations/dashboard",
+		translationExchangeTemplate:          "resources/translations/exchange",
+		dashboardTitle:                       strings.TrimSpace(cfg.Title),
+		notificationsTitle:                   strings.TrimSpace(cfg.Title),
+		activityTitle:                        "Activity",
+		featureFlagsTitle:                    "Feature Flags",
+		translationQueueTitle:                "Translation Queue",
+		translationFamilyListTitle:           "Translation Families",
+		translationFamilyDetailTitle:         "Translation Family",
+		translationFamilyAssignmentsTitle:    "Family Assignments",
+		translationEditorTitle:               "Translation Editor",
+		translationMatrixTitle:               "Translation Matrix",
+		translationDashboardTitle:            "Translation Dashboard",
+		translationExchangeTitle:             "Translation Exchange",
+		dashboardActive:                      "dashboard",
+		notificationsActive:                  "notifications",
+		activityActive:                       "activity",
+		featureFlagsActive:                   "feature_flags",
+		translationQueueActive:               "translation_queue",
+		translationFamilyListActive:          "translation_families",
+		translationFamilyDetailActive:        "translation_families",
+		translationFamilyAssignmentsActive:   "translation_queue",
+		translationEditorActive:              "translation_editor",
+		translationMatrixActive:              "translation_matrix",
+		translationDashboardActive:           "translation_dashboard",
+		translationExchangeActive:            "translation_exchange",
+		registerDashboard:                    true,
+		registerNotifications:                true,
+		registerActivity:                     true,
+		registerFeatureFlags:                 true,
+		registerTranslationQueue:             queueModuleEnabled,
+		registerTranslationFamilyList:        coreModuleEnabled,
+		registerTranslationFamilyDetail:      coreModuleEnabled,
+		registerTranslationFamilyAssignments: queueModuleEnabled,
+		registerTranslationEditor:            queueModuleEnabled,
+		registerTranslationMatrix:            coreModuleEnabled,
+		registerTranslationDashboard:         queueModuleEnabled,
+		registerTranslationExchange:          exchangeModuleEnabled,
+		translationExchangeUIConfig:          translationExchangeUIConfigForAdmin(adm),
+		enhancedActionRuntime:                adm.EnhancedActionRuntimeOptions(),
 	}
 	for _, opt := range opts {
 		if opt != nil {
@@ -487,6 +496,7 @@ func applyAdminUITranslationCapabilityGates(options *uiRouteOptions, queueModule
 		options.registerTranslationQueue = false
 		options.registerTranslationEditor = false
 		options.registerTranslationDashboard = false
+		options.registerTranslationFamilyAssignments = false
 	}
 	if !coreModuleEnabled {
 		options.registerTranslationFamilyList = false
@@ -522,6 +532,9 @@ func applyAdminUIRoutePathDefaults(options *uiRouteOptions) {
 	}
 	if options.translationFamilyDetailPath == "" {
 		options.translationFamilyDetailPath = path.Join(options.basePath, "translations", "families", ":family_id")
+	}
+	if options.translationFamilyAssignmentsPath == "" {
+		options.translationFamilyAssignmentsPath = path.Join(options.basePath, "translations", "families", ":family_id", "assignments")
 	}
 	if options.translationEditorPath == "" {
 		options.translationEditorPath = path.Join(options.basePath, "translations", "assignments", ":assignment_id", "edit")
@@ -666,6 +679,34 @@ func registerAdminUITranslationDetailRoutes[T any](
 			input.QueuePath = queuePath
 			view = withTranslationSSRView(c, view, options, input, options.translationSSRPresenter.FamilyList, "translation_families_ssr")
 			return renderView(c, options.translationFamilyListTemplate, options.translationFamilyListTitle, options.translationFamilyListActive, view)
+		}))
+	}
+
+	if options.registerTranslationFamilyAssignments {
+		r.Get(options.translationFamilyAssignmentsPath, wrap(func(c router.Context) error {
+			apiBase := resolveAPIBase()
+			familyID := strings.TrimSpace(c.Param("family_id"))
+			familyDetailHref := path.Join(options.basePath, "translations", "families", familyID)
+			view := WithBreadcrumbSpec(router.ViewContext{
+				"translation_family_id":                   familyID,
+				"translation_family_assignments_api_path": prefixBasePath(apiBase, path.Join("translations", "families", familyID, "assignments")),
+				"translation_family_detail_path":          familyDetailHref,
+				"translation_queue_path":                  options.translationQueuePath,
+				"translation_queue_editor_base_path":      path.Join(options.basePath, "translations", "assignments"),
+			}, BreadcrumbSpec{
+				RootLabel: "Dashboard",
+				RootHref:  options.basePath,
+				Trail: []BreadcrumbItem{
+					Breadcrumb(options.translationDashboardTitle, options.translationDashboardPath),
+					Breadcrumb(options.translationQueueTitle, options.translationQueuePath),
+					Breadcrumb(fmt.Sprintf("Family %s", shortIdentifier(familyID)), familyDetailHref),
+				},
+				CurrentLabel: "Assignments",
+			})
+			input := translationSSRInput(c, options, apiBase)
+			input.FamilyID = familyID
+			view = withTranslationSSRView(c, view, options, input, options.translationSSRPresenter.FamilyAssignments, "translation_family_assignments_ssr")
+			return renderView(c, options.translationFamilyAssignmentsTemplate, options.translationFamilyAssignmentsTitle, options.translationFamilyAssignmentsActive, view)
 		}))
 	}
 
@@ -904,6 +945,8 @@ func inputSurfaceForSSRKey(key string) string {
 		return admin.TranslationSSRSurfaceFamilyList
 	case "translation_family_detail_ssr":
 		return admin.TranslationSSRSurfaceFamilyDetail
+	case "translation_family_assignments_ssr":
+		return admin.TranslationSSRSurfaceFamilyAssignments
 	case "translation_queue_ssr":
 		return admin.TranslationSSRSurfaceQueue
 	case "translation_editor_ssr":
