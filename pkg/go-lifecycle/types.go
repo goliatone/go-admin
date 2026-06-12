@@ -115,8 +115,8 @@ const (
 type Snapshot struct {
 	Serving   bool           `json:"serving"`
 	Ready     bool           `json:"ready"`
-	StartedAt time.Time      `json:"started_at,omitempty"`
-	UpdatedAt time.Time      `json:"updated_at,omitempty"`
+	StartedAt time.Time      `json:"started_at"`
+	UpdatedAt time.Time      `json:"updated_at"`
 	Tasks     []TaskSnapshot `json:"tasks"`
 }
 
@@ -128,8 +128,8 @@ type TaskSnapshot struct {
 	Policy      ErrorPolicy   `json:"policy"`
 	State       State         `json:"state"`
 	Attempts    int           `json:"attempts"`
-	StartedAt   time.Time     `json:"started_at,omitempty"`
-	CompletedAt time.Time     `json:"completed_at,omitempty"`
+	StartedAt   time.Time     `json:"started_at"`
+	CompletedAt time.Time     `json:"completed_at"`
 	Duration    time.Duration `json:"duration"`
 	Error       string        `json:"error,omitempty"`
 }
