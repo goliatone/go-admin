@@ -43,7 +43,7 @@ export interface StatusEntry {
 export const TRANSLATION_STATUS_REGISTRY: Record<string, StatusEntry> = {
   // Assignment workflow statuses
   draft: { tone: 'neutral', label: 'Draft', icon: 'edit-pencil' },
-  open: { tone: 'info', label: 'Open', icon: 'inbox' },
+  open: { tone: 'info', label: 'Open', icon: 'mail-in' },
   pending: { tone: 'warning', label: 'Pending', icon: 'clock' },
   assigned: { tone: 'info', label: 'Assigned', icon: 'user' },
   in_progress: { tone: 'info', label: 'In Progress', icon: 'arrow-right' },

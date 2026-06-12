@@ -7,7 +7,7 @@ var l = {
   open: {
     tone: "info",
     label: "Open",
-    icon: "inbox"
+    icon: "mail-in"
   },
   pending: {
     tone: "warning",
@@ -279,7 +279,7 @@ var l = {
     label: "Source Changed",
     icon: "warning-triangle"
   }
-}, m = Object.fromEntries(Object.entries(l).map(([e, n]) => [e, n.tone])), b = {
+}, k = Object.fromEntries(Object.entries(l).map(([e, n]) => [e, n.tone])), b = {
   healthy: "success",
   ok: "success",
   warning: "warning",
@@ -331,19 +331,19 @@ function h(e, n = "badge") {
   };
   return r[e]?.[n] || r.neutral[n];
 }
-function f(e) {
+function m(e) {
   return c(e)?.icon || g;
 }
-function k(e, n) {
+function f(e, n) {
   return {
     status: e,
     tone: d(e),
-    icon: f(e),
+    icon: m(e),
     label: n || p(e)
   };
 }
 function _(e, n = {}) {
-  const r = k(e, n.label), a = n.showIcon !== !1, t = `${h(r.tone, "badge")}${n.extraClass ? ` ${n.extraClass}` : ""}`, s = a ? `<i class="iconoir-${r.icon} text-[10px]" aria-hidden="true"></i>` : "", u = n.count === void 0 || n.count === null || n.count === "" ? "" : `<span class="status-chip__count">${i(String(n.count))}</span>`;
+  const r = f(e, n.label), a = n.showIcon !== !1, t = `${h(r.tone, "badge")}${n.extraClass ? ` ${n.extraClass}` : ""}`, s = a ? `<i class="iconoir-${r.icon} text-[10px]" aria-hidden="true"></i>` : "", u = n.count === void 0 || n.count === null || n.count === "" ? "" : `<span class="status-chip__count">${i(String(n.count))}</span>`;
   return `<span class="${t}" data-status="${i(e)}">${s}${i(r.label)}${u}</span>`;
 }
 function i(e) {
@@ -359,4 +359,4 @@ export {
   l as t
 };
 
-//# sourceMappingURL=status-vocabulary-HmIBabRF.js.map
+//# sourceMappingURL=status-vocabulary-Bdx_bn1-.js.map

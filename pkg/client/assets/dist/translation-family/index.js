@@ -1,13 +1,13 @@
 import { escapeAttribute as y, escapeHTML as m } from "../shared/html.js";
 import { appendCSRFHeader as W, httpRequest as J, readHTTPJSON as ue } from "../shared/transport/http-client.js";
 import { extractStructuredError as O } from "../toast/error-helpers.js";
-import "../chunks/status-vocabulary-HmIBabRF.js";
+import "../chunks/status-vocabulary-Bdx_bn1-.js";
 import { buildURL as F, getNumberSearchParam as Le, getStringSearchParam as E, readLocationSearchParams as De, setNumberSearchParam as $e, setSearchParam as q } from "../shared/query-state/url-state.js";
 import { initActionMenus as va } from "../shared/action-menu.js";
 import { trimTrailingSlash as C } from "../shared/path-normalization.js";
 import { parseJSONValue as Ce } from "../shared/json-parse.js";
 import { asLooseBoolean as w, asNumberish as L, asRecord as p, asString as i, asStringArray as _ } from "../shared/coercion.js";
-import { A as Be, C as B, D as xa, E as _a, F as wa, O as Ne, P as La, R as $a, T as Ca, et as Aa, k as Me, mt as Sa, tt as ka, ut as X, v as Ta, x as R, y as j } from "../chunks/translation-shared-Ba5eIyeA.js";
+import { A as Be, C as B, D as xa, E as _a, F as wa, O as Ne, P as La, R as $a, T as Ca, et as Aa, k as Me, mt as Sa, tt as ka, ut as X, v as Ta, x as R, y as j } from "../chunks/translation-shared-BPEUoMd4.js";
 import { formatTranslationTimestampUTC as me, sentenceCaseToken as T } from "../translation-shared/formatters.js";
 import { normalizeStringRecord as Ia } from "../shared/record-normalization.js";
 import { initEnhancedActions as qa } from "../shared/enhanced-action.js";

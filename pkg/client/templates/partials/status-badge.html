@@ -8,7 +8,7 @@
 {% set status_icon = "help-circle" %}
 {% set status_label = "" %}
 {% if status == "draft" %}{% set registry_tone = "neutral" %}{% set status_icon = "edit-pencil" %}{% set status_label = "Draft" %}
-{% elif status == "open" %}{% set registry_tone = "info" %}{% set status_icon = "inbox" %}{% set status_label = "Open" %}
+{% elif status == "open" %}{% set registry_tone = "info" %}{% set status_icon = "mail-in" %}{% set status_label = "Open" %}
 {% elif status == "pending" %}{% set registry_tone = "warning" %}{% set status_icon = "clock" %}{% set status_label = "Pending" %}
 {% elif status == "assigned" %}{% set registry_tone = "info" %}{% set status_icon = "user" %}{% set status_label = "Assigned" %}
 {% elif status == "in_progress" %}{% set registry_tone = "info" %}{% set status_icon = "arrow-right" %}{% set status_label = "In Progress" %}

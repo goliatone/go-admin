@@ -7,14 +7,15 @@ import (
 
 func TestTranslationTemplatesRenderBreadcrumbPartial(t *testing.T) {
 	required := map[string][]string{
-		"resources/translations/dashboard.html":     {`partials/admin-page-header.html`},
-		"resources/translations/shell.html":         {`partials/admin-page-header.html`, `breadcrumbs=breadcrumbs`},
-		"resources/translations/editor.html":        {`partials/admin-page-header.html`, `breadcrumbs=breadcrumbs`},
-		"resources/translations/family-detail.html": {`partials/admin-page-header.html`, `breadcrumbs=breadcrumbs`},
-		"resources/translations/matrix.html":        {`partials/admin-page-header.html`, `breadcrumbs=breadcrumbs`},
-		"resources/translations/exchange.html":      {`partials/admin-page-header.html`, `breadcrumbs=breadcrumbs`},
-		"resources/shared/list-base.html":           {`partials/breadcrumbs.html`},
-		"resources/shared/detail-base.html":         {`partials/breadcrumbs.html`},
+		"resources/translations/dashboard.html":          {`partials/admin-page-header.html`},
+		"resources/translations/shell.html":              {`partials/admin-page-header.html`, `breadcrumbs=breadcrumbs`},
+		"resources/translations/editor.html":             {`partials/admin-page-header.html`, `breadcrumbs=breadcrumbs`},
+		"resources/translations/family-detail.html":      {`partials/admin-page-header.html`, `breadcrumbs=breadcrumbs`},
+		"resources/translations/family-assignments.html": {`partials/admin-page-header.html`, `breadcrumbs=breadcrumbs`},
+		"resources/translations/matrix.html":             {`partials/admin-page-header.html`, `breadcrumbs=breadcrumbs`},
+		"resources/translations/exchange.html":           {`partials/admin-page-header.html`, `breadcrumbs=breadcrumbs`},
+		"resources/shared/list-base.html":                {`partials/breadcrumbs.html`},
+		"resources/shared/detail-base.html":              {`partials/breadcrumbs.html`},
 	}
 
 	for name, fragments := range required {

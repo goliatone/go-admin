@@ -96,10 +96,11 @@
               <p class="text-sm font-medium text-gray-700">
                 Showing {{ queue.Data.rows|length|default:"0" }} of {{ queue.Meta.total|default:"0" }} assignments
               </p>
+              {% set queue_view_mode = queue.DataGrid.view_mode|default:"list" %}
               <div class="inline-flex rounded-md border border-gray-200 bg-white p-1 text-sm font-medium text-gray-600" aria-label="Queue view mode">
-                <a class="rounded px-3 py-1.5 text-blue-700" href="{{ queue.DataGrid.view_links.list|default:queue.Links.queue|default:"/admin/translations/queue" }}">List</a>
-                <a class="rounded px-3 py-1.5 hover:bg-gray-50" href="{{ queue.DataGrid.view_links.grouped|default:queue.Links.queue|default:"/admin/translations/queue" }}">Grouped</a>
-                <a class="rounded px-3 py-1.5 hover:bg-gray-50" href="{{ queue.DataGrid.view_links.families|default:queue.Links.queue|default:"/admin/translations/queue" }}">Families</a>
+                <a class="rounded px-3 py-1.5 {% if queue_view_mode == "list" %}bg-blue-50 font-semibold text-blue-700{% else %}hover:bg-gray-50{% endif %}"{% if queue_view_mode == "list" %} aria-current="page"{% endif %} href="{{ queue.DataGrid.view_links.list|default:queue.Links.queue|default:"/admin/translations/queue" }}">List</a>
+                <a class="rounded px-3 py-1.5 {% if queue_view_mode == "grouped" %}bg-blue-50 font-semibold text-blue-700{% else %}hover:bg-gray-50{% endif %}"{% if queue_view_mode == "grouped" %} aria-current="page"{% endif %} href="{{ queue.DataGrid.view_links.grouped|default:queue.Links.queue|default:"/admin/translations/queue" }}">Grouped</a>
+                <a class="rounded px-3 py-1.5 {% if queue_view_mode == "families" %}bg-blue-50 font-semibold text-blue-700{% else %}hover:bg-gray-50{% endif %}"{% if queue_view_mode == "families" %} aria-current="page"{% endif %} href="{{ queue.DataGrid.view_links.families|default:queue.Links.queue|default:"/admin/translations/queue" }}">Families</a>
               </div>
             </div>
 
@@ -140,9 +141,35 @@
                       {% endif %}
                     </td>
                     <td class="px-4 py-4 text-gray-600">{{ row.display_due|default:"-" }}</td>
-                    <td class="px-4 py-4 text-right">
-                      {% if row.expansion.href %}
-                      <a class="btn btn-secondary" href="{{ row.expansion.href }}">View assignments</a>
+                    <td class="px-4 py-4 align-top text-right">
+                      {% if row.assignments_href %}
+                      <div class="action-menu relative flex justify-end"
+                           data-action-menu
+                           data-row-id="{{ row.family_id|default:row.id }}">
+                        <button type="button"
+                                class="action-menu__trigger rounded-md p-2 text-gray-500 transition-colors hover:bg-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1"
+                                data-action-menu-trigger
+                                aria-label="Actions for {{ row.source_title|default:row.family_label|default:row.family_id|default:row.id }}"
+                                aria-haspopup="true"
+                                aria-expanded="false">
+                          <svg class="h-5 w-5" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+                            <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z"/>
+                          </svg>
+                        </button>
+                        <div class="action-menu__content hidden absolute right-0 z-20 mt-2 w-48 rounded-lg border border-gray-200 bg-white py-1 shadow-lg"
+                             data-action-menu-content
+                             role="menu"
+                             aria-orientation="vertical">
+                          <a class="action-menu__item flex w-full items-center gap-2 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:bg-gray-50 focus:outline-none"
+                             data-action-menu-item
+                             data-action="view-assignments"
+                             role="menuitem"
+                             href="{{ row.assignments_href }}">
+                            <i class="iconoir-list w-4 h-4 flex-shrink-0" aria-hidden="true"></i>
+                            <span>View assignments</span>
+                          </a>
+                        </div>
+                      </div>
                       {% else %}
                       <span class="text-sm text-gray-500">{{ row.action_state.message|default:"Open child assignments to act." }}</span>
                       {% endif %}
@@ -241,7 +268,7 @@
                                   data-row-version="{{ row.row_version|default:row.version }}"
                                   role="menuitem"
                                   {% if row.actions.release.enabled == false %}disabled aria-disabled="true" title="{{ row.actions.release.reason|default:"Action unavailable" }}"{% endif %}>
-                            <i class="iconoir-user-minus w-4 h-4 flex-shrink-0" aria-hidden="true"></i>
+                            <i class="iconoir-user-xmark w-4 h-4 flex-shrink-0" aria-hidden="true"></i>
                             <span>Release</span>
                           </button>
                         </div>

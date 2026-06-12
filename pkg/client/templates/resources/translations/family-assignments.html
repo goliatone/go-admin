@@ -1,0 +1,220 @@
+{% extends "layout.html" %}
+
+{% block title %}Family Assignments - {{ title }}{% endblock %}
+
+{% block content %}
+{% include "partials/admin-page-header.html" with breadcrumbs=breadcrumbs page_title="Family assignments" page_subtitle="Review assignment rows scoped to one translation family." header_actions_id="translation-family-assignments-header-actions" %}
+
+<div class="flex-1 overflow-y-auto bg-gray-50 p-8">
+  <div class="mx-auto">
+    <div id="translation-family-assignments-root"
+         data-translation-family-assignments-ssr="true"
+         data-family-id="{{ translation_family_id|default:translation_family_assignments_ssr.Meta.family_id|default:"" }}"
+         data-endpoint="{{ translation_family_assignments_api_path|default:"" }}"
+         data-editor-base-path="{{ translation_queue_editor_base_path|default:translation_family_assignments_ssr.Links.editor_base|default:"" }}"
+         data-ssr-enhanced="true"
+         data-channel="{{ translation_family_assignments_ssr.Meta.channel|default:"" }}">
+      {% if translation_family_assignments_ssr.ErrorState %}
+      <section class="rounded-lg border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900" data-translation-ssr-error="true">
+        <h2 class="text-base font-semibold">{{ translation_family_assignments_ssr.ErrorState.title|default:"Translation data unavailable" }}</h2>
+        <p class="mt-1">{{ translation_family_assignments_ssr.ErrorState.description|default:"Family assignments could not be loaded server-side." }}</p>
+      </section>
+      {% else %}
+      {% with page=translation_family_assignments_ssr %}
+      <section class="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm" aria-labelledby="translation-family-assignments-summary">
+        <div class="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <p class="text-xs font-semibold uppercase tracking-wider text-gray-500">Translation family</p>
+            <h2 id="translation-family-assignments-summary" class="mt-2 text-2xl font-semibold text-gray-900">
+              Family {{ page.Meta.family_id|default:page.Data.family_id|default:translation_family_id|default:"-" }}
+            </h2>
+            <p class="mt-2 text-sm text-gray-600">
+              {{ page.Meta.total|default:"0" }} assignments &middot; page {{ page.Meta.page|default:"1" }} &middot; {{ page.Meta.per_page|default:"25" }} per page
+            </p>
+          </div>
+          <div class="flex flex-wrap items-center gap-2">
+            {% if page.Links.family_detail %}
+            <a class="btn btn-secondary" href="{{ page.Links.family_detail }}">
+              <i class="iconoir-folder" aria-hidden="true"></i>
+              Family detail
+            </a>
+            {% endif %}
+            {% if page.Links.queue %}
+            <a class="btn btn-secondary" href="{{ page.Links.queue }}">
+              <i class="iconoir-list" aria-hidden="true"></i>
+              Queue
+            </a>
+            {% endif %}
+          </div>
+        </div>
+      </section>
+
+      <section class="mt-6 overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm" aria-labelledby="translation-family-assignments-list">
+        <div class="flex flex-wrap items-center justify-between gap-4 border-b border-gray-200 px-5 py-4">
+          <div>
+            <h2 id="translation-family-assignments-list" class="text-lg font-semibold text-gray-900">Assignments</h2>
+            <p class="mt-1 text-sm text-gray-500">
+              Server-rendered rows preserve queue filters, channel, scope, and action-state metadata.
+            </p>
+          </div>
+          <div class="flex flex-wrap items-center gap-2 text-sm text-gray-600">
+            {% if page.Meta.sort %}
+            <span class="rounded-md border border-gray-200 bg-gray-50 px-3 py-2 font-medium text-gray-800">
+              Sort {{ page.Meta.sort }} {{ page.Meta.order|default:"asc" }}
+            </span>
+            {% endif %}
+          </div>
+        </div>
+
+        {% if page.Data.rows %}
+        <div class="overflow-x-auto">
+          <table class="min-w-full text-sm">
+            <thead class="bg-gray-50 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
+              <tr>
+                <th class="px-4 py-3">Content</th>
+                <th class="px-4 py-3">Locale</th>
+                <th class="px-4 py-3">Status</th>
+                <th class="px-4 py-3">Owners</th>
+                <th class="px-4 py-3">Due</th>
+                <th class="px-4 py-3 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100 bg-white">
+              {% for row in page.Data.rows %}
+              <tr class="assignment-queue-row" data-translation-row data-translation-row-id="{{ row.assignment_id|default:row.id }}" data-translation-row-version="{{ row.row_version|default:row.version }}">
+                <td class="max-w-md px-4 py-4 align-top">
+                  <div class="font-semibold text-gray-900">{{ row.display_title|default:row.source_title|default:row.source_path|default:row.assignment_id|default:row.id }}</div>
+                  <div class="mt-1 text-sm text-gray-500">{{ row.source_path|default:row.family_id|default:"-" }}</div>
+                  <div class="mt-1 text-xs uppercase tracking-wide text-gray-400">{{ row.display_type|default:"Content" }} &middot; {{ row.display_identifier|default:row.family_id|default:"-" }}</div>
+                </td>
+                <td class="px-4 py-4 align-top">
+                  <span class="rounded bg-blue-50 px-2 py-1 text-xs font-semibold text-blue-700">{{ row.display_locale|default:row.target_locale|default:"-" }}</span>
+                </td>
+                <td class="px-4 py-4 align-top">
+                  {% set status_tone = "info" %}
+                  {% if row.status == "in_review" %}{% set status_tone = "warning" %}{% elif row.status == "changes_requested" %}{% set status_tone = "error" %}{% elif row.status == "approved" or row.status == "completed" %}{% set status_tone = "success" %}{% endif %}
+                  <div class="flex flex-wrap items-center gap-1">
+                    {% include "partials/status-badge.html" with badge_status=row.status|default:"unknown" badge_tone=status_tone badge_label=row.display_status|default:row.status|default:row.queue_state %}
+                    {% if row.priority %}
+                    {% include "partials/status-badge.html" with badge_status=row.priority badge_label=row.display_priority|default:row.priority show_icon=false %}
+                    {% endif %}
+                  </div>
+                </td>
+                <td class="px-4 py-4 align-top text-gray-700">
+                  <div>{{ row.display_assignee|default:"Unassigned" }}</div>
+                  {% if row.display_reviewer %}
+                  <div class="mt-1 text-xs text-gray-500">Reviewer {{ row.display_reviewer }}</div>
+                  {% endif %}
+                </td>
+                <td class="px-4 py-4 align-top">
+                  {% if row.due_state == "overdue" %}
+                  {% include "partials/status-badge.html" with badge_status="overdue" badge_tone="error" badge_label="Overdue" %}
+                  {% elif row.due_state %}
+                  {% include "partials/status-badge.html" with badge_status=row.due_state badge_tone="neutral" badge_label=row.display_due_state|default:row.due_state %}
+                  {% endif %}
+                  <div class="mt-1 text-sm text-gray-600">{{ row.display_due_date|default:"" }}</div>
+                </td>
+                <td class="px-4 py-4 align-top text-right">
+                  <div class="action-menu relative flex justify-end"
+                       data-action-menu
+                       data-row-id="{{ row.assignment_id|default:row.id }}"
+                       data-row-version="{{ row.row_version|default:row.version }}">
+                    <button type="button"
+                            class="action-menu__trigger rounded-md p-2 text-gray-500 transition-colors hover:bg-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1"
+                            data-action-menu-trigger
+                            aria-label="Actions for {{ row.display_title|default:row.source_title|default:row.assignment_id|default:row.id }}"
+                            aria-haspopup="true"
+                            aria-expanded="false">
+                      <svg class="h-5 w-5" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+                        <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z"/>
+                      </svg>
+                    </button>
+                    <div class="action-menu__content hidden absolute right-0 z-20 mt-2 w-48 rounded-lg border border-gray-200 bg-white py-1 shadow-lg"
+                         data-action-menu-content
+                         role="menu"
+                         aria-orientation="vertical">
+                      <a class="action-menu__item flex w-full items-center gap-2 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:bg-gray-50 focus:outline-none"
+                         data-action-menu-item
+                         data-action="open"
+                         role="menuitem"
+                         href="{% if row.editor_href %}{{ row.editor_href }}{% else %}{{ page.Links.editor_base }}/{{ row.assignment_id|default:row.id }}/edit{% if page.Meta.channel %}?channel={{ page.Meta.channel }}{% endif %}{% endif %}">
+                        <i class="iconoir-edit w-4 h-4 flex-shrink-0" aria-hidden="true"></i>
+                        <span>Open editor</span>
+                      </a>
+                      <div class="action-menu__divider my-1 border-t border-gray-100" role="separator"></div>
+                      <button type="button"
+                              class="action-menu__item flex w-full items-center gap-2 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:bg-gray-50 focus:outline-none {% if row.actions.claim.enabled == false %}cursor-not-allowed opacity-50{% endif %}"
+                              data-action-menu-item
+                              data-action="claim"
+                              data-translation-action="claim"
+                              data-assignment-id="{{ row.assignment_id|default:row.id }}"
+                              data-row-version="{{ row.row_version|default:row.version }}"
+                              role="menuitem"
+                              {% if row.actions.claim.enabled == false %}disabled aria-disabled="true" title="{{ row.actions.claim.reason|default:"Action unavailable" }}"{% endif %}>
+                        <i class="iconoir-user-plus w-4 h-4 flex-shrink-0" aria-hidden="true"></i>
+                        <span>Claim</span>
+                      </button>
+                      <button type="button"
+                              class="action-menu__item flex w-full items-center gap-2 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:bg-gray-50 focus:outline-none {% if row.actions.release.enabled == false %}cursor-not-allowed opacity-50{% endif %}"
+                              data-action-menu-item
+                              data-action="release"
+                              data-translation-action="release"
+                              data-assignment-id="{{ row.assignment_id|default:row.id }}"
+                              data-row-version="{{ row.row_version|default:row.version }}"
+                              role="menuitem"
+                              {% if row.actions.release.enabled == false %}disabled aria-disabled="true" title="{{ row.actions.release.reason|default:"Action unavailable" }}"{% endif %}>
+                        <i class="iconoir-user-xmark w-4 h-4 flex-shrink-0" aria-hidden="true"></i>
+                        <span>Release</span>
+                      </button>
+                    </div>
+                  </div>
+                  {% if row.actions.claim.reason or row.actions.release.reason %}
+                  <p class="mt-2 text-xs text-gray-500">{{ row.actions.claim.reason|default:row.actions.release.reason }}</p>
+                  {% endif %}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <p class="m-5 rounded-md border border-dashed border-gray-300 bg-gray-50 p-4 text-sm text-gray-500">
+          {{ page.EmptyState.description|default:"No assignments match this family and filter set." }}
+        </p>
+        {% endif %}
+
+        <div class="flex flex-wrap items-center justify-between gap-3 border-t border-gray-200 px-5 py-4 text-sm">
+          <p class="text-gray-600">
+            Page {{ page.Meta.page|default:"1" }} &middot; {{ page.Meta.per_page|default:"25" }} per page &middot; {{ page.Meta.total|default:"0" }} total
+          </p>
+          <nav class="flex items-center gap-2" aria-label="Family assignments pagination">
+            {% if page.Links.previous %}
+            <a class="btn btn-secondary" href="{{ page.Links.previous }}">Previous</a>
+            {% else %}
+            <span class="btn btn-secondary pointer-events-none opacity-50" aria-disabled="true">Previous</span>
+            {% endif %}
+            {% if page.Links.next %}
+            <a class="btn btn-secondary" href="{{ page.Links.next }}">Next</a>
+            {% else %}
+            <span class="btn btn-secondary pointer-events-none opacity-50" aria-disabled="true">Next</span>
+            {% endif %}
+          </nav>
+        </div>
+      </section>
+      {% endwith %}
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script type="module">
+import { initActionMenus } from '{{ adminURL("assets/dist/shared/action-menu.js") }}';
+
+const familyAssignmentsRoot = document.getElementById('translation-family-assignments-root');
+if (familyAssignmentsRoot) {
+  initActionMenus(familyAssignmentsRoot);
+}
+</script>
+{% endblock %}

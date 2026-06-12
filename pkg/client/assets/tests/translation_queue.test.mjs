@@ -227,6 +227,7 @@ function makeServerFamilyQueueResponse() {
         family_blocker_count: null,
         family_blocker_count_available: false,
         family_blocker_count_reason: 'persisted_blockers_unavailable',
+        assignments_href: '/admin/translations/families/tg-server-1/assignments?sort=updated_at&order=desc&page=1&per_page=25',
         action_state: {
           scope: 'children',
           message: 'Family actions are available on child assignment rows.',
@@ -686,6 +687,9 @@ test('translation queue runtime: server family mode renders parents and loads ch
   globalThis.fetch = mock.fn(async (input) => {
     const url = String(input);
     seenURLs.push(url);
+    if (url.includes('/admin/translations/families/tg-server-1/assignments')) {
+      throw new Error(`client expansion must not fetch SSR UI href: ${url}`);
+    }
     if (url.includes('/families/tg-server-1/assignments')) {
       return createJsonResponse({
         meta: {
@@ -742,6 +746,7 @@ test('translation queue runtime: server family mode renders parents and loads ch
   await flushAsync();
 
   assert.ok(seenURLs.some((url) => url.includes('/families/tg-server-1/assignments')));
+  assert.ok(seenURLs.some((url) => url.includes('/admin/api/translations/families/tg-server-1/assignments')));
   assert.equal(screen.getRows().length, 1);
   assert.match(container.innerHTML, /data-parent-group="tg-server-1"/);
   assert.match(container.innerHTML, /data-action="claim"/);
