@@ -437,13 +437,14 @@ func WithProtectedSurfaceRoots(browserRoots, apiRoots []string) GoAuthAuthentica
 
 // GoAuthAuthorizer adapts auth claims/resource roles to the admin Authorizer contract.
 type GoAuthAuthorizer struct {
-	defaultResource string
-	debug           bool
-	logger          Logger
-	resolvePerms    PermissionResolverFunc
-	strictResolver  bool
-	warnOnce        sync.Once
-	noCacheWarnOnce sync.Once
+	defaultResource      string
+	adminResourceAliases map[string]struct{}
+	debug                bool
+	logger               Logger
+	resolvePerms         PermissionResolverFunc
+	strictResolver       bool
+	warnOnce             sync.Once
+	noCacheWarnOnce      sync.Once
 
 	resolverCalls              atomic.Uint64
 	resolverRuns               atomic.Uint64
@@ -468,21 +469,23 @@ type PermissionResolverMetrics struct {
 
 // GoAuthAuthorizerConfig configures resource resolution.
 type GoAuthAuthorizerConfig struct {
-	DefaultResource    string                 `json:"default_resource"`
-	Debug              bool                   `json:"debug"`
-	Logger             Logger                 `json:"logger"`
-	StrictResolver     bool                   `json:"strict_resolver"`
-	ResolvePermissions PermissionResolverFunc `json:"resolve_permissions"`
+	DefaultResource      string                 `json:"default_resource"`
+	AdminResourceAliases []string               `json:"admin_resource_aliases,omitempty"`
+	Debug                bool                   `json:"debug"`
+	Logger               Logger                 `json:"logger"`
+	StrictResolver       bool                   `json:"strict_resolver"`
+	ResolvePermissions   PermissionResolverFunc `json:"resolve_permissions"`
 }
 
 // NewGoAuthAuthorizer builds an Authorizer backed by go-auth claims.
 func NewGoAuthAuthorizer(cfg GoAuthAuthorizerConfig) *GoAuthAuthorizer {
 	authorizer := &GoAuthAuthorizer{
-		defaultResource: cfg.DefaultResource,
-		debug:           cfg.Debug,
-		logger:          ensureLogger(cfg.Logger),
-		strictResolver:  cfg.StrictResolver,
-		resolvePerms:    cfg.ResolvePermissions,
+		defaultResource:      cfg.DefaultResource,
+		adminResourceAliases: normalizeAdminResourceAliases(cfg.AdminResourceAliases),
+		debug:                cfg.Debug,
+		logger:               ensureLogger(cfg.Logger),
+		strictResolver:       cfg.StrictResolver,
+		resolvePerms:         cfg.ResolvePermissions,
 	}
 	if authorizer.resolvePerms == nil {
 		if authorizer.strictResolver {
@@ -496,7 +499,7 @@ func NewGoAuthAuthorizer(cfg GoAuthAuthorizerConfig) *GoAuthAuthorizer {
 	return authorizer
 }
 
-// Can evaluates permission strings (admin.*.<action>) against go-auth claims.
+// Can evaluates permission strings (admin.<resource>.<action>) against go-auth claims.
 // It normalizes the action (e.g., "view" → "read") and checks if the user's
 // resource role grants that capability using the AuthClaims interface methods.
 func (a *GoAuthAuthorizer) Can(ctx context.Context, permission string, resource string) bool {
@@ -527,6 +530,11 @@ func (a *GoAuthAuthorizer) Can(ctx context.Context, permission string, resource 
 		return false
 	}
 
+	if allowed, reason := a.resolvedPermissionGrantAllowed(ctx, permission, target, action); allowed {
+		a.logDecision(permission, target, action, true, reason)
+		return true
+	}
+
 	// Use AuthClaims methods which properly check resource roles
 	var result bool
 	switch action {
@@ -539,9 +547,20 @@ func (a *GoAuthAuthorizer) Can(ctx context.Context, permission string, resource 
 	case "delete":
 		result = claims.CanDelete(target)
 	default:
-		allowed, reason := a.permissionAllowed(ctx, permission, target, action)
-		a.logDecision(permission, target, action, allowed, reason)
-		return allowed
+		if a.resolvePerms == nil {
+			a.warnOnce.Do(func() {
+				ensureLogger(a.logger).Warn(
+					"auth custom permission check without resolver; denying",
+					"permission", permission,
+					"target", target,
+					"action", action,
+				)
+			})
+			a.logDecision(permission, target, action, false, "permission resolver not configured")
+			return false
+		}
+		a.logDecision(permission, target, action, false, "permission not found")
+		return false
 	}
 
 	a.logDecision(permission, target, action, result, "")
@@ -725,35 +744,162 @@ func resourceFromPermission(permission string) string {
 	return strings.Join(parts[:len(parts)-1], ".")
 }
 
-func (a *GoAuthAuthorizer) permissionAllowed(ctx context.Context, permission, target, action string) (bool, string) {
-	if a == nil {
-		return false, "authorizer unavailable"
-	}
-	if a.resolvePerms == nil {
-		a.warnOnce.Do(func() {
-			ensureLogger(a.logger).Warn(
-				"auth custom permission check without resolver; denying",
-				"permission", permission,
-				"target", target,
-				"action", action,
-			)
-		})
+func (a *GoAuthAuthorizer) resolvedPermissionGrantAllowed(ctx context.Context, permission, target, action string) (bool, string) {
+	if a == nil || a.resolvePerms == nil {
 		return false, "permission resolver not configured"
 	}
 	perms := a.ResolvedPermissions(ctx)
 	if len(perms) == 0 {
 		return false, "permission resolver returned empty set"
 	}
-	if permissionListed(perms, permission) {
-		return true, ""
-	}
-	if target != "" && action != "" {
-		alt := target + "." + action
-		if alt != permission && permissionListed(perms, alt) {
-			return true, ""
+	for _, candidate := range permissionGrantCandidates(permission, target, action, a.defaultResource, a.adminResourceAliases) {
+		if permissionGrantListed(perms, candidate) {
+			return true, "resolved permission grant"
 		}
 	}
 	return false, "permission not found"
+}
+
+func permissionGrantCandidates(permission, target, action, defaultResource string, adminResourceAliases map[string]struct{}) []string {
+	rawPermission := strings.TrimSpace(permission)
+	rawTarget := strings.TrimSpace(target)
+	normalizedAction := strings.TrimSpace(action)
+	rawAction := permissionActionToken(rawPermission)
+	if rawAction == "" {
+		rawAction = normalizedAction
+	}
+	if rawTarget == "" {
+		rawTarget = resourceFromPermission(rawPermission)
+	}
+	if rawTarget == "" {
+		rawTarget = strings.TrimSpace(defaultResource)
+	}
+
+	candidates := make([]string, 0, 6)
+	add := func(value string) {
+		value = strings.TrimSpace(value)
+		if value == "" {
+			return
+		}
+		for _, existing := range candidates {
+			if strings.EqualFold(existing, value) {
+				return
+			}
+		}
+		candidates = append(candidates, value)
+	}
+	add(rawPermission)
+	if rawTarget != "" {
+		for _, token := range permissionActionCandidates(rawAction, normalizedAction) {
+			add(rawTarget + "." + token)
+			if shouldAddAdminNamespaceCandidate(rawPermission, rawTarget, defaultResource, adminResourceAliases) {
+				add("admin." + rawTarget + "." + token)
+			}
+		}
+	}
+	return candidates
+}
+
+func permissionActionToken(permission string) string {
+	permission = strings.TrimSpace(permission)
+	if permission == "" {
+		return ""
+	}
+	for _, sep := range []string{".", ":", "/"} {
+		if strings.Contains(permission, sep) {
+			parts := strings.Split(permission, sep)
+			return strings.TrimSpace(parts[len(parts)-1])
+		}
+	}
+	return permission
+}
+
+func permissionActionCandidates(rawAction, normalizedAction string) []string {
+	var candidates []string
+	add := func(value string) {
+		value = strings.TrimSpace(value)
+		if value == "" {
+			return
+		}
+		for _, existing := range candidates {
+			if strings.EqualFold(existing, value) {
+				return
+			}
+		}
+		candidates = append(candidates, value)
+	}
+	add(rawAction)
+	add(normalizedAction)
+	switch strings.ToLower(strings.TrimSpace(normalizedAction)) {
+	case "read":
+		add("view")
+	}
+	return candidates
+}
+
+func shouldAddAdminNamespaceCandidate(permission, target, defaultResource string, adminResourceAliases map[string]struct{}) bool {
+	target = strings.TrimSpace(target)
+	if target == "" || strings.ContainsAny(target, ".:/") || strings.HasPrefix(strings.ToLower(target), "admin.") {
+		return false
+	}
+	permission = strings.TrimSpace(permission)
+	if strings.ContainsAny(permission, ".:/") && !strings.EqualFold(resourceFromPermission(permission), permission) {
+		return false
+	}
+	if !strings.EqualFold(strings.TrimSpace(defaultResource), "admin") {
+		return false
+	}
+	_, ok := adminResourceAliases[strings.ToLower(target)]
+	return ok
+}
+
+func normalizeAdminResourceAliases(values []string) map[string]struct{} {
+	aliases := map[string]struct{}{}
+	for _, value := range defaultAdminResourceAliases() {
+		value = strings.ToLower(strings.TrimSpace(value))
+		if value != "" {
+			aliases[value] = struct{}{}
+		}
+	}
+	for _, value := range values {
+		value = strings.ToLower(strings.TrimSpace(value))
+		if value != "" && !strings.ContainsAny(value, ".:/") && !strings.HasPrefix(value, "admin.") {
+			aliases[value] = struct{}{}
+		}
+	}
+	return aliases
+}
+
+func defaultAdminResourceAliases() []string {
+	return []string{
+		"activity",
+		"archive",
+		"block_definitions",
+		"commands",
+		"content_modeling",
+		"content_types",
+		"dashboard",
+		"debug",
+		"feature_flags",
+		"integrations",
+		"jobs",
+		"media",
+		"menus",
+		"notifications",
+		"organizations",
+		"pages",
+		"posts",
+		"preferences",
+		"profile",
+		"roles",
+		"search",
+		"settings",
+		"site",
+		"tenants",
+		"transcripts",
+		"translations",
+		"users",
+	}
 }
 
 func clonePermissions(values []string) []string {
@@ -789,17 +935,40 @@ func dedupePermissions(values []string) []string {
 	return out
 }
 
-func permissionListed(values []string, permission string) bool {
+func permissionGrantListed(values []string, permission string) bool {
+	return permissionGrantCovering(values, permission) != ""
+}
+
+func permissionGrantCovering(values []string, permission string) string {
 	permission = strings.TrimSpace(permission)
 	if permission == "" {
-		return false
+		return ""
 	}
 	for _, value := range values {
-		if strings.EqualFold(value, permission) {
-			return true
+		if permissionGrantMatches(value, permission) {
+			return strings.TrimSpace(value)
 		}
 	}
-	return false
+	return ""
+}
+
+func permissionGrantMatches(grant, permission string) bool {
+	grant = strings.ToLower(strings.TrimSpace(grant))
+	permission = strings.ToLower(strings.TrimSpace(permission))
+	if grant == "" || permission == "" {
+		return false
+	}
+	if grant == permission {
+		return true
+	}
+	if !strings.HasSuffix(grant, ".*") {
+		return false
+	}
+	prefix := strings.TrimSuffix(grant, "*")
+	if !strings.HasPrefix(prefix, "admin.") {
+		return false
+	}
+	return strings.HasPrefix(permission, prefix) && len(permission) > len(prefix)
 }
 
 // DashboardHandle and MenuHandle are kept for API compatibility and now alias real services.
