@@ -2441,23 +2441,8 @@ export function renderTranslationFamilyDetailState(
   const blockerSummary = detail.readinessSummary.blockerCodes.length
     ? detail.readinessSummary.blockerCodes.map(sentenceCaseToken).join(', ')
     : 'No blockers';
-  const createLocaleCandidates = familyCreateLocaleCandidates(detail);
-  const recommendedCreateLocale = detail.quickCreate.recommendedLocale || createLocaleCandidates[0] || '';
-  const quickCreateDisabled = !canCreateFamilyLocale(detail, recommendedCreateLocale);
-  const createLocaleCTA = recommendedCreateLocale
-    ? `
-      <button
-        type="button"
-        class="${BTN_PRIMARY}${quickCreateDisabled ? ' opacity-60 cursor-not-allowed' : ''}"
-        data-family-create-locale="true"
-        data-locale="${escapeAttribute(recommendedCreateLocale)}"
-        ${quickCreateDisabled ? 'aria-disabled="true"' : ''}
-        title="${escapeAttribute(quickCreateDisabled ? detail.quickCreate.disabledReason || 'Locale creation is unavailable.' : `Create ${recommendedCreateLocale.toUpperCase()} locale`)}"
-      >
-        Create ${escapeHTML(recommendedCreateLocale.toUpperCase())}
-      </button>
-    `
-    : '';
+  // Locale creation lives in the locale coverage rows; the header keeps
+  // readiness/blocker chips only.
   return `
     <div class="translation-family-detail space-y-6" data-family-id="${escapeAttribute(detail.familyId)}" data-readiness-state="${escapeAttribute(detail.readinessState)}">
       <section class="rounded-[28px] border border-gray-200 bg-[linear-gradient(135deg,#f8fafc,white)] p-6 shadow-sm">
@@ -2470,7 +2455,6 @@ export function renderTranslationFamilyDetailState(
           <div class="flex flex-wrap items-center gap-2">
             ${renderReadinessChip(detail.readinessState)}
             <span class="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700">${escapeHTML(blockerSummary)}</span>
-            ${createLocaleCTA}
           </div>
         </div>
         <div class="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
