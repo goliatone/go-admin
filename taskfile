@@ -1688,6 +1688,58 @@ function version:bump {
     fi
 }
 
+function version:is_greater {
+    local left=${1}
+    local right=${2}
+    local left_identifiers
+    local right_identifiers
+    local index
+
+    IFS='.' read -ra left_identifiers <<< "$left"
+    IFS='.' read -ra right_identifiers <<< "$right"
+
+    if [[ "${#left_identifiers[@]}" -ne 3 || "${#right_identifiers[@]}" -ne 3 ]]; then
+        echo "Invalid semver string" >&2
+        return 2
+    fi
+
+    for index in 0 1 2; do
+        if ((10#${left_identifiers[$index]} > 10#${right_identifiers[$index]})); then
+            return 0
+        fi
+        if ((10#${left_identifiers[$index]} < 10#${right_identifiers[$index]})); then
+            return 1
+        fi
+    done
+
+    return 1
+}
+
+function version:latest_release_tag {
+    git tag --list 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname \
+        | sed -n 's/^v\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)$/\1/p' \
+        | head -n 1
+}
+
+function version:sync_from_tags {
+    local file_version
+    local latest_tag_version
+
+    version:check
+
+    file_version=$(version:get) || return 1
+    latest_tag_version=$(version:latest_release_tag) || return 1
+
+    if [ -z "$latest_tag_version" ]; then
+        return 0
+    fi
+
+    if version:is_greater "$latest_tag_version" "$file_version"; then
+        echo "Syncing ${VERSION_FILE} from ${file_version} to latest release tag ${latest_tag_version}" >&2
+        version:set "$latest_tag_version" || return 1
+    fi
+}
+
 function version:check {
     if [ ! -f "$VERSION_FILE" ]; then
         echo "0.0.0" > "$VERSION_FILE"
@@ -1754,6 +1806,10 @@ function release {
     fi
 
     level=${1:-"patch"}
+
+    # Tags are the published release source of truth. If a prior release was
+    # tagged outside this task, advance .version before calculating the next tag.
+    version:sync_from_tags || return 1
 
     # Bump our version
     tag=$(version:bump "${level}") || return 1
