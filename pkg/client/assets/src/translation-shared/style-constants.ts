@@ -9,6 +9,8 @@
  *   const html = `<button class="${BTN_PRIMARY}">Save</button>`;
  */
 
+import { getStatusTone } from '../shared/status-vocabulary.js';
+
 // =============================================================================
 // Button Classes
 // Matches site patterns from input.css: .btn, .btn-primary, .btn-secondary, etc.
@@ -237,7 +239,7 @@ export const INPUT_GROUP = 'rounded-xl border border-gray-200 bg-white p-4 space
 export const INPUT_GROUP_HEADER = 'flex items-center justify-between gap-3';
 
 /** Input group label */
-export const INPUT_GROUP_LABEL = 'text-xs font-semibold uppercase tracking-[0.18em] text-gray-500';
+export const INPUT_GROUP_LABEL = 'text-xs font-semibold uppercase tracking-wider text-gray-500';
 
 /** Input group helper text */
 export const INPUT_GROUP_HELPER = 'text-xs text-gray-500 mt-1';
@@ -349,11 +351,11 @@ export const STATUS_COLOR_SUCCESS =
 export const STATUS_COLOR_WARNING =
   'bg-[var(--translation-status-warning-bg)] text-[var(--translation-status-warning-text)] border-[var(--translation-status-warning-border)]';
 
-/** Error status (blocked, overdue, rejected, missing_locale) - uses CSS variables */
+/** Error status (blocked, overdue, rejected, changes_requested) - uses CSS variables */
 export const STATUS_COLOR_ERROR =
   'bg-[var(--translation-status-error-bg)] text-[var(--translation-status-error-text)] border-[var(--translation-status-error-border)]';
 
-/** Info status (in_progress, assigned, in_review) - uses CSS variables */
+/** Info status (in_progress, assigned, running) - uses CSS variables */
 export const STATUS_COLOR_INFO =
   'bg-[var(--translation-status-info-bg)] text-[var(--translation-status-info-text)] border-[var(--translation-status-info-border)]';
 
@@ -361,7 +363,7 @@ export const STATUS_COLOR_INFO =
 export const STATUS_COLOR_NEUTRAL =
   'bg-[var(--translation-status-neutral-bg)] text-[var(--translation-status-neutral-text)] border-[var(--translation-status-neutral-border)]';
 
-/** Purple status (in_review, changes_requested) - uses CSS variables */
+/** Purple severity class. Legacy: no status resolves to purple anymore (in_review is warning). */
 export const STATUS_COLOR_PURPLE =
   'bg-[var(--translation-status-purple-bg)] text-[var(--translation-status-purple-text)] border-[var(--translation-status-purple-border)]';
 
@@ -385,59 +387,14 @@ export function getStatusColorClass(severity: string): string {
 }
 
 /**
- * Maps status strings to their severity level.
- */
-export const STATUS_SEVERITY_MAP: Record<string, string> = {
-  // Success
-  ready: 'success',
-  approved: 'success',
-  published: 'success',
-  completed: 'success',
-  on_track: 'success',
-  success: 'success',
-
-  // Warning
-  pending: 'warning',
-  pending_review: 'warning',
-  due_soon: 'warning',
-  missing_fields: 'warning',
-  missing_field: 'warning',
-  conflict: 'warning',
-  changes_requested: 'warning',
-
-  // Error
-  blocked: 'error',
-  rejected: 'error',
-  failed: 'error',
-  overdue: 'error',
-  missing_locale: 'error',
-  missing_locales: 'error',
-  missing_locales_and_fields: 'error',
-  error: 'error',
-
-  // Info
-  in_progress: 'info',
-  assigned: 'info',
-  in_review: 'info',
-  review: 'info',
-  running: 'info',
-
-  // Neutral
-  draft: 'neutral',
-  archived: 'neutral',
-  none: 'neutral',
-  not_required: 'neutral',
-  skipped: 'neutral',
-  inactive: 'neutral',
-};
-
-/**
  * Gets the CSS custom property class for a status value.
+ *
+ * Status→tone resolution delegates to the canonical registry in
+ * shared/status-vocabulary.ts; this module only maps the resulting tone to
+ * the CSS custom property classes above.
  */
 export function getStatusSeverityClass(status: string): string {
-  const normalized = status.toLowerCase().replace(/-/g, '_');
-  const severity = STATUS_SEVERITY_MAP[normalized] ?? 'neutral';
-  return getStatusColorClass(severity);
+  return getStatusColorClass(getStatusTone(status));
 }
 
 // =============================================================================
@@ -463,7 +420,7 @@ export function getStatusSeverityClass(status: string): string {
 export const META_BADGE_BASE = 'inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium';
 
 /** Small meta badge: uppercase tracking for severity labels */
-export const META_BADGE_SM = 'inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold uppercase tracking-[0.14em]';
+export const META_BADGE_SM = 'inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider';
 
 /** Large meta badge: for prominent status indicators */
 export const META_BADGE_LG = 'inline-flex items-center rounded-full px-3 py-1.5 text-sm font-medium';

@@ -486,29 +486,13 @@
     </div>
   </div>
 
-  {# Status Breakdown #}
+  {# Status Breakdown — tones/labels resolve through the canonical status registry (partials/status-badge.html) #}
   {% if status_counts %}
   <div class="mb-4 pt-3 border-t border-gray-100">
     <div class="text-xs text-gray-500 uppercase tracking-wide mb-2">By Status</div>
     <div class="flex flex-wrap gap-2">
       {% for status, count in status_counts %}
-        {% set status_lower = status|lower %}
-        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium
-          {% if status_lower == 'pending' %}bg-yellow-100 text-yellow-800
-          {% elif status_lower == 'in_progress' %}bg-blue-100 text-blue-800
-          {% elif status_lower == 'review' %}bg-purple-100 text-purple-800
-          {% elif status_lower == 'approved' or status_lower == 'completed' %}bg-green-100 text-green-800
-          {% elif status_lower == 'rejected' %}bg-red-100 text-red-800
-          {% else %}bg-gray-100 text-gray-800{% endif %}">
-          <span class="w-1.5 h-1.5 rounded-full
-            {% if status_lower == 'pending' %}bg-yellow-500
-            {% elif status_lower == 'in_progress' %}bg-blue-500
-            {% elif status_lower == 'review' %}bg-purple-500
-            {% elif status_lower == 'approved' or status_lower == 'completed' %}bg-green-500
-          {% elif status_lower == 'rejected' %}bg-red-500
-          {% else %}bg-gray-500{% endif %}"></span>
-          {{ status|capfirst }}: {{ formatNumber(count) }}
-        </span>
+        {% include "partials/status-badge.html" with badge_status=status|lower badge_count=count %}
       {% endfor %}
     </div>
   </div>
@@ -547,10 +531,10 @@
   </div>
   {% endif %}
 
-  {# Updated timestamp #}
+  {# Updated timestamp — human label server-side, relative time when JS enhancement is active #}
   {% if widget.data.updated_at %}
   <div class="mt-4 pt-2 border-t border-gray-100 text-xs text-gray-400 text-center">
-    Updated <time data-relative-time="{{ widget.data.updated_at }}">{{ widget.data.updated_at }}</time>
+    Updated <time datetime="{{ widget.data.updated_at }}" data-relative-time="{{ widget.data.updated_at }}">{{ widget.data.updated_at_label|default:widget.data.updated_at }}</time>
   </div>
   {% endif %}
 {% else %}

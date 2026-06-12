@@ -3,6 +3,7 @@
  */
 
 import type { Widget, AdminDashboardConfig, WidgetTitleMap } from './types.js';
+import { renderStatusChip } from '../shared/status-vocabulary.js';
 
 /** Default widget titles by definition */
 const WIDGET_TITLES: WidgetTitleMap = {
@@ -598,34 +599,10 @@ export class WidgetRenderer {
       const overdueCount = Number(summary.overdue || 0);
       const updatedAt = data.updated_at ? String(data.updated_at) : '';
 
-      const statusBadge = (statusRaw: string, count: unknown): string => {
-        const status = String(statusRaw || '').trim().toLowerCase();
-        let toneClass = 'bg-gray-100 text-gray-800';
-        let dotClass = 'bg-gray-500';
-        if (status === 'pending') {
-          toneClass = 'bg-yellow-100 text-yellow-800';
-          dotClass = 'bg-yellow-500';
-        } else if (status === 'in_progress') {
-          toneClass = 'bg-blue-100 text-blue-800';
-          dotClass = 'bg-blue-500';
-        } else if (status === 'review') {
-          toneClass = 'bg-purple-100 text-purple-800';
-          dotClass = 'bg-purple-500';
-        } else if (status === 'approved' || status === 'completed') {
-          toneClass = 'bg-green-100 text-green-800';
-          dotClass = 'bg-green-500';
-        } else if (status === 'rejected') {
-          toneClass = 'bg-red-100 text-red-800';
-          dotClass = 'bg-red-500';
-        }
-        const label = this.formatStatusLabel(statusRaw);
-        return `
-          <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${toneClass}">
-            <span class="w-1.5 h-1.5 rounded-full ${dotClass}"></span>
-            ${label}: ${this.formatNumber(count)}
-          </span>
-        `;
-      };
+      // Tone/label resolve through the canonical status registry; markup matches
+      // the SSR widget template (partials/status-badge.html).
+      const statusBadge = (statusRaw: string, count: unknown): string =>
+        renderStatusChip(String(statusRaw || ''), { count: this.formatNumber(count) });
 
       return `
         <div class="grid grid-cols-3 gap-3 mb-4">
@@ -744,17 +721,6 @@ export class WidgetRenderer {
       return value.toLocaleString();
     }
     return String(value);
-  }
-
-  private formatStatusLabel(status: unknown): string {
-    const value = String(status || '').trim();
-    if (!value) {
-      return 'Unknown';
-    }
-    return value
-      .split('_')
-      .map((word) => (word ? word.charAt(0).toUpperCase() + word.slice(1) : word))
-      .join(' ');
   }
 
   private normalizeSpan(value: unknown): number {

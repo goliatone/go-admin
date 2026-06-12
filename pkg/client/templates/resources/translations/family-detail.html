@@ -30,14 +30,18 @@
             <div>
               <p class="text-xs font-semibold uppercase tracking-wider text-gray-500">Translation family</p>
               <h2 id="translation-family-summary" class="mt-2 text-3xl font-semibold text-gray-900">
-                {{ family.source_variant.fields.title|default:family.family_id|default:translation_family_id }}
+                {{ family.source_variant.fields.title|default:family.display_family_identifier|default:translation_family_id }}
               </h2>
-              <p class="mt-2 text-sm text-gray-600">
-                {{ family.content_type|default:"content" }} &middot; Source locale {{ family.source_locale|default:"-" }} &middot; Family {{ family.family_id|default:translation_family_id }}
+              <p class="mt-2 text-sm text-gray-600" title="{{ family.family_id|default:translation_family_id }}">
+                {{ family.content_type|default:"content" }} &middot; Source locale {{ family.source_locale|default:"-" }} &middot; Family {{ family.display_family_identifier|default:family.family_id|default:translation_family_id }}
+                <button type="button" class="ml-1 align-middle text-gray-400 transition-colors hover:text-gray-700" data-copy-id="{{ family.family_id|default:translation_family_id }}" title="Copy family ID" aria-label="Copy family ID">
+                  <i class="iconoir-copy" aria-hidden="true"></i>
+                </button>
               </p>
             </div>
             <div class="flex flex-wrap items-center gap-2">
-              {% include "partials/status-badge.html" with badge_status=family.readiness_state|default:"unknown" badge_tone=family.readiness_tone|default:family.readiness_state|default:"neutral" badge_label=family.readiness_state|default:"unknown" %}
+              {# tone/label resolve from the canonical registry inside the partial #}
+              {% include "partials/status-badge.html" with badge_status=family.readiness_state|default:"unknown" %}
               {% if family.quick_create.enabled %}
               <button type="button"
                       class="btn btn-primary"
@@ -85,13 +89,16 @@
                     <div class="flex flex-wrap items-center gap-2">
                       <span class="text-sm font-semibold uppercase text-gray-900">{{ row.display_locale|default:row.locale|default:"-" }}</span>
                       {% for badge in row.badges %}
-                      {% include "partials/status-badge.html" with badge_status=badge.status|default:badge.label badge_tone=badge.tone|default:"neutral" badge_label=badge.label show_icon=false %}
+                      {# tone resolves from the registry via badge.status unless the server pins one #}
+                      {% include "partials/status-badge.html" with badge_status=badge.status|default:badge.label badge_tone=badge.tone badge_label=badge.label show_icon=false %}
                       {% endfor %}
                     </div>
                     <p class="mt-2 text-sm text-gray-600">{{ row.title|default:family.source_variant.fields.title|default:family.family_id }}</p>
                     {% if row.kind != "missing_required" %}
                     <p class="mt-1 text-xs text-gray-500">{{ row.assignment_summary|default:"No active assignment" }}</p>
-                    <p class="mt-1 text-xs text-gray-500">Updated {{ row.updated_label|default:"n/a" }}</p>
+                    {% if row.updated_label %}
+                    <p class="mt-1 text-xs text-gray-500">Updated {{ row.updated_label }}</p>
+                    {% endif %}
                     {% endif %}
                   </div>
                   <div class="flex flex-wrap items-center gap-2 lg:justify-end" data-family-locale-actions="true">
@@ -209,8 +216,8 @@
                     <div>
                       <div class="flex flex-wrap items-center gap-2">
                         <span class="text-sm font-semibold uppercase text-gray-900">{{ assignment.target_locale|default:"-" }}</span>
-                        {% include "partials/status-badge.html" with badge_status=assignment.status|default:"open" badge_tone=assignment.status_tone|default:"info" badge_label=assignment.display_status|default:assignment.status|default:"Open" %}
-                        {% include "partials/status-badge.html" with badge_status=assignment.priority|default:"normal" badge_tone=assignment.priority_tone|default:"neutral" badge_label=assignment.display_priority|default:assignment.priority|default:"Normal" show_icon=false %}
+                        {% include "partials/status-badge.html" with badge_status=assignment.status|default:"open" badge_label=assignment.display_status %}
+                        {% include "partials/status-badge.html" with badge_status=assignment.priority|default:"normal" badge_label=assignment.display_priority show_icon=false %}
                       </div>
                       <p class="mt-2 text-sm text-gray-600">
                         {{ assignment.display_assignee|default:assignment.assignee_label|default:assignment.assignee_id|default:"Unassigned" }}
@@ -287,7 +294,7 @@
               <ul class="mt-4 space-y-3">
                 {% for blocker in family.blockers %}
                 <li class="rounded-lg border border-gray-200 bg-gray-50 p-3 text-sm">
-                  <span class="rounded-full bg-rose-50 px-2 py-0.5 text-xs font-semibold text-rose-700">{{ blocker.display_label|default:blocker.blocker_code|default:blocker.code|default:"Blocker" }}</span>
+                  {% include "partials/status-badge.html" with badge_status=blocker.blocker_code|default:blocker.code badge_label=blocker.display_label show_icon=false %}
                   <dl class="mt-2 grid grid-cols-[5rem_1fr] gap-x-3 gap-y-1 text-xs text-gray-600">
                     <dt>Locale</dt>
                     <dd>{{ blocker.locale|default:"-" }}</dd>
@@ -308,7 +315,7 @@
               <ol class="mt-4 space-y-3 text-sm text-gray-600">
                 {% for assignment in family.active_assignments %}
                 <li class="rounded-md border border-gray-100 bg-gray-50 p-3">
-                  {{ assignment.activity_sentence|default:"" }}{% if not assignment.activity_sentence %}{{ assignment.target_locale|default:"-" }} assignment {{ assignment.display_status|default:assignment.status|default:"Updated" }}{% if assignment.display_updated or assignment.updated_at %} &middot; {{ assignment.display_updated|default:assignment.updated_at }}{% endif %}{% endif %}
+                  {{ assignment.activity_sentence|default:"" }}{% if not assignment.activity_sentence %}{{ assignment.target_locale|default:"-" }} assignment {{ assignment.display_status|default:assignment.status|default:"Updated" }}{% if assignment.display_updated %} &middot; {{ assignment.display_updated }}{% endif %}{% endif %}
                 </li>
                 {% endfor %}
               </ol>

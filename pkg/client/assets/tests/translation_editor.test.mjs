@@ -980,7 +980,8 @@ test('translation editor runtime: field completion copy is distinct from submit 
 
   assert.match(html, /Field complete/);
   assert.doesNotMatch(html, /Ready to submit/);
-  assert.match(html, /Submit unavailable/);
+  assert.match(html, /data-action="submit-review"[\s\S]*disabled aria-disabled="true"/);
+  assert.match(html, /Submit review/);
   assert.match(html, /data-submit-unavailable-reason="true"/);
   assert.match(html, /assignment must be in progress/);
 });
@@ -999,13 +1000,14 @@ test('translation editor runtime: approved assignments render as read-only inspe
   assert.match(html, /data-action="save-draft"[\s\S]*disabled aria-disabled="true"/);
   assert.ok(previewButton);
   assert.equal(previewButton.disabled, false);
-  assert.match(html, /data-action="submit-review"[\s\S]*disabled aria-disabled="true"/);
+  assert.doesNotMatch(html, /data-action="submit-review"/);
+  assert.match(html, /status-chip status-chip--success/);
   assert.match(html, /Approved/);
   assert.match(html, /data-copy-source="body"[\s\S]*disabled aria-disabled="true"/);
   assert.match(html, /data-field-input="body"[\s\S]*disabled aria-disabled="true"/);
 });
 
-test('translation editor runtime: in-review assignments label submit as pending approval', () => {
+test('translation editor runtime: in-review assignments render submit state as a status chip', () => {
   const detail = normalizeAssignmentEditorDetail(makeInReviewAssignmentFixture());
   const html = renderTranslationEditorState(
     { status: 'ready', detail },
@@ -1015,8 +1017,9 @@ test('translation editor runtime: in-review assignments label submit as pending 
   const previewButton = dom.window.document.querySelector('[data-action="preview-assignment"]');
 
   assert.match(html, /data-editor-read-only="true"/);
-  assert.match(html, /Pending approval/);
-  assert.match(html, /data-action="submit-review"[\s\S]*disabled aria-disabled="true"/);
+  assert.match(html, /status-chip status-chip--warning/);
+  assert.match(html, /In Review/);
+  assert.doesNotMatch(html, /data-action="submit-review"/);
   assert.doesNotMatch(html, /Submit unavailable/);
   assert.ok(previewButton);
   assert.equal(previewButton.disabled, false);
@@ -1031,7 +1034,7 @@ test('translation editor runtime: changes-requested assignments expose resume wo
   const dom = new JSDOM(html);
   const resumeButtons = dom.window.document.querySelectorAll('[data-action="resume-work"]');
 
-  assert.match(html, /Changes requested/);
+  assert.match(html, /Changes Requested/);
   assert.match(html, /Resume work/);
   assert.equal(resumeButtons.length, 2);
   assert.equal(resumeButtons[0].disabled, false);
@@ -2004,7 +2007,8 @@ test('translation editor runtime: successful submit reloads terminal action stat
 
   assert.equal(detailReads, 2);
   assert.match(root.innerHTML, /data-editor-read-only="true"/);
-  assert.equal(root.querySelector('[data-action="submit-review"]').disabled, true);
+  assert.equal(root.querySelector('[data-action="submit-review"]'), null);
+  assert.match(root.innerHTML, /status-chip status-chip--success/);
   assert.match(root.innerHTML, /Approved/);
   assert.equal(root.querySelector('[data-action="preview-assignment"]').disabled, false);
 
@@ -2060,7 +2064,8 @@ test('translation editor runtime: resume work posts claim and reloads in-progres
   const resumeButton = root.querySelector('[data-action="resume-work"]');
   assert.ok(resumeButton);
   assert.equal(resumeButton.disabled, false);
-  assert.equal(root.querySelector('[data-action="submit-review"]').disabled, true);
+  assert.equal(root.querySelector('[data-action="submit-review"]'), null);
+  assert.match(root.innerHTML, /Changes Requested/);
 
   resumeButton.click();
   assert.equal(await waitForCondition(() => detailReads >= 2 && root.querySelector('[data-action="resume-work"]') === null), true);
@@ -2073,7 +2078,7 @@ test('translation editor runtime: resume work posts claim and reloads in-progres
   assert.equal(detailReads, 2);
   assert.equal(root.querySelector('[data-action="resume-work"]'), null);
   assert.equal(root.querySelector('[data-action="submit-review"]').disabled, false);
-  assert.match(root.innerHTML, /Submit for review/);
+  assert.match(root.innerHTML, /Submit review/);
 
   screen.unmount();
 });
@@ -2254,7 +2259,8 @@ test('translation editor runtime: stale submit status reloads approved read-only
   assert.ok(requests.some((request) => request.method === 'POST' && request.url.includes('/actions/submit_review')));
   assert.match(root.innerHTML, /assignment must be in progress before it can be submitted/);
   assert.match(root.innerHTML, /data-editor-read-only="true"/);
-  assert.equal(root.querySelector('[data-action="submit-review"]').disabled, true);
+  assert.equal(root.querySelector('[data-action="submit-review"]'), null);
+  assert.match(root.innerHTML, /status-chip status-chip--success/);
   assert.equal(root.querySelector('[data-action="preview-assignment"]').disabled, false);
 
   screen.unmount();

@@ -1995,7 +1995,7 @@ function renderFamilySummaryMetrics(detail: TranslationFamilyDetail): string {
     .map(
       (metric) => `
         <div class="rounded-xl border border-gray-200 bg-white p-6">
-          <div class="text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">${escapeHTML(metric.label)}</div>
+          <div class="text-xs font-semibold uppercase tracking-wider text-gray-500">${escapeHTML(metric.label)}</div>
           <div class="mt-2 text-2xl font-semibold ${metric.tone}">${escapeHTML(metric.value)}</div>
         </div>
       `
@@ -2266,7 +2266,7 @@ function renderPublishGatePanel(detail: TranslationFamilyDetail): string {
       </div>
       <div class="mt-5 grid gap-5">
         <div>
-          <h3 class="text-sm font-semibold uppercase tracking-[0.18em] text-gray-500">Policy</h3>
+          <h3 class="text-sm font-semibold uppercase tracking-wider text-gray-500">Policy</h3>
           <ul class="mt-3 space-y-2 text-sm text-gray-600" role="list">
             <li>Review required: <strong class="text-gray-900">${detail.publishGate.reviewRequired ? 'Yes' : 'No'}</strong></li>
             <li>Override allowed: <strong class="text-gray-900">${detail.publishGate.overrideAllowed ? 'Yes' : 'No'}</strong></li>
@@ -2274,7 +2274,7 @@ function renderPublishGatePanel(detail: TranslationFamilyDetail): string {
           </ul>
         </div>
         <div>
-          <h3 class="text-sm font-semibold uppercase tracking-[0.18em] text-gray-500">Blockers</h3>
+          <h3 class="text-sm font-semibold uppercase tracking-wider text-gray-500">Blockers</h3>
           <ul class="mt-3 space-y-2" role="list">${blockers}</ul>
         </div>
       </div>
@@ -3058,11 +3058,37 @@ function updateFamilyListBrowserURL(filters: TranslationFamilyFilters): void {
   window.history.pushState({}, '', nextURL);
 }
 
+/**
+ * Delegated copy-to-clipboard for truncated identifiers ([data-copy-id]).
+ * Bound once per root; used by the families list and family detail pages.
+ */
+export function bindCopyIdAffordance(root: HTMLElement): void {
+  if (root.dataset.translationCopyIdBound === 'true') {
+    return;
+  }
+  root.dataset.translationCopyIdBound = 'true';
+  root.addEventListener('click', (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) {
+      return;
+    }
+    const trigger = target.closest<HTMLElement>('[data-copy-id]');
+    if (!trigger) {
+      return;
+    }
+    const value = trigger.dataset.copyId || '';
+    if (value && globalThis.navigator?.clipboard?.writeText) {
+      void globalThis.navigator.clipboard.writeText(value);
+    }
+  });
+}
+
 export async function initTranslationFamilyListPage(
   root: HTMLElement | null,
   options: TranslationFamilyListPageOptions = {}
 ): Promise<TranslationFamilyListLoadState | null> {
   if (!root) return null;
+  bindCopyIdAffordance(root);
   const dataset = root.dataset || {};
   const renderOptions: TranslationFamilyListRenderOptions = {
     endpoint: asString(options.endpoint || dataset.endpoint),
@@ -3248,7 +3274,7 @@ function openCreateLocaleDialog(config: CreateLocaleDialogConfig): void {
       <form class="p-6">
         <div class="flex items-start justify-between gap-4">
           <div>
-            <p class="text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">Create locale</p>
+            <p class="text-xs font-semibold uppercase tracking-wider text-gray-500">Create locale</p>
             <h2 id="translation-create-locale-title" class="mt-2 text-2xl font-semibold text-gray-900">${escapeHTML(config.heading)}</h2>
             <p class="mt-2 text-sm text-gray-600">Server-authored recommendations and publish requirements for family ${escapeHTML(config.familyId)}.</p>
           </div>
@@ -3966,6 +3992,7 @@ export async function initTranslationFamilyDetailPage(
   } = {}
 ): Promise<TranslationFamilyDetailLoadState | null> {
   if (!root) return null;
+  bindCopyIdAffordance(root);
   const dataset = root.dataset || {};
   const endpoint = asString(options.endpoint || dataset.endpoint);
   const renderOptions: TranslationFamilyDetailRenderOptions = {

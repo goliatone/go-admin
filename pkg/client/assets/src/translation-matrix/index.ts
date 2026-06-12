@@ -24,16 +24,15 @@ import {
 } from '../shared/query-state/url-state.js';
 import { StatefulController } from '../shared/stateful-controller.js';
 import { escapeAttribute, escapeHTML } from '../shared/html.js';
+import { getStatusLabel, renderStatusChip } from '../shared/status-vocabulary.js';
 import { readHTTPError } from '../shared/transport/http-client.js';
 import { renderPanelLoadingState, renderPanelState } from '../services/ui-states.js';
 import { extractStructuredError } from '../toast/error-helpers.js';
 import {
   BTN_PRIMARY,
+  BTN_SECONDARY,
   BTN_SECONDARY_SM,
   BTN_DANGER,
-  HEADER_PRETITLE,
-  HEADER_TITLE,
-  HEADER_DESCRIPTION,
   EMPTY_STATE,
   EMPTY_STATE_TITLE,
   EMPTY_STATE_TEXT,
@@ -47,7 +46,6 @@ import {
   MATRIX_STICKY_CELL,
   MATRIX_CORNER_CELL,
   MATRIX_CELL,
-  getStatusColorClass,
 } from '../translation-shared/index.js';
 
 export type TranslationMatrixCellState =
@@ -818,12 +816,6 @@ export function createTranslationMatrixClient(options: TranslationMatrixPageConf
   };
 }
 
-function formatLabel(value: string): string {
-  return asString(value)
-    .replace(/[_-]+/g, ' ')
-    .replace(/\b\w/g, (letter) => letter.toUpperCase());
-}
-
 function parseLocaleInput(value: string): string[] {
   return value
     .split(',')
@@ -861,6 +853,15 @@ function summarizeScope(query: TranslationMatrixQuery): string {
   return parts.join(' • ');
 }
 
+/** Truncated identifier for display: first 8 + last 4 characters. */
+function shortMatrixId(id: string): string {
+  const trimmed = asString(id).trim();
+  if (trimmed.length <= 12) {
+    return trimmed;
+  }
+  return `${trimmed.slice(0, 8)}…${trimmed.slice(-4)}`;
+}
+
 function renderActionButton(
   action: TranslationMatrixQuickAction,
   attrs: Record<string, string>,
@@ -871,38 +872,18 @@ function renderActionButton(
     .map(([key, value]) => `${escapeAttribute(key)}="${escapeAttribute(value)}"`)
     .join(' ');
   const disabledReason = action.reason || 'Action unavailable';
-  const tone = action.enabled
-    ? 'border-sky-300 bg-sky-50 text-sky-900 hover:border-sky-400 hover:bg-sky-100'
-    : 'border-gray-200 bg-gray-100 text-gray-500';
-  return `<button type="button" class="inline-flex min-h-[2.5rem] min-w-[6rem] items-center justify-center rounded-xl border px-3 py-2 text-xs font-semibold uppercase tracking-[0.16em] transition ${tone}" ${attrText} ${action.enabled ? '' : 'disabled'} title="${escapeAttribute(action.enabled ? action.description || label : disabledReason)}">${escapeHTML(label)}</button>`;
-}
-
-function cellStateSeverity(state: TranslationMatrixCellState): string {
-  switch (state) {
-    case 'ready':
-      return 'success';
-    case 'missing':
-      return 'error';
-    case 'in_progress':
-      return 'warning';
-    case 'in_review':
-      return 'purple';
-    case 'fallback':
-      return 'warning';
-    case 'not_required':
-      return 'neutral';
-    default:
-      return 'neutral';
-  }
+  return `<button type="button" class="btn btn-secondary btn-sm ${action.enabled ? '' : 'cursor-not-allowed opacity-50'}" ${attrText} ${action.enabled ? '' : 'disabled'} title="${escapeAttribute(action.enabled ? action.description || label : disabledReason)}">${escapeHTML(label)}</button>`;
 }
 
 function renderMatrixCellSummary(cell: TranslationMatrixCell): string {
-  const tone = `border ${getStatusColorClass(cellStateSeverity(cell.state))}`;
-  const detail = cell.assignment?.status || cell.variant?.status || formatLabel(cell.state);
+  // Cell state renders as the shared registry-backed chip; the workflow status
+  // appears as a second chip only when it adds information beyond the state.
+  const workflowStatus = asString(cell.assignment?.status || cell.variant?.status).toLowerCase();
+  const showWorkflow = Boolean(workflowStatus) && workflowStatus !== cell.state;
   return `
-    <div class="flex items-center justify-between gap-2">
-      <span class="inline-flex rounded-full border px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] ${escapeAttribute(tone)}">${escapeHTML(formatLabel(cell.state))}</span>
-      <span class="truncate text-[11px] text-gray-500">${escapeHTML(formatLabel(detail))}</span>
+    <div class="flex flex-wrap items-center gap-1.5">
+      ${renderStatusChip(cell.state)}
+      ${showWorkflow ? renderStatusChip(workflowStatus, { showIcon: false }) : ''}
     </div>
   `;
 }
@@ -921,7 +902,7 @@ function renderMatrixGrid(payload: TranslationMatrixResponse, selection: Transla
       <table class="${MATRIX_TABLE}">
         <thead class="${MATRIX_HEADER_ROW}">
           <tr>
-            <th scope="col" class="${MATRIX_CORNER_CELL} border-b border-gray-200 px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-500">
+            <th scope="col" class="${MATRIX_CORNER_CELL} border-b border-gray-200 px-4 py-3 text-left text-xs font-semibold text-gray-500">
               <label class="inline-flex items-center gap-2">
                 <input type="checkbox" data-matrix-toggle-all-families="true" ${selection.family_ids.length === rows.length && rows.length > 0 ? 'checked' : ''}>
                 <span>Families</span>
@@ -930,12 +911,13 @@ function renderMatrixGrid(payload: TranslationMatrixResponse, selection: Transla
             ${columns.map((column) => {
               const policy = payload.meta.locale_policy.find((entry) => entry.locale === column.locale);
               const selected = selection.locales.includes(column.locale);
+              const optionalCount = policy?.optional_family_count ?? 0;
               return `
                 <th scope="col" class="border-b border-gray-200 bg-white px-3 py-3 text-left align-top">
                   <button type="button" data-matrix-locale-toggle="${escapeAttribute(column.locale)}" class="flex w-full flex-col rounded-xl border px-3 py-2 text-left transition ${selected ? 'border-sky-300 bg-sky-50' : 'border-gray-200 bg-gray-50 hover:border-gray-300'}">
-                    <span class="text-xs font-semibold uppercase tracking-[0.18em] text-gray-700">${escapeHTML(column.label)}</span>
+                    <span class="text-sm font-semibold text-gray-900">${escapeHTML(column.label)}</span>
                     <span class="mt-1 text-[11px] text-gray-500">${escapeHTML(column.source_locale ? 'Source locale' : `${policy?.required_by_count ?? column.required_by_count} required families`)}</span>
-                    <span class="mt-1 text-[11px] text-gray-400">${escapeHTML(policy && policy.optional_family_count > 0 ? `${policy.optional_family_count} optional` : 'Header action')}</span>
+                    ${optionalCount > 0 ? `<span class="mt-1 text-[11px] text-gray-400">${escapeHTML(`${optionalCount} optional`)}</span>` : ''}
                   </button>
                 </th>
               `;
@@ -950,13 +932,18 @@ function renderMatrixGrid(payload: TranslationMatrixResponse, selection: Transla
                   <input type="checkbox" data-matrix-family-toggle="${escapeAttribute(row.family_id)}" ${selection.family_ids.includes(row.family_id) ? 'checked' : ''} class="mt-1">
                   <div class="min-w-0">
                     <div class="flex flex-wrap items-center gap-2">
-                      <a class="text-sm font-semibold text-gray-900 hover:text-sky-700 hover:underline" href="${escapeAttribute(row.links.family?.href || '#')}">${escapeHTML(row.source_title || row.family_id)}</a>
-                      <span class="rounded-full bg-gray-100 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-gray-500">${escapeHTML(row.content_type)}</span>
+                      <a class="text-sm font-semibold text-gray-900 hover:text-sky-700 hover:underline" href="${escapeAttribute(row.links.family?.href || '#')}">${escapeHTML(row.source_title || shortMatrixId(row.family_id))}</a>
+                      <span class="status-chip status-chip--neutral">${escapeHTML(row.content_type)}</span>
                     </div>
-                    <p class="mt-1 text-xs text-gray-500">${escapeHTML(row.family_id)}</p>
+                    <p class="mt-1 text-xs text-gray-500" title="${escapeAttribute(row.family_id)}">
+                      <span>${escapeHTML(shortMatrixId(row.family_id))}</span>
+                      <button type="button" class="ml-1 align-middle text-gray-400 transition-colors hover:text-gray-700" data-matrix-copy-id="${escapeAttribute(row.family_id)}" title="Copy family ID" aria-label="Copy family ID">
+                        <i class="iconoir-copy" aria-hidden="true"></i>
+                      </button>
+                    </p>
                     <div class="mt-3 flex flex-wrap gap-2 text-xs">
-                      ${row.links.content_detail?.href ? `<a class="rounded-full border border-gray-200 px-2.5 py-1 text-gray-600 hover:border-gray-300 hover:text-gray-900" href="${escapeAttribute(row.links.content_detail.href)}">Source</a>` : ''}
-                      ${row.links.content_edit?.href ? `<a class="rounded-full border border-gray-200 px-2.5 py-1 text-gray-600 hover:border-gray-300 hover:text-gray-900" href="${escapeAttribute(row.links.content_edit.href)}">Edit source</a>` : ''}
+                      ${row.links.content_detail?.href ? `<a class="btn btn-secondary btn-sm" href="${escapeAttribute(row.links.content_detail.href)}">Source</a>` : ''}
+                      ${row.links.content_edit?.href ? `<a class="btn btn-secondary btn-sm" href="${escapeAttribute(row.links.content_edit.href)}">Edit source</a>` : ''}
                     </div>
                   </div>
                 </div>
@@ -1010,17 +997,19 @@ function renderBulkToolbar(
     : noSelection
       ? 'Select at least one family row.'
       : '';
+  const createDisabled = !createState?.enabled || noSelection || working;
+  const exportDisabled = !exportState?.enabled || noSelection || working;
   return `
-    <section class="rounded-xl border border-gray-200 bg-gray-900 px-5 py-4 text-sm text-gray-100 shadow-sm" data-matrix-bulk-toolbar="true">
+    <section class="rounded-xl border border-gray-200 bg-white px-5 py-4 text-sm shadow-sm" data-matrix-bulk-toolbar="true">
       <div class="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
         <div>
-          <p class="text-xs font-semibold uppercase tracking-[0.2em] text-gray-400">Bulk Actions</p>
-          <p class="mt-2 text-sm text-gray-300">Selected families: <strong class="text-white">${escapeHTML(String(selection.family_ids.length))}</strong> · Selected locales: <strong class="text-white">${escapeHTML(selection.locales.length > 0 ? selection.locales.join(', ') : 'auto')}</strong></p>
-          ${feedback ? `<p class="mt-2 text-xs uppercase tracking-[0.16em] text-emerald-300" data-matrix-feedback="true">${escapeHTML(feedback)}</p>` : ''}
+          <p class="text-sm font-semibold text-gray-900">Bulk actions</p>
+          <p class="mt-1 text-sm text-gray-500">Selected families: <strong class="text-gray-900">${escapeHTML(String(selection.family_ids.length))}</strong> · Selected locales: <strong class="text-gray-900">${escapeHTML(selection.locales.length > 0 ? selection.locales.join(', ') : 'auto')}</strong></p>
+          ${feedback ? `<p class="mt-2 text-xs font-medium text-emerald-700" data-matrix-feedback="true">${escapeHTML(feedback)}</p>` : ''}
         </div>
         <div class="flex flex-wrap gap-3">
-          <button type="button" data-matrix-bulk-action="create_missing" class="inline-flex items-center rounded-xl border border-white/20 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] ${(!createState?.enabled || noSelection || working) ? 'cursor-not-allowed bg-white/10 text-gray-400' : 'bg-sky-500 text-white hover:bg-sky-400'}" ${(!createState?.enabled || noSelection || working) ? 'disabled' : ''} title="${escapeAttribute(createDisabledReason || 'Create missing locale work')}">${escapeHTML(working ? 'Working…' : 'Create Missing')}</button>
-          <button type="button" data-matrix-bulk-action="export_selected" class="inline-flex items-center rounded-xl border border-white/20 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] ${(!exportState?.enabled || noSelection || working) ? 'cursor-not-allowed bg-white/10 text-gray-400' : 'bg-white text-gray-900 hover:bg-gray-100'}" ${(!exportState?.enabled || noSelection || working) ? 'disabled' : ''} title="${escapeAttribute(exportDisabledReason || 'Export selected locale work')}">${escapeHTML(working ? 'Working…' : 'Export Selected')}</button>
+          <button type="button" data-matrix-bulk-action="create_missing" class="${BTN_PRIMARY} ${createDisabled ? 'cursor-not-allowed opacity-50' : ''}" ${createDisabled ? 'disabled' : ''} title="${escapeAttribute(createDisabledReason || 'Create missing locale work')}">${escapeHTML(working ? 'Working…' : 'Create missing')}</button>
+          <button type="button" data-matrix-bulk-action="export_selected" class="${BTN_SECONDARY} ${exportDisabled ? 'cursor-not-allowed opacity-50' : ''}" ${exportDisabled ? 'disabled' : ''} title="${escapeAttribute(exportDisabledReason || 'Export selected locale work')}">${escapeHTML(working ? 'Working…' : 'Export selected')}</button>
         </div>
       </div>
     </section>
@@ -1036,10 +1025,10 @@ function renderViewportControls(payload: TranslationMatrixResponse): string {
     <section class="rounded-xl border border-gray-200 bg-white px-5 py-4 shadow-sm" data-matrix-viewport="true">
       <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
-          <p class="text-xs font-semibold uppercase tracking-[0.2em] text-gray-500">Viewport</p>
-          <p class="mt-2 text-sm text-gray-600">Rows ${escapeHTML(String(payload.data.rows.length))} of ${escapeHTML(String(payload.meta.total))} · Locales ${escapeHTML(String(payload.meta.locale_offset + 1))}-${escapeHTML(String(Math.min(payload.meta.locale_offset + payload.meta.locale_limit, payload.meta.total_locales)))} of ${escapeHTML(String(payload.meta.total_locales))}</p>
+          <p class="text-sm font-semibold text-gray-900">Viewport</p>
+          <p class="mt-1 text-sm text-gray-600">Rows ${escapeHTML(String(payload.data.rows.length))} of ${escapeHTML(String(payload.meta.total))} · Locales ${escapeHTML(String(payload.meta.locale_offset + 1))}-${escapeHTML(String(Math.min(payload.meta.locale_offset + payload.meta.locale_limit, payload.meta.total_locales)))} of ${escapeHTML(String(payload.meta.total_locales))}</p>
         </div>
-        <div class="flex flex-wrap gap-3 text-xs font-semibold uppercase tracking-[0.16em]">
+        <div class="flex flex-wrap gap-3">
           <button type="button" data-matrix-page="prev" class="${BTN_SECONDARY_SM}" ${previousPageDisabled ? 'disabled' : ''}>Prev families</button>
           <button type="button" data-matrix-page="next" class="${BTN_SECONDARY_SM}" ${nextPageDisabled ? 'disabled' : ''}>Next families</button>
           <button type="button" data-matrix-locales="prev" class="${BTN_SECONDARY_SM}" ${previousLocaleDisabled ? 'disabled' : ''}>Prev locales</button>
@@ -1050,30 +1039,125 @@ function renderViewportControls(payload: TranslationMatrixResponse): string {
   `;
 }
 
-function renderFilters(query: TranslationMatrixQuery, busy = false): string {
+interface MatrixQuickFilterOption {
+  value: string;
+  label: string;
+  tone: 'neutral' | 'success' | 'error';
+}
+
+const MATRIX_READINESS_FILTERS: MatrixQuickFilterOption[] = [
+  { value: '', label: 'All', tone: 'neutral' },
+  { value: 'ready', label: 'Ready', tone: 'success' },
+  { value: 'blocked', label: 'Blocked', tone: 'error' },
+];
+
+/** Blocker codes the matrix API understands; labels come from the registry. */
+const MATRIX_BLOCKER_CODES = [
+  'missing_locale',
+  'missing_field',
+  'pending_review',
+  'outdated_source',
+  'qa_blocked',
+];
+
+// Mirrors the quick-filter classes from partials/quick-filters.html so the
+// CSR matrix renders the same filter chips as the SSR Queue/Families pages.
+function quickFilterClass(tone: MatrixQuickFilterOption['tone'], active: boolean): string {
+  const base = 'quick-filter inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-colors';
+  const palette: Record<MatrixQuickFilterOption['tone'], { active: string; idle: string }> = {
+    neutral: { active: 'bg-gray-200 text-gray-900 ring-2 ring-gray-500 ring-offset-1', idle: 'bg-gray-100 text-gray-700 hover:bg-gray-200' },
+    success: { active: 'bg-emerald-100 text-emerald-800 ring-2 ring-emerald-500 ring-offset-1', idle: 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100' },
+    error: { active: 'bg-rose-100 text-rose-800 ring-2 ring-rose-500 ring-offset-1', idle: 'bg-rose-50 text-rose-700 hover:bg-rose-100' },
+  };
+  return `${base} ${active ? palette[tone].active : palette[tone].idle}`;
+}
+
+function renderMatrixFilters(
+  query: TranslationMatrixQuery,
+  payload: TranslationMatrixResponse | null,
+  busy = false
+): string {
+  const currentReadiness = asString(query.readinessState);
+  const quickFilters = MATRIX_READINESS_FILTERS.map((option) => `
+    <button type="button"
+            class="${quickFilterClass(option.tone, currentReadiness === option.value)}"
+            data-matrix-quick-filter="${escapeAttribute(option.value)}"
+            ${currentReadiness === option.value ? 'aria-current="true"' : ''}
+            ${busy ? 'disabled' : ''}>
+      ${escapeHTML(option.label)}
+    </button>
+  `).join('');
+
+  const blockerOptions = MATRIX_BLOCKER_CODES.map((code) => `
+    <option value="${escapeAttribute(code)}" ${query.blockerCode === code ? 'selected' : ''}>${escapeHTML(getStatusLabel(code))}</option>
+  `).join('');
+
+  const localePolicies = payload ? buildTranslationMatrixLocalePolicyMetadata(payload) : [];
+  const selectedLocales = query.locales || [];
+  const knownLocales = new Set(localePolicies.map((policy) => policy.locale));
+  const extraSelected = selectedLocales.filter((locale) => !knownLocales.has(locale));
+  const localeChips = [
+    ...localePolicies.map((policy) => ({ locale: policy.locale, label: policy.label || policy.locale.toUpperCase() })),
+    ...extraSelected.map((locale) => ({ locale, label: locale.toUpperCase() })),
+  ].map(({ locale, label }) => {
+    const active = selectedLocales.includes(locale);
+    return `
+      <button type="button"
+              class="${quickFilterClass('neutral', active)}"
+              data-matrix-filter-locale="${escapeAttribute(locale)}"
+              aria-pressed="${active ? 'true' : 'false'}"
+              ${busy ? 'disabled' : ''}>
+        ${escapeHTML(label)}
+      </button>
+    `;
+  }).join('');
+
+  const activeCount = [query.contentType, query.blockerCode].filter(Boolean).length + (selectedLocales.length > 0 ? 1 : 0);
+
   return `
     <section class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm" data-matrix-filters="true">
-      <form data-matrix-filter-form="true" class="grid gap-4 lg:grid-cols-5">
-        <label class="text-sm text-gray-600">Content type
-          <input name="content_type" value="${escapeAttribute(query.contentType || '')}" class="mt-2 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm text-gray-900" placeholder="pages, news">
-        </label>
-        <label class="text-sm text-gray-600">Readiness
-          <select name="readiness_state" class="mt-2 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm text-gray-900">
-            <option value="">All</option>
-            <option value="ready" ${query.readinessState === 'ready' ? 'selected' : ''}>Ready</option>
-            <option value="blocked" ${query.readinessState === 'blocked' ? 'selected' : ''}>Blocked</option>
-          </select>
-        </label>
-        <label class="text-sm text-gray-600">Blocker code
-          <input name="blocker_code" value="${escapeAttribute(query.blockerCode || '')}" class="mt-2 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm text-gray-900" placeholder="missing_locale">
-        </label>
-        <label class="text-sm text-gray-600">Locales
-          <input name="locales" value="${escapeAttribute((query.locales || []).join(', '))}" class="mt-2 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm text-gray-900" placeholder="fr, es">
-        </label>
-        <div class="flex items-end gap-3">
-          <button type="submit" class="${BTN_PRIMARY} w-full" ${busy ? 'disabled' : ''}>${escapeHTML(busy ? 'Loading…' : 'Apply filters')}</button>
+      <div class="quick-filters flex flex-wrap items-center gap-3" data-quick-filters>
+        <span class="quick-filters__label text-xs font-semibold uppercase tracking-wide text-gray-500">Readiness</span>
+        <div class="quick-filters__items inline-flex flex-wrap items-center gap-2" role="group" aria-label="Readiness filters">
+          ${quickFilters}
         </div>
-      </form>
+      </div>
+      <details class="filter-panel mt-4 rounded-lg border border-gray-200 bg-gray-50" data-filter-panel ${activeCount > 0 ? 'open' : ''}>
+        <summary class="filter-panel__trigger cursor-pointer select-none list-none px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-100">
+          <span class="inline-flex items-center gap-2">
+            <i class="iconoir-filter text-gray-500" aria-hidden="true"></i>
+            <span>Advanced Filters</span>
+            ${activeCount > 0 ? `<span class="filter-panel__badge rounded-full bg-blue-100 px-2 py-0.5 text-xs font-semibold text-blue-700">${activeCount}</span>` : ''}
+            <i class="iconoir-nav-arrow-down text-gray-400 transition-transform" aria-hidden="true"></i>
+          </span>
+        </summary>
+        <form data-matrix-filter-form="true" class="filter-panel__form border-t border-gray-200 p-4">
+          <div class="filter-panel__grid grid gap-3 md:grid-cols-3">
+            <label class="filter-panel__field grid gap-1 text-sm">
+              <span class="text-xs font-semibold uppercase tracking-wide text-gray-500">Content type</span>
+              <input name="content_type" value="${escapeAttribute(query.contentType || '')}" class="rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500" placeholder="e.g. pages" data-filter-field="content_type">
+            </label>
+            <label class="filter-panel__field grid gap-1 text-sm">
+              <span class="text-xs font-semibold uppercase tracking-wide text-gray-500">Blocker</span>
+              <select name="blocker_code" class="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500" data-filter-field="blocker_code">
+                <option value="">All</option>
+                ${blockerOptions}
+              </select>
+            </label>
+            <div class="filter-panel__actions flex items-end gap-2">
+              <button type="submit" class="${BTN_PRIMARY} flex-1" ${busy ? 'disabled' : ''}>${escapeHTML(busy ? 'Loading…' : 'Apply')}</button>
+            </div>
+          </div>
+          ${localeChips ? `
+          <div class="mt-4">
+            <span class="text-xs font-semibold uppercase tracking-wide text-gray-500">Locales</span>
+            <div class="mt-2 flex flex-wrap items-center gap-2" role="group" aria-label="Locale filters">
+              ${localeChips}
+            </div>
+          </div>
+          ` : ''}
+        </form>
+      </details>
     </section>
   `;
 }
@@ -1127,7 +1211,7 @@ function renderErrorState(error: unknown): string {
     message: error instanceof Error ? error.message : 'Failed to load the translation matrix',
     messageClass: `${ERROR_STATE_TEXT} mt-3 leading-6`,
     metadata: (requestId || traceId) ? [requestId ? `Request ${requestId}` : '', traceId ? `Trace ${traceId}` : ''].filter(Boolean).join(' • ') : '',
-    metadataClass: 'mt-3 text-xs uppercase tracking-[0.16em] text-rose-700',
+    metadataClass: 'mt-3 text-xs font-medium text-rose-700',
     actionsHtml: `<div class="mt-4"><button type="button" data-matrix-retry="true" class="${BTN_DANGER}">Retry matrix</button></div>`,
     role: 'alert',
     attributes: {
@@ -1137,41 +1221,27 @@ function renderErrorState(error: unknown): string {
 }
 
 function renderMatrixPage(
-  title: string,
   query: TranslationMatrixQuery,
   payload: TranslationMatrixResponse | null,
   state: TranslationMatrixPageState,
   selection: TranslationMatrixSelectionState,
   feedback: string,
   error: unknown,
-  working = false,
-  basePath = '/admin'
+  working = false
 ): string {
+  // The page header (title, breadcrumbs, description) is owned by the SSR
+  // template (resources/translations/matrix.html); this module renders only
+  // the working surface to avoid duplicated titles.
   const summary = summarizeScope(query);
   const body = payload == null
     ? (state === 'loading' ? renderLoadingState() : renderErrorState(error))
     : payload.data.rows.length === 0
       ? renderEmptyState()
       : `${renderBulkToolbar(payload, selection, feedback, working)}<div class="grid gap-5">${renderViewportControls(payload)}${renderMatrixGrid(payload, selection)}</div>`;
-  const translationsHref = `${trimTrailingSlash(basePath || '/admin')}/translations`;
   return `
     <div class="grid gap-5" data-translation-matrix="true">
-      <section class="rounded-xl border border-gray-200 bg-gradient-to-br from-white via-gray-50 to-sky-50 px-6 py-6 shadow-sm" data-matrix-hero="true">
-        <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            <nav class="text-xs font-semibold uppercase tracking-[0.18em] text-gray-500" aria-label="Breadcrumb">
-              <a class="hover:text-sky-700 hover:underline" href="${escapeAttribute(translationsHref)}">Translations</a>
-              <span class="px-2 text-gray-400">/</span>
-              <span class="text-gray-600">${escapeHTML(title)}</span>
-            </nav>
-            <p class="${HEADER_PRETITLE}">Translation Coverage</p>
-            <h1 class="${HEADER_TITLE} mt-2">${escapeHTML(title)}</h1>
-            <p class="${HEADER_DESCRIPTION} mt-3 max-w-3xl leading-6">Dense family-by-locale coverage with sticky headers, row pagination, locale windows, and quick actions for missing or in-flight work.</p>
-          </div>
-          ${summary ? `<p class="rounded-full border border-white/70 bg-white/80 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">${escapeHTML(summary)}</p>` : ''}
-        </div>
-      </section>
-      ${renderFilters(query, state === 'loading' || working)}
+      ${summary ? `<p class="text-xs font-medium text-gray-500" data-matrix-scope="true">${escapeHTML(summary)}</p>` : ''}
+      ${renderMatrixFilters(query, payload, state === 'loading' || working)}
       ${body}
     </div>
   `;
@@ -1248,15 +1318,13 @@ export class TranslationMatrixPage extends StatefulController<TranslationMatrixP
       return;
     }
     this.root.innerHTML = renderMatrixPage(
-      this.config.title || 'Translation Matrix',
       this.query,
       this.payload,
       this.state,
       this.selection,
       this.feedback,
       this.error,
-      this.working,
-      this.config.basePath
+      this.working
     );
   }
 
@@ -1274,11 +1342,11 @@ export class TranslationMatrixPage extends StatefulController<TranslationMatrixP
     }
     event.preventDefault();
     const data = new FormData(form);
+    // Readiness and locales are chip toggles handled in handleClick; the form
+    // applies the remaining text/select fields.
     this.updateQuery({
       contentType: asString(data.get('content_type')),
-      readinessState: asString(data.get('readiness_state')),
       blockerCode: asString(data.get('blocker_code')),
-      locales: parseLocaleInput(asString(data.get('locales'))),
       page: 1,
       localeOffset: 0,
     });
@@ -1293,6 +1361,41 @@ export class TranslationMatrixPage extends StatefulController<TranslationMatrixP
     const retry = target.closest<HTMLElement>('[data-matrix-retry="true"]');
     if (retry) {
       void this.load();
+      return;
+    }
+    const quickFilter = target.closest<HTMLElement>('[data-matrix-quick-filter]');
+    if (quickFilter) {
+      this.updateQuery({
+        readinessState: quickFilter.dataset.matrixQuickFilter || '',
+        page: 1,
+        localeOffset: 0,
+      });
+      void this.load();
+      return;
+    }
+    const localeFilter = target.closest<HTMLElement>('[data-matrix-filter-locale]');
+    if (localeFilter) {
+      const locale = localeFilter.dataset.matrixFilterLocale || '';
+      const next = new Set(this.query.locales || []);
+      if (next.has(locale)) {
+        next.delete(locale);
+      } else {
+        next.add(locale);
+      }
+      this.updateQuery({
+        locales: Array.from(next).sort(),
+        page: 1,
+        localeOffset: 0,
+      });
+      void this.load();
+      return;
+    }
+    const copyId = target.closest<HTMLElement>('[data-matrix-copy-id]');
+    if (copyId) {
+      const value = copyId.dataset.matrixCopyId || '';
+      if (value && globalThis.navigator?.clipboard?.writeText) {
+        void globalThis.navigator.clipboard.writeText(value);
+      }
       return;
     }
     const familyToggle = target.closest<HTMLInputElement>('[data-matrix-family-toggle]');

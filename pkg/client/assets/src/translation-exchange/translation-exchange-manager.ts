@@ -32,14 +32,11 @@ import {
   BTN_SECONDARY,
   CARD,
   CARD_SHADOW,
-  HEADER_DESCRIPTION,
-  HEADER_PRETITLE,
   INPUT_CHECKBOX,
   INPUT_SELECT,
   ROUNDED_CARD,
   formatTranslationShortDateTime,
   getStatusSeverityClass,
-  TEXT_TITLE,
   type BadgeSeverity,
 } from "../translation-shared/index.js";
 
@@ -323,7 +320,6 @@ const MUTED_PANEL_SM = `${ROUNDED_CARD} border ${BORDER_DEFAULT} ${BG_MUTED} p-4
 const MUTED_PANEL_TIGHT = `${ROUNDED_CARD} border ${BORDER_DEFAULT} ${BG_MUTED} px-4 py-3`;
 const EMPTY_PANEL = `${ROUNDED_CARD} border ${BORDER_DEFAULT} ${BG_MUTED} px-6 py-10 text-center text-sm text-gray-600`;
 const METRIC_LABEL = "text-xs uppercase tracking-wider text-gray-500";
-const SURFACE_TITLE = `mt-2 text-2xl font-bold ${TEXT_TITLE}`;
 
 function toDataURL(contentType: string, value: string): string {
   const base64 =
@@ -1427,19 +1423,7 @@ export class TranslationExchangeManager {
     this.root.innerHTML = `
       <section class="${CARD_SHADOW} overflow-hidden">
         <header class="px-6 py-5 border-b border-gray-200 bg-gray-50">
-          <div class="flex flex-wrap items-start justify-between gap-4">
-            <div>
-              <p class="${HEADER_PRETITLE}">Translation Exchange</p>
-              <h1 class="${SURFACE_TITLE}">Translation Exchange Wizard</h1>
-              <p class="${HEADER_DESCRIPTION}">Prepare external translation files, validate row-level conflicts, apply imports with explicit create and conflict controls, and inspect retained job history for retries and audits.</p>
-            </div>
-            <a class="${BTN_SECONDARY}" href="${escapeHTML(
-              `${this.config.apiPath}/template?format=json`,
-            )}">
-              Download JSON Template
-            </a>
-          </div>
-          <nav class="mt-5 grid gap-3 md:grid-cols-4" aria-label="Exchange steps">
+          <nav class="grid gap-3 md:grid-cols-4" aria-label="Exchange steps">
             ${this.renderStepButton("export", "1. Export", "Filter records, review warnings, and hand off files.")}
             ${this.renderStepButton("validate", "2. Validate", "Upload a package, inspect row outcomes, and stage apply decisions.")}
             ${this.renderStepButton("apply", "3. Apply", "Set explicit conflict/create toggles, poll async progress, and review terminal summaries.")}
@@ -1548,9 +1532,9 @@ export class TranslationExchangeManager {
           </div>
           <fieldset>
             <legend class="text-sm font-semibold text-gray-900">Target locales</legend>
-            <div class="mt-3 flex flex-wrap gap-3">
+            <div class="mt-3 grid gap-2 sm:grid-cols-2">
               ${this.exchangeUI.targetLocales.map((locale) => `
-                <label class="inline-flex items-center gap-2 rounded-full border border-gray-200 px-3 py-2 text-sm text-gray-700">
+                <label class="flex items-center gap-3 text-sm text-gray-700">
                   <input type="checkbox" class="${INPUT_CHECKBOX}" name="target_locales" value="${escapeHTML(locale.code)}" ${
                     this.exportState.draft.targetLocales.includes(locale.code) ? "checked" : ""
                   }>

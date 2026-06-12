@@ -11,6 +11,7 @@ import {
 } from '../shared/coercion.js';
 import { escapeAttribute, escapeHTML } from '../shared/html.js';
 import { renderIcon } from '../shared/icon-renderer.js';
+import { getStatusLabel, renderStatusChip } from '../shared/status-vocabulary.js';
 import { readLocationSearchParams } from '../shared/query-state/url-state.js';
 import { normalizeStringRecord } from '../shared/record-normalization.js';
 import { httpRequest, readCSRFToken, readHTTPError } from '../shared/transport/http-client.js';
@@ -1512,22 +1513,62 @@ function readOnlyEditorMessage(detail: TranslationAssignmentEditorDetail): strin
   return `This assignment is ${status} and can be inspected but not edited.`;
 }
 
-function submitActionLabel(detail: TranslationAssignmentEditorDetail, submitting: boolean): string {
-  if (submitting) return 'Submitting...';
-  if (detail.assignment_action_states.submit_review?.enabled) return 'Submit for review';
-  switch (assignmentLifecycleStatus(detail)) {
-    case 'review':
-    case 'in_review':
-      return 'Pending approval';
-    case 'approved':
-      return 'Approved';
-    case 'archived':
-      return 'Archived';
-    case 'changes_requested':
-      return 'Changes requested';
-    default:
-      return 'Submit unavailable';
+/**
+ * Renders the muted field-key line under a field title. The key is omitted
+ * when it would just repeat the label ("Excerpt" / "EXCERPT" duplication).
+ */
+function renderFieldKeyLine(label: string, path: string, required: boolean): string {
+  const showKey = Boolean(path) && label.trim().toLowerCase() !== path.trim().toLowerCase();
+  if (!showKey && !required) {
+    return '';
   }
+  const parts = [
+    showKey ? escapeHTML(path) : '',
+    required ? 'Required' : '',
+  ].filter(Boolean);
+  return `<p class="mt-1 text-xs text-gray-500">${parts.join(' • ')}</p>`;
+}
+
+/**
+ * Renders the submit-review affordance. Workflow states (in review, approved,
+ * archived, changes requested) render as registry-backed status chips — a
+ * status must never look like a button. Mirrors the SSR template logic in
+ * resources/translations/editor.html.
+ */
+function renderSubmitReviewControl(
+  detail: TranslationAssignmentEditorDetail,
+  submitting: boolean,
+  submitDisabled: boolean,
+  submitTitle: string
+): string {
+  if (detail.assignment_action_states.submit_review?.enabled) {
+    return `
+      <button
+        type="button"
+        class="${BTN_PRIMARY}"
+        data-action="submit-review"
+        title="${escapeAttribute(submitTitle)}"
+        ${submitDisabled ? 'disabled aria-disabled="true"' : ''}
+      >
+        ${submitting ? 'Submitting...' : 'Submit review'}
+      </button>
+    `;
+  }
+  const status = assignmentLifecycleStatus(detail);
+  if (status === 'review' || status === 'in_review' || status === 'approved' || status === 'archived' || status === 'changes_requested') {
+    return renderStatusChip(status);
+  }
+  return `
+    <button
+      type="button"
+      class="${BTN_PRIMARY}"
+      data-action="submit-review"
+      title="${escapeAttribute(submitTitle)}"
+      disabled aria-disabled="true"
+    >
+      Submit review
+    </button>
+  `;
 }
 
 function autosaveStateLabel(
@@ -1719,7 +1760,7 @@ function renderHeader(
           <div>
             <h1 class="${HEADER_TITLE}">${escapeHTML(assignment.source_title || 'Translation assignment')}</h1>
             <p class="mt-2 text-sm text-gray-600">
-              ${escapeHTML(sourceLocale)} to ${escapeHTML(targetLocale)} • ${escapeHTML(sentenceCaseToken(detail.status || assignment.status || 'draft'))} • Priority ${escapeHTML(detail.priority || 'normal')}
+              ${escapeHTML(sourceLocale.toUpperCase())} → ${escapeHTML(targetLocale.toUpperCase())} • ${escapeHTML(getStatusLabel(detail.status || assignment.status || 'draft'))} • Priority ${escapeHTML(getStatusLabel(detail.priority || 'normal'))}
             </p>
           </div>
           <div class="flex flex-wrap gap-2 text-xs text-gray-600">
@@ -1767,15 +1808,7 @@ function renderHeader(
             </div>
           ` : ''}
           <div class="flex max-w-xs flex-col items-start gap-1">
-            <button
-              type="button"
-              class="${BTN_PRIMARY}"
-              data-action="submit-review"
-              title="${escapeAttribute(submitTitle)}"
-              ${submitDisabled ? 'disabled aria-disabled="true"' : ''}
-            >
-              ${escapeHTML(submitActionLabel(detail, submitting))}
-            </button>
+            ${renderSubmitReviewControl(detail, submitting, submitDisabled, submitTitle)}
             ${submitDisabled && submitTitle ? `<p class="text-xs text-gray-500" data-submit-unavailable-reason="true">${escapeHTML(submitTitle)}</p>` : ''}
           </div>
         </div>
@@ -2000,38 +2033,31 @@ function renderFieldIssueSummary(summary: EditorFieldIssueSummary): string {
     && summary.validationErrors === 0
     && summary.qaBlockers === 0;
 
-  // Build summary chips with Tailwind classes
+  // Build summary chips with the shared status-chip anatomy (see input.css)
   const chips: string[] = [];
+  const metaChip = (tone: string, text: string): string =>
+    `<span class="status-chip status-chip--${tone}">${text}</span>`;
 
-  // Total/complete chip
-  const completeClass = isReadyToSubmit
-    ? 'bg-emerald-100 text-emerald-700 border-emerald-200'
-    : 'bg-gray-100 text-gray-700 border-gray-200';
-  chips.push(`<span class="inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-medium ${completeClass}">${summary.completeFields}/${summary.totalFields} complete</span>`);
+  chips.push(metaChip(isReadyToSubmit ? 'success' : 'neutral', `${summary.completeFields}/${summary.totalFields} complete`));
 
-  // Missing required
   if (summary.missingRequiredFields > 0) {
-    chips.push(`<span class="inline-flex items-center gap-1 rounded-full border border-rose-200 bg-rose-100 px-2.5 py-1 text-xs font-medium text-rose-700">${summary.missingRequiredFields} missing required</span>`);
+    chips.push(metaChip('error', `${summary.missingRequiredFields} missing required`));
   }
 
-  // Source changed
   if (summary.sourceChangedFields > 0) {
-    chips.push(`<span class="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-700">${summary.sourceChangedFields} source changed</span>`);
+    chips.push(metaChip('warning', `${summary.sourceChangedFields} source changed`));
   }
 
-  // Validation errors
   if (summary.validationErrors > 0) {
-    chips.push(`<span class="inline-flex items-center gap-1 rounded-full border border-rose-200 bg-rose-100 px-2.5 py-1 text-xs font-medium text-rose-700">${summary.validationErrors} validation ${summary.validationErrors === 1 ? 'error' : 'errors'}</span>`);
+    chips.push(metaChip('error', `${summary.validationErrors} validation ${summary.validationErrors === 1 ? 'error' : 'errors'}`));
   }
 
-  // QA blockers
   if (summary.qaBlockers > 0) {
-    chips.push(`<span class="inline-flex items-center gap-1 rounded-full border border-rose-200 bg-rose-100 px-2.5 py-1 text-xs font-medium text-rose-700">${summary.qaBlockers} QA ${summary.qaBlockers === 1 ? 'blocker' : 'blockers'}</span>`);
+    chips.push(metaChip('error', `${summary.qaBlockers} QA ${summary.qaBlockers === 1 ? 'blocker' : 'blockers'}`));
   }
 
-  // QA warnings
   if (summary.qaWarnings > 0) {
-    chips.push(`<span class="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-700">${summary.qaWarnings} QA ${summary.qaWarnings === 1 ? 'warning' : 'warnings'}</span>`);
+    chips.push(metaChip('warning', `${summary.qaWarnings} QA ${summary.qaWarnings === 1 ? 'warning' : 'warnings'}`));
   }
 
   // Summary bar background
@@ -2103,7 +2129,7 @@ function renderFieldList(detail: TranslationAssignmentEditorDetail, readOnly = f
           <div class="flex flex-wrap items-start justify-between gap-3">
             <div>
               <h2 class="text-lg font-semibold text-gray-900">${escapeHTML(entry.label)}</h2>
-              <p class="mt-1 text-xs uppercase tracking-[0.18em] text-gray-500">${escapeHTML(entry.path)}${entry.required ? ' • Required' : ''}</p>
+              ${renderFieldKeyLine(entry.label, entry.path, entry.required)}
             </div>
             <button
               type="button"
@@ -2119,11 +2145,11 @@ function renderFieldList(detail: TranslationAssignmentEditorDetail, readOnly = f
           </div>
           <div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
             <div class="rounded-xl border border-gray-200 bg-gray-50 p-4">
-              <p class="text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">Source</p>
+              <p class="text-xs font-semibold uppercase tracking-wider text-gray-500">Source</p>
               <div class="mt-2 whitespace-pre-wrap text-sm text-gray-800">${renderSourceValue(entry)}</div>
             </div>
             <div class="rounded-xl border ${entry.validation.valid ? 'border-gray-200' : 'border-rose-200'} bg-white p-4">
-              <label class="text-xs font-semibold uppercase tracking-[0.18em] text-gray-500" for="editor-field-${escapeAttribute(entry.path)}">Translation</label>
+              <label class="text-xs font-semibold uppercase tracking-wider text-gray-500" for="editor-field-${escapeAttribute(entry.path)}">Translation</label>
               ${entry.input_type === 'textarea'
                 ? `<textarea id="editor-field-${escapeAttribute(entry.path)}" class="${textareaClass}" data-field-input="${escapeAttribute(entry.path)}" ${readOnly ? 'disabled aria-disabled="true"' : ''}>${escapeHTML(entry.target_value)}</textarea>`
                 : `<input id="editor-field-${escapeAttribute(entry.path)}" type="text" class="${inputClass}" data-field-input="${escapeAttribute(entry.path)}" value="${escapeAttribute(entry.target_value)}" ${readOnly ? 'disabled aria-disabled="true"' : ''} />`}
@@ -2399,13 +2425,13 @@ function renderReviewActionsPanel(detail: TranslationAssignmentEditorDetail, sub
       key: 'approve',
       label: 'Approve',
       state: approveState,
-      tone: 'border-emerald-300 text-emerald-700',
+      tone: 'btn btn-success-outline',
     },
     {
       key: 'reject',
       label: 'Request changes',
       state: rejectState,
-      tone: 'border-rose-300 text-rose-700',
+      tone: 'btn btn-danger-outline',
     },
   ];
   return `
@@ -2421,7 +2447,7 @@ function renderReviewActionsPanel(detail: TranslationAssignmentEditorDetail, sub
           return `
             <button
               type="button"
-              class="rounded-lg border px-4 py-2 text-sm font-semibold ${action.tone} ${disabled ? 'cursor-not-allowed opacity-60' : 'hover:bg-gray-50'}"
+              class="${action.tone} ${disabled ? 'cursor-not-allowed opacity-60' : ''}"
               data-action="${escapeAttribute(action.key)}"
               title="${escapeAttribute(action.state?.reason || '')}"
               ${disabled ? 'disabled aria-disabled="true"' : ''}
@@ -2486,7 +2512,7 @@ function renderRejectModal(rejectDraft: TranslationEditorRejectDraft | null, sub
       <section class="${MODAL_CONTENT}" role="dialog" aria-modal="true" aria-labelledby="translation-reject-title">
         <div class="flex items-start justify-between gap-4">
           <div>
-            <p class="text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">Review action</p>
+            <p class="text-xs font-semibold uppercase tracking-wider text-gray-500">Review action</p>
             <h2 id="translation-reject-title" class="mt-2 text-2xl font-semibold text-gray-900">Request changes</h2>
             <p class="mt-2 text-sm text-gray-600">Capture the rejection reason so translators can see it directly in the editor timeline.</p>
           </div>
@@ -2551,7 +2577,7 @@ function renderAttachmentPanel(detail: TranslationAssignmentEditorDetail): strin
               <div class="flex items-start justify-between gap-3">
                 <div>
                   <p class="font-semibold text-gray-900">${escapeHTML(attachment.filename)}</p>
-                  <p class="mt-1 text-xs uppercase tracking-[0.18em] text-gray-500">${escapeHTML(attachment.kind)}</p>
+                  <p class="mt-1 text-xs uppercase tracking-wider text-gray-500">${escapeHTML(attachment.kind)}</p>
                 </div>
                 <span class="text-xs text-gray-500">${escapeHTML(byteSizeLabel(attachment.byte_size))}</span>
               </div>

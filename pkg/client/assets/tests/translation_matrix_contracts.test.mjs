@@ -184,14 +184,19 @@ test('translation matrix runtime: mount renders filters, viewport controls, and 
   assert.ok(page);
   assert.equal(page.getState(), 'ready');
   assert.match(root.innerHTML, /data-matrix-filters="true"/);
+  assert.match(root.innerHTML, /data-matrix-quick-filter="ready"/);
   assert.match(root.innerHTML, /data-matrix-grid="true"/);
-  assert.match(root.innerHTML, /Create Missing/);
+  assert.match(root.innerHTML, /Create missing/);
   assert.match(root.innerHTML, /Prev locales/);
+  // Header ownership: the SSR template renders the page title; the module must not duplicate it.
+  assert.doesNotMatch(root.innerHTML, /data-matrix-hero/);
+  assert.doesNotMatch(root.innerHTML, /Header action/);
+  assert.doesNotMatch(root.innerHTML, /tracking-\[0\.1/);
 
   page.unmount();
 });
 
-test('translation matrix runtime: resolves breadcrumb base path from endpoint and uses shared neutral styling', async () => {
+test('translation matrix runtime: leaves the page header to SSR and uses shared neutral styling', async () => {
   const { root } = setupDom('http://localhost/workspace/admin/translations/matrix');
   root.dataset.endpoint = '/workspace/admin/api/translations/matrix';
   const page = initTranslationMatrixPage(root, {
@@ -203,7 +208,9 @@ test('translation matrix runtime: resolves breadcrumb base path from endpoint an
   await flushAsync();
 
   assert.ok(page);
-  assert.match(root.innerHTML, /href="\/workspace\/admin\/translations"/);
+  // The SSR template owns the breadcrumb/title; the module renders no duplicate header.
+  assert.doesNotMatch(root.innerHTML, /aria-label="Breadcrumb"/);
+  assert.doesNotMatch(root.innerHTML, /<h1/);
   assert.doesNotMatch(root.innerHTML, /slate-/);
 
   page.unmount();

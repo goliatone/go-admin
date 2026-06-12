@@ -83,7 +83,6 @@ export {
   STATUS_COLOR_PURPLE,
   SEVERITY_COLOR_MAP,
   getStatusColorClass,
-  STATUS_SEVERITY_MAP,
   getStatusSeverityClass,
 
   // Form Inputs

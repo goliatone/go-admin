@@ -252,7 +252,8 @@ test('translation dashboard runtime: mount renders manager toolbar, cards, table
   assert.ok(page);
   assert.equal(page.getState(), 'ready');
   assert.match(root.innerHTML, /data-dashboard-toolbar="true"/);
-  assert.match(root.innerHTML, /Refresh dashboard/);
+  assert.match(root.innerHTML, /data-dashboard-refresh-button="true"/);
+  assert.match(root.innerHTML, /aria-label="Refresh translation dashboard"/);
   assert.match(root.innerHTML, /Open assignment/);
   assert.match(root.innerHTML, /Top Overdue Assignments/);
 

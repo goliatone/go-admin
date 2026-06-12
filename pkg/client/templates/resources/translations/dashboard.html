@@ -36,7 +36,10 @@
               <p class="text-xs font-semibold uppercase tracking-wider text-gray-500">
                 Last updated {{ translation_dashboard_ssr.Data.display.generated_label|default:translation_dashboard_ssr.Meta.generated_at|default:translation_dashboard_ssr.Data.generated|default:"now" }}
               </p>
-              <a class="btn btn-primary" data-translation-refresh href="{{ translation_dashboard_ssr.Links.dashboard|default:"/admin/translations/dashboard" }}">Refresh dashboard</a>
+              <a class="btn btn-secondary" data-translation-refresh href="{{ translation_dashboard_ssr.Links.dashboard|default:"/admin/translations/dashboard" }}">
+                <i class="iconoir-refresh" aria-hidden="true"></i>
+                Refresh
+              </a>
             </div>
           </div>
           <div class="flex flex-wrap items-center justify-between gap-3 bg-gray-50 px-5 py-3 text-xs text-gray-600">
@@ -190,7 +193,7 @@
                     <td class="px-5 py-4">
                       <div class="flex flex-wrap gap-1">
                         {% for chip in row.display_blockers %}
-                        <span class="{% if chip.tone == "warning" %}bg-amber-100 text-amber-800{% elif chip.tone == "danger" %}bg-rose-100 text-rose-800{% elif chip.tone == "info" %}bg-sky-100 text-sky-800{% else %}bg-gray-100 text-gray-700{% endif %} inline-flex rounded-md px-2 py-0.5 text-xs font-medium">{{ chip.label }}</span>
+                        {% include "partials/status-badge.html" with badge_status=chip.code badge_label=chip.label show_icon=false %}
                         {% endfor %}
                       </div>
                     </td>
@@ -241,10 +244,8 @@
 	                    </td>
 	                    <td class="px-5 py-4 text-gray-700">{{ row.display_priority|default:row.priority|default:"-" }}</td>
 	                    <td class="px-5 py-4">
-	                      
-	                      {% set dashboard_status_tone = "info" %}
-	                      {% if row.status == "in_review" %}{% set dashboard_status_tone = "warning" %}{% elif row.status == "changes_requested" %}{% set dashboard_status_tone = "error" %}{% elif row.status == "approved" or row.status == "completed" %}{% set dashboard_status_tone = "success" %}{% endif %}
-	                      {% include "partials/status-badge.html" with badge_status=row.status|default:row.queue_state|default:"unknown" badge_tone=dashboard_status_tone badge_label=row.display_status|default:row.status|default:row.queue_state %}
+	                      {# tone/label resolve from the canonical registry inside the partial #}
+	                      {% include "partials/status-badge.html" with badge_status=row.status|default:row.queue_state|default:"unknown" badge_label=row.display_status %}
 	                    </td>
                     <td class="px-5 py-4 font-semibold {% if row.due_state == "overdue" or row.overdue_minutes %}text-rose-700{% else %}text-gray-500{% endif %}">
                       {{ row.display_overdue|default:"-" }}

@@ -15,6 +15,8 @@
  *   - Icons embedded in status vocabulary constants (for consistency with backend)
  */
 
+import { getStatusEntry, TRANSLATION_STATUS_REGISTRY } from '../shared/status-vocabulary.js';
+
 // =============================================================================
 // Action Icons
 // =============================================================================
@@ -205,49 +207,21 @@ export const ICON_HIDDEN = 'iconoir:eye-off';
 // =============================================================================
 
 /**
- * Maps status/action keywords to appropriate Iconoir icons.
- * Useful for dynamic icon selection based on status or action type.
+ * Maps status keywords to Iconoir icon refs, derived from the canonical
+ * status registry (shared/status-vocabulary.ts) so icon choices cannot drift.
  */
-export const STATUS_ICON_MAP: Record<string, string> = {
-  // Success states
-  ready: ICON_SUCCESS,
-  approved: ICON_SUCCESS,
-  published: ICON_SUCCESS,
-  completed: ICON_SUCCESS,
-  on_track: ICON_SUCCESS,
-
-  // Warning states
-  pending: ICON_CLOCK,
-  pending_review: ICON_CLOCK,
-  due_soon: ICON_CLOCK,
-  missing_fields: ICON_WARNING,
-
-  // Error states
-  blocked: ICON_BAN,
-  rejected: ICON_ERROR,
-  failed: ICON_ERROR,
-  overdue: ICON_WARNING,
-  missing_locale: ICON_ERROR,
-  missing_locales: ICON_ERROR,
-
-  // Info states
-  in_progress: ICON_PLAY,
-  assigned: ICON_USER,
-  in_review: ICON_DOCUMENT,
-  review: ICON_DOCUMENT,
-
-  // Neutral states
-  draft: ICON_DOCUMENT,
-  archived: ICON_ARCHIVE,
-  none: ICON_CLOCK,
-  not_required: ICON_INFO,
-};
+export const STATUS_ICON_MAP: Record<string, string> = Object.fromEntries(
+  Object.entries(TRANSLATION_STATUS_REGISTRY).map(([status, entry]) => [
+    status,
+    `iconoir:${entry.icon}`,
+  ])
+);
 
 /**
  * Gets the appropriate icon for a status value.
  * Falls back to info icon if status is not mapped.
  */
 export function getStatusIcon(status: string): string {
-  const normalized = status.toLowerCase().replace(/-/g, '_');
-  return STATUS_ICON_MAP[normalized] ?? ICON_INFO;
+  const entry = getStatusEntry(status);
+  return entry ? `iconoir:${entry.icon}` : ICON_INFO;
 }

@@ -114,22 +114,28 @@
                 <td class="max-w-md px-4 py-5 align-top">
                   <a class="font-semibold text-gray-900 hover:text-sky-700"
                      href="{{ family.ssr_links.detail }}">
-                    {{ family.source_title|default:family.family_id }}
+                    {{ family.display_title|default:family.source_title|default:family.display_identifier|default:family.family_id }}
                   </a>
-                  <p class="mt-1 break-all text-xs text-gray-500">{{ family.family_id }}</p>
+                  <p class="mt-1 text-xs text-gray-500" title="{{ family.family_id }}">
+                    {# when the title is just the truncated ID, skip repeating it #}
+                    {% if family.display_title != family.display_identifier %}
+                    <span>{{ family.display_identifier|default:family.family_id }}</span>
+                    {% endif %}
+                    <button type="button" class="ml-1 align-middle text-gray-400 transition-colors hover:text-gray-700" data-copy-id="{{ family.family_id }}" title="Copy family ID" aria-label="Copy family ID">
+                      <i class="iconoir-copy" aria-hidden="true"></i>
+                    </button>
+                  </p>
                   <p class="mt-2 text-xs text-gray-500">{{ family.content_type|default:"content" }} &middot; Source {{ family.source_locale|default:"-" }}</p>
                 </td>
                 <td class="px-4 py-5 align-top">
-                  
-                  {% set readiness_tone = "neutral" %}
-                  {% if family.readiness_state == "blocked" %}{% set readiness_tone = "error" %}{% elif family.readiness_state == "ready" %}{% set readiness_tone = "success" %}{% elif family.readiness_state == "missing_locales" or family.readiness_state == "missing_locales_and_fields" %}{% set readiness_tone = "warning" %}{% endif %}
-                  {% include "partials/status-badge.html" with badge_status=family.readiness_state badge_tone=readiness_tone %}
+                  {# tone/label resolve from the canonical registry inside the partial #}
+                  {% include "partials/status-badge.html" with badge_status=family.readiness_state %}
                 </td>
                 <td class="px-4 py-5 align-top">
                   {% if family.blocker_labels %}
                   <div class="flex flex-wrap gap-1.5">
                     {% for blocker_code, blocker_label in family.blocker_labels %}
-                    <span class="{% if blocker_code == "missing_locale" %}bg-amber-50 text-amber-700{% elif blocker_code == "pending_review" %}bg-blue-50 text-blue-700{% else %}bg-gray-100 text-gray-700{% endif %} rounded-full px-2 py-1 text-xs font-medium">{{ blocker_label|upper }}</span>
+                    {% include "partials/status-badge.html" with badge_status=blocker_code badge_label=blocker_label show_icon=false %}
                     {% endfor %}
                   </div>
                   {% else %}
@@ -137,19 +143,20 @@
                   {% endif %}
                 </td>
                 <td class="px-4 py-5 align-top">
-                  <div class="flex flex-nowrap gap-1.5">
-                    <span class="inline-flex items-center gap-1 whitespace-nowrap rounded-md bg-gray-50 px-2 py-1 text-xs">
-                      <span class="font-semibold {% if family.missing_required_locale_count %}text-rose-700{% else %}text-gray-900{% endif %}">{{ family.missing_required_locale_count|default:"0" }}</span>
-                      <span class="font-semibold uppercase tracking-wide text-gray-500">MISSING</span>
-                    </span>
-                    <span class="inline-flex items-center gap-1 whitespace-nowrap rounded-md bg-gray-50 px-2 py-1 text-xs">
-                      <span class="font-semibold {% if family.pending_review_count %}text-amber-700{% else %}text-gray-900{% endif %}">{{ family.pending_review_count|default:"0" }}</span>
-                      <span class="font-semibold uppercase tracking-wide text-gray-500">REVIEW</span>
-                    </span>
-                    <span class="inline-flex items-center gap-1 whitespace-nowrap rounded-md bg-gray-50 px-2 py-1 text-xs">
-                      <span class="font-semibold {% if family.outdated_locale_count %}text-violet-700{% else %}text-gray-900{% endif %}">{{ family.outdated_locale_count|default:"0" }}</span>
-                      <span class="font-semibold uppercase tracking-wide text-gray-500">OUTDATED</span>
-                    </span>
+                  {# only non-zero pressure counts render as chips; all-clear rows show a quiet dash #}
+                  <div class="flex flex-wrap gap-1.5">
+                    {% if family.missing_required_locale_count %}
+                    <span class="status-chip status-chip--error">{{ family.missing_required_locale_count }} missing</span>
+                    {% endif %}
+                    {% if family.pending_review_count %}
+                    <span class="status-chip status-chip--warning">{{ family.pending_review_count }} review</span>
+                    {% endif %}
+                    {% if family.outdated_locale_count %}
+                    <span class="status-chip status-chip--warning">{{ family.outdated_locale_count }} outdated</span>
+                    {% endif %}
+                    {% if not family.missing_required_locale_count and not family.pending_review_count and not family.outdated_locale_count %}
+                    <span class="text-sm text-gray-400">&mdash;</span>
+                    {% endif %}
                   </div>
                 </td>
                 <td class="px-4 py-5 align-top">

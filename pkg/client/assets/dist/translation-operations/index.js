@@ -1,8 +1,9 @@
 import { escapeHTML as c } from "../shared/html.js";
 import { httpRequest as R } from "../shared/transport/http-client.js";
 import { extractStructuredError as q } from "../toast/error-helpers.js";
-import { r as h, t as N } from "../chunks/translation-contracts-Ct_EG7JJ.js";
-import { h as I, it as v, m as w, nt as A, p as P, rt as b } from "../chunks/translation-shared-CdZJJA93.js";
+import "../chunks/status-vocabulary-HmIBabRF.js";
+import { r as h, t as N } from "../chunks/translation-contracts-DrJVTucO.js";
+import { h as I, it as v, m as w, nt as A, p as P, rt as b } from "../chunks/translation-shared-Ba5eIyeA.js";
 var U = {
   QUEUE: "admin.translations.queue",
   EXCHANGE_UI: "admin.translations.exchange",
@@ -54,7 +55,7 @@ function $(e) {
 function S(e) {
   return (e ?? p()).modules.queue.enabled;
 }
-function K(e) {
+function W(e) {
   return $(e) || S(e);
 }
 function E(e, t, n) {
@@ -283,7 +284,7 @@ function T(e, t, n = {}) {
       e.innerHTML = F();
   }
 }
-async function W(e) {
+async function Z(e) {
   const t = typeof e == "string" ? document.querySelector(e) : e;
   if (!t) return null;
   T(t, { status: "loading" });
@@ -333,7 +334,7 @@ var Q = class {
     }));
   }
 };
-function Z(e) {
+function ee(e) {
   if (!document.querySelector("[data-translation-operations]")) return null;
   const t = new Q({ basePath: e ?? "" });
   return t.init(), t;
@@ -344,9 +345,9 @@ export {
   p as extractTranslationCapabilities,
   H as fetchTranslationShellData,
   E as getTranslationRoute,
-  K as hasTranslationOperations,
-  Z as initTranslationOperations,
-  W as initTranslationSurfaceShell,
+  W as hasTranslationOperations,
+  ee as initTranslationOperations,
+  Z as initTranslationSurfaceShell,
   $ as isExchangeEnabled,
   S as isQueueEnabled,
   O as renderEntrypointLink,

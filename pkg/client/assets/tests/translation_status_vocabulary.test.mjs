@@ -93,10 +93,11 @@ describe('CORE_READINESS_DISPLAY', () => {
     }
   });
 
-  it('should use character icons for matrix display', () => {
-    assert.strictEqual(CORE_READINESS_DISPLAY.ready.icon, '●');
-    assert.strictEqual(CORE_READINESS_DISPLAY.missing_locales.icon, '○');
-    assert.strictEqual(CORE_READINESS_DISPLAY.missing_fields.icon, '◐');
+  it('should use registry iconoir icons', () => {
+    assert.strictEqual(CORE_READINESS_DISPLAY.ready.iconType, 'iconoir');
+    assert.strictEqual(CORE_READINESS_DISPLAY.ready.icon, 'check');
+    assert.strictEqual(CORE_READINESS_DISPLAY.missing_locales.icon, 'warning-circle');
+    assert.strictEqual(CORE_READINESS_DISPLAY.missing_fields.icon, 'warning-circle');
   });
 });
 
@@ -108,11 +109,14 @@ describe('QUEUE_STATE_DISPLAY', () => {
     }
   });
 
-  it('should have correct severity levels', () => {
-    assert.strictEqual(QUEUE_STATE_DISPLAY.pending.severity, 'neutral');
+  it('should have registry severity levels', () => {
+    assert.strictEqual(QUEUE_STATE_DISPLAY.pending.severity, 'warning');
     assert.strictEqual(QUEUE_STATE_DISPLAY.assigned.severity, 'info');
     assert.strictEqual(QUEUE_STATE_DISPLAY.rejected.severity, 'error');
     assert.strictEqual(QUEUE_STATE_DISPLAY.approved.severity, 'success');
+    // 2026-06-11 conflict resolutions: review is warning (not purple/info)
+    assert.strictEqual(QUEUE_STATE_DISPLAY.review.severity, 'warning');
+    assert.strictEqual(QUEUE_STATE_DISPLAY.review.label, 'In Review');
   });
 });
 
@@ -385,7 +389,7 @@ describe('getStatusCssClass', () => {
 describe('getSeverityCssClass', () => {
   it('should return severity-{level} for valid statuses', () => {
     assert.strictEqual(getSeverityCssClass('ready'), 'severity-success');
-    assert.strictEqual(getSeverityCssClass('pending'), 'severity-neutral');
+    assert.strictEqual(getSeverityCssClass('pending'), 'severity-warning');
     assert.strictEqual(getSeverityCssClass('overdue'), 'severity-error');
     assert.strictEqual(getSeverityCssClass('due_soon'), 'severity-warning');
     assert.strictEqual(getSeverityCssClass('in_progress'), 'severity-info');
@@ -408,17 +412,17 @@ describe('getSeverityCssClass', () => {
 // ============================================================================
 
 describe('renderVocabularyStatusBadge', () => {
-  it('should render valid status as badge HTML', () => {
+  it('should render valid status as shared status-chip HTML', () => {
     const html = renderVocabularyStatusBadge('ready');
     assert.ok(html.includes('Ready'));
     assert.ok(html.includes('data-status="ready"'));
-    assert.ok(html.includes('bg-green-100'));
+    assert.ok(html.includes('status-chip--success'));
   });
 
   it('should render unknown status with fallback styling', () => {
     const html = renderVocabularyStatusBadge('unknown');
-    assert.ok(html.includes('unknown'));
-    assert.ok(html.includes('bg-gray-100'));
+    assert.ok(html.includes('Unknown'));
+    assert.ok(html.includes('status-chip--neutral'));
   });
 
   it('should support size option', () => {
@@ -427,8 +431,8 @@ describe('renderVocabularyStatusBadge', () => {
     const def = renderVocabularyStatusBadge('ready', { size: 'default' });
 
     assert.ok(xs.includes('text-[10px]'));
-    assert.ok(sm.includes('text-xs'));
-    assert.ok(def.includes('text-xs'));
+    assert.ok(sm.includes('px-2 py-0.5'));
+    assert.ok(def.includes('status-chip'));
   });
 
   it('should support icon-only mode', () => {
@@ -574,15 +578,15 @@ describe('getStatusVocabularyStyles', () => {
 
 describe('Status Vocabulary Integration', () => {
   it('should have consistent color classes across related states', () => {
-    // Success states should all use green
-    assert.ok(CORE_READINESS_DISPLAY.ready.bgClass.includes('green'));
-    assert.ok(QUEUE_STATE_DISPLAY.approved.bgClass.includes('green'));
-    assert.ok(EXCHANGE_ROW_STATUS_DISPLAY.success.bgClass.includes('green'));
+    // Success states all share the success tone classes
+    assert.strictEqual(CORE_READINESS_DISPLAY.ready.bgClass, QUEUE_STATE_DISPLAY.approved.bgClass);
+    assert.strictEqual(QUEUE_STATE_DISPLAY.approved.bgClass, EXCHANGE_ROW_STATUS_DISPLAY.success.bgClass);
+    assert.ok(CORE_READINESS_DISPLAY.ready.bgClass.includes('emerald'));
 
-    // Error states should all use red
-    assert.ok(CORE_READINESS_DISPLAY.missing_locales_and_fields.bgClass.includes('red'));
-    assert.ok(QUEUE_STATE_DISPLAY.rejected.bgClass.includes('red'));
-    assert.ok(EXCHANGE_ROW_STATUS_DISPLAY.error.bgClass.includes('red'));
+    // Error states all share the error tone classes
+    assert.strictEqual(CORE_READINESS_DISPLAY.missing_locales_and_fields.bgClass, QUEUE_STATE_DISPLAY.rejected.bgClass);
+    assert.strictEqual(QUEUE_STATE_DISPLAY.rejected.bgClass, EXCHANGE_ROW_STATUS_DISPLAY.error.bgClass);
+    assert.ok(QUEUE_STATE_DISPLAY.rejected.bgClass.includes('rose'));
   });
 
   it('should have consistent severity levels', () => {

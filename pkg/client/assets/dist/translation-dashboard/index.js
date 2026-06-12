@@ -1,13 +1,14 @@
 import { escapeAttribute as c, escapeHTML as o } from "../shared/html.js";
 import { t as F } from "../chunks/icon-renderer-a2WAOpSe.js";
-import { readHTTPError as le } from "../shared/transport/http-client.js";
-import { extractStructuredError as de } from "../toast/error-helpers.js";
-import { buildEndpointURL as ce, readLocationSearchParams as ue } from "../shared/query-state/url-state.js";
-import { StatefulController as pe } from "../shared/stateful-controller.js";
+import { readHTTPError as oe } from "../shared/transport/http-client.js";
+import { extractStructuredError as le } from "../toast/error-helpers.js";
+import "../chunks/status-vocabulary-HmIBabRF.js";
+import { buildEndpointURL as de, readLocationSearchParams as ce } from "../shared/query-state/url-state.js";
+import { StatefulController as ue } from "../shared/stateful-controller.js";
 import { asNumberish as x, asRecord as p, asString as n } from "../shared/coercion.js";
-import { A as H, C as $, D as P, E as z, F as he, N as fe, O as U, P as ge, R as be, T as G, a as R, d as me, dt as K, f as _, g as xe, i as ye, k as E, l as ve, n as S, o as $e, r as V, s as we, t as X, u as w, y as Y } from "../chunks/translation-shared-CdZJJA93.js";
-import { normalizeNumberRecord as I, normalizeStringRecord as k } from "../shared/record-normalization.js";
-import { c as L, s as ke } from "../chunks/ui-states-1McZ5upU.js";
+import { A as H, C as $, D as P, E as z, F as pe, N as he, O as U, P as fe, R as ge, T as G, a as S, d as be, f as _, g as me, i as xe, k as E, l as ye, n as I, o as ve, r as K, s as $e, t as V, u as w, ut as X, y as we } from "../chunks/translation-shared-Ba5eIyeA.js";
+import { normalizeNumberRecord as D, normalizeStringRecord as k } from "../shared/record-normalization.js";
+import { c as L, s as ke } from "../chunks/ui-states-Dk9y2u2w.js";
 var v = class extends Error {
   constructor(t) {
     super(t.message), this.name = "TranslationDashboardRequestError", this.status = t.status, this.code = t.code ?? null, this.requestId = t.requestId, this.traceId = t.traceId, this.metadata = t.metadata ?? null;
@@ -22,7 +23,7 @@ function g(t, e) {
   }
   return a;
 }
-function D(t) {
+function O(t) {
   const e = n(t).toLowerCase();
   switch (e) {
     case "warning":
@@ -33,7 +34,7 @@ function D(t) {
       return "ok";
   }
 }
-function W(t) {
+function Y(t) {
   if (!t || typeof t != "object") return null;
   const e = t;
   return {
@@ -74,12 +75,12 @@ function _e(t) {
     label: n(e.label),
     description: n(e.description),
     count: x(e.count),
-    breakdown: I(e.breakdown),
+    breakdown: D(e.breakdown),
     alert: {
-      state: D(s.state),
+      state: O(s.state),
       message: n(s.message)
     },
-    drilldown: W(e.drilldown),
+    drilldown: Y(e.drilldown),
     metricKey: n(e.metric_key),
     runbookId: n(e.runbook_id)
   };
@@ -106,7 +107,7 @@ function Ce(t) {
   if (Object.keys(e).length === 0) return null;
   const a = {};
   for (const [h, u] of Object.entries(p(e.links))) {
-    const d = W(u);
+    const d = Y(u);
     d && (a[h] = d);
   }
   const s = g(e.blocker_codes, (h) => n(h) || null), r = {};
@@ -135,7 +136,7 @@ function Ae(t, e = "") {
     rows: s
   };
 }
-function Q(t) {
+function W(t) {
   const e = p(t), a = n(e.id);
   return a ? {
     id: a,
@@ -147,7 +148,7 @@ function Q(t) {
     query: k(e.query, { omitEmptyValues: !0 })
   } : null;
 }
-function J(t) {
+function Q(t) {
   const e = p(t), a = n(e.id);
   if (!a) return null;
   const s = {};
@@ -173,22 +174,22 @@ function J(t) {
 function Re(t) {
   const e = p(t), a = {};
   for (const [s, r] of Object.entries(p(e.query_models))) {
-    const i = J(r);
+    const i = Q(r);
     i && (a[s] = i);
   }
   return {
     cardIds: g(e.card_ids, (s) => n(s) || null),
     tableIds: g(e.table_ids, (s) => n(s) || null),
-    alertStates: g(e.alert_states, (s) => D(s)),
-    defaultLimits: I(e.default_limits),
+    alertStates: g(e.alert_states, (s) => O(s)),
+    defaultLimits: D(e.default_limits),
     queryModels: a,
-    runbooks: g(e.runbooks, Q)
+    runbooks: g(e.runbooks, W)
   };
 }
 function Se(t) {
   const e = p(t), a = n(e.code);
   return a ? {
-    state: D(e.state),
+    state: O(e.state),
     code: a,
     message: n(e.message),
     cardId: n(e.card_id),
@@ -205,7 +206,7 @@ function De(t) {
   for (const [h, u] of Object.entries(p(a.tables))) l[h] = Ae(u, h);
   const b = { ...r.queryModels };
   for (const [h, u] of Object.entries(p(s.query_models))) {
-    const d = J(u);
+    const d = Q(u);
     d && (b[h] = d);
   }
   return {
@@ -213,8 +214,8 @@ function De(t) {
       cards: i,
       tables: l,
       alerts: g(a.alerts, Se),
-      runbooks: g(a.runbooks, Q),
-      summary: I(a.summary)
+      runbooks: g(a.runbooks, W),
+      summary: D(a.summary)
     },
     meta: {
       channel: n(s.channel),
@@ -256,7 +257,7 @@ function Oe(t, e = {}) {
     ["blocked_limit", e.blockedLimit != null ? String(e.blockedLimit) : ""]
   ];
   for (const [r, i] of s) i && a.set(r, i);
-  return ce(t, a, { preserveAbsolute: !0 });
+  return de(t, a, { preserveAbsolute: !0 });
 }
 function Ne(t) {
   const e = n(t.endpoint), a = t.fetch ?? globalThis.fetch?.bind(globalThis);
@@ -274,9 +275,9 @@ function Ne(t) {
     });
     const i = await a(r, { headers: { Accept: "application/json" } });
     if (!i.ok) {
-      const l = await de(i.clone());
+      const l = await le(i.clone());
       throw new v({
-        message: l.message || await le(i, "Failed to load translation dashboard"),
+        message: l.message || await oe(i, "Failed to load translation dashboard"),
         status: i.status,
         code: l.textCode,
         requestId: i.headers.get("x-request-id") ?? i.headers.get("X-Request-ID") ?? void 0,
@@ -347,23 +348,23 @@ var C = {
   top_overdue_assignments: {
     label: "Top Overdue Assignments",
     shortLabel: "Overdue",
-    icon: R
+    icon: S
   },
   blocked_families: {
     label: "Blocked Families",
     shortLabel: "Blocked",
-    icon: X
+    icon: V
   }
 }, T = {
   "translations.dashboard.overdue_triage": {
     label: "Overdue Assignment Triage",
     shortLabel: "Overdue Triage",
-    icon: R
+    icon: S
   },
   "translations.dashboard.review_backlog": {
     label: "Reviewer Backlog Triage",
     shortLabel: "Review Backlog",
-    icon: S
+    icon: I
   },
   "translations.dashboard.publish_blockers": {
     label: "Publish Blocker Remediation",
@@ -371,22 +372,22 @@ var C = {
     icon: _
   }
 };
-function Z(t, e) {
+function J(t, e) {
   return C[t]?.label || e || m(t);
 }
-function ee(t, e) {
+function Z(t, e) {
   return C[t]?.shortLabel || C[t]?.label || e || m(t);
 }
 function A(t, e) {
   return qe[t] || e || m(t);
 }
-function O(t, e) {
+function N(t, e) {
   return T[t]?.label || e || m(t);
 }
-function N(t, e) {
+function j(t, e) {
   return T[t]?.shortLabel || T[t]?.label || e || m(t);
 }
-function j(t) {
+function q(t) {
   const e = T[t]?.icon;
   return e ? F(e, {
     size: "16px",
@@ -403,8 +404,8 @@ function Be(t, e) {
   const a = t.trim().toLowerCase().replace(/[_-]+/g, " ");
   return a === "action required" ? "Action" : a === "needs attention" ? "Attention" : a === "healthy" || a === "ok" ? "Healthy" : a ? m(a) : e === "critical" ? "Action" : e === "warning" ? "Attention" : m(e);
 }
-var q = "inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 hover:border-gray-300 transition-colors";
-function te(t) {
+var R = "btn btn-secondary";
+function ee(t) {
   const e = t.trim();
   if (!e || e.length < 12) return `<span class="font-mono text-xs text-gray-500">${o(e)}</span>`;
   const a = `${e.slice(0, 4)}...${e.slice(-4)}`;
@@ -414,7 +415,7 @@ function te(t) {
             data-copy-uuid="${c(e)}"
             title="Click to copy: ${c(e)}">
       <span>${o(a)}</span>
-      ${f(we, "h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity text-gray-400", "12px")}
+      ${f($e, "h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity text-gray-400", "12px")}
     </button>
   `;
 }
@@ -426,7 +427,7 @@ function Fe(t) {
 function He(t) {
   return t <= 0 ? "N/A" : t < 1e3 ? `${t}ms` : `${(t / 1e3).toFixed(1)}s`;
 }
-function ae(t, e, a = "") {
+function te(t, e, a = "") {
   const s = o(t);
   return e?.href ? `<a class="${c(a)} text-sky-700 hover:text-sky-900 hover:underline" href="${c(e.href)}">${s}</a>` : `<span class="${c(a)}">${s}</span>`;
 }
@@ -436,7 +437,7 @@ function Pe(t) {
     return s(e.relation) - s(a.relation);
   });
 }
-function se(t, e = "No drill-downs") {
+function ae(t, e = "No drill-downs") {
   return t.length === 0 ? `<span class="text-gray-400">${o(e)}</span>` : Pe(t).map((a) => {
     const s = a.label || "Open";
     return a.href ? `<a class="inline-flex items-center rounded-full border border-gray-200 px-3 py-1 text-xs font-medium text-gray-700 hover:border-gray-300 hover:text-gray-900" data-dashboard-link="${c(a.key || s.toLowerCase())}" href="${c(a.href)}">${o(s)}</a>` : `<span class="inline-flex items-center rounded-full border border-gray-200 px-3 py-1 text-xs font-medium text-gray-400">${o(s)}</span>`;
@@ -451,17 +452,17 @@ function ze(t) {
       title="${c(t.drilldown.description || t.drilldown.label || "Open drilldown")}"
     >
       <span>${o(t.drilldown.label || "Open")}</span>
-      ${f(ye, "h-3.5 w-3.5", "14px")}
+      ${f(xe, "h-3.5 w-3.5", "14px")}
     </a>
   ` : '<span class="text-xs text-gray-400">No drilldown available</span>';
 }
 function Ue(t, e = []) {
-  const a = ee(t.id, t.label), s = Z(t.id, t.label), r = t.description ? `${s} - ${t.description}` : s;
+  const a = Z(t.id, t.label), s = J(t.id, t.label), r = t.description ? `${s} - ${t.description}` : s;
   return `
     <article class="${$} p-4 shadow-sm flex flex-col" data-dashboard-card="${c(t.id)}" title="${c(r)}">
       <div class="flex items-start justify-between gap-2">
-        <p class="text-xs font-semibold uppercase tracking-[0.24em] text-gray-500 truncate">${o(a)}</p>
-        <span class="flex-shrink-0 inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold ${c(ne(t.alert.state))}">
+        <p class="text-xs font-semibold uppercase tracking-wider text-gray-500 truncate">${o(a)}</p>
+        <span class="flex-shrink-0 inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold ${c(re(t.alert.state))}">
           ${o(Be(t.alert.message, t.alert.state))}
         </span>
       </div>
@@ -484,14 +485,14 @@ function Ge(t) {
   return t.reduce((a, s) => e[s.state] > e[a] ? s.state : a, "ok");
 }
 function Ke(t, e) {
-  const a = e.find((r) => r.id === t.cardId), s = a ? Z(t.cardId, a.label) : m(t.cardId);
+  const a = e.find((r) => r.id === t.cardId), s = a ? J(t.cardId, a.label) : m(t.cardId);
   return `
     <div class="flex items-start justify-between gap-3 p-3 rounded-lg bg-white/50"
          data-alert-code="${c(t.code)}"
          role="${t.state === "critical" ? "alert" : "status"}">
       <div class="flex-1 min-w-0">
         <div class="flex items-center gap-2 flex-wrap">
-          <span class="inline-flex items-center rounded-md px-2 py-0.5 text-xs font-semibold uppercase tracking-[0.16em] ${c(ne(t.state))}">${o(s)}</span>
+          <span class="inline-flex items-center rounded-full px-2 py-1 text-xs font-semibold ${c(re(t.state))}">${o(s)}</span>
           <span class="text-xs font-medium text-gray-600">${o(t.state)}</span>
         </div>
         <p class="mt-1.5 text-sm text-gray-700">${o(t.message)}</p>
@@ -500,7 +501,7 @@ function Ke(t, e) {
               class="flex-shrink-0 p-1 rounded hover:bg-gray-200/50 transition-colors"
               data-dismiss-alert="${c(t.code)}"
               aria-label="Dismiss alert for ${o(s)}">
-        ${f($e, "h-4 w-4 text-gray-500", "16px")}
+        ${f(ve, "h-4 w-4 text-gray-500", "16px")}
       </button>
     </div>
   `;
@@ -509,8 +510,8 @@ function Ve(t, e, a, s) {
   const r = t.filter((d) => !s.has(d.code));
   if (r.length === 0) return "";
   const i = Ge(r), l = r.reduce((d, y) => (d[y.state] = (d[y.state] || 0) + 1, d), {}), b = Object.entries(l).filter(([, d]) => d > 0).map(([d, y]) => `${y} ${d}`).join(", "), h = r.map((d) => {
-    const y = e.find((oe) => oe.id === d.cardId), ie = y ? ee(d.cardId, y.label) : m(d.cardId);
-    return `<span class="inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium bg-white/60 text-gray-700" data-alert-card="${c(d.cardId)}">${o(ie)}</span>`;
+    const y = e.find((ie) => ie.id === d.cardId), ne = y ? Z(d.cardId, y.label) : m(d.cardId);
+    return `<span class="inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium bg-white/60 text-gray-700" data-alert-card="${c(d.cardId)}">${o(ne)}</span>`;
   }).join(""), u = a ? "rotate-180" : "";
   return `
     <section class="rounded-xl border ${tt(i)} shadow-sm overflow-hidden"
@@ -526,7 +527,7 @@ function Ve(t, e, a, s) {
           <span class="text-sm font-semibold">${o(b)}</span>
           ${a ? "" : `<div class="flex items-center gap-1.5 flex-wrap">${h}</div>`}
         </div>
-        ${f(V, `h-5 w-5 flex-shrink-0 transition-transform ${u}`, "20px")}
+        ${f(K, `h-5 w-5 flex-shrink-0 transition-transform ${u}`, "20px")}
       </button>
       <div class="${a ? "" : "hidden"}" data-alerts-content="true">
         <div class="border-t border-current/20 px-4 py-3 space-y-2">
@@ -540,7 +541,7 @@ function Xe(t) {
   return `
     <table class="min-w-full divide-y divide-gray-200 text-sm">
       <caption class="sr-only">Top overdue assignments with assignment and queue drill-down actions.</caption>
-      <thead class="bg-gray-50 text-left text-xs uppercase tracking-[0.2em] text-gray-500">
+      <thead class="bg-gray-50 text-left text-xs uppercase tracking-wider text-gray-500">
         <tr>
           <th scope="col" class="px-4 py-3">Assignment</th>
           <th scope="col" class="px-4 py-3">Locale</th>
@@ -554,15 +555,15 @@ function Xe(t) {
         ${t.rows.map((e) => `
           <tr>
             <td class="px-4 py-3">
-              <div class="font-medium text-gray-900">${ae(n(e.source_title) || n(e.assignment_id), e.links.assignment)}</div>
-              <div class="mt-1">${te(n(e.assignment_id))}</div>
+              <div class="font-medium text-gray-900">${te(n(e.source_title) || n(e.assignment_id), e.links.assignment)}</div>
+              <div class="mt-1">${ee(n(e.assignment_id))}</div>
             </td>
             <td class="px-4 py-3 text-gray-600">${o(`${n(e.source_locale).toUpperCase()} -> ${n(e.target_locale).toUpperCase()}`)}</td>
             <td class="px-4 py-3 text-gray-600">${o(m(n(e.priority)))}</td>
             <td class="px-4 py-3 text-gray-600">${o(m(n(e.status)))}</td>
             <td class="px-4 py-3 text-right font-medium text-rose-700">${o(`${x(e.overdue_minutes)}m`)}</td>
             <td class="px-4 py-3">
-              <div class="flex justify-end gap-2" aria-label="Assignment drill-down actions">${se(Object.values(e.links || {}))}</div>
+              <div class="flex justify-end gap-2" aria-label="Assignment drill-down actions">${ae(Object.values(e.links || {}))}</div>
             </td>
           </tr>
         `).join("")}
@@ -610,7 +611,7 @@ function Je(t) {
   return `
     <table class="min-w-full divide-y divide-gray-200 text-sm">
       <caption class="sr-only">Blocked families with family detail, blocker codes, affected locales, and drill-down actions.</caption>
-      <thead class="bg-gray-50 text-left text-xs uppercase tracking-[0.2em] text-gray-500">
+      <thead class="bg-gray-50 text-left text-xs uppercase tracking-wider text-gray-500">
         <tr>
           <th scope="col" class="px-4 py-3">Family</th>
           <th scope="col" class="px-4 py-3">Blockers</th>
@@ -624,9 +625,9 @@ function Je(t) {
         ${t.rows.map((e) => `
           <tr data-family-row="${c(n(e.family_id))}">
             <td class="px-4 py-3">
-              <div class="font-medium text-gray-900">${ae(n(e.content_type) || "Family", e.links.family)}</div>
+              <div class="font-medium text-gray-900">${te(n(e.content_type) || "Family", e.links.family)}</div>
               <div class="mt-1 flex items-center gap-2">
-                ${te(n(e.family_id))}
+                ${ee(n(e.family_id))}
                 ${Qe(e)}
               </div>
             </td>
@@ -639,7 +640,7 @@ function Je(t) {
             <td class="px-4 py-3 text-right font-medium text-amber-700">${o(String(x(e.missing_required_locale_count)))}</td>
             <td class="px-4 py-3 text-right font-medium text-gray-700">${o(String(x(e.pending_review_count)))}</td>
             <td class="px-4 py-3">
-              <div class="flex justify-end gap-2" aria-label="Family drill-down actions">${se(Object.values(e.links || {}))}</div>
+              <div class="flex justify-end gap-2" aria-label="Family drill-down actions">${ae(Object.values(e.links || {}))}</div>
             </td>
           </tr>
         `).join("")}
@@ -661,12 +662,12 @@ function M(t, e = [], a = {}) {
           ${l?.href ? `
             <a
               href="${c(l.href)}"
-              class="${q}"
+              class="${R}"
               data-dashboard-table-runbook="${c(t.id)}"
-              title="${c(l.description || O(i || "", l.title))}"
+              title="${c(l.description || N(i || "", l.title))}"
             >
-              ${j(i || "")}
-              <span>${o(N(i || "", l.title))}</span>
+              ${q(i || "")}
+              <span>${o(j(i || "", l.title))}</span>
             </a>
           ` : ""}
         </header>
@@ -676,18 +677,18 @@ function M(t, e = [], a = {}) {
     <section class="overflow-hidden ${$} shadow-sm" data-dashboard-table="${c(t.id)}">
       <header class="flex items-center justify-between gap-3 border-b border-gray-200 px-4 py-3">
         <div>
-          <h2 class="text-sm font-semibold uppercase tracking-[0.22em] text-gray-500">${o(r)}</h2>
+          <h2 class="text-sm font-semibold uppercase tracking-wider text-gray-500">${o(r)}</h2>
           <p class="mt-1 text-xs text-gray-500">Showing top ${o(String(t.rows.length))} of ${o(String(t.total))}</p>
         </div>
         ${l?.href ? `
           <a
             href="${c(l.href)}"
-            class="${q}"
+            class="${R}"
             data-dashboard-table-runbook="${c(t.id)}"
-            title="${c(l.description || O(i || "", l.title))}"
+            title="${c(l.description || N(i || "", l.title))}"
           >
-            ${j(i || "")}
-            <span>${o(N(i || "", l.title))}</span>
+            ${q(i || "")}
+            <span>${o(j(i || "", l.title))}</span>
           </a>
         ` : ""}
       </header>
@@ -742,7 +743,7 @@ function Ze(t, e, a) {
 function et(t) {
   return t.length === 0 ? "" : `
     <section class="${$} p-4 shadow-sm" data-dashboard-runbooks="true">
-      <h2 class="text-sm font-semibold uppercase tracking-[0.22em] text-gray-500">Runbooks</h2>
+      <h2 class="text-sm font-semibold uppercase tracking-wider text-gray-500">Runbooks</h2>
       <div class="mt-4 grid gap-4 md:grid-cols-3">
         ${t.map((e) => `
           <article class="rounded-xl border border-gray-200 bg-gray-50 p-4">
@@ -754,7 +755,7 @@ function et(t) {
     </section>
   `;
 }
-function re(t) {
+function se(t) {
   switch (t) {
     case "critical":
       return "error";
@@ -766,11 +767,11 @@ function re(t) {
       return "success";
   }
 }
-function ne(t) {
-  return K(re(t));
+function re(t) {
+  return X(se(t));
 }
 function tt(t) {
-  return `border ${K(re(t))}`;
+  return `border ${X(se(t))}`;
 }
 function at(t, e = !1, a = !1) {
   const s = t?.meta.generatedAt ? new Date(t.meta.generatedAt).toLocaleString() : "Unavailable", r = t ? Object.entries(t.meta.scope).filter(([, u]) => u).filter(([u]) => u !== "actor_id").map(([u, d]) => ({
@@ -782,17 +783,17 @@ function at(t, e = !1, a = !1) {
       <div class="px-5 py-4">
         <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <p class="${ge}">Manager Monitoring</p>
-            <h2 class="${he} text-xl mt-2">Queue health and publish blockers</h2>
-            <p class="${fe} mt-2">Track overdue work, review backlog, and family readiness without rebuilding aggregate state in the browser.</p>
+            <p class="${fe}">Manager Monitoring</p>
+            <h2 class="${pe} text-xl mt-2">Queue health and publish blockers</h2>
+            <p class="${he} mt-2">Track overdue work, review backlog, and family readiness without rebuilding aggregate state in the browser.</p>
           </div>
           <div class="flex flex-wrap items-center gap-3">
-            <span class="text-xs uppercase tracking-[0.18em] text-gray-500" aria-live="polite" data-dashboard-refresh-status="true">
+            <span class="text-xs uppercase tracking-wider text-gray-500" aria-live="polite" data-dashboard-refresh-status="true">
               ${o(e ? "Refreshing dashboard…" : `Last updated ${s}`)}
             </span>
-            <button type="button" class="${Y}" data-dashboard-refresh-button="true" aria-label="Refresh translation dashboard" ${e ? "disabled" : ""}>
-              ${f(me, e ? "h-4 w-4 animate-spin" : "h-4 w-4", "16px")}
-              ${o(e ? "Refreshing…" : "Refresh dashboard")}
+            <button type="button" class="${R}" data-dashboard-refresh-button="true" aria-label="Refresh translation dashboard" ${e ? "disabled" : ""}>
+              ${f(be, e ? "h-4 w-4 animate-spin" : "h-4 w-4", "16px")}
+              ${o(e ? "Refreshing…" : "Refresh")}
             </button>
           </div>
         </div>
@@ -802,11 +803,11 @@ function at(t, e = !1, a = !1) {
           <div class="flex items-center justify-between gap-3">
             <div class="flex items-center gap-2 flex-wrap">
               <span class="inline-flex items-center gap-1.5 px-2 py-1 text-xs font-medium text-gray-600 bg-white rounded border border-gray-200" title="Dashboard channel">
-                ${f(ve, "h-3 w-3 text-gray-400", "12px")}
+                ${f(ye, "h-3 w-3 text-gray-400", "12px")}
                 <span>${o(b)}</span>
               </span>
               <span class="inline-flex items-center gap-1.5 px-2 py-1 text-xs font-medium text-gray-600 bg-white rounded border border-gray-200" title="Refresh interval: ${o(i)}">
-                ${f(R, "h-3 w-3 text-gray-400", "12px")}
+                ${f(S, "h-3 w-3 text-gray-400", "12px")}
                 <span>${o(i)}</span>
               </span>
               <span class="inline-flex items-center gap-1.5 px-2 py-1 text-xs font-medium text-gray-600 bg-white rounded border border-gray-200" title="Latency target: ${o(l)}">
@@ -821,26 +822,26 @@ function at(t, e = !1, a = !1) {
                     aria-label="Toggle technical details">
               ${f(w, "h-3.5 w-3.5", "14px")}
               <span>Details</span>
-              ${f(V, `h-3 w-3 transition-transform ${h}`, "12px")}
+              ${f(K, `h-3 w-3 transition-transform ${h}`, "12px")}
             </button>
           </div>
           <div class="${a ? "mt-3" : "hidden"}" data-meta-content="true">
             <dl class="border-t border-gray-200 pt-3 grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-4">
               <div>
-                <dt class="text-xs font-medium uppercase tracking-[0.16em] text-gray-500">Channel</dt>
+                <dt class="text-xs font-medium uppercase tracking-wider text-gray-500">Channel</dt>
                 <dd class="mt-1 text-sm font-medium text-gray-900">${o(b)}</dd>
               </div>
               <div>
-                <dt class="text-xs font-medium uppercase tracking-[0.16em] text-gray-500">Refresh Interval</dt>
+                <dt class="text-xs font-medium uppercase tracking-wider text-gray-500">Refresh Interval</dt>
                 <dd class="mt-1 text-sm font-medium text-gray-900">${o(i)}</dd>
               </div>
               <div>
-                <dt class="text-xs font-medium uppercase tracking-[0.16em] text-gray-500">Latency Target</dt>
+                <dt class="text-xs font-medium uppercase tracking-wider text-gray-500">Latency Target</dt>
                 <dd class="mt-1 text-sm font-medium text-gray-900">${o(l)}</dd>
               </div>
               ${r.map(({ key: u, value: d }) => `
                 <div>
-                  <dt class="text-xs font-medium uppercase tracking-[0.16em] text-gray-500">${o(u)}</dt>
+                  <dt class="text-xs font-medium uppercase tracking-wider text-gray-500">${o(u)}</dt>
                   <dd class="mt-1 text-xs font-medium text-gray-900 font-mono">${o(d)}</dd>
                 </div>
               `).join("")}
@@ -851,7 +852,7 @@ function at(t, e = !1, a = !1) {
     </section>
   `;
 }
-f(S, "h-5 w-5", "20px"), f(_, "h-5 w-5", "20px"), f(X, "h-5 w-5", "20px"), f(w, "h-5 w-5", "20px");
+f(I, "h-5 w-5", "20px"), f(_, "h-5 w-5", "20px"), f(V, "h-5 w-5", "20px"), f(w, "h-5 w-5", "20px");
 function st(t) {
   const e = t.data.runbooks[0], a = e?.href ? `<a class="inline-flex items-center rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-900 hover:bg-gray-50" href="${c(e.href)}">${o(e.title || "Open runbook")}</a>` : "";
   return L({
@@ -868,7 +869,7 @@ function st(t) {
     messageClass: `${z} mt-3 max-w-2xl leading-6`,
     actionsHtml: `
       <div class="mt-5 flex flex-wrap gap-3">
-        <button type="button" class="${Y}" data-dashboard-refresh-button="true">Refresh dashboard</button>
+        <button type="button" class="${we}" data-dashboard-refresh-button="true">Refresh dashboard</button>
         ${a}
       </div>
     `,
@@ -888,7 +889,7 @@ function rt(t) {
     message: t instanceof Error ? t.message : "Failed to load translation dashboard",
     messageClass: `${E} mt-2`,
     metadata: s,
-    metadataClass: "mt-2 text-xs uppercase tracking-[0.16em] text-rose-700",
+    metadataClass: "mt-2 text-xs uppercase tracking-wider text-rose-700",
     role: "alert",
     attributes: { "data-dashboard-inline-error": "true" }
   });
@@ -908,8 +909,8 @@ function nt(t) {
     message: e,
     messageClass: `${E} mt-2`,
     metadata: r,
-    metadataClass: "mt-2 text-xs uppercase tracking-[0.16em] text-rose-700",
-    actionsHtml: `<div class="mt-4"><button type="button" class="${xe}" data-dashboard-refresh-button="true">Retry dashboard</button></div>`,
+    metadataClass: "mt-2 text-xs uppercase tracking-wider text-rose-700",
+    actionsHtml: `<div class="mt-4"><button type="button" class="${me}" data-dashboard-refresh-button="true">Retry dashboard</button></div>`,
     role: "alert",
     attributes: { "data-dashboard-error": "true" }
   });
@@ -932,12 +933,12 @@ function B() {
     tag: "section",
     text: "Loading translation dashboard aggregates...",
     showSpinner: !1,
-    containerClass: `${be} p-5`,
+    containerClass: `${ge} p-5`,
     attributes: { "data-dashboard-loading": "true" },
     ariaLive: "polite"
   });
 }
-var ot = class extends pe {
+var ot = class extends ue {
   constructor(t) {
     super("idle"), this.refreshController = null, this.container = null, this.payload = null, this.refreshing = !1, this.lastError = null, this.metaExpanded = !1, this.alertsExpanded = !1, this.dismissedAlerts = /* @__PURE__ */ new Set(), this.activeTableTab = "top_overdue_assignments", this.config = {
       refreshInterval: 3e4,
@@ -1042,7 +1043,7 @@ var ot = class extends pe {
             const i = a.innerHTML;
             a.innerHTML = `
             <span class="text-green-600">Copied!</span>
-            ${f(S, "h-3 w-3 text-green-500", "12px")}
+            ${f(I, "h-3 w-3 text-green-500", "12px")}
           `, setTimeout(() => {
               a.innerHTML = i;
             }, 1500);
@@ -1087,10 +1088,10 @@ function dt(t) {
 }
 function ct() {
   if (typeof window > "u" || !window.location) return !1;
-  const t = ue(window.location) ?? new URLSearchParams(), e = t.get("translation_client_render") || t.get("translationClientRender");
+  const t = ce(window.location) ?? new URLSearchParams(), e = t.get("translation_client_render") || t.get("translationClientRender");
   return e === "1" || e === "true";
 }
-function $t(t, e = {}) {
+function wt(t, e = {}) {
   if (!t) return null;
   if (t.dataset?.ssrEnhanced === "true" && !ct())
     return dt(t), null;
@@ -1110,12 +1111,12 @@ export {
   Oe as buildTranslationDashboardURL,
   Ne as createTranslationDashboardClient,
   je as createTranslationDashboardRefreshController,
-  $t as initTranslationDashboardPage,
+  wt as initTranslationDashboardPage,
   _e as normalizeTranslationDashboardCard,
-  W as normalizeTranslationDashboardLink,
-  J as normalizeTranslationDashboardQueryModel,
+  Y as normalizeTranslationDashboardLink,
+  Q as normalizeTranslationDashboardQueryModel,
   De as normalizeTranslationDashboardResponse,
-  Q as normalizeTranslationDashboardRunbook,
+  W as normalizeTranslationDashboardRunbook,
   Ae as normalizeTranslationDashboardTable,
   Ce as normalizeTranslationDashboardTableRow
 };

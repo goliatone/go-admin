@@ -1,21 +1,22 @@
-import { escapeAttribute as f, escapeHTML as d } from "../shared/html.js";
-import { t as ke } from "../chunks/icon-renderer-a2WAOpSe.js";
-import { httpRequest as $, readCSRFToken as Re, readHTTPError as Ee } from "../shared/transport/http-client.js";
-import { extractStructuredError as oe } from "../toast/error-helpers.js";
-import { readLocationSearchParams as Ce } from "../shared/query-state/url-state.js";
-import { n as Te } from "../chunks/translation-contracts-Ct_EG7JJ.js";
-import { asBoolean as h, asNumber as m, asRecord as c, asString as n, asStringArray as ce } from "../shared/coercion.js";
-import { A as Ae, C as O, D as je, E as qe, F as Le, M as De, O as Oe, P as Ie, R as Pe, S as te, T as Fe, a as Me, c as Be, ct as x, et as Ne, g as ze, ht as Ue, j as Ke, k as He, lt as Ve, mt as Ye, ot as Qe, pt as We, s as Ge, st as Xe, tt as Je, ut as Ze, v as et, x as q, y as L } from "../chunks/translation-shared-CdZJJA93.js";
-import { formatTranslationTimestampUTC as le, sentenceCaseToken as R } from "../translation-shared/formatters.js";
+import { escapeAttribute as f, escapeHTML as u } from "../shared/html.js";
+import { t as Re } from "../chunks/icon-renderer-a2WAOpSe.js";
+import { httpRequest as $, readCSRFToken as Ee, readHTTPError as Ce } from "../shared/transport/http-client.js";
+import { extractStructuredError as ce } from "../toast/error-helpers.js";
+import { r as te, s as Te } from "../chunks/status-vocabulary-HmIBabRF.js";
+import { readLocationSearchParams as Ae } from "../shared/query-state/url-state.js";
+import { n as je } from "../chunks/translation-contracts-DrJVTucO.js";
+import { asBoolean as h, asNumber as m, asRecord as c, asString as n, asStringArray as le } from "../shared/coercion.js";
+import { A as qe, C as D, D as Le, E as De, F as Oe, M as Ie, O as Pe, P as Fe, R as Me, S as se, T as Be, a as Ne, at as ze, c as Ue, ct as Ke, et as He, ft as Ve, g as Ye, j as Qe, k as We, lt as Ge, mt as Xe, ot as Je, pt as Ze, s as et, st as w, tt, v as st, x as q, y as R } from "../chunks/translation-shared-Ba5eIyeA.js";
+import { formatTranslationTimestampUTC as de, sentenceCaseToken as O } from "../translation-shared/formatters.js";
 import { normalizeStringRecord as N } from "../shared/record-normalization.js";
-import { c as de, s as tt } from "../chunks/ui-states-1McZ5upU.js";
-var st = "translation_variant_draft", at = "autosave", M = /* @__PURE__ */ new Map();
-async function rt(e) {
+import { c as ue, s as at } from "../chunks/ui-states-Dk9y2u2w.js";
+var rt = "translation_variant_draft", it = "autosave", M = /* @__PURE__ */ new Map();
+async function nt(e) {
   const t = k(e);
   if (!t) throw new Error("syncClientBasePath is required to load sync-core");
-  return typeof window < "u" && window.__translationSyncCoreModule ? z(window.__translationSyncCoreModule) : (M.has(t) || M.set(t, it(t)), M.get(t));
+  return typeof window < "u" && window.__translationSyncCoreModule ? z(window.__translationSyncCoreModule) : (M.has(t) || M.set(t, ot(t)), M.get(t));
 }
-async function it(e) {
+async function ot(e) {
   return typeof window < "u" && typeof window.__translationSyncCoreLoader == "function" ? z(await window.__translationSyncCoreLoader(e)) : z(await import(
     /* @vite-ignore */
     `${e}/index.js`
@@ -28,7 +29,7 @@ function z(e) {
 function k(e) {
   return String(e || "").trim().replace(/\/+$/, "");
 }
-function nt(e, t, s) {
+function ct(e, t, s) {
   const a = k(e);
   if (/\/variants$/i.test(a)) return a.replace(/\/variants$/i, "");
   const r = k(t);
@@ -36,10 +37,10 @@ function nt(e, t, s) {
   const i = k(s), o = i.match(/^(.*)\/assignments(?:\/.*)?$/i);
   return o ? o[1] : a || r || i;
 }
-function ot(e) {
+function lt(e) {
   return `${k(e) || "/admin"}/sync-client/sync-core`;
 }
-function ct(e) {
+function dt(e) {
   const t = {};
   for (const [s, a] of Object.entries(e || {})) {
     const r = String(s || "").trim(), i = String(a || "").trim();
@@ -47,15 +48,15 @@ function ct(e) {
   }
   return t;
 }
-var lt = [
+var ut = [
   "channel",
   "tenant_id",
   "org_id"
 ];
-function dt(e) {
+function ft(e) {
   try {
     const t = new URL(e, typeof window < "u" ? window.location.origin : "http://localhost"), s = {};
-    for (const a of lt) {
+    for (const a of ut) {
       const r = String(t.searchParams.get(a) || "").trim();
       r && (s[a] = r);
     }
@@ -64,13 +65,13 @@ function dt(e) {
     return {};
   }
 }
-function ut(e) {
-  return ct({
-    ...dt(e.endpoint),
+function mt(e) {
+  return dt({
+    ...ft(e.endpoint),
     ...e.syncScope || {}
   });
 }
-function ft(e) {
+function pt(e) {
   const t = Object.entries(e.scope || {}).filter(([s, a]) => s.trim() !== "" && a.trim() !== "").sort(([s], [a]) => s.localeCompare(a)).map(([s, a]) => `${encodeURIComponent(s)}=${encodeURIComponent(a)}`).join("&");
   return `${encodeURIComponent(e.kind)}::${encodeURIComponent(e.id)}::${t}`;
 }
@@ -98,13 +99,13 @@ function V(e) {
     message: n(t.message)
   };
 }
-function w(e, t) {
+function x(e, t) {
   const s = c(e), a = {};
   for (const [r, i] of Object.entries(s))
     r.trim() && (a[r.trim()] = t(i));
   return a;
 }
-function mt(e) {
+function ht(e) {
   if (!Array.isArray(e)) return [];
   const t = [];
   for (const s of e) {
@@ -113,24 +114,24 @@ function mt(e) {
       term: r,
       preferred_translation: i,
       notes: n(a.notes) || void 0,
-      field_paths: ce(a.field_paths)
+      field_paths: le(a.field_paths)
     });
   }
   return t;
 }
-function pt(e) {
+function gt(e) {
   const t = c(e);
   return {
     available: h(t.available),
     title: n(t.title),
     summary: n(t.summary) || n(t.summary_markdown),
-    rules: ce(t.rules)
+    rules: le(t.rules)
   };
 }
-function ue(e) {
+function fe(e) {
   return n(e.get("x-trace-id") || e.get("x-correlation-id") || e.get("traceparent"));
 }
-function ht(e) {
+function bt(e) {
   const t = c(e), s = n(t.id), a = n(t.filename);
   return !s && !a ? null : {
     id: s || a || "attachment",
@@ -142,10 +143,10 @@ function ht(e) {
     url: n(t.url)
   };
 }
-function gt(e) {
-  return Array.isArray(e) ? e.map((t) => ht(t)).filter((t) => t !== null) : [];
+function yt(e) {
+  return Array.isArray(e) ? e.map((t) => bt(t)).filter((t) => t !== null) : [];
 }
-function bt(e, t) {
+function vt(e, t) {
   const s = c(e), a = c(s.kinds), r = {};
   for (const [i, o] of Object.entries(a)) {
     const l = m(o);
@@ -157,14 +158,14 @@ function bt(e, t) {
     kinds: r
   };
 }
-function yt(e) {
+function _t(e) {
   return n(e) === "comment" ? "comment" : "event";
 }
-function vt(e) {
+function wt(e) {
   const t = c(e), s = n(t.id);
   return s ? {
     id: s,
-    entry_type: yt(t.entry_type),
+    entry_type: _t(t.entry_type),
     title: n(t.title),
     body: n(t.body),
     action: n(t.action),
@@ -175,8 +176,8 @@ function vt(e) {
     metadata: c(t.metadata)
   } : null;
 }
-function _t(e) {
-  const t = c(e), s = Array.isArray(t.items) ? t.items.map((a) => vt(a)).filter((a) => a !== null) : [];
+function xt(e) {
+  const t = c(e), s = Array.isArray(t.items) ? t.items.map((a) => wt(a)).filter((a) => a !== null) : [];
   return {
     items: s,
     page: m(t.page, 1) || 1,
@@ -186,7 +187,7 @@ function _t(e) {
     next_page: m(t.next_page)
   };
 }
-function xt(e) {
+function St(e) {
   const t = c(e), s = n(t.id), a = n(t.body);
   return !s && !a ? null : {
     id: s || a || "review-feedback",
@@ -196,8 +197,8 @@ function xt(e) {
     author_id: n(t.author_id) || void 0
   };
 }
-function wt(e, t) {
-  const s = c(e), a = Array.isArray(s.comments) ? s.comments.map((i) => xt(i)).filter((i) => i !== null) : [], r = n(s.last_rejection_reason || t) || void 0;
+function $t(e, t) {
+  const s = c(e), a = Array.isArray(s.comments) ? s.comments.map((i) => St(i)).filter((i) => i !== null) : [], r = n(s.last_rejection_reason || t) || void 0;
   return !a.length && r && a.push({
     id: "last-rejection-reason",
     body: r,
@@ -208,7 +209,7 @@ function wt(e, t) {
     comments: a
   };
 }
-function St(e) {
+function kt(e) {
   const t = c(e), s = n(t.id), a = n(t.message);
   return !s || !a ? null : {
     id: s,
@@ -218,7 +219,7 @@ function St(e) {
     message: a
   };
 }
-function $t(e, t) {
+function Rt(e, t) {
   const s = c(e);
   return {
     category: n(s.category) || t,
@@ -229,11 +230,11 @@ function $t(e, t) {
     blocker_count: m(s.blocker_count)
   };
 }
-function fe(e) {
+function me(e) {
   const t = c(e), s = c(t.summary), a = c(t.categories), r = {};
   for (const [o, l] of Object.entries(a))
-    o.trim() && (r[o.trim()] = $t(l, o.trim()));
-  const i = Array.isArray(t.findings) ? t.findings.map((o) => St(o)).filter((o) => o !== null) : [];
+    o.trim() && (r[o.trim()] = Rt(l, o.trim()));
+  const i = Array.isArray(t.findings) ? t.findings.map((o) => kt(o)).filter((o) => o !== null) : [];
   return {
     enabled: h(t.enabled),
     summary: {
@@ -247,7 +248,7 @@ function fe(e) {
     submit_blocked: h(t.submit_blocked)
   };
 }
-function kt(e) {
+function Et(e) {
   const t = c(e);
   return {
     id: n(t.id || t.assignment_id),
@@ -268,7 +269,7 @@ function kt(e) {
     updated_at: n(t.updated_at)
   };
 }
-function Rt(e, t = "") {
+function Ct(e, t = "") {
   const s = c(e), a = n(s.locale).trim().toLowerCase();
   if (!a) return null;
   const r = n(s.href).trim(), i = h(s.enabled) && r !== "", o = n(s.reason || s.disabled_reason);
@@ -286,8 +287,8 @@ function Rt(e, t = "") {
     work_scope: n(s.work_scope) || void 0
   };
 }
-function Et(e, t) {
-  const s = c(e), a = (n(s.current_locale) || n(t.target_locale) || n(t.locale)).trim().toLowerCase(), r = (n(s.source_locale) || n(t.source_locale)).trim().toLowerCase(), i = Array.isArray(s.locales) ? s.locales.map((o) => Rt(o, a)).filter((o) => o !== null) : [];
+function Tt(e, t) {
+  const s = c(e), a = (n(s.current_locale) || n(t.target_locale) || n(t.locale)).trim().toLowerCase(), r = (n(s.source_locale) || n(t.source_locale)).trim().toLowerCase(), i = Array.isArray(s.locales) ? s.locales.map((o) => Ct(o, a)).filter((o) => o !== null) : [];
   return {
     family_id: n(s.family_id) || n(t.family_id),
     current_locale: a,
@@ -312,38 +313,38 @@ function Y(e, t) {
     channel: n(s.channel) || n(t.channel)
   };
 }
-function me(e, t) {
+function pe(e, t) {
   const s = c(e), a = c(t);
   return {
-    glossary_matches: mt(s.glossary_matches ?? a.glossary_matches),
-    style_guide_summary: pt(s.style_guide_summary ?? a.style_guide_summary),
+    glossary_matches: ht(s.glossary_matches ?? a.glossary_matches),
+    style_guide_summary: gt(s.style_guide_summary ?? a.style_guide_summary),
     translation_memory_suggestions: Array.isArray(s.translation_memory_suggestions) ? s.translation_memory_suggestions.filter((r) => r && typeof r == "object") : []
   };
 }
-function D(e) {
+function L(e) {
   const t = c(e), s = {};
   for (const [a, r] of Object.entries(t)) {
-    const i = Te(r);
+    const i = je(r);
     !i || !a.trim() || (s[a.trim()] = i);
   }
   return s;
 }
-function pe(e, t, s, a, r, i) {
+function he(e, t, s, a, r, i) {
   if (Array.isArray(e.fields)) return e.fields.map((l) => {
-    const u = c(l), p = n(u.path);
+    const d = c(l), p = n(d.path);
     if (!p) return null;
     const b = Object.prototype.hasOwnProperty.call(s, p);
     return {
       path: p,
-      label: n(u.label) || p,
-      input_type: n(u.input_type) || "text",
-      required: h(u.required),
-      source_value: n(u.source_value) || t[p] || "",
-      target_value: b ? s[p] : n(u.target_value),
-      completeness: K(u.completeness ?? a[p]),
-      drift: H(u.drift ?? r[p]),
-      validation: V(u.validation ?? i[p]),
-      glossary_hits: Array.isArray(u.glossary_hits) ? u.glossary_hits.filter((g) => g && typeof g == "object") : []
+      label: n(d.label) || p,
+      input_type: n(d.input_type) || "text",
+      required: h(d.required),
+      source_value: n(d.source_value) || t[p] || "",
+      target_value: b ? s[p] : n(d.target_value),
+      completeness: K(d.completeness ?? a[p]),
+      drift: H(d.drift ?? r[p]),
+      validation: V(d.validation ?? i[p]),
+      glossary_hits: Array.isArray(d.glossary_hits) ? d.glossary_hits.filter((g) => g && typeof g == "object") : []
     };
   }).filter((l) => !!l);
   const o = /* @__PURE__ */ new Set([
@@ -378,14 +379,14 @@ function pe(e, t, s, a, r, i) {
     glossary_hits: []
   }));
 }
-function he(e) {
+function ge(e) {
   const t = c(e), s = c(t.data && typeof t.data == "object" ? t.data : e), a = N(s.source_fields, {
     trimKeys: !0,
     omitBlankKeys: !0
   }), r = N(s.target_fields ?? s.fields, {
     trimKeys: !0,
     omitBlankKeys: !0
-  }), i = w(s.field_completeness, K), o = w(s.field_drift, H), l = w(s.field_validations, V), u = gt(s.attachments);
+  }), i = x(s.field_completeness, K), o = x(s.field_drift, H), l = x(s.field_validations, V), d = yt(s.attachments);
   return {
     assignment_id: n(s.assignment_id),
     assignment_row_version: m(s.assignment_row_version || s.assignment_version || c(s.translation_assignment).row_version || c(s.translation_assignment).version),
@@ -400,26 +401,26 @@ function he(e) {
     row_version: m(s.row_version || s.version),
     source_fields: a,
     target_fields: r,
-    fields: pe(s, a, r, i, o, l),
+    fields: he(s, a, r, i, o, l),
     field_completeness: i,
     field_drift: o,
     field_validations: l,
     source_target_drift: c(s.source_target_drift),
-    history: _t(s.history),
-    attachments: u,
-    attachment_summary: bt(s.attachment_summary, u),
-    translation_assignment: kt(s.translation_assignment),
-    assist: me(s.assist, s),
+    history: xt(s.history),
+    attachments: d,
+    attachment_summary: vt(s.attachment_summary, d),
+    translation_assignment: Et(s.translation_assignment),
+    assist: pe(s.assist, s),
     last_rejection_reason: n(s.last_rejection_reason) || void 0,
-    review_feedback: wt(s.review_feedback, s.last_rejection_reason),
-    qa_results: fe(s.qa_results),
-    assignment_action_states: D(s.assignment_action_states ?? s.editor_actions ?? s.actions),
-    review_action_states: D(s.review_action_states ?? s.review_actions),
-    locale_navigation: Et(s.locale_navigation, s),
+    review_feedback: $t(s.review_feedback, s.last_rejection_reason),
+    qa_results: me(s.qa_results),
+    assignment_action_states: L(s.assignment_action_states ?? s.editor_actions ?? s.actions),
+    review_action_states: L(s.review_action_states ?? s.review_actions),
+    locale_navigation: Tt(s.locale_navigation, s),
     preview_action: Y(s.preview_action, s)
   };
 }
-function Ct(e) {
+function At(e) {
   const t = c(e), s = c(t.data && typeof t.data == "object" ? t.data : e), a = c(s.preview_action);
   return {
     variant_id: n(s.variant_id),
@@ -428,26 +429,26 @@ function Ct(e) {
       trimKeys: !0,
       omitBlankKeys: !0
     }),
-    field_completeness: w(s.field_completeness, K),
-    field_drift: w(s.field_drift, H),
-    field_validations: w(s.field_validations, V),
+    field_completeness: x(s.field_completeness, K),
+    field_drift: x(s.field_drift, H),
+    field_validations: x(s.field_validations, V),
     source_target_drift: c(s.source_target_drift),
-    assist: me(s.assist, s),
-    qa_results: fe(s.qa_results),
-    assignment_action_states: D(s.assignment_action_states),
-    review_action_states: D(s.review_action_states),
+    assist: pe(s.assist, s),
+    qa_results: me(s.qa_results),
+    assignment_action_states: L(s.assignment_action_states),
+    review_action_states: L(s.review_action_states),
     preview_action: Object.keys(a).length ? Y(a, s) : void 0
   };
 }
 function Q(e) {
-  return pe({ fields: e.fields }, e.source_fields, e.target_fields, e.field_completeness, e.field_drift, e.field_validations);
+  return he({ fields: e.fields }, e.source_fields, e.target_fields, e.field_completeness, e.field_drift, e.field_validations);
 }
 function W(e) {
   if (!e.assignment_action_states.submit_review?.enabled || e.qa_results.submit_blocked) return !1;
   for (const t of Object.values(e.field_completeness)) if (t.required && t.missing) return !1;
   return !0;
 }
-function se(e) {
+function ae(e) {
   return {
     detail: {
       ...e,
@@ -482,24 +483,24 @@ function T(e, t, s) {
       valid: !o[a].missing,
       message: o[a].missing ? e.detail.field_validations[a]?.message || `${a} is required` : ""
     }
-  }, u = {
+  }, d = {
     ...e.detail,
     target_fields: r,
     field_completeness: o,
     field_validations: l
   };
-  return u.fields = Q(u), {
+  return d.fields = Q(d), {
     ...e,
-    detail: u,
+    detail: d,
     dirty_fields: {
       ...e.dirty_fields,
       [a]: s.trim()
     },
     assignment_row_version: e.assignment_row_version,
-    can_submit_review: W(u)
+    can_submit_review: W(d)
   };
 }
-function Tt(e) {
+function jt(e) {
   return {
     ...e,
     assignment_row_version: e.assignment_row_version,
@@ -510,7 +511,7 @@ function Tt(e) {
   };
 }
 function S(e, t) {
-  const s = Ct(t), a = Object.keys(s.assignment_action_states).length ? s.assignment_action_states : e.detail.assignment_action_states, r = Object.keys(s.review_action_states).length ? s.review_action_states : e.detail.review_action_states, i = {
+  const s = At(t), a = Object.keys(s.assignment_action_states).length ? s.assignment_action_states : e.detail.assignment_action_states, r = Object.keys(s.review_action_states).length ? s.review_action_states : e.detail.review_action_states, i = {
     ...e.detail,
     row_version: s.row_version,
     target_fields: {
@@ -550,14 +551,14 @@ function A(e) {
     version: a
   } };
 }
-function ae(e) {
+function re(e) {
   return Object.keys(c(e?.data)).length > 0;
 }
-function At(e, t) {
-  const s = c(t), a = c(s.error), r = c(a.details ?? s.details), i = c(s.resource || r.resource || c(s.conflict).latestSnapshot || c(a.conflict).latestSnapshot), o = i.data && typeof i.data == "object" ? c(i.data) : {}, l = m(i.revision), u = c(a.metadata), p = Object.keys(o).length ? {
+function qt(e, t) {
+  const s = c(t), a = c(s.error), r = c(a.details ?? s.details), i = c(s.resource || r.resource || c(s.conflict).latestSnapshot || c(a.conflict).latestSnapshot), o = i.data && typeof i.data == "object" ? c(i.data) : {}, l = m(i.revision), d = c(a.metadata), p = Object.keys(o).length ? {
     ...o,
     row_version: m(o.row_version || o.version, l) || l
-  } : c(u.latest_server_state_record);
+  } : c(d.latest_server_state_record);
   return {
     ...e,
     assignment_row_version: e.assignment_row_version,
@@ -567,7 +568,7 @@ function At(e, t) {
     }
   };
 }
-function ge(e) {
+function be(e) {
   const t = c(e), s = c(t.cause), a = c(t.details), r = t.resource || a.resource;
   return t.code === "STALE_REVISION" ? {
     error: {
@@ -580,9 +581,9 @@ function ge(e) {
     },
     resource: r,
     conflict: t.conflict
-  } : s.code === "STALE_REVISION" ? ge(s) : t;
+  } : s.code === "STALE_REVISION" ? be(s) : t;
 }
-function jt(e) {
+function Lt(e) {
   const t = c(e), s = c(t.details), a = c(t.conflict), r = c(t.resource || s.resource || a.latestSnapshot), i = c(r.data), o = m(r.revision || t.currentRevision || s.current_revision), l = n(r.updatedAt || r.updated_at) || (/* @__PURE__ */ new Date()).toISOString();
   return !Object.keys(i).length || o <= 0 ? null : {
     ref: c(r.ref),
@@ -592,13 +593,13 @@ function jt(e) {
     metadata: c(r.metadata)
   };
 }
-function qt(e) {
+function Dt(e) {
   return n(c(e.source_target_drift).current_source_hash);
 }
-function re(e) {
+function ie(e) {
   return typeof CSS < "u" && typeof CSS.escape == "function" ? CSS.escape(e) : e.replace(/["\\]/g, "\\$&");
 }
-function Lt(e) {
+function Ot(e) {
   const t = c(e), s = c(t.cause);
   return t.code === "STALE_REVISION" || s.code === "STALE_REVISION";
 }
@@ -616,15 +617,15 @@ function _(e) {
       return;
     }
 }
-async function Dt(e) {
+async function It(e) {
   const t = String(e || ""), s = typeof navigator < "u" ? navigator.clipboard : void 0;
   if (s && typeof s.writeText == "function") try {
     return await s.writeText(t), !0;
   } catch {
   }
-  return Ot(t);
+  return Pt(t);
 }
-function Ot(e) {
+function Pt(e) {
   if (typeof document > "u" || !document.body || typeof document.execCommand != "function") return !1;
   const t = document.createElement("textarea");
   t.value = e, t.setAttribute("readonly", "true"), t.style.position = "fixed", t.style.left = "-9999px", t.style.top = "0", document.body.appendChild(t);
@@ -636,7 +637,7 @@ function Ot(e) {
     t.remove();
   }
 }
-function It(e, t) {
+function Ft(e, t) {
   try {
     if (e.location && typeof e.location.assign == "function") {
       e.location.assign(t);
@@ -646,26 +647,26 @@ function It(e, t) {
   }
   e.location.href = t;
 }
-var Pt = class extends Error {
+var Mt = class extends Error {
   constructor(e) {
     super(e.message), this.name = "TranslationEditorRequestError", this.status = e.status, this.code = e.code ?? null, this.metadata = e.metadata ?? null, this.requestId = e.requestId, this.traceId = e.traceId;
   }
 };
 async function j(e, t) {
-  const s = await oe(e);
-  return new Pt({
-    message: s.message || await Ee(e, t),
+  const s = await ce(e);
+  return new Mt({
+    message: s.message || await Ce(e, t),
     status: e.status,
     code: s.textCode,
     metadata: s.metadata,
     requestId: n(e.headers.get("x-request-id")) || void 0,
-    traceId: ue(e.headers) || void 0
+    traceId: fe(e.headers) || void 0
   });
 }
-async function Ft(e) {
-  const t = await $(e, { method: "GET" }), s = n(t.headers.get("x-request-id")) || void 0, a = ue(t.headers) || void 0;
+async function Bt(e) {
+  const t = await $(e, { method: "GET" }), s = n(t.headers.get("x-request-id")) || void 0, a = fe(t.headers) || void 0;
   if (!t.ok) {
-    const i = await oe(t);
+    const i = await ce(t);
     return {
       status: i.textCode === "VERSION_CONFLICT" ? "conflict" : "error",
       message: i.message || `Failed to load assignment (${t.status})`,
@@ -675,7 +676,7 @@ async function Ft(e) {
       errorCode: i.textCode
     };
   }
-  const r = he(await t.json());
+  const r = ge(await t.json());
   return r.assignment_id ? {
     status: "ready",
     detail: r,
@@ -690,23 +691,23 @@ async function Ft(e) {
     statusCode: t.status
   };
 }
-function Mt(e) {
+function Nt(e) {
   return !e || e <= 0 ? "0 B" : e < 1024 ? `${e} B` : e < 1024 * 1024 ? `${(e / 1024).toFixed(1)} KB` : `${(e / (1024 * 1024)).toFixed(1)} MB`;
 }
 function E(e) {
   return n(e.status || e.translation_assignment.status || e.translation_assignment.queue_state);
 }
-function Bt(e) {
+function zt(e) {
   return e === "review" || e === "in_review";
 }
-function Nt(e) {
+function Ut(e) {
   return e === "changes_requested";
 }
 function C(e) {
-  return Nt(E(e));
+  return Ut(E(e));
 }
 function G(e) {
-  return Bt(E(e)) ? !0 : !!(e.review_action_states.approve?.enabled || e.review_action_states.reject?.enabled);
+  return zt(E(e)) ? !0 : !!(e.review_action_states.approve?.enabled || e.review_action_states.reject?.enabled);
 }
 function X(e) {
   return !!e.assignment_action_states.archive?.enabled;
@@ -716,58 +717,70 @@ function U(e) {
   return t === "review" || t === "in_review" || t === "approved" || t === "archived";
 }
 function J(e) {
-  return `This assignment is ${R(E(e) || "unavailable").toLowerCase()} and can be inspected but not edited.`;
+  return `This assignment is ${O(E(e) || "unavailable").toLowerCase()} and can be inspected but not edited.`;
 }
-function zt(e, t) {
-  if (t) return "Submitting...";
-  if (e.assignment_action_states.submit_review?.enabled) return "Submit for review";
-  switch (E(e)) {
-    case "review":
-    case "in_review":
-      return "Pending approval";
-    case "approved":
-      return "Approved";
-    case "archived":
-      return "Archived";
-    case "changes_requested":
-      return "Changes requested";
-    default:
-      return "Submit unavailable";
-  }
+function Kt(e, t, s) {
+  const a = !!t && e.trim().toLowerCase() !== t.trim().toLowerCase();
+  return !a && !s ? "" : `<p class="mt-1 text-xs text-gray-500">${[a ? u(t) : "", s ? "Required" : ""].filter(Boolean).join(" • ")}</p>`;
 }
-function Ut(e, t, s) {
+function Ht(e, t, s, a) {
+  if (e.assignment_action_states.submit_review?.enabled) return `
+      <button
+        type="button"
+        class="${R}"
+        data-action="submit-review"
+        title="${f(a)}"
+        ${s ? 'disabled aria-disabled="true"' : ""}
+      >
+        ${t ? "Submitting..." : "Submit review"}
+      </button>
+    `;
+  const r = E(e);
+  return r === "review" || r === "in_review" || r === "approved" || r === "archived" || r === "changes_requested" ? Te(r) : `
+    <button
+      type="button"
+      class="${R}"
+      data-action="submit-review"
+      title="${f(a)}"
+      disabled aria-disabled="true"
+    >
+      Submit review
+    </button>
+  `;
+}
+function Vt(e, t, s) {
   let a = "idle";
   return e?.autosave.conflict ? a = "conflict" : e?.autosave.pending ? a = "saving" : t ? a = "dirty" : s && (a = "saved"), {
-    tone: Qe(a),
-    text: Xe(a, s),
+    tone: ze(a),
+    text: Je(a, s),
     state: a
   };
 }
-function be(e) {
+function ye(e) {
   const t = [
-    e.requestId ? `Request ${d(e.requestId)}` : "",
-    e.traceId ? `Trace ${d(e.traceId)}` : "",
-    e.errorCode ? `Code ${d(e.errorCode)}` : ""
+    e.requestId ? `Request ${u(e.requestId)}` : "",
+    e.traceId ? `Trace ${u(e.traceId)}` : "",
+    e.errorCode ? `Code ${u(e.errorCode)}` : ""
   ].filter(Boolean);
   return t.length ? `<p class="mt-3 text-xs text-gray-500">${t.join(" · ")}</p>` : "";
 }
-function Kt(e) {
+function Yt(e) {
   return e ? `
     <div class="rounded-xl border px-4 py-3 text-sm font-medium ${e.kind === "success" ? "border-emerald-200 bg-emerald-50 text-emerald-800" : e.kind === "conflict" ? "border-amber-200 bg-amber-50 text-amber-800" : "border-rose-200 bg-rose-50 text-rose-800"}" data-editor-feedback-kind="${f(e.kind)}" role="status" aria-live="polite">
-      ${d(e.message)}
+      ${u(e.message)}
     </div>
   ` : "";
 }
-function Ht(e) {
+function Qt(e) {
   const t = e.qa_results;
   if (!t.enabled || t.summary.finding_count <= 0) return "";
-  const s = t.summary.blocker_count > 0 ? x("error") : x("success"), a = t.summary.blocker_count > 0 ? `Blockers ${t.summary.blocker_count}` : "No blockers";
+  const s = t.summary.blocker_count > 0 ? w("error") : w("success"), a = t.summary.blocker_count > 0 ? `Blockers ${t.summary.blocker_count}` : "No blockers";
   return `
-    <span class="${x("warning")}">Warnings ${t.summary.warning_count}</span>
+    <span class="${w("warning")}">Warnings ${t.summary.warning_count}</span>
     <span class="${s}">${a}</span>
   `;
 }
-function Vt(e, t) {
+function Wt(e, t) {
   return e.summary.blocker_count > 0 ? {
     kind: "conflict",
     message: `Draft saved with ${e.summary.blocker_count} QA blocker${e.summary.blocker_count === 1 ? "" : "s"} and ${e.summary.warning_count} warning${e.summary.warning_count === 1 ? "" : "s"}. Submit remains blocked.`,
@@ -782,69 +795,69 @@ function Vt(e, t) {
     lastSaved: t ? "Draft saved automatically" : "Draft saved"
   };
 }
-function Yt(e) {
+function Gt(e) {
   const t = e.qa_results;
   return t.submit_blocked ? `Resolve ${t.summary.blocker_count} QA blocker${t.summary.blocker_count === 1 ? "" : "s"} before submitting for review. ${t.summary.warning_count} warning${t.summary.warning_count === 1 ? "" : "s"} remain advisory.` : "Submit for review is unavailable.";
 }
-function Qt(e, t) {
+function Xt(e, t) {
   const s = e.qa_results, a = s.summary.warning_count > 0 ? ` ${s.summary.warning_count} QA warning${s.summary.warning_count === 1 ? "" : "s"} remain visible to reviewers.` : "";
   return t === "approved" ? `Submitted and auto-approved.${a}` : `Submitted for review.${a}`;
 }
-function Wt() {
-  return tt({
+function Jt() {
+  return at({
     tag: "section",
     text: "Loading translation assignment…",
     showSpinner: !1,
-    containerClass: `${Pe} p-8 shadow-sm`,
+    containerClass: `${Me} p-8 shadow-sm`,
     textClass: "text-sm font-medium text-gray-500"
   });
 }
-function ie(e, t) {
-  return de({
+function ne(e, t) {
+  return ue({
     tag: "section",
-    containerClass: `${Fe} p-8 text-center shadow-sm`,
+    containerClass: `${Be} p-8 text-center shadow-sm`,
     bodyClass: "",
     contentClass: "",
     title: e,
     titleTag: "h2",
-    titleClass: je,
+    titleClass: Le,
     message: t,
-    messageClass: `${qe} mt-2`
+    messageClass: `${De} mt-2`
   });
 }
-function ne(e, t, s) {
-  return de({
+function oe(e, t, s) {
+  return ue({
     tag: "section",
-    containerClass: `${Oe} p-8 shadow-sm`,
+    containerClass: `${Pe} p-8 shadow-sm`,
     bodyClass: "",
     contentClass: "",
     title: e,
     titleTag: "h2",
-    titleClass: Ae,
+    titleClass: qe,
     message: t,
-    messageClass: `${He} mt-2`,
-    actionsHtml: be(s),
+    messageClass: `${We} mt-2`,
+    actionsHtml: ye(s),
     role: "alert"
   });
 }
-function Gt(e, t, s, a, r, i, o, l, u = "") {
-  const p = e.assignment_action_states.submit_review, b = e.assignment_action_states.claim, g = e.preview_action, I = C(e), y = !b?.enabled || r || a || o, ee = l || !p?.enabled || r || a || e.qa_results.submit_blocked, _e = !g?.enabled || r || a || i || o, xe = l || r || !s, we = (e.source_locale || "source").toUpperCase(), Se = (e.target_locale || "target").toUpperCase(), v = e.translation_assignment, P = l ? J(e) : e.qa_results.submit_blocked ? "Resolve QA blockers before submitting for review." : p?.reason || "", $e = g?.enabled ? o ? "Reload the latest server draft before opening preview." : i ? "Opening preview." : "Open preview in a new tab." : g?.reason || "Preview is unavailable for this assignment.", F = o ? "Reload the latest server draft before resuming work." : r ? "Wait for the current save to finish before resuming work." : b?.reason || "Resume work on this assignment.";
+function Zt(e, t, s, a, r, i, o, l, d = "") {
+  const p = e.assignment_action_states.submit_review, b = e.assignment_action_states.claim, g = e.preview_action, I = C(e), y = !b?.enabled || r || a || o, ee = l || !p?.enabled || r || a || e.qa_results.submit_blocked, we = !g?.enabled || r || a || i || o, xe = l || r || !s, Se = (e.source_locale || "source").toUpperCase(), $e = (e.target_locale || "target").toUpperCase(), v = e.translation_assignment, P = l ? J(e) : e.qa_results.submit_blocked ? "Resolve QA blockers before submitting for review." : p?.reason || "", ke = g?.enabled ? o ? "Reload the latest server draft before opening preview." : i ? "Opening preview." : "Open preview in a new tab." : g?.reason || "Preview is unavailable for this assignment.", F = o ? "Reload the latest server draft before resuming work." : r ? "Wait for the current save to finish before resuming work." : b?.reason || "Resume work on this assignment.";
   return `
-    <section class="${O} p-6 shadow-sm">
+    <section class="${D} p-6 shadow-sm">
       <div class="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
         <div class="space-y-3">
-          <p class="${Ie}">Assignment editor</p>
+          <p class="${Fe}">Assignment editor</p>
           <div>
-            <h1 class="${Le}">${d(v.source_title || "Translation assignment")}</h1>
+            <h1 class="${Oe}">${u(v.source_title || "Translation assignment")}</h1>
             <p class="mt-2 text-sm text-gray-600">
-              ${d(we)} to ${d(Se)} • ${d(R(e.status || v.status || "draft"))} • Priority ${d(e.priority || "normal")}
+              ${u(Se.toUpperCase())} → ${u($e.toUpperCase())} • ${u(te(e.status || v.status || "draft"))} • Priority ${u(te(e.priority || "normal"))}
             </p>
           </div>
           <div class="flex flex-wrap gap-2 text-xs text-gray-600">
-            <span class="rounded-full bg-gray-100 px-3 py-1 font-medium">Assignee ${d(v.display_assignee || v.assignee_label || v.assignee_id || "Unassigned")}</span>
-            <span class="rounded-full bg-gray-100 px-3 py-1 font-medium">Reviewer ${d(v.display_reviewer || v.reviewer_label || v.reviewer_id || "Not set")}</span>
-            <span class="rounded-full px-3 py-1 font-medium ${t.tone}" data-autosave-state="${f(t.state)}">${d(t.text)}</span>
-            ${Ht(e)}
+            <span class="rounded-full bg-gray-100 px-3 py-1 font-medium">Assignee ${u(v.display_assignee || v.assignee_label || v.assignee_id || "Unassigned")}</span>
+            <span class="rounded-full bg-gray-100 px-3 py-1 font-medium">Reviewer ${u(v.display_reviewer || v.reviewer_label || v.reviewer_id || "Not set")}</span>
+            <span class="rounded-full px-3 py-1 font-medium ${t.tone}" data-autosave-state="${f(t.state)}">${u(t.text)}</span>
+            ${Qt(e)}
           </div>
         </div>
         <div class="flex flex-wrap items-start gap-3">
@@ -861,62 +874,54 @@ function Gt(e, t, s, a, r, i, o, l, u = "") {
               type="button"
               class="${q}"
               data-action="preview-assignment"
-              title="${f($e)}"
+              title="${f(ke)}"
               data-preview-enabled="${g?.enabled ? "true" : "false"}"
               data-preview-reason-code="${f(g?.reason_code || "")}"
-              ${_e ? 'disabled aria-disabled="true"' : ""}
+              ${we ? 'disabled aria-disabled="true"' : ""}
             >
               ${i ? "Opening..." : g?.enabled ? "Preview" : "Preview unavailable"}
             </button>
-            ${!g?.enabled && g?.reason ? `<p class="text-xs text-gray-500" data-preview-unavailable-reason="true">${d(g.reason)}</p>` : ""}
+            ${!g?.enabled && g?.reason ? `<p class="text-xs text-gray-500" data-preview-unavailable-reason="true">${u(g.reason)}</p>` : ""}
           </div>
           ${I ? `
             <div class="flex max-w-xs flex-col items-start gap-1">
               <button
                 type="button"
-                class="${L}"
+                class="${R}"
                 data-action="resume-work"
                 title="${f(F)}"
                 ${y ? 'disabled aria-disabled="true"' : ""}
               >
                 ${a && b?.enabled ? "Resuming..." : "Resume work"}
               </button>
-              ${y && F ? `<p class="text-xs text-gray-500" data-resume-unavailable-reason="true">${d(F)}</p>` : ""}
+              ${y && F ? `<p class="text-xs text-gray-500" data-resume-unavailable-reason="true">${u(F)}</p>` : ""}
             </div>
           ` : ""}
           <div class="flex max-w-xs flex-col items-start gap-1">
-            <button
-              type="button"
-              class="${L}"
-              data-action="submit-review"
-              title="${f(P)}"
-              ${ee ? 'disabled aria-disabled="true"' : ""}
-            >
-              ${d(zt(e, a))}
-            </button>
-            ${ee && P ? `<p class="text-xs text-gray-500" data-submit-unavailable-reason="true">${d(P)}</p>` : ""}
+            ${Ht(e, a, ee, P)}
+            ${ee && P ? `<p class="text-xs text-gray-500" data-submit-unavailable-reason="true">${u(P)}</p>` : ""}
           </div>
         </div>
       </div>
     </section>
   `;
 }
-function Xt(e) {
-  const t = d(e.label || e.locale.toUpperCase()), s = "inline-flex min-h-[24px] items-center rounded px-2 py-1 text-xs font-medium transition-colors", a = "bg-blue-100 text-blue-700", r = "bg-gray-100 text-gray-700 hover:bg-gray-200 hover:text-gray-900", i = "cursor-not-allowed bg-gray-50 text-gray-400 ring-1 ring-inset ring-gray-200", o = [
+function es(e) {
+  const t = u(e.label || e.locale.toUpperCase()), s = "inline-flex min-h-[24px] items-center rounded px-2 py-1 text-xs font-medium transition-colors", a = "bg-blue-100 text-blue-700", r = "bg-gray-100 text-gray-700 hover:bg-gray-200 hover:text-gray-900", i = "cursor-not-allowed bg-gray-50 text-gray-400 ring-1 ring-inset ring-gray-200", o = [
     `data-locale-chip="${f(e.locale)}"`,
     e.current ? 'data-locale-current="true"' : "",
     e.disabled ? 'data-locale-disabled="true"' : "",
     e.assignment_id ? `data-assignment-id="${f(e.assignment_id)}"` : ""
   ].filter(Boolean).join(" ");
   if (e.enabled && e.href) {
-    const u = e.current ? a : r, p = e.current ? ' aria-current="page"' : "";
-    return `<a href="${f(e.href)}" class="${s} ${u}" ${o}${p} aria-label="Open ${f(e.label || e.locale.toUpperCase())} assignment">${t}</a>`;
+    const d = e.current ? a : r, p = e.current ? ' aria-current="page"' : "";
+    return `<a href="${f(e.href)}" class="${s} ${d}" ${o}${p} aria-label="Open ${f(e.label || e.locale.toUpperCase())} assignment">${t}</a>`;
   }
   if (e.current) return `<span class="${s} ${a}" ${o} aria-current="page">${t}</span>`;
   const l = e.reason || "No translation assignment exists for this locale.";
   return `<span class="${s} ${i}" ${o} aria-disabled="true" title="${f(l)}" aria-label="${f(`${e.label || e.locale.toUpperCase()} unavailable: ${l}`)}">${t}</span>`;
 }
-function Jt(e) {
+function ts(e) {
   const t = e.locale_navigation, s = t.locales, a = t.current_locale || (e.target_locale || "").toLowerCase(), r = (a || "target").toUpperCase();
   if (!t.family_id && s.length === 0 && !t.family_detail_url) return "";
   const i = s.length > 0 ? s : [{
@@ -935,7 +940,7 @@ function Jt(e) {
           <div class="flex flex-wrap items-center gap-2">
             <span class="text-xs font-medium uppercase tracking-wide text-gray-500">Locale</span>
             <div class="flex flex-wrap items-center gap-1" data-editor-locale-chips="true">
-              ${i.map(Xt).join("")}
+              ${i.map(es).join("")}
             </div>
           </div>
         </div>
@@ -952,8 +957,8 @@ function Jt(e) {
     </section>
   `;
 }
-function Zt(e) {
-  if (!ye(e)) return "";
+function ss(e) {
+  if (!ve(e)) return "";
   const t = !!(e.drift.previous_source_value && e.drift.previous_source_value.trim()), s = !!(e.drift.current_source_value || e.source_value);
   return !t && !s ? `
       <div class="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800" data-field-drift="${f(e.path)}">
@@ -963,8 +968,8 @@ function Zt(e) {
     ` : t ? `
     <div class="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800" data-field-drift="${f(e.path)}">
       <p class="font-semibold">Source changed since the last synced draft.</p>
-      <p class="mt-1"><span class="font-medium">Before:</span> ${d(e.drift.previous_source_value)}</p>
-      <p class="mt-1"><span class="font-medium">Current:</span> ${d(e.drift.current_source_value || e.source_value || "Current value unavailable")}</p>
+      <p class="mt-1"><span class="font-medium">Before:</span> ${u(e.drift.previous_source_value)}</p>
+      <p class="mt-1"><span class="font-medium">Current:</span> ${u(e.drift.current_source_value || e.source_value || "Current value unavailable")}</p>
     </div>
   ` : `
       <div class="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800" data-field-drift="${f(e.path)}">
@@ -973,25 +978,25 @@ function Zt(e) {
       </div>
     `;
 }
-function ye(e) {
+function ve(e) {
   if (!e.drift.changed) return !1;
   const t = !!(e.drift.previous_source_value && e.drift.previous_source_value.trim());
   return e.drift.comparison_mode !== "hash_only" || t;
 }
-function es(e) {
+function as(e) {
   const t = Array.isArray(e.glossary_hits) ? e.glossary_hits : [];
   return t.length ? `
     <div class="mt-3 flex flex-wrap gap-2">
       ${t.map((s) => `
-        <span class="${Ke}">
-          <span class="${De}">${d(n(s.term))}</span>
-          → ${d(n(s.preferred_translation))}
+        <span class="${Qe}">
+          <span class="${Ie}">${u(n(s.term))}</span>
+          → ${u(n(s.preferred_translation))}
         </span>
       `).join("")}
     </div>
   ` : "";
 }
-function ts(e) {
+function rs(e) {
   const t = e.fields || [], s = e.qa_results, a = {
     missing: null,
     validation: null,
@@ -1000,11 +1005,11 @@ function ts(e) {
     sourceDrift: null
   };
   let r = 0, i = 0, o = 0, l = 0;
-  for (const u of t)
-    u.completeness.complete && !u.completeness.missing && r++, u.completeness.required && u.completeness.missing && (i++, a.missing || (a.missing = u.path)), u.drift.changed && (o++, a.sourceDrift || (a.sourceDrift = u.path)), u.validation.valid || (l++, a.validation || (a.validation = u.path));
+  for (const d of t)
+    d.completeness.complete && !d.completeness.missing && r++, d.completeness.required && d.completeness.missing && (i++, a.missing || (a.missing = d.path)), d.drift.changed && (o++, a.sourceDrift || (a.sourceDrift = d.path)), d.validation.valid || (l++, a.validation || (a.validation = d.path));
   if (s.enabled && s.findings.length > 0) {
-    const u = s.findings.find((b) => b.severity === "blocker");
-    u?.field_path && (a.qaBlocker = u.field_path);
+    const d = s.findings.find((b) => b.severity === "blocker");
+    d?.field_path && (a.qaBlocker = d.field_path);
     const p = s.findings.find((b) => b.field_path);
     p?.field_path && (a.qaFinding = p.field_path);
   }
@@ -1019,9 +1024,9 @@ function ts(e) {
     firstIssuePath: a.missing || a.validation || a.qaBlocker || a.qaFinding || a.sourceDrift
   };
 }
-function ss(e) {
-  const t = e.missingRequiredFields > 0 || e.sourceChangedFields > 0 || e.validationErrors > 0 || e.qaBlockers > 0, s = e.completeFields === e.totalFields && e.missingRequiredFields === 0 && e.validationErrors === 0 && e.qaBlockers === 0, a = [], r = s ? "bg-emerald-100 text-emerald-700 border-emerald-200" : "bg-gray-100 text-gray-700 border-gray-200";
-  a.push(`<span class="inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-medium ${r}">${e.completeFields}/${e.totalFields} complete</span>`), e.missingRequiredFields > 0 && a.push(`<span class="inline-flex items-center gap-1 rounded-full border border-rose-200 bg-rose-100 px-2.5 py-1 text-xs font-medium text-rose-700">${e.missingRequiredFields} missing required</span>`), e.sourceChangedFields > 0 && a.push(`<span class="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-700">${e.sourceChangedFields} source changed</span>`), e.validationErrors > 0 && a.push(`<span class="inline-flex items-center gap-1 rounded-full border border-rose-200 bg-rose-100 px-2.5 py-1 text-xs font-medium text-rose-700">${e.validationErrors} validation ${e.validationErrors === 1 ? "error" : "errors"}</span>`), e.qaBlockers > 0 && a.push(`<span class="inline-flex items-center gap-1 rounded-full border border-rose-200 bg-rose-100 px-2.5 py-1 text-xs font-medium text-rose-700">${e.qaBlockers} QA ${e.qaBlockers === 1 ? "blocker" : "blockers"}</span>`), e.qaWarnings > 0 && a.push(`<span class="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-700">${e.qaWarnings} QA ${e.qaWarnings === 1 ? "warning" : "warnings"}</span>`);
+function is(e) {
+  const t = e.missingRequiredFields > 0 || e.sourceChangedFields > 0 || e.validationErrors > 0 || e.qaBlockers > 0, s = e.completeFields === e.totalFields && e.missingRequiredFields === 0 && e.validationErrors === 0 && e.qaBlockers === 0, a = [], r = (l, d) => `<span class="status-chip status-chip--${l}">${d}</span>`;
+  a.push(r(s ? "success" : "neutral", `${e.completeFields}/${e.totalFields} complete`)), e.missingRequiredFields > 0 && a.push(r("error", `${e.missingRequiredFields} missing required`)), e.sourceChangedFields > 0 && a.push(r("warning", `${e.sourceChangedFields} source changed`)), e.validationErrors > 0 && a.push(r("error", `${e.validationErrors} validation ${e.validationErrors === 1 ? "error" : "errors"}`)), e.qaBlockers > 0 && a.push(r("error", `${e.qaBlockers} QA ${e.qaBlockers === 1 ? "blocker" : "blockers"}`)), e.qaWarnings > 0 && a.push(r("warning", `${e.qaWarnings} QA ${e.qaWarnings === 1 ? "warning" : "warnings"}`));
   const i = s ? "border-emerald-200 bg-emerald-50" : t ? "border-amber-200 bg-amber-50" : "border-gray-200 bg-gray-50", o = e.firstIssuePath ? `<button
         type="button"
         class="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 shadow-sm transition-all hover:bg-gray-50 hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-sky-100"
@@ -1038,60 +1043,60 @@ function ss(e) {
     </section>
   `;
 }
-function as(e) {
-  return e.source_value && e.source_value.trim() ? d(e.source_value) : e.required ? '<span class="text-amber-600 italic">Source text pending - required field</span>' : '<span class="text-gray-400 italic text-xs">Optional source content not provided</span>';
+function ns(e) {
+  return e.source_value && e.source_value.trim() ? u(e.source_value) : e.required ? '<span class="text-amber-600 italic">Source text pending - required field</span>' : '<span class="text-gray-400 italic text-xs">Optional source content not provided</span>';
 }
-var rs = "inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-[11px] font-medium leading-4 text-gray-600 shadow-sm transition-colors hover:border-gray-300 hover:bg-gray-50 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-sky-100";
+var os = "inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-[11px] font-medium leading-4 text-gray-600 shadow-sm transition-colors hover:border-gray-300 hover:bg-gray-50 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-sky-100";
 function Z(e, t = "16px") {
-  return ke(e, {
+  return Re(e, {
     size: t,
     extraClass: "text-current"
   });
 }
-function is() {
-  return Z(Ge, "12px");
+function cs() {
+  return Z(et, "12px");
 }
-function ns(e, t = !1) {
-  const s = ts(e), a = t ? "mt-2 w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-600" : "mt-2 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-100", r = t ? "mt-2 min-h-[140px] w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-600" : "mt-2 min-h-[140px] w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-100";
+function ls(e, t = !1) {
+  const s = rs(e), a = t ? "mt-2 w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-600" : "mt-2 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-100", r = t ? "mt-2 min-h-[140px] w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-600" : "mt-2 min-h-[140px] w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-100";
   return `
     <section class="space-y-4">
-      ${ss(s)}
+      ${is(s)}
       ${e.fields.map((i) => `
         <article class="rounded-xl border border-gray-200 bg-white p-5" data-editor-field="${f(i.path)}" id="field-${f(i.path)}">
           <div class="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <h2 class="text-lg font-semibold text-gray-900">${d(i.label)}</h2>
-              <p class="mt-1 text-xs uppercase tracking-[0.18em] text-gray-500">${d(i.path)}${i.required ? " • Required" : ""}</p>
+              <h2 class="text-lg font-semibold text-gray-900">${u(i.label)}</h2>
+              ${Kt(i.label, i.path, i.required)}
             </div>
             <button
               type="button"
-              class="${rs}"
+              class="${os}"
               data-copy-source="${f(i.path)}"
               data-source-value="${f(i.source_value)}"
               aria-label="Copy source text to translation field for ${f(i.label)}"
               ${t ? 'disabled aria-disabled="true"' : ""}
             >
-              ${is()}
+              ${cs()}
               <span>Copy source</span>
             </button>
           </div>
           <div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
             <div class="rounded-xl border border-gray-200 bg-gray-50 p-4">
-              <p class="text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">Source</p>
-              <div class="mt-2 whitespace-pre-wrap text-sm text-gray-800">${as(i)}</div>
+              <p class="text-xs font-semibold uppercase tracking-wider text-gray-500">Source</p>
+              <div class="mt-2 whitespace-pre-wrap text-sm text-gray-800">${ns(i)}</div>
             </div>
             <div class="rounded-xl border ${i.validation.valid ? "border-gray-200" : "border-rose-200"} bg-white p-4">
-              <label class="text-xs font-semibold uppercase tracking-[0.18em] text-gray-500" for="editor-field-${f(i.path)}">Translation</label>
-              ${i.input_type === "textarea" ? `<textarea id="editor-field-${f(i.path)}" class="${r}" data-field-input="${f(i.path)}" ${t ? 'disabled aria-disabled="true"' : ""}>${d(i.target_value)}</textarea>` : `<input id="editor-field-${f(i.path)}" type="text" class="${a}" data-field-input="${f(i.path)}" value="${f(i.target_value)}" ${t ? 'disabled aria-disabled="true"' : ""} />`}
+              <label class="text-xs font-semibold uppercase tracking-wider text-gray-500" for="editor-field-${f(i.path)}">Translation</label>
+              ${i.input_type === "textarea" ? `<textarea id="editor-field-${f(i.path)}" class="${r}" data-field-input="${f(i.path)}" ${t ? 'disabled aria-disabled="true"' : ""}>${u(i.target_value)}</textarea>` : `<input id="editor-field-${f(i.path)}" type="text" class="${a}" data-field-input="${f(i.path)}" value="${f(i.target_value)}" ${t ? 'disabled aria-disabled="true"' : ""} />`}
               <div class="mt-2 flex flex-wrap gap-2 text-xs">
                 <span class="rounded-full px-2.5 py-1 ${i.completeness.missing ? "bg-rose-100 text-rose-700" : "bg-emerald-100 text-emerald-700"}">
                   ${i.completeness.missing ? "Missing required content" : "Field complete"}
                 </span>
-                ${ye(i) ? '<span class="rounded-full bg-amber-100 px-2.5 py-1 text-amber-700">Source changed</span>' : ""}
+                ${ve(i) ? '<span class="rounded-full bg-amber-100 px-2.5 py-1 text-amber-700">Source changed</span>' : ""}
               </div>
-              ${i.validation.valid ? "" : `<p class="mt-3 text-sm font-medium text-rose-700" data-field-validation="${f(i.path)}">${d(i.validation.message || "Validation error")}</p>`}
-              ${Zt(i)}
-              ${es(i)}
+              ${i.validation.valid ? "" : `<p class="mt-3 text-sm font-medium text-rose-700" data-field-validation="${f(i.path)}">${u(i.validation.message || "Validation error")}</p>`}
+              ${ss(i)}
+              ${as(i)}
             </div>
           </div>
         </article>
@@ -1099,14 +1104,14 @@ function ns(e, t = !1) {
     </section>
   `;
 }
-function ve(e) {
+function _e(e) {
   if (!Array.isArray(e)) return [];
   const t = [];
   for (const s of e) {
     const a = c(s), r = n(a.suggested_text) || n(a.target_text);
     r && t.push({
       id: n(a.id) || `tm-${t.length}`,
-      score: os(a.score, a.match_score),
+      score: ds(a.score, a.match_score),
       sourceLabel: n(a.source_label) || n(a.source) || "Internal TM",
       localePair: n(a.locale_pair) || "",
       fieldPath: n(a.field_path) || "",
@@ -1116,16 +1121,16 @@ function ve(e) {
   }
   return t.sort((s, a) => a.score - s.score);
 }
-function os(e, t) {
+function ds(e, t) {
   const s = m(e) || m(t);
   if (!Number.isFinite(s) || s <= 0) return 0;
   const a = s <= 1 ? s * 100 : s;
   return Math.max(0, Math.min(100, Math.round(a)));
 }
-function cs(e) {
+function us(e) {
   return e >= 99 ? "Exact" : e >= 80 ? "High" : "Fuzzy";
 }
-function ls(e) {
+function fs(e) {
   return e.length ? `
     <div class="mt-4" data-assist-section="tm">
       <h3 class="text-sm font-semibold text-gray-800">Translation Memory</h3>
@@ -1134,14 +1139,14 @@ function ls(e) {
           <li class="rounded-xl border ${t.isStaleSource ? "border-amber-200 bg-amber-50" : "border-gray-200 bg-gray-50"} px-3 py-3 text-sm" data-tm-suggestion="${f(t.id)}">
             <div class="flex items-start justify-between gap-2">
               <div class="flex-1 min-w-0">
-                <p class="font-medium text-gray-900 break-words">${d(t.suggestedText)}</p>
+                <p class="font-medium text-gray-900 break-words">${u(t.suggestedText)}</p>
                 <div class="mt-2 flex flex-wrap items-center gap-2 text-xs text-gray-500">
-                  <span class="rounded-full bg-sky-100 px-2 py-0.5 text-sky-700">${cs(t.score)} ${t.score}%</span>
-                  <span>${d(t.sourceLabel)}</span>
-                  ${t.localePair ? `<span class="text-gray-400">${d(t.localePair)}</span>` : ""}
+                  <span class="rounded-full bg-sky-100 px-2 py-0.5 text-sky-700">${us(t.score)} ${t.score}%</span>
+                  <span>${u(t.sourceLabel)}</span>
+                  ${t.localePair ? `<span class="text-gray-400">${u(t.localePair)}</span>` : ""}
                   ${t.isStaleSource ? '<span class="text-amber-600">Source changed</span>' : ""}
                 </div>
-                ${t.fieldPath ? `<p class="mt-1 text-xs text-gray-400">Field: ${d(t.fieldPath)}</p>` : ""}
+                ${t.fieldPath ? `<p class="mt-1 text-xs text-gray-400">Field: ${u(t.fieldPath)}</p>` : ""}
               </div>
               <button
                 type="button"
@@ -1165,19 +1170,19 @@ function ls(e) {
       </div>
     `;
 }
-function ds(e) {
+function ms(e) {
   const t = e.assist.glossary_matches, s = e.assist.style_guide_summary;
   return `
     <section class="rounded-xl border border-gray-200 bg-white p-5" data-editor-panel="assist">
       <h2 class="text-lg font-semibold text-gray-900">Assist</h2>
       <div class="mt-4 space-y-4">
-        ${ls(ve(e.assist.translation_memory_suggestions))}
+        ${fs(_e(e.assist.translation_memory_suggestions))}
         <div data-assist-section="glossary">
           <h3 class="text-sm font-semibold text-gray-800">Glossary</h3>
           ${t.length ? `<ul class="mt-3 space-y-2">${t.map((a) => `
                 <li class="rounded-xl border border-gray-200 bg-gray-50 px-3 py-3 text-sm text-gray-700">
-                  <strong class="text-gray-900">${d(a.term)}</strong> → ${d(a.preferred_translation)}
-                  ${a.notes ? `<p class="mt-1 text-xs text-gray-500">${d(a.notes)}</p>` : ""}
+                  <strong class="text-gray-900">${u(a.term)}</strong> → ${u(a.preferred_translation)}
+                  ${a.notes ? `<p class="mt-1 text-xs text-gray-500">${u(a.notes)}</p>` : ""}
                 </li>
               `).join("")}</ul>` : '<p class="mt-3 text-sm text-gray-500">Glossary matches unavailable for this assignment.</p>'}
         </div>
@@ -1185,10 +1190,10 @@ function ds(e) {
           <h3 class="text-sm font-semibold text-gray-800">Style guide</h3>
           ${s.available ? `
               <div class="mt-3 rounded-xl border border-gray-200 bg-gray-50 px-3 py-3">
-                <p class="text-sm font-semibold text-gray-900">${d(s.title)}</p>
-                <p class="mt-2 text-sm text-gray-700">${d(s.summary)}</p>
+                <p class="text-sm font-semibold text-gray-900">${u(s.title)}</p>
+                <p class="mt-2 text-sm text-gray-700">${u(s.summary)}</p>
                 <ul class="mt-3 space-y-2 text-sm text-gray-700">
-                  ${s.rules.map((a) => `<li>• ${d(a)}</li>`).join("")}
+                  ${s.rules.map((a) => `<li>• ${u(a)}</li>`).join("")}
                 </ul>
               </div>
             ` : '<p class="mt-3 text-sm text-gray-500">Style-guide guidance is unavailable. Editing remains enabled.</p>'}
@@ -1197,10 +1202,10 @@ function ds(e) {
     </section>
   `;
 }
-function us(e) {
+function ps(e) {
   const t = e.history.items.map((s) => ({
     id: s.id,
-    title: s.title || R(s.entry_type),
+    title: s.title || O(s.entry_type),
     body: s.body || "",
     created_at: s.created_at,
     badge: s.kind === "review_feedback" ? "Reviewer feedback" : s.entry_type === "comment" ? "Comment" : "Activity",
@@ -1225,32 +1230,32 @@ function us(e) {
     return (a.created_at ? Date.parse(a.created_at) : 0) - r;
   });
 }
-function fs(e) {
+function hs(e) {
   const t = e.qa_results;
   if (!t.enabled) return "";
   const s = t.findings.filter((i) => i.severity === "blocker"), a = t.findings.filter((i) => i.severity !== "blocker"), r = (i, o) => {
     if (!i.length) return "";
-    const l = Ve(o);
+    const l = Ke(o);
     return `
       <section data-qa-group="${f(o === "blocker" ? "blockers" : "warnings")}">
         <h3 class="text-sm font-semibold ${o === "blocker" ? "text-rose-800" : "text-amber-800"}">
           ${o === "blocker" ? `Blocking findings (${i.length})` : `Warnings (${i.length})`}
         </h3>
-        <ol class="mt-3 space-y-3">${i.map((u) => `
+        <ol class="mt-3 space-y-3">${i.map((d) => `
           <li class="${l.container}">
             <div class="flex items-center justify-between gap-3">
-              <strong>${d(R(u.category))}</strong>
-              <span class="${l.badge}">${d(u.severity)}</span>
+              <strong>${u(O(d.category))}</strong>
+              <span class="${l.badge}">${u(d.severity)}</span>
             </div>
-            <p class="mt-2">${d(u.message)}</p>
-            ${u.field_path ? `
+            <p class="mt-2">${u(d.message)}</p>
+            ${d.field_path ? `
               <button
                 type="button"
                 class="mt-2 inline-flex items-center rounded-md border border-current px-2 py-1 text-xs font-medium opacity-80 transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-current/20"
-                data-jump-to-field="${f(u.field_path)}"
-                title="Jump to ${f(u.field_path)}"
+                data-jump-to-field="${f(d.field_path)}"
+                title="Jump to ${f(d.field_path)}"
               >
-                Field ${d(u.field_path)}
+                Field ${u(d.field_path)}
               </button>
             ` : ""}
           </li>
@@ -1259,7 +1264,7 @@ function fs(e) {
     `;
   };
   return `
-    <section class="${Ze(t.submit_blocked)}">
+    <section class="${Ge(t.submit_blocked)}">
       <div class="flex items-center justify-between gap-3">
         <div>
           <h2 class="text-lg font-semibold text-gray-900">QA checks</h2>
@@ -1267,19 +1272,19 @@ function fs(e) {
             ${t.submit_blocked ? "Submit is blocked until blockers are resolved." : "Warnings are advisory; blockers must be resolved before submit."}
           </p>
         </div>
-        <span class="${t.submit_blocked ? x("error") : x("neutral")}">
+        <span class="${t.submit_blocked ? w("error") : w("neutral")}">
           ${t.summary.finding_count} findings
         </span>
       </div>
       <div class="mt-4 flex flex-wrap gap-2 text-xs">
-        <span class="${x("warning")}">Warnings ${t.summary.warning_count}</span>
-        <span class="${x("error")}">Blockers ${t.summary.blocker_count}</span>
+        <span class="${w("warning")}">Warnings ${t.summary.warning_count}</span>
+        <span class="${w("error")}">Blockers ${t.summary.blocker_count}</span>
       </div>
       ${s.length || a.length ? `<div class="mt-4 space-y-4">${r(s, "blocker")}${r(a, "warning")}</div>` : '<p class="mt-4 text-sm text-gray-500">No QA findings for this assignment.</p>'}
     </section>
   `;
 }
-function ms(e, t) {
+function gs(e, t) {
   const s = e.review_action_states.approve, a = e.review_action_states.reject;
   return G(e) ? `
     <section
@@ -1293,23 +1298,23 @@ function ms(e, t) {
     key: "approve",
     label: "Approve",
     state: s,
-    tone: "border-emerald-300 text-emerald-700"
+    tone: "btn btn-success-outline"
   }, {
     key: "reject",
     label: "Request changes",
     state: a,
-    tone: "border-rose-300 text-rose-700"
+    tone: "btn btn-danger-outline"
   }].map((r) => {
     const i = !r.state?.enabled || t;
     return `
             <button
               type="button"
-              class="rounded-lg border px-4 py-2 text-sm font-semibold ${r.tone} ${i ? "cursor-not-allowed opacity-60" : "hover:bg-gray-50"}"
+              class="${r.tone} ${i ? "cursor-not-allowed opacity-60" : ""}"
               data-action="${f(r.key)}"
               title="${f(r.state?.reason || "")}"
               ${i ? 'disabled aria-disabled="true"' : ""}
             >
-              ${d(r.label)}
+              ${u(r.label)}
             </button>
           `;
   }).join("")}
@@ -1317,12 +1322,12 @@ function ms(e, t) {
     </section>
   ` : "";
 }
-function ps(e, t, s, a) {
+function bs(e, t, s, a) {
   if (!C(e)) return "";
   const r = e.assignment_action_states.claim, i = !r?.enabled || s || t || a, o = a ? "Reload the latest server draft before resuming work." : s ? "Wait for the current save to finish before resuming work." : t ? "Resume is already in progress." : r?.reason || "";
   return `
     <section
-      class="${O} p-5"
+      class="${D} p-5"
       data-editor-panel="resume-actions"
       aria-label="Resume work"
     >
@@ -1331,53 +1336,53 @@ function ps(e, t, s, a) {
       <div class="mt-4 flex max-w-xs flex-col items-start gap-2">
         <button
           type="button"
-          class="${L}"
+          class="${R}"
           data-action="resume-work"
           title="${f(o || "Resume work on this assignment.")}"
           ${i ? 'disabled aria-disabled="true"' : ""}
         >
           ${t && r?.enabled ? "Resuming..." : "Resume work"}
         </button>
-        ${i && o ? `<p class="text-xs text-gray-500" data-resume-unavailable-reason="true">${d(o)}</p>` : ""}
+        ${i && o ? `<p class="text-xs text-gray-500" data-resume-unavailable-reason="true">${u(o)}</p>` : ""}
       </div>
     </section>
   `;
 }
-function hs(e, t) {
+function ys(e, t) {
   return e ? `
-    <div class="${Je}" data-reject-modal="true">
-      <section class="${Ne}" role="dialog" aria-modal="true" aria-labelledby="translation-reject-title">
+    <div class="${tt}" data-reject-modal="true">
+      <section class="${He}" role="dialog" aria-modal="true" aria-labelledby="translation-reject-title">
         <div class="flex items-start justify-between gap-4">
           <div>
-            <p class="text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">Review action</p>
+            <p class="text-xs font-semibold uppercase tracking-wider text-gray-500">Review action</p>
             <h2 id="translation-reject-title" class="mt-2 text-2xl font-semibold text-gray-900">Request changes</h2>
             <p class="mt-2 text-sm text-gray-600">Capture the rejection reason so translators can see it directly in the editor timeline.</p>
           </div>
-          <button type="button" class="${et}" data-action="cancel-reject">Close</button>
+          <button type="button" class="${st}" data-action="cancel-reject">Close</button>
         </div>
         <label class="mt-5 block text-sm font-medium text-gray-700">
           Reject reason
-          <textarea class="mt-2 min-h-[120px] w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-rose-400 focus:outline-none focus:ring-2 focus:ring-rose-100" data-reject-reason="true">${d(e.reason)}</textarea>
+          <textarea class="mt-2 min-h-[120px] w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-rose-400 focus:outline-none focus:ring-2 focus:ring-rose-100" data-reject-reason="true">${u(e.reason)}</textarea>
         </label>
         <label class="mt-4 block text-sm font-medium text-gray-700">
           Reviewer note
-          <textarea class="mt-2 min-h-[100px] w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-100" data-reject-comment="true">${d(e.comment)}</textarea>
+          <textarea class="mt-2 min-h-[100px] w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-100" data-reject-comment="true">${u(e.comment)}</textarea>
         </label>
-        ${e.error ? `<p class="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-3 text-sm font-medium text-rose-800">${d(e.error)}</p>` : ""}
+        ${e.error ? `<p class="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-3 text-sm font-medium text-rose-800">${u(e.error)}</p>` : ""}
         <div class="mt-5 flex items-center justify-end gap-3">
           <button type="button" class="${q}" data-action="cancel-reject">Cancel</button>
-          <button type="button" class="${ze}" data-action="confirm-reject" ${t ? 'disabled aria-disabled="true"' : ""}>${t ? "Submitting…" : "Request changes"}</button>
+          <button type="button" class="${Ye}" data-action="confirm-reject" ${t ? 'disabled aria-disabled="true"' : ""}>${t ? "Submitting…" : "Request changes"}</button>
         </div>
       </section>
     </div>
   ` : "";
 }
-function gs(e, t) {
+function vs(e, t) {
   if (!X(e)) return "";
   const s = e.assignment_action_states.archive, a = !s?.enabled || t;
   return `
     <section
-      class="${O} p-5"
+      class="${D} p-5"
       data-editor-panel="management-actions"
       aria-label="Management actions"
     >
@@ -1396,9 +1401,9 @@ function gs(e, t) {
     </section>
   `;
 }
-function bs(e) {
+function _s(e) {
   return `
-    <section class="${O} p-5">
+    <section class="${D} p-5">
       <div class="flex items-center justify-between gap-3">
         <h2 class="text-lg font-semibold text-gray-900">Attachments</h2>
         <span class="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-600">${e.attachment_summary.total}</span>
@@ -1407,20 +1412,20 @@ function bs(e) {
             <li class="rounded-xl border border-gray-200 bg-gray-50 px-3 py-3 text-sm text-gray-700">
               <div class="flex items-start justify-between gap-3">
                 <div>
-                  <p class="font-semibold text-gray-900">${d(t.filename)}</p>
-                  <p class="mt-1 text-xs uppercase tracking-[0.18em] text-gray-500">${d(t.kind)}</p>
+                  <p class="font-semibold text-gray-900">${u(t.filename)}</p>
+                  <p class="mt-1 text-xs uppercase tracking-wider text-gray-500">${u(t.kind)}</p>
                 </div>
-                <span class="text-xs text-gray-500">${d(Mt(t.byte_size))}</span>
+                <span class="text-xs text-gray-500">${u(Nt(t.byte_size))}</span>
               </div>
-              ${t.description ? `<p class="mt-2 text-xs text-gray-500">${d(t.description)}</p>` : ""}
-              ${t.uploaded_at ? `<p class="mt-2 text-xs text-gray-500">Uploaded ${d(le(t.uploaded_at))}</p>` : ""}
+              ${t.description ? `<p class="mt-2 text-xs text-gray-500">${u(t.description)}</p>` : ""}
+              ${t.uploaded_at ? `<p class="mt-2 text-xs text-gray-500">Uploaded ${u(de(t.uploaded_at))}</p>` : ""}
             </li>
           `).join("")}</ul>` : '<p class="mt-4 text-sm text-gray-500">No reference attachments for this assignment.</p>'}
     </section>
   `;
 }
-function ys(e) {
-  const t = e.history, s = us(e);
+function ws(e) {
+  const t = e.history, s = ps(e);
   return `
     <section class="rounded-xl border border-gray-200 bg-white p-5">
       <div class="flex items-center justify-between gap-3">
@@ -1428,49 +1433,49 @@ function ys(e) {
         <span class="text-xs text-gray-500">Page ${t.page} of ${Math.max(1, Math.ceil(t.total / Math.max(1, t.per_page)))}</span>
       </div>
       ${s.length ? `<ol class="mt-4 space-y-3">${s.map((a) => {
-    const r = We(a.tone);
+    const r = Ve(a.tone);
     return `
             <li class="${r.container}" data-history-entry="${f(a.id)}">
               <div class="flex items-start justify-between gap-3">
                 <div class="space-y-2">
-                  <p class="${r.title}">${d(a.title)}</p>
-                  <span class="${r.badge}">${d(a.badge)}</span>
+                  <p class="${r.title}">${u(a.title)}</p>
+                  <span class="${r.badge}">${u(a.badge)}</span>
                 </div>
-                <span class="${r.time}">${d(le(a.created_at) || "Current")}</span>
+                <span class="${r.time}">${u(de(a.created_at) || "Current")}</span>
               </div>
-              ${a.body ? `<p class="mt-2 text-sm">${d(a.body)}</p>` : ""}
+              ${a.body ? `<p class="mt-2 text-sm">${u(a.body)}</p>` : ""}
             </li>
           `;
   }).join("")}</ol>` : '<p class="mt-4 text-sm text-gray-500">No workflow entries available.</p>'}
       <div class="mt-4 flex items-center justify-between gap-3">
-        <button type="button" class="${te}" data-history-prev="true" ${t.page <= 1 ? 'disabled aria-disabled="true"' : ""}>Previous</button>
-        <button type="button" class="${te}" data-history-next="true" ${t.has_more ? "" : 'disabled aria-disabled="true"'}>Next</button>
+        <button type="button" class="${se}" data-history-prev="true" ${t.page <= 1 ? 'disabled aria-disabled="true"' : ""}>Previous</button>
+        <button type="button" class="${se}" data-history-next="true" ${t.has_more ? "" : 'disabled aria-disabled="true"'}>Next</button>
       </div>
     </section>
   `;
 }
-var vs = {
+var xs = {
   actions: "iconoir:flash",
   qa: "iconoir:shield",
   assist: "iconoir:chat-bubble",
-  files: Be,
-  history: Me
+  files: Ue,
+  history: Ne
 };
-function _s(e) {
-  return Z(vs[e], "16px");
+function Ss(e) {
+  return Z(xs[e], "16px");
 }
-function xs(e) {
-  const t = C(e), s = G(e), a = X(e), r = e.qa_results.enabled ? e.qa_results.summary.finding_count : 0, i = ve(e.assist.translation_memory_suggestions).length, o = e.assist.glossary_matches.length, l = e.attachment_summary.total, u = e.history.total;
+function $s(e) {
+  const t = C(e), s = G(e), a = X(e), r = e.qa_results.enabled ? e.qa_results.summary.finding_count : 0, i = _e(e.assist.translation_memory_suggestions).length, o = e.assist.glossary_matches.length, l = e.attachment_summary.total, d = e.history.total;
   return {
     actions: null,
     qa: r > 0 ? String(r) : null,
     assist: i + o > 0 ? String(i + o) : null,
     files: l > 0 ? String(l) : null,
-    history: u > 0 ? String(u) : null
+    history: d > 0 ? String(d) : null
   };
 }
-function ws(e, t, s = "actions", a, r = !1, i = !1) {
-  const o = xs(e), l = C(e), u = G(e), p = X(e), b = l || u || p, g = `
+function ks(e, t, s = "actions", a, r = !1, i = !1) {
+  const o = $s(e), l = C(e), d = G(e), p = X(e), b = l || d || p, g = `
     <nav class="flex flex-wrap gap-1 rounded-xl border border-gray-200 bg-gray-50 p-1" role="tablist" aria-label="Editor sidebar sections">
       ${[
     {
@@ -1507,18 +1512,18 @@ function ws(e, t, s = "actions", a, r = !1, i = !1) {
           aria-selected="${s === y.id}"
           aria-controls="sidebar-panel-${f(y.id)}"
         >
-          ${_s(y.id)}
-          <span class="hidden sm:inline">${d(y.label)}</span>
-          ${y.badge ? `<span class="rounded-full bg-gray-200 px-1.5 py-0.5 text-xs text-gray-700">${d(y.badge)}</span>` : ""}
+          ${Ss(y.id)}
+          <span class="hidden sm:inline">${u(y.label)}</span>
+          ${y.badge ? `<span class="rounded-full bg-gray-200 px-1.5 py-0.5 text-xs text-gray-700">${u(y.badge)}</span>` : ""}
         </button>
       `).join("")}
     </nav>
   `, I = {
     actions: `
       <div id="sidebar-panel-actions" class="space-y-4" role="tabpanel" data-sidebar-panel="actions" ${s !== "actions" ? "hidden" : ""}>
-        ${l ? ps(e, t, r, i) : ""}
-        ${u ? ms(e, t) : ""}
-        ${p ? gs(e, t) : ""}
+        ${l ? bs(e, t, r, i) : ""}
+        ${d ? gs(e, t) : ""}
+        ${p ? vs(e, t) : ""}
         ${b ? "" : `
           <div class="rounded-xl border border-gray-200 bg-white p-5">
             <h2 class="text-lg font-semibold text-gray-900">Actions</h2>
@@ -1529,23 +1534,23 @@ function ws(e, t, s = "actions", a, r = !1, i = !1) {
     `,
     qa: `
       <div id="sidebar-panel-qa" class="space-y-4" role="tabpanel" data-sidebar-panel="qa" ${s !== "qa" ? "hidden" : ""}>
-        ${fs(e)}
+        ${hs(e)}
       </div>
     `,
     assist: `
       <div id="sidebar-panel-assist" class="space-y-4" role="tabpanel" data-sidebar-panel="assist" ${s !== "assist" ? "hidden" : ""}>
-        ${ds(e)}
+        ${ms(e)}
       </div>
     `,
     files: `
       <div id="sidebar-panel-files" class="space-y-4" role="tabpanel" data-sidebar-panel="files" ${s !== "files" ? "hidden" : ""}>
-        ${bs(e)}
+        ${_s(e)}
       </div>
     `,
     history: `
       <div id="sidebar-panel-history" class="space-y-4" role="tabpanel" data-sidebar-panel="history" ${s !== "history" ? "hidden" : ""}>
-        ${ys(e)}
-        ${be(a || {
+        ${ws(e)}
+        ${ye(a || {
       status: "ready",
       detail: e
     })}
@@ -1559,22 +1564,22 @@ function ws(e, t, s = "actions", a, r = !1, i = !1) {
     </aside>
   `;
 }
-function Ss(e, t, s = {}, a = {}) {
-  if (e.status === "loading") return Wt();
-  if (e.status === "empty") return ie("Assignment unavailable", e.message || "No assignment detail payload was returned.");
-  if (e.status === "error") return ne("Editor unavailable", e.message || "Unable to load the assignment editor.", e);
-  if (e.status === "conflict") return ne("Editor conflict", e.message || "A newer version of this assignment is available.", e);
+function Rs(e, t, s = {}, a = {}) {
+  if (e.status === "loading") return Jt();
+  if (e.status === "empty") return ne("Assignment unavailable", e.message || "No assignment detail payload was returned.");
+  if (e.status === "error") return oe("Editor unavailable", e.message || "Unable to load the assignment editor.", e);
+  if (e.status === "conflict") return oe("Editor conflict", e.message || "A newer version of this assignment is available.", e);
   const r = t?.detail || e.detail;
-  if (!r) return ie("Assignment unavailable", "No assignment detail payload was returned.");
-  const i = !!(t && Object.keys(t.dirty_fields).length), o = Ut(t || null, i, a.lastSavedMessage || ""), l = t?.autosave.conflict, u = U(r);
+  if (!r) return ne("Assignment unavailable", "No assignment detail payload was returned.");
+  const i = !!(t && Object.keys(t.dirty_fields).length), o = Vt(t || null, i, a.lastSavedMessage || ""), l = t?.autosave.conflict, d = U(r);
   return `
-    <div class="translation-editor-screen space-y-6" data-translation-editor="true" data-editor-read-only="${u ? "true" : "false"}">
-      ${Kt(a.feedback || null)}
-      ${Gt(r, o, i, a.submitting === !0, a.saving === !0, a.previewing === !0, !!l, u, s.basePath || "")}
-      ${Jt(r)}
-      ${u ? `
+    <div class="translation-editor-screen space-y-6" data-translation-editor="true" data-editor-read-only="${d ? "true" : "false"}">
+      ${Yt(a.feedback || null)}
+      ${Zt(r, o, i, a.submitting === !0, a.saving === !0, a.previewing === !0, !!l, d, s.basePath || "")}
+      ${ts(r)}
+      ${d ? `
         <section class="rounded-xl border border-gray-200 bg-gray-50 p-4" data-editor-read-only-notice="true">
-          <p class="text-sm font-medium text-gray-700">${d(J(r))}</p>
+          <p class="text-sm font-medium text-gray-700">${u(J(r))}</p>
         </section>
       ` : ""}
       ${l ? `
@@ -1584,26 +1589,26 @@ function Ss(e, t, s = {}, a = {}) {
               <h2 class="text-lg font-semibold text-amber-900">Autosave conflict</h2>
               <p class="mt-1 text-sm text-amber-800">A newer server draft exists. Reload it before continuing.</p>
             </div>
-            <button type="button" class="${L}" data-action="reload-server-state">Reload server draft</button>
+            <button type="button" class="${R}" data-action="reload-server-state">Reload server draft</button>
           </div>
         </section>
       ` : ""}
       <div class="grid grid-cols-1 gap-4 sm:gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(280px,1fr)]">
         <div class="order-1 space-y-4 sm:space-y-6">
-          ${ns(r, u)}
+          ${ls(r, d)}
         </div>
         <div class="order-2">
-          ${ws(r, a.submitting === !0, a.activeSidebarTab || "actions", e, a.saving === !0, !!l)}
+          ${ks(r, a.submitting === !0, a.activeSidebarTab || "actions", e, a.saving === !0, !!l)}
         </div>
       </div>
-      ${hs(a.rejectDraft || null, a.submitting === !0)}
+      ${ys(a.rejectDraft || null, a.submitting === !0)}
     </div>
   `;
 }
-function $s(e, t, s, a = {}, r = {}) {
-  e.innerHTML = Ss(t, s, a, r);
+function Es(e, t, s, a = {}, r = {}) {
+  e.innerHTML = Rs(t, s, a, r);
 }
-var ks = class {
+var Cs = class {
   constructor(e) {
     this.container = null, this.loadState = { status: "loading" }, this.editorState = null, this.feedback = null, this.lastSavedMessage = "", this.autosaveTimer = null, this.keyboardHandler = null, this.focusTrapCleanup = null, this.saving = !1, this.submitting = !1, this.previewing = !1, this.rejectDraft = null, this.syncCoreModulePromise = null, this.syncCoreModule = null, this.syncCache = null, this.syncEngine = null, this.syncResource = null, this.syncResourceKey = "", this.syncLoadedResourceKey = "", this.syncLoadedRevision = null, this.syncConflictSnapshot = null, this.activeSidebarTab = "actions";
     const t = e.basePath || "/admin";
@@ -1611,10 +1616,10 @@ var ks = class {
       endpoint: e.endpoint,
       variantEndpointBase: e.variantEndpointBase || "",
       actionEndpointBase: e.actionEndpointBase,
-      syncBaseURL: e.syncBaseURL || nt(e.variantEndpointBase || "", e.actionEndpointBase, e.endpoint),
-      syncClientBasePath: e.syncClientBasePath || ot(t),
-      syncResourceKind: e.syncResourceKind || st,
-      syncScope: ut(e),
+      syncBaseURL: e.syncBaseURL || ct(e.variantEndpointBase || "", e.actionEndpointBase, e.endpoint),
+      syncClientBasePath: e.syncClientBasePath || lt(t),
+      syncResourceKind: e.syncResourceKind || rt,
+      syncScope: mt(e),
       basePath: t,
       initialDetail: e.initialDetail
     };
@@ -1628,25 +1633,25 @@ var ks = class {
     this.container = e, this.keyboardHandler = (a) => {
       (a.ctrlKey || a.metaKey) && a.key === "s" && (a.preventDefault(), this.saveDirtyFields(!1)), a.key === "Escape" && this.rejectDraft && this.closeRejectDialog();
     }, document.addEventListener("keydown", this.keyboardHandler);
-    const s = he(t);
+    const s = ge(t);
     this.loadState = {
       status: "ready",
       detail: s
-    }, this.editorState = se(s), this.render();
+    }, this.editorState = ae(s), this.render();
   }
   unmount() {
     this.autosaveTimer && clearTimeout(this.autosaveTimer), this.keyboardHandler && (document.removeEventListener("keydown", this.keyboardHandler), this.keyboardHandler = null), this.focusTrapCleanup && (this.focusTrapCleanup(), this.focusTrapCleanup = null), this.container && (this.container.innerHTML = ""), this.container = null, this.syncResource = null, this.syncResourceKey = "", this.syncLoadedResourceKey = "", this.syncLoadedRevision = null, this.syncConflictSnapshot = null;
   }
   async load(e) {
-    this.loadState = { status: "loading" }, this.render(), this.loadState = await Ft(e ? B(this.config.endpoint, {
+    this.loadState = { status: "loading" }, this.render(), this.loadState = await Bt(e ? B(this.config.endpoint, {
       history_page: e,
       history_per_page: this.editorState?.detail.history.per_page || this.loadState.detail?.history.per_page || 10
-    }) : this.config.endpoint), this.loadState.status === "ready" && this.loadState.detail ? (this.editorState = se(this.loadState.detail), U(this.loadState.detail) || await this.hydrateDraftSyncFromRead(this.loadState.detail)) : this.editorState = null, this.render();
+    }) : this.config.endpoint), this.loadState.status === "ready" && this.loadState.detail ? (this.editorState = ae(this.loadState.detail), U(this.loadState.detail) || await this.hydrateDraftSyncFromRead(this.loadState.detail)) : this.editorState = null, this.render();
   }
   render() {
     if (!this.container) return;
     const e = this.captureRenderViewportState();
-    $s(this.container, this.loadState, this.editorState, { basePath: this.config.basePath }, {
+    Es(this.container, this.loadState, this.editorState, { basePath: this.config.basePath }, {
       feedback: this.feedback,
       lastSavedMessage: this.lastSavedMessage,
       saving: this.saving,
@@ -1654,7 +1659,7 @@ var ks = class {
       previewing: this.previewing,
       rejectDraft: this.rejectDraft,
       activeSidebarTab: this.activeSidebarTab
-    }), this.attachEventListeners(), Ye(this.container), this.restoreRenderViewportState(e);
+    }), this.attachEventListeners(), Ze(this.container), this.restoreRenderViewportState(e);
   }
   captureRenderViewportState() {
     if (!this.container || typeof document > "u") return null;
@@ -1708,8 +1713,8 @@ var ks = class {
         const s = e.dataset.copySource || "", a = this.editorState?.detail.fields.find((o) => o.path === s);
         if (!a || !this.editorState) return;
         const r = (a.source_value || e.dataset.sourceValue || "").trim();
-        Dt(r), this.editorState = T(this.editorState, s, r);
-        const i = this.container?.querySelector(`[data-field-input="${re(s)}"]`);
+        It(r), this.editorState = T(this.editorState, s, r);
+        const i = this.container?.querySelector(`[data-field-input="${ie(s)}"]`);
         if (i) {
           i.value = r;
           try {
@@ -1778,7 +1783,7 @@ var ks = class {
       e.addEventListener("click", (t) => {
         const s = t.currentTarget.dataset.jumpToField;
         if (!s || !this.container) return;
-        const a = this.container.querySelector(`[data-editor-field="${re(s)}"]`);
+        const a = this.container.querySelector(`[data-editor-field="${ie(s)}"]`);
         if (a) {
           a.scrollIntoView({
             behavior: "smooth",
@@ -1810,18 +1815,18 @@ var ks = class {
   }
   async saveDirtyFields(e) {
     if (this.isEditorReadOnly() || !this.editorState || !Object.keys(this.editorState.dirty_fields).length || this.saving) return !0;
-    this.saving = !0, this.editorState = Tt(this.editorState), this.render();
+    this.saving = !0, this.editorState = jt(this.editorState), this.render();
     const t = this.editorState.detail;
     try {
       const s = await this.mutateDraftSync(t, this.editorState.dirty_fields, e);
       this.syncLoadedRevision = s.snapshot.revision, this.syncConflictSnapshot = null, this.editorState = S(this.editorState, A(s.snapshot));
-      const a = Vt(this.editorState.detail.qa_results, e);
+      const a = Wt(this.editorState.detail.qa_results, e);
       return this.lastSavedMessage = a.lastSaved, (!e || a.kind === "conflict") && (this.feedback = {
         kind: a.kind,
         message: a.message
       }), this.saving = !1, this.render(), !0;
     } catch (s) {
-      return Lt(s) ? (this.syncConflictSnapshot = jt(s), this.syncConflictSnapshot?.revision && (this.syncLoadedRevision = this.syncConflictSnapshot.revision), this.editorState = At(this.editorState, ge(s)), this.feedback = {
+      return Ot(s) ? (this.syncConflictSnapshot = Lt(s), this.syncConflictSnapshot?.revision && (this.syncLoadedRevision = this.syncConflictSnapshot.revision), this.editorState = qt(this.editorState, be(s)), this.feedback = {
         kind: "conflict",
         message: "Autosave conflict detected. Reload the latest server draft."
       }, this.saving = !1, this.render(), !1) : (this.feedback = {
@@ -1848,7 +1853,7 @@ var ks = class {
     }
     try {
       const t = await (await this.ensureDraftSyncResource(this.editorState.detail)).refresh({ force: !0 });
-      if (!ae(t)) throw new Error("Sync refresh did not return a usable draft snapshot");
+      if (!re(t)) throw new Error("Sync refresh did not return a usable draft snapshot");
       this.syncLoadedRevision = t.revision, this.syncConflictSnapshot = null, this.editorState = S(this.editorState, A(t)), this.feedback = {
         kind: "conflict",
         message: "Reloaded the latest server draft."
@@ -1876,16 +1881,16 @@ var ks = class {
     const a = await this.ensureDraftSyncResource(e), r = m(a.getSnapshot()?.revision), i = this.syncLoadedRevision || r || e.row_version, o = {
       autosave: s,
       fields: t
-    }, l = qt(e);
+    }, l = Dt(e);
     return l && (o.acknowledged_source_hash = l), await a.mutate({
-      operation: at,
+      operation: it,
       expectedRevision: i,
       payload: o,
       metadata: { autosave: s }
     });
   }
   async ensureDraftSyncResource(e) {
-    if (this.syncCoreModule || (this.syncCoreModulePromise || (this.syncCoreModulePromise = rt(this.config.syncClientBasePath)), this.syncCoreModule = await this.syncCoreModulePromise), this.syncCache || (this.syncCache = this.syncCoreModule.createInMemoryCache()), !this.syncEngine) {
+    if (this.syncCoreModule || (this.syncCoreModulePromise || (this.syncCoreModulePromise = nt(this.config.syncClientBasePath)), this.syncCoreModule = await this.syncCoreModulePromise), this.syncCache || (this.syncCache = this.syncCoreModule.createInMemoryCache()), !this.syncEngine) {
       const r = this.syncCoreModule.createFetchSyncTransport({
         baseURL: this.config.syncBaseURL,
         credentials: "same-origin",
@@ -1893,7 +1898,7 @@ var ks = class {
         headers: (i) => {
           const o = {};
           if (String(i?.method || "GET").toUpperCase() !== "GET") {
-            const l = Re();
+            const l = Ee();
             l && (o["X-CSRF-Token"] = l);
           }
           return o;
@@ -1909,14 +1914,14 @@ var ks = class {
       kind: this.config.syncResourceKind,
       id: t,
       scope: Object.keys(this.config.syncScope).length > 0 ? this.config.syncScope : void 0
-    }, a = ft(s);
+    }, a = pt(s);
     return (!this.syncResource || this.syncResourceKey !== a) && (this.syncResourceKey = a, this.syncResource = this.syncEngine.resource(s), this.syncLoadedRevision = null, this.syncConflictSnapshot = null), this.syncResource;
   }
   async ensureDraftSyncLoaded(e) {
     const t = await this.ensureDraftSyncResource(e), s = this.syncResourceKey;
     if (this.syncLoadedResourceKey === s) return;
     const a = this.editorState ? { ...this.editorState.dirty_fields } : {}, r = await t.load();
-    if (!ae(r)) throw new Error("Sync draft load did not return a usable draft snapshot");
+    if (!re(r)) throw new Error("Sync draft load did not return a usable draft snapshot");
     if (!this.editorState || this.editorState.detail.variant_id !== e.variant_id) return;
     let i = S(this.editorState, A(r));
     for (const [o, l] of Object.entries(a)) i = T(i, o, l);
@@ -1946,7 +1951,7 @@ var ks = class {
       const o = Object.entries(this.editorState.detail.field_completeness).filter(([, l]) => l.required && l.missing).map(([l]) => l);
       this.feedback = {
         kind: this.editorState.detail.qa_results.submit_blocked ? "conflict" : "error",
-        message: this.editorState.detail.qa_results.submit_blocked ? Yt(this.editorState.detail) : o.length ? `Complete required fields before submitting for review: ${o.join(", ")}.` : "Submit for review is unavailable."
+        message: this.editorState.detail.qa_results.submit_blocked ? Gt(this.editorState.detail) : o.length ? `Complete required fields before submitting for review: ${o.join(", ")}.` : "Submit for review is unavailable."
       }, this.render();
       return;
     }
@@ -1972,7 +1977,7 @@ var ks = class {
     const r = await a.json(), i = n(c(r).data && c(c(r).data).status);
     this.feedback = {
       kind: "success",
-      message: Qt(this.editorState.detail, i)
+      message: Xt(this.editorState.detail, i)
     }, this.submitting = !1, await this.load(t);
   }
   assignmentActionEndpoint(e, t) {
@@ -2121,7 +2126,7 @@ var ks = class {
         }, this.previewing = !1, this.render();
         return;
       }
-      It(e, i.url), this.previewing = !1, this.feedback = null, this.render();
+      Ft(e, i.url), this.previewing = !1, this.feedback = null, this.render();
     } catch (s) {
       _(e), this.previewing = !1, this.feedback = {
         kind: "error",
@@ -2135,7 +2140,7 @@ var ks = class {
     if (!a?.enabled) {
       this.feedback = {
         kind: "error",
-        message: a?.reason || `${R(e)} is unavailable.`
+        message: a?.reason || `${O(e)} is unavailable.`
       }, this.render();
       return;
     }
@@ -2173,7 +2178,7 @@ var ks = class {
       error: e
     }, this.render();
     const t = this.container?.querySelector('[data-reject-modal] [role="dialog"]');
-    t && (this.focusTrapCleanup = Ue(t, () => this.closeRejectDialog()));
+    t && (this.focusTrapCleanup = Xe(t, () => this.closeRejectDialog()));
   }
   closeRejectDialog() {
     this.focusTrapCleanup && (this.focusTrapCleanup(), this.focusTrapCleanup = null), this.rejectDraft = null, this.render();
@@ -2194,16 +2199,16 @@ var ks = class {
     });
   }
 };
-async function Ms(e, t) {
-  const s = new ks(t), a = t.initialDetail || Es(e);
-  return (e.dataset.ssrEnhanced || "").trim() === "true" && a && !Rs() ? (e.dataset.translationEditorEnhanced = "true", s.mountWithInitialDetail(e, a)) : s.mount(e), s;
+async function Us(e, t) {
+  const s = new Cs(t), a = t.initialDetail || As(e);
+  return (e.dataset.ssrEnhanced || "").trim() === "true" && a && !Ts() ? (e.dataset.translationEditorEnhanced = "true", s.mountWithInitialDetail(e, a)) : s.mount(e), s;
 }
-function Rs() {
+function Ts() {
   if (typeof window > "u" || !window.location) return !1;
-  const e = Ce(window.location) ?? new URLSearchParams(), t = e.get("translation_client_render") || e.get("translationClientRender");
+  const e = Ae(window.location) ?? new URLSearchParams(), t = e.get("translation_client_render") || e.get("translationClientRender");
   return t === "1" || t === "true";
 }
-function Es(e) {
+function As(e) {
   const t = e.querySelector('script[type="application/json"][data-translation-editor-initial-state]')?.textContent?.trim() || "";
   if (!t) return null;
   try {
@@ -2213,21 +2218,21 @@ function Es(e) {
   }
 }
 export {
-  Pt as TranslationEditorRequestError,
-  ks as TranslationEditorScreen,
-  At as applyEditorAutosaveConflict,
+  Mt as TranslationEditorRequestError,
+  Cs as TranslationEditorScreen,
+  qt as applyEditorAutosaveConflict,
   T as applyEditorFieldChange,
   S as applyEditorUpdateResponse,
-  se as createTranslationEditorState,
-  Ft as fetchTranslationEditorDetailState,
-  Ms as initTranslationEditorPage,
-  rt as loadTranslationSyncCoreModule,
-  Tt as markEditorAutosavePending,
-  he as normalizeAssignmentEditorDetail,
-  me as normalizeEditorAssistPayload,
-  Ct as normalizeEditorUpdateResponse,
-  $s as renderTranslationEditorPage,
-  Ss as renderTranslationEditorState
+  ae as createTranslationEditorState,
+  Bt as fetchTranslationEditorDetailState,
+  Us as initTranslationEditorPage,
+  nt as loadTranslationSyncCoreModule,
+  jt as markEditorAutosavePending,
+  ge as normalizeAssignmentEditorDetail,
+  pe as normalizeEditorAssistPayload,
+  At as normalizeEditorUpdateResponse,
+  Es as renderTranslationEditorPage,
+  Rs as renderTranslationEditorState
 };
 
 //# sourceMappingURL=index.js.map

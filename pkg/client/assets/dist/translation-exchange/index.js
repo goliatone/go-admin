@@ -1,15 +1,16 @@
 import { escapeHTML as o } from "../shared/html.js";
-import { httpRequest as q, readHTTPResponsePayload as G } from "../shared/transport/http-client.js";
-import { a as k, i as K, o as m, s as C } from "../chunks/translation-contracts-Ct_EG7JJ.js";
-import { C as F, I as v, L as R, N as Y, P as X, at as Q, ft as Z, h as w, nt as _, p as E, w as tt, x as f, y as j } from "../chunks/translation-shared-CdZJJA93.js";
+import { httpRequest as W, readHTTPResponsePayload as G } from "../shared/transport/http-client.js";
+import "../chunks/status-vocabulary-HmIBabRF.js";
+import { a as I, i as K, o as f, s as C } from "../chunks/translation-contracts-DrJVTucO.js";
+import { C as F, I as v, L as E, dt as Y, h as w, nt as _, p as R, w as X, x as m, y as j } from "../chunks/translation-shared-Ba5eIyeA.js";
 import { formatTranslationShortDateTime as T } from "../translation-shared/formatters.js";
-var et = { root: "#translation-exchange-app" }, st = [{
+var Q = { root: "#translation-exchange-app" }, Z = [{
   value: "pages",
   label: "pages"
 }, {
   value: "posts",
   label: "posts"
-}], at = [
+}], tt = [
   "en",
   "es",
   "fr",
@@ -17,7 +18,7 @@ var et = { root: "#translation-exchange-app" }, st = [{
 ].map((t) => ({
   code: t,
   label: t.toUpperCase()
-})), rt = [
+})), et = [
   "es",
   "fr",
   "de",
@@ -35,10 +36,10 @@ function V(t) {
 function B(t) {
   return !!t && t !== "none" && t !== "mixed";
 }
-function it(t) {
+function st(t) {
   return !t || typeof t != "object" ? !1 : t.configured === !0 || !!String(t.source_locale ?? "").trim() || Array.isArray(t.source_locales) && t.source_locales.length > 0 || Array.isArray(t.target_locales) && t.target_locales.length > 0 || Array.isArray(t.resources) && t.resources.length > 0 || Array.isArray(t.default_resources) && t.default_resources.length > 0 || Array.isArray(t.default_target_locales) && t.default_target_locales.length > 0 || typeof t.include_source_hash == "boolean" || typeof t.include_examples == "boolean" || !!(t.template && Object.keys(t.template).length > 0) || !!(t.apply && Object.keys(t.apply).length > 0);
 }
-function ot(t, e, a) {
+function at(t, e, a) {
   const r = String(a[t] ?? "").trim();
   if (r) return r;
   const s = String(e ?? "").trim();
@@ -50,12 +51,12 @@ function D(t, e) {
     const l = b(s?.code);
     !B(l) || a.has(l) || (a.add(l), r.push({
       code: l,
-      label: ot(l, s?.label, e)
+      label: at(l, s?.label, e)
     }));
   }
   return r;
 }
-function lt(t) {
+function rt(t) {
   const e = /* @__PURE__ */ new Set(), a = [];
   for (const r of Array.isArray(t) ? t : []) {
     const s = V(r?.value ?? r?.id);
@@ -75,7 +76,7 @@ function z(t, e, a = "") {
   }
   return s;
 }
-function W(t, e) {
+function q(t, e) {
   const a = /* @__PURE__ */ new Set(), r = [];
   for (const s of Array.isArray(t) ? t : []) {
     const l = V(s);
@@ -83,13 +84,13 @@ function W(t, e) {
   }
   return r;
 }
-function nt(t) {
-  if (!it(t)) return {
+function it(t) {
+  if (!st(t)) return {
     configured: !1,
     blockedReason: "",
-    resources: st,
-    sourceLocales: at,
-    targetLocales: rt,
+    resources: Z,
+    sourceLocales: tt,
+    targetLocales: et,
     defaultResources: ["pages"],
     defaultTargetLocales: ["es", "fr"],
     defaultSourceLocale: "en",
@@ -101,7 +102,7 @@ function nt(t) {
       dryRun: !1
     }
   };
-  const e = t?.locale_labels ?? {}, a = lt(t?.resources), r = D(t?.source_locales, e), s = b(t?.source_locale), l = B(s) ? s : r[0]?.code || "", i = D(t?.target_locales, e).filter((h) => h.code && h.code !== l), n = new Set(a.map((h) => h.value ?? "")), d = new Set(i.map((h) => h.code)), u = W(t?.default_resources, n), c = z(t?.default_target_locales, d, l), p = [];
+  const e = t?.locale_labels ?? {}, a = rt(t?.resources), r = D(t?.source_locales, e), s = b(t?.source_locale), l = B(s) ? s : r[0]?.code || "", i = D(t?.target_locales, e).filter((h) => h.code && h.code !== l), n = new Set(a.map((h) => h.value ?? "")), d = new Set(i.map((h) => h.code)), u = q(t?.default_resources, n), c = z(t?.default_target_locales, d, l), p = [];
   return a.length === 0 && p.push("No exchange resources are configured."), (r.length === 0 || !l) && p.push("No source locale is configured."), i.length === 0 && p.push("No target locales are configured."), {
     configured: !0,
     blockedReason: p.join(" "),
@@ -146,48 +147,48 @@ function S(t) {
   }
 }
 function y(t) {
-  return `rounded-full px-3 py-1 text-xs font-medium ${Z(t)}`;
+  return `rounded-full px-3 py-1 text-xs font-medium ${Y(t)}`;
 }
-var g = `${F} p-5`, dt = `${F} p-4`, U = `${_} border ${w} ${E} p-5`, A = `${_} border ${w} ${E} p-4`, L = `${_} border ${w} ${E} px-4 py-3`, H = `${_} border ${w} ${E} px-6 py-10 text-center text-sm text-gray-600`, x = "text-xs uppercase tracking-wider text-gray-500", ct = `mt-2 text-2xl font-bold ${Q}`;
-function pt(t, e) {
+var g = `${F} p-5`, ot = `${F} p-4`, U = `${_} border ${w} ${R} p-5`, A = `${_} border ${w} ${R} p-4`, L = `${_} border ${w} ${R} px-4 py-3`, H = `${_} border ${w} ${R} px-6 py-10 text-center text-sm text-gray-600`, x = "text-xs uppercase tracking-wider text-gray-500";
+function lt(t, e) {
   const a = typeof window < "u" && typeof window.btoa == "function" ? window.btoa.bind(window) : typeof globalThis.btoa == "function" ? globalThis.btoa.bind(globalThis) : null;
   return a ? `data:${t};base64,${a(encodeURIComponent(e).replace(/%([0-9A-F]{2})/g, (r, s) => String.fromCharCode(parseInt(s, 16))))}` : `data:${t},${encodeURIComponent(e)}`;
 }
-function ut(t) {
+function nt(t) {
   return new Promise((e) => setTimeout(e, Math.max(0, t)));
 }
-function J(t) {
+function M(t) {
   return !t || !t.progress.total || t.progress.total <= 0 ? 0 : Math.max(0, Math.min(100, Math.round(t.progress.processed / t.progress.total * 100)));
 }
-function ht(t, e) {
+function dt(t, e) {
   return t?.downloads ? t.downloads[e]?.href ?? t.downloads.artifact?.href ?? "" : "";
 }
-function yt(t, e) {
+function ct(t, e) {
   return t?.downloads ? t.downloads[e]?.label ?? t.downloads.artifact?.label ?? "Download artifact" : "";
 }
-function M(t) {
+function J(t) {
   const e = [];
   return t.resources.length === 0 && e.push("Select at least one resource."), t.targetLocales.length === 0 && e.push("Select at least one target locale."), t.targetLocales.includes(t.sourceLocale) && e.push("Target locales cannot include the source locale."), t.includeSourceHash || e.push("Conflict detection is weaker when source hashes are excluded."), e;
 }
-function gt(t) {
+function pt(t) {
   const e = {};
   if (!t) return e;
   for (const a of t.results) e[a.index] = a.status === "success" ? "accepted" : "rejected";
   return e;
 }
-function P(t, e) {
+function N(t, e) {
   const a = {};
   for (const [r, s] of t.entries()) a[typeof s.index == "number" ? s.index : r] = "apply";
   if (!e) return a;
   for (const r of e.results) a[r.index] = r.status === "success" ? "apply" : "skip";
   return a;
 }
-function N(t) {
+function P(t) {
   const e = /* @__PURE__ */ new Map();
   for (const a of t?.results ?? []) e.set(a.index, a);
   return e;
 }
-function I(t) {
+function k(t) {
   return t?.result ? {
     ...C({
       ...t.result,
@@ -196,7 +197,7 @@ function I(t) {
     job: t
   } : null;
 }
-function ft(t) {
+function ut(t) {
   const e = String(t ?? "").match(/^data:([^,]*?),(.*)$/i);
   if (!e) return "";
   const [, a, r] = e;
@@ -214,7 +215,7 @@ function $(t, e) {
     index: typeof t.index == "number" ? t.index : e
   };
 }
-var $t = class {
+var bt = class {
   constructor(t, e = {}, a) {
     this.root = null, this.step = "export", this.exportState = {
       draft: {
@@ -229,7 +230,7 @@ var $t = class {
       downloadLabel: "",
       message: ""
     }, this.validateState = {
-      upload: m({ state: "idle" }),
+      upload: f({ state: "idle" }),
       file: null,
       parsedRows: [],
       result: null,
@@ -347,13 +348,13 @@ var $t = class {
         }
         s.matches('[data-apply-form="true"]') && (r.preventDefault(), this.submitApply());
       }
-    }, this.config = t, this.exchangeUI = nt(t.exchangeUIConfig), this.exportState.draft = {
+    }, this.config = t, this.exchangeUI = it(t.exchangeUIConfig), this.exportState.draft = {
       resources: this.exchangeUI.defaultResources,
       sourceLocale: this.exchangeUI.defaultSourceLocale,
       targetLocales: this.exchangeUI.defaultTargetLocales,
       includeSourceHash: this.exchangeUI.includeSourceHash
     }, this.applyState.allowCreateMissing = this.exchangeUI.apply.allowCreateMissing, this.applyState.allowSourceHashOverride = this.exchangeUI.apply.allowSourceHashOverride, this.applyState.continueOnError = this.exchangeUI.apply.continueOnError, this.applyState.dryRun = this.exchangeUI.apply.dryRun, this.selectors = {
-      ...et,
+      ...Q,
       ...e
     }, this.toast = a ?? window.toastManager ?? null;
   }
@@ -423,7 +424,7 @@ var $t = class {
         poll_endpoint: a,
         attempt: i
       });
-      const n = await this.fetchJSON(a), d = k(n.job && typeof n.job == "object" ? n.job : n);
+      const n = await this.fetchJSON(a), d = I(n.job && typeof n.job == "object" ? n.job : n);
       if (!d) throw new Error("Job payload missing.");
       if (e.onTick?.(d, i), d.status !== "running")
         return this.emitAnalytics("exchange_apply_completion", {
@@ -433,13 +434,13 @@ var $t = class {
           failed: d.progress.failed
         }), d;
       if (Date.now() - l >= s) throw new Error("Polling timed out.");
-      i += 1, await ut(r);
+      i += 1, await nt(r);
     }
   }
   readExportDraft(t) {
     const e = new FormData(t), a = new Set(this.exchangeUI.resources.map((i) => i.value ?? "")), r = new Set(this.exchangeUI.targetLocales.map((i) => i.code)), s = b(e.get("source_locale")), l = this.exchangeUI.sourceLocales.some((i) => i.code === s) ? s : this.exchangeUI.defaultSourceLocale;
     return {
-      resources: W(e.getAll("resources"), a),
+      resources: q(e.getAll("resources"), a),
       sourceLocale: l,
       targetLocales: z(e.getAll("target_locales"), r, l),
       includeSourceHash: e.has("include_source_hash")
@@ -452,7 +453,7 @@ var $t = class {
     }
     const e = this.readExportDraft(t);
     this.exportState.draft = e;
-    const a = M(e);
+    const a = J(e);
     if (e.resources.length === 0 || e.targetLocales.length === 0 || a.some((r) => r.includes("cannot include"))) {
       this.exportState.status = "error", this.exportState.message = a[0] ?? "Complete the export filters before continuing.", this.render();
       return;
@@ -467,7 +468,7 @@ var $t = class {
           include_source_hash: e.includeSourceHash
         },
         async: !0
-      }), s = r.job && typeof r.job == "object" ? r.job : r.data && typeof r.data == "object" ? r.data.job : void 0, l = Array.isArray(r.rows) ? r.rows : r.data && typeof r.data == "object" && Array.isArray(r.data.rows) ? r.data.rows ?? [] : [], i = k(s);
+      }), s = r.job && typeof r.job == "object" ? r.job : r.data && typeof r.data == "object" ? r.data.job : void 0, l = Array.isArray(r.rows) ? r.rows : r.data && typeof r.data == "object" && Array.isArray(r.data.rows) ? r.data.rows ?? [] : [], i = I(s);
       if (this.exportState.job = i, i?.status === "running") {
         this.exportState.status = "polling", this.exportState.message = "Export job running. Polling for artifact...", this.render();
         const n = await this.pollJobUntilTerminal(i, {
@@ -479,7 +480,7 @@ var $t = class {
         });
         this.exportState.job = n;
       }
-      this.exportState.downloadHref = ht(this.exportState.job, "artifact") || this.createRowsDownload(l), this.exportState.downloadLabel = yt(this.exportState.job, "artifact") || "Download export JSON", this.exportState.status = "completed", this.exportState.message = `${this.exportState.job?.summary?.row_count ?? r.row_count ?? 0} rows ready for handoff.`, this.toast?.success(this.exportState.message), this.loadHistory(!0);
+      this.exportState.downloadHref = dt(this.exportState.job, "artifact") || this.createRowsDownload(l), this.exportState.downloadLabel = ct(this.exportState.job, "artifact") || "Download export JSON", this.exportState.status = "completed", this.exportState.message = `${this.exportState.job?.summary?.row_count ?? r.row_count ?? 0} rows ready for handoff.`, this.toast?.success(this.exportState.message), this.loadHistory(!0);
     } catch (r) {
       const s = r instanceof Error ? r.message : "Export failed.";
       this.exportState.status = "error", this.exportState.message = s, this.toast?.error(s);
@@ -497,7 +498,7 @@ var $t = class {
       result: null,
       job: null,
       message: t ? "Reading import file..." : ""
-    }, this.validateState.upload = m({
+    }, this.validateState.upload = f({
       state: t ? "uploading" : "idle",
       filename: t?.name,
       format: t?.name.endsWith(".csv") ? "csv" : "json",
@@ -505,7 +506,7 @@ var $t = class {
     }), this.validateState.status = t ? "loading_file" : "idle", this.validateState.message = t ? "Reading import file..." : "", this.render(), !!t) {
       try {
         const e = await this.parseImportFile(t);
-        this.validateState.parsedRows = e, this.validateState.upload = m({
+        this.validateState.parsedRows = e, this.validateState.upload = f({
           state: "selected",
           filename: t.name,
           format: t.name.endsWith(".csv") ? "csv" : "json",
@@ -514,7 +515,7 @@ var $t = class {
         }), this.validateState.status = "idle", this.validateState.message = `${e.length} rows loaded and ready to validate.`, this.applyState.message = "";
       } catch (e) {
         const a = e instanceof Error ? e.message : "Unable to read import file.";
-        this.validateState.upload = m({
+        this.validateState.upload = f({
           state: "error",
           filename: t.name,
           format: t.name.endsWith(".csv") ? "csv" : "json",
@@ -534,7 +535,7 @@ var $t = class {
       const t = new FormData();
       t.set("file", this.validateState.file);
       const e = C(await this.postForm(`${this.config.apiPath}/import/validate`, t));
-      this.validateState.result = e, this.validateState.decisions = gt(e), this.validateState.upload = m({
+      this.validateState.result = e, this.validateState.decisions = pt(e), this.validateState.upload = f({
         state: "validated",
         filename: this.validateState.file.name,
         format: this.validateState.file.name.endsWith(".csv") ? "csv" : "json",
@@ -544,7 +545,7 @@ var $t = class {
         rows: this.validateState.parsedRows.map($),
         sourceLabel: this.validateState.file.name,
         retryJobId: "",
-        resolutions: P(this.validateState.parsedRows, e),
+        resolutions: N(this.validateState.parsedRows, e),
         status: "ready",
         message: "Validation finished. Configure apply decisions and submit.",
         result: null,
@@ -581,7 +582,7 @@ var $t = class {
             this.applyState.job = r, this.applyState.message = `Apply job running: ${r.progress.processed} / ${r.progress.total ?? 0} processed.`, this.render();
           }
         });
-        this.applyState.job = a, this.applyState.result = I(a);
+        this.applyState.job = a, this.applyState.result = k(a);
       }
       this.applyState.status = "completed", this.applyState.message = this.applyState.dryRun ? "Dry-run apply completed." : "Apply completed.", this.toast?.success(this.applyState.message), this.loadHistory(!0);
     } catch (e) {
@@ -632,10 +633,10 @@ var $t = class {
       return;
     }
     try {
-      const r = ft(a);
+      const r = ut(a);
       let s = String(t.file?.format ?? "json").toLowerCase() === "csv" ? this.parseCSVText(r) : this.parseJSONRows(r);
       s = s.map($);
-      const l = I(t);
+      const l = k(t);
       if (e && l) {
         const i = new Set(l.results.filter((n) => n.status === "conflict" || n.status === "error").map((n) => n.index));
         s = s.filter((n, d) => i.has(typeof n.index == "number" ? n.index : d));
@@ -645,7 +646,7 @@ var $t = class {
         rows: s,
         sourceLabel: t.file?.name ?? t.id,
         retryJobId: t.id,
-        resolutions: P(s, l),
+        resolutions: N(s, l),
         allowCreateMissing: t.request?.allow_create_missing === !0,
         allowSourceHashOverride: t.request?.allow_source_hash_override === !0,
         continueOnError: t.request?.continue_on_error !== !1,
@@ -662,7 +663,7 @@ var $t = class {
     this.render();
   }
   createRowsDownload(t) {
-    return pt("application/json", JSON.stringify(t, null, 2));
+    return lt("application/json", JSON.stringify(t, null, 2));
   }
   async parseImportFile(t) {
     const e = await this.readFileText(t);
@@ -741,7 +742,7 @@ var $t = class {
     return this.applyState.resolutions[t] ?? "apply";
   }
   validationRowForIndex(t) {
-    return N(this.validateState.result).get(t) ?? null;
+    return P(this.validateState.result).get(t) ?? null;
   }
   rowActions(t, e) {
     const a = ["apply", "skip"], r = e?.metadata ?? {};
@@ -764,7 +765,7 @@ var $t = class {
     return this.request(t, { method: "GET" });
   }
   async request(t, e) {
-    const a = await q(t, e), { payload: r } = await G(a);
+    const a = await W(t, e), { payload: r } = await G(a);
     if (!a.ok) {
       if (r && typeof r == "object") {
         const s = r.error?.message ?? r.message;
@@ -784,21 +785,11 @@ var $t = class {
   }
   render() {
     if (!this.root) return;
-    const t = M(this.exportState.draft), e = Object.values(this.validateState.decisions).filter((l) => l === "accepted").length, a = Object.values(this.validateState.decisions).filter((l) => l === "rejected").length, r = this.historyExamples(), s = this.filteredHistoryItems();
+    const t = J(this.exportState.draft), e = Object.values(this.validateState.decisions).filter((l) => l === "accepted").length, a = Object.values(this.validateState.decisions).filter((l) => l === "rejected").length, r = this.historyExamples(), s = this.filteredHistoryItems();
     this.root.innerHTML = `
-      <section class="${tt} overflow-hidden">
+      <section class="${X} overflow-hidden">
         <header class="px-6 py-5 border-b border-gray-200 bg-gray-50">
-          <div class="flex flex-wrap items-start justify-between gap-4">
-            <div>
-              <p class="${X}">Translation Exchange</p>
-              <h1 class="${ct}">Translation Exchange Wizard</h1>
-              <p class="${Y}">Prepare external translation files, validate row-level conflicts, apply imports with explicit create and conflict controls, and inspect retained job history for retries and audits.</p>
-            </div>
-            <a class="${f}" href="${o(`${this.config.apiPath}/template?format=json`)}">
-              Download JSON Template
-            </a>
-          </div>
-          <nav class="mt-5 grid gap-3 md:grid-cols-4" aria-label="Exchange steps">
+          <nav class="grid gap-3 md:grid-cols-4" aria-label="Exchange steps">
             ${this.renderStepButton("export", "1. Export", "Filter records, review warnings, and hand off files.")}
             ${this.renderStepButton("validate", "2. Validate", "Upload a package, inspect row outcomes, and stage apply decisions.")}
             ${this.renderStepButton("apply", "3. Apply", "Set explicit conflict/create toggles, poll async progress, and review terminal summaries.")}
@@ -878,7 +869,7 @@ var $t = class {
             </fieldset>
             <label class="block text-sm font-semibold text-gray-900">
               Source locale
-              <select name="source_locale" class="mt-3 ${R}">
+              <select name="source_locale" class="mt-3 ${E}">
                 ${this.exchangeUI.sourceLocales.map((s) => `
                   <option value="${o(s.code)}" ${this.exportState.draft.sourceLocale === s.code ? "selected" : ""}>${o(s.label)}</option>`).join("")}
               </select>
@@ -886,9 +877,9 @@ var $t = class {
           </div>
           <fieldset>
             <legend class="text-sm font-semibold text-gray-900">Target locales</legend>
-            <div class="mt-3 flex flex-wrap gap-3">
+            <div class="mt-3 grid gap-2 sm:grid-cols-2">
               ${this.exchangeUI.targetLocales.map((s) => `
-                <label class="inline-flex items-center gap-2 rounded-full border border-gray-200 px-3 py-2 text-sm text-gray-700">
+                <label class="flex items-center gap-3 text-sm text-gray-700">
                   <input type="checkbox" class="${v}" name="target_locales" value="${o(s.code)}" ${this.exportState.draft.targetLocales.includes(s.code) ? "checked" : ""}>
                   <span>${o(s.label)}</span>
                 </label>`).join("")}
@@ -926,7 +917,7 @@ var $t = class {
             </ul>
           </div>
           ${a ? `
-              <div class="${dt}">
+              <div class="${ot}">
                 <div class="flex items-center justify-between gap-3">
                   <div>
                     <p class="text-sm font-semibold text-gray-900">Latest export job</p>
@@ -935,7 +926,7 @@ var $t = class {
                   <span class="${y(O(a.status))}">${o(a.status)}</span>
                 </div>
                 <div class="mt-4 h-2 overflow-hidden rounded-full bg-gray-200">
-                  <div class="h-full bg-blue-500" style="width: ${J(a)}%"></div>
+                  <div class="h-full bg-blue-500" style="width: ${M(a)}%"></div>
                 </div>
                 <div class="mt-3 text-sm text-gray-600">${o(a.progress.processed)} / ${o(a.progress.total ?? 0)} rows prepared</div>
                 ${this.exportState.downloadHref ? `<a class="mt-4 inline-flex text-sm font-medium text-blue-700 hover:text-blue-900" href="${o(this.exportState.downloadHref)}" download>${o(this.exportState.downloadLabel)}</a>` : ""}
@@ -957,7 +948,7 @@ var $t = class {
           </div>
           <div class="flex flex-wrap items-center gap-3">
             <button class="${j}" type="submit">Validate package</button>
-            <button class="${f}" type="button" data-exchange-step="apply" ${this.applyState.rows.length === 0 ? "disabled" : ""}>Continue to apply</button>
+            <button class="${m}" type="button" data-exchange-step="apply" ${this.applyState.rows.length === 0 ? "disabled" : ""}>Continue to apply</button>
             <span class="text-sm text-gray-600">${o(this.validateState.message)}</span>
           </div>
         </form>
@@ -1025,7 +1016,7 @@ var $t = class {
     `;
   }
   renderApplyStep() {
-    const t = this.applyState.rows, e = N(this.validateState.result), a = this.applyState.result, r = a?.results ?? [], s = this.applyState.job, l = {
+    const t = this.applyState.rows, e = P(this.validateState.result), a = this.applyState.result, r = a?.results ?? [], s = this.applyState.job, l = {
       apply: 0,
       skip: 0,
       override: 0,
@@ -1065,7 +1056,7 @@ var $t = class {
           </div>
           <div class="flex flex-wrap items-center gap-3">
             <button class="${j}" type="submit" ${t.length === 0 ? "disabled" : ""}>Submit apply job</button>
-            <button class="${f}" type="button" data-exchange-step="history">Inspect history</button>
+            <button class="${m}" type="button" data-exchange-step="history">Inspect history</button>
             <span class="text-sm text-gray-600">${o(this.applyState.message)}</span>
           </div>
           ${s ? `
@@ -1078,7 +1069,7 @@ var $t = class {
                     <span class="rounded-full bg-white border border-gray-200 px-3 py-1 text-xs font-medium text-gray-700">${o(s.status)}</span>
                   </div>
                   <div class="mt-4 h-2 overflow-hidden rounded-full bg-gray-200">
-                    <div class="h-full bg-blue-500" style="width: ${J(s)}%"></div>
+                    <div class="h-full bg-blue-500" style="width: ${M(s)}%"></div>
                   </div>
                   <div class="mt-3 text-sm text-gray-600">${o(s.progress.processed)} / ${o(s.progress.total ?? 0)} processed</div>
                 </div>` : ""}
@@ -1207,13 +1198,13 @@ var $t = class {
       "running",
       "completed",
       "failed"
-    ], s = this.activeHistoryJob(), l = I(s);
+    ], s = this.activeHistoryJob(), l = k(s);
     return `
       <section class="space-y-5">
         <div class="flex flex-wrap items-end gap-3 ${g}">
           <label class="text-sm font-medium text-gray-700">
             Kind
-            <select data-history-kind class="mt-2 ${R}">
+            <select data-history-kind class="mt-2 ${E}">
               <option value="all">All</option>
               ${a.map((i) => `
                 <option value="${o(i)}" ${this.historyState.kind === i ? "selected" : ""}>${o(i)}</option>`).join("")}
@@ -1221,13 +1212,13 @@ var $t = class {
           </label>
           <label class="text-sm font-medium text-gray-700">
             Status
-            <select data-history-status class="mt-2 ${R}">
+            <select data-history-status class="mt-2 ${E}">
               <option value="all">All</option>
               ${r.map((i) => `
                 <option value="${o(i)}" ${this.historyState.jobStatus === i ? "selected" : ""}>${o(i)}</option>`).join("")}
             </select>
           </label>
-          <button class="${f}" type="button" data-history-refresh="true">Refresh history</button>
+          <button class="${m}" type="button" data-history-refresh="true">Refresh history</button>
           <span class="text-sm text-gray-600">${o(this.historyState.message)}</span>
         </div>
         <div class="grid gap-5 lg:grid-cols-[0.9fr_1.1fr]">
@@ -1261,8 +1252,8 @@ var $t = class {
                       <p class="mt-1 text-sm text-gray-600">${o(s.kind.replace(/_/g, " "))} • ${o(s.status)} • ${o(T(s.updated_at, "Pending"))}</p>
                     </div>
                     <div class="flex flex-wrap gap-3">
-                      <button class="${f}" type="button" data-history-load-apply="all">Load in apply step</button>
-                      <button class="${f}" type="button" data-history-load-apply="conflicts" ${(l?.summary.conflicts ?? 0) > 0 ? "" : "disabled"}>Retry conflicts</button>
+                      <button class="${m}" type="button" data-history-load-apply="all">Load in apply step</button>
+                      <button class="${m}" type="button" data-history-load-apply="conflicts" ${(l?.summary.conflicts ?? 0) > 0 ? "" : "disabled"}>Retry conflicts</button>
                     </div>
                   </div>
                   <div class="grid gap-3 md:grid-cols-4">
@@ -1317,10 +1308,10 @@ var $t = class {
   }
 };
 export {
-  $t as TranslationExchangeManager,
+  bt as TranslationExchangeManager,
   K as normalizeTranslationExchangeHistoryResponse,
-  k as normalizeTranslationExchangeJob,
-  m as normalizeTranslationExchangeUploadDescriptor,
+  I as normalizeTranslationExchangeJob,
+  f as normalizeTranslationExchangeUploadDescriptor,
   C as normalizeTranslationExchangeValidationResult
 };
 

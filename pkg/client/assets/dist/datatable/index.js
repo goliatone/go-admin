@@ -1,20 +1,21 @@
 import { escapeAttribute as b, escapeHTML as d } from "../shared/html.js";
 import { t as _t } from "../chunks/icon-renderer-a2WAOpSe.js";
-import { n as Rt, r as Ee } from "../chunks/modal-C7iNT0ae.js";
+import { n as Rt, r as Ae } from "../chunks/modal-C7iNT0ae.js";
 import { t as B } from "../chunks/toast-manager-DJ83v89f.js";
-import { httpRequest as x, readHTTPError as fe, readHTTPJSON as ze, readHTTPJSONObject as Dt, readHTTPJSONValue as Ne } from "../shared/transport/http-client.js";
-import { createStructuredActionError as J, executeActionRequest as me, executeStructuredRequest as Ge, extractErrorMessage as Pt, extractExchangeError as sa, extractTranslationBlocker as Tt, formatStructuredErrorForDisplay as I, generateExchangeReport as ia, getStructuredActionError as M, groupRowResultsByStatus as aa, isExchangeError as oa, isHandledActionError as _, isTranslationBlocker as Mt, parseImportResult as la } from "../toast/error-helpers.js";
+import { httpRequest as x, readHTTPError as fe, readHTTPJSON as Ne, readHTTPJSONObject as Dt, readHTTPJSONValue as Ge } from "../shared/transport/http-client.js";
+import { createStructuredActionError as J, executeActionRequest as me, executeStructuredRequest as Ue, extractErrorMessage as Pt, extractExchangeError as sa, extractTranslationBlocker as Tt, formatStructuredErrorForDisplay as I, generateExchangeReport as ia, getStructuredActionError as M, groupRowResultsByStatus as aa, isExchangeError as oa, isHandledActionError as _, isTranslationBlocker as Mt, parseImportResult as la } from "../toast/error-helpers.js";
 import { n as It, t as Q } from "../chunks/badge-DT04uHwZ.js";
 import { t as Y } from "../chunks/date-utils-Xhx5dXNC.js";
-import { $ as ha, A as pa, B as Ue, C as fa, D as ma, E as Bt, F as ga, G as ba, H as ya, I as He, J as va, K as wa, L as xa, M as Sa, N as Ca, O as $a, P as ka, Q as Ea, R as Aa, S as Ft, T as La, U as _a, V as Ve, W as Ra, X as qt, Y as F, Z as Da, _ as Ke, a as Ot, at as Je, b as jt, c as zt, d as Nt, et as Pa, f as Gt, g as ge, h as Ut, i as Ta, it as Ht, j as Ma, k as Ia, l as Vt, m as Kt, n as Jt, nt as Qe, o as Ba, ot as Qt, p as Fa, q as Yt, r as qa, rt as Ye, s as Wt, st as We, t as Oa, tt as ja, u as be, v as za, w as Na, x as Ga, y as Ua, z as Ha } from "../chunks/grouped-mode-D5oZzoVA.js";
-import { buildURL as Ae, deleteSearchParams as Xt } from "../shared/query-state/url-state.js";
-import { t as Zt } from "../chunks/sortable.esm-CnodmHaR.js";
+import { $ as ha, A as pa, B as He, C as fa, D as ma, E as Bt, F as ga, G as ba, H as ya, I as Ve, J as va, K as wa, L as xa, M as Sa, N as Ca, O as $a, P as ka, Q as Ea, R as Aa, S as Ft, T as La, U as _a, V as ge, W as Ra, X as qt, Y as F, Z as Da, _ as Ke, a as Ot, at as Je, b as jt, c as zt, d as Nt, et as Pa, f as Gt, g as be, h as Ut, i as Ta, it as Ht, j as Ma, k as Ia, l as Vt, m as Kt, n as Jt, nt as Qe, o as Ba, ot as Qt, p as Fa, q as Yt, r as qa, rt as Ye, s as Wt, st as We, t as Oa, tt as ja, u as ye, v as za, w as Na, x as Ga, y as Ua, z as Ha } from "../chunks/grouped-mode-nI4zGZjZ.js";
+import "../chunks/status-vocabulary-HmIBabRF.js";
+import { buildURL as Le, deleteSearchParams as Xt } from "../shared/query-state/url-state.js";
+import { t as Zt } from "../chunks/sortable.esm-CcMbOE-M.js";
 import { initActionMenus as er } from "../shared/action-menu.js";
 import { normalizeAPIBasePath as tr, normalizeBasePath as rr } from "../shared/path-normalization.js";
-import { r as nr, t as sr } from "../chunks/translation-contracts-Ct_EG7JJ.js";
+import { r as nr, t as sr } from "../chunks/translation-contracts-DrJVTucO.js";
 import { StatefulController as Xe } from "../shared/stateful-controller.js";
 var Ze = { async prompt(e) {
-  const { PayloadInputModal: t } = await import("../chunks/payload-modal-DsIQwh34.js");
+  const { PayloadInputModal: t } = await import("../chunks/payload-modal-D4qgfAvt.js");
   return t.prompt(e);
 } }, ir = class {
   constructor(e = {}) {
@@ -155,7 +156,7 @@ var Ze = { async prompt(e) {
     const r = await this.resolveBulkActionPayload(e, t);
     if (r !== null)
       try {
-        const n = await Ge(e.endpoint, {
+        const n = await Ue(e.endpoint, {
           method: e.method || "POST",
           headers: {
             "Content-Type": "application/json",
@@ -163,7 +164,7 @@ var Ze = { async prompt(e) {
           },
           body: JSON.stringify(r)
         }, async (i) => {
-          const a = await Ne(i, void 0);
+          const a = await Ge(i, void 0);
           return {
             success: !0,
             data: a === void 0 ? void 0 : a
@@ -425,17 +426,17 @@ function L(e) {
     entityType: null,
     recordId: null
   };
-  return !e || typeof e != "object" || (t.requestedLocale = P(e, ["requested_locale"]), t.resolvedLocale = P(e, ["resolved_locale", "locale"]), t.availableLocales = pr(e, ["available_locales"]), t.missingRequestedLocale = _e(e, ["missing_requested_locale"]), t.fallbackUsed = _e(e, ["fallback_used"]), t.familyId = P(e, ["family_id"]), t.status = P(e, ["status"]), t.entityType = P(e, [
+  return !e || typeof e != "object" || (t.requestedLocale = P(e, ["requested_locale"]), t.resolvedLocale = P(e, ["resolved_locale", "locale"]), t.availableLocales = pr(e, ["available_locales"]), t.missingRequestedLocale = Re(e, ["missing_requested_locale"]), t.fallbackUsed = Re(e, ["fallback_used"]), t.familyId = P(e, ["family_id"]), t.status = P(e, ["status"]), t.entityType = P(e, [
     "entity_type",
     "type",
     "_type"
   ]), t.recordId = P(e, ["id"]), !t.fallbackUsed && t.requestedLocale && t.resolvedLocale && (t.fallbackUsed = t.requestedLocale !== t.resolvedLocale), !t.missingRequestedLocale && t.fallbackUsed && (t.missingRequestedLocale = !0)), t;
 }
-function Xa(e) {
+function Za(e) {
   const t = L(e);
   return t.fallbackUsed || t.missingRequestedLocale;
 }
-function Za(e) {
+function eo(e) {
   const t = L(e);
   return t.familyId !== null || t.resolvedLocale !== null || t.availableLocales.length > 0;
 }
@@ -476,7 +477,7 @@ function tt(e) {
   const n = L(e);
   return n.availableLocales.length > 0 ? n.availableLocales.length : n.resolvedLocale ? 1 : null;
 }
-function eo(e, t = {}) {
+function to(e, t = {}) {
   const r = typeof e.translation_family_url == "string" ? e.translation_family_url.trim() : "";
   if (!r) return '<span class="text-gray-400">-</span>';
   const n = tt(e), s = n && n > 0 ? A(`${n} ${n === 1 ? "locale" : "locales"}`, t, "info") : "";
@@ -487,11 +488,11 @@ function eo(e, t = {}) {
     </div>
   `.trim();
 }
-function to(e, t = {}) {
+function ro(e, t = {}) {
   const r = tt(e);
   return !r || r <= 0 ? '<span class="text-gray-400">-</span>' : A(`${r} ${r === 1 ? "locale" : "locales"}`, t, "info");
 }
-function ro(e, t = {}) {
+function no(e, t = {}) {
   const r = et(e, "translation_assignment_summary");
   if (!r) return '<span class="text-gray-400">-</span>';
   const n = T(r, ["status"]), s = T(r, ["label"]), i = T(r, ["assignee_id"]), a = T(r, ["priority"]), o = le(r, ["active_count", "open_count"]), c = [];
@@ -501,7 +502,7 @@ function ro(e, t = {}) {
     showIcon: !1
   })) : s && c.push(A(s, t, "info")), o !== null && o >= 0 && c.push(A(`${o} active`, t, "neutral")), i && c.push(A(`@${i}`, t, "neutral")), a && c.push(A(a, t, a === "urgent" || a === "high" ? "warning" : "neutral")), c.length === 0 ? '<span class="text-gray-400">-</span>' : `<div class="inline-flex items-center gap-1.5 flex-wrap">${c.join("")}</div>`;
 }
-function no(e, t = {}) {
+function so(e, t = {}) {
   const r = et(e, "translation_exchange_summary");
   if (!r) return '<span class="text-gray-400">-</span>';
   const n = T(r, ["status", "last_job_status"]), s = T(r, ["label", "last_job_label"]), i = le(r, ["pending_count"]), a = le(r, ["error_count"]), o = [];
@@ -539,10 +540,10 @@ function C(e) {
   }
   return t;
 }
-function so(e) {
+function io(e) {
   return C(e).hasReadinessMetadata;
 }
-function io(e, t) {
+function ao(e, t) {
   return C(e).readyForTransition[t] === !0;
 }
 function ar(e) {
@@ -590,12 +591,12 @@ function lr(e, t = {}) {
     size: s
   })), i.length === 0 ? '<span class="text-gray-400">-</span>' : `<div class="flex items-center flex-wrap ${s === "sm" ? "gap-1" : "gap-2"}">${i.join("")}</div>`;
 }
-function ao(e, t = "default") {
+function oo(e, t = "default") {
   if (!e) return "";
   const r = e.trim();
-  return Ve(r) !== null ? F(r, { size: t === "sm" ? "sm" : "default" }) : Q(e, "status", r.toLowerCase(), { size: t === "sm" ? "sm" : void 0 });
+  return ge(r) !== null ? F(r, { size: t === "sm" ? "sm" : "default" }) : Q(e, "status", r.toLowerCase(), { size: t === "sm" ? "sm" : void 0 });
 }
-function oo(e, t = {}) {
+function lo(e, t = {}) {
   const r = C(e);
   if (!r.hasReadinessMetadata) return "";
   const { size: n = "default", showDetailedTooltip: s = !0, extraClass: i = "" } = t, a = `inline-flex items-center gap-1 rounded font-medium ${n === "sm" ? "text-xs px-1.5 py-0.5" : "text-xs px-2 py-1"}`, o = r.readinessState || "ready", { icon: c, label: l, bgClass: u, textClass: h, tooltip: p } = cr(o, r, s);
@@ -607,7 +608,7 @@ function oo(e, t = {}) {
     <span>${l}</span>
   </span>`;
 }
-function lo(e, t = {}) {
+function co(e, t = {}) {
   const r = C(e);
   if (!r.hasReadinessMetadata) return "";
   const n = r.readyForTransition.publish === !0, { size: s = "default", extraClass: i = "" } = t, a = s === "sm" ? "text-[10px] px-1.5 py-0.5" : "text-xs px-2 py-1";
@@ -629,7 +630,7 @@ function lo(e, t = {}) {
     ${o > 0 ? `${o} missing` : "Not ready"}
   </span>`;
 }
-function co(e, t = {}) {
+function uo(e, t = {}) {
   const r = C(e);
   if (!r.hasReadinessMetadata || r.requiredLocales.length === 0) return "";
   const { size: n = "default", extraClass: s = "" } = t, i = n === "sm" ? "text-xs" : "text-sm", a = r.requiredLocales.length, o = r.availableLocales.filter((c) => r.requiredLocales.includes(c)).length;
@@ -639,29 +640,31 @@ function co(e, t = {}) {
     ${o}/${a}
   </span>`;
 }
-function uo(e, t = {}) {
+function ho(e, t = {}) {
   const r = C(e);
   if (!r.hasReadinessMetadata || r.readinessState === "ready") return "";
   const { size: n = "default", extraClass: s = "" } = t, i = n === "sm" ? "text-xs px-2 py-1" : "text-sm px-2.5 py-1", a = r.missingRequiredLocales.length, o = a > 0, c = Object.keys(r.missingRequiredFieldsByLocale).length > 0;
-  let l = "bg-amber-100", u = "text-amber-800", h = "", p = "";
-  return o && c ? (l = "bg-red-100", u = "text-red-800", h = `${a} missing`, p = `Missing translations: ${r.missingRequiredLocales.join(", ")}. Also has incomplete fields.`) : o ? (l = "bg-amber-100", u = "text-amber-800", h = `${a} missing`, p = `Missing translations: ${r.missingRequiredLocales.join(", ")}`) : c && (l = "bg-yellow-100", u = "text-yellow-800", h = "Incomplete", p = `Incomplete fields in: ${Object.keys(r.missingRequiredFieldsByLocale).join(", ")}`), h ? `<span class="inline-flex items-center gap-1.5 rounded-full font-medium ${i} ${l} ${u} ${s}"
-                title="${p}"
-                aria-label="${p}"
+  let l = "", u = "", h = "";
+  if (o && c ? (l = "missing_locales_and_fields", u = `${a} missing`, h = `Missing translations: ${r.missingRequiredLocales.join(", ")}. Also has incomplete fields.`) : o ? (l = "missing_locales", u = `${a} missing`, h = `Missing translations: ${r.missingRequiredLocales.join(", ")}`) : c && (l = "missing_fields", u = "Incomplete", h = `Incomplete fields in: ${Object.keys(r.missingRequiredFieldsByLocale).join(", ")}`), !u) return "";
+  const p = ge(l, "core");
+  return `<span class="inline-flex items-center gap-1.5 rounded-full font-medium ${i} ${p?.bgClass || "bg-amber-50"} ${p?.textClass || "text-amber-700"} ${s}"
+                title="${h}"
+                aria-label="${h}"
                 data-missing-translations="true"
                 data-missing-count="${a}">
     <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
-    <span>${h}</span>
-  </span>` : "";
+    <span>${u}</span>
+  </span>`;
 }
-function ho(e) {
+function po(e) {
   const t = C(e);
   return t.hasReadinessMetadata ? t.readinessState !== "ready" : !1;
 }
-function po(e) {
+function fo(e) {
   return C(e).missingRequiredLocales.length;
 }
 function cr(e, t, r) {
-  const n = Ve(e, "core"), s = n ? qt(n, "sm") : "", i = n?.bgClass || "bg-gray-100", a = n?.textClass || "text-gray-600", o = n?.label || "Unknown", c = n?.description || "Unknown readiness state";
+  const n = ge(e, "core"), s = n ? qt(n, "sm") : "", i = n?.bgClass || "bg-gray-100", a = n?.textClass || "text-gray-600", o = n?.label || "Unknown", c = n?.description || "Unknown readiness state";
   switch (e) {
     case "ready":
       return {
@@ -740,10 +743,10 @@ function ur(e) {
     for (const [r, n] of Object.entries(e)) Array.isArray(n) && n.length > 0 && t.add(r);
   return t;
 }
-function fo(e = {}) {
+function mo(e = {}) {
   return (t, r, n) => dr(r, e);
 }
-function mo(e, t = {}) {
+function go(e, t = {}) {
   if (!e.fallbackUsed && !e.missingRequestedLocale) return "";
   const { showCreateButton: r = !0, createTranslationUrl: n, panelName: s } = t, i = e.requestedLocale || "requested locale", a = e.resolvedLocale || "default", o = r ? `
     <button type="button"
@@ -787,7 +790,7 @@ function mo(e, t = {}) {
     </div>
   `;
 }
-function Le(e = {}) {
+function _e(e = {}) {
   return (t, r, n) => lr(r, e);
 }
 function hr(e = {}) {
@@ -795,28 +798,28 @@ function hr(e = {}) {
 }
 function P(e, t) {
   for (const r of t) {
-    const n = ye(e, r);
+    const n = ve(e, r);
     if (typeof n == "string" && n.trim()) return n;
   }
   return null;
 }
 function pr(e, t) {
   for (const r of t) {
-    const n = ye(e, r);
+    const n = ve(e, r);
     if (Array.isArray(n)) return n.filter((s) => typeof s == "string");
   }
   return [];
 }
-function _e(e, t) {
+function Re(e, t) {
   for (const r of t) {
-    const n = ye(e, r);
+    const n = ve(e, r);
     if (typeof n == "boolean") return n;
     if (n === "true") return !0;
     if (n === "false") return !1;
   }
   return !1;
 }
-function ye(e, t) {
+function ve(e, t) {
   const r = t.split(".");
   let n = e;
   for (const s of r) {
@@ -1028,7 +1031,7 @@ var $r = class {
       return e ? `<img src="${e}" alt="${r}" class="h-8 w-8 rounded-full object-cover" />` : `<div class="h-8 w-8 rounded-full bg-blue-500 flex items-center justify-center text-white font-medium text-sm">${n}</div>`;
     });
   }
-}, go = {
+}, bo = {
   statusBadge: (e) => (t) => {
     const r = String(t).toLowerCase();
     return Q(String(t), "status", r);
@@ -1050,8 +1053,8 @@ var $r = class {
     return n < 1 ? "Just now" : n < 60 ? `${n} minute${n > 1 ? "s" : ""} ago` : s < 24 ? `${s} hour${s > 1 ? "s" : ""} ago` : i < 30 ? `${i} day${i > 1 ? "s" : ""} ago` : t.toLocaleDateString();
   },
   localeBadge: hr(),
-  translationStatus: Le(),
-  translationStatusCompact: Le({
+  translationStatus: _e(),
+  translationStatusCompact: _e({
     size: "sm",
     maxLocales: 2
   })
@@ -1075,7 +1078,7 @@ function z(e) {
   const i = ne(t.columnOrder);
   return i && (r.columnOrder = i), typeof t.updatedAt == "number" && Number.isFinite(t.updatedAt) && (r.updatedAt = t.updatedAt), r;
 }
-function Re(e) {
+function De(e) {
   if (!e || typeof e != "object" || Array.isArray(e)) return null;
   const t = e, r = { version: 1 };
   if (typeof t.search == "string") {
@@ -1151,7 +1154,7 @@ var st = class {
     }
   }
   createShareState(e) {
-    const t = Re(e);
+    const t = De(e);
     if (!t) return null;
     t.updatedAt || (t.updatedAt = Date.now());
     const r = Dr(), n = `${re}${r}`;
@@ -1175,7 +1178,7 @@ var st = class {
     if (!t) return null;
     try {
       const r = localStorage.getItem(`${re}${t}`);
-      return r ? Re(JSON.parse(r)) : null;
+      return r ? De(JSON.parse(r)) : null;
     } catch {
       return null;
     }
@@ -1264,16 +1267,16 @@ var st = class {
 function Ir(e) {
   return (e.mode || "local") === "preferences" ? new Mr(e) : new st(e);
 }
-var N = "search", G = "page", U = "perPage", H = "filters", V = "sort", W = "state", ve = "hiddenColumns", X = "view_mode", we = "expanded_groups", xe = [
+var N = "search", G = "page", U = "perPage", H = "filters", V = "sort", W = "state", we = "hiddenColumns", X = "view_mode", xe = "expanded_groups", Se = [
   N,
   G,
   U,
   H,
   V,
   W,
-  ve,
+  we,
   X,
-  we
+  xe
 ], Br = 1800;
 function Fr(e) {
   return {
@@ -1305,9 +1308,9 @@ function Or(e, t, r = {}) {
   if (e.config.enableGroupedMode) {
     if (t.viewMode) {
       const o = Ke(t.viewMode);
-      o && (e.state.viewMode = be(o));
+      o && (e.state.viewMode = ye(o));
     }
-    e.state.expandMode = ge(t.expandMode, e.state.expandMode), Array.isArray(t.expandedGroups) ? (e.state.expandedGroups = new Set(t.expandedGroups.map((o) => String(o || "").trim()).filter(Boolean)), e.state.hasPersistedExpandState = !0) : t.expandMode !== void 0 && (e.state.hasPersistedExpandState = !0);
+    e.state.expandMode = be(t.expandMode, e.state.expandMode), Array.isArray(t.expandedGroups) ? (e.state.expandedGroups = new Set(t.expandedGroups.map((o) => String(o || "").trim()).filter(Boolean)), e.state.hasPersistedExpandState = !0) : t.expandMode !== void 0 && (e.state.hasPersistedExpandState = !0);
   }
 }
 function jr(e, t) {
@@ -1339,7 +1342,7 @@ function Gr(e) {
 }
 function Ur(e) {
   const t = new URLSearchParams(window.location.search);
-  e.didRestoreColumnOrder = !1, e.shouldReorderDOMOnRestore = !1, e.hasURLStateOverrides = xe.some((l) => t.has(l));
+  e.didRestoreColumnOrder = !1, e.shouldReorderDOMOnRestore = !1, e.hasURLStateOverrides = Se.some((l) => t.has(l));
   const r = t.get(W);
   if (r) {
     const l = e.stateStore.resolveShareState(r);
@@ -1375,9 +1378,9 @@ function Ur(e) {
   }
   if (e.config.enableGroupedMode) {
     const l = Ke(t.get(X));
-    l && (e.state.viewMode = be(l)), t.has("expanded_groups") && (e.state.expandedGroups = Jt(t.get(we)), e.state.expandMode = "explicit", e.state.hasPersistedExpandState = !0);
+    l && (e.state.viewMode = ye(l)), t.has("expanded_groups") && (e.state.expandedGroups = Jt(t.get(xe)), e.state.expandMode = "explicit", e.state.hasPersistedExpandState = !0);
   }
-  const c = t.get(ve);
+  const c = t.get(we);
   if (c) {
     const l = e.parseJSONArray(c, "hidden columns");
     if (l) {
@@ -1415,19 +1418,19 @@ function Hr(e) {
 function Vr(e, t = {}) {
   e.persistStateSnapshot();
   const r = e.getURLStateConfig(), n = new URLSearchParams(window.location.search);
-  Xt(n, xe), e.state.search && n.set(N, e.state.search), e.state.currentPage > 1 && n.set(G, String(e.state.currentPage)), e.state.perPage !== (e.config.perPage || 10) && n.set(U, String(e.state.perPage));
+  Xt(n, Se), e.state.search && n.set(N, e.state.search), e.state.currentPage > 1 && n.set(G, String(e.state.currentPage)), e.state.perPage !== (e.config.perPage || 10) && n.set(U, String(e.state.perPage));
   let s = !1;
   if (e.state.filters.length > 0) {
     const o = JSON.stringify(e.state.filters);
     o.length <= r.maxFiltersLength ? n.set(H, o) : s = !0;
   }
   e.state.sort.length > 0 && n.set(V, JSON.stringify(e.state.sort)), e.config.enableGroupedMode && n.set(X, e.state.viewMode);
-  let i = Ae(window.location.pathname, n);
+  let i = Le(window.location.pathname, n);
   const a = i.length > r.maxURLLength;
   if (r.enableStateToken && (s || a)) {
     n.delete(N), n.delete(G), n.delete(U), n.delete(H), n.delete(V);
     const o = e.stateStore.createShareState(e.buildShareStateSnapshot());
-    o && n.set(W, o), i = Ae(window.location.pathname, n);
+    o && n.set(W, o), i = Le(window.location.pathname, n);
   }
   t.replace ? window.history.replaceState({}, "", i) : window.history.pushState({}, "", i), console.log("[DataGrid] URL updated:", i);
 }
@@ -1641,7 +1644,7 @@ function mn(e) {
       t.expanded = e.isGroupExpandedByState(t.groupId), e.updateGroupVisibility(t.groupId);
 }
 function gn(e, t, r = !1) {
-  const n = ge(e.state.expandMode, "explicit");
+  const n = be(e.state.expandMode, "explicit");
   return n === "all" ? !e.state.expandedGroups.has(t) : n === "none" ? e.state.expandedGroups.has(t) : e.state.expandedGroups.size === 0 ? r : e.state.expandedGroups.has(t);
 }
 function bn(e, t) {
@@ -1649,7 +1652,7 @@ function bn(e, t) {
     console.warn("[DataGrid] Grouped mode not enabled");
     return;
   }
-  const r = be(t);
+  const r = ye(t);
   e.state.viewMode = r, r === "flat" && (e.state.groupedData = null), e.pushStateToURL(), e.refresh();
 }
 function yn(e) {
@@ -1679,7 +1682,7 @@ async function xn(e) {
 }
 async function it(e) {
   if (!await xn(e)) return null;
-  const t = await Ge(e.endpoint, {
+  const t = await Ue(e.endpoint, {
     method: "DELETE",
     headers: { Accept: "application/json" }
   });
@@ -2230,7 +2233,7 @@ function Nn(e) {
     });
   });
 }
-function De(e) {
+function Pe(e) {
   return Array.from(new Set(e.filter(Boolean)));
 }
 function ue(e, t) {
@@ -2257,7 +2260,7 @@ function q(e) {
     '[data-bulk-action-bar="true"]'
   ]) || t;
 }
-function Se(e) {
+function Ce(e) {
   const t = q(e);
   return Array.from(t ? t.querySelectorAll("[data-bulk-action]") : document.querySelectorAll("[data-bulk-action]"));
 }
@@ -2275,7 +2278,7 @@ function Hn(e) {
     "#bulk-clear-selection",
     "#clear-selection-btn"
   ], n = r.flatMap((s) => Array.from((t || document).querySelectorAll(s)));
-  return n.length ? De(n) : De(r.flatMap((s) => Array.from(document.querySelectorAll(s))));
+  return n.length ? Pe(n) : Pe(r.flatMap((s) => Array.from(document.querySelectorAll(s))));
 }
 function at(e) {
   Hn(e).forEach((t) => {
@@ -2324,7 +2327,7 @@ function Jn(e, t, r) {
   }) : (e.removeAttribute("title"), null);
 }
 function Qn(e) {
-  const t = Se(e), r = "Checking selected records...", n = [];
+  const t = Ce(e), r = "Checking selected records...", n = [];
   t.forEach((s) => {
     s.dataset.disabled = "true", s.dataset.bulkState = "loading", s.setAttribute("aria-disabled", "true"), s.setAttribute("title", r), s.classList.add("opacity-50", "cursor-not-allowed"), n.push({
       actionId: s.dataset.bulkAction || "",
@@ -2343,7 +2346,7 @@ function Wn(e, t) {
   const r = Ye(t);
   e.bulkActionState = r;
   const n = [];
-  Se(e).forEach((s) => {
+  Ce(e).forEach((s) => {
     const i = s.dataset.bulkAction;
     if (!i) return;
     const a = Jn(s, r[i] || null, s.textContent?.trim() || i);
@@ -2396,7 +2399,7 @@ function Zn(e) {
 }
 function es(e) {
   const t = q(e)?.dataset?.bulkBase || "";
-  Se(e).forEach((r) => {
+  Ce(e).forEach((r) => {
     r.addEventListener("click", async () => {
       const n = r, s = n.dataset.bulkAction;
       if (!s || n.getAttribute("aria-disabled") === "true" || n.dataset.disabled === "true") return;
@@ -2611,7 +2614,7 @@ var S, ct = class {
     this.hasPersistedHiddenColumnState = i;
     const a = new Set((r?.hiddenColumns || []).filter((v) => n.has(v))), o = this.config.columns.map((v) => v.field), c = !!r && Array.isArray(r.columnOrder) && r.columnOrder.length > 0;
     this.hasPersistedColumnOrderState = c;
-    const l = (r?.columnOrder || []).filter((v) => n.has(v)), u = c ? [...l, ...o.filter((v) => !l.includes(v))] : o, h = this.config.enableGroupedMode ? Gt(t) : !1, p = this.config.enableGroupedMode ? Vt(t) : null, f = this.config.enableGroupedMode ? Wt(t) : "explicit", y = this.config.enableGroupedMode ? zt(t) : /* @__PURE__ */ new Set(), g = ge(r?.expandMode, f), m = new Set((r?.expandedGroups || Array.from(y)).map((v) => String(v).trim()).filter(Boolean)), w = this.config.enableGroupedMode ? r?.expandMode !== void 0 || m.size > 0 || h : !1, $ = (this.config.enableGroupedMode ? r?.viewMode || p : null) || this.config.defaultViewMode || "flat";
+    const l = (r?.columnOrder || []).filter((v) => n.has(v)), u = c ? [...l, ...o.filter((v) => !l.includes(v))] : o, h = this.config.enableGroupedMode ? Gt(t) : !1, p = this.config.enableGroupedMode ? Vt(t) : null, f = this.config.enableGroupedMode ? Wt(t) : "explicit", y = this.config.enableGroupedMode ? zt(t) : /* @__PURE__ */ new Set(), g = be(r?.expandMode, f), m = new Set((r?.expandedGroups || Array.from(y)).map((v) => String(v).trim()).filter(Boolean)), w = this.config.enableGroupedMode ? r?.expandMode !== void 0 || m.size > 0 || h : !1, $ = (this.config.enableGroupedMode ? r?.viewMode || p : null) || this.config.defaultViewMode || "flat";
     this.state = {
       currentPage: 1,
       perPage: this.config.perPage || 10,
@@ -2912,14 +2915,14 @@ S.URL_KEY_PER_PAGE = U;
 S.URL_KEY_FILTERS = H;
 S.URL_KEY_SORT = V;
 S.URL_KEY_STATE = W;
-S.URL_KEY_HIDDEN_COLUMNS = ve;
+S.URL_KEY_HIDDEN_COLUMNS = we;
 S.URL_KEY_VIEW_MODE = X;
-S.URL_KEY_EXPANDED_GROUPS = we;
-S.MANAGED_URL_KEYS = xe;
+S.URL_KEY_EXPANDED_GROUPS = xe;
+S.MANAGED_URL_KEYS = Se;
 S.DEFAULT_MAX_URL_LENGTH = Br;
 S.DEFAULT_MAX_FILTERS_LENGTH = 600;
 typeof window < "u" && (window.DataGrid = ct);
-var Pe = {
+var Te = {
   text: [
     {
       label: "contains",
@@ -2989,7 +2992,7 @@ var Pe = {
       value: "between"
     }
   ]
-}, bo = class {
+}, yo = class {
   constructor(e) {
     this.criteria = [], this.modal = null, this.container = null, this.searchInput = null, this.clearBtn = null, this.config = e, this.notifier = e.notifier || new B();
   }
@@ -3148,13 +3151,13 @@ var Pe = {
     return e.operators && e.operators.length > 0 ? e.operators.map((t) => ({
       label: t,
       value: t
-    })) : Pe[e.type] || Pe.text;
+    })) : Te[e.type] || Te.text;
   }
   applySearch() {
     this.pushCriteriaToURL(), this.config.onSearch(this.criteria), this.renderChips(), this.close();
   }
   savePreset() {
-    new Ee({
+    new Ae({
       title: "Save Search Preset",
       label: "Preset name",
       placeholder: "e.g. Active users filter",
@@ -3171,7 +3174,7 @@ var Pe = {
       this.notifier.warning("No saved presets found.");
       return;
     }
-    new Ee({
+    new Ae({
       title: "Load Search Preset",
       label: `Available presets: ${t.join(", ")}`,
       placeholder: "Enter preset name",
@@ -3236,7 +3239,7 @@ var Pe = {
   clearAllChips() {
     this.criteria = [], this.renderCriteria(), this.renderChips(), this.config.onClear && this.config.onClear();
   }
-}, Te = {
+}, Me = {
   text: [
     {
       label: "contains",
@@ -3298,7 +3301,7 @@ var Pe = {
     label: "is not",
     value: "ne"
   }]
-}, yo = class {
+}, vo = class {
   constructor(e) {
     this.panel = null, this.container = null, this.previewElement = null, this.sqlPreviewElement = null, this.overlay = null, this.config = e, this.notifier = e.notifier || new B(), this.structure = {
       groups: [],
@@ -3551,7 +3554,7 @@ var Pe = {
     return e.operators && e.operators.length > 0 ? e.operators.map((t) => ({
       label: t,
       value: t
-    })) : Te[e.type] || Te.text;
+    })) : Me[e.type] || Me.text;
   }
   updatePreview() {
     const e = this.generateSQLPreview(), t = this.generateTextPreview();
@@ -3661,7 +3664,7 @@ var Pe = {
   setStructure(e) {
     this.structure = e, this.render();
   }
-}, vo = class {
+}, wo = class {
   constructor(e) {
     if (this.searchableFields = e, !e || e.length === 0) throw new Error("At least one searchable field is required");
   }
@@ -3675,7 +3678,7 @@ var Pe = {
   async onSearch(e, t) {
     t.resetPagination(), await t.refresh();
   }
-}, wo = class {
+}, xo = class {
   buildFilters(e) {
     const t = {}, r = /* @__PURE__ */ new Map();
     return e.forEach((n) => {
@@ -3695,7 +3698,7 @@ var Pe = {
   async onFilterChange(e, t, r) {
     r.resetPagination(), await r.refresh();
   }
-}, xo = class {
+}, So = class {
   buildQuery(e, t) {
     return {
       limit: t,
@@ -3705,14 +3708,14 @@ var Pe = {
   async onPageChange(e, t) {
     await t.refresh();
   }
-}, So = class {
+}, Co = class {
   buildQuery(e) {
     return !e || e.length === 0 ? {} : { order: e.map((t) => `${t.field} ${t.direction}`).join(",") };
   }
   async onSort(e, t, r) {
     await r.refresh();
   }
-}, Co = class {
+}, $o = class {
   constructor(e) {
     if (!e || !e.endpoint) throw new Error("export endpoint is required");
     if (!e.definition && !e.resource) throw new Error("export definition or resource is required");
@@ -3757,7 +3760,7 @@ var Pe = {
             const c = await he(o);
             throw R(t, "error", c), new Error(c);
           }
-          await Ie(o, r.definition || r.resource || "export", r.format), R(t, "success", "Export ready.");
+          await Be(o, r.definition || r.resource || "export", r.format), R(t, "success", "Export ready.");
           return;
         } catch (o) {
           throw R(t, "error", o instanceof Error ? o.message : "Export failed"), o;
@@ -3773,7 +3776,7 @@ var Pe = {
       const s = await he(n);
       throw R(t, "error", s), new Error(s);
     }
-    await Ie(n, r.definition || r.resource || "export", r.format), R(t, "success", "Export ready.");
+    await Be(n, r.definition || r.resource || "export", r.format), R(t, "success", "Export ready.");
   }
 };
 function ys(e, t, r) {
@@ -3851,10 +3854,10 @@ function Ls(e) {
     if (s == null || s === "") return;
     switch (n) {
       case "limit":
-        t.limit = Me(s);
+        t.limit = Ie(s);
         return;
       case "offset":
-        t.offset = Me(s);
+        t.offset = Ie(s);
         return;
       case "order":
       case "sort":
@@ -3895,11 +3898,11 @@ function Ds(e) {
   const t = String(e || "").trim().toLowerCase();
   return t === "excel" || t === "xls" ? "xlsx" : t || "csv";
 }
-function Me(e) {
+function Ie(e) {
   const t = Number(e);
   return Number.isFinite(t) ? t : 0;
 }
-async function Ie(e, t, r) {
+async function Be(e, t, r) {
   const n = await e.blob(), s = Ps(e, t, r), i = URL.createObjectURL(n), a = document.createElement("a");
   a.href = i, a.download = s, a.rel = "noopener", document.body.appendChild(a), a.click(), a.remove(), URL.revokeObjectURL(i);
 }
@@ -3930,7 +3933,7 @@ function R(e, t, r) {
   }
   t === "error" && alert(r);
 }
-var $o = class {
+var ko = class {
   constructor(e) {
     this.baseEndpoint = e;
   }
@@ -4036,7 +4039,7 @@ var Is = class {
       console.warn("Failed to clear column preferences:", e);
     }
   }
-}, ko = class extends Is {
+}, Eo = class extends Is {
   constructor(e, t) {
     const r = t.localStorageKey || `${t.resource}_datatable_columns`;
     super(e, r), this.syncTimeout = null, this.serverPrefs = null, this.resource = t.resource;
@@ -4172,7 +4175,7 @@ function D(e, t, r = "", n = "") {
   const l = [];
   return i && l.push(i), n && l.push(n), l.length > 0 ? `${c}?${l.join("&")}` : c;
 }
-var Be = {
+var Fe = {
   view: 100,
   view_family: 150,
   edit: 200,
@@ -4226,7 +4229,7 @@ var Be = {
   resolveActionOrder(e, t) {
     if (typeof t == "number" && Number.isFinite(t)) return t;
     const r = e.toLowerCase();
-    return this.config.actionOrderOverride?.[r] !== void 0 ? this.config.actionOrderOverride[r] : Be[r] !== void 0 ? Be[r] : Fs;
+    return this.config.actionOrderOverride?.[r] !== void 0 ? this.config.actionOrderOverride[r] : Fe[r] !== void 0 ? Fe[r] : Fs;
   }
   buildActionFromSchema(e, t, r, n) {
     const s = t.name, i = t.label || t.label_key || s, a = t.variant || "secondary", o = t.icon, c = this.isNavigationAction(t), l = s === "delete";
@@ -4273,7 +4276,7 @@ var Be = {
     if (t) return t;
     const r = typeof e.reason_code == "string" ? e.reason_code.trim() : "";
     if (r) {
-      const n = He({ reason_code: r });
+      const n = Ve({ reason_code: r });
       if (n?.message) return n.message;
     }
     switch (r.toLowerCase()) {
@@ -4580,10 +4583,10 @@ var Be = {
       const w = l?.toLowerCase() === m, $ = u.includes(m), v = [];
       $ && v.push("Required for publishing"), h.length > 0 && v.push(`${h.length} translation${h.length > 1 ? "s" : ""} exist`);
       const O = v.length > 0 ? v.join(" • ") : void 0, Lt = p[m] || this.localeLabel(m);
-      let ke = `${m.toUpperCase()} - ${Lt}`;
-      w && (ke += " (recommended)"), y.push({
+      let Ee = `${m.toUpperCase()} - ${Lt}`;
+      w && (Ee += " (recommended)"), y.push({
         value: m,
-        label: ke,
+        label: Ee,
         description: O,
         recommended: w
       });
@@ -4835,10 +4838,10 @@ var Be = {
     }[e.toLowerCase()];
   }
 };
-function Eo(e, t, r) {
+function Ao(e, t, r) {
   return new ht(r).buildRowActions(e, t);
 }
-function Ao(e) {
+function Lo(e) {
   return e.schema?.actions;
 }
 function qs() {
@@ -4846,7 +4849,7 @@ function qs() {
   return e?.toastManager ? e.toastManager : new B();
 }
 async function Os(e) {
-  return Ne(e, null);
+  return Ge(e, null);
 }
 function pe(e, t) {
   return (typeof e.id == "string" && e.id.trim() ? e.id.trim() : `${e.label}-${t + 1}`).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || `action-${t + 1}`;
@@ -4881,7 +4884,7 @@ function zs(e, t) {
       return `${r} text-gray-700 hover:bg-gray-50`;
   }
 }
-function Fe(e) {
+function qe(e) {
   return {
     edit: "iconoir-edit-pencil",
     delete: "iconoir-trash",
@@ -4920,7 +4923,7 @@ function Gs(e) {
   const { primary: t, rest: r } = Ns(e);
   let n = "";
   if (t) {
-    const i = t.disabled === !0, a = pe(t, 0), o = Fe(t), c = i ? (t.disabledReason || "Action unavailable").trim() : "", l = c ? `detail-action-reason-${a}` : "", u = l ? `aria-describedby="${l}"` : "", h = c ? `${t.label} unavailable: ${c}` : t.label, p = i && t.remediation?.href && t.remediation?.label ? `
+    const i = t.disabled === !0, a = pe(t, 0), o = qe(t), c = i ? (t.disabledReason || "Action unavailable").trim() : "", l = c ? `detail-action-reason-${a}` : "", u = l ? `aria-describedby="${l}"` : "", h = c ? `${t.label} unavailable: ${c}` : t.label, p = i && t.remediation?.href && t.remediation?.label ? `
           <a
             href="${d(t.remediation.href.trim())}"
             class="inline-flex items-center justify-center rounded-md border border-blue-200 bg-blue-50 px-2.5 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
@@ -4975,7 +4978,7 @@ function Gs(e) {
           aria-orientation="vertical"
         >
           ${r.map((i, a) => {
-    const o = i.disabled === !0, c = pe(i, t ? a + 1 : a), l = Fe(i), u = o ? (i.disabledReason || "Action unavailable").trim() : "", h = u ? `detail-action-reason-${c}` : "", p = h ? `aria-describedby="${h}"` : "", f = u ? `${i.label} unavailable: ${u}` : i.label, y = i.variant === "danger" && a > 0 ? '<div class="my-1 border-t border-gray-100"></div>' : "", g = u ? `title="${d(u)}"` : "", m = o && i.remediation?.href && i.remediation?.label ? `
+    const o = i.disabled === !0, c = pe(i, t ? a + 1 : a), l = qe(i), u = o ? (i.disabledReason || "Action unavailable").trim() : "", h = u ? `detail-action-reason-${c}` : "", p = h ? `aria-describedby="${h}"` : "", f = u ? `${i.label} unavailable: ${u}` : i.label, y = i.variant === "danger" && a > 0 ? '<div class="my-1 border-t border-gray-100"></div>' : "", g = u ? `title="${d(u)}"` : "", m = o && i.remediation?.href && i.remediation?.label ? `
             <a
               href="${d(i.remediation.href.trim())}"
               class="block px-4 pb-2 text-xs font-medium text-blue-600 hover:text-blue-800 hover:underline"
@@ -5150,7 +5153,7 @@ var Us = class {
     return String(this.mount.dataset.recordId || "").trim();
   }
 };
-async function Lo(e = document) {
+async function _o(e = document) {
   const t = Array.from(e.querySelectorAll("[data-panel-detail-actions]")), r = [];
   for (const n of t) {
     const s = new Us({ mount: n });
@@ -5430,7 +5433,7 @@ var Hs = class pt extends Rt {
     return this.resolved || (this.resolved = !0, this.config.onDismiss?.()), !0;
   }
 };
-async function _o(e) {
+async function Ro(e) {
   try {
     await Hs.showBlocker(e);
   } catch (t) {
@@ -5521,7 +5524,7 @@ function Ks(e) {
   const t = new ft(e);
   return t.render(), t;
 }
-function Ro() {
+function Do() {
   const e = document.querySelectorAll("[data-status-legend]"), t = [];
   return e.forEach((r) => {
     if (r.hasAttribute("data-status-legend-init")) return;
@@ -5534,7 +5537,7 @@ function Ro() {
     r.setAttribute("data-status-legend-init", "true"), t.push(n);
   }), t;
 }
-function Do(e = {}) {
+function Po(e = {}) {
   return new ft({
     container: document.createElement("div"),
     ...e
@@ -5684,7 +5687,7 @@ function Qs(e, t, r = {}) {
     ...r
   });
 }
-function Po(e) {
+function To(e) {
   const t = document.querySelectorAll("[data-quick-filters]"), r = [];
   return t.forEach((n) => {
     if (n.hasAttribute("data-quick-filters-init")) return;
@@ -5692,7 +5695,7 @@ function Po(e) {
     n.setAttribute("data-quick-filters-init", "true"), r.push(s);
   }), r;
 }
-function To(e = {}) {
+function Mo(e = {}) {
   const { filters: t = mt, activeKey: r = null, capabilities: n = [], size: s = "default", containerClass: i = "" } = e, a = s === "sm" ? "text-xs" : "text-sm", o = s === "sm" ? "px-2 py-1" : "px-3 py-1.5", c = /* @__PURE__ */ new Map();
   for (const l of n) c.set(l.key, l);
   return `<div class="quick-filters inline-flex items-center gap-1 flex-wrap ${i}">${t.map((l) => {
@@ -5770,7 +5773,7 @@ var se = "go-admin:translation-panel-expanded", Ys = class {
     } }));
   }
 };
-function Mo(e) {
+function Io(e) {
   return new Ys(e);
 }
 async function Ws(e, t, r = {}) {
@@ -5817,7 +5820,7 @@ function Zs(e, t) {
   }
   n === 0 ? r > 0 ? t.success(`Created ${r} translation${r !== 1 ? "s" : ""}${s > 0 ? ` (${s} skipped)` : ""}`) : s > 0 && t.info(`All ${s} translation${s !== 1 ? "s" : ""} already exist`) : r === 0 ? t.error(`Failed to create ${n} translation${n !== 1 ? "s" : ""}`) : t.warning(`Created ${r}, failed ${n}${s > 0 ? `, skipped ${s}` : ""}`);
 }
-function Io(e) {
+function Bo(e) {
   const { created: t, failed: r, skipped: n, total: s, failures: i } = e, a = `
     <div class="grid grid-cols-3 gap-4 mb-4">
       <div class="text-center p-3 bg-green-50 rounded">
@@ -5870,11 +5873,11 @@ function Io(e) {
     </div>
   `;
 }
-function Bo(e) {
+function Fo(e) {
   const { created: t, failed: r, skipped: n } = e, s = [];
   return t > 0 && s.push(`<span class="text-green-600">+${t}</span>`), r > 0 && s.push(`<span class="text-red-600">${r} failed</span>`), n > 0 && s.push(`<span class="text-yellow-600">${n} skipped</span>`), s.join(" · ");
 }
-function Fo(e, t, r) {
+function qo(e, t, r) {
   return async (n) => Ws({
     apiEndpoint: e,
     notifier: t,
@@ -6070,7 +6073,7 @@ var Z = class {
 function gt(e) {
   return new Z(e).render();
 }
-function qo(e, t) {
+function Oo(e, t) {
   return e.length === 0 ? "" : `
     <div class="flex flex-wrap items-center gap-2" role="list" aria-label="Missing translations">
       ${e.map((r) => gt({
@@ -6080,7 +6083,7 @@ function qo(e, t) {
     </div>
   `;
 }
-function Oo(e, t) {
+function jo(e, t) {
   const r = /* @__PURE__ */ new Map();
   return e.querySelectorAll("[data-locale-action]").forEach((n) => {
     const s = n.getAttribute("data-locale-action");
@@ -6093,13 +6096,13 @@ function Oo(e, t) {
     o && (a.mount(o), r.set(s, a));
   }), r;
 }
-function qe(e, t, r, n) {
+function Oe(e, t, r, n) {
   const s = new URLSearchParams();
   s.set("locale", r);
   const i = String(n ?? "").trim();
   return i && s.set("channel", i), `${e}/${t}/edit?${s.toString()}`;
 }
-var Ce = class {
+var $e = class {
   constructor(e) {
     this.element = null, this.localeChip = null, this.config = {
       showFormLockMessage: !0,
@@ -6189,7 +6192,7 @@ var Ce = class {
   renderSecondaryCta() {
     const { context: e, navigationBasePath: t, channel: r } = this.config, n = e.resolvedLocale;
     return !n || !e.recordId ? "" : `
-      <a href="${d(qe(t, e.recordId, n, r))}"
+      <a href="${d(Oe(t, e.recordId, n, r))}"
          class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-amber-700 bg-white border border-amber-300 rounded-lg hover:bg-amber-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500 transition-colors"
          data-action="open-source"
          data-locale="${d(n)}"
@@ -6236,7 +6239,7 @@ var Ce = class {
       localeExists: !1,
       onCreateSuccess: (c, l) => {
         this.config.onCreateSuccess?.(c, l);
-        const u = qe(s, l.id, c, o);
+        const u = Oe(s, l.id, c, o);
         window.location.href = u;
       },
       onError: (c, l) => {
@@ -6262,29 +6265,29 @@ function ri(e) {
     t.removeAttribute("disabled"), t.removeAttribute("data-was-enabled"), t.removeAttribute("aria-disabled");
   }), e.querySelector("[data-form-lock-overlay]")?.remove();
 }
-function jo(e) {
+function zo(e) {
   return e.getAttribute("data-form-locked") === "true";
 }
-function zo(e) {
+function No(e) {
   return e.getAttribute("data-lock-reason");
 }
-function No(e, t) {
+function Go(e, t) {
   const r = L(e);
-  return new Ce({
+  return new $e({
     ...t,
     context: r
   }).render();
 }
-function Go(e) {
+function Uo(e) {
   const t = L(e);
   return t.fallbackUsed || t.missingRequestedLocale;
 }
-function Uo(e, t) {
-  const r = new Ce(t);
+function Ho(e, t) {
+  const r = new $e(t);
   return r.mount(e), r;
 }
-function Ho(e, t) {
-  const r = new Ce({
+function Vo(e, t) {
+  const r = new $e({
     context: L(t),
     apiEndpoint: "",
     navigationBasePath: ""
@@ -6308,7 +6311,7 @@ var bt = class {
   getDisabledReason() {
     if (this.isCreateActionEnabled()) return null;
     if (this.actionState?.reason) return this.actionState.reason;
-    const e = He({ reason_code: this.actionState?.reason_code });
+    const e = Ve({ reason_code: this.actionState?.reason_code });
     if (e?.message) return e.message;
     const t = String(this.actionState?.reason_code || "").trim().toLowerCase();
     return t === "workflow_transition_not_available" ? "Translation creation is not available in the current workflow state." : t === "permission_denied" ? "You do not have permission to create translations." : "Translation creation is currently unavailable.";
@@ -6415,18 +6418,18 @@ function ni(e, t) {
     recordId: r
   }).render() : "";
 }
-function Vo(e) {
+function Ko(e) {
   const t = C(e);
   return t.hasReadinessMetadata && t.missingRequiredLocales.length > 0;
 }
-function Ko(e, t, r) {
+function Jo(e, t, r) {
   const n = String(t.id || ""), s = new bt(t, {
     ...r,
     recordId: n
   });
   return s.mount(e), s;
 }
-function Jo(e) {
+function Qo(e) {
   return (t, r, n) => ni(r, e);
 }
 function ee() {
@@ -6618,7 +6621,7 @@ function oi(e) {
     handler: e.onCreateTranslation
   }), t;
 }
-function Qo(e) {
+function Yo(e) {
   const t = /* @__PURE__ */ new Map();
   for (const i of e) {
     if (i.enabled === !1) continue;
@@ -6697,7 +6700,7 @@ function li() {
     return { ...K };
   }
 }
-function Yo(e) {
+function Wo(e) {
   const t = te();
   if (t)
     try {
@@ -6774,7 +6777,7 @@ function ui(e) {
     a.parentElement && o(!1);
   }, i), t.appendChild(a), a;
 }
-function Wo(e) {
+function Xo(e) {
   const { container: t, shortcuts: r, settings: n, onSettingsChange: s } = e, i = {
     save: "Save & Submit",
     navigation: "Navigation",
@@ -6899,7 +6902,7 @@ function hi(e, t) {
   }
 }
 var ie = null;
-function Xo() {
+function Zo() {
   return ie || (ie = new vt()), ie;
 }
 function pi(e, t) {
@@ -6910,7 +6913,7 @@ function pi(e, t) {
   for (const i of s) n.register(i);
   return hi(n, r), n.bind(), n;
 }
-function Zo(e, t) {
+function el(e, t) {
   const r = pi(e, t);
   return t.hintContainer && ui({
     container: t.hintContainer,
@@ -6919,7 +6922,7 @@ function Zo(e, t) {
     }
   }), r;
 }
-var fi = 1500, mi = 2e3, $e = "autosave", j = {
+var fi = 1500, mi = 2e3, ke = "autosave", j = {
   idle: "",
   saving: "Saving...",
   saved: "Saved",
@@ -6941,7 +6944,7 @@ var fi = 1500, mi = 2e3, $e = "autosave", j = {
       savedDurationMs: e.savedDurationMs ?? mi,
       notifier: e.notifier,
       showToasts: e.showToasts ?? !1,
-      classPrefix: e.classPrefix ?? $e,
+      classPrefix: e.classPrefix ?? ke,
       labels: {
         ...j,
         ...e.labels
@@ -7186,7 +7189,7 @@ var fi = 1500, mi = 2e3, $e = "autosave", j = {
     e && e.addEventListener("click", () => this.retry());
   }
 };
-function el(e) {
+function tl(e) {
   return new St({
     debounceMs: 1500,
     savedDurationMs: 2e3,
@@ -7203,8 +7206,8 @@ function el(e) {
     ...e
   });
 }
-function tl(e, t = {}) {
-  const r = t.classPrefix ?? $e, n = {
+function rl(e, t = {}) {
+  const r = t.classPrefix ?? ke, n = {
     ...j,
     ...t.labels
   }[e] || "";
@@ -7228,7 +7231,7 @@ function tl(e, t = {}) {
     <span class="${r}__label">${n}</span>
   </div>`;
 }
-function rl(e = $e) {
+function nl(e = ke) {
   return `
     .${e} {
       display: inline-flex;
@@ -7368,7 +7371,7 @@ function rl(e = $e) {
     }
   `;
 }
-function nl(e, t) {
+function sl(e, t) {
   const { watchFields: r, indicatorSelector: n, ...s } = t;
   let i = s.container;
   !i && n && (i = e.querySelector(n) ?? void 0);
@@ -7635,7 +7638,7 @@ var Ct = "char-counter", bi = "interpolation-preview", $t = "dir-toggle", kt = [
     </svg>`;
   }
 };
-function sl(e, t = {}) {
+function il(e, t = {}) {
   const r = [], n = [], s = [];
   for (const i of t.charCounterFields ?? []) {
     const a = e.querySelector(`[name="${i}"]`);
@@ -7668,20 +7671,20 @@ function sl(e, t = {}) {
     }
   };
 }
-function il(e, t, r, n = Ct) {
+function al(e, t, r, n = Ct) {
   const s = [n];
   r && s.push(`${n}--${r}`);
   const i = t ? `${e} / ${t}` : `${e}`;
   return `<span class="${s.join(" ")}" aria-live="polite">${i}</span>`;
 }
-function al(e, t = $t) {
+function ol(e, t = $t) {
   const r = e === "rtl", n = r ? '<path d="M13 8H3M6 5L3 8l3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>' : '<path d="M3 8h10M10 5l3 3-3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>';
   return `<button type="button" class="${t}" aria-pressed="${r}" title="Toggle text direction (${e.toUpperCase()})">
     <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" width="16" height="16">${n}</svg>
     <span class="${t}__label">${e.toUpperCase()}</span>
   </button>`;
 }
-function ol() {
+function ll() {
   return `
     /* Character Counter */
     .char-counter {
@@ -7761,7 +7764,7 @@ function ol() {
     }
   `;
 }
-function ll(e, t = kt) {
+function cl(e, t = kt) {
   const r = [];
   for (const n of t) {
     n.pattern.lastIndex = 0;
@@ -7775,10 +7778,10 @@ function ll(e, t = kt) {
   }
   return r;
 }
-function cl(e, t, r) {
+function dl(e, t, r) {
   return r && e >= r ? "error" : t && e >= t ? "warning" : null;
 }
-function dl(e) {
+function ul(e) {
   return typeof e == "string" && [
     "none",
     "core",
@@ -7793,7 +7796,7 @@ function Si(e) {
 function Ci(e) {
   return e === "core+queue" || e === "full";
 }
-function ul(e) {
+function hl(e) {
   return e !== "none";
 }
 function $i(e) {
@@ -7890,14 +7893,14 @@ var Et = class {
     return this.capabilities.features[e] === !0;
   }
 };
-function Oe(e) {
+function je(e) {
   const t = $i(e);
   return t ? new Et(t) : null;
 }
-function hl() {
+function pl() {
   return new Et({ ...sr });
 }
-function pl(e) {
+function fl(e) {
   return e.visible ? e.enabled ? "" : `aria-disabled="true"${e.reason ? ` title="${b(e.reason)}"` : ""}` : 'aria-hidden="true" style="display: none;"';
 }
 function ki(e) {
@@ -7917,7 +7920,7 @@ function ki(e) {
     </span>
   `.trim();
 }
-function fl() {
+function ml() {
   return `
     /* Capability Gate Styles */
     .capability-gate-reason {
@@ -7959,12 +7962,12 @@ function Ei(e, t) {
     e.style.display = "none", e.setAttribute("aria-hidden", "true");
     return;
   }
-  e.style.display = "", e.removeAttribute("aria-hidden"), t.enabled ? (e.removeAttribute("aria-disabled"), e.classList.remove("capability-gate-disabled"), e.removeAttribute("title"), delete e.dataset.reasonCode, e.removeEventListener("click", je, !0)) : (e.setAttribute("aria-disabled", "true"), e.classList.add("capability-gate-disabled"), t.reason && (e.setAttribute("title", t.reason), e.dataset.reasonCode = t.reasonCode || ""), e.addEventListener("click", je, !0));
+  e.style.display = "", e.removeAttribute("aria-hidden"), t.enabled ? (e.removeAttribute("aria-disabled"), e.classList.remove("capability-gate-disabled"), e.removeAttribute("title"), delete e.dataset.reasonCode, e.removeEventListener("click", ze, !0)) : (e.setAttribute("aria-disabled", "true"), e.classList.add("capability-gate-disabled"), t.reason && (e.setAttribute("title", t.reason), e.dataset.reasonCode = t.reasonCode || ""), e.addEventListener("click", ze, !0));
 }
-function je(e) {
+function ze(e) {
   e.currentTarget.getAttribute("aria-disabled") === "true" && (e.preventDefault(), e.stopPropagation());
 }
-function ml(e, t) {
+function gl(e, t) {
   e.querySelectorAll("[data-capability-gate]").forEach((r) => {
     const n = r.dataset.capabilityGate;
     if (n)
@@ -7977,7 +7980,7 @@ function ml(e, t) {
   });
 }
 async function Ai(e) {
-  return ze(e);
+  return Ne(e);
 }
 var Li = {
   title: "My Translation Work",
@@ -8393,7 +8396,7 @@ function Mi(e) {
     day: "numeric"
   });
 }
-function gl() {
+function bl() {
   return `
     /* Translator Dashboard Styles */
     .translator-dashboard {
@@ -8788,7 +8791,7 @@ function Ii(e, t) {
   const r = new Ri(t);
   return r.mount(e), r;
 }
-function bl(e) {
+function yl(e) {
   return Bi(e);
 }
 function Bi(e, t = {}) {
@@ -8806,9 +8809,9 @@ function Bi(e, t = {}) {
 }
 function Fi(e) {
   if (e.capabilityGate) return e.capabilityGate;
-  if (e.capabilitiesPayload !== void 0) return Oe(e.capabilitiesPayload);
+  if (e.capabilitiesPayload !== void 0) return je(e.capabilitiesPayload);
   const t = qi();
-  return t === null ? null : Oe(t);
+  return t === null ? null : je(t);
 }
 function qi() {
   if (typeof window < "u") {
@@ -8826,7 +8829,7 @@ function qi() {
   return null;
 }
 async function ae(e) {
-  return ze(e);
+  return Ne(e);
 }
 var Oi = {
   title: "Import Translations",
@@ -9131,7 +9134,7 @@ var Oi = {
   }
   renderPreviewRow(e) {
     this.config.labels;
-    const t = Ue(e.status, "exchange"), r = e.status === "error", n = F(e.status, {
+    const t = He(e.status, "exchange"), r = e.status === "error", n = F(e.status, {
       domain: "exchange",
       size: "sm"
     });
@@ -9249,7 +9252,7 @@ var Oi = {
 function zi(e, t) {
   return e.length <= t ? e : e.slice(0, t - 3) + "...";
 }
-function yl() {
+function vl() {
   return `
     /* Exchange Import Styles */
     .exchange-import {
@@ -9592,7 +9595,7 @@ function Ni(e, t) {
   const r = new ji(t);
   return r.mount(e), r;
 }
-function vl(e) {
+function wl(e) {
   const t = e.dataset.validateEndpoint, r = e.dataset.applyEndpoint;
   return !t || !r ? (console.warn("ExchangeImport: Missing required data attributes"), null) : Ni(e, {
     validateEndpoint: t,
@@ -9789,7 +9792,7 @@ var Gi = {
           <span class="progress-status">${d(e.noActiveJob)}</span>
         </div>
       `;
-    const t = Ue(this.job.status, "exchange"), r = this.getStatusLabel(), n = this.pollingState === "paused" ? `<span class="progress-status ${t}">${d(r)}</span>` : F(this.job.status, {
+    const t = He(this.job.status, "exchange"), r = this.getStatusLabel(), n = this.pollingState === "paused" ? `<span class="progress-status ${t}">${d(r)}</span>` : F(this.job.status, {
       domain: "exchange",
       size: "sm"
     });
@@ -9926,7 +9929,7 @@ var Gi = {
     this.container && (this.container.querySelector(".resume-btn")?.addEventListener("click", () => this.resumePolling()), this.container.querySelector(".cancel-btn")?.addEventListener("click", () => this.stopPolling()), this.container.querySelector(".retry-btn")?.addEventListener("click", () => this.retry()), this.container.querySelector(".dismiss-btn")?.addEventListener("click", () => this.reset()));
   }
 };
-function wl() {
+function xl() {
   return `
     /* Async Progress Styles */
     .async-progress {
@@ -10164,13 +10167,13 @@ function Ki(e, t) {
   const r = new At(t);
   return r.mount(e), r;
 }
-function xl(e) {
+function Sl(e) {
   return Ki(e, {
     pollInterval: e.dataset.pollInterval ? parseInt(e.dataset.pollInterval, 10) : void 0,
     autoStart: e.dataset.autoStart !== "false"
   });
 }
-function Sl(e, t) {
+function Cl(e, t) {
   const r = new At(t);
   return r.hasPersistedJob(e) ? r : null;
 }
@@ -10206,7 +10209,7 @@ function Ji(e) {
 function Qi(e, t) {
   return !e || !e.hasDrift ? !1 : e.changedFieldsSummary.fields.some((r) => r.toLowerCase() === t.toLowerCase());
 }
-function Cl(e) {
+function $l(e) {
   return !e || !e.hasDrift ? [] : [...e.changedFieldsSummary.fields];
 }
 var Yi = class {
@@ -10432,7 +10435,7 @@ function Wi(e) {
   const t = new Yi(e);
   return t.render(), t;
 }
-function $l(e, t, r, n, s) {
+function kl(e, t, r, n, s) {
   const i = Ji(t);
   return Wi({
     container: e,
@@ -10454,7 +10457,7 @@ function $l(e, t, r, n, s) {
     ...s
   });
 }
-function kl() {
+function El() {
   return `
     /* Side-by-Side Editor Styles */
     .side-by-side-editor {
@@ -10826,7 +10829,7 @@ function kl() {
 }
 export {
   ir as ActionRenderer,
-  bo as AdvancedSearch,
+  yo as AdvancedSearch,
   At as AsyncProgress,
   St as AutosaveIndicator,
   ma as CORE_READINESS_DISPLAY,
@@ -10834,7 +10837,7 @@ export {
   $r as CellRendererRegistry,
   vi as CharacterCounter,
   Pn as ColumnManager,
-  go as CommonRenderers,
+  bo as CommonRenderers,
   _i as DEFAULT_FILTER_PRESETS,
   kt as DEFAULT_INTERPOLATION_PATTERNS,
   yi as DEFAULT_SAMPLE_VALUES,
@@ -10849,14 +10852,14 @@ export {
   Ia as EXCHANGE_JOB_STATUS_DISPLAY,
   pa as EXCHANGE_ROW_STATUS_DISPLAY,
   ji as ExchangeImport,
-  Ce as FallbackBanner,
-  yo as FilterBuilder,
-  $o as GoCrudBulkActionBehavior,
-  Co as GoCrudExportBehavior,
-  wo as GoCrudFilterBehavior,
-  xo as GoCrudPaginationBehavior,
-  vo as GoCrudSearchBehavior,
-  So as GoCrudSortBehavior,
+  $e as FallbackBanner,
+  vo as FilterBuilder,
+  ko as GoCrudBulkActionBehavior,
+  $o as GoCrudExportBehavior,
+  xo as GoCrudFilterBehavior,
+  So as GoCrudPaginationBehavior,
+  wo as GoCrudSearchBehavior,
+  Co as GoCrudSortBehavior,
   bt as InlineLocaleChips,
   wi as InterpolationPreview,
   vt as KeyboardShortcutRegistry,
@@ -10869,7 +10872,7 @@ export {
   Ca as QUEUE_STATE_DISPLAY,
   Js as QuickFilters,
   ht as SchemaActionBuilder,
-  ko as ServerColumnVisibilityBehavior,
+  Eo as ServerColumnVisibilityBehavior,
   Yi as SideBySideEditor,
   ft as StatusLegend,
   Hs as TranslationBlockerModal,
@@ -10878,31 +10881,31 @@ export {
   ti as applyFormLock,
   Ei as applyGateToElement,
   hi as applyShortcutSettings,
-  qe as buildLocaleEditUrl,
-  Eo as buildSchemaRowActions,
-  Sl as checkForPersistedJob,
+  Oe as buildLocaleEditUrl,
+  Ao as buildSchemaRowActions,
+  Cl as checkForPersistedJob,
   Oa as collapseAllGroups,
   Ki as createAsyncProgress,
-  Fo as createBulkCreateMissingHandler,
-  Oe as createCapabilityGate,
+  qo as createBulkCreateMissingHandler,
+  je as createCapabilityGate,
   Ir as createDataGridStateStore,
-  hl as createEmptyCapabilityGate,
+  pl as createEmptyCapabilityGate,
   Ni as createExchangeImport,
-  Jo as createInlineLocaleChipsRenderer,
+  Qo as createInlineLocaleChipsRenderer,
   hr as createLocaleBadgeRenderer,
   ka as createReasonCodeCellRenderer,
   Wi as createSideBySideEditor,
   ga as createStatusCellRenderer,
   Ks as createStatusLegend,
-  el as createTranslationAutosave,
-  fo as createTranslationMatrixRenderer,
-  Mo as createTranslationPanel,
+  tl as createTranslationAutosave,
+  mo as createTranslationMatrixRenderer,
+  Io as createTranslationPanel,
   Qs as createTranslationQuickFilters,
   oi as createTranslationShortcuts,
-  Le as createTranslationStatusRenderer,
+  _e as createTranslationStatusRenderer,
   Ii as createTranslatorDashboard,
   Jt as decodeExpandedGroupsToken,
-  ll as detectInterpolations,
+  cl as detectInterpolations,
   di as dismissShortcutHint,
   qa as encodeExpandedGroupsToken,
   Ws as executeBulkCreateMissing,
@@ -10910,73 +10913,73 @@ export {
   Ot as extractBackendSummaries,
   $i as extractCapabilities,
   sa as extractExchangeError,
-  Ao as extractSchemaActions,
+  Lo as extractSchemaActions,
   Ji as extractSourceTargetDrift,
   L as extractTranslationContext,
   C as extractTranslationReadiness,
   yt as formatShortcutDisplay,
   ia as generateExchangeReport,
-  He as getActionBlockDisplay,
+  Ve as getActionBlockDisplay,
   xa as getAllReasonCodes,
-  wl as getAsyncProgressStyles,
-  rl as getAutosaveIndicatorStyles,
-  fl as getCapabilityGateStyles,
-  Cl as getChangedFields,
-  cl as getCharCountSeverity,
-  Xo as getDefaultShortcutRegistry,
+  xl as getAsyncProgressStyles,
+  nl as getAutosaveIndicatorStyles,
+  ml as getCapabilityGateStyles,
+  $l as getChangedFields,
+  dl as getCharCountSeverity,
+  Zo as getDefaultShortcutRegistry,
   Aa as getDisabledReasonDisplay,
-  yl as getExchangeImportStyles,
+  vl as getExchangeImportStyles,
   Ba as getExpandedGroupIds,
-  ol as getFieldHelperStyles,
-  zo as getFormLockReason,
+  ll as getFieldHelperStyles,
+  No as getFormLockReason,
   k as getLocaleLabel,
-  po as getMissingTranslationsCount,
+  fo as getMissingTranslationsCount,
   ii as getModifierSymbol,
   zt as getPersistedExpandState,
   Vt as getPersistedViewMode,
   si as getPrimaryModifierLabel,
   Ha as getSeverityCssClass,
-  kl as getSideBySideEditorStyles,
-  Ue as getStatusCssClass,
-  Ve as getStatusDisplay,
+  El as getSideBySideEditorStyles,
+  He as getStatusCssClass,
+  ge as getStatusDisplay,
   ya as getStatusVocabularyStyles,
   _a as getStatusesForDomain,
-  gl as getTranslatorDashboardStyles,
-  be as getViewModeForViewport,
+  bl as getTranslatorDashboardStyles,
+  ye as getViewModeForViewport,
   aa as groupRowResultsByStatus,
   _n as handleDelete,
   Nt as hasBackendGroupedRows,
   Qi as hasFieldDrift,
-  ho as hasMissingTranslations,
-  Za as hasTranslationContext,
-  so as hasTranslationReadiness,
-  xl as initAsyncProgress,
-  ml as initCapabilityGating,
-  vl as initExchangeImport,
-  Uo as initFallbackBanner,
-  sl as initFieldHelpers,
-  nl as initFormAutosave,
-  Ho as initFormLock,
-  Ko as initInlineLocaleChips,
+  po as hasMissingTranslations,
+  eo as hasTranslationContext,
+  io as hasTranslationReadiness,
+  Sl as initAsyncProgress,
+  gl as initCapabilityGating,
+  wl as initExchangeImport,
+  Ho as initFallbackBanner,
+  il as initFieldHelpers,
+  sl as initFormAutosave,
+  Vo as initFormLock,
+  Jo as initInlineLocaleChips,
   pi as initKeyboardShortcuts,
-  Zo as initKeyboardShortcutsWithDiscovery,
-  Oo as initLocaleActionChips,
-  Lo as initPanelDetailActions,
-  Po as initQuickFilters,
-  $l as initSideBySideEditorFromRecord,
-  Ro as initStatusLegends,
-  bl as initTranslatorDashboard,
+  el as initKeyboardShortcutsWithDiscovery,
+  jo as initLocaleActionChips,
+  _o as initPanelDetailActions,
+  To as initQuickFilters,
+  kl as initSideBySideEditorFromRecord,
+  Do as initStatusLegends,
+  yl as initTranslatorDashboard,
   Bi as initTranslatorDashboardWithOptions,
   Ra as initializeVocabularyFromPayload,
-  ul as isCoreEnabled,
+  hl as isCoreEnabled,
   Si as isExchangeEnabled,
   oa as isExchangeError,
-  jo as isFormLocked,
-  Xa as isInFallbackMode,
+  zo as isFormLocked,
+  Za as isInFallbackMode,
   ee as isMacPlatform,
   Fa as isNarrowViewport,
   Ci as isQueueEnabled,
-  io as isReadyForTransition,
+  ao as isReadyForTransition,
   ci as isShortcutHintDismissed,
   ba as isValidReasonCode,
   wa as isValidStatus,
@@ -10993,24 +10996,24 @@ export {
   Ht as normalizeBulkActionStateResponse,
   Je as normalizeDetailActionStatePayload,
   Qt as normalizeListActionStatePayload,
-  dl as parseCapabilityMode,
+  ul as parseCapabilityMode,
   la as parseImportResult,
   Ke as parseViewMode,
   za as persistExpandState,
   Ua as persistViewMode,
   ri as removeFormLock,
-  tl as renderAutosaveIndicator,
+  rl as renderAutosaveIndicator,
   or as renderAvailableLocalesIndicator,
-  Bo as renderBulkResultInline,
-  Io as renderBulkResultSummary,
-  il as renderCharacterCounter,
+  Fo as renderBulkResultInline,
+  Bo as renderBulkResultSummary,
+  al as renderCharacterCounter,
   Gs as renderDetailActions,
-  al as renderDirectionToggle,
+  ol as renderDirectionToggle,
   ki as renderDisabledReasonBadge,
   ui as renderDiscoveryHint,
-  No as renderFallbackBannerFromRecord,
-  mo as renderFallbackWarning,
-  pl as renderGateAriaAttributes,
+  Go as renderFallbackBannerFromRecord,
+  go as renderFallbackWarning,
+  fl as renderGateAriaAttributes,
   jt as renderGroupHeaderRow,
   Ga as renderGroupHeaderSummary,
   Ft as renderGroupedEmptyState,
@@ -11018,32 +11021,32 @@ export {
   Na as renderGroupedLoadingState,
   ni as renderInlineLocaleChips,
   gt as renderLocaleActionChip,
-  qo as renderLocaleActionList,
+  Oo as renderLocaleActionList,
   rt as renderLocaleBadge,
-  co as renderLocaleCompleteness,
-  uo as renderMissingTranslationsBadge,
-  lo as renderPublishReadinessBadge,
-  To as renderQuickFiltersHTML,
-  oo as renderReadinessIndicator,
+  uo as renderLocaleCompleteness,
+  ho as renderMissingTranslationsBadge,
+  co as renderPublishReadinessBadge,
+  Mo as renderQuickFiltersHTML,
+  lo as renderReadinessIndicator,
   Yt as renderReasonCodeBadge,
   va as renderReasonCodeIndicator,
-  Wo as renderShortcutSettingsUI,
-  Qo as renderShortcutsHelpContent,
-  ao as renderStatusBadge,
-  Do as renderStatusLegendHTML,
-  ro as renderTranslationAssignmentSummary,
-  no as renderTranslationExchangeSummary,
-  eo as renderTranslationFamilyLink,
-  to as renderTranslationFamilyMemberCount,
+  Xo as renderShortcutSettingsUI,
+  Yo as renderShortcutsHelpContent,
+  oo as renderStatusBadge,
+  Po as renderStatusLegendHTML,
+  no as renderTranslationAssignmentSummary,
+  so as renderTranslationExchangeSummary,
+  to as renderTranslationFamilyLink,
+  ro as renderTranslationFamilyMemberCount,
   dr as renderTranslationMatrixCell,
   lr as renderTranslationStatusCell,
   F as renderVocabularyStatusBadge,
   qt as renderVocabularyStatusIcon,
   We as resolveActionState,
-  Yo as saveShortcutSettings,
-  Go as shouldShowFallbackBanner,
-  Vo as shouldShowInlineLocaleChips,
-  _o as showTranslationBlocker,
+  Wo as saveShortcutSettings,
+  Uo as shouldShowFallbackBanner,
+  Ko as shouldShowInlineLocaleChips,
+  Ro as showTranslationBlocker,
   La as toggleGroupExpand,
   Bt as transformToGroups
 };

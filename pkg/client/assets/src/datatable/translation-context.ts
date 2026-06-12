@@ -787,28 +787,24 @@ export function renderMissingTranslationsBadge(
   const sizeClass = size === 'sm' ? 'text-xs px-2 py-1' : 'text-sm px-2.5 py-1';
   const missingCount = readiness.missingRequiredLocales.length;
 
-  // Different severity levels
+  // Severity derives from the canonical registry readiness states.
   const hasMissingLocales = missingCount > 0;
   const hasMissingFields = Object.keys(readiness.missingRequiredFieldsByLocale).length > 0;
 
-  let bgClass = 'bg-amber-100';
-  let textClass = 'text-amber-800';
+  let severityStatus = '';
   let label = '';
   let tooltip = '';
 
   if (hasMissingLocales && hasMissingFields) {
-    bgClass = 'bg-red-100';
-    textClass = 'text-red-800';
+    severityStatus = 'missing_locales_and_fields';
     label = `${missingCount} missing`;
     tooltip = `Missing translations: ${readiness.missingRequiredLocales.join(', ')}. Also has incomplete fields.`;
   } else if (hasMissingLocales) {
-    bgClass = 'bg-amber-100';
-    textClass = 'text-amber-800';
+    severityStatus = 'missing_locales';
     label = `${missingCount} missing`;
     tooltip = `Missing translations: ${readiness.missingRequiredLocales.join(', ')}`;
   } else if (hasMissingFields) {
-    bgClass = 'bg-yellow-100';
-    textClass = 'text-yellow-800';
+    severityStatus = 'missing_fields';
     label = 'Incomplete';
     const locales = Object.keys(readiness.missingRequiredFieldsByLocale);
     tooltip = `Incomplete fields in: ${locales.join(', ')}`;
@@ -817,6 +813,10 @@ export function renderMissingTranslationsBadge(
   if (!label) {
     return '';
   }
+
+  const toneDisplay = getStatusDisplay(severityStatus, 'core');
+  const bgClass = toneDisplay?.bgClass || 'bg-amber-50';
+  const textClass = toneDisplay?.textClass || 'text-amber-700';
 
   const warningIcon = `<svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>`;
 

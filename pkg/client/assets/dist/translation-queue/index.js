@@ -1,11 +1,12 @@
 import { escapeAttribute as c, escapeHTML as p } from "../shared/html.js";
 import { httpRequest as F, readHTTPError as ge } from "../shared/transport/http-client.js";
 import { extractStructuredError as ve } from "../toast/error-helpers.js";
-import { T as be, Y as G, c as ye, h as _e, i as we, l as ke, o as O, t as $e, v as q, x as xe, y as qe } from "../chunks/grouped-mode-D5oZzoVA.js";
+import { T as be, Y as G, c as ye, h as _e, i as we, l as ke, o as O, t as $e, v as q, x as xe, y as qe } from "../chunks/grouped-mode-nI4zGZjZ.js";
+import "../chunks/status-vocabulary-HmIBabRF.js";
 import { buildEndpointURL as Se, getStringSearchParam as pe, readLocationSearchParams as Z, setNumberSearchParam as ae, setSearchParam as _ } from "../shared/query-state/url-state.js";
 import { StatefulController as Ae } from "../shared/stateful-controller.js";
 import { asNumber as m, asRecord as h, asString as o, asStringArray as ie } from "../shared/coercion.js";
-import { $ as R, A as Re, D as Ee, E as Ie, G as Le, J as Ce, K as Pe, O as Fe, Q as Be, R as Me, S as y, T as Te, X as E, Y as I, Z as De, _ as je, b as ze, k as Ge, q as Oe, v as re } from "../chunks/translation-shared-CdZJJA93.js";
+import { $ as R, A as Re, D as Ee, E as Ie, G as Le, J as Ce, K as Pe, O as Fe, Q as Be, R as Me, S as y, T as Te, X as E, Y as I, Z as De, _ as je, b as ze, k as Ge, q as Oe, v as re } from "../chunks/translation-shared-Ba5eIyeA.js";
 import { formatTranslationShortDateTime as N } from "../translation-shared/formatters.js";
 import { normalizeNumberRecord as C } from "../shared/record-normalization.js";
 var ee, D = class extends Error {
@@ -3495,7 +3496,7 @@ function vt() {
   const s = Z(window.location) ?? new URLSearchParams(), e = s.get("translation_client_render") || s.get("translationClientRender");
   return e === "1" || e === "true";
 }
-function Rt(s) {
+function Et(s) {
   const e = s.dataset.endpoint || s.dataset.assignmentListEndpoint || "";
   if (!e) return null;
   if (s.dataset.ssrEnhanced === "true" && !vt())
@@ -3535,7 +3536,7 @@ export {
   ft as createAssignmentQueueScreen,
   rt as fetchAssignmentList,
   ht as getAssignmentQueueStyles,
-  Rt as initAssignmentQueueScreen,
+  Et as initAssignmentQueueScreen,
   it as normalizeAssignmentActionResponse,
   Ke as normalizeAssignmentListMeta,
   st as normalizeAssignmentListResponse,

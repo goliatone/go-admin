@@ -171,8 +171,8 @@ describe('Phase 2 Regression: Structural Visibility Components', () => {
     assert.strictEqual(getSeverityCssClass('missing_locales', 'core'), 'severity-warning');
     assert.strictEqual(getSeverityCssClass('missing_locales_and_fields', 'core'), 'severity-error');
 
-    // Queue states
-    assert.strictEqual(getSeverityCssClass('pending', 'queue'), 'severity-neutral');
+    // Queue states (pending is warning per the canonical status registry)
+    assert.strictEqual(getSeverityCssClass('pending', 'queue'), 'severity-warning');
     assert.strictEqual(getSeverityCssClass('overdue', 'queue'), 'severity-error');
     assert.strictEqual(getSeverityCssClass('approved', 'queue'), 'severity-success');
 

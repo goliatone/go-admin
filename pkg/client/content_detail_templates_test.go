@@ -129,12 +129,15 @@ func TestTranslationFamiliesTemplateBootstrapsClientRenderer(t *testing.T) {
 func TestTranslationFamiliesTemplateLetsStatusBadgeMapReadinessLabel(t *testing.T) {
 	template := mustReadClientTemplate(t, "resources/translations/families.html")
 
-	required := `{% include "partials/status-badge.html" with badge_status=family.readiness_state badge_tone=readiness_tone %}`
+	required := `{% include "partials/status-badge.html" with badge_status=family.readiness_state %}`
 	if !strings.Contains(template, required) {
-		t.Fatalf("expected families template to let status badge map readiness labels")
+		t.Fatalf("expected families template to let status badge map readiness tone and label")
 	}
 	if strings.Contains(template, `badge_label=family.readiness_state`) {
 		t.Fatalf("families template must not pass raw readiness_state as a badge label")
+	}
+	if strings.Contains(template, `{% set readiness_tone`) {
+		t.Fatalf("families template must not carry a local readiness tone switch; the status badge partial resolves tones")
 	}
 }
 
@@ -142,7 +145,6 @@ func TestTranslationDashboardTemplateUsesSharedStatusBadgeForRows(t *testing.T) 
 	template := mustReadClientTemplate(t, "resources/translations/dashboard.html")
 
 	required := []string{
-		`{% set dashboard_status_tone = "info" %}`,
 		`partials/status-badge.html`,
 		`badge_status=row.status|default:row.queue_state|default:"unknown"`,
 	}
@@ -151,6 +153,9 @@ func TestTranslationDashboardTemplateUsesSharedStatusBadgeForRows(t *testing.T) 
 			continue
 		}
 		t.Fatalf("expected dashboard template fragment not found: %q", fragment)
+	}
+	if strings.Contains(template, `dashboard_status_tone`) {
+		t.Fatalf("dashboard template must not carry a local status tone switch; the status badge partial resolves tones")
 	}
 	if strings.Contains(template, `<span class="rounded-md bg-gray-100 px-2 py-1 text-xs font-medium text-gray-700">{{ row.display_status`) {
 		t.Fatalf("dashboard rows must use the shared status badge partial")
@@ -161,8 +166,9 @@ func TestStatusBadgeTemplateFallsBackToMappedLabel(t *testing.T) {
 	template := mustReadClientTemplate(t, "partials/status-badge.html")
 
 	for _, fragment := range []string{
-		`{% set label = badge.label|default:badge_label %}`,
-		`{{ label|default:status_label|default:status|default:"Unknown" }}`,
+		`{% set label = badge.label|default:badge_label|default:status_label %}`,
+		`{{ label|default:status|capfirst }}`,
+		`{% set tone = badge.tone|default:badge_tone|default:registry_tone|default:"neutral" %}`,
 	} {
 		if strings.Contains(template, fragment) {
 			continue

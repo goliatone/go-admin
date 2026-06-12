@@ -347,6 +347,61 @@
     @apply px-3 py-2 text-xs;
   }
 
+  .btn-success-outline {
+    @apply bg-white text-emerald-700 border border-solid border-emerald-300 hover:bg-emerald-50;
+    @apply dark:bg-transparent dark:text-emerald-400 dark:border-emerald-700 dark:hover:bg-emerald-900/20;
+  }
+
+  .btn-danger-outline {
+    @apply bg-white text-rose-700 border border-solid border-rose-300 hover:bg-rose-50;
+    @apply dark:bg-transparent dark:text-rose-400 dark:border-rose-700 dark:hover:bg-rose-900/20;
+  }
+
+  /* ================================================================
+     Status Chip — canonical tone-based status pill.
+     One anatomy for translation surfaces (SSR partial status-badge.html
+     and TS renderers via shared/status-vocabulary.ts getToneClasses).
+     ================================================================ */
+
+  .status-chip {
+    @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold;
+  }
+
+  .status-chip--neutral {
+    @apply bg-gray-100 text-gray-700;
+    @apply dark:bg-gray-800/60 dark:text-gray-300;
+  }
+
+  .status-chip--info {
+    @apply bg-sky-50 text-sky-700;
+    @apply dark:bg-sky-900/30 dark:text-sky-300;
+  }
+
+  .status-chip--success {
+    @apply bg-emerald-50 text-emerald-700;
+    @apply dark:bg-emerald-900/30 dark:text-emerald-300;
+  }
+
+  .status-chip--warning {
+    @apply bg-amber-50 text-amber-700;
+    @apply dark:bg-amber-900/30 dark:text-amber-300;
+  }
+
+  .status-chip--error {
+    @apply bg-rose-50 text-rose-700;
+    @apply dark:bg-rose-900/30 dark:text-rose-300;
+  }
+
+  .status-chip--source {
+    @apply bg-slate-100 text-slate-700;
+    @apply dark:bg-slate-800/60 dark:text-slate-300;
+  }
+
+  .status-chip__count {
+    @apply rounded-full bg-white/60 px-1.5 py-0.5 text-[10px] font-bold tabular-nums;
+    @apply dark:bg-black/20;
+  }
+
   /* ================================================================
      Badge System — shared across datatable, content-type-builder, etc.
      Imported by src/shared/badge.ts for HTML generation.

@@ -69,8 +69,11 @@
                 </div>
                 <div class="flex flex-wrap items-center gap-3 text-sm text-gray-600">
                   <span>Sort by</span>
-                  <span class="rounded-md border border-gray-200 bg-white px-3 py-2 font-medium text-gray-800">{{ queue.DataGrid.sort.label|default:"Due Date ASC" }}</span>
-                  <a class="btn btn-secondary" href="{{ queue.DataGrid.view_links.current|default:queue.Links.queue|default:"/admin/translations/queue" }}" data-translation-refresh>Refresh</a>
+                  <span class="rounded-md border border-gray-200 bg-white px-3 py-2 font-medium text-gray-800">{{ queue.DataGrid.sort.label|default:"Due Date, ascending" }}</span>
+                  <a class="btn btn-secondary" href="{{ queue.DataGrid.view_links.current|default:queue.Links.queue|default:"/admin/translations/queue" }}" data-translation-refresh>
+                    <i class="iconoir-refresh" aria-hidden="true"></i>
+                    Refresh
+                  </a>
                 </div>
               </div>
 

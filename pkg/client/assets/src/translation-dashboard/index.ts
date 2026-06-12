@@ -784,7 +784,8 @@ function shortAlertLabel(message: string, state: DashboardAlertState): string {
 }
 
 // Button variant styles (Fix 4)
-const BTN_SECONDARY = 'inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 hover:border-gray-300 transition-colors';
+// Shared .btn system (input.css) — matches the SSR dashboard template buttons.
+const BTN_SECONDARY = 'btn btn-secondary';
 const BTN_GHOST = 'inline-flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-colors';
 
 // UUID truncation helper (Fix 7)
@@ -898,7 +899,7 @@ function renderCard(card: TranslationDashboardCard, runbooks: TranslationDashboa
   return `
     <article class="${CARD} p-4 shadow-sm flex flex-col" data-dashboard-card="${escapeAttribute(card.id)}" title="${escapeAttribute(titleText)}">
       <div class="flex items-start justify-between gap-2">
-        <p class="text-xs font-semibold uppercase tracking-[0.24em] text-gray-500 truncate">${escapeHTML(cardShortLabel)}</p>
+        <p class="text-xs font-semibold uppercase tracking-wider text-gray-500 truncate">${escapeHTML(cardShortLabel)}</p>
         <span class="flex-shrink-0 inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold ${escapeAttribute(alertToneClass(card.alert.state))}">
           ${escapeHTML(shortAlertLabel(card.alert.message, card.alert.state))}
         </span>
@@ -937,7 +938,7 @@ function renderDismissibleAlert(alert: TranslationDashboardAlert, cards: Transla
          role="${alert.state === 'critical' ? 'alert' : 'status'}">
       <div class="flex-1 min-w-0">
         <div class="flex items-center gap-2 flex-wrap">
-          <span class="inline-flex items-center rounded-md px-2 py-0.5 text-xs font-semibold uppercase tracking-[0.16em] ${escapeAttribute(alertToneClass(alert.state))}">${escapeHTML(cardLabel)}</span>
+          <span class="inline-flex items-center rounded-full px-2 py-1 text-xs font-semibold ${escapeAttribute(alertToneClass(alert.state))}">${escapeHTML(cardLabel)}</span>
           <span class="text-xs font-medium text-gray-600">${escapeHTML(alert.state)}</span>
         </div>
         <p class="mt-1.5 text-sm text-gray-700">${escapeHTML(alert.message)}</p>
@@ -1014,7 +1015,7 @@ function renderTopOverdueTable(table: TranslationDashboardTable): string {
   return `
     <table class="min-w-full divide-y divide-gray-200 text-sm">
       <caption class="sr-only">Top overdue assignments with assignment and queue drill-down actions.</caption>
-      <thead class="bg-gray-50 text-left text-xs uppercase tracking-[0.2em] text-gray-500">
+      <thead class="bg-gray-50 text-left text-xs uppercase tracking-wider text-gray-500">
         <tr>
           <th scope="col" class="px-4 py-3">Assignment</th>
           <th scope="col" class="px-4 py-3">Locale</th>
@@ -1117,7 +1118,7 @@ function renderBlockedFamiliesTable(table: TranslationDashboardTable): string {
   return `
     <table class="min-w-full divide-y divide-gray-200 text-sm">
       <caption class="sr-only">Blocked families with family detail, blocker codes, affected locales, and drill-down actions.</caption>
-      <thead class="bg-gray-50 text-left text-xs uppercase tracking-[0.2em] text-gray-500">
+      <thead class="bg-gray-50 text-left text-xs uppercase tracking-wider text-gray-500">
         <tr>
           <th scope="col" class="px-4 py-3">Family</th>
           <th scope="col" class="px-4 py-3">Blockers</th>
@@ -1202,7 +1203,7 @@ function renderTable(
     <section class="overflow-hidden ${CARD} shadow-sm" data-dashboard-table="${escapeAttribute(table.id)}">
       <header class="flex items-center justify-between gap-3 border-b border-gray-200 px-4 py-3">
         <div>
-          <h2 class="text-sm font-semibold uppercase tracking-[0.22em] text-gray-500">${escapeHTML(tableLabel)}</h2>
+          <h2 class="text-sm font-semibold uppercase tracking-wider text-gray-500">${escapeHTML(tableLabel)}</h2>
           <p class="mt-1 text-xs text-gray-500">Showing top ${escapeHTML(String(table.rows.length))} of ${escapeHTML(String(table.total))}</p>
         </div>
         ${runbook?.href ? `
@@ -1295,7 +1296,7 @@ function renderRunbooks(runbooks: TranslationDashboardRunbook[]): string {
   }
   return `
     <section class="${CARD} p-4 shadow-sm" data-dashboard-runbooks="true">
-      <h2 class="text-sm font-semibold uppercase tracking-[0.22em] text-gray-500">Runbooks</h2>
+      <h2 class="text-sm font-semibold uppercase tracking-wider text-gray-500">Runbooks</h2>
       <div class="mt-4 grid gap-4 md:grid-cols-3">
         ${runbooks.map((runbook) => `
           <article class="rounded-xl border border-gray-200 bg-gray-50 p-4">
@@ -1355,20 +1356,20 @@ function renderCollapsibleMeta(payload: TranslationDashboardResponse, expanded: 
       <div class="${expanded ? '' : 'hidden'}" data-meta-content="true">
         <dl class="border-t border-gray-200 px-4 py-3 grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-4">
           <div>
-            <dt class="text-xs font-medium uppercase tracking-[0.16em] text-gray-500">Channel</dt>
+            <dt class="text-xs font-medium uppercase tracking-wider text-gray-500">Channel</dt>
             <dd class="mt-1 text-sm font-medium text-gray-900">${escapeHTML(channel)}</dd>
           </div>
           <div>
-            <dt class="text-xs font-medium uppercase tracking-[0.16em] text-gray-500">Refresh</dt>
+            <dt class="text-xs font-medium uppercase tracking-wider text-gray-500">Refresh</dt>
             <dd class="mt-1 text-sm font-medium text-gray-900">${escapeHTML(refreshDisplay)}</dd>
           </div>
           <div>
-            <dt class="text-xs font-medium uppercase tracking-[0.16em] text-gray-500">Latency</dt>
+            <dt class="text-xs font-medium uppercase tracking-wider text-gray-500">Latency</dt>
             <dd class="mt-1 text-sm font-medium text-gray-900">${escapeHTML(latencyDisplay)}</dd>
           </div>
           ${scopeParts.map(({ key, value }) => `
             <div>
-              <dt class="text-xs font-medium uppercase tracking-[0.16em] text-gray-500">${escapeHTML(key)}</dt>
+              <dt class="text-xs font-medium uppercase tracking-wider text-gray-500">${escapeHTML(key)}</dt>
               <dd class="mt-1 text-xs font-medium text-gray-900 font-mono">${escapeHTML(value)}</dd>
             </div>
           `).join('')}
@@ -1403,12 +1404,12 @@ function renderToolbar(payload: TranslationDashboardResponse | null, refreshing 
             <p class="${HEADER_DESCRIPTION} mt-2">Track overdue work, review backlog, and family readiness without rebuilding aggregate state in the browser.</p>
           </div>
           <div class="flex flex-wrap items-center gap-3">
-            <span class="text-xs uppercase tracking-[0.18em] text-gray-500" aria-live="polite" data-dashboard-refresh-status="true">
+            <span class="text-xs uppercase tracking-wider text-gray-500" aria-live="polite" data-dashboard-refresh-status="true">
               ${escapeHTML(refreshing ? 'Refreshing dashboard…' : `Last updated ${generatedAt}`)}
             </span>
-            <button type="button" class="${BTN_PRIMARY}" data-dashboard-refresh-button="true" aria-label="Refresh translation dashboard" ${refreshing ? 'disabled' : ''}>
+            <button type="button" class="${BTN_SECONDARY}" data-dashboard-refresh-button="true" aria-label="Refresh translation dashboard" ${refreshing ? 'disabled' : ''}>
               ${renderDashboardIcon(ICON_REFRESH, refreshing ? 'h-4 w-4 animate-spin' : 'h-4 w-4', '16px')}
-              ${escapeHTML(refreshing ? 'Refreshing…' : 'Refresh dashboard')}
+              ${escapeHTML(refreshing ? 'Refreshing…' : 'Refresh')}
             </button>
           </div>
         </div>
@@ -1443,20 +1444,20 @@ function renderToolbar(payload: TranslationDashboardResponse | null, refreshing 
           <div class="${metaExpanded ? 'mt-3' : 'hidden'}" data-meta-content="true">
             <dl class="border-t border-gray-200 pt-3 grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-4">
               <div>
-                <dt class="text-xs font-medium uppercase tracking-[0.16em] text-gray-500">Channel</dt>
+                <dt class="text-xs font-medium uppercase tracking-wider text-gray-500">Channel</dt>
                 <dd class="mt-1 text-sm font-medium text-gray-900">${escapeHTML(channel)}</dd>
               </div>
               <div>
-                <dt class="text-xs font-medium uppercase tracking-[0.16em] text-gray-500">Refresh Interval</dt>
+                <dt class="text-xs font-medium uppercase tracking-wider text-gray-500">Refresh Interval</dt>
                 <dd class="mt-1 text-sm font-medium text-gray-900">${escapeHTML(refreshDisplay)}</dd>
               </div>
               <div>
-                <dt class="text-xs font-medium uppercase tracking-[0.16em] text-gray-500">Latency Target</dt>
+                <dt class="text-xs font-medium uppercase tracking-wider text-gray-500">Latency Target</dt>
                 <dd class="mt-1 text-sm font-medium text-gray-900">${escapeHTML(latencyDisplay)}</dd>
               </div>
               ${scopeParts.map(({ key, value }) => `
                 <div>
-                  <dt class="text-xs font-medium uppercase tracking-[0.16em] text-gray-500">${escapeHTML(key)}</dt>
+                  <dt class="text-xs font-medium uppercase tracking-wider text-gray-500">${escapeHTML(key)}</dt>
                   <dd class="mt-1 text-xs font-medium text-gray-900 font-mono">${escapeHTML(value)}</dd>
                 </div>
               `).join('')}
@@ -1563,7 +1564,7 @@ function renderInlineError(error: unknown): string {
     message: error instanceof Error ? error.message : 'Failed to load translation dashboard',
     messageClass: `${ERROR_STATE_TEXT} mt-2`,
     metadata,
-    metadataClass: 'mt-2 text-xs uppercase tracking-[0.16em] text-rose-700',
+    metadataClass: 'mt-2 text-xs uppercase tracking-wider text-rose-700',
     role: 'alert',
     attributes: {
       'data-dashboard-inline-error': 'true',
@@ -1589,7 +1590,7 @@ function renderError(error: unknown): string {
     message,
     messageClass: `${ERROR_STATE_TEXT} mt-2`,
     metadata,
-    metadataClass: 'mt-2 text-xs uppercase tracking-[0.16em] text-rose-700',
+    metadataClass: 'mt-2 text-xs uppercase tracking-wider text-rose-700',
     actionsHtml: `<div class="mt-4"><button type="button" class="${BTN_DANGER}" data-dashboard-refresh-button="true">Retry dashboard</button></div>`,
     role: 'alert',
     attributes: {

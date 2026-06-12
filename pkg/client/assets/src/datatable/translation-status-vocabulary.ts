@@ -1,6 +1,12 @@
 import type { DisabledReasonCode, TranslationErrorEnvelope } from '../translation-contracts/index.js';
 import { normalizeActionBlockCode, type ActionBlockCodeInput } from './action-contracts.js';
 import { escapeHTML as escapeHtml } from '../shared/html.js';
+import {
+  getStatusEntry,
+  getToneClasses,
+  humanizeStatus,
+  type StatusTone,
+} from '../shared/status-vocabulary.js';
 export type { DisabledReasonCode } from '../translation-contracts/index.js';
 export type { ActionBlockCodeInput } from './action-contracts.js';
 
@@ -10,6 +16,10 @@ export type { ActionBlockCodeInput } from './action-contracts.js';
  * Provides a unified translation status vocabulary map and disabled-reason presenter
  * used by all translation surfaces. Implements the shared contracts from backend
  * translation_contracts.go and action_state_reason_codes.go.
+ *
+ * Tone/label/icon per status derive from the canonical registry in
+ * shared/status-vocabulary.ts; this module only adds domain grouping,
+ * descriptions, and disabled-reason presentation.
  *
  * Status Domains:
  * - Core: readiness_state (ready, missing_locales, missing_fields, missing_locales_and_fields)
@@ -90,10 +100,10 @@ export interface StatusDisplayConfig {
   textClass: string;
   /** Border color class */
   borderClass?: string;
-  /** Icon character or SVG path */
+  /** Icon character, SVG path, or Iconoir icon name */
   icon: string;
-  /** Icon type: 'char' for character, 'svg' for SVG path */
-  iconType: 'char' | 'svg';
+  /** Icon type: 'char' for character, 'svg' for SVG path, 'iconoir' for icon-font name */
+  iconType: 'char' | 'svg' | 'iconoir';
   /** Severity level for sorting/priority */
   severity: 'success' | 'warning' | 'error' | 'info' | 'neutral';
   /** Tooltip/description text */
@@ -171,327 +181,120 @@ const ICONS = {
 };
 
 /**
- * Core readiness state display configurations
+ * Tone→class fragments for piecemeal consumers (kept light-tinted; the chip
+ * component classes from getToneClasses carry the dark-mode variants).
+ */
+const TONE_BG_CLASS: Record<StatusTone, string> = {
+  neutral: 'bg-gray-100',
+  info: 'bg-sky-50',
+  success: 'bg-emerald-50',
+  warning: 'bg-amber-50',
+  error: 'bg-rose-50',
+};
+
+const TONE_TEXT_CLASS: Record<StatusTone, string> = {
+  neutral: 'text-gray-700',
+  info: 'text-sky-700',
+  success: 'text-emerald-700',
+  warning: 'text-amber-700',
+  error: 'text-rose-700',
+};
+
+const TONE_BORDER_CLASS: Record<StatusTone, string> = {
+  neutral: 'border-gray-200',
+  info: 'border-sky-200',
+  success: 'border-emerald-200',
+  warning: 'border-amber-200',
+  error: 'border-rose-200',
+};
+
+/**
+ * Build a StatusDisplayConfig from the canonical registry entry.
+ * Tone, label, and icon come from shared/status-vocabulary.ts; only
+ * descriptions and short labels are domain-local.
+ */
+function registryDisplay(
+  status: string,
+  overrides: { description?: string; shortLabel?: string } = {}
+): StatusDisplayConfig {
+  const entry = getStatusEntry(status);
+  const tone: StatusTone = entry?.tone ?? 'neutral';
+  return {
+    label: entry?.label ?? humanizeStatus(status),
+    shortLabel: overrides.shortLabel,
+    colorClass: getToneClasses(tone, 'badge'),
+    bgClass: TONE_BG_CLASS[tone],
+    textClass: TONE_TEXT_CLASS[tone],
+    borderClass: TONE_BORDER_CLASS[tone],
+    icon: entry?.icon ?? 'help-circle',
+    iconType: 'iconoir',
+    severity: tone,
+    description: overrides.description,
+  };
+}
+
+/**
+ * Core readiness state display configurations (registry-backed)
  */
 export const CORE_READINESS_DISPLAY: Record<CoreReadinessState, StatusDisplayConfig> = {
-  ready: {
-    label: 'Ready',
-    shortLabel: 'Ready',
-    colorClass: 'bg-green-100 text-green-700',
-    bgClass: 'bg-green-100',
-    textClass: 'text-green-700',
-    borderClass: 'border-green-300',
-    icon: '●',
-    iconType: 'char',
-    severity: 'success',
-    description: 'All required translations are complete',
-  },
-  missing_locales: {
-    label: 'Missing Locales',
-    shortLabel: 'Missing',
-    colorClass: 'bg-amber-100 text-amber-700',
-    bgClass: 'bg-amber-100',
-    textClass: 'text-amber-700',
-    borderClass: 'border-amber-300',
-    icon: '○',
-    iconType: 'char',
-    severity: 'warning',
-    description: 'Required locale translations are missing',
-  },
-  missing_fields: {
-    label: 'Incomplete Fields',
-    shortLabel: 'Incomplete',
-    colorClass: 'bg-yellow-100 text-yellow-700',
-    bgClass: 'bg-yellow-100',
-    textClass: 'text-yellow-700',
-    borderClass: 'border-yellow-300',
-    icon: '◐',
-    iconType: 'char',
-    severity: 'warning',
-    description: 'Some translations have missing required fields',
-  },
-  missing_locales_and_fields: {
-    label: 'Not Ready',
-    shortLabel: 'Not Ready',
-    colorClass: 'bg-red-100 text-red-700',
-    bgClass: 'bg-red-100',
-    textClass: 'text-red-700',
-    borderClass: 'border-red-300',
-    icon: '○',
-    iconType: 'char',
-    severity: 'error',
-    description: 'Missing translations and incomplete fields',
-  },
+  ready: registryDisplay('ready', { shortLabel: 'Ready', description: 'All required translations are complete' }),
+  missing_locales: registryDisplay('missing_locales', { shortLabel: 'Missing', description: 'Required locale translations are missing' }),
+  missing_fields: registryDisplay('missing_fields', { shortLabel: 'Incomplete', description: 'Some translations have missing required fields' }),
+  missing_locales_and_fields: registryDisplay('missing_locales_and_fields', { shortLabel: 'Not Ready', description: 'Missing translations and incomplete fields' }),
 };
 
 /**
- * Queue state display configurations
+ * Queue state display configurations (registry-backed)
  */
 export const QUEUE_STATE_DISPLAY: Record<QueueState, StatusDisplayConfig> = {
-  open: {
-    label: 'Open',
-    colorClass: 'bg-gray-100 text-gray-700',
-    bgClass: 'bg-gray-100',
-    textClass: 'text-gray-700',
-    icon: ICONS.document,
-    iconType: 'svg',
-    severity: 'neutral',
-    description: 'Available to be claimed',
-  },
-  pending: {
-    label: 'Pending',
-    colorClass: 'bg-gray-100 text-gray-700',
-    bgClass: 'bg-gray-100',
-    textClass: 'text-gray-700',
-    icon: ICONS.clock,
-    iconType: 'svg',
-    severity: 'neutral',
-    description: 'Waiting to be assigned',
-  },
-  assigned: {
-    label: 'Assigned',
-    colorClass: 'bg-blue-100 text-blue-700',
-    bgClass: 'bg-blue-100',
-    textClass: 'text-blue-700',
-    icon: ICONS.user,
-    iconType: 'svg',
-    severity: 'info',
-    description: 'Assigned to a translator',
-  },
-  in_progress: {
-    label: 'In Progress',
-    colorClass: 'bg-blue-100 text-blue-700',
-    bgClass: 'bg-blue-100',
-    textClass: 'text-blue-700',
-    icon: ICONS.play,
-    iconType: 'svg',
-    severity: 'info',
-    description: 'Translation in progress',
-  },
-  review: {
-    label: 'In Review',
-    colorClass: 'bg-purple-100 text-purple-700',
-    bgClass: 'bg-purple-100',
-    textClass: 'text-purple-700',
-    icon: ICONS.document,
-    iconType: 'svg',
-    severity: 'info',
-    description: 'Pending review',
-  },
-  rejected: {
-    label: 'Rejected',
-    colorClass: 'bg-red-100 text-red-700',
-    bgClass: 'bg-red-100',
-    textClass: 'text-red-700',
-    icon: ICONS.error,
-    iconType: 'svg',
-    severity: 'error',
-    description: 'Translation rejected',
-  },
-  approved: {
-    label: 'Approved',
-    colorClass: 'bg-green-100 text-green-700',
-    bgClass: 'bg-green-100',
-    textClass: 'text-green-700',
-    icon: ICONS.check,
-    iconType: 'svg',
-    severity: 'success',
-    description: 'Translation approved',
-  },
-  published: {
-    label: 'Published',
-    colorClass: 'bg-green-100 text-green-700',
-    bgClass: 'bg-green-100',
-    textClass: 'text-green-700',
-    icon: ICONS.check,
-    iconType: 'svg',
-    severity: 'success',
-    description: 'Translation published',
-  },
-  archived: {
-    label: 'Archived',
-    colorClass: 'bg-gray-100 text-gray-500',
-    bgClass: 'bg-gray-100',
-    textClass: 'text-gray-500',
-    icon: ICONS.archive,
-    iconType: 'svg',
-    severity: 'neutral',
-    description: 'Translation archived',
-  },
+  open: registryDisplay('open', { description: 'Available to be claimed' }),
+  pending: registryDisplay('pending', { description: 'Waiting to be assigned' }),
+  assigned: registryDisplay('assigned', { description: 'Assigned to a translator' }),
+  in_progress: registryDisplay('in_progress', { description: 'Translation in progress' }),
+  review: registryDisplay('review', { description: 'Pending review' }),
+  rejected: registryDisplay('rejected', { description: 'Translation rejected' }),
+  approved: registryDisplay('approved', { description: 'Translation approved' }),
+  published: registryDisplay('published', { description: 'Translation published' }),
+  archived: registryDisplay('archived', { description: 'Translation archived' }),
 };
 
 /**
- * Queue content state display configurations
+ * Queue content state display configurations (registry-backed)
  */
 export const QUEUE_CONTENT_STATE_DISPLAY: Record<QueueContentState, StatusDisplayConfig> = {
-  draft: {
-    label: 'Draft',
-    colorClass: 'bg-gray-100 text-gray-700',
-    bgClass: 'bg-gray-100',
-    textClass: 'text-gray-700',
-    icon: ICONS.document,
-    iconType: 'svg',
-    severity: 'neutral',
-    description: 'Draft content',
-  },
-  review: {
-    label: 'Review',
-    colorClass: 'bg-purple-100 text-purple-700',
-    bgClass: 'bg-purple-100',
-    textClass: 'text-purple-700',
-    icon: ICONS.document,
-    iconType: 'svg',
-    severity: 'info',
-    description: 'Content under review',
-  },
-  ready: {
-    label: 'Ready',
-    colorClass: 'bg-green-100 text-green-700',
-    bgClass: 'bg-green-100',
-    textClass: 'text-green-700',
-    icon: ICONS.check,
-    iconType: 'svg',
-    severity: 'success',
-    description: 'Content ready',
-  },
-  archived: {
-    label: 'Archived',
-    colorClass: 'bg-gray-100 text-gray-500',
-    bgClass: 'bg-gray-100',
-    textClass: 'text-gray-500',
-    icon: ICONS.archive,
-    iconType: 'svg',
-    severity: 'neutral',
-    description: 'Content archived',
-  },
+  draft: registryDisplay('draft', { description: 'Draft content' }),
+  review: registryDisplay('review', { description: 'Content under review' }),
+  ready: registryDisplay('ready', { description: 'Content ready' }),
+  archived: registryDisplay('archived', { description: 'Content archived' }),
 };
 
 /**
- * Queue due state display configurations
+ * Queue due state display configurations (registry-backed)
  */
 export const QUEUE_DUE_STATE_DISPLAY: Record<QueueDueState, StatusDisplayConfig> = {
-  overdue: {
-    label: 'Overdue',
-    colorClass: 'bg-red-100 text-red-700',
-    bgClass: 'bg-red-100',
-    textClass: 'text-red-700',
-    icon: ICONS.warning,
-    iconType: 'svg',
-    severity: 'error',
-    description: 'Past due date',
-  },
-  due_soon: {
-    label: 'Due Soon',
-    colorClass: 'bg-amber-100 text-amber-700',
-    bgClass: 'bg-amber-100',
-    textClass: 'text-amber-700',
-    icon: ICONS.clock,
-    iconType: 'svg',
-    severity: 'warning',
-    description: 'Due within 24 hours',
-  },
-  on_track: {
-    label: 'On Track',
-    colorClass: 'bg-green-100 text-green-700',
-    bgClass: 'bg-green-100',
-    textClass: 'text-green-700',
-    icon: ICONS.check,
-    iconType: 'svg',
-    severity: 'success',
-    description: 'On schedule',
-  },
-  none: {
-    label: 'No Due Date',
-    colorClass: 'bg-gray-100 text-gray-500',
-    bgClass: 'bg-gray-100',
-    textClass: 'text-gray-500',
-    icon: ICONS.clock,
-    iconType: 'svg',
-    severity: 'neutral',
-    description: 'No due date set',
-  },
+  overdue: registryDisplay('overdue', { description: 'Past due date' }),
+  due_soon: registryDisplay('due_soon', { description: 'Due within 24 hours' }),
+  on_track: registryDisplay('on_track', { description: 'On schedule' }),
+  none: registryDisplay('none', { description: 'No due date set' }),
 };
 
 /**
- * Exchange row status display configurations
+ * Exchange row status display configurations (registry-backed)
  */
 export const EXCHANGE_ROW_STATUS_DISPLAY: Record<ExchangeRowStatus, StatusDisplayConfig> = {
-  success: {
-    label: 'Success',
-    colorClass: 'bg-green-100 text-green-700',
-    bgClass: 'bg-green-100',
-    textClass: 'text-green-700',
-    icon: ICONS.check,
-    iconType: 'svg',
-    severity: 'success',
-    description: 'Import/export succeeded',
-  },
-  error: {
-    label: 'Error',
-    colorClass: 'bg-red-100 text-red-700',
-    bgClass: 'bg-red-100',
-    textClass: 'text-red-700',
-    icon: ICONS.error,
-    iconType: 'svg',
-    severity: 'error',
-    description: 'Import/export failed',
-  },
-  conflict: {
-    label: 'Conflict',
-    colorClass: 'bg-amber-100 text-amber-700',
-    bgClass: 'bg-amber-100',
-    textClass: 'text-amber-700',
-    icon: ICONS.warning,
-    iconType: 'svg',
-    severity: 'warning',
-    description: 'Conflicting changes detected',
-  },
-  skipped: {
-    label: 'Skipped',
-    colorClass: 'bg-gray-100 text-gray-500',
-    bgClass: 'bg-gray-100',
-    textClass: 'text-gray-500',
-    icon: ICONS.ban,
-    iconType: 'svg',
-    severity: 'neutral',
-    description: 'Row skipped',
-  },
+  success: registryDisplay('success', { description: 'Import/export succeeded' }),
+  error: registryDisplay('error', { description: 'Import/export failed' }),
+  conflict: registryDisplay('conflict', { description: 'Conflicting changes detected' }),
+  skipped: registryDisplay('skipped', { description: 'Row skipped' }),
 };
 
 /**
- * Exchange job status display configurations
+ * Exchange job status display configurations (registry-backed)
  */
 export const EXCHANGE_JOB_STATUS_DISPLAY: Record<ExchangeJobStatus, StatusDisplayConfig> = {
-  running: {
-    label: 'Running',
-    colorClass: 'bg-blue-100 text-blue-700',
-    bgClass: 'bg-blue-100',
-    textClass: 'text-blue-700',
-    icon: ICONS.play,
-    iconType: 'svg',
-    severity: 'info',
-    description: 'Job in progress',
-  },
-  completed: {
-    label: 'Completed',
-    colorClass: 'bg-green-100 text-green-700',
-    bgClass: 'bg-green-100',
-    textClass: 'text-green-700',
-    icon: ICONS.check,
-    iconType: 'svg',
-    severity: 'success',
-    description: 'Job completed successfully',
-  },
-  failed: {
-    label: 'Failed',
-    colorClass: 'bg-red-100 text-red-700',
-    bgClass: 'bg-red-100',
-    textClass: 'text-red-700',
-    icon: ICONS.error,
-    iconType: 'svg',
-    severity: 'error',
-    description: 'Job failed',
-  },
+  running: registryDisplay('running', { description: 'Job in progress' }),
+  completed: registryDisplay('completed', { description: 'Job completed successfully' }),
+  failed: registryDisplay('failed', { description: 'Job failed' }),
 };
 
 /**
@@ -762,22 +565,22 @@ export function renderVocabularyStatusBadge(
 ): string {
   const display = getStatusDisplay(status, options.domain);
   if (!display) {
-    return `<span class="inline-flex items-center px-2 py-1 text-xs rounded bg-gray-100 text-gray-500">${escapeHtml(status)}</span>`;
+    return `<span class="status-chip status-chip--neutral">${escapeHtml(humanizeStatus(status) || status)}</span>`;
   }
 
   const { size = 'default', showIcon = true, showLabel = true, extraClass = '' } = options;
 
+  // Shared .status-chip anatomy (see input.css); size variants tighten padding.
   const sizeClasses = {
     xs: 'px-1.5 py-0.5 text-[10px]',
-    sm: 'px-2 py-0.5 text-xs',
-    default: 'px-2.5 py-1 text-xs',
+    sm: 'px-2 py-0.5',
+    default: '',
   };
 
   const iconHtml = showIcon ? renderVocabularyStatusIcon(display, size) : '';
   const labelHtml = showLabel ? `<span>${escapeHtml(display.label)}</span>` : '';
-  const gap = showIcon && showLabel ? 'gap-1' : '';
 
-  return `<span class="inline-flex items-center ${gap} rounded font-medium ${sizeClasses[size]} ${display.colorClass} ${extraClass}"
+  return `<span class="status-chip status-chip--${display.severity} ${sizeClasses[size]} ${extraClass}"
                 title="${escapeHtml(display.description || display.label)}"
                 aria-label="${escapeHtml(display.label)}"
                 data-status="${escapeHtml(status)}">
@@ -794,6 +597,11 @@ export function renderVocabularyStatusIcon(display: StatusDisplayConfig, size: '
     sm: 'w-3.5 h-3.5',
     default: 'w-4 h-4',
   };
+
+  if (display.iconType === 'iconoir') {
+    const textSize = size === 'default' ? 'text-xs' : 'text-[10px]';
+    return `<i class="iconoir-${display.icon} ${textSize}" aria-hidden="true"></i>`;
+  }
 
   if (display.iconType === 'char') {
     return `<span class="${sizeClasses[size]} inline-flex items-center justify-center" aria-hidden="true">${display.icon}</span>`;

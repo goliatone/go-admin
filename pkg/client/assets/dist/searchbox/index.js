@@ -1,5 +1,5 @@
 import { escapeHTML as i } from "../shared/html.js";
-import { a as f, i as g, n as u, r as v, t as p } from "../chunks/entity-renderer-GXMu3Nhg.js";
+import { a as f, i as g, n as u, r as v, t as p } from "../chunks/entity-renderer-CM6Gdu_j.js";
 var l = {
   searchFields: ["label", "description"],
   caseSensitive: !1
