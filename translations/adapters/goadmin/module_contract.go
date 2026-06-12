@@ -8,14 +8,15 @@ const ModuleSlug = "translations"
 
 func ModuleUIRoutes() map[string]string {
 	return cloneRoutes(map[string]string{
-		"translations.dashboard":        "/dashboard",
-		"translations.exchange":         "/exchange",
-		"translations.matrix":           "/matrix",
-		"translations.queue":            "/queue",
-		"translations.families":         "/families",
-		"translations.families.id":      "/families/:family_id",
-		"translations.assignments.id":   "/assignments/:assignment_id",
-		"translations.assignments.edit": "/assignments/:assignment_id/edit",
+		"translations.dashboard":            "/dashboard",
+		"translations.exchange":             "/exchange",
+		"translations.matrix":               "/matrix",
+		"translations.queue":                "/queue",
+		"translations.families":             "/families",
+		"translations.families.id":          "/families/:family_id",
+		"translations.families.assignments": "/families/:family_id/assignments",
+		"translations.assignments.id":       "/assignments/:assignment_id",
+		"translations.assignments.edit":     "/assignments/:assignment_id/edit",
 	})
 }
 
