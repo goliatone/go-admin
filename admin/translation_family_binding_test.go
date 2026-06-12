@@ -1782,6 +1782,9 @@ func TestTranslationFamilyBindingDetailIncludesLocaleAssignmentActions(t *testin
 	if got := toString(active["display_assignee"]); got != "Translator One <translator.one@example.com>" {
 		t.Fatalf("expected family display assignee with name and email, got %q", got)
 	}
+	if got := toString(active["assignee_href"]); !strings.HasSuffix(got, "/users/translator-1") {
+		t.Fatalf("expected assignee profile href for resolvable user, got %q", got)
+	}
 	if got := toString(active["target_record_id"]); got == "" {
 		t.Fatalf("expected target_record_id on active assignment")
 	}

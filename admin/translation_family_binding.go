@@ -2544,9 +2544,29 @@ func (b *translationFamilyBinding) decorateFamilyAssignmentAssignee(ctx context.
 	if assigneeID != "" {
 		if label := b.familyActorDisplayLabel(ctx, assigneeID); label != "" {
 			row["display_assignee"] = label
+			// Link to the user profile only when the assignee resolves to a
+			// known user; dangling IDs keep the plain truncated fallback.
+			if href := translationUserProfileURL(b.admin, assigneeID); href != "" {
+				row["assignee_href"] = href
+			}
 		}
 	}
 	return assigneeID
+}
+
+func translationUserProfileURL(adm *Admin, userID string) string {
+	userID = strings.TrimSpace(userID)
+	if adm == nil || userID == "" {
+		return ""
+	}
+	if href := resolveURLWith(adm.URLs(), "admin", "users.id", map[string]string{"id": userID}, nil); href != "" {
+		return href
+	}
+	base := strings.TrimRight(strings.TrimSpace(firstNonEmpty(adm.config.BasePath, "/admin")), "/")
+	if base == "" {
+		base = "/admin"
+	}
+	return base + "/users/" + userID
 }
 
 func (b *translationFamilyBinding) decorateFamilyAssignmentAssigner(ctx context.Context, row map[string]any, assignment TranslationAssignment) string {
