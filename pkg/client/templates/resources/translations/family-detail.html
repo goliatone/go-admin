@@ -87,7 +87,13 @@
                     </div>
                     <p class="mt-2 text-sm text-gray-600">{{ row.title|default:family.source_variant.fields.title|default:family.family_id }}</p>
                     {% if row.kind != "missing_required" %}
-                    <p class="mt-1 text-xs text-gray-500">{{ row.assignment_summary|default:"No active assignment" }}</p>
+                    <p class="mt-1 text-xs text-gray-500">
+                      {% if row.assignment.assignee_href %}
+                      <a class="text-sky-700 hover:underline" href="{{ row.assignment.assignee_href }}">{{ row.assignment_summary|default:"No active assignment" }}</a>
+                      {% else %}
+                      {{ row.assignment_summary|default:"No active assignment" }}
+                      {% endif %}
+                    </p>
                     {% if row.updated_label %}
                     <p class="mt-1 text-xs text-gray-500">Updated {{ row.updated_label }}</p>
                     {% endif %}
@@ -212,7 +218,11 @@
                         {% include "partials/status-badge.html" with badge_status=assignment.priority|default:"normal" badge_label=assignment.display_priority show_icon=false %}
                       </div>
                       <p class="mt-2 text-sm text-gray-600">
+                        {% if assignment.assignee_href %}
+                        <a class="font-medium text-sky-700 hover:underline" href="{{ assignment.assignee_href }}">{{ assignment.display_assignee|default:assignment.assignee_label|default:assignment.assignee_id|default:"Unassigned" }}</a>
+                        {% else %}
                         {{ assignment.display_assignee|default:assignment.assignee_label|default:assignment.assignee_id|default:"Unassigned" }}
+                        {% endif %}
                       </p>
                     </div>
                     <div class="flex flex-wrap items-center gap-2">

@@ -636,17 +636,17 @@ function Qe(t, e, a = !1) {
           <div class="filter-panel__grid grid gap-3 md:grid-cols-3">
             <label class="filter-panel__field grid gap-1 text-sm">
               <span class="text-xs font-semibold uppercase tracking-wide text-gray-500">Content type</span>
-              <input name="content_type" value="${h(t.contentType || "")}" class="rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500" placeholder="e.g. pages" data-filter-field="content_type">
+              <input name="content_type" value="${h(t.contentType || "")}" class="h-10 rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500" placeholder="e.g. pages" data-filter-field="content_type">
             </label>
             <label class="filter-panel__field grid gap-1 text-sm">
               <span class="text-xs font-semibold uppercase tracking-wide text-gray-500">Blocker</span>
-              <select name="blocker_code" class="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500" data-filter-field="blocker_code">
+              <select name="blocker_code" class="h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500" data-filter-field="blocker_code">
                 <option value="">All</option>
                 ${n}
               </select>
             </label>
             <div class="filter-panel__actions flex items-end gap-2">
-              <button type="submit" class="${H} flex-1" ${a ? "disabled" : ""}>${m(a ? "Loading…" : "Apply")}</button>
+              <button type="submit" class="${H} h-10 px-4 py-2 flex-1" ${a ? "disabled" : ""}>${m(a ? "Loading…" : "Apply")}</button>
             </div>
           </div>
           ${y ? `
