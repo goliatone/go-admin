@@ -18,6 +18,7 @@ import {
   renderGroupHeaderSummary,
 } from '../datatable/grouped-mode.js';
 import { asNumber, asRecord, asString, asStringArray } from '../shared/coercion.js';
+import { initActionMenus } from '../shared/action-menu.js';
 import {
   buildEndpointURL,
   getStringSearchParam,
@@ -4898,6 +4899,12 @@ function bindAssignmentQueueSSR(container: HTMLElement, endpoint: string): void 
     return;
   }
   container.dataset.assignmentQueueEnhanced = 'true';
+  initActionMenus(container, {
+    containerSelector: '[data-action-menu]',
+    triggerSelector: '[data-action-menu-trigger]',
+    menuSelector: '[data-action-menu-content]',
+    itemSelector: '[data-action-menu-item], [role="menuitem"], .action-item',
+  });
   container.querySelectorAll<HTMLButtonElement>('[data-translation-action]').forEach((button) => {
     button.addEventListener('click', async (event) => {
       event.preventDefault();

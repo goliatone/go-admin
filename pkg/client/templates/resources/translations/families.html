@@ -78,7 +78,7 @@
                 {% for filter in page.DataGrid.filters %}
                 <label class="filter-panel__field grid gap-1 text-sm">
                   <span class="text-xs font-semibold uppercase tracking-wide text-gray-500">{{ filter.label|default:filter.key }}</span>
-                  <input class="rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+                  <input class="h-10 rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
                          type="text"
                          name="{{ filter.key }}"
                          value="{{ filter.value|default:"" }}"
@@ -87,7 +87,7 @@
                 </label>
                 {% endfor %}
                 <div class="filter-panel__actions flex items-end gap-2">
-                  <button type="submit" class="btn btn-primary flex-1">Apply</button>
+                  <button type="submit" class="btn btn-primary h-10 px-4 py-2 flex-1">Apply</button>
                 </div>
               </div>
             </form>

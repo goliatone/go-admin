@@ -149,7 +149,7 @@
                       <input type="hidden" name="target_locale" value="{{ row.assign_to_user_action.payload.target_locale|default:row.locale }}">
                       <input type="hidden" name="work_scope" value="{{ row.assign_to_user_action.payload.work_scope|default:row.locale_assignment.work_scope }}">
                       <input type="hidden" name="channel" value="{{ translation_family_detail_ssr.Meta.channel|default:"" }}">
-                      <select class="block h-10 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm shadow-sm transition focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                      <select class="block h-10 min-w-0 flex-1 rounded-lg border border-gray-300 bg-white px-3 text-sm shadow-sm transition focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                               name="assignee_id"
                               data-family-assignee-select="{{ row.locale_assignment_key }}"
                               data-initial-assignee-id="{{ row.assignment.assignee_id|default:"" }}"
@@ -177,7 +177,7 @@
                       <button type="submit" class="btn btn-primary h-10">Assign</button>
                       <div class="w-full text-xs text-rose-600" data-family-assignment-error-for="{{ row.locale_assignment_key }}" hidden></div>
                     </form>
-                    {% elif row.assign_to_user_action.reason %}
+                    {% elif row.assign_to_user_action.reason and row.assign_to_user_action.reason != row.assign_to_me_action.reason %}
                     <span class="text-xs text-gray-500">{{ row.assign_to_user_action.reason }}</span>
                     {% endif %}
                     {% if row.claim_action.enabled %}

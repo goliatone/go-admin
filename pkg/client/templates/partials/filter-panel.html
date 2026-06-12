@@ -25,7 +25,7 @@
       <label class="filter-panel__field grid gap-1 text-sm">
         <span class="text-xs font-semibold uppercase tracking-wide text-gray-500">{{ filter.label|default:filter.name }}</span>
         {% if filter.type == "select" %}
-        <select class="rounded-md border border-gray-300 px-3 py-2 text-sm bg-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+        <select class="h-10 rounded-md border border-gray-300 px-3 py-2 text-sm bg-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
                 name="{{ filter.name }}"
                 data-filter-field="{{ filter.name }}">
           <option value="">{{ filter.placeholder|default:"All" }}</option>
@@ -34,20 +34,20 @@
           {% endfor %}
         </select>
         {% elif filter.type == "date" %}
-        <input class="rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+        <input class="h-10 rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
                type="date"
                name="{{ filter.name }}"
                value="{{ filter.current_value|default:"" }}"
                data-filter-field="{{ filter.name }}">
         {% elif filter.type == "number" %}
-        <input class="rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+        <input class="h-10 rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
                type="number"
                name="{{ filter.name }}"
                value="{{ filter.current_value|default:"" }}"
                placeholder="{{ filter.placeholder|default:filter.label|default:filter.name }}"
                data-filter-field="{{ filter.name }}">
         {% else %}
-        <input class="rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+        <input class="h-10 rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
                type="text"
                name="{{ filter.name }}"
                value="{{ filter.current_value|default:"" }}"
@@ -57,9 +57,9 @@
       </label>
       {% endfor %}
       <div class="filter-panel__actions flex items-end gap-2">
-        <button type="submit" class="btn btn-primary flex-1">Apply</button>
+        <button type="submit" class="btn btn-primary h-10 px-4 py-2 flex-1">Apply</button>
         {% if form_action %}
-        <a href="{{ form_action }}" class="btn btn-secondary">Clear</a>
+        <a href="{{ form_action }}" class="btn btn-secondary h-10 px-4 py-2">Clear</a>
         {% endif %}
       </div>
     </div>

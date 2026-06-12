@@ -1772,7 +1772,7 @@ function renderLocaleAssignmentActions(localeAssignment: TranslationFamilyLocale
         ${renderAssigneeSelect({
           key,
           ariaLabel: 'Assignee',
-          className: `${ASSIGNEE_SELECT_CLASS} min-w-0 flex-1 sm:w-80 sm:flex-none lg:w-96`,
+          className: `${ASSIGNEE_SELECT_COMPACT_CLASS} min-w-0 flex-1 sm:w-80 sm:flex-none lg:w-96`,
         })}
         <button type="button" class="${BTN_SECONDARY}" data-family-assign-to-user="true" data-locale-assignment-key="${escapeAttribute(key)}">
           Assign
@@ -1833,6 +1833,8 @@ function emptyPanelDisabledClass(enabled: boolean): string {
 
 const FAMILY_SELECT_CLASS = 'block h-12 w-full rounded-lg border border-gray-300 bg-white px-3 pr-9 text-sm text-gray-900 shadow-sm transition focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 disabled:pointer-events-none disabled:opacity-50 dark:border-gray-700 dark:bg-slate-900 dark:text-gray-400 dark:focus:ring-gray-600';
 const ASSIGNEE_SELECT_CLASS = FAMILY_SELECT_CLASS;
+// Locale action cluster variant: aligns with the surrounding h-10 controls.
+const ASSIGNEE_SELECT_COMPACT_CLASS = ASSIGNEE_SELECT_CLASS.replace('h-12', 'h-10');
 const ASSIGNEE_OPTIONS_FORMGEN_ENDPOINT = '/api/translations/options/assignees?per_page=200';
 
 function renderAssigneeSelect(config: {

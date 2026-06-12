@@ -364,7 +364,7 @@
      ================================================================ */
 
   .status-chip {
-    @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold;
+    @apply inline-flex w-fit items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold;
   }
 
   .status-chip--neutral {
@@ -400,6 +400,33 @@
   .status-chip__count {
     @apply rounded-full bg-white/60 px-1.5 py-0.5 text-[10px] font-bold tabular-nums;
     @apply dark:bg-black/20;
+  }
+
+  /* ================================================================
+     Family detail locale coverage — the formgen relationship typeahead
+     (injected by FormgenRelationships as [data-fg-typeahead-root]) ships
+     w-full + py-3 + h-9 inner buttons (~62px). Inside the locale action
+     cluster it must align with the surrounding h-10 controls and leave
+     room for the inline Assign button.
+     ================================================================ */
+
+  [data-family-locale-actions] [data-fg-typeahead-root="true"] {
+    width: auto;
+    flex: 1 1 0%;
+    min-width: 0;
+  }
+
+  [data-family-locale-actions] [data-fg-typeahead-root="true"] [role="combobox"] {
+    min-height: 2.5rem;
+    padding-top: 0.125rem;
+    padding-bottom: 0.125rem;
+    padding-inline-start: 0.75rem;
+    padding-inline-end: 0.5rem;
+  }
+
+  [data-family-locale-actions] [data-fg-typeahead-root="true"] [role="combobox"] button {
+    height: 2rem;
+    width: 2rem;
   }
 
   /* ================================================================
