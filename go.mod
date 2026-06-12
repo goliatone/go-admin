@@ -11,11 +11,11 @@ require (
 	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/goliatone/go-admin/quickstart v0.82.0
 	github.com/goliatone/go-auth v0.44.1
-	github.com/goliatone/go-auth/adapters/featuregate v0.43.0
+	github.com/goliatone/go-auth/adapters/featuregate v0.44.1
 	github.com/goliatone/go-cms v0.55.0
 	github.com/goliatone/go-command v0.20.0
 	github.com/goliatone/go-crud v0.24.0
-	github.com/goliatone/go-crud/gql v0.23.0
+	github.com/goliatone/go-crud/gql v0.24.0
 	github.com/goliatone/go-dashboard v0.12.1
 	github.com/goliatone/go-errors v0.10.0
 	github.com/goliatone/go-export v0.8.0
@@ -31,7 +31,7 @@ require (
 	github.com/goliatone/go-repository-bun v0.16.1
 	github.com/goliatone/go-router v0.59.0
 	github.com/goliatone/go-search v0.8.1
-	github.com/goliatone/go-search/adapters/goadmin v0.8.0
+	github.com/goliatone/go-search/adapters/goadmin v0.8.1
 	github.com/goliatone/go-theme v0.3.0
 	github.com/goliatone/go-uploader v0.4.0
 	github.com/goliatone/go-urlkit v0.6.0

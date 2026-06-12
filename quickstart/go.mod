@@ -19,7 +19,7 @@ require (
 	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/goliatone/go-admin v0.90.0
 	github.com/goliatone/go-auth v0.44.1
-	github.com/goliatone/go-auth/adapters/featuregate v0.43.0
+	github.com/goliatone/go-auth/adapters/featuregate v0.44.1
 	github.com/goliatone/go-cache v0.1.0
 	github.com/goliatone/go-cms v0.55.0
 	github.com/goliatone/go-command v0.20.0
@@ -126,13 +126,13 @@ require (
 	github.com/goliatone/go-composite-fs v0.3.0 // indirect
 	github.com/goliatone/go-config v0.13.0 // indirect
 	github.com/goliatone/go-crud v0.24.0 // indirect
-	github.com/goliatone/go-crud/gql v0.23.0 // indirect
+	github.com/goliatone/go-crud/gql v0.24.0 // indirect
 	github.com/goliatone/go-masker v0.1.0 // indirect
 	github.com/goliatone/go-options v0.7.2 // indirect
 	github.com/goliatone/go-print v0.4.1 // indirect
 	github.com/goliatone/go-repository-bun v0.16.1 // indirect
 	github.com/goliatone/go-repository-cache v0.7.1 // indirect
-	github.com/goliatone/go-search/adapters/goadmin v0.8.0 // indirect
+	github.com/goliatone/go-search/adapters/goadmin v0.8.1 // indirect
 	github.com/goliatone/go-slug v0.1.0 // indirect
 	github.com/goliatone/hashid v0.2.2 // indirect
 	github.com/goodsign/monday v1.0.2 // indirect
