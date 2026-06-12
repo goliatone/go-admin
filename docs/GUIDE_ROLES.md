@@ -25,6 +25,11 @@ Most go-admin surfaces do not check role names directly. They check permission
 strings such as `admin.users.view`, `admin.roles.edit`, or
 `admin.translations.import.apply`.
 
+For full admin access, use an assigned managed role whose permissions include
+`admin.*`. The primary/system role name `owner` is not automatically equivalent
+to `superadmin`; it only matters if the configured resolver or role assignment
+data grants the needed permissions.
+
 ## Data Model
 
 `admin.UserRecord` carries both primary and assigned roles:
@@ -202,6 +207,12 @@ Recommended seed behavior:
    explicitly destructive.
 6. Preserve the existing role scope when updating.
 
+Use `admin.*` for superadmin-style roles that should receive all current and
+future admin permissions. Keep non-super roles, including ordinary owner/admin
+roles, on explicit permission lists unless the host app deliberately wants them
+to be full access. Seed repair should add `admin.*` to existing superadmin roles
+without re-expanding the role with every known individual admin permission.
+
 Example seed shape:
 
 ```go
@@ -210,6 +221,13 @@ roleSeeds := []struct {
     Name        string
     Permissions []string
 }{
+    {
+        Key:  "superadmin",
+        Name: "Super Admin",
+        Permissions: []string{
+            "admin.*",
+        },
+    },
     {
         Key:  "admin",
         Name: "Admin",
@@ -283,7 +301,11 @@ Admin:
 - `admin.settings.view`
 - `admin.preferences.view`
 
-Owner or superadmin:
+Superadmin:
+
+- `admin.*`
+
+Owner or admin-like operator:
 
 - Admin permissions.
 - destructive user/role permissions when appropriate.

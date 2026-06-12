@@ -176,8 +176,9 @@ Core methods:
 `admin.commands.list` is hidden unless `commands.rpc.discovery_enabled` is
 true. When enabled, it still requires an authenticated actor and
 `admin.commands.read` on the default `commands` resource. If
-`commands.rpc.permission_mode` is `exact`, discovery requires the exact
-`admin.commands.read` grant in the resolved permission set.
+`commands.rpc.permission_mode` is `exact`, discovery requires
+`admin.commands.read` to be covered by stored resolved-permission data, such as
+an exact `admin.commands.read` grant or an admin wildcard grant.
 
 ## Command Dispatch Contract
 
@@ -288,8 +289,9 @@ cfg.Commands.RPC.Commands = map[string]admin.RPCCommandRule{
 }
 ```
 
-Rules are exact-name allowlists. If `articles.publish` is not configured, RPC
-dispatch returns not found even when the command exists in the command bus.
+Command rule keys are exact-name allowlists. If `articles.publish` is not
+configured, RPC dispatch returns not found even when the command exists in the
+command bus.
 
 If `Resource` is omitted, it defaults to `commands`. If `Permission` is omitted,
 the rule must set `AllowUnauthenticated: true`.
@@ -299,7 +301,7 @@ the rule must set `AllowUnauthenticated: true`.
 | Mode | Behavior | Use when |
 | --- | --- | --- |
 | `resource_role` | Calls the configured `Authorizer.Can(ctx, permission, resource)` and lets the authorizer map the permission to a resource/action capability. This is the default for compatibility. | CRUD-style permissions where resource roles are the source of truth. |
-| `exact` | Requires the exact permission string to appear in `ResolvedPermissionsFromAuthorizer(ctx, authorizer)`. Resource roles and normalized action aliases do not grant access. | Operational commands, capability grants, transport permissions, or other non-CRUD permissions. |
+| `exact` | Requires the permission to be covered by stored resolved-permission data from `ResolvedPermissionsFromAuthorizer(ctx, authorizer)`. Exact grants match literally, and admin wildcard grants such as `admin.*` or `admin.commands.*` can cover admin permissions. Resource roles and normalized action aliases do not grant access. | Operational commands, capability grants, transport permissions, or other non-CRUD permissions. |
 
 You can set a default mode for command dispatch, all command rules, and command
 discovery:

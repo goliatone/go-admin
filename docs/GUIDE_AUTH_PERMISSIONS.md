@@ -93,6 +93,36 @@ Actions outside that mapping, such as `admin.debug.repl.exec` or
 exact permission string, or an equivalent explicit grant accepted by the
 authorizer.
 
+### Admin Wildcard Grants
+
+Use `admin.*` for managed superadmin-style roles that should receive all current
+and future go-admin permissions. The grant is stored as normal role permission
+data, usually in go-users, and interpreted by go-admin's authorizer. go-auth
+continues to own resource/action claim checks; it does not define admin wildcard
+semantics.
+
+Wildcard grants are scoped to the `admin.` namespace:
+
+- `admin.*` allows `admin.users.view`, `admin.users.delete`,
+  `admin.translations.import.apply`, and future `admin.<resource>.<action>`
+  strings.
+- `admin.translations.*` allows only permissions under
+  `admin.translations.`.
+- `admin.*` does not allow non-admin permission strings.
+
+Exact resolved-permission checks that intentionally avoid go-auth resource-role
+inference still honor stored wildcard grants. For example, RPC exact permission
+mode accepts `admin.*` for `admin.commands.dispatch` but still denies non-admin
+permissions. Diagnostics show the stored grant, such as `admin.*`, instead of an
+expanded generated list.
+
+When callers use split checks such as `Can(ctx, "delete", "users")`,
+`GoAuthAuthorizer` only maps short resource names into the `admin.` namespace
+for known go-admin resources. Host apps that introduce custom admin resource
+aliases can extend this mapping with `GoAuthAuthorizerConfig.AdminResourceAliases`.
+Callers can always avoid alias ambiguity by passing the canonical permission
+string, for example `Can(ctx, "admin.reports.inspect", "admin.reports")`.
+
 ## Required Wiring
 
 A correctly protected admin needs all of these:
@@ -131,6 +161,10 @@ still stores one merged permission list. See `GUIDE_ROLES.md` and
 Seed role definitions by stable key, not display name. Seed repair should add
 required permissions and keep unknown permissions unless the operation is
 explicitly destructive.
+
+The primary/system role name is not the grant. An `owner` user is not
+automatically equivalent to `superadmin`; full admin access should come from an
+assigned managed role whose permissions include `admin.*`.
 
 ## Scope
 
@@ -221,6 +255,10 @@ Use the permissions panel verdict first:
 | `claims_stale` | Authorizer allows, but resolved permission list omits the key. | Refresh login/session and inspect resolver cache/output. |
 | `error` | Diagnostic context is incomplete. | Verify auth, authorizer, and debug collector wiring. |
 
+When a role stores `admin.*`, the permissions panel should list `admin.*` in
+resolved permissions and treat required admin permissions as covered. It should
+not report wildcard-authorized admin permissions as stale claims.
+
 Use the doctor panel when setup feels inconsistent. The quickstart defaults can
 register checks for adapters, go-users scope wiring, scope drift, routing,
 registered routes, block definitions, and translation setup. You can also run
@@ -292,8 +330,11 @@ Debug console forbidden:
 - Treat `admin.debug.repl.exec` as highly privileged.
 - Restrict debug access with both permission checks and IP allowlists when
   available.
-- Avoid wildcard owner permissions in examples that are copied into production.
-- Prefer explicit permission strings for operational actions.
+- Use `admin.*` only for deliberately full-access superadmin roles.
+- Keep owner/admin/editor roles explicit unless they are intentionally full
+  access.
+- Prefer explicit permission strings for operational actions and non-super
+  roles.
 - Log permission decisions only where logs are protected and retained
   appropriately.
 
@@ -311,4 +352,3 @@ For auth-sensitive changes, add focused tests for:
 
 Use allow-all and deny-all authorizer stubs to separate route registration bugs
 from permission policy bugs.
-

@@ -16,7 +16,7 @@ debugging with the debug console, doctor checks, and permissions panels, see
   - `Authorizer` interface: `Can(ctx context.Context, action, resource string) bool`; set via `Admin.WithAuthorizer(authz)`. All permission checks flow through this.
   - `AdminContext`: carries `Context`, `UserID`, `TenantID`, `OrgID`, `Locale`, and `Theme`. Use `withTheme` or `newAdminContextFromRouter` helpers; tenant/org are sourced from auth claims metadata (or `tenant_id`/`org_id` query params).
   - `GoAuthAuthenticator`: helper that adapts a `go-auth` `RouteAuthenticator` + Config into the admin `Authenticator` interface (`admin.NewGoAuthAuthenticator(routeAuth, cfg)`).
-  - `GoAuthAuthorizer`: maps permission strings (`admin.<resource>.<action>`) to go-auth claims (`read/edit/create/delete`, plus aliases for `view/update/trigger/run`). Supply a default resource via `admin.GoAuthAuthorizerConfig` when permissions omit one.
+  - `GoAuthAuthorizer`: maps permission strings (`admin.<resource>.<action>`) to go-auth claims (`read/edit/create/delete`, plus aliases for `view/update/trigger/run`). Supply a default resource via `admin.GoAuthAuthorizerConfig` when permissions omit one. When a resolver is configured, stored grants such as `admin.*` or `admin.translations.*` are checked before go-auth resource roles. Split checks like `Can(ctx, "delete", "users")` map to admin permissions only for known admin resource aliases; host apps can add aliases with `GoAuthAuthorizerConfig.AdminResourceAliases`.
 - **Route protection**
   - `Initialize` attaches `Authenticator` to base routes (e.g., `/admin/health`); panels, search, settings, notifications, jobs reuse the same middleware.
   - When adding new routes, wrap with the authenticator and check permissions via `requirePermission` or direct `Authorizer.Can`.
@@ -64,6 +64,8 @@ debugging with the debug console, doctor checks, and permissions panels, see
 - **Register permissions with your auth system**
   - Seed or register the permission strings that go-admin uses (defaults listed below) plus any module-specific permissions you add.
   - For go-auth, ensure issued claims grant `read/edit/create/delete` on the resource derived from the permission string (e.g., `admin.users.view` -> resource `users`, action `read`).
+  - For go-users-backed role data, store wildcard grants as normal role permission strings. `go-users` persists the data; `go-admin` interprets `admin.*` as any permission under the `admin.` namespace.
+  - Use `admin.*` for superadmin-style roles that should receive current and future admin permissions. Do not rely on the primary `owner` role name to imply superadmin access unless the assigned managed role also grants it.
   - If you omit the resource in permission strings, set `GoAuthAuthorizerConfig.DefaultResource`.
   - When enabling preferences with quickstart helpers, call `quickstart.RegisterPreferencesPermissions(...)` so go-auth/go-users know about `admin.preferences.view`, `admin.preferences.edit`, and the optional manage permissions.
 - **Default permission strings (built-ins)**
