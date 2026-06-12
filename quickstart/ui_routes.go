@@ -740,10 +740,18 @@ func registerAdminUITranslationDetailRoutes[T any](
 	if options.registerTranslationExchange {
 		r.Get(options.translationExchangePath, wrap(func(c router.Context) error {
 			apiBase := resolveAPIBase()
-			return renderView(c, options.translationExchangeTemplate, options.translationExchangeTitle, options.translationExchangeActive, router.ViewContext{
+			view := WithBreadcrumbSpec(router.ViewContext{
 				"translation_exchange_api_path":  prefixBasePath(apiBase, path.Join("translations", "exchange")),
 				"translation_exchange_ui_config": options.translationExchangeUIConfig,
+			}, BreadcrumbSpec{
+				RootLabel:    "Dashboard",
+				RootHref:     options.basePath,
+				Trail:        []BreadcrumbItem{Breadcrumb(options.translationDashboardTitle, options.translationDashboardPath)},
+				CurrentLabel: "Exchange",
 			})
+			input := translationSSRInput(c, options, apiBase)
+			view = withTranslationSSRView(c, view, options, input, options.translationSSRPresenter.Exchange, "translation_exchange_ssr")
+			return renderView(c, options.translationExchangeTemplate, options.translationExchangeTitle, options.translationExchangeActive, view)
 		}))
 	}
 }

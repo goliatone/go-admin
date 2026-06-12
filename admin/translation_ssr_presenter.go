@@ -284,9 +284,13 @@ func (p *translationSSRPresenter) Matrix(c router.Context, input TranslationSSRP
 func (p *translationSSRPresenter) Exchange(c router.Context, input TranslationSSRPresenterInput) (TranslationSSRPage, error) {
 	history, meta, historyErr := p.translationExchangeHistory(c, input)
 	data := map[string]any{
-		"ui_config": input.ExchangeUIConfig,
-		"template":  translationSSRExchangeTemplate(input),
-		"history":   history,
+		"ui_config":             input.ExchangeUIConfig,
+		"template":              translationSSRExchangeTemplate(input),
+		"history":               history,
+		"resource_options":      translationSSRExchangeResourceOptions(input.ExchangeUIConfig),
+		"source_locale_options": translationSSRExchangeSourceLocaleOptions(input.ExchangeUIConfig),
+		"target_locale_options": translationSSRExchangeTargetLocaleOptions(input.ExchangeUIConfig),
+		"apply_defaults":        translationSSRExchangeApplyDefaults(input.ExchangeUIConfig),
 	}
 	exchangeMeta := map[string]any{
 		"contracts":             TranslationExchangeContractPayload(),
@@ -2038,11 +2042,19 @@ func translationSSRExchangeActions(adm *Admin, c router.Context) map[string]any 
 	if adm != nil && c != nil {
 		ctx = adm.adminContextFromRequest(c, adm.config.DefaultLocale).Context
 	}
+	exportAction := translationMatrixActionState(adm, ctx, translationExchangePermissionExport)
+	importViewAction := translationMatrixActionState(adm, ctx, translationExchangePermissionImportView)
+	importValidateAction := translationMatrixActionState(adm, ctx, translationExchangePermissionImportValidate)
+	importApplyAction := translationMatrixActionState(adm, ctx, translationExchangePermissionImportApply)
 	return map[string]any{
-		"export":          translationMatrixActionState(adm, ctx, translationExchangePermissionExport),
-		"import_view":     translationMatrixActionState(adm, ctx, translationExchangePermissionImportView),
-		"import_validate": translationMatrixActionState(adm, ctx, translationExchangePermissionImportValidate),
-		"import_apply":    translationMatrixActionState(adm, ctx, translationExchangePermissionImportApply),
+		"export":                 exportAction,
+		"export_action":          exportAction,
+		"import_view":            importViewAction,
+		"import_view_action":     importViewAction,
+		"import_validate":        importValidateAction,
+		"import_validate_action": importValidateAction,
+		"import_apply":           importApplyAction,
+		"import_apply_action":    importApplyAction,
 	}
 }
 
@@ -2100,6 +2112,94 @@ func translationSSRExchangeIncludeExamples(input TranslationSSRPresenterInput) b
 		return *input.ExchangeUIConfig.IncludeExamples
 	}
 	return toBool(translationSSRQueryValue(input, "include_examples"))
+}
+
+func translationSSRExchangeResourceOptions(config TranslationExchangeUIConfig) []map[string]any {
+	selected := map[string]bool{}
+	for _, id := range config.DefaultResources {
+		id = strings.TrimSpace(id)
+		if id != "" {
+			selected[id] = true
+		}
+	}
+	out := make([]map[string]any, 0, len(config.Resources))
+	for _, resource := range config.Resources {
+		id := strings.TrimSpace(resource.ID)
+		if id == "" {
+			continue
+		}
+		out = append(out, map[string]any{
+			"id":       id,
+			"label":    firstNonEmpty(strings.TrimSpace(resource.Label), id),
+			"selected": selected[id],
+		})
+	}
+	return out
+}
+
+func translationSSRExchangeSourceLocaleOptions(config TranslationExchangeUIConfig) []map[string]any {
+	selected := strings.TrimSpace(config.SourceLocale)
+	if selected == "" && len(config.SourceLocales) > 0 {
+		selected = strings.TrimSpace(config.SourceLocales[0].Code)
+	}
+	return translationSSRExchangeLocaleOptions(config.SourceLocales, selected)
+}
+
+func translationSSRExchangeTargetLocaleOptions(config TranslationExchangeUIConfig) []map[string]any {
+	selected := map[string]bool{}
+	for _, locale := range config.DefaultTargetLocales {
+		locale = strings.TrimSpace(locale)
+		if locale != "" {
+			selected[locale] = true
+		}
+	}
+	out := make([]map[string]any, 0, len(config.TargetLocales))
+	for _, locale := range config.TargetLocales {
+		code := strings.TrimSpace(locale.Code)
+		if code == "" {
+			continue
+		}
+		out = append(out, map[string]any{
+			"code":     code,
+			"label":    firstNonEmpty(strings.TrimSpace(locale.Label), strings.ToUpper(code)),
+			"selected": selected[code],
+		})
+	}
+	return out
+}
+
+func translationSSRExchangeLocaleOptions(locales []TranslationExchangeLocaleOption, selected string) []map[string]any {
+	selected = strings.TrimSpace(selected)
+	out := make([]map[string]any, 0, len(locales))
+	for _, locale := range locales {
+		code := strings.TrimSpace(locale.Code)
+		if code == "" {
+			continue
+		}
+		out = append(out, map[string]any{
+			"code":     code,
+			"label":    firstNonEmpty(strings.TrimSpace(locale.Label), strings.ToUpper(code)),
+			"selected": code == selected,
+		})
+	}
+	return out
+}
+
+func translationSSRExchangeApplyDefaults(config TranslationExchangeUIConfig) map[string]any {
+	return map[string]any{
+		"allow_create_missing":       boolPtrDefault(config.Apply.AllowCreateMissing, true),
+		"allow_source_hash_override": boolPtrDefault(config.Apply.AllowSourceHashOverride, false),
+		"continue_on_error":          boolPtrDefault(config.Apply.ContinueOnError, false),
+		"dry_run":                    boolPtrDefault(config.Apply.DryRun, false),
+		"include_source_hash":        boolPtrDefault(config.IncludeSourceHash, true),
+	}
+}
+
+func boolPtrDefault(value *bool, fallback bool) bool {
+	if value == nil {
+		return fallback
+	}
+	return *value
 }
 
 func translationSSRFamilyDetailActions(data map[string]any) map[string]any {
