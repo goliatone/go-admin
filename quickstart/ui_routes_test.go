@@ -33,6 +33,8 @@ type capturingTranslationSSRPresenter struct {
 	stubTranslationSSRPresenter
 	familyListInput admin.TranslationSSRPresenterInput
 	queueInput      admin.TranslationSSRPresenterInput
+	matrixInput     admin.TranslationSSRPresenterInput
+	exchangeInput   admin.TranslationSSRPresenterInput
 }
 
 func (s stubTranslationSSRPresenter) Dashboard(router.Context, admin.TranslationSSRPresenterInput) (admin.TranslationSSRPage, error) {
@@ -63,6 +65,24 @@ func (p *capturingTranslationSSRPresenter) Queue(c router.Context, input admin.T
 
 func (s stubTranslationSSRPresenter) Editor(router.Context, admin.TranslationSSRPresenterInput) (admin.TranslationSSRPage, error) {
 	return s.page(admin.TranslationSSRSurfaceEditor)
+}
+
+func (s stubTranslationSSRPresenter) Matrix(router.Context, admin.TranslationSSRPresenterInput) (admin.TranslationSSRPage, error) {
+	return s.page(admin.TranslationSSRSurfaceMatrix)
+}
+
+func (p *capturingTranslationSSRPresenter) Matrix(c router.Context, input admin.TranslationSSRPresenterInput) (admin.TranslationSSRPage, error) {
+	p.matrixInput = input
+	return p.stubTranslationSSRPresenter.Matrix(c, input)
+}
+
+func (s stubTranslationSSRPresenter) Exchange(router.Context, admin.TranslationSSRPresenterInput) (admin.TranslationSSRPage, error) {
+	return s.page(admin.TranslationSSRSurfaceExchange)
+}
+
+func (p *capturingTranslationSSRPresenter) Exchange(c router.Context, input admin.TranslationSSRPresenterInput) (admin.TranslationSSRPage, error) {
+	p.exchangeInput = input
+	return p.stubTranslationSSRPresenter.Exchange(c, input)
 }
 
 func (s stubTranslationSSRPresenter) page(surface string) (admin.TranslationSSRPage, error) {
@@ -686,7 +706,8 @@ func TestTranslationEditorTemplateRendersResumeWorkState(t *testing.T) {
 		`data-action="resume-work"`,
 		`Resume work`,
 		`assignment must be in progress`,
-		`Changes requested`,
+		`Changes Requested`,
+		`status-chip status-chip--error`,
 	} {
 		if !strings.Contains(enabledHTML, expected) {
 			t.Fatalf("expected enabled resume HTML to contain %q, got %q", expected, enabledHTML)
@@ -1029,6 +1050,11 @@ func TestTranslationSSRQueryValuesPreservesScope(t *testing.T) {
 	ctx.QueriesM[admin.ScopeOrgIDKey] = "org-1"
 	ctx.QueriesM["status"] = "open"
 	ctx.QueriesM["preset"] = "overdue"
+	ctx.QueriesM["locales"] = "fr,de"
+	ctx.QueriesM["locale_offset"] = "10"
+	ctx.QueriesM["locale_limit"] = "5"
+	ctx.QueriesM["include_examples"] = "true"
+	ctx.QueriesM["kind"] = "export"
 
 	values := translationSSRQueryValues(ctx)
 	if values[admin.ScopeTenantIDKey] != "tenant-1" {
@@ -1042,6 +1068,12 @@ func TestTranslationSSRQueryValuesPreservesScope(t *testing.T) {
 	}
 	if values["preset"] != "overdue" {
 		t.Fatalf("expected preset to be preserved, got %q", values["preset"])
+	}
+	if values["locales"] != "fr,de" || values["locale_offset"] != "10" || values["locale_limit"] != "5" {
+		t.Fatalf("expected matrix locale viewport query to be preserved, got %+v", values)
+	}
+	if values["include_examples"] != "true" || values["kind"] != "export" {
+		t.Fatalf("expected exchange history query to be preserved, got %+v", values)
 	}
 }
 

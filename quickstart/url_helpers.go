@@ -219,6 +219,16 @@ func trimTrailingSlash(path string) string {
 	return pathutil.TrimTrailingSlash(path)
 }
 
+// shortIdentifier truncates long opaque identifiers (UUIDs) for display:
+// first 8 plus last 4 characters. Short values pass through unchanged.
+func shortIdentifier(id string) string {
+	id = strings.TrimSpace(id)
+	if len(id) <= 12 {
+		return id
+	}
+	return id[:8] + "…" + id[len(id)-4:]
+}
+
 func prefixBasePath(basePath, suffix string) string {
 	trimmed := strings.TrimSpace(suffix)
 	if trimmed == "" {

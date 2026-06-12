@@ -105,7 +105,7 @@ func TestTranslationSSRDecorateDashboardAddsReferenceTableVariants(t *testing.T)
 		t.Fatalf("expected overdue variant, got %q", got)
 	}
 	overdueRows := translationSSRAnyList(overdue["rows"])
-	if got := toString(overdueRows[0]["display_locale"]); got != "EN -> ES" {
+	if got := toString(overdueRows[0]["display_locale"]); got != "EN → ES" {
 		t.Fatalf("expected formatted locale route, got %q", got)
 	}
 	if got := toString(overdueRows[0]["display_status"]); got != "In Progress" {
@@ -880,7 +880,7 @@ func TestTranslationSSRQueueDataGridContract(t *testing.T) {
 		t.Fatalf("expected formatted status chip, got %+v", chips)
 	}
 	sort := extractMap(grid["sort"])
-	if got := toString(sort["label"]); got != "Due Date ASC" {
+	if got := toString(sort["label"]); got != "Due Date, ascending" {
 		t.Fatalf("expected readable sort label, got %q", got)
 	}
 }
@@ -1309,6 +1309,99 @@ func TestTranslationSSRPreserveFilterQueryExtractsRequestedKeys(t *testing.T) {
 	}
 	if result["key3"] != "value3" {
 		t.Fatalf("expected key3=value3, got %+v", result)
+	}
+}
+
+func TestTranslationSSRMatrixEnhancementPreservesLocaleViewport(t *testing.T) {
+	input := TranslationSSRPresenterInput{
+		APIBasePath:   "/admin/api",
+		BasePath:      "/admin",
+		MatrixAPIPath: "/admin/api/translations/matrix",
+		Channel:       "production",
+		Query: map[string]string{
+			"channel":       "production",
+			"family_id":     "tg-page-1",
+			"locales":       "fr,de",
+			"locale_offset": "10",
+			"locale_limit":  "5",
+			"content_type":  "pages",
+		},
+	}
+	meta := map[string]any{
+		"locale_offset":        10,
+		"locale_limit":         5,
+		"quick_action_targets": map[string]any{"create_missing": map[string]any{"endpoint": "/admin/api/translations/matrix/actions/create-missing"}},
+	}
+
+	enhancement := translationSSRMatrixEnhancement(input, meta)
+	if got := toString(enhancement["api_path"]); got != "/admin/api/translations/matrix" {
+		t.Fatalf("expected matrix API path, got %q", got)
+	}
+	query := extractMap(enhancement["query"])
+	for _, key := range []string{"family_id", "locales", "locale_offset", "locale_limit", "content_type"} {
+		if query[key] == "" {
+			t.Fatalf("expected query key %q to be preserved, got %+v", key, query)
+		}
+	}
+	if toInt(enhancement["locale_offset"]) != 10 || toInt(enhancement["locale_limit"]) != 5 {
+		t.Fatalf("expected locale viewport metadata, got %+v", enhancement)
+	}
+}
+
+func TestTranslationSSRExchangeEnhancementUsesExplicitExamplePolicy(t *testing.T) {
+	input := TranslationSSRPresenterInput{
+		APIBasePath:     "/admin/api",
+		BasePath:        "/admin",
+		ExchangeAPIPath: "/admin/api/translations/exchange",
+	}
+	enhancement := translationSSRExchangeEnhancement(input)
+	if enhancement["include_examples"] == true {
+		t.Fatalf("expected examples to be disabled by default, got %+v", enhancement)
+	}
+	policy := translationSSRExchangeHistoryPolicy(input)
+	if got := toString(policy["source"]); got != "runtime" {
+		t.Fatalf("expected runtime history source by default, got %q", got)
+	}
+
+	enabled := true
+	input.ExchangeUIConfig.IncludeExamples = &enabled
+	enhancement = translationSSRExchangeEnhancement(input)
+	if enhancement["include_examples"] != true {
+		t.Fatalf("expected configured examples to be enabled, got %+v", enhancement)
+	}
+	policy = translationSSRExchangeHistoryPolicy(input)
+	if got := toString(policy["source"]); got != "runtime_plus_examples" {
+		t.Fatalf("expected runtime_plus_examples source, got %q", got)
+	}
+
+	input.ExchangeUIConfig.IncludeExamples = nil
+	input.Query = map[string]string{"include_examples": "true"}
+	if !translationSSRExchangeIncludeExamples(input) {
+		t.Fatalf("expected include_examples query to explicitly enable examples")
+	}
+}
+
+func TestTranslationSSRExchangeTemplateUsesConfigAndFallbacks(t *testing.T) {
+	input := TranslationSSRPresenterInput{
+		ExchangeAPIPath: "/admin/api/translations/exchange",
+		ExchangeUIConfig: TranslationExchangeUIConfig{
+			Template: TranslationExchangeTemplateOption{
+				Label:    "Download Package Template",
+				Format:   "csv",
+				Filename: "handoff.csv",
+			},
+		},
+	}
+
+	template := translationSSRExchangeTemplate(input)
+	if got := toString(template["label"]); got != "Download Package Template" {
+		t.Fatalf("expected configured template label, got %q", got)
+	}
+	if got := toString(template["href"]); got != "/admin/api/translations/exchange/template?format=csv" {
+		t.Fatalf("expected fallback template href with configured format, got %q", got)
+	}
+	if got := toString(template["filename"]); got != "handoff.csv" {
+		t.Fatalf("expected configured filename, got %q", got)
 	}
 }
 

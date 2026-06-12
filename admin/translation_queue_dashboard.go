@@ -137,10 +137,11 @@ func RegisterTranslationProgressWidget(dash *Dashboard, stats TranslationQueueSt
 					Review:   snapshot.Summary["review"],
 					Approved: snapshot.Summary["approved"],
 				},
-				StatusCounts: snapshot.StatusCounts,
-				LocaleCounts: snapshot.LocaleCounts,
-				UpdatedAt:    snapshot.UpdatedAt.UTC().Format(time.RFC3339Nano),
-				Links:        translationQueueDashboardLinks(urls, ctx.UserID),
+				StatusCounts:   snapshot.StatusCounts,
+				LocaleCounts:   snapshot.LocaleCounts,
+				UpdatedAt:      snapshot.UpdatedAt.UTC().Format(time.RFC3339Nano),
+				UpdatedAtLabel: snapshot.UpdatedAt.UTC().Format("Jan 2, 2006 15:04 MST"),
+				Links:          translationQueueDashboardLinks(urls, ctx.UserID),
 			}), nil
 		},
 	})

@@ -681,7 +681,7 @@ func registerAdminUITranslationDetailRoutes[T any](
 				RootLabel:    "Dashboard",
 				RootHref:     options.basePath,
 				Trail:        []BreadcrumbItem{Breadcrumb(options.translationDashboardTitle, options.translationDashboardPath)},
-				CurrentLabel: fmt.Sprintf("Family %s", familyID),
+				CurrentLabel: fmt.Sprintf("Family %s", shortIdentifier(familyID)),
 			})
 			input := translationSSRInput(c, options, apiBase)
 			input.FamilyID = familyID
@@ -731,6 +731,8 @@ func registerAdminUITranslationDetailRoutes[T any](
 				Trail:        []BreadcrumbItem{Breadcrumb(options.translationDashboardTitle, options.translationDashboardPath)},
 				CurrentLabel: "Matrix",
 			})
+			input := translationSSRInput(c, options, apiBase)
+			view = withTranslationSSRView(c, view, options, input, options.translationSSRPresenter.Matrix, "translation_matrix_ssr")
 			return renderView(c, options.translationMatrixTemplate, options.translationMatrixTitle, options.translationMatrixActive, view)
 		}))
 	}
@@ -758,11 +760,15 @@ func translationSSRInput(c router.Context, options uiRouteOptions, apiBase strin
 		FamilyListPath:     options.translationFamilyListPath,
 		FamilyBasePath:     path.Join(options.basePath, "translations", "families"),
 		MatrixPath:         options.translationMatrixPath,
+		ExchangePath:       options.translationExchangePath,
 		EditorBasePath:     path.Join(options.basePath, "translations", "assignments"),
 		ContentBasePath:    path.Join(options.basePath, "content"),
+		MatrixAPIPath:      prefixBasePath(apiBase, path.Join("translations", "matrix")),
+		ExchangeAPIPath:    prefixBasePath(apiBase, path.Join("translations", "exchange")),
 		BulkActionAPIPath:  prefixBasePath(apiBase, path.Join("translations", "assignment-actions", "bulk")),
 		Channel:            channel,
 		Query:              translationSSRQueryValues(c),
+		ExchangeUIConfig:   options.translationExchangeUIConfig,
 		SyncClientBasePath: ResolveSyncClientAssetsPrefix(admin.Config{BasePath: options.basePath}),
 		EnhancedAction:     options.enhancedActionRuntime,
 	}
@@ -787,7 +793,12 @@ func translationSSRQueryValues(c router.Context) map[string]string {
 		"content_type",
 		"due_state",
 		"family_id",
+		"include_examples",
+		"kind",
 		"locale",
+		"locales",
+		"locale_limit",
+		"locale_offset",
 		"missing_locale",
 		"order",
 		"page",
@@ -889,6 +900,10 @@ func inputSurfaceForSSRKey(key string) string {
 		return admin.TranslationSSRSurfaceQueue
 	case "translation_editor_ssr":
 		return admin.TranslationSSRSurfaceEditor
+	case "translation_matrix_ssr":
+		return admin.TranslationSSRSurfaceMatrix
+	case "translation_exchange_ssr":
+		return admin.TranslationSSRSurfaceExchange
 	default:
 		return strings.TrimPrefix(strings.TrimSpace(key), "translation_")
 	}

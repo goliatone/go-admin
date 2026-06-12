@@ -78,5 +78,8 @@ type TranslationProgressWidgetPayload struct {
 	StatusCounts map[string]int                  `json:"status_counts"`
 	LocaleCounts map[string]int                  `json:"locale_counts"`
 	UpdatedAt    string                          `json:"updated_at"`
-	Links        []TranslationLinkWidgetPayload  `json:"links"`
+	// UpdatedAtLabel is a human-readable rendering of UpdatedAt for templates
+	// without client-side relative-time enhancement.
+	UpdatedAtLabel string                         `json:"updated_at_label,omitempty"`
+	Links          []TranslationLinkWidgetPayload `json:"links"`
 }

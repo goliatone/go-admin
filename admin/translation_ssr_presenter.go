@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"context"
 	"net/url"
 	"sort"
 	"strconv"
@@ -16,6 +17,8 @@ const (
 	TranslationSSRSurfaceFamilyList   = "family_list"
 	TranslationSSRSurfaceFamilyDetail = "family_detail"
 	TranslationSSRSurfaceEditor       = "editor"
+	TranslationSSRSurfaceMatrix       = "matrix"
+	TranslationSSRSurfaceExchange     = "exchange"
 )
 
 // TranslationSSRPresenter is the exported boundary consumed by UI route wiring.
@@ -27,6 +30,8 @@ type TranslationSSRPresenter interface {
 	FamilyDetail(router.Context, TranslationSSRPresenterInput) (TranslationSSRPage, error)
 	Queue(router.Context, TranslationSSRPresenterInput) (TranslationSSRPage, error)
 	Editor(router.Context, TranslationSSRPresenterInput) (TranslationSSRPage, error)
+	Matrix(router.Context, TranslationSSRPresenterInput) (TranslationSSRPage, error)
+	Exchange(router.Context, TranslationSSRPresenterInput) (TranslationSSRPage, error)
 }
 
 type TranslationSSRPresenterInput struct {
@@ -37,13 +42,17 @@ type TranslationSSRPresenterInput struct {
 	FamilyListPath     string
 	FamilyBasePath     string
 	MatrixPath         string
+	ExchangePath       string
 	EditorBasePath     string
 	ContentBasePath    string
+	MatrixAPIPath      string
+	ExchangeAPIPath    string
 	BulkActionAPIPath  string
 	AssignmentID       string
 	FamilyID           string
 	Channel            string
 	Query              map[string]string
+	ExchangeUIConfig   TranslationExchangeUIConfig
 	InitialPresetID    string
 	SyncClientBasePath string
 	EnhancedAction     EnhancedActionRuntimeOptions
@@ -250,6 +259,110 @@ func (p *translationSSRPresenter) Editor(c router.Context, input TranslationSSRP
 		Enhancement:  translationSSREnhancement(input),
 		EmptyState:   translationSSREmptyState("Assignment unavailable", "This assignment has no editable translation fields to display."),
 	}, nil
+}
+
+func (p *translationSSRPresenter) Matrix(c router.Context, input TranslationSSRPresenterInput) (TranslationSSRPage, error) {
+	binding := newTranslationFamilyBinding(p.admin)
+	payload, err := binding.Matrix(c)
+	if err != nil {
+		return TranslationSSRPage{}, err
+	}
+	data, meta := translationSSRPayloadSections(payload)
+	return TranslationSSRPage{
+		Surface:      TranslationSSRSurfaceMatrix,
+		Title:        "Translation Matrix",
+		ResourceName: "translation_matrix",
+		Data:         data,
+		Meta:         meta,
+		Actions:      translationSSRMatrixActions(data, meta),
+		Links:        translationSSRMatrixLinks(input),
+		Enhancement:  translationSSRMatrixEnhancement(input, meta),
+		EmptyState:   translationSSREmptyState("No matrix rows", "Adjust filters or widen the locale window to inspect family coverage."),
+	}, nil
+}
+
+func (p *translationSSRPresenter) Exchange(c router.Context, input TranslationSSRPresenterInput) (TranslationSSRPage, error) {
+	history, meta, historyErr := p.translationExchangeHistory(c, input)
+	data := map[string]any{
+		"ui_config": input.ExchangeUIConfig,
+		"template":  translationSSRExchangeTemplate(input),
+		"history":   history,
+	}
+	exchangeMeta := map[string]any{
+		"contracts":             TranslationExchangeContractPayload(),
+		"history_source_policy": translationSSRExchangeHistoryPolicy(input),
+	}
+	for key, value := range meta {
+		exchangeMeta[key] = value
+	}
+	page := TranslationSSRPage{
+		Surface:      TranslationSSRSurfaceExchange,
+		Title:        "Translation Exchange",
+		ResourceName: "translation_exchange",
+		Data:         data,
+		Meta:         exchangeMeta,
+		Actions:      translationSSRExchangeActions(p.admin, c),
+		Links:        translationSSRExchangeLinks(input),
+		Enhancement:  translationSSRExchangeEnhancement(input),
+		EmptyState:   translationSSREmptyState("No exchange jobs", "Recent import and export jobs will appear after translation exchange activity."),
+	}
+	if historyErr != nil {
+		page.ErrorState = map[string]any{
+			"title":       "Exchange history unavailable",
+			"description": historyErr.Error(),
+		}
+	}
+	return page, nil
+}
+
+func (p *translationSSRPresenter) translationExchangeHistory(c router.Context, input TranslationSSRPresenterInput) (map[string]any, map[string]any, error) {
+	binding := newTranslationExchangeBinding(p.admin)
+	if binding == nil || binding.admin == nil {
+		return nil, nil, serviceNotConfiguredDomainError("translation exchange binding", map[string]any{"component": "translation_exchange_binding"})
+	}
+	if binding.runtime == nil {
+		return nil, nil, serviceNotConfiguredDomainError("translation exchange runtime", map[string]any{"component": "translation_exchange_binding"})
+	}
+	adminCtx := binding.admin.adminContextFromRequest(c, binding.admin.config.DefaultLocale)
+	if permissionErr := binding.requireHistoryPermission(adminCtx); permissionErr != nil {
+		return nil, nil, permissionErr
+	}
+	page := clampInt(atoiDefault(translationSSRQueryValue(input, "page"), 1), 1, 10_000)
+	perPage := clampInt(atoiDefault(translationSSRQueryValue(input, "per_page"), 20), 1, 100)
+	includeExamples := translationSSRExchangeIncludeExamples(input)
+	kindFilter := translationExchangeHistoryJobKind(translationSSRQueryValue(input, "kind"))
+	statusFilter := translationExchangeHistoryJobStatus(translationSSRQueryValue(input, "status"))
+	identity := translationIdentityFromAdminContext(adminCtx)
+	jobs, _, err := binding.runtime.ListJobs(adminCtx.Context, translationExchangeJobQuery{
+		Identity: identity,
+		Page:     1,
+		PerPage:  10_000,
+		Kind:     kindFilter,
+		Status:   statusFilter,
+	})
+	if err != nil {
+		return nil, nil, err
+	}
+	if includeExamples {
+		jobs = append(jobs, translationExchangeHistoryExampleJobs(identity.ActorID)...)
+	}
+	filtered := make([]translationExchangeAsyncJob, 0, len(jobs))
+	for _, job := range jobs {
+		if !translationExchangeJobVisibleToIdentity(job, identity) {
+			continue
+		}
+		if !binding.canViewHistoryJob(adminCtx, job) {
+			continue
+		}
+		if kindFilter != "" && !strings.EqualFold(strings.TrimSpace(job.Kind), kindFilter) {
+			continue
+		}
+		if statusFilter != "" && !strings.EqualFold(normalizeTranslationExchangeJobStatus(job.Status), statusFilter) {
+			continue
+		}
+		filtered = append(filtered, job)
+	}
+	return translationExchangeHistoryPayload(filtered, page, perPage), translationExchangeHistoryMetaPayload(includeExamples), nil
 }
 
 func translationSSRPayloadSections(payload any) (map[string]any, map[string]any) {
@@ -1031,13 +1144,18 @@ func translationSSRQueueSortLabel(raw any) string {
 		sort = firstNonEmpty(toString(values["sort"]), sort)
 		order = firstNonEmpty(toString(values["order"]), order)
 	}
-	return strings.TrimSpace(translationSSRHumanLabel(sort) + " " + strings.ToUpper(order))
+	direction := "ascending"
+	if strings.EqualFold(strings.TrimSpace(order), "desc") {
+		direction = "descending"
+	}
+	return strings.TrimSpace(translationSSRHumanLabel(sort) + ", " + direction)
 }
 
 func translationSSRDecorateFamilyDetail(data map[string]any) {
 	if data == nil {
 		return
 	}
+	data["display_family_identifier"] = translationSSRShortID(toString(data["family_id"]))
 	blockers := translationSSRAnyList(data["blockers"])
 	for _, blocker := range blockers {
 		blocker["display_label"] = translationSSRBlockerLabel(firstNonEmpty(toString(blocker["blocker_code"]), toString(blocker["code"])))
@@ -1335,8 +1453,8 @@ func translationSSRFamilyLocaleCoverageVariantRow(data map[string]any, variant, 
 		"display_locale":        strings.ToUpper(locale),
 		"kind":                  "variant",
 		"tone":                  "neutral",
-		"title":                 firstNonEmpty(toString(extractMap(variant["fields"])["title"]), toString(extractMap(extractMap(data["source_variant"])["fields"])["title"]), toString(data["family_id"])),
-		"updated_label":         firstNonEmpty(toString(variant["display_updated"]), translationSSRFormatDate(variant["updated_at"]), "n/a"),
+		"title":                 firstNonEmpty(toString(extractMap(variant["fields"])["title"]), toString(extractMap(extractMap(data["source_variant"])["fields"])["title"]), translationSSRShortID(toString(data["family_id"]))),
+		"updated_label":         firstNonEmpty(toString(variant["display_updated"]), translationSSRFormatDate(variant["updated_at"])),
 		"locale_assignment":     assignment,
 		"locale_assignment_key": assignmentKey,
 		"open_locale_href":      translationSSRFamilyVariantHref(data, variant),
@@ -1345,11 +1463,13 @@ func translationSSRFamilyLocaleCoverageVariantRow(data map[string]any, variant, 
 	if isSource {
 		row["kind"] = "source"
 		row["tone"] = "source"
-		badges = append(badges, map[string]any{"label": "Source", "tone": "neutral"})
+		badges = append(badges, map[string]any{"label": "Source", "tone": "source"})
 	}
 	status := firstNonEmpty(toString(variant["display_status"]), translationSSRHumanLabel(toString(variant["status"])), "Unknown")
 	if status != "" {
-		badges = append(badges, map[string]any{"label": status, "tone": translationSSRFamilyStatusTone(status)})
+		// status carries the raw code so the status badge partial resolves the
+		// canonical registry tone; label keeps the humanized form.
+		badges = append(badges, map[string]any{"status": strings.ToLower(strings.TrimSpace(toString(variant["status"]))), "label": status})
 	}
 	row["badges"] = badges
 	translationSSRApplyLocaleAssignmentToRow(row, assignment, assignmentKey)
@@ -1362,8 +1482,8 @@ func translationSSRFamilyLocaleCoverageAssignmentOnlyRow(data map[string]any, lo
 		"display_locale":        strings.ToUpper(locale),
 		"kind":                  "assignment",
 		"tone":                  "neutral",
-		"title":                 firstNonEmpty(toString(extractMap(extractMap(data["source_variant"])["fields"])["title"]), toString(data["family_id"])),
-		"updated_label":         "n/a",
+		"title":                 firstNonEmpty(toString(extractMap(extractMap(data["source_variant"])["fields"])["title"]), translationSSRShortID(toString(data["family_id"]))),
+		"updated_label":         "",
 		"locale_assignment":     assignment,
 		"locale_assignment_key": assignmentKey,
 		"badges":                []map[string]any{},
@@ -1383,8 +1503,8 @@ func translationSSRFamilyLocaleCoverageMissingRow(data map[string]any, locale st
 		"tone":           "danger",
 		"title":          "This locale is required by policy before the family is publish-ready.",
 		"badges": []map[string]any{{
-			"label": "Missing required locale",
-			"tone":  "danger",
+			"status": "missing_locale",
+			"label":  "Missing required locale",
 		}},
 		"create_locale_action": map[string]any{
 			"enabled": enabled,
@@ -1421,12 +1541,26 @@ func translationSSRApplyLocaleAssignmentToRow(row, assignment map[string]any, as
 	if state == "" {
 		return
 	}
+	// Deduplicate badge labels: variant status, assignment state, and
+	// assignment status frequently coincide ("In Progress" three times).
 	badges := translationSSRAnyList(row["badges"])
+	seenLabels := map[string]bool{}
+	for _, badge := range badges {
+		seenLabels[strings.ToLower(strings.TrimSpace(toString(badge["label"])))] = true
+	}
+	appendBadge := func(rawCode, label string) {
+		key := strings.ToLower(strings.TrimSpace(label))
+		if key == "" || seenLabels[key] {
+			return
+		}
+		seenLabels[key] = true
+		badges = append(badges, map[string]any{"status": strings.ToLower(strings.TrimSpace(rawCode)), "label": label})
+	}
 	if toString(assignment["state"]) != "source_locale" {
-		badges = append(badges, map[string]any{"label": state, "tone": "info"})
+		appendBadge(toString(assignment["state"]), state)
 	}
 	if status := firstNonEmpty(toString(extractMap(assignment["assignment"])["display_status"]), translationSSRHumanLabel(toString(extractMap(assignment["assignment"])["status"]))); status != "" {
-		badges = append(badges, map[string]any{"label": status, "tone": "info"})
+		appendBadge(toString(extractMap(assignment["assignment"])["status"]), status)
 	}
 	row["badges"] = badges
 }
@@ -1500,19 +1634,6 @@ func translationSSRFamilyLocaleAssignmentStateRank(assignment map[string]any) in
 		return 3
 	default:
 		return 2
-	}
-}
-
-func translationSSRFamilyStatusTone(status string) string {
-	switch strings.ToLower(strings.TrimSpace(status)) {
-	case "published", "ready", "complete":
-		return "success"
-	case "draft", "pending", "pending review":
-		return "warning"
-	case "blocked", "failed":
-		return "danger"
-	default:
-		return "neutral"
 	}
 }
 
@@ -1606,12 +1727,13 @@ func translationSSRBlockerLabel(code string) string {
 	}
 }
 
+// translationSSRBlockerTone mirrors the canonical status registry
+// (pkg/client/assets/src/shared/status-vocabulary.ts): pending_review is
+// warning everywhere, not info.
 func translationSSRBlockerTone(code string) string {
 	switch strings.ToLower(strings.TrimSpace(code)) {
-	case "missing_locale":
+	case "missing_locale", "pending_review":
 		return "warning"
-	case "pending_review":
-		return "info"
 	case "outdated_source", "qa_blocked":
 		return "danger"
 	default:
@@ -1647,7 +1769,7 @@ func translationSSRLocaleRoute(source, target string) string {
 	if target == "" {
 		target = "-"
 	}
-	return source + " -> " + target
+	return source + " → " + target
 }
 
 func translationSSRShortID(id string) string {
@@ -1697,7 +1819,8 @@ func translationSSRFormatDate(value any) string {
 		return parsed.Local().Format("Jan 2, 2006")
 	}
 	text := strings.TrimSpace(toString(value))
-	if text == "" {
+	if text == "" || strings.HasPrefix(text, "0001-01-01") {
+		// Zero-value Go timestamps must never leak into the UI.
 		return ""
 	}
 	return text
@@ -1743,6 +1866,9 @@ func translationSSRTimeFromAny(value any) (time.Time, bool) {
 		"2006-01-02",
 	} {
 		if parsed, err := time.Parse(layout, text); err == nil {
+			if parsed.IsZero() {
+				return time.Time{}, false
+			}
 			return parsed, true
 		}
 	}
@@ -1853,6 +1979,129 @@ func translationSSREditorLinks(input TranslationSSRPresenterInput, data map[stri
 	}
 }
 
+func translationSSRMatrixLinks(input TranslationSSRPresenterInput) map[string]any {
+	return map[string]any{
+		"matrix": translationSSRHrefWithQuery(input.MatrixPath, input.Query, map[string]string{"channel": strings.TrimSpace(input.Channel)}),
+		"api":    strings.TrimSpace(input.MatrixAPIPath),
+		"family": strings.TrimSpace(input.FamilyBasePath),
+		"queue":  strings.TrimSpace(input.QueuePath),
+	}
+}
+
+func translationSSRExchangeLinks(input TranslationSSRPresenterInput) map[string]any {
+	exchangePath := strings.TrimSpace(input.ExchangePath)
+	if exchangePath == "" {
+		exchangePath = strings.TrimRight(strings.TrimSpace(input.BasePath), "/") + "/translations/exchange"
+	}
+	return map[string]any{
+		"exchange": translationSSRHrefWithQuery(exchangePath, input.Query, map[string]string{"channel": strings.TrimSpace(input.Channel)}),
+		"api":      strings.TrimSpace(input.ExchangeAPIPath),
+		"history":  strings.TrimRight(strings.TrimSpace(input.ExchangeAPIPath), "/") + "/jobs",
+		"template": translationSSRExchangeTemplate(input),
+	}
+}
+
+func translationSSRMatrixActions(data, meta map[string]any) map[string]any {
+	selection := extractMap(data["selection"])
+	return map[string]any{
+		"bulk_actions":         selection["bulk_actions"],
+		"quick_action_targets": meta["quick_action_targets"],
+	}
+}
+
+func translationSSRMatrixEnhancement(input TranslationSSRPresenterInput, meta map[string]any) map[string]any {
+	out := translationSSREnhancement(input)
+	out["api_path"] = strings.TrimSpace(input.MatrixAPIPath)
+	out["query"] = translationSSRPreserveFilterQuery(input.Query,
+		"channel",
+		ScopeTenantIDKey,
+		ScopeOrgIDKey,
+		"family_id",
+		"content_type",
+		"readiness_state",
+		"blocker_code",
+		"locale",
+		"locales",
+		"page",
+		"per_page",
+		"locale_offset",
+		"locale_limit",
+	)
+	out["locale_offset"] = meta["locale_offset"]
+	out["locale_limit"] = meta["locale_limit"]
+	out["quick_action_targets"] = meta["quick_action_targets"]
+	return out
+}
+
+func translationSSRExchangeActions(adm *Admin, c router.Context) map[string]any {
+	ctx := contextFromRouterContext(c)
+	if adm != nil && c != nil {
+		ctx = adm.adminContextFromRequest(c, adm.config.DefaultLocale).Context
+	}
+	return map[string]any{
+		"export":          translationMatrixActionState(adm, ctx, translationExchangePermissionExport),
+		"import_view":     translationMatrixActionState(adm, ctx, translationExchangePermissionImportView),
+		"import_validate": translationMatrixActionState(adm, ctx, translationExchangePermissionImportValidate),
+		"import_apply":    translationMatrixActionState(adm, ctx, translationExchangePermissionImportApply),
+	}
+}
+
+func contextFromRouterContext(c router.Context) context.Context {
+	if c == nil || c.Context() == nil {
+		return context.Background()
+	}
+	return c.Context()
+}
+
+func translationSSRExchangeEnhancement(input TranslationSSRPresenterInput) map[string]any {
+	out := translationSSREnhancement(input)
+	out["api_path"] = strings.TrimSpace(input.ExchangeAPIPath)
+	out["history_path"] = strings.TrimRight(strings.TrimSpace(input.ExchangeAPIPath), "/") + "/jobs"
+	out["ui_config"] = input.ExchangeUIConfig
+	out["include_examples"] = translationSSRExchangeIncludeExamples(input)
+	return out
+}
+
+func translationSSRExchangeTemplate(input TranslationSSRPresenterInput) map[string]any {
+	template := input.ExchangeUIConfig.Template
+	format := strings.TrimSpace(template.Format)
+	if format == "" {
+		format = "json"
+	}
+	href := strings.TrimSpace(template.Href)
+	if href == "" {
+		href = strings.TrimRight(strings.TrimSpace(input.ExchangeAPIPath), "/") + "/template?format=" + url.QueryEscape(format)
+	}
+	label := firstNonEmpty(template.Label, "Download JSON Template")
+	filename := firstNonEmpty(template.Filename, "translation_exchange_template."+format)
+	return map[string]any{
+		"href":     href,
+		"format":   format,
+		"label":    label,
+		"filename": filename,
+	}
+}
+
+func translationSSRExchangeHistoryPolicy(input TranslationSSRPresenterInput) map[string]any {
+	includeExamples := translationSSRExchangeIncludeExamples(input)
+	source := "runtime"
+	if includeExamples {
+		source = "runtime_plus_examples"
+	}
+	return map[string]any{
+		"source":           source,
+		"include_examples": includeExamples,
+		"empty_state":      "authored",
+	}
+}
+
+func translationSSRExchangeIncludeExamples(input TranslationSSRPresenterInput) bool {
+	if input.ExchangeUIConfig.IncludeExamples != nil {
+		return *input.ExchangeUIConfig.IncludeExamples
+	}
+	return toBool(translationSSRQueryValue(input, "include_examples"))
+}
+
 func translationSSRFamilyDetailActions(data map[string]any) map[string]any {
 	return map[string]any{
 		"quick_create":       data["quick_create"],
@@ -1947,6 +2196,9 @@ func translationSSRAttachFamilyListRowLinks(input TranslationSSRPresenterInput, 
 	}
 	for _, row := range rows {
 		row["ssr_links"] = translationSSRFamilyListRowLinks(input, row)
+		familyID := firstNonEmpty(toString(row["family_id"]), toString(row["id"]))
+		row["display_identifier"] = translationSSRShortID(familyID)
+		row["display_title"] = firstNonEmpty(toString(row["source_title"]), translationSSRShortID(familyID), "Family")
 	}
 	data["families"] = rows
 	if _, ok := data["items"]; ok {
