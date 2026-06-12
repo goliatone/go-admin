@@ -24,7 +24,7 @@ func (p *DoctorDebugPanel) Label() string {
 
 // Icon returns the panel icon class.
 func (p *DoctorDebugPanel) Icon() string {
-	return "iconoir-heartbeat"
+	return "iconoir-heart"
 }
 
 // Span returns the panel grid span.
