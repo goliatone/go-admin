@@ -990,11 +990,50 @@ func (r *BunTranslationAssignmentRepository) dashboardTopOverdueAssignments(ctx 
 	return out, nil
 }
 
-func (r *BunTranslationAssignmentRepository) AssignmentReviewerAggregateCounts(_ context.Context, input TranslationAssignmentReviewerAggregateInput) (map[string]int, error) {
-	counts := map[string]int{}
-	for _, key := range TranslationQueueReviewAggregateCountKeys() {
-		counts[key] = 0
+func (r *BunTranslationAssignmentRepository) AssignmentReviewerAggregateSummary(ctx context.Context, input TranslationAssignmentReviewerAggregateInput) (TranslationAssignmentReviewerAggregateSummary, error) {
+	summary := TranslationAssignmentReviewerAggregateSummary{Counts: initializedReviewerAggregateCountMap()}
+	if r == nil || r.db == nil {
+		return summary, serviceNotConfiguredDomainError("translation assignment repository", nil)
 	}
+	actorID := strings.TrimSpace(input.ActorID)
+	if actorID == "" {
+		return summary, nil
+	}
+	summary.Unavailable = []string{"review_blocked"}
+	now := normalizedBunAssignmentQueryNow(input.Now)
+	baseFilters := map[string]any{
+		ScopeTenantIDKey: strings.TrimSpace(input.TenantID),
+		ScopeOrgIDKey:    strings.TrimSpace(input.OrgID),
+		"reviewer_id":    actorID,
+	}
+	inboxFilters := cloneAssignmentFilterMap(baseFilters)
+	inboxFilters["status"] = string(AssignmentStatusInReview)
+	inbox, err := r.countAssignments(ctx, ListOptions{Filters: inboxFilters}, now)
+	if err != nil {
+		return summary, err
+	}
+	summary.Counts["review_inbox"] = inbox
+
+	overdueFilters := cloneAssignmentFilterMap(inboxFilters)
+	overdueFilters["due_state"] = translationQueueDueStateOverdue
+	overdue, err := r.countAssignments(ctx, ListOptions{Filters: overdueFilters}, now)
+	if err != nil {
+		return summary, err
+	}
+	summary.Counts["review_overdue"] = overdue
+
+	changesRequestedFilters := cloneAssignmentFilterMap(baseFilters)
+	changesRequestedFilters["status"] = string(AssignmentStatusChangesRequested)
+	changesRequested, err := r.countAssignments(ctx, ListOptions{Filters: changesRequestedFilters}, now)
+	if err != nil {
+		return summary, err
+	}
+	summary.Counts["review_changes_requested"] = changesRequested
+	return summary, nil
+}
+
+func (r *BunTranslationAssignmentRepository) AssignmentReviewerAggregateCounts(_ context.Context, input TranslationAssignmentReviewerAggregateInput) (map[string]int, error) {
+	counts := initializedReviewerAggregateCountMap()
 	if r == nil || r.db == nil {
 		return counts, serviceNotConfiguredDomainError("translation assignment repository", nil)
 	}
@@ -1002,9 +1041,17 @@ func (r *BunTranslationAssignmentRepository) AssignmentReviewerAggregateCounts(_
 		return counts, nil
 	}
 	// review_blocked depends on QA/family blocker evaluation, which is not stored
-	// as an indexed assignment aggregate. Decline so the binding uses the
-	// existing QA-aware compatibility path instead of returning a false zero.
+	// as an indexed assignment aggregate. Decline the exact-only legacy contract
+	// instead of returning a false zero.
 	return counts, ErrTranslationAssignmentQueryUnsupported
+}
+
+func initializedReviewerAggregateCountMap() map[string]int {
+	counts := map[string]int{}
+	for _, key := range TranslationQueueReviewAggregateCountKeys() {
+		counts[key] = 0
+	}
+	return counts
 }
 
 type bunCountRow struct {
