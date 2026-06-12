@@ -331,6 +331,20 @@
     @apply inline-flex items-center gap-2 px-6 py-3 rounded-lg text-sm font-medium border-none cursor-pointer transition-all duration-200 no-underline;
   }
 
+  /* Disabled buttons must be visually distinct from enabled ones; keep
+     hover/title tooltips working (no pointer-events: none). */
+  .btn:disabled,
+  .btn[disabled],
+  .btn[aria-disabled="true"] {
+    @apply opacity-60 cursor-not-allowed;
+  }
+
+  .btn:disabled:hover,
+  .btn[disabled]:hover,
+  .btn[aria-disabled="true"]:hover {
+    @apply opacity-60;
+  }
+
   .btn-primary {
     @apply bg-admin-dark text-white hover:bg-admin-light;
   }
