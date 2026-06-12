@@ -803,7 +803,7 @@ func translationCapabilityMenuItemsWithDiagnostics(adm *admin.Admin, cfg admin.C
 			ID:         "translations.assignments",
 			Label:      "Translation Assignments",
 			LabelKey:   "menu.translations.assignments",
-			Icon:       "list-checks",
+			Icon:       "clipboard-check",
 			RouteName:  "translations.assignments",
 			Name:       "admin.translations.assignments",
 			Key:        "translation_assignments",
