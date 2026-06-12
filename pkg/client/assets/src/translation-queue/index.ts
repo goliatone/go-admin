@@ -17,7 +17,7 @@ import {
   getExpandedGroupIds,
   renderGroupHeaderSummary,
 } from '../datatable/grouped-mode.js';
-import { asNumber, asRecord, asString } from '../shared/coercion.js';
+import { asNumber, asRecord, asString, asStringArray } from '../shared/coercion.js';
 import {
   buildEndpointURL,
   getStringSearchParam,
@@ -210,6 +210,8 @@ export interface AssignmentListMeta {
   default_review_filter_preset?: string;
   review_actor_id?: string;
   review_aggregate_counts: Record<string, number>;
+  review_aggregate_counts_unavailable: string[];
+  review_aggregate_counts_degraded: string[];
   grouping?: AssignmentListGroupingMeta;
   family_total?: number;
   assignment_total?: number;
@@ -632,6 +634,8 @@ export function normalizeAssignmentListMeta(value: unknown): AssignmentListMeta 
     default_review_filter_preset: asString(raw.default_review_filter_preset) || undefined,
     review_actor_id: asString(raw.review_actor_id) || undefined,
     review_aggregate_counts: normalizeNumberRecord(raw.review_aggregate_counts, { trimKeys: true, omitBlankKeys: true }),
+    review_aggregate_counts_unavailable: asStringArray(raw.review_aggregate_counts_unavailable),
+    review_aggregate_counts_degraded: asStringArray(raw.review_aggregate_counts_degraded),
     grouping: normalizeAssignmentListGroupingMeta(raw.grouping),
     family_total: asNumber(raw.family_total) || undefined,
     assignment_total: asNumber(raw.assignment_total) || undefined,

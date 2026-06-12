@@ -256,9 +256,32 @@ test('translation queue contracts: normalize shared fixture metadata and rows', 
   assert.equal(response.meta.saved_review_filter_presets.length, 4);
   assert.equal(response.meta.default_review_filter_preset, 'review_inbox');
   assert.equal(response.meta.review_aggregate_counts.review_blocked, 1);
+  assert.deepEqual(response.meta.review_aggregate_counts_unavailable, []);
+  assert.deepEqual(response.meta.review_aggregate_counts_degraded, []);
   assert.equal(response.meta.default_sort.key, 'updated_at');
   assert.equal(response.data[0].actions.claim.enabled, true);
   assert.equal(response.data[0].actions.release.reason_code, 'INVALID_STATUS');
+});
+
+test('translation queue contracts: normalize partial reviewer aggregate metadata', () => {
+  const response = normalizeAssignmentListResponse({
+    meta: {
+      ...fixtures.meta,
+      review_aggregate_counts: {
+        review_inbox: 5,
+        review_overdue: 2,
+        review_blocked: 0,
+        review_changes_requested: 3,
+      },
+      review_aggregate_counts_unavailable: ['review_blocked'],
+      review_aggregate_counts_degraded: ['review_overdue'],
+    },
+    data: fixtures.states.open_pool.data,
+  });
+
+  assert.equal(response.meta.review_aggregate_counts.review_blocked, 0);
+  assert.deepEqual(response.meta.review_aggregate_counts_unavailable, ['review_blocked']);
+  assert.deepEqual(response.meta.review_aggregate_counts_degraded, ['review_overdue']);
 });
 
 test('translation queue contracts: review presets fall back to review defaults when metadata is missing', () => {
@@ -1558,6 +1581,8 @@ test('translation queue runtime: review selector renders in unified toolbar', as
           review_blocked: 1,
           review_changes_requested: 3,
         },
+        review_aggregate_counts_unavailable: ['review_blocked'],
+        review_aggregate_counts_degraded: [],
       },
       data: fixtures.states.open_pool.data,
     });
