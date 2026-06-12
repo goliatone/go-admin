@@ -1257,6 +1257,7 @@ export class TranslationMatrixPage extends StatefulController<TranslationMatrixP
   private selection: TranslationMatrixSelectionState = createTranslationMatrixSelectionState();
   private feedback = '';
   private working = false;
+  private hasServerRenderedContent = false;
 
   constructor(config: TranslationMatrixPageConfig) {
     super('loading');
@@ -1272,7 +1273,10 @@ export class TranslationMatrixPage extends StatefulController<TranslationMatrixP
 
   mount(root: HTMLElement): void {
     this.root = root;
-    this.render();
+    this.hasServerRenderedContent = root.dataset.translationMatrixSsr === 'true' && root.innerHTML.trim().length > 0;
+    if (!this.hasServerRenderedContent) {
+      this.render();
+    }
     void this.load();
     root.addEventListener('click', this.handleClick);
     root.addEventListener('submit', this.handleSubmit);
@@ -1293,12 +1297,17 @@ export class TranslationMatrixPage extends StatefulController<TranslationMatrixP
   }
 
   private async load(): Promise<void> {
+    const previousPayload = this.payload;
+    const preserveServerRenderedContent = this.hasServerRenderedContent && previousPayload == null;
     this.state = 'loading';
     this.error = null;
-    this.render();
+    if (!preserveServerRenderedContent) {
+      this.render();
+    }
     try {
       const payload = await this.client.fetchMatrix(this.query);
       this.payload = payload;
+      this.hasServerRenderedContent = false;
       this.selection = createTranslationMatrixSelectionState({
         family_ids: this.selection.family_ids.filter((id) => payload.data.rows.some((row) => row.family_id === id)),
         locales: this.selection.locales.filter((locale) => payload.data.columns.some((column) => column.locale === locale)),
@@ -1306,11 +1315,41 @@ export class TranslationMatrixPage extends StatefulController<TranslationMatrixP
       });
       this.state = payload.data.rows.length === 0 ? 'empty' : 'ready';
     } catch (error) {
+      this.error = error;
+      if (previousPayload) {
+        this.payload = previousPayload;
+        this.state = previousPayload.data.rows.length === 0 ? 'empty' : 'ready';
+        this.feedback = error instanceof Error ? error.message : 'Matrix refresh failed.';
+        this.render();
+        return;
+      }
       this.payload = null;
       this.state = 'error';
-      this.error = error;
+      if (preserveServerRenderedContent) {
+        this.renderServerRenderedError(error);
+        return;
+      }
     }
     this.render();
+  }
+
+  private renderServerRenderedError(error: unknown): void {
+    if (!this.root) {
+      return;
+    }
+    this.root.querySelector('[data-matrix-ssr-error-banner]')?.remove();
+    const message = error instanceof Error ? error.message : 'Failed to load the translation matrix.';
+    this.root.insertAdjacentHTML('afterbegin', `
+      <section class="${ERROR_STATE} mb-4 p-4 shadow-sm" data-matrix-ssr-error-banner="true" role="alert">
+        <div class="flex items-start justify-between gap-4">
+          <div>
+            <h2 class="${ERROR_STATE_TITLE}">Matrix refresh failed</h2>
+            <p class="${ERROR_STATE_TEXT} mt-1">${escapeHTML(message)}</p>
+          </div>
+          <button type="button" data-matrix-retry="true" class="${BTN_DANGER}">Retry</button>
+        </div>
+      </section>
+    `);
   }
 
   private render(): void {
@@ -1400,6 +1439,9 @@ export class TranslationMatrixPage extends StatefulController<TranslationMatrixP
     }
     const familyToggle = target.closest<HTMLInputElement>('[data-matrix-family-toggle]');
     if (familyToggle) {
+      if (!this.payload && this.hasServerRenderedContent) {
+        return;
+      }
       this.selection = toggleTranslationMatrixFamilySelection(this.selection, familyToggle.dataset.matrixFamilyToggle || '');
       this.render();
       return;

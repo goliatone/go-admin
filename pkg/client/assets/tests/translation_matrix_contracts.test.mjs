@@ -145,6 +145,26 @@ function setupDom(url = 'http://localhost/admin/translations/matrix?channel=prod
   };
 }
 
+function setupSSRDom(url = 'http://localhost/admin/translations/matrix?channel=production&locales=fr,de&locale_offset=0&locale_limit=2') {
+  const dom = new JSDOM(`<!doctype html><html><body>
+    <div id="root"
+         data-endpoint="/admin/api/translations/matrix"
+         data-title="Translation Matrix"
+         data-translation-matrix-ssr="true">
+      <section data-matrix-filters="true">SSR filters</section>
+      <section data-matrix-viewport="true">SSR viewport</section>
+      <div data-matrix-grid="true">
+        <label><input type="checkbox" data-matrix-family-toggle="family-1">SSR matrix row</label>
+      </div>
+    </div>
+  </body></html>`, { url });
+  setGlobals(dom.window);
+  return {
+    dom,
+    root: dom.window.document.getElementById('root'),
+  };
+}
+
 async function flushAsync() {
   await new Promise((resolve) => setTimeout(resolve, 0));
 }
@@ -193,6 +213,64 @@ test('translation matrix runtime: mount renders filters, viewport controls, and 
   assert.doesNotMatch(root.innerHTML, /Header action/);
   assert.doesNotMatch(root.innerHTML, /tracking-\[0\.1/);
 
+  page.unmount();
+});
+
+test('translation matrix runtime: preserves SSR content until first refresh succeeds', async () => {
+  const { root } = setupSSRDom();
+  let release;
+  const blocker = new Promise((resolve) => {
+    release = resolve;
+  });
+  const page = initTranslationMatrixPage(root, {
+    fetch: async () => {
+      await blocker;
+      return createJsonResponse(fixtures.states.viewport, 200, {
+        'content-type': 'application/json',
+      });
+    },
+  });
+
+  assert.match(root.innerHTML, /SSR matrix row/);
+  assert.doesNotMatch(root.innerHTML, /data-matrix-loading="true"/);
+  release();
+  await flushAsync();
+  await flushAsync();
+
+  assert.equal(page.getState(), 'ready');
+  assert.doesNotMatch(root.innerHTML, /SSR matrix row/);
+  assert.match(root.innerHTML, /data-matrix-grid="true"/);
+  page.unmount();
+});
+
+test('translation matrix runtime: ignores pre-hydration selection without blanking SSR grid', async () => {
+  const { root } = setupSSRDom();
+  const page = initTranslationMatrixPage(root, {
+    fetch: async () => new Promise(() => {}),
+  });
+
+  root.querySelector('[data-matrix-family-toggle]')?.click();
+
+  assert.match(root.innerHTML, /SSR matrix row/);
+  assert.doesNotMatch(root.innerHTML, /data-matrix-loading="true"/);
+  page.unmount();
+});
+
+test('translation matrix runtime: failed initial refresh keeps SSR grid visible', async () => {
+  const { root } = setupSSRDom();
+  const page = initTranslationMatrixPage(root, {
+    fetch: async () => createJsonResponse({ error: 'boom' }, 503, {
+      'content-type': 'application/json',
+      'x-request-id': 'req-matrix',
+    }),
+  });
+
+  await flushAsync();
+
+  assert.equal(page.getState(), 'error');
+  assert.match(root.innerHTML, /SSR matrix row/);
+  assert.match(root.innerHTML, /data-matrix-ssr-error-banner="true"/);
+  assert.doesNotMatch(root.innerHTML, /data-matrix-error="true"/);
   page.unmount();
 });
 

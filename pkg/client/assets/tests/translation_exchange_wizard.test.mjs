@@ -78,6 +78,27 @@ function setupDOM() {
   return dom.window.document.getElementById("translation-exchange-app");
 }
 
+function setupSSRDOM() {
+  cleanupDOM();
+  const dom = new JSDOM(
+    `<!doctype html><html><body>
+      <div id="translation-exchange-app"
+           data-translation-exchange-ssr="true"
+           data-endpoint="/admin/api/translations/exchange"
+           data-history-path="/admin/api/translations/exchange/jobs">
+        <section data-exchange-ssr-shell="true">
+          <form data-export-form="true">SSR export controls</form>
+          <section data-exchange-history-baseline="true">SSR history baseline</section>
+        </section>
+      </div>
+    </body></html>`,
+    { url: "http://localhost/admin/translations/exchange" },
+  );
+  activeDOM = dom;
+  setGlobals(dom.window);
+  return dom.window.document.getElementById("translation-exchange-app");
+}
+
 function restoreGlobal(name, value) {
   if (typeof value === "undefined") {
     delete globalThis[name];
@@ -189,6 +210,65 @@ test("translation exchange wizard: export step renders seeded example downloads 
       return true;
     });
     assert.ok(fetchMock.mock.calls.length >= 2);
+  } finally {
+    cleanupDOM();
+  }
+});
+
+test("translation exchange wizard: preserves SSR content until history refresh succeeds", async () => {
+  const root = setupSSRDOM();
+  let release;
+  const blocker = new Promise((resolve) => {
+    release = resolve;
+  });
+  const fetchMock = mock.fn(async (input) => {
+    assert.match(String(input), /\/jobs/);
+    await blocker;
+    return jsonResponse(fixtures.history);
+  });
+  globalThis.fetch = fetchMock;
+
+  try {
+    const manager = new TranslationExchangeManager({
+      apiPath: "/admin/api/translations/exchange",
+      basePath: "/admin",
+      includeExamples: false,
+    });
+    manager.init();
+
+    assert.match(root.innerHTML, /SSR export controls/);
+    assert.match(root.innerHTML, /SSR history baseline/);
+    assert.doesNotMatch(root.innerHTML, /Seeded Examples/i);
+
+    release();
+    await flush();
+    await flush();
+
+    assert.doesNotMatch(root.innerHTML, /SSR export controls/);
+    assert.match(root.innerHTML, /Exchange steps/i);
+  } finally {
+    cleanupDOM();
+  }
+});
+
+test("translation exchange wizard: failed initial history refresh keeps SSR content visible", async () => {
+  const root = setupSSRDOM();
+  const fetchMock = mock.fn(async () => jsonResponse({ error: "boom" }, 503));
+  globalThis.fetch = fetchMock;
+
+  try {
+    const manager = new TranslationExchangeManager({
+      apiPath: "/admin/api/translations/exchange",
+      basePath: "/admin",
+      includeExamples: false,
+    });
+    manager.init();
+    await flush();
+    await flush();
+
+    assert.match(root.innerHTML, /SSR export controls/);
+    assert.match(root.innerHTML, /SSR history baseline/);
+    assert.match(root.innerHTML, /data-exchange-ssr-error-banner="true"/);
   } finally {
     cleanupDOM();
   }

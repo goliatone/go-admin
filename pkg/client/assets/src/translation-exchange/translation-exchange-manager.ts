@@ -461,6 +461,7 @@ export class TranslationExchangeManager {
   private readonly selectors: TranslationExchangeSelectors;
   private readonly toast: ToastNotifier | null;
   private root: HTMLElement | null = null;
+  private hasServerRenderedContent = false;
 
   private step: ExchangeStep = "export";
   private exportState: ExportState = {
@@ -532,10 +533,15 @@ export class TranslationExchangeManager {
   init(): void {
     this.root = document.querySelector<HTMLElement>(this.selectors.root);
     if (!this.root) return;
+    this.hasServerRenderedContent =
+      this.root.dataset.translationExchangeSsr === "true" &&
+      this.root.innerHTML.trim().length > 0;
     this.root.addEventListener("click", this.handleClick);
     this.root.addEventListener("change", this.handleChange);
     this.root.addEventListener("submit", this.handleSubmit);
-    this.render();
+    if (!this.hasServerRenderedContent) {
+      this.render();
+    }
     void this.loadHistory();
   }
 
@@ -1095,15 +1101,20 @@ export class TranslationExchangeManager {
 
   private async loadHistory(force = false): Promise<void> {
     if (!force && this.historyState.status === "loading") return;
+    const previousResponse = this.historyState.response;
+    const preserveServerRenderedContent = this.hasServerRenderedContent && previousResponse == null;
     this.historyState.status = "loading";
     this.historyState.message = "Loading history...";
-    this.render();
+    if (!preserveServerRenderedContent) {
+      this.render();
+    }
 
     try {
       const url = new URL(this.historyEndpoint, window.location.origin);
       if (this.includeExamples) url.searchParams.set("include_examples", "true");
       const raw = await this.fetchJSON(url.pathname + url.search);
       this.historyState.response = normalizeTranslationExchangeHistoryResponse(raw);
+      this.hasServerRenderedContent = false;
       this.historyState.status = "ready";
       this.historyState.message = "";
       if (!this.historyState.selectedJobId) {
@@ -1123,8 +1134,35 @@ export class TranslationExchangeManager {
       this.historyState.status = "error";
       this.historyState.message =
         error instanceof Error ? error.message : "Unable to load history.";
+      if (previousResponse) {
+        this.historyState.response = previousResponse;
+      }
+      if (preserveServerRenderedContent) {
+        this.renderServerRenderedHistoryError(error);
+        return;
+      }
     }
     this.render();
+  }
+
+  private renderServerRenderedHistoryError(error: unknown): void {
+    if (!this.root) return;
+    this.root.querySelector("[data-exchange-ssr-error-banner]")?.remove();
+    const message = error instanceof Error ? error.message : "Unable to load exchange history.";
+    this.root.insertAdjacentHTML(
+      "afterbegin",
+      `
+      <section class="${CARD_SHADOW} mb-4 border-amber-200 bg-amber-50 p-4 text-sm text-amber-900" data-exchange-ssr-error-banner="true" role="alert">
+        <div class="flex items-start justify-between gap-4">
+          <div>
+            <h2 class="font-semibold text-amber-950">Exchange history refresh failed</h2>
+            <p class="mt-1">${escapeHTML(message)}</p>
+          </div>
+          <button class="${BTN_SECONDARY}" type="button" data-history-refresh="true">Retry</button>
+        </div>
+      </section>
+      `,
+    );
   }
 
   private filteredHistoryItems(): TranslationExchangeJob[] {

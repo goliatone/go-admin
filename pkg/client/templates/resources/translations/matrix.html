@@ -3,22 +3,7 @@
 {% block title %}Translation Matrix - {{ title }}{% endblock %}
 
 {% block content %}
-{# Compact Header (Option 3: Integrated Breadcrumb) #}
-<header class="admin-page-header px-8 py-3 bg-white border-b border-gray-200">
-  <div class="flex items-center justify-between gap-4">
-    {# Left: Breadcrumb | Title #}
-    <div class="flex items-center gap-4 min-w-0 flex-1">
-      {% include "partials/breadcrumbs.html" with breadcrumbs=breadcrumbs %}
-      <h1 class="text-2xl font-bold text-gray-900 truncate">Matrix view</h1>
-    </div>
-
-    {# Right: Actions #}
-    <div id="matrix-header-actions" class="flex items-center gap-3 flex-shrink-0">
-      <!-- Header actions mount here via JS -->
-    </div>
-  </div>
-  <p class="mt-2 text-sm text-gray-500">View family-by-locale coverage and trigger quick actions from the grid.</p>
-</header>
+{% include "partials/admin-page-header.html" with breadcrumbs=breadcrumbs page_title="Matrix view" page_subtitle="View family-by-locale coverage and trigger quick actions from the grid." header_actions_id="matrix-header-actions" %}
 
 <div class="flex-1 overflow-y-auto bg-gray-50 p-8">
   <div class="mx-auto max-w-[96rem]">
@@ -27,7 +12,190 @@
       data-endpoint="{{ translation_matrix_api_path|default:"" }}"
       data-title="Translation Matrix"
       data-base-path="{{ base_path|default:"/admin" }}"
-    ></div>
+      data-ssr-enhanced="true"
+      data-translation-matrix-ssr="true"
+      data-channel="{{ translation_matrix_ssr.Meta.channel|default:"" }}"
+      data-locale-offset="{{ translation_matrix_ssr.Meta.locale_offset|default:"0" }}"
+      data-locale-limit="{{ translation_matrix_ssr.Meta.locale_limit|default:"20" }}"
+      data-enhancement="{{ toJSON(translation_matrix_ssr.Enhancement)|escape }}"
+    >
+      {% if translation_matrix_ssr.ErrorState %}
+      <section class="rounded-lg border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900" data-translation-ssr-error="true">
+        <h2 class="text-base font-semibold">{{ translation_matrix_ssr.ErrorState.title|default:"Translation data unavailable" }}</h2>
+        <p class="mt-1">{{ translation_matrix_ssr.ErrorState.description|default:"Matrix data could not be loaded server-side." }}</p>
+      </section>
+      {% else %}
+      {% with page=translation_matrix_ssr %}
+      <div class="grid gap-5" data-translation-matrix="true" data-translation-matrix-first-render="ssr">
+        <section class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm" data-matrix-filters="true">
+          <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <h2 class="text-lg font-semibold text-gray-900">Family locale coverage</h2>
+              <p class="mt-1 text-sm text-gray-500">
+                {{ page.Meta.total|default:"0" }} families &middot;
+                {{ page.Meta.total_locales|default:"0" }} locales &middot;
+                channel {{ page.Meta.channel|default:"default" }}
+              </p>
+            </div>
+            <div class="flex flex-wrap gap-2 text-xs">
+              {% if page.Links.matrix %}
+              <a class="btn btn-secondary btn-sm" href="{{ page.Links.matrix }}">Refresh</a>
+              {% endif %}
+              {% if page.Links.queue %}
+              <a class="btn btn-secondary btn-sm" href="{{ page.Links.queue }}">Queue</a>
+              {% endif %}
+            </div>
+          </div>
+
+          <form class="mt-5 grid gap-4" method="get" data-matrix-filter-form="true">
+            <input type="hidden" name="channel" value="{{ page.Meta.channel|default:"" }}">
+            <div class="quick-filters flex flex-wrap items-center gap-3" data-quick-filters>
+              <span class="quick-filters__label text-xs font-semibold uppercase tracking-wide text-gray-500">Readiness</span>
+              <div class="quick-filters__items inline-flex flex-wrap items-center gap-2" role="group" aria-label="Readiness filters">
+                <a class="quick-filter inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium {% if not page.Enhancement.query.readiness_state %}bg-gray-200 text-gray-900 ring-2 ring-gray-500 ring-offset-1{% else %}bg-gray-100 text-gray-700 hover:bg-gray-200{% endif %}" href="{{ page.Links.matrix|default:"" }}">All</a>
+                <button type="submit" name="readiness_state" value="ready" class="quick-filter inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium {% if page.Enhancement.query.readiness_state == "ready" %}bg-emerald-100 text-emerald-800 ring-2 ring-emerald-500 ring-offset-1{% else %}bg-emerald-50 text-emerald-700 hover:bg-emerald-100{% endif %}">Ready</button>
+                <button type="submit" name="readiness_state" value="blocked" class="quick-filter inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium {% if page.Enhancement.query.readiness_state == "blocked" %}bg-rose-100 text-rose-800 ring-2 ring-rose-500 ring-offset-1{% else %}bg-rose-50 text-rose-700 hover:bg-rose-100{% endif %}">Blocked</button>
+              </div>
+            </div>
+
+            <details class="filter-panel rounded-lg border border-gray-200 bg-gray-50" data-filter-panel>
+              <summary class="filter-panel__trigger cursor-pointer select-none list-none px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-100">
+                <span class="inline-flex items-center gap-2">
+                  <i class="iconoir-filter text-gray-500" aria-hidden="true"></i>
+                  <span>Advanced Filters</span>
+                  <i class="iconoir-nav-arrow-down text-gray-400 transition-transform" aria-hidden="true"></i>
+                </span>
+              </summary>
+              <div class="filter-panel__form border-t border-gray-200 p-4">
+                <div class="filter-panel__grid grid gap-3 md:grid-cols-4">
+                  <label class="filter-panel__field grid gap-1 text-sm">
+                    <span class="text-xs font-semibold uppercase tracking-wide text-gray-500">Content type</span>
+                    <input class="rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500" name="content_type" value="{{ page.Enhancement.query.content_type|default:"" }}" placeholder="pages">
+                  </label>
+                  <label class="filter-panel__field grid gap-1 text-sm">
+                    <span class="text-xs font-semibold uppercase tracking-wide text-gray-500">Family</span>
+                    <input class="rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500" name="family_id" value="{{ page.Enhancement.query.family_id|default:"" }}" placeholder="Family ID">
+                  </label>
+                  <label class="filter-panel__field grid gap-1 text-sm">
+                    <span class="text-xs font-semibold uppercase tracking-wide text-gray-500">Blocker</span>
+                    <input class="rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500" name="blocker_code" value="{{ page.Enhancement.query.blocker_code|default:"" }}" placeholder="missing_locale">
+                  </label>
+                  <div class="filter-panel__actions flex items-end">
+                    <button type="submit" class="btn btn-primary w-full">Apply</button>
+                  </div>
+                </div>
+              </div>
+            </details>
+          </form>
+        </section>
+
+        <section class="rounded-xl border border-gray-200 bg-white px-5 py-4 shadow-sm" data-matrix-viewport="true">
+          <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <p class="text-sm font-semibold text-gray-900">Viewport</p>
+              <p class="mt-1 text-sm text-gray-600">
+                Page {{ page.Meta.page|default:"1" }} &middot;
+                {{ page.Meta.per_page|default:"25" }} families per page &middot;
+                locale window {{ page.Meta.locale_offset|default:"0" }} + {{ page.Meta.locale_limit|default:"20" }}
+              </p>
+            </div>
+            <div class="flex flex-wrap gap-2">
+              {% if page.Actions.bulk_actions.create_missing.enabled %}
+              <button type="button" class="btn btn-primary btn-sm" data-matrix-bulk-action="create_missing">Create missing</button>
+              {% else %}
+              <button type="button" class="btn btn-primary btn-sm opacity-50" disabled title="{{ page.Actions.bulk_actions.create_missing.reason|default:"Create missing is unavailable." }}">Create missing</button>
+              {% endif %}
+              {% if page.Actions.bulk_actions.export_selected.enabled %}
+              <button type="button" class="btn btn-secondary btn-sm" data-matrix-bulk-action="export_selected">Export selected</button>
+              {% else %}
+              <button type="button" class="btn btn-secondary btn-sm opacity-50" disabled title="{{ page.Actions.bulk_actions.export_selected.reason|default:"Export selected is unavailable." }}">Export selected</button>
+              {% endif %}
+            </div>
+          </div>
+        </section>
+
+        {% if page.Data.rows %}
+        <div class="overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm" data-matrix-grid="true">
+          <table class="min-w-full border-separate border-spacing-0 text-left text-sm">
+            <thead class="bg-gray-50">
+              <tr>
+                <th scope="col" class="sticky left-0 z-20 min-w-[18rem] border-b border-gray-200 bg-gray-50 px-4 py-3 text-xs font-semibold text-gray-500">Families</th>
+                {% for column in page.Data.columns %}
+                <th scope="col" class="min-w-[10rem] border-b border-gray-200 px-3 py-3 align-top">
+                  <div class="rounded-lg border border-gray-200 bg-white px-3 py-2">
+                    <div class="flex items-center justify-between gap-2">
+                      <span class="text-sm font-semibold text-gray-900">{% if column.label %}{{ column.label }}{% else %}{{ column.locale|upper }}{% endif %}</span>
+                      {% if column.source_locale %}
+                      <span class="status-chip status-chip--source">Source</span>
+                      {% endif %}
+                    </div>
+                    <p class="mt-1 text-xs text-gray-500">{{ column.required_by_count|default:"0" }} required families</p>
+                  </div>
+                </th>
+                {% endfor %}
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100 bg-white">
+              {% for row in page.Data.rows %}
+              <tr data-matrix-row="{{ row.family_id }}">
+                <th scope="row" class="sticky left-0 z-10 max-w-md border-b border-gray-100 bg-white px-4 py-4 align-top">
+                  <div class="flex items-start gap-3">
+                    <input type="checkbox" class="mt-1" data-matrix-family-toggle="{{ row.family_id }}">
+                    <div class="min-w-0">
+                      <a class="font-semibold text-gray-900 hover:text-sky-700 hover:underline" href="{{ row.links.family.href|default:"# " }}">{{ row.source_title|default:row.family_id }}</a>
+                      <p class="mt-1 text-xs text-gray-500">{{ row.content_type|default:"content" }} &middot; Source {{ row.source_locale|default:"-" }}</p>
+                      <div class="mt-2 flex flex-wrap gap-1.5">
+                        {% include "partials/status-badge.html" with badge_status=row.readiness_state show_icon=false %}
+                        {% for blocker in row.blocker_codes %}
+                        {% include "partials/status-badge.html" with badge_status=blocker show_icon=false %}
+                        {% endfor %}
+                      </div>
+                      <div class="mt-3 flex flex-wrap gap-2">
+                        {% if row.links.family.href %}
+                        <a class="btn btn-secondary btn-sm" href="{{ row.links.family.href }}">Open family</a>
+                        {% endif %}
+                        {% if row.links.content_detail.href %}
+                        <a class="btn btn-secondary btn-sm" href="{{ row.links.content_detail.href }}">Source</a>
+                        {% endif %}
+                      </div>
+                    </div>
+                  </div>
+                </th>
+                {% for column in page.Data.columns %}
+                {% set cell = row.cells[column.locale] %}
+                <td class="border-b border-gray-100 px-3 py-4 align-top">
+                  <div class="min-w-[10rem] rounded-lg border border-gray-200 bg-gray-50 p-3">
+                    <div class="flex flex-wrap items-center gap-1.5">
+                      {% include "partials/status-badge.html" with badge_status=cell.state %}
+                      {% if cell.assignment.status and cell.assignment.status != cell.state %}
+                      {% include "partials/status-badge.html" with badge_status=cell.assignment.status show_icon=false %}
+                      {% endif %}
+                    </div>
+                    {% if cell.quick_actions.open.href %}
+                    <a class="btn btn-secondary btn-sm mt-3" href="{{ cell.quick_actions.open.href }}" data-matrix-cell-action="true" data-family-id="{{ row.family_id }}" data-locale="{{ column.locale }}">{{ cell.quick_actions.open.label|default:"Open" }}</a>
+                    {% elif cell.quick_actions.create.enabled %}
+                    <button type="button" class="btn btn-secondary btn-sm mt-3" data-matrix-cell-action="true" data-family-id="{{ row.family_id }}" data-locale="{{ column.locale }}">{{ cell.quick_actions.create.label|default:"Create" }}</button>
+                    {% elif cell.quick_actions.create.reason %}
+                    <p class="mt-3 text-xs text-gray-500">{{ cell.quick_actions.create.reason }}</p>
+                    {% endif %}
+                  </div>
+                </td>
+                {% endfor %}
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <section class="rounded-xl border border-dashed border-gray-300 bg-white p-8 text-sm text-gray-500" data-matrix-empty="true">
+          <h2 class="text-lg font-semibold text-gray-900">{{ page.EmptyState.title|default:"No matrix rows" }}</h2>
+          <p class="mt-2">{{ page.EmptyState.description|default:"No families match the current matrix filters." }}</p>
+        </section>
+        {% endif %}
+      </div>
+      {% endwith %}
+      {% endif %}
+    </div>
   </div>
 </div>
 {% endblock %}

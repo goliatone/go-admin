@@ -3,48 +3,234 @@
 {% block title %}Translation Exchange - {{ title }}{% endblock %}
 
 {% block content %}
-{# Compact Header (Option 3: Integrated Breadcrumb) #}
-<header class="admin-page-header px-8 py-3 bg-white border-b border-gray-200">
-  <div class="flex items-center justify-between gap-4">
-    {# Left: Breadcrumb | Title #}
-    <div class="flex items-center gap-4 min-w-0 flex-1">
-      {% include "partials/breadcrumbs.html" with breadcrumbs=breadcrumbs %}
-      <h1 class="text-2xl font-bold text-gray-900 truncate">Translation Exchange</h1>
-    </div>
-
-    {# Right: Actions #}
-    <div class="flex items-center gap-3 flex-shrink-0">
-      <a href="{% if translation_exchange_ui_config.template.href %}{{ translation_exchange_ui_config.template.href }}{% else %}{{ translation_exchange_api_path|default:"" }}/template?format={{ translation_exchange_ui_config.template.format|default:"json" }}{% endif %}"
-         class="btn btn-secondary"
-         download="{{ translation_exchange_ui_config.template.filename|default:"translation_exchange_template.json" }}">
-        {{ translation_exchange_ui_config.template.label|default:"Download JSON Template" }}
-      </a>
-    </div>
-  </div>
-  <p class="mt-2 text-sm text-gray-500">Export packages, validate imports, and apply translation files with conflict resolution.</p>
-</header>
+{% with page=translation_exchange_ssr %}
+{% include "partials/admin-page-header.html" with breadcrumbs=breadcrumbs page_title="Translation Exchange" page_subtitle="Export packages, validate imports, and apply translation files with conflict resolution." header_actions_id="translation-exchange-header-actions" %}
 
 <div class="flex-1 overflow-y-auto bg-gray-50 p-8">
-  <div class="mx-auto">
-    <div id="translation-exchange-app"></div>
+  <div class="mx-auto max-w-[96rem]">
+    <div
+      id="translation-exchange-app"
+      data-translation-exchange-ssr="true"
+      data-endpoint="{{ translation_exchange_api_path|default:"" }}"
+      data-history-path="{{ page.Links.history|default:"" }}"
+      data-enhancement="{{ toJSON(page.Enhancement)|escape }}"
+    >
+      {% if page.ErrorState %}
+      <section class="rounded-lg border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900" data-translation-ssr-error="true">
+        <h2 class="text-base font-semibold">{{ page.ErrorState.title|default:"Exchange data unavailable" }}</h2>
+        <p class="mt-1">{{ page.ErrorState.description|default:"Exchange data could not be loaded server-side." }}</p>
+      </section>
+      {% endif %}
+
+      <section class="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm" data-translation-exchange="true" data-translation-exchange-first-render="ssr">
+        <header class="border-b border-gray-200 bg-gray-50 px-6 py-5">
+          <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div>
+              <h2 class="text-lg font-semibold text-gray-900">Exchange workflow</h2>
+              <p class="mt-1 text-sm text-gray-600">Configure packages, validate incoming files, and review retained jobs.</p>
+            </div>
+            <a href="{{ page.Data.template.href|default:"" }}"
+               class="btn btn-secondary"
+               download="{{ page.Data.template.filename|default:"translation_exchange_template.json" }}">
+              {{ page.Data.template.label|default:"Download JSON Template" }}
+            </a>
+          </div>
+        </header>
+
+        <div class="grid gap-5 p-6">
+          <nav class="grid gap-3 md:grid-cols-4" aria-label="Exchange steps" data-exchange-steps="true">
+            <button type="button" data-exchange-step="export" class="rounded-xl border border-blue-400 bg-blue-50 px-4 py-4 text-left shadow-sm">
+              <span class="block text-sm font-semibold text-gray-900">1. Export</span>
+              <span class="mt-1 block text-sm text-gray-600">Filter records and hand off files.</span>
+            </button>
+            <button type="button" data-exchange-step="validate" class="rounded-xl border border-gray-200 bg-white px-4 py-4 text-left">
+              <span class="block text-sm font-semibold text-gray-900">2. Validate</span>
+              <span class="mt-1 block text-sm text-gray-600">Upload and inspect row outcomes.</span>
+            </button>
+            <button type="button" data-exchange-step="apply" class="rounded-xl border border-gray-200 bg-white px-4 py-4 text-left">
+              <span class="block text-sm font-semibold text-gray-900">3. Apply</span>
+              <span class="mt-1 block text-sm text-gray-600">Choose conflict and create behavior.</span>
+            </button>
+            <button type="button" data-exchange-step="history" class="rounded-xl border border-gray-200 bg-white px-4 py-4 text-left">
+              <span class="block text-sm font-semibold text-gray-900">4. History</span>
+              <span class="mt-1 block text-sm text-gray-600">Review retained import/export jobs.</span>
+            </button>
+          </nav>
+
+          {% if not page.Data.ui_config.configured %}
+          <section class="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900" data-exchange-config-warning="true">
+            Exchange controls are waiting for host configuration. Configure source locales, target locales, and resources before running exchange jobs.
+          </section>
+          {% endif %}
+
+          <section class="grid gap-5 lg:grid-cols-[1.15fr_0.85fr]">
+            <form data-export-form="true" class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+              <div class="grid gap-5 md:grid-cols-2">
+                <fieldset>
+                  <legend class="text-sm font-semibold text-gray-900">Resources</legend>
+                  <div class="mt-3 space-y-2">
+                    {% for resource in page.Data.resource_options %}
+                    <label class="flex items-center gap-3 text-sm text-gray-700">
+                      <input type="checkbox" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500" name="resources" value="{{ resource.id }}" {% if resource.selected %}checked{% endif %}>
+                      <span>{{ resource.label }}</span>
+                    </label>
+                    {% endfor %}
+                    {% if not page.Data.resource_options %}
+                    <p class="text-sm text-gray-500">No exchange resources configured.</p>
+                    {% endif %}
+                  </div>
+                </fieldset>
+
+                <label class="block text-sm font-semibold text-gray-900">
+                  Source locale
+                  <select name="source_locale" class="mt-3 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500">
+                    {% for locale in page.Data.source_locale_options %}
+                    <option value="{{ locale.code }}" {% if locale.selected %}selected{% endif %}>{{ locale.label }}</option>
+                    {% endfor %}
+                  </select>
+                </label>
+              </div>
+
+              <fieldset class="mt-5">
+                <legend class="text-sm font-semibold text-gray-900">Target locales</legend>
+                <div class="mt-3 grid gap-2 sm:grid-cols-2">
+                  {% for locale in page.Data.target_locale_options %}
+                  <label class="flex items-center gap-3 text-sm text-gray-700">
+                    <input type="checkbox" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500" name="target_locales" value="{{ locale.code }}" {% if locale.selected %}checked{% endif %}>
+                    <span>{{ locale.label }}</span>
+                  </label>
+                  {% endfor %}
+                  {% if not page.Data.target_locale_options %}
+                  <p class="text-sm text-gray-500">No target locales configured.</p>
+                  {% endif %}
+                </div>
+              </fieldset>
+
+              <label class="mt-5 flex items-center gap-3 rounded-lg bg-gray-50 px-4 py-3 text-sm text-gray-700">
+                <input type="checkbox" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500" name="include_source_hash" {% if page.Data.apply_defaults.include_source_hash %}checked{% endif %}>
+                <span>Include source hashes for validate/apply drift detection.</span>
+              </label>
+
+              <div class="mt-5 flex flex-wrap items-center gap-3">
+                {% if page.Actions.export_action.enabled and page.Data.ui_config.configured %}
+                <button class="btn btn-primary" type="submit">Create export package</button>
+                {% else %}
+                <button class="btn btn-primary opacity-50" type="button" disabled title="{{ page.Actions.export_action.reason|default:"Export is unavailable." }}">Create export package</button>
+                {% endif %}
+                <span class="text-sm text-gray-600">Ready to export configured resources.</span>
+              </div>
+            </form>
+
+            <aside class="grid gap-4">
+              <section class="rounded-xl border border-gray-200 bg-gray-50 p-5" data-exchange-validate-baseline="true">
+                <h3 class="text-sm font-semibold uppercase tracking-wide text-gray-500">Validate import</h3>
+                <form data-validate-form="true" class="mt-3 space-y-3">
+                  <label class="block text-sm font-semibold text-gray-900" for="exchange-import-file">Validation file</label>
+                  <input id="exchange-import-file" type="file" accept=".json,.csv" class="block w-full text-sm text-gray-700">
+                  {% if page.Actions.import_validate_action.enabled %}
+                  <button class="btn btn-secondary" type="submit">Validate package</button>
+                  {% else %}
+                  <button class="btn btn-secondary opacity-50" type="button" disabled title="{{ page.Actions.import_validate_action.reason|default:"Validate is unavailable." }}">Validate package</button>
+                  {% endif %}
+                </form>
+              </section>
+
+              <section class="rounded-xl border border-gray-200 bg-gray-50 p-5" data-exchange-apply-baseline="true">
+                <h3 class="text-sm font-semibold uppercase tracking-wide text-gray-500">Apply defaults</h3>
+                <form data-apply-form="true" class="mt-3 grid gap-2 text-sm text-gray-700">
+                  <label class="flex items-center gap-3">
+                    <input type="checkbox" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500" data-apply-option="allowCreateMissing" {% if page.Data.apply_defaults.allow_create_missing %}checked{% endif %}>
+                    <span>Create missing variants</span>
+                  </label>
+                  <label class="flex items-center gap-3">
+                    <input type="checkbox" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500" data-apply-option="allowSourceHashOverride" {% if page.Data.apply_defaults.allow_source_hash_override %}checked{% endif %}>
+                    <span>Allow source-hash override</span>
+                  </label>
+                  <label class="flex items-center gap-3">
+                    <input type="checkbox" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500" data-apply-option="continueOnError" {% if page.Data.apply_defaults.continue_on_error %}checked{% endif %}>
+                    <span>Continue on row errors</span>
+                  </label>
+                  <label class="flex items-center gap-3">
+                    <input type="checkbox" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500" data-apply-option="dryRun" {% if page.Data.apply_defaults.dry_run %}checked{% endif %}>
+                    <span>Dry run</span>
+                  </label>
+                  {% if page.Actions.import_apply_action.enabled %}
+                  <button class="btn btn-secondary mt-2" type="submit">Apply validated rows</button>
+                  {% else %}
+                  <button class="btn btn-secondary mt-2 opacity-50" type="button" disabled title="{{ page.Actions.import_apply_action.reason|default:"Apply is unavailable." }}">Apply validated rows</button>
+                  {% endif %}
+                </form>
+              </section>
+            </aside>
+          </section>
+
+          <section class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm" data-exchange-history-baseline="true">
+            <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <h3 class="text-lg font-semibold text-gray-900">Recent history</h3>
+                <p class="mt-1 text-sm text-gray-600">
+                  Source {{ page.Meta.history_source_policy.source|default:"runtime" }} ·
+                  {{ page.Data.history.total|default:"0" }} jobs
+                </p>
+              </div>
+              <button class="btn btn-secondary" type="button" data-history-refresh="true">Refresh history</button>
+            </div>
+
+            {% if page.Data.history.items %}
+            <div class="mt-5 grid gap-3">
+              {% for job in page.Data.history.items %}
+              <article class="rounded-lg border border-gray-200 bg-gray-50 p-4" data-history-job="{{ job.id }}">
+                <div class="flex flex-wrap items-start justify-between gap-4">
+                  <div>
+                    <div class="flex flex-wrap items-center gap-2">
+                      {% include "partials/status-badge.html" with badge_status=job.status show_icon=false %}
+                      {% if job.fixture %}
+                      {% include "partials/status-badge.html" with badge_status="fixture" badge_tone="warning" badge_label="Fixture" show_icon=false %}
+                      {% endif %}
+                    </div>
+                    <h4 class="mt-3 text-base font-semibold text-gray-900">{{ job.file.name|default:job.id }}</h4>
+                    <p class="mt-1 text-sm text-gray-600">{{ job.kind|default:"exchange" }} · {{ job.created_at|default:"pending" }}</p>
+                  </div>
+                  <div class="text-sm text-gray-600">
+                    <div>{{ job.progress.processed|default:"0" }} / {{ job.progress.total|default:"0" }} processed</div>
+                    <div>{{ job.file.format|default:"json"|upper }} package</div>
+                  </div>
+                </div>
+              </article>
+              {% endfor %}
+            </div>
+            {% else %}
+            <section class="mt-5 rounded-lg border border-dashed border-gray-300 bg-gray-50 p-6 text-sm text-gray-600" data-exchange-history-empty="true">
+              <h4 class="text-base font-semibold text-gray-900">{{ page.EmptyState.title|default:"No exchange jobs" }}</h4>
+              <p class="mt-2">{{ page.EmptyState.description|default:"Recent import and export jobs will appear after translation exchange activity." }}</p>
+            </section>
+            {% endif %}
+          </section>
+        </div>
+      </section>
+    </div>
   </div>
 </div>
+{% endwith %}
 {% endblock %}
 
 {% block scripts %}
 <script type="module">
 import { TranslationExchangeManager } from '{{ adminURL("assets/dist/translation-exchange/index.js") }}';
 
+const root = document.getElementById('translation-exchange-app');
 const basePath = '{{ base_path }}';
 const apiBasePath = '{{ api_base_path|default:"" }}';
-const rawApiPath = '{{ translation_exchange_api_path|default:"" }}' || (apiBasePath ? `${apiBasePath}/translations/exchange` : `${basePath}/api/translations/exchange`);
+const rawApiPath = root?.dataset.endpoint || '{{ translation_exchange_api_path|default:"" }}' || (apiBasePath ? `${apiBasePath}/translations/exchange` : `${basePath}/api/translations/exchange`);
 const apiPath = rawApiPath.includes('/exchange') ? rawApiPath : `${rawApiPath.replace(/\/$/, '')}/exchange`;
-const exchangeUIConfig = {{ toJSON(translation_exchange_ui_config)|safe }};
+const exchangeSSREnhancement = {{ toJSON(translation_exchange_ssr.Enhancement)|safe }};
+const exchangeUIConfig = exchangeSSREnhancement?.ui_config || {{ toJSON(translation_exchange_ui_config)|safe }};
 
 const manager = new TranslationExchangeManager({
   apiPath,
   basePath,
-  includeExamples: true,
+  historyPath: root?.dataset.historyPath || exchangeSSREnhancement?.history_path,
+  includeExamples: exchangeSSREnhancement?.include_examples === true,
   exchangeUIConfig,
 });
 

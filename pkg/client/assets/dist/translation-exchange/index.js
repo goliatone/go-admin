@@ -1,9 +1,9 @@
 import { escapeHTML as o } from "../shared/html.js";
-import { httpRequest as W, readHTTPResponsePayload as G } from "../shared/transport/http-client.js";
+import { httpRequest as G, readHTTPResponsePayload as K } from "../shared/transport/http-client.js";
 import "../chunks/status-vocabulary-HmIBabRF.js";
-import { a as I, i as K, o as f, s as C } from "../chunks/translation-contracts-DrJVTucO.js";
-import { C as F, I as v, L as E, dt as Y, h as w, nt as _, p as R, w as X, x as m, y as j } from "../chunks/translation-shared-Ba5eIyeA.js";
-import { formatTranslationShortDateTime as T } from "../translation-shared/formatters.js";
+import { a as I, i as Y, o as m, s as k } from "../chunks/translation-contracts-DrJVTucO.js";
+import { C as V, I as v, L as E, dt as X, h as w, nt as _, p as R, w as T, x as f, y as j } from "../chunks/translation-shared-Ba5eIyeA.js";
+import { formatTranslationShortDateTime as D } from "../translation-shared/formatters.js";
 var Q = { root: "#translation-exchange-app" }, Z = [{
   value: "pages",
   label: "pages"
@@ -30,59 +30,59 @@ var Q = { root: "#translation-exchange-app" }, Z = [{
 function b(t) {
   return String(t ?? "").trim().toLowerCase();
 }
-function V(t) {
+function B(t) {
   return String(t ?? "").trim();
 }
-function B(t) {
+function z(t) {
   return !!t && t !== "none" && t !== "mixed";
 }
 function st(t) {
   return !t || typeof t != "object" ? !1 : t.configured === !0 || !!String(t.source_locale ?? "").trim() || Array.isArray(t.source_locales) && t.source_locales.length > 0 || Array.isArray(t.target_locales) && t.target_locales.length > 0 || Array.isArray(t.resources) && t.resources.length > 0 || Array.isArray(t.default_resources) && t.default_resources.length > 0 || Array.isArray(t.default_target_locales) && t.default_target_locales.length > 0 || typeof t.include_source_hash == "boolean" || typeof t.include_examples == "boolean" || !!(t.template && Object.keys(t.template).length > 0) || !!(t.apply && Object.keys(t.apply).length > 0);
 }
-function at(t, e, a) {
-  const r = String(a[t] ?? "").trim();
-  if (r) return r;
+function at(t, e, r) {
+  const a = String(r[t] ?? "").trim();
+  if (a) return a;
   const s = String(e ?? "").trim();
   return s && b(s) !== t ? s : t.toUpperCase();
 }
-function D(t, e) {
-  const a = /* @__PURE__ */ new Set(), r = [];
+function O(t, e) {
+  const r = /* @__PURE__ */ new Set(), a = [];
   for (const s of Array.isArray(t) ? t : []) {
-    const l = b(s?.code);
-    !B(l) || a.has(l) || (a.add(l), r.push({
-      code: l,
-      label: at(l, s?.label, e)
-    }));
-  }
-  return r;
-}
-function rt(t) {
-  const e = /* @__PURE__ */ new Set(), a = [];
-  for (const r of Array.isArray(t) ? t : []) {
-    const s = V(r?.value ?? r?.id);
-    !s || e.has(s) || (e.add(s), a.push({
-      value: s,
-      id: s,
-      label: String(r?.label ?? s).trim() || s
+    const n = b(s?.code);
+    !z(n) || r.has(n) || (r.add(n), a.push({
+      code: n,
+      label: at(n, s?.label, e)
     }));
   }
   return a;
 }
-function z(t, e, a = "") {
-  const r = /* @__PURE__ */ new Set(), s = [];
-  for (const l of Array.isArray(t) ? t : []) {
-    const i = b(l);
-    !i || i === a || !e.has(i) || r.has(i) || (r.add(i), s.push(i));
+function rt(t) {
+  const e = /* @__PURE__ */ new Set(), r = [];
+  for (const a of Array.isArray(t) ? t : []) {
+    const s = B(a?.value ?? a?.id);
+    !s || e.has(s) || (e.add(s), r.push({
+      value: s,
+      id: s,
+      label: String(a?.label ?? s).trim() || s
+    }));
+  }
+  return r;
+}
+function q(t, e, r = "") {
+  const a = /* @__PURE__ */ new Set(), s = [];
+  for (const n of Array.isArray(t) ? t : []) {
+    const i = b(n);
+    !i || i === r || !e.has(i) || a.has(i) || (a.add(i), s.push(i));
   }
   return s;
 }
-function q(t, e) {
-  const a = /* @__PURE__ */ new Set(), r = [];
+function W(t, e) {
+  const r = /* @__PURE__ */ new Set(), a = [];
   for (const s of Array.isArray(t) ? t : []) {
-    const l = V(s);
-    !l || !e.has(l) || a.has(l) || (a.add(l), r.push(l));
+    const n = B(s);
+    !n || !e.has(n) || r.has(n) || (r.add(n), a.push(n));
   }
-  return r;
+  return a;
 }
 function it(t) {
   if (!st(t)) return {
@@ -102,16 +102,16 @@ function it(t) {
       dryRun: !1
     }
   };
-  const e = t?.locale_labels ?? {}, a = rt(t?.resources), r = D(t?.source_locales, e), s = b(t?.source_locale), l = B(s) ? s : r[0]?.code || "", i = D(t?.target_locales, e).filter((h) => h.code && h.code !== l), n = new Set(a.map((h) => h.value ?? "")), d = new Set(i.map((h) => h.code)), u = q(t?.default_resources, n), c = z(t?.default_target_locales, d, l), p = [];
-  return a.length === 0 && p.push("No exchange resources are configured."), (r.length === 0 || !l) && p.push("No source locale is configured."), i.length === 0 && p.push("No target locales are configured."), {
+  const e = t?.locale_labels ?? {}, r = rt(t?.resources), a = O(t?.source_locales, e), s = b(t?.source_locale), n = z(s) ? s : a[0]?.code || "", i = O(t?.target_locales, e).filter((h) => h.code && h.code !== n), l = new Set(r.map((h) => h.value ?? "")), d = new Set(i.map((h) => h.code)), u = W(t?.default_resources, l), c = q(t?.default_target_locales, d, n), p = [];
+  return r.length === 0 && p.push("No exchange resources are configured."), (a.length === 0 || !n) && p.push("No source locale is configured."), i.length === 0 && p.push("No target locales are configured."), {
     configured: !0,
     blockedReason: p.join(" "),
-    resources: a,
-    sourceLocales: r,
+    resources: r,
+    sourceLocales: a,
     targetLocales: i,
-    defaultResources: u.length > 0 ? u : a.map((h) => h.value ?? ""),
+    defaultResources: u.length > 0 ? u : r.map((h) => h.value ?? ""),
     defaultTargetLocales: c.length > 0 ? c : i.map((h) => h.code),
-    defaultSourceLocale: l,
+    defaultSourceLocale: n,
     includeSourceHash: t?.include_source_hash !== !1,
     includeExamples: typeof t?.include_examples == "boolean" ? t.include_examples : void 0,
     apply: {
@@ -122,7 +122,7 @@ function it(t) {
     }
   };
 }
-function O(t) {
+function U(t) {
   switch (t) {
     case "completed":
       return "success";
@@ -147,17 +147,17 @@ function S(t) {
   }
 }
 function y(t) {
-  return `rounded-full px-3 py-1 text-xs font-medium ${Y(t)}`;
+  return `rounded-full px-3 py-1 text-xs font-medium ${X(t)}`;
 }
-var g = `${F} p-5`, ot = `${F} p-4`, U = `${_} border ${w} ${R} p-5`, A = `${_} border ${w} ${R} p-4`, L = `${_} border ${w} ${R} px-4 py-3`, H = `${_} border ${w} ${R} px-6 py-10 text-center text-sm text-gray-600`, x = "text-xs uppercase tracking-wider text-gray-500";
-function lt(t, e) {
-  const a = typeof window < "u" && typeof window.btoa == "function" ? window.btoa.bind(window) : typeof globalThis.btoa == "function" ? globalThis.btoa.bind(globalThis) : null;
-  return a ? `data:${t};base64,${a(encodeURIComponent(e).replace(/%([0-9A-F]{2})/g, (r, s) => String.fromCharCode(parseInt(s, 16))))}` : `data:${t},${encodeURIComponent(e)}`;
+var g = `${V} p-5`, ot = `${V} p-4`, H = `${_} border ${w} ${R} p-5`, A = `${_} border ${w} ${R} p-4`, L = `${_} border ${w} ${R} px-4 py-3`, M = `${_} border ${w} ${R} px-6 py-10 text-center text-sm text-gray-600`, x = "text-xs uppercase tracking-wider text-gray-500";
+function nt(t, e) {
+  const r = typeof window < "u" && typeof window.btoa == "function" ? window.btoa.bind(window) : typeof globalThis.btoa == "function" ? globalThis.btoa.bind(globalThis) : null;
+  return r ? `data:${t};base64,${r(encodeURIComponent(e).replace(/%([0-9A-F]{2})/g, (a, s) => String.fromCharCode(parseInt(s, 16))))}` : `data:${t},${encodeURIComponent(e)}`;
 }
-function nt(t) {
+function lt(t) {
   return new Promise((e) => setTimeout(e, Math.max(0, t)));
 }
-function M(t) {
+function J(t) {
   return !t || !t.progress.total || t.progress.total <= 0 ? 0 : Math.max(0, Math.min(100, Math.round(t.progress.processed / t.progress.total * 100)));
 }
 function dt(t, e) {
@@ -166,31 +166,31 @@ function dt(t, e) {
 function ct(t, e) {
   return t?.downloads ? t.downloads[e]?.label ?? t.downloads.artifact?.label ?? "Download artifact" : "";
 }
-function J(t) {
+function N(t) {
   const e = [];
   return t.resources.length === 0 && e.push("Select at least one resource."), t.targetLocales.length === 0 && e.push("Select at least one target locale."), t.targetLocales.includes(t.sourceLocale) && e.push("Target locales cannot include the source locale."), t.includeSourceHash || e.push("Conflict detection is weaker when source hashes are excluded."), e;
 }
 function pt(t) {
   const e = {};
   if (!t) return e;
-  for (const a of t.results) e[a.index] = a.status === "success" ? "accepted" : "rejected";
+  for (const r of t.results) e[r.index] = r.status === "success" ? "accepted" : "rejected";
   return e;
 }
-function N(t, e) {
-  const a = {};
-  for (const [r, s] of t.entries()) a[typeof s.index == "number" ? s.index : r] = "apply";
-  if (!e) return a;
-  for (const r of e.results) a[r.index] = r.status === "success" ? "apply" : "skip";
-  return a;
+function P(t, e) {
+  const r = {};
+  for (const [a, s] of t.entries()) r[typeof s.index == "number" ? s.index : a] = "apply";
+  if (!e) return r;
+  for (const a of e.results) r[a.index] = a.status === "success" ? "apply" : "skip";
+  return r;
 }
-function P(t) {
+function F(t) {
   const e = /* @__PURE__ */ new Map();
-  for (const a of t?.results ?? []) e.set(a.index, a);
+  for (const r of t?.results ?? []) e.set(r.index, r);
   return e;
 }
-function k(t) {
+function C(t) {
   return t?.result ? {
-    ...C({
+    ...k({
       ...t.result,
       job: t
     }),
@@ -200,14 +200,14 @@ function k(t) {
 function ut(t) {
   const e = String(t ?? "").match(/^data:([^,]*?),(.*)$/i);
   if (!e) return "";
-  const [, a, r] = e;
-  if (a.includes(";base64")) {
+  const [, r, a] = e;
+  if (r.includes(";base64")) {
     const s = typeof window < "u" && typeof window.atob == "function" ? window.atob.bind(window) : typeof globalThis.atob == "function" ? globalThis.atob.bind(globalThis) : null;
     if (!s) return "";
-    const l = s(r);
-    return decodeURIComponent(Array.from(l).map((i) => `%${i.charCodeAt(0).toString(16).padStart(2, "0")}`).join(""));
+    const n = s(a);
+    return decodeURIComponent(Array.from(n).map((i) => `%${i.charCodeAt(0).toString(16).padStart(2, "0")}`).join(""));
   }
-  return decodeURIComponent(r);
+  return decodeURIComponent(a);
 }
 function $(t, e) {
   return {
@@ -216,8 +216,8 @@ function $(t, e) {
   };
 }
 var bt = class {
-  constructor(t, e = {}, a) {
-    this.root = null, this.step = "export", this.exportState = {
+  constructor(t, e = {}, r) {
+    this.root = null, this.hasServerRenderedContent = !1, this.step = "export", this.exportState = {
       draft: {
         resources: ["pages"],
         sourceLocale: "en",
@@ -230,7 +230,7 @@ var bt = class {
       downloadLabel: "",
       message: ""
     }, this.validateState = {
-      upload: f({ state: "idle" }),
+      upload: m({ state: "idle" }),
       file: null,
       parsedRows: [],
       result: null,
@@ -257,12 +257,12 @@ var bt = class {
       jobStatus: "all",
       selectedJobId: "",
       message: ""
-    }, this.handleClick = (r) => {
-      const s = r.target;
+    }, this.handleClick = (a) => {
+      const s = a.target;
       if (!s) return;
-      const l = s.closest("[data-exchange-step]");
-      if (l) {
-        this.step = l.dataset.exchangeStep, this.render(), this.step === "history" && this.historyState.status === "idle" && this.loadHistory();
+      const n = s.closest("[data-exchange-step]");
+      if (n) {
+        this.step = n.dataset.exchangeStep, this.render(), this.step === "history" && this.historyState.status === "idle" && this.loadHistory();
         return;
       }
       const i = s.closest("[data-stage-row]");
@@ -271,9 +271,9 @@ var bt = class {
         c >= 0 && (p === "accepted" || p === "rejected") && (this.validateState.decisions[c] = p, this.applyState.resolutions[c] = p === "accepted" ? "apply" : "skip", this.render());
         return;
       }
-      const n = s.closest("[data-apply-row]");
-      if (n) {
-        const c = Number(n.dataset.applyRow ?? "-1"), p = n.dataset.applyDecision;
+      const l = s.closest("[data-apply-row]");
+      if (l) {
+        const c = Number(l.dataset.applyRow ?? "-1"), p = l.dataset.applyDecision;
         c >= 0 && p && (this.applyState.resolutions[c] = p, this.render());
         return;
       }
@@ -293,17 +293,17 @@ var bt = class {
         const p = u.dataset.historyLoadApply === "conflicts";
         this.loadHistoryJobIntoApply(c, p);
       }
-    }, this.handleChange = (r) => {
-      const s = r.target;
+    }, this.handleChange = (a) => {
+      const s = a.target;
       if (s) {
         if (s.matches('[data-export-form="true"] input, [data-export-form="true"] select')) {
-          const l = s.closest("form");
-          l && (this.exportState.draft = this.readExportDraft(l), this.render());
+          const n = s.closest("form");
+          n && (this.exportState.draft = this.readExportDraft(n), this.render());
           return;
         }
         if (s.id === "exchange-import-file" && s instanceof HTMLInputElement) {
-          const l = s.files?.[0] ?? null;
-          this.stageImportFile(l);
+          const n = s.files?.[0] ?? null;
+          this.stageImportFile(n);
           return;
         }
         if (s.matches("[data-history-kind]")) {
@@ -315,8 +315,8 @@ var bt = class {
           return;
         }
         if (s.matches("[data-apply-option]")) {
-          const l = String(s.dataset.applyOption ?? ""), i = s instanceof HTMLInputElement ? s.checked === !0 : !1;
-          switch (l) {
+          const n = String(s.dataset.applyOption ?? ""), i = s instanceof HTMLInputElement ? s.checked === !0 : !1;
+          switch (n) {
             case "allowCreateMissing":
               this.applyState.allowCreateMissing = i;
               break;
@@ -335,18 +335,18 @@ var bt = class {
           this.render();
         }
       }
-    }, this.handleSubmit = (r) => {
-      const s = r.target;
+    }, this.handleSubmit = (a) => {
+      const s = a.target;
       if (s) {
         if (s.matches('[data-export-form="true"]')) {
-          r.preventDefault(), this.submitExport(s);
+          a.preventDefault(), this.submitExport(s);
           return;
         }
         if (s.matches('[data-validate-form="true"]')) {
-          r.preventDefault(), this.submitValidate();
+          a.preventDefault(), this.submitValidate();
           return;
         }
-        s.matches('[data-apply-form="true"]') && (r.preventDefault(), this.submitApply());
+        s.matches('[data-apply-form="true"]') && (a.preventDefault(), this.submitApply());
       }
     }, this.config = t, this.exchangeUI = it(t.exchangeUIConfig), this.exportState.draft = {
       resources: this.exchangeUI.defaultResources,
@@ -356,10 +356,10 @@ var bt = class {
     }, this.applyState.allowCreateMissing = this.exchangeUI.apply.allowCreateMissing, this.applyState.allowSourceHashOverride = this.exchangeUI.apply.allowSourceHashOverride, this.applyState.continueOnError = this.exchangeUI.apply.continueOnError, this.applyState.dryRun = this.exchangeUI.apply.dryRun, this.selectors = {
       ...Q,
       ...e
-    }, this.toast = a ?? window.toastManager ?? null;
+    }, this.toast = r ?? window.toastManager ?? null;
   }
   init() {
-    this.root = document.querySelector(this.selectors.root), this.root && (this.root.addEventListener("click", this.handleClick), this.root.addEventListener("change", this.handleChange), this.root.addEventListener("submit", this.handleSubmit), this.render(), this.loadHistory());
+    this.root = document.querySelector(this.selectors.root), this.root && (this.hasServerRenderedContent = this.root.dataset.translationExchangeSsr === "true" && this.root.innerHTML.trim().length > 0, this.root.addEventListener("click", this.handleClick), this.root.addEventListener("change", this.handleChange), this.root.addEventListener("submit", this.handleSubmit), this.hasServerRenderedContent || this.render(), this.loadHistory());
   }
   destroy() {
     this.root?.removeEventListener("click", this.handleClick), this.root?.removeEventListener("change", this.handleChange), this.root?.removeEventListener("submit", this.handleSubmit);
@@ -400,31 +400,31 @@ var bt = class {
     const e = await this.postJSON(`${this.config.apiPath}/import/apply`, {
       ...t,
       async: t.async !== !1
-    }), a = C(e);
-    return a.job && this.loadHistory(!0), this.emitAnalytics("exchange_apply_completion", {
-      processed: a.summary.processed,
-      succeeded: a.summary.succeeded,
-      failed: a.summary.failed,
-      conflicts: a.summary.conflicts ?? 0,
-      status: a.job?.status ?? "completed"
+    }), r = k(e);
+    return r.job && this.loadHistory(!0), this.emitAnalytics("exchange_apply_completion", {
+      processed: r.summary.processed,
+      succeeded: r.summary.succeeded,
+      failed: r.summary.failed,
+      conflicts: r.summary.conflicts ?? 0,
+      status: r.job?.status ?? "completed"
     }), {
-      ...a,
-      job: a.job,
+      ...r,
+      job: r.job,
       meta: e.meta && typeof e.meta == "object" ? e.meta : void 0
     };
   }
   async pollJobUntilTerminal(t, e = {}) {
-    const a = typeof t == "string" ? t : t.poll_endpoint;
-    if (!a) throw new Error("Poll endpoint is required.");
-    const r = e.intervalMs ?? 250, s = e.timeoutMs ?? 15e3, l = Date.now();
+    const r = typeof t == "string" ? t : t.poll_endpoint;
+    if (!r) throw new Error("Poll endpoint is required.");
+    const a = e.intervalMs ?? 250, s = e.timeoutMs ?? 15e3, n = Date.now();
     let i = 0;
     for (; ; ) {
       if (e.signal?.aborted) throw new Error("Polling aborted.");
       i > 0 && this.emitAnalytics("exchange_apply_retry", {
-        poll_endpoint: a,
+        poll_endpoint: r,
         attempt: i
       });
-      const n = await this.fetchJSON(a), d = I(n.job && typeof n.job == "object" ? n.job : n);
+      const l = await this.fetchJSON(r), d = I(l.job && typeof l.job == "object" ? l.job : l);
       if (!d) throw new Error("Job payload missing.");
       if (e.onTick?.(d, i), d.status !== "running")
         return this.emitAnalytics("exchange_apply_completion", {
@@ -433,16 +433,16 @@ var bt = class {
           processed: d.progress.processed,
           failed: d.progress.failed
         }), d;
-      if (Date.now() - l >= s) throw new Error("Polling timed out.");
-      i += 1, await nt(r);
+      if (Date.now() - n >= s) throw new Error("Polling timed out.");
+      i += 1, await lt(a);
     }
   }
   readExportDraft(t) {
-    const e = new FormData(t), a = new Set(this.exchangeUI.resources.map((i) => i.value ?? "")), r = new Set(this.exchangeUI.targetLocales.map((i) => i.code)), s = b(e.get("source_locale")), l = this.exchangeUI.sourceLocales.some((i) => i.code === s) ? s : this.exchangeUI.defaultSourceLocale;
+    const e = new FormData(t), r = new Set(this.exchangeUI.resources.map((i) => i.value ?? "")), a = new Set(this.exchangeUI.targetLocales.map((i) => i.code)), s = b(e.get("source_locale")), n = this.exchangeUI.sourceLocales.some((i) => i.code === s) ? s : this.exchangeUI.defaultSourceLocale;
     return {
-      resources: q(e.getAll("resources"), a),
-      sourceLocale: l,
-      targetLocales: z(e.getAll("target_locales"), r, l),
+      resources: W(e.getAll("resources"), r),
+      sourceLocale: n,
+      targetLocales: q(e.getAll("target_locales"), a, n),
       includeSourceHash: e.has("include_source_hash")
     };
   }
@@ -453,14 +453,14 @@ var bt = class {
     }
     const e = this.readExportDraft(t);
     this.exportState.draft = e;
-    const a = J(e);
-    if (e.resources.length === 0 || e.targetLocales.length === 0 || a.some((r) => r.includes("cannot include"))) {
-      this.exportState.status = "error", this.exportState.message = a[0] ?? "Complete the export filters before continuing.", this.render();
+    const r = N(e);
+    if (e.resources.length === 0 || e.targetLocales.length === 0 || r.some((a) => a.includes("cannot include"))) {
+      this.exportState.status = "error", this.exportState.message = r[0] ?? "Complete the export filters before continuing.", this.render();
       return;
     }
     this.exportState.status = "submitting", this.exportState.message = "Preparing export package...", this.render();
     try {
-      const r = await this.postJSON(`${this.config.apiPath}/export`, {
+      const a = await this.postJSON(`${this.config.apiPath}/export`, {
         filter: {
           resources: e.resources,
           source_locale: e.sourceLocale,
@@ -468,21 +468,21 @@ var bt = class {
           include_source_hash: e.includeSourceHash
         },
         async: !0
-      }), s = r.job && typeof r.job == "object" ? r.job : r.data && typeof r.data == "object" ? r.data.job : void 0, l = Array.isArray(r.rows) ? r.rows : r.data && typeof r.data == "object" && Array.isArray(r.data.rows) ? r.data.rows ?? [] : [], i = I(s);
+      }), s = a.job && typeof a.job == "object" ? a.job : a.data && typeof a.data == "object" ? a.data.job : void 0, n = Array.isArray(a.rows) ? a.rows : a.data && typeof a.data == "object" && Array.isArray(a.data.rows) ? a.data.rows ?? [] : [], i = I(s);
       if (this.exportState.job = i, i?.status === "running") {
         this.exportState.status = "polling", this.exportState.message = "Export job running. Polling for artifact...", this.render();
-        const n = await this.pollJobUntilTerminal(i, {
+        const l = await this.pollJobUntilTerminal(i, {
           intervalMs: 250,
           timeoutMs: 15e3,
           onTick: (d) => {
             this.exportState.job = d, this.exportState.message = `Export job running: ${d.progress.processed} / ${d.progress.total ?? 0} processed.`, this.render();
           }
         });
-        this.exportState.job = n;
+        this.exportState.job = l;
       }
-      this.exportState.downloadHref = dt(this.exportState.job, "artifact") || this.createRowsDownload(l), this.exportState.downloadLabel = ct(this.exportState.job, "artifact") || "Download export JSON", this.exportState.status = "completed", this.exportState.message = `${this.exportState.job?.summary?.row_count ?? r.row_count ?? 0} rows ready for handoff.`, this.toast?.success(this.exportState.message), this.loadHistory(!0);
-    } catch (r) {
-      const s = r instanceof Error ? r.message : "Export failed.";
+      this.exportState.downloadHref = dt(this.exportState.job, "artifact") || this.createRowsDownload(n), this.exportState.downloadLabel = ct(this.exportState.job, "artifact") || "Download export JSON", this.exportState.status = "completed", this.exportState.message = `${this.exportState.job?.summary?.row_count ?? a.row_count ?? 0} rows ready for handoff.`, this.toast?.success(this.exportState.message), this.loadHistory(!0);
+    } catch (a) {
+      const s = a instanceof Error ? a.message : "Export failed.";
       this.exportState.status = "error", this.exportState.message = s, this.toast?.error(s);
     }
     this.render();
@@ -498,7 +498,7 @@ var bt = class {
       result: null,
       job: null,
       message: t ? "Reading import file..." : ""
-    }, this.validateState.upload = f({
+    }, this.validateState.upload = m({
       state: t ? "uploading" : "idle",
       filename: t?.name,
       format: t?.name.endsWith(".csv") ? "csv" : "json",
@@ -506,7 +506,7 @@ var bt = class {
     }), this.validateState.status = t ? "loading_file" : "idle", this.validateState.message = t ? "Reading import file..." : "", this.render(), !!t) {
       try {
         const e = await this.parseImportFile(t);
-        this.validateState.parsedRows = e, this.validateState.upload = f({
+        this.validateState.parsedRows = e, this.validateState.upload = m({
           state: "selected",
           filename: t.name,
           format: t.name.endsWith(".csv") ? "csv" : "json",
@@ -514,13 +514,13 @@ var bt = class {
           message: "Ready to validate."
         }), this.validateState.status = "idle", this.validateState.message = `${e.length} rows loaded and ready to validate.`, this.applyState.message = "";
       } catch (e) {
-        const a = e instanceof Error ? e.message : "Unable to read import file.";
-        this.validateState.upload = f({
+        const r = e instanceof Error ? e.message : "Unable to read import file.";
+        this.validateState.upload = m({
           state: "error",
           filename: t.name,
           format: t.name.endsWith(".csv") ? "csv" : "json",
-          message: a
-        }), this.validateState.status = "error", this.validateState.message = a, this.toast?.error(a);
+          message: r
+        }), this.validateState.status = "error", this.validateState.message = r, this.toast?.error(r);
       }
       this.render();
     }
@@ -534,8 +534,8 @@ var bt = class {
     try {
       const t = new FormData();
       t.set("file", this.validateState.file);
-      const e = C(await this.postForm(`${this.config.apiPath}/import/validate`, t));
-      this.validateState.result = e, this.validateState.decisions = pt(e), this.validateState.upload = f({
+      const e = k(await this.postForm(`${this.config.apiPath}/import/validate`, t));
+      this.validateState.result = e, this.validateState.decisions = pt(e), this.validateState.upload = m({
         state: "validated",
         filename: this.validateState.file.name,
         format: this.validateState.file.name.endsWith(".csv") ? "csv" : "json",
@@ -545,7 +545,7 @@ var bt = class {
         rows: this.validateState.parsedRows.map($),
         sourceLabel: this.validateState.file.name,
         retryJobId: "",
-        resolutions: N(this.validateState.parsedRows, e),
+        resolutions: P(this.validateState.parsedRows, e),
         status: "ready",
         message: "Validation finished. Configure apply decisions and submit.",
         result: null,
@@ -575,46 +575,65 @@ var bt = class {
       const e = await this.applyImport(t);
       if (this.applyState.result = e, this.applyState.job = e.job ?? null, e.job?.status === "running") {
         this.applyState.status = "polling", this.applyState.message = "Apply job running. Polling for terminal state...", this.render();
-        const a = await this.pollJobUntilTerminal(e.job, {
+        const r = await this.pollJobUntilTerminal(e.job, {
           intervalMs: 250,
           timeoutMs: 15e3,
-          onTick: (r) => {
-            this.applyState.job = r, this.applyState.message = `Apply job running: ${r.progress.processed} / ${r.progress.total ?? 0} processed.`, this.render();
+          onTick: (a) => {
+            this.applyState.job = a, this.applyState.message = `Apply job running: ${a.progress.processed} / ${a.progress.total ?? 0} processed.`, this.render();
           }
         });
-        this.applyState.job = a, this.applyState.result = k(a);
+        this.applyState.job = r, this.applyState.result = C(r);
       }
       this.applyState.status = "completed", this.applyState.message = this.applyState.dryRun ? "Dry-run apply completed." : "Apply completed.", this.toast?.success(this.applyState.message), this.loadHistory(!0);
     } catch (e) {
-      const a = e instanceof Error ? e.message : "Apply failed.";
-      this.applyState.status = "error", this.applyState.message = a, this.toast?.error(a);
+      const r = e instanceof Error ? e.message : "Apply failed.";
+      this.applyState.status = "error", this.applyState.message = r, this.toast?.error(r);
     }
     this.render();
   }
   buildApplyResolutions() {
-    const t = [], e = new Set(this.applyState.rows.map((a, r) => typeof a.index == "number" ? a.index : r));
-    for (const [a, r] of Object.entries(this.applyState.resolutions)) {
-      const s = Number(a);
-      !e.has(s) || !r || r === "apply" || t.push({
+    const t = [], e = new Set(this.applyState.rows.map((r, a) => typeof r.index == "number" ? r.index : a));
+    for (const [r, a] of Object.entries(this.applyState.resolutions)) {
+      const s = Number(r);
+      !e.has(s) || !a || a === "apply" || t.push({
         row: s,
-        decision: r
+        decision: a
       });
     }
     return t.length > 0 ? t : void 0;
   }
   async loadHistory(t = !1) {
-    if (!(!t && this.historyState.status === "loading")) {
-      this.historyState.status = "loading", this.historyState.message = "Loading history...", this.render();
-      try {
-        const e = new URL(this.historyEndpoint, window.location.origin);
-        this.includeExamples && e.searchParams.set("include_examples", "true");
-        const a = await this.fetchJSON(e.pathname + e.search);
-        this.historyState.response = K(a), this.historyState.status = "ready", this.historyState.message = "", this.historyState.selectedJobId || (this.historyState.selectedJobId = this.historyState.response.history.items[0]?.id ?? ""), this.historyState.selectedJobId && !this.historyState.response.history.items.some((r) => r.id === this.historyState.selectedJobId) && (this.historyState.selectedJobId = this.historyState.response.history.items[0]?.id ?? "");
-      } catch (e) {
-        this.historyState.status = "error", this.historyState.message = e instanceof Error ? e.message : "Unable to load history.";
+    if (!t && this.historyState.status === "loading") return;
+    const e = this.historyState.response, r = this.hasServerRenderedContent && e == null;
+    this.historyState.status = "loading", this.historyState.message = "Loading history...", r || this.render();
+    try {
+      const a = new URL(this.historyEndpoint, window.location.origin);
+      this.includeExamples && a.searchParams.set("include_examples", "true");
+      const s = await this.fetchJSON(a.pathname + a.search);
+      this.historyState.response = Y(s), this.hasServerRenderedContent = !1, this.historyState.status = "ready", this.historyState.message = "", this.historyState.selectedJobId || (this.historyState.selectedJobId = this.historyState.response.history.items[0]?.id ?? ""), this.historyState.selectedJobId && !this.historyState.response.history.items.some((n) => n.id === this.historyState.selectedJobId) && (this.historyState.selectedJobId = this.historyState.response.history.items[0]?.id ?? "");
+    } catch (a) {
+      if (this.historyState.status = "error", this.historyState.message = a instanceof Error ? a.message : "Unable to load history.", e && (this.historyState.response = e), r) {
+        this.renderServerRenderedHistoryError(a);
+        return;
       }
-      this.render();
     }
+    this.render();
+  }
+  renderServerRenderedHistoryError(t) {
+    if (!this.root) return;
+    this.root.querySelector("[data-exchange-ssr-error-banner]")?.remove();
+    const e = t instanceof Error ? t.message : "Unable to load exchange history.";
+    this.root.insertAdjacentHTML("afterbegin", `
+      <section class="${T} mb-4 border-amber-200 bg-amber-50 p-4 text-sm text-amber-900" data-exchange-ssr-error-banner="true" role="alert">
+        <div class="flex items-start justify-between gap-4">
+          <div>
+            <h2 class="font-semibold text-amber-950">Exchange history refresh failed</h2>
+            <p class="mt-1">${o(e)}</p>
+          </div>
+          <button class="${f}" type="button" data-history-refresh="true">Retry</button>
+        </div>
+      </section>
+      `);
   }
   filteredHistoryItems() {
     return (this.historyState.response?.history.items ?? []).filter((t) => !(this.historyState.kind !== "all" && t.kind !== this.historyState.kind || this.historyState.jobStatus !== "all" && t.status !== this.historyState.jobStatus));
@@ -627,26 +646,26 @@ var bt = class {
     return t.length === 0 ? null : t.find((e) => e.id === this.historyState.selectedJobId) ?? t[0] ?? null;
   }
   async loadHistoryJobIntoApply(t, e) {
-    const a = t.downloads?.input?.href ?? t.downloads?.artifact?.href ?? "";
-    if (!a) {
+    const r = t.downloads?.input?.href ?? t.downloads?.artifact?.href ?? "";
+    if (!r) {
       this.toast?.error("Selected history job does not retain an input artifact.");
       return;
     }
     try {
-      const r = ut(a);
-      let s = String(t.file?.format ?? "json").toLowerCase() === "csv" ? this.parseCSVText(r) : this.parseJSONRows(r);
+      const a = ut(r);
+      let s = String(t.file?.format ?? "json").toLowerCase() === "csv" ? this.parseCSVText(a) : this.parseJSONRows(a);
       s = s.map($);
-      const l = k(t);
-      if (e && l) {
-        const i = new Set(l.results.filter((n) => n.status === "conflict" || n.status === "error").map((n) => n.index));
-        s = s.filter((n, d) => i.has(typeof n.index == "number" ? n.index : d));
+      const n = C(t);
+      if (e && n) {
+        const i = new Set(n.results.filter((l) => l.status === "conflict" || l.status === "error").map((l) => l.index));
+        s = s.filter((l, d) => i.has(typeof l.index == "number" ? l.index : d));
       }
       this.applyState = {
         ...this.applyState,
         rows: s,
         sourceLabel: t.file?.name ?? t.id,
         retryJobId: t.id,
-        resolutions: N(s, l),
+        resolutions: P(s, n),
         allowCreateMissing: t.request?.allow_create_missing === !0,
         allowSourceHashOverride: t.request?.allow_source_hash_override === !0,
         continueOnError: t.request?.continue_on_error !== !1,
@@ -655,15 +674,15 @@ var bt = class {
         message: e ? "Loaded conflict rows from history into the apply step." : "Loaded history job into the apply step.",
         result: null,
         job: null
-      }, this.validateState.result = l, this.step = "apply", this.toast?.info(this.applyState.message);
-    } catch (r) {
-      const s = r instanceof Error ? r.message : "Unable to load the selected history artifact.";
+      }, this.validateState.result = n, this.step = "apply", this.toast?.info(this.applyState.message);
+    } catch (a) {
+      const s = a instanceof Error ? a.message : "Unable to load the selected history artifact.";
       this.toast?.error(s);
     }
     this.render();
   }
   createRowsDownload(t) {
-    return lt("application/json", JSON.stringify(t, null, 2));
+    return nt("application/json", JSON.stringify(t, null, 2));
   }
   async parseImportFile(t) {
     const e = await this.readFileText(t);
@@ -673,33 +692,33 @@ var bt = class {
     const e = t;
     if (typeof e.text == "function") return e.text();
     if (typeof e.arrayBuffer == "function" && typeof TextDecoder < "u") {
-      const r = await e.arrayBuffer();
-      return new TextDecoder().decode(r);
+      const a = await e.arrayBuffer();
+      return new TextDecoder().decode(a);
     }
-    const a = typeof window < "u" ? window.FileReader : void 0;
-    if (a) return new Promise((r, s) => {
-      const l = new a();
-      l.onerror = () => s(/* @__PURE__ */ new Error("Unable to read import file.")), l.onload = () => r(String(l.result ?? "")), l.readAsText(t);
+    const r = typeof window < "u" ? window.FileReader : void 0;
+    if (r) return new Promise((a, s) => {
+      const n = new r();
+      n.onerror = () => s(/* @__PURE__ */ new Error("Unable to read import file.")), n.onload = () => a(String(n.result ?? "")), n.readAsText(t);
     });
     if (typeof Response < "u") return new Response(t).text();
     throw new Error("File text reader is not available in this environment.");
   }
   parseJSONRows(t) {
     const e = JSON.parse(t);
-    if (Array.isArray(e)) return e.filter((a) => a !== null && typeof a == "object");
-    if (e && typeof e == "object" && Array.isArray(e.rows)) return e.rows.filter((a) => a !== null && typeof a == "object");
+    if (Array.isArray(e)) return e.filter((r) => r !== null && typeof r == "object");
+    if (e && typeof e == "object" && Array.isArray(e.rows)) return e.rows.filter((r) => r !== null && typeof r == "object");
     throw new Error("JSON import payload must be an array of rows.");
   }
   parseCSVText(t) {
     const e = t.trim().split(/\r?\n/);
     if (e.length < 2) return [];
-    const a = this.parseCSVRecord(e[0]).map((s) => s.trim()), r = [];
+    const r = this.parseCSVRecord(e[0]).map((s) => s.trim()), a = [];
     for (const s of e.slice(1)) {
       if (!s.trim()) continue;
-      const l = this.parseCSVRecord(s), i = {};
-      a.forEach((n, d) => {
-        i[n] = l[d] ?? "";
-      }), r.push({
+      const n = this.parseCSVRecord(s), i = {};
+      r.forEach((l, d) => {
+        i[l] = n[d] ?? "";
+      }), a.push({
         resource: i.resource ?? "",
         entity_id: i.entity_id ?? "",
         family_id: i.family_id ?? "",
@@ -715,38 +734,38 @@ var bt = class {
         notes: i.notes ?? ""
       });
     }
-    return r;
+    return a;
   }
   parseCSVRecord(t) {
     const e = [];
-    let a = "", r = !1;
+    let r = "", a = !1;
     for (let s = 0; s < t.length; s += 1) {
-      const l = t[s], i = t[s + 1];
-      if (l === '"') {
-        if (r && i === '"') {
-          a += '"', s += 1;
+      const n = t[s], i = t[s + 1];
+      if (n === '"') {
+        if (a && i === '"') {
+          r += '"', s += 1;
           continue;
         }
-        r = !r;
+        a = !a;
         continue;
       }
-      if (l === "," && !r) {
-        e.push(a), a = "";
+      if (n === "," && !a) {
+        e.push(r), r = "";
         continue;
       }
-      a += l;
+      r += n;
     }
-    return e.push(a), e;
+    return e.push(r), e;
   }
   applyDecisionForRow(t) {
     return this.applyState.resolutions[t] ?? "apply";
   }
   validationRowForIndex(t) {
-    return P(this.validateState.result).get(t) ?? null;
+    return F(this.validateState.result).get(t) ?? null;
   }
   rowActions(t, e) {
-    const a = ["apply", "skip"], r = e?.metadata ?? {};
-    return (e?.conflict?.type === "stale_source_hash" || r.current_source_hash || r.provided_source_hash) && a.push("override_source_hash"), (r.create_translation_hint === !0 || r.create_translation_required === !0) && a.push("create_missing"), a;
+    const r = ["apply", "skip"], a = e?.metadata ?? {};
+    return (e?.conflict?.type === "stale_source_hash" || a.current_source_hash || a.provided_source_hash) && r.push("override_source_hash"), (a.create_translation_hint === !0 || a.create_translation_required === !0) && r.push("create_missing"), r;
   }
   async postJSON(t, e) {
     return this.request(t, {
@@ -765,29 +784,29 @@ var bt = class {
     return this.request(t, { method: "GET" });
   }
   async request(t, e) {
-    const a = await W(t, e), { payload: r } = await G(a);
-    if (!a.ok) {
-      if (r && typeof r == "object") {
-        const s = r.error?.message ?? r.message;
+    const r = await G(t, e), { payload: a } = await K(r);
+    if (!r.ok) {
+      if (a && typeof a == "object") {
+        const s = a.error?.message ?? a.message;
         throw new Error(s || "Exchange request failed.");
       }
-      throw new Error(typeof r == "string" ? r : "Exchange request failed.");
+      throw new Error(typeof a == "string" ? a : "Exchange request failed.");
     }
-    return r ?? {};
+    return a ?? {};
   }
   emitAnalytics(t, e = {}) {
     if (this.config.telemetryEnabled === !1) return;
-    const a = {
+    const r = {
       name: t,
       fields: e
-    }, r = this.config.analyticsTarget ?? (typeof window < "u" ? window : void 0);
-    r && typeof r.dispatchEvent == "function" && r.dispatchEvent(new CustomEvent("translation:exchange-analytics", { detail: a }));
+    }, a = this.config.analyticsTarget ?? (typeof window < "u" ? window : void 0);
+    a && typeof a.dispatchEvent == "function" && a.dispatchEvent(new CustomEvent("translation:exchange-analytics", { detail: r }));
   }
   render() {
     if (!this.root) return;
-    const t = J(this.exportState.draft), e = Object.values(this.validateState.decisions).filter((l) => l === "accepted").length, a = Object.values(this.validateState.decisions).filter((l) => l === "rejected").length, r = this.historyExamples(), s = this.filteredHistoryItems();
+    const t = N(this.exportState.draft), e = Object.values(this.validateState.decisions).filter((n) => n === "accepted").length, r = Object.values(this.validateState.decisions).filter((n) => n === "rejected").length, a = this.historyExamples(), s = this.filteredHistoryItems();
     this.root.innerHTML = `
-      <section class="${X} overflow-hidden">
+      <section class="${T} overflow-hidden">
         <header class="px-6 py-5 border-b border-gray-200 bg-gray-50">
           <nav class="grid gap-3 md:grid-cols-4" aria-label="Exchange steps">
             ${this.renderStepButton("export", "1. Export", "Filter records, review warnings, and hand off files.")}
@@ -797,15 +816,15 @@ var bt = class {
           </nav>
         </header>
         <div class="p-6 space-y-6">
-          ${this.step === "export" ? this.renderExportStep(t, r) : ""}
-          ${this.step === "validate" ? this.renderValidateStep(e, a, r) : ""}
+          ${this.step === "export" ? this.renderExportStep(t, a) : ""}
+          ${this.step === "validate" ? this.renderValidateStep(e, r, a) : ""}
           ${this.step === "apply" ? this.renderApplyStep() : ""}
           ${this.step === "history" ? this.renderHistoryStep(s) : ""}
         </div>
       </section>
     `;
   }
-  renderStepButton(t, e, a) {
+  renderStepButton(t, e, r) {
     return `
       <button
         type="button"
@@ -813,7 +832,7 @@ var bt = class {
         class="rounded-xl border px-4 py-4 text-left transition ${this.step === t ? "border-blue-400 bg-blue-50 shadow-sm" : "border-gray-200 bg-white hover:border-gray-300"}"
       >
         <div class="text-sm font-semibold text-gray-900">${o(e)}</div>
-        <p class="mt-1 text-sm text-gray-600">${o(a)}</p>
+        <p class="mt-1 text-sm text-gray-600">${o(r)}</p>
       </button>
     `;
   }
@@ -825,9 +844,9 @@ var bt = class {
           <p class="mt-1 text-sm text-gray-600">Use the stable demo artifacts to exercise the wizard and end-to-end coverage.</p>
         </div>
         <div class="grid gap-3 md:grid-cols-2">${t.map((e) => {
-      const a = Object.values(e.downloads ?? {}).map((r) => `
-              <a class="text-sm font-medium text-blue-700 hover:text-blue-900" href="${o(r.href)}" download="${o(r.filename)}">
-                ${o(r.label)}
+      const r = Object.values(e.downloads ?? {}).map((a) => `
+              <a class="text-sm font-medium text-blue-700 hover:text-blue-900" href="${o(a.href)}" download="${o(a.filename)}">
+                ${o(a.label)}
               </a>`).join("");
       return `
           <article class="${A}">
@@ -838,7 +857,7 @@ var bt = class {
               </div>
               <span class="rounded-full bg-white border border-gray-200 px-3 py-1 text-xs font-medium text-gray-700">Fixture</span>
             </div>
-            <div class="mt-3 flex flex-wrap gap-3">${a}</div>
+            <div class="mt-3 flex flex-wrap gap-3">${r}</div>
           </article>
         `;
     }).join("")}</div>
@@ -846,12 +865,12 @@ var bt = class {
     `;
   }
   renderExportStep(t, e) {
-    const a = this.exportState.job, r = this.exchangeUI.blockedReason;
+    const r = this.exportState.job, a = this.exchangeUI.blockedReason;
     return `
       ${this.renderExampleLinks(e.filter((s) => s.kind === "export"))}
-      ${r ? `
+      ${a ? `
         <div class="${L} text-sm text-amber-800">
-          ${o(r)}
+          ${o(a)}
         </div>
       ` : ""}
       <section class="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
@@ -890,11 +909,11 @@ var bt = class {
             <span>Include source hashes so validate and apply can detect stale source drift.</span>
           </label>
           <div class="flex flex-wrap items-center gap-3">
-            <button class="${j}" type="submit" ${r ? "disabled" : ""}>Create export package</button>
+            <button class="${j}" type="submit" ${a ? "disabled" : ""}>Create export package</button>
             <span class="text-sm text-gray-600">${o(this.exportState.message)}</span>
           </div>
         </form>
-        <aside class="space-y-4 ${U}">
+        <aside class="space-y-4 ${H}">
           <div>
             <h2 class="text-sm font-semibold uppercase tracking-wider text-gray-500">Preflight</h2>
             <div class="mt-3 grid gap-3 sm:grid-cols-3 lg:grid-cols-1">
@@ -902,10 +921,10 @@ var bt = class {
       ["Resources", this.exportState.draft.resources.length],
       ["Targets", this.exportState.draft.targetLocales.length],
       ["Planned handoffs", this.exportState.draft.resources.length * this.exportState.draft.targetLocales.length]
-    ].map(([s, l]) => `
+    ].map(([s, n]) => `
                 <div class="rounded-xl bg-white px-4 py-3">
                   <div class="${x}">${o(s)}</div>
-                  <div class="mt-1 text-2xl font-semibold text-gray-900">${o(l)}</div>
+                  <div class="mt-1 text-2xl font-semibold text-gray-900">${o(n)}</div>
                 </div>`).join("")}
             </div>
           </div>
@@ -916,53 +935,53 @@ var bt = class {
                 <li class="rounded-xl bg-white px-3 py-2">${o(s)}</li>`).join("")}
             </ul>
           </div>
-          ${a ? `
+          ${r ? `
               <div class="${ot}">
                 <div class="flex items-center justify-between gap-3">
                   <div>
                     <p class="text-sm font-semibold text-gray-900">Latest export job</p>
-                    <p class="text-xs text-gray-500">${o(a.id)}</p>
+                    <p class="text-xs text-gray-500">${o(r.id)}</p>
                   </div>
-                  <span class="${y(O(a.status))}">${o(a.status)}</span>
+                  <span class="${y(U(r.status))}">${o(r.status)}</span>
                 </div>
                 <div class="mt-4 h-2 overflow-hidden rounded-full bg-gray-200">
-                  <div class="h-full bg-blue-500" style="width: ${M(a)}%"></div>
+                  <div class="h-full bg-blue-500" style="width: ${J(r)}%"></div>
                 </div>
-                <div class="mt-3 text-sm text-gray-600">${o(a.progress.processed)} / ${o(a.progress.total ?? 0)} rows prepared</div>
+                <div class="mt-3 text-sm text-gray-600">${o(r.progress.processed)} / ${o(r.progress.total ?? 0)} rows prepared</div>
                 ${this.exportState.downloadHref ? `<a class="mt-4 inline-flex text-sm font-medium text-blue-700 hover:text-blue-900" href="${o(this.exportState.downloadHref)}" download>${o(this.exportState.downloadLabel)}</a>` : ""}
               </div>` : ""}
         </aside>
       </section>
     `;
   }
-  renderValidateStep(t, e, a) {
-    const r = this.validateState.result, s = r?.results ?? [];
+  renderValidateStep(t, e, r) {
+    const a = this.validateState.result, s = a?.results ?? [];
     return `
-      ${this.renderExampleLinks(a.filter((l) => l.kind === "import_validate"))}
+      ${this.renderExampleLinks(r.filter((n) => n.kind === "import_validate"))}
       <section class="space-y-5 ${g}">
         <form data-validate-form="true" class="space-y-4">
-          <div class="${U}">
+          <div class="${H}">
             <label class="text-sm font-semibold text-gray-900" for="exchange-import-file">Validation file</label>
             <input id="exchange-import-file" type="file" accept=".json,.csv" class="mt-3 block w-full text-sm text-gray-700">
             <p class="mt-2 text-sm text-gray-600">${o(this.validateState.upload.filename ?? "Choose a JSON or CSV package exported for translators.")}</p>
           </div>
           <div class="flex flex-wrap items-center gap-3">
             <button class="${j}" type="submit">Validate package</button>
-            <button class="${m}" type="button" data-exchange-step="apply" ${this.applyState.rows.length === 0 ? "disabled" : ""}>Continue to apply</button>
+            <button class="${f}" type="button" data-exchange-step="apply" ${this.applyState.rows.length === 0 ? "disabled" : ""}>Continue to apply</button>
             <span class="text-sm text-gray-600">${o(this.validateState.message)}</span>
           </div>
         </form>
-        ${r ? `
+        ${a ? `
             <section class="space-y-4">
               <div class="grid gap-3 md:grid-cols-4">
                 ${[
-      ["Processed", r.summary.processed],
-      ["Succeeded", r.summary.succeeded],
-      ["Conflicts", r.summary.conflicts ?? 0],
-      ["Failed", r.summary.failed]
-    ].map(([l, i]) => `
+      ["Processed", a.summary.processed],
+      ["Succeeded", a.summary.succeeded],
+      ["Conflicts", a.summary.conflicts ?? 0],
+      ["Failed", a.summary.failed]
+    ].map(([n, i]) => `
                   <div class="rounded-xl bg-gray-50 px-4 py-3">
-                    <div class="${x}">${o(l)}</div>
+                    <div class="${x}">${o(n)}</div>
                     <div class="mt-1 text-2xl font-semibold text-gray-900">${o(i)}</div>
                   </div>`).join("")}
               </div>
@@ -982,19 +1001,19 @@ var bt = class {
                     </tr>
                   </thead>
                   <tbody class="divide-y divide-gray-100 bg-white">
-                    ${s.map((l) => `
+                    ${s.map((n) => `
                       <tr>
-                        <td class="px-4 py-3 font-medium text-gray-900">${o(l.index)}</td>
-                        <td class="px-4 py-3 text-gray-700">${o(`${l.resource}.${l.field_path}`)}</td>
-                        <td class="px-4 py-3 text-gray-700">${o(l.target_locale.toUpperCase())}</td>
-                        <td class="px-4 py-3"><span class="${y(S(l.status))}">${o(l.status)}</span></td>
+                        <td class="px-4 py-3 font-medium text-gray-900">${o(n.index)}</td>
+                        <td class="px-4 py-3 text-gray-700">${o(`${n.resource}.${n.field_path}`)}</td>
+                        <td class="px-4 py-3 text-gray-700">${o(n.target_locale.toUpperCase())}</td>
+                        <td class="px-4 py-3"><span class="${y(S(n.status))}">${o(n.status)}</span></td>
                         <td class="px-4 py-3">
                           <div class="flex gap-2">
-                            ${this.renderDecisionButton(l.index, "accepted", this.validateState.decisions[l.index] === "accepted")}
-                            ${this.renderDecisionButton(l.index, "rejected", this.validateState.decisions[l.index] === "rejected")}
+                            ${this.renderDecisionButton(n.index, "accepted", this.validateState.decisions[n.index] === "accepted")}
+                            ${this.renderDecisionButton(n.index, "rejected", this.validateState.decisions[n.index] === "rejected")}
                           </div>
                         </td>
-                        <td class="px-4 py-3 text-gray-600">${o(l.conflict?.message ?? l.error ?? "Ready for apply.")}</td>
+                        <td class="px-4 py-3 text-gray-600">${o(n.conflict?.message ?? n.error ?? "Ready for apply.")}</td>
                       </tr>`).join("")}
                   </tbody>
                 </table>
@@ -1003,28 +1022,28 @@ var bt = class {
       </section>
     `;
   }
-  renderDecisionButton(t, e, a) {
+  renderDecisionButton(t, e, r) {
     return `
       <button
         type="button"
         data-stage-row="${t}"
         data-stage-decision="${e}"
-        class="rounded-lg border px-3 py-1 text-xs font-medium ${a ? "border-blue-500 bg-blue-100 text-blue-900" : "border-gray-200 bg-white text-gray-600"}"
+        class="rounded-lg border px-3 py-1 text-xs font-medium ${r ? "border-blue-500 bg-blue-100 text-blue-900" : "border-gray-200 bg-white text-gray-600"}"
       >
         ${o(e)}
       </button>
     `;
   }
   renderApplyStep() {
-    const t = this.applyState.rows, e = P(this.validateState.result), a = this.applyState.result, r = a?.results ?? [], s = this.applyState.job, l = {
+    const t = this.applyState.rows, e = F(this.validateState.result), r = this.applyState.result, a = r?.results ?? [], s = this.applyState.job, n = {
       apply: 0,
       skip: 0,
       override: 0,
       create: 0
     };
     for (const i of t) {
-      const n = this.applyDecisionForRow(Number(i.index ?? 0));
-      n === "skip" && (l.skip += 1), n === "override_source_hash" && (l.override += 1), n === "create_missing" && (l.create += 1), n === "apply" && (l.apply += 1);
+      const l = this.applyDecisionForRow(Number(i.index ?? 0));
+      l === "skip" && (n.skip += 1), l === "override_source_hash" && (n.override += 1), l === "create_missing" && (n.create += 1), l === "apply" && (n.apply += 1);
     }
     return `
       <section class="space-y-5">
@@ -1038,14 +1057,14 @@ var bt = class {
           </div>
           <div class="grid gap-3 md:grid-cols-4">
             ${[
-      ["Apply", l.apply],
-      ["Skip", l.skip],
-      ["Override", l.override],
-      ["Create", l.create]
-    ].map(([i, n]) => `
+      ["Apply", n.apply],
+      ["Skip", n.skip],
+      ["Override", n.override],
+      ["Create", n.create]
+    ].map(([i, l]) => `
               <div class="rounded-xl bg-gray-50 px-4 py-3">
                 <div class="${x}">${o(i)}</div>
-                <div class="mt-1 text-2xl font-semibold text-gray-900">${o(n)}</div>
+                <div class="mt-1 text-2xl font-semibold text-gray-900">${o(l)}</div>
               </div>`).join("")}
           </div>
           <div class="grid gap-3 md:grid-cols-2">
@@ -1056,7 +1075,7 @@ var bt = class {
           </div>
           <div class="flex flex-wrap items-center gap-3">
             <button class="${j}" type="submit" ${t.length === 0 ? "disabled" : ""}>Submit apply job</button>
-            <button class="${m}" type="button" data-exchange-step="history">Inspect history</button>
+            <button class="${f}" type="button" data-exchange-step="history">Inspect history</button>
             <span class="text-sm text-gray-600">${o(this.applyState.message)}</span>
           </div>
           ${s ? `
@@ -1069,7 +1088,7 @@ var bt = class {
                     <span class="rounded-full bg-white border border-gray-200 px-3 py-1 text-xs font-medium text-gray-700">${o(s.status)}</span>
                   </div>
                   <div class="mt-4 h-2 overflow-hidden rounded-full bg-gray-200">
-                    <div class="h-full bg-blue-500" style="width: ${M(s)}%"></div>
+                    <div class="h-full bg-blue-500" style="width: ${J(s)}%"></div>
                   </div>
                   <div class="mt-3 text-sm text-gray-600">${o(s.progress.processed)} / ${o(s.progress.total ?? 0)} processed</div>
                 </div>` : ""}
@@ -1094,8 +1113,8 @@ var bt = class {
                       </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-100 bg-white">
-                      ${t.map((i, n) => {
-      const d = typeof i.index == "number" ? i.index : n, u = e.get(d) ?? null;
+                      ${t.map((i, l) => {
+      const d = typeof i.index == "number" ? i.index : l, u = e.get(d) ?? null;
       return `
                           <tr>
                             <td class="px-4 py-3 font-medium text-gray-900">${o(d)}</td>
@@ -1113,7 +1132,7 @@ var bt = class {
                   </table>
                 </div>
               </section>` : ""}
-        ${a ? `
+        ${r ? `
               <section class="${g} space-y-4">
                 <div>
                   <h3 class="text-sm font-semibold uppercase tracking-wider text-gray-500">Terminal Summary</h3>
@@ -1121,18 +1140,18 @@ var bt = class {
                 </div>
                 <div class="grid gap-3 md:grid-cols-4">
                   ${[
-      ["Processed", a.summary.processed],
-      ["Succeeded", a.summary.succeeded],
-      ["Conflicts", a.summary.conflicts ?? 0],
-      ["Failed", a.summary.failed]
-    ].map(([i, n]) => `
+      ["Processed", r.summary.processed],
+      ["Succeeded", r.summary.succeeded],
+      ["Conflicts", r.summary.conflicts ?? 0],
+      ["Failed", r.summary.failed]
+    ].map(([i, l]) => `
                     <div class="rounded-xl bg-gray-50 px-4 py-3">
                       <div class="${x}">${o(i)}</div>
-                      <div class="mt-1 text-2xl font-semibold text-gray-900">${o(n)}</div>
+                      <div class="mt-1 text-2xl font-semibold text-gray-900">${o(l)}</div>
                     </div>`).join("")}
                 </div>
                 <div class="flex flex-wrap gap-3 text-sm text-blue-700">
-                  ${Object.values(a.job?.downloads ?? {}).map((i) => `
+                  ${Object.values(r.job?.downloads ?? {}).map((i) => `
                     <a href="${o(i.href)}" download="${o(i.filename)}" class="font-medium hover:text-blue-900">${o(i.label)}</a>
                   `).join("")}
                 </div>
@@ -1148,7 +1167,7 @@ var bt = class {
                       </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-100 bg-white">
-                      ${r.map((i) => `
+                      ${a.map((i) => `
                         <tr>
                           <td class="px-4 py-3 font-medium text-gray-900">${o(i.index)}</td>
                           <td class="px-4 py-3 text-gray-700">${o(`${i.resource}.${i.field_path}`)}</td>
@@ -1164,21 +1183,21 @@ var bt = class {
       </section>
     `;
   }
-  renderApplyToggle(t, e, a) {
+  renderApplyToggle(t, e, r) {
     return `
       <label class="flex items-center gap-3 ${L} text-sm text-gray-700">
-        <input type="checkbox" class="${v}" data-apply-option="${t}" ${a ? "checked" : ""}>
+        <input type="checkbox" class="${v}" data-apply-option="${t}" ${r ? "checked" : ""}>
         <span>${o(e)}</span>
       </label>
     `;
   }
-  renderApplyDecisionButton(t, e, a) {
+  renderApplyDecisionButton(t, e, r) {
     return `
       <button
         type="button"
         data-apply-row="${t}"
         data-apply-decision="${e}"
-        class="rounded-lg border px-3 py-1 text-xs font-medium ${a ? "border-blue-500 bg-blue-100 text-blue-900" : "border-gray-200 bg-white text-gray-600"}"
+        class="rounded-lg border px-3 py-1 text-xs font-medium ${r ? "border-blue-500 bg-blue-100 text-blue-900" : "border-gray-200 bg-white text-gray-600"}"
       >
         ${o({
       apply: "apply",
@@ -1190,15 +1209,15 @@ var bt = class {
     `;
   }
   renderHistoryStep(t) {
-    const e = this.historyState.response?.meta, a = e?.job_kinds ?? [
+    const e = this.historyState.response?.meta, r = e?.job_kinds ?? [
       "export",
       "import_validate",
       "import_apply"
-    ], r = e?.job_statuses ?? [
+    ], a = e?.job_statuses ?? [
       "running",
       "completed",
       "failed"
-    ], s = this.activeHistoryJob(), l = k(s);
+    ], s = this.activeHistoryJob(), n = C(s);
     return `
       <section class="space-y-5">
         <div class="flex flex-wrap items-end gap-3 ${g}">
@@ -1206,7 +1225,7 @@ var bt = class {
             Kind
             <select data-history-kind class="mt-2 ${E}">
               <option value="all">All</option>
-              ${a.map((i) => `
+              ${r.map((i) => `
                 <option value="${o(i)}" ${this.historyState.kind === i ? "selected" : ""}>${o(i)}</option>`).join("")}
             </select>
           </label>
@@ -1214,11 +1233,11 @@ var bt = class {
             Status
             <select data-history-status class="mt-2 ${E}">
               <option value="all">All</option>
-              ${r.map((i) => `
+              ${a.map((i) => `
                 <option value="${o(i)}" ${this.historyState.jobStatus === i ? "selected" : ""}>${o(i)}</option>`).join("")}
             </select>
           </label>
-          <button class="${m}" type="button" data-history-refresh="true">Refresh history</button>
+          <button class="${f}" type="button" data-history-refresh="true">Refresh history</button>
           <span class="text-sm text-gray-600">${o(this.historyState.message)}</span>
         </div>
         <div class="grid gap-5 lg:grid-cols-[0.9fr_1.1fr]">
@@ -1230,11 +1249,11 @@ var bt = class {
                         <div>
                           <div class="flex flex-wrap items-center gap-2">
                             <span class="${y("info")}">${o(i.kind.replace(/_/g, " "))}</span>
-                            <span class="${y(O(i.status))}">${o(i.status)}</span>
+                            <span class="${y(U(i.status))}">${o(i.status)}</span>
                             ${i.fixture ? `<span class="${y("warning")}">Fixture</span>` : ""}
                           </div>
                           <h3 class="mt-3 text-lg font-semibold text-gray-900">${o(i.file?.name ?? i.id)}</h3>
-                          <p class="mt-1 text-sm text-gray-600">Actor ${o(i.actor?.label ?? "system")} • ${o(T(i.created_at, "Pending"))}</p>
+                          <p class="mt-1 text-sm text-gray-600">Actor ${o(i.actor?.label ?? "system")} • ${o(D(i.created_at, "Pending"))}</p>
                         </div>
                         <div class="text-sm text-gray-600">
                           <div>${o(i.progress.processed)} / ${o(i.progress.total ?? 0)} processed</div>
@@ -1242,30 +1261,30 @@ var bt = class {
                         </div>
                       </div>
                     </button>
-                  </article>`).join("") : `<div class="${H}">No jobs match the current filters.</div>`}
+                  </article>`).join("") : `<div class="${M}">No jobs match the current filters.</div>`}
           </div>
           ${s ? `
                 <section class="${g} space-y-4">
                   <div class="flex flex-wrap items-start justify-between gap-4">
                     <div>
                       <h2 class="text-lg font-semibold text-gray-900">${o(s.file?.name ?? s.id)}</h2>
-                      <p class="mt-1 text-sm text-gray-600">${o(s.kind.replace(/_/g, " "))} • ${o(s.status)} • ${o(T(s.updated_at, "Pending"))}</p>
+                      <p class="mt-1 text-sm text-gray-600">${o(s.kind.replace(/_/g, " "))} • ${o(s.status)} • ${o(D(s.updated_at, "Pending"))}</p>
                     </div>
                     <div class="flex flex-wrap gap-3">
-                      <button class="${m}" type="button" data-history-load-apply="all">Load in apply step</button>
-                      <button class="${m}" type="button" data-history-load-apply="conflicts" ${(l?.summary.conflicts ?? 0) > 0 ? "" : "disabled"}>Retry conflicts</button>
+                      <button class="${f}" type="button" data-history-load-apply="all">Load in apply step</button>
+                      <button class="${f}" type="button" data-history-load-apply="conflicts" ${(n?.summary.conflicts ?? 0) > 0 ? "" : "disabled"}>Retry conflicts</button>
                     </div>
                   </div>
                   <div class="grid gap-3 md:grid-cols-4">
                     ${[
       ["Processed", s.progress.processed],
       ["Succeeded", s.progress.succeeded],
-      ["Conflicts", s.progress.conflicts ?? l?.summary.conflicts ?? 0],
+      ["Conflicts", s.progress.conflicts ?? n?.summary.conflicts ?? 0],
       ["Failed", s.progress.failed]
-    ].map(([i, n]) => `
+    ].map(([i, l]) => `
                       <div class="rounded-xl bg-gray-50 px-4 py-3">
                         <div class="${x}">${o(i)}</div>
-                        <div class="mt-1 text-2xl font-semibold text-gray-900">${o(n)}</div>
+                        <div class="mt-1 text-2xl font-semibold text-gray-900">${o(l)}</div>
                       </div>`).join("")}
                   </div>
                   <div class="${A} text-sm text-gray-700">
@@ -1277,7 +1296,7 @@ var bt = class {
                     ${Object.values(s.downloads ?? {}).map((i) => `
                       <a href="${o(i.href)}" download="${o(i.filename)}" class="font-medium hover:text-blue-900">${o(i.label)}</a>`).join("")}
                   </div>
-                  ${l ? `
+                  ${n ? `
                         <div class="overflow-x-auto">
                           <table class="min-w-full divide-y divide-gray-200 text-sm">
                             <thead class="bg-gray-50 text-left text-xs uppercase tracking-wider text-gray-500">
@@ -1290,7 +1309,7 @@ var bt = class {
                               </tr>
                             </thead>
                             <tbody class="divide-y divide-gray-100 bg-white">
-                              ${l.results.map((i) => `
+                              ${n.results.map((i) => `
                                 <tr>
                                   <td class="px-4 py-3 font-medium text-gray-900">${o(i.index)}</td>
                                   <td class="px-4 py-3 text-gray-700">${o(`${i.resource}.${i.field_path}`)}</td>
@@ -1300,7 +1319,7 @@ var bt = class {
                                 </tr>`).join("")}
                             </tbody>
                           </table>
-                        </div>` : `<div class="${H}">No per-row results were retained for this job.</div>`}
+                        </div>` : `<div class="${M}">No per-row results were retained for this job.</div>`}
                 </section>` : ""}
         </div>
       </section>
@@ -1309,10 +1328,10 @@ var bt = class {
 };
 export {
   bt as TranslationExchangeManager,
-  K as normalizeTranslationExchangeHistoryResponse,
+  Y as normalizeTranslationExchangeHistoryResponse,
   I as normalizeTranslationExchangeJob,
-  f as normalizeTranslationExchangeUploadDescriptor,
-  C as normalizeTranslationExchangeValidationResult
+  m as normalizeTranslationExchangeUploadDescriptor,
+  k as normalizeTranslationExchangeValidationResult
 };
 
 //# sourceMappingURL=index.js.map
