@@ -1316,15 +1316,17 @@ func TestTranslationSSRMatrixEnhancementPreservesLocaleViewport(t *testing.T) {
 	input := TranslationSSRPresenterInput{
 		APIBasePath:   "/admin/api",
 		BasePath:      "/admin",
+		MatrixPath:    "/admin/translations/matrix",
 		MatrixAPIPath: "/admin/api/translations/matrix",
 		Channel:       "production",
 		Query: map[string]string{
-			"channel":       "production",
-			"family_id":     "tg-page-1",
-			"locales":       "fr,de",
-			"locale_offset": "10",
-			"locale_limit":  "5",
-			"content_type":  "pages",
+			"channel":         "production",
+			"family_id":       "tg-page-1",
+			"readiness_state": "blocked",
+			"locales":         "fr,de",
+			"locale_offset":   "10",
+			"locale_limit":    "5",
+			"content_type":    "pages",
 		},
 	}
 	meta := map[string]any{
@@ -1345,6 +1347,32 @@ func TestTranslationSSRMatrixEnhancementPreservesLocaleViewport(t *testing.T) {
 	}
 	if toInt(enhancement["locale_offset"]) != 10 || toInt(enhancement["locale_limit"]) != 5 {
 		t.Fatalf("expected locale viewport metadata, got %+v", enhancement)
+	}
+	links := translationSSRMatrixLinks(input)
+	allHref := toString(links["matrix_all"])
+	parsedAll, err := url.Parse(allHref)
+	if err != nil {
+		t.Fatalf("parse matrix all href %q: %v", allHref, err)
+	}
+	if got := parsedAll.Query().Get("readiness_state"); got != "" {
+		t.Fatalf("expected all matrix link to clear readiness_state, got %q in %q", got, allHref)
+	}
+	if got := parsedAll.Query().Get("locales"); got != "fr,de" {
+		t.Fatalf("expected all matrix link to preserve locales, got %q in %q", got, allHref)
+	}
+	readyHref := toString(links["matrix_ready"])
+	parsedReady, err := url.Parse(readyHref)
+	if err != nil {
+		t.Fatalf("parse matrix ready href %q: %v", readyHref, err)
+	}
+	if got := parsedReady.Query().Get("readiness_state"); got != "ready" {
+		t.Fatalf("expected ready matrix link to set readiness_state, got %q in %q", got, readyHref)
+	}
+	preserved := links["preserve_query"].(map[string]string)
+	for _, key := range []string{"locales", "locale_offset", "locale_limit"} {
+		if preserved[key] == "" {
+			t.Fatalf("expected preserved query key %q, got %+v", key, preserved)
+		}
 	}
 }
 
@@ -1440,7 +1468,7 @@ func TestTranslationSSRExchangeConfigDecorationsAndActionAliases(t *testing.T) {
 	if applyDefaults["include_source_hash"] != true || applyDefaults["allow_source_hash_override"] != true || applyDefaults["dry_run"] != true {
 		t.Fatalf("expected configured apply defaults, got %+v", applyDefaults)
 	}
-	if applyDefaults["allow_create_missing"] != true || applyDefaults["continue_on_error"] != false {
+	if applyDefaults["allow_create_missing"] != false || applyDefaults["continue_on_error"] != true {
 		t.Fatalf("expected fallback apply defaults, got %+v", applyDefaults)
 	}
 

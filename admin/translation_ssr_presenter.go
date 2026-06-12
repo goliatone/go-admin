@@ -1985,11 +1985,37 @@ func translationSSREditorLinks(input TranslationSSRPresenterInput, data map[stri
 
 func translationSSRMatrixLinks(input TranslationSSRPresenterInput) map[string]any {
 	return map[string]any{
-		"matrix": translationSSRHrefWithQuery(input.MatrixPath, input.Query, map[string]string{"channel": strings.TrimSpace(input.Channel)}),
-		"api":    strings.TrimSpace(input.MatrixAPIPath),
-		"family": strings.TrimSpace(input.FamilyBasePath),
-		"queue":  strings.TrimSpace(input.QueuePath),
+		"matrix":         translationSSRHrefWithQuery(input.MatrixPath, input.Query, map[string]string{"channel": strings.TrimSpace(input.Channel)}),
+		"matrix_all":     translationSSRHrefWithQuery(input.MatrixPath, input.Query, map[string]string{"channel": strings.TrimSpace(input.Channel)}, "readiness_state"),
+		"matrix_ready":   translationSSRMatrixReadinessLink(input, "ready"),
+		"matrix_blocked": translationSSRMatrixReadinessLink(input, "blocked"),
+		"api":            strings.TrimSpace(input.MatrixAPIPath),
+		"family":         strings.TrimSpace(input.FamilyBasePath),
+		"queue":          strings.TrimSpace(input.QueuePath),
+		"preserve_query": translationSSRMatrixPreservedQuery(input),
 	}
+}
+
+func translationSSRMatrixReadinessLink(input TranslationSSRPresenterInput, state string) string {
+	return translationSSRHrefWithQuery(input.MatrixPath, input.Query, map[string]string{
+		"channel":         strings.TrimSpace(input.Channel),
+		"readiness_state": strings.TrimSpace(state),
+		"page":            "1",
+	})
+}
+
+func translationSSRMatrixPreservedQuery(input TranslationSSRPresenterInput) map[string]string {
+	return translationSSRPreserveFilterQuery(input.Query,
+		"channel",
+		ScopeTenantIDKey,
+		ScopeOrgIDKey,
+		"locale",
+		"locales",
+		"page",
+		"per_page",
+		"locale_offset",
+		"locale_limit",
+	)
 }
 
 func translationSSRExchangeLinks(input TranslationSSRPresenterInput) map[string]any {
@@ -2187,9 +2213,9 @@ func translationSSRExchangeLocaleOptions(locales []TranslationExchangeLocaleOpti
 
 func translationSSRExchangeApplyDefaults(config TranslationExchangeUIConfig) map[string]any {
 	return map[string]any{
-		"allow_create_missing":       boolPtrDefault(config.Apply.AllowCreateMissing, true),
+		"allow_create_missing":       boolPtrDefault(config.Apply.AllowCreateMissing, false),
 		"allow_source_hash_override": boolPtrDefault(config.Apply.AllowSourceHashOverride, false),
-		"continue_on_error":          boolPtrDefault(config.Apply.ContinueOnError, false),
+		"continue_on_error":          boolPtrDefault(config.Apply.ContinueOnError, true),
 		"dry_run":                    boolPtrDefault(config.Apply.DryRun, false),
 		"include_source_hash":        boolPtrDefault(config.IncludeSourceHash, true),
 	}

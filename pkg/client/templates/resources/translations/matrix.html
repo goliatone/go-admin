@@ -49,12 +49,39 @@
 
           <form class="mt-5 grid gap-4" method="get" data-matrix-filter-form="true">
             <input type="hidden" name="channel" value="{{ page.Meta.channel|default:"" }}">
+            {% if page.Links.preserve_query.tenant_id %}
+            <input type="hidden" name="tenant_id" value="{{ page.Links.preserve_query.tenant_id }}">
+            {% endif %}
+            {% if page.Links.preserve_query.org_id %}
+            <input type="hidden" name="org_id" value="{{ page.Links.preserve_query.org_id }}">
+            {% endif %}
+            {% if page.Links.preserve_query.locale %}
+            <input type="hidden" name="locale" value="{{ page.Links.preserve_query.locale }}">
+            {% endif %}
+            {% if page.Links.preserve_query.locales %}
+            <input type="hidden" name="locales" value="{{ page.Links.preserve_query.locales }}">
+            {% endif %}
+            {% if page.Links.preserve_query.page %}
+            <input type="hidden" name="page" value="{{ page.Links.preserve_query.page }}">
+            {% endif %}
+            {% if page.Links.preserve_query.per_page %}
+            <input type="hidden" name="per_page" value="{{ page.Links.preserve_query.per_page }}">
+            {% endif %}
+            {% if page.Links.preserve_query.locale_offset %}
+            <input type="hidden" name="locale_offset" value="{{ page.Links.preserve_query.locale_offset }}">
+            {% endif %}
+            {% if page.Links.preserve_query.locale_limit %}
+            <input type="hidden" name="locale_limit" value="{{ page.Links.preserve_query.locale_limit }}">
+            {% endif %}
+            {% if page.Enhancement.query.readiness_state %}
+            <input type="hidden" name="readiness_state" value="{{ page.Enhancement.query.readiness_state }}">
+            {% endif %}
             <div class="quick-filters flex flex-wrap items-center gap-3" data-quick-filters>
               <span class="quick-filters__label text-xs font-semibold uppercase tracking-wide text-gray-500">Readiness</span>
               <div class="quick-filters__items inline-flex flex-wrap items-center gap-2" role="group" aria-label="Readiness filters">
-                <a class="quick-filter inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium {% if not page.Enhancement.query.readiness_state %}bg-gray-200 text-gray-900 ring-2 ring-gray-500 ring-offset-1{% else %}bg-gray-100 text-gray-700 hover:bg-gray-200{% endif %}" href="{{ page.Links.matrix|default:"" }}">All</a>
-                <button type="submit" name="readiness_state" value="ready" class="quick-filter inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium {% if page.Enhancement.query.readiness_state == "ready" %}bg-emerald-100 text-emerald-800 ring-2 ring-emerald-500 ring-offset-1{% else %}bg-emerald-50 text-emerald-700 hover:bg-emerald-100{% endif %}">Ready</button>
-                <button type="submit" name="readiness_state" value="blocked" class="quick-filter inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium {% if page.Enhancement.query.readiness_state == "blocked" %}bg-rose-100 text-rose-800 ring-2 ring-rose-500 ring-offset-1{% else %}bg-rose-50 text-rose-700 hover:bg-rose-100{% endif %}">Blocked</button>
+                <a class="quick-filter inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium {% if not page.Enhancement.query.readiness_state %}bg-gray-200 text-gray-900 ring-2 ring-gray-500 ring-offset-1{% else %}bg-gray-100 text-gray-700 hover:bg-gray-200{% endif %}" href="{% if page.Links.matrix_all %}{{ page.Links.matrix_all }}{% else %}{{ page.Links.matrix|default:"" }}{% endif %}">All</a>
+                <a class="quick-filter inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium {% if page.Enhancement.query.readiness_state == "ready" %}bg-emerald-100 text-emerald-800 ring-2 ring-emerald-500 ring-offset-1{% else %}bg-emerald-50 text-emerald-700 hover:bg-emerald-100{% endif %}" href="{{ page.Links.matrix_ready|default:"" }}">Ready</a>
+                <a class="quick-filter inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium {% if page.Enhancement.query.readiness_state == "blocked" %}bg-rose-100 text-rose-800 ring-2 ring-rose-500 ring-offset-1{% else %}bg-rose-50 text-rose-700 hover:bg-rose-100{% endif %}" href="{{ page.Links.matrix_blocked|default:"" }}">Blocked</a>
               </div>
             </div>
 

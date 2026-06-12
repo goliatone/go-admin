@@ -390,9 +390,9 @@ func TestTranslationExchangeTemplateRendersSSRBaseline(t *testing.T) {
 					"selected": true,
 				}},
 				"apply_defaults": map[string]any{
-					"allow_create_missing":       true,
+					"allow_create_missing":       false,
 					"allow_source_hash_override": false,
-					"continue_on_error":          false,
+					"continue_on_error":          true,
 					"dry_run":                    true,
 					"include_source_hash":        true,
 				},
@@ -495,8 +495,21 @@ func TestTranslationMatrixTemplateRendersSSRGrid(t *testing.T) {
 					"export_selected": map[string]any{"enabled": true},
 				},
 			},
-			"Links":       map[string]any{"matrix": "/admin/translations/matrix", "queue": "/admin/translations/queue"},
-			"Enhancement": map[string]any{"query": map[string]any{"locales": "es", "locale_offset": "0", "locale_limit": "1"}},
+			"Links": map[string]any{
+				"matrix":         "/admin/translations/matrix?readiness_state=blocked&locales=es&locale_offset=0&locale_limit=1",
+				"matrix_all":     "/admin/translations/matrix?locales=es&locale_offset=0&locale_limit=1",
+				"matrix_ready":   "/admin/translations/matrix?readiness_state=ready&locales=es&locale_offset=0&locale_limit=1&page=1",
+				"matrix_blocked": "/admin/translations/matrix?readiness_state=blocked&locales=es&locale_offset=0&locale_limit=1&page=1",
+				"queue":          "/admin/translations/queue",
+				"preserve_query": map[string]any{
+					"locales":       "es",
+					"locale_offset": "0",
+					"locale_limit":  "1",
+					"page":          "2",
+					"per_page":      "25",
+				},
+			},
+			"Enhancement": map[string]any{"query": map[string]any{"readiness_state": "blocked", "locales": "es", "locale_offset": "0", "locale_limit": "1"}},
 			"EmptyState":  map[string]any{"title": "No matrix rows", "description": "No rows"},
 		},
 	})
@@ -509,6 +522,11 @@ func TestTranslationMatrixTemplateRendersSSRGrid(t *testing.T) {
 		`Missing Locale`,
 		`Create missing`,
 		`data-matrix-cell-action="true"`,
+		`href="/admin/translations/matrix?locales=es&amp;locale_offset=0&amp;locale_limit=1"`,
+		`name="locales" value="es"`,
+		`name="locale_offset" value="0"`,
+		`name="locale_limit" value="1"`,
+		`name="readiness_state" value="blocked"`,
 	} {
 		if !strings.Contains(html, expected) {
 			t.Fatalf("expected rendered matrix HTML to contain %q: %s", expected, html)
