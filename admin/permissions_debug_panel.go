@@ -421,25 +421,37 @@ func (p *PermissionsDebugPanel) buildEntries(required map[string]string, claims 
 }
 
 func (p *PermissionsDebugPanel) diagnose(required, inClaims bool, coveringGrant string, allows bool) (string, string) {
-	if required && inClaims && allows {
-		return "OK", "ok"
+	if !required {
+		return "Unknown state", "info"
 	}
-	if required && coveringGrant != "" && allows {
+	if coveringGrant != "" {
+		return diagnoseCoveredGrant(coveringGrant, allows)
+	}
+	if inClaims {
+		return diagnoseLiteralGrant(allows)
+	}
+	return diagnoseMissingLiteralGrant(allows)
+}
+
+func diagnoseCoveredGrant(coveringGrant string, allows bool) (string, string) {
+	if allows {
 		return "Covered by resolved grant " + coveringGrant, "ok"
 	}
-	if required && coveringGrant != "" && !allows {
-		return "Scope/policy mismatch - permission covered by resolved grant but authorizer denies", "warning"
+	return "Scope/policy mismatch - permission covered by resolved grant but authorizer denies", "warning"
+}
+
+func diagnoseLiteralGrant(allows bool) (string, string) {
+	if allows {
+		return "OK", "ok"
 	}
-	if required && !inClaims && !allows {
-		return "Grant missing permission in role assignment", "error"
-	}
-	if required && !inClaims && allows {
+	return "Scope/policy mismatch - permission listed but authorizer denies", "warning"
+}
+
+func diagnoseMissingLiteralGrant(allows bool) (string, string) {
+	if allows {
 		return "Permission list missing key while authorizer allows access", "warning"
 	}
-	if required && inClaims && !allows {
-		return "Scope/policy mismatch - permission listed but authorizer denies", "warning"
-	}
-	return "Unknown state", "info"
+	return "Grant missing permission in role assignment", "error"
 }
 
 func (p *PermissionsDebugPanel) computeVerdict(snapshot *PermissionsDebugSnapshot) string {
