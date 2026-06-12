@@ -381,6 +381,62 @@ func TestBunAssignmentFilterValuesPreserveIndexedScopeIDs(t *testing.T) {
 	if len(localeValues) != 2 || localeValues[0] != "es" || localeValues[1] != "fr" {
 		t.Fatalf("expected locale values normalized for stored locale columns, got %+v", localeValues)
 	}
+	// Slice filters (family detail passes a []string status list) must not be
+	// flattened through fmt.Sprint into a single garbage token.
+	sliceStatusValues := normalizedBunAssignmentFilterValues("status", translationFamilyActiveAssignmentStatusFilter())
+	if len(sliceStatusValues) != 5 {
+		t.Fatalf("expected all active statuses preserved from slice filter, got %+v", sliceStatusValues)
+	}
+	if sliceStatusValues[1] != string(AssignmentStatusAssigned) || sliceStatusValues[4] != string(AssignmentStatusChangesRequested) {
+		t.Fatalf("expected normalized status enum values from slice filter, got %+v", sliceStatusValues)
+	}
+}
+
+func TestBunTranslationAssignmentRepositoryListSupportsStatusSliceFilter(t *testing.T) {
+	db := newTranslationFamilyStoreSQLiteDB(t)
+	ctx := context.Background()
+	store := NewBunTranslationFamilyStore(db)
+	if err := store.SaveFamily(ctx, translationservices.FamilyRecord{
+		ID:              "family-slice",
+		TenantID:        "tenant-1",
+		OrgID:           "org-1",
+		ContentType:     "pages",
+		SourceLocale:    "en",
+		SourceVariantID: "family-slice::en",
+		ReadinessState:  "ready",
+		Variants: []translationservices.FamilyVariant{
+			{ID: "family-slice::en", FamilyID: "family-slice", TenantID: "tenant-1", OrgID: "org-1", Locale: "en", Status: "published", IsSource: true, SourceRecordID: "page-1"},
+			{ID: "family-slice::es", FamilyID: "family-slice", TenantID: "tenant-1", OrgID: "org-1", Locale: "es", Status: "draft", SourceRecordID: "page-1"},
+			{ID: "family-slice::fr", FamilyID: "family-slice", TenantID: "tenant-1", OrgID: "org-1", Locale: "fr", Status: "draft", SourceRecordID: "page-1"},
+		},
+	}); err != nil {
+		t.Fatalf("seed family: %v", err)
+	}
+	repo := NewBunTranslationAssignmentRepository(db)
+	for _, assignment := range []TranslationAssignment{
+		{ID: "asg-slice-1", FamilyID: "family-slice", EntityType: "pages", TenantID: "tenant-1", OrgID: "org-1", SourceRecordID: "page-1", SourceLocale: "en", TargetLocale: "fr", AssignmentType: AssignmentTypeDirect, Status: AssignmentStatusAssigned, AssigneeID: "translator-1"},
+		{ID: "asg-slice-2", FamilyID: "family-slice", EntityType: "pages", TenantID: "tenant-1", OrgID: "org-1", SourceRecordID: "page-1", SourceLocale: "en", TargetLocale: "es", AssignmentType: AssignmentTypeDirect, Status: AssignmentStatusArchived, AssigneeID: "translator-1"},
+	} {
+		if _, err := repo.Create(ctx, assignment); err != nil {
+			t.Fatalf("create assignment %s: %v", assignment.ID, err)
+		}
+	}
+	items, total, err := repo.List(ctx, ListOptions{
+		Page:    1,
+		PerPage: 10,
+		Filters: map[string]any{
+			"tenant_id": "tenant-1",
+			"org_id":    "org-1",
+			"family_id": "family-slice",
+			"status":    translationFamilyActiveAssignmentStatusFilter(),
+		},
+	})
+	if err != nil {
+		t.Fatalf("list assignments: %v", err)
+	}
+	if total != 1 || len(items) != 1 || items[0].ID != "asg-slice-1" {
+		t.Fatalf("expected only the active assignment via status slice filter, got total=%d items=%+v", total, items)
+	}
 }
 
 func TestBunTranslationAssignmentRepositoryCloneAssignmentFilterMapReturnsMutableMapForEmptyInputs(t *testing.T) {

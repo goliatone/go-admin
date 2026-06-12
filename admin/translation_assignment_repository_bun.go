@@ -470,8 +470,18 @@ func applyBunAssignmentFilter(query *bun.SelectQuery, key string, raw any, dueSQ
 }
 
 func normalizedBunAssignmentFilterValues(key string, raw any) []string {
+	// Slice filters (e.g. status lists) must not be flattened via fmt.Sprint;
+	// mirror the in-memory repository's handling.
+	parts := []string{}
+	if rawString, ok := raw.(string); ok {
+		for part := range strings.SplitSeq(rawString, ",") {
+			parts = append(parts, part)
+		}
+	} else {
+		parts = toStringSlice(raw)
+	}
 	out := []string{}
-	for part := range strings.SplitSeq(toString(raw), ",") {
+	for _, part := range parts {
 		value := strings.TrimSpace(part)
 		if value == "" {
 			continue
