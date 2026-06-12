@@ -1,6 +1,8 @@
 package admin
 
 const (
+	PermAdminWildcard = "admin.*"
+
 	PermAdminDashboardView = "admin.dashboard.view"
 
 	PermAdminUsersView   = "admin.users.view"
