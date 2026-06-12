@@ -149,6 +149,13 @@ func TestDevServeEquivalentTranslationRuntimeContracts(t *testing.T) {
 			adapterCfg.PathConflictMode = router.PathConflictModePreferStatic
 		}),
 	)
+	diskAssetsDir := quickstart.ResolveDiskAssetsDir(
+		"output.css",
+		filepath.Join("..", "..", "pkg", "client", "assets"),
+		filepath.Join("pkg", "client", "assets"),
+		"assets",
+	)
+	quickstart.NewStaticAssets(r, cfg, client.Assets(), quickstart.WithDiskAssetsDir(diskAssetsDir))
 	require.NoError(t, adm.Initialize(r))
 	require.NoError(t, quickstart.RegisterAdminUIRoutes(
 		r,
@@ -294,6 +301,12 @@ func TestDevServeEquivalentTranslationRuntimeContracts(t *testing.T) {
 		authHeaders,
 	)
 	assertGroupedQueueSSRMatchesAssignmentAPI(
+		t,
+		app,
+		"page=1&per_page=25&group_by=family_id&group_strategy=server_family&priority=high&locale=fr&sort=priority&order=desc&"+scopeQuery,
+		authHeaders,
+	)
+	assertFamilyAssignmentsSSRPathFromGroupedQueue(
 		t,
 		app,
 		"page=1&per_page=25&group_by=family_id&group_strategy=server_family&priority=high&locale=fr&sort=priority&order=desc&"+scopeQuery,
@@ -579,6 +592,62 @@ func assertGroupedQueueSSRMatchesAssignmentAPI(t *testing.T, app *fiber.App, que
 	require.NotContains(t, html, "/admin/login", "queue must not render a login redirect")
 	require.Contains(t, html, `data-translation-row-type="family"`)
 	require.Equal(t, apiFamilyIDs, dataAttributeValuesOnTag(html, "tr", "data-translation-family-id"), "grouped queue SSR rows must match assignment API rows for query %q", query)
+}
+
+func assertFamilyAssignmentsSSRPathFromGroupedQueue(t *testing.T, app *fiber.App, query string, headers map[string]string) {
+	t.Helper()
+	apiStatus, apiPayload := doAdminJSONRequestWithHeaders(
+		t,
+		app,
+		http.MethodGet,
+		"/admin/api/translations/assignments?"+query,
+		nil,
+		headers,
+	)
+	require.Equal(t, http.StatusOK, apiStatus, "grouped assignments payload=%+v", apiPayload)
+	apiFamilyIDs := familyIDsFromRecords(extractListRecords(apiPayload))
+	require.NotEmpty(t, apiFamilyIDs, "expected grouped assignment API rows for query %q", query)
+
+	familyID := apiFamilyIDs[0]
+	uiPath := "/admin/translations/families/" + url.PathEscape(familyID) + "/assignments"
+	apiPath := "/admin/api/translations/families/" + url.PathEscape(familyID) + "/assignments"
+	queueStatus, queueHTML := doAdminHTMLRequestWithHeaders(
+		t,
+		app,
+		http.MethodGet,
+		"/admin/translations/queue?"+query,
+		headers,
+	)
+	require.Equal(t, http.StatusOK, queueStatus, "grouped queue html=%s", queueHTML)
+	require.Contains(t, queueHTML, `href="`+uiPath, "grouped queue must link family rows to the SSR assignments UI")
+	require.NotContains(t, queueHTML, `href="`+apiPath, "grouped queue must not expose the JSON expansion API as a navigation href")
+
+	pageStatus, pageHTML := doAdminHTMLRequestWithHeaders(
+		t,
+		app,
+		http.MethodGet,
+		uiPath+"?"+query,
+		headers,
+	)
+	require.Equal(t, http.StatusOK, pageStatus, "family assignments html=%s", pageHTML)
+	require.NotContains(t, pageHTML, "/admin/login", "family assignments must not render a login redirect")
+	require.NotRegexp(t, regexp.MustCompile(`^\s*\{`), pageHTML, "family assignments route must render HTML, not raw JSON")
+	require.Contains(t, pageHTML, `data-translation-family-assignments-ssr="true"`)
+	require.Contains(t, pageHTML, `data-translation-row-id=`, "family assignments page must render seeded assignment rows")
+	require.Contains(t, pageHTML, `href="/admin/translations/assignments/`, "family assignments page must link rows to the SSR editor")
+	require.Contains(t, pageHTML, `assets/dist/shared/action-menu.js`, "family assignments page must include the shared action menu enhancement")
+	require.Contains(t, pageHTML, `tenant_id=tenant-demo`, "family assignments page must preserve tenant query state")
+	require.Contains(t, pageHTML, `org_id=org-demo`, "family assignments page must preserve org query state")
+
+	assetStatus, assetBody := doAdminHTMLRequestWithHeaders(
+		t,
+		app,
+		http.MethodGet,
+		"/admin/assets/dist/shared/action-menu.js",
+		headers,
+	)
+	require.Equal(t, http.StatusOK, assetStatus, "shared action menu asset body=%s", assetBody)
+	require.NotEmpty(t, strings.TrimSpace(assetBody), "shared action menu asset must not be empty")
 }
 
 func assignmentIDsFromRecords(records []any) []string {

@@ -134,7 +134,11 @@ func TestExamplesWebRepairsMissingTranslationDashboardFromPersistedDrift(t *test
 			Locale:      locale,
 		},
 		persistedTranslationMenuFixture(menuCode, locale, "translations.queue", "Translation Queue", "translation_queue", "admin.translations.queue", "/admin/translations/queue", 50),
-		persistedTranslationMenuFixture(menuCode, locale, "translations.assignments", "Translation Assignments", "translation_assignments", "admin.translations.assignments", "/admin/content/translations", 51),
+		func() coreadmin.MenuItem {
+			item := persistedTranslationMenuFixture(menuCode, locale, "translations.assignments", "Translation Assignments", "translation_assignments", "admin.translations.assignments", "/admin/content/translations", 51)
+			item.Icon = "list-checks"
+			return item
+		}(),
 		persistedTranslationMenuFixture(menuCode, locale, "translations.exchange", "Translation Exchange", "translation_exchange", "admin.translations.exchange", "/admin/translations/exchange", 52),
 	} {
 		if err := adm.MenuService().AddMenuItem(ctx, menuCode, item); err != nil {
@@ -157,6 +161,11 @@ func TestExamplesWebRepairsMissingTranslationDashboardFromPersistedDrift(t *test
 		t.Fatalf("menu lookup: %v", err)
 	}
 	assertMenuRoutePresence(t, menu.Items, "admin.translations.dashboard", true)
+	if item := findMenuItemByRouteName(menu.Items, "admin.translations.assignments"); item == nil {
+		t.Fatalf("expected repaired translation assignments menu item")
+	} else if got := strings.TrimSpace(item.Icon); got != "clipboard-check" {
+		t.Fatalf("expected repaired assignments icon clipboard-check, got %q", got)
+	}
 	for _, key := range []string{"translation_dashboard", "translation_queue", "translation_assignments", "translation_exchange"} {
 		if got := countExampleMenuItemsByTargetKey(menu.Items, key); got != 1 {
 			t.Fatalf("expected one %s row after registrar repair, got %d in %#v", key, got, menu.Items)

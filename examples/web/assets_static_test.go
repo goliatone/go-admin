@@ -52,6 +52,7 @@ func TestEmbeddedAssetsServed(t *testing.T) {
 		{path: "/admin/assets/dist/dashboard/index.js"},
 		{path: "/admin/assets/dist/runtime/go-admin-browser.js"},
 		{path: "/admin/assets/dist/toast/init.js"},
+		{path: "/admin/assets/dist/shared/action-menu.js"},
 		{path: "/admin/assets/dist/shared/enhanced-action.js"},
 		{path: "/admin/assets/dist/translation-dashboard/index.js"},
 		{path: "/admin/assets/dist/translation-family/index.js"},
