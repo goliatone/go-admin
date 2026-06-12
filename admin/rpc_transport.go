@@ -246,7 +246,7 @@ func authorizeRPCPermissionWithMode(ctx context.Context, authorizer Authorizer, 
 	switch mode {
 	case RPCCommandPermissionModeExact:
 		ctx = WithResolvedPermissionsCache(ctx)
-		if !permissionListed(ResolvedPermissionsFromAuthorizer(ctx, authorizer), permission) {
+		if !permissionGrantListed(ResolvedPermissionsFromAuthorizer(ctx, authorizer), permission) {
 			return permissionDenied(permission, resource)
 		}
 	default:
