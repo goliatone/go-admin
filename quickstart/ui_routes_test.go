@@ -233,11 +233,13 @@ func TestTranslationExchangeTemplateSerializesUIConfigAndTemplateMetadata(t *tes
 	}
 	template := string(raw)
 	for _, expected := range []string{
-		"translation_exchange_ui_config.template.href",
-		"translation_exchange_ui_config.template.format",
-		"translation_exchange_ui_config.template.filename",
-		"translation_exchange_ui_config.template.label",
-		"const exchangeUIConfig = {{ toJSON(translation_exchange_ui_config)|safe }};",
+		"translation_exchange_ssr",
+		"page.Data.template.href",
+		"page.Data.template.filename",
+		"page.Data.template.label",
+		"const exchangeSSREnhancement = {{ toJSON(translation_exchange_ssr.Enhancement)|safe }};",
+		"const exchangeUIConfig = exchangeSSREnhancement?.ui_config || {{ toJSON(translation_exchange_ui_config)|safe }};",
+		"includeExamples: exchangeSSREnhancement?.include_examples === true",
 		"exchangeUIConfig,",
 	} {
 		if !strings.Contains(template, expected) {
@@ -311,6 +313,32 @@ func TestTranslationDashboardAndFamiliesTemplatesRenderSSRSections(t *testing.T)
 				"data-ssr-enhanced=\"true\"",
 			},
 		},
+		{
+			name: "matrix",
+			path: "../pkg/client/templates/resources/translations/matrix.html",
+			expected: []string{
+				"translation_matrix_ssr",
+				"data-translation-matrix-ssr=\"true\"",
+				"data-matrix-grid=\"true\"",
+				"data-matrix-viewport=\"true\"",
+				"data-matrix-filter-form=\"true\"",
+				"locale_offset",
+				"locale_limit",
+			},
+		},
+		{
+			name: "exchange",
+			path: "../pkg/client/templates/resources/translations/exchange.html",
+			expected: []string{
+				"translation_exchange_ssr",
+				"data-translation-exchange-ssr=\"true\"",
+				"data-exchange-history-baseline=\"true\"",
+				"data-export-form=\"true\"",
+				"data-validate-form=\"true\"",
+				"data-apply-form=\"true\"",
+				"includeExamples: exchangeSSREnhancement?.include_examples === true",
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -326,6 +354,168 @@ func TestTranslationDashboardAndFamiliesTemplatesRenderSSRSections(t *testing.T)
 				}
 			}
 		})
+	}
+}
+
+func TestTranslationExchangeTemplateRendersSSRBaseline(t *testing.T) {
+	html := renderTranslationUITemplate(t, "resources/translations/exchange", fiber.Map{
+		"base_path":                     "/admin",
+		"api_base_path":                 "/admin/api",
+		"translation_exchange_api_path": "/admin/api/translations/exchange",
+		"translation_exchange_ui_config": admin.TranslationExchangeUIConfig{
+			Configured: true,
+		},
+		"translation_exchange_ssr": router.ViewContext{
+			"Surface": admin.TranslationSSRSurfaceExchange,
+			"Data": map[string]any{
+				"ui_config": map[string]any{"configured": true},
+				"template": map[string]any{
+					"href":     "/admin/api/translations/exchange/template?format=json",
+					"filename": "translations.json",
+					"label":    "Download JSON Template",
+				},
+				"resource_options": []map[string]any{{
+					"id":       "pages",
+					"label":    "Pages",
+					"selected": true,
+				}},
+				"source_locale_options": []map[string]any{{
+					"code":     "en",
+					"label":    "English",
+					"selected": true,
+				}},
+				"target_locale_options": []map[string]any{{
+					"code":     "es",
+					"label":    "Spanish",
+					"selected": true,
+				}},
+				"apply_defaults": map[string]any{
+					"allow_create_missing":       true,
+					"allow_source_hash_override": false,
+					"continue_on_error":          false,
+					"dry_run":                    true,
+					"include_source_hash":        true,
+				},
+				"history": map[string]any{
+					"items":    []map[string]any{},
+					"total":    0,
+					"page":     1,
+					"per_page": 20,
+				},
+			},
+			"Meta": map[string]any{
+				"history_source_policy": map[string]any{"source": "runtime", "include_examples": false},
+			},
+			"Actions": map[string]any{
+				"export":          map[string]any{"enabled": true},
+				"import_validate": map[string]any{"enabled": true},
+				"import_apply":    map[string]any{"enabled": true},
+			},
+			"Links": map[string]any{
+				"history": "/admin/api/translations/exchange/jobs",
+			},
+			"Enhancement": map[string]any{
+				"api_path":         "/admin/api/translations/exchange",
+				"history_path":     "/admin/api/translations/exchange/jobs",
+				"include_examples": false,
+				"ui_config":        map[string]any{"configured": true},
+			},
+			"EmptyState": map[string]any{
+				"title":       "No exchange jobs",
+				"description": "Recent import and export jobs will appear after translation exchange activity.",
+			},
+		},
+	})
+
+	for _, expected := range []string{
+		`data-translation-exchange-ssr="true"`,
+		`data-export-form="true"`,
+		`Download JSON Template`,
+		`Pages`,
+		`English`,
+		`Spanish`,
+		`Create export package`,
+		`Validate package`,
+		`Apply validated rows`,
+		`No exchange jobs`,
+		`includeExamples: exchangeSSREnhancement?.include_examples === true`,
+	} {
+		if !strings.Contains(html, expected) {
+			t.Fatalf("expected rendered exchange HTML to contain %q: %s", expected, html)
+		}
+	}
+	if regexp.MustCompile(`<div\s+id="translation-exchange-app"[^>]*>\s*</div>`).MatchString(html) {
+		t.Fatalf("expected exchange root to contain SSR markup, found empty root pattern")
+	}
+}
+
+func TestTranslationMatrixTemplateRendersSSRGrid(t *testing.T) {
+	html := renderTranslationUITemplate(t, "resources/translations/matrix", fiber.Map{
+		"translation_matrix_api_path": "/admin/api/translations/matrix",
+		"translation_matrix_ssr": router.ViewContext{
+			"Surface": admin.TranslationSSRSurfaceMatrix,
+			"Meta": map[string]any{
+				"channel":       "production",
+				"total":         1,
+				"total_locales": 1,
+				"page":          1,
+				"per_page":      25,
+				"locale_offset": 0,
+				"locale_limit":  1,
+			},
+			"Data": map[string]any{
+				"columns": []map[string]any{{
+					"locale":            "es",
+					"label":             "Spanish",
+					"required_by_count": 1,
+				}},
+				"rows": []map[string]any{{
+					"family_id":       "tg-page-1",
+					"content_type":    "pages",
+					"source_locale":   "en",
+					"source_title":    "About us",
+					"readiness_state": "blocked",
+					"blocker_codes":   []string{"missing_locale"},
+					"links": map[string]any{
+						"family": map[string]any{"href": "/admin/translations/families/tg-page-1"},
+					},
+					"cells": map[string]any{
+						"es": map[string]any{
+							"state": "missing",
+							"quick_actions": map[string]any{
+								"create": map[string]any{"enabled": true, "label": "Create"},
+							},
+						},
+					},
+				}},
+			},
+			"Actions": map[string]any{
+				"bulk_actions": map[string]any{
+					"create_missing":  map[string]any{"enabled": true},
+					"export_selected": map[string]any{"enabled": true},
+				},
+			},
+			"Links":       map[string]any{"matrix": "/admin/translations/matrix", "queue": "/admin/translations/queue"},
+			"Enhancement": map[string]any{"query": map[string]any{"locales": "es", "locale_offset": "0", "locale_limit": "1"}},
+			"EmptyState":  map[string]any{"title": "No matrix rows", "description": "No rows"},
+		},
+	})
+
+	for _, expected := range []string{
+		`data-translation-matrix-ssr="true"`,
+		`data-matrix-grid="true"`,
+		`About us`,
+		`Spanish`,
+		`Missing Locale`,
+		`Create missing`,
+		`data-matrix-cell-action="true"`,
+	} {
+		if !strings.Contains(html, expected) {
+			t.Fatalf("expected rendered matrix HTML to contain %q: %s", expected, html)
+		}
+	}
+	if regexp.MustCompile(`<div\s+id="translation-matrix-root"[^>]*>\s*</div>`).MatchString(html) {
+		t.Fatalf("expected matrix root to contain SSR markup, found empty root pattern")
 	}
 }
 
@@ -884,7 +1074,8 @@ func TestRegisterAdminUIRoutesTranslationCoreShellsAreCapabilityGuarded(t *testi
 		cfg,
 		AdapterHooks{},
 		WithFeatureDefaults(map[string]bool{
-			string(admin.FeatureCMS): true,
+			string(admin.FeatureCMS):                 true,
+			string(admin.FeatureTranslationExchange): true,
 		}),
 	)
 	if err != nil {
@@ -972,6 +1163,143 @@ func TestRegisterAdminUIRoutesTranslationFamiliesShellContext(t *testing.T) {
 	}
 	if got := strings.TrimSpace(presenter.familyListInput.QueuePath); got != "" {
 		t.Fatalf("expected family-list presenter to omit disabled queue path, got %q", got)
+	}
+	ctx.AssertExpectations(t)
+}
+
+func TestRegisterAdminUIRoutesTranslationMatrixHydratesSSRContext(t *testing.T) {
+	cfg := NewAdminConfig("/admin", "Admin", "en")
+	adm, _, err := NewAdmin(
+		cfg,
+		AdapterHooks{},
+		WithFeatureDefaults(map[string]bool{
+			string(admin.FeatureCMS): true,
+		}),
+	)
+	if err != nil {
+		t.Fatalf("create core admin: %v", err)
+	}
+	registerTranslationCapabilities(
+		adm,
+		TranslationProductConfig{Profile: TranslationProfileCore},
+		nil,
+		translationCapabilityModuleState{HasState: true},
+	)
+
+	presenter := &capturingTranslationSSRPresenter{}
+	captureRouter := newUIRoutesCaptureRouter()
+	if err := RegisterAdminUIRoutes(captureRouter, cfg, adm, nil, WithUITranslationSSRPresenter(presenter)); err != nil {
+		t.Fatalf("register core ui routes: %v", err)
+	}
+	handler := captureRouter.getHandlers["/admin/translations/matrix"]
+	if handler == nil {
+		t.Fatalf("expected matrix shell route handler")
+	}
+
+	ctx := router.NewMockContext()
+	ctx.QueriesM["channel"] = "production"
+	ctx.QueriesM["locales"] = "fr,de"
+	ctx.QueriesM["locale_offset"] = "10"
+	ctx.QueriesM["locale_limit"] = "5"
+	ctx.On("Context").Return(context.Background())
+	ctx.On("Render", "resources/translations/matrix", mock.MatchedBy(func(arg any) bool {
+		viewCtx, ok := arg.(router.ViewContext)
+		if !ok {
+			return false
+		}
+		if got := strings.TrimSpace(fmt.Sprint(viewCtx["translation_matrix_api_path"])); got != "/admin/api/translations/matrix" {
+			return false
+		}
+		page, ok := viewCtx["translation_matrix_ssr"].(router.ViewContext)
+		if !ok {
+			return false
+		}
+		return fmt.Sprint(page["Surface"]) == admin.TranslationSSRSurfaceMatrix
+	})).Return(nil)
+
+	if err := handler(ctx); err != nil {
+		t.Fatalf("render matrix shell: %v", err)
+	}
+	if got := strings.TrimSpace(presenter.matrixInput.MatrixAPIPath); got != "/admin/api/translations/matrix" {
+		t.Fatalf("expected matrix API path, got %q", got)
+	}
+	for key, want := range map[string]string{
+		"locales":       "fr,de",
+		"locale_offset": "10",
+		"locale_limit":  "5",
+	} {
+		if got := presenter.matrixInput.Query[key]; got != want {
+			t.Fatalf("expected matrix query %s=%q, got %q in %+v", key, want, got, presenter.matrixInput.Query)
+		}
+	}
+	ctx.AssertExpectations(t)
+}
+
+func TestRegisterAdminUIRoutesTranslationExchangeHydratesSSRContext(t *testing.T) {
+	cfg := NewAdminConfig("/admin", "Admin", "en")
+	adm, _, err := NewAdmin(
+		cfg,
+		AdapterHooks{},
+		WithFeatureDefaults(map[string]bool{
+			string(admin.FeatureCMS):                 true,
+			string(admin.FeatureTranslationExchange): true,
+		}),
+	)
+	if err != nil {
+		t.Fatalf("create core admin: %v", err)
+	}
+	registerTranslationCapabilities(
+		adm,
+		TranslationProductConfig{Profile: TranslationProfileCore},
+		nil,
+		translationCapabilityModuleState{HasState: true, ExchangeEnabled: true},
+	)
+
+	presenter := &capturingTranslationSSRPresenter{}
+	captureRouter := newUIRoutesCaptureRouter()
+	if err := RegisterAdminUIRoutes(captureRouter, cfg, adm, nil, WithUITranslationSSRPresenter(presenter), WithUITranslationExchangeRoute(true)); err != nil {
+		t.Fatalf("register core ui routes: %v", err)
+	}
+	handler := captureRouter.getHandlers["/admin/translations/exchange"]
+	if handler == nil {
+		t.Fatalf("expected exchange shell route handler")
+	}
+
+	ctx := router.NewMockContext()
+	ctx.QueriesM["channel"] = "production"
+	ctx.QueriesM["include_examples"] = "true"
+	ctx.QueriesM["kind"] = "export"
+	ctx.QueriesM["status"] = "completed"
+	ctx.On("Context").Return(context.Background())
+	ctx.On("Render", "resources/translations/exchange", mock.MatchedBy(func(arg any) bool {
+		viewCtx, ok := arg.(router.ViewContext)
+		if !ok {
+			return false
+		}
+		if got := strings.TrimSpace(fmt.Sprint(viewCtx["translation_exchange_api_path"])); got != "/admin/api/translations/exchange" {
+			return false
+		}
+		page, ok := viewCtx["translation_exchange_ssr"].(router.ViewContext)
+		if !ok {
+			return false
+		}
+		return fmt.Sprint(page["Surface"]) == admin.TranslationSSRSurfaceExchange
+	})).Return(nil)
+
+	if err := handler(ctx); err != nil {
+		t.Fatalf("render exchange shell: %v", err)
+	}
+	if got := strings.TrimSpace(presenter.exchangeInput.ExchangeAPIPath); got != "/admin/api/translations/exchange" {
+		t.Fatalf("expected exchange API path, got %q", got)
+	}
+	for key, want := range map[string]string{
+		"include_examples": "true",
+		"kind":             "export",
+		"status":           "completed",
+	} {
+		if got := presenter.exchangeInput.Query[key]; got != want {
+			t.Fatalf("expected exchange query %s=%q, got %q in %+v", key, want, got, presenter.exchangeInput.Query)
+		}
 	}
 	ctx.AssertExpectations(t)
 }

@@ -143,6 +143,41 @@ func TestTranslationMatrixBindingQueryBuildsTypedRowsColumnsAndCellStates(t *tes
 	if enabled, _ := extractMap(actions[translationMatrixBulkActionExportSelected])["enabled"].(bool); !enabled {
 		t.Fatalf("expected export_selected bulk action enabled")
 	}
+
+	ssrData, ssrMeta := translationSSRPayloadSections(payload)
+	if got := len(extractListMaps(ssrData["rows"])); got != len(rows) {
+		t.Fatalf("expected SSR data rows to mirror matrix API rows, got %d want %d", got, len(rows))
+	}
+	if got := len(extractListMaps(ssrData["columns"])); got != len(columns) {
+		t.Fatalf("expected SSR data columns to mirror matrix API columns, got %d want %d", got, len(columns))
+	}
+	ssrActions := translationSSRMatrixActions(ssrData, ssrMeta)
+	ssrBulk := extractMap(ssrActions["bulk_actions"])
+	if enabled, _ := extractMap(ssrBulk[translationMatrixBulkActionCreateMissing])["enabled"].(bool); !enabled {
+		t.Fatalf("expected SSR create_missing action to mirror matrix API selection state, got %+v", ssrBulk)
+	}
+	if endpoint := toString(extractMap(extractMap(ssrActions["quick_action_targets"])["create_missing"])["endpoint"]); endpoint == "" {
+		t.Fatalf("expected SSR quick_action_targets to mirror matrix API metadata, got %+v", ssrActions)
+	}
+	ssrEnhancement := translationSSRMatrixEnhancement(TranslationSSRPresenterInput{
+		BasePath:      "/admin",
+		APIBasePath:   "/admin/api",
+		MatrixAPIPath: "/admin/api/translations/matrix",
+		Channel:       "production",
+		Query: map[string]string{
+			"channel":       "production",
+			"tenant_id":     "tenant-1",
+			"org_id":        "org-1",
+			"locale_limit":  "4",
+			"locale_offset": "0",
+		},
+	}, ssrMeta)
+	if got := toString(extractMap(ssrEnhancement["query"])["locale_limit"]); got != "4" {
+		t.Fatalf("expected SSR enhancement to preserve matrix locale_limit query, got %+v", ssrEnhancement)
+	}
+	if got := toInt(ssrEnhancement["locale_limit"]); got != toInt(meta["locale_limit"]) {
+		t.Fatalf("expected SSR locale_limit metadata to mirror matrix API meta, got %+v", ssrEnhancement)
+	}
 }
 
 func TestTranslationMatrixBindingFiltersColumnsRowsAndScope(t *testing.T) {

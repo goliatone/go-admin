@@ -1405,6 +1405,66 @@ func TestTranslationSSRExchangeTemplateUsesConfigAndFallbacks(t *testing.T) {
 	}
 }
 
+func TestTranslationSSRExchangeConfigDecorationsAndActionAliases(t *testing.T) {
+	enabled := true
+	allowOverride := true
+	dryRun := true
+	config := TranslationExchangeUIConfig{
+		Configured:           true,
+		SourceLocale:         "en",
+		SourceLocales:        []TranslationExchangeLocaleOption{{Code: "en", Label: "English"}},
+		TargetLocales:        []TranslationExchangeLocaleOption{{Code: "es", Label: "Spanish"}, {Code: "fr", Label: "French"}},
+		Resources:            []TranslationExchangeResourceOption{{ID: "pages", Label: "Pages"}, {ID: "posts", Label: "Posts"}},
+		DefaultResources:     []string{"pages"},
+		DefaultTargetLocales: []string{"fr"},
+		IncludeSourceHash:    &enabled,
+		Apply: TranslationExchangeApplyDefaults{
+			AllowSourceHashOverride: &allowOverride,
+			DryRun:                  &dryRun,
+		},
+	}
+
+	resources := translationSSRExchangeResourceOptions(config)
+	if len(resources) != 2 || toString(resources[0]["id"]) != "pages" || resources[0]["selected"] != true {
+		t.Fatalf("expected configured resource options with selected defaults, got %+v", resources)
+	}
+	sourceLocales := translationSSRExchangeSourceLocaleOptions(config)
+	if len(sourceLocales) != 1 || sourceLocales[0]["selected"] != true {
+		t.Fatalf("expected configured source locale to be selected, got %+v", sourceLocales)
+	}
+	targetLocales := translationSSRExchangeTargetLocaleOptions(config)
+	if len(targetLocales) != 2 || targetLocales[0]["selected"] == true || targetLocales[1]["selected"] != true {
+		t.Fatalf("expected configured target locale defaults, got %+v", targetLocales)
+	}
+	applyDefaults := translationSSRExchangeApplyDefaults(config)
+	if applyDefaults["include_source_hash"] != true || applyDefaults["allow_source_hash_override"] != true || applyDefaults["dry_run"] != true {
+		t.Fatalf("expected configured apply defaults, got %+v", applyDefaults)
+	}
+	if applyDefaults["allow_create_missing"] != true || applyDefaults["continue_on_error"] != false {
+		t.Fatalf("expected fallback apply defaults, got %+v", applyDefaults)
+	}
+
+	adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{
+		FeatureGate: featureGateFromKeys(FeatureTranslationExchange),
+	})
+	adm.WithAuthorizer(translationPermissionAuthorizer{
+		allowed: map[string]bool{
+			translationExchangePermissionExport:         true,
+			translationExchangePermissionImportValidate: true,
+		},
+	})
+	actions := translationSSRExchangeActions(adm, nil)
+	if extractMap(actions["export"])["enabled"] != extractMap(actions["export_action"])["enabled"] {
+		t.Fatalf("expected export_action alias to mirror export action, got %+v", actions)
+	}
+	if extractMap(actions["import_validate"])["enabled"] != extractMap(actions["import_validate_action"])["enabled"] {
+		t.Fatalf("expected import_validate_action alias to mirror import_validate action, got %+v", actions)
+	}
+	if extractMap(actions["import_apply"])["enabled"] != extractMap(actions["import_apply_action"])["enabled"] {
+		t.Fatalf("expected import_apply_action alias to mirror import_apply action, got %+v", actions)
+	}
+}
+
 func TestTranslationSSRSummaryCardHrefBuildsCorrectURL(t *testing.T) {
 	href := translationSSRSummaryCardHref(
 		"/admin/translations/families",
