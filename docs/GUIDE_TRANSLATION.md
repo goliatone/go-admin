@@ -481,8 +481,10 @@ Server-family semantics:
 - parent rows use `row_type=family`, `id=family:<family_id>`, `family_id`, `family_label`, source identity fields, `assignment_count`, `locale_count`, `target_locales`, `status_counts`, `due_state_counts`, `priority_counts`, persisted blocker metadata, informational `action_state`, optional `action_hints`, and `expansion`
 - `family_blocker_count` is a persisted family blocker aggregate; unavailable stores return `family_blocker_count=null`, `family_blocker_count_available=false`, and a reason such as `persisted_blockers_unavailable`
 - parent rows do not expose executable assignment actions; actions remain on expanded child rows
-- each parent `expansion` includes `href`, `route=translations.assignments.family_assignments`, `params.family_id`, and normalized effective query filters
+- each parent `expansion` includes JSON child-expansion metadata: `href`, `route=translations.assignments.family_assignments`, `params.family_id`, and normalized effective query filters
+- each parent also exposes `assignments_href` for SSR UI navigation to `/admin/translations/families/:family_id/assignments`; clients must not use `row.expansion.href` as a normal browser navigation link
 - expanded child rows load from `GET /admin/api/translations/families/:family_id/assignments`
+- family assignments SSR row actions use the assignment action API base `/admin/api/translations/assignments` for mutations, producing `POST /admin/api/translations/assignments/:assignment_id/actions/:action`; they do not post mutations to the read-only family child-expansion endpoint
 - child expansion uses page-based `page` and `per_page`, defaults to `25`, clamps to `100`, and returns normal assignment rows plus `meta.family_id`, `total`, `has_next`, `sort`, and `order`
 - server-family parent sort keys are `updated_at`, `created_at`, `due_date`, `due_state`, and `priority`; parent rows use aggregate semantics and `family_id` as the stable tie-breaker
 - expanded child rows inherit the normalized `sort` and `order` from the parent expansion request and use normal assignment-row sort semantics
