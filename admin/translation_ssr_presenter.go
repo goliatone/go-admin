@@ -1099,26 +1099,8 @@ func translationSSRDecorateDashboardBlockedRow(row map[string]any) {
 
 func translationSSRDecorateQueueRows(input TranslationSSRPresenterInput, rows []map[string]any) {
 	for _, row := range rows {
-		if rowType := strings.TrimSpace(toString(row["row_type"])); rowType == "family" || rowType == "group" {
-			row["display_due"] = translationSSRHumanLabel(firstNonEmpty(toString(row["due_state"]), toString(row["family_blocker_count"])))
-			row["display_locales"] = translationSSRLocaleChips(row["target_locales"])
-			// UI drill-down to this family's assignments; expansion.href stays
-			// the JSON child-assignments endpoint for client-side expansion.
-			if familyID := strings.TrimSpace(toString(row["family_id"])); familyID != "" {
-				base := strings.TrimSpace(input.FamilyBasePath)
-				if base == "" {
-					base = strings.TrimRight(strings.TrimSpace(input.BasePath), "/") + "/translations/families"
-				}
-				query := cloneStringMap(input.Query)
-				if expansionQuery := translationSSRStringMap(extractMap(extractMap(row["expansion"])["query"])); len(expansionQuery) > 0 {
-					query = expansionQuery
-				}
-				row["assignments_href"] = translationSSRHrefWithQuery(
-					strings.TrimRight(base, "/")+"/"+url.PathEscape(familyID)+"/assignments",
-					query,
-					map[string]string{"channel": strings.TrimSpace(input.Channel)},
-				)
-			}
+		if translationSSRQueueRowIsFamily(row) {
+			translationSSRDecorateQueueFamilyRow(input, row)
 			continue
 		}
 		row["display_title"] = firstNonEmpty(toString(row["source_title"]), toString(row["source_path"]), toString(row["assignment_id"]), toString(row["id"]))
@@ -1137,6 +1119,40 @@ func translationSSRDecorateQueueRows(input TranslationSSRPresenterInput, rows []
 			map[string]string{"channel": strings.TrimSpace(input.Channel)},
 		)
 	}
+}
+
+func translationSSRQueueRowIsFamily(row map[string]any) bool {
+	rowType := strings.TrimSpace(toString(row["row_type"]))
+	return rowType == "family" || rowType == "group"
+}
+
+func translationSSRDecorateQueueFamilyRow(input TranslationSSRPresenterInput, row map[string]any) {
+	row["display_due"] = translationSSRHumanLabel(firstNonEmpty(toString(row["due_state"]), toString(row["family_blocker_count"])))
+	row["display_locales"] = translationSSRLocaleChips(row["target_locales"])
+
+	// UI drill-down to this family's assignments; expansion.href stays the JSON
+	// child-assignments endpoint for client-side expansion.
+	familyID := strings.TrimSpace(toString(row["family_id"]))
+	if familyID == "" {
+		return
+	}
+
+	base := strings.TrimSpace(input.FamilyBasePath)
+	if base == "" {
+		base = strings.TrimRight(strings.TrimSpace(input.BasePath), "/") + "/translations/families"
+	}
+
+	query := cloneStringMap(input.Query)
+	expansionQuery := translationSSRStringMap(extractMap(extractMap(row["expansion"])["query"]))
+	if len(expansionQuery) > 0 {
+		query = expansionQuery
+	}
+
+	row["assignments_href"] = translationSSRHrefWithQuery(
+		strings.TrimRight(base, "/")+"/"+url.PathEscape(familyID)+"/assignments",
+		query,
+		map[string]string{"channel": strings.TrimSpace(input.Channel)},
+	)
 }
 
 func translationSSRQueueActiveFilterChips(query map[string]string, controls []map[string]any) []map[string]any {
@@ -2503,15 +2519,16 @@ func translationSSRQueueViewLinks(input TranslationSSRPresenterInput) map[string
 // "grouped", or "families") from the grouping contract the binding actually
 // applied, so the toggle reflects fallbacks rather than raw query params.
 func translationSSRQueueViewMode(meta map[string]any) string {
-	grouping, _ := meta["grouping"].(map[string]any)
-	if grouping == nil {
+	grouping, ok := meta["grouping"].(map[string]any)
+	if !ok || grouping == nil {
 		return "list"
 	}
-	enabled, _ := grouping["enabled"].(bool)
-	if !enabled {
+	enabled, ok := grouping["enabled"].(bool)
+	if !ok || !enabled {
 		return "list"
 	}
-	if strategy, _ := grouping["strategy"].(string); strings.EqualFold(strings.TrimSpace(strategy), "server_family") {
+	strategy, ok := grouping["strategy"].(string)
+	if ok && strings.EqualFold(strings.TrimSpace(strategy), "server_family") {
 		return "families"
 	}
 	return "grouped"
