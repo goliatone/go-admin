@@ -631,11 +631,13 @@ func assertFamilyAssignmentsSSRPathFromGroupedQueue(t *testing.T, app *fiber.App
 	)
 	require.Equal(t, http.StatusOK, pageStatus, "family assignments html=%s", pageHTML)
 	require.NotContains(t, pageHTML, "/admin/login", "family assignments must not render a login redirect")
-	require.NotRegexp(t, regexp.MustCompile(`^\s*\{`), pageHTML, "family assignments route must render HTML, not raw JSON")
+	require.NotRegexp(t, `^\s*\{`, pageHTML, "family assignments route must render HTML, not raw JSON")
 	require.Contains(t, pageHTML, `data-translation-family-assignments-ssr="true"`)
 	require.Contains(t, pageHTML, `data-translation-row-id=`, "family assignments page must render seeded assignment rows")
 	require.Contains(t, pageHTML, `href="/admin/translations/assignments/`, "family assignments page must link rows to the SSR editor")
-	require.Contains(t, pageHTML, `assets/dist/shared/action-menu.js`, "family assignments page must include the shared action menu enhancement")
+	require.Contains(t, pageHTML, `assets/dist/translation-actions/assignment-row-actions.js`, "family assignments page must include the assignment action enhancement")
+	require.NotContains(t, pageHTML, `assets/dist/translation-queue/index.js`, "family assignments page should not load the full queue bundle")
+	require.Contains(t, pageHTML, `data-action-endpoint="/admin/api/translations/assignments`, "family assignments page must expose the assignment action endpoint")
 	require.Contains(t, pageHTML, `tenant_id=tenant-demo`, "family assignments page must preserve tenant query state")
 	require.Contains(t, pageHTML, `org_id=org-demo`, "family assignments page must preserve org query state")
 
@@ -643,11 +645,11 @@ func assertFamilyAssignmentsSSRPathFromGroupedQueue(t *testing.T, app *fiber.App
 		t,
 		app,
 		http.MethodGet,
-		"/admin/assets/dist/shared/action-menu.js",
+		"/admin/assets/dist/translation-actions/assignment-row-actions.js",
 		headers,
 	)
-	require.Equal(t, http.StatusOK, assetStatus, "shared action menu asset body=%s", assetBody)
-	require.NotEmpty(t, strings.TrimSpace(assetBody), "shared action menu asset must not be empty")
+	require.Equal(t, http.StatusOK, assetStatus, "assignment row action asset body=%s", assetBody)
+	require.NotEmpty(t, strings.TrimSpace(assetBody), "assignment row action asset must not be empty")
 }
 
 func assignmentIDsFromRecords(records []any) []string {

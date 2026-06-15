@@ -57,6 +57,7 @@ func TestEmbeddedAssetsServed(t *testing.T) {
 		{path: "/admin/assets/dist/translation-dashboard/index.js"},
 		{path: "/admin/assets/dist/translation-family/index.js"},
 		{path: "/admin/assets/dist/translation-queue/index.js"},
+		{path: "/admin/assets/dist/translation-actions/assignment-row-actions.js"},
 		{path: "/admin/assets/dist/debug/toolbar.js"},
 		{path: "/admin/assets/uploads/media/showcase/product-demo.mp4"},
 		{path: "/admin/assets/uploads/media/showcase/narration.mp3"},
