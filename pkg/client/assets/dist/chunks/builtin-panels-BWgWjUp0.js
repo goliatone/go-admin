@@ -1,6 +1,6 @@
 import { escapeHTML as s } from "../shared/html.js";
 import { normalizeDebugBasePath as te } from "../debug/shared/path-helpers.js";
-import { r as m } from "./icons-zihLPh2q.js";
+import { r as m } from "./icons-SGrt9O6P.js";
 import { C as f, D as P, F as h, I as U, L as oe, M as j, N as C, O as re, P as b, T as y, i as ne, j as A, k as se, v as S, z as k } from "./server-definitions-JppbKFji.js";
 var ae = 1e3, ie = 12e3, le = 8, de = 1, ce = 3e4, pe = (e) => {
   const t = window.location.protocol === "https:" ? "wss:" : "ws:", o = te(e);
@@ -3190,7 +3190,7 @@ var Tt = {
 }, Mt = {
   id: "doctor",
   label: "Doctor",
-  icon: "iconoir-heartbeat",
+  icon: "iconoir-heart",
   snapshotKey: "doctor",
   eventTypes: [],
   category: "system",
@@ -3259,4 +3259,4 @@ export {
   Kt as y
 };
 
-//# sourceMappingURL=builtin-panels-YWhSaZ1i.js.map
+//# sourceMappingURL=builtin-panels-BWgWjUp0.js.map

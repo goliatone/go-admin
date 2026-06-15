@@ -12,7 +12,7 @@ export const DEBUG_ICON_REFS = {
   appConsole: 'iconoir:code',
   cache: 'iconoir:database',
   permissions: 'iconoir:shield-check',
-  doctor: 'iconoir:heartbeat',
+  doctor: 'iconoir:heart',
   refresh: 'iconoir:refresh',
   clear: 'iconoir:erase',
   connect: 'iconoir:play',

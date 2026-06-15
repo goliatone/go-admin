@@ -571,8 +571,12 @@ func TestTranslationSSRQueueResultNormalizesQueuePayloadRows(t *testing.T) {
 	result := translationSSRQueueResult(TranslationSSRPresenterInput{
 		QueuePath:      "/admin/translations/queue",
 		EditorBasePath: "/admin/translations/assignments",
+		Channel:        "staging",
 	}, map[string]any{
-		"items":    []map[string]any{{"assignment_id": "asg-1"}},
+		"items": []map[string]any{
+			{"assignment_id": "asg-1"},
+			{"row_type": "family", "id": "family:fam-1", "family_id": "fam-1"},
+		},
 		"total":    1,
 		"page":     2,
 		"per_page": 25,
@@ -580,8 +584,14 @@ func TestTranslationSSRQueueResultNormalizesQueuePayloadRows(t *testing.T) {
 	})
 
 	rows := translationSSRList(result.Data, "rows")
-	if len(rows) != 1 {
+	if len(rows) != 2 {
 		t.Fatalf("expected queue rows to be normalized, got %+v", result.Data)
+	}
+	familyHref := toString(rows[1]["assignments_href"])
+	for _, expected := range []string{"/translations/families/fam-1/assignments?", "channel=staging"} {
+		if !strings.Contains(familyHref, expected) {
+			t.Fatalf("expected family row assignments href %q to contain %q", familyHref, expected)
+		}
 	}
 	if got := toInt(result.Meta["total"]); got != 1 {
 		t.Fatalf("expected queue total metadata, got %d", got)
@@ -589,7 +599,7 @@ func TestTranslationSSRQueueResultNormalizesQueuePayloadRows(t *testing.T) {
 	if got := toString(result.Meta["channel"]); got != "staging" {
 		t.Fatalf("expected queue channel metadata, got %q", got)
 	}
-	if got := toInt(result.DataGrid["count"]); got != 1 {
+	if got := toInt(result.DataGrid["count"]); got != 2 {
 		t.Fatalf("expected queue datagrid count, got %d", got)
 	}
 	if presets := translationSSRList(map[string]any{"items": result.DataGrid["saved_filter_presets"]}, "items"); len(presets) == 0 {

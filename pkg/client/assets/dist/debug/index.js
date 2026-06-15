@@ -1,9 +1,9 @@
 import { escapeHTML as y } from "../shared/html.js";
 import { httpRequest as x } from "../shared/transport/http-client.js";
 import { t as Q } from "../chunks/sortable.esm-CcMbOE-M.js";
-import { E as ze, S as X, T as F, _ as Qe, a as Xe, b as Y, c as G, d as V, f as Z, g as Ye, h as Ge, i as Ve, l as W, m as S, n as Ze, o as We, p as ee, r as et, s as tt, t as te, u as se, v as st, w as rt, x as re, y as ie } from "../chunks/builtin-panels-YWhSaZ1i.js";
-import { t as ne } from "../chunks/repl-panel-H6p0-Pf9.js";
-import { i as ae, n as at, r as ot, t as lt } from "../chunks/icons-zihLPh2q.js";
+import { E as ze, S as X, T as F, _ as Qe, a as Xe, b as Y, c as G, d as V, f as Z, g as Ye, h as Ge, i as Ve, l as W, m as S, n as Ze, o as We, p as ee, r as et, s as tt, t as te, u as se, v as st, w as rt, x as re, y as ie } from "../chunks/builtin-panels-BWgWjUp0.js";
+import { t as ne } from "../chunks/repl-panel-DOA-vKgf.js";
+import { i as ae, n as at, r as ot, t as lt } from "../chunks/icons-SGrt9O6P.js";
 import { A as D, C as A, E as ct, F as oe, I as ut, L as dt, M as ft, N as j, P as L, R as le, S as pt, T as he, _ as gt, a as bt, b as yt, c as ce, d as ue, f as M, g as de, h as fe, i as Et, k, l as mt, m as pe, n as ge, o as _, p as St, s as Pt, u as be, v as ye, w as vt, x as I, y as Ee, z as wt } from "../chunks/server-definitions-JppbKFji.js";
 var me = class {
   add(t, e, s) {

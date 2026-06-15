@@ -5,12 +5,14 @@
 {% block content %}
 {% include "partials/admin-page-header.html" with breadcrumbs=breadcrumbs page_title="Family assignments" page_subtitle="Review assignment rows scoped to one translation family." header_actions_id="translation-family-assignments-header-actions" %}
 
+{% set assignment_action_endpoint = translation_assignment_action_api_path|default:"" %}
 <div class="flex-1 overflow-y-auto bg-gray-50 p-8">
   <div class="mx-auto">
     <div id="translation-family-assignments-root"
          data-translation-family-assignments-ssr="true"
          data-family-id="{{ translation_family_id|default:translation_family_assignments_ssr.Meta.family_id|default:"" }}"
          data-endpoint="{{ translation_family_assignments_api_path|default:"" }}"
+         data-action-endpoint="{{ assignment_action_endpoint }}"
          data-editor-base-path="{{ translation_queue_editor_base_path|default:translation_family_assignments_ssr.Links.editor_base|default:"" }}"
          data-ssr-enhanced="true"
          data-channel="{{ translation_family_assignments_ssr.Meta.channel|default:"" }}">
@@ -54,7 +56,7 @@
           <div>
             <h2 id="translation-family-assignments-list" class="text-lg font-semibold text-gray-900">Assignments</h2>
             <p class="mt-1 text-sm text-gray-500">
-              Server-rendered rows preserve queue filters, channel, scope, and action-state metadata.
+              Assignments matching this family and the current queue filters.
             </p>
           </div>
           <div class="flex flex-wrap items-center gap-2 text-sm text-gray-600">
@@ -128,11 +130,11 @@
                       <svg class="h-5 w-5" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
                         <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z"/>
                       </svg>
-                    </button>
-                    <div class="action-menu__content hidden absolute right-0 z-20 mt-2 w-48 rounded-lg border border-gray-200 bg-white py-1 shadow-lg"
-                         data-action-menu-content
-                         role="menu"
-                         aria-orientation="vertical">
+	                    </button>
+	                    <div class="action-menu__content hidden absolute right-0 z-20 mt-2 w-48 rounded-lg border border-gray-200 bg-white py-1 shadow-lg"
+	                         data-action-menu-content
+	                         role="menu"
+	                         aria-orientation="vertical">
                       <a class="action-menu__item flex w-full items-center gap-2 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:bg-gray-50 focus:outline-none"
                          data-action-menu-item
                          data-action="open"
@@ -142,33 +144,37 @@
                         <span>Open editor</span>
                       </a>
                       <div class="action-menu__divider my-1 border-t border-gray-100" role="separator"></div>
+                      {% set claim_disabled = not assignment_action_endpoint or row.actions.claim.enabled == false %}
                       <button type="button"
-                              class="action-menu__item flex w-full items-center gap-2 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:bg-gray-50 focus:outline-none {% if row.actions.claim.enabled == false %}cursor-not-allowed opacity-50{% endif %}"
+                              class="action-menu__item flex w-full items-center gap-2 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:bg-gray-50 focus:outline-none {% if claim_disabled %}cursor-not-allowed opacity-50{% endif %}"
                               data-action-menu-item
                               data-action="claim"
                               data-translation-action="claim"
                               data-assignment-id="{{ row.assignment_id|default:row.id }}"
                               data-row-version="{{ row.row_version|default:row.version }}"
                               role="menuitem"
-                              {% if row.actions.claim.enabled == false %}disabled aria-disabled="true" title="{{ row.actions.claim.reason|default:"Action unavailable" }}"{% endif %}>
+                              {% if claim_disabled %}disabled aria-disabled="true" title="{% if not assignment_action_endpoint %}Action endpoint unavailable{% else %}{{ row.actions.claim.reason|default:"Action unavailable" }}{% endif %}"{% endif %}>
                         <i class="iconoir-user-plus w-4 h-4 flex-shrink-0" aria-hidden="true"></i>
                         <span>Claim</span>
                       </button>
+                      {% set release_disabled = not assignment_action_endpoint or row.actions.release.enabled == false %}
                       <button type="button"
-                              class="action-menu__item flex w-full items-center gap-2 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:bg-gray-50 focus:outline-none {% if row.actions.release.enabled == false %}cursor-not-allowed opacity-50{% endif %}"
+                              class="action-menu__item flex w-full items-center gap-2 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:bg-gray-50 focus:outline-none {% if release_disabled %}cursor-not-allowed opacity-50{% endif %}"
                               data-action-menu-item
                               data-action="release"
                               data-translation-action="release"
                               data-assignment-id="{{ row.assignment_id|default:row.id }}"
                               data-row-version="{{ row.row_version|default:row.version }}"
                               role="menuitem"
-                              {% if row.actions.release.enabled == false %}disabled aria-disabled="true" title="{{ row.actions.release.reason|default:"Action unavailable" }}"{% endif %}>
+                              {% if release_disabled %}disabled aria-disabled="true" title="{% if not assignment_action_endpoint %}Action endpoint unavailable{% else %}{{ row.actions.release.reason|default:"Action unavailable" }}{% endif %}"{% endif %}>
                         <i class="iconoir-user-xmark w-4 h-4 flex-shrink-0" aria-hidden="true"></i>
                         <span>Release</span>
                       </button>
                     </div>
                   </div>
-                  {% if row.actions.claim.reason or row.actions.release.reason %}
+                  {% if not assignment_action_endpoint %}
+                  <p class="mt-2 text-xs text-gray-500">Action endpoint unavailable.</p>
+                  {% elif row.actions.claim.reason or row.actions.release.reason %}
                   <p class="mt-2 text-xs text-gray-500">{{ row.actions.claim.reason|default:row.actions.release.reason }}</p>
                   {% endif %}
                 </td>
@@ -210,11 +216,11 @@
 
 {% block scripts %}
 <script type="module">
-import { initActionMenus } from '{{ adminURL("assets/dist/shared/action-menu.js") }}';
+import { initAssignmentSSRRowActions } from '{{ adminURL("assets/dist/translation-actions/assignment-row-actions.js") }}';
 
 const familyAssignmentsRoot = document.getElementById('translation-family-assignments-root');
 if (familyAssignmentsRoot) {
-  initActionMenus(familyAssignmentsRoot);
+  initAssignmentSSRRowActions(familyAssignmentsRoot);
 }
 </script>
 {% endblock %}

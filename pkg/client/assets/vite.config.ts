@@ -43,6 +43,7 @@ export default defineConfig({
         'translation-editor/index': resolve(__dirname, 'src/translation-editor/index.ts'),
         'translation-matrix/index': resolve(__dirname, 'src/translation-matrix/index.ts'),
         'translation-queue/index': resolve(__dirname, 'src/translation-queue/index.ts'),
+        'translation-actions/assignment-row-actions': resolve(__dirname, 'src/translation-actions/assignment-row-actions.ts'),
         'translation-operations/index': resolve(__dirname, 'src/translation-operations/index.ts'),
         'translation-shared/formatters': resolve(__dirname, 'src/translation-shared/formatters.ts'),
         'services/index': resolve(__dirname, 'src/services/index.ts'),

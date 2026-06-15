@@ -1,9 +1,9 @@
 import { escapeHTML as h } from "../shared/html.js";
 import { httpRequest as R } from "../shared/transport/http-client.js";
 import { normalizeDebugBasePath as M } from "./shared/path-helpers.js";
-import { C as A, S as I, T as S, b as $, c as H, d as D, f as O, g as j, l as F, p as G, t as B, u as N, x as m, y as _ } from "../chunks/builtin-panels-YWhSaZ1i.js";
-import { t as Q } from "../chunks/repl-panel-H6p0-Pf9.js";
-import { i as Y } from "../chunks/icons-zihLPh2q.js";
+import { C as A, S as I, T as S, b as $, c as H, d as D, f as O, g as j, l as F, p as G, t as B, u as N, x as m, y as _ } from "../chunks/builtin-panels-BWgWjUp0.js";
+import { t as Q } from "../chunks/repl-panel-DOA-vKgf.js";
+import { i as Y } from "../chunks/icons-SGrt9O6P.js";
 import { C as b, N as K, T as p, a as k, b as U, c as bt, d as J, f as W, g as V, h as X, i as ut, l as u, m as gt, n as C, o as g, p as Z, s as E, u as w, w as tt, y as et } from "../chunks/server-definitions-JppbKFji.js";
 var at = `
   :host {

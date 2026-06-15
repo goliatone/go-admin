@@ -18,7 +18,6 @@ import {
   renderGroupHeaderSummary,
 } from '../datatable/grouped-mode.js';
 import { asNumber, asRecord, asString, asStringArray } from '../shared/coercion.js';
-import { initActionMenus } from '../shared/action-menu.js';
 import {
   buildEndpointURL,
   getStringSearchParam,
@@ -29,6 +28,10 @@ import {
 import { StatefulController } from '../shared/stateful-controller.js';
 import { normalizeNumberRecord } from '../shared/record-normalization.js';
 import { httpRequest, readHTTPError } from '../shared/transport/http-client.js';
+import {
+  buildAssignmentActionURL,
+  initAssignmentSSRRowActions,
+} from '../translation-actions/assignment-row-actions.js';
 import { extractStructuredError, type StructuredError } from '../toast/error-helpers.js';
 import { escapeHTML as escapeHtml } from '../shared/html.js';
 import { escapeAttribute as escapeAttr } from '../shared/html.js';
@@ -55,6 +58,11 @@ import {
   MOBILE_CARD_ACTIONS,
   formatTranslationShortDateTime,
 } from '../translation-shared/index.js';
+
+export {
+  buildAssignmentActionURL,
+  initAssignmentSSRRowActions,
+} from '../translation-actions/assignment-row-actions.js';
 
 export type AssignmentDueState = 'none' | 'on_track' | 'due_soon' | 'overdue';
 export type AssignmentQueueState =
@@ -921,7 +929,7 @@ async function runAssignmentAction(
   if (request.channel) {
     payload.channel = request.channel;
   }
-  const response = await httpRequest(`${endpoint}/${encodeURIComponent(assignmentId)}/actions/${action}`, {
+  const response = await httpRequest(buildAssignmentActionURL(endpoint, assignmentId, action), {
     method: 'POST',
     json: payload,
   });
@@ -4899,44 +4907,7 @@ function bindAssignmentQueueSSR(container: HTMLElement, endpoint: string): void 
     return;
   }
   container.dataset.assignmentQueueEnhanced = 'true';
-  initActionMenus(container, {
-    containerSelector: '[data-action-menu]',
-    triggerSelector: '[data-action-menu-trigger]',
-    menuSelector: '[data-action-menu-content]',
-    itemSelector: '[data-action-menu-item], [role="menuitem"], .action-item',
-  });
-  container.querySelectorAll<HTMLButtonElement>('[data-translation-action]').forEach((button) => {
-    button.addEventListener('click', async (event) => {
-      event.preventDefault();
-      const action = asString(button.dataset.translationAction) as 'claim' | 'release';
-      const assignmentId = asString(button.dataset.assignmentId);
-      const parsedVersion = Number.parseInt(asString(button.dataset.rowVersion), 10);
-      const expectedVersion = Number.isFinite(parsedVersion) ? parsedVersion : 0;
-      const channel = asString(container.dataset.channel)
-        || (typeof window !== 'undefined'
-          ? getStringSearchParam(readLocationSearchParams(window.location) ?? new URLSearchParams(), 'channel')
-          : '');
-      if (!assignmentId || !action) {
-        return;
-      }
-      if (button.disabled || button.getAttribute('aria-disabled') === 'true') {
-        return;
-      }
-      button.disabled = true;
-      try {
-        await runAssignmentAction(endpoint, assignmentId, action, {
-          expected_version: expectedVersion,
-          ...(channel ? { channel } : {}),
-        });
-        if (typeof window !== 'undefined') {
-          window.location.reload();
-        }
-      } catch (error) {
-        button.disabled = false;
-        console.error(error);
-      }
-    });
-  });
+  initAssignmentSSRRowActions(container, { endpoint: container.dataset.actionEndpoint || endpoint });
 }
 
 function shouldUseTranslationClientRender(): boolean {

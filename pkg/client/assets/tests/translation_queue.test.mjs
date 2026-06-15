@@ -19,12 +19,19 @@ const {
   AssignmentQueueScreen,
   applyOptimisticAssignmentAction,
   buildAssignmentListURL,
+  buildAssignmentActionURL: queueBuildAssignmentActionURL,
   initAssignmentQueueScreen,
+  initAssignmentSSRRowActions: queueInitAssignmentSSRRowActions,
   normalizeAssignmentListResponse,
   resolveAssignmentBulkActionEndpoint,
   resolveAssignmentBulkSnapshotEndpoint,
   snapshotFiltersFromQueryState,
 } = await import('../dist/translation-queue/index.js');
+
+const {
+  buildAssignmentActionURL,
+  initAssignmentSSRRowActions,
+} = await import('../dist/translation-actions/assignment-row-actions.js');
 
 function createContainer(dataset = {}) {
   return {
@@ -1280,7 +1287,148 @@ test('translation queue runtime: SSR root binds row actions without first-render
   assert.equal(requests.length, 1);
   assert.equal(requests[0].url, '/admin/api/translations/assignments/asg-open-1/actions/claim');
   assert.equal(requests[0].init.method, 'POST');
-  assert.deepEqual(JSON.parse(String(requests[0].init.body)), { expected_version: 2, channel: 'default' });
+  const payload = JSON.parse(String(requests[0].init.body));
+  assert.equal(payload.expected_version, 2);
+  assert.equal(payload.channel, 'default');
+  assert.equal(typeof payload.idempotency_key, 'string');
+  assert.ok(payload.idempotency_key.length > 0);
+});
+
+test('translation queue runtime: assignment action URL appends path before scope query', () => {
+  assert.equal(
+    buildAssignmentActionURL('/admin/api/translations/assignments?tenant_id=tenant-1&org_id=org-1', 'asg open/1', 'release'),
+    '/admin/api/translations/assignments/asg%20open%2F1/actions/release?tenant_id=tenant-1&org_id=org-1',
+  );
+});
+
+test('translation queue runtime: queue entry re-exports shared SSR row action helpers', () => {
+  assert.equal(queueBuildAssignmentActionURL, buildAssignmentActionURL);
+  assert.equal(queueInitAssignmentSSRRowActions, initAssignmentSSRRowActions);
+});
+
+test('translation queue runtime: family assignment SSR actions use assignment action endpoint', async () => {
+  const { root } = setupDom('http://localhost/admin/translations/families/family-1/assignments?channel=staging');
+  root.dataset.endpoint = '/admin/api/translations/families/family-1/assignments';
+  root.dataset.actionEndpoint = '/admin/api/translations/assignments?tenant_id=tenant-1&org_id=org-1';
+  root.dataset.channel = 'staging';
+  root.innerHTML = `
+    <div data-action-menu>
+      <button type="button" data-action-menu-trigger>Actions</button>
+      <div data-action-menu-content>
+        <button type="button"
+                data-action-menu-item
+                data-translation-action="release"
+                data-assignment-id="asg-family-1"
+                data-row-version="7">Release</button>
+      </div>
+    </div>
+  `;
+  try {
+    Object.defineProperty(globalThis.window.location, 'reload', { value() {}, configurable: true });
+  } catch {}
+  const requests = [];
+  globalThis.fetch = mock.fn(async (url, init = {}) => {
+    requests.push({ url: String(url), init });
+    return createJsonResponse({
+      data: { assignment: fixtures.states.open_pool.data[0] },
+      meta: {},
+    });
+  });
+
+  initAssignmentSSRRowActions(root);
+  root.querySelector('[data-translation-action="release"]')
+    .dispatchEvent(new globalThis.window.Event('click', { bubbles: true }));
+  await flushAsync();
+  await flushAsync();
+
+  assert.equal(requests.length, 1);
+  assert.equal(
+    requests[0].url,
+    '/admin/api/translations/assignments/asg-family-1/actions/release?tenant_id=tenant-1&org_id=org-1',
+  );
+  const payload = JSON.parse(String(requests[0].init.body));
+  assert.equal(payload.expected_version, 7);
+  assert.equal(payload.channel, 'staging');
+  assert.equal(typeof payload.idempotency_key, 'string');
+  assert.ok(!requests[0].url.includes('/families/family-1/assignments/asg-family-1/actions/release'));
+});
+
+test('translation queue runtime: SSR row actions do not fall back to family expansion endpoint', async () => {
+  const { root } = setupDom('http://localhost/admin/translations/families/family-1/assignments?channel=staging');
+  root.dataset.endpoint = '/admin/api/translations/families/family-1/assignments';
+  root.innerHTML = `
+    <div data-action-menu>
+      <button type="button" data-action-menu-trigger>Actions</button>
+      <div data-action-menu-content>
+        <button type="button"
+                data-action-menu-item
+                data-translation-action="claim"
+                data-assignment-id="asg-family-1"
+                data-row-version="7">Claim</button>
+      </div>
+    </div>
+  `;
+  const requests = [];
+  globalThis.fetch = mock.fn(async (url, init = {}) => {
+    requests.push({ url: String(url), init });
+    return createJsonResponse({
+      data: { assignment: fixtures.states.open_pool.data[0] },
+      meta: {},
+    });
+  });
+
+  initAssignmentSSRRowActions(root);
+  root.querySelector('[data-translation-action="claim"]')
+    .dispatchEvent(new globalThis.window.Event('click', { bubbles: true }));
+  await flushAsync();
+  await flushAsync();
+
+  assert.equal(root.dataset.assignmentActionMenusEnhanced, 'true');
+  assert.equal(root.dataset.assignmentActionsEnhanced, undefined);
+  assert.equal(requests.length, 0);
+});
+
+test('translation queue runtime: SSR row actions can bind after endpoint is injected', async () => {
+  const { root } = setupDom('http://localhost/admin/translations/families/family-1/assignments?channel=staging');
+  root.dataset.endpoint = '/admin/api/translations/families/family-1/assignments';
+  root.innerHTML = `
+    <div data-action-menu>
+      <button type="button" data-action-menu-trigger>Actions</button>
+      <div data-action-menu-content>
+        <button type="button"
+                data-action-menu-item
+                data-translation-action="claim"
+                data-assignment-id="asg-family-1"
+                data-row-version="7">Claim</button>
+      </div>
+    </div>
+  `;
+  try {
+    Object.defineProperty(globalThis.window.location, 'reload', { value() {}, configurable: true });
+  } catch {}
+  const requests = [];
+  globalThis.fetch = mock.fn(async (url, init = {}) => {
+    requests.push({ url: String(url), init });
+    return createJsonResponse({
+      data: { assignment: fixtures.states.open_pool.data[0] },
+      meta: {},
+    });
+  });
+
+  initAssignmentSSRRowActions(root);
+  root.dataset.actionEndpoint = '/admin/api/translations/assignments?tenant_id=tenant-1';
+  initAssignmentSSRRowActions(root);
+  root.querySelector('[data-translation-action="claim"]')
+    .dispatchEvent(new globalThis.window.Event('click', { bubbles: true }));
+  await flushAsync();
+  await flushAsync();
+
+  assert.equal(root.dataset.assignmentActionsEnhanced, 'true');
+  assert.equal(requests.length, 1);
+  assert.equal(
+    requests[0].url,
+    '/admin/api/translations/assignments/asg-family-1/actions/claim?tenant_id=tenant-1',
+  );
 });
 
 test('translation queue runtime: qa-blocked review preset requests server-side review_state filtering', async () => {

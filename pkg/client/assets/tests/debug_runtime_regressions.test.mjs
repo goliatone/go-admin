@@ -229,7 +229,7 @@ test('debug bundle initializes without throwing in a browser-like environment', 
 });
 
 test('debug icon lookup covers registered panels and repl panels', () => {
-  assert.equal(debugModule.getPanelIcon('doctor'), 'iconoir-heartbeat');
+  assert.equal(debugModule.getPanelIcon('doctor'), 'iconoir-heart');
   assert.equal(debugModule.getPanelIcon('permissions'), 'iconoir-shield-check');
   assert.equal(debugModule.getPanelIcon('site-render-cache'), 'iconoir-database');
   assert.equal(debugModule.getPanelIcon('shell'), 'iconoir:terminal');
@@ -271,7 +271,7 @@ test('debug console tabs render shared panel icons for built-in and repl panels'
   await flushMicrotasks();
 
   const tabs = dom.window.document.querySelector('[data-debug-tabs]');
-  assert.ok(tabs.querySelector('[data-panel="doctor"] .debug-icon .iconoir-heartbeat'));
+  assert.ok(tabs.querySelector('[data-panel="doctor"] .debug-icon .iconoir-heart'));
   assert.ok(tabs.querySelector('[data-panel="permissions"] .debug-icon .iconoir-shield-check'));
   assert.ok(tabs.querySelector('[data-panel="site-render-cache"] .debug-icon .iconoir-database'));
   assert.ok(tabs.querySelector('[data-panel="shell"] .debug-icon .iconoir-terminal'));
@@ -535,6 +535,58 @@ test('debug panel preserves saved position for asynchronously discovered server 
   await flushMicrotasks();
 
   assert.deepEqual(debugTabOrder(dom.window.document), ['sql', 'async-panel', 'template', 'config', 'sessions']);
+});
+
+test('debug console renders server-declared Scope panel with bundled iconoir icon', async () => {
+  const dom = createDebugDOM();
+  setGlobals(dom.window);
+  globalThis.WebSocket = OpenWebSocket;
+  dom.window.WebSocket = OpenWebSocket;
+  const consoleEl = dom.window.document.querySelector('[data-debug-console]');
+  consoleEl.dataset.debugPath = '/admin/debug-scope-icon';
+  consoleEl.dataset.panels = JSON.stringify(['scope']);
+  globalThis.fetch = async (input) => {
+    if (String(input).endsWith('/api/panels')) {
+      return new Response(JSON.stringify({
+        panels: [{
+          id: 'scope',
+          label: 'Scope',
+          icon: 'iconoir-gps',
+          snapshot_key: 'scope',
+          ui: {
+            views: {
+              console: { renderer: 'json', title: 'Scope' },
+            },
+          },
+        }],
+      }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+    if (String(input).endsWith('/api/snapshot')) {
+      return new Response(JSON.stringify({
+        scope: { count: 0, entries: [] },
+      }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+    return new Response(JSON.stringify({ sessions: [] }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
+  };
+
+  debugModule.initDebugPanel(consoleEl);
+
+  await waitForAssertion(() => {
+    const tabs = dom.window.document.querySelector('[data-debug-tabs]');
+    assert.ok(
+      tabs.querySelector('[data-panel="scope"] .debug-icon .iconoir-gps'),
+      tabs.innerHTML,
+    );
+  });
 });
 
 test('debug panel prefers found server panel order over local panel order', async () => {
@@ -1156,7 +1208,7 @@ test('debug toolbar constrains tab strip as horizontal scroll container with vis
   assert.match(styleText, /\.toolbar-tabs\s*\{[\s\S]*flex: 1 1 auto;[\s\S]*min-width: 0;[\s\S]*overflow-x: auto;/);
   assert.match(styleText, /\.tab\s*\{[\s\S]*flex: 0 0 auto;/);
   assert.match(styleText, /\.tab \.debug-icon\s*\{[\s\S]*flex: 0 0 14px;/);
-  assert.ok(toolbar.shadowRoot?.querySelector('[data-panel="doctor"] .debug-icon .iconoir-heartbeat'));
+  assert.ok(toolbar.shadowRoot?.querySelector('[data-panel="doctor"] .debug-icon .iconoir-heart'));
   assert.ok(toolbar.shadowRoot?.querySelector('[data-panel="permissions"] .debug-icon .iconoir-shield-check'));
   assert.ok(toolbar.shadowRoot?.querySelector('[data-panel="site-render-cache"] .debug-icon .iconoir-database'));
   assert.ok(toolbar.shadowRoot?.querySelector('[data-panel="shell"] .debug-icon .iconoir-terminal'));

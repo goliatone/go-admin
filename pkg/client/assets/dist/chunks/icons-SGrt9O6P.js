@@ -11,7 +11,7 @@ var t = {
   appConsole: "iconoir:code",
   cache: "iconoir:database",
   permissions: "iconoir:shield-check",
-  doctor: "iconoir:heartbeat",
+  doctor: "iconoir:heart",
   refresh: "iconoir:refresh",
   clear: "iconoir:erase",
   connect: "iconoir:play",
@@ -35,4 +35,4 @@ export {
   t
 };
 
-//# sourceMappingURL=icons-zihLPh2q.js.map
+//# sourceMappingURL=icons-SGrt9O6P.js.map

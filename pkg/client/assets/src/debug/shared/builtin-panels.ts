@@ -549,7 +549,7 @@ const permissionsPanel: PanelDefinition = {
 const doctorPanel: PanelDefinition = {
   id: 'doctor',
   label: 'Doctor',
-  icon: 'iconoir-heartbeat',
+  icon: 'iconoir-heart',
   snapshotKey: 'doctor',
   eventTypes: [],
   category: 'system',
