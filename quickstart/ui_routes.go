@@ -632,6 +632,7 @@ func registerAdminUITranslationOverviewRoutes[T any](
 				"translation_shell_title":                options.translationQueueTitle,
 				"translation_shell_description":          "Assignment-centric queue with saved filters, keyboard row navigation, and inline claim/release actions.",
 				"translation_shell_api_path":             prefixBasePath(apiBase, path.Join("translations", "assignments")),
+				"translation_assignment_action_api_path": translationAssignmentActionAPIBasePath(c, apiBase),
 				"translation_queue_bulk_action_api_path": prefixBasePath(apiBase, path.Join("translations", "assignment-actions", "bulk")),
 				"translation_queue_editor_base_path":     path.Join(options.basePath, "translations", "assignments"),
 				"translation_queue_initial_preset":       initialPresetID,
@@ -690,6 +691,7 @@ func registerAdminUITranslationDetailRoutes[T any](
 			view := WithBreadcrumbSpec(router.ViewContext{
 				"translation_family_id":                   familyID,
 				"translation_family_assignments_api_path": prefixBasePath(apiBase, path.Join("translations", "families", familyID, "assignments")),
+				"translation_assignment_action_api_path":  translationAssignmentActionAPIBasePath(c, apiBase),
 				"translation_family_detail_path":          familyDetailHref,
 				"translation_queue_path":                  options.translationQueuePath,
 				"translation_queue_editor_base_path":      path.Join(options.basePath, "translations", "assignments"),
@@ -872,6 +874,19 @@ func translationSSRQueryValues(c router.Context) map[string]string {
 		return nil
 	}
 	return values
+}
+
+func translationAssignmentActionAPIBasePath(c router.Context, apiBase string) string {
+	endpoint := prefixBasePath(apiBase, path.Join("translations", "assignments"))
+	if c == nil {
+		return endpoint
+	}
+	for _, key := range []string{admin.ScopeTenantIDKey, admin.ScopeOrgIDKey} {
+		if value := strings.TrimSpace(c.Query(key)); value != "" {
+			endpoint = appendQueryParam(endpoint, key, value)
+		}
+	}
+	return endpoint
 }
 
 func withTranslationSSRView(

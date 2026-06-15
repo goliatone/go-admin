@@ -180,7 +180,7 @@ func RegisterScopeDebugPanel(buffer *ScopeDebugBuffer) {
 	}
 	if err := debugregistry.RegisterPanel(ScopeDebugPanelID, debugregistry.PanelConfig{
 		Label:           "Scope",
-		Icon:            "target",
+		Icon:            "iconoir-gps",
 		SnapshotKey:     ScopeDebugPanelID,
 		SupportsToolbar: new(true),
 		Category:        "auth",

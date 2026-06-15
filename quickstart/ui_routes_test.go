@@ -7,6 +7,7 @@ import (
 	"maps"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"regexp"
 	"strings"
@@ -583,11 +584,15 @@ func TestTranslationFamilyAssignmentsTemplateRendersSSRSections(t *testing.T) {
 		"Family assignments pagination",
 		"data-action-menu-trigger",
 		"data-translation-action=\"claim\"",
-		"dist/shared/action-menu.js",
+		"dist/translation-actions/assignment-row-actions.js",
+		"initAssignmentSSRRowActions",
 	} {
 		if !strings.Contains(template, expected) {
 			t.Fatalf("expected family assignments template to contain %q", expected)
 		}
+	}
+	if strings.Contains(template, "dist/translation-queue/index.js") {
+		t.Fatalf("expected family assignments template to use the lightweight row action enhancer, not the full queue bundle")
 	}
 	if regexp.MustCompile(`<div\s+id="translation-family-assignments-root"[^>]*>\s*</div>`).MatchString(template) {
 		t.Fatalf("expected family assignments root to contain SSR markup, found empty root pattern")
@@ -622,6 +627,36 @@ func TestTranslationFamilyAssignmentsTemplateRendersEmptyAndErrorStates(t *testi
 	if !strings.Contains(errorHTML, `data-translation-ssr-error="true"`) || !strings.Contains(errorHTML, "Repository unavailable") {
 		t.Fatalf("expected rendered error state, got %q", errorHTML)
 	}
+
+	missingActionEndpointHTML := renderTranslationUITemplate(t, "resources/translations/family-assignments", fiber.Map{
+		"translation_family_id":                   "family-1",
+		"translation_family_assignments_api_path": "/admin/api/translations/families/family-1/assignments",
+		"translation_queue_editor_base_path":      "/admin/translations/assignments",
+		"translation_family_assignments_ssr": admin.TranslationSSRPage{
+			Surface: admin.TranslationSSRSurfaceFamilyAssignments,
+			Meta:    map[string]any{"family_id": "family-1", "page": 1, "per_page": 25, "total": 1},
+			Data: map[string]any{
+				"rows": []map[string]any{{
+					"assignment_id":  "asg-1",
+					"display_title":  "Launch page",
+					"target_locale":  "es",
+					"status":         "assigned",
+					"row_version":    2,
+					"display_status": "Assigned",
+					"actions": map[string]any{
+						"claim":   map[string]any{"enabled": true},
+						"release": map[string]any{"enabled": true},
+					},
+				}},
+			},
+		},
+	})
+	if strings.Contains(missingActionEndpointHTML, `data-action-endpoint="/admin/api/translations/families/family-1/assignments"`) {
+		t.Fatalf("expected family assignments action endpoint not to fall back to JSON expansion endpoint, got %q", missingActionEndpointHTML)
+	}
+	if !strings.Contains(missingActionEndpointHTML, `title="Action endpoint unavailable"`) || !strings.Contains(missingActionEndpointHTML, "Action endpoint unavailable.") {
+		t.Fatalf("expected enabled lifecycle controls to render disabled without an action endpoint, got %q", missingActionEndpointHTML)
+	}
 }
 
 func TestTranslationQueueTemplateRendersUIPresetLinks(t *testing.T) {
@@ -630,6 +665,7 @@ func TestTranslationQueueTemplateRendersUIPresetLinks(t *testing.T) {
 		"translation_shell_title":                "Translation Queue",
 		"translation_shell_description":          "Queue",
 		"translation_shell_api_path":             "/admin/api/translations/assignments",
+		"translation_assignment_action_api_path": "/admin/api/translations/assignments?tenant_id=tenant-1",
 		"translation_queue_bulk_action_api_path": "/admin/api/translations/assignment-actions/bulk",
 		"translation_queue_editor_base_path":     "/admin/translations/assignments",
 		"translation_queue_initial_preset":       "open",
@@ -685,6 +721,9 @@ func TestTranslationQueueTemplateRendersUIPresetLinks(t *testing.T) {
 	}
 	if !strings.Contains(html, `href="/admin/translations/queue?channel=staging&amp;order=desc&amp;preset=open&amp;sort=updated_at&amp;status=pending%2Cassigned"`) {
 		t.Fatalf("expected rendered queue preset href to preserve UI route and channel, got %q", html)
+	}
+	if !strings.Contains(html, `data-action-endpoint="/admin/api/translations/assignments?tenant_id=tenant-1"`) {
+		t.Fatalf("expected queue shell to expose assignment action endpoint separately, got %q", html)
 	}
 	if !strings.Contains(html, `data-translation-row-type="family"`) {
 		t.Fatalf("expected grouped family parent row markup, got %q", html)
@@ -900,6 +939,7 @@ func TestMigratedTranslationTemplatesRenderHydratedSSRData(t *testing.T) {
 			data: fiber.Map{
 				"translation_family_id":                   "family-1",
 				"translation_family_assignments_api_path": "/admin/api/translations/families/family-1/assignments",
+				"translation_assignment_action_api_path":  "/admin/api/translations/assignments",
 				"translation_queue_editor_base_path":      "/admin/translations/assignments",
 				"translation_family_assignments_ssr": admin.TranslationSSRPage{
 					Surface: admin.TranslationSSRSurfaceFamilyAssignments,
@@ -949,6 +989,7 @@ func TestMigratedTranslationTemplatesRenderHydratedSSRData(t *testing.T) {
 			expected: []string{
 				`data-translation-family-assignments-ssr="true"`,
 				`data-endpoint="/admin/api/translations/families/family-1/assignments"`,
+				`data-action-endpoint="/admin/api/translations/assignments"`,
 				`Launch page`,
 				`Translator One`,
 				`href="/admin/translations/assignments/asg-1/edit?channel=staging"`,
@@ -1581,6 +1622,14 @@ func TestRegisterAdminUIRoutesTranslationFamilyAssignmentsHydratesPresenterView(
 			return false
 		}
 		if got := strings.TrimSpace(fmt.Sprint(viewCtx["translation_family_assignments_api_path"])); got != "/admin/api/translations/families/family-123/assignments" {
+			return false
+		}
+		actionPath := strings.TrimSpace(fmt.Sprint(viewCtx["translation_assignment_action_api_path"]))
+		actionURL, err := url.Parse(actionPath)
+		if err != nil || actionURL.Path != "/admin/api/translations/assignments" {
+			return false
+		}
+		if actionURL.Query().Get(admin.ScopeTenantIDKey) != "tenant-1" || actionURL.Query().Get(admin.ScopeOrgIDKey) != "org-1" {
 			return false
 		}
 		page, ok := viewCtx["translation_family_assignments_ssr"].(router.ViewContext)

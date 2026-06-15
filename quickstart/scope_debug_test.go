@@ -18,6 +18,9 @@ func TestRegisterScopeDebugPanelExposesRichUI(t *testing.T) {
 	if def.UI == nil || def.UI.Views.Console == nil || def.UI.Views.Toolbar == nil {
 		t.Fatalf("expected scope rich ui views, got %+v", def.UI)
 	}
+	if def.Icon != "iconoir-gps" {
+		t.Fatalf("expected scope panel to use a bundled iconoir gps icon, got %q", def.Icon)
+	}
 	if def.UI.Count == nil || def.UI.Count.Bind != "entries" {
 		t.Fatalf("expected scope count policy, got %+v", def.UI.Count)
 	}
