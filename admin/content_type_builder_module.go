@@ -16,7 +16,6 @@ import (
 
 	"github.com/goliatone/go-admin/pkg/client"
 	goerrors "github.com/goliatone/go-errors"
-	formgen "github.com/goliatone/go-formgen"
 	formgenjsonschema "github.com/goliatone/go-formgen/pkg/jsonschema"
 	formgenmodel "github.com/goliatone/go-formgen/pkg/model"
 	formgenorchestrator "github.com/goliatone/go-formgen/pkg/orchestrator"
@@ -1237,7 +1236,7 @@ func NewFormgenSchemaValidatorWithAPIBase(basePath, apiBase string) (*FormgenSch
 	}
 	registry.MustRegister(renderer)
 
-	orch := formgen.NewOrchestrator(
+	orch := formgenorchestrator.New(
 		formgenorchestrator.WithRegistry(registry),
 		formgenorchestrator.WithDefaultRenderer(renderer.Name()),
 		formgenorchestrator.WithSchemaTransformer(jsonEditorHybridTransformer()),
