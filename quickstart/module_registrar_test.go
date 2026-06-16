@@ -788,6 +788,55 @@ func TestTranslationCapabilityMenuItemsVisibleWithoutTranslationPermissions(t *t
 	}
 }
 
+func TestTranslationCapabilityMenuItemsKeepQueueNavigationInvariant(t *testing.T) {
+	cleanupModuleCommandRegistry(t)
+
+	cfg := NewAdminConfig("/admin", "Admin", "en")
+	cfg.AuthConfig = &admin.AuthConfig{AllowUnauthenticatedRoutes: true}
+	adm, _, err := NewAdmin(
+		cfg,
+		AdapterHooks{},
+		WithTranslationProductConfig(TranslationProductConfig{
+			SchemaVersion: TranslationProductSchemaVersionCurrent,
+			Profile:       TranslationProfileFull,
+			Exchange: &TranslationExchangeConfig{
+				Enabled: true,
+				Store:   &moduleRegistrarExchangeStoreStub{},
+			},
+			Queue: &TranslationQueueConfig{
+				Enabled:          true,
+				Repository:       newQuickstartTranslationQueueRepo(),
+				SupportedLocales: []string{"en", "es"},
+			},
+		}),
+	)
+	if err != nil {
+		t.Fatalf("NewAdmin error: %v", err)
+	}
+	if adm.Commands() != nil {
+		t.Cleanup(adm.Commands().Reset)
+	}
+
+	items, omissions := translationCapabilityMenuItemsWithDiagnostics(adm, cfg, cfg.NavMenuCode, cfg.DefaultLocale)
+	keys := map[string]bool{}
+	for _, item := range items {
+		keys[stringTargetValue(item.Target, "key")] = true
+	}
+	for _, key := range []string{"translation_dashboard", "translation_queue", "translation_assignments"} {
+		if !keys[key] {
+			t.Fatalf("queue capability must include invariant nav key %s, got keys=%v omissions=%v items=%#v", key, keys, omissions, items)
+		}
+	}
+	if !keys["translation_exchange"] {
+		t.Fatalf("exchange capability must include translation_exchange, got keys=%v omissions=%v", keys, omissions)
+	}
+	for _, omitted := range omissions {
+		if strings.HasPrefix(strings.TrimSpace(omitted), "translations.") {
+			t.Fatalf("full profile should not omit translation nav item %q; omissions=%v", omitted, omissions)
+		}
+	}
+}
+
 func TestTranslationCapabilityMenuItemsClearStalePermissionDeniedStateWhenAllowed(t *testing.T) {
 	cleanupModuleCommandRegistry(t)
 

@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -124,6 +125,74 @@ func TestNewAdminWarnsConfiguredTranslationPolicyWithoutCheckerServices(t *testi
 	}
 	if !found {
 		t.Fatalf("expected translation policy services-missing finding, got %+v", check.Findings)
+	}
+}
+
+func TestQuickstartDoctorTranslationReportsPersistedMissingNavigation(t *testing.T) {
+	resetCommandRegistryForTest(t)
+
+	ctx := context.Background()
+	cfg := NewAdminConfig("/admin", "Admin", "en")
+	adm, _, err := NewAdmin(
+		cfg,
+		AdapterHooks{},
+		WithTranslationProductConfig(TranslationProductConfig{
+			SchemaVersion: TranslationProductSchemaVersionCurrent,
+			Profile:       TranslationProfileFull,
+			Exchange: &TranslationExchangeConfig{
+				Enabled: true,
+				Store:   &moduleRegistrarExchangeStoreStub{},
+			},
+			Queue: &TranslationQueueConfig{
+				Enabled:          true,
+				Repository:       newQuickstartTranslationQueueRepo(),
+				SupportedLocales: []string{"en", "es"},
+			},
+		}),
+	)
+	if err != nil {
+		t.Fatalf("NewAdmin error: %v", err)
+	}
+	t.Cleanup(adm.Commands().Reset)
+
+	items, _ := translationCapabilityMenuItemsWithDiagnostics(adm, cfg, cfg.NavMenuCode, cfg.DefaultLocale)
+	drifted := make([]admin.MenuItem, 0, len(items))
+	for _, item := range items {
+		if stringTargetValue(item.Target, "key") == "translation_dashboard" {
+			continue
+		}
+		drifted = append(drifted, item)
+	}
+	if err := SeedNavigation(ctx, SeedNavigationOptions{
+		MenuSvc:    adm.MenuService(),
+		MenuCode:   cfg.NavMenuCode,
+		Locale:     cfg.DefaultLocale,
+		Items:      drifted,
+		SkipLogger: true,
+	}); err != nil {
+		t.Fatalf("seed drifted translation navigation: %v", err)
+	}
+
+	report := adm.RunDoctor(ctx)
+	check, ok := quickstartDoctorCheckResult(report, "quickstart.translation")
+	if !ok {
+		t.Fatalf("expected quickstart.translation doctor result, got %+v", report.Checks)
+	}
+	found := false
+	for _, finding := range check.Findings {
+		if finding.Code != "quickstart.translation.navigation_persisted_missing" {
+			continue
+		}
+		if !strings.Contains(strings.TrimSpace(fmt.Sprint(finding.Metadata["canonical_id"])), "translations.dashboard") {
+			continue
+		}
+		found = true
+		if finding.Severity != admin.DoctorSeverityWarn || finding.Component != "translation.navigation" {
+			t.Fatalf("unexpected navigation finding: %+v", finding)
+		}
+	}
+	if !found {
+		t.Fatalf("expected persisted-missing translation dashboard finding, got %+v", check.Findings)
 	}
 }
 

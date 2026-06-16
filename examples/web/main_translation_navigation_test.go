@@ -146,14 +146,32 @@ func TestExamplesWebRepairsMissingTranslationDashboardFromPersistedDrift(t *test
 		}
 	}
 
+	reports := []quickstart.NavigationReconcileReport{}
 	if err := quickstart.NewModuleRegistrar(
 		adm,
 		cfg,
 		nil,
 		false,
 		quickstart.WithTranslationCapabilityMenuMode(quickstart.TranslationCapabilityMenuModeTools),
+		quickstart.WithSeedNavigationOptions(func(opts *quickstart.SeedNavigationOptions) {
+			if opts != nil {
+				opts.Reportf = func(report quickstart.NavigationReconcileReport) {
+					reports = append(reports, report)
+				}
+			}
+		}),
 	); err != nil {
 		t.Fatalf("NewModuleRegistrar: %v", err)
+	}
+	if !exampleReportContainsSuffix(reports, func(report quickstart.NavigationReconcileReport) []string {
+		return report.PersistedMissing
+	}, "translations.dashboard") {
+		t.Fatalf("expected persisted-missing report for translations.dashboard, got %#v", reports)
+	}
+	if !exampleReportContainsSuffix(reports, func(report quickstart.NavigationReconcileReport) []string {
+		return report.Creates
+	}, "translations.dashboard") {
+		t.Fatalf("expected create report for translations.dashboard, got %#v", reports)
 	}
 
 	menu, err := adm.MenuService().Menu(ctx, menuCode, locale)
@@ -171,6 +189,21 @@ func TestExamplesWebRepairsMissingTranslationDashboardFromPersistedDrift(t *test
 			t.Fatalf("expected one %s row after registrar repair, got %d in %#v", key, got, menu.Items)
 		}
 	}
+}
+
+func exampleReportContainsSuffix(reports []quickstart.NavigationReconcileReport, values func(quickstart.NavigationReconcileReport) []string, suffix string) bool {
+	suffix = strings.TrimSpace(suffix)
+	if suffix == "" {
+		return false
+	}
+	for _, report := range reports {
+		for _, value := range values(report) {
+			if strings.HasSuffix(strings.TrimSpace(value), suffix) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func persistedTranslationMenuFixture(menuCode, locale, id, label, key, routeName, targetPath string, position int) coreadmin.MenuItem {
