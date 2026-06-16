@@ -1,11 +1,37 @@
 # Changelog
 
+# [0.93.0](https://github.com/goliatone/go-admin/compare/v0.92.0...v0.93.0) - (2026-06-16)
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Formgen update ([36c6893](https://github.com/goliatone/go-admin/commit/36c68937dda4e61ba6406f072ab68cc624546c50))  - (goliatone)
+- Translation dashboard action menu ([3cd7615](https://github.com/goliatone/go-admin/commit/3cd7615b273f84e940e3d149b1dad63d1968671b))  - (goliatone)
+- Icon assignment ([bfea68b](https://github.com/goliatone/go-admin/commit/bfea68b8e7260aab24457a894fc96085ab6477fa))  - (goliatone)
+
+## <!-- 16 -->➕ Add
+
+- Translation assignment action ([8f0dd02](https://github.com/goliatone/go-admin/commit/8f0dd02e50a09c25d005fcf5b47f0343d8008696))  - (goliatone)
+- Debug panel updates ([2427ddf](https://github.com/goliatone/go-admin/commit/2427ddf5d834fd26c536f8e339a00e1ef3d52166))  - (goliatone)
+- Translation families assignments ([8329aef](https://github.com/goliatone/go-admin/commit/8329aefd69c85a8ce5f12d10a87ea93b13f222c9))  - (goliatone)
+- Ssr rendeing for translations ([eb43d95](https://github.com/goliatone/go-admin/commit/eb43d9556e8b9999161c359c7304b92867d58887))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update deps ([32a28ec](https://github.com/goliatone/go-admin/commit/32a28ec1cf37dec562b46d338477bdb069d68ee9))  - (goliatone)
+- Update docs ([d94a456](https://github.com/goliatone/go-admin/commit/d94a45627fde252ef6e16d77e1dab904a063a59c))  - (goliatone)
+- Update examples ([89640cd](https://github.com/goliatone/go-admin/commit/89640cd0bca65d8389f2ba5e785b9c31e810b9f6))  - (goliatone)
+- Update tests ([27144d3](https://github.com/goliatone/go-admin/commit/27144d3a892ff468ac55b54a190c5bf2c9dddba6))  - (goliatone)
+
 # [0.92.0](https://github.com/goliatone/go-admin/compare/v0.91.0...v0.92.0) - (2026-06-12)
 
 ## <!-- 1 -->🐛 Bug Fixes
 
 - Code quality ([04d4265](https://github.com/goliatone/go-admin/commit/04d42655d8e5efea71727432d6137bd078fa931d))  - (goliatone)
 - Permission check ([2df8edd](https://github.com/goliatone/go-admin/commit/2df8edd0cf9e88991dce87779a0414dff11ff0b6))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.92.0 ([c442317](https://github.com/goliatone/go-admin/commit/c4423174b23fcc37fc81ef77b8b4a3d7149a5c09))  - (goliatone)
 
 ## <!-- 16 -->➕ Add
 
