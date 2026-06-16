@@ -63,5 +63,5 @@ func NewUserFormGenerator(openapiFS fs.FS, templatesFS fs.FS) *formgenorchestrat
 		opts = append(opts, formgenorchestrator.WithUISchemaFS(uiSchemaFS))
 	}
 
-	return formgen.NewOrchestrator(opts...)
+	return formgenorchestrator.New(opts...)
 }
