@@ -832,26 +832,57 @@ function renderLink(label: string, link: TranslationDashboardLink | null, fallba
   return `<span class="${escapeAttribute(fallbackClass)}">${safeLabel}</span>`;
 }
 
-function sortLinksByRelation(links: TranslationDashboardLink[]): TranslationDashboardLink[] {
-  return [...links].sort((left, right) => {
-    const rank = (value: string): number => value === 'primary' ? 0 : 1;
-    return rank(left.relation) - rank(right.relation);
-  });
+interface DashboardRowActionItem {
+  key: string;
+  label: string;
+  href: string;
+  icon: string;
 }
 
-function renderLinkedActions(links: TranslationDashboardLink[], emptyLabel = 'No drill-downs'): string {
-  if (links.length === 0) {
-    return `<span class="text-gray-400">${escapeHTML(emptyLabel)}</span>`;
+// Kebab action menu for triage rows, mirroring the SSR dashboard template and the
+// translation families/assignments surfaces. Items without an href are dropped, so
+// callers can list every possible drill-down and let the data decide what renders.
+// Wired by the standalone initActionMenus() call in the dashboard template (document
+// delegation), which also covers rows produced by this client-render fallback path.
+function renderDashboardRowActionMenu(
+  triggerLabel: string,
+  rowId: string,
+  items: DashboardRowActionItem[]
+): string {
+  const visible = items.filter((item) => item.href);
+  if (visible.length === 0) {
+    return '<span class="text-gray-400">No drill-downs</span>';
   }
-  return sortLinksByRelation(links)
-    .map((link) => {
-      const label = link.label || 'Open';
-      if (link.href) {
-        return `<a class="inline-flex items-center rounded-full border border-gray-200 px-3 py-1 text-xs font-medium text-gray-700 hover:border-gray-300 hover:text-gray-900" data-dashboard-link="${escapeAttribute(link.key || label.toLowerCase())}" href="${escapeAttribute(link.href)}">${escapeHTML(label)}</a>`;
-      }
-      return `<span class="inline-flex items-center rounded-full border border-gray-200 px-3 py-1 text-xs font-medium text-gray-400">${escapeHTML(label)}</span>`;
-    })
+  const menuItems = visible
+    .map((item) => `
+        <a class="action-menu__item flex w-full items-center gap-2 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:bg-gray-50 focus:outline-none"
+           data-action-menu-item
+           data-action="${escapeAttribute(item.key)}"
+           role="menuitem"
+           href="${escapeAttribute(item.href)}">
+          <i class="iconoir-${escapeAttribute(item.icon)} w-4 h-4 flex-shrink-0" aria-hidden="true"></i>
+          <span>${escapeHTML(item.label)}</span>
+        </a>`)
     .join('');
+  return `
+    <div class="action-menu relative flex justify-end" data-action-menu data-row-id="${escapeAttribute(rowId)}" data-translation-row-actions>
+      <button type="button"
+              class="action-menu__trigger rounded-md p-2 text-gray-500 transition-colors hover:bg-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1"
+              data-action-menu-trigger
+              aria-label="Actions for ${escapeAttribute(triggerLabel)}"
+              aria-haspopup="true"
+              aria-expanded="false">
+        <svg class="h-5 w-5" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+          <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z"/>
+        </svg>
+      </button>
+      <div class="action-menu__content hidden absolute right-0 z-20 mt-2 w-48 rounded-lg border border-gray-200 bg-white py-1 shadow-lg"
+           data-action-menu-content
+           role="menu"
+           aria-orientation="vertical">${menuItems}
+      </div>
+    </div>
+  `;
 }
 
 function renderCardDrilldown(card: TranslationDashboardCard): string {
@@ -1037,7 +1068,16 @@ function renderTopOverdueTable(table: TranslationDashboardTable): string {
             <td class="px-4 py-3 text-gray-600">${escapeHTML(formatMetricLabel(asString(row.status)))}</td>
             <td class="px-4 py-3 text-right font-medium text-rose-700">${escapeHTML(`${asNumber(row.overdue_minutes)}m`)}</td>
             <td class="px-4 py-3">
-              <div class="flex justify-end gap-2" aria-label="Assignment drill-down actions">${renderLinkedActions(Object.values(row.links || {}))}</div>
+              ${renderDashboardRowActionMenu(
+                asString(row.source_title) || asString(row.assignment_id) || 'assignment',
+                asString(row.assignment_id) || asString(row.id),
+                [
+                  { key: 'open-assignment', label: row.links?.assignment?.label || 'Open assignment', href: asString(row.links?.assignment?.href), icon: 'edit' },
+                  { key: 'open-family', label: row.links?.family?.label || 'Open family', href: asString(row.links?.family?.href), icon: 'folder' },
+                  { key: 'open-queue', label: row.links?.queue?.label || 'Open queue context', href: asString(row.links?.queue?.href), icon: 'list' },
+                  { key: 'open', label: 'Open', href: asString(row.href), icon: 'open-new-window' },
+                ]
+              )}
             </td>
           </tr>
         `).join('')}
@@ -1147,7 +1187,14 @@ function renderBlockedFamiliesTable(table: TranslationDashboardTable): string {
             <td class="px-4 py-3 text-right font-medium text-amber-700">${escapeHTML(String(asNumber(row.missing_required_locale_count)))}</td>
             <td class="px-4 py-3 text-right font-medium text-gray-700">${escapeHTML(String(asNumber(row.pending_review_count)))}</td>
             <td class="px-4 py-3">
-              <div class="flex justify-end gap-2" aria-label="Family drill-down actions">${renderLinkedActions(Object.values(row.links || {}))}</div>
+              ${renderDashboardRowActionMenu(
+                asString(row.content_type) || asString(row.family_id) || 'family',
+                asString(row.family_id) || asString(row.id),
+                [
+                  { key: 'open-family', label: row.links?.family?.label || 'Open family', href: asString(row.links?.family?.href), icon: 'folder' },
+                  { key: 'open-queue', label: row.links?.queue?.label || 'Open queue', href: asString(row.links?.queue?.href), icon: 'list' },
+                ]
+              )}
             </td>
           </tr>
         `).join('')}

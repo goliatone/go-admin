@@ -207,14 +207,48 @@
                     <td class="px-5 py-4 text-right font-semibold text-amber-700">{{ row.display_missing|default:"0" }}</td>
                     <td class="px-5 py-4 text-right font-semibold text-gray-700">{{ row.display_review|default:"0" }}</td>
                     <td class="px-5 py-4">
-                      <div class="flex justify-end gap-2" data-translation-row-actions>
-                        {% if row.links.family.href %}
-                        <a class="btn btn-secondary" href="{{ row.links.family.href }}" data-translation-action="open-family">{{ row.links.family.label|default:"Open family" }}</a>
-                        {% endif %}
-                        {% if row.links.queue.href %}
-                        <a class="btn btn-secondary" href="{{ row.links.queue.href }}" data-translation-action="open-queue">{{ row.links.queue.label|default:"Open queue" }}</a>
-                        {% endif %}
+                      {% if row.links.family.href or row.links.queue.href %}
+                      <div class="action-menu relative flex justify-end"
+                           data-action-menu
+                           data-row-id="{{ row.family_id|default:row.id }}"
+                           data-translation-row-actions>
+                        <button type="button"
+                                class="action-menu__trigger rounded-md p-2 text-gray-500 transition-colors hover:bg-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1"
+                                data-action-menu-trigger
+                                aria-label="Actions for {{ row.display_title|default:row.content_type|default:row.family_id|default:"family" }}"
+                                aria-haspopup="true"
+                                aria-expanded="false">
+                          <svg class="h-5 w-5" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+                            <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z"/>
+                          </svg>
+                        </button>
+                        <div class="action-menu__content hidden absolute right-0 z-20 mt-2 w-48 rounded-lg border border-gray-200 bg-white py-1 shadow-lg"
+                             data-action-menu-content
+                             role="menu"
+                             aria-orientation="vertical">
+                          {% if row.links.family.href %}
+                          <a class="action-menu__item flex w-full items-center gap-2 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:bg-gray-50 focus:outline-none"
+                             data-action-menu-item
+                             data-action="open-family"
+                             role="menuitem"
+                             href="{{ row.links.family.href }}">
+                            <i class="iconoir-folder w-4 h-4 flex-shrink-0" aria-hidden="true"></i>
+                            <span>{{ row.links.family.label|default:"Open family" }}</span>
+                          </a>
+                          {% endif %}
+                          {% if row.links.queue.href %}
+                          <a class="action-menu__item flex w-full items-center gap-2 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:bg-gray-50 focus:outline-none"
+                             data-action-menu-item
+                             data-action="open-queue"
+                             role="menuitem"
+                             href="{{ row.links.queue.href }}">
+                            <i class="iconoir-list w-4 h-4 flex-shrink-0" aria-hidden="true"></i>
+                            <span>{{ row.links.queue.label|default:"Open queue" }}</span>
+                          </a>
+                          {% endif %}
+                        </div>
                       </div>
+                      {% endif %}
                     </td>
                   </tr>
                   {% endfor %}
@@ -251,20 +285,68 @@
                       {{ row.display_overdue|default:"-" }}
                     </td>
                     <td class="px-5 py-4">
-                      <div class="flex justify-end gap-2" data-translation-row-actions>
-                        {% if row.links.assignment.href %}
-                        <a class="btn btn-secondary" href="{{ row.links.assignment.href }}" data-translation-action="open-assignment">{{ row.links.assignment.label|default:"Open assignment" }}</a>
-                        {% endif %}
-                        {% if row.links.family.href %}
-                        <a class="btn btn-secondary" href="{{ row.links.family.href }}" data-translation-action="open-family">{{ row.links.family.label|default:"Open family" }}</a>
-                        {% endif %}
-                        {% if row.links.queue.href %}
-                        <a class="btn btn-secondary" href="{{ row.links.queue.href }}" data-translation-action="open-queue">{{ row.links.queue.label|default:"Open queue context" }}</a>
-                        {% endif %}
-                        {% if row.href %}
-                        <a class="btn btn-secondary" href="{{ row.href }}" data-translation-action="open">Open</a>
-                        {% endif %}
+                      {% if row.links.assignment.href or row.links.family.href or row.links.queue.href or row.href %}
+                      <div class="action-menu relative flex justify-end"
+                           data-action-menu
+                           data-row-id="{{ row.assignment_id|default:row.id }}"
+                           data-translation-row-actions>
+                        <button type="button"
+                                class="action-menu__trigger rounded-md p-2 text-gray-500 transition-colors hover:bg-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1"
+                                data-action-menu-trigger
+                                aria-label="Actions for {{ row.display_title|default:row.source_title|default:row.title|default:row.assignment_id|default:"assignment" }}"
+                                aria-haspopup="true"
+                                aria-expanded="false">
+                          <svg class="h-5 w-5" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+                            <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z"/>
+                          </svg>
+                        </button>
+                        <div class="action-menu__content hidden absolute right-0 z-20 mt-2 w-48 rounded-lg border border-gray-200 bg-white py-1 shadow-lg"
+                             data-action-menu-content
+                             role="menu"
+                             aria-orientation="vertical">
+                          {% if row.links.assignment.href %}
+                          <a class="action-menu__item flex w-full items-center gap-2 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:bg-gray-50 focus:outline-none"
+                             data-action-menu-item
+                             data-action="open-assignment"
+                             role="menuitem"
+                             href="{{ row.links.assignment.href }}">
+                            <i class="iconoir-edit w-4 h-4 flex-shrink-0" aria-hidden="true"></i>
+                            <span>{{ row.links.assignment.label|default:"Open assignment" }}</span>
+                          </a>
+                          {% endif %}
+                          {% if row.links.family.href %}
+                          <a class="action-menu__item flex w-full items-center gap-2 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:bg-gray-50 focus:outline-none"
+                             data-action-menu-item
+                             data-action="open-family"
+                             role="menuitem"
+                             href="{{ row.links.family.href }}">
+                            <i class="iconoir-folder w-4 h-4 flex-shrink-0" aria-hidden="true"></i>
+                            <span>{{ row.links.family.label|default:"Open family" }}</span>
+                          </a>
+                          {% endif %}
+                          {% if row.links.queue.href %}
+                          <a class="action-menu__item flex w-full items-center gap-2 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:bg-gray-50 focus:outline-none"
+                             data-action-menu-item
+                             data-action="open-queue"
+                             role="menuitem"
+                             href="{{ row.links.queue.href }}">
+                            <i class="iconoir-list w-4 h-4 flex-shrink-0" aria-hidden="true"></i>
+                            <span>{{ row.links.queue.label|default:"Open queue context" }}</span>
+                          </a>
+                          {% endif %}
+                          {% if row.href %}
+                          <a class="action-menu__item flex w-full items-center gap-2 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:bg-gray-50 focus:outline-none"
+                             data-action-menu-item
+                             data-action="open"
+                             role="menuitem"
+                             href="{{ row.href }}">
+                            <i class="iconoir-open-new-window w-4 h-4 flex-shrink-0" aria-hidden="true"></i>
+                            <span>Open</span>
+                          </a>
+                          {% endif %}
+                        </div>
                       </div>
+                      {% endif %}
                     </td>
                   </tr>
                   {% endfor %}
@@ -313,6 +395,20 @@
 {% endblock %}
 
 {% block scripts %}
+<script type="module">
+import { initActionMenus } from '{{ adminURL("assets/dist/shared/action-menu.js") }}';
+
+const dashboardMenuRoot = document.getElementById('translation-dashboard-root');
+if (dashboardMenuRoot && dashboardMenuRoot.dataset.translationDashboardActionMenusStandalone !== 'true') {
+  initActionMenus(dashboardMenuRoot, {
+    containerSelector: '[data-action-menu]',
+    triggerSelector: '[data-action-menu-trigger]',
+    menuSelector: '[data-action-menu-content]',
+    itemSelector: '[data-action-menu-item], [role="menuitem"], .action-item',
+  });
+  dashboardMenuRoot.dataset.translationDashboardActionMenusStandalone = 'true';
+}
+</script>
 <script type="module">
 import { initTranslationDashboardPage } from '{{ adminURL("assets/dist/translation-dashboard/index.js") }}';
 
