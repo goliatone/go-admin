@@ -24,11 +24,11 @@ require (
 	github.com/goliatone/go-cms v0.55.0
 	github.com/goliatone/go-command v0.20.0
 	github.com/goliatone/go-dashboard v0.12.1
-	github.com/goliatone/go-errors v0.10.0
+	github.com/goliatone/go-errors v0.11.0
 	github.com/goliatone/go-export v0.8.0
 	github.com/goliatone/go-export/adapters/template/go-template v0.8.0
 	github.com/goliatone/go-featuregate v0.6.1
-	github.com/goliatone/go-formgen v0.20.1
+	github.com/goliatone/go-formgen v0.21.1
 	github.com/goliatone/go-i18n v0.5.0
 	github.com/goliatone/go-job v0.19.0
 	github.com/goliatone/go-logger v0.8.0
@@ -85,7 +85,6 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.35.12 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sts v1.41.5 // indirect
 	github.com/aws/smithy-go v1.24.0 // indirect
-	github.com/aymerick/douceur v0.2.0 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/chromedp/cdproto v0.0.0-20260405000525-47a8ff65b46a // indirect
 	github.com/chromedp/chromedp v0.15.1 // indirect
@@ -138,7 +137,6 @@ require (
 	github.com/goodsign/monday v1.0.2 // indirect
 	github.com/google/cel-go v0.26.1 // indirect
 	github.com/google/pprof v0.0.0-20251208000136-3d256cb9ff16 // indirect
-	github.com/gorilla/css v1.0.0 // indirect
 	github.com/gorilla/websocket v1.5.3 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/jszwec/s3fs/v2 v2.0.0 // indirect
@@ -159,7 +157,6 @@ require (
 	github.com/mattn/go-isatty v0.0.21 // indirect
 	github.com/mattn/go-runewidth v0.0.21 // indirect
 	github.com/mattn/go-sqlite3 v1.14.34 // indirect
-	github.com/microcosm-cc/bluemonday v1.0.26 // indirect
 	github.com/mitchellh/copystructure v1.2.0 // indirect
 	github.com/mitchellh/reflectwalk v1.0.2 // indirect
 	github.com/mohae/deepcopy v0.0.0-20170929034955-c48cc78d4826 // indirect
