@@ -10,7 +10,6 @@ import (
 
 	admindata "github.com/goliatone/go-admin/data"
 	"github.com/goliatone/go-admin/pkg/client"
-	formgen "github.com/goliatone/go-formgen"
 	formgenjsonschema "github.com/goliatone/go-formgen/pkg/jsonschema"
 	formgenorchestrator "github.com/goliatone/go-formgen/pkg/orchestrator"
 	formgenrender "github.com/goliatone/go-formgen/pkg/render"
@@ -60,7 +59,7 @@ func newPreferencesFormGenerator() (*formgenorchestrator.Orchestrator, error) {
 	}
 	registry.MustRegister(vanillaRenderer)
 
-	return formgen.NewOrchestrator(
+	return formgenorchestrator.New(
 		formgenorchestrator.WithRegistry(registry),
 		formgenorchestrator.WithDefaultRenderer(vanillaRenderer.Name()),
 		formgenorchestrator.WithDefaultAdapter(formgenjsonschema.DefaultAdapterName),
