@@ -1,5 +1,11 @@
 # Changelog
 
+# [0.93.1](https://github.com/goliatone/go-admin/compare/v0.93.0...v0.93.1) - (2026-06-16)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update deps ([0aa7ef0](https://github.com/goliatone/go-admin/commit/0aa7ef09c456dd9963edd79cfa1fe7adba5bcfd0))  - (goliatone)
+
 # [0.93.0](https://github.com/goliatone/go-admin/compare/v0.92.0...v0.93.0) - (2026-06-16)
 
 ## <!-- 1 -->🐛 Bug Fixes
@@ -7,6 +13,10 @@
 - Formgen update ([36c6893](https://github.com/goliatone/go-admin/commit/36c68937dda4e61ba6406f072ab68cc624546c50))  - (goliatone)
 - Translation dashboard action menu ([3cd7615](https://github.com/goliatone/go-admin/commit/3cd7615b273f84e940e3d149b1dad63d1968671b))  - (goliatone)
 - Icon assignment ([bfea68b](https://github.com/goliatone/go-admin/commit/bfea68b8e7260aab24457a894fc96085ab6477fa))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.93.0 ([bd7644a](https://github.com/goliatone/go-admin/commit/bd7644af15a3c57b4a2049be92c5bb83d1b531c2))  - (goliatone)
 
 ## <!-- 16 -->➕ Add
 
