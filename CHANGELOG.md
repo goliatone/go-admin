@@ -1,6 +1,20 @@
 # Changelog
 
+# [0.94.0](https://github.com/goliatone/go-admin/compare/v0.93.2...v0.94.0) - (2026-06-16)
+
+## <!-- 16 -->➕ Add
+
+- Doctor checks ([533a322](https://github.com/goliatone/go-admin/commit/533a3225d1eb4a8f2929a5854e3c979540e6f9b3))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update tests ([948ee46](https://github.com/goliatone/go-admin/commit/948ee46d1da019d9032ebacb1efa13280c521901))  - (goliatone)
+
 # [0.93.2](https://github.com/goliatone/go-admin/compare/v0.93.1...v0.93.2) - (2026-06-16)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.93.2 ([a1490b0](https://github.com/goliatone/go-admin/commit/a1490b05e77b6cda0be5ad52dd7fafe69c1a3274))  - (goliatone)
 
 ## <!-- 7 -->⚙️ Miscellaneous Tasks
 
