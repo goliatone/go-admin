@@ -32,7 +32,7 @@ func defaultQuickstartDoctorChecks(cfg admin.Config, result AdapterResult, optio
 		quickstartDoctorRoutingCheck(),
 		quickstartDoctorRoutesCheck(cfg),
 		quickstartDoctorBlockDefinitionsCheck(),
-		quickstartDoctorTranslationCheck(options),
+		quickstartDoctorTranslationCheck(cfg, options),
 	}
 }
 
@@ -472,18 +472,18 @@ func quickstartDoctorRoutingCheck() admin.DoctorCheck {
 	}
 }
 
-func quickstartDoctorTranslationCheck(options adminOptions) admin.DoctorCheck {
+func quickstartDoctorTranslationCheck(cfg admin.Config, options adminOptions) admin.DoctorCheck {
 	return admin.DoctorCheck{
 		ID:          "quickstart.translation",
 		Label:       "Translation Capabilities",
-		Description: "Validates translation capability snapshot coherence.",
-		Help:        "Compares translation capability modules with registered routes and startup warnings to detect partial translation product wiring.",
+		Description: "Validates translation capability and navigation snapshot coherence.",
+		Help:        "Compares translation capability modules with registered routes, generated product navigation, and startup warnings to detect partial translation product wiring.",
 		Action: admin.NewManualDoctorAction(
-			"Enable/disable translation modules consistently and ensure UI/API routes are registered for active modules.",
+			"Enable/disable translation modules consistently and ensure UI/API routes and generated navigation are registered for active modules.",
 			"Review translation wiring",
 		),
 		Run: func(ctx context.Context, adm *admin.Admin) admin.DoctorCheckOutput {
-			output := quickstartDoctorTranslationRun(ctx, adm)
+			output := quickstartDoctorTranslationRun(ctx, adm, cfg)
 			output.Findings = append(translationPolicyDiagnosticFindings(options.translationPolicyDiagnostics), output.Findings...)
 			return output
 		},
@@ -519,7 +519,10 @@ func translationPolicyDiagnosticFindings(diagnostics []TranslationPolicyDiagnost
 	return findings
 }
 
-func quickstartDoctorTranslationRun(_ context.Context, adm *admin.Admin) admin.DoctorCheckOutput {
+func quickstartDoctorTranslationRun(ctx context.Context, adm *admin.Admin, cfg admin.Config) admin.DoctorCheckOutput {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	if adm == nil {
 		return admin.DoctorCheckOutput{}
 	}
@@ -534,14 +537,20 @@ func quickstartDoctorTranslationRun(_ context.Context, adm *admin.Admin) admin.D
 	routes := translationRoutesToStrings(caps["routes"])
 	warnings := translationStringSlice(caps["warnings"])
 	findings := translationDoctorFindings(adm, modules, routes, warnings)
+	navReport, navFindings := translationDoctorNavigationDiagnostics(ctx, adm, cfg)
+	findings = append(findings, navFindings...)
+	metadata := map[string]any{
+		"profile":        strings.TrimSpace(fmt.Sprint(caps["profile"])),
+		"schema_version": strings.TrimSpace(fmt.Sprint(caps["schema_version"])),
+		"warnings_count": len(warnings),
+		"routes_count":   len(routes),
+	}
+	if len(navReport.Items) > 0 || navReport.EngineIdentity != "" || navReport.EngineVersion != "" {
+		metadata["navigation"] = translationDoctorNavigationMetadata(navReport)
+	}
 	return admin.DoctorCheckOutput{
 		Findings: findings,
-		Metadata: map[string]any{
-			"profile":        strings.TrimSpace(fmt.Sprint(caps["profile"])),
-			"schema_version": strings.TrimSpace(fmt.Sprint(caps["schema_version"])),
-			"warnings_count": len(warnings),
-			"routes_count":   len(routes),
-		},
+		Metadata: metadata,
 	}
 }
 
@@ -618,6 +627,160 @@ func translationDoctorQueueFindings(adm *admin.Admin, modules map[string]any, ro
 		})
 	}
 	return findings
+}
+
+func translationDoctorNavigationDiagnostics(ctx context.Context, adm *admin.Admin, cfg admin.Config) (admin.NavigationDoctorReport, []admin.DoctorFinding) {
+	expected, err := translationDoctorNavigationExpectedItems(ctx, adm, cfg)
+	if err != nil {
+		return admin.NavigationDoctorReport{}, []admin.DoctorFinding{{
+			Severity:  admin.DoctorSeverityWarn,
+			Code:      "quickstart.translation.navigation_expected_failed",
+			Component: "translation.navigation",
+			Message:   "Translation navigation expected-state could not be built",
+			Hint:      "Review translation capability menu route and seed-plan configuration",
+			Metadata:  map[string]any{"error": err.Error()},
+		}}
+	}
+	if len(expected) == 0 {
+		return admin.NavigationDoctorReport{}, nil
+	}
+	report, err := adm.DiagnoseNavigation(ctx, admin.NavigationDoctorOptions{
+		MenuCode: strings.TrimSpace(cfg.NavMenuCode),
+		Locale:   strings.TrimSpace(cfg.DefaultLocale),
+		Expected: expected,
+	})
+	if err != nil {
+		return admin.NavigationDoctorReport{}, []admin.DoctorFinding{{
+			Severity:  admin.DoctorSeverityWarn,
+			Code:      "quickstart.translation.navigation_diagnose_failed",
+			Component: "translation.navigation",
+			Message:   "Translation navigation doctor could not inspect persisted navigation",
+			Hint:      "Review CMS menu service raw/rendered inventory availability",
+			Metadata:  map[string]any{"error": err.Error()},
+		}}
+	}
+	return report, translationDoctorNavigationFindings(report)
+}
+
+func translationDoctorNavigationExpectedItems(ctx context.Context, adm *admin.Admin, cfg admin.Config) ([]admin.NavigationDoctorExpectedItem, error) {
+	if adm == nil {
+		return nil, nil
+	}
+	menuCode := strings.TrimSpace(cfg.NavMenuCode)
+	if menuCode == "" {
+		menuCode = adm.NavMenuCode()
+	}
+	if menuCode == "" {
+		menuCode = DefaultNavMenuCode
+	}
+	locale := strings.TrimSpace(cfg.DefaultLocale)
+	if locale == "" {
+		locale = adm.DefaultLocale()
+	}
+	if locale == "" {
+		locale = "en"
+	}
+	items, _ := translationCapabilityMenuItemsWithDiagnostics(adm, cfg, menuCode, locale)
+	if len(items) == 0 {
+		return nil, nil
+	}
+	runtime := newSeedNavigationRuntime(ctx, SeedNavigationOptions{
+		MenuSvc:           adm.MenuService(),
+		MenuCode:          menuCode,
+		Locale:            locale,
+		Items:             items,
+		SkipLogger:        true,
+		Reconcile:         true,
+		AutoCreateParents: true,
+	})
+	seedItems, err := runtime.seedItems()
+	if err != nil {
+		return nil, err
+	}
+	expected := make([]admin.NavigationDoctorExpectedItem, 0, len(seedItems))
+	for _, item := range seedItems {
+		key := stringTargetValue(item.Target, "key")
+		if !translationDoctorExpectedProductNavKey(key) {
+			continue
+		}
+		expected = append(expected, admin.NavigationDoctorExpectedItem{
+			Item:         item,
+			Owner:        admin.NavigationOwnerQuickstart,
+			OwnerID:      firstNonEmpty(stringTargetValue(item.Target, MenuTargetGeneratedIDKey), key),
+			RouteMissing: strings.TrimSpace(stringTargetValue(item.Target, "path")) == "",
+		})
+	}
+	return expected, nil
+}
+
+func translationDoctorExpectedProductNavKey(key string) bool {
+	switch strings.TrimSpace(key) {
+	case "translation_dashboard", "translation_queue", "translation_assignments", "translation_exchange":
+		return true
+	default:
+		return false
+	}
+}
+
+func translationDoctorNavigationFindings(report admin.NavigationDoctorReport) []admin.DoctorFinding {
+	findings := []admin.DoctorFinding{}
+	for _, item := range report.Items {
+		if item.Classification == admin.NavigationClassificationRendered {
+			continue
+		}
+		canonicalID := strings.TrimSpace(item.CanonicalID)
+		if canonicalID == "" {
+			continue
+		}
+		classification := strings.TrimSpace(string(item.Classification))
+		if classification == "" {
+			classification = "unknown"
+		}
+		findings = append(findings, admin.DoctorFinding{
+			Severity:  admin.DoctorSeverityWarn,
+			Code:      "quickstart.translation.navigation_" + strings.ReplaceAll(classification, "-", "_"),
+			Component: "translation.navigation",
+			Message:   fmt.Sprintf("Translation navigation item %s is %s", canonicalID, classification),
+			Hint:      "Run generated navigation reconciliation in apply mode and inspect raw/rendered menu inventory if the item remains missing",
+			Metadata: map[string]any{
+				"canonical_id":    canonicalID,
+				"classification":  classification,
+				"owner":           strings.TrimSpace(string(item.Owner)),
+				"owner_id":        strings.TrimSpace(item.OwnerID),
+				"identity_key":    strings.TrimSpace(item.IdentityKey),
+				"proposed_action": strings.TrimSpace(item.ProposedAction),
+				"evidence":        append([]string{}, item.Evidence...),
+			},
+		})
+	}
+	return findings
+}
+
+func translationDoctorNavigationMetadata(report admin.NavigationDoctorReport) map[string]any {
+	counts := map[string]int{}
+	items := make([]map[string]any, 0, len(report.Items))
+	for _, item := range report.Items {
+		classification := strings.TrimSpace(string(item.Classification))
+		if classification == "" {
+			classification = "unknown"
+		}
+		counts[classification]++
+		items = append(items, map[string]any{
+			"canonical_id":    strings.TrimSpace(item.CanonicalID),
+			"classification":  classification,
+			"owner":           strings.TrimSpace(string(item.Owner)),
+			"owner_id":        strings.TrimSpace(item.OwnerID),
+			"identity_key":    strings.TrimSpace(item.IdentityKey),
+			"proposed_action": strings.TrimSpace(item.ProposedAction),
+			"evidence":        append([]string{}, item.Evidence...),
+		})
+	}
+	return map[string]any{
+		"engine_identity": report.EngineIdentity,
+		"engine_version":  report.EngineVersion,
+		"counts":          counts,
+		"items":           items,
+	}
 }
 
 func quickstartDoctorBlockDefinitionsCheck() admin.DoctorCheck {
