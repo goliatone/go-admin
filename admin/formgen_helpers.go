@@ -67,7 +67,7 @@ func newFormGenerator(openapiFS fs.FS, templatesFS fs.FS, componentRegistry *com
 		orchestratorOpts = append(orchestratorOpts, formgenorchestrator.WithUISchemaFS(uiSchemaFS))
 	}
 
-	return formgen.NewOrchestrator(orchestratorOpts...), nil
+	return formgenorchestrator.New(orchestratorOpts...), nil
 }
 
 func mergeComponentRegistry(reg *components.Registry) (*components.Registry, error) {
