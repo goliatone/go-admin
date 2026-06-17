@@ -85,6 +85,20 @@ func ReconcileGeneratedNavigation(ctx context.Context, opts NavigationReconcileO
 	if err != nil {
 		return report, err
 	}
+	if opts.Apply {
+		if err := ensureAppliedGeneratedNavigationItems(ctx, opts, runtime, expected, &report); err != nil {
+			return report, err
+		}
+		rendered, err = loadGeneratedNavigationActualItems(ctx, opts.MenuSvc, runtime.menuCode, runtime.locale)
+		if err != nil {
+			return report, err
+		}
+		raw, rawErr = loadGeneratedNavigationRawItems(ctx, opts.MenuSvc, runtime.menuCode)
+		if rawErr != nil {
+			report.RawInventoryUnavailable = append(report.RawInventoryUnavailable, rawErr.Error())
+		}
+		actual = mergeGeneratedNavigationActualItems(rendered, raw)
+	}
 	recordStaleGeneratedNavigationRows(&report, actual, expectedKeys)
 	report.sort()
 	return report, nil
@@ -267,6 +281,73 @@ func createMissingGeneratedNavigationItem(ctx context.Context, opts NavigationRe
 		return nil
 	}
 	return opts.MenuSvc.AddMenuItem(ctx, menuCode, item)
+}
+
+func ensureAppliedGeneratedNavigationItems(ctx context.Context, opts NavigationReconcileOptions, runtime seedNavigationRuntime, expected []admin.MenuItem, report *NavigationReconcileReport) error {
+	rendered, err := loadGeneratedNavigationActualItems(ctx, opts.MenuSvc, runtime.menuCode, runtime.locale)
+	if err != nil {
+		return err
+	}
+	raw, rawErr := loadGeneratedNavigationRawItems(ctx, opts.MenuSvc, runtime.menuCode)
+	if rawErr != nil {
+		report.RawInventoryUnavailable = append(report.RawInventoryUnavailable, rawErr.Error())
+	}
+	actual := mergeGeneratedNavigationActualItems(rendered, raw)
+	for _, item := range expected {
+		if !generatedMenuItemOwned(item) {
+			continue
+		}
+		if reportHasGeneratedNavigationCreate(report, item) {
+			continue
+		}
+		if exactGeneratedNavigationItemPresent(item, actual) {
+			continue
+		}
+		if err := createMissingGeneratedNavigationItem(ctx, opts, runtime.menuCode, item, report); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func reportHasGeneratedNavigationCreate(report *NavigationReconcileReport, item admin.MenuItem) bool {
+	if report == nil {
+		return false
+	}
+	expectedID := strings.ToLower(strings.TrimSpace(item.ID))
+	expectedGeneratedID := strings.ToLower(strings.TrimSpace(stringTargetValue(item.Target, MenuTargetGeneratedIDKey)))
+	for _, created := range report.Creates {
+		created = strings.ToLower(strings.TrimSpace(created))
+		if created == "" {
+			continue
+		}
+		if expectedID != "" && created == expectedID {
+			return true
+		}
+		if expectedGeneratedID != "" && created == expectedGeneratedID {
+			return true
+		}
+	}
+	return false
+}
+
+func exactGeneratedNavigationItemPresent(expected admin.MenuItem, actual []admin.MenuItem) bool {
+	expectedID := strings.ToLower(strings.TrimSpace(expected.ID))
+	expectedGeneratedID := strings.ToLower(strings.TrimSpace(stringTargetValue(expected.Target, MenuTargetGeneratedIDKey)))
+	if expectedID == "" && expectedGeneratedID == "" {
+		return false
+	}
+	for _, item := range actual {
+		if expectedID != "" {
+			if strings.EqualFold(strings.TrimSpace(item.ID), expectedID) || strings.EqualFold(strings.TrimSpace(item.Code), expectedID) {
+				return true
+			}
+		}
+		if expectedGeneratedID != "" && strings.EqualFold(strings.TrimSpace(stringTargetValue(item.Target, MenuTargetGeneratedIDKey)), expectedGeneratedID) {
+			return true
+		}
+	}
+	return false
 }
 
 func preserveGeneratedNavigationContractFields(actual, expected navcontract.Item) (navcontract.Item, []string) {
