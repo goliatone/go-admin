@@ -1,10 +1,31 @@
 # Changelog
 
+# [0.96.0](https://github.com/goliatone/go-admin/compare/v0.95.1...v0.96.0) - (2026-06-17)
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Loader submit flow ([ca80576](https://github.com/goliatone/go-admin/commit/ca80576dbd5591e854751dc4fac80221cca3e655))  - (goliatone)
+- Navigation seeding ([82c7b8e](https://github.com/goliatone/go-admin/commit/82c7b8e80edaf6f5a8ae5958007a7f325f90d048))  - (goliatone)
+
+## <!-- 16 -->➕ Add
+
+- Preview entity type and content id meta ([fa89991](https://github.com/goliatone/go-admin/commit/fa89991ea99d72583ffa831a38bd56b7310b5352))  - (goliatone)
+- Preview meta ([dd9e8e7](https://github.com/goliatone/go-admin/commit/dd9e8e74feb2aae94fc050848f91bfc1af46bc7c))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update tests ([9b37c38](https://github.com/goliatone/go-admin/commit/9b37c38fb8808180ac9b50caf19caa3125a84abf))  - (goliatone)
+- Update deps ([8b3dce1](https://github.com/goliatone/go-admin/commit/8b3dce1499f3fdf6e1ad5b5e7d96bc52adfe5aa1))  - (goliatone)
+
 # [0.95.1](https://github.com/goliatone/go-admin/compare/v0.95.0...v0.95.1) - (2026-06-17)
 
 ## <!-- 1 -->🐛 Bug Fixes
 
 - Navigation build up ([ecb4f1f](https://github.com/goliatone/go-admin/commit/ecb4f1fea44949170c66b235da2087cff79c22f0))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.95.1 ([be47e70](https://github.com/goliatone/go-admin/commit/be47e701c763e9c8c3684a85a89bc4f016972d3a))  - (goliatone)
 
 ## <!-- 7 -->⚙️ Miscellaneous Tasks
 
