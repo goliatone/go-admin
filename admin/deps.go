@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	translationservices "github.com/goliatone/go-admin/translations/services"
+	gocommand "github.com/goliatone/go-command"
 	cmdrpc "github.com/goliatone/go-command/rpc"
 	"github.com/goliatone/go-featuregate/catalog"
 	fggate "github.com/goliatone/go-featuregate/gate"
@@ -25,12 +26,14 @@ type Dependencies struct {
 	CMSContainer        CMSContainer        `json:"cms_container"`
 	CMSContainerBuilder CMSContainerBuilder `json:"cms_container_builder"`
 
-	Registry             *Registry            `json:"registry"`
-	CommandBus           *CommandBus          `json:"command_bus"`
-	RPCServer            *cmdrpc.Server       `json:"rpc_server"`
-	RPCCommandPolicyHook RPCCommandPolicyHook `json:"rpc_command_policy_hook"`
-	JobRegistry          *JobRegistry         `json:"job_registry"`
-	URLManager           *urlkit.RouteManager `json:"url_manager"`
+	Registry              *Registry                       `json:"registry"`
+	CommandBus            *CommandBus                     `json:"command_bus"`
+	CommandCatalog        gocommand.CatalogProvider       `json:"command_catalog"`
+	CommandOptionProvider gocommand.CommandOptionProvider `json:"command_option_provider"`
+	RPCServer             *cmdrpc.Server                  `json:"rpc_server"`
+	RPCCommandPolicyHook  RPCCommandPolicyHook            `json:"rpc_command_policy_hook"`
+	JobRegistry           *JobRegistry                    `json:"job_registry"`
+	URLManager            *urlkit.RouteManager            `json:"url_manager"`
 
 	Authorizer                     Authorizer                      `json:"authorizer"`
 	Authenticator                  Authenticator                   `json:"authenticator"`
