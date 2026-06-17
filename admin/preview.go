@@ -31,8 +31,25 @@ func NewPreviewService(secret string) *PreviewService {
 	}
 }
 
+// ContentPreviewPathOptions controls how preview URLs are inferred from content
+// records when no explicit path or preview_url is present.
+type ContentPreviewPathOptions struct {
+	// AllowSlugFallback permits deriving a public preview path from record.slug.
+	// Callers should only enable this for routed/deliverable content types.
+	AllowSlugFallback bool
+}
+
 // ResolveContentPreviewPath resolves the public preview path for a content record.
+// It only uses explicit path/preview_url values. Use
+// ResolveContentPreviewPathWithOptions with AllowSlugFallback for routed content
+// types that intentionally derive public paths from slug.
 func ResolveContentPreviewPath(record map[string]any) string {
+	return ResolveContentPreviewPathWithOptions(record, ContentPreviewPathOptions{})
+}
+
+// ResolveContentPreviewPathWithOptions resolves the public preview path for a
+// content record with caller-controlled fallback behavior.
+func ResolveContentPreviewPathWithOptions(record map[string]any, opts ContentPreviewPathOptions) string {
 	if record == nil {
 		return ""
 	}
@@ -47,6 +64,9 @@ func ResolveContentPreviewPath(record map[string]any) string {
 				return resolved
 			}
 		}
+	}
+	if !opts.AllowSlugFallback {
+		return ""
 	}
 	slug := strings.TrimSpace(anyToString(record["slug"]))
 	if slug == "" {
