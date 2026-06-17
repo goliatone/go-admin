@@ -628,28 +628,10 @@ func TestResolveContentEntryPreviewPathUsesGenericSlugFallback(t *testing.T) {
 			expected:  "/about",
 		},
 		{
-			name:      "pages slug fallback",
+			name:      "slug fallback disabled by default",
 			panelName: "pages",
 			record:    map[string]any{"slug": "home"},
-			expected:  "/home",
-		},
-		{
-			name:      "slug fallback",
-			panelName: "posts",
-			record:    map[string]any{"slug": "launch"},
-			expected:  "/launch",
-		},
-		{
-			name:      "default path-like slug",
-			panelName: "article",
-			record:    map[string]any{"slug": "/legal/privacy"},
-			expected:  "/legal/privacy",
-		},
-		{
-			name:      "generic panel slug fallback",
-			panelName: "article",
-			record:    map[string]any{"slug": "plain-slug"},
-			expected:  "/plain-slug",
+			expected:  "",
 		},
 	}
 	for _, tc := range tests {
@@ -659,6 +641,15 @@ func TestResolveContentEntryPreviewPathUsesGenericSlugFallback(t *testing.T) {
 				t.Fatalf("expected %q got %q", tc.expected, got)
 			}
 		})
+	}
+}
+
+func TestResolveContentPreviewPathAllowsSlugFallbackWhenRequested(t *testing.T) {
+	got := admin.ResolveContentPreviewPathWithOptions(map[string]any{"slug": "home"}, admin.ContentPreviewPathOptions{
+		AllowSlugFallback: true,
+	})
+	if got != "/home" {
+		t.Fatalf("expected slug fallback /home, got %q", got)
 	}
 }
 
@@ -2214,7 +2205,7 @@ func TestPreviewURLForRecordUsesSignedPreviewToken(t *testing.T) {
 	handler := &contentEntryHandlers{admin: adm}
 	urlWithToken, err := handler.previewURLForRecord(context.Background(), "pages", "42", map[string]any{
 		"path": "/about",
-	})
+	}, nil)
 	if err != nil {
 		t.Fatalf("preview url: %v", err)
 	}
@@ -2254,7 +2245,7 @@ func TestPreviewURLForRecordRequiresAllowlistedAbsolutePreviewURL(t *testing.T) 
 	handler := &contentEntryHandlers{admin: adm}
 	urlWithToken, err := handler.previewURLForRecord(context.Background(), "pages", "42", map[string]any{
 		"preview_url": "https://preview.example.test/about?lang=en#draft",
-	})
+	}, nil)
 	if err != nil {
 		t.Fatalf("preview url: %v", err)
 	}
@@ -2264,11 +2255,61 @@ func TestPreviewURLForRecordRequiresAllowlistedAbsolutePreviewURL(t *testing.T) 
 
 	deniedURL, err := handler.previewURLForRecord(context.Background(), "pages", "42", map[string]any{
 		"preview_url": "https://evil.example.test/about",
-	})
+	}, nil)
 	if err != nil {
 		t.Fatalf("preview url denied host: %v", err)
 	}
 	if deniedURL != "" {
 		t.Fatalf("expected unlisted absolute preview url to be unavailable, got %q", deniedURL)
+	}
+}
+
+func TestPreviewURLForRecordDoesNotUseSlugForNonDeliverableContentType(t *testing.T) {
+	adm, err := admin.New(admin.Config{
+		BasePath:      "/admin",
+		DefaultLocale: "en",
+		PreviewSecret: "quickstart-preview-test-secret",
+	}, admin.Dependencies{})
+	if err != nil {
+		t.Fatalf("new admin: %v", err)
+	}
+	handler := &contentEntryHandlers{admin: adm}
+	urlWithToken, err := handler.previewURLForRecord(context.Background(), "teaching-topics-menu", "42", map[string]any{
+		"slug": "teaching-topics-menu",
+	}, &admin.CMSContentType{
+		Slug:         "site-teaching-topics-menu",
+		Capabilities: map[string]any{"panel_slug": "teaching-topics-menu"},
+	})
+	if err != nil {
+		t.Fatalf("preview url: %v", err)
+	}
+	if urlWithToken != "" {
+		t.Fatalf("expected non-deliverable content type to omit slug-derived preview URL, got %q", urlWithToken)
+	}
+}
+
+func TestPreviewURLForRecordUsesSlugForDeliverableContentType(t *testing.T) {
+	adm, err := admin.New(admin.Config{
+		BasePath:      "/admin",
+		DefaultLocale: "en",
+		PreviewSecret: "quickstart-preview-test-secret",
+	}, admin.Dependencies{})
+	if err != nil {
+		t.Fatalf("new admin: %v", err)
+	}
+	handler := &contentEntryHandlers{admin: adm}
+	urlWithToken, err := handler.previewURLForRecord(context.Background(), "pages", "42", map[string]any{
+		"slug": "home",
+	}, &admin.CMSContentType{
+		Slug: "page",
+		Capabilities: map[string]any{
+			"delivery": map[string]any{"enabled": true},
+		},
+	})
+	if err != nil {
+		t.Fatalf("preview url: %v", err)
+	}
+	if !strings.HasPrefix(urlWithToken, "/home?preview_token=") {
+		t.Fatalf("expected deliverable slug preview URL, got %q", urlWithToken)
 	}
 }

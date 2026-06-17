@@ -39,9 +39,9 @@ func TestResolveContentPreviewPath(t *testing.T) {
 			expected: "https://preview.example.test/preview/page",
 		},
 		{
-			name:     "slug fallback",
+			name:     "slug without fallback disabled",
 			record:   map[string]any{"slug": "home"},
-			expected: "/home",
+			expected: "",
 		},
 		{
 			name:     "no path",
@@ -61,6 +61,15 @@ func TestResolveContentPreviewPath(t *testing.T) {
 				t.Fatalf("expected %q, got %q", tc.expected, got)
 			}
 		})
+	}
+}
+
+func TestResolveContentPreviewPathWithSlugFallback(t *testing.T) {
+	got := ResolveContentPreviewPathWithOptions(map[string]any{"slug": "home"}, ContentPreviewPathOptions{
+		AllowSlugFallback: true,
+	})
+	if got != "/home" {
+		t.Fatalf("expected slug fallback /home, got %q", got)
 	}
 }
 

@@ -25,6 +25,8 @@ func TestSiteTemplateContextAddsRuntimeContract(t *testing.T) {
 		"is_preview":            true,
 		"preview_token_present": true,
 		"preview_token_valid":   true,
+		"preview_entity_type":   "pages",
+		"preview_content_id":    "page-1",
 	}
 
 	out := siteTemplateContext(nil, view)
@@ -41,6 +43,12 @@ func TestSiteTemplateContextAddsRuntimeContract(t *testing.T) {
 	}
 	if !anyBool(runtime["is_preview"]) || !anyBool(runtime["preview_token_present"]) {
 		t.Fatalf("expected preview flags in runtime context, got %+v", runtime)
+	}
+	if got := anyString(runtime["preview_entity_type"]); got != "pages" {
+		t.Fatalf("expected preview_entity_type=pages, got %q", got)
+	}
+	if got := anyString(runtime["preview_content_id"]); got != "page-1" {
+		t.Fatalf("expected preview_content_id=page-1, got %q", got)
 	}
 	if got := anyString(runtime["content_kind"]); got != "search" {
 		t.Fatalf("expected content_kind=search, got %q", got)

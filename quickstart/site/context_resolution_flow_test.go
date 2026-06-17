@@ -84,6 +84,8 @@ func TestBuildResolvedRequestViewContextIncludesThemeAndLocaleSwitcher(t *testin
 		PreviewTokenValid:   true,
 		IsPreview:           true,
 		PreviewToken:        "preview-123",
+		PreviewEntityType:   "pages",
+		PreviewContentID:    "page-1",
 		ThemeName:           "editorial",
 		ThemeVariant:        "night",
 		Theme: map[string]map[string]string{
@@ -103,6 +105,12 @@ func TestBuildResolvedRequestViewContextIncludesThemeAndLocaleSwitcher(t *testin
 	}
 	if got := viewCtx["content_channel"]; got != "preview" {
 		t.Fatalf("expected content_channel preview, got %v", got)
+	}
+	if got := viewCtx["preview_entity_type"]; got != "pages" {
+		t.Fatalf("expected preview_entity_type pages, got %v", got)
+	}
+	if got := viewCtx["preview_content_id"]; got != "page-1" {
+		t.Fatalf("expected preview_content_id page-1, got %v", got)
 	}
 	switcher, ok := viewCtx["locale_switcher"].(map[string]any)
 	if !ok {
