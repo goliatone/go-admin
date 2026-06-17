@@ -34,6 +34,7 @@ const (
 	DebugPanelJSErrors = "jserrors"
 	DebugPanelShell    = "shell"
 	DebugPanelConsole  = "console"
+	DebugPanelCommands = DebugPanelCommandLauncher
 	DebugPanelDoctor   = "doctor"
 )
 
@@ -117,6 +118,9 @@ type DebugConfig struct {
 	TokenTTL time.Duration `json:"token_ttl"`
 	// AllowedOrigins restricts remote debug origins (identity/token/ws).
 	AllowedOrigins []string `json:"allowed_origins"`
+	// CommandLauncherDoctorEnabled registers command-launcher readiness checks even
+	// when the generic command launcher panel is not registered.
+	CommandLauncherDoctorEnabled bool `json:"command_launcher_doctor_enabled"`
 	// LayoutMode controls which debug template is rendered for the HTML route.
 	LayoutMode DebugLayoutMode `json:"layout_mode"`
 	// PageTemplate is the primary debug template used for HTML rendering.
