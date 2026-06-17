@@ -128,6 +128,19 @@ func (s *localizedMenuServiceStub) CreateMenu(context.Context, string) (*admin.M
 
 func (s *localizedMenuServiceStub) AddMenuItem(_ context.Context, _ string, item admin.MenuItem) error {
 	s.added = append(s.added, item)
+	locale := strings.ToLower(strings.TrimSpace(item.Locale))
+	if locale == "" {
+		locale = "en"
+	}
+	if s.menusByLocale == nil {
+		s.menusByLocale = map[string]*admin.Menu{}
+	}
+	menu := s.menusByLocale[locale]
+	if menu == nil {
+		menu = &admin.Menu{}
+		s.menusByLocale[locale] = menu
+	}
+	menu.Items = append(menu.Items, item)
 	return nil
 }
 

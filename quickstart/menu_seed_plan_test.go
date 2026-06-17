@@ -296,11 +296,14 @@ func TestReconcileGeneratedNavigationPostApplyCreatesMissingExactGeneratedRow(t 
 	if err != nil {
 		t.Fatalf("apply reconcile: %v", err)
 	}
-	if !containsStringWithSuffix(report.PersistedPresent, "translations.dashboard") {
-		t.Fatalf("expected weak match to be classified present before post-apply verification, got %#v", report)
+	if containsStringWithSuffix(report.PersistedPresent, "translations.dashboard") {
+		t.Fatalf("expected weak match not to remain persisted-present after exact replacement, got %#v", report)
 	}
 	if !containsStringWithSuffix(report.Creates, "translations.dashboard") {
 		t.Fatalf("expected post-apply exact create for dashboard, got %#v", report)
+	}
+	if !containsStringWithSuffix(report.DestructiveCandidates, "legacy.translations.dashboard") {
+		t.Fatalf("expected weak legacy dashboard to be reported as destructive candidate, got %#v", report)
 	}
 
 	menu, err := menuSvc.Menu(ctx, menuCode, locale)
@@ -309,6 +312,186 @@ func TestReconcileGeneratedNavigationPostApplyCreatesMissingExactGeneratedRow(t 
 	}
 	if !exactGeneratedNavigationItemPresent(*expectedDashboard, menu.Items) {
 		t.Fatalf("expected canonical dashboard row after post-apply verification, got %#v", menu.Items)
+	}
+	if legacy := findMenuItemByIDForTest(menu.Items, "admin_main.legacy.translations.dashboard"); legacy != nil {
+		t.Fatalf("expected weak legacy dashboard row to be replaced, got %#v", legacy)
+	}
+}
+
+func TestReconcileGeneratedNavigationReturnsErrorWhenCreateDoesNotPersist(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	menuCode := "admin_main"
+	locale := "en"
+	expected := []admin.MenuItem{
+		testGeneratedMenuItem("translations.dashboard", NavigationGroupTranslationsID, "Translation Dashboard", "translation_dashboard", "/admin/translations/dashboard", 49),
+	}
+	menuSvc := &noopAddMenuService{staleTargetMenuService: &staleTargetMenuService{code: menuCode, locale: locale}}
+
+	report, err := ReconcileGeneratedNavigation(ctx, NavigationReconcileOptions{
+		MenuSvc:  menuSvc,
+		MenuCode: menuCode,
+		Locale:   locale,
+		Items:    expected,
+		Apply:    true,
+	})
+	if err == nil {
+		t.Fatalf("expected error when generated create does not persist, report=%#v", report)
+	}
+	if !strings.Contains(err.Error(), "still missing after apply") {
+		t.Fatalf("expected post-apply missing error, got %v", err)
+	}
+}
+
+func TestReconcileGeneratedNavigationKeepsWeakRowWhenReplacementCreateDoesNotRender(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	menuCode := "admin_main"
+	locale := "en"
+	expected := testGeneratedMenuItem("translations.dashboard", NavigationGroupTranslationsID, "Translation Dashboard", "translation_dashboard", "/admin/translations/dashboard", 49)
+	runtime := newSeedNavigationRuntime(ctx, SeedNavigationOptions{
+		MenuSvc:  admin.NewInMemoryMenuService(),
+		MenuCode: menuCode,
+		Locale:   locale,
+		Items:    []admin.MenuItem{expected},
+	})
+	seedItems, err := runtime.seedItems()
+	if err != nil {
+		t.Fatalf("seedItems: %v", err)
+	}
+	expectedDashboard := findPlanItemByTargetKey(seedItems, "translation_dashboard")
+	if expectedDashboard == nil {
+		t.Fatalf("expected generated translation dashboard seed item, got %#v", seedItems)
+	}
+
+	weakMatch := *expectedDashboard
+	weakMatch.ID = "admin_main.legacy.translations.dashboard"
+	weakMatch.Code = weakMatch.ID
+	delete(weakMatch.Target, MenuTargetGeneratedIDKey)
+	menuSvc := &noopAddMenuService{staleTargetMenuService: &staleTargetMenuService{
+		code:   menuCode,
+		locale: locale,
+		items:  []admin.MenuItem{weakMatch},
+	}}
+
+	report, err := ReconcileGeneratedNavigation(ctx, NavigationReconcileOptions{
+		MenuSvc:  menuSvc,
+		MenuCode: menuCode,
+		Locale:   locale,
+		Items:    []admin.MenuItem{expected},
+		Apply:    true,
+	})
+	if err == nil {
+		t.Fatalf("expected replacement create render error, report=%#v", report)
+	}
+	if !strings.Contains(err.Error(), "not rendered after create") {
+		t.Fatalf("expected render verification error, got %v", err)
+	}
+	menu, err := menuSvc.Menu(ctx, menuCode, locale)
+	if err != nil {
+		t.Fatalf("read menu after failed replace: %v", err)
+	}
+	if legacy := findMenuItemByIDForTest(menu.Items, "admin_main.legacy.translations.dashboard"); legacy == nil {
+		t.Fatalf("expected weak legacy dashboard row to remain after failed canonical create, got %#v", menu.Items)
+	}
+}
+
+func TestReconcileGeneratedNavigationErrorsWhenExactGeneratedRowOnlyInRawInventoryApplyMode(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	menuCode := "admin_main"
+	locale := "en"
+	expected := testGeneratedMenuItem("translations.dashboard", "", "Translation Dashboard", "translation_dashboard", "/admin/translations/dashboard", 49)
+	runtime := newSeedNavigationRuntime(ctx, SeedNavigationOptions{
+		MenuSvc:  admin.NewInMemoryMenuService(),
+		MenuCode: menuCode,
+		Locale:   locale,
+		Items:    []admin.MenuItem{expected},
+	})
+	seedItems, err := runtime.seedItems()
+	if err != nil {
+		t.Fatalf("seedItems: %v", err)
+	}
+	expectedDashboard := findPlanItemByTargetKey(seedItems, "translation_dashboard")
+	if expectedDashboard == nil {
+		t.Fatalf("expected generated translation dashboard seed item, got %#v", seedItems)
+	}
+	menuSvc := &rawInventoryMenuService{
+		InMemoryMenuService: admin.NewInMemoryMenuService(),
+		raw:                 []admin.MenuItem{*expectedDashboard},
+	}
+	if _, createErr := menuSvc.CreateMenu(ctx, menuCode); createErr != nil {
+		t.Fatalf("CreateMenu: %v", createErr)
+	}
+
+	report, err := ReconcileGeneratedNavigation(ctx, NavigationReconcileOptions{
+		MenuSvc:  menuSvc,
+		MenuCode: menuCode,
+		Locale:   locale,
+		Items:    []admin.MenuItem{expected},
+		Apply:    true,
+	})
+	if err == nil {
+		t.Fatalf("expected raw-only rendered absence error, report=%#v", report)
+	}
+	if !strings.Contains(err.Error(), "still not rendered after apply") {
+		t.Fatalf("expected rendered absence error, got %v", err)
+	}
+	if !containsStringWithSuffix(report.RawPresentButNotRendered, "translations.dashboard") {
+		t.Fatalf("expected raw-present-but-not-rendered diagnostic, got %#v", report)
+	}
+}
+
+func TestReconcileGeneratedNavigationErrorsOnAmbiguousWeakGeneratedReplacement(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	menuCode := "admin_main"
+	locale := "en"
+	expected := testGeneratedMenuItem("translations.dashboard", NavigationGroupTranslationsID, "Translation Dashboard", "translation_dashboard", "/admin/translations/dashboard", 49)
+	runtime := newSeedNavigationRuntime(ctx, SeedNavigationOptions{
+		MenuSvc:  admin.NewInMemoryMenuService(),
+		MenuCode: menuCode,
+		Locale:   locale,
+		Items:    []admin.MenuItem{expected},
+	})
+	seedItems, err := runtime.seedItems()
+	if err != nil {
+		t.Fatalf("seedItems: %v", err)
+	}
+	expectedDashboard := findPlanItemByTargetKey(seedItems, "translation_dashboard")
+	if expectedDashboard == nil {
+		t.Fatalf("expected generated translation dashboard seed item, got %#v", seedItems)
+	}
+
+	weakA := *expectedDashboard
+	weakA.ID = "admin_main.legacy-a.translations.dashboard"
+	weakA.Code = weakA.ID
+	delete(weakA.Target, MenuTargetGeneratedIDKey)
+	weakB := *expectedDashboard
+	weakB.ID = "admin_main.legacy-b.translations.dashboard"
+	weakB.Code = weakB.ID
+	delete(weakB.Target, MenuTargetGeneratedIDKey)
+	menuSvc := &staleTargetMenuService{code: menuCode, locale: locale, items: []admin.MenuItem{weakA, weakB}}
+
+	report, err := ReconcileGeneratedNavigation(ctx, NavigationReconcileOptions{
+		MenuSvc:  menuSvc,
+		MenuCode: menuCode,
+		Locale:   locale,
+		Items:    []admin.MenuItem{expected},
+		Apply:    true,
+	})
+	if err == nil {
+		t.Fatalf("expected ambiguous weak generated replacement error, report=%#v", report)
+	}
+	if !strings.Contains(err.Error(), "ambiguous generated navigation replacement candidates") {
+		t.Fatalf("expected ambiguous replacement error, got %v", err)
+	}
+	if !containsStringWithPrefix(report.DuplicateIdentities, "ambiguous_exact_replacement:") {
+		t.Fatalf("expected ambiguous exact replacement diagnostic, got %#v", report)
 	}
 }
 
@@ -1081,6 +1264,14 @@ type noopUpdateMenuService struct {
 }
 
 func (s *noopUpdateMenuService) UpdateMenuItem(context.Context, string, admin.MenuItem) error {
+	return nil
+}
+
+type noopAddMenuService struct {
+	*staleTargetMenuService
+}
+
+func (s *noopAddMenuService) AddMenuItem(context.Context, string, admin.MenuItem) error {
 	return nil
 }
 
