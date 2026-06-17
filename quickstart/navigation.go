@@ -75,11 +75,11 @@ func SeedNavigation(ctx context.Context, opts SeedNavigationOptions) error {
 			CapabilityOmissions:     opts.CapabilityOmissions,
 			PermissionFilteredItems: opts.PermissionFilteredItems,
 		})
-		if err != nil {
-			return err
-		}
 		if opts.Reportf != nil {
 			opts.Reportf(report)
+		}
+		if err != nil {
+			return err
 		}
 		return nil
 	}

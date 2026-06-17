@@ -313,8 +313,30 @@ func TestReconcileGeneratedNavigationPostApplyCreatesMissingExactGeneratedRow(t 
 	if !exactGeneratedNavigationItemPresent(*expectedDashboard, menu.Items) {
 		t.Fatalf("expected canonical dashboard row after post-apply verification, got %#v", menu.Items)
 	}
+	if legacy := findMenuItemByIDForTest(menu.Items, "admin_main.legacy.translations.dashboard"); legacy == nil {
+		t.Fatalf("expected weak legacy dashboard row to be preserved without destructive apply, got %#v", menu.Items)
+	}
+
+	report, err = ReconcileGeneratedNavigation(ctx, NavigationReconcileOptions{
+		MenuSvc:          menuSvc,
+		MenuCode:         menuCode,
+		Locale:           locale,
+		Items:            []admin.MenuItem{expected},
+		Apply:            true,
+		AllowDestructive: true,
+	})
+	if err != nil {
+		t.Fatalf("destructive reconcile: %v", err)
+	}
+	if !containsStringWithSuffix(report.DestructiveCandidates, "legacy.translations.dashboard") {
+		t.Fatalf("expected destructive reconcile to report weak legacy dashboard candidate, got %#v", report)
+	}
+	menu, err = menuSvc.Menu(ctx, menuCode, locale)
+	if err != nil {
+		t.Fatalf("read menu after destructive reconcile: %v", err)
+	}
 	if legacy := findMenuItemByIDForTest(menu.Items, "admin_main.legacy.translations.dashboard"); legacy != nil {
-		t.Fatalf("expected weak legacy dashboard row to be replaced, got %#v", legacy)
+		t.Fatalf("expected destructive reconcile to remove weak legacy dashboard row, got %#v", legacy)
 	}
 }
 
@@ -344,7 +366,7 @@ func TestReconcileGeneratedNavigationReturnsErrorWhenCreateDoesNotPersist(t *tes
 	}
 }
 
-func TestReconcileGeneratedNavigationKeepsWeakRowWhenReplacementCreateDoesNotRender(t *testing.T) {
+func TestReconcileGeneratedNavigationKeepsWeakRowWhenReplacementWouldNotRender(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
@@ -383,18 +405,18 @@ func TestReconcileGeneratedNavigationKeepsWeakRowWhenReplacementCreateDoesNotRen
 		Items:    []admin.MenuItem{expected},
 		Apply:    true,
 	})
-	if err == nil {
-		t.Fatalf("expected replacement create render error, report=%#v", report)
+	if err != nil {
+		t.Fatalf("safe replacement reconcile: %v", err)
 	}
-	if !strings.Contains(err.Error(), "not rendered after create") {
-		t.Fatalf("expected render verification error, got %v", err)
+	if !containsStringWithSuffix(report.Updates, "translations.dashboard") {
+		t.Fatalf("expected weak generated row to be updated in place, got %#v", report)
 	}
 	menu, err := menuSvc.Menu(ctx, menuCode, locale)
 	if err != nil {
-		t.Fatalf("read menu after failed replace: %v", err)
+		t.Fatalf("read menu after safe replace: %v", err)
 	}
 	if legacy := findMenuItemByIDForTest(menu.Items, "admin_main.legacy.translations.dashboard"); legacy == nil {
-		t.Fatalf("expected weak legacy dashboard row to remain after failed canonical create, got %#v", menu.Items)
+		t.Fatalf("expected weak legacy dashboard row to remain without destructive apply, got %#v", menu.Items)
 	}
 }
 
@@ -445,7 +467,7 @@ func TestReconcileGeneratedNavigationErrorsWhenExactGeneratedRowOnlyInRawInvento
 	}
 }
 
-func TestReconcileGeneratedNavigationErrorsOnAmbiguousWeakGeneratedReplacement(t *testing.T) {
+func TestReconcileGeneratedNavigationReportsAmbiguousWeakGeneratedReplacement(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
@@ -484,14 +506,21 @@ func TestReconcileGeneratedNavigationErrorsOnAmbiguousWeakGeneratedReplacement(t
 		Items:    []admin.MenuItem{expected},
 		Apply:    true,
 	})
-	if err == nil {
-		t.Fatalf("expected ambiguous weak generated replacement error, report=%#v", report)
-	}
-	if !strings.Contains(err.Error(), "ambiguous generated navigation replacement candidates") {
-		t.Fatalf("expected ambiguous replacement error, got %v", err)
+	if err != nil {
+		t.Fatalf("ambiguous weak generated replacement should not fail safe apply: %v", err)
 	}
 	if !containsStringWithPrefix(report.DuplicateIdentities, "ambiguous_exact_replacement:") {
 		t.Fatalf("expected ambiguous exact replacement diagnostic, got %#v", report)
+	}
+	menu, err := menuSvc.Menu(ctx, menuCode, locale)
+	if err != nil {
+		t.Fatalf("read menu after ambiguous replacement: %v", err)
+	}
+	if !exactGeneratedNavigationItemPresent(*expectedDashboard, menu.Items) {
+		t.Fatalf("expected canonical dashboard row after ambiguous replacement, got %#v", menu.Items)
+	}
+	if findMenuItemByIDForTest(menu.Items, weakA.ID) == nil || findMenuItemByIDForTest(menu.Items, weakB.ID) == nil {
+		t.Fatalf("expected ambiguous weak rows to remain without destructive apply, got %#v", menu.Items)
 	}
 }
 

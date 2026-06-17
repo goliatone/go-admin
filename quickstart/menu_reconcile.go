@@ -207,9 +207,10 @@ func recordGeneratedNavigationActualState(report *NavigationReconcileReport, act
 
 func reconcileGeneratedNavigationExpectedItems(ctx context.Context, opts NavigationReconcileOptions, runtime seedNavigationRuntime, expected, actual []admin.MenuItem, report *NavigationReconcileReport) (map[string]bool, error) {
 	plan := navcontract.PlanConvergence(navigationContractItems(expected), navigationContractItems(actual), navcontract.ConvergenceOptions{
-		MatchPolicy: navcontract.MatchPolicy{Owner: navcontract.OwnerQuickstart},
-		Apply:       opts.Apply,
-		Preserve:    preserveGeneratedNavigationContractFields,
+		MatchPolicy:      navcontract.MatchPolicy{Owner: navcontract.OwnerQuickstart},
+		Apply:            opts.Apply,
+		AllowDestructive: opts.AllowDestructive,
+		Preserve:         preserveGeneratedNavigationContractFields,
 	})
 	expectedKeys := map[string]bool{}
 	for _, key := range plan.ExpectedKeys {
@@ -395,13 +396,16 @@ func cleanupAppliedWeakGeneratedNavigationMatches(ctx context.Context, opts Navi
 		candidate, ambiguous := exactGeneratedNavigationReplacementCandidate(item, actual)
 		if ambiguous {
 			report.DuplicateIdentities = append(report.DuplicateIdentities, "ambiguous_exact_cleanup:"+item.ID)
-			return changed, fmt.Errorf("ambiguous generated navigation cleanup candidates for %q", item.ID)
+			continue
 		}
 		if candidate == nil {
 			continue
 		}
 		removeGeneratedNavigationReportPresence(report, item)
 		report.DestructiveCandidates = append(report.DestructiveCandidates, candidate.ID)
+		if !opts.AllowDestructive {
+			continue
+		}
 		if err := opts.MenuSvc.DeleteMenuItem(ctx, menuCode, candidate.ID); err != nil && !errors.Is(err, admin.ErrMenuTargetNotFound) && !errors.Is(err, admin.ErrNotFound) {
 			return changed, err
 		}
@@ -414,14 +418,25 @@ func repairAppliedExactGeneratedNavigationItem(ctx context.Context, opts Navigat
 	candidate, ambiguous := exactGeneratedNavigationReplacementCandidate(expected, actual)
 	if ambiguous {
 		report.DuplicateIdentities = append(report.DuplicateIdentities, "ambiguous_exact_replacement:"+expected.ID)
-		return fmt.Errorf("ambiguous generated navigation replacement candidates for %q", expected.ID)
+		return createMissingGeneratedNavigationItem(ctx, opts, menuCode, expected, report)
 	}
 	if candidate != nil {
+		if generatedNavigationConcreteIDMatches(expected, *candidate) {
+			report.Updates = append(report.Updates, expected.ID)
+			if !opts.Apply {
+				return nil
+			}
+			return opts.MenuSvc.UpdateMenuItem(ctx, menuCode, expected)
+		}
 		report.DestructiveCandidates = append(report.DestructiveCandidates, candidate.ID)
 		report.Creates = append(report.Creates, expected.ID)
 		report.PersistedMissing = append(report.PersistedMissing, expected.ID)
 		if err := addGeneratedNavigationItemAndVerifyRendered(ctx, opts, menuCode, expected.Locale, expected); err != nil {
 			return err
+		}
+		if !opts.AllowDestructive {
+			removeGeneratedNavigationReportPresence(report, expected)
+			return nil
 		}
 		if err := opts.MenuSvc.DeleteMenuItem(ctx, menuCode, candidate.ID); err != nil && !errors.Is(err, admin.ErrMenuTargetNotFound) && !errors.Is(err, admin.ErrNotFound) {
 			return err
@@ -449,6 +464,9 @@ func addGeneratedNavigationItemAndVerifyRendered(ctx context.Context, opts Navig
 func exactGeneratedNavigationReplacementCandidate(expected admin.MenuItem, actual []admin.MenuItem) (*admin.MenuItem, bool) {
 	matches := []admin.MenuItem{}
 	for _, item := range actual {
+		if generatedNavigationConcreteIDMatches(expected, item) {
+			continue
+		}
 		if exactGeneratedNavigationItemPresent(expected, []admin.MenuItem{item}) {
 			continue
 		}
@@ -469,6 +487,15 @@ func exactGeneratedNavigationReplacementCandidate(expected admin.MenuItem, actua
 	default:
 		return nil, true
 	}
+}
+
+func generatedNavigationConcreteIDMatches(expected, actual admin.MenuItem) bool {
+	expectedID := strings.TrimSpace(expected.ID)
+	if expectedID == "" {
+		return false
+	}
+	return strings.EqualFold(strings.TrimSpace(actual.ID), expectedID) ||
+		strings.EqualFold(strings.TrimSpace(actual.Code), expectedID)
 }
 
 func removeGeneratedNavigationReportPresence(report *NavigationReconcileReport, item admin.MenuItem) {

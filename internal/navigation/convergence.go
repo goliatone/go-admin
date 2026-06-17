@@ -108,7 +108,7 @@ func planReplacement(planned PlannedItem, opts ConvergenceOptions) PlannedItem {
 		return planned
 	}
 	planned.DestructiveCandidate = true
-	if opts.Apply && (opts.AllowDestructive || ResolveOwner(planned.Actual) == opts.MatchPolicy.Owner) {
+	if opts.Apply && opts.AllowDestructive {
 		planned.Action = ConvergenceReplace
 		return planned
 	}
