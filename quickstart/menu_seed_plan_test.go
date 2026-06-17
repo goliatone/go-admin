@@ -205,21 +205,21 @@ func TestReconcileGeneratedNavigationRepairsMissingTranslationDashboardWithSibli
 	if err != nil {
 		t.Fatalf("seedItems: %v", err)
 	}
-	if err := menuSvc.AddMenuItem(ctx, menuCode, admin.MenuItem{
+	if addErr := menuSvc.AddMenuItem(ctx, menuCode, admin.MenuItem{
 		ID:       "admin_main.dashboard",
 		Label:    "Dashboard",
 		Locale:   locale,
 		Target:   map[string]any{"type": "url", "path": "/admin/dashboard", "key": "dashboard"},
 		Position: intPtr(0),
-	}); err != nil {
-		t.Fatalf("seed root dashboard: %v", err)
+	}); addErr != nil {
+		t.Fatalf("seed root dashboard: %v", addErr)
 	}
 	for _, item := range seedItems {
 		if strings.EqualFold(stringTargetValue(item.Target, "key"), "translation_dashboard") {
 			continue
 		}
-		if err := menuSvc.AddMenuItem(ctx, menuCode, item); err != nil {
-			t.Fatalf("seed existing item %s: %v", item.ID, err)
+		if addErr := menuSvc.AddMenuItem(ctx, menuCode, item); addErr != nil {
+			t.Fatalf("seed existing item %s: %v", item.ID, addErr)
 		}
 	}
 
