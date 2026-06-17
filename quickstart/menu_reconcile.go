@@ -86,8 +86,8 @@ func ReconcileGeneratedNavigation(ctx context.Context, opts NavigationReconcileO
 		return report, err
 	}
 	if opts.Apply {
-		if err := ensureAppliedGeneratedNavigationItems(ctx, opts, runtime, expected, &report); err != nil {
-			return report, err
+		if applyErr := ensureAppliedGeneratedNavigationItems(ctx, opts, runtime, expected, &report); applyErr != nil {
+			return report, applyErr
 		}
 		rendered, err = loadGeneratedNavigationActualItems(ctx, opts.MenuSvc, runtime.menuCode, runtime.locale)
 		if err != nil {
@@ -237,44 +237,56 @@ func reconcileGeneratedNavigationPlannedItem(ctx context.Context, opts Navigatio
 	case navcontract.ConvergenceCreate:
 		return createMissingGeneratedNavigationItem(ctx, opts, menuCode, expected, report)
 	case navcontract.ConvergenceNoop:
-		report.PersistedPresent = append(report.PersistedPresent, expected.ID)
-		if planned.StaleTargetState {
-			report.StaleTargetStateCleanup = append(report.StaleTargetStateCleanup, actual.ID)
-		}
-		report.PreservedGeneratedFields = append(report.PreservedGeneratedFields, planned.PreservedFields...)
+		recordPersistedGeneratedNavigationPlannedItem(report, expected, actual, planned)
 		return nil
 	case navcontract.ConvergenceUpdate:
-		report.PersistedPresent = append(report.PersistedPresent, expected.ID)
-		if planned.StaleTargetState {
-			report.StaleTargetStateCleanup = append(report.StaleTargetStateCleanup, actual.ID)
-		}
-		if planned.DestructiveCandidate {
-			report.DestructiveCandidates = append(report.DestructiveCandidates, actual.ID)
-		}
-		report.PreservedGeneratedFields = append(report.PreservedGeneratedFields, planned.PreservedFields...)
-		report.Updates = append(report.Updates, expected.ID)
-		if !opts.Apply {
-			return nil
-		}
-		return opts.MenuSvc.UpdateMenuItem(ctx, menuCode, update)
+		return updateGeneratedNavigationPlannedItem(ctx, opts, menuCode, expected, actual, update, planned, report)
 	case navcontract.ConvergenceReplace:
-		report.PersistedPresent = append(report.PersistedPresent, expected.ID)
-		report.DestructiveCandidates = append(report.DestructiveCandidates, actual.ID)
-		report.PreservedGeneratedFields = append(report.PreservedGeneratedFields, planned.PreservedFields...)
-		if !opts.Apply {
-			return nil
-		}
-		if err := opts.MenuSvc.DeleteMenuItem(ctx, menuCode, actual.ID); err != nil && !errors.Is(err, admin.ErrMenuTargetNotFound) && !errors.Is(err, admin.ErrNotFound) {
-			return err
-		}
-		report.Creates = append(report.Creates, expected.ID)
-		return opts.MenuSvc.AddMenuItem(ctx, menuCode, update)
+		return replaceGeneratedNavigationPlannedItem(ctx, opts, menuCode, expected, actual, update, planned, report)
 	default:
 		return nil
 	}
 }
 
+func recordPersistedGeneratedNavigationPlannedItem(report *NavigationReconcileReport, expected, actual admin.MenuItem, planned navcontract.PlannedItem) {
+	report.PersistedPresent = append(report.PersistedPresent, expected.ID)
+	if planned.StaleTargetState {
+		report.StaleTargetStateCleanup = append(report.StaleTargetStateCleanup, actual.ID)
+	}
+	report.PreservedGeneratedFields = append(report.PreservedGeneratedFields, planned.PreservedFields...)
+}
+
+func updateGeneratedNavigationPlannedItem(ctx context.Context, opts NavigationReconcileOptions, menuCode string, expected, actual, update admin.MenuItem, planned navcontract.PlannedItem, report *NavigationReconcileReport) error {
+	recordPersistedGeneratedNavigationPlannedItem(report, expected, actual, planned)
+	if planned.DestructiveCandidate {
+		report.DestructiveCandidates = append(report.DestructiveCandidates, actual.ID)
+	}
+	report.Updates = append(report.Updates, expected.ID)
+	if !opts.Apply {
+		return nil
+	}
+	return opts.MenuSvc.UpdateMenuItem(ctx, menuCode, update)
+}
+
+func replaceGeneratedNavigationPlannedItem(ctx context.Context, opts NavigationReconcileOptions, menuCode string, expected, actual, update admin.MenuItem, planned navcontract.PlannedItem, report *NavigationReconcileReport) error {
+	recordPersistedGeneratedNavigationPlannedItem(report, expected, actual, planned)
+	report.DestructiveCandidates = append(report.DestructiveCandidates, actual.ID)
+	if !opts.Apply {
+		return nil
+	}
+	report.Creates = append(report.Creates, expected.ID)
+	if err := addGeneratedNavigationItemAndVerifyRendered(ctx, opts, menuCode, update.Locale, update); err != nil {
+		return err
+	}
+	if err := opts.MenuSvc.DeleteMenuItem(ctx, menuCode, actual.ID); err != nil && !errors.Is(err, admin.ErrMenuTargetNotFound) && !errors.Is(err, admin.ErrNotFound) {
+		return err
+	}
+	removeGeneratedNavigationReportPresence(report, expected)
+	return nil
+}
+
 func createMissingGeneratedNavigationItem(ctx context.Context, opts NavigationReconcileOptions, menuCode string, item admin.MenuItem, report *NavigationReconcileReport) error {
+	removeGeneratedNavigationReportPresence(report, item)
 	report.Creates = append(report.Creates, item.ID)
 	report.PersistedMissing = append(report.PersistedMissing, item.ID)
 	if !opts.Apply {
@@ -283,52 +295,219 @@ func createMissingGeneratedNavigationItem(ctx context.Context, opts NavigationRe
 	return opts.MenuSvc.AddMenuItem(ctx, menuCode, item)
 }
 
+type generatedNavigationSnapshot struct {
+	rendered []admin.MenuItem
+	actual   []admin.MenuItem
+}
+
 func ensureAppliedGeneratedNavigationItems(ctx context.Context, opts NavigationReconcileOptions, runtime seedNavigationRuntime, expected []admin.MenuItem, report *NavigationReconcileReport) error {
-	rendered, err := loadGeneratedNavigationActualItems(ctx, opts.MenuSvc, runtime.menuCode, runtime.locale)
+	snapshot, err := loadGeneratedNavigationSnapshot(ctx, opts, runtime, report)
 	if err != nil {
 		return err
+	}
+	if err = repairMissingAppliedGeneratedNavigationItems(ctx, opts, runtime.menuCode, expected, snapshot.actual, report); err != nil {
+		return err
+	}
+	snapshot, err = loadGeneratedNavigationSnapshot(ctx, opts, runtime, report)
+	if err != nil {
+		return err
+	}
+	changed, err := cleanupAppliedWeakGeneratedNavigationMatches(ctx, opts, runtime.menuCode, expected, snapshot.actual, report)
+	if err != nil {
+		return err
+	}
+	if changed {
+		snapshot, err = loadGeneratedNavigationSnapshot(ctx, opts, runtime, report)
+		if err != nil {
+			return err
+		}
+	}
+	return validateAppliedGeneratedNavigationItems(expected, snapshot, report)
+}
+
+func loadGeneratedNavigationSnapshot(ctx context.Context, opts NavigationReconcileOptions, runtime seedNavigationRuntime, report *NavigationReconcileReport) (generatedNavigationSnapshot, error) {
+	rendered, err := loadGeneratedNavigationActualItems(ctx, opts.MenuSvc, runtime.menuCode, runtime.locale)
+	if err != nil {
+		return generatedNavigationSnapshot{}, err
 	}
 	raw, rawErr := loadGeneratedNavigationRawItems(ctx, opts.MenuSvc, runtime.menuCode)
 	if rawErr != nil {
 		report.RawInventoryUnavailable = append(report.RawInventoryUnavailable, rawErr.Error())
 	}
-	actual := mergeGeneratedNavigationActualItems(rendered, raw)
+	return generatedNavigationSnapshot{
+		rendered: rendered,
+		actual:   mergeGeneratedNavigationActualItems(rendered, raw),
+	}, nil
+}
+
+func repairMissingAppliedGeneratedNavigationItems(ctx context.Context, opts NavigationReconcileOptions, menuCode string, expected, actual []admin.MenuItem, report *NavigationReconcileReport) error {
 	for _, item := range expected {
 		if !generatedMenuItemOwned(item) {
-			continue
-		}
-		if reportHasGeneratedNavigationCreate(report, item) {
 			continue
 		}
 		if exactGeneratedNavigationItemPresent(item, actual) {
 			continue
 		}
-		if err := createMissingGeneratedNavigationItem(ctx, opts, runtime.menuCode, item, report); err != nil {
-			return err
+		if repairErr := repairAppliedExactGeneratedNavigationItem(ctx, opts, menuCode, item, actual, report); repairErr != nil {
+			return repairErr
 		}
 	}
 	return nil
 }
 
-func reportHasGeneratedNavigationCreate(report *NavigationReconcileReport, item admin.MenuItem) bool {
+func validateAppliedGeneratedNavigationItems(expected []admin.MenuItem, snapshot generatedNavigationSnapshot, report *NavigationReconcileReport) error {
+	missing := []string{}
+	notRendered := []string{}
+	for _, item := range expected {
+		if !generatedMenuItemOwned(item) {
+			continue
+		}
+		if exactGeneratedNavigationItemPresent(item, snapshot.rendered) {
+			continue
+		}
+		if exactGeneratedNavigationItemPresent(item, snapshot.actual) {
+			report.RawPresentButNotRendered = append(report.RawPresentButNotRendered, item.ID)
+			notRendered = append(notRendered, item.ID)
+			continue
+		}
+		missing = append(missing, item.ID)
+	}
+	if len(missing) > 0 {
+		sort.Strings(missing)
+		return fmt.Errorf("generated navigation items still missing after apply: %s", strings.Join(missing, ", "))
+	}
+	if len(notRendered) > 0 {
+		sort.Strings(notRendered)
+		return fmt.Errorf("generated navigation items still not rendered after apply: %s", strings.Join(notRendered, ", "))
+	}
+	return nil
+}
+
+func cleanupAppliedWeakGeneratedNavigationMatches(ctx context.Context, opts NavigationReconcileOptions, menuCode string, expected []admin.MenuItem, actual []admin.MenuItem, report *NavigationReconcileReport) (bool, error) {
+	changed := false
+	for _, item := range expected {
+		if !generatedMenuItemOwned(item) {
+			continue
+		}
+		if !exactGeneratedNavigationItemPresent(item, actual) {
+			continue
+		}
+		candidate, ambiguous := exactGeneratedNavigationReplacementCandidate(item, actual)
+		if ambiguous {
+			report.DuplicateIdentities = append(report.DuplicateIdentities, "ambiguous_exact_cleanup:"+item.ID)
+			return changed, fmt.Errorf("ambiguous generated navigation cleanup candidates for %q", item.ID)
+		}
+		if candidate == nil {
+			continue
+		}
+		removeGeneratedNavigationReportPresence(report, item)
+		report.DestructiveCandidates = append(report.DestructiveCandidates, candidate.ID)
+		if err := opts.MenuSvc.DeleteMenuItem(ctx, menuCode, candidate.ID); err != nil && !errors.Is(err, admin.ErrMenuTargetNotFound) && !errors.Is(err, admin.ErrNotFound) {
+			return changed, err
+		}
+		changed = true
+	}
+	return changed, nil
+}
+
+func repairAppliedExactGeneratedNavigationItem(ctx context.Context, opts NavigationReconcileOptions, menuCode string, expected admin.MenuItem, actual []admin.MenuItem, report *NavigationReconcileReport) error {
+	candidate, ambiguous := exactGeneratedNavigationReplacementCandidate(expected, actual)
+	if ambiguous {
+		report.DuplicateIdentities = append(report.DuplicateIdentities, "ambiguous_exact_replacement:"+expected.ID)
+		return fmt.Errorf("ambiguous generated navigation replacement candidates for %q", expected.ID)
+	}
+	if candidate != nil {
+		report.DestructiveCandidates = append(report.DestructiveCandidates, candidate.ID)
+		report.Creates = append(report.Creates, expected.ID)
+		report.PersistedMissing = append(report.PersistedMissing, expected.ID)
+		if err := addGeneratedNavigationItemAndVerifyRendered(ctx, opts, menuCode, expected.Locale, expected); err != nil {
+			return err
+		}
+		if err := opts.MenuSvc.DeleteMenuItem(ctx, menuCode, candidate.ID); err != nil && !errors.Is(err, admin.ErrMenuTargetNotFound) && !errors.Is(err, admin.ErrNotFound) {
+			return err
+		}
+		removeGeneratedNavigationReportPresence(report, expected)
+		return nil
+	}
+	return createMissingGeneratedNavigationItem(ctx, opts, menuCode, expected, report)
+}
+
+func addGeneratedNavigationItemAndVerifyRendered(ctx context.Context, opts NavigationReconcileOptions, menuCode, locale string, item admin.MenuItem) error {
+	if err := opts.MenuSvc.AddMenuItem(ctx, menuCode, item); err != nil {
+		return err
+	}
+	rendered, err := loadGeneratedNavigationActualItems(ctx, opts.MenuSvc, menuCode, locale)
+	if err != nil {
+		return err
+	}
+	if !exactGeneratedNavigationItemPresent(item, rendered) {
+		return fmt.Errorf("generated navigation item not rendered after create: %s", item.ID)
+	}
+	return nil
+}
+
+func exactGeneratedNavigationReplacementCandidate(expected admin.MenuItem, actual []admin.MenuItem) (*admin.MenuItem, bool) {
+	matches := []admin.MenuItem{}
+	for _, item := range actual {
+		if exactGeneratedNavigationItemPresent(expected, []admin.MenuItem{item}) {
+			continue
+		}
+		if !generatedMenuItemOwned(item) {
+			continue
+		}
+		if !matchesAnyExpectedGeneratedRow(item, []admin.MenuItem{expected}) {
+			continue
+		}
+		matches = append(matches, item)
+	}
+	switch len(matches) {
+	case 0:
+		return nil, false
+	case 1:
+		candidate := matches[0]
+		return &candidate, false
+	default:
+		return nil, true
+	}
+}
+
+func removeGeneratedNavigationReportPresence(report *NavigationReconcileReport, item admin.MenuItem) {
 	if report == nil {
+		return
+	}
+	report.PersistedPresent = removeGeneratedNavigationReportItem(report.PersistedPresent, item)
+}
+
+func removeGeneratedNavigationReportItem(values []string, item admin.MenuItem) []string {
+	if len(values) == 0 {
+		return values
+	}
+	out := values[:0]
+	for _, value := range values {
+		if generatedNavigationReportIDMatches(value, item) {
+			continue
+		}
+		out = append(out, value)
+	}
+	return out
+}
+
+func generatedNavigationReportIDMatches(value string, item admin.MenuItem) bool {
+	normalized := strings.ToLower(strings.TrimSpace(value))
+	if normalized == "" {
 		return false
 	}
 	expectedID := strings.ToLower(strings.TrimSpace(item.ID))
 	expectedGeneratedID := strings.ToLower(strings.TrimSpace(stringTargetValue(item.Target, MenuTargetGeneratedIDKey)))
-	for _, created := range report.Creates {
-		created = strings.ToLower(strings.TrimSpace(created))
-		if created == "" {
+	for _, expected := range []string{expectedID, expectedGeneratedID} {
+		if expected == "" {
 			continue
 		}
-		if expectedID != "" && created == expectedID {
-			return true
-		}
-		if expectedGeneratedID != "" && created == expectedGeneratedID {
+		if normalized == expected {
 			return true
 		}
 	}
-	return false
+	return legacyMenuItemIDMatches(item, admin.MenuItem{ID: normalized})
 }
 
 func exactGeneratedNavigationItemPresent(expected admin.MenuItem, actual []admin.MenuItem) bool {
