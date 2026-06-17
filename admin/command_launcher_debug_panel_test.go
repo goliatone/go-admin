@@ -1,0 +1,467 @@
+package admin
+
+import (
+	"context"
+	"testing"
+
+	debugregistry "github.com/goliatone/go-admin/debug"
+	auth "github.com/goliatone/go-auth"
+	"github.com/goliatone/go-command"
+)
+
+type commandLauncherTestCatalog struct {
+	descriptors []command.CommandDescriptor
+}
+
+func (c commandLauncherTestCatalog) CommandDescriptors() []command.CommandDescriptor {
+	return append([]command.CommandDescriptor(nil), c.descriptors...)
+}
+
+type commandLauncherTestOptionProvider struct {
+	calls []command.CommandOptionRequest
+	err   error
+}
+
+func (p *commandLauncherTestOptionProvider) CommandOptions(_ context.Context, req command.CommandOptionRequest) ([]command.CommandOption, error) {
+	p.calls = append(p.calls, req)
+	if p.err != nil {
+		return nil, p.err
+	}
+	return []command.CommandOption{
+		{Value: "entity-1", Label: "Entity 1"},
+		{Value: "entity-2", Label: "Entity 2"},
+	}, nil
+}
+
+func commandLauncherTestDescriptor() command.CommandDescriptor {
+	return command.CommandDescriptor{
+		ID:            "catalog.inspect",
+		Label:         "Inspect catalog",
+		ExposeInAdmin: true,
+		Permissions:   []string{"admin.catalog.inspect"},
+		ExecutionMode: command.ExecutionModeInline,
+		Input: command.CommandInputSchema{
+			Type: "object",
+			Fields: []command.CommandInputField{
+				{
+					ID:       "entity_id",
+					Name:     "entity_id",
+					Path:     "entity_id",
+					Label:    "Entity",
+					Kind:     "select",
+					Type:     "string",
+					Required: true,
+					OptionSource: &command.CommandOptionSourceRef{
+						ID:         "catalog.entities",
+						Dynamic:    true,
+						CacheScope: "request",
+					},
+				},
+			},
+			Required: []string{"entity_id"},
+			JSONSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"entity_id": map[string]any{"type": "string"},
+				},
+				"required": []string{"entity_id"},
+			},
+		},
+	}
+}
+
+func TestCommandLauncherPanelSerializesExecutableActionsAndFormSchemas(t *testing.T) {
+	options := &commandLauncherTestOptionProvider{}
+	adm := mustNewAdmin(t, Config{}, Dependencies{
+		CommandCatalog:        commandLauncherTestCatalog{descriptors: []command.CommandDescriptor{commandLauncherTestDescriptor()}},
+		CommandOptionProvider: options,
+		FeatureGate:           featureGateFromKeys(FeatureCommands),
+		Authorizer: rpcTestAuthorizer{allow: map[string]bool{
+			"admin.commands.read|commands":     true,
+			"admin.commands.dispatch|commands": true,
+			"admin.catalog.inspect|commands":   true,
+		}},
+	})
+	RegisterCommandLauncherDebugPanel(adm)
+	t.Cleanup(func() { debugregistry.UnregisterPanel(DebugPanelCommands) })
+
+	def, ok := debugregistry.PanelDefinitionForContext(context.Background(), DebugPanelCommands)
+	if !ok {
+		t.Fatalf("expected command launcher panel definition")
+	}
+	if def.UI == nil || def.UI.ActionLayout == nil || def.UI.ActionLayout.Mode != debugregistry.PanelActionLayoutSelect {
+		t.Fatalf("expected selectable command launcher UI, got %#v", def.UI)
+	}
+	if len(def.UI.Actions) != 1 {
+		t.Fatalf("expected one executable action, got %#v", def.UI.Actions)
+	}
+	action := def.UI.Actions[0]
+	if action.ID != "dispatch_catalog_inspect" {
+		t.Fatalf("unexpected action id %q", action.ID)
+	}
+	if action.Payload["command_id"] != "catalog.inspect" {
+		t.Fatalf("expected canonical command_id payload, got %#v", action.Payload)
+	}
+	if action.Payload["options"].(map[string]any)["mode"] != command.ExecutionModeInline {
+		t.Fatalf("expected dispatch options mode in action payload, got %#v", action.Payload)
+	}
+	if len(action.Fields) != 1 || action.Fields[0].PayloadPath != "payload.entity_id" {
+		t.Fatalf("expected go-formgen-compatible payload path, got %#v", action.Fields)
+	}
+	if len(action.Fields[0].Options) != 2 || action.Fields[0].Options[0] != "entity-1" {
+		t.Fatalf("expected request-scoped dynamic options, got %#v", action.Fields[0].Options)
+	}
+	if len(options.calls) != 1 || options.calls[0].CommandID != "catalog.inspect" || options.calls[0].Source.ID != "catalog.entities" {
+		t.Fatalf("expected authorized dynamic option provider call, got %#v", options.calls)
+	}
+
+	schemas, ok := def.UI.Metadata["serialized_schemas"].(map[string]any)
+	if !ok || schemas["catalog.inspect"] == nil {
+		t.Fatalf("expected serialized form schema metadata, got %#v", def.UI.Metadata)
+	}
+	schema := schemas["catalog.inspect"].(map[string]any)
+	formgen := schema["x-formgen"].(map[string]any)
+	if formgen["mode"] != "command-launcher" || formgen["payload_paths"] != true {
+		t.Fatalf("expected command launcher formgen metadata, got %#v", formgen)
+	}
+}
+
+func TestCommandLauncherPanelMissingDispatchShowsCatalogWithoutActions(t *testing.T) {
+	adm := mustNewAdmin(t, Config{}, Dependencies{
+		CommandCatalog: commandLauncherTestCatalog{descriptors: []command.CommandDescriptor{commandLauncherTestDescriptor()}},
+		FeatureGate:    featureGateFromKeys(FeatureCommands),
+		Authorizer: rpcTestAuthorizer{allow: map[string]bool{
+			"admin.commands.read|commands":   true,
+			"admin.catalog.inspect|commands": true,
+		}},
+	})
+	RegisterCommandLauncherDebugPanel(adm)
+	t.Cleanup(func() { debugregistry.UnregisterPanel(DebugPanelCommands) })
+
+	def, ok := debugregistry.PanelDefinitionForContext(context.Background(), DebugPanelCommands)
+	if !ok || def.UI == nil {
+		t.Fatalf("expected command launcher panel definition")
+	}
+	if len(def.UI.Actions) != 0 {
+		t.Fatalf("expected no executable actions without dispatch permission, got %#v", def.UI.Actions)
+	}
+	diagnostics := def.UI.Metadata["diagnostics"].([]CommandLauncherDiagnostic)
+	if len(diagnostics) != 1 || diagnostics[0].Code != "missing_command_dispatch" {
+		t.Fatalf("expected missing dispatch diagnostic, got %#v", diagnostics)
+	}
+
+	reg, ok := debugregistry.Panel(DebugPanelCommands)
+	if !ok || reg.Snapshot == nil {
+		t.Fatalf("expected command launcher snapshot")
+	}
+	snapshot := reg.Snapshot(context.Background()).(CommandLauncherSnapshot)
+	if len(snapshot.Commands) != 1 {
+		t.Fatalf("expected visible command descriptor in snapshot, got %#v", snapshot.Commands)
+	}
+	if len(snapshot.Commands[0].Input.Fields) != 0 {
+		t.Fatalf("snapshot must not serialize command form schema without executable action: %#v", snapshot.Commands[0].Input)
+	}
+}
+
+func TestCommandLauncherPanelDoesNotLeakHiddenCommandSchemas(t *testing.T) {
+	adm := mustNewAdmin(t, Config{}, Dependencies{
+		CommandCatalog: commandLauncherTestCatalog{descriptors: []command.CommandDescriptor{commandLauncherTestDescriptor()}},
+		FeatureGate:    featureGateFromKeys(FeatureCommands),
+		Authorizer: rpcTestAuthorizer{allow: map[string]bool{
+			"admin.commands.read|commands":     true,
+			"admin.commands.dispatch|commands": true,
+		}},
+	})
+	RegisterCommandLauncherDebugPanel(adm)
+	t.Cleanup(func() { debugregistry.UnregisterPanel(DebugPanelCommands) })
+
+	def, ok := debugregistry.PanelDefinitionForContext(context.Background(), DebugPanelCommands)
+	if !ok || def.UI == nil {
+		t.Fatalf("expected command launcher panel definition")
+	}
+	if len(def.UI.Actions) != 0 {
+		t.Fatalf("expected hidden command to produce no actions, got %#v", def.UI.Actions)
+	}
+	if schemas := def.UI.Metadata["serialized_schemas"]; schemas != nil {
+		t.Fatalf("hidden command must not serialize schema or option source ids, got %#v", schemas)
+	}
+	diagnostics := def.UI.Metadata["diagnostics"].([]CommandLauncherDiagnostic)
+	if len(diagnostics) != 1 || diagnostics[0].Code != "command_specific_permission_gaps" {
+		t.Fatalf("expected command-specific permission diagnostic, got %#v", diagnostics)
+	}
+}
+
+func TestCommandLauncherPanelHonorsDescriptorResourceHint(t *testing.T) {
+	descriptor := commandLauncherTestDescriptor()
+	descriptor.DisplayHints = map[string]any{"resource": "catalog"}
+	options := &commandLauncherTestOptionProvider{}
+	adm := mustNewAdmin(t, Config{}, Dependencies{
+		CommandCatalog:        commandLauncherTestCatalog{descriptors: []command.CommandDescriptor{descriptor}},
+		CommandOptionProvider: options,
+		FeatureGate:           featureGateFromKeys(FeatureCommands),
+		Authorizer: rpcTestAuthorizer{allow: map[string]bool{
+			"admin.commands.read|commands":     true,
+			"admin.commands.dispatch|commands": true,
+			"admin.catalog.inspect|catalog":    true,
+		}},
+	})
+	RegisterCommandLauncherDebugPanel(adm)
+	t.Cleanup(func() { debugregistry.UnregisterPanel(DebugPanelCommands) })
+
+	def, ok := debugregistry.PanelDefinitionForContext(context.Background(), DebugPanelCommands)
+	if !ok || def.UI == nil {
+		t.Fatalf("expected command launcher panel definition")
+	}
+	if len(def.UI.Actions) != 1 {
+		t.Fatalf("expected descriptor to authorize against resource hint, got %#v", def.UI.Actions)
+	}
+}
+
+func TestCommandLauncherActionFieldsSupportFormgenCompatibleFieldKinds(t *testing.T) {
+	fields := commandLauncherActionFields(context.Background(), nil, command.CommandDescriptor{Input: command.CommandInputSchema{
+		Type: "object",
+		Fields: []command.CommandInputField{
+			{Name: "enabled", Path: "enabled", Type: "boolean", Required: true},
+			{Name: "limit", Path: "limit", Type: "integer"},
+			{Name: "tags", Path: "filters.tags", Type: "array"},
+			{Name: "metadata", Path: "metadata", Type: "object"},
+			{Name: "status", Path: "filters.status", Kind: "select", Type: "string", StaticOptions: []command.CommandOption{
+				{Value: "draft", Label: "Draft"},
+				{Value: "published", Label: "Published"},
+			}},
+		},
+	}}, nil)
+	if len(fields) != 5 {
+		t.Fatalf("expected five fields, got %#v", fields)
+	}
+	byName := map[string]debugregistry.PanelUIActionField{}
+	for _, field := range fields {
+		byName[field.Name] = field
+	}
+	if byName["enabled"].Kind != "boolean" || byName["enabled"].PayloadPath != "payload.enabled" || !byName["enabled"].Required {
+		t.Fatalf("unexpected boolean field: %#v", byName["enabled"])
+	}
+	if byName["limit"].Kind != "number" || byName["limit"].PayloadPath != "payload.limit" {
+		t.Fatalf("unexpected number field: %#v", byName["limit"])
+	}
+	if byName["tags"].Kind != "string_list" || byName["tags"].PayloadPath != "payload.filters.tags" {
+		t.Fatalf("unexpected array field: %#v", byName["tags"])
+	}
+	if byName["metadata"].Kind != "json" || byName["metadata"].PayloadPath != "payload.metadata" {
+		t.Fatalf("unexpected json field: %#v", byName["metadata"])
+	}
+	if byName["status"].Kind != "select" || len(byName["status"].Options) != 2 {
+		t.Fatalf("unexpected select field: %#v", byName["status"])
+	}
+}
+
+func TestCommandLauncherActionFieldsSupportNoInputCommands(t *testing.T) {
+	fields := commandLauncherActionFields(context.Background(), nil, command.CommandDescriptor{Input: command.CommandInputSchema{NoInput: true}}, nil)
+	if len(fields) != 0 {
+		t.Fatalf("expected no fields for no-input command, got %#v", fields)
+	}
+}
+
+func TestCommandLauncherActionForwardsIDsAndDispatchOptions(t *testing.T) {
+	descriptor := commandLauncherTestDescriptor()
+	descriptor.ID = "rpc.dispatch.test"
+	descriptor.Input = command.CommandInputSchema{NoInput: true}
+	var policyInput RPCCommandPolicyInput
+	var factoryIDs []string
+	adm := mustNewAdmin(t, Config{
+		Commands: CommandConfig{
+			RPC: RPCCommandConfig{
+				MetadataAllowlist: []string{"source"},
+				Commands: map[string]RPCCommandRule{
+					"rpc.dispatch.test": {Permission: "admin.catalog.inspect"},
+				},
+			},
+		},
+	}, Dependencies{
+		CommandCatalog: commandLauncherTestCatalog{descriptors: []command.CommandDescriptor{descriptor}},
+		FeatureGate:    featureGateFromKeys(FeatureCommands),
+		Authorizer: rpcTestAuthorizer{allow: map[string]bool{
+			"admin.commands.read|commands":     true,
+			"admin.commands.dispatch|commands": true,
+			"admin.catalog.inspect|commands":   true,
+		}},
+		RPCCommandPolicyHook: func(_ context.Context, input RPCCommandPolicyInput) error {
+			policyInput = input
+			return nil
+		},
+	})
+	if _, err := RegisterCommand(adm.Commands(), command.CommandFunc[rpcDispatchTestMessage](func(_ context.Context, _ rpcDispatchTestMessage) error {
+		return nil
+	})); err != nil {
+		t.Fatalf("register command: %v", err)
+	}
+	if err := RegisterMessageFactory(adm.Commands(), "rpc.dispatch.test", func(payload map[string]any, ids []string) (rpcDispatchTestMessage, error) {
+		factoryIDs = append([]string(nil), ids...)
+		value, _ := payload["value"].(string)
+		return rpcDispatchTestMessage{Value: value}, nil
+	}); err != nil {
+		t.Fatalf("register message factory: %v", err)
+	}
+
+	ctx := auth.WithActorContext(context.Background(), &auth.ActorContext{ActorID: "debug-user", Subject: "debug-user"})
+	result, err := runCommandLauncherAction(ctx, adm, "rpc.dispatch.test", map[string]any{
+		"payload": map[string]any{"value": "ok"},
+		"ids":     []any{"one", "two"},
+		"options": map[string]any{
+			"mode":            "inline",
+			"idempotency_key": "idem-1",
+			"dedup_policy":    "merge",
+			"correlation_id":  "corr-1",
+			"metadata":        map[string]any{"source": "debug-panel"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("run command launcher action: %v", err)
+	}
+	if !result.OK {
+		t.Fatalf("expected successful action result, got %#v", result)
+	}
+	if got := factoryIDs; len(got) != 2 || got[0] != "one" || got[1] != "two" {
+		t.Fatalf("expected ids to reach command factory, got %#v", got)
+	}
+	if policyInput.Dispatch.Mode != command.ExecutionModeInline ||
+		policyInput.Dispatch.IdempotencyKey != "idem-1" ||
+		policyInput.Dispatch.DedupPolicy != command.DedupPolicyMerge ||
+		policyInput.Dispatch.CorrelationID != "corr-1" ||
+		policyInput.Dispatch.Metadata["source"] != "debug-panel" {
+		t.Fatalf("expected dispatch options to reach policy hook, got %#v", policyInput.Dispatch)
+	}
+}
+
+func TestCommandLauncherDoctorCheckReportsReadyAndPermissionGaps(t *testing.T) {
+	options := &commandLauncherTestOptionProvider{}
+	adm := mustNewAdmin(t, Config{}, Dependencies{
+		CommandCatalog:        commandLauncherTestCatalog{descriptors: []command.CommandDescriptor{commandLauncherTestDescriptor()}},
+		CommandOptionProvider: options,
+		FeatureGate:           featureGateFromKeys(FeatureCommands),
+		Authorizer: rpcTestAuthorizer{allow: map[string]bool{
+			"admin.commands.read|commands":     true,
+			"admin.commands.dispatch|commands": true,
+			"admin.catalog.inspect|commands":   true,
+		}},
+	})
+	RegisterCommandLauncherDoctorCheck(adm)
+
+	report := adm.RunDoctor(context.Background())
+	check := commandLauncherDoctorResult(t, report)
+	if check.Status != DoctorSeverityOK {
+		t.Fatalf("expected ready command launcher check, got %+v", check)
+	}
+	if check.Metadata["executable_command_count"] != 1 {
+		t.Fatalf("expected executable command count, got %#v", check.Metadata)
+	}
+
+	adm = mustNewAdmin(t, Config{}, Dependencies{
+		CommandCatalog: commandLauncherTestCatalog{descriptors: []command.CommandDescriptor{commandLauncherTestDescriptor()}},
+		FeatureGate:    featureGateFromKeys(FeatureCommands),
+		Authorizer: rpcTestAuthorizer{allow: map[string]bool{
+			"admin.commands.read|commands":   true,
+			"admin.catalog.inspect|commands": true,
+		}},
+	})
+	RegisterCommandLauncherDoctorCheck(adm)
+	report = adm.RunDoctor(context.Background())
+	check = commandLauncherDoctorResult(t, report)
+	if check.Status != DoctorSeverityWarn {
+		t.Fatalf("expected warning for missing dispatch, got %+v", check)
+	}
+	if len(check.Findings) != 1 || check.Findings[0].Code != "missing_command_dispatch" {
+		t.Fatalf("expected missing dispatch finding, got %+v", check.Findings)
+	}
+}
+
+func TestCommandLauncherDoctorCheckReportsMissingProvider(t *testing.T) {
+	adm := mustNewAdmin(t, Config{}, Dependencies{FeatureGate: featureGateFromKeys(FeatureCommands)})
+	RegisterCommandLauncherDoctorCheck(adm)
+
+	report := adm.RunDoctor(context.Background())
+	check := commandLauncherDoctorResult(t, report)
+	if check.Status != DoctorSeverityWarn {
+		t.Fatalf("expected warning for missing provider, got %+v", check)
+	}
+	if len(check.Findings) != 1 || check.Findings[0].Code != "catalog_provider_unavailable" {
+		t.Fatalf("expected provider unavailable finding, got %+v", check.Findings)
+	}
+}
+
+func TestCommandLauncherDoctorCheckReportsDisabledCommandFeature(t *testing.T) {
+	adm := mustNewAdmin(t, Config{}, Dependencies{
+		CommandCatalog: commandLauncherTestCatalog{descriptors: []command.CommandDescriptor{commandLauncherTestDescriptor()}},
+		Authorizer: rpcTestAuthorizer{allow: map[string]bool{
+			"admin.commands.read|commands":     true,
+			"admin.commands.dispatch|commands": true,
+			"admin.catalog.inspect|commands":   true,
+		}},
+	})
+	RegisterCommandLauncherDoctorCheck(adm)
+
+	report := adm.RunDoctor(context.Background())
+	check := commandLauncherDoctorResult(t, report)
+	if check.Status != DoctorSeverityWarn {
+		t.Fatalf("expected warning for disabled command feature, got %+v", check)
+	}
+	if len(check.Findings) != 1 || check.Findings[0].Code != "command_feature_disabled" {
+		t.Fatalf("expected command feature disabled finding, got %+v", check.Findings)
+	}
+}
+
+func TestCommandLauncherDoctorCheckReportsMissingDynamicOptionProvider(t *testing.T) {
+	adm := mustNewAdmin(t, Config{}, Dependencies{
+		CommandCatalog: commandLauncherTestCatalog{descriptors: []command.CommandDescriptor{commandLauncherTestDescriptor()}},
+		FeatureGate:    featureGateFromKeys(FeatureCommands),
+		Authorizer: rpcTestAuthorizer{allow: map[string]bool{
+			"admin.commands.read|commands":     true,
+			"admin.commands.dispatch|commands": true,
+			"admin.catalog.inspect|commands":   true,
+		}},
+	})
+	RegisterCommandLauncherDoctorCheck(adm)
+
+	report := adm.RunDoctor(context.Background())
+	check := commandLauncherDoctorResult(t, report)
+	if check.Status != DoctorSeverityWarn {
+		t.Fatalf("expected warning for missing dynamic option provider, got %+v", check)
+	}
+	if len(check.Findings) != 1 || check.Findings[0].Code != "option_provider_unavailable" {
+		t.Fatalf("expected option provider finding, got %+v", check.Findings)
+	}
+}
+
+func TestDebugModuleCommandLauncherDoctorRequiresPanelOrConfigFlag(t *testing.T) {
+	adm := mustNewAdmin(t, Config{}, Dependencies{FeatureGate: featureGateFromKeys(FeatureCommands)})
+	if err := NewDebugModule(DebugConfig{Enabled: true}).Register(ModuleContext{Admin: adm}); err != nil {
+		t.Fatalf("register debug module: %v", err)
+	}
+	report := adm.RunDoctor(context.Background())
+	for _, check := range report.Checks {
+		if check.ID == "command_launcher" {
+			t.Fatalf("did not expect command launcher doctor check without provider or config flag")
+		}
+	}
+
+	adm = mustNewAdmin(t, Config{}, Dependencies{FeatureGate: featureGateFromKeys(FeatureCommands)})
+	if err := NewDebugModule(DebugConfig{Enabled: true, CommandLauncherDoctorEnabled: true}).Register(ModuleContext{Admin: adm}); err != nil {
+		t.Fatalf("register debug module with command launcher doctor flag: %v", err)
+	}
+	report = adm.RunDoctor(context.Background())
+	check := commandLauncherDoctorResult(t, report)
+	if check.Status != DoctorSeverityWarn {
+		t.Fatalf("expected opt-in missing provider warning, got %+v", check)
+	}
+}
+
+func commandLauncherDoctorResult(t *testing.T, report DoctorReport) DoctorCheckResult {
+	t.Helper()
+	for _, check := range report.Checks {
+		if check.ID == "command_launcher" {
+			return check
+		}
+	}
+	t.Fatalf("expected command launcher doctor check in %+v", report.Checks)
+	return DoctorCheckResult{}
+}
