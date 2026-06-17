@@ -59,6 +59,7 @@ var debugPanelDefaults = map[string]debugPanelMeta{
 	DebugPanelJSErrors:    {Label: "JS Errors", Icon: "iconoir-warning-triangle", Span: debugPanelDefaultSpan},
 	DebugPanelPermissions: {Label: "Permissions", Icon: "iconoir-shield-check", Span: debugPanelDefaultSpan},
 	DebugPanelActions:     {Label: "Actions", Icon: "iconoir-flash", Span: debugPanelDefaultSpan},
+	DebugPanelCommands:    {Label: "Commands", Icon: "iconoir-terminal-tag", Span: debugPanelDefaultSpan},
 	DebugPanelDoctor:      {Label: "Doctor", Icon: "iconoir-heart", Span: debugPanelDefaultSpan},
 }
 
@@ -121,6 +122,10 @@ func (m *DebugModule) Register(ctx ModuleContext) error {
 	m.registerDebugSessionWebSocket(ctx.Admin)
 	m.registerDebugREPLShellWebSocket(ctx.Admin)
 	m.registerDebugREPLAppWebSocket(ctx.Admin)
+	if cfg.CommandLauncherDoctorEnabled {
+		RegisterCommandLauncherDoctorCheck(ctx.Admin)
+	}
+	RegisterCommandLauncherDebugPanel(ctx.Admin)
 	RegisterPermissionsDebugPanel(ctx.Admin)
 	RegisterActionDiagnosticsDebugPanel(ctx.Admin)
 	RegisterDoctorDebugPanel(ctx.Admin)
