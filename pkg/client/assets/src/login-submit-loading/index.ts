@@ -113,14 +113,25 @@ function submitterSkipsValidation(form: HTMLFormElement, submitter: SubmitContro
   return form.noValidate || submitter?.hasAttribute('formnovalidate') === true || submitter?.formNoValidate === true;
 }
 
-function appendGeneratedInput(state: FormLoadingState, form: HTMLFormElement, name: string, value: string): void {
+function appendGeneratedInput(
+  state: FormLoadingState,
+  form: HTMLFormElement,
+  name: string,
+  value: string,
+  after: Element | null = null,
+): HTMLInputElement {
   const input = form.ownerDocument.createElement('input');
   input.type = 'hidden';
   input.name = name;
   input.value = value;
   input.dataset.submitLoadingGenerated = SUBMIT_LOADING_ACTIVE_VALUE;
-  form.appendChild(input);
+  if (after && after.parentNode === form) {
+    after.after(input);
+  } else {
+    form.appendChild(input);
+  }
   state.generatedInputs.push(input);
+  return input;
 }
 
 function preserveSubmitterSemantics(
@@ -173,12 +184,25 @@ function preserveSubmitterSemantics(
     ? (submitter.getAttribute('type') || 'text').trim().toLowerCase()
     : 'submit';
   if (type === 'image') {
-    appendGeneratedInput(state, form, `${name}.x`, '0');
-    appendGeneratedInput(state, form, `${name}.y`, '0');
+    const xInput = appendGeneratedInput(state, form, `${name}.x`, '0', submitter);
+    appendGeneratedInput(state, form, `${name}.y`, '0', xInput);
     return;
   }
 
-  appendGeneratedInput(state, form, name, submitter.getAttribute('value') ?? '');
+  appendGeneratedInput(state, form, name, submitter.getAttribute('value') ?? '', submitter);
+}
+
+function effectiveSubmitTarget(form: HTMLFormElement, submitter: SubmitControl | null): string {
+  const submitterTarget = submitter?.getAttribute('formtarget');
+  if (submitterTarget !== null && submitterTarget !== undefined) {
+    return submitterTarget;
+  }
+  return form.getAttribute('target') ?? '';
+}
+
+function submitsOutsideCurrentContext(form: HTMLFormElement, submitter: SubmitControl | null): boolean {
+  const target = effectiveSubmitTarget(form, submitter).trim().toLowerCase();
+  return target !== '' && target !== '_self';
 }
 
 function disableSubmitControls(form: HTMLFormElement, submitter: SubmitControl | null, state: FormLoadingState): void {
@@ -315,6 +339,11 @@ export function initSubmitLoadingForms(options: SubmitLoadingOptions = {}): Subm
     }
     handledSubmitEvents.add(event);
     setSubmitLoading(form, submitter);
+    if (submitsOutsideCurrentContext(form, submitter)) {
+      win?.setTimeout(() => {
+        resetSubmitLoading(form);
+      }, 0);
+    }
   };
 
   const handlePageShow = (): void => {

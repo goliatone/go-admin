@@ -1,20 +1,20 @@
 import { onReady as p } from "../shared/dom-ready.js";
-var g = "form[data-submit-loading-form]", c = "true", d = /* @__PURE__ */ new WeakMap(), m = /* @__PURE__ */ new WeakSet();
-function A(t) {
+var A = "form[data-submit-loading-form]", b = "true", d = /* @__PURE__ */ new WeakMap(), m = /* @__PURE__ */ new WeakSet();
+function L(t) {
   return t.nodeType === 9 ? t : t.ownerDocument || document;
 }
-function L(t, e, n) {
-  const a = n.defaultView;
-  return a?.HTMLFormElement && t instanceof a.HTMLFormElement && t.matches(e) || typeof HTMLFormElement < "u" && t instanceof HTMLFormElement && t.matches(e) ? t : null;
+function v(t, e, n) {
+  const r = n.defaultView;
+  return r?.HTMLFormElement && t instanceof r.HTMLFormElement && t.matches(e) || typeof HTMLFormElement < "u" && t instanceof HTMLFormElement && t.matches(e) ? t : null;
 }
-function v(t) {
+function y(t) {
   const e = t.tagName.toLowerCase();
   if (e === "button") return !0;
   if (e !== "input") return !1;
   const n = (t.getAttribute("type") || "text").trim().toLowerCase();
   return n === "submit" || n === "button" || n === "image";
 }
-function y(t) {
+function h(t) {
   if (!t) return !1;
   const e = t.tagName.toLowerCase();
   if (e === "button") return (t.getAttribute("type") || "submit").trim().toLowerCase() === "submit";
@@ -22,25 +22,25 @@ function y(t) {
   const n = (t.getAttribute("type") || "text").trim().toLowerCase();
   return n === "submit" || n === "image";
 }
-function h(t) {
-  return Array.from(t.querySelectorAll('button, input[type="submit"], input[type="button"], input[type="image"]')).filter(v);
+function w(t) {
+  return Array.from(t.querySelectorAll('button, input[type="submit"], input[type="button"], input[type="image"]')).filter(y);
 }
-function w(t, e, n) {
-  const a = t.submitter;
-  if (!a) return null;
+function S(t, e, n) {
+  const r = t.submitter;
+  if (!r) return null;
   const i = n.defaultView;
-  return (i?.HTMLButtonElement && a instanceof i.HTMLButtonElement || i?.HTMLInputElement && a instanceof i.HTMLInputElement || typeof HTMLButtonElement < "u" && a instanceof HTMLButtonElement || typeof HTMLInputElement < "u" && a instanceof HTMLInputElement) && a.form === e ? a : null;
+  return (i?.HTMLButtonElement && r instanceof i.HTMLButtonElement || i?.HTMLInputElement && r instanceof i.HTMLInputElement || typeof HTMLButtonElement < "u" && r instanceof HTMLButtonElement || typeof HTMLInputElement < "u" && r instanceof HTMLInputElement) && r.form === e ? r : null;
 }
 function E(t, e) {
   return t.noValidate || e?.hasAttribute("formnovalidate") === !0 || e?.formNoValidate === !0;
 }
-function l(t, e, n, a) {
-  const i = e.ownerDocument.createElement("input");
-  i.type = "hidden", i.name = n, i.value = a, i.dataset.submitLoadingGenerated = c, e.appendChild(i), t.generatedInputs.push(i);
+function c(t, e, n, r, i = null) {
+  const a = e.ownerDocument.createElement("input");
+  return a.type = "hidden", a.name = n, a.value = r, a.dataset.submitLoadingGenerated = b, i && i.parentNode === e ? i.after(a) : e.appendChild(a), t.generatedInputs.push(a), a;
 }
-function S(t, e, n) {
-  if (!e || !y(e) || e.disabled) return;
-  const a = {
+function T(t, e, n) {
+  if (!e || !h(e) || e.disabled) return;
+  const r = {
     action: t.getAttribute("action"),
     method: t.getAttribute("method"),
     enctype: t.getAttribute("enctype"),
@@ -48,36 +48,45 @@ function S(t, e, n) {
     noValidate: t.noValidate
   };
   let i = !1;
-  for (const [s, u] of [
+  for (const [s, o] of [
     ["formaction", "action"],
     ["formmethod", "method"],
     ["formenctype", "enctype"],
     ["formtarget", "target"]
-  ]) e.hasAttribute(s) && (t.setAttribute(u, e.getAttribute(s) ?? ""), i = !0);
-  (e.hasAttribute("formnovalidate") || e.formNoValidate) && (t.noValidate = !0, i = !0), i && (n.overrides = a);
-  const r = e.getAttribute("name")?.trim();
-  if (r) {
+  ]) e.hasAttribute(s) && (t.setAttribute(o, e.getAttribute(s) ?? ""), i = !0);
+  (e.hasAttribute("formnovalidate") || e.formNoValidate) && (t.noValidate = !0, i = !0), i && (n.overrides = r);
+  const a = e.getAttribute("name")?.trim();
+  if (a) {
     if ((e.tagName.toLowerCase() === "input" ? (e.getAttribute("type") || "text").trim().toLowerCase() : "submit") === "image") {
-      l(n, t, `${r}.x`, "0"), l(n, t, `${r}.y`, "0");
+      const s = c(n, t, `${a}.x`, "0", e);
+      c(n, t, `${a}.y`, "0", s);
       return;
     }
-    l(n, t, r, e.getAttribute("value") ?? "");
+    c(n, t, a, e.getAttribute("value") ?? "", e);
   }
 }
-function T(t, e, n) {
-  const a = h(t);
-  e && !a.includes(e) && a.push(e);
-  for (const i of a) {
+function C(t, e) {
+  const n = e?.getAttribute("formtarget");
+  return n ?? t.getAttribute("target") ?? "";
+}
+function M(t, e) {
+  const n = C(t, e).trim().toLowerCase();
+  return n !== "" && n !== "_self";
+}
+function V(t, e, n) {
+  const r = w(t);
+  e && !r.includes(e) && r.push(e);
+  for (const i of r) {
     n.controls.push({
       control: i,
       disabled: i.disabled,
       ariaLabel: i.getAttribute("aria-label")
     });
-    const r = i.dataset.submitLoadingBusyLabel?.trim();
-    r && i.setAttribute("aria-label", r), i.disabled = !0;
+    const a = i.dataset.submitLoadingBusyLabel?.trim();
+    a && i.setAttribute("aria-label", a), i.disabled = !0;
   }
 }
-function M(t, e = null) {
+function I(t, e = null) {
   if (t.dataset.submitLoadingActive === "true") return;
   const n = {
     ariaBusy: t.getAttribute("aria-busy"),
@@ -85,9 +94,9 @@ function M(t, e = null) {
     generatedInputs: [],
     overrides: null
   };
-  t.setAttribute("aria-busy", "true"), t.dataset.loading = c, t.dataset.submitLoadingActive = c, S(t, e, n), T(t, e, n), d.set(t, n);
+  t.setAttribute("aria-busy", "true"), t.dataset.loading = b, t.dataset.submitLoadingActive = b, T(t, e, n), V(t, e, n), d.set(t, n);
 }
-function V(t) {
+function g(t) {
   const e = d.get(t);
   if (e) {
     e.ariaBusy === null ? t.removeAttribute("aria-busy") : t.setAttribute("aria-busy", e.ariaBusy);
@@ -98,46 +107,48 @@ function V(t) {
   } else (t.dataset.submitLoadingActive === "true" || t.dataset.loading === "true") && t.removeAttribute("aria-busy");
   delete t.dataset.loading, delete t.dataset.submitLoadingActive, d.delete(t);
 }
-function f(t = document, e = g) {
+function f(t = document, e = A) {
   t.querySelectorAll(e).forEach((n) => {
-    (d.has(n) || n.dataset.submitLoadingActive === "true" || n.dataset.loading === "true") && V(n);
+    (d.has(n) || n.dataset.submitLoadingActive === "true" || n.dataset.loading === "true") && g(n);
   });
 }
-function C(t = {}) {
-  const e = t.root ?? document, n = t.formSelector || "form[data-submit-loading-form]", a = A(e), i = t.window ?? a.defaultView ?? window, r = (u) => {
-    const o = L(u.target, n, a);
-    if (!o || u.defaultPrevented || m.has(u)) return;
-    if (o.dataset.submitLoadingActive === "true") {
-      u.preventDefault();
+function H(t = {}) {
+  const e = t.root ?? document, n = t.formSelector || "form[data-submit-loading-form]", r = L(e), i = t.window ?? r.defaultView ?? window, a = (o) => {
+    const u = v(o.target, n, r);
+    if (!u || o.defaultPrevented || m.has(o)) return;
+    if (u.dataset.submitLoadingActive === "true") {
+      o.preventDefault();
       return;
     }
-    const b = w(u, o, a);
-    !E(o, b) && typeof o.checkValidity == "function" && !o.checkValidity() || (m.add(u), M(o, b));
+    const l = S(o, u, r);
+    !E(u, l) && typeof u.checkValidity == "function" && !u.checkValidity() || (m.add(o), I(u, l), M(u, l) && i?.setTimeout(() => {
+      g(u);
+    }, 0));
   }, s = () => {
     f(e, n);
   };
-  return e.addEventListener("submit", r), i?.addEventListener("pageshow", s), {
+  return e.addEventListener("submit", a), i?.addEventListener("pageshow", s), {
     reset() {
       f(e, n);
     },
     destroy() {
-      e.removeEventListener("submit", r), i?.removeEventListener("pageshow", s);
+      e.removeEventListener("submit", a), i?.removeEventListener("pageshow", s);
     }
   };
 }
-function H(t = {}) {
+function B(t = {}) {
   p(() => {
-    C(t);
+    H(t);
   });
 }
 export {
-  c as SUBMIT_LOADING_ACTIVE_VALUE,
-  g as SUBMIT_LOADING_FORM_SELECTOR,
-  H as bootstrapSubmitLoadingForms,
-  C as initSubmitLoadingForms,
-  V as resetSubmitLoading,
+  b as SUBMIT_LOADING_ACTIVE_VALUE,
+  A as SUBMIT_LOADING_FORM_SELECTOR,
+  B as bootstrapSubmitLoadingForms,
+  H as initSubmitLoadingForms,
+  g as resetSubmitLoading,
   f as resetSubmitLoadingForms,
-  M as setSubmitLoading
+  I as setSubmitLoading
 };
 
 //# sourceMappingURL=index.js.map

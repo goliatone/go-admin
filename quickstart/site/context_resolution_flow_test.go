@@ -128,7 +128,6 @@ func TestBuildResolvedRequestViewContextIncludesThemeAndLocaleSwitcher(t *testin
 		t.Fatalf("expected cloned theme payload, got %#v", viewCtx["theme"])
 	}
 	state.Theme["colors"]["primary"] = "#fff"
-	theme = viewCtx["theme"].(map[string]map[string]string)
 	if theme["colors"]["primary"] != "#000" {
 		t.Fatalf("expected theme payload clone to remain unchanged, got %#v", theme)
 	}
@@ -157,7 +156,11 @@ func TestResolveRequestStateFlowAppliesModulesAndStoresState(t *testing.T) {
 		moduleStub{
 			id: "second",
 			viewContextFn: func(_ context.Context, in router.ViewContext) router.ViewContext {
-				in["trace"] = in["trace"].(string) + "2"
+				trace, ok := in["trace"].(string)
+				if !ok {
+					t.Fatalf("expected string trace in module context, got %#v", in["trace"])
+				}
+				in["trace"] = trace + "2"
 				return in
 			},
 		},

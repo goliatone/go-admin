@@ -301,6 +301,60 @@ test('submit-loading preserves named submitter values and form overrides before 
   controller.destroy();
 });
 
+test('submit-loading preserves submitter value order around duplicate field names', () => {
+  const dom = setupDom(`
+    <form data-submit-loading-form action="/publish" method="post">
+      <input name="intent" value="before">
+      <button type="submit" name="intent" value="publish">Publish</button>
+      <input name="intent" value="after">
+    </form>
+  `);
+  const form = dom.window.document.querySelector('form');
+  const button = dom.window.document.querySelector('button[type="submit"]');
+
+  const controller = initSubmitLoadingForms({
+    root: dom.window.document,
+    window: dom.window,
+  });
+  const event = dispatchSubmit(dom.window, form, button);
+
+  assert.equal(event.defaultPrevented, false);
+  assert.deepEqual(new dom.window.FormData(form).getAll('intent'), ['before', 'publish', 'after']);
+
+  controller.destroy();
+});
+
+test('submit-loading resets forms submitted to another browsing context', async () => {
+  const dom = setupDom(`
+    <form data-submit-loading-form action="/publish" method="post">
+      <input name="identifier" required value="admin@example.com">
+      <button type="submit" formtarget="_blank">Publish</button>
+    </form>
+  `);
+  const form = dom.window.document.querySelector('form');
+  const button = dom.window.document.querySelector('button[type="submit"]');
+
+  const controller = initSubmitLoadingForms({
+    root: dom.window.document,
+    window: dom.window,
+  });
+  const event = dispatchSubmit(dom.window, form, button);
+
+  assert.equal(event.defaultPrevented, false);
+  assert.equal(form.dataset.loading, 'true');
+  assert.equal(button.disabled, true);
+
+  await new Promise((resolve) => dom.window.setTimeout(resolve, 0));
+
+  assert.equal(form.hasAttribute('aria-busy'), false);
+  assert.equal(form.dataset.loading, undefined);
+  assert.equal(form.dataset.submitLoadingActive, undefined);
+  assert.equal(form.hasAttribute('target'), false);
+  assert.equal(button.disabled, false);
+
+  controller.destroy();
+});
+
 test('submit-loading honors formnovalidate submitters', () => {
   const dom = setupDom(`
     <form data-submit-loading-form action="/admin/login" method="post">
