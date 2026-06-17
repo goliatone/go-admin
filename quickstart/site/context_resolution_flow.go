@@ -92,6 +92,8 @@ func buildResolvedRequestViewContext(siteCfg ResolvedSiteConfig, state RequestSt
 		"supported_locales":     cloneStrings(state.SupportedLocales),
 		"preview_token_present": state.PreviewTokenPresent,
 		"preview_token_valid":   state.PreviewTokenValid,
+		"preview_entity_type":   state.PreviewEntityType,
+		"preview_content_id":    state.PreviewContentID,
 		"is_preview":            state.IsPreview,
 		"allow_locale_fallback": state.AllowLocaleFallback,
 		"environment":           state.Environment,

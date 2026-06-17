@@ -98,7 +98,7 @@ func (h *contentEntryHandlers) editForPanel(c router.Context, panelSlug string) 
 		}
 	}
 	values := contentEntryValues(record)
-	previewURL, err := h.previewURLForRecord(c.Context(), panelName, id, record)
+	previewURL, err := h.previewURLForRecord(c.Context(), panelName, id, record, contentType)
 	if err != nil {
 		return contentEntryRouteError(panelName, "generate preview token", id, err)
 	}
@@ -188,11 +188,13 @@ func (h *contentEntryHandlers) deleteForPanel(c router.Context, panelSlug string
 	return c.Redirect(routes.index())
 }
 
-func (h *contentEntryHandlers) previewURLForRecord(ctx context.Context, panelName, id string, record map[string]any) (string, error) {
+func (h *contentEntryHandlers) previewURLForRecord(ctx context.Context, panelName, id string, record map[string]any, contentType *admin.CMSContentType) (string, error) {
 	if h == nil || h.admin == nil || strings.TrimSpace(id) == "" {
 		return "", nil
 	}
-	targetPath := admin.ResolveContentPreviewPath(record)
+	targetPath := admin.ResolveContentPreviewPathWithOptions(record, admin.ContentPreviewPathOptions{
+		AllowSlugFallback: contentTypeAllowsSlugPreviewFallback(contentType),
+	})
 	if targetPath == "" {
 		return "", nil
 	}
@@ -205,6 +207,22 @@ func (h *contentEntryHandlers) previewURLForRecord(ctx context.Context, panelNam
 		return "", err
 	}
 	return h.admin.BuildSitePreviewURL(targetPath, token), nil
+}
+
+func contentTypeAllowsSlugPreviewFallback(contentType *admin.CMSContentType) bool {
+	if contentType == nil {
+		return false
+	}
+	contracts := admin.ReadContentTypeCapabilityContracts(*contentType)
+	delivery := contracts.Delivery
+	if anyBool(delivery["enabled"]) {
+		return true
+	}
+	routeOwner := strings.ToLower(strings.TrimSpace(admin.ContentTypeCapabilityString(contracts.Normalized, "route_owner")))
+	if routeOwner == "" {
+		routeOwner = strings.ToLower(strings.TrimSpace(admin.ContentTypeCapabilityString(contentType.Capabilities, "route_owner")))
+	}
+	return routeOwner != "" && routeOwner != "none"
 }
 
 func contentEntryValues(record map[string]any) map[string]any {

@@ -38,6 +38,8 @@ func siteTemplateContext(c router.Context, viewCtx router.ViewContext) router.Vi
 		"is_preview":            anyBool(ctx["is_preview"]),
 		"preview_token_present": anyBool(ctx["preview_token_present"]),
 		"preview_token_valid":   anyBool(ctx["preview_token_valid"]),
+		"preview_entity_type":   strings.TrimSpace(anyString(ctx["preview_entity_type"])),
+		"preview_content_id":    strings.TrimSpace(anyString(ctx["preview_content_id"])),
 		"content_kind":          strings.TrimSpace(anyString(siteContent["kind"])),
 		"page_kind":             strings.TrimSpace(anyString(sitePage["kind"])),
 		"template_candidates":   cloneStrings(anyStringSlice(sitePage["template_candidates"])),
