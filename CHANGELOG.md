@@ -1,10 +1,20 @@
 # Changelog
 
+# [0.94.2](https://github.com/goliatone/go-admin/compare/v0.94.1...v0.94.2) - (2026-06-17)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update deps ([7bef1d2](https://github.com/goliatone/go-admin/commit/7bef1d28b667e76fb6c4bce4959321d2bbc5d1c9))  - (goliatone)
+
 # [0.94.1](https://github.com/goliatone/go-admin/compare/v0.94.0...v0.94.1) - (2026-06-17)
 
 ## <!-- 1 -->🐛 Bug Fixes
 
 - Quickstart doctor chekcs ([2636757](https://github.com/goliatone/go-admin/commit/2636757159fa4d64587bae498ad5283a9f412d78))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.94.1 ([6d69838](https://github.com/goliatone/go-admin/commit/6d698381f34c40c5ef85553d9fb084424c2cd1e1))  - (goliatone)
 
 # [0.94.0](https://github.com/goliatone/go-admin/compare/v0.93.2...v0.94.0) - (2026-06-16)
 
