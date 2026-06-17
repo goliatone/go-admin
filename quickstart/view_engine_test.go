@@ -498,7 +498,7 @@ func TestLoginTemplateOmitsSSOSectionWithoutProviders(t *testing.T) {
 			if containsAny(html, `Or sign in with`, `>Google<`, `>Apple<`, `href="/admin/auth/sso`) {
 				t.Fatalf("expected no SSO section or static OAuth controls, got %q", html)
 			}
-			if !containsAll(html, `name="identifier"`, `name="password"`, `Sign In`) {
+			if !containsAll(html, `name="identifier"`, `name="password"`, `Sign In`, `data-submit-loading-form`, `assets/dist/login-submit-loading/index.js`) {
 				t.Fatalf("expected local login form to remain, got %q", html)
 			}
 		})
