@@ -16,19 +16,13 @@ const (
 	RPCMethodCommandList = "admin.commands.list"
 )
 
-// RPCCommandDispatchRequest describes the generic command-dispatch RPC payload.
-type RPCCommandDispatchRequest struct {
-	Name    string                  `json:"name"`
-	Payload map[string]any          `json:"payload,omitempty"`
-	IDs     []string                `json:"ids,omitempty"`
-	Options command.DispatchOptions `json:"options"`
-}
+// RPCCommandDispatchRequest is a compatibility alias for the canonical
+// go-command generic dispatch payload.
+type RPCCommandDispatchRequest = command.CommandDispatchRequest
 
-// RPCCommandDispatchResponse returns command dispatch receipt metadata.
-type RPCCommandDispatchResponse struct {
-	Receipt command.DispatchReceipt `json:"receipt"`
-	Result  any                     `json:"result,omitempty"`
-}
+// RPCCommandDispatchResponse is a compatibility alias for the canonical
+// go-command generic dispatch response.
+type RPCCommandDispatchResponse = command.CommandDispatchResponse
 
 // RPCCommandListResponse describes available command names.
 type RPCCommandListResponse struct {
@@ -108,9 +102,9 @@ func commandDispatchRPCEndpoint(adm *Admin) cmdrpc.EndpointDefinition {
 					"method":    RPCMethodCommandDispatch,
 				})
 			}
-			name := strings.TrimSpace(req.Data.Name)
+			name := strings.TrimSpace(req.Data.ResolvedCommandID())
 			if name == "" {
-				return cmdrpc.ResponseEnvelope[RPCCommandDispatchResponse]{}, requiredFieldDomainError("name", map[string]any{
+				return cmdrpc.ResponseEnvelope[RPCCommandDispatchResponse]{}, requiredFieldDomainError("command_id", map[string]any{
 					"component": "rpc_transport",
 					"method":    RPCMethodCommandDispatch,
 				})
@@ -165,7 +159,10 @@ func commandDispatchRPCEndpoint(adm *Admin) cmdrpc.EndpointDefinition {
 				return cmdrpc.ResponseEnvelope[RPCCommandDispatchResponse]{}, err
 			}
 			return cmdrpc.ResponseEnvelope[RPCCommandDispatchResponse]{
-				Data: RPCCommandDispatchResponse(outcome),
+				Data: RPCCommandDispatchResponse{
+					Receipt: outcome.Receipt,
+					Result:  outcome.Result,
+				},
 			}, nil
 		},
 	)
