@@ -349,6 +349,26 @@
     @apply bg-admin-dark text-white hover:bg-admin-light;
   }
 
+  .submit-loading-button {
+    @apply relative;
+  }
+
+  .submit-loading-spinner {
+    @apply hidden h-5 w-5 shrink-0 animate-spin text-current;
+  }
+
+  [data-submit-loading-form][data-loading="true"] .submit-loading-spinner {
+    @apply inline-block;
+  }
+
+  [data-submit-loading-form][data-loading="true"] [data-submit-loading-label] {
+    @apply sr-only;
+  }
+
+  [data-submit-loading-form][aria-busy="true"] .submit-loading-button {
+    @apply cursor-wait;
+  }
+
   .btn-secondary {
     @apply bg-white text-admin-dark border border-gray-200 hover:bg-gray-50;
   }

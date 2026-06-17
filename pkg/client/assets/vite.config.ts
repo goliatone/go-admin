@@ -23,6 +23,7 @@ export default defineConfig({
         'formgen/preferences': resolve(__dirname, 'src/formgen/preferences.ts'),
         'formgen/permission_matrix': resolve(__dirname, 'src/formgen/permission_matrix.ts'),
         'formgen/schema_editor': resolve(__dirname, 'src/formgen/schema_editor.ts'),
+        'login-submit-loading/index': resolve(__dirname, 'src/login-submit-loading/index.ts'),
         'components/import-modal': resolve(__dirname, 'src/components/import-modal.ts'),
         'components/permission-pills': resolve(__dirname, 'src/components/permission-pills.ts'),
         'debug/index': resolve(__dirname, 'src/debug/index.ts'),

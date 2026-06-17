@@ -44,7 +44,7 @@
       {% endif %}
 
       <!-- Form -->
-      <form class="space-y-4" action="{{ adminURL("login") }}" method="post">
+      <form class="space-y-4" action="{{ adminURL("login") }}" method="post" data-submit-loading-form>
         {{ csrf_field|safe }}
         <!-- Email Input -->
         <div>
@@ -99,8 +99,12 @@
         </div>
 
         <!-- Sign In Button -->
-        <button type="submit" class="btn btn-primary w-full justify-center">
-          Sign In
+        <button type="submit" class="btn btn-primary submit-loading-button w-full justify-center" data-submit-loading-busy-label="Signing in">
+          <svg class="submit-loading-spinner" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+          <span data-submit-loading-label>Sign In</span>
         </button>
       </form>
 
@@ -179,6 +183,11 @@
 {% endblock %}
 
 {% block scripts %}
+<script type="module">
+  import { bootstrapSubmitLoadingForms } from '{{ adminURL("assets/dist/login-submit-loading/index.js") }}';
+
+  bootstrapSubmitLoadingForms();
+</script>
 <script>
   function togglePassword() {
     const passwordInput = document.getElementById('password');
