@@ -22,16 +22,19 @@ type menuResetterWithContext interface {
 
 // SeedNavigationOptions drives the quickstart menu seeding workflow.
 type SeedNavigationOptions struct {
-	MenuSvc    admin.CMSMenuService             `json:"menu_svc"`
-	MenuCode   string                           `json:"menu_code"`
-	Items      []admin.MenuItem                 `json:"items"`
-	Reset      bool                             `json:"reset"`
-	Reconcile  bool                             `json:"reconcile"`
-	ResetEnv   string                           `json:"reset_env"`
-	Locale     string                           `json:"locale"`
-	Logf       func(format string, args ...any) `json:"logf"`
-	SkipLogger bool                             `json:"skip_logger"`
-	Reportf    func(NavigationReconcileReport)  `json:"-"`
+	MenuSvc   admin.CMSMenuService `json:"menu_svc"`
+	MenuCode  string               `json:"menu_code"`
+	Items     []admin.MenuItem     `json:"items"`
+	Reset     bool                 `json:"reset"`
+	Reconcile bool                 `json:"reconcile"`
+	// AllowDestructive lets reconcile delete generated replacement candidates during apply.
+	// It is false by default so normal startup seeding preserves stale generated rows.
+	AllowDestructive bool                             `json:"allow_destructive"`
+	ResetEnv         string                           `json:"reset_env"`
+	Locale           string                           `json:"locale"`
+	Logf             func(format string, args ...any) `json:"logf"`
+	SkipLogger       bool                             `json:"skip_logger"`
+	Reportf          func(NavigationReconcileReport)  `json:"-"`
 
 	CapabilityOmissions     []string `json:"capability_omissions,omitempty"`
 	PermissionFilteredItems []string `json:"permission_filtered_items,omitempty"`
@@ -71,6 +74,7 @@ func SeedNavigation(ctx context.Context, opts SeedNavigationOptions) error {
 			Locale:                  runtime.locale,
 			Items:                   opts.Items,
 			Apply:                   true,
+			AllowDestructive:        opts.AllowDestructive,
 			Logf:                    opts.Logf,
 			CapabilityOmissions:     opts.CapabilityOmissions,
 			PermissionFilteredItems: opts.PermissionFilteredItems,
