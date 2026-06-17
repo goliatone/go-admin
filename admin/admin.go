@@ -10,6 +10,7 @@ import (
 	"github.com/goliatone/go-admin/internal/primitives"
 	translationservices "github.com/goliatone/go-admin/translations/services"
 	auth "github.com/goliatone/go-auth"
+	gocommand "github.com/goliatone/go-command"
 	cmdrpc "github.com/goliatone/go-command/rpc"
 	"github.com/goliatone/go-featuregate/catalog"
 	fggate "github.com/goliatone/go-featuregate/gate"
@@ -40,6 +41,8 @@ type Admin struct {
 	authenticator                   Authenticator
 	router                          AdminRouter
 	commandBus                      *CommandBus
+	commandCatalog                  gocommand.CatalogProvider
+	commandOptionProvider           gocommand.CommandOptionProvider
 	commandRegistryInitialized      bool
 	validatePanelCommandWiring      bool
 	rpcServer                       *cmdrpc.Server
