@@ -1,10 +1,24 @@
 # Changelog
 
+# [0.95.1](https://github.com/goliatone/go-admin/compare/v0.95.0...v0.95.1) - (2026-06-17)
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Navigation build up ([ecb4f1f](https://github.com/goliatone/go-admin/commit/ecb4f1fea44949170c66b235da2087cff79c22f0))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update deps ([8270323](https://github.com/goliatone/go-admin/commit/8270323defab8203d1f92e6d04979164670dff60))  - (goliatone)
+
 # [0.95.0](https://github.com/goliatone/go-admin/compare/v0.94.3...v0.95.0) - (2026-06-17)
 
 ## <!-- 1 -->🐛 Bug Fixes
 
 - Menu reconciliation ([45c49ac](https://github.com/goliatone/go-admin/commit/45c49ac5e26b5f97d5d205bb754655ef5923d229))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.95.0 ([50db61d](https://github.com/goliatone/go-admin/commit/50db61dadb4351ffc920e835880b7f85305e4bde))  - (goliatone)
 
 ## <!-- 16 -->➕ Add
 
