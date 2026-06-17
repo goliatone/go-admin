@@ -1,6 +1,25 @@
 # Changelog
 
+# [0.95.0](https://github.com/goliatone/go-admin/compare/v0.94.3...v0.95.0) - (2026-06-17)
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Menu reconciliation ([45c49ac](https://github.com/goliatone/go-admin/commit/45c49ac5e26b5f97d5d205bb754655ef5923d229))  - (goliatone)
+
+## <!-- 16 -->➕ Add
+
+- Login submit loader ([b72239b](https://github.com/goliatone/go-admin/commit/b72239b916b0bf6d4a705e27a3eafff2c5f21763))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update tests ([8529f0b](https://github.com/goliatone/go-admin/commit/8529f0b8552fabe1e85b0944c9c3458f942bb8c1))  - (goliatone)
+- Update examples ([eaca002](https://github.com/goliatone/go-admin/commit/eaca002cf45073d1377ea1c253077adadbf9194e))  - (goliatone)
+
 # [0.94.3](https://github.com/goliatone/go-admin/compare/v0.94.2...v0.94.3) - (2026-06-17)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.94.3 ([86958bc](https://github.com/goliatone/go-admin/commit/86958bc9797451310e07c70b12ffea8b8878ac7c))  - (goliatone)
 
 ## <!-- 7 -->⚙️ Miscellaneous Tasks
 
