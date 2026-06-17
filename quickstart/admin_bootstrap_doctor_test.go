@@ -196,6 +196,155 @@ func TestQuickstartDoctorTranslationReportsPersistedMissingNavigation(t *testing
 	}
 }
 
+func TestQuickstartDoctorTranslationIgnoresUnrelatedNavigationInventory(t *testing.T) {
+	resetCommandRegistryForTest(t)
+
+	ctx := context.Background()
+	cfg := NewAdminConfig("/admin", "Admin", "en")
+	adm, _, err := NewAdmin(
+		cfg,
+		AdapterHooks{},
+		WithTranslationProductConfig(TranslationProductConfig{
+			SchemaVersion: TranslationProductSchemaVersionCurrent,
+			Profile:       TranslationProfileFull,
+			Exchange: &TranslationExchangeConfig{
+				Enabled: true,
+				Store:   &moduleRegistrarExchangeStoreStub{},
+			},
+			Queue: &TranslationQueueConfig{
+				Enabled:          true,
+				Repository:       newQuickstartTranslationQueueRepo(),
+				SupportedLocales: []string{"en", "es"},
+			},
+		}),
+	)
+	if err != nil {
+		t.Fatalf("NewAdmin error: %v", err)
+	}
+	t.Cleanup(adm.Commands().Reset)
+
+	items, _ := translationCapabilityMenuItemsWithDiagnostics(adm, cfg, cfg.NavMenuCode, cfg.DefaultLocale)
+	items = append(items, admin.MenuItem{
+		ID:       cfg.NavMenuCode + ".custom.ops",
+		Type:     admin.MenuItemTypeItem,
+		Label:    "Custom Ops",
+		ParentID: NavigationGroupToolsID,
+		Menu:     cfg.NavMenuCode,
+		Locale:   cfg.DefaultLocale,
+		Target: map[string]any{
+			"type": "url",
+			"path": "/admin/custom-ops",
+			"key":  "custom_ops",
+			"name": "admin.custom.ops",
+		},
+	})
+	if err := SeedNavigation(ctx, SeedNavigationOptions{
+		MenuSvc:           adm.MenuService(),
+		MenuCode:          cfg.NavMenuCode,
+		Locale:            cfg.DefaultLocale,
+		Items:             items,
+		SkipLogger:        true,
+		Reconcile:         true,
+		AutoCreateParents: true,
+	}); err != nil {
+		t.Fatalf("seed translation and custom navigation: %v", err)
+	}
+
+	report := adm.RunDoctor(ctx)
+	check, ok := quickstartDoctorCheckResult(report, "quickstart.translation")
+	if !ok {
+		t.Fatalf("expected quickstart.translation doctor result, got %+v", report.Checks)
+	}
+	for _, finding := range check.Findings {
+		switch finding.Code {
+		case "quickstart.translation.navigation_custom", "quickstart.translation.navigation_retired":
+			t.Fatalf("unexpected unrelated navigation finding: %+v", finding)
+		}
+	}
+	nav := translationAnyMap(check.Metadata["navigation"])
+	navItems, ok := nav["items"].([]map[string]any)
+	if !ok {
+		t.Fatalf("expected translation navigation metadata items, got %T", nav["items"])
+	}
+	for _, entry := range navItems {
+		if strings.Contains(strings.TrimSpace(fmt.Sprint(entry["canonical_id"])), "custom.ops") {
+			t.Fatalf("unexpected unrelated navigation item in translation metadata: %+v", nav["items"])
+		}
+	}
+}
+
+func TestQuickstartDoctorTranslationReportsRouteMissingBeforeFallbackURL(t *testing.T) {
+	resetCommandRegistryForTest(t)
+
+	ctx := context.Background()
+	cfg := NewAdminConfig("/admin", "Admin", "en")
+	adm, _, err := NewAdmin(
+		cfg,
+		AdapterHooks{},
+		WithTranslationProductConfig(TranslationProductConfig{
+			SchemaVersion: TranslationProductSchemaVersionCurrent,
+			Profile:       TranslationProfileFull,
+			Exchange: &TranslationExchangeConfig{
+				Enabled: true,
+				Store:   &moduleRegistrarExchangeStoreStub{},
+			},
+			Queue: &TranslationQueueConfig{
+				Enabled:          true,
+				Repository:       newQuickstartTranslationQueueRepo(),
+				SupportedLocales: []string{"en", "es"},
+			},
+		}),
+	)
+	if err != nil {
+		t.Fatalf("NewAdmin error: %v", err)
+	}
+	t.Cleanup(func() {
+		translationCapabilitiesStore.Delete(adm)
+		adm.Commands().Reset()
+	})
+
+	caps := cloneAnyMap(TranslationCapabilities(adm))
+	routes := translationRoutesToStrings(caps["routes"])
+	delete(routes, "admin.translations.dashboard")
+	caps["routes"] = routes
+	translationCapabilitiesStore.Store(adm, caps)
+
+	items, _ := translationCapabilityMenuItemsWithDiagnostics(adm, cfg, cfg.NavMenuCode, cfg.DefaultLocale)
+	if err := SeedNavigation(ctx, SeedNavigationOptions{
+		MenuSvc:           adm.MenuService(),
+		MenuCode:          cfg.NavMenuCode,
+		Locale:            cfg.DefaultLocale,
+		Items:             items,
+		SkipLogger:        true,
+		Reconcile:         true,
+		AutoCreateParents: true,
+	}); err != nil {
+		t.Fatalf("seed translation navigation: %v", err)
+	}
+
+	report := adm.RunDoctor(ctx)
+	check, ok := quickstartDoctorCheckResult(report, "quickstart.translation")
+	if !ok {
+		t.Fatalf("expected quickstart.translation doctor result, got %+v", report.Checks)
+	}
+	found := false
+	for _, finding := range check.Findings {
+		if finding.Code != "quickstart.translation.navigation_route_missing" {
+			continue
+		}
+		if !strings.Contains(strings.TrimSpace(fmt.Sprint(finding.Metadata["canonical_id"])), "translations.dashboard") {
+			continue
+		}
+		found = true
+		if finding.Severity != admin.DoctorSeverityWarn || finding.Component != "translation.navigation" {
+			t.Fatalf("unexpected route-missing finding: %+v", finding)
+		}
+	}
+	if !found {
+		t.Fatalf("expected route-missing translation dashboard finding, got %+v", check.Findings)
+	}
+}
+
 func TestNewAdminAllowsConfiguredTranslationPolicyWithCheckerServices(t *testing.T) {
 	resetCommandRegistryForTest(t)
 

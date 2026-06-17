@@ -659,6 +659,8 @@ func translationDoctorNavigationDiagnostics(ctx context.Context, adm *admin.Admi
 			Metadata:  map[string]any{"error": err.Error()},
 		}}
 	}
+	expectedIDs := translationDoctorNavigationExpectedIDSet(expected)
+	report = translationDoctorFilterNavigationReport(report, expectedIDs)
 	return report, translationDoctorNavigationFindings(report)
 }
 
@@ -684,6 +686,7 @@ func translationDoctorNavigationExpectedItems(ctx context.Context, adm *admin.Ad
 	if len(items) == 0 {
 		return nil, nil
 	}
+	routes := translationRoutesToStrings(TranslationCapabilities(adm)["routes"])
 	runtime := newSeedNavigationRuntime(ctx, SeedNavigationOptions{
 		MenuSvc:           adm.MenuService(),
 		MenuCode:          menuCode,
@@ -707,10 +710,48 @@ func translationDoctorNavigationExpectedItems(ctx context.Context, adm *admin.Ad
 			Item:         item,
 			Owner:        admin.NavigationOwnerQuickstart,
 			OwnerID:      firstNonEmpty(stringTargetValue(item.Target, MenuTargetGeneratedIDKey), key),
-			RouteMissing: strings.TrimSpace(stringTargetValue(item.Target, "path")) == "",
+			RouteMissing: translationDoctorNavigationRouteMissing(item, routes),
 		})
 	}
 	return expected, nil
+}
+
+func translationDoctorNavigationRouteMissing(item admin.MenuItem, routes map[string]string) bool {
+	if strings.TrimSpace(stringTargetValue(item.Target, "path")) == "" {
+		return true
+	}
+	routeKey := strings.TrimSpace(stringTargetValue(item.Target, "name"))
+	if routeKey == "" {
+		return false
+	}
+	routePath, ok := routes[routeKey]
+	return !ok || strings.TrimSpace(routePath) == ""
+}
+
+func translationDoctorNavigationExpectedIDSet(expected []admin.NavigationDoctorExpectedItem) map[string]struct{} {
+	out := make(map[string]struct{}, len(expected))
+	for _, item := range expected {
+		id := strings.TrimSpace(item.Item.ID)
+		if id != "" {
+			out[id] = struct{}{}
+		}
+	}
+	return out
+}
+
+func translationDoctorFilterNavigationReport(report admin.NavigationDoctorReport, expectedIDs map[string]struct{}) admin.NavigationDoctorReport {
+	if len(report.Items) == 0 || len(expectedIDs) == 0 {
+		report.Items = nil
+		return report
+	}
+	items := make([]admin.NavigationDoctorItem, 0, len(report.Items))
+	for _, item := range report.Items {
+		if _, ok := expectedIDs[strings.TrimSpace(item.CanonicalID)]; ok {
+			items = append(items, item)
+		}
+	}
+	report.Items = items
+	return report
 }
 
 func translationDoctorExpectedProductNavKey(key string) bool {
