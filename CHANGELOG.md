@@ -1,11 +1,30 @@
 # Changelog
 
+# [0.97.0](https://github.com/goliatone/go-admin/compare/v0.96.0...v0.97.0) - (2026-06-17)
+
+## <!-- 16 -->➕ Add
+
+- Command catalog and option provider ([454d816](https://github.com/goliatone/go-admin/commit/454d816f81d98b9487695dbe6164754f1e6cef22))  - (goliatone)
+- Command launcher doctor enabled ([16f6ae4](https://github.com/goliatone/go-admin/commit/16f6ae47b9e96b7c94d472dd8825a24c3e126dad))  - (goliatone)
+- Debug panel commands ([4caabd7](https://github.com/goliatone/go-admin/commit/4caabd7c36aecd46b82efb22f19acef0bc4bf1ca))  - (goliatone)
+- Include command catalog and option provider ([1dbfd77](https://github.com/goliatone/go-admin/commit/1dbfd77502010863a0feefa2825fdf29a59f1312))  - (goliatone)
+- Command launcher debug panel ([c8a2a4b](https://github.com/goliatone/go-admin/commit/c8a2a4be1f2fbabbeb953841c1a7a50900614d82))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update deps ([4a8fec1](https://github.com/goliatone/go-admin/commit/4a8fec1d1b752c337254357ac40bee71fc7ecf2a))  - (goliatone)
+- Update tests ([bab1048](https://github.com/goliatone/go-admin/commit/bab10481f182162fa6712a96fcbecabdd6034258))  - (goliatone)
+
 # [0.96.0](https://github.com/goliatone/go-admin/compare/v0.95.1...v0.96.0) - (2026-06-17)
 
 ## <!-- 1 -->🐛 Bug Fixes
 
 - Loader submit flow ([ca80576](https://github.com/goliatone/go-admin/commit/ca80576dbd5591e854751dc4fac80221cca3e655))  - (goliatone)
 - Navigation seeding ([82c7b8e](https://github.com/goliatone/go-admin/commit/82c7b8e80edaf6f5a8ae5958007a7f325f90d048))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.96.0 ([90f4bae](https://github.com/goliatone/go-admin/commit/90f4baeb017d9f7671a53f4039be9dc81ea39261))  - (goliatone)
 
 ## <!-- 16 -->➕ Add
 
