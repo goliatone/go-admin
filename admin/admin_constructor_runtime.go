@@ -6,6 +6,7 @@ import (
 	"github.com/goliatone/go-admin/admin/routing"
 	"github.com/goliatone/go-admin/internal/primitives"
 	translationgoadmin "github.com/goliatone/go-admin/translations/adapters/goadmin"
+	gocommand "github.com/goliatone/go-command"
 	cmdrpc "github.com/goliatone/go-command/rpc"
 	"github.com/goliatone/go-featuregate/catalog"
 	fggate "github.com/goliatone/go-featuregate/gate"
@@ -33,6 +34,8 @@ type adminConstructorState struct {
 	debugSessionStore      DebugUserSessionStore
 	actionDiagnostics      *ActionDiagnosticsStore
 	commandBus             *CommandBus
+	commandCatalog         gocommand.CatalogProvider
+	commandOptionProvider  gocommand.CommandOptionProvider
 	rpcServer              *cmdrpc.Server
 	settingsSvc            *SettingsService
 	settingsForm           *SettingsFormAdapter
@@ -96,6 +99,8 @@ func resolveAdminConstructorState(cfg Config, deps Dependencies) (adminConstruct
 	state.featureCatalogResolver = resolveFeatureCatalogResolverDependency(deps.FeatureCatalogResolver)
 	state.activitySink, state.activityPolicy, state.activityFeed = resolveActivityDependencies(deps)
 	state.replSessionStore, state.replSessionManager, state.replCommandCatalog, state.debugSessionStore, state.actionDiagnostics = resolveDebugDependencies(state.cfg, deps)
+	state.commandCatalog = deps.CommandCatalog
+	state.commandOptionProvider = deps.CommandOptionProvider
 	state.commandBus, state.rpcServer, err = resolveCommandInfrastructure(&state.cfg, deps, state.featureGate)
 	if err != nil {
 		return state, err
@@ -173,6 +178,8 @@ func newAdminFromConstructorState(state adminConstructorState, deps Dependencies
 		authenticator:          deps.Authenticator,
 		router:                 deps.Router,
 		commandBus:             state.commandBus,
+		commandCatalog:         state.commandCatalog,
+		commandOptionProvider:  state.commandOptionProvider,
 		validatePanelCommandWiring: deps.CommandBus != nil ||
 			featureEnabled(state.featureGate, FeatureCommands) ||
 			(state.commandBus != nil && state.commandBus.enabled),
