@@ -215,7 +215,7 @@ func contentTypeAllowsSlugPreviewFallback(contentType *admin.CMSContentType) boo
 	}
 	contracts := admin.ReadContentTypeCapabilityContracts(*contentType)
 	delivery := contracts.Delivery
-	if anyBool(delivery["enabled"]) {
+	if siteAnyBool(delivery["enabled"]) {
 		return true
 	}
 	routeOwner := strings.ToLower(strings.TrimSpace(admin.ContentTypeCapabilityString(contracts.Normalized, "route_owner")))
