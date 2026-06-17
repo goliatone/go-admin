@@ -1,6 +1,16 @@
 # Changelog
 
+# [0.94.3](https://github.com/goliatone/go-admin/compare/v0.94.2...v0.94.3) - (2026-06-17)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update deps ([a3a25f6](https://github.com/goliatone/go-admin/commit/a3a25f6ed2d83cb83d74572630f5fdf26df64b3f))  - (goliatone)
+
 # [0.94.2](https://github.com/goliatone/go-admin/compare/v0.94.1...v0.94.2) - (2026-06-17)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.94.2 ([262234e](https://github.com/goliatone/go-admin/commit/262234e93f1a6801e34d55b82e6a12fdd40904e0))  - (goliatone)
 
 ## <!-- 7 -->⚙️ Miscellaneous Tasks
 
