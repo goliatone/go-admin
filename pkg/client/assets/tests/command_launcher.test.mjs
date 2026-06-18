@@ -1,4 +1,4 @@
-import test from 'node:test';
+import test, { beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -37,6 +37,36 @@ async function importLauncher() {
     });
   }
   return import(`${pathToFileURL(outputPath).href}`);
+}
+
+const serverDefsPath = path.resolve(testFileDir, '../src/debug/shared/server-definitions.ts');
+let integrationModule;
+
+// Bundle command-launcher (side-effect registers the override) together with
+// server-definitions so they share one module graph / override registry.
+async function importIntegration() {
+  if (integrationModule) {
+    return integrationModule;
+  }
+  const out = path.join(os.tmpdir(), `go-admin-cmdl-integration-${crypto.createHash('sha1').update(`${sourcePath}:${serverDefsPath}`).digest('hex')}.mjs`);
+  await build({
+    stdin: {
+      contents: `import ${JSON.stringify(sourcePath)};\nexport { panelDefinitionFromServer, registerServerPanelConsoleRenderer } from ${JSON.stringify(serverDefsPath)};`,
+      resolveDir: testFileDir,
+      loader: 'ts',
+    },
+    outfile: out,
+    bundle: true,
+    format: 'esm',
+    platform: 'browser',
+    target: ['es2020'],
+    logLevel: 'silent',
+  });
+  // The server-definitions graph pulls in syntax highlighting (prismjs), which
+  // touches DOM globals at module load — set them up before importing.
+  setWindowGlobals(new JSDOM('<!doctype html><html><body></body></html>').window);
+  integrationModule = await import(`${pathToFileURL(out).href}`);
+  return integrationModule;
 }
 
 function sampleDef() {
@@ -131,21 +161,37 @@ function hintedDef() {
   };
 }
 
+function setWindowGlobals(win) {
+  globalThis.window = win;
+  globalThis.document = win.document;
+  globalThis.Element = win.Element;
+  globalThis.Node = win.Node;
+  globalThis.HTMLElement = win.HTMLElement;
+  globalThis.HTMLInputElement = win.HTMLInputElement;
+  globalThis.HTMLSelectElement = win.HTMLSelectElement;
+  globalThis.HTMLTextAreaElement = win.HTMLTextAreaElement;
+  globalThis.CSS = win.CSS;
+}
+
 function mount(html) {
   const dom = new JSDOM(`<!doctype html><html><body><div id="host">${html}</div></body></html>`);
-  globalThis.window = dom.window;
-  globalThis.document = dom.window.document;
-  globalThis.HTMLElement = dom.window.HTMLElement;
-  globalThis.CSS = dom.window.CSS;
+  setWindowGlobals(dom.window);
   return dom;
 }
+
+// Launcher session state is module-global by design (survives re-render); reset
+// it between tests so cases stay isolated.
+beforeEach(async () => {
+  const { resetCommandLauncherState } = await importLauncher();
+  resetCommandLauncherState();
+});
 
 test('renders grouped catalog with execution + mutating badges', async () => {
   const { renderCommandLauncherConsole } = await importLauncher();
   const html = renderCommandLauncherConsole({ def: sampleDef(), data: sampleData(), styles: {}, useIconCopyButton: true });
 
-  assert.match(html, /cmdl-group__label">Archive</);
-  assert.match(html, /cmdl-group__label">Search</);
+  assert.match(html, /cmdl-group__label[^>]*>Archive</);
+  assert.match(html, /cmdl-group__label[^>]*>Search</);
   // archive command: queued dot + mutating flag
   assert.match(html, /data-cmdl-item="dispatch_archive_generate"[\s\S]*?cmdl-item__dot--queued/);
   assert.match(html, /cmdl-item__flag--mutating/);
@@ -299,4 +345,168 @@ test('renderCommandLauncherResultCard surfaces status, code, meta and validation
   );
   assert.match(okCard, /cmdl-result__card--ok/);
   assert.match(okCard, /Command dispatched/);
+  assert.doesNotMatch(okCard, /data-cmdl-retry/);
+
+  const retryCard = renderCommandLauncherResultCard(
+    extractCommandLauncherResult('ok', 'Command dispatched', { receipt: { Accepted: true, Mode: 'inline' } }),
+    { canRetry: true }
+  );
+  assert.match(retryCard, /data-cmdl-retry/);
+  assert.match(retryCard, />Retry</);
+});
+
+// ---- IR2-M1: visible-but-not-executable commands ----
+test('shows visible-but-not-executable commands as locked, with no form', async () => {
+  const { renderCommandLauncherConsole } = await importLauncher();
+  const def = {
+    id: 'commands',
+    ui: {
+      schema_version: '1',
+      actions: [
+        { id: 'dispatch_run_x', label: 'Run X', payload: { command_id: 'demo.x', payload: {}, options: { mode: 'inline' } }, fields: [{ name: 'note', label: 'Note', kind: 'string', payload_path: 'payload.note' }] },
+      ],
+    },
+  };
+  const data = {
+    commands: [
+      { id: 'demo.x', group: 'Demo', mutating: false, execution_mode: 'inline' },
+      { id: 'demo.locked', group: 'Demo', mutating: true, execution_mode: 'queued' },
+    ],
+    diagnostics: [],
+  };
+  const html = renderCommandLauncherConsole({ def, data, styles: {}, useIconCopyButton: true });
+  assert.match(html, /data-cmdl-item="dispatch_run_x"/);
+  assert.match(html, /data-cmdl-item="cmd:demo\.locked"[\s\S]*?cmdl-item__flag--locked/);
+  assert.match(html, /data-cmdl-detail="cmd:demo\.locked"[\s\S]*?cmdl-locked-note/);
+  // exactly one dispatch form (only the executable command)
+  assert.equal((html.match(/data-panel-action-form/g) || []).length, 1);
+});
+
+test('catalog shows visible commands even when nothing is executable', async () => {
+  const { renderCommandLauncherConsole } = await importLauncher();
+  const def = { id: 'commands', ui: { schema_version: '1', actions: [] } };
+  const data = { commands: [{ id: 'demo.readonly', group: 'Demo', execution_mode: 'inline' }], diagnostics: [] };
+  const html = renderCommandLauncherConsole({ def, data, styles: {}, useIconCopyButton: true });
+  assert.match(html, /data-cmdl-item="cmd:demo\.readonly"/);
+  assert.doesNotMatch(html, /No commands are available to run/);
+});
+
+// ---- IR2-L1: rejected without validation errors ----
+test('rejected-without-validation result is not mislabeled VALIDATION_ERROR', async () => {
+  const { extractCommandLauncherResult, renderCommandLauncherResultCard } = await importLauncher();
+  const parsed = extractCommandLauncherResult('ok', 'Rejected', { receipt: { Accepted: false } });
+  assert.equal(parsed.kind, 'invalid');
+  assert.equal(parsed.code, '');
+  const card = renderCommandLauncherResultCard(parsed);
+  assert.match(card, /Not accepted/);
+  assert.doesNotMatch(card, /VALIDATION_ERROR/);
+});
+
+// ---- IR2-H1: form drafts survive a re-render ----
+test('form drafts (selection + field values + chips) survive a re-render', async () => {
+  const { renderCommandLauncherConsole, attachCommandLauncherListeners } = await importLauncher();
+  const render = () => renderCommandLauncherConsole({ def: sampleDef(), data: sampleData(), styles: {}, useIconCopyButton: true });
+
+  const dom1 = mount(render());
+  const host1 = dom1.window.document.getElementById('host');
+  attachCommandLauncherListeners(host1);
+  host1.querySelector('[data-cmdl-item="dispatch_archive_generate"]').dispatchEvent(new dom1.window.MouseEvent('click', { bubbles: true }));
+  const batch = host1.querySelector('[data-action-field="batch_size"]');
+  batch.value = '999';
+  batch.dispatchEvent(new dom1.window.Event('input', { bubbles: true }));
+  const entry1 = host1.querySelector('[data-cmdl-chips-entry]');
+  entry1.value = 'evt_keep';
+  entry1.dispatchEvent(new dom1.window.KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+
+  // Fresh re-render + re-attach; module-scope drafts must rehydrate the DOM.
+  const dom2 = mount(render());
+  const host2 = dom2.window.document.getElementById('host');
+  attachCommandLauncherListeners(host2);
+  assert.equal(host2.querySelector('[data-cmdl-detail="dispatch_archive_generate"]').hidden, false);
+  assert.equal(host2.querySelector('[data-action-field="batch_size"]').value, '999');
+  assert.equal(host2.querySelector('[data-cmdl-chips-value]').value, 'evt_keep');
+});
+
+// ---- IR2-L2: pending chip flush + required enforcement on the visible input ----
+test('pending chip text is committed on submit', async () => {
+  const { renderCommandLauncherConsole, attachCommandLauncherListeners } = await importLauncher();
+  const dom = mount(renderCommandLauncherConsole({ def: sampleDef(), data: sampleData(), styles: {}, useIconCopyButton: true }));
+  const host = dom.window.document.getElementById('host');
+  attachCommandLauncherListeners(host);
+  const form = host.querySelector('[data-panel-action-form][data-action-id="dispatch_archive_generate"]');
+  const holder = form.querySelector('[data-cmdl-chips]');
+  const entry = holder.querySelector('[data-cmdl-chips-entry]');
+  entry.value = 'pending_value';
+  form.dispatchEvent(new dom.window.Event('submit', { bubbles: true, cancelable: true }));
+  assert.equal(holder.querySelector('[data-cmdl-chips-value]').value, 'pending_value');
+  assert.equal(entry.value, '');
+});
+
+test('required list field validates on the visible entry, not the hidden input', async () => {
+  const { renderCommandLauncherConsole, attachCommandLauncherListeners } = await importLauncher();
+  const def = {
+    id: 'commands',
+    ui: { schema_version: '1', actions: [{ id: 'dispatch_req', label: 'Req', payload: { command_id: 'demo.req', payload: {}, options: { mode: 'inline' } }, fields: [{ name: 'ids', label: 'IDs', kind: 'string_list', payload_path: 'payload.ids', required: true }] }] },
+  };
+  const data = { commands: [{ id: 'demo.req', group: 'Demo', execution_mode: 'inline' }], diagnostics: [] };
+  const dom = mount(renderCommandLauncherConsole({ def, data, styles: {}, useIconCopyButton: true }));
+  const host = dom.window.document.getElementById('host');
+  attachCommandLauncherListeners(host);
+  const holder = host.querySelector('[data-cmdl-chips]');
+  const entry = holder.querySelector('[data-cmdl-chips-entry]');
+  assert.equal(entry.required, true);
+  assert.equal(holder.querySelector('[data-cmdl-chips-value]').hasAttribute('required'), false);
+  entry.value = 'a';
+  entry.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+  assert.equal(entry.required, false);
+});
+
+// ---- keyboard selection ----
+test('keyboard: ArrowDown from filter focuses first item, Enter selects it', async () => {
+  const { renderCommandLauncherConsole, attachCommandLauncherListeners } = await importLauncher();
+  const dom = mount(renderCommandLauncherConsole({ def: sampleDef(), data: sampleData(), styles: {}, useIconCopyButton: true }));
+  const host = dom.window.document.getElementById('host');
+  attachCommandLauncherListeners(host);
+  const filter = host.querySelector('[data-cmdl-filter]');
+  filter.focus();
+  filter.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
+  const firstItem = host.querySelectorAll('[data-cmdl-item]')[0];
+  assert.equal(dom.window.document.activeElement, firstItem);
+  firstItem.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+  const key = firstItem.getAttribute('data-cmdl-item');
+  assert.equal(host.querySelector(`[data-cmdl-detail="${key}"]`).hidden, false);
+});
+
+// ---- result card timestamp + duration ----
+test('result card renders round-trip duration and timestamp when provided', async () => {
+  const { extractCommandLauncherResult, renderCommandLauncherResultCard } = await importLauncher();
+  const parsed = extractCommandLauncherResult('ok', 'Command dispatched', { receipt: { Accepted: true, Mode: 'inline' } });
+  const card = renderCommandLauncherResultCard(parsed, { at: 1700000000000, durationMs: 142 });
+  assert.match(card, /142ms/);
+  assert.match(card, /\d{1,2}:\d{2}/);
+});
+
+// ---- IR-T1: hydration → console override integration ----
+test('panelDefinitionFromServer applies the commands console override (filters off); other panels stay generic', async () => {
+  const { panelDefinitionFromServer } = await importIntegration();
+  const commandsDef = panelDefinitionFromServer({
+    id: 'commands',
+    label: 'Commands',
+    ui: {
+      schema_version: '1',
+      views: { console: { renderer: 'stack', sections: [] } },
+      actions: [{ id: 'dispatch_x', label: 'X', payload: { command_id: 'demo.x', payload: {}, options: { mode: 'inline' } }, fields: [] }],
+    },
+  });
+  assert.ok(commandsDef);
+  assert.equal(commandsDef.showFilters, false);
+  const data = { commands: [{ id: 'demo.x', group: 'Demo', execution_mode: 'inline' }], diagnostics: [] };
+  assert.match(commandsDef.renderConsole(data, {}, {}), /data-cmdl-root/);
+
+  const otherDef = panelDefinitionFromServer({
+    id: 'cache',
+    label: 'Cache',
+    ui: { schema_version: '1', views: { console: { renderer: 'json', bind: '$' } } },
+  });
+  assert.doesNotMatch(otherDef.renderConsole({ a: 1 }, {}, {}), /data-cmdl-root/);
 });

@@ -1041,6 +1041,130 @@ test('debug panel renders selectable action forms and field validation errors', 
   });
 });
 
+test('commands panel retry confirms again and reuses the last submitted payload', async () => {
+  const dom = createDebugDOM();
+  setGlobals(dom.window);
+  globalThis.WebSocket = OpenWebSocket;
+  dom.window.WebSocket = OpenWebSocket;
+  const consoleEl = dom.window.document.querySelector('[data-debug-console]');
+  consoleEl.dataset.debugPath = '/admin/debug-commands';
+  consoleEl.dataset.panels = JSON.stringify(['commands']);
+  dom.window.sessionStorage.setItem('debug-console-active-panel', 'commands');
+
+  const confirmations = [];
+  dom.window.confirm = (message) => {
+    confirmations.push(message);
+    return true;
+  };
+
+  const submittedPayloads = [];
+  globalThis.fetch = async (input, init = {}) => {
+    const url = String(input);
+    if (url.endsWith('/api/panels')) {
+      return new Response(JSON.stringify({
+        panels: [{
+          id: 'commands',
+          label: 'Commands',
+          snapshot_key: 'commands',
+          ui: {
+            views: {
+              console: { renderer: 'json', title: 'Commands' },
+            },
+            actions: [{
+              id: 'dispatch_archive_generate',
+              label: 'Generate archive',
+              submit_label: 'Run command',
+              confirm_text: 'Run Generate archive?',
+              requires_confirm: true,
+              payload: { command_id: 'archive.generate', payload: {}, options: { mode: 'queued' } },
+              fields: [{
+                name: 'scope',
+                label: 'Scope',
+                kind: 'text',
+                payload_path: 'payload.scope',
+                default: 'daily',
+              }],
+            }],
+          },
+        }],
+      }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+    if (url.endsWith('/api/snapshot')) {
+      return new Response(JSON.stringify({
+        commands: {
+          commands: [{
+            id: 'archive.generate',
+            label: 'Generate archive',
+            group: 'Archive',
+            mutating: true,
+            execution_mode: 'queued',
+          }],
+          diagnostics: [],
+        },
+      }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+    if (url.endsWith('/api/panels/commands/actions/dispatch_archive_generate')) {
+      submittedPayloads.push(JSON.parse(init.body));
+      return new Response(JSON.stringify({
+        ok: true,
+        message: 'Command dispatched',
+        data: {
+          receipt: {
+            Accepted: true,
+            Mode: 'queued',
+            CorrelationID: `corr-${submittedPayloads.length}`,
+            DispatchID: `disp-${submittedPayloads.length}`,
+          },
+        },
+      }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+    return new Response(JSON.stringify({ sessions: [] }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
+  };
+
+  debugModule.initDebugPanel(consoleEl);
+  await waitForAssertion(() => {
+    assert.ok(dom.window.document.querySelector('[data-panel-action-form][data-action-id="dispatch_archive_generate"]'));
+  });
+
+  const form = dom.window.document.querySelector('[data-panel-action-form][data-action-id="dispatch_archive_generate"]');
+  const input = form.querySelector('[data-action-field="scope"]');
+  input.value = 'custom-run';
+  form.dispatchEvent(new dom.window.Event('submit', { bubbles: true, cancelable: true }));
+
+  await waitForAssertion(() => {
+    assert.equal(submittedPayloads.length, 1);
+    assert.deepEqual(submittedPayloads[0], {
+      command_id: 'archive.generate',
+      payload: { scope: 'custom-run' },
+      options: { mode: 'queued' },
+    });
+    assert.ok(dom.window.document.querySelector('[data-cmdl-retry]'));
+  });
+
+  input.value = 'changed-after-submit';
+  dom.window.document
+    .querySelector('[data-cmdl-retry]')
+    .dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }));
+
+  await waitForAssertion(() => {
+    assert.equal(submittedPayloads.length, 2);
+    assert.deepEqual(submittedPayloads[1], submittedPayloads[0]);
+    assert.deepEqual(confirmations, ['Run Generate archive?', 'Run Generate archive?']);
+  });
+});
+
 test('debug panel restores built-in Site Cache when it remains enabled', async () => {
   const dom = new JSDOM(`
     <!doctype html>

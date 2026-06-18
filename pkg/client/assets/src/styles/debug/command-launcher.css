@@ -445,6 +445,8 @@
 .cmdl-result__path { flex: 0 0 auto; color: var(--debug-peach); }
 .cmdl-result__vmsg { color: var(--debug-text); }
 
+.cmdl-result__actions { display: flex; gap: 8px; padding: 10px 12px 0; }
+
 .cmdl-result__raw { padding: 9px 12px 11px; }
 .cmdl-result__raw summary { cursor: pointer; color: var(--debug-text-muted); font-size: 0.6875rem; }
 .cmdl-result__raw pre {
@@ -457,6 +459,25 @@
 }
 
 .cmdl__empty-panel { color: var(--debug-text-muted); padding: 20px 4px; }
+
+/* visible-but-not-executable (no dispatch permission) */
+.cmdl-item--locked { opacity: 0.7; }
+.cmdl-item--locked .cmdl-item__dot { opacity: 0.5; }
+.cmdl-item__flag--locked { color: var(--debug-text-muted); border: 1px solid var(--debug-border); }
+.cmdl-chip--locked { color: var(--debug-text-muted); border-color: var(--debug-border); }
+.cmdl-locked-note {
+  margin-top: 14px;
+  padding: 10px 12px;
+  border-radius: 7px;
+  font-size: 0.75rem;
+  color: var(--debug-text-muted);
+  background: var(--debug-bg-secondary);
+  border: 1px solid var(--debug-border);
+}
+.cmdl-locked-note code { color: var(--debug-text); }
+
+/* per-field units hint (Phase 2 display_hints.units) */
+.cmdl-field__units { color: var(--debug-text-muted); opacity: 0.85; }
 
 @media (max-width: 720px) {
   .cmdl__body { grid-template-columns: 1fr; }

@@ -1,11 +1,11 @@
 import { escapeHTML as h } from "../shared/html.js";
-import { httpRequest as $, readHTTPError as he } from "../shared/transport/http-client.js";
-import { t as ue } from "../chunks/sortable.esm-CcMbOE-M.js";
-import { E as kt, S as fe, T as Z, _ as Dt, a as Tt, b as pe, c as me, d as ge, f as be, g as Lt, h as It, i as Rt, l as ye, m as S, n as qt, o as jt, p as Ee, r as Nt, s as Ft, t as ve, u as Se, v as Mt, w as Bt, x as Pe, y as Ae } from "../chunks/builtin-panels-Df3h6Xh_.js";
-import { t as we } from "../chunks/repl-panel-DOA-vKgf.js";
-import { i as xe, n as Kt, r as Ht, t as zt } from "../chunks/icons-SGrt9O6P.js";
-import { A as I, B as Xt, C as Yt, D as Gt, E as Ce, F as N, I as _e, L as Vt, N as Zt, P as W, R as Wt, S as K, T as es, _ as Oe, a as ts, b as $e, c as ss, d as ke, f as De, g as Te, h as Le, i as Ie, j as R, l as Re, m as rs, n as qe, o as is, p as ee, s as H, u as ns, v as as, w as O, x as os, y as je, z as Ne } from "../chunks/server-definitions-Cw_avwJX.js";
-var Fe = class {
+import { httpRequest as T, readHTTPError as Se } from "../shared/transport/http-client.js";
+import { t as Pe } from "../chunks/sortable.esm-CcMbOE-M.js";
+import { E as Gt, S as Ae, T as ae, _ as Zt, a as Wt, b as we, c as xe, d as Ce, f as _e, g as es, h as ts, i as ss, l as Oe, m as P, n as rs, o as is, p as $e, r as ns, s as as, t as ke, u as Le, v as os, w as ls, x as De, y as Te } from "../chunks/builtin-panels-Df3h6Xh_.js";
+import { t as Ie } from "../chunks/repl-panel-DOA-vKgf.js";
+import { i as Re, n as hs, r as us, t as fs } from "../chunks/icons-SGrt9O6P.js";
+import { A as M, B as ms, C as gs, D as bs, E as qe, F as H, I as je, L as ys, N as Es, P as oe, R as vs, S as V, T as Ss, _ as Me, a as Ps, b as Ne, c as As, d as Fe, f as Be, g as Ue, h as He, i as Je, j as N, l as Ke, m as ws, n as ze, o as xs, p as le, s as Y, u as Cs, v as _s, w as L, x as Os, y as Qe, z as Xe } from "../chunks/server-definitions-Cw_avwJX.js";
+var Ve = class {
   add(e, t, s) {
     if (typeof arguments[0] != "string") for (let r in arguments[0]) this.add(r, arguments[0][r], arguments[1]);
     else (Array.isArray(e) ? e : [e]).forEach(function(r) {
@@ -17,7 +17,7 @@ var Fe = class {
       s.call(t && t.context ? t.context : t, t);
     });
   }
-}, Me = class {
+}, Ye = class {
   constructor(e) {
     this.jsep = e, this.registered = {};
   }
@@ -28,7 +28,7 @@ var Fe = class {
       this.registered[r.name] || (r.init(this.jsep), this.registered[r.name] = r);
     });
   }
-}, P = class o {
+}, A = class o {
   static get version() {
     return "1.4.0";
   }
@@ -156,16 +156,16 @@ var Fe = class {
     return !1;
   }
   gobbleBinaryExpression() {
-    let t, s, r, i, n, a, l, c, d;
+    let t, s, r, i, n, a, c, d, l;
     if (a = this.gobbleToken(), !a || (s = this.gobbleBinaryOp(), !s)) return a;
     for (n = {
       value: s,
       prec: o.binaryPrecedence(s),
       right_a: o.right_associative.has(s)
-    }, l = this.gobbleToken(), l || this.throwError("Expected expression after " + s), i = [
+    }, c = this.gobbleToken(), c || this.throwError("Expected expression after " + s), i = [
       a,
       n,
-      l
+      c
     ]; s = this.gobbleBinaryOp(); ) {
       if (r = o.binaryPrecedence(s), r === 0) {
         this.index -= s.length;
@@ -175,24 +175,24 @@ var Fe = class {
         value: s,
         prec: r,
         right_a: o.right_associative.has(s)
-      }, d = s;
-      const u = (p) => n.right_a && p.right_a ? r > p.prec : r <= p.prec;
+      }, l = s;
+      const u = (g) => n.right_a && g.right_a ? r > g.prec : r <= g.prec;
       for (; i.length > 2 && u(i[i.length - 2]); )
-        l = i.pop(), s = i.pop().value, a = i.pop(), t = {
+        c = i.pop(), s = i.pop().value, a = i.pop(), t = {
           type: o.BINARY_EXP,
           operator: s,
           left: a,
-          right: l
+          right: c
         }, i.push(t);
-      t = this.gobbleToken(), t || this.throwError("Expected expression after " + d), i.push(n, t);
+      t = this.gobbleToken(), t || this.throwError("Expected expression after " + l), i.push(n, t);
     }
-    for (c = i.length - 1, t = i[c]; c > 1; )
+    for (d = i.length - 1, t = i[d]; d > 1; )
       t = {
         type: o.BINARY_EXP,
-        operator: i[c - 1].value,
-        left: i[c - 2],
+        operator: i[d - 1].value,
+        left: i[d - 2],
         right: t
-      }, c -= 2;
+      }, d -= 2;
     return t;
   }
   gobbleToken() {
@@ -353,10 +353,10 @@ var Fe = class {
       elements: this.gobbleArguments(o.CBRACK_CODE)
     };
   }
-}, Be = new Fe();
-Object.assign(P, {
-  hooks: Be,
-  plugins: new Me(P),
+}, Ge = new Ve();
+Object.assign(A, {
+  hooks: Ge,
+  plugins: new Ye(A),
   COMPOUND: "Compound",
   SEQUENCE_EXP: "SequenceExpression",
   IDENTIFIER: "Identifier",
@@ -422,16 +422,16 @@ Object.assign(P, {
   },
   this_str: "this"
 });
-P.max_unop_len = P.getMaxKeyLen(P.unary_ops);
-P.max_binop_len = P.getMaxKeyLen(P.binary_ops);
-var C = (e) => new P(e).parse(), Ue = Object.getOwnPropertyNames(class {
+A.max_unop_len = A.getMaxKeyLen(A.unary_ops);
+A.max_binop_len = A.getMaxKeyLen(A.binary_ops);
+var _ = (e) => new A(e).parse(), Ze = Object.getOwnPropertyNames(class {
 });
-Object.getOwnPropertyNames(P).filter((e) => !Ue.includes(e) && C[e] === void 0).forEach((e) => {
-  C[e] = P[e];
+Object.getOwnPropertyNames(A).filter((e) => !Ze.includes(e) && _[e] === void 0).forEach((e) => {
+  _[e] = A[e];
 });
-C.Jsep = P;
-var Je = "ConditionalExpression";
-C.plugins.register({
+_.Jsep = A;
+var We = "ConditionalExpression";
+_.plugins.register({
   name: "ternary",
   init(e) {
     e.hooks.add("after-expression", function(s) {
@@ -442,7 +442,7 @@ C.plugins.register({
           this.index++;
           const n = this.gobbleExpression();
           if (n || this.throwError("Expected expression"), s.node = {
-            type: Je,
+            type: We,
             test: r,
             consequent: i,
             alternate: n
@@ -456,41 +456,41 @@ C.plugins.register({
     });
   }
 });
-var te = 47, Ke = 92, He = {
+var ce = 47, et = 92, tt = {
   name: "regex",
   init(e) {
     e.hooks.add("gobble-token", function(s) {
-      if (this.code === te) {
+      if (this.code === ce) {
         const r = ++this.index;
         let i = !1;
         for (; this.index < this.expr.length; ) {
-          if (this.code === te && !i) {
+          if (this.code === ce && !i) {
             const n = this.expr.slice(r, this.index);
             let a = "";
             for (; ++this.index < this.expr.length; ) {
-              const c = this.code;
-              if (c >= 97 && c <= 122 || c >= 65 && c <= 90 || c >= 48 && c <= 57) a += this.char;
+              const d = this.code;
+              if (d >= 97 && d <= 122 || d >= 65 && d <= 90 || d >= 48 && d <= 57) a += this.char;
               else break;
             }
-            let l;
+            let c;
             try {
-              l = new RegExp(n, a);
-            } catch (c) {
-              this.throwError(c.message);
+              c = new RegExp(n, a);
+            } catch (d) {
+              this.throwError(d.message);
             }
             return s.node = {
               type: e.LITERAL,
-              value: l,
+              value: c,
               raw: this.expr.slice(r - 1, this.index)
             }, s.node = this.gobbleTokenProperty(s.node), s.node;
           }
-          this.code === e.OBRACK_CODE ? i = !0 : i && this.code === e.CBRACK_CODE && (i = !1), this.index += this.code === Ke ? 2 : 1;
+          this.code === e.OBRACK_CODE ? i = !0 : i && this.code === e.CBRACK_CODE && (i = !1), this.index += this.code === et ? 2 : 1;
         }
         this.throwError("Unclosed Regex");
       }
     });
   }
-}, z = 43, k = {
+}, G = 43, R = {
   name: "assignment",
   assignmentOperators: /* @__PURE__ */ new Set([
     "=",
@@ -510,24 +510,24 @@ var te = 47, Ke = 92, He = {
     "&&=",
     "??="
   ]),
-  updateOperators: [z, 45],
+  updateOperators: [G, 45],
   assignmentPrecedence: 0.9,
   init(e) {
     const t = [e.IDENTIFIER, e.MEMBER_EXP];
-    k.assignmentOperators.forEach((r) => e.addBinaryOp(r, k.assignmentPrecedence, !0)), e.hooks.add("gobble-token", function(i) {
+    R.assignmentOperators.forEach((r) => e.addBinaryOp(r, R.assignmentPrecedence, !0)), e.hooks.add("gobble-token", function(i) {
       const n = this.code;
-      k.updateOperators.some((a) => a === n && a === this.expr.charCodeAt(this.index + 1)) && (this.index += 2, i.node = {
+      R.updateOperators.some((a) => a === n && a === this.expr.charCodeAt(this.index + 1)) && (this.index += 2, i.node = {
         type: "UpdateExpression",
-        operator: n === z ? "++" : "--",
+        operator: n === G ? "++" : "--",
         argument: this.gobbleTokenProperty(this.gobbleIdentifier()),
         prefix: !0
       }, (!i.node.argument || !t.includes(i.node.argument.type)) && this.throwError(`Unexpected ${i.node.operator}`));
     }), e.hooks.add("after-token", function(i) {
       if (i.node) {
         const n = this.code;
-        k.updateOperators.some((a) => a === n && a === this.expr.charCodeAt(this.index + 1)) && (t.includes(i.node.type) || this.throwError(`Unexpected ${i.node.operator}`), this.index += 2, i.node = {
+        R.updateOperators.some((a) => a === n && a === this.expr.charCodeAt(this.index + 1)) && (t.includes(i.node.type) || this.throwError(`Unexpected ${i.node.operator}`), this.index += 2, i.node = {
           type: "UpdateExpression",
-          operator: n === z ? "++" : "--",
+          operator: n === G ? "++" : "--",
           argument: i.node,
           prefix: !1
         });
@@ -536,45 +536,45 @@ var te = 47, Ke = 92, He = {
       i.node && s(i.node);
     });
     function s(r) {
-      k.assignmentOperators.has(r.operator) ? (r.type = "AssignmentExpression", s(r.left), s(r.right)) : r.operator || Object.values(r).forEach((i) => {
+      R.assignmentOperators.has(r.operator) ? (r.type = "AssignmentExpression", s(r.left), s(r.right)) : r.operator || Object.values(r).forEach((i) => {
         i && typeof i == "object" && s(i);
       });
     }
   }
 };
-C.plugins.register(He, k);
-C.addUnaryOp("typeof");
-C.addLiteral("null", null);
-C.addLiteral("undefined", void 0);
-var ze = /* @__PURE__ */ new Set([
+_.plugins.register(tt, R);
+_.addUnaryOp("typeof");
+_.addLiteral("null", null);
+_.addLiteral("undefined", void 0);
+var st = /* @__PURE__ */ new Set([
   "constructor",
   "__proto__",
   "__defineGetter__",
   "__defineSetter__"
-]), b = {
+]), E = {
   evalAst(e, t) {
     switch (e.type) {
       case "BinaryExpression":
       case "LogicalExpression":
-        return b.evalBinaryExpression(e, t);
+        return E.evalBinaryExpression(e, t);
       case "Compound":
-        return b.evalCompound(e, t);
+        return E.evalCompound(e, t);
       case "ConditionalExpression":
-        return b.evalConditionalExpression(e, t);
+        return E.evalConditionalExpression(e, t);
       case "Identifier":
-        return b.evalIdentifier(e, t);
+        return E.evalIdentifier(e, t);
       case "Literal":
-        return b.evalLiteral(e, t);
+        return E.evalLiteral(e, t);
       case "MemberExpression":
-        return b.evalMemberExpression(e, t);
+        return E.evalMemberExpression(e, t);
       case "UnaryExpression":
-        return b.evalUnaryExpression(e, t);
+        return E.evalUnaryExpression(e, t);
       case "ArrayExpression":
-        return b.evalArrayExpression(e, t);
+        return E.evalArrayExpression(e, t);
       case "CallExpression":
-        return b.evalCallExpression(e, t);
+        return E.evalCallExpression(e, t);
       case "AssignmentExpression":
-        return b.evalAssignmentExpression(e, t);
+        return E.evalAssignmentExpression(e, t);
       default:
         throw SyntaxError("Unexpected expression", e);
     }
@@ -602,7 +602,7 @@ var ze = /* @__PURE__ */ new Set([
       "*": (s, r) => s * r(),
       "/": (s, r) => s / r(),
       "%": (s, r) => s % r()
-    }[e.operator](b.evalAst(e.left, t), () => b.evalAst(e.right, t));
+    }[e.operator](E.evalAst(e.left, t), () => E.evalAst(e.right, t));
   },
   evalCompound(e, t) {
     let s;
@@ -613,12 +613,12 @@ var ze = /* @__PURE__ */ new Set([
         "const"
       ].includes(e.body[r].name) && e.body[r + 1] && e.body[r + 1].type === "AssignmentExpression" && (r += 1);
       const i = e.body[r];
-      s = b.evalAst(i, t);
+      s = E.evalAst(i, t);
     }
     return s;
   },
   evalConditionalExpression(e, t) {
-    return b.evalAst(e.test, t) ? b.evalAst(e.consequent, t) : b.evalAst(e.alternate, t);
+    return E.evalAst(e.test, t) ? E.evalAst(e.consequent, t) : E.evalAst(e.alternate, t);
   },
   evalIdentifier(e, t) {
     if (Object.hasOwn(t, e.name)) return t[e.name];
@@ -628,56 +628,56 @@ var ze = /* @__PURE__ */ new Set([
     return e.value;
   },
   evalMemberExpression(e, t) {
-    const s = String(e.computed ? b.evalAst(e.property) : e.property.name), r = b.evalAst(e.object, t);
+    const s = String(e.computed ? E.evalAst(e.property) : e.property.name), r = E.evalAst(e.object, t);
     if (r == null) throw TypeError(`Cannot read properties of ${r} (reading '${s}')`);
-    if (!Object.hasOwn(r, s) && ze.has(s)) throw TypeError(`Cannot read properties of ${r} (reading '${s}')`);
+    if (!Object.hasOwn(r, s) && st.has(s)) throw TypeError(`Cannot read properties of ${r} (reading '${s}')`);
     const i = r[s];
     return typeof i == "function" ? i.bind(r) : i;
   },
   evalUnaryExpression(e, t) {
     return {
-      "-": (s) => -b.evalAst(s, t),
-      "!": (s) => !b.evalAst(s, t),
-      "~": (s) => ~b.evalAst(s, t),
-      "+": (s) => +b.evalAst(s, t),
-      typeof: (s) => typeof b.evalAst(s, t)
+      "-": (s) => -E.evalAst(s, t),
+      "!": (s) => !E.evalAst(s, t),
+      "~": (s) => ~E.evalAst(s, t),
+      "+": (s) => +E.evalAst(s, t),
+      typeof: (s) => typeof E.evalAst(s, t)
     }[e.operator](e.argument);
   },
   evalArrayExpression(e, t) {
-    return e.elements.map((s) => b.evalAst(s, t));
+    return e.elements.map((s) => E.evalAst(s, t));
   },
   evalCallExpression(e, t) {
-    const s = e.arguments.map((r) => b.evalAst(r, t));
-    return b.evalAst(e.callee, t)(...s);
+    const s = e.arguments.map((r) => E.evalAst(r, t));
+    return E.evalAst(e.callee, t)(...s);
   },
   evalAssignmentExpression(e, t) {
     if (e.left.type !== "Identifier") throw SyntaxError("Invalid left-hand side in assignment");
     const s = e.left.name;
-    return t[s] = b.evalAst(e.right, t), t[s];
+    return t[s] = E.evalAst(e.right, t), t[s];
   }
-}, Qe = class {
+}, rt = class {
   constructor(e) {
-    this.code = e, this.ast = C(this.code);
+    this.code = e, this.ast = _(this.code);
   }
   runInNewContext(e) {
     const t = Object.assign(/* @__PURE__ */ Object.create(null), e);
-    return b.evalAst(this.ast, t);
+    return E.evalAst(this.ast, t);
   }
 };
-function _(e, t) {
+function $(e, t) {
   return e = e.slice(), e.push(t), e;
 }
-function G(e, t) {
+function te(e, t) {
   return t = t.slice(), t.unshift(e), t;
 }
-var Xe = class extends Error {
+var it = class extends Error {
   constructor(e) {
     super('JSONPath should not be called with "new" (it prevents return of (unwrapped) scalar values)'), this.avoidNew = !0, this.value = e, this.name = "NewError";
   }
 };
-function g(e, t, s, r, i) {
-  if (!(this instanceof g)) try {
-    return new g(e, t, s, r, i);
+function y(e, t, s, r, i) {
+  if (!(this instanceof y)) try {
+    return new y(e, t, s, r, i);
   } catch (a) {
     if (!a.avoidNew) throw a;
     return a.value;
@@ -689,110 +689,110 @@ function g(e, t, s, r, i) {
   }, e.autostart !== !1) {
     const a = { path: n ? e.path : t };
     n ? "json" in e && (a.json = e.json) : a.json = s;
-    const l = this.evaluate(a);
-    if (!l || typeof l != "object") throw new Xe(l);
-    return l;
+    const c = this.evaluate(a);
+    if (!c || typeof c != "object") throw new it(c);
+    return c;
   }
 }
-g.prototype.evaluate = function(e, t, s, r) {
-  let i = this.parent, n = this.parentProperty, { flatten: a, wrap: l } = this;
+y.prototype.evaluate = function(e, t, s, r) {
+  let i = this.parent, n = this.parentProperty, { flatten: a, wrap: c } = this;
   if (this.currResultType = this.resultType, this.currEval = this.eval, this.currSandbox = this.sandbox, s = s || this.callback, this.currOtherTypeCallback = r || this.otherTypeCallback, t = t || this.json, e = e || this.path, e && typeof e == "object" && !Array.isArray(e)) {
     if (!e.path && e.path !== "") throw new TypeError('You must supply a "path" property when providing an object argument to JSONPath.evaluate().');
     if (!Object.hasOwn(e, "json")) throw new TypeError('You must supply a "json" property when providing an object argument to JSONPath.evaluate().');
-    ({ json: t } = e), a = Object.hasOwn(e, "flatten") ? e.flatten : a, this.currResultType = Object.hasOwn(e, "resultType") ? e.resultType : this.currResultType, this.currSandbox = Object.hasOwn(e, "sandbox") ? e.sandbox : this.currSandbox, l = Object.hasOwn(e, "wrap") ? e.wrap : l, this.currEval = Object.hasOwn(e, "eval") ? e.eval : this.currEval, s = Object.hasOwn(e, "callback") ? e.callback : s, this.currOtherTypeCallback = Object.hasOwn(e, "otherTypeCallback") ? e.otherTypeCallback : this.currOtherTypeCallback, i = Object.hasOwn(e, "parent") ? e.parent : i, n = Object.hasOwn(e, "parentProperty") ? e.parentProperty : n, e = e.path;
+    ({ json: t } = e), a = Object.hasOwn(e, "flatten") ? e.flatten : a, this.currResultType = Object.hasOwn(e, "resultType") ? e.resultType : this.currResultType, this.currSandbox = Object.hasOwn(e, "sandbox") ? e.sandbox : this.currSandbox, c = Object.hasOwn(e, "wrap") ? e.wrap : c, this.currEval = Object.hasOwn(e, "eval") ? e.eval : this.currEval, s = Object.hasOwn(e, "callback") ? e.callback : s, this.currOtherTypeCallback = Object.hasOwn(e, "otherTypeCallback") ? e.otherTypeCallback : this.currOtherTypeCallback, i = Object.hasOwn(e, "parent") ? e.parent : i, n = Object.hasOwn(e, "parentProperty") ? e.parentProperty : n, e = e.path;
   }
-  if (i = i || null, n = n || null, Array.isArray(e) && (e = g.toPathString(e)), !e && e !== "" || !t) return;
-  const c = g.toPathArray(e);
-  c[0] === "$" && c.length > 1 && c.shift(), this._hasParentSelector = null;
-  const d = this._trace(c, t, ["$"], i, n, s).filter(function(u) {
+  if (i = i || null, n = n || null, Array.isArray(e) && (e = y.toPathString(e)), !e && e !== "" || !t) return;
+  const d = y.toPathArray(e);
+  d[0] === "$" && d.length > 1 && d.shift(), this._hasParentSelector = null;
+  const l = this._trace(d, t, ["$"], i, n, s).filter(function(u) {
     return u && !u.isParentSelector;
   });
-  return d.length ? !l && d.length === 1 && !d[0].hasArrExpr ? this._getPreferredOutput(d[0]) : d.reduce((u, p) => {
-    const m = this._getPreferredOutput(p);
-    return a && Array.isArray(m) ? u = u.concat(m) : u.push(m), u;
-  }, []) : l ? [] : void 0;
+  return l.length ? !c && l.length === 1 && !l[0].hasArrExpr ? this._getPreferredOutput(l[0]) : l.reduce((u, g) => {
+    const p = this._getPreferredOutput(g);
+    return a && Array.isArray(p) ? u = u.concat(p) : u.push(p), u;
+  }, []) : c ? [] : void 0;
 };
-g.prototype._getPreferredOutput = function(e) {
+y.prototype._getPreferredOutput = function(e) {
   const t = this.currResultType;
   switch (t) {
     case "all": {
-      const s = Array.isArray(e.path) ? e.path : g.toPathArray(e.path);
-      return e.pointer = g.toPointer(s), e.path = typeof e.path == "string" ? e.path : g.toPathString(e.path), e;
+      const s = Array.isArray(e.path) ? e.path : y.toPathArray(e.path);
+      return e.pointer = y.toPointer(s), e.path = typeof e.path == "string" ? e.path : y.toPathString(e.path), e;
     }
     case "value":
     case "parent":
     case "parentProperty":
       return e[t];
     case "path":
-      return g.toPathString(e[t]);
+      return y.toPathString(e[t]);
     case "pointer":
-      return g.toPointer(e.path);
+      return y.toPointer(e.path);
     default:
       throw new TypeError("Unknown result type");
   }
 };
-g.prototype._handleCallback = function(e, t, s) {
+y.prototype._handleCallback = function(e, t, s) {
   if (t) {
     const r = this._getPreferredOutput(e);
-    e.path = typeof e.path == "string" ? e.path : g.toPathString(e.path), t(r, s, e);
+    e.path = typeof e.path == "string" ? e.path : y.toPathString(e.path), t(r, s, e);
   }
 };
-g.prototype._trace = function(e, t, s, r, i, n, a, l) {
-  let c;
+y.prototype._trace = function(e, t, s, r, i, n, a, c) {
+  let d;
   if (!e.length)
-    return c = {
+    return d = {
       path: s,
       value: t,
       parent: r,
       parentProperty: i,
       hasArrExpr: a
-    }, this._handleCallback(c, n, "value"), c;
-  const d = e[0], u = e.slice(1), p = [];
-  function m(f) {
-    Array.isArray(f) ? f.forEach((y) => {
-      p.push(y);
-    }) : p.push(f);
+    }, this._handleCallback(d, n, "value"), d;
+  const l = e[0], u = e.slice(1), g = [];
+  function p(f) {
+    Array.isArray(f) ? f.forEach((b) => {
+      g.push(b);
+    }) : g.push(f);
   }
-  if ((typeof d != "string" || l) && t && Object.hasOwn(t, d)) m(this._trace(u, t[d], _(s, d), t, d, n, a));
-  else if (d === "*") this._walk(t, (f) => {
-    m(this._trace(u, t[f], _(s, f), t, f, n, !0, !0));
+  if ((typeof l != "string" || c) && t && Object.hasOwn(t, l)) p(this._trace(u, t[l], $(s, l), t, l, n, a));
+  else if (l === "*") this._walk(t, (f) => {
+    p(this._trace(u, t[f], $(s, f), t, f, n, !0, !0));
   });
-  else if (d === "..")
-    m(this._trace(u, t, s, r, i, n, a)), this._walk(t, (f) => {
-      typeof t[f] == "object" && m(this._trace(e.slice(), t[f], _(s, f), t, f, n, !0));
+  else if (l === "..")
+    p(this._trace(u, t, s, r, i, n, a)), this._walk(t, (f) => {
+      typeof t[f] == "object" && p(this._trace(e.slice(), t[f], $(s, f), t, f, n, !0));
     });
   else {
-    if (d === "^")
+    if (l === "^")
       return this._hasParentSelector = !0, {
         path: s.slice(0, -1),
         expr: u,
         isParentSelector: !0
       };
-    if (d === "~")
-      return c = {
-        path: _(s, d),
+    if (l === "~")
+      return d = {
+        path: $(s, l),
         value: i,
         parent: r,
         parentProperty: null
-      }, this._handleCallback(c, n, "property"), c;
-    if (d === "$") m(this._trace(u, t, s, null, null, n, a));
-    else if (/^(-?\d*):(-?\d*):?(\d*)$/u.test(d)) m(this._slice(d, u, t, s, r, i, n));
-    else if (d.indexOf("?(") === 0) {
+      }, this._handleCallback(d, n, "property"), d;
+    if (l === "$") p(this._trace(u, t, s, null, null, n, a));
+    else if (/^(-?\d*):(-?\d*):?(\d*)$/u.test(l)) p(this._slice(l, u, t, s, r, i, n));
+    else if (l.indexOf("?(") === 0) {
       if (this.currEval === !1) throw new Error("Eval [?(expr)] prevented in JSONPath expression.");
-      const f = d.replace(/^\?\((.*?)\)$/u, "$1"), y = /@.?([^?]*)[['](\??\(.*?\))(?!.\)\])[\]']/gu.exec(f);
-      y ? this._walk(t, (v) => {
-        const A = [y[2]], x = y[1] ? t[v][y[1]] : t[v];
-        this._trace(A, x, s, r, i, n, !0).length > 0 && m(this._trace(u, t[v], _(s, v), t, v, n, !0));
+      const f = l.replace(/^\?\((.*?)\)$/u, "$1"), b = /@.?([^?]*)[['](\??\(.*?\))(?!.\)\])[\]']/gu.exec(f);
+      b ? this._walk(t, (v) => {
+        const S = [b[2]], x = b[1] ? t[v][b[1]] : t[v];
+        this._trace(S, x, s, r, i, n, !0).length > 0 && p(this._trace(u, t[v], $(s, v), t, v, n, !0));
       }) : this._walk(t, (v) => {
-        this._eval(f, t[v], v, s, r, i) && m(this._trace(u, t[v], _(s, v), t, v, n, !0));
+        this._eval(f, t[v], v, s, r, i) && p(this._trace(u, t[v], $(s, v), t, v, n, !0));
       });
-    } else if (d[0] === "(") {
+    } else if (l[0] === "(") {
       if (this.currEval === !1) throw new Error("Eval [(expr)] prevented in JSONPath expression.");
-      m(this._trace(G(this._eval(d, t, s.at(-1), s.slice(0, -1), r, i), u), t, s, r, i, n, a));
-    } else if (d[0] === "@") {
+      p(this._trace(te(this._eval(l, t, s.at(-1), s.slice(0, -1), r, i), u), t, s, r, i, n, a));
+    } else if (l[0] === "@") {
       let f = !1;
-      const y = d.slice(1, -2);
-      switch (y) {
+      const b = l.slice(1, -2);
+      switch (b) {
         case "scalar":
           (!t || !["object", "function"].includes(typeof t)) && (f = !0);
           break;
@@ -800,7 +800,7 @@ g.prototype._trace = function(e, t, s, r, i, n, a, l) {
         case "string":
         case "undefined":
         case "function":
-          typeof t === y && (f = !0);
+          typeof t === b && (f = !0);
           break;
         case "integer":
           Number.isFinite(t) && !(t % 1) && (f = !0);
@@ -812,7 +812,7 @@ g.prototype._trace = function(e, t, s, r, i, n, a, l) {
           typeof t == "number" && !Number.isFinite(t) && (f = !0);
           break;
         case "object":
-          t && typeof t === y && (f = !0);
+          t && typeof t === b && (f = !0);
           break;
         case "array":
           Array.isArray(t) && (f = !0);
@@ -824,38 +824,38 @@ g.prototype._trace = function(e, t, s, r, i, n, a, l) {
           t === null && (f = !0);
           break;
         default:
-          throw new TypeError("Unknown value type " + y);
+          throw new TypeError("Unknown value type " + b);
       }
       if (f)
-        return c = {
+        return d = {
           path: s,
           value: t,
           parent: r,
           parentProperty: i
-        }, this._handleCallback(c, n, "value"), c;
-    } else if (d[0] === "`" && t && Object.hasOwn(t, d.slice(1))) {
-      const f = d.slice(1);
-      m(this._trace(u, t[f], _(s, f), t, f, n, a, !0));
-    } else if (d.includes(",")) {
-      const f = d.split(",");
-      for (const y of f) m(this._trace(G(y, u), t, s, r, i, n, !0));
-    } else !l && t && Object.hasOwn(t, d) && m(this._trace(u, t[d], _(s, d), t, d, n, a, !0));
+        }, this._handleCallback(d, n, "value"), d;
+    } else if (l[0] === "`" && t && Object.hasOwn(t, l.slice(1))) {
+      const f = l.slice(1);
+      p(this._trace(u, t[f], $(s, f), t, f, n, a, !0));
+    } else if (l.includes(",")) {
+      const f = l.split(",");
+      for (const b of f) p(this._trace(te(b, u), t, s, r, i, n, !0));
+    } else !c && t && Object.hasOwn(t, l) && p(this._trace(u, t[l], $(s, l), t, l, n, a, !0));
   }
-  if (this._hasParentSelector) for (let f = 0; f < p.length; f++) {
-    const y = p[f];
-    if (y && y.isParentSelector) {
-      const v = this._trace(y.expr, t, y.path, r, i, n, a);
+  if (this._hasParentSelector) for (let f = 0; f < g.length; f++) {
+    const b = g[f];
+    if (b && b.isParentSelector) {
+      const v = this._trace(b.expr, t, b.path, r, i, n, a);
       if (Array.isArray(v)) {
-        p[f] = v[0];
-        const A = v.length;
-        for (let x = 1; x < A; x++)
-          f++, p.splice(f, 0, v[x]);
-      } else p[f] = v;
+        g[f] = v[0];
+        const S = v.length;
+        for (let x = 1; x < S; x++)
+          f++, g.splice(f, 0, v[x]);
+      } else g[f] = v;
     }
   }
-  return p;
+  return g;
 };
-g.prototype._walk = function(e, t) {
+y.prototype._walk = function(e, t) {
   if (Array.isArray(e)) {
     const s = e.length;
     for (let r = 0; r < s; r++) t(r);
@@ -863,54 +863,54 @@ g.prototype._walk = function(e, t) {
     t(s);
   });
 };
-g.prototype._slice = function(e, t, s, r, i, n, a) {
+y.prototype._slice = function(e, t, s, r, i, n, a) {
   if (!Array.isArray(s)) return;
-  const l = s.length, c = e.split(":"), d = c[2] && Number.parseInt(c[2]) || 1;
-  let u = c[0] && Number.parseInt(c[0]) || 0, p = c[1] && Number.parseInt(c[1]) || l;
-  u = u < 0 ? Math.max(0, u + l) : Math.min(l, u), p = p < 0 ? Math.max(0, p + l) : Math.min(l, p);
-  const m = [];
-  for (let f = u; f < p; f += d) this._trace(G(f, t), s, r, i, n, a, !0).forEach((y) => {
-    m.push(y);
+  const c = s.length, d = e.split(":"), l = d[2] && Number.parseInt(d[2]) || 1;
+  let u = d[0] && Number.parseInt(d[0]) || 0, g = d[1] && Number.parseInt(d[1]) || c;
+  u = u < 0 ? Math.max(0, u + c) : Math.min(c, u), g = g < 0 ? Math.max(0, g + c) : Math.min(c, g);
+  const p = [];
+  for (let f = u; f < g; f += l) this._trace(te(f, t), s, r, i, n, a, !0).forEach((b) => {
+    p.push(b);
   });
-  return m;
+  return p;
 };
-g.prototype._eval = function(e, t, s, r, i, n) {
+y.prototype._eval = function(e, t, s, r, i, n) {
   this.currSandbox._$_parentProperty = n, this.currSandbox._$_parent = i, this.currSandbox._$_property = s, this.currSandbox._$_root = this.json, this.currSandbox._$_v = t;
   const a = e.includes("@path");
-  a && (this.currSandbox._$_path = g.toPathString(r.concat([s])));
-  const l = this.currEval + "Script:" + e;
-  if (!g.cache[l]) {
-    let c = e.replaceAll("@parentProperty", "_$_parentProperty").replaceAll("@parent", "_$_parent").replaceAll("@property", "_$_property").replaceAll("@root", "_$_root").replaceAll(/@([.\s)[])/gu, "_$_v$1");
-    if (a && (c = c.replaceAll("@path", "_$_path")), this.currEval === "safe" || this.currEval === !0 || this.currEval === void 0) g.cache[l] = new this.safeVm.Script(c);
-    else if (this.currEval === "native") g.cache[l] = new this.vm.Script(c);
+  a && (this.currSandbox._$_path = y.toPathString(r.concat([s])));
+  const c = this.currEval + "Script:" + e;
+  if (!y.cache[c]) {
+    let d = e.replaceAll("@parentProperty", "_$_parentProperty").replaceAll("@parent", "_$_parent").replaceAll("@property", "_$_property").replaceAll("@root", "_$_root").replaceAll(/@([.\s)[])/gu, "_$_v$1");
+    if (a && (d = d.replaceAll("@path", "_$_path")), this.currEval === "safe" || this.currEval === !0 || this.currEval === void 0) y.cache[c] = new this.safeVm.Script(d);
+    else if (this.currEval === "native") y.cache[c] = new this.vm.Script(d);
     else if (typeof this.currEval == "function" && this.currEval.prototype && Object.hasOwn(this.currEval.prototype, "runInNewContext")) {
-      const d = this.currEval;
-      g.cache[l] = new d(c);
-    } else if (typeof this.currEval == "function") g.cache[l] = { runInNewContext: (d) => this.currEval(c, d) };
+      const l = this.currEval;
+      y.cache[c] = new l(d);
+    } else if (typeof this.currEval == "function") y.cache[c] = { runInNewContext: (l) => this.currEval(d, l) };
     else throw new TypeError(`Unknown "eval" property "${this.currEval}"`);
   }
   try {
-    return g.cache[l].runInNewContext(this.currSandbox);
-  } catch (c) {
+    return y.cache[c].runInNewContext(this.currSandbox);
+  } catch (d) {
     if (this.ignoreEvalErrors) return !1;
-    throw new Error("jsonPath: " + c.message + ": " + e);
+    throw new Error("jsonPath: " + d.message + ": " + e);
   }
 };
-g.cache = {};
-g.toPathString = function(e) {
+y.cache = {};
+y.toPathString = function(e) {
   const t = e, s = t.length;
   let r = "$";
   for (let i = 1; i < s; i++) /^(~|\^|@.*?\(\))$/u.test(t[i]) || (r += /^[0-9*]+$/u.test(t[i]) ? "[" + t[i] + "]" : "['" + t[i] + "']");
   return r;
 };
-g.toPointer = function(e) {
+y.toPointer = function(e) {
   const t = e, s = t.length;
   let r = "";
   for (let i = 1; i < s; i++) /^(~|\^|@.*?\(\))$/u.test(t[i]) || (r += "/" + t[i].toString().replaceAll("~", "~0").replaceAll("/", "~1"));
   return r;
 };
-g.toPathArray = function(e) {
-  const { cache: t } = g;
+y.toPathArray = function(e) {
+  const { cache: t } = y;
   if (t[e]) return t[e].concat();
   const s = [];
   return t[e] = e.replaceAll(/@(?:null|boolean|number|string|integer|undefined|nonFinite|scalar|array|object|function|other)\(\)/gu, ";$&;").replaceAll(/[['](\??\(.*?\))[\]'](?!.\])/gu, function(r, i) {
@@ -924,42 +924,42 @@ g.toPathArray = function(e) {
     return !i || !i[1] ? r : s[i[1]];
   }), t[e].concat();
 };
-g.prototype.safeVm = { Script: Qe };
-var Ye = function(e, t, s) {
+y.prototype.safeVm = { Script: rt };
+var nt = function(e, t, s) {
   const r = e.length;
   for (let i = 0; i < r; i++) {
     const n = e[i];
     s(n) && t.push(e.splice(i--, 1)[0]);
   }
-}, Ge = class {
+}, at = class {
   constructor(e) {
     this.code = e;
   }
   runInNewContext(e) {
     let t = this.code;
     const s = Object.keys(e), r = [];
-    Ye(s, r, (l) => typeof e[l] == "function");
-    const i = s.map((l) => e[l]);
-    t = r.reduce((l, c) => {
-      let d = e[c].toString();
-      return /function/u.test(d) || (d = "function " + d), "var " + c + "=" + d + ";" + l;
+    nt(s, r, (c) => typeof e[c] == "function");
+    const i = s.map((c) => e[c]);
+    t = r.reduce((c, d) => {
+      let l = e[d].toString();
+      return /function/u.test(l) || (l = "function " + l), "var " + d + "=" + l + ";" + c;
     }, "") + t, !/(['"])use strict\1/u.test(t) && !s.includes("arguments") && (t = "var arguments = undefined;" + t), t = t.replace(/;\s*$/u, "");
     const n = t.lastIndexOf(";"), a = n !== -1 ? t.slice(0, n + 1) + " return " + t.slice(n + 1) : " return " + t;
     return new Function(...s, a)(...i);
   }
 };
-g.prototype.vm = { Script: Ge };
-function Ve(e) {
+y.prototype.vm = { Script: at };
+function ot(e) {
   return e ? !!(e.startsWith("$") || /\[\d+\]/.test(e) || /\[['"]/.test(e) || /^[a-zA-Z_][a-zA-Z0-9_]*(\.[a-zA-Z_][a-zA-Z0-9_]*)+$/.test(e) || e.includes("..") || e.includes("*")) : !1;
 }
-function Ze(e) {
+function lt(e) {
   return e ? e.startsWith("$") ? e : `$.${e}` : "$";
 }
-function We(e, t) {
+function ct(e, t) {
   if (!e || !t) return [];
   try {
-    return (g({
-      path: Ze(t),
+    return (y({
+      path: lt(t),
       json: e,
       resultType: "all"
     }) || []).map((s) => ({
@@ -970,88 +970,135 @@ function We(e, t) {
     return [];
   }
 }
-function et(e, t) {
+function dt(e, t) {
   if (!t || !e) return e || {};
-  const s = Ve(t);
+  const s = ot(t);
   if (console.log("[jsonpath-search] search:", t, "isJsonPath:", s), s) {
-    const i = st(e, t);
+    const i = ut(e, t);
     return console.log("[jsonpath-search] JSONPath result:", i), i;
   }
-  const r = tt(e, t);
+  const r = ht(e, t);
   return console.log("[jsonpath-search] key match result:", r), r;
 }
-function tt(e, t) {
+function ht(e, t) {
   const s = t.toLowerCase(), r = {};
   for (const [i, n] of Object.entries(e || {})) i.toLowerCase().includes(s) && (r[i] = n);
   return r;
 }
-function st(e, t) {
-  const s = We(e, t);
+function ut(e, t) {
+  const s = ct(e, t);
   if (s.length === 0) return {};
   if (s.length === 1) {
     const { path: i, value: n } = s[0];
-    return i === "$" && typeof n == "object" && n !== null || typeof n == "object" && n !== null && !Array.isArray(n) ? n : { [se(i)]: n };
+    return i === "$" && typeof n == "object" && n !== null || typeof n == "object" && n !== null && !Array.isArray(n) ? n : { [de(i)]: n };
   }
   const r = {};
   for (const { path: i, value: n } of s) {
-    const a = se(i) || `result_${Object.keys(r).length}`;
+    const a = de(i) || `result_${Object.keys(r).length}`;
     a in r ? r[`${a}_${Object.keys(r).length}`] = n : r[a] = n;
   }
   return r;
 }
-function se(e) {
+function de(e) {
   if (!e) return "";
   const t = e.match(/\[['"]?([^'"[\]]+)['"]?\]$/);
   if (t) return t[1];
   const s = e.match(/\.([^.[\]]+)$/);
   return s ? s[1] : e.replace(/^\$\.?/, "");
 }
-var J = "commands", U = "";
-function E(e) {
+var X = "commands", Q = "", J = "", ie = /* @__PURE__ */ new Map();
+function m(e) {
   return typeof e == "string" ? e.trim() : "";
 }
-function D(e) {
-  return E(e).toLowerCase();
+function w(e) {
+  return m(e).toLowerCase();
 }
-function V(e) {
+function se(e) {
   return e === "boolean" || e === "checkbox";
 }
-function rt(e) {
+function ft(e) {
   return !e || typeof e != "object" ? "" : h(JSON.stringify(e)).replace(/'/g, "&#39;");
 }
-function Q(e) {
+function Z(e) {
   return e == null ? "" : typeof e == "string" || typeof e == "number" || typeof e == "boolean" ? String(e) : "";
 }
-function de(e) {
-  const t = D(e);
+function B(e, t) {
+  return !!(e && Object.prototype.hasOwnProperty.call(e, t));
+}
+function ne(e) {
+  return typeof e == "string" ? e.trim() : typeof e == "number" || typeof e == "boolean" ? String(e) : "";
+}
+function pt(e) {
+  return typeof e == "boolean" ? e : typeof e == "string" ? e.trim().toLowerCase() === "true" : !1;
+}
+function Ee(e) {
+  const t = w(e);
   return t === "inline" || t === "sync" ? "inline" : t === "queued" || t === "async" || t === "background" ? "queued" : "other";
 }
-function it(e, t) {
-  const s = t && typeof t == "object" ? t : {}, r = Array.isArray(s.commands) ? s.commands : [], i = Array.isArray(s.diagnostics) ? s.diagnostics : [], n = Array.isArray(e.ui?.actions) ? e.ui.actions : [], a = /* @__PURE__ */ new Map();
-  r.forEach((c) => {
-    const d = E(c?.id);
-    d && a.set(d, c);
+function mt(e, t) {
+  const s = t && typeof t == "object" ? t : {}, r = Array.isArray(s.commands) ? s.commands : [], i = Array.isArray(s.diagnostics) ? s.diagnostics : [], n = Array.isArray(e.ui?.actions) ? e.ui.actions : [], a = gt(e), c = /* @__PURE__ */ new Map();
+  r.forEach((p) => {
+    const f = m(p?.id);
+    f && c.set(f, p);
   });
-  const l = [];
-  return n.forEach((c) => {
-    const d = D(c?.id);
-    if (!d) return;
-    const u = E(c.payload?.command_id), p = u ? a.get(u) : void 0, m = E(c.label) || E(p?.label) || u || d, f = E(p?.group) || "Other", y = `${u} ${m} ${f} ${(Array.isArray(p?.tags) ? p.tags.map(E).filter(Boolean) : []).join(" ")}`.toLowerCase();
-    l.push({
-      actionId: d,
-      commandId: u,
-      label: m,
-      action: c,
-      descriptor: p,
-      group: f,
-      search: y
-    });
-  }), {
-    entries: l,
+  const d = /* @__PURE__ */ new Map();
+  n.forEach((p) => {
+    const f = w(p?.id), b = m(p.payload?.command_id);
+    f && b && !d.has(b) && d.set(b, p);
+  });
+  const l = [], u = /* @__PURE__ */ new Set(), g = (p) => {
+    p && !u.has(p) && (u.add(p), l.push(p));
+  };
+  return r.forEach((p) => g(m(p?.id))), n.forEach((p) => g(m(p.payload?.command_id))), {
+    entries: l.map((p) => {
+      const f = c.get(p), b = d.get(p), v = b ? w(b.id) : "", S = !!(b && v), x = S ? bt(b, a.get(p) || /* @__PURE__ */ new Map()) : void 0, O = m(b?.label) || m(f?.label) || p, D = m(f?.group) || "Other", k = `${p} ${O} ${D} ${(Array.isArray(f?.tags) ? f.tags.map(m).filter(Boolean) : []).join(" ")}${S ? "" : " no-access locked"}`.toLowerCase();
+      return {
+        key: S ? v : `cmd:${p}`,
+        actionId: v,
+        commandId: p,
+        label: O,
+        action: x,
+        descriptor: f,
+        group: D,
+        search: k,
+        executable: S
+      };
+    }),
     diagnostics: i
   };
 }
-function nt(e) {
+function gt(e) {
+  const t = e.ui?.metadata && typeof e.ui.metadata == "object" ? e.ui.metadata : {}, s = t.serialized_schemas && typeof t.serialized_schemas == "object" ? t.serialized_schemas : {}, r = /* @__PURE__ */ new Map();
+  return Object.entries(s).forEach(([i, n]) => {
+    const a = n && typeof n == "object" ? n : {}, c = Array.isArray(a.fields) ? a.fields : [], d = /* @__PURE__ */ new Map();
+    c.forEach((l) => {
+      [
+        m(l.id),
+        m(l.name),
+        m(l.path),
+        m(l.payload_path).replace(/^payload\./, "")
+      ].filter(Boolean).forEach((u) => d.set(u, l));
+    }), r.set(i, d);
+  }), r;
+}
+function bt(e, t) {
+  const s = Array.isArray(e.fields) ? e.fields : [];
+  return s.length === 0 || t.size === 0 ? e : {
+    ...e,
+    fields: s.map((r) => {
+      const i = [
+        m(r.id),
+        m(r.name),
+        m(r.path),
+        m(r.payload_path).replace(/^payload\./, "")
+      ].filter(Boolean).map((a) => t.get(a)).find(Boolean);
+      if (!i) return r;
+      const n = { ...r };
+      return !B(n, "default") && B(i, "default") && (n.default = i.default), !B(n, "display_hints") && B(i, "display_hints") && (n.display_hints = i.display_hints), m(n.description) || (n.description = m(i.description) || m(i.help)), m(n.help) || (n.help = m(i.help)), n;
+    })
+  };
+}
+function yt(e) {
   const t = /* @__PURE__ */ new Map();
   return e.forEach((s) => {
     t.has(s.group) || t.set(s.group, []), t.get(s.group).push(s);
@@ -1060,23 +1107,24 @@ function nt(e) {
     items: r.sort((i, n) => (i.commandId || i.label).localeCompare(n.commandId || n.label))
   }));
 }
-function at(e) {
-  const t = E(e.descriptor?.execution_mode), s = de(t), r = t ? `Execution: ${t}` : "Execution mode unknown", i = e.descriptor?.mutating === !0 ? '<span class="cmdl-item__flag cmdl-item__flag--mutating" title="Mutating — writes data">writes</span>' : '<span class="cmdl-item__flag cmdl-item__flag--read" title="Read-only">read</span>';
-  return `
-    <button type="button" class="cmdl-item" role="option" aria-selected="false"
-      data-cmdl-item="${h(e.actionId)}"
+function Et(e) {
+  const t = m(e.descriptor?.execution_mode), s = Ee(t), r = t ? `Execution: ${t}` : "Execution mode unknown", i = e.descriptor?.mutating === !0;
+  let n;
+  return e.executable ? i ? n = '<span class="cmdl-item__flag cmdl-item__flag--mutating" title="Mutating — writes data">writes</span>' : n = '<span class="cmdl-item__flag cmdl-item__flag--read" title="Read-only">read</span>' : n = '<span class="cmdl-item__flag cmdl-item__flag--locked" title="You can view this command but lack permission to run it">no access</span>', `
+    <button type="button" class="cmdl-item${e.executable ? "" : " cmdl-item--locked"}" role="option" aria-selected="false"
+      data-cmdl-item="${h(e.key)}"
       data-cmdl-search="${h(e.search)}"
       title="${h(e.commandId || e.label)}">
       <span class="cmdl-item__dot cmdl-item__dot--${s}" title="${h(r)}" aria-hidden="true"></span>
       <span class="cmdl-item__name">${h(e.commandId || e.label)}</span>
-      ${i}
+      ${n}
     </button>`;
 }
-function ot(e, t) {
+function vt(e, t) {
   const s = e.map((r) => `
-      <div class="cmdl-group" data-cmdl-group>
-        <div class="cmdl-group__label">${h(r.group)}</div>
-        ${r.items.map(at).join("")}
+      <div class="cmdl-group" data-cmdl-group role="group" aria-label="${h(r.group)}">
+        <div class="cmdl-group__label" aria-hidden="true">${h(r.group)}</div>
+        ${r.items.map(Et).join("")}
       </div>`).join("");
   return `
     <aside class="cmdl__list">
@@ -1091,80 +1139,107 @@ function ot(e, t) {
       </div>
     </aside>`;
 }
-function lt(e, t, s) {
-  const r = E(e.name);
+function St(e, t, s) {
+  const r = m(e.name);
   if (!r) return "";
-  const i = D(e.kind) || "text", n = E(e.label) || r, a = E(e.payload_path) || r, l = `cmdl-${t}-${r}-${s}`, c = e.required === !0, d = c ? '<span class="cmdl-field__req" title="Required">*</span>' : "", u = E(e.placeholder), p = u ? ` placeholder="${h(u)}"` : "", m = E(e.description), f = m ? `<small class="cmdl-field__help">${h(m)}</small>` : "", y = Array.isArray(e.options) ? e.options.map(E).filter(Boolean) : [], v = c ? " required" : "", A = `id="${h(l)}" data-action-field="${h(r)}" data-action-field-kind="${h(i)}" data-action-field-path="${h(a)}"${v}`, x = `<small class="cmdl-field__error" data-action-field-error="${h(a)}" data-action-field-name="${h(r)}" data-action-id="${h(t)}" hidden></small>`;
-  if (V(i)) {
-    const w = e.default === !0 ? " checked" : "";
-    return `
+  const i = w(e.kind) || "text", n = m(e.label) || r, a = m(e.payload_path) || r, c = `cmdl-${t}-${r}-${s}`, d = e.required === !0, l = d ? '<span class="cmdl-field__req" title="Required">*</span>' : "", u = m(e.placeholder), g = u ? ` placeholder="${h(u)}"` : "", p = m(e.description) || m(e.help), f = ne(e.display_hints?.units), b = [p ? `<span>${h(p)}</span>` : "", f ? `<span class="cmdl-field__units">Units: ${h(f)}</span>` : ""].filter(Boolean), v = b.length ? `<small class="cmdl-field__help">${b.join(" ")}</small>` : "", S = Array.isArray(e.options) ? e.options.map(m).filter(Boolean) : [], x = d ? " required" : "", O = `id="${h(c)}" data-action-field="${h(r)}" data-action-field-kind="${h(i)}" data-action-field-path="${h(a)}"${x}`, D = `<small class="cmdl-field__error" data-action-field-error="${h(a)}" data-action-field-name="${h(r)}" data-action-id="${h(t)}" hidden></small>`;
+  if (se(i)) return `
       <div class="cmdl-field cmdl-field--full cmdl-field--bool">
-        <label class="cmdl-toggle" for="${h(l)}">
-          <input type="checkbox" ${A}${w}>
+        <label class="cmdl-toggle">
+          <input type="checkbox" ${O}${e.default === !0 ? " checked" : ""}>
           <span class="cmdl-toggle__track" aria-hidden="true"></span>
-          <span class="cmdl-toggle__text">${h(n)}${d}</span>
+          <span class="cmdl-toggle__text">${h(n)}${l}</span>
         </label>
-        ${f}${x}
+        ${v}${D}
       </div>`;
-  }
-  let T = "";
-  if (y.length > 0 || i === "select") {
-    const w = Q(e.default);
-    T = `<select ${A}><option value=""></option>${y.map((L) => `<option value="${h(L)}"${L === w ? " selected" : ""}>${h(L)}</option>`).join("")}</select>`;
+  let k = "";
+  if (S.length > 0 || i === "select") {
+    const C = Z(e.default);
+    k = `<select ${O}><option value=""></option>${S.map((j) => `<option value="${h(j)}"${j === C ? " selected" : ""}>${h(j)}</option>`).join("")}</select>`;
   } else if (i === "number" || i === "integer") {
-    const w = Q(e.default);
-    T = `<input type="number" ${A}${p}${w ? ` value="${h(w)}"` : ""}>`;
+    const C = Z(e.default);
+    k = `<input type="number" ${O}${g}${C ? ` value="${h(C)}"` : ""}>`;
   } else if (i === "string_list" || i === "array") {
-    const w = Array.isArray(e.default) ? e.default.map(E).filter(Boolean) : [], L = u || "Add a value, press Enter";
+    const C = Array.isArray(e.default) ? e.default.map(m).filter(Boolean) : [], j = u || "Add a value, press Enter";
     return `
       <div class="cmdl-field cmdl-field--full cmdl-field--list">
-        <label class="cmdl-field__label" for="${h(l)}">${h(n)}${d}</label>
-        <div class="cmdl-chips" data-cmdl-chips>
+        <label class="cmdl-field__label" for="${h(c)}">${h(n)}${l}</label>
+        <div class="cmdl-chips" data-cmdl-chips${d ? ' data-cmdl-chips-required="true"' : ""}>
           <span class="cmdl-chips__tags" data-cmdl-chips-tags></span>
-          <input type="text" id="${h(l)}" class="cmdl-chips__entry" data-cmdl-chips-entry
-            placeholder="${h(L)}" autocomplete="off" spellcheck="false">
+          <input type="text" id="${h(c)}" class="cmdl-chips__entry" data-cmdl-chips-entry
+            placeholder="${h(j)}" autocomplete="off" spellcheck="false">
           <input type="hidden" data-action-field="${h(r)}" data-action-field-kind="string_list"
-            data-action-field-path="${h(a)}"${v}
-            data-cmdl-chips-value value="${h(w.join(`
+            data-action-field-path="${h(a)}"
+            data-cmdl-chips-value value="${h(C.join(`
 `))}">
         </div>
-        ${f}${x}
+        ${v}${D}
       </div>`;
-  } else if (i === "json" || i === "object" || i === "textarea") T = `<textarea ${A}${p} rows="3">${h(e.default !== void 0 && e.default !== null ? JSON.stringify(e.default, null, 2) : "")}</textarea>`;
+  } else if (i === "json" || i === "object" || i === "textarea") k = `<textarea ${O}${g} rows="3">${h(e.default !== void 0 && e.default !== null ? JSON.stringify(e.default, null, 2) : "")}</textarea>`;
   else {
-    const w = Q(e.default);
-    T = `<input type="text" ${A}${p}${w ? ` value="${h(w)}"` : ""}>`;
+    const C = Z(e.default);
+    k = `<input type="text" ${O}${g}${C ? ` value="${h(C)}"` : ""}>`;
   }
   return `
     <div class="cmdl-field">
-      <label class="cmdl-field__label" for="${h(l)}">${h(n)}${d}</label>
-      ${T}
-      ${f}${x}
+      <label class="cmdl-field__label" for="${h(c)}">${h(n)}${l}</label>
+      ${k}
+      ${v}${D}
     </div>`;
 }
-function ct(e) {
-  const t = e.filter((d) => V(D(d.kind))), s = e.filter((d) => !V(D(d.kind))), r = s.filter((d) => d.required === !0), i = s.filter((d) => d.required !== !0), n = [...r, ...i];
-  let a = n, l = [];
+function Pt(e) {
+  return At(e) ? wt(e) : xt(e);
+}
+function At(e) {
+  return e.some((t) => {
+    const s = t.display_hints || {};
+    return ne(s.section) !== "" || B(s, "advanced");
+  });
+}
+function wt(e) {
+  const t = [], s = /* @__PURE__ */ new Map(), r = [];
+  return e.forEach((i) => {
+    const n = i.display_hints || {};
+    if (pt(n.advanced)) {
+      r.push(i);
+      return;
+    }
+    const a = ne(n.section) || "Parameters";
+    let c = s.get(a);
+    c || (c = {
+      title: a,
+      fields: [],
+      collapsible: !1
+    }, s.set(a, c), t.push(c)), c.fields.push(i);
+  }), r.length && t.push({
+    title: "Advanced",
+    fields: r,
+    collapsible: !0
+  }), t;
+}
+function xt(e) {
+  const t = e.filter((l) => se(w(l.kind))), s = e.filter((l) => !se(w(l.kind))), r = s.filter((l) => l.required === !0), i = s.filter((l) => l.required !== !0), n = [...r, ...i];
+  let a = n, c = [];
   if (n.length > 6) {
-    const d = Math.max(r.length, 4);
-    a = n.slice(0, d), l = n.slice(d);
+    const l = Math.max(r.length, 4);
+    a = n.slice(0, l), c = n.slice(l);
   }
-  const c = [];
-  return a.length && c.push({
+  const d = [];
+  return a.length && d.push({
     title: "Parameters",
     fields: a,
     collapsible: !1
-  }), t.length && c.push({
+  }), t.length && d.push({
     title: "Options",
     fields: t,
     collapsible: !1
-  }), l.length && c.push({
+  }), c.length && d.push({
     title: "Advanced",
-    fields: l,
+    fields: c,
     collapsible: !0
-  }), c;
+  }), d;
 }
-function dt(e, t, s) {
+function Ct(e, t, s) {
   return `
     <fieldset class="cmdl-section${e.collapsible ? " cmdl-section--collapsed" : ""}">
       ${e.collapsible ? `<legend class="cmdl-section__head cmdl-section__head--toggle" data-cmdl-section-toggle role="button" tabindex="0" aria-expanded="false">
@@ -1172,57 +1247,58 @@ function dt(e, t, s) {
         <span>${h(e.title)}</span>
         <span class="cmdl-section__count">${e.fields.length}</span>
       </legend>` : `<legend class="cmdl-section__head">${h(e.title)}</legend>`}
-      <div class="cmdl-section__grid">${e.fields.map((r, i) => lt(r, t, s + i)).join("")}</div>
+      <div class="cmdl-section__grid">${e.fields.map((r, i) => St(r, t, s + i)).join("")}</div>
     </fieldset>`;
 }
-function ht(e) {
-  const t = e.action, s = Array.isArray(t.fields) ? t.fields : [], r = E(t.submit_label) || "Run command", i = E(t.confirm_text), n = t.requires_confirm === !0, a = e.descriptor?.mutating === !0;
-  let l = "";
-  if (s.length === 0) l = '<p class="cmdl-form__noargs">This command takes no arguments. Run it as-is.</p>';
+function _t(e) {
+  const t = e.action;
+  if (!t) return "";
+  const s = Array.isArray(t.fields) ? t.fields : [], r = m(t.submit_label) || "Run command", i = m(t.confirm_text), n = t.requires_confirm === !0, a = e.descriptor?.mutating === !0;
+  let c = "";
+  if (s.length === 0) c = '<p class="cmdl-form__noargs">This command takes no arguments. Run it as-is.</p>';
   else {
-    const d = ct(s);
+    const l = Pt(s);
     let u = 0;
-    l = d.map((p) => {
-      const m = dt(p, e.actionId, u);
-      return u += p.fields.length, m;
+    c = l.map((g) => {
+      const p = Ct(g, e.actionId, u);
+      return u += g.fields.length, p;
     }).join("");
   }
-  const c = a ? '<span class="cmdl-form__note">Confirms before running</span>' : "";
+  const d = a ? '<span class="cmdl-form__note">Confirms before running</span>' : "";
   return `
     <form class="cmdl-form" data-panel-action-form
-      data-panel-id="${h(J)}"
+      data-panel-id="${h(X)}"
       data-action-id="${h(e.actionId)}"
       data-action-confirm="${h(i)}"
       data-action-requires-confirm="${n ? "true" : "false"}"
-      data-action-payload='${rt(t.payload)}'>
-      ${l}
+      data-action-payload='${ft(t.payload)}'>
+      ${c}
       <div class="cmdl-form__bar">
         <button type="submit" class="cmdl-btn cmdl-btn--run">${h(r)}</button>
         <button type="reset" class="cmdl-btn cmdl-btn--ghost">Reset</button>
-        ${c}
+        ${d}
       </div>
     </form>`;
 }
-function ut(e) {
-  const t = E(e.descriptor?.execution_mode), s = e.descriptor?.mutating === !0, r = E(e.descriptor?.summary), i = [];
-  i.push(`<span class="cmdl-chip">${h(e.group)}</span>`), t && i.push(`<span class="cmdl-chip cmdl-chip--${de(t)}">${h(t)}</span>`), i.push(s ? '<span class="cmdl-chip cmdl-chip--mutating">mutating</span>' : '<span class="cmdl-chip cmdl-chip--read">read-only</span>');
-  const n = s ? `<div class="cmdl-callout">
-        <strong>This command writes data.</strong> Review the arguments before running — it confirms first, but the effect is not automatically reversible.
-      </div>` : "";
-  return `
-    <div class="cmdl-cmd" data-cmdl-detail="${h(e.actionId)}" hidden>
+function Ot(e) {
+  const t = m(e.descriptor?.execution_mode), s = e.descriptor?.mutating === !0, r = m(e.descriptor?.summary), i = [];
+  i.push(`<span class="cmdl-chip">${h(e.group)}</span>`), t && i.push(`<span class="cmdl-chip cmdl-chip--${Ee(t)}">${h(t)}</span>`), i.push(s ? '<span class="cmdl-chip cmdl-chip--mutating">mutating</span>' : '<span class="cmdl-chip cmdl-chip--read">read-only</span>'), e.executable || i.push('<span class="cmdl-chip cmdl-chip--locked">no dispatch permission</span>');
+  let n;
+  return e.executable ? n = `${s ? `<div class="cmdl-callout">
+          <strong>This command writes data.</strong> Review the arguments before running — it confirms first, but the effect is not automatically reversible.
+        </div>` : ""}${_t(e)}` : n = `<div class="cmdl-locked-note">You can view this command in the catalog, but you do not have permission to run it. Dispatch requires the command's own permission plus <code>admin.commands.dispatch</code>.</div>`, `
+    <div class="cmdl-cmd" data-cmdl-detail="${h(e.key)}" hidden>
       <div class="cmdl-cmd__head">
         <div class="cmdl-cmd__title">${h(e.commandId || e.label)}</div>
         ${r ? `<div class="cmdl-cmd__summary">${h(r)}</div>` : ""}
         <div class="cmdl-cmd__chips">${i.join("")}</div>
       </div>
       ${n}
-      ${ht(e)}
     </div>`;
 }
-function re(e) {
+function he(e) {
   return e.length ? `<ul class="cmdl-diagnostics">${e.map((t) => {
-    const s = D(t.severity) || "info", r = E(t.message), i = E(t.code);
+    const s = w(t.severity) || "info", r = m(t.message), i = m(t.code);
     return `
         <li class="cmdl-diag cmdl-diag--${h(s)}">
           <span class="cmdl-diag__sev">${h(s)}</span>
@@ -1230,91 +1306,104 @@ function re(e) {
         </li>`;
   }).join("")}</ul>` : "";
 }
-function ft(e) {
-  const { def: t, data: s } = e, { entries: r, diagnostics: i } = it(t, s);
+function $t(e) {
+  const { def: t, data: s } = e, { entries: r, diagnostics: i } = mt(t, s);
   if (r.length === 0) return `
       <div class="cmdl" data-cmdl-root>
         <div class="cmdl__empty-panel">No commands are available to run.</div>
-        ${re(i)}
-        <div class="cmdl-result" data-panel-action-result="${h(J)}"></div>
+        ${he(i)}
+        <div class="cmdl-result" data-panel-action-result="${h(X)}"></div>
       </div>`;
-  const n = nt(r), a = r.map(ut).join("");
+  const n = yt(r), a = r.map(Ot).join("");
   return `
     <div class="cmdl" data-cmdl-root>
       <div class="cmdl__body">
-        ${ot(n, r.length)}
+        ${vt(n, r.length)}
         <section class="cmdl__detail" data-cmdl-detailcol>
           <div class="cmdl-detail__empty" data-cmdl-empty>Select a command from the list to configure and run it.</div>
           ${a}
         </section>
       </div>
-      ${re(i)}
-      <div class="cmdl-result" data-panel-action-result="${h(J)}"></div>
+      ${he(i)}
+      <div class="cmdl-result" data-panel-action-result="${h(X)}"></div>
     </div>`;
 }
-function F(e, t) {
+function K(e, t) {
   for (const s of t) {
     const r = e[s];
     if (typeof r == "string" && r.trim() !== "") return r.trim();
   }
   return "";
 }
-function pt(e, t, s, r) {
-  const i = s && typeof s == "object" ? s : {}, n = i.receipt && typeof i.receipt == "object" ? i.receipt : {}, a = (Array.isArray(i.validation_errors) ? i.validation_errors : []).map((m) => ({
-    path: E(m.path),
-    message: E(m.message),
-    code: E(m.code)
-  })).filter((m) => m.message || m.path), l = n.Accepted ?? n.accepted, c = typeof l == "boolean" ? l : void 0;
-  let d = "ok";
-  e === "error" ? d = "error" : (a.length > 0 || c === !1) && (d = "invalid");
+function kt(e, t, s, r) {
+  const i = s && typeof s == "object" ? s : {}, n = i.receipt && typeof i.receipt == "object" ? i.receipt : {}, a = (Array.isArray(i.validation_errors) ? i.validation_errors : []).map((p) => ({
+    path: m(p.path),
+    message: m(p.message),
+    code: m(p.code)
+  })).filter((p) => p.message || p.path), c = n.Accepted ?? n.accepted, d = typeof c == "boolean" ? c : void 0;
+  let l = "ok";
+  e === "error" ? l = "error" : (a.length > 0 || d === !1) && (l = "invalid");
   let u = "";
-  d === "invalid" ? u = "VALIDATION_ERROR" : d === "error" && (u = F(r || {}, ["code", "text_code"]));
-  const p = s != null && (typeof s != "object" || Object.keys(i).length > 0);
+  a.length > 0 ? u = "VALIDATION_ERROR" : l === "error" && (u = K(r || {}, ["code", "text_code"]));
+  const g = s != null && (typeof s != "object" || Object.keys(i).length > 0);
   return {
-    kind: d,
-    message: E(t) || (d === "error" ? "Command failed" : "Command dispatched"),
+    kind: l,
+    message: m(t) || (l === "error" ? "Command failed" : "Command dispatched"),
     code: u,
-    correlationId: F(n, ["CorrelationID", "correlation_id"]),
-    mode: F(n, ["Mode", "mode"]),
-    dispatchId: F(n, ["DispatchID", "dispatch_id"]),
-    statusReference: E(i.status_reference) || E(i.statusReference),
-    accepted: c,
+    correlationId: K(n, ["CorrelationID", "correlation_id"]),
+    mode: K(n, ["Mode", "mode"]),
+    dispatchId: K(n, ["DispatchID", "dispatch_id"]),
+    statusReference: m(i.status_reference) || m(i.statusReference),
+    accepted: d,
     validationErrors: a,
-    hasRaw: p,
-    rawJSON: p ? mt(s) : ""
+    hasRaw: g,
+    rawJSON: g ? Lt(s) : ""
   };
 }
-function mt(e) {
+function Lt(e) {
   try {
     return JSON.stringify(e, null, 2);
   } catch {
     return String(e);
   }
 }
-function M(e, t, s) {
+function Dt(e) {
+  return !Number.isFinite(e) || e < 0 ? "" : e < 1e3 ? `${Math.round(e)}ms` : `${(e / 1e3).toFixed(2)}s`;
+}
+function Tt(e) {
+  try {
+    return new Date(e).toLocaleTimeString();
+  } catch {
+    return "";
+  }
+}
+function I(e, t, s) {
   return s ? `<span class="cmdl-meta" title="${h(t)}"><span class="cmdl-meta__k">${h(e)}</span>${h(s)}</span>` : "";
 }
-function gt(e) {
-  const t = e.kind === "error" ? "Dispatch failed" : e.kind === "invalid" ? "Validation failed" : "Command dispatched", s = e.code ? `<span class="cmdl-result__code">${h(e.code)}</span>` : "", r = [
-    M("id", "Correlation ID", e.correlationId),
-    M("mode", "Execution mode", e.mode),
-    M("dispatch", "Dispatch ID", e.dispatchId),
-    M("status", "Status reference", e.statusReference)
-  ].filter(Boolean).join(""), i = r ? `<div class="cmdl-result__meta">${r}</div>` : "", n = e.validationErrors.length ? `<ul class="cmdl-result__validation">${e.validationErrors.map((l) => `<li><span class="cmdl-result__path">${h(l.path || "payload")}</span><span class="cmdl-result__vmsg">${h(l.message || l.code)}</span></li>`).join("")}</ul>` : "", a = e.hasRaw ? `<details class="cmdl-result__raw"><summary>Raw response</summary><pre>${h(e.rawJSON)}</pre></details>` : "";
+function It(e, t = {}) {
+  const s = e.kind === "error" ? "Dispatch failed" : e.kind === "invalid" ? e.validationErrors.length ? "Validation failed" : "Not accepted" : "Command dispatched", r = e.code ? `<span class="cmdl-result__code">${h(e.code)}</span>` : "", i = [
+    I("id", "Correlation ID", e.correlationId),
+    I("mode", "Execution mode", e.mode),
+    I("dispatch", "Dispatch ID", e.dispatchId),
+    I("status", "Status reference", e.statusReference),
+    I("took", "Round-trip duration", typeof t.durationMs == "number" ? Dt(t.durationMs) : ""),
+    I("at", "Dispatched at", typeof t.at == "number" && t.at > 0 ? Tt(t.at) : "")
+  ].filter(Boolean).join(""), n = i ? `<div class="cmdl-result__meta">${i}</div>` : "", a = e.validationErrors.length ? `<ul class="cmdl-result__validation">${e.validationErrors.map((l) => `<li><span class="cmdl-result__path">${h(l.path || "payload")}</span><span class="cmdl-result__vmsg">${h(l.message || l.code)}</span></li>`).join("")}</ul>` : "", c = e.hasRaw ? `<details class="cmdl-result__raw"><summary>Raw response</summary><pre>${h(e.rawJSON)}</pre></details>` : "", d = t.canRetry ? '<div class="cmdl-result__actions"><button type="button" class="cmdl-btn cmdl-btn--ghost" data-cmdl-retry>Retry</button></div>' : "";
   return `
     <div class="cmdl-result__card cmdl-result__card--${e.kind}">
       <div class="cmdl-result__head">
-        <span class="cmdl-result__status">${h(t)}</span>
-        ${s}
+        <span class="cmdl-result__status">${h(s)}</span>
+        ${r}
       </div>
       <div class="cmdl-result__msg">${h(e.message)}</div>
-      ${i}
       ${n}
       ${a}
+      ${d}
+      ${c}
     </div>`;
 }
-function B(e, t) {
-  U = t;
+function z(e, t) {
+  Q = t;
   const s = e.querySelector("[data-cmdl-empty]");
   s && (s.hidden = !!t), e.querySelectorAll("[data-cmdl-detail]").forEach((r) => {
     r.hidden = r.dataset.cmdlDetail !== t;
@@ -1323,137 +1412,190 @@ function B(e, t) {
     r.classList.toggle("cmdl-item--active", i), r.setAttribute("aria-selected", i ? "true" : "false");
   });
 }
-function bt(e, t) {
+function ue(e, t) {
   const s = t.trim().toLowerCase();
   let r = !1;
   e.querySelectorAll("[data-cmdl-item]").forEach((n) => {
-    const a = n.dataset.cmdlSearch || "", l = s === "" || a.includes(s);
-    n.hidden = !l, l && (r = !0);
+    const a = n.dataset.cmdlSearch || "", c = s === "" || a.includes(s);
+    n.hidden = !c, c && (r = !0);
   }), e.querySelectorAll("[data-cmdl-group]").forEach((n) => {
     n.hidden = !Array.from(n.querySelectorAll("[data-cmdl-item]")).some((a) => !a.hidden);
   });
   const i = e.querySelector("[data-cmdl-noresults]");
   i && (i.hidden = r);
 }
-function ie(e) {
+function fe(e) {
   return Array.from(e.querySelectorAll("[data-cmdl-item]")).filter((t) => !t.hidden);
 }
-function q(e) {
+function U(e) {
   const t = e.querySelector("[data-cmdl-chips-value]");
   return !t || !t.value.trim() ? [] : t.value.split(`
 `).map((s) => s.trim()).filter(Boolean);
 }
-function j(e, t) {
+function q(e, t) {
   const s = e.querySelector("[data-cmdl-chips-tags]"), r = e.querySelector("[data-cmdl-chips-value]");
   r && (r.value = t.join(`
-`)), s && (s.innerHTML = t.map((i, n) => `<span class="cmdl-chip-tag">${h(i)}<button type="button" class="cmdl-chip-tag__x" data-cmdl-chip-remove="${n}" aria-label="Remove ${h(i)}">×</button></span>`).join(""));
+`)), s && (s.innerHTML = t.map((n, a) => `<span class="cmdl-chip-tag">${h(n)}<button type="button" class="cmdl-chip-tag__x" data-cmdl-chip-remove="${a}" aria-label="Remove ${h(n)}">×</button></span>`).join(""));
+  const i = e.querySelector("[data-cmdl-chips-entry]");
+  i && (i.required = e.dataset.cmdlChipsRequired === "true" && t.length === 0);
 }
-function ne(e, t) {
+function Rt(e) {
+  return e instanceof HTMLInputElement && e.type === "checkbox" ? e.checked ? "true" : "false" : e instanceof HTMLInputElement || e instanceof HTMLTextAreaElement || e instanceof HTMLSelectElement ? e.value : "";
+}
+function qt(e, t) {
+  if (e instanceof HTMLInputElement && e.type === "checkbox") {
+    e.checked = t === "true";
+    return;
+  }
+  if (e instanceof HTMLInputElement && e.dataset.cmdlChipsValue !== void 0) {
+    const s = e.closest("[data-cmdl-chips]");
+    s ? q(s, t ? t.split(`
+`).map((r) => r.trim()).filter(Boolean) : []) : e.value = t;
+    return;
+  }
+  (e instanceof HTMLInputElement || e instanceof HTMLTextAreaElement || e instanceof HTMLSelectElement) && (e.value = t);
+}
+function ve(e) {
+  const t = w(e.dataset.actionId || "");
+  if (!t) return;
+  const s = {};
+  e.querySelectorAll("[data-action-field]").forEach((r) => {
+    const i = m(r.dataset.actionField);
+    i && (s[i] = Rt(r));
+  }), ie.set(t, s);
+}
+function F(e) {
+  const t = e.closest("[data-panel-action-form]");
+  t && ve(t);
+}
+function jt(e) {
+  const t = w(e.dataset.actionId || ""), s = t ? ie.get(t) : void 0;
+  s && e.querySelectorAll("[data-action-field]").forEach((r) => {
+    const i = m(r.dataset.actionField);
+    i && Object.prototype.hasOwnProperty.call(s, i) && qt(r, s[i]);
+  });
+}
+function Mt(e) {
+  e.querySelectorAll("[data-cmdl-chips]").forEach((t) => {
+    const s = t.querySelector("[data-cmdl-chips-entry]");
+    s && s.value.trim() && (re(t, s.value), s.value = "");
+  });
+}
+function re(e, t) {
   const s = t.split(/[\n,]/g).map((i) => i.trim()).filter(Boolean);
   if (s.length === 0) return;
-  const r = q(e);
+  const r = U(e);
   s.forEach((i) => {
     r.includes(i) || r.push(i);
-  }), j(e, r);
+  }), q(e, r);
 }
-function yt(e) {
+function Nt(e) {
   e.querySelectorAll("[data-cmdl-chips]").forEach((t) => {
-    j(t, q(t));
+    q(t, U(t));
   });
 }
-function Et(e) {
+function Ft(e) {
   const t = e.querySelector("[data-cmdl-root]");
   if (!t) return;
-  yt(t), U && t.querySelector(`[data-cmdl-item="${vt(U)}"]`) && B(t, U), t.addEventListener("click", (r) => {
-    const i = r.target, n = i.closest("[data-cmdl-item]");
-    if (n) {
-      B(t, n.dataset.cmdlItem || "");
-      return;
-    }
-    const a = i.closest("[data-cmdl-section-toggle]");
-    if (a) {
-      const c = a.closest(".cmdl-section");
-      if (c) {
-        const d = c.classList.toggle("cmdl-section--collapsed");
-        a.setAttribute("aria-expanded", d ? "false" : "true");
-      }
-      return;
-    }
-    const l = i.closest("[data-cmdl-chip-remove]");
-    if (l) {
-      const c = l.closest("[data-cmdl-chips]");
-      if (c) {
-        const d = q(c), u = Number(l.dataset.cmdlChipRemove);
-        Number.isInteger(u) && (d.splice(u, 1), j(c, d));
-      }
-    }
-  });
+  Nt(t), t.querySelectorAll("[data-panel-action-form]").forEach((i) => jt(i));
   const s = t.querySelector("[data-cmdl-filter]");
-  s && (s.addEventListener("input", () => bt(t, s.value)), s.addEventListener("keydown", (r) => {
-    if (r.key === "ArrowDown" || r.key === "Enter") {
-      const i = ie(t)[0];
-      i && (r.preventDefault(), r.key === "Enter" ? B(t, i.dataset.cmdlItem || "") : i.focus());
-    }
-  })), t.addEventListener("keydown", (r) => {
-    const i = r.target, n = i.closest("[data-cmdl-section-toggle]");
-    if (n && (r.key === "Enter" || r.key === " ")) {
-      r.preventDefault(), n.dispatchEvent(new MouseEvent("click", { bubbles: !0 }));
+  s && J && (s.value = J, ue(t, J)), Q && t.querySelector(`[data-cmdl-item="${Bt(Q)}"]`) && z(t, Q), t.addEventListener("click", (i) => {
+    const n = i.target, a = n.closest("[data-cmdl-item]");
+    if (a) {
+      z(t, a.dataset.cmdlItem || "");
       return;
     }
-    const a = i.closest("[data-cmdl-chips-entry]");
-    if (a) {
-      if (r.key === "Enter" || r.key === ",") {
-        r.preventDefault();
-        const c = a.closest("[data-cmdl-chips]");
-        c && (ne(c, a.value), a.value = "");
-      } else if (r.key === "Backspace" && a.value === "") {
-        const c = a.closest("[data-cmdl-chips]");
-        if (c) {
-          const d = q(c);
-          d.pop(), j(c, d);
+    const c = n.closest("[data-cmdl-section-toggle]");
+    if (c) {
+      const l = c.closest(".cmdl-section");
+      if (l) {
+        const u = l.classList.toggle("cmdl-section--collapsed");
+        c.setAttribute("aria-expanded", u ? "false" : "true");
+      }
+      return;
+    }
+    const d = n.closest("[data-cmdl-chip-remove]");
+    if (d) {
+      const l = d.closest("[data-cmdl-chips]");
+      if (l) {
+        const u = U(l), g = Number(d.dataset.cmdlChipRemove);
+        Number.isInteger(g) && (u.splice(g, 1), q(l, u), F(l));
+      }
+    }
+  }), s && (s.addEventListener("input", () => {
+    J = s.value, ue(t, s.value);
+  }), s.addEventListener("keydown", (i) => {
+    if (i.key === "ArrowDown" || i.key === "Enter") {
+      const n = fe(t)[0];
+      n && (i.preventDefault(), i.key === "Enter" ? z(t, n.dataset.cmdlItem || "") : n.focus());
+    }
+  }));
+  const r = (i) => {
+    const n = i.target?.closest("[data-action-field]");
+    n && F(n);
+  };
+  t.addEventListener("input", r), t.addEventListener("change", r), t.addEventListener("submit", (i) => {
+    const n = i.target?.closest("[data-panel-action-form]");
+    n && (Mt(n), ve(n));
+  }, !0), t.addEventListener("keydown", (i) => {
+    const n = i.target, a = n.closest("[data-cmdl-section-toggle]");
+    if (a && (i.key === "Enter" || i.key === " ")) {
+      i.preventDefault(), a.dispatchEvent(new MouseEvent("click", { bubbles: !0 }));
+      return;
+    }
+    const c = n.closest("[data-cmdl-chips-entry]");
+    if (c) {
+      if (i.key === "Enter" || i.key === ",") {
+        i.preventDefault();
+        const l = c.closest("[data-cmdl-chips]");
+        l && (re(l, c.value), c.value = "", F(l));
+      } else if (i.key === "Backspace" && c.value === "") {
+        const l = c.closest("[data-cmdl-chips]");
+        if (l) {
+          const u = U(l);
+          u.pop(), q(l, u), F(l);
         }
       }
       return;
     }
-    const l = i.closest("[data-cmdl-item]");
-    if (l && (r.key === "ArrowDown" || r.key === "ArrowUp")) {
-      r.preventDefault();
-      const c = ie(t), d = c.indexOf(l), u = c[r.key === "ArrowDown" ? d + 1 : d - 1];
-      u ? u.focus() : r.key === "ArrowUp" && s && s.focus();
+    const d = n.closest("[data-cmdl-item]");
+    if (d && (i.key === "ArrowDown" || i.key === "ArrowUp")) {
+      i.preventDefault();
+      const l = fe(t), u = l.indexOf(d), g = l[i.key === "ArrowDown" ? u + 1 : u - 1];
+      g ? g.focus() : i.key === "ArrowUp" && s && s.focus();
       return;
     }
-    l && r.key === "Enter" && (r.preventDefault(), B(t, l.dataset.cmdlItem || ""));
-  }), t.addEventListener("paste", (r) => {
-    const i = r.target.closest("[data-cmdl-chips-entry]");
-    if (!i) return;
-    const n = r.clipboardData?.getData("text") || "";
-    if (/[\n,]/.test(n)) {
-      r.preventDefault();
-      const a = i.closest("[data-cmdl-chips]");
-      a && (ne(a, n), i.value = "");
+    d && i.key === "Enter" && (i.preventDefault(), z(t, d.dataset.cmdlItem || ""));
+  }), t.addEventListener("paste", (i) => {
+    const n = i.target.closest("[data-cmdl-chips-entry]");
+    if (!n) return;
+    const a = i.clipboardData?.getData("text") || "";
+    if (/[\n,]/.test(a)) {
+      i.preventDefault();
+      const c = n.closest("[data-cmdl-chips]");
+      c && (re(c, a), n.value = "", F(c));
     }
-  }), t.addEventListener("reset", (r) => {
-    const i = r.target;
-    window.setTimeout(() => {
-      i.querySelectorAll("[data-cmdl-chips]").forEach((n) => {
-        j(n, q(n));
+  }), t.addEventListener("reset", (i) => {
+    const n = i.target, a = w(n.dataset.actionId || "");
+    a && ie.delete(a), window.setTimeout(() => {
+      n.querySelectorAll("[data-cmdl-chips]").forEach((c) => {
+        q(c, U(c));
       });
     }, 0);
   });
 }
-function vt(e) {
-  const t = globalThis.CSS;
-  return t && typeof t.escape == "function" ? t.escape(e) : e.replace(/["\\\]]/g, "\\$&");
+function Bt(e) {
+  return e.replace(/["\\]/g, "\\$&");
 }
-Ie(J, ft);
-var ae = "debug-console-active-panel", oe = "debug-console-panel-order", St = /^[a-zA-Z0-9][a-zA-Z0-9._:-]*$/, le = (e) => {
+Je(X, $t);
+var pe = "debug-console-active-panel", me = "debug-console-panel-order", Ut = /^[a-zA-Z0-9][a-zA-Z0-9._:-]*$/, ge = (e) => {
   if (!e) return null;
   try {
     return JSON.parse(e);
   } catch {
     return null;
   }
-}, Pt = (e) => Array.isArray(e) && e.length > 0 ? e.filter((t) => typeof t == "string" && t.trim()).map((t) => t.trim()) : Re(), X = (e, t) => et(e, t), At = (e, t, s) => {
+}, Ht = (e) => Array.isArray(e) && e.length > 0 ? e.filter((t) => typeof t == "string" && t.trim()).map((t) => t.trim()) : Ke(), W = (e, t) => dt(e, t), Jt = (e, t, s) => {
   if (!e || !t) return;
   const r = t.split(".").map((n) => n.trim()).filter(Boolean);
   if (r.length === 0) return;
@@ -1463,15 +1605,21 @@ var ae = "debug-console-active-panel", oe = "debug-console-panel-order", St = /^
     (!i[a] || typeof i[a] != "object") && (i[a] = {}), i = i[a];
   }
   i[r[r.length - 1]] = s;
-}, Y = (e, t) => {
+}, ee = (e, t) => {
   if (!e) return t;
   const s = Number(e);
   return Number.isNaN(s) ? t : s;
-}, wt = class {
+}, be = (e) => {
+  try {
+    return JSON.parse(JSON.stringify(e));
+  } catch {
+    return { ...e };
+  }
+}, Kt = class {
   constructor(e) {
-    this.savedPanelOrder = null, this.customFilterState = {}, this.paused = !1, this.eventCount = 0, this.lastEventAt = null, this.sessions = [], this.sessionsLoading = !1, this.sessionsLoaded = !1, this.sessionsError = null, this.sessionsUpdatedAt = null, this.activeSessionId = null, this.activeSession = null, this.sessionBannerEl = null, this.sessionMetaEl = null, this.sessionDetachEl = null, this.unsubscribeRegistry = null, this.expandedRequests = /* @__PURE__ */ new Set(), this.tabsSortable = null, this.panelActionResults = /* @__PURE__ */ new Map(), this.container = e;
-    const t = Pt(le(e.dataset.panels));
-    t.includes("sessions") || t.push("sessions"), this.availablePanels = this.normalizeAvailablePanelIDs(t), this.savedPanelOrder = this.loadStoredPanelOrder(), this.panels = this.mergePanelOrder(this.availablePanels, this.savedPanelOrder), this.activePanel = this.panels[0] || "template", this.debugPath = e.dataset.debugPath || "", this.panelOrderPreferencesPath = e.dataset.panelOrderPreferencesPath || "", this.streamBasePath = this.debugPath, this.maxLogEntries = Y(e.dataset.maxLogEntries, 500), this.maxSQLQueries = Y(e.dataset.maxSqlQueries, 200), this.slowThresholdMs = Y(e.dataset.slowThresholdMs, 50), this.replCommands = Te(le(e.dataset.replCommands)), this.state = {
+    this.savedPanelOrder = null, this.customFilterState = {}, this.paused = !1, this.eventCount = 0, this.lastEventAt = null, this.sessions = [], this.sessionsLoading = !1, this.sessionsLoaded = !1, this.sessionsError = null, this.sessionsUpdatedAt = null, this.activeSessionId = null, this.activeSession = null, this.sessionBannerEl = null, this.sessionMetaEl = null, this.sessionDetachEl = null, this.unsubscribeRegistry = null, this.expandedRequests = /* @__PURE__ */ new Set(), this.tabsSortable = null, this.panelActionResults = /* @__PURE__ */ new Map(), this.commandLauncherLastPayloads = /* @__PURE__ */ new Map(), this.container = e;
+    const t = Ht(ge(e.dataset.panels));
+    t.includes("sessions") || t.push("sessions"), this.availablePanels = this.normalizeAvailablePanelIDs(t), this.savedPanelOrder = this.loadStoredPanelOrder(), this.panels = this.mergePanelOrder(this.availablePanels, this.savedPanelOrder), this.activePanel = this.panels[0] || "template", this.debugPath = e.dataset.debugPath || "", this.panelOrderPreferencesPath = e.dataset.panelOrderPreferencesPath || "", this.streamBasePath = this.debugPath, this.maxLogEntries = ee(e.dataset.maxLogEntries, 500), this.maxSQLQueries = ee(e.dataset.maxSqlQueries, 200), this.slowThresholdMs = ee(e.dataset.slowThresholdMs, 50), this.replCommands = Ue(ge(e.dataset.replCommands)), this.state = {
       template: {},
       session: {},
       requests: [],
@@ -1512,24 +1660,24 @@ var ae = "debug-console-active-panel", oe = "debug-console-panel-order", St = /^
       sessions: { search: "" },
       custom: { search: "" },
       objects: { search: "" }
-    }, this.replPanels = /* @__PURE__ */ new Map(), this.panelRenderers = /* @__PURE__ */ new Map(), Oe.forEach((s) => {
+    }, this.replPanels = /* @__PURE__ */ new Map(), this.panelRenderers = /* @__PURE__ */ new Map(), Me.forEach((s) => {
       this.panelRenderers.set(s, {
         render: () => this.renderReplPanel(s),
         filters: () => '<span class="timestamp">REPL controls are in the panel header.</span>'
       });
-    }), this.eventToPanel = H(), this.tabsEl = this.requireElement("[data-debug-tabs]", document), this.panelEl = this.requireElement("[data-debug-panel]", document), this.filtersEl = this.requireElement("[data-debug-filters]", document), this.statusEl = document.querySelector("[data-debug-status]") || this.container, this.connectionEl = this.requireElement("[data-debug-connection]", document), this.eventCountEl = this.requireElement("[data-debug-events]", document), this.lastEventEl = this.requireElement("[data-debug-last]", document), this.sessionBannerEl = document.querySelector("[data-debug-session-banner]"), this.sessionMetaEl = document.querySelector("[data-debug-session-meta]"), this.sessionDetachEl = document.querySelector("[data-debug-session-detach]"), this.sessionDetachEl && this.sessionDetachEl.addEventListener("click", () => this.detachSession()), this.bindActions(), this.updateSessionBanner(), this.stream = new Z({
+    }), this.eventToPanel = Y(), this.tabsEl = this.requireElement("[data-debug-tabs]", document), this.panelEl = this.requireElement("[data-debug-panel]", document), this.filtersEl = this.requireElement("[data-debug-filters]", document), this.statusEl = document.querySelector("[data-debug-status]") || this.container, this.connectionEl = this.requireElement("[data-debug-connection]", document), this.eventCountEl = this.requireElement("[data-debug-events]", document), this.lastEventEl = this.requireElement("[data-debug-last]", document), this.sessionBannerEl = document.querySelector("[data-debug-session-banner]"), this.sessionMetaEl = document.querySelector("[data-debug-session-meta]"), this.sessionDetachEl = document.querySelector("[data-debug-session-detach]"), this.sessionDetachEl && this.sessionDetachEl.addEventListener("click", () => this.detachSession()), this.bindActions(), this.updateSessionBanner(), this.stream = new ae({
       basePath: this.streamBasePath,
       onEvent: (s) => this.handleEvent(s),
       onStatusChange: (s) => this.updateConnectionStatus(s)
-    }), this.unsubscribeRegistry = O.subscribe((s) => this.handleRegistryChange(s)), this.initializeServerDefinitions();
+    }), this.unsubscribeRegistry = L.subscribe((s) => this.handleRegistryChange(s)), this.initializeServerDefinitions();
   }
   async initializeServerDefinitions() {
     const e = await this.loadServerPanelOrderPreference();
-    this.applyPanelOrder(), await qe(this.debugPath), this.eventToPanel = H(), this.applyPanelOrder(), e && this.persistPanelOrder(), this.restoreActivePanel(), this.renderTabs(), this.renderActivePanel(), this.fetchSnapshot(), this.stream.connect(), this.subscribeToEvents();
+    this.applyPanelOrder(), await ze(this.debugPath), this.eventToPanel = Y(), this.applyPanelOrder(), e && this.persistPanelOrder(), this.restoreActivePanel(), this.renderTabs(), this.renderActivePanel(), this.fetchSnapshot(), this.stream.connect(), this.subscribeToEvents();
   }
   subscribeToEvents() {
     const e = /* @__PURE__ */ new Set();
-    for (const t of this.panels) for (const s of ke(t)) e.add(s);
+    for (const t of this.panels) for (const s of Fe(t)) e.add(s);
     this.stream.subscribe(Array.from(e));
   }
   normalizeStoredPanelID(e) {
@@ -1539,7 +1687,7 @@ var ae = "debug-console-active-panel", oe = "debug-console-panel-order", St = /^
   restoreActivePanel() {
     let e = null;
     try {
-      e = this.normalizeStoredPanelID(sessionStorage.getItem(ae));
+      e = this.normalizeStoredPanelID(sessionStorage.getItem(pe));
     } catch {
       e = null;
     }
@@ -1547,13 +1695,13 @@ var ae = "debug-console-active-panel", oe = "debug-console-panel-order", St = /^
   }
   persistActivePanel() {
     try {
-      sessionStorage.setItem(ae, this.activePanel);
+      sessionStorage.setItem(pe, this.activePanel);
     } catch {
     }
   }
   persistPanelOrder() {
     try {
-      localStorage.setItem(oe, JSON.stringify(this.panels));
+      localStorage.setItem(me, JSON.stringify(this.panels));
     } catch {
     }
   }
@@ -1561,7 +1709,7 @@ var ae = "debug-console-active-panel", oe = "debug-console-panel-order", St = /^
     const e = this.panelOrderPreferencesPath.trim();
     if (!e) return !1;
     try {
-      const t = await $(e, {
+      const t = await T(e, {
         method: "GET",
         credentials: "same-origin"
       });
@@ -1576,7 +1724,7 @@ var ae = "debug-console-active-panel", oe = "debug-console-panel-order", St = /^
     const t = this.panelOrderPreferencesPath.trim();
     if (t)
       try {
-        await $(t, {
+        await T(t, {
           method: "PUT",
           credentials: "same-origin",
           json: { panel_order: e }
@@ -1586,7 +1734,7 @@ var ae = "debug-console-active-panel", oe = "debug-console-panel-order", St = /^
   }
   loadStoredPanelOrder() {
     try {
-      const e = localStorage.getItem(oe);
+      const e = localStorage.getItem(me);
       if (e) {
         const t = JSON.parse(e);
         return this.normalizeSavedPanelOrder(t);
@@ -1597,7 +1745,7 @@ var ae = "debug-console-active-panel", oe = "debug-console-panel-order", St = /^
   }
   normalizePanelID(e) {
     const t = typeof e == "string" ? e.trim() : "";
-    return !t || !St.test(t) ? null : t;
+    return !t || !Ut.test(t) ? null : t;
   }
   normalizeAvailablePanelIDs(e) {
     if (!Array.isArray(e)) return [];
@@ -1625,7 +1773,7 @@ var ae = "debug-console-active-panel", oe = "debug-console-panel-order", St = /^
     this.panels = e.length > 0 ? e : this.availablePanels, this.restoreActivePanel();
   }
   initTabDragDrop() {
-    this.tabsSortable && (this.tabsSortable.destroy(), this.tabsSortable = null), this.tabsSortable = ue.create(this.tabsEl, {
+    this.tabsSortable && (this.tabsSortable.destroy(), this.tabsSortable = null), this.tabsSortable = Pe.create(this.tabsEl, {
       animation: 150,
       draggable: ".debug-tab",
       fallbackTolerance: 5,
@@ -1646,7 +1794,7 @@ var ae = "debug-console-active-panel", oe = "debug-console-panel-order", St = /^
   }
   handleRegistryChange(e) {
     const t = this.normalizePanelID(e.panelId), s = this.activePanel, r = e.type === "unregister" && t === s;
-    this.eventToPanel = H(), e.type === "register" ? (t && !this.availablePanels.includes(t) && this.availablePanels.push(t), t && e.panel && e.panel.defaultFilters !== void 0 && !(t in this.customFilterState) && (this.customFilterState[t] = this.cloneFilterState(e.panel.defaultFilters))) : e.type === "unregister" && t && (this.availablePanels = this.availablePanels.filter((n) => n !== t), delete this.customFilterState[t]), this.applyPanelOrder();
+    this.eventToPanel = Y(), e.type === "register" ? (t && !this.availablePanels.includes(t) && this.availablePanels.push(t), t && e.panel && e.panel.defaultFilters !== void 0 && !(t in this.customFilterState) && (this.customFilterState[t] = this.cloneFilterState(e.panel.defaultFilters))) : e.type === "unregister" && t && (this.availablePanels = this.availablePanels.filter((n) => n !== t), delete this.customFilterState[t]), this.applyPanelOrder();
     const i = s !== this.activePanel;
     this.subscribeToEvents(), this.renderTabs(), (r || i || t === this.activePanel) && this.renderActivePanel();
   }
@@ -1693,14 +1841,14 @@ var ae = "debug-console-active-panel", oe = "debug-console-panel-order", St = /^
   }
   renderTabs() {
     const e = this.panels.map((t) => {
-      const s = t === this.activePanel ? "debug-tab--active" : "", r = xe(De(t), {
+      const s = t === this.activePanel ? "debug-tab--active" : "", r = Re(Be(t), {
         size: "14px",
         extraClass: "debug-tab__icon"
       });
       return `
           <button class="debug-tab ${s}" data-panel="${h(t)}">
             ${r}
-            <span class="debug-tab__label">${h(ee(t))}</span>
+            <span class="debug-tab__label">${h(le(t))}</span>
             <span class="debug-tab__count" data-panel-count="${h(t)}">0</span>
           </button>
         `;
@@ -1716,7 +1864,7 @@ var ae = "debug-console-active-panel", oe = "debug-console-panel-order", St = /^
     const s = this.panelRenderers.get(e);
     if (s?.filters) t = s.filters();
     else {
-      const r = O.get(e);
+      const r = L.get(e);
       if (r?.showFilters === !1) {
         this.filtersEl.innerHTML = '<span class="timestamp">No filters</span>';
         return;
@@ -1872,14 +2020,14 @@ var ae = "debug-console-active-panel", oe = "debug-console-panel-order", St = /^
     });
   }
   updateFiltersFromInputs() {
-    const e = this.activePanel, t = this.filtersEl.querySelectorAll("[data-filter]"), s = O.get(e);
+    const e = this.activePanel, t = this.filtersEl.querySelectorAll("[data-filter]"), s = L.get(e);
     if (s?.renderFilters) {
       const r = this.getPanelFilterState(e, s), i = r && typeof r == "object" && !Array.isArray(r) ? { ...r } : {};
       t.forEach((n) => {
         const a = n.dataset.filter || "";
         if (!a) return;
-        const l = i[a];
-        i[a] = this.readFilterInputValue(n, l);
+        const c = i[a];
+        i[a] = this.readFilterInputValue(n, c);
       }), this.customFilterState[e] = i, this.renderPanel();
       return;
     }
@@ -1923,7 +2071,7 @@ var ae = "debug-console-active-panel", oe = "debug-console-panel-order", St = /^
     this.renderPanel();
   }
   getPanelFilterState(e, t) {
-    const s = t || O.get(e);
+    const s = t || L.get(e);
     return s ? (e in this.customFilterState || (this.customFilterState[e] = s.defaultFilters !== void 0 ? this.cloneFilterState(s.defaultFilters) : {}), this.customFilterState[e]) : {};
   }
   cloneFilterState(e) {
@@ -1955,26 +2103,26 @@ var ae = "debug-console-active-panel", oe = "debug-console-panel-order", St = /^
     else if (e === "routes") s = this.renderRoutes();
     else if (e === "sessions") s = this.renderSessionsPanel();
     else if (e === "custom") s = this.renderCustom();
-    else if (e === "jserrors") s = me(this.state.extra.jserrors || [], S, {
+    else if (e === "jserrors") s = xe(this.state.extra.jserrors || [], P, {
       newestFirst: this.filters.logs.newestFirst,
       showSortToggle: !0
     });
     else {
-      const r = O.get(e);
+      const r = L.get(e);
       if (r && (r.renderConsole || r.render)) {
-        const i = K(r);
+        const i = V(r);
         let n = this.getStateForKey(i);
         if (r.applyFilters) {
           const a = this.getPanelFilterState(e, r);
           n = r.applyFilters(n, a);
         } else if (!r.renderFilters && r.showFilters !== !1) {
           const a = this.filters.objects.search.trim();
-          a && n && typeof n == "object" && !Array.isArray(n) && (n = X(n, a));
+          a && n && typeof n == "object" && !Array.isArray(n) && (n = W(n, a));
         }
-        s = (r.renderConsole || r.render)(n, S, { newestFirst: this.filters.logs.newestFirst });
-      } else s = this.renderJSONPanel(ee(e), this.state.extra[e], this.filters.objects.search);
+        s = (r.renderConsole || r.render)(n, P, { newestFirst: this.filters.logs.newestFirst });
+      } else s = this.renderJSONPanel(le(e), this.state.extra[e], this.filters.objects.search);
     }
-    this.panelEl.innerHTML = s, e === "logs" && this.filters.logs.autoScroll && (this.panelEl.scrollTop = this.filters.logs.newestFirst ? 0 : this.panelEl.scrollHeight), this.attachExpandableRowListeners(), this.attachCopyButtonListeners(), e === "requests" && Pe(this.panelEl, this.expandedRequests), e === "sql" && this.attachSQLSelectionListeners(), e === "sessions" && this.attachSessionActions(), this.attachPanelActionListeners(), e === "commands" && Et(this.panelEl), this.renderStoredPanelActionResult(e);
+    this.panelEl.innerHTML = s, e === "logs" && this.filters.logs.autoScroll && (this.panelEl.scrollTop = this.filters.logs.newestFirst ? 0 : this.panelEl.scrollHeight), this.attachExpandableRowListeners(), this.attachCopyButtonListeners(), e === "requests" && De(this.panelEl, this.expandedRequests), e === "sql" && this.attachSQLSelectionListeners(), e === "sessions" && this.attachSessionActions(), this.attachPanelActionListeners(), e === "commands" && Ft(this.panelEl), this.renderStoredPanelActionResult(e);
   }
   attachPanelActionListeners() {
     this.panelEl.querySelectorAll("[data-panel-action-picker]").forEach((e) => {
@@ -1992,37 +2140,46 @@ var ae = "debug-console-active-panel", oe = "debug-console-panel-order", St = /^
       });
     });
   }
-  async runPanelAction(e, t) {
-    const s = e.dataset.panelId || "", r = e.dataset.actionId || "";
-    if (!this.debugPath || !s || !r) return;
-    const i = e.dataset.actionConfirm || "";
-    if ((e.dataset.actionRequiresConfirm === "true" || i) && !window.confirm(i || "Run this debug panel action?")) return;
-    const n = ve(e);
-    t && (t.disabled = !0);
+  async runPanelAction(e, t, s) {
+    const r = e.dataset.panelId || "", i = e.dataset.actionId || "";
+    if (!this.debugPath || !r || !i) return;
+    const n = e.dataset.actionConfirm || "";
+    if ((e.dataset.actionRequiresConfirm === "true" || n) && !window.confirm(n || "Run this debug panel action?")) return;
+    const a = s || ke(e);
+    r === "commands" && e instanceof HTMLFormElement && this.commandLauncherLastPayloads.set(i, be(a)), t && (t.disabled = !0);
+    const c = Date.now();
     try {
-      const a = await $(`${this.debugPath}/api/panels/${encodeURIComponent(s)}/actions/${encodeURIComponent(r)}`, {
+      const d = await T(`${this.debugPath}/api/panels/${encodeURIComponent(r)}/actions/${encodeURIComponent(i)}`, {
         method: "POST",
         credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(n)
+        body: JSON.stringify(a)
       });
-      if (!a.ok) throw new Error(await he(a, `Action failed (${a.status})`, { appendStatusToFallback: !1 }));
-      const l = await a.json();
-      this.showPanelActionResult(s, l.ok === !1 ? "error" : "ok", l.message || (l.ok === !1 ? "Action failed" : "Action complete"), r, l.data, l.errors), l.event && this.handleEvent(l.event), l.refresh && await this.fetchSnapshot();
-    } catch (a) {
-      const l = a instanceof Error ? a.message : "Action failed";
-      this.showPanelActionResult(s, "error", l);
+      if (!d.ok) throw new Error(await Se(d, `Action failed (${d.status})`, { appendStatusToFallback: !1 }));
+      const l = await d.json();
+      this.showPanelActionResult(r, l.ok === !1 ? "error" : "ok", l.message || (l.ok === !1 ? "Action failed" : "Action complete"), i, l.data, l.errors, {
+        at: Date.now(),
+        durationMs: Date.now() - c
+      }), l.event && this.handleEvent(l.event), l.refresh && await this.fetchSnapshot();
+    } catch (d) {
+      const l = d instanceof Error ? d.message : "Action failed";
+      this.showPanelActionResult(r, "error", l, i, void 0, void 0, {
+        at: Date.now(),
+        durationMs: Date.now() - c
+      });
     } finally {
       t && (t.disabled = !1);
     }
   }
-  showPanelActionResult(e, t, s, r, i, n) {
+  showPanelActionResult(e, t, s, r, i, n, a) {
     this.panelActionResults.set(e, {
       status: t,
       message: s,
       actionID: r,
       data: i,
-      errors: n
+      errors: n,
+      at: a?.at,
+      durationMs: a?.durationMs
     }), this.renderStoredPanelActionResult(e);
   }
   renderStoredPanelActionResult(e) {
@@ -2032,14 +2189,30 @@ var ae = "debug-console-active-panel", oe = "debug-console-panel-order", St = /^
     const s = Array.from(this.panelEl.querySelectorAll("[data-panel-action-result]")).find((n) => n.dataset.panelActionResult === e);
     if (!s) return;
     if (e === "commands") {
-      const n = pt(t.status, t.message, t.data, t.errors), a = {};
-      n.validationErrors.forEach((l) => {
-        l.path && (a[l.path] = l.message || l.code);
-      }), t.errors && typeof t.errors == "object" && Object.assign(a, t.errors), this.renderPanelActionErrors(a, t.actionID), s.innerHTML = gt(n);
+      const n = kt(t.status, t.message, t.data, t.errors), a = {};
+      n.validationErrors.forEach((c) => {
+        c.path && (a[c.path] = c.message || c.code);
+      }), t.errors && typeof t.errors == "object" && Object.assign(a, t.errors), this.renderPanelActionErrors(a, t.actionID), s.innerHTML = It(n, {
+        canRetry: !!(t.actionID && this.commandLauncherLastPayloads.has(t.actionID)),
+        at: t.at,
+        durationMs: t.durationMs
+      }), this.attachCommandLauncherResultActions(s, t.actionID);
       return;
     }
-    const r = this.renderPanelActionErrors(t.errors, t.actionID), i = t.data === void 0 ? "" : `<pre class="${S.jsonPanel}" style="margin-top:0.5rem;max-height:18rem;overflow:auto;white-space:pre-wrap">${h(W(t.data, { nullAsEmptyObject: !1 }))}</pre>`;
-    s.innerHTML = `<div class="${t.status === "error" ? S.badgeError : S.badge}">${h(t.message)}</div>${r}${i}`;
+    const r = this.renderPanelActionErrors(t.errors, t.actionID), i = t.data === void 0 ? "" : `<pre class="${P.jsonPanel}" style="margin-top:0.5rem;max-height:18rem;overflow:auto;white-space:pre-wrap">${h(oe(t.data, { nullAsEmptyObject: !1 }))}</pre>`;
+    s.innerHTML = `<div class="${t.status === "error" ? P.badgeError : P.badge}">${h(t.message)}</div>${r}${i}`;
+  }
+  attachCommandLauncherResultActions(e, t) {
+    const s = e.querySelector("[data-cmdl-retry]");
+    !s || !t || s.addEventListener("click", () => {
+      this.retryCommandLauncherAction(t, s);
+    });
+  }
+  retryCommandLauncherAction(e, t) {
+    const s = this.commandLauncherLastPayloads.get(e);
+    if (!s) return;
+    const r = Array.from(this.panelEl.querySelectorAll("[data-panel-action-form]")).find((i) => i.dataset.panelId === "commands" && i.dataset.actionId === e);
+    r && this.runPanelAction(r, t, be(s));
   }
   updatePanelActionPicker(e) {
     const t = e.closest("[data-panel-action-launcher]");
@@ -2060,30 +2233,30 @@ var ae = "debug-console-active-panel", oe = "debug-console-panel-order", St = /^
     return Object.entries(e).forEach(([r, i]) => {
       const n = this.stringifyActionError(i);
       if (!n) return;
-      const a = r.trim(), l = Array.from(this.panelEl.querySelectorAll("[data-action-field-error]")).find((c) => t && c.dataset.actionId !== t ? !1 : c.dataset.actionFieldError === a || c.dataset.actionFieldName === a || c.dataset.actionFieldError === `payload.${a}`);
-      if (l) {
-        l.textContent = n, l.hidden = !1;
+      const a = r.trim(), c = Array.from(this.panelEl.querySelectorAll("[data-action-field-error]")).find((d) => t && d.dataset.actionId !== t ? !1 : d.dataset.actionFieldError === a || d.dataset.actionFieldName === a || d.dataset.actionFieldError === `payload.${a}`);
+      if (c) {
+        c.textContent = n, c.hidden = !1;
         return;
       }
       s.push(n);
-    }), s.length === 0 ? "" : `<ul class="${S.badgeError}" style="margin-top:0.5rem">${s.map((r) => `<li>${h(r)}</li>`).join("")}</ul>`;
+    }), s.length === 0 ? "" : `<ul class="${P.badgeError}" style="margin-top:0.5rem">${s.map((r) => `<li>${h(r)}</li>`).join("")}</ul>`;
   }
   stringifyActionError(e) {
     return typeof e == "string" ? e.trim() : Array.isArray(e) ? e.map((t) => this.stringifyActionError(t)).filter(Boolean).join("; ") : e && typeof e == "object" && typeof e.message == "string" ? (e.message || "").trim() : e == null ? "" : String(e);
   }
   attachExpandableRowListeners() {
-    pe(this.panelEl);
+    we(this.panelEl);
   }
   attachCopyButtonListeners() {
-    Ae(this.panelEl, { useIconFeedback: !0 });
+    Te(this.panelEl, { useIconFeedback: !0 });
   }
   attachSQLSelectionListeners() {
-    fe(this.panelEl, this.state.sql, { useIconFeedback: !0 });
+    Ae(this.panelEl, this.state.sql, { useIconFeedback: !0 });
   }
   renderReplPanel(e) {
     this.panelEl.classList.add("debug-content--repl");
     let t = this.replPanels.get(e);
-    t || (t = new we({
+    t || (t = new Ie({
       kind: e === "shell" ? "shell" : "console",
       debugPath: this.debugPath,
       commands: e === "console" ? this.replCommands : []
@@ -2098,8 +2271,8 @@ var ae = "debug-console-active-panel", oe = "debug-console-panel-order", St = /^
     return [...e].sort();
   }
   renderRequests() {
-    const { method: e, status: t, search: s, newestFirst: r, hasBody: i, contentType: n } = this.filters.requests, a = s.toLowerCase(), l = this.state.requests.filter((c) => !(e !== "all" && (c.method || "").toUpperCase() !== e || t !== "all" && String(c.status || "") !== t || a && !(c.path || "").toLowerCase().includes(a) || i && !c.request_body || n !== "all" && (c.content_type || "").split(";")[0].trim() !== n));
-    return l.length === 0 ? this.renderEmptyState("No requests captured yet.") : Ee(l, S, {
+    const { method: e, status: t, search: s, newestFirst: r, hasBody: i, contentType: n } = this.filters.requests, a = s.toLowerCase(), c = this.state.requests.filter((d) => !(e !== "all" && (d.method || "").toUpperCase() !== e || t !== "all" && String(d.status || "") !== t || a && !(d.path || "").toLowerCase().includes(a) || i && !d.request_body || n !== "all" && (d.content_type || "").split(";")[0].trim() !== n));
+    return c.length === 0 ? this.renderEmptyState("No requests captured yet.") : $e(c, P, {
       newestFirst: r,
       slowThresholdMs: this.slowThresholdMs,
       showSortToggle: !1,
@@ -2109,7 +2282,7 @@ var ae = "debug-console-active-panel", oe = "debug-console-panel-order", St = /^
   }
   renderSQL() {
     const { search: e, slowOnly: t, errorOnly: s, newestFirst: r } = this.filters.sql, i = e.toLowerCase(), n = this.state.sql.filter((a) => !(s && !a.error || t && !this.isSlowQuery(a) || i && !(a.query || "").toLowerCase().includes(i)));
-    return n.length === 0 ? this.renderEmptyState("No SQL queries captured yet.") : be(n, S, {
+    return n.length === 0 ? this.renderEmptyState("No SQL queries captured yet.") : _e(n, P, {
       newestFirst: r,
       slowThresholdMs: this.slowThresholdMs,
       maxEntries: this.maxSQLQueries,
@@ -2120,10 +2293,10 @@ var ae = "debug-console-active-panel", oe = "debug-console-panel-order", St = /^
   renderLogs() {
     const { level: e, search: t, newestFirst: s } = this.filters.logs, r = t.toLowerCase(), i = this.state.logs.filter((n) => {
       if (e !== "all" && (n.level || "").toLowerCase() !== e) return !1;
-      const a = `${n.message || ""} ${n.source || ""} ${W(n.fields || {})}`.toLowerCase();
+      const a = `${n.message || ""} ${n.source || ""} ${oe(n.fields || {})}`.toLowerCase();
       return !(r && !a.includes(r));
     });
-    return i.length === 0 ? this.renderEmptyState("No logs captured yet.") : ge(i, S, {
+    return i.length === 0 ? this.renderEmptyState("No logs captured yet.") : Ce(i, P, {
       newestFirst: s,
       maxEntries: this.maxLogEntries,
       showSortToggle: !1,
@@ -2137,7 +2310,7 @@ var ae = "debug-console-active-panel", oe = "debug-console-panel-order", St = /^
       const n = `${i.path || ""} ${i.handler || ""} ${i.summary || ""}`.toLowerCase();
       return !(s && !n.includes(s));
     });
-    return r.length === 0 ? this.renderEmptyState("No routes captured yet.") : Se(r, S, { showName: !0 });
+    return r.length === 0 ? this.renderEmptyState("No routes captured yet.") : Le(r, P, { showName: !0 });
   }
   renderSessionsPanel() {
     if (!this.sessionsLoaded && !this.sessionsLoading && this.fetchSessions(), this.sessionsError) return this.renderEmptyState(this.sessionsError);
@@ -2150,30 +2323,30 @@ var ae = "debug-console-active-panel", oe = "debug-console-panel-order", St = /^
       n.ip,
       n.current_page
     ].filter(Boolean).join(" ").toLowerCase().includes(t))), s.sort((n, a) => {
-      const l = new Date(n.last_activity || n.started_at || 0).getTime();
-      return new Date(a.last_activity || a.started_at || 0).getTime() - l;
+      const c = new Date(n.last_activity || n.started_at || 0).getTime();
+      return new Date(a.last_activity || a.started_at || 0).getTime() - c;
     }), this.sessionsLoading && s.length === 0) return this.renderEmptyState("Loading sessions...");
     if (s.length === 0)
       return e === !1 ? this.renderEmptyState("Session tracking is disabled. Enable it to list active sessions.") : this.renderEmptyState("No active sessions yet.");
     const r = s.map((n) => {
-      const a = n.session_id || "", l = n.username || n.user_id || "Unknown", c = _e(n.last_activity || n.started_at), d = N(n.request_count ?? 0), u = !!a && a === this.activeSessionId, p = u ? "detach" : "attach", m = u ? "Detach" : "Attach", f = u ? "debug-btn debug-btn--danger" : "debug-btn debug-btn--primary", y = u ? "debug-session-row debug-session-row--active" : "debug-session-row", v = n.current_page || "-", A = n.ip || "-";
+      const a = n.session_id || "", c = n.username || n.user_id || "Unknown", d = je(n.last_activity || n.started_at), l = H(n.request_count ?? 0), u = !!a && a === this.activeSessionId, g = u ? "detach" : "attach", p = u ? "Detach" : "Attach", f = u ? "debug-btn debug-btn--danger" : "debug-btn debug-btn--primary", b = u ? "debug-session-row debug-session-row--active" : "debug-session-row", v = n.current_page || "-", S = n.ip || "-";
       return `
-          <tr class="${y}">
+          <tr class="${b}">
             <td>
-              <div class="debug-session-user">${h(l)}</div>
+              <div class="debug-session-user">${h(c)}</div>
               <div class="debug-session-meta">
                 <span class="debug-session-id">${h(a || "-")}</span>
               </div>
             </td>
-            <td>${h(A)}</td>
+            <td>${h(S)}</td>
             <td>
               <span class="debug-session-path">${h(v)}</span>
             </td>
-            <td>${h(c || "-")}</td>
-            <td>${h(d)}</td>
+            <td>${h(d || "-")}</td>
+            <td>${h(l)}</td>
             <td>
-              <button class="${f}" data-session-action="${p}" data-session-id="${h(a)}">
-                ${m}
+              <button class="${f}" data-session-action="${g}" data-session-id="${h(a)}">
+                ${p}
               </button>
             </td>
           </tr>
@@ -2181,7 +2354,7 @@ var ae = "debug-console-active-panel", oe = "debug-console-panel-order", St = /^
     }).join(""), i = this.sessionsLoading ? "Refreshing..." : "Refresh";
     return `
       <div class="debug-session-toolbar">
-        <span class="debug-session-toolbar__label">${`${N(s.length)} active`}</span>
+        <span class="debug-session-toolbar__label">${`${H(s.length)} active`}</span>
         <div class="debug-session-toolbar__actions">
           <button class="debug-btn" data-session-action="refresh">
             <i class="iconoir-refresh"></i> ${i}
@@ -2207,19 +2380,19 @@ var ae = "debug-console-active-panel", oe = "debug-console-panel-order", St = /^
   }
   renderCustom() {
     const { search: e } = this.filters.custom, t = Object.keys(this.state.custom.data).length > 0, s = this.state.custom.logs.length > 0;
-    return !t && !s ? this.renderEmptyState("No custom data captured yet.") : ye(this.state.custom, S, {
+    return !t && !s ? this.renderEmptyState("No custom data captured yet.") : Oe(this.state.custom, P, {
       maxLogEntries: this.maxLogEntries,
       useIconCopyButton: !0,
       showCount: !0,
-      dataFilterFn: e ? (r) => X(r, e) : void 0
+      dataFilterFn: e ? (r) => W(r, e) : void 0
     });
   }
   renderJSONPanel(e, t, s) {
     const r = t && typeof t == "object" && !Array.isArray(t), i = Array.isArray(t);
-    return r && Object.keys(t || {}).length === 0 || i && (t || []).length === 0 || !r && !i && !t ? this.renderEmptyState(`No ${e.toLowerCase()} data available.`) : Ce(e, t, S, {
+    return r && Object.keys(t || {}).length === 0 || i && (t || []).length === 0 || !r && !i && !t ? this.renderEmptyState(`No ${e.toLowerCase()} data available.`) : qe(e, t, P, {
       useIconCopyButton: !0,
       showCount: !0,
-      filterFn: s ? (n) => X(n, s) : void 0
+      filterFn: s ? (n) => W(n, s) : void 0
     });
   }
   attachSessionActions() {
@@ -2277,7 +2450,7 @@ var ae = "debug-console-active-panel", oe = "debug-console-panel-order", St = /^
     this.activeSessionId && (this.activeSessionId = null, this.activeSession = null, this.streamBasePath = this.debugPath, this.resetDebugState(), this.updateSessionBanner(), this.rebuildStream("global"), this.renderPanel());
   }
   rebuildStream(e) {
-    this.stream.close(), this.stream = new Z({
+    this.stream.close(), this.stream = new ae({
       basePath: this.streamBasePath,
       onEvent: (t) => this.handleEvent(t),
       onStatusChange: (t) => this.updateConnectionStatus(t)
@@ -2323,17 +2496,17 @@ var ae = "debug-console-active-panel", oe = "debug-console-panel-order", St = /^
   }
   panelCount(e) {
     if (e !== "sessions") {
-      const t = O.get(e);
+      const t = L.get(e);
       if (t) {
-        const s = K(t);
-        return $e({ [s]: this.getStateForKey(s) }, t);
+        const s = V(t);
+        return Ne({ [s]: this.getStateForKey(s) }, t);
       }
     }
     switch (e) {
       case "template":
-        return I(this.state.template);
+        return M(this.state.template);
       case "session":
-        return I(this.state.session);
+        return M(this.state.session);
       case "requests":
         return this.state.requests.length;
       case "sql":
@@ -2341,15 +2514,15 @@ var ae = "debug-console-active-panel", oe = "debug-console-panel-order", St = /^
       case "logs":
         return this.state.logs.length;
       case "config":
-        return I(this.state.config);
+        return M(this.state.config);
       case "routes":
         return this.state.routes.length;
       case "sessions":
         return this.sessions.length;
       case "custom":
-        return I(this.state.custom.data) + this.state.custom.logs.length;
+        return M(this.state.custom.data) + this.state.custom.logs.length;
       default:
-        return I(this.state.extra[e]);
+        return M(this.state.extra[e]);
     }
   }
   renderEmptyState(e) {
@@ -2368,14 +2541,14 @@ var ae = "debug-console-active-panel", oe = "debug-console-panel-order", St = /^
   updateTabCounts() {
     this.panels.forEach((e) => {
       const t = this.panelCount(e), s = this.tabsEl.querySelector(`[data-panel-count="${e}"]`);
-      s && (s.textContent = N(t));
+      s && (s.textContent = H(t));
     });
   }
   updateConnectionStatus(e) {
     this.connectionEl.textContent = e, this.statusEl.setAttribute("data-status", e);
   }
   updateStatusMeta() {
-    this.eventCountEl.textContent = `${N(this.eventCount)} events`, this.lastEventAt && (this.lastEventEl.textContent = this.lastEventAt.toLocaleTimeString());
+    this.eventCountEl.textContent = `${H(this.eventCount)} events`, this.lastEventAt && (this.lastEventEl.textContent = this.lastEventAt.toLocaleTimeString());
   }
   handleEvent(e) {
     if (!e || !e.type) return;
@@ -2384,9 +2557,9 @@ var ae = "debug-console-active-panel", oe = "debug-console-panel-order", St = /^
       return;
     }
     if (this.eventCount += 1, this.lastEventAt = /* @__PURE__ */ new Date(), this.updateStatusMeta(), this.paused) return;
-    const t = this.eventToPanel[e.type] || e.type, s = O.get(t);
+    const t = this.eventToPanel[e.type] || e.type, s = L.get(t);
     if (s) {
-      const r = K(s), i = this.getStateForKey(r), n = (s.handleEvent || ((a, l) => je(a, l, this.maxLogEntries)))(i, e.payload);
+      const r = V(s), i = this.getStateForKey(r), n = (s.handleEvent || ((a, c) => Qe(a, c, this.maxLogEntries)))(i, e.payload);
       this.setStateForKey(r, n);
     } else switch (e.type) {
       case "request":
@@ -2408,7 +2581,7 @@ var ae = "debug-console-active-panel", oe = "debug-console-panel-order", St = /^
         this.handleCustomEvent(e.payload);
         break;
       default:
-        Le(t) || (this.state.extra[t] = e.payload);
+        He(t) || (this.state.extra[t] = e.payload);
         break;
     }
     this.updateTabCounts(), t === this.activePanel && this.renderPanel();
@@ -2416,7 +2589,7 @@ var ae = "debug-console-active-panel", oe = "debug-console-panel-order", St = /^
   handleCustomEvent(e) {
     if (e) {
       if (typeof e == "object" && "key" in e && "value" in e) {
-        At(this.state.custom.data, String(e.key), e.value);
+        Jt(this.state.custom.data, String(e.key), e.value);
         return;
       }
       if (typeof e == "object" && ("category" in e || "message" in e)) {
@@ -2483,11 +2656,11 @@ var ae = "debug-console-active-panel", oe = "debug-console-panel-order", St = /^
   }
   applySnapshot(e) {
     const t = e || {};
-    this.state.template = t.template || {}, this.state.session = t.session || {}, this.state.requests = R(t.requests), this.state.sql = R(t.sql), this.state.logs = R(t.logs), this.state.config = t.config || {}, this.state.routes = R(t.routes);
+    this.state.template = t.template || {}, this.state.session = t.session || {}, this.state.requests = N(t.requests), this.state.sql = N(t.sql), this.state.logs = N(t.logs), this.state.config = t.config || {}, this.state.routes = N(t.routes);
     const s = t.custom || {};
     this.state.custom = {
       data: s.data || {},
-      logs: R(s.logs)
+      logs: N(s.logs)
     };
     const r = /* @__PURE__ */ new Set([
       "template",
@@ -2508,7 +2681,7 @@ var ae = "debug-console-active-panel", oe = "debug-console-panel-order", St = /^
       for (; e.length > t; ) e.shift();
   }
   isSlowQuery(e) {
-    return Ne(e?.duration, this.slowThresholdMs);
+    return Xe(e?.duration, this.slowThresholdMs);
   }
   async fetchSnapshot() {
     if (this.debugPath && !this.activeSessionId)
@@ -2521,7 +2694,7 @@ var ae = "debug-console-active-panel", oe = "debug-console-panel-order", St = /^
       }
   }
   clearAll() {
-    this.debugPath && (this.stream.clear(), !this.activeSessionId && $(`${this.debugPath}/api/clear`, {
+    this.debugPath && (this.stream.clear(), !this.activeSessionId && T(`${this.debugPath}/api/clear`, {
       method: "POST",
       credentials: "same-origin"
     }).catch(() => {
@@ -2530,7 +2703,7 @@ var ae = "debug-console-active-panel", oe = "debug-console-panel-order", St = /^
   clearActivePanel() {
     if (!this.debugPath) return;
     const e = this.activePanel;
-    this.stream.clear([e]), !this.activeSessionId && $(`${this.debugPath}/api/clear/${e}`, {
+    this.stream.clear([e]), !this.activeSessionId && T(`${this.debugPath}/api/clear/${e}`, {
       method: "POST",
       credentials: "same-origin"
     }).catch(() => {
@@ -2592,23 +2765,23 @@ var ae = "debug-console-active-panel", oe = "debug-console-panel-order", St = /^
       if (!window.confirm(n)) return;
     }
     try {
-      const n = await $(`${this.debugPath}/api/doctor/${encodeURIComponent(r)}/action`, {
+      const n = await T(`${this.debugPath}/api/doctor/${encodeURIComponent(r)}/action`, {
         method: "POST",
         credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
         body: "{}"
       }), a = await this.parseJSONResponse(n);
       if (!n.ok) {
-        const c = this.responseMessage(a, [
+        const d = this.responseMessage(a, [
           "error.message",
           "message",
           "result.message"
         ]) || `Doctor action failed (${n.status})`;
-        this.showDoctorActionToast(c, "error");
+        this.showDoctorActionToast(d, "error");
         return;
       }
-      const l = this.responseMessage(a, ["message", "result.message"]) || "Doctor action completed.";
-      this.showDoctorActionToast(l, "success");
+      const c = this.responseMessage(a, ["message", "result.message"]) || "Doctor action completed.";
+      this.showDoctorActionToast(c, "success");
     } catch {
       this.showDoctorActionToast("Doctor action failed: unable to reach debug API.", "error");
     } finally {
@@ -2618,74 +2791,74 @@ var ae = "debug-console-active-panel", oe = "debug-console-panel-order", St = /^
   togglePause(e) {
     this.paused = !this.paused, e.textContent = this.paused ? "Resume" : "Pause", this.paused || this.stream.requestSnapshot();
   }
-}, xt = (e) => {
+}, zt = (e) => {
   const t = e || document.querySelector("[data-debug-console]");
-  return t ? new wt(t) : null;
-}, ce = () => {
-  xt();
+  return t ? new Kt(t) : null;
+}, ye = () => {
+  zt();
 };
-document.readyState === "loading" ? document.addEventListener("DOMContentLoaded", ce) : ce();
+document.readyState === "loading" ? document.addEventListener("DOMContentLoaded", ye) : ye();
 export {
-  Dt as DATA_ATTRS,
-  zt as DEBUG_ICON_REFS,
-  wt as DebugPanel,
-  Z as DebugStream,
-  Mt as INTERACTION_CLASSES,
-  kt as RemoteDebugStream,
-  ts as applyCustomEventPayload,
-  is as applyDebugEventToSnapshot,
-  Ae as attachCopyListeners,
-  pe as attachExpandableRowListeners,
-  H as buildEventToPanel,
-  S as consoleStyles,
-  Bt as copyToClipboard,
-  I as countPayload,
-  as as defaultGetCount,
-  je as defaultHandleEvent,
+  Zt as DATA_ATTRS,
+  fs as DEBUG_ICON_REFS,
+  Kt as DebugPanel,
+  ae as DebugStream,
+  os as INTERACTION_CLASSES,
+  Gt as RemoteDebugStream,
+  Ps as applyCustomEventPayload,
+  xs as applyDebugEventToSnapshot,
+  Te as attachCopyListeners,
+  we as attachExpandableRowListeners,
+  Y as buildEventToPanel,
+  P as consoleStyles,
+  ls as copyToClipboard,
+  M as countPayload,
+  _s as defaultGetCount,
+  Qe as defaultHandleEvent,
   h as escapeHTML,
-  ss as fetchDebugSnapshot,
-  Zt as formatDuration,
-  W as formatJSON,
-  N as formatNumber,
-  _e as formatTimestamp,
-  Kt as getDebugIconRef,
-  Re as getDefaultPanels,
-  ns as getDefaultToolbarPanels,
-  Vt as getLevelClass,
-  $e as getPanelCount,
-  os as getPanelData,
-  ke as getPanelEventTypes,
-  De as getPanelIcon,
-  ee as getPanelLabel,
-  K as getSnapshotKey,
-  Wt as getStatusClass,
-  It as getStyleConfig,
-  rs as getToolbarCounts,
-  xt as initDebugPanel,
-  Le as isKnownPanel,
-  Ne as isSlowDuration,
-  Yt as normalizeEventTypes,
-  Te as normalizeReplCommands,
-  O as panelRegistry,
-  ye as renderCustomPanel,
-  Ht as renderDebugIcon,
-  xe as renderDebugIconRef,
-  Rt as renderDoctorPanel,
-  Tt as renderDoctorPanelCompact,
-  Ce as renderJSONPanel,
-  Gt as renderJSONViewer,
-  ge as renderLogsPanel,
-  es as renderPanelContent,
-  jt as renderPermissionsPanel,
-  Ft as renderPermissionsPanelCompact,
-  Ee as renderRequestsPanel,
-  Se as renderRoutesPanel,
-  be as renderSQLPanel,
-  qt as renderSiteRenderCachePanel,
-  Nt as renderSiteRenderCachePanelCompact,
-  Oe as replPanelIDs,
-  Lt as toolbarStyles,
-  Xt as truncate
+  As as fetchDebugSnapshot,
+  Es as formatDuration,
+  oe as formatJSON,
+  H as formatNumber,
+  je as formatTimestamp,
+  hs as getDebugIconRef,
+  Ke as getDefaultPanels,
+  Cs as getDefaultToolbarPanels,
+  ys as getLevelClass,
+  Ne as getPanelCount,
+  Os as getPanelData,
+  Fe as getPanelEventTypes,
+  Be as getPanelIcon,
+  le as getPanelLabel,
+  V as getSnapshotKey,
+  vs as getStatusClass,
+  ts as getStyleConfig,
+  ws as getToolbarCounts,
+  zt as initDebugPanel,
+  He as isKnownPanel,
+  Xe as isSlowDuration,
+  gs as normalizeEventTypes,
+  Ue as normalizeReplCommands,
+  L as panelRegistry,
+  Oe as renderCustomPanel,
+  us as renderDebugIcon,
+  Re as renderDebugIconRef,
+  ss as renderDoctorPanel,
+  Wt as renderDoctorPanelCompact,
+  qe as renderJSONPanel,
+  bs as renderJSONViewer,
+  Ce as renderLogsPanel,
+  Ss as renderPanelContent,
+  is as renderPermissionsPanel,
+  as as renderPermissionsPanelCompact,
+  $e as renderRequestsPanel,
+  Le as renderRoutesPanel,
+  _e as renderSQLPanel,
+  rs as renderSiteRenderCachePanel,
+  ns as renderSiteRenderCachePanelCompact,
+  Me as replPanelIDs,
+  es as toolbarStyles,
+  ms as truncate
 };
 
 //# sourceMappingURL=index.js.map

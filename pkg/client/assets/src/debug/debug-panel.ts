@@ -99,6 +99,8 @@ type PanelActionResultView = {
   actionID?: string;
   data?: unknown;
   errors?: Record<string, unknown>;
+  at?: number;
+  durationMs?: number;
 };
 
 type PanelOrderPreferenceResponse = {
@@ -164,6 +166,14 @@ const parseNumber = (value: string | undefined, fallback: number): number => {
   return parsed;
 };
 
+const clonePanelActionPayload = (payload: Record<string, unknown>): Record<string, unknown> => {
+  try {
+    return JSON.parse(JSON.stringify(payload)) as Record<string, unknown>;
+  } catch {
+    return { ...payload };
+  }
+};
+
 export class DebugPanel {
   private container: HTMLElement;
   private debugPath: string;
@@ -208,6 +218,7 @@ export class DebugPanel {
   private expandedRequests: Set<string> = new Set();
   private tabsSortable: Sortable | null = null;
   private panelActionResults: Map<string, PanelActionResultView> = new Map();
+  private commandLauncherLastPayloads: Map<string, Record<string, unknown>> = new Map();
 
   constructor(container: HTMLElement) {
     this.container = container;
@@ -1023,7 +1034,7 @@ export class DebugPanel {
     });
   }
 
-  private async runPanelAction(element: HTMLElement, button?: HTMLButtonElement): Promise<void> {
+  private async runPanelAction(element: HTMLElement, button?: HTMLButtonElement, payloadOverride?: Record<string, unknown>): Promise<void> {
     const panelID = element.dataset.panelId || '';
     const actionID = element.dataset.actionId || '';
     if (!this.debugPath || !panelID || !actionID) {
@@ -1034,10 +1045,14 @@ export class DebugPanel {
     if ((requiresConfirm || confirmText) && !window.confirm(confirmText || 'Run this debug panel action?')) {
       return;
     }
-    const payload = buildPanelActionPayload(element);
+    const payload = payloadOverride || buildPanelActionPayload(element);
+    if (panelID === 'commands' && element instanceof HTMLFormElement) {
+      this.commandLauncherLastPayloads.set(actionID, clonePanelActionPayload(payload));
+    }
     if (button) {
       button.disabled = true;
     }
+    const startedAt = Date.now();
     try {
       const response = await httpRequest(`${this.debugPath}/api/panels/${encodeURIComponent(panelID)}/actions/${encodeURIComponent(actionID)}`, {
         method: 'POST',
@@ -1055,7 +1070,8 @@ export class DebugPanel {
         result.message || (result.ok === false ? 'Action failed' : 'Action complete'),
         actionID,
         result.data,
-        result.errors
+        result.errors,
+        { at: Date.now(), durationMs: Date.now() - startedAt }
       );
       if (result.event) {
         this.handleEvent(result.event);
@@ -1065,7 +1081,7 @@ export class DebugPanel {
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Action failed';
-      this.showPanelActionResult(panelID, 'error', message);
+      this.showPanelActionResult(panelID, 'error', message, actionID, undefined, undefined, { at: Date.now(), durationMs: Date.now() - startedAt });
     } finally {
       if (button) {
         button.disabled = false;
@@ -1073,8 +1089,8 @@ export class DebugPanel {
     }
   }
 
-  private showPanelActionResult(panelID: string, status: 'ok' | 'error', message: string, actionID?: string, data?: unknown, errors?: Record<string, unknown>): void {
-    this.panelActionResults.set(panelID, { status, message, actionID, data, errors });
+  private showPanelActionResult(panelID: string, status: 'ok' | 'error', message: string, actionID?: string, data?: unknown, errors?: Record<string, unknown>, meta?: { at?: number; durationMs?: number }): void {
+    this.panelActionResults.set(panelID, { status, message, actionID, data, errors, at: meta?.at, durationMs: meta?.durationMs });
     this.renderStoredPanelActionResult(panelID);
   }
 
@@ -1103,7 +1119,9 @@ export class DebugPanel {
       // Map validation paths onto the originating fields (side-effect). The card
       // lists the full set, so the leftover return value is intentionally unused.
       this.renderPanelActionErrors(fieldErrors, result.actionID);
-      target.innerHTML = renderCommandLauncherResultCard(parsed);
+      const canRetry = Boolean(result.actionID && this.commandLauncherLastPayloads.has(result.actionID));
+      target.innerHTML = renderCommandLauncherResultCard(parsed, { canRetry, at: result.at, durationMs: result.durationMs });
+      this.attachCommandLauncherResultActions(target, result.actionID);
       return;
     }
     const formErrors = this.renderPanelActionErrors(result.errors, result.actionID);
@@ -1111,6 +1129,29 @@ export class DebugPanel {
       ? ''
       : `<pre class="${consoleStyles.jsonPanel}" style="margin-top:0.5rem;max-height:18rem;overflow:auto;white-space:pre-wrap">${escapeHTML(formatJSON(result.data, { nullAsEmptyObject: false }))}</pre>`;
     target.innerHTML = `<div class="${result.status === 'error' ? consoleStyles.badgeError : consoleStyles.badge}">${escapeHTML(result.message)}</div>${formErrors}${dataHTML}`;
+  }
+
+  private attachCommandLauncherResultActions(target: HTMLElement, actionID?: string): void {
+    const retry = target.querySelector<HTMLButtonElement>('[data-cmdl-retry]');
+    if (!retry || !actionID) {
+      return;
+    }
+    retry.addEventListener('click', () => {
+      this.retryCommandLauncherAction(actionID, retry);
+    });
+  }
+
+  private retryCommandLauncherAction(actionID: string, button: HTMLButtonElement): void {
+    const payload = this.commandLauncherLastPayloads.get(actionID);
+    if (!payload) {
+      return;
+    }
+    const form = Array.from(this.panelEl.querySelectorAll<HTMLFormElement>('[data-panel-action-form]'))
+      .find((candidate) => candidate.dataset.panelId === 'commands' && candidate.dataset.actionId === actionID);
+    if (!form) {
+      return;
+    }
+    void this.runPanelAction(form, button, clonePanelActionPayload(payload));
   }
 
   private updatePanelActionPicker(picker: HTMLSelectElement): void {

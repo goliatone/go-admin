@@ -60,18 +60,37 @@ type DiagnosticLike = {
 };
 
 type CatalogEntry = {
+  // Stable selection key: the action id when the command is executable, else a
+  // `cmd:<commandId>` synthetic key so visible-but-not-executable commands can
+  // still be selected and described.
+  key: string;
   actionId: string;
   commandId: string;
   label: string;
-  action: ServerAction;
+  action?: ServerAction;
   descriptor?: DescriptorLike;
   group: string;
   search: string;
+  executable: boolean;
 };
 
-// Remembers the operator's selected command so it survives a panel re-render
-// (snapshot updates, post-dispatch refresh) within the session.
+// Session state that must survive a panel re-render (snapshot updates,
+// post-dispatch refresh, live events). The debug console rebuilds the panel's
+// innerHTML on every snapshot, so any in-progress interaction would otherwise be
+// discarded. We keep the selected command, the filter text, and a per-command
+// form draft in module scope and rehydrate them on every attach.
 let selectedActionId = '';
+let filterText = '';
+const formDrafts = new Map<string, Record<string, string>>();
+
+// Clears session-scoped launcher state (selected command, filter text, form
+// drafts). Exposed so a host can reset the launcher when the debug session
+// resets, and used by tests to isolate cases.
+export function resetCommandLauncherState(): void {
+  selectedActionId = '';
+  filterText = '';
+  formDrafts.clear();
+}
 
 function str(value: unknown): string {
   return typeof value === 'string' ? value.trim() : '';
@@ -147,30 +166,62 @@ function buildCatalog(def: ServerPanelConsoleRendererContext['def'], data: unkno
   const diagnostics = Array.isArray(snapshot.diagnostics) ? (snapshot.diagnostics as DiagnosticLike[]) : [];
   const actions = Array.isArray(def.ui?.actions) ? (def.ui!.actions as ServerAction[]) : [];
 
-  const byId = new Map<string, DescriptorLike>();
+  const schemas = commandSchemaFields(def);
+
+  const descriptorById = new Map<string, DescriptorLike>();
   commands.forEach((descriptor) => {
     const id = str(descriptor?.id);
     if (id) {
-      byId.set(id, descriptor);
+      descriptorById.set(id, descriptor);
     }
   });
 
-  const entries: CatalogEntry[] = [];
-  const schemas = commandSchemaFields(def);
-
+  const actionByCommand = new Map<string, ServerAction>();
   actions.forEach((action) => {
     const actionId = lower(action?.id);
-    if (!actionId) {
-      return;
-    }
     const commandId = str((action.payload as Record<string, unknown> | undefined)?.command_id);
-    const descriptor = commandId ? byId.get(commandId) : undefined;
-    const actionWithFields = mergeActionFieldPresentation(action, schemas.get(commandId) || new Map());
-    const label = str(action.label) || str(descriptor?.label) || commandId || actionId;
+    if (actionId && commandId && !actionByCommand.has(commandId)) {
+      actionByCommand.set(commandId, action);
+    }
+  });
+
+  // Union of visible descriptors (snapshot `commands`, i.e. read-permitted) and
+  // executable actions (dispatch-permitted). The snapshot can include commands
+  // the operator may see but not run; iterating actions alone would drop them.
+  const commandIds: string[] = [];
+  const seen = new Set<string>();
+  const remember = (id: string) => {
+    if (id && !seen.has(id)) {
+      seen.add(id);
+      commandIds.push(id);
+    }
+  };
+  commands.forEach((descriptor) => remember(str(descriptor?.id)));
+  actions.forEach((action) => remember(str((action.payload as Record<string, unknown> | undefined)?.command_id)));
+
+  const entries: CatalogEntry[] = commandIds.map((commandId) => {
+    const descriptor = descriptorById.get(commandId);
+    const action = actionByCommand.get(commandId);
+    const actionId = action ? lower(action.id) : '';
+    const executable = Boolean(action && actionId);
+    const resolvedAction = executable
+      ? mergeActionFieldPresentation(action!, schemas.get(commandId) || new Map<string, ServerActionField>())
+      : undefined;
+    const label = str(action?.label) || str(descriptor?.label) || commandId;
     const group = str(descriptor?.group) || 'Other';
     const tags = Array.isArray(descriptor?.tags) ? descriptor!.tags!.map(str).filter(Boolean) : [];
-    const search = `${commandId} ${label} ${group} ${tags.join(' ')}`.toLowerCase();
-    entries.push({ actionId, commandId, label, action: actionWithFields, descriptor, group, search });
+    const search = `${commandId} ${label} ${group} ${tags.join(' ')}${executable ? '' : ' no-access locked'}`.toLowerCase();
+    return {
+      key: executable ? actionId : `cmd:${commandId}`,
+      actionId,
+      commandId,
+      label,
+      action: resolvedAction,
+      descriptor,
+      group,
+      search,
+      executable,
+    };
   });
 
   return { entries, diagnostics };
@@ -252,12 +303,17 @@ function renderListItem(entry: CatalogEntry): string {
   const execClass = executionClass(execMode);
   const dotTitle = execMode ? `Execution: ${execMode}` : 'Execution mode unknown';
   const mutating = entry.descriptor?.mutating === true;
-  const flag = mutating
-    ? '<span class="cmdl-item__flag cmdl-item__flag--mutating" title="Mutating — writes data">writes</span>'
-    : '<span class="cmdl-item__flag cmdl-item__flag--read" title="Read-only">read</span>';
+  let flag: string;
+  if (!entry.executable) {
+    flag = '<span class="cmdl-item__flag cmdl-item__flag--locked" title="You can view this command but lack permission to run it">no access</span>';
+  } else if (mutating) {
+    flag = '<span class="cmdl-item__flag cmdl-item__flag--mutating" title="Mutating — writes data">writes</span>';
+  } else {
+    flag = '<span class="cmdl-item__flag cmdl-item__flag--read" title="Read-only">read</span>';
+  }
   return `
-    <button type="button" class="cmdl-item" role="option" aria-selected="false"
-      data-cmdl-item="${escapeHTML(entry.actionId)}"
+    <button type="button" class="cmdl-item${entry.executable ? '' : ' cmdl-item--locked'}" role="option" aria-selected="false"
+      data-cmdl-item="${escapeHTML(entry.key)}"
       data-cmdl-search="${escapeHTML(entry.search)}"
       title="${escapeHTML(entry.commandId || entry.label)}">
       <span class="cmdl-item__dot cmdl-item__dot--${execClass}" title="${escapeHTML(dotTitle)}" aria-hidden="true"></span>
@@ -270,8 +326,8 @@ function renderList(grouped: Array<{ group: string; items: CatalogEntry[] }>, to
   const groups = grouped
     .map(
       (group) => `
-      <div class="cmdl-group" data-cmdl-group>
-        <div class="cmdl-group__label">${escapeHTML(group.group)}</div>
+      <div class="cmdl-group" data-cmdl-group role="group" aria-label="${escapeHTML(group.group)}">
+        <div class="cmdl-group__label" aria-hidden="true">${escapeHTML(group.group)}</div>
         ${group.items.map(renderListItem).join('')}
       </div>`
     )
@@ -324,7 +380,7 @@ function fieldControl(field: ServerActionField, actionId: string, index: number)
     const checked = field.default === true ? ' checked' : '';
     return `
       <div class="cmdl-field cmdl-field--full cmdl-field--bool">
-        <label class="cmdl-toggle" for="${escapeHTML(fieldId)}">
+        <label class="cmdl-toggle">
           <input type="checkbox" ${baseAttrs}${checked}>
           <span class="cmdl-toggle__track" aria-hidden="true"></span>
           <span class="cmdl-toggle__text">${escapeHTML(label)}${reqMark}</span>
@@ -348,12 +404,12 @@ function fieldControl(field: ServerActionField, actionId: string, index: number)
     return `
       <div class="cmdl-field cmdl-field--full cmdl-field--list">
         <label class="cmdl-field__label" for="${escapeHTML(fieldId)}">${escapeHTML(label)}${reqMark}</label>
-        <div class="cmdl-chips" data-cmdl-chips>
+        <div class="cmdl-chips" data-cmdl-chips${required ? ' data-cmdl-chips-required="true"' : ''}>
           <span class="cmdl-chips__tags" data-cmdl-chips-tags></span>
           <input type="text" id="${escapeHTML(fieldId)}" class="cmdl-chips__entry" data-cmdl-chips-entry
             placeholder="${escapeHTML(entryPlaceholder)}" autocomplete="off" spellcheck="false">
           <input type="hidden" data-action-field="${escapeHTML(name)}" data-action-field-kind="string_list"
-            data-action-field-path="${escapeHTML(payloadPath)}"${requiredAttr}
+            data-action-field-path="${escapeHTML(payloadPath)}"
             data-cmdl-chips-value value="${escapeHTML(defaults.join('\n'))}">
         </div>
         ${help}${errorSmall}
@@ -466,6 +522,9 @@ function renderSection(section: FormSection, actionId: string, startIndex: numbe
 
 function renderForm(entry: CatalogEntry): string {
   const action = entry.action;
+  if (!action) {
+    return '';
+  }
   const fields = Array.isArray(action.fields) ? action.fields : [];
   const submitLabel = str(action.submit_label) || 'Run command';
   const confirm = str(action.confirm_text);
@@ -521,22 +580,30 @@ function renderDetailBlock(entry: CatalogEntry): string {
       ? '<span class="cmdl-chip cmdl-chip--mutating">mutating</span>'
       : '<span class="cmdl-chip cmdl-chip--read">read-only</span>'
   );
+  if (!entry.executable) {
+    chips.push('<span class="cmdl-chip cmdl-chip--locked">no dispatch permission</span>');
+  }
 
-  const callout = mutating
-    ? `<div class="cmdl-callout">
-        <strong>This command writes data.</strong> Review the arguments before running — it confirms first, but the effect is not automatically reversible.
-      </div>`
-    : '';
+  let body: string;
+  if (!entry.executable) {
+    body = `<div class="cmdl-locked-note">You can view this command in the catalog, but you do not have permission to run it. Dispatch requires the command's own permission plus <code>admin.commands.dispatch</code>.</div>`;
+  } else {
+    const callout = mutating
+      ? `<div class="cmdl-callout">
+          <strong>This command writes data.</strong> Review the arguments before running — it confirms first, but the effect is not automatically reversible.
+        </div>`
+      : '';
+    body = `${callout}${renderForm(entry)}`;
+  }
 
   return `
-    <div class="cmdl-cmd" data-cmdl-detail="${escapeHTML(entry.actionId)}" hidden>
+    <div class="cmdl-cmd" data-cmdl-detail="${escapeHTML(entry.key)}" hidden>
       <div class="cmdl-cmd__head">
         <div class="cmdl-cmd__title">${escapeHTML(entry.commandId || entry.label)}</div>
         ${summary ? `<div class="cmdl-cmd__summary">${escapeHTML(summary)}</div>` : ''}
         <div class="cmdl-cmd__chips">${chips.join('')}</div>
       </div>
-      ${callout}
-      ${renderForm(entry)}
+      ${body}
     </div>`;
 }
 
@@ -649,7 +716,7 @@ export function extractCommandLauncherResult(
   }
 
   let code = '';
-  if (kind === 'invalid') {
+  if (validationErrors.length > 0) {
     code = 'VALIDATION_ERROR';
   } else if (kind === 'error') {
     code = pick((errors || {}) as Record<string, unknown>, ['code', 'text_code']);
@@ -680,6 +747,21 @@ function safeStringify(value: unknown): string {
   }
 }
 
+function formatDurationMs(ms: number): string {
+  if (!Number.isFinite(ms) || ms < 0) {
+    return '';
+  }
+  return ms < 1000 ? `${Math.round(ms)}ms` : `${(ms / 1000).toFixed(2)}s`;
+}
+
+function formatClockTime(at: number): string {
+  try {
+    return new Date(at).toLocaleTimeString();
+  } catch {
+    return '';
+  }
+}
+
 function metaChip(icon: string, label: string, value: string): string {
   if (!value) {
     return '';
@@ -687,8 +769,15 @@ function metaChip(icon: string, label: string, value: string): string {
   return `<span class="cmdl-meta" title="${escapeHTML(label)}"><span class="cmdl-meta__k">${escapeHTML(icon)}</span>${escapeHTML(value)}</span>`;
 }
 
-export function renderCommandLauncherResultCard(parsed: ParsedCommandResult): string {
-  const statusLabel = parsed.kind === 'error' ? 'Dispatch failed' : parsed.kind === 'invalid' ? 'Validation failed' : 'Command dispatched';
+export function renderCommandLauncherResultCard(
+  parsed: ParsedCommandResult,
+  options: { canRetry?: boolean; at?: number; durationMs?: number } = {}
+): string {
+  const statusLabel = parsed.kind === 'error'
+    ? 'Dispatch failed'
+    : parsed.kind === 'invalid'
+      ? (parsed.validationErrors.length ? 'Validation failed' : 'Not accepted')
+      : 'Command dispatched';
   const codePill = parsed.code ? `<span class="cmdl-result__code">${escapeHTML(parsed.code)}</span>` : '';
 
   const meta = [
@@ -696,6 +785,8 @@ export function renderCommandLauncherResultCard(parsed: ParsedCommandResult): st
     metaChip('mode', 'Execution mode', parsed.mode),
     metaChip('dispatch', 'Dispatch ID', parsed.dispatchId),
     metaChip('status', 'Status reference', parsed.statusReference),
+    metaChip('took', 'Round-trip duration', typeof options.durationMs === 'number' ? formatDurationMs(options.durationMs) : ''),
+    metaChip('at', 'Dispatched at', typeof options.at === 'number' && options.at > 0 ? formatClockTime(options.at) : ''),
   ]
     .filter(Boolean)
     .join('');
@@ -713,6 +804,9 @@ export function renderCommandLauncherResultCard(parsed: ParsedCommandResult): st
   const raw = parsed.hasRaw
     ? `<details class="cmdl-result__raw"><summary>Raw response</summary><pre>${escapeHTML(parsed.rawJSON)}</pre></details>`
     : '';
+  const actions = options.canRetry
+    ? `<div class="cmdl-result__actions"><button type="button" class="cmdl-btn cmdl-btn--ghost" data-cmdl-retry>Retry</button></div>`
+    : '';
 
   return `
     <div class="cmdl-result__card cmdl-result__card--${parsed.kind}">
@@ -723,6 +817,7 @@ export function renderCommandLauncherResultCard(parsed: ParsedCommandResult): st
       <div class="cmdl-result__msg">${escapeHTML(parsed.message)}</div>
       ${metaRow}
       ${validation}
+      ${actions}
       ${raw}
     </div>`;
 }
@@ -786,15 +881,98 @@ function renderChipTags(holder: HTMLElement, tokens: string[]): void {
   if (hidden) {
     hidden.value = tokens.join('\n');
   }
-  if (!tags) {
+  if (tags) {
+    tags.innerHTML = tokens
+      .map(
+        (token, index) =>
+          `<span class="cmdl-chip-tag">${escapeHTML(token)}<button type="button" class="cmdl-chip-tag__x" data-cmdl-chip-remove="${index}" aria-label="Remove ${escapeHTML(token)}">×</button></span>`
+      )
+      .join('');
+  }
+  // Required list fields enforce validation on the visible entry input (a
+  // required hidden input is exempt from HTML constraint validation): require it
+  // only while there are no committed tokens.
+  const entry = holder.querySelector<HTMLInputElement>('[data-cmdl-chips-entry]');
+  if (entry) {
+    entry.required = holder.dataset.cmdlChipsRequired === 'true' && tokens.length === 0;
+  }
+}
+
+function readFieldDraftValue(field: HTMLElement): string {
+  if (field instanceof HTMLInputElement && field.type === 'checkbox') {
+    return field.checked ? 'true' : 'false';
+  }
+  if (field instanceof HTMLInputElement || field instanceof HTMLTextAreaElement || field instanceof HTMLSelectElement) {
+    return field.value;
+  }
+  return '';
+}
+
+function applyFieldDraftValue(field: HTMLElement, value: string): void {
+  if (field instanceof HTMLInputElement && field.type === 'checkbox') {
+    field.checked = value === 'true';
     return;
   }
-  tags.innerHTML = tokens
-    .map(
-      (token, index) =>
-        `<span class="cmdl-chip-tag">${escapeHTML(token)}<button type="button" class="cmdl-chip-tag__x" data-cmdl-chip-remove="${index}" aria-label="Remove ${escapeHTML(token)}">×</button></span>`
-    )
-    .join('');
+  if (field instanceof HTMLInputElement && field.dataset.cmdlChipsValue !== undefined) {
+    const holder = field.closest<HTMLElement>('[data-cmdl-chips]');
+    if (holder) {
+      renderChipTags(holder, value ? value.split('\n').map((token) => token.trim()).filter(Boolean) : []);
+    } else {
+      field.value = value;
+    }
+    return;
+  }
+  if (field instanceof HTMLInputElement || field instanceof HTMLTextAreaElement || field instanceof HTMLSelectElement) {
+    field.value = value;
+  }
+}
+
+function captureFormDraft(form: HTMLElement): void {
+  const actionId = lower(form.dataset.actionId || '');
+  if (!actionId) {
+    return;
+  }
+  const draft: Record<string, string> = {};
+  form.querySelectorAll<HTMLElement>('[data-action-field]').forEach((field) => {
+    const name = str(field.dataset.actionField);
+    if (name) {
+      draft[name] = readFieldDraftValue(field);
+    }
+  });
+  formDrafts.set(actionId, draft);
+}
+
+function captureFormFor(el: HTMLElement): void {
+  const form = el.closest<HTMLElement>('[data-panel-action-form]');
+  if (form) {
+    captureFormDraft(form);
+  }
+}
+
+function applyFormDraft(form: HTMLElement): void {
+  const actionId = lower(form.dataset.actionId || '');
+  const draft = actionId ? formDrafts.get(actionId) : undefined;
+  if (!draft) {
+    return;
+  }
+  form.querySelectorAll<HTMLElement>('[data-action-field]').forEach((field) => {
+    const name = str(field.dataset.actionField);
+    if (name && Object.prototype.hasOwnProperty.call(draft, name)) {
+      applyFieldDraftValue(field, draft[name]);
+    }
+  });
+}
+
+// Commit any text left in a chip entry (typed but not yet turned into a token)
+// before the payload is read, so unfinished input is not silently dropped.
+function flushPendingChips(scope: HTMLElement): void {
+  scope.querySelectorAll<HTMLElement>('[data-cmdl-chips]').forEach((holder) => {
+    const entry = holder.querySelector<HTMLInputElement>('[data-cmdl-chips-entry]');
+    if (entry && entry.value.trim()) {
+      addChipTokens(holder, entry.value);
+      entry.value = '';
+    }
+  });
 }
 
 function addChipTokens(holder: HTMLElement, raw: string): void {
@@ -825,8 +1003,16 @@ export function attachCommandLauncherListeners(container: HTMLElement): void {
 
   initChips(root);
 
-  // Restore the previously selected command across re-renders.
-  if (selectedActionId && root.querySelector(`[data-cmdl-item="${cssEscape(selectedActionId)}"]`)) {
+  // Rehydrate in-progress form drafts so a re-render does not wipe input.
+  root.querySelectorAll<HTMLElement>('[data-panel-action-form]').forEach((form) => applyFormDraft(form));
+
+  // Restore filter text and the previously selected command across re-renders.
+  const filter = root.querySelector<HTMLInputElement>('[data-cmdl-filter]');
+  if (filter && filterText) {
+    filter.value = filterText;
+    applyFilter(root, filterText);
+  }
+  if (selectedActionId && root.querySelector(`[data-cmdl-item="${attrValueEscape(selectedActionId)}"]`)) {
     selectCommand(root, selectedActionId);
   }
 
@@ -858,14 +1044,17 @@ export function attachCommandLauncherListeners(container: HTMLElement): void {
         if (Number.isInteger(index)) {
           tokens.splice(index, 1);
           renderChipTags(holder, tokens);
+          captureFormFor(holder);
         }
       }
     }
   });
 
-  const filter = root.querySelector<HTMLInputElement>('[data-cmdl-filter]');
   if (filter) {
-    filter.addEventListener('input', () => applyFilter(root, filter.value));
+    filter.addEventListener('input', () => {
+      filterText = filter.value;
+      applyFilter(root, filter.value);
+    });
     filter.addEventListener('keydown', (event) => {
       if (event.key === 'ArrowDown' || event.key === 'Enter') {
         const first = visibleItems(root)[0];
@@ -880,6 +1069,28 @@ export function attachCommandLauncherListeners(container: HTMLElement): void {
       }
     });
   }
+
+  // Persist field edits to the draft store so they survive a re-render.
+  const captureFromEvent = (event: Event) => {
+    const target = event.target as HTMLElement | null;
+    const field = target?.closest<HTMLElement>('[data-action-field]');
+    if (field) {
+      captureFormFor(field);
+    }
+  };
+  root.addEventListener('input', captureFromEvent);
+  root.addEventListener('change', captureFromEvent);
+
+  // Commit pending chip text (typed but not yet tokenized) before the payload is
+  // read. Capture phase runs before the form's own bubble-phase submit handler.
+  root.addEventListener('submit', (event) => {
+    const target = event.target as HTMLElement | null;
+    const form = target?.closest<HTMLElement>('[data-panel-action-form]');
+    if (form) {
+      flushPendingChips(form);
+      captureFormDraft(form);
+    }
+  }, true);
 
   root.addEventListener('keydown', (event) => {
     const target = event.target as HTMLElement;
@@ -899,6 +1110,7 @@ export function attachCommandLauncherListeners(container: HTMLElement): void {
         if (holder) {
           addChipTokens(holder, entry.value);
           entry.value = '';
+          captureFormFor(holder);
         }
       } else if (event.key === 'Backspace' && entry.value === '') {
         const holder = entry.closest<HTMLElement>('[data-cmdl-chips]');
@@ -906,6 +1118,7 @@ export function attachCommandLauncherListeners(container: HTMLElement): void {
           const tokens = chipTokens(holder);
           tokens.pop();
           renderChipTags(holder, tokens);
+          captureFormFor(holder);
         }
       }
       return;
@@ -943,13 +1156,18 @@ export function attachCommandLauncherListeners(container: HTMLElement): void {
       if (holder) {
         addChipTokens(holder, text);
         entry.value = '';
+        captureFormFor(holder);
       }
     }
   });
 
-  // After a native form reset, re-sync chip tags from the restored hidden value.
+  // After a native form reset, drop the saved draft and re-sync chips to defaults.
   root.addEventListener('reset', (event) => {
     const form = event.target as HTMLElement;
+    const actionId = lower(form.dataset.actionId || '');
+    if (actionId) {
+      formDrafts.delete(actionId);
+    }
     window.setTimeout(() => {
       form.querySelectorAll<HTMLElement>('[data-cmdl-chips]').forEach((holder) => {
         renderChipTags(holder, chipTokens(holder));
@@ -958,14 +1176,11 @@ export function attachCommandLauncherListeners(container: HTMLElement): void {
   });
 }
 
-// Minimal CSS.escape fallback for attribute selectors (action ids are
-// lowercase identifiers, but stay defensive).
-function cssEscape(value: string): string {
-  const native = (globalThis as { CSS?: { escape?: (v: string) => string } }).CSS;
-  if (native && typeof native.escape === 'function') {
-    return native.escape(value);
-  }
-  return value.replace(/["\\\]]/g, '\\$&');
+// Escape a value for use inside a double-quoted attribute selector. CSS.escape
+// targets identifier context and would corrupt quoted values such as `cmd:foo`,
+// so only backslashes and double quotes need escaping here.
+function attrValueEscape(value: string): string {
+  return value.replace(/["\\]/g, '\\$&');
 }
 
 // Register the console override for the command launcher panel. Importing this
