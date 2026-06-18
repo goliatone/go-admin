@@ -21,8 +21,9 @@ This guide covers the frontend TypeScript architecture of the go-admin debug sys
 6. [Shared Renderers](#6-shared-renderers)
 7. [JS Error Collector](#7-js-error-collector)
 8. [Adding Application Code](#8-adding-application-code)
-9. [Build and Asset Pipeline](#9-build-and-asset-pipeline)
-10. [Key Files](#10-key-files)
+9. [Command Launcher Panel](#9-command-launcher-panel)
+10. [Build and Asset Pipeline](#10-build-and-asset-pipeline)
+11. [Key Files](#11-key-files)
 
 ---
 
@@ -617,7 +618,34 @@ ws.onmessage = (event) => {
 
 ---
 
-## 9. Build and Asset Pipeline
+## 9. Command Launcher Panel
+
+The `commands` debug panel is server-hydrated but uses a dedicated console
+renderer override. The server action contract remains authoritative:
+`ui.actions[].fields[]` drives form rendering and dispatch, while
+`ui.metadata.serialized_schemas` is only supporting schema metadata.
+
+Launcher fields use these presentation inputs when available:
+
+- `default`: prefilled into the typed control.
+- `description` or `help`: rendered as inline field help.
+- `display_hints.section`: authored section label.
+- `display_hints.advanced`: moves the field to the collapsible Advanced section.
+- `display_hints.units`: rendered next to the field help.
+
+If action fields and `serialized_schemas` disagree, action fields win. If no
+section/advanced hints are present, the client falls back to heuristic grouping
+so older descriptors still render.
+
+Command results stay inline in the panel. The result card shows receipt metadata
+such as correlation id, dispatch id, execution mode, and status reference when
+the backend returns them. There is no "View command run" link until a durable
+command-run panel or route defines a stable panel id, snapshot key, correlation
+filter, and anchor contract. The Retry button re-submits the last submitted
+payload through the same panel action path, including mutating-command
+confirmation.
+
+## 10. Build and Asset Pipeline
 
 The debug TypeScript source lives in `pkg/client/assets/src/debug/` and is
 compiled to `pkg/client/assets/dist/debug/`. The built assets are embedded in
@@ -647,7 +675,7 @@ will pick up new panels automatically.
 
 ---
 
-## 10. Key Files
+## 11. Key Files
 
 | File | Description |
 |------|-------------|

@@ -1095,6 +1095,32 @@ debug.SetRegistryVersion("v1")
 The collector-based `RegisterPanel` method remains supported and automatically
 registers panel metadata with the registry when used.
 
+### Command Launcher Presentation Hints
+
+The built-in `commands` debug panel renders command descriptors from
+`go-command`. Backend descriptor fields remain declarative and JSON-safe:
+
+- Use `CommandInputField.Default` for prefilled values.
+- Use `CommandInputField.Description` or `Help` for inline field help.
+- Use `CommandInputField.DisplayHints` for launcher-only presentation hints:
+  - `section`: string section label.
+  - `advanced`: boolean.
+  - `units`: string suffix/help text.
+
+go-admin serializes these values into `PanelUIActionField` as `default` and
+`display_hints`, and mirrors sanitized values in
+`ui.metadata.serialized_schemas`. The action field contract is authoritative for
+rendering and dispatch; `serialized_schemas` is supporting metadata. Do not put
+functions, raw HTML, or non-JSON values in descriptor defaults or display hints.
+Unsupported values are dropped.
+
+The result panel exposes receipt metadata such as correlation id, dispatch id,
+execution mode, and status reference when the command response includes them.
+There is currently no core command-run debug panel or route contract, so the
+launcher does not render a "View command run" link. Retry re-submits the last
+submitted payload through the same debug panel action route and repeats
+mutating-command confirmation.
+
 ### Example: Metrics Panel (Server-Side)
 
 ```go
