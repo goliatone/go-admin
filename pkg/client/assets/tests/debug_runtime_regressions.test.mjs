@@ -1041,7 +1041,7 @@ test('debug panel renders selectable action forms and field validation errors', 
   });
 });
 
-test('commands panel retry confirms again and reuses the last submitted payload', async () => {
+test('commands panel confirms inline (no browser dialog) and retry reuses the last submitted payload', async () => {
   const dom = createDebugDOM();
   setGlobals(dom.window);
   globalThis.WebSocket = OpenWebSocket;
@@ -1141,7 +1141,15 @@ test('commands panel retry confirms again and reuses the last submitted payload'
   const form = dom.window.document.querySelector('[data-panel-action-form][data-action-id="dispatch_archive_generate"]');
   const input = form.querySelector('[data-action-field="scope"]');
   input.value = 'custom-run';
+
+  // First submit reveals the inline confirmation instead of dispatching.
   form.dispatchEvent(new dom.window.Event('submit', { bubbles: true, cancelable: true }));
+  const confirmRow = form.querySelector('[data-cmdl-confirm-row]');
+  assert.ok(confirmRow && !confirmRow.hidden, 'inline confirm row is shown');
+  assert.equal(submittedPayloads.length, 0, 'nothing dispatches before confirmation');
+
+  // Confirming dispatches once with the entered payload.
+  form.querySelector('[data-cmdl-confirm-run]').dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }));
 
   await waitForAssertion(() => {
     assert.equal(submittedPayloads.length, 1);
@@ -1153,6 +1161,8 @@ test('commands panel retry confirms again and reuses the last submitted payload'
     assert.ok(dom.window.document.querySelector('[data-cmdl-retry]'));
   });
 
+  // Retry reuses the last submitted payload and dispatches directly (an explicit
+  // re-run of an already-confirmed command does not re-confirm).
   input.value = 'changed-after-submit';
   dom.window.document
     .querySelector('[data-cmdl-retry]')
@@ -1161,8 +1171,9 @@ test('commands panel retry confirms again and reuses the last submitted payload'
   await waitForAssertion(() => {
     assert.equal(submittedPayloads.length, 2);
     assert.deepEqual(submittedPayloads[1], submittedPayloads[0]);
-    assert.deepEqual(confirmations, ['Run Generate archive?', 'Run Generate archive?']);
   });
+  // The blocking browser dialog is gone: window.confirm is never called.
+  assert.deepEqual(confirmations, []);
 });
 
 test('debug panel restores built-in Site Cache when it remains enabled', async () => {
