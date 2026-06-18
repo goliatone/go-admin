@@ -93,6 +93,7 @@ function stageRuntimeAssets() {
     resolve(root, 'src/styles/debug/console.css'),
     resolve(root, 'src/styles/debug/prism-catppuccin.css'),
     resolve(root, 'src/styles/debug/expandable-rows.css'),
+    resolve(root, 'src/styles/debug/command-launcher.css'),
   ]);
   copyFile(resolve(root, 'src/styles/widgets.css'), resolve(distStagingDir, 'styles/widgets.css'));
   copyFile(resolve(root, 'src/styles/error-page.css'), resolve(distStagingDir, 'styles/error-page.css'));

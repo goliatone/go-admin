@@ -1,7 +1,7 @@
 import { escapeHTML as s } from "../shared/html.js";
 import { normalizeDebugBasePath as te } from "../debug/shared/path-helpers.js";
 import { r as m } from "./icons-SGrt9O6P.js";
-import { C as f, D as P, F as h, I as U, L as oe, M as j, N as C, O as re, P as b, T as y, i as ne, j as A, k as se, v as S, z as k } from "./server-definitions-JppbKFji.js";
+import { A as oe, B as k, E as y, F as b, I as h, L as U, M as A, N as j, O as P, P as C, R as re, a as ne, k as se, w as f, y as S } from "./server-definitions-Cw_avwJX.js";
 var ae = 1e3, ie = 12e3, le = 8, de = 1, ce = 3e4, pe = (e) => {
   const t = window.location.protocol === "https:" ? "wss:" : "ws:", o = te(e);
   return `${t}//${window.location.host}${o}/ws`;
@@ -375,7 +375,7 @@ var he = {
   badge: "badge",
   badgeMethod: (e) => `badge badge-method ${e.toLowerCase()}`,
   badgeStatus: (e) => {
-    const t = oe(e);
+    const t = re(e);
     return t ? `badge badge-status ${t}` : "badge badge-status";
   },
   badgeLevel: (e) => `badge badge-level ${U(e)}`,
@@ -635,7 +635,7 @@ function _e(e, t, o) {
   `;
 }
 function ze(e, t, o, r) {
-  const n = j(e.duration, r.slowThresholdMs), a = n.isSlow, l = !!e.error, d = `sql-row-${t}`, c = e.query || "", i = re(c, !0), p = [o.expandableRow];
+  const n = j(e.duration, r.slowThresholdMs), a = n.isSlow, l = !!e.error, d = `sql-row-${t}`, c = e.query || "", i = se(c, !0), p = [o.expandableRow];
   a && p.push(o.slowQuery), l && p.push(o.errorQuery);
   const u = a ? o.durationSlow : "", g = _e(o, r.useIconCopyButton || !1, d);
   return `
@@ -788,7 +788,7 @@ function Ne(e, t) {
   `;
 }
 function Pe(e, t, o) {
-  const { useIconCopyButton: r = !1, showCount: n = !0 } = o, a = C(e), l = P(e, !0), d = Le(t, r), c = n ? `<span class="${t.muted}">${b(se(e))} keys</span>` : "";
+  const { useIconCopyButton: r = !1, showCount: n = !0 } = o, a = C(e), l = P(e, !0), d = Le(t, r), c = n ? `<span class="${t.muted}">${b(oe(e))} keys</span>` : "";
   return `
     <div class="${t.jsonPanel}" data-copy-content="${s(a)}">
       <div class="${t.jsonHeader}">
@@ -3259,4 +3259,4 @@ export {
   Kt as y
 };
 
-//# sourceMappingURL=builtin-panels-BWgWjUp0.js.map
+//# sourceMappingURL=builtin-panels-Df3h6Xh_.js.map

@@ -57,6 +57,11 @@ import {
 import { renderDebugIconRef } from './shared/icons.js';
 import { buildPanelActionPayload } from './shared/panel-actions.js';
 import { hydrateServerPanelDefinitions } from './shared/server-definitions.js';
+import {
+  attachCommandLauncherListeners,
+  extractCommandLauncherResult,
+  renderCommandLauncherResultCard,
+} from './shared/panels/command-launcher.js';
 import { httpRequest, readHTTPError } from '../shared/transport/http-client.js';
 // Import to ensure built-in panels are registered
 import './shared/builtin-panels.js';
@@ -986,6 +991,9 @@ export class DebugPanel {
       this.attachSessionActions();
     }
     this.attachPanelActionListeners();
+    if (panel === 'commands') {
+      attachCommandLauncherListeners(this.panelEl);
+    }
     this.renderStoredPanelActionResult(panel);
   }
 
@@ -1079,6 +1087,23 @@ export class DebugPanel {
     const target = Array.from(this.panelEl.querySelectorAll<HTMLElement>('[data-panel-action-result]'))
       .find((element) => element.dataset.panelActionResult === panelID);
     if (!target) {
+      return;
+    }
+    if (panelID === 'commands') {
+      const parsed = extractCommandLauncherResult(result.status, result.message, result.data, result.errors);
+      const fieldErrors: Record<string, unknown> = {};
+      parsed.validationErrors.forEach((entry) => {
+        if (entry.path) {
+          fieldErrors[entry.path] = entry.message || entry.code;
+        }
+      });
+      if (result.errors && typeof result.errors === 'object') {
+        Object.assign(fieldErrors, result.errors);
+      }
+      // Map validation paths onto the originating fields (side-effect). The card
+      // lists the full set, so the leftover return value is intentionally unused.
+      this.renderPanelActionErrors(fieldErrors, result.actionID);
+      target.innerHTML = renderCommandLauncherResultCard(parsed);
       return;
     }
     const formErrors = this.renderPanelActionErrors(result.errors, result.actionID);

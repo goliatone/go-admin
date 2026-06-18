@@ -423,6 +423,38 @@ function renderPanelActionField(
   `;
 }
 
+/**
+ * Context handed to a custom console renderer override.
+ * `def` is the validated server definition (including `ui.actions`), `data` is
+ * the live snapshot payload for the panel.
+ */
+export type ServerPanelConsoleRendererContext = {
+  def: ServerPanelDefinition;
+  data: unknown;
+  styles: StyleConfig;
+  useIconCopyButton: boolean;
+};
+
+export type ServerPanelConsoleRenderer = (ctx: ServerPanelConsoleRendererContext) => string;
+
+const serverPanelConsoleRenderers = new Map<string, ServerPanelConsoleRenderer>();
+
+/**
+ * Register a bespoke console renderer for a specific server panel id.
+ *
+ * The override only replaces the full debug-console render for that panel; the
+ * toolbar continues to use the generic schema renderer, and every other panel
+ * is untouched. The override still receives the validated `ui` (with its action
+ * contract) so it can emit the existing `data-panel-action-*` form markup and
+ * reuse the shared dispatch wiring.
+ */
+export function registerServerPanelConsoleRenderer(panelID: string, renderer: ServerPanelConsoleRenderer): void {
+  const id = normalizeID(panelID);
+  if (id && typeof renderer === 'function') {
+    serverPanelConsoleRenderers.set(id, renderer);
+  }
+}
+
 export function panelDefinitionFromServer(serverDef: ServerPanelDefinition): PanelDefinition | null {
   const id = normalizeID(serverDef.id);
   if (!id) {
@@ -433,6 +465,10 @@ export function panelDefinitionFromServer(serverDef: ServerPanelDefinition): Pan
   const degradedReason = unsupportedUIReason(serverDef.ui);
   const ui = degradedReason === null && isSupportedUI(serverDef.ui) ? serverDef.ui : undefined;
   const renderDef = ui ? serverDef : { ...serverDef, ui: undefined };
+  const consoleOverride = ui ? serverPanelConsoleRenderers.get(id) : undefined;
+  const renderConsoleOverride = consoleOverride
+    ? (data: unknown, styles: StyleConfig) => consoleOverride({ def: renderDef, data, styles, useIconCopyButton: true })
+    : undefined;
   return {
     id,
     label,
@@ -447,10 +483,12 @@ export function panelDefinitionFromServer(serverDef: ServerPanelDefinition): Pan
     renderFilters: ui?.filters?.length ? (state) => renderFilterControls(ui, state) : undefined,
     defaultFilters: ui?.filters?.length ? defaultFilterState(ui) : undefined,
     applyFilters: ui?.filters?.length ? (data, state) => applyDeclaredFilters(data, state, ui) : undefined,
-    render: (data, styles) => renderServerPanelView(renderDef, ui?.views?.console || ui?.views?.toolbar, data, styles, true, degradedReason),
-    renderConsole: (data, styles) => renderServerPanelView(renderDef, ui?.views?.console || ui?.views?.toolbar, data, styles, true, degradedReason),
+    render: renderConsoleOverride || ((data, styles) => renderServerPanelView(renderDef, ui?.views?.console || ui?.views?.toolbar, data, styles, true, degradedReason)),
+    renderConsole: renderConsoleOverride || ((data, styles) => renderServerPanelView(renderDef, ui?.views?.console || ui?.views?.toolbar, data, styles, true, degradedReason)),
     renderToolbar: (data, styles) => renderServerPanelView(renderDef, ui?.views?.toolbar || ui?.views?.console, data, styles, false, degradedReason),
-    showFilters: Boolean(ui?.filters?.length),
+    // Custom console panels own their own filtering, so the generic object-key
+    // search must not be applied to their structured snapshot payload.
+    showFilters: consoleOverride ? false : Boolean(ui?.filters?.length),
   };
 }
 

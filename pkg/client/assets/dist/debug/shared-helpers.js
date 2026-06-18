@@ -1,25 +1,26 @@
-import { i as a, n, r as s, t } from "../chunks/icons-SGrt9O6P.js";
-import { C as l, a as r, c as i, d as p, f as g, g as f, h as D, i as u, l as P, m, n as b, o as c, p as d, r as v, s as h, t as y, u as E } from "../chunks/server-definitions-JppbKFji.js";
+import { i as a, n, r as s, t as o } from "../chunks/icons-SGrt9O6P.js";
+import { _ as t, a as l, c as i, d as g, f as p, g as f, h as D, i as P, l as u, m, n as b, o as d, p as v, r as c, s as S, t as h, u as y, w as E } from "../chunks/server-definitions-Cw_avwJX.js";
 export {
-  t as DEBUG_ICON_REFS,
-  u as applyCustomEventPayload,
-  r as applyDebugEventToSnapshot,
-  c as buildEventToPanel,
-  h as fetchDebugSnapshot,
-  y as fetchServerPanelDefinitions,
+  o as DEBUG_ICON_REFS,
+  l as applyCustomEventPayload,
+  d as applyDebugEventToSnapshot,
+  S as buildEventToPanel,
+  i as fetchDebugSnapshot,
+  h as fetchServerPanelDefinitions,
   n as getDebugIconRef,
-  i as getDefaultPanels,
-  P as getDefaultToolbarPanels,
-  E as getPanelEventTypes,
+  u as getDefaultPanels,
+  y as getDefaultToolbarPanels,
+  g as getPanelEventTypes,
   p as getPanelIcon,
-  g as getPanelLabel,
-  d as getToolbarCounts,
+  v as getPanelLabel,
+  m as getToolbarCounts,
   b as hydrateServerPanelDefinitions,
-  m as isKnownPanel,
-  D as normalizeReplCommands,
-  v as panelDefinitionFromServer,
-  l as panelRegistry,
+  D as isKnownPanel,
+  f as normalizeReplCommands,
+  c as panelDefinitionFromServer,
+  E as panelRegistry,
+  P as registerServerPanelConsoleRenderer,
   s as renderDebugIcon,
   a as renderDebugIconRef,
-  f as replPanelIDs
+  t as replPanelIDs
 };
