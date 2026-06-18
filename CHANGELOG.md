@@ -1,5 +1,11 @@
 # Changelog
 
+# [0.100.1](https://github.com/goliatone/go-admin/compare/v0.100.0...v0.100.1) - (2026-06-18)
+
+## <!-- 16 -->➕ Add
+
+- Better error display in command pannel ([ffcb61f](https://github.com/goliatone/go-admin/commit/ffcb61f52dc9f823d86e85c4d5e676261d3bf5b5))  - (goliatone)
+
 # [0.100.0](https://github.com/goliatone/go-admin/compare/v0.99.0...v0.100.0) - (2026-06-18)
 
 ## <!-- 1 -->🐛 Bug Fixes
@@ -7,6 +13,10 @@
 - Hidden actions not invoking stored handlers ([4e90961](https://github.com/goliatone/go-admin/commit/4e909610f416392ffa1ca07a50b95e447d35bf23))  - (goliatone)
 - Debug collector dynamic handlers ([940b0cc](https://github.com/goliatone/go-admin/commit/940b0ccc3cd05cc03116e05f3fd2c83d59b5f270))  - (goliatone)
 - Optimize queries ([afcd368](https://github.com/goliatone/go-admin/commit/afcd368865f08761bd27ea04d5faa99ffe4c25e2))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.100.0 ([5fd787e](https://github.com/goliatone/go-admin/commit/5fd787e10a46d322747a27e02193b05480015f4e))  - (goliatone)
 
 ## <!-- 16 -->➕ Add
 
