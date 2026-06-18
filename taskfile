@@ -23,7 +23,7 @@ PATH=$(pwd)/node_modules/.bin:$PATH
 PATH=$(pwd)/src/bin:$PATH
 
 GO_TOOLCHAIN="${GO_TOOLCHAIN:-local}"
-GO_GOLANGCI_LINT_VERSION="${GO_GOLANGCI_LINT_VERSION:-v2.11.3}"
+GO_GOLANGCI_LINT_VERSION="${GO_GOLANGCI_LINT_VERSION:-v2.12.2}"
 GO_GOLANGCI_LINT_VERSION_FILE="${GO_GOLANGCI_LINT_VERSION_FILE:-.golangci-lint-version}"
 GO_GOVULNCHECK_VERSION="${GO_GOVULNCHECK_VERSION:-v1.1.4}"
 GO_GOSEC_VERSION="${GO_GOSEC_VERSION:-v2.25.0}"
@@ -152,7 +152,7 @@ function _go:tool:install {
 
     go_bin=$(_go:bin) || return 1
     _go:quality:prepare_env || return 1
-    echo "Installing ${name} (${target})"
+    echo "Installing ${name} (${target})" >&2
     GOTOOLCHAIN="${GO_TOOLCHAIN}" "${go_bin}" install "${target}" || return 1
     _go:tool:path "${name}" || return 1
 }
@@ -168,6 +168,20 @@ function _go:tool:ensure {
     fi
 
     _go:tool:install "${name}" "${target}"
+}
+
+function _go:golangci_lint:ensure {
+    local version=$1
+    local tool_path
+
+    if tool_path=$(_go:tool:path "golangci-lint" 2>/dev/null); then
+        if "${tool_path}" version 2>/dev/null | grep -q "version ${version#v}"; then
+            printf '%s\n' "${tool_path}"
+            return 0
+        fi
+    fi
+
+    _go:tool:install "golangci-lint" "github.com/golangci/golangci-lint/v2/cmd/golangci-lint@${version}"
 }
 
 function _go:packages {
@@ -361,7 +375,7 @@ function go:lint {
     local -a patterns=()
 
     version="$(_go:golangci_lint_version)" || return 1
-    golangci_lint_bin=$(_go:tool:ensure "golangci-lint" "github.com/golangci/golangci-lint/v2/cmd/golangci-lint@${version}") || return 1
+    golangci_lint_bin=$(_go:golangci_lint:ensure "${version}") || return 1
     _go:quality:prepare_env || return 1
     while IFS= read -r pattern; do
         if [ -n "${pattern}" ]; then
@@ -377,7 +391,7 @@ function go:lint:fix {
     local -a patterns=()
 
     version="$(_go:golangci_lint_version)" || return 1
-    golangci_lint_bin=$(_go:tool:ensure "golangci-lint" "github.com/golangci/golangci-lint/v2/cmd/golangci-lint@${version}") || return 1
+    golangci_lint_bin=$(_go:golangci_lint:ensure "${version}") || return 1
     _go:quality:prepare_env || return 1
     while IFS= read -r pattern; do
         if [ -n "${pattern}" ]; then
@@ -393,7 +407,7 @@ function go:lint:new {
     local -a patterns=()
 
     version="$(_go:golangci_lint_version)" || return 1
-    golangci_lint_bin=$(_go:tool:ensure "golangci-lint" "github.com/golangci/golangci-lint/v2/cmd/golangci-lint@${version}") || return 1
+    golangci_lint_bin=$(_go:golangci_lint:ensure "${version}") || return 1
     _go:quality:prepare_env || return 1
     while IFS= read -r pattern; do
         if [ -n "${pattern}" ]; then
@@ -409,7 +423,7 @@ function go:lint:report {
     local -a patterns=()
 
     version="$(_go:golangci_lint_version)" || return 1
-    golangci_lint_bin=$(_go:tool:ensure "golangci-lint" "github.com/golangci/golangci-lint/v2/cmd/golangci-lint@${version}") || return 1
+    golangci_lint_bin=$(_go:golangci_lint:ensure "${version}") || return 1
     _go:quality:prepare_env || return 1
     while IFS= read -r pattern; do
         if [ -n "${pattern}" ]; then
@@ -426,7 +440,7 @@ function go:lint:baseline {
     local -a patterns=()
 
     version="$(_go:golangci_lint_version)" || return 1
-    golangci_lint_bin=$(_go:tool:ensure "golangci-lint" "github.com/golangci/golangci-lint/v2/cmd/golangci-lint@${version}") || return 1
+    golangci_lint_bin=$(_go:golangci_lint:ensure "${version}") || return 1
     baseline_path="${GO_QUALITY_BASELINE_DIR}/golangci-lint.txt"
     _go:quality:prepare_env || return 1
     while IFS= read -r pattern; do
@@ -501,7 +515,7 @@ function go:baseline:update:golangci-lint {
     local -a patterns=()
 
     version="$(_go:golangci_lint_version)" || return 1
-    golangci_lint_bin=$(_go:tool:ensure "golangci-lint" "github.com/golangci/golangci-lint/v2/cmd/golangci-lint@${version}") || return 1
+    golangci_lint_bin=$(_go:golangci_lint:ensure "${version}") || return 1
     baseline_path="${GO_QUALITY_BASELINE_DIR}/golangci-lint.txt"
     _go:quality:prepare_env || return 1
     while IFS= read -r pattern; do
