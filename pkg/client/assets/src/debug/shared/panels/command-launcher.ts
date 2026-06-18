@@ -83,6 +83,17 @@ let selectedActionId = '';
 let filterText = '';
 const formDrafts = new Map<string, Record<string, string>>();
 
+// Operator-chosen master-list width (app-shell splitter). The panel rebuilds its
+// innerHTML on every snapshot, so the width lives in module scope (mirrored to
+// localStorage) and is re-applied on every attach, like the selection/filter.
+let sidebarWidth = 0; // 0 == unset → fall back to the CSS default track width.
+const SIDEBAR_DEFAULT_PX = 230;
+const SIDEBAR_MIN_PX = 180;
+const SIDEBAR_MAX_FALLBACK_PX = 640;
+const DETAIL_MIN_PX = 280;
+const SIDEBAR_KEYBOARD_STEP_PX = 24;
+const SIDEBAR_WIDTH_KEY = 'cmdl:sidebar-width';
+
 // Live command status received over the debug WebSocket (Phase 3 T11), keyed by
 // correlation id. The result card reflects the latest state for the command it
 // is showing — including completion pushed later by a host queue worker.
@@ -95,6 +106,7 @@ const commandStatusByCorrelation = new Map<string, CommandLiveStatus>();
 export function resetCommandLauncherState(): void {
   selectedActionId = '';
   filterText = '';
+  sidebarWidth = 0;
   formDrafts.clear();
   commandStatusByCorrelation.clear();
 }
@@ -592,11 +604,25 @@ function renderForm(entry: CatalogEntry): string {
       </div>`;
   }
 
+  // Mutating / confirm-required commands gate dispatch with an inline two-step
+  // confirmation in the action bar instead of a blocking browser dialog. The
+  // launcher owns this UX, so it tells the host (DebugPanel.runPanelAction) to
+  // skip its native window.confirm via data-action-confirm-inline; the server's
+  // requires_confirm signal is still surfaced honestly on the form.
+  const needsConfirm = requiresConfirm || confirm !== '';
   const note = mutating
     ? '<span class="cmdl-form__note">Confirms before running</span>'
     : '';
   const jsonToggle = fields.length > 0
     ? '<button type="button" class="cmdl-btn cmdl-btn--ghost cmdl-btn--json" data-cmdl-json-toggle title="Edit the raw JSON payload">JSON</button>'
+    : '';
+  const confirmRow = needsConfirm
+    ? `
+        <div class="cmdl-form__confirm" data-cmdl-confirm-row hidden>
+          <span class="cmdl-form__confirm-msg">${escapeHTML(confirm || 'Run this command?')}</span>
+          <button type="submit" class="cmdl-btn cmdl-btn--run cmdl-btn--confirm" data-cmdl-confirm-run>Confirm run</button>
+          <button type="button" class="cmdl-btn cmdl-btn--ghost" data-cmdl-cancel>Cancel</button>
+        </div>`
     : '';
 
   return `
@@ -605,13 +631,17 @@ function renderForm(entry: CatalogEntry): string {
       data-action-id="${escapeHTML(entry.actionId)}"
       data-action-confirm="${escapeHTML(confirm)}"
       data-action-requires-confirm="${requiresConfirm ? 'true' : 'false'}"
+      data-cmdl-confirm="${needsConfirm ? 'true' : 'false'}"
+      ${needsConfirm ? 'data-action-confirm-inline="true"' : ''}
       data-action-payload='${serializePayloadAttr(action.payload)}'>
       ${body}
-      <div class="cmdl-form__bar">
-        <button type="submit" class="cmdl-btn cmdl-btn--run">${escapeHTML(submitLabel)}</button>
-        <button type="reset" class="cmdl-btn cmdl-btn--ghost">Reset</button>
-        ${jsonToggle}
-        ${note}
+      <div class="cmdl-form__bar" data-cmdl-bar>
+        <div class="cmdl-form__bar-main" data-cmdl-bar-main>
+          <button type="submit" class="cmdl-btn cmdl-btn--run">${escapeHTML(submitLabel)}</button>
+          <button type="reset" class="cmdl-btn cmdl-btn--ghost">Reset</button>
+          ${jsonToggle}
+          ${note}
+        </div>${confirmRow}
       </div>
     </form>`;
 }
@@ -698,8 +728,10 @@ export function renderCommandLauncherConsole(ctx: ServerPanelConsoleRendererCont
 
   return `
     <div class="cmdl" data-cmdl-root>
-      <div class="cmdl__body">
+      <div class="cmdl__body" data-cmdl-body>
         ${renderList(grouped, entries.length)}
+        <div class="cmdl__resizer" data-cmdl-resizer role="separator" aria-orientation="vertical"
+          aria-label="Resize command list" tabindex="0"></div>
         <section class="cmdl__detail" data-cmdl-detailcol>
           <div class="cmdl-detail__empty" data-cmdl-empty>Select a command from the list to configure and run it.</div>
           ${details}
@@ -1316,6 +1348,113 @@ function initChips(root: HTMLElement): void {
   });
 }
 
+// ============================================================================
+// Master-list resize (app-shell splitter)
+// ============================================================================
+
+function readStoredSidebarWidth(): number {
+  const store = launcherStorage();
+  if (!store) {
+    return 0;
+  }
+  try {
+    const raw = Number(store.getItem(SIDEBAR_WIDTH_KEY));
+    return Number.isFinite(raw) && raw >= SIDEBAR_MIN_PX ? raw : 0;
+  } catch {
+    return 0;
+  }
+}
+
+// Upper bound keeps a usable detail column; falls back when layout width is not
+// yet measurable (e.g. before first paint or in a headless DOM).
+function sidebarMaxWidth(body: HTMLElement): number {
+  const available = body.clientWidth || 0;
+  return available > 0 ? Math.max(SIDEBAR_MIN_PX, available - DETAIL_MIN_PX) : SIDEBAR_MAX_FALLBACK_PX;
+}
+
+function applySidebarWidth(body: HTMLElement, width: number): number {
+  const clamped = Math.min(Math.max(Math.round(width), SIDEBAR_MIN_PX), sidebarMaxWidth(body));
+  sidebarWidth = clamped;
+  body.style.setProperty('--cmdl-sidebar-w', `${clamped}px`);
+  const store = launcherStorage();
+  if (store) {
+    try {
+      store.setItem(SIDEBAR_WIDTH_KEY, String(clamped));
+    } catch {
+      // best-effort persistence
+    }
+  }
+  return clamped;
+}
+
+function restoreSidebarWidth(body: HTMLElement): void {
+  if (!sidebarWidth) {
+    sidebarWidth = readStoredSidebarWidth();
+  }
+  if (sidebarWidth) {
+    body.style.setProperty('--cmdl-sidebar-w', `${sidebarWidth}px`);
+  }
+}
+
+// The panel re-renders innerHTML on every snapshot, so the splitter is re-wired
+// (and the persisted width re-applied) on each attach, like the selection/filter.
+function wireSidebarResizer(root: HTMLElement): void {
+  const resizer = root.querySelector<HTMLElement>('[data-cmdl-resizer]');
+  const body = root.querySelector<HTMLElement>('[data-cmdl-body]');
+  if (!resizer || !body) {
+    return;
+  }
+  restoreSidebarWidth(body);
+
+  resizer.addEventListener('pointerdown', (event) => {
+    event.preventDefault();
+    const startX = event.clientX;
+    const startWidth = sidebarWidth || SIDEBAR_DEFAULT_PX;
+    if (typeof resizer.setPointerCapture === 'function') {
+      try { resizer.setPointerCapture(event.pointerId); } catch { /* capture unsupported */ }
+    }
+    const onMove = (move: PointerEvent) => applySidebarWidth(body, startWidth + (move.clientX - startX));
+    const onUp = (up: PointerEvent) => {
+      applySidebarWidth(body, startWidth + (up.clientX - startX));
+      resizer.removeEventListener('pointermove', onMove);
+      resizer.removeEventListener('pointerup', onUp);
+      resizer.removeEventListener('pointercancel', onUp);
+    };
+    resizer.addEventListener('pointermove', onMove);
+    resizer.addEventListener('pointerup', onUp);
+    resizer.addEventListener('pointercancel', onUp);
+  });
+
+  resizer.addEventListener('keydown', (event) => {
+    if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') {
+      return;
+    }
+    event.preventDefault();
+    const current = sidebarWidth || SIDEBAR_DEFAULT_PX;
+    applySidebarWidth(body, current + (event.key === 'ArrowRight' ? SIDEBAR_KEYBOARD_STEP_PX : -SIDEBAR_KEYBOARD_STEP_PX));
+  });
+}
+
+// ============================================================================
+// Inline command confirmation (replaces the native window.confirm dialog)
+// ============================================================================
+
+function setConfirmRow(form: HTMLElement, show: boolean): void {
+  const main = form.querySelector<HTMLElement>('[data-cmdl-bar-main]');
+  const confirmRow = form.querySelector<HTMLElement>('[data-cmdl-confirm-row]');
+  if (!main || !confirmRow) {
+    return;
+  }
+  main.hidden = show;
+  confirmRow.hidden = !show;
+  const focusTarget = show
+    ? confirmRow.querySelector<HTMLElement>('[data-cmdl-confirm-run]')
+    : main.querySelector<HTMLElement>('button');
+  if (focusTarget && typeof focusTarget.focus === 'function') {
+    try { focusTarget.focus(); } catch { /* focus best-effort */ }
+  }
+}
+
 export function attachCommandLauncherListeners(container: HTMLElement): void {
   const root = container.querySelector<HTMLElement>('[data-cmdl-root]');
   if (!root) {
@@ -1323,6 +1462,9 @@ export function attachCommandLauncherListeners(container: HTMLElement): void {
   }
 
   initChips(root);
+
+  // Re-apply the persisted master-list width and re-wire the resize handle.
+  wireSidebarResizer(root);
 
   // Rehydrate in-progress form drafts so a re-render does not wipe input.
   root.querySelectorAll<HTMLElement>('[data-panel-action-form]').forEach((form) => applyFormDraft(form));
@@ -1352,6 +1494,27 @@ export function attachCommandLauncherListeners(container: HTMLElement): void {
       const form = jsonToggle.closest<HTMLElement>('[data-panel-action-form]');
       if (form) {
         setJsonMode(form, form.dataset.cmdlMode !== 'json');
+      }
+      return;
+    }
+
+    // Inline confirmation: arm the form so the submit gate lets this dispatch
+    // through. Do NOT preventDefault — the button is type=submit and the native
+    // submit must proceed to the host dispatcher.
+    const confirmRun = target.closest<HTMLElement>('[data-cmdl-confirm-run]');
+    if (confirmRun) {
+      const form = confirmRun.closest<HTMLElement>('[data-panel-action-form]');
+      if (form) {
+        form.dataset.cmdlArmed = 'true';
+      }
+      return;
+    }
+    const cancelConfirm = target.closest<HTMLElement>('[data-cmdl-cancel]');
+    if (cancelConfirm) {
+      const form = cancelConfirm.closest<HTMLElement>('[data-panel-action-form]');
+      if (form) {
+        delete form.dataset.cmdlArmed;
+        setConfirmRow(form, false);
       }
       return;
     }
@@ -1418,14 +1581,31 @@ export function attachCommandLauncherListeners(container: HTMLElement): void {
   root.addEventListener('input', captureFromEvent);
   root.addEventListener('change', captureFromEvent);
 
-  // Commit pending chip text (typed but not yet tokenized) before the payload is
-  // read. Capture phase runs before the form's own bubble-phase submit handler.
+  // Capture phase runs before the form's own bubble-phase submit handler (the
+  // host dispatcher), so this is where the launcher gates and prepares a submit.
   root.addEventListener('submit', (event) => {
     const target = event.target as HTMLElement | null;
     const form = target?.closest<HTMLElement>('[data-panel-action-form]');
-    if (form) {
-      flushPendingChips(form);
-      captureFormDraft(form);
+    if (!form) {
+      return;
+    }
+    // Inline confirmation gate: the first submit of a confirm-required command
+    // reveals the Confirm/Cancel row instead of dispatching. Pressing Enter in a
+    // field reaches this same path, so the confirmation cannot be bypassed.
+    if (form.dataset.cmdlConfirm === 'true' && form.dataset.cmdlArmed !== 'true') {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      setConfirmRow(form, true);
+      return;
+    }
+    // Armed (or no confirmation needed): commit pending chip text, snapshot the
+    // draft, then let the host dispatch. Reset the inline confirm UI so a later
+    // run on the same (un-refreshed) form re-confirms.
+    flushPendingChips(form);
+    captureFormDraft(form);
+    if (form.dataset.cmdlConfirm === 'true') {
+      delete form.dataset.cmdlArmed;
+      setConfirmRow(form, false);
     }
   }, true);
 

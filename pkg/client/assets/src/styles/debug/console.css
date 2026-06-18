@@ -454,6 +454,14 @@ body {
   flex-direction: column;
 }
 
+/* Command launcher fills the content area as an app-shell (master list + detail).
+   The container stays scrollable so a tall form grows the console rather than
+   scrolling inside a fixed-height pane. */
+.debug-content--launcher {
+  display: flex;
+  flex-direction: column;
+}
+
 .debug-repl {
   display: flex;
   flex-direction: column;

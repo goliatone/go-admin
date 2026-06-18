@@ -285,6 +285,75 @@ test('clicking a catalog row reveals its form; filtering narrows the list', asyn
   assert.equal(host.querySelector('[data-cmdl-item="dispatch_search_health"]').hidden, false);
 });
 
+test('mutating commands confirm inline instead of using a browser dialog', async () => {
+  const { renderCommandLauncherConsole, attachCommandLauncherListeners } = await importLauncher();
+  const html = renderCommandLauncherConsole({ def: sampleDef(), data: sampleData(), styles: {}, useIconCopyButton: true });
+  const dom = mount(html);
+  const host = dom.window.document.getElementById('host');
+  attachCommandLauncherListeners(host);
+
+  const form = host.querySelector('[data-action-id="dispatch_archive_generate"]');
+  // The launcher owns confirmation: it tells the host to skip window.confirm.
+  assert.equal(form.getAttribute('data-action-confirm-inline'), 'true');
+  assert.equal(form.getAttribute('data-cmdl-confirm'), 'true');
+
+  const barMain = form.querySelector('[data-cmdl-bar-main]');
+  const confirmRow = form.querySelector('[data-cmdl-confirm-row]');
+  assert.equal(barMain.hidden, false);
+  assert.equal(confirmRow.hidden, true);
+
+  // First submit (a click or Enter) is gated: it reveals the inline confirm row
+  // and is prevented from reaching the host dispatcher.
+  const submitOnce = new dom.window.Event('submit', { bubbles: true, cancelable: true });
+  form.dispatchEvent(submitOnce);
+  assert.equal(submitOnce.defaultPrevented, true);
+  assert.equal(confirmRow.hidden, false);
+  assert.equal(barMain.hidden, true);
+
+  // Clicking "Confirm run" arms the form; the next submit is allowed through and
+  // the inline confirm UI resets.
+  form.querySelector('[data-cmdl-confirm-run]').dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }));
+  assert.equal(form.dataset.cmdlArmed, 'true');
+
+  const submitArmed = new dom.window.Event('submit', { bubbles: true, cancelable: true });
+  form.dispatchEvent(submitArmed);
+  assert.equal(submitArmed.defaultPrevented, false);
+  assert.equal(form.dataset.cmdlArmed, undefined);
+  assert.equal(confirmRow.hidden, true);
+  assert.equal(barMain.hidden, false);
+});
+
+test('read-only commands dispatch immediately without inline confirmation', async () => {
+  const { renderCommandLauncherConsole } = await importLauncher();
+  const html = renderCommandLauncherConsole({ def: sampleDef(), data: sampleData(), styles: {}, useIconCopyButton: true });
+  const dom = mount(html);
+  const form = dom.window.document.querySelector('[data-action-id="dispatch_search_health"]');
+  assert.equal(form.getAttribute('data-cmdl-confirm'), 'false');
+  assert.equal(form.getAttribute('data-action-confirm-inline'), null);
+  assert.equal(form.querySelector('[data-cmdl-confirm-row]'), null);
+});
+
+test('master list width persists and is adjustable via keyboard', async () => {
+  const { renderCommandLauncherConsole, attachCommandLauncherListeners } = await importLauncher();
+  const html = renderCommandLauncherConsole({ def: sampleDef(), data: sampleData(), styles: {}, useIconCopyButton: true });
+  const dom = mount(html);
+  // Persisted width is restored on attach (the panel re-renders on every snapshot).
+  globalThis.localStorage.setItem('cmdl:sidebar-width', '300');
+  const host = dom.window.document.getElementById('host');
+  attachCommandLauncherListeners(host);
+
+  const body = host.querySelector('[data-cmdl-body]');
+  assert.equal(body.style.getPropertyValue('--cmdl-sidebar-w'), '300px');
+
+  const resizer = host.querySelector('[data-cmdl-resizer]');
+  resizer.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+  assert.equal(body.style.getPropertyValue('--cmdl-sidebar-w'), '324px');
+  assert.equal(globalThis.localStorage.getItem('cmdl:sidebar-width'), '324');
+
+  resizer.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true }));
+  assert.equal(body.style.getPropertyValue('--cmdl-sidebar-w'), '300px');
+});
+
 test('chips input accepts tokens via Enter and syncs the hidden value', async () => {
   const { renderCommandLauncherConsole, attachCommandLauncherListeners } = await importLauncher();
   const html = renderCommandLauncherConsole({ def: sampleDef(), data: sampleData(), styles: {}, useIconCopyButton: true });

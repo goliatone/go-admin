@@ -932,6 +932,10 @@ export class DebugPanel {
 
   private renderPanel(): void {
     const panel = this.activePanel;
+    // The command launcher fills the content area (app-shell layout); flag it so
+    // the host scroll container becomes a flex column. Toggled before any early
+    // return so it is cleared when switching to any other panel.
+    this.panelEl.classList.toggle('debug-content--launcher', panel === 'commands');
     const renderer = this.panelRenderers.get(panel);
     if (renderer) {
       renderer.render();
@@ -1045,7 +1049,10 @@ export class DebugPanel {
     }
     const confirmText = element.dataset.actionConfirm || '';
     const requiresConfirm = element.dataset.actionRequiresConfirm === 'true';
-    if ((requiresConfirm || confirmText) && !window.confirm(confirmText || 'Run this debug panel action?')) {
+    // Forms that own their confirmation UX (e.g. the command launcher's inline
+    // Confirm/Cancel step) opt out of the blocking browser dialog.
+    const inlineConfirm = element.dataset.actionConfirmInline === 'true';
+    if (!inlineConfirm && (requiresConfirm || confirmText) && !window.confirm(confirmText || 'Run this debug panel action?')) {
       return;
     }
     const payload = payloadOverride || buildPanelActionPayload(element);
