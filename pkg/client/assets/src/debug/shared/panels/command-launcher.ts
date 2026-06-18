@@ -571,21 +571,36 @@ function renderForm(entry: CatalogEntry): string {
   } else {
     const sections = buildSections(fields);
     let index = 0;
-    body = sections
+    const sectionsHtml = sections
       .map((section) => {
         const html = renderSection(section, entry.actionId, index);
         index += section.fields.length;
         return html;
       })
       .join('');
+    body = `
+      <div class="cmdl-recall" data-cmdl-recall data-cmdl-command="${escapeHTML(entry.commandId)}">
+        <div class="cmdl-recall__list" data-cmdl-recall-list></div>
+        <button type="button" class="cmdl-recall__save" data-cmdl-save-preset>Save preset</button>
+      </div>
+      <div class="cmdl-form__fields" data-cmdl-fields>${sectionsHtml}</div>
+      <div class="cmdl-form__json" data-cmdl-json hidden>
+        <textarea class="cmdl-json-editor" data-cmdl-json-editor
+          data-action-field="__payload__" data-action-field-kind="json" data-action-field-path="payload"
+          rows="10" spellcheck="false" aria-label="Raw JSON payload"></textarea>
+        <div class="cmdl-json-error" data-cmdl-json-error hidden></div>
+      </div>`;
   }
 
   const note = mutating
     ? '<span class="cmdl-form__note">Confirms before running</span>'
     : '';
+  const jsonToggle = fields.length > 0
+    ? '<button type="button" class="cmdl-btn cmdl-btn--ghost cmdl-btn--json" data-cmdl-json-toggle title="Edit the raw JSON payload">JSON</button>'
+    : '';
 
   return `
-    <form class="cmdl-form" data-panel-action-form
+    <form class="cmdl-form" data-panel-action-form data-cmdl-mode="form"
       data-panel-id="${escapeHTML(COMMAND_LAUNCHER_PANEL_ID)}"
       data-action-id="${escapeHTML(entry.actionId)}"
       data-action-confirm="${escapeHTML(confirm)}"
@@ -595,6 +610,7 @@ function renderForm(entry: CatalogEntry): string {
       <div class="cmdl-form__bar">
         <button type="submit" class="cmdl-btn cmdl-btn--run">${escapeHTML(submitLabel)}</button>
         <button type="reset" class="cmdl-btn cmdl-btn--ghost">Reset</button>
+        ${jsonToggle}
         ${note}
       </div>
     </form>`;
@@ -1013,6 +1029,273 @@ function flushPendingChips(scope: HTMLElement): void {
   });
 }
 
+// ============================================================================
+// Recent & saved invocations (Phase 3 T12) — client-local, defensive storage
+// ============================================================================
+
+const RECENT_LIMIT = 6;
+
+function launcherStorage(): Storage | null {
+  try {
+    return typeof localStorage !== 'undefined' ? localStorage : null;
+  } catch {
+    return null;
+  }
+}
+
+function readInvocationStore(key: string): Array<Record<string, unknown>> {
+  const store = launcherStorage();
+  if (!store) {
+    return [];
+  }
+  try {
+    const raw = store.getItem(key);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeInvocationStore(key: string, value: unknown): void {
+  const store = launcherStorage();
+  if (!store) {
+    return;
+  }
+  try {
+    store.setItem(key, JSON.stringify(value));
+  } catch {
+    // storage unavailable or over quota — recall is best-effort.
+  }
+}
+
+function recentKey(commandId: string): string {
+  return `cmdl:recent:${commandId}`;
+}
+function presetKey(commandId: string): string {
+  return `cmdl:preset:${commandId}`;
+}
+
+// Record a dispatched invocation (its inner field payload) for quick recall.
+export function recordCommandLauncherInvocation(envelope: unknown): void {
+  const data = envelope && typeof envelope === 'object' ? (envelope as Record<string, unknown>) : {};
+  const commandId = str(data.command_id);
+  const inner = data.payload && typeof data.payload === 'object' ? (data.payload as Record<string, unknown>) : {};
+  if (!commandId || Object.keys(inner).length === 0) {
+    return;
+  }
+  const key = recentKey(commandId);
+  const signature = JSON.stringify(inner);
+  const existing = readInvocationStore(key).filter((entry) => JSON.stringify(entry.payload) !== signature);
+  existing.unshift({ at: Date.now(), payload: inner });
+  writeInvocationStore(key, existing.slice(0, RECENT_LIMIT));
+}
+
+function readActionFieldValue(field: HTMLElement): unknown {
+  const kind = lower(field.dataset.actionFieldKind);
+  if (field instanceof HTMLInputElement && field.type === 'checkbox') {
+    return field.checked;
+  }
+  const raw = field instanceof HTMLInputElement || field instanceof HTMLTextAreaElement || field instanceof HTMLSelectElement ? field.value.trim() : '';
+  if (raw === '') {
+    return undefined;
+  }
+  if (kind === 'number' || kind === 'integer') {
+    const num = Number(raw);
+    return Number.isFinite(num) ? num : raw;
+  }
+  if (kind === 'string_list' || kind === 'array') {
+    return raw.split(/[\n,]/g).map((token) => token.trim()).filter(Boolean);
+  }
+  if (kind === 'json' || kind === 'object') {
+    try {
+      return JSON.parse(raw);
+    } catch {
+      return raw;
+    }
+  }
+  return raw;
+}
+
+// Read the active form's inner field payload (skips the suspended JSON editor).
+function collectFormPayload(form: HTMLElement): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  form.querySelectorAll<HTMLElement>('[data-action-field]').forEach((field) => {
+    // Skip the inactive editor (a hidden ancestor inside the form) but not the
+    // whole detail block when the command happens to be unselected.
+    const hidden = field.closest('[hidden]');
+    if (hidden && form.contains(hidden)) {
+      return;
+    }
+    const name = str(field.dataset.actionField);
+    if (!name || name.startsWith('__')) {
+      return;
+    }
+    const value = readActionFieldValue(field);
+    if (value !== undefined) {
+      out[name] = value;
+    }
+  });
+  return out;
+}
+
+function applyLoadedValue(field: HTMLElement, value: unknown): void {
+  if (field instanceof HTMLInputElement && field.type === 'checkbox') {
+    field.checked = value === true || value === 'true';
+    return;
+  }
+  if (field instanceof HTMLInputElement && field.dataset.cmdlChipsValue !== undefined) {
+    const tokens = Array.isArray(value) ? value.map(str).filter(Boolean) : str(value) ? [str(value)] : [];
+    const holder = field.closest<HTMLElement>('[data-cmdl-chips]');
+    if (holder) {
+      renderChipTags(holder, tokens);
+    }
+    return;
+  }
+  if (field instanceof HTMLInputElement || field instanceof HTMLTextAreaElement || field instanceof HTMLSelectElement) {
+    if (value === undefined || value === null) {
+      field.value = '';
+    } else if (typeof value === 'object') {
+      field.value = JSON.stringify(value, null, 2);
+    } else {
+      field.value = String(value);
+    }
+  }
+}
+
+function loadInvocationIntoForm(form: HTMLElement, inner: Record<string, unknown>): void {
+  form.querySelectorAll<HTMLElement>('[data-action-field]').forEach((field) => {
+    const name = str(field.dataset.actionField);
+    if (name && Object.prototype.hasOwnProperty.call(inner, name)) {
+      applyLoadedValue(field, inner[name]);
+    }
+  });
+  captureFormDraft(form);
+}
+
+function renderRecallBar(container: HTMLElement): void {
+  const commandId = str(container.dataset.cmdlCommand);
+  const list = container.querySelector<HTMLElement>('[data-cmdl-recall-list]');
+  if (!commandId || !list) {
+    return;
+  }
+  const recents = readInvocationStore(recentKey(commandId));
+  const presets = readInvocationStore(presetKey(commandId));
+  const chips: string[] = [];
+  recents.forEach((_entry, index) => {
+    chips.push(`<button type="button" class="cmdl-recall__chip" data-cmdl-load="recent:${index}" title="Reload recent invocation ${index + 1}">↻ recent ${index + 1}</button>`);
+  });
+  presets.forEach((entry, index) => {
+    const name = str(entry.name) || `preset ${index + 1}`;
+    chips.push(`<span class="cmdl-recall__preset"><button type="button" class="cmdl-recall__chip cmdl-recall__chip--preset" data-cmdl-load="preset:${index}" title="Load saved preset">★ ${escapeHTML(name)}</button><button type="button" class="cmdl-recall__del" data-cmdl-del-preset="${index}" aria-label="Delete preset ${escapeHTML(name)}">×</button></span>`);
+  });
+  list.innerHTML = chips.length ? chips.join('') : '<span class="cmdl-recall__empty">No recent runs yet.</span>';
+}
+
+function handleRecallAction(target: HTMLElement, root: HTMLElement): boolean {
+  const loadBtn = target.closest<HTMLElement>('[data-cmdl-load]');
+  if (loadBtn) {
+    const form = loadBtn.closest<HTMLElement>('[data-panel-action-form]');
+    const container = loadBtn.closest<HTMLElement>('[data-cmdl-recall]');
+    const commandId = str(container?.dataset.cmdlCommand);
+    const [kind, rawIndex] = (loadBtn.dataset.cmdlLoad || '').split(':');
+    const index = Number(rawIndex);
+    if (form && commandId && Number.isInteger(index)) {
+      const store = readInvocationStore(kind === 'preset' ? presetKey(commandId) : recentKey(commandId));
+      const inner = store[index]?.payload;
+      if (inner && typeof inner === 'object') {
+        loadInvocationIntoForm(form, inner as Record<string, unknown>);
+      }
+    }
+    return true;
+  }
+
+  const saveBtn = target.closest<HTMLElement>('[data-cmdl-save-preset]');
+  if (saveBtn) {
+    const form = saveBtn.closest<HTMLElement>('[data-panel-action-form]');
+    const container = saveBtn.closest<HTMLElement>('[data-cmdl-recall]');
+    const commandId = str(container?.dataset.cmdlCommand);
+    if (form && container && commandId) {
+      const name = (typeof window !== 'undefined' && typeof window.prompt === 'function' ? window.prompt('Preset name') : '') || '';
+      if (name.trim()) {
+        const presets = readInvocationStore(presetKey(commandId)).filter((entry) => str(entry.name) !== name.trim());
+        presets.unshift({ name: name.trim(), payload: collectFormPayload(form) });
+        writeInvocationStore(presetKey(commandId), presets);
+        renderRecallBar(container);
+      }
+    }
+    return true;
+  }
+
+  const delBtn = target.closest<HTMLElement>('[data-cmdl-del-preset]');
+  if (delBtn) {
+    const container = delBtn.closest<HTMLElement>('[data-cmdl-recall]');
+    const commandId = str(container?.dataset.cmdlCommand);
+    const index = Number(delBtn.dataset.cmdlDelPreset);
+    if (container && commandId && Number.isInteger(index)) {
+      const presets = readInvocationStore(presetKey(commandId));
+      presets.splice(index, 1);
+      writeInvocationStore(presetKey(commandId), presets);
+      renderRecallBar(container);
+    }
+    return true;
+  }
+  return false;
+}
+
+// ============================================================================
+// JSON ↔ form power mode (Phase 3 T13)
+// ============================================================================
+
+function setJsonMode(form: HTMLElement, on: boolean): void {
+  const fields = form.querySelector<HTMLElement>('[data-cmdl-fields]');
+  const jsonBox = form.querySelector<HTMLElement>('[data-cmdl-json]');
+  const editor = form.querySelector<HTMLTextAreaElement>('[data-cmdl-json-editor]');
+  const toggle = form.querySelector<HTMLElement>('[data-cmdl-json-toggle]');
+  const error = form.querySelector<HTMLElement>('[data-cmdl-json-error]');
+  if (!fields || !jsonBox || !editor) {
+    return;
+  }
+  if (on) {
+    editor.value = JSON.stringify(collectFormPayload(form), null, 2);
+    if (error) {
+      error.hidden = true;
+    }
+    fields.hidden = true;
+    jsonBox.hidden = false;
+    form.dataset.cmdlMode = 'json';
+    if (toggle) {
+      toggle.textContent = 'Form';
+    }
+    return;
+  }
+  // JSON → form: parse and apply; stay in JSON mode on invalid input.
+  let parsed: unknown;
+  try {
+    parsed = editor.value.trim() ? JSON.parse(editor.value) : {};
+  } catch (err) {
+    if (error) {
+      error.textContent = `Invalid JSON: ${(err as Error).message}`;
+      error.hidden = false;
+    }
+    return;
+  }
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    if (error) {
+      error.textContent = 'Payload must be a JSON object.';
+      error.hidden = false;
+    }
+    return;
+  }
+  loadInvocationIntoForm(form, parsed as Record<string, unknown>);
+  fields.hidden = false;
+  jsonBox.hidden = true;
+  form.dataset.cmdlMode = 'form';
+  if (toggle) {
+    toggle.textContent = 'JSON';
+  }
+}
+
 function addChipTokens(holder: HTMLElement, raw: string): void {
   const additions = raw.split(/[\n,]/g).map((token) => token.trim()).filter(Boolean);
   if (additions.length === 0) {
@@ -1044,6 +1327,9 @@ export function attachCommandLauncherListeners(container: HTMLElement): void {
   // Rehydrate in-progress form drafts so a re-render does not wipe input.
   root.querySelectorAll<HTMLElement>('[data-panel-action-form]').forEach((form) => applyFormDraft(form));
 
+  // Populate recent/preset recall bars from client-local storage.
+  root.querySelectorAll<HTMLElement>('[data-cmdl-recall]').forEach((bar) => renderRecallBar(bar));
+
   // Restore filter text and the previously selected command across re-renders.
   const filter = root.querySelector<HTMLInputElement>('[data-cmdl-filter]');
   if (filter && filterText) {
@@ -1056,6 +1342,19 @@ export function attachCommandLauncherListeners(container: HTMLElement): void {
 
   root.addEventListener('click', (event) => {
     const target = event.target as HTMLElement;
+
+    // Recent/preset recall + JSON power-mode toggle (Phase 3 T12/T13).
+    if (handleRecallAction(target, root)) {
+      return;
+    }
+    const jsonToggle = target.closest<HTMLElement>('[data-cmdl-json-toggle]');
+    if (jsonToggle) {
+      const form = jsonToggle.closest<HTMLElement>('[data-panel-action-form]');
+      if (form) {
+        setJsonMode(form, form.dataset.cmdlMode !== 'json');
+      }
+      return;
+    }
 
     const item = target.closest<HTMLElement>('[data-cmdl-item]');
     if (item) {

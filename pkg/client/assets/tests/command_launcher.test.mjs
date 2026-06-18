@@ -64,7 +64,7 @@ async function importIntegration() {
   });
   // The server-definitions graph pulls in syntax highlighting (prismjs), which
   // touches DOM globals at module load — set them up before importing.
-  setWindowGlobals(new JSDOM('<!doctype html><html><body></body></html>').window);
+  setWindowGlobals(new JSDOM('<!doctype html><html><body></body></html>', { url: 'http://localhost/' }).window);
   integrationModule = await import(`${pathToFileURL(out).href}`);
   return integrationModule;
 }
@@ -171,10 +171,11 @@ function setWindowGlobals(win) {
   globalThis.HTMLSelectElement = win.HTMLSelectElement;
   globalThis.HTMLTextAreaElement = win.HTMLTextAreaElement;
   globalThis.CSS = win.CSS;
+  Object.defineProperty(globalThis, 'localStorage', { value: win.localStorage, configurable: true, writable: true });
 }
 
 function mount(html) {
-  const dom = new JSDOM(`<!doctype html><html><body><div id="host">${html}</div></body></html>`);
+  const dom = new JSDOM(`<!doctype html><html><body><div id="host">${html}</div></body></html>`, { url: 'http://localhost/' });
   setWindowGlobals(dom.window);
   return dom;
 }
@@ -184,6 +185,7 @@ function mount(html) {
 beforeEach(async () => {
   const { resetCommandLauncherState } = await importLauncher();
   resetCommandLauncherState();
+  try { globalThis.localStorage?.clear(); } catch { /* no storage */ }
 });
 
 test('renders grouped catalog with execution + mutating badges', async () => {
@@ -509,4 +511,100 @@ test('panelDefinitionFromServer applies the commands console override (filters o
     ui: { schema_version: '1', views: { console: { renderer: 'json', bind: '$' } } },
   });
   assert.doesNotMatch(otherDef.renderConsole({ a: 1 }, {}, {}), /data-cmdl-root/);
+});
+
+// ---- Phase 3 T11: live command status over the debug WS ----
+test('applyCommandLauncherStatusEvent stores live status and guards terminal states', async () => {
+  const { applyCommandLauncherStatusEvent, getCommandLauncherLiveStatus } = await importLauncher();
+  applyCommandLauncherStatusEvent({ correlation_id: 'c1', state: 'accepted' });
+  assert.equal(getCommandLauncherLiveStatus('c1').state, 'accepted');
+  applyCommandLauncherStatusEvent({ correlation_id: 'c1', state: 'running' });
+  assert.equal(getCommandLauncherLiveStatus('c1').state, 'running');
+  applyCommandLauncherStatusEvent({ correlation_id: 'c1', state: 'completed', message: 'done' });
+  assert.equal(getCommandLauncherLiveStatus('c1').state, 'completed');
+  // A late/stray earlier state must not regress a terminal one.
+  applyCommandLauncherStatusEvent({ correlation_id: 'c1', state: 'accepted' });
+  assert.equal(getCommandLauncherLiveStatus('c1').state, 'completed');
+  // PascalCase keys (Go DispatchReceipt) are also accepted.
+  applyCommandLauncherStatusEvent({ CorrelationID: 'c2', State: 'failed' });
+  assert.equal(getCommandLauncherLiveStatus('c2').state, 'failed');
+});
+
+test('result card renders the live status pill', async () => {
+  const { extractCommandLauncherResult, renderCommandLauncherResultCard } = await importLauncher();
+  const parsed = extractCommandLauncherResult('ok', 'Command dispatched', { receipt: { Accepted: true, Mode: 'queued', CorrelationID: 'c9' } });
+  const card = renderCommandLauncherResultCard(parsed, { liveStatus: { state: 'completed', message: 'done', at: '', code: '' } });
+  assert.match(card, /cmdl-result__live--completed/);
+  assert.match(card, />completed</);
+});
+
+// ---- Phase 3 T12: recent & saved invocations ----
+test('recording an invocation surfaces a recall chip that loads it into the form', async () => {
+  const { renderCommandLauncherConsole, attachCommandLauncherListeners, recordCommandLauncherInvocation } = await importLauncher();
+  const dom = mount(renderCommandLauncherConsole({ def: sampleDef(), data: sampleData(), styles: {}, useIconCopyButton: true }));
+  const host = dom.window.document.getElementById('host');
+  recordCommandLauncherInvocation({ command_id: 'archive.generate_projections', payload: { batch_size: 500, event_ids: ['evt_x'] } });
+  attachCommandLauncherListeners(host);
+
+  const recall = host.querySelector('[data-cmdl-recall][data-cmdl-command="archive.generate_projections"]');
+  const chip = recall.querySelector('[data-cmdl-load="recent:0"]');
+  assert.ok(chip);
+  chip.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }));
+  assert.equal(host.querySelector('[data-action-field="batch_size"]').value, '500');
+  assert.equal(host.querySelector('[data-cmdl-chips-value]').value, 'evt_x');
+});
+
+test('saving and deleting a preset round-trips through storage', async () => {
+  const { renderCommandLauncherConsole, attachCommandLauncherListeners } = await importLauncher();
+  const dom = mount(renderCommandLauncherConsole({ def: sampleDef(), data: sampleData(), styles: {}, useIconCopyButton: true }));
+  const host = dom.window.document.getElementById('host');
+  dom.window.prompt = () => 'My preset';
+  attachCommandLauncherListeners(host);
+
+  const recall = host.querySelector('[data-cmdl-recall][data-cmdl-command="archive.generate_projections"]');
+  host.querySelector('[data-action-field="batch_size"]').value = '42';
+  recall.querySelector('[data-cmdl-save-preset]').dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }));
+  const preset = recall.querySelector('[data-cmdl-load="preset:0"]');
+  assert.ok(preset);
+  assert.match(preset.textContent, /My preset/);
+  recall.querySelector('[data-cmdl-del-preset="0"]').dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }));
+  assert.equal(recall.querySelector('[data-cmdl-load="preset:0"]'), null);
+});
+
+// ---- Phase 3 T13: JSON ↔ form power mode ----
+test('JSON toggle swaps editors and applies edited JSON back to the form', async () => {
+  const { renderCommandLauncherConsole, attachCommandLauncherListeners } = await importLauncher();
+  const dom = mount(renderCommandLauncherConsole({ def: sampleDef(), data: sampleData(), styles: {}, useIconCopyButton: true }));
+  const host = dom.window.document.getElementById('host');
+  attachCommandLauncherListeners(host);
+
+  const form = host.querySelector('[data-panel-action-form][data-action-id="dispatch_archive_generate"]');
+  host.querySelector('[data-action-field="batch_size"]').value = '7';
+  form.querySelector('[data-cmdl-json-toggle]').dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }));
+  assert.equal(form.dataset.cmdlMode, 'json');
+  assert.equal(form.querySelector('[data-cmdl-fields]').hidden, true);
+  const editor = form.querySelector('[data-cmdl-json-editor]');
+  assert.match(editor.value, /"batch_size": 7/);
+
+  editor.value = JSON.stringify({ batch_size: 99, locale: 'es' });
+  form.querySelector('[data-cmdl-json-toggle]').dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }));
+  assert.equal(form.dataset.cmdlMode, 'form');
+  assert.equal(form.querySelector('[data-action-field="batch_size"]').value, '99');
+  assert.equal(form.querySelector('[data-action-field="locale"]').value, 'es');
+});
+
+test('invalid JSON keeps the editor open and shows an error', async () => {
+  const { renderCommandLauncherConsole, attachCommandLauncherListeners } = await importLauncher();
+  const dom = mount(renderCommandLauncherConsole({ def: sampleDef(), data: sampleData(), styles: {}, useIconCopyButton: true }));
+  const host = dom.window.document.getElementById('host');
+  attachCommandLauncherListeners(host);
+
+  const form = host.querySelector('[data-panel-action-form][data-action-id="dispatch_archive_generate"]');
+  form.querySelector('[data-cmdl-json-toggle]').dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }));
+  form.querySelector('[data-cmdl-json-editor]').value = '{ not valid json ';
+  form.querySelector('[data-cmdl-json-toggle]').dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }));
+  assert.equal(form.dataset.cmdlMode, 'json');
+  const error = form.querySelector('[data-cmdl-json-error]');
+  assert.equal(error.hidden, false);
+  assert.match(error.textContent, /Invalid JSON/);
 });

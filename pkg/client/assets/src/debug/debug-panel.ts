@@ -1076,6 +1076,9 @@ export class DebugPanel {
         result.errors,
         { at: Date.now(), durationMs: Date.now() - startedAt }
       );
+      if (panelID === 'commands') {
+        recordCommandLauncherInvocation(payload);
+      }
       if (result.event) {
         this.handleEvent(result.event);
       }

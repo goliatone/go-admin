@@ -2880,10 +2880,12 @@ function $t(e, t) {
 function Zt(e) {
   const t = wt(e.dataset.actionPayload);
   return e instanceof HTMLFormElement && e.querySelectorAll("[data-action-field]").forEach((o) => {
-    const r = (o.dataset.actionFieldPath || o.dataset.actionField || "").trim();
-    if (!r) return;
-    const n = kt(o);
-    n !== void 0 && St(t, r, n);
+    const r = o.closest("[hidden]");
+    if (r && e.contains(r) || (o instanceof HTMLInputElement || o instanceof HTMLSelectElement || o instanceof HTMLTextAreaElement) && o.disabled) return;
+    const n = (o.dataset.actionFieldPath || o.dataset.actionField || "").trim();
+    if (!n) return;
+    const a = kt(o);
+    a !== void 0 && St(t, n, a);
   }), t;
 }
 function wt(e) {
@@ -3259,4 +3261,4 @@ export {
   Kt as y
 };
 
-//# sourceMappingURL=builtin-panels-Df3h6Xh_.js.map
+//# sourceMappingURL=builtin-panels-CB6YhRb8.js.map

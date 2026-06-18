@@ -4,10 +4,11 @@ export function buildPanelActionPayload(element: HTMLElement): Record<string, un
     return payload;
   }
   element.querySelectorAll<HTMLElement>('[data-action-field]').forEach((field) => {
-    // Skip fields the operator can't currently use — a hidden ancestor or a
-    // disabled control. The launcher's JSON↔form toggle hides the inactive
-    // editor; without this both editors would contribute to the payload.
-    if (field.closest('[hidden]') || (field instanceof HTMLInputElement || field instanceof HTMLSelectElement || field instanceof HTMLTextAreaElement) && field.disabled) {
+    // Skip fields the operator can't currently use — a hidden ancestor inside
+    // this form or a disabled control. The launcher's JSON↔form toggle hides the
+    // inactive editor; without this both editors would contribute to the payload.
+    const hiddenAncestor = field.closest('[hidden]');
+    if ((hiddenAncestor && element.contains(hiddenAncestor)) || ((field instanceof HTMLInputElement || field instanceof HTMLSelectElement || field instanceof HTMLTextAreaElement) && field.disabled)) {
       return;
     }
     const path = (field.dataset.actionFieldPath || field.dataset.actionField || '').trim();

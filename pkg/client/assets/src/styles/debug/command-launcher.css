@@ -479,6 +479,84 @@
 /* per-field units hint (Phase 2 display_hints.units) */
 .cmdl-field__units { color: var(--debug-text-muted); opacity: 0.85; }
 
+/* live command status pill (Phase 3 T11) */
+.cmdl-result__live {
+  font-size: 0.625rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 2px 7px;
+  border-radius: 20px;
+  border: 1px solid var(--debug-border);
+  color: var(--debug-text-muted);
+}
+.cmdl-result__live::before { content: "● "; }
+.cmdl-result__live--accepted { color: var(--debug-info); border-color: rgba(137, 220, 235, 0.4); }
+.cmdl-result__live--running { color: var(--debug-peach); border-color: rgba(250, 179, 135, 0.4); }
+.cmdl-result__live--completed { color: var(--debug-success); border-color: rgba(166, 227, 161, 0.4); }
+.cmdl-result__live--failed { color: var(--debug-error); border-color: rgba(243, 139, 168, 0.4); }
+
+/* recent & saved invocations (Phase 3 T12) */
+.cmdl-recall { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+.cmdl-recall__list { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; flex: 1 1 auto; min-width: 0; }
+.cmdl-recall__empty { font-size: 0.6875rem; color: var(--debug-text-muted); }
+.cmdl-recall__preset { display: inline-flex; align-items: center; }
+.cmdl-recall__chip {
+  font-family: inherit;
+  font-size: 0.6875rem;
+  color: var(--debug-text);
+  background: var(--debug-bg-secondary);
+  border: 1px solid var(--debug-border);
+  border-radius: 5px;
+  padding: 3px 8px;
+  cursor: pointer;
+}
+.cmdl-recall__chip:hover { border-color: var(--debug-accent); }
+.cmdl-recall__chip--preset { color: var(--debug-mauve); border-top-right-radius: 0; border-bottom-right-radius: 0; }
+.cmdl-recall__del {
+  font-family: inherit;
+  font-size: 0.75rem;
+  line-height: 1;
+  color: var(--debug-text-muted);
+  background: var(--debug-bg-secondary);
+  border: 1px solid var(--debug-border);
+  border-left: none;
+  border-radius: 0 5px 5px 0;
+  padding: 3px 6px;
+  cursor: pointer;
+}
+.cmdl-recall__del:hover { color: var(--debug-error); }
+.cmdl-recall__save {
+  font-family: inherit;
+  font-size: 0.6875rem;
+  color: var(--debug-text-muted);
+  background: transparent;
+  border: 1px dashed var(--debug-border);
+  border-radius: 5px;
+  padding: 3px 9px;
+  cursor: pointer;
+  flex: 0 0 auto;
+}
+.cmdl-recall__save:hover { color: var(--debug-text); border-color: var(--debug-accent); }
+
+/* JSON ↔ form power mode (Phase 3 T13) */
+.cmdl-btn--json { margin-left: auto; }
+.cmdl-form__json { margin-bottom: 12px; }
+.cmdl-json-editor {
+  width: 100%;
+  box-sizing: border-box;
+  background: var(--debug-bg);
+  border: 1px solid var(--debug-border);
+  border-radius: 6px;
+  color: var(--debug-text);
+  font-family: inherit;
+  font-size: 0.75rem;
+  padding: 9px 11px;
+  resize: vertical;
+  min-height: 120px;
+}
+.cmdl-json-editor:focus { outline: none; border-color: var(--debug-accent); box-shadow: 0 0 0 2px rgba(137, 180, 250, 0.18); }
+.cmdl-json-error { margin-top: 6px; font-size: 0.6875rem; color: var(--debug-error); }
+
 @media (max-width: 720px) {
   .cmdl__body { grid-template-columns: 1fr; }
   .cmdl__list { border-right: none; border-bottom: 1px solid var(--debug-border); }
