@@ -215,6 +215,55 @@ func TestPanelDefinitionsWithContextAppliesDefinitionFilter(t *testing.T) {
 	}
 }
 
+func TestPanelRegistrationStoresHandlersForDynamicallyExposedActions(t *testing.T) {
+	type contextKey string
+	const exposeActionKey contextKey = "expose-action"
+	handler := func(context.Context, PanelActionRequest) (PanelActionResult, error) {
+		return PanelActionResult{OK: true}, nil
+	}
+	registry := NewPanelRegistry()
+	err := registry.Register("commands", PanelConfig{
+		UI: &PanelUI{
+			Views: PanelUIViews{
+				Console: JSONView(""),
+			},
+		},
+		Definition: func(ctx context.Context, definition PanelDefinition) PanelDefinition {
+			if ctx.Value(exposeActionKey) != true {
+				return definition
+			}
+			filtered := definition
+			ui := &PanelUI{SchemaVersion: PanelUISchemaVersion}
+			if definition.UI != nil {
+				copy := *definition.UI
+				ui = &copy
+			}
+			ui.Actions = []PanelUIAction{{ID: "Dispatch_Test_Command", Label: "Dispatch test command"}}
+			filtered.UI = ui
+			return filtered
+		},
+		Actions: map[string]PanelActionHandler{"dispatch_test_command": handler},
+	})
+	if err != nil {
+		t.Fatalf("register panel: %v", err)
+	}
+
+	registration, ok := registry.Registration("commands")
+	if !ok {
+		t.Fatalf("expected panel registration")
+	}
+	if registration.Actions["dispatch_test_command"] == nil {
+		t.Fatalf("expected dynamic action handler to remain registered, got %+v", registration.Actions)
+	}
+	if PanelDefinitionHasAction(registration.DefinitionForContext(context.Background()), "dispatch_test_command") {
+		t.Fatalf("expected action hidden without request-scoped exposure")
+	}
+	ctx := context.WithValue(context.Background(), exposeActionKey, true)
+	if !PanelDefinitionHasAction(registration.DefinitionForContext(ctx), "dispatch_test_command") {
+		t.Fatalf("expected request-scoped definition to expose dynamic action")
+	}
+}
+
 func TestPanelDefinitionsWithContextDoesNotHoldLockDuringFilter(t *testing.T) {
 	type registryContextKey string
 	const registerLateKey registryContextKey = "register-late"

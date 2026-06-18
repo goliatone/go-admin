@@ -15,7 +15,8 @@ type PanelSnapshotFunc func(ctx context.Context) any
 // PanelClearFunc clears panel state when requested by the client.
 type PanelClearFunc func(ctx context.Context) error
 
-// PanelActionHandler executes a schema-declared debug panel action.
+// PanelActionHandler executes a debug panel action. Dispatch still requires the
+// action to be present in the request-scoped panel definition.
 type PanelActionHandler func(ctx context.Context, req PanelActionRequest) (PanelActionResult, error)
 
 // PanelDefinitionFilter adapts panel discovery metadata for a request context.
@@ -552,8 +553,13 @@ func buildRegistration(id string, config PanelConfig) PanelRegistration {
 		Filter:     config.Definition,
 		Snapshot:   config.Snapshot,
 		Clear:      config.Clear,
-		Actions:    normalizeActionHandlers(def.UI, config.Actions),
+		Actions:    normalizeActionHandlers(config.Actions),
 	}
+}
+
+// DefinitionForContext returns this registration's definition adapted for a request context.
+func (r PanelRegistration) DefinitionForContext(ctx context.Context) PanelDefinition {
+	return r.definitionForContext(ctx)
 }
 
 func (r PanelRegistration) definitionForContext(ctx context.Context) PanelDefinition {
@@ -872,19 +878,31 @@ func normalizePanelUIActionFields(fields []PanelUIActionField) []PanelUIActionFi
 	return out
 }
 
-func normalizeActionHandlers(ui *PanelUI, handlers map[string]PanelActionHandler) map[string]PanelActionHandler {
-	if ui == nil || len(ui.Actions) == 0 || len(handlers) == 0 {
+// PanelDefinitionHasAction reports whether a request-scoped panel definition exposes an action.
+func PanelDefinitionHasAction(def PanelDefinition, actionID string) bool {
+	actionID = normalizeID(actionID)
+	if actionID == "" || def.UI == nil || len(def.UI.Actions) == 0 {
+		return false
+	}
+	for _, action := range def.UI.Actions {
+		if normalizeID(action.ID) == actionID {
+			return true
+		}
+	}
+	return false
+}
+
+func normalizeActionHandlers(handlers map[string]PanelActionHandler) map[string]PanelActionHandler {
+	if len(handlers) == 0 {
 		return nil
 	}
 	out := map[string]PanelActionHandler{}
-	for _, action := range ui.Actions {
-		id := normalizeID(action.ID)
-		if id == "" {
+	for id, handler := range handlers {
+		id = normalizeID(id)
+		if id == "" || handler == nil {
 			continue
 		}
-		if handler := panelActionHandlerFor(handlers, id); handler != nil {
-			out[id] = handler
-		}
+		out[id] = handler
 	}
 	if len(out) == 0 {
 		return nil

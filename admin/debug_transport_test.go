@@ -3,6 +3,7 @@ package admin
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -315,6 +316,64 @@ func TestDebugPanelActionEndpointDispatchesRegisteredHandler(t *testing.T) {
 	}
 	if !result.OK || result.Message != "refreshed" || !result.Refresh {
 		t.Fatalf("unexpected action result: %+v", result)
+	}
+}
+
+func TestDebugCollectorRunPanelActionRequiresContextVisibleAction(t *testing.T) {
+	type contextKey string
+	const allowActionKey contextKey = "allow-action"
+	const panelID = "context_visible_action_panel"
+
+	debugregistry.UnregisterPanel(panelID)
+	defer debugregistry.UnregisterPanel(panelID)
+	called := false
+	if err := debugregistry.RegisterPanel(panelID, debugregistry.PanelConfig{
+		Label:       "Context Visible Action",
+		SnapshotKey: panelID,
+		UI: &debugregistry.PanelUI{
+			Views: debugregistry.PanelUIViews{
+				Console: &debugregistry.PanelUIView{Renderer: debugregistry.PanelRendererJSON},
+			},
+			Actions: []debugregistry.PanelUIAction{{ID: "refresh", Label: "Refresh"}},
+		},
+		Definition: func(ctx context.Context, definition debugregistry.PanelDefinition) debugregistry.PanelDefinition {
+			if ctx.Value(allowActionKey) == true {
+				return definition
+			}
+			filtered := definition
+			if definition.UI != nil {
+				ui := *definition.UI
+				ui.Actions = nil
+				filtered.UI = &ui
+			}
+			return filtered
+		},
+		Actions: map[string]debugregistry.PanelActionHandler{
+			"refresh": func(context.Context, debugregistry.PanelActionRequest) (debugregistry.PanelActionResult, error) {
+				called = true
+				return debugregistry.PanelActionResult{OK: true, Message: "refreshed"}, nil
+			},
+		},
+	}); err != nil {
+		t.Fatalf("register action panel: %v", err)
+	}
+
+	collector := NewDebugCollector(DebugConfig{Panels: []string{panelID}})
+	_, err := collector.RunPanelAction(context.Background(), debugregistry.PanelActionRequest{PanelID: panelID, ActionID: "refresh"})
+	if !errors.Is(err, ErrNotFound) {
+		t.Fatalf("expected hidden action to return not found, got %v", err)
+	}
+	if called {
+		t.Fatalf("hidden action handler must not be called")
+	}
+
+	ctx := context.WithValue(context.Background(), allowActionKey, true)
+	result, err := collector.RunPanelAction(ctx, debugregistry.PanelActionRequest{PanelID: panelID, ActionID: "refresh"})
+	if err != nil {
+		t.Fatalf("expected visible action to dispatch: %v", err)
+	}
+	if !result.OK || result.Message != "refreshed" || !called {
+		t.Fatalf("expected visible action handler result, got result=%+v called=%v", result, called)
 	}
 }
 
