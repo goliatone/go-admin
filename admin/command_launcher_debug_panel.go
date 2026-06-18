@@ -48,7 +48,7 @@ func RegisterCommandLauncherDebugPanel(adm *Admin) {
 	}
 	RegisterCommandLauncherDoctorCheck(adm)
 	debugregistry.UnregisterPanel(DebugPanelCommandLauncher)
-	_ = debugregistry.RegisterPanel(DebugPanelCommandLauncher, debugregistry.PanelConfig{
+	if err := debugregistry.RegisterPanel(DebugPanelCommandLauncher, debugregistry.PanelConfig{
 		Label:       "Commands",
 		Icon:        "iconoir-terminal-tag",
 		Span:        2,
@@ -65,7 +65,9 @@ func RegisterCommandLauncherDebugPanel(adm *Admin) {
 		UI:         commandLauncherPanelUI(nil, nil, nil),
 		Definition: commandLauncherDefinitionFilter(adm),
 		Actions:    commandLauncherActionHandlers(adm),
-	})
+	}); err != nil {
+		return
+	}
 }
 
 // RegisterCommandLauncherDoctorCheck exposes launcher readiness through the
@@ -200,17 +202,7 @@ func buildCommandLauncherState(ctx context.Context, adm *Admin) commandLauncherS
 		state.Diagnostics = append(state.Diagnostics, commandLauncherDiagnostic("missing_command_read", "warning", "Command catalog is hidden because the actor lacks admin.commands.read.", nil))
 		return state
 	}
-	for _, descriptor := range state.Registered {
-		descriptor = normalizeCommandLauncherDescriptor(descriptor)
-		if descriptor.ID == "" || !descriptor.ExposeInAdmin {
-			continue
-		}
-		if !commandLauncherDescriptorAllowed(ctx, adm, descriptor) {
-			state.HiddenByCommandPermissions++
-			continue
-		}
-		state.Visible = append(state.Visible, descriptor)
-	}
+	state.Visible, state.HiddenByCommandPermissions = visibleCommandLauncherDescriptors(ctx, adm, state.Registered)
 	if len(state.Visible) == 0 {
 		code := "no_visible_commands"
 		message := "No command descriptors are visible for this actor."
@@ -243,6 +235,23 @@ func buildCommandLauncherState(ctx context.Context, adm *Admin) commandLauncherS
 		}
 	}
 	return state
+}
+
+func visibleCommandLauncherDescriptors(ctx context.Context, adm *Admin, registered []gocommand.CommandDescriptor) ([]gocommand.CommandDescriptor, int) {
+	visible := make([]gocommand.CommandDescriptor, 0, len(registered))
+	hidden := 0
+	for _, descriptor := range registered {
+		descriptor = normalizeCommandLauncherDescriptor(descriptor)
+		if descriptor.ID == "" || !descriptor.ExposeInAdmin {
+			continue
+		}
+		if !commandLauncherDescriptorAllowed(ctx, adm, descriptor) {
+			hidden++
+			continue
+		}
+		visible = append(visible, descriptor)
+	}
+	return visible, hidden
 }
 
 func commandLauncherDynamicOptionFieldCount(commands []gocommand.CommandDescriptor) int {
@@ -472,44 +481,58 @@ func runCommandLauncherAction(ctx context.Context, adm *Admin, commandID string,
 	if err != nil {
 		return debugregistry.PanelActionResult{}, err
 	}
+	message, data := commandLauncherActionResultData(adm, commandID, result)
+	return debugregistry.PanelActionResult{OK: true, Message: message, Data: data, Refresh: true}, nil
+}
+
+func commandLauncherActionResultData(adm *Admin, commandID string, result any) (string, any) {
 	message := "Command dispatched"
 	data := result
-	if response, ok := result.(cmdrpc.ResponseEnvelope[RPCCommandDispatchResponse]); ok {
-		responseData := map[string]any{"receipt": response.Data.Receipt}
-		if response.Data.Result != nil {
-			message = "Command completed"
-			responseData["result"] = response.Data.Result
-		}
-		if response.Data.StatusReference != "" {
-			responseData["status_reference"] = response.Data.StatusReference
-		}
-		if len(response.Data.ValidationErrors) > 0 {
-			responseData["validation_errors"] = response.Data.ValidationErrors
-		}
-		data = responseData
-
-		// Broadcast the dispatch-time status over the debug WebSocket so every
-		// connected launcher reflects it live. Inline commands resolve to a
-		// terminal state here; queued commands report "accepted" and rely on a
-		// host worker calling Admin.PublishCommandStatus on completion.
-		state := "accepted"
-		switch {
-		case response.Data.Result != nil:
-			state = "completed"
-		case len(response.Data.ValidationErrors) > 0 || !response.Data.Receipt.Accepted:
-			state = "failed"
-		}
-		adm.PublishCommandStatus(CommandStatusEvent{
-			CorrelationID:   response.Data.Receipt.CorrelationID,
-			DispatchID:      response.Data.Receipt.DispatchID,
-			CommandID:       commandID,
-			State:           state,
-			Mode:            string(response.Data.Receipt.Mode),
-			Message:         message,
-			StatusReference: response.Data.StatusReference,
-		})
+	response, ok := result.(cmdrpc.ResponseEnvelope[RPCCommandDispatchResponse])
+	if !ok {
+		return message, data
 	}
-	return debugregistry.PanelActionResult{OK: true, Message: message, Data: data, Refresh: true}, nil
+	if response.Data.Result != nil {
+		message = "Command completed"
+	}
+	commandLauncherPublishDispatchStatus(adm, commandID, message, response.Data)
+	return message, commandLauncherResponseData(response.Data)
+}
+
+func commandLauncherResponseData(response RPCCommandDispatchResponse) map[string]any {
+	data := map[string]any{"receipt": response.Receipt}
+	if response.Result != nil {
+		data["result"] = response.Result
+	}
+	if response.StatusReference != "" {
+		data["status_reference"] = response.StatusReference
+	}
+	if len(response.ValidationErrors) > 0 {
+		data["validation_errors"] = response.ValidationErrors
+	}
+	return data
+}
+
+func commandLauncherPublishDispatchStatus(adm *Admin, commandID, message string, response RPCCommandDispatchResponse) {
+	// Broadcast the dispatch-time status over the debug WebSocket so every
+	// connected launcher reflects it live. Inline commands resolve to a terminal
+	// state here; queued commands report "accepted" until a host worker updates.
+	state := "accepted"
+	switch {
+	case response.Result != nil:
+		state = "completed"
+	case len(response.ValidationErrors) > 0 || !response.Receipt.Accepted:
+		state = "failed"
+	}
+	adm.PublishCommandStatus(CommandStatusEvent{
+		CorrelationID:   response.Receipt.CorrelationID,
+		DispatchID:      response.Receipt.DispatchID,
+		CommandID:       commandID,
+		State:           state,
+		Mode:            string(response.Receipt.Mode),
+		Message:         message,
+		StatusReference: response.StatusReference,
+	})
 }
 
 func commandLauncherActionFields(ctx context.Context, adm *Admin, descriptor gocommand.CommandDescriptor, diagnostics *[]CommandLauncherDiagnostic) []debugregistry.PanelUIActionField {
@@ -791,26 +814,34 @@ func commandLauncherJSONSafeValue(value any) any {
 		}
 		return nil
 	case []string:
-		out := make([]any, 0, len(typed))
-		for _, item := range typed {
-			if safe := commandLauncherSafeString(item); safe != "" {
-				out = append(out, safe)
-			}
-		}
-		return out
+		return commandLauncherJSONSafeStringList(typed)
 	case []any:
-		out := make([]any, 0, len(typed))
-		for _, item := range typed {
-			if safe := commandLauncherJSONSafeValue(item); safe != nil {
-				out = append(out, safe)
-			}
-		}
-		return out
+		return commandLauncherJSONSafeAnyList(typed)
 	case map[string]any:
 		return commandLauncherJSONSafeMap(typed)
 	default:
 		return nil
 	}
+}
+
+func commandLauncherJSONSafeStringList(input []string) []any {
+	out := make([]any, 0, len(input))
+	for _, item := range input {
+		if safe := commandLauncherSafeString(item); safe != "" {
+			out = append(out, safe)
+		}
+	}
+	return out
+}
+
+func commandLauncherJSONSafeAnyList(input []any) []any {
+	out := make([]any, 0, len(input))
+	for _, item := range input {
+		if safe := commandLauncherJSONSafeValue(item); safe != nil {
+			out = append(out, safe)
+		}
+	}
+	return out
 }
 
 func commandLauncherSafeString(value string) string {
