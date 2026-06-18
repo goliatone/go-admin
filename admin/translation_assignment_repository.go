@@ -36,6 +36,19 @@ type TranslationAssignmentSummaryStore interface {
 	AssignmentDashboardSummary(ctx context.Context, input TranslationAssignmentDashboardSummaryInput) (TranslationAssignmentDashboardSummary, error)
 }
 
+type TranslationAssignmentOptionStore interface {
+	DistinctAssignmentEntityTypes(ctx context.Context) ([]string, error)
+	DistinctAssignmentLocales(ctx context.Context, filters map[string]any) ([]string, error)
+	DistinctAssignmentTranslationGroups(ctx context.Context, filters map[string]any) ([]TranslationAssignmentGroupOption, error)
+}
+
+type TranslationAssignmentGroupOption struct {
+	FamilyID    string
+	SourceTitle string
+	SourcePath  string
+	EntityType  string
+}
+
 type TranslationAssignmentReviewerSummaryStore interface {
 	AssignmentReviewerAggregateCounts(ctx context.Context, input TranslationAssignmentReviewerAggregateInput) (map[string]int, error)
 }
@@ -245,6 +258,85 @@ func (r *InMemoryTranslationAssignmentRepository) List(_ context.Context, opts L
 
 	paginated, total := paginateInMemory(items, opts, 20)
 	return paginated, total, nil
+}
+
+func (r *InMemoryTranslationAssignmentRepository) DistinctAssignmentEntityTypes(_ context.Context) ([]string, error) {
+	if r == nil {
+		return nil, serviceNotConfiguredDomainError("translation assignment repository", nil)
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	seen := map[string]struct{}{}
+	for _, assignment := range r.byID {
+		entityType := strings.TrimSpace(strings.ToLower(assignment.EntityType))
+		if entityType == "" {
+			continue
+		}
+		seen[entityType] = struct{}{}
+	}
+	return sortedStringSet(seen), nil
+}
+
+func (r *InMemoryTranslationAssignmentRepository) DistinctAssignmentLocales(_ context.Context, filters map[string]any) ([]string, error) {
+	if r == nil {
+		return nil, serviceNotConfiguredDomainError("translation assignment repository", nil)
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	seen := map[string]struct{}{}
+	for _, assignment := range r.byID {
+		if !translationAssignmentMatchesFilters(assignment, filters) {
+			continue
+		}
+		if locale := strings.TrimSpace(strings.ToLower(assignment.SourceLocale)); locale != "" {
+			seen[locale] = struct{}{}
+		}
+		if locale := strings.TrimSpace(strings.ToLower(assignment.TargetLocale)); locale != "" {
+			seen[locale] = struct{}{}
+		}
+	}
+	return sortedStringSet(seen), nil
+}
+
+func (r *InMemoryTranslationAssignmentRepository) DistinctAssignmentTranslationGroups(_ context.Context, filters map[string]any) ([]TranslationAssignmentGroupOption, error) {
+	if r == nil {
+		return nil, serviceNotConfiguredDomainError("translation assignment repository", nil)
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	seen := map[string]TranslationAssignmentGroupOption{}
+	for _, assignment := range r.byID {
+		if !translationAssignmentMatchesFilters(assignment, filters) {
+			continue
+		}
+		familyID := strings.TrimSpace(assignment.FamilyID)
+		if familyID == "" {
+			continue
+		}
+		current := seen[familyID]
+		current.FamilyID = familyID
+		if strings.TrimSpace(current.SourceTitle) == "" {
+			current.SourceTitle = strings.TrimSpace(assignment.SourceTitle)
+		}
+		if strings.TrimSpace(current.SourcePath) == "" {
+			current.SourcePath = strings.TrimSpace(assignment.SourcePath)
+		}
+		if strings.TrimSpace(current.EntityType) == "" {
+			current.EntityType = strings.TrimSpace(assignment.EntityType)
+		}
+		seen[familyID] = current
+	}
+	options := make([]TranslationAssignmentGroupOption, 0, len(seen))
+	for _, option := range seen {
+		options = append(options, option)
+	}
+	slices.SortFunc(options, func(a, b TranslationAssignmentGroupOption) int {
+		return strings.Compare(strings.ToLower(a.FamilyID), strings.ToLower(b.FamilyID))
+	})
+	return options, nil
 }
 
 func (r *InMemoryTranslationAssignmentRepository) ListAssignmentSnapshot(ctx context.Context, input TranslationAssignmentSnapshotQueryInput) (TranslationAssignmentSnapshotQueryResult, error) {

@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/goliatone/go-admin/internal/primitives"
 	translationservices "github.com/goliatone/go-admin/translations/services"
 	"github.com/google/uuid"
 	"github.com/uptrace/bun"
@@ -71,6 +72,13 @@ type bunTranslationFamilyBlockerCountRecord struct {
 	Count    int    `bun:"count"`
 }
 
+type bunTranslationAssignmentGroupOptionRecord struct {
+	FamilyID    string `bun:"family_id"`
+	SourceTitle string `bun:"source_title"`
+	SourcePath  string `bun:"source_path"`
+	EntityType  string `bun:"entity_type"`
+}
+
 type BunTranslationAssignmentRepository struct {
 	db *bun.DB
 }
@@ -119,6 +127,79 @@ func (r *BunTranslationAssignmentRepository) countAssignments(ctx context.Contex
 	query := r.db.NewSelect().Model((*bunTranslationAssignmentRecord)(nil))
 	applyBunAssignmentListFilters(query, opts, r.assignmentDueDateSQL(now))
 	return query.Count(ctx)
+}
+
+func (r *BunTranslationAssignmentRepository) DistinctAssignmentEntityTypes(ctx context.Context) ([]string, error) {
+	if r == nil || r.db == nil {
+		return nil, serviceNotConfiguredDomainError("translation assignment repository", nil)
+	}
+	values := []string{}
+	err := r.db.NewSelect().
+		Model((*bunTranslationAssignmentRecord)(nil)).
+		ColumnExpr("DISTINCT LOWER(TRIM(entity_type)) AS entity_type").
+		Where("TRIM(entity_type) <> ''").
+		OrderExpr("LOWER(TRIM(entity_type)) ASC").
+		Scan(ctx, &values)
+	return values, err
+}
+
+func (r *BunTranslationAssignmentRepository) DistinctAssignmentLocales(ctx context.Context, filters map[string]any) ([]string, error) {
+	if r == nil || r.db == nil {
+		return nil, serviceNotConfiguredDomainError("translation assignment repository", nil)
+	}
+	seen := map[string]struct{}{}
+	for _, column := range []string{"source_locale", "target_locale"} {
+		values := []string{}
+		query := r.db.NewSelect().
+			Model((*bunTranslationAssignmentRecord)(nil)).
+			ColumnExpr("DISTINCT LOWER(TRIM(" + column + ")) AS locale").
+			Where("TRIM(" + column + ") <> ''").
+			OrderExpr("LOWER(TRIM(" + column + ")) ASC")
+		applyBunAssignmentListFilters(query, ListOptions{Filters: primitives.CloneAnyMap(filters)}, r.assignmentDueDateSQL(time.Now().UTC()))
+		if err := query.Scan(ctx, &values); err != nil {
+			return nil, err
+		}
+		for _, value := range values {
+			if locale := strings.TrimSpace(strings.ToLower(value)); locale != "" {
+				seen[locale] = struct{}{}
+			}
+		}
+	}
+	return sortedStringSet(seen), nil
+}
+
+func (r *BunTranslationAssignmentRepository) DistinctAssignmentTranslationGroups(ctx context.Context, filters map[string]any) ([]TranslationAssignmentGroupOption, error) {
+	if r == nil || r.db == nil {
+		return nil, serviceNotConfiguredDomainError("translation assignment repository", nil)
+	}
+	records := []bunTranslationAssignmentGroupOptionRecord{}
+	query := r.db.NewSelect().
+		Model((*bunTranslationAssignmentRecord)(nil)).
+		ColumnExpr("family_id").
+		ColumnExpr("MAX(NULLIF(source_title, '')) AS source_title").
+		ColumnExpr("MAX(NULLIF(source_path, '')) AS source_path").
+		ColumnExpr("MAX(NULLIF(entity_type, '')) AS entity_type").
+		Where("TRIM(family_id) <> ''").
+		GroupExpr("family_id").
+		OrderExpr("LOWER(family_id) ASC")
+	applyBunAssignmentListFilters(query, ListOptions{Filters: primitives.CloneAnyMap(filters)}, r.assignmentDueDateSQL(time.Now().UTC()))
+	if err := query.Scan(ctx, &records); err != nil {
+		return nil, err
+	}
+	options := make([]TranslationAssignmentGroupOption, 0, len(records))
+	for _, record := range records {
+		familyID := strings.TrimSpace(record.FamilyID)
+		if familyID == "" {
+			continue
+		}
+		options = append(options, TranslationAssignmentGroupOption{
+			FamilyID:    familyID,
+			SourceTitle: strings.TrimSpace(record.SourceTitle),
+			SourcePath:  strings.TrimSpace(record.SourcePath),
+			EntityType:  strings.TrimSpace(record.EntityType),
+		})
+	}
+	return options, nil
 }
 
 func (r *BunTranslationAssignmentRepository) ListAssignmentPage(ctx context.Context, input TranslationAssignmentPageQueryInput) (TranslationAssignmentPageQueryResult, error) {

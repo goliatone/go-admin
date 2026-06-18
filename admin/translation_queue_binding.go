@@ -2030,6 +2030,16 @@ func (b *translationQueueBinding) collectEntityTypeOptionsFromAssignments(adminC
 	if err != nil || repo == nil {
 		return
 	}
+	if store, ok := repo.(TranslationAssignmentOptionStore); ok && store != nil {
+		entityTypes, listErr := store.DistinctAssignmentEntityTypes(adminCtx.Context)
+		if listErr != nil {
+			return
+		}
+		for _, entityType := range entityTypes {
+			addTranslationQueueEntityTypeOption(seen, entityType)
+		}
+		return
+	}
 	assignments, listErr := b.listAssignmentsForSummary(adminCtx.Context, repo, "updated_at", nil)
 	if listErr != nil {
 		return
@@ -2071,6 +2081,27 @@ func (b *translationQueueBinding) SourceRecordsOptions(c router.Context) (any, e
 	panel, panelName, ok := b.panelForEntityType(entityType, adminCtx.Environment)
 	if !ok || panel == nil {
 		return []map[string]any{}, nil
+	}
+
+	if selected := strings.TrimSpace(c.Query("source_record_id")); selected != "" {
+		options := make([]map[string]any, 0, 1)
+		for id := range strings.SplitSeq(selected, ",") {
+			id = strings.TrimSpace(id)
+			if id == "" {
+				continue
+			}
+			record, err := panel.Get(adminCtx, id)
+			if err != nil || len(record) == 0 {
+				continue
+			}
+			option := translationQueueSourceRecordOption(record, panelName)
+			if option == nil {
+				continue
+			}
+			options = append(options, option)
+		}
+		sortTranslationQueueOptions(options)
+		return options, nil
 	}
 
 	search := translationQueueOptionsSearch(c)
@@ -2214,6 +2245,16 @@ func (b *translationQueueBinding) collectAssignmentLocales(ctx context.Context, 
 	if err != nil || repo == nil {
 		return
 	}
+	if store, ok := repo.(TranslationAssignmentOptionStore); ok && store != nil {
+		locales, err := store.DistinctAssignmentLocales(ctx, translationQueueSummaryFilters(entityType, sourceRecordID))
+		if err != nil {
+			return
+		}
+		for _, locale := range locales {
+			addTranslationLocale(localeSet, locale)
+		}
+		return
+	}
 	assignments, err := b.listAssignmentsForSummary(ctx, repo, "updated_at", translationQueueSummaryFilters(entityType, sourceRecordID))
 	if err != nil {
 		return
@@ -2318,6 +2359,24 @@ func (b *translationQueueBinding) collectSourceTranslationGroup(adminCtx AdminCo
 func (b *translationQueueBinding) collectAssignmentTranslationGroups(ctx context.Context, entityType, sourceRecordID string, optionsByValue map[string]map[string]any) {
 	repo, err := b.assignmentRepository()
 	if err != nil || repo == nil {
+		return
+	}
+	if store, ok := repo.(TranslationAssignmentOptionStore); ok && store != nil {
+		options, err := store.DistinctAssignmentTranslationGroups(ctx, translationQueueSummaryFilters(entityType, sourceRecordID))
+		if err != nil {
+			return
+		}
+		for _, option := range options {
+			description := strings.TrimSpace(primitives.FirstNonEmptyRaw(
+				option.SourcePath,
+				option.EntityType,
+			))
+			label := strings.TrimSpace(primitives.FirstNonEmptyRaw(
+				option.SourceTitle,
+				option.FamilyID,
+			))
+			translationQueueAppendDescribedOption(optionsByValue, option.FamilyID, label, description)
+		}
 		return
 	}
 	assignments, err := b.listAssignmentsForSummary(ctx, repo, "updated_at", translationQueueSummaryFilters(entityType, sourceRecordID))
@@ -2459,6 +2518,18 @@ func appendAssigneeSelectedUserPanelOption(adminCtx AdminContext, adm *Admin, id
 }
 
 func (b *translationQueueBinding) appendAssigneeUserOptions(adminCtx AdminContext, search string, perPage int, optionsByValue map[string]map[string]any) {
+	if b == nil || b.admin == nil {
+		return
+	}
+	if b != nil && b.admin != nil && b.admin.users != nil && b.admin.users.users != nil {
+		users, err := b.admin.users.users.Search(adminCtx.Context, search, perPage)
+		if err == nil {
+			for _, user := range users {
+				appendAssigneeOption(optionsByValue, translationQueueAssigneeOption(userToRecord(user)))
+			}
+		}
+		return
+	}
 	if b.admin.registry == nil {
 		return
 	}
