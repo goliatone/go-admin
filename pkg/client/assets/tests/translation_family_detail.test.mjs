@@ -620,7 +620,14 @@ test('translation-family detail SSR enhancement: binds assignment planning contr
         headers: { 'Content-Type': 'application/json' },
       });
     }
-    throw new Error(`unexpected fetch: ${url}`);
+    return new Response(JSON.stringify({
+      data: [
+        { value: 'translator-2', label: 'Translator Two', email: 'two@example.test' },
+      ],
+    }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    });
   };
   dom.window.FormgenRelationships = {
     initRelationships() {
@@ -637,11 +644,13 @@ test('translation-family detail SSR enhancement: binds assignment planning contr
   };
 
   await initTranslationFamilyDetailPage(root, { fetch: fetchImpl });
-  assert.equal(requests.length, 0, 'formgen-ready SSR assignment controls should not be repopulated by translation-family');
+  assert.equal(requests.length, 1, 'partial formgen assignment controls should be recovered by translation-family');
+  assert.equal(requests[0].url, '/admin/api/translations/options/assignees?per_page=200');
   const assigneeSelect = root.querySelector('[data-family-assignee-select="__empty_panel__"]');
   assert.equal(assigneeSelect.dataset.endpointUrl, '/admin/api/translations/options/assignees?per_page=200');
-  assert.equal(assigneeSelect.dataset.familyAssigneeFormgenReady, 'true');
-  assert.ok(root.querySelector('[data-fg-typeahead-root="true"] input'), 'expected formgen typeahead input');
+  assert.equal(assigneeSelect.dataset.familyAssigneeFormgenReady, undefined);
+  assert.equal(root.querySelector('[data-fg-typeahead-root="true"] input'), null);
+  assert.equal(assigneeSelect.querySelector('option[value="translator-2"]').textContent, 'Translator Two - two@example.test');
 
   root.querySelector('[data-family-assign-to-me="true"]')
     .dispatchEvent(new dom.window.Event('click', { bubbles: true }));
@@ -760,6 +769,57 @@ test('translation-family detail SSR enhancement: binds inline assign buttons and
     assignee_id: 'translator-2',
     channel: 'default',
   });
+});
+
+test('translation-family detail SSR enhancement: recovers partial formgen assignee initialization', async () => {
+  const dom = setupDom(`
+    <div id="root"
+         data-ssr-enhanced="true"
+         data-endpoint="/admin/api/translations/families/family-partial?channel=default"
+         data-family-id="family-partial"
+         data-base-path="/admin">
+      <select data-family-assignee-select="es:localization"
+              data-formgen-managed="true"
+              data-endpoint-renderer="typeahead"
+              data-endpoint-url="/api/translations/options/assignees?per_page=200"
+              aria-label="Assignee">
+        <option value="">Select assignee</option>
+      </select>
+    </div>
+  `);
+  const root = dom.window.document.getElementById('root');
+  const requests = [];
+  const fetchImpl = async (url, init = {}) => {
+    requests.push({ url: String(url), init });
+    return new Response(JSON.stringify({
+      data: [
+        { value: 'translator-2', label: 'Translator Two', email: 'two@example.test' },
+      ],
+    }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  };
+  dom.window.FormgenRelationships = {
+    initRelationships() {
+      const select = root.querySelector('[data-family-assignee-select="es:localization"]');
+      const typeahead = dom.window.document.createElement('div');
+      typeahead.setAttribute('data-fg-typeahead-root', 'true');
+      const input = dom.window.document.createElement('input');
+      input.type = 'text';
+      typeahead.appendChild(input);
+      select.before(typeahead);
+    },
+  };
+
+  await initTranslationFamilyDetailPage(root, { fetch: fetchImpl });
+
+  assert.equal(requests.length, 1);
+  assert.equal(requests[0].url, '/admin/api/translations/options/assignees?per_page=200');
+  const assigneeSelect = root.querySelector('[data-family-assignee-select="es:localization"]');
+  assert.equal(assigneeSelect.dataset.familyAssigneeFormgenReady, undefined);
+  assert.equal(root.querySelector('[data-fg-typeahead-root="true"]'), null);
+  assert.equal(assigneeSelect.querySelector('option[value="translator-2"]').textContent, 'Translator Two - two@example.test');
 });
 
 test('translation-family detail SSR enhancement: managed assignee select falls back when formgen runtime is absent', async () => {

@@ -3586,24 +3586,41 @@ function hasFormgenAssigneeTypeahead(select: HTMLSelectElement): boolean {
   return previous instanceof HTMLElement && previous.getAttribute('data-fg-typeahead-root') === 'true';
 }
 
+function formgenAssigneeTypeaheadHasLoadedState(select: HTMLSelectElement): boolean {
+  if (!hasFormgenAssigneeTypeahead(select)) return false;
+  if (formgenAssigneeValue(select)) return true;
+  const root = select.previousElementSibling;
+  if (!(root instanceof HTMLElement)) return false;
+  const input = root.querySelector<HTMLInputElement>('input');
+  const inputValue = asString(input?.value);
+  if (inputValue && inputValue !== asString(select.dataset.initialAssigneeId || select.value)) {
+    return true;
+  }
+  return Boolean(root.querySelector('[data-fg-typeahead-option]'));
+}
+
 function isFormgenAssigneeReady(select: HTMLSelectElement): boolean {
   return select.dataset.familyAssigneeFormgenReady === 'true';
 }
 
 function markReadyFormgenAssigneeSelects(root: ParentNode): void {
   for (const select of formgenAssigneeSelects(root)) {
-    if (hasFormgenAssigneeTypeahead(select)) {
+    if (formgenAssigneeTypeaheadHasLoadedState(select)) {
       select.dataset.familyAssigneeFormgenReady = 'true';
     }
   }
 }
 
+function clearFormgenAssigneeSelect(select: HTMLSelectElement): void {
+  delete select.dataset.familyAssigneeFormgenReady;
+  if (hasFormgenAssigneeTypeahead(select)) {
+    select.previousElementSibling?.remove();
+  }
+}
+
 function clearPartialFormgenAssigneeSelects(selects: HTMLSelectElement[]): void {
   for (const select of selects) {
-    delete select.dataset.familyAssigneeFormgenReady;
-    if (hasFormgenAssigneeTypeahead(select)) {
-      select.previousElementSibling?.remove();
-    }
+    clearFormgenAssigneeSelect(select);
   }
 }
 
@@ -3663,6 +3680,9 @@ async function hydrateFamilyAssigneeSelects(
   const selects = assigneeSelects(root)
     .filter((select) => !isFormgenAssigneeReady(select));
   if (selects.length === 0) return;
+  for (const select of selects) {
+    clearFormgenAssigneeSelect(select);
+  }
   const selectedValues = selects.map((select) => asString(select.dataset.initialAssigneeId || select.value)).filter(Boolean);
   try {
     const assignees = await fetchAssigneeOptions(basePath, selectedValues, options);
