@@ -1,10 +1,20 @@
 # Changelog
 
+# [0.97.2](https://github.com/goliatone/go-admin/compare/v0.97.1...v0.97.2) - (2026-06-18)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update deps ([91336eb](https://github.com/goliatone/go-admin/commit/91336ebc16475678ad919b5b3aaabd5372a2c1e9))  - (goliatone)
+
 # [0.97.1](https://github.com/goliatone/go-admin/compare/v0.97.0...v0.97.1) - (2026-06-18)
 
 ## <!-- 1 -->🐛 Bug Fixes
 
 - Use CSRF for debug panel ([a99376a](https://github.com/goliatone/go-admin/commit/a99376aec92df7aa1b4a9f2806f6acf3f84cb5bd))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.97.1 ([024cff1](https://github.com/goliatone/go-admin/commit/024cff1d25d728d6f90767e1b9a5a86460226b14))  - (goliatone)
 
 ## <!-- 7 -->⚙️ Miscellaneous Tasks
 
