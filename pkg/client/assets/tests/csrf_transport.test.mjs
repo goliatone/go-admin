@@ -70,6 +70,7 @@ test('csrf-aware transport is adopted by shared wrappers and admin mutation page
   const importModalSource = readSource('../src/components/import-modal.ts');
   const exchangeImportSource = readSource('../src/datatable/exchange-import.ts');
   const debugPanelSource = readSource('../src/debug/debug-panel.ts');
+  const debugToolbarSource = readSource('../src/debug/toolbar/debug-toolbar.ts');
   const integrationMappingsSource = readSource('../src/esign/pages/integration-mappings.ts');
   const integrationSyncRunsSource = readSource('../src/esign/pages/integration-sync-runs.ts');
   const integrationConflictsSource = readSource('../src/esign/pages/integration-conflicts.ts');
@@ -80,6 +81,7 @@ test('csrf-aware transport is adopted by shared wrappers and admin mutation page
   const registerTemplateSource = readSource('../../templates/register.html');
   const layoutTemplateSource = readSource('../../templates/layout.html');
   const loginLayoutTemplateSource = readSource('../../templates/login-layout.html');
+  const debugStandaloneTemplateSource = readSource('../../templates/resources/debug/index.html');
   const browserGlobalsSource = readSource('../src/shared/transport/browser-globals.ts');
 
   assert.match(contentTypeAPIClientSource, /from '\.\.\/shared\/transport\/http-client\.js'/);
@@ -105,6 +107,9 @@ test('csrf-aware transport is adopted by shared wrappers and admin mutation page
 
   assert.match(debugPanelSource, /from '\.\.\/shared\/transport\/http-client\.js'/);
   assert.ok((debugPanelSource.match(/httpRequest\(`\$\{this\.debugPath\}/g) || []).length >= 3);
+  assert.match(debugPanelSource, /readHTTPError\(response, `Action failed \(\$\{response\.status\}\)`/);
+  assert.match(debugToolbarSource, /from '\.\.\/\.\.\/shared\/transport\/http-client\.js'/);
+  assert.match(debugToolbarSource, /readHTTPError\(response, `Action failed \(\$\{response\.status\}\)`/);
 
   assert.match(integrationMappingsSource, /from '\.\.\/\.\.\/shared\/transport\/http-client\.js'/);
   assert.ok((integrationMappingsSource.match(/await httpRequest\(/g) || []).length >= 4);
@@ -132,6 +137,7 @@ test('csrf-aware transport is adopted by shared wrappers and admin mutation page
   assert.match(browserGlobalsSource, /appendCSRFHeader\(resolveRequestURL\(input\), \{ method: resolveRequestMethod\(input, options\) \}, headers\);/);
   assert.match(layoutTemplateSource, /assets\/dist\/runtime\/go-admin-browser\.js/);
   assert.match(loginLayoutTemplateSource, /assets\/dist\/runtime\/go-admin-browser\.js/);
+  assert.match(debugStandaloneTemplateSource, /\{\{\s*csrf_meta\|safe\s*\}\}/);
   assert.doesNotMatch(layoutTemplateSource, /window\.goAdminFetch = function/);
   assert.doesNotMatch(loginLayoutTemplateSource, /window\.goAdminFetch = function/);
 });

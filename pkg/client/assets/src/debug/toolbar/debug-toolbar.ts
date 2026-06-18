@@ -33,7 +33,7 @@ import {
 import { renderDebugIconRef } from '../shared/icons.js';
 import { buildPanelActionPayload } from '../shared/panel-actions.js';
 import { hydrateServerPanelDefinitions } from '../shared/server-definitions.js';
-import { httpRequest } from '../../shared/transport/http-client.js';
+import { httpRequest, readHTTPError } from '../../shared/transport/http-client.js';
 // Import to ensure built-in panels are registered
 import '../shared/builtin-panels.js';
 
@@ -771,7 +771,7 @@ export class DebugToolbar extends HTMLElement {
         body: JSON.stringify(payload),
       });
       if (!response.ok) {
-        throw new Error(`Action failed (${response.status})`);
+        throw new Error(await readHTTPError(response, `Action failed (${response.status})`, { appendStatusToFallback: false }));
       }
       const result = await response.json() as { ok?: boolean; message?: string; data?: unknown; refresh?: boolean; event?: DebugEvent };
       this.showPanelActionResult(
