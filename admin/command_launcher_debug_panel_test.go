@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 
 	debugregistry "github.com/goliatone/go-admin/debug"
@@ -252,6 +253,105 @@ func TestCommandLauncherActionFieldsSupportFormgenCompatibleFieldKinds(t *testin
 	}
 	if byName["status"].Kind != "select" || len(byName["status"].Options) != 2 {
 		t.Fatalf("unexpected select field: %#v", byName["status"])
+	}
+}
+
+func TestCommandLauncherActionFieldsSerializePresentationHints(t *testing.T) {
+	fields := commandLauncherActionFields(context.Background(), nil, command.CommandDescriptor{Input: command.CommandInputSchema{
+		Type: "object",
+		Fields: []command.CommandInputField{
+			{
+				Name:    "limit",
+				Path:    "limit",
+				Type:    "integer",
+				Help:    "Maximum rows to scan",
+				Default: 50,
+				DisplayHints: map[string]any{
+					"section":     "Scope",
+					"advanced":    "true",
+					"units":       "rows",
+					"raw_html":    "<b>unsafe</b>",
+					"unsupported": []any{func() {}},
+				},
+			},
+		},
+	}}, nil)
+	if len(fields) != 1 {
+		t.Fatalf("expected one field, got %#v", fields)
+	}
+	field := fields[0]
+	if field.Default != 50 {
+		t.Fatalf("expected default to round-trip, got %#v", field.Default)
+	}
+	if field.Description != "Maximum rows to scan" {
+		t.Fatalf("expected help fallback in description, got %q", field.Description)
+	}
+	if got := field.DisplayHints; got["section"] != "Scope" || got["advanced"] != true || got["units"] != "rows" {
+		t.Fatalf("expected sanitized display hints, got %#v", got)
+	}
+	if _, ok := field.DisplayHints["raw_html"]; ok {
+		t.Fatalf("unexpected unsafe display hint: %#v", field.DisplayHints)
+	}
+	payload, err := json.Marshal(field)
+	if err != nil {
+		t.Fatalf("marshal field: %v", err)
+	}
+	if !json.Valid(payload) {
+		t.Fatalf("expected JSON-safe field, got %s", payload)
+	}
+}
+
+func TestCommandLauncherSerializedSchemasMirrorPresentationHints(t *testing.T) {
+	descriptor := commandLauncherTestDescriptor()
+	descriptor.Input.Fields[0].Help = "Pick an entity"
+	descriptor.Input.Fields[0].Default = "entity-1"
+	descriptor.Input.Fields[0].DisplayHints = map[string]any{
+		"section":  "Scope",
+		"advanced": false,
+		"units":    "id",
+		"onclick":  func() {},
+	}
+	schemas := commandLauncherFormSchemas([]command.CommandDescriptor{descriptor})
+	schema := schemas["catalog.inspect"].(map[string]any)
+	fields := schema["fields"].([]map[string]any)
+	if len(fields) != 1 {
+		t.Fatalf("expected one serialized field, got %#v", fields)
+	}
+	field := fields[0]
+	if field["default"] != "entity-1" || field["help"] != "Pick an entity" {
+		t.Fatalf("expected default/help in serialized schema, got %#v", field)
+	}
+	hints := field["display_hints"].(map[string]any)
+	if hints["section"] != "Scope" || hints["advanced"] != false || hints["units"] != "id" {
+		t.Fatalf("expected mirrored display hints, got %#v", hints)
+	}
+	if _, ok := hints["onclick"]; ok {
+		t.Fatalf("unexpected unsafe display hint in schema: %#v", hints)
+	}
+	payload, err := json.Marshal(schemas)
+	if err != nil {
+		t.Fatalf("marshal schemas: %v", err)
+	}
+	if !json.Valid(payload) {
+		t.Fatalf("expected JSON-safe schemas, got %s", payload)
+	}
+}
+
+func TestCommandLauncherActionFieldsOmitAbsentPresentationHints(t *testing.T) {
+	fields := commandLauncherActionFields(context.Background(), nil, command.CommandDescriptor{Input: command.CommandInputSchema{
+		Type: "object",
+		Fields: []command.CommandInputField{
+			{Name: "query", Path: "query", Type: "string"},
+		},
+	}}, nil)
+	if len(fields) != 1 {
+		t.Fatalf("expected one field, got %#v", fields)
+	}
+	if fields[0].Default != nil {
+		t.Fatalf("expected absent default to remain empty, got %#v", fields[0].Default)
+	}
+	if fields[0].DisplayHints != nil {
+		t.Fatalf("expected absent display hints to remain empty, got %#v", fields[0].DisplayHints)
 	}
 }
 

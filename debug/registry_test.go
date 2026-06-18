@@ -75,7 +75,15 @@ func TestPanelDefinitionRichUINormalizesWireContract(t *testing.T) {
 					SubmitLabel: "Run refresh",
 					Refresh:     true,
 					Fields: []PanelUIActionField{
-						{Name: "File_ID", Label: "File ID", Kind: "string", PayloadPath: "payload.file_id", Required: true},
+						{
+							Name:         "File_ID",
+							Label:        "File ID",
+							Kind:         "string",
+							PayloadPath:  "payload.file_id",
+							Required:     true,
+							Default:      map[string]any{"value": "123", "unsafe": func() {}},
+							DisplayHints: map[string]any{"section": "Scope", "unsafe": func() {}, "raw_html": "<b>bad</b>"},
+						},
 					},
 				},
 				{ID: "Refresh", Label: "Duplicate"},
@@ -127,6 +135,18 @@ func TestPanelDefinitionRichUINormalizesWireContract(t *testing.T) {
 	}
 	if len(def.UI.Actions[0].Fields) != 1 || def.UI.Actions[0].Fields[0].Name != "file_id" || def.UI.Actions[0].Fields[0].PayloadPath != "payload.file_id" {
 		t.Fatalf("expected normalized action field, got %+v", def.UI.Actions[0].Fields)
+	}
+	if got := def.UI.Actions[0].Fields[0].Default.(map[string]any); got["value"] != "123" {
+		t.Fatalf("expected JSON-safe field default, got %+v", def.UI.Actions[0].Fields[0].Default)
+	}
+	if _, ok := def.UI.Actions[0].Fields[0].Default.(map[string]any)["unsafe"]; ok {
+		t.Fatalf("expected unsafe default value to be dropped, got %+v", def.UI.Actions[0].Fields[0].Default)
+	}
+	if got := def.UI.Actions[0].Fields[0].DisplayHints; got["section"] != "Scope" {
+		t.Fatalf("expected JSON-safe field display hints, got %+v", got)
+	}
+	if _, ok := def.UI.Actions[0].Fields[0].DisplayHints["unsafe"]; ok {
+		t.Fatalf("expected unsafe display hint to be dropped, got %+v", def.UI.Actions[0].Fields[0].DisplayHints)
 	}
 	if len(registration.Actions) != 1 || registration.Actions["refresh"] == nil {
 		t.Fatalf("expected normalized handler storage, got %+v", registration.Actions)
