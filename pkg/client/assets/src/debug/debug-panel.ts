@@ -61,6 +61,9 @@ import {
   attachCommandLauncherListeners,
   extractCommandLauncherResult,
   renderCommandLauncherResultCard,
+  applyCommandLauncherStatusEvent,
+  getCommandLauncherLiveStatus,
+  recordCommandLauncherInvocation,
 } from './shared/panels/command-launcher.js';
 import { httpRequest, readHTTPError } from '../shared/transport/http-client.js';
 // Import to ensure built-in panels are registered
@@ -1120,7 +1123,8 @@ export class DebugPanel {
       // lists the full set, so the leftover return value is intentionally unused.
       this.renderPanelActionErrors(fieldErrors, result.actionID);
       const canRetry = Boolean(result.actionID && this.commandLauncherLastPayloads.has(result.actionID));
-      target.innerHTML = renderCommandLauncherResultCard(parsed, { canRetry, at: result.at, durationMs: result.durationMs });
+      const liveStatus = getCommandLauncherLiveStatus(parsed.correlationId);
+      target.innerHTML = renderCommandLauncherResultCard(parsed, { canRetry, at: result.at, durationMs: result.durationMs, liveStatus });
       this.attachCommandLauncherResultActions(target, result.actionID);
       return;
     }
@@ -1813,6 +1817,16 @@ export class DebugPanel {
     this.updateStatusMeta();
 
     if (this.paused) {
+      return;
+    }
+
+    // Live command status (Phase 3 T11): update the launcher result card in place
+    // rather than re-rendering the whole panel, so an in-progress form is intact.
+    if (event.type === 'command_status') {
+      applyCommandLauncherStatusEvent(event.payload);
+      if (this.activePanel === 'commands') {
+        this.renderStoredPanelActionResult('commands');
+      }
       return;
     }
 
