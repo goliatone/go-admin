@@ -3,6 +3,7 @@ package admin
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"testing"
 	"time"
 
@@ -13,6 +14,16 @@ import (
 
 type commandLauncherTestCatalog struct {
 	descriptors []command.CommandDescriptor
+}
+
+func mustCommandLauncherType[T any](t *testing.T, value any, label string) T {
+	t.Helper()
+	typed, ok := value.(T)
+	if !ok {
+		var zero T
+		t.Fatalf("expected %s to be %T, got %T (%#v)", label, zero, value, value)
+	}
+	return typed
 }
 
 func (c commandLauncherTestCatalog) CommandDescriptors() []command.CommandDescriptor {
@@ -104,7 +115,8 @@ func TestCommandLauncherPanelSerializesExecutableActionsAndFormSchemas(t *testin
 	if action.Payload["command_id"] != "catalog.inspect" {
 		t.Fatalf("expected canonical command_id payload, got %#v", action.Payload)
 	}
-	if action.Payload["options"].(map[string]any)["mode"] != command.ExecutionModeInline {
+	optionsPayload := mustCommandLauncherType[map[string]any](t, action.Payload["options"], "action options payload")
+	if optionsPayload["mode"] != command.ExecutionModeInline {
 		t.Fatalf("expected dispatch options mode in action payload, got %#v", action.Payload)
 	}
 	if len(action.Fields) != 1 || action.Fields[0].PayloadPath != "payload.entity_id" {
@@ -121,8 +133,8 @@ func TestCommandLauncherPanelSerializesExecutableActionsAndFormSchemas(t *testin
 	if !ok || schemas["catalog.inspect"] == nil {
 		t.Fatalf("expected serialized form schema metadata, got %#v", def.UI.Metadata)
 	}
-	schema := schemas["catalog.inspect"].(map[string]any)
-	formgen := schema["x-formgen"].(map[string]any)
+	schema := mustCommandLauncherType[map[string]any](t, schemas["catalog.inspect"], "catalog.inspect schema")
+	formgen := mustCommandLauncherType[map[string]any](t, schema["x-formgen"], "x-formgen metadata")
 	if formgen["mode"] != "command-launcher" || formgen["payload_paths"] != true {
 		t.Fatalf("expected command launcher formgen metadata, got %#v", formgen)
 	}
@@ -147,7 +159,7 @@ func TestCommandLauncherPanelMissingDispatchShowsCatalogWithoutActions(t *testin
 	if len(def.UI.Actions) != 0 {
 		t.Fatalf("expected no executable actions without dispatch permission, got %#v", def.UI.Actions)
 	}
-	diagnostics := def.UI.Metadata["diagnostics"].([]CommandLauncherDiagnostic)
+	diagnostics := mustCommandLauncherType[[]CommandLauncherDiagnostic](t, def.UI.Metadata["diagnostics"], "diagnostics metadata")
 	if len(diagnostics) != 1 || diagnostics[0].Code != "missing_command_dispatch" {
 		t.Fatalf("expected missing dispatch diagnostic, got %#v", diagnostics)
 	}
@@ -156,7 +168,7 @@ func TestCommandLauncherPanelMissingDispatchShowsCatalogWithoutActions(t *testin
 	if !ok || reg.Snapshot == nil {
 		t.Fatalf("expected command launcher snapshot")
 	}
-	snapshot := reg.Snapshot(context.Background()).(CommandLauncherSnapshot)
+	snapshot := mustCommandLauncherType[CommandLauncherSnapshot](t, reg.Snapshot(context.Background()), "command launcher snapshot")
 	if len(snapshot.Commands) != 1 {
 		t.Fatalf("expected visible command descriptor in snapshot, got %#v", snapshot.Commands)
 	}
@@ -187,7 +199,7 @@ func TestCommandLauncherPanelDoesNotLeakHiddenCommandSchemas(t *testing.T) {
 	if schemas := def.UI.Metadata["serialized_schemas"]; schemas != nil {
 		t.Fatalf("hidden command must not serialize schema or option source ids, got %#v", schemas)
 	}
-	diagnostics := def.UI.Metadata["diagnostics"].([]CommandLauncherDiagnostic)
+	diagnostics := mustCommandLauncherType[[]CommandLauncherDiagnostic](t, def.UI.Metadata["diagnostics"], "diagnostics metadata")
 	if len(diagnostics) != 1 || diagnostics[0].Code != "command_specific_permission_gaps" {
 		t.Fatalf("expected command-specific permission diagnostic, got %#v", diagnostics)
 	}
@@ -333,14 +345,15 @@ func TestCommandLauncherSerializedSchemasMirrorPresentationHints(t *testing.T) {
 		},
 	})
 	schemas := commandLauncherFormSchemas([]command.CommandDescriptor{descriptor})
-	schema := schemas["catalog.inspect"].(map[string]any)
-	fields := schema["fields"].([]map[string]any)
+	schema := mustCommandLauncherType[map[string]any](t, schemas["catalog.inspect"], "catalog.inspect schema")
+	fields := mustCommandLauncherType[[]map[string]any](t, schema["fields"], "schema fields")
 	if len(fields) != 2 {
 		t.Fatalf("expected two serialized fields, got %#v", fields)
 	}
 	byPath := map[string]map[string]any{}
 	for _, field := range fields {
-		byPath[field["path"].(string)] = field
+		path := mustCommandLauncherType[string](t, field["path"], fmt.Sprintf("field path for %#v", field))
+		byPath[path] = field
 	}
 	field := byPath["entity_id"]
 	if field["default"] != "entity-1" || field["help"] != "Pick an entity" {
@@ -349,31 +362,31 @@ func TestCommandLauncherSerializedSchemasMirrorPresentationHints(t *testing.T) {
 	if field["sensitive"] != true {
 		t.Fatalf("expected sensitive descriptor flag to round-trip, got %#v", field)
 	}
-	hints := field["display_hints"].(map[string]any)
+	hints := mustCommandLauncherType[map[string]any](t, field["display_hints"], "field display hints")
 	if hints["section"] != "Scope" || hints["advanced"] != false || hints["units"] != "id" {
 		t.Fatalf("expected mirrored display hints, got %#v", hints)
 	}
 	if _, ok := hints["onclick"]; ok {
 		t.Fatalf("unexpected unsafe display hint in schema: %#v", hints)
 	}
-	source := field["option_source"].(map[string]any)
+	source := mustCommandLauncherType[map[string]any](t, field["option_source"], "field option source")
 	if source["id"] != "catalog.entities" || source["label"] != "Catalog entities" || source["dynamic"] != true || source["cache_scope"] != "request" || source["redaction_hint"] != "id-only" {
 		t.Fatalf("expected full option source descriptor, got %#v", source)
 	}
-	params := source["params"].(map[string]any)
+	params := mustCommandLauncherType[map[string]any](t, source["params"], "option source params")
 	if params["tenant"] != "default" || params["limit"] != 25 {
 		t.Fatalf("expected option source params to round-trip, got %#v", params)
 	}
-	validation := field["validation"].(map[string]any)
+	validation := mustCommandLauncherType[map[string]any](t, field["validation"], "field validation")
 	if validation["min_length"] != 3 {
 		t.Fatalf("expected validation metadata to round-trip, got %#v", validation)
 	}
 	status := byPath["status"]
-	options := status["static_options"].([]map[string]any)
+	options := mustCommandLauncherType[[]map[string]any](t, status["static_options"], "status static options")
 	if len(options) != 2 || options[0]["description"] != "Runnable entries" || options[1]["disabled"] != true {
 		t.Fatalf("expected full static option descriptors, got %#v", options)
 	}
-	metadata := options[1]["metadata"].(map[string]any)
+	metadata := mustCommandLauncherType[map[string]any](t, options[1]["metadata"], "static option metadata")
 	if metadata["reason"] != "archived" {
 		t.Fatalf("expected static option metadata to round-trip, got %#v", metadata)
 	}
@@ -446,7 +459,10 @@ func TestCommandLauncherActionForwardsIDsAndDispatchOptions(t *testing.T) {
 	}
 	if err := RegisterMessageFactory(adm.Commands(), "rpc.dispatch.test", func(payload map[string]any, ids []string) (rpcDispatchTestMessage, error) {
 		factoryIDs = append([]string(nil), ids...)
-		value, _ := payload["value"].(string)
+		value, ok := payload["value"].(string)
+		if !ok {
+			return rpcDispatchTestMessage{}, fmt.Errorf("expected string value payload, got %T", payload["value"])
+		}
 		return rpcDispatchTestMessage{Value: value}, nil
 	}); err != nil {
 		t.Fatalf("register message factory: %v", err)

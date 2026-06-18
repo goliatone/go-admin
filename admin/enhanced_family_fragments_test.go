@@ -60,6 +60,7 @@ func TestFamilyDetailTemplateContainsFragmentRoots(t *testing.T) {
 		`data-enhance-action="true"`,
 		`method="post"`,
 		`csrf_field|safe`,
+		`data-endpoint-hydrate-param="{{ translation_family_detail_ssr.Assignee.endpoint_hydrate|default:"assignee_id" }}"`,
 	} {
 		assert.Contains(t, html, attr, "template should contain %s", attr)
 	}
@@ -76,6 +77,11 @@ func TestRenderFamilyDetailFragmentsFromDataIncludesAssignmentForms(t *testing.T
 			"locale_assignment_key": "fr:localization",
 			"title":                 "Page 1",
 			"assignment_summary":    "Assigned to Translator",
+			"assignment": map[string]any{
+				"assignee_id":      "translator-2",
+				"assignee_label":   "Translator Two",
+				"display_assignee": "Translator Two",
+			},
 			"assign_to_me_action": map[string]any{
 				"enabled":  true,
 				"endpoint": "/admin/api/translations/families/tg-page-1/assignments",
@@ -112,6 +118,9 @@ func TestRenderFamilyDetailFragmentsFromDataIncludesAssignmentForms(t *testing.T
 	assert.Contains(t, fragments[0].HTML, `data-enhance-action="true"`)
 	assert.Contains(t, fragments[0].HTML, `name="_csrf" value="fragment-csrf"`)
 	assert.Contains(t, fragments[0].HTML, `name="assignee_id"`)
+	assert.Contains(t, fragments[0].HTML, `data-initial-assignee-id="translator-2"`)
+	assert.Contains(t, fragments[0].HTML, `data-endpoint-hydrate-param="assignee_id"`)
+	assert.Contains(t, fragments[0].HTML, `data-relationship-current="translator-2"`)
 	assert.Contains(t, fragments[1].HTML, "Open editor")
 	assert.Contains(t, fragments[2].HTML, "Ready")
 	assert.Contains(t, fragments[3].HTML, "fr assignment Assigned")

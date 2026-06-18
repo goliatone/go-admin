@@ -382,6 +382,9 @@ func TestTranslationQueueBindingAssignmentsIncludesOwnerLabels(t *testing.T) {
 			PermAdminTranslationsView: true,
 		},
 	})
+	if err := adm.RegisterModule(NewUserManagementModule()); err != nil {
+		t.Fatalf("register users module: %v", err)
+	}
 	if _, err := userStore.CreateUser(context.Background(), UserRecord{
 		ID:       "9e838c81-6d3e-49d7-ad8f-b6616a040a44",
 		Username: "translator.jane",
@@ -492,14 +495,108 @@ func TestTranslationQueueActorLabelResolverUsesUserServiceFallbackAndCaches(t *t
 	}
 }
 
+func TestTranslationQueueAssigneesOptionsHydratesSelectedUserDirectly(t *testing.T) {
+	userStore := NewInMemoryUserStore()
+	userRepo := &translationQueueCountingUserRepo{UserRepository: &inMemoryUserRepoAdapter{store: userStore}}
+	roleRepo := &translationQueueCountingRoleRepo{RoleRepository: &inMemoryRoleRepoAdapter{store: userStore}}
+	adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{
+		FeatureGate:    featureGateFromKeys(FeatureCMS, FeatureTranslationQueue, FeatureUsers),
+		UserRepository: userRepo,
+		RoleRepository: roleRepo,
+	})
+	adm.WithAuthorizer(translationPermissionAuthorizer{
+		allowed: map[string]bool{
+			PermAdminTranslationsView: true,
+		},
+	})
+	if _, err := userStore.CreateUser(context.Background(), UserRecord{
+		ID:        "translator-1",
+		Username:  "translator.jane",
+		Email:     "jane@example.com",
+		FirstName: "Jane",
+		LastName:  "Doe",
+		Status:    "active",
+	}); err != nil {
+		t.Fatalf("save user: %v", err)
+	}
+
+	repo := NewInMemoryTranslationAssignmentRepository()
+	if _, err := repo.Create(context.Background(), TranslationAssignment{
+		FamilyID:       "family-1",
+		EntityType:     "pages",
+		SourceRecordID: "page-1",
+		SourceLocale:   "en",
+		TargetLocale:   "es",
+		AssignmentType: AssignmentTypeDirect,
+		Status:         AssignmentStatusAssigned,
+		AssigneeID:     "unrelated-assignment-assignee",
+	}); err != nil {
+		t.Fatalf("create assignment: %v", err)
+	}
+	if _, registerErr := RegisterTranslationQueuePanel(adm, repo); registerErr != nil {
+		t.Fatalf("register queue panel: %v", registerErr)
+	}
+	binding := newTranslationQueueBinding(adm)
+	app := newTranslationQueueTestApp(t, binding)
+
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/translations/options/assignees?assignee_id=translator-1&per_page=200", nil)
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("request error: %v", err)
+	}
+	defer resp.Body.Close() //nolint:errcheck // test response body cleanup is best-effort
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status=%d want=200", resp.StatusCode)
+	}
+	payload := []map[string]any{}
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if len(payload) != 1 {
+		t.Fatalf("expected one hydrated assignee option, got %+v", payload)
+	}
+	option := payload[0]
+	if got := strings.TrimSpace(toString(option["value"])); got != "translator-1" {
+		t.Fatalf("expected selected value translator-1, got %q", got)
+	}
+	if got := strings.TrimSpace(toString(option["label"])); got != "Jane Doe" {
+		t.Fatalf("expected selected label Jane Doe, got %q", got)
+	}
+	if userRepo.getCount != 1 {
+		t.Fatalf("expected one direct user lookup, got %d", userRepo.getCount)
+	}
+	if userRepo.listCount != 0 {
+		t.Fatalf("expected hydrate path not to list users, got %d list calls", userRepo.listCount)
+	}
+	if roleRepo.rolesForUserCount != 0 {
+		t.Fatalf("expected hydrate path not to hydrate roles, got %d role calls", roleRepo.rolesForUserCount)
+	}
+}
+
 type translationQueueCountingUserRepo struct {
 	UserRepository
-	getCount int
+	getCount  int
+	listCount int
 }
 
 func (r *translationQueueCountingUserRepo) Get(ctx context.Context, id string) (UserRecord, error) {
 	r.getCount++
 	return r.UserRepository.Get(ctx, id)
+}
+
+func (r *translationQueueCountingUserRepo) List(ctx context.Context, opts ListOptions) ([]UserRecord, int, error) {
+	r.listCount++
+	return r.UserRepository.List(ctx, opts)
+}
+
+type translationQueueCountingRoleRepo struct {
+	RoleRepository
+	rolesForUserCount int
+}
+
+func (r *translationQueueCountingRoleRepo) RolesForUser(ctx context.Context, userID string) ([]RoleRecord, error) {
+	r.rolesForUserCount++
+	return r.RoleRepository.RolesForUser(ctx, userID)
 }
 
 func TestTranslationQueueBindingAssignmentsSupportsPageLocalFamilyGrouping(t *testing.T) {
@@ -2740,6 +2837,13 @@ func newTranslationQueueTestApp(t *testing.T, binding *translationQueueBinding) 
 	})
 	r.Get("/admin/api/translations/assignments", func(c router.Context) error {
 		payload, err := binding.Assignments(c)
+		if err != nil {
+			return writeError(c, err)
+		}
+		return writeJSON(c, payload)
+	})
+	r.Get("/admin/api/translations/options/assignees", func(c router.Context) error {
+		payload, err := binding.AssigneesOptions(c)
 		if err != nil {
 			return writeError(c, err)
 		}
