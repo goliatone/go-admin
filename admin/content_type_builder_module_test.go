@@ -206,3 +206,92 @@ func TestFormgenSchemaValidator_RenderForm_UsesPermissionMatrixComponent(t *test
 		t.Fatalf("expected permission matrix script in html: %s", html)
 	}
 }
+
+func TestFormgenSchemaValidator_RenderForm_PreservesNestedRelationshipSelectPath(t *testing.T) {
+	validator, err := NewFormgenSchemaValidatorWithAPIBase("/admin", "/admin/api")
+	if err != nil {
+		t.Fatalf("validator init failed: %v", err)
+	}
+
+	const topicID = "7a8ec46f-3024-4585-88be-f6adedf77b28"
+	schema := map[string]any{
+		"$schema": "https://json-schema.org/draft/2020-12/schema",
+		"type":    "object",
+		"properties": map[string]any{
+			"columns": map[string]any{
+				"type": "array",
+				"items": map[string]any{
+					"type": "object",
+					"properties": map[string]any{
+						"entries": map[string]any{
+							"type": "array",
+							"items": map[string]any{
+								"type": "object",
+								"properties": map[string]any{
+									"topic_id": map[string]any{
+										"type":             "string",
+										"x-formgen:widget": "select",
+										"x-relationships": map[string]any{
+											"type":       "belongsTo",
+											"target":     "#/components/schemas/ArchiveTopic",
+											"foreignKey": "topic_id",
+										},
+										"x-endpoint": map[string]any{
+											"url":          "/admin/api/options/teaching-topic",
+											"mode":         "search",
+											"searchParam":  "search",
+											"hydrateParam": "topic_id",
+											"labelField":   "label",
+											"valueField":   "value",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	html, err := validator.RenderForm(
+		context.Background(),
+		schema,
+		SchemaValidationOptions{Slug: "teaching-topics-menu"},
+		formgenrender.RenderOptions{
+			Values: map[string]any{
+				"columns": []any{
+					map[string]any{
+						"entries": []any{
+							map[string]any{
+								"topic_id": topicID,
+							},
+						},
+					},
+				},
+			},
+		},
+	)
+	if err != nil {
+		t.Fatalf("render failed: %v", err)
+	}
+
+	for _, expected := range []string{
+		`id="fg-columns-0-entries-0-topic_id"`,
+		`name="columns[0].entries[0].topic_id"`,
+		`data-endpoint-hydrate-param="topic_id"`,
+		`data-relationship-current="` + topicID + `"`,
+	} {
+		if !strings.Contains(html, expected) {
+			t.Fatalf("expected nested relationship select markup %q in html: %s", expected, html)
+		}
+	}
+	for _, unexpected := range []string{
+		`id="fg-topic_id"`,
+		`name="topic_id"`,
+	} {
+		if strings.Contains(html, unexpected) {
+			t.Fatalf("expected no flat topic select markup %q in html: %s", unexpected, html)
+		}
+	}
+}
