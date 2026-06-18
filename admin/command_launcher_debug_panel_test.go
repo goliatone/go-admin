@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"testing"
+	"time"
 
 	debugregistry "github.com/goliatone/go-admin/debug"
 	auth "github.com/goliatone/go-auth"
@@ -612,4 +613,60 @@ func commandLauncherDoctorResult(t *testing.T, report DoctorReport) DoctorCheckR
 	}
 	t.Fatalf("expected command launcher doctor check in %+v", report.Checks)
 	return DoctorCheckResult{}
+}
+
+func TestCommandLauncherPublishCommandStatusBroadcasts(t *testing.T) {
+	// Enable the commands panel so command_status is gated open regardless of
+	// global registry state.
+	collector := NewDebugCollector(DebugConfig{Panels: []string{DebugPanelCommandLauncher}})
+	adm := &Admin{debugCollector: collector}
+	events := collector.Subscribe("status-client")
+	if events == nil {
+		t.Fatalf("expected subscription channel")
+	}
+
+	adm.PublishCommandStatus(CommandStatusEvent{
+		CorrelationID: "corr-9",
+		CommandID:     "demo.cmd",
+		State:         "completed",
+		Mode:          "queued",
+	})
+
+	select {
+	case event := <-events:
+		if event.Type != commandStatusEventType {
+			t.Fatalf("expected %q event, got %q", commandStatusEventType, event.Type)
+		}
+		raw, err := json.Marshal(event.Payload)
+		if err != nil {
+			t.Fatalf("marshal payload: %v", err)
+		}
+		var got CommandStatusEvent
+		if err := json.Unmarshal(raw, &got); err != nil {
+			t.Fatalf("unmarshal payload: %v", err)
+		}
+		if got.CorrelationID != "corr-9" || got.State != "completed" || got.CommandID != "demo.cmd" {
+			t.Fatalf("unexpected payload: %#v", got)
+		}
+		if got.At == "" {
+			t.Fatalf("expected At to be stamped, got empty")
+		}
+	case <-time.After(500 * time.Millisecond):
+		t.Fatalf("expected command_status event")
+	}
+}
+
+func TestCommandLauncherPublishCommandStatusIgnoresEmptyState(t *testing.T) {
+	collector := NewDebugCollector(DebugConfig{Panels: []string{DebugPanelCommandLauncher}})
+	adm := &Admin{debugCollector: collector}
+	events := collector.Subscribe("status-empty")
+
+	adm.PublishCommandStatus(CommandStatusEvent{CorrelationID: "c", State: ""})
+
+	select {
+	case event := <-events:
+		t.Fatalf("did not expect an event for empty state, got %+v", event)
+	case <-time.After(100 * time.Millisecond):
+		// expected: no event published
+	}
 }
