@@ -305,21 +305,48 @@ func TestCommandLauncherSerializedSchemasMirrorPresentationHints(t *testing.T) {
 	descriptor := commandLauncherTestDescriptor()
 	descriptor.Input.Fields[0].Help = "Pick an entity"
 	descriptor.Input.Fields[0].Default = "entity-1"
+	descriptor.Input.Fields[0].Sensitive = true
+	descriptor.Input.Fields[0].OptionSource.Label = "Catalog entities"
+	descriptor.Input.Fields[0].OptionSource.RedactionHint = "id-only"
+	descriptor.Input.Fields[0].OptionSource.Params = map[string]any{
+		"tenant": "default",
+		"limit":  25,
+	}
+	descriptor.Input.Fields[0].Validation = map[string]any{
+		"min_length": 3,
+	}
 	descriptor.Input.Fields[0].DisplayHints = map[string]any{
 		"section":  "Scope",
 		"advanced": false,
 		"units":    "id",
 		"onclick":  func() {},
 	}
+	descriptor.Input.Fields = append(descriptor.Input.Fields, command.CommandInputField{
+		Name: "status",
+		Path: "status",
+		Type: "string",
+		Kind: "select",
+		StaticOptions: []command.CommandOption{
+			{Value: "active", Label: "Active", Description: "Runnable entries"},
+			{Value: "deleted", Label: "Deleted", Description: "Unavailable entries", Disabled: true, Metadata: map[string]any{"reason": "archived"}},
+		},
+	})
 	schemas := commandLauncherFormSchemas([]command.CommandDescriptor{descriptor})
 	schema := schemas["catalog.inspect"].(map[string]any)
 	fields := schema["fields"].([]map[string]any)
-	if len(fields) != 1 {
-		t.Fatalf("expected one serialized field, got %#v", fields)
+	if len(fields) != 2 {
+		t.Fatalf("expected two serialized fields, got %#v", fields)
 	}
-	field := fields[0]
+	byPath := map[string]map[string]any{}
+	for _, field := range fields {
+		byPath[field["path"].(string)] = field
+	}
+	field := byPath["entity_id"]
 	if field["default"] != "entity-1" || field["help"] != "Pick an entity" {
 		t.Fatalf("expected default/help in serialized schema, got %#v", field)
+	}
+	if field["sensitive"] != true {
+		t.Fatalf("expected sensitive descriptor flag to round-trip, got %#v", field)
 	}
 	hints := field["display_hints"].(map[string]any)
 	if hints["section"] != "Scope" || hints["advanced"] != false || hints["units"] != "id" {
@@ -327,6 +354,27 @@ func TestCommandLauncherSerializedSchemasMirrorPresentationHints(t *testing.T) {
 	}
 	if _, ok := hints["onclick"]; ok {
 		t.Fatalf("unexpected unsafe display hint in schema: %#v", hints)
+	}
+	source := field["option_source"].(map[string]any)
+	if source["id"] != "catalog.entities" || source["label"] != "Catalog entities" || source["dynamic"] != true || source["cache_scope"] != "request" || source["redaction_hint"] != "id-only" {
+		t.Fatalf("expected full option source descriptor, got %#v", source)
+	}
+	params := source["params"].(map[string]any)
+	if params["tenant"] != "default" || params["limit"] != 25 {
+		t.Fatalf("expected option source params to round-trip, got %#v", params)
+	}
+	validation := field["validation"].(map[string]any)
+	if validation["min_length"] != 3 {
+		t.Fatalf("expected validation metadata to round-trip, got %#v", validation)
+	}
+	status := byPath["status"]
+	options := status["static_options"].([]map[string]any)
+	if len(options) != 2 || options[0]["description"] != "Runnable entries" || options[1]["disabled"] != true {
+		t.Fatalf("expected full static option descriptors, got %#v", options)
+	}
+	metadata := options[1]["metadata"].(map[string]any)
+	if metadata["reason"] != "archived" {
+		t.Fatalf("expected static option metadata to round-trip, got %#v", metadata)
 	}
 	payload, err := json.Marshal(schemas)
 	if err != nil {

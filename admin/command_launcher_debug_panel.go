@@ -3,6 +3,8 @@ package admin
 import (
 	"context"
 	"fmt"
+	"math"
+	"strconv"
 	"strings"
 	"time"
 
@@ -461,14 +463,16 @@ func commandLauncherActionFields(ctx context.Context, adm *Admin, descriptor goc
 			continue
 		}
 		fields = append(fields, debugregistry.PanelUIActionField{
-			Name:        firstNonEmptyString(field.Name, field.ID, path),
-			Label:       field.Label,
-			Kind:        commandLauncherFieldKind(field),
-			PayloadPath: "payload." + path,
-			Placeholder: field.Placeholder,
-			Description: firstNonEmptyString(field.Description, field.Help),
-			Required:    field.Required,
-			Options:     commandLauncherFieldOptions(ctx, adm, descriptor, field, diagnostics),
+			Name:         firstNonEmptyString(field.Name, field.ID, path),
+			Label:        field.Label,
+			Kind:         commandLauncherFieldKind(field),
+			PayloadPath:  "payload." + path,
+			Placeholder:  field.Placeholder,
+			Description:  firstNonEmptyString(field.Description, field.Help),
+			Required:     field.Required,
+			Options:      commandLauncherFieldOptions(ctx, adm, descriptor, field, diagnostics),
+			Default:      commandLauncherJSONSafeValue(field.Default),
+			DisplayHints: commandLauncherFieldDisplayHints(field),
 		})
 	}
 	return fields
@@ -521,7 +525,7 @@ func commandLauncherFormSchemas(commands []gocommand.CommandDescriptor) map[stri
 		}
 		out[descriptor.ID] = map[string]any{
 			"schema":         descriptor.Input.JSONSchema,
-			"fields":         descriptor.Input.Fields,
+			"fields":         commandLauncherSerializedFields(descriptor.Input.Fields),
 			"required":       descriptor.Input.Required,
 			"no_input":       descriptor.Input.NoInput,
 			"payload_prefix": "payload",
@@ -532,6 +536,225 @@ func commandLauncherFormSchemas(commands []gocommand.CommandDescriptor) map[stri
 		}
 	}
 	return out
+}
+
+func commandLauncherSerializedFields(fields []gocommand.CommandInputField) []map[string]any {
+	if len(fields) == 0 {
+		return nil
+	}
+	out := make([]map[string]any, 0, len(fields))
+	for _, field := range fields {
+		serialized := map[string]any{
+			"id":     strings.TrimSpace(field.ID),
+			"name":   strings.TrimSpace(field.Name),
+			"path":   strings.TrimSpace(field.Path),
+			"label":  strings.TrimSpace(field.Label),
+			"kind":   strings.TrimSpace(field.Kind),
+			"type":   strings.TrimSpace(field.Type),
+			"format": strings.TrimSpace(field.Format),
+		}
+		if field.Required {
+			serialized["required"] = true
+		}
+		if field.Sensitive {
+			serialized["sensitive"] = true
+		}
+		setCommandLauncherString(serialized, "placeholder", field.Placeholder)
+		setCommandLauncherString(serialized, "description", field.Description)
+		setCommandLauncherString(serialized, "help", field.Help)
+		if defaultValue := commandLauncherJSONSafeValue(field.Default); defaultValue != nil {
+			serialized["default"] = defaultValue
+		}
+		if hints := commandLauncherFieldDisplayHints(field); len(hints) > 0 {
+			serialized["display_hints"] = hints
+		}
+		if len(field.StaticOptions) > 0 {
+			serialized["static_options"] = commandLauncherSerializedOptions(field.StaticOptions)
+		}
+		if field.OptionSource != nil {
+			source := map[string]any{
+				"id":          strings.TrimSpace(field.OptionSource.ID),
+				"label":       strings.TrimSpace(field.OptionSource.Label),
+				"cache_scope": strings.TrimSpace(field.OptionSource.CacheScope),
+			}
+			if field.OptionSource.Dynamic {
+				source["dynamic"] = true
+			}
+			setCommandLauncherString(source, "redaction_hint", field.OptionSource.RedactionHint)
+			if params := commandLauncherJSONSafeMap(field.OptionSource.Params); len(params) > 0 {
+				source["params"] = params
+			}
+			if source = compactCommandLauncherMap(source); len(source) > 0 {
+				serialized["option_source"] = source
+			}
+		}
+		if validation := commandLauncherJSONSafeMap(field.Validation); len(validation) > 0 {
+			serialized["validation"] = validation
+		}
+		out = append(out, compactCommandLauncherMap(serialized))
+	}
+	return out
+}
+
+func commandLauncherSerializedOptions(options []gocommand.CommandOption) []map[string]any {
+	if len(options) == 0 {
+		return nil
+	}
+	out := make([]map[string]any, 0, len(options))
+	for _, option := range options {
+		serialized := map[string]any{
+			"value": strings.TrimSpace(option.Value),
+			"label": strings.TrimSpace(option.Label),
+		}
+		setCommandLauncherString(serialized, "description", option.Description)
+		if option.Disabled {
+			serialized["disabled"] = true
+		}
+		if metadata := commandLauncherJSONSafeMap(option.Metadata); len(metadata) > 0 {
+			serialized["metadata"] = metadata
+		}
+		out = append(out, compactCommandLauncherMap(serialized))
+	}
+	return out
+}
+
+func setCommandLauncherString(target map[string]any, key string, value string) {
+	if value = commandLauncherSafeString(value); value != "" {
+		target[key] = value
+	}
+}
+
+func compactCommandLauncherMap(input map[string]any) map[string]any {
+	for key, value := range input {
+		if key == "" || value == nil {
+			delete(input, key)
+			continue
+		}
+		if text, ok := value.(string); ok && text == "" {
+			delete(input, key)
+		}
+	}
+	return input
+}
+
+func commandLauncherFieldDisplayHints(field gocommand.CommandInputField) map[string]any {
+	if len(field.DisplayHints) == 0 {
+		return nil
+	}
+	out := map[string]any{}
+	if section := commandLauncherPresentationString(field.DisplayHints["section"]); section != "" {
+		out["section"] = section
+	}
+	if advanced, ok := commandLauncherPresentationBool(field.DisplayHints["advanced"]); ok {
+		out["advanced"] = advanced
+	}
+	if units := commandLauncherPresentationString(field.DisplayHints["units"]); units != "" {
+		out["units"] = units
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+func commandLauncherPresentationString(value any) string {
+	switch typed := value.(type) {
+	case string:
+		if safe := commandLauncherSafeString(typed); safe != "" {
+			return safe
+		}
+		return ""
+	case fmt.Stringer:
+		return commandLauncherSafeString(typed.String())
+	case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64, float32, float64:
+		return commandLauncherSafeString(fmt.Sprint(typed))
+	default:
+		return ""
+	}
+}
+
+func commandLauncherPresentationBool(value any) (bool, bool) {
+	switch typed := value.(type) {
+	case bool:
+		return typed, true
+	case string:
+		parsed, err := strconv.ParseBool(strings.TrimSpace(typed))
+		return parsed, err == nil
+	default:
+		return false, false
+	}
+}
+
+func commandLauncherJSONSafeMap(input map[string]any) map[string]any {
+	if len(input) == 0 {
+		return nil
+	}
+	out := map[string]any{}
+	for key, value := range input {
+		key = commandLauncherSafeString(key)
+		if key == "" {
+			continue
+		}
+		if safe := commandLauncherJSONSafeValue(value); safe != nil {
+			out[key] = safe
+		}
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+func commandLauncherJSONSafeValue(value any) any {
+	switch typed := value.(type) {
+	case nil:
+		return nil
+	case bool, int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64:
+		return typed
+	case float32:
+		if math.IsNaN(float64(typed)) || math.IsInf(float64(typed), 0) {
+			return nil
+		}
+		return typed
+	case float64:
+		if math.IsNaN(typed) || math.IsInf(typed, 0) {
+			return nil
+		}
+		return typed
+	case string:
+		if safe := commandLauncherSafeString(typed); safe != "" {
+			return safe
+		}
+		return nil
+	case []string:
+		out := make([]any, 0, len(typed))
+		for _, item := range typed {
+			if safe := commandLauncherSafeString(item); safe != "" {
+				out = append(out, safe)
+			}
+		}
+		return out
+	case []any:
+		out := make([]any, 0, len(typed))
+		for _, item := range typed {
+			if safe := commandLauncherJSONSafeValue(item); safe != nil {
+				out = append(out, safe)
+			}
+		}
+		return out
+	case map[string]any:
+		return commandLauncherJSONSafeMap(typed)
+	default:
+		return nil
+	}
+}
+
+func commandLauncherSafeString(value string) string {
+	value = strings.TrimSpace(value)
+	if value == "" || strings.ContainsAny(value, "<>") {
+		return ""
+	}
+	return value
 }
 
 func commandLauncherStaticOptions(options []gocommand.CommandOption) []string {

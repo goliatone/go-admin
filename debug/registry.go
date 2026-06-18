@@ -125,14 +125,16 @@ type PanelUIAction struct {
 
 // PanelUIActionField declares a typed input that is merged into an action payload.
 type PanelUIActionField struct {
-	Name        string   `json:"name"`
-	Label       string   `json:"label,omitempty"`
-	Kind        string   `json:"kind,omitempty"`
-	PayloadPath string   `json:"payload_path,omitempty"`
-	Placeholder string   `json:"placeholder,omitempty"`
-	Description string   `json:"description,omitempty"`
-	Required    bool     `json:"required,omitempty"`
-	Options     []string `json:"options,omitempty"`
+	Name         string         `json:"name"`
+	Label        string         `json:"label,omitempty"`
+	Kind         string         `json:"kind,omitempty"`
+	PayloadPath  string         `json:"payload_path,omitempty"`
+	Placeholder  string         `json:"placeholder,omitempty"`
+	Description  string         `json:"description,omitempty"`
+	Required     bool           `json:"required,omitempty"`
+	Options      []string       `json:"options,omitempty"`
+	Default      any            `json:"default,omitempty"`
+	DisplayHints map[string]any `json:"display_hints,omitempty"`
 }
 
 // PanelUIColumn declares a table column option.
@@ -847,16 +849,25 @@ func normalizePanelUIActionFields(fields []PanelUIActionField) []PanelUIActionFi
 				options = append(options, option)
 			}
 		}
-		out = append(out, PanelUIActionField{
-			Name:        name,
-			Label:       label,
-			Kind:        normalizeID(field.Kind),
-			PayloadPath: trimSafeText(field.PayloadPath),
-			Placeholder: trimSafeText(field.Placeholder),
-			Description: trimSafeText(field.Description),
-			Required:    field.Required,
-			Options:     options,
-		})
+		normalized := PanelUIActionField{
+			Name:         name,
+			Label:        label,
+			Kind:         normalizeID(field.Kind),
+			PayloadPath:  trimSafeText(field.PayloadPath),
+			Placeholder:  trimSafeText(field.Placeholder),
+			Description:  trimSafeText(field.Description),
+			Required:     field.Required,
+			Options:      options,
+			DisplayHints: cloneJSONSafeMap(field.DisplayHints),
+		}
+		if defaultValue, ok := cloneJSONSafeValue(field.Default); ok {
+			if text, isText := defaultValue.(string); isText && text == "" {
+				out = append(out, normalized)
+				continue
+			}
+			normalized.Default = defaultValue
+		}
+		out = append(out, normalized)
 	}
 	return out
 }
