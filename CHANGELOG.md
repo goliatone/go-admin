@@ -1,6 +1,31 @@
 # Changelog
 
+# [0.99.0](https://github.com/goliatone/go-admin/compare/v0.98.0...v0.99.0) - (2026-06-18)
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Normalization of assignee ([0378a00](https://github.com/goliatone/go-admin/commit/0378a007e8551ad33a890da89ac312618ced48b3))  - (goliatone)
+- Enhanced family fragments ([94e2496](https://github.com/goliatone/go-admin/commit/94e24965c638c9fde25f6c4f0b246bf0515879ec))  - (goliatone)
+- Translation queue binding for selected user ([f380124](https://github.com/goliatone/go-admin/commit/f3801246680733289d80bc806fc18303fbb52e15))  - (goliatone)
+- Command launcher debug panel ([40d004e](https://github.com/goliatone/go-admin/commit/40d004e313eaeeb9ee22ea480969268c714dc19c))  - (goliatone)
+- Add hydrate meta to family detail, translation family form init ([48655bf](https://github.com/goliatone/go-admin/commit/48655bfeeb4104d92d0dc958ccb7297474c1f131))  - (goliatone)
+- Select component template ([cf8660b](https://github.com/goliatone/go-admin/commit/cf8660b45b75f076a6fde8df875ebcd3d1ff7036))  - (goliatone)
+
+## <!-- 16 -->➕ Add
+
+- Command launcher UI updates ([ece25e2](https://github.com/goliatone/go-admin/commit/ece25e295745ced91ec1e5c666f76a32752a824e))  - (goliatone)
+- Command launcher debug panel ([c8ce66c](https://github.com/goliatone/go-admin/commit/c8ce66cb911707c51cbf7022852f138f5dc588c0))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update tests ([65130b5](https://github.com/goliatone/go-admin/commit/65130b500221fc4801f434ee7f94bf2d472a09fd))  - (goliatone)
+- Update deps ([26451d9](https://github.com/goliatone/go-admin/commit/26451d90428bda33dcd11971480f601639f90bc4))  - (goliatone)
+
 # [0.98.0](https://github.com/goliatone/go-admin/compare/v0.97.2...v0.98.0) - (2026-06-18)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.98.0 ([86e1d58](https://github.com/goliatone/go-admin/commit/86e1d580d39b18ff6ecfe7703a4f25fed0b8b7fa))  - (goliatone)
 
 ## <!-- 16 -->➕ Add
 
