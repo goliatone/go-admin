@@ -498,6 +498,98 @@ func TestCommandLauncherActionForwardsIDsAndDispatchOptions(t *testing.T) {
 	}
 }
 
+func TestCommandLauncherActionDispatchesThroughDebugCollector(t *testing.T) {
+	descriptor := commandLauncherTestDescriptor()
+	descriptor.ID = "rpc.dispatch.test"
+	descriptor.Input = command.CommandInputSchema{NoInput: true}
+	var policyInput RPCCommandPolicyInput
+	var factoryIDs []string
+	adm := mustNewAdmin(t, Config{
+		Commands: CommandConfig{
+			RPC: RPCCommandConfig{
+				MetadataAllowlist: []string{"source"},
+				Commands: map[string]RPCCommandRule{
+					"rpc.dispatch.test": {Permission: "admin.catalog.inspect"},
+				},
+			},
+		},
+	}, Dependencies{
+		CommandCatalog: commandLauncherTestCatalog{descriptors: []command.CommandDescriptor{descriptor}},
+		FeatureGate:    featureGateFromKeys(FeatureCommands),
+		Authorizer: rpcTestAuthorizer{allow: map[string]bool{
+			"admin.commands.read|commands":     true,
+			"admin.commands.dispatch|commands": true,
+			"admin.catalog.inspect|commands":   true,
+		}},
+		RPCCommandPolicyHook: func(_ context.Context, input RPCCommandPolicyInput) error {
+			policyInput = input
+			return nil
+		},
+	})
+	if _, err := RegisterCommand(adm.Commands(), command.CommandFunc[rpcDispatchTestMessage](func(_ context.Context, _ rpcDispatchTestMessage) error {
+		return nil
+	})); err != nil {
+		t.Fatalf("register command: %v", err)
+	}
+	if err := RegisterMessageFactory(adm.Commands(), "rpc.dispatch.test", func(payload map[string]any, ids []string) (rpcDispatchTestMessage, error) {
+		factoryIDs = append([]string(nil), ids...)
+		value, ok := payload["value"].(string)
+		if !ok {
+			return rpcDispatchTestMessage{}, fmt.Errorf("expected string value payload, got %T", payload["value"])
+		}
+		return rpcDispatchTestMessage{Value: value}, nil
+	}); err != nil {
+		t.Fatalf("register message factory: %v", err)
+	}
+	RegisterCommandLauncherDebugPanel(adm)
+	t.Cleanup(func() { debugregistry.UnregisterPanel(DebugPanelCommands) })
+
+	registration, ok := debugregistry.Panel(DebugPanelCommands)
+	if !ok {
+		t.Fatalf("expected command launcher panel registration")
+	}
+	if registration.Actions["dispatch_rpc_dispatch_test"] == nil {
+		t.Fatalf("expected dynamic command launcher handler to be registered, got %+v", registration.Actions)
+	}
+	ctx := auth.WithActorContext(context.Background(), &auth.ActorContext{ActorID: "debug-user", Subject: "debug-user"})
+	if !debugregistry.PanelDefinitionHasAction(registration.DefinitionForContext(ctx), "dispatch_rpc_dispatch_test") {
+		t.Fatalf("expected request-scoped command launcher definition to expose dispatch action")
+	}
+
+	collector := NewDebugCollector(DebugConfig{Panels: []string{DebugPanelCommands}})
+	result, err := collector.RunPanelAction(ctx, debugregistry.PanelActionRequest{
+		PanelID:  DebugPanelCommands,
+		ActionID: "dispatch_rpc_dispatch_test",
+		Payload: map[string]any{
+			"payload": map[string]any{"value": "ok"},
+			"ids":     []any{"one", "two"},
+			"options": map[string]any{
+				"mode":            "inline",
+				"idempotency_key": "idem-1",
+				"dedup_policy":    "merge",
+				"correlation_id":  "corr-1",
+				"metadata":        map[string]any{"source": "debug-panel"},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("run collector command launcher action: %v", err)
+	}
+	if !result.OK {
+		t.Fatalf("expected successful action result, got %#v", result)
+	}
+	if got := factoryIDs; len(got) != 2 || got[0] != "one" || got[1] != "two" {
+		t.Fatalf("expected ids to reach command factory, got %#v", got)
+	}
+	if policyInput.Dispatch.Mode != command.ExecutionModeInline ||
+		policyInput.Dispatch.IdempotencyKey != "idem-1" ||
+		policyInput.Dispatch.DedupPolicy != command.DedupPolicyMerge ||
+		policyInput.Dispatch.CorrelationID != "corr-1" ||
+		policyInput.Dispatch.Metadata["source"] != "debug-panel" {
+		t.Fatalf("expected dispatch options to reach policy hook, got %#v", policyInput.Dispatch)
+	}
+}
+
 func TestCommandLauncherDoctorCheckReportsReadyAndPermissionGaps(t *testing.T) {
 	options := &commandLauncherTestOptionProvider{}
 	adm := mustNewAdmin(t, Config{}, Dependencies{
