@@ -2363,15 +2363,19 @@ func (b *translationQueueBinding) AssigneesOptions(c router.Context) (any, error
 	searchKey := strings.ToLower(strings.TrimSpace(search))
 	perPage := clampInt(atoiDefault(c.Query("per_page"), 25), 1, 200)
 	optionsByValue := map[string]map[string]any{}
-	b.appendAssigneeUserOptions(adminCtx, search, perPage, optionsByValue)
-	b.appendAssigneeAssignmentOptions(adminCtx.Context, optionsByValue)
 
 	if selected := strings.TrimSpace(c.Query("assignee_id")); selected != "" {
-		appendAssigneeOption(optionsByValue, map[string]any{
-			"value": selected,
-			"label": selected,
-		})
+		b.appendAssigneeSelectedUserOptions(adminCtx, selected, optionsByValue)
+		if len(optionsByValue) == 0 {
+			appendAssigneeOption(optionsByValue, map[string]any{
+				"value": selected,
+				"label": selected,
+			})
+		}
+		return translationQueueFilteredOptions(optionsByValue, searchKey), nil
 	}
+
+	b.appendAssigneeUserOptions(adminCtx, search, perPage, optionsByValue)
 
 	options := translationQueueFilteredOptions(optionsByValue, searchKey)
 	sortTranslationQueueOptions(options)
@@ -2411,6 +2415,49 @@ func appendAssigneeOption(optionsByValue map[string]map[string]any, option map[s
 	}
 }
 
+func (b *translationQueueBinding) appendAssigneeSelectedUserOptions(adminCtx AdminContext, selected string, optionsByValue map[string]map[string]any) {
+	if b.admin == nil {
+		return
+	}
+	for id := range strings.SplitSeq(selected, ",") {
+		id = strings.TrimSpace(id)
+		if id == "" {
+			continue
+		}
+		if b.appendAssigneeSelectedUserOption(adminCtx, id, optionsByValue) {
+			continue
+		}
+		appendAssigneeSelectedUserPanelOption(adminCtx, b.admin, id, optionsByValue)
+	}
+}
+
+func (b *translationQueueBinding) appendAssigneeSelectedUserOption(adminCtx AdminContext, id string, optionsByValue map[string]map[string]any) bool {
+	if b == nil || b.admin == nil || b.admin.users == nil || b.admin.users.users == nil {
+		return false
+	}
+	user, err := b.admin.users.users.Get(adminCtx.Context, id)
+	if err != nil {
+		return false
+	}
+	appendAssigneeOption(optionsByValue, translationQueueAssigneeOption(userToRecord(user)))
+	return true
+}
+
+func appendAssigneeSelectedUserPanelOption(adminCtx AdminContext, adm *Admin, id string, optionsByValue map[string]map[string]any) {
+	if adm == nil || adm.registry == nil {
+		return
+	}
+	usersPanel, ok := adm.registry.Panel(usersModuleID)
+	if !ok || usersPanel == nil {
+		return
+	}
+	record, err := usersPanel.Get(adminCtx, id)
+	if err != nil {
+		return
+	}
+	appendAssigneeOption(optionsByValue, translationQueueAssigneeOption(record))
+}
+
 func (b *translationQueueBinding) appendAssigneeUserOptions(adminCtx AdminContext, search string, perPage int, optionsByValue map[string]map[string]any) {
 	if b.admin.registry == nil {
 		return
@@ -2429,27 +2476,6 @@ func (b *translationQueueBinding) appendAssigneeUserOptions(adminCtx AdminContex
 	}
 	for _, record := range records {
 		appendAssigneeOption(optionsByValue, translationQueueAssigneeOption(record))
-	}
-}
-
-func (b *translationQueueBinding) appendAssigneeAssignmentOptions(ctx context.Context, optionsByValue map[string]map[string]any) {
-	repo, err := b.assignmentRepository()
-	if err != nil || repo == nil {
-		return
-	}
-	assignments, listErr := b.listAssignmentsForSummary(ctx, repo, "updated_at", nil)
-	if listErr != nil {
-		return
-	}
-	for _, assignment := range assignments {
-		assigneeID := strings.TrimSpace(assignment.AssigneeID)
-		if assigneeID == "" {
-			continue
-		}
-		appendAssigneeOption(optionsByValue, map[string]any{
-			"value": assigneeID,
-			"label": assigneeID,
-		})
 	}
 }
 
