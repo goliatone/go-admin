@@ -1,6 +1,22 @@
 # Changelog
 
+# [0.98.0](https://github.com/goliatone/go-admin/compare/v0.97.2...v0.98.0) - (2026-06-18)
+
+## <!-- 16 -->➕ Add
+
+- Debug command launcher ([6062cb4](https://github.com/goliatone/go-admin/commit/6062cb42ff191e0cf77d64242be741f585b3508a))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update docs ([d1a6a4b](https://github.com/goliatone/go-admin/commit/d1a6a4bbc81ff27a983ec9681b149de96026deed))  - (goliatone)
+- Update deps ([ee232b6](https://github.com/goliatone/go-admin/commit/ee232b6aeb4f1270f13bcab2af458ebd2a75822a))  - (goliatone)
+- Update tests ([c77f3ad](https://github.com/goliatone/go-admin/commit/c77f3ad6dd151af1eb2c4cb24f7d751fff960245))  - (goliatone)
+
 # [0.97.2](https://github.com/goliatone/go-admin/compare/v0.97.1...v0.97.2) - (2026-06-18)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.97.2 ([90fac38](https://github.com/goliatone/go-admin/commit/90fac38a87446471507c92a37792a69249351a68))  - (goliatone)
 
 ## <!-- 7 -->⚙️ Miscellaneous Tasks
 
