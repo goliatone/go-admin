@@ -519,6 +519,16 @@ func TestTranslationQueueAssigneesOptionsHydratesSelectedUserDirectly(t *testing
 	}); err != nil {
 		t.Fatalf("save user: %v", err)
 	}
+	if _, err := userStore.CreateUser(context.Background(), UserRecord{
+		ID:        "translator-2",
+		Username:  "translator.two",
+		Email:     "two@example.com",
+		FirstName: "Translator",
+		LastName:  "Two",
+		Status:    "active",
+	}); err != nil {
+		t.Fatalf("save second user: %v", err)
+	}
 
 	repo := NewInMemoryTranslationAssignmentRepository()
 	if _, err := repo.Create(context.Background(), TranslationAssignment{
@@ -539,7 +549,7 @@ func TestTranslationQueueAssigneesOptionsHydratesSelectedUserDirectly(t *testing
 	binding := newTranslationQueueBinding(adm)
 	app := newTranslationQueueTestApp(t, binding)
 
-	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/translations/options/assignees?assignee_id=translator-1&per_page=200", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/translations/options/assignees?assignee_id=translator-1,translator-2&per_page=200", nil)
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("request error: %v", err)
@@ -552,18 +562,21 @@ func TestTranslationQueueAssigneesOptionsHydratesSelectedUserDirectly(t *testing
 	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
-	if len(payload) != 1 {
-		t.Fatalf("expected one hydrated assignee option, got %+v", payload)
+	if len(payload) != 2 {
+		t.Fatalf("expected two hydrated assignee options, got %+v", payload)
 	}
-	option := payload[0]
-	if got := strings.TrimSpace(toString(option["value"])); got != "translator-1" {
-		t.Fatalf("expected selected value translator-1, got %q", got)
+	optionsByValue := map[string]map[string]any{}
+	for _, option := range payload {
+		optionsByValue[strings.TrimSpace(toString(option["value"]))] = option
 	}
-	if got := strings.TrimSpace(toString(option["label"])); got != "Jane Doe" {
-		t.Fatalf("expected selected label Jane Doe, got %q", got)
+	if got := strings.TrimSpace(toString(optionsByValue["translator-1"]["label"])); got != "Jane Doe" {
+		t.Fatalf("expected selected label Jane Doe, got %q in %+v", got, payload)
 	}
-	if userRepo.getCount != 1 {
-		t.Fatalf("expected one direct user lookup, got %d", userRepo.getCount)
+	if got := strings.TrimSpace(toString(optionsByValue["translator-2"]["label"])); got != "Translator Two" {
+		t.Fatalf("expected selected label Translator Two, got %q in %+v", got, payload)
+	}
+	if userRepo.getCount != 2 {
+		t.Fatalf("expected two direct user lookups, got %d", userRepo.getCount)
 	}
 	if userRepo.listCount != 0 {
 		t.Fatalf("expected hydrate path not to list users, got %d list calls", userRepo.listCount)
