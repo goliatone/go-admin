@@ -454,6 +454,14 @@ body {
   flex-direction: column;
 }
 
+/* Command launcher fills the content area as an app-shell (master list + detail).
+   The container stays scrollable so a tall form grows the console rather than
+   scrolling inside a fixed-height pane. */
+.debug-content--launcher {
+  display: flex;
+  flex-direction: column;
+}
+
 .debug-repl {
   display: flex;
   flex-direction: column;
@@ -1540,12 +1548,47 @@ section.debug-json-panel {
 
 .cmdl__body {
   display: grid;
-  grid-template-columns: 230px 1fr;
+  grid-template-columns: var(--cmdl-sidebar-w, 230px) 6px 1fr;
   gap: 0;
   border: 1px solid var(--debug-border);
   border-radius: 8px;
   overflow: hidden;
   min-height: 280px;
+}
+
+/* When the launcher owns the content area, fill it (app-shell) and let the
+   detail/form grow the page rather than scroll inside a fixed-height box. */
+.debug-content--launcher .cmdl {
+  flex: 1 0 auto;
+  min-height: 0;
+}
+.debug-content--launcher .cmdl__body {
+  flex: 1 1 auto;
+}
+
+/* ---- resize handle (master list ⇄ detail) ---- */
+.cmdl__resizer {
+  position: relative;
+  align-self: stretch;
+  cursor: col-resize;
+  touch-action: none;
+}
+.cmdl__resizer::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -1px;
+  width: 2px;
+  background: transparent;
+  transition: background 0.12s;
+}
+.cmdl__resizer:hover::before,
+.cmdl__resizer:focus-visible::before {
+  background: var(--debug-accent);
+}
+.cmdl__resizer:focus-visible {
+  outline: none;
 }
 
 /* ---- master list ---- */
@@ -1580,9 +1623,10 @@ section.debug-json-panel {
 }
 
 .cmdl__groups {
+  flex: 1 1 auto;
+  min-height: 0;
   overflow: auto;
   padding: 4px 0 8px;
-  max-height: 460px;
 }
 
 .cmdl-group__label {
@@ -1662,8 +1706,6 @@ section.debug-json-panel {
 /* ---- detail ---- */
 .cmdl__detail {
   padding: 14px 16px;
-  overflow: auto;
-  max-height: 520px;
   min-width: 0;
 }
 
@@ -1881,10 +1923,33 @@ section.debug-json-panel {
 
 /* action bar */
 .cmdl-form__bar {
+  padding-top: 2px;
+}
+.cmdl-form__bar-main,
+.cmdl-form__confirm {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding-top: 2px;
+  flex-wrap: wrap;
+}
+.cmdl-form__bar-main[hidden],
+.cmdl-form__confirm[hidden] {
+  display: none;
+}
+.cmdl-form__confirm-msg {
+  font-size: 0.75rem;
+  color: var(--debug-warning);
+  margin-right: auto;
+}
+.cmdl-btn--confirm {
+  background: var(--debug-warning);
+  border-color: var(--debug-warning);
+  color: var(--debug-bg);
+  font-weight: 600;
+}
+.cmdl-btn--confirm:hover {
+  background: var(--debug-peach);
+  border-color: var(--debug-peach);
 }
 .cmdl-btn {
   font-family: inherit;
@@ -2089,6 +2154,7 @@ section.debug-json-panel {
 
 @media (max-width: 720px) {
   .cmdl__body { grid-template-columns: 1fr; }
+  .cmdl__resizer { display: none; }
   .cmdl__list { border-right: none; border-bottom: 1px solid var(--debug-border); }
-  .cmdl__groups { max-height: 220px; }
+  .cmdl__groups { flex: 0 1 auto; max-height: 260px; }
 }

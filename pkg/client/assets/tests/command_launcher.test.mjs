@@ -302,25 +302,56 @@ test('mutating commands confirm inline instead of using a browser dialog', async
   assert.equal(barMain.hidden, false);
   assert.equal(confirmRow.hidden, true);
 
+  // Stand in for the host dispatcher: a bubble-phase submit listener above the
+  // launcher root. The inline gate runs in the capture phase, so a blocked submit
+  // never reaches here.
+  let dispatched = 0;
+  host.addEventListener('submit', (event) => {
+    event.preventDefault();
+    dispatched += 1;
+  });
+
   // First submit (a click or Enter) is gated: it reveals the inline confirm row
-  // and is prevented from reaching the host dispatcher.
+  // and never reaches the dispatcher.
   const submitOnce = new dom.window.Event('submit', { bubbles: true, cancelable: true });
   form.dispatchEvent(submitOnce);
   assert.equal(submitOnce.defaultPrevented, true);
+  assert.equal(dispatched, 0);
   assert.equal(confirmRow.hidden, false);
   assert.equal(barMain.hidden, true);
 
-  // Clicking "Confirm run" arms the form; the next submit is allowed through and
-  // the inline confirm UI resets.
-  form.querySelector('[data-cmdl-confirm-run]').dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }));
-  assert.equal(form.dataset.cmdlArmed, 'true');
-
+  // Arming (what the "Confirm run" click does) lets the next submit through to the
+  // dispatcher, then the inline confirm UI resets.
+  form.dataset.cmdlArmed = 'true';
   const submitArmed = new dom.window.Event('submit', { bubbles: true, cancelable: true });
   form.dispatchEvent(submitArmed);
-  assert.equal(submitArmed.defaultPrevented, false);
+  assert.equal(dispatched, 1);
   assert.equal(form.dataset.cmdlArmed, undefined);
   assert.equal(confirmRow.hidden, true);
   assert.equal(barMain.hidden, false);
+});
+
+test('clicking Confirm run arms the form and dispatches', async () => {
+  const { renderCommandLauncherConsole, attachCommandLauncherListeners } = await importLauncher();
+  const html = renderCommandLauncherConsole({ def: sampleDef(), data: sampleData(), styles: {}, useIconCopyButton: true });
+  const dom = mount(html);
+  const host = dom.window.document.getElementById('host');
+  attachCommandLauncherListeners(host);
+  const form = host.querySelector('[data-action-id="dispatch_archive_generate"]');
+  let dispatched = 0;
+  host.addEventListener('submit', (event) => {
+    event.preventDefault();
+    dispatched += 1;
+  });
+
+  // Reveal the confirm row, then click "Confirm run".
+  form.dispatchEvent(new dom.window.Event('submit', { bubbles: true, cancelable: true }));
+  form.querySelector('[data-cmdl-confirm-run]').dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }));
+  // The click both arms the form and triggers the native submit, so the command
+  // reaches the dispatcher and the inline confirm UI resets.
+  assert.equal(dispatched, 1);
+  assert.equal(form.dataset.cmdlArmed, undefined);
+  assert.equal(form.querySelector('[data-cmdl-confirm-row]').hidden, true);
 });
 
 test('read-only commands dispatch immediately without inline confirmation', async () => {
@@ -508,6 +539,9 @@ test('pending chip text is committed on submit', async () => {
   const holder = form.querySelector('[data-cmdl-chips]');
   const entry = holder.querySelector('[data-cmdl-chips-entry]');
   entry.value = 'pending_value';
+  // This is a confirm-required command; arm it so the submit reaches the dispatch
+  // path where pending chip text is flushed (the inline gate is covered elsewhere).
+  form.dataset.cmdlArmed = 'true';
   form.dispatchEvent(new dom.window.Event('submit', { bubbles: true, cancelable: true }));
   assert.equal(holder.querySelector('[data-cmdl-chips-value]').value, 'pending_value');
   assert.equal(entry.value, '');
