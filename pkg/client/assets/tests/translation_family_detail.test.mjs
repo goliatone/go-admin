@@ -822,6 +822,57 @@ test('translation-family detail SSR enhancement: recovers partial formgen assign
   assert.equal(assigneeSelect.querySelector('option[value="translator-2"]').textContent, 'Translator Two - two@example.test');
 });
 
+test('translation-family detail SSR enhancement: hydrates all saved assignee labels in one fallback request', async () => {
+  const dom = setupDom(`
+    <div id="root"
+         data-ssr-enhanced="true"
+         data-endpoint="/admin/api/translations/families/family-saved?channel=default"
+         data-family-id="family-saved"
+         data-base-path="/admin">
+      <select data-family-assignee-select="es:localization"
+              data-formgen-managed="true"
+              data-initial-assignee-id="translator-1"
+              aria-label="Assignee">
+        <option value="">Select assignee</option>
+        <option value="translator-1" selected>translator-1</option>
+      </select>
+      <select data-family-assignee-select="fr:localization"
+              data-formgen-managed="true"
+              data-initial-assignee-id="translator-2"
+              aria-label="Assignee">
+        <option value="">Select assignee</option>
+        <option value="translator-2" selected>translator-2</option>
+      </select>
+    </div>
+  `);
+  const root = dom.window.document.getElementById('root');
+  const requests = [];
+  const fetchImpl = async (url, init = {}) => {
+    requests.push({ url: String(url), init });
+    return new Response(JSON.stringify({
+      data: [
+        { value: 'translator-1', label: 'Translator One', email: 'one@example.test' },
+        { value: 'translator-2', label: 'Translator Two', email: 'two@example.test' },
+      ],
+    }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  };
+
+  await initTranslationFamilyDetailPage(root, { fetch: fetchImpl });
+
+  assert.equal(requests.length, 1);
+  const requested = new URL(`http://example.test${requests[0].url}`);
+  assert.equal(requested.pathname, '/admin/api/translations/options/assignees');
+  assert.equal(requested.searchParams.get('per_page'), '200');
+  assert.equal(requested.searchParams.get('assignee_id'), 'translator-1,translator-2');
+  const esSelect = root.querySelector('[data-family-assignee-select="es:localization"]');
+  const frSelect = root.querySelector('[data-family-assignee-select="fr:localization"]');
+  assert.equal(esSelect.querySelector('option[value="translator-1"]').textContent, 'Translator One - one@example.test');
+  assert.equal(frSelect.querySelector('option[value="translator-2"]').textContent, 'Translator Two - two@example.test');
+});
+
 test('translation-family detail SSR enhancement: managed assignee select falls back when formgen runtime is absent', async () => {
   const dom = setupDom(`
     <div id="root"

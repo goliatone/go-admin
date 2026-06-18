@@ -1452,8 +1452,8 @@ function normalizeAssigneeOptionsPayload(input: unknown): TranslationFamilyAssig
 function buildAssigneeOptionsURL(basePath: string, selectedValues: string[] = []): string {
   const params = new URLSearchParams();
   params.set('per_page', '200');
-  const selected = selectedValues.map((value) => asString(value)).find(Boolean);
-  if (selected) params.set('assignee_id', selected);
+  const selected = Array.from(new Set(selectedValues.map((value) => asString(value)).filter(Boolean)));
+  if (selected.length > 0) params.set('assignee_id', selected.join(','));
   return buildURL(`${trimTrailingSlash(basePath || '/admin/api')}/translations/options/assignees`, params);
 }
 
