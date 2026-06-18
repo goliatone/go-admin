@@ -54,6 +54,7 @@ func RegisterCommandLauncherDebugPanel(adm *Admin) {
 		Span:        2,
 		SnapshotKey: DebugPanelCommandLauncher,
 		Category:    "operations",
+		EventTypes:  []string{commandStatusEventType},
 		Snapshot: func(ctx context.Context) any {
 			state := buildCommandLauncherState(ctx, adm)
 			return CommandLauncherSnapshot{
@@ -393,6 +394,48 @@ func commandLauncherActionHandlers(adm *Admin) map[string]debugregistry.PanelAct
 	return handlers
 }
 
+// commandStatusEventType is the debug WebSocket event type the command launcher
+// subscribes to for live dispatch status (Phase 3, Option B).
+const commandStatusEventType = "command_status"
+
+// CommandStatusEvent is broadcast over the debug WebSocket when a command is
+// dispatched or transitions state, so the launcher reflects live status across
+// every connected debug client. Host queue/async workers may publish these
+// directly (see Admin.PublishCommandStatus) to report true completion of queued
+// commands, which core go-admin cannot observe on its own.
+type CommandStatusEvent struct {
+	CorrelationID   string `json:"correlation_id,omitempty"`
+	DispatchID      string `json:"dispatch_id,omitempty"`
+	CommandID       string `json:"command_id,omitempty"`
+	State           string `json:"state"`
+	Mode            string `json:"mode,omitempty"`
+	Message         string `json:"message,omitempty"`
+	Code            string `json:"code,omitempty"`
+	StatusReference string `json:"status_reference,omitempty"`
+	At              string `json:"at,omitempty"`
+}
+
+// PublishCommandStatus broadcasts a command status transition to connected debug
+// clients over the debug WebSocket. The command launcher publishes dispatch-time
+// states automatically; queue/async workers can call this when a queued command
+// finishes so the launcher result panel updates live without a refresh.
+func (a *Admin) PublishCommandStatus(event CommandStatusEvent) {
+	if a == nil {
+		return
+	}
+	collector := a.Debug()
+	if collector == nil {
+		return
+	}
+	if strings.TrimSpace(event.State) == "" {
+		return
+	}
+	if strings.TrimSpace(event.At) == "" {
+		event.At = time.Now().UTC().Format(time.RFC3339)
+	}
+	collector.PublishEvent(commandStatusEventType, event)
+}
+
 func runCommandLauncherAction(ctx context.Context, adm *Admin, commandID string, payload map[string]any) (debugregistry.PanelActionResult, error) {
 	if adm == nil || adm.RPCServer() == nil {
 		return debugregistry.PanelActionResult{}, serviceNotConfiguredDomainError("command launcher", map[string]any{"component": "command_launcher"})
@@ -444,6 +487,27 @@ func runCommandLauncherAction(ctx context.Context, adm *Admin, commandID string,
 			responseData["validation_errors"] = response.Data.ValidationErrors
 		}
 		data = responseData
+
+		// Broadcast the dispatch-time status over the debug WebSocket so every
+		// connected launcher reflects it live. Inline commands resolve to a
+		// terminal state here; queued commands report "accepted" and rely on a
+		// host worker calling Admin.PublishCommandStatus on completion.
+		state := "accepted"
+		switch {
+		case response.Data.Result != nil:
+			state = "completed"
+		case len(response.Data.ValidationErrors) > 0 || !response.Data.Receipt.Accepted:
+			state = "failed"
+		}
+		adm.PublishCommandStatus(CommandStatusEvent{
+			CorrelationID:   response.Data.Receipt.CorrelationID,
+			DispatchID:      response.Data.Receipt.DispatchID,
+			CommandID:       commandID,
+			State:           state,
+			Mode:            string(response.Data.Receipt.Mode),
+			Message:         message,
+			StatusReference: response.Data.StatusReference,
+		})
 	}
 	return debugregistry.PanelActionResult{OK: true, Message: message, Data: data, Refresh: true}, nil
 }
