@@ -701,8 +701,8 @@ function lt(e) {
 function ct(e, a = []) {
   const t = new URLSearchParams();
   t.set("per_page", "200");
-  const s = a.map((i) => n(i)).find(Boolean);
-  return s && t.set("assignee_id", s), F(`${A(e || "/admin/api")}/translations/options/assignees`, t);
+  const s = Array.from(new Set(a.map((i) => n(i)).filter(Boolean)));
+  return s.length > 0 && t.set("assignee_id", s.join(",")), F(`${A(e || "/admin/api")}/translations/options/assignees`, t);
 }
 async function dt(e, a = [], t = {}) {
   const s = ct(e, a), i = await (t.fetch ? t.fetch(s, { headers: { Accept: "application/json" } }) : J(s, { headers: { Accept: "application/json" } }));
