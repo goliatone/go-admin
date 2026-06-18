@@ -1,5 +1,21 @@
 # Changelog
 
+# [0.100.0](https://github.com/goliatone/go-admin/compare/v0.99.0...v0.100.0) - (2026-06-18)
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Hidden actions not invoking stored handlers ([4e90961](https://github.com/goliatone/go-admin/commit/4e909610f416392ffa1ca07a50b95e447d35bf23))  - (goliatone)
+- Debug collector dynamic handlers ([940b0cc](https://github.com/goliatone/go-admin/commit/940b0ccc3cd05cc03116e05f3fd2c83d59b5f270))  - (goliatone)
+- Optimize queries ([afcd368](https://github.com/goliatone/go-admin/commit/afcd368865f08761bd27ea04d5faa99ffe4c25e2))  - (goliatone)
+
+## <!-- 16 -->➕ Add
+
+- Command launcher UI layout ([2d49acc](https://github.com/goliatone/go-admin/commit/2d49acccaf46deb84d46b41522462247c40c6a17))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update tests ([16b1d9d](https://github.com/goliatone/go-admin/commit/16b1d9d9abc8956307575a6e6a668f8c6cdc1d2d))  - (goliatone)
+
 # [0.99.0](https://github.com/goliatone/go-admin/compare/v0.98.0...v0.99.0) - (2026-06-18)
 
 ## <!-- 1 -->🐛 Bug Fixes
@@ -10,6 +26,10 @@
 - Command launcher debug panel ([40d004e](https://github.com/goliatone/go-admin/commit/40d004e313eaeeb9ee22ea480969268c714dc19c))  - (goliatone)
 - Add hydrate meta to family detail, translation family form init ([48655bf](https://github.com/goliatone/go-admin/commit/48655bfeeb4104d92d0dc958ccb7297474c1f131))  - (goliatone)
 - Select component template ([cf8660b](https://github.com/goliatone/go-admin/commit/cf8660b45b75f076a6fde8df875ebcd3d1ff7036))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.99.0 ([1d0974a](https://github.com/goliatone/go-admin/commit/1d0974a06ec416903e5a9162d92a523a165861b8))  - (goliatone)
 
 ## <!-- 16 -->➕ Add
 
