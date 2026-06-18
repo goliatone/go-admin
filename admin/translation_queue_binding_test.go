@@ -586,10 +586,71 @@ func TestTranslationQueueAssigneesOptionsHydratesSelectedUserDirectly(t *testing
 	}
 }
 
+func TestTranslationQueueAssigneesOptionsSearchesUsersWithoutRoleHydration(t *testing.T) {
+	userStore := NewInMemoryUserStore()
+	userRepo := &translationQueueCountingUserRepo{UserRepository: &inMemoryUserRepoAdapter{store: userStore}}
+	roleRepo := &translationQueueCountingRoleRepo{RoleRepository: &inMemoryRoleRepoAdapter{store: userStore}}
+	adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{
+		FeatureGate:    featureGateFromKeys(FeatureCMS, FeatureTranslationQueue, FeatureUsers),
+		UserRepository: userRepo,
+		RoleRepository: roleRepo,
+	})
+	adm.WithAuthorizer(translationPermissionAuthorizer{
+		allowed: map[string]bool{
+			PermAdminTranslationsView: true,
+		},
+	})
+	if _, err := userStore.CreateUser(context.Background(), UserRecord{
+		ID:        "translator-1",
+		Username:  "translator.jane",
+		Email:     "jane@example.com",
+		FirstName: "Jane",
+		LastName:  "Doe",
+		Status:    "active",
+	}); err != nil {
+		t.Fatalf("save user: %v", err)
+	}
+	if _, err := RegisterTranslationQueuePanel(adm, NewInMemoryTranslationAssignmentRepository()); err != nil {
+		t.Fatalf("register queue panel: %v", err)
+	}
+	binding := newTranslationQueueBinding(adm)
+	app := newTranslationQueueTestApp(t, binding)
+
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/translations/options/assignees?q=jane&per_page=200", nil)
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("request error: %v", err)
+	}
+	defer resp.Body.Close() //nolint:errcheck // test response body cleanup is best-effort
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status=%d want=200", resp.StatusCode)
+	}
+	payload := []map[string]any{}
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if len(payload) != 1 {
+		t.Fatalf("expected one assignee option, got %+v", payload)
+	}
+	if got := strings.TrimSpace(toString(payload[0]["label"])); got != "Jane Doe" {
+		t.Fatalf("expected label Jane Doe, got %q in %+v", got, payload)
+	}
+	if userRepo.searchCount != 1 {
+		t.Fatalf("expected one direct user search, got %d", userRepo.searchCount)
+	}
+	if userRepo.listCount != 0 {
+		t.Fatalf("expected search path not to list users through panel, got %d list calls", userRepo.listCount)
+	}
+	if roleRepo.rolesForUserCount != 0 {
+		t.Fatalf("expected search path not to hydrate roles, got %d role calls", roleRepo.rolesForUserCount)
+	}
+}
+
 type translationQueueCountingUserRepo struct {
 	UserRepository
-	getCount  int
-	listCount int
+	getCount    int
+	listCount   int
+	searchCount int
 }
 
 func (r *translationQueueCountingUserRepo) Get(ctx context.Context, id string) (UserRecord, error) {
@@ -600,6 +661,11 @@ func (r *translationQueueCountingUserRepo) Get(ctx context.Context, id string) (
 func (r *translationQueueCountingUserRepo) List(ctx context.Context, opts ListOptions) ([]UserRecord, int, error) {
 	r.listCount++
 	return r.UserRepository.List(ctx, opts)
+}
+
+func (r *translationQueueCountingUserRepo) Search(ctx context.Context, query string, limit int) ([]UserRecord, error) {
+	r.searchCount++
+	return r.UserRepository.Search(ctx, query, limit)
 }
 
 type translationQueueCountingRoleRepo struct {

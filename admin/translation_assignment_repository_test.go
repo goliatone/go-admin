@@ -366,6 +366,34 @@ func TestBunTranslationAssignmentRepositoryListFiltersSortsAndCountsInSQL(t *tes
 	if len(items) != 1 || items[0].ID != "asg-sql-1" {
 		t.Fatalf("items=%+v want asg-sql-1", items)
 	}
+
+	entityTypes, err := repo.DistinctAssignmentEntityTypes(ctx)
+	if err != nil {
+		t.Fatalf("distinct entity types: %v", err)
+	}
+	if len(entityTypes) != 1 || entityTypes[0] != "pages" {
+		t.Fatalf("expected distinct entity type pages, got %+v", entityTypes)
+	}
+	locales, err := repo.DistinctAssignmentLocales(ctx, map[string]any{
+		"entity_type":      "pages",
+		"source_record_id": "page-1",
+	})
+	if err != nil {
+		t.Fatalf("distinct locales: %v", err)
+	}
+	if len(locales) != 3 || locales[0] != "en" || locales[1] != "es" || locales[2] != "fr" {
+		t.Fatalf("expected distinct locales en/es/fr, got %+v", locales)
+	}
+	groups, err := repo.DistinctAssignmentTranslationGroups(ctx, map[string]any{
+		"entity_type":      "pages",
+		"source_record_id": "page-1",
+	})
+	if err != nil {
+		t.Fatalf("distinct translation groups: %v", err)
+	}
+	if len(groups) != 1 || groups[0].FamilyID != "family-sql" || groups[0].SourceTitle == "" {
+		t.Fatalf("expected distinct family-sql group with title, got %+v", groups)
+	}
 }
 
 func TestBunAssignmentFilterValuesPreserveIndexedScopeIDs(t *testing.T) {
