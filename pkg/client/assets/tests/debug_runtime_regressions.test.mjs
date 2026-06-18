@@ -1176,6 +1176,90 @@ test('commands panel confirms inline (no browser dialog) and retry reuses the la
   assert.deepEqual(confirmations, []);
 });
 
+test('commands panel surfaces rich error details from a failed dispatch', async () => {
+  const dom = createDebugDOM();
+  setGlobals(dom.window);
+  globalThis.WebSocket = OpenWebSocket;
+  dom.window.WebSocket = OpenWebSocket;
+  const consoleEl = dom.window.document.querySelector('[data-debug-console]');
+  // Unique debug path: server-definition hydration is cached per base path, so
+  // reusing another commands test's path would replay its cached panel def.
+  consoleEl.dataset.debugPath = '/admin/debug-commands-error';
+  consoleEl.dataset.panels = JSON.stringify(['commands']);
+  dom.window.sessionStorage.setItem('debug-console-active-panel', 'commands');
+
+  globalThis.fetch = async (input) => {
+    const url = String(input);
+    if (url.endsWith('/api/panels')) {
+      return new Response(JSON.stringify({
+        panels: [{
+          id: 'commands', label: 'Commands', snapshot_key: 'commands',
+          ui: {
+            views: { console: { renderer: 'json', title: 'Commands' } },
+            actions: [{
+              id: 'dispatch_archive_repair', label: 'Repair variants', submit_label: 'Run command',
+              payload: { command_id: 'archive.repair', payload: {}, options: { mode: 'inline' } },
+              fields: [],
+            }],
+          },
+        }],
+      }), { status: 200, headers: { 'content-type': 'application/json' } });
+    }
+    if (url.endsWith('/api/snapshot')) {
+      return new Response(JSON.stringify({
+        commands: { commands: [{ id: 'archive.repair', label: 'Repair variants', group: 'Archive', mutating: false, execution_mode: 'inline' }], diagnostics: [] },
+      }), { status: 200, headers: { 'content-type': 'application/json' } });
+    }
+    if (url.endsWith('/api/panels/commands/actions/dispatch_archive_repair')) {
+      // HTTP 500 with the full rich error envelope — previously reduced to a one-liner.
+      return new Response(JSON.stringify({
+        error: {
+          category: 'internal', code: 500, text_code: 'INTERNAL_ERROR', message: 'An unexpected error occurred',
+          source: 'archive cms variant repair requires event_ids or session_ids',
+          metadata: { method: 'POST', path: '/admin/debug/api/panels/commands/actions/dispatch_archive_repair' },
+          timestamp: '2026-06-18T14:37:39-07:00',
+          stack_trace: [
+            { function: 'github.com/goliatone/go-admin/admin.presentError', file: '/x/go/pkg/mod/github.com/goliatone/go-admin@v0.100.0/admin/error_presenter.go', line: 93 },
+            { function: 'github.com/Garchen-Archive/garchen-archive-admin/internal/adminapp.(*Module).prepareAdminServer', file: '/x/Development/garchen-archive-admin/internal/adminapp/module.go', line: 1260 },
+          ],
+          location: { file: '/x/go/pkg/mod/github.com/goliatone/go-admin@v0.100.0/admin/debug_transport.go', line: 580, function: 'github.com/goliatone/go-admin/admin.(*DebugModule).handleDebugPanelAction' },
+          severity: 'ERROR',
+        },
+      }), { status: 500, headers: { 'content-type': 'application/json' } });
+    }
+    return new Response(JSON.stringify({ sessions: [] }), { status: 200, headers: { 'content-type': 'application/json' } });
+  };
+
+  debugModule.initDebugPanel(consoleEl);
+  await waitForAssertion(() => {
+    assert.ok(dom.window.document.querySelector('[data-panel-action-form][data-action-id="dispatch_archive_repair"]'));
+  });
+
+  const form = dom.window.document.querySelector('[data-panel-action-form][data-action-id="dispatch_archive_repair"]');
+  form.dispatchEvent(new dom.window.Event('submit', { bubbles: true, cancelable: true }));
+
+  await waitForAssertion(() => {
+    const card = dom.window.document.querySelector('[data-panel-action-result="commands"] .cmdl-result__card--error');
+    assert.ok(card, 'rich error card rendered');
+    const html = card.innerHTML;
+    assert.match(html, /INTERNAL_ERROR/);
+    assert.match(html, /archive cms variant repair requires event_ids or session_ids/);
+    assert.match(html, /Stack trace · 2 frames/);
+    assert.match(html, /cmdl-trace__frame--app/);
+    assert.match(html, /debug_transport\.go:580/);
+  });
+
+  // The result panel is dismissable: clicking × clears it and forgets the stored result.
+  dom.window.document
+    .querySelector('[data-panel-action-result="commands"] [data-cmdl-dismiss]')
+    .dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }));
+  assert.equal(
+    dom.window.document.querySelector('[data-panel-action-result="commands"]').innerHTML.trim(),
+    '',
+    'dismiss clears the result panel',
+  );
+});
+
 test('debug panel restores built-in Site Cache when it remains enabled', async () => {
   const dom = new JSDOM(`
     <!doctype html>

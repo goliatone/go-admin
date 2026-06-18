@@ -457,6 +457,86 @@ test('renderCommandLauncherResultCard surfaces status, code, meta and validation
   assert.match(retryCard, />Retry</);
 });
 
+// A go-errors style rich error envelope (HTTP 500 body) — abbreviated.
+function richErrorEnvelope() {
+  return {
+    error: {
+      category: 'internal',
+      code: 500,
+      text_code: 'INTERNAL_ERROR',
+      message: 'An unexpected error occurred',
+      source: 'archive cms variant repair requires event_ids or session_ids',
+      metadata: { method: 'POST', path: '/admin/debug/api/panels/commands/actions/dispatch_archive_cms_variants_repair' },
+      timestamp: '2026-06-18T14:37:39-07:00',
+      stack_trace: [
+        { function: 'github.com/goliatone/go-admin/admin.presentError', file: '/Users/x/go/pkg/mod/github.com/goliatone/go-admin@v0.100.0/admin/error_presenter.go', line: 93 },
+        { function: 'github.com/Garchen-Archive/garchen-archive-admin/internal/adminapp.(*Module).prepareAdminServer.debugSessionMiddleware.func39.1', file: '/Users/x/Development/garchen-archive-admin/internal/adminapp/module.go', line: 1260 },
+      ],
+      location: { file: '/Users/x/go/pkg/mod/github.com/goliatone/go-admin@v0.100.0/admin/debug_transport.go', line: 580, function: 'github.com/goliatone/go-admin/admin.(*DebugModule).handleDebugPanelAction' },
+      severity: 'ERROR',
+    },
+  };
+}
+
+test('extractCommandLauncherResult surfaces a rich error envelope', async () => {
+  const { extractCommandLauncherResult } = await importLauncher();
+  const parsed = extractCommandLauncherResult('error', 'An unexpected error occurred', richErrorEnvelope());
+  assert.equal(parsed.kind, 'error');
+  // text_code is preferred over the numeric HTTP code for the code pill.
+  assert.equal(parsed.code, 'INTERNAL_ERROR');
+  assert.ok(parsed.richError);
+  assert.equal(parsed.richError.category, 'internal');
+  assert.equal(parsed.richError.severity, 'ERROR');
+  assert.equal(parsed.richError.httpCode, '500');
+  assert.equal(parsed.richError.source, 'archive cms variant repair requires event_ids or session_ids');
+  assert.equal(parsed.richError.metadata.find((m) => m.key === 'method').value, 'POST');
+  assert.equal(parsed.richError.stackTrace.length, 2);
+  // first-party frame flagged; module-cache (dependency) frame not.
+  assert.equal(parsed.richError.stackTrace.find((f) => f.funcTitle.includes('adminapp')).app, true);
+  assert.equal(parsed.richError.stackTrace.find((f) => f.funcTitle.includes('go-admin/admin.presentError')).app, false);
+  assert.match(parsed.richError.location, /debug_transport\.go:580/);
+});
+
+test('renderCommandLauncherResultCard renders cause, metadata chips and stack trace', async () => {
+  const { extractCommandLauncherResult, renderCommandLauncherResultCard } = await importLauncher();
+  const card = renderCommandLauncherResultCard(
+    extractCommandLauncherResult('error', 'An unexpected error occurred', richErrorEnvelope())
+  );
+  assert.match(card, /cmdl-result__card--error/);
+  assert.match(card, /cmdl-result__code">INTERNAL_ERROR/);
+  assert.match(card, /cmdl-result__cause/);
+  assert.match(card, /archive cms variant repair requires event_ids or session_ids/);
+  assert.match(card, /POST/);
+  assert.match(card, /dispatch_archive_cms_variants_repair/);
+  assert.match(card, /internal/);
+  assert.match(card, /Stack trace · 2 frames/);
+  assert.match(card, /cmdl-trace__frame--app/);
+  assert.match(card, /debug_transport\.go:580/);
+  // every result card is dismissable.
+  assert.match(card, /data-cmdl-dismiss/);
+});
+
+test('result card without a rich error stays minimal', async () => {
+  const { extractCommandLauncherResult, renderCommandLauncherResultCard } = await importLauncher();
+  const card = renderCommandLauncherResultCard(extractCommandLauncherResult('error', 'Forbidden', undefined));
+  assert.doesNotMatch(card, /cmdl-result__cause/);
+  assert.doesNotMatch(card, /cmdl-result__trace/);
+  assert.match(card, /data-cmdl-dismiss/);
+});
+
+test('result panel is docked inside the detail column', async () => {
+  const { renderCommandLauncherConsole } = await importLauncher();
+  const html = renderCommandLauncherConsole({ def: sampleDef(), data: sampleData(), styles: {}, useIconCopyButton: true });
+  // The result target now lives within the detail column, not as a trailing
+  // full-width strip under the whole master-detail body.
+  const detailStart = html.indexOf('class="cmdl__detail"');
+  const detailEnd = html.indexOf('</section>', detailStart);
+  const detailSection = html.slice(detailStart, detailEnd);
+  assert.match(detailSection, /data-panel-action-result="commands"/);
+  // And only one such target exists.
+  assert.equal(html.split('data-panel-action-result="commands"').length - 1, 1);
+});
+
 // ---- IR2-M1: visible-but-not-executable commands ----
 test('shows visible-but-not-executable commands as locked, with no form', async () => {
   const { renderCommandLauncherConsole } = await importLauncher();

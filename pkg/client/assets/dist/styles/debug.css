@@ -1991,6 +1991,11 @@ section.debug-json-panel {
 .cmdl-diag__code { color: var(--debug-text-muted); }
 
 /* result card */
+/* Result is docked in the detail column: collapse when empty, separate it from
+   the form above. */
+.cmdl-result:empty { display: none; }
+.cmdl-result { margin-top: 16px; }
+
 .cmdl-result__card {
   border: 1px solid var(--debug-border);
   border-radius: 8px;
@@ -2011,6 +2016,20 @@ section.debug-json-panel {
 .cmdl-result__card--error .cmdl-result__head { background: rgba(243, 139, 168, 0.09); color: var(--debug-error); }
 .cmdl-result__card--invalid .cmdl-result__head { background: rgba(249, 226, 175, 0.09); color: var(--debug-warning); }
 .cmdl-result__card--ok .cmdl-result__head { background: rgba(166, 227, 161, 0.09); color: var(--debug-success); }
+
+.cmdl-result__dismiss {
+  margin-left: auto;
+  flex: 0 0 auto;
+  background: none;
+  border: none;
+  color: var(--debug-text-muted);
+  font-size: 1rem;
+  line-height: 1;
+  padding: 0 2px;
+  cursor: pointer;
+}
+.cmdl-result__dismiss:hover { color: var(--debug-text); }
+.cmdl-result__dismiss:focus-visible { outline: 1px solid var(--debug-accent); border-radius: 3px; }
 
 .cmdl-result__code {
   font-size: 0.625rem;
@@ -2034,6 +2053,76 @@ section.debug-json-panel {
   padding: 3px 8px;
 }
 .cmdl-meta__k { color: var(--debug-text-muted); }
+
+/* rich error: underlying cause + stack trace (Phase 4) */
+.cmdl-result__cause {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  margin: 9px 12px 0;
+  padding: 8px 11px;
+  border-radius: 7px;
+  background: rgba(243, 139, 168, 0.08);
+  border: 1px solid rgba(243, 139, 168, 0.25);
+}
+.cmdl-result__cause-k {
+  flex: 0 0 auto;
+  font-size: 0.5625rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--debug-error);
+  padding-top: 2px;
+}
+.cmdl-result__cause-v {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 0.75rem;
+  color: var(--debug-text);
+  word-break: break-word;
+  white-space: pre-wrap;
+}
+
+.cmdl-result__trace { margin: 9px 12px 0; }
+.cmdl-result__trace summary { cursor: pointer; color: var(--debug-text-muted); font-size: 0.6875rem; }
+.cmdl-trace {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 8px 0 0;
+  border-top: 1px solid var(--debug-border);
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  max-height: 18rem;
+  overflow: auto;
+}
+.cmdl-trace__frame {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  font-size: 0.6875rem;
+  padding: 2px 6px;
+  border-left: 2px solid transparent;
+  border-radius: 3px;
+}
+/* First-party frames (outside the module cache) are the actionable ones. */
+.cmdl-trace__frame--app {
+  border-left-color: var(--debug-accent);
+  background: rgba(137, 180, 250, 0.06);
+}
+.cmdl-trace__fn {
+  flex: 1 1 auto;
+  min-width: 0;
+  color: var(--debug-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cmdl-trace__frame--app .cmdl-trace__fn { color: var(--debug-accent-hover); }
+.cmdl-trace__loc {
+  flex: 0 0 auto;
+  color: var(--debug-text-muted);
+  font-variant-numeric: tabular-nums;
+}
 
 .cmdl-result__validation { list-style: none; margin: 9px 0 0; padding: 9px 12px 0; border-top: 1px solid var(--debug-border); display: flex; flex-direction: column; gap: 6px; }
 .cmdl-result__validation li { display: flex; gap: 8px; align-items: baseline; font-size: 0.75rem; }

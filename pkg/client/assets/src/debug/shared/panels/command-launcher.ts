@@ -735,16 +735,42 @@ export function renderCommandLauncherConsole(ctx: ServerPanelConsoleRendererCont
         <section class="cmdl__detail" data-cmdl-detailcol>
           <div class="cmdl-detail__empty" data-cmdl-empty>Select a command from the list to configure and run it.</div>
           ${details}
+          <!-- Result lives in the detail column (beside the list, below the form it
+               belongs to) so it appears next to where the command was run, not as a
+               full-width strip under the whole console. Empty == hidden via CSS. -->
+          <div class="cmdl-result" data-panel-action-result="${escapeHTML(COMMAND_LAUNCHER_PANEL_ID)}"></div>
         </section>
       </div>
       ${renderDiagnostics(diagnostics)}
-      <div class="cmdl-result" data-panel-action-result="${escapeHTML(COMMAND_LAUNCHER_PANEL_ID)}"></div>
     </div>`;
 }
 
 // ============================================================================
 // Structured result (consumed by DebugPanel.renderStoredPanelActionResult)
 // ============================================================================
+
+// A go-errors style rich error envelope (the `error` object the server returns on
+// failures). Everything is optional/defensive — only present fields render.
+export type RichCommandErrorFrame = {
+  func: string;
+  funcTitle: string;
+  loc: string;
+  locTitle: string;
+  app: boolean;
+};
+
+export type RichCommandError = {
+  category: string;
+  textCode: string;
+  source: string;
+  severity: string;
+  timestamp: string;
+  httpCode: string;
+  metadata: Array<{ key: string; value: string }>;
+  location: string;
+  locationTitle: string;
+  stackTrace: RichCommandErrorFrame[];
+};
 
 export type ParsedCommandResult = {
   kind: 'ok' | 'invalid' | 'error';
@@ -756,6 +782,7 @@ export type ParsedCommandResult = {
   statusReference: string;
   accepted: boolean | undefined;
   validationErrors: Array<{ path: string; message: string; code: string }>;
+  richError: RichCommandError | null;
   hasRaw: boolean;
   rawJSON: string;
 };
@@ -768,6 +795,100 @@ function pick(source: Record<string, unknown>, keys: string[]): string {
     }
   }
   return '';
+}
+
+const RICH_ERROR_MARKERS = ['category', 'text_code', 'source', 'stack_trace', 'severity', 'location', 'metadata'];
+
+// Locate the rich error object across the shapes failures arrive in: an HTTP
+// error body `{ error: {...} }`, a structured `errors` field, or the object
+// passed directly. Returns the first candidate carrying rich-error markers.
+function findRichErrorObject(data: unknown, errors: unknown): Record<string, unknown> | null {
+  const candidates: unknown[] = [];
+  if (data && typeof data === 'object' && !Array.isArray(data)) {
+    candidates.push((data as Record<string, unknown>).error, data);
+  }
+  if (errors && typeof errors === 'object' && !Array.isArray(errors)) {
+    candidates.push((errors as Record<string, unknown>).error, errors);
+  }
+  for (const candidate of candidates) {
+    if (candidate && typeof candidate === 'object' && !Array.isArray(candidate)) {
+      const obj = candidate as Record<string, unknown>;
+      if (RICH_ERROR_MARKERS.some((marker) => marker in obj)) {
+        return obj;
+      }
+    }
+  }
+  return null;
+}
+
+// `github.com/goliatone/go-admin/admin.presentError` -> `admin.presentError`.
+function shortFunc(fn: string): string {
+  const slash = fn.lastIndexOf('/');
+  return slash >= 0 ? fn.slice(slash + 1) : fn;
+}
+
+// Keep the last two path segments so frames stay readable (full path on hover).
+function shortFile(file: string): string {
+  const parts = file.split('/').filter(Boolean);
+  return parts.length > 2 ? parts.slice(-2).join('/') : file;
+}
+
+function frameLine(value: unknown): number {
+  if (typeof value === 'number') {
+    return value;
+  }
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function parseRichError(obj: Record<string, unknown>): RichCommandError {
+  const metaObj = obj.metadata && typeof obj.metadata === 'object' && !Array.isArray(obj.metadata)
+    ? (obj.metadata as Record<string, unknown>)
+    : {};
+  const metadata = Object.entries(metaObj)
+    .map(([key, value]) => ({ key, value: presentationString(value) || safeStringify(value) }))
+    .filter((entry) => entry.value);
+
+  const rawStack = Array.isArray(obj.stack_trace) ? (obj.stack_trace as Array<Record<string, unknown>>) : [];
+  const stackTrace: RichCommandErrorFrame[] = rawStack
+    .map((frame) => {
+      const fn = str(frame.function);
+      const file = str(frame.file);
+      const line = frameLine(frame.line);
+      return {
+        func: shortFunc(fn),
+        funcTitle: fn,
+        loc: file ? `${shortFile(file)}${line ? `:${line}` : ''}` : '',
+        locTitle: file ? `${file}${line ? `:${line}` : ''}` : '',
+        // Frames outside the Go module cache are first-party (the operator's own
+        // code) — the actionable ones, so they get highlighted.
+        app: file !== '' && !file.includes('/pkg/mod/'),
+      };
+    })
+    .filter((frame) => frame.func || frame.loc);
+
+  const locObj = obj.location && typeof obj.location === 'object' && !Array.isArray(obj.location)
+    ? (obj.location as Record<string, unknown>)
+    : {};
+  const locFile = str(locObj.file);
+  const locFunc = str(locObj.function);
+  const locLine = frameLine(locObj.line);
+  const locShort = locFile ? `${shortFile(locFile)}${locLine ? `:${locLine}` : ''}` : '';
+  const location = [shortFunc(locFunc), locShort ? `(${locShort})` : ''].filter(Boolean).join(' ');
+  const locationTitle = [locFunc, locFile ? `${locFile}${locLine ? `:${locLine}` : ''}` : ''].filter(Boolean).join(' ');
+
+  return {
+    category: str(obj.category),
+    textCode: str(obj.text_code),
+    source: str(obj.source),
+    severity: str(obj.severity),
+    timestamp: str(obj.timestamp),
+    httpCode: typeof obj.code === 'number' ? String(obj.code) : str(obj.code),
+    metadata,
+    location,
+    locationTitle,
+    stackTrace,
+  };
 }
 
 export function extractCommandLauncherResult(
@@ -797,11 +918,16 @@ export function extractCommandLauncherResult(
     kind = 'invalid';
   }
 
+  const richErrorObject = kind === 'error' ? findRichErrorObject(data, errors) : null;
+  const richError = richErrorObject ? parseRichError(richErrorObject) : null;
+
   let code = '';
   if (validationErrors.length > 0) {
     code = 'VALIDATION_ERROR';
   } else if (kind === 'error') {
-    code = pick((errors || {}) as Record<string, unknown>, ['code', 'text_code']);
+    code = (richError && richError.textCode)
+      || pick((errors || {}) as Record<string, unknown>, ['code', 'text_code'])
+      || (richError ? richError.httpCode : '');
   }
 
   const hasRaw = data !== undefined && data !== null && (typeof data !== 'object' || Object.keys(d).length > 0);
@@ -816,6 +942,7 @@ export function extractCommandLauncherResult(
     statusReference: str(d.status_reference) || str((d as Record<string, unknown>).statusReference),
     accepted,
     validationErrors,
+    richError,
     hasRaw,
     rawJSON: hasRaw ? safeStringify(data) : '',
   };
@@ -866,6 +993,7 @@ export function renderCommandLauncherResultCard(
     ? `<span class="cmdl-result__live cmdl-result__live--${escapeHTML(live.state)}" title="Live status${live.at ? ` · ${escapeHTML(live.at)}` : ''}">${escapeHTML(live.state)}</span>`
     : '';
 
+  const rich = parsed.richError;
   const meta = [
     metaChip('id', 'Correlation ID', parsed.correlationId),
     metaChip('mode', 'Execution mode', parsed.mode),
@@ -873,10 +1001,31 @@ export function renderCommandLauncherResultCard(
     metaChip('status', 'Status reference', parsed.statusReference),
     metaChip('took', 'Round-trip duration', typeof options.durationMs === 'number' ? formatDurationMs(options.durationMs) : ''),
     metaChip('at', 'Dispatched at', typeof options.at === 'number' && options.at > 0 ? formatClockTime(options.at) : ''),
+    rich ? metaChip('category', 'Category', rich.category) : '',
+    rich ? metaChip('severity', 'Severity', rich.severity) : '',
+    rich ? metaChip('http', 'HTTP status', rich.httpCode) : '',
+    ...(rich ? rich.metadata.map((entry) => metaChip(entry.key, entry.key, entry.value)) : []),
+    rich ? metaChip('when', 'Timestamp', rich.timestamp) : '',
+    rich ? metaChip('at', rich.locationTitle || 'Origin', rich.location) : '',
   ]
     .filter(Boolean)
     .join('');
   const metaRow = meta ? `<div class="cmdl-result__meta">${meta}</div>` : '';
+
+  // The `source` is the underlying cause (often the real, actionable message);
+  // surface it prominently when it adds something beyond the headline message.
+  const cause = rich && rich.source && rich.source !== parsed.message
+    ? `<div class="cmdl-result__cause"><span class="cmdl-result__cause-k">Cause</span><code class="cmdl-result__cause-v">${escapeHTML(rich.source)}</code></div>`
+    : '';
+
+  const trace = rich && rich.stackTrace.length
+    ? `<details class="cmdl-result__trace"><summary>Stack trace · ${rich.stackTrace.length} frame${rich.stackTrace.length === 1 ? '' : 's'}</summary><ol class="cmdl-trace">${rich.stackTrace
+        .map(
+          (frame) =>
+            `<li class="cmdl-trace__frame${frame.app ? ' cmdl-trace__frame--app' : ''}"><span class="cmdl-trace__fn" title="${escapeHTML(frame.funcTitle)}">${escapeHTML(frame.func)}</span>${frame.loc ? `<span class="cmdl-trace__loc" title="${escapeHTML(frame.locTitle)}">${escapeHTML(frame.loc)}</span>` : ''}</li>`
+        )
+        .join('')}</ol></details>`
+    : '';
 
   const validation = parsed.validationErrors.length
     ? `<ul class="cmdl-result__validation">${parsed.validationErrors
@@ -899,10 +1048,13 @@ export function renderCommandLauncherResultCard(
       <div class="cmdl-result__head">
         <span class="cmdl-result__status">${escapeHTML(statusLabel)}</span>
         ${codePill}${livePill}
+        <button type="button" class="cmdl-result__dismiss" data-cmdl-dismiss aria-label="Dismiss result" title="Dismiss result">×</button>
       </div>
       <div class="cmdl-result__msg">${escapeHTML(parsed.message)}</div>
+      ${cause}
       ${metaRow}
       ${validation}
+      ${trace}
       ${actions}
       ${raw}
     </div>`;

@@ -107,7 +107,7 @@ test('csrf-aware transport is adopted by shared wrappers and admin mutation page
 
   assert.match(debugPanelSource, /from '\.\.\/shared\/transport\/http-client\.js'/);
   assert.ok((debugPanelSource.match(/httpRequest\(`\$\{this\.debugPath\}/g) || []).length >= 3);
-  assert.match(debugPanelSource, /readHTTPError\(response, `Action failed \(\$\{response\.status\}\)`/);
+  assert.match(debugPanelSource, /readHTTPErrorResult\(response, `Action failed \(\$\{response\.status\}\)`/);
   assert.match(debugToolbarSource, /from '\.\.\/\.\.\/shared\/transport\/http-client\.js'/);
   assert.match(debugToolbarSource, /readHTTPError\(response, `Action failed \(\$\{response\.status\}\)`/);
 

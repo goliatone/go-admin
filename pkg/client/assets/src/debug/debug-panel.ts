@@ -65,7 +65,7 @@ import {
   getCommandLauncherLiveStatus,
   recordCommandLauncherInvocation,
 } from './shared/panels/command-launcher.js';
-import { httpRequest, readHTTPError } from '../shared/transport/http-client.js';
+import { httpRequest, readHTTPErrorResult } from '../shared/transport/http-client.js';
 // Import to ensure built-in panels are registered
 import './shared/builtin-panels.js';
 
@@ -1071,7 +1071,12 @@ export class DebugPanel {
         body: JSON.stringify(payload),
       });
       if (!response.ok) {
-        throw new Error(await readHTTPError(response, `Action failed (${response.status})`, { appendStatusToFallback: false }));
+        // Keep the full parsed error body (rich error envelope) so the result
+        // card can surface source/category/metadata/stack trace — not just the
+        // one-line message.
+        const errorResult = await readHTTPErrorResult(response, `Action failed (${response.status})`, { appendStatusToFallback: false });
+        this.showPanelActionResult(panelID, 'error', errorResult.message, actionID, errorResult.payload, undefined, { at: Date.now(), durationMs: Date.now() - startedAt });
+        return;
       }
       const result = await response.json() as { ok?: boolean; message?: string; data?: unknown; errors?: Record<string, unknown>; refresh?: boolean; event?: DebugEvent };
       this.showPanelActionResult(
@@ -1105,6 +1110,16 @@ export class DebugPanel {
   private showPanelActionResult(panelID: string, status: 'ok' | 'error', message: string, actionID?: string, data?: unknown, errors?: Record<string, unknown>, meta?: { at?: number; durationMs?: number }): void {
     this.panelActionResults.set(panelID, { status, message, actionID, data, errors, at: meta?.at, durationMs: meta?.durationMs });
     this.renderStoredPanelActionResult(panelID);
+    if (panelID === 'commands') {
+      // Reveal a freshly produced result: the launcher's result now lives in the
+      // (full-height, scrollable) detail column, so scroll it into view on a
+      // dispatch. This runs only here — not on snapshot-driven re-renders.
+      const target = Array.from(this.panelEl.querySelectorAll<HTMLElement>('[data-panel-action-result]'))
+        .find((element) => element.dataset.panelActionResult === 'commands');
+      if (target && typeof target.scrollIntoView === 'function') {
+        target.scrollIntoView({ block: 'nearest' });
+      }
+    }
   }
 
   private renderStoredPanelActionResult(panelID: string): void {
@@ -1146,6 +1161,13 @@ export class DebugPanel {
   }
 
   private attachCommandLauncherResultActions(target: HTMLElement, actionID?: string): void {
+    const dismiss = target.querySelector<HTMLButtonElement>('[data-cmdl-dismiss]');
+    if (dismiss) {
+      dismiss.addEventListener('click', () => {
+        this.panelActionResults.delete('commands');
+        target.innerHTML = '';
+      });
+    }
     const retry = target.querySelector<HTMLButtonElement>('[data-cmdl-retry]');
     if (!retry || !actionID) {
       return;
