@@ -29,6 +29,7 @@ const {
   renderSchemaTable,
   renderSchemaStatusList,
   renderSchemaTimeline,
+  renderSchemaListRow,
   schemaRowKey,
   isSchemaListRenderer,
   panelDefinitionFromServer,
@@ -40,6 +41,10 @@ function mount(html) {
   root.innerHTML = html;
   document.body.appendChild(root);
   return root;
+}
+
+function rowKeys(root) {
+  return [...root.querySelectorAll('[data-row-key]')].map((e) => e.getAttribute('data-row-key'));
 }
 
 // ---------------------------------------------------------------------------
@@ -200,4 +205,51 @@ test('panelDefinitionFromServer leaves non-append / non-list panels on full rend
   assert.equal(panelDefinitionFromServer(serverDef('merge', 'table')).liveList, undefined, 'merge');
   assert.equal(panelDefinitionFromServer(serverDef('append', 'json')).liveList, undefined, 'append json');
   assert.equal(panelDefinitionFromServer(serverDef('append', 'metrics')).liveList, undefined, 'append metrics');
+});
+
+// Regression: H2 — a `table` view without declared columns derives columns from
+// the first row on full render but per-item on append, so it must NOT opt in.
+test('panelDefinitionFromServer requires declared columns to opt a table in', () => {
+  const noCols = {
+    id: 'svc', label: 'Service', snapshot_key: 'svc', event_types: 'svc',
+    ui: { events: { mode: 'append' }, views: { console: { renderer: 'table' } } },
+  };
+  assert.equal(panelDefinitionFromServer(noCols).liveList, undefined, 'table w/o columns stays full-render');
+
+  const statusNoCols = {
+    id: 'svc', label: 'Service', snapshot_key: 'svc', event_types: 'svc',
+    ui: { events: { mode: 'append' }, views: { console: { renderer: 'status_list' } } },
+  };
+  assert.ok(panelDefinitionFromServer(statusNoCols).liveList, 'status_list needs no columns -> opts in');
+});
+
+// Regression: H1 — schema renders chronologically (newest at bottom) with no
+// sort toggle, so the registry host appends with newestFirst:false. Verify the
+// live append lands at the bottom and stays consistent with the full render.
+test('registry live append matches schema chronological order (newest at bottom)', () => {
+  const view = { renderer: 'table', options: { columns: [{ label: 'ID', bind: 'id' }], key_bind: 'id' } };
+  const root = mount(renderSchemaTable('Q', [{ id: 'a' }, { id: 'b' }], view, consoleStyles));
+  assert.deepEqual(rowKeys(root), ['a', 'b'], 'full render is chronological');
+
+  const def = {
+    id: 'q',
+    label: 'Q',
+    render: () => '',
+    liveList: {
+      renderRow: (item, styles) => renderSchemaListRow('table', item, view, styles),
+      keyOf: (item) => schemaRowKey(item, 'id'),
+    },
+  };
+  const frames = [];
+  const manager = new RegistryLiveListManager({
+    styles: consoleStyles,
+    getData: () => [],
+    getRenderOptions: () => ({ newestFirst: false }), // the fixed host setting
+    onNeedFullRender: () => {},
+    scheduleFrame: (cb) => frames.push(cb),
+  });
+  manager.adopt(def, root);
+  manager.enqueue(def, { id: 'c' });
+  frames.splice(0).forEach((cb) => cb());
+  assert.deepEqual(rowKeys(root), ['a', 'b', 'c'], 'append lands at the bottom, staying chronological');
 });

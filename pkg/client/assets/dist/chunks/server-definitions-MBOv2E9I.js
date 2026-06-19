@@ -1,5 +1,5 @@
 import { n as BR, r as JT, t as wT } from "./chunk-BUbnbzFL.js";
-import { escapeAttribute as ET, escapeHTML as U } from "../shared/html.js";
+import { escapeAttribute as ET, escapeHTML as l } from "../shared/html.js";
 import { formatByteSize as FR } from "../shared/size-formatters.js";
 var QT = (E) => {
   if (!E) return "";
@@ -101,42 +101,42 @@ var QT = (E) => {
       manual: A.Prism && A.Prism.manual,
       disableWorkerMessageHandler: A.Prism && A.Prism.disableWorkerMessageHandler,
       util: {
-        encode: function a(r) {
-          return r instanceof o ? new o(r.type, a(r.content), r.alias) : Array.isArray(r) ? r.map(a) : r.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/\u00a0/g, " ");
+        encode: function C(r) {
+          return r instanceof P ? new P(r.type, C(r.content), r.alias) : Array.isArray(r) ? r.map(C) : r.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/\u00a0/g, " ");
         },
-        type: function(a) {
-          return Object.prototype.toString.call(a).slice(8, -1);
+        type: function(C) {
+          return Object.prototype.toString.call(C).slice(8, -1);
         },
-        objId: function(a) {
-          return a.__id || Object.defineProperty(a, "__id", { value: ++S }), a.__id;
+        objId: function(C) {
+          return C.__id || Object.defineProperty(C, "__id", { value: ++S }), C.__id;
         },
-        clone: function a(r, n) {
+        clone: function C(r, n) {
           n = n || {};
           var i, D;
           switch (O.util.type(r)) {
             case "Object":
               if (D = O.util.objId(r), n[D]) return n[D];
               i = {}, n[D] = i;
-              for (var H in r) r.hasOwnProperty(H) && (i[H] = a(r[H], n));
+              for (var H in r) r.hasOwnProperty(H) && (i[H] = C(r[H], n));
               return i;
             case "Array":
               return D = O.util.objId(r), n[D] ? n[D] : (i = [], n[D] = i, r.forEach(function(c, d) {
-                i[d] = a(c, n);
+                i[d] = C(c, n);
               }), i);
             default:
               return r;
           }
         },
-        getLanguage: function(a) {
-          for (; a; ) {
-            var r = e.exec(a.className);
+        getLanguage: function(C) {
+          for (; C; ) {
+            var r = e.exec(C.className);
             if (r) return r[1].toLowerCase();
-            a = a.parentElement;
+            C = C.parentElement;
           }
           return "none";
         },
-        setLanguage: function(a, r) {
-          a.className = a.className.replace(RegExp(e, "gi"), ""), a.classList.add("language-" + r);
+        setLanguage: function(C, r) {
+          C.className = C.className.replace(RegExp(e, "gi"), ""), C.classList.add("language-" + r);
         },
         currentScript: function() {
           if (typeof document > "u") return null;
@@ -144,20 +144,20 @@ var QT = (E) => {
           try {
             throw new Error();
           } catch (i) {
-            var a = (/at [^(\r\n]*\((.*):[^:]+:[^:]+\)$/i.exec(i.stack) || [])[1];
-            if (a) {
+            var C = (/at [^(\r\n]*\((.*):[^:]+:[^:]+\)$/i.exec(i.stack) || [])[1];
+            if (C) {
               var r = document.getElementsByTagName("script");
-              for (var n in r) if (r[n].src == a) return r[n];
+              for (var n in r) if (r[n].src == C) return r[n];
             }
             return null;
           }
         },
-        isActive: function(a, r, n) {
-          for (var i = "no-" + r; a; ) {
-            var D = a.classList;
+        isActive: function(C, r, n) {
+          for (var i = "no-" + r; C; ) {
+            var D = C.classList;
             if (D.contains(r)) return !0;
             if (D.contains(i)) return !1;
-            a = a.parentElement;
+            C = C.parentElement;
           }
           return !!n;
         }
@@ -167,57 +167,57 @@ var QT = (E) => {
         plaintext: N,
         text: N,
         txt: N,
-        extend: function(a, r) {
-          var n = O.util.clone(O.languages[a]);
+        extend: function(C, r) {
+          var n = O.util.clone(O.languages[C]);
           for (var i in r) n[i] = r[i];
           return n;
         },
-        insertBefore: function(a, r, n, i) {
+        insertBefore: function(C, r, n, i) {
           i = i || O.languages;
-          var D = i[a], H = {};
+          var D = i[C], H = {};
           for (var c in D) if (D.hasOwnProperty(c)) {
             if (c == r)
               for (var d in n) n.hasOwnProperty(d) && (H[d] = n[d]);
             n.hasOwnProperty(c) || (H[c] = D[c]);
           }
-          var m = i[a];
-          return i[a] = H, O.languages.DFS(O.languages, function(X, NE) {
-            NE === m && X != a && (this[X] = H);
+          var m = i[C];
+          return i[C] = H, O.languages.DFS(O.languages, function(X, NE) {
+            NE === m && X != C && (this[X] = H);
           }), H;
         },
-        DFS: function a(r, n, i, D) {
+        DFS: function C(r, n, i, D) {
           D = D || {};
           var H = O.util.objId;
           for (var c in r) if (r.hasOwnProperty(c)) {
             n.call(r, c, r[c], i || c);
             var d = r[c], m = O.util.type(d);
-            m === "Object" && !D[H(d)] ? (D[H(d)] = !0, a(d, n, null, D)) : m === "Array" && !D[H(d)] && (D[H(d)] = !0, a(d, n, c, D));
+            m === "Object" && !D[H(d)] ? (D[H(d)] = !0, C(d, n, null, D)) : m === "Array" && !D[H(d)] && (D[H(d)] = !0, C(d, n, c, D));
           }
         }
       },
       plugins: {},
-      highlightAll: function(a, r) {
-        O.highlightAllUnder(document, a, r);
+      highlightAll: function(C, r) {
+        O.highlightAllUnder(document, C, r);
       },
-      highlightAllUnder: function(a, r, n) {
+      highlightAllUnder: function(C, r, n) {
         var i = {
           callback: n,
-          container: a,
+          container: C,
           selector: 'code[class*="language-"], [class*="language-"] code, code[class*="lang-"], [class*="lang-"] code'
         };
         O.hooks.run("before-highlightall", i), i.elements = Array.prototype.slice.apply(i.container.querySelectorAll(i.selector)), O.hooks.run("before-all-elements-highlight", i);
         for (var D = 0, H; H = i.elements[D++]; ) O.highlightElement(H, r === !0, i.callback);
       },
-      highlightElement: function(a, r, n) {
-        var i = O.util.getLanguage(a), D = O.languages[i];
-        O.util.setLanguage(a, i);
-        var H = a.parentElement;
+      highlightElement: function(C, r, n) {
+        var i = O.util.getLanguage(C), D = O.languages[i];
+        O.util.setLanguage(C, i);
+        var H = C.parentElement;
         H && H.nodeName.toLowerCase() === "pre" && O.util.setLanguage(H, i);
         var c = {
-          element: a,
+          element: C,
           language: i,
           grammar: D,
-          code: a.textContent
+          code: C.textContent
         };
         function d(X) {
           c.highlightedCode = X, O.hooks.run("before-insert", c), c.element.innerHTML = c.highlightedCode, O.hooks.run("after-highlight", c), O.hooks.run("complete", c), n && n.call(c.element);
@@ -241,53 +241,53 @@ var QT = (E) => {
           }));
         } else d(O.highlight(c.code, c.grammar, c.language));
       },
-      highlight: function(a, r, n) {
+      highlight: function(C, r, n) {
         var i = {
-          code: a,
+          code: C,
           grammar: r,
           language: n
         };
         if (O.hooks.run("before-tokenize", i), !i.grammar) throw new Error('The language "' + i.language + '" has no grammar.');
-        return i.tokens = O.tokenize(i.code, i.grammar), O.hooks.run("after-tokenize", i), o.stringify(O.util.encode(i.tokens), i.language);
+        return i.tokens = O.tokenize(i.code, i.grammar), O.hooks.run("after-tokenize", i), P.stringify(O.util.encode(i.tokens), i.language);
       },
-      tokenize: function(a, r) {
+      tokenize: function(C, r) {
         var n = r.rest;
         if (n) {
           for (var i in n) r[i] = n[i];
           delete r.rest;
         }
-        var D = new s();
-        return _(D, D.head, a), t(a, D, r, D.head, 0), B(D);
+        var D = new a();
+        return _(D, D.head, C), t(C, D, r, D.head, 0), B(D);
       },
       hooks: {
         all: {},
-        add: function(a, r) {
+        add: function(C, r) {
           var n = O.hooks.all;
-          n[a] = n[a] || [], n[a].push(r);
+          n[C] = n[C] || [], n[C].push(r);
         },
-        run: function(a, r) {
-          var n = O.hooks.all[a];
+        run: function(C, r) {
+          var n = O.hooks.all[C];
           if (!(!n || !n.length))
             for (var i = 0, D; D = n[i++]; ) D(r);
         }
       },
-      Token: o
+      Token: P
     };
     A.Prism = O;
-    function o(a, r, n, i) {
-      this.type = a, this.content = r, this.alias = n, this.length = (i || "").length | 0;
+    function P(C, r, n, i) {
+      this.type = C, this.content = r, this.alias = n, this.length = (i || "").length | 0;
     }
-    o.stringify = function a(r, n) {
+    P.stringify = function C(r, n) {
       if (typeof r == "string") return r;
       if (Array.isArray(r)) {
         var i = "";
         return r.forEach(function(m) {
-          i += a(m, n);
+          i += C(m, n);
         }), i;
       }
       var D = {
         type: r.type,
-        content: a(r.content, n),
+        content: C(r.content, n),
         tag: "span",
         classes: ["token", r.type],
         attributes: {},
@@ -298,16 +298,16 @@ var QT = (E) => {
       for (var d in D.attributes) c += " " + d + '="' + (D.attributes[d] || "").replace(/"/g, "&quot;") + '"';
       return "<" + D.tag + ' class="' + D.classes.join(" ") + '"' + c + ">" + D.content + "</" + D.tag + ">";
     };
-    function l(a, r, n, i) {
-      a.lastIndex = r;
-      var D = a.exec(n);
+    function M(C, r, n, i) {
+      C.lastIndex = r;
+      var D = C.exec(n);
       if (D && i && D[1]) {
         var H = D[1].length;
         D.index += H, D[0] = D[0].slice(H);
       }
       return D;
     }
-    function t(a, r, n, i, D, H) {
+    function t(C, r, n, i, D, H) {
       for (var c in n)
         if (!(!n.hasOwnProperty(c) || !n[c])) {
           var d = n[c];
@@ -321,78 +321,78 @@ var QT = (E) => {
             }
             for (var OT = X.pattern || X, v = i.next, $ = D; v !== r.tail && !(H && $ >= H.reach); $ += v.value.length, v = v.next) {
               var z = v.value;
-              if (r.length > a.length) return;
-              if (!(z instanceof o)) {
+              if (r.length > C.length) return;
+              if (!(z instanceof P)) {
                 var tE = 1, b;
                 if (IT) {
-                  if (b = l(OT, $, a, ST), !b || b.index >= a.length) break;
+                  if (b = M(OT, $, C, ST), !b || b.index >= C.length) break;
                   var rE = b.index, HR = b.index + b[0].length, w = $;
                   for (w += v.value.length; rE >= w; )
                     v = v.next, w += v.value.length;
-                  if (w -= v.value.length, $ = w, v.value instanceof o) continue;
+                  if (w -= v.value.length, $ = w, v.value instanceof P) continue;
                   for (var eE = v; eE !== r.tail && (w < HR || typeof eE.value == "string"); eE = eE.next)
                     tE++, w += eE.value.length;
-                  tE--, z = a.slice($, w), b.index -= $;
-                } else if (b = l(OT, 0, z, ST), !b) continue;
+                  tE--, z = C.slice($, w), b.index -= $;
+                } else if (b = M(OT, 0, z, ST), !b) continue;
                 var rE = b.index, sE = b[0], UE = z.slice(0, rE), NT = z.slice(rE + sE.length), lE = $ + z.length;
                 H && lE > H.reach && (H.reach = lE);
                 var LE = v.prev;
-                UE && (LE = _(r, LE, UE), $ += UE.length), M(r, LE, tE);
-                var pR = new o(c, NE ? O.tokenize(sE, NE) : sE, GR, sE);
+                UE && (LE = _(r, LE, UE), $ += UE.length), o(r, LE, tE);
+                var pR = new P(c, NE ? O.tokenize(sE, NE) : sE, GR, sE);
                 if (v = _(r, LE, pR), NT && _(r, v, NT), tE > 1) {
                   var uE = {
                     cause: c + "," + m,
                     reach: lE
                   };
-                  t(a, r, n, v.prev, $, uE), H && uE.reach > H.reach && (H.reach = uE.reach);
+                  t(C, r, n, v.prev, $, uE), H && uE.reach > H.reach && (H.reach = uE.reach);
                 }
               }
             }
           }
         }
     }
-    function s() {
-      var a = {
+    function a() {
+      var C = {
         value: null,
         prev: null,
         next: null
       }, r = {
         value: null,
-        prev: a,
+        prev: C,
         next: null
       };
-      a.next = r, this.head = a, this.tail = r, this.length = 0;
+      C.next = r, this.head = C, this.tail = r, this.length = 0;
     }
-    function _(a, r, n) {
+    function _(C, r, n) {
       var i = r.next, D = {
         value: n,
         prev: r,
         next: i
       };
-      return r.next = D, i.prev = D, a.length++, D;
+      return r.next = D, i.prev = D, C.length++, D;
     }
-    function M(a, r, n) {
-      for (var i = r.next, D = 0; D < n && i !== a.tail; D++) i = i.next;
-      r.next = i, i.prev = r, a.length -= D;
+    function o(C, r, n) {
+      for (var i = r.next, D = 0; D < n && i !== C.tail; D++) i = i.next;
+      r.next = i, i.prev = r, C.length -= D;
     }
-    function B(a) {
-      for (var r = [], n = a.head.next; n !== a.tail; )
+    function B(C) {
+      for (var r = [], n = C.head.next; n !== C.tail; )
         r.push(n.value), n = n.next;
       return r;
     }
     if (!A.document)
-      return A.addEventListener && (O.disableWorkerMessageHandler || A.addEventListener("message", function(a) {
-        var r = JSON.parse(a.data), n = r.language, i = r.code, D = r.immediateClose;
+      return A.addEventListener && (O.disableWorkerMessageHandler || A.addEventListener("message", function(C) {
+        var r = JSON.parse(C.data), n = r.language, i = r.code, D = r.immediateClose;
         A.postMessage(O.highlight(i, O.languages[n], n)), D && A.close();
       }, !1)), O;
-    var P = O.util.currentScript();
-    P && (O.filename = P.src, P.hasAttribute("data-manual") && (O.manual = !0));
+    var U = O.util.currentScript();
+    U && (O.filename = U.src, U.hasAttribute("data-manual") && (O.manual = !0));
     function G() {
       O.manual || O.highlightAll();
     }
     if (!O.manual) {
       var F = document.readyState;
-      F === "loading" || F === "interactive" && P && P.defer ? document.addEventListener("DOMContentLoaded", G) : window.requestAnimationFrame ? window.requestAnimationFrame(G) : window.setTimeout(G, 16);
+      F === "loading" || F === "interactive" && U && U.defer ? document.addEventListener("DOMContentLoaded", G) : window.requestAnimationFrame ? window.requestAnimationFrame(G) : window.setTimeout(G, 16);
     }
     return O;
   })(typeof window < "u" ? window : typeof WorkerGlobalScope < "u" && self instanceof WorkerGlobalScope ? self : {});
@@ -478,15 +478,15 @@ var QT = (E) => {
       pattern: /[\s\S]+/,
       inside: R.languages[S]
     };
-    var o = {};
-    o[e] = {
+    var P = {};
+    P[e] = {
       pattern: RegExp(/(<__[^>]*>)(?:<!\[CDATA\[(?:[^\]]|\](?!\]>))*\]\]>|(?!<!\[CDATA\[)[\s\S])*?(?=<\/__>)/.source.replace(/__/g, function() {
         return e;
       }), "i"),
       lookbehind: !0,
       greedy: !0,
       inside: O
-    }, R.languages.insertBefore("markup", "cdata", o);
+    }, R.languages.insertBefore("markup", "cdata", P);
   } }), Object.defineProperty(R.languages.markup.tag, "addAttribute", { value: function(A, e) {
     R.languages.markup.tag.inside["special-attr"].push({
       pattern: RegExp(/(^|["'\s])/.source + "(?:" + A + ")" + /\s*=\s*(?:"[^"]*"|'[^']*'|[^\s'">=]+(?=[\s>]))/.source, "i"),
@@ -689,8 +689,8 @@ var QT = (E) => {
   } }), R.languages.markup && (R.languages.markup.tag.addInlined("script", "javascript"), R.languages.markup.tag.addAttribute(/on(?:abort|blur|change|click|composition(?:end|start|update)|dblclick|error|focus(?:in|out)?|key(?:down|up)|load|mouse(?:down|enter|leave|move|out|over|up)|reset|resize|scroll|select|slotchange|submit|unload|wheel)/.source, "javascript")), R.languages.js = R.languages.javascript, (function() {
     if (typeof R > "u" || typeof document > "u") return;
     Element.prototype.matches || (Element.prototype.matches = Element.prototype.msMatchesSelector || Element.prototype.webkitMatchesSelector);
-    var A = "Loading…", e = function(P, G) {
-      return "✖ Error " + P + " while fetching file: " + G;
+    var A = "Loading…", e = function(U, G) {
+      return "✖ Error " + U + " while fetching file: " + G;
     }, S = "✖ Error: File does not exist or is empty", N = {
       js: "javascript",
       py: "python",
@@ -701,38 +701,38 @@ var QT = (E) => {
       bat: "batch",
       h: "c",
       tex: "latex"
-    }, O = "data-src-status", o = "loading", l = "loaded", t = "failed", s = "pre[data-src]:not([" + O + '="' + l + '"]):not([' + O + '="' + o + '"])';
-    function _(P, G, F) {
-      var a = new XMLHttpRequest();
-      a.open("GET", P, !0), a.onreadystatechange = function() {
-        a.readyState == 4 && (a.status < 400 && a.responseText ? G(a.responseText) : a.status >= 400 ? F(e(a.status, a.statusText)) : F(S));
-      }, a.send(null);
+    }, O = "data-src-status", P = "loading", M = "loaded", t = "failed", a = "pre[data-src]:not([" + O + '="' + M + '"]):not([' + O + '="' + P + '"])';
+    function _(U, G, F) {
+      var C = new XMLHttpRequest();
+      C.open("GET", U, !0), C.onreadystatechange = function() {
+        C.readyState == 4 && (C.status < 400 && C.responseText ? G(C.responseText) : C.status >= 400 ? F(e(C.status, C.statusText)) : F(S));
+      }, C.send(null);
     }
-    function M(P) {
-      var G = /^\s*(\d+)\s*(?:(,)\s*(?:(\d+)\s*)?)?$/.exec(P || "");
+    function o(U) {
+      var G = /^\s*(\d+)\s*(?:(,)\s*(?:(\d+)\s*)?)?$/.exec(U || "");
       if (G) {
-        var F = Number(G[1]), a = G[2], r = G[3];
-        return a ? r ? [F, Number(r)] : [F, void 0] : [F, F];
+        var F = Number(G[1]), C = G[2], r = G[3];
+        return C ? r ? [F, Number(r)] : [F, void 0] : [F, F];
       }
     }
-    R.hooks.add("before-highlightall", function(P) {
-      P.selector += ", " + s;
-    }), R.hooks.add("before-sanity-check", function(P) {
-      var G = P.element;
-      if (G.matches(s)) {
-        P.code = "", G.setAttribute(O, o);
+    R.hooks.add("before-highlightall", function(U) {
+      U.selector += ", " + a;
+    }), R.hooks.add("before-sanity-check", function(U) {
+      var G = U.element;
+      if (G.matches(a)) {
+        U.code = "", G.setAttribute(O, P);
         var F = G.appendChild(document.createElement("CODE"));
         F.textContent = A;
-        var a = G.getAttribute("data-src"), r = P.language;
+        var C = G.getAttribute("data-src"), r = U.language;
         if (r === "none") {
-          var n = (/\.(\w+)$/.exec(a) || [, "none"])[1];
+          var n = (/\.(\w+)$/.exec(C) || [, "none"])[1];
           r = N[n] || n;
         }
         R.util.setLanguage(F, r), R.util.setLanguage(G, r);
         var i = R.plugins.autoloader;
-        i && i.loadLanguages(r), _(a, function(D) {
-          G.setAttribute(O, l);
-          var H = M(G.getAttribute("data-range"));
+        i && i.loadLanguages(r), _(C, function(D) {
+          G.setAttribute(O, M);
+          var H = o(G.getAttribute("data-range"));
           if (H) {
             var c = D.split(/\r\n?|\n/g), d = H[0], m = H[1] == null ? c.length : H[1];
             d < 0 && (d += c.length), d = Math.max(0, Math.min(d - 1, c.length)), m < 0 && (m += c.length), m = Math.max(0, Math.min(m, c.length)), D = c.slice(d, m).join(`
@@ -744,7 +744,7 @@ var QT = (E) => {
         });
       }
     }), R.plugins.fileHighlight = { highlight: function(G) {
-      for (var F = (G || document).querySelectorAll(s), a = 0, r; r = F[a++]; ) R.highlightElement(r);
+      for (var F = (G || document).querySelectorAll(a), C = 0, r; r = F[C++]; ) R.highlightElement(r);
     } };
     var B = !1;
     R.fileHighlight = function() {
@@ -811,41 +811,41 @@ var QT = (E) => {
   const R = [];
   for (const A of E) for (const e of T) R.push(A + e);
   return R;
-}, C;
+}, L;
 (function(E) {
   E.QUOTED_IDENTIFIER = "QUOTED_IDENTIFIER", E.IDENTIFIER = "IDENTIFIER", E.STRING = "STRING", E.VARIABLE = "VARIABLE", E.RESERVED_DATA_TYPE = "RESERVED_DATA_TYPE", E.RESERVED_PARAMETERIZED_DATA_TYPE = "RESERVED_PARAMETERIZED_DATA_TYPE", E.RESERVED_KEYWORD = "RESERVED_KEYWORD", E.RESERVED_FUNCTION_NAME = "RESERVED_FUNCTION_NAME", E.RESERVED_KEYWORD_PHRASE = "RESERVED_KEYWORD_PHRASE", E.RESERVED_DATA_TYPE_PHRASE = "RESERVED_DATA_TYPE_PHRASE", E.RESERVED_SET_OPERATION = "RESERVED_SET_OPERATION", E.RESERVED_CLAUSE = "RESERVED_CLAUSE", E.RESERVED_SELECT = "RESERVED_SELECT", E.RESERVED_JOIN = "RESERVED_JOIN", E.ARRAY_IDENTIFIER = "ARRAY_IDENTIFIER", E.ARRAY_KEYWORD = "ARRAY_KEYWORD", E.CASE = "CASE", E.END = "END", E.WHEN = "WHEN", E.ELSE = "ELSE", E.THEN = "THEN", E.LIMIT = "LIMIT", E.BETWEEN = "BETWEEN", E.AND = "AND", E.OR = "OR", E.XOR = "XOR", E.OPERATOR = "OPERATOR", E.COMMA = "COMMA", E.ASTERISK = "ASTERISK", E.PROPERTY_ACCESS_OPERATOR = "PROPERTY_ACCESS_OPERATOR", E.OPEN_PAREN = "OPEN_PAREN", E.CLOSE_PAREN = "CLOSE_PAREN", E.LINE_COMMENT = "LINE_COMMENT", E.BLOCK_COMMENT = "BLOCK_COMMENT", E.DISABLE_COMMENT = "DISABLE_COMMENT", E.NUMBER = "NUMBER", E.NAMED_PARAMETER = "NAMED_PARAMETER", E.QUOTED_PARAMETER = "QUOTED_PARAMETER", E.NUMBERED_PARAMETER = "NUMBERED_PARAMETER", E.POSITIONAL_PARAMETER = "POSITIONAL_PARAMETER", E.CUSTOM_PARAMETER = "CUSTOM_PARAMETER", E.DELIMITER = "DELIMITER", E.EOF = "EOF";
-})(C = C || (C = {}));
+})(L = L || (L = {}));
 var jT = (E) => ({
-  type: C.EOF,
+  type: L.EOF,
   raw: "«EOF»",
   text: "«EOF»",
   start: E
 }), Q = jT(1 / 0), EE = (E) => (T) => T.type === E.type && T.text === E.text, Z = {
   ARRAY: EE({
     text: "ARRAY",
-    type: C.RESERVED_DATA_TYPE
+    type: L.RESERVED_DATA_TYPE
   }),
   BY: EE({
     text: "BY",
-    type: C.RESERVED_KEYWORD
+    type: L.RESERVED_KEYWORD
   }),
   SET: EE({
     text: "SET",
-    type: C.RESERVED_CLAUSE
+    type: L.RESERVED_CLAUSE
   }),
   STRUCT: EE({
     text: "STRUCT",
-    type: C.RESERVED_DATA_TYPE
+    type: L.RESERVED_DATA_TYPE
   }),
   WINDOW: EE({
     text: "WINDOW",
-    type: C.RESERVED_CLAUSE
+    type: L.RESERVED_CLAUSE
   }),
   VALUES: EE({
     text: "VALUES",
-    type: C.RESERVED_CLAUSE
+    type: L.RESERVED_CLAUSE
   })
-}, zT = (E) => E === C.RESERVED_DATA_TYPE || E === C.RESERVED_KEYWORD || E === C.RESERVED_FUNCTION_NAME || E === C.RESERVED_KEYWORD_PHRASE || E === C.RESERVED_DATA_TYPE_PHRASE || E === C.RESERVED_CLAUSE || E === C.RESERVED_SELECT || E === C.RESERVED_SET_OPERATION || E === C.RESERVED_JOIN || E === C.ARRAY_KEYWORD || E === C.CASE || E === C.END || E === C.WHEN || E === C.ELSE || E === C.THEN || E === C.LIMIT || E === C.BETWEEN || E === C.AND || E === C.OR || E === C.XOR, KR = (E) => E === C.AND || E === C.OR || E === C.XOR, $R = [
+}, zT = (E) => E === L.RESERVED_DATA_TYPE || E === L.RESERVED_KEYWORD || E === L.RESERVED_FUNCTION_NAME || E === L.RESERVED_KEYWORD_PHRASE || E === L.RESERVED_DATA_TYPE_PHRASE || E === L.RESERVED_CLAUSE || E === L.RESERVED_SELECT || E === L.RESERVED_SET_OPERATION || E === L.RESERVED_JOIN || E === L.ARRAY_KEYWORD || E === L.CASE || E === L.END || E === L.WHEN || E === L.ELSE || E === L.THEN || E === L.LIMIT || E === L.BETWEEN || E === L.AND || E === L.OR || E === L.XOR, KR = (E) => E === L.AND || E === L.OR || E === L.XOR, $R = [
   "KEYS.NEW_KEYSET",
   "KEYS.ADD_KEY_FROM_RAW_BYTES",
   "AEAD.DECRYPT_BYTES",
@@ -1664,7 +1664,7 @@ function EA(E) {
 }
 function TA(E) {
   let T = Q;
-  return E.map((R) => R.text === "OFFSET" && T.text === "[" ? (T = R, Object.assign(Object.assign({}, R), { type: C.RESERVED_FUNCTION_NAME })) : (T = R, R));
+  return E.map((R) => R.text === "OFFSET" && T.text === "[" ? (T = R, Object.assign(Object.assign({}, R), { type: L.RESERVED_FUNCTION_NAME })) : (T = R, R));
 }
 function RA(E) {
   var T;
@@ -1674,7 +1674,7 @@ function RA(E) {
     if ((Z.ARRAY(e) || Z.STRUCT(e)) && ((T = E[A + 1]) === null || T === void 0 ? void 0 : T.text) === "<") {
       const S = AA(E, A + 1), N = E.slice(A, S + 1);
       R.push({
-        type: C.IDENTIFIER,
+        type: L.IDENTIFIER,
         raw: N.map(rT("raw")).join(""),
         text: N.map(rT("text")).join(""),
         start: e.start
@@ -1683,7 +1683,7 @@ function RA(E) {
   }
   return R;
 }
-var rT = (E) => (T) => T.type === C.IDENTIFIER || T.type === C.COMMA ? T[E] + " " : T[E];
+var rT = (E) => (T) => T.type === L.IDENTIFIER || T.type === L.COMMA ? T[E] + " " : T[E];
 function AA(E, T) {
   let R = 0;
   for (let A = T; A < E.length; A++) {
@@ -4149,7 +4149,7 @@ var eA = [
 function CA(E) {
   return E.map((T, R) => {
     const A = E[R + 1] || Q, e = E[R - 1] || Q;
-    return T.type === C.RESERVED_SELECT && (A.type === C.COMMA || e.type === C.RESERVED_CLAUSE || e.type === C.COMMA) ? Object.assign(Object.assign({}, T), { type: C.RESERVED_KEYWORD }) : Z.SET(T) && A.type === C.OPEN_PAREN ? Object.assign(Object.assign({}, T), { type: C.RESERVED_FUNCTION_NAME }) : T;
+    return T.type === L.RESERVED_SELECT && (A.type === L.COMMA || e.type === L.RESERVED_CLAUSE || e.type === L.COMMA) ? Object.assign(Object.assign({}, T), { type: L.RESERVED_KEYWORD }) : Z.SET(T) && A.type === L.OPEN_PAREN ? Object.assign(Object.assign({}, T), { type: L.RESERVED_FUNCTION_NAME }) : T;
   });
 }
 var aA = [
@@ -7846,9 +7846,9 @@ var aA = [
 function oE(E) {
   return E.map((T, R) => {
     const A = E[R + 1] || Q;
-    if (Z.SET(T) && A.text === "(") return Object.assign(Object.assign({}, T), { type: C.RESERVED_FUNCTION_NAME });
+    if (Z.SET(T) && A.text === "(") return Object.assign(Object.assign({}, T), { type: L.RESERVED_FUNCTION_NAME });
     const e = E[R - 1] || Q;
-    return Z.VALUES(T) && e.text === "=" ? Object.assign(Object.assign({}, T), { type: C.RESERVED_FUNCTION_NAME }) : T;
+    return Z.VALUES(T) && e.text === "=" ? Object.assign(Object.assign({}, T), { type: L.RESERVED_FUNCTION_NAME }) : T;
   });
 }
 var Ee = [
@@ -11608,7 +11608,7 @@ var Ee = [
 };
 function qe(E) {
   let T = Q;
-  return E.map((R) => Z.SET(R) && Z.BY(T) ? Object.assign(Object.assign({}, R), { type: C.RESERVED_KEYWORD }) : (zT(R.type) && (T = R), R));
+  return E.map((R) => Z.SET(R) && Z.BY(T) ? Object.assign(Object.assign({}, R), { type: L.RESERVED_KEYWORD }) : (zT(R.type) && (T = R), R));
 }
 var ke = [
   "ABS",
@@ -14187,8 +14187,8 @@ var ke = [
 function HS(E) {
   return E.map((T, R) => {
     const A = E[R - 1] || Q, e = E[R + 1] || Q;
-    return Z.WINDOW(T) && e.type === C.OPEN_PAREN ? Object.assign(Object.assign({}, T), { type: C.RESERVED_FUNCTION_NAME }) : T.text === "ITEMS" && T.type === C.RESERVED_KEYWORD && !(A.text === "COLLECTION" && e.text === "TERMINATED") ? Object.assign(Object.assign({}, T), {
-      type: C.IDENTIFIER,
+    return Z.WINDOW(T) && e.type === L.OPEN_PAREN ? Object.assign(Object.assign({}, T), { type: L.RESERVED_FUNCTION_NAME }) : T.text === "ITEMS" && T.type === L.RESERVED_KEYWORD && !(A.text === "COLLECTION" && e.text === "TERMINATED") ? Object.assign(Object.assign({}, T), {
+      type: L.IDENTIFIER,
       text: T.raw
     }) : T;
   });
@@ -18388,8 +18388,8 @@ var pS = [
   "{}": String.raw`(?:\{[^\}]*\})`,
   "q''": XI()
 }, TR = (E) => typeof E == "string" ? mT[E] : "regex" in E ? E.regex : yI(E) + mT[E.quote], vI = (E) => j(E.map((T) => "regex" in T ? T.regex : TR(T)).join("|")), RR = (E) => E.map(TR).join("|"), hT = (E) => j(RR(E)), bI = (E = {}) => j(AR(E)), AR = ({ first: E, rest: T, dashes: R, allowFirstCharNumber: A } = {}) => {
-  const e = "\\p{Alphabetic}\\p{Mark}_", S = "\\p{Decimal_Number}", N = K(E ?? ""), O = K(T ?? ""), o = A ? `[${e}${S}${N}][${e}${S}${O}]*` : `[${e}${N}][${e}${S}${O}]*`;
-  return R ? VI(o) : o;
+  const e = "\\p{Alphabetic}\\p{Mark}_", S = "\\p{Decimal_Number}", N = K(E ?? ""), O = K(T ?? ""), P = A ? `[${e}${S}${N}][${e}${S}${O}]*` : `[${e}${N}][${e}${S}${O}]*`;
+  return R ? VI(P) : P;
 };
 function eR(E, T) {
   const R = E.slice(0, T).split(/\n/);
@@ -18487,121 +18487,121 @@ If possible, please select a more specific dialect (like sqlite, postgresql, etc
     var T, R, A;
     return this.validRules([
       {
-        type: C.DISABLE_COMMENT,
+        type: L.DISABLE_COMMENT,
         regex: /(\/\* *sql-formatter-disable *\*\/[\s\S]*?(?:\/\* *sql-formatter-enable *\*\/|$))/uy
       },
       {
-        type: C.BLOCK_COMMENT,
+        type: L.BLOCK_COMMENT,
         regex: E.nestedBlockComments ? new JI() : /(\/\*[^]*?\*\/)/uy
       },
       {
-        type: C.LINE_COMMENT,
+        type: L.LINE_COMMENT,
         regex: WI((T = E.lineCommentTypes) !== null && T !== void 0 ? T : ["--"])
       },
       {
-        type: C.QUOTED_IDENTIFIER,
+        type: L.QUOTED_IDENTIFIER,
         regex: hT(E.identTypes)
       },
       {
-        type: C.NUMBER,
+        type: L.NUMBER,
         regex: E.underscoresInNumbers ? /(?:0x[0-9a-fA-F_]+|0b[01_]+|(?:-\s*)?(?:[0-9_]*\.[0-9_]+|[0-9_]+(?:\.[0-9_]*)?)(?:[eE][-+]?[0-9_]+(?:\.[0-9_]+)?)?)(?![\w\p{Alphabetic}])/uy : /(?:0x[0-9a-fA-F]+|0b[01]+|(?:-\s*)?(?:[0-9]*\.[0-9]+|[0-9]+(?:\.[0-9]*)?)(?:[eE][-+]?[0-9]+(?:\.[0-9]+)?)?)(?![\w\p{Alphabetic}])/uy
       },
       {
-        type: C.RESERVED_KEYWORD_PHRASE,
+        type: L.RESERVED_KEYWORD_PHRASE,
         regex: J((R = E.reservedKeywordPhrases) !== null && R !== void 0 ? R : [], E.identChars),
         text: f
       },
       {
-        type: C.RESERVED_DATA_TYPE_PHRASE,
+        type: L.RESERVED_DATA_TYPE_PHRASE,
         regex: J((A = E.reservedDataTypePhrases) !== null && A !== void 0 ? A : [], E.identChars),
         text: f
       },
       {
-        type: C.CASE,
+        type: L.CASE,
         regex: /CASE\b/iuy,
         text: f
       },
       {
-        type: C.END,
+        type: L.END,
         regex: /END\b/iuy,
         text: f
       },
       {
-        type: C.BETWEEN,
+        type: L.BETWEEN,
         regex: /BETWEEN\b/iuy,
         text: f
       },
       {
-        type: C.LIMIT,
+        type: L.LIMIT,
         regex: E.reservedClauses.includes("LIMIT") ? /LIMIT\b/iuy : void 0,
         text: f
       },
       {
-        type: C.RESERVED_CLAUSE,
+        type: L.RESERVED_CLAUSE,
         regex: J(E.reservedClauses, E.identChars),
         text: f
       },
       {
-        type: C.RESERVED_SELECT,
+        type: L.RESERVED_SELECT,
         regex: J(E.reservedSelect, E.identChars),
         text: f
       },
       {
-        type: C.RESERVED_SET_OPERATION,
+        type: L.RESERVED_SET_OPERATION,
         regex: J(E.reservedSetOperations, E.identChars),
         text: f
       },
       {
-        type: C.WHEN,
+        type: L.WHEN,
         regex: /WHEN\b/iuy,
         text: f
       },
       {
-        type: C.ELSE,
+        type: L.ELSE,
         regex: /ELSE\b/iuy,
         text: f
       },
       {
-        type: C.THEN,
+        type: L.THEN,
         regex: /THEN\b/iuy,
         text: f
       },
       {
-        type: C.RESERVED_JOIN,
+        type: L.RESERVED_JOIN,
         regex: J(E.reservedJoins, E.identChars),
         text: f
       },
       {
-        type: C.AND,
+        type: L.AND,
         regex: /AND\b/iuy,
         text: f
       },
       {
-        type: C.OR,
+        type: L.OR,
         regex: /OR\b/iuy,
         text: f
       },
       {
-        type: C.XOR,
+        type: L.XOR,
         regex: E.supportsXor ? /XOR\b/iuy : void 0,
         text: f
       },
       ...E.operatorKeyword ? [{
-        type: C.OPERATOR,
+        type: L.OPERATOR,
         regex: /OPERATOR *\([^)]+\)/iuy
       }] : [],
       {
-        type: C.RESERVED_FUNCTION_NAME,
+        type: L.RESERVED_FUNCTION_NAME,
         regex: J(E.reservedFunctionNames, E.identChars),
         text: f
       },
       {
-        type: C.RESERVED_DATA_TYPE,
+        type: L.RESERVED_DATA_TYPE,
         regex: J(E.reservedDataTypes, E.identChars),
         text: f
       },
       {
-        type: C.RESERVED_KEYWORD,
+        type: L.RESERVED_KEYWORD,
         regex: J(E.reservedKeywords, E.identChars),
         text: f
       }
@@ -18611,35 +18611,35 @@ If possible, please select a more specific dialect (like sqlite, postgresql, etc
     var T, R;
     return this.validRules([
       {
-        type: C.VARIABLE,
+        type: L.VARIABLE,
         regex: E.variableTypes ? vI(E.variableTypes) : void 0
       },
       {
-        type: C.STRING,
+        type: L.STRING,
         regex: hT(E.stringTypes)
       },
       {
-        type: C.IDENTIFIER,
+        type: L.IDENTIFIER,
         regex: bI(E.identChars)
       },
       {
-        type: C.DELIMITER,
+        type: L.DELIMITER,
         regex: /[;]/uy
       },
       {
-        type: C.COMMA,
+        type: L.COMMA,
         regex: /[,]/y
       },
       {
-        type: C.OPEN_PAREN,
+        type: L.OPEN_PAREN,
         regex: dT("open", E.extraParens)
       },
       {
-        type: C.CLOSE_PAREN,
+        type: L.CLOSE_PAREN,
         regex: dT("close", E.extraParens)
       },
       {
-        type: C.OPERATOR,
+        type: L.OPERATOR,
         regex: YT([
           "+",
           "-",
@@ -18655,11 +18655,11 @@ If possible, please select a more specific dialect (like sqlite, postgresql, etc
         ])
       },
       {
-        type: C.ASTERISK,
+        type: L.ASTERISK,
         regex: /[*]/uy
       },
       {
-        type: C.PROPERTY_ACCESS_OPERATOR,
+        type: L.PROPERTY_ACCESS_OPERATOR,
         regex: YT([".", ...(R = E.propertyAccessOperators) !== null && R !== void 0 ? R : []])
       }
     ]);
@@ -18675,33 +18675,33 @@ If possible, please select a more specific dialect (like sqlite, postgresql, etc
     };
     return this.validRules([
       {
-        type: C.NAMED_PARAMETER,
+        type: L.NAMED_PARAMETER,
         regex: xE(O.named, AR(E.paramChars || E.identChars)),
-        key: (o) => o.slice(1)
+        key: (P) => P.slice(1)
       },
       {
-        type: C.QUOTED_PARAMETER,
+        type: L.QUOTED_PARAMETER,
         regex: xE(O.quoted, RR(E.identTypes)),
-        key: (o) => (({ tokenKey: l, quoteChar: t }) => l.replace(new RegExp(K("\\" + t), "gu"), t))({
-          tokenKey: o.slice(2, -1),
-          quoteChar: o.slice(-1)
+        key: (P) => (({ tokenKey: M, quoteChar: t }) => M.replace(new RegExp(K("\\" + t), "gu"), t))({
+          tokenKey: P.slice(2, -1),
+          quoteChar: P.slice(-1)
         })
       },
       {
-        type: C.NUMBERED_PARAMETER,
+        type: L.NUMBERED_PARAMETER,
         regex: xE(O.numbered, "[0-9]+"),
-        key: (o) => o.slice(1)
+        key: (P) => P.slice(1)
       },
       {
-        type: C.POSITIONAL_PARAMETER,
+        type: L.POSITIONAL_PARAMETER,
         regex: O.positional ? /[?]/y : void 0
       },
-      ...O.custom.map((o) => {
-        var l;
+      ...O.custom.map((P) => {
+        var M;
         return {
-          type: C.CUSTOM_PARAMETER,
-          regex: j(o.regex),
-          key: (l = o.key) !== null && l !== void 0 ? l : ((t) => t)
+          type: L.CUSTOM_PARAMETER,
+          regex: j(P.regex),
+          key: (M = P.key) !== null && M !== void 0 ? M : ((t) => t)
         };
       })
     ]);
@@ -18746,92 +18746,92 @@ var jI = class {
   (function(R, A) {
     typeof T == "object" && T.exports ? T.exports = A() : R.nearley = A();
   })(E, function() {
-    function R(t, s, _) {
-      return this.id = ++R.highestId, this.name = t, this.symbols = s, this.postprocess = _, this;
+    function R(t, a, _) {
+      return this.id = ++R.highestId, this.name = t, this.symbols = a, this.postprocess = _, this;
     }
     R.highestId = 0, R.prototype.toString = function(t) {
-      var s = typeof t > "u" ? this.symbols.map(l).join(" ") : this.symbols.slice(0, t).map(l).join(" ") + " ● " + this.symbols.slice(t).map(l).join(" ");
-      return this.name + " → " + s;
+      var a = typeof t > "u" ? this.symbols.map(M).join(" ") : this.symbols.slice(0, t).map(M).join(" ") + " ● " + this.symbols.slice(t).map(M).join(" ");
+      return this.name + " → " + a;
     };
-    function A(t, s, _, M) {
-      this.rule = t, this.dot = s, this.reference = _, this.data = [], this.wantedBy = M, this.isComplete = this.dot === t.symbols.length;
+    function A(t, a, _, o) {
+      this.rule = t, this.dot = a, this.reference = _, this.data = [], this.wantedBy = o, this.isComplete = this.dot === t.symbols.length;
     }
     A.prototype.toString = function() {
       return "{" + this.rule.toString(this.dot) + "}, from: " + (this.reference || 0);
     }, A.prototype.nextState = function(t) {
-      var s = new A(this.rule, this.dot + 1, this.reference, this.wantedBy);
-      return s.left = this, s.right = t, s.isComplete && (s.data = s.build(), s.right = void 0), s;
+      var a = new A(this.rule, this.dot + 1, this.reference, this.wantedBy);
+      return a.left = this, a.right = t, a.isComplete && (a.data = a.build(), a.right = void 0), a;
     }, A.prototype.build = function() {
-      var t = [], s = this;
+      var t = [], a = this;
       do
-        t.push(s.right.data), s = s.left;
-      while (s.left);
+        t.push(a.right.data), a = a.left;
+      while (a.left);
       return t.reverse(), t;
     }, A.prototype.finish = function() {
       this.rule.postprocess && (this.data = this.rule.postprocess(this.data, this.reference, O.fail));
     };
-    function e(t, s) {
-      this.grammar = t, this.index = s, this.states = [], this.wants = {}, this.scannable = [], this.completed = {};
+    function e(t, a) {
+      this.grammar = t, this.index = a, this.states = [], this.wants = {}, this.scannable = [], this.completed = {};
     }
     e.prototype.process = function(t) {
-      for (var s = this.states, _ = this.wants, M = this.completed, B = 0; B < s.length; B++) {
-        var P = s[B];
-        if (P.isComplete) {
-          if (P.finish(), P.data !== O.fail) {
-            for (var G = P.wantedBy, F = G.length; F--; ) {
-              var a = G[F];
-              this.complete(a, P);
+      for (var a = this.states, _ = this.wants, o = this.completed, B = 0; B < a.length; B++) {
+        var U = a[B];
+        if (U.isComplete) {
+          if (U.finish(), U.data !== O.fail) {
+            for (var G = U.wantedBy, F = G.length; F--; ) {
+              var C = G[F];
+              this.complete(C, U);
             }
-            if (P.reference === this.index) {
-              var r = P.rule.name;
-              (this.completed[r] = this.completed[r] || []).push(P);
+            if (U.reference === this.index) {
+              var r = U.rule.name;
+              (this.completed[r] = this.completed[r] || []).push(U);
             }
           }
         } else {
-          var r = P.rule.symbols[P.dot];
+          var r = U.rule.symbols[U.dot];
           if (typeof r != "string") {
-            this.scannable.push(P);
+            this.scannable.push(U);
             continue;
           }
           if (_[r]) {
-            if (_[r].push(P), M.hasOwnProperty(r))
-              for (var n = M[r], F = 0; F < n.length; F++) {
+            if (_[r].push(U), o.hasOwnProperty(r))
+              for (var n = o[r], F = 0; F < n.length; F++) {
                 var i = n[F];
-                this.complete(P, i);
+                this.complete(U, i);
               }
           } else
-            _[r] = [P], this.predict(r);
+            _[r] = [U], this.predict(r);
         }
       }
     }, e.prototype.predict = function(t) {
-      for (var s = this.grammar.byName[t] || [], _ = 0; _ < s.length; _++) {
-        var M = s[_], B = this.wants[t], P = new A(M, 0, this.index, B);
-        this.states.push(P);
+      for (var a = this.grammar.byName[t] || [], _ = 0; _ < a.length; _++) {
+        var o = a[_], B = this.wants[t], U = new A(o, 0, this.index, B);
+        this.states.push(U);
       }
-    }, e.prototype.complete = function(t, s) {
-      var _ = t.nextState(s);
+    }, e.prototype.complete = function(t, a) {
+      var _ = t.nextState(a);
       this.states.push(_);
     };
-    function S(t, s) {
-      this.rules = t, this.start = s || this.rules[0].name;
+    function S(t, a) {
+      this.rules = t, this.start = a || this.rules[0].name;
       var _ = this.byName = {};
-      this.rules.forEach(function(M) {
-        _.hasOwnProperty(M.name) || (_[M.name] = []), _[M.name].push(M);
+      this.rules.forEach(function(o) {
+        _.hasOwnProperty(o.name) || (_[o.name] = []), _[o.name].push(o);
       });
     }
-    S.fromCompiled = function(M, s) {
-      var _ = M.Lexer;
-      M.ParserStart && (s = M.ParserStart, M = M.ParserRules);
-      var M = M.map(function(P) {
-        return new R(P.name, P.symbols, P.postprocess);
-      }), B = new S(M, s);
+    S.fromCompiled = function(o, a) {
+      var _ = o.Lexer;
+      o.ParserStart && (a = o.ParserStart, o = o.ParserRules);
+      var o = o.map(function(U) {
+        return new R(U.name, U.symbols, U.postprocess);
+      }), B = new S(o, a);
       return B.lexer = _, B;
     };
     function N() {
       this.reset("");
     }
-    N.prototype.reset = function(t, s) {
-      this.buffer = t, this.index = 0, this.line = s ? s.line : 1, this.lastLineBreak = s ? -s.col : 0;
+    N.prototype.reset = function(t, a) {
+      this.buffer = t, this.index = 0, this.line = a ? a.line : 1, this.lastLineBreak = a ? -a.col : 0;
     }, N.prototype.next = function() {
       if (this.index < this.buffer.length) {
         var t = this.buffer[this.index++];
@@ -18843,131 +18843,131 @@ var jI = class {
         line: this.line,
         col: this.index - this.lastLineBreak
       };
-    }, N.prototype.formatError = function(t, s) {
+    }, N.prototype.formatError = function(t, a) {
       var _ = this.buffer;
       if (typeof _ == "string") {
-        var M = _.split(`
+        var o = _.split(`
 `).slice(Math.max(0, this.line - 5), this.line), B = _.indexOf(`
 `, this.index);
         B === -1 && (B = _.length);
-        var P = this.index - this.lastLineBreak, G = String(this.line).length;
-        return s += " at line " + this.line + " col " + P + `:
+        var U = this.index - this.lastLineBreak, G = String(this.line).length;
+        return a += " at line " + this.line + " col " + U + `:
 
-`, s += M.map(function(a, r) {
-          return F(this.line - M.length + r + 1, G) + " " + a;
+`, a += o.map(function(C, r) {
+          return F(this.line - o.length + r + 1, G) + " " + C;
         }, this).join(`
-`), s += `
-` + F("", G + P) + `^
-`, s;
-      } else return s + " at index " + (this.index - 1);
-      function F(a, r) {
-        var n = String(a);
+`), a += `
+` + F("", G + U) + `^
+`, a;
+      } else return a + " at index " + (this.index - 1);
+      function F(C, r) {
+        var n = String(C);
         return Array(r - n.length + 1).join(" ") + n;
       }
     };
-    function O(t, s, _) {
+    function O(t, a, _) {
       if (t instanceof S)
-        var M = t, _ = s;
-      else var M = S.fromCompiled(t, s);
-      this.grammar = M, this.options = {
+        var o = t, _ = a;
+      else var o = S.fromCompiled(t, a);
+      this.grammar = o, this.options = {
         keepHistory: !1,
-        lexer: M.lexer || new N()
+        lexer: o.lexer || new N()
       };
       for (var B in _ || {}) this.options[B] = _[B];
       this.lexer = this.options.lexer, this.lexerState = void 0;
-      var P = new e(M, 0);
-      this.table = [P], P.wants[M.start] = [], P.predict(M.start), P.process(), this.current = 0;
+      var U = new e(o, 0);
+      this.table = [U], U.wants[o.start] = [], U.predict(o.start), U.process(), this.current = 0;
     }
     O.fail = {}, O.prototype.feed = function(t) {
-      var s = this.lexer;
-      s.reset(t, this.lexerState);
+      var a = this.lexer;
+      a.reset(t, this.lexerState);
       for (var _; ; ) {
         try {
-          if (_ = s.next(), !_) break;
+          if (_ = a.next(), !_) break;
         } catch (c) {
           var G = new e(this.grammar, this.current + 1);
           this.table.push(G);
-          var M = new Error(this.reportLexerError(c));
-          throw M.offset = this.current, M.token = c.token, M;
+          var o = new Error(this.reportLexerError(c));
+          throw o.offset = this.current, o.token = c.token, o;
         }
         var B = this.table[this.current];
         this.options.keepHistory || delete this.table[this.current - 1];
-        var P = this.current + 1, G = new e(this.grammar, P);
+        var U = this.current + 1, G = new e(this.grammar, U);
         this.table.push(G);
-        for (var F = _.text !== void 0 ? _.text : _.value, a = s.constructor === N ? _.value : _, r = B.scannable, n = r.length; n--; ) {
+        for (var F = _.text !== void 0 ? _.text : _.value, C = a.constructor === N ? _.value : _, r = B.scannable, n = r.length; n--; ) {
           var i = r[n], D = i.rule.symbols[i.dot];
-          if (D.test ? D.test(a) : D.type ? D.type === _.type : D.literal === F) {
+          if (D.test ? D.test(C) : D.type ? D.type === _.type : D.literal === F) {
             var H = i.nextState({
-              data: a,
+              data: C,
               token: _,
               isToken: !0,
-              reference: P - 1
+              reference: U - 1
             });
             G.states.push(H);
           }
         }
         if (G.process(), G.states.length === 0) {
-          var M = new Error(this.reportError(_));
-          throw M.offset = this.current, M.token = _, M;
+          var o = new Error(this.reportError(_));
+          throw o.offset = this.current, o.token = _, o;
         }
-        this.options.keepHistory && (B.lexerState = s.save()), this.current++;
+        this.options.keepHistory && (B.lexerState = a.save()), this.current++;
       }
-      return B && (this.lexerState = s.save()), this.results = this.finish(), this;
+      return B && (this.lexerState = a.save()), this.results = this.finish(), this;
     }, O.prototype.reportLexerError = function(t) {
-      var s, _, M = t.token;
-      return M ? (s = "input " + JSON.stringify(M.text[0]) + " (lexer error)", _ = this.lexer.formatError(M, "Syntax error")) : (s = "input (lexer error)", _ = t.message), this.reportErrorCommon(_, s);
+      var a, _, o = t.token;
+      return o ? (a = "input " + JSON.stringify(o.text[0]) + " (lexer error)", _ = this.lexer.formatError(o, "Syntax error")) : (a = "input (lexer error)", _ = t.message), this.reportErrorCommon(_, a);
     }, O.prototype.reportError = function(t) {
-      var s = (t.type ? t.type + " token: " : "") + JSON.stringify(t.value !== void 0 ? t.value : t), _ = this.lexer.formatError(t, "Syntax error");
-      return this.reportErrorCommon(_, s);
-    }, O.prototype.reportErrorCommon = function(t, s) {
+      var a = (t.type ? t.type + " token: " : "") + JSON.stringify(t.value !== void 0 ? t.value : t), _ = this.lexer.formatError(t, "Syntax error");
+      return this.reportErrorCommon(_, a);
+    }, O.prototype.reportErrorCommon = function(t, a) {
       var _ = [];
       _.push(t);
-      var M = this.table.length - 2, B = this.table[M], P = B.states.filter(function(G) {
+      var o = this.table.length - 2, B = this.table[o], U = B.states.filter(function(G) {
         var F = G.rule.symbols[G.dot];
         return F && typeof F != "string";
       });
-      return P.length === 0 ? (_.push("Unexpected " + s + `. I did not expect any more input. Here is the state of my parse table:
-`), this.displayStateStack(B.states, _)) : (_.push("Unexpected " + s + `. Instead, I was expecting to see one of the following:
-`), P.map(function(G) {
+      return U.length === 0 ? (_.push("Unexpected " + a + `. I did not expect any more input. Here is the state of my parse table:
+`), this.displayStateStack(B.states, _)) : (_.push("Unexpected " + a + `. Instead, I was expecting to see one of the following:
+`), U.map(function(G) {
         return this.buildFirstStateStack(G, []) || [G];
       }, this).forEach(function(G) {
-        var F = G[0], a = F.rule.symbols[F.dot], r = this.getSymbolDisplay(a);
+        var F = G[0], C = F.rule.symbols[F.dot], r = this.getSymbolDisplay(C);
         _.push("A " + r + " based on:"), this.displayStateStack(G, _);
       }, this)), _.push(""), _.join(`
 `);
-    }, O.prototype.displayStateStack = function(t, s) {
-      for (var _, M = 0, B = 0; B < t.length; B++) {
-        var P = t[B], G = P.rule.toString(P.dot);
-        G === _ ? M++ : (M > 0 && s.push("    ^ " + M + " more lines identical to this"), M = 0, s.push("    " + G)), _ = G;
+    }, O.prototype.displayStateStack = function(t, a) {
+      for (var _, o = 0, B = 0; B < t.length; B++) {
+        var U = t[B], G = U.rule.toString(U.dot);
+        G === _ ? o++ : (o > 0 && a.push("    ^ " + o + " more lines identical to this"), o = 0, a.push("    " + G)), _ = G;
       }
     }, O.prototype.getSymbolDisplay = function(t) {
-      return o(t);
-    }, O.prototype.buildFirstStateStack = function(t, s) {
-      if (s.indexOf(t) !== -1) return null;
+      return P(t);
+    }, O.prototype.buildFirstStateStack = function(t, a) {
+      if (a.indexOf(t) !== -1) return null;
       if (t.wantedBy.length === 0) return [t];
-      var _ = t.wantedBy[0], M = [t].concat(s), B = this.buildFirstStateStack(_, M);
+      var _ = t.wantedBy[0], o = [t].concat(a), B = this.buildFirstStateStack(_, o);
       return B === null ? null : [t].concat(B);
     }, O.prototype.save = function() {
       var t = this.table[this.current];
       return t.lexerState = this.lexerState, t;
     }, O.prototype.restore = function(t) {
-      var s = t.index;
-      this.current = s, this.table[s] = t, this.table.splice(s + 1), this.lexerState = t.lexerState, this.results = this.finish();
+      var a = t.index;
+      this.current = a, this.table[a] = t, this.table.splice(a + 1), this.lexerState = t.lexerState, this.results = this.finish();
     }, O.prototype.rewind = function(t) {
       if (!this.options.keepHistory) throw new Error("set option `keepHistory` to enable rewinding");
       this.restore(this.table[t]);
     }, O.prototype.finish = function() {
-      var t = [], s = this.grammar.start;
+      var t = [], a = this.grammar.start;
       return this.table[this.table.length - 1].states.forEach(function(_) {
-        _.rule.name === s && _.dot === _.rule.symbols.length && _.reference === 0 && _.data !== O.fail && t.push(_);
+        _.rule.name === a && _.dot === _.rule.symbols.length && _.reference === 0 && _.data !== O.fail && t.push(_);
       }), t.map(function(_) {
         return _.data;
       });
     };
-    function o(t) {
-      var s = typeof t;
-      if (s === "string") return t;
-      if (s === "object") {
+    function P(t) {
+      var a = typeof t;
+      if (a === "string") return t;
+      if (a === "object") {
         if (t.literal) return JSON.stringify(t.literal);
         if (t instanceof RegExp) return "character matching " + t;
         if (t.type) return t.type + " token";
@@ -18975,10 +18975,10 @@ var jI = class {
         throw new Error("Unknown symbol type: " + t);
       }
     }
-    function l(t) {
-      var s = typeof t;
-      if (s === "string") return t;
-      if (s === "object") {
+    function M(t) {
+      var a = typeof t;
+      if (a === "string") return t;
+      if (a === "object") {
         if (t.literal) return JSON.stringify(t.literal);
         if (t instanceof RegExp) return t.toString();
         if (t.type) return "%" + t.type;
@@ -18999,49 +18999,49 @@ function EO(E) {
 var TO = (E, T, R) => {
   if (zT(E.type)) {
     const A = IO(R, T);
-    if (A && A.type === C.PROPERTY_ACCESS_OPERATOR) return Object.assign(Object.assign({}, E), {
-      type: C.IDENTIFIER,
+    if (A && A.type === L.PROPERTY_ACCESS_OPERATOR) return Object.assign(Object.assign({}, E), {
+      type: L.IDENTIFIER,
       text: E.raw
     });
     const e = AE(R, T);
-    if (e && e.type === C.PROPERTY_ACCESS_OPERATOR) return Object.assign(Object.assign({}, E), {
-      type: C.IDENTIFIER,
+    if (e && e.type === L.PROPERTY_ACCESS_OPERATOR) return Object.assign(Object.assign({}, E), {
+      type: L.IDENTIFIER,
       text: E.raw
     });
   }
   return E;
 }, RO = (E, T, R) => {
-  if (E.type === C.RESERVED_FUNCTION_NAME) {
+  if (E.type === L.RESERVED_FUNCTION_NAME) {
     const A = AE(R, T);
     if (!A || !SR(A)) return Object.assign(Object.assign({}, E), {
-      type: C.IDENTIFIER,
+      type: L.IDENTIFIER,
       text: E.raw
     });
   }
   return E;
 }, AO = (E, T, R) => {
-  if (E.type === C.RESERVED_DATA_TYPE) {
+  if (E.type === L.RESERVED_DATA_TYPE) {
     const A = AE(R, T);
-    if (A && SR(A)) return Object.assign(Object.assign({}, E), { type: C.RESERVED_PARAMETERIZED_DATA_TYPE });
+    if (A && SR(A)) return Object.assign(Object.assign({}, E), { type: L.RESERVED_PARAMETERIZED_DATA_TYPE });
   }
   return E;
 }, eO = (E, T, R) => {
-  if (E.type === C.IDENTIFIER) {
+  if (E.type === L.IDENTIFIER) {
     const A = AE(R, T);
-    if (A && IR(A)) return Object.assign(Object.assign({}, E), { type: C.ARRAY_IDENTIFIER });
+    if (A && IR(A)) return Object.assign(Object.assign({}, E), { type: L.ARRAY_IDENTIFIER });
   }
   return E;
 }, SO = (E, T, R) => {
-  if (E.type === C.RESERVED_DATA_TYPE) {
+  if (E.type === L.RESERVED_DATA_TYPE) {
     const A = AE(R, T);
-    if (A && IR(A)) return Object.assign(Object.assign({}, E), { type: C.ARRAY_KEYWORD });
+    if (A && IR(A)) return Object.assign(Object.assign({}, E), { type: L.ARRAY_KEYWORD });
   }
   return E;
 }, IO = (E, T) => AE(E, T, -1), AE = (E, T, R = 1) => {
   let A = 1;
   for (; E[T + A * R] && OO(E[T + A * R]); ) A++;
   return E[T + A * R];
-}, SR = (E) => E.type === C.OPEN_PAREN && E.text === "(", IR = (E) => E.type === C.OPEN_PAREN && E.text === "[", OO = (E) => E.type === C.BLOCK_COMMENT || E.type === C.LINE_COMMENT, NR = class {
+}, SR = (E) => E.type === L.OPEN_PAREN && E.text === "(", IR = (E) => E.type === L.OPEN_PAREN && E.text === "[", OO = (E) => E.type === L.BLOCK_COMMENT || E.type === L.LINE_COMMENT, NR = class {
   constructor(E) {
     this.tokenize = E, this.index = 0, this.tokens = [], this.input = "";
   }
@@ -19058,7 +19058,7 @@ var TO = (E, T, R) => {
     return `Parse error at token: ${E.text} at line ${T} column ${R}`;
   }
   has(E) {
-    return E in C;
+    return E in L;
   }
 }, u;
 (function(E) {
@@ -19120,7 +19120,7 @@ var p = new NR((E) => []), q = ([[E]]) => E, V = (E) => ({
       postprocess: ([E, [T]]) => ({
         type: u.statement,
         children: E,
-        hasSemicolon: T.type === C.DELIMITER
+        hasSemicolon: T.type === L.DELIMITER
       })
     },
     {
@@ -19949,36 +19949,36 @@ function CO(E) {
 ${JSON.stringify(N, void 0, 2)}`);
   } };
 }
-var L;
+var s;
 (function(E) {
   E[E.SPACE = 0] = "SPACE", E[E.NO_SPACE = 1] = "NO_SPACE", E[E.NO_NEWLINE = 2] = "NO_NEWLINE", E[E.NEWLINE = 3] = "NEWLINE", E[E.MANDATORY_NEWLINE = 4] = "MANDATORY_NEWLINE", E[E.INDENT = 5] = "INDENT", E[E.SINGLE_INDENT = 6] = "SINGLE_INDENT";
-})(L = L || (L = {}));
+})(s = s || (s = {}));
 var tR = class {
   constructor(E) {
     this.indentation = E, this.items = [];
   }
   add(...E) {
     for (const T of E) switch (T) {
-      case L.SPACE:
-        this.items.push(L.SPACE);
+      case s.SPACE:
+        this.items.push(s.SPACE);
         break;
-      case L.NO_SPACE:
+      case s.NO_SPACE:
         this.trimHorizontalWhitespace();
         break;
-      case L.NO_NEWLINE:
+      case s.NO_NEWLINE:
         this.trimWhitespace();
         break;
-      case L.NEWLINE:
-        this.trimHorizontalWhitespace(), this.addNewline(L.NEWLINE);
+      case s.NEWLINE:
+        this.trimHorizontalWhitespace(), this.addNewline(s.NEWLINE);
         break;
-      case L.MANDATORY_NEWLINE:
-        this.trimHorizontalWhitespace(), this.addNewline(L.MANDATORY_NEWLINE);
+      case s.MANDATORY_NEWLINE:
+        this.trimHorizontalWhitespace(), this.addNewline(s.MANDATORY_NEWLINE);
         break;
-      case L.INDENT:
+      case s.INDENT:
         this.addIndentation();
         break;
-      case L.SINGLE_INDENT:
-        this.items.push(L.SINGLE_INDENT);
+      case s.SINGLE_INDENT:
+        this.items.push(s.SINGLE_INDENT);
         break;
       default:
         this.items.push(T);
@@ -19992,10 +19992,10 @@ var tR = class {
   }
   addNewline(E) {
     if (this.items.length > 0) switch (SE(this.items)) {
-      case L.NEWLINE:
+      case s.NEWLINE:
         this.items.pop(), this.items.push(E);
         break;
-      case L.MANDATORY_NEWLINE:
+      case s.MANDATORY_NEWLINE:
         break;
       default:
         this.items.push(E);
@@ -20003,7 +20003,7 @@ var tR = class {
     }
   }
   addIndentation() {
-    for (let E = 0; E < this.indentation.getLevel(); E++) this.items.push(L.SINGLE_INDENT);
+    for (let E = 0; E < this.indentation.getLevel(); E++) this.items.push(s.SINGLE_INDENT);
   }
   toString() {
     return this.items.map((E) => this.itemToString(E)).join("");
@@ -20013,26 +20013,26 @@ var tR = class {
   }
   itemToString(E) {
     switch (E) {
-      case L.SPACE:
+      case s.SPACE:
         return " ";
-      case L.NEWLINE:
-      case L.MANDATORY_NEWLINE:
+      case s.NEWLINE:
+      case s.MANDATORY_NEWLINE:
         return `
 `;
-      case L.SINGLE_INDENT:
+      case s.SINGLE_INDENT:
         return this.indentation.getSingleIndent();
       default:
         return E;
     }
   }
-}, aO = (E) => E === L.SPACE || E === L.SINGLE_INDENT, _O = (E) => E === L.SPACE || E === L.SINGLE_INDENT || E === L.NEWLINE;
+}, aO = (E) => E === s.SPACE || E === s.SINGLE_INDENT, _O = (E) => E === s.SPACE || E === s.SINGLE_INDENT || E === s.NEWLINE;
 function WT(E, T) {
   if (T === "standard") return E;
   let R = [];
   return E.length >= 10 && E.includes(" ") && ([E, ...R] = E.split(" ")), T === "tabularLeft" ? E = E.padEnd(9, " ") : E = E.padStart(9, " "), E + ["", ...R].join(" ");
 }
 function gT(E) {
-  return KR(E) || E === C.RESERVED_CLAUSE || E === C.RESERVED_SELECT || E === C.RESERVED_SET_OPERATION || E === C.RESERVED_JOIN || E === C.LIMIT;
+  return KR(E) || E === L.RESERVED_CLAUSE || E === L.RESERVED_SELECT || E === L.RESERVED_SET_OPERATION || E === L.RESERVED_JOIN || E === L.LIMIT;
 }
 var wE = "top-level", nO = "block-level", rR = class {
   constructor(E) {
@@ -20068,8 +20068,8 @@ var wE = "top-level", nO = "block-level", rR = class {
     if (typeof E == "string")
       this.length += E.length, this.trailingSpace = !1;
     else {
-      if (E === L.MANDATORY_NEWLINE || E === L.NEWLINE) throw new qE();
-      E === L.INDENT || E === L.SINGLE_INDENT || E === L.SPACE ? this.trailingSpace || (this.length++, this.trailingSpace = !0) : (E === L.NO_NEWLINE || E === L.NO_SPACE) && this.trailingSpace && (this.trailingSpace = !1, this.length--);
+      if (E === s.MANDATORY_NEWLINE || E === s.NEWLINE) throw new qE();
+      E === s.INDENT || E === s.SINGLE_INDENT || E === s.SPACE ? this.trailingSpace || (this.length++, this.trailingSpace = !0) : (E === s.NO_NEWLINE || E === s.NO_SPACE) && this.trailingSpace && (this.trailingSpace = !1, this.length--);
     }
   }
 }, qE = class extends Error {
@@ -20162,23 +20162,23 @@ var wE = "top-level", nO = "block-level", rR = class {
     }), this.formatNode(T.parenthesis);
   }
   formatPropertyAccess(T) {
-    this.formatNode(T.object), this.layout.add(L.NO_SPACE, T.operator), this.formatNode(T.property);
+    this.formatNode(T.object), this.layout.add(s.NO_SPACE, T.operator), this.formatNode(T.property);
   }
   formatParenthesis(T) {
     const R = this.formatInlineExpression(T.children);
-    R ? (this.layout.add(T.openParen), this.layout.add(...R.getLayoutItems()), this.layout.add(L.NO_SPACE, T.closeParen, L.SPACE)) : (this.layout.add(T.openParen, L.NEWLINE), TE(this.cfg) ? (this.layout.add(L.INDENT), this.layout = this.formatSubExpression(T.children)) : (this.layout.indentation.increaseBlockLevel(), this.layout.add(L.INDENT), this.layout = this.formatSubExpression(T.children), this.layout.indentation.decreaseBlockLevel()), this.layout.add(L.NEWLINE, L.INDENT, T.closeParen, L.SPACE));
+    R ? (this.layout.add(T.openParen), this.layout.add(...R.getLayoutItems()), this.layout.add(s.NO_SPACE, T.closeParen, s.SPACE)) : (this.layout.add(T.openParen, s.NEWLINE), TE(this.cfg) ? (this.layout.add(s.INDENT), this.layout = this.formatSubExpression(T.children)) : (this.layout.indentation.increaseBlockLevel(), this.layout.add(s.INDENT), this.layout = this.formatSubExpression(T.children), this.layout.indentation.decreaseBlockLevel()), this.layout.add(s.NEWLINE, s.INDENT, T.closeParen, s.SPACE));
   }
   formatBetweenPredicate(T) {
-    this.layout.add(this.showKw(T.betweenKw), L.SPACE), this.layout = this.formatSubExpression(T.expr1), this.layout.add(L.NO_SPACE, L.SPACE, this.showNonTabularKw(T.andKw), L.SPACE), this.layout = this.formatSubExpression(T.expr2), this.layout.add(L.SPACE);
+    this.layout.add(this.showKw(T.betweenKw), s.SPACE), this.layout = this.formatSubExpression(T.expr1), this.layout.add(s.NO_SPACE, s.SPACE, this.showNonTabularKw(T.andKw), s.SPACE), this.layout = this.formatSubExpression(T.expr2), this.layout.add(s.SPACE);
   }
   formatCaseExpression(T) {
-    this.formatNode(T.caseKw), this.layout.indentation.increaseBlockLevel(), this.layout = this.formatSubExpression(T.expr), this.layout = this.formatSubExpression(T.clauses), this.layout.indentation.decreaseBlockLevel(), this.layout.add(L.NEWLINE, L.INDENT), this.formatNode(T.endKw);
+    this.formatNode(T.caseKw), this.layout.indentation.increaseBlockLevel(), this.layout = this.formatSubExpression(T.expr), this.layout = this.formatSubExpression(T.clauses), this.layout.indentation.decreaseBlockLevel(), this.layout.add(s.NEWLINE, s.INDENT), this.formatNode(T.endKw);
   }
   formatCaseWhen(T) {
-    this.layout.add(L.NEWLINE, L.INDENT), this.formatNode(T.whenKw), this.layout = this.formatSubExpression(T.condition), this.formatNode(T.thenKw), this.layout = this.formatSubExpression(T.result);
+    this.layout.add(s.NEWLINE, s.INDENT), this.formatNode(T.whenKw), this.layout = this.formatSubExpression(T.condition), this.formatNode(T.thenKw), this.layout = this.formatSubExpression(T.result);
   }
   formatCaseElse(T) {
-    this.layout.add(L.NEWLINE, L.INDENT), this.formatNode(T.elseKw), this.layout = this.formatSubExpression(T.result);
+    this.layout.add(s.NEWLINE, s.INDENT), this.formatNode(T.elseKw), this.layout = this.formatSubExpression(T.result);
   }
   formatClause(T) {
     this.isOnelineClause(T) ? this.formatClauseInOnelineStyle(T) : TE(this.cfg) ? this.formatClauseInTabularStyle(T) : this.formatClauseInIndentedStyle(T);
@@ -20187,39 +20187,39 @@ var wE = "top-level", nO = "block-level", rR = class {
     return TE(this.cfg) ? this.dialectCfg.tabularOnelineClauses[T.nameKw.text] : this.dialectCfg.onelineClauses[T.nameKw.text];
   }
   formatClauseInIndentedStyle(T) {
-    this.layout.add(L.NEWLINE, L.INDENT, this.showKw(T.nameKw), L.NEWLINE), this.layout.indentation.increaseTopLevel(), this.layout.add(L.INDENT), this.layout = this.formatSubExpression(T.children), this.layout.indentation.decreaseTopLevel();
+    this.layout.add(s.NEWLINE, s.INDENT, this.showKw(T.nameKw), s.NEWLINE), this.layout.indentation.increaseTopLevel(), this.layout.add(s.INDENT), this.layout = this.formatSubExpression(T.children), this.layout.indentation.decreaseTopLevel();
   }
   formatClauseInOnelineStyle(T) {
-    this.layout.add(L.NEWLINE, L.INDENT, this.showKw(T.nameKw), L.SPACE), this.layout = this.formatSubExpression(T.children);
+    this.layout.add(s.NEWLINE, s.INDENT, this.showKw(T.nameKw), s.SPACE), this.layout = this.formatSubExpression(T.children);
   }
   formatClauseInTabularStyle(T) {
-    this.layout.add(L.NEWLINE, L.INDENT, this.showKw(T.nameKw), L.SPACE), this.layout.indentation.increaseTopLevel(), this.layout = this.formatSubExpression(T.children), this.layout.indentation.decreaseTopLevel();
+    this.layout.add(s.NEWLINE, s.INDENT, this.showKw(T.nameKw), s.SPACE), this.layout.indentation.increaseTopLevel(), this.layout = this.formatSubExpression(T.children), this.layout.indentation.decreaseTopLevel();
   }
   formatSetOperation(T) {
-    this.layout.add(L.NEWLINE, L.INDENT, this.showKw(T.nameKw), L.NEWLINE), this.layout.add(L.INDENT), this.layout = this.formatSubExpression(T.children);
+    this.layout.add(s.NEWLINE, s.INDENT, this.showKw(T.nameKw), s.NEWLINE), this.layout.add(s.INDENT), this.layout = this.formatSubExpression(T.children);
   }
   formatLimitClause(T) {
     this.withComments(T.limitKw, () => {
-      this.layout.add(L.NEWLINE, L.INDENT, this.showKw(T.limitKw));
-    }), this.layout.indentation.increaseTopLevel(), TE(this.cfg) ? this.layout.add(L.SPACE) : this.layout.add(L.NEWLINE, L.INDENT), T.offset ? (this.layout = this.formatSubExpression(T.offset), this.layout.add(L.NO_SPACE, ",", L.SPACE), this.layout = this.formatSubExpression(T.count)) : this.layout = this.formatSubExpression(T.count), this.layout.indentation.decreaseTopLevel();
+      this.layout.add(s.NEWLINE, s.INDENT, this.showKw(T.limitKw));
+    }), this.layout.indentation.increaseTopLevel(), TE(this.cfg) ? this.layout.add(s.SPACE) : this.layout.add(s.NEWLINE, s.INDENT), T.offset ? (this.layout = this.formatSubExpression(T.offset), this.layout.add(s.NO_SPACE, ",", s.SPACE), this.layout = this.formatSubExpression(T.count)) : this.layout = this.formatSubExpression(T.count), this.layout.indentation.decreaseTopLevel();
   }
   formatAllColumnsAsterisk(T) {
-    this.layout.add("*", L.SPACE);
+    this.layout.add("*", s.SPACE);
   }
   formatLiteral(T) {
-    this.layout.add(T.text, L.SPACE);
+    this.layout.add(T.text, s.SPACE);
   }
   formatIdentifier(T) {
-    this.layout.add(this.showIdentifier(T), L.SPACE);
+    this.layout.add(this.showIdentifier(T), s.SPACE);
   }
   formatParameter(T) {
-    this.layout.add(this.params.get(T), L.SPACE);
+    this.layout.add(this.params.get(T), s.SPACE);
   }
   formatOperator({ text: T }) {
-    this.cfg.denseOperators || this.dialectCfg.alwaysDenseOperators.includes(T) ? this.layout.add(L.NO_SPACE, T) : T === ":" ? this.layout.add(L.NO_SPACE, T, L.SPACE) : this.layout.add(T, L.SPACE);
+    this.cfg.denseOperators || this.dialectCfg.alwaysDenseOperators.includes(T) ? this.layout.add(s.NO_SPACE, T) : T === ":" ? this.layout.add(s.NO_SPACE, T, s.SPACE) : this.layout.add(T, s.SPACE);
   }
   formatComma(T) {
-    this.inline ? this.layout.add(L.NO_SPACE, ",", L.SPACE) : this.layout.add(L.NO_SPACE, ",", L.NEWLINE, L.INDENT);
+    this.inline ? this.layout.add(s.NO_SPACE, ",", s.SPACE) : this.layout.add(s.NO_SPACE, ",", s.NEWLINE, s.INDENT);
   }
   withComments(T, R) {
     this.formatComments(T.leadingComments), R(), this.formatComments(T.trailingComments);
@@ -20230,12 +20230,12 @@ var wE = "top-level", nO = "block-level", rR = class {
     });
   }
   formatLineComment(T) {
-    $E(T.precedingWhitespace || "") ? this.layout.add(L.NEWLINE, L.INDENT, T.text, L.MANDATORY_NEWLINE, L.INDENT) : this.layout.getLayoutItems().length > 0 ? this.layout.add(L.NO_NEWLINE, L.SPACE, T.text, L.MANDATORY_NEWLINE, L.INDENT) : this.layout.add(T.text, L.MANDATORY_NEWLINE, L.INDENT);
+    $E(T.precedingWhitespace || "") ? this.layout.add(s.NEWLINE, s.INDENT, T.text, s.MANDATORY_NEWLINE, s.INDENT) : this.layout.getLayoutItems().length > 0 ? this.layout.add(s.NO_NEWLINE, s.SPACE, T.text, s.MANDATORY_NEWLINE, s.INDENT) : this.layout.add(T.text, s.MANDATORY_NEWLINE, s.INDENT);
   }
   formatBlockComment(T) {
     T.type === u.block_comment && this.isMultilineBlockComment(T) ? (this.splitBlockComment(T.text).forEach((R) => {
-      this.layout.add(L.NEWLINE, L.INDENT, R);
-    }), this.layout.add(L.NEWLINE, L.INDENT)) : this.layout.add(T.text, L.SPACE);
+      this.layout.add(s.NEWLINE, s.INDENT, R);
+    }), this.layout.add(s.NEWLINE, s.INDENT)) : this.layout.add(T.text, s.SPACE);
   }
   isMultilineBlockComment(T) {
     return $E(T.text) || $E(T.precedingWhitespace || "");
@@ -20275,27 +20275,27 @@ var wE = "top-level", nO = "block-level", rR = class {
   }
   formatKeywordNode(T) {
     switch (T.tokenType) {
-      case C.RESERVED_JOIN:
+      case L.RESERVED_JOIN:
         return this.formatJoin(T);
-      case C.AND:
-      case C.OR:
-      case C.XOR:
+      case L.AND:
+      case L.OR:
+      case L.XOR:
         return this.formatLogicalOperator(T);
       default:
         return this.formatKeyword(T);
     }
   }
   formatJoin(T) {
-    TE(this.cfg) ? (this.layout.indentation.decreaseTopLevel(), this.layout.add(L.NEWLINE, L.INDENT, this.showKw(T), L.SPACE), this.layout.indentation.increaseTopLevel()) : this.layout.add(L.NEWLINE, L.INDENT, this.showKw(T), L.SPACE);
+    TE(this.cfg) ? (this.layout.indentation.decreaseTopLevel(), this.layout.add(s.NEWLINE, s.INDENT, this.showKw(T), s.SPACE), this.layout.indentation.increaseTopLevel()) : this.layout.add(s.NEWLINE, s.INDENT, this.showKw(T), s.SPACE);
   }
   formatKeyword(T) {
-    this.layout.add(this.showKw(T), L.SPACE);
+    this.layout.add(this.showKw(T), s.SPACE);
   }
   formatLogicalOperator(T) {
-    this.cfg.logicalOperatorNewline === "before" ? TE(this.cfg) ? (this.layout.indentation.decreaseTopLevel(), this.layout.add(L.NEWLINE, L.INDENT, this.showKw(T), L.SPACE), this.layout.indentation.increaseTopLevel()) : this.layout.add(L.NEWLINE, L.INDENT, this.showKw(T), L.SPACE) : this.layout.add(this.showKw(T), L.NEWLINE, L.INDENT);
+    this.cfg.logicalOperatorNewline === "before" ? TE(this.cfg) ? (this.layout.indentation.decreaseTopLevel(), this.layout.add(s.NEWLINE, s.INDENT, this.showKw(T), s.SPACE), this.layout.indentation.increaseTopLevel()) : this.layout.add(s.NEWLINE, s.INDENT, this.showKw(T), s.SPACE) : this.layout.add(this.showKw(T), s.NEWLINE, s.INDENT);
   }
   formatDataType(T) {
-    this.layout.add(this.showDataType(T), L.SPACE);
+    this.layout.add(this.showDataType(T), s.SPACE);
   }
   showKw(T) {
     return gT(T.tokenType) ? WT(this.showNonTabularKw(T), this.cfg.indentStyle) : this.showNonTabularKw(T);
@@ -20366,7 +20366,7 @@ var wE = "top-level", nO = "block-level", rR = class {
       params: this.params,
       layout: new tR(new rR(kI(this.cfg)))
     }).format(E.children);
-    return E.hasSemicolon && (this.cfg.newlineBeforeSemicolon ? T.add(L.NEWLINE, ";") : T.add(L.NO_NEWLINE, ";")), T.toString();
+    return E.hasSemicolon && (this.cfg.newlineBeforeSemicolon ? T.add(s.NEWLINE, ";") : T.add(s.NO_NEWLINE, ";")), T.toString();
   }
 }, _E = class extends Error {
 };
@@ -20554,14 +20554,14 @@ function fO(E, T, R, A, e) {
   if (!A || A <= 0) return [];
   const S = Array.from(E.querySelectorAll(T)), N = S.length - A;
   if (N <= 0) return [];
-  const O = e ? S.reverse() : S, o = [];
-  for (let l = 0; l < N; l++) {
-    const t = O[l];
+  const O = e ? S.reverse() : S, P = [];
+  for (let M = 0; M < N; M++) {
+    const t = O[M];
     if (!t) break;
-    const s = t.getAttribute(R);
-    s && o.push(s), hO(t, T);
+    const a = t.getAttribute(R);
+    a && P.push(a), hO(t, T);
   }
-  return o;
+  return P;
 }
 var GN = class {
   constructor(E) {
@@ -20629,20 +20629,20 @@ function aR(E, T, R) {
   `;
 }
 function _R(E, T, R, A = {}) {
-  const { useIconCopyButton: e = !1, filterFn: S, showCount: N = !0 } = A, O = T && typeof T == "object" && !Array.isArray(T), o = Array.isArray(T);
-  let l = T ?? {};
-  if (O && S && (l = S(T)), O && Object.keys(l).length === 0 || o && l.length === 0 || !O && !o && !l) return `<div class="${R.emptyState}">No ${E.toLowerCase()} data available</div>`;
-  const t = ZT(l), s = CR(l, !0), _ = mR(l), M = o ? "items" : O ? "keys" : "entries", B = aR(R, e, `copy-${E.toLowerCase().replace(/\s+/g, "-")}-${Date.now()}`), P = N ? `<span class="${R.muted}">${kT(_)} ${M}</span>` : "";
+  const { useIconCopyButton: e = !1, filterFn: S, showCount: N = !0 } = A, O = T && typeof T == "object" && !Array.isArray(T), P = Array.isArray(T);
+  let M = T ?? {};
+  if (O && S && (M = S(T)), O && Object.keys(M).length === 0 || P && M.length === 0 || !O && !P && !M) return `<div class="${R.emptyState}">No ${E.toLowerCase()} data available</div>`;
+  const t = ZT(M), a = CR(M, !0), _ = mR(M), o = P ? "items" : O ? "keys" : "entries", B = aR(R, e, `copy-${E.toLowerCase().replace(/\s+/g, "-")}-${Date.now()}`), U = N ? `<span class="${R.muted}">${kT(_)} ${o}</span>` : "";
   return `
-    <section class="${R.jsonPanel}" data-copy-content="${U(t)}">
+    <section class="${R.jsonPanel}" data-copy-content="${l(t)}">
       <div class="${R.jsonHeader}">
-        <span class="${R.jsonViewerTitle}">${U(E)}</span>
+        <span class="${R.jsonViewerTitle}">${l(E)}</span>
         <div class="${R.jsonActions}">
-          ${P}
+          ${U}
           ${B}
         </div>
       </div>
-      <pre>${s}</pre>
+      <pre>${a}</pre>
     </section>
   `;
 }
@@ -20651,7 +20651,7 @@ function cN(E, T, R = {}) {
   if (!E || typeof E == "object" && Object.keys(E).length === 0) return "";
   const e = ZT(E), S = CR(E, !0), N = aR(T, A, `viewer-${Date.now()}`);
   return `
-    <div class="${T.jsonViewer}" data-copy-content="${U(e)}">
+    <div class="${T.jsonViewer}" data-copy-content="${l(e)}">
       <div class="${T.jsonViewerHeader}">
         ${N}
       </div>
@@ -20704,23 +20704,23 @@ function AT(E, T) {
   return R === "number" ? kT(E) : R === "timestamp" || R === "time" || R === "date" ? QT(E) : R === "boolean" ? E ? "Yes" : "No" : g(E);
 }
 function OE(E, T) {
-  return E ? `<h3 class="${T.jsonViewerTitle}">${U(E)}</h3>` : "";
+  return E ? `<h3 class="${T.jsonViewerTitle}">${l(E)}</h3>` : "";
 }
 function VO(E, T, R, A) {
   const e = ME(R, "metrics"), S = e.length > 0 ? e : Object.entries(T && typeof T == "object" && !Array.isArray(T) ? T : {}).map(([N]) => ({
     label: N,
     bind: N
   }));
-  return S.length === 0 ? `<div class="${A.emptyState}">No ${U(E.toLowerCase())} metrics available</div>` : `
+  return S.length === 0 ? `<div class="${A.emptyState}">No ${l(E.toLowerCase())} metrics available</div>` : `
     <section class="${A.jsonPanel}">
       ${OE(E, A)}
       <div class="${A.jsonGrid}">
         ${S.map((N) => {
-    const O = g(N.label || N.bind), o = AT(W(T, N.bind), N.format), l = g(W(T, N.severity) || N.status || "");
+    const O = g(N.label || N.bind), P = AT(W(T, N.bind), N.format), M = g(W(T, N.severity) || N.status || "");
     return `
-            <div class="${A.detailPane}" data-severity="${U(l)}">
-              <div class="${A.detailLabel}">${U(O)}</div>
-              <div class="${A.detailValue}">${U(o)}</div>
+            <div class="${A.detailPane}" data-severity="${l(M)}">
+              <div class="${A.detailLabel}">${l(O)}</div>
+              <div class="${A.detailValue}">${l(P)}</div>
             </div>
           `;
   }).join("")}
@@ -20733,14 +20733,14 @@ function yO(E, T, R, A) {
     label: N,
     bind: N
   }));
-  return S.length === 0 ? `<div class="${A.emptyState}">No ${U(E.toLowerCase())} details available</div>` : `
+  return S.length === 0 ? `<div class="${A.emptyState}">No ${l(E.toLowerCase())} details available</div>` : `
     <section class="${A.jsonPanel}">
       ${OE(E, A)}
       <table class="${A.detailKeyValueTable || A.table}">
         <tbody>
           ${S.map((N) => {
-    const O = g(N.label || N.bind), o = W(T, N.bind), l = g(N.empty || ""), t = o == null || o === "" ? l : AT(o, N.format);
-    return `<tr><th>${U(O)}</th><td>${U(t)}</td></tr>`;
+    const O = g(N.label || N.bind), P = W(T, N.bind), M = g(N.empty || ""), t = P == null || P === "" ? M : AT(P, N.format);
+    return `<tr><th>${l(O)}</th><td>${l(t)}</td></tr>`;
   }).join("")}
         </tbody>
       </table>
@@ -20754,26 +20754,26 @@ function nR(E, T, R) {
   }));
   return `
     <tr data-row-key="${ET(PE(E, R))}">
-      ${A.map((e) => `<td>${U(AT(W(E, e.bind), e.format))}</td>`).join("")}
+      ${A.map((e) => `<td>${l(AT(W(E, e.bind), e.format))}</td>`).join("")}
     </tr>
   `;
 }
 function WO(E, T, R, A) {
-  const e = RT(T), S = ME(R, "columns"), N = S.length > 0 ? S : Object.keys(e[0] && typeof e[0] == "object" ? e[0] : {}).map((o) => ({
-    label: o,
-    bind: o
+  const e = RT(T), S = ME(R, "columns"), N = S.length > 0 ? S : Object.keys(e[0] && typeof e[0] == "object" ? e[0] : {}).map((P) => ({
+    label: P,
+    bind: P
   }));
-  if (e.length === 0 || N.length === 0) return `<div class="${A.emptyState}">No ${U(E.toLowerCase())} rows available</div>`;
+  if (e.length === 0 || N.length === 0) return `<div class="${A.emptyState}">No ${l(E.toLowerCase())} rows available</div>`;
   const O = R?.options?.key_bind;
   return `
     <section class="${A.jsonPanel}">
       ${OE(E, A)}
       <table class="${A.table}">
         <thead>
-          <tr>${N.map((o) => `<th>${U(g(o.label || o.bind))}</th>`).join("")}</tr>
+          <tr>${N.map((P) => `<th>${l(g(P.label || P.bind))}</th>`).join("")}</tr>
         </thead>
         <tbody data-live-list>
-          ${e.map((o) => nR(o, N, O)).join("")}
+          ${e.map((P) => nR(P, N, O)).join("")}
         </tbody>
       </table>
     </section>
@@ -20783,14 +20783,14 @@ function iR(E, T, R) {
   const A = g(W(E, T?.options?.label_bind || "label") || W(E, "name") || W(E, "key")), e = g(W(E, T?.options?.description_bind || "description") || W(E, "message")), S = g(W(E, T?.options?.status_bind || "status") || W(E, "severity"));
   return `
     <tr data-row-key="${ET(PE(E, T?.options?.key_bind))}">
-      <td><span class="${R.badge}">${U(S || "status")}</span></td>
-      <td><strong>${U(A)}</strong>${e ? `<div class="${R.muted}">${U(e)}</div>` : ""}</td>
+      <td><span class="${R.badge}">${l(S || "status")}</span></td>
+      <td><strong>${l(A)}</strong>${e ? `<div class="${R.muted}">${l(e)}</div>` : ""}</td>
     </tr>
   `;
 }
 function gO(E, T, R, A) {
   const e = RT(T);
-  return e.length === 0 ? `<div class="${A.emptyState}">No ${U(E.toLowerCase())} statuses available</div>` : `
+  return e.length === 0 ? `<div class="${A.emptyState}">No ${l(E.toLowerCase())} statuses available</div>` : `
     <section class="${A.jsonPanel}">
       ${OE(E, A)}
       <table class="${A.table}">
@@ -20805,14 +20805,14 @@ function DR(E, T, R) {
   const A = QT(W(E, T?.options?.timestamp_bind || "timestamp")), e = g(W(E, T?.options?.message_bind || "message") || W(E, "title")), S = g(W(E, T?.options?.level_bind || "level") || W(E, "severity"));
   return `
     <tr data-row-key="${ET(PE(E, T?.options?.key_bind))}">
-      <td class="${R.timestamp}">${U(A)}</td>
-      <td>${S ? `<span class="${R.badge}">${U(S)}</span> ` : ""}${U(e)}</td>
+      <td class="${R.timestamp}">${l(A)}</td>
+      <td>${S ? `<span class="${R.badge}">${l(S)}</span> ` : ""}${l(e)}</td>
     </tr>
   `;
 }
 function XO(E, T, R, A) {
   const e = RT(T);
-  return e.length === 0 ? `<div class="${A.emptyState}">No ${U(E.toLowerCase())} events available</div>` : `
+  return e.length === 0 ? `<div class="${A.emptyState}">No ${l(E.toLowerCase())} events available</div>` : `
     <section class="${A.jsonPanel}">
       ${OE(E, A)}
       <table class="${A.table}">
@@ -21035,13 +21035,13 @@ function VN(E) {
     if (!R || typeof R != "object") return;
     const A = R, e = typeof A.command == "string" ? A.command.trim() : "";
     if (!e) return;
-    const S = typeof A.description == "string" ? A.description.trim() : "", N = Array.isArray(A.tags) ? A.tags.filter((l) => typeof l == "string" && l.trim() !== "").map((l) => l.trim()) : [], O = Array.isArray(A.aliases) ? A.aliases.filter((l) => typeof l == "string" && l.trim() !== "").map((l) => l.trim()) : [], o = typeof A.mutates == "boolean" ? A.mutates : typeof A.read_only == "boolean" ? !A.read_only : !1;
+    const S = typeof A.description == "string" ? A.description.trim() : "", N = Array.isArray(A.tags) ? A.tags.filter((M) => typeof M == "string" && M.trim() !== "").map((M) => M.trim()) : [], O = Array.isArray(A.aliases) ? A.aliases.filter((M) => typeof M == "string" && M.trim() !== "").map((M) => M.trim()) : [], P = typeof A.mutates == "boolean" ? A.mutates : typeof A.read_only == "boolean" ? !A.read_only : !1;
     T.push({
       command: e,
       description: S || void 0,
       tags: N.length > 0 ? N : void 0,
       aliases: O.length > 0 ? O : void 0,
-      mutates: o
+      mutates: P
     });
   }), T;
 }
@@ -21076,7 +21076,7 @@ function WN(E, T, R = {}) {
   const A = R.eventToPanel?.[T.type] || x.findByEventType(T.type)?.id || T.type, e = x.get(A);
   if (e) {
     const S = eT(e), N = E[S];
-    return E[S] = (e.handleEvent || ((O, o) => PR(O, o, 500)))(N, T.payload), A;
+    return E[S] = (e.handleEvent || ((O, P) => PR(O, P, 500)))(N, T.payload), A;
   }
   switch (T.type) {
     case "request":
@@ -21104,17 +21104,17 @@ function WN(E, T, R = {}) {
   return A;
 }
 function gN(E, T = 50) {
-  const R = E.requests?.length || 0, A = E.sql?.length || 0, e = E.logs?.length || 0, S = E.jserrors?.length || 0, N = (E.requests || []).filter((t) => (t.status || 0) >= 400).length, O = (E.sql || []).filter((t) => t.error).length, o = (E.logs || []).filter((t) => {
-    const s = (t.level || "").toLowerCase();
-    return s === "error" || s === "fatal";
-  }).length, l = (E.sql || []).filter((t) => dR(t.duration, T)).length;
+  const R = E.requests?.length || 0, A = E.sql?.length || 0, e = E.logs?.length || 0, S = E.jserrors?.length || 0, N = (E.requests || []).filter((t) => (t.status || 0) >= 400).length, O = (E.sql || []).filter((t) => t.error).length, P = (E.logs || []).filter((t) => {
+    const a = (t.level || "").toLowerCase();
+    return a === "error" || a === "fatal";
+  }).length, M = (E.sql || []).filter((t) => dR(t.duration, T)).length;
   return {
     requests: R,
     sql: A,
     logs: e,
     jserrors: S,
-    errors: N + O + o + S,
-    slowQueries: l
+    errors: N + O + P + S,
+    slowQueries: M
   };
 }
 var jO = /* @__PURE__ */ new Set([
@@ -21194,8 +21194,8 @@ function SN(E, T, R) {
   if (e === "upsert") {
     const O = h(A?.key);
     if (!O || !Array.isArray(E) || !N || typeof N != "object") return PR(E, N, S);
-    const o = RE(N, O), l = [...E], t = l.findIndex((s) => RE(s, O) === o);
-    return t >= 0 ? l[t] = N : l.push(N), S > 0 ? l.slice(-S) : l;
+    const P = RE(N, O), M = [...E], t = M.findIndex((a) => RE(a, O) === P);
+    return t >= 0 ? M[t] = N : M.push(N), S > 0 ? M.slice(-S) : M;
   }
   return N;
 }
@@ -21211,17 +21211,17 @@ function ON(E, T) {
   return A.length === 0 ? "" : A.map((e) => {
     const S = Y(e.id), N = Y(e.kind);
     if (!S) return "";
-    const O = h(e.label) || S, o = R[S];
+    const O = h(e.label) || S, P = R[S];
     if (N === "select") {
-      const l = Array.isArray(e.options) ? e.options : [];
+      const M = Array.isArray(e.options) ? e.options : [];
       return `
         <div class="debug-filter">
-          <label>${U(O)}</label>
-          <select data-filter="${U(S)}">
+          <label>${l(O)}</label>
+          <select data-filter="${l(S)}">
             <option value="">All</option>
-            ${l.map((t) => {
-        const s = h(t);
-        return `<option value="${U(s)}" ${o === s ? "selected" : ""}>${U(s)}</option>`;
+            ${M.map((t) => {
+        const a = h(t);
+        return `<option value="${l(a)}" ${P === a ? "selected" : ""}>${l(a)}</option>`;
       }).join("")}
           </select>
         </div>
@@ -21229,13 +21229,13 @@ function ON(E, T) {
     }
     return N === "checkbox" ? `
         <label class="debug-btn">
-          <input type="checkbox" data-filter="${U(S)}" ${o ? "checked" : ""} />
-          <span>${U(O)}</span>
+          <input type="checkbox" data-filter="${l(S)}" ${P ? "checked" : ""} />
+          <span>${l(O)}</span>
         </label>
       ` : `
       <div class="debug-filter debug-filter--grow">
-        <label>${U(O)}</label>
-        <input type="search" data-filter="${U(S)}" value="${U(iE(o))}" />
+        <label>${l(O)}</label>
+        <input type="search" data-filter="${l(S)}" value="${l(iE(P))}" />
       </div>
     `;
   }).join("");
@@ -21258,11 +21258,11 @@ function NN(E, T, R) {
   if (Array.isArray(E)) return E.filter((S) => A.every((N) => $T(S, N, e[Y(N.id)])));
   if (E && typeof E == "object") {
     const S = Object.entries(E).filter(([N, O]) => {
-      const o = {
+      const P = {
         key: N,
         value: O
       };
-      return A.every((l) => $T(o, l, e[Y(l.id)]));
+      return A.every((M) => $T(P, M, e[Y(M.id)]));
     });
     return Object.fromEntries(S);
   }
@@ -21273,12 +21273,12 @@ function ZE(E, T, R, A, e, S) {
   return T && IE(T) ? N = zE(E, T, R, A, e) : N = zE(E, {
     renderer: "json",
     title: h(E.label) || Y(E.id) || "Panel"
-  }, AN(R, T), A, e), `${rN(E, A)}${tN(E, A, S)}${N}<div data-panel-action-result="${U(Y(E.id))}"></div>`;
+  }, AN(R, T), A, e), `${rN(E, A)}${tN(E, A, S)}${N}<div data-panel-action-result="${l(Y(E.id))}"></div>`;
 }
 function tN(E, T, R) {
   if (!R) return "";
   const A = Y(E.id);
-  return `<div class="${T.emptyState}" data-panel-degraded="${U(A)}"><strong>Panel UI degraded.</strong> ${U(R)}</div>`;
+  return `<div class="${T.emptyState}" data-panel-degraded="${l(A)}"><strong>Panel UI degraded.</strong> ${l(R)}</div>`;
 }
 function rN(E, T) {
   const R = Y(E.id), A = E.ui?.actions || [];
@@ -21286,20 +21286,20 @@ function rN(E, T) {
   if ((Y(E.ui?.action_layout?.mode) || "list") === "select") {
     const e = h(E.ui?.action_layout?.picker_label) || "Action", S = h(E.ui?.action_layout?.empty_text) || "Select an action to continue.";
     return `
-      <div class="${T.panelControls}" data-panel-action-launcher="${U(R)}" style="display:flex;flex-direction:column;gap:0.75rem;align-items:stretch">
+      <div class="${T.panelControls}" data-panel-action-launcher="${l(R)}" style="display:flex;flex-direction:column;gap:0.75rem;align-items:stretch">
         <div class="debug-filter debug-filter--grow">
-          <label>${U(e)}</label>
-          <select data-panel-action-picker="${U(R)}">
-            <option value="">${U(S)}</option>
+          <label>${l(e)}</label>
+          <select data-panel-action-picker="${l(R)}">
+            <option value="">${l(S)}</option>
             ${A.map((N) => {
-      const O = Y(N.id), o = h(N.label) || O;
-      return O ? `<option value="${U(O)}">${U(o)}</option>` : "";
+      const O = Y(N.id), P = h(N.label) || O;
+      return O ? `<option value="${l(O)}">${l(P)}</option>` : "";
     }).join("")}
           </select>
         </div>
         ${A.map((N) => {
       const O = Y(N.id);
-      return O ? `<div data-panel-action-choice="${U(O)}" hidden>${xT(R, O, N, T)}</div>` : "";
+      return O ? `<div data-panel-action-choice="${l(O)}" hidden>${xT(R, O, N, T)}</div>` : "";
     }).join("")}
       </div>
     `;
@@ -21318,48 +21318,48 @@ function xT(E, T, R, A) {
   return S.length > 0 ? `
       <form
         data-panel-action-form
-        data-panel-id="${U(E)}"
-        data-action-id="${U(T)}"
-        data-action-confirm="${U(h(R.confirm_text))}"
+        data-panel-id="${l(E)}"
+        data-action-id="${l(T)}"
+        data-action-confirm="${l(h(R.confirm_text))}"
         data-action-requires-confirm="${R.requires_confirm ? "true" : "false"}"
         data-action-payload='${e}'
         style="display:flex;flex-wrap:wrap;gap:0.5rem;align-items:flex-end"
       >
-        ${S.map((O, o) => LN(E, T, O, o)).join("")}
-        <button type="submit" class="${A.sortToggle}">${U(N)}</button>
+        ${S.map((O, P) => LN(E, T, O, P)).join("")}
+        <button type="submit" class="${A.sortToggle}">${l(N)}</button>
       </form>
     ` : `
     <button
       type="button"
       class="${A.sortToggle}"
       data-panel-action
-      data-panel-id="${U(E)}"
-      data-action-id="${U(T)}"
-      data-action-confirm="${U(h(R.confirm_text))}"
+      data-panel-id="${l(E)}"
+      data-action-id="${l(T)}"
+      data-action-confirm="${l(h(R.confirm_text))}"
       data-action-requires-confirm="${R.requires_confirm ? "true" : "false"}"
       data-action-payload='${e}'
-    >${U(N)}</button>
+    >${l(N)}</button>
   `;
 }
 function sN(E) {
-  return E ? U(JSON.stringify(E)).replace(/'/g, "&#39;") : "";
+  return E ? l(JSON.stringify(E)).replace(/'/g, "&#39;") : "";
 }
 function LN(E, T, R, A) {
   const e = Y(R.name);
   if (!e) return "";
-  const S = Y(R.kind) || "text", N = h(R.label) || e, O = `debug-action-${E}-${T}-${e}-${A}`, o = h(R.payload_path) || e, l = R.required ? " required" : "", t = h(R.placeholder), s = t ? ` placeholder="${U(t)}"` : "", _ = h(R.description), M = `id="${U(O)}" data-action-field="${U(e)}" data-action-field-kind="${U(S)}" data-action-field-path="${U(o)}"${l}`, B = Array.isArray(R.options) ? R.options.map((G) => h(G)).filter(Boolean) : [];
-  let P = "";
-  return S === "boolean" || S === "checkbox" ? P = `<input type="checkbox" ${M}>` : S === "select" || B.length > 0 ? P = `<select ${M}><option value=""></option>${B.map((G) => `<option value="${U(G)}">${U(G)}</option>`).join("")}</select>` : S === "number" || S === "integer" ? P = `<input type="number" ${M}${s}>` : S === "textarea" || S === "json" || S === "string_list" ? P = `<textarea ${M}${s} rows="2"></textarea>` : P = `<input type="text" ${M}${s}>`, `
-    <label for="${U(O)}" style="display:flex;flex-direction:column;gap:0.25rem;font-size:0.8125rem">
-      <span>${U(N)}</span>
-      ${P}
+  const S = Y(R.kind) || "text", N = h(R.label) || e, O = `debug-action-${E}-${T}-${e}-${A}`, P = h(R.payload_path) || e, M = R.required ? " required" : "", t = h(R.placeholder), a = t ? ` placeholder="${l(t)}"` : "", _ = h(R.description), o = `id="${l(O)}" data-action-field="${l(e)}" data-action-field-kind="${l(S)}" data-action-field-path="${l(P)}"${M}`, B = Array.isArray(R.options) ? R.options.map((G) => h(G)).filter(Boolean) : [];
+  let U = "";
+  return S === "boolean" || S === "checkbox" ? U = `<input type="checkbox" ${o}>` : S === "select" || B.length > 0 ? U = `<select ${o}><option value=""></option>${B.map((G) => `<option value="${l(G)}">${l(G)}</option>`).join("")}</select>` : S === "number" || S === "integer" ? U = `<input type="number" ${o}${a}>` : S === "textarea" || S === "json" || S === "string_list" ? U = `<textarea ${o}${a} rows="2"></textarea>` : U = `<input type="text" ${o}${a}>`, `
+    <label for="${l(O)}" style="display:flex;flex-direction:column;gap:0.25rem;font-size:0.8125rem">
+      <span>${l(N)}</span>
+      ${U}
       <small
-        data-action-field-error="${U(o)}"
-        data-action-field-name="${U(e)}"
-        data-action-id="${U(T)}"
+        data-action-field-error="${l(P)}"
+        data-action-field-name="${l(e)}"
+        data-action-id="${l(T)}"
         hidden
       ></small>
-      ${_ ? `<small>${U(_)}</small>` : ""}
+      ${_ ? `<small>${l(_)}</small>` : ""}
     </label>
   `;
 }
@@ -21374,14 +21374,14 @@ function CN(E) {
   const R = h(E.label) || T, A = Y(E.snapshot_key) || T, e = lR(E.ui), S = e === null && RN(E.ui) ? E.ui : void 0, N = S ? E : {
     ...E,
     ui: void 0
-  }, O = S ? uR.get(T) : void 0, o = O ? (s, _) => O({
+  }, O = S ? uR.get(T) : void 0, P = O ? (_, o) => O({
     def: N,
-    data: s,
-    styles: _,
+    data: _,
+    styles: o,
     useIconCopyButton: !0
-  }) : void 0, l = S?.views?.console || S?.views?.toolbar, t = S && l && Y(S.events?.mode) === "append" && bO(l.renderer) ? {
-    renderRow: (s, _) => KO(l.renderer, s, l, _),
-    keyOf: (s) => PE(s, l.options?.key_bind),
+  }) : void 0, M = S?.views?.console || S?.views?.toolbar, t = Y(M?.renderer) !== "table" || Array.isArray(M?.options?.columns) && M.options.columns.length > 0, a = S && M && Y(S.events?.mode) === "append" && bO(M.renderer) && t ? {
+    renderRow: (_, o) => KO(M.renderer, _, M, o),
+    keyOf: (_) => PE(_, M.options?.key_bind),
     getMaxEntries: () => typeof S.events?.max_entries == "number" ? S.events.max_entries : 500
   } : void 0;
   return {
@@ -21393,16 +21393,16 @@ function CN(E) {
     supportsToolbar: E.supports_toolbar !== !1,
     category: h(E.category) || "custom",
     order: typeof E.order == "number" ? E.order : 100,
-    getCount: S?.count ? (s) => eN(s, S) : void 0,
-    handleEvent: S?.events ? (s, _) => SN(s, _, S) : void 0,
-    renderFilters: S?.filters?.length ? (s) => ON(S, s) : void 0,
+    getCount: S?.count ? (_) => eN(_, S) : void 0,
+    handleEvent: S?.events ? (_, o) => SN(_, o, S) : void 0,
+    renderFilters: S?.filters?.length ? (_) => ON(S, _) : void 0,
     defaultFilters: S?.filters?.length ? IN(S) : void 0,
-    applyFilters: S?.filters?.length ? (s, _) => NN(s, _, S) : void 0,
-    render: o || ((s, _) => ZE(N, S?.views?.console || S?.views?.toolbar, s, _, !0, e)),
-    renderConsole: o || ((s, _) => ZE(N, S?.views?.console || S?.views?.toolbar, s, _, !0, e)),
-    renderToolbar: (s, _) => ZE(N, S?.views?.toolbar || S?.views?.console, s, _, !1, e),
+    applyFilters: S?.filters?.length ? (_, o) => NN(_, o, S) : void 0,
+    render: P || ((_, o) => ZE(N, S?.views?.console || S?.views?.toolbar, _, o, !0, e)),
+    renderConsole: P || ((_, o) => ZE(N, S?.views?.console || S?.views?.toolbar, _, o, !0, e)),
+    renderToolbar: (_, o) => ZE(N, S?.views?.toolbar || S?.views?.console, _, o, !1, e),
     showFilters: O ? !1 : !!S?.filters?.length,
-    liveList: t
+    liveList: a
   };
 }
 async function aN(E, T = EN) {
@@ -21489,4 +21489,4 @@ export {
   uN as z
 };
 
-//# sourceMappingURL=server-definitions-1ir4A6Sj.js.map
+//# sourceMappingURL=server-definitions-MBOv2E9I.js.map

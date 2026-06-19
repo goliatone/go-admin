@@ -1,10 +1,10 @@
 import { escapeHTML as u } from "../shared/html.js";
 import { httpRequest as A, readHTTPError as I } from "../shared/transport/http-client.js";
 import { normalizeDebugBasePath as $ } from "./shared/path-helpers.js";
-import { A as H, C as c, D as O, E as D, F as j, M as F, O as V, _ as N, b as B, c as G, d as _, f as K, g as Q, h as Y, k as U, l as J, m as W, p as X, t as Z, u as tt, v as et, y as at, z as C } from "../chunks/builtin-panels-AKiHz8-M.js";
+import { A as H, C as c, D, E as O, F as j, M as F, O as V, _ as N, b as B, c as G, d as _, f as K, g as Q, h as Y, k as U, l as J, m as W, p as X, t as Z, u as tt, v as et, y as at, z as C } from "../chunks/builtin-panels-CW3T26uV.js";
 import { t as st } from "../chunks/repl-panel-DOA-vKgf.js";
 import { i as ot } from "../chunks/icons-SGrt9O6P.js";
-import { M as b, P as v, S, T as rt, W as nt, _ as it, a as Et, b as lt, c as E, d as y, f as dt, g as ct, h as Pt, l as qt, m as ht, n as P, o as q, p as pt, s as g, u as f, w as h, x as ut } from "../chunks/server-definitions-1ir4A6Sj.js";
+import { M as b, P as v, S, T as rt, W as nt, _ as it, a as Et, b as lt, c as E, d as y, f as dt, g as ct, h as Pt, l as qt, m as ht, n as P, o as q, p as pt, s as g, u as f, w as h, x as ut } from "../chunks/server-definitions-MBOv2E9I.js";
 var bt = `
   :host {
     --toolbar-bg: #1e1e2e;
@@ -1246,7 +1246,7 @@ var m, k = "debug-toolbar-active-panel", L = class p extends HTMLElement {
         const e = this.snapshot[S(t)];
         return Array.isArray(e) ? e : [];
       },
-      getRenderOptions: (t) => ({ newestFirst: this.panelSortOrder.get(t.id) ?? !0 }),
+      getRenderOptions: () => ({ newestFirst: !1 }),
       onNeedFullRender: () => this.updateContent()
     });
   }
@@ -1680,10 +1680,10 @@ var m, k = "debug-toolbar-active-panel", L = class p extends HTMLElement {
     r && (r.style.height = `${o}px`);
   }
   attachExpandableRowListeners() {
-    O(this.shadow);
+    D(this.shadow);
   }
   attachCopyListeners() {
-    D(this.shadow, { useIconFeedback: !1 });
+    O(this.shadow, { useIconFeedback: !1 });
   }
   attachSortToggleListeners() {
     H(this.shadow, (t, e) => {

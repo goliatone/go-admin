@@ -1,10 +1,10 @@
 import { escapeHTML as u } from "../shared/html.js";
 import { httpRequest as q, readHTTPErrorResult as He } from "../shared/transport/http-client.js";
 import { t as Je } from "../chunks/sortable.esm-CcMbOE-M.js";
-import { B as Js, C as Ks, D as Ke, E as ze, F as Ve, I as zs, L as Vs, M as Qe, N as Qs, O as Xe, P as Xs, R as Ys, S as Ws, T as Gs, _ as Ye, a as Zs, b as We, c as Ge, d as Ze, f as et, g as tt, h as st, i as er, j as tr, k as rt, l as nt, m as at, n as sr, o as rr, p as it, r as nr, s as ar, t as ot, u as lt, v as ct, w as ir, x as S, y as dt, z as Ee } from "../chunks/builtin-panels-AKiHz8-M.js";
+import { B as Js, C as Ks, D as Ke, E as ze, F as Ve, I as zs, L as Vs, M as Qe, N as Qs, O as Xe, P as Xs, R as Ys, S as Ws, T as Gs, _ as Ye, a as Zs, b as We, c as Ge, d as Ze, f as et, g as tt, h as st, i as er, j as tr, k as rt, l as nt, m as at, n as sr, o as rr, p as it, r as nr, s as ar, t as ot, u as lt, v as ct, w as ir, x as S, y as dt, z as Ee } from "../chunks/builtin-panels-CW3T26uV.js";
 import { t as ut } from "../chunks/repl-panel-DOA-vKgf.js";
 import { i as ht, n as cr, r as dr, t as ur } from "../chunks/icons-SGrt9O6P.js";
-import { A as pr, B, C as fr, D as mr, E as gr, F as yr, G as V, I as br, J as Er, K as pt, L as vr, M as ft, N as Sr, O as wr, P as te, S as U, T as Ar, U as Pr, V as H, W as ve, X as _r, Y as mt, _ as gt, a as xr, b as yt, c as Cr, d as bt, f as Et, g as vt, h as St, i as wt, j as Or, k as $r, l as At, m as Lr, n as Pt, o as kr, p as Se, q as Tr, r as Dr, s as se, u as Rr, v as Ir, w as L, x as qr, y as _t } from "../chunks/server-definitions-1ir4A6Sj.js";
+import { A as pr, B, C as fr, D as mr, E as gr, F as yr, G as V, I as br, J as Er, K as pt, L as vr, M as ft, N as Sr, O as wr, P as te, S as U, T as Ar, U as Pr, V as H, W as ve, X as _r, Y as mt, _ as gt, a as xr, b as yt, c as Cr, d as bt, f as Et, g as vt, h as St, i as wt, j as Or, k as $r, l as At, m as Lr, n as Pt, o as kr, p as Se, q as Tr, r as Dr, s as se, u as Rr, v as Ir, w as L, x as qr, y as _t } from "../chunks/server-definitions-MBOv2E9I.js";
 var xt = class {
   add(e, t, s) {
     if (typeof arguments[0] != "string") for (let r in arguments[0]) this.add(r, arguments[0][r], arguments[1]);
@@ -2085,7 +2085,7 @@ var De = "debug-console-active-panel", Re = "debug-console-panel-order", Is = /^
         const r = this.getStateForKey(U(s));
         return Array.isArray(r) ? r : [];
       },
-      getRenderOptions: () => ({ newestFirst: this.filters.logs.newestFirst }),
+      getRenderOptions: () => ({ newestFirst: !1 }),
       shouldDisplay: (s, r) => {
         if (!s.applyFilters) return !0;
         const n = this.getPanelFilterState(s.id, s), a = s.applyFilters([r], n);
