@@ -1,10 +1,24 @@
 # Changelog
 
+# [0.103.3](https://github.com/goliatone/go-admin/compare/v0.103.2...v0.103.3) - (2026-06-19)
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Canonical content type record in read service ([5b8b394](https://github.com/goliatone/go-admin/commit/5b8b39470d977d1c9a887e47f69a816a647fdb6d))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update tests ([4f24907](https://github.com/goliatone/go-admin/commit/4f24907503709a699b45edfe5c61fdb52c540823))  - (goliatone)
+
 # [0.103.2](https://github.com/goliatone/go-admin/compare/v0.103.1...v0.103.2) - (2026-06-19)
 
 ## <!-- 1 -->🐛 Bug Fixes
 
 - Content type matching ([2af6192](https://github.com/goliatone/go-admin/commit/2af6192a7f857d79a654c5d425eb5f884d6d2a81))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.103.2 ([1446a99](https://github.com/goliatone/go-admin/commit/1446a993b1f4b64d0dd81bcfe901f8f22030248a))  - (goliatone)
 
 ## <!-- 16 -->➕ Add
 
