@@ -186,6 +186,7 @@ func (s goCMSAdminContentReadService) ListForContentType(ctx context.Context, co
 			summarizeBlocksForList: true,
 		})
 		record = applyContentEntryNavigationReadContract(record, navigationPolicy)
+		record = canonicalizeContentTypeRecordForPanel(record, contentType)
 		records = append(records, record)
 	}
 	logCMSContentListTiming(ctx, "record_build", recordBuildStarted,
@@ -269,6 +270,7 @@ func (s goCMSAdminContentReadService) GetForContentType(ctx context.Context, con
 		record = primitives.CloneAnyMap(record)
 		record["family_id"] = familyID
 	}
+	record = canonicalizeContentTypeRecordForPanel(record, contentType)
 	return applyContentEntryNavigationReadContract(record, contentEntryNavigationPolicyFromContentType(contentType)), nil
 }
 
