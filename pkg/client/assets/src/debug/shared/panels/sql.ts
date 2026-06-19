@@ -11,18 +11,7 @@ import {
 } from '../utils.js';
 import { escapeAttribute } from '../../../shared/html.js';
 import { highlightSQL } from '../../syntax-highlight.js';
-
-/**
- * Small, stable string hash (djb2) for building a deterministic fallback row
- * key when a SQL entry has no server-assigned id.
- */
-function hashString(value: string): string {
-  let hash = 5381;
-  for (let i = 0; i < value.length; i++) {
-    hash = ((hash << 5) + hash + value.charCodeAt(i)) | 0;
-  }
-  return (hash >>> 0).toString(36);
-}
+import { appendListRow, evictListOverflow, hashString } from './live-list-view.js';
 
 /**
  * Stable identity for a SQL row. Prefers the server-assigned `id` (a UUID) and
@@ -253,17 +242,14 @@ export function appendSqlRowDOM(
   styles: StyleConfig,
   options: SQLPanelOptions
 ): string {
-  const html = renderSQLRow(entry, styles, options);
-  const newestFirst = options.newestFirst !== false;
-  tbody.insertAdjacentHTML(newestFirst ? 'afterbegin' : 'beforeend', html);
+  appendListRow(tbody, renderSQLRow(entry, styles, options), options.newestFirst !== false);
   return sqlRowKey(entry);
 }
 
 /**
- * Evict overflow rows so the visible table stays within `maxEntries`. The
- * oldest rows are removed from the edge opposite to where new rows are
- * inserted: bottom when newest-first, top otherwise. Each logical row is a
- * summary `<tr>` plus its expansion sibling.
+ * Evict overflow SQL rows so the visible table stays within `maxEntries`. A
+ * logical SQL row is a summary `<tr data-sql-id>` plus its expansion sibling;
+ * the generic helper removes both as a unit. Delegates to {@link evictListOverflow}.
  *
  * @returns the stable row keys that were evicted
  */
@@ -272,26 +258,5 @@ export function evictSqlOverflow(
   maxEntries: number,
   newestFirst: boolean
 ): string[] {
-  if (!maxEntries || maxEntries <= 0) return [];
-  const summaries = Array.from(
-    tbody.querySelectorAll<HTMLElement>('tr[data-sql-id]')
-  );
-  const overflow = summaries.length - maxEntries;
-  if (overflow <= 0) return [];
-
-  // Oldest-first ordering: bottom rows are oldest when newest-first.
-  const ordered = newestFirst ? summaries.reverse() : summaries;
-  const evicted: string[] = [];
-  for (let i = 0; i < overflow; i++) {
-    const summary = ordered[i];
-    if (!summary) break;
-    const key = summary.getAttribute('data-sql-id');
-    if (key) evicted.push(key);
-    const expansion = summary.nextElementSibling;
-    summary.remove();
-    if (expansion && expansion.matches('[data-expansion-for]')) {
-      expansion.remove();
-    }
-  }
-  return evicted;
+  return evictListOverflow(tbody, 'tr[data-sql-id]', 'data-sql-id', maxEntries, newestFirst);
 }

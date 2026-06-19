@@ -12,7 +12,14 @@ export {
   type SQLPanelOptions,
 } from './sql.js';
 export { SqlLiveView, type SqlLiveViewOptions } from './sql-live-view.js';
-export { renderLogsPanel, type LogsPanelOptions } from './logs.js';
+export {
+  LiveListView,
+  appendListRow,
+  evictListOverflow,
+  hashString,
+  type LiveListViewOptions,
+} from './live-list-view.js';
+export { renderLogsPanel, renderLogRow, logRowKey, type LogsPanelOptions } from './logs.js';
 export { renderRoutesPanel, type RoutesPanelOptions } from './routes.js';
 export { renderJSONPanel, renderJSONViewer, type JSONPanelOptions } from './json.js';
 export {

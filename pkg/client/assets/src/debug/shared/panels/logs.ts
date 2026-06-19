@@ -4,6 +4,18 @@
 import type { LogEntry, PanelOptions } from '../types.js';
 import type { StyleConfig } from '../styles.js';
 import { escapeHTML, formatTimestamp, getLevelClass, truncate } from '../utils.js';
+import { escapeAttribute } from '../../../shared/html.js';
+import { hashString } from './live-list-view.js';
+
+/**
+ * Stable identity for a log row. Log entries have no server id, so this is a
+ * deterministic hash of the entry's content. Logs carry no per-row interaction
+ * state — the key only lets `LiveListView` identify and evict primary rows — so
+ * collisions between identical lines are harmless (eviction is positional).
+ */
+export function logRowKey(entry: LogEntry): string {
+  return `log-${hashString(`${entry.timestamp || ''}|${entry.level || ''}|${entry.source || ''}|${entry.message || ''}`)}`;
+}
 
 /**
  * Options for rendering the logs panel
@@ -36,9 +48,10 @@ function renderSortToggle(panelId: string, newestFirst: boolean, styles: StyleCo
 }
 
 /**
- * Render a single log row
+ * Render a single log row. Carries a stable `data-row-key` so `LiveListView`
+ * can append/evict it incrementally instead of rebuilding the whole table.
  */
-function renderLogRow(
+export function renderLogRow(
   entry: LogEntry,
   styles: StyleConfig,
   options: LogsPanelOptions
@@ -62,7 +75,7 @@ function renderLogRow(
     : '';
 
   return `
-    <tr class="${rowClass}">
+    <tr class="${rowClass}" data-row-key="${escapeAttribute(logRowKey(entry))}">
       <td><span class="${levelClass}">${escapeHTML(level)}</span></td>
       <td class="${styles.timestamp}">${escapeHTML(formatTimestamp(entry.timestamp))}</td>
       <td class="${styles.message}" title="${escapeHTML(message)}">${escapeHTML(displayMessage)}</td>
@@ -131,7 +144,7 @@ export function renderLogsPanel(
           ${sourceHeader}
         </tr>
       </thead>
-      <tbody>${rows}</tbody>
+      <tbody data-live-list>${rows}</tbody>
     </table>
   `;
 }

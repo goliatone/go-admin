@@ -1,35 +1,22 @@
 // Live, incremental view controller for the debug SQL panel.
 //
-// Owns SQL row selection and expansion state keyed by stable id (see
-// `sqlRowKey`), so both survive incremental updates AND full re-renders. Used by
-// the full console (light DOM) and the toolbar (shadow DOM): each host renders
-// the table HTML as before, then calls `adopt()` to wire delegated listeners and
-// restore state; live `sql` events go through `enqueue()`, which coalesces a
-// burst into a single animation-frame DOM pass and appends/evicts only the
-// changed rows instead of rebuilding the table.
+// Composes the generic `LiveListView` engine (coalesced append/evict, pause,
+// fallback) and adds the SQL-specific interactions: row selection + expansion
+// keyed by stable id (see `sqlRowKey`), so both survive incremental updates AND
+// full re-renders. Used by the full console (light DOM) and the toolbar (shadow
+// DOM): each host renders the table HTML as before, then calls `adopt()`; live
+// `sql` events go through `enqueue()`.
 
 import type { SQLEntry } from '../types.js';
 import type { StyleConfig } from '../styles.js';
-import {
-  appendSqlRowDOM,
-  evictSqlOverflow,
-  sqlRowKey,
-  type SQLPanelOptions,
-} from './sql.js';
+import { renderSQLRow, sqlRowKey, type SQLPanelOptions } from './sql.js';
+import { LiveListView } from './live-list-view.js';
 import {
   buildSQLExportText,
   copyToClipboard,
   downloadAsFile,
   type CopyFeedbackOptions,
 } from '../interactions.js';
-
-const defaultScheduleFrame = (cb: () => void): void => {
-  if (typeof requestAnimationFrame === 'function') {
-    requestAnimationFrame(() => cb());
-  } else {
-    setTimeout(cb, 16);
-  }
-};
 
 export interface SqlLiveViewOptions {
   /** Style configuration (console vs toolbar class names). */
@@ -54,138 +41,83 @@ export interface SqlLiveViewOptions {
 
 export class SqlLiveView {
   private readonly opts: SqlLiveViewOptions;
-  private readonly scheduleFrame: (cb: () => void) => void;
+  private readonly list: LiveListView<SQLEntry>;
 
   // Interaction state, keyed by stable row id, persists across re-renders.
   private readonly selected = new Set<string>();
   private readonly expanded = new Set<string>();
 
   // Mounted DOM references (null when the panel shows the empty state).
-  private root: ParentNode | null = null;
   private table: HTMLElement | null = null;
-  private tbody: HTMLElement | null = null;
   private toolbarEl: HTMLElement | null = null;
   private countEl: Element | null = null;
   private selectAllEl: HTMLInputElement | null = null;
-
-  // Coalescing + backpressure.
-  private pending: SQLEntry[] = [];
-  private frameScheduled = false;
-  private paused = false;
   private readonly wired = new WeakSet<Element>();
 
   constructor(opts: SqlLiveViewOptions) {
     this.opts = opts;
-    this.scheduleFrame = opts.scheduleFrame || defaultScheduleFrame;
+    this.list = new LiveListView<SQLEntry>({
+      styles: opts.styles,
+      containerSelector: '[data-sql-table] tbody',
+      rowSelector: 'tr[data-sql-id]',
+      keyAttr: 'data-sql-id',
+      keyOf: sqlRowKey,
+      renderRow: (entry) => renderSQLRow(entry, opts.styles, opts.getRenderOptions()),
+      getItems: opts.getQueries,
+      getRenderOptions: opts.getRenderOptions,
+      getMaxEntries: opts.getMaxEntries,
+      shouldDisplay: opts.shouldDisplay,
+      onNeedFullRender: opts.onNeedFullRender,
+      onPendingChange: opts.onPendingChange,
+      scheduleFrame: opts.scheduleFrame,
+      onAdopt: (root) => this.wire(root),
+      onRestore: () => this.restoreState(),
+    });
   }
 
-  /**
-   * Adopt the table after a full render: locate DOM, wire delegated listeners
-   * (once per table element), and restore selection/expansion from state.
-   * Safe to call when the panel shows the empty state (no table) — state is
-   * retained for the next mount.
-   */
+  /** Adopt the table after a full render (wire listeners + restore state). */
   adopt(root: ParentNode): void {
-    this.root = root;
+    this.list.adopt(root);
+  }
+
+  /** Queue live entries for incremental rendering. */
+  enqueue(entries: SQLEntry[]): void {
+    this.list.enqueue(entries);
+  }
+
+  /** Pause/resume rendering; while paused entries buffer and report a pending count. */
+  setPaused(paused: boolean): void {
+    this.list.setPaused(paused);
+  }
+
+  /** Drop buffered entries without rendering (used when a host reconciles via a snapshot on resume). */
+  discardPending(): void {
+    this.list.discardPending();
+  }
+
+  /** Number of entries buffered while paused. */
+  get pendingCount(): number {
+    return this.list.pendingCount;
+  }
+
+  private wire(root: ParentNode): void {
     this.table = root.querySelector<HTMLElement>('[data-sql-table]');
-    this.tbody = this.table?.querySelector('tbody') ?? null;
     this.toolbarEl = root.querySelector<HTMLElement>('[data-sql-toolbar]');
     this.countEl = root.querySelector('[data-sql-selected-count]');
     this.selectAllEl = this.table?.querySelector<HTMLInputElement>('.sql-select-all') ?? null;
 
-    if (!this.table || !this.tbody) return;
-
-    this.wireTable(this.table);
-    if (this.toolbarEl) this.wireToolbar(this.toolbarEl);
-    this.restoreState();
-  }
-
-  /** Queue live entries for incremental rendering, coalesced per frame. */
-  enqueue(entries: SQLEntry[]): void {
-    if (!entries || entries.length === 0) return;
-    for (const entry of entries) this.pending.push(entry);
-    if (this.paused) {
-      this.emitPending();
-      return;
+    if (this.table && !this.wired.has(this.table)) {
+      this.wired.add(this.table);
+      this.table.addEventListener('change', this.onTableChange);
+      this.table.addEventListener('click', this.onTableClick);
     }
-    this.scheduleFlush();
-  }
-
-  /** Pause/resume rendering. While paused, entries buffer and report a pending count. */
-  setPaused(paused: boolean): void {
-    this.paused = paused;
-    if (!paused && this.pending.length > 0) this.scheduleFlush();
-  }
-
-  /** Number of buffered entries not yet rendered (while paused). */
-  get pendingCount(): number {
-    return this.pending.length;
-  }
-
-  /** Drop buffered entries without rendering them (used when a host reconciles via a full snapshot on resume). */
-  discardPending(): void {
-    if (this.pending.length === 0) return;
-    this.pending = [];
-    this.emitPending();
-  }
-
-  private scheduleFlush(): void {
-    if (this.frameScheduled) return;
-    this.frameScheduled = true;
-    this.scheduleFrame(() => {
-      this.frameScheduled = false;
-      this.flush();
-    });
-  }
-
-  private flush(): void {
-    if (this.paused) return;
-    let batch = this.pending;
-    this.pending = [];
-    this.emitPending();
-    if (batch.length === 0) return;
-
-    if (!this.table || !this.tbody) {
-      this.opts.onNeedFullRender?.();
-      return;
+    if (this.toolbarEl && !this.wired.has(this.toolbarEl)) {
+      this.wired.add(this.toolbarEl);
+      this.wireToolbar(this.toolbarEl);
     }
-
-    const renderOptions = this.opts.getRenderOptions();
-    const newestFirst = renderOptions.newestFirst !== false;
-    const max = this.opts.getMaxEntries();
-
-    // Long pauses can buffer more than the cap; only the newest `max` survive
-    // eviction, so don't bother inserting rows that would be evicted anyway.
-    if (max && batch.length > max) batch = batch.slice(-max);
-
-    let appended = 0;
-    for (const entry of batch) {
-      if (this.opts.shouldDisplay && !this.opts.shouldDisplay(entry)) continue;
-      appendSqlRowDOM(this.tbody, entry, this.opts.styles, renderOptions);
-      appended += 1;
-    }
-
-    if (appended > 0) {
-      evictSqlOverflow(this.tbody, max, newestFirst);
-      this.updateToolbar();
-    }
-  }
-
-  private emitPending(): void {
-    this.opts.onPendingChange?.(this.pending.length);
-  }
-
-  private wireTable(table: HTMLElement): void {
-    if (this.wired.has(table)) return;
-    this.wired.add(table);
-    table.addEventListener('change', this.onTableChange);
-    table.addEventListener('click', this.onTableClick);
   }
 
   private wireToolbar(toolbar: HTMLElement): void {
-    if (this.wired.has(toolbar)) return;
-    this.wired.add(toolbar);
-
     toolbar.querySelector('[data-sql-export="clipboard"]')?.addEventListener('click', async (e) => {
       e.preventDefault();
       if (this.selected.size === 0) return;

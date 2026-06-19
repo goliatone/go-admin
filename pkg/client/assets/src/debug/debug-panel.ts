@@ -1010,10 +1010,8 @@ export class DebugPanel {
     }
 
     this.panelEl.innerHTML = content;
-    if (panel === 'logs' && this.filters.logs.autoScroll) {
-      // When newestFirst is true, newest entries are at the top, so scroll to top
-      // When newestFirst is false, newest entries are at the bottom, so scroll to bottom
-      this.panelEl.scrollTop = this.filters.logs.newestFirst ? 0 : this.panelEl.scrollHeight;
+    if (panel === 'logs') {
+      this.applyLogsAutoScroll();
     }
     this.attachExpandableRowListeners();
     this.attachCopyButtonListeners();
@@ -1022,6 +1020,9 @@ export class DebugPanel {
     }
     if (panel === 'sql') {
       this.mountSQLView();
+    }
+    if (panel === 'logs') {
+      this.logsView.adopt(this.panelEl);
     }
     if (panel === 'sessions') {
       this.attachSessionActions();
