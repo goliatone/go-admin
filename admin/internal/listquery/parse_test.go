@@ -105,3 +105,39 @@ func TestParseContextTreatsDollarScopeKeysAsReserved(t *testing.T) {
 		t.Fatalf("expected site_content_channel to be reserved list scope, got filters=%+v", result.Filters)
 	}
 }
+
+func TestParseContextReservesSnakeCaseDataGridStateKeys(t *testing.T) {
+	ctx := router.NewMockContext()
+	ctx.QueriesM["per_page"] = "50"
+	ctx.QueriesM["view_mode"] = "grouped"
+	ctx.QueriesM["advanced_search"] = `[{"field":"title"}]`
+	ctx.QueriesM["hidden_columns"] = `["summary"]`
+	ctx.QueriesM["expanded_groups"] = "abc123"
+	ctx.QueriesM["state"] = "share-token"
+	ctx.QueriesM["status"] = "draft"
+
+	result := ParseContext(ctx, 1, 10)
+
+	if result.PerPage != 50 {
+		t.Fatalf("expected per_page to set per page 50, got %d", result.PerPage)
+	}
+	if got := toString(result.Filters["status"]); got != "draft" {
+		t.Fatalf("expected status filter to remain, got %q", got)
+	}
+	for _, key := range []string{"per_page", "view_mode", "advanced_search", "hidden_columns", "expanded_groups", "state"} {
+		if _, ok := result.Filters[key]; ok {
+			t.Fatalf("expected %s to be reserved DataGrid state, got filters=%+v", key, result.Filters)
+		}
+	}
+}
+
+func TestParseContextDoesNotTreatCamelCasePerPageAsPagination(t *testing.T) {
+	ctx := router.NewMockContext()
+	ctx.QueriesM["perPage"] = "50"
+
+	result := ParseContext(ctx, 1, 10)
+
+	if result.PerPage != 10 {
+		t.Fatalf("expected camel-case perPage not to set pagination, got per_page=%d", result.PerPage)
+	}
+}

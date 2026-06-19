@@ -118,6 +118,33 @@ func TestApplyListOptionsToRecordMapsIgnoresDollarChannelScopeFilters(t *testing
 	}
 }
 
+func TestApplyListOptionsToRecordMapsIgnoresSnakeCaseDataGridStateFilters(t *testing.T) {
+	records := []map[string]any{
+		{"id": "1", "title": "Alpha", "status": "draft"},
+	}
+
+	paged, total := applyListOptionsToRecordMaps(records, ListOptions{
+		Filters: map[string]any{
+			"status":          "draft",
+			"state":           "share-token",
+			"advanced_search": `[{"field":"title"}]`,
+			"hidden_columns":  `["summary"]`,
+			"view_mode":       "grouped",
+			"expanded_groups": "abc123",
+		},
+	}, listRecordOptions{})
+
+	if total != 1 {
+		t.Fatalf("expected DataGrid state filters to be ignored, got total=%d", total)
+	}
+	if len(paged) != 1 {
+		t.Fatalf("expected one record, got %d", len(paged))
+	}
+	if got := toString(paged[0]["id"]); got != "1" {
+		t.Fatalf("expected id 1 after filtering, got %q", got)
+	}
+}
+
 func TestApplyListOptionsToRecordMapsSupportsPlainChannelFieldFilters(t *testing.T) {
 	records := []map[string]any{
 		{"id": "1", "title": "Alpha", "channel": "default"},
