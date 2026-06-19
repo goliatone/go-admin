@@ -984,7 +984,7 @@ func (p *panelBinding) recordBlockedTransition(ctx AdminContext, entityID, trans
 
 func (p *panelBinding) Bulk(c router.Context, locale, action string, body map[string]any) (map[string]any, error) {
 	ctx := p.admin.adminContextFromRequest(c, locale)
-	body = mergePanelActionContext(body, locale, c.Query("locale"), c.Query("channel"), "", c.Query("policy_entity"), c.Query("policyEntity"))
+	body = mergePanelActionContext(body, locale, c.Query("locale"), c.Query("channel"), "", c.Query("policy_entity"))
 	body = mergePanelActionActorContext(body, ctx)
 	ids := parseCommandIDs(body, c.Query("id"), c.Query("ids"))
 	if isBulkCreateMissingTranslationsAction(action) {
