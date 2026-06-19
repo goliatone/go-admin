@@ -79,6 +79,24 @@ func TestParseContextBuildsPredicates(t *testing.T) {
 	}
 }
 
+func TestParseContextUsesSnakeCaseSortBy(t *testing.T) {
+	ctx := router.NewMockContext()
+	ctx.QueriesM["sort_by"] = "updated_at"
+	ctx.QueriesM["sort_desc"] = "true"
+
+	result := ParseContext(ctx, 1, 10)
+
+	if result.SortBy != "updated_at" {
+		t.Fatalf("expected sort_by fallback, got %q", result.SortBy)
+	}
+	if !result.SortDesc {
+		t.Fatalf("expected sort_desc=true")
+	}
+	if _, ok := result.Filters["sort_by"]; ok {
+		t.Fatalf("expected sort_by to be reserved, got filters=%+v", result.Filters)
+	}
+}
+
 func TestParseContextTreatsDollarScopeKeysAsReserved(t *testing.T) {
 	ctx := router.NewMockContext()
 	ctx.QueriesM["$channel"] = "staging"

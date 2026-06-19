@@ -126,6 +126,8 @@ func TestApplyListOptionsToRecordMapsIgnoresSnakeCaseDataGridStateFilters(t *tes
 	paged, total := applyListOptionsToRecordMaps(records, ListOptions{
 		Filters: map[string]any{
 			"status":          "draft",
+			"q":               "does-not-filter",
+			"sort_by":         "title",
 			"state":           "share-token",
 			"advanced_search": `[{"field":"title"}]`,
 			"hidden_columns":  `["summary"]`,
