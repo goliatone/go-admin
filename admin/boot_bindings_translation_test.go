@@ -2114,7 +2114,7 @@ func (s *optimizedGroupedTranslationRepoStub) ListTranslationFamilies(_ context.
 func TestPanelBindingListGroupedByTranslationGroupUsesOptimizedFamilyTotals(t *testing.T) {
 	allRows := make([]map[string]any, 0, 30)
 	cappedRows := make([]map[string]any, 0, 25)
-	for i := 0; i < 30; i++ {
+	for i := range 30 {
 		row := map[string]any{
 			"id":                fmt.Sprintf("archive_event_%02d_en", i),
 			"title":             fmt.Sprintf("Archive Event %02d", i),
