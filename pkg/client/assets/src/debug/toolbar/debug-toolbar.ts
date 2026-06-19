@@ -178,7 +178,9 @@ export class DebugToolbar extends HTMLElement {
         const data = (this.snapshot as Record<string, unknown>)[getSnapshotKey(def)];
         return Array.isArray(data) ? data : [];
       },
-      getRenderOptions: (def) => ({ newestFirst: this.panelSortOrder.get(def.id) ?? true }),
+      // Schema list renderers paint chronologically (newest at the bottom) with
+      // no sort toggle, so live appends land at the bottom to match.
+      getRenderOptions: () => ({ newestFirst: false }),
       onNeedFullRender: () => this.updateContent(),
     });
   }

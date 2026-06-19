@@ -386,7 +386,10 @@ export class DebugPanel {
         const data = this.getStateForKey(getSnapshotKey(def));
         return Array.isArray(data) ? data : [];
       },
-      getRenderOptions: () => ({ newestFirst: this.filters.logs.newestFirst }),
+      // Schema list renderers paint rows in chronological (array) order — newest
+      // at the bottom — and expose no sort toggle, so live appends must land at
+      // the bottom (and eviction trim the top) to match the full render.
+      getRenderOptions: () => ({ newestFirst: false }),
       shouldDisplay: (def, item) => {
         if (!def.applyFilters) return true;
         const state = this.getPanelFilterState(def.id, def);

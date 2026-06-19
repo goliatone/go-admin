@@ -103,6 +103,12 @@ export interface PanelDefinition {
    * LiveListView instead of rebuilding the whole panel on each event. The
    * panel's render output must contain a `[data-live-list]` container with
    * `[data-row-key]` rows (see schema list renderers / RegistryLiveListManager).
+   *
+   * NOTE: this is for APPEND-style panels only. On each event the host appends
+   * the newest array element (`data[data.length - 1]`) — i.e. it assumes
+   * `handleEvent` pushes the new item to the tail. Panels whose `handleEvent`
+   * mutates rows in place (upsert/merge) must NOT set `liveList`; they should
+   * stay on the full-render path until in-place row replacement is supported.
    */
   liveList?: PanelLiveListConfig;
 }

@@ -480,8 +480,14 @@ export function panelDefinitionFromServer(serverDef: ServerPanelDefinition): Pan
   // append/evict individual rows instead of rebuilding the whole table. Only
   // `append` is auto-wired; `upsert`/`merge`/`stack` stay on full render.
   const primaryView = ui?.views?.console || ui?.views?.toolbar;
+  // A `table` view without declared columns derives its columns from the first
+  // row at full-render time; a per-row incremental append cannot reproduce that
+  // (it would derive columns from each item), so only opt such tables in when
+  // columns are declared. status_list/timeline use fixed bindings and are safe.
+  const tableColumnsOk = normalizeID(primaryView?.renderer) !== 'table'
+    || (Array.isArray(primaryView?.options?.columns) && primaryView.options.columns.length > 0);
   const liveList = ui && primaryView && normalizeID(ui.events?.mode) === 'append'
-    && isSchemaListRenderer(primaryView.renderer)
+    && isSchemaListRenderer(primaryView.renderer) && tableColumnsOk
     ? {
         renderRow: (item: unknown, styles: StyleConfig) =>
           renderSchemaListRow(primaryView.renderer, item, primaryView, styles),
