@@ -1,6 +1,21 @@
 # Changelog
 
+# [0.103.1](https://github.com/goliatone/go-admin/compare/v0.103.0...v0.103.1) - (2026-06-19)
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- List translation families from read model ([39685e9](https://github.com/goliatone/go-admin/commit/39685e94967d4833c2f8687bbc41612c69bb2af9))  - (goliatone)
+- Grouped family translations ([296f446](https://github.com/goliatone/go-admin/commit/296f4469e1db3d27ad2e54e17525daf9953aa832))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update tests ([996f538](https://github.com/goliatone/go-admin/commit/996f5385ee4a8e304c2d922665e53847c04dd4a9))  - (goliatone)
+
 # [0.103.0](https://github.com/goliatone/go-admin/compare/v0.102.0...v0.103.0) - (2026-06-19)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.103.0 ([5aaae12](https://github.com/goliatone/go-admin/commit/5aaae12ae478982b89b789b9408d06fdd107bc79))  - (goliatone)
 
 ## <!-- 7 -->⚙️ Miscellaneous Tasks
 
