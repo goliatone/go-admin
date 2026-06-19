@@ -15,6 +15,8 @@ import (
 	"time"
 
 	"github.com/goliatone/go-admin/admin/internal/boot"
+	translationcore "github.com/goliatone/go-admin/translations/core"
+	translationservices "github.com/goliatone/go-admin/translations/services"
 	cmscontent "github.com/goliatone/go-cms/content"
 	"github.com/goliatone/go-command/flow"
 	goerrors "github.com/goliatone/go-errors"
@@ -2105,12 +2107,99 @@ type optimizedGroupedTranslationRepoStub struct {
 func (s *optimizedGroupedTranslationRepoStub) ListTranslationFamilies(_ context.Context, opts ListOptions) ([]map[string]any, int, error) {
 	s.familyCalls++
 	s.familyOptions = append(s.familyOptions, cloneListOptions(opts))
+	familyFilter := map[string]struct{}{}
+	for _, familyID := range normalizedLocaleList(opts.Filters["family_id"]) {
+		familyFilter[familyID] = struct{}{}
+	}
 	rows := make([]map[string]any, 0, len(s.groupedRows))
 	for _, row := range s.groupedRows {
+		if len(familyFilter) > 0 {
+			familyID := strings.ToLower(strings.TrimSpace(toString(row["family_id"])))
+			if _, ok := familyFilter[familyID]; !ok {
+				continue
+			}
+		}
 		rows = append(rows, primitives.CloneAnyMap(row))
 	}
 	paged, total := paginateInMemory(rows, opts, 10)
 	return paged, total, nil
+}
+
+type readinessFamilyQueryStoreStub struct {
+	families []translationservices.FamilyRecord
+	queries  []translationservices.ListFamiliesInput
+}
+
+func (s *readinessFamilyQueryStoreStub) Families(context.Context) ([]translationservices.FamilyRecord, error) {
+	return append([]translationservices.FamilyRecord{}, s.families...), nil
+}
+
+func (s *readinessFamilyQueryStoreStub) Family(_ context.Context, familyID string) (translationservices.FamilyRecord, bool, error) {
+	for _, family := range s.families {
+		if strings.EqualFold(strings.TrimSpace(family.ID), strings.TrimSpace(familyID)) {
+			return family, true, nil
+		}
+	}
+	return translationservices.FamilyRecord{}, false, nil
+}
+
+func (s *readinessFamilyQueryStoreStub) SaveFamily(_ context.Context, family translationservices.FamilyRecord) error {
+	s.families = append(s.families, family)
+	return nil
+}
+
+func (s *readinessFamilyQueryStoreStub) ListFamiliesQuery(_ context.Context, input translationservices.ListFamiliesInput) (translationservices.ListFamiliesResult, error) {
+	s.queries = append(s.queries, input)
+	filtered := make([]translationservices.FamilyRecord, 0, len(s.families))
+	for _, family := range s.families {
+		if input.ContentType != "" && !strings.EqualFold(strings.TrimSpace(family.ContentType), strings.TrimSpace(input.ContentType)) {
+			continue
+		}
+		if input.ReadinessState != "" && !strings.EqualFold(strings.TrimSpace(family.ReadinessState), strings.TrimSpace(input.ReadinessState)) {
+			continue
+		}
+		if input.BlockerCode != "" && !familyHasBlockerCode(family, input.BlockerCode) {
+			continue
+		}
+		filtered = append(filtered, family)
+	}
+	page := input.Page
+	if page <= 0 {
+		page = 1
+	}
+	perPage := input.PerPage
+	if perPage <= 0 {
+		perPage = 50
+	}
+	start := (page - 1) * perPage
+	if start > len(filtered) {
+		start = len(filtered)
+	}
+	end := start + perPage
+	if end > len(filtered) {
+		end = len(filtered)
+	}
+	return translationservices.ListFamiliesResult{
+		Items:   append([]translationservices.FamilyRecord{}, filtered[start:end]...),
+		Total:   len(filtered),
+		Page:    page,
+		PerPage: perPage,
+	}, nil
+}
+
+func familyHasBlockerCode(family translationservices.FamilyRecord, code string) bool {
+	code = strings.ToLower(strings.TrimSpace(code))
+	for _, current := range family.BlockerCodes {
+		if strings.EqualFold(strings.TrimSpace(current), code) {
+			return true
+		}
+	}
+	for _, blocker := range family.Blockers {
+		if strings.EqualFold(strings.TrimSpace(blocker.BlockerCode), code) {
+			return true
+		}
+	}
+	return false
 }
 
 func TestPanelBindingListGroupedByTranslationGroupUsesOptimizedFamilyTotals(t *testing.T) {
@@ -2350,6 +2439,191 @@ func TestPanelBindingListGroupedByTranslationGroupFiltersOptimizedFamilyReadines
 				t.Fatalf("expected readiness scan per_page=%d, got %#v", groupedReadinessFamilyScanPerPage, repo.familyOptions)
 			}
 		})
+	}
+}
+
+func TestPanelBindingListGroupedByTranslationGroupUsesFamilyReadModelForReadiness(t *testing.T) {
+	allRows := []map[string]any{
+		{
+			"id":                "missing_en",
+			"title":             "Missing EN",
+			"path":              "/missing",
+			"status":            "draft",
+			"locale":            "en",
+			"family_id":         "tg_missing",
+			"available_locales": []string{"en"},
+		},
+		{
+			"id":                "ready_a_en",
+			"title":             "Ready A EN",
+			"path":              "/ready-a",
+			"status":            "draft",
+			"locale":            "en",
+			"family_id":         "tg_ready_a",
+			"available_locales": []string{"en", "fr"},
+		},
+		{
+			"id":                "ready_a_fr",
+			"title":             "Ready A FR",
+			"path":              "/fr/ready-a",
+			"status":            "draft",
+			"locale":            "fr",
+			"family_id":         "tg_ready_a",
+			"available_locales": []string{"en", "fr"},
+		},
+		{
+			"id":                "ready_b_en",
+			"title":             "Ready B EN",
+			"path":              "/ready-b",
+			"status":            "draft",
+			"locale":            "en",
+			"family_id":         "tg_ready_b",
+			"available_locales": []string{"en", "fr"},
+		},
+		{
+			"id":                "ready_b_fr",
+			"title":             "Ready B FR",
+			"path":              "/fr/ready-b",
+			"status":            "draft",
+			"locale":            "fr",
+			"family_id":         "tg_ready_b",
+			"available_locales": []string{"en", "fr"},
+		},
+	}
+	repo := &optimizedGroupedTranslationRepoStub{
+		translationActionRepoStub: translationActionRepoStub{
+			list: []map[string]any{
+				{
+					"id":                "fallback_en",
+					"title":             "Fallback EN",
+					"status":            "draft",
+					"locale":            "en",
+					"family_id":         "tg_fallback",
+					"available_locales": []string{"en"},
+				},
+			},
+		},
+		groupedRows: buildTranslationGroupedRows(allRows, "en"),
+	}
+	store := &readinessFamilyQueryStoreStub{
+		families: []translationservices.FamilyRecord{
+			{
+				ID:             "tg_ready_a",
+				ContentType:    "archive_event",
+				SourceLocale:   "en",
+				ReadinessState: string(translationcore.FamilyReadinessReady),
+				Policy: translationservices.FamilyPolicy{
+					ContentType:     "archive_event",
+					SourceLocale:    "en",
+					RequiredLocales: []string{"en", "fr"},
+				},
+				Variants: []translationservices.FamilyVariant{
+					{FamilyID: "tg_ready_a", Locale: "en"},
+					{FamilyID: "tg_ready_a", Locale: "fr"},
+				},
+			},
+			{
+				ID:             "tg_ready_b",
+				ContentType:    "archive_event",
+				SourceLocale:   "en",
+				ReadinessState: string(translationcore.FamilyReadinessReady),
+				Policy: translationservices.FamilyPolicy{
+					ContentType:     "archive_event",
+					SourceLocale:    "en",
+					RequiredLocales: []string{"en", "fr"},
+				},
+				Variants: []translationservices.FamilyVariant{
+					{FamilyID: "tg_ready_b", Locale: "en"},
+					{FamilyID: "tg_ready_b", Locale: "fr"},
+				},
+			},
+			{
+				ID:                         "tg_missing",
+				ContentType:                "archive_event",
+				SourceLocale:               "en",
+				ReadinessState:             string(translationcore.FamilyReadinessBlocked),
+				MissingRequiredLocaleCount: 1,
+				BlockerCodes:               []string{string(translationcore.FamilyBlockerMissingLocale)},
+				Blockers: []translationservices.FamilyBlocker{
+					{FamilyID: "tg_missing", BlockerCode: string(translationcore.FamilyBlockerMissingLocale), Locale: "fr"},
+				},
+				Policy: translationservices.FamilyPolicy{
+					ContentType:     "archive_event",
+					SourceLocale:    "en",
+					RequiredLocales: []string{"en", "fr"},
+				},
+				Variants: []translationservices.FamilyVariant{
+					{FamilyID: "tg_missing", Locale: "en"},
+				},
+			},
+		},
+	}
+	panel := &Panel{
+		name: "archive_event",
+		repo: repo,
+		translationPolicy: readinessPolicyStub{
+			ok: true,
+			req: TranslationRequirements{
+				Locales: []string{"en", "fr"},
+			},
+		},
+	}
+	binding := &panelBinding{
+		admin: &Admin{
+			config:                 Config{DefaultLocale: "en"},
+			translationFamilyStore: store,
+		},
+		name:  "archive_event",
+		panel: panel,
+	}
+
+	rows, total, _, _, _, err := binding.List(newPanelBindingMockContext(), "en", boot.ListOptions{
+		Page:    2,
+		PerPage: 1,
+		Filters: map[string]any{
+			"group_by":        "family_id",
+			"channel":         "production",
+			"readiness_state": translationReadinessStateReady,
+		},
+		Predicates: []boot.ListPredicate{
+			{Field: "group_by", Operator: "eq", Values: []string{"family_id"}},
+			{Field: "channel", Operator: "eq", Values: []string{"production"}},
+			{Field: "readiness_state", Operator: "eq", Values: []string{translationReadinessStateReady}},
+		},
+	})
+	if err != nil {
+		t.Fatalf("grouped readiness list failed: %v", err)
+	}
+	if total != 2 {
+		t.Fatalf("expected read-model total=2, got %d", total)
+	}
+	if len(rows) != 1 || strings.TrimSpace(toString(rows[0]["family_id"])) != "tg_ready_b" {
+		t.Fatalf("expected hydrated page row for tg_ready_b, got %#v", rows)
+	}
+	if got := strings.TrimSpace(toString(rows[0]["readiness_state"])); got != translationReadinessStateReady {
+		t.Fatalf("expected readiness_state ready from read model, got %q", got)
+	}
+	if len(store.queries) != 1 {
+		t.Fatalf("expected one family read-model query, got %d", len(store.queries))
+	}
+	if got := store.queries[0].ContentType; got != "archive_event" {
+		t.Fatalf("expected content_type archive_event, got %q", got)
+	}
+	if got := store.queries[0].ReadinessState; got != string(translationcore.FamilyReadinessReady) {
+		t.Fatalf("expected read-model readiness ready, got %q", got)
+	}
+	if len(repo.listOptions) != 0 {
+		t.Fatalf("expected no flat repository fallback calls, got %d", len(repo.listOptions))
+	}
+	if len(repo.familyOptions) != 1 {
+		t.Fatalf("expected one selected-family hydration call, got %d", len(repo.familyOptions))
+	}
+	if repo.familyOptions[0].PerPage != 1 {
+		t.Fatalf("expected selected-family hydration per_page=1, got %#v", repo.familyOptions[0])
+	}
+	familyIDs := normalizedLocaleList(repo.familyOptions[0].Filters["family_id"])
+	if len(familyIDs) != 1 || familyIDs[0] != "tg_ready_b" {
+		t.Fatalf("expected hydration to request only tg_ready_b, got %#v", repo.familyOptions[0].Filters["family_id"])
 	}
 }
 
