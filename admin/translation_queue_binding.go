@@ -2086,24 +2086,7 @@ func (b *translationQueueBinding) SourceRecordsOptions(c router.Context) (any, e
 	}
 
 	if selected := strings.TrimSpace(c.Query("source_record_id")); selected != "" {
-		options := make([]map[string]any, 0, 1)
-		for id := range strings.SplitSeq(selected, ",") {
-			id = strings.TrimSpace(id)
-			if id == "" {
-				continue
-			}
-			record, err := panel.Get(adminCtx, id)
-			if err != nil || len(record) == 0 {
-				continue
-			}
-			option := translationQueueSourceRecordOption(record, panelName)
-			if option == nil {
-				continue
-			}
-			options = append(options, option)
-		}
-		sortTranslationQueueOptions(options)
-		return options, nil
+		return selectedSourceRecordOptions(adminCtx, panel, panelName, selected), nil
 	}
 
 	search := translationQueueOptionsSearch(c)
@@ -2129,6 +2112,27 @@ func (b *translationQueueBinding) SourceRecordsOptions(c router.Context) (any, e
 	options = translationQueueFilterOptionsBySearch(options, searchKey)
 	sortTranslationQueueOptions(options)
 	return options, nil
+}
+
+func selectedSourceRecordOptions(adminCtx AdminContext, panel *Panel, panelName, selected string) []map[string]any {
+	options := make([]map[string]any, 0, 1)
+	for id := range strings.SplitSeq(selected, ",") {
+		id = strings.TrimSpace(id)
+		if id == "" {
+			continue
+		}
+		record, err := panel.Get(adminCtx, id)
+		if err != nil || len(record) == 0 {
+			continue
+		}
+		option := translationQueueSourceRecordOption(record, panelName)
+		if option == nil {
+			continue
+		}
+		options = append(options, option)
+	}
+	sortTranslationQueueOptions(options)
+	return options
 }
 
 func (b *translationQueueBinding) LocalesOptions(c router.Context) (any, error) {
@@ -2248,8 +2252,8 @@ func (b *translationQueueBinding) collectAssignmentLocales(ctx context.Context, 
 		return
 	}
 	if store, ok := repo.(TranslationAssignmentOptionStore); ok && store != nil {
-		locales, err := store.DistinctAssignmentLocales(ctx, translationQueueSummaryFilters(entityType, sourceRecordID))
-		if err != nil {
+		locales, listErr := store.DistinctAssignmentLocales(ctx, translationQueueSummaryFilters(entityType, sourceRecordID))
+		if listErr != nil {
 			return
 		}
 		for _, locale := range locales {
@@ -2364,8 +2368,8 @@ func (b *translationQueueBinding) collectAssignmentTranslationGroups(ctx context
 		return
 	}
 	if store, ok := repo.(TranslationAssignmentOptionStore); ok && store != nil {
-		options, err := store.DistinctAssignmentTranslationGroups(ctx, translationQueueSummaryFilters(entityType, sourceRecordID))
-		if err != nil {
+		options, listErr := store.DistinctAssignmentTranslationGroups(ctx, translationQueueSummaryFilters(entityType, sourceRecordID))
+		if listErr != nil {
 			return
 		}
 		for _, option := range options {
