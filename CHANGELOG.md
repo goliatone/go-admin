@@ -1,5 +1,27 @@
 # Changelog
 
+# [0.101.0](https://github.com/goliatone/go-admin/compare/v0.100.3...v0.101.0) - (2026-06-19)
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Code quality ([2f7eb2a](https://github.com/goliatone/go-admin/commit/2f7eb2a8b50ad2d042f41f9032b9da2fa628a664))  - (goliatone)
+- Use const instead of strings for field names ([d2c0237](https://github.com/goliatone/go-admin/commit/d2c0237c47727f3012b64c06869ec61382620818))  - (goliatone)
+- Query names ([46cefd2](https://github.com/goliatone/go-admin/commit/46cefd28378197e67996b91ef57c1716246b2dd2))  - (goliatone)
+
+## <!-- 2 -->🚜 Refactor
+
+- Debug panel DOM rendering pipeling ([7805e79](https://github.com/goliatone/go-admin/commit/7805e79f4a56294631ad682d2149b56266c1725c))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update tests ([0ac5227](https://github.com/goliatone/go-admin/commit/0ac5227c8356df752f30d489bcc292a65cf3c316))  - (goliatone)
+
+# [0.100.3](https://github.com/goliatone/go-admin/compare/v0.100.2...v0.100.3) - (2026-06-19)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.100.3 ([891a263](https://github.com/goliatone/go-admin/commit/891a263c1873dd14caf833df1f0dc496426febb4))  - (goliatone)
+
 # [0.100.2](https://github.com/goliatone/go-admin/compare/v0.100.1...v0.100.2) - (2026-06-19)
 
 ## <!-- 13 -->📦 Bumps
