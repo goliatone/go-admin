@@ -276,13 +276,13 @@ func newAdminRequestMetadata(c router.Context) adminRequestMetadata {
 		requestIP: strings.TrimSpace(c.IP()),
 	}
 	if meta.requestID == "" {
-		meta.requestID = strings.TrimSpace(primitives.FirstNonEmptyRaw(c.Query("request_id"), c.Query("requestId")))
+		meta.requestID = strings.TrimSpace(c.Query("request_id"))
 	}
 	if meta.correlationID == "" {
-		meta.correlationID = strings.TrimSpace(primitives.FirstNonEmptyRaw(c.Query("correlation_id"), c.Query("correlationId")))
+		meta.correlationID = strings.TrimSpace(c.Query("correlation_id"))
 	}
 	if meta.traceID == "" {
-		meta.traceID = strings.TrimSpace(primitives.FirstNonEmptyRaw(c.Query("trace_id"), c.Query("traceId"), meta.correlationID))
+		meta.traceID = strings.TrimSpace(primitives.FirstNonEmptyRaw(c.Query("trace_id"), meta.correlationID))
 	}
 	return meta
 }
