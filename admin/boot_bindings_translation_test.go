@@ -2187,6 +2187,30 @@ func (s *readinessFamilyQueryStoreStub) ListFamiliesQuery(_ context.Context, inp
 	}, nil
 }
 
+type readinessFamilyNonQueryStoreStub struct {
+	familiesCalled int
+	families       []translationservices.FamilyRecord
+}
+
+func (s *readinessFamilyNonQueryStoreStub) Families(context.Context) ([]translationservices.FamilyRecord, error) {
+	s.familiesCalled++
+	return append([]translationservices.FamilyRecord{}, s.families...), nil
+}
+
+func (s *readinessFamilyNonQueryStoreStub) Family(_ context.Context, familyID string) (translationservices.FamilyRecord, bool, error) {
+	for _, family := range s.families {
+		if strings.EqualFold(strings.TrimSpace(family.ID), strings.TrimSpace(familyID)) {
+			return family, true, nil
+		}
+	}
+	return translationservices.FamilyRecord{}, false, nil
+}
+
+func (s *readinessFamilyNonQueryStoreStub) SaveFamily(_ context.Context, family translationservices.FamilyRecord) error {
+	s.families = append(s.families, family)
+	return nil
+}
+
 func familyHasBlockerCode(family translationservices.FamilyRecord, code string) bool {
 	code = strings.ToLower(strings.TrimSpace(code))
 	for _, current := range family.BlockerCodes {
@@ -2624,6 +2648,324 @@ func TestPanelBindingListGroupedByTranslationGroupUsesFamilyReadModelForReadines
 	familyIDs := normalizedLocaleList(repo.familyOptions[0].Filters["family_id"])
 	if len(familyIDs) != 1 || familyIDs[0] != "tg_ready_b" {
 		t.Fatalf("expected hydration to request only tg_ready_b, got %#v", repo.familyOptions[0].Filters["family_id"])
+	}
+}
+
+func TestPanelBindingListGroupedByTranslationGroupRequiresQueryableFamilyReadModel(t *testing.T) {
+	allRows := []map[string]any{
+		{
+			"id":                "ready_a_en",
+			"title":             "Ready A EN",
+			"status":            "draft",
+			"locale":            "en",
+			"family_id":         "tg_ready_a",
+			"available_locales": []string{"en", "fr"},
+		},
+		{
+			"id":                "ready_a_fr",
+			"title":             "Ready A FR",
+			"status":            "draft",
+			"locale":            "fr",
+			"family_id":         "tg_ready_a",
+			"available_locales": []string{"en", "fr"},
+		},
+		{
+			"id":                "ready_b_en",
+			"title":             "Ready B EN",
+			"status":            "draft",
+			"locale":            "en",
+			"family_id":         "tg_ready_b",
+			"available_locales": []string{"en", "fr"},
+		},
+		{
+			"id":                "ready_b_fr",
+			"title":             "Ready B FR",
+			"status":            "draft",
+			"locale":            "fr",
+			"family_id":         "tg_ready_b",
+			"available_locales": []string{"en", "fr"},
+		},
+	}
+	repo := &optimizedGroupedTranslationRepoStub{
+		translationActionRepoStub: translationActionRepoStub{list: []map[string]any{}},
+		groupedRows:               buildTranslationGroupedRows(allRows, "en"),
+	}
+	store := &readinessFamilyNonQueryStoreStub{}
+	binding := &panelBinding{
+		admin: &Admin{
+			config:                 Config{DefaultLocale: "en"},
+			translationFamilyStore: store,
+		},
+		name: "archive_event",
+		panel: &Panel{
+			name: "archive_event",
+			repo: repo,
+			translationPolicy: readinessPolicyStub{
+				ok: true,
+				req: TranslationRequirements{
+					Locales: []string{"en", "fr"},
+				},
+			},
+		},
+	}
+
+	rows, total, _, _, _, err := binding.List(newPanelBindingMockContext(), "en", boot.ListOptions{
+		Page:    1,
+		PerPage: 10,
+		Filters: map[string]any{
+			"group_by":        "family_id",
+			"channel":         "production",
+			"readiness_state": translationReadinessStateReady,
+		},
+		Predicates: []boot.ListPredicate{
+			{Field: "group_by", Operator: "eq", Values: []string{"family_id"}},
+			{Field: "channel", Operator: "eq", Values: []string{"production"}},
+			{Field: "readiness_state", Operator: "eq", Values: []string{translationReadinessStateReady}},
+		},
+	})
+	if err != nil {
+		t.Fatalf("grouped readiness list failed: %v", err)
+	}
+	if total != 2 || len(rows) != 2 {
+		t.Fatalf("expected optimized scan fallback total=2 rows=2, got total=%d rows=%d", total, len(rows))
+	}
+	if store.familiesCalled != 0 {
+		t.Fatalf("expected non-query family store not to recompute all families, got %d calls", store.familiesCalled)
+	}
+	if len(repo.familyOptions) == 0 || repo.familyOptions[0].PerPage != groupedReadinessFamilyScanPerPage {
+		t.Fatalf("expected bounded optimized family scan fallback, got %#v", repo.familyOptions)
+	}
+}
+
+func TestPanelBindingListGroupedByTranslationGroupAppliesExplicitBasePredicatesInFallback(t *testing.T) {
+	allRows := []map[string]any{
+		{
+			"id":                "draft_en",
+			"title":             "Draft EN",
+			"status":            "draft",
+			"locale":            "en",
+			"family_id":         "tg_draft",
+			"available_locales": []string{"en", "fr"},
+		},
+		{
+			"id":                "draft_fr",
+			"title":             "Draft FR",
+			"status":            "draft",
+			"locale":            "fr",
+			"family_id":         "tg_draft",
+			"available_locales": []string{"en", "fr"},
+		},
+		{
+			"id":                "published_en",
+			"title":             "Published EN",
+			"status":            "published",
+			"locale":            "en",
+			"family_id":         "tg_published",
+			"available_locales": []string{"en", "fr"},
+		},
+		{
+			"id":                "published_fr",
+			"title":             "Published FR",
+			"status":            "published",
+			"locale":            "fr",
+			"family_id":         "tg_published",
+			"available_locales": []string{"en", "fr"},
+		},
+	}
+	repo := &optimizedGroupedTranslationRepoStub{
+		translationActionRepoStub: translationActionRepoStub{list: []map[string]any{}},
+		groupedRows:               buildTranslationGroupedRows(allRows, "en"),
+	}
+	store := &readinessFamilyQueryStoreStub{
+		families: []translationservices.FamilyRecord{
+			{ID: "tg_draft", ContentType: "archive_event", ReadinessState: string(translationcore.FamilyReadinessReady)},
+			{ID: "tg_published", ContentType: "archive_event", ReadinessState: string(translationcore.FamilyReadinessReady)},
+		},
+	}
+	binding := &panelBinding{
+		admin: &Admin{
+			config:                 Config{DefaultLocale: "en"},
+			translationFamilyStore: store,
+		},
+		name: "archive_event",
+		panel: &Panel{
+			name: "archive_event",
+			repo: repo,
+			translationPolicy: readinessPolicyStub{
+				ok: true,
+				req: TranslationRequirements{
+					Locales: []string{"en", "fr"},
+				},
+			},
+		},
+	}
+
+	rows, total, _, _, _, err := binding.List(newPanelBindingMockContext(), "en", boot.ListOptions{
+		Page:    1,
+		PerPage: 10,
+		Filters: map[string]any{
+			"group_by":        "family_id",
+			"channel":         "production",
+			"readiness_state": translationReadinessStateReady,
+		},
+		Predicates: []boot.ListPredicate{
+			{Field: "group_by", Operator: "eq", Values: []string{"family_id"}},
+			{Field: "channel", Operator: "eq", Values: []string{"production"}},
+			{Field: "status", Operator: "eq", Values: []string{"draft"}},
+			{Field: "readiness_state", Operator: "eq", Values: []string{translationReadinessStateReady}},
+		},
+	})
+	if err != nil {
+		t.Fatalf("grouped readiness list failed: %v", err)
+	}
+	if total != 1 || len(rows) != 1 {
+		t.Fatalf("expected explicit status predicate to keep one grouped family, got total=%d rows=%d", total, len(rows))
+	}
+	if got := strings.TrimSpace(toString(rows[0]["family_id"])); got != "tg_draft" {
+		t.Fatalf("expected tg_draft, got %q", got)
+	}
+	if len(store.queries) != 0 {
+		t.Fatalf("expected explicit non-readiness predicate to bypass read-model shortcut, got %d queries", len(store.queries))
+	}
+}
+
+func TestPanelBindingListGroupedByTranslationGroupUsesFamilyReadModelForBlockedStates(t *testing.T) {
+	allRows := []map[string]any{
+		{"id": "ready_en", "title": "Ready EN", "status": "draft", "locale": "en", "family_id": "tg_ready", "available_locales": []string{"en", "fr"}},
+		{"id": "ready_fr", "title": "Ready FR", "status": "draft", "locale": "fr", "family_id": "tg_ready", "available_locales": []string{"en", "fr"}},
+		{"id": "missing_en", "title": "Missing EN", "status": "draft", "locale": "en", "family_id": "tg_missing", "available_locales": []string{"en"}},
+		{"id": "fields_en", "title": "Fields EN", "status": "draft", "locale": "en", "family_id": "tg_fields", "available_locales": []string{"en", "fr"}},
+		{"id": "fields_fr", "title": "Fields FR", "status": "draft", "locale": "fr", "family_id": "tg_fields", "available_locales": []string{"en", "fr"}},
+		{"id": "both_en", "title": "Both EN", "status": "draft", "locale": "en", "family_id": "tg_both", "available_locales": []string{"en"}},
+	}
+	families := []translationservices.FamilyRecord{
+		{
+			ID:             "tg_ready",
+			ContentType:    "archive_event",
+			ReadinessState: string(translationcore.FamilyReadinessReady),
+			Policy:         translationservices.FamilyPolicy{ContentType: "archive_event", SourceLocale: "en", RequiredLocales: []string{"en", "fr"}},
+			Variants:       []translationservices.FamilyVariant{{FamilyID: "tg_ready", Locale: "en"}, {FamilyID: "tg_ready", Locale: "fr"}},
+		},
+		{
+			ID:                         "tg_missing",
+			ContentType:                "archive_event",
+			ReadinessState:             string(translationcore.FamilyReadinessBlocked),
+			MissingRequiredLocaleCount: 1,
+			BlockerCodes:               []string{string(translationcore.FamilyBlockerMissingLocale)},
+			Blockers:                   []translationservices.FamilyBlocker{{FamilyID: "tg_missing", BlockerCode: string(translationcore.FamilyBlockerMissingLocale), Locale: "fr"}},
+			Policy:                     translationservices.FamilyPolicy{ContentType: "archive_event", SourceLocale: "en", RequiredLocales: []string{"en", "fr"}},
+			Variants:                   []translationservices.FamilyVariant{{FamilyID: "tg_missing", Locale: "en"}},
+		},
+		{
+			ID:             "tg_fields",
+			ContentType:    "archive_event",
+			ReadinessState: string(translationcore.FamilyReadinessBlocked),
+			BlockerCodes:   []string{string(translationcore.FamilyBlockerMissingField)},
+			Blockers:       []translationservices.FamilyBlocker{{FamilyID: "tg_fields", BlockerCode: string(translationcore.FamilyBlockerMissingField), Locale: "fr", FieldPath: "title"}},
+			Policy:         translationservices.FamilyPolicy{ContentType: "archive_event", SourceLocale: "en", RequiredLocales: []string{"en", "fr"}},
+			Variants:       []translationservices.FamilyVariant{{FamilyID: "tg_fields", Locale: "en"}, {FamilyID: "tg_fields", Locale: "fr"}},
+		},
+		{
+			ID:                         "tg_both",
+			ContentType:                "archive_event",
+			ReadinessState:             string(translationcore.FamilyReadinessBlocked),
+			MissingRequiredLocaleCount: 1,
+			BlockerCodes:               []string{string(translationcore.FamilyBlockerMissingLocale), string(translationcore.FamilyBlockerMissingField)},
+			Blockers: []translationservices.FamilyBlocker{
+				{FamilyID: "tg_both", BlockerCode: string(translationcore.FamilyBlockerMissingLocale), Locale: "fr"},
+				{FamilyID: "tg_both", BlockerCode: string(translationcore.FamilyBlockerMissingField), Locale: "en", FieldPath: "path"},
+			},
+			Policy:   translationservices.FamilyPolicy{ContentType: "archive_event", SourceLocale: "en", RequiredLocales: []string{"en", "fr"}},
+			Variants: []translationservices.FamilyVariant{{FamilyID: "tg_both", Locale: "en"}},
+		},
+	}
+	tests := []struct {
+		name             string
+		field            string
+		value            string
+		expectedTotal    int
+		expectedFamilies []string
+		expectedState    string
+	}{
+		{name: "missing locales exact", field: "readiness_state", value: translationReadinessStateMissingLocales, expectedTotal: 1, expectedFamilies: []string{"tg_missing"}, expectedState: translationReadinessStateMissingLocales},
+		{name: "missing fields exact", field: "readiness_state", value: translationReadinessStateMissingFields, expectedTotal: 1, expectedFamilies: []string{"tg_fields"}, expectedState: translationReadinessStateMissingFields},
+		{name: "missing locales and fields exact", field: "readiness_state", value: translationReadinessStateMissingLocalesFields, expectedTotal: 1, expectedFamilies: []string{"tg_both"}, expectedState: translationReadinessStateMissingLocalesFields},
+		{name: "blocked family readiness", field: "readiness_state", value: string(translationcore.FamilyReadinessBlocked), expectedTotal: 3, expectedFamilies: []string{"tg_missing", "tg_fields", "tg_both"}},
+		{name: "incomplete true", field: "incomplete", value: "true", expectedTotal: 3, expectedFamilies: []string{"tg_missing", "tg_fields", "tg_both"}},
+		{name: "incomplete false", field: "incomplete", value: "false", expectedTotal: 1, expectedFamilies: []string{"tg_ready"}, expectedState: translationReadinessStateReady},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			repo := &optimizedGroupedTranslationRepoStub{
+				translationActionRepoStub: translationActionRepoStub{list: []map[string]any{}},
+				groupedRows:               buildTranslationGroupedRows(allRows, "en"),
+			}
+			store := &readinessFamilyQueryStoreStub{families: append([]translationservices.FamilyRecord{}, families...)}
+			binding := &panelBinding{
+				admin: &Admin{
+					config:                 Config{DefaultLocale: "en"},
+					translationFamilyStore: store,
+				},
+				name: "archive_event",
+				panel: &Panel{
+					name: "archive_event",
+					repo: repo,
+					translationPolicy: readinessPolicyStub{
+						ok:  true,
+						req: TranslationRequirements{Locales: []string{"en", "fr"}},
+					},
+				},
+			}
+			filters := map[string]any{
+				"group_by": "family_id",
+				"channel":  "production",
+				tc.field:   tc.value,
+			}
+			predicates := []boot.ListPredicate{
+				{Field: "group_by", Operator: "eq", Values: []string{"family_id"}},
+				{Field: "channel", Operator: "eq", Values: []string{"production"}},
+				{Field: tc.field, Operator: "eq", Values: []string{tc.value}},
+			}
+			rows, total, _, _, _, err := binding.List(newPanelBindingMockContext(), "en", boot.ListOptions{
+				Page:       1,
+				PerPage:    10,
+				Filters:    filters,
+				Predicates: predicates,
+			})
+			if err != nil {
+				t.Fatalf("grouped readiness list failed: %v", err)
+			}
+			if total != tc.expectedTotal {
+				t.Fatalf("expected total=%d, got %d", tc.expectedTotal, total)
+			}
+			if len(rows) != len(tc.expectedFamilies) {
+				t.Fatalf("expected %d rows, got %d: %#v", len(tc.expectedFamilies), len(rows), rows)
+			}
+			for index, expectedFamily := range tc.expectedFamilies {
+				if got := strings.TrimSpace(toString(rows[index]["family_id"])); got != expectedFamily {
+					t.Fatalf("expected family %q at index %d, got %q", expectedFamily, index, got)
+				}
+			}
+			if tc.expectedState != "" {
+				if got := strings.TrimSpace(toString(rows[0]["readiness_state"])); got != tc.expectedState {
+					t.Fatalf("expected readiness_state %q, got %q", tc.expectedState, got)
+				}
+			}
+			if tc.value == translationReadinessStateMissingFields {
+				readiness := extractMap(rows[0]["translation_readiness"])
+				fields := mustAs[map[string][]string](readiness["missing_required_fields_by_locale"])
+				if got := fields["fr"]; len(got) != 1 || got[0] != "title" {
+					t.Fatalf("expected missing field fr/title from read model, got %#v", fields)
+				}
+			}
+			if len(repo.listOptions) != 0 {
+				t.Fatalf("expected no flat repository fallback calls, got %d", len(repo.listOptions))
+			}
+			if len(repo.familyOptions) == 0 {
+				t.Fatalf("expected selected-family hydration through optimized provider")
+			}
+		})
 	}
 }
 

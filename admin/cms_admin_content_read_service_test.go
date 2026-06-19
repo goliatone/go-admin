@@ -63,6 +63,87 @@ func TestAdminContentReadServiceListAndGetReturnNotFoundWithoutContentService(t 
 	}
 }
 
+func TestAdminContentReadServiceGetForContentTypeMatchesCapabilityAliases(t *testing.T) {
+	ctx := context.Background()
+	content := NewInMemoryContentService()
+	created, err := content.CreateContent(ctx, CMSContent{
+		ID:              "archive-event-en",
+		Title:           "Archive Event",
+		Slug:            "archive-event",
+		Locale:          "en",
+		Status:          "draft",
+		ContentType:     "archive_event",
+		ContentTypeSlug: "archive_event",
+	})
+	if err != nil {
+		t.Fatalf("create content: %v", err)
+	}
+	service := newAdminContentReadService(content)
+
+	record, err := service.GetForContentType(ctx, CMSContentType{
+		ID:   "ct-archive-event",
+		Slug: "archive-event",
+		Capabilities: map[string]any{
+			ContentTypeCapabilityKeyPanelSlug:     "archive_event",
+			ContentTypeCapabilityKeySearchContent: "archive_event",
+		},
+	}, created.ID)
+	if err != nil {
+		t.Fatalf("get content type record: %v", err)
+	}
+	if got := toString(record["id"]); got != created.ID {
+		t.Fatalf("expected record id %q, got %q", created.ID, got)
+	}
+}
+
+func TestAdminContentReadServiceListForContentTypeMatchesCapabilityAliases(t *testing.T) {
+	ctx := context.Background()
+	content := NewInMemoryContentService()
+	for _, item := range []CMSContent{
+		{
+			ID:              "archive-event-en",
+			Title:           "Archive Event",
+			Slug:            "archive-event",
+			Locale:          "en",
+			Status:          "draft",
+			ContentType:     "archive_event",
+			ContentTypeSlug: "archive_event",
+		},
+		{
+			ID:              "page-en",
+			Title:           "Page",
+			Slug:            "page",
+			Locale:          "en",
+			Status:          "draft",
+			ContentType:     "page",
+			ContentTypeSlug: "page",
+		},
+	} {
+		if _, err := content.CreateContent(ctx, item); err != nil {
+			t.Fatalf("create content %s: %v", item.ID, err)
+		}
+	}
+	service := newAdminContentReadService(content)
+
+	rows, total, err := service.ListForContentType(ctx, CMSContentType{
+		ID:   "ct-archive-event",
+		Slug: "archive-event",
+		Capabilities: map[string]any{
+			ContentTypeCapabilityKeyPanelSlug:     "archive_event",
+			ContentTypeCapabilityKeySearchContent: "archive_event",
+		},
+	}, ListOptions{Filters: map[string]any{"locale": "en"}})
+	if err != nil {
+		t.Fatalf("list content type records: %v", err)
+	}
+	if total != 1 || len(rows) != 1 {
+		t.Fatalf("expected one archive row, got total=%d rows=%#v", total, rows)
+	}
+	if got := toString(rows[0]["id"]); got != "archive-event-en" {
+		t.Fatalf("expected archive row, got %q", got)
+	}
+}
+
 func TestAdminContentReadServiceListAndGetPreserveRepositoryReadContract(t *testing.T) {
 	ctx := context.Background()
 	content := NewInMemoryContentService()

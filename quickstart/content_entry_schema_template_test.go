@@ -2,6 +2,7 @@ package quickstart
 
 import (
 	"bytes"
+	"errors"
 	"mime/multipart"
 	"testing"
 	"testing/fstest"
@@ -157,6 +158,19 @@ func TestRenderTemplateRendersPanelTemplateWhenAvailable(t *testing.T) {
 	}
 	if err := h.renderTemplate(ctx, "pages", "resources/content/list", viewCtx); err != nil {
 		t.Fatalf("render with panel template: %v", err)
+	}
+	ctx.AssertExpectations(t)
+}
+
+func TestRenderTemplateFallsBackWhenCustomTemplateOpenFails(t *testing.T) {
+	viewCtx := router.ViewContext{"title": "Pages"}
+	ctx := router.NewMockContext()
+	ctx.On("Render", "resources/pages/list", viewCtx).Return(errors.New("failed to open: open resources/pages/list: no such file or directory")).Once()
+	ctx.On("Render", "resources/content/list", viewCtx).Return(nil).Once()
+
+	h := &contentEntryHandlers{}
+	if err := h.renderTemplate(ctx, "pages", "resources/content/list", viewCtx); err != nil {
+		t.Fatalf("render with filesystem fallback: %v", err)
 	}
 	ctx.AssertExpectations(t)
 }

@@ -311,6 +311,45 @@ func TestGoCMSContentAdapterListContentTypeRecordsNormalizesLocaleWildcard(t *te
 	}
 }
 
+func TestGoCMSContentAdapterListContentTypeRecordsUsesPanelSlugForRowContentType(t *testing.T) {
+	ctx := context.Background()
+	contentTypeID := uuid.New()
+	adminRead := &stubGoCMSAdminContentReadService{
+		listResp: []cms.AdminContentRecord{{
+			ID:              uuid.New(),
+			Slug:            "archive-event",
+			Locale:          "en",
+			ContentType:     "archive-event",
+			ContentTypeSlug: "archive-event",
+			Status:          "draft",
+		}},
+	}
+	contentSvc := &stubGoCMSContentService{}
+	svc := newGoCMSContentAdapter(contentSvc, nil, nil, nil, adminRead, nil, nil, nil)
+	adapter := mustGoCMSContentAdapter(t, svc)
+
+	rows, total, err := adapter.ListContentTypeRecords(ctx, CMSContentType{
+		ID:   contentTypeID.String(),
+		Slug: "archive-event",
+		Capabilities: map[string]any{
+			ContentTypeCapabilityKeyPanelSlug:     "archive_event",
+			ContentTypeCapabilityKeySearchContent: "archive_event",
+		},
+	}, ListOptions{Filters: map[string]any{"locale": "en"}})
+	if err != nil {
+		t.Fatalf("list content type records: %v", err)
+	}
+	if total != 1 || len(rows) != 1 {
+		t.Fatalf("expected one row, got total=%d rows=%#v", total, rows)
+	}
+	if got := toString(rows[0]["content_type"]); got != "archive_event" {
+		t.Fatalf("expected canonical content_type archive_event, got %q", got)
+	}
+	if got := toString(rows[0]["content_type_slug"]); got != "archive_event" {
+		t.Fatalf("expected canonical content_type_slug archive_event, got %q", got)
+	}
+}
+
 func TestGoCMSContentAdapterListContentTypeFamiliesNormalizesLocaleWildcard(t *testing.T) {
 	ctx := context.Background()
 	contentTypeID := uuid.New()
@@ -346,6 +385,74 @@ func TestGoCMSContentAdapterListContentTypeFamiliesNormalizesLocaleWildcard(t *t
 	}
 	if total != 42 || len(rows) != 0 {
 		t.Fatalf("expected no rows and family total 42, got rows=%d total=%d", len(rows), total)
+	}
+}
+
+func TestGoCMSContentAdapterListContentTypeFamiliesUsesPanelSlugForGroupedRows(t *testing.T) {
+	ctx := context.Background()
+	contentTypeID := uuid.New()
+	familyID := uuid.New().String()
+	adminRead := &stubGoCMSAdminContentReadService{
+		familyResp: cms.AdminContentFamilyListResult{
+			FamilyTotal: 1,
+			Families: []cms.AdminContentFamilyRecord{{
+				FamilyID: familyID,
+				Variants: []cms.AdminContentRecord{
+					{
+						ID:              uuid.New(),
+						Slug:            "archive-event-en",
+						Locale:          "en",
+						ContentType:     "archive-event",
+						ContentTypeSlug: "archive-event",
+						Status:          "draft",
+					},
+					{
+						ID:              uuid.New(),
+						Slug:            "archive-event-bo",
+						Locale:          "bo",
+						ContentType:     "archive-event",
+						ContentTypeSlug: "archive-event",
+						Status:          "draft",
+					},
+				},
+			}},
+		},
+	}
+	contentSvc := &stubGoCMSContentService{}
+	svc := newGoCMSContentAdapter(contentSvc, nil, nil, nil, adminRead, nil, nil, nil)
+	adapter := mustGoCMSContentAdapter(t, svc)
+
+	rows, total, err := adapter.ListContentTypeFamilies(ctx, CMSContentType{
+		ID:   contentTypeID.String(),
+		Slug: "archive-event",
+		Capabilities: map[string]any{
+			ContentTypeCapabilityKeyPanelSlug:     "archive_event",
+			ContentTypeCapabilityKeySearchContent: "archive_event",
+		},
+	}, ListOptions{Filters: map[string]any{"locale": "en"}})
+	if err != nil {
+		t.Fatalf("list content type families: %v", err)
+	}
+	if total != 1 || len(rows) != 1 {
+		t.Fatalf("expected one grouped row, got total=%d rows=%#v", total, rows)
+	}
+	if got := toString(rows[0]["content_type"]); got != "archive_event" {
+		t.Fatalf("expected grouped content_type archive_event, got %q", got)
+	}
+	if got := toString(rows[0]["content_type_slug"]); got != "archive_event" {
+		t.Fatalf("expected grouped content_type_slug archive_event, got %q", got)
+	}
+	children, ok := rows[0]["children"].([]map[string]any)
+	if !ok || len(children) != 2 {
+		t.Fatalf("expected two canonical children, got %#v", rows[0]["children"])
+	}
+	for _, child := range children {
+		if got := toString(child["content_type"]); got != "archive_event" {
+			t.Fatalf("expected child content_type archive_event, got %q", got)
+		}
+		if got := toString(child["content_type_slug"]); got != "archive_event" {
+			t.Fatalf("expected child content_type_slug archive_event, got %q", got)
+		}
 	}
 }
 
