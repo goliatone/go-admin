@@ -35,6 +35,9 @@ import {
   renderCustomPanel,
   renderJSErrorsPanel,
   SqlLiveView,
+  LiveListView,
+  renderLogRow,
+  logRowKey,
 } from './shared/panels/index.js';
 import {
   panelRegistry,
@@ -190,6 +193,7 @@ export class DebugPanel {
   private customFilterState: Record<string, unknown> = {};
   private paused = false;
   private sqlView!: SqlLiveView;
+  private logsView!: LiveListView<LogEntry>;
   private pauseButton: HTMLButtonElement | null = null;
   private maxLogEntries: number;
   private maxSQLQueries: number;
@@ -307,6 +311,18 @@ export class DebugPanel {
       shouldDisplay: (entry) => this.sqlEntryMatchesFilters(entry),
       onNeedFullRender: () => this.renderPanel(),
       onPendingChange: (count) => this.updatePauseIndicator(count),
+    });
+
+    this.logsView = new LiveListView<LogEntry>({
+      styles: consoleStyles,
+      keyOf: logRowKey,
+      renderRow: (entry) => renderLogRow(entry, consoleStyles, { showSource: true, truncateMessage: false }),
+      getItems: () => this.state.logs,
+      getRenderOptions: () => ({ newestFirst: this.filters.logs.newestFirst }),
+      getMaxEntries: () => this.maxLogEntries,
+      shouldDisplay: (entry) => this.logEntryMatchesFilters(entry),
+      onNeedFullRender: () => this.renderPanel(),
+      onAfterAppend: () => this.applyLogsAutoScroll(),
     });
 
     this.bindActions();
@@ -1389,21 +1405,33 @@ export class DebugPanel {
     });
   }
 
+  /** Whether a log entry passes the active console filters (level/search). */
+  private logEntryMatchesFilters(entry: LogEntry): boolean {
+    const { level, search } = this.filters.logs;
+    if (level !== 'all' && (entry.level || '').toLowerCase() !== level) {
+      return false;
+    }
+    if (search) {
+      const haystack = `${entry.message || ''} ${entry.source || ''} ${formatJSON(entry.fields || {})}`.toLowerCase();
+      if (!haystack.includes(search.toLowerCase())) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  /** Keep the newest log visible when auto-scroll is enabled (no-op otherwise). */
+  private applyLogsAutoScroll(): void {
+    if (!this.filters.logs.autoScroll) return;
+    // newestFirst => newest at top (scroll to top); otherwise newest at bottom.
+    this.panelEl.scrollTop = this.filters.logs.newestFirst ? 0 : this.panelEl.scrollHeight;
+  }
+
   private renderLogs(): string {
-    const { level, search, newestFirst } = this.filters.logs;
-    const needle = search.toLowerCase();
+    const { newestFirst } = this.filters.logs;
 
     // Apply console-specific filters
-    const filtered = this.state.logs.filter((entry) => {
-      if (level !== 'all' && (entry.level || '').toLowerCase() !== level) {
-        return false;
-      }
-      const haystack = `${entry.message || ''} ${entry.source || ''} ${formatJSON(entry.fields || {})}`.toLowerCase();
-      if (needle && !haystack.includes(needle)) {
-        return false;
-      }
-      return true;
-    });
+    const filtered = this.state.logs.filter((entry) => this.logEntryMatchesFilters(entry));
 
     if (filtered.length === 0) {
       return this.renderEmptyState('No logs captured yet.');
@@ -1943,6 +1971,8 @@ export class DebugPanel {
         // Incremental: append only the new row (state already updated above).
         // Falls back to a full render via onNeedFullRender if not yet mounted.
         this.sqlView.enqueue([event.payload as SQLEntry]);
+      } else if (panel === 'logs') {
+        this.logsView.enqueue([event.payload as LogEntry]);
       } else {
         this.renderPanel();
       }

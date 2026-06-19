@@ -13,9 +13,9 @@ import {
   attachSortToggleListeners,
   attachRequestDetailListeners,
 } from '../shared/interactions.js';
-import { SqlLiveView } from '../shared/panels/index.js';
+import { SqlLiveView, LiveListView, renderLogRow, logRowKey } from '../shared/panels/index.js';
 import { toolbarStyles as toolbarStyleConfig } from '../shared/styles.js';
-import type { SQLEntry } from '../shared/types.js';
+import type { SQLEntry, LogEntry } from '../shared/types.js';
 import {
   panelRegistry,
   getPanelCount as getRegistryPanelCount,
@@ -50,6 +50,7 @@ type PanelActionResultView = {
 export class DebugToolbar extends HTMLElement {
   private shadow: ShadowRoot;
   private sqlView!: SqlLiveView;
+  private logsView!: LiveListView<LogEntry>;
   private stream: DebugStream | null = null;
   private externalStream: DebugStream | null = null;
   private snapshot: DebugSnapshot = {};
@@ -100,6 +101,16 @@ export class DebugToolbar extends HTMLElement {
         useIconCopyButton: false,
       }),
       getMaxEntries: () => 50,
+      onNeedFullRender: () => this.updateContent(),
+    });
+    this.logsView = new LiveListView<LogEntry>({
+      styles: toolbarStyleConfig,
+      keyOf: logRowKey,
+      renderRow: (entry) =>
+        renderLogRow(entry, toolbarStyleConfig, { showSource: false, truncateMessage: true, maxMessageLength: 100 }),
+      getItems: () => this.snapshot.logs || [],
+      getRenderOptions: () => ({ newestFirst: true }),
+      getMaxEntries: () => 100,
       onNeedFullRender: () => this.updateContent(),
     });
   }
@@ -423,6 +434,8 @@ export class DebugToolbar extends HTMLElement {
         // Incremental: append only the new row (snapshot already updated above).
         // Falls back to a full render via onNeedFullRender if not yet mounted.
         this.sqlView.enqueue([event.payload as SQLEntry]);
+      } else if (panel === 'logs') {
+        this.logsView.enqueue([event.payload as LogEntry]);
       } else {
         this.updateContent();
       }
@@ -555,7 +568,7 @@ export class DebugToolbar extends HTMLElement {
           this.attachExpandableRowListeners();
           this.attachCopyListeners();
           this.attachSortToggleListeners();
-          this.mountSQLView();
+          this.mountActivePanelViews();
           if (this.activePanel === 'requests') {
             attachRequestDetailListeners(this.shadow, this.expandedRequests);
           }
@@ -685,7 +698,7 @@ export class DebugToolbar extends HTMLElement {
             this.attachExpandableRowListeners();
             this.attachCopyListeners();
             this.attachSortToggleListeners();
-            this.mountSQLView();
+            this.mountActivePanelViews();
             if (this.activePanel === 'requests') {
               attachRequestDetailListeners(this.shadow, this.expandedRequests);
             }
@@ -699,7 +712,7 @@ export class DebugToolbar extends HTMLElement {
     this.attachExpandableRowListeners();
     this.attachCopyListeners();
     this.attachSortToggleListeners();
-    this.mountSQLView();
+    this.mountActivePanelViews();
     if (this.activePanel === 'requests') {
       attachRequestDetailListeners(this.shadow, this.expandedRequests);
     }
@@ -943,11 +956,22 @@ export class DebugToolbar extends HTMLElement {
     });
   }
 
+  private mountActivePanelViews(): void {
+    this.mountSQLView();
+    this.mountLogsView();
+  }
+
   private mountSQLView(): void {
     if (this.activePanel !== 'sql') return;
     // SqlLiveView wires delegated selection/expansion + incremental updates and
     // restores selection/expanded rows keyed by stable id.
     this.sqlView.adopt(this.shadow);
+  }
+
+  private mountLogsView(): void {
+    if (this.activePanel !== 'logs') return;
+    // LiveListView appends/evicts log rows incrementally instead of rebuilding.
+    this.logsView.adopt(this.shadow);
   }
 }
 
