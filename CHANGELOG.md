@@ -2,6 +2,10 @@
 
 # [0.100.2](https://github.com/goliatone/go-admin/compare/v0.100.1...v0.100.2) - (2026-06-19)
 
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.100.2 ([301e7af](https://github.com/goliatone/go-admin/commit/301e7aff2119464ed4ef6db2de306ff474eac598))  - (goliatone)
+
 ## <!-- 7 -->⚙️ Miscellaneous Tasks
 
 - Update deps ([1dd9f7f](https://github.com/goliatone/go-admin/commit/1dd9f7f5a581a7acfee4a812513b2e8662005104))  - (goliatone)
