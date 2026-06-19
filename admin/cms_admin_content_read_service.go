@@ -154,14 +154,14 @@ func (s goCMSAdminContentReadService) ListForContentType(ctx context.Context, co
 	if err != nil {
 		return nil, 0, err
 	}
-	typeKey := strings.ToLower(typeSlug)
+	membershipKeys := contentTypeMembershipKeys(contentType)
 	navigationPolicy := contentEntryNavigationPolicyFromContentType(contentType)
 	translationEnabled := contentTypeWantsTranslations(contentType)
 	recordBuildStarted := time.Now()
 	records := make([]map[string]any, 0, len(contents))
 	for _, item := range contents {
-		recordType := strings.ToLower(strings.TrimSpace(primitives.FirstNonEmptyRaw(item.ContentTypeSlug, item.ContentType)))
-		if typeKey != "" && recordType != typeKey {
+		recordType := normalizeContentTypeMembershipKey(primitives.FirstNonEmptyRaw(item.ContentTypeSlug, item.ContentType))
+		if !contentTypeMembershipKeyMatches(recordType, membershipKeys) {
 			continue
 		}
 		if translationEnabled {
@@ -236,6 +236,7 @@ func (s goCMSAdminContentReadService) listCountCapableContentTypeRecords(ctx con
 	}
 	navigationPolicy := contentEntryNavigationPolicyFromContentType(contentType)
 	for idx := range records {
+		records[idx] = canonicalizeContentTypeRecordForPanel(records[idx], contentType)
 		records[idx] = applyContentEntryNavigationReadContract(records[idx], navigationPolicy)
 	}
 	return records, total, true, nil
@@ -249,19 +250,18 @@ func (s goCMSAdminContentReadService) GetForContentType(ctx context.Context, con
 	if err != nil {
 		return nil, err
 	}
-	typeKey := strings.ToLower(strings.TrimSpace(primitives.FirstNonEmptyRaw(contentType.Slug, contentType.Name, contentType.ID)))
-	if typeKey == "" {
+	membershipKeys := contentTypeMembershipKeys(contentType)
+	if len(membershipKeys) == 0 {
 		return record, nil
 	}
-	recordType := strings.ToLower(strings.TrimSpace(primitives.FirstNonEmptyRaw(toString(record["content_type_slug"]), toString(record["content_type"]))))
-	if recordType != typeKey {
+	if !contentTypeRecordMatches(record, membershipKeys) {
 		return nil, ErrNotFound
 	}
 	if contentTypeWantsTranslations(contentType) {
 		familyID := translationFamilyIDFromRecord(record)
 		if strings.TrimSpace(familyID) == "" {
 			return nil, validationDomainError("translation-enabled content missing canonical family_id", map[string]any{
-				"content_type": recordType,
+				"content_type": normalizeContentTypeMembershipKey(primitives.FirstNonEmptyRaw(toString(record["content_type_slug"]), toString(record["content_type"]))),
 				"record_id":    strings.TrimSpace(primitives.FirstNonEmptyRaw(toString(record["id"]), id)),
 				"locale":       strings.TrimSpace(toString(record["locale"])),
 			})
@@ -314,6 +314,7 @@ func (a *GoCMSContentAdapter) ListContentTypeRecords(ctx context.Context, conten
 			summarizeBlocksForList: true,
 		})
 		row = applyContentEntryNavigationReadContract(row, navigationPolicy)
+		row = canonicalizeContentTypeRecordForPanel(row, contentType)
 		out = append(out, row)
 	}
 	if len(listOpts.Fields) > 0 {
@@ -356,11 +357,11 @@ func (a *GoCMSContentAdapter) ListContentTypeFamilies(ctx context.Context, conte
 	if err != nil {
 		return nil, 0, err
 	}
-	rows := a.groupedRowsFromAdminContentFamilies(ctx, result.Families, locale)
+	rows := a.groupedRowsFromAdminContentFamilies(ctx, contentType, result.Families, locale)
 	return rows, result.FamilyTotal, nil
 }
 
-func (a *GoCMSContentAdapter) groupedRowsFromAdminContentFamilies(ctx context.Context, families []cms.AdminContentFamilyRecord, defaultLocale string) []map[string]any {
+func (a *GoCMSContentAdapter) groupedRowsFromAdminContentFamilies(ctx context.Context, contentType CMSContentType, families []cms.AdminContentFamilyRecord, defaultLocale string) []map[string]any {
 	if len(families) == 0 {
 		return nil
 	}
@@ -385,15 +386,98 @@ func (a *GoCMSContentAdapter) groupedRowsFromAdminContentFamilies(ctx context.Co
 			if strings.TrimSpace(toString(row["family_id"])) == "" {
 				row["family_id"] = strings.TrimSpace(family.FamilyID)
 			}
+			row = canonicalizeContentTypeRecordForPanel(row, contentType)
 			children = append(children, row)
 		}
 		grouped := buildTranslationGroupedRows(children, defaultLocale)
 		if len(grouped) == 0 {
 			continue
 		}
-		out = append(out, grouped[0])
+		groupedRow := canonicalizeContentTypeRecordForPanel(grouped[0], contentType)
+		if canonical := ContentTypeCapabilityString(contentType.Capabilities, ContentTypeCapabilityKeyPanelSlug); canonical != "" {
+			groupedRow["content_type"] = canonical
+			groupedRow["content_type_slug"] = canonical
+		}
+		out = append(out, groupedRow)
 	}
 	return out
+}
+
+func contentTypeMembershipKeys(contentType CMSContentType) map[string]struct{} {
+	keys := map[string]struct{}{}
+	add := func(value string) {
+		if key := normalizeContentTypeMembershipKey(value); key != "" {
+			keys[key] = struct{}{}
+		}
+	}
+	add(contentType.ID)
+	add(contentType.Slug)
+	add(contentType.Name)
+	add(ContentTypeCapabilityString(contentType.Capabilities, ContentTypeCapabilityKeyPanelSlug))
+	add(ContentTypeCapabilityString(contentType.Capabilities, ContentTypeCapabilityKeySearchContent))
+	return keys
+}
+
+func contentTypeRecordMatches(record map[string]any, keys map[string]struct{}) bool {
+	if len(keys) == 0 {
+		return true
+	}
+	for _, value := range []string{
+		toString(record["content_type_id"]),
+		toString(record["content_type_slug"]),
+		toString(record["content_type"]),
+	} {
+		if contentTypeMembershipKeyMatches(normalizeContentTypeMembershipKey(value), keys) {
+			return true
+		}
+	}
+	return false
+}
+
+func contentTypeMembershipKeyMatches(key string, keys map[string]struct{}) bool {
+	if len(keys) == 0 {
+		return true
+	}
+	if key == "" {
+		return false
+	}
+	_, ok := keys[key]
+	return ok
+}
+
+func normalizeContentTypeMembershipKey(value string) string {
+	return strings.ToLower(strings.TrimSpace(value))
+}
+
+func canonicalizeContentTypeRecordForPanel(record map[string]any, contentType CMSContentType) map[string]any {
+	canonical := ContentTypeCapabilityString(contentType.Capabilities, ContentTypeCapabilityKeyPanelSlug)
+	if canonical == "" {
+		return record
+	}
+	if record == nil {
+		record = map[string]any{}
+	}
+	if keys := contentTypeMembershipKeys(contentType); len(keys) > 0 && !contentTypeRecordMatches(record, keys) {
+		return record
+	}
+	if strings.TrimSpace(toString(record["content_type"])) != "" {
+		record["content_type"] = canonical
+	}
+	if strings.TrimSpace(toString(record["content_type_slug"])) != "" {
+		record["content_type_slug"] = canonical
+	}
+	for _, key := range []string{"children", "records", "variants", "locale_variants"} {
+		if children, ok := record[key].([]map[string]any); ok {
+			for idx := range children {
+				children[idx] = canonicalizeContentTypeRecordForPanel(children[idx], contentType)
+			}
+			record[key] = children
+		}
+	}
+	if parent, ok := record["parent"].(map[string]any); ok {
+		record["parent"] = canonicalizeContentTypeRecordForPanel(parent, contentType)
+	}
+	return record
 }
 
 func (s goCMSAdminContentReadService) listContentsForContentType(ctx context.Context, contentType CMSContentType, locale string, opts ListOptions) ([]CMSContent, error) {

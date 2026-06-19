@@ -153,12 +153,16 @@ func (p *panelBinding) listOptimizedTranslationFamilies(ctx AdminContext, opts L
 }
 
 type groupedReadinessFamilyReadModelQuery struct {
-	readinessState string
-	blockerCode    string
+	readinessState        string
+	blockerCode           string
+	exactContentReadiness string
 }
 
 func (p *panelBinding) listTranslationFamiliesFromReadModel(ctx AdminContext, baseOpts, requestedOpts ListOptions, readinessPredicates []ListPredicate) ([]map[string]any, int, bool, error) {
 	if p == nil || p.admin == nil || p.admin.translationFamilyStore == nil || len(readinessPredicates) == 0 {
+		return nil, 0, false, nil
+	}
+	if _, ok := p.admin.translationFamilyStore.(translationservices.FamilyQueryStore); !ok {
 		return nil, 0, false, nil
 	}
 	if !groupedReadinessCanUseFamilyReadModel(baseOpts) {
@@ -180,7 +184,7 @@ func (p *panelBinding) listTranslationFamiliesFromReadModel(ctx AdminContext, ba
 			Resolver: translationFamilyPolicyResolver{admin: p.admin},
 		},
 	}
-	result, err := service.List(ctx.Context, translationservices.ListFamiliesInput{
+	input := translationservices.ListFamiliesInput{
 		Scope: translationservices.Scope{
 			TenantID: identity.TenantID,
 			OrgID:    identity.OrgID,
@@ -191,7 +195,14 @@ func (p *panelBinding) listTranslationFamiliesFromReadModel(ctx AdminContext, ba
 		BlockerCode:    query.blockerCode,
 		Page:           requestedOpts.Page,
 		PerPage:        requestedOpts.PerPage,
-	})
+	}
+	var result translationservices.ListFamiliesResult
+	var err error
+	if query.needsPostFilter() {
+		result, err = listTranslationFamiliesFromReadModelFiltered(ctx.Context, service, input, query, requestedOpts)
+	} else {
+		result, err = service.List(ctx.Context, input)
+	}
 	if err != nil {
 		return nil, 0, true, err
 	}
@@ -244,14 +255,29 @@ func groupedReadinessCanUseFamilyReadModel(opts ListOptions) bool {
 		if parts := strings.SplitN(strings.TrimSpace(key), "__", 2); len(parts) > 0 {
 			field = parts[0]
 		}
-		switch strings.ToLower(strings.TrimSpace(field)) {
-		case "", "channel", "environment":
-			continue
-		default:
+		if !groupedReadinessReadModelScopeField(field) {
+			return false
+		}
+	}
+	for _, predicate := range normalizePredicates(opts.Predicates) {
+		field := predicate.Field
+		if parts := strings.SplitN(strings.TrimSpace(field), "__", 2); len(parts) > 0 {
+			field = parts[0]
+		}
+		if !groupedReadinessReadModelScopeField(field) {
 			return false
 		}
 	}
 	return true
+}
+
+func groupedReadinessReadModelScopeField(field string) bool {
+	switch strings.ToLower(strings.TrimSpace(field)) {
+	case "", "channel", "$channel", "content_channel", "site_content_channel", "environment", "env":
+		return true
+	default:
+		return false
+	}
 }
 
 func groupedReadinessFamilyReadModelQueryForPredicates(predicates []ListPredicate) (groupedReadinessFamilyReadModelQuery, bool) {
@@ -310,18 +336,28 @@ func groupedReadinessFamilyReadModelQueryForPredicate(predicate ListPredicate) (
 }
 
 func groupedReadinessFamilyReadModelQueryForReadinessState(state string) (groupedReadinessFamilyReadModelQuery, bool) {
-	switch normalizeTranslationReadinessState(state) {
+	switch strings.ToLower(strings.TrimSpace(state)) {
 	case translationReadinessStateReady:
 		return groupedReadinessFamilyReadModelQuery{readinessState: string(translationcore.FamilyReadinessReady)}, true
+	case string(translationcore.FamilyReadinessBlocked):
+		return groupedReadinessFamilyReadModelQuery{readinessState: string(translationcore.FamilyReadinessBlocked)}, true
 	case translationReadinessStateMissingLocales:
 		return groupedReadinessFamilyReadModelQuery{
-			readinessState: string(translationcore.FamilyReadinessBlocked),
-			blockerCode:    string(translationcore.FamilyBlockerMissingLocale),
+			readinessState:        string(translationcore.FamilyReadinessBlocked),
+			blockerCode:           string(translationcore.FamilyBlockerMissingLocale),
+			exactContentReadiness: translationReadinessStateMissingLocales,
 		}, true
 	case translationReadinessStateMissingFields:
 		return groupedReadinessFamilyReadModelQuery{
-			readinessState: string(translationcore.FamilyReadinessBlocked),
-			blockerCode:    string(translationcore.FamilyBlockerMissingField),
+			readinessState:        string(translationcore.FamilyReadinessBlocked),
+			blockerCode:           string(translationcore.FamilyBlockerMissingField),
+			exactContentReadiness: translationReadinessStateMissingFields,
+		}, true
+	case translationReadinessStateMissingLocalesFields:
+		return groupedReadinessFamilyReadModelQuery{
+			readinessState:        string(translationcore.FamilyReadinessBlocked),
+			blockerCode:           string(translationcore.FamilyBlockerMissingLocale),
+			exactContentReadiness: translationReadinessStateMissingLocalesFields,
 		}, true
 	default:
 		return groupedReadinessFamilyReadModelQuery{}, false
@@ -338,13 +374,72 @@ func mergeGroupedReadinessFamilyReadModelQuery(base *groupedReadinessFamilyReadM
 	if base.blockerCode != "" && next.blockerCode != "" && base.blockerCode != next.blockerCode {
 		return false
 	}
+	if base.exactContentReadiness != "" && next.exactContentReadiness != "" && base.exactContentReadiness != next.exactContentReadiness {
+		return false
+	}
 	if base.readinessState == "" {
 		base.readinessState = next.readinessState
 	}
 	if base.blockerCode == "" {
 		base.blockerCode = next.blockerCode
 	}
+	if base.exactContentReadiness == "" {
+		base.exactContentReadiness = next.exactContentReadiness
+	}
 	return base.readinessState != ""
+}
+
+func (q groupedReadinessFamilyReadModelQuery) needsPostFilter() bool {
+	return strings.TrimSpace(q.exactContentReadiness) != ""
+}
+
+func listTranslationFamiliesFromReadModelFiltered(ctx context.Context, service translationservices.FamilyService, input translationservices.ListFamiliesInput, query groupedReadinessFamilyReadModelQuery, requestedOpts ListOptions) (translationservices.ListFamiliesResult, error) {
+	page := requestedOpts.Page
+	if page <= 0 {
+		page = 1
+	}
+	perPage := requestedOpts.PerPage
+	if perPage <= 0 {
+		perPage = 50
+	}
+
+	start := (page - 1) * perPage
+	end := start + perPage
+	out := translationservices.ListFamiliesResult{
+		Page:    page,
+		PerPage: perPage,
+	}
+
+	scan := input
+	scan.Page = 1
+	scan.PerPage = 200
+	for {
+		result, err := service.List(ctx, scan)
+		if err != nil {
+			return translationservices.ListFamiliesResult{}, err
+		}
+		for _, family := range result.Items {
+			if !groupedReadinessFamilyMatchesReadModelQuery(family, query) {
+				continue
+			}
+			if out.Total >= start && out.Total < end {
+				out.Items = append(out.Items, family)
+			}
+			out.Total++
+		}
+		if len(result.Items) == 0 || result.Page*result.PerPage >= result.Total {
+			break
+		}
+		scan.Page = result.Page + 1
+	}
+	return out, nil
+}
+
+func groupedReadinessFamilyMatchesReadModelQuery(family translationservices.FamilyRecord, query groupedReadinessFamilyReadModelQuery) bool {
+	if strings.TrimSpace(query.exactContentReadiness) == "" {
+		return true
+	}
+	return strings.EqualFold(translationReadinessStateFromFamilyRecord(family), query.exactContentReadiness)
 }
 
 func (p *panelBinding) groupedReadinessFamilyReadModelContentType() string {
@@ -433,6 +528,9 @@ func (p *panelBinding) listOptimizedTranslationFamiliesWithReadinessPredicates(c
 
 		batch = p.withGroupedTranslationReadiness(ctx, batch, baseOpts.Filters)
 		for _, record := range batch {
+			if !groupedTranslationRowMatchesBasePredicates(record, baseOpts.Predicates) {
+				continue
+			}
 			if !recordMatchesAllListPredicates(record, readinessPredicates) {
 				continue
 			}
@@ -450,6 +548,33 @@ func (p *panelBinding) listOptimizedTranslationFamiliesWithReadinessPredicates(c
 		paginated = projectRecordMapsByFields(paginated, requestedOpts.Fields)
 	}
 	return paginated, total, true, nil
+}
+
+func groupedTranslationRowMatchesBasePredicates(record map[string]any, predicates []ListPredicate) bool {
+	predicates = normalizePredicates(predicates)
+	if len(predicates) == 0 {
+		return true
+	}
+	options := listRecordOptions{
+		SkipFields: map[string]struct{}{
+			"channel":  {},
+			"group_by": {},
+			"groupby":  {},
+		},
+		PredicateMatcher: cmsContentRecordPredicateMatcher,
+	}
+	if recordMatchesListQuery(record, "", predicates, options) {
+		return true
+	}
+	if parent := extractMap(record["parent"]); len(parent) > 0 && recordMatchesListQuery(parent, "", predicates, options) {
+		return true
+	}
+	for _, child := range groupedTranslationRowChildren(record) {
+		if recordMatchesListQuery(child, "", predicates, options) {
+			return true
+		}
+	}
+	return false
 }
 
 func (p *panelBinding) groupedRowsDefaultLocale(ctx AdminContext) string {
@@ -645,15 +770,19 @@ func applyTranslationFamilyReadModelReadiness(row map[string]any, family transla
 	}
 	availableLocales := translationFamilyAvailableLocales(family)
 	missingLocales := translationFamilyMissingLocales(family)
+	missingFields := translationFamilyMissingFieldsByLocale(family)
 	requiredLocales := append([]string{}, family.Policy.RequiredLocales...)
 	readiness := map[string]any{
 		"family_id":                         family.ID,
+		"family_readiness_state":            strings.TrimSpace(family.ReadinessState),
+		"blocker_codes":                     append([]string{}, family.BlockerCodes...),
+		"family_blockers":                   cloneFamilyBlockerPayloads(family.Blockers),
 		"required_locales":                  requiredLocales,
 		"required_for_publish":              append([]string{}, requiredLocales...),
 		"available_locales":                 availableLocales,
 		"missing_required_locales":          missingLocales,
 		"missing_locales":                   append([]string{}, missingLocales...),
-		"missing_required_fields_by_locale": map[string][]string{},
+		"missing_required_fields_by_locale": missingFields,
 		"readiness_state":                   state,
 		"ready_for_transition":              map[string]bool{translationReadinessTransitionPublish: state == translationReadinessStateReady},
 		"requirements_resolved":             len(requiredLocales) > 0,
@@ -697,6 +826,28 @@ func translationReadinessStateFromFamilyRecord(family translationservices.Family
 	default:
 		return ""
 	}
+}
+
+func translationFamilyMissingFieldsByLocale(family translationservices.FamilyRecord) map[string][]string {
+	out := map[string][]string{}
+	for _, blocker := range family.Blockers {
+		if !strings.EqualFold(strings.TrimSpace(blocker.BlockerCode), string(translationcore.FamilyBlockerMissingField)) {
+			continue
+		}
+		locale := strings.ToLower(strings.TrimSpace(blocker.Locale))
+		field := strings.TrimSpace(blocker.FieldPath)
+		if locale == "" || field == "" {
+			continue
+		}
+		out[locale] = append(out[locale], field)
+	}
+	if len(out) == 0 {
+		return map[string][]string{}
+	}
+	for locale, fields := range out {
+		out[locale] = dedupeAndSortStrings(fields)
+	}
+	return out
 }
 
 func applyTranslationFamilyReadModelSummary(row map[string]any, family translationservices.FamilyRecord, readiness map[string]any) {
