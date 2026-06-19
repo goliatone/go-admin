@@ -24,6 +24,7 @@ const (
 	ContentTypeCapabilityKeyPermission      = "permission"
 	ContentTypeCapabilityKeyPermissions     = "permissions"
 	ContentTypeCapabilityKeySEO             = "seo"
+	ContentTypeCapabilityKeySearchContent   = "search_content_type"
 	ContentTypeCapabilityKeyTranslation     = "translation"
 	ContentTypeCapabilityKeyTranslations    = "translations"
 	ContentTypeCapabilityKeyTree            = "tree"
@@ -191,6 +192,7 @@ func normalizeContentTypeCapabilityString(key, value string) string {
 	switch canonicalContentTypeCapabilityKey(key) {
 	case ContentTypeCapabilityKeyPanelPreset,
 		ContentTypeCapabilityKeyPanelSlug,
+		ContentTypeCapabilityKeySearchContent,
 		ContentTypeCapabilityKeyWorkflow,
 		ContentTypeCapabilityKeyWorkflowID,
 		ContentTypeCapabilityKeyWorkflowKey:
