@@ -13,14 +13,18 @@ import (
 )
 
 type stubGoCMSAdminContentReadService struct {
-	listResp []cms.AdminContentRecord
-	getResp  *cms.AdminContentRecord
-	listOpts cms.AdminContentListOptions
-	getOpts  cms.AdminContentGetOptions
-	listErr  error
-	getErr   error
-	listCnt  int
-	getCnt   int
+	listResp   []cms.AdminContentRecord
+	familyResp cms.AdminContentFamilyListResult
+	getResp    *cms.AdminContentRecord
+	listOpts   cms.AdminContentListOptions
+	familyOpts cms.AdminContentFamilyListOptions
+	getOpts    cms.AdminContentGetOptions
+	listErr    error
+	familyErr  error
+	getErr     error
+	listCnt    int
+	familyCnt  int
+	getCnt     int
 }
 
 func mustGoCMSContentAdapter(t *testing.T, svc CMSContentService) *GoCMSContentAdapter {
@@ -39,6 +43,15 @@ func (s *stubGoCMSAdminContentReadService) List(_ context.Context, opts cms.Admi
 		return nil, 0, s.listErr
 	}
 	return append([]cms.AdminContentRecord{}, s.listResp...), len(s.listResp), nil
+}
+
+func (s *stubGoCMSAdminContentReadService) ListFamilies(_ context.Context, opts cms.AdminContentFamilyListOptions) (cms.AdminContentFamilyListResult, error) {
+	s.familyCnt++
+	s.familyOpts = opts
+	if s.familyErr != nil {
+		return cms.AdminContentFamilyListResult{}, s.familyErr
+	}
+	return s.familyResp, nil
 }
 
 func (s *stubGoCMSAdminContentReadService) Get(_ context.Context, _ string, opts cms.AdminContentGetOptions) (*cms.AdminContentRecord, error) {
@@ -248,6 +261,91 @@ func TestGoCMSContentAdapterContentsWithContentTypeIDUsesAdminReadScope(t *testi
 	}
 	if len(items) != 1 || items[0].ContentTypeSlug != "page" {
 		t.Fatalf("expected only page content from scoped admin read, got %+v", items)
+	}
+}
+
+func TestGoCMSContentAdapterListContentTypeRecordsNormalizesLocaleWildcard(t *testing.T) {
+	ctx := context.Background()
+	contentTypeID := uuid.New()
+	adminRead := &stubGoCMSAdminContentReadService{
+		listResp: []cms.AdminContentRecord{{
+			ID:              uuid.New(),
+			Slug:            "home",
+			Locale:          "en",
+			ContentType:     "page",
+			ContentTypeSlug: "page",
+			Status:          "draft",
+		}},
+	}
+	contentSvc := &stubGoCMSContentService{}
+	svc := newGoCMSContentAdapter(contentSvc, nil, nil, nil, adminRead, nil, nil, nil)
+	adapter := mustGoCMSContentAdapter(t, svc)
+
+	rows, total, err := adapter.ListContentTypeRecords(ctx, CMSContentType{ID: contentTypeID.String(), Slug: "page"}, ListOptions{
+		Page:    2,
+		PerPage: 10,
+		SortBy:  "slug",
+		Search:  "home",
+		Filters: map[string]any{
+			"locale": "all",
+			"status": "draft",
+		},
+	})
+	if err != nil {
+		t.Fatalf("list content type records: %v", err)
+	}
+	if adminRead.listCnt != 1 {
+		t.Fatalf("expected one admin read call, got %d", adminRead.listCnt)
+	}
+	if adminRead.listOpts.Locale != "" {
+		t.Fatalf("expected wildcard locale to be omitted, got %q", adminRead.listOpts.Locale)
+	}
+	if _, ok := adminRead.listOpts.Filters["locale"]; ok {
+		t.Fatalf("expected locale filter to be omitted, got %+v", adminRead.listOpts.Filters)
+	}
+	if got := toString(adminRead.listOpts.Filters["status"]); got != "draft" {
+		t.Fatalf("expected status filter to remain, got %q", got)
+	}
+	if total != 1 || len(rows) != 1 {
+		t.Fatalf("expected one row and total, got rows=%d total=%d", len(rows), total)
+	}
+}
+
+func TestGoCMSContentAdapterListContentTypeFamiliesNormalizesLocaleWildcard(t *testing.T) {
+	ctx := context.Background()
+	contentTypeID := uuid.New()
+	adminRead := &stubGoCMSAdminContentReadService{
+		familyResp: cms.AdminContentFamilyListResult{FamilyTotal: 42},
+	}
+	contentSvc := &stubGoCMSContentService{}
+	svc := newGoCMSContentAdapter(contentSvc, nil, nil, nil, adminRead, nil, nil, nil)
+	adapter := mustGoCMSContentAdapter(t, svc)
+
+	rows, total, err := adapter.ListContentTypeFamilies(ctx, CMSContentType{ID: contentTypeID.String(), Slug: "page"}, ListOptions{
+		Page:    2,
+		PerPage: 10,
+		Filters: map[string]any{
+			"locale": "all",
+			"status": "draft",
+		},
+	})
+	if err != nil {
+		t.Fatalf("list content type families: %v", err)
+	}
+	if adminRead.familyCnt != 1 {
+		t.Fatalf("expected one family read call, got %d", adminRead.familyCnt)
+	}
+	if adminRead.familyOpts.Locale != "" {
+		t.Fatalf("expected wildcard locale to be omitted, got %q", adminRead.familyOpts.Locale)
+	}
+	if _, ok := adminRead.familyOpts.Filters["locale"]; ok {
+		t.Fatalf("expected locale filter to be omitted, got %+v", adminRead.familyOpts.Filters)
+	}
+	if got := toString(adminRead.familyOpts.Filters["status"]); got != "draft" {
+		t.Fatalf("expected status filter to remain, got %q", got)
+	}
+	if total != 42 || len(rows) != 0 {
+		t.Fatalf("expected no rows and family total 42, got rows=%d total=%d", len(rows), total)
 	}
 }
 

@@ -524,6 +524,70 @@ func TestAdminContentReadServiceListForContentTypeUsesCountCapableSourceTotals(t
 	}
 }
 
+func TestAdminContentReadServiceListForContentTypeUsesCountCapableSourceForLocaleWildcard(t *testing.T) {
+	ctx := context.Background()
+	allRows := make([]map[string]any, 0, 30)
+	cappedRows := make([]CMSContent, 0, 25)
+	for i := 0; i < 30; i++ {
+		id := fmt.Sprintf("archive-event-%02d", i)
+		row := map[string]any{
+			"id":                id,
+			"title":             fmt.Sprintf("Archive Event %02d", i),
+			"slug":              id,
+			"status":            "draft",
+			"locale":            "en",
+			"content_type":      "archive_event",
+			"content_type_slug": "archive_event",
+		}
+		allRows = append(allRows, row)
+		if i < 25 {
+			cappedRows = append(cappedRows, CMSContent{
+				ID:              id,
+				Title:           fmt.Sprintf("Archive Event %02d", i),
+				Slug:            id,
+				Status:          "draft",
+				Locale:          "en",
+				ContentType:     "archive_event",
+				ContentTypeSlug: "archive_event",
+			})
+		}
+	}
+	source := &countCapableContentTypeSourceStub{
+		siteAPIContentServiceStub: siteAPIContentServiceStub{byLocale: map[string][]CMSContent{"en": cappedRows}},
+		rows:                      allRows,
+	}
+	service := newAdminContentReadService(source)
+
+	rows, total, err := service.ListForContentType(ctx, CMSContentType{
+		ID:   "ct-archive-event",
+		Slug: "archive_event",
+		Capabilities: map[string]any{
+			"panel_slug":          "archive_event",
+			"search_content_type": "archive_event",
+		},
+	}, ListOptions{
+		Page:    2,
+		PerPage: 10,
+		SortBy:  "id",
+		Filters: map[string]any{"locale": "all"},
+	})
+	if err != nil {
+		t.Fatalf("list content type: %v", err)
+	}
+	if source.calls != 1 {
+		t.Fatalf("expected count-capable source to be used once, got %d calls", source.calls)
+	}
+	if total != 30 {
+		t.Fatalf("expected uncapped total 30, got %d", total)
+	}
+	if len(rows) != 10 {
+		t.Fatalf("expected page size 10, got %d", len(rows))
+	}
+	if got := toString(rows[0]["id"]); got != "archive-event-10" {
+		t.Fatalf("expected second page to start at archive-event-10, got %q", got)
+	}
+}
+
 func TestCMSContentRepositoryDelegatesReadPathToAdminContentReadService(t *testing.T) {
 	ctx := context.Background()
 	expectedList := []map[string]any{{"id": "content-1"}}
