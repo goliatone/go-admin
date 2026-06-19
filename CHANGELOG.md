@@ -1,15 +1,25 @@
 # Changelog
 
+# [0.103.0](https://github.com/goliatone/go-admin/compare/v0.102.0...v0.103.0) - (2026-06-19)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update deps ([d0a5ff0](https://github.com/goliatone/go-admin/commit/d0a5ff024189078dd2fdd1ab87007fb64d4db428))  - (goliatone)
+- Update tests ([43ad9e2](https://github.com/goliatone/go-admin/commit/43ad9e279ab21a2e16bf6b692cfef3e352d3ba07))  - (goliatone)
+
 # [0.102.0](https://github.com/goliatone/go-admin/compare/v0.101.0...v0.102.0) - (2026-06-19)
 
 ## <!-- 1 -->🐛 Bug Fixes
 
-- Use count-capable CMS content lists ([f5812c9](https://github.com/goliatone/go-admin/commit/f5812c9a))  - (goliatone)
+- Use count-capable CMS content lists ([f5812c9](https://github.com/goliatone/go-admin/commit/f5812c9a0835e3456a9234d00a3e00b225dae89f))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.102.0 ([79ff2e5](https://github.com/goliatone/go-admin/commit/79ff2e51204ab8034792731b463e40a67bfd8a0f))  - (goliatone)
 
 ## <!-- 7 -->⚙️ Miscellaneous Tasks
 
-- Update tests ([21ae447](https://github.com/goliatone/go-admin/commit/21ae447b))  - (goliatone)
-- Update tests ([3087c9e](https://github.com/goliatone/go-admin/commit/3087c9ee))  - (goliatone)
+- Update tests ([21ae447](https://github.com/goliatone/go-admin/commit/21ae447b7c3ec0243d81eff0c5d2629d9297a55b))  - (goliatone)
 
 # [0.101.0](https://github.com/goliatone/go-admin/compare/v0.100.3...v0.101.0) - (2026-06-19)
 
@@ -18,6 +28,10 @@
 - Code quality ([2f7eb2a](https://github.com/goliatone/go-admin/commit/2f7eb2a8b50ad2d042f41f9032b9da2fa628a664))  - (goliatone)
 - Use const instead of strings for field names ([d2c0237](https://github.com/goliatone/go-admin/commit/d2c0237c47727f3012b64c06869ec61382620818))  - (goliatone)
 - Query names ([46cefd2](https://github.com/goliatone/go-admin/commit/46cefd28378197e67996b91ef57c1716246b2dd2))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.101.0 ([f2cb3af](https://github.com/goliatone/go-admin/commit/f2cb3af758db9df951658f6318d2ccb6baff916c))  - (goliatone)
 
 ## <!-- 2 -->🚜 Refactor
 
@@ -4171,4 +4185,5 @@
 - Example templates ([74d23ed](https://github.com/goliatone/go-admin/commit/74d23ed807d5e312e8a61e009d19ad46d1632b5c))  - (goliatone)
 - Example update ([ff16170](https://github.com/goliatone/go-admin/commit/ff16170e3c7fdf46121bd546f3f6cd43f1dcdadc))  - (goliatone)
 - Initial commit ([2197564](https://github.com/goliatone/go-admin/commit/2197564725b64c8ef15d034763ee283ee95ac4ba))  - (goliatone)
+
 
