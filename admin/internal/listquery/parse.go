@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/goliatone/go-admin/admin/internal/adminkeys"
 	"github.com/goliatone/go-admin/internal/primitives"
 	router "github.com/goliatone/go-router"
 )
@@ -46,7 +47,7 @@ func ParseContext(c router.Context, defaultPage, defaultPerPage int) Result {
 	page, perPage := resolvePagination(c, defaultPage, defaultPerPage)
 	sortBy, sortDesc := resolveSort(c)
 	search := resolveSearch(c)
-	fields := ValuesFromAny(c.Query("fields"))
+	fields := ValuesFromAny(c.Query(adminkeys.QueryFields))
 	filters := parseFilterQueries(c)
 	predicates := PredicatesFromFilters(filters)
 	return Result{
@@ -62,13 +63,13 @@ func ParseContext(c router.Context, defaultPage, defaultPerPage int) Result {
 }
 
 func resolvePagination(c router.Context, defaultPage, defaultPerPage int) (int, int) {
-	page := AtoiDefault(c.Query("page"), 0)
-	perPage := AtoiDefault(c.Query("per_page"), 0)
+	page := AtoiDefault(c.Query(adminkeys.QueryPage), 0)
+	perPage := AtoiDefault(c.Query(adminkeys.QueryPerPage), 0)
 	if perPage <= 0 {
-		perPage = AtoiDefault(c.Query("limit"), 0)
+		perPage = AtoiDefault(c.Query(adminkeys.QueryLimit), 0)
 	}
 	if page <= 0 && perPage > 0 {
-		offset := AtoiDefault(c.Query("offset"), 0)
+		offset := AtoiDefault(c.Query(adminkeys.QueryOffset), 0)
 		page = (offset / perPage) + 1
 	}
 	if page <= 0 {
@@ -81,20 +82,24 @@ func resolvePagination(c router.Context, defaultPage, defaultPerPage int) (int, 
 }
 
 func resolveSearch(c router.Context) string {
-	search := strings.TrimSpace(c.Query("search"))
+	search := strings.TrimSpace(c.Query(adminkeys.QuerySearch))
 	if search != "" {
 		return search
 	}
-	return strings.TrimSpace(c.Query("q"))
+	return strings.TrimSpace(c.Query(adminkeys.QueryQ))
 }
 
 func resolveSort(c router.Context) (string, bool) {
-	sortBy := strings.TrimSpace(c.Query("sort"))
-	sortDesc := strings.EqualFold(strings.TrimSpace(c.Query("sort_desc")), "true")
+	sortBy := strings.TrimSpace(c.Query(adminkeys.QuerySort))
+	sortDesc := strings.EqualFold(strings.TrimSpace(c.Query(adminkeys.QuerySortDesc)), "true")
 	if sortBy != "" {
 		return sortBy, sortDesc
 	}
-	order := strings.TrimSpace(c.Query("order"))
+	sortBy = strings.TrimSpace(c.Query(adminkeys.QuerySortBy))
+	if sortBy != "" {
+		return sortBy, sortDesc
+	}
+	order := strings.TrimSpace(c.Query(adminkeys.QueryOrder))
 	if order == "" {
 		return "", sortDesc
 	}
@@ -122,9 +127,9 @@ func parseFilterQueries(c router.Context) map[string]any {
 		}
 		filters[targetKey] = value
 	}
-	if _, ok := filters["environment"]; !ok {
-		if env := strings.TrimSpace(primitives.FirstNonEmptyRaw(c.Query("env"), c.Query("environment"))); env != "" {
-			filters["environment"] = env
+	if _, ok := filters[adminkeys.KeyEnvironment]; !ok {
+		if env := strings.TrimSpace(primitives.FirstNonEmptyRaw(c.Query(adminkeys.KeyEnv), c.Query(adminkeys.KeyEnvironment))); env != "" {
+			filters[adminkeys.KeyEnvironment] = env
 		}
 	}
 	return filters
@@ -150,31 +155,32 @@ func normalizeFilterQueryKey(key, value string) (string, bool) {
 
 func reservedQueryKeys() map[string]struct{} {
 	return map[string]struct{}{
-		"page":                  {},
-		"per_page":              {},
-		"sort":                  {},
-		"sort_desc":             {},
-		"search":                {},
-		"q":                     {},
-		"limit":                 {},
-		"offset":                {},
-		"order":                 {},
-		"fields":                {},
-		"state":                 {},
-		"advanced_search":       {},
-		"hidden_columns":        {},
-		"view_mode":             {},
-		"expanded_groups":       {},
-		"$channel":              {},
-		"content_channel":       {},
-		"site_content_channel":  {},
-		"env":                   {},
-		"environment":           {},
-		"locale":                {},
-		"include_drafts":        {},
-		"include_contributions": {},
-		"preview_token":         {},
-		"view_profile":          {},
+		adminkeys.QueryPage:                 {},
+		adminkeys.QueryPerPage:              {},
+		adminkeys.QuerySort:                 {},
+		adminkeys.QuerySortBy:               {},
+		adminkeys.QuerySortDesc:             {},
+		adminkeys.QuerySearch:               {},
+		adminkeys.QueryQ:                    {},
+		adminkeys.QueryLimit:                {},
+		adminkeys.QueryOffset:               {},
+		adminkeys.QueryOrder:                {},
+		adminkeys.QueryFields:               {},
+		adminkeys.QueryState:                {},
+		adminkeys.QueryAdvancedSearch:       {},
+		adminkeys.QueryHiddenColumns:        {},
+		adminkeys.QueryViewMode:             {},
+		adminkeys.QueryExpandedGroups:       {},
+		adminkeys.KeyChannelScope:           {},
+		adminkeys.KeyContentChannel:         {},
+		adminkeys.KeySiteContentChannel:     {},
+		adminkeys.KeyEnv:                    {},
+		adminkeys.KeyEnvironment:            {},
+		adminkeys.KeyLocale:                 {},
+		adminkeys.QueryIncludeDrafts:        {},
+		adminkeys.QueryIncludeContributions: {},
+		adminkeys.QueryPreviewToken:         {},
+		adminkeys.QueryViewProfile:          {},
 	}
 }
 

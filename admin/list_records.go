@@ -6,29 +6,33 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/goliatone/go-admin/admin/internal/adminkeys"
 )
 
 var reservedListPredicateFields = map[string]struct{}{
-	"_search":                     {},
-	"search":                      {},
-	ContentChannelScopeQueryParam: {},
-	"content_channel":             {},
-	"site_content_channel":        {},
-	"environment":                 {},
-	"env":                         {},
-	"page":                        {},
-	"per_page":                    {},
-	"limit":                       {},
-	"offset":                      {},
-	"order":                       {},
-	"fields":                      {},
-	"state":                       {},
-	"advanced_search":             {},
-	"hidden_columns":              {},
-	"view_mode":                   {},
-	"expanded_groups":             {},
-	"sort":                        {},
-	"sort_desc":                   {},
+	"_search":                       {},
+	adminkeys.QuerySearch:           {},
+	adminkeys.QueryQ:                {},
+	adminkeys.KeyChannelScope:       {},
+	adminkeys.KeyContentChannel:     {},
+	adminkeys.KeySiteContentChannel: {},
+	adminkeys.KeyEnvironment:        {},
+	adminkeys.KeyEnv:                {},
+	adminkeys.QueryPage:             {},
+	adminkeys.QueryPerPage:          {},
+	adminkeys.QueryLimit:            {},
+	adminkeys.QueryOffset:           {},
+	adminkeys.QueryOrder:            {},
+	adminkeys.QueryFields:           {},
+	adminkeys.QueryState:            {},
+	adminkeys.QueryAdvancedSearch:   {},
+	adminkeys.QueryHiddenColumns:    {},
+	adminkeys.QueryViewMode:         {},
+	adminkeys.QueryExpandedGroups:   {},
+	adminkeys.QuerySort:             {},
+	adminkeys.QuerySortBy:           {},
+	adminkeys.QuerySortDesc:         {},
 }
 
 type listRecordPredicateMatcher func(record map[string]any, predicate ListPredicate) (matched bool, handled bool)

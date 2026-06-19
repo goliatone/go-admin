@@ -3,6 +3,7 @@ package boot
 import (
 	"strings"
 
+	"github.com/goliatone/go-admin/admin/internal/adminkeys"
 	goerrors "github.com/goliatone/go-errors"
 	router "github.com/goliatone/go-router"
 )
@@ -89,7 +90,7 @@ func panelRoutes(ctx BootCtx, responder Responder, panelLookup panelBindingLooku
 }
 
 func panelLocale(ctx BootCtx, c router.Context) string {
-	locale := c.Query("locale")
+	locale := c.Query(adminkeys.KeyLocale)
 	if locale == "" {
 		locale = ctx.DefaultLocale()
 	}
@@ -224,7 +225,7 @@ func panelDeleteBaseRoute(ctx BootCtx, responder Responder, panelLookup panelBin
 			if err != nil {
 				return responder.WriteError(c, err)
 			}
-			id := c.Query("id")
+			id := c.Query(adminkeys.KeyID)
 			if id == "" {
 				id = c.Param("id", "")
 			}
@@ -425,28 +426,28 @@ func mergeActionContextFromRequest(c router.Context, body map[string]any, routeL
 	if body == nil {
 		body = map[string]any{}
 	}
-	if strings.TrimSpace(toStringAny(body["locale"])) == "" {
-		if locale := strings.TrimSpace(c.Query("locale")); locale != "" {
-			body["locale"] = locale
+	if strings.TrimSpace(toStringAny(body[adminkeys.KeyLocale])) == "" {
+		if locale := strings.TrimSpace(c.Query(adminkeys.KeyLocale)); locale != "" {
+			body[adminkeys.KeyLocale] = locale
 		} else if locale := strings.TrimSpace(routeLocale); locale != "" {
-			body["locale"] = locale
+			body[adminkeys.KeyLocale] = locale
 		}
 	}
-	if strings.TrimSpace(toStringAny(body["channel"])) == "" {
-		if channel := strings.TrimSpace(c.Query("channel")); channel != "" {
-			body["channel"] = channel
+	if strings.TrimSpace(toStringAny(body[adminkeys.KeyChannel])) == "" {
+		if channel := strings.TrimSpace(c.Query(adminkeys.KeyChannel)); channel != "" {
+			body[adminkeys.KeyChannel] = channel
 		}
 	}
-	if strings.TrimSpace(toStringAny(body["environment"])) == "" && strings.TrimSpace(toStringAny(body["env"])) == "" {
-		if environment := strings.TrimSpace(c.Query("environment")); environment != "" {
-			body["environment"] = environment
-		} else if environment := strings.TrimSpace(c.Query("env")); environment != "" {
-			body["environment"] = environment
+	if strings.TrimSpace(toStringAny(body[adminkeys.KeyEnvironment])) == "" && strings.TrimSpace(toStringAny(body[adminkeys.KeyEnv])) == "" {
+		if environment := strings.TrimSpace(c.Query(adminkeys.KeyEnvironment)); environment != "" {
+			body[adminkeys.KeyEnvironment] = environment
+		} else if environment := strings.TrimSpace(c.Query(adminkeys.KeyEnv)); environment != "" {
+			body[adminkeys.KeyEnvironment] = environment
 		}
 	}
-	if strings.TrimSpace(toStringAny(body["policy_entity"])) == "" && strings.TrimSpace(toStringAny(body["policyEntity"])) == "" {
-		if policyEntity := strings.TrimSpace(c.Query("policy_entity")); policyEntity != "" {
-			body["policy_entity"] = policyEntity
+	if strings.TrimSpace(toStringAny(body[adminkeys.KeyPolicyEntity])) == "" && strings.TrimSpace(toStringAny(body["policyEntity"])) == "" {
+		if policyEntity := strings.TrimSpace(c.Query(adminkeys.KeyPolicyEntity)); policyEntity != "" {
+			body[adminkeys.KeyPolicyEntity] = policyEntity
 		}
 	}
 	return body

@@ -4,6 +4,7 @@ import (
 	"context"
 	"strings"
 
+	"github.com/goliatone/go-admin/admin/internal/adminkeys"
 	"github.com/goliatone/go-admin/internal/primitives"
 	auth "github.com/goliatone/go-auth"
 	i18n "github.com/goliatone/go-i18n"
@@ -160,11 +161,11 @@ func resolveContentChannelFromRouter(c router.Context) string {
 		return ""
 	}
 	candidates := []string{
-		c.Query(ContentChannelScopeQueryParam),
-		c.Query("channel"),
-		c.Query("content_channel"),
-		c.Header("X-Admin-Channel"),
-		c.Header("X-Content-Channel"),
+		c.Query(adminkeys.KeyChannelScope),
+		c.Query(adminkeys.KeyChannel),
+		c.Query(adminkeys.KeyContentChannel),
+		c.Header(adminkeys.HeaderAdminChannel),
+		c.Header(adminkeys.HeaderContentChannel),
 		c.Cookies("admin_channel"),
 	}
 	for _, candidate := range candidates {
@@ -180,10 +181,10 @@ func resolveAdminLocaleFromRouter(c router.Context, fallback string, activeLocal
 	if c == nil {
 		return fallback
 	}
-	if requested := i18n.NormalizeLocale(c.Query("locale")); requested != "" {
+	if requested := i18n.NormalizeLocale(c.Query(adminkeys.KeyLocale)); requested != "" {
 		return requested
 	}
-	if requested := i18n.NormalizeLocale(c.Query("requested_locale")); requested != "" {
+	if requested := i18n.NormalizeLocale(c.Query(adminkeys.KeyRequestedLocale)); requested != "" {
 		return requested
 	}
 	contextLocale := i18n.NormalizeLocale(localeFromContext(c.Context()))
@@ -191,7 +192,7 @@ func resolveAdminLocaleFromRouter(c router.Context, fallback string, activeLocal
 	if len(headerCandidates) == 0 {
 		headerCandidates = normalizeLocaleCandidates(contextLocale, fallback)
 	}
-	headerLocale := resolveAcceptLanguageLocale(c.Header("Accept-Language"), headerCandidates...)
+	headerLocale := resolveAcceptLanguageLocale(c.Header(adminkeys.HeaderAcceptLanguage), headerCandidates...)
 	if headerLocale != "" {
 		return headerLocale
 	}
@@ -261,14 +262,14 @@ func newAdminRequestMetadata(c router.Context) adminRequestMetadata {
 		return adminRequestMetadata{}
 	}
 	meta := adminRequestMetadata{
-		requestID: strings.TrimSpace(primitives.FirstNonEmptyRaw(c.Header("X-Request-ID"), c.Header("X-Request-Id"), c.Header("x-request-id"))),
+		requestID: strings.TrimSpace(primitives.FirstNonEmptyRaw(c.Header(adminkeys.HeaderRequestID), c.Header("X-Request-Id"), c.Header("x-request-id"))),
 		correlationID: strings.TrimSpace(primitives.FirstNonEmptyRaw(
-			c.Header("X-Correlation-ID"),
+			c.Header(adminkeys.HeaderCorrelationID),
 			c.Header("X-Correlation-Id"),
 			c.Header("x-correlation-id"),
 		)),
 		traceID: strings.TrimSpace(primitives.FirstNonEmptyRaw(
-			c.Header("X-Trace-ID"),
+			c.Header(adminkeys.HeaderTraceID),
 			c.Header("X-Trace-Id"),
 			c.Header("x-trace-id"),
 			c.Header("traceparent"),
@@ -276,13 +277,13 @@ func newAdminRequestMetadata(c router.Context) adminRequestMetadata {
 		requestIP: strings.TrimSpace(c.IP()),
 	}
 	if meta.requestID == "" {
-		meta.requestID = strings.TrimSpace(c.Query("request_id"))
+		meta.requestID = strings.TrimSpace(c.Query(adminkeys.KeyRequestID))
 	}
 	if meta.correlationID == "" {
-		meta.correlationID = strings.TrimSpace(c.Query("correlation_id"))
+		meta.correlationID = strings.TrimSpace(c.Query(adminkeys.KeyCorrelationID))
 	}
 	if meta.traceID == "" {
-		meta.traceID = strings.TrimSpace(primitives.FirstNonEmptyRaw(c.Query("trace_id"), meta.correlationID))
+		meta.traceID = strings.TrimSpace(primitives.FirstNonEmptyRaw(c.Query(adminkeys.KeyTraceID), meta.correlationID))
 	}
 	return meta
 }
@@ -296,7 +297,7 @@ type adminRouterIdentity struct {
 
 func newAdminRouterIdentity(c router.Context, ctx context.Context) adminRouterIdentity {
 	identity := adminRouterIdentity{
-		userID:   strings.TrimSpace(c.Header("X-User-ID")),
+		userID:   strings.TrimSpace(c.Header(adminkeys.HeaderUserID)),
 		tenantID: strings.TrimSpace(c.Query(ScopeTenantIDKey)),
 		orgID:    strings.TrimSpace(c.Query(ScopeOrgIDKey)),
 		actor:    actorFromRouterOrClaims(c, ctx),

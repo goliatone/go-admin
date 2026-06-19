@@ -4,11 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/goliatone/go-admin/internal/primitives"
 	"sort"
 	"strings"
 	"time"
 
+	"github.com/goliatone/go-admin/admin/internal/adminkeys"
+	"github.com/goliatone/go-admin/internal/primitives"
 	router "github.com/goliatone/go-router"
 )
 
@@ -724,19 +725,19 @@ func mergePanelActionContext(body map[string]any, locale string, values ...strin
 		queryPolicyEntity = strings.TrimSpace(values[4])
 	}
 
-	if strings.TrimSpace(toString(body["locale"])) == "" {
+	if strings.TrimSpace(toString(body[adminkeys.KeyLocale])) == "" {
 		switch {
 		case queryLocale != "":
-			body["locale"] = queryLocale
+			body[adminkeys.KeyLocale] = queryLocale
 		case strings.TrimSpace(locale) != "":
-			body["locale"] = strings.TrimSpace(locale)
+			body[adminkeys.KeyLocale] = strings.TrimSpace(locale)
 		}
 	}
-	if strings.TrimSpace(toString(body["channel"])) == "" && queryChannel != "" {
-		body["channel"] = queryChannel
+	if strings.TrimSpace(toString(body[adminkeys.KeyChannel])) == "" && queryChannel != "" {
+		body[adminkeys.KeyChannel] = queryChannel
 	}
-	if strings.TrimSpace(toString(body["policy_entity"])) == "" && queryPolicyEntity != "" {
-		body["policy_entity"] = queryPolicyEntity
+	if strings.TrimSpace(toString(body[adminkeys.KeyPolicyEntity])) == "" && queryPolicyEntity != "" {
+		body[adminkeys.KeyPolicyEntity] = queryPolicyEntity
 	}
 	return normalizeActionPayloadMap(body)
 }
@@ -774,26 +775,26 @@ func resolvePrimaryActionID(body map[string]any, ids []string) string {
 	if len(body) == 0 {
 		return firstNonEmptyActionID(ids)
 	}
-	if id := strings.TrimSpace(toString(body["id"])); id != "" {
+	if id := strings.TrimSpace(toString(body[adminkeys.KeyID])); id != "" {
 		return id
 	}
-	if id := strings.TrimSpace(toString(extractMap(body["record"])["id"])); id != "" {
+	if id := strings.TrimSpace(toString(extractMap(body[adminkeys.KeyRecord])[adminkeys.KeyID])); id != "" {
 		return id
 	}
-	if id := selectionActionID(extractMap(body["selection"])); id != "" {
+	if id := selectionActionID(extractMap(body[adminkeys.KeySelection])); id != "" {
 		return id
 	}
-	if id := firstNonEmptyActionID(toStringSlice(body["ids"])); id != "" {
+	if id := firstNonEmptyActionID(toStringSlice(body[adminkeys.KeyIDs])); id != "" {
 		return id
 	}
 	return firstNonEmptyActionID(ids)
 }
 
 func selectionActionID(selection map[string]any) string {
-	if id := strings.TrimSpace(toString(selection["id"])); id != "" {
+	if id := strings.TrimSpace(toString(selection[adminkeys.KeyID])); id != "" {
 		return id
 	}
-	return firstNonEmptyActionID(toStringSlice(selection["ids"]))
+	return firstNonEmptyActionID(toStringSlice(selection[adminkeys.KeyIDs]))
 }
 
 func firstNonEmptyActionID(ids []string) string {
@@ -984,9 +985,9 @@ func (p *panelBinding) recordBlockedTransition(ctx AdminContext, entityID, trans
 
 func (p *panelBinding) Bulk(c router.Context, locale, action string, body map[string]any) (map[string]any, error) {
 	ctx := p.admin.adminContextFromRequest(c, locale)
-	body = mergePanelActionContext(body, locale, c.Query("locale"), c.Query("channel"), "", c.Query("policy_entity"))
+	body = mergePanelActionContext(body, locale, c.Query(adminkeys.KeyLocale), c.Query(adminkeys.KeyChannel), "", c.Query(adminkeys.KeyPolicyEntity))
 	body = mergePanelActionActorContext(body, ctx)
-	ids := parseCommandIDs(body, c.Query("id"), c.Query("ids"))
+	ids := parseCommandIDs(body, c.Query(adminkeys.KeyID), c.Query(adminkeys.KeyIDs))
 	if isBulkCreateMissingTranslationsAction(action) {
 		return p.bulkCreateMissingTranslations(c, ctx, locale, body, ids)
 	}

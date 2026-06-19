@@ -6,6 +6,7 @@ import (
 	"maps"
 	"strings"
 
+	"github.com/goliatone/go-admin/admin/internal/adminkeys"
 	"github.com/goliatone/go-admin/internal/primitives"
 	router "github.com/goliatone/go-router"
 )
@@ -63,17 +64,18 @@ func (p *panelBinding) panelBulkActionStatePath() string {
 
 func (p *panelBinding) BulkActionState(c router.Context, locale string, body map[string]any) (map[string]any, error) {
 	ctx := p.admin.adminContextFromRequest(c, locale)
-	body = mergePanelActionContext(body, locale, c.Query("locale"), c.Query("channel"), "", c.Query("policy_entity"))
+	body = mergePanelActionContext(body, locale, c.Query(adminkeys.KeyLocale), c.Query(adminkeys.KeyChannel), "", c.Query(adminkeys.KeyPolicyEntity))
 	body = mergePanelActionActorContext(body, ctx)
 	actions := filterActionsForScope(p.panel.Schema().BulkActions, ActionScopeBulk)
-	states, err := p.selectionAwareBulkActionStates(ctx, actions, parseCommandIDs(body, c.Query("id"), c.Query("ids")), parseListOptions(c))
+	ids := parseCommandIDs(body, c.Query(adminkeys.KeyID), c.Query(adminkeys.KeyIDs))
+	states, err := p.selectionAwareBulkActionStates(ctx, actions, ids, parseListOptions(c))
 	if err != nil {
 		return nil, err
 	}
 	return map[string]any{
 		"bulk_action_state": actionStatePayloadMap(states),
 		"selection": map[string]any{
-			"count": len(parseCommandIDs(body, c.Query("id"), c.Query("ids"))),
+			"count": len(ids),
 		},
 	}, nil
 }

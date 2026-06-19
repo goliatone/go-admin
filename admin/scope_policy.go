@@ -4,6 +4,7 @@ import (
 	"context"
 	"strings"
 
+	"github.com/goliatone/go-admin/admin/internal/adminkeys"
 	auth "github.com/goliatone/go-auth"
 	router "github.com/goliatone/go-router"
 )
@@ -19,12 +20,12 @@ const (
 const (
 	// ScopeTenantIDKey and ScopeOrgIDKey are the canonical tenant/org keys used
 	// in scope metadata maps, request filters, and Bun column references.
-	ScopeTenantIDKey = "tenant_id"
-	ScopeOrgIDKey    = "org_id"
+	ScopeTenantIDKey = adminkeys.KeyTenantID
+	ScopeOrgIDKey    = adminkeys.KeyOrgID
 
 	ScopeTenantKey          = "tenant"
 	ScopeOrgKey             = "org"
-	ScopeOrganizationIDKey  = "organization_id"
+	ScopeOrganizationIDKey  = adminkeys.KeyOrganizationID
 	ScopeDefaultTenantKey   = "default_tenant"
 	ScopeDefaultTenantIDKey = "default_tenant_id"
 	ScopeDefaultOrgIDKey    = "default_org_id"

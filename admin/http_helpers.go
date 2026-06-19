@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/goliatone/go-admin/admin/internal/adminkeys"
 	"github.com/goliatone/go-admin/admin/internal/listquery"
 	goerrors "github.com/goliatone/go-errors"
 	router "github.com/goliatone/go-router"
@@ -59,15 +60,15 @@ func parseCommandIDs(body map[string]any, queryID string, queryIDs string) []str
 	ids = append(ids, splitIDs(queryIDs)...)
 
 	if len(body) > 0 {
-		ids = append(ids, toString(body["id"]))
-		ids = append(ids, toStringSlice(body["ids"])...)
+		ids = append(ids, toString(body[adminkeys.KeyID]))
+		ids = append(ids, toStringSlice(body[adminkeys.KeyIDs])...)
 
-		if selection := extractMap(body["selection"]); len(selection) > 0 {
-			ids = append(ids, toString(selection["id"]))
-			ids = append(ids, toStringSlice(selection["ids"])...)
+		if selection := extractMap(body[adminkeys.KeySelection]); len(selection) > 0 {
+			ids = append(ids, toString(selection[adminkeys.KeyID]))
+			ids = append(ids, toStringSlice(selection[adminkeys.KeyIDs])...)
 		}
-		if record := extractMap(body["record"]); len(record) > 0 {
-			ids = append(ids, toString(record["id"]))
+		if record := extractMap(body[adminkeys.KeyRecord]); len(record) > 0 {
+			ids = append(ids, toString(record[adminkeys.KeyID]))
 		}
 	}
 

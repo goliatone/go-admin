@@ -6,6 +6,8 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+
+	"github.com/goliatone/go-admin/admin/internal/adminkeys"
 	translationqueue "github.com/goliatone/go-admin/admin/internal/translationqueue"
 	"github.com/goliatone/go-admin/internal/primitives"
 	goerrors "github.com/goliatone/go-errors"
@@ -87,11 +89,11 @@ type translationQueueGroupingRequest struct {
 }
 
 func translationQueueGroupingFromRequest(c router.Context) (translationQueueGroupingRequest, error) {
-	groupBy := strings.TrimSpace(strings.ToLower(c.Query("group_by")))
+	groupBy := strings.TrimSpace(strings.ToLower(c.Query(adminkeys.QueryGroupBy)))
 	if groupBy == "" {
 		return translationQueueGroupingRequest{}, nil
 	}
-	strategy := strings.TrimSpace(strings.ToLower(c.Query("group_strategy")))
+	strategy := strings.TrimSpace(strings.ToLower(c.Query(adminkeys.QueryGroupStrategy)))
 	if strategy == "" {
 		strategy = "page_local"
 	}
@@ -103,22 +105,22 @@ func translationQueueGroupingFromRequest(c router.Context) (translationQueueGrou
 				Enabled:      true,
 				Mode:         "family_id",
 				Strategy:     strategy,
-				ExplicitSort: strings.TrimSpace(firstNonEmpty(c.Query("sort"), c.Query("sort_by"))) != "",
+				ExplicitSort: strings.TrimSpace(firstNonEmpty(c.Query(adminkeys.QuerySort), c.Query(adminkeys.QuerySortBy))) != "",
 			}, nil
 		default:
 			return translationQueueGroupingRequest{}, validationDomainError("unsupported assignment queue grouping strategy", map[string]any{
-				"field":          "group_strategy",
-				"group_by":       groupBy,
-				"group_strategy": strategy,
-				"supported":      []string{"page_local", "server_family"},
-				"reason_code":    "group_strategy_unsupported",
+				"field":                      adminkeys.QueryGroupStrategy,
+				adminkeys.QueryGroupBy:       groupBy,
+				adminkeys.QueryGroupStrategy: strategy,
+				"supported":                  []string{"page_local", "server_family"},
+				"reason_code":                "group_strategy_unsupported",
 			})
 		}
 	default:
 		return translationQueueGroupingRequest{}, validationDomainError("unsupported assignment queue grouping", map[string]any{
-			"field":     "group_by",
-			"group_by":  groupBy,
-			"supported": []string{"family_id"},
+			"field":                adminkeys.QueryGroupBy,
+			adminkeys.QueryGroupBy: groupBy,
+			"supported":            []string{"family_id"},
 		})
 	}
 }
@@ -157,8 +159,8 @@ func (b *translationQueueBinding) Assignments(c router.Context) (payload any, er
 	obsCtx = adminCtx.Context
 	actorID := strings.TrimSpace(primitives.FirstNonEmptyRaw(adminCtx.UserID, actorFromContext(adminCtx.Context)))
 
-	page := clampInt(atoiDefault(c.Query("page"), 1), 1, 10_000)
-	perPage := clampInt(atoiDefault(c.Query("per_page"), 50), 1, 200)
+	page := clampInt(atoiDefault(c.Query(adminkeys.QueryPage), 1), 1, 10_000)
+	perPage := clampInt(atoiDefault(c.Query(adminkeys.QueryPerPage), 50), 1, 200)
 	filter := b.assignmentFilterFromRequest(adminCtx, c)
 	channel := translationChannelFromRequest(c, adminCtx, nil)
 	grouping, err := translationQueueGroupingFromRequest(c)
@@ -166,7 +168,7 @@ func (b *translationQueueBinding) Assignments(c router.Context) (payload any, er
 		return nil, err
 	}
 	if grouping.Strategy == "server_family" {
-		return b.serverFamilyAssignmentGroups(adminCtx, repo, filter, page, clampInt(atoiDefault(c.Query("per_page"), 25), 1, 100), channel, now, grouping)
+		return b.serverFamilyAssignmentGroups(adminCtx, repo, filter, page, clampInt(atoiDefault(c.Query(adminkeys.QueryPerPage), 25), 1, 100), channel, now, grouping)
 	}
 	assignments, total, optimizedPage, err := b.assignmentPage(adminCtx.Context, repo, filter, page, perPage, channel, now)
 	if err != nil {
@@ -316,9 +318,9 @@ func (b *translationQueueBinding) serverFamilyAssignmentGroups(adminCtx AdminCon
 	store, ok := repo.(TranslationAssignmentFamilyGroupingStore)
 	if !ok || store == nil {
 		return nil, translationQueueGroupingUnsupportedError("grouped_query_unsupported", "server-side family grouping is not supported for this repository", map[string]any{
-			"field":          "group_strategy",
-			"group_strategy": "server_family",
-			"fallback_modes": []string{"flat", "page_local_family"},
+			"field":                      adminkeys.QueryGroupStrategy,
+			adminkeys.QueryGroupStrategy: "server_family",
+			"fallback_modes":             []string{"flat", "page_local_family"},
 		})
 	}
 	result, err := store.ListAssignmentFamilyGroups(adminCtx.Context, TranslationAssignmentFamilyGroupQueryInput{
@@ -378,12 +380,12 @@ func (b *translationQueueBinding) FamilyAssignments(c router.Context, familyID s
 	store, ok := repo.(TranslationAssignmentFamilyGroupingStore)
 	if !ok || store == nil {
 		return nil, translationQueueGroupingUnsupportedError("grouped_query_unsupported", "server-side family assignment expansion is not supported for this repository", map[string]any{
-			"field":          "group_strategy",
-			"group_strategy": "server_family",
+			"field":                      adminkeys.QueryGroupStrategy,
+			adminkeys.QueryGroupStrategy: "server_family",
 		})
 	}
-	page := clampInt(atoiDefault(c.Query("page"), 1), 1, 10_000)
-	perPage := clampInt(atoiDefault(c.Query("per_page"), 25), 1, 100)
+	page := clampInt(atoiDefault(c.Query(adminkeys.QueryPage), 1), 1, 10_000)
+	perPage := clampInt(atoiDefault(c.Query(adminkeys.QueryPerPage), 25), 1, 100)
 	filter := b.assignmentFilterFromRequest(adminCtx, c)
 	channel := translationChannelFromRequest(c, adminCtx, nil)
 	result, err := store.ListFamilyAssignments(adminCtx.Context, TranslationAssignmentFamilyAssignmentsQueryInput{
@@ -875,8 +877,8 @@ func (b *translationQueueBinding) MyWork(c router.Context) (payload any, err err
 	}
 	userID := strings.TrimSpace(primitives.FirstNonEmptyRaw(adminCtx.UserID, actorFromContext(adminCtx.Context)))
 	channel := translationChannelFromRequest(c, adminCtx, nil)
-	page := clampInt(atoiDefault(c.Query("page"), 1), 1, 10_000)
-	perPage := clampInt(atoiDefault(c.Query("per_page"), 25), 1, 200)
+	page := clampInt(atoiDefault(c.Query(adminkeys.QueryPage), 1), 1, 10_000)
+	perPage := clampInt(atoiDefault(c.Query(adminkeys.QueryPerPage), 25), 1, 200)
 	now := b.now().UTC()
 	if userID == "" {
 		return translationQueueEmptyMyWorkPayload(page, perPage, now), nil
@@ -1013,8 +1015,8 @@ func (b *translationQueueBinding) Queue(c router.Context) (payload any, err erro
 	if err != nil {
 		return nil, err
 	}
-	page := clampInt(atoiDefault(c.Query("page"), 1), 1, 10_000)
-	perPage := clampInt(atoiDefault(c.Query("per_page"), 50), 1, 200)
+	page := clampInt(atoiDefault(c.Query(adminkeys.QueryPage), 1), 1, 10_000)
+	perPage := clampInt(atoiDefault(c.Query(adminkeys.QueryPerPage), 50), 1, 200)
 	channel := translationChannelFromRequest(c, adminCtx, nil)
 	now := b.now().UTC()
 
@@ -2105,7 +2107,7 @@ func (b *translationQueueBinding) SourceRecordsOptions(c router.Context) (any, e
 	}
 
 	search := translationQueueOptionsSearch(c)
-	perPage := clampInt(atoiDefault(c.Query("per_page"), 25), 1, 200)
+	perPage := clampInt(atoiDefault(c.Query(adminkeys.QueryPerPage), 25), 1, 200)
 	records, _, err := panel.List(adminCtx, ListOptions{
 		Page:    1,
 		PerPage: perPage,
@@ -2420,7 +2422,7 @@ func (b *translationQueueBinding) AssigneesOptions(c router.Context) (any, error
 
 	search := translationQueueOptionsSearch(c)
 	searchKey := strings.ToLower(strings.TrimSpace(search))
-	perPage := clampInt(atoiDefault(c.Query("per_page"), 25), 1, 200)
+	perPage := clampInt(atoiDefault(c.Query(adminkeys.QueryPerPage), 25), 1, 200)
 	optionsByValue := map[string]map[string]any{}
 
 	if selected := strings.TrimSpace(c.Query("assignee_id")); selected != "" {
@@ -2822,9 +2824,9 @@ func translationQueueFamilyGroupedRows(rows []map[string]any) []map[string]any {
 		if familyID == "" {
 			ungrouped := primitives.CloneAnyMap(row)
 			ungrouped["_group"] = map[string]any{
-				"row_type": "ungrouped",
-				"id":       strings.TrimSpace(toString(row["id"])),
-				"group_by": "family_id",
+				"row_type":             "ungrouped",
+				"id":                   strings.TrimSpace(toString(row["id"])),
+				adminkeys.QueryGroupBy: "family_id",
 			}
 			groupRows = append(groupRows, ungrouped)
 			continue
@@ -2858,25 +2860,25 @@ func translationQueueFamilyGroupRow(familyID string, parent map[string]any, chil
 	}
 	parent["action_state"] = parentActionState
 	row := map[string]any{
-		"id":             "family:" + familyID,
-		"row_type":       "group",
-		"family_id":      familyID,
-		"group_by":       "family_id",
-		"family_label":   label,
-		"family_summary": summary,
-		"parent":         parent,
-		"records":        children,
-		"children":       children,
-		"action_state":   parentActionState,
+		"id":                   "family:" + familyID,
+		"row_type":             "group",
+		"family_id":            familyID,
+		adminkeys.QueryGroupBy: "family_id",
+		"family_label":         label,
+		"family_summary":       summary,
+		"parent":               parent,
+		"records":              children,
+		"children":             children,
+		"action_state":         parentActionState,
 		"_group": map[string]any{
-			"row_type":    "group",
-			"id":          familyID,
-			"label":       label,
-			"group_by":    "family_id",
-			"child_count": len(children),
-			"mode":        "page_local",
-			"page_local":  true,
-			"expanded":    false,
+			"row_type":             "group",
+			"id":                   familyID,
+			"label":                label,
+			adminkeys.QueryGroupBy: "family_id",
+			"child_count":          len(children),
+			"mode":                 "page_local",
+			"page_local":           true,
+			"expanded":             false,
 		},
 	}
 	return row
@@ -3093,14 +3095,14 @@ func translationQueueGroupingContract(grouping translationQueueGroupingRequest, 
 		strategy = firstNonEmpty(grouping.Strategy, "page_local")
 	}
 	return map[string]any{
-		"enabled":          grouping.Enabled,
-		"mode":             mode,
-		"group_by":         grouping.Mode,
-		"scope":            "current_page",
-		"row_count":        rowCount,
-		"group_count":      rowCount,
-		"assignment_count": assignmentCount,
-		"supported_modes":  []string{"family_id"},
+		"enabled":              grouping.Enabled,
+		"mode":                 mode,
+		adminkeys.QueryGroupBy: grouping.Mode,
+		"scope":                "current_page",
+		"row_count":            rowCount,
+		"group_count":          rowCount,
+		"assignment_count":     assignmentCount,
+		"supported_modes":      []string{"family_id"},
 		"capabilities": map[string]any{
 			"server_family": map[string]any{
 				"supported": serverFamilySupported,
@@ -3123,17 +3125,17 @@ func translationQueueGroupingContract(grouping translationQueueGroupingRequest, 
 
 func translationQueueServerFamilyGroupingContract(familyTotal, assignmentTotal, rowCount int) map[string]any {
 	return map[string]any{
-		"enabled":             true,
-		"mode":                "family_id",
-		"group_by":            "family_id",
-		"scope":               "filtered_queue",
-		"strategy":            "server_family",
-		"row_count":           rowCount,
-		"group_count":         rowCount,
-		"family_total":        familyTotal,
-		"assignment_total":    assignmentTotal,
-		"supported_modes":     []string{"family_id"},
-		"supported_sort_keys": translationQueueServerFamilySupportedSortKeys(),
+		"enabled":              true,
+		"mode":                 "family_id",
+		adminkeys.QueryGroupBy: "family_id",
+		"scope":                "filtered_queue",
+		"strategy":             "server_family",
+		"row_count":            rowCount,
+		"group_count":          rowCount,
+		"family_total":         familyTotal,
+		"assignment_total":     assignmentTotal,
+		"supported_modes":      []string{"family_id"},
+		"supported_sort_keys":  translationQueueServerFamilySupportedSortKeys(),
 		"capabilities": map[string]any{
 			"server_family": map[string]any{
 				"supported": true,
@@ -3163,11 +3165,11 @@ func validateServerFamilySort(sortBy string, explicit bool) error {
 		return nil
 	}
 	return validationDomainError("unsupported server-family assignment queue sort", map[string]any{
-		"field":          "sort",
-		"sort":           sortBy,
-		"group_strategy": "server_family",
-		"supported":      translationQueueServerFamilySupportedSortKeys(),
-		"reason_code":    "server_family_sort_unsupported",
+		"field":                      adminkeys.QuerySort,
+		adminkeys.QuerySort:          sortBy,
+		adminkeys.QueryGroupStrategy: "server_family",
+		"supported":                  translationQueueServerFamilySupportedSortKeys(),
+		"reason_code":                "server_family_sort_unsupported",
 	})
 }
 
@@ -3189,15 +3191,15 @@ func translationQueueFamilyGroupingError(err error) error {
 	switch {
 	case errors.Is(err, ErrTranslationAssignmentQueryUnsupported):
 		return translationQueueGroupingUnsupportedError("grouped_query_unsupported", "server-side family grouping is not supported for this repository", map[string]any{
-			"field":          "group_strategy",
-			"group_strategy": "server_family",
-			"fallback_modes": []string{"flat", "page_local_family"},
+			"field":                      adminkeys.QueryGroupStrategy,
+			adminkeys.QueryGroupStrategy: "server_family",
+			"fallback_modes":             []string{"flat", "page_local_family"},
 		})
 	case errors.Is(err, ErrTranslationAssignmentFamilyBlockersUnavailable):
 		return translationQueueGroupingUnsupportedError("persisted_blockers_unavailable", "persisted family blocker aggregates are unavailable for this query", map[string]any{
-			"field":          "review_state",
-			"review_state":   translationQueueReviewStateQABlocked,
-			"group_strategy": "server_family",
+			"field":                      "review_state",
+			"review_state":               translationQueueReviewStateQABlocked,
+			adminkeys.QueryGroupStrategy: "server_family",
 		})
 	default:
 		return err
@@ -3245,14 +3247,14 @@ func (b *translationQueueBinding) serverFamilyParentRow(family TranslationAssign
 		row["action_hints"] = cloneStringIntMap(family.ActionHints)
 	}
 	row["_group"] = map[string]any{
-		"row_type":    "family",
-		"id":          strings.TrimSpace(family.FamilyID),
-		"label":       row["family_label"],
-		"group_by":    "family_id",
-		"child_count": family.AssignmentCount,
-		"mode":        "server_family",
-		"page_local":  false,
-		"expanded":    false,
+		"row_type":             "family",
+		"id":                   strings.TrimSpace(family.FamilyID),
+		"label":                row["family_label"],
+		adminkeys.QueryGroupBy: "family_id",
+		"child_count":          family.AssignmentCount,
+		"mode":                 "server_family",
+		"page_local":           false,
+		"expanded":             false,
 	}
 	return row
 }

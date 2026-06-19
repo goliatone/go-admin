@@ -4,50 +4,51 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
-	"github.com/goliatone/go-admin/internal/primitives"
 	"reflect"
 	"strings"
 	"time"
 
+	"github.com/goliatone/go-admin/admin/internal/adminkeys"
+	"github.com/goliatone/go-admin/internal/primitives"
 	jsonschema "github.com/santhosh-tekuri/jsonschema/v5"
 )
 
 const actionPayloadSchemaResource = "inmemory://admin/action_payload_schema.json"
 
 var actionPayloadFieldAliases = map[string]string{
-	"policyEntity":    "policy_entity",
-	"actorId":         "actor_id",
-	"userId":          "user_id",
-	"requestId":       "request_id",
-	"correlationId":   "correlation_id",
+	"policyEntity":    adminkeys.KeyPolicyEntity,
+	"actorId":         adminkeys.KeyActorID,
+	"userId":          adminkeys.KeyUserID,
+	"requestId":       adminkeys.KeyRequestID,
+	"correlationId":   adminkeys.KeyCorrelationID,
 	"tenantId":        ScopeTenantIDKey,
 	"orgId":           ScopeOrgIDKey,
 	"organizationId":  ScopeOrganizationIDKey,
-	"idempotencyKey":  "idempotency_key",
-	"_idempotencyKey": "_idempotency_key",
-	"dryRun":          "dry_run",
+	"idempotencyKey":  adminkeys.KeyIdempotency,
+	"_idempotencyKey": adminkeys.KeyPrivateIdempotency,
+	"dryRun":          adminkeys.KeyDryRun,
 }
 
 var actionPayloadSystemFields = map[string]struct{}{
-	"id":                   {},
-	"ids":                  {},
-	"selection":            {},
-	"record":               {},
-	"data":                 {},
-	"policy_entity":        {},
-	"actor_id":             {},
-	"user_id":              {},
-	"request_id":           {},
-	"correlation_id":       {},
-	ScopeTenantIDKey:       {},
-	ScopeOrgIDKey:          {},
-	ScopeOrganizationIDKey: {},
-	"channel":              {},
-	"environment":          {},
-	"env":                  {},
-	"idempotency_key":      {},
-	"_idempotency_key":     {},
-	"dry_run":              {},
+	adminkeys.KeyID:                 {},
+	adminkeys.KeyIDs:                {},
+	adminkeys.KeySelection:          {},
+	adminkeys.KeyRecord:             {},
+	adminkeys.KeyData:               {},
+	adminkeys.KeyPolicyEntity:       {},
+	adminkeys.KeyActorID:            {},
+	adminkeys.KeyUserID:             {},
+	adminkeys.KeyRequestID:          {},
+	adminkeys.KeyCorrelationID:      {},
+	ScopeTenantIDKey:                {},
+	ScopeOrgIDKey:                   {},
+	ScopeOrganizationIDKey:          {},
+	adminkeys.KeyChannel:            {},
+	adminkeys.KeyEnvironment:        {},
+	adminkeys.KeyEnv:                {},
+	adminkeys.KeyIdempotency:        {},
+	adminkeys.KeyPrivateIdempotency: {},
+	adminkeys.KeyDryRun:             {},
 }
 
 func validateActionPayload(action Action, payload map[string]any) error {
@@ -100,7 +101,7 @@ func applyActionPayloadDefaults(action Action, payload map[string]any, ids []str
 	if value, ok := payload[field]; ok && !isEmptyActionPayloadValue(value) {
 		return payload
 	}
-	targetID := strings.TrimSpace(toString(payload["id"]))
+	targetID := strings.TrimSpace(toString(payload[adminkeys.KeyID]))
 	if targetID == "" && len(ids) > 0 {
 		targetID = strings.TrimSpace(toString(ids[0]))
 	}

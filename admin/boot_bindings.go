@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/goliatone/go-admin/admin/internal/adminkeys"
 	"github.com/goliatone/go-admin/admin/internal/boot"
 	cmscontent "github.com/goliatone/go-cms/content"
 	cmspages "github.com/goliatone/go-cms/pages"
@@ -677,10 +678,10 @@ func (p *panelBinding) panelDetailPath(id string) string {
 }
 
 func (p *panelBinding) Action(c router.Context, locale, action string, body map[string]any) (boot.ActionResponse, error) {
-	body = mergePanelActionContext(body, locale, c.Query("locale"), c.Query("channel"), "", c.Query("policy_entity"))
+	body = mergePanelActionContext(body, locale, c.Query(adminkeys.KeyLocale), c.Query(adminkeys.KeyChannel), "", c.Query(adminkeys.KeyPolicyEntity))
 	adminCtx := p.admin.adminContextFromRequest(c, locale)
 	body = mergePanelActionActorContext(body, adminCtx)
-	ids := parseCommandIDs(body, c.Query("id"), c.Query("ids"))
+	ids := parseCommandIDs(body, c.Query(adminkeys.KeyID), c.Query(adminkeys.KeyIDs))
 	primaryID := resolvePrimaryActionID(body, ids)
 	actionDef, actionDefined := p.panel.findAction(action)
 	workflowBackedAction := actionDefined && shouldReturnWorkflowInvalidTransition(actionDef, action)
