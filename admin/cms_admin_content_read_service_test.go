@@ -464,7 +464,7 @@ func TestAdminContentReadServiceListForContentTypeUsesCountCapableSourceTotals(t
 	ctx := context.Background()
 	allRows := make([]map[string]any, 0, 30)
 	cappedRows := make([]CMSContent, 0, 25)
-	for i := 0; i < 30; i++ {
+	for i := range 30 {
 		id := fmt.Sprintf("archive-event-%02d", i)
 		row := map[string]any{
 			"id":                id,
@@ -528,7 +528,7 @@ func TestAdminContentReadServiceListForContentTypeUsesCountCapableSourceForLocal
 	ctx := context.Background()
 	allRows := make([]map[string]any, 0, 30)
 	cappedRows := make([]CMSContent, 0, 25)
-	for i := 0; i < 30; i++ {
+	for i := range 30 {
 		id := fmt.Sprintf("archive-event-%02d", i)
 		row := map[string]any{
 			"id":                id,

@@ -96,6 +96,14 @@ func (p *panelBinding) listAllWithTranslationReadinessPredicates(ctx AdminContex
 }
 
 func (p *panelBinding) listGroupedByTranslationGroup(ctx AdminContext, baseOpts, requestedOpts ListOptions, readinessPredicates []ListPredicate) ([]map[string]any, int, error) {
+	if len(readinessPredicates) == 0 {
+		if records, total, handled, err := p.listOptimizedTranslationFamilies(ctx, baseOpts); handled {
+			if err != nil {
+				return nil, 0, err
+			}
+			return records, total, nil
+		}
+	}
 	filtered, err := p.listAllWithTranslationReadinessPredicates(ctx, baseOpts, readinessPredicates)
 	if err != nil {
 		return nil, 0, err
@@ -103,6 +111,28 @@ func (p *panelBinding) listGroupedByTranslationGroup(ctx AdminContext, baseOpts,
 	grouped := buildTranslationGroupedRows(filtered, p.groupedRowsDefaultLocale(ctx))
 	paginated, total := paginateInMemory(grouped, requestedOpts, 10)
 	return paginated, total, nil
+}
+
+type optimizedTranslationFamilyListRepository interface {
+	ListTranslationFamilies(ctx context.Context, opts ListOptions) ([]map[string]any, int, error)
+}
+
+func (p *panelBinding) listOptimizedTranslationFamilies(ctx AdminContext, opts ListOptions) ([]map[string]any, int, bool, error) {
+	if p == nil || p.panel == nil || p.panel.repo == nil {
+		return nil, 0, false, nil
+	}
+	lister, ok := p.panel.repo.(optimizedTranslationFamilyListRepository)
+	if !ok || lister == nil {
+		return nil, 0, false, nil
+	}
+	records, total, err := lister.ListTranslationFamilies(ctx.Context, opts)
+	if errors.Is(err, errOptimizedTranslationFamilyListUnsupported) {
+		return nil, 0, false, nil
+	}
+	if err != nil {
+		return nil, 0, true, err
+	}
+	return records, total, true, nil
 }
 
 func (p *panelBinding) groupedRowsDefaultLocale(ctx AdminContext) string {

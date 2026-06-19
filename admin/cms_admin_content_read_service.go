@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/goliatone/go-admin/internal/primitives"
+	cms "github.com/goliatone/go-cms"
 )
 
 // AdminContentReadService provides admin-shaped read operations for CMS content.
@@ -23,6 +24,11 @@ type goCMSAdminContentReadService struct {
 	content      CMSContentService
 	contentTypes CMSContentTypeService
 }
+
+var (
+	errCountCapableContentTypeListUnsupported    = errors.New("count-capable content type list unsupported")
+	errOptimizedTranslationFamilyListUnsupported = errors.New("optimized translation family list unsupported")
+)
 
 // NewAdminContentReadService builds the local admin content read-service boundary.
 func NewAdminContentReadService(content CMSContentService, contentTypes ...CMSContentTypeService) AdminContentReadService {
@@ -131,6 +137,12 @@ func (s goCMSAdminContentReadService) ListForContentType(ctx context.Context, co
 	locale := resolveListRequestedLocale(ctx, opts, "")
 	typeSlug := strings.TrimSpace(primitives.FirstNonEmptyRaw(contentType.Slug, contentType.Name, contentType.ID))
 	grouped := shouldExpandContentEntryTranslationFamilyRowsForContext(ctx, opts)
+	if records, total, handled, err := s.listCountCapableContentTypeRecords(ctx, contentType, opts); handled {
+		if err != nil {
+			return nil, 0, err
+		}
+		return records, total, nil
+	}
 	contentReadStarted := time.Now()
 	contents, err := s.listContentsForContentType(ctx, contentType, locale, opts)
 	logCMSContentListTiming(ctx, "content_read", contentReadStarted,
@@ -205,6 +217,30 @@ func (s goCMSAdminContentReadService) ListForContentType(ctx context.Context, co
 	return list, total, nil
 }
 
+type cmsContentTypeRecordListService interface {
+	ListContentTypeRecords(ctx context.Context, contentType CMSContentType, opts ListOptions) ([]map[string]any, int, error)
+}
+
+func (s goCMSAdminContentReadService) listCountCapableContentTypeRecords(ctx context.Context, contentType CMSContentType, opts ListOptions) ([]map[string]any, int, bool, error) {
+	lister, ok := resolveCMSContentTypeRecordListService(s.content)
+	if !ok || lister == nil {
+		return nil, 0, false, nil
+	}
+	listOpts := normalizeListOptionsForTranslationWildcard(opts)
+	records, total, err := lister.ListContentTypeRecords(ctx, contentType, listOpts)
+	if errors.Is(err, errCountCapableContentTypeListUnsupported) {
+		return nil, 0, false, nil
+	}
+	if err != nil {
+		return nil, 0, true, err
+	}
+	navigationPolicy := contentEntryNavigationPolicyFromContentType(contentType)
+	for idx := range records {
+		records[idx] = applyContentEntryNavigationReadContract(records[idx], navigationPolicy)
+	}
+	return records, total, true, nil
+}
+
 func (s goCMSAdminContentReadService) GetForContentType(ctx context.Context, contentType CMSContentType, id string) (map[string]any, error) {
 	if s.content == nil {
 		return nil, ErrNotFound
@@ -234,6 +270,130 @@ func (s goCMSAdminContentReadService) GetForContentType(ctx context.Context, con
 		record["family_id"] = familyID
 	}
 	return applyContentEntryNavigationReadContract(record, contentEntryNavigationPolicyFromContentType(contentType)), nil
+}
+
+func (a *GoCMSContentAdapter) ListContentTypeRecords(ctx context.Context, contentType CMSContentType, opts ListOptions) ([]map[string]any, int, error) {
+	if a == nil || a.adminRead == nil {
+		return nil, 0, errCountCapableContentTypeListUnsupported
+	}
+	listOpts := normalizeListOptionsForTranslationWildcard(opts)
+	locale := resolveListRequestedLocale(ctx, listOpts, "")
+	if isTranslationLocaleWildcard(locale) {
+		locale = ""
+	}
+	records, total, err := a.adminRead.List(ctx, cms.AdminContentListOptions{
+		ContentTypeID:            strings.TrimSpace(contentType.ID),
+		ContentTypeSlug:          strings.TrimSpace(primitives.FirstNonEmptyRaw(contentType.Slug, contentType.Name)),
+		Locale:                   locale,
+		AllowMissingTranslations: true,
+		IncludeData:              true,
+		IncludeMetadata:          true,
+		IncludeBlocks:            true,
+		Page:                     listOpts.Page,
+		PerPage:                  listOpts.PerPage,
+		SortBy:                   listOpts.SortBy,
+		SortDesc:                 listOpts.SortDesc,
+		Search:                   listOpts.Search,
+		Filters:                  primitives.CloneAnyMap(listOpts.Filters),
+	})
+	if err != nil {
+		return nil, 0, err
+	}
+	navigationPolicy := contentEntryNavigationPolicyFromContentType(contentType)
+	out := make([]map[string]any, 0, len(records))
+	for _, record := range records {
+		item := a.convertAdminContentRecord(ctx, record)
+		applySchemaVersionToContent(&item)
+		applyEmbeddedBlocksToContent(&item)
+		item = normalizeCMSContentLocaleState(item, locale)
+		row := cmsContentRecord(item, cmsContentRecordOptions{
+			includeBlocks:          true,
+			includeData:            true,
+			includeMetadata:        true,
+			includeContentTypeSlug: true,
+			summarizeBlocksForList: true,
+		})
+		row = applyContentEntryNavigationReadContract(row, navigationPolicy)
+		out = append(out, row)
+	}
+	if len(listOpts.Fields) > 0 {
+		out = projectRecordMapsByFields(out, listOpts.Fields)
+	}
+	return out, total, nil
+}
+
+func (a *GoCMSContentAdapter) ListContentTypeFamilies(ctx context.Context, contentType CMSContentType, opts ListOptions) ([]map[string]any, int, error) {
+	if a == nil || a.adminRead == nil {
+		return nil, 0, errOptimizedTranslationFamilyListUnsupported
+	}
+	familyRead, ok := a.adminRead.(cms.AdminContentFamilyReadService)
+	if !ok || familyRead == nil {
+		return nil, 0, errOptimizedTranslationFamilyListUnsupported
+	}
+	listOpts := normalizeListOptionsForTranslationWildcard(opts)
+	locale := resolveListRequestedLocale(ctx, listOpts, "")
+	if isTranslationLocaleWildcard(locale) {
+		locale = ""
+	}
+	result, err := familyRead.ListFamilies(ctx, cms.AdminContentFamilyListOptions{
+		ContentTypeID:            strings.TrimSpace(contentType.ID),
+		ContentTypeSlug:          strings.TrimSpace(primitives.FirstNonEmptyRaw(contentType.Slug, contentType.Name)),
+		Locale:                   locale,
+		AllowMissingTranslations: true,
+		Page:                     listOpts.Page,
+		PerPage:                  listOpts.PerPage,
+		SortBy:                   listOpts.SortBy,
+		SortDesc:                 listOpts.SortDesc,
+		Search:                   listOpts.Search,
+		Filters:                  primitives.CloneAnyMap(listOpts.Filters),
+		IncludeData:              true,
+		IncludeMetadata:          true,
+		IncludeBlocks:            true,
+	})
+	if errors.Is(err, cms.ErrAdminContentFamilyReadUnsupported) {
+		return nil, 0, errOptimizedTranslationFamilyListUnsupported
+	}
+	if err != nil {
+		return nil, 0, err
+	}
+	rows := a.groupedRowsFromAdminContentFamilies(ctx, result.Families, locale)
+	return rows, result.FamilyTotal, nil
+}
+
+func (a *GoCMSContentAdapter) groupedRowsFromAdminContentFamilies(ctx context.Context, families []cms.AdminContentFamilyRecord, defaultLocale string) []map[string]any {
+	if len(families) == 0 {
+		return nil
+	}
+	defaultLocale = strings.TrimSpace(defaultLocale)
+	if defaultLocale == "" {
+		defaultLocale = "en"
+	}
+	out := make([]map[string]any, 0, len(families))
+	for _, family := range families {
+		children := make([]map[string]any, 0, len(family.Variants))
+		for _, variant := range family.Variants {
+			item := a.convertAdminContentRecord(ctx, variant)
+			applySchemaVersionToContent(&item)
+			applyEmbeddedBlocksToContent(&item)
+			row := cmsContentRecord(item, cmsContentRecordOptions{
+				includeBlocks:          true,
+				includeData:            true,
+				includeMetadata:        true,
+				includeContentTypeSlug: true,
+				summarizeBlocksForList: true,
+			})
+			if strings.TrimSpace(toString(row["family_id"])) == "" {
+				row["family_id"] = strings.TrimSpace(family.FamilyID)
+			}
+			children = append(children, row)
+		}
+		grouped := buildTranslationGroupedRows(children, defaultLocale)
+		if len(grouped) == 0 {
+			continue
+		}
+		out = append(out, grouped[0])
+	}
+	return out
 }
 
 func (s goCMSAdminContentReadService) listContentsForContentType(ctx context.Context, contentType CMSContentType, locale string, opts ListOptions) ([]CMSContent, error) {

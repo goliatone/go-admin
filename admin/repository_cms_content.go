@@ -73,6 +73,10 @@ type cmsPageListOptionsService interface {
 	PagesWithOptions(ctx context.Context, locale string, opts ...CMSContentListOption) ([]CMSPage, error)
 }
 
+type cmsContentTypeFamilyListService interface {
+	ListContentTypeFamilies(ctx context.Context, contentType CMSContentType, opts ListOptions) ([]map[string]any, int, error)
+}
+
 // NewCMSContentTypeEntryRepository builds a content repository scoped to the supplied content type.
 func NewCMSContentTypeEntryRepository(content CMSContentService, contentType CMSContentType) *CMSContentTypeEntryRepository {
 	return &CMSContentTypeEntryRepository{
@@ -86,6 +90,15 @@ func NewCMSContentTypeEntryRepository(content CMSContentService, contentType CMS
 // List returns content filtered by the bound content type.
 func (r *CMSContentTypeEntryRepository) List(ctx context.Context, opts ListOptions) ([]map[string]any, int, error) {
 	return r.readService().ListForContentType(ctx, r.contentType, opts)
+}
+
+// ListTranslationFamilies returns optimized grouped family rows when supported by the backing service.
+func (r *CMSContentTypeEntryRepository) ListTranslationFamilies(ctx context.Context, opts ListOptions) ([]map[string]any, int, error) {
+	lister, ok := resolveCMSContentTypeFamilyListService(r.content)
+	if !ok || lister == nil {
+		return nil, 0, errOptimizedTranslationFamilyListUnsupported
+	}
+	return lister.ListContentTypeFamilies(ctx, r.contentType, opts)
 }
 
 func cmsContentRecordSearchMatcher(record map[string]any, search string) bool {

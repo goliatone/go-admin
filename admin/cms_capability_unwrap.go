@@ -40,6 +40,34 @@ func resolveCMSContentListOptionsService(service CMSContentService) (cmsContentL
 	return nil, false
 }
 
+func resolveCMSContentTypeRecordListService(service CMSContentService) (cmsContentTypeRecordListService, bool) {
+	for depth := 0; depth < 8 && service != nil; depth++ {
+		if reader, ok := service.(cmsContentTypeRecordListService); ok && reader != nil {
+			return reader, true
+		}
+		unwrapper, ok := service.(CMSContentServiceUnwrapper)
+		if !ok || unwrapper == nil {
+			break
+		}
+		service = unwrapper.UnwrapCMSContentService()
+	}
+	return nil, false
+}
+
+func resolveCMSContentTypeFamilyListService(service CMSContentService) (cmsContentTypeFamilyListService, bool) {
+	for depth := 0; depth < 8 && service != nil; depth++ {
+		if reader, ok := service.(cmsContentTypeFamilyListService); ok && reader != nil {
+			return reader, true
+		}
+		unwrapper, ok := service.(CMSContentServiceUnwrapper)
+		if !ok || unwrapper == nil {
+			break
+		}
+		service = unwrapper.UnwrapCMSContentService()
+	}
+	return nil, false
+}
+
 func resolveCMSPageListOptionsService(service CMSContentService) (cmsPageListOptionsService, bool) {
 	for depth := 0; depth < 8 && service != nil; depth++ {
 		if reader, ok := service.(cmsPageListOptionsService); ok && reader != nil {
