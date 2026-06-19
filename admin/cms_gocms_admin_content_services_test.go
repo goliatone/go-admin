@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	auth "github.com/goliatone/go-auth"
@@ -214,35 +215,20 @@ func TestGoCMSContentAdapterContentsUsesAdminContentReadService(t *testing.T) {
 	}
 }
 
-func TestGoCMSContentAdapterContentsWithContentTypeIDBypassesAdminRead(t *testing.T) {
+func TestGoCMSContentAdapterContentsWithContentTypeIDUsesAdminReadScope(t *testing.T) {
 	ctx := context.Background()
 	contentTypeID := uuid.New()
-	pageID := uuid.New()
 	adminRead := &stubGoCMSAdminContentReadService{
 		listResp: []cms.AdminContentRecord{{
 			ID:              uuid.New(),
-			Slug:            "unrelated",
+			Slug:            "home",
 			Locale:          "en",
-			ContentType:     "event",
-			ContentTypeSlug: "event",
+			ContentType:     "page",
+			ContentTypeSlug: "page",
 			Status:          "published",
 		}},
 	}
-	contentSvc := &stubGoCMSContentService{
-		listWithDerived: []*cmscontent.Content{{
-			ID:   pageID,
-			Slug: "home",
-			Type: &cmscontent.ContentType{
-				ID:   contentTypeID,
-				Slug: "page",
-			},
-			Translations: []*cmscontent.ContentTranslation{{
-				Locale:  &cmscontent.Locale{Code: "en"},
-				Title:   "Home",
-				Content: map[string]any{"path": "/"},
-			}},
-		}},
-	}
+	contentSvc := &stubGoCMSContentService{}
 	typeSvc := newStubContentTypeService(CMSContentType{ID: contentTypeID.String(), Slug: "page"})
 	svc := newGoCMSContentAdapter(contentSvc, nil, typeSvc, nil, adminRead, nil, nil, nil)
 	adapter := mustGoCMSContentAdapter(t, svc)
@@ -251,14 +237,17 @@ func TestGoCMSContentAdapterContentsWithContentTypeIDBypassesAdminRead(t *testin
 	if err != nil {
 		t.Fatalf("list scoped contents: %v", err)
 	}
-	if adminRead.listCnt != 0 {
-		t.Fatalf("expected scoped content type read to bypass adminRead.List, got %d calls", adminRead.listCnt)
+	if adminRead.listCnt != 1 {
+		t.Fatalf("expected scoped content type read to use adminRead.List, got %d calls", adminRead.listCnt)
 	}
-	if !hasContentTypeIDListOption(contentSvc.listOptions, contentTypeID.String()) {
-		t.Fatalf("expected lower-level list to receive content type option %s, got %v", contentTypeID, contentSvc.listOptions)
+	if got := strings.TrimSpace(adminRead.listOpts.ContentTypeID); got != contentTypeID.String() {
+		t.Fatalf("expected admin read content type scope %s, got %q", contentTypeID, got)
+	}
+	if len(contentSvc.listOptions) != 0 {
+		t.Fatalf("expected lower-level list to stay unused, got %v", contentSvc.listOptions)
 	}
 	if len(items) != 1 || items[0].ContentTypeSlug != "page" {
-		t.Fatalf("expected only page content from scoped lower-level list, got %+v", items)
+		t.Fatalf("expected only page content from scoped admin read, got %+v", items)
 	}
 }
 

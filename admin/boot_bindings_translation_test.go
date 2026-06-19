@@ -2095,6 +2095,88 @@ func TestPanelBindingListGroupedByTranslationGroupSupportsStableGroupPagination(
 	}
 }
 
+type optimizedGroupedTranslationRepoStub struct {
+	translationActionRepoStub
+	groupedRows []map[string]any
+	familyCalls int
+}
+
+func (s *optimizedGroupedTranslationRepoStub) ListTranslationFamilies(_ context.Context, opts ListOptions) ([]map[string]any, int, error) {
+	s.familyCalls++
+	rows := make([]map[string]any, 0, len(s.groupedRows))
+	for _, row := range s.groupedRows {
+		rows = append(rows, primitives.CloneAnyMap(row))
+	}
+	paged, total := paginateInMemory(rows, opts, 10)
+	return paged, total, nil
+}
+
+func TestPanelBindingListGroupedByTranslationGroupUsesOptimizedFamilyTotals(t *testing.T) {
+	allRows := make([]map[string]any, 0, 30)
+	cappedRows := make([]map[string]any, 0, 25)
+	for i := 0; i < 30; i++ {
+		row := map[string]any{
+			"id":                fmt.Sprintf("archive_event_%02d_en", i),
+			"title":             fmt.Sprintf("Archive Event %02d", i),
+			"path":              fmt.Sprintf("/archive/event-%02d", i),
+			"status":            "draft",
+			"locale":            "en",
+			"family_id":         fmt.Sprintf("tg_archive_%02d", i),
+			"available_locales": []string{"en", "es"},
+			"updated_at":        fmt.Sprintf("2026-02-%02dT10:00:00Z", (i%28)+1),
+		}
+		allRows = append(allRows, row)
+		if i < 25 {
+			cappedRows = append(cappedRows, primitives.CloneAnyMap(row))
+		}
+	}
+	repo := &optimizedGroupedTranslationRepoStub{
+		translationActionRepoStub: translationActionRepoStub{list: cappedRows},
+		groupedRows:               buildTranslationGroupedRows(allRows, "en"),
+	}
+	panel := &Panel{
+		name: "archive_event",
+		repo: repo,
+		translationPolicy: readinessPolicyStub{
+			ok: true,
+			req: TranslationRequirements{
+				Locales: []string{"en", "es"},
+			},
+		},
+	}
+	binding := &panelBinding{
+		admin: &Admin{config: Config{DefaultLocale: "en"}},
+		name:  "archive_event",
+		panel: panel,
+	}
+
+	pageTwo, total, _, _, _, err := binding.List(newPanelBindingMockContext(), "en", boot.ListOptions{
+		Page:    2,
+		PerPage: 10,
+		Filters: map[string]any{
+			"group_by": "family_id",
+			"channel":  "production",
+		},
+		Predicates: []boot.ListPredicate{
+			{Field: "group_by", Operator: "eq", Values: []string{"family_id"}},
+			{Field: "channel", Operator: "eq", Values: []string{"production"}},
+		},
+	})
+	if err != nil {
+		t.Fatalf("grouped archive list failed: %v", err)
+	}
+	if repo.familyCalls != 1 {
+		t.Fatalf("expected optimized grouped family provider to be used once, got %d calls", repo.familyCalls)
+	}
+	if total != 30 {
+		t.Fatalf("expected uncapped family total 30, got %d", total)
+	}
+	if len(pageTwo) != 10 {
+		t.Fatalf("expected 10 grouped rows on page two, got %d", len(pageTwo))
+	}
+	assertGroupedTranslationRecord(t, pageTwo[0], "tg_archive_10", 1)
+}
+
 func TestPanelBindingListGroupedByTranslationGroupDoesNotInjectLocaleScope(t *testing.T) {
 	repo := &translationActionRepoStub{
 		list: []map[string]any{

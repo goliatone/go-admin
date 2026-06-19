@@ -135,3 +135,75 @@ func TestAdminContentReadServiceListForContentTypeUsesUnwrappedLocaleVariantRead
 		t.Fatalf("expected 3 locale variants from wrapped reader, got total=%d len=%d", total, len(items))
 	}
 }
+
+func TestAdminContentReadServiceListForContentTypeUsesUnwrappedCountCapableSource(t *testing.T) {
+	ctx := context.Background()
+	contentType := CMSContentType{ID: uuid.New().String(), Slug: "archive_event"}
+	source := &countCapableContentTypeSourceStub{
+		rows: []map[string]any{
+			{"id": "row-1", "title": "One", "content_type": "archive_event", "content_type_slug": "archive_event"},
+			{"id": "row-2", "title": "Two", "content_type": "archive_event", "content_type_slug": "archive_event"},
+			{"id": "row-3", "title": "Three", "content_type": "archive_event", "content_type_slug": "archive_event"},
+		},
+	}
+	wrapped := wrappedCMSContentServiceStub{
+		CMSContentService: source,
+		delegate:          source,
+	}
+	service := newAdminContentReadService(wrapped)
+
+	items, total, err := service.ListForContentType(ctx, contentType, ListOptions{Page: 2, PerPage: 1})
+	if err != nil {
+		t.Fatalf("list for content type: %v", err)
+	}
+	if source.calls != 1 {
+		t.Fatalf("expected unwrapped count-capable source call, got %d", source.calls)
+	}
+	if total != 3 || len(items) != 1 || toString(items[0]["id"]) != "row-2" {
+		t.Fatalf("expected page 2 from count-capable source, total=%d items=%#v", total, items)
+	}
+}
+
+func TestCMSContentTypeEntryRepositoryUsesUnwrappedFamilyListSource(t *testing.T) {
+	ctx := context.Background()
+	contentType := CMSContentType{ID: uuid.New().String(), Slug: "archive_event"}
+	source := &familyListContentTypeSourceStub{
+		rows: []map[string]any{
+			{"family_id": "family-1", "children": []map[string]any{{"id": "row-1"}}},
+			{"family_id": "family-2", "children": []map[string]any{{"id": "row-2"}}},
+		},
+		total: 12,
+	}
+	wrapped := wrappedCMSContentServiceStub{
+		CMSContentService: source,
+		delegate:          source,
+	}
+	repo := NewCMSContentTypeEntryRepository(wrapped, contentType)
+
+	items, total, err := repo.ListTranslationFamilies(ctx, ListOptions{Page: 1, PerPage: 2})
+	if err != nil {
+		t.Fatalf("list translation families: %v", err)
+	}
+	if source.calls != 1 {
+		t.Fatalf("expected unwrapped family-list source call, got %d", source.calls)
+	}
+	if total != 12 || len(items) != 2 || toString(items[0]["family_id"]) != "family-1" {
+		t.Fatalf("expected family rows from unwrapped source, total=%d items=%#v", total, items)
+	}
+}
+
+type familyListContentTypeSourceStub struct {
+	siteAPIContentServiceStub
+	rows  []map[string]any
+	total int
+	calls int
+}
+
+func (s *familyListContentTypeSourceStub) ListContentTypeFamilies(context.Context, CMSContentType, ListOptions) ([]map[string]any, int, error) {
+	s.calls++
+	out := make([]map[string]any, 0, len(s.rows))
+	for _, row := range s.rows {
+		out = append(out, cloneMap(row))
+	}
+	return out, s.total, nil
+}
