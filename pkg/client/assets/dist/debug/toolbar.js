@@ -1,11 +1,11 @@
-import { escapeHTML as h } from "../shared/html.js";
+import { escapeHTML as p } from "../shared/html.js";
 import { httpRequest as M, readHTTPError as A } from "../shared/transport/http-client.js";
 import { normalizeDebugBasePath as I } from "./shared/path-helpers.js";
-import { C as v, I as k, M as $, O as H, S as D, c as O, d as F, f as j, h as B, l as G, m as N, p as _, t as V, u as Q, v as b, w as K, x as Y } from "../chunks/builtin-panels-BGul6l_d.js";
-import { t as U } from "../chunks/repl-panel-DOA-vKgf.js";
-import { i as J } from "../chunks/icons-SGrt9O6P.js";
-import { E as p, P as W, T as X, _ as Z, a as xt, b as tt, c as C, d as y, f as et, g as at, h as mt, l as vt, m as ot, n as E, o as P, p as st, s as u, u as g, w as f, x as rt } from "../chunks/server-definitions-Cw_avwJX.js";
-var nt = `
+import { D as $, E as H, H as k, O as D, P as O, R as v, S as c, T as j, _ as F, c as V, d as N, f as B, g as G, h as _, j as Q, k as K, l as Y, m as U, p as J, t as W, u as X, v as Z, y as tt } from "../chunks/builtin-panels-B_uXN2e5.js";
+import { t as et } from "../chunks/repl-panel-DOA-vKgf.js";
+import { i as at } from "../chunks/icons-SGrt9O6P.js";
+import { E as u, P as st, T as ot, _ as rt, a as kt, b as nt, c as E, d as y, f as it, g as lt, h as Et, l as Ct, m as dt, n as C, o as P, p as ct, s as b, u as g, w as f, x as ht } from "../chunks/server-definitions-Cw_avwJX.js";
+var pt = `
   :host {
     --toolbar-bg: #1e1e2e;
     --toolbar-bg-secondary: #181825;
@@ -1088,25 +1088,25 @@ var nt = `
       max-width: 60%;
     }
   }
-`, d = b;
-function w(a, t, e = 50, o) {
-  const s = f.get(a);
-  if (s) return X(s, rt(t, s), d, o || {}, "toolbar");
-  const r = o?.newestFirst ?? !0, i = o?.slowThresholdMs ?? e;
+`, d = c;
+function w(a, t, e = 50, s) {
+  const o = f.get(a);
+  if (o) return ot(o, ht(t, o), d, s || {}, "toolbar");
+  const r = s?.newestFirst ?? !0, i = s?.slowThresholdMs ?? e;
   switch (a) {
     case "requests":
-      return B(t.requests || [], d, {
+      return Z(t.requests || [], d, {
         newestFirst: r,
         slowThresholdMs: i,
         maxEntries: 50,
         showSortToggle: !0,
         truncatePath: !0,
         maxPathLength: 50,
-        expandedRequestIds: o?.expandedRequestIds,
+        expandedRequestIds: s?.expandedRequestIds,
         maxDetailLength: 80
       });
     case "sql":
-      return H(t.sql || [], d, {
+      return O(t.sql || [], d, {
         newestFirst: r,
         slowThresholdMs: i,
         maxEntries: 50,
@@ -1123,48 +1123,48 @@ function w(a, t, e = 50, o) {
         maxMessageLength: 100
       });
     case "config":
-      return p("Config", t.config || {}, d, {
+      return u("Config", t.config || {}, d, {
         useIconCopyButton: !1,
         showCount: !1
       });
     case "routes":
-      return Q(t.routes || [], d, { showName: !1 });
+      return B(t.routes || [], d, { showName: !1 });
     case "template":
-      return p("Template Context", t.template || {}, d, {
+      return u("Template Context", t.template || {}, d, {
         useIconCopyButton: !1,
         showCount: !1
       });
     case "session":
-      return p("Session", t.session || {}, d, {
+      return u("Session", t.session || {}, d, {
         useIconCopyButton: !1,
         showCount: !1
       });
     case "jserrors":
-      return O(t.jserrors || [], d, {
+      return X(t.jserrors || [], d, {
         newestFirst: r,
         maxEntries: 50,
         compact: !0,
         showSortToggle: !0
       });
     case "custom":
-      return G(t.custom || {}, d, {
+      return N(t.custom || {}, d, {
         maxLogEntries: 50,
         useIconCopyButton: !1,
         showCount: !1
       });
     default: {
       const n = t[a];
-      return n != null ? p(a.replace(/[_-]/g, " ").replace(/\b\w/g, (l) => l.toUpperCase()), n, d, {
+      return n != null ? u(a.replace(/[_-]/g, " ").replace(/\b\w/g, (l) => l.toUpperCase()), n, d, {
         useIconCopyButton: !1,
         showCount: !1
-      }) : `<div class="${d.emptyState}">Panel "${h(a)}" not available</div>`;
+      }) : `<div class="${d.emptyState}">Panel "${p(a)}" not available</div>`;
     }
   }
 }
 function x(a, t = 50) {
-  return ot(a, t);
+  return dt(a, t);
 }
-var m, S = "debug-toolbar-active-panel", q = class c extends HTMLElement {
+var m, S = "debug-toolbar-active-panel", q = class h extends HTMLElement {
   static get observedAttributes() {
     return [
       "base-path",
@@ -1177,10 +1177,10 @@ var m, S = "debug-toolbar-active-panel", q = class c extends HTMLElement {
     ];
   }
   constructor() {
-    super(), this.stream = null, this.externalStream = null, this.snapshot = {}, this.replPanels = /* @__PURE__ */ new Map(), this.replCommands = [], this.expanded = !1, this.activePanel = "requests", this.connectionStatus = "disconnected", this.slowThresholdMs = 50, this.useFab = !1, this.customHeight = null, this.isResizing = !1, this.resizeStartY = 0, this.resizeStartHeight = 0, this.panelSortOrder = /* @__PURE__ */ new Map([["requests", !0], ["sql", !0]]), this.eventToPanel = {}, this.unsubscribeRegistry = null, this.expandedRequests = /* @__PURE__ */ new Set(), this.initializeGeneration = 0, this.panelActionResults = /* @__PURE__ */ new Map(), this.handleKeyDown = (t) => {
+    super(), this.jserrorsExpanded = /* @__PURE__ */ new Set(), this.stream = null, this.externalStream = null, this.snapshot = {}, this.replPanels = /* @__PURE__ */ new Map(), this.replCommands = [], this.expanded = !1, this.activePanel = "requests", this.connectionStatus = "disconnected", this.slowThresholdMs = 50, this.useFab = !1, this.customHeight = null, this.isResizing = !1, this.resizeStartY = 0, this.resizeStartHeight = 0, this.panelSortOrder = /* @__PURE__ */ new Map([["requests", !0], ["sql", !0]]), this.eventToPanel = {}, this.unsubscribeRegistry = null, this.expandedRequests = /* @__PURE__ */ new Set(), this.initializeGeneration = 0, this.panelActionResults = /* @__PURE__ */ new Map(), this.handleKeyDown = (t) => {
       (t.ctrlKey || t.metaKey) && t.shiftKey && t.key.toLowerCase() === "d" && (t.preventDefault(), this.toggleExpanded()), t.key === "Escape" && this.expanded && this.collapse();
-    }, this.shadow = this.attachShadow({ mode: "open" }), this.sqlView = new N({
-      styles: b,
+    }, this.shadow = this.attachShadow({ mode: "open" }), this.sqlView = new G({
+      styles: c,
       copyOptions: { useIconFeedback: !1 },
       getQueries: () => this.snapshot.sql || [],
       getRenderOptions: () => ({
@@ -1191,10 +1191,10 @@ var m, S = "debug-toolbar-active-panel", q = class c extends HTMLElement {
       }),
       getMaxEntries: () => 50,
       onNeedFullRender: () => this.updateContent()
-    }), this.logsView = new $({
-      styles: b,
-      keyOf: F,
-      renderRow: (t) => j(t, b, {
+    }), this.logsView = new v({
+      styles: c,
+      keyOf: J,
+      renderRow: (t) => U(t, c, {
         showSource: !1,
         truncateMessage: !0,
         maxMessageLength: 100
@@ -1203,14 +1203,51 @@ var m, S = "debug-toolbar-active-panel", q = class c extends HTMLElement {
       getRenderOptions: () => ({ newestFirst: !0 }),
       getMaxEntries: () => 100,
       onNeedFullRender: () => this.updateContent()
+    }), this.requestsView = new v({
+      styles: c,
+      containerSelector: "[data-request-table] tbody",
+      rowSelector: "tr[data-request-id]",
+      keyAttr: "data-request-id",
+      keyOf: tt,
+      renderRow: (t) => F(t, c, {
+        slowThresholdMs: this.slowThresholdMs,
+        truncatePath: !0,
+        maxPathLength: 50,
+        expandedRequestIds: this.expandedRequests,
+        maxDetailLength: 80
+      }),
+      getItems: () => this.snapshot.requests || [],
+      getRenderOptions: () => ({ newestFirst: this.panelSortOrder.get("requests") ?? !0 }),
+      getMaxEntries: () => 50,
+      onNeedFullRender: () => this.updateContent(),
+      onAdopt: (t) => $(t, this.expandedRequests)
+    }), this.jserrorsView = new v({
+      styles: c,
+      keyOf: V,
+      renderRow: (t) => Y(t, c, { compact: !0 }),
+      getItems: () => this.snapshot.jserrors || [],
+      getRenderOptions: () => ({ newestFirst: this.panelSortOrder.get("jserrors") ?? !0 }),
+      getMaxEntries: () => 50,
+      onNeedFullRender: () => this.updateContent(),
+      onAdopt: (t) => D(t, {
+        tableSelector: "[data-live-list]",
+        rowSelector: "tr.expandable-row",
+        keyAttr: "data-row-key",
+        expanded: this.jserrorsExpanded
+      }),
+      onRestore: (t) => Q(t, {
+        rowSelector: "tr.expandable-row",
+        keyAttr: "data-row-key",
+        expanded: this.jserrorsExpanded
+      })
     });
   }
   connectedCallback() {
     this.initializeGeneration += 1, this.initialize(this.initializeGeneration);
   }
   async initialize(t) {
-    if (await E(this.debugPath), !this.isInitializationStale(t)) {
-      if (this.eventToPanel = u(), this.unsubscribeRegistry = f.subscribe((e) => this.handleRegistryChange(e)), this.isInitializationStale(t)) {
+    if (await C(this.debugPath), !this.isInitializationStale(t)) {
+      if (this.eventToPanel = b(), this.unsubscribeRegistry = f.subscribe((e) => this.handleRegistryChange(e)), this.isInitializationStale(t)) {
         this.unsubscribeRegistry?.(), this.unsubscribeRegistry = null;
         return;
       }
@@ -1224,17 +1261,17 @@ var m, S = "debug-toolbar-active-panel", q = class c extends HTMLElement {
     return t !== this.initializeGeneration || !this.isConnected;
   }
   handleRegistryChange(t) {
-    this.eventToPanel = u(), this.updateSubscriptions(), this.expanded && this.render();
+    this.eventToPanel = b(), this.updateSubscriptions(), this.expanded && this.render();
   }
   updateSubscriptions() {
     const t = this.getStream();
     if (!t) return;
     const e = /* @__PURE__ */ new Set();
-    for (const o of this.panels) for (const s of y(o)) e.add(s);
+    for (const s of this.panels) for (const o of y(s)) e.add(o);
     t.subscribe(Array.from(e));
   }
-  attributeChangedCallback(t, e, o) {
-    e !== o && (t === "expanded" ? (this.expanded = o === "true" || o === "", this.saveState(), this.render()) : t === "slow-threshold-ms" ? this.slowThresholdMs = parseInt(o || "50", 10) || 50 : t === "use-fab" ? this.useFab = o === "true" || o === "" : t === "live-transport" && !this.useFab && !this.liveTransportEnabled && this.stream?.close());
+  attributeChangedCallback(t, e, s) {
+    e !== s && (t === "expanded" ? (this.expanded = s === "true" || s === "", this.saveState(), this.render()) : t === "slow-threshold-ms" ? this.slowThresholdMs = parseInt(s || "50", 10) || 50 : t === "use-fab" ? this.useFab = s === "true" || s === "" : t === "live-transport" && !this.useFab && !this.liveTransportEnabled && this.stream?.close());
   }
   setExpanded(t) {
     this.expanded = t, this.saveState(), this.render();
@@ -1264,13 +1301,13 @@ var m, S = "debug-toolbar-active-panel", q = class c extends HTMLElement {
       t !== null && (this.expanded = t === "true");
       const e = localStorage.getItem("debug-toolbar-height");
       if (e !== null) {
-        const s = parseInt(e, 10);
-        !isNaN(s) && s >= c.MIN_HEIGHT && (this.customHeight = s);
+        const o = parseInt(e, 10);
+        !isNaN(o) && o >= h.MIN_HEIGHT && (this.customHeight = o);
       }
-      const o = localStorage.getItem("debug-toolbar-sort-order");
-      if (o) try {
-        const s = JSON.parse(o);
-        Object.entries(s).forEach(([r, i]) => {
+      const s = localStorage.getItem("debug-toolbar-sort-order");
+      if (s) try {
+        const o = JSON.parse(s);
+        Object.entries(o).forEach(([r, i]) => {
           this.panelSortOrder.set(r, i);
         });
       } catch {
@@ -1284,8 +1321,8 @@ var m, S = "debug-toolbar-active-panel", q = class c extends HTMLElement {
     try {
       localStorage.setItem("debug-toolbar-expanded", String(this.expanded)), this.customHeight !== null && localStorage.setItem("debug-toolbar-height", String(this.customHeight));
       const t = {};
-      this.panelSortOrder.forEach((e, o) => {
-        t[o] = e;
+      this.panelSortOrder.forEach((e, s) => {
+        t[s] = e;
       }), localStorage.setItem("debug-toolbar-sort-order", JSON.stringify(t)), localStorage.setItem(S, this.activePanel);
     } catch {
     }
@@ -1317,7 +1354,7 @@ var m, S = "debug-toolbar-active-panel", q = class c extends HTMLElement {
   get panels() {
     const t = this.getAttribute("panels");
     if (t) {
-      const e = t.split(",").map((o) => o.trim().toLowerCase()).filter(Boolean);
+      const e = t.split(",").map((s) => s.trim().toLowerCase()).filter(Boolean);
       return e.length ? e : g();
     }
     return g();
@@ -1339,11 +1376,11 @@ var m, S = "debug-toolbar-active-panel", q = class c extends HTMLElement {
       onStatusChange: (e) => this.handleStatusChange(e)
     }), this.stream.connect();
     const t = /* @__PURE__ */ new Set();
-    for (const e of this.panels) for (const o of y(e)) t.add(o);
+    for (const e of this.panels) for (const s of y(e)) t.add(s);
     this.stream.subscribe(Array.from(t));
   }
   async fetchInitialSnapshot(t = this.initializeGeneration) {
-    const e = await C(this.debugPath);
+    const e = await E(this.debugPath);
     this.isInitializationStale(t) || e && this.applySnapshot(e);
   }
   handleEvent(t) {
@@ -1353,31 +1390,31 @@ var m, S = "debug-toolbar-active-panel", q = class c extends HTMLElement {
       return;
     }
     const e = P(this.snapshot, t, { eventToPanel: this.eventToPanel }) || t.type;
-    e === this.activePanel && this.expanded && (e === "sql" ? this.sqlView.enqueue([t.payload]) : e === "logs" ? this.logsView.enqueue([t.payload]) : this.updateContent());
+    e === this.activePanel && this.expanded && (e === "sql" ? this.sqlView.enqueue([t.payload]) : e === "logs" ? this.logsView.enqueue([t.payload]) : e === "requests" ? this.requestsView.enqueue([t.payload]) : e === "jserrors" ? this.jserrorsView.enqueue([t.payload]) : this.updateContent());
   }
   handleStatusChange(t) {
     this.connectionStatus = t, this.updateConnectionStatus();
   }
   applySnapshot(t) {
-    this.snapshot = t || {}, this.replCommands = at(this.snapshot.repl_commands), this.updateContent();
+    this.snapshot = t || {}, this.replCommands = lt(this.snapshot.repl_commands), this.updateContent();
   }
   render() {
     const t = x(this.snapshot, this.slowThresholdMs), e = this.panels.map((n) => {
-      const l = st(n), L = this.getPanelCount(n), T = this.activePanel === n ? "active" : "", R = J(et(n), {
+      const l = ct(n), L = this.getPanelCount(n), T = this.activePanel === n ? "active" : "", R = at(it(n), {
         size: "14px",
         extraClass: "tab-icon"
       });
       return `
-          <button class="tab ${T}" data-panel="${h(n)}">
+          <button class="tab ${T}" data-panel="${p(n)}">
             ${R}
-            <span class="tab-label">${h(l)}</span>
+            <span class="tab-label">${p(l)}</span>
             <span class="tab-count">${L}</span>
           </button>
         `;
-    }).join(""), o = this.expanded ? "expanded" : "collapsed", s = this.useFab && !this.expanded ? "hidden" : "", r = this.expanded ? this.customHeight || c.DEFAULT_HEIGHT : 36, i = this.expanded ? `height: ${r}px;` : "";
+    }).join(""), s = this.expanded ? "expanded" : "collapsed", o = this.useFab && !this.expanded ? "hidden" : "", r = this.expanded ? this.customHeight || h.DEFAULT_HEIGHT : 36, i = this.expanded ? `height: ${r}px;` : "";
     this.shadow.innerHTML = `
-      <style>${nt}</style>
-      <div class="toolbar ${o} ${s}" style="${i}">
+      <style>${pt}</style>
+      <div class="toolbar ${s} ${o}" style="${i}">
         ${this.expanded ? `
           <div class="resize-handle" data-resize-handle></div>
           <div class="toolbar-header">
@@ -1447,29 +1484,29 @@ var m, S = "debug-toolbar-active-panel", q = class c extends HTMLElement {
   updateContent() {
     if (this.expanded) {
       const t = this.shadow.getElementById("panel-content");
-      t && (Z.has(this.activePanel) ? this.renderReplPanel(t, this.activePanel) : (t.innerHTML = w(this.activePanel, this.snapshot, this.slowThresholdMs, this.getPanelOptions()), this.attachExpandableRowListeners(), this.attachCopyListeners(), this.attachSortToggleListeners(), this.mountActivePanelViews(), this.activePanel === "requests" && v(this.shadow, this.expandedRequests), this.attachPanelActionListeners(), this.renderStoredPanelActionResult(this.activePanel))), this.panels.forEach((e) => {
-        const o = this.shadow.querySelector(`[data-panel="${e}"] .tab-count`);
-        o && (o.textContent = String(this.getPanelCount(e)));
+      t && (rt.has(this.activePanel) ? this.renderReplPanel(t, this.activePanel) : (t.innerHTML = w(this.activePanel, this.snapshot, this.slowThresholdMs, this.getPanelOptions()), this.attachExpandableRowListeners(), this.attachCopyListeners(), this.attachSortToggleListeners(), this.mountActivePanelViews(), this.attachPanelActionListeners(), this.renderStoredPanelActionResult(this.activePanel))), this.panels.forEach((e) => {
+        const s = this.shadow.querySelector(`[data-panel="${e}"] .tab-count`);
+        s && (s.textContent = String(this.getPanelCount(e)));
       });
     }
     this.useFab || this.updateSummary();
   }
   updateSummary() {
     const t = x(this.snapshot, this.slowThresholdMs), e = this.shadow.querySelector(".toolbar-summary");
-    e && e.querySelectorAll(".summary-item").forEach((o) => {
-      const s = o.querySelector("span:first-child")?.textContent?.replace(":", "").toLowerCase(), r = o.querySelector(".count");
-      !r || !s || (s === "requests" ? (r.textContent = String(t.requests), o.classList.toggle("has-errors", t.errors > 0)) : s === "sql" ? (r.textContent = String(t.sql), o.classList.toggle("has-slow", t.slowQueries > 0)) : s === "logs" ? r.textContent = String(t.logs) : s === "errors" && (r.textContent = String(t.errors)));
+    e && e.querySelectorAll(".summary-item").forEach((s) => {
+      const o = s.querySelector("span:first-child")?.textContent?.replace(":", "").toLowerCase(), r = s.querySelector(".count");
+      !r || !o || (o === "requests" ? (r.textContent = String(t.requests), s.classList.toggle("has-errors", t.errors > 0)) : o === "sql" ? (r.textContent = String(t.sql), s.classList.toggle("has-slow", t.slowQueries > 0)) : o === "logs" ? r.textContent = String(t.logs) : o === "errors" && (r.textContent = String(t.errors)));
     });
   }
   updateConnectionStatus() {
     const t = this.shadow.querySelector(".connection-indicator .status-dot");
     t && (t.className = `status-dot ${this.connectionStatus}`);
-    const e = this.shadow.querySelector(".connection-status .status-dot"), o = this.shadow.querySelector(".connection-status span:last-child");
-    e && (e.className = `status-dot ${this.connectionStatus}`), o && (o.textContent = this.connectionStatus);
+    const e = this.shadow.querySelector(".connection-status .status-dot"), s = this.shadow.querySelector(".connection-status span:last-child");
+    e && (e.className = `status-dot ${this.connectionStatus}`), s && (s.textContent = this.connectionStatus);
   }
   getPanelCount(t) {
     const e = f.get(t);
-    if (e) return tt(this.snapshot, e);
+    if (e) return nt(this.snapshot, e);
     switch (t) {
       case "requests":
         return this.snapshot.requests?.length || 0;
@@ -1486,11 +1523,11 @@ var m, S = "debug-toolbar-active-panel", q = class c extends HTMLElement {
       case "config":
         return Object.keys(this.snapshot.config || {}).length;
       case "custom":
-        const o = this.snapshot.custom || {};
-        return Object.keys(o.data || {}).length + (o.logs?.length || 0);
+        const s = this.snapshot.custom || {};
+        return Object.keys(s.data || {}).length + (s.logs?.length || 0);
       default: {
-        const s = this.snapshot[t];
-        return Array.isArray(s) ? s.length : s != null && typeof s == "object" ? Object.keys(s).length : 0;
+        const o = this.snapshot[t];
+        return Array.isArray(o) ? o.length : o != null && typeof o == "object" ? Object.keys(o).length : 0;
       }
     }
   }
@@ -1504,17 +1541,17 @@ var m, S = "debug-toolbar-active-panel", q = class c extends HTMLElement {
   attachEventListeners() {
     if (this.shadow.querySelectorAll(".tab").forEach((t) => {
       t.addEventListener("click", (e) => {
-        const o = e.currentTarget.dataset.panel;
-        if (o && o !== this.activePanel) {
-          this.activePanel = o, this.saveState(), this.shadow.querySelectorAll(".tab").forEach((r) => r.classList.remove("active")), e.currentTarget.classList.add("active");
-          const s = this.shadow.getElementById("panel-content");
-          s && (s.innerHTML = w(this.activePanel, this.snapshot, this.slowThresholdMs, this.getPanelOptions()), this.attachExpandableRowListeners(), this.attachCopyListeners(), this.attachSortToggleListeners(), this.mountActivePanelViews(), this.activePanel === "requests" && v(this.shadow, this.expandedRequests), this.attachPanelActionListeners());
+        const s = e.currentTarget.dataset.panel;
+        if (s && s !== this.activePanel) {
+          this.activePanel = s, this.saveState(), this.shadow.querySelectorAll(".tab").forEach((r) => r.classList.remove("active")), e.currentTarget.classList.add("active");
+          const o = this.shadow.getElementById("panel-content");
+          o && (o.innerHTML = w(this.activePanel, this.snapshot, this.slowThresholdMs, this.getPanelOptions()), this.attachExpandableRowListeners(), this.attachCopyListeners(), this.attachSortToggleListeners(), this.mountActivePanelViews(), this.attachPanelActionListeners());
         }
       });
-    }), this.attachExpandableRowListeners(), this.attachCopyListeners(), this.attachSortToggleListeners(), this.mountActivePanelViews(), this.activePanel === "requests" && v(this.shadow, this.expandedRequests), this.attachPanelActionListeners(), this.shadow.querySelectorAll("[data-action]").forEach((t) => {
+    }), this.attachExpandableRowListeners(), this.attachCopyListeners(), this.attachSortToggleListeners(), this.mountActivePanelViews(), this.attachPanelActionListeners(), this.shadow.querySelectorAll("[data-action]").forEach((t) => {
       t.addEventListener("click", (e) => {
-        const o = e.currentTarget.dataset.action, s = this.getStream();
-        switch (o) {
+        const s = e.currentTarget.dataset.action, o = this.getStream();
+        switch (s) {
           case "toggle":
             this.toggleExpanded();
             break;
@@ -1522,10 +1559,10 @@ var m, S = "debug-toolbar-active-panel", q = class c extends HTMLElement {
             this.collapse();
             break;
           case "refresh":
-            s?.requestSnapshot();
+            o?.requestSnapshot();
             break;
           case "clear":
-            s?.clear(), this.snapshot = {}, this.updateContent();
+            o?.clear(), this.snapshot = {}, this.updateContent();
             break;
         }
       });
@@ -1545,20 +1582,20 @@ var m, S = "debug-toolbar-active-panel", q = class c extends HTMLElement {
     }), this.shadow.querySelectorAll("[data-panel-action-form]").forEach((t) => {
       t.addEventListener("submit", (e) => {
         e.preventDefault();
-        const o = t.querySelector('button[type="submit"]') || void 0;
-        o?.disabled || this.runPanelAction(t, o);
+        const s = t.querySelector('button[type="submit"]') || void 0;
+        s?.disabled || this.runPanelAction(t, s);
       });
     });
   }
   async runPanelAction(t, e) {
-    const o = t.dataset.panelId || "", s = t.dataset.actionId || "";
-    if (!o || !s) return;
+    const s = t.dataset.panelId || "", o = t.dataset.actionId || "";
+    if (!s || !o) return;
     const r = t.dataset.actionConfirm || "";
     if ((t.dataset.actionRequiresConfirm === "true" || r) && !window.confirm(r || "Run this debug panel action?")) return;
-    const i = V(t);
+    const i = W(t);
     e && (e.disabled = !0);
     try {
-      const n = await M(`${this.debugPath}/api/panels/${encodeURIComponent(o)}/actions/${encodeURIComponent(s)}`, {
+      const n = await M(`${this.debugPath}/api/panels/${encodeURIComponent(s)}/actions/${encodeURIComponent(o)}`, {
         method: "POST",
         credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
@@ -1566,72 +1603,72 @@ var m, S = "debug-toolbar-active-panel", q = class c extends HTMLElement {
       });
       if (!n.ok) throw new Error(await A(n, `Action failed (${n.status})`, { appendStatusToFallback: !1 }));
       const l = await n.json();
-      this.showPanelActionResult(o, l.ok === !1 ? "error" : "ok", l.message || (l.ok === !1 ? "Action failed" : "Action complete"), l.data), l.event && this.handleEvent(l.event), l.refresh && await this.fetchInitialSnapshot();
+      this.showPanelActionResult(s, l.ok === !1 ? "error" : "ok", l.message || (l.ok === !1 ? "Action failed" : "Action complete"), l.data), l.event && this.handleEvent(l.event), l.refresh && await this.fetchInitialSnapshot();
     } catch (n) {
       const l = n instanceof Error ? n.message : "Action failed";
-      this.showPanelActionResult(o, "error", l);
+      this.showPanelActionResult(s, "error", l);
     } finally {
       e && (e.disabled = !1);
     }
   }
-  showPanelActionResult(t, e, o, s) {
+  showPanelActionResult(t, e, s, o) {
     this.panelActionResults.set(t, {
       status: e,
-      message: o,
-      data: s
+      message: s,
+      data: o
     }), this.renderStoredPanelActionResult(t);
   }
   renderStoredPanelActionResult(t) {
     const e = this.panelActionResults.get(t);
     if (!e) return;
-    const o = Array.from(this.shadow.querySelectorAll("[data-panel-action-result]")).find((r) => r.dataset.panelActionResult === t);
-    if (!o) return;
-    const s = e.data === void 0 ? "" : `<pre style="margin-top:0.5rem;max-height:14rem;overflow:auto;white-space:pre-wrap;font-size:11px">${h(W(e.data, { nullAsEmptyObject: !1 }))}</pre>`;
-    o.innerHTML = `<div class="${e.status === "error" ? "badge error" : "badge"}">${h(e.message)}</div>${s}`;
+    const s = Array.from(this.shadow.querySelectorAll("[data-panel-action-result]")).find((r) => r.dataset.panelActionResult === t);
+    if (!s) return;
+    const o = e.data === void 0 ? "" : `<pre style="margin-top:0.5rem;max-height:14rem;overflow:auto;white-space:pre-wrap;font-size:11px">${p(st(e.data, { nullAsEmptyObject: !1 }))}</pre>`;
+    s.innerHTML = `<div class="${e.status === "error" ? "badge error" : "badge"}">${p(e.message)}</div>${o}`;
   }
   renderReplPanel(t, e) {
-    let o = this.replPanels.get(e);
-    o || (o = new U({
+    let s = this.replPanels.get(e);
+    s || (s = new et({
       kind: e === "shell" ? "shell" : "console",
       debugPath: this.debugPath,
       commands: e === "console" ? this.replCommands : []
-    }), this.replPanels.set(e, o)), o.attach(t);
+    }), this.replPanels.set(e, s)), s.attach(t);
   }
   attachResizeListeners() {
     const t = this.shadow.querySelector("[data-resize-handle]");
     t && (t.addEventListener("mousedown", (e) => {
-      const o = e;
-      o.preventDefault(), this.startResize(o.clientY);
+      const s = e;
+      s.preventDefault(), this.startResize(s.clientY);
     }), t.addEventListener("touchstart", (e) => {
-      const o = e;
-      o.touches.length === 1 && (o.preventDefault(), this.startResize(o.touches[0].clientY));
+      const s = e;
+      s.touches.length === 1 && (s.preventDefault(), this.startResize(s.touches[0].clientY));
     }, { passive: !1 }));
   }
   startResize(t) {
     this.isResizing = !0, this.resizeStartY = t;
     const e = this.shadow.querySelector(".toolbar");
-    this.resizeStartHeight = e?.offsetHeight || c.DEFAULT_HEIGHT, e?.classList.add("resizing"), document.body.style.cursor = "ns-resize", document.body.style.userSelect = "none";
-    const o = (i) => {
+    this.resizeStartHeight = e?.offsetHeight || h.DEFAULT_HEIGHT, e?.classList.add("resizing"), document.body.style.cursor = "ns-resize", document.body.style.userSelect = "none";
+    const s = (i) => {
       this.handleResize(i.clientY);
-    }, s = (i) => {
+    }, o = (i) => {
       i.touches.length === 1 && this.handleResize(i.touches[0].clientY);
     }, r = () => {
-      this.isResizing = !1, e?.classList.remove("resizing"), document.body.style.cursor = "", document.body.style.userSelect = "", document.removeEventListener("mousemove", o), document.removeEventListener("mouseup", r), document.removeEventListener("touchmove", s), document.removeEventListener("touchend", r), this.saveState();
+      this.isResizing = !1, e?.classList.remove("resizing"), document.body.style.cursor = "", document.body.style.userSelect = "", document.removeEventListener("mousemove", s), document.removeEventListener("mouseup", r), document.removeEventListener("touchmove", o), document.removeEventListener("touchend", r), this.saveState();
     };
-    document.addEventListener("mousemove", o), document.addEventListener("mouseup", r), document.addEventListener("touchmove", s, { passive: !0 }), document.addEventListener("touchend", r);
+    document.addEventListener("mousemove", s), document.addEventListener("mouseup", r), document.addEventListener("touchmove", o, { passive: !0 }), document.addEventListener("touchend", r);
   }
   handleResize(t) {
     if (!this.isResizing) return;
-    const e = this.resizeStartY - t, o = window.innerHeight * c.MAX_HEIGHT_RATIO, s = Math.min(o, Math.max(c.MIN_HEIGHT, this.resizeStartHeight + e));
-    this.customHeight = s;
+    const e = this.resizeStartY - t, s = window.innerHeight * h.MAX_HEIGHT_RATIO, o = Math.min(s, Math.max(h.MIN_HEIGHT, this.resizeStartHeight + e));
+    this.customHeight = o;
     const r = this.shadow.querySelector(".toolbar");
-    r && (r.style.height = `${s}px`);
+    r && (r.style.height = `${o}px`);
   }
   attachExpandableRowListeners() {
-    D(this.shadow);
+    H(this.shadow);
   }
   attachCopyListeners() {
-    Y(this.shadow, { useIconFeedback: !1 });
+    j(this.shadow, { useIconFeedback: !1 });
   }
   attachSortToggleListeners() {
     K(this.shadow, (t, e) => {
@@ -1639,7 +1676,7 @@ var m, S = "debug-toolbar-active-panel", q = class c extends HTMLElement {
     });
   }
   mountActivePanelViews() {
-    this.mountSQLView(), this.mountLogsView();
+    this.mountSQLView(), this.mountLogsView(), this.mountRequestsView(), this.mountJSErrorsView();
   }
   mountSQLView() {
     this.activePanel === "sql" && this.sqlView.adopt(this.shadow);
@@ -1647,13 +1684,19 @@ var m, S = "debug-toolbar-active-panel", q = class c extends HTMLElement {
   mountLogsView() {
     this.activePanel === "logs" && this.logsView.adopt(this.shadow);
   }
+  mountRequestsView() {
+    this.activePanel === "requests" && this.requestsView.adopt(this.shadow);
+  }
+  mountJSErrorsView() {
+    this.activePanel === "jserrors" && this.jserrorsView.adopt(this.shadow);
+  }
 };
 m = q;
 m.MIN_HEIGHT = 150;
 m.MAX_HEIGHT_RATIO = 0.8;
 m.DEFAULT_HEIGHT = 320;
 customElements.get("debug-toolbar") || customElements.define("debug-toolbar", q);
-var it = `
+var ut = `
   :host {
     --fab-bg: #1e1e2e;
     --fab-bg-hover: #313244;
@@ -1883,7 +1926,7 @@ var it = `
       font-size: 8px;
     }
   }
-`, lt = class extends HTMLElement {
+`, bt = class extends HTMLElement {
   static get observedAttributes() {
     return [
       "debug-path",
@@ -1899,8 +1942,8 @@ var it = `
     this.initializeGeneration += 1, this.initialize(this.initializeGeneration);
   }
   async initialize(a) {
-    if (await E(this.debugPath), !this.isInitializationStale(a)) {
-      if (this.eventToPanel = u(), this.unsubscribeRegistry = f.subscribe((t) => this.handleRegistryChange(t)), this.isInitializationStale(a)) {
+    if (await C(this.debugPath), !this.isInitializationStale(a)) {
+      if (this.eventToPanel = b(), this.unsubscribeRegistry = f.subscribe((t) => this.handleRegistryChange(t)), this.isInitializationStale(a)) {
         this.unsubscribeRegistry?.(), this.unsubscribeRegistry = null;
         return;
       }
@@ -1964,7 +2007,7 @@ var it = `
     }), this.stream.connect(), this.updateSubscriptions();
   }
   async fetchInitialSnapshot(a = this.initializeGeneration) {
-    const t = await C(this.debugPath);
+    const t = await E(this.debugPath);
     this.isInitializationStale(a) || t && this.applySnapshot(t);
   }
   handleEvent(a) {
@@ -1991,10 +2034,10 @@ var it = `
     }));
   }
   render() {
-    const a = x(this.snapshot), t = a.errors > 0, e = a.slowQueries > 0, o = this.toolbarExpanded ? "hidden" : "";
+    const a = x(this.snapshot), t = a.errors > 0, e = a.slowQueries > 0, s = this.toolbarExpanded ? "hidden" : "";
     this.shadow.innerHTML = `
-      <style>${it}</style>
-      <div class="fab ${o}" data-status="${this.connectionStatus}">
+      <style>${ut}</style>
+      <div class="fab ${s}" data-status="${this.connectionStatus}">
         <span class="fab-status-dot"></span>
         <div class="fab-collapsed">
           <span class="fab-icon">
@@ -2027,15 +2070,15 @@ var it = `
     `, this.attachEventListeners();
   }
   updateCounters() {
-    const a = x(this.snapshot), t = a.errors > 0, e = a.slowQueries > 0, o = this.shadow.querySelector(".fab-counter:nth-child(1)");
-    if (o) {
-      const n = o.querySelector(".counter-value");
-      n && (n.textContent = String(a.requests)), o.classList.toggle("has-items", a.requests > 0);
-    }
-    const s = this.shadow.querySelector(".fab-counter:nth-child(2)");
+    const a = x(this.snapshot), t = a.errors > 0, e = a.slowQueries > 0, s = this.shadow.querySelector(".fab-counter:nth-child(1)");
     if (s) {
       const n = s.querySelector(".counter-value");
-      n && (n.textContent = String(a.sql)), s.classList.toggle("has-items", a.sql > 0), s.classList.toggle("has-slow", e);
+      n && (n.textContent = String(a.requests)), s.classList.toggle("has-items", a.requests > 0);
+    }
+    const o = this.shadow.querySelector(".fab-counter:nth-child(2)");
+    if (o) {
+      const n = o.querySelector(".counter-value");
+      n && (n.textContent = String(a.sql)), o.classList.toggle("has-items", a.sql > 0), o.classList.toggle("has-slow", e);
     }
     const r = this.shadow.querySelector(".fab-counter:nth-child(3)");
     if (r) {
@@ -2053,7 +2096,7 @@ var it = `
     a && a.setAttribute("data-status", this.connectionStatus);
   }
   handleRegistryChange(a) {
-    this.eventToPanel = u(), this.updateSubscriptions();
+    this.eventToPanel = b(), this.updateSubscriptions();
   }
   updateSubscriptions() {
     if (!this.stream) return;
@@ -2076,7 +2119,7 @@ var it = `
     }));
   }
 };
-customElements.get("debug-fab") || customElements.define("debug-fab", lt);
+customElements.get("debug-fab") || customElements.define("debug-fab", bt);
 var z = class {
   constructor(a = {}) {
     this.fab = null, this.toolbar = null, this.initialized = !1, this.options = {
@@ -2122,8 +2165,8 @@ var z = class {
         t && this.toolbar.setStream(t);
         const e = this.fab?.getSnapshot();
         e && this.toolbar.setSnapshot(e);
-        const o = this.fab?.getConnectionStatus();
-        o && this.toolbar.setConnectionStatus(o), this.toolbar.setExpanded(!0);
+        const s = this.fab?.getConnectionStatus();
+        s && this.toolbar.setConnectionStatus(s), this.toolbar.setExpanded(!0);
       }
     })), this.fab.addEventListener("debug-status-change", ((a) => {
       this.toolbar && a.detail?.status && this.toolbar.setConnectionStatus(a.detail.status);
@@ -2134,7 +2177,7 @@ var z = class {
     })));
   }
 };
-function dt() {
+function gt() {
   const a = window.DEBUG_CONFIG, t = document.querySelector("[data-debug-path]");
   let e = {};
   if (a ? e = {
@@ -2149,30 +2192,30 @@ function dt() {
     panels: t.getAttribute("data-panels")?.split(","),
     slowThresholdMs: parseInt(t.getAttribute("data-slow-threshold-ms") || "50", 10)
   }), !e.debugPath && !e.basePath && !a && !t) return null;
-  const o = new z(e);
-  return o.init(), o;
+  const s = new z(e);
+  return s.init(), s;
 }
 window.DebugManager = z;
-window.initDebugManager = dt;
+window.initDebugManager = gt;
 export {
-  lt as DebugFab,
+  bt as DebugFab,
   z as DebugManager,
   q as DebugToolbar,
-  xt as applyCustomEventPayload,
+  kt as applyCustomEventPayload,
   P as applyDebugEventToSnapshot,
-  u as buildEventToPanel,
-  C as fetchDebugSnapshot,
+  b as buildEventToPanel,
+  E as fetchDebugSnapshot,
   x as getCounts,
-  vt as getDefaultPanels,
+  Ct as getDefaultPanels,
   g as getDefaultToolbarPanels,
   y as getPanelEventTypes,
-  et as getPanelIcon,
-  st as getPanelLabel,
-  dt as initDebugManager,
-  mt as isKnownPanel,
-  at as normalizeReplCommands,
+  it as getPanelIcon,
+  ct as getPanelLabel,
+  gt as initDebugManager,
+  Et as isKnownPanel,
+  lt as normalizeReplCommands,
   w as renderPanel,
-  Z as replPanelIDs
+  rt as replPanelIDs
 };
 
 //# sourceMappingURL=toolbar.js.map

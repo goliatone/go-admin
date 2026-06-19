@@ -4,6 +4,18 @@
 import type { JSErrorEntry, PanelOptions } from '../types.js';
 import type { StyleConfig } from '../styles.js';
 import { escapeHTML, formatTimestamp } from '../utils.js';
+import { escapeAttribute } from '../../../shared/html.js';
+import { hashString } from './live-list-view.js';
+
+/**
+ * Stable identity for a JS error row. Prefers the server id and falls back to a
+ * deterministic content hash, so expansion state keyed by this survives
+ * incremental updates and full re-renders.
+ */
+export function jsErrorRowKey(entry: JSErrorEntry): string {
+  if (entry.id) return entry.id;
+  return `jserr-${hashString(`${entry.timestamp || ''}|${entry.type || ''}|${entry.message || ''}|${entry.source || ''}|${entry.line ?? ''}`)}`;
+}
 
 /**
  * Options for rendering the JS errors panel
@@ -54,9 +66,11 @@ function formatErrorType(type: string | undefined): string {
 }
 
 /**
- * Render a single JS error row.
+ * Render a single JS error row (summary `<tr>` plus an optional stack row).
+ * Carries a stable `data-row-key` so `LiveListView` can append/evict it and
+ * `attachRowExpansion` can persist its expanded state.
  */
-function renderErrorRow(
+export function renderErrorRow(
   entry: JSErrorEntry,
   styles: StyleConfig,
   options: JSErrorsPanelOptions
@@ -109,7 +123,7 @@ function renderErrorRow(
   }
 
   return `
-    <tr class="${styles.rowError} ${expandableClass}">
+    <tr class="${styles.rowError} ${expandableClass}" data-row-key="${escapeAttribute(jsErrorRowKey(entry))}">
       <td>${expandIcon}<span class="${typeClass}">${escapeHTML(type)}</span></td>
       <td class="${styles.timestamp}">${escapeHTML(formatTimestamp(entry.timestamp))}</td>
       <td class="${styles.message}" title="${escapeHTML(message)}">${displayMessage}</td>
@@ -185,7 +199,7 @@ export function renderJSErrorsPanel(
           ${urlHeader}
         </tr>
       </thead>
-      <tbody>${rows}</tbody>
+      <tbody data-live-list>${rows}</tbody>
     </table>
   `;
 }

@@ -11,6 +11,7 @@ import {
   truncate,
 } from '../utils.js';
 import { highlightJSON } from '../../syntax-highlight.js';
+import { hashString } from './live-list-view.js';
 
 type NormalizedMethod = {
   display: string;
@@ -47,10 +48,23 @@ export type RequestsPanelOptions = PanelOptions & {
 /**
  * Generate a stable key for a request entry.
  * Uses entry.id if available, otherwise falls back to timestamp + index.
+ *
+ * @deprecated Index-based fallback drifts as the ring buffer trims. Prefer
+ * {@link requestRowKey}, which is index-free.
  */
 export function getRequestKey(entry: RequestEntry, index: number): string {
   if (entry.id) return entry.id;
   return `${entry.timestamp || ''}-${index}`;
+}
+
+/**
+ * Stable, index-free identity for a request row. Prefers the server id and
+ * falls back to a deterministic content hash, so expansion state keyed by this
+ * survives incremental updates and ring-buffer trimming.
+ */
+export function requestRowKey(entry: RequestEntry): string {
+  if (entry.id) return entry.id;
+  return `req-${hashString(`${entry.timestamp || ''}|${entry.method || ''}|${entry.path || ''}|${entry.status ?? ''}`)}`;
 }
 
 /**
@@ -217,11 +231,12 @@ export function renderRequestDetail(
 }
 
 /**
- * Render a single request row with its hidden detail row
+ * Render a single request row with its hidden detail row. Keyed by a stable,
+ * index-free id (`requestRowKey`) so `LiveListView` can append/evict it and the
+ * detail expansion (keyed by the same id) survives live updates.
  */
-function renderRequestRow(
+export function renderRequestRow(
   entry: RequestEntry,
-  index: number,
   styles: StyleConfig,
   options: RequestsPanelOptions
 ): string {
@@ -229,7 +244,7 @@ function renderRequestRow(
   const path = entry.path || '';
   const statusCode = entry.status || 0;
   const duration = formatDuration(entry.duration, options.slowThresholdMs);
-  const requestKey = getRequestKey(entry, index);
+  const requestKey = requestRowKey(entry);
   const isExpanded = options.expandedRequestIds?.has(requestKey) || false;
 
   const methodClass = styles.badgeMethod(methodClassToken);
@@ -312,20 +327,16 @@ export function renderRequestsPanel(
   }
 
   // Apply max entries limit if specified
-  const startIndex = maxEntries ? Math.max(0, requests.length - maxEntries) : 0;
   let items = maxEntries ? requests.slice(-maxEntries) : requests;
-
-  // Map entries with their original indices for stable keys
-  let indexed = items.map((entry, i) => ({ entry, originalIndex: startIndex + i }));
 
   // Apply sort order
   if (newestFirst) {
-    indexed = [...indexed].reverse();
+    items = [...items].reverse();
   }
 
-  const rows = indexed
-    .map(({ entry, originalIndex }) =>
-      renderRequestRow(entry, originalIndex, styles, {
+  const rows = items
+    .map((entry) =>
+      renderRequestRow(entry, styles, {
         ...options,
         slowThresholdMs,
         truncatePath,
@@ -346,7 +357,7 @@ export function renderRequestsPanel(
           <th>Time</th>
         </tr>
       </thead>
-      <tbody>${rows}</tbody>
+      <tbody data-live-list>${rows}</tbody>
     </table>
   `;
 }

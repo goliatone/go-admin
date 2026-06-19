@@ -1,7 +1,7 @@
 // Shared panel renderers for debug panels
 // Re-exports all panel components for easy importing
 
-export { renderRequestsPanel, renderRequestDetail, getRequestKey, type RequestsPanelOptions } from './requests.js';
+export { renderRequestsPanel, renderRequestRow, renderRequestDetail, getRequestKey, requestRowKey, type RequestsPanelOptions } from './requests.js';
 export {
   renderSQLPanel,
   renderSQLRow,
@@ -32,7 +32,7 @@ export {
   renderSchemaStack,
 } from './schema.js';
 export { renderCustomPanel, type CustomPanelOptions } from './custom.js';
-export { renderJSErrorsPanel, type JSErrorsPanelOptions } from './jserrors.js';
+export { renderJSErrorsPanel, renderErrorRow, jsErrorRowKey, type JSErrorsPanelOptions } from './jserrors.js';
 export { renderPermissionsPanel, renderPermissionsPanelCompact, type PermissionsPanelOptions } from './permissions.js';
 export { renderDoctorPanel, renderDoctorPanelCompact, type DoctorPanelOptions } from './doctor.js';
 export {

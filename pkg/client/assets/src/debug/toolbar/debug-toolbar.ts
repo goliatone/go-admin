@@ -12,10 +12,21 @@ import {
   attachExpandableRowListeners,
   attachSortToggleListeners,
   attachRequestDetailListeners,
+  attachRowExpansion,
+  restoreRowExpansion,
 } from '../shared/interactions.js';
-import { SqlLiveView, LiveListView, renderLogRow, logRowKey } from '../shared/panels/index.js';
+import {
+  SqlLiveView,
+  LiveListView,
+  renderLogRow,
+  logRowKey,
+  renderRequestRow,
+  requestRowKey,
+  renderErrorRow,
+  jsErrorRowKey,
+} from '../shared/panels/index.js';
 import { toolbarStyles as toolbarStyleConfig } from '../shared/styles.js';
-import type { SQLEntry, LogEntry } from '../shared/types.js';
+import type { SQLEntry, LogEntry, RequestEntry, JSErrorEntry } from '../shared/types.js';
 import {
   panelRegistry,
   getPanelCount as getRegistryPanelCount,
@@ -51,6 +62,9 @@ export class DebugToolbar extends HTMLElement {
   private shadow: ShadowRoot;
   private sqlView!: SqlLiveView;
   private logsView!: LiveListView<LogEntry>;
+  private requestsView!: LiveListView<RequestEntry>;
+  private jserrorsView!: LiveListView<JSErrorEntry>;
+  private jserrorsExpanded: Set<string> = new Set();
   private stream: DebugStream | null = null;
   private externalStream: DebugStream | null = null;
   private snapshot: DebugSnapshot = {};
@@ -112,6 +126,48 @@ export class DebugToolbar extends HTMLElement {
       getRenderOptions: () => ({ newestFirst: true }),
       getMaxEntries: () => 100,
       onNeedFullRender: () => this.updateContent(),
+    });
+    this.requestsView = new LiveListView<RequestEntry>({
+      styles: toolbarStyleConfig,
+      containerSelector: '[data-request-table] tbody',
+      rowSelector: 'tr[data-request-id]',
+      keyAttr: 'data-request-id',
+      keyOf: requestRowKey,
+      renderRow: (entry) =>
+        renderRequestRow(entry, toolbarStyleConfig, {
+          slowThresholdMs: this.slowThresholdMs,
+          truncatePath: true,
+          maxPathLength: 50,
+          expandedRequestIds: this.expandedRequests,
+          maxDetailLength: 80,
+        }),
+      getItems: () => this.snapshot.requests || [],
+      getRenderOptions: () => ({ newestFirst: this.panelSortOrder.get('requests') ?? true }),
+      getMaxEntries: () => 50,
+      onNeedFullRender: () => this.updateContent(),
+      onAdopt: (root) => attachRequestDetailListeners(root, this.expandedRequests),
+    });
+    this.jserrorsView = new LiveListView<JSErrorEntry>({
+      styles: toolbarStyleConfig,
+      keyOf: jsErrorRowKey,
+      renderRow: (entry) => renderErrorRow(entry, toolbarStyleConfig, { compact: true }),
+      getItems: () => this.snapshot.jserrors || [],
+      getRenderOptions: () => ({ newestFirst: this.panelSortOrder.get('jserrors') ?? true }),
+      getMaxEntries: () => 50,
+      onNeedFullRender: () => this.updateContent(),
+      onAdopt: (root) =>
+        attachRowExpansion(root, {
+          tableSelector: '[data-live-list]',
+          rowSelector: 'tr.expandable-row',
+          keyAttr: 'data-row-key',
+          expanded: this.jserrorsExpanded,
+        }),
+      onRestore: (root) =>
+        restoreRowExpansion(root, {
+          rowSelector: 'tr.expandable-row',
+          keyAttr: 'data-row-key',
+          expanded: this.jserrorsExpanded,
+        }),
     });
   }
 
@@ -436,6 +492,10 @@ export class DebugToolbar extends HTMLElement {
         this.sqlView.enqueue([event.payload as SQLEntry]);
       } else if (panel === 'logs') {
         this.logsView.enqueue([event.payload as LogEntry]);
+      } else if (panel === 'requests') {
+        this.requestsView.enqueue([event.payload as RequestEntry]);
+      } else if (panel === 'jserrors') {
+        this.jserrorsView.enqueue([event.payload as JSErrorEntry]);
       } else {
         this.updateContent();
       }
@@ -569,9 +629,6 @@ export class DebugToolbar extends HTMLElement {
           this.attachCopyListeners();
           this.attachSortToggleListeners();
           this.mountActivePanelViews();
-          if (this.activePanel === 'requests') {
-            attachRequestDetailListeners(this.shadow, this.expandedRequests);
-          }
           this.attachPanelActionListeners();
           this.renderStoredPanelActionResult(this.activePanel);
         }
@@ -699,9 +756,6 @@ export class DebugToolbar extends HTMLElement {
             this.attachCopyListeners();
             this.attachSortToggleListeners();
             this.mountActivePanelViews();
-            if (this.activePanel === 'requests') {
-              attachRequestDetailListeners(this.shadow, this.expandedRequests);
-            }
             this.attachPanelActionListeners();
           }
         }
@@ -713,9 +767,6 @@ export class DebugToolbar extends HTMLElement {
     this.attachCopyListeners();
     this.attachSortToggleListeners();
     this.mountActivePanelViews();
-    if (this.activePanel === 'requests') {
-      attachRequestDetailListeners(this.shadow, this.expandedRequests);
-    }
     this.attachPanelActionListeners();
 
     // Action buttons
@@ -959,6 +1010,8 @@ export class DebugToolbar extends HTMLElement {
   private mountActivePanelViews(): void {
     this.mountSQLView();
     this.mountLogsView();
+    this.mountRequestsView();
+    this.mountJSErrorsView();
   }
 
   private mountSQLView(): void {
@@ -972,6 +1025,18 @@ export class DebugToolbar extends HTMLElement {
     if (this.activePanel !== 'logs') return;
     // LiveListView appends/evicts log rows incrementally instead of rebuilding.
     this.logsView.adopt(this.shadow);
+  }
+
+  private mountRequestsView(): void {
+    if (this.activePanel !== 'requests') return;
+    // LiveListView appends/evicts incrementally and wires request-detail
+    // expansion (delegated, persisted via expandedRequests) on adopt.
+    this.requestsView.adopt(this.shadow);
+  }
+
+  private mountJSErrorsView(): void {
+    if (this.activePanel !== 'jserrors') return;
+    this.jserrorsView.adopt(this.shadow);
   }
 }
 

@@ -111,9 +111,10 @@ export function attachCopyListeners(
  */
 export function attachExpandableRowListeners(root: ParentNode): void {
   root.querySelectorAll('.expandable-row').forEach((row) => {
-    // SQL rows are owned by SqlLiveView, which manages expansion via delegation
-    // and keeps it keyed by stable id. Skip them here to avoid double-toggling.
-    if ((row as HTMLElement).closest('[data-sql-table]')) return;
+    // Live-list panels (SQL, jserrors, ...) own their expansion via delegated,
+    // id-keyed handlers (attachRowExpansion / SqlLiveView). Skip those rows here
+    // to avoid double-toggling.
+    if ((row as HTMLElement).closest('[data-sql-table], [data-live-list]')) return;
     row.addEventListener('click', (e) => {
       const target = e.target as HTMLElement;
       // Don't toggle if clicking on a link, button, or input (e.g. checkbox)
@@ -122,6 +123,64 @@ export function attachExpandableRowListeners(root: ParentNode): void {
       const rowEl = e.currentTarget as HTMLElement;
       rowEl.classList.toggle('expanded');
     });
+  });
+}
+
+/**
+ * Options for delegated, persistent row expansion.
+ */
+export type RowExpansionOptions = {
+  /** Selector for the delegation root(s) within `root` (e.g. the live-list tbody). */
+  tableSelector: string;
+  /** Selector matching an expandable primary row (e.g. `tr.expandable-row`). */
+  rowSelector: string;
+  /** Attribute holding the row's stable key. */
+  keyAttr: string;
+  /** Persisted set of expanded keys (host-owned; mutated in place). */
+  expanded: Set<string>;
+};
+
+/**
+ * Attach delegated expand/collapse for keyed rows. Clicking an expandable row
+ * toggles its `.expanded` class and records the stable key in `expanded`, so the
+ * state survives incremental appends and full re-renders (pair with
+ * `restoreRowExpansion` on adopt). This is the live-list counterpart to
+ * `attachExpandableRowListeners`, which is per-row and not persisted.
+ */
+export function attachRowExpansion(root: ParentNode, options: RowExpansionOptions): void {
+  const { tableSelector, rowSelector, keyAttr, expanded } = options;
+  root.querySelectorAll<HTMLElement>(tableSelector).forEach((table) => {
+    table.addEventListener('click', (e) => {
+      const target = e.target as HTMLElement;
+      if (target.closest('a, button, input')) return;
+      const row = target.closest<HTMLElement>(rowSelector);
+      if (!row || !table.contains(row)) return;
+      const key = row.getAttribute(keyAttr);
+      if (!key) return;
+      if (expanded.has(key)) {
+        expanded.delete(key);
+        row.classList.remove('expanded');
+      } else {
+        expanded.add(key);
+        row.classList.add('expanded');
+      }
+    });
+  });
+}
+
+/**
+ * Restore `.expanded` on keyed rows from the persisted `expanded` set. Call on
+ * every adopt so a full re-render reflects prior expansion state.
+ */
+export function restoreRowExpansion(
+  root: ParentNode,
+  options: Pick<RowExpansionOptions, 'rowSelector' | 'keyAttr' | 'expanded'>
+): void {
+  const { rowSelector, keyAttr, expanded } = options;
+  root.querySelectorAll<HTMLElement>(rowSelector).forEach((row) => {
+    const key = row.getAttribute(keyAttr);
+    if (key && expanded.has(key)) row.classList.add('expanded');
+    else row.classList.remove('expanded');
   });
 }
 

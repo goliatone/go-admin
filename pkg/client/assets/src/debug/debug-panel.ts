@@ -6,6 +6,7 @@ import type {
   RequestEntry,
   SQLEntry,
   LogEntry,
+  JSErrorEntry,
   RouteEntry,
   CustomLogEntry,
   DebugSnapshot,
@@ -24,6 +25,8 @@ import {
   attachCopyListeners,
   attachExpandableRowListeners,
   attachRequestDetailListeners,
+  attachRowExpansion,
+  restoreRowExpansion,
 } from './shared/interactions.js';
 import { consoleStyles } from './shared/styles.js';
 import {
@@ -34,6 +37,10 @@ import {
   renderJSONPanel as renderSharedJSONPanel,
   renderCustomPanel,
   renderJSErrorsPanel,
+  renderRequestRow,
+  requestRowKey,
+  renderErrorRow,
+  jsErrorRowKey,
   SqlLiveView,
   LiveListView,
   renderLogRow,
@@ -194,6 +201,9 @@ export class DebugPanel {
   private paused = false;
   private sqlView!: SqlLiveView;
   private logsView!: LiveListView<LogEntry>;
+  private requestsView!: LiveListView<RequestEntry>;
+  private jserrorsView!: LiveListView<JSErrorEntry>;
+  private jserrorsExpanded: Set<string> = new Set();
   private pauseButton: HTMLButtonElement | null = null;
   private maxLogEntries: number;
   private maxSQLQueries: number;
@@ -323,6 +333,49 @@ export class DebugPanel {
       shouldDisplay: (entry) => this.logEntryMatchesFilters(entry),
       onNeedFullRender: () => this.renderPanel(),
       onAfterAppend: () => this.applyLogsAutoScroll(),
+    });
+
+    this.requestsView = new LiveListView<RequestEntry>({
+      styles: consoleStyles,
+      containerSelector: '[data-request-table] tbody',
+      rowSelector: 'tr[data-request-id]',
+      keyAttr: 'data-request-id',
+      keyOf: requestRowKey,
+      renderRow: (entry) =>
+        renderRequestRow(entry, consoleStyles, {
+          expandedRequestIds: this.expandedRequests,
+          truncatePath: false,
+          slowThresholdMs: this.slowThresholdMs,
+        }),
+      getItems: () => this.state.requests,
+      getRenderOptions: () => ({ newestFirst: this.filters.requests.newestFirst }),
+      getMaxEntries: () => this.maxLogEntries,
+      shouldDisplay: (entry) => this.requestEntryMatchesFilters(entry),
+      onNeedFullRender: () => this.renderPanel(),
+      onAdopt: (root) => attachRequestDetailListeners(root, this.expandedRequests),
+    });
+
+    this.jserrorsView = new LiveListView<JSErrorEntry>({
+      styles: consoleStyles,
+      keyOf: jsErrorRowKey,
+      renderRow: (entry) => renderErrorRow(entry, consoleStyles, { compact: false }),
+      getItems: () => (this.state.extra['jserrors'] as JSErrorEntry[]) || [],
+      getRenderOptions: () => ({ newestFirst: this.filters.logs.newestFirst }),
+      getMaxEntries: () => this.maxLogEntries,
+      onNeedFullRender: () => this.renderPanel(),
+      onAdopt: (root) =>
+        attachRowExpansion(root, {
+          tableSelector: '[data-live-list]',
+          rowSelector: 'tr.expandable-row',
+          keyAttr: 'data-row-key',
+          expanded: this.jserrorsExpanded,
+        }),
+      onRestore: (root) =>
+        restoreRowExpansion(root, {
+          rowSelector: 'tr.expandable-row',
+          keyAttr: 'data-row-key',
+          expanded: this.jserrorsExpanded,
+        }),
     });
 
     this.bindActions();
@@ -1032,13 +1085,18 @@ export class DebugPanel {
     this.attachExpandableRowListeners();
     this.attachCopyButtonListeners();
     if (panel === 'requests') {
-      attachRequestDetailListeners(this.panelEl, this.expandedRequests);
+      // LiveListView appends/evicts incrementally and wires request-detail
+      // expansion (delegated, persisted via expandedRequests) on adopt.
+      this.requestsView.adopt(this.panelEl);
     }
     if (panel === 'sql') {
       this.mountSQLView();
     }
     if (panel === 'logs') {
       this.logsView.adopt(this.panelEl);
+    }
+    if (panel === 'jserrors') {
+      this.jserrorsView.adopt(this.panelEl);
     }
     if (panel === 'sessions') {
       this.attachSessionActions();
@@ -1329,32 +1387,35 @@ export class DebugPanel {
     return [...types].sort();
   }
 
+  /** Whether a request entry passes the active console filters. */
+  private requestEntryMatchesFilters(entry: RequestEntry): boolean {
+    const { method, status, search, hasBody, contentType } = this.filters.requests;
+    if (method !== 'all' && (entry.method || '').toUpperCase() !== method) {
+      return false;
+    }
+    if (status !== 'all' && String(entry.status || '') !== status) {
+      return false;
+    }
+    if (search && !(entry.path || '').toLowerCase().includes(search.toLowerCase())) {
+      return false;
+    }
+    if (hasBody && !entry.request_body) {
+      return false;
+    }
+    if (contentType !== 'all') {
+      const entryCt = (entry.content_type || '').split(';')[0].trim();
+      if (entryCt !== contentType) {
+        return false;
+      }
+    }
+    return true;
+  }
+
   private renderRequests(): string {
-    const { method, status, search, newestFirst, hasBody, contentType } = this.filters.requests;
-    const needle = search.toLowerCase();
+    const { newestFirst } = this.filters.requests;
 
     // Apply console-specific filters
-    const filtered = this.state.requests.filter((entry) => {
-      if (method !== 'all' && (entry.method || '').toUpperCase() !== method) {
-        return false;
-      }
-      if (status !== 'all' && String(entry.status || '') !== status) {
-        return false;
-      }
-      if (needle && !(entry.path || '').toLowerCase().includes(needle)) {
-        return false;
-      }
-      if (hasBody && !entry.request_body) {
-        return false;
-      }
-      if (contentType !== 'all') {
-        const entryCt = (entry.content_type || '').split(';')[0].trim();
-        if (entryCt !== contentType) {
-          return false;
-        }
-      }
-      return true;
-    });
+    const filtered = this.state.requests.filter((entry) => this.requestEntryMatchesFilters(entry));
 
     if (filtered.length === 0) {
       return this.renderEmptyState('No requests captured yet.');
@@ -1770,6 +1831,7 @@ export class DebugPanel {
       extra: {},
     };
     this.expandedRequests.clear();
+    this.jserrorsExpanded.clear();
     this.eventCount = 0;
     this.lastEventAt = null;
     this.updateStatusMeta();
@@ -1973,6 +2035,10 @@ export class DebugPanel {
         this.sqlView.enqueue([event.payload as SQLEntry]);
       } else if (panel === 'logs') {
         this.logsView.enqueue([event.payload as LogEntry]);
+      } else if (panel === 'requests') {
+        this.requestsView.enqueue([event.payload as RequestEntry]);
+      } else if (panel === 'jserrors') {
+        this.jserrorsView.enqueue([event.payload as JSErrorEntry]);
       } else {
         this.renderPanel();
       }

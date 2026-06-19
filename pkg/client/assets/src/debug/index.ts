@@ -63,6 +63,9 @@ export {
 export {
   attachCopyListeners,
   attachExpandableRowListeners,
+  attachRowExpansion,
+  restoreRowExpansion,
+  attachRequestDetailListeners,
   copyToClipboard,
   DATA_ATTRS,
   INTERACTION_CLASSES,
@@ -96,6 +99,11 @@ export {
 // Shared panel renderers - for building custom panels
 export {
   renderRequestsPanel,
+  renderRequestRow,
+  requestRowKey,
+  renderJSErrorsPanel,
+  renderErrorRow,
+  jsErrorRowKey,
   renderSQLPanel,
   renderSQLRow,
   renderSQLRowsHTML,
