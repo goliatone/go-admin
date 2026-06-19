@@ -96,6 +96,33 @@ export interface PanelDefinition {
    * Sort order within category (lower = earlier)
    */
   order?: number;
+
+  /**
+   * Opt-in incremental ("live list") rendering. When set, the host renders an
+   * append-style panel once and then appends/evicts individual rows via
+   * LiveListView instead of rebuilding the whole panel on each event. The
+   * panel's render output must contain a `[data-live-list]` container with
+   * `[data-row-key]` rows (see schema list renderers / RegistryLiveListManager).
+   */
+  liveList?: PanelLiveListConfig;
+}
+
+/**
+ * Live-list configuration for a registry panel (see PanelDefinition.liveList).
+ */
+export interface PanelLiveListConfig {
+  /** Render a single item to one (or more) table rows. */
+  renderRow: (item: unknown, styles: StyleConfig, options: PanelOptions) => string;
+  /** Stable key per item. Defaults to a hash of the item. */
+  keyOf?: (item: unknown) => string;
+  /** Selector for the live container. Default `[data-live-list]`. */
+  containerSelector?: string;
+  /** Selector matching a primary keyed row. Default `[data-row-key]`. */
+  rowSelector?: string;
+  /** Attribute holding the row key. Default `data-row-key`. */
+  keyAttr?: string;
+  /** Max visible rows before eviction. Default 500. */
+  getMaxEntries?: () => number;
 }
 
 type PanelDefinitionSource = 'client' | 'server';

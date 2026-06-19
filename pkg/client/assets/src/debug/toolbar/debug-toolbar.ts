@@ -18,6 +18,7 @@ import {
 import {
   SqlLiveView,
   LiveListView,
+  RegistryLiveListManager,
   renderLogRow,
   logRowKey,
   renderRequestRow,
@@ -30,6 +31,7 @@ import type { SQLEntry, LogEntry, RequestEntry, JSErrorEntry } from '../shared/t
 import {
   panelRegistry,
   getPanelCount as getRegistryPanelCount,
+  getSnapshotKey,
   type RegistryChangeEvent,
 } from '../shared/panel-registry.js';
 import {
@@ -64,6 +66,7 @@ export class DebugToolbar extends HTMLElement {
   private logsView!: LiveListView<LogEntry>;
   private requestsView!: LiveListView<RequestEntry>;
   private jserrorsView!: LiveListView<JSErrorEntry>;
+  private registryLiveList!: RegistryLiveListManager;
   private jserrorsExpanded: Set<string> = new Set();
   private stream: DebugStream | null = null;
   private externalStream: DebugStream | null = null;
@@ -168,6 +171,15 @@ export class DebugToolbar extends HTMLElement {
           keyAttr: 'data-row-key',
           expanded: this.jserrorsExpanded,
         }),
+    });
+    this.registryLiveList = new RegistryLiveListManager({
+      styles: toolbarStyleConfig,
+      getData: (def) => {
+        const data = (this.snapshot as Record<string, unknown>)[getSnapshotKey(def)];
+        return Array.isArray(data) ? data : [];
+      },
+      getRenderOptions: (def) => ({ newestFirst: this.panelSortOrder.get(def.id) ?? true }),
+      onNeedFullRender: () => this.updateContent(),
     });
   }
 
@@ -496,6 +508,12 @@ export class DebugToolbar extends HTMLElement {
         this.requestsView.enqueue([event.payload as RequestEntry]);
       } else if (panel === 'jserrors') {
         this.jserrorsView.enqueue([event.payload as JSErrorEntry]);
+      } else if (this.registryLiveList.handles(panelRegistry.get(panel))) {
+        // Opt-in registry (incl. server schema) panels append incrementally.
+        const def = panelRegistry.get(panel)!;
+        const data = (this.snapshot as Record<string, unknown>)[getSnapshotKey(def)];
+        const item = Array.isArray(data) ? data[data.length - 1] : undefined;
+        this.registryLiveList.enqueue(def, item);
       } else {
         this.updateContent();
       }
@@ -1012,6 +1030,14 @@ export class DebugToolbar extends HTMLElement {
     this.mountLogsView();
     this.mountRequestsView();
     this.mountJSErrorsView();
+    this.mountRegistryLiveView();
+  }
+
+  private mountRegistryLiveView(): void {
+    const def = panelRegistry.get(this.activePanel);
+    if (def && this.registryLiveList.handles(def)) {
+      this.registryLiveList.adopt(def, this.shadow);
+    }
   }
 
   private mountSQLView(): void {

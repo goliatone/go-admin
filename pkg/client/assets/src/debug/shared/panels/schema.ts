@@ -1,9 +1,30 @@
 import type { StyleConfig } from '../styles.js';
 import type { ServerPanelDefinition, ServerPanelUIView } from '../types.js';
 import { escapeHTML, formatNumber, formatTimestamp } from '../utils.js';
+import { escapeAttribute } from '../../../shared/html.js';
+import { hashString } from './live-list-view.js';
 import { renderJSONPanel } from './json.js';
 
 type SchemaItem = Record<string, unknown>;
+
+/**
+ * Stable key for a schema list row. Uses the declared `key_bind` field when
+ * present, otherwise a deterministic content hash. Used to mark `data-row-key`
+ * so LiveListView can append/evict schema rows incrementally.
+ */
+export function schemaRowKey(row: unknown, keyBind?: unknown): string {
+  if (keyBind) {
+    const value = text(pathValue(row, keyBind));
+    if (value) return value;
+  }
+  let serialized: string;
+  try {
+    serialized = JSON.stringify(row) ?? '';
+  } catch {
+    serialized = text(row);
+  }
+  return `schema-${hashString(serialized)}`;
+}
 
 function text(value: unknown): string {
   if (value === null || value === undefined) {
@@ -134,6 +155,23 @@ export function renderSchemaKeyValue(
   `;
 }
 
+/** Render a single schema table row, keyed for incremental updates. */
+export function renderSchemaTableRow(
+  row: unknown,
+  columns: SchemaItem[],
+  keyBind?: unknown
+): string {
+  const effective: SchemaItem[] = columns.length > 0
+    ? columns
+    : Object.keys((row && typeof row === 'object' ? row : {}) as Record<string, unknown>)
+        .map((key) => ({ label: key, bind: key }));
+  return `
+    <tr data-row-key="${escapeAttribute(schemaRowKey(row, keyBind))}">
+      ${effective.map((column) => `<td>${escapeHTML(formatValue(pathValue(row, column.bind), column.format))}</td>`).join('')}
+    </tr>
+  `;
+}
+
 export function renderSchemaTable(
   title: string,
   data: unknown,
@@ -149,6 +187,7 @@ export function renderSchemaTable(
   if (rows.length === 0 || effectiveColumns.length === 0) {
     return `<div class="${styles.emptyState}">No ${escapeHTML(title.toLowerCase())} rows available</div>`;
   }
+  const keyBind = view?.options?.key_bind;
   return `
     <section class="${styles.jsonPanel}">
       ${renderTitle(title, styles)}
@@ -156,15 +195,28 @@ export function renderSchemaTable(
         <thead>
           <tr>${effectiveColumns.map((column) => `<th>${escapeHTML(text(column.label || column.bind))}</th>`).join('')}</tr>
         </thead>
-        <tbody>
-          ${rows.map((row) => `
-            <tr>
-              ${effectiveColumns.map((column) => `<td>${escapeHTML(formatValue(pathValue(row, column.bind), column.format))}</td>`).join('')}
-            </tr>
-          `).join('')}
+        <tbody data-live-list>
+          ${rows.map((row) => renderSchemaTableRow(row, effectiveColumns, keyBind)).join('')}
         </tbody>
       </table>
     </section>
+  `;
+}
+
+/** Render a single schema status-list row, keyed for incremental updates. */
+export function renderSchemaStatusRow(
+  row: unknown,
+  view: ServerPanelUIView | undefined,
+  styles: StyleConfig
+): string {
+  const label = text(pathValue(row, view?.options?.label_bind || 'label') || pathValue(row, 'name') || pathValue(row, 'key'));
+  const description = text(pathValue(row, view?.options?.description_bind || 'description') || pathValue(row, 'message'));
+  const status = text(pathValue(row, view?.options?.status_bind || 'status') || pathValue(row, 'severity'));
+  return `
+    <tr data-row-key="${escapeAttribute(schemaRowKey(row, view?.options?.key_bind))}">
+      <td><span class="${styles.badge}">${escapeHTML(status || 'status')}</span></td>
+      <td><strong>${escapeHTML(label)}</strong>${description ? `<div class="${styles.muted}">${escapeHTML(description)}</div>` : ''}</td>
+    </tr>
   `;
 }
 
@@ -182,21 +234,28 @@ export function renderSchemaStatusList(
     <section class="${styles.jsonPanel}">
       ${renderTitle(title, styles)}
       <table class="${styles.table}">
-        <tbody>
-          ${rows.map((row) => {
-            const label = text(pathValue(row, view?.options?.label_bind || 'label') || pathValue(row, 'name') || pathValue(row, 'key'));
-            const description = text(pathValue(row, view?.options?.description_bind || 'description') || pathValue(row, 'message'));
-            const status = text(pathValue(row, view?.options?.status_bind || 'status') || pathValue(row, 'severity'));
-            return `
-              <tr>
-                <td><span class="${styles.badge}">${escapeHTML(status || 'status')}</span></td>
-                <td><strong>${escapeHTML(label)}</strong>${description ? `<div class="${styles.muted}">${escapeHTML(description)}</div>` : ''}</td>
-              </tr>
-            `;
-          }).join('')}
+        <tbody data-live-list>
+          ${rows.map((row) => renderSchemaStatusRow(row, view, styles)).join('')}
         </tbody>
       </table>
     </section>
+  `;
+}
+
+/** Render a single schema timeline row, keyed for incremental updates. */
+export function renderSchemaTimelineRow(
+  row: unknown,
+  view: ServerPanelUIView | undefined,
+  styles: StyleConfig
+): string {
+  const timestamp = formatTimestamp(pathValue(row, view?.options?.timestamp_bind || 'timestamp'));
+  const message = text(pathValue(row, view?.options?.message_bind || 'message') || pathValue(row, 'title'));
+  const level = text(pathValue(row, view?.options?.level_bind || 'level') || pathValue(row, 'severity'));
+  return `
+    <tr data-row-key="${escapeAttribute(schemaRowKey(row, view?.options?.key_bind))}">
+      <td class="${styles.timestamp}">${escapeHTML(timestamp)}</td>
+      <td>${level ? `<span class="${styles.badge}">${escapeHTML(level)}</span> ` : ''}${escapeHTML(message)}</td>
+    </tr>
   `;
 }
 
@@ -214,18 +273,8 @@ export function renderSchemaTimeline(
     <section class="${styles.jsonPanel}">
       ${renderTitle(title, styles)}
       <table class="${styles.table}">
-        <tbody>
-          ${rows.map((row) => {
-            const timestamp = formatTimestamp(pathValue(row, view?.options?.timestamp_bind || 'timestamp'));
-            const message = text(pathValue(row, view?.options?.message_bind || 'message') || pathValue(row, 'title'));
-            const level = text(pathValue(row, view?.options?.level_bind || 'level') || pathValue(row, 'severity'));
-            return `
-              <tr>
-                <td class="${styles.timestamp}">${escapeHTML(timestamp)}</td>
-                <td>${level ? `<span class="${styles.badge}">${escapeHTML(level)}</span> ` : ''}${escapeHTML(message)}</td>
-              </tr>
-            `;
-          }).join('')}
+        <tbody data-live-list>
+          ${rows.map((row) => renderSchemaTimelineRow(row, view, styles)).join('')}
         </tbody>
       </table>
     </section>
@@ -273,5 +322,32 @@ export function renderSchemaPanelView(
     case 'json':
     default:
       return renderJSONPanel(title, displayData ?? {}, styles, { useIconCopyButton });
+  }
+}
+
+/** Whether a renderer kind is an incremental-capable list view. */
+export function isSchemaListRenderer(renderer: unknown): boolean {
+  const kind = text(renderer).toLowerCase();
+  return kind === 'table' || kind === 'status_list' || kind === 'timeline';
+}
+
+/**
+ * Render a single row for a schema list view (table/status_list/timeline), used
+ * by the registry live-list path to append one item incrementally.
+ */
+export function renderSchemaListRow(
+  renderer: unknown,
+  item: unknown,
+  view: ServerPanelUIView | undefined,
+  styles: StyleConfig
+): string {
+  switch (text(renderer).toLowerCase()) {
+    case 'status_list':
+      return renderSchemaStatusRow(item, view, styles);
+    case 'timeline':
+      return renderSchemaTimelineRow(item, view, styles);
+    case 'table':
+    default:
+      return renderSchemaTableRow(item, optionItems(view, 'columns'), view?.options?.key_bind);
   }
 }

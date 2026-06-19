@@ -27,10 +27,17 @@ export {
   renderSchemaMetrics,
   renderSchemaKeyValue,
   renderSchemaTable,
+  renderSchemaTableRow,
   renderSchemaStatusList,
+  renderSchemaStatusRow,
   renderSchemaTimeline,
+  renderSchemaTimelineRow,
   renderSchemaStack,
+  renderSchemaListRow,
+  isSchemaListRenderer,
+  schemaRowKey,
 } from './schema.js';
+export { RegistryLiveListManager, type RegistryLiveListHost } from './registry-live-list.js';
 export { renderCustomPanel, type CustomPanelOptions } from './custom.js';
 export { renderJSErrorsPanel, renderErrorRow, jsErrorRowKey, type JSErrorsPanelOptions } from './jserrors.js';
 export { renderPermissionsPanel, renderPermissionsPanelCompact, type PermissionsPanelOptions } from './permissions.js';

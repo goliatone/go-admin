@@ -1,11 +1,11 @@
 import { escapeHTML as u } from "../shared/html.js";
 import { httpRequest as q, readHTTPErrorResult as He } from "../shared/transport/http-client.js";
 import { t as Je } from "../chunks/sortable.esm-CcMbOE-M.js";
-import { A as Hs, B as Js, C as Ks, D as Ke, E as ze, F as zs, H as Ee, I as Vs, L as Qs, M as Xs, N as Ys, O as Ve, P as Qe, R as ee, S as Ws, T as Xe, U as Gs, V as Zs, _ as Ye, a as er, b as S, c as We, d as Ge, f as Ze, g as et, h as tt, i as tr, j as st, l as rt, m as nt, n as sr, o as rr, p as at, r as nr, s as ar, t as it, u as ot, v as lt, w as ir, x as or, y as ct, z as lr } from "../chunks/builtin-panels-B_uXN2e5.js";
-import { t as dt } from "../chunks/repl-panel-DOA-vKgf.js";
-import { i as ut, n as ur, r as hr, t as pr } from "../chunks/icons-SGrt9O6P.js";
-import { A as B, B as mr, C as gr, D as yr, E as ht, F as z, I as pt, L as br, N as Er, P as ve, R as vr, S as te, T as Sr, _ as ft, a as wr, b as mt, c as Ar, d as gt, f as yt, g as bt, h as Et, i as vt, j as U, l as St, m as Pr, n as wt, o as _r, p as Se, s as se, u as xr, v as Cr, w as T, x as Or, y as At, z as Pt } from "../chunks/server-definitions-Cw_avwJX.js";
-var _t = class {
+import { B as Js, C as Ks, D as Ke, E as ze, F as Ve, I as zs, L as Vs, M as Qe, N as Qs, O as Xe, P as Xs, R as Ys, S as Ws, T as Gs, _ as Ye, a as Zs, b as We, c as Ge, d as Ze, f as et, g as tt, h as st, i as er, j as tr, k as rt, l as nt, m as at, n as sr, o as rr, p as it, r as nr, s as ar, t as ot, u as lt, v as ct, w as ir, x as S, y as dt, z as Ee } from "../chunks/builtin-panels-AKiHz8-M.js";
+import { t as ut } from "../chunks/repl-panel-DOA-vKgf.js";
+import { i as ht, n as cr, r as dr, t as ur } from "../chunks/icons-SGrt9O6P.js";
+import { A as pr, B, C as fr, D as mr, E as gr, F as yr, G as V, I as br, J as Er, K as pt, L as vr, M as ft, N as Sr, O as wr, P as te, S as U, T as Ar, U as Pr, V as H, W as ve, X as _r, Y as mt, _ as gt, a as xr, b as yt, c as Cr, d as bt, f as Et, g as vt, h as St, i as wt, j as Or, k as $r, l as At, m as Lr, n as Pt, o as kr, p as Se, q as Tr, r as Dr, s as se, u as Rr, v as Ir, w as L, x as qr, y as _t } from "../chunks/server-definitions-1ir4A6Sj.js";
+var xt = class {
   add(e, t, s) {
     if (typeof arguments[0] != "string") for (let r in arguments[0]) this.add(r, arguments[0][r], arguments[1]);
     else (Array.isArray(e) ? e : [e]).forEach(function(r) {
@@ -17,7 +17,7 @@ var _t = class {
       s.call(t && t.context ? t.context : t, t);
     });
   }
-}, xt = class {
+}, Ct = class {
   constructor(e) {
     this.jsep = e, this.registered = {};
   }
@@ -353,10 +353,10 @@ var _t = class {
       elements: this.gobbleArguments(l.CBRACK_CODE)
     };
   }
-}, Ct = new _t();
+}, Ot = new xt();
 Object.assign(_, {
-  hooks: Ct,
-  plugins: new xt(_),
+  hooks: Ot,
+  plugins: new Ct(_),
   COMPOUND: "Compound",
   SEQUENCE_EXP: "SequenceExpression",
   IDENTIFIER: "Identifier",
@@ -424,13 +424,13 @@ Object.assign(_, {
 });
 _.max_unop_len = _.getMaxKeyLen(_.unary_ops);
 _.max_binop_len = _.getMaxKeyLen(_.binary_ops);
-var O = (e) => new _(e).parse(), Ot = Object.getOwnPropertyNames(class {
+var O = (e) => new _(e).parse(), $t = Object.getOwnPropertyNames(class {
 });
-Object.getOwnPropertyNames(_).filter((e) => !Ot.includes(e) && O[e] === void 0).forEach((e) => {
+Object.getOwnPropertyNames(_).filter((e) => !$t.includes(e) && O[e] === void 0).forEach((e) => {
   O[e] = _[e];
 });
 O.Jsep = _;
-var $t = "ConditionalExpression";
+var Lt = "ConditionalExpression";
 O.plugins.register({
   name: "ternary",
   init(e) {
@@ -442,7 +442,7 @@ O.plugins.register({
           this.index++;
           const a = this.gobbleExpression();
           if (a || this.throwError("Expected expression"), s.node = {
-            type: $t,
+            type: Lt,
             test: r,
             consequent: n,
             alternate: a
@@ -456,7 +456,7 @@ O.plugins.register({
     });
   }
 });
-var we = 47, Lt = 92, kt = {
+var we = 47, kt = 92, Tt = {
   name: "regex",
   init(e) {
     e.hooks.add("gobble-token", function(s) {
@@ -484,7 +484,7 @@ var we = 47, Lt = 92, kt = {
               raw: this.expr.slice(r - 1, this.index)
             }, s.node = this.gobbleTokenProperty(s.node), s.node;
           }
-          this.code === e.OBRACK_CODE ? n = !0 : n && this.code === e.CBRACK_CODE && (n = !1), this.index += this.code === Lt ? 2 : 1;
+          this.code === e.OBRACK_CODE ? n = !0 : n && this.code === e.CBRACK_CODE && (n = !1), this.index += this.code === kt ? 2 : 1;
         }
         this.throwError("Unclosed Regex");
       }
@@ -542,11 +542,11 @@ var we = 47, Lt = 92, kt = {
     }
   }
 };
-O.plugins.register(kt, M);
+O.plugins.register(Tt, M);
 O.addUnaryOp("typeof");
 O.addLiteral("null", null);
 O.addLiteral("undefined", void 0);
-var Tt = /* @__PURE__ */ new Set([
+var Dt = /* @__PURE__ */ new Set([
   "constructor",
   "__proto__",
   "__defineGetter__",
@@ -630,7 +630,7 @@ var Tt = /* @__PURE__ */ new Set([
   evalMemberExpression(e, t) {
     const s = String(e.computed ? v.evalAst(e.property) : e.property.name), r = v.evalAst(e.object, t);
     if (r == null) throw TypeError(`Cannot read properties of ${r} (reading '${s}')`);
-    if (!Object.hasOwn(r, s) && Tt.has(s)) throw TypeError(`Cannot read properties of ${r} (reading '${s}')`);
+    if (!Object.hasOwn(r, s) && Dt.has(s)) throw TypeError(`Cannot read properties of ${r} (reading '${s}')`);
     const n = r[s];
     return typeof n == "function" ? n.bind(r) : n;
   },
@@ -655,7 +655,7 @@ var Tt = /* @__PURE__ */ new Set([
     const s = e.left.name;
     return t[s] = v.evalAst(e.right, t), t[s];
   }
-}, It = class {
+}, Rt = class {
   constructor(e) {
     this.code = e, this.ast = O(this.code);
   }
@@ -664,13 +664,13 @@ var Tt = /* @__PURE__ */ new Set([
     return v.evalAst(this.ast, t);
   }
 };
-function L(e, t) {
+function k(e, t) {
   return e = e.slice(), e.push(t), e;
 }
 function ce(e, t) {
   return t = t.slice(), t.unshift(e), t;
 }
-var Dt = class extends Error {
+var It = class extends Error {
   constructor(e) {
     super('JSONPath should not be called with "new" (it prevents return of (unwrapped) scalar values)'), this.avoidNew = !0, this.value = e, this.name = "NewError";
   }
@@ -690,7 +690,7 @@ function b(e, t, s, r, n) {
     const i = { path: a ? e.path : t };
     a ? "json" in e && (i.json = e.json) : i.json = s;
     const o = this.evaluate(i);
-    if (!o || typeof o != "object") throw new Dt(o);
+    if (!o || typeof o != "object") throw new It(o);
     return o;
   }
 }
@@ -753,13 +753,13 @@ b.prototype._trace = function(e, t, s, r, n, a, i, o) {
       y.push(g);
     }) : y.push(p);
   }
-  if ((typeof c != "string" || o) && t && Object.hasOwn(t, c)) h(this._trace(f, t[c], L(s, c), t, c, a, i));
+  if ((typeof c != "string" || o) && t && Object.hasOwn(t, c)) h(this._trace(f, t[c], k(s, c), t, c, a, i));
   else if (c === "*") this._walk(t, (p) => {
-    h(this._trace(f, t[p], L(s, p), t, p, a, !0, !0));
+    h(this._trace(f, t[p], k(s, p), t, p, a, !0, !0));
   });
   else if (c === "..")
     h(this._trace(f, t, s, r, n, a, i)), this._walk(t, (p) => {
-      typeof t[p] == "object" && h(this._trace(e.slice(), t[p], L(s, p), t, p, a, !0));
+      typeof t[p] == "object" && h(this._trace(e.slice(), t[p], k(s, p), t, p, a, !0));
     });
   else {
     if (c === "^")
@@ -770,7 +770,7 @@ b.prototype._trace = function(e, t, s, r, n, a, i, o) {
       };
     if (c === "~")
       return d = {
-        path: L(s, c),
+        path: k(s, c),
         value: n,
         parent: r,
         parentProperty: null
@@ -782,9 +782,9 @@ b.prototype._trace = function(e, t, s, r, n, a, i, o) {
       const p = c.replace(/^\?\((.*?)\)$/u, "$1"), g = /@.?([^?]*)[['](\??\(.*?\))(?!.\)\])[\]']/gu.exec(p);
       g ? this._walk(t, (E) => {
         const w = [g[2]], x = g[1] ? t[E][g[1]] : t[E];
-        this._trace(w, x, s, r, n, a, !0).length > 0 && h(this._trace(f, t[E], L(s, E), t, E, a, !0));
+        this._trace(w, x, s, r, n, a, !0).length > 0 && h(this._trace(f, t[E], k(s, E), t, E, a, !0));
       }) : this._walk(t, (E) => {
-        this._eval(p, t[E], E, s, r, n) && h(this._trace(f, t[E], L(s, E), t, E, a, !0));
+        this._eval(p, t[E], E, s, r, n) && h(this._trace(f, t[E], k(s, E), t, E, a, !0));
       });
     } else if (c[0] === "(") {
       if (this.currEval === !1) throw new Error("Eval [(expr)] prevented in JSONPath expression.");
@@ -835,11 +835,11 @@ b.prototype._trace = function(e, t, s, r, n, a, i, o) {
         }, this._handleCallback(d, a, "value"), d;
     } else if (c[0] === "`" && t && Object.hasOwn(t, c.slice(1))) {
       const p = c.slice(1);
-      h(this._trace(f, t[p], L(s, p), t, p, a, i, !0));
+      h(this._trace(f, t[p], k(s, p), t, p, a, i, !0));
     } else if (c.includes(",")) {
       const p = c.split(",");
       for (const g of p) h(this._trace(ce(g, f), t, s, r, n, a, !0));
-    } else !o && t && Object.hasOwn(t, c) && h(this._trace(f, t[c], L(s, c), t, c, a, i, !0));
+    } else !o && t && Object.hasOwn(t, c) && h(this._trace(f, t[c], k(s, c), t, c, a, i, !0));
   }
   if (this._hasParentSelector) for (let p = 0; p < y.length; p++) {
     const g = y[p];
@@ -924,21 +924,21 @@ b.toPathArray = function(e) {
     return !n || !n[1] ? r : s[n[1]];
   }), t[e].concat();
 };
-b.prototype.safeVm = { Script: It };
-var Rt = function(e, t, s) {
+b.prototype.safeVm = { Script: Rt };
+var qt = function(e, t, s) {
   const r = e.length;
   for (let n = 0; n < r; n++) {
     const a = e[n];
     s(a) && t.push(e.splice(n--, 1)[0]);
   }
-}, qt = class {
+}, Mt = class {
   constructor(e) {
     this.code = e;
   }
   runInNewContext(e) {
     let t = this.code;
     const s = Object.keys(e), r = [];
-    Rt(s, r, (o) => typeof e[o] == "function");
+    qt(s, r, (o) => typeof e[o] == "function");
     const n = s.map((o) => e[o]);
     t = r.reduce((o, d) => {
       let c = e[d].toString();
@@ -948,18 +948,18 @@ var Rt = function(e, t, s) {
     return new Function(...s, i)(...n);
   }
 };
-b.prototype.vm = { Script: qt };
-function Mt(e) {
+b.prototype.vm = { Script: Mt };
+function jt(e) {
   return e ? !!(e.startsWith("$") || /\[\d+\]/.test(e) || /\[['"]/.test(e) || /^[a-zA-Z_][a-zA-Z0-9_]*(\.[a-zA-Z_][a-zA-Z0-9_]*)+$/.test(e) || e.includes("..") || e.includes("*")) : !1;
 }
-function jt(e) {
+function Ft(e) {
   return e ? e.startsWith("$") ? e : `$.${e}` : "$";
 }
-function Ft(e, t) {
+function Nt(e, t) {
   if (!e || !t) return [];
   try {
     return (b({
-      path: jt(t),
+      path: Ft(t),
       json: e,
       resultType: "all"
     }) || []).map((s) => ({
@@ -970,23 +970,23 @@ function Ft(e, t) {
     return [];
   }
 }
-function Nt(e, t) {
+function Bt(e, t) {
   if (!t || !e) return e || {};
-  const s = Mt(t);
+  const s = jt(t);
   if (console.log("[jsonpath-search] search:", t, "isJsonPath:", s), s) {
-    const n = Ut(e, t);
+    const n = Ht(e, t);
     return console.log("[jsonpath-search] JSONPath result:", n), n;
   }
-  const r = Bt(e, t);
+  const r = Ut(e, t);
   return console.log("[jsonpath-search] key match result:", r), r;
 }
-function Bt(e, t) {
+function Ut(e, t) {
   const s = t.toLowerCase(), r = {};
   for (const [n, a] of Object.entries(e || {})) n.toLowerCase().includes(s) && (r[n] = a);
   return r;
 }
-function Ut(e, t) {
-  const s = Ft(e, t);
+function Ht(e, t) {
+  const s = Nt(e, t);
   if (s.length === 0) return {};
   if (s.length === 1) {
     const { path: n, value: a } = s[0];
@@ -1006,14 +1006,14 @@ function Ae(e) {
   const s = e.match(/\.([^.[\]]+)$/);
   return s ? s[1] : e.replace(/^\$\.?/, "");
 }
-var W = "commands", Y = "", V = "", me = /* @__PURE__ */ new Map(), I = 0, Pe = 230, ge = 180, Ht = 640, Jt = 280, _e = 24, je = "cmdl:sidebar-width", de = /* @__PURE__ */ new Map(), xe = {
+var G = "commands", W = "", Q = "", me = /* @__PURE__ */ new Map(), D = 0, Pe = 230, ge = 180, Jt = 640, Kt = 280, _e = 24, je = "cmdl:sidebar-width", de = /* @__PURE__ */ new Map(), xe = {
   submitting: 0,
   accepted: 1,
   running: 2,
   completed: 3,
   failed: 3
 };
-function Kt(e) {
+function zt(e) {
   const t = e && typeof e == "object" ? e : {}, s = m(t.correlation_id) || m(t.CorrelationID), r = A(t.state) || A(t.State);
   if (!s || !r) return;
   const n = de.get(s);
@@ -1024,7 +1024,7 @@ function Kt(e) {
     code: m(t.code) || m(t.Code)
   });
 }
-function zt(e) {
+function Vt(e) {
   return e ? de.get(e) : void 0;
 }
 function m(e) {
@@ -1036,27 +1036,27 @@ function A(e) {
 function ue(e) {
   return e === "boolean" || e === "checkbox";
 }
-function Vt(e) {
+function Qt(e) {
   return !e || typeof e != "object" ? "" : u(JSON.stringify(e)).replace(/'/g, "&#39;");
 }
 function ne(e) {
   return e == null ? "" : typeof e == "string" || typeof e == "number" || typeof e == "boolean" ? String(e) : "";
 }
-function J(e, t) {
+function K(e, t) {
   return !!(e && Object.prototype.hasOwnProperty.call(e, t));
 }
-function G(e) {
+function Z(e) {
   return typeof e == "string" ? e.trim() : typeof e == "number" || typeof e == "boolean" ? String(e) : "";
 }
-function Qt(e) {
+function Xt(e) {
   return typeof e == "boolean" ? e : typeof e == "string" ? e.trim().toLowerCase() === "true" : !1;
 }
 function Fe(e) {
   const t = A(e);
   return t === "inline" || t === "sync" ? "inline" : t === "queued" || t === "async" || t === "background" ? "queued" : "other";
 }
-function Xt(e, t) {
-  const s = t && typeof t == "object" ? t : {}, r = Array.isArray(s.commands) ? s.commands : [], n = Array.isArray(s.diagnostics) ? s.diagnostics : [], a = Array.isArray(e.ui?.actions) ? e.ui.actions : [], i = Yt(e), o = /* @__PURE__ */ new Map();
+function Yt(e, t) {
+  const s = t && typeof t == "object" ? t : {}, r = Array.isArray(s.commands) ? s.commands : [], n = Array.isArray(s.diagnostics) ? s.diagnostics : [], a = Array.isArray(e.ui?.actions) ? e.ui.actions : [], i = Wt(e), o = /* @__PURE__ */ new Map();
   r.forEach((h) => {
     const p = m(h?.id);
     p && o.set(p, h);
@@ -1071,7 +1071,7 @@ function Xt(e, t) {
   };
   return r.forEach((h) => y(m(h?.id))), a.forEach((h) => y(m(h.payload?.command_id))), {
     entries: c.map((h) => {
-      const p = o.get(h), g = d.get(h), E = g ? A(g.id) : "", w = !!(g && E), x = w ? Wt(g, i.get(h) || /* @__PURE__ */ new Map()) : void 0, $ = m(g?.label) || m(p?.label) || h, R = m(p?.group) || "Other", k = `${h} ${$} ${R} ${(Array.isArray(p?.tags) ? p.tags.map(m).filter(Boolean) : []).join(" ")}${w ? "" : " no-access locked"}`.toLowerCase();
+      const p = o.get(h), g = d.get(h), E = g ? A(g.id) : "", w = !!(g && E), x = w ? Gt(g, i.get(h) || /* @__PURE__ */ new Map()) : void 0, $ = m(g?.label) || m(p?.label) || h, I = m(p?.group) || "Other", T = `${h} ${$} ${I} ${(Array.isArray(p?.tags) ? p.tags.map(m).filter(Boolean) : []).join(" ")}${w ? "" : " no-access locked"}`.toLowerCase();
       return {
         key: w ? E : `cmd:${h}`,
         actionId: E,
@@ -1079,15 +1079,15 @@ function Xt(e, t) {
         label: $,
         action: x,
         descriptor: p,
-        group: R,
-        search: k,
+        group: I,
+        search: T,
         executable: w
       };
     }),
     diagnostics: n
   };
 }
-function Yt(e) {
+function Wt(e) {
   const t = e.ui?.metadata && typeof e.ui.metadata == "object" ? e.ui.metadata : {}, s = t.serialized_schemas && typeof t.serialized_schemas == "object" ? t.serialized_schemas : {}, r = /* @__PURE__ */ new Map();
   return Object.entries(s).forEach(([n, a]) => {
     const i = a && typeof a == "object" ? a : {}, o = Array.isArray(i.fields) ? i.fields : [], d = /* @__PURE__ */ new Map();
@@ -1101,7 +1101,7 @@ function Yt(e) {
     }), r.set(n, d);
   }), r;
 }
-function Wt(e, t) {
+function Gt(e, t) {
   const s = Array.isArray(e.fields) ? e.fields : [];
   return s.length === 0 || t.size === 0 ? e : {
     ...e,
@@ -1114,11 +1114,11 @@ function Wt(e, t) {
       ].filter(Boolean).map((i) => t.get(i)).find(Boolean);
       if (!n) return r;
       const a = { ...r };
-      return !J(a, "default") && J(n, "default") && (a.default = n.default), !J(a, "display_hints") && J(n, "display_hints") && (a.display_hints = n.display_hints), m(a.description) || (a.description = m(n.description) || m(n.help)), m(a.help) || (a.help = m(n.help)), a;
+      return !K(a, "default") && K(n, "default") && (a.default = n.default), !K(a, "display_hints") && K(n, "display_hints") && (a.display_hints = n.display_hints), m(a.description) || (a.description = m(n.description) || m(n.help)), m(a.help) || (a.help = m(n.help)), a;
     })
   };
 }
-function Gt(e) {
+function Zt(e) {
   const t = /* @__PURE__ */ new Map();
   return e.forEach((s) => {
     t.has(s.group) || t.set(s.group, []), t.get(s.group).push(s);
@@ -1127,7 +1127,7 @@ function Gt(e) {
     items: r.sort((n, a) => (n.commandId || n.label).localeCompare(a.commandId || a.label))
   }));
 }
-function Zt(e) {
+function es(e) {
   const t = m(e.descriptor?.execution_mode), s = Fe(t), r = t ? `Execution: ${t}` : "Execution mode unknown", n = e.descriptor?.mutating === !0;
   let a;
   return e.executable ? n ? a = '<span class="cmdl-item__flag cmdl-item__flag--mutating" title="Mutating — writes data">writes</span>' : a = '<span class="cmdl-item__flag cmdl-item__flag--read" title="Read-only">read</span>' : a = '<span class="cmdl-item__flag cmdl-item__flag--locked" title="You can view this command but lack permission to run it">no access</span>', `
@@ -1140,11 +1140,11 @@ function Zt(e) {
       ${a}
     </button>`;
 }
-function es(e, t) {
+function ts(e, t) {
   const s = e.map((r) => `
       <div class="cmdl-group" data-cmdl-group role="group" aria-label="${u(r.group)}">
         <div class="cmdl-group__label" aria-hidden="true">${u(r.group)}</div>
-        ${r.items.map(Zt).join("")}
+        ${r.items.map(es).join("")}
       </div>`).join("");
   return `
     <aside class="cmdl__list">
@@ -1159,10 +1159,10 @@ function es(e, t) {
       </div>
     </aside>`;
 }
-function ts(e, t, s) {
+function ss(e, t, s) {
   const r = m(e.name);
   if (!r) return "";
-  const n = A(e.kind) || "text", a = m(e.label) || r, i = m(e.payload_path) || r, o = `cmdl-${t}-${r}-${s}`, d = e.required === !0, c = d ? '<span class="cmdl-field__req" title="Required">*</span>' : "", f = m(e.placeholder), y = f ? ` placeholder="${u(f)}"` : "", h = m(e.description) || m(e.help), p = G(e.display_hints?.units), g = [h ? `<span>${u(h)}</span>` : "", p ? `<span class="cmdl-field__units">Units: ${u(p)}</span>` : ""].filter(Boolean), E = g.length ? `<small class="cmdl-field__help">${g.join(" ")}</small>` : "", w = Array.isArray(e.options) ? e.options.map(m).filter(Boolean) : [], x = d ? " required" : "", $ = `id="${u(o)}" data-action-field="${u(r)}" data-action-field-kind="${u(n)}" data-action-field-path="${u(i)}"${x}`, R = `<small class="cmdl-field__error" data-action-field-error="${u(i)}" data-action-field-name="${u(r)}" data-action-id="${u(t)}" hidden></small>`;
+  const n = A(e.kind) || "text", a = m(e.label) || r, i = m(e.payload_path) || r, o = `cmdl-${t}-${r}-${s}`, d = e.required === !0, c = d ? '<span class="cmdl-field__req" title="Required">*</span>' : "", f = m(e.placeholder), y = f ? ` placeholder="${u(f)}"` : "", h = m(e.description) || m(e.help), p = Z(e.display_hints?.units), g = [h ? `<span>${u(h)}</span>` : "", p ? `<span class="cmdl-field__units">Units: ${u(p)}</span>` : ""].filter(Boolean), E = g.length ? `<small class="cmdl-field__help">${g.join(" ")}</small>` : "", w = Array.isArray(e.options) ? e.options.map(m).filter(Boolean) : [], x = d ? " required" : "", $ = `id="${u(o)}" data-action-field="${u(r)}" data-action-field-kind="${u(n)}" data-action-field-path="${u(i)}"${x}`, I = `<small class="cmdl-field__error" data-action-field-error="${u(i)}" data-action-field-name="${u(r)}" data-action-id="${u(t)}" hidden></small>`;
   if (ue(n)) return `
       <div class="cmdl-field cmdl-field--full cmdl-field--bool">
         <label class="cmdl-toggle">
@@ -1170,15 +1170,15 @@ function ts(e, t, s) {
           <span class="cmdl-toggle__track" aria-hidden="true"></span>
           <span class="cmdl-toggle__text">${u(a)}${c}</span>
         </label>
-        ${E}${R}
+        ${E}${I}
       </div>`;
-  let k = "";
+  let T = "";
   if (w.length > 0 || n === "select") {
     const C = ne(e.default);
-    k = `<select ${$}><option value=""></option>${w.map((N) => `<option value="${u(N)}"${N === C ? " selected" : ""}>${u(N)}</option>`).join("")}</select>`;
+    T = `<select ${$}><option value=""></option>${w.map((N) => `<option value="${u(N)}"${N === C ? " selected" : ""}>${u(N)}</option>`).join("")}</select>`;
   } else if (n === "number" || n === "integer") {
     const C = ne(e.default);
-    k = `<input type="number" ${$}${y}${C ? ` value="${u(C)}"` : ""}>`;
+    T = `<input type="number" ${$}${y}${C ? ` value="${u(C)}"` : ""}>`;
   } else if (n === "string_list" || n === "array") {
     const C = Array.isArray(e.default) ? e.default.map(m).filter(Boolean) : [], N = f || "Add a value, press Enter";
     return `
@@ -1193,38 +1193,38 @@ function ts(e, t, s) {
             data-cmdl-chips-value value="${u(C.join(`
 `))}">
         </div>
-        ${E}${R}
+        ${E}${I}
       </div>`;
-  } else if (n === "json" || n === "object" || n === "textarea") k = `<textarea ${$}${y} rows="3">${u(e.default !== void 0 && e.default !== null ? JSON.stringify(e.default, null, 2) : "")}</textarea>`;
+  } else if (n === "json" || n === "object" || n === "textarea") T = `<textarea ${$}${y} rows="3">${u(e.default !== void 0 && e.default !== null ? JSON.stringify(e.default, null, 2) : "")}</textarea>`;
   else {
     const C = ne(e.default);
-    k = `<input type="text" ${$}${y}${C ? ` value="${u(C)}"` : ""}>`;
+    T = `<input type="text" ${$}${y}${C ? ` value="${u(C)}"` : ""}>`;
   }
   return `
     <div class="cmdl-field">
       <label class="cmdl-field__label" for="${u(o)}">${u(a)}${c}</label>
-      ${k}
-      ${E}${R}
+      ${T}
+      ${E}${I}
     </div>`;
 }
-function ss(e) {
-  return rs(e) ? ns(e) : as(e);
-}
 function rs(e) {
-  return e.some((t) => {
-    const s = t.display_hints || {};
-    return G(s.section) !== "" || J(s, "advanced");
-  });
+  return ns(e) ? as(e) : is(e);
 }
 function ns(e) {
+  return e.some((t) => {
+    const s = t.display_hints || {};
+    return Z(s.section) !== "" || K(s, "advanced");
+  });
+}
+function as(e) {
   const t = [], s = /* @__PURE__ */ new Map(), r = [];
   return e.forEach((n) => {
     const a = n.display_hints || {};
-    if (Qt(a.advanced)) {
+    if (Xt(a.advanced)) {
       r.push(n);
       return;
     }
-    const i = G(a.section) || "Parameters";
+    const i = Z(a.section) || "Parameters";
     let o = s.get(i);
     o || (o = {
       title: i,
@@ -1237,7 +1237,7 @@ function ns(e) {
     collapsible: !0
   }), t;
 }
-function as(e) {
+function is(e) {
   const t = e.filter((c) => ue(A(c.kind))), s = e.filter((c) => !ue(A(c.kind))), r = s.filter((c) => c.required === !0), n = s.filter((c) => c.required !== !0), a = [...r, ...n];
   let i = a, o = [];
   if (a.length > 6) {
@@ -1259,7 +1259,7 @@ function as(e) {
     collapsible: !0
   }), d;
 }
-function is(e, t, s) {
+function os(e, t, s) {
   return `
     <fieldset class="cmdl-section${e.collapsible ? " cmdl-section--collapsed" : ""}">
       ${e.collapsible ? `<legend class="cmdl-section__head cmdl-section__head--toggle" data-cmdl-section-toggle role="button" tabindex="0" aria-expanded="false">
@@ -1267,20 +1267,20 @@ function is(e, t, s) {
         <span>${u(e.title)}</span>
         <span class="cmdl-section__count">${e.fields.length}</span>
       </legend>` : `<legend class="cmdl-section__head">${u(e.title)}</legend>`}
-      <div class="cmdl-section__grid">${e.fields.map((r, n) => ts(r, t, s + n)).join("")}</div>
+      <div class="cmdl-section__grid">${e.fields.map((r, n) => ss(r, t, s + n)).join("")}</div>
     </fieldset>`;
 }
-function os(e) {
+function ls(e) {
   const t = e.action;
   if (!t) return "";
   const s = Array.isArray(t.fields) ? t.fields : [], r = m(t.submit_label) || "Run command", n = m(t.confirm_text), a = t.requires_confirm === !0, i = e.descriptor?.mutating === !0;
   let o = "";
   if (s.length === 0) o = '<p class="cmdl-form__noargs">This command takes no arguments. Run it as-is.</p>';
   else {
-    const h = ss(s);
+    const h = rs(s);
     let p = 0;
     const g = h.map((E) => {
-      const w = is(E, e.actionId, p);
+      const w = os(E, e.actionId, p);
       return p += E.fields.length, w;
     }).join("");
     o = `
@@ -1304,13 +1304,13 @@ function os(e) {
         </div>` : "";
   return `
     <form class="cmdl-form" data-panel-action-form data-cmdl-mode="form"
-      data-panel-id="${u(W)}"
+      data-panel-id="${u(G)}"
       data-action-id="${u(e.actionId)}"
       data-action-confirm="${u(n)}"
       data-action-requires-confirm="${a ? "true" : "false"}"
       data-cmdl-confirm="${d ? "true" : "false"}"
       ${d ? 'data-action-confirm-inline="true"' : ""}
-      data-action-payload='${Vt(t.payload)}'>
+      data-action-payload='${Qt(t.payload)}'>
       ${o}
       <div class="cmdl-form__bar" data-cmdl-bar>
         <div class="cmdl-form__bar-main" data-cmdl-bar-main>
@@ -1322,13 +1322,13 @@ function os(e) {
       </div>
     </form>`;
 }
-function ls(e) {
+function cs(e) {
   const t = m(e.descriptor?.execution_mode), s = e.descriptor?.mutating === !0, r = m(e.descriptor?.summary), n = [];
   n.push(`<span class="cmdl-chip">${u(e.group)}</span>`), t && n.push(`<span class="cmdl-chip cmdl-chip--${Fe(t)}">${u(t)}</span>`), n.push(s ? '<span class="cmdl-chip cmdl-chip--mutating">mutating</span>' : '<span class="cmdl-chip cmdl-chip--read">read-only</span>'), e.executable || n.push('<span class="cmdl-chip cmdl-chip--locked">no dispatch permission</span>');
   let a;
   return e.executable ? a = `${s ? `<div class="cmdl-callout">
           <strong>This command writes data.</strong> Review the arguments before running — it confirms first, but the effect is not automatically reversible.
-        </div>` : ""}${os(e)}` : a = `<div class="cmdl-locked-note">You can view this command in the catalog, but you do not have permission to run it. Dispatch requires the command's own permission plus <code>admin.commands.dispatch</code>.</div>`, `
+        </div>` : ""}${ls(e)}` : a = `<div class="cmdl-locked-note">You can view this command in the catalog, but you do not have permission to run it. Dispatch requires the command's own permission plus <code>admin.commands.dispatch</code>.</div>`, `
     <div class="cmdl-cmd" data-cmdl-detail="${u(e.key)}" hidden>
       <div class="cmdl-cmd__head">
         <div class="cmdl-cmd__title">${u(e.commandId || e.label)}</div>
@@ -1348,19 +1348,19 @@ function Ce(e) {
         </li>`;
   }).join("")}</ul>` : "";
 }
-function cs(e) {
-  const { def: t, data: s } = e, { entries: r, diagnostics: n } = Xt(t, s);
+function ds(e) {
+  const { def: t, data: s } = e, { entries: r, diagnostics: n } = Yt(t, s);
   if (r.length === 0) return `
       <div class="cmdl" data-cmdl-root>
         <div class="cmdl__empty-panel">No commands are available to run.</div>
         ${Ce(n)}
-        <div class="cmdl-result" data-panel-action-result="${u(W)}"></div>
+        <div class="cmdl-result" data-panel-action-result="${u(G)}"></div>
       </div>`;
-  const a = Gt(r), i = r.map(ls).join("");
+  const a = Zt(r), i = r.map(cs).join("");
   return `
     <div class="cmdl" data-cmdl-root>
       <div class="cmdl__body" data-cmdl-body>
-        ${es(a, r.length)}
+        ${ts(a, r.length)}
         <div class="cmdl__resizer" data-cmdl-resizer role="separator" aria-orientation="vertical"
           aria-label="Resize command list" tabindex="0"></div>
         <section class="cmdl__detail" data-cmdl-detailcol>
@@ -1369,20 +1369,20 @@ function cs(e) {
           <!-- Result lives in the detail column (beside the list, below the form it
                belongs to) so it appears next to where the command was run, not as a
                full-width strip under the whole console. Empty == hidden via CSS. -->
-          <div class="cmdl-result" data-panel-action-result="${u(W)}"></div>
+          <div class="cmdl-result" data-panel-action-result="${u(G)}"></div>
         </section>
       </div>
       ${Ce(n)}
     </div>`;
 }
-function Q(e, t) {
+function X(e, t) {
   for (const s of t) {
     const r = e[s];
     if (typeof r == "string" && r.trim() !== "") return r.trim();
   }
   return "";
 }
-var ds = [
+var us = [
   "category",
   "text_code",
   "source",
@@ -1391,12 +1391,12 @@ var ds = [
   "location",
   "metadata"
 ];
-function us(e, t) {
+function hs(e, t) {
   const s = [];
   e && typeof e == "object" && !Array.isArray(e) && s.push(e.error, e), t && typeof t == "object" && !Array.isArray(t) && s.push(t.error, t);
   for (const r of s) if (r && typeof r == "object" && !Array.isArray(r)) {
     const n = r;
-    if (ds.some((a) => a in n)) return n;
+    if (us.some((a) => a in n)) return n;
   }
   return null;
 }
@@ -1413,10 +1413,10 @@ function Le(e) {
   const t = Number(e);
   return Number.isFinite(t) ? t : 0;
 }
-function hs(e) {
+function ps(e) {
   const t = e.metadata && typeof e.metadata == "object" && !Array.isArray(e.metadata) ? e.metadata : {}, s = Object.entries(t).map(([y, h]) => ({
     key: y,
-    value: G(h) || Ne(h)
+    value: Z(h) || Ne(h)
   })).filter((y) => y.value), r = (Array.isArray(e.stack_trace) ? e.stack_trace : []).map((y) => {
     const h = m(y.function), p = m(y.file), g = Le(y.line);
     return {
@@ -1440,7 +1440,7 @@ function hs(e) {
     stackTrace: r
   };
 }
-function ps(e, t, s, r) {
+function fs(e, t, s, r) {
   const n = s && typeof s == "object" ? s : {}, a = n.receipt && typeof n.receipt == "object" ? n.receipt : {}, i = (Array.isArray(n.validation_errors) ? n.validation_errors : []).map((g) => ({
     path: m(g.path),
     message: m(g.message),
@@ -1448,17 +1448,17 @@ function ps(e, t, s, r) {
   })).filter((g) => g.message || g.path), o = a.Accepted ?? a.accepted, d = typeof o == "boolean" ? o : void 0;
   let c = "ok";
   e === "error" ? c = "error" : (i.length > 0 || d === !1) && (c = "invalid");
-  const f = c === "error" ? us(s, r) : null, y = f ? hs(f) : null;
+  const f = c === "error" ? hs(s, r) : null, y = f ? ps(f) : null;
   let h = "";
-  i.length > 0 ? h = "VALIDATION_ERROR" : c === "error" && (h = y && y.textCode || Q(r || {}, ["code", "text_code"]) || (y ? y.httpCode : ""));
+  i.length > 0 ? h = "VALIDATION_ERROR" : c === "error" && (h = y && y.textCode || X(r || {}, ["code", "text_code"]) || (y ? y.httpCode : ""));
   const p = s != null && (typeof s != "object" || Object.keys(n).length > 0);
   return {
     kind: c,
     message: m(t) || (c === "error" ? "Command failed" : "Command dispatched"),
     code: h,
-    correlationId: Q(a, ["CorrelationID", "correlation_id"]),
-    mode: Q(a, ["Mode", "mode"]),
-    dispatchId: Q(a, ["DispatchID", "dispatch_id"]),
+    correlationId: X(a, ["CorrelationID", "correlation_id"]),
+    mode: X(a, ["Mode", "mode"]),
+    dispatchId: X(a, ["DispatchID", "dispatch_id"]),
     statusReference: m(n.status_reference) || m(n.statusReference),
     accepted: d,
     validationErrors: i,
@@ -1474,10 +1474,10 @@ function Ne(e) {
     return String(e);
   }
 }
-function fs(e) {
+function ms(e) {
   return !Number.isFinite(e) || e < 0 ? "" : e < 1e3 ? `${Math.round(e)}ms` : `${(e / 1e3).toFixed(2)}s`;
 }
-function ms(e) {
+function gs(e) {
   try {
     return new Date(e).toLocaleTimeString();
   } catch {
@@ -1487,14 +1487,14 @@ function ms(e) {
 function P(e, t, s) {
   return s ? `<span class="cmdl-meta" title="${u(t)}"><span class="cmdl-meta__k">${u(e)}</span>${u(s)}</span>` : "";
 }
-function gs(e, t = {}) {
+function ys(e, t = {}) {
   const s = e.kind === "error" ? "Dispatch failed" : e.kind === "invalid" ? e.validationErrors.length ? "Validation failed" : "Not accepted" : "Command dispatched", r = e.code ? `<span class="cmdl-result__code">${u(e.code)}</span>` : "", n = t.liveStatus, a = n ? `<span class="cmdl-result__live cmdl-result__live--${u(n.state)}" title="Live status${n.at ? ` · ${u(n.at)}` : ""}">${u(n.state)}</span>` : "", i = e.richError, o = [
     P("id", "Correlation ID", e.correlationId),
     P("mode", "Execution mode", e.mode),
     P("dispatch", "Dispatch ID", e.dispatchId),
     P("status", "Status reference", e.statusReference),
-    P("took", "Round-trip duration", typeof t.durationMs == "number" ? fs(t.durationMs) : ""),
-    P("at", "Dispatched at", typeof t.at == "number" && t.at > 0 ? ms(t.at) : ""),
+    P("took", "Round-trip duration", typeof t.durationMs == "number" ? ms(t.durationMs) : ""),
+    P("at", "Dispatched at", typeof t.at == "number" && t.at > 0 ? gs(t.at) : ""),
     i ? P("category", "Category", i.category) : "",
     i ? P("severity", "Severity", i.severity) : "",
     i ? P("http", "HTTP status", i.httpCode) : "",
@@ -1518,8 +1518,8 @@ function gs(e, t = {}) {
       ${h}
     </div>`;
 }
-function X(e, t) {
-  Y = t;
+function Y(e, t) {
+  W = t;
   const s = e.querySelector("[data-cmdl-empty]");
   s && (s.hidden = !!t), e.querySelectorAll("[data-cmdl-detail]").forEach((r) => {
     r.hidden = r.dataset.cmdlDetail !== t;
@@ -1543,29 +1543,29 @@ function ke(e, t) {
 function Te(e) {
   return Array.from(e.querySelectorAll("[data-cmdl-item]")).filter((t) => !t.hidden);
 }
-function K(e) {
+function z(e) {
   const t = e.querySelector("[data-cmdl-chips-value]");
   return !t || !t.value.trim() ? [] : t.value.split(`
 `).map((s) => s.trim()).filter(Boolean);
 }
-function D(e, t) {
+function R(e, t) {
   const s = e.querySelector("[data-cmdl-chips-tags]"), r = e.querySelector("[data-cmdl-chips-value]");
   r && (r.value = t.join(`
 `)), s && (s.innerHTML = t.map((a, i) => `<span class="cmdl-chip-tag">${u(a)}<button type="button" class="cmdl-chip-tag__x" data-cmdl-chip-remove="${i}" aria-label="Remove ${u(a)}">×</button></span>`).join(""));
   const n = e.querySelector("[data-cmdl-chips-entry]");
   n && (n.required = e.dataset.cmdlChipsRequired === "true" && t.length === 0);
 }
-function ys(e) {
+function bs(e) {
   return e instanceof HTMLInputElement && e.type === "checkbox" ? e.checked ? "true" : "false" : e instanceof HTMLInputElement || e instanceof HTMLTextAreaElement || e instanceof HTMLSelectElement ? e.value : "";
 }
-function bs(e, t) {
+function Es(e, t) {
   if (e instanceof HTMLInputElement && e.type === "checkbox") {
     e.checked = t === "true";
     return;
   }
   if (e instanceof HTMLInputElement && e.dataset.cmdlChipsValue !== void 0) {
     const s = e.closest("[data-cmdl-chips]");
-    s ? D(s, t ? t.split(`
+    s ? R(s, t ? t.split(`
 `).map((r) => r.trim()).filter(Boolean) : []) : e.value = t;
     return;
   }
@@ -1577,28 +1577,28 @@ function ye(e) {
   const s = {};
   e.querySelectorAll("[data-action-field]").forEach((r) => {
     const n = m(r.dataset.actionField);
-    n && (s[n] = ys(r));
+    n && (s[n] = bs(r));
   }), me.set(t, s);
 }
-function H(e) {
+function J(e) {
   const t = e.closest("[data-panel-action-form]");
   t && ye(t);
 }
-function Es(e) {
+function vs(e) {
   const t = A(e.dataset.actionId || ""), s = t ? me.get(t) : void 0;
   s && e.querySelectorAll("[data-action-field]").forEach((r) => {
     const n = m(r.dataset.actionField);
-    n && Object.prototype.hasOwnProperty.call(s, n) && bs(r, s[n]);
+    n && Object.prototype.hasOwnProperty.call(s, n) && Es(r, s[n]);
   });
 }
-function vs(e) {
+function Ss(e) {
   e.querySelectorAll("[data-cmdl-chips]").forEach((t) => {
     const s = t.querySelector("[data-cmdl-chips-entry]");
     s && s.value.trim() && (fe(t, s.value), s.value = "");
   });
 }
-var Ss = 6;
-function Z() {
+var ws = 6;
+function ee() {
   try {
     return typeof localStorage < "u" ? localStorage : null;
   } catch {
@@ -1606,7 +1606,7 @@ function Z() {
   }
 }
 function F(e) {
-  const t = Z();
+  const t = ee();
   if (!t) return [];
   try {
     const s = t.getItem(e), r = s ? JSON.parse(s) : [];
@@ -1616,7 +1616,7 @@ function F(e) {
   }
 }
 function he(e, t) {
-  const s = Z();
+  const s = ee();
   if (s)
     try {
       s.setItem(e, JSON.stringify(t));
@@ -1629,16 +1629,16 @@ function be(e) {
 function j(e) {
   return `cmdl:preset:${e}`;
 }
-function ws(e) {
+function As(e) {
   const t = e && typeof e == "object" ? e : {}, s = m(t.command_id), r = t.payload && typeof t.payload == "object" ? t.payload : {};
   if (!s || Object.keys(r).length === 0) return;
   const n = be(s), a = JSON.stringify(r), i = F(n).filter((o) => JSON.stringify(o.payload) !== a);
   i.unshift({
     at: Date.now(),
     payload: r
-  }), he(n, i.slice(0, Ss));
+  }), he(n, i.slice(0, ws));
 }
-function As(e) {
+function Ps(e) {
   const t = A(e.dataset.actionFieldKind);
   if (e instanceof HTMLInputElement && e.type === "checkbox") return e.checked;
   const s = e instanceof HTMLInputElement || e instanceof HTMLTextAreaElement || e instanceof HTMLSelectElement ? e.value.trim() : "";
@@ -1663,18 +1663,18 @@ function Be(e) {
     if (r && e.contains(r)) return;
     const n = m(s.dataset.actionField);
     if (!n || n.startsWith("__")) return;
-    const a = As(s);
+    const a = Ps(s);
     a !== void 0 && (t[n] = a);
   }), t;
 }
-function Ps(e, t) {
+function _s(e, t) {
   if (e instanceof HTMLInputElement && e.type === "checkbox") {
     e.checked = t === !0 || t === "true";
     return;
   }
   if (e instanceof HTMLInputElement && e.dataset.cmdlChipsValue !== void 0) {
     const s = Array.isArray(t) ? t.map(m).filter(Boolean) : m(t) ? [m(t)] : [], r = e.closest("[data-cmdl-chips]");
-    r && D(r, s);
+    r && R(r, s);
     return;
   }
   (e instanceof HTMLInputElement || e instanceof HTMLTextAreaElement || e instanceof HTMLSelectElement) && (t == null ? e.value = "" : typeof t == "object" ? e.value = JSON.stringify(t, null, 2) : e.value = String(t));
@@ -1682,7 +1682,7 @@ function Ps(e, t) {
 function Ue(e, t) {
   e.querySelectorAll("[data-action-field]").forEach((s) => {
     const r = m(s.dataset.actionField);
-    r && Object.prototype.hasOwnProperty.call(t, r) && Ps(s, t[r]);
+    r && Object.prototype.hasOwnProperty.call(t, r) && _s(s, t[r]);
   }), ye(e);
 }
 function pe(e) {
@@ -1696,7 +1696,7 @@ function pe(e) {
     a.push(`<span class="cmdl-recall__preset"><button type="button" class="cmdl-recall__chip cmdl-recall__chip--preset" data-cmdl-load="preset:${o}" title="Load saved preset">★ ${u(d)}</button><button type="button" class="cmdl-recall__del" data-cmdl-del-preset="${o}" aria-label="Delete preset ${u(d)}">×</button></span>`);
   }), s.innerHTML = a.length ? a.join("") : '<span class="cmdl-recall__empty">No recent runs yet.</span>';
 }
-function _s(e, t) {
+function xs(e, t) {
   const s = e.closest("[data-cmdl-load]");
   if (s) {
     const a = s.closest("[data-panel-action-form]"), i = m(s.closest("[data-cmdl-recall]")?.dataset.cmdlCommand), [o, d] = (s.dataset.cmdlLoad || "").split(":"), c = Number(d);
@@ -1732,7 +1732,7 @@ function _s(e, t) {
   }
   return !1;
 }
-function xs(e, t) {
+function Cs(e, t) {
   const s = e.querySelector("[data-cmdl-fields]"), r = e.querySelector("[data-cmdl-json]"), n = e.querySelector("[data-cmdl-json-editor]"), a = e.querySelector("[data-cmdl-json-toggle]"), i = e.querySelector("[data-cmdl-json-error]");
   if (!s || !r || !n) return;
   if (t) {
@@ -1755,18 +1755,18 @@ function xs(e, t) {
 function fe(e, t) {
   const s = t.split(/[\n,]/g).map((n) => n.trim()).filter(Boolean);
   if (s.length === 0) return;
-  const r = K(e);
+  const r = z(e);
   s.forEach((n) => {
     r.includes(n) || r.push(n);
-  }), D(e, r);
+  }), R(e, r);
 }
-function Cs(e) {
+function Os(e) {
   e.querySelectorAll("[data-cmdl-chips]").forEach((t) => {
-    D(t, K(t));
+    R(t, z(t));
   });
 }
-function Os() {
-  const e = Z();
+function $s() {
+  const e = ee();
   if (!e) return 0;
   try {
     const t = Number(e.getItem(je));
@@ -1775,28 +1775,28 @@ function Os() {
     return 0;
   }
 }
-function $s(e) {
+function Ls(e) {
   const t = e.clientWidth || 0;
-  return t > 0 ? Math.max(ge, t - Jt) : Ht;
+  return t > 0 ? Math.max(ge, t - Kt) : Jt;
 }
 function ae(e, t) {
-  const s = Math.min(Math.max(Math.round(t), ge), $s(e));
-  I = s, e.style.setProperty("--cmdl-sidebar-w", `${s}px`);
-  const r = Z();
+  const s = Math.min(Math.max(Math.round(t), ge), Ls(e));
+  D = s, e.style.setProperty("--cmdl-sidebar-w", `${s}px`);
+  const r = ee();
   if (r) try {
     r.setItem(je, String(s));
   } catch {
   }
   return s;
 }
-function Ls(e) {
-  I || (I = Os()), I && e.style.setProperty("--cmdl-sidebar-w", `${I}px`);
-}
 function ks(e) {
+  D || (D = $s()), D && e.style.setProperty("--cmdl-sidebar-w", `${D}px`);
+}
+function Ts(e) {
   const t = e.querySelector("[data-cmdl-resizer]"), s = e.querySelector("[data-cmdl-body]");
-  !t || !s || (Ls(s), t.addEventListener("pointerdown", (r) => {
+  !t || !s || (ks(s), t.addEventListener("pointerdown", (r) => {
     r.preventDefault();
-    const n = r.clientX, a = I || Pe;
+    const n = r.clientX, a = D || Pe;
     if (typeof t.setPointerCapture == "function") try {
       t.setPointerCapture(r.pointerId);
     } catch {
@@ -1806,7 +1806,7 @@ function ks(e) {
     };
     t.addEventListener("pointermove", i), t.addEventListener("pointerup", o), t.addEventListener("pointercancel", o);
   }), t.addEventListener("keydown", (r) => {
-    r.key !== "ArrowLeft" && r.key !== "ArrowRight" || (r.preventDefault(), ae(s, (I || Pe) + (r.key === "ArrowRight" ? _e : -_e)));
+    r.key !== "ArrowLeft" && r.key !== "ArrowRight" || (r.preventDefault(), ae(s, (D || Pe) + (r.key === "ArrowRight" ? _e : -_e)));
   }));
 }
 function ie(e, t) {
@@ -1819,18 +1819,18 @@ function ie(e, t) {
   } catch {
   }
 }
-function Ts(e) {
+function Ds(e) {
   const t = e.querySelector("[data-cmdl-root]");
   if (!t) return;
-  Cs(t), ks(t), t.querySelectorAll("[data-panel-action-form]").forEach((n) => Es(n)), t.querySelectorAll("[data-cmdl-recall]").forEach((n) => pe(n));
+  Os(t), Ts(t), t.querySelectorAll("[data-panel-action-form]").forEach((n) => vs(n)), t.querySelectorAll("[data-cmdl-recall]").forEach((n) => pe(n));
   const s = t.querySelector("[data-cmdl-filter]");
-  s && V && (s.value = V, ke(t, V)), Y && t.querySelector(`[data-cmdl-item="${Is(Y)}"]`) && X(t, Y), t.addEventListener("click", (n) => {
+  s && Q && (s.value = Q, ke(t, Q)), W && t.querySelector(`[data-cmdl-item="${Rs(W)}"]`) && Y(t, W), t.addEventListener("click", (n) => {
     const a = n.target;
-    if (_s(a, t)) return;
+    if (xs(a, t)) return;
     const i = a.closest("[data-cmdl-json-toggle]");
     if (i) {
       const h = i.closest("[data-panel-action-form]");
-      h && xs(h, h.dataset.cmdlMode !== "json");
+      h && Cs(h, h.dataset.cmdlMode !== "json");
       return;
     }
     const o = a.closest("[data-cmdl-confirm-run]");
@@ -1847,7 +1847,7 @@ function Ts(e) {
     }
     const c = a.closest("[data-cmdl-item]");
     if (c) {
-      X(t, c.dataset.cmdlItem || "");
+      Y(t, c.dataset.cmdlItem || "");
       return;
     }
     const f = a.closest("[data-cmdl-section-toggle]");
@@ -1863,21 +1863,21 @@ function Ts(e) {
     if (y) {
       const h = y.closest("[data-cmdl-chips]");
       if (h) {
-        const p = K(h), g = Number(y.dataset.cmdlChipRemove);
-        Number.isInteger(g) && (p.splice(g, 1), D(h, p), H(h));
+        const p = z(h), g = Number(y.dataset.cmdlChipRemove);
+        Number.isInteger(g) && (p.splice(g, 1), R(h, p), J(h));
       }
     }
   }), s && (s.addEventListener("input", () => {
-    V = s.value, ke(t, s.value);
+    Q = s.value, ke(t, s.value);
   }), s.addEventListener("keydown", (n) => {
     if (n.key === "ArrowDown" || n.key === "Enter") {
       const a = Te(t)[0];
-      a && (n.preventDefault(), n.key === "Enter" ? X(t, a.dataset.cmdlItem || "") : a.focus());
+      a && (n.preventDefault(), n.key === "Enter" ? Y(t, a.dataset.cmdlItem || "") : a.focus());
     }
   }));
   const r = (n) => {
     const a = n.target?.closest("[data-action-field]");
-    a && H(a);
+    a && J(a);
   };
   t.addEventListener("input", r), t.addEventListener("change", r), t.addEventListener("submit", (n) => {
     const a = n.target?.closest("[data-panel-action-form]");
@@ -1886,7 +1886,7 @@ function Ts(e) {
         n.preventDefault(), n.stopImmediatePropagation(), ie(a, !0);
         return;
       }
-      vs(a), ye(a), a.dataset.cmdlConfirm === "true" && (delete a.dataset.cmdlArmed, ie(a, !1));
+      Ss(a), ye(a), a.dataset.cmdlConfirm === "true" && (delete a.dataset.cmdlArmed, ie(a, !1));
     }
   }, !0), t.addEventListener("keydown", (n) => {
     const a = n.target, i = a.closest("[data-cmdl-section-toggle]");
@@ -1899,12 +1899,12 @@ function Ts(e) {
       if (n.key === "Enter" || n.key === ",") {
         n.preventDefault();
         const c = o.closest("[data-cmdl-chips]");
-        c && (fe(c, o.value), o.value = "", H(c));
+        c && (fe(c, o.value), o.value = "", J(c));
       } else if (n.key === "Backspace" && o.value === "") {
         const c = o.closest("[data-cmdl-chips]");
         if (c) {
-          const f = K(c);
-          f.pop(), D(c, f), H(c);
+          const f = z(c);
+          f.pop(), R(c, f), J(c);
         }
       }
       return;
@@ -1916,7 +1916,7 @@ function Ts(e) {
       y ? y.focus() : n.key === "ArrowUp" && s && s.focus();
       return;
     }
-    d && n.key === "Enter" && (n.preventDefault(), X(t, d.dataset.cmdlItem || ""));
+    d && n.key === "Enter" && (n.preventDefault(), Y(t, d.dataset.cmdlItem || ""));
   }), t.addEventListener("paste", (n) => {
     const a = n.target.closest("[data-cmdl-chips-entry]");
     if (!a) return;
@@ -1924,29 +1924,29 @@ function Ts(e) {
     if (/[\n,]/.test(i)) {
       n.preventDefault();
       const o = a.closest("[data-cmdl-chips]");
-      o && (fe(o, i), a.value = "", H(o));
+      o && (fe(o, i), a.value = "", J(o));
     }
   }), t.addEventListener("reset", (n) => {
     const a = n.target, i = A(a.dataset.actionId || "");
     i && me.delete(i), window.setTimeout(() => {
       a.querySelectorAll("[data-cmdl-chips]").forEach((o) => {
-        D(o, K(o));
+        R(o, z(o));
       });
     }, 0);
   });
 }
-function Is(e) {
+function Rs(e) {
   return e.replace(/["\\]/g, "\\$&");
 }
-vt(W, cs);
-var Ie = "debug-console-active-panel", De = "debug-console-panel-order", Ds = /^[a-zA-Z0-9][a-zA-Z0-9._:-]*$/, Re = (e) => {
+wt(G, ds);
+var De = "debug-console-active-panel", Re = "debug-console-panel-order", Is = /^[a-zA-Z0-9][a-zA-Z0-9._:-]*$/, Ie = (e) => {
   if (!e) return null;
   try {
     return JSON.parse(e);
   } catch {
     return null;
   }
-}, Rs = (e) => Array.isArray(e) && e.length > 0 ? e.filter((t) => typeof t == "string" && t.trim()).map((t) => t.trim()) : St(), oe = (e, t) => Nt(e, t), qs = (e, t, s) => {
+}, qs = (e) => Array.isArray(e) && e.length > 0 ? e.filter((t) => typeof t == "string" && t.trim()).map((t) => t.trim()) : At(), oe = (e, t) => Bt(e, t), Ms = (e, t, s) => {
   if (!e || !t) return;
   const r = t.split(".").map((a) => a.trim()).filter(Boolean);
   if (r.length === 0) return;
@@ -1966,11 +1966,11 @@ var Ie = "debug-console-active-panel", De = "debug-console-panel-order", Ds = /^
   } catch {
     return { ...e };
   }
-}, Ms = class {
+}, js = class {
   constructor(e) {
     this.savedPanelOrder = null, this.customFilterState = {}, this.paused = !1, this.jserrorsExpanded = /* @__PURE__ */ new Set(), this.pauseButton = null, this.eventCount = 0, this.lastEventAt = null, this.sessions = [], this.sessionsLoading = !1, this.sessionsLoaded = !1, this.sessionsError = null, this.sessionsUpdatedAt = null, this.activeSessionId = null, this.activeSession = null, this.sessionBannerEl = null, this.sessionMetaEl = null, this.sessionDetachEl = null, this.unsubscribeRegistry = null, this.expandedRequests = /* @__PURE__ */ new Set(), this.tabsSortable = null, this.panelActionResults = /* @__PURE__ */ new Map(), this.commandLauncherLastPayloads = /* @__PURE__ */ new Map(), this.container = e;
-    const t = Rs(Re(e.dataset.panels));
-    t.includes("sessions") || t.push("sessions"), this.availablePanels = this.normalizeAvailablePanelIDs(t), this.savedPanelOrder = this.loadStoredPanelOrder(), this.panels = this.mergePanelOrder(this.availablePanels, this.savedPanelOrder), this.activePanel = this.panels[0] || "template", this.debugPath = e.dataset.debugPath || "", this.panelOrderPreferencesPath = e.dataset.panelOrderPreferencesPath || "", this.streamBasePath = this.debugPath, this.maxLogEntries = le(e.dataset.maxLogEntries, 500), this.maxSQLQueries = le(e.dataset.maxSqlQueries, 200), this.slowThresholdMs = le(e.dataset.slowThresholdMs, 50), this.replCommands = bt(Re(e.dataset.replCommands)), this.state = {
+    const t = qs(Ie(e.dataset.panels));
+    t.includes("sessions") || t.push("sessions"), this.availablePanels = this.normalizeAvailablePanelIDs(t), this.savedPanelOrder = this.loadStoredPanelOrder(), this.panels = this.mergePanelOrder(this.availablePanels, this.savedPanelOrder), this.activePanel = this.panels[0] || "template", this.debugPath = e.dataset.debugPath || "", this.panelOrderPreferencesPath = e.dataset.panelOrderPreferencesPath || "", this.streamBasePath = this.debugPath, this.maxLogEntries = le(e.dataset.maxLogEntries, 500), this.maxSQLQueries = le(e.dataset.maxSqlQueries, 200), this.slowThresholdMs = le(e.dataset.slowThresholdMs, 50), this.replCommands = vt(Ie(e.dataset.replCommands)), this.state = {
       template: {},
       session: {},
       requests: [],
@@ -2011,12 +2011,12 @@ var Ie = "debug-console-active-panel", De = "debug-console-panel-order", Ds = /^
       sessions: { search: "" },
       custom: { search: "" },
       objects: { search: "" }
-    }, this.replPanels = /* @__PURE__ */ new Map(), this.panelRenderers = /* @__PURE__ */ new Map(), ft.forEach((s) => {
+    }, this.replPanels = /* @__PURE__ */ new Map(), this.panelRenderers = /* @__PURE__ */ new Map(), gt.forEach((s) => {
       this.panelRenderers.set(s, {
         render: () => this.renderReplPanel(s),
         filters: () => '<span class="timestamp">REPL controls are in the panel header.</span>'
       });
-    }), this.eventToPanel = se(), this.tabsEl = this.requireElement("[data-debug-tabs]", document), this.panelEl = this.requireElement("[data-debug-panel]", document), this.filtersEl = this.requireElement("[data-debug-filters]", document), this.statusEl = document.querySelector("[data-debug-status]") || this.container, this.connectionEl = this.requireElement("[data-debug-connection]", document), this.eventCountEl = this.requireElement("[data-debug-events]", document), this.lastEventEl = this.requireElement("[data-debug-last]", document), this.sessionBannerEl = document.querySelector("[data-debug-session-banner]"), this.sessionMetaEl = document.querySelector("[data-debug-session-meta]"), this.sessionDetachEl = document.querySelector("[data-debug-session-detach]"), this.sessionDetachEl && this.sessionDetachEl.addEventListener("click", () => this.detachSession()), this.sqlView = new et({
+    }), this.eventToPanel = se(), this.tabsEl = this.requireElement("[data-debug-tabs]", document), this.panelEl = this.requireElement("[data-debug-panel]", document), this.filtersEl = this.requireElement("[data-debug-filters]", document), this.statusEl = document.querySelector("[data-debug-status]") || this.container, this.connectionEl = this.requireElement("[data-debug-connection]", document), this.eventCountEl = this.requireElement("[data-debug-events]", document), this.lastEventEl = this.requireElement("[data-debug-last]", document), this.sessionBannerEl = document.querySelector("[data-debug-session-banner]"), this.sessionMetaEl = document.querySelector("[data-debug-session-meta]"), this.sessionDetachEl = document.querySelector("[data-debug-session-detach]"), this.sessionDetachEl && this.sessionDetachEl.addEventListener("click", () => this.detachSession()), this.sqlView = new Ye({
       styles: S,
       copyOptions: { useIconFeedback: !0 },
       getQueries: () => this.state.sql,
@@ -2030,10 +2030,10 @@ var Ie = "debug-console-active-panel", De = "debug-console-panel-order", Ds = /^
       shouldDisplay: (s) => this.sqlEntryMatchesFilters(s),
       onNeedFullRender: () => this.renderPanel(),
       onPendingChange: (s) => this.updatePauseIndicator(s)
-    }), this.logsView = new ee({
+    }), this.logsView = new te({
       styles: S,
       keyOf: at,
-      renderRow: (s) => nt(s, S, {
+      renderRow: (s) => st(s, S, {
         showSource: !0,
         truncateMessage: !1
       }),
@@ -2043,13 +2043,13 @@ var Ie = "debug-console-active-panel", De = "debug-console-panel-order", Ds = /^
       shouldDisplay: (s) => this.logEntryMatchesFilters(s),
       onNeedFullRender: () => this.renderPanel(),
       onAfterAppend: () => this.applyLogsAutoScroll()
-    }), this.requestsView = new ee({
+    }), this.requestsView = new te({
       styles: S,
       containerSelector: "[data-request-table] tbody",
       rowSelector: "tr[data-request-id]",
       keyAttr: "data-request-id",
-      keyOf: ct,
-      renderRow: (s) => Ye(s, S, {
+      keyOf: We,
+      renderRow: (s) => ct(s, S, {
         expandedRequestIds: this.expandedRequests,
         truncatePath: !1,
         slowThresholdMs: this.slowThresholdMs
@@ -2059,39 +2059,52 @@ var Ie = "debug-console-active-panel", De = "debug-console-panel-order", Ds = /^
       getMaxEntries: () => this.maxLogEntries,
       shouldDisplay: (s) => this.requestEntryMatchesFilters(s),
       onNeedFullRender: () => this.renderPanel(),
-      onAdopt: (s) => Ke(s, this.expandedRequests)
-    }), this.jserrorsView = new ee({
+      onAdopt: (s) => Xe(s, this.expandedRequests)
+    }), this.jserrorsView = new te({
       styles: S,
-      keyOf: We,
-      renderRow: (s) => rt(s, S, { compact: !1 }),
+      keyOf: Ge,
+      renderRow: (s) => nt(s, S, { compact: !1 }),
       getItems: () => this.state.extra.jserrors || [],
       getRenderOptions: () => ({ newestFirst: this.filters.logs.newestFirst }),
       getMaxEntries: () => this.maxLogEntries,
       onNeedFullRender: () => this.renderPanel(),
-      onAdopt: (s) => Ve(s, {
+      onAdopt: (s) => rt(s, {
         tableSelector: "[data-live-list]",
         rowSelector: "tr.expandable-row",
         keyAttr: "data-row-key",
         expanded: this.jserrorsExpanded
       }),
-      onRestore: (s) => st(s, {
+      onRestore: (s) => Qe(s, {
         rowSelector: "tr.expandable-row",
         keyAttr: "data-row-key",
         expanded: this.jserrorsExpanded
       })
+    }), this.registryLiveList = new et({
+      styles: S,
+      getData: (s) => {
+        const r = this.getStateForKey(U(s));
+        return Array.isArray(r) ? r : [];
+      },
+      getRenderOptions: () => ({ newestFirst: this.filters.logs.newestFirst }),
+      shouldDisplay: (s, r) => {
+        if (!s.applyFilters) return !0;
+        const n = this.getPanelFilterState(s.id, s), a = s.applyFilters([r], n);
+        return Array.isArray(a) ? a.length > 0 : !0;
+      },
+      onNeedFullRender: () => this.renderPanel()
     }), this.bindActions(), this.updateSessionBanner(), this.stream = new Ee({
       basePath: this.streamBasePath,
       onEvent: (s) => this.handleEvent(s),
       onStatusChange: (s) => this.updateConnectionStatus(s)
-    }), this.unsubscribeRegistry = T.subscribe((s) => this.handleRegistryChange(s)), this.initializeServerDefinitions();
+    }), this.unsubscribeRegistry = L.subscribe((s) => this.handleRegistryChange(s)), this.initializeServerDefinitions();
   }
   async initializeServerDefinitions() {
     const e = await this.loadServerPanelOrderPreference();
-    this.applyPanelOrder(), await wt(this.debugPath), this.eventToPanel = se(), this.applyPanelOrder(), e && this.persistPanelOrder(), this.restoreActivePanel(), this.renderTabs(), this.renderActivePanel(), this.fetchSnapshot(), this.stream.connect(), this.subscribeToEvents();
+    this.applyPanelOrder(), await Pt(this.debugPath), this.eventToPanel = se(), this.applyPanelOrder(), e && this.persistPanelOrder(), this.restoreActivePanel(), this.renderTabs(), this.renderActivePanel(), this.fetchSnapshot(), this.stream.connect(), this.subscribeToEvents();
   }
   subscribeToEvents() {
     const e = /* @__PURE__ */ new Set();
-    for (const t of this.panels) for (const s of gt(t)) e.add(s);
+    for (const t of this.panels) for (const s of bt(t)) e.add(s);
     this.stream.subscribe(Array.from(e));
   }
   normalizeStoredPanelID(e) {
@@ -2101,7 +2114,7 @@ var Ie = "debug-console-active-panel", De = "debug-console-panel-order", Ds = /^
   restoreActivePanel() {
     let e = null;
     try {
-      e = this.normalizeStoredPanelID(sessionStorage.getItem(Ie));
+      e = this.normalizeStoredPanelID(sessionStorage.getItem(De));
     } catch {
       e = null;
     }
@@ -2109,13 +2122,13 @@ var Ie = "debug-console-active-panel", De = "debug-console-panel-order", Ds = /^
   }
   persistActivePanel() {
     try {
-      sessionStorage.setItem(Ie, this.activePanel);
+      sessionStorage.setItem(De, this.activePanel);
     } catch {
     }
   }
   persistPanelOrder() {
     try {
-      localStorage.setItem(De, JSON.stringify(this.panels));
+      localStorage.setItem(Re, JSON.stringify(this.panels));
     } catch {
     }
   }
@@ -2148,7 +2161,7 @@ var Ie = "debug-console-active-panel", De = "debug-console-panel-order", Ds = /^
   }
   loadStoredPanelOrder() {
     try {
-      const e = localStorage.getItem(De);
+      const e = localStorage.getItem(Re);
       if (e) {
         const t = JSON.parse(e);
         return this.normalizeSavedPanelOrder(t);
@@ -2159,7 +2172,7 @@ var Ie = "debug-console-active-panel", De = "debug-console-panel-order", Ds = /^
   }
   normalizePanelID(e) {
     const t = typeof e == "string" ? e.trim() : "";
-    return !t || !Ds.test(t) ? null : t;
+    return !t || !Is.test(t) ? null : t;
   }
   normalizeAvailablePanelIDs(e) {
     if (!Array.isArray(e)) return [];
@@ -2255,7 +2268,7 @@ var Ie = "debug-console-active-panel", De = "debug-console-panel-order", Ds = /^
   }
   renderTabs() {
     const e = this.panels.map((t) => {
-      const s = t === this.activePanel ? "debug-tab--active" : "", r = ut(yt(t), {
+      const s = t === this.activePanel ? "debug-tab--active" : "", r = ht(Et(t), {
         size: "14px",
         extraClass: "debug-tab__icon"
       });
@@ -2278,7 +2291,7 @@ var Ie = "debug-console-active-panel", De = "debug-console-panel-order", Ds = /^
     const s = this.panelRenderers.get(e);
     if (s?.filters) t = s.filters();
     else {
-      const r = T.get(e);
+      const r = L.get(e);
       if (r?.showFilters === !1) {
         this.filtersEl.innerHTML = '<span class="timestamp">No filters</span>';
         return;
@@ -2434,7 +2447,7 @@ var Ie = "debug-console-active-panel", De = "debug-console-panel-order", Ds = /^
     });
   }
   updateFiltersFromInputs() {
-    const e = this.activePanel, t = this.filtersEl.querySelectorAll("[data-filter]"), s = T.get(e);
+    const e = this.activePanel, t = this.filtersEl.querySelectorAll("[data-filter]"), s = L.get(e);
     if (s?.renderFilters) {
       const r = this.getPanelFilterState(e, s), n = r && typeof r == "object" && !Array.isArray(r) ? { ...r } : {};
       t.forEach((a) => {
@@ -2485,7 +2498,7 @@ var Ie = "debug-console-active-panel", De = "debug-console-panel-order", Ds = /^
     this.renderPanel();
   }
   getPanelFilterState(e, t) {
-    const s = t || T.get(e);
+    const s = t || L.get(e);
     return s ? (e in this.customFilterState || (this.customFilterState[e] = s.defaultFilters !== void 0 ? this.cloneFilterState(s.defaultFilters) : {}), this.customFilterState[e]) : {};
   }
   cloneFilterState(e) {
@@ -2519,26 +2532,28 @@ var Ie = "debug-console-active-panel", De = "debug-console-panel-order", Ds = /^
     else if (e === "routes") s = this.renderRoutes();
     else if (e === "sessions") s = this.renderSessionsPanel();
     else if (e === "custom") s = this.renderCustom();
-    else if (e === "jserrors") s = ot(this.state.extra.jserrors || [], S, {
+    else if (e === "jserrors") s = lt(this.state.extra.jserrors || [], S, {
       newestFirst: this.filters.logs.newestFirst,
       showSortToggle: !0
     });
     else {
-      const r = T.get(e);
-      if (r && (r.renderConsole || r.render)) {
-        const n = te(r);
-        let a = this.getStateForKey(n);
-        if (r.applyFilters) {
-          const i = this.getPanelFilterState(e, r);
-          a = r.applyFilters(a, i);
-        } else if (!r.renderFilters && r.showFilters !== !1) {
-          const i = this.filters.objects.search.trim();
-          i && a && typeof a == "object" && !Array.isArray(a) && (a = oe(a, i));
+      const n = L.get(e);
+      if (n && (n.renderConsole || n.render)) {
+        const a = U(n);
+        let i = this.getStateForKey(a);
+        if (n.applyFilters) {
+          const o = this.getPanelFilterState(e, n);
+          i = n.applyFilters(i, o);
+        } else if (!n.renderFilters && n.showFilters !== !1) {
+          const o = this.filters.objects.search.trim();
+          o && i && typeof i == "object" && !Array.isArray(i) && (i = oe(i, o));
         }
-        s = (r.renderConsole || r.render)(a, S, { newestFirst: this.filters.logs.newestFirst });
+        s = (n.renderConsole || n.render)(i, S, { newestFirst: this.filters.logs.newestFirst });
       } else s = this.renderJSONPanel(Se(e), this.state.extra[e], this.filters.objects.search);
     }
-    this.panelEl.innerHTML = s, e === "logs" && this.applyLogsAutoScroll(), this.attachExpandableRowListeners(), this.attachCopyButtonListeners(), e === "requests" && this.requestsView.adopt(this.panelEl), e === "sql" && this.mountSQLView(), e === "logs" && this.logsView.adopt(this.panelEl), e === "jserrors" && this.jserrorsView.adopt(this.panelEl), e === "sessions" && this.attachSessionActions(), this.attachPanelActionListeners(), e === "commands" && Ts(this.panelEl), this.renderStoredPanelActionResult(e);
+    this.panelEl.innerHTML = s, e === "logs" && this.applyLogsAutoScroll(), this.attachExpandableRowListeners(), this.attachCopyButtonListeners(), e === "requests" && this.requestsView.adopt(this.panelEl), e === "sql" && this.mountSQLView(), e === "logs" && this.logsView.adopt(this.panelEl), e === "jserrors" && this.jserrorsView.adopt(this.panelEl);
+    const r = L.get(e);
+    r && this.registryLiveList.handles(r) && this.registryLiveList.adopt(r, this.panelEl), e === "sessions" && this.attachSessionActions(), this.attachPanelActionListeners(), e === "commands" && Ds(this.panelEl), this.renderStoredPanelActionResult(e);
   }
   attachPanelActionListeners() {
     this.panelEl.querySelectorAll("[data-panel-action-picker]").forEach((e) => {
@@ -2561,7 +2576,7 @@ var Ie = "debug-console-active-panel", De = "debug-console-panel-order", Ds = /^
     if (!this.debugPath || !r || !n) return;
     const a = e.dataset.actionConfirm || "", i = e.dataset.actionRequiresConfirm === "true";
     if (e.dataset.actionConfirmInline !== "true" && (i || a) && !window.confirm(a || "Run this debug panel action?")) return;
-    const o = s || it(e);
+    const o = s || ot(e);
     r === "commands" && e instanceof HTMLFormElement && this.commandLauncherLastPayloads.set(n, qe(o)), t && (t.disabled = !0);
     const d = Date.now();
     try {
@@ -2583,7 +2598,7 @@ var Ie = "debug-console-active-panel", De = "debug-console-panel-order", Ds = /^
       this.showPanelActionResult(r, f.ok === !1 ? "error" : "ok", f.message || (f.ok === !1 ? "Action failed" : "Action complete"), n, f.data, f.errors, {
         at: Date.now(),
         durationMs: Date.now() - d
-      }), r === "commands" && ws(o), f.event && this.handleEvent(f.event), f.refresh && await this.fetchSnapshot();
+      }), r === "commands" && As(o), f.event && this.handleEvent(f.event), f.refresh && await this.fetchSnapshot();
     } catch (c) {
       const f = c instanceof Error ? c.message : "Action failed";
       this.showPanelActionResult(r, "error", f, n, void 0, void 0, {
@@ -2615,12 +2630,12 @@ var Ie = "debug-console-active-panel", De = "debug-console-panel-order", Ds = /^
     const s = Array.from(this.panelEl.querySelectorAll("[data-panel-action-result]")).find((a) => a.dataset.panelActionResult === e);
     if (!s) return;
     if (e === "commands") {
-      const a = ps(t.status, t.message, t.data, t.errors), i = {};
+      const a = fs(t.status, t.message, t.data, t.errors), i = {};
       a.validationErrors.forEach((c) => {
         c.path && (i[c.path] = c.message || c.code);
       }), t.errors && typeof t.errors == "object" && Object.assign(i, t.errors), this.renderPanelActionErrors(i, t.actionID);
-      const o = !!(t.actionID && this.commandLauncherLastPayloads.has(t.actionID)), d = zt(a.correlationId);
-      s.innerHTML = gs(a, {
+      const o = !!(t.actionID && this.commandLauncherLastPayloads.has(t.actionID)), d = Vt(a.correlationId);
+      s.innerHTML = ys(a, {
         canRetry: o,
         at: t.at,
         durationMs: t.durationMs,
@@ -2678,10 +2693,10 @@ var Ie = "debug-console-active-panel", De = "debug-console-panel-order", Ds = /^
     return typeof e == "string" ? e.trim() : Array.isArray(e) ? e.map((t) => this.stringifyActionError(t)).filter(Boolean).join("; ") : e && typeof e == "object" && typeof e.message == "string" ? (e.message || "").trim() : e == null ? "" : String(e);
   }
   attachExpandableRowListeners() {
-    ze(this.panelEl);
+    Ke(this.panelEl);
   }
   attachCopyButtonListeners() {
-    Xe(this.panelEl, { useIconFeedback: !0 });
+    ze(this.panelEl, { useIconFeedback: !0 });
   }
   mountSQLView() {
     this.sqlView.adopt(this.panelEl);
@@ -2689,7 +2704,7 @@ var Ie = "debug-console-active-panel", De = "debug-console-panel-order", Ds = /^
   renderReplPanel(e) {
     this.panelEl.classList.add("debug-content--repl");
     let t = this.replPanels.get(e);
-    t || (t = new dt({
+    t || (t = new ut({
       kind: e === "shell" ? "shell" : "console",
       debugPath: this.debugPath,
       commands: e === "console" ? this.replCommands : []
@@ -2709,7 +2724,7 @@ var Ie = "debug-console-active-panel", De = "debug-console-panel-order", Ds = /^
   }
   renderRequests() {
     const { newestFirst: e } = this.filters.requests, t = this.state.requests.filter((s) => this.requestEntryMatchesFilters(s));
-    return t.length === 0 ? this.renderEmptyState("No requests captured yet.") : lt(t, S, {
+    return t.length === 0 ? this.renderEmptyState("No requests captured yet.") : dt(t, S, {
       newestFirst: e,
       slowThresholdMs: this.slowThresholdMs,
       showSortToggle: !1,
@@ -2723,7 +2738,7 @@ var Ie = "debug-console-active-panel", De = "debug-console-panel-order", Ds = /^
   }
   renderSQL() {
     const { newestFirst: e } = this.filters.sql, t = this.state.sql.filter((s) => this.sqlEntryMatchesFilters(s));
-    return t.length === 0 ? this.renderEmptyState("No SQL queries captured yet.") : Qe(t, S, {
+    return t.length === 0 ? this.renderEmptyState("No SQL queries captured yet.") : Ve(t, S, {
       newestFirst: e,
       slowThresholdMs: this.slowThresholdMs,
       maxEntries: this.maxSQLQueries,
@@ -2754,7 +2769,7 @@ var Ie = "debug-console-active-panel", De = "debug-console-panel-order", Ds = /^
       const a = `${n.path || ""} ${n.handler || ""} ${n.summary || ""}`.toLowerCase();
       return !(s && !a.includes(s));
     });
-    return r.length === 0 ? this.renderEmptyState("No routes captured yet.") : Ze(r, S, { showName: !0 });
+    return r.length === 0 ? this.renderEmptyState("No routes captured yet.") : it(r, S, { showName: !0 });
   }
   renderSessionsPanel() {
     if (!this.sessionsLoaded && !this.sessionsLoading && this.fetchSessions(), this.sessionsError) return this.renderEmptyState(this.sessionsError);
@@ -2773,7 +2788,7 @@ var Ie = "debug-console-active-panel", De = "debug-console-panel-order", Ds = /^
     if (s.length === 0)
       return e === !1 ? this.renderEmptyState("Session tracking is disabled. Enable it to list active sessions.") : this.renderEmptyState("No active sessions yet.");
     const r = s.map((a) => {
-      const i = a.session_id || "", o = a.username || a.user_id || "Unknown", d = pt(a.last_activity || a.started_at), c = z(a.request_count ?? 0), f = !!i && i === this.activeSessionId, y = f ? "detach" : "attach", h = f ? "Detach" : "Attach", p = f ? "debug-btn debug-btn--danger" : "debug-btn debug-btn--primary", g = f ? "debug-session-row debug-session-row--active" : "debug-session-row", E = a.current_page || "-", w = a.ip || "-";
+      const i = a.session_id || "", o = a.username || a.user_id || "Unknown", d = pt(a.last_activity || a.started_at), c = V(a.request_count ?? 0), f = !!i && i === this.activeSessionId, y = f ? "detach" : "attach", h = f ? "Detach" : "Attach", p = f ? "debug-btn debug-btn--danger" : "debug-btn debug-btn--primary", g = f ? "debug-session-row debug-session-row--active" : "debug-session-row", E = a.current_page || "-", w = a.ip || "-";
       return `
           <tr class="${g}">
             <td>
@@ -2798,7 +2813,7 @@ var Ie = "debug-console-active-panel", De = "debug-console-panel-order", Ds = /^
     }).join(""), n = this.sessionsLoading ? "Refreshing..." : "Refresh";
     return `
       <div class="debug-session-toolbar">
-        <span class="debug-session-toolbar__label">${`${z(s.length)} active`}</span>
+        <span class="debug-session-toolbar__label">${`${V(s.length)} active`}</span>
         <div class="debug-session-toolbar__actions">
           <button class="debug-btn" data-session-action="refresh">
             <i class="iconoir-refresh"></i> ${n}
@@ -2824,7 +2839,7 @@ var Ie = "debug-console-active-panel", De = "debug-console-panel-order", Ds = /^
   }
   renderCustom() {
     const { search: e } = this.filters.custom, t = Object.keys(this.state.custom.data).length > 0, s = this.state.custom.logs.length > 0;
-    return !t && !s ? this.renderEmptyState("No custom data captured yet.") : Ge(this.state.custom, S, {
+    return !t && !s ? this.renderEmptyState("No custom data captured yet.") : Ze(this.state.custom, S, {
       maxLogEntries: this.maxLogEntries,
       useIconCopyButton: !0,
       showCount: !0,
@@ -2833,7 +2848,7 @@ var Ie = "debug-console-active-panel", De = "debug-console-panel-order", Ds = /^
   }
   renderJSONPanel(e, t, s) {
     const r = t && typeof t == "object" && !Array.isArray(t), n = Array.isArray(t);
-    return r && Object.keys(t || {}).length === 0 || n && (t || []).length === 0 || !r && !n && !t ? this.renderEmptyState(`No ${e.toLowerCase()} data available.`) : ht(e, t, S, {
+    return r && Object.keys(t || {}).length === 0 || n && (t || []).length === 0 || !r && !n && !t ? this.renderEmptyState(`No ${e.toLowerCase()} data available.`) : ft(e, t, S, {
       useIconCopyButton: !0,
       showCount: !0,
       filterFn: s ? (a) => oe(a, s) : void 0
@@ -2940,10 +2955,10 @@ var Ie = "debug-console-active-panel", De = "debug-console-panel-order", Ds = /^
   }
   panelCount(e) {
     if (e !== "sessions") {
-      const t = T.get(e);
+      const t = L.get(e);
       if (t) {
-        const s = te(t);
-        return mt({ [s]: this.getStateForKey(s) }, t);
+        const s = U(t);
+        return yt({ [s]: this.getStateForKey(s) }, t);
       }
     }
     switch (e) {
@@ -2985,14 +3000,14 @@ var Ie = "debug-console-active-panel", De = "debug-console-panel-order", Ds = /^
   updateTabCounts() {
     this.panels.forEach((e) => {
       const t = this.panelCount(e), s = this.tabsEl.querySelector(`[data-panel-count="${e}"]`);
-      s && (s.textContent = z(t));
+      s && (s.textContent = V(t));
     });
   }
   updateConnectionStatus(e) {
     this.connectionEl.textContent = e, this.statusEl.setAttribute("data-status", e);
   }
   updateStatusMeta() {
-    this.eventCountEl.textContent = `${z(this.eventCount)} events`, this.lastEventAt && (this.lastEventEl.textContent = this.lastEventAt.toLocaleTimeString());
+    this.eventCountEl.textContent = `${V(this.eventCount)} events`, this.lastEventAt && (this.lastEventEl.textContent = this.lastEventAt.toLocaleTimeString());
   }
   handleEvent(e) {
     if (!e || !e.type) return;
@@ -3005,12 +3020,12 @@ var Ie = "debug-console-active-panel", De = "debug-console-panel-order", Ds = /^
       return;
     }
     if (e.type === "command_status") {
-      Kt(e.payload), this.activePanel === "commands" && this.renderStoredPanelActionResult("commands");
+      zt(e.payload), this.activePanel === "commands" && this.renderStoredPanelActionResult("commands");
       return;
     }
-    const t = this.eventToPanel[e.type] || e.type, s = T.get(t);
+    const t = this.eventToPanel[e.type] || e.type, s = L.get(t);
     if (s) {
-      const r = te(s), n = this.getStateForKey(r), a = (s.handleEvent || ((i, o) => At(i, o, this.maxLogEntries)))(n, e.payload);
+      const r = U(s), n = this.getStateForKey(r), a = (s.handleEvent || ((i, o) => _t(i, o, this.maxLogEntries)))(n, e.payload);
       this.setStateForKey(r, a);
     } else switch (e.type) {
       case "request":
@@ -3032,15 +3047,22 @@ var Ie = "debug-console-active-panel", De = "debug-console-panel-order", Ds = /^
         this.handleCustomEvent(e.payload);
         break;
       default:
-        Et(t) || (this.state.extra[t] = e.payload);
+        St(t) || (this.state.extra[t] = e.payload);
         break;
     }
-    this.updateTabCounts(), t === this.activePanel && (t === "sql" ? this.sqlView.enqueue([e.payload]) : t === "logs" ? this.logsView.enqueue([e.payload]) : t === "requests" ? this.requestsView.enqueue([e.payload]) : t === "jserrors" ? this.jserrorsView.enqueue([e.payload]) : this.renderPanel());
+    if (this.updateTabCounts(), t === this.activePanel) if (t === "sql") this.sqlView.enqueue([e.payload]);
+    else if (t === "logs") this.logsView.enqueue([e.payload]);
+    else if (t === "requests") this.requestsView.enqueue([e.payload]);
+    else if (t === "jserrors") this.jserrorsView.enqueue([e.payload]);
+    else if (this.registryLiveList.handles(s)) {
+      const r = this.getStateForKey(U(s)), n = Array.isArray(r) ? r[r.length - 1] : void 0;
+      this.registryLiveList.enqueue(s, n);
+    } else this.renderPanel();
   }
   handleCustomEvent(e) {
     if (e) {
       if (typeof e == "object" && "key" in e && "value" in e) {
-        qs(this.state.custom.data, String(e.key), e.value);
+        Ms(this.state.custom.data, String(e.key), e.value);
         return;
       }
       if (typeof e == "object" && ("category" in e || "message" in e)) {
@@ -3107,11 +3129,11 @@ var Ie = "debug-console-active-panel", De = "debug-console-panel-order", Ds = /^
   }
   applySnapshot(e) {
     const t = e || {};
-    this.state.template = t.template || {}, this.state.session = t.session || {}, this.state.requests = U(t.requests), this.state.sql = U(t.sql), this.state.logs = U(t.logs), this.state.config = t.config || {}, this.state.routes = U(t.routes);
+    this.state.template = t.template || {}, this.state.session = t.session || {}, this.state.requests = H(t.requests), this.state.sql = H(t.sql), this.state.logs = H(t.logs), this.state.config = t.config || {}, this.state.routes = H(t.routes);
     const s = t.custom || {};
     this.state.custom = {
       data: s.data || {},
-      logs: U(s.logs)
+      logs: H(s.logs)
     };
     const r = /* @__PURE__ */ new Set([
       "template",
@@ -3132,7 +3154,7 @@ var Ie = "debug-console-active-panel", De = "debug-console-panel-order", Ds = /^
       for (; e.length > t; ) e.shift();
   }
   isSlowQuery(e) {
-    return Pt(e?.duration, this.slowThresholdMs);
+    return mt(e?.duration, this.slowThresholdMs);
   }
   async fetchSnapshot() {
     if (this.debugPath && !this.activeSessionId)
@@ -3249,94 +3271,102 @@ var Ie = "debug-console-active-panel", De = "debug-console-panel-order", Ds = /^
   updatePauseIndicator(e) {
     !this.paused || !this.pauseButton || (this.pauseButton.textContent = e > 0 ? `Resume (${e})` : "Resume");
   }
-}, js = (e) => {
+}, Fs = (e) => {
   const t = e || document.querySelector("[data-debug-console]");
-  return t ? new Ms(t) : null;
+  return t ? new js(t) : null;
 }, Me = () => {
-  js();
+  Fs();
 };
 document.readyState === "loading" ? document.addEventListener("DOMContentLoaded", Me) : Me();
 export {
-  Ks as DATA_ATTRS,
-  pr as DEBUG_ICON_REFS,
-  Ms as DebugPanel,
+  ir as DATA_ATTRS,
+  ur as DEBUG_ICON_REFS,
+  js as DebugPanel,
   Ee as DebugStream,
-  ir as INTERACTION_CLASSES,
-  ee as LiveListView,
-  Gs as RemoteDebugStream,
-  et as SqlLiveView,
-  lr as appendListRow,
-  Xs as appendSqlRowDOM,
-  wr as applyCustomEventPayload,
-  _r as applyDebugEventToSnapshot,
-  Xe as attachCopyListeners,
-  ze as attachExpandableRowListeners,
-  Ke as attachRequestDetailListeners,
-  Ve as attachRowExpansion,
+  Gs as INTERACTION_CLASSES,
+  te as LiveListView,
+  et as RegistryLiveListManager,
+  Js as RemoteDebugStream,
+  Ye as SqlLiveView,
+  yr as appendListRow,
+  Qs as appendSqlRowDOM,
+  xr as applyCustomEventPayload,
+  kr as applyDebugEventToSnapshot,
+  ze as attachCopyListeners,
+  Ke as attachExpandableRowListeners,
+  Xe as attachRequestDetailListeners,
+  rt as attachRowExpansion,
   se as buildEventToPanel,
   S as consoleStyles,
-  Hs as copyToClipboard,
+  tr as copyToClipboard,
   B as countPayload,
-  Cr as defaultGetCount,
-  At as defaultHandleEvent,
+  Ir as defaultGetCount,
+  _t as defaultHandleEvent,
   u as escapeHTML,
-  Js as evictListOverflow,
-  Ys as evictSqlOverflow,
-  Ar as fetchDebugSnapshot,
-  Er as formatDuration,
+  br as evictListOverflow,
+  Xs as evictSqlOverflow,
+  Cr as fetchDebugSnapshot,
+  Pr as formatDuration,
   ve as formatJSON,
-  z as formatNumber,
+  V as formatNumber,
   pt as formatTimestamp,
-  ur as getDebugIconRef,
-  St as getDefaultPanels,
-  xr as getDefaultToolbarPanels,
-  br as getLevelClass,
-  mt as getPanelCount,
-  Or as getPanelData,
-  gt as getPanelEventTypes,
-  yt as getPanelIcon,
+  cr as getDebugIconRef,
+  At as getDefaultPanels,
+  Rr as getDefaultToolbarPanels,
+  Tr as getLevelClass,
+  yt as getPanelCount,
+  qr as getPanelData,
+  bt as getPanelEventTypes,
+  Et as getPanelIcon,
   Se as getPanelLabel,
-  te as getSnapshotKey,
-  vr as getStatusClass,
-  or as getStyleConfig,
-  Pr as getToolbarCounts,
-  Zs as hashString,
-  js as initDebugPanel,
-  Et as isKnownPanel,
-  Pt as isSlowDuration,
-  We as jsErrorRowKey,
+  U as getSnapshotKey,
+  Er as getStatusClass,
+  Ws as getStyleConfig,
+  Lr as getToolbarCounts,
+  vr as hashString,
+  Fs as initDebugPanel,
+  St as isKnownPanel,
+  gr as isSchemaListRenderer,
+  mt as isSlowDuration,
+  Ge as jsErrorRowKey,
   at as logRowKey,
-  gr as normalizeEventTypes,
-  bt as normalizeReplCommands,
-  T as panelRegistry,
-  Ge as renderCustomPanel,
-  hr as renderDebugIcon,
-  ut as renderDebugIconRef,
-  tr as renderDoctorPanel,
-  er as renderDoctorPanelCompact,
-  rt as renderErrorRow,
-  ot as renderJSErrorsPanel,
-  ht as renderJSONPanel,
-  yr as renderJSONViewer,
-  nt as renderLogRow,
+  fr as normalizeEventTypes,
+  vt as normalizeReplCommands,
+  Dr as panelDefinitionFromServer,
+  L as panelRegistry,
+  Ze as renderCustomPanel,
+  dr as renderDebugIcon,
+  ht as renderDebugIconRef,
+  er as renderDoctorPanel,
+  Zs as renderDoctorPanelCompact,
+  nt as renderErrorRow,
+  lt as renderJSErrorsPanel,
+  ft as renderJSONPanel,
+  Sr as renderJSONViewer,
+  st as renderLogRow,
   tt as renderLogsPanel,
-  Sr as renderPanelContent,
+  Ar as renderPanelContent,
   rr as renderPermissionsPanel,
   ar as renderPermissionsPanelCompact,
-  Ye as renderRequestRow,
-  lt as renderRequestsPanel,
-  Ze as renderRoutesPanel,
-  Qe as renderSQLPanel,
+  ct as renderRequestRow,
+  dt as renderRequestsPanel,
+  it as renderRoutesPanel,
+  Ve as renderSQLPanel,
   zs as renderSQLRow,
   Vs as renderSQLRowsHTML,
+  mr as renderSchemaListRow,
+  wr as renderSchemaStatusList,
+  $r as renderSchemaTable,
+  pr as renderSchemaTimeline,
   sr as renderSiteRenderCachePanel,
   nr as renderSiteRenderCachePanelCompact,
-  ft as replPanelIDs,
-  ct as requestRowKey,
-  st as restoreRowExpansion,
-  Qs as sqlRowKey,
-  Ws as toolbarStyles,
-  mr as truncate
+  gt as replPanelIDs,
+  We as requestRowKey,
+  Qe as restoreRowExpansion,
+  Or as schemaRowKey,
+  Ys as sqlRowKey,
+  Ks as toolbarStyles,
+  _r as truncate
 };
 
 //# sourceMappingURL=index.js.map

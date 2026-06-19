@@ -43,6 +43,7 @@ import {
   jsErrorRowKey,
   SqlLiveView,
   LiveListView,
+  RegistryLiveListManager,
   renderLogRow,
   logRowKey,
 } from './shared/panels/index.js';
@@ -203,6 +204,7 @@ export class DebugPanel {
   private logsView!: LiveListView<LogEntry>;
   private requestsView!: LiveListView<RequestEntry>;
   private jserrorsView!: LiveListView<JSErrorEntry>;
+  private registryLiveList!: RegistryLiveListManager;
   private jserrorsExpanded: Set<string> = new Set();
   private pauseButton: HTMLButtonElement | null = null;
   private maxLogEntries: number;
@@ -376,6 +378,22 @@ export class DebugPanel {
           keyAttr: 'data-row-key',
           expanded: this.jserrorsExpanded,
         }),
+    });
+
+    this.registryLiveList = new RegistryLiveListManager({
+      styles: consoleStyles,
+      getData: (def) => {
+        const data = this.getStateForKey(getSnapshotKey(def));
+        return Array.isArray(data) ? data : [];
+      },
+      getRenderOptions: () => ({ newestFirst: this.filters.logs.newestFirst }),
+      shouldDisplay: (def, item) => {
+        if (!def.applyFilters) return true;
+        const state = this.getPanelFilterState(def.id, def);
+        const result = def.applyFilters([item], state);
+        return Array.isArray(result) ? result.length > 0 : true;
+      },
+      onNeedFullRender: () => this.renderPanel(),
     });
 
     this.bindActions();
@@ -1097,6 +1115,10 @@ export class DebugPanel {
     }
     if (panel === 'jserrors') {
       this.jserrorsView.adopt(this.panelEl);
+    }
+    const liveDef = panelRegistry.get(panel);
+    if (liveDef && this.registryLiveList.handles(liveDef)) {
+      this.registryLiveList.adopt(liveDef, this.panelEl);
     }
     if (panel === 'sessions') {
       this.attachSessionActions();
@@ -2039,6 +2061,12 @@ export class DebugPanel {
         this.requestsView.enqueue([event.payload as RequestEntry]);
       } else if (panel === 'jserrors') {
         this.jserrorsView.enqueue([event.payload as JSErrorEntry]);
+      } else if (this.registryLiveList.handles(def)) {
+        // Opt-in registry (incl. server schema) panels: append the newest state
+        // item incrementally instead of rebuilding the whole panel.
+        const data = this.getStateForKey(getSnapshotKey(def!));
+        const item = Array.isArray(data) ? data[data.length - 1] : undefined;
+        this.registryLiveList.enqueue(def!, item);
       } else {
         this.renderPanel();
       }

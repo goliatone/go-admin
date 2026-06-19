@@ -130,7 +130,18 @@ export {
   renderDoctorPanelCompact,
   renderSiteRenderCachePanel,
   renderSiteRenderCachePanelCompact,
+  renderSchemaTable,
+  renderSchemaStatusList,
+  renderSchemaTimeline,
+  renderSchemaListRow,
+  schemaRowKey,
+  isSchemaListRenderer,
+  RegistryLiveListManager,
+  type RegistryLiveListHost,
 } from './shared/panels/index.js';
+
+// Server-defined (schema) panels
+export { panelDefinitionFromServer } from './shared/server-definitions.js';
 
 // Types
 export type {

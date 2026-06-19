@@ -1,4 +1,9 @@
-import { renderSchemaPanelView } from './panels/schema.js';
+import {
+  renderSchemaPanelView,
+  isSchemaListRenderer,
+  renderSchemaListRow,
+  schemaRowKey,
+} from './panels/schema.js';
 import {
   defaultGetCount,
   defaultHandleEvent,
@@ -469,6 +474,23 @@ export function panelDefinitionFromServer(serverDef: ServerPanelDefinition): Pan
   const renderConsoleOverride = consoleOverride
     ? (data: unknown, styles: StyleConfig) => consoleOverride({ def: renderDef, data, styles, useIconCopyButton: true })
     : undefined;
+
+  // Opt single-list append panels into incremental ("live list") rendering. The
+  // schema list renderers emit `[data-live-list]` + keyed rows, so the host can
+  // append/evict individual rows instead of rebuilding the whole table. Only
+  // `append` is auto-wired; `upsert`/`merge`/`stack` stay on full render.
+  const primaryView = ui?.views?.console || ui?.views?.toolbar;
+  const liveList = ui && primaryView && normalizeID(ui.events?.mode) === 'append'
+    && isSchemaListRenderer(primaryView.renderer)
+    ? {
+        renderRow: (item: unknown, styles: StyleConfig) =>
+          renderSchemaListRow(primaryView.renderer, item, primaryView, styles),
+        keyOf: (item: unknown) => schemaRowKey(item, primaryView.options?.key_bind),
+        getMaxEntries: () =>
+          typeof ui.events?.max_entries === 'number' ? ui.events.max_entries : 500,
+      }
+    : undefined;
+
   return {
     id,
     label,
@@ -489,6 +511,7 @@ export function panelDefinitionFromServer(serverDef: ServerPanelDefinition): Pan
     // Custom console panels own their own filtering, so the generic object-key
     // search must not be applied to their structured snapshot payload.
     showFilters: consoleOverride ? false : Boolean(ui?.filters?.length),
+    liveList,
   };
 }
 
