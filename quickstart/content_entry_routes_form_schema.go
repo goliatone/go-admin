@@ -1223,14 +1223,20 @@ func isTemplateResolutionError(err error) bool {
 	if err == nil {
 		return false
 	}
+	if errors.Is(err, fs.ErrNotExist) {
+		return true
+	}
 	lower := strings.ToLower(strings.TrimSpace(err.Error()))
+	if strings.Contains(lower, "no such file or directory") {
+		return true
+	}
 	if strings.Contains(lower, "does not exist") {
 		return strings.Contains(lower, "template") ||
 			strings.Contains(lower, "view") ||
-			strings.Contains(lower, "layout")
+			strings.Contains(lower, "layout") ||
+			strings.Contains(lower, "open ")
 	}
-	return strings.Contains(lower, "no such file or directory") ||
-		strings.Contains(lower, "failed to open")
+	return false
 }
 
 func defaultLocaleValue(value string, fallback string) string {
