@@ -1,11 +1,29 @@
 # Changelog
 
+# [0.103.2](https://github.com/goliatone/go-admin/compare/v0.103.1...v0.103.2) - (2026-06-19)
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Content type matching ([2af6192](https://github.com/goliatone/go-admin/commit/2af6192a7f857d79a654c5d425eb5f884d6d2a81))  - (goliatone)
+
+## <!-- 16 -->➕ Add
+
+- Sync translation family ([ca01299](https://github.com/goliatone/go-admin/commit/ca012995a61d3ac3518afa86a1ce3596d6947ca0))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update tests ([bad8ca9](https://github.com/goliatone/go-admin/commit/bad8ca973690a70e4a76b5385208ea84b03bb9a6))  - (goliatone)
+
 # [0.103.1](https://github.com/goliatone/go-admin/compare/v0.103.0...v0.103.1) - (2026-06-19)
 
 ## <!-- 1 -->🐛 Bug Fixes
 
 - List translation families from read model ([39685e9](https://github.com/goliatone/go-admin/commit/39685e94967d4833c2f8687bbc41612c69bb2af9))  - (goliatone)
 - Grouped family translations ([296f446](https://github.com/goliatone/go-admin/commit/296f4469e1db3d27ad2e54e17525daf9953aa832))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.103.1 ([a5ff148](https://github.com/goliatone/go-admin/commit/a5ff148144485b6628a4e256f9edaec3aa86a3bc))  - (goliatone)
 
 ## <!-- 7 -->⚙️ Miscellaneous Tasks
 
