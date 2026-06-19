@@ -2097,12 +2097,14 @@ func TestPanelBindingListGroupedByTranslationGroupSupportsStableGroupPagination(
 
 type optimizedGroupedTranslationRepoStub struct {
 	translationActionRepoStub
-	groupedRows []map[string]any
-	familyCalls int
+	groupedRows   []map[string]any
+	familyCalls   int
+	familyOptions []ListOptions
 }
 
 func (s *optimizedGroupedTranslationRepoStub) ListTranslationFamilies(_ context.Context, opts ListOptions) ([]map[string]any, int, error) {
 	s.familyCalls++
+	s.familyOptions = append(s.familyOptions, cloneListOptions(opts))
 	rows := make([]map[string]any, 0, len(s.groupedRows))
 	for _, row := range s.groupedRows {
 		rows = append(rows, primitives.CloneAnyMap(row))
@@ -2175,6 +2177,180 @@ func TestPanelBindingListGroupedByTranslationGroupUsesOptimizedFamilyTotals(t *t
 		t.Fatalf("expected 10 grouped rows on page two, got %d", len(pageTwo))
 	}
 	assertGroupedTranslationRecord(t, pageTwo[0], "tg_archive_10", 1)
+}
+
+func TestPanelBindingListGroupedByTranslationGroupFiltersOptimizedFamilyReadiness(t *testing.T) {
+	allRows := []map[string]any{
+		{
+			"id":                "missing_en",
+			"title":             "Missing EN",
+			"path":              "/missing",
+			"status":            "draft",
+			"locale":            "en",
+			"family_id":         "tg_missing",
+			"available_locales": []string{"en"},
+		},
+		{
+			"id":                "ready_a_en",
+			"title":             "Ready A EN",
+			"path":              "/ready-a",
+			"status":            "draft",
+			"locale":            "en",
+			"family_id":         "tg_ready_a",
+			"available_locales": []string{"en"},
+		},
+		{
+			"id":                "ready_a_fr",
+			"title":             "Ready A FR",
+			"path":              "/fr/ready-a",
+			"status":            "draft",
+			"locale":            "fr",
+			"family_id":         "tg_ready_a",
+			"available_locales": []string{"fr"},
+		},
+		{
+			"id":                "ready_b_en",
+			"title":             "Ready B EN",
+			"path":              "/ready-b",
+			"status":            "draft",
+			"locale":            "en",
+			"family_id":         "tg_ready_b",
+			"available_locales": []string{"en"},
+		},
+		{
+			"id":                "ready_b_fr",
+			"title":             "Ready B FR",
+			"path":              "/fr/ready-b",
+			"status":            "draft",
+			"locale":            "fr",
+			"family_id":         "tg_ready_b",
+			"available_locales": []string{"fr"},
+		},
+	}
+
+	tests := []struct {
+		name             string
+		page             int
+		perPage          int
+		readinessField   string
+		readinessValue   string
+		expectedTotal    int
+		expectedFamilies []string
+		expectedState    string
+	}{
+		{
+			name:             "ready page two",
+			page:             2,
+			perPage:          1,
+			readinessField:   "readiness_state",
+			readinessValue:   translationReadinessStateReady,
+			expectedTotal:    2,
+			expectedFamilies: []string{"tg_ready_b"},
+			expectedState:    translationReadinessStateReady,
+		},
+		{
+			name:             "missing locales",
+			page:             1,
+			perPage:          10,
+			readinessField:   "readiness_state",
+			readinessValue:   translationReadinessStateMissingLocales,
+			expectedTotal:    1,
+			expectedFamilies: []string{"tg_missing"},
+			expectedState:    translationReadinessStateMissingLocales,
+		},
+		{
+			name:             "incomplete true",
+			page:             1,
+			perPage:          10,
+			readinessField:   "incomplete",
+			readinessValue:   "true",
+			expectedTotal:    1,
+			expectedFamilies: []string{"tg_missing"},
+			expectedState:    translationReadinessStateMissingLocales,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			repo := &optimizedGroupedTranslationRepoStub{
+				translationActionRepoStub: translationActionRepoStub{
+					list: []map[string]any{
+						{
+							"id":                "fallback_en",
+							"title":             "Fallback EN",
+							"status":            "draft",
+							"locale":            "en",
+							"family_id":         "tg_fallback",
+							"available_locales": []string{"en"},
+						},
+					},
+				},
+				groupedRows: buildTranslationGroupedRows(allRows, "en"),
+			}
+			panel := &Panel{
+				name: "archive_event",
+				repo: repo,
+				translationPolicy: readinessPolicyStub{
+					ok: true,
+					req: TranslationRequirements{
+						Locales: []string{"en", "fr"},
+					},
+				},
+			}
+			binding := &panelBinding{
+				admin: &Admin{config: Config{DefaultLocale: "en"}},
+				name:  "archive_event",
+				panel: panel,
+			}
+
+			filters := map[string]any{
+				"group_by": "family_id",
+				"channel":  "production",
+			}
+			predicates := []boot.ListPredicate{
+				{Field: "group_by", Operator: "eq", Values: []string{"family_id"}},
+				{Field: "channel", Operator: "eq", Values: []string{"production"}},
+			}
+			filters[tc.readinessField] = tc.readinessValue
+			predicates = append(predicates, boot.ListPredicate{Field: tc.readinessField, Operator: "eq", Values: []string{tc.readinessValue}})
+
+			rows, total, _, _, _, err := binding.List(newPanelBindingMockContext(), "en", boot.ListOptions{
+				Page:       tc.page,
+				PerPage:    tc.perPage,
+				Filters:    filters,
+				Predicates: predicates,
+			})
+			if err != nil {
+				t.Fatalf("grouped readiness list failed: %v", err)
+			}
+			if total != tc.expectedTotal {
+				t.Fatalf("expected total=%d, got %d", tc.expectedTotal, total)
+			}
+			if len(rows) != len(tc.expectedFamilies) {
+				t.Fatalf("expected %d rows, got %d: %#v", len(tc.expectedFamilies), len(rows), rows)
+			}
+			for index, expectedFamily := range tc.expectedFamilies {
+				if got := strings.TrimSpace(toString(rows[index]["family_id"])); got != expectedFamily {
+					t.Fatalf("expected family %q at index %d, got %q", expectedFamily, index, got)
+				}
+				if got := strings.TrimSpace(toString(rows[index]["readiness_state"])); got != tc.expectedState {
+					t.Fatalf("expected readiness_state %q, got %q", tc.expectedState, got)
+				}
+				if readiness := extractMap(rows[index]["translation_readiness"]); len(readiness) == 0 {
+					t.Fatalf("expected grouped row translation_readiness payload")
+				}
+			}
+			if repo.familyCalls == 0 {
+				t.Fatalf("expected optimized grouped family provider to be used")
+			}
+			if len(repo.listOptions) != 0 {
+				t.Fatalf("expected readiness filtering to avoid flat repository list fallback, got %d list calls", len(repo.listOptions))
+			}
+			if len(repo.familyOptions) == 0 || repo.familyOptions[0].PerPage != groupedReadinessFamilyScanPerPage {
+				t.Fatalf("expected readiness scan per_page=%d, got %#v", groupedReadinessFamilyScanPerPage, repo.familyOptions)
+			}
+		})
+	}
 }
 
 func TestPanelBindingListGroupedByTranslationGroupDoesNotInjectLocaleScope(t *testing.T) {

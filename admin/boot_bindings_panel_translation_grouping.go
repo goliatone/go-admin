@@ -104,6 +104,12 @@ func (p *panelBinding) listGroupedByTranslationGroup(ctx AdminContext, baseOpts,
 			return records, total, nil
 		}
 	}
+	if records, total, handled, err := p.listOptimizedTranslationFamiliesWithReadinessPredicates(ctx, baseOpts, requestedOpts, readinessPredicates); handled {
+		if err != nil {
+			return nil, 0, err
+		}
+		return records, total, nil
+	}
 	filtered, err := p.listAllWithTranslationReadinessPredicates(ctx, baseOpts, readinessPredicates)
 	if err != nil {
 		return nil, 0, err
@@ -116,6 +122,8 @@ func (p *panelBinding) listGroupedByTranslationGroup(ctx AdminContext, baseOpts,
 type optimizedTranslationFamilyListRepository interface {
 	ListTranslationFamilies(ctx context.Context, opts ListOptions) ([]map[string]any, int, error)
 }
+
+const groupedReadinessFamilyScanPerPage = 500
 
 func (p *panelBinding) listOptimizedTranslationFamilies(ctx AdminContext, opts ListOptions) ([]map[string]any, int, bool, error) {
 	if p == nil || p.panel == nil || p.panel.repo == nil {
@@ -133,6 +141,54 @@ func (p *panelBinding) listOptimizedTranslationFamilies(ctx AdminContext, opts L
 		return nil, 0, true, err
 	}
 	return records, total, true, nil
+}
+
+func (p *panelBinding) listOptimizedTranslationFamiliesWithReadinessPredicates(ctx AdminContext, baseOpts, requestedOpts ListOptions, readinessPredicates []ListPredicate) ([]map[string]any, int, bool, error) {
+	if len(readinessPredicates) == 0 {
+		return nil, 0, false, nil
+	}
+
+	fetch := cloneListOptions(baseOpts)
+	fetch.Page = 1
+	fetch.PerPage = groupedReadinessFamilyScanPerPage
+	fetch.Fields = nil
+
+	capacity := requestedOpts.PerPage
+	if capacity <= 0 {
+		capacity = 10
+	}
+	filtered := make([]map[string]any, 0, capacity)
+	for {
+		batch, total, handled, err := p.listOptimizedTranslationFamilies(ctx, fetch)
+		if !handled {
+			return nil, 0, false, nil
+		}
+		if err != nil {
+			return nil, 0, true, err
+		}
+		if len(batch) == 0 {
+			break
+		}
+
+		batch = p.withGroupedTranslationReadiness(ctx, batch, baseOpts.Filters)
+		for _, record := range batch {
+			if !recordMatchesAllListPredicates(record, readinessPredicates) {
+				continue
+			}
+			filtered = append(filtered, record)
+		}
+
+		if translationLocalePageComplete(batch, total, fetch.Page, fetch.PerPage) {
+			break
+		}
+		fetch.Page++
+	}
+
+	paginated, total := paginateInMemory(filtered, requestedOpts, 10)
+	if len(requestedOpts.Fields) > 0 {
+		paginated = projectRecordMapsByFields(paginated, requestedOpts.Fields)
+	}
+	return paginated, total, true, nil
 }
 
 func (p *panelBinding) groupedRowsDefaultLocale(ctx AdminContext) string {
@@ -237,6 +293,87 @@ func buildTranslationGroupedRows(records []map[string]any, defaultLocale string)
 		return nil
 	}
 	return out
+}
+
+func (p *panelBinding) withGroupedTranslationReadiness(ctx AdminContext, groups []map[string]any, filters map[string]any) []map[string]any {
+	if len(groups) == 0 {
+		return groups
+	}
+	defaultLocale := p.groupedRowsDefaultLocale(ctx)
+	out := make([]map[string]any, 0, len(groups))
+	for _, group := range groups {
+		cloned := primitives.CloneAnyMap(group)
+		if cloned == nil {
+			cloned = map[string]any{}
+		}
+		children := groupedTranslationRowChildren(cloned)
+		if len(children) == 0 {
+			record := p.withTranslationReadinessRecord(ctx, cloned, filters)
+			applyTranslationGroupSummaryReadinessFields(record)
+			out = append(out, record)
+			continue
+		}
+
+		children = p.withTranslationReadiness(ctx, children, filters)
+		rebuilt := buildTranslationGroupedRows(children, defaultLocale)
+		if len(rebuilt) == 0 {
+			applyTranslationGroupSummaryReadinessFields(cloned)
+			out = append(out, cloned)
+			continue
+		}
+
+		merged := primitives.CloneAnyMap(cloned)
+		if merged == nil {
+			merged = map[string]any{}
+		}
+		for key, value := range rebuilt[0] {
+			merged[key] = value
+		}
+		applyTranslationGroupSummaryReadinessFields(merged)
+		out = append(out, merged)
+	}
+	return out
+}
+
+func groupedTranslationRowChildren(row map[string]any) []map[string]any {
+	for _, key := range []string{"children", "records"} {
+		if children := toMapSlice(row[key]); len(children) > 0 {
+			return children
+		}
+	}
+	if parent := extractMap(row["parent"]); len(parent) > 0 {
+		return []map[string]any{parent}
+	}
+	return nil
+}
+
+func applyTranslationGroupSummaryReadinessFields(row map[string]any) {
+	if len(row) == 0 {
+		return
+	}
+	summary := extractMap(row["family_summary"])
+	if len(summary) == 0 {
+		return
+	}
+	state := normalizeTranslationReadinessState(toString(summary["readiness_state"]))
+	if state == "" {
+		return
+	}
+	readiness := primitives.CloneAnyMap(summary)
+	if readiness == nil {
+		readiness = map[string]any{}
+	}
+	readiness["readiness_state"] = state
+	if _, ok := readiness["missing_required_locales"]; !ok {
+		readiness["missing_required_locales"] = readiness["missing_locales"]
+	}
+	if _, ok := readiness["family_id"]; !ok {
+		readiness["family_id"] = strings.TrimSpace(primitives.FirstNonEmptyRaw(toString(row["family_id"]), toString(summary["group_id"])))
+	}
+	if _, ok := readiness["ready_for_transition"]; !ok {
+		readiness["ready_for_transition"] = map[string]bool{translationReadinessTransitionPublish: state == translationReadinessStateReady}
+	}
+	applyTranslationReadinessFields(row, readiness)
 }
 
 func translationFamilyIDForRecord(record map[string]any) string {
