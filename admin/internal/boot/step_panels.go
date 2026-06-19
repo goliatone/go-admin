@@ -447,8 +447,6 @@ func mergeActionContextFromRequest(c router.Context, body map[string]any, routeL
 	if strings.TrimSpace(toStringAny(body["policy_entity"])) == "" && strings.TrimSpace(toStringAny(body["policyEntity"])) == "" {
 		if policyEntity := strings.TrimSpace(c.Query("policy_entity")); policyEntity != "" {
 			body["policy_entity"] = policyEntity
-		} else if policyEntity := strings.TrimSpace(c.Query("policyEntity")); policyEntity != "" {
-			body["policy_entity"] = policyEntity
 		}
 	}
 	return body
