@@ -677,7 +677,7 @@ func (p *panelBinding) panelDetailPath(id string) string {
 }
 
 func (p *panelBinding) Action(c router.Context, locale, action string, body map[string]any) (boot.ActionResponse, error) {
-	body = mergePanelActionContext(body, locale, c.Query("locale"), c.Query("channel"), "", c.Query("policy_entity"), c.Query("policyEntity"))
+	body = mergePanelActionContext(body, locale, c.Query("locale"), c.Query("channel"), "", c.Query("policy_entity"))
 	adminCtx := p.admin.adminContextFromRequest(c, locale)
 	body = mergePanelActionActorContext(body, adminCtx)
 	ids := parseCommandIDs(body, c.Query("id"), c.Query("ids"))
