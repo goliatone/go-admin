@@ -96,6 +96,42 @@ func TestAdminContentReadServiceGetForContentTypeMatchesCapabilityAliases(t *tes
 	}
 }
 
+func TestAdminContentReadServiceGetForContentTypeCanonicalizesPanelSlug(t *testing.T) {
+	ctx := context.Background()
+	content := NewInMemoryContentService()
+	created, err := content.CreateContent(ctx, CMSContent{
+		ID:              "archive-event-en",
+		Title:           "Archive Event",
+		Slug:            "archive-event",
+		Locale:          "en",
+		Status:          "draft",
+		ContentType:     "archive-event",
+		ContentTypeSlug: "archive-event",
+	})
+	if err != nil {
+		t.Fatalf("create content: %v", err)
+	}
+	service := newAdminContentReadService(content)
+
+	record, err := service.GetForContentType(ctx, CMSContentType{
+		ID:   "ct-archive-event",
+		Slug: "archive-event",
+		Capabilities: map[string]any{
+			ContentTypeCapabilityKeyPanelSlug:     "archive_event",
+			ContentTypeCapabilityKeySearchContent: "archive_event",
+		},
+	}, created.ID)
+	if err != nil {
+		t.Fatalf("get content type record: %v", err)
+	}
+	if got := toString(record["content_type"]); got != "archive_event" {
+		t.Fatalf("expected canonical content_type archive_event, got %q", got)
+	}
+	if got := toString(record["content_type_slug"]); got == "archive-event" {
+		t.Fatalf("expected detail content_type_slug to avoid physical archive slug, got %q", got)
+	}
+}
+
 func TestAdminContentReadServiceListForContentTypeMatchesCapabilityAliases(t *testing.T) {
 	ctx := context.Background()
 	content := NewInMemoryContentService()
@@ -141,6 +177,57 @@ func TestAdminContentReadServiceListForContentTypeMatchesCapabilityAliases(t *te
 	}
 	if got := toString(rows[0]["id"]); got != "archive-event-en" {
 		t.Fatalf("expected archive row, got %q", got)
+	}
+}
+
+func TestAdminContentReadServiceListForContentTypeCanonicalizesFallbackRows(t *testing.T) {
+	ctx := context.Background()
+	content := NewInMemoryContentService()
+	for _, item := range []CMSContent{
+		{
+			ID:              "archive-event-en",
+			Title:           "Archive Event",
+			Slug:            "archive-event",
+			Locale:          "en",
+			Status:          "draft",
+			ContentType:     "archive-event",
+			ContentTypeSlug: "archive-event",
+		},
+		{
+			ID:              "page-en",
+			Title:           "Page",
+			Slug:            "page",
+			Locale:          "en",
+			Status:          "draft",
+			ContentType:     "page",
+			ContentTypeSlug: "page",
+		},
+	} {
+		if _, err := content.CreateContent(ctx, item); err != nil {
+			t.Fatalf("create content %s: %v", item.ID, err)
+		}
+	}
+	service := newAdminContentReadService(content)
+
+	rows, total, err := service.ListForContentType(ctx, CMSContentType{
+		ID:   "ct-archive-event",
+		Slug: "archive-event",
+		Capabilities: map[string]any{
+			ContentTypeCapabilityKeyPanelSlug:     "archive_event",
+			ContentTypeCapabilityKeySearchContent: "archive_event",
+		},
+	}, ListOptions{Filters: map[string]any{"locale": "en"}})
+	if err != nil {
+		t.Fatalf("list content type records: %v", err)
+	}
+	if total != 1 || len(rows) != 1 {
+		t.Fatalf("expected one archive row, got total=%d rows=%#v", total, rows)
+	}
+	if got := toString(rows[0]["content_type"]); got != "archive_event" {
+		t.Fatalf("expected canonical content_type archive_event, got %q", got)
+	}
+	if got := toString(rows[0]["content_type_slug"]); got != "archive_event" {
+		t.Fatalf("expected canonical content_type_slug archive_event, got %q", got)
 	}
 }
 

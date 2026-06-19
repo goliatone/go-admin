@@ -175,6 +175,19 @@ func TestRenderTemplateFallsBackWhenCustomTemplateOpenFails(t *testing.T) {
 	ctx.AssertExpectations(t)
 }
 
+func TestRenderTemplateDoesNotFallbackForNonMissingOpenFailures(t *testing.T) {
+	viewCtx := router.ViewContext{"title": "Pages"}
+	ctx := router.NewMockContext()
+	renderErr := errors.New("failed to open: permission denied")
+	ctx.On("Render", "resources/pages/list", viewCtx).Return(renderErr).Once()
+
+	h := &contentEntryHandlers{}
+	if err := h.renderTemplate(ctx, "pages", "resources/content/list", viewCtx); !errors.Is(err, renderErr) {
+		t.Fatalf("expected non-missing render error to be returned, got %v", err)
+	}
+	ctx.AssertExpectations(t)
+}
+
 func TestParseMultipartFormValuesReadsTextFieldsAndSkipsFiles(t *testing.T) {
 	var body bytes.Buffer
 	writer := multipart.NewWriter(&body)
