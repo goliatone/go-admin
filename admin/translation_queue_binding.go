@@ -87,11 +87,11 @@ type translationQueueGroupingRequest struct {
 }
 
 func translationQueueGroupingFromRequest(c router.Context) (translationQueueGroupingRequest, error) {
-	groupBy := strings.TrimSpace(strings.ToLower(firstNonEmpty(c.Query("group_by"), c.Query("groupBy"))))
+	groupBy := strings.TrimSpace(strings.ToLower(c.Query("group_by")))
 	if groupBy == "" {
 		return translationQueueGroupingRequest{}, nil
 	}
-	strategy := strings.TrimSpace(strings.ToLower(firstNonEmpty(c.Query("group_strategy"), c.Query("groupStrategy"))))
+	strategy := strings.TrimSpace(strings.ToLower(c.Query("group_strategy")))
 	if strategy == "" {
 		strategy = "page_local"
 	}

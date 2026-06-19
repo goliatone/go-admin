@@ -22,6 +22,11 @@ var reservedListPredicateFields = map[string]struct{}{
 	"offset":                      {},
 	"order":                       {},
 	"fields":                      {},
+	"state":                       {},
+	"advanced_search":             {},
+	"hidden_columns":              {},
+	"view_mode":                   {},
+	"expanded_groups":             {},
 	"sort":                        {},
 	"sort_desc":                   {},
 }
