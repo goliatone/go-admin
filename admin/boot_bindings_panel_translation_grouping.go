@@ -4,12 +4,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"sort"
 	"strings"
 	"time"
 
 	"github.com/goliatone/go-admin/admin/internal/adminkeys"
 	"github.com/goliatone/go-admin/internal/primitives"
+	translationcore "github.com/goliatone/go-admin/translations/core"
+	translationservices "github.com/goliatone/go-admin/translations/services"
 	router "github.com/goliatone/go-router"
 )
 
@@ -104,6 +107,12 @@ func (p *panelBinding) listGroupedByTranslationGroup(ctx AdminContext, baseOpts,
 			return records, total, nil
 		}
 	}
+	if records, total, handled, err := p.listTranslationFamiliesFromReadModel(ctx, baseOpts, requestedOpts, readinessPredicates); handled {
+		if err != nil {
+			return nil, 0, err
+		}
+		return records, total, nil
+	}
 	if records, total, handled, err := p.listOptimizedTranslationFamiliesWithReadinessPredicates(ctx, baseOpts, requestedOpts, readinessPredicates); handled {
 		if err != nil {
 			return nil, 0, err
@@ -141,6 +150,258 @@ func (p *panelBinding) listOptimizedTranslationFamilies(ctx AdminContext, opts L
 		return nil, 0, true, err
 	}
 	return records, total, true, nil
+}
+
+type groupedReadinessFamilyReadModelQuery struct {
+	readinessState string
+	blockerCode    string
+}
+
+func (p *panelBinding) listTranslationFamiliesFromReadModel(ctx AdminContext, baseOpts, requestedOpts ListOptions, readinessPredicates []ListPredicate) ([]map[string]any, int, bool, error) {
+	if p == nil || p.admin == nil || p.admin.translationFamilyStore == nil || len(readinessPredicates) == 0 {
+		return nil, 0, false, nil
+	}
+	if !groupedReadinessCanUseFamilyReadModel(baseOpts) {
+		return nil, 0, false, nil
+	}
+	query, ok := groupedReadinessFamilyReadModelQueryForPredicates(readinessPredicates)
+	if !ok {
+		return nil, 0, false, nil
+	}
+	contentType := p.groupedReadinessFamilyReadModelContentType()
+	if contentType == "" {
+		return nil, 0, false, nil
+	}
+
+	identity := translationIdentityFromAdminContext(ctx)
+	service := translationservices.FamilyService{
+		Store: p.admin.translationFamilyStore,
+		Policies: translationservices.PolicyService{
+			Resolver: translationFamilyPolicyResolver{admin: p.admin},
+		},
+	}
+	result, err := service.List(ctx.Context, translationservices.ListFamiliesInput{
+		Scope: translationservices.Scope{
+			TenantID: identity.TenantID,
+			OrgID:    identity.OrgID,
+		},
+		Environment:    translationReadinessEnvironment(ctx.Context, baseOpts.Filters),
+		ContentType:    contentType,
+		ReadinessState: query.readinessState,
+		BlockerCode:    query.blockerCode,
+		Page:           requestedOpts.Page,
+		PerPage:        requestedOpts.PerPage,
+	})
+	if err != nil {
+		return nil, 0, true, err
+	}
+	if result.Total == 0 || len(result.Items) == 0 {
+		return nil, result.Total, true, nil
+	}
+
+	familyIDs := make([]string, 0, len(result.Items))
+	familiesByID := make(map[string]translationservices.FamilyRecord, len(result.Items))
+	for _, family := range result.Items {
+		familyID := strings.TrimSpace(family.ID)
+		if familyID == "" {
+			continue
+		}
+		familyIDs = append(familyIDs, familyID)
+		familiesByID[familyID] = family
+	}
+	if len(familyIDs) == 0 {
+		return nil, result.Total, true, nil
+	}
+
+	rows, hydrated, err := p.hydrateOptimizedTranslationFamiliesByID(ctx, baseOpts, familyIDs)
+	if !hydrated {
+		return nil, 0, false, nil
+	}
+	if err != nil {
+		return nil, 0, true, err
+	}
+	rows = reorderGroupedRowsByFamilyIDs(rows, familyIDs)
+	for _, row := range rows {
+		familyID := strings.TrimSpace(toString(row["family_id"]))
+		family, ok := familiesByID[familyID]
+		if !ok {
+			continue
+		}
+		applyTranslationFamilyReadModelReadiness(row, family)
+	}
+	if len(requestedOpts.Fields) > 0 {
+		rows = projectRecordMapsByFields(rows, requestedOpts.Fields)
+	}
+	return rows, result.Total, true, nil
+}
+
+func groupedReadinessCanUseFamilyReadModel(opts ListOptions) bool {
+	if strings.TrimSpace(opts.Search) != "" {
+		return false
+	}
+	for key := range opts.Filters {
+		field := key
+		if parts := strings.SplitN(strings.TrimSpace(key), "__", 2); len(parts) > 0 {
+			field = parts[0]
+		}
+		switch strings.ToLower(strings.TrimSpace(field)) {
+		case "", "channel", "environment":
+			continue
+		default:
+			return false
+		}
+	}
+	return true
+}
+
+func groupedReadinessFamilyReadModelQueryForPredicates(predicates []ListPredicate) (groupedReadinessFamilyReadModelQuery, bool) {
+	var query groupedReadinessFamilyReadModelQuery
+	seen := false
+	for _, predicate := range predicates {
+		next, ok := groupedReadinessFamilyReadModelQueryForPredicate(predicate)
+		if !ok {
+			return groupedReadinessFamilyReadModelQuery{}, false
+		}
+		if !seen {
+			query = next
+			seen = true
+			continue
+		}
+		if !mergeGroupedReadinessFamilyReadModelQuery(&query, next) {
+			return groupedReadinessFamilyReadModelQuery{}, false
+		}
+	}
+	return query, seen
+}
+
+func groupedReadinessFamilyReadModelQueryForPredicate(predicate ListPredicate) (groupedReadinessFamilyReadModelQuery, bool) {
+	field := strings.ToLower(strings.TrimSpace(predicate.Field))
+	operator := strings.ToLower(strings.TrimSpace(predicate.Operator))
+	if operator == "" {
+		operator = "eq"
+	}
+	values := normalizePredicateValues(predicate.Values)
+	if len(values) != 1 {
+		return groupedReadinessFamilyReadModelQuery{}, false
+	}
+	value := strings.ToLower(strings.TrimSpace(values[0]))
+	switch field {
+	case "readiness_state", "translation_readiness.readiness_state":
+		switch operator {
+		case "eq":
+			return groupedReadinessFamilyReadModelQueryForReadinessState(value)
+		case "ne":
+			if value == translationReadinessStateReady {
+				return groupedReadinessFamilyReadModelQuery{readinessState: string(translationcore.FamilyReadinessBlocked)}, true
+			}
+		}
+	case "incomplete":
+		if operator != "eq" {
+			return groupedReadinessFamilyReadModelQuery{}, false
+		}
+		switch value {
+		case "true":
+			return groupedReadinessFamilyReadModelQuery{readinessState: string(translationcore.FamilyReadinessBlocked)}, true
+		case "false":
+			return groupedReadinessFamilyReadModelQuery{readinessState: string(translationcore.FamilyReadinessReady)}, true
+		}
+	}
+	return groupedReadinessFamilyReadModelQuery{}, false
+}
+
+func groupedReadinessFamilyReadModelQueryForReadinessState(state string) (groupedReadinessFamilyReadModelQuery, bool) {
+	switch normalizeTranslationReadinessState(state) {
+	case translationReadinessStateReady:
+		return groupedReadinessFamilyReadModelQuery{readinessState: string(translationcore.FamilyReadinessReady)}, true
+	case translationReadinessStateMissingLocales:
+		return groupedReadinessFamilyReadModelQuery{
+			readinessState: string(translationcore.FamilyReadinessBlocked),
+			blockerCode:    string(translationcore.FamilyBlockerMissingLocale),
+		}, true
+	case translationReadinessStateMissingFields:
+		return groupedReadinessFamilyReadModelQuery{
+			readinessState: string(translationcore.FamilyReadinessBlocked),
+			blockerCode:    string(translationcore.FamilyBlockerMissingField),
+		}, true
+	default:
+		return groupedReadinessFamilyReadModelQuery{}, false
+	}
+}
+
+func mergeGroupedReadinessFamilyReadModelQuery(base *groupedReadinessFamilyReadModelQuery, next groupedReadinessFamilyReadModelQuery) bool {
+	if base == nil {
+		return false
+	}
+	if base.readinessState != "" && next.readinessState != "" && base.readinessState != next.readinessState {
+		return false
+	}
+	if base.blockerCode != "" && next.blockerCode != "" && base.blockerCode != next.blockerCode {
+		return false
+	}
+	if base.readinessState == "" {
+		base.readinessState = next.readinessState
+	}
+	if base.blockerCode == "" {
+		base.blockerCode = next.blockerCode
+	}
+	return base.readinessState != ""
+}
+
+func (p *panelBinding) groupedReadinessFamilyReadModelContentType() string {
+	if p == nil {
+		return ""
+	}
+	if p.panel != nil {
+		if repo, ok := p.panel.repo.(*CMSContentTypeEntryRepository); ok && repo != nil {
+			if value := normalizePolicyEntityKey(primitives.FirstNonEmptyRaw(repo.contentType.Slug, repo.contentType.Name, repo.contentType.ID)); value != "" {
+				return value
+			}
+		}
+		if value := normalizePolicyEntityKey(p.panel.name); value != "" {
+			return value
+		}
+	}
+	return normalizePolicyEntityKey(p.name)
+}
+
+func (p *panelBinding) hydrateOptimizedTranslationFamiliesByID(ctx AdminContext, baseOpts ListOptions, familyIDs []string) ([]map[string]any, bool, error) {
+	if len(familyIDs) == 0 {
+		return nil, true, nil
+	}
+	fetch := cloneListOptions(baseOpts)
+	fetch.Page = 1
+	fetch.PerPage = len(familyIDs)
+	fetch.Fields = nil
+	if fetch.Filters == nil {
+		fetch.Filters = map[string]any{}
+	}
+	fetch.Filters["family_id"] = append([]string{}, familyIDs...)
+	rows, _, handled, err := p.listOptimizedTranslationFamilies(ctx, fetch)
+	if !handled || err != nil {
+		return nil, handled, err
+	}
+	return rows, true, nil
+}
+
+func reorderGroupedRowsByFamilyIDs(rows []map[string]any, familyIDs []string) []map[string]any {
+	if len(rows) == 0 || len(familyIDs) == 0 {
+		return rows
+	}
+	byFamilyID := make(map[string]map[string]any, len(rows))
+	for _, row := range rows {
+		familyID := strings.TrimSpace(toString(row["family_id"]))
+		if familyID == "" {
+			continue
+		}
+		byFamilyID[familyID] = row
+	}
+	out := make([]map[string]any, 0, len(rows))
+	for _, familyID := range familyIDs {
+		if row, ok := byFamilyID[strings.TrimSpace(familyID)]; ok {
+			out = append(out, row)
+		}
+	}
+	return out
 }
 
 func (p *panelBinding) listOptimizedTranslationFamiliesWithReadinessPredicates(ctx AdminContext, baseOpts, requestedOpts ListOptions, readinessPredicates []ListPredicate) ([]map[string]any, int, bool, error) {
@@ -326,9 +587,7 @@ func (p *panelBinding) withGroupedTranslationReadiness(ctx AdminContext, groups 
 		if merged == nil {
 			merged = map[string]any{}
 		}
-		for key, value := range rebuilt[0] {
-			merged[key] = value
-		}
+		maps.Copy(merged, rebuilt[0])
 		applyTranslationGroupSummaryReadinessFields(merged)
 		out = append(out, merged)
 	}
@@ -374,6 +633,100 @@ func applyTranslationGroupSummaryReadinessFields(row map[string]any) {
 		readiness["ready_for_transition"] = map[string]bool{translationReadinessTransitionPublish: state == translationReadinessStateReady}
 	}
 	applyTranslationReadinessFields(row, readiness)
+}
+
+func applyTranslationFamilyReadModelReadiness(row map[string]any, family translationservices.FamilyRecord) {
+	if len(row) == 0 || strings.TrimSpace(family.ID) == "" {
+		return
+	}
+	state := translationReadinessStateFromFamilyRecord(family)
+	if state == "" {
+		return
+	}
+	availableLocales := translationFamilyAvailableLocales(family)
+	missingLocales := translationFamilyMissingLocales(family)
+	requiredLocales := append([]string{}, family.Policy.RequiredLocales...)
+	readiness := map[string]any{
+		"family_id":                         family.ID,
+		"required_locales":                  requiredLocales,
+		"required_for_publish":              append([]string{}, requiredLocales...),
+		"available_locales":                 availableLocales,
+		"missing_required_locales":          missingLocales,
+		"missing_locales":                   append([]string{}, missingLocales...),
+		"missing_required_fields_by_locale": map[string][]string{},
+		"readiness_state":                   state,
+		"ready_for_transition":              map[string]bool{translationReadinessTransitionPublish: state == translationReadinessStateReady},
+		"requirements_resolved":             len(requiredLocales) > 0,
+		"quick_create":                      translationReadinessQuickCreatePayloadMap(translationFamilyQuickCreatePayload(family)),
+	}
+	applyTranslationReadinessFields(row, readiness)
+	applyTranslationFamilyReadModelSummary(row, family, readiness)
+}
+
+func translationReadinessStateFromFamilyRecord(family translationservices.FamilyRecord) string {
+	if strings.EqualFold(strings.TrimSpace(family.ReadinessState), string(translationcore.FamilyReadinessReady)) {
+		return translationReadinessStateReady
+	}
+	hasMissingLocale := false
+	hasMissingField := false
+	for _, code := range family.BlockerCodes {
+		switch strings.ToLower(strings.TrimSpace(code)) {
+		case string(translationcore.FamilyBlockerMissingLocale):
+			hasMissingLocale = true
+		case string(translationcore.FamilyBlockerMissingField):
+			hasMissingField = true
+		}
+	}
+	for _, blocker := range family.Blockers {
+		switch strings.ToLower(strings.TrimSpace(blocker.BlockerCode)) {
+		case string(translationcore.FamilyBlockerMissingLocale):
+			hasMissingLocale = true
+		case string(translationcore.FamilyBlockerMissingField):
+			hasMissingField = true
+		}
+	}
+	switch {
+	case hasMissingLocale && hasMissingField:
+		return translationReadinessStateMissingLocalesFields
+	case hasMissingLocale || family.MissingRequiredLocaleCount > 0:
+		return translationReadinessStateMissingLocales
+	case hasMissingField:
+		return translationReadinessStateMissingFields
+	case strings.EqualFold(strings.TrimSpace(family.ReadinessState), string(translationcore.FamilyReadinessBlocked)):
+		return translationReadinessStateMissingFields
+	default:
+		return ""
+	}
+}
+
+func applyTranslationFamilyReadModelSummary(row map[string]any, family translationservices.FamilyRecord, readiness map[string]any) {
+	summary := primitives.CloneAnyMap(extractMap(row["family_summary"]))
+	if summary == nil {
+		summary = map[string]any{}
+	}
+	state := strings.TrimSpace(toString(readiness["readiness_state"]))
+	requiredLocales := toStringSlice(readiness["required_locales"])
+	availableLocales := toStringSlice(readiness["available_locales"])
+	missingLocales := toStringSlice(readiness["missing_required_locales"])
+	summary["group_id"] = family.ID
+	summary["required_locales"] = requiredLocales
+	summary["available_locales"] = availableLocales
+	summary["missing_locales"] = missingLocales
+	summary["required_count"] = len(requiredLocales)
+	summary["available_count"] = len(availableLocales)
+	summary["missing_count"] = len(missingLocales)
+	summary["readiness_state"] = state
+	summary["ready_for_publish"] = state == translationReadinessStateReady
+	summary["requirements_resolved"] = len(requiredLocales) > 0
+	if len(requiredLocales) > 0 {
+		summary["requirements_state"] = "resolved"
+	}
+	row["family_summary"] = summary
+	row["available_count"] = summary["available_count"]
+	row["required_count"] = summary["required_count"]
+	row["missing_locales"] = summary["missing_locales"]
+	row["requirements_resolved"] = summary["requirements_resolved"]
+	row["requirements_state"] = summary["requirements_state"]
 }
 
 func translationFamilyIDForRecord(record map[string]any) string {
