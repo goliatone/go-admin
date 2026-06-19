@@ -97,6 +97,13 @@ export {
 export {
   renderRequestsPanel,
   renderSQLPanel,
+  renderSQLRow,
+  renderSQLRowsHTML,
+  appendSqlRowDOM,
+  evictSqlOverflow,
+  sqlRowKey,
+  SqlLiveView,
+  type SqlLiveViewOptions,
   renderLogsPanel,
   renderRoutesPanel,
   renderJSONPanel,

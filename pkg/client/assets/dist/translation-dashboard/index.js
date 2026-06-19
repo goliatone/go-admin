@@ -6,7 +6,7 @@ import "../chunks/status-vocabulary-Bdx_bn1-.js";
 import { buildEndpointURL as de, readLocationSearchParams as ce } from "../shared/query-state/url-state.js";
 import { StatefulController as ue } from "../shared/stateful-controller.js";
 import { asNumberish as y, asRecord as f, asString as n } from "../shared/coercion.js";
-import { A as H, C as $, D as F, E as P, F as fe, N as pe, O as U, P as he, R as ge, T as G, a as S, d as be, f as T, g as me, i as ye, k as E, l as xe, n as I, o as ve, r as K, s as $e, t as V, u as w, ut as X, y as we } from "../chunks/translation-shared-BPEUoMd4.js";
+import { A as H, C as $, D as F, E as P, F as fe, N as he, O as U, P as pe, R as ge, T as G, a as S, d as be, f as T, g as me, i as ye, k as E, l as xe, n as I, o as ve, r as K, s as $e, t as V, u as w, ut as X, y as we } from "../chunks/translation-shared-BPEUoMd4.js";
 import { normalizeNumberRecord as D, normalizeStringRecord as k } from "../shared/record-normalization.js";
 import { c as L, s as ke } from "../chunks/ui-states-Dk9y2u2w.js";
 var v = class extends Error {
@@ -106,16 +106,16 @@ function Ce(t) {
   const e = f(t);
   if (Object.keys(e).length === 0) return null;
   const a = {};
-  for (const [p, u] of Object.entries(f(e.links))) {
+  for (const [h, u] of Object.entries(f(e.links))) {
     const c = Y(u);
-    c && (a[p] = c);
+    c && (a[h] = c);
   }
-  const s = g(e.blocker_codes, (p) => n(p) || null), r = {};
-  for (const [p, u] of Object.entries(f(e.blocker_labels))) {
+  const s = g(e.blocker_codes, (h) => n(h) || null), r = {};
+  for (const [h, u] of Object.entries(f(e.blocker_labels))) {
     const c = n(u);
-    c && (r[p] = c);
+    c && (r[h] = c);
   }
-  const i = g(e.reason_breakdown, Le), o = g(e.affected_locales, (p) => n(p) || null), b = Ee(e.reason_data);
+  const i = g(e.reason_breakdown, Le), o = g(e.affected_locales, (h) => n(h) || null), b = Ee(e.reason_data);
   return {
     ...e,
     links: a,
@@ -203,11 +203,11 @@ function Ie(t, e) {
 }
 function De(t) {
   const e = f(t), a = f(e.data), s = f(e.meta), r = Re(s.contracts), i = Ie(g(a.cards, Te), r), o = {};
-  for (const [p, u] of Object.entries(f(a.tables))) o[p] = Ae(u, p);
+  for (const [h, u] of Object.entries(f(a.tables))) o[h] = Ae(u, h);
   const b = { ...r.queryModels };
-  for (const [p, u] of Object.entries(f(s.query_models))) {
+  for (const [h, u] of Object.entries(f(s.query_models))) {
     const c = Q(u);
-    c && (b[p] = c);
+    c && (b[h] = c);
   }
   return {
     data: {
@@ -223,8 +223,8 @@ function De(t) {
       refreshIntervalMs: y(s.refresh_interval_ms, 3e4),
       latencyTargetMs: y(s.latency_target_ms, 0),
       degraded: s.degraded === !0,
-      degradedReasons: g(s.degraded_reasons, (p) => {
-        const u = f(p), c = n(u.component), x = n(u.message);
+      degradedReasons: g(s.degraded_reasons, (h) => {
+        const u = f(h), c = n(u.component), x = n(u.message);
         return !c && !x ? null : {
           component: c,
           message: x
@@ -232,8 +232,8 @@ function De(t) {
       }),
       familyReport: f(s.family_report),
       scope: k(s.scope, { omitEmptyValues: !0 }),
-      metrics: g(s.metrics, (p) => {
-        const u = f(p), c = n(u.key);
+      metrics: g(s.metrics, (h) => {
+        const u = f(h), c = n(u.key);
         return c ? {
           key: c,
           unit: n(u.unit),
@@ -394,7 +394,7 @@ function N(t) {
     extraClass: "text-current"
   }) : "";
 }
-function h(t, e = "", a = "16px") {
+function p(t, e = "", a = "16px") {
   return z(t, {
     size: a,
     extraClass: `text-current ${e}`.trim()
@@ -415,7 +415,7 @@ function ee(t) {
             data-copy-uuid="${d(e)}"
             title="Click to copy: ${d(e)}">
       <span>${l(a)}</span>
-      ${h($e, "h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity text-gray-400", "12px")}
+      ${p($e, "h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity text-gray-400", "12px")}
     </button>
   `;
 }
@@ -472,7 +472,7 @@ function Fe(t) {
       title="${d(t.drilldown.description || t.drilldown.label || "Open drilldown")}"
     >
       <span>${l(t.drilldown.label || "Open")}</span>
-      ${h(ye, "h-3.5 w-3.5", "14px")}
+      ${p(ye, "h-3.5 w-3.5", "14px")}
     </a>
   ` : '<span class="text-xs text-gray-400">No drilldown available</span>';
 }
@@ -521,7 +521,7 @@ function Ge(t, e) {
               class="flex-shrink-0 p-1 rounded hover:bg-gray-200/50 transition-colors"
               data-dismiss-alert="${d(t.code)}"
               aria-label="Dismiss alert for ${l(s)}">
-        ${h(ve, "h-4 w-4 text-gray-500", "16px")}
+        ${p(ve, "h-4 w-4 text-gray-500", "16px")}
       </button>
     </div>
   `;
@@ -529,7 +529,7 @@ function Ge(t, e) {
 function Ke(t, e, a, s) {
   const r = t.filter((c) => !s.has(c.code));
   if (r.length === 0) return "";
-  const i = Ue(r), o = r.reduce((c, x) => (c[x.state] = (c[x.state] || 0) + 1, c), {}), b = Object.entries(o).filter(([, c]) => c > 0).map(([c, x]) => `${x} ${c}`).join(", "), p = r.map((c) => {
+  const i = Ue(r), o = r.reduce((c, x) => (c[x.state] = (c[x.state] || 0) + 1, c), {}), b = Object.entries(o).filter(([, c]) => c > 0).map(([c, x]) => `${x} ${c}`).join(", "), h = r.map((c) => {
     const x = e.find((ie) => ie.id === c.cardId), ne = x ? Z(c.cardId, x.label) : m(c.cardId);
     return `<span class="inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium bg-white/60 text-gray-700" data-alert-card="${d(c.cardId)}">${l(ne)}</span>`;
   }).join(""), u = a ? "rotate-180" : "";
@@ -543,11 +543,11 @@ function Ke(t, e, a, s) {
               data-alerts-toggle="true"
               aria-expanded="${a}">
         <div class="flex items-center gap-3 flex-wrap min-w-0 flex-1">
-          ${h(T, "h-5 w-5 flex-shrink-0", "20px")}
+          ${p(T, "h-5 w-5 flex-shrink-0", "20px")}
           <span class="text-sm font-semibold">${l(b)}</span>
-          ${a ? "" : `<div class="flex items-center gap-1.5 flex-wrap">${p}</div>`}
+          ${a ? "" : `<div class="flex items-center gap-1.5 flex-wrap">${h}</div>`}
         </div>
-        ${h(K, `h-5 w-5 flex-shrink-0 transition-transform ${u}`, "20px")}
+        ${p(K, `h-5 w-5 flex-shrink-0 transition-transform ${u}`, "20px")}
       </button>
       <div class="${a ? "" : "hidden"}" data-alerts-content="true">
         <div class="border-t border-current/20 px-4 py-3 space-y-2">
@@ -644,7 +644,7 @@ function Ye(t) {
 function We(t) {
   const e = t.reasonData;
   if (!e || e.state === "available") return "";
-  const a = e.state === "degraded", s = a ? "text-amber-500" : "text-gray-400", r = a ? h(T, `h-3.5 w-3.5 ${s}`, "14px") : h(w, `h-3.5 w-3.5 ${s}`, "14px");
+  const a = e.state === "degraded", s = a ? "text-amber-500" : "text-gray-400", r = a ? p(T, `h-3.5 w-3.5 ${s}`, "14px") : p(w, `h-3.5 w-3.5 ${s}`, "14px");
   return `
     <span class="inline-flex items-center gap-1 text-xs text-gray-500" title="${d(e.message || "Reason data is " + e.state)}">
       ${r}
@@ -769,7 +769,7 @@ function Je(t, e, a) {
                 role="tab"
                 aria-selected="${o}"
                 aria-controls="table-panel-${d(r)}">
-          ${i.icon ? h(i.icon, "h-4 w-4", "16px") : ""}
+          ${i.icon ? p(i.icon, "h-4 w-4", "16px") : ""}
           <span>${l(i.shortLabel)}</span>
           <span class="sr-only">${l(i.label)}</span>
           <span class="ml-1 px-2 py-0.5 text-xs rounded-full ${o ? "bg-blue-100 text-blue-700" : "bg-gray-100 text-gray-600"}">
@@ -832,22 +832,22 @@ function tt(t, e = !1, a = !1) {
   const s = t?.meta.generatedAt ? new Date(t.meta.generatedAt).toLocaleString() : "Unavailable", r = t ? Object.entries(t.meta.scope).filter(([, u]) => u).filter(([u]) => u !== "actor_id").map(([u, c]) => ({
     key: m(u),
     value: String(c)
-  })) : [], i = t ? ze(t.meta.refreshIntervalMs) : "N/A", o = t ? He(t.meta.latencyTargetMs) : "N/A", b = t?.meta.channel || "default", p = a ? "rotate-180" : "";
+  })) : [], i = t ? ze(t.meta.refreshIntervalMs) : "N/A", o = t ? He(t.meta.latencyTargetMs) : "N/A", b = t?.meta.channel || "default", h = a ? "rotate-180" : "";
   return `
     <section class="${$} shadow-sm overflow-hidden" data-dashboard-toolbar="true">
       <div class="px-5 py-4">
         <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <p class="${he}">Manager Monitoring</p>
+            <p class="${pe}">Manager Monitoring</p>
             <h2 class="${fe} text-xl mt-2">Queue health and publish blockers</h2>
-            <p class="${pe} mt-2">Track overdue work, review backlog, and family readiness without rebuilding aggregate state in the browser.</p>
+            <p class="${he} mt-2">Track overdue work, review backlog, and family readiness without rebuilding aggregate state in the browser.</p>
           </div>
           <div class="flex flex-wrap items-center gap-3">
             <span class="text-xs uppercase tracking-wider text-gray-500" aria-live="polite" data-dashboard-refresh-status="true">
               ${l(e ? "Refreshing dashboard…" : `Last updated ${s}`)}
             </span>
             <button type="button" class="${R}" data-dashboard-refresh-button="true" aria-label="Refresh translation dashboard" ${e ? "disabled" : ""}>
-              ${h(be, e ? "h-4 w-4 animate-spin" : "h-4 w-4", "16px")}
+              ${p(be, e ? "h-4 w-4 animate-spin" : "h-4 w-4", "16px")}
               ${l(e ? "Refreshing…" : "Refresh")}
             </button>
           </div>
@@ -858,15 +858,15 @@ function tt(t, e = !1, a = !1) {
           <div class="flex items-center justify-between gap-3">
             <div class="flex items-center gap-2 flex-wrap">
               <span class="inline-flex items-center gap-1.5 px-2 py-1 text-xs font-medium text-gray-600 bg-white rounded border border-gray-200" title="Dashboard channel">
-                ${h(xe, "h-3 w-3 text-gray-400", "12px")}
+                ${p(xe, "h-3 w-3 text-gray-400", "12px")}
                 <span>${l(b)}</span>
               </span>
               <span class="inline-flex items-center gap-1.5 px-2 py-1 text-xs font-medium text-gray-600 bg-white rounded border border-gray-200" title="Refresh interval: ${l(i)}">
-                ${h(S, "h-3 w-3 text-gray-400", "12px")}
+                ${p(S, "h-3 w-3 text-gray-400", "12px")}
                 <span>${l(i)}</span>
               </span>
               <span class="inline-flex items-center gap-1.5 px-2 py-1 text-xs font-medium text-gray-600 bg-white rounded border border-gray-200" title="Latency target: ${l(o)}">
-                ${h(w, "h-3 w-3 text-gray-400", "12px")}
+                ${p(w, "h-3 w-3 text-gray-400", "12px")}
                 <span>${l(o)}</span>
               </span>
             </div>
@@ -875,9 +875,9 @@ function tt(t, e = !1, a = !1) {
                     data-meta-toggle="true"
                     aria-expanded="${a}"
                     aria-label="Toggle technical details">
-              ${h(w, "h-3.5 w-3.5", "14px")}
+              ${p(w, "h-3.5 w-3.5", "14px")}
               <span>Details</span>
-              ${h(K, `h-3 w-3 transition-transform ${p}`, "12px")}
+              ${p(K, `h-3 w-3 transition-transform ${h}`, "12px")}
             </button>
           </div>
           <div class="${a ? "mt-3" : "hidden"}" data-meta-content="true">
@@ -907,7 +907,7 @@ function tt(t, e = !1, a = !1) {
     </section>
   `;
 }
-h(I, "h-5 w-5", "20px"), h(T, "h-5 w-5", "20px"), h(V, "h-5 w-5", "20px"), h(w, "h-5 w-5", "20px");
+p(I, "h-5 w-5", "20px"), p(T, "h-5 w-5", "20px"), p(V, "h-5 w-5", "20px"), p(w, "h-5 w-5", "20px");
 function at(t) {
   const e = t.data.runbooks[0], a = e?.href ? `<a class="inline-flex items-center rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-900 hover:bg-gray-50" href="${d(e.href)}">${l(e.title || "Open runbook")}</a>` : "";
   return L({
@@ -1098,7 +1098,7 @@ var it = class extends ue {
             const i = a.innerHTML;
             a.innerHTML = `
             <span class="text-green-600">Copied!</span>
-            ${h(I, "h-3 w-3 text-green-500", "12px")}
+            ${p(I, "h-3 w-3 text-green-500", "12px")}
           `, setTimeout(() => {
               a.innerHTML = i;
             }, 1500);
@@ -1143,8 +1143,8 @@ function lt(t) {
 }
 function dt() {
   if (typeof window > "u" || !window.location) return !1;
-  const t = ce(window.location) ?? new URLSearchParams(), e = t.get("translation_client_render") || t.get("translationClientRender");
-  return e === "1" || e === "true";
+  const t = (ce(window.location) ?? new URLSearchParams()).get("translation_client_render");
+  return t === "1" || t === "true";
 }
 function $t(t, e = {}) {
   if (!t) return null;

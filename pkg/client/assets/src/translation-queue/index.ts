@@ -4913,7 +4913,7 @@ function bindAssignmentQueueSSR(container: HTMLElement, endpoint: string): void 
 function shouldUseTranslationClientRender(): boolean {
   if (typeof window === 'undefined' || !window.location) return false;
   const params = readLocationSearchParams(window.location) ?? new URLSearchParams();
-  const value = params.get('translation_client_render') || params.get('translationClientRender');
+  const value = params.get('translation_client_render');
   return value === '1' || value === 'true';
 }
 

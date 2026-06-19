@@ -9,7 +9,31 @@ import {
   formatDuration,
   formatNumber,
 } from '../utils.js';
+import { escapeAttribute } from '../../../shared/html.js';
 import { highlightSQL } from '../../syntax-highlight.js';
+
+/**
+ * Small, stable string hash (djb2) for building a deterministic fallback row
+ * key when a SQL entry has no server-assigned id.
+ */
+function hashString(value: string): string {
+  let hash = 5381;
+  for (let i = 0; i < value.length; i++) {
+    hash = ((hash << 5) + hash + value.charCodeAt(i)) | 0;
+  }
+  return (hash >>> 0).toString(36);
+}
+
+/**
+ * Stable identity for a SQL row. Prefers the server-assigned `id` (a UUID) and
+ * falls back to a deterministic hash of timestamp + duration + query so the same
+ * entry keeps the same key across renders. Used to key selection and expansion
+ * state so they survive incremental updates and full re-renders.
+ */
+export function sqlRowKey(entry: SQLEntry): string {
+  if (entry.id) return entry.id;
+  return `sql-${hashString(`${entry.timestamp || ''}|${entry.duration ?? ''}|${entry.query || ''}`)}`;
+}
 
 /**
  * Options for rendering the SQL panel
@@ -90,18 +114,26 @@ function renderCopyButton(styles: StyleConfig, useIcon: boolean, rowId: string):
 }
 
 /**
- * Render a single SQL query row with expansion
+ * Render a single SQL query row with expansion.
+ *
+ * Rows are keyed by a stable identity (`sqlRowKey`) rather than array index so
+ * selection and expansion state can survive incremental updates and full
+ * re-renders. The stable key is exposed as `data-sql-id` on the summary row and
+ * its checkbox; `data-row-id` / `data-expansion-for` pair the summary and
+ * expansion rows in the DOM.
  */
-function renderSQLRow(
+export function renderSQLRow(
   entry: SQLEntry,
-  index: number,
   styles: StyleConfig,
   options: SQLPanelOptions
 ): string {
   const duration = formatDuration(entry.duration, options.slowThresholdMs);
   const isSlow = duration.isSlow;
   const hasError = !!entry.error;
-  const rowId = `sql-row-${index}`;
+  const rowKey = sqlRowKey(entry);
+  const keyAttr = escapeAttribute(rowKey);
+  const rowId = `sql-row-${rowKey}`;
+  const rowIdAttr = escapeAttribute(rowId);
   const rawQuery = entry.query || '';
   const highlightedSQL = highlightSQL(rawQuery, true);
 
@@ -113,15 +145,15 @@ function renderSQLRow(
   const copyButton = renderCopyButton(styles, options.useIconCopyButton || false, rowId);
 
   return `
-    <tr class="${rowClasses.join(' ')}" data-row-id="${rowId}">
-      <td class="${styles.selectCell}"><input type="checkbox" class="sql-select-row" data-sql-index="${index}"></td>
+    <tr class="${rowClasses.join(' ')}" data-row-id="${rowIdAttr}" data-sql-id="${keyAttr}">
+      <td class="${styles.selectCell}"><input type="checkbox" class="sql-select-row" data-sql-id="${keyAttr}"></td>
       <td class="${styles.duration} ${durationClass}">${duration.text}</td>
       <td>${escapeHTML(formatNumber(entry.row_count ?? '-'))}</td>
       <td class="${styles.timestamp}">${escapeHTML(formatTimestamp(entry.timestamp))}</td>
       <td>${hasError ? `<span class="${styles.badgeError}">Error</span>` : ''}</td>
       <td class="${styles.queryText}"><span class="${styles.expandIcon}">&#9654;</span>${escapeHTML(rawQuery)}</td>
     </tr>
-    <tr class="${styles.expansionRow}" data-expansion-for="${rowId}">
+    <tr class="${styles.expansionRow}" data-expansion-for="${rowIdAttr}">
       <td colspan="6">
         <div class="${styles.expandedContent}" data-copy-content="${escapeHTML(rawQuery)}">
           <div class="${styles.expandedContentHeader}">
@@ -132,6 +164,18 @@ function renderSQLRow(
       </td>
     </tr>
   `;
+}
+
+/**
+ * Render the joined HTML for a list of SQL rows. Shared by the full panel
+ * renderer and tests; entries are rendered in the order given.
+ */
+export function renderSQLRowsHTML(
+  items: SQLEntry[],
+  styles: StyleConfig,
+  options: SQLPanelOptions
+): string {
+  return items.map((entry) => renderSQLRow(entry, styles, options)).join('');
 }
 
 /**
@@ -170,20 +214,16 @@ export function renderSQLPanel(
     items = [...items].reverse();
   }
 
-  const rows = items
-    .map((entry, index) =>
-      renderSQLRow(entry, index, styles, {
-        ...options,
-        slowThresholdMs,
-        useIconCopyButton,
-      })
-    )
-    .join('');
+  const rows = renderSQLRowsHTML(items, styles, {
+    ...options,
+    slowThresholdMs,
+    useIconCopyButton,
+  });
 
   return `
     ${sortToggle}
     ${selectionToolbar}
-    <table class="${styles.table}">
+    <table class="${styles.table}" data-sql-table>
       <thead>
         <tr>
           <th class="${styles.selectCell}"><input type="checkbox" class="sql-select-all"></th>
@@ -197,4 +237,61 @@ export function renderSQLPanel(
       <tbody>${rows}</tbody>
     </table>
   `;
+}
+
+/**
+ * Insert a single SQL entry's rows into a live `<tbody>` at the correct edge
+ * for the current sort order, without disturbing existing rows. New rows arrive
+ * unselected and collapsed; delegated listeners on the table make them
+ * interactive without re-attachment.
+ *
+ * @returns the stable row key that was inserted
+ */
+export function appendSqlRowDOM(
+  tbody: HTMLElement,
+  entry: SQLEntry,
+  styles: StyleConfig,
+  options: SQLPanelOptions
+): string {
+  const html = renderSQLRow(entry, styles, options);
+  const newestFirst = options.newestFirst !== false;
+  tbody.insertAdjacentHTML(newestFirst ? 'afterbegin' : 'beforeend', html);
+  return sqlRowKey(entry);
+}
+
+/**
+ * Evict overflow rows so the visible table stays within `maxEntries`. The
+ * oldest rows are removed from the edge opposite to where new rows are
+ * inserted: bottom when newest-first, top otherwise. Each logical row is a
+ * summary `<tr>` plus its expansion sibling.
+ *
+ * @returns the stable row keys that were evicted
+ */
+export function evictSqlOverflow(
+  tbody: HTMLElement,
+  maxEntries: number,
+  newestFirst: boolean
+): string[] {
+  if (!maxEntries || maxEntries <= 0) return [];
+  const summaries = Array.from(
+    tbody.querySelectorAll<HTMLElement>('tr[data-sql-id]')
+  );
+  const overflow = summaries.length - maxEntries;
+  if (overflow <= 0) return [];
+
+  // Oldest-first ordering: bottom rows are oldest when newest-first.
+  const ordered = newestFirst ? summaries.reverse() : summaries;
+  const evicted: string[] = [];
+  for (let i = 0; i < overflow; i++) {
+    const summary = ordered[i];
+    if (!summary) break;
+    const key = summary.getAttribute('data-sql-id');
+    if (key) evicted.push(key);
+    const expansion = summary.nextElementSibling;
+    summary.remove();
+    if (expansion && expansion.matches('[data-expansion-for]')) {
+      expansion.remove();
+    }
+  }
+  return evicted;
 }

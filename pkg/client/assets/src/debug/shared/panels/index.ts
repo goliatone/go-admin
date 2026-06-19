@@ -2,7 +2,16 @@
 // Re-exports all panel components for easy importing
 
 export { renderRequestsPanel, renderRequestDetail, getRequestKey, type RequestsPanelOptions } from './requests.js';
-export { renderSQLPanel, type SQLPanelOptions } from './sql.js';
+export {
+  renderSQLPanel,
+  renderSQLRow,
+  renderSQLRowsHTML,
+  appendSqlRowDOM,
+  evictSqlOverflow,
+  sqlRowKey,
+  type SQLPanelOptions,
+} from './sql.js';
+export { SqlLiveView, type SqlLiveViewOptions } from './sql-live-view.js';
 export { renderLogsPanel, type LogsPanelOptions } from './logs.js';
 export { renderRoutesPanel, type RoutesPanelOptions } from './routes.js';
 export { renderJSONPanel, renderJSONViewer, type JSONPanelOptions } from './json.js';

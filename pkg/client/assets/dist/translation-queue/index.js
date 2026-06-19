@@ -5,7 +5,7 @@ import { T as ve, Y as z, c as be, h as ye, i as _e, l as we, o as G, t as ke, v
 import "../chunks/status-vocabulary-Bdx_bn1-.js";
 import { buildEndpointURL as xe, getStringSearchParam as Se, readLocationSearchParams as ue, setNumberSearchParam as se, setSearchParam as _ } from "../shared/query-state/url-state.js";
 import { StatefulController as Ae } from "../shared/stateful-controller.js";
-import { asNumber as h, asRecord as m, asString as o, asStringArray as ae } from "../shared/coercion.js";
+import { asNumber as m, asRecord as h, asString as o, asStringArray as ae } from "../shared/coercion.js";
 import { $ as R, A as Re, D as Ee, E as Ie, G as Le, J as Ce, K as Pe, O as Fe, Q as Be, R as Me, S as y, T as Te, X as E, Y as I, Z as je, _ as De, b as ze, k as Ge, q as Oe, v as ie } from "../chunks/translation-shared-BPEUoMd4.js";
 import { formatTranslationShortDateTime as O } from "../translation-shared/formatters.js";
 import { normalizeNumberRecord as C } from "../shared/record-normalization.js";
@@ -115,7 +115,7 @@ var J, j = class extends Error {
   }
 ];
 function S(s) {
-  const e = m(s);
+  const e = h(s);
   return {
     enabled: e.enabled === !0,
     reason: o(e.reason) || void 0,
@@ -124,7 +124,7 @@ function S(s) {
   };
 }
 function He(s) {
-  const e = m(s), t = o(e.last_rejection_reason), a = o(e.last_reviewer_id);
+  const e = h(s), t = o(e.last_rejection_reason), a = o(e.last_reviewer_id);
   if (!(!t && !a))
     return {
       last_rejection_reason: t || void 0,
@@ -132,7 +132,7 @@ function He(s) {
     };
 }
 function Ue(s) {
-  const e = m(s), t = e.enabled === !0, a = h(e.warning_count), i = h(e.blocker_count), l = h(e.finding_count);
+  const e = h(s), t = e.enabled === !0, a = m(e.warning_count), i = m(e.blocker_count), l = m(e.finding_count);
   if (!(!t && a <= 0 && i <= 0 && l <= 0))
     return {
       enabled: t,
@@ -195,9 +195,9 @@ async function B(s, e) {
   });
 }
 function Ye(s) {
-  const e = m(s), t = o(e.id), a = o(e.label);
+  const e = h(s), t = o(e.id), a = o(e.label);
   if (!t || !a) return null;
-  const i = m(e.query);
+  const i = h(e.query);
   return {
     id: t,
     label: a,
@@ -233,11 +233,11 @@ function Q(s) {
   return Array.from(new Set(s.map((e) => o(e)).filter(Boolean)));
 }
 function Xe(s) {
-  const e = m(s), t = Array.isArray(e.supported_sort_keys) ? e.supported_sort_keys.map((i) => o(i)).filter((i) => !!i) : [], a = m(e.default_sort);
+  const e = h(s), t = Array.isArray(e.supported_sort_keys) ? e.supported_sort_keys.map((i) => o(i)).filter((i) => !!i) : [], a = h(e.default_sort);
   return {
-    page: h(e.page) || 1,
-    per_page: h(e.per_page) || 25,
-    total: h(e.total),
+    page: m(e.page) || 1,
+    per_page: m(e.per_page) || 25,
+    total: m(e.total),
     updated_at: o(e.updated_at) || void 0,
     supported_sort_keys: t.length ? t : [
       "updated_at",
@@ -265,24 +265,24 @@ function Xe(s) {
     review_aggregate_counts_unavailable: ae(e.review_aggregate_counts_unavailable),
     review_aggregate_counts_degraded: ae(e.review_aggregate_counts_degraded),
     grouping: We(e.grouping),
-    family_total: h(e.family_total) || void 0,
-    assignment_total: h(e.assignment_total) || void 0
+    family_total: m(e.family_total) || void 0,
+    assignment_total: m(e.assignment_total) || void 0
   };
 }
 function We(s) {
-  const e = m(s);
+  const e = h(s);
   if (!e) return;
-  const t = m(m(e.capabilities).server_family), a = Array.isArray(e.supported_sort_keys) ? e.supported_sort_keys.map((i) => o(i)).filter((i) => !!i) : void 0;
+  const t = h(h(e.capabilities).server_family), a = Array.isArray(e.supported_sort_keys) ? e.supported_sort_keys.map((i) => o(i)).filter((i) => !!i) : void 0;
   return {
     enabled: e.enabled === !0,
     mode: o(e.mode) || "family_id",
     group_by: o(e.group_by) || "family_id",
     scope: o(e.scope) || "current_page",
-    row_count: h(e.row_count),
-    group_count: h(e.group_count),
-    assignment_count: h(e.assignment_count),
-    family_total: h(e.family_total) || void 0,
-    assignment_total: h(e.assignment_total) || void 0,
+    row_count: m(e.row_count),
+    group_count: m(e.group_count),
+    assignment_count: m(e.assignment_count),
+    family_total: m(e.family_total) || void 0,
+    assignment_total: m(e.assignment_total) || void 0,
     supported_modes: Array.isArray(e.supported_modes) ? e.supported_modes.map((i) => o(i)).filter(Boolean) : ["family_id"],
     supported_sort_keys: a,
     strategy: o(e.strategy) || "page_local",
@@ -293,12 +293,12 @@ function We(s) {
   };
 }
 function Je(s) {
-  const e = m(s), t = Array.isArray(e.filter_summary) ? e.filter_summary : [];
+  const e = h(s), t = Array.isArray(e.filter_summary) ? e.filter_summary : [];
   return {
     selectionScope: "filter_snapshot",
     snapshotId: o(e.snapshot_id),
-    requested: h(e.requested),
-    filters: m(e.filters),
+    requested: m(e.requested),
+    filters: h(e.filters),
     filterSummary: t.map((a) => o(a)).filter(Boolean),
     createdAt: o(e.created_at),
     expiresAt: o(e.expires_at)
@@ -333,7 +333,7 @@ function st(s, e = {}) {
   return t ? xe(s, new URLSearchParams(t), { preserveAbsolute: !0 }) : s;
 }
 function $(s) {
-  const e = m(s);
+  const e = h(s);
   return {
     id: o(e.id),
     family_id: o(e.family_id),
@@ -356,19 +356,19 @@ function $(s) {
     priority: o(e.priority) || "normal",
     due_state: o(e.due_state) || "none",
     due_date: o(e.due_date) || void 0,
-    row_version: h(e.row_version || e.version),
-    version: h(e.version || e.row_version),
+    row_version: m(e.row_version || e.version),
+    version: m(e.version || e.row_version),
     updated_at: o(e.updated_at),
     created_at: o(e.created_at),
     actions: {
-      claim: S(m(e.actions).claim),
-      release: S(m(e.actions).release)
+      claim: S(h(e.actions).claim),
+      release: S(h(e.actions).release)
     },
     review_actions: {
-      submit_review: S(m(e.review_actions).submit_review),
-      approve: S(m(e.review_actions).approve),
-      reject: S(m(e.review_actions).reject),
-      archive: S(m(e.review_actions).archive)
+      submit_review: S(h(e.review_actions).submit_review),
+      approve: S(h(e.review_actions).approve),
+      reject: S(h(e.review_actions).reject),
+      archive: S(h(e.review_actions).archive)
     },
     last_rejection_reason: o(e.last_rejection_reason) || void 0,
     review_feedback: He(e.review_feedback),
@@ -376,7 +376,7 @@ function $(s) {
   };
 }
 function at(s, e) {
-  const t = m(s), a = m(t.expansion), i = m(a.params), l = o(t.family_id);
+  const t = h(s), a = h(t.expansion), i = h(a.params), l = o(t.family_id);
   return {
     id: o(t.id) || `family:${l}`,
     row_type: "family",
@@ -387,8 +387,8 @@ function at(s, e) {
     source_locale: o(t.source_locale),
     source_title: o(t.source_title),
     source_path: o(t.source_path),
-    assignment_count: h(t.assignment_count),
-    locale_count: h(t.locale_count),
+    assignment_count: m(t.assignment_count),
+    locale_count: m(t.locale_count),
     target_locales: Array.isArray(t.target_locales) ? t.target_locales.map((d) => o(d)).filter(Boolean) : [],
     status_counts: C(t.status_counts, {
       trimKeys: !0,
@@ -402,7 +402,7 @@ function at(s, e) {
       trimKeys: !0,
       omitBlankKeys: !0
     }),
-    family_blocker_count: t.family_blocker_count === null || t.family_blocker_count === void 0 ? null : h(t.family_blocker_count),
+    family_blocker_count: t.family_blocker_count === null || t.family_blocker_count === void 0 ? null : m(t.family_blocker_count),
     family_blocker_count_available: t.family_blocker_count_available === !0,
     family_blocker_count_reason: o(t.family_blocker_count_reason),
     action_hints: C(t.action_hints, {
@@ -413,14 +413,14 @@ function at(s, e) {
       href: o(a.href),
       route: o(a.route),
       params: Object.fromEntries(Object.entries(i).map(([d, r]) => [d, o(r)])),
-      query: m(a.query)
+      query: h(a.query)
     },
     expanded: e.has(l),
     children: []
   };
 }
 function it(s) {
-  const e = m(s), t = Xe(e.meta), a = Array.isArray(e.data) ? e.data : [];
+  const e = h(s), t = Xe(e.meta), a = Array.isArray(e.data) ? e.data : [];
   return t.grouping?.enabled ? {
     data: a.filter((i) => !!i && typeof i == "object" && !Array.isArray(i)).map((i) => ({ ...i })),
     meta: t
@@ -432,24 +432,24 @@ function it(s) {
 async function rt(s) {
   const e = await F(s.href, { method: "GET" });
   if (!e.ok) throw await B(e, "Failed to load family assignments");
-  const t = m(await e.json()), a = m(t.meta);
+  const t = h(await e.json()), a = h(t.meta);
   return {
     rows: (Array.isArray(t.data) ? t.data : []).map((i) => $(i)),
     meta: {
-      page: h(a.page) || 1,
-      per_page: h(a.per_page) || 25,
-      total: h(a.total),
+      page: m(a.page) || 1,
+      per_page: m(a.per_page) || 25,
+      total: m(a.total),
       has_next: a.has_next === !0
     }
   };
 }
 function nt(s) {
-  const e = m(s), t = m(e.meta), a = m(e.data);
+  const e = h(s), t = h(e.meta), a = h(e.data);
   return {
     data: {
       assignment_id: o(a.assignment_id),
       status: X(a.status),
-      row_version: h(a.row_version),
+      row_version: m(a.row_version),
       updated_at: o(a.updated_at),
       assignment: $(a.assignment)
     },
@@ -568,13 +568,13 @@ function L(s, e) {
 function pe(s) {
   return o(s.queue_state || s.status);
 }
-function me(s) {
+function he(s) {
   return s === "review" || s === "in_review";
 }
-function mt(s) {
-  return me(pe(s)) ? !0 : !!(s.review_actions.approve.enabled || s.review_actions.reject.enabled);
-}
 function ht(s) {
+  return he(pe(s)) ? !0 : !!(s.review_actions.approve.enabled || s.review_actions.reject.enabled);
+}
+function mt(s) {
   return !!s.review_actions.archive.enabled;
 }
 function U(s, e) {
@@ -603,7 +603,7 @@ function U(s, e) {
     dataAction: "release",
     ariaLabel: u ? "Release assignment" : s.actions.release.reason || "Cannot release assignment",
     buttonClass: y
-  }), mt(s)) {
+  }), ht(s)) {
     const f = s.review_actions.approve.enabled && !l;
     t.push({
       type: "approve",
@@ -631,7 +631,7 @@ function U(s, e) {
       buttonClass: De
     });
   }
-  if (ht(s)) {
+  if (mt(s)) {
     const f = s.review_actions.archive.enabled && !r;
     t.push({
       type: "archive",
@@ -649,7 +649,7 @@ function U(s, e) {
   return t;
 }
 function V(s, e) {
-  if (me(pe(e))) {
+  if (he(pe(e))) {
     const i = s.find((l) => l.category === "review" && l.enabled);
     if (i) return i;
   }
@@ -729,7 +729,7 @@ function le(s, e) {
   const t = s.target;
   return !!(t && t !== e && t.closest('button, a, input, select, textarea, [role="button"], [role="menuitem"]'));
 }
-var he = class k extends Ae {
+var me = class k extends Ae {
   constructor(e) {
     super("loading"), this.container = null, this.response = null, this.rows = [], this.activeReviewPresetId = "", this.activeReviewState = null, this.feedback = null, this.error = null, this.pendingActions = /* @__PURE__ */ new Set(), this.selectedRows = /* @__PURE__ */ new Map(), this.bulkActionPending = !1, this.bulkSnapshotPending = !1, this.filterSnapshot = null, this.viewMode = "flat", this.groupedData = null, this.serverFamilyRows = [], this.expandedGroups = /* @__PURE__ */ new Set(), this.filtersExpanded = !1;
     const t = o(e.initialPresetId);
@@ -821,7 +821,7 @@ var he = class k extends Ae {
         json: { filters: tt(this.queryState) }
       });
       if (!e.ok) throw await B(e, "Filter snapshot failed");
-      const t = Je(m(m(await e.json()).data));
+      const t = Je(h(h(await e.json()).data));
       if (!t.snapshotId) throw new j({
         message: "Filter snapshot response did not include a snapshot id.",
         status: 500,
@@ -946,7 +946,7 @@ ${l.join(`
       }
     });
     if (!t.ok) throw await B(t, `Bulk ${e.action} failed`);
-    const a = m(await t.json()), i = m(a.data), l = m(a.meta), d = Array.isArray(i.results) ? i.results : [], r = h(l.requested), n = h(l.succeeded), u = h(l.failed), f = l.partial === !0, g = o(l.selection_scope) || "current_page";
+    const a = h(await t.json()), i = h(a.data), l = h(a.meta), d = Array.isArray(i.results) ? i.results : [], r = m(l.requested), n = m(l.succeeded), u = m(l.failed), f = l.partial === !0, g = o(l.selection_scope) || "current_page";
     return {
       data: {
         action: o(i.action) || e.action,
@@ -956,7 +956,7 @@ ${l.join(`
         partial: f,
         selectionScope: g,
         results: d.map((v) => {
-          const q = m(v), te = m(q.error);
+          const q = h(v), te = h(q.error);
           return {
             assignmentId: o(q.assignment_id),
             success: o(q.status) === "succeeded",
@@ -2411,7 +2411,7 @@ ${l.join(`
     !t || !e || typeof window > "u" || (window.location.href = `${t}/${encodeURIComponent(e)}/edit`);
   }
 };
-J = he;
+J = me;
 J.PANEL_ID = "translation-queue";
 J.FILTERS_STORAGE_KEY = "go-admin:queue-filters-expanded";
 function Y(s) {
@@ -3470,7 +3470,7 @@ function gt() {
 }
 function vt(s, e) {
   gt();
-  const t = new he(e);
+  const t = new me(e);
   return t.mount(s), t;
 }
 function bt(s, e) {
@@ -3478,8 +3478,8 @@ function bt(s, e) {
 }
 function yt() {
   if (typeof window > "u" || !window.location) return !1;
-  const s = ue(window.location) ?? new URLSearchParams(), e = s.get("translation_client_render") || s.get("translationClientRender");
-  return e === "1" || e === "true";
+  const s = (ue(window.location) ?? new URLSearchParams()).get("translation_client_render");
+  return s === "1" || s === "true";
 }
 function Ct(s) {
   const e = s.dataset.endpoint || s.dataset.assignmentListEndpoint || "";
@@ -3511,7 +3511,7 @@ function ce(s) {
 }
 export {
   j as AssignmentQueueRequestError,
-  he as AssignmentQueueScreen,
+  me as AssignmentQueueScreen,
   Z as DEFAULT_ASSIGNMENT_QUEUE_REVIEW_FILTERS,
   A as DEFAULT_ASSIGNMENT_QUEUE_SAVED_FILTERS,
   pt as applyOptimisticAssignmentAction,

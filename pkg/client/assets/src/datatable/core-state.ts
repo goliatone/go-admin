@@ -16,6 +16,7 @@ import {
 import {
   DATAGRID_DEFAULT_MAX_FILTERS_LENGTH,
   DATAGRID_DEFAULT_MAX_URL_LENGTH,
+  DATAGRID_DEPRECATED_CAMEL_URL_KEYS,
   DATAGRID_MANAGED_URL_KEYS,
   DATAGRID_URL_KEY_EXPANDED_GROUPS,
   DATAGRID_URL_KEY_FILTERS,
@@ -25,6 +26,7 @@ import {
   DATAGRID_URL_KEY_SEARCH,
   DATAGRID_URL_KEY_SORT,
   DATAGRID_URL_KEY_STATE,
+  DATAGRID_URL_STATE_OVERRIDE_KEYS,
   DATAGRID_URL_KEY_VIEW_MODE,
 } from './core-constants.js';
 import { buildURL, deleteSearchParams } from '../shared/query-state/url-state.js';
@@ -62,6 +64,37 @@ export function parseJSONArray(_grid: any, raw: string, label: string): unknown[
     console.warn(`[DataGrid] Failed to parse ${label} payload from URL:`, error);
     return null;
   }
+}
+
+function normalizedColumnFields(fields: Iterable<unknown>, validFields: Set<string>): string[] {
+  return Array.from(new Set(
+    Array.from(fields)
+      .map((field) => String(field || '').trim())
+      .filter((field) => field.length > 0 && validFields.has(field)),
+  )).sort();
+}
+
+function arraysEqual(left: string[], right: string[]): boolean {
+  if (left.length !== right.length) {
+    return false;
+  }
+  return left.every((value, index) => value === right[index]);
+}
+
+function hiddenColumnsURLValue(grid: any): string | null {
+  const validFields = new Set(grid.config.columns.map((col: ColumnDefinition) => col.field));
+  const currentHidden = normalizedColumnFields(grid.state.hiddenColumns || [], validFields);
+  const defaultHidden = normalizedColumnFields(
+    grid.config.columns
+      .filter((col: ColumnDefinition) => col.hidden)
+      .map((col: ColumnDefinition) => col.field),
+    validFields,
+  );
+
+  if (arraysEqual(currentHidden, defaultHidden)) {
+    return null;
+  }
+  return JSON.stringify(currentHidden);
 }
 
 export function applyPersistedStateSnapshot(
@@ -196,7 +229,7 @@ export function restoreStateFromURL(grid: any): void {
   const params = new URLSearchParams(window.location.search);
   grid.didRestoreColumnOrder = false;
   grid.shouldReorderDOMOnRestore = false;
-  grid.hasURLStateOverrides = DATAGRID_MANAGED_URL_KEYS.some((key) => params.has(key));
+  grid.hasURLStateOverrides = DATAGRID_URL_STATE_OVERRIDE_KEYS.some((key) => params.has(key));
 
   const stateToken = params.get(DATAGRID_URL_KEY_STATE);
   if (stateToken) {
@@ -354,6 +387,7 @@ export function pushStateToURL(grid: any, options: { replace?: boolean } = {}): 
   const params = new URLSearchParams(window.location.search);
 
   deleteSearchParams(params, DATAGRID_MANAGED_URL_KEYS);
+  deleteSearchParams(params, DATAGRID_DEPRECATED_CAMEL_URL_KEYS);
 
   if (grid.state.search) {
     params.set(DATAGRID_URL_KEY_SEARCH, grid.state.search);
@@ -379,6 +413,11 @@ export function pushStateToURL(grid: any, options: { replace?: boolean } = {}): 
 
   if (grid.state.sort.length > 0) {
     params.set(DATAGRID_URL_KEY_SORT, JSON.stringify(grid.state.sort));
+  }
+
+  const hiddenColumns = hiddenColumnsURLValue(grid);
+  if (hiddenColumns !== null) {
+    params.set(DATAGRID_URL_KEY_HIDDEN_COLUMNS, hiddenColumns);
   }
 
   if (grid.config.enableGroupedMode) {

@@ -6,6 +6,11 @@
 import type { ToastNotifier } from '../toast/types.js';
 import { FallbackNotifier } from '../toast/toast-manager.js';
 import { TextPromptModal } from '../shared/modal.js';
+import {
+  DATAGRID_DEPRECATED_CAMEL_URL_KEYS,
+  DATAGRID_URL_KEY_ADVANCED_SEARCH,
+  DATAGRID_URL_KEY_FILTERS,
+} from './core-constants.js';
 
 export interface SearchCriterion {
   field: string;
@@ -81,13 +86,17 @@ export class AdvancedSearch {
       return;
     }
 
-    // Restore criteria from URL on init
-    this.restoreCriteriaFromURL();
+    // Restore criteria from URL on init. Restored criteria are applied through
+    // the same callback as a user-submitted search so deep links affect table data.
+    const restoredFromURL = this.restoreCriteriaFromURL();
 
     // Re-render to show restored criteria in the modal and chips in input
     if (this.criteria.length > 0) {
       this.renderCriteria();
       this.renderChips();
+    }
+    if (restoredFromURL) {
+      this.config.onSearch(this.criteria);
     }
 
     this.bindEvents();
@@ -97,26 +106,75 @@ export class AdvancedSearch {
   /**
    * Restore advanced search criteria from URL
    */
-  private restoreCriteriaFromURL(): void {
+  private restoreCriteriaFromURL(): boolean {
     const params = new URLSearchParams(window.location.search);
-    // Use the same 'filters' parameter as DataGrid for consistency
-    const filtersParam = params.get('filters');
+    const advancedSearchParam = params.get(DATAGRID_URL_KEY_ADVANCED_SEARCH);
+    if (advancedSearchParam !== null) {
+      const criteria = this.parseAdvancedSearchCriteria(advancedSearchParam);
+      if (criteria) {
+        this.criteria = criteria;
+        return true;
+      }
+      return false;
+    }
 
-    if (filtersParam) {
+    // Also understand DataGrid filters so the advanced search UI reflects table filter state.
+    const filtersParam = params.get(DATAGRID_URL_KEY_FILTERS);
+
+    if (filtersParam !== null) {
       try {
         const filters = JSON.parse(filtersParam);
-        // Convert DataGrid filters format to advanced search criteria format
-        this.criteria = filters.map((f: any) => ({
-          field: f.column,
-          operator: f.operator || 'ilike',
-          value: f.value,
-          logic: 'and' // Default logic connector
-        }));
+        this.criteria = this.normalizeCriteria(
+          Array.isArray(filters)
+            ? filters.map((f: any) => ({
+              field: f?.column,
+              operator: f?.operator || 'ilike',
+              value: f?.value,
+              logic: 'and',
+            }))
+            : [],
+        );
         console.log('[AdvancedSearch] Restored criteria from URL:', this.criteria);
+        return true;
       } catch (e) {
         console.warn('[AdvancedSearch] Failed to parse filters from URL:', e);
       }
     }
+    return false;
+  }
+
+  private parseAdvancedSearchCriteria(raw: string): SearchCriterion[] | null {
+    try {
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed)) {
+        console.warn('[AdvancedSearch] Invalid advanced_search payload in URL (expected array)');
+        return null;
+      }
+      const criteria = this.normalizeCriteria(parsed);
+      console.log('[AdvancedSearch] Restored criteria from URL:', criteria);
+      return criteria;
+    } catch (e) {
+      console.warn('[AdvancedSearch] Failed to parse advanced_search from URL:', e);
+      return null;
+    }
+  }
+
+  private normalizeCriteria(raw: unknown[]): SearchCriterion[] {
+    const validFields = new Set(this.config.fields.map((field) => field.name));
+    return raw
+      .map((item: any): SearchCriterion | null => {
+        const field = String(item?.field || '').trim();
+        if (!field || !validFields.has(field)) {
+          return null;
+        }
+        const operator = String(item?.operator || 'ilike').trim() || 'ilike';
+        const logic = item?.logic === 'or' ? 'or' : 'and';
+        const value = typeof item?.value === 'number'
+          ? item.value
+          : String(item?.value || '');
+        return { field, operator, value, logic };
+      })
+      .filter((criterion): criterion is SearchCriterion => criterion !== null);
   }
 
   /**
@@ -126,10 +184,12 @@ export class AdvancedSearch {
     const params = new URLSearchParams(window.location.search);
 
     if (this.criteria.length > 0) {
-      params.set('advancedSearch', JSON.stringify(this.criteria));
+      params.set(DATAGRID_URL_KEY_ADVANCED_SEARCH, JSON.stringify(this.criteria));
     } else {
-      params.delete('advancedSearch');
+      params.delete(DATAGRID_URL_KEY_ADVANCED_SEARCH);
+      params.delete(DATAGRID_URL_KEY_FILTERS);
     }
+    DATAGRID_DEPRECATED_CAMEL_URL_KEYS.forEach((key) => params.delete(key));
 
     const newURL = params.toString()
       ? `${window.location.pathname}?${params.toString()}`
@@ -533,6 +593,7 @@ export class AdvancedSearch {
     this.criteria.splice(index, 1);
     this.renderCriteria();
     this.renderChips();
+    this.pushCriteriaToURL();
 
     // Trigger search with updated criteria
     this.config.onSearch(this.criteria);
@@ -545,6 +606,7 @@ export class AdvancedSearch {
     this.criteria = [];
     this.renderCriteria();
     this.renderChips();
+    this.pushCriteriaToURL();
 
     // Trigger clear callback
     if (this.config.onClear) {

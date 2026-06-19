@@ -11,9 +11,11 @@ import {
   attachCopyListeners,
   attachExpandableRowListeners,
   attachSortToggleListeners,
-  attachSQLSelectionListeners,
   attachRequestDetailListeners,
 } from '../shared/interactions.js';
+import { SqlLiveView } from '../shared/panels/index.js';
+import { toolbarStyles as toolbarStyleConfig } from '../shared/styles.js';
+import type { SQLEntry } from '../shared/types.js';
 import {
   panelRegistry,
   getPanelCount as getRegistryPanelCount,
@@ -47,6 +49,7 @@ type PanelActionResultView = {
 
 export class DebugToolbar extends HTMLElement {
   private shadow: ShadowRoot;
+  private sqlView!: SqlLiveView;
   private stream: DebugStream | null = null;
   private externalStream: DebugStream | null = null;
   private snapshot: DebugSnapshot = {};
@@ -86,6 +89,19 @@ export class DebugToolbar extends HTMLElement {
   constructor() {
     super();
     this.shadow = this.attachShadow({ mode: 'open' });
+    this.sqlView = new SqlLiveView({
+      styles: toolbarStyleConfig,
+      copyOptions: { useIconFeedback: false },
+      getQueries: () => this.snapshot.sql || [],
+      getRenderOptions: () => ({
+        newestFirst: this.panelSortOrder.get('sql') ?? true,
+        slowThresholdMs: this.slowThresholdMs,
+        maxEntries: 50,
+        useIconCopyButton: false,
+      }),
+      getMaxEntries: () => 50,
+      onNeedFullRender: () => this.updateContent(),
+    });
   }
 
   connectedCallback(): void {
@@ -403,7 +419,13 @@ export class DebugToolbar extends HTMLElement {
 
     // Update UI if showing affected panel
     if (panel === this.activePanel && this.expanded) {
-      this.updateContent();
+      if (panel === 'sql') {
+        // Incremental: append only the new row (snapshot already updated above).
+        // Falls back to a full render via onNeedFullRender if not yet mounted.
+        this.sqlView.enqueue([event.payload as SQLEntry]);
+      } else {
+        this.updateContent();
+      }
     }
   }
 
@@ -533,7 +555,7 @@ export class DebugToolbar extends HTMLElement {
           this.attachExpandableRowListeners();
           this.attachCopyListeners();
           this.attachSortToggleListeners();
-          this.attachSQLSelectionListeners();
+          this.mountSQLView();
           if (this.activePanel === 'requests') {
             attachRequestDetailListeners(this.shadow, this.expandedRequests);
           }
@@ -663,7 +685,7 @@ export class DebugToolbar extends HTMLElement {
             this.attachExpandableRowListeners();
             this.attachCopyListeners();
             this.attachSortToggleListeners();
-            this.attachSQLSelectionListeners();
+            this.mountSQLView();
             if (this.activePanel === 'requests') {
               attachRequestDetailListeners(this.shadow, this.expandedRequests);
             }
@@ -677,7 +699,7 @@ export class DebugToolbar extends HTMLElement {
     this.attachExpandableRowListeners();
     this.attachCopyListeners();
     this.attachSortToggleListeners();
-    this.attachSQLSelectionListeners();
+    this.mountSQLView();
     if (this.activePanel === 'requests') {
       attachRequestDetailListeners(this.shadow, this.expandedRequests);
     }
@@ -921,10 +943,11 @@ export class DebugToolbar extends HTMLElement {
     });
   }
 
-  private attachSQLSelectionListeners(): void {
+  private mountSQLView(): void {
     if (this.activePanel !== 'sql') return;
-    // Use shared helper for SQL row selection (toolbar style with SVG feedback)
-    attachSQLSelectionListeners(this.shadow, this.snapshot.sql || [], { useIconFeedback: false });
+    // SqlLiveView wires delegated selection/expansion + incremental updates and
+    // restores selection/expanded rows keyed by stable id.
+    this.sqlView.adopt(this.shadow);
   }
 }
 

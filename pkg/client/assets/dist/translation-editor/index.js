@@ -2205,8 +2205,8 @@ async function Us(e, t) {
 }
 function Ts() {
   if (typeof window > "u" || !window.location) return !1;
-  const e = Ae(window.location) ?? new URLSearchParams(), t = e.get("translation_client_render") || e.get("translationClientRender");
-  return t === "1" || t === "true";
+  const e = (Ae(window.location) ?? new URLSearchParams()).get("translation_client_render");
+  return e === "1" || e === "true";
 }
 function As(e) {
   const t = e.querySelector('script[type="application/json"][data-translation-editor-initial-state]')?.textContent?.trim() || "";

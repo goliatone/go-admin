@@ -5,6 +5,7 @@
 import type { SQLEntry } from './types.js';
 import { formatDuration } from './utils.js';
 import { escapeAttribute as escapeAttr } from '../../shared/html.js';
+import { sqlRowKey } from './panels/sql.js';
 
 /**
  * Copy text to clipboard and provide visual feedback on the button.
@@ -86,6 +87,9 @@ export function attachCopyListeners(
   options: CopyFeedbackOptions = {}
 ): void {
   root.querySelectorAll<HTMLButtonElement>('[data-copy-trigger]').forEach((btn) => {
+    // SQL copy buttons are owned by SqlLiveView (delegated, so newly streamed
+    // rows work too). Skip them here to avoid double-binding/double-copy.
+    if (btn.closest('[data-sql-table]')) return;
     btn.addEventListener('click', async (e) => {
       e.preventDefault();
       e.stopPropagation();
@@ -107,6 +111,9 @@ export function attachCopyListeners(
  */
 export function attachExpandableRowListeners(root: ParentNode): void {
   root.querySelectorAll('.expandable-row').forEach((row) => {
+    // SQL rows are owned by SqlLiveView, which manages expansion via delegation
+    // and keeps it keyed by stable id. Skip them here to avoid double-toggling.
+    if ((row as HTMLElement).closest('[data-sql-table]')) return;
     row.addEventListener('click', (e) => {
       const target = e.target as HTMLElement;
       // Don't toggle if clicking on a link, button, or input (e.g. checkbox)
@@ -231,14 +238,24 @@ export function sortToggleAttr(panelId: string): string {
  */
 
 /**
- * Build export text from selected SQL entries.
+ * Build export text from selected SQL entries, resolved by stable id so the
+ * export matches the operator's visible selection even after the ring buffer
+ * trims or reorders. Output stays in chronological (queries array) order.
  * Each query is preceded by a comment with metadata (duration, row count, error).
  */
-export function buildSQLExportText(queries: SQLEntry[], selected: Set<number>): string {
-  return [...selected]
-    .sort((a, b) => a - b)
-    .map((i) => queries[i])
-    .filter(Boolean)
+export function buildSQLExportText(queries: SQLEntry[], selectedIds: Set<string>): string {
+  const order = new Map<string, number>();
+  const byKey = new Map<string, SQLEntry>();
+  queries.forEach((q, i) => {
+    const key = sqlRowKey(q);
+    order.set(key, i);
+    byKey.set(key, q);
+  });
+
+  return [...selectedIds]
+    .filter((id) => byKey.has(id))
+    .sort((a, b) => (order.get(a) ?? 0) - (order.get(b) ?? 0))
+    .map((id) => byKey.get(id)!)
     .map((q) => {
       const dur = formatDuration(q.duration);
       let header = `-- Duration: ${dur.text} | Rows: ${q.row_count ?? 0}`;
@@ -262,106 +279,12 @@ export function downloadAsFile(content: string, filename: string, mimeType = 'te
   URL.revokeObjectURL(url);
 }
 
-/**
- * Attach selection listeners for the SQL panel.
- * Manages checkbox selection, toolbar visibility, copy-to-clipboard, and download.
- *
- * @param root - The root element to search for SQL selection controls
- * @param queries - The SQL entries array (in the same order as rendered)
- * @param copyOptions - Feedback options for the clipboard copy button
- */
-export function attachSQLSelectionListeners(
-  root: ParentNode,
-  queries: SQLEntry[],
-  copyOptions: CopyFeedbackOptions = {}
-): void {
-  const selected = new Set<number>();
-  const toolbar = root.querySelector<HTMLElement>('[data-sql-toolbar]');
-  const countEl = root.querySelector('[data-sql-selected-count]');
-  const selectAll = root.querySelector<HTMLInputElement>('.sql-select-all');
-  const rowCheckboxes = root.querySelectorAll<HTMLInputElement>('.sql-select-row');
-
-  if (!toolbar || rowCheckboxes.length === 0) return;
-
-  function updateToolbar(): void {
-    if (!toolbar) return;
-    const count = selected.size;
-    toolbar.dataset.visible = count > 0 ? 'true' : 'false';
-    if (countEl) {
-      countEl.textContent = `${count} selected`;
-    }
-    // Sync select-all checkbox state
-    if (selectAll) {
-      selectAll.checked = count > 0 && count === rowCheckboxes.length;
-      selectAll.indeterminate = count > 0 && count < rowCheckboxes.length;
-    }
-  }
-
-  // Individual row checkboxes
-  rowCheckboxes.forEach((cb) => {
-    cb.addEventListener('click', (e) => {
-      e.stopPropagation(); // Prevent row expand/collapse
-    });
-    cb.addEventListener('change', () => {
-      const idx = parseInt(cb.dataset.sqlIndex || '', 10);
-      if (Number.isNaN(idx)) return;
-      if (cb.checked) {
-        selected.add(idx);
-      } else {
-        selected.delete(idx);
-      }
-      updateToolbar();
-    });
-  });
-
-  // Select all checkbox
-  if (selectAll) {
-    selectAll.addEventListener('click', (e) => {
-      e.stopPropagation();
-    });
-    selectAll.addEventListener('change', () => {
-      rowCheckboxes.forEach((cb) => {
-        cb.checked = selectAll.checked;
-        const idx = parseInt(cb.dataset.sqlIndex || '', 10);
-        if (Number.isNaN(idx)) return;
-        if (selectAll.checked) {
-          selected.add(idx);
-        } else {
-          selected.delete(idx);
-        }
-      });
-      updateToolbar();
-    });
-  }
-
-  // Copy to clipboard
-  root.querySelector('[data-sql-export="clipboard"]')?.addEventListener('click', async (e) => {
-    e.preventDefault();
-    if (selected.size === 0) return;
-    const text = buildSQLExportText(queries, selected);
-    const btn = e.currentTarget as HTMLElement;
-    await copyToClipboard(text, btn, copyOptions);
-  });
-
-  // Download as .sql file
-  root.querySelector('[data-sql-export="download"]')?.addEventListener('click', (e) => {
-    e.preventDefault();
-    if (selected.size === 0) return;
-    const text = buildSQLExportText(queries, selected);
-    const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-    downloadAsFile(text, `sql-queries-${ts}.sql`);
-  });
-
-  // Clear selection
-  root.querySelector('[data-sql-clear-selection]')?.addEventListener('click', (e) => {
-    e.preventDefault();
-    selected.clear();
-    rowCheckboxes.forEach((cb) => {
-      cb.checked = false;
-    });
-    updateToolbar();
-  });
-}
+// SQL row selection, expansion, copy, and incremental updates are owned by
+// `SqlLiveView` (./panels/sql-live-view.ts), which uses delegated listeners
+// keyed by stable id so state survives live updates and full re-renders. The
+// former per-row `attachSQLSelectionListeners` helper was removed in favor of
+// that controller; `buildSQLExportText` and `downloadAsFile` remain here as the
+// shared export primitives the controller calls.
 
 /**
  * Attach expand/collapse listeners for request detail rows.
@@ -438,7 +361,6 @@ export function initInteractions(
   options: {
     copyOptions?: CopyFeedbackOptions;
     onSortToggle?: (panelId: string, newestFirst: boolean) => void;
-    sqlQueries?: SQLEntry[];
   } = {}
 ): void {
   attachCopyListeners(root, options.copyOptions);
@@ -446,7 +368,5 @@ export function initInteractions(
   if (options.onSortToggle) {
     attachSortToggleListeners(root, options.onSortToggle);
   }
-  if (options.sqlQueries) {
-    attachSQLSelectionListeners(root, options.sqlQueries, options.copyOptions);
-  }
+  // SQL selection/expansion is initialized via SqlLiveView, not here.
 }

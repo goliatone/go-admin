@@ -23,7 +23,6 @@ import {
 import {
   attachCopyListeners,
   attachExpandableRowListeners,
-  attachSQLSelectionListeners,
   attachRequestDetailListeners,
 } from './shared/interactions.js';
 import { consoleStyles } from './shared/styles.js';
@@ -35,6 +34,7 @@ import {
   renderJSONPanel as renderSharedJSONPanel,
   renderCustomPanel,
   renderJSErrorsPanel,
+  SqlLiveView,
 } from './shared/panels/index.js';
 import {
   panelRegistry,
@@ -189,6 +189,8 @@ export class DebugPanel {
   private filters: PanelFilters;
   private customFilterState: Record<string, unknown> = {};
   private paused = false;
+  private sqlView!: SqlLiveView;
+  private pauseButton: HTMLButtonElement | null = null;
   private maxLogEntries: number;
   private maxSQLQueries: number;
   private slowThresholdMs: number;
@@ -290,6 +292,22 @@ export class DebugPanel {
     if (this.sessionDetachEl) {
       this.sessionDetachEl.addEventListener('click', () => this.detachSession());
     }
+
+    this.sqlView = new SqlLiveView({
+      styles: consoleStyles,
+      copyOptions: { useIconFeedback: true },
+      getQueries: () => this.state.sql,
+      getRenderOptions: () => ({
+        newestFirst: this.filters.sql.newestFirst,
+        slowThresholdMs: this.slowThresholdMs,
+        maxEntries: this.maxSQLQueries,
+        useIconCopyButton: true,
+      }),
+      getMaxEntries: () => this.maxSQLQueries,
+      shouldDisplay: (entry) => this.sqlEntryMatchesFilters(entry),
+      onNeedFullRender: () => this.renderPanel(),
+      onPendingChange: (count) => this.updatePauseIndicator(count),
+    });
 
     this.bindActions();
     this.updateSessionBanner();
@@ -1003,7 +1021,7 @@ export class DebugPanel {
       attachRequestDetailListeners(this.panelEl, this.expandedRequests);
     }
     if (panel === 'sql') {
-      this.attachSQLSelectionListeners();
+      this.mountSQLView();
     }
     if (panel === 'sessions') {
       this.attachSessionActions();
@@ -1263,9 +1281,10 @@ export class DebugPanel {
     attachCopyListeners(this.panelEl, { useIconFeedback: true });
   }
 
-  private attachSQLSelectionListeners(): void {
-    // Use shared helper for SQL row selection, clipboard copy, and download
-    attachSQLSelectionListeners(this.panelEl, this.state.sql, { useIconFeedback: true });
+  private mountSQLView(): void {
+    // SqlLiveView wires delegated selection/expansion + incremental updates and
+    // restores state (selection, expanded rows) keyed by stable id.
+    this.sqlView.adopt(this.panelEl);
   }
 
   private renderReplPanel(panel: string): void {
@@ -1334,23 +1353,26 @@ export class DebugPanel {
     });
   }
 
+  /** Whether a SQL entry passes the active console filters (search/slow/error). */
+  private sqlEntryMatchesFilters(entry: SQLEntry): boolean {
+    const { search, slowOnly, errorOnly } = this.filters.sql;
+    if (errorOnly && !entry.error) {
+      return false;
+    }
+    if (slowOnly && !this.isSlowQuery(entry)) {
+      return false;
+    }
+    if (search && !(entry.query || '').toLowerCase().includes(search.toLowerCase())) {
+      return false;
+    }
+    return true;
+  }
+
   private renderSQL(): string {
-    const { search, slowOnly, errorOnly, newestFirst } = this.filters.sql;
-    const needle = search.toLowerCase();
+    const { newestFirst } = this.filters.sql;
 
     // Apply console-specific filters
-    const filtered = this.state.sql.filter((entry) => {
-      if (errorOnly && !entry.error) {
-        return false;
-      }
-      if (slowOnly && !this.isSlowQuery(entry)) {
-        return false;
-      }
-      if (needle && !(entry.query || '').toLowerCase().includes(needle)) {
-        return false;
-      }
-      return true;
-    });
+    const filtered = this.state.sql.filter((entry) => this.sqlEntryMatchesFilters(entry));
 
     if (filtered.length === 0) {
       return this.renderEmptyState('No SQL queries captured yet.');
@@ -1849,6 +1871,13 @@ export class DebugPanel {
     this.updateStatusMeta();
 
     if (this.paused) {
+      // While paused, SQL queries are buffered by SqlLiveView, which surfaces a
+      // pending count and flushes on resume, so the operator can see how much new
+      // data arrived without losing their place. Other panels stay frozen.
+      const pausedPanel = this.eventToPanel[event.type] || event.type;
+      if (pausedPanel === 'sql' && this.activePanel === 'sql') {
+        this.sqlView.enqueue([event.payload as SQLEntry]);
+      }
       return;
     }
 
@@ -1909,7 +1938,13 @@ export class DebugPanel {
 
     this.updateTabCounts();
     if (panel === this.activePanel) {
-      this.renderPanel();
+      if (panel === 'sql') {
+        // Incremental: append only the new row (state already updated above).
+        // Falls back to a full render via onNeedFullRender if not yet mounted.
+        this.sqlView.enqueue([event.payload as SQLEntry]);
+      } else {
+        this.renderPanel();
+      }
     }
   }
 
@@ -2223,10 +2258,24 @@ export class DebugPanel {
 
   private togglePause(button: HTMLButtonElement): void {
     this.paused = !this.paused;
-    button.textContent = this.paused ? 'Resume' : 'Pause';
-    if (!this.paused) {
-      this.stream.requestSnapshot();
+    this.pauseButton = button;
+    this.sqlView.setPaused(this.paused);
+    if (this.paused) {
+      button.textContent = 'Resume';
+      return;
     }
+    // Resume: discard the buffered rows and rebuild authoritatively from a fresh
+    // snapshot. SqlLiveView keeps selection/expansion (keyed by stable id) across
+    // the re-render, so the operator's state survives the resume.
+    this.sqlView.discardPending();
+    button.textContent = 'Pause';
+    this.stream.requestSnapshot();
+  }
+
+  /** Reflect the count of SQL queries buffered while paused on the pause button. */
+  private updatePauseIndicator(count: number): void {
+    if (!this.paused || !this.pauseButton) return;
+    this.pauseButton.textContent = count > 0 ? `Resume (${count})` : 'Resume';
   }
 }
 

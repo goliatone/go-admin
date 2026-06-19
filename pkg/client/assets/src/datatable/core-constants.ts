@@ -1,12 +1,14 @@
 export const DATAGRID_URL_KEY_SEARCH = 'search';
 export const DATAGRID_URL_KEY_PAGE = 'page';
-export const DATAGRID_URL_KEY_PER_PAGE = 'perPage';
+export const DATAGRID_URL_KEY_PER_PAGE = 'per_page';
 export const DATAGRID_URL_KEY_FILTERS = 'filters';
 export const DATAGRID_URL_KEY_SORT = 'sort';
 export const DATAGRID_URL_KEY_STATE = 'state';
-export const DATAGRID_URL_KEY_HIDDEN_COLUMNS = 'hiddenColumns';
+export const DATAGRID_URL_KEY_ADVANCED_SEARCH = 'advanced_search';
+export const DATAGRID_URL_KEY_HIDDEN_COLUMNS = 'hidden_columns';
 export const DATAGRID_URL_KEY_VIEW_MODE = 'view_mode';
 export const DATAGRID_URL_KEY_EXPANDED_GROUPS = 'expanded_groups';
+export const DATAGRID_DEPRECATED_CAMEL_URL_KEYS = ['perPage', 'hiddenColumns', 'advancedSearch'];
 
 export const DATAGRID_MANAGED_URL_KEYS = [
   DATAGRID_URL_KEY_SEARCH,
@@ -18,6 +20,11 @@ export const DATAGRID_MANAGED_URL_KEYS = [
   DATAGRID_URL_KEY_HIDDEN_COLUMNS,
   DATAGRID_URL_KEY_VIEW_MODE,
   DATAGRID_URL_KEY_EXPANDED_GROUPS,
+];
+
+export const DATAGRID_URL_STATE_OVERRIDE_KEYS = [
+  ...DATAGRID_MANAGED_URL_KEYS,
+  DATAGRID_URL_KEY_ADVANCED_SEARCH,
 ];
 
 export const DATAGRID_DEFAULT_MAX_URL_LENGTH = 1800;
