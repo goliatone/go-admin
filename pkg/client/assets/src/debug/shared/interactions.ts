@@ -90,6 +90,10 @@ export function attachCopyListeners(
     // SQL copy buttons are owned by SqlLiveView (delegated, so newly streamed
     // rows work too). Skip them here to avoid double-binding/double-copy.
     if (btn.closest('[data-sql-table]')) return;
+    // Request-detail copy buttons are owned by attachRequestDetailListeners
+    // (delegated on [data-request-table]) so lazily-mounted detail buttons work.
+    // Skip them here to avoid double-binding/double-copy.
+    if (btn.closest('[data-request-table]')) return;
     btn.addEventListener('click', async (e) => {
       e.preventDefault();
       e.stopPropagation();
@@ -352,14 +356,29 @@ export function downloadAsFile(content: string, filename: string, mimeType = 'te
  *
  * @param root - The root element to search for request tables
  * @param expandedIds - Set of expanded request IDs (mutated in place)
+ * @param copyOptions - Clipboard feedback style for detail copy buttons
  */
 export function attachRequestDetailListeners(
   root: ParentNode,
-  expandedIds: Set<string>
+  expandedIds: Set<string>,
+  copyOptions: CopyFeedbackOptions = {}
 ): void {
   root.querySelectorAll<HTMLTableElement>('[data-request-table]').forEach((table) => {
     table.addEventListener('click', (e) => {
       const target = e.target as HTMLElement;
+
+      // Request/response body copy button (lives inside the lazily-mounted detail
+      // pane). Handled here via delegation so copy works even though the detail
+      // content is mounted from a <template> after this listener was attached.
+      const copyBtn = target.closest<HTMLElement>('[data-copy-trigger]');
+      if (copyBtn && table.contains(copyBtn)) {
+        e.preventDefault();
+        e.stopPropagation();
+        const container = copyBtn.closest('[data-copy-content]');
+        const content = container?.getAttribute('data-copy-content') || '';
+        void copyToClipboard(content, copyBtn, copyOptions);
+        return;
+      }
 
       // Ignore clicks on interactive elements or inside the detail pane
       if (target.closest('button, a, input, [data-detail-for]')) return;

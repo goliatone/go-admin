@@ -121,6 +121,13 @@ export interface PanelLiveListConfig {
   renderRow: (item: unknown, styles: StyleConfig, options: PanelOptions) => string;
   /** Stable key per item. Defaults to a hash of the item. */
   keyOf?: (item: unknown) => string;
+  /**
+   * Append direction. Must match how the panel's full render orders rows so the
+   * incremental append lands at the same edge. `true` prepends (newest first);
+   * default `false` appends at the bottom (chronological). This is the single
+   * source of truth shared with the renderer — see `panelDefinitionFromServer`.
+   */
+  newestFirst?: boolean;
   /** Selector for the live container. Default `[data-live-list]`. */
   containerSelector?: string;
   /** Selector matching a primary keyed row. Default `[data-row-key]`. */

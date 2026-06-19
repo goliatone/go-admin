@@ -97,8 +97,6 @@ export interface LiveListViewOptions<T> {
   keyOf(item: T): string;
   /** Render a single item to HTML (may be more than one row for expandable items). */
   renderRow(item: T): string;
-  /** Current full item list; used for fallback/full-render context. */
-  getItems(): T[];
   /** Render options that may change between renders (e.g. sort order). */
   getRenderOptions(): { newestFirst?: boolean };
   /** Max visible items; overflow is evicted from the oldest edge. */

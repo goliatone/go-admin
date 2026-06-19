@@ -176,7 +176,8 @@ export function renderSchemaTable(
   title: string,
   data: unknown,
   view: ServerPanelUIView | undefined,
-  styles: StyleConfig
+  styles: StyleConfig,
+  newestFirst = false
 ): string {
   const rows = dataArray(data);
   const columns = optionItems(view, 'columns');
@@ -188,6 +189,7 @@ export function renderSchemaTable(
     return `<div class="${styles.emptyState}">No ${escapeHTML(title.toLowerCase())} rows available</div>`;
   }
   const keyBind = view?.options?.key_bind;
+  const ordered = newestFirst ? [...rows].reverse() : rows;
   return `
     <section class="${styles.jsonPanel}">
       ${renderTitle(title, styles)}
@@ -196,7 +198,7 @@ export function renderSchemaTable(
           <tr>${effectiveColumns.map((column) => `<th>${escapeHTML(text(column.label || column.bind))}</th>`).join('')}</tr>
         </thead>
         <tbody data-live-list>
-          ${rows.map((row) => renderSchemaTableRow(row, effectiveColumns, keyBind)).join('')}
+          ${ordered.map((row) => renderSchemaTableRow(row, effectiveColumns, keyBind)).join('')}
         </tbody>
       </table>
     </section>
@@ -224,18 +226,20 @@ export function renderSchemaStatusList(
   title: string,
   data: unknown,
   view: ServerPanelUIView | undefined,
-  styles: StyleConfig
+  styles: StyleConfig,
+  newestFirst = false
 ): string {
   const rows = dataArray(data);
   if (rows.length === 0) {
     return `<div class="${styles.emptyState}">No ${escapeHTML(title.toLowerCase())} statuses available</div>`;
   }
+  const ordered = newestFirst ? [...rows].reverse() : rows;
   return `
     <section class="${styles.jsonPanel}">
       ${renderTitle(title, styles)}
       <table class="${styles.table}">
         <tbody data-live-list>
-          ${rows.map((row) => renderSchemaStatusRow(row, view, styles)).join('')}
+          ${ordered.map((row) => renderSchemaStatusRow(row, view, styles)).join('')}
         </tbody>
       </table>
     </section>
@@ -263,18 +267,20 @@ export function renderSchemaTimeline(
   title: string,
   data: unknown,
   view: ServerPanelUIView | undefined,
-  styles: StyleConfig
+  styles: StyleConfig,
+  newestFirst = false
 ): string {
   const rows = dataArray(data);
   if (rows.length === 0) {
     return `<div class="${styles.emptyState}">No ${escapeHTML(title.toLowerCase())} events available</div>`;
   }
+  const ordered = newestFirst ? [...rows].reverse() : rows;
   return `
     <section class="${styles.jsonPanel}">
       ${renderTitle(title, styles)}
       <table class="${styles.table}">
         <tbody data-live-list>
-          ${rows.map((row) => renderSchemaTimelineRow(row, view, styles)).join('')}
+          ${ordered.map((row) => renderSchemaTimelineRow(row, view, styles)).join('')}
         </tbody>
       </table>
     </section>
@@ -286,14 +292,15 @@ export function renderSchemaStack(
   data: unknown,
   view: ServerPanelUIView | undefined,
   styles: StyleConfig,
-  useIconCopyButton: boolean
+  useIconCopyButton: boolean,
+  newestFirst = false
 ): string {
   const sections = Array.isArray(view?.sections) ? view.sections : [];
   if (sections.length === 0) {
     return renderJSONPanel(text(view?.title || serverDef.label || serverDef.id || 'Panel'), data, styles, { useIconCopyButton });
   }
   return sections
-    .map((section) => renderSchemaPanelView(serverDef, section, data, styles, useIconCopyButton))
+    .map((section) => renderSchemaPanelView(serverDef, section, data, styles, useIconCopyButton, newestFirst))
     .join('');
 }
 
@@ -302,7 +309,8 @@ export function renderSchemaPanelView(
   view: ServerPanelUIView | undefined,
   data: unknown,
   styles: StyleConfig,
-  useIconCopyButton = false
+  useIconCopyButton = false,
+  newestFirst = false
 ): string {
   const title = text(view?.title || serverDef.label || serverDef.id || 'Panel');
   const displayData = pathValue(data, view?.bind);
@@ -312,13 +320,13 @@ export function renderSchemaPanelView(
     case 'key_value':
       return renderSchemaKeyValue(title, displayData, view, styles);
     case 'table':
-      return renderSchemaTable(title, displayData, view, styles);
+      return renderSchemaTable(title, displayData, view, styles, newestFirst);
     case 'status_list':
-      return renderSchemaStatusList(title, displayData, view, styles);
+      return renderSchemaStatusList(title, displayData, view, styles, newestFirst);
     case 'timeline':
-      return renderSchemaTimeline(title, displayData, view, styles);
+      return renderSchemaTimeline(title, displayData, view, styles, newestFirst);
     case 'stack':
-      return renderSchemaStack(serverDef, data, view, styles, useIconCopyButton);
+      return renderSchemaStack(serverDef, data, view, styles, useIconCopyButton, newestFirst);
     case 'json':
     default:
       return renderJSONPanel(title, displayData ?? {}, styles, { useIconCopyButton });

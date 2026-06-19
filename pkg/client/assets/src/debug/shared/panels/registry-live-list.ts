@@ -17,8 +17,6 @@ import { LiveListView, hashString } from './live-list-view.js';
 export interface RegistryLiveListHost {
   /** Style configuration (console vs toolbar class names). */
   styles: StyleConfig;
-  /** Current item array for a panel (host state / snapshot). */
-  getData: (def: PanelDefinition) => unknown[];
   /** Render options (sort order) for a panel. */
   getRenderOptions: (def: PanelDefinition) => { newestFirst?: boolean };
   /** Optional per-item display predicate (e.g. declared console filters). */
@@ -76,8 +74,14 @@ export class RegistryLiveListManager {
       keyOf,
       renderRow: (item) =>
         config.renderRow(item, this.host.styles, this.host.getRenderOptions(def) as PanelOptions),
-      getItems: () => this.host.getData(def),
-      getRenderOptions: () => this.host.getRenderOptions(def),
+      // Append direction is owned by the panel definition (`liveList.newestFirst`),
+      // the same value the full renderer uses — so the append edge can never
+      // diverge from the rendered order. The host's `newestFirst`, if any, is
+      // intentionally ignored for live-list panels.
+      getRenderOptions: () => ({
+        ...this.host.getRenderOptions(def),
+        newestFirst: config.newestFirst ?? false,
+      }),
       getMaxEntries: () => (config.getMaxEntries ? config.getMaxEntries() : 500),
       shouldDisplay: this.host.shouldDisplay
         ? (item) => this.host.shouldDisplay!(def, item)

@@ -94,8 +94,7 @@ function makeManager(over = {}) {
   const frames = [];
   const manager = new RegistryLiveListManager({
     styles: consoleStyles,
-    getData: over.getData || (() => []),
-    getRenderOptions: () => ({ newestFirst: true }),
+    getRenderOptions: () => ({}),
     shouldDisplay: over.shouldDisplay,
     onNeedFullRender: over.onNeedFullRender || (() => {}),
     scheduleFrame: (cb) => frames.push(cb),
@@ -103,6 +102,8 @@ function makeManager(over = {}) {
   return { manager, tick: () => frames.splice(0).forEach((cb) => cb()) };
 }
 
+// Sort direction is owned by the def's liveList.newestFirst (the single source
+// shared with the renderer), not by the host.
 const LIVE_DEF = {
   id: 'queue',
   label: 'Queue',
@@ -110,6 +111,7 @@ const LIVE_DEF = {
   liveList: {
     renderRow: (item) => `<tr data-row-key="${item.id}"><td>${item.id}</td></tr>`,
     keyOf: (item) => item.id,
+    newestFirst: true,
   },
 };
 
@@ -209,6 +211,18 @@ test('panelDefinitionFromServer leaves non-append / non-list panels on full rend
 
 // Regression: H2 — a `table` view without declared columns derives columns from
 // the first row on full render but per-item on append, so it must NOT opt in.
+test('panelDefinitionFromServer derives liveList.newestFirst from events.order', () => {
+  assert.equal(panelDefinitionFromServer(serverDef('append', 'table')).liveList.newestFirst, false, 'default chronological');
+  const ordered = {
+    id: 'svc', label: 'Service', snapshot_key: 'svc', event_types: 'svc',
+    ui: {
+      events: { mode: 'append', max_entries: 50, order: 'newest_first' },
+      views: { console: { renderer: 'table', options: { columns: [{ label: 'ID', bind: 'id' }], key_bind: 'id' } } },
+    },
+  };
+  assert.equal(panelDefinitionFromServer(ordered).liveList.newestFirst, true, 'order: newest_first -> prepend');
+});
+
 test('panelDefinitionFromServer requires declared columns to opt a table in', () => {
   const noCols = {
     id: 'svc', label: 'Service', snapshot_key: 'svc', event_types: 'svc',
@@ -223,12 +237,13 @@ test('panelDefinitionFromServer requires declared columns to opt a table in', ()
   assert.ok(panelDefinitionFromServer(statusNoCols).liveList, 'status_list needs no columns -> opts in');
 });
 
-// Regression: H1 — schema renders chronologically (newest at bottom) with no
-// sort toggle, so the registry host appends with newestFirst:false. Verify the
-// live append lands at the bottom and stays consistent with the full render.
+// Regression: H1 — a chronological list (no liveList.newestFirst) renders newest
+// at the bottom AND appends at the bottom. The def's newestFirst is the single
+// source for both the renderer and the engine, so they can't diverge.
 test('registry live append matches schema chronological order (newest at bottom)', () => {
   const view = { renderer: 'table', options: { columns: [{ label: 'ID', bind: 'id' }], key_bind: 'id' } };
-  const root = mount(renderSchemaTable('Q', [{ id: 'a' }, { id: 'b' }], view, consoleStyles));
+  // Full render with newestFirst=false (chronological) — newest at the bottom.
+  const root = mount(renderSchemaTable('Q', [{ id: 'a' }, { id: 'b' }], view, consoleStyles, false));
   assert.deepEqual(rowKeys(root), ['a', 'b'], 'full render is chronological');
 
   const def = {
@@ -238,13 +253,13 @@ test('registry live append matches schema chronological order (newest at bottom)
     liveList: {
       renderRow: (item, styles) => renderSchemaListRow('table', item, view, styles),
       keyOf: (item) => schemaRowKey(item, 'id'),
+      // no newestFirst -> chronological (append at bottom)
     },
   };
   const frames = [];
   const manager = new RegistryLiveListManager({
     styles: consoleStyles,
-    getData: () => [],
-    getRenderOptions: () => ({ newestFirst: false }), // the fixed host setting
+    getRenderOptions: () => ({}),
     onNeedFullRender: () => {},
     scheduleFrame: (cb) => frames.push(cb),
   });
@@ -252,4 +267,33 @@ test('registry live append matches schema chronological order (newest at bottom)
   manager.enqueue(def, { id: 'c' });
   frames.splice(0).forEach((cb) => cb());
   assert.deepEqual(rowKeys(root), ['a', 'b', 'c'], 'append lands at the bottom, staying chronological');
+});
+
+// Complement: newestFirst:true reverses the full render AND prepends on append.
+test('registry live append honors liveList.newestFirst (newest at top)', () => {
+  const view = { renderer: 'table', options: { columns: [{ label: 'ID', bind: 'id' }], key_bind: 'id' } };
+  const root = mount(renderSchemaTable('Q', [{ id: 'a' }, { id: 'b' }], view, consoleStyles, true));
+  assert.deepEqual(rowKeys(root), ['b', 'a'], 'full render reversed (newest first)');
+
+  const def = {
+    id: 'q',
+    label: 'Q',
+    render: () => '',
+    liveList: {
+      renderRow: (item, styles) => renderSchemaListRow('table', item, view, styles),
+      keyOf: (item) => schemaRowKey(item, 'id'),
+      newestFirst: true,
+    },
+  };
+  const frames = [];
+  const manager = new RegistryLiveListManager({
+    styles: consoleStyles,
+    getRenderOptions: () => ({}),
+    onNeedFullRender: () => {},
+    scheduleFrame: (cb) => frames.push(cb),
+  });
+  manager.adopt(def, root);
+  manager.enqueue(def, { id: 'c' });
+  frames.splice(0).forEach((cb) => cb());
+  assert.deepEqual(rowKeys(root), ['c', 'b', 'a'], 'append prepends, staying newest-first');
 });

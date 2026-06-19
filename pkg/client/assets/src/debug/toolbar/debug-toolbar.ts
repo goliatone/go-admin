@@ -125,7 +125,6 @@ export class DebugToolbar extends HTMLElement {
       keyOf: logRowKey,
       renderRow: (entry) =>
         renderLogRow(entry, toolbarStyleConfig, { showSource: false, truncateMessage: true, maxMessageLength: 100 }),
-      getItems: () => this.snapshot.logs || [],
       getRenderOptions: () => ({ newestFirst: true }),
       getMaxEntries: () => 100,
       onNeedFullRender: () => this.updateContent(),
@@ -144,17 +143,16 @@ export class DebugToolbar extends HTMLElement {
           expandedRequestIds: this.expandedRequests,
           maxDetailLength: 80,
         }),
-      getItems: () => this.snapshot.requests || [],
       getRenderOptions: () => ({ newestFirst: this.panelSortOrder.get('requests') ?? true }),
       getMaxEntries: () => 50,
       onNeedFullRender: () => this.updateContent(),
-      onAdopt: (root) => attachRequestDetailListeners(root, this.expandedRequests),
+      onAdopt: (root) =>
+        attachRequestDetailListeners(root, this.expandedRequests, { useIconFeedback: false }),
     });
     this.jserrorsView = new LiveListView<JSErrorEntry>({
       styles: toolbarStyleConfig,
       keyOf: jsErrorRowKey,
       renderRow: (entry) => renderErrorRow(entry, toolbarStyleConfig, { compact: true }),
-      getItems: () => this.snapshot.jserrors || [],
       getRenderOptions: () => ({ newestFirst: this.panelSortOrder.get('jserrors') ?? true }),
       getMaxEntries: () => 50,
       onNeedFullRender: () => this.updateContent(),
@@ -174,13 +172,9 @@ export class DebugToolbar extends HTMLElement {
     });
     this.registryLiveList = new RegistryLiveListManager({
       styles: toolbarStyleConfig,
-      getData: (def) => {
-        const data = (this.snapshot as Record<string, unknown>)[getSnapshotKey(def)];
-        return Array.isArray(data) ? data : [];
-      },
-      // Schema list renderers paint chronologically (newest at the bottom) with
-      // no sort toggle, so live appends land at the bottom to match.
-      getRenderOptions: () => ({ newestFirst: false }),
+      // Sort direction is owned by each panel's `liveList.newestFirst` (the single
+      // source shared with its renderer), so the manager doesn't take a host sort.
+      getRenderOptions: () => ({}),
       onNeedFullRender: () => this.updateContent(),
     });
   }

@@ -260,11 +260,12 @@ function renderServerPanelView(
   data: unknown,
   styles: StyleConfig,
   useIconCopyButton: boolean,
-  degradedReason?: string | null
+  degradedReason?: string | null,
+  newestFirst = false
 ): string {
   let body = '';
   if (view && isSupportedView(view)) {
-    body = renderSchemaPanelView(serverDef, view, data, styles, useIconCopyButton);
+    body = renderSchemaPanelView(serverDef, view, data, styles, useIconCopyButton, newestFirst);
   } else {
     body = renderSchemaPanelView(
       serverDef,
@@ -486,6 +487,12 @@ export function panelDefinitionFromServer(serverDef: ServerPanelDefinition): Pan
   // columns are declared. status_list/timeline use fixed bindings and are safe.
   const tableColumnsOk = normalizeID(primaryView?.renderer) !== 'table'
     || (Array.isArray(primaryView?.options?.columns) && primaryView.options.columns.length > 0);
+  // Single source of truth for sort direction across the FULL render (baked into
+  // the render closures below) and the INCREMENTAL append (carried on
+  // `liveList.newestFirst`). Schema panels currently render in chronological
+  // array order (newest last), so this is `false`; an event policy can opt into
+  // newest-first and both paths flip together — they can never diverge.
+  const liveNewestFirst = normalizeID(ui?.events?.order) === 'newest_first';
   const liveList = ui && primaryView && normalizeID(ui.events?.mode) === 'append'
     && isSchemaListRenderer(primaryView.renderer) && tableColumnsOk
     ? {
@@ -494,6 +501,7 @@ export function panelDefinitionFromServer(serverDef: ServerPanelDefinition): Pan
         keyOf: (item: unknown) => schemaRowKey(item, primaryView.options?.key_bind),
         getMaxEntries: () =>
           typeof ui.events?.max_entries === 'number' ? ui.events.max_entries : 500,
+        newestFirst: liveNewestFirst,
       }
     : undefined;
 
@@ -511,9 +519,9 @@ export function panelDefinitionFromServer(serverDef: ServerPanelDefinition): Pan
     renderFilters: ui?.filters?.length ? (state) => renderFilterControls(ui, state) : undefined,
     defaultFilters: ui?.filters?.length ? defaultFilterState(ui) : undefined,
     applyFilters: ui?.filters?.length ? (data, state) => applyDeclaredFilters(data, state, ui) : undefined,
-    render: renderConsoleOverride || ((data, styles) => renderServerPanelView(renderDef, ui?.views?.console || ui?.views?.toolbar, data, styles, true, degradedReason)),
-    renderConsole: renderConsoleOverride || ((data, styles) => renderServerPanelView(renderDef, ui?.views?.console || ui?.views?.toolbar, data, styles, true, degradedReason)),
-    renderToolbar: (data, styles) => renderServerPanelView(renderDef, ui?.views?.toolbar || ui?.views?.console, data, styles, false, degradedReason),
+    render: renderConsoleOverride || ((data, styles) => renderServerPanelView(renderDef, ui?.views?.console || ui?.views?.toolbar, data, styles, true, degradedReason, liveNewestFirst)),
+    renderConsole: renderConsoleOverride || ((data, styles) => renderServerPanelView(renderDef, ui?.views?.console || ui?.views?.toolbar, data, styles, true, degradedReason, liveNewestFirst)),
+    renderToolbar: (data, styles) => renderServerPanelView(renderDef, ui?.views?.toolbar || ui?.views?.console, data, styles, false, degradedReason, liveNewestFirst),
     // Custom console panels own their own filtering, so the generic object-key
     // search must not be applied to their structured snapshot payload.
     showFilters: consoleOverride ? false : Boolean(ui?.filters?.length),

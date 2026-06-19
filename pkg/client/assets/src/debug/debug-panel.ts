@@ -329,7 +329,6 @@ export class DebugPanel {
       styles: consoleStyles,
       keyOf: logRowKey,
       renderRow: (entry) => renderLogRow(entry, consoleStyles, { showSource: true, truncateMessage: false }),
-      getItems: () => this.state.logs,
       getRenderOptions: () => ({ newestFirst: this.filters.logs.newestFirst }),
       getMaxEntries: () => this.maxLogEntries,
       shouldDisplay: (entry) => this.logEntryMatchesFilters(entry),
@@ -349,19 +348,18 @@ export class DebugPanel {
           truncatePath: false,
           slowThresholdMs: this.slowThresholdMs,
         }),
-      getItems: () => this.state.requests,
       getRenderOptions: () => ({ newestFirst: this.filters.requests.newestFirst }),
       getMaxEntries: () => this.maxLogEntries,
       shouldDisplay: (entry) => this.requestEntryMatchesFilters(entry),
       onNeedFullRender: () => this.renderPanel(),
-      onAdopt: (root) => attachRequestDetailListeners(root, this.expandedRequests),
+      onAdopt: (root) =>
+        attachRequestDetailListeners(root, this.expandedRequests, { useIconFeedback: true }),
     });
 
     this.jserrorsView = new LiveListView<JSErrorEntry>({
       styles: consoleStyles,
       keyOf: jsErrorRowKey,
       renderRow: (entry) => renderErrorRow(entry, consoleStyles, { compact: false }),
-      getItems: () => (this.state.extra['jserrors'] as JSErrorEntry[]) || [],
       getRenderOptions: () => ({ newestFirst: this.filters.logs.newestFirst }),
       getMaxEntries: () => this.maxLogEntries,
       onNeedFullRender: () => this.renderPanel(),
@@ -382,14 +380,9 @@ export class DebugPanel {
 
     this.registryLiveList = new RegistryLiveListManager({
       styles: consoleStyles,
-      getData: (def) => {
-        const data = this.getStateForKey(getSnapshotKey(def));
-        return Array.isArray(data) ? data : [];
-      },
-      // Schema list renderers paint rows in chronological (array) order — newest
-      // at the bottom — and expose no sort toggle, so live appends must land at
-      // the bottom (and eviction trim the top) to match the full render.
-      getRenderOptions: () => ({ newestFirst: false }),
+      // Sort direction is owned by each panel's `liveList.newestFirst` (the single
+      // source shared with its renderer), so the manager doesn't take a host sort.
+      getRenderOptions: () => ({}),
       shouldDisplay: (def, item) => {
         if (!def.applyFilters) return true;
         const state = this.getPanelFilterState(def.id, def);

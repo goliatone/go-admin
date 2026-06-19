@@ -97,7 +97,7 @@ var QT = (E) => {
   ]
 }) ?? "0 B", lN = (E) => Array.isArray(E) ? E : [], hR = /* @__PURE__ */ wT(((E, T) => {
   var R = (function(A) {
-    var e = /(?:^|\s)lang(?:uage)?-([\w-]+)(?=\s|$)/i, S = 0, N = {}, O = {
+    var e = /(?:^|\s)lang(?:uage)?-([\w-]+)(?=\s|$)/i, S = 0, t = {}, O = {
       manual: A.Prism && A.Prism.manual,
       disableWorkerMessageHandler: A.Prism && A.Prism.disableWorkerMessageHandler,
       util: {
@@ -110,19 +110,19 @@ var QT = (E) => {
         objId: function(C) {
           return C.__id || Object.defineProperty(C, "__id", { value: ++S }), C.__id;
         },
-        clone: function C(r, n) {
-          n = n || {};
-          var i, D;
+        clone: function C(r, _) {
+          _ = _ || {};
+          var D, o;
           switch (O.util.type(r)) {
             case "Object":
-              if (D = O.util.objId(r), n[D]) return n[D];
-              i = {}, n[D] = i;
-              for (var H in r) r.hasOwnProperty(H) && (i[H] = C(r[H], n));
-              return i;
+              if (o = O.util.objId(r), _[o]) return _[o];
+              D = {}, _[o] = D;
+              for (var p in r) r.hasOwnProperty(p) && (D[p] = C(r[p], _));
+              return D;
             case "Array":
-              return D = O.util.objId(r), n[D] ? n[D] : (i = [], n[D] = i, r.forEach(function(c, d) {
-                i[d] = C(c, n);
-              }), i);
+              return o = O.util.objId(r), _[o] ? _[o] : (D = [], _[o] = D, r.forEach(function(c, d) {
+                D[d] = C(c, _);
+              }), D);
             default:
               return r;
           }
@@ -143,55 +143,55 @@ var QT = (E) => {
           if (document.currentScript && document.currentScript.tagName === "SCRIPT") return document.currentScript;
           try {
             throw new Error();
-          } catch (i) {
-            var C = (/at [^(\r\n]*\((.*):[^:]+:[^:]+\)$/i.exec(i.stack) || [])[1];
+          } catch (D) {
+            var C = (/at [^(\r\n]*\((.*):[^:]+:[^:]+\)$/i.exec(D.stack) || [])[1];
             if (C) {
               var r = document.getElementsByTagName("script");
-              for (var n in r) if (r[n].src == C) return r[n];
+              for (var _ in r) if (r[_].src == C) return r[_];
             }
             return null;
           }
         },
-        isActive: function(C, r, n) {
-          for (var i = "no-" + r; C; ) {
-            var D = C.classList;
-            if (D.contains(r)) return !0;
-            if (D.contains(i)) return !1;
+        isActive: function(C, r, _) {
+          for (var D = "no-" + r; C; ) {
+            var o = C.classList;
+            if (o.contains(r)) return !0;
+            if (o.contains(D)) return !1;
             C = C.parentElement;
           }
-          return !!n;
+          return !!_;
         }
       },
       languages: {
-        plain: N,
-        plaintext: N,
-        text: N,
-        txt: N,
+        plain: t,
+        plaintext: t,
+        text: t,
+        txt: t,
         extend: function(C, r) {
-          var n = O.util.clone(O.languages[C]);
-          for (var i in r) n[i] = r[i];
-          return n;
+          var _ = O.util.clone(O.languages[C]);
+          for (var D in r) _[D] = r[D];
+          return _;
         },
-        insertBefore: function(C, r, n, i) {
-          i = i || O.languages;
-          var D = i[C], H = {};
-          for (var c in D) if (D.hasOwnProperty(c)) {
+        insertBefore: function(C, r, _, D) {
+          D = D || O.languages;
+          var o = D[C], p = {};
+          for (var c in o) if (o.hasOwnProperty(c)) {
             if (c == r)
-              for (var d in n) n.hasOwnProperty(d) && (H[d] = n[d]);
-            n.hasOwnProperty(c) || (H[c] = D[c]);
+              for (var d in _) _.hasOwnProperty(d) && (p[d] = _[d]);
+            _.hasOwnProperty(c) || (p[c] = o[c]);
           }
-          var m = i[C];
-          return i[C] = H, O.languages.DFS(O.languages, function(X, NE) {
-            NE === m && X != C && (this[X] = H);
-          }), H;
+          var m = D[C];
+          return D[C] = p, O.languages.DFS(O.languages, function(X, NE) {
+            NE === m && X != C && (this[X] = p);
+          }), p;
         },
-        DFS: function C(r, n, i, D) {
-          D = D || {};
-          var H = O.util.objId;
+        DFS: function C(r, _, D, o) {
+          o = o || {};
+          var p = O.util.objId;
           for (var c in r) if (r.hasOwnProperty(c)) {
-            n.call(r, c, r[c], i || c);
+            _.call(r, c, r[c], D || c);
             var d = r[c], m = O.util.type(d);
-            m === "Object" && !D[H(d)] ? (D[H(d)] = !0, C(d, n, null, D)) : m === "Array" && !D[H(d)] && (D[H(d)] = !0, C(d, n, c, D));
+            m === "Object" && !o[p(d)] ? (o[p(d)] = !0, C(d, _, null, o)) : m === "Array" && !o[p(d)] && (o[p(d)] = !0, C(d, _, c, o));
           }
         }
       },
@@ -199,31 +199,31 @@ var QT = (E) => {
       highlightAll: function(C, r) {
         O.highlightAllUnder(document, C, r);
       },
-      highlightAllUnder: function(C, r, n) {
-        var i = {
-          callback: n,
+      highlightAllUnder: function(C, r, _) {
+        var D = {
+          callback: _,
           container: C,
           selector: 'code[class*="language-"], [class*="language-"] code, code[class*="lang-"], [class*="lang-"] code'
         };
-        O.hooks.run("before-highlightall", i), i.elements = Array.prototype.slice.apply(i.container.querySelectorAll(i.selector)), O.hooks.run("before-all-elements-highlight", i);
-        for (var D = 0, H; H = i.elements[D++]; ) O.highlightElement(H, r === !0, i.callback);
+        O.hooks.run("before-highlightall", D), D.elements = Array.prototype.slice.apply(D.container.querySelectorAll(D.selector)), O.hooks.run("before-all-elements-highlight", D);
+        for (var o = 0, p; p = D.elements[o++]; ) O.highlightElement(p, r === !0, D.callback);
       },
-      highlightElement: function(C, r, n) {
-        var i = O.util.getLanguage(C), D = O.languages[i];
-        O.util.setLanguage(C, i);
-        var H = C.parentElement;
-        H && H.nodeName.toLowerCase() === "pre" && O.util.setLanguage(H, i);
+      highlightElement: function(C, r, _) {
+        var D = O.util.getLanguage(C), o = O.languages[D];
+        O.util.setLanguage(C, D);
+        var p = C.parentElement;
+        p && p.nodeName.toLowerCase() === "pre" && O.util.setLanguage(p, D);
         var c = {
           element: C,
-          language: i,
-          grammar: D,
+          language: D,
+          grammar: o,
           code: C.textContent
         };
         function d(X) {
-          c.highlightedCode = X, O.hooks.run("before-insert", c), c.element.innerHTML = c.highlightedCode, O.hooks.run("after-highlight", c), O.hooks.run("complete", c), n && n.call(c.element);
+          c.highlightedCode = X, O.hooks.run("before-insert", c), c.element.innerHTML = c.highlightedCode, O.hooks.run("after-highlight", c), O.hooks.run("complete", c), _ && _.call(c.element);
         }
-        if (O.hooks.run("before-sanity-check", c), H = c.element.parentElement, H && H.nodeName.toLowerCase() === "pre" && !H.hasAttribute("tabindex") && H.setAttribute("tabindex", "0"), !c.code) {
-          O.hooks.run("complete", c), n && n.call(c.element);
+        if (O.hooks.run("before-sanity-check", c), p = c.element.parentElement, p && p.nodeName.toLowerCase() === "pre" && !p.hasAttribute("tabindex") && p.setAttribute("tabindex", "0"), !c.code) {
+          O.hooks.run("complete", c), _ && _.call(c.element);
           return;
         }
         if (O.hooks.run("before-highlight", c), !c.grammar) {
@@ -241,85 +241,85 @@ var QT = (E) => {
           }));
         } else d(O.highlight(c.code, c.grammar, c.language));
       },
-      highlight: function(C, r, n) {
-        var i = {
+      highlight: function(C, r, _) {
+        var D = {
           code: C,
           grammar: r,
-          language: n
+          language: _
         };
-        if (O.hooks.run("before-tokenize", i), !i.grammar) throw new Error('The language "' + i.language + '" has no grammar.');
-        return i.tokens = O.tokenize(i.code, i.grammar), O.hooks.run("after-tokenize", i), P.stringify(O.util.encode(i.tokens), i.language);
+        if (O.hooks.run("before-tokenize", D), !D.grammar) throw new Error('The language "' + D.language + '" has no grammar.');
+        return D.tokens = O.tokenize(D.code, D.grammar), O.hooks.run("after-tokenize", D), P.stringify(O.util.encode(D.tokens), D.language);
       },
       tokenize: function(C, r) {
-        var n = r.rest;
-        if (n) {
-          for (var i in n) r[i] = n[i];
+        var _ = r.rest;
+        if (_) {
+          for (var D in _) r[D] = _[D];
           delete r.rest;
         }
-        var D = new a();
-        return _(D, D.head, C), t(C, D, r, D.head, 0), B(D);
+        var o = new a();
+        return n(o, o.head, C), N(C, o, r, o.head, 0), H(o);
       },
       hooks: {
         all: {},
         add: function(C, r) {
-          var n = O.hooks.all;
-          n[C] = n[C] || [], n[C].push(r);
+          var _ = O.hooks.all;
+          _[C] = _[C] || [], _[C].push(r);
         },
         run: function(C, r) {
-          var n = O.hooks.all[C];
-          if (!(!n || !n.length))
-            for (var i = 0, D; D = n[i++]; ) D(r);
+          var _ = O.hooks.all[C];
+          if (!(!_ || !_.length))
+            for (var D = 0, o; o = _[D++]; ) o(r);
         }
       },
       Token: P
     };
     A.Prism = O;
-    function P(C, r, n, i) {
-      this.type = C, this.content = r, this.alias = n, this.length = (i || "").length | 0;
+    function P(C, r, _, D) {
+      this.type = C, this.content = r, this.alias = _, this.length = (D || "").length | 0;
     }
-    P.stringify = function C(r, n) {
+    P.stringify = function C(r, _) {
       if (typeof r == "string") return r;
       if (Array.isArray(r)) {
-        var i = "";
+        var D = "";
         return r.forEach(function(m) {
-          i += C(m, n);
-        }), i;
+          D += C(m, _);
+        }), D;
       }
-      var D = {
+      var o = {
         type: r.type,
-        content: C(r.content, n),
+        content: C(r.content, _),
         tag: "span",
         classes: ["token", r.type],
         attributes: {},
-        language: n
-      }, H = r.alias;
-      H && (Array.isArray(H) ? Array.prototype.push.apply(D.classes, H) : D.classes.push(H)), O.hooks.run("wrap", D);
+        language: _
+      }, p = r.alias;
+      p && (Array.isArray(p) ? Array.prototype.push.apply(o.classes, p) : o.classes.push(p)), O.hooks.run("wrap", o);
       var c = "";
-      for (var d in D.attributes) c += " " + d + '="' + (D.attributes[d] || "").replace(/"/g, "&quot;") + '"';
-      return "<" + D.tag + ' class="' + D.classes.join(" ") + '"' + c + ">" + D.content + "</" + D.tag + ">";
+      for (var d in o.attributes) c += " " + d + '="' + (o.attributes[d] || "").replace(/"/g, "&quot;") + '"';
+      return "<" + o.tag + ' class="' + o.classes.join(" ") + '"' + c + ">" + o.content + "</" + o.tag + ">";
     };
-    function M(C, r, n, i) {
+    function M(C, r, _, D) {
       C.lastIndex = r;
-      var D = C.exec(n);
-      if (D && i && D[1]) {
-        var H = D[1].length;
-        D.index += H, D[0] = D[0].slice(H);
+      var o = C.exec(_);
+      if (o && D && o[1]) {
+        var p = o[1].length;
+        o.index += p, o[0] = o[0].slice(p);
       }
-      return D;
+      return o;
     }
-    function t(C, r, n, i, D, H) {
-      for (var c in n)
-        if (!(!n.hasOwnProperty(c) || !n[c])) {
-          var d = n[c];
+    function N(C, r, _, D, o, p) {
+      for (var c in _)
+        if (!(!_.hasOwnProperty(c) || !_[c])) {
+          var d = _[c];
           d = Array.isArray(d) ? d : [d];
           for (var m = 0; m < d.length; ++m) {
-            if (H && H.cause == c + "," + m) return;
+            if (p && p.cause == c + "," + m) return;
             var X = d[m], NE = X.inside, ST = !!X.lookbehind, IT = !!X.greedy, GR = X.alias;
             if (IT && !X.pattern.global) {
               var cR = X.pattern.toString().match(/[imsuy]*$/)[0];
               X.pattern = RegExp(X.pattern.source, cR + "g");
             }
-            for (var OT = X.pattern || X, v = i.next, $ = D; v !== r.tail && !(H && $ >= H.reach); $ += v.value.length, v = v.next) {
+            for (var OT = X.pattern || X, v = D.next, $ = o; v !== r.tail && !(p && $ >= p.reach); $ += v.value.length, v = v.next) {
               var z = v.value;
               if (r.length > C.length) return;
               if (!(z instanceof P)) {
@@ -335,16 +335,16 @@ var QT = (E) => {
                   tE--, z = C.slice($, w), b.index -= $;
                 } else if (b = M(OT, 0, z, ST), !b) continue;
                 var rE = b.index, sE = b[0], UE = z.slice(0, rE), NT = z.slice(rE + sE.length), lE = $ + z.length;
-                H && lE > H.reach && (H.reach = lE);
+                p && lE > p.reach && (p.reach = lE);
                 var LE = v.prev;
-                UE && (LE = _(r, LE, UE), $ += UE.length), o(r, LE, tE);
+                UE && (LE = n(r, LE, UE), $ += UE.length), i(r, LE, tE);
                 var pR = new P(c, NE ? O.tokenize(sE, NE) : sE, GR, sE);
-                if (v = _(r, LE, pR), NT && _(r, v, NT), tE > 1) {
+                if (v = n(r, LE, pR), NT && n(r, v, NT), tE > 1) {
                   var uE = {
                     cause: c + "," + m,
                     reach: lE
                   };
-                  t(C, r, n, v.prev, $, uE), H && uE.reach > H.reach && (H.reach = uE.reach);
+                  N(C, r, _, v.prev, $, uE), p && uE.reach > p.reach && (p.reach = uE.reach);
                 }
               }
             }
@@ -363,27 +363,27 @@ var QT = (E) => {
       };
       C.next = r, this.head = C, this.tail = r, this.length = 0;
     }
-    function _(C, r, n) {
-      var i = r.next, D = {
-        value: n,
+    function n(C, r, _) {
+      var D = r.next, o = {
+        value: _,
         prev: r,
-        next: i
+        next: D
       };
-      return r.next = D, i.prev = D, C.length++, D;
+      return r.next = o, D.prev = o, C.length++, o;
     }
-    function o(C, r, n) {
-      for (var i = r.next, D = 0; D < n && i !== C.tail; D++) i = i.next;
-      r.next = i, i.prev = r, C.length -= D;
+    function i(C, r, _) {
+      for (var D = r.next, o = 0; o < _ && D !== C.tail; o++) D = D.next;
+      r.next = D, D.prev = r, C.length -= o;
     }
-    function B(C) {
-      for (var r = [], n = C.head.next; n !== C.tail; )
-        r.push(n.value), n = n.next;
+    function H(C) {
+      for (var r = [], _ = C.head.next; _ !== C.tail; )
+        r.push(_.value), _ = _.next;
       return r;
     }
     if (!A.document)
       return A.addEventListener && (O.disableWorkerMessageHandler || A.addEventListener("message", function(C) {
-        var r = JSON.parse(C.data), n = r.language, i = r.code, D = r.immediateClose;
-        A.postMessage(O.highlight(i, O.languages[n], n)), D && A.close();
+        var r = JSON.parse(C.data), _ = r.language, D = r.code, o = r.immediateClose;
+        A.postMessage(O.highlight(D, O.languages[_], _)), o && A.close();
       }, !1)), O;
     var U = O.util.currentScript();
     U && (O.filename = U.src, U.hasAttribute("data-manual") && (O.manual = !0));
@@ -464,15 +464,15 @@ var QT = (E) => {
   }, R.languages.markup.tag.inside["attr-value"].inside.entity = R.languages.markup.entity, R.languages.markup.doctype.inside["internal-subset"].inside = R.languages.markup, R.hooks.add("wrap", function(A) {
     A.type === "entity" && (A.attributes.title = A.content.replace(/&amp;/, "&"));
   }), Object.defineProperty(R.languages.markup.tag, "addInlined", { value: function(e, S) {
-    var N = {};
-    N["language-" + S] = {
+    var t = {};
+    t["language-" + S] = {
       pattern: /(^<!\[CDATA\[)[\s\S]+?(?=\]\]>$)/i,
       lookbehind: !0,
       inside: R.languages[S]
-    }, N.cdata = /^<!\[CDATA\[|\]\]>$/i;
+    }, t.cdata = /^<!\[CDATA\[|\]\]>$/i;
     var O = { "included-cdata": {
       pattern: /<!\[CDATA\[[\s\S]*?\]\]>/i,
-      inside: N
+      inside: t
     } };
     O["language-" + S] = {
       pattern: /[\s\S]+/,
@@ -691,7 +691,7 @@ var QT = (E) => {
     Element.prototype.matches || (Element.prototype.matches = Element.prototype.msMatchesSelector || Element.prototype.webkitMatchesSelector);
     var A = "Loading…", e = function(U, G) {
       return "✖ Error " + U + " while fetching file: " + G;
-    }, S = "✖ Error: File does not exist or is empty", N = {
+    }, S = "✖ Error: File does not exist or is empty", t = {
       js: "javascript",
       py: "python",
       rb: "ruby",
@@ -701,14 +701,14 @@ var QT = (E) => {
       bat: "batch",
       h: "c",
       tex: "latex"
-    }, O = "data-src-status", P = "loading", M = "loaded", t = "failed", a = "pre[data-src]:not([" + O + '="' + M + '"]):not([' + O + '="' + P + '"])';
-    function _(U, G, F) {
+    }, O = "data-src-status", P = "loading", M = "loaded", N = "failed", a = "pre[data-src]:not([" + O + '="' + M + '"]):not([' + O + '="' + P + '"])';
+    function n(U, G, F) {
       var C = new XMLHttpRequest();
       C.open("GET", U, !0), C.onreadystatechange = function() {
         C.readyState == 4 && (C.status < 400 && C.responseText ? G(C.responseText) : C.status >= 400 ? F(e(C.status, C.statusText)) : F(S));
       }, C.send(null);
     }
-    function o(U) {
+    function i(U) {
       var G = /^\s*(\d+)\s*(?:(,)\s*(?:(\d+)\s*)?)?$/.exec(U || "");
       if (G) {
         var F = Number(G[1]), C = G[2], r = G[3];
@@ -725,30 +725,30 @@ var QT = (E) => {
         F.textContent = A;
         var C = G.getAttribute("data-src"), r = U.language;
         if (r === "none") {
-          var n = (/\.(\w+)$/.exec(C) || [, "none"])[1];
-          r = N[n] || n;
+          var _ = (/\.(\w+)$/.exec(C) || [, "none"])[1];
+          r = t[_] || _;
         }
         R.util.setLanguage(F, r), R.util.setLanguage(G, r);
-        var i = R.plugins.autoloader;
-        i && i.loadLanguages(r), _(C, function(D) {
+        var D = R.plugins.autoloader;
+        D && D.loadLanguages(r), n(C, function(o) {
           G.setAttribute(O, M);
-          var H = o(G.getAttribute("data-range"));
-          if (H) {
-            var c = D.split(/\r\n?|\n/g), d = H[0], m = H[1] == null ? c.length : H[1];
-            d < 0 && (d += c.length), d = Math.max(0, Math.min(d - 1, c.length)), m < 0 && (m += c.length), m = Math.max(0, Math.min(m, c.length)), D = c.slice(d, m).join(`
+          var p = i(G.getAttribute("data-range"));
+          if (p) {
+            var c = o.split(/\r\n?|\n/g), d = p[0], m = p[1] == null ? c.length : p[1];
+            d < 0 && (d += c.length), d = Math.max(0, Math.min(d - 1, c.length)), m < 0 && (m += c.length), m = Math.max(0, Math.min(m, c.length)), o = c.slice(d, m).join(`
 `), G.hasAttribute("data-start") || G.setAttribute("data-start", String(d + 1));
           }
-          F.textContent = D, R.highlightElement(F);
-        }, function(D) {
-          G.setAttribute(O, t), F.textContent = D;
+          F.textContent = o, R.highlightElement(F);
+        }, function(o) {
+          G.setAttribute(O, N), F.textContent = o;
         });
       }
     }), R.plugins.fileHighlight = { highlight: function(G) {
       for (var F = (G || document).querySelectorAll(a), C = 0, r; r = F[C++]; ) R.highlightElement(r);
     } };
-    var B = !1;
+    var H = !1;
     R.fileHighlight = function() {
-      B || (console.warn("Prism.fileHighlight is deprecated. Use `Prism.plugins.fileHighlight.highlight` instead."), B = !0), R.plugins.fileHighlight.highlight.apply(this, arguments);
+      H || (console.warn("Prism.fileHighlight is deprecated. Use `Prism.plugins.fileHighlight.highlight` instead."), H = !0), R.plugins.fileHighlight.highlight.apply(this, arguments);
     };
   })();
 })), I = (E) => E.flatMap(fR), fR = (E) => CE(yR(E)).map(VR), VR = (E) => E.replace(/ +/g, " ").trim(), yR = (E) => ({
@@ -1672,11 +1672,11 @@ function RA(E) {
   for (let A = 0; A < E.length; A++) {
     const e = E[A];
     if ((Z.ARRAY(e) || Z.STRUCT(e)) && ((T = E[A + 1]) === null || T === void 0 ? void 0 : T.text) === "<") {
-      const S = AA(E, A + 1), N = E.slice(A, S + 1);
+      const S = AA(E, A + 1), t = E.slice(A, S + 1);
       R.push({
         type: L.IDENTIFIER,
-        raw: N.map(rT("raw")).join(""),
-        text: N.map(rT("text")).join(""),
+        raw: t.map(rT("raw")).join(""),
+        text: t.map(rT("text")).join(""),
         start: e.start
       }), A = S;
     } else R.push(e);
@@ -18388,7 +18388,7 @@ var pS = [
   "{}": String.raw`(?:\{[^\}]*\})`,
   "q''": XI()
 }, TR = (E) => typeof E == "string" ? mT[E] : "regex" in E ? E.regex : yI(E) + mT[E.quote], vI = (E) => j(E.map((T) => "regex" in T ? T.regex : TR(T)).join("|")), RR = (E) => E.map(TR).join("|"), hT = (E) => j(RR(E)), bI = (E = {}) => j(AR(E)), AR = ({ first: E, rest: T, dashes: R, allowFirstCharNumber: A } = {}) => {
-  const e = "\\p{Alphabetic}\\p{Mark}_", S = "\\p{Decimal_Number}", N = K(E ?? ""), O = K(T ?? ""), P = A ? `[${e}${S}${N}][${e}${S}${O}]*` : `[${e}${N}][${e}${S}${O}]*`;
+  const e = "\\p{Alphabetic}\\p{Mark}_", S = "\\p{Decimal_Number}", t = K(E ?? ""), O = K(T ?? ""), P = A ? `[${e}${S}${t}][${e}${S}${O}]*` : `[${e}${t}][${e}${S}${O}]*`;
   return R ? VI(P) : P;
 };
 function eR(E, T) {
@@ -18665,13 +18665,13 @@ If possible, please select a more specific dialect (like sqlite, postgresql, etc
     ]);
   }
   buildParamRules(E, T) {
-    var R, A, e, S, N;
+    var R, A, e, S, t;
     const O = {
       named: T?.named || ((R = E.paramTypes) === null || R === void 0 ? void 0 : R.named) || [],
       quoted: T?.quoted || ((A = E.paramTypes) === null || A === void 0 ? void 0 : A.quoted) || [],
       numbered: T?.numbered || ((e = E.paramTypes) === null || e === void 0 ? void 0 : e.numbered) || [],
       positional: typeof T?.positional == "boolean" ? T.positional : (S = E.paramTypes) === null || S === void 0 ? void 0 : S.positional,
-      custom: T?.custom || ((N = E.paramTypes) === null || N === void 0 ? void 0 : N.custom) || []
+      custom: T?.custom || ((t = E.paramTypes) === null || t === void 0 ? void 0 : t.custom) || []
     };
     return this.validRules([
       {
@@ -18682,7 +18682,7 @@ If possible, please select a more specific dialect (like sqlite, postgresql, etc
       {
         type: L.QUOTED_PARAMETER,
         regex: xE(O.quoted, RR(E.identTypes)),
-        key: (P) => (({ tokenKey: M, quoteChar: t }) => M.replace(new RegExp(K("\\" + t), "gu"), t))({
+        key: (P) => (({ tokenKey: M, quoteChar: N }) => M.replace(new RegExp(K("\\" + N), "gu"), N))({
           tokenKey: P.slice(2, -1),
           quoteChar: P.slice(-1)
         })
@@ -18701,7 +18701,7 @@ If possible, please select a more specific dialect (like sqlite, postgresql, etc
         return {
           type: L.CUSTOM_PARAMETER,
           regex: j(P.regex),
-          key: (M = P.key) !== null && M !== void 0 ? M : ((t) => t)
+          key: (M = P.key) !== null && M !== void 0 ? M : ((N) => N)
         };
       })
     ]);
@@ -18746,36 +18746,36 @@ var jI = class {
   (function(R, A) {
     typeof T == "object" && T.exports ? T.exports = A() : R.nearley = A();
   })(E, function() {
-    function R(t, a, _) {
-      return this.id = ++R.highestId, this.name = t, this.symbols = a, this.postprocess = _, this;
+    function R(N, a, n) {
+      return this.id = ++R.highestId, this.name = N, this.symbols = a, this.postprocess = n, this;
     }
-    R.highestId = 0, R.prototype.toString = function(t) {
-      var a = typeof t > "u" ? this.symbols.map(M).join(" ") : this.symbols.slice(0, t).map(M).join(" ") + " ● " + this.symbols.slice(t).map(M).join(" ");
+    R.highestId = 0, R.prototype.toString = function(N) {
+      var a = typeof N > "u" ? this.symbols.map(M).join(" ") : this.symbols.slice(0, N).map(M).join(" ") + " ● " + this.symbols.slice(N).map(M).join(" ");
       return this.name + " → " + a;
     };
-    function A(t, a, _, o) {
-      this.rule = t, this.dot = a, this.reference = _, this.data = [], this.wantedBy = o, this.isComplete = this.dot === t.symbols.length;
+    function A(N, a, n, i) {
+      this.rule = N, this.dot = a, this.reference = n, this.data = [], this.wantedBy = i, this.isComplete = this.dot === N.symbols.length;
     }
     A.prototype.toString = function() {
       return "{" + this.rule.toString(this.dot) + "}, from: " + (this.reference || 0);
-    }, A.prototype.nextState = function(t) {
+    }, A.prototype.nextState = function(N) {
       var a = new A(this.rule, this.dot + 1, this.reference, this.wantedBy);
-      return a.left = this, a.right = t, a.isComplete && (a.data = a.build(), a.right = void 0), a;
+      return a.left = this, a.right = N, a.isComplete && (a.data = a.build(), a.right = void 0), a;
     }, A.prototype.build = function() {
-      var t = [], a = this;
+      var N = [], a = this;
       do
-        t.push(a.right.data), a = a.left;
+        N.push(a.right.data), a = a.left;
       while (a.left);
-      return t.reverse(), t;
+      return N.reverse(), N;
     }, A.prototype.finish = function() {
       this.rule.postprocess && (this.data = this.rule.postprocess(this.data, this.reference, O.fail));
     };
-    function e(t, a) {
-      this.grammar = t, this.index = a, this.states = [], this.wants = {}, this.scannable = [], this.completed = {};
+    function e(N, a) {
+      this.grammar = N, this.index = a, this.states = [], this.wants = {}, this.scannable = [], this.completed = {};
     }
-    e.prototype.process = function(t) {
-      for (var a = this.states, _ = this.wants, o = this.completed, B = 0; B < a.length; B++) {
-        var U = a[B];
+    e.prototype.process = function(N) {
+      for (var a = this.states, n = this.wants, i = this.completed, H = 0; H < a.length; H++) {
+        var U = a[H];
         if (U.isComplete) {
           if (U.finish(), U.data !== O.fail) {
             for (var G = U.wantedBy, F = G.length; F--; ) {
@@ -18793,197 +18793,197 @@ var jI = class {
             this.scannable.push(U);
             continue;
           }
-          if (_[r]) {
-            if (_[r].push(U), o.hasOwnProperty(r))
-              for (var n = o[r], F = 0; F < n.length; F++) {
-                var i = n[F];
-                this.complete(U, i);
+          if (n[r]) {
+            if (n[r].push(U), i.hasOwnProperty(r))
+              for (var _ = i[r], F = 0; F < _.length; F++) {
+                var D = _[F];
+                this.complete(U, D);
               }
           } else
-            _[r] = [U], this.predict(r);
+            n[r] = [U], this.predict(r);
         }
       }
-    }, e.prototype.predict = function(t) {
-      for (var a = this.grammar.byName[t] || [], _ = 0; _ < a.length; _++) {
-        var o = a[_], B = this.wants[t], U = new A(o, 0, this.index, B);
+    }, e.prototype.predict = function(N) {
+      for (var a = this.grammar.byName[N] || [], n = 0; n < a.length; n++) {
+        var i = a[n], H = this.wants[N], U = new A(i, 0, this.index, H);
         this.states.push(U);
       }
-    }, e.prototype.complete = function(t, a) {
-      var _ = t.nextState(a);
-      this.states.push(_);
+    }, e.prototype.complete = function(N, a) {
+      var n = N.nextState(a);
+      this.states.push(n);
     };
-    function S(t, a) {
-      this.rules = t, this.start = a || this.rules[0].name;
-      var _ = this.byName = {};
-      this.rules.forEach(function(o) {
-        _.hasOwnProperty(o.name) || (_[o.name] = []), _[o.name].push(o);
+    function S(N, a) {
+      this.rules = N, this.start = a || this.rules[0].name;
+      var n = this.byName = {};
+      this.rules.forEach(function(i) {
+        n.hasOwnProperty(i.name) || (n[i.name] = []), n[i.name].push(i);
       });
     }
-    S.fromCompiled = function(o, a) {
-      var _ = o.Lexer;
-      o.ParserStart && (a = o.ParserStart, o = o.ParserRules);
-      var o = o.map(function(U) {
+    S.fromCompiled = function(i, a) {
+      var n = i.Lexer;
+      i.ParserStart && (a = i.ParserStart, i = i.ParserRules);
+      var i = i.map(function(U) {
         return new R(U.name, U.symbols, U.postprocess);
-      }), B = new S(o, a);
-      return B.lexer = _, B;
+      }), H = new S(i, a);
+      return H.lexer = n, H;
     };
-    function N() {
+    function t() {
       this.reset("");
     }
-    N.prototype.reset = function(t, a) {
-      this.buffer = t, this.index = 0, this.line = a ? a.line : 1, this.lastLineBreak = a ? -a.col : 0;
-    }, N.prototype.next = function() {
+    t.prototype.reset = function(N, a) {
+      this.buffer = N, this.index = 0, this.line = a ? a.line : 1, this.lastLineBreak = a ? -a.col : 0;
+    }, t.prototype.next = function() {
       if (this.index < this.buffer.length) {
-        var t = this.buffer[this.index++];
-        return t === `
-` && (this.line += 1, this.lastLineBreak = this.index), { value: t };
+        var N = this.buffer[this.index++];
+        return N === `
+` && (this.line += 1, this.lastLineBreak = this.index), { value: N };
       }
-    }, N.prototype.save = function() {
+    }, t.prototype.save = function() {
       return {
         line: this.line,
         col: this.index - this.lastLineBreak
       };
-    }, N.prototype.formatError = function(t, a) {
-      var _ = this.buffer;
-      if (typeof _ == "string") {
-        var o = _.split(`
-`).slice(Math.max(0, this.line - 5), this.line), B = _.indexOf(`
+    }, t.prototype.formatError = function(N, a) {
+      var n = this.buffer;
+      if (typeof n == "string") {
+        var i = n.split(`
+`).slice(Math.max(0, this.line - 5), this.line), H = n.indexOf(`
 `, this.index);
-        B === -1 && (B = _.length);
+        H === -1 && (H = n.length);
         var U = this.index - this.lastLineBreak, G = String(this.line).length;
         return a += " at line " + this.line + " col " + U + `:
 
-`, a += o.map(function(C, r) {
-          return F(this.line - o.length + r + 1, G) + " " + C;
+`, a += i.map(function(C, r) {
+          return F(this.line - i.length + r + 1, G) + " " + C;
         }, this).join(`
 `), a += `
 ` + F("", G + U) + `^
 `, a;
       } else return a + " at index " + (this.index - 1);
       function F(C, r) {
-        var n = String(C);
-        return Array(r - n.length + 1).join(" ") + n;
+        var _ = String(C);
+        return Array(r - _.length + 1).join(" ") + _;
       }
     };
-    function O(t, a, _) {
-      if (t instanceof S)
-        var o = t, _ = a;
-      else var o = S.fromCompiled(t, a);
-      this.grammar = o, this.options = {
+    function O(N, a, n) {
+      if (N instanceof S)
+        var i = N, n = a;
+      else var i = S.fromCompiled(N, a);
+      this.grammar = i, this.options = {
         keepHistory: !1,
-        lexer: o.lexer || new N()
+        lexer: i.lexer || new t()
       };
-      for (var B in _ || {}) this.options[B] = _[B];
+      for (var H in n || {}) this.options[H] = n[H];
       this.lexer = this.options.lexer, this.lexerState = void 0;
-      var U = new e(o, 0);
-      this.table = [U], U.wants[o.start] = [], U.predict(o.start), U.process(), this.current = 0;
+      var U = new e(i, 0);
+      this.table = [U], U.wants[i.start] = [], U.predict(i.start), U.process(), this.current = 0;
     }
-    O.fail = {}, O.prototype.feed = function(t) {
+    O.fail = {}, O.prototype.feed = function(N) {
       var a = this.lexer;
-      a.reset(t, this.lexerState);
-      for (var _; ; ) {
+      a.reset(N, this.lexerState);
+      for (var n; ; ) {
         try {
-          if (_ = a.next(), !_) break;
+          if (n = a.next(), !n) break;
         } catch (c) {
           var G = new e(this.grammar, this.current + 1);
           this.table.push(G);
-          var o = new Error(this.reportLexerError(c));
-          throw o.offset = this.current, o.token = c.token, o;
+          var i = new Error(this.reportLexerError(c));
+          throw i.offset = this.current, i.token = c.token, i;
         }
-        var B = this.table[this.current];
+        var H = this.table[this.current];
         this.options.keepHistory || delete this.table[this.current - 1];
         var U = this.current + 1, G = new e(this.grammar, U);
         this.table.push(G);
-        for (var F = _.text !== void 0 ? _.text : _.value, C = a.constructor === N ? _.value : _, r = B.scannable, n = r.length; n--; ) {
-          var i = r[n], D = i.rule.symbols[i.dot];
-          if (D.test ? D.test(C) : D.type ? D.type === _.type : D.literal === F) {
-            var H = i.nextState({
+        for (var F = n.text !== void 0 ? n.text : n.value, C = a.constructor === t ? n.value : n, r = H.scannable, _ = r.length; _--; ) {
+          var D = r[_], o = D.rule.symbols[D.dot];
+          if (o.test ? o.test(C) : o.type ? o.type === n.type : o.literal === F) {
+            var p = D.nextState({
               data: C,
-              token: _,
+              token: n,
               isToken: !0,
               reference: U - 1
             });
-            G.states.push(H);
+            G.states.push(p);
           }
         }
         if (G.process(), G.states.length === 0) {
-          var o = new Error(this.reportError(_));
-          throw o.offset = this.current, o.token = _, o;
+          var i = new Error(this.reportError(n));
+          throw i.offset = this.current, i.token = n, i;
         }
-        this.options.keepHistory && (B.lexerState = a.save()), this.current++;
+        this.options.keepHistory && (H.lexerState = a.save()), this.current++;
       }
-      return B && (this.lexerState = a.save()), this.results = this.finish(), this;
-    }, O.prototype.reportLexerError = function(t) {
-      var a, _, o = t.token;
-      return o ? (a = "input " + JSON.stringify(o.text[0]) + " (lexer error)", _ = this.lexer.formatError(o, "Syntax error")) : (a = "input (lexer error)", _ = t.message), this.reportErrorCommon(_, a);
-    }, O.prototype.reportError = function(t) {
-      var a = (t.type ? t.type + " token: " : "") + JSON.stringify(t.value !== void 0 ? t.value : t), _ = this.lexer.formatError(t, "Syntax error");
-      return this.reportErrorCommon(_, a);
-    }, O.prototype.reportErrorCommon = function(t, a) {
-      var _ = [];
-      _.push(t);
-      var o = this.table.length - 2, B = this.table[o], U = B.states.filter(function(G) {
+      return H && (this.lexerState = a.save()), this.results = this.finish(), this;
+    }, O.prototype.reportLexerError = function(N) {
+      var a, n, i = N.token;
+      return i ? (a = "input " + JSON.stringify(i.text[0]) + " (lexer error)", n = this.lexer.formatError(i, "Syntax error")) : (a = "input (lexer error)", n = N.message), this.reportErrorCommon(n, a);
+    }, O.prototype.reportError = function(N) {
+      var a = (N.type ? N.type + " token: " : "") + JSON.stringify(N.value !== void 0 ? N.value : N), n = this.lexer.formatError(N, "Syntax error");
+      return this.reportErrorCommon(n, a);
+    }, O.prototype.reportErrorCommon = function(N, a) {
+      var n = [];
+      n.push(N);
+      var i = this.table.length - 2, H = this.table[i], U = H.states.filter(function(G) {
         var F = G.rule.symbols[G.dot];
         return F && typeof F != "string";
       });
-      return U.length === 0 ? (_.push("Unexpected " + a + `. I did not expect any more input. Here is the state of my parse table:
-`), this.displayStateStack(B.states, _)) : (_.push("Unexpected " + a + `. Instead, I was expecting to see one of the following:
+      return U.length === 0 ? (n.push("Unexpected " + a + `. I did not expect any more input. Here is the state of my parse table:
+`), this.displayStateStack(H.states, n)) : (n.push("Unexpected " + a + `. Instead, I was expecting to see one of the following:
 `), U.map(function(G) {
         return this.buildFirstStateStack(G, []) || [G];
       }, this).forEach(function(G) {
         var F = G[0], C = F.rule.symbols[F.dot], r = this.getSymbolDisplay(C);
-        _.push("A " + r + " based on:"), this.displayStateStack(G, _);
-      }, this)), _.push(""), _.join(`
+        n.push("A " + r + " based on:"), this.displayStateStack(G, n);
+      }, this)), n.push(""), n.join(`
 `);
-    }, O.prototype.displayStateStack = function(t, a) {
-      for (var _, o = 0, B = 0; B < t.length; B++) {
-        var U = t[B], G = U.rule.toString(U.dot);
-        G === _ ? o++ : (o > 0 && a.push("    ^ " + o + " more lines identical to this"), o = 0, a.push("    " + G)), _ = G;
+    }, O.prototype.displayStateStack = function(N, a) {
+      for (var n, i = 0, H = 0; H < N.length; H++) {
+        var U = N[H], G = U.rule.toString(U.dot);
+        G === n ? i++ : (i > 0 && a.push("    ^ " + i + " more lines identical to this"), i = 0, a.push("    " + G)), n = G;
       }
-    }, O.prototype.getSymbolDisplay = function(t) {
-      return P(t);
-    }, O.prototype.buildFirstStateStack = function(t, a) {
-      if (a.indexOf(t) !== -1) return null;
-      if (t.wantedBy.length === 0) return [t];
-      var _ = t.wantedBy[0], o = [t].concat(a), B = this.buildFirstStateStack(_, o);
-      return B === null ? null : [t].concat(B);
+    }, O.prototype.getSymbolDisplay = function(N) {
+      return P(N);
+    }, O.prototype.buildFirstStateStack = function(N, a) {
+      if (a.indexOf(N) !== -1) return null;
+      if (N.wantedBy.length === 0) return [N];
+      var n = N.wantedBy[0], i = [N].concat(a), H = this.buildFirstStateStack(n, i);
+      return H === null ? null : [N].concat(H);
     }, O.prototype.save = function() {
-      var t = this.table[this.current];
-      return t.lexerState = this.lexerState, t;
-    }, O.prototype.restore = function(t) {
-      var a = t.index;
-      this.current = a, this.table[a] = t, this.table.splice(a + 1), this.lexerState = t.lexerState, this.results = this.finish();
-    }, O.prototype.rewind = function(t) {
+      var N = this.table[this.current];
+      return N.lexerState = this.lexerState, N;
+    }, O.prototype.restore = function(N) {
+      var a = N.index;
+      this.current = a, this.table[a] = N, this.table.splice(a + 1), this.lexerState = N.lexerState, this.results = this.finish();
+    }, O.prototype.rewind = function(N) {
       if (!this.options.keepHistory) throw new Error("set option `keepHistory` to enable rewinding");
-      this.restore(this.table[t]);
+      this.restore(this.table[N]);
     }, O.prototype.finish = function() {
-      var t = [], a = this.grammar.start;
-      return this.table[this.table.length - 1].states.forEach(function(_) {
-        _.rule.name === a && _.dot === _.rule.symbols.length && _.reference === 0 && _.data !== O.fail && t.push(_);
-      }), t.map(function(_) {
-        return _.data;
+      var N = [], a = this.grammar.start;
+      return this.table[this.table.length - 1].states.forEach(function(n) {
+        n.rule.name === a && n.dot === n.rule.symbols.length && n.reference === 0 && n.data !== O.fail && N.push(n);
+      }), N.map(function(n) {
+        return n.data;
       });
     };
-    function P(t) {
-      var a = typeof t;
-      if (a === "string") return t;
+    function P(N) {
+      var a = typeof N;
+      if (a === "string") return N;
       if (a === "object") {
-        if (t.literal) return JSON.stringify(t.literal);
-        if (t instanceof RegExp) return "character matching " + t;
-        if (t.type) return t.type + " token";
-        if (t.test) return "token matching " + String(t.test);
-        throw new Error("Unknown symbol type: " + t);
+        if (N.literal) return JSON.stringify(N.literal);
+        if (N instanceof RegExp) return "character matching " + N;
+        if (N.type) return N.type + " token";
+        if (N.test) return "token matching " + String(N.test);
+        throw new Error("Unknown symbol type: " + N);
       }
     }
-    function M(t) {
-      var a = typeof t;
-      if (a === "string") return t;
+    function M(N) {
+      var a = typeof N;
+      if (a === "string") return N;
       if (a === "object") {
-        if (t.literal) return JSON.stringify(t.literal);
-        if (t instanceof RegExp) return t.toString();
-        if (t.type) return "%" + t.type;
-        if (t.test) return "<" + String(t.test) + ">";
-        throw new Error("Unknown symbol type: " + t);
+        if (N.literal) return JSON.stringify(N.literal);
+        if (N instanceof RegExp) return N.toString();
+        if (N.type) return "%" + N.type;
+        if (N.test) return "<" + String(N.test) + ">";
+        throw new Error("Unknown symbol type: " + N);
       }
     }
     return {
@@ -19067,7 +19067,7 @@ var TO = (E, T, R) => {
 function JE(E) {
   return E[0];
 }
-var p = new NR((E) => []), q = ([[E]]) => E, V = (E) => ({
+var B = new NR((E) => []), q = ([[E]]) => E, V = (E) => ({
   type: u.keyword,
   tokenType: E.type,
   text: E.text,
@@ -19087,7 +19087,7 @@ var p = new NR((E) => []), q = ([[E]]) => E, V = (E) => ({
   }
   return E;
 }, tO = {
-  Lexer: p,
+  Lexer: B,
   ParserRules: [
     {
       name: "main$ebnf$1",
@@ -19108,11 +19108,11 @@ var p = new NR((E) => []), q = ([[E]]) => E, V = (E) => ({
     },
     {
       name: "statement$subexpression$1",
-      symbols: [p.has("DELIMITER") ? { type: "DELIMITER" } : DELIMITER]
+      symbols: [B.has("DELIMITER") ? { type: "DELIMITER" } : DELIMITER]
     },
     {
       name: "statement$subexpression$1",
-      symbols: [p.has("EOF") ? { type: "EOF" } : EOF]
+      symbols: [B.has("EOF") ? { type: "EOF" } : EOF]
     },
     {
       name: "statement",
@@ -19178,7 +19178,7 @@ var p = new NR((E) => []), q = ([[E]]) => E, V = (E) => ({
     },
     {
       name: "limit_clause$ebnf$1$subexpression$1",
-      symbols: [p.has("COMMA") ? { type: "COMMA" } : COMMA, "limit_clause$ebnf$1$subexpression$1$ebnf$1"]
+      symbols: [B.has("COMMA") ? { type: "COMMA" } : COMMA, "limit_clause$ebnf$1$subexpression$1$ebnf$1"]
     },
     {
       name: "limit_clause$ebnf$1",
@@ -19193,7 +19193,7 @@ var p = new NR((E) => []), q = ([[E]]) => E, V = (E) => ({
     {
       name: "limit_clause",
       symbols: [
-        p.has("LIMIT") ? { type: "LIMIT" } : LIMIT,
+        B.has("LIMIT") ? { type: "LIMIT" } : LIMIT,
         "_",
         "expression_chain_",
         "limit_clause$ebnf$1"
@@ -19242,7 +19242,7 @@ var p = new NR((E) => []), q = ([[E]]) => E, V = (E) => ({
     },
     {
       name: "select_clause",
-      symbols: [p.has("RESERVED_SELECT") ? { type: "RESERVED_SELECT" } : RESERVED_SELECT, "select_clause$subexpression$1"],
+      symbols: [B.has("RESERVED_SELECT") ? { type: "RESERVED_SELECT" } : RESERVED_SELECT, "select_clause$subexpression$1"],
       postprocess: ([E, [T, R]]) => ({
         type: u.clause,
         nameKw: V(E),
@@ -19251,7 +19251,7 @@ var p = new NR((E) => []), q = ([[E]]) => E, V = (E) => ({
     },
     {
       name: "select_clause",
-      symbols: [p.has("RESERVED_SELECT") ? { type: "RESERVED_SELECT" } : RESERVED_SELECT],
+      symbols: [B.has("RESERVED_SELECT") ? { type: "RESERVED_SELECT" } : RESERVED_SELECT],
       postprocess: ([E]) => ({
         type: u.clause,
         nameKw: V(E),
@@ -19260,7 +19260,7 @@ var p = new NR((E) => []), q = ([[E]]) => E, V = (E) => ({
     },
     {
       name: "all_columns_asterisk",
-      symbols: [p.has("ASTERISK") ? { type: "ASTERISK" } : ASTERISK],
+      symbols: [B.has("ASTERISK") ? { type: "ASTERISK" } : ASTERISK],
       postprocess: () => ({ type: u.all_columns_asterisk })
     },
     {
@@ -19274,7 +19274,7 @@ var p = new NR((E) => []), q = ([[E]]) => E, V = (E) => ({
     },
     {
       name: "other_clause",
-      symbols: [p.has("RESERVED_CLAUSE") ? { type: "RESERVED_CLAUSE" } : RESERVED_CLAUSE, "other_clause$ebnf$1"],
+      symbols: [B.has("RESERVED_CLAUSE") ? { type: "RESERVED_CLAUSE" } : RESERVED_CLAUSE, "other_clause$ebnf$1"],
       postprocess: ([E, T]) => ({
         type: u.clause,
         nameKw: V(E),
@@ -19292,7 +19292,7 @@ var p = new NR((E) => []), q = ([[E]]) => E, V = (E) => ({
     },
     {
       name: "set_operation",
-      symbols: [p.has("RESERVED_SET_OPERATION") ? { type: "RESERVED_SET_OPERATION" } : RESERVED_SET_OPERATION, "set_operation$ebnf$1"],
+      symbols: [B.has("RESERVED_SET_OPERATION") ? { type: "RESERVED_SET_OPERATION" } : RESERVED_SET_OPERATION, "set_operation$ebnf$1"],
       postprocess: ([E, T]) => ({
         type: u.set_operation,
         nameKw: V(E),
@@ -19493,7 +19493,7 @@ var p = new NR((E) => []), q = ([[E]]) => E, V = (E) => ({
     {
       name: "array_subscript",
       symbols: [
-        p.has("ARRAY_IDENTIFIER") ? { type: "ARRAY_IDENTIFIER" } : ARRAY_IDENTIFIER,
+        B.has("ARRAY_IDENTIFIER") ? { type: "ARRAY_IDENTIFIER" } : ARRAY_IDENTIFIER,
         "_",
         "square_brackets"
       ],
@@ -19510,7 +19510,7 @@ var p = new NR((E) => []), q = ([[E]]) => E, V = (E) => ({
     {
       name: "array_subscript",
       symbols: [
-        p.has("ARRAY_KEYWORD") ? { type: "ARRAY_KEYWORD" } : ARRAY_KEYWORD,
+        B.has("ARRAY_KEYWORD") ? { type: "ARRAY_KEYWORD" } : ARRAY_KEYWORD,
         "_",
         "square_brackets"
       ],
@@ -19523,7 +19523,7 @@ var p = new NR((E) => []), q = ([[E]]) => E, V = (E) => ({
     {
       name: "function_call",
       symbols: [
-        p.has("RESERVED_FUNCTION_NAME") ? { type: "RESERVED_FUNCTION_NAME" } : RESERVED_FUNCTION_NAME,
+        B.has("RESERVED_FUNCTION_NAME") ? { type: "RESERVED_FUNCTION_NAME" } : RESERVED_FUNCTION_NAME,
         "_",
         "parenthesis"
       ],
@@ -19614,7 +19614,7 @@ var p = new NR((E) => []), q = ([[E]]) => E, V = (E) => ({
       symbols: [
         "atomic_expression",
         "_",
-        p.has("PROPERTY_ACCESS_OPERATOR") ? { type: "PROPERTY_ACCESS_OPERATOR" } : PROPERTY_ACCESS_OPERATOR,
+        B.has("PROPERTY_ACCESS_OPERATOR") ? { type: "PROPERTY_ACCESS_OPERATOR" } : PROPERTY_ACCESS_OPERATOR,
         "_",
         "property_access$subexpression$1"
       ],
@@ -19628,15 +19628,15 @@ var p = new NR((E) => []), q = ([[E]]) => E, V = (E) => ({
     {
       name: "between_predicate",
       symbols: [
-        p.has("BETWEEN") ? { type: "BETWEEN" } : BETWEEN,
+        B.has("BETWEEN") ? { type: "BETWEEN" } : BETWEEN,
         "_",
         "andless_expression_chain",
         "_",
-        p.has("AND") ? { type: "AND" } : AND,
+        B.has("AND") ? { type: "AND" } : AND,
         "_",
         "andless_expression"
       ],
-      postprocess: ([E, T, R, A, e, S, N]) => ({
+      postprocess: ([E, T, R, A, e, S, t]) => ({
         type: u.between_predicate,
         betweenKw: V(E),
         expr1: NO(R, {
@@ -19644,7 +19644,7 @@ var p = new NR((E) => []), q = ([[E]]) => E, V = (E) => ({
           trailing: A
         }),
         andKw: V(e),
-        expr2: [y(N, { leading: S })]
+        expr2: [y(t, { leading: S })]
       })
     },
     {
@@ -19669,11 +19669,11 @@ var p = new NR((E) => []), q = ([[E]]) => E, V = (E) => ({
     {
       name: "case_expression",
       symbols: [
-        p.has("CASE") ? { type: "CASE" } : CASE,
+        B.has("CASE") ? { type: "CASE" } : CASE,
         "_",
         "case_expression$ebnf$1",
         "case_expression$ebnf$2",
-        p.has("END") ? { type: "END" } : END
+        B.has("END") ? { type: "END" } : END
       ],
       postprocess: ([E, T, R, A, e]) => ({
         type: u.case_expression,
@@ -19686,10 +19686,10 @@ var p = new NR((E) => []), q = ([[E]]) => E, V = (E) => ({
     {
       name: "case_clause",
       symbols: [
-        p.has("WHEN") ? { type: "WHEN" } : WHEN,
+        B.has("WHEN") ? { type: "WHEN" } : WHEN,
         "_",
         "expression_chain_",
-        p.has("THEN") ? { type: "THEN" } : THEN,
+        B.has("THEN") ? { type: "THEN" } : THEN,
         "_",
         "expression_chain_"
       ],
@@ -19704,7 +19704,7 @@ var p = new NR((E) => []), q = ([[E]]) => E, V = (E) => ({
     {
       name: "case_clause",
       symbols: [
-        p.has("ELSE") ? { type: "ELSE" } : ELSE,
+        B.has("ELSE") ? { type: "ELSE" } : ELSE,
         "_",
         "expression_chain_"
       ],
@@ -19716,7 +19716,7 @@ var p = new NR((E) => []), q = ([[E]]) => E, V = (E) => ({
     },
     {
       name: "comma$subexpression$1",
-      symbols: [p.has("COMMA") ? { type: "COMMA" } : COMMA]
+      symbols: [B.has("COMMA") ? { type: "COMMA" } : COMMA]
     },
     {
       name: "comma",
@@ -19725,7 +19725,7 @@ var p = new NR((E) => []), q = ([[E]]) => E, V = (E) => ({
     },
     {
       name: "asterisk$subexpression$1",
-      symbols: [p.has("ASTERISK") ? { type: "ASTERISK" } : ASTERISK]
+      symbols: [B.has("ASTERISK") ? { type: "ASTERISK" } : ASTERISK]
     },
     {
       name: "asterisk",
@@ -19737,7 +19737,7 @@ var p = new NR((E) => []), q = ([[E]]) => E, V = (E) => ({
     },
     {
       name: "operator$subexpression$1",
-      symbols: [p.has("OPERATOR") ? { type: "OPERATOR" } : OPERATOR]
+      symbols: [B.has("OPERATOR") ? { type: "OPERATOR" } : OPERATOR]
     },
     {
       name: "operator",
@@ -19749,15 +19749,15 @@ var p = new NR((E) => []), q = ([[E]]) => E, V = (E) => ({
     },
     {
       name: "identifier$subexpression$1",
-      symbols: [p.has("IDENTIFIER") ? { type: "IDENTIFIER" } : IDENTIFIER]
+      symbols: [B.has("IDENTIFIER") ? { type: "IDENTIFIER" } : IDENTIFIER]
     },
     {
       name: "identifier$subexpression$1",
-      symbols: [p.has("QUOTED_IDENTIFIER") ? { type: "QUOTED_IDENTIFIER" } : QUOTED_IDENTIFIER]
+      symbols: [B.has("QUOTED_IDENTIFIER") ? { type: "QUOTED_IDENTIFIER" } : QUOTED_IDENTIFIER]
     },
     {
       name: "identifier$subexpression$1",
-      symbols: [p.has("VARIABLE") ? { type: "VARIABLE" } : VARIABLE]
+      symbols: [B.has("VARIABLE") ? { type: "VARIABLE" } : VARIABLE]
     },
     {
       name: "identifier",
@@ -19770,23 +19770,23 @@ var p = new NR((E) => []), q = ([[E]]) => E, V = (E) => ({
     },
     {
       name: "parameter$subexpression$1",
-      symbols: [p.has("NAMED_PARAMETER") ? { type: "NAMED_PARAMETER" } : NAMED_PARAMETER]
+      symbols: [B.has("NAMED_PARAMETER") ? { type: "NAMED_PARAMETER" } : NAMED_PARAMETER]
     },
     {
       name: "parameter$subexpression$1",
-      symbols: [p.has("QUOTED_PARAMETER") ? { type: "QUOTED_PARAMETER" } : QUOTED_PARAMETER]
+      symbols: [B.has("QUOTED_PARAMETER") ? { type: "QUOTED_PARAMETER" } : QUOTED_PARAMETER]
     },
     {
       name: "parameter$subexpression$1",
-      symbols: [p.has("NUMBERED_PARAMETER") ? { type: "NUMBERED_PARAMETER" } : NUMBERED_PARAMETER]
+      symbols: [B.has("NUMBERED_PARAMETER") ? { type: "NUMBERED_PARAMETER" } : NUMBERED_PARAMETER]
     },
     {
       name: "parameter$subexpression$1",
-      symbols: [p.has("POSITIONAL_PARAMETER") ? { type: "POSITIONAL_PARAMETER" } : POSITIONAL_PARAMETER]
+      symbols: [B.has("POSITIONAL_PARAMETER") ? { type: "POSITIONAL_PARAMETER" } : POSITIONAL_PARAMETER]
     },
     {
       name: "parameter$subexpression$1",
-      symbols: [p.has("CUSTOM_PARAMETER") ? { type: "CUSTOM_PARAMETER" } : CUSTOM_PARAMETER]
+      symbols: [B.has("CUSTOM_PARAMETER") ? { type: "CUSTOM_PARAMETER" } : CUSTOM_PARAMETER]
     },
     {
       name: "parameter",
@@ -19799,11 +19799,11 @@ var p = new NR((E) => []), q = ([[E]]) => E, V = (E) => ({
     },
     {
       name: "literal$subexpression$1",
-      symbols: [p.has("NUMBER") ? { type: "NUMBER" } : NUMBER]
+      symbols: [B.has("NUMBER") ? { type: "NUMBER" } : NUMBER]
     },
     {
       name: "literal$subexpression$1",
-      symbols: [p.has("STRING") ? { type: "STRING" } : STRING]
+      symbols: [B.has("STRING") ? { type: "STRING" } : STRING]
     },
     {
       name: "literal",
@@ -19815,15 +19815,15 @@ var p = new NR((E) => []), q = ([[E]]) => E, V = (E) => ({
     },
     {
       name: "keyword$subexpression$1",
-      symbols: [p.has("RESERVED_KEYWORD") ? { type: "RESERVED_KEYWORD" } : RESERVED_KEYWORD]
+      symbols: [B.has("RESERVED_KEYWORD") ? { type: "RESERVED_KEYWORD" } : RESERVED_KEYWORD]
     },
     {
       name: "keyword$subexpression$1",
-      symbols: [p.has("RESERVED_KEYWORD_PHRASE") ? { type: "RESERVED_KEYWORD_PHRASE" } : RESERVED_KEYWORD_PHRASE]
+      symbols: [B.has("RESERVED_KEYWORD_PHRASE") ? { type: "RESERVED_KEYWORD_PHRASE" } : RESERVED_KEYWORD_PHRASE]
     },
     {
       name: "keyword$subexpression$1",
-      symbols: [p.has("RESERVED_JOIN") ? { type: "RESERVED_JOIN" } : RESERVED_JOIN]
+      symbols: [B.has("RESERVED_JOIN") ? { type: "RESERVED_JOIN" } : RESERVED_JOIN]
     },
     {
       name: "keyword",
@@ -19832,11 +19832,11 @@ var p = new NR((E) => []), q = ([[E]]) => E, V = (E) => ({
     },
     {
       name: "data_type$subexpression$1",
-      symbols: [p.has("RESERVED_DATA_TYPE") ? { type: "RESERVED_DATA_TYPE" } : RESERVED_DATA_TYPE]
+      symbols: [B.has("RESERVED_DATA_TYPE") ? { type: "RESERVED_DATA_TYPE" } : RESERVED_DATA_TYPE]
     },
     {
       name: "data_type$subexpression$1",
-      symbols: [p.has("RESERVED_DATA_TYPE_PHRASE") ? { type: "RESERVED_DATA_TYPE_PHRASE" } : RESERVED_DATA_TYPE_PHRASE]
+      symbols: [B.has("RESERVED_DATA_TYPE_PHRASE") ? { type: "RESERVED_DATA_TYPE_PHRASE" } : RESERVED_DATA_TYPE_PHRASE]
     },
     {
       name: "data_type",
@@ -19846,7 +19846,7 @@ var p = new NR((E) => []), q = ([[E]]) => E, V = (E) => ({
     {
       name: "data_type",
       symbols: [
-        p.has("RESERVED_PARAMETERIZED_DATA_TYPE") ? { type: "RESERVED_PARAMETERIZED_DATA_TYPE" } : RESERVED_PARAMETERIZED_DATA_TYPE,
+        B.has("RESERVED_PARAMETERIZED_DATA_TYPE") ? { type: "RESERVED_PARAMETERIZED_DATA_TYPE" } : RESERVED_PARAMETERIZED_DATA_TYPE,
         "_",
         "parenthesis"
       ],
@@ -19858,15 +19858,15 @@ var p = new NR((E) => []), q = ([[E]]) => E, V = (E) => ({
     },
     {
       name: "logic_operator$subexpression$1",
-      symbols: [p.has("AND") ? { type: "AND" } : AND]
+      symbols: [B.has("AND") ? { type: "AND" } : AND]
     },
     {
       name: "logic_operator$subexpression$1",
-      symbols: [p.has("OR") ? { type: "OR" } : OR]
+      symbols: [B.has("OR") ? { type: "OR" } : OR]
     },
     {
       name: "logic_operator$subexpression$1",
-      symbols: [p.has("XOR") ? { type: "XOR" } : XOR]
+      symbols: [B.has("XOR") ? { type: "XOR" } : XOR]
     },
     {
       name: "logic_operator",
@@ -19875,19 +19875,19 @@ var p = new NR((E) => []), q = ([[E]]) => E, V = (E) => ({
     },
     {
       name: "other_keyword$subexpression$1",
-      symbols: [p.has("WHEN") ? { type: "WHEN" } : WHEN]
+      symbols: [B.has("WHEN") ? { type: "WHEN" } : WHEN]
     },
     {
       name: "other_keyword$subexpression$1",
-      symbols: [p.has("THEN") ? { type: "THEN" } : THEN]
+      symbols: [B.has("THEN") ? { type: "THEN" } : THEN]
     },
     {
       name: "other_keyword$subexpression$1",
-      symbols: [p.has("ELSE") ? { type: "ELSE" } : ELSE]
+      symbols: [B.has("ELSE") ? { type: "ELSE" } : ELSE]
     },
     {
       name: "other_keyword$subexpression$1",
-      symbols: [p.has("END") ? { type: "END" } : END]
+      symbols: [B.has("END") ? { type: "END" } : END]
     },
     {
       name: "other_keyword",
@@ -19910,7 +19910,7 @@ var p = new NR((E) => []), q = ([[E]]) => E, V = (E) => ({
     },
     {
       name: "comment",
-      symbols: [p.has("LINE_COMMENT") ? { type: "LINE_COMMENT" } : LINE_COMMENT],
+      symbols: [B.has("LINE_COMMENT") ? { type: "LINE_COMMENT" } : LINE_COMMENT],
       postprocess: ([E]) => ({
         type: u.line_comment,
         text: E.text,
@@ -19919,7 +19919,7 @@ var p = new NR((E) => []), q = ([[E]]) => E, V = (E) => ({
     },
     {
       name: "comment",
-      symbols: [p.has("BLOCK_COMMENT") ? { type: "BLOCK_COMMENT" } : BLOCK_COMMENT],
+      symbols: [B.has("BLOCK_COMMENT") ? { type: "BLOCK_COMMENT" } : BLOCK_COMMENT],
       postprocess: ([E]) => ({
         type: u.block_comment,
         text: E.text,
@@ -19928,7 +19928,7 @@ var p = new NR((E) => []), q = ([[E]]) => E, V = (E) => ({
     },
     {
       name: "comment",
-      symbols: [p.has("DISABLE_COMMENT") ? { type: "DISABLE_COMMENT" } : DISABLE_COMMENT],
+      symbols: [B.has("DISABLE_COMMENT") ? { type: "DISABLE_COMMENT" } : DISABLE_COMMENT],
       postprocess: ([E]) => ({
         type: u.disable_comment,
         text: E.text,
@@ -19943,10 +19943,10 @@ function CO(E) {
   const R = new NR((e) => [...EO(E.tokenize(e, T)), jT(e.length)]), A = new sO(LO.fromCompiled(tO), { lexer: R });
   return { parse: (e, S) => {
     T = S;
-    const { results: N } = A.feed(e);
-    if (N.length === 1) return N[0];
-    throw N.length === 0 ? new Error("Parse error: Invalid SQL") : new Error(`Parse error: Ambiguous grammar
-${JSON.stringify(N, void 0, 2)}`);
+    const { results: t } = A.feed(e);
+    if (t.length === 1) return t[0];
+    throw t.length === 0 ? new Error("Parse error: Invalid SQL") : new Error(`Parse error: Ambiguous grammar
+${JSON.stringify(t, void 0, 2)}`);
   } };
 }
 var s;
@@ -20552,14 +20552,14 @@ function hO(E, T) {
 }
 function fO(E, T, R, A, e) {
   if (!A || A <= 0) return [];
-  const S = Array.from(E.querySelectorAll(T)), N = S.length - A;
-  if (N <= 0) return [];
+  const S = Array.from(E.querySelectorAll(T)), t = S.length - A;
+  if (t <= 0) return [];
   const O = e ? S.reverse() : S, P = [];
-  for (let M = 0; M < N; M++) {
-    const t = O[M];
-    if (!t) break;
-    const a = t.getAttribute(R);
-    a && P.push(a), hO(t, T);
+  for (let M = 0; M < t; M++) {
+    const N = O[M];
+    if (!N) break;
+    const a = N.getAttribute(R);
+    a && P.push(a), hO(N, T);
   }
   return P;
 }
@@ -20629,17 +20629,17 @@ function aR(E, T, R) {
   `;
 }
 function _R(E, T, R, A = {}) {
-  const { useIconCopyButton: e = !1, filterFn: S, showCount: N = !0 } = A, O = T && typeof T == "object" && !Array.isArray(T), P = Array.isArray(T);
+  const { useIconCopyButton: e = !1, filterFn: S, showCount: t = !0 } = A, O = T && typeof T == "object" && !Array.isArray(T), P = Array.isArray(T);
   let M = T ?? {};
   if (O && S && (M = S(T)), O && Object.keys(M).length === 0 || P && M.length === 0 || !O && !P && !M) return `<div class="${R.emptyState}">No ${E.toLowerCase()} data available</div>`;
-  const t = ZT(M), a = CR(M, !0), _ = mR(M), o = P ? "items" : O ? "keys" : "entries", B = aR(R, e, `copy-${E.toLowerCase().replace(/\s+/g, "-")}-${Date.now()}`), U = N ? `<span class="${R.muted}">${kT(_)} ${o}</span>` : "";
+  const N = ZT(M), a = CR(M, !0), n = mR(M), i = P ? "items" : O ? "keys" : "entries", H = aR(R, e, `copy-${E.toLowerCase().replace(/\s+/g, "-")}-${Date.now()}`), U = t ? `<span class="${R.muted}">${kT(n)} ${i}</span>` : "";
   return `
-    <section class="${R.jsonPanel}" data-copy-content="${l(t)}">
+    <section class="${R.jsonPanel}" data-copy-content="${l(N)}">
       <div class="${R.jsonHeader}">
         <span class="${R.jsonViewerTitle}">${l(E)}</span>
         <div class="${R.jsonActions}">
           ${U}
-          ${B}
+          ${H}
         </div>
       </div>
       <pre>${a}</pre>
@@ -20649,11 +20649,11 @@ function _R(E, T, R, A = {}) {
 function cN(E, T, R = {}) {
   const { useIconCopyButton: A = !1 } = R;
   if (!E || typeof E == "object" && Object.keys(E).length === 0) return "";
-  const e = ZT(E), S = CR(E, !0), N = aR(T, A, `viewer-${Date.now()}`);
+  const e = ZT(E), S = CR(E, !0), t = aR(T, A, `viewer-${Date.now()}`);
   return `
     <div class="${T.jsonViewer}" data-copy-content="${l(e)}">
       <div class="${T.jsonViewerHeader}">
-        ${N}
+        ${t}
       </div>
       <pre>${S}</pre>
     </div>
@@ -20707,16 +20707,16 @@ function OE(E, T) {
   return E ? `<h3 class="${T.jsonViewerTitle}">${l(E)}</h3>` : "";
 }
 function VO(E, T, R, A) {
-  const e = ME(R, "metrics"), S = e.length > 0 ? e : Object.entries(T && typeof T == "object" && !Array.isArray(T) ? T : {}).map(([N]) => ({
-    label: N,
-    bind: N
+  const e = ME(R, "metrics"), S = e.length > 0 ? e : Object.entries(T && typeof T == "object" && !Array.isArray(T) ? T : {}).map(([t]) => ({
+    label: t,
+    bind: t
   }));
   return S.length === 0 ? `<div class="${A.emptyState}">No ${l(E.toLowerCase())} metrics available</div>` : `
     <section class="${A.jsonPanel}">
       ${OE(E, A)}
       <div class="${A.jsonGrid}">
-        ${S.map((N) => {
-    const O = g(N.label || N.bind), P = AT(W(T, N.bind), N.format), M = g(W(T, N.severity) || N.status || "");
+        ${S.map((t) => {
+    const O = g(t.label || t.bind), P = AT(W(T, t.bind), t.format), M = g(W(T, t.severity) || t.status || "");
     return `
             <div class="${A.detailPane}" data-severity="${l(M)}">
               <div class="${A.detailLabel}">${l(O)}</div>
@@ -20729,18 +20729,18 @@ function VO(E, T, R, A) {
   `;
 }
 function yO(E, T, R, A) {
-  const e = ME(R, "fields"), S = e.length > 0 ? e : Object.entries(T && typeof T == "object" && !Array.isArray(T) ? T : {}).map(([N]) => ({
-    label: N,
-    bind: N
+  const e = ME(R, "fields"), S = e.length > 0 ? e : Object.entries(T && typeof T == "object" && !Array.isArray(T) ? T : {}).map(([t]) => ({
+    label: t,
+    bind: t
   }));
   return S.length === 0 ? `<div class="${A.emptyState}">No ${l(E.toLowerCase())} details available</div>` : `
     <section class="${A.jsonPanel}">
       ${OE(E, A)}
       <table class="${A.detailKeyValueTable || A.table}">
         <tbody>
-          ${S.map((N) => {
-    const O = g(N.label || N.bind), P = W(T, N.bind), M = g(N.empty || ""), t = P == null || P === "" ? M : AT(P, N.format);
-    return `<tr><th>${l(O)}</th><td>${l(t)}</td></tr>`;
+          ${S.map((t) => {
+    const O = g(t.label || t.bind), P = W(T, t.bind), M = g(t.empty || ""), N = P == null || P === "" ? M : AT(P, t.format);
+    return `<tr><th>${l(O)}</th><td>${l(N)}</td></tr>`;
   }).join("")}
         </tbody>
       </table>
@@ -20758,22 +20758,22 @@ function nR(E, T, R) {
     </tr>
   `;
 }
-function WO(E, T, R, A) {
-  const e = RT(T), S = ME(R, "columns"), N = S.length > 0 ? S : Object.keys(e[0] && typeof e[0] == "object" ? e[0] : {}).map((P) => ({
-    label: P,
-    bind: P
+function WO(E, T, R, A, e = !1) {
+  const S = RT(T), t = ME(R, "columns"), O = t.length > 0 ? t : Object.keys(S[0] && typeof S[0] == "object" ? S[0] : {}).map((N) => ({
+    label: N,
+    bind: N
   }));
-  if (e.length === 0 || N.length === 0) return `<div class="${A.emptyState}">No ${l(E.toLowerCase())} rows available</div>`;
-  const O = R?.options?.key_bind;
+  if (S.length === 0 || O.length === 0) return `<div class="${A.emptyState}">No ${l(E.toLowerCase())} rows available</div>`;
+  const P = R?.options?.key_bind, M = e ? [...S].reverse() : S;
   return `
     <section class="${A.jsonPanel}">
       ${OE(E, A)}
       <table class="${A.table}">
         <thead>
-          <tr>${N.map((P) => `<th>${l(g(P.label || P.bind))}</th>`).join("")}</tr>
+          <tr>${O.map((N) => `<th>${l(g(N.label || N.bind))}</th>`).join("")}</tr>
         </thead>
         <tbody data-live-list>
-          ${e.map((P) => nR(P, N, O)).join("")}
+          ${M.map((N) => nR(N, O, P)).join("")}
         </tbody>
       </table>
     </section>
@@ -20788,14 +20788,16 @@ function iR(E, T, R) {
     </tr>
   `;
 }
-function gO(E, T, R, A) {
-  const e = RT(T);
-  return e.length === 0 ? `<div class="${A.emptyState}">No ${l(E.toLowerCase())} statuses available</div>` : `
+function gO(E, T, R, A, e = !1) {
+  const S = RT(T);
+  if (S.length === 0) return `<div class="${A.emptyState}">No ${l(E.toLowerCase())} statuses available</div>`;
+  const t = e ? [...S].reverse() : S;
+  return `
     <section class="${A.jsonPanel}">
       ${OE(E, A)}
       <table class="${A.table}">
         <tbody data-live-list>
-          ${e.map((S) => iR(S, R, A)).join("")}
+          ${t.map((O) => iR(O, R, A)).join("")}
         </tbody>
       </table>
     </section>
@@ -20810,40 +20812,42 @@ function DR(E, T, R) {
     </tr>
   `;
 }
-function XO(E, T, R, A) {
-  const e = RT(T);
-  return e.length === 0 ? `<div class="${A.emptyState}">No ${l(E.toLowerCase())} events available</div>` : `
+function XO(E, T, R, A, e = !1) {
+  const S = RT(T);
+  if (S.length === 0) return `<div class="${A.emptyState}">No ${l(E.toLowerCase())} events available</div>`;
+  const t = e ? [...S].reverse() : S;
+  return `
     <section class="${A.jsonPanel}">
       ${OE(E, A)}
       <table class="${A.table}">
         <tbody data-live-list>
-          ${e.map((S) => DR(S, R, A)).join("")}
+          ${t.map((O) => DR(O, R, A)).join("")}
         </tbody>
       </table>
     </section>
   `;
 }
-function vO(E, T, R, A, e) {
-  const S = Array.isArray(R?.sections) ? R.sections : [];
-  return S.length === 0 ? _R(g(R?.title || E.label || E.id || "Panel"), T, A, { useIconCopyButton: e }) : S.map((N) => zE(E, N, T, A, e)).join("");
+function vO(E, T, R, A, e, S = !1) {
+  const t = Array.isArray(R?.sections) ? R.sections : [];
+  return t.length === 0 ? _R(g(R?.title || E.label || E.id || "Panel"), T, A, { useIconCopyButton: e }) : t.map((O) => zE(E, O, T, A, e, S)).join("");
 }
-function zE(E, T, R, A, e = !1) {
-  const S = g(T?.title || E.label || E.id || "Panel"), N = W(R, T?.bind);
+function zE(E, T, R, A, e = !1, S = !1) {
+  const t = g(T?.title || E.label || E.id || "Panel"), O = W(R, T?.bind);
   switch (g(T?.renderer).toLowerCase()) {
     case "metrics":
-      return VO(S, N, T, A);
+      return VO(t, O, T, A);
     case "key_value":
-      return yO(S, N, T, A);
+      return yO(t, O, T, A);
     case "table":
-      return WO(S, N, T, A);
+      return WO(t, O, T, A, S);
     case "status_list":
-      return gO(S, N, T, A);
+      return gO(t, O, T, A, S);
     case "timeline":
-      return XO(S, N, T, A);
+      return XO(t, O, T, A, S);
     case "stack":
-      return vO(E, R, T, A, e);
+      return vO(E, R, T, A, e, S);
     default:
-      return _R(S, N ?? {}, A, { useIconCopyButton: e });
+      return _R(t, O ?? {}, A, { useIconCopyButton: e });
   }
 }
 function bO(E) {
@@ -20990,8 +20994,8 @@ var x = JO(), wO = [
   if (A.length === 0) return;
   let e = E;
   for (let S = 0; S < A.length - 1; S += 1) {
-    const N = A[S];
-    (!e[N] || typeof e[N] != "object") && (e[N] = {}), e = e[N];
+    const t = A[S];
+    (!e[t] || typeof e[t] != "object") && (e[t] = {}), e = e[t];
   }
   e[A[A.length - 1]] = R;
 };
@@ -21035,11 +21039,11 @@ function VN(E) {
     if (!R || typeof R != "object") return;
     const A = R, e = typeof A.command == "string" ? A.command.trim() : "";
     if (!e) return;
-    const S = typeof A.description == "string" ? A.description.trim() : "", N = Array.isArray(A.tags) ? A.tags.filter((M) => typeof M == "string" && M.trim() !== "").map((M) => M.trim()) : [], O = Array.isArray(A.aliases) ? A.aliases.filter((M) => typeof M == "string" && M.trim() !== "").map((M) => M.trim()) : [], P = typeof A.mutates == "boolean" ? A.mutates : typeof A.read_only == "boolean" ? !A.read_only : !1;
+    const S = typeof A.description == "string" ? A.description.trim() : "", t = Array.isArray(A.tags) ? A.tags.filter((M) => typeof M == "string" && M.trim() !== "").map((M) => M.trim()) : [], O = Array.isArray(A.aliases) ? A.aliases.filter((M) => typeof M == "string" && M.trim() !== "").map((M) => M.trim()) : [], P = typeof A.mutates == "boolean" ? A.mutates : typeof A.read_only == "boolean" ? !A.read_only : !1;
     T.push({
       command: e,
       description: S || void 0,
-      tags: N.length > 0 ? N : void 0,
+      tags: t.length > 0 ? t : void 0,
       aliases: O.length > 0 ? O : void 0,
       mutates: P
     });
@@ -21075,8 +21079,8 @@ function WN(E, T, R = {}) {
   if (!T || !T.type || T.type === "snapshot") return null;
   const A = R.eventToPanel?.[T.type] || x.findByEventType(T.type)?.id || T.type, e = x.get(A);
   if (e) {
-    const S = eT(e), N = E[S];
-    return E[S] = (e.handleEvent || ((O, P) => PR(O, P, 500)))(N, T.payload), A;
+    const S = eT(e), t = E[S];
+    return E[S] = (e.handleEvent || ((O, P) => PR(O, P, 500)))(t, T.payload), A;
   }
   switch (T.type) {
     case "request":
@@ -21104,16 +21108,16 @@ function WN(E, T, R = {}) {
   return A;
 }
 function gN(E, T = 50) {
-  const R = E.requests?.length || 0, A = E.sql?.length || 0, e = E.logs?.length || 0, S = E.jserrors?.length || 0, N = (E.requests || []).filter((t) => (t.status || 0) >= 400).length, O = (E.sql || []).filter((t) => t.error).length, P = (E.logs || []).filter((t) => {
-    const a = (t.level || "").toLowerCase();
+  const R = E.requests?.length || 0, A = E.sql?.length || 0, e = E.logs?.length || 0, S = E.jserrors?.length || 0, t = (E.requests || []).filter((N) => (N.status || 0) >= 400).length, O = (E.sql || []).filter((N) => N.error).length, P = (E.logs || []).filter((N) => {
+    const a = (N.level || "").toLowerCase();
     return a === "error" || a === "fatal";
-  }).length, M = (E.sql || []).filter((t) => dR(t.duration, T)).length;
+  }).length, M = (E.sql || []).filter((N) => dR(N.duration, T)).length;
   return {
     requests: R,
     sql: A,
     logs: e,
     jserrors: S,
-    errors: N + O + P + S,
+    errors: t + O + P + S,
     slowQueries: M
   };
 }
@@ -21181,23 +21185,23 @@ function eN(E, T) {
   }
 }
 function SN(E, T, R) {
-  const A = R?.events, e = Y(A?.mode), S = typeof A?.max_entries == "number" ? A.max_entries : 500, N = RE(T, A?.bind);
+  const A = R?.events, e = Y(A?.mode), S = typeof A?.max_entries == "number" ? A.max_entries : 500, t = RE(T, A?.bind);
   if (e === "append") {
-    const O = Array.isArray(E) ? [...E, N] : [N];
+    const O = Array.isArray(E) ? [...E, t] : [t];
     return S > 0 ? O.slice(-S) : O;
   }
   if (e === "merge")
-    return E && typeof E == "object" && N && typeof N == "object" ? {
+    return E && typeof E == "object" && t && typeof t == "object" ? {
       ...E,
-      ...N
-    } : N;
+      ...t
+    } : t;
   if (e === "upsert") {
     const O = h(A?.key);
-    if (!O || !Array.isArray(E) || !N || typeof N != "object") return PR(E, N, S);
-    const P = RE(N, O), M = [...E], t = M.findIndex((a) => RE(a, O) === P);
-    return t >= 0 ? M[t] = N : M.push(N), S > 0 ? M.slice(-S) : M;
+    if (!O || !Array.isArray(E) || !t || typeof t != "object") return PR(E, t, S);
+    const P = RE(t, O), M = [...E], N = M.findIndex((a) => RE(a, O) === P);
+    return N >= 0 ? M[N] = t : M.push(t), S > 0 ? M.slice(-S) : M;
   }
-  return N;
+  return t;
 }
 function IN(E) {
   const T = {};
@@ -21209,25 +21213,25 @@ function IN(E) {
 function ON(E, T) {
   const R = T && typeof T == "object" ? T : {}, A = E?.filters || [];
   return A.length === 0 ? "" : A.map((e) => {
-    const S = Y(e.id), N = Y(e.kind);
+    const S = Y(e.id), t = Y(e.kind);
     if (!S) return "";
     const O = h(e.label) || S, P = R[S];
-    if (N === "select") {
+    if (t === "select") {
       const M = Array.isArray(e.options) ? e.options : [];
       return `
         <div class="debug-filter">
           <label>${l(O)}</label>
           <select data-filter="${l(S)}">
             <option value="">All</option>
-            ${M.map((t) => {
-        const a = h(t);
+            ${M.map((N) => {
+        const a = h(N);
         return `<option value="${l(a)}" ${P === a ? "selected" : ""}>${l(a)}</option>`;
       }).join("")}
           </select>
         </div>
       `;
     }
-    return N === "checkbox" ? `
+    return t === "checkbox" ? `
         <label class="debug-btn">
           <input type="checkbox" data-filter="${l(S)}" ${P ? "checked" : ""} />
           <span>${l(O)}</span>
@@ -21248,18 +21252,18 @@ function $T(E, T, R) {
   if (A === "checkbox") return R ? !!e : !0;
   const S = iE(R).trim();
   if (!S) return !0;
-  const N = iE(e || E).toLowerCase();
-  return A === "select" ? iE(e).toLowerCase() === S.toLowerCase() : N.includes(S.toLowerCase());
+  const t = iE(e || E).toLowerCase();
+  return A === "select" ? iE(e).toLowerCase() === S.toLowerCase() : t.includes(S.toLowerCase());
 }
 function NN(E, T, R) {
   const A = R?.filters || [];
   if (A.length === 0 || !T || typeof T != "object") return E;
   const e = T;
-  if (Array.isArray(E)) return E.filter((S) => A.every((N) => $T(S, N, e[Y(N.id)])));
+  if (Array.isArray(E)) return E.filter((S) => A.every((t) => $T(S, t, e[Y(t.id)])));
   if (E && typeof E == "object") {
-    const S = Object.entries(E).filter(([N, O]) => {
+    const S = Object.entries(E).filter(([t, O]) => {
       const P = {
-        key: N,
+        key: t,
         value: O
       };
       return A.every((M) => $T(P, M, e[Y(M.id)]));
@@ -21268,12 +21272,12 @@ function NN(E, T, R) {
   }
   return E;
 }
-function ZE(E, T, R, A, e, S) {
-  let N = "";
-  return T && IE(T) ? N = zE(E, T, R, A, e) : N = zE(E, {
+function ZE(E, T, R, A, e, S, t = !1) {
+  let O = "";
+  return T && IE(T) ? O = zE(E, T, R, A, e, t) : O = zE(E, {
     renderer: "json",
     title: h(E.label) || Y(E.id) || "Panel"
-  }, AN(R, T), A, e), `${rN(E, A)}${tN(E, A, S)}${N}<div data-panel-action-result="${l(Y(E.id))}"></div>`;
+  }, AN(R, T), A, e), `${rN(E, A)}${tN(E, A, S)}${O}<div data-panel-action-result="${l(Y(E.id))}"></div>`;
 }
 function tN(E, T, R) {
   if (!R) return "";
@@ -21291,15 +21295,15 @@ function rN(E, T) {
           <label>${l(e)}</label>
           <select data-panel-action-picker="${l(R)}">
             <option value="">${l(S)}</option>
-            ${A.map((N) => {
-      const O = Y(N.id), P = h(N.label) || O;
+            ${A.map((t) => {
+      const O = Y(t.id), P = h(t.label) || O;
       return O ? `<option value="${l(O)}">${l(P)}</option>` : "";
     }).join("")}
           </select>
         </div>
-        ${A.map((N) => {
-      const O = Y(N.id);
-      return O ? `<div data-panel-action-choice="${l(O)}" hidden>${xT(R, O, N, T)}</div>` : "";
+        ${A.map((t) => {
+      const O = Y(t.id);
+      return O ? `<div data-panel-action-choice="${l(O)}" hidden>${xT(R, O, t, T)}</div>` : "";
     }).join("")}
       </div>
     `;
@@ -21314,7 +21318,7 @@ function rN(E, T) {
   `;
 }
 function xT(E, T, R, A) {
-  const e = sN(R.payload), S = Array.isArray(R.fields) ? R.fields : [], N = h(R.submit_label) || h(R.label) || T;
+  const e = sN(R.payload), S = Array.isArray(R.fields) ? R.fields : [], t = h(R.submit_label) || h(R.label) || T;
   return S.length > 0 ? `
       <form
         data-panel-action-form
@@ -21326,7 +21330,7 @@ function xT(E, T, R, A) {
         style="display:flex;flex-wrap:wrap;gap:0.5rem;align-items:flex-end"
       >
         ${S.map((O, P) => LN(E, T, O, P)).join("")}
-        <button type="submit" class="${A.sortToggle}">${l(N)}</button>
+        <button type="submit" class="${A.sortToggle}">${l(t)}</button>
       </form>
     ` : `
     <button
@@ -21338,7 +21342,7 @@ function xT(E, T, R, A) {
       data-action-confirm="${l(h(R.confirm_text))}"
       data-action-requires-confirm="${R.requires_confirm ? "true" : "false"}"
       data-action-payload='${e}'
-    >${l(N)}</button>
+    >${l(t)}</button>
   `;
 }
 function sN(E) {
@@ -21347,11 +21351,11 @@ function sN(E) {
 function LN(E, T, R, A) {
   const e = Y(R.name);
   if (!e) return "";
-  const S = Y(R.kind) || "text", N = h(R.label) || e, O = `debug-action-${E}-${T}-${e}-${A}`, P = h(R.payload_path) || e, M = R.required ? " required" : "", t = h(R.placeholder), a = t ? ` placeholder="${l(t)}"` : "", _ = h(R.description), o = `id="${l(O)}" data-action-field="${l(e)}" data-action-field-kind="${l(S)}" data-action-field-path="${l(P)}"${M}`, B = Array.isArray(R.options) ? R.options.map((G) => h(G)).filter(Boolean) : [];
+  const S = Y(R.kind) || "text", t = h(R.label) || e, O = `debug-action-${E}-${T}-${e}-${A}`, P = h(R.payload_path) || e, M = R.required ? " required" : "", N = h(R.placeholder), a = N ? ` placeholder="${l(N)}"` : "", n = h(R.description), i = `id="${l(O)}" data-action-field="${l(e)}" data-action-field-kind="${l(S)}" data-action-field-path="${l(P)}"${M}`, H = Array.isArray(R.options) ? R.options.map((G) => h(G)).filter(Boolean) : [];
   let U = "";
-  return S === "boolean" || S === "checkbox" ? U = `<input type="checkbox" ${o}>` : S === "select" || B.length > 0 ? U = `<select ${o}><option value=""></option>${B.map((G) => `<option value="${l(G)}">${l(G)}</option>`).join("")}</select>` : S === "number" || S === "integer" ? U = `<input type="number" ${o}${a}>` : S === "textarea" || S === "json" || S === "string_list" ? U = `<textarea ${o}${a} rows="2"></textarea>` : U = `<input type="text" ${o}${a}>`, `
+  return S === "boolean" || S === "checkbox" ? U = `<input type="checkbox" ${i}>` : S === "select" || H.length > 0 ? U = `<select ${i}><option value=""></option>${H.map((G) => `<option value="${l(G)}">${l(G)}</option>`).join("")}</select>` : S === "number" || S === "integer" ? U = `<input type="number" ${i}${a}>` : S === "textarea" || S === "json" || S === "string_list" ? U = `<textarea ${i}${a} rows="2"></textarea>` : U = `<input type="text" ${i}${a}>`, `
     <label for="${l(O)}" style="display:flex;flex-direction:column;gap:0.25rem;font-size:0.8125rem">
-      <span>${l(N)}</span>
+      <span>${l(t)}</span>
       ${U}
       <small
         data-action-field-error="${l(P)}"
@@ -21359,7 +21363,7 @@ function LN(E, T, R, A) {
         data-action-id="${l(T)}"
         hidden
       ></small>
-      ${_ ? `<small>${l(_)}</small>` : ""}
+      ${n ? `<small>${l(n)}</small>` : ""}
     </label>
   `;
 }
@@ -21371,18 +21375,19 @@ function XN(E, T) {
 function CN(E) {
   const T = Y(E.id);
   if (!T) return null;
-  const R = h(E.label) || T, A = Y(E.snapshot_key) || T, e = lR(E.ui), S = e === null && RN(E.ui) ? E.ui : void 0, N = S ? E : {
+  const R = h(E.label) || T, A = Y(E.snapshot_key) || T, e = lR(E.ui), S = e === null && RN(E.ui) ? E.ui : void 0, t = S ? E : {
     ...E,
     ui: void 0
-  }, O = S ? uR.get(T) : void 0, P = O ? (_, o) => O({
-    def: N,
-    data: _,
-    styles: o,
+  }, O = S ? uR.get(T) : void 0, P = O ? (i, H) => O({
+    def: t,
+    data: i,
+    styles: H,
     useIconCopyButton: !0
-  }) : void 0, M = S?.views?.console || S?.views?.toolbar, t = Y(M?.renderer) !== "table" || Array.isArray(M?.options?.columns) && M.options.columns.length > 0, a = S && M && Y(S.events?.mode) === "append" && bO(M.renderer) && t ? {
-    renderRow: (_, o) => KO(M.renderer, _, M, o),
-    keyOf: (_) => PE(_, M.options?.key_bind),
-    getMaxEntries: () => typeof S.events?.max_entries == "number" ? S.events.max_entries : 500
+  }) : void 0, M = S?.views?.console || S?.views?.toolbar, N = Y(M?.renderer) !== "table" || Array.isArray(M?.options?.columns) && M.options.columns.length > 0, a = Y(S?.events?.order) === "newest_first", n = S && M && Y(S.events?.mode) === "append" && bO(M.renderer) && N ? {
+    renderRow: (i, H) => KO(M.renderer, i, M, H),
+    keyOf: (i) => PE(i, M.options?.key_bind),
+    getMaxEntries: () => typeof S.events?.max_entries == "number" ? S.events.max_entries : 500,
+    newestFirst: a
   } : void 0;
   return {
     id: T,
@@ -21393,16 +21398,16 @@ function CN(E) {
     supportsToolbar: E.supports_toolbar !== !1,
     category: h(E.category) || "custom",
     order: typeof E.order == "number" ? E.order : 100,
-    getCount: S?.count ? (_) => eN(_, S) : void 0,
-    handleEvent: S?.events ? (_, o) => SN(_, o, S) : void 0,
-    renderFilters: S?.filters?.length ? (_) => ON(S, _) : void 0,
+    getCount: S?.count ? (i) => eN(i, S) : void 0,
+    handleEvent: S?.events ? (i, H) => SN(i, H, S) : void 0,
+    renderFilters: S?.filters?.length ? (i) => ON(S, i) : void 0,
     defaultFilters: S?.filters?.length ? IN(S) : void 0,
-    applyFilters: S?.filters?.length ? (_, o) => NN(_, o, S) : void 0,
-    render: P || ((_, o) => ZE(N, S?.views?.console || S?.views?.toolbar, _, o, !0, e)),
-    renderConsole: P || ((_, o) => ZE(N, S?.views?.console || S?.views?.toolbar, _, o, !0, e)),
-    renderToolbar: (_, o) => ZE(N, S?.views?.toolbar || S?.views?.console, _, o, !1, e),
+    applyFilters: S?.filters?.length ? (i, H) => NN(i, H, S) : void 0,
+    render: P || ((i, H) => ZE(t, S?.views?.console || S?.views?.toolbar, i, H, !0, e, a)),
+    renderConsole: P || ((i, H) => ZE(t, S?.views?.console || S?.views?.toolbar, i, H, !0, e, a)),
+    renderToolbar: (i, H) => ZE(t, S?.views?.toolbar || S?.views?.console, i, H, !1, e, a),
     showFilters: O ? !1 : !!S?.filters?.length,
-    liveList: a
+    liveList: n
   };
 }
 async function aN(E, T = EN) {
@@ -21416,8 +21421,8 @@ async function aN(E, T = EN) {
       signal: A?.signal
     });
     if (!S.ok) return [];
-    const N = await S.json();
-    return Array.isArray(N.panels) ? N.panels : [];
+    const t = await S.json();
+    return Array.isArray(t.panels) ? t.panels : [];
   } catch {
     return [];
   } finally {
@@ -21429,8 +21434,8 @@ async function vN(E) {
   if (R) return R;
   const A = aN(T).then((e) => {
     let S = 0;
-    return e.forEach((N) => {
-      const O = CN(N);
+    return e.forEach((t) => {
+      const O = CN(t);
       O && x.registerServerDefinition(O) && (S += 1);
     }), S;
   });
@@ -21489,4 +21494,4 @@ export {
   uN as z
 };
 
-//# sourceMappingURL=server-definitions-MBOv2E9I.js.map
+//# sourceMappingURL=server-definitions-Dm9aLnTX.js.map

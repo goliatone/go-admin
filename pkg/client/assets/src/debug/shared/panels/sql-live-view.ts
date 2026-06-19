@@ -63,7 +63,6 @@ export class SqlLiveView {
       keyAttr: 'data-sql-id',
       keyOf: sqlRowKey,
       renderRow: (entry) => renderSQLRow(entry, opts.styles, opts.getRenderOptions()),
-      getItems: opts.getQueries,
       getRenderOptions: opts.getRenderOptions,
       getMaxEntries: opts.getMaxEntries,
       shouldDisplay: opts.shouldDisplay,

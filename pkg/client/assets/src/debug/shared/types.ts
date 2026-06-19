@@ -140,6 +140,8 @@ export type ServerPanelUI = {
     bind?: string;
     key?: string;
     max_entries?: number;
+    /** Row order for list views: 'newest_first' to prepend, else chronological. */
+    order?: string;
   };
   action_layout?: {
     mode?: string;

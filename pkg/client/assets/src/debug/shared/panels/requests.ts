@@ -164,12 +164,12 @@ export function renderRequestDetail(
       bodyContent = escapeHTML(entry.request_body);
     }
     sections.push(`
-      <div class="${styles.detailSection}">
+      <div class="${styles.detailSection}" data-copy-content="${escapeHTML(entry.request_body)}">
         <span class="${styles.detailLabel}">Request Body${sizeLabel}${truncatedLabel}</span>
         <div class="${styles.detailBody}">
           <pre>${bodyContent}</pre>
         </div>
-        <button class="${styles.copyBtnSm}" data-copy-trigger="${escapeHTML(entry.request_body)}">Copy</button>
+        <button class="${styles.copyBtnSm}" data-copy-trigger title="Copy">Copy</button>
       </div>
     `);
   }
@@ -204,12 +204,12 @@ export function renderRequestDetail(
       bodyContent = escapeHTML(entry.response_body);
     }
     sections.push(`
-      <div class="${styles.detailSection}">
+      <div class="${styles.detailSection}" data-copy-content="${escapeHTML(entry.response_body)}">
         <span class="${styles.detailLabel}">Response Body${sizeLabel}</span>
         <div class="${styles.detailBody}">
           <pre>${bodyContent}</pre>
         </div>
-        <button class="${styles.copyBtnSm}" data-copy-trigger="${escapeHTML(entry.response_body)}">Copy</button>
+        <button class="${styles.copyBtnSm}" data-copy-trigger title="Copy">Copy</button>
       </div>
     `);
   }
