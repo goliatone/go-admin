@@ -2171,14 +2171,8 @@ func (s *readinessFamilyQueryStoreStub) ListFamiliesQuery(_ context.Context, inp
 	if perPage <= 0 {
 		perPage = 50
 	}
-	start := (page - 1) * perPage
-	if start > len(filtered) {
-		start = len(filtered)
-	}
-	end := start + perPage
-	if end > len(filtered) {
-		end = len(filtered)
-	}
+	start := min((page-1)*perPage, len(filtered))
+	end := min(start+perPage, len(filtered))
 	return translationservices.ListFamiliesResult{
 		Items:   append([]translationservices.FamilyRecord{}, filtered[start:end]...),
 		Total:   len(filtered),
