@@ -1,10 +1,28 @@
 # Changelog
 
+# [0.104.0](https://github.com/goliatone/go-admin/compare/v0.103.3...v0.104.0) - (2026-06-20)
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Task setup ([5a3f06a](https://github.com/goliatone/go-admin/commit/5a3f06a81d87a6818b66f137c54246f9a220ed18))  - (goliatone)
+- Predicate normalization ([5808524](https://github.com/goliatone/go-admin/commit/58085249ff9aa3558da6848b552f72db646b96ad))  - (goliatone)
+- Optimized CMS content read filters ([a76bad1](https://github.com/goliatone/go-admin/commit/a76bad120d5e405eb860b79a8f09d94b6032e13d))  - (goliatone)
+- Error handle for content type family ([577b918](https://github.com/goliatone/go-admin/commit/577b918916e0296cb7cb4c846e83de84254acccd))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update deps ([3a91882](https://github.com/goliatone/go-admin/commit/3a91882f99b623461cc66b297c386647d7f82cb4))  - (goliatone)
+- Update tests ([c3ba1a5](https://github.com/goliatone/go-admin/commit/c3ba1a50058bfa0faa20f78ce219717082853f74))  - (goliatone)
+
 # [0.103.3](https://github.com/goliatone/go-admin/compare/v0.103.2...v0.103.3) - (2026-06-19)
 
 ## <!-- 1 -->🐛 Bug Fixes
 
 - Canonical content type record in read service ([5b8b394](https://github.com/goliatone/go-admin/commit/5b8b39470d977d1c9a887e47f69a816a647fdb6d))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.103.3 ([61eb741](https://github.com/goliatone/go-admin/commit/61eb74143f7c0605415ba5a09e3b28932b225786))  - (goliatone)
 
 ## <!-- 7 -->⚙️ Miscellaneous Tasks
 
