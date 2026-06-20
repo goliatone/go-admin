@@ -312,6 +312,50 @@ func TestGoCMSContentAdapterListContentTypeRecordsNormalizesLocaleWildcard(t *te
 	}
 }
 
+func TestGoCMSContentAdapterListContentTypeRecordsPassesExplicitPredicatesToOptimizedRead(t *testing.T) {
+	ctx := context.Background()
+	contentTypeID := uuid.New()
+	adminRead := &stubGoCMSAdminContentReadService{}
+	svc := newGoCMSContentAdapter(&stubGoCMSContentService{}, nil, nil, nil, adminRead, nil, nil, nil)
+	adapter := mustGoCMSContentAdapter(t, svc)
+
+	_, _, err := adapter.ListContentTypeRecords(ctx, CMSContentType{ID: contentTypeID.String(), Slug: "news"}, ListOptions{
+		Filters: map[string]any{
+			"locale":   "all",
+			"status":   "archived",
+			"group_by": "family_id",
+		},
+		Predicates: []ListPredicate{
+			{Field: "locale", Operator: "eq", Values: []string{"en"}},
+			{Field: "status", Operator: "in", Values: []string{"draft,published"}},
+			{Field: "path", Operator: "ilike", Values: []string{"/bo/news"}},
+			{Field: "group_by", Operator: "eq", Values: []string{"family_id"}},
+		},
+	})
+	if err != nil {
+		t.Fatalf("list content type records: %v", err)
+	}
+	if adminRead.listOpts.Locale != "en" {
+		t.Fatalf("expected locale from explicit predicate, got %q", adminRead.listOpts.Locale)
+	}
+	if got := toString(adminRead.listOpts.Filters["locale"]); got != "en" {
+		t.Fatalf("expected canonical locale filter from explicit predicate, got %q", got)
+	}
+	if _, ok := adminRead.listOpts.Filters["group_by"]; ok {
+		t.Fatalf("expected group_by to stay out of optimized filters, got %+v", adminRead.listOpts.Filters)
+	}
+	statusValues, ok := adminRead.listOpts.Filters["status__in"].([]string)
+	if !ok || strings.Join(statusValues, ",") != "draft,published" {
+		t.Fatalf("expected canonical status__in values, got %#v", adminRead.listOpts.Filters["status__in"])
+	}
+	if got := toString(adminRead.listOpts.Filters["path__ilike"]); got != "/bo/news" {
+		t.Fatalf("expected canonical path__ilike filter, got %q", got)
+	}
+	if got := toString(adminRead.listOpts.Filters["status"]); got != "" {
+		t.Fatalf("expected raw filter map to be ignored when predicates are explicit, got %q", got)
+	}
+}
+
 func TestGoCMSContentAdapterListContentTypeRecordsUsesPanelSlugForRowContentType(t *testing.T) {
 	ctx := context.Background()
 	contentTypeID := uuid.New()
@@ -405,6 +449,36 @@ func TestGoCMSContentAdapterListContentTypeFamiliesNormalizesLocaleWildcard(t *t
 	}
 	if total != 42 || len(rows) != 0 {
 		t.Fatalf("expected no rows and family total 42, got rows=%d total=%d", len(rows), total)
+	}
+}
+
+func TestGoCMSContentAdapterListContentTypeFamiliesPassesExplicitPredicatesToOptimizedRead(t *testing.T) {
+	ctx := context.Background()
+	contentTypeID := uuid.New()
+	adminRead := &stubGoCMSAdminContentReadService{
+		familyResp: cms.AdminContentFamilyListResult{FamilyTotal: 1},
+	}
+	svc := newGoCMSContentAdapter(&stubGoCMSContentService{}, nil, nil, nil, adminRead, nil, nil, nil)
+	adapter := mustGoCMSContentAdapter(t, svc)
+
+	_, _, err := adapter.ListContentTypeFamilies(ctx, CMSContentType{ID: contentTypeID.String(), Slug: "news"}, ListOptions{
+		Predicates: []ListPredicate{
+			{Field: "locale", Operator: "eq", Values: []string{"bo"}},
+			{Field: "path", Operator: "ilike", Values: []string{"/bo/news/archive"}},
+			{Field: "group_by", Operator: "eq", Values: []string{"family_id"}},
+		},
+	})
+	if err != nil {
+		t.Fatalf("list content type families: %v", err)
+	}
+	if adminRead.familyOpts.Locale != "bo" {
+		t.Fatalf("expected locale from explicit predicate, got %q", adminRead.familyOpts.Locale)
+	}
+	if _, ok := adminRead.familyOpts.Filters["group_by"]; ok {
+		t.Fatalf("expected group_by to stay out of optimized family filters, got %+v", adminRead.familyOpts.Filters)
+	}
+	if got := toString(adminRead.familyOpts.Filters["path__ilike"]); got != "/bo/news/archive" {
+		t.Fatalf("expected canonical path__ilike family filter, got %q", got)
 	}
 }
 
