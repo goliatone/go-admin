@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/goliatone/go-admin/admin"
+	"github.com/goliatone/go-admin/internal/primitives"
 )
 
 func templateTranslationArgs(defaultLocale string, args []any) (string, []any) {
@@ -108,9 +109,9 @@ func templateIntValue(raw any) (int, bool) {
 	value := reflect.ValueOf(raw)
 	switch value.Kind() {
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		return int(value.Int()), true
+		return primitives.IntFromInt64(value.Int())
 	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
-		return int(value.Uint()), true
+		return primitives.IntFromUint64(value.Uint())
 	case reflect.Float32, reflect.Float64:
 		return int(value.Float()), true
 	case reflect.String:
