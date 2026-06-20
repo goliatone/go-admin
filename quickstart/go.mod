@@ -124,8 +124,8 @@ require (
 	github.com/gofiber/utils v1.2.0 // indirect
 	github.com/goliatone/go-composite-fs v0.3.0 // indirect
 	github.com/goliatone/go-config v0.13.0 // indirect
-	github.com/goliatone/go-crud v0.24.0 // indirect
-	github.com/goliatone/go-crud/gql v0.24.0 // indirect
+	github.com/goliatone/go-crud v0.25.0 // indirect
+	github.com/goliatone/go-crud/gql v0.25.0 // indirect
 	github.com/goliatone/go-masker v0.1.0 // indirect
 	github.com/goliatone/go-options v0.7.2 // indirect
 	github.com/goliatone/go-print v0.4.1 // indirect
