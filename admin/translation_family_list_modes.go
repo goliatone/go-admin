@@ -6,6 +6,17 @@ import (
 )
 
 func translationFamilyRequestedLocaleFromListOptions(opts ListOptions) (string, bool) {
+	if len(opts.Predicates) > 0 {
+		for _, predicate := range NormalizeListPredicates(opts) {
+			if !strings.EqualFold(strings.TrimSpace(predicate.Field), "locale") {
+				continue
+			}
+			if len(predicate.Values) == 0 {
+				continue
+			}
+			return strings.TrimSpace(predicate.Values[0]), true
+		}
+	}
 	if opts.Filters != nil {
 		if loc, ok := opts.Filters["locale"].(string); ok && strings.TrimSpace(loc) != "" {
 			return strings.TrimSpace(loc), true
@@ -14,14 +25,16 @@ func translationFamilyRequestedLocaleFromListOptions(opts ListOptions) (string, 
 			return strings.TrimSpace(loc), true
 		}
 	}
-	for _, predicate := range NormalizeListPredicates(opts) {
-		if !strings.EqualFold(strings.TrimSpace(predicate.Field), "locale") {
-			continue
+	if len(opts.Predicates) == 0 {
+		for _, predicate := range NormalizeListPredicates(opts) {
+			if !strings.EqualFold(strings.TrimSpace(predicate.Field), "locale") {
+				continue
+			}
+			if len(predicate.Values) == 0 {
+				continue
+			}
+			return strings.TrimSpace(predicate.Values[0]), true
 		}
-		if len(predicate.Values) == 0 {
-			continue
-		}
-		return strings.TrimSpace(predicate.Values[0]), true
 	}
 	return "", false
 }
