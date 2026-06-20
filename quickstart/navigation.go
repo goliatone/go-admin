@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/goliatone/go-admin/admin"
+	"github.com/goliatone/go-admin/internal/primitives"
 	cms "github.com/goliatone/go-cms"
 )
 
@@ -483,9 +484,9 @@ func reflectedIntValue(value any) (int, bool) {
 	reflected := reflect.ValueOf(value)
 	switch reflected.Kind() {
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		return int(reflected.Int()), true
+		return primitives.IntFromInt64(reflected.Int())
 	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-		return int(reflected.Uint()), true
+		return primitives.IntFromUint64(reflected.Uint())
 	default:
 		return 0, false
 	}
