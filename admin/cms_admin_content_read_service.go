@@ -298,6 +298,9 @@ func (a *GoCMSContentAdapter) ListContentTypeRecords(ctx context.Context, conten
 		Search:                   listOpts.Search,
 		Filters:                  primitives.CloneAnyMap(listOpts.Filters),
 	})
+	if errors.Is(err, cms.ErrAdminContentFamilyReadUnsupported) {
+		return nil, 0, errCountCapableContentTypeListUnsupported
+	}
 	if err != nil {
 		return nil, 0, err
 	}
