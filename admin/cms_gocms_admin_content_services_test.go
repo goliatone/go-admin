@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 
@@ -347,6 +348,25 @@ func TestGoCMSContentAdapterListContentTypeRecordsUsesPanelSlugForRowContentType
 	}
 	if got := toString(rows[0]["content_type_slug"]); got != "archive_event" {
 		t.Fatalf("expected canonical content_type_slug archive_event, got %q", got)
+	}
+}
+
+func TestGoCMSContentAdapterListContentTypeRecordsDeclinesUnsupportedOptimizedRead(t *testing.T) {
+	ctx := context.Background()
+	adminRead := &stubGoCMSAdminContentReadService{
+		listErr: cms.AdminContentFamilyReadUnsupportedError{Reason: "unsupported filter operator"},
+	}
+	svc := newGoCMSContentAdapter(&stubGoCMSContentService{}, nil, nil, nil, adminRead, nil, nil, nil)
+	adapter := mustGoCMSContentAdapter(t, svc)
+
+	_, _, err := adapter.ListContentTypeRecords(ctx, CMSContentType{
+		ID:   uuid.New().String(),
+		Slug: "news",
+	}, ListOptions{
+		Filters: map[string]any{"path__contains": "archive"},
+	})
+	if !errors.Is(err, errCountCapableContentTypeListUnsupported) {
+		t.Fatalf("expected count-capable fallback error, got %v", err)
 	}
 }
 
