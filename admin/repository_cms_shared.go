@@ -1277,12 +1277,36 @@ func mapToWidgetInstance(record map[string]any) WidgetInstance {
 }
 
 func extractLocale(opts ListOptions, fallback string) string {
+	if len(opts.Predicates) > 0 {
+		for _, predicate := range NormalizeListPredicates(opts) {
+			if !strings.EqualFold(strings.TrimSpace(predicate.Field), "locale") {
+				continue
+			}
+			for _, value := range predicate.Values {
+				if loc := strings.TrimSpace(value); loc != "" {
+					return loc
+				}
+			}
+		}
+	}
 	if opts.Filters != nil {
 		if loc, ok := opts.Filters["locale"].(string); ok && loc != "" {
 			return loc
 		}
 		if loc, ok := opts.Filters["Locale"].(string); ok && loc != "" {
 			return loc
+		}
+	}
+	if len(opts.Predicates) == 0 {
+		for _, predicate := range NormalizeListPredicates(opts) {
+			if !strings.EqualFold(strings.TrimSpace(predicate.Field), "locale") {
+				continue
+			}
+			for _, value := range predicate.Values {
+				if loc := strings.TrimSpace(value); loc != "" {
+					return loc
+				}
+			}
 		}
 	}
 	if fallback != "" {
