@@ -184,6 +184,45 @@ function _go:golangci_lint:ensure {
     _go:tool:install "golangci-lint" "github.com/golangci/golangci-lint/v2/cmd/golangci-lint@${version}"
 }
 
+function _go:module_dirs {
+    printf '%s\n' "."
+    if [ -f "quickstart/go.mod" ]; then
+        printf '%s\n' "quickstart"
+    fi
+}
+
+function _go:module_relative_path {
+    local module=$1
+    local path=$2
+    local prefix
+
+    if [[ "${path}" = /* ]]; then
+        printf '%s\n' "${path}"
+        return 0
+    fi
+
+    if [ "${module}" = "." ]; then
+        printf '%s\n' "${path}"
+        return 0
+    fi
+
+    path="${path#./}"
+    prefix=$(printf '%s\n' "${module}" | sed 's#[^/][^/]*#..#g')
+    printf '%s/%s\n' "${prefix}" "${path}"
+}
+
+function _go:run_in_modules {
+    local module
+
+    while IFS= read -r module; do
+        if [ "${module}" = "." ]; then
+            "$@" || return 1
+        else
+            (cd "${module}" && "$@") || return 1
+        fi
+    done < <(_go:module_dirs)
+}
+
 function _go:packages {
     local go_bin
     local -a patterns=()
@@ -191,11 +230,11 @@ function _go:packages {
     go_bin=$(_go:bin) || return 1
     if [ "$#" -gt 0 ]; then
         patterns=("$@")
-    else
-        patterns=("./..." "./quickstart/...")
+        "${go_bin}" list "${patterns[@]}"
+        return 0
     fi
 
-    "${go_bin}" list "${patterns[@]}"
+    _go:run_in_modules "${go_bin}" list ./...
 }
 
 function _go:package_dirs {
@@ -205,11 +244,11 @@ function _go:package_dirs {
     go_bin=$(_go:bin) || return 1
     if [ "$#" -gt 0 ]; then
         patterns=("$@")
-    else
-        patterns=("./..." "./quickstart/...")
+        "${go_bin}" list -f '{{.Dir}}' "${patterns[@]}"
+        return 0
     fi
 
-    "${go_bin}" list -f '{{.Dir}}' "${patterns[@]}"
+    _go:run_in_modules "${go_bin}" list -f '{{.Dir}}' ./...
 }
 
 function _go:files {
@@ -228,7 +267,7 @@ function _go:lint:patterns {
         return 0
     fi
 
-    printf '%s\n' "./..." "./quickstart/..."
+    printf '%s\n' "./..."
 }
 
 ##########################################
@@ -280,6 +319,11 @@ function go:fix {
 
     go_bin=$(_go:bin) || return 1
     _go:quality:prepare_env || return 1
+    if [ "$#" -eq 0 ]; then
+        _go:run_in_modules "${go_bin}" fix ./...
+        return $?
+    fi
+
     while IFS= read -r pattern; do
         if [ -n "${pattern}" ]; then
             patterns+=("${pattern}")
@@ -318,6 +362,11 @@ function go:test {
 
     go_bin=$(_go:bin) || return 1
     _go:quality:prepare_env || return 1
+    if [ "$#" -eq 0 ]; then
+        _go:run_in_modules "${go_bin}" test ./...
+        return $?
+    fi
+
     while IFS= read -r pkg; do
         if [ -n "${pkg}" ]; then
             packages+=("${pkg}")
@@ -332,6 +381,11 @@ function go:race {
 
     go_bin=$(_go:bin) || return 1
     _go:quality:prepare_env || return 1
+    if [ "$#" -eq 0 ]; then
+        _go:run_in_modules "${go_bin}" test -race -count=1 ./...
+        return $?
+    fi
+
     while IFS= read -r pkg; do
         if [ -n "${pkg}" ]; then
             packages+=("${pkg}")
@@ -342,11 +396,23 @@ function go:race {
 
 function go:cover {
     local go_bin
+    local module
     local -a packages=()
     local output_file=${GO_COVERPROFILE:-coverage.out}
 
     go_bin=$(_go:bin) || return 1
     _go:quality:prepare_env || return 1
+    if [ "$#" -eq 0 ]; then
+        while IFS= read -r module; do
+            if [ "${module}" = "." ]; then
+                "${go_bin}" test -coverprofile="${output_file}" ./... && "${go_bin}" tool cover -func "${output_file}" || return 1
+            else
+                (cd "${module}" && "${go_bin}" test -coverprofile="${output_file}" ./... && "${go_bin}" tool cover -func "${output_file}") || return 1
+            fi
+        done < <(_go:module_dirs)
+        return 0
+    fi
+
     while IFS= read -r pkg; do
         if [ -n "${pkg}" ]; then
             packages+=("${pkg}")
@@ -361,6 +427,11 @@ function go:vet {
 
     go_bin=$(_go:bin) || return 1
     _go:quality:prepare_env || return 1
+    if [ "$#" -eq 0 ]; then
+        _go:run_in_modules "${go_bin}" vet ./...
+        return $?
+    fi
+
     while IFS= read -r pkg; do
         if [ -n "${pkg}" ]; then
             packages+=("${pkg}")
@@ -377,6 +448,11 @@ function go:lint {
     version="$(_go:golangci_lint_version)" || return 1
     golangci_lint_bin=$(_go:golangci_lint:ensure "${version}") || return 1
     _go:quality:prepare_env || return 1
+    if [ "$#" -eq 0 ]; then
+        _go:run_in_modules "${golangci_lint_bin}" run ./...
+        return $?
+    fi
+
     while IFS= read -r pattern; do
         if [ -n "${pattern}" ]; then
             patterns+=("${pattern}")
@@ -393,6 +469,11 @@ function go:lint:fix {
     version="$(_go:golangci_lint_version)" || return 1
     golangci_lint_bin=$(_go:golangci_lint:ensure "${version}") || return 1
     _go:quality:prepare_env || return 1
+    if [ "$#" -eq 0 ]; then
+        _go:run_in_modules "${golangci_lint_bin}" run --fix ./...
+        return $?
+    fi
+
     while IFS= read -r pattern; do
         if [ -n "${pattern}" ]; then
             patterns+=("${pattern}")
@@ -409,6 +490,11 @@ function go:lint:new {
     version="$(_go:golangci_lint_version)" || return 1
     golangci_lint_bin=$(_go:golangci_lint:ensure "${version}") || return 1
     _go:quality:prepare_env || return 1
+    if [ "$#" -eq 0 ]; then
+        _go:run_in_modules "${golangci_lint_bin}" run --new-from-rev="${GO_LINT_NEW_FROM_REV}" --whole-files ./...
+        return $?
+    fi
+
     while IFS= read -r pattern; do
         if [ -n "${pattern}" ]; then
             patterns+=("${pattern}")
@@ -425,6 +511,11 @@ function go:lint:report {
     version="$(_go:golangci_lint_version)" || return 1
     golangci_lint_bin=$(_go:golangci_lint:ensure "${version}") || return 1
     _go:quality:prepare_env || return 1
+    if [ "$#" -eq 0 ]; then
+        _go:run_in_modules "${golangci_lint_bin}" run --issues-exit-code=0 ./...
+        return $?
+    fi
+
     while IFS= read -r pattern; do
         if [ -n "${pattern}" ]; then
             patterns+=("${pattern}")
@@ -437,12 +528,28 @@ function go:lint:baseline {
     local golangci_lint_bin
     local version
     local baseline_path
+    local module
+    local module_baseline_path
+    local module_script
     local -a patterns=()
 
     version="$(_go:golangci_lint_version)" || return 1
     golangci_lint_bin=$(_go:golangci_lint:ensure "${version}") || return 1
     baseline_path="${GO_QUALITY_BASELINE_DIR}/golangci-lint.txt"
     _go:quality:prepare_env || return 1
+    if [ "$#" -eq 0 ]; then
+        while IFS= read -r module; do
+            module_script=$(_go:module_relative_path "${module}" "${GO_QUALITY_BASELINE_SCRIPT}")
+            module_baseline_path=$(_go:module_relative_path "${module}" "${baseline_path}")
+            if [ "${module}" = "." ]; then
+                GOLANGCI_LINT_BIN="${golangci_lint_bin}" "${module_script}" check golangci-lint "${module_baseline_path}" ./... || return 1
+            else
+                (cd "${module}" && GOLANGCI_LINT_BIN="${golangci_lint_bin}" "${module_script}" check golangci-lint "${module_baseline_path}" ./...) || return 1
+            fi
+        done < <(_go:module_dirs)
+        return 0
+    fi
+
     while IFS= read -r pattern; do
         if [ -n "${pattern}" ]; then
             patterns+=("${pattern}")
@@ -465,6 +572,11 @@ function go:security:govulncheck {
 
     govulncheck_bin=$(_go:tool:ensure "govulncheck" "golang.org/x/vuln/cmd/govulncheck@${GO_GOVULNCHECK_VERSION}") || return 1
     _go:quality:prepare_env || return 1
+    if [ "$#" -eq 0 ]; then
+        _go:run_in_modules "${govulncheck_bin}" ./...
+        return $?
+    fi
+
     while IFS= read -r pkg; do
         if [ -n "${pkg}" ]; then
             packages+=("${pkg}")
@@ -479,27 +591,40 @@ function go:security:gosec {
 
     gosec_bin=$(_go:tool:ensure "gosec" "github.com/securego/gosec/v2/cmd/gosec@${GO_GOSEC_VERSION}") || return 1
     _go:quality:prepare_env || return 1
-    if [ "$#" -gt 0 ]; then
-        patterns=("$@")
-    else
-        patterns=("./..." "./quickstart/...")
+    if [ "$#" -eq 0 ]; then
+        _go:run_in_modules "${gosec_bin}" -exclude-dir=.tmp ./...
+        return $?
     fi
+
+    patterns=("$@")
     "${gosec_bin}" -exclude-dir=.tmp "${patterns[@]}"
 }
 
 function go:security:gosec:baseline {
     local gosec_bin
     local baseline_path
+    local module
+    local module_baseline_path
+    local module_script
     local -a patterns=()
 
     gosec_bin=$(_go:tool:ensure "gosec" "github.com/securego/gosec/v2/cmd/gosec@${GO_GOSEC_VERSION}") || return 1
     baseline_path="${GO_QUALITY_BASELINE_DIR}/gosec.txt"
     _go:quality:prepare_env || return 1
-    if [ "$#" -gt 0 ]; then
-        patterns=("$@")
-    else
-        patterns=("./..." "./quickstart/...")
+    if [ "$#" -eq 0 ]; then
+        while IFS= read -r module; do
+            module_script=$(_go:module_relative_path "${module}" "${GO_QUALITY_BASELINE_SCRIPT}")
+            module_baseline_path=$(_go:module_relative_path "${module}" "${baseline_path}")
+            if [ "${module}" = "." ]; then
+                GOSEC_BIN="${gosec_bin}" GOSEC_ARGS="-exclude-dir=.tmp" "${module_script}" check gosec "${module_baseline_path}" ./... || return 1
+            else
+                (cd "${module}" && GOSEC_BIN="${gosec_bin}" GOSEC_ARGS="-exclude-dir=.tmp" "${module_script}" check gosec "${module_baseline_path}" ./...) || return 1
+            fi
+        done < <(_go:module_dirs)
+        return 0
     fi
+
+    patterns=("$@")
     GOSEC_BIN="${gosec_bin}" GOSEC_ARGS="-exclude-dir=.tmp" "${GO_QUALITY_BASELINE_SCRIPT}" check gosec "${baseline_path}" "${patterns[@]}"
 }
 
@@ -512,12 +637,34 @@ function go:baseline:update:golangci-lint {
     local golangci_lint_bin
     local version
     local baseline_path
+    local module
+    local module_script
+    local tmp_baseline_path
+    local tmp_dir
     local -a patterns=()
 
     version="$(_go:golangci_lint_version)" || return 1
     golangci_lint_bin=$(_go:golangci_lint:ensure "${version}") || return 1
     baseline_path="${GO_QUALITY_BASELINE_DIR}/golangci-lint.txt"
     _go:quality:prepare_env || return 1
+    if [ "$#" -eq 0 ]; then
+        tmp_dir="$(mktemp -d "${TMPDIR:-/tmp}/go-admin-golangci-baseline.XXXXXX")" || return 1
+        while IFS= read -r module; do
+            module_script=$(_go:module_relative_path "${module}" "${GO_QUALITY_BASELINE_SCRIPT}")
+            tmp_baseline_path="${tmp_dir}/${module//\//_}.txt"
+            if [ "${module}" = "." ]; then
+                GOLANGCI_LINT_BIN="${golangci_lint_bin}" "${module_script}" update golangci-lint "${tmp_baseline_path}" ./... || { rm -rf "${tmp_dir}"; return 1; }
+            else
+                (cd "${module}" && GOLANGCI_LINT_BIN="${golangci_lint_bin}" "${module_script}" update golangci-lint "${tmp_baseline_path}" ./...) || { rm -rf "${tmp_dir}"; return 1; }
+            fi
+        done < <(_go:module_dirs)
+        mkdir -p "$(dirname "${baseline_path}")"
+        cat "${tmp_dir}"/*.txt | sort -u >"${baseline_path}"
+        rm -rf "${tmp_dir}"
+        echo "Wrote golangci-lint baseline with $(wc -l <"${baseline_path}" | tr -d ' ') findings to ${baseline_path}."
+        return 0
+    fi
+
     while IFS= read -r pattern; do
         if [ -n "${pattern}" ]; then
             patterns+=("${pattern}")
@@ -529,16 +676,34 @@ function go:baseline:update:golangci-lint {
 function go:baseline:update:gosec {
     local gosec_bin
     local baseline_path
+    local module
+    local module_script
+    local tmp_baseline_path
+    local tmp_dir
     local -a patterns=()
 
     gosec_bin=$(_go:tool:ensure "gosec" "github.com/securego/gosec/v2/cmd/gosec@${GO_GOSEC_VERSION}") || return 1
     baseline_path="${GO_QUALITY_BASELINE_DIR}/gosec.txt"
     _go:quality:prepare_env || return 1
-    if [ "$#" -gt 0 ]; then
-        patterns=("$@")
-    else
-        patterns=("./..." "./quickstart/...")
+    if [ "$#" -eq 0 ]; then
+        tmp_dir="$(mktemp -d "${TMPDIR:-/tmp}/go-admin-gosec-baseline.XXXXXX")" || return 1
+        while IFS= read -r module; do
+            module_script=$(_go:module_relative_path "${module}" "${GO_QUALITY_BASELINE_SCRIPT}")
+            tmp_baseline_path="${tmp_dir}/${module//\//_}.txt"
+            if [ "${module}" = "." ]; then
+                GOSEC_BIN="${gosec_bin}" GOSEC_ARGS="-exclude-dir=.tmp" "${module_script}" update gosec "${tmp_baseline_path}" ./... || { rm -rf "${tmp_dir}"; return 1; }
+            else
+                (cd "${module}" && GOSEC_BIN="${gosec_bin}" GOSEC_ARGS="-exclude-dir=.tmp" "${module_script}" update gosec "${tmp_baseline_path}" ./...) || { rm -rf "${tmp_dir}"; return 1; }
+            fi
+        done < <(_go:module_dirs)
+        mkdir -p "$(dirname "${baseline_path}")"
+        cat "${tmp_dir}"/*.txt | sort -u >"${baseline_path}"
+        rm -rf "${tmp_dir}"
+        echo "Wrote gosec baseline with $(wc -l <"${baseline_path}" | tr -d ' ') findings to ${baseline_path}."
+        return 0
     fi
+
+    patterns=("$@")
     GOSEC_BIN="${gosec_bin}" GOSEC_ARGS="-exclude-dir=.tmp" "${GO_QUALITY_BASELINE_SCRIPT}" update gosec "${baseline_path}" "${patterns[@]}"
 }
 
