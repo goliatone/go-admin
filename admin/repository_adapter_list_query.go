@@ -36,21 +36,6 @@ func normalizeRepositoryAdapterListQuery(opts ListOptions) normalizedRepositoryA
 	}
 }
 
-func (q normalizedRepositoryAdapterListQuery) Offset() int {
-	return (q.Page - 1) * q.PerPage
-}
-
-func (q normalizedRepositoryAdapterListQuery) OrderExpr() string {
-	if q.SortBy == "" {
-		return ""
-	}
-	dir := "asc"
-	if q.SortDesc {
-		dir = "desc"
-	}
-	return q.SortBy + " " + dir
-}
-
 func (q normalizedRepositoryAdapterListQuery) FilterPredicates() []ListPredicate {
 	if len(q.Predicates) == 0 {
 		return nil

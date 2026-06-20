@@ -244,6 +244,42 @@ func TestBunRepositoryAdapterListSupportsInPredicate(t *testing.T) {
 	}
 }
 
+func TestBunRepositoryAdapterListPreservesLocalPredicateOperators(t *testing.T) {
+	ctx := context.Background()
+	db := setupTestBunDB(t)
+	defer mustClose(t, "db", db)
+
+	repo := newTestProductRepo(db)
+	adapter := NewBunRepositoryAdapter[*bunTestProduct](repo)
+
+	for _, record := range []map[string]any{
+		{"name": "Alpha Widget", "status": "draft"},
+		{"name": "Beta Widget", "status": "published"},
+		{"name": "Gamma Tool", "status": "archived"},
+	} {
+		if _, err := adapter.Create(ctx, record); err != nil {
+			t.Fatalf("create %v: %v", record, err)
+		}
+	}
+
+	results, total, err := adapter.List(ctx, ListOptions{
+		PerPage: 10,
+		Predicates: []ListPredicate{
+			{Field: "name", Operator: "ilike", Values: []string{"widget"}},
+			{Field: "status", Operator: "nin", Values: []string{"draft"}},
+		},
+	})
+	if err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	if total != 1 || len(results) != 1 {
+		t.Fatalf("unexpected local predicate results: total=%d len=%d results=%+v", total, len(results), results)
+	}
+	if got := fmt.Sprint(results[0]["name"]); got != "Beta Widget" {
+		t.Fatalf("expected Beta Widget, got %q", got)
+	}
+}
+
 func TestBunRepositoryAdapterMissingRepoReturnsNotFoundAcrossOperations(t *testing.T) {
 	ctx := context.Background()
 
