@@ -296,7 +296,7 @@ func (a *GoCMSContentAdapter) ListContentTypeRecords(ctx context.Context, conten
 		SortBy:                   listOpts.SortBy,
 		SortDesc:                 listOpts.SortDesc,
 		Search:                   listOpts.Search,
-		Filters:                  primitives.CloneAnyMap(listOpts.Filters),
+		Filters:                  optimizedCMSContentReadFilters(listOpts),
 	})
 	if errors.Is(err, cms.ErrAdminContentFamilyReadUnsupported) {
 		return nil, 0, errCountCapableContentTypeListUnsupported
@@ -351,7 +351,7 @@ func (a *GoCMSContentAdapter) ListContentTypeFamilies(ctx context.Context, conte
 		SortBy:                   listOpts.SortBy,
 		SortDesc:                 listOpts.SortDesc,
 		Search:                   listOpts.Search,
-		Filters:                  primitives.CloneAnyMap(listOpts.Filters),
+		Filters:                  optimizedCMSContentReadFilters(listOpts),
 		IncludeData:              true,
 		IncludeMetadata:          true,
 		IncludeBlocks:            true,
@@ -364,6 +364,41 @@ func (a *GoCMSContentAdapter) ListContentTypeFamilies(ctx context.Context, conte
 	}
 	rows := a.groupedRowsFromAdminContentFamilies(ctx, contentType, result.Families, locale)
 	return rows, result.FamilyTotal, nil
+}
+
+func optimizedCMSContentReadFilters(opts ListOptions) map[string]any {
+	if len(opts.Predicates) == 0 {
+		return primitives.CloneAnyMap(opts.Filters)
+	}
+	predicates := normalizePredicates(opts.Predicates)
+	if len(predicates) == 0 {
+		return nil
+	}
+	filters := make(map[string]any, len(predicates))
+	for _, predicate := range predicates {
+		field := strings.TrimSpace(predicate.Field)
+		if field == "" || strings.HasPrefix(field, "$") || isListGroupByPredicateField(field) {
+			continue
+		}
+		values := normalizePredicateValues(predicate.Values)
+		if len(values) == 0 {
+			continue
+		}
+		operator := normalizePredicateOperator(predicate.Operator)
+		key := field
+		if operator != "" && operator != defaultListPredicateOperator {
+			key = field + "__" + operator
+		}
+		if len(values) == 1 && operator != "in" {
+			filters[key] = values[0]
+			continue
+		}
+		filters[key] = append([]string{}, values...)
+	}
+	if len(filters) == 0 {
+		return nil
+	}
+	return filters
 }
 
 func (a *GoCMSContentAdapter) groupedRowsFromAdminContentFamilies(ctx context.Context, contentType CMSContentType, families []cms.AdminContentFamilyRecord, defaultLocale string) []map[string]any {
