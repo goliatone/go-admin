@@ -112,6 +112,30 @@ func CMSContentToAdminContentUpdateRequest(content cmsboot.CMSContent, contentTy
 	}
 }
 
+func CMSContentToAdminContentUpdateTranslationRequest(content cmsboot.CMSContent, contentTypeID, actor uuid.UUID, allowMissing bool) cms.AdminContentUpdateTranslationRequest {
+	data, metadata := ensureRouteKeyMapped(content)
+	return cms.AdminContentUpdateTranslationRequest{
+		ID:                       UUIDFromString(content.ID),
+		ContentTypeID:            contentTypeID,
+		ContentType:              strings.TrimSpace(content.ContentType),
+		ContentTypeSlug:          strings.TrimSpace(content.ContentTypeSlug),
+		Title:                    strings.TrimSpace(content.Title),
+		Slug:                     strings.TrimSpace(content.Slug),
+		Locale:                   strings.TrimSpace(content.Locale),
+		FamilyID:                 uuidPointer(content.FamilyID),
+		Status:                   strings.TrimSpace(content.Status),
+		Navigation:               cloneStringMap(content.Navigation),
+		EffectiveMenuLocations:   cloneStringSlice(content.EffectiveMenuLocations),
+		Blocks:                   cloneStringSlice(content.Blocks),
+		EmbeddedBlocks:           cloneAnyMapSlice(content.EmbeddedBlocks),
+		SchemaVersion:            strings.TrimSpace(content.SchemaVersion),
+		Data:                     data,
+		Metadata:                 metadata,
+		UpdatedBy:                actor,
+		AllowMissingTranslations: allowMissing,
+	}
+}
+
 func ensureRouteKeyMapped(content cmsboot.CMSContent) (map[string]any, map[string]any) {
 	data := primitives.CloneAnyMap(content.Data)
 	metadata := primitives.CloneAnyMap(content.Metadata)
