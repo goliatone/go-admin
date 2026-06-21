@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"errors"
 	"maps"
 	"reflect"
 	"strings"
@@ -128,7 +129,7 @@ func (r goCMSContentWriteBoundary) UpdateContent(ctx context.Context, content CM
 	if a.adminWrite != nil {
 		return r.updateAdminContent(ctx, content, meta, includeMeta)
 	}
-	return r.updateLegacyContent(ctx, content, meta, includeMeta)
+	return r.updateLegacyContent(ctx, content, meta, includeMeta, existing)
 }
 
 func (r goCMSContentWriteBoundary) updateAdminContent(ctx context.Context, content CMSContent, meta map[string]any, includeMeta bool) (*CMSContent, error) {
@@ -146,6 +147,26 @@ func (r goCMSContentWriteBoundary) updateAdminContent(ctx context.Context, conte
 	} else {
 		req.Metadata = nil
 	}
+	if translationWriter, ok := a.adminWrite.(cms.AdminContentTranslationWriteService); ok && translationWriter != nil {
+		translationReq := cmsadapter.CMSContentToAdminContentUpdateTranslationRequest(content, contentTypeID, actorUUID(ctx), true)
+		if translationReq.ID == uuid.Nil {
+			return nil, ErrNotFound
+		}
+		if includeMeta {
+			translationReq.Metadata = meta
+		} else {
+			translationReq.Metadata = nil
+		}
+		updated, err := translationWriter.UpdateTranslation(ctx, translationReq)
+		if err != nil {
+			return nil, err
+		}
+		if updated == nil {
+			return nil, ErrNotFound
+		}
+		rec := a.convertAdminContentRecord(ctx, *updated)
+		return &rec, nil
+	}
 	updated, err := a.adminWrite.Update(ctx, req)
 	if err != nil {
 		return nil, err
@@ -157,17 +178,101 @@ func (r goCMSContentWriteBoundary) updateAdminContent(ctx context.Context, conte
 	return &rec, nil
 }
 
-func (r goCMSContentWriteBoundary) updateLegacyContent(ctx context.Context, content CMSContent, meta map[string]any, includeMeta bool) (*CMSContent, error) {
+func (r goCMSContentWriteBoundary) updateLegacyContent(ctx context.Context, content CMSContent, meta map[string]any, includeMeta bool, existing *CMSContent) (*CMSContent, error) {
 	a := r.adapter
-	req := cmscontent.UpdateContentRequest{
-		ID:                       cmsadapter.UUIDFromString(content.ID),
-		Status:                   content.Status,
-		UpdatedBy:                actorUUID(ctx),
-		Translations:             cmsadapter.BuildGoCMSContentTranslations(content),
-		AllowMissingTranslations: true,
-	}
-	if req.ID == uuid.Nil {
+	contentID := cmsadapter.UUIDFromString(content.ID)
+	if contentID == uuid.Nil {
 		return nil, ErrNotFound
+	}
+	translationReq, err := r.updateContentTranslationRequest(contentID, content, actorUUID(ctx))
+	if err != nil {
+		return nil, err
+	}
+	if _, err := a.content.UpdateTranslation(ctx, translationReq); err != nil {
+		if !r.shouldFallbackToMergedContentUpdate(err) {
+			return nil, err
+		}
+		return r.updateLegacyContentByMergedTranslations(ctx, content, meta, includeMeta, existing)
+	}
+	if includeMeta || strings.TrimSpace(content.Status) != "" {
+		status := strings.TrimSpace(content.Status)
+		if status == "" && existing != nil {
+			status = strings.TrimSpace(existing.Status)
+		}
+		entryReq := cmscontent.UpdateContentRequest{
+			ID:                       contentID,
+			Status:                   status,
+			UpdatedBy:                actorUUID(ctx),
+			AllowMissingTranslations: true,
+		}
+		if includeMeta {
+			entryReq.Metadata = meta
+		}
+		if _, err := a.content.Update(ctx, entryReq); err != nil {
+			return nil, err
+		}
+	}
+	updated, err := a.content.Get(ctx, contentID, cmscontent.WithTranslations(), cmscontent.WithDerivedFields())
+	if err != nil {
+		return nil, err
+	}
+	if updated == nil {
+		return nil, ErrNotFound
+	}
+	rec := a.convertContent(ctx, reflect.ValueOf(updated), content.Locale)
+	return &rec, nil
+}
+
+func (r goCMSContentWriteBoundary) updateContentTranslationRequest(contentID uuid.UUID, content CMSContent, actor uuid.UUID) (cmscontent.UpdateContentTranslationRequest, error) {
+	translations := cmsadapter.BuildGoCMSContentTranslations(content)
+	if len(translations) == 0 {
+		return cmscontent.UpdateContentTranslationRequest{}, validationDomainError("content translation required", map[string]any{"component": "content_adapter", "content_id": content.ID})
+	}
+	translation := translations[0]
+	return cmscontent.UpdateContentTranslationRequest{
+		ContentID: contentID,
+		Locale:    strings.TrimSpace(translation.Locale),
+		FamilyID:  translation.FamilyID,
+		Title:     strings.TrimSpace(translation.Title),
+		Summary:   cloneCMSContentStringPointer(translation.Summary),
+		Content:   maps.Clone(translation.Content),
+		Blocks:    cloneCMSContentMapSlice(translation.Blocks),
+		UpdatedBy: actor,
+	}, nil
+}
+
+func (r goCMSContentWriteBoundary) shouldFallbackToMergedContentUpdate(err error) bool {
+	return errors.Is(err, cmscontent.ErrDefaultLocaleRequired)
+}
+
+func (r goCMSContentWriteBoundary) updateLegacyContentByMergedTranslations(ctx context.Context, content CMSContent, meta map[string]any, includeMeta bool, existing *CMSContent) (*CMSContent, error) {
+	a := r.adapter
+	contentID := cmsadapter.UUIDFromString(content.ID)
+	if contentID == uuid.Nil {
+		return nil, ErrNotFound
+	}
+	current, err := a.content.Get(ctx, contentID, cmscontent.WithTranslations())
+	if err != nil {
+		return nil, err
+	}
+	if current == nil {
+		return nil, ErrNotFound
+	}
+	translations := cmsadapter.BuildGoCMSContentTranslations(content)
+	merged := mergeGoCMSStoredContentTranslationsForUpdate(current, translations)
+	status := strings.TrimSpace(content.Status)
+	if status == "" {
+		status = strings.TrimSpace(current.Status)
+	}
+	if status == "" && existing != nil {
+		status = strings.TrimSpace(existing.Status)
+	}
+	req := cmscontent.UpdateContentRequest{
+		ID:                       contentID,
+		Status:                   status,
+		UpdatedBy:                actorUUID(ctx),
+		Translations:             merged,
+		AllowMissingTranslations: true,
 	}
 	if includeMeta {
 		req.Metadata = meta
@@ -181,6 +286,78 @@ func (r goCMSContentWriteBoundary) updateLegacyContent(ctx context.Context, cont
 	}
 	rec := a.convertContent(ctx, reflect.ValueOf(updated), content.Locale)
 	return &rec, nil
+}
+
+func mergeGoCMSStoredContentTranslationsForUpdate(existing *cmscontent.Content, updates []cmscontent.ContentTranslationInput) []cmscontent.ContentTranslationInput {
+	if existing == nil {
+		return updates
+	}
+	byLocale := map[string]cmscontent.ContentTranslationInput{}
+	for _, translation := range existing.Translations {
+		if translation == nil {
+			continue
+		}
+		code := goCMSContentTranslationLocaleCode(translation)
+		if code == "" {
+			continue
+		}
+		byLocale[strings.ToLower(code)] = cmscontent.ContentTranslationInput{
+			Locale:   code,
+			FamilyID: cloneCMSContentUUIDPointer(translation.FamilyID),
+			Title:    strings.TrimSpace(translation.Title),
+			Summary:  cloneCMSContentStringPointer(translation.Summary),
+			Content:  maps.Clone(translation.Content),
+		}
+	}
+	for _, update := range updates {
+		code := strings.ToLower(strings.TrimSpace(update.Locale))
+		if code == "" {
+			continue
+		}
+		byLocale[code] = update
+	}
+	out := make([]cmscontent.ContentTranslationInput, 0, len(byLocale))
+	for _, translation := range byLocale {
+		if strings.TrimSpace(translation.Locale) == "" {
+			continue
+		}
+		out = append(out, translation)
+	}
+	return out
+}
+
+func goCMSContentTranslationLocaleCode(translation *cmscontent.ContentTranslation) string {
+	if translation == nil || translation.Locale == nil {
+		return ""
+	}
+	return strings.TrimSpace(translation.Locale.Code)
+}
+
+func cloneCMSContentStringPointer(value *string) *string {
+	if value == nil {
+		return nil
+	}
+	copied := *value
+	return &copied
+}
+
+func cloneCMSContentUUIDPointer(value *uuid.UUID) *uuid.UUID {
+	if value == nil || *value == uuid.Nil {
+		return nil
+	}
+	copied := *value
+	return &copied
+}
+
+func cloneCMSContentMapSlice(values []map[string]any) []map[string]any {
+	if len(values) == 0 {
+		return nil
+	}
+	out := make([]map[string]any, 0, len(values))
+	for _, value := range values {
+		out = append(out, maps.Clone(value))
+	}
+	return out
 }
 
 func (r goCMSContentWriteBoundary) DeleteContent(ctx context.Context, id string) error {
