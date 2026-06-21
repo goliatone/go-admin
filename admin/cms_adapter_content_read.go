@@ -93,6 +93,29 @@ func contentTypeIDFromListOptions(opts []CMSContentListOption) string {
 	return ""
 }
 
+func familyIDFromListOptions(opts []CMSContentListOption) string {
+	const prefix = "content:list:family:"
+	for _, opt := range opts {
+		trimmed := strings.TrimSpace(string(opt))
+		if !strings.HasPrefix(strings.ToLower(trimmed), prefix) {
+			continue
+		}
+		return strings.TrimSpace(trimmed[len(prefix):])
+	}
+	return ""
+}
+
+func adminReadFiltersFromContentListOptions(opts []CMSContentListOption) map[string]any {
+	filters := map[string]any{}
+	if familyID := familyIDFromListOptions(opts); familyID != "" {
+		filters["family_id"] = familyID
+	}
+	if len(filters) == 0 {
+		return nil
+	}
+	return filters
+}
+
 func normalizeCMSRequestedListLocale(locale string) string {
 	if isTranslationLocaleWildcard(locale) {
 		return ""
@@ -198,6 +221,7 @@ func (r goCMSContentReadBoundary) listContents(ctx context.Context, locale strin
 			IncludeData:              true,
 			IncludeMetadata:          true,
 			IncludeBlocks:            true,
+			Filters:                  adminReadFiltersFromContentListOptions(opts),
 		})
 		if err != nil {
 			return nil, err
