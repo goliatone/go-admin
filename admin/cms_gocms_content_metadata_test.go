@@ -11,21 +11,25 @@ import (
 )
 
 type stubGoCMSContentService struct {
-	listResp             []*cmscontent.Content
-	listWithTranslations []*cmscontent.Content
-	listWithDerived      []*cmscontent.Content
-	listOptions          []cmscontent.ContentListOption
-	getResp              *cmscontent.Content
-	getWithDerived       *cmscontent.Content
-	getOptions           []cmscontent.ContentGetOption
-	getCount             int
-	createReq            cmscontent.CreateContentRequest
-	updateReq            cmscontent.UpdateContentRequest
-	updateResp           *cmscontent.Content
-	createTranslationReq stubCreateTranslationRequest
-	createTranslationRes *cmscontent.Content
-	createTranslationErr error
-	createTranslationCnt int
+	listResp              []*cmscontent.Content
+	listWithTranslations  []*cmscontent.Content
+	listWithDerived       []*cmscontent.Content
+	listOptions           []cmscontent.ContentListOption
+	getResp               *cmscontent.Content
+	getWithDerived        *cmscontent.Content
+	getOptions            []cmscontent.ContentGetOption
+	getCount              int
+	createReq             cmscontent.CreateContentRequest
+	updateReq             cmscontent.UpdateContentRequest
+	updateResp            *cmscontent.Content
+	updateTranslationReq  cmscontent.UpdateContentTranslationRequest
+	updateTranslationResp *cmscontent.ContentTranslation
+	updateTranslationErr  error
+	updateTranslationCnt  int
+	createTranslationReq  stubCreateTranslationRequest
+	createTranslationRes  *cmscontent.Content
+	createTranslationErr  error
+	createTranslationCnt  int
 }
 
 type stubCreateTranslationRequest struct {
@@ -86,6 +90,18 @@ func (s *stubGoCMSContentService) Update(_ context.Context, req cmscontent.Updat
 		return s.getResp, nil
 	}
 	return &cmscontent.Content{ID: req.ID, Status: req.Status}, nil
+}
+
+func (s *stubGoCMSContentService) UpdateTranslation(_ context.Context, req cmscontent.UpdateContentTranslationRequest) (*cmscontent.ContentTranslation, error) {
+	s.updateTranslationCnt++
+	s.updateTranslationReq = req
+	if s.updateTranslationErr != nil {
+		return nil, s.updateTranslationErr
+	}
+	if s.updateTranslationResp != nil {
+		return s.updateTranslationResp, nil
+	}
+	return &cmscontent.ContentTranslation{ContentID: req.ContentID, Title: req.Title, Content: req.Content}, nil
 }
 
 func (s *stubGoCMSContentService) CreateTranslation(_ context.Context, req stubCreateTranslationRequest) (*cmscontent.Content, error) {
@@ -262,6 +278,56 @@ func TestGoCMSContentAdapterCreatePageMetadataMapping(t *testing.T) {
 	}
 	if content["body"] != "hello" {
 		t.Fatalf("expected body preserved in translation content, got %v", content["body"])
+	}
+}
+
+func TestGoCMSContentAdapterUpdateContentUsesSingleTranslationUpdate(t *testing.T) {
+	ctx := context.Background()
+	contentID := uuid.New()
+	familyID := uuid.New()
+	typeID := uuid.New()
+	typeSvc := newStubContentTypeService(CMSContentType{
+		ID:   typeID.String(),
+		Slug: "teaching_topic",
+	})
+	contentSvc := &stubGoCMSContentService{
+		getResp: &cmscontent.Content{
+			ID:     contentID,
+			Slug:   "lojong",
+			Status: "draft",
+			Type:   &cmscontent.ContentType{Slug: "teaching_topic"},
+			Translations: []*cmscontent.ContentTranslation{
+				{Locale: &cmscontent.Locale{Code: "en"}, FamilyID: &familyID, Title: "Lojong", Content: map[string]any{"label": "Lojong"}},
+				{Locale: &cmscontent.Locale{Code: "bo"}, FamilyID: &familyID, Title: "Lojong BO", Content: map[string]any{"label": "Lojong BO"}},
+				{Locale: &cmscontent.Locale{Code: "zh"}, FamilyID: &familyID, Title: "Lojong ZH", Content: map[string]any{"label": "Lojong ZH"}},
+			},
+		},
+	}
+	adapter := mustGoCMSContentAdapter(t, NewGoCMSContentAdapter(contentSvc, nil, typeSvc))
+
+	_, err := adapter.UpdateContent(ctx, CMSContent{
+		ID:              contentID.String(),
+		FamilyID:        familyID.String(),
+		Locale:          "bo",
+		Title:           "Updated BO",
+		ContentType:     "teaching_topic",
+		ContentTypeSlug: "teaching_topic",
+		Data:            map[string]any{"label": "Updated BO"},
+	})
+	if err != nil {
+		t.Fatalf("update content: %v", err)
+	}
+	if contentSvc.updateTranslationCnt != 1 {
+		t.Fatalf("expected one single-translation update, got %d", contentSvc.updateTranslationCnt)
+	}
+	if got := contentSvc.updateTranslationReq.Locale; got != "bo" {
+		t.Fatalf("expected bo update locale, got %q", got)
+	}
+	if got := contentSvc.updateTranslationReq.Title; got != "Updated BO" {
+		t.Fatalf("expected updated title, got %q", got)
+	}
+	if len(contentSvc.updateReq.Translations) != 0 {
+		t.Fatalf("expected entry update to avoid replacement translations, got %#v", contentSvc.updateReq.Translations)
 	}
 }
 

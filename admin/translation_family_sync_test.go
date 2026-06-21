@@ -548,6 +548,71 @@ func TestSyncTranslationFamilyStoreForFamilySavesOnlyRequestedFamily(t *testing.
 	}
 }
 
+func TestSyncTranslationFamilyStoreForFamilyUsesScopedLocaleVariantReads(t *testing.T) {
+	ctx := context.Background()
+	store := translationservices.NewInMemoryFamilyStore()
+	content := &scopedTranslationFamilySyncContentStub{
+		base: &translationFamilySyncContentStub{
+			InMemoryContentService: NewInMemoryContentService(),
+		},
+		contentsWithOptions: []CMSContent{
+			{
+				ID:              "topic-menu",
+				FamilyID:        "family-menu",
+				Locale:          "en",
+				ContentType:     "teaching_topics_menu",
+				ContentTypeSlug: "teaching_topics_menu",
+				Title:           "Teaching Topics",
+				Slug:            "teaching-topics",
+				Status:          "draft",
+				Data:            map[string]any{"label": "Teaching Topics"},
+				Metadata:        map[string]any{"family_id": "family-menu"},
+			},
+			{
+				ID:              "topic-menu",
+				FamilyID:        "family-menu",
+				Locale:          "bo",
+				ContentType:     "teaching_topics_menu",
+				ContentTypeSlug: "teaching_topics_menu",
+				Title:           "Teaching Topics BO",
+				Slug:            "teaching-topics",
+				Status:          "draft",
+				Data:            map[string]any{"label": "Teaching Topics BO"},
+				Metadata:        map[string]any{"family_id": "family-menu"},
+			},
+		},
+	}
+	adm := &Admin{
+		contentSvc:             content,
+		translationFamilyStore: store,
+		config:                 Config{DefaultLocale: "en"},
+		translationPolicy:      TranslationPolicyFunc(func(context.Context, TranslationPolicyInput) error { return nil }),
+	}
+
+	if err := SyncTranslationFamilyStoreForFamily(ctx, adm, "default", "family-menu"); err != nil {
+		t.Fatalf("SyncTranslationFamilyStoreForFamily: %v", err)
+	}
+	if content.broadPagesCalls != 0 || content.broadContentsCalls != 0 {
+		t.Fatalf("expected no broad reads, got pages=%d contents=%d", content.broadPagesCalls, content.broadContentsCalls)
+	}
+	if content.contentsWithOptionsCalls != 1 {
+		t.Fatalf("expected one scoped contents read, got %d", content.contentsWithOptionsCalls)
+	}
+	if !hasCMSContentListOption(content.contentOptions, WithLocaleVariants()) {
+		t.Fatalf("expected locale variants option, got %#v", content.contentOptions)
+	}
+	if !hasCMSContentListOption(content.contentOptions, WithFamilyID("family-menu")) {
+		t.Fatalf("expected family filter option, got %#v", content.contentOptions)
+	}
+	family, ok, err := store.Family(ctx, "family-menu")
+	if err != nil || !ok {
+		t.Fatalf("expected family-menu saved, ok=%v err=%v", ok, err)
+	}
+	if got := sortedFamilyVariantIDs(family); !equalStrings(got, []string{"topic-menu", "topic-menu::bo"}) {
+		t.Fatalf("variant ids = %#v, want en/bo scoped variants", got)
+	}
+}
+
 func TestTranslationFamilyPolicyResolverUsesRequirementsSourceLocaleAndPolicyBlockers(t *testing.T) {
 	ctx := context.Background()
 	policy := &translationFamilyBlockingPolicy{
@@ -908,6 +973,18 @@ type translationFamilySyncContentStub struct {
 	contentsByLocale map[string][]CMSContent
 }
 
+type scopedTranslationFamilySyncContentStub struct {
+	base                     *translationFamilySyncContentStub
+	pagesWithOptions         []CMSPage
+	contentsWithOptions      []CMSContent
+	pageOptions              []CMSContentListOption
+	contentOptions           []CMSContentListOption
+	broadPagesCalls          int
+	broadContentsCalls       int
+	pagesWithOptionsCalls    int
+	contentsWithOptionsCalls int
+}
+
 type translationFamilyBlockingPolicy struct {
 	req   TranslationRequirements
 	err   error
@@ -929,6 +1006,92 @@ func (s *translationFamilySyncContentStub) Pages(_ context.Context, locale strin
 
 func (s *translationFamilySyncContentStub) Contents(_ context.Context, locale string) ([]CMSContent, error) {
 	return append([]CMSContent(nil), s.contentsByLocale[locale]...), nil
+}
+
+func (s *scopedTranslationFamilySyncContentStub) Pages(ctx context.Context, locale string) ([]CMSPage, error) {
+	s.broadPagesCalls++
+	return s.base.Pages(ctx, locale)
+}
+
+func (s *scopedTranslationFamilySyncContentStub) Page(ctx context.Context, id, locale string) (*CMSPage, error) {
+	return s.base.Page(ctx, id, locale)
+}
+
+func (s *scopedTranslationFamilySyncContentStub) CreatePage(ctx context.Context, page CMSPage) (*CMSPage, error) {
+	return s.base.CreatePage(ctx, page)
+}
+
+func (s *scopedTranslationFamilySyncContentStub) UpdatePage(ctx context.Context, page CMSPage) (*CMSPage, error) {
+	return s.base.UpdatePage(ctx, page)
+}
+
+func (s *scopedTranslationFamilySyncContentStub) DeletePage(ctx context.Context, id string) error {
+	return s.base.DeletePage(ctx, id)
+}
+
+func (s *scopedTranslationFamilySyncContentStub) Contents(ctx context.Context, locale string) ([]CMSContent, error) {
+	s.broadContentsCalls++
+	return s.base.Contents(ctx, locale)
+}
+
+func (s *scopedTranslationFamilySyncContentStub) Content(ctx context.Context, id, locale string) (*CMSContent, error) {
+	return s.base.Content(ctx, id, locale)
+}
+
+func (s *scopedTranslationFamilySyncContentStub) CreateContent(ctx context.Context, content CMSContent) (*CMSContent, error) {
+	return s.base.CreateContent(ctx, content)
+}
+
+func (s *scopedTranslationFamilySyncContentStub) UpdateContent(ctx context.Context, content CMSContent) (*CMSContent, error) {
+	return s.base.UpdateContent(ctx, content)
+}
+
+func (s *scopedTranslationFamilySyncContentStub) DeleteContent(ctx context.Context, id string) error {
+	return s.base.DeleteContent(ctx, id)
+}
+
+func (s *scopedTranslationFamilySyncContentStub) PagesWithOptions(_ context.Context, _ string, opts ...CMSContentListOption) ([]CMSPage, error) {
+	s.pagesWithOptionsCalls++
+	s.pageOptions = append([]CMSContentListOption{}, opts...)
+	return append([]CMSPage(nil), s.pagesWithOptions...), nil
+}
+
+func (s *scopedTranslationFamilySyncContentStub) ContentsWithOptions(_ context.Context, _ string, opts ...CMSContentListOption) ([]CMSContent, error) {
+	s.contentsWithOptionsCalls++
+	s.contentOptions = append([]CMSContentListOption{}, opts...)
+	return append([]CMSContent(nil), s.contentsWithOptions...), nil
+}
+
+func (s *scopedTranslationFamilySyncContentStub) BlockDefinitions(ctx context.Context) ([]CMSBlockDefinition, error) {
+	return s.base.BlockDefinitions(ctx)
+}
+
+func (s *scopedTranslationFamilySyncContentStub) CreateBlockDefinition(ctx context.Context, def CMSBlockDefinition) (*CMSBlockDefinition, error) {
+	return s.base.CreateBlockDefinition(ctx, def)
+}
+
+func (s *scopedTranslationFamilySyncContentStub) UpdateBlockDefinition(ctx context.Context, def CMSBlockDefinition) (*CMSBlockDefinition, error) {
+	return s.base.UpdateBlockDefinition(ctx, def)
+}
+
+func (s *scopedTranslationFamilySyncContentStub) DeleteBlockDefinition(ctx context.Context, id string) error {
+	return s.base.DeleteBlockDefinition(ctx, id)
+}
+
+func (s *scopedTranslationFamilySyncContentStub) BlockDefinitionVersions(ctx context.Context, id string) ([]CMSBlockDefinitionVersion, error) {
+	return s.base.BlockDefinitionVersions(ctx, id)
+}
+
+func (s *scopedTranslationFamilySyncContentStub) BlocksForContent(ctx context.Context, contentID, locale string) ([]CMSBlock, error) {
+	return s.base.BlocksForContent(ctx, contentID, locale)
+}
+
+func (s *scopedTranslationFamilySyncContentStub) SaveBlock(ctx context.Context, block CMSBlock) (*CMSBlock, error) {
+	return s.base.SaveBlock(ctx, block)
+}
+
+func (s *scopedTranslationFamilySyncContentStub) DeleteBlock(ctx context.Context, id string) error {
+	return s.base.DeleteBlock(ctx, id)
 }
 
 func sortedFamilyVariantIDs(family translationservices.FamilyRecord) []string {

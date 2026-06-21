@@ -71,17 +71,21 @@ func (s *stubGoCMSAdminContentReadService) Get(_ context.Context, _ string, opts
 type stubGoCMSAdminContentWriteService struct {
 	createResp            *cms.AdminContentRecord
 	updateResp            *cms.AdminContentRecord
+	updateTranslationResp *cms.AdminContentRecord
 	createTranslationResp *cms.AdminContentRecord
 	createReq             cms.AdminContentCreateRequest
 	updateReq             cms.AdminContentUpdateRequest
+	updateTranslationReq  cms.AdminContentUpdateTranslationRequest
 	deleteReq             cms.AdminContentDeleteRequest
 	createTranslationReq  cms.AdminContentCreateTranslationRequest
 	createErr             error
 	updateErr             error
+	updateTranslationErr  error
 	deleteErr             error
 	createTranslationErr  error
 	createCnt             int
 	updateCnt             int
+	updateTranslationCnt  int
 	deleteCnt             int
 	createTranslationCnt  int
 }
@@ -109,6 +113,19 @@ func (s *stubGoCMSAdminContentWriteService) Update(_ context.Context, req cms.Ad
 		return nil, nil
 	}
 	record := *s.updateResp
+	return &record, nil
+}
+
+func (s *stubGoCMSAdminContentWriteService) UpdateTranslation(_ context.Context, req cms.AdminContentUpdateTranslationRequest) (*cms.AdminContentRecord, error) {
+	s.updateTranslationCnt++
+	s.updateTranslationReq = req
+	if s.updateTranslationErr != nil {
+		return nil, s.updateTranslationErr
+	}
+	if s.updateTranslationResp == nil {
+		return nil, nil
+	}
+	record := *s.updateTranslationResp
 	return &record, nil
 }
 
@@ -262,6 +279,54 @@ func TestGoCMSContentAdapterContentsWithContentTypeIDUsesAdminReadScope(t *testi
 	}
 	if len(items) != 1 || items[0].ContentTypeSlug != "page" {
 		t.Fatalf("expected only page content from scoped admin read, got %+v", items)
+	}
+}
+
+func TestGoCMSContentAdapterUpdateContentUsesAdminTranslationWrite(t *testing.T) {
+	ctx := context.Background()
+	contentID := uuid.New()
+	familyID := uuid.New()
+	contentTypeID := uuid.New()
+	adminWrite := &stubGoCMSAdminContentWriteService{
+		updateTranslationResp: &cms.AdminContentRecord{
+			ID:              contentID,
+			FamilyID:        &familyID,
+			Title:           "Updated BO",
+			Locale:          "bo",
+			ContentType:     "teaching_topic",
+			ContentTypeSlug: "teaching_topic",
+			Status:          "draft",
+			Data:            map[string]any{"label": "Updated BO"},
+		},
+	}
+	contentSvc := &stubGoCMSContentService{}
+	typeSvc := newStubContentTypeService(CMSContentType{ID: contentTypeID.String(), Slug: "teaching_topic"})
+	svc := newGoCMSContentAdapter(contentSvc, nil, typeSvc, nil, nil, adminWrite, nil, nil)
+	adapter := mustGoCMSContentAdapter(t, svc)
+
+	updated, err := adapter.UpdateContent(ctx, CMSContent{
+		ID:              contentID.String(),
+		FamilyID:        familyID.String(),
+		Locale:          "bo",
+		Title:           "Updated BO",
+		ContentType:     "teaching_topic",
+		ContentTypeSlug: "teaching_topic",
+		Data:            map[string]any{"label": "Updated BO"},
+	})
+	if err != nil {
+		t.Fatalf("update content: %v", err)
+	}
+	if adminWrite.updateTranslationCnt != 1 {
+		t.Fatalf("expected one admin translation update, got %d", adminWrite.updateTranslationCnt)
+	}
+	if adminWrite.updateCnt != 0 {
+		t.Fatalf("expected full admin update to stay unused, got %d", adminWrite.updateCnt)
+	}
+	if got := adminWrite.updateTranslationReq.Locale; got != "bo" {
+		t.Fatalf("expected bo locale update, got %q", got)
+	}
+	if got := updated.Title; got != "Updated BO" {
+		t.Fatalf("expected updated projection title, got %q", got)
 	}
 }
 

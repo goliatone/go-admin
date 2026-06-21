@@ -17,4 +17,8 @@ func TestContentListOptionsExposeCanonicalTokens(t *testing.T) {
 	if WithContentTypeID(id) != expected {
 		t.Fatalf("expected content type token %q, got %q", expected, WithContentTypeID(id))
 	}
+	familyExpected := CMSContentListOption("content:list:family:" + id)
+	if WithFamilyID(id) != familyExpected {
+		t.Fatalf("expected family token %q, got %q", familyExpected, WithFamilyID(id))
+	}
 }
