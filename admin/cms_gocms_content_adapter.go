@@ -17,6 +17,7 @@ type goCMSContentService interface {
 	Get(ctx context.Context, id uuid.UUID, opts ...cmscontent.ContentGetOption) (*cmscontent.Content, error)
 	Create(ctx context.Context, req cmscontent.CreateContentRequest) (*cmscontent.Content, error)
 	Update(ctx context.Context, req cmscontent.UpdateContentRequest) (*cmscontent.Content, error)
+	UpdateTranslation(ctx context.Context, req cmscontent.UpdateContentTranslationRequest) (*cmscontent.ContentTranslation, error)
 	Delete(ctx context.Context, req cmscontent.DeleteContentRequest) error
 }
 

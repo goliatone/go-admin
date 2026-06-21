@@ -22,11 +22,18 @@ func SyncTranslationFamilyStoreForFamily(ctx context.Context, adm *Admin, enviro
 	if adm == nil || adm.contentSvc == nil || adm.translationFamilyStore == nil {
 		return serviceNotConfiguredDomainError("translation family sync", map[string]any{"component": "translation_family_sync"})
 	}
+	familyID = strings.TrimSpace(familyID)
 	defaultLocale := strings.TrimSpace(adm.config.DefaultLocale)
 	if defaultLocale == "" {
 		defaultLocale = "en"
 	}
 	binding := &translationFamilyBinding{admin: adm}
+	if familyID != "" {
+		handled, err := syncTranslationFamilyStoreScopedFamily(ctx, adm, binding, defaultLocale, environment, familyID)
+		if err != nil || handled {
+			return err
+		}
+	}
 	orderedLocales, err := translationFamilySyncLocales(ctx, adm, binding, defaultLocale, environment)
 	if err != nil {
 		return err
@@ -35,7 +42,7 @@ func SyncTranslationFamilyStoreForFamily(ctx context.Context, adm *Admin, enviro
 	if err != nil {
 		return err
 	}
-	if familyID = strings.TrimSpace(familyID); familyID != "" {
+	if familyID != "" {
 		family, ok := families[familyID]
 		if !ok {
 			return validationDomainError("translation family not found during sync", map[string]any{
@@ -52,6 +59,61 @@ func SyncTranslationFamilyStoreForFamily(ctx context.Context, adm *Admin, enviro
 		return recomputeTranslationFamily(ctx, adm, familyID, environment)
 	}
 	return recomputeTranslationFamilies(ctx, adm, environment)
+}
+
+func syncTranslationFamilyStoreScopedFamily(ctx context.Context, adm *Admin, binding *translationFamilyBinding, defaultLocale string, environment string, familyID string) (bool, error) {
+	contentList, hasContentList := resolveCMSContentListOptionsService(adm.contentSvc)
+	pageList, hasPageList := resolveCMSPageListOptionsService(adm.contentSvc)
+	if !hasContentList && !hasPageList {
+		return false, nil
+	}
+	families := map[string]translationservices.FamilyRecord{}
+	state := newTranslationFamilySyncState()
+	opts := []CMSContentListOption{
+		WithTranslations(),
+		WithDerivedFields(),
+		WithLocaleVariants(),
+		WithFamilyID(familyID),
+	}
+	if hasPageList {
+		pages, err := pageList.PagesWithOptions(ctx, "all", opts...)
+		if err != nil {
+			return true, err
+		}
+		for _, page := range pages {
+			if strings.TrimSpace(page.FamilyID) != familyID {
+				continue
+			}
+			if err := appendPageFamilyVariant(ctx, adm, families, state, page, page.Locale, defaultLocale); err != nil {
+				return true, err
+			}
+		}
+	}
+	if hasContentList {
+		contents, err := contentList.ContentsWithOptions(ctx, "all", opts...)
+		if err != nil {
+			return true, err
+		}
+		for _, content := range contents {
+			if strings.TrimSpace(content.FamilyID) != familyID {
+				continue
+			}
+			if err := appendContentFamilyVariant(ctx, adm, families, state, content, content.Locale, defaultLocale); err != nil {
+				return true, err
+			}
+		}
+	}
+	family, ok := families[familyID]
+	if !ok {
+		return true, validationDomainError("translation family not found during sync", map[string]any{
+			"family_id":   familyID,
+			"environment": strings.TrimSpace(environment),
+		})
+	}
+	if err := saveTranslationFamilies(ctx, adm, map[string]translationservices.FamilyRecord{familyID: family}, translationFamilyAssignmentsByFamily(binding.collectAssignments(ctx))); err != nil {
+		return true, err
+	}
+	return true, recomputeTranslationFamily(ctx, adm, familyID, environment)
 }
 
 func translationFamilySyncLocales(ctx context.Context, adm *Admin, binding *translationFamilyBinding, defaultLocale, environment string) ([]string, error) {
