@@ -178,8 +178,8 @@ github.com/goliatone/go-auth/adapters/featuregate v0.44.1 h1:bHTfCSJ5N0wBY0qJKEB
 github.com/goliatone/go-auth/adapters/featuregate v0.44.1/go.mod h1:OfVSA2d7vEm1QiKLtullHTPrHLqJgFFS64g8nkCK7OA=
 github.com/goliatone/go-cache v0.1.0 h1:hbIuZdtjdWJeb0BSOybU096Q0NC/xEOpTXPJqAktDRY=
 github.com/goliatone/go-cache v0.1.0/go.mod h1:JTIwNrs4jaQlu/6h3GOa/rPcMlp2UttvN7aXe8V4v0s=
-github.com/goliatone/go-cms v0.58.0 h1:lDGHuOCYE6RMKwC8askogDJe6sCgVd3fYnc1Sx+IwtY=
-github.com/goliatone/go-cms v0.58.0/go.mod h1:WG6sqMZo4HELX+66wm2L9ERW5rO1nYpUlZ0Y49I/Bi4=
+github.com/goliatone/go-cms v0.59.0 h1:iCnkMfcNfsgcVb3/m87zXJ7JXZqUxzQ715TIUq5ZjiE=
+github.com/goliatone/go-cms v0.59.0/go.mod h1:0wuH+BPl6XU9/iL+dDXK2Qg1o5VQX9D+neUn9+m89HI=
 github.com/goliatone/go-command v0.22.0 h1:qy9MCEeLH+8SUPuVKBQeHrSRrvFKEtgjFfwyPDd2ZQw=
 github.com/goliatone/go-command v0.22.0/go.mod h1:tWBQypgZxIk//4NBOEqFZiV4mgtWsEcvrqHPFo5eGv8=
 github.com/goliatone/go-composite-fs v0.3.0 h1:dM/iD097b7FWyMVduGpS9HK3Swig7FVNUWfIUs/hp7o=
@@ -200,8 +200,8 @@ github.com/goliatone/go-export/adapters/template/go-template v0.8.0 h1:PmE32ksIm
 github.com/goliatone/go-export/adapters/template/go-template v0.8.0/go.mod h1:J0ZmWTrxSV0EjXqTyhyOgHdyJBVCEgL8zmWmH7MZwoc=
 github.com/goliatone/go-featuregate v0.6.1 h1:3fxOcSWTxpC3YxKJMDhM12j8vL/D+CUD7meS/L8b5CM=
 github.com/goliatone/go-featuregate v0.6.1/go.mod h1:7cTSfGckWEdVPRD3NMPrvjQxkEd4/Z0SolKa9aSrBvM=
-github.com/goliatone/go-formgen v0.25.5 h1:YtFY5v/sS78Djsys859Ku+txbEx+ppMmJ+J5WuMrAdM=
-github.com/goliatone/go-formgen v0.25.5/go.mod h1:lGygl9CyfSaoK6lmhqL/1RujcG8GYuprdHtRYOIsWcg=
+github.com/goliatone/go-formgen v0.26.0 h1:AzUjEERpOQw8VU3nmnovTqzFMl6HEUbMNqJaRQdQodg=
+github.com/goliatone/go-formgen v0.26.0/go.mod h1:lGygl9CyfSaoK6lmhqL/1RujcG8GYuprdHtRYOIsWcg=
 github.com/goliatone/go-i18n v0.5.0 h1:xc2mYv0XWoMHpfyDj6JEJS53cUUDCvAtSjieG2OYdBc=
 github.com/goliatone/go-i18n v0.5.0/go.mod h1:lg0zlUwItVZAXUJPWywuFKtgL75eGSJFBfyIfhDekoU=
 github.com/goliatone/go-job v0.19.0 h1:xdjp9aWTst9vwiiCLGQUuwSnfXt8ehbVhRfYjw6mUoY=
