@@ -2620,6 +2620,10 @@ func WithContentTypeID(id string) CMSContentListOption {
 	return core.WithContentTypeID(id)
 }
 
+func WithFamilyID(id string) CMSContentListOption {
+	return core.WithFamilyID(id)
+}
+
 func WithDefaultLibrary(library string) IconServiceOption {
 	return core.WithDefaultLibrary(library)
 }
