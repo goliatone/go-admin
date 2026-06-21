@@ -28,3 +28,9 @@ func WithLocaleVariants() CMSContentListOption {
 func WithContentTypeID(id string) CMSContentListOption {
 	return cmscontracts.WithContentTypeID(id)
 }
+
+// WithFamilyID requests that upstream content list reads scope rows to one
+// canonical translation family before loading variants.
+func WithFamilyID(id string) CMSContentListOption {
+	return cmscontracts.WithFamilyID(id)
+}
