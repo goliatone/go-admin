@@ -608,7 +608,7 @@ func TestSyncTranslationFamilyStoreForFamilyUsesScopedLocaleVariantReads(t *test
 	if err != nil || !ok {
 		t.Fatalf("expected family-menu saved, ok=%v err=%v", ok, err)
 	}
-	if got := sortedFamilyVariantIDs(family); !equalStrings(got, []string{"topic-menu", "topic-menu::bo"}) {
+	if got := sortedFamilyVariantIDs(family); !equalStrings(got, []string{"topic-menu::bo", "topic-menu::en"}) {
 		t.Fatalf("variant ids = %#v, want en/bo scoped variants", got)
 	}
 }

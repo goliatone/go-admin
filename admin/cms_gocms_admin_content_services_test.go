@@ -825,7 +825,7 @@ func TestGoCMSContentAdapterUpdateContentUsesAdminContentWriteService(t *testing
 		Capabilities: map[string]any{"structural_fields": true, "panel_slug": "pages"},
 	})
 	adminWrite := &stubGoCMSAdminContentWriteService{
-		updateResp: &cms.AdminContentRecord{
+		updateTranslationResp: &cms.AdminContentRecord{
 			ID:              contentID,
 			Title:           "Home Updated",
 			Slug:            "home",
@@ -857,20 +857,23 @@ func TestGoCMSContentAdapterUpdateContentUsesAdminContentWriteService(t *testing
 	if err != nil {
 		t.Fatalf("update content failed: %v", err)
 	}
-	if adminWrite.updateCnt != 1 {
-		t.Fatalf("expected one admin write update, got %d", adminWrite.updateCnt)
+	if adminWrite.updateTranslationCnt != 1 {
+		t.Fatalf("expected one admin translation write update, got %d", adminWrite.updateTranslationCnt)
+	}
+	if adminWrite.updateCnt != 0 {
+		t.Fatalf("expected full admin write update to stay unused, got %d", adminWrite.updateCnt)
 	}
 	if contentSvc.updateReq.ID != uuid.Nil {
 		t.Fatalf("expected raw update path to stay unused, got %s", contentSvc.updateReq.ID)
 	}
-	if adminWrite.updateReq.ID != contentID {
-		t.Fatalf("expected update id %s, got %s", contentID, adminWrite.updateReq.ID)
+	if adminWrite.updateTranslationReq.ID != contentID {
+		t.Fatalf("expected update id %s, got %s", contentID, adminWrite.updateTranslationReq.ID)
 	}
-	if adminWrite.updateReq.ContentTypeID != typeID {
-		t.Fatalf("expected content type id %s, got %s", typeID, adminWrite.updateReq.ContentTypeID)
+	if adminWrite.updateTranslationReq.ContentTypeID != typeID {
+		t.Fatalf("expected content type id %s, got %s", typeID, adminWrite.updateTranslationReq.ContentTypeID)
 	}
-	if adminWrite.updateReq.Metadata["path"] != "/home" {
-		t.Fatalf("expected metadata path /home, got %v", adminWrite.updateReq.Metadata["path"])
+	if adminWrite.updateTranslationReq.Metadata["path"] != "/home" {
+		t.Fatalf("expected metadata path /home, got %v", adminWrite.updateTranslationReq.Metadata["path"])
 	}
 	if updated == nil || updated.Data["path"] != "/home" {
 		t.Fatalf("expected updated content to rehydrate path, got %#v", updated)
