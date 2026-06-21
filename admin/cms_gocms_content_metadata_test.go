@@ -400,10 +400,13 @@ func TestGoCMSContentAdapterUpdatePageMetadataMapping(t *testing.T) {
 	if req.Metadata["legacy"] != "stay" {
 		t.Fatalf("expected legacy preserved in metadata, got %v", req.Metadata["legacy"])
 	}
-	if len(req.Translations) != 1 {
-		t.Fatalf("expected one translation, got %d", len(req.Translations))
+	if len(req.Translations) != 0 {
+		t.Fatalf("expected entry metadata update to avoid replacement translations, got %d", len(req.Translations))
 	}
-	content := req.Translations[0].Content
+	if contentSvc.updateTranslationCnt != 1 {
+		t.Fatalf("expected one translation update, got %d", contentSvc.updateTranslationCnt)
+	}
+	content := contentSvc.updateTranslationReq.Content
 	if _, ok := content["path"]; ok {
 		t.Fatalf("expected path removed from translation content")
 	}

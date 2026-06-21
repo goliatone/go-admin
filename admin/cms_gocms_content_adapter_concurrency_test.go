@@ -28,6 +28,10 @@ func (blockDefinitionCacheContentServiceStub) Update(context.Context, cmscontent
 	return nil, nil
 }
 
+func (blockDefinitionCacheContentServiceStub) UpdateTranslation(context.Context, cmscontent.UpdateContentTranslationRequest) (*cmscontent.ContentTranslation, error) {
+	return nil, nil
+}
+
 func (blockDefinitionCacheContentServiceStub) Delete(context.Context, cmscontent.DeleteContentRequest) error {
 	return nil
 }
