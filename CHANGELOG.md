@@ -1,6 +1,24 @@
 # Changelog
 
+# [0.105.3](https://github.com/goliatone/go-admin/compare/v0.105.2...v0.105.3) - (2026-06-22)
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Jserror collector ignore forgen superseded aborts ([2e812f1](https://github.com/goliatone/go-admin/commit/2e812f1fbad717f896f4b4cdc19b38d226e89f88))  - (goliatone)
+
+## <!-- 16 -->➕ Add
+
+- Debug toolbar display better errros ([58d69a2](https://github.com/goliatone/go-admin/commit/58d69a29462b4c291f5fd6469f56a79213e2a3a8))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update deps ([6ad0765](https://github.com/goliatone/go-admin/commit/6ad076518158f13fc940fa238e5f58f4686693e8))  - (goliatone)
+
 # [0.105.2](https://github.com/goliatone/go-admin/compare/v0.105.1...v0.105.2) - (2026-06-22)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.105.2 ([93eaf11](https://github.com/goliatone/go-admin/commit/93eaf11e7b345bb63a089ddcdad481dde1ebecce))  - (goliatone)
 
 ## <!-- 16 -->➕ Add
 
