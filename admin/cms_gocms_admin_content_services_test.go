@@ -148,6 +148,26 @@ func (s *stubGoCMSAdminContentWriteService) CreateTranslation(_ context.Context,
 	return &record, nil
 }
 
+type stubGoCMSAdminContentWriteServiceWithoutTranslation struct {
+	inner *stubGoCMSAdminContentWriteService
+}
+
+func (s *stubGoCMSAdminContentWriteServiceWithoutTranslation) Create(ctx context.Context, req cms.AdminContentCreateRequest) (*cms.AdminContentRecord, error) {
+	return s.inner.Create(ctx, req)
+}
+
+func (s *stubGoCMSAdminContentWriteServiceWithoutTranslation) Update(ctx context.Context, req cms.AdminContentUpdateRequest) (*cms.AdminContentRecord, error) {
+	return s.inner.Update(ctx, req)
+}
+
+func (s *stubGoCMSAdminContentWriteServiceWithoutTranslation) Delete(ctx context.Context, req cms.AdminContentDeleteRequest) error {
+	return s.inner.Delete(ctx, req)
+}
+
+func (s *stubGoCMSAdminContentWriteServiceWithoutTranslation) CreateTranslation(ctx context.Context, req cms.AdminContentCreateTranslationRequest) (*cms.AdminContentRecord, error) {
+	return s.inner.CreateTranslation(ctx, req)
+}
+
 type stubGoCMSBlockInstancesService struct {
 	instances []*cmsblocks.Instance
 }
@@ -327,6 +347,59 @@ func TestGoCMSContentAdapterUpdateContentUsesAdminTranslationWrite(t *testing.T)
 	}
 	if got := updated.Title; got != "Updated BO" {
 		t.Fatalf("expected updated projection title, got %q", got)
+	}
+}
+
+func TestGoCMSContentAdapterUpdateContentWithoutAdminTranslationWriteUsesMergedLegacyUpdate(t *testing.T) {
+	ctx := context.Background()
+	contentID := uuid.New()
+	familyID := uuid.New()
+	adminWriteInner := &stubGoCMSAdminContentWriteService{}
+	adminWrite := &stubGoCMSAdminContentWriteServiceWithoutTranslation{inner: adminWriteInner}
+	rawContent := &stubGoCMSContentService{
+		getResp: &cmscontent.Content{
+			ID:     contentID,
+			Slug:   "lojong",
+			Status: "draft",
+			Type:   &cmscontent.ContentType{Slug: "teaching_topic"},
+			Translations: []*cmscontent.ContentTranslation{
+				{Locale: &cmscontent.Locale{Code: "en"}, FamilyID: &familyID, Title: "Lojong", Content: map[string]any{"label": "Lojong"}},
+				{Locale: &cmscontent.Locale{Code: "bo"}, FamilyID: &familyID, Title: "Lojong BO", Content: map[string]any{"label": "Lojong BO"}},
+				{Locale: &cmscontent.Locale{Code: "zh"}, FamilyID: &familyID, Title: "Lojong ZH", Content: map[string]any{"label": "Lojong ZH"}},
+			},
+		},
+	}
+	contentSvc := &stubGoCMSContentServiceWithoutTranslation{inner: rawContent}
+	svc := newGoCMSContentAdapter(contentSvc, nil, nil, nil, nil, adminWrite, nil, nil)
+	adapter := mustGoCMSContentAdapter(t, svc)
+
+	_, err := adapter.UpdateContent(ctx, CMSContent{
+		ID:              contentID.String(),
+		FamilyID:        familyID.String(),
+		Locale:          "bo",
+		Title:           "Updated BO",
+		ContentType:     "teaching_topic",
+		ContentTypeSlug: "teaching_topic",
+		Data:            map[string]any{"label": "Updated BO"},
+	})
+	if err != nil {
+		t.Fatalf("update content: %v", err)
+	}
+	if adminWriteInner.updateCnt != 0 {
+		t.Fatalf("expected destructive admin update to stay unused, got %d", adminWriteInner.updateCnt)
+	}
+	if rawContent.updateReq.ID != contentID {
+		t.Fatalf("expected merged legacy update for content %s, got %s", contentID, rawContent.updateReq.ID)
+	}
+	if len(rawContent.updateReq.Translations) != 3 {
+		t.Fatalf("expected merged sibling translations, got %#v", rawContent.updateReq.Translations)
+	}
+	titles := map[string]string{}
+	for _, translation := range rawContent.updateReq.Translations {
+		titles[strings.ToLower(strings.TrimSpace(translation.Locale))] = translation.Title
+	}
+	if titles["en"] != "Lojong" || titles["bo"] != "Updated BO" || titles["zh"] != "Lojong ZH" {
+		t.Fatalf("merged translation titles = %#v", titles)
 	}
 }
 

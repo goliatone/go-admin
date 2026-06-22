@@ -613,6 +613,90 @@ func TestSyncTranslationFamilyStoreForFamilyUsesScopedLocaleVariantReads(t *test
 	}
 }
 
+func TestSyncTranslationFamilyStoreForFamilyFallsBackWhenScopedReadersArePartial(t *testing.T) {
+	t.Run("content-option-only service can still sync page family", func(t *testing.T) {
+		ctx := context.Background()
+		store := translationservices.NewInMemoryFamilyStore()
+		content := &contentOnlyScopedTranslationFamilySyncContentStub{
+			translationFamilySyncContentStub: &translationFamilySyncContentStub{
+				InMemoryContentService: NewInMemoryContentService(),
+				pagesByLocale: map[string][]CMSPage{
+					"en": {{
+						ID:               "page-menu",
+						FamilyID:         "family-menu-page",
+						Locale:           "en",
+						Title:            "Menu Page",
+						Slug:             "menu-page",
+						Status:           "published",
+						AvailableLocales: []string{"en"},
+					}},
+				},
+			},
+		}
+		adm := &Admin{
+			contentSvc:             content,
+			translationFamilyStore: store,
+			config:                 Config{DefaultLocale: "en"},
+			translationPolicy:      TranslationPolicyFunc(func(context.Context, TranslationPolicyInput) error { return nil }),
+		}
+
+		if err := SyncTranslationFamilyStoreForFamily(ctx, adm, "default", "family-menu-page"); err != nil {
+			t.Fatalf("SyncTranslationFamilyStoreForFamily: %v", err)
+		}
+		if content.contentsWithOptionsCalls != 0 {
+			t.Fatalf("expected partial scoped reader to stay unused, got %d calls", content.contentsWithOptionsCalls)
+		}
+		if content.broadPagesCalls == 0 {
+			t.Fatalf("expected broad page fallback reads")
+		}
+		if _, ok, err := store.Family(ctx, "family-menu-page"); err != nil || !ok {
+			t.Fatalf("expected page family saved through broad fallback, ok=%v err=%v", ok, err)
+		}
+	})
+
+	t.Run("page-option-only service can still sync content family", func(t *testing.T) {
+		ctx := context.Background()
+		store := translationservices.NewInMemoryFamilyStore()
+		content := &pageOnlyScopedTranslationFamilySyncContentStub{
+			translationFamilySyncContentStub: &translationFamilySyncContentStub{
+				InMemoryContentService: NewInMemoryContentService(),
+				contentsByLocale: map[string][]CMSContent{
+					"en": {{
+						ID:               "topic-menu",
+						FamilyID:         "family-menu-content",
+						Locale:           "en",
+						ContentType:      "teaching_topics_menu",
+						ContentTypeSlug:  "teaching_topics_menu",
+						Title:            "Teaching Topics",
+						Slug:             "teaching-topics",
+						Status:           "draft",
+						AvailableLocales: []string{"en"},
+					}},
+				},
+			},
+		}
+		adm := &Admin{
+			contentSvc:             content,
+			translationFamilyStore: store,
+			config:                 Config{DefaultLocale: "en"},
+			translationPolicy:      TranslationPolicyFunc(func(context.Context, TranslationPolicyInput) error { return nil }),
+		}
+
+		if err := SyncTranslationFamilyStoreForFamily(ctx, adm, "default", "family-menu-content"); err != nil {
+			t.Fatalf("SyncTranslationFamilyStoreForFamily: %v", err)
+		}
+		if content.pagesWithOptionsCalls != 0 {
+			t.Fatalf("expected partial scoped reader to stay unused, got %d calls", content.pagesWithOptionsCalls)
+		}
+		if content.broadContentsCalls == 0 {
+			t.Fatalf("expected broad content fallback reads")
+		}
+		if _, ok, err := store.Family(ctx, "family-menu-content"); err != nil || !ok {
+			t.Fatalf("expected content family saved through broad fallback, ok=%v err=%v", ok, err)
+		}
+	})
+}
+
 func TestTranslationFamilyPolicyResolverUsesRequirementsSourceLocaleAndPolicyBlockers(t *testing.T) {
 	ctx := context.Background()
 	policy := &translationFamilyBlockingPolicy{
@@ -985,6 +1069,24 @@ type scopedTranslationFamilySyncContentStub struct {
 	contentsWithOptionsCalls int
 }
 
+type contentOnlyScopedTranslationFamilySyncContentStub struct {
+	*translationFamilySyncContentStub
+	contentsWithOptions      []CMSContent
+	contentOptions           []CMSContentListOption
+	broadPagesCalls          int
+	broadContentsCalls       int
+	contentsWithOptionsCalls int
+}
+
+type pageOnlyScopedTranslationFamilySyncContentStub struct {
+	*translationFamilySyncContentStub
+	pagesWithOptions      []CMSPage
+	pageOptions           []CMSContentListOption
+	broadPagesCalls       int
+	broadContentsCalls    int
+	pagesWithOptionsCalls int
+}
+
 type translationFamilyBlockingPolicy struct {
 	req   TranslationRequirements
 	err   error
@@ -1060,6 +1162,38 @@ func (s *scopedTranslationFamilySyncContentStub) ContentsWithOptions(_ context.C
 	s.contentsWithOptionsCalls++
 	s.contentOptions = append([]CMSContentListOption{}, opts...)
 	return append([]CMSContent(nil), s.contentsWithOptions...), nil
+}
+
+func (s *contentOnlyScopedTranslationFamilySyncContentStub) Pages(ctx context.Context, locale string) ([]CMSPage, error) {
+	s.broadPagesCalls++
+	return s.translationFamilySyncContentStub.Pages(ctx, locale)
+}
+
+func (s *contentOnlyScopedTranslationFamilySyncContentStub) Contents(ctx context.Context, locale string) ([]CMSContent, error) {
+	s.broadContentsCalls++
+	return s.translationFamilySyncContentStub.Contents(ctx, locale)
+}
+
+func (s *contentOnlyScopedTranslationFamilySyncContentStub) ContentsWithOptions(_ context.Context, _ string, opts ...CMSContentListOption) ([]CMSContent, error) {
+	s.contentsWithOptionsCalls++
+	s.contentOptions = append([]CMSContentListOption{}, opts...)
+	return append([]CMSContent(nil), s.contentsWithOptions...), nil
+}
+
+func (s *pageOnlyScopedTranslationFamilySyncContentStub) Pages(ctx context.Context, locale string) ([]CMSPage, error) {
+	s.broadPagesCalls++
+	return s.translationFamilySyncContentStub.Pages(ctx, locale)
+}
+
+func (s *pageOnlyScopedTranslationFamilySyncContentStub) Contents(ctx context.Context, locale string) ([]CMSContent, error) {
+	s.broadContentsCalls++
+	return s.translationFamilySyncContentStub.Contents(ctx, locale)
+}
+
+func (s *pageOnlyScopedTranslationFamilySyncContentStub) PagesWithOptions(_ context.Context, _ string, opts ...CMSContentListOption) ([]CMSPage, error) {
+	s.pagesWithOptionsCalls++
+	s.pageOptions = append([]CMSContentListOption{}, opts...)
+	return append([]CMSPage(nil), s.pagesWithOptions...), nil
 }
 
 func (s *scopedTranslationFamilySyncContentStub) BlockDefinitions(ctx context.Context) ([]CMSBlockDefinition, error) {

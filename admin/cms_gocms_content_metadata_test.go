@@ -120,6 +120,30 @@ func (s *stubGoCMSContentService) Delete(context.Context, cmscontent.DeleteConte
 	return nil
 }
 
+type stubGoCMSContentServiceWithoutTranslation struct {
+	inner *stubGoCMSContentService
+}
+
+func (s *stubGoCMSContentServiceWithoutTranslation) List(ctx context.Context, opts ...cmscontent.ContentListOption) ([]*cmscontent.Content, error) {
+	return s.inner.List(ctx, opts...)
+}
+
+func (s *stubGoCMSContentServiceWithoutTranslation) Get(ctx context.Context, id uuid.UUID, opts ...cmscontent.ContentGetOption) (*cmscontent.Content, error) {
+	return s.inner.Get(ctx, id, opts...)
+}
+
+func (s *stubGoCMSContentServiceWithoutTranslation) Create(ctx context.Context, req cmscontent.CreateContentRequest) (*cmscontent.Content, error) {
+	return s.inner.Create(ctx, req)
+}
+
+func (s *stubGoCMSContentServiceWithoutTranslation) Update(ctx context.Context, req cmscontent.UpdateContentRequest) (*cmscontent.Content, error) {
+	return s.inner.Update(ctx, req)
+}
+
+func (s *stubGoCMSContentServiceWithoutTranslation) Delete(ctx context.Context, req cmscontent.DeleteContentRequest) error {
+	return s.inner.Delete(ctx, req)
+}
+
 func hasTranslationListOption(opts []cmscontent.ContentListOption) bool {
 	return slices.Contains(opts, cmscontent.WithTranslations())
 }
@@ -328,6 +352,53 @@ func TestGoCMSContentAdapterUpdateContentUsesSingleTranslationUpdate(t *testing.
 	}
 	if len(contentSvc.updateReq.Translations) != 0 {
 		t.Fatalf("expected entry update to avoid replacement translations, got %#v", contentSvc.updateReq.Translations)
+	}
+}
+
+func TestGoCMSContentAdapterUpdateContentMergesTranslationsWithoutSingleTranslationService(t *testing.T) {
+	ctx := context.Background()
+	contentID := uuid.New()
+	familyID := uuid.New()
+	rawContent := &stubGoCMSContentService{
+		getResp: &cmscontent.Content{
+			ID:     contentID,
+			Slug:   "lojong",
+			Status: "draft",
+			Type:   &cmscontent.ContentType{Slug: "teaching_topic"},
+			Translations: []*cmscontent.ContentTranslation{
+				{Locale: &cmscontent.Locale{Code: "en"}, FamilyID: &familyID, Title: "Lojong", Content: map[string]any{"label": "Lojong"}},
+				{Locale: &cmscontent.Locale{Code: "bo"}, FamilyID: &familyID, Title: "Lojong BO", Content: map[string]any{"label": "Lojong BO"}},
+				{Locale: &cmscontent.Locale{Code: "zh"}, FamilyID: &familyID, Title: "Lojong ZH", Content: map[string]any{"label": "Lojong ZH"}},
+			},
+		},
+	}
+	contentSvc := &stubGoCMSContentServiceWithoutTranslation{inner: rawContent}
+	adapter := mustGoCMSContentAdapter(t, NewGoCMSContentAdapter(contentSvc, nil, nil))
+
+	_, err := adapter.UpdateContent(ctx, CMSContent{
+		ID:              contentID.String(),
+		FamilyID:        familyID.String(),
+		Locale:          "bo",
+		Title:           "Updated BO",
+		ContentType:     "teaching_topic",
+		ContentTypeSlug: "teaching_topic",
+		Data:            map[string]any{"label": "Updated BO"},
+	})
+	if err != nil {
+		t.Fatalf("update content: %v", err)
+	}
+	if rawContent.updateReq.ID != contentID {
+		t.Fatalf("expected merged update for content %s, got %s", contentID, rawContent.updateReq.ID)
+	}
+	if len(rawContent.updateReq.Translations) != 3 {
+		t.Fatalf("expected merged sibling translations, got %#v", rawContent.updateReq.Translations)
+	}
+	titles := map[string]string{}
+	for _, translation := range rawContent.updateReq.Translations {
+		titles[strings.ToLower(strings.TrimSpace(translation.Locale))] = translation.Title
+	}
+	if titles["en"] != "Lojong" || titles["bo"] != "Updated BO" || titles["zh"] != "Lojong ZH" {
+		t.Fatalf("merged translation titles = %#v", titles)
 	}
 }
 
