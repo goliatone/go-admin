@@ -1,11 +1,21 @@
 # Changelog
 
+# [0.105.1](https://github.com/goliatone/go-admin/compare/v0.105.0...v0.105.1) - (2026-06-22)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update deps ([ffbeed6](https://github.com/goliatone/go-admin/commit/ffbeed666bc70facfcef35efe2c719f783e664ac))  - (goliatone)
+
 # [0.105.0](https://github.com/goliatone/go-admin/compare/v0.104.0...v0.105.0) - (2026-06-22)
 
 ## <!-- 1 -->🐛 Bug Fixes
 
 - Translation sync ([6db4523](https://github.com/goliatone/go-admin/commit/6db4523d83c5c2b54367b5a3b9e8a511ea05f8a2))  - (goliatone)
 - Code quality ([c1c9b0b](https://github.com/goliatone/go-admin/commit/c1c9b0bca06403a6f1bba08471f36537c91fce8e))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.105.0 ([379ddcf](https://github.com/goliatone/go-admin/commit/379ddcf0d23920d564f76c7cc85c3c16a26204f9))  - (goliatone)
 
 ## <!-- 16 -->➕ Add
 
