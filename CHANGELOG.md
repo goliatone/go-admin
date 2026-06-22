@@ -1,5 +1,24 @@
 # Changelog
 
+# [0.105.0](https://github.com/goliatone/go-admin/compare/v0.104.0...v0.105.0) - (2026-06-22)
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Translation sync ([6db4523](https://github.com/goliatone/go-admin/commit/6db4523d83c5c2b54367b5a3b9e8a511ea05f8a2))  - (goliatone)
+- Code quality ([c1c9b0b](https://github.com/goliatone/go-admin/commit/c1c9b0bca06403a6f1bba08471f36537c91fce8e))  - (goliatone)
+
+## <!-- 16 -->➕ Add
+
+- Cms to content admin map ([b1d8159](https://github.com/goliatone/go-admin/commit/b1d8159b1542c52d4ce9efc51483c69e855c5bd6))  - (goliatone)
+- Content list family id ([f448eb4](https://github.com/goliatone/go-admin/commit/f448eb44dc627262cab2d7144f198390c1da6c55))  - (goliatone)
+- Sync family translation ([21edcf0](https://github.com/goliatone/go-admin/commit/21edcf0b5aa18dadfaad093f9b76bd64abbc8b68))  - (goliatone)
+- Use go-query-bun to collect all query parsing ([69c2d3a](https://github.com/goliatone/go-admin/commit/69c2d3a27dccd59be76eb43992e136791af6778a))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update deps ([b799074](https://github.com/goliatone/go-admin/commit/b799074b1b61546993b5a36502e12de487915d1c))  - (goliatone)
+- Update tests ([33f4505](https://github.com/goliatone/go-admin/commit/33f45057cd2f55fe7547936fe71549048999fe4d))  - (goliatone)
+
 # [0.104.0](https://github.com/goliatone/go-admin/compare/v0.103.3...v0.104.0) - (2026-06-20)
 
 ## <!-- 1 -->🐛 Bug Fixes
@@ -8,6 +27,10 @@
 - Predicate normalization ([5808524](https://github.com/goliatone/go-admin/commit/58085249ff9aa3558da6848b552f72db646b96ad))  - (goliatone)
 - Optimized CMS content read filters ([a76bad1](https://github.com/goliatone/go-admin/commit/a76bad120d5e405eb860b79a8f09d94b6032e13d))  - (goliatone)
 - Error handle for content type family ([577b918](https://github.com/goliatone/go-admin/commit/577b918916e0296cb7cb4c846e83de84254acccd))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.104.0 ([44a7e08](https://github.com/goliatone/go-admin/commit/44a7e08d041fd1e495dd44f9afff2f3a4b4c7821))  - (goliatone)
 
 ## <!-- 7 -->⚙️ Miscellaneous Tasks
 
