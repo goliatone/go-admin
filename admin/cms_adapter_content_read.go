@@ -70,21 +70,13 @@ func hasLocaleVariantsOption(opts []CMSContentListOption) bool {
 }
 
 func hasAdminReadUnsupportedContentListOption(opts []CMSContentListOption) bool {
-	if hasLocaleVariantsOption(opts) {
-		return true
-	}
-	return false
-}
-
-func isContentTypeIDListOption(opt CMSContentListOption) bool {
-	const prefix = "content:list:content_type:"
-	return strings.HasPrefix(strings.ToLower(strings.TrimSpace(opt)), prefix)
+	return hasLocaleVariantsOption(opts)
 }
 
 func contentTypeIDFromListOptions(opts []CMSContentListOption) string {
 	const prefix = "content:list:content_type:"
 	for _, opt := range opts {
-		trimmed := strings.TrimSpace(string(opt))
+		trimmed := strings.TrimSpace(opt)
 		if !strings.HasPrefix(strings.ToLower(trimmed), prefix) {
 			continue
 		}
@@ -96,7 +88,7 @@ func contentTypeIDFromListOptions(opts []CMSContentListOption) string {
 func familyIDFromListOptions(opts []CMSContentListOption) string {
 	const prefix = "content:list:family:"
 	for _, opt := range opts {
-		trimmed := strings.TrimSpace(string(opt))
+		trimmed := strings.TrimSpace(opt)
 		if !strings.HasPrefix(strings.ToLower(trimmed), prefix) {
 			continue
 		}

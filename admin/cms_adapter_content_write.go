@@ -127,47 +127,31 @@ func (r goCMSContentWriteBoundary) UpdateContent(ctx context.Context, content CM
 	applySchemaVersionToContent(&content)
 	applyEmbeddedBlocksToContent(&content)
 	if a.adminWrite != nil {
-		return r.updateAdminContent(ctx, content, meta, includeMeta)
+		return r.updateAdminContent(ctx, content, meta, includeMeta, existing)
 	}
 	return r.updateLegacyContent(ctx, content, meta, includeMeta, existing)
 }
 
-func (r goCMSContentWriteBoundary) updateAdminContent(ctx context.Context, content CMSContent, meta map[string]any, includeMeta bool) (*CMSContent, error) {
+func (r goCMSContentWriteBoundary) updateAdminContent(ctx context.Context, content CMSContent, meta map[string]any, includeMeta bool, existing *CMSContent) (*CMSContent, error) {
 	a := r.adapter
+	translationWriter, ok := a.adminWrite.(cms.AdminContentTranslationWriteService)
+	if !ok || translationWriter == nil {
+		return r.updateLegacyContent(ctx, content, meta, includeMeta, existing)
+	}
 	contentTypeID, err := r.resolveAdminContentTypeID(ctx, content)
 	if err != nil {
 		return nil, err
 	}
-	req := cmsadapter.CMSContentToAdminContentUpdateRequest(content, contentTypeID, actorUUID(ctx), true)
-	if req.ID == uuid.Nil {
+	translationReq := cmsadapter.CMSContentToAdminContentUpdateTranslationRequest(content, contentTypeID, actorUUID(ctx), true)
+	if translationReq.ID == uuid.Nil {
 		return nil, ErrNotFound
 	}
 	if includeMeta {
-		req.Metadata = meta
+		translationReq.Metadata = meta
 	} else {
-		req.Metadata = nil
+		translationReq.Metadata = nil
 	}
-	if translationWriter, ok := a.adminWrite.(cms.AdminContentTranslationWriteService); ok && translationWriter != nil {
-		translationReq := cmsadapter.CMSContentToAdminContentUpdateTranslationRequest(content, contentTypeID, actorUUID(ctx), true)
-		if translationReq.ID == uuid.Nil {
-			return nil, ErrNotFound
-		}
-		if includeMeta {
-			translationReq.Metadata = meta
-		} else {
-			translationReq.Metadata = nil
-		}
-		updated, err := translationWriter.UpdateTranslation(ctx, translationReq)
-		if err != nil {
-			return nil, err
-		}
-		if updated == nil {
-			return nil, ErrNotFound
-		}
-		rec := a.convertAdminContentRecord(ctx, *updated)
-		return &rec, nil
-	}
-	updated, err := a.adminWrite.Update(ctx, req)
+	updated, err := translationWriter.UpdateTranslation(ctx, translationReq)
 	if err != nil {
 		return nil, err
 	}
@@ -188,10 +172,15 @@ func (r goCMSContentWriteBoundary) updateLegacyContent(ctx context.Context, cont
 	if err != nil {
 		return nil, err
 	}
-	if _, err := a.content.UpdateTranslation(ctx, translationReq); err != nil {
-		if !r.shouldFallbackToMergedContentUpdate(err) {
-			return nil, err
+	translationWriter, ok := a.content.(goCMSContentTranslationUpdateService)
+	if ok && translationWriter != nil {
+		if _, updateErr := translationWriter.UpdateTranslation(ctx, translationReq); updateErr != nil {
+			if !r.shouldFallbackToMergedContentUpdate(updateErr) {
+				return nil, updateErr
+			}
+			return r.updateLegacyContentByMergedTranslations(ctx, content, meta, includeMeta, existing)
 		}
+	} else {
 		return r.updateLegacyContentByMergedTranslations(ctx, content, meta, includeMeta, existing)
 	}
 	if includeMeta || strings.TrimSpace(content.Status) != "" {
@@ -208,8 +197,8 @@ func (r goCMSContentWriteBoundary) updateLegacyContent(ctx context.Context, cont
 		if includeMeta {
 			entryReq.Metadata = meta
 		}
-		if _, err := a.content.Update(ctx, entryReq); err != nil {
-			return nil, err
+		if _, updateErr := a.content.Update(ctx, entryReq); updateErr != nil {
+			return nil, updateErr
 		}
 	}
 	updated, err := a.content.Get(ctx, contentID, cmscontent.WithTranslations(), cmscontent.WithDerivedFields())

@@ -64,7 +64,7 @@ func SyncTranslationFamilyStoreForFamily(ctx context.Context, adm *Admin, enviro
 func syncTranslationFamilyStoreScopedFamily(ctx context.Context, adm *Admin, binding *translationFamilyBinding, defaultLocale string, environment string, familyID string) (bool, error) {
 	contentList, hasContentList := resolveCMSContentListOptionsService(adm.contentSvc)
 	pageList, hasPageList := resolveCMSPageListOptionsService(adm.contentSvc)
-	if !hasContentList && !hasPageList {
+	if !hasContentList || !hasPageList {
 		return false, nil
 	}
 	families := map[string]translationservices.FamilyRecord{}
@@ -75,32 +75,28 @@ func syncTranslationFamilyStoreScopedFamily(ctx context.Context, adm *Admin, bin
 		WithLocaleVariants(),
 		WithFamilyID(familyID),
 	}
-	if hasPageList {
-		pages, err := pageList.PagesWithOptions(ctx, "all", opts...)
-		if err != nil {
-			return true, err
+	pages, err := pageList.PagesWithOptions(ctx, "all", opts...)
+	if err != nil {
+		return true, err
+	}
+	for _, page := range pages {
+		if strings.TrimSpace(page.FamilyID) != familyID {
+			continue
 		}
-		for _, page := range pages {
-			if strings.TrimSpace(page.FamilyID) != familyID {
-				continue
-			}
-			if err := appendPageFamilyVariant(ctx, adm, families, state, page, page.Locale, defaultLocale); err != nil {
-				return true, err
-			}
+		if appendErr := appendPageFamilyVariant(ctx, adm, families, state, page, page.Locale, defaultLocale); appendErr != nil {
+			return true, appendErr
 		}
 	}
-	if hasContentList {
-		contents, err := contentList.ContentsWithOptions(ctx, "all", opts...)
-		if err != nil {
-			return true, err
+	contents, err := contentList.ContentsWithOptions(ctx, "all", opts...)
+	if err != nil {
+		return true, err
+	}
+	for _, content := range contents {
+		if strings.TrimSpace(content.FamilyID) != familyID {
+			continue
 		}
-		for _, content := range contents {
-			if strings.TrimSpace(content.FamilyID) != familyID {
-				continue
-			}
-			if err := appendContentFamilyVariant(ctx, adm, families, state, content, content.Locale, defaultLocale); err != nil {
-				return true, err
-			}
+		if appendErr := appendContentFamilyVariant(ctx, adm, families, state, content, content.Locale, defaultLocale); appendErr != nil {
+			return true, appendErr
 		}
 	}
 	family, ok := families[familyID]
