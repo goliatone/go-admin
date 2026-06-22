@@ -29,7 +29,7 @@ async function readBeaconBody(body) {
   return String(body);
 }
 
-test('JS error collector classifies intentional fetch aborts separately', async () => {
+async function createCollectorHarness(makeFetch) {
   const dom = new JSDOM('<!doctype html><html><body></body></html>', {
     url: 'http://localhost:9090/admin/content/teaching-topics-menu/edit',
     runScripts: 'outside-only',
@@ -46,14 +46,19 @@ test('JS error collector classifies intentional fetch aborts separately', async 
     },
   });
 
-  window.fetch = (_input, init = {}) => new Promise((_resolve, reject) => {
+  window.fetch = makeFetch(window);
+  window.eval(await collectorScript());
+
+  return { window, beacons };
+}
+
+test('JS error collector suppresses expected formgen superseded fetch aborts', async () => {
+  const { window, beacons } = await createCollectorHarness(() => (_input, init = {}) => new Promise((_resolve, reject) => {
     const signal = init.signal;
     signal?.addEventListener('abort', () => {
       reject(signal.reason);
     }, { once: true });
-  });
-
-  window.eval(await collectorScript());
+  }));
 
   const controller = new window.AbortController();
   const request = window.fetch('/admin/api/options/archive-event-session?format=options', {
@@ -64,19 +69,58 @@ test('JS error collector classifies intentional fetch aborts separately', async 
   await assert.rejects(request);
   window.dispatchEvent(new window.Event('pagehide'));
 
+  assert.equal(beacons.length, 0, 'expected resolver cancellations should not enter JS Errors');
+});
+
+test('JS error collector reports generic fetch aborts without marking them intentional', async () => {
+  const { window, beacons } = await createCollectorHarness(() => (_input, init = {}) => new Promise((_resolve, reject) => {
+    const signal = init.signal;
+    signal?.addEventListener('abort', () => {
+      reject(signal.reason);
+    }, { once: true });
+  }));
+
+  const controller = new window.AbortController();
+  const request = window.fetch('/admin/api/options/archive-event-session?format=options', {
+    signal: controller.signal,
+  });
+  controller.abort(new window.DOMException('user-cancelled', 'AbortError'));
+
+  await assert.rejects(request);
+  window.dispatchEvent(new window.Event('pagehide'));
+
   assert.equal(beacons.length, 1);
   assert.equal(beacons[0].url, '/admin/debug/api/jserror');
   const payload = JSON.parse(await readBeaconBody(beacons[0].body));
 
   assert.equal(payload.type, 'network_abort');
-  assert.equal(payload.message, 'GET /admin/api/options/archive-event-session?format=options aborted: formgen:resolver-superseded');
+  assert.equal(payload.message, 'GET /admin/api/options/archive-event-session?format=options aborted: user-cancelled');
   assert.equal(payload.extra.method, 'GET');
   assert.equal(payload.extra.status, 0);
   assert.equal(payload.extra.status_text, 'Aborted');
   assert.equal(payload.extra.request_url, '/admin/api/options/archive-event-session?format=options');
   assert.equal(payload.extra.aborted, true);
-  assert.equal(payload.extra.abort_reason, 'formgen:resolver-superseded');
-  assert.equal(payload.extra.intentional, true);
+  assert.equal(payload.extra.abort_reason, 'user-cancelled');
+  assert.equal(payload.extra.intentional, false);
   assert.equal(payload.nonce, 'test-nonce');
   assert.equal(payload.url, 'http://localhost:9090/admin/content/teaching-topics-menu/edit');
+});
+
+test('JS error collector keeps ordinary fetch rejections as network errors', async () => {
+  const { window, beacons } = await createCollectorHarness(() => () => {
+    return Promise.reject(new TypeError('Failed to fetch'));
+  });
+
+  await assert.rejects(window.fetch('/admin/api/options/archive-event-session?format=options'));
+  window.dispatchEvent(new window.Event('pagehide'));
+
+  assert.equal(beacons.length, 1);
+  const payload = JSON.parse(await readBeaconBody(beacons[0].body));
+
+  assert.equal(payload.type, 'network_error');
+  assert.equal(payload.message, 'GET /admin/api/options/archive-event-session?format=options failed: Failed to fetch');
+  assert.equal(payload.extra.method, 'GET');
+  assert.equal(payload.extra.status, 0);
+  assert.equal(payload.extra.status_text, 'Network Error');
+  assert.equal(payload.extra.request_url, '/admin/api/options/archive-event-session?format=options');
 });

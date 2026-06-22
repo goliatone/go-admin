@@ -1048,7 +1048,8 @@ function We(e) {
     "status",
     "status_text",
     "abort_reason",
-    "aborted"
+    "aborted",
+    "intentional"
   ]) r(n, s[n]);
   return Object.keys(s).sort().forEach((n) => {
     o.has(n) || r(n, s[n]);
@@ -3482,4 +3483,4 @@ export {
   we as z
 };
 
-//# sourceMappingURL=builtin-panels-DZeH8m1m.js.map
+//# sourceMappingURL=builtin-panels-BNq9zl9d.js.map

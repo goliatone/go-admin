@@ -346,6 +346,7 @@ test('renderErrorRow exposes network extra details without a stack trace', () =>
         status: 0,
         status_text: 'Network Error',
         request_url: '/admin/api/options/archive-event-session?format=options',
+        intentional: false,
       },
     },
     consoleStyles,
@@ -364,6 +365,8 @@ test('renderErrorRow exposes network extra details without a stack trace', () =>
   assert.match(text, /Network Error/);
   assert.match(text, /request_url/);
   assert.match(text, /archive-event-session/);
+  assert.match(text, /intentional/);
+  assert.match(text, /false/);
   assert.match(text, /page_url/);
   assert.match(text, /teaching-topics-menu/);
   assert.match(text, /user_agent/);

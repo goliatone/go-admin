@@ -11,10 +11,12 @@
     var queue = [];
     var sending = false;
     var MAX_QUEUE = 50;
-    var FLUSH_MS = 2000;
-    var __dbgSending = false;
-    var origFetch = window.fetch;
-    var FORMGEN_SUPERSEDED_ABORT_REASON = 'formgen:resolver-superseded';
+	    var FLUSH_MS = 2000;
+	    var __dbgSending = false;
+	    var origFetch = window.fetch;
+	    var FORMGEN_SUPERSEDED_ABORT_REASON = 'formgen:resolver-superseded';
+	    var EXPECTED_FETCH_ABORT_REASONS = {};
+	    EXPECTED_FETCH_ABORT_REASONS[FORMGEN_SUPERSEDED_ABORT_REASON] = true;
 
     function report(entry) {
       if (queue.length >= MAX_QUEUE) return;
@@ -70,9 +72,9 @@
       return null;
     }
 
-    function stringifyAbortReason(reason) {
-      if (reason == null) {
-        return '';
+	    function stringifyAbortReason(reason) {
+	      if (reason == null) {
+	        return '';
       }
       if (typeof reason === 'string') {
         return reason;
@@ -84,24 +86,30 @@
         return String(reason);
       } catch (e) {
         return '';
-      }
-    }
+	      }
+	    }
 
-    function fetchAbortInfo(err, signal) {
-      var signalAborted = !!(signal && signal.aborted);
-      var errorAbort = !!(err && err.name === 'AbortError');
-      if (!signalAborted && !errorAbort) {
+	    function isExpectedFetchAbortReason(reason) {
+	      return !!(reason && EXPECTED_FETCH_ABORT_REASONS[reason]);
+	    }
+
+	    function fetchAbortInfo(err, signal) {
+	      var signalAborted = !!(signal && signal.aborted);
+	      var errorAbort = !!(err && err.name === 'AbortError');
+	      if (!signalAborted && !errorAbort) {
         return null;
       }
       var reason = signal && 'reason' in signal ? stringifyAbortReason(signal.reason) : '';
-      if (!reason) {
-        reason = stringifyAbortReason(err);
-      }
-      return {
-        reason: reason,
-        intentional: reason === FORMGEN_SUPERSEDED_ABORT_REASON || signalAborted
-      };
-    }
+	      if (!reason) {
+	        reason = stringifyAbortReason(err);
+	      }
+	      var expected = isExpectedFetchAbortReason(reason);
+	      return {
+	        reason: reason,
+	        expected: expected,
+	        intentional: expected
+	      };
+	    }
 
     // 1. Uncaught exceptions
     window.addEventListener('error', function(e) {
@@ -167,7 +175,7 @@
         }
         if (url === endpoint) return promise;
 
-        return promise.then(function(response) {
+	        return promise.then(function(response) {
           if (!response.ok) {
             report({
               type: 'network_error',
@@ -176,11 +184,14 @@
             });
           }
           return response;
-        }, function(err) {
-          var abortInfo = fetchAbortInfo(err, signal);
-          if (abortInfo) {
-            report({
-              type: 'network_abort',
+	        }, function(err) {
+	          var abortInfo = fetchAbortInfo(err, signal);
+	          if (abortInfo) {
+	            if (abortInfo.expected) {
+	              throw err;
+	            }
+	            report({
+	              type: 'network_abort',
               message: method + ' ' + url + ' aborted' + (abortInfo.reason ? ': ' + abortInfo.reason : ''),
               extra: {
                 method: method,
