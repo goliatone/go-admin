@@ -42,6 +42,8 @@ function getErrorTypeClass(type: string | undefined): string {
       return 'warn';
     case 'network_error':
       return 'warn';
+    case 'network_abort':
+      return 'warn';
     default:
       return 'error';
   }
@@ -60,9 +62,98 @@ function formatErrorType(type: string | undefined): string {
       return 'Console';
     case 'network_error':
       return 'Network';
+    case 'network_abort':
+      return 'Abort';
     default:
       return type || 'Error';
   }
+}
+
+function hasExtra(entry: JSErrorEntry): boolean {
+  return !!entry.extra && Object.keys(entry.extra).length > 0;
+}
+
+function formatDetailValue(value: unknown): string {
+  if (value == null) {
+    return '';
+  }
+  if (typeof value === 'string') {
+    return value;
+  }
+  if (typeof value === 'number' || typeof value === 'boolean') {
+    return String(value);
+  }
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
+}
+
+function collectDetailEntries(entry: JSErrorEntry): Array<[string, unknown]> {
+  const rows: Array<[string, unknown]> = [];
+  const seen = new Set<string>();
+
+  const append = (key: string, value: unknown) => {
+    if (value == null || value === '') {
+      return;
+    }
+    rows.push([key, value]);
+    seen.add(key);
+  };
+
+  const extra = entry.extra ?? {};
+  for (const key of [
+    'method',
+    'request_url',
+    'status',
+    'status_text',
+    'abort_reason',
+    'aborted',
+  ]) {
+    append(key, extra[key]);
+  }
+  Object.keys(extra)
+    .sort()
+    .forEach((key) => {
+      if (!seen.has(key)) {
+        append(key, extra[key]);
+      }
+    });
+
+  append('page_url', entry.url);
+  append('user_agent', entry.user_agent);
+
+  return rows;
+}
+
+function renderDetails(entry: JSErrorEntry, styles: StyleConfig): string {
+  const parts: string[] = [];
+  if (entry.stack) {
+    parts.push(
+      `<pre style="margin:0;white-space:pre-wrap;word-break:break-all;font-size:0.8em;opacity:0.85">${escapeHTML(entry.stack)}</pre>`
+    );
+  }
+
+  const detailEntries = collectDetailEntries(entry);
+  if (detailEntries.length > 0) {
+    const rows = detailEntries
+      .map(([key, value]) => {
+        const text = formatDetailValue(value);
+        return `
+          <div style="font-weight:600;opacity:0.75">${escapeHTML(key)}</div>
+          <div style="word-break:break-all">${escapeHTML(text)}</div>
+        `;
+      })
+      .join('');
+    parts.push(`
+      <div style="display:grid;grid-template-columns:max-content minmax(0,1fr);gap:0.35rem 0.75rem;font-size:0.8em">
+        ${rows}
+      </div>
+    `);
+  }
+
+  return `<div class="${styles.expandedContent}">${parts.join('')}</div>`;
 }
 
 /**
@@ -81,15 +172,16 @@ export function renderErrorRow(
   const message = entry.message || '';
   const source = entry.source || '';
   const hasStack = !!entry.stack;
+  const hasDetails = hasStack || hasExtra(entry);
   const location =
-    entry.type === 'network_error' && entry.extra?.request_url
+    (entry.type === 'network_error' || entry.type === 'network_abort') && entry.extra?.request_url
       ? String(entry.extra.request_url)
       : source && entry.line
         ? `${source}:${entry.line}${entry.column ? ':' + entry.column : ''}`
         : source || '';
 
-  const expandIcon = hasStack ? `<span class="${styles.expandIcon}">&#9654;</span>` : '';
-  const expandableClass = hasStack ? styles.expandableRow : '';
+  const expandIcon = hasDetails ? `<span class="${styles.expandIcon}">&#9654;</span>` : '';
+  const expandableClass = hasDetails ? styles.expandableRow : '';
 
   const displayMessage = options.compact
     ? escapeHTML(message.length > 100 ? message.slice(0, 100) + '...' : message)
@@ -109,14 +201,12 @@ export function renderErrorRow(
         )}</td>`
       : '';
 
-  let stackRow = '';
-  if (hasStack) {
-    stackRow = `
+  let detailRow = '';
+  if (hasDetails) {
+    detailRow = `
       <tr class="${styles.expansionRow}">
         <td colspan="${options.compact ? 3 : 5}">
-          <div class="${styles.expandedContent}">
-            <pre style="margin:0;white-space:pre-wrap;word-break:break-all;font-size:0.8em;opacity:0.85">${escapeHTML(entry.stack)}</pre>
-          </div>
+          ${renderDetails(entry, styles)}
         </td>
       </tr>
     `;
@@ -130,7 +220,7 @@ export function renderErrorRow(
       ${locationCell}
       ${urlCell}
     </tr>
-    ${stackRow}
+    ${detailRow}
   `;
 }
 

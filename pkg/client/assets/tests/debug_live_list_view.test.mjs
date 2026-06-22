@@ -35,6 +35,7 @@ const {
   renderLogsPanel,
   renderLogRow,
   logRowKey,
+  renderErrorRow,
   consoleStyles,
 } = await import('../dist/debug/index.js');
 
@@ -325,4 +326,46 @@ test('logs panel appends incrementally without rebuilding', () => {
   assert.equal(root.querySelectorAll('tbody tr').length, 2, 'one row appended');
   assert.equal(root.querySelectorAll('tbody tr')[1], firstRow, 'original row untouched (now second, newest-first prepend)');
   assert.equal(scrolls, 1, 'auto-scroll hook fired');
+});
+
+// ---------------------------------------------------------------------------
+// JS Errors panel details
+// ---------------------------------------------------------------------------
+
+test('renderErrorRow exposes network extra details without a stack trace', () => {
+  const html = renderErrorRow(
+    {
+      id: 'err-1',
+      timestamp: '2026-06-22T18:13:45Z',
+      type: 'network_error',
+      message: 'GET /admin/api/options/archive-event-session?format=options failed: Network Error',
+      url: 'http://localhost:9090/admin/content/teaching-topics-menu/edit',
+      user_agent: 'Test Browser',
+      extra: {
+        method: 'GET',
+        status: 0,
+        status_text: 'Network Error',
+        request_url: '/admin/api/options/archive-event-session?format=options',
+      },
+    },
+    consoleStyles,
+    {}
+  );
+
+  const root = document.createElement('table');
+  root.innerHTML = `<tbody>${html}</tbody>`;
+
+  assert.equal(root.querySelectorAll('tr').length, 2, 'summary + detail rows rendered');
+  assert.ok(root.querySelector('[data-row-key="err-1"]')?.className.includes('expandable'), 'summary is expandable');
+  const text = root.textContent || '';
+  assert.match(text, /method/);
+  assert.match(text, /GET/);
+  assert.match(text, /status_text/);
+  assert.match(text, /Network Error/);
+  assert.match(text, /request_url/);
+  assert.match(text, /archive-event-session/);
+  assert.match(text, /page_url/);
+  assert.match(text, /teaching-topics-menu/);
+  assert.match(text, /user_agent/);
+  assert.match(text, /Test Browser/);
 });
