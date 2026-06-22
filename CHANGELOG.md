@@ -1,6 +1,20 @@
 # Changelog
 
+# [0.105.2](https://github.com/goliatone/go-admin/compare/v0.105.1...v0.105.2) - (2026-06-22)
+
+## <!-- 16 -->➕ Add
+
+- Debug toolbar display better errros ([679ad43](https://github.com/goliatone/go-admin/commit/679ad439c5e54fc1266405972d825ec79022b466))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update deps ([d9a535d](https://github.com/goliatone/go-admin/commit/d9a535dbfb5fc9a8abcad9a31bfe13eeb40f0f6b))  - (goliatone)
+
 # [0.105.1](https://github.com/goliatone/go-admin/compare/v0.105.0...v0.105.1) - (2026-06-22)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.105.1 ([4ae0949](https://github.com/goliatone/go-admin/commit/4ae0949759d2d39e5387343082156fba16444265))  - (goliatone)
 
 ## <!-- 7 -->⚙️ Miscellaneous Tasks
 
