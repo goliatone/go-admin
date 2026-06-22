@@ -107,11 +107,11 @@ function collectDetailEntries(entry: JSErrorEntry): Array<[string, unknown]> {
     'method',
     'request_url',
     'status',
-	    'status_text',
-	    'abort_reason',
-	    'aborted',
-	    'intentional',
-	  ]) {
+    'status_text',
+    'abort_reason',
+    'aborted',
+    'intentional',
+  ]) {
     append(key, extra[key]);
   }
   Object.keys(extra)
