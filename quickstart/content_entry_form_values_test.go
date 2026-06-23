@@ -1,6 +1,7 @@
 package quickstart
 
 import (
+	"net/url"
 	"testing"
 
 	router "github.com/goliatone/go-router"
@@ -197,5 +198,101 @@ func TestParseFormPayloadPreservesJSONArrayFieldValue(t *testing.T) {
 	block, ok := blocks[0].(map[string]any)
 	if !ok || block["_type"] != "hero" {
 		t.Fatalf("expected decoded block value, got %#v", blocks[0])
+	}
+}
+
+func TestParseFormPayloadPreservesIndexedNestedArrayObjects(t *testing.T) {
+	form := url.Values{}
+	form.Set("columns[0].title", "Subjects")
+	form.Set("columns[0].entries[0].topic_id", "topic-refuge-id")
+	form.Set("columns[0].entries[0].topic_slug", "refuge")
+	form.Set("columns[0].entries[1].topic_id", "topic-bodhisattva-id")
+	form.Set("columns[1].title", "Deity Practice")
+	form.Set("columns[1].entries[0].topic_id", "topic-tara-id")
+
+	ctx := router.NewMockContext()
+	ctx.On("Body").Return([]byte(form.Encode()))
+	h := &contentEntryHandlers{}
+	record, err := h.parseFormPayload(ctx, map[string]any{
+		"type": "object",
+		"properties": map[string]any{
+			"columns": map[string]any{
+				"type": "array",
+				"items": map[string]any{
+					"type": "object",
+					"properties": map[string]any{
+						"title": map[string]any{
+							"type": "string",
+						},
+						"entries": map[string]any{
+							"type": "array",
+							"items": map[string]any{
+								"type": "object",
+								"properties": map[string]any{
+									"enabled": map[string]any{
+										"type": "boolean",
+									},
+									"topic_id": map[string]any{
+										"type": "string",
+									},
+									"topic_slug": map[string]any{
+										"type": "string",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("parseFormPayload: %v", err)
+	}
+	columns, ok := record["columns"].([]any)
+	if !ok {
+		t.Fatalf("expected columns array, got %#v", record["columns"])
+	}
+	if len(columns) != 2 {
+		t.Fatalf("expected two columns, got %#v", columns)
+	}
+	firstColumn, ok := columns[0].(map[string]any)
+	if !ok {
+		t.Fatalf("expected first column object, got %#v", columns[0])
+	}
+	if got := firstColumn["title"]; got != "Subjects" {
+		t.Fatalf("expected first column title, got %#v", got)
+	}
+	firstEntries, ok := firstColumn["entries"].([]any)
+	if !ok {
+		t.Fatalf("expected first column entries array, got %#v", firstColumn["entries"])
+	}
+	if len(firstEntries) != 2 {
+		t.Fatalf("expected two first-column entries, got %#v", firstEntries)
+	}
+	firstEntry, ok := firstEntries[0].(map[string]any)
+	if !ok {
+		t.Fatalf("expected first entry object, got %#v", firstEntries[0])
+	}
+	if got := firstEntry["topic_id"]; got != "topic-refuge-id" {
+		t.Fatalf("expected first entry topic_id, got %#v", got)
+	}
+	if got := firstEntry["topic_slug"]; got != "refuge" {
+		t.Fatalf("expected first entry topic_slug, got %#v", got)
+	}
+	secondColumn, ok := columns[1].(map[string]any)
+	if !ok {
+		t.Fatalf("expected second column object, got %#v", columns[1])
+	}
+	secondEntries, ok := secondColumn["entries"].([]any)
+	if !ok || len(secondEntries) != 1 {
+		t.Fatalf("expected one second-column entry, got %#v", secondColumn["entries"])
+	}
+	secondEntry, ok := secondEntries[0].(map[string]any)
+	if !ok || secondEntry["topic_id"] != "topic-tara-id" {
+		t.Fatalf("expected second-column topic_id, got %#v", secondEntries[0])
+	}
+	if _, exists := record["columns[0].entries[0].topic_id"]; exists {
+		t.Fatalf("did not expect raw indexed key in record: %#v", record)
 	}
 }
