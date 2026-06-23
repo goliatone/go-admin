@@ -296,3 +296,145 @@ func TestParseFormPayloadPreservesIndexedNestedArrayObjects(t *testing.T) {
 		t.Fatalf("did not expect raw indexed key in record: %#v", record)
 	}
 }
+
+func TestParseFormPayloadIndexedNestedScalarCollapsesBlankDuplicate(t *testing.T) {
+	form := url.Values{}
+	form.Add("columns[0].entries[0].topic_id", "")
+	form.Add("columns[0].entries[0].topic_id", "topic-refuge-id")
+
+	ctx := router.NewMockContext()
+	ctx.On("Body").Return([]byte(form.Encode()))
+	h := &contentEntryHandlers{}
+	record, err := h.parseFormPayload(ctx, map[string]any{
+		"type": "object",
+		"properties": map[string]any{
+			"columns": map[string]any{
+				"type": "array",
+				"items": map[string]any{
+					"type": "object",
+					"properties": map[string]any{
+						"entries": map[string]any{
+							"type": "array",
+							"items": map[string]any{
+								"type": "object",
+								"properties": map[string]any{
+									"topic_id": map[string]any{
+										"type": "string",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("parseFormPayload: %v", err)
+	}
+	columns := record["columns"].([]any)
+	firstColumn := columns[0].(map[string]any)
+	entries := firstColumn["entries"].([]any)
+	firstEntry := entries[0].(map[string]any)
+	if got := firstEntry["topic_id"]; got != "topic-refuge-id" {
+		t.Fatalf("expected duplicate scalar collapse to keep selected value, got %#v", got)
+	}
+}
+
+func TestParseFormPayloadCoercesIndexedArrayItems(t *testing.T) {
+	form := url.Values{}
+	form.Set("scores[0]", "1")
+	form.Set("scores[1]", "2")
+	form.Add("columns[0].weights[]", "3")
+	form.Add("columns[0].weights[]", "4")
+
+	ctx := router.NewMockContext()
+	ctx.On("Body").Return([]byte(form.Encode()))
+	h := &contentEntryHandlers{}
+	record, err := h.parseFormPayload(ctx, map[string]any{
+		"type": "object",
+		"properties": map[string]any{
+			"scores": map[string]any{
+				"type": "array",
+				"items": map[string]any{
+					"type": "integer",
+				},
+			},
+			"columns": map[string]any{
+				"type": "array",
+				"items": map[string]any{
+					"type": "object",
+					"properties": map[string]any{
+						"weights": map[string]any{
+							"type": "array",
+							"items": map[string]any{
+								"type": "integer",
+							},
+						},
+					},
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("parseFormPayload: %v", err)
+	}
+	scores, ok := record["scores"].([]any)
+	if !ok || len(scores) != 2 {
+		t.Fatalf("expected two scores, got %#v", record["scores"])
+	}
+	if first, ok := scores[0].(int); !ok || first != 1 {
+		t.Fatalf("expected first score int 1, got %#v", scores[0])
+	}
+	if second, ok := scores[1].(int); !ok || second != 2 {
+		t.Fatalf("expected second score int 2, got %#v", scores[1])
+	}
+	columns := record["columns"].([]any)
+	firstColumn := columns[0].(map[string]any)
+	weights, ok := firstColumn["weights"].([]any)
+	if !ok || len(weights) != 2 {
+		t.Fatalf("expected two weights, got %#v", firstColumn["weights"])
+	}
+	if first, ok := weights[0].(int); !ok || first != 3 {
+		t.Fatalf("expected first weight int 3, got %#v", weights[0])
+	}
+	if second, ok := weights[1].(int); !ok || second != 4 {
+		t.Fatalf("expected second weight int 4, got %#v", weights[1])
+	}
+}
+
+func TestParseFormPayloadRejectsNestedAppendObjectFields(t *testing.T) {
+	form := url.Values{}
+	form.Set("columns[0].entries[].topic_id", "topic-refuge-id")
+
+	ctx := router.NewMockContext()
+	ctx.On("Body").Return([]byte(form.Encode()))
+	h := &contentEntryHandlers{}
+	_, err := h.parseFormPayload(ctx, map[string]any{
+		"type": "object",
+		"properties": map[string]any{
+			"columns": map[string]any{
+				"type": "array",
+				"items": map[string]any{
+					"type": "object",
+					"properties": map[string]any{
+						"entries": map[string]any{
+							"type": "array",
+							"items": map[string]any{
+								"type": "object",
+								"properties": map[string]any{
+									"topic_id": map[string]any{
+										"type": "string",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	})
+	if err == nil {
+		t.Fatal("expected ambiguous nested append object field to be rejected")
+	}
+}

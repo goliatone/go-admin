@@ -3,6 +3,7 @@ package quickstart
 import (
 	"encoding/json"
 	"fmt"
+	"maps"
 	"reflect"
 	"strconv"
 	"strings"
@@ -300,6 +301,43 @@ func schemaPathForIndexedFormField(path []indexedFormPathSegment) string {
 	return strings.Join(names, ".")
 }
 
+func schemaInfoForIndexedFormField(path []indexedFormPathSegment, schemaMap map[string]schemaPathInfo) (string, schemaPathInfo) {
+	fieldKey := schemaPathForIndexedFormField(path)
+	info := schemaMap[fieldKey]
+	if !indexedFormPathEndsAtArrayItem(path) {
+		return fieldKey, info
+	}
+	itemsSchema, ok := info.Schema["items"].(map[string]any)
+	if !ok {
+		return fieldKey, schemaPathInfo{}
+	}
+	return fieldKey, schemaPathInfo{Schema: itemsSchema, Type: schemaType(itemsSchema)}
+}
+
+func indexedFormPathEndsAtArrayItem(path []indexedFormPathSegment) bool {
+	if len(path) == 0 {
+		return false
+	}
+	last := path[len(path)-1]
+	return last.Append || last.Index != nil
+}
+
+func indexedFormPathEndsWithAppend(path []indexedFormPathSegment) bool {
+	if len(path) == 0 {
+		return false
+	}
+	return path[len(path)-1].Append
+}
+
+func indexedFormPathHasAmbiguousAppend(path []indexedFormPathSegment) bool {
+	for i, segment := range path {
+		if segment.Append && i < len(path)-1 {
+			return true
+		}
+	}
+	return false
+}
+
 func setIndexedFormValue(root map[string]any, path []indexedFormPathSegment, value any) error {
 	if root == nil || len(path) == 0 {
 		return nil
@@ -309,9 +347,7 @@ func setIndexedFormValue(root map[string]any, path []indexedFormPathSegment, val
 		return err
 	}
 	if nextMap, ok := next.(map[string]any); ok && nextMap != nil {
-		for key, val := range nextMap {
-			root[key] = val
-		}
+		maps.Copy(root, nextMap)
 	}
 	return nil
 }
