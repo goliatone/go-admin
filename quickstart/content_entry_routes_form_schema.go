@@ -167,27 +167,70 @@ func applyFormValues(record map[string]any, values url.Values, schemaMap map[str
 		if len(vals) == 0 {
 			continue
 		}
-		fieldKey, submittedArray := normalizeSubmittedArrayFieldName(key, schemaMap)
-		schemaDef := schemaMap[fieldKey]
-		schemaType := strings.TrimSpace(schemaDef.Type)
-		if len(vals) > 1 || (submittedArray && schemaType == "array") {
-			value, err := parseMultiValue(vals, schemaDef)
+		if indexedPath, ok := parseIndexedFormFieldPath(key); ok {
+			if indexedFormPathHasAmbiguousAppend(indexedPath) {
+				return goerrors.New(fmt.Sprintf("invalid form payload for %s", strings.TrimSpace(key)), goerrors.CategoryValidation).
+					WithCode(http.StatusBadRequest).
+					WithTextCode("INVALID_FORM")
+			}
+			fieldKey, schemaDef := schemaInfoForIndexedFormField(indexedPath, schemaMap)
+			if indexedFormPathEndsWithAppend(indexedPath) {
+				for _, raw := range vals {
+					value := parseValue(raw, schemaDef)
+					if err := setIndexedFormValue(record, indexedPath, value); err != nil {
+						return goerrors.New(fmt.Sprintf("invalid form payload for %s", strings.TrimSpace(fieldKey)), goerrors.CategoryValidation).
+							WithCode(http.StatusBadRequest).
+							WithTextCode("INVALID_FORM")
+					}
+				}
+				continue
+			}
+			value, err := parseFormValue(vals, schemaDef)
 			if err != nil {
 				return goerrors.New(fmt.Sprintf("invalid form payload for %s", strings.TrimSpace(fieldKey)), goerrors.CategoryValidation).
 					WithCode(http.StatusBadRequest).
 					WithTextCode("INVALID_FORM")
 			}
-			setNestedValue(record, fieldKey, value)
+			if err := setIndexedFormValue(record, indexedPath, value); err != nil {
+				return goerrors.New(fmt.Sprintf("invalid form payload for %s", strings.TrimSpace(fieldKey)), goerrors.CategoryValidation).
+					WithCode(http.StatusBadRequest).
+					WithTextCode("INVALID_FORM")
+			}
 			continue
 		}
-		if schemaType == "array" {
-			setNestedValue(record, fieldKey, parseSingleArrayValue(vals[0], schemaDef))
-			continue
+		fieldKey, submittedArray := normalizeSubmittedArrayFieldName(key, schemaMap)
+		schemaDef := schemaMap[fieldKey]
+		value, err := parseFormValueWithArraySuffix(vals, schemaDef, submittedArray)
+		if err != nil {
+			return goerrors.New(fmt.Sprintf("invalid form payload for %s", strings.TrimSpace(fieldKey)), goerrors.CategoryValidation).
+				WithCode(http.StatusBadRequest).
+				WithTextCode("INVALID_FORM")
 		}
-		value := parseValue(vals[0], schemaDef)
 		setNestedValue(record, fieldKey, value)
 	}
 	return nil
+}
+
+func parseFormValue(vals []string, schemaDef schemaPathInfo) (any, error) {
+	if len(vals) > 1 {
+		return parseMultiValue(vals, schemaDef)
+	}
+	schemaType := strings.TrimSpace(schemaDef.Type)
+	if schemaType == "array" {
+		return parseSingleArrayValue(vals[0], schemaDef), nil
+	}
+	return parseValue(vals[0], schemaDef), nil
+}
+
+func parseFormValueWithArraySuffix(vals []string, schemaDef schemaPathInfo, submittedArray bool) (any, error) {
+	schemaType := strings.TrimSpace(schemaDef.Type)
+	if len(vals) > 1 || (submittedArray && schemaType == "array") {
+		return parseMultiValue(vals, schemaDef)
+	}
+	if schemaType == "array" {
+		return parseSingleArrayValue(vals[0], schemaDef), nil
+	}
+	return parseValue(vals[0], schemaDef), nil
 }
 
 func applyMissingBoolFields(record map[string]any, boolPaths []string) {

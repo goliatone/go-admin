@@ -3,6 +3,7 @@ package quickstart
 import (
 	"encoding/json"
 	"fmt"
+	"reflect"
 	"strconv"
 	"strings"
 
@@ -49,12 +50,31 @@ func walkSchemaProperties(schema map[string]any, prefix string, out map[string]s
 		}
 		stype := schemaType(prop)
 		out[pathKey] = schemaPathInfo{Schema: prop, Type: stype}
-		if stype == "boolean" {
+		if stype == "boolean" && boolPaths != nil {
 			*boolPaths = append(*boolPaths, pathKey)
 		}
 		if stype == "object" {
 			walkSchemaProperties(prop, pathKey, out, boolPaths)
 		}
+		if stype == "array" {
+			walkSchemaArrayItems(prop, pathKey, out, boolPaths)
+		}
+	}
+}
+
+func walkSchemaArrayItems(schema map[string]any, prefix string, out map[string]schemaPathInfo, boolPaths *[]string) {
+	if schema == nil {
+		return
+	}
+	items, ok := schema["items"].(map[string]any)
+	if !ok || len(items) == 0 {
+		return
+	}
+	switch schemaType(items) {
+	case "object":
+		walkSchemaProperties(items, prefix, out, nil)
+	case "array":
+		walkSchemaArrayItems(items, prefix, out, nil)
 	}
 }
 
@@ -209,6 +229,176 @@ func setNestedValue(record map[string]any, path string, value any) {
 		}
 		current = next
 	}
+}
+
+type indexedFormPathSegment struct {
+	Name   string
+	Index  *int
+	Append bool
+}
+
+func parseIndexedFormFieldPath(raw string) ([]indexedFormPathSegment, bool) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" || !strings.Contains(raw, "[") {
+		return nil, false
+	}
+	parts := strings.Split(raw, ".")
+	segments := []indexedFormPathSegment{}
+	hasIndexedSegment := false
+	for _, part := range parts {
+		if part == "" {
+			return nil, false
+		}
+		nameEnd := strings.Index(part, "[")
+		if nameEnd == -1 {
+			segments = append(segments, indexedFormPathSegment{Name: part})
+			continue
+		}
+		if nameEnd > 0 {
+			segments = append(segments, indexedFormPathSegment{Name: part[:nameEnd]})
+		}
+		rest := part[nameEnd:]
+		for rest != "" {
+			if !strings.HasPrefix(rest, "[") {
+				return nil, false
+			}
+			closeIndex := strings.Index(rest, "]")
+			if closeIndex == -1 {
+				return nil, false
+			}
+			token := strings.TrimSpace(rest[1:closeIndex])
+			rest = rest[closeIndex+1:]
+			if token == "" {
+				segments = append(segments, indexedFormPathSegment{Append: true})
+				hasIndexedSegment = true
+				continue
+			}
+			index, err := strconv.Atoi(token)
+			if err != nil || index < 0 {
+				return nil, false
+			}
+			segments = append(segments, indexedFormPathSegment{Index: &index})
+			hasIndexedSegment = true
+		}
+	}
+	if len(segments) == 0 || segments[0].Name == "" || !hasIndexedSegment {
+		return nil, false
+	}
+	if len(segments) == 2 && segments[0].Name != "" && segments[1].Append {
+		return nil, false
+	}
+	return segments, true
+}
+
+func schemaPathForIndexedFormField(path []indexedFormPathSegment) string {
+	names := []string{}
+	for _, segment := range path {
+		if segment.Name != "" {
+			names = append(names, segment.Name)
+		}
+	}
+	return strings.Join(names, ".")
+}
+
+func setIndexedFormValue(root map[string]any, path []indexedFormPathSegment, value any) error {
+	if root == nil || len(path) == 0 {
+		return nil
+	}
+	next, err := setIndexedFormValueAt(root, path, value)
+	if err != nil {
+		return err
+	}
+	if nextMap, ok := next.(map[string]any); ok && nextMap != nil {
+		for key, val := range nextMap {
+			root[key] = val
+		}
+	}
+	return nil
+}
+
+func setIndexedFormValueAt(current any, path []indexedFormPathSegment, value any) (any, error) {
+	if len(path) == 0 {
+		return value, nil
+	}
+	segment := path[0]
+	last := len(path) == 1
+	if segment.Name != "" {
+		currentMap, ok := current.(map[string]any)
+		if !ok || currentMap == nil {
+			return nil, fmt.Errorf("expected object at %s", segment.Name)
+		}
+		if last {
+			return currentMap, assignIndexedFormMapValue(currentMap, segment.Name, value)
+		}
+		next, exists := currentMap[segment.Name]
+		if !exists || next == nil {
+			next = newIndexedFormContainer(path[1])
+		}
+		updated, err := setIndexedFormValueAt(next, path[1:], value)
+		if err != nil {
+			return nil, err
+		}
+		currentMap[segment.Name] = updated
+		return currentMap, nil
+	}
+
+	currentArray, ok := current.([]any)
+	if !ok {
+		if current == nil {
+			currentArray = []any{}
+		} else {
+			return nil, fmt.Errorf("expected array")
+		}
+	}
+	index, ok := indexedFormArrayIndex(segment, len(currentArray))
+	if !ok {
+		return nil, fmt.Errorf("missing array index")
+	}
+	for len(currentArray) <= index {
+		currentArray = append(currentArray, nil)
+	}
+	if last {
+		currentArray[index] = value
+		return currentArray, nil
+	}
+	next := currentArray[index]
+	if next == nil {
+		next = newIndexedFormContainer(path[1])
+	}
+	updated, err := setIndexedFormValueAt(next, path[1:], value)
+	if err != nil {
+		return nil, err
+	}
+	currentArray[index] = updated
+	return currentArray, nil
+}
+
+func assignIndexedFormMapValue(node map[string]any, key string, value any) error {
+	if existing, exists := node[key]; exists {
+		if reflect.DeepEqual(existing, value) {
+			return nil
+		}
+		return fmt.Errorf("conflicting duplicate value for %s", key)
+	}
+	node[key] = value
+	return nil
+}
+
+func indexedFormArrayIndex(segment indexedFormPathSegment, length int) (int, bool) {
+	if segment.Append {
+		return length, true
+	}
+	if segment.Index == nil {
+		return 0, false
+	}
+	return *segment.Index, true
+}
+
+func newIndexedFormContainer(next indexedFormPathSegment) any {
+	if next.Name != "" {
+		return map[string]any{}
+	}
+	return []any{}
 }
 
 func hasNestedValue(record map[string]any, path string) bool {
