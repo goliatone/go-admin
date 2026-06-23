@@ -1,10 +1,24 @@
 # Changelog
 
+# [0.106.0](https://github.com/goliatone/go-admin/compare/v0.105.3...v0.106.0) - (2026-06-23)
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Submit nested arrays in form ([f92df89](https://github.com/goliatone/go-admin/commit/f92df89b2cb8cdc7d5cd0ffd5681981361e2de50))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update tests ([8e2498d](https://github.com/goliatone/go-admin/commit/8e2498d77ccd39c6e7bbfe4615a6698f485a78ad))  - (goliatone)
+
 # [0.105.3](https://github.com/goliatone/go-admin/compare/v0.105.2...v0.105.3) - (2026-06-22)
 
 ## <!-- 1 -->🐛 Bug Fixes
 
 - Jserror collector ignore forgen superseded aborts ([2e812f1](https://github.com/goliatone/go-admin/commit/2e812f1fbad717f896f4b4cdc19b38d226e89f88))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.105.3 ([9190445](https://github.com/goliatone/go-admin/commit/9190445bf70dc3f9ddcfedabcbc55dd045c16604))  - (goliatone)
 
 ## <!-- 16 -->➕ Add
 
