@@ -1,10 +1,20 @@
 # Changelog
 
+# [0.109.2](https://github.com/goliatone/go-admin/compare/v0.109.1...v0.109.2) - (2026-06-24)
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Merged translation choice ([0cbffbd](https://github.com/goliatone/go-admin/commit/0cbffbdbb724c7ce718a0a0cfa0c91e3da7b6871))  - (goliatone)
+
 # [0.109.1](https://github.com/goliatone/go-admin/compare/v0.109.0...v0.109.1) - (2026-06-24)
 
 ## <!-- 1 -->🐛 Bug Fixes
 
 - Nested array handling and form actions ([25a18c1](https://github.com/goliatone/go-admin/commit/25a18c11f4c434d93eeea8158b71630b6f826d05))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.109.1 ([3e5c8f6](https://github.com/goliatone/go-admin/commit/3e5c8f605707bf9352451198da256878799bb2f9))  - (goliatone)
 
 ## <!-- 7 -->⚙️ Miscellaneous Tasks
 
