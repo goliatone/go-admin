@@ -2225,7 +2225,7 @@ func TestUpdateForPanelParsesSoftDeletedNestedArrayRows(t *testing.T) {
 	if got := deleted["_delete"]; got != "true" {
 		t.Fatalf("expected first row delete sentinel true, got %#v", got)
 	}
-	if _, ok := deleted["topic_id"]; ok {
+	if _, exists := deleted["topic_id"]; exists {
 		t.Fatalf("expected browser-disabled topic_id to be omitted for deleted row, got %#v", deleted)
 	}
 	kept, ok := entries[1].(map[string]any)
@@ -2239,6 +2239,255 @@ func TestUpdateForPanelParsesSoftDeletedNestedArrayRows(t *testing.T) {
 		t.Fatalf("expected second row delete sentinel false, got %#v", got)
 	}
 	ctx.AssertExpectations(t)
+}
+
+func TestContentEntryUpdateIntentPolicyExtractsSchemaMetadata(t *testing.T) {
+	schema := teachingTopicsUpdateIntentSchema("preserve")
+	policy := contentEntryUpdateIntentPolicy(schema, nil, nil, ContentEntryUpdateIntentPolicy{})
+	if len(policy.Arrays) != 2 {
+		t.Fatalf("expected two array policies, got %#v", policy.Arrays)
+	}
+	entries := policy.Arrays["columns[].entries"]
+	if entries.Ambiguous != ContentEntryUpdateIntentPreserve {
+		t.Fatalf("expected entries ambiguity preserve, got %q", entries.Ambiguous)
+	}
+	if !entries.AllowIndexFallback {
+		t.Fatalf("expected entries index fallback enabled")
+	}
+	if got := strings.Join(entries.Identity, ","); got != "id,_row_key,topic_id,topic_slug" {
+		t.Fatalf("unexpected identity precedence %q", got)
+	}
+}
+
+func TestUpdateForPanelUpdateIntentPreservesSparseNestedRows(t *testing.T) {
+	repo, created := registerTeachingTopicsUpdateIntentPanel(t, "preserve")
+	ctx := teachingTopicsUpdateContext(created, url.Values{
+		"title":            []string{"Teaching topics renamed"},
+		"columns[0].title": []string{"Column renamed"},
+	})
+	ctx.On("Redirect", mock.Anything).Return(nil).Once()
+
+	h := &contentEntryHandlers{admin: repo.Admin, cfg: repo.Config}
+	if err := h.updateForPanel(ctx, ""); err != nil {
+		t.Fatalf("update content: %v", err)
+	}
+
+	updated := mustGetTeachingTopicsRecord(t, repo.PanelRepo, created)
+	columns := requireRecordSlice(t, updated, "columns")
+	column := requireMapItem(t, columns, 0)
+	if got := column["title"]; got != "Column renamed" {
+		t.Fatalf("expected edited column title, got %#v", got)
+	}
+	entries := requireRecordSlice(t, column, "entries")
+	if len(entries) != 2 {
+		t.Fatalf("expected sparse submit to preserve two entries, got %#v", entries)
+	}
+	first := requireMapItem(t, entries, 0)
+	if got := first["topic_id"]; got != "topic-1" {
+		t.Fatalf("expected first preserved topic, got %#v", first)
+	}
+}
+
+func TestUpdateForPanelUpdateIntentDeletesMarkedNestedRow(t *testing.T) {
+	repo, created := registerTeachingTopicsUpdateIntentPanel(t, "preserve")
+	ctx := teachingTopicsUpdateContext(created, url.Values{
+		"title":                          []string{"Teaching topics"},
+		"columns[0].title":               []string{"Column 1"},
+		"columns[0].entries__present":    []string{"true"},
+		"columns[0].entries[0]._delete":  []string{"true"},
+		"columns[0].entries[1].topic_id": []string{"topic-2"},
+	})
+	ctx.On("Redirect", mock.Anything).Return(nil).Once()
+
+	h := &contentEntryHandlers{admin: repo.Admin, cfg: repo.Config}
+	if err := h.updateForPanel(ctx, ""); err != nil {
+		t.Fatalf("update content: %v", err)
+	}
+
+	updated := mustGetTeachingTopicsRecord(t, repo.PanelRepo, created)
+	entries := requireRecordSlice(t, requireMapItem(t, requireRecordSlice(t, updated, "columns"), 0), "entries")
+	if len(entries) != 1 {
+		t.Fatalf("expected one entry after explicit delete, got %#v", entries)
+	}
+	kept := requireMapItem(t, entries, 0)
+	if got := kept["topic_id"]; got != "topic-2" {
+		t.Fatalf("expected topic-2 to remain, got %#v", kept)
+	}
+	if _, exists := kept["_delete"]; exists {
+		t.Fatalf("did not expect delete sentinel to persist: %#v", kept)
+	}
+}
+
+func TestUpdateForPanelUpdateIntentClearsNestedArrayOnlyWithMarker(t *testing.T) {
+	repo, created := registerTeachingTopicsUpdateIntentPanel(t, "preserve")
+	ctx := teachingTopicsUpdateContext(created, url.Values{
+		"title":                       []string{"Teaching topics"},
+		"columns[0].title":            []string{"Column 1"},
+		"columns[0].entries__present": []string{"true"},
+		"columns[0].entries__clear":   []string{"true"},
+	})
+	ctx.On("Redirect", mock.Anything).Return(nil).Once()
+
+	h := &contentEntryHandlers{admin: repo.Admin, cfg: repo.Config}
+	if err := h.updateForPanel(ctx, ""); err != nil {
+		t.Fatalf("update content: %v", err)
+	}
+
+	updated := mustGetTeachingTopicsRecord(t, repo.PanelRepo, created)
+	entries := requireRecordSlice(t, requireMapItem(t, requireRecordSlice(t, updated, "columns"), 0), "entries")
+	if len(entries) != 0 {
+		t.Fatalf("expected explicit clear to persist empty entries, got %#v", entries)
+	}
+}
+
+func TestUpdateForPanelUpdateIntentRejectsAmbiguousSparseSubmitByDefault(t *testing.T) {
+	repo, created := registerTeachingTopicsUpdateIntentPanel(t, "")
+	ctx := teachingTopicsUpdateContext(created, url.Values{
+		"title":            []string{"Teaching topics renamed"},
+		"columns[0].title": []string{"Column renamed"},
+	})
+
+	h := &contentEntryHandlers{admin: repo.Admin, cfg: repo.Config}
+	err := h.updateForPanel(ctx, "")
+	if err == nil {
+		t.Fatalf("expected ambiguous sparse submit to fail")
+	}
+	var typedErr *goerrors.Error
+	if !goerrors.As(err, &typedErr) {
+		t.Fatalf("expected goerrors.Error, got %T", err)
+	}
+	if typedErr.Code != http.StatusBadRequest || typedErr.TextCode != "INVALID_FORM" {
+		t.Fatalf("expected invalid form bad request, got code=%d text=%q", typedErr.Code, typedErr.TextCode)
+	}
+}
+
+type teachingTopicsUpdateIntentFixture struct {
+	Config    admin.Config
+	Admin     *admin.Admin
+	PanelRepo *admin.MemoryRepository
+}
+
+func registerTeachingTopicsUpdateIntentPanel(t *testing.T, ambiguity string) (teachingTopicsUpdateIntentFixture, map[string]any) {
+	t.Helper()
+	fixture := newContentEntryAdminFixture(t)
+	repo := admin.NewMemoryRepository()
+	created, err := repo.Create(context.Background(), map[string]any{
+		"title": "Teaching topics",
+		"columns": []any{
+			map[string]any{
+				"title": "Column 1",
+				"entries": []any{
+					map[string]any{"topic_id": "topic-1", "label": "Topic 1"},
+					map[string]any{"topic_id": "topic-2", "label": "Topic 2"},
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("seed record: %v", err)
+	}
+	if _, err = fixture.Admin.RegisterPanel("teaching-topics-menu", (&admin.PanelBuilder{}).
+		WithRepository(repo).
+		FormSchema(teachingTopicsUpdateIntentSchema(ambiguity))); err != nil {
+		t.Fatalf("register panel: %v", err)
+	}
+	return teachingTopicsUpdateIntentFixture{
+		Config:    fixture.Config,
+		Admin:     fixture.Admin,
+		PanelRepo: repo,
+	}, created
+}
+
+func teachingTopicsUpdateIntentSchema(ambiguity string) map[string]any {
+	entriesPolicy := map[string]any{
+		"mode":               "patch",
+		"identity":           []any{"topic_id"},
+		"referenceFields":    []any{"topic_slug"},
+		"allowIndexFallback": true,
+	}
+	columnsPolicy := map[string]any{
+		"mode":               "patch",
+		"allowIndexFallback": true,
+	}
+	if strings.TrimSpace(ambiguity) != "" {
+		entriesPolicy["ambiguous"] = ambiguity
+		columnsPolicy["ambiguous"] = ambiguity
+	}
+	return map[string]any{
+		"type": "object",
+		"x-go-admin": map[string]any{
+			"updateIntent": map[string]any{
+				"arrays": map[string]any{
+					"columns":           columnsPolicy,
+					"columns[].entries": entriesPolicy,
+				},
+			},
+		},
+		"properties": map[string]any{
+			"title":    map[string]any{"type": "string"},
+			"featured": map[string]any{"type": "boolean"},
+			"tags": map[string]any{
+				"type":  "array",
+				"items": map[string]any{"type": "string"},
+			},
+			"metadata": map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"summary": map[string]any{"type": "string"},
+				},
+			},
+			"columns": map[string]any{
+				"type": "array",
+				"items": map[string]any{
+					"type": "object",
+					"properties": map[string]any{
+						"title": map[string]any{"type": "string"},
+						"entries": map[string]any{
+							"type": "array",
+							"items": map[string]any{
+								"type": "object",
+								"properties": map[string]any{
+									"topic_id": map[string]any{"type": "string"},
+									"label":    map[string]any{"type": "string"},
+									"_delete":  map[string]any{"type": "string"},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func teachingTopicsUpdateContext(created map[string]any, values url.Values) *router.MockContext {
+	ctx := router.NewMockContext()
+	ctx.ParamsM["name"] = "teaching-topics-menu"
+	ctx.ParamsM["id"] = strings.TrimSpace(anyToString(created["id"]))
+	ctx.HeadersM["Content-Type"] = "application/x-www-form-urlencoded"
+	ctx.On("Context").Return(context.Background())
+	if values != nil {
+		ctx.On("Body").Return([]byte(values.Encode()))
+	}
+	return ctx
+}
+
+func mustGetTeachingTopicsRecord(t *testing.T, repo *admin.MemoryRepository, created map[string]any) map[string]any {
+	t.Helper()
+	updated, err := repo.Get(context.Background(), strings.TrimSpace(anyToString(created["id"])))
+	if err != nil {
+		t.Fatalf("get updated record: %v", err)
+	}
+	return updated
+}
+
+func requireRecordSlice(t *testing.T, values map[string]any, key string) []any {
+	t.Helper()
+	value, ok := values[key].([]any)
+	if !ok {
+		t.Fatalf("expected %s to be []any, got %#v", key, values[key])
+	}
+	return value
 }
 
 func TestAdminContextFromRequestResolvesLocaleFromQuery(t *testing.T) {

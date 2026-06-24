@@ -12,19 +12,34 @@ const source = readFileSync(
 );
 
 function loadRuntime(href = 'http://localhost:9090/admin/content/teaching-topics-menu/id/edit?channel=default&locale=en') {
+  class CustomEventPolyfill {
+    constructor(type, init = {}) {
+      this.type = type;
+      this.bubbles = Boolean(init.bubbles);
+      this.detail = init.detail;
+    }
+  }
+
   const sandbox = {
     URL,
     window: {
       location: { href },
+      CustomEvent: CustomEventPolyfill,
     },
   };
   vm.runInNewContext(source, sandbox);
   return sandbox.window.GoAdminRelationshipActions;
 }
 
-function fakeElement({ name = 'columns[0].entries[0].topic_id', panelName = 'teaching-topics-menu', recordId = 'menu-123' } = {}) {
+function fakeElement({
+  name = 'columns[0].entries[0].topic_id',
+  panelName = 'teaching-topics-menu',
+  recordId = 'menu-123',
+  events = [],
+} = {}) {
   return {
     name,
+    events,
     getAttribute(attributeName) {
       return attributeName === 'name' ? name : null;
     },
@@ -39,46 +54,74 @@ function fakeElement({ name = 'columns[0].entries[0].topic_id', panelName = 'tea
         },
       };
     },
+    dispatchEvent(event) {
+      events.push(event);
+      return true;
+    },
   };
 }
 
-test('relationship action bootstrap returns no formgen config until handlers are registered', () => {
+test('relationship action bootstrap returns passive formgen config before handlers are registered', async () => {
   const api = loadRuntime();
+  const events = [];
+  const element = fakeElement({ events });
 
   assert.equal(api.hasHandlers(), false);
-  assert.equal(api.buildInitConfig({ basePath: '/admin' }), undefined);
+  const config = api.buildInitConfig({ basePath: '/admin' });
+  assert.equal(typeof config.onCreateAction, 'function');
+  assert.equal(typeof config.onEditAction, 'function');
+
+  const result = await config.onCreateAction(
+    {
+      element,
+      field: { name: 'columns[0].entries[0].topic_id' },
+      endpoint: { url: '/admin/api/content/topics' },
+    },
+    {
+      query: 'lojong',
+      actionId: 'archive_topic',
+      mode: 'typeahead',
+      selectBehavior: 'replace',
+    }
+  );
+
+  assert.equal(result, undefined);
+  assert.equal(events.length, 1);
+  assert.equal(events[0].type, 'formgen:relationship:create-action');
+  assert.equal(events[0].bubbles, true);
+  assert.equal(events[0].detail.actionId, 'archive_topic');
+  assert.equal(events[0].detail.fieldName, 'columns[0].entries[0].topic_id');
 });
 
-test('relationship action bootstrap exposes only registered create/edit hooks', () => {
+test('relationship action bootstrap reports registered action-scoped handlers', () => {
   const api = loadRuntime();
-  api.register({
+  api.registerAction('archive_topic', {
     onCreateAction() {
       return { value: 'topic-1', label: 'Topic One' };
     },
   });
 
-  const config = api.buildInitConfig({ basePath: '/admin' });
-  assert.equal(typeof config.onCreateAction, 'function');
-  assert.equal(config.onEditAction, undefined);
+  assert.equal(api.hasHandlers(), true);
 
-  api.unregister('create');
+  api.unregisterAction('archive_topic', 'create');
+  assert.equal(api.hasHandlers(), false);
+
   api.register({
+    actionId: 'archive_topic',
     onEditAction() {
       return { value: 'topic-1', label: 'Renamed Topic' };
     },
   });
 
-  const editOnlyConfig = api.buildInitConfig({ basePath: '/admin' });
-  assert.equal(editOnlyConfig.onCreateAction, undefined);
-  assert.equal(typeof editOnlyConfig.onEditAction, 'function');
+  assert.equal(api.hasHandlers(), true);
 });
 
-test('relationship action bootstrap enriches create handler context', async () => {
+test('relationship action bootstrap enriches action-scoped create handler context', async () => {
   const api = loadRuntime();
   let receivedContext;
   let receivedDetail;
 
-  api.register({
+  api.registerAction('archive_topic', {
     onCreateAction(context, detail) {
       receivedContext = context;
       receivedDetail = detail;
@@ -120,16 +163,20 @@ test('relationship action bootstrap enriches create handler context', async () =
   assert.equal(receivedDetail.goAdmin.actionId, 'archive_topic');
 });
 
-test('relationship action bootstrap enriches edit handler selected option details', async () => {
+test('relationship action bootstrap enriches action-scoped edit handler selected option details', async () => {
   const api = loadRuntime();
   let receivedContext;
   let receivedDetail;
 
   api.register({
-    onEditAction(context, detail) {
-      receivedContext = context;
-      receivedDetail = detail;
-      return { value: detail.selectedValue, label: 'Updated Topic' };
+    actions: {
+      archive_topic: {
+        onEditAction(context, detail) {
+          receivedContext = context;
+          receivedDetail = detail;
+          return { value: detail.selectedValue, label: 'Updated Topic' };
+        },
+      },
     },
   });
 
@@ -154,4 +201,70 @@ test('relationship action bootstrap enriches edit handler selected option detail
   assert.equal(receivedDetail.selectedValue, 'source-topic-456');
   assert.equal(receivedDetail.selectedLabel, 'Old Topic');
   assert.equal(receivedDetail.actionId, 'archive_topic');
+});
+
+test('relationship action bootstrap re-emits edit fallback for unmatched action ids', async () => {
+  const api = loadRuntime();
+  const events = [];
+  const element = fakeElement({ events });
+
+  api.registerAction('archive_topic', {
+    onEditAction(context, detail) {
+      return { value: detail.selectedValue, label: 'Updated Topic' };
+    },
+  });
+
+  const config = api.buildInitConfig({ basePath: '/admin' });
+  const result = await config.onEditAction(
+    {
+      element,
+      field: { name: 'columns[0].entries[0].topic_id' },
+      endpoint: { url: '/admin/api/content/topics' },
+    },
+    {
+      selectedValue: 'source-topic-456',
+      selectedLabel: 'Old Topic',
+      actionId: 'other_action',
+      mode: 'typeahead',
+    }
+  );
+
+  assert.equal(result, undefined);
+  assert.equal(events.length, 1);
+  assert.equal(events[0].type, 'formgen:relationship:edit-action');
+  assert.equal(events[0].detail.actionId, 'other_action');
+  assert.equal(events[0].detail.selectedValue, 'source-topic-456');
+  assert.equal(events[0].detail.goAdmin.fieldName, 'columns[0].entries[0].topic_id');
+});
+
+test('relationship action bootstrap lets global handlers explicitly decline to fallback', async () => {
+  const api = loadRuntime();
+  const events = [];
+  const element = fakeElement({ events });
+
+  api.register({
+    onCreateAction() {
+      return api.unhandled;
+    },
+  });
+
+  const config = api.buildInitConfig({ basePath: '/admin' });
+  const result = await config.onCreateAction(
+    {
+      element,
+      field: { name: 'columns[0].entries[0].topic_id' },
+      endpoint: { url: '/admin/api/content/topics' },
+    },
+    {
+      query: 'lojong',
+      actionId: 'archive_topic',
+      mode: 'typeahead',
+      selectBehavior: 'replace',
+    }
+  );
+
+  assert.equal(result, undefined);
+  assert.equal(events.length, 1);
+  assert.equal(events[0].type, 'formgen:relationship:create-action');
+  assert.equal(events[0].detail.query, 'lojong');
 });

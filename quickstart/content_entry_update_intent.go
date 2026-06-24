@@ -22,12 +22,12 @@ type ContentEntryUpdateIntentPolicy struct {
 }
 
 type ContentEntryUpdateIntentArrayPolicy struct {
-	Mode               string                           `json:"mode"`
-	Identity           []string                         `json:"identity"`
-	ReferenceFields    []string                         `json:"reference_fields"`
-	DeleteField        string                           `json:"delete_field"`
+	Mode               string                            `json:"mode"`
+	Identity           []string                          `json:"identity"`
+	ReferenceFields    []string                          `json:"reference_fields"`
+	DeleteField        string                            `json:"delete_field"`
 	Ambiguous          ContentEntryUpdateIntentAmbiguity `json:"ambiguous"`
-	AllowIndexFallback bool                             `json:"allow_index_fallback"`
+	AllowIndexFallback bool                              `json:"allow_index_fallback"`
 }
 
 type contentEntryUpdateIntentPathSegment struct {
@@ -36,10 +36,17 @@ type contentEntryUpdateIntentPathSegment struct {
 }
 
 type contentEntryArrayIntentMarkers struct {
-	Present bool
+	Present  bool
 	Complete bool
-	Clear bool
-	Seen bool
+	Clear    bool
+	Seen     bool
+}
+
+type contentEntryUpdateIntentPatchState struct {
+	out          []any
+	usedExisting map[int]struct{}
+	submittedIDs map[string]struct{}
+	existingByID map[string]int
 }
 
 func contentEntryApplyUpdateIntent(
@@ -183,7 +190,7 @@ func normalizeContentEntryUpdateIntentPolicy(policy ContentEntryUpdateIntentPoli
 		}
 		arrayPolicy.Ambiguous = normalizeContentEntryUpdateIntentAmbiguity(arrayPolicy.Ambiguous)
 		arrayPolicy.Identity = normalizeContentEntryUpdateIntentIdentity(arrayPolicy.Identity, arrayPolicy.ReferenceFields)
-		arrayPolicy.ReferenceFields = normalizeStringList(arrayPolicy.ReferenceFields)
+		arrayPolicy.ReferenceFields = normalizeContentEntryStringList(arrayPolicy.ReferenceFields)
 		out.Arrays[path] = arrayPolicy
 	}
 	if len(out.Arrays) == 0 {
@@ -207,10 +214,10 @@ func normalizeContentEntryUpdateIntentIdentity(identity []string, referenceField
 	values := []string{"id", "_row_key"}
 	values = append(values, identity...)
 	values = append(values, referenceFields...)
-	return normalizeStringList(values)
+	return normalizeContentEntryStringList(values)
 }
 
-func normalizeStringList(values []string) []string {
+func normalizeContentEntryStringList(values []string) []string {
 	out := []string{}
 	seen := map[string]struct{}{}
 	for _, value := range values {
@@ -270,15 +277,18 @@ func applyContentEntryUpdateIntentPath(submittedParent map[string]any, existingP
 		return applyContentEntryUpdateIntentArray(submittedParent, existingParent, segment.Name, policy)
 	}
 	if !segment.Array {
-		nextSubmitted, _ := submittedParent[segment.Name].(map[string]any)
-		nextExisting, _ := existingParent[segment.Name].(map[string]any)
+		nextSubmitted, ok := anyMap(submittedParent[segment.Name])
+		if !ok {
+			return nil
+		}
+		nextExisting, _ := anyMap(existingParent[segment.Name])
 		return applyContentEntryUpdateIntentPath(nextSubmitted, nextExisting, segments[1:], policy)
 	}
 	submittedRows, ok := submittedParent[segment.Name].([]any)
 	if !ok {
 		return nil
 	}
-	existingRows, _ := existingParent[segment.Name].([]any)
+	existingRows, _ := anySlice(existingParent[segment.Name])
 	for idx, rawRow := range submittedRows {
 		submittedRow, ok := rawRow.(map[string]any)
 		if !ok {
@@ -286,7 +296,7 @@ func applyContentEntryUpdateIntentPath(submittedParent map[string]any, existingP
 		}
 		var existingRow map[string]any
 		if idx < len(existingRows) {
-			existingRow, _ = existingRows[idx].(map[string]any)
+			existingRow, _ = anyMap(existingRows[idx])
 		}
 		if existingRow == nil {
 			existingRow = map[string]any{}
@@ -303,7 +313,7 @@ func applyContentEntryUpdateIntentArray(parent map[string]any, existingParent ma
 		return nil
 	}
 	markers := contentEntryArrayIntentMarkersFromParent(parent, field)
-	existingRows, _ := existingParent[field].([]any)
+	existingRows, _ := anySlice(existingParent[field])
 	submittedRows, submitted := parent[field].([]any)
 	if markers.Clear {
 		parent[field] = []any{}
@@ -362,6 +372,31 @@ func patchContentEntryUpdateIntentRows(submittedRows []any, existingRows []any, 
 	if policy.Ambiguous == ContentEntryUpdateIntentReject && !markers.Seen && len(existingRows) > 0 {
 		return nil, fmt.Errorf("missing array intent markers")
 	}
+	existingByID, err := contentEntryUpdateIntentExistingIDIndex(existingRows, policy)
+	if err != nil {
+		return nil, err
+	}
+	state := contentEntryUpdateIntentPatchState{
+		out:          []any{},
+		usedExisting: map[int]struct{}{},
+		submittedIDs: map[string]struct{}{},
+		existingByID: existingByID,
+	}
+	for idx, rawRow := range submittedRows {
+		if err := state.appendSubmittedContentEntryUpdateIntentRow(idx, rawRow, existingRows, policy); err != nil {
+			return nil, err
+		}
+	}
+	if policy.Ambiguous == ContentEntryUpdateIntentPreserve {
+		return appendPreservedContentEntryUpdateIntentRows(state.out, existingRows, state.usedExisting, policy), nil
+	}
+	if err := validateCompleteContentEntryUpdateIntentRows(existingRows, state.usedExisting, policy, markers); err != nil {
+		return nil, err
+	}
+	return state.out, nil
+}
+
+func contentEntryUpdateIntentExistingIDIndex(existingRows []any, policy ContentEntryUpdateIntentArrayPolicy) (map[string]int, error) {
 	existingByID := map[string]int{}
 	for idx, rawRow := range existingRows {
 		row, ok := rawRow.(map[string]any)
@@ -375,54 +410,73 @@ func patchContentEntryUpdateIntentRows(submittedRows []any, existingRows []any, 
 			existingByID[identity] = idx
 		}
 	}
-	out := []any{}
-	usedExisting := map[int]struct{}{}
-	for idx, rawRow := range submittedRows {
-		row, ok := rawRow.(map[string]any)
-		if !ok {
-			out = append(out, deepCloneAnyValue(rawRow))
-			continue
-		}
-		existingIdx, matched := matchContentEntryUpdateIntentRow(row, idx, existingByID, len(existingRows), policy)
-		if contentEntryUpdateIntentRowDeleted(row, policy.DeleteField) {
-			if !matched && policy.Ambiguous == ContentEntryUpdateIntentReject {
-				return nil, fmt.Errorf("delete row missing identity")
-			}
-			if matched {
-				usedExisting[existingIdx] = struct{}{}
-			}
-			continue
+	return existingByID, nil
+}
+
+func (state *contentEntryUpdateIntentPatchState) appendSubmittedContentEntryUpdateIntentRow(index int, rawRow any, existingRows []any, policy ContentEntryUpdateIntentArrayPolicy) error {
+	row, ok := rawRow.(map[string]any)
+	if !ok {
+		state.out = append(state.out, deepCloneAnyValue(rawRow))
+		return nil
+	}
+	if err := state.recordSubmittedContentEntryUpdateIntentIdentity(row, policy); err != nil {
+		return err
+	}
+	existingIdx, matched := matchContentEntryUpdateIntentRow(row, index, state.existingByID, len(existingRows), policy)
+	if contentEntryUpdateIntentRowDeleted(row, policy.DeleteField) {
+		if !matched && policy.Ambiguous == ContentEntryUpdateIntentReject {
+			return fmt.Errorf("delete row missing identity")
 		}
 		if matched {
-			usedExisting[existingIdx] = struct{}{}
-			existingRow, _ := existingRows[existingIdx].(map[string]any)
-			out = append(out, mergeContentEntryUpdateIntentRow(existingRow, row, policy))
+			state.usedExisting[existingIdx] = struct{}{}
+		}
+		return nil
+	}
+	if matched {
+		state.usedExisting[existingIdx] = struct{}{}
+		existingRow, _ := anyMap(existingRows[existingIdx])
+		state.out = append(state.out, mergeContentEntryUpdateIntentRow(existingRow, row, policy))
+		return nil
+	}
+	state.out = append(state.out, stripContentEntryUpdateIntentRow(row, policy))
+	return nil
+}
+
+func (state *contentEntryUpdateIntentPatchState) recordSubmittedContentEntryUpdateIntentIdentity(row map[string]any, policy ContentEntryUpdateIntentArrayPolicy) error {
+	identity, ok := contentEntryUpdateIntentRowIdentity(row, policy)
+	if !ok {
+		return nil
+	}
+	if _, exists := state.submittedIDs[identity]; exists && policy.Ambiguous == ContentEntryUpdateIntentReject {
+		return fmt.Errorf("duplicate submitted row identity %q", identity)
+	}
+	state.submittedIDs[identity] = struct{}{}
+	return nil
+}
+
+func appendPreservedContentEntryUpdateIntentRows(out []any, existingRows []any, usedExisting map[int]struct{}, policy ContentEntryUpdateIntentArrayPolicy) []any {
+	for idx, rawExisting := range existingRows {
+		if _, used := usedExisting[idx]; used {
 			continue
 		}
-		if identity, ok := contentEntryUpdateIntentRowIdentity(row, policy); ok {
-			if _, exists := existingByID[identity]; exists && policy.Ambiguous == ContentEntryUpdateIntentReject {
-				return nil, fmt.Errorf("duplicate submitted row identity %q", identity)
-			}
-		}
-		out = append(out, stripContentEntryUpdateIntentRow(row, policy))
+		out = append(out, stripContentEntryUpdateIntentValue(rawExisting, policy))
 	}
-	if policy.Ambiguous == ContentEntryUpdateIntentPreserve || !markers.Complete {
-		for idx, rawExisting := range existingRows {
-			if _, used := usedExisting[idx]; used {
-				continue
-			}
-			out = append(out, stripContentEntryUpdateIntentValue(rawExisting, policy))
-		}
-		return out, nil
+	return out
+}
+
+func validateCompleteContentEntryUpdateIntentRows(existingRows []any, usedExisting map[int]struct{}, policy ContentEntryUpdateIntentArrayPolicy, markers contentEntryArrayIntentMarkers) error {
+	if policy.Ambiguous != ContentEntryUpdateIntentReject {
+		return nil
 	}
-	if policy.Ambiguous == ContentEntryUpdateIntentReject {
-		for idx := range existingRows {
-			if _, used := usedExisting[idx]; !used {
-				return nil, fmt.Errorf("submitted array omits existing row")
-			}
+	if !markers.Complete && len(existingRows) > 0 {
+		return fmt.Errorf("submitted array is not marked complete")
+	}
+	for idx := range existingRows {
+		if _, used := usedExisting[idx]; !used {
+			return fmt.Errorf("submitted array omits existing row")
 		}
 	}
-	return out, nil
+	return nil
 }
 
 func replaceContentEntryUpdateIntentRows(rows []any, policy ContentEntryUpdateIntentArrayPolicy) []any {
@@ -545,6 +599,15 @@ func firstStringList(values ...any) []string {
 func anyMap(value any) (map[string]any, bool) {
 	switch typed := value.(type) {
 	case map[string]any:
+		return typed, true
+	default:
+		return nil, false
+	}
+}
+
+func anySlice(value any) ([]any, bool) {
+	switch typed := value.(type) {
+	case []any:
 		return typed, true
 	default:
 		return nil, false
