@@ -737,9 +737,8 @@ which renders `{{ form_html|safe }}` and loads:
 Create and update submissions are parsed against the same schema used to render
 the form. JSON requests are accepted directly; browser form submissions are
 converted from form values, with arrays and booleans normalized from the schema.
-Nested array/object fields remain replacement values unless a future
-content-entry update-intent policy is explicitly enabled for that content type
-and field path.
+Nested array/object fields remain replacement values unless a content-entry
+update-intent policy is explicitly enabled for that content type and field path.
 
 ## Detail Page Tabs
 
@@ -913,10 +912,13 @@ repository normalizes those values before persistence.
 
 Nested object arrays need special care. Missing nested rows can be caused by
 intentional removal, disabled controls, hydration failure, or sparse custom
-renderers. The planned opt-in CMS update-intent contract is tracked in
-`.ctx/specs/cms-nested-array-update-intent/`; until it is implemented, preserve
-nested authored rows with content-type-specific repository or application
-guards.
+renderers. For CMS content-entry routes, enable the opt-in update-intent
+contract per array path when authored nested rows must be patched instead of
+replaced. Policy can come from `x-go-admin.updateIntent` schema metadata,
+UI schema/capability metadata, or
+`quickstart.WithContentEntryUpdateIntentPolicy(...)`. The safe ambiguous
+default is `reject`; use `preserve` only for content types where sparse browser
+submissions should retain existing rows.
 
 For the full rendering, overlay, component, and template customization flow, see
 `docs/GUIDE_FORMGEN.md`.

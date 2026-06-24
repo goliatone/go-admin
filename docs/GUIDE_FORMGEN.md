@@ -346,14 +346,46 @@ Custom widgets must submit values compatible with the schema type. If a widget p
 
 Browser form parsing is value-oriented. For CMS content-entry forms, submitted
 array/object values still represent replacement values unless the content type
-opts into the planned nested-array update-intent contract.
+opts into the nested-array update-intent contract.
 
-The planned opt-in contract is tracked in
-`.ctx/specs/cms-nested-array-update-intent/`. It will require generated forms or
-custom renderers to submit explicit array and row markers for present, complete,
-cleared, existing, new, deleted, and omitted rows. Until that feature ships,
-custom nested-array widgets that need preservation semantics should keep
-content-type-specific guards in the application or repository layer.
+Opt in per content type and array path through `x-go-admin.updateIntent` schema
+metadata, equivalent UI schema/capability metadata, or
+`quickstart.WithContentEntryUpdateIntentPolicy(...)`:
+
+```json
+{
+  "x-go-admin": {
+    "updateIntent": {
+      "arrays": {
+        "columns": {
+          "mode": "patch",
+          "ambiguous": "preserve",
+          "allowIndexFallback": true
+        },
+        "columns[].entries": {
+          "mode": "patch",
+          "identity": ["topic_id"],
+          "referenceFields": ["topic_slug"],
+          "ambiguous": "preserve",
+          "allowIndexFallback": true
+        }
+      }
+    }
+  }
+}
+```
+
+For generated go-formgen repeatable arrays, set `updateIntent: "patch"` on the
+array field metadata/UI hints so the renderer emits:
+
+- array markers: `<path>__present`, `<path>__complete`, `<path>__clear`
+- row markers: `_present`, `_row_state`, `_row_key`, and `_delete`
+
+Custom renderers must submit equivalent markers for enabled paths. `_delete=true`
+is explicit delete intent and remains active even when sibling row controls are
+disabled by the client runtime. Internal markers are stripped before CMS
+persistence. JSON requests keep normal behavior unless update intent is enabled
+for the content type, in which case browser-form markers are required.
 
 ## Security And Validation
 
@@ -378,7 +410,7 @@ Before considering a form integration done:
 7.  Repository/service validation rejects invalid, forbidden, or server-managed values even if submitted manually.
 8.  Media fields receive endpoint hints when media is enabled.
 9.  Template overrides preserve `form_html`, CSRF fields, and expected route context.
-10. Nested-array preservation is either content-type-specific today or covered by an explicit opt-in update-intent contract when that feature is available.
+10. Nested-array preservation is either content-type-specific or covered by an explicit opt-in update-intent contract.
 
 Useful focused tests:
 
