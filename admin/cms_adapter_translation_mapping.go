@@ -229,8 +229,10 @@ func applyGoCMSTranslationChoice(out *CMSContent, chosen reflect.Value, locale s
 	out.Title = cmsadapter.StringField(chosen, "Title")
 	applyGoCMSTranslationSummary(out, chosen)
 	if contentData := translationContentMap(chosen); len(contentData) > 0 {
-		maps.Copy(contentData, out.Data)
-		out.Data = contentData
+		merged := map[string]any{}
+		maps.Copy(merged, out.Data)
+		maps.Copy(merged, contentData)
+		out.Data = merged
 	}
 	if out.Title == "" {
 		if title := strings.TrimSpace(toString(out.Data["title"])); title != "" {
