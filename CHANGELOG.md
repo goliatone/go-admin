@@ -1,6 +1,20 @@
 # Changelog
 
+# [0.109.1](https://github.com/goliatone/go-admin/compare/v0.109.0...v0.109.1) - (2026-06-24)
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Nested array handling and form actions ([25a18c1](https://github.com/goliatone/go-admin/commit/25a18c11f4c434d93eeea8158b71630b6f826d05))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update docs ([5c924ad](https://github.com/goliatone/go-admin/commit/5c924ad022c64aa76b7ea24940ece811e9f377aa))  - (goliatone)
+
 # [0.109.0](https://github.com/goliatone/go-admin/compare/v0.108.0...v0.109.0) - (2026-06-24)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.109.0 ([017f856](https://github.com/goliatone/go-admin/commit/017f8563e87d3982a3c96e1e7eaa2347a8665a1b))  - (goliatone)
 
 ## <!-- 16 -->➕ Add
 
