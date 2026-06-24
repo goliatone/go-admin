@@ -164,13 +164,14 @@ like `/admin/quotes` and `/admin/news` see the reconciled panel registry.
 Content type schemas are used to generate forms and to validate payloads at write time
 when backed by go-cms.
 
-Content-entry updates use full-replacement semantics for submitted fields. Nested
-object arrays are especially sensitive: omitted or blank browser controls can
-look like intentional deletion. Generic nested-array preservation is not default
-behavior. The planned opt-in update-intent contract is tracked in
-`.ctx/specs/cms-nested-array-update-intent/` and will require explicit row and
-array markers before go-admin can safely preserve, delete, clear, or reject
-ambiguous nested rows.
+Content-entry updates use full-replacement semantics for submitted fields by
+default. Nested object arrays are especially sensitive: omitted or blank browser
+controls can look like intentional deletion. Enable nested-array update intent
+only for content types and array paths that need patch/preserve behavior. The
+contract requires array markers (`<path>__present`, `<path>__complete`,
+`<path>__clear`) and row markers (`_present`, `_row_state`, `_row_key`,
+`_delete`) so go-admin can preserve, delete, clear, or reject ambiguous nested
+rows before persistence.
 
 ### Supported Schema Shapes
 
@@ -541,12 +542,16 @@ Common route options:
 - `quickstart.WithContentEntryDefaultRenderers(map[string]string{...})` (replace configured map)
 - `quickstart.WithContentEntryMergeDefaultRenderers(map[string]string{...})` (merge/override configured map)
 - `quickstart.WithContentEntryRecommendedDefaults()` (opt-in recommended renderer defaults)
+- `quickstart.WithContentEntryUpdateIntentPolicy(...)` (programmatic nested-array patch policy)
 
-Nested array patch/preserve behavior is planned as a separate opt-in
-content-entry contract, not a default route behavior. Until it lands, generated
-or custom CMS forms that edit nested relationship arrays should keep
-content-type-specific guardrails when sparse submissions could destroy existing
-authored rows.
+Nested array patch/preserve behavior is an opt-in content-entry contract, not a
+default route behavior. Policy can come from schema/UI schema/capabilities
+metadata or `WithContentEntryUpdateIntentPolicy(...)`. Use `ambiguous:
+"reject"` unless a content type intentionally preserves sparse submissions.
+Generated go-formgen repeatable arrays emit the required sentinels when their
+array field has `updateIntent: "patch"` metadata. Custom renderers must emit
+equivalent sentinels or contract-enabled sparse submissions will be rejected or
+preserved according to policy.
 
 Common routes include:
 

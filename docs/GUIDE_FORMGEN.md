@@ -187,10 +187,10 @@ Override formgen component templates by providing the expected partial key or a 
 
 ## CMS Relationship Create/Edit Actions
 
-Generic CMS content forms load `assets/dist/runtime/cms-relationship-actions.js`. Host apps can register delegated relationship handlers before the form initializes:
+Generic CMS content forms load `assets/dist/runtime/cms-relationship-actions.js`. Host apps should register delegated relationship handlers by action ID:
 
 ```js
-window.GoAdminRelationshipActions.register({
+window.GoAdminRelationshipActions.registerAction("archive_topic", {
   async onCreateAction(context, detail) {
     // Open a modal, route, or API-backed compact flow.
     // Return { value, label } to select the created option.
@@ -202,22 +202,55 @@ window.GoAdminRelationshipActions.register({
 });
 ```
 
-The CMS form only passes `onCreateAction` or `onEditAction` to `window.FormgenRelationships.initRelationships(...)` when that handler is registered. With no handler, the form keeps the plain `initRelationships()` path so go-formgen still dispatches its default DOM events.
+The CMS form passes passive wrappers to `window.FormgenRelationships.initRelationships(...)` when this helper is loaded. If no scoped or global handler matches an action, the wrapper re-emits go-formgen's default `formgen:relationship:create-action` or `formgen:relationship:edit-action` DOM event. This preserves fallback listeners and also lets hosts register handlers after field initialization, as long as registration happens before the editor clicks the action.
+
+Use action-scoped registration for entity-specific flows. `register({ onCreateAction, onEditAction })` is still available for intentional catch-all handlers. A catch-all handler can return `window.GoAdminRelationshipActions.unhandled` to delegate that action back to the DOM fallback.
+
+If a host needs to register before the helper asset loads, pre-seed the global:
+
+```html
+<script>
+window.GoAdminRelationshipActions = {
+  actions: {
+    archive_topic: {
+      async onCreateAction(context, detail) {},
+      async onEditAction(context, detail) {}
+    }
+  }
+};
+</script>
+```
 
 Opt in per relationship field with go-formgen metadata:
 
 ```json
 {
   "x-formgen": {
-    "relationship": {
-      "endpoint": {
-        "createAction": true,
-        "createActionId": "archive_topic",
-        "createActionLabel": "Create Topic",
-        "createActionSelect": "replace",
-        "editAction": true,
-        "editActionId": "archive_topic",
-        "editActionLabel": "Edit Topic"
+    "relationship.endpoint.createAction": "true",
+    "relationship.endpoint.createActionId": "archive_topic",
+    "relationship.endpoint.createActionLabel": "Create Topic",
+    "relationship.endpoint.createActionSelect": "replace",
+    "relationship.endpoint.editAction": "true",
+    "relationship.endpoint.editActionId": "archive_topic",
+    "relationship.endpoint.editActionLabel": "Edit Topic"
+  }
+}
+```
+
+UI schema overlays can use the same flat keys:
+
+```json
+{
+  "fields": {
+    "columns[].entries[].topic_id": {
+      "metadata": {
+        "relationship.endpoint.createAction": "true",
+        "relationship.endpoint.createActionId": "archive_topic",
+        "relationship.endpoint.createActionLabel": "Create Topic",
+        "relationship.endpoint.createActionSelect": "replace",
+        "relationship.endpoint.editAction": "true",
+        "relationship.endpoint.editActionId": "archive_topic",
+        "relationship.endpoint.editActionLabel": "Edit Topic"
       }
     }
   }
