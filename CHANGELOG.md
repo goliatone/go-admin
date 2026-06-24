@@ -1,6 +1,16 @@
 # Changelog
 
+# [0.109.0](https://github.com/goliatone/go-admin/compare/v0.108.0...v0.109.0) - (2026-06-24)
+
+## <!-- 16 -->➕ Add
+
+- Content entry edit route ([8da74fd](https://github.com/goliatone/go-admin/commit/8da74fd0c6a07f5edb295a344a785d44108eec5e))  - (goliatone)
+
 # [0.108.0](https://github.com/goliatone/go-admin/compare/v0.107.0...v0.108.0) - (2026-06-24)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.108.0 ([c748c17](https://github.com/goliatone/go-admin/commit/c748c17a34659641d5a4675ede030cf864bee16a))  - (goliatone)
 
 ## <!-- 16 -->➕ Add
 
