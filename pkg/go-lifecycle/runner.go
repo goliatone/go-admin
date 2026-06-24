@@ -129,7 +129,9 @@ func (r *Runner) StartBackground(ctx context.Context) error {
 		task := rt.task
 		go func() {
 			defer wg.Done()
-			_ = r.runTask(bgCtx, task)
+			if err := r.runTask(bgCtx, task); err != nil {
+				return
+			}
 		}()
 	}
 	go func() {

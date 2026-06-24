@@ -140,7 +140,20 @@
   }
 
   function fallbackPayload(context, detail, routeContext) {
-    return Object.assign({}, context || {}, detail || {}, enrichDetail(context, detail, routeContext));
+    const route = routeContextFrom(context, detail, routeContext);
+    const payload = {};
+    if (context && context.element) {
+      payload.element = context.element;
+    }
+    if (context && context.field) {
+      payload.field = context.field;
+    }
+    if (context && context.endpoint) {
+      payload.endpoint = context.endpoint;
+    }
+    return Object.assign(payload, detail || {}, {
+      goAdmin: route,
+    });
   }
 
   function dispatchFallback(actionName, context, detail, routeContext) {
@@ -278,6 +291,15 @@
     };
   }
 
+  function initFormgenRelationships(formgenRelationships, routeContext) {
+    if (!formgenRelationships || !isFunction(formgenRelationships.initRelationships)) {
+      return undefined;
+    }
+    const config = buildInitConfig(routeContext);
+    formgenRelationships.initRelationships(config);
+    return config;
+  }
+
   const api = {
     unhandled: UNHANDLED,
     register,
@@ -287,6 +309,7 @@
     unregisterAction,
     hasHandlers,
     buildInitConfig,
+    initFormgenRelationships,
   };
 
   target.GoAdminRelationshipActions = api;

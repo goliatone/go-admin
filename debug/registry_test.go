@@ -115,7 +115,7 @@ func TestPanelDefinitionRichUINormalizesWireContract(t *testing.T) {
 	if def.UI.Views.Console.Bind != "items" {
 		t.Fatalf("expected normalized bind, got %q", def.UI.Views.Console.Bind)
 	}
-	if _, ok := def.UI.Views.Console.Options["unsafe"]; ok {
+	if _, exists := def.UI.Views.Console.Options["unsafe"]; exists {
 		t.Fatalf("expected unsafe function option to be dropped")
 	}
 	if len(def.UI.Filters) != 1 || def.UI.Filters[0].ID != "status" {
@@ -136,10 +136,11 @@ func TestPanelDefinitionRichUINormalizesWireContract(t *testing.T) {
 	if len(def.UI.Actions[0].Fields) != 1 || def.UI.Actions[0].Fields[0].Name != "file_id" || def.UI.Actions[0].Fields[0].PayloadPath != "payload.file_id" {
 		t.Fatalf("expected normalized action field, got %+v", def.UI.Actions[0].Fields)
 	}
-	if got := def.UI.Actions[0].Fields[0].Default.(map[string]any); got["value"] != "123" {
+	defaultValue, ok := def.UI.Actions[0].Fields[0].Default.(map[string]any)
+	if !ok || defaultValue["value"] != "123" {
 		t.Fatalf("expected JSON-safe field default, got %+v", def.UI.Actions[0].Fields[0].Default)
 	}
-	if _, ok := def.UI.Actions[0].Fields[0].Default.(map[string]any)["unsafe"]; ok {
+	if _, ok := defaultValue["unsafe"]; ok {
 		t.Fatalf("expected unsafe default value to be dropped, got %+v", def.UI.Actions[0].Fields[0].Default)
 	}
 	if got := def.UI.Actions[0].Fields[0].DisplayHints; got["section"] != "Scope" {

@@ -1278,39 +1278,47 @@ func mapToWidgetInstance(record map[string]any) WidgetInstance {
 
 func extractLocale(opts ListOptions, fallback string) string {
 	if len(opts.Predicates) > 0 {
-		for _, predicate := range NormalizeListPredicates(opts) {
-			if !strings.EqualFold(strings.TrimSpace(predicate.Field), "locale") {
-				continue
-			}
-			for _, value := range predicate.Values {
-				if loc := strings.TrimSpace(value); loc != "" {
-					return loc
-				}
-			}
+		if locale := extractLocaleFromPredicates(NormalizeListPredicates(opts)); locale != "" {
+			return locale
 		}
 	}
-	if opts.Filters != nil {
-		if loc, ok := opts.Filters["locale"].(string); ok && loc != "" {
-			return loc
-		}
-		if loc, ok := opts.Filters["Locale"].(string); ok && loc != "" {
-			return loc
-		}
+	if locale := extractLocaleFromFilters(opts.Filters); locale != "" {
+		return locale
 	}
 	if len(opts.Predicates) == 0 {
-		for _, predicate := range NormalizeListPredicates(opts) {
-			if !strings.EqualFold(strings.TrimSpace(predicate.Field), "locale") {
-				continue
-			}
-			for _, value := range predicate.Values {
-				if loc := strings.TrimSpace(value); loc != "" {
-					return loc
-				}
-			}
+		if locale := extractLocaleFromPredicates(NormalizeListPredicates(opts)); locale != "" {
+			return locale
 		}
 	}
 	if fallback != "" {
 		return fallback
+	}
+	return ""
+}
+
+func extractLocaleFromPredicates(predicates []ListPredicate) string {
+	for _, predicate := range predicates {
+		if !strings.EqualFold(strings.TrimSpace(predicate.Field), "locale") {
+			continue
+		}
+		for _, value := range predicate.Values {
+			if locale := strings.TrimSpace(value); locale != "" {
+				return locale
+			}
+		}
+	}
+	return ""
+}
+
+func extractLocaleFromFilters(filters map[string]any) string {
+	if filters == nil {
+		return ""
+	}
+	if locale, ok := filters["locale"].(string); ok && locale != "" {
+		return locale
+	}
+	if locale, ok := filters["Locale"].(string); ok && locale != "" {
+		return locale
 	}
 	return ""
 }

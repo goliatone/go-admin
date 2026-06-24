@@ -81,8 +81,8 @@ func TestContentFormTemplateBootstrapsRelationshipActions(t *testing.T) {
 	required := []string{
 		`assets/dist/runtime/cms-relationship-actions.js`,
 		`const relationshipActions = window.GoAdminRelationshipActions;`,
-		`relationshipActions.buildInitConfig`,
-		`api.initRelationships(relationshipConfig);`,
+		`relationshipActions.initFormgenRelationships(api, {`,
+		`relationshipActions.buildInitConfig({`,
 		`api.initRelationships();`,
 		`panel: {% if panel_name %}{{ toJSON(panel_name)|safe }}{% else %}""{% endif %}`,
 		`recordId: {% if is_edit and resource_item %}{{ toJSON(resource_item.id)|safe }}{% else %}""{% endif %}`,
@@ -95,7 +95,7 @@ func TestContentFormTemplateBootstrapsRelationshipActions(t *testing.T) {
 	}
 
 	normalizationIndex := strings.Index(template, `document.querySelectorAll("[data-endpoint-url]")`)
-	configIndex := strings.Index(template, `relationshipActions.buildInitConfig`)
+	configIndex := strings.Index(template, `relationshipActions.initFormgenRelationships`)
 	if normalizationIndex < 0 || configIndex < 0 || normalizationIndex > configIndex {
 		t.Fatalf("expected endpoint normalization to run before relationship action config")
 	}

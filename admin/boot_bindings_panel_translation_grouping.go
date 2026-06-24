@@ -159,42 +159,9 @@ type groupedReadinessFamilyReadModelQuery struct {
 }
 
 func (p *panelBinding) listTranslationFamiliesFromReadModel(ctx AdminContext, baseOpts, requestedOpts ListOptions, readinessPredicates []ListPredicate) ([]map[string]any, int, bool, error) {
-	if p == nil || p.admin == nil || p.admin.translationFamilyStore == nil || len(readinessPredicates) == 0 {
-		return nil, 0, false, nil
-	}
-	if _, ok := p.admin.translationFamilyStore.(translationservices.FamilyQueryStore); !ok {
-		return nil, 0, false, nil
-	}
-	if !groupedReadinessCanUseFamilyReadModel(baseOpts) {
-		return nil, 0, false, nil
-	}
-	query, ok := groupedReadinessFamilyReadModelQueryForPredicates(readinessPredicates)
+	service, input, query, ok := p.groupedReadinessFamilyReadModelRequest(ctx, baseOpts, requestedOpts, readinessPredicates)
 	if !ok {
 		return nil, 0, false, nil
-	}
-	contentType := p.groupedReadinessFamilyReadModelContentType()
-	if contentType == "" {
-		return nil, 0, false, nil
-	}
-
-	identity := translationIdentityFromAdminContext(ctx)
-	service := translationservices.FamilyService{
-		Store: p.admin.translationFamilyStore,
-		Policies: translationservices.PolicyService{
-			Resolver: translationFamilyPolicyResolver{admin: p.admin},
-		},
-	}
-	input := translationservices.ListFamiliesInput{
-		Scope: translationservices.Scope{
-			TenantID: identity.TenantID,
-			OrgID:    identity.OrgID,
-		},
-		Environment:    translationReadinessEnvironment(ctx.Context, baseOpts.Filters),
-		ContentType:    contentType,
-		ReadinessState: query.readinessState,
-		BlockerCode:    query.blockerCode,
-		Page:           requestedOpts.Page,
-		PerPage:        requestedOpts.PerPage,
 	}
 	var result translationservices.ListFamiliesResult
 	var err error
@@ -210,16 +177,7 @@ func (p *panelBinding) listTranslationFamiliesFromReadModel(ctx AdminContext, ba
 		return nil, result.Total, true, nil
 	}
 
-	familyIDs := make([]string, 0, len(result.Items))
-	familiesByID := make(map[string]translationservices.FamilyRecord, len(result.Items))
-	for _, family := range result.Items {
-		familyID := strings.TrimSpace(family.ID)
-		if familyID == "" {
-			continue
-		}
-		familyIDs = append(familyIDs, familyID)
-		familiesByID[familyID] = family
-	}
+	familyIDs, familiesByID := indexedTranslationFamilyReadModelRecords(result.Items)
 	if len(familyIDs) == 0 {
 		return nil, result.Total, true, nil
 	}
@@ -244,6 +202,61 @@ func (p *panelBinding) listTranslationFamiliesFromReadModel(ctx AdminContext, ba
 		rows = projectRecordMapsByFields(rows, requestedOpts.Fields)
 	}
 	return rows, result.Total, true, nil
+}
+
+func (p *panelBinding) groupedReadinessFamilyReadModelRequest(ctx AdminContext, baseOpts, requestedOpts ListOptions, readinessPredicates []ListPredicate) (translationservices.FamilyService, translationservices.ListFamiliesInput, groupedReadinessFamilyReadModelQuery, bool) {
+	if p == nil || p.admin == nil || p.admin.translationFamilyStore == nil || len(readinessPredicates) == 0 {
+		return translationservices.FamilyService{}, translationservices.ListFamiliesInput{}, groupedReadinessFamilyReadModelQuery{}, false
+	}
+	if _, ok := p.admin.translationFamilyStore.(translationservices.FamilyQueryStore); !ok {
+		return translationservices.FamilyService{}, translationservices.ListFamiliesInput{}, groupedReadinessFamilyReadModelQuery{}, false
+	}
+	if !groupedReadinessCanUseFamilyReadModel(baseOpts) {
+		return translationservices.FamilyService{}, translationservices.ListFamiliesInput{}, groupedReadinessFamilyReadModelQuery{}, false
+	}
+	query, ok := groupedReadinessFamilyReadModelQueryForPredicates(readinessPredicates)
+	if !ok {
+		return translationservices.FamilyService{}, translationservices.ListFamiliesInput{}, groupedReadinessFamilyReadModelQuery{}, false
+	}
+	contentType := p.groupedReadinessFamilyReadModelContentType()
+	if contentType == "" {
+		return translationservices.FamilyService{}, translationservices.ListFamiliesInput{}, groupedReadinessFamilyReadModelQuery{}, false
+	}
+
+	identity := translationIdentityFromAdminContext(ctx)
+	service := translationservices.FamilyService{
+		Store: p.admin.translationFamilyStore,
+		Policies: translationservices.PolicyService{
+			Resolver: translationFamilyPolicyResolver{admin: p.admin},
+		},
+	}
+	input := translationservices.ListFamiliesInput{
+		Scope: translationservices.Scope{
+			TenantID: identity.TenantID,
+			OrgID:    identity.OrgID,
+		},
+		Environment:    translationReadinessEnvironment(ctx.Context, baseOpts.Filters),
+		ContentType:    contentType,
+		ReadinessState: query.readinessState,
+		BlockerCode:    query.blockerCode,
+		Page:           requestedOpts.Page,
+		PerPage:        requestedOpts.PerPage,
+	}
+	return service, input, query, true
+}
+
+func indexedTranslationFamilyReadModelRecords(items []translationservices.FamilyRecord) ([]string, map[string]translationservices.FamilyRecord) {
+	familyIDs := make([]string, 0, len(items))
+	familiesByID := make(map[string]translationservices.FamilyRecord, len(items))
+	for _, family := range items {
+		familyID := strings.TrimSpace(family.ID)
+		if familyID == "" {
+			continue
+		}
+		familyIDs = append(familyIDs, familyID)
+		familiesByID[familyID] = family
+	}
+	return familyIDs, familiesByID
 }
 
 func groupedReadinessCanUseFamilyReadModel(opts ListOptions) bool {

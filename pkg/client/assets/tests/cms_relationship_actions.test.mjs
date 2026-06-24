@@ -11,7 +11,11 @@ const source = readFileSync(
   'utf8'
 );
 
-function loadRuntime(href = 'http://localhost:9090/admin/content/teaching-topics-menu/id/edit?channel=default&locale=en') {
+function loadRuntime(options = {}) {
+  const href = typeof options === 'string'
+    ? options
+    : options.href || 'http://localhost:9090/admin/content/teaching-topics-menu/id/edit?channel=default&locale=en';
+  const preseed = typeof options === 'string' ? undefined : options.preseed;
   class CustomEventPolyfill {
     constructor(type, init = {}) {
       this.type = type;
@@ -27,6 +31,9 @@ function loadRuntime(href = 'http://localhost:9090/admin/content/teaching-topics
       CustomEvent: CustomEventPolyfill,
     },
   };
+  if (preseed) {
+    sandbox.window.GoAdminRelationshipActions = preseed;
+  }
   vm.runInNewContext(source, sandbox);
   return sandbox.window.GoAdminRelationshipActions;
 }
@@ -90,7 +97,12 @@ test('relationship action bootstrap returns passive formgen config before handle
   assert.equal(events[0].type, 'formgen:relationship:create-action');
   assert.equal(events[0].bubbles, true);
   assert.equal(events[0].detail.actionId, 'archive_topic');
-  assert.equal(events[0].detail.fieldName, 'columns[0].entries[0].topic_id');
+  assert.equal(events[0].detail.element, element);
+  assert.deepEqual(events[0].detail.field, { name: 'columns[0].entries[0].topic_id' });
+  assert.deepEqual(events[0].detail.endpoint, { url: '/admin/api/content/topics' });
+  assert.equal(events[0].detail.goAdmin.fieldName, 'columns[0].entries[0].topic_id');
+  assert.equal(Object.hasOwn(events[0].detail, 'config'), false);
+  assert.equal(Object.hasOwn(events[0].detail, 'fromCache'), false);
 });
 
 test('relationship action bootstrap reports registered action-scoped handlers', () => {
@@ -161,6 +173,87 @@ test('relationship action bootstrap enriches action-scoped create handler contex
   assert.equal(receivedDetail.query, 'lojong');
   assert.equal(receivedDetail.selectBehavior, 'replace');
   assert.equal(receivedDetail.goAdmin.actionId, 'archive_topic');
+});
+
+test('relationship action bootstrap preserves pre-seeded action handlers', async () => {
+  let createCalls = 0;
+  const api = loadRuntime({
+    preseed: {
+      actions: {
+        archive_topic: {
+          onCreateAction(context, detail) {
+            createCalls += 1;
+            assert.equal(context.panel, 'teaching-topics-menu');
+            assert.equal(detail.query, 'lojong');
+            return { value: 'source-topic-preseeded', label: 'Preseeded Topic' };
+          },
+        },
+      },
+    },
+  });
+
+  assert.equal(api.hasHandlers(), true);
+
+  const result = await api.buildInitConfig({
+    panel: 'teaching-topics-menu',
+  }).onCreateAction(
+    {
+      element: fakeElement(),
+      field: { name: 'columns[0].entries[0].topic_id' },
+      endpoint: { url: '/admin/api/content/topics' },
+    },
+    {
+      query: 'lojong',
+      actionId: 'archive_topic',
+      mode: 'typeahead',
+      selectBehavior: 'replace',
+    }
+  );
+
+  assert.equal(createCalls, 1);
+  assert.deepEqual(result, { value: 'source-topic-preseeded', label: 'Preseeded Topic' });
+});
+
+test('relationship action bootstrap initializes formgen relationships with passive config', async () => {
+  const api = loadRuntime();
+  let receivedConfig;
+  const formgenRelationships = {
+    initRelationships(config) {
+      receivedConfig = config;
+    },
+  };
+
+  api.registerAction('archive_topic', {
+    onCreateAction() {
+      return { value: 'source-topic-created', label: 'Created Topic' };
+    },
+  });
+
+  const config = api.initFormgenRelationships(formgenRelationships, {
+    basePath: '/admin',
+    panel: 'teaching-topics-menu',
+    recordId: 'menu-123',
+  });
+
+  assert.equal(receivedConfig, config);
+  assert.equal(typeof receivedConfig.onCreateAction, 'function');
+  assert.equal(typeof receivedConfig.onEditAction, 'function');
+
+  const result = await receivedConfig.onCreateAction(
+    {
+      element: fakeElement(),
+      field: { name: 'columns[0].entries[0].topic_id' },
+      endpoint: { url: '/admin/api/content/topics' },
+    },
+    {
+      query: 'lojong',
+      actionId: 'archive_topic',
+      mode: 'typeahead',
+      selectBehavior: 'replace',
+    }
+  );
+
+  assert.deepEqual(result, { value: 'source-topic-created', label: 'Created Topic' });
 });
 
 test('relationship action bootstrap enriches action-scoped edit handler selected option details', async () => {
@@ -235,6 +328,8 @@ test('relationship action bootstrap re-emits edit fallback for unmatched action 
   assert.equal(events[0].detail.actionId, 'other_action');
   assert.equal(events[0].detail.selectedValue, 'source-topic-456');
   assert.equal(events[0].detail.goAdmin.fieldName, 'columns[0].entries[0].topic_id');
+  assert.equal(Object.hasOwn(events[0].detail, 'config'), false);
+  assert.equal(Object.hasOwn(events[0].detail, 'fromCache'), false);
 });
 
 test('relationship action bootstrap lets global handlers explicitly decline to fallback', async () => {

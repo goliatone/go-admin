@@ -202,7 +202,7 @@ window.GoAdminRelationshipActions.registerAction("archive_topic", {
 });
 ```
 
-The CMS form passes passive wrappers to `window.FormgenRelationships.initRelationships(...)` when this helper is loaded. If no scoped or global handler matches an action, the wrapper re-emits go-formgen's default `formgen:relationship:create-action` or `formgen:relationship:edit-action` DOM event. This preserves fallback listeners and also lets hosts register handlers after field initialization, as long as registration happens before the editor clicks the action.
+The CMS form passes passive wrappers to `window.FormgenRelationships.initRelationships(...)` when this helper is loaded. If no scoped or global handler matches an action, the wrapper re-emits go-formgen's default `formgen:relationship:create-action` or `formgen:relationship:edit-action` DOM event. Re-emitted event detail contains go-formgen's native fallback fields plus `detail.goAdmin` route context. This preserves fallback listeners and also lets hosts register handlers after field initialization, as long as registration happens before the editor clicks the action.
 
 Use action-scoped registration for entity-specific flows. `register({ onCreateAction, onEditAction })` is still available for intentional catch-all handlers. A catch-all handler can return `window.GoAdminRelationshipActions.unhandled` to delegate that action back to the DOM fallback.
 

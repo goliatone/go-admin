@@ -177,16 +177,20 @@
         }
       });
       const relationshipActions = window.GoAdminRelationshipActions;
-      const relationshipConfig = relationshipActions && typeof relationshipActions.buildInitConfig === "function"
-        ? relationshipActions.buildInitConfig({
+      if (relationshipActions && typeof relationshipActions.initFormgenRelationships === "function") {
+        relationshipActions.initFormgenRelationships(api, {
           basePath,
           panel: {% if panel_name %}{{ toJSON(panel_name)|safe }}{% else %}""{% endif %},
           contentType: {% if panel_name %}{{ toJSON(panel_name)|safe }}{% else %}""{% endif %},
           recordId: {% if is_edit and resource_item %}{{ toJSON(resource_item.id)|safe }}{% else %}""{% endif %},
-        })
-        : undefined;
-      if (relationshipConfig) {
-        api.initRelationships(relationshipConfig);
+        });
+      } else if (relationshipActions && typeof relationshipActions.buildInitConfig === "function") {
+        api.initRelationships(relationshipActions.buildInitConfig({
+          basePath,
+          panel: {% if panel_name %}{{ toJSON(panel_name)|safe }}{% else %}""{% endif %},
+          contentType: {% if panel_name %}{{ toJSON(panel_name)|safe }}{% else %}""{% endif %},
+          recordId: {% if is_edit and resource_item %}{{ toJSON(resource_item.id)|safe }}{% else %}""{% endif %},
+        }));
       } else {
         api.initRelationships();
       }
