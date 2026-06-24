@@ -1,6 +1,21 @@
 # Changelog
 
+# [0.108.0](https://github.com/goliatone/go-admin/compare/v0.107.0...v0.108.0) - (2026-06-24)
+
+## <!-- 16 -->➕ Add
+
+- Content entry edit route ([f75df7a](https://github.com/goliatone/go-admin/commit/f75df7a37ae2dd881353a7a0a69df4b2830bbdae))  - (goliatone)
+- Cms relationship actions ([3b8f1d6](https://github.com/goliatone/go-admin/commit/3b8f1d68d53a753ebff8b5c5fd459dad445211f3))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update docs ([954527a](https://github.com/goliatone/go-admin/commit/954527a4196671d9cf50547571ef03bb397500bb))  - (goliatone)
+
 # [0.107.0](https://github.com/goliatone/go-admin/compare/v0.106.0...v0.107.0) - (2026-06-24)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.107.0 ([9ff5346](https://github.com/goliatone/go-admin/commit/9ff534689fa72e0a775c933a9ea90468f5a35b6e))  - (goliatone)
 
 ## <!-- 7 -->⚙️ Miscellaneous Tasks
 
