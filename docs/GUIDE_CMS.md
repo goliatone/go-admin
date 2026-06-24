@@ -164,6 +164,14 @@ like `/admin/quotes` and `/admin/news` see the reconciled panel registry.
 Content type schemas are used to generate forms and to validate payloads at write time
 when backed by go-cms.
 
+Content-entry updates use full-replacement semantics for submitted fields. Nested
+object arrays are especially sensitive: omitted or blank browser controls can
+look like intentional deletion. Generic nested-array preservation is not default
+behavior. The planned opt-in update-intent contract is tracked in
+`.ctx/specs/cms-nested-array-update-intent/` and will require explicit row and
+array markers before go-admin can safely preserve, delete, clear, or reject
+ambiguous nested rows.
+
 ### Supported Schema Shapes
 
 1. **JSON Schema** (recommended) — object schema with `properties` and optional `required`:
@@ -533,6 +541,12 @@ Common route options:
 - `quickstart.WithContentEntryDefaultRenderers(map[string]string{...})` (replace configured map)
 - `quickstart.WithContentEntryMergeDefaultRenderers(map[string]string{...})` (merge/override configured map)
 - `quickstart.WithContentEntryRecommendedDefaults()` (opt-in recommended renderer defaults)
+
+Nested array patch/preserve behavior is planned as a separate opt-in
+content-entry contract, not a default route behavior. Until it lands, generated
+or custom CMS forms that edit nested relationship arrays should keep
+content-type-specific guardrails when sparse submissions could destroy existing
+authored rows.
 
 Common routes include:
 

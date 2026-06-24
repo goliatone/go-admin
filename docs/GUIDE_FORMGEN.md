@@ -185,6 +185,51 @@ templates/resources/preferences/form.html
 
 Override formgen component templates by providing the expected partial key or a custom component descriptor. Component guides document their template keys, for example `forms.permission-matrix`.
 
+## CMS Relationship Create/Edit Actions
+
+Generic CMS content forms load `assets/dist/runtime/cms-relationship-actions.js`. Host apps can register delegated relationship handlers before the form initializes:
+
+```js
+window.GoAdminRelationshipActions.register({
+  async onCreateAction(context, detail) {
+    // Open a modal, route, or API-backed compact flow.
+    // Return { value, label } to select the created option.
+  },
+  async onEditAction(context, detail) {
+    // detail.selectedValue is the submitted relationship value.
+    // Return { value, label } to refresh the selected option label.
+  },
+});
+```
+
+The CMS form only passes `onCreateAction` or `onEditAction` to `window.FormgenRelationships.initRelationships(...)` when that handler is registered. With no handler, the form keeps the plain `initRelationships()` path so go-formgen still dispatches its default DOM events.
+
+Opt in per relationship field with go-formgen metadata:
+
+```json
+{
+  "x-formgen": {
+    "relationship": {
+      "endpoint": {
+        "createAction": true,
+        "createActionId": "archive_topic",
+        "createActionLabel": "Create Topic",
+        "createActionSelect": "replace",
+        "editAction": true,
+        "editActionId": "archive_topic",
+        "editActionLabel": "Edit Topic"
+      }
+    }
+  }
+}
+```
+
+Handlers receive the original formgen context plus go-admin fields on both `context` and `context.goAdmin`: `actionId`, `fieldName`, `panel`, `contentType`, `recordId`, `locale`, `channel`, `basePath`, `endpointURL`, current URL fields, and `searchParams`. `detail` includes the formgen action payload: create actions include `query` and `selectBehavior`; edit actions include `selectedValue` and `selectedLabel`.
+
+Returning `{ value, label }` lets go-formgen update the relationship selection. Returning `undefined` is valid for navigation-only flows where the host handles the result elsewhere.
+
+For host apps such as Garchen Teaching Topics, the selected value may be an external taxonomy ID rather than a CMS content record ID. In that case, the `onEditAction` handler should resolve `detail.selectedValue` to the matching CMS Topic record before opening the edit UI.
+
 ## Media Fields
 
 `go-admin` owns the media module and endpoint hints. `go-formgen` owns the field-level `media-picker` component.
@@ -264,6 +309,19 @@ Request handling:
 
 Custom widgets must submit values compatible with the schema type. If a widget posts serialized JSON for arrays or objects, normalize it before persistence or inside the repository/service layer.
 
+### Nested Array Update Intent
+
+Browser form parsing is value-oriented. For CMS content-entry forms, submitted
+array/object values still represent replacement values unless the content type
+opts into the planned nested-array update-intent contract.
+
+The planned opt-in contract is tracked in
+`.ctx/specs/cms-nested-array-update-intent/`. It will require generated forms or
+custom renderers to submit explicit array and row markers for present, complete,
+cleared, existing, new, deleted, and omitted rows. Until that feature ships,
+custom nested-array widgets that need preservation semantics should keep
+content-type-specific guards in the application or repository layer.
+
 ## Security And Validation
 
 Form metadata is not a security boundary.
@@ -287,6 +345,7 @@ Before considering a form integration done:
 7.  Repository/service validation rejects invalid, forbidden, or server-managed values even if submitted manually.
 8.  Media fields receive endpoint hints when media is enabled.
 9.  Template overrides preserve `form_html`, CSRF fields, and expected route context.
+10. Nested-array preservation is either content-type-specific today or covered by an explicit opt-in update-intent contract when that feature is available.
 
 Useful focused tests:
 

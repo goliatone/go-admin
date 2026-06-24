@@ -737,6 +737,9 @@ which renders `{{ form_html|safe }}` and loads:
 Create and update submissions are parsed against the same schema used to render
 the form. JSON requests are accepted directly; browser form submissions are
 converted from form values, with arrays and booleans normalized from the schema.
+Nested array/object fields remain replacement values unless a future
+content-entry update-intent policy is explicitly enabled for that content type
+and field path.
 
 ## Detail Page Tabs
 
@@ -907,6 +910,13 @@ values in repository code.
 For custom widgets, keep submitted values aligned with the schema type. If a
 widget posts JSON strings for arrays or objects, make sure the parser or
 repository normalizes those values before persistence.
+
+Nested object arrays need special care. Missing nested rows can be caused by
+intentional removal, disabled controls, hydration failure, or sparse custom
+renderers. The planned opt-in CMS update-intent contract is tracked in
+`.ctx/specs/cms-nested-array-update-intent/`; until it is implemented, preserve
+nested authored rows with content-type-specific repository or application
+guards.
 
 For the full rendering, overlay, component, and template customization flow, see
 `docs/GUIDE_FORMGEN.md`.
