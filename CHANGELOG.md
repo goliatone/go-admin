@@ -1,10 +1,21 @@
 # Changelog
 
+# [0.107.0](https://github.com/goliatone/go-admin/compare/v0.106.0...v0.107.0) - (2026-06-24)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update deps ([9f17eb9](https://github.com/goliatone/go-admin/commit/9f17eb956b27a5656cd84c6fbadda25a5c6bb2dd))  - (goliatone)
+- Update tests ([f889d3b](https://github.com/goliatone/go-admin/commit/f889d3b14f3a2305e12df2c91cafa6e6131e3a21))  - (goliatone)
+
 # [0.106.0](https://github.com/goliatone/go-admin/compare/v0.105.3...v0.106.0) - (2026-06-23)
 
 ## <!-- 1 -->🐛 Bug Fixes
 
 - Submit nested arrays in form ([f92df89](https://github.com/goliatone/go-admin/commit/f92df89b2cb8cdc7d5cd0ffd5681981361e2de50))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.106.0 ([c773100](https://github.com/goliatone/go-admin/commit/c7731002bf1c874164a922c0cbfd627c49bb63cd))  - (goliatone)
 
 ## <!-- 7 -->⚙️ Miscellaneous Tasks
 
