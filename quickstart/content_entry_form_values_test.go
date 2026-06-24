@@ -2,10 +2,39 @@ package quickstart
 
 import (
 	"net/url"
+	"reflect"
 	"testing"
 
+	"github.com/goliatone/go-formgen/pkg/model"
+	"github.com/goliatone/go-formgen/pkg/submission"
 	router "github.com/goliatone/go-router"
 )
+
+func requireSliceValue(t *testing.T, values map[string]any, key string) []any {
+	t.Helper()
+
+	value, ok := values[key].([]any)
+	if !ok {
+		t.Fatalf("expected %s to be []any, got %#v", key, values[key])
+	}
+
+	return value
+}
+
+func requireMapItem(t *testing.T, values []any, index int) map[string]any {
+	t.Helper()
+
+	if index < 0 || index >= len(values) {
+		t.Fatalf("expected item %d in slice of length %d", index, len(values))
+	}
+
+	value, ok := values[index].(map[string]any)
+	if !ok {
+		t.Fatalf("expected item %d to be map[string]any, got %#v", index, values[index])
+	}
+
+	return value
+}
 
 func TestParseMultiValueScalarCollapsesIdenticalDuplicates(t *testing.T) {
 	value, err := parseMultiValue([]string{"temp_123", "temp_123"}, schemaPathInfo{})
@@ -332,10 +361,10 @@ func TestParseFormPayloadIndexedNestedScalarCollapsesBlankDuplicate(t *testing.T
 	if err != nil {
 		t.Fatalf("parseFormPayload: %v", err)
 	}
-	columns := record["columns"].([]any)
-	firstColumn := columns[0].(map[string]any)
-	entries := firstColumn["entries"].([]any)
-	firstEntry := entries[0].(map[string]any)
+	columns := requireSliceValue(t, record, "columns")
+	firstColumn := requireMapItem(t, columns, 0)
+	entries := requireSliceValue(t, firstColumn, "entries")
+	firstEntry := requireMapItem(t, entries, 0)
 	if got := firstEntry["topic_id"]; got != "topic-refuge-id" {
 		t.Fatalf("expected duplicate scalar collapse to keep selected value, got %#v", got)
 	}
@@ -383,14 +412,14 @@ func TestParseFormPayloadCoercesIndexedArrayItems(t *testing.T) {
 	if !ok || len(scores) != 2 {
 		t.Fatalf("expected two scores, got %#v", record["scores"])
 	}
-	if first, ok := scores[0].(int); !ok || first != 1 {
+	if first, firstOK := scores[0].(int); !firstOK || first != 1 {
 		t.Fatalf("expected first score int 1, got %#v", scores[0])
 	}
-	if second, ok := scores[1].(int); !ok || second != 2 {
+	if second, secondOK := scores[1].(int); !secondOK || second != 2 {
 		t.Fatalf("expected second score int 2, got %#v", scores[1])
 	}
-	columns := record["columns"].([]any)
-	firstColumn := columns[0].(map[string]any)
+	columns := requireSliceValue(t, record, "columns")
+	firstColumn := requireMapItem(t, columns, 0)
 	weights, ok := firstColumn["weights"].([]any)
 	if !ok || len(weights) != 2 {
 		t.Fatalf("expected two weights, got %#v", firstColumn["weights"])
@@ -436,5 +465,192 @@ func TestParseFormPayloadRejectsNestedAppendObjectFields(t *testing.T) {
 	})
 	if err == nil {
 		t.Fatal("expected ambiguous nested append object field to be rejected")
+	}
+}
+
+func TestParseFormPayloadMatchesFormgenSubmissionForNestedArraysBooleansAndAppendPaths(t *testing.T) {
+	form := url.Values{}
+	form.Set("published", "on")
+	form.Set("columns[0].title", "Subjects")
+	form.Set("columns[0].featured", "true")
+	form.Set("columns[0].entries[0].topic_id", "topic-refuge-id")
+	form.Set("columns[0].entries[0].topic_slug", "refuge")
+	form.Add("columns[0].tags[]", "intro")
+	form.Add("columns[0].tags[]", "featured")
+
+	schema := map[string]any{
+		"type": "object",
+		"properties": map[string]any{
+			"published": map[string]any{"type": "boolean"},
+			"columns": map[string]any{
+				"type": "array",
+				"items": map[string]any{
+					"type": "object",
+					"properties": map[string]any{
+						"title":    map[string]any{"type": "string"},
+						"featured": map[string]any{"type": "boolean"},
+						"tags": map[string]any{
+							"type":  "array",
+							"items": map[string]any{"type": "string"},
+						},
+						"entries": map[string]any{
+							"type": "array",
+							"items": map[string]any{
+								"type": "object",
+								"properties": map[string]any{
+									"topic_id":   map[string]any{"type": "string"},
+									"topic_slug": map[string]any{"type": "string"},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	ctx := router.NewMockContext()
+	ctx.On("Body").Return([]byte(form.Encode()))
+	record, err := (&contentEntryHandlers{}).parseFormPayload(ctx, schema)
+	if err != nil {
+		t.Fatalf("parseFormPayload: %v", err)
+	}
+
+	parsed := submission.ParseValues(model.FormModel{Fields: []model.Field{
+		{Name: "published", Type: model.FieldTypeBoolean},
+		{
+			Name: "columns",
+			Type: model.FieldTypeArray,
+			Items: &model.Field{
+				Type: model.FieldTypeObject,
+				Nested: []model.Field{
+					{Name: "title", Type: model.FieldTypeString},
+					{Name: "featured", Type: model.FieldTypeBoolean},
+					{
+						Name: "tags",
+						Type: model.FieldTypeArray,
+						Items: &model.Field{
+							Type: model.FieldTypeString,
+						},
+					},
+					{
+						Name: "entries",
+						Type: model.FieldTypeArray,
+						Items: &model.Field{
+							Type: model.FieldTypeObject,
+							Nested: []model.Field{
+								{Name: "topic_id", Type: model.FieldTypeString},
+								{Name: "topic_slug", Type: model.FieldTypeString},
+							},
+						},
+					},
+				},
+			},
+		},
+	}}, form)
+	if len(parsed.Issues) != 0 {
+		t.Fatalf("formgen submission parse issues: %+v", parsed.Issues)
+	}
+	if !reflect.DeepEqual(record, map[string]any(parsed.Values)) {
+		t.Fatalf("quickstart payload differs from formgen submission values\nquickstart=%#v\nformgen=%#v", record, parsed.Values)
+	}
+}
+
+func TestParseFormPayloadDistinguishesBlankOmittedAndExplicitlyDeletedNestedRelationshipRows(t *testing.T) {
+	form := url.Values{}
+	form.Set("columns[0].entries[0].topic_id", "")
+	form.Set("columns[0].entries[0]._delete", "on")
+	form.Set("columns[0].entries[1].topic_slug", "tara")
+
+	ctx := router.NewMockContext()
+	ctx.On("Body").Return([]byte(form.Encode()))
+	record, err := (&contentEntryHandlers{}).parseFormPayload(ctx, map[string]any{
+		"type": "object",
+		"properties": map[string]any{
+			"columns": map[string]any{
+				"type": "array",
+				"items": map[string]any{
+					"type": "object",
+					"properties": map[string]any{
+						"entries": map[string]any{
+							"type": "array",
+							"items": map[string]any{
+								"type": "object",
+								"properties": map[string]any{
+									"_delete":    map[string]any{"type": "boolean"},
+									"topic_id":   map[string]any{"type": "string"},
+									"topic_slug": map[string]any{"type": "string"},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("parseFormPayload: %v", err)
+	}
+	columns := requireSliceValue(t, record, "columns")
+	firstColumn := requireMapItem(t, columns, 0)
+	entries := requireSliceValue(t, firstColumn, "entries")
+	blankDeleted := requireMapItem(t, entries, 0)
+	if topicID, exists := blankDeleted["topic_id"]; !exists || topicID != "" {
+		t.Fatalf("expected blank submitted topic_id to remain present and blank, got %#v", blankDeleted)
+	}
+	if deleted, ok := blankDeleted["_delete"].(bool); !ok || !deleted {
+		t.Fatalf("expected explicit delete sentinel to parse as true, got %#v", blankDeleted)
+	}
+	omitted := requireMapItem(t, entries, 1)
+	if _, exists := omitted["topic_id"]; exists {
+		t.Fatalf("expected omitted topic_id to remain absent, got %#v", omitted)
+	}
+	if got := omitted["topic_slug"]; got != "tara" {
+		t.Fatalf("expected second row topic_slug, got %#v", got)
+	}
+}
+
+func TestParseFormPayloadPreservesHiddenStringDeleteSentinel(t *testing.T) {
+	form := url.Values{}
+	form.Set("columns[0].entries[0]._delete", "true")
+	form.Set("columns[0].entries[0].topic_id", "topic-tara-id")
+
+	ctx := router.NewMockContext()
+	ctx.On("Body").Return([]byte(form.Encode()))
+	record, err := (&contentEntryHandlers{}).parseFormPayload(ctx, map[string]any{
+		"type": "object",
+		"properties": map[string]any{
+			"columns": map[string]any{
+				"type": "array",
+				"items": map[string]any{
+					"type": "object",
+					"properties": map[string]any{
+						"entries": map[string]any{
+							"type": "array",
+							"items": map[string]any{
+								"type": "object",
+								"properties": map[string]any{
+									"_delete":  map[string]any{"type": "string"},
+									"topic_id": map[string]any{"type": "string"},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("parseFormPayload: %v", err)
+	}
+	columns := requireSliceValue(t, record, "columns")
+	firstColumn := requireMapItem(t, columns, 0)
+	entries := requireSliceValue(t, firstColumn, "entries")
+	entry := requireMapItem(t, entries, 0)
+	if got := entry["_delete"]; got != "true" {
+		t.Fatalf("expected hidden string delete sentinel to remain true, got %#v", got)
+	}
+	if got := entry["topic_id"]; got != "topic-tara-id" {
+		t.Fatalf("expected topic_id to remain present, got %#v", got)
 	}
 }

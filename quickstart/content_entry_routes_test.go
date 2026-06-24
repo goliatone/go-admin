@@ -2132,6 +2132,115 @@ func TestUpdateForPanelBlocksFallbackLocaleEdits(t *testing.T) {
 	}
 }
 
+func TestUpdateForPanelParsesSoftDeletedNestedArrayRows(t *testing.T) {
+	fixture := newContentEntryAdminFixture(t)
+	cfg := fixture.Config
+	adm := fixture.Admin
+	repo := admin.NewMemoryRepository()
+	created, err := repo.Create(context.Background(), map[string]any{
+		"title": "Teaching topics",
+		"columns": []any{
+			map[string]any{
+				"title": "Column 1",
+				"entries": []any{
+					map[string]any{"topic_id": "topic-1"},
+					map[string]any{"topic_id": "topic-2"},
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("seed record: %v", err)
+	}
+
+	if _, err = adm.RegisterPanel("teaching-topics-menu", (&admin.PanelBuilder{}).
+		WithRepository(repo).
+		FormSchema(map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"title": map[string]any{"type": "string"},
+				"columns": map[string]any{
+					"type": "array",
+					"items": map[string]any{
+						"type": "object",
+						"properties": map[string]any{
+							"title": map[string]any{"type": "string"},
+							"entries": map[string]any{
+								"type": "array",
+								"items": map[string]any{
+									"type": "object",
+									"properties": map[string]any{
+										"topic_id": map[string]any{"type": "string"},
+										"_delete":  map[string]any{"type": "string"},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		})); err != nil {
+		t.Fatalf("register panel: %v", err)
+	}
+
+	ctx := router.NewMockContext()
+	ctx.ParamsM["name"] = "teaching-topics-menu"
+	ctx.ParamsM["id"] = strings.TrimSpace(anyToString(created["id"]))
+	ctx.HeadersM["Content-Type"] = "application/x-www-form-urlencoded"
+	ctx.On("Context").Return(context.Background())
+	ctx.On("Body").Return([]byte(url.Values{
+		"title":                          []string{"Teaching topics"},
+		"columns[0].title":               []string{"Column 1"},
+		"columns[0].entries[0]._delete":  []string{"true"},
+		"columns[0].entries[1].topic_id": []string{"topic-2"},
+		"columns[0].entries[1]._delete":  []string{"false"},
+	}.Encode()))
+	ctx.On("Redirect", mock.Anything).Return(nil).Once()
+
+	h := &contentEntryHandlers{admin: adm, cfg: cfg}
+	if err = h.updateForPanel(ctx, ""); err != nil {
+		t.Fatalf("update content: %v", err)
+	}
+
+	updated, err := repo.Get(context.Background(), strings.TrimSpace(anyToString(created["id"])))
+	if err != nil {
+		t.Fatalf("get updated record: %v", err)
+	}
+	columns, ok := updated["columns"].([]any)
+	if !ok || len(columns) != 1 {
+		t.Fatalf("expected one parsed column, got %#v", updated["columns"])
+	}
+	column, ok := columns[0].(map[string]any)
+	if !ok {
+		t.Fatalf("expected parsed column object, got %#v", columns[0])
+	}
+	entries, ok := column["entries"].([]any)
+	if !ok || len(entries) != 2 {
+		t.Fatalf("expected two parsed entries, got %#v", column["entries"])
+	}
+	deleted, ok := entries[0].(map[string]any)
+	if !ok {
+		t.Fatalf("expected deleted entry object, got %#v", entries[0])
+	}
+	if got := deleted["_delete"]; got != "true" {
+		t.Fatalf("expected first row delete sentinel true, got %#v", got)
+	}
+	if _, ok := deleted["topic_id"]; ok {
+		t.Fatalf("expected browser-disabled topic_id to be omitted for deleted row, got %#v", deleted)
+	}
+	kept, ok := entries[1].(map[string]any)
+	if !ok {
+		t.Fatalf("expected kept entry object, got %#v", entries[1])
+	}
+	if got := kept["topic_id"]; got != "topic-2" {
+		t.Fatalf("expected second row topic_id topic-2, got %#v", got)
+	}
+	if got := kept["_delete"]; got != "false" {
+		t.Fatalf("expected second row delete sentinel false, got %#v", got)
+	}
+	ctx.AssertExpectations(t)
+}
+
 func TestAdminContextFromRequestResolvesLocaleFromQuery(t *testing.T) {
 	ctx := router.NewMockContext()
 	ctx.On("Context").Return(context.Background())
