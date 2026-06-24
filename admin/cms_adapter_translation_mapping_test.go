@@ -89,6 +89,47 @@ func TestBuildGoCMSTranslationProjectionPrefersRequestedLocaleAndExtendsAvailabl
 	}
 }
 
+func TestApplyGoCMSTranslationProjectionLetsTranslationContentOverrideBaseData(t *testing.T) {
+	record := testGoCMSProjectionRecord{
+		AvailableLocales: []string{"en"},
+		Translations: []testGoCMSTranslationRecord{
+			{
+				Locale: testGoCMSTranslationLocale{Code: "en"},
+				Title:  "Teaching Topics Menu",
+				Content: map[string]any{
+					"columns": []any{
+						map[string]any{"title": "Subjects", "entries": []any{map[string]any{"topic_id": "topic-refuge-id"}}},
+					},
+					"slug": "teaching-topics-menu",
+				},
+			},
+		},
+	}
+
+	projection := buildGoCMSTranslationProjection(reflect.ValueOf(record), "en")
+	out := CMSContent{Data: map[string]any{
+		"columns":      []any{},
+		"base_only":    "preserved",
+		"slug":         "base-slug",
+		"preview_path": "/preview/base",
+	}}
+	applyGoCMSTranslationProjection(&out, projection)
+
+	columns, ok := out.Data["columns"].([]any)
+	if !ok || len(columns) != 1 {
+		t.Fatalf("expected translated columns to override empty base columns, got %#v", out.Data["columns"])
+	}
+	if out.Data["base_only"] != "preserved" {
+		t.Fatalf("expected base-only data to remain available, got %#v", out.Data["base_only"])
+	}
+	if out.Data["slug"] != "teaching-topics-menu" {
+		t.Fatalf("expected translated slug to override base slug, got %#v", out.Data["slug"])
+	}
+	if out.Data["preview_path"] != "/preview/base" {
+		t.Fatalf("expected unrelated base fields to remain, got %#v", out.Data["preview_path"])
+	}
+}
+
 func TestApplyGoCMSTranslationLocaleStateMarksMissingRequestedLocale(t *testing.T) {
 	record := testGoCMSProjectionRecordNoMissing{
 		RequestedLocale: "es",
