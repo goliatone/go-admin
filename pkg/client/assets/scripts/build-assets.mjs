@@ -102,6 +102,7 @@ function stageRuntimeAssets() {
   copyFile(resolve(root, 'src/styles/site-runtime.css'), resolve(distStagingDir, 'styles/site-runtime.css'));
   copyFile(resolve(root, 'node_modules/pdfjs-dist/build/pdf.worker.min.mjs'), resolve(distStagingDir, 'pdf.worker.min.mjs'));
 
+  copyFile(resolve(root, 'src/runtime/cms-relationship-actions.js'), resolve(distStagingDir, 'runtime/cms-relationship-actions.js'));
   copyFile(resolve(root, 'src/site/site-runtime.js'), resolve(distStagingDir, 'runtime/site-runtime.js'));
 }
 

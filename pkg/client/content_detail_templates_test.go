@@ -75,6 +75,32 @@ func TestContentFormTemplateInfersFallbackModeFromMissingRequestedLocale(t *test
 	}
 }
 
+func TestContentFormTemplateBootstrapsRelationshipActions(t *testing.T) {
+	template := mustReadClientTemplate(t, "resources/content/form.html")
+
+	required := []string{
+		`assets/dist/runtime/cms-relationship-actions.js`,
+		`const relationshipActions = window.GoAdminRelationshipActions;`,
+		`relationshipActions.buildInitConfig`,
+		`api.initRelationships(relationshipConfig);`,
+		`api.initRelationships();`,
+		`panel: {% if panel_name %}{{ toJSON(panel_name)|safe }}{% else %}""{% endif %}`,
+		`recordId: {% if is_edit and resource_item %}{{ toJSON(resource_item.id)|safe }}{% else %}""{% endif %}`,
+	}
+	for _, fragment := range required {
+		if strings.Contains(template, fragment) {
+			continue
+		}
+		t.Fatalf("expected content form relationship action fragment not found: %q", fragment)
+	}
+
+	normalizationIndex := strings.Index(template, `document.querySelectorAll("[data-endpoint-url]")`)
+	configIndex := strings.Index(template, `relationshipActions.buildInitConfig`)
+	if normalizationIndex < 0 || configIndex < 0 || normalizationIndex > configIndex {
+		t.Fatalf("expected endpoint normalization to run before relationship action config")
+	}
+}
+
 func TestTranslationFamilyDetailTemplateBootstrapsClientRenderer(t *testing.T) {
 	template := mustReadClientTemplate(t, "resources/translations/family-detail.html")
 

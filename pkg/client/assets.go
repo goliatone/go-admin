@@ -16,18 +16,19 @@ import (
 // Embed source files required to synthesize copied runtime assets when dist artifacts
 // are missing from a clean checkout.
 //
-//go:embed assets/dist assets/uploads assets/*.css assets/*.js assets/*.svg assets/src/styles assets/src/site assets/src/datatable templates openapi
+//go:embed assets/dist assets/uploads assets/*.css assets/*.js assets/*.svg assets/src/styles assets/src/site assets/src/runtime assets/src/datatable templates openapi
 var embeddedClient embed.FS
 
 var assetAliasPaths = map[string]string{
-	"dist/output.css":                   "output.css",
-	"dist/runtime/site-runtime.js":      "src/site/site-runtime.js",
-	"dist/styles/activity.css":          "src/styles/activity.css",
-	"dist/styles/datatable-actions.css": "src/datatable/actions.css",
-	"dist/styles/error-page.css":        "src/styles/error-page.css",
-	"dist/styles/export.css":            "src/styles/export.css",
-	"dist/styles/site-runtime.css":      "src/styles/site-runtime.css",
-	"dist/styles/widgets.css":           "src/styles/widgets.css",
+	"dist/output.css":                          "output.css",
+	"dist/runtime/cms-relationship-actions.js": "src/runtime/cms-relationship-actions.js",
+	"dist/runtime/site-runtime.js":             "src/site/site-runtime.js",
+	"dist/styles/activity.css":                 "src/styles/activity.css",
+	"dist/styles/datatable-actions.css":        "src/datatable/actions.css",
+	"dist/styles/error-page.css":               "src/styles/error-page.css",
+	"dist/styles/export.css":                   "src/styles/export.css",
+	"dist/styles/site-runtime.css":             "src/styles/site-runtime.css",
+	"dist/styles/widgets.css":                  "src/styles/widgets.css",
 }
 
 var assetContentBuilders = map[string]func(fs.FS) ([]byte, error){

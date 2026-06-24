@@ -9,9 +9,10 @@ import (
 
 func TestAssetsFSFallsBackToSourceCopies(t *testing.T) {
 	assets := newAssetsFS(fstest.MapFS{
-		"src/styles/site-runtime.css": &fstest.MapFile{Data: []byte(".site-runtime { display: block; }\n")},
-		"src/site/site-runtime.js":    &fstest.MapFile{Data: []byte("console.log('site runtime');\n")},
-		"src/styles/widgets.css":      &fstest.MapFile{Data: []byte(".widget { color: red; }\n")},
+		"src/styles/site-runtime.css":             &fstest.MapFile{Data: []byte(".site-runtime { display: block; }\n")},
+		"src/site/site-runtime.js":                &fstest.MapFile{Data: []byte("console.log('site runtime');\n")},
+		"src/runtime/cms-relationship-actions.js": &fstest.MapFile{Data: []byte("window.GoAdminRelationshipActions = {};\n")},
+		"src/styles/widgets.css":                  &fstest.MapFile{Data: []byte(".widget { color: red; }\n")},
 	})
 
 	for _, tc := range []struct {
@@ -20,6 +21,7 @@ func TestAssetsFSFallsBackToSourceCopies(t *testing.T) {
 	}{
 		{path: "dist/styles/site-runtime.css", want: ".site-runtime { display: block; }\n"},
 		{path: "dist/runtime/site-runtime.js", want: "console.log('site runtime');\n"},
+		{path: "dist/runtime/cms-relationship-actions.js", want: "window.GoAdminRelationshipActions = {};\n"},
 		{path: "dist/styles/widgets.css", want: ".widget { color: red; }\n"},
 	} {
 		got, err := fs.ReadFile(assets, tc.path)

@@ -14,6 +14,7 @@ func TestAssetsEmbedIncludesOutputCSS(t *testing.T) {
 
 func TestAssetsEmbedIncludesSiteRuntimeAssets(t *testing.T) {
 	for _, path := range []string{
+		"dist/runtime/cms-relationship-actions.js",
 		"dist/styles/site-runtime.css",
 		"dist/runtime/site-runtime.js",
 	} {
