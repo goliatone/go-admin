@@ -143,12 +143,27 @@ func (h *contentEntryHandlers) updateForPanel(c router.Context, panelSlug string
 				"fallback_used":            existingTranslationState.FallbackUsed,
 			})
 	}
-	record, err := h.parseFormPayload(c, contentTypeSchema(contentType, panel))
+	schema := contentTypeSchema(contentType, panel)
+	record, err := h.parseFormPayload(c, schema)
 	if err != nil {
 		return err
 	}
 	if locale := strings.TrimSpace(anyToString(record["locale"])); locale == "" {
 		record["locale"] = defaultLocaleValue("", h.cfg.DefaultLocale)
+	}
+	uiSchema := contentTypeUISchema(contentType)
+	capabilities := contentTypeCapabilities(contentType)
+	intentPolicy := contentEntryUpdateIntentPolicy(schema, uiSchema, capabilities, h.updateIntent)
+	if len(intentPolicy.Arrays) > 0 {
+		if isJSONRequest(c) {
+			return goerrors.New("content-entry update intent is not supported for JSON requests", goerrors.CategoryValidation).
+				WithCode(http.StatusBadRequest).
+				WithTextCode("INVALID_FORM")
+		}
+		record, err = contentEntryApplyUpdateIntent(record, existingRecord, schema, uiSchema, capabilities, h.updateIntent)
+		if err != nil {
+			return err
+		}
 	}
 	updated, err := panel.Update(adminCtx, id, record)
 	if err != nil {

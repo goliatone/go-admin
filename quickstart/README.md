@@ -99,6 +99,7 @@ password-change gate, and recovery flow.
 - `RegisterAdminUIRoutes(r router.Router[T], cfg admin.Config, adm *admin.Admin, auth admin.HandlerAuthenticator, opts ...UIRouteOption) error` - Inputs: router/config/admin/auth wrapper + options. Outputs: error (registers dashboard + notifications UI routes, and injects feature-aware view context such as `activity_enabled` + `body_classes`).
 - `WithContentEntryDataGridStateStore(cfg PanelDataGridStateStoreOptions) ContentEntryUIOption` - Inputs: DataGrid state-store config for content-entry list templates. Outputs: content-entry route option (default mode remains localStorage when unset).
 - `WithContentEntryDataGridURLState(cfg PanelDataGridURLStateOptions) ContentEntryUIOption` - Inputs: URL sync limits/token config for content-entry list templates. Outputs: content-entry route option.
+- Nested object-array patch/preserve behavior for CMS content-entry forms is planned as an explicit opt-in contract, not a current default. Until `.ctx/specs/cms-nested-array-update-intent/` is implemented, keep content-type-specific guards for sparse nested relationship submissions that must preserve existing authored rows.
 - `RegisterAuthUIRoutes(r router.Router[T], cfg admin.Config, routeAuth *auth.RouteAuthenticator, opts ...AuthUIOption) error` - Inputs: router/config/go-auth route authenticator + options. Outputs: error (registers login/reset UI routes plus `POST /logout`; `GET /logout` is registered only when `WithAuthUILogoutGET(true)` is passed).
 - `RegisterRegistrationUIRoutes(r router.Router[T], cfg admin.Config, opts ...RegistrationUIOption) error` - Inputs: router/config + options. Outputs: error (registers signup UI route).
 - `AuthUIViewContext(cfg admin.Config, state AuthUIState, paths AuthUIPaths) router.ViewContext` - Inputs: config/state/paths; outputs: view context with auth flags + paths (`base_path`, `api_base_path`, `asset_base_path`, `preferences_api_path`).
@@ -134,7 +135,7 @@ password-change gate, and recovery flow.
 - `WithComponentRegistry(reg *components.Registry) FormGeneratorOption` - Inputs: custom registry; outputs: option that replaces default components (clean replace).
 - `WithComponentRegistryMergeDefaults(reg *components.Registry) FormGeneratorOption` - Inputs: custom registry; outputs: option that merges into defaults, overriding matching names.
 - `WithVanillaOption(opt formgenvanilla.Option) FormGeneratorOption` - Inputs: vanilla renderer option; outputs: option applied last so it can override templates/styles/registry.
-- The form generation guide covers the end-to-end form generation pipeline, UI schema overlays, component registration, and submission parsing.
+- The form generation guide covers the end-to-end form generation pipeline, UI schema overlays, component registration, submission parsing, and planned nested-array update-intent contract.
 
 - `DefaultSecureLinkConfig(basePath string) SecureLinkConfig` - Inputs: base path; outputs: securelink defaults.
 - `DefaultSecureLinkRoutes(basePath string) map[string]string` - Inputs: base path; outputs: securelink routes map.

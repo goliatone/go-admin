@@ -31,6 +31,7 @@ type contentEntryUIOptions struct {
 	dataGridStateStore PanelDataGridStateStoreOptions
 	dataGridURLState   PanelDataGridURLStateOptions
 	editGuard          ContentEntryEditGuard
+	updateIntent       ContentEntryUpdateIntentPolicy
 }
 
 const textCodeTranslationFallbackEditBlocked = "TRANSLATION_FALLBACK_EDIT_BLOCKED"
@@ -168,6 +169,17 @@ func WithContentEntryRecommendedDefaults() ContentEntryUIOption {
 	return WithContentEntryMergeDefaultRenderers(RecommendedContentEntryDefaultRenderers())
 }
 
+// WithContentEntryUpdateIntentPolicy adds programmatic nested-array update
+// intent policy for content entry updates. Schema and content type metadata can
+// also define policy; this option overrides matching array paths.
+func WithContentEntryUpdateIntentPolicy(policy ContentEntryUpdateIntentPolicy) ContentEntryUIOption {
+	return func(opts *contentEntryUIOptions) {
+		if opts != nil {
+			opts.updateIntent = normalizeContentEntryUpdateIntentPolicy(policy)
+		}
+	}
+}
+
 // WithContentEntryTranslationUX enables translation list UX enhancements
 // (grouped/matrix view mode wiring and grouped URL sync) for translation-enabled panels.
 func WithContentEntryTranslationUX(enabled bool) ContentEntryUIOption {
@@ -276,6 +288,7 @@ type contentEntryHandlers struct {
 	dataGridStateStore PanelDataGridStateStoreOptions
 	dataGridURLState   PanelDataGridURLStateOptions
 	editGuard          ContentEntryEditGuard
+	updateIntent       ContentEntryUpdateIntentPolicy
 }
 
 func newContentEntryHandlers(adm *admin.Admin, cfg admin.Config, viewCtx UIViewContextBuilder, opts contentEntryUIOptions) *contentEntryHandlers {
@@ -300,6 +313,7 @@ func newContentEntryHandlers(adm *admin.Admin, cfg admin.Config, viewCtx UIViewC
 		dataGridStateStore: opts.dataGridStateStore,
 		dataGridURLState:   opts.dataGridURLState,
 		editGuard:          opts.editGuard,
+		updateIntent:       normalizeContentEntryUpdateIntentPolicy(opts.updateIntent),
 	}
 }
 
