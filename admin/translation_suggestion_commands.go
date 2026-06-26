@@ -44,5 +44,8 @@ func RegisterTranslationSuggestionCommands(bus *CommandBus, service TranslationS
 	if _, err := RegisterCommand(bus, &TranslationSuggestionGenerateCommand{Service: service}); err != nil {
 		return err
 	}
+	if bus != nil {
+		bus.MarkCommandHandlerRegistered(TranslationSuggestionGenerateCommandName)
+	}
 	return RegisterTranslationSuggestionCommandFactories(bus)
 }
