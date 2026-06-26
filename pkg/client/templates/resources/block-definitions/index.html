@@ -3,21 +3,35 @@
 {% block title %}Block Library - {{ title }}{% endblock %}
 
 {% block content %}
-<header class="px-6 py-4 bg-white border-b border-gray-200 flex flex-wrap gap-4 items-center justify-between">
+<header class="px-6 py-4 bg-white dark:bg-slate-900 border-b border-gray-200 dark:border-gray-700 flex flex-wrap gap-4 items-center justify-between">
   <div class="flex items-center gap-3">
-    <span class="flex items-center justify-center w-9 h-9 rounded-lg bg-indigo-100 text-indigo-600">
+    <span class="flex items-center justify-center w-9 h-9 rounded-lg bg-indigo-100 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-300">
       <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path>
       </svg>
     </span>
     <div>
-      <h1 class="text-xl font-bold text-gray-900">Block Library</h1>
-      <p class="text-xs text-gray-500">Create and manage reusable block definitions.</p>
+      <h1 class="text-xl font-bold text-gray-900 dark:text-white">Block Library</h1>
+      <p class="text-xs text-gray-500 dark:text-gray-400">Create and manage reusable block definitions.</p>
     </div>
   </div>
   <div class="flex items-center gap-3">
-    <div class="inline-flex items-center bg-gray-50 border border-gray-200 rounded-lg px-2.5 py-1.5 gap-2" data-block-ide-channel-wrapper>
-      <div class="flex items-center gap-1.5 text-gray-500">
+    <nav class="cm-mode-switch" aria-label="Content modeling section">
+      <a href="{{ adminURL("content/types") }}" class="cm-mode-seg" data-back-to-content-types>
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+        </svg>
+        Content Types
+      </a>
+      <a href="{{ adminURL("content/block-library") }}" class="cm-mode-seg" aria-current="page">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path>
+        </svg>
+        Blocks
+      </a>
+    </nav>
+    <div class="inline-flex items-center bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-gray-700 rounded-lg px-2.5 py-1.5 gap-2" data-block-ide-channel-wrapper>
+      <div class="flex items-center gap-1.5 text-gray-500 dark:text-gray-400">
         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"></path>
         </svg>
@@ -25,7 +39,8 @@
       </div>
       <div class="relative inline-flex items-center">
         <select data-block-ide-channel
-                class="text-[13px] bg-transparent border-0 text-gray-700 font-medium py-0 pl-0 pr-6 focus:outline-none focus:ring-0 cursor-pointer"
+                aria-label="Active channel"
+                class="text-[13px] bg-transparent border-0 text-gray-700 dark:text-gray-200 font-medium py-0 pl-0 pr-6 focus:outline-none focus:ring-0 cursor-pointer"
                 style="-webkit-appearance: none; -moz-appearance: none; appearance: none;">
           <option value="default">Default</option>
         </select>
@@ -33,29 +48,21 @@
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
         </svg>
       </div>
-      <div class="w-px h-4 bg-gray-200"></div>
+      <div class="w-px h-4 bg-gray-200 dark:bg-gray-700"></div>
       <button type="button"
               data-block-ide-channel-reset
-              class="hidden inline-flex items-center px-2 py-1 rounded border border-amber-300 text-amber-700 text-[11px] font-semibold hover:bg-amber-50 transition-colors">
+              class="hidden inline-flex items-center px-2 py-1 rounded border border-amber-300 text-amber-700 dark:text-amber-400 text-[11px] font-semibold hover:bg-amber-50 dark:hover:bg-amber-500/10 transition-colors">
         Reset to Default
       </button>
       <button type="button"
               data-block-ide-channel-add
-              class="inline-flex items-center gap-1 px-2 py-1 rounded border border-gray-200 text-gray-500 text-[11px] font-semibold hover:bg-gray-100 transition-colors">
+              class="inline-flex items-center gap-1 px-2 py-1 rounded border border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 text-[11px] font-semibold hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors">
         <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
         </svg>
         Add Channel
       </button>
     </div>
-    <a class="inline-flex items-center gap-1.5 text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors"
-       data-back-to-content-types
-       href="{{ adminURL("content/types") }}">
-      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
-      </svg>
-      Back to Content Types
-    </a>
   </div>
 </header>
 
@@ -86,18 +93,20 @@
           </svg>
           <input type="text"
                  data-block-ide-search
+                 aria-label="Search blocks"
                  placeholder="Search blocks..."
-                 class="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+                 class="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-slate-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
         </div>
         <select data-block-ide-category-filter
-                class="w-full px-2.5 py-1.5 text-sm border border-gray-200 rounded-lg bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                aria-label="Filter blocks by category"
+                class="w-full px-2.5 py-1.5 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-slate-800 text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
           <option value="">All Categories</option>
         </select>
       </div>
       <div class="px-3 py-2 border-b border-gray-100 dark:border-gray-800 shrink-0">
         <button type="button"
                 data-block-ide-create
-                class="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 text-sm font-medium text-blue-600 border border-dashed border-blue-300 rounded-lg hover:bg-blue-50 transition-colors">
+                class="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 text-sm font-medium text-blue-600 dark:text-blue-400 border border-dashed border-blue-300 dark:border-blue-500/40 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-500/10 transition-colors">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
           </svg>
@@ -112,8 +121,8 @@
             <button type="button"
                     data-block-ide-select="{{ block.id|default:'' }}"
                     data-block-type="{% if block.slug %}{{ block.slug }}{% else %}{{ block.type|default:'' }}{% endif %}"
-                    class="w-full text-left group px-3 py-2 text-sm rounded-lg hover:bg-gray-50 focus:bg-gray-50 focus:outline-none transition-colors flex items-center gap-2.5">
-              <span class="flex-shrink-0 w-7 h-7 flex items-center justify-center overflow-hidden rounded bg-gray-100 text-gray-500 group-hover:bg-indigo-100 group-hover:text-indigo-600 transition-colors">
+                    class="w-full text-left group px-3 py-2 text-sm rounded-lg hover:bg-gray-50 dark:hover:bg-slate-800 focus:bg-gray-50 dark:focus:bg-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 transition-colors flex items-center gap-2.5">
+              <span class="flex-shrink-0 w-7 h-7 flex items-center justify-center overflow-hidden rounded bg-gray-100 dark:bg-slate-800 text-gray-500 dark:text-gray-400 group-hover:bg-indigo-100 dark:group-hover:bg-indigo-500/20 group-hover:text-indigo-600 dark:group-hover:text-indigo-300 transition-colors">
                 {% if block.icon %}
                 <span class="text-xs font-medium truncate max-w-full whitespace-nowrap">{{ block.icon }}</span>
                 {% else %}
@@ -123,8 +132,8 @@
                 {% endif %}
               </span>
               <span class="flex-1 min-w-0">
-                <span class="block font-medium text-gray-800 truncate text-[13px]">{{ block.name|default:"Untitled" }}</span>
-                <span class="block text-[11px] text-gray-400 font-mono truncate">{% if block.slug %}{{ block.slug }}{% else %}{{ block.type|default:"" }}{% endif %}</span>
+                <span class="block font-medium text-gray-800 dark:text-gray-100 truncate text-[13px]">{{ block.name|default:"Untitled" }}</span>
+                <span class="block text-[11px] text-gray-400 dark:text-gray-500 font-mono truncate">{% if block.slug %}{{ block.slug }}{% else %}{{ block.type|default:"" }}{% endif %}</span>
               </span>
               {% if block.status == "draft" %}
               <span class="status-badge status-badge--sm status-draft flex-shrink-0">Draft</span>
@@ -139,11 +148,11 @@
         </ul>
         {% else %}
         <div class="px-4 py-8 text-center">
-          <svg class="w-10 h-10 mx-auto text-gray-300 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg class="w-10 h-10 mx-auto text-gray-300 dark:text-gray-600 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2z"></path>
           </svg>
-          <p class="text-sm text-gray-500">No blocks yet.</p>
-          <p class="text-xs text-gray-400 mt-1">Click "New Block" to create your first block definition.</p>
+          <p class="text-sm text-gray-500 dark:text-gray-400">No blocks yet.</p>
+          <p class="text-xs text-gray-400 dark:text-gray-500 mt-1">Click "New Block" to create your first block definition.</p>
         </div>
         {% endif %}
       </div>

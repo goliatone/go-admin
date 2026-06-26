@@ -22,6 +22,7 @@ import { renderIconTrigger, bindIconTriggerEvents, closeIconPicker } from './sha
 import { renderEntityHeader, renderSaveIndicator } from './shared/entity-header';
 import type { SaveState } from './shared/entity-header';
 import { renderFieldCard as renderFieldCardShared, renderDropZone } from './shared/field-card';
+import { PreviewModal, wrapReadonlyPreview, initPreviewEditors } from './shared/schema-preview';
 import { loadAvailableBlocks, normalizeBlockSelection, renderInlineBlockPicker, bindInlineBlockPickerEvents } from './shared/block-picker';
 import { titleCaseWords } from './shared/text';
 import { parseJSONValue } from '../shared/json-parse.js';
@@ -80,6 +81,16 @@ export class BlockEditorPanel {
   private cachedBlocks: BlockDefinitionSummary[] | null = null;
   private blocksLoading = false;
   private blockPickerModes: Map<string, 'allowed' | 'denied'> = new Map();
+  /** Live schema preview state (T14 — shared content-modeling preview model) */
+  private previewHtml: string | null = null;
+  private previewError: string | null = null;
+  private isPreviewing = false;
+  private previewCollapsed = false;
+  /** Monotonic guard so a slow in-flight preview cannot overwrite a newer one */
+  private previewRequestSeq = 0;
+  private previewDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+  /** Last schema signature previewed — skips refetch on cosmetic re-renders */
+  private lastPreviewSignature: string | null = null;
 
   constructor(config: BlockEditorPanelConfig) {
     this.config = config;
@@ -100,12 +111,16 @@ export class BlockEditorPanel {
       <div class="flex-1 overflow-y-auto" data-editor-scroll>
         ${this.renderMetadataSection()}
         ${this.renderFieldsSection()}
+        ${this.renderPreviewSection()}
       </div>
     `;
 
     this.config.container.appendChild(wrapper);
     this.bindEvents(wrapper);
     this.ensureInlineBlocksPicker();
+    // Refresh the live preview when the rendered schema actually changed
+    // (block switch, field add/remove/reorder); cosmetic re-renders are skipped.
+    this.maybeSchedulePreview();
   }
 
   /** Refresh the panel for a new block without a full re-mount */
@@ -114,6 +129,13 @@ export class BlockEditorPanel {
     this.fields = block.schema ? schemaToFields(block.schema) : [];
     this.expandedFieldId = null;
     this.moveMenuFieldId = null;
+    // Reset preview state for the new block and invalidate any in-flight request
+    // from the previous block so its response can't land in this block's pane.
+    this.previewHtml = null;
+    this.previewError = null;
+    this.isPreviewing = false;
+    this.previewRequestSeq++;
+    this.lastPreviewSignature = null; // force a fresh preview for the new block
     this.render();
   }
 
@@ -848,6 +870,16 @@ export class BlockEditorPanel {
 
     // Section select change (Phase 10 — Task 10.3)
     this.bindSectionSelectEvents(root);
+
+    // Live preview controls (T14)
+    root.querySelector('[data-toggle-preview]')?.addEventListener('click', () => this.togglePreviewCollapsed());
+    root.querySelector('[data-block-expand-preview]')?.addEventListener('click', () => this.openInteractivePreview());
+    root.querySelector('[data-block-refresh-preview]')?.addEventListener('click', () => {
+      // Manual fallback: refresh now and mark the current schema as previewed so
+      // the next cosmetic re-render does not redundantly refetch.
+      this.lastPreviewSignature = this.computeSchemaSignature();
+      void this.previewSchema();
+    });
   }
 
   /** Bind drag-and-drop events on all [data-field-drop-zone] elements */
@@ -1502,5 +1534,198 @@ export class BlockEditorPanel {
 
   private notifySchemaChange(): void {
     this.config.onSchemaChange(this.block.id, [...this.fields]);
+    // Field schema changed — refresh the live preview. Record the new signature
+    // as previewed so the render() that usually follows does not double-schedule.
+    this.lastPreviewSignature = this.computeSchemaSignature();
+    this.schedulePreview();
+  }
+
+  // ===========================================================================
+  // Live schema preview (T14 — shared content-modeling preview model)
+  // ===========================================================================
+
+  /** Stable slug used to title the previewed schema. */
+  private previewSlug(): string {
+    return this.block.slug || this.block.type || '';
+  }
+
+  /**
+   * Render the collapsible "Preview" section appended after the fields. Mirrors
+   * the Content Types preview contract: a lightweight read-only inline snapshot
+   * plus an Expand affordance that opens the shared interactive {@link PreviewModal}.
+   */
+  private renderPreviewSection(): string {
+    const collapsedChevron =
+      '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>';
+    const expandedChevron =
+      '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>';
+    return `
+      <div class="border-b border-gray-200 dark:border-gray-700" data-block-preview-section>
+        <button type="button" data-toggle-preview aria-expanded="${this.previewCollapsed ? 'false' : 'true'}"
+                class="w-full flex items-center justify-between px-5 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider hover:bg-gray-50/80 dark:hover:bg-gray-800/50 transition-colors">
+          <div class="flex items-center gap-2">
+            <span class="w-1 h-4 rounded-full bg-sky-400"></span>
+            <span>Preview</span>
+            <span data-block-preview-loading class="${this.isPreviewing ? '' : 'hidden'} inline-flex items-center" role="status" aria-label="Updating preview">
+              <svg class="w-3.5 h-3.5 animate-spin text-blue-500" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+              </svg>
+            </span>
+          </div>
+          <span data-preview-chevron class="w-4 h-4 text-gray-400 dark:text-gray-500 flex items-center justify-center">
+            ${this.previewCollapsed ? collapsedChevron : expandedChevron}
+          </span>
+        </button>
+        <div class="px-5 pb-4 ${this.previewCollapsed ? 'hidden' : ''}" data-preview-body-wrap>
+          <div class="flex items-center justify-end gap-3 mb-2">
+            <button type="button" data-block-expand-preview
+                    class="inline-flex items-center gap-1 text-xs text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200"
+                    aria-label="Open interactive preview" title="Open a larger, interactive preview">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"></path>
+              </svg>
+              Expand
+            </button>
+            <button type="button" data-block-refresh-preview
+                    class="text-xs text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"${this.isPreviewing ? ' disabled' : ''}>
+              Refresh
+            </button>
+          </div>
+          <p class="mb-2 text-[11px] text-gray-400 dark:text-gray-500">Live, read-only preview. Use Expand to interact.</p>
+          <div data-block-preview-container
+               class="bg-white dark:bg-slate-900 rounded-lg border border-gray-200 dark:border-gray-700 p-4 min-h-[160px]">
+            ${this.renderPreviewBodyContent()}
+          </div>
+        </div>
+      </div>`;
+  }
+
+  /** Inner content of the preview container based on current state. */
+  private renderPreviewBodyContent(): string {
+    if (this.previewError) {
+      return `
+        <div class="flex flex-col items-center justify-center h-32 text-red-400">
+          <svg class="w-9 h-9 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+          </svg>
+          <p class="text-sm font-medium">Preview failed</p>
+          <p class="text-xs text-red-300 mt-1 max-w-xs text-center">${esc(this.previewError)}</p>
+        </div>`;
+    }
+    if (this.previewHtml) {
+      return wrapReadonlyPreview(this.previewHtml);
+    }
+    return `
+      <div class="flex flex-col items-center justify-center h-32 text-gray-400">
+        <svg class="w-9 h-9 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+        </svg>
+        <p class="text-sm">Add fields to see a live preview</p>
+      </div>`;
+  }
+
+  /** Repaint just the preview container without a full panel re-render. */
+  private renderPreviewBody(): void {
+    const container = this.config.container.querySelector('[data-block-preview-container]');
+    if (container) container.innerHTML = this.renderPreviewBodyContent();
+  }
+
+  /** Reflect in-flight state: spinner + disabled Refresh. */
+  private updatePreviewProgress(): void {
+    const loading = this.config.container.querySelector<HTMLElement>('[data-block-preview-loading]');
+    if (loading) loading.classList.toggle('hidden', !this.isPreviewing);
+    const refreshBtn = this.config.container.querySelector<HTMLButtonElement>('[data-block-refresh-preview]');
+    if (refreshBtn) refreshBtn.disabled = this.isPreviewing;
+  }
+
+  /** Deterministic signature of the schema currently being edited. */
+  private computeSchemaSignature(): string {
+    try {
+      return JSON.stringify(fieldsToSchema(this.fields, this.previewSlug()));
+    } catch {
+      return `len:${this.fields.length}`;
+    }
+  }
+
+  /**
+   * Schedule a preview refresh only when the previewed schema actually changed.
+   * Called from render() so block switches and field adds refresh, while cosmetic
+   * re-renders (expand a card, open a menu) keep the existing preview.
+   */
+  private maybeSchedulePreview(): void {
+    const signature = this.computeSchemaSignature();
+    if (signature === this.lastPreviewSignature) return;
+    this.lastPreviewSignature = signature;
+    this.schedulePreview();
+  }
+
+  /** Debounced preview refresh (shared 400ms cadence with Content Types). */
+  private schedulePreview(delayMs = 400): void {
+    if (this.previewDebounceTimer) clearTimeout(this.previewDebounceTimer);
+    this.previewDebounceTimer = setTimeout(() => {
+      this.previewDebounceTimer = null;
+      void this.previewSchema();
+    }, delayMs);
+  }
+
+  /** Fetch and render the live read-only preview, ignoring stale responses. */
+  private async previewSchema(): Promise<void> {
+    if (this.fields.length === 0) {
+      // Bump the sequence so any in-flight response is ignored, then clear.
+      this.previewRequestSeq++;
+      this.previewHtml = null;
+      this.previewError = null;
+      this.isPreviewing = false;
+      this.updatePreviewProgress();
+      this.renderPreviewBody();
+      return;
+    }
+
+    const schema = fieldsToSchema(this.fields, this.previewSlug());
+    const seq = ++this.previewRequestSeq;
+    this.isPreviewing = true;
+    this.updatePreviewProgress();
+
+    try {
+      const result = await this.config.api.previewSchema({ schema, slug: this.previewSlug() });
+      if (seq !== this.previewRequestSeq) return;
+      this.previewHtml = result.html;
+      this.previewError = null;
+      this.renderPreviewBody();
+    } catch (error) {
+      if (seq !== this.previewRequestSeq) return;
+      this.previewHtml = null;
+      this.previewError = error instanceof Error ? error.message : 'Preview failed';
+      this.renderPreviewBody();
+    } finally {
+      if (seq === this.previewRequestSeq) {
+        this.isPreviewing = false;
+        this.updatePreviewProgress();
+      }
+    }
+  }
+
+  /** Toggle the collapsed state of the preview section. */
+  private togglePreviewCollapsed(): void {
+    this.previewCollapsed = !this.previewCollapsed;
+    const wrap = this.config.container.querySelector<HTMLElement>('[data-preview-body-wrap]');
+    const chevron = this.config.container.querySelector<HTMLElement>('[data-preview-chevron]');
+    const toggle = this.config.container.querySelector<HTMLElement>('[data-toggle-preview]');
+    if (wrap) wrap.classList.toggle('hidden', this.previewCollapsed);
+    if (toggle) toggle.setAttribute('aria-expanded', this.previewCollapsed ? 'false' : 'true');
+    if (chevron) {
+      chevron.innerHTML = this.previewCollapsed
+        ? '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>'
+        : '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>';
+    }
+  }
+
+  /** Open the shared interactive preview modal (hydrated rich editors). */
+  private openInteractivePreview(): void {
+    if (!this.previewHtml) return;
+    const modal = new PreviewModal(this.previewHtml, () => initPreviewEditors());
+    void modal.show();
   }
 }

@@ -1227,6 +1227,7 @@ type (
 	TranslationSuggestionAssignmentContext            = core.TranslationSuggestionAssignmentContext
 	TranslationSuggestionContextLoader                = core.TranslationSuggestionContextLoader
 	TranslationSuggestionDecision                     = core.TranslationSuggestionDecision
+	TranslationSuggestionDependencyConfigurer         = core.TranslationSuggestionDependencyConfigurer
 	TranslationSuggestionEligibilityChecker           = core.TranslationSuggestionEligibilityChecker
 	TranslationSuggestionGenerateCommand              = core.TranslationSuggestionGenerateCommand
 	TranslationSuggestionInput                        = core.TranslationSuggestionInput
@@ -1235,6 +1236,7 @@ type (
 	TranslationSuggestionProviderResult               = core.TranslationSuggestionProviderResult
 	TranslationSuggestionResult                       = core.TranslationSuggestionResult
 	TranslationSuggestionService                      = core.TranslationSuggestionService
+	TranslationSuggestionServiceDependencies          = core.TranslationSuggestionServiceDependencies
 	TranslationQueueStatsFromRepository               = core.TranslationQueueStatsFromRepository
 	TranslationQueueStatsService                      = core.TranslationQueueStatsService
 	TranslationQueueStatsSnapshot                     = core.TranslationQueueStatsSnapshot
@@ -2382,6 +2384,14 @@ func RegisterTranslationSuggestionCommandFactories(bus *CommandBus) error {
 
 func RegisterTranslationSuggestionCommands(bus *CommandBus, service TranslationSuggestionService) error {
 	return core.RegisterTranslationSuggestionCommands(bus, service)
+}
+
+func ConfigureTranslationSuggestionServiceDependencies(service TranslationSuggestionService, deps TranslationSuggestionServiceDependencies) {
+	core.ConfigureTranslationSuggestionServiceDependencies(service, deps)
+}
+
+func NewTranslationSuggestionContextLoader(admin *Admin) TranslationSuggestionContextLoader {
+	return core.NewTranslationSuggestionContextLoader(admin)
 }
 
 func RegisterTranslationQueuePanel(admin *Admin, repo TranslationAssignmentRepository) (*Panel, error) {

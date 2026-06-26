@@ -8,18 +8,34 @@
 {% set visible_total = content_types_total_effective|default:0 %}
 {% set default_total = content_types_total_default|default:0 %}
 {% set available_channels = content_types_available_channels %}
-<header class="px-6 py-4 bg-white border-b border-gray-200 flex flex-wrap gap-4 items-center justify-between">
+<header class="px-6 py-4 bg-white dark:bg-slate-900 border-b border-gray-200 dark:border-gray-700 flex flex-wrap gap-4 items-center justify-between">
   <div>
-    <h1 class="text-xl font-bold text-gray-900">Content Types</h1>
-    <p class="text-xs text-gray-500 mt-1">Design schemas, layout, and capabilities for structured content.</p>
+    <h1 class="text-xl font-bold text-gray-900 dark:text-white">Content Types</h1>
+    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Design schemas, layout, and capabilities for structured content.</p>
   </div>
   <div class="flex items-center gap-3">
-    <div class="inline-flex items-center bg-gray-50 border border-gray-200 rounded-lg px-2.5 py-1.5 gap-2"
+    <nav class="cm-mode-switch" aria-label="Content modeling section">
+      <a href="{{ adminURL("content/types") }}{% if not in_default_channel %}?channel={{ active_channel|urlencode }}{% endif %}"
+         class="cm-mode-seg" aria-current="page">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+        </svg>
+        Content Types
+      </a>
+      <a href="{{ adminURL("content/block-library") }}{% if not in_default_channel %}?channel={{ active_channel|urlencode }}{% endif %}"
+         class="cm-mode-seg">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path>
+        </svg>
+        Blocks
+      </a>
+    </nav>
+    <div class="inline-flex items-center bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-gray-700 rounded-lg px-2.5 py-1.5 gap-2"
          data-content-types-channel-wrapper
          data-base-path="{{ base_path }}"
          data-active-channel="{{ active_channel }}"
          data-default-channel="default">
-      <div class="flex items-center gap-1.5 text-gray-500">
+      <div class="flex items-center gap-1.5 text-gray-500 dark:text-gray-400">
         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"></path>
         </svg>
@@ -27,7 +43,8 @@
       </div>
       <div class="relative inline-flex items-center">
         <select data-content-types-channel
-                class="text-[13px] bg-transparent border-0 text-gray-700 font-medium py-0 pl-0 pr-6 focus:outline-none focus:ring-0 cursor-pointer"
+                aria-label="Active channel"
+                class="text-[13px] bg-transparent border-0 text-gray-700 dark:text-gray-200 font-medium py-0 pl-0 pr-6 focus:outline-none focus:ring-0 cursor-pointer"
                 style="-webkit-appearance: none; -moz-appearance: none; appearance: none;">
           {% if available_channels and available_channels|length > 0 %}
           {% for channel in available_channels %}
@@ -42,24 +59,21 @@
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
         </svg>
       </div>
-      <div class="w-px h-4 bg-gray-200"></div>
+      <div class="w-px h-4 bg-gray-200 dark:bg-gray-700"></div>
       <button type="button"
               data-content-types-channel-reset
-              class="{% if in_default_channel %}hidden {% endif %}inline-flex items-center px-2 py-1 rounded border border-amber-300 text-amber-700 text-[11px] font-semibold hover:bg-amber-50 transition-colors">
+              class="{% if in_default_channel %}hidden {% endif %}inline-flex items-center px-2 py-1 rounded border border-amber-300 text-amber-700 dark:text-amber-400 text-[11px] font-semibold hover:bg-amber-50 dark:hover:bg-amber-500/10 transition-colors">
         Reset to Default
       </button>
       <button type="button"
               data-content-types-channel-add
-              class="inline-flex items-center gap-1 px-2 py-1 rounded border border-gray-200 text-gray-500 text-[11px] font-semibold hover:bg-gray-100 transition-colors">
+              class="inline-flex items-center gap-1 px-2 py-1 rounded border border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 text-[11px] font-semibold hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors">
         <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
         </svg>
         Add Channel
       </button>
     </div>
-    <a class="btn btn-secondary" href="{{ adminURL("content/block-library") }}{% if not in_default_channel %}?channel={{ active_channel|urlencode }}{% endif %}">
-      Manage Blocks
-    </a>
     <a class="btn btn-primary" href="{{ adminURL("content/types") }}{% if not in_default_channel %}?channel={{ active_channel|urlencode }}{% endif %}">New Content Type</a>
   </div>
 </header>

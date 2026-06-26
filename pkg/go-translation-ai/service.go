@@ -33,6 +33,26 @@ func NewService(opts ...Option) *Service {
 	return s
 }
 
+// WithAdminDependencies fills the default repository, context loader, and
+// authorizer from an initialized admin instance. Provider eligibility remains
+// explicit so hosts choose their external-AI policy.
+func WithAdminDependencies(adm *coreadmin.Admin, repo coreadmin.TranslationAssignmentRepository) Option {
+	return func(s *Service) {
+		if s == nil {
+			return
+		}
+		var authorizer coreadmin.Authorizer
+		if adm != nil {
+			authorizer = adm.Authorizer()
+		}
+		s.ConfigureTranslationSuggestionServiceDependencies(coreadmin.TranslationSuggestionServiceDependencies{
+			Repository:    repo,
+			ContextLoader: coreadmin.NewTranslationSuggestionContextLoader(adm),
+			Authorizer:    authorizer,
+		})
+	}
+}
+
 func WithRepository(repo coreadmin.TranslationAssignmentRepository) Option {
 	return func(s *Service) {
 		s.core.Repository = repo
@@ -120,6 +140,13 @@ func WithProvider(provider Provider) Option {
 			WithPromptBuilder(s.builder),
 		)
 	}
+}
+
+func (s *Service) ConfigureTranslationSuggestionServiceDependencies(deps coreadmin.TranslationSuggestionServiceDependencies) {
+	if s == nil {
+		return
+	}
+	s.core.ConfigureTranslationSuggestionServiceDependencies(deps)
 }
 
 func (s *Service) SuggestTranslation(ctx context.Context, input coreadmin.TranslationSuggestionInput) (coreadmin.TranslationSuggestionResult, error) {

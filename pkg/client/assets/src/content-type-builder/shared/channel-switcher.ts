@@ -4,7 +4,7 @@
  * Wires the page-header channel control on the Content Types screen: switching
  * channels (full navigation), resetting to default, and adding a new channel.
  * Adding a channel uses the shared, styled {@link TextPromptModal} (with inline
- * empty-validation) instead of the native `window.prompt()` it replaced.
+ * empty-validation) instead of the native browser prompt it replaced.
  *
  * The Block Library handles its own channel control inside its IDE controller;
  * this module covers the Content Types surface, whose channel wrapper lives in

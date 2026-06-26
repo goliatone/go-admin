@@ -188,13 +188,13 @@ export function renderFieldCard(config: FieldCardConfig): string {
           <span class="flex-shrink-0 inline-flex flex-col border border-gray-200 dark:border-gray-700 rounded-md overflow-hidden">
             <button type="button" data-field-move-up="${esc(field.id)}"
                     class="px-0.5 py-px ${upClass} transition-colors"
-                    title="Move up" ${upDisabled ? 'disabled' : ''}>
+                    aria-label="Move field up" title="Move up" ${upDisabled ? 'disabled' : ''}>
               ${CHEVRON_UP}
             </button>
             <span class="block h-px bg-gray-200 dark:bg-gray-700"></span>
             <button type="button" data-field-move-down="${esc(field.id)}"
                     class="px-0.5 py-px ${downClass} transition-colors"
-                    title="Move down" ${downDisabled ? 'disabled' : ''}>
+                    aria-label="Move field down" title="Move down" ${downDisabled ? 'disabled' : ''}>
               ${CHEVRON_DOWN}
             </button>
           </span>`;
@@ -246,7 +246,7 @@ const KEBAB_ICON = '<svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"
 export function renderFieldKebab(fieldId: string): string {
   return `<button type="button" data-field-actions="${esc(fieldId)}"
                     class="p-1.5 rounded-md text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-                    title="Field actions">
+                    aria-label="Field actions" title="Field actions" aria-haspopup="true">
               ${KEBAB_ICON}
             </button>`;
 }

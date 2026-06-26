@@ -124,8 +124,15 @@ export {
 } from './shared/content-modeling-shell';
 export type { ContentModelingShellOptions } from './shared/content-modeling-shell';
 
-// Re-export content-types channel switcher (T10 — styled modal, no window.prompt)
+// Re-export content-types channel switcher (T10 — styled modal, no native prompt)
 export { initContentTypeChannelSwitcher, normalizeChannelName } from './shared/channel-switcher';
+
+// Re-export shared schema-preview primitives (T14 — Content Types + Block Library)
+export { PreviewModal, wrapReadonlyPreview, initPreviewEditors } from './shared/schema-preview';
+
+// Re-export starter field-set presets (T15)
+export { FIELD_SET_PRESETS, getFieldSetPreset } from './shared/field-presets';
+export type { FieldSetPreset, PresetField } from './shared/field-presets';
 
 // =============================================================================
 // Auto-initialization

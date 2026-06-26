@@ -690,6 +690,14 @@ export class BlockLibraryIDE {
       this.showCreateForm();
     });
 
+    // "Create your first block" CTA in the empty editor state (T15). Delegated on
+    // the stable root because the editor pane innerHTML is re-rendered.
+    this.root.addEventListener('click', (e) => {
+      if ((e.target as HTMLElement).closest('[data-block-ide-create-first]')) {
+        this.showCreateForm();
+      }
+    });
+
     // Delegate clicks on block list
     this.listEl?.addEventListener('click', (e) => {
       this.handleListClick(e);
@@ -766,6 +774,30 @@ export class BlockLibraryIDE {
       this.refreshCategoriesFromBlocks();
       this.renderBlockList();
       this.updateCount();
+      this.autoSelectInitialBlock();
+    }
+  }
+
+  /**
+   * After a load, keep the editor pane useful (T15): auto-select the first block
+   * when nothing is selected, drop a stale selection that no longer exists, and
+   * render the single "create your first block" state when the library is empty.
+   */
+  private autoSelectInitialBlock(): void {
+    if (this.state.error) return;
+
+    // Drop a selection that no longer exists (e.g. after a channel switch).
+    if (this.state.selectedBlockId && !this.state.blocks.some((b) => b.id === this.state.selectedBlockId)) {
+      this.state.selectedBlockId = null;
+    }
+
+    if (this.state.selectedBlockId) return; // honor an existing valid selection
+
+    if (this.state.blocks.length > 0) {
+      this.selectBlock(this.state.blocks[0].id);
+    } else {
+      // No blocks: replace the SSR placeholder with the actionable empty state.
+      this.renderEditor();
     }
   }
 
@@ -1066,7 +1098,7 @@ export class BlockLibraryIDE {
           ${indicatorHtml}
           <button type="button" data-block-actions="${esc(block.id)}"
                   class="flex-shrink-0 p-0.5 rounded text-gray-300 dark:text-gray-600 hover:text-gray-600 dark:hover:text-gray-300 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity"
-                  title="Actions">
+                  aria-label="Block actions" title="Actions" aria-haspopup="true">
             <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
               <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z"></path>
             </svg>
@@ -1222,7 +1254,28 @@ export class BlockLibraryIDE {
 
     if (!block) {
       this.editorPanel = null;
-      this.editorEl.innerHTML = `
+      // When the library is genuinely empty (loaded, no error, zero blocks) show a
+      // single actionable "create your first block" state instead of duplicating
+      // the list's empty state with a passive "select a block" placeholder (T15).
+      const libraryEmpty = !this.state.isLoading && !this.state.error && this.state.blocks.length === 0;
+      this.editorEl.innerHTML = libraryEmpty
+        ? `
+        <div class="flex flex-col items-center justify-center h-full p-8 text-center">
+          <svg class="w-16 h-16 text-gray-200 dark:text-gray-700 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                  d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2z"></path>
+          </svg>
+          <p class="text-sm font-medium text-gray-500 dark:text-gray-400">No blocks yet</p>
+          <p class="text-xs text-gray-400 dark:text-gray-500 mt-1 mb-4">Reusable blocks let editors compose content. Create one to get started.</p>
+          <button type="button" data-block-ide-create-first
+                  class="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+            </svg>
+            Create your first block
+          </button>
+        </div>`
+        : `
         <div class="flex flex-col items-center justify-center h-full p-8 text-center">
           <svg class="w-16 h-16 text-gray-200 dark:text-gray-700 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"

@@ -36,6 +36,8 @@ import { renderEntityHeader } from './shared/entity-header';
 import { renderFieldCard as renderFieldCardShared, renderFieldKebab, renderDropZone } from './shared/field-card';
 import { loadAvailableBlocks, normalizeBlockSelection, renderInlineBlockPicker, bindInlineBlockPickerEvents } from './shared/block-picker';
 import { formatContentTypeDate } from './shared/date-formatters';
+import { PreviewModal, wrapReadonlyPreview as wrapReadonlyPreviewShared, initPreviewEditors as initPreviewEditorsShared } from './shared/schema-preview';
+import { FIELD_SET_PRESETS, getFieldSetPreset } from './shared/field-presets';
 import { nameToSlug, titleCaseIdentifier } from './shared/text';
 import { escapeHTML as escapeHtml } from '../shared/html.js';
 import { parseJSONValue } from '../shared/json-parse.js';
@@ -52,42 +54,6 @@ interface ExtendedBuilderState extends ContentTypeBuilderState {
   previewError: string | null;
   originalSchema: JSONSchema | null;
   initialFieldsSignature: string;
-}
-
-/**
- * Larger, fully interactive form preview shown in a modal. The side-pane preview
- * is intentionally lightweight and read-only; this is the "escape hatch" that
- * renders the same generated form at width and hydrates its rich editors.
- */
-class PreviewModal extends Modal {
-  constructor(private readonly previewHtml: string, private readonly hydrate: () => void) {
-    super({ size: '4xl', maxHeight: 'max-h-[90vh]', initialFocus: '[data-preview-modal-close]' });
-  }
-
-  protected renderContent(): string {
-    return `
-      <div class="flex items-center justify-between px-5 py-3 border-b border-gray-200 dark:border-gray-700 shrink-0">
-        <h2 class="text-sm font-semibold text-gray-900 dark:text-white">Interactive Form Preview</h2>
-        <button type="button" data-preview-modal-close
-                class="p-1.5 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:text-gray-200 dark:hover:bg-gray-800"
-                aria-label="Close preview">
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-          </svg>
-        </button>
-      </div>
-      <div class="overflow-y-auto p-6" data-preview-modal-body>${this.previewHtml}</div>
-    `;
-  }
-
-  protected bindContentEvents(): void {
-    this.container?.querySelector('[data-preview-modal-close]')?.addEventListener('click', () => this.hide());
-  }
-
-  protected async onAfterShow(): Promise<void> {
-    // Hydrate the rich JSON/WYSIWYG editors only inside the opened modal.
-    this.hydrate();
-  }
 }
 
 export class ContentTypeEditor {
@@ -368,6 +334,45 @@ export class ContentTypeEditor {
       onCancel: () => {},
     });
     configForm.show();
+  }
+
+  /**
+   * Quick-start: add a predefined set of fields from a starter preset (T15).
+   * Unlike {@link addField}, this adds the whole set directly with sensible
+   * defaults (no per-field config modal), de-duplicating names against existing
+   * fields so re-applying a preset cannot collide.
+   */
+  addFieldSet(presetId: string): void {
+    const preset = getFieldSetPreset(presetId);
+    if (!preset) return;
+
+    const used = new Set(this.state.fields.map((f) => f.name));
+    let order = this.state.fields.length;
+
+    for (const pf of preset.fields) {
+      let name = pf.name;
+      let suffix = 1;
+      while (used.has(name)) name = `${pf.name}_${suffix++}`;
+      used.add(name);
+
+      const metadata = getFieldTypeMetadata(pf.type);
+      const field: FieldDefinition = {
+        id: generateFieldId(),
+        name,
+        type: pf.type,
+        label: pf.label,
+        required: pf.required ?? false,
+        order: order++,
+        ...(metadata?.defaultConfig ?? {}),
+      };
+      this.state.fields.push(field);
+    }
+
+    this.state.isDirty = true;
+    this.renderFieldList();
+    this.updateDirtyState();
+    this.schedulePreview();
+    this.showToast(`Added ${preset.fields.length} fields from the "${preset.label}" template.`, 'success');
   }
 
   /**
@@ -1065,9 +1070,10 @@ export class ContentTypeEditor {
   /**
    * Wrap generated preview HTML so the side-pane preview reads as a lightweight,
    * non-interactive snapshot. The Expand modal renders the same HTML interactively.
+   * Delegates to the shared content-modeling preview primitive.
    */
   private wrapReadonlyPreview(html: string): string {
-    return `<div class="ct-preview-readonly pointer-events-none select-none" aria-label="Read-only form preview">${html}</div>`;
+    return wrapReadonlyPreviewShared(html);
   }
 
   // ===========================================================================
@@ -1309,6 +1315,14 @@ export class ContentTypeEditor {
     // Field actions (delegated)
     this.container.addEventListener('click', (e) => {
       const target = e.target as HTMLElement;
+
+      // Starter preset (T15) — quick-add a field set from the empty state.
+      // Delegated so it keeps working across field-list re-renders.
+      const presetBtn = target.closest<HTMLElement>('[data-ct-preset]');
+      if (presetBtn) {
+        this.addFieldSet(presetBtn.dataset.ctPreset!);
+        return;
+      }
 
       // Kebab menu trigger — toggle dropdown
       const actionsBtn = target.closest<HTMLElement>('[data-field-actions]');
@@ -2051,18 +2065,31 @@ export class ContentTypeEditor {
 
   private renderFieldListContent(): string {
     if (this.state.fields.length === 0) {
+      const presetCards = FIELD_SET_PRESETS.map((preset) => `
+            <button type="button" data-ct-preset="${escapeHtml(preset.id)}"
+                    class="flex flex-col items-start gap-1 p-3 text-left rounded-lg border border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-500/50 hover:bg-blue-50/50 dark:hover:bg-blue-900/10 transition-colors">
+              <span class="flex items-center gap-1.5 text-sm font-medium text-gray-800 dark:text-gray-100">
+                ${preset.icon}
+                ${escapeHtml(preset.label)}
+              </span>
+              <span class="text-[11px] text-gray-400 dark:text-gray-500">${escapeHtml(preset.description)}</span>
+            </button>`).join('');
       return `
-        <div class="flex flex-col items-center justify-center py-12 text-gray-400">
-          <svg class="w-12 h-12 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div class="flex flex-col items-center justify-center py-10 px-4 text-center">
+          <svg class="w-12 h-12 mb-3 text-gray-300 dark:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
           </svg>
-          <p class="text-sm mb-3">No fields yet</p>
+          <p class="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">No fields yet</p>
+          <p class="text-xs text-gray-400 dark:text-gray-500 mb-4">Start from a template or add fields one at a time.</p>
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 w-full max-w-xl mb-4">
+            ${presetCards}
+          </div>
           <button
             type="button"
             data-ct-add-field-empty
             class="text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
           >
-            + Add your first field
+            + Add a field manually
           </button>
         </div>
       `;
@@ -2298,16 +2325,7 @@ export class ContentTypeEditor {
    * formgen-relationships provides WYSIWYG hydration.
    */
   private initPreviewEditors(): void {
-    const fb = (window as any).FormgenBehaviors;
-    if (typeof fb?.initJSONEditors === 'function') {
-      fb.initJSONEditors();
-    }
-
-    const rel = (window as any).FormgenRelationships;
-    const initWysiwyg = rel?.autoInitWysiwyg ?? fb?.autoInitWysiwyg;
-    if (typeof initWysiwyg === 'function') {
-      initWysiwyg();
-    }
+    initPreviewEditorsShared();
   }
 
   private renderValidationErrors(): void {
