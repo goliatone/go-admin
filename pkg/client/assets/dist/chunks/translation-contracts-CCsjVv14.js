@@ -1,4 +1,4 @@
-var b = {
+var g = {
   profile: "none",
   capability_mode: "none",
   supported_profiles: [
@@ -25,7 +25,18 @@ var b = {
   },
   features: {
     cms: !1,
-    dashboard: !1
+    dashboard: !1,
+    suggestions: {
+      enabled: !1,
+      service_configured: !1,
+      queue_enabled: !1,
+      permission: "admin.translations.suggest",
+      command_name: "translations.suggestions.generate",
+      command_registered: !1,
+      command_dispatchable: !1,
+      inline_result_supported: !1,
+      rpc_allowed: !1
+    }
   },
   routes: {},
   panels: [],
@@ -45,7 +56,7 @@ var b = {
   "uploading",
   "validated",
   "error"
-], A = [
+], w = [
   "missing_linkage",
   "duplicate_row",
   "stale_source_hash"
@@ -61,7 +72,7 @@ function u(s) {
     "full"
   ].includes(e) ? e : "none";
 }
-function g(s) {
+function m(s) {
   if (!s || typeof s != "object") return null;
   const e = s;
   return {
@@ -84,9 +95,9 @@ function v(s) {
     entry: { enabled: !1 },
     actions: {}
   };
-  const e = s, o = e.enabled === !0, n = g(e.entry), t = typeof e.visible == "boolean" ? e.visible : o && (n ? n.enabled : !0), r = e.actions && typeof e.actions == "object" ? e.actions : {}, i = {};
+  const e = s, o = e.enabled === !0, n = m(e.entry), t = typeof e.visible == "boolean" ? e.visible : o && (n ? n.enabled : !0), r = e.actions && typeof e.actions == "object" ? e.actions : {}, i = {};
   for (const [d, f] of Object.entries(r)) {
-    const a = g(f);
+    const a = m(f);
     a && (i[d] = a);
   }
   return {
@@ -96,7 +107,21 @@ function v(s) {
     actions: i
   };
 }
-function w(s) {
+function A(s) {
+  const e = s && typeof s == "object" ? s : {}, o = m(e) ?? { enabled: !1 };
+  return {
+    ...o,
+    permission: typeof e.permission == "string" ? e.permission : o.permission ?? "admin.translations.suggest",
+    service_configured: e.service_configured === !0,
+    queue_enabled: e.queue_enabled === !0,
+    command_name: typeof e.command_name == "string" && e.command_name.trim() ? e.command_name.trim() : "translations.suggestions.generate",
+    command_registered: e.command_registered === !0,
+    command_dispatchable: e.command_dispatchable === !0,
+    inline_result_supported: e.inline_result_supported === !0,
+    rpc_allowed: e.rpc_allowed === !0
+  };
+}
+function k(s) {
   if (!s || typeof s != "object") return {};
   const e = s, o = {};
   for (const [n, t] of Object.entries(e)) {
@@ -105,13 +130,13 @@ function w(s) {
   }
   return o;
 }
-function k(s) {
-  if (!s || typeof s != "object") return { ...b };
+function T(s) {
+  if (!s || typeof s != "object") return { ...g };
   const e = s, o = typeof e.modules == "object" && e.modules ? e.modules : {}, n = typeof e.features == "object" && e.features ? e.features : {};
   return {
     profile: u(e.profile ?? e.capability_mode),
     capability_mode: u(e.capability_mode ?? e.profile),
-    supported_profiles: Array.isArray(e.supported_profiles) ? e.supported_profiles.map(u).filter((t, r, i) => i.indexOf(t) === r) : [...b.supported_profiles],
+    supported_profiles: Array.isArray(e.supported_profiles) ? e.supported_profiles.map(u).filter((t, r, i) => i.indexOf(t) === r) : [...g.supported_profiles],
     schema_version: typeof e.schema_version == "number" ? e.schema_version : 1,
     modules: {
       exchange: v(o.exchange),
@@ -119,9 +144,10 @@ function k(s) {
     },
     features: {
       cms: typeof n.cms == "boolean" ? n.cms : !1,
-      dashboard: typeof n.dashboard == "boolean" ? n.dashboard : !1
+      dashboard: typeof n.dashboard == "boolean" ? n.dashboard : !1,
+      suggestions: A(n.suggestions)
     },
-    routes: w(e.routes),
+    routes: k(e.routes),
     panels: Array.isArray(e.panels) ? e.panels.filter((t) => typeof t == "string") : [],
     resolver_keys: Array.isArray(e.resolver_keys) ? e.resolver_keys.filter((t) => typeof t == "string") : [],
     warnings: Array.isArray(e.warnings) ? e.warnings.filter((t) => typeof t == "string") : [],
@@ -133,13 +159,13 @@ function h(s) {
   const e = s, o = typeof e.kind == "string" && y.includes(e.kind) ? e.kind : "export", n = typeof e.status == "string" && _.includes(e.status) ? e.status : "failed", t = e.progress && typeof e.progress == "object" ? e.progress : {}, r = e.actor && typeof e.actor == "object" ? e.actor : void 0, i = e.file && typeof e.file == "object" ? e.file : void 0, d = e.downloads && typeof e.downloads == "object" ? e.downloads : e.result && typeof e.result == "object" ? e.result.downloads ?? void 0 : void 0, f = {};
   if (d && typeof d == "object") for (const [l, p] of Object.entries(d)) {
     if (!p || typeof p != "object") continue;
-    const c = p, m = typeof c.href == "string" ? c.href : "";
-    m && (f[l] = {
+    const c = p, b = typeof c.href == "string" ? c.href : "";
+    b && (f[l] = {
       kind: typeof c.kind == "string" ? c.kind : l,
       label: typeof c.label == "string" ? c.label : "Download artifact",
       filename: typeof c.filename == "string" ? c.filename : `${l}.dat`,
       content_type: typeof c.content_type == "string" ? c.content_type : "application/octet-stream",
-      href: m
+      href: b
     });
   }
   const a = e.retention && typeof e.retention == "object" ? e.retention : void 0;
@@ -205,7 +231,7 @@ function x(s) {
     }
   };
 }
-function T(s) {
+function q(s) {
   const e = s && typeof s == "object" ? s : {}, o = e.summary && typeof e.summary == "object" ? e.summary : {}, n = Array.isArray(e.results) ? e.results : [];
   return {
     summary: {
@@ -219,7 +245,7 @@ function T(s) {
       by_conflict: typeof o.by_conflict == "object" && o.by_conflict ? o.by_conflict : void 0
     },
     results: n.map((t) => {
-      const r = t && typeof t == "object" ? t : {}, i = r.conflict && typeof r.conflict == "object" ? r.conflict : void 0, d = i && typeof i.type == "string" && A.includes(i.type) ? i.type : void 0;
+      const r = t && typeof t == "object" ? t : {}, i = r.conflict && typeof r.conflict == "object" ? r.conflict : void 0, d = i && typeof i.type == "string" && w.includes(i.type) ? i.type : void 0;
       return {
         index: typeof r.index == "number" ? r.index : 0,
         resource: typeof r.resource == "string" ? r.resource : "",
@@ -256,11 +282,11 @@ function E(s) {
 export {
   h as a,
   x as i,
-  g as n,
+  m as n,
   E as o,
-  k as r,
-  T as s,
-  b as t
+  T as r,
+  q as s,
+  g as t
 };
 
-//# sourceMappingURL=translation-contracts-DrJVTucO.js.map
+//# sourceMappingURL=translation-contracts-CCsjVv14.js.map

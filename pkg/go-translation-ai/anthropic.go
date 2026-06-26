@@ -188,7 +188,11 @@ func (c *anthropicHTTPClient) CreateMessage(ctx context.Context, req AnthropicMe
 	if err != nil {
 		return AnthropicMessageResponse{}, err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			return
+		}
+	}()
 
 	var out AnthropicMessageResponse
 	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {

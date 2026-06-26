@@ -180,7 +180,11 @@ func (c *openAIHTTPClient) CreateChatCompletion(ctx context.Context, req OpenAIC
 	if err != nil {
 		return OpenAIChatCompletionResponse{}, err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			return
+		}
+	}()
 
 	var out OpenAIChatCompletionResponse
 	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {

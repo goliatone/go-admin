@@ -241,6 +241,39 @@ func TestServiceConfiguresMissingAdminDependencies(t *testing.T) {
 	}
 }
 
+func TestServiceActionEvaluationAcceptsLateAuthorizerDependency(t *testing.T) {
+	assignment := suggestionTestAssignment()
+	svc := NewService(
+		WithProvider(&fakeProvider{}),
+		WithEligibility(coreadmin.TranslationSuggestionAllowAllEligibility{}),
+	)
+	input := coreadmin.TranslationSuggestionInput{
+		AssignmentID: assignment.ID,
+		FieldPath:    "title",
+		TenantID:     assignment.TenantID,
+		OrgID:        assignment.OrgID,
+	}
+
+	decision, err := svc.EvaluateTranslationSuggestionAction(context.Background(), input, suggestionTestContext(assignment))
+	if err != nil {
+		t.Fatalf("EvaluateTranslationSuggestionAction before authorizer: %v", err)
+	}
+	if decision.Allowed || decision.ReasonCode != coreadmin.TranslationSuggestionReasonPermissionDenied {
+		t.Fatalf("expected permission denial before authorizer dependency, got %+v", decision)
+	}
+
+	svc.ConfigureTranslationSuggestionServiceDependencies(coreadmin.TranslationSuggestionServiceDependencies{
+		Authorizer: allowAuthorizer{},
+	})
+	decision, err = svc.EvaluateTranslationSuggestionAction(context.Background(), input, suggestionTestContext(assignment))
+	if err != nil {
+		t.Fatalf("EvaluateTranslationSuggestionAction after authorizer: %v", err)
+	}
+	if !decision.Allowed {
+		t.Fatalf("expected action allowed after authorizer dependency, got %+v", decision)
+	}
+}
+
 func TestServiceActionEvaluationFailsClosedWithoutReadyProvider(t *testing.T) {
 	assignment := suggestionTestAssignment()
 	svc := NewService(

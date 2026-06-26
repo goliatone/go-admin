@@ -12,7 +12,7 @@ import { buildURL as _e, deleteSearchParams as Re } from "../shared/query-state/
 import { t as rr } from "../chunks/sortable.esm-CcMbOE-M.js";
 import { initActionMenus as nr } from "../shared/action-menu.js";
 import { normalizeAPIBasePath as sr, normalizeBasePath as ir } from "../shared/path-normalization.js";
-import { r as ar, t as or } from "../chunks/translation-contracts-DrJVTucO.js";
+import { r as ar, t as or } from "../chunks/translation-contracts-CCsjVv14.js";
 import { StatefulController as tt } from "../shared/stateful-controller.js";
 var rt = { async prompt(e) {
   const { PayloadInputModal: t } = await import("../chunks/payload-modal-uFYI-rmU.js");

@@ -339,6 +339,7 @@ const (
 	PermAdminTranslationsImportValidate            = core.PermAdminTranslationsImportValidate
 	PermAdminTranslationsImportView                = core.PermAdminTranslationsImportView
 	PermAdminTranslationsManage                    = core.PermAdminTranslationsManage
+	PermAdminTranslationsSuggest                   = core.PermAdminTranslationsSuggest
 	PermAdminTranslationsSync                      = core.PermAdminTranslationsSync
 	PermAdminTranslationsView                      = core.PermAdminTranslationsView
 	PermAdminUsersCreate                           = core.PermAdminUsersCreate
@@ -2300,6 +2301,10 @@ func ParseMediaDeliveryRange(header string, size int64) (MediaDeliveryRange, boo
 
 func PermissionMatrixDescriptor(basePath string) components.Descriptor {
 	return core.PermissionMatrixDescriptor(basePath)
+}
+
+func PermissionGrantMatches(grant string, permission string) bool {
+	return core.PermissionGrantMatches(grant, permission)
 }
 
 func PrefixBasePath(basePath string, routePath string) string {

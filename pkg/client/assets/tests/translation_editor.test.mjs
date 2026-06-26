@@ -1278,6 +1278,27 @@ test('translation editor runtime: read-only assignment omits suggestion controls
   assert.match(html, /data-editor-read-only="true"/);
 });
 
+test('translation editor runtime: assigned editable assignment renders suggestion controls', () => {
+  const fixture = makeSuggestionReadyFixture();
+  fixture.data.status = 'assigned';
+  fixture.data.translation_assignment = {
+    ...fixture.data.translation_assignment,
+    status: 'assigned',
+    queue_state: 'assigned',
+  };
+  const detail = normalizeAssignmentEditorDetail(fixture);
+  const html = renderTranslationEditorState(
+    { status: 'ready', detail },
+    createTranslationEditorState(detail)
+  );
+  const dom = new JSDOM(html);
+  const button = dom.window.document.querySelector('[data-suggest-translation="title"]');
+
+  assert.ok(button);
+  assert.match(button.textContent, /Generate suggestion/);
+  assert.match(html, /data-editor-read-only="false"/);
+});
+
 test('translation editor runtime: autosave conflict blocks suggestion dispatch and insertion', async () => {
   const { root, window } = setupDom();
   installTranslationSyncCoreStub(window);

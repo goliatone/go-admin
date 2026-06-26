@@ -43,6 +43,16 @@ export interface TranslationModuleState {
   actions: Record<string, TranslationActionState>;
 }
 
+export interface TranslationSuggestionFeatureState extends TranslationActionState {
+  service_configured: boolean;
+  queue_enabled: boolean;
+  command_name: string;
+  command_registered: boolean;
+  command_dispatchable: boolean;
+  inline_result_supported: boolean;
+  rpc_allowed: boolean;
+}
+
 export interface TranslationCapabilities {
   profile: TranslationProfile;
   capability_mode: TranslationCapabilityMode;
@@ -55,6 +65,7 @@ export interface TranslationCapabilities {
   features: {
     cms: boolean;
     dashboard: boolean;
+    suggestions: TranslationSuggestionFeatureState;
   };
   routes: Record<string, string>;
   panels: string[];
@@ -263,6 +274,17 @@ export const EMPTY_TRANSLATION_CAPABILITIES: TranslationCapabilities = {
   features: {
     cms: false,
     dashboard: false,
+    suggestions: {
+      enabled: false,
+      service_configured: false,
+      queue_enabled: false,
+      permission: "admin.translations.suggest",
+      command_name: "translations.suggestions.generate",
+      command_registered: false,
+      command_dispatchable: false,
+      inline_result_supported: false,
+      rpc_allowed: false,
+    },
   },
   routes: {},
   panels: [],
@@ -367,6 +389,31 @@ export function normalizeTranslationModuleState(
   };
 }
 
+export function normalizeTranslationSuggestionFeatureState(
+  value: unknown,
+): TranslationSuggestionFeatureState {
+  const raw =
+    value && typeof value === "object" ? (value as Record<string, unknown>) : {};
+  const action = normalizeTranslationActionState(raw) ?? { enabled: false };
+  return {
+    ...action,
+    permission:
+      typeof raw.permission === "string"
+        ? raw.permission
+        : action.permission ?? "admin.translations.suggest",
+    service_configured: raw.service_configured === true,
+    queue_enabled: raw.queue_enabled === true,
+    command_name:
+      typeof raw.command_name === "string" && raw.command_name.trim()
+        ? raw.command_name.trim()
+        : "translations.suggestions.generate",
+    command_registered: raw.command_registered === true,
+    command_dispatchable: raw.command_dispatchable === true,
+    inline_result_supported: raw.inline_result_supported === true,
+    rpc_allowed: raw.rpc_allowed === true,
+  };
+}
+
 export function normalizeTranslationRoutes(
   value: unknown,
 ): Record<string, string> {
@@ -418,6 +465,9 @@ export function normalizeTranslationCapabilities(
       cms: typeof features.cms === "boolean" ? features.cms : false,
       dashboard:
         typeof features.dashboard === "boolean" ? features.dashboard : false,
+      suggestions: normalizeTranslationSuggestionFeatureState(
+        features.suggestions,
+      ),
     },
     routes: normalizeTranslationRoutes(data.routes),
     panels: Array.isArray(data.panels)

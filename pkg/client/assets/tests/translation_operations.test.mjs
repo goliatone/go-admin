@@ -49,6 +49,17 @@ const FULL_CAPABILITIES = {
   features: {
     cms: true,
     dashboard: true,
+    suggestions: {
+      enabled: true,
+      service_configured: true,
+      queue_enabled: true,
+      permission: 'admin.translations.suggest',
+      command_name: 'translations.suggestions.generate',
+      command_registered: true,
+      command_dispatchable: true,
+      inline_result_supported: true,
+      rpc_allowed: true,
+    },
   },
   routes: {
     'admin.translations.queue': '/admin/translations/queue',
@@ -155,13 +166,32 @@ function extractModuleEnabled(value) {
   return false;
 }
 
+function normalizeSuggestionFeature(value) {
+  const raw = value && typeof value === 'object' ? value : {};
+  return {
+    enabled: raw.enabled === true,
+    reason: typeof raw.reason === 'string' ? raw.reason : undefined,
+    reason_code: typeof raw.reason_code === 'string' ? raw.reason_code : undefined,
+    permission: typeof raw.permission === 'string' ? raw.permission : 'admin.translations.suggest',
+    service_configured: raw.service_configured === true,
+    queue_enabled: raw.queue_enabled === true,
+    command_name: typeof raw.command_name === 'string' && raw.command_name.trim()
+      ? raw.command_name.trim()
+      : 'translations.suggestions.generate',
+    command_registered: raw.command_registered === true,
+    command_dispatchable: raw.command_dispatchable === true,
+    inline_result_supported: raw.inline_result_supported === true,
+    rpc_allowed: raw.rpc_allowed === true,
+  };
+}
+
 function normalizeCapabilities(raw) {
   if (!raw || typeof raw !== 'object') {
     return {
       profile: 'none',
       schema_version: 1,
       modules: { exchange: { enabled: false }, queue: { enabled: false } },
-      features: { cms: false, dashboard: false },
+      features: { cms: false, dashboard: false, suggestions: normalizeSuggestionFeature(null) },
       routes: {},
       panels: [],
       resolver_keys: [],
@@ -183,6 +213,7 @@ function normalizeCapabilities(raw) {
     features: {
       cms: typeof features.cms === 'boolean' ? features.cms : false,
       dashboard: typeof features.dashboard === 'boolean' ? features.dashboard : false,
+      suggestions: normalizeSuggestionFeature(features.suggestions),
     },
     routes: typeof data.routes === 'object' && data.routes ? data.routes : {},
     panels: Array.isArray(data.panels) ? data.panels.filter(p => typeof p === 'string') : [],
@@ -322,7 +353,31 @@ describe('Translation Operations Module', () => {
       assert.equal(normalized.modules.queue.enabled, true);
       assert.equal(normalized.features.cms, true);
       assert.equal(normalized.features.dashboard, true);
+      assert.equal(normalized.features.suggestions.enabled, true);
+      assert.equal(normalized.features.suggestions.command_name, 'translations.suggestions.generate');
+      assert.equal(normalized.features.suggestions.rpc_allowed, true);
       assert.deepEqual(normalized.panels, ['translations']);
+    });
+
+    it('should preserve disabled suggestion capability metadata', () => {
+      const normalized = normalizeCapabilities({
+        features: {
+          suggestions: {
+            enabled: false,
+            reason: 'translation suggestion RPC transport is not configured',
+            reason_code: 'transport_unavailable',
+            command_name: 'translations.suggestions.generate',
+            command_registered: true,
+            command_dispatchable: true,
+            inline_result_supported: true,
+            rpc_allowed: false,
+          },
+        },
+      });
+      assert.equal(normalized.features.suggestions.enabled, false);
+      assert.equal(normalized.features.suggestions.reason_code, 'transport_unavailable');
+      assert.equal(normalized.features.suggestions.command_registered, true);
+      assert.equal(normalized.features.suggestions.rpc_allowed, false);
     });
 
     it('should normalize core-only capabilities', () => {
