@@ -66,6 +66,7 @@ examples/web/assets/uploads/users/profile-pictures
 .taskenv
 
 docs/*
+!docs/README.md
 !docs/GUIDES_*.md
 !docs/GUIDE_*.md
 !docs/AUTH.md
