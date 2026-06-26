@@ -29,6 +29,29 @@ type ResultDispatchFactory func(ctx context.Context, payload map[string]any, ids
 
 type messageBuilder[T any] func(payload map[string]any, ids []string) (T, error)
 
+// CommandRegistrationState describes how a command name can be dispatched.
+type CommandRegistrationState struct {
+	Handler          bool
+	Factory          bool
+	Dispatcher       bool
+	ResultDispatcher bool
+}
+
+// Registered reports whether the command name is known to the command bus.
+func (s CommandRegistrationState) Registered() bool {
+	return s.Handler || s.Factory || s.Dispatcher || s.ResultDispatcher
+}
+
+// CanDispatch reports whether the command can be executed by name.
+func (s CommandRegistrationState) CanDispatch() bool {
+	return s.Handler && (s.Dispatcher || s.ResultDispatcher)
+}
+
+// SupportsInlineResult reports whether the command can return an inline result.
+func (s CommandRegistrationState) SupportsInlineResult() bool {
+	return s.Handler && s.ResultDispatcher
+}
+
 // CommandBus registers command/query handlers and dispatches by name.
 type CommandBus struct {
 	enabled           bool
@@ -37,6 +60,7 @@ type CommandBus struct {
 	factories         map[string]MessageFactory
 	dispatchers       map[string]DispatchFactory
 	resultDispatchers map[string]ResultDispatchFactory
+	handlerCommands   map[string]bool
 	executionPolicy   CommandExecutionPolicy
 }
 
@@ -47,6 +71,7 @@ func NewCommandBus(enabled bool) *CommandBus {
 		factories:         map[string]MessageFactory{},
 		dispatchers:       map[string]DispatchFactory{},
 		resultDispatchers: map[string]ResultDispatchFactory{},
+		handlerCommands:   map[string]bool{},
 		executionPolicy:   CommandExecutionPolicy{DefaultMode: command.ExecutionModeInline, PerCommand: map[string]command.ExecutionMode{}},
 	}
 }
@@ -72,6 +97,14 @@ func RegisterCommand[T any](bus *CommandBus, cmd command.Commander[T], runnerOpt
 		return nil, err
 	}
 	bus.track(sub)
+	if name := commandMessageType[T](); name != "" {
+		bus.mu.Lock()
+		if bus.handlerCommands == nil {
+			bus.handlerCommands = map[string]bool{}
+		}
+		bus.handlerCommands[name] = true
+		bus.mu.Unlock()
+	}
 	return sub, nil
 }
 
@@ -89,6 +122,14 @@ func RegisterQuery[T any, R any](bus *CommandBus, qry command.Querier[T, R], run
 	}
 	bus.track(sub)
 	return sub, nil
+}
+
+func commandMessageType[T any]() string {
+	var zero T
+	if msg, ok := any(zero).(command.Message); ok {
+		return strings.TrimSpace(msg.Type())
+	}
+	return ""
 }
 
 // RegisterFactory stores a message factory for name-based dispatch.
@@ -313,6 +354,21 @@ func (b *CommandBus) DispatchByNameWithOutcome(ctx context.Context, name string,
 	})
 }
 
+// CommandRegistration returns the registration state for name-based dispatch.
+func (b *CommandBus) CommandRegistration(name string) CommandRegistrationState {
+	if b == nil || !b.enabled || strings.TrimSpace(name) == "" {
+		return CommandRegistrationState{}
+	}
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return CommandRegistrationState{
+		Handler:          b.handlerCommands[name],
+		Factory:          b.factories[name] != nil,
+		Dispatcher:       b.dispatchers[name] != nil,
+		ResultDispatcher: b.resultDispatchers[name] != nil,
+	}
+}
+
 // SetExecutionPolicy replaces command dispatch policy for name-based dispatch.
 func (b *CommandBus) SetExecutionPolicy(policy CommandExecutionPolicy) error {
 	if b == nil {
@@ -376,6 +432,7 @@ func (b *CommandBus) Reset() {
 	b.factories = map[string]MessageFactory{}
 	b.dispatchers = map[string]DispatchFactory{}
 	b.resultDispatchers = map[string]ResultDispatchFactory{}
+	b.handlerCommands = map[string]bool{}
 	b.mu.Unlock()
 
 	for _, sub := range subs {
