@@ -2,6 +2,7 @@ package config
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"path/filepath"
 	"runtime"
@@ -213,12 +214,15 @@ type TranslationSuggestionPromptConfig struct {
 }
 
 type TranslationSuggestionOpenAIConfig struct {
-	APIKey       string        `koanf:"api_key" json:"api_key" yaml:"api_key"`
-	BaseURL      string        `koanf:"base_url" json:"base_url" yaml:"base_url"`
-	Model        string        `koanf:"model" json:"model" yaml:"model"`
-	Organization string        `koanf:"organization" json:"organization" yaml:"organization"`
-	Timeout      time.Duration `koanf:"timeout" json:"timeout" yaml:"timeout"`
-	Temperature  *float64      `koanf:"temperature" json:"temperature" yaml:"temperature"`
+	APIKey         string        `koanf:"api_key" json:"api_key" yaml:"api_key"`
+	BaseURL        string        `koanf:"base_url" json:"base_url" yaml:"base_url"`
+	Model          string        `koanf:"model" json:"model" yaml:"model"`
+	Organization   string        `koanf:"organization" json:"organization" yaml:"organization"`
+	Timeout        time.Duration `koanf:"timeout" json:"timeout" yaml:"timeout"`
+	MaxTokens      int           `koanf:"max_tokens" json:"max_tokens" yaml:"max_tokens"`
+	MaxTokensField string        `koanf:"max_tokens_field" json:"max_tokens_field" yaml:"max_tokens_field"`
+	Temperature    *float64      `koanf:"temperature" json:"temperature" yaml:"temperature"`
+	ExtraBodyJSON  string        `koanf:"extra_body_json" json:"extra_body_json" yaml:"extra_body_json"`
 }
 
 type TranslationExchangeUIConfig struct {
@@ -314,6 +318,23 @@ func (c Config) Validate() error {
 	}
 	if c.ExportPDF.Timeout <= 0 {
 		return fmt.Errorf("export_pdf.timeout must be greater than zero")
+	}
+	if c.Translation.Suggestions.OpenAI.MaxTokens < 0 {
+		return fmt.Errorf("translation.suggestions.openai.max_tokens cannot be negative")
+	}
+	switch strings.ToLower(strings.TrimSpace(c.Translation.Suggestions.OpenAI.MaxTokensField)) {
+	case "", "max_tokens", "max_completion_tokens", "none", "disabled", "off":
+	default:
+		return fmt.Errorf("translation.suggestions.openai.max_tokens_field must be max_tokens, max_completion_tokens, or none")
+	}
+	if raw := strings.TrimSpace(c.Translation.Suggestions.OpenAI.ExtraBodyJSON); raw != "" {
+		var body map[string]any
+		if err := json.Unmarshal([]byte(raw), &body); err != nil {
+			return fmt.Errorf("translation.suggestions.openai.extra_body_json must be a JSON object: %w", err)
+		}
+		if body == nil {
+			return fmt.Errorf("translation.suggestions.openai.extra_body_json must be a JSON object")
+		}
 	}
 	if c.Fiber.ReadBufferSize <= 0 {
 		return fmt.Errorf("fiber.read_buffer_size must be greater than zero")

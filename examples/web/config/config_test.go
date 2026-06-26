@@ -49,6 +49,9 @@ func TestLoadTranslationSuggestionRuntimeConfigFromEnv(t *testing.T) {
 	t.Setenv("APP_TRANSLATION__SUGGESTIONS__OPENAI__API_KEY", "local-key")
 	t.Setenv("APP_TRANSLATION__SUGGESTIONS__OPENAI__ORGANIZATION", "local-org")
 	t.Setenv("APP_TRANSLATION__SUGGESTIONS__OPENAI__TIMEOUT", "15s")
+	t.Setenv("APP_TRANSLATION__SUGGESTIONS__OPENAI__MAX_TOKENS", "128")
+	t.Setenv("APP_TRANSLATION__SUGGESTIONS__OPENAI__MAX_TOKENS_FIELD", "max_completion_tokens")
+	t.Setenv("APP_TRANSLATION__SUGGESTIONS__OPENAI__EXTRA_BODY_JSON", `{"chat_template_kwargs":{"enable_thinking":false}}`)
 	t.Setenv("APP_TRANSLATION__SUGGESTIONS__OPENAI__TEMPERATURE", "0.2")
 	t.Setenv("APP_TRANSLATION__SUGGESTIONS__PROMPT__SYSTEM_PROMPT", "Use product terminology.")
 	t.Setenv("APP_TRANSLATION__SUGGESTIONS__PROMPT__INSTRUCTION", "Return only translated text.")
@@ -76,6 +79,15 @@ func TestLoadTranslationSuggestionRuntimeConfigFromEnv(t *testing.T) {
 	if suggestions.OpenAI.Timeout != 15*time.Second {
 		t.Fatalf("expected timeout 15s, got %s", suggestions.OpenAI.Timeout)
 	}
+	if suggestions.OpenAI.MaxTokens != 128 {
+		t.Fatalf("expected max tokens 128, got %d", suggestions.OpenAI.MaxTokens)
+	}
+	if suggestions.OpenAI.MaxTokensField != "max_completion_tokens" {
+		t.Fatalf("expected max tokens field from env, got %q", suggestions.OpenAI.MaxTokensField)
+	}
+	if suggestions.OpenAI.ExtraBodyJSON != `{"chat_template_kwargs":{"enable_thinking":false}}` {
+		t.Fatalf("expected extra body json from env, got %q", suggestions.OpenAI.ExtraBodyJSON)
+	}
 	if suggestions.OpenAI.Temperature == nil || *suggestions.OpenAI.Temperature != 0.2 {
 		t.Fatalf("expected temperature 0.2, got %v", suggestions.OpenAI.Temperature)
 	}
@@ -84,6 +96,80 @@ func TestLoadTranslationSuggestionRuntimeConfigFromEnv(t *testing.T) {
 	}
 	if suggestions.Prompt.Instruction != "Return only translated text." {
 		t.Fatalf("expected prompt instruction from env, got %q", suggestions.Prompt.Instruction)
+	}
+}
+
+func TestLoadTranslationSuggestionOpenAIExtraBodyFromConfig(t *testing.T) {
+	dir := t.TempDir()
+	configPath := filepath.Join(dir, "app.json")
+	if err := os.WriteFile(configPath, []byte(`{
+  "translation": {
+    "suggestions": {
+      "enabled": true,
+      "provider": "lm-studio",
+      "openai": {
+        "base_url": "http://127.0.0.1:1234/v1",
+        "model": "local-model",
+        "max_tokens": 96,
+        "extra_body_json": "{\"chat_template_kwargs\":{\"enable_thinking\":false}}"
+      }
+    }
+  }
+}`), 0o600); err != nil {
+		t.Fatalf("write config fixture: %v", err)
+	}
+
+	cfg, _, err := Load(context.Background(), configPath)
+	if err != nil {
+		t.Fatalf("load config: %v", err)
+	}
+	if cfg.Translation.Suggestions.OpenAI.ExtraBodyJSON != `{"chat_template_kwargs":{"enable_thinking":false}}` {
+		t.Fatalf("expected extra_body_json from config, got %q", cfg.Translation.Suggestions.OpenAI.ExtraBodyJSON)
+	}
+	if cfg.Translation.Suggestions.OpenAI.MaxTokens != 96 {
+		t.Fatalf("expected max_tokens from config, got %d", cfg.Translation.Suggestions.OpenAI.MaxTokens)
+	}
+}
+
+func TestLoadTranslationSuggestionOpenAIRejectsInvalidExtraBodyJSON(t *testing.T) {
+	dir := t.TempDir()
+	configPath := filepath.Join(dir, "app.json")
+	if err := os.WriteFile(configPath, []byte(`{
+  "translation": {
+    "suggestions": {
+      "openai": {
+        "extra_body_json": "[1,2,3]"
+      }
+    }
+  }
+}`), 0o600); err != nil {
+		t.Fatalf("write config fixture: %v", err)
+	}
+
+	_, _, err := Load(context.Background(), configPath)
+	if err == nil {
+		t.Fatalf("expected invalid extra_body_json to fail validation")
+	}
+}
+
+func TestLoadTranslationSuggestionOpenAIRejectsInvalidMaxTokensField(t *testing.T) {
+	dir := t.TempDir()
+	configPath := filepath.Join(dir, "app.json")
+	if err := os.WriteFile(configPath, []byte(`{
+  "translation": {
+    "suggestions": {
+      "openai": {
+        "max_tokens_field": "bad_field"
+      }
+    }
+  }
+}`), 0o600); err != nil {
+		t.Fatalf("write config fixture: %v", err)
+	}
+
+	_, _, err := Load(context.Background(), configPath)
+	if err == nil {
+		t.Fatalf("expected invalid max_tokens_field to fail validation")
 	}
 }
 

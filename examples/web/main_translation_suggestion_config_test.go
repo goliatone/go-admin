@@ -57,6 +57,12 @@ func TestBuildExampleTranslationSuggestionServiceAllowsLocalLMStudioWithoutExpli
 			Model:       "local-model",
 			Timeout:     10 * time.Second,
 			Temperature: &temp,
+			MaxTokens:   96,
+			ExtraBodyJSON: `{
+				"chat_template_kwargs": {
+					"enable_thinking": false
+				}
+			}`,
 		},
 	}, true)
 	if reason != "" {
@@ -64,6 +70,24 @@ func TestBuildExampleTranslationSuggestionServiceAllowsLocalLMStudioWithoutExpli
 	}
 	if service == nil {
 		t.Fatalf("expected configured suggestion service")
+	}
+}
+
+func TestBuildExampleTranslationSuggestionServiceRejectsInvalidExtraBodyJSON(t *testing.T) {
+	service, reason := buildExampleTranslationSuggestionService(appcfg.TranslationSuggestionRuntimeConfig{
+		Enabled:  true,
+		Provider: "lm-studio",
+		OpenAI: appcfg.TranslationSuggestionOpenAIConfig{
+			BaseURL:       "http://127.0.0.1:1234/v1",
+			Model:         "local-model",
+			ExtraBodyJSON: "[1,2,3]",
+		},
+	}, true)
+	if service != nil {
+		t.Fatalf("expected nil service for invalid extra_body_json")
+	}
+	if reason == "" {
+		t.Fatalf("expected invalid extra_body_json reason")
 	}
 }
 

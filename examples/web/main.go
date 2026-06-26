@@ -1333,7 +1333,13 @@ func main() {
 	if err := quickstart.RegisterSettingsUIRoutes(adminUI, cfg, adm, protectedAuthn); err != nil {
 		fatalf("failed to register settings UI routes: %v", err)
 	}
-	if err := quickstart.RegisterContentTypeBuilderUIRoutes(adminUI, cfg, adm, protectedAuthn); err != nil {
+	if err := quickstart.RegisterContentTypeBuilderUIRoutes(
+		adminUI,
+		cfg,
+		adm,
+		protectedAuthn,
+		quickstart.WithContentTypeBuilderUIStaticAssetOptions(cfg, staticAssetOptions...),
+	); err != nil {
 		fatalf("failed to register content type builder UI routes: %v", err)
 	}
 	if err := quickstart.RegisterContentTypeBuilderAPIRoutes(adminAPI, cfg, adm, protectedAuthn); err != nil {
@@ -2293,16 +2299,27 @@ func buildExampleTranslationSuggestionService(
 	if apiKey == "" {
 		return nil, "translation.suggestions.openai.api_key is required"
 	}
+	timeout := cfg.OpenAI.Timeout
+	if timeout <= 0 && translationSuggestionBaseURLLooksLocal(cfg.OpenAI.BaseURL) {
+		timeout = 90 * time.Second
+	}
+	extraBody, extraBodyErr := parseTranslationSuggestionOpenAIExtraBody(cfg.OpenAI.ExtraBodyJSON)
+	if extraBodyErr != "" {
+		return nil, extraBodyErr
+	}
 
 	options := []translationai.Option{
 		translationai.WithOpenAIProvider(translationai.OpenAIConfig{
-			APIKey:       apiKey,
-			BaseURL:      strings.TrimSpace(cfg.OpenAI.BaseURL),
-			Model:        model,
-			Organization: strings.TrimSpace(cfg.OpenAI.Organization),
-			Timeout:      cfg.OpenAI.Timeout,
-			Temperature:  cfg.OpenAI.Temperature,
-			SystemPrompt: strings.TrimSpace(cfg.Prompt.SystemPrompt),
+			APIKey:         apiKey,
+			BaseURL:        strings.TrimSpace(cfg.OpenAI.BaseURL),
+			Model:          model,
+			Organization:   strings.TrimSpace(cfg.OpenAI.Organization),
+			Timeout:        timeout,
+			MaxTokens:      cfg.OpenAI.MaxTokens,
+			MaxTokensField: strings.TrimSpace(cfg.OpenAI.MaxTokensField),
+			Temperature:    cfg.OpenAI.Temperature,
+			SystemPrompt:   strings.TrimSpace(cfg.Prompt.SystemPrompt),
+			ExtraBody:      extraBody,
 		}),
 		translationai.WithDefaultModel(model),
 		translationai.WithEligibility(coreadmin.TranslationSuggestionAllowAllEligibility{}),
@@ -2314,6 +2331,21 @@ func buildExampleTranslationSuggestionService(
 		}))
 	}
 	return translationai.NewService(options...), ""
+}
+
+func parseTranslationSuggestionOpenAIExtraBody(raw string) (map[string]any, string) {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return nil, ""
+	}
+	var body map[string]any
+	if err := json.Unmarshal([]byte(trimmed), &body); err != nil {
+		return nil, fmt.Sprintf("translation.suggestions.openai.extra_body_json must be a JSON object: %v", err)
+	}
+	if body == nil {
+		return nil, "translation.suggestions.openai.extra_body_json must be a JSON object"
+	}
+	return primitives.CloneAnyMapNilOnEmpty(body), ""
 }
 
 func translationSuggestionRPCTransportEnabled(cfg quickstart.TranslationProductConfig) bool {
