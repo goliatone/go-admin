@@ -75,6 +75,7 @@ func (m *FeatureFlagsModule) MenuItems(locale string) []MenuItem {
 	}
 	return []MenuItem{
 		{
+			ID:          featureFlagsModuleID,
 			Label:       "Feature Flags",
 			LabelKey:    "menu.feature_flags",
 			Icon:        "switch-on",
