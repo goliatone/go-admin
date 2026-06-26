@@ -473,6 +473,7 @@ func (m *UserManagementModule) MenuItems(locale string) []MenuItem {
 	rolesPath := resolveURLWith(m.urls, group, usersRolesRouteKey, nil, nil)
 	items := []MenuItem{
 		{
+			ID:          usersModuleID,
 			Label:       "Users",
 			LabelKey:    "menu.users",
 			Icon:        "group",
@@ -484,6 +485,7 @@ func (m *UserManagementModule) MenuItems(locale string) []MenuItem {
 			ParentID:    m.menuParent,
 		},
 		{
+			ID:          rolesPanelID,
 			Label:       "Roles",
 			LabelKey:    "menu.roles",
 			Icon:        "shield",
@@ -498,6 +500,7 @@ func (m *UserManagementModule) MenuItems(locale string) []MenuItem {
 	if m.enableUserProfilesPanel {
 		profilesPath := resolveURLWith(m.urls, group, usersProfilesRouteKey, nil, nil)
 		items = append(items, MenuItem{
+			ID:          userProfilesPanelID,
 			Label:       "User Profiles",
 			LabelKey:    "menu.user_profiles",
 			Icon:        "user-circle",
