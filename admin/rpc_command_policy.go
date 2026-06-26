@@ -139,6 +139,16 @@ func (c RPCCommandConfig) ResolveRule(commandName string) (RPCCommandRule, bool)
 	}, true
 }
 
+// DefaultTranslationSuggestionRPCCommandRule returns the default RPC exposure
+// rule for translation suggestion generation.
+func DefaultTranslationSuggestionRPCCommandRule() RPCCommandRule {
+	return RPCCommandRule{
+		Permission:     PermAdminTranslationsSuggest,
+		Resource:       "translations",
+		PermissionMode: RPCCommandPermissionModeResourceRole,
+	}
+}
+
 func normalizeRPCCommandPermissionMode(mode, fallback RPCCommandPermissionMode) (RPCCommandPermissionMode, error) {
 	value := strings.ToLower(strings.TrimSpace(string(mode)))
 	if value == "" {
