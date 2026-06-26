@@ -15,6 +15,7 @@ import (
 
 	translationcore "github.com/goliatone/go-admin/translations/core"
 	translationservices "github.com/goliatone/go-admin/translations/services"
+	gocommand "github.com/goliatone/go-command"
 	router "github.com/goliatone/go-router"
 )
 
@@ -355,54 +356,56 @@ func (b *translationQueueBinding) assignmentDetailPayload(ctx context.Context, a
 	fieldCompleteness := translationEditorFieldCompleteness(editorCtx)
 	fieldDrift := translationEditorFieldDrift(editorCtx)
 	fieldValidations := translationEditorFieldValidations(editorCtx)
-	fields := translationEditorFieldPayloads(editorCtx)
+	suggestAction := b.assignmentSuggestTranslationAction(ctx, assignment, editorCtx)
+	fields := b.translationEditorFieldPayloads(ctx, assignment, editorCtx)
 	comments, events := translationEditorTimeline(editorCtx, assignment)
 	attachments := translationEditorAttachments(editorCtx)
 	reviewFeedback := translationEditorReviewFeedbackPayload(assignment, comments)
 
 	payload := map[string]any{
-		"assignment_id":            strings.TrimSpace(assignment.ID),
-		"assignment_row_version":   assignment.Version,
-		"assignment_version":       assignment.Version,
-		"family_id":                strings.TrimSpace(editorCtx.Family.ID),
-		"variant_id":               strings.TrimSpace(editorCtx.TargetVariant.ID),
-		"entity_type":              strings.TrimSpace(editorCtx.Family.ContentType),
-		"source_locale":            strings.TrimSpace(editorCtx.SourceVariant.Locale),
-		"target_locale":            strings.TrimSpace(assignment.TargetLocale),
-		"status":                   normalizeTranslationQueueState(string(assignment.Status)),
-		"priority":                 strings.TrimSpace(string(assignment.Priority)),
-		"row_version":              editorCtx.TargetRowVersion,
-		"version":                  editorCtx.TargetRowVersion,
-		"source_record_id":         strings.TrimSpace(editorCtx.SourceRecordID),
-		"target_record_id":         strings.TrimSpace(editorCtx.TargetRecordID),
-		"source_variant":           cloneFamilyVariantPayload(editorCtx.SourceVariant),
-		"target_variant":           cloneFamilyVariantPayload(editorCtx.TargetVariant),
-		"source_fields":            cloneStringMap(editorCtx.SourceFields),
-		"target_fields":            cloneStringMap(editorCtx.TargetFields),
-		"fields":                   fields,
-		"field_completeness":       fieldCompleteness,
-		"field_drift":              fieldDrift,
-		"field_validations":        fieldValidations,
-		"source_target_drift":      translationEditorDriftPayload(editorCtx),
-		"actions":                  editorActions,
-		"editor_actions":           editorActions,
-		"assignment_action_states": editorActions,
-		"review_actions":           b.reviewActionStates(ctx, assignment),
-		"review_action_states":     b.reviewActionStates(ctx, assignment),
-		"comments":                 comments,
-		"events":                   events,
-		"history":                  translationEditorHistoryPayload(comments, events, historyPage, historyPerPage),
-		"attachments":              attachments,
-		"attachment_summary":       translationEditorAttachmentSummary(attachments),
-		"review_feedback":          reviewFeedback,
-		"last_rejection_reason":    strings.TrimSpace(assignment.LastRejectionReason),
-		"qa_results":               b.translationQAResults(editorCtx),
-		"assist":                   translationEditorAssistPayload(ctx, b, editorCtx),
-		"glossary_matches":         translationEditorGlossaryMatches(editorCtx),
-		"style_guide_summary":      translationEditorStyleGuideSummary(editorCtx),
-		"translation_assignment":   row,
-		"locale_navigation":        b.translationEditorLocaleNavigationPayload(editorCtx, assignment),
-		"preview_action":           b.assignmentPreviewAction(AdminContext{Context: ctx}, assignment, editorCtx, false),
+		"assignment_id":              strings.TrimSpace(assignment.ID),
+		"assignment_row_version":     assignment.Version,
+		"assignment_version":         assignment.Version,
+		"family_id":                  strings.TrimSpace(editorCtx.Family.ID),
+		"variant_id":                 strings.TrimSpace(editorCtx.TargetVariant.ID),
+		"entity_type":                strings.TrimSpace(editorCtx.Family.ContentType),
+		"source_locale":              strings.TrimSpace(editorCtx.SourceVariant.Locale),
+		"target_locale":              strings.TrimSpace(assignment.TargetLocale),
+		"status":                     normalizeTranslationQueueState(string(assignment.Status)),
+		"priority":                   strings.TrimSpace(string(assignment.Priority)),
+		"row_version":                editorCtx.TargetRowVersion,
+		"version":                    editorCtx.TargetRowVersion,
+		"source_record_id":           strings.TrimSpace(editorCtx.SourceRecordID),
+		"target_record_id":           strings.TrimSpace(editorCtx.TargetRecordID),
+		"source_variant":             cloneFamilyVariantPayload(editorCtx.SourceVariant),
+		"target_variant":             cloneFamilyVariantPayload(editorCtx.TargetVariant),
+		"source_fields":              cloneStringMap(editorCtx.SourceFields),
+		"target_fields":              cloneStringMap(editorCtx.TargetFields),
+		"fields":                     fields,
+		"field_completeness":         fieldCompleteness,
+		"field_drift":                fieldDrift,
+		"field_validations":          fieldValidations,
+		"source_target_drift":        translationEditorDriftPayload(editorCtx),
+		"actions":                    editorActions,
+		"editor_actions":             editorActions,
+		"assignment_action_states":   editorActions,
+		"suggest_translation_action": suggestAction,
+		"review_actions":             b.reviewActionStates(ctx, assignment),
+		"review_action_states":       b.reviewActionStates(ctx, assignment),
+		"comments":                   comments,
+		"events":                     events,
+		"history":                    translationEditorHistoryPayload(comments, events, historyPage, historyPerPage),
+		"attachments":                attachments,
+		"attachment_summary":         translationEditorAttachmentSummary(attachments),
+		"review_feedback":            reviewFeedback,
+		"last_rejection_reason":      strings.TrimSpace(assignment.LastRejectionReason),
+		"qa_results":                 b.translationQAResults(editorCtx),
+		"assist":                     translationEditorAssistPayload(ctx, b, editorCtx),
+		"glossary_matches":           translationEditorGlossaryMatches(editorCtx),
+		"style_guide_summary":        translationEditorStyleGuideSummary(editorCtx),
+		"translation_assignment":     row,
+		"locale_navigation":          b.translationEditorLocaleNavigationPayload(editorCtx, assignment),
+		"preview_action":             b.assignmentPreviewAction(AdminContext{Context: ctx}, assignment, editorCtx, false),
 	}
 	if assignment.DueDate != nil {
 		payload["due_date"] = assignment.DueDate
@@ -703,7 +706,7 @@ func (b *translationQueueBinding) assignmentEditorActionStates(ctx context.Conte
 	return actions
 }
 
-func translationEditorFieldPayloads(editorCtx translationEditorContext) []map[string]any {
+func (b *translationQueueBinding) translationEditorFieldPayloads(ctx context.Context, assignment TranslationAssignment, editorCtx translationEditorContext) []map[string]any {
 	fieldCompleteness := translationEditorFieldCompleteness(editorCtx)
 	fieldDrift := translationEditorFieldDrift(editorCtx)
 	fieldValidations := translationEditorFieldValidations(editorCtx)
@@ -724,9 +727,145 @@ func translationEditorFieldPayloads(editorCtx translationEditorContext) []map[st
 			"has_assist":    len(translationEditorGlossaryMatchesForField(editorCtx, path)) > 0,
 			"glossary_hits": translationEditorGlossaryMatchesForField(editorCtx, path),
 		}
+		entry["suggest_translation_action"] = b.fieldSuggestTranslationAction(ctx, assignment, editorCtx, path)
 		out = append(out, entry)
 	}
 	return out
+}
+
+func (b *translationQueueBinding) assignmentSuggestTranslationAction(ctx context.Context, assignment TranslationAssignment, editorCtx translationEditorContext) map[string]any {
+	executionMode := translationSuggestionEditorExecutionMode(b)
+	commandRegistration := CommandRegistrationState{}
+	if b != nil {
+		commandRegistration = translationSuggestionCommandRegistration(b.admin)
+	}
+	base := map[string]any{
+		"enabled":                 false,
+		"assignment_id":           strings.TrimSpace(assignment.ID),
+		"permission":              PermAdminTranslationsSuggest,
+		"command_name":            TranslationSuggestionGenerateCommandName,
+		"command_registered":      commandRegistration.Registered(),
+		"command_dispatchable":    commandRegistration.CanDispatch(),
+		"inline_result_supported": commandRegistration.SupportsInlineResult(),
+		"transport":               "rpc",
+		"rpc_method":              RPCMethodCommandDispatch,
+	}
+	if executionMode != "" {
+		base["execution_mode"] = executionMode
+	}
+	if b != nil && b.admin != nil {
+		apiBase := strings.TrimRight(strings.TrimSpace(b.admin.AdminAPIBasePath()), "/")
+		if apiBase != "" {
+			base["endpoint"] = apiBase + "/rpc"
+			base["rpc_invoke_path"] = apiBase + "/rpc"
+		}
+	}
+	if strings.TrimSpace(editorCtx.Environment) != "" {
+		base["channel"] = strings.TrimSpace(editorCtx.Environment)
+		base["environment"] = strings.TrimSpace(editorCtx.Environment)
+	}
+	disabled := func(reasonCode, reason string) map[string]any {
+		out := maps.Clone(base)
+		out["reason_code"] = strings.TrimSpace(reasonCode)
+		out["reason"] = strings.TrimSpace(reason)
+		return out
+	}
+	if b == nil || b.admin == nil || b.admin.TranslationSuggestionService() == nil {
+		return disabled(TranslationSuggestionReasonServiceUnavailable, "Translation suggestion service is not configured.")
+	}
+	if _, ok := b.admin.config.Commands.RPC.ResolveRule(TranslationSuggestionGenerateCommandName); !ok {
+		return disabled("transport_unavailable", "Translation suggestion RPC transport is not configured.")
+	}
+	if !commandRegistration.Registered() {
+		return disabled("command_unavailable", "Translation suggestion command is not registered.")
+	}
+	if !commandRegistration.SupportsInlineResult() {
+		return disabled("command_result_unavailable", "Translation suggestion command does not support inline results.")
+	}
+	if executionMode != "" && executionMode != string(gocommand.ExecutionModeInline) {
+		return disabled("execution_mode_unsupported", "Translation suggestion generation requires inline command execution in the editor.")
+	}
+	if !translationSuggestionEditableStatus(assignment.Status) {
+		return disabled(TranslationSuggestionReasonReadOnlyAssignment, "Translation suggestion is unavailable for this assignment state.")
+	}
+	if !permissionAllowed(b.admin.authorizer, ctx, PermAdminTranslationsSuggest, "translations") {
+		return disabled(TranslationSuggestionReasonPermissionDenied, "Translation suggestion permission is required.")
+	}
+	out := maps.Clone(base)
+	out["enabled"] = true
+	return out
+}
+
+func translationSuggestionEditorExecutionMode(b *translationQueueBinding) string {
+	if b == nil || b.admin == nil || b.admin.Commands() == nil {
+		return string(gocommand.ExecutionModeInline)
+	}
+	mode, err := resolveDispatchModeForCommand(
+		TranslationSuggestionGenerateCommandName,
+		"",
+		b.admin.Commands().ExecutionPolicy(),
+	)
+	if err != nil {
+		return ""
+	}
+	mode = gocommand.NormalizeExecutionMode(mode)
+	if mode == "" {
+		mode = gocommand.ExecutionModeInline
+	}
+	return strings.TrimSpace(string(mode))
+}
+
+func (b *translationQueueBinding) fieldSuggestTranslationAction(ctx context.Context, assignment TranslationAssignment, editorCtx translationEditorContext, fieldPath string) map[string]any {
+	base := b.assignmentSuggestTranslationAction(ctx, assignment, editorCtx)
+	fieldPath = strings.TrimSpace(fieldPath)
+	base["field_path"] = fieldPath
+	base["payload"] = map[string]any{
+		"assignment_id": strings.TrimSpace(assignment.ID),
+		"field_path":    fieldPath,
+	}
+	if enabled, _ := base["enabled"].(bool); !enabled {
+		return base
+	}
+	if _, ok := editorCtx.SourceFields[fieldPath]; !ok {
+		base["enabled"] = false
+		base["reason_code"] = TranslationSuggestionReasonFieldUnsupported
+		base["reason"] = "Translation suggestion is unavailable for this field."
+		return base
+	}
+	if strings.TrimSpace(editorCtx.SourceFields[fieldPath]) == "" {
+		base["enabled"] = false
+		base["reason_code"] = TranslationSuggestionReasonEmptySource
+		base["reason"] = "Translation suggestion is unavailable for an empty source field."
+		return base
+	}
+	service := b.admin.TranslationSuggestionService()
+	evaluator, ok := service.(TranslationSuggestionActionEvaluator)
+	if !ok || evaluator == nil {
+		return base
+	}
+	loaded := translationSuggestionContextFromEditor(assignment, editorCtx)
+	decision, err := evaluator.EvaluateTranslationSuggestionAction(ctx, TranslationSuggestionInput{
+		AssignmentID: strings.TrimSpace(assignment.ID),
+		FieldPath:    fieldPath,
+		ActorID:      strings.TrimSpace(actorFromContext(ctx)),
+		TenantID:     strings.TrimSpace(firstNonEmpty(assignment.TenantID, tenantIDFromContext(ctx))),
+		OrgID:        strings.TrimSpace(firstNonEmpty(assignment.OrgID, orgIDFromContext(ctx))),
+		Channel:      strings.TrimSpace(editorCtx.Environment),
+		Environment:  strings.TrimSpace(editorCtx.Environment),
+	}, loaded)
+	if err != nil {
+		base["enabled"] = false
+		base["reason_code"] = TranslationSuggestionReasonPolicyDenied
+		base["reason"] = "Translation suggestion availability could not be evaluated."
+		return base
+	}
+	decision = normalizeTranslationSuggestionDecision(decision)
+	if !decision.Allowed {
+		base["enabled"] = false
+		base["reason_code"] = decision.ReasonCode
+		base["reason"] = decision.Reason
+	}
+	return base
 }
 
 func translationEditorFieldCompleteness(editorCtx translationEditorContext) map[string]any {
