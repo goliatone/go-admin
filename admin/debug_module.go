@@ -210,6 +210,7 @@ func (m *DebugModule) MenuItems(locale string) []MenuItem {
 	}
 	return []MenuItem{
 		{
+			ID:          debugModuleID,
 			Label:       "Debug",
 			LabelKey:    "menu.debug",
 			Icon:        "bug",
