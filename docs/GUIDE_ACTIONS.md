@@ -9,6 +9,9 @@ bindings, see `docs/GUIDE_WORKFLOW.md`.
 For custom page commands that use the shared RPC transport instead of canonical
 panel action routes, see `docs/GUIDE_RPC.md`.
 
+For the broader frontend reuse and server-command decision path, see
+`docs/GUIDE_FRONTEND.md`.
+
 It covers:
 
 - backend authoring with `Action.Guard`, `WithActionStateResolver(...)`, and

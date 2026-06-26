@@ -7,7 +7,9 @@ using workflow authoring RPC endpoints.
 Use it when replacing custom command endpoints, exposing admin commands to the
 client runtime, or enabling workflow authoring over the shared RPC transport.
 For panel CRUD and canonical panel action routes, see `docs/GUIDE_CRUD.md`. For
-workflow/state-machine behavior, see `docs/GUIDE_WORKFLOW.md`.
+workflow/state-machine behavior, see `docs/GUIDE_WORKFLOW.md`. For choosing
+between DataGrid actions, enhanced SSR actions, RPC, and sync, see
+`docs/GUIDE_FRONTEND.md`.
 
 ## What It Provides
 

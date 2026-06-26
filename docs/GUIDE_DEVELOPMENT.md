@@ -37,10 +37,15 @@ High-level areas:
 - `pkg/client/`: frontend assets and templates.
 - `docs/`: design docs, guides, and task plans.
 
-Useful references:
+Documentation entry point:
+
+- `docs/README.md`
+
+Common references:
 
 - `README.md`
 - `quickstart/README.md`
+- `docs/GUIDE_FRONTEND.md`
 - `docs/GUIDE_CRUD.md`
 - `docs/GUIDE_SEARCH.md`
 - `docs/GUIDE_THEME.md`

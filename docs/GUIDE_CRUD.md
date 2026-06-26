@@ -5,6 +5,8 @@ DataGrid screens, and command actions attached to rows and bulk selection. For
 workflow/state-machine details, see `docs/GUIDE_WORKFLOW.md`. For full form
 generation and go-formgen customization details, see `docs/GUIDE_FORMGEN.md`.
 For RPC transport and custom page command dispatch, see `docs/GUIDE_RPC.md`.
+For the broader frontend reuse and server-command decision path, see
+`docs/GUIDE_FRONTEND.md`.
 
 Use it when adding a new admin resource or when replacing custom list/action
 code with the shared panel contracts.

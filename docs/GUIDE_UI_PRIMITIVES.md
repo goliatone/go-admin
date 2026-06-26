@@ -2,6 +2,9 @@
 
 This guide documents reusable UI primitives available in go-admin for building consistent admin interfaces.
 
+For the broader frontend reuse and server-command decision path, see
+`docs/GUIDE_FRONTEND.md`.
+
 The primitives are meant to:
 
 - Provide a consistent visual language across admin pages
