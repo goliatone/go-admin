@@ -580,6 +580,35 @@ func TestTranslationEditorAssignmentDetailSuggestionActionEnabled(t *testing.T) 
 	}
 }
 
+func TestTranslationEditorAssignmentDetailSuggestionActionEnabledForEditableNonInProgressStates(t *testing.T) {
+	for _, status := range []AssignmentStatus{AssignmentStatusAssigned, AssignmentStatusChangesRequested} {
+		t.Run(string(status), func(t *testing.T) {
+			fixture := newTranslationEditorTestFixture(t, translationEditorTestFixtureOptions{
+				AssignmentStatus: status,
+				Permissions:      map[string]bool{PermAdminTranslationsSuggest: true},
+			})
+			service := editorSuggestionActionService{
+				decision: TranslationSuggestionDecision{Allowed: true},
+			}
+			fixture.admin.WithTranslationSuggestionService(service)
+			registerEditorSuggestionCommand(t, fixture.admin, service)
+			fixture.admin.config.Commands.RPC.Commands = map[string]RPCCommandRule{
+				TranslationSuggestionGenerateCommandName: DefaultTranslationSuggestionRPCCommandRule(),
+			}
+
+			statusCode, payload := doTranslationEditorJSONRequest(t, fixture.app, http.MethodGet, "/admin/api/translations/assignments/"+fixture.assignmentID+"?channel=production&tenant_id=tenant-1&org_id=org-1", nil)
+			if statusCode != http.StatusOK {
+				t.Fatalf("status=%d want=200 payload=%+v", statusCode, payload)
+			}
+			title := translationEditorFieldByPath(t, extractMap(payload["data"]), "title")
+			fieldAction := extractMap(title["suggest_translation_action"])
+			if enabled := toBool(fieldAction["enabled"]); !enabled {
+				t.Fatalf("expected %s suggestion action enabled, got %+v", status, fieldAction)
+			}
+		})
+	}
+}
+
 func TestTranslationEditorAssignmentDetailSuggestionActionDisabledWithoutCommandRegistration(t *testing.T) {
 	fixture := newTranslationEditorTestFixture(t, translationEditorTestFixtureOptions{
 		Permissions: map[string]bool{PermAdminTranslationsSuggest: true},

@@ -3,11 +3,25 @@ package quickstart
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/goliatone/go-admin/admin"
 	gocommand "github.com/goliatone/go-command"
 )
+
+func requireTranslationSuggestionCapabilities(t testing.TB, caps map[string]any) map[string]any {
+	t.Helper()
+	features, ok := caps["features"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected translation capabilities features map, got %#v", caps["features"])
+	}
+	suggestions, ok := features["suggestions"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected translation suggestion capabilities map, got %#v", features["suggestions"])
+	}
+	return suggestions
+}
 
 func TestWithTranslationQueueConfigSetsFeatureDefault(t *testing.T) {
 	opts := &adminOptions{}
@@ -96,7 +110,7 @@ func TestNewAdminTranslationQueueEnabledRegistersPanelCommandsAndPermissions(t *
 	}
 }
 
-func TestNewAdminTranslationQueueRegistersSuggestionServiceCommandAndRPCRule(t *testing.T) {
+func TestNewAdminTranslationQueueRegistersSuggestionServiceCommandWithoutRPCTransportRule(t *testing.T) {
 	cleanupGlobalCommandRegistry(t)
 
 	repo := admin.NewInMemoryTranslationAssignmentRepository()
@@ -139,10 +153,122 @@ func TestNewAdminTranslationQueueRegistersSuggestionServiceCommandAndRPCRule(t *
 	}
 
 	caps := admin.TranslationCapabilities(adm)
-	features, _ := caps["features"].(map[string]any)
-	suggestions, _ := features["suggestions"].(map[string]any)
-	if rpcAllowed, _ := suggestions["rpc_allowed"].(bool); !rpcAllowed {
-		t.Fatalf("expected quickstart to seed suggestion RPC rule, got %+v", suggestions)
+	suggestions := requireTranslationSuggestionCapabilities(t, caps)
+	rpcAllowed, ok := suggestions["rpc_allowed"].(bool)
+	if !ok {
+		t.Fatalf("expected boolean rpc_allowed capability, got %#v", suggestions["rpc_allowed"])
+	}
+	if rpcAllowed {
+		t.Fatalf("expected suggestion RPC to stay unavailable without mounted transport, got %+v", suggestions)
+	}
+	if got := suggestions["reason_code"]; got != "transport_unavailable" {
+		t.Fatalf("expected transport_unavailable without mounted transport, got %+v", suggestions)
+	}
+}
+
+func TestNewAdminTranslationQueueAddsSuggestionRPCRuleWhenTransportEnabled(t *testing.T) {
+	cleanupGlobalCommandRegistry(t)
+
+	repo := admin.NewInMemoryTranslationAssignmentRepository()
+	cfg := NewAdminConfig("", "", "")
+	adm, _, err := NewAdmin(cfg, AdapterHooks{},
+		WithTranslationQueueConfig(TranslationQueueConfig{
+			Enabled:           true,
+			Repository:        repo,
+			SupportedLocales:  []string{"en", "es"},
+			SuggestionService: &quickstartTranslationSuggestionService{},
+		}),
+		WithRPCTransport(RPCTransportConfig{Enabled: true}),
+	)
+	if err != nil {
+		t.Fatalf("NewAdmin error: %v", err)
+	}
+	if adm.Commands() != nil {
+		t.Cleanup(adm.Commands().Reset)
+	}
+
+	caps := admin.TranslationCapabilities(adm)
+	suggestions := requireTranslationSuggestionCapabilities(t, caps)
+	rpcAllowed, ok := suggestions["rpc_allowed"].(bool)
+	if !ok {
+		t.Fatalf("expected boolean rpc_allowed capability, got %#v", suggestions["rpc_allowed"])
+	}
+	if !rpcAllowed {
+		t.Fatalf("expected quickstart to seed suggestion RPC rule when transport is enabled, got %+v", suggestions)
+	}
+}
+
+func TestQuickstartTranslationCapabilitiesPreserveSuggestionFeatureMetadata(t *testing.T) {
+	cleanupGlobalCommandRegistry(t)
+
+	repo := admin.NewInMemoryTranslationAssignmentRepository()
+	cfg := NewAdminConfig("", "", "")
+	adm, _, err := NewAdmin(cfg, AdapterHooks{},
+		WithTranslationQueueConfig(TranslationQueueConfig{
+			Enabled:           true,
+			Repository:        repo,
+			SupportedLocales:  []string{"en", "es"},
+			SuggestionService: &quickstartTranslationSuggestionService{},
+		}),
+		WithRPCTransport(RPCTransportConfig{Enabled: true}),
+	)
+	if err != nil {
+		t.Fatalf("NewAdmin error: %v", err)
+	}
+	if adm.Commands() != nil {
+		t.Cleanup(adm.Commands().Reset)
+	}
+
+	caps := TranslationCapabilities(adm)
+	suggestions := requireTranslationSuggestionCapabilities(t, caps)
+	enabled, ok := suggestions["enabled"].(bool)
+	if !ok || !enabled {
+		t.Fatalf("expected quickstart capabilities to preserve enabled suggestion metadata, got %+v", suggestions)
+	}
+	if got := strings.TrimSpace(toString(suggestions["command_name"])); got != admin.TranslationSuggestionGenerateCommandName {
+		t.Fatalf("expected suggestion command metadata %q, got %q in %+v", admin.TranslationSuggestionGenerateCommandName, got, suggestions)
+	}
+	rpcAllowed, ok := suggestions["rpc_allowed"].(bool)
+	if !ok || !rpcAllowed {
+		t.Fatalf("expected quickstart capabilities to preserve suggestion RPC metadata, got %+v", suggestions)
+	}
+}
+
+func TestNewAdminTranslationQueuePreservesExplicitRPCCommandAllowlist(t *testing.T) {
+	cleanupGlobalCommandRegistry(t)
+
+	repo := admin.NewInMemoryTranslationAssignmentRepository()
+	cfg := NewAdminConfig("", "", "")
+	adm, _, err := NewAdmin(cfg, AdapterHooks{},
+		WithTranslationQueueConfig(TranslationQueueConfig{
+			Enabled:           true,
+			Repository:        repo,
+			SupportedLocales:  []string{"en", "es"},
+			SuggestionService: &quickstartTranslationSuggestionService{},
+		}),
+		WithRPCTransport(RPCTransportConfig{
+			Enabled:      true,
+			CommandRules: map[string]admin.RPCCommandRule{},
+		}),
+	)
+	if err != nil {
+		t.Fatalf("NewAdmin error: %v", err)
+	}
+	if adm.Commands() != nil {
+		t.Cleanup(adm.Commands().Reset)
+	}
+
+	caps := admin.TranslationCapabilities(adm)
+	suggestions := requireTranslationSuggestionCapabilities(t, caps)
+	rpcAllowed, ok := suggestions["rpc_allowed"].(bool)
+	if !ok {
+		t.Fatalf("expected boolean rpc_allowed capability, got %#v", suggestions["rpc_allowed"])
+	}
+	if rpcAllowed {
+		t.Fatalf("expected explicit RPC allowlist to keep suggestion RPC unavailable, got %+v", suggestions)
+	}
+	if got := suggestions["reason_code"]; got != "transport_unavailable" {
+		t.Fatalf("expected transport_unavailable with explicit allowlist missing suggestion command, got %+v", suggestions)
 	}
 }
 
@@ -189,6 +315,50 @@ func TestNewAdminTranslationQueueConfiguresSuggestionServiceDependencies(t *test
 	}
 	if suggestionSvc.deps.Resource != "translation-suggestions" {
 		t.Fatalf("expected custom suggestion resource, got %q", suggestionSvc.deps.Resource)
+	}
+}
+
+func TestTranslationQueueSuggestionServiceDependenciesRebindAfterLateAuthorizer(t *testing.T) {
+	cleanupGlobalCommandRegistry(t)
+
+	repo := admin.NewInMemoryTranslationAssignmentRepository()
+	suggestionSvc := &quickstartConfigurableTranslationSuggestionService{}
+	cfg := NewAdminConfig("", "", "")
+	adm, _, err := NewAdmin(cfg, AdapterHooks{},
+		WithTranslationQueueConfig(TranslationQueueConfig{
+			Enabled:           true,
+			Repository:        repo,
+			SupportedLocales:  []string{"en", "es"},
+			SuggestionService: suggestionSvc,
+		}),
+	)
+	if err != nil {
+		t.Fatalf("NewAdmin error: %v", err)
+	}
+	if adm.Commands() != nil {
+		t.Cleanup(adm.Commands().Reset)
+	}
+	if suggestionSvc.deps.Repository != repo {
+		t.Fatalf("expected initial repository dependency, got %#v", suggestionSvc.deps.Repository)
+	}
+	if suggestionSvc.deps.ContextLoader == nil {
+		t.Fatalf("expected initial context loader dependency")
+	}
+	if suggestionSvc.deps.Authorizer != nil {
+		t.Fatalf("expected nil authorizer before late auth setup, got %#v", suggestionSvc.deps.Authorizer)
+	}
+
+	authorizer := quickstartTranslationSuggestionAuthorizer{}
+	adm.WithAuthorizer(authorizer)
+
+	if suggestionSvc.deps.Repository != repo {
+		t.Fatalf("expected repository dependency preserved after auth rebind, got %#v", suggestionSvc.deps.Repository)
+	}
+	if suggestionSvc.deps.ContextLoader == nil {
+		t.Fatalf("expected context loader preserved after auth rebind")
+	}
+	if suggestionSvc.deps.Authorizer != authorizer {
+		t.Fatalf("expected late authorizer dependency, got %#v", suggestionSvc.deps.Authorizer)
 	}
 }
 

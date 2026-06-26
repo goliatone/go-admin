@@ -65,6 +65,51 @@ func (a fakeTranslationSuggestionAuthorizer) Can(context.Context, string, string
 	return a.allowed
 }
 
+func TestAdminWithAuthorizerRebindsExistingTranslationSuggestionService(t *testing.T) {
+	adm := mustNewAdmin(t, Config{}, Dependencies{})
+	service := &DefaultTranslationSuggestionService{
+		Provider:    &fakeTranslationSuggestionProvider{},
+		Eligibility: TranslationSuggestionAllowAllEligibility{},
+	}
+	adm.WithTranslationSuggestionService(service)
+
+	assignment := TranslationAssignment{
+		ID:           "asg-1",
+		Status:       AssignmentStatusInProgress,
+		TenantID:     "tenant-1",
+		OrgID:        "org-1",
+		TargetLocale: "es",
+	}
+	loaded := TranslationSuggestionAssignmentContext{
+		Assignment:   assignment,
+		SourceFields: map[string]string{"title": "Hello"},
+		TargetFields: map[string]string{"title": ""},
+	}
+	input := TranslationSuggestionInput{
+		AssignmentID: assignment.ID,
+		FieldPath:    "title",
+		TenantID:     assignment.TenantID,
+		OrgID:        assignment.OrgID,
+	}
+
+	decision, err := service.EvaluateTranslationSuggestionAction(context.Background(), input, loaded)
+	if err != nil {
+		t.Fatalf("EvaluateTranslationSuggestionAction before authorizer: %v", err)
+	}
+	if decision.Allowed || decision.ReasonCode != TranslationSuggestionReasonPermissionDenied {
+		t.Fatalf("expected permission denial before authorizer binding, got %+v", decision)
+	}
+
+	adm.WithAuthorizer(allowAll{})
+	decision, err = service.EvaluateTranslationSuggestionAction(context.Background(), input, loaded)
+	if err != nil {
+		t.Fatalf("EvaluateTranslationSuggestionAction after authorizer: %v", err)
+	}
+	if !decision.Allowed {
+		t.Fatalf("expected action allowed after authorizer binding, got %+v", decision)
+	}
+}
+
 func TestDefaultTranslationSuggestionServiceUsesServerLoadedSourceText(t *testing.T) {
 	repo := NewInMemoryTranslationAssignmentRepository()
 	assignment, err := repo.Create(context.Background(), TranslationAssignment{
@@ -134,6 +179,57 @@ func TestDefaultTranslationSuggestionServiceUsesServerLoadedSourceText(t *testin
 	}
 	if result.SuggestedText != "Hola desde el servidor" || result.Provider != "fake" || result.Model != "fake-model" {
 		t.Fatalf("unexpected result: %+v", result)
+	}
+}
+
+func TestDefaultTranslationSuggestionServiceAllowsEditableAssignedStatus(t *testing.T) {
+	repo := NewInMemoryTranslationAssignmentRepository()
+	assignment, err := repo.Create(context.Background(), TranslationAssignment{
+		FamilyID:       "family_1",
+		EntityType:     "pages",
+		TenantID:       "tenant_1",
+		OrgID:          "org_1",
+		SourceRecordID: "page_1",
+		SourceLocale:   "en",
+		TargetLocale:   "es",
+		AssignmentType: AssignmentTypeDirect,
+		Status:         AssignmentStatusAssigned,
+		Priority:       PriorityNormal,
+		AssigneeID:     "translator_1",
+		WorkScope:      "default",
+	})
+	if err != nil {
+		t.Fatalf("create assignment: %v", err)
+	}
+	provider := &fakeTranslationSuggestionProvider{}
+	service := &DefaultTranslationSuggestionService{
+		Repository: repo,
+		Authorizer: fakeTranslationSuggestionAuthorizer{allowed: true},
+		ContextLoader: &fakeTranslationSuggestionContextLoader{
+			ctx: TranslationSuggestionAssignmentContext{
+				SourceFields: map[string]string{"title": "Hello"},
+				TargetFields: map[string]string{"title": ""},
+			},
+		},
+		Eligibility: TranslationSuggestionAllowAllEligibility{},
+		Provider:    provider,
+	}
+
+	result, err := service.SuggestTranslation(context.Background(), TranslationSuggestionInput{
+		AssignmentID: assignment.ID,
+		FieldPath:    "title",
+		ActorID:      "translator_1",
+		TenantID:     "tenant_1",
+		OrgID:        "org_1",
+	})
+	if err != nil {
+		t.Fatalf("suggest translation: %v", err)
+	}
+	if provider.calls != 1 {
+		t.Fatalf("expected provider call for assigned assignment, got %d", provider.calls)
+	}
+	if result.SuggestedText == "" {
+		t.Fatalf("expected suggested text, got %+v", result)
 	}
 }
 
