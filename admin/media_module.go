@@ -740,6 +740,7 @@ func (m *MediaModule) MenuItems(locale string) []MenuItem {
 	}
 	return []MenuItem{
 		{
+			ID:          mediaModuleID,
 			Label:       "Media",
 			LabelKey:    "menu.media",
 			Icon:        "media-image-list",
