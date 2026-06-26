@@ -226,14 +226,14 @@ func newTranslationEditorTestFixture(t *testing.T, options translationEditorTest
 		},
 	}
 	assignments = append(assignments, options.ExtraAssignments...)
-		base := newTranslationFamilyMutationFixture(t, translationFamilyMutationFixtureOptions{
-			RequiredLocales:         requiredLocales,
-			ReviewRequired:          options.ReviewRequired,
-			FamilyStore:             options.FamilyStore,
-			Assignments:             assignments,
-			PagePanelViewPermission: options.PagePanelViewPermission,
-			PagePanelEditPermission: options.PagePanelEditPermission,
-		})
+	base := newTranslationFamilyMutationFixture(t, translationFamilyMutationFixtureOptions{
+		RequiredLocales:         requiredLocales,
+		ReviewRequired:          options.ReviewRequired,
+		FamilyStore:             options.FamilyStore,
+		Assignments:             assignments,
+		PagePanelViewPermission: options.PagePanelViewPermission,
+		PagePanelEditPermission: options.PagePanelEditPermission,
+	})
 
 	permissions := map[string]bool{
 		PermAdminTranslationsView:    true,
