@@ -68,6 +68,7 @@ func (m *ActivityModule) MenuItems(locale string) []MenuItem {
 	}
 	return []MenuItem{
 		{
+			ID:          activityModuleID,
 			Label:       "Activity",
 			LabelKey:    "menu.activity",
 			Icon:        "clock",
