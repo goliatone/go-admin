@@ -1,10 +1,53 @@
 # Changelog
 
+# [0.110.0](https://github.com/goliatone/go-admin/compare/v0.109.2...v0.110.0) - (2026-06-26)
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Add missing menu item id ([18d1ab5](https://github.com/goliatone/go-admin/commit/18d1ab598fce256a62d70662080d36a512e3ccaa))  - (goliatone)
+
+## <!-- 16 -->➕ Add
+
+- Transltaion editor ([18640e4](https://github.com/goliatone/go-admin/commit/18640e41b0bc6c803ec829168fcae5385196d1b2))  - (goliatone)
+- App shell support ([bfa4d49](https://github.com/goliatone/go-admin/commit/bfa4d495986a2fdec9498ca73e50fbd443a320a7))  - (goliatone)
+- Translator editor content navigation ([0289713](https://github.com/goliatone/go-admin/commit/028971317c1eda00c7ffac9d64d344a482825bb6))  - (goliatone)
+- Client code for standard behaviors ([5b02f3d](https://github.com/goliatone/go-admin/commit/5b02f3dd5b8deead3065812c49f7d4c8d2d33fb1))  - (goliatone)
+- Translation suggestion setup ([aa8c166](https://github.com/goliatone/go-admin/commit/aa8c166f279f5eee986a3ce393f5f11af752e2fc))  - (goliatone)
+- Translation ui ([9560382](https://github.com/goliatone/go-admin/commit/9560382298650d51d2912ad6364c63ef1ee697ec))  - (goliatone)
+- Type builder ui ([c835593](https://github.com/goliatone/go-admin/commit/c8355937705f37b4a2701bc6eb1ba4f733b4acf5))  - (goliatone)
+- Translation suggestion support ([9608e21](https://github.com/goliatone/go-admin/commit/9608e21905c25c834e95ea40216ea1a47bfcee64))  - (goliatone)
+- Command registration ([f820abc](https://github.com/goliatone/go-admin/commit/f820abc6ee3fe1fe5cdf4d016864124951f19306))  - (goliatone)
+- Content type builder ui ([fa66003](https://github.com/goliatone/go-admin/commit/fa660032d06f42d64fbf08ce68ae8b6633a68c6e))  - (goliatone)
+- Content type builder ([dfd67b9](https://github.com/goliatone/go-admin/commit/dfd67b922c5c541c45247ce84f7416dcc1bfcd48))  - (goliatone)
+- Translation editor ([fd1f589](https://github.com/goliatone/go-admin/commit/fd1f5897bb857ecc89c3cafe90187d1300251fb1))  - (goliatone)
+- Translation capabilities ([1468822](https://github.com/goliatone/go-admin/commit/146882240f0c19a19982e67ccc3d33d14a354f78))  - (goliatone)
+- Translation suggestion integration ([5a3bce8](https://github.com/goliatone/go-admin/commit/5a3bce8a487dff2dd9cf0f7a93694daac9643bd7))  - (goliatone)
+- Content builder client ([4f30e16](https://github.com/goliatone/go-admin/commit/4f30e16d1a701be98853cf372ba075fe809196d5))  - (goliatone)
+- AI translation provider ([3a32fee](https://github.com/goliatone/go-admin/commit/3a32feeac5f39ec202799bff2ba992c0c433b4b2))  - (goliatone)
+- Translation suggestion commands ([c4abb4d](https://github.com/goliatone/go-admin/commit/c4abb4d7425a4440a3fd081308fc37248b9c3dc7))  - (goliatone)
+- Content editor and builder update ([6330720](https://github.com/goliatone/go-admin/commit/6330720d44c8854758d90adbb5a664d9bb936925))  - (goliatone)
+
+## <!-- 2 -->🚜 Refactor
+
+- Use go-dashboard app shell ([f4488c9](https://github.com/goliatone/go-admin/commit/f4488c9b6f5ca7450027d598c4d76cfebafe1165))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update docs ([ea7db38](https://github.com/goliatone/go-admin/commit/ea7db38d8d045f2e7617706cbf231a5131dfb5fa))  - (goliatone)
+- Update assets ([d7daaa8](https://github.com/goliatone/go-admin/commit/d7daaa8ad2c5422a909c9f442f83a8f6870fabd9))  - (goliatone)
+- Update tests ([cb023bb](https://github.com/goliatone/go-admin/commit/cb023bb3363507602460bc731b6783c9b65dd0c7))  - (goliatone)
+- Update examples ([4250b48](https://github.com/goliatone/go-admin/commit/4250b4850a662828d467c6ba8fca5e7ddd4eb7a4))  - (goliatone)
+- Udpate tests ([deca68b](https://github.com/goliatone/go-admin/commit/deca68b3855371ff782e97c7513a07e6b73788fc))  - (goliatone)
+
 # [0.109.2](https://github.com/goliatone/go-admin/compare/v0.109.1...v0.109.2) - (2026-06-24)
 
 ## <!-- 1 -->🐛 Bug Fixes
 
 - Merged translation choice ([0cbffbd](https://github.com/goliatone/go-admin/commit/0cbffbdbb724c7ce718a0a0cfa0c91e3da7b6871))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.109.2 ([cc33878](https://github.com/goliatone/go-admin/commit/cc33878e19a04d763cb935add4300fd8c08fc3d1))  - (goliatone)
 
 # [0.109.1](https://github.com/goliatone/go-admin/compare/v0.109.0...v0.109.1) - (2026-06-24)
 
