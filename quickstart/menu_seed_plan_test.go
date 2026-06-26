@@ -100,6 +100,65 @@ func TestBuildMenuSeedPlanAppliesTargetParentOverridesToBaseItems(t *testing.T) 
 	}
 }
 
+func TestBuildMenuSeedPlanAppliesBaseItemTransformsAfterParentOverrides(t *testing.T) {
+	t.Parallel()
+
+	plan, err := BuildMenuSeedPlan(MenuSeedPlanOptions{
+		MenuCode:              "admin.main",
+		Locale:                "en",
+		ReplaceDefaultParents: true,
+		ParentItems: []admin.MenuItem{
+			{ID: "host.translations", Type: admin.MenuItemTypeGroup, GroupTitle: "Translations"},
+		},
+		BaseItems: []admin.MenuItem{
+			testGeneratedMenuItem("translations.dashboard", NavigationGroupTranslationsID, "Translation Dashboard", "translation_dashboard", "/admin/translations/dashboard", 49),
+		},
+		TargetParentOverrides: map[string]string{
+			"translation_dashboard": "host.translations",
+		},
+		BaseItemTransforms: []MenuSeedBaseItemTransform{
+			func(item *admin.MenuItem) {
+				if item == nil || stringTargetValue(item.Target, "key") != "translation_dashboard" {
+					return
+				}
+				if item.ParentID != "host.translations" {
+					t.Fatalf("expected parent override before base transform, got %q", item.ParentID)
+				}
+				item.Label = "Translations"
+				item.LabelKey = "menu.translations.overview"
+				item.Target["name"] = "admin.translations.overview"
+				item.Target["breadcrumb_label"] = "Translation Center"
+				item.Permissions = []string{"translations.view"}
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("BuildMenuSeedPlan error: %v", err)
+	}
+	item := findPlanItemByTargetKey(plan.Items, "translation_dashboard")
+	if item == nil {
+		t.Fatalf("expected translation dashboard base item")
+	}
+	if item.Label != "Translations" {
+		t.Fatalf("expected base transform label, got %q", item.Label)
+	}
+	if item.LabelKey != "menu.translations.overview" {
+		t.Fatalf("expected base transform label key, got %q", item.LabelKey)
+	}
+	if got := stringTargetValue(item.Target, "name"); got != "admin.translations.overview" {
+		t.Fatalf("expected base transform target name, got %q", got)
+	}
+	if got := stringTargetValue(item.Target, "breadcrumb_label"); got != "Translation Center" {
+		t.Fatalf("expected base transform breadcrumb, got %q", got)
+	}
+	if !reflect.DeepEqual(item.Permissions, []string{"translations.view"}) {
+		t.Fatalf("expected base transform permissions, got %#v", item.Permissions)
+	}
+	if item.ParentID != "host.translations" {
+		t.Fatalf("expected parent override to remain compatible, got %q", item.ParentID)
+	}
+}
+
 func TestReconcileGeneratedNavigationDryRunAndApplyRepairsMissingRows(t *testing.T) {
 	t.Parallel()
 

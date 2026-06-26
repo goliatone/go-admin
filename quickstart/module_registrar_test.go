@@ -297,6 +297,96 @@ func TestNewModuleRegistrarSeedsTranslationCapabilityMenuItemsByDefault(t *testi
 	}
 }
 
+func TestNewModuleRegistrarAppliesBaseItemTransformToTranslationDashboard(t *testing.T) {
+	resetCommandRegistryForTest(t)
+	cleanupModuleCommandRegistry(t)
+
+	cfg := NewAdminConfig("/admin", "Admin", "en")
+	cfg.AuthConfig = &admin.AuthConfig{AllowUnauthenticatedRoutes: true}
+	adm, _, err := NewAdmin(
+		cfg,
+		AdapterHooks{},
+		WithTranslationProductConfig(TranslationProductConfig{
+			SchemaVersion: TranslationProductSchemaVersionCurrent,
+			Profile:       TranslationProfileFull,
+			Exchange: &TranslationExchangeConfig{
+				Enabled: true,
+				Store:   &moduleRegistrarExchangeStoreStub{},
+			},
+			Queue: &TranslationQueueConfig{
+				Enabled:          true,
+				Repository:       newQuickstartTranslationQueueRepo(),
+				SupportedLocales: []string{"en", "es"},
+			},
+		}),
+	)
+	if err != nil {
+		t.Fatalf("NewAdmin error: %v", err)
+	}
+	if adm.Commands() != nil {
+		t.Cleanup(adm.Commands().Reset)
+	}
+
+	options := []ModuleRegistrarOption{
+		WithMenuSeedParents(admin.MenuItem{
+			ID:          "host.translations",
+			Type:        admin.MenuItemTypeGroup,
+			GroupTitle:  "Translations",
+			Collapsible: true,
+		}),
+		WithMenuSeedTargetParentOverride("translation_dashboard", "host.translations"),
+		WithMenuSeedBaseItemTransform(func(item *admin.MenuItem) {
+			if item == nil || stringTargetValue(item.Target, "key") != "translation_dashboard" {
+				return
+			}
+			if item.ParentID != "host.translations" {
+				t.Fatalf("expected target parent override before base transform, got %q", item.ParentID)
+			}
+			item.Label = "Translations"
+			item.LabelKey = "menu.translations.overview"
+			item.Target["name"] = "admin.translations.overview"
+			item.Target["breadcrumb_label"] = "Translation Center"
+			item.Permissions = []string{"translations.view"}
+		}),
+	}
+	if err = NewModuleRegistrar(adm, cfg, nil, false, options...); err != nil {
+		t.Fatalf("NewModuleRegistrar error: %v", err)
+	}
+	if err = NewModuleRegistrar(adm, cfg, nil, false, options...); err != nil {
+		t.Fatalf("second NewModuleRegistrar error: %v", err)
+	}
+
+	menu, err := adm.MenuService().Menu(context.Background(), cfg.NavMenuCode, cfg.DefaultLocale)
+	if err != nil {
+		t.Fatalf("resolve menu: %v", err)
+	}
+	dashboardItem := findMenuItemByTargetKeyForTest(menu.Items, "translation_dashboard")
+	if dashboardItem == nil {
+		t.Fatalf("expected translation dashboard menu item")
+	}
+	if count := countMenuItemsByTargetKey(menu.Items, "translation_dashboard"); count != 1 {
+		t.Fatalf("expected one translation dashboard after repeated registration, got %d items=%#v", count, menu.Items)
+	}
+	if !strings.HasSuffix(dashboardItem.ParentID, "host.translations") {
+		t.Fatalf("expected host parent, got %q", dashboardItem.ParentID)
+	}
+	if dashboardItem.Label != "Translations" {
+		t.Fatalf("expected customized label, got %q", dashboardItem.Label)
+	}
+	if dashboardItem.LabelKey != "menu.translations.overview" {
+		t.Fatalf("expected customized label key, got %q", dashboardItem.LabelKey)
+	}
+	if got := stringTargetValue(dashboardItem.Target, "name"); got != "admin.translations.overview" {
+		t.Fatalf("expected customized target name, got %q", got)
+	}
+	if got := stringTargetValue(dashboardItem.Target, "breadcrumb_label"); got != "Translation Center" {
+		t.Fatalf("expected customized breadcrumb, got %q", got)
+	}
+	if len(dashboardItem.Permissions) != 1 || dashboardItem.Permissions[0] != "translations.view" {
+		t.Fatalf("expected customized permissions, got %#v", dashboardItem.Permissions)
+	}
+}
+
 func TestResolveTranslationCapabilityMenuPathResolvesQueueAndAssignments(t *testing.T) {
 	manager, err := urlkit.NewRouteManagerFromConfig(&urlkit.Config{
 		Groups: []urlkit.GroupConfig{
@@ -945,6 +1035,21 @@ func findMenuItemByRouteName(items []admin.MenuItem, routeName string) *admin.Me
 		}
 	}
 	return nil
+}
+
+func countMenuItemsByTargetKey(items []admin.MenuItem, key string) int {
+	target := strings.TrimSpace(key)
+	if target == "" {
+		return 0
+	}
+	count := 0
+	for i := range items {
+		if strings.EqualFold(strings.TrimSpace(stringTargetValue(items[i].Target, "key")), target) {
+			count++
+		}
+		count += countMenuItemsByTargetKey(items[i].Children, target)
+	}
+	return count
 }
 
 func assertNoPersistedTranslationPermissionState(t *testing.T, item *admin.MenuItem) {
