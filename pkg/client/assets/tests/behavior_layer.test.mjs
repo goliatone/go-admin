@@ -117,6 +117,32 @@ test('behavior runtime is idempotent for duplicate initialization', () => {
   first.destroy();
 });
 
+test('behavior runtime merges compatibility options for the same root', () => {
+  const dom = setupDom(`
+    <form data-behavior="submit-busy" action="/save" method="post">
+      <input name="title" value="Hello">
+      <button type="submit">Save</button>
+    </form>
+  `);
+  const form = dom.window.document.querySelector('form');
+  const first = initBehaviors(dom.window.document, { window: dom.window });
+  const second = initBehaviors(dom.window.document, {
+    window: dom.window,
+    submitBusySelector: 'form[data-behavior~="submit-busy"]',
+    compatibilitySubmitLoading: true,
+  });
+
+  assert.notEqual(first, second);
+  dispatchSubmit(dom.window, form, dom.window.document.querySelector('button'));
+
+  assert.equal(form.dataset.busy, 'true');
+  assert.equal(form.dataset.loading, 'true');
+  assert.equal(form.dataset.submitLoadingActive, 'true');
+
+  first.destroy();
+  second.destroy();
+});
+
 test('behavior runtime leaves invalid forms untouched', () => {
   const dom = setupDom(`
     <form data-behavior="submit-busy" action="/save" method="post">
@@ -194,6 +220,24 @@ test('busy helper restores input submit labels', () => {
 
   assert.equal(submit.value, 'Save');
   assert.equal(submit.disabled, false);
+});
+
+test('busy helper restores full button markup when no label target is present', () => {
+  const dom = setupDom(`
+    <button type="button" data-busy-label="Saving">
+      <svg data-icon></svg><span>Save</span>
+    </button>
+  `);
+  const button = dom.window.document.querySelector('button');
+  const originalHTML = button.innerHTML;
+
+  const busy = setBusy(button);
+  assert.equal(button.textContent, 'Saving');
+
+  busy.reset();
+
+  assert.equal(button.innerHTML, originalHTML);
+  assert.equal(button.disabled, false);
 });
 
 test('behavior reset clears busy state inside a fragment subtree', () => {

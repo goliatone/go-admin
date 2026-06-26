@@ -6,6 +6,9 @@ const {
   resetSubmitLoading,
   setSubmitLoading,
 } = await import('../dist/login-submit-loading/index.js');
+const {
+  initBehaviors,
+} = await import('../dist/shared/behaviors/index.js');
 
 async function loadJSDOM() {
   try {
@@ -74,6 +77,62 @@ test('submit-loading marks valid native submissions busy without preventing navi
   assert.equal(button.disabled, true);
 
   controller.destroy();
+});
+
+test('submit-loading compatibility API can bind canonical submit-busy markup', () => {
+  const dom = setupDom(`
+    <form data-behavior="submit-busy" action="/admin/login" method="post">
+      <input name="identifier" required value="admin@example.com">
+      <input name="password" required value="secret">
+      <button type="submit" data-busy-label="Signing in">
+        <span data-busy-label-target>Sign In</span>
+      </button>
+    </form>
+  `);
+  const form = dom.window.document.querySelector('form');
+  const button = dom.window.document.querySelector('button[type="submit"]');
+
+  const controller = initSubmitLoadingForms({
+    root: dom.window.document,
+    window: dom.window,
+    formSelector: 'form[data-behavior~="submit-busy"]',
+  });
+  const event = dispatchSubmit(dom.window, form, button);
+
+  assert.equal(event.defaultPrevented, false);
+  assert.equal(form.dataset.loading, 'true');
+  assert.equal(form.dataset.submitLoadingActive, 'true');
+  assert.equal(form.dataset.busy, 'true');
+  assert.equal(button.disabled, true);
+  assert.equal(dom.window.document.querySelector('[data-busy-label-target]').textContent, 'Signing in');
+
+  controller.destroy();
+});
+
+test('submit-loading compatibility API upgrades same-root generic behavior initialization', () => {
+  const dom = setupDom(`
+    <form data-behavior="submit-busy" action="/admin/login" method="post">
+      <input name="identifier" required value="admin@example.com">
+      <button type="submit">Sign In</button>
+    </form>
+  `);
+  const form = dom.window.document.querySelector('form');
+  const button = dom.window.document.querySelector('button[type="submit"]');
+
+  const generic = initBehaviors(dom.window.document, { window: dom.window });
+  const controller = initSubmitLoadingForms({
+    root: dom.window.document,
+    window: dom.window,
+    formSelector: 'form[data-behavior~="submit-busy"]',
+  });
+  dispatchSubmit(dom.window, form, button);
+
+  assert.equal(form.dataset.busy, 'true');
+  assert.equal(form.dataset.loading, 'true');
+  assert.equal(form.dataset.submitLoadingActive, 'true');
+
+  controller.destroy();
+  generic.destroy();
 });
 
 test('submit-loading leaves invalid forms untouched for browser validation', () => {

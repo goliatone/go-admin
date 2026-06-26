@@ -26,6 +26,7 @@ export interface BehaviorRuntimeOptions {
   submitBusySelector?: string;
   window?: Window;
   listenForFragments?: boolean;
+  compatibilitySubmitLoading?: boolean;
 }
 
 export interface BehaviorBootstrapOptions extends BehaviorRuntimeOptions {
@@ -39,25 +40,55 @@ export interface BehaviorRuntimeController {
 
 const DEFAULT_SUBMIT_BUSY_SELECTOR = 'form[data-behavior~="submit-busy"], form[data-submit-loading-form]';
 
-const rootControllers = new WeakMap<Document | HTMLElement, BehaviorRuntimeController>();
+interface SubmitBusyRule {
+  key: string;
+  selector: string;
+  compatibilitySubmitLoading: boolean;
+  controller: BehaviorRuntimeController;
+}
+
+interface BehaviorRootState {
+  root: Document | HTMLElement;
+  doc: Document;
+  win: Window | null;
+  submitRules: SubmitBusyRule[];
+  fragmentListenerAttached: boolean;
+  handleSubmit: (event: SubmitEvent) => void;
+  handlePageShow: () => void;
+  handleFragmentsApplied: (event: Event) => void;
+}
+
+const rootStates = new WeakMap<Document | HTMLElement, BehaviorRootState>();
 const handledSubmitEvents = new WeakSet<Event>();
 
 export function initBehaviors(
   root: Document | HTMLElement = document,
   options: BehaviorRuntimeOptions = {},
 ): BehaviorRuntimeController {
-  const existing = rootControllers.get(root);
-  if (existing) {
-    return existing;
+  const state = rootStates.get(root) ?? createRootState(root, options);
+  const rule = addSubmitBusyRule(state, options);
+  if (options.listenForFragments !== false) {
+    attachFragmentListener(state);
   }
+  return rule.controller;
+}
 
+function createRootState(
+  root: Document | HTMLElement,
+  options: BehaviorRuntimeOptions,
+): BehaviorRootState {
   const doc = ownerDocument(root);
   const win = options.window ?? doc.defaultView ?? window;
-  const selector = options.submitBusySelector || DEFAULT_SUBMIT_BUSY_SELECTOR;
 
   const handleSubmit = (event: SubmitEvent): void => {
     const form = formFromSubmitTarget(event.target, doc);
-    if (!form || event.defaultPrevented || !form.matches(selector)) {
+    const rule = form ? matchingSubmitBusyRule(form, state.submitRules) : null;
+    if (
+      !form
+      || !rule
+      || event.defaultPrevented
+      || form.matches('form[data-enhance-action]')
+    ) {
       return;
     }
     if (handledSubmitEvents.has(event)) {
@@ -74,7 +105,7 @@ export function initBehaviors(
     handledSubmitEvents.add(event);
     setBusy(form, {
       submitter,
-      compatibilitySubmitLoading: form.hasAttribute('data-submit-loading-form'),
+      compatibilitySubmitLoading: rule.compatibilitySubmitLoading || form.hasAttribute('data-submit-loading-form'),
     });
     if (submitsOutsideCurrentContext(form, submitter)) {
       win?.setTimeout(() => {
@@ -90,35 +121,108 @@ export function initBehaviors(
   const handleFragmentsApplied = (event: Event): void => {
     const detail = (event as CustomEvent<{ roots?: HTMLElement[]; root?: HTMLElement }>).detail;
     if (Array.isArray(detail?.roots) && detail.roots.length > 0) {
-      detail.roots.forEach((fragmentRoot) => initBehaviors(fragmentRoot, options));
+      detail.roots.forEach((fragmentRoot) => initFragmentRoot(state, fragmentRoot));
       return;
     }
     if (detail?.root) {
-      initBehaviors(detail.root, options);
+      initFragmentRoot(state, detail.root);
       return;
     }
-    initBehaviors(root, options);
+    state.submitRules.forEach((submitRule) => {
+      initBehaviors(root, {
+        submitBusySelector: submitRule.selector,
+        compatibilitySubmitLoading: submitRule.compatibilitySubmitLoading,
+        window: win ?? undefined,
+        listenForFragments: false,
+      });
+    });
   };
 
+  const state: BehaviorRootState = {
+    root,
+    doc,
+    win,
+    submitRules: [],
+    fragmentListenerAttached: false,
+    handleSubmit,
+    handlePageShow,
+    handleFragmentsApplied,
+  };
   root.addEventListener('submit', handleSubmit as EventListener);
   win?.addEventListener('pageshow', handlePageShow);
-  if (options.listenForFragments !== false) {
-    doc.addEventListener('go-admin:enhanced-fragments-applied', handleFragmentsApplied as EventListener);
-  }
+  rootStates.set(root, state);
+  return state;
+}
 
+function addSubmitBusyRule(
+  state: BehaviorRootState,
+  options: BehaviorRuntimeOptions,
+): SubmitBusyRule {
+  const selector = options.submitBusySelector || DEFAULT_SUBMIT_BUSY_SELECTOR;
+  const compatibilitySubmitLoading = options.compatibilitySubmitLoading === true;
+  const key = `${selector}\n${compatibilitySubmitLoading ? 'compat' : 'standard'}`;
+  const existing = state.submitRules.find((rule) => rule.key === key);
+  if (existing) {
+    return existing;
+  }
   const controller: BehaviorRuntimeController = {
     reset() {
-      resetBehaviors(root);
+      resetBehaviors(state.root);
     },
     destroy() {
-      root.removeEventListener('submit', handleSubmit as EventListener);
-      win?.removeEventListener('pageshow', handlePageShow);
-      doc.removeEventListener('go-admin:enhanced-fragments-applied', handleFragmentsApplied as EventListener);
-      rootControllers.delete(root);
+      const index = state.submitRules.findIndex((rule) => rule.key === key);
+      if (index >= 0) {
+        state.submitRules.splice(index, 1);
+      }
+      if (state.submitRules.length === 0) {
+        state.root.removeEventListener('submit', state.handleSubmit as EventListener);
+        state.win?.removeEventListener('pageshow', state.handlePageShow);
+        state.doc.removeEventListener('go-admin:enhanced-fragments-applied', state.handleFragmentsApplied as EventListener);
+        rootStates.delete(state.root);
+      }
     },
   };
-  rootControllers.set(root, controller);
-  return controller;
+  const rule: SubmitBusyRule = {
+    key,
+    selector,
+    compatibilitySubmitLoading,
+    controller,
+  };
+  state.submitRules.push(rule);
+  return rule;
+}
+
+function attachFragmentListener(state: BehaviorRootState): void {
+  if (state.fragmentListenerAttached) {
+    return;
+  }
+  state.doc.addEventListener('go-admin:enhanced-fragments-applied', state.handleFragmentsApplied as EventListener);
+  state.fragmentListenerAttached = true;
+}
+
+function initFragmentRoot(state: BehaviorRootState, fragmentRoot: HTMLElement): void {
+  state.submitRules.forEach((rule) => {
+    initBehaviors(fragmentRoot, {
+      submitBusySelector: rule.selector,
+      compatibilitySubmitLoading: rule.compatibilitySubmitLoading,
+      window: state.win ?? undefined,
+      listenForFragments: false,
+    });
+  });
+}
+
+function matchingSubmitBusyRule(form: HTMLFormElement, rules: SubmitBusyRule[]): SubmitBusyRule | null {
+  let matched: SubmitBusyRule | null = null;
+  for (const rule of rules) {
+    if (!form.matches(rule.selector)) {
+      continue;
+    }
+    if (rule.compatibilitySubmitLoading) {
+      return rule;
+    }
+    matched = matched ?? rule;
+  }
+  return matched;
 }
 
 export function resetBehaviors(root: Document | HTMLElement = document): void {
@@ -127,7 +231,7 @@ export function resetBehaviors(root: Document | HTMLElement = document): void {
 
 export function bootstrapBehaviors(options: BehaviorBootstrapOptions = {}): BehaviorRuntimeController {
   const root = options.root ?? document;
-  let controller: BehaviorRuntimeController | null = rootControllers.get(root) ?? null;
+  let controller: BehaviorRuntimeController | null = null;
   onReady(() => {
     controller = initBehaviors(root, options);
   });

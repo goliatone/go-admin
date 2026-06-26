@@ -25,6 +25,7 @@ interface ControlState {
 interface LabelState {
   element: HTMLElement;
   textContent: string | null;
+  innerHTML?: string;
 }
 
 interface InputValueState {
@@ -141,7 +142,11 @@ export function resetBusy(root: BusyRoot | null | undefined): void {
     restoreAttribute(item.control, 'aria-label', item.ariaLabel);
   }
   for (const item of state.labels) {
-    item.element.textContent = item.textContent;
+    if (item.innerHTML !== undefined) {
+      item.element.innerHTML = item.innerHTML;
+    } else {
+      item.element.textContent = item.textContent;
+    }
   }
   for (const item of state.inputValues) {
     item.input.value = item.value;
@@ -325,8 +330,12 @@ function applyControlBusy(control: BusyControl, options: BusyOptions, state: Bus
       state.labels.push({ element: labelTarget, textContent: labelTarget.textContent });
       labelTarget.textContent = busyLabel;
     } else if (control instanceof HTMLButtonElement) {
-        state.labels.push({ element: control, textContent: control.textContent });
-        control.textContent = busyLabel;
+      state.labels.push({
+        element: control,
+        textContent: control.textContent,
+        innerHTML: control.innerHTML,
+      });
+      control.textContent = busyLabel;
     } else if (control instanceof HTMLInputElement) {
       state.inputValues.push({ input: control, value: control.value });
       control.value = busyLabel;

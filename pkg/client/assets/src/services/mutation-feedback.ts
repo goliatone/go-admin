@@ -13,6 +13,10 @@ import type { ToastNotifier, ConfirmOptions } from '../toast/types.js';
 import { ConfirmModal } from '../shared/modal.js';
 import { renderIcon } from '../shared/icon-renderer.js';
 import { escapeHTML as escapeHtml } from '../shared/html.js';
+import {
+  setBusy,
+  type BusyController,
+} from '../shared/behaviors/index.js';
 
 // =============================================================================
 // Types
@@ -100,6 +104,7 @@ export class MutationButtonManager {
   private originalDisabled: boolean;
   private state: MutationButtonState = 'idle';
   private feedbackTimeout: ReturnType<typeof setTimeout> | null = null;
+  private busyController: BusyController | null = null;
 
   constructor(config: MutationButtonConfig) {
     this.button = config.button;
@@ -124,28 +129,25 @@ export class MutationButtonManager {
   /** Set button to loading state */
   setLoading(): void {
     this.clearFeedbackTimeout();
+    this.resetBusyState();
     this.state = 'loading';
-
-    if (this.config.disableOnLoading) {
-      this.button.disabled = true;
-    }
 
     this.button.classList.add('mutation-loading');
     this.button.classList.remove('mutation-success', 'mutation-error');
 
-    const spinnerHTML = this.config.showSpinner
-      ? `<svg class="animate-spin -ml-1 mr-2 h-4 w-4 inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true">
-           <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-           <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-         </svg>`
-      : '';
-
-    this.button.innerHTML = `${spinnerHTML}<span>${escapeHtml(this.config.loadingText)}</span>`;
+    this.busyController = setBusy(this.button, {
+      label: this.config.loadingText,
+      generateSpinner: this.config.showSpinner,
+    });
+    if (!this.config.disableOnLoading) {
+      this.button.disabled = this.originalDisabled;
+    }
   }
 
   /** Set button to success state (briefly shows success, then returns to idle) */
   setSuccess(): void {
     this.clearFeedbackTimeout();
+    this.resetBusyState();
     this.state = 'success';
 
     this.button.disabled = this.originalDisabled;
@@ -167,6 +169,7 @@ export class MutationButtonManager {
   /** Set button to error state */
   setError(): void {
     this.clearFeedbackTimeout();
+    this.resetBusyState();
     this.state = 'error';
 
     this.button.disabled = this.originalDisabled;
@@ -188,6 +191,7 @@ export class MutationButtonManager {
   /** Reset button to original state */
   reset(): void {
     this.clearFeedbackTimeout();
+    this.resetBusyState();
     this.state = 'idle';
 
     this.button.disabled = this.originalDisabled;
@@ -205,6 +209,13 @@ export class MutationButtonManager {
     if (this.feedbackTimeout) {
       clearTimeout(this.feedbackTimeout);
       this.feedbackTimeout = null;
+    }
+  }
+
+  private resetBusyState(): void {
+    if (this.busyController) {
+      this.busyController.reset();
+      this.busyController = null;
     }
   }
 }
@@ -518,5 +529,4 @@ export class ActionQueue {
 // =============================================================================
 // Helper Functions
 // =============================================================================
-
 

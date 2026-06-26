@@ -8,6 +8,9 @@ const {
   applyEnhancedEnvelope,
   initEnhancedActions,
 } = await import('../dist/shared/enhanced-action.js');
+const {
+  initBehaviors,
+} = await import('../dist/shared/behaviors/index.js');
 
 async function loadJSDOM() {
   try {
@@ -161,6 +164,46 @@ test('enhanced-action runtime uses shared busy labels and spinner reset', async 
   assert.equal(button.disabled, false);
   assert.equal(label.textContent, 'Save');
   assert.equal(spinner.hidden, true);
+});
+
+test('enhanced-action runtime owns submits when forms also carry submit-busy behavior', async () => {
+  const dom = setupDom(`
+    <form data-enhance-action data-behavior="submit-busy" action="/admin/api/save" method="post">
+      <input name="title" value="Hello">
+      <button type="submit" data-busy-button data-busy-label="Saving">
+        <span data-busy-label-target>Save</span>
+      </button>
+    </form>
+  `);
+  const requests = [];
+  const fetchImpl = async (url, init) => {
+    requests.push({ url, init });
+    return new Response(JSON.stringify({ ok: true }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/vnd.admin.enhanced+json' },
+    });
+  };
+
+  initBehaviors(dom.window.document, { window: dom.window });
+  initEnhancedActions(dom.window.document, { fetch: fetchImpl });
+
+  const form = dom.window.document.querySelector('form');
+  const button = dom.window.document.querySelector('button');
+  const event = typeof dom.window.SubmitEvent === 'function'
+    ? new dom.window.SubmitEvent('submit', { bubbles: true, cancelable: true, submitter: button })
+    : new dom.window.Event('submit', { bubbles: true, cancelable: true });
+  if (!('submitter' in event)) {
+    Object.defineProperty(event, 'submitter', { value: button });
+  }
+  form.dispatchEvent(event);
+  await nextTick();
+
+  assert.equal(event.defaultPrevented, true);
+  assert.equal(requests.length, 1);
+  assert.equal(requests[0].url, '/admin/api/save');
+  assert.equal(form.dataset.busy, undefined);
+  assert.equal(button.disabled, false);
+  assert.equal(dom.window.document.querySelector('[data-busy-label-target]').textContent, 'Save');
 });
 
 test('enhanced-action runtime renders field errors without clearing user input', async () => {

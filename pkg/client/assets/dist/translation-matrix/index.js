@@ -7,7 +7,7 @@ import { deriveBasePathFromAPIEndpoint as re, trimTrailingSlash as se } from "..
 import { n as M } from "../chunks/translation-contracts-CCsjVv14.js";
 import { StatefulController as ie } from "../shared/stateful-controller.js";
 import { asBoolean as x, asNumberish as f, asRecord as c, asString as i, asUniqueStringArray as g } from "../shared/coercion.js";
-import { A as P, B as ne, D as j, E as B, H as oe, O as z, R as le, S as A, T as D, U as ce, V as de, W as ue, g as F, k as N, x as me, y as H, z as fe } from "../chunks/translation-shared-BfP1jYBZ.js";
+import { A as P, B as ne, D as j, E as B, H as oe, O as z, R as le, S as A, T as D, U as ce, V as de, W as ue, g as F, k as N, x as me, y as H, z as fe } from "../chunks/translation-shared-BsWGih--.js";
 import { c as Q, s as pe } from "../chunks/ui-states-CWaA6_8T.js";
 function v(t) {
   return Array.isArray(t) ? t.map((e) => c(e)).filter((e) => Object.keys(e).length > 0) : [];
