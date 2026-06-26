@@ -1,11 +1,13 @@
 package main
 
 import (
+	"context"
 	"testing"
 	"time"
 
 	coreadmin "github.com/goliatone/go-admin/admin"
 	appcfg "github.com/goliatone/go-admin/examples/web/config"
+	"github.com/goliatone/go-admin/quickstart"
 )
 
 func TestBuildExampleTranslationSuggestionServiceDisabledByDefault(t *testing.T) {
@@ -74,6 +76,32 @@ func TestBuildExampleTranslationSuggestionServiceRequiresAPIKeyForNonLocalOpenAI
 	}
 }
 
+func TestTranslationSuggestionRPCTransportEnabledFollowsConfiguredQueueService(t *testing.T) {
+	cfg := quickstart.TranslationProductConfig{}
+	if translationSuggestionRPCTransportEnabled(cfg) {
+		t.Fatalf("expected rpc transport disabled without queue")
+	}
+
+	cfg.Queue = &quickstart.TranslationQueueConfig{
+		Enabled:           true,
+		SuggestionService: translationSuggestionTestService{},
+	}
+	if !translationSuggestionRPCTransportEnabled(cfg) {
+		t.Fatalf("expected rpc transport enabled when queue suggestion service is configured")
+	}
+
+	cfg.Queue.Enabled = false
+	if translationSuggestionRPCTransportEnabled(cfg) {
+		t.Fatalf("expected rpc transport disabled when queue is disabled")
+	}
+
+	cfg.Queue.Enabled = true
+	cfg.Queue.SuggestionService = nil
+	if translationSuggestionRPCTransportEnabled(cfg) {
+		t.Fatalf("expected rpc transport disabled without suggestion service")
+	}
+}
+
 func TestTranslationOperationRequiredPermissionsIncludesSuggestOnlyWhenConfigured(t *testing.T) {
 	required, modules := translationOperationRequiredPermissions(nil, false)
 	if modules["suggestions"] {
@@ -99,4 +127,10 @@ func translationSuggestionTestContainsString(values []string, target string) boo
 		}
 	}
 	return false
+}
+
+type translationSuggestionTestService struct{}
+
+func (translationSuggestionTestService) SuggestTranslation(context.Context, coreadmin.TranslationSuggestionInput) (coreadmin.TranslationSuggestionResult, error) {
+	return coreadmin.TranslationSuggestionResult{}, nil
 }
