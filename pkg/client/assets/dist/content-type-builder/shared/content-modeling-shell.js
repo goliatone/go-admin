@@ -1,61 +1,68 @@
-import { createPaneLayout as s } from "./pane-layout.js";
-function c(t, n) {
-  const a = t.getAttribute(n);
-  if (a == null || a.trim() === "") return;
-  const e = Number(a);
-  return Number.isFinite(e) ? e : void 0;
+import { createPaneLayout as g } from "./pane-layout.js";
+var s = /* @__PURE__ */ new WeakMap();
+function c(t, e) {
+  const n = t.getAttribute(e);
+  if (n == null || n.trim() === "") return;
+  const r = Number(n);
+  return Number.isFinite(r) ? r : void 0;
 }
-function d(t) {
-  const n = t.getAttribute("data-pane-rail");
-  if (!n) return null;
-  const a = t.hasAttribute("data-pane-resizable"), e = t.getAttribute("data-pane-edge");
+function h(t) {
+  const e = t.getAttribute("data-pane-rail");
+  if (!e) return null;
+  const n = t.hasAttribute("data-pane-resizable"), r = t.getAttribute("data-pane-edge");
   return {
-    id: n,
-    resizable: a,
-    edge: e === "leading" || e === "trailing" ? e : void 0,
+    id: e,
+    resizable: n,
+    edge: r === "leading" || r === "trailing" ? r : void 0,
     min: c(t, "data-pane-min"),
     max: c(t, "data-pane-max"),
     defaultWidth: c(t, "data-pane-default-width"),
     defaultCollapsed: t.hasAttribute("data-pane-default-collapsed")
   };
 }
-function f(t, n) {
-  const a = t.getAttribute("data-cm-surface")?.trim() || "content-modeling", e = [], l = /* @__PURE__ */ new Set();
+function d(t, e) {
+  const n = t.getAttribute("data-cm-surface")?.trim() || "content-modeling", r = [], l = /* @__PURE__ */ new Set();
   t.querySelectorAll("[data-pane-rail]").forEach((u) => {
-    const r = d(u);
-    r && !l.has(r.id) && (l.add(r.id), e.push(r));
+    const a = h(u);
+    a && !l.has(a.id) && (l.add(a.id), r.push(a));
   });
   const i = [];
   t.querySelectorAll("[data-pane-focus-toggle]").forEach((u) => {
-    const r = u.getAttribute("data-pane-focus-toggle");
-    r && !i.includes(r) && i.push(r);
+    const a = u.getAttribute("data-pane-focus-toggle");
+    a && !i.includes(a) && i.push(a);
   });
   const o = {
-    surface: a,
-    rails: e,
+    surface: n,
+    rails: r,
     focusPanes: i
   };
-  return n && "storage" in n && (o.storage = n.storage), n?.onChange && (o.onChange = n.onChange), o;
+  return e && "storage" in e && (o.storage = e.storage), e?.onChange && (o.onChange = e.onChange), o;
 }
-function g(t, n) {
+function f(t, e) {
   if (!t || t.dataset.cmShellInit === "true") return null;
-  const a = f(t, n);
-  if (a.rails.length === 0) return null;
-  const e = s(t, a);
-  return e && (t.dataset.cmShellInit = "true"), e;
+  const n = d(t, e);
+  if (n.rails.length === 0) return null;
+  const r = g(t, n);
+  return r && (t.dataset.cmShellInit = "true", s.set(t, r)), r;
 }
-function m(t = document, n) {
-  const a = Array.from(t.querySelectorAll("[data-content-modeling-shell]")), e = [];
-  for (const l of a) {
-    const i = g(l, n);
-    i && e.push(i);
+function p(t, e) {
+  if (!t) return null;
+  const n = s.get(t);
+  return n ? (n.refresh(d(t, e)), n) : f(t, e);
+}
+function A(t = document, e) {
+  const n = Array.from(t.querySelectorAll("[data-content-modeling-shell]")), r = [];
+  for (const l of n) {
+    const i = f(l, e);
+    i && r.push(i);
   }
-  return e;
+  return r;
 }
 export {
-  f as buildShellConfig,
-  g as initContentModelingShell,
-  m as initContentModelingShells
+  d as buildShellConfig,
+  f as initContentModelingShell,
+  A as initContentModelingShells,
+  p as refreshContentModelingShell
 };
 
 //# sourceMappingURL=content-modeling-shell.js.map

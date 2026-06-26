@@ -211,8 +211,8 @@ export function createSafeStorage(preferred?: StorageLike | null): StorageLike {
 
 export class PaneLayoutController {
   private readonly root: HTMLElement;
-  private readonly config: PaneLayoutConfig;
-  private readonly railDefs: Map<string, PaneRailDef>;
+  private config: PaneLayoutConfig;
+  private railDefs: Map<string, PaneRailDef>;
   private readonly storage: StorageLike;
   private readonly storageKey: string;
   private state: PaneLayoutState;
@@ -318,6 +318,26 @@ export class PaneLayoutController {
       this.applyRail(id);
     }
     this.applyFocus();
+  }
+
+  /**
+   * Re-scan-compatible reapply hook for shells with JS-rendered panes. The
+   * controller keeps its delegated listeners and state, but can accept a fresh
+   * declarative config so replaced rail/toggle nodes receive the current state.
+   */
+  refresh(config?: PaneLayoutConfig): void {
+    if (config) {
+      const currentStorage = this.config.storage;
+      const currentOnChange = this.config.onChange;
+      this.config = {
+        ...config,
+        storage: config.storage ?? currentStorage,
+        onChange: config.onChange ?? currentOnChange,
+      };
+      this.railDefs = new Map(this.config.rails.map((rail) => [rail.id, rail]));
+      this.state = sanitizePaneState(this.state, this.config);
+    }
+    this.apply();
   }
 
   private applyRail(id: string): void {

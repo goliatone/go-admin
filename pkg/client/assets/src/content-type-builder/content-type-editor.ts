@@ -39,6 +39,7 @@ import { formatContentTypeDate } from './shared/date-formatters';
 import { PreviewModal, wrapReadonlyPreview as wrapReadonlyPreviewShared, initPreviewEditors as initPreviewEditorsShared } from './shared/schema-preview';
 import { FIELD_SET_PRESETS, getFieldSetPreset } from './shared/field-presets';
 import { nameToSlug, titleCaseIdentifier } from './shared/text';
+import { refreshContentModelingShell } from './shared/content-modeling-shell';
 import { escapeHTML as escapeHtml } from '../shared/html.js';
 import { parseJSONValue } from '../shared/json-parse.js';
 
@@ -581,9 +582,9 @@ export class ContentTypeEditor {
         ${this.renderHeader()}
 
         <!-- Main Content -->
-        <div class="flex-1 flex overflow-hidden" data-ct-editor-layout>
+        <div class="flex-1 flex flex-col md:flex-row overflow-hidden min-h-0" data-ct-editor-layout>
           <!-- Left Panel: Basic Info + Fields -->
-          <div class="flex-1 overflow-y-auto p-6 space-y-6" data-ct-editor-main>
+          <div class="flex-1 min-h-0 overflow-y-auto p-6 space-y-6" data-ct-editor-main>
             ${this.renderBasicInfo()}
             ${this.renderFieldsSection()}
             ${this.renderCapabilitiesSection()}
@@ -624,6 +625,12 @@ export class ContentTypeEditor {
         <div data-ct-validation-errors class="hidden"></div>
       </div>
     `;
+    this.refreshPaneLayout();
+  }
+
+  private refreshPaneLayout(): void {
+    const shell = this.container.closest<HTMLElement>('[data-content-modeling-shell]');
+    refreshContentModelingShell(shell);
   }
 
   private renderBasicInfo(): string {

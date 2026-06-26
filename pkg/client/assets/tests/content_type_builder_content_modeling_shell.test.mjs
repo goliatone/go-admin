@@ -13,7 +13,7 @@ const { JSDOM } = await loadJSDOM();
 const bootstrapDom = new JSDOM('<!doctype html><html><body></body></html>', { url: 'http://localhost' });
 setGlobals(bootstrapDom.window);
 
-const { buildShellConfig, initContentModelingShell, initContentModelingShells } = await import(
+const { buildShellConfig, initContentModelingShell, initContentModelingShells, refreshContentModelingShell } = await import(
   '../dist/content-type-builder/shared/content-modeling-shell.js'
 );
 const { PaneLayoutController } = await import('../dist/content-type-builder/shared/pane-layout.js');
@@ -201,6 +201,49 @@ test('content-types preview controls restore persisted preview rail and focus st
   assert.equal(previewRail.style.width, '520px');
   assert.equal(previewToggles[0].getAttribute('aria-expanded'), 'true');
   assert.equal(previewToggles[1].getAttribute('aria-expanded'), 'true');
+  ctrl.destroy();
+});
+
+test('refreshContentModelingShell reapplies state after JS-rendered rail DOM is replaced', () => {
+  const dom = setup(contentTypeEditorPreviewMarkup());
+  const root = dom.window.document.querySelector('[data-content-modeling-shell]');
+  const storage = memStorage({
+    'cm-pane:v1:content-types': JSON.stringify({
+      rails: {
+        list: { collapsed: false, width: 300 },
+        preview: { collapsed: true, width: 520 },
+      },
+      focus: 'preview',
+    }),
+  });
+
+  const ctrl = initContentModelingShell(root, { storage });
+  const builder = root.querySelector('[data-pane="builder"]');
+  builder.innerHTML = `
+    <button data-pane-toggle="preview" type="button" aria-expanded="true">preview</button>
+    <button data-pane-focus-toggle="builder" type="button" aria-pressed="false">builder</button>
+    <div data-ct-editor-main></div>
+    <div class="cm-splitter" data-pane-resize="preview"></div>
+    <aside class="cm-rail cm-rail--preview" data-pane-rail="preview"
+           data-pane-resizable data-pane-edge="leading"
+           data-pane-min="320" data-pane-max="720" data-pane-default-width="400">
+      <button data-pane-toggle="preview" type="button" aria-expanded="true">hide</button>
+      <button data-pane-focus-toggle="preview" type="button" aria-pressed="false">focus</button>
+    </aside>`;
+
+  const refreshed = refreshContentModelingShell(root, { storage });
+  assert.equal(refreshed, ctrl);
+
+  const previewRail = root.querySelector('[data-pane-rail="preview"]');
+  const previewToggles = root.querySelectorAll('[data-pane-toggle="preview"]');
+  assert.equal(previewRail.getAttribute('data-collapsed'), 'true');
+  assert.equal(root.getAttribute('data-pane-focus'), 'preview');
+  assert.equal(root.querySelector('[data-pane-focus-toggle="preview"]').getAttribute('aria-pressed'), 'true');
+  assert.equal(previewToggles[0].getAttribute('aria-expanded'), 'false');
+
+  click(previewToggles[0]);
+  assert.equal(previewRail.getAttribute('data-collapsed'), 'false');
+  assert.equal(previewRail.style.width, '520px');
   ctrl.destroy();
 });
 

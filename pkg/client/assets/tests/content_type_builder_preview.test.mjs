@@ -35,6 +35,7 @@ function setGlobals(win) {
   globalThis.CustomEvent = win.CustomEvent;
   globalThis.MutationObserver = win.MutationObserver;
   globalThis.FormData = win.FormData;
+  globalThis.localStorage = win.localStorage;
   globalThis.requestAnimationFrame = win.requestAnimationFrame
     ? win.requestAnimationFrame.bind(win)
     : (cb) => setTimeout(cb, 0);
@@ -211,6 +212,82 @@ test('ContentTypeEditor save preserves non-boolean capabilities when updating ic
     assert.deepEqual(updatedPayload.capabilities.permissions, ['admin.pages.read']);
     assert.equal(updatedPayload.capabilities.versioning, true);
     assert.equal(updatedPayload.capabilities.seo, true);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('ContentTypeEditor reapplies persisted preview pane state after async edit load re-render', async () => {
+  setupDom(`
+    <!doctype html>
+    <html>
+      <body>
+        <div class="cm-shell" data-content-modeling-shell data-cm-surface="content-types">
+          <aside class="cm-rail cm-rail--list" data-pane-rail="list"
+                 data-pane-resizable data-pane-edge="trailing"
+                 data-pane-min="240" data-pane-max="420" data-pane-default-width="320"></aside>
+          <div class="cm-splitter" data-pane-resize="list"></div>
+          <section data-pane="builder">
+            <button data-pane-focus-toggle="builder" type="button" aria-pressed="false">builder</button>
+            <div data-content-type-editor-root></div>
+          </section>
+        </div>
+      </body>
+    </html>`);
+
+  window.localStorage.setItem('cm-pane:v1:content-types', JSON.stringify({
+    rails: {
+      list: { collapsed: false, width: 320 },
+      preview: { collapsed: true, width: 540 },
+    },
+    focus: 'preview',
+  }));
+
+  const root = document.querySelector('[data-content-type-editor-root]');
+  const originalFetch = globalThis.fetch;
+  try {
+    globalThis.fetch = async (url, init = {}) => {
+      const href = String(url);
+      const method = (init.method ?? 'GET').toUpperCase();
+      if (method === 'GET' && href.endsWith('/admin/api/panels/content_types/page')) {
+        return jsonResponse({
+          id: 'ct-page',
+          name: 'Page',
+          slug: 'page',
+          icon: 'file',
+          schema: {
+            type: 'object',
+            properties: {
+              title: { type: 'string', title: 'Title' },
+            },
+            required: [],
+          },
+          capabilities: {},
+        });
+      }
+      return jsonResponse({ html: '<form><input name="title"></form>' });
+    };
+
+    const editor = new ContentTypeEditor(root, { apiBasePath: '/admin/api', contentTypeId: 'page' });
+    await editor.init();
+
+    const shell = document.querySelector('[data-content-modeling-shell]');
+    const previewRail = root.querySelector('[data-pane-rail="preview"]');
+    const previewToggle = root.querySelector('[data-pane-toggle="preview"]');
+    const previewFocus = root.querySelector('[data-pane-focus-toggle="preview"]');
+    const editorLayout = root.querySelector('[data-ct-editor-layout]');
+
+    assert.ok(previewRail, 'expected preview rail after load re-render');
+    assert.equal(previewRail.getAttribute('data-collapsed'), 'true');
+    assert.equal(previewToggle.getAttribute('aria-expanded'), 'false');
+    assert.equal(shell.getAttribute('data-pane-focus'), 'preview');
+    assert.equal(previewFocus.getAttribute('aria-pressed'), 'true');
+    assert.match(editorLayout.className, /flex-col/);
+    assert.match(editorLayout.className, /md:flex-row/);
+
+    click(previewToggle);
+    assert.equal(previewRail.getAttribute('data-collapsed'), 'false');
+    assert.equal(previewRail.style.width, '540px');
   } finally {
     globalThis.fetch = originalFetch;
   }

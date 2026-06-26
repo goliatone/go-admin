@@ -20,10 +20,10 @@
  *     </div>
  *   </div>
  *
- * Only rails whose wrapper element is NOT replaced by a surface's own re-render
- * may be declared here (the controller applies state once at init). Content Types
- * keeps its palette/preview inside the JS-rendered editor root, so those are owned
- * by the editor; only the list rail lives in the shell.
+ * JS-rendered surfaces may replace rail DOM after async loads. Call
+ * `refreshContentModelingShell()` after those renders so the long-lived controller
+ * re-scans rail/toggle declarations and reapplies its persisted state without
+ * rebinding listeners.
  */
 
 import {
@@ -41,6 +41,8 @@ export interface ContentModelingShellOptions {
   /** Optional change hook forwarded to the controller. */
   onChange?: PaneLayoutConfig['onChange'];
 }
+
+const controllers = new WeakMap<HTMLElement, PaneLayoutController>();
 
 function numericAttr(el: HTMLElement, name: string): number | undefined {
   const raw = el.getAttribute(name);
@@ -108,8 +110,28 @@ export function initContentModelingShell(
   const config = buildShellConfig(root, opts);
   if (config.rails.length === 0) return null;
   const controller = createPaneLayout(root, config);
-  if (controller) root.dataset.cmShellInit = 'true';
+  if (controller) {
+    root.dataset.cmShellInit = 'true';
+    controllers.set(root, controller);
+  }
   return controller;
+}
+
+/**
+ * Reapply a shell's controller after a JS-rendered surface replaces rail/toggle
+ * DOM. If the shell was not initialized yet, this initializes it once.
+ */
+export function refreshContentModelingShell(
+  root: HTMLElement | null,
+  opts?: ContentModelingShellOptions,
+): PaneLayoutController | null {
+  if (!root) return null;
+  const controller = controllers.get(root);
+  if (controller) {
+    controller.refresh(buildShellConfig(root, opts));
+    return controller;
+  }
+  return initContentModelingShell(root, opts);
 }
 
 /** Initialize every content-modeling shell within a scope. */

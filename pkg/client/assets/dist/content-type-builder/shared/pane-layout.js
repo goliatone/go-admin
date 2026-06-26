@@ -1,12 +1,12 @@
-var R = 1, g = "cm-pane";
+var E = 1, m = "cm-pane";
 function h(t, e, i) {
   const s = typeof t == "number" ? t : Number(t);
   return Number.isFinite(s) ? Math.min(Math.max(e, i), Math.max(Math.min(e, i), s)) : null;
 }
-function m(t) {
-  return `${g}:v${t.version ?? 1}:${t.surface}`;
-}
 function y(t) {
+  return `${m}:v${t.version ?? 1}:${t.surface}`;
+}
+function b(t) {
   const e = {};
   for (const i of t.rails) e[i.id] = {
     collapsed: i.defaultCollapsed === !0,
@@ -17,8 +17,8 @@ function y(t) {
     focus: null
   };
 }
-function b(t, e) {
-  const i = y(e);
+function p(t, e) {
+  const i = b(e);
   if (!t || typeof t != "object") return i;
   const s = t, a = s.rails && typeof s.rails == "object" ? s.rails : {};
   for (const r of e.rails) {
@@ -66,9 +66,9 @@ function v(t) {
     }
   };
 }
-var E = class {
+var C = class {
   constructor(t, e) {
-    this.cleanups = [], this.dragCleanup = null, this.root = t, this.config = e, this.railDefs = new Map(e.rails.map((i) => [i.id, i])), this.storage = v(e.storage), this.storageKey = m(e), this.state = this.restore();
+    this.cleanups = [], this.dragCleanup = null, this.root = t, this.config = e, this.railDefs = new Map(e.rails.map((i) => [i.id, i])), this.storage = v(e.storage), this.storageKey = y(e), this.state = this.restore();
   }
   restore() {
     let t = null;
@@ -78,7 +78,7 @@ var E = class {
     } catch {
       t = null;
     }
-    return b(t, this.config);
+    return p(t, this.config);
   }
   persist() {
     this.storage.setItem(this.storageKey, JSON.stringify(this.state));
@@ -117,6 +117,17 @@ var E = class {
   apply() {
     for (const t of Object.keys(this.state.rails)) this.applyRail(t);
     this.applyFocus();
+  }
+  refresh(t) {
+    if (t) {
+      const e = this.config.storage, i = this.config.onChange;
+      this.config = {
+        ...t,
+        storage: t.storage ?? e,
+        onChange: t.onChange ?? i
+      }, this.railDefs = new Map(this.config.rails.map((s) => [s.id, s])), this.state = p(this.state, this.config);
+    }
+    this.apply();
   }
   applyRail(t) {
     const e = this.state.rails[t], i = this.railDefs.get(t);
@@ -164,8 +175,8 @@ var E = class {
     if (!i || !i.resizable || !s || !a || s.collapsed) return;
     e.preventDefault(), this.endResize();
     const o = e.clientX, r = s.width ?? a.getBoundingClientRect().width, l = i.edge ?? "trailing", n = (d) => {
-      const f = d.clientX - o, p = l === "leading" ? -f : f;
-      this.setRailWidth(t, r + p, { persist: !1 });
+      const f = d.clientX - o, g = l === "leading" ? -f : f;
+      this.setRailWidth(t, r + g, { persist: !1 });
     }, c = () => {
       this.endResize(), this.persist();
     }, u = a.ownerDocument || document;
@@ -180,18 +191,18 @@ var E = class {
     this.endResize(), this.cleanups.forEach((t) => t()), this.cleanups.length = 0;
   }
 };
-function A(t, e) {
-  return t ? new E(t, e).init() : null;
+function R(t, e) {
+  return t ? new C(t, e).init() : null;
 }
 export {
-  R as PANE_LAYOUT_VERSION,
-  E as PaneLayoutController,
+  E as PANE_LAYOUT_VERSION,
+  C as PaneLayoutController,
   h as clampWidth,
-  A as createPaneLayout,
+  R as createPaneLayout,
   v as createSafeStorage,
-  y as defaultPaneState,
-  m as paneStorageKey,
-  b as sanitizePaneState
+  b as defaultPaneState,
+  y as paneStorageKey,
+  p as sanitizePaneState
 };
 
 //# sourceMappingURL=pane-layout.js.map

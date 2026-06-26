@@ -120,6 +120,7 @@ export type {
 export {
   initContentModelingShell,
   initContentModelingShells,
+  refreshContentModelingShell,
   buildShellConfig,
 } from './shared/content-modeling-shell';
 export type { ContentModelingShellOptions } from './shared/content-modeling-shell';
