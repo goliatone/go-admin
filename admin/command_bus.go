@@ -98,12 +98,7 @@ func RegisterCommand[T any](bus *CommandBus, cmd command.Commander[T], runnerOpt
 	}
 	bus.track(sub)
 	if name := commandMessageType[T](); name != "" {
-		bus.mu.Lock()
-		if bus.handlerCommands == nil {
-			bus.handlerCommands = map[string]bool{}
-		}
-		bus.handlerCommands[name] = true
-		bus.mu.Unlock()
+		bus.MarkCommandHandlerRegistered(name)
 	}
 	return sub, nil
 }
@@ -130,6 +125,25 @@ func commandMessageType[T any]() string {
 		return strings.TrimSpace(msg.Type())
 	}
 	return ""
+}
+
+// MarkCommandHandlerRegistered records that a typed command handler exists for
+// a public command name. This is used by capability checks before advertising
+// browser-dispatchable actions.
+func (b *CommandBus) MarkCommandHandlerRegistered(name string) {
+	if b == nil || !b.enabled {
+		return
+	}
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return
+	}
+	b.mu.Lock()
+	if b.handlerCommands == nil {
+		b.handlerCommands = map[string]bool{}
+	}
+	b.handlerCommands[name] = true
+	b.mu.Unlock()
 }
 
 // RegisterFactory stores a message factory for name-based dispatch.
