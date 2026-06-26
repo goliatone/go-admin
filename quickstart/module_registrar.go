@@ -199,6 +199,13 @@ func WithMenuSeedModuleParentOverride(moduleID, parentID string) ModuleRegistrar
 	})
 }
 
+// WithMenuSeedBaseItemTransform appends transforms applied to quickstart base/capability menu rows.
+func WithMenuSeedBaseItemTransform(transforms ...MenuSeedBaseItemTransform) ModuleRegistrarOption {
+	return WithMenuSeedPlanOptions(func(opts *MenuSeedPlanOptions) {
+		opts.BaseItemTransforms = append(opts.BaseItemTransforms, transforms...)
+	})
+}
+
 // WithMenuSeedItemTransform appends transforms applied to module-contributed menu rows.
 func WithMenuSeedItemTransform(transforms ...MenuSeedItemTransform) ModuleRegistrarOption {
 	return WithMenuSeedPlanOptions(func(opts *MenuSeedPlanOptions) {
