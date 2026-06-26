@@ -620,6 +620,62 @@ func TestTranslationEditorAssignmentDetailContentNavigationOmitsTargetWithoutRec
 	}
 }
 
+func TestTranslationEditorAssignmentDetailContentNavigationOmitsStaleTargetWithoutVariant(t *testing.T) {
+	fixture := newTranslationEditorTestFixture(t, translationEditorTestFixtureOptions{
+		RequiredLocales: []string{"fr", "es"},
+		ExtraAssignments: []TranslationAssignment{{
+			ID:             "asg-editor-es",
+			FamilyID:       "tg-page-1",
+			EntityType:     "pages",
+			TenantID:       "tenant-1",
+			OrgID:          "org-1",
+			SourceRecordID: "page-1",
+			SourceLocale:   "en",
+			TargetLocale:   "es",
+			TargetRecordID: "stale-page-1-es",
+			Status:         AssignmentStatusInProgress,
+			AssigneeID:     "translator-1",
+			Version:        1,
+		}},
+	})
+
+	status, payload := doTranslationEditorJSONRequest(t, fixture.app, http.MethodGet, "/admin/api/translations/assignments/asg-editor-es?channel=production&tenant_id=tenant-1&org_id=org-1", nil)
+	if status != http.StatusOK {
+		t.Fatalf("status=%d want=200 payload=%+v", status, payload)
+	}
+	data := extractMap(payload["data"])
+	contentNavigation := extractMap(data["content_navigation"])
+	sourceNavigation := extractMap(contentNavigation["source"])
+	if got := toString(sourceNavigation["edit_url"]); got != "/admin/content/pages/page-1/edit?channel=production&locale=en" {
+		t.Fatalf("expected source edit URL, got %q", got)
+	}
+	if target, ok := contentNavigation["target"]; ok && target != nil {
+		t.Fatalf("expected target navigation omitted without resolved target variant, got %+v", target)
+	}
+}
+
+func TestTranslationEditorAssignmentDetailContentNavigationOmitsSourceWithoutContentAccess(t *testing.T) {
+	const pageViewPermission = "pages:view"
+	const pageEditPermission = "pages:update"
+	fixture := newTranslationEditorTestFixture(t, translationEditorTestFixtureOptions{
+		PagePanelViewPermission: pageViewPermission,
+		PagePanelEditPermission: pageEditPermission,
+		Permissions: map[string]bool{
+			pageViewPermission: false,
+			pageEditPermission: false,
+		},
+	})
+
+	status, payload := doTranslationEditorJSONRequest(t, fixture.app, http.MethodGet, "/admin/api/translations/assignments/"+fixture.assignmentID+"?channel=production&tenant_id=tenant-1&org_id=org-1", nil)
+	if status != http.StatusOK {
+		t.Fatalf("status=%d want=200 payload=%+v", status, payload)
+	}
+	data := extractMap(payload["data"])
+	if navigation := data["content_navigation"]; navigation != nil {
+		t.Fatalf("expected content navigation omitted without content view or edit access, got %+v", navigation)
+	}
+}
+
 func TestTranslationEditorAssignmentDetailSuggestionActionDisabledWithoutService(t *testing.T) {
 	fixture := newTranslationEditorTestFixture(t, translationEditorTestFixtureOptions{})
 

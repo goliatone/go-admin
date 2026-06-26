@@ -441,14 +441,17 @@ func (b *translationQueueBinding) translationEditorContentNavigationPayload(ctx 
 		access,
 	)
 	targetLocale := strings.TrimSpace(firstNonEmpty(editorCtx.TargetVariant.Locale, assignment.TargetLocale))
-	target := translationContentNavigationPayloadForRecord(
-		contentType,
-		strings.TrimSpace(editorCtx.TargetRecordID),
-		targetLocale,
-		channel,
-		basePath,
-		access,
-	)
+	var target map[string]any
+	if editorCtx.HasTarget && strings.TrimSpace(editorCtx.TargetRecordID) != "" {
+		target = translationContentNavigationPayloadForRecord(
+			contentType,
+			strings.TrimSpace(editorCtx.TargetRecordID),
+			targetLocale,
+			channel,
+			basePath,
+			access,
+		)
+	}
 	out := map[string]any{}
 	if len(source) > 0 {
 		if toBool(source["can_edit"]) {
