@@ -17,7 +17,7 @@ var oe = class extends Error {
   constructor(t, e, a, r) {
     super(t), this.name = "ContentTypeAPIError", this.status = e, this.textCode = a, this.fields = r;
   }
-}, N = class {
+}, R = class {
   constructor(t) {
     this.channel = "";
     let e = t.basePath.replace(/\/+$/, "");
@@ -504,7 +504,7 @@ function Ot(t) {
     location: { type: "object" }
   }[t.type] ?? { type: "string" };
   e.type = a.type, a.format && (e.format = a.format), t.label && (e.title = t.label), t.description && (e.description = t.description), t.defaultValue !== void 0 && (e.default = t.defaultValue), t.validation && (t.validation.minLength !== void 0 && (e.minLength = t.validation.minLength), t.validation.maxLength !== void 0 && (e.maxLength = t.validation.maxLength), t.validation.min !== void 0 && (e.minimum = t.validation.min), t.validation.max !== void 0 && (e.maximum = t.validation.max), t.validation.pattern && (e.pattern = t.validation.pattern));
-  const r = {}, i = Nt(t.type);
+  const r = {}, i = Rt(t.type);
   switch (i && (r.widget = i), t.placeholder && (r.placeholder = t.placeholder), t.helpText && (r.helpText = t.helpText), t.section && (r.section = t.section), t.order !== void 0 && (r.order = t.order), t.gridSpan !== void 0 && (r.grid = { span: t.gridSpan }), t.readonly && (r.readonly = !0), t.hidden && (r.hidden = !0), t.filterable && (r.filterable = !0), Object.keys(r).length > 0 && (e["x-formgen"] = r), t.filterable && (e["x-admin"] = { filterable: !0 }), t.type) {
     case "select":
     case "radio":
@@ -563,7 +563,7 @@ function Ot(t) {
   }
   return e;
 }
-function Nt(t) {
+function Rt(t) {
   return {
     textarea: "textarea",
     "rich-text": "rich-text",
@@ -584,10 +584,10 @@ function ue(t) {
   if (!t.properties) return [];
   const e = new Set(t.required ?? []), a = [];
   for (const [r, i] of Object.entries(t.properties))
-    r === "_type" || r === "_schema" || a.push(Rt(r, i, e.has(r)));
+    r === "_type" || r === "_schema" || a.push(Nt(r, i, e.has(r)));
   return a.sort((r, i) => (r.order ?? 999) - (i.order ?? 999)), a;
 }
-function Rt(t, e, a) {
+function Nt(t, e, a) {
   const r = e["x-formgen"], i = e["x-admin"], s = i?.filterable ?? r?.filterable, o = {
     id: G(),
     name: t,
@@ -3093,7 +3093,7 @@ function Se(...t) {
   const r = window?.DEBUG_CONFIG;
   return typeof r?.apiBasePath == "string" && r.apiBasePath.trim() ? J(r.apiBasePath.trim(), { ensureAPISuffix: !0 }) : typeof r?.basePath == "string" && r.basePath.trim() ? J(r.basePath.trim(), { ensureAPISuffix: !0 }) : "";
 }
-function Ne(t, e) {
+function Re(t, e) {
   const a = (e || "").trim();
   if (a) return We(a);
   const r = We((t || "").trim());
@@ -4252,7 +4252,7 @@ var oa = class extends A {
     super({
       size: "lg",
       maxHeight: "max-h-[70vh]"
-    }), this.availableBlocks = [], this.config = t, this.api = new N({ basePath: t.apiBasePath }), this.selectedBlocks = new Set(t.selectedBlocks);
+    }), this.availableBlocks = [], this.config = t, this.api = new R({ basePath: t.apiBasePath }), this.selectedBlocks = new Set(t.selectedBlocks);
   }
   async onAfterShow() {
     await this.loadBlocks();
@@ -5089,7 +5089,7 @@ async function ma(t) {
     fieldTypes: [...le.fieldTypes]
   };
 }
-var ba = /* @__PURE__ */ new Set(["advanced"]), me = "application/x-field-palette-type", Re = "application/x-field-palette-meta", De = class {
+var ba = /* @__PURE__ */ new Set(["advanced"]), me = "application/x-field-palette-type", Ne = "application/x-field-palette-meta", De = class {
   constructor(t) {
     this.fieldTypes = [], this.fieldTypeByKey = /* @__PURE__ */ new Map(), this.fieldTypeKeyByRef = /* @__PURE__ */ new Map(), this.categoryOrder = [], this.searchQuery = "", this.categoryStates = /* @__PURE__ */ new Map(), this.isLoading = !0, this.enabled = !1, this.config = t, this.categoryOrder = [...le.categories];
   }
@@ -5253,7 +5253,7 @@ var ba = /* @__PURE__ */ new Set(["advanced"]), me = "application/x-field-palett
         const r = e.dataset.paletteItem;
         a.dataTransfer.effectAllowed = "copy";
         const i = this.fieldTypeByKey.get(r) ?? this.fieldTypes.find((s) => s.type === r);
-        i ? (a.dataTransfer.setData(me, i.type), a.dataTransfer.setData(Re, JSON.stringify(i))) : a.dataTransfer.setData(me, r), a.dataTransfer.setData("text/plain", i?.type ?? r), e.classList.add("opacity-50");
+        i ? (a.dataTransfer.setData(me, i.type), a.dataTransfer.setData(Ne, JSON.stringify(i))) : a.dataTransfer.setData(me, r), a.dataTransfer.setData("text/plain", i?.type ?? r), e.classList.add("opacity-50");
       }), e.addEventListener("dragend", () => {
         e.classList.remove("opacity-50");
       });
@@ -5343,12 +5343,12 @@ function vt(t) {
   let $e;
   if (h) $e = `${n(e.name)} &middot; ${n(e.type)}`;
   else {
-    const _ = k?.label ?? e.type, R = [
+    const _ = k?.label ?? e.type, N = [
       `<span class="font-mono">${n(e.name)}</span>`,
       "<span>&middot;</span>",
       `<span>${n(_)}</span>`
     ];
-    e.section && R.push(`<span>&middot; ${n(e.section)}</span>`), e.gridSpan && R.push(`<span>&middot; ${e.gridSpan} cols</span>`), $e = R.join(" ");
+    e.section && N.push(`<span>&middot; ${n(e.section)}</span>`), e.gridSpan && N.push(`<span>&middot; ${e.gridSpan} cols</span>`), $e = N.join(" ");
   }
   let Ve = "";
   g.length > 0 && (Ve = `
@@ -5362,7 +5362,7 @@ function vt(t) {
             </div>`);
   let Ke = "";
   if (l) {
-    const _ = d, R = c, Mt = _ ? "text-gray-200 dark:text-gray-700 cursor-not-allowed" : "text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800", Tt = R ? "text-gray-200 dark:text-gray-700 cursor-not-allowed" : "text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800";
+    const _ = d, N = c, Mt = _ ? "text-gray-200 dark:text-gray-700 cursor-not-allowed" : "text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800", Tt = N ? "text-gray-200 dark:text-gray-700 cursor-not-allowed" : "text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800";
     Ke = `
           <span class="flex-shrink-0 inline-flex flex-col border border-gray-200 dark:border-gray-700 rounded-md overflow-hidden">
             <button type="button" data-field-move-up="${n(e.id)}"
@@ -5373,7 +5373,7 @@ function vt(t) {
             <span class="block h-px bg-gray-200 dark:bg-gray-700"></span>
             <button type="button" data-field-move-down="${n(e.id)}"
                     class="px-0.5 py-px ${Tt} transition-colors"
-                    title="Move down" ${R ? "disabled" : ""}>
+                    title="Move down" ${N ? "disabled" : ""}>
               ${ka}
             </button>
           </span>`;
@@ -5423,7 +5423,7 @@ function ze(t = {}) {
 }
 var S = "main", Ba = class {
   constructor(t, e) {
-    this.dragState = null, this.dropIndicator = null, this.dragOverRAF = null, this.staticEventsBound = !1, this.previewDebounceTimer = null, this.palettePanel = null, this.paletteVisible = !1, this.sectionStates = /* @__PURE__ */ new Map(), this.lifecycleOutsideClickHandler = null, this.cachedBlocks = null, this.blocksLoading = !1, this.blockPickerModes = /* @__PURE__ */ new Map(), this.fieldActionsMenuId = null, this.container = t, this.config = e, this.api = new N({ basePath: e.apiBasePath });
+    this.dragState = null, this.dropIndicator = null, this.dragOverRAF = null, this.staticEventsBound = !1, this.previewDebounceTimer = null, this.previewRequestSeq = 0, this.palettePanel = null, this.paletteVisible = !1, this.sectionStates = /* @__PURE__ */ new Map(), this.lifecycleOutsideClickHandler = null, this.cachedBlocks = null, this.blocksLoading = !1, this.blockPickerModes = /* @__PURE__ */ new Map(), this.fieldActionsMenuId = null, this.container = t, this.config = e, this.api = new R({ basePath: e.apiBasePath });
     const a = this.normalizeChannel(e.channel);
     a && this.api.setChannel(a), this.state = {
       contentType: null,
@@ -6384,7 +6384,7 @@ var S = "main", Ba = class {
         e.contains(a.relatedTarget) || (e.classList.remove("border-blue-400", "bg-blue-50/50"), e.classList.add("border-gray-200", "hover:border-gray-300"));
       }), e.addEventListener("drop", (a) => {
         a.preventDefault(), e.classList.remove("border-blue-400", "bg-blue-50/50"), e.classList.add("border-gray-200", "hover:border-gray-300");
-        const r = a.dataTransfer?.getData(Re);
+        const r = a.dataTransfer?.getData(Ne);
         if (r) {
           const s = O(r, null);
           if (s?.type) {
@@ -7027,7 +7027,7 @@ var S = "main", Ba = class {
     super({
       size: "2xl",
       maxHeight: "max-h-[80vh]"
-    }), this.versions = [], this.expandedVersions = /* @__PURE__ */ new Set(), this.config = t, this.api = new N({ basePath: t.apiBasePath });
+    }), this.versions = [], this.expandedVersions = /* @__PURE__ */ new Set(), this.config = t, this.api = new R({ basePath: t.apiBasePath });
   }
   async onAfterShow() {
     await this.loadVersions();
@@ -7188,7 +7188,7 @@ var S = "main", Ba = class {
     super({
       size: "4xl",
       backdropDataAttr: "data-block-library-backdrop"
-    }), this.categories = [], this.config = t, this.api = new N({ basePath: t.apiBasePath }), this.state = {
+    }), this.categories = [], this.config = t, this.api = new R({ basePath: t.apiBasePath }), this.state = {
       blocks: [],
       selectedBlockId: null,
       isLoading: !1,
@@ -7606,7 +7606,7 @@ var S = "main", Ba = class {
   }
 }, Ta = class extends A {
   constructor(t) {
-    super({ size: "3xl" }), this.fields = [], this.config = t, this.api = new N({ basePath: t.apiBasePath }), this.isNew = !t.block, t.block?.schema && (this.fields = ue(t.block.schema));
+    super({ size: "3xl" }), this.fields = [], this.config = t, this.api = new R({ basePath: t.apiBasePath }), this.isNew = !t.block, t.block?.schema && (this.fields = ue(t.block.schema));
   }
   onBeforeHide() {
     return this.config.onCancel(), !0;
@@ -7870,7 +7870,7 @@ var S = "main", Ba = class {
     super({
       size: "2xl",
       maxHeight: "max-h-[80vh]"
-    }), this.versions = [], this.config = t, this.api = new N({ basePath: t.apiBasePath });
+    }), this.versions = [], this.config = t, this.api = new R({ basePath: t.apiBasePath });
   }
   async onAfterShow() {
     await this.loadVersions();
@@ -7964,7 +7964,7 @@ var S = "main", Ba = class {
 function Fa(t = document) {
   Array.from(t.querySelectorAll("[data-block-library-trigger]")).forEach((e) => {
     if (e.dataset.initialized === "true") return;
-    const a = Se(e.dataset.apiBasePath, e.dataset.basePath), r = Ne(a, e.dataset.basePath), i = e.dataset.mode ?? "manage";
+    const a = Se(e.dataset.apiBasePath, e.dataset.basePath), r = Re(a, e.dataset.basePath), i = e.dataset.mode ?? "manage";
     if (i === "manage") e.addEventListener("click", () => {
       window.location.href = `${r}/content/block-library`;
     });
@@ -8551,7 +8551,7 @@ var $ = "main", et = "application/x-field-reorder", Pa = class {
         e.contains(a.relatedTarget) || (this.dropHighlight = !1, e.classList.remove("border-blue-400", "bg-blue-50/50"), e.classList.add("border-gray-200", "hover:border-gray-300"));
       }), e.addEventListener("drop", (a) => {
         if (a.preventDefault(), this.dropHighlight = !1, e.classList.remove("border-blue-400", "bg-blue-50/50"), e.classList.add("border-gray-200", "hover:border-gray-300"), this.config.onFieldDrop) {
-          const r = a.dataTransfer?.getData(Re);
+          const r = a.dataTransfer?.getData(Ne);
           if (r) {
             const s = O(r, null);
             if (s && s.type) {
@@ -8889,7 +8889,7 @@ var $ = "main", et = "application/x-field-reorder", Pa = class {
   constructor(e) {
     this.listEl = null, this.searchInput = null, this.categorySelect = null, this.countEl = null, this.createBtn = null, this.editorEl = null, this.paletteEl = null, this.activeMenu = null, this.editorPanel = null, this.palettePanel = null, this.autosaveTimers = /* @__PURE__ */ new Map(), this.boundVisibilityChange = null, this.boundBeforeUnload = null, this.paletteAsideEl = null, this.addFieldBar = null, this.paletteTriggerBtn = null, this.mediaQueryLg = null, this.popoverPalettePanel = null, this.channelSelectEl = null, this.channelResetBtn = null, this.channelAddBtn = null, this.backToContentTypesLink = null, this.currentChannel = C, this.availableChannels = [C], this.channelDiagnostics = null;
     const a = Se(e.dataset.apiBasePath, e.dataset.basePath);
-    this.root = e, this.api = new N({ basePath: a }), this.state = {
+    this.root = e, this.api = new R({ basePath: a }), this.state = {
       blocks: [],
       selectedBlockId: null,
       isLoading: !1,
@@ -9824,7 +9824,7 @@ function Ia(t = document) {
       console.warn("Content type editor missing apiBasePath", e);
       return;
     }
-    const r = a.basePath ?? Ne(a.apiBasePath), i = String(a.channel ?? "").trim().toLowerCase(), s = i && i !== "default" ? `channel=${encodeURIComponent(i)}` : "";
+    const r = a.basePath ?? Re(a.apiBasePath), i = String(a.channel ?? "").trim().toLowerCase(), s = i && i !== "default" ? `channel=${encodeURIComponent(i)}` : "";
     a.onCancel || (a.onCancel = () => {
       const o = `${r}/content/types`;
       window.location.href = s ? `${o}?${s}` : o;
@@ -9863,7 +9863,7 @@ function qa(t) {
   let e = {};
   const a = t.getAttribute("data-content-type-editor-config");
   a && (e = O(a, {}));
-  const r = Se(e.apiBasePath, t.dataset.apiBasePath, t.dataset.basePath), i = e.basePath ?? Ne(r, t.dataset.basePath);
+  const r = Se(e.apiBasePath, t.dataset.apiBasePath, t.dataset.basePath), i = e.basePath ?? Re(r, t.dataset.basePath);
   return {
     ...e,
     apiBasePath: r,
@@ -9880,7 +9880,7 @@ export {
   Pa as BlockEditorPanel,
   xt as BlockLibraryIDE,
   Ma as BlockLibraryManager,
-  N as ContentTypeAPIClient,
+  R as ContentTypeAPIClient,
   oe as ContentTypeAPIError,
   Ba as ContentTypeEditor,
   nt as FIELD_CATEGORIES,

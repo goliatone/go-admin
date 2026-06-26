@@ -54,6 +54,42 @@ interface ExtendedBuilderState extends ContentTypeBuilderState {
   initialFieldsSignature: string;
 }
 
+/**
+ * Larger, fully interactive form preview shown in a modal. The side-pane preview
+ * is intentionally lightweight and read-only; this is the "escape hatch" that
+ * renders the same generated form at width and hydrates its rich editors.
+ */
+class PreviewModal extends Modal {
+  constructor(private readonly previewHtml: string, private readonly hydrate: () => void) {
+    super({ size: '4xl', maxHeight: 'max-h-[90vh]', initialFocus: '[data-preview-modal-close]' });
+  }
+
+  protected renderContent(): string {
+    return `
+      <div class="flex items-center justify-between px-5 py-3 border-b border-gray-200 dark:border-gray-700 shrink-0">
+        <h2 class="text-sm font-semibold text-gray-900 dark:text-white">Interactive Form Preview</h2>
+        <button type="button" data-preview-modal-close
+                class="p-1.5 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:text-gray-200 dark:hover:bg-gray-800"
+                aria-label="Close preview">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+          </svg>
+        </button>
+      </div>
+      <div class="overflow-y-auto p-6" data-preview-modal-body>${this.previewHtml}</div>
+    `;
+  }
+
+  protected bindContentEvents(): void {
+    this.container?.querySelector('[data-preview-modal-close]')?.addEventListener('click', () => this.hide());
+  }
+
+  protected async onAfterShow(): Promise<void> {
+    // Hydrate the rich JSON/WYSIWYG editors only inside the opened modal.
+    this.hydrate();
+  }
+}
+
 export class ContentTypeEditor {
   private config: ContentTypeEditorConfig;
   private container: HTMLElement;
@@ -64,6 +100,9 @@ export class ContentTypeEditor {
   private dragOverRAF: number | null = null;
   private staticEventsBound = false;
   private previewDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+  // Monotonic id so a slow in-flight preview response can be ignored once a
+  // newer edit has scheduled a fresher preview (prevents stale flicker).
+  private previewRequestSeq = 0;
   private palettePanel: FieldPalettePanel | null = null;
   private paletteVisible = false;
   private sectionStates: Map<string, { collapsed: boolean }> = new Map();
@@ -467,12 +506,14 @@ export class ContentTypeEditor {
    * Preview the schema as a rendered form
    */
   async previewSchema(): Promise<void> {
-    if (this.state.isPreviewing) return;
-
-    // Guard: skip API call when there are no fields
+    // Guard: skip API call when there are no fields. Bump the sequence so any
+    // in-flight response from a previous (now irrelevant) request is ignored.
     if (this.state.fields.length === 0) {
+      this.previewRequestSeq++;
       this.state.previewHtml = null;
       this.state.previewError = null;
+      this.state.isPreviewing = false;
+      this.updatePreviewState();
       const previewContainer = this.container.querySelector('[data-ct-preview-container]');
       if (previewContainer) {
         previewContainer.innerHTML = `
@@ -489,6 +530,7 @@ export class ContentTypeEditor {
 
     const schema = fieldsToSchema(this.state.fields, this.getSlug());
 
+    const seq = ++this.previewRequestSeq;
     this.state.isPreviewing = true;
     this.updatePreviewState();
 
@@ -499,18 +541,24 @@ export class ContentTypeEditor {
         ui_schema: this.buildUISchema(),
       });
 
+      // Ignore a stale response superseded by a newer edit/request.
+      if (seq !== this.previewRequestSeq) return;
       this.state.previewHtml = result.html;
       this.state.previewError = null;
       this.renderPreview();
     } catch (error) {
+      if (seq !== this.previewRequestSeq) return;
       console.error('Preview failed:', error);
       const message = error instanceof Error ? error.message : 'Preview failed';
       this.state.previewHtml = null;
       this.state.previewError = message;
       this.renderPreview();
     } finally {
-      this.state.isPreviewing = false;
-      this.updatePreviewState();
+      // Only the latest request owns the loading state.
+      if (seq === this.previewRequestSeq) {
+        this.state.isPreviewing = false;
+        this.updatePreviewState();
+      }
     }
   }
 

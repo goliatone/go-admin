@@ -3410,6 +3410,8 @@ export class TranslationEditorScreen {
       this.render();
       return;
     }
+    const requestTargetValue = asString(this.editorState.detail.target_fields[fieldPath]);
+    const requestRowVersion = this.editorState.detail.row_version;
     this.suggestingFields.add(fieldPath);
     this.feedback = null;
     this.render();
@@ -3417,6 +3419,15 @@ export class TranslationEditorScreen {
       const result = await dispatchTranslationSuggestion(action, this.loadState.requestId || '');
       if (!this.editorState || result.assignment_id !== this.editorState.detail.assignment_id || result.field_path !== fieldPath) {
         throw new Error('Translation suggestion response did not match the requested field.');
+      }
+      if (this.editorState.autosave.conflict) {
+        throw new Error('Reload the latest server draft before applying this suggestion.');
+      }
+      if (
+        this.editorState.detail.row_version !== requestRowVersion ||
+        asString(this.editorState.detail.target_fields[fieldPath]) !== requestTargetValue
+      ) {
+        throw new Error('The field changed while the suggestion was generating. Review the current draft and try again.');
       }
       this.editorState = applyEditorFieldChange(this.editorState, fieldPath, result.suggested_text);
       this.lastSavedMessage = '';
