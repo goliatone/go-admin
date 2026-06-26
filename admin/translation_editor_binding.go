@@ -739,6 +739,16 @@ func (b *translationQueueBinding) assignmentSuggestTranslationAction(ctx context
 	if b != nil {
 		commandRegistration = translationSuggestionCommandRegistration(b.admin)
 	}
+	base := newTranslationSuggestionActionBase(b, assignment, editorCtx, commandRegistration, executionMode)
+	if reasonCode, reason, unavailable := b.translationSuggestionActionUnavailable(ctx, assignment, commandRegistration, executionMode); unavailable {
+		return disabledTranslationSuggestionAction(base, reasonCode, reason)
+	}
+	out := maps.Clone(base)
+	out["enabled"] = true
+	return out
+}
+
+func newTranslationSuggestionActionBase(b *translationQueueBinding, assignment TranslationAssignment, editorCtx translationEditorContext, commandRegistration CommandRegistrationState, executionMode string) map[string]any {
 	base := map[string]any{
 		"enabled":                 false,
 		"assignment_id":           strings.TrimSpace(assignment.ID),
@@ -764,36 +774,39 @@ func (b *translationQueueBinding) assignmentSuggestTranslationAction(ctx context
 		base["channel"] = strings.TrimSpace(editorCtx.Environment)
 		base["environment"] = strings.TrimSpace(editorCtx.Environment)
 	}
-	disabled := func(reasonCode, reason string) map[string]any {
-		out := maps.Clone(base)
-		out["reason_code"] = strings.TrimSpace(reasonCode)
-		out["reason"] = strings.TrimSpace(reason)
-		return out
-	}
+	return base
+}
+
+func disabledTranslationSuggestionAction(base map[string]any, reasonCode, reason string) map[string]any {
+	out := maps.Clone(base)
+	out["reason_code"] = strings.TrimSpace(reasonCode)
+	out["reason"] = strings.TrimSpace(reason)
+	return out
+}
+
+func (b *translationQueueBinding) translationSuggestionActionUnavailable(ctx context.Context, assignment TranslationAssignment, commandRegistration CommandRegistrationState, executionMode string) (string, string, bool) {
 	if b == nil || b.admin == nil || b.admin.TranslationSuggestionService() == nil {
-		return disabled(TranslationSuggestionReasonServiceUnavailable, "Translation suggestion service is not configured.")
+		return TranslationSuggestionReasonServiceUnavailable, "Translation suggestion service is not configured.", true
 	}
 	if _, ok := b.admin.config.Commands.RPC.ResolveRule(TranslationSuggestionGenerateCommandName); !ok {
-		return disabled("transport_unavailable", "Translation suggestion RPC transport is not configured.")
+		return "transport_unavailable", "Translation suggestion RPC transport is not configured.", true
 	}
 	if !commandRegistration.Registered() {
-		return disabled("command_unavailable", "Translation suggestion command is not registered.")
+		return "command_unavailable", "Translation suggestion command is not registered.", true
 	}
 	if !commandRegistration.SupportsInlineResult() {
-		return disabled("command_result_unavailable", "Translation suggestion command does not support inline results.")
+		return "command_result_unavailable", "Translation suggestion command does not support inline results.", true
 	}
 	if executionMode != "" && executionMode != string(gocommand.ExecutionModeInline) {
-		return disabled("execution_mode_unsupported", "Translation suggestion generation requires inline command execution in the editor.")
+		return "execution_mode_unsupported", "Translation suggestion generation requires inline command execution in the editor.", true
 	}
 	if !translationSuggestionEditableStatus(assignment.Status) {
-		return disabled(TranslationSuggestionReasonReadOnlyAssignment, "Translation suggestion is unavailable for this assignment state.")
+		return TranslationSuggestionReasonReadOnlyAssignment, "Translation suggestion is unavailable for this assignment state.", true
 	}
 	if !permissionAllowed(b.admin.authorizer, ctx, PermAdminTranslationsSuggest, "translations") {
-		return disabled(TranslationSuggestionReasonPermissionDenied, "Translation suggestion permission is required.")
+		return TranslationSuggestionReasonPermissionDenied, "Translation suggestion permission is required.", true
 	}
-	out := maps.Clone(base)
-	out["enabled"] = true
-	return out
+	return "", "", false
 }
 
 func translationSuggestionEditorExecutionMode(b *translationQueueBinding) string {
@@ -823,10 +836,11 @@ func (b *translationQueueBinding) fieldSuggestTranslationAction(ctx context.Cont
 		"assignment_id": strings.TrimSpace(assignment.ID),
 		"field_path":    fieldPath,
 	}
-	if enabled, _ := base["enabled"].(bool); !enabled {
+	enabled, hasEnabled := base["enabled"].(bool)
+	if !hasEnabled || !enabled {
 		return base
 	}
-	if _, ok := editorCtx.SourceFields[fieldPath]; !ok {
+	if _, fieldExists := editorCtx.SourceFields[fieldPath]; !fieldExists {
 		base["enabled"] = false
 		base["reason_code"] = TranslationSuggestionReasonFieldUnsupported
 		base["reason"] = "Translation suggestion is unavailable for this field."

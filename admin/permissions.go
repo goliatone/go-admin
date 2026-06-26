@@ -97,3 +97,11 @@ const (
 	PermAdminArchivePublish  = "admin.archive.publish"
 	PermAdminArchiveDiagnose = "admin.archive.diagnose"
 )
+
+// PermissionGrantMatches reports whether a granted permission covers a required
+// permission using go-admin grant semantics. Exact grants match literally, and
+// admin namespace wildcards such as "admin.*" or "admin.translations.*" cover
+// concrete descendant admin permissions.
+func PermissionGrantMatches(grant, permission string) bool {
+	return permissionGrantMatches(grant, permission)
+}

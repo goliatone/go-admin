@@ -98,6 +98,7 @@ type Admin struct {
 	translationPolicy               TranslationPolicy
 	translationFamilyStore          translationservices.FamilyStore
 	translationSuggestionService    TranslationSuggestionService
+	translationSuggestionDeps       TranslationSuggestionServiceDependencies
 	cmsWorkflowDefaults             bool
 	cmsWorkflowActions              []Action
 	cmsWorkflowActionsSet           bool
@@ -224,6 +225,9 @@ func (a *Admin) WithAuthorizer(authz Authorizer) *Admin {
 			panel.authorizer = authz
 		}
 	}
+	a.ConfigureTranslationSuggestionServiceDependencies(TranslationSuggestionServiceDependencies{
+		Authorizer: authz,
+	})
 	return a
 }
 
@@ -283,6 +287,7 @@ func (a *Admin) WithTranslationSuggestionService(service TranslationSuggestionSe
 		return a
 	}
 	a.translationSuggestionService = service
+	a.applyTranslationSuggestionServiceDependencies()
 	return a
 }
 
@@ -292,6 +297,28 @@ func (a *Admin) TranslationSuggestionService() TranslationSuggestionService {
 		return nil
 	}
 	return a.translationSuggestionService
+}
+
+// ConfigureTranslationSuggestionServiceDependencies records host-owned
+// suggestion service dependencies and applies them to the current service.
+func (a *Admin) ConfigureTranslationSuggestionServiceDependencies(deps TranslationSuggestionServiceDependencies) *Admin {
+	if a == nil {
+		return a
+	}
+	a.translationSuggestionDeps = mergeTranslationSuggestionServiceDependencies(a.translationSuggestionDeps, deps)
+	a.applyTranslationSuggestionServiceDependencies()
+	return a
+}
+
+func (a *Admin) applyTranslationSuggestionServiceDependencies() {
+	if a == nil || a.translationSuggestionService == nil {
+		return
+	}
+	deps := a.translationSuggestionDeps
+	if deps.Authorizer == nil {
+		deps.Authorizer = a.authorizer
+	}
+	ConfigureTranslationSuggestionServiceDependencies(a.translationSuggestionService, deps)
 }
 
 // WithTranslationExchangeRuntime wires the exchange job runtime used by transport bindings.

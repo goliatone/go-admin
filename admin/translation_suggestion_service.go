@@ -81,6 +81,40 @@ type DefaultTranslationSuggestionService struct {
 	Provider      TranslationSuggestionProvider
 }
 
+func mergeTranslationSuggestionServiceDependencies(base, override TranslationSuggestionServiceDependencies) TranslationSuggestionServiceDependencies {
+	out := base
+	if override.Repository != nil {
+		out.Repository = override.Repository
+	}
+	if override.ContextLoader != nil {
+		out.ContextLoader = override.ContextLoader
+	}
+	if override.Authorizer != nil {
+		out.Authorizer = override.Authorizer
+	}
+	if strings.TrimSpace(override.Permission) != "" {
+		out.Permission = strings.TrimSpace(override.Permission)
+	}
+	if strings.TrimSpace(override.Resource) != "" {
+		out.Resource = strings.TrimSpace(override.Resource)
+	}
+	if override.Eligibility != nil {
+		out.Eligibility = override.Eligibility
+	}
+	if override.AssistContext != nil {
+		out.AssistContext = override.AssistContext
+	}
+	return out
+}
+
+type translationSuggestionExecutionContext struct {
+	Assignment TranslationAssignment
+	Loaded     TranslationSuggestionAssignmentContext
+	FieldPath  string
+	SourceText string
+	Assist     map[string]any
+}
+
 func (s *DefaultTranslationSuggestionService) ConfigureTranslationSuggestionServiceDependencies(deps TranslationSuggestionServiceDependencies) {
 	if s == nil {
 		return
@@ -157,7 +191,7 @@ func (s *DefaultTranslationSuggestionService) EvaluateTranslationSuggestionActio
 			},
 		}, nil
 	}
-	if err := s.requireSuggestionPermission(ctx, input); err != nil {
+	if !s.translationSuggestionPermissionAllowed(ctx, input) {
 		return TranslationSuggestionDecision{
 			Allowed:    false,
 			ReasonCode: TranslationSuggestionReasonPermissionDenied,
@@ -188,52 +222,88 @@ func (s *DefaultTranslationSuggestionService) EvaluateTranslationSuggestionActio
 }
 
 func (s *DefaultTranslationSuggestionService) SuggestTranslation(ctx context.Context, input TranslationSuggestionInput) (TranslationSuggestionResult, error) {
-	if err := input.Validate(); err != nil {
+	if err := s.requireSuggestionServiceReady(input); err != nil {
 		return TranslationSuggestionResult{}, err
 	}
+	executionCtx, err := s.prepareTranslationSuggestion(ctx, input)
+	if err != nil {
+		return TranslationSuggestionResult{}, err
+	}
+	providerResult, err := s.Provider.SuggestTranslation(ctx, executionCtx.providerInput(input))
+	if err != nil {
+		return TranslationSuggestionResult{}, err
+	}
+	return executionCtx.result(providerResult)
+}
+
+func (s *DefaultTranslationSuggestionService) requireSuggestionServiceReady(input TranslationSuggestionInput) error {
+	if err := input.Validate(); err != nil {
+		return err
+	}
 	if s == nil || s.Repository == nil {
-		return TranslationSuggestionResult{}, serviceNotConfiguredDomainError("translation assignment repository", map[string]any{
+		return serviceNotConfiguredDomainError("translation assignment repository", map[string]any{
 			"component": "translation_suggestion_service",
 		})
 	}
 	if s.ContextLoader == nil {
-		return TranslationSuggestionResult{}, serviceNotConfiguredDomainError("translation suggestion context loader", map[string]any{
+		return serviceNotConfiguredDomainError("translation suggestion context loader", map[string]any{
 			"component": "translation_suggestion_service",
 		})
 	}
 	if s.Provider == nil {
-		return TranslationSuggestionResult{}, translationSuggestionDeniedError(
-			TranslationSuggestionReasonProviderUnavailable,
-			"Translation suggestion provider is not configured.",
-			input,
-			nil,
-		)
+		return translationSuggestionDeniedError(TranslationSuggestionReasonProviderUnavailable, "Translation suggestion provider is not configured.", input, nil)
 	}
 	if s.Eligibility == nil {
-		return TranslationSuggestionResult{}, translationSuggestionDeniedError(
-			TranslationSuggestionReasonPolicyDenied,
-			"Translation suggestion eligibility policy is not configured.",
-			input,
-			nil,
-		)
+		return translationSuggestionDeniedError(TranslationSuggestionReasonPolicyDenied, "Translation suggestion eligibility policy is not configured.", input, nil)
 	}
-	if err := s.requireSuggestionPermission(ctx, input); err != nil {
-		return TranslationSuggestionResult{}, err
-	}
+	return nil
+}
 
+func (s *DefaultTranslationSuggestionService) prepareTranslationSuggestion(ctx context.Context, input TranslationSuggestionInput) (translationSuggestionExecutionContext, error) {
+	if err := s.requireSuggestionPermission(ctx, input); err != nil {
+		return translationSuggestionExecutionContext{}, err
+	}
+	assignment, loaded, err := s.loadTranslationSuggestionContext(ctx, input)
+	if err != nil {
+		return translationSuggestionExecutionContext{}, err
+	}
+	fieldPath, sourceText, err := validateTranslationSuggestionLoadedInput(input, assignment, loaded)
+	if err != nil {
+		return translationSuggestionExecutionContext{}, err
+	}
+	if eligibilityErr := s.requireTranslationSuggestionEligibility(ctx, input, loaded); eligibilityErr != nil {
+		return translationSuggestionExecutionContext{}, eligibilityErr
+	}
+	assist, err := s.translationSuggestionAssistContext(ctx, input, loaded)
+	if err != nil {
+		return translationSuggestionExecutionContext{}, err
+	}
+	return translationSuggestionExecutionContext{
+		Assignment: assignment,
+		Loaded:     loaded,
+		FieldPath:  fieldPath,
+		SourceText: sourceText,
+		Assist:     assist,
+	}, nil
+}
+
+func (s *DefaultTranslationSuggestionService) loadTranslationSuggestionContext(ctx context.Context, input TranslationSuggestionInput) (TranslationAssignment, TranslationSuggestionAssignmentContext, error) {
 	assignment, err := s.Repository.Get(ctx, strings.TrimSpace(input.AssignmentID))
 	if err != nil {
-		return TranslationSuggestionResult{}, err
+		return TranslationAssignment{}, TranslationSuggestionAssignmentContext{}, err
 	}
-	if err := translationSuggestionScopeGuard(input, assignment); err != nil {
-		return TranslationSuggestionResult{}, err
+	if scopeErr := translationSuggestionScopeGuard(input, assignment); scopeErr != nil {
+		return TranslationAssignment{}, TranslationSuggestionAssignmentContext{}, scopeErr
 	}
-
 	environment := strings.TrimSpace(firstNonEmpty(input.Environment, input.Channel))
 	loaded, err := s.ContextLoader.LoadTranslationSuggestionContext(ctx, assignment, environment)
 	if err != nil {
-		return TranslationSuggestionResult{}, err
+		return TranslationAssignment{}, TranslationSuggestionAssignmentContext{}, err
 	}
+	return assignment, normalizeTranslationSuggestionContext(loaded, assignment, environment), nil
+}
+
+func normalizeTranslationSuggestionContext(loaded TranslationSuggestionAssignmentContext, assignment TranslationAssignment, environment string) TranslationSuggestionAssignmentContext {
 	if loaded.Assignment.ID == "" {
 		loaded.Assignment = assignment
 	}
@@ -249,101 +319,100 @@ func (s *DefaultTranslationSuggestionService) SuggestTranslation(ctx context.Con
 	if loaded.SourceLocale == "" {
 		loaded.SourceLocale = strings.TrimSpace(assignment.SourceLocale)
 	}
+	return loaded
+}
 
+func validateTranslationSuggestionLoadedInput(input TranslationSuggestionInput, assignment TranslationAssignment, loaded TranslationSuggestionAssignmentContext) (string, string, error) {
 	if !translationSuggestionEditableStatus(assignment.Status) {
-		return TranslationSuggestionResult{}, translationSuggestionDeniedError(
+		return "", "", translationSuggestionDeniedError(
 			TranslationSuggestionReasonReadOnlyAssignment,
 			"Translation suggestion is unavailable for this assignment state.",
 			input,
 			map[string]any{"assignment_status": strings.TrimSpace(string(assignment.Status))},
 		)
 	}
-
 	fieldPath := strings.TrimSpace(input.FieldPath)
 	sourceText, ok := loaded.SourceFields[fieldPath]
 	if !ok {
-		return TranslationSuggestionResult{}, translationSuggestionDeniedError(
-			TranslationSuggestionReasonFieldUnsupported,
-			"Translation suggestion is unavailable for this field.",
-			input,
-			nil,
-		)
+		return "", "", translationSuggestionDeniedError(TranslationSuggestionReasonFieldUnsupported, "Translation suggestion is unavailable for this field.", input, nil)
 	}
 	sourceText = strings.TrimSpace(sourceText)
 	if sourceText == "" {
-		return TranslationSuggestionResult{}, translationSuggestionDeniedError(
-			TranslationSuggestionReasonEmptySource,
-			"Translation suggestion is unavailable for an empty source field.",
-			input,
-			nil,
-		)
+		return "", "", translationSuggestionDeniedError(TranslationSuggestionReasonEmptySource, "Translation suggestion is unavailable for an empty source field.", input, nil)
 	}
+	return fieldPath, sourceText, nil
+}
 
+func (s *DefaultTranslationSuggestionService) requireTranslationSuggestionEligibility(ctx context.Context, input TranslationSuggestionInput, loaded TranslationSuggestionAssignmentContext) error {
 	decision, err := s.Eligibility.EvaluateTranslationSuggestion(ctx, input, loaded)
 	if err != nil {
-		return TranslationSuggestionResult{}, err
+		return err
 	}
 	decision = normalizeTranslationSuggestionDecision(decision)
 	if !decision.Allowed {
-		return TranslationSuggestionResult{}, translationSuggestionDeniedError(decision.ReasonCode, decision.Reason, input, decision.Diagnostics)
+		return translationSuggestionDeniedError(decision.ReasonCode, decision.Reason, input, decision.Diagnostics)
 	}
+	return nil
+}
 
-	assist := map[string]any(nil)
-	if s.AssistContext != nil {
-		assist, err = s.AssistContext.TranslationSuggestionAssistContext(ctx, input, loaded)
-		if err != nil {
-			return TranslationSuggestionResult{}, err
-		}
+func (s *DefaultTranslationSuggestionService) translationSuggestionAssistContext(ctx context.Context, input TranslationSuggestionInput, loaded TranslationSuggestionAssignmentContext) (map[string]any, error) {
+	if s.AssistContext == nil {
+		return nil, nil
 	}
+	return s.AssistContext.TranslationSuggestionAssistContext(ctx, input, loaded)
+}
 
-	providerResult, err := s.Provider.SuggestTranslation(ctx, TranslationSuggestionProviderInput{
-		AssignmentID:   strings.TrimSpace(assignment.ID),
-		FieldPath:      fieldPath,
-		EntityType:     strings.TrimSpace(loaded.EntityType),
-		SourceLocale:   strings.TrimSpace(loaded.SourceLocale),
-		TargetLocale:   strings.TrimSpace(loaded.TargetLocale),
-		SourceText:     sourceText,
-		TargetText:     strings.TrimSpace(loaded.TargetFields[fieldPath]),
-		AssistContext:  assist,
+func (c translationSuggestionExecutionContext) providerInput(input TranslationSuggestionInput) TranslationSuggestionProviderInput {
+	return TranslationSuggestionProviderInput{
+		AssignmentID:   strings.TrimSpace(c.Assignment.ID),
+		FieldPath:      c.FieldPath,
+		EntityType:     strings.TrimSpace(c.Loaded.EntityType),
+		SourceLocale:   strings.TrimSpace(c.Loaded.SourceLocale),
+		TargetLocale:   strings.TrimSpace(c.Loaded.TargetLocale),
+		SourceText:     c.SourceText,
+		TargetText:     strings.TrimSpace(c.Loaded.TargetFields[c.FieldPath]),
+		AssistContext:  c.Assist,
 		ActorID:        strings.TrimSpace(input.ActorID),
-		TenantID:       strings.TrimSpace(firstNonEmpty(input.TenantID, assignment.TenantID)),
-		OrgID:          strings.TrimSpace(firstNonEmpty(input.OrgID, assignment.OrgID)),
-		Channel:        strings.TrimSpace(firstNonEmpty(input.Channel, loaded.Environment)),
+		TenantID:       strings.TrimSpace(firstNonEmpty(input.TenantID, c.Assignment.TenantID)),
+		OrgID:          strings.TrimSpace(firstNonEmpty(input.OrgID, c.Assignment.OrgID)),
+		Channel:        strings.TrimSpace(firstNonEmpty(input.Channel, c.Loaded.Environment)),
 		CorrelationID:  strings.TrimSpace(input.CorrelationID),
 		IdempotencyKey: strings.TrimSpace(input.IdempotencyKey),
-	})
-	if err != nil {
-		return TranslationSuggestionResult{}, err
 	}
+}
+
+func (c translationSuggestionExecutionContext) result(providerResult TranslationSuggestionProviderResult) (TranslationSuggestionResult, error) {
 	suggested := strings.TrimSpace(providerResult.Text)
 	if suggested == "" {
 		return TranslationSuggestionResult{}, serviceUnavailableDomainError("translation suggestion provider returned empty text", map[string]any{
 			"component":     "translation_suggestion_service",
-			"assignment_id": strings.TrimSpace(assignment.ID),
-			"field_path":    fieldPath,
+			"assignment_id": strings.TrimSpace(c.Assignment.ID),
+			"field_path":    c.FieldPath,
 		})
 	}
-
-	diagnostics := cloneAnyMap(providerResult.Diagnostics)
-	if diagnostics == nil {
-		diagnostics = translationSuggestionTimestampDiagnostic()
-	} else {
-		for key, value := range translationSuggestionTimestampDiagnostic() {
-			if _, exists := diagnostics[key]; !exists {
-				diagnostics[key] = value
-			}
-		}
-	}
 	return TranslationSuggestionResult{
-		AssignmentID:  strings.TrimSpace(assignment.ID),
-		FieldPath:     fieldPath,
+		AssignmentID:  strings.TrimSpace(c.Assignment.ID),
+		FieldPath:     c.FieldPath,
 		SuggestedText: suggested,
 		Provider:      strings.TrimSpace(providerResult.Provider),
 		Model:         strings.TrimSpace(providerResult.Model),
-		SourceLocale:  strings.TrimSpace(loaded.SourceLocale),
-		TargetLocale:  strings.TrimSpace(loaded.TargetLocale),
-		Diagnostics:   diagnostics,
+		SourceLocale:  strings.TrimSpace(c.Loaded.SourceLocale),
+		TargetLocale:  strings.TrimSpace(c.Loaded.TargetLocale),
+		Diagnostics:   translationSuggestionDiagnostics(providerResult),
 	}, nil
+}
+
+func translationSuggestionDiagnostics(providerResult TranslationSuggestionProviderResult) map[string]any {
+	diagnostics := cloneAnyMap(providerResult.Diagnostics)
+	if diagnostics == nil {
+		return translationSuggestionTimestampDiagnostic()
+	}
+	for key, value := range translationSuggestionTimestampDiagnostic() {
+		if _, exists := diagnostics[key]; !exists {
+			diagnostics[key] = value
+		}
+	}
+	return diagnostics
 }
 
 func (s *DefaultTranslationSuggestionService) requireSuggestionPermission(ctx context.Context, input TranslationSuggestionInput) error {
@@ -372,6 +441,10 @@ func (s *DefaultTranslationSuggestionService) requireSuggestionPermission(ctx co
 		input,
 		map[string]any{"permission": permission, "resource": resource},
 	)
+}
+
+func (s *DefaultTranslationSuggestionService) translationSuggestionPermissionAllowed(ctx context.Context, input TranslationSuggestionInput) bool {
+	return s.requireSuggestionPermission(ctx, input) == nil
 }
 
 func translationSuggestionScopeGuard(input TranslationSuggestionInput, assignment TranslationAssignment) error {

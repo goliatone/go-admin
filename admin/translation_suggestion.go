@@ -136,7 +136,7 @@ func normalizeTranslationSuggestionDecision(decision TranslationSuggestionDecisi
 
 func translationSuggestionEditableStatus(status AssignmentStatus) bool {
 	switch normalizeTranslationAssignmentStatus(status) {
-	case AssignmentStatusInProgress, AssignmentStatusChangesRequested:
+	case AssignmentStatusAssigned, AssignmentStatusInProgress, AssignmentStatusChangesRequested:
 		return true
 	default:
 		return false
