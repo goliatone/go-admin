@@ -95,6 +95,8 @@ password-change gate, and recovery flow.
 - `NewFiberServer(viewEngine fiber.Views, cfg admin.Config, adm *admin.Admin, isDev bool, opts ...FiberServerOption) (router.Server[*fiber.App], router.Router[*fiber.App])` - Inputs: views, config, admin, dev flag, server options. Outputs: go-router server adapter and router.
 - `NewThemeSelector(name, variant string, tokenOverrides map[string]string, opts ...ThemeOption) (theme.Selector, *theme.Manifest, error)` - Inputs: theme name/variant, token overrides, theme options. Outputs: selector, manifest, error.
 - `NewStaticAssets(r router.Router[T], cfg admin.Config, assetsFS fs.FS, opts ...StaticAssetsOption)` - Inputs: router, config, host assets FS, asset options. Outputs: none (registers static routes).
+- `ResolveDashboardShellAssetsPrefix(cfg admin.Config, opts ...StaticAssetsOption) string` - Inputs: admin config and the same static asset options passed to `NewStaticAssets`. Outputs: resolved go-dashboard shell asset prefix for content-builder UI route registration.
+- `WithContentTypeBuilderUIStaticAssetOptions(cfg admin.Config, opts ...StaticAssetsOption) ContentTypeBuilderUIOption` - Inputs: admin config and the same static asset options passed to `NewStaticAssets`. Outputs: content-builder UI option that keeps rendered shell asset URLs aligned with the mounted shell prefix.
 - `ResolveDiskAssetsDir(marker string, candidates ...string) string` - Inputs: marker file + candidate directories. Outputs: first matching directory.
 - `RegisterAdminUIRoutes(r router.Router[T], cfg admin.Config, adm *admin.Admin, auth admin.HandlerAuthenticator, opts ...UIRouteOption) error` - Inputs: router/config/admin/auth wrapper + options. Outputs: error (registers dashboard + notifications UI routes, and injects feature-aware view context such as `activity_enabled` + `body_classes`).
 - `WithContentEntryDataGridStateStore(cfg PanelDataGridStateStoreOptions) ContentEntryUIOption` - Inputs: DataGrid state-store config for content-entry list templates. Outputs: content-entry route option (default mode remains localStorage when unset).
@@ -1496,6 +1498,13 @@ diskAssetsDir := quickstart.ResolveDiskAssetsDir(
 	"assets",
 )
 quickstart.NewStaticAssets(r, cfg, client.Assets(), quickstart.WithDiskAssetsDir(diskAssetsDir))
+quickstart.RegisterContentTypeBuilderUIRoutes(
+	r,
+	cfg,
+	adm,
+	authn,
+	quickstart.WithContentTypeBuilderUIStaticAssetOptions(cfg, quickstart.WithDiskAssetsDir(diskAssetsDir)),
+)
 ```
 
 ## Usage example

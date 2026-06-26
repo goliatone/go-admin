@@ -291,6 +291,8 @@ Mapping behavior:
 
 ## References
 
+- Documentation index: `docs/README.md`
+- Frontend reuse and server-command boundaries: `docs/GUIDE_FRONTEND.md`
 - Quickstart API and helpers: `quickstart/README.md`
 - CRUD and DataGrid wiring: `docs/GUIDE_CRUD.md`
 - Search wiring and go-search integration: `docs/GUIDE_SEARCH.md`
