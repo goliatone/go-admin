@@ -1223,6 +1223,18 @@ type (
 	TranslationQueueReleaseCommand                    = core.TranslationQueueReleaseCommand
 	TranslationQueueReleaseInput                      = core.TranslationQueueReleaseInput
 	TranslationQueueService                           = core.TranslationQueueService
+	TranslationSuggestionAllowAllEligibility          = core.TranslationSuggestionAllowAllEligibility
+	TranslationSuggestionAssignmentContext            = core.TranslationSuggestionAssignmentContext
+	TranslationSuggestionContextLoader                = core.TranslationSuggestionContextLoader
+	TranslationSuggestionDecision                     = core.TranslationSuggestionDecision
+	TranslationSuggestionEligibilityChecker           = core.TranslationSuggestionEligibilityChecker
+	TranslationSuggestionGenerateCommand              = core.TranslationSuggestionGenerateCommand
+	TranslationSuggestionInput                        = core.TranslationSuggestionInput
+	TranslationSuggestionProvider                     = core.TranslationSuggestionProvider
+	TranslationSuggestionProviderInput                = core.TranslationSuggestionProviderInput
+	TranslationSuggestionProviderResult               = core.TranslationSuggestionProviderResult
+	TranslationSuggestionResult                       = core.TranslationSuggestionResult
+	TranslationSuggestionService                      = core.TranslationSuggestionService
 	TranslationQueueStatsFromRepository               = core.TranslationQueueStatsFromRepository
 	TranslationQueueStatsService                      = core.TranslationQueueStatsService
 	TranslationQueueStatsSnapshot                     = core.TranslationQueueStatsSnapshot
@@ -2362,6 +2374,14 @@ func RegisterTranslationQueueCommandFactories(bus *CommandBus) error {
 
 func RegisterTranslationQueueCommands(bus *CommandBus, service TranslationQueueService) error {
 	return core.RegisterTranslationQueueCommands(bus, service)
+}
+
+func RegisterTranslationSuggestionCommandFactories(bus *CommandBus) error {
+	return core.RegisterTranslationSuggestionCommandFactories(bus)
+}
+
+func RegisterTranslationSuggestionCommands(bus *CommandBus, service TranslationSuggestionService) error {
+	return core.RegisterTranslationSuggestionCommands(bus, service)
 }
 
 func RegisterTranslationQueuePanel(admin *Admin, repo TranslationAssignmentRepository) (*Panel, error) {

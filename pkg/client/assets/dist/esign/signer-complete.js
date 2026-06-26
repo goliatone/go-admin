@@ -1,4 +1,4 @@
-import { a as o, i as t, n as a, o as r, r as l, t as i } from "../chunks/signer-complete-D3ys0OXb.js";
+import { a as o, i as t, n as a, o as r, r as l, t as i } from "../chunks/signer-complete-ChwRn3yC.js";
 export {
   i as SignerCompletePageController,
   a as bootstrapSignerCompletePage,

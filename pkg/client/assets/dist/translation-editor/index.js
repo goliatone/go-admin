@@ -6,10 +6,10 @@ import { r as ie, s as qe } from "../chunks/status-vocabulary-Bdx_bn1-.js";
 import { readLocationSearchParams as Le } from "../shared/query-state/url-state.js";
 import { n as de } from "../chunks/translation-contracts-DrJVTucO.js";
 import { asBoolean as _, asNumber as g, asRecord as c, asString as o, asStringArray as ue } from "../shared/coercion.js";
-import { A as De, C as I, D as Oe, E as Ie, F as Pe, M as Fe, O as Me, P as Be, R as Ne, S as re, T as ze, a as Ue, at as Ke, c as Ve, ct as He, et as Ye, ft as Ge, g as Qe, j as We, k as Xe, lt as Je, mt as Ze, ot as et, pt as tt, s as st, st as w, tt as at, v as it, x as D, y as T } from "../chunks/translation-shared-BPEUoMd4.js";
+import { A as De, C as I, D as Oe, E as Ie, F as Pe, M as Fe, O as Me, P as Be, R as Ne, S as re, T as ze, a as Ue, at as Ke, c as Ve, ct as He, et as Ye, ft as Ge, g as Qe, j as We, k as Xe, lt as Je, mt as Ze, ot as et, pt as tt, s as st, st as w, tt as at, v as it, x as D, y as T } from "../chunks/translation-shared-BfP1jYBZ.js";
 import { formatTranslationTimestampUTC as fe, sentenceCaseToken as P } from "../translation-shared/formatters.js";
 import { normalizeStringRecord as K } from "../shared/record-normalization.js";
-import { c as me, s as rt } from "../chunks/ui-states-IJy0FaWc.js";
+import { c as me, s as rt } from "../chunks/ui-states-r4wmgfqM.js";
 var nt = "translation_variant_draft", ot = "autosave", N = /* @__PURE__ */ new Map();
 async function ct(e) {
   const t = E(e);

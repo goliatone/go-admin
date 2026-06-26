@@ -15,7 +15,7 @@ import { normalizeAPIBasePath as sr, normalizeBasePath as ir } from "../shared/p
 import { r as ar, t as or } from "../chunks/translation-contracts-DrJVTucO.js";
 import { StatefulController as tt } from "../shared/stateful-controller.js";
 var rt = { async prompt(e) {
-  const { PayloadInputModal: t } = await import("../chunks/payload-modal-D4qgfAvt.js");
+  const { PayloadInputModal: t } = await import("../chunks/payload-modal-TxKWGLY0.js");
   return t.prompt(e);
 } }, lr = class {
   constructor(e = {}) {
