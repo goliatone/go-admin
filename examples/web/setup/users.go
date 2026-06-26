@@ -920,6 +920,7 @@ func ensureTranslationExchangeSeedPermissions(ctx context.Context, registry type
 		admin.PermAdminTranslationsAssign,
 		admin.PermAdminTranslationsApprove,
 		admin.PermAdminTranslationsClaim,
+		admin.PermAdminTranslationsSuggest,
 		admin.PermAdminTranslationsExport,
 		admin.PermAdminTranslationsImportView,
 		admin.PermAdminTranslationsImportValidate,

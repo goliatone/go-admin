@@ -3075,13 +3075,22 @@ func missingPermissions(required, granted []string) []string {
 	missing := make([]string, 0, len(required))
 	for _, permission := range required {
 		key := strings.ToLower(strings.TrimSpace(permission))
-		if key == "" || grantedSet[key] {
+		if key == "" || grantedSet[key] || permissionCoveredByGrant(granted, permission) {
 			continue
 		}
 		missing = append(missing, permission)
 	}
 	sort.Strings(missing)
 	return missing
+}
+
+func permissionCoveredByGrant(granted []string, permission string) bool {
+	for _, grant := range granted {
+		if coreadmin.PermissionGrantMatches(grant, permission) {
+			return true
+		}
+	}
+	return false
 }
 
 func dedupeSortedStrings(values []string) []string {

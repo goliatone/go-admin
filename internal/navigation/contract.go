@@ -183,7 +183,7 @@ func MarkProgrammatic(item Item) Item {
 	}
 	target := cloneMap(item.Target)
 	target[TargetProgrammaticOwnerKey] = TargetProgrammaticOwner
-	if strings.TrimSpace(toString(target[TargetProgrammaticIDKey])) == "" {
+	if TargetString(target, TargetProgrammaticIDKey) == "" {
 		target[TargetProgrammaticIDKey] = OwnerID(Item{ID: item.ID, Target: target})
 	}
 	item.Target = target
@@ -498,6 +498,9 @@ func legacyProgrammaticRepairCandidate(expected, existing Item, key string) bool
 	if ResolveOwner(existing) == OwnerModule {
 		return true
 	}
+	if legacyEquivalentModuleRow(expected, existing) {
+		return true
+	}
 	expectedPath := TargetString(expected.Target, "path")
 	existingPath := TargetString(existing.Target, "path")
 	if expectedPath != "" && existingPath == "" {
@@ -507,6 +510,69 @@ func legacyProgrammaticRepairCandidate(expected, existing Item, key string) bool
 		return true
 	}
 	return false
+}
+
+func legacyEquivalentModuleRow(expected, existing Item) bool {
+	if ResolveOwner(existing) != OwnerUnknown {
+		return false
+	}
+	if !sameMenuParent(expected, existing) || !sameNormalizedIDSegment(expected.ID, existing.ID) {
+		return false
+	}
+	if !sameNonEmptyTargetValue(expected, existing, "key") || !sameNonEmptyTargetValue(expected, existing, "path") {
+		return false
+	}
+	return compatibleMenuLabel(expected, existing)
+}
+
+func sameMenuParent(expected, existing Item) bool {
+	return strings.EqualFold(menuParentIdentity(expected), menuParentIdentity(existing))
+}
+
+func menuParentIdentity(item Item) string {
+	if parent := strings.TrimSpace(firstNonEmpty(item.ParentID, item.ParentCode)); parent != "" {
+		return strings.ToLower(parent)
+	}
+	id := strings.TrimSpace(item.ID)
+	if idx := strings.LastIndex(id, "."); idx > 0 {
+		return strings.ToLower(strings.TrimSpace(id[:idx]))
+	}
+	return ""
+}
+
+func sameNormalizedIDSegment(left, right string) bool {
+	left = normalizedIDSegment(left)
+	right = normalizedIDSegment(right)
+	return left != "" && left == right
+}
+
+func normalizedIDSegment(value string) string {
+	value = strings.ToLower(strings.TrimSpace(value))
+	if idx := strings.LastIndex(value, "."); idx >= 0 && idx+1 < len(value) {
+		value = strings.TrimSpace(value[idx+1:])
+	}
+	value = strings.ReplaceAll(value, "_", "-")
+	return value
+}
+
+func sameNonEmptyTargetValue(expected, existing Item, key string) bool {
+	expectedValue := strings.ToLower(TargetString(expected.Target, key))
+	existingValue := strings.ToLower(TargetString(existing.Target, key))
+	return expectedValue != "" && existingValue != "" && expectedValue == existingValue
+}
+
+func compatibleMenuLabel(expected, existing Item) bool {
+	expectedLabelKey := strings.ToLower(strings.TrimSpace(expected.LabelKey))
+	existingLabelKey := strings.ToLower(strings.TrimSpace(existing.LabelKey))
+	if expectedLabelKey != "" && existingLabelKey != "" {
+		return expectedLabelKey == existingLabelKey
+	}
+	expectedLabel := strings.ToLower(strings.TrimSpace(expected.Label))
+	existingLabel := strings.ToLower(strings.TrimSpace(existing.Label))
+	if expectedLabel != "" && existingLabel != "" {
+		return expectedLabel == existingLabel
+	}
+	return expectedLabelKey == "" && existingLabelKey == "" && expectedLabel == "" && existingLabel == ""
 }
 
 func legacyGeneratedMatch(expected, actual Item) bool {
@@ -769,6 +835,9 @@ func firstNonEmpty(values ...string) string {
 }
 
 func toString(value any) string {
+	if value == nil {
+		return ""
+	}
 	switch v := value.(type) {
 	case string:
 		return v
