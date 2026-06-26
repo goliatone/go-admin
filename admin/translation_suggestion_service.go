@@ -35,6 +35,26 @@ type TranslationSuggestionActionEvaluator interface {
 	EvaluateTranslationSuggestionAction(context.Context, TranslationSuggestionInput, TranslationSuggestionAssignmentContext) (TranslationSuggestionDecision, error)
 }
 
+// TranslationSuggestionServiceDependencies contains host-owned dependencies that
+// complete a provider-backed suggestion service without duplicating editor
+// context loading logic in each host application.
+type TranslationSuggestionServiceDependencies struct {
+	Repository    TranslationAssignmentRepository
+	ContextLoader TranslationSuggestionContextLoader
+	Authorizer    Authorizer
+	Permission    string
+	Resource      string
+	Eligibility   TranslationSuggestionEligibilityChecker
+	AssistContext TranslationSuggestionAssistContextExtractor
+}
+
+// TranslationSuggestionDependencyConfigurer is implemented by suggestion
+// services that can receive admin/quickstart-owned dependencies after
+// construction. Implementations should only fill unset dependencies.
+type TranslationSuggestionDependencyConfigurer interface {
+	ConfigureTranslationSuggestionServiceDependencies(TranslationSuggestionServiceDependencies)
+}
+
 // TranslationSuggestionProvider generates suggested text from sanitized input.
 type TranslationSuggestionProvider interface {
 	SuggestTranslation(context.Context, TranslationSuggestionProviderInput) (TranslationSuggestionProviderResult, error)
@@ -59,6 +79,43 @@ type DefaultTranslationSuggestionService struct {
 	Eligibility   TranslationSuggestionEligibilityChecker
 	AssistContext TranslationSuggestionAssistContextExtractor
 	Provider      TranslationSuggestionProvider
+}
+
+func (s *DefaultTranslationSuggestionService) ConfigureTranslationSuggestionServiceDependencies(deps TranslationSuggestionServiceDependencies) {
+	if s == nil {
+		return
+	}
+	if s.Repository == nil {
+		s.Repository = deps.Repository
+	}
+	if s.ContextLoader == nil {
+		s.ContextLoader = deps.ContextLoader
+	}
+	if s.Authorizer == nil {
+		s.Authorizer = deps.Authorizer
+	}
+	if strings.TrimSpace(s.Permission) == "" {
+		s.Permission = strings.TrimSpace(deps.Permission)
+	}
+	if strings.TrimSpace(s.Resource) == "" {
+		s.Resource = strings.TrimSpace(deps.Resource)
+	}
+	if s.Eligibility == nil {
+		s.Eligibility = deps.Eligibility
+	}
+	if s.AssistContext == nil {
+		s.AssistContext = deps.AssistContext
+	}
+}
+
+// ConfigureTranslationSuggestionServiceDependencies fills missing
+// host-provided dependencies on services that opt into late configuration.
+func ConfigureTranslationSuggestionServiceDependencies(service TranslationSuggestionService, deps TranslationSuggestionServiceDependencies) {
+	configurable, ok := service.(TranslationSuggestionDependencyConfigurer)
+	if !ok || configurable == nil {
+		return
+	}
+	configurable.ConfigureTranslationSuggestionServiceDependencies(deps)
 }
 
 func (s *DefaultTranslationSuggestionService) EvaluateTranslationSuggestionAction(ctx context.Context, input TranslationSuggestionInput, loaded TranslationSuggestionAssignmentContext) (TranslationSuggestionDecision, error) {
@@ -318,10 +375,21 @@ func (s *DefaultTranslationSuggestionService) requireSuggestionPermission(ctx co
 }
 
 func translationSuggestionScopeGuard(input TranslationSuggestionInput, assignment TranslationAssignment) error {
-	if tenantID := strings.TrimSpace(input.TenantID); tenantID != "" && !strings.EqualFold(tenantID, strings.TrimSpace(assignment.TenantID)) {
+	inputTenantID := strings.TrimSpace(input.TenantID)
+	assignmentTenantID := strings.TrimSpace(assignment.TenantID)
+	if assignmentTenantID != "" && inputTenantID == "" {
 		return permissionDenied(PermAdminTranslationsSuggest, "translations")
 	}
-	if orgID := strings.TrimSpace(input.OrgID); orgID != "" && !strings.EqualFold(orgID, strings.TrimSpace(assignment.OrgID)) {
+	if inputTenantID != "" && !strings.EqualFold(inputTenantID, assignmentTenantID) {
+		return permissionDenied(PermAdminTranslationsSuggest, "translations")
+	}
+
+	inputOrgID := strings.TrimSpace(input.OrgID)
+	assignmentOrgID := strings.TrimSpace(assignment.OrgID)
+	if assignmentOrgID != "" && inputOrgID == "" {
+		return permissionDenied(PermAdminTranslationsSuggest, "translations")
+	}
+	if inputOrgID != "" && !strings.EqualFold(inputOrgID, assignmentOrgID) {
 		return permissionDenied(PermAdminTranslationsSuggest, "translations")
 	}
 	return nil
@@ -345,6 +413,12 @@ func translationSuggestionDeniedError(reasonCode, reason string, input Translati
 
 type adminTranslationSuggestionContextLoader struct {
 	admin *Admin
+}
+
+// NewTranslationSuggestionContextLoader returns the built-in server-side editor
+// context loader used by the default translation suggestion service.
+func NewTranslationSuggestionContextLoader(adm *Admin) TranslationSuggestionContextLoader {
+	return adminTranslationSuggestionContextLoader{admin: adm}
 }
 
 func (l adminTranslationSuggestionContextLoader) LoadTranslationSuggestionContext(ctx context.Context, assignment TranslationAssignment, environment string) (TranslationSuggestionAssignmentContext, error) {
