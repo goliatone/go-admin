@@ -1,5 +1,5 @@
 import { escapeHTML as o } from "../shared/html.js";
-import { t as E } from "../chunks/icon-renderer-a2WAOpSe.js";
+import { t as E } from "../chunks/icon-renderer-tQhqqQbt.js";
 import { formatRelativeTimeCompactPast as ae, formatRelativeTimeNatural as re } from "../shared/time-formatters.js";
 var oe = {
   created: "created",

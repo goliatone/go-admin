@@ -28,17 +28,17 @@ test('content-type-builder shared status helpers preserve block status badge lab
   assert.match(statusBadges.renderBlockStatusBadge('active'), />Active</);
 });
 
-test('content-type-builder shared status helpers preserve block status dot colors and titles', () => {
-  assert.match(statusBadges.renderBlockStatusDot('draft'), /bg-yellow-400/);
-  assert.match(statusBadges.renderBlockStatusDot('draft'), /title="Draft"/);
-  assert.match(statusBadges.renderBlockStatusDot('deprecated'), /bg-red-400/);
-  assert.match(statusBadges.renderBlockStatusDot('active'), /bg-green-400/);
+test('content-type-builder shared status helpers no longer expose the color-only dot', () => {
+  // T05 removed renderBlockStatusDot in favor of the accessible text+color badge,
+  // so every modeling surface presents status as label + tone (never color alone).
+  assert.equal(statusBadges.renderBlockStatusDot, undefined);
 });
 
-test('content-type-builder block status callers now route through the shared status helper module', () => {
+test('content-type-builder block status callers route through the shared badge helper', () => {
   const blockLibraryIdeSource = read(blockLibraryIdeSourcePath);
   const blockLibraryManagerSource = read(blockLibraryManagerSourcePath);
 
-  assert.match(blockLibraryIdeSource, /renderBlockStatusDot/);
+  assert.match(blockLibraryIdeSource, /renderBlockStatusBadge/);
+  assert.doesNotMatch(blockLibraryIdeSource, /renderBlockStatusDot/);
   assert.match(blockLibraryManagerSource, /renderBlockStatusBadge/);
 });

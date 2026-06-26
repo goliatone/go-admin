@@ -1,5 +1,5 @@
 import { escapeAttribute as d, escapeHTML as l } from "../shared/html.js";
-import { t as z } from "../chunks/icon-renderer-a2WAOpSe.js";
+import { t as z } from "../chunks/icon-renderer-tQhqqQbt.js";
 import { readHTTPError as oe } from "../shared/transport/http-client.js";
 import { extractStructuredError as le } from "../toast/error-helpers.js";
 import "../chunks/status-vocabulary-Bdx_bn1-.js";
@@ -8,7 +8,7 @@ import { StatefulController as ue } from "../shared/stateful-controller.js";
 import { asNumberish as y, asRecord as f, asString as n } from "../shared/coercion.js";
 import { A as H, C as $, D as F, E as P, F as fe, N as he, O as U, P as pe, R as ge, T as G, a as S, d as be, f as T, g as me, i as ye, k as E, l as xe, n as I, o as ve, r as K, s as $e, t as V, u as w, ut as X, y as we } from "../chunks/translation-shared-BPEUoMd4.js";
 import { normalizeNumberRecord as D, normalizeStringRecord as k } from "../shared/record-normalization.js";
-import { c as L, s as ke } from "../chunks/ui-states-Dk9y2u2w.js";
+import { c as L, s as ke } from "../chunks/ui-states-IJy0FaWc.js";
 var v = class extends Error {
   constructor(t) {
     super(t.message), this.name = "TranslationDashboardRequestError", this.status = t.status, this.code = t.code ?? null, this.requestId = t.requestId, this.traceId = t.traceId, this.metadata = t.metadata ?? null;

@@ -64,33 +64,40 @@
   </div>
 </header>
 
-<div class="flex-1 p-8 overflow-y-auto">
-  <div class="grid gap-6 lg:grid-cols-[320px,1fr]">
-    <aside class="bg-white border border-gray-200 rounded-xl p-5 shadow-sm self-start">
-      <div class="flex items-center justify-between">
-        <h2 class="text-sm font-semibold text-gray-700 uppercase tracking-wide">Library</h2>
-        <span class="text-xs text-gray-400">{{ visible_total }} visible</span>
-      </div>
+<div class="flex-1 cm-shell flex flex-col md:flex-row overflow-hidden min-h-0" data-content-modeling-shell data-cm-surface="content-types">
+  <!-- Left rail: content type library -->
+  <aside class="cm-rail cm-rail--list bg-white dark:bg-slate-900 border-r border-gray-200 dark:border-gray-700 flex flex-col overflow-hidden"
+         data-pane-rail="list"
+         data-pane-resizable
+         data-pane-edge="trailing"
+         data-pane-min="240"
+         data-pane-max="420"
+         data-pane-default-width="320">
+    <div class="flex items-center justify-between px-4 py-3 border-b border-gray-100 dark:border-gray-800 shrink-0">
+      <h2 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Library</h2>
+      <span class="text-xs text-gray-400 dark:text-gray-500">{{ visible_total }} visible</span>
+    </div>
 
+    <div class="flex-1 overflow-y-auto p-3">
       {% if content_types and content_types|length > 0 %}
-      <ul class="mt-4 space-y-2">
+      <ul class="space-y-1">
         {% for ct in content_types %}
         {% set ct_id = ct.id|default:"" %}
         {% set ct_slug = ct.slug|default:ct_id %}
         {% set is_active = selected_content_type_id and (selected_content_type_id == ct_id or selected_content_type_id == ct_slug) %}
         <li>
           <a href="{{ adminURL("content/types") }}?slug={{ ct_slug|urlencode }}{% if not in_default_channel %}&channel={{ active_channel|urlencode }}{% endif %}"
-             class="flex items-center justify-between rounded-lg border px-3 py-2 text-sm transition-colors {% if is_active %}border-blue-200 bg-blue-50 text-blue-700{% else %}border-gray-200 hover:border-gray-300 text-gray-700{% endif %}">
+             class="flex items-center justify-between gap-2 rounded-lg border px-3 py-2 text-sm transition-colors {% if is_active %}border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-500/40 dark:bg-blue-500/10 dark:text-blue-300{% else %}border-gray-200 hover:border-gray-300 text-gray-700 dark:border-gray-700 dark:hover:border-gray-600 dark:text-gray-200{% endif %}">
             <span class="font-medium truncate">{{ ct.name|default:ct.slug|default:"Untitled" }}</span>
-            <span class="text-xs uppercase tracking-wide text-gray-400">{{ ct.status|default:"draft" }}</span>
+            <span class="status-badge status-badge--sm status-{{ ct.status|default:"draft"|lower }} flex-shrink-0">{{ ct.status|default:"draft" }}</span>
           </a>
         </li>
         {% endfor %}
       </ul>
       {% else %}
-      <div class="mt-4 rounded-lg border border-dashed border-gray-200 p-4 text-center text-sm text-gray-500">
+      <div class="rounded-lg border border-dashed border-gray-200 dark:border-gray-700 p-4 text-center text-sm text-gray-500 dark:text-gray-400">
         <p>No content types found in channel "{{ active_channel }}".</p>
-        <p class="mt-1 text-xs text-gray-400">Visible in active channel: {{ visible_total }}. Default channel total: {{ default_total }}.</p>
+        <p class="mt-1 text-xs text-gray-400 dark:text-gray-500">Visible in active channel: {{ visible_total }}. Default channel total: {{ default_total }}.</p>
         {% if not in_default_channel %}
         <button type="button"
                 data-content-types-empty-reset-channel
@@ -100,27 +107,43 @@
         {% endif %}
       </div>
       {% endif %}
-    </aside>
+    </div>
+  </aside>
 
-    <section class="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
-      <div class="p-4 border-b border-gray-100 bg-gray-50 flex items-center justify-between">
-        <div>
-          <h2 class="text-lg font-semibold text-gray-900">Builder</h2>
-          <p class="text-xs text-gray-500">Define fields, layout, and preview the generated form.</p>
-        </div>
-        {% if selected_content_type_id %}
-        <span class="text-xs text-gray-400">Editing: {{ selected_content_type_id }}</span>
-        {% endif %}
-      </div>
-      <div
-        class="min-h-[640px]"
-        data-content-type-editor-root
-        data-api-base-path="{{ api_base_path }}"
-        data-base-path="{{ base_path }}"
-        data-channel="{{ active_channel }}"
-        {% if selected_content_type_id %}data-content-type-id="{{ selected_content_type_id }}"{% endif %}
-      ></div>
-    </section>
+  <!-- Resize handle between the list rail and the builder -->
+  <div class="cm-splitter" data-pane-resize="list" role="separator" aria-orientation="vertical" aria-label="Resize content type list" tabindex="-1"></div>
+
+  <!-- Center: builder -->
+  <div class="flex-1 min-w-0 flex flex-col overflow-hidden" data-pane="builder">
+    <div class="cm-builder-toolbar flex items-center gap-1 px-3 py-1.5 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-slate-900 shrink-0">
+      <button type="button"
+              data-pane-toggle="list"
+              class="cm-icon-btn"
+              aria-label="Toggle content type list"
+              aria-expanded="true"
+              title="Toggle list">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 4v16M4 6a2 2 0 012-2h12a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V6z"></path>
+        </svg>
+      </button>
+      <button type="button"
+              data-pane-focus-toggle="builder"
+              class="cm-icon-btn"
+              aria-label="Maximize builder"
+              aria-pressed="false"
+              title="Focus builder">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"></path>
+        </svg>
+      </button>
+    </div>
+    <div class="flex-1 min-h-0"
+         data-content-type-editor-root
+         data-api-base-path="{{ api_base_path }}"
+         data-base-path="{{ base_path }}"
+         data-channel="{{ active_channel }}"
+         {% if selected_content_type_id %}data-content-type-id="{{ selected_content_type_id }}"{% endif %}
+    ></div>
   </div>
 </div>
 {% endblock %}

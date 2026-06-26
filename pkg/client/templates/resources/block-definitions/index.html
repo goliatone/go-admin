@@ -5,14 +5,6 @@
 {% block content %}
 <header class="px-6 py-4 bg-white border-b border-gray-200 flex flex-wrap gap-4 items-center justify-between">
   <div class="flex items-center gap-3">
-    <button type="button"
-            data-block-ide-sidebar-toggle
-            class="hidden md:flex items-center justify-center w-8 h-8 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
-            title="Toggle sidebar">
-      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
-      </svg>
-    </button>
     <span class="flex items-center justify-center w-9 h-9 rounded-lg bg-indigo-100 text-indigo-600">
       <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path>
@@ -67,16 +59,27 @@
   </div>
 </header>
 
-<div class="flex-1 overflow-hidden" data-block-library-ide data-api-base-path="{{ api_base_path }}" data-base-path="{{ base_path }}">
-  <div class="grid h-full grid-cols-1 md:grid-cols-[240px,1fr] lg:grid-cols-[240px,1fr,260px]" data-block-ide-grid>
+<div class="flex-1 cm-shell flex flex-col md:flex-row overflow-hidden h-full"
+     data-block-library-ide
+     data-content-modeling-shell
+     data-cm-surface="block-library"
+     data-api-base-path="{{ api_base_path }}"
+     data-base-path="{{ base_path }}">
 
-    <!-- Left Column: Block List -->
-    <aside class="border-r border-gray-200 bg-white flex flex-col overflow-hidden max-h-[40vh] md:max-h-none" data-block-ide-sidebar>
-      <div class="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
-        <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Blocks</h2>
-        <span class="text-xs text-gray-400" data-block-ide-count>{{ block_definitions|length }}</span>
+    <!-- Left rail: Block List -->
+    <aside class="cm-rail cm-rail--list border-r border-gray-200 dark:border-gray-700 bg-white dark:bg-slate-900 flex flex-col overflow-hidden"
+           data-block-ide-sidebar
+           data-pane-rail="list"
+           data-pane-resizable
+           data-pane-edge="trailing"
+           data-pane-min="200"
+           data-pane-max="380"
+           data-pane-default-width="240">
+      <div class="px-4 py-3 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between shrink-0">
+        <h2 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Blocks</h2>
+        <span class="text-xs text-gray-400 dark:text-gray-500" data-block-ide-count>{{ block_definitions|length }}</span>
       </div>
-      <div class="px-3 py-2 border-b border-gray-100 space-y-2">
+      <div class="px-3 py-2 border-b border-gray-100 dark:border-gray-800 space-y-2 shrink-0">
         <div class="relative">
           <svg class="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
@@ -91,7 +94,7 @@
           <option value="">All Categories</option>
         </select>
       </div>
-      <div class="px-3 py-2 border-b border-gray-100">
+      <div class="px-3 py-2 border-b border-gray-100 dark:border-gray-800 shrink-0">
         <button type="button"
                 data-block-ide-create
                 class="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 text-sm font-medium text-blue-600 border border-dashed border-blue-300 rounded-lg hover:bg-blue-50 transition-colors">
@@ -110,9 +113,9 @@
                     data-block-ide-select="{{ block.id|default:'' }}"
                     data-block-type="{% if block.slug %}{{ block.slug }}{% else %}{{ block.type|default:'' }}{% endif %}"
                     class="w-full text-left group px-3 py-2 text-sm rounded-lg hover:bg-gray-50 focus:bg-gray-50 focus:outline-none transition-colors flex items-center gap-2.5">
-              <span class="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded bg-gray-100 text-gray-500 group-hover:bg-indigo-100 group-hover:text-indigo-600 transition-colors">
+              <span class="flex-shrink-0 w-7 h-7 flex items-center justify-center overflow-hidden rounded bg-gray-100 text-gray-500 group-hover:bg-indigo-100 group-hover:text-indigo-600 transition-colors">
                 {% if block.icon %}
-                <span class="text-xs font-medium">{{ block.icon }}</span>
+                <span class="text-xs font-medium truncate max-w-full whitespace-nowrap">{{ block.icon }}</span>
                 {% else %}
                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6z"></path>
@@ -124,11 +127,11 @@
                 <span class="block text-[11px] text-gray-400 font-mono truncate">{% if block.slug %}{{ block.slug }}{% else %}{{ block.type|default:"" }}{% endif %}</span>
               </span>
               {% if block.status == "draft" %}
-              <span class="flex-shrink-0 w-1.5 h-1.5 rounded-full bg-yellow-400" title="Draft"></span>
+              <span class="status-badge status-badge--sm status-draft flex-shrink-0">Draft</span>
               {% elif block.status == "deprecated" %}
-              <span class="flex-shrink-0 w-1.5 h-1.5 rounded-full bg-red-400" title="Deprecated"></span>
+              <span class="status-badge status-badge--sm status-deprecated flex-shrink-0">Deprecated</span>
               {% else %}
-              <span class="flex-shrink-0 w-1.5 h-1.5 rounded-full bg-green-400" title="Active"></span>
+              <span class="status-badge status-badge--sm status-active flex-shrink-0">Active</span>
               {% endif %}
             </button>
           </li>
@@ -146,19 +149,55 @@
       </div>
     </aside>
 
-    <!-- Center Column: Block Editor -->
-    <section class="flex flex-col overflow-hidden bg-gray-50">
+    <!-- Resize handle between the block list and the editor -->
+    <div class="cm-splitter" data-pane-resize="list" role="separator" aria-orientation="vertical" aria-label="Resize block list" tabindex="-1"></div>
+
+    <!-- Center: Block Editor (builder) -->
+    <section class="flex-1 min-w-0 flex flex-col overflow-hidden bg-gray-50 dark:bg-slate-950" data-pane="builder">
+      <div class="cm-builder-toolbar flex items-center gap-1 px-3 py-1.5 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-slate-900 shrink-0">
+        <button type="button"
+                data-pane-toggle="list"
+                class="cm-icon-btn"
+                aria-label="Toggle block list"
+                aria-expanded="true"
+                title="Toggle list">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 4v16M4 6a2 2 0 012-2h12a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V6z"></path>
+          </svg>
+        </button>
+        <button type="button"
+                data-pane-toggle="palette"
+                class="cm-icon-btn hidden lg:inline-flex"
+                aria-label="Toggle field palette"
+                aria-expanded="true"
+                title="Toggle palette">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 4v16M4 6a2 2 0 012-2h12a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V6z"></path>
+          </svg>
+        </button>
+        <span class="flex-1"></span>
+        <button type="button"
+                data-pane-focus-toggle="builder"
+                class="cm-icon-btn"
+                aria-label="Maximize editor"
+                aria-pressed="false"
+                title="Focus editor">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"></path>
+          </svg>
+        </button>
+      </div>
       <div data-block-ide-editor class="flex-1 overflow-y-auto">
         <div class="flex flex-col items-center justify-center h-full p-8 text-center">
-          <svg class="w-16 h-16 text-gray-200 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg class="w-16 h-16 text-gray-200 dark:text-gray-700 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
           </svg>
-          <p class="text-sm text-gray-400">Select a block from the list to edit</p>
-          <p class="text-xs text-gray-300 mt-1">or create a new block to get started</p>
+          <p class="text-sm text-gray-400 dark:text-gray-500">Select a block from the list to edit</p>
+          <p class="text-xs text-gray-300 dark:text-gray-600 mt-1">or create a new block to get started</p>
         </div>
       </div>
-      <!-- Add Field bar for narrow screens (Phase 12 — Task 12.1) -->
-      <div class="lg:hidden border-t border-gray-200 bg-white px-4 py-2 shrink-0 hidden" data-block-ide-add-field-bar>
+      <!-- Add Field bar for narrow screens (palette popover trigger) -->
+      <div class="lg:hidden border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-slate-900 px-4 py-2 shrink-0 hidden" data-block-ide-add-field-bar>
         <button type="button"
                 data-block-ide-palette-trigger
                 class="w-full flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-medium text-blue-600 border border-dashed border-blue-300 rounded-lg hover:bg-blue-50 transition-colors">
@@ -170,27 +209,36 @@
       </div>
     </section>
 
-    <!-- Right Column: Field Palette (hidden on < lg, visible on lg+) -->
-    <aside class="border-l border-gray-200 bg-white flex-col overflow-hidden hidden lg:flex" data-block-ide-palette-aside>
-      <div class="px-4 py-3 border-b border-gray-100">
+    <!-- Resize handle between the editor and the palette (lg+ only) -->
+    <div class="cm-splitter hidden lg:block" data-pane-resize="palette" role="separator" aria-orientation="vertical" aria-label="Resize field palette" tabindex="-1"></div>
+
+    <!-- Right rail: Field Palette (hidden on < lg, visible on lg+) -->
+    <aside class="cm-rail cm-rail--palette border-l border-gray-200 dark:border-gray-700 bg-white dark:bg-slate-900 flex-col overflow-hidden hidden lg:flex"
+           data-block-ide-palette-aside
+           data-pane-rail="palette"
+           data-pane-resizable
+           data-pane-edge="leading"
+           data-pane-min="220"
+           data-pane-max="400"
+           data-pane-default-width="260">
+      <div class="px-4 py-3 border-b border-gray-100 dark:border-gray-800 shrink-0">
         <div class="flex items-center gap-2">
           <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6z"></path>
           </svg>
-          <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Field Palette</h2>
+          <h2 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Field Palette</h2>
         </div>
       </div>
-      <div class="flex-1 min-h-0" data-block-ide-palette>
+      <div class="flex-1 min-h-0 overflow-y-auto" data-block-ide-palette>
         <div class="px-4 py-8 text-center">
-          <svg class="w-10 h-10 mx-auto text-gray-200 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg class="w-10 h-10 mx-auto text-gray-200 dark:text-gray-700 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z"></path>
           </svg>
-          <p class="text-xs text-gray-400">Select a block to see available field types</p>
+          <p class="text-xs text-gray-400 dark:text-gray-500">Select a block to see available field types</p>
         </div>
       </div>
     </aside>
 
-  </div>
 </div>
 {% endblock %}
 

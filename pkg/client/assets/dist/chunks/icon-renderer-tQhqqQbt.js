@@ -1,11 +1,11 @@
-import { escapeAttribute as o, escapeHTML as u } from "../shared/html.js";
-var l = "iconoir", d = "var(--sidebar-icon-size, 20px)", p = ["https:"], m = [
+import { escapeAttribute as u, escapeHTML as d } from "../shared/html.js";
+var a = "iconoir", p = "var(--sidebar-icon-size, 20px)", m = ["https:"], g = [
   "image/svg+xml",
   "image/png",
   "image/jpeg",
   "image/webp",
   "image/gif"
-], g = 131072, h = {
+], f = 131072, h = {
   text: "text",
   textarea: "text",
   "rich-text": "edit-pencil",
@@ -36,8 +36,16 @@ var l = "iconoir", d = "var(--sidebar-icon-size, 20px)", p = ["https:"], m = [
   slug: "link",
   color: "color-picker",
   location: "pin-alt"
-};
-function f(e) {
+}, v = {
+  "alert-triangle": "warning-triangle",
+  file: "page",
+  "file-text": "page"
+}, y = /* @__PURE__ */ new Set([
+  a,
+  "lucide",
+  "feather"
+]);
+function I(e) {
   const t = e;
   if (e = e.trim(), !e) return {
     type: "library",
@@ -69,7 +77,7 @@ function f(e) {
     value: e,
     raw: t
   };
-  if (L(e)) return {
+  if (_(e)) return {
     type: "emoji",
     value: e,
     raw: t
@@ -97,74 +105,91 @@ function f(e) {
     raw: t
   } : {
     type: "library",
-    library: l,
+    library: a,
     value: e,
     raw: t
   };
 }
-function S(e, t) {
-  return v(f(e), t);
+function W(e, t) {
+  return b(I(e), t);
 }
-function v(e, t) {
+function b(e, t) {
   if (!e.value && e.type === "library") return "";
-  const r = t?.size ?? d, n = t?.extraClass ?? "";
+  const r = t?.size ?? p, n = t?.extraClass ?? "";
   switch (e.type) {
     case "emoji":
-      return y(e.value, r, n);
+      return w(e.value, r, n);
     case "library":
-      return b(e.library ?? l, e.value, r, n);
+      return L(e.library ?? a, e.value, r, n);
     case "svg":
-      return t?.trusted ? w(e.value, r, n) : (console.warn("[icon-renderer] SVG content blocked for untrusted source"), "");
+      return t?.trusted ? $(e.value, r, n) : (console.warn("[icon-renderer] SVG content blocked for untrusted source"), "");
     case "url":
-      return $(e.value, r, n, t?.trusted);
+      return k(e.value, r, n, t?.trusted);
     default:
       return "";
   }
 }
-function y(e, t, r) {
-  const n = `font-size: ${t}; line-height: 1; text-align: center; width: 1.25em;`;
-  return `<span class="${`flex-shrink-0${r ? " " + r : ""}`}" style="${n}">${u(e)}</span>`;
-}
-function b(e, t, r, n) {
-  const i = c(e), a = c(t), s = `font-size: ${r};`;
-  return `<i class="${`${i}-${a} flex-shrink-0${n ? " " + n : ""}`}" style="${s}"></i>`;
-}
 function w(e, t, r) {
-  const n = k(e);
-  return n ? `<span class="${`flex-shrink-0${r ? " " + r : ""}`}" style="${`width: ${t}; height: ${t};`}">${n}</span>` : "";
+  const n = `font-size: ${t}; line-height: 1; text-align: center; width: 1.25em;`;
+  return `<span class="${`flex-shrink-0${r ? " " + r : ""}`}" style="${n}">${d(e)}</span>`;
 }
-function $(e, t, r, n) {
-  const i = x(e, n);
-  if (!i)
-    return console.warn("[icon-renderer] URL blocked:", e), "";
-  const a = `flex-shrink-0${r ? " " + r : ""}`, s = `width: ${t}; height: ${t}; object-fit: contain;`;
-  return `<img src="${o(i)}" class="${a}" style="${s}" alt="" aria-hidden="true">`;
+function L(e, t, r, n) {
+  const i = x(e, t);
+  e = i.library, t = i.name;
+  const s = l(e), c = l(t), o = `font-size: ${r};`;
+  return `<i class="${`${s}-${c} flex-shrink-0${n ? " " + n : ""}`}" style="${o}"></i>`;
 }
 function x(e, t) {
+  const r = e.trim().toLowerCase();
+  if (!y.has(r)) return {
+    library: e,
+    name: t
+  };
+  const n = v[t.trim().toLowerCase()];
+  return n ? {
+    library: a,
+    name: n
+  } : {
+    library: e,
+    name: t
+  };
+}
+function $(e, t, r) {
+  const n = S(e);
+  return n ? `<span class="${`flex-shrink-0${r ? " " + r : ""}`}" style="${`width: ${t}; height: ${t};`}">${n}</span>` : "";
+}
+function k(e, t, r, n) {
+  const i = A(e, n);
+  if (!i)
+    return console.warn("[icon-renderer] URL blocked:", e), "";
+  const s = `flex-shrink-0${r ? " " + r : ""}`, c = `width: ${t}; height: ${t}; object-fit: contain;`;
+  return `<img src="${u(i)}" class="${s}" style="${c}" alt="" aria-hidden="true">`;
+}
+function A(e, t) {
   if (e = e.trim(), !e || e.toLowerCase().startsWith("javascript:")) return null;
-  if (e.startsWith("data:")) return I(e, t);
+  if (e.startsWith("data:")) return E(e, t);
   try {
     const r = new URL(e);
-    return p.includes(r.protocol) ? t ? e : (console.warn("[icon-renderer] External URL blocked for untrusted source"), null) : null;
+    return m.includes(r.protocol) ? t ? e : (console.warn("[icon-renderer] External URL blocked for untrusted source"), null) : null;
   } catch {
     return null;
   }
 }
-function I(e, t) {
+function E(e, t) {
   if (!e.startsWith("data:")) return null;
-  if (e.length > g)
+  if (e.length > f)
     return console.warn("[icon-renderer] Data URI exceeds size limit"), null;
   const r = e.slice(5), n = r.indexOf(",");
   if (n < 0) return null;
   const i = r.slice(0, n).split(";")[0].trim();
-  return m.includes(i.toLowerCase()) ? !t && i.toLowerCase() === "image/svg+xml" ? (console.warn("[icon-renderer] SVG data URI blocked for untrusted source"), null) : e : (console.warn("[icon-renderer] Data URI MIME type not allowed:", i), null);
+  return g.includes(i.toLowerCase()) ? !t && i.toLowerCase() === "image/svg+xml" ? (console.warn("[icon-renderer] SVG data URI blocked for untrusted source"), null) : e : (console.warn("[icon-renderer] Data URI MIME type not allowed:", i), null);
 }
-function k(e) {
+function S(e) {
   if (!e.toLowerCase().includes("<svg")) return null;
   let t = e;
   return t = t.replace(/<\s*(script|foreignObject|set|animate|animateMotion|animateTransform|use|image|feImage)[^>]*>[\s\S]*?<\/\s*\1\s*>/gi, ""), t = t.replace(/<\s*(script|foreignObject|set|animate|animateMotion|animateTransform|use|image|feImage)[^>]*\/?>/gi, ""), t = t.replace(/\s+on\w+\s*=\s*["'][^"']*["']/gi, ""), t = t.replace(/\s+on\w+\s*=\s*[^\s>]+/gi, ""), t = t.replace(/(href|xlink:href)\s*=\s*["']?\s*javascript:[^"'\s>]*["']?/gi, ""), t = t.replace(/(href|xlink:href|src)\s*=\s*["']?\s*(https?:|\/\/)[^"'\s>]*["']?/gi, ""), t = t.replace(/<!ENTITY\s+[^>]+>/gi, ""), t = t.replace(/<!DOCTYPE[^>]*\[[\s\S]*?\]>/gi, ""), t = t.replace(/<\?[\s\S]*?\?>/g, ""), t.toLowerCase().includes("<svg") ? t.trim() : null;
 }
-function L(e) {
+function _(e) {
   for (const t of e) {
     const r = t.codePointAt(0);
     if (r !== void 0 && (r === 65039 || r === 8205 || r >= 9728 && r <= 10175 || r >= 127744 && r <= 129791 || r >= 127995 && r <= 127999))
@@ -172,11 +197,11 @@ function L(e) {
   }
   return !1;
 }
-function c(e) {
+function l(e) {
   return e.replace(/[^a-zA-Z0-9_-]/g, "");
 }
 export {
-  S as t
+  W as t
 };
 
-//# sourceMappingURL=icon-renderer-a2WAOpSe.js.map
+//# sourceMappingURL=icon-renderer-tQhqqQbt.js.map

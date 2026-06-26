@@ -21,7 +21,7 @@ import { escapeHTML as esc } from '../shared/html';
 import { inputClasses, selectClasses } from './shared/field-input-classes';
 import { resolveIcon } from './shared/icon-picker';
 import { resolveApiBasePath } from './shared/api-paths';
-import { renderBlockStatusDot } from './shared/status-badges';
+import { renderBlockStatusBadge } from './shared/status-badges';
 import { capitalizeLabel, nameToSlug } from './shared/text';
 import { parseJSONValue } from '../shared/json-parse.js';
 
@@ -85,13 +85,12 @@ export class BlockLibraryIDE {
   private boundBeforeUnload: ((e: BeforeUnloadEvent) => void) | null = null;
 
   // Responsive layout (Phase 12 — Task 12.1)
-  private sidebarEl: HTMLElement | null = null;
+  // Rail collapse/resize is owned by the shared content-modeling shell controller
+  // (shared/content-modeling-shell.ts); only the narrow-screen palette popover and
+  // breakpoint handling remain surface-specific here.
   private paletteAsideEl: HTMLElement | null = null;
-  private sidebarToggleBtn: HTMLElement | null = null;
-  private gridEl: HTMLElement | null = null;
   private addFieldBar: HTMLElement | null = null;
   private paletteTriggerBtn: HTMLElement | null = null;
-  private sidebarCollapsed: boolean = false;
   private mediaQueryLg: MediaQueryList | null = null;
   private popoverPalettePanel: FieldPalettePanel | null = null;
 
@@ -323,9 +322,6 @@ export class BlockLibraryIDE {
 
   /** Set up media query listeners and responsive behaviors */
   private bindResponsive(): void {
-    // Sidebar toggle
-    this.sidebarToggleBtn?.addEventListener('click', () => this.toggleSidebar());
-
     // Palette popover trigger (visible on < lg screens)
     this.paletteTriggerBtn?.addEventListener('click', () => {
       if (this.paletteTriggerBtn) {
@@ -343,29 +339,6 @@ export class BlockLibraryIDE {
     const isLg = this.mediaQueryLg?.matches ?? true;
     if (isLg) {
       this.closePalettePopover();
-    }
-  }
-
-  /** Toggle the left sidebar collapsed state */
-  private toggleSidebar(): void {
-    this.sidebarCollapsed = !this.sidebarCollapsed;
-
-    if (this.sidebarEl) {
-      this.sidebarEl.classList.toggle('hidden', this.sidebarCollapsed);
-    }
-
-    if (this.gridEl) {
-      if (this.sidebarCollapsed) {
-        this.gridEl.classList.remove('md:grid-cols-[240px,1fr]', 'lg:grid-cols-[240px,1fr,260px]');
-        this.gridEl.classList.add('md:grid-cols-[1fr]', 'lg:grid-cols-[1fr,260px]');
-      } else {
-        this.gridEl.classList.remove('md:grid-cols-[1fr]', 'lg:grid-cols-[1fr,260px]');
-        this.gridEl.classList.add('md:grid-cols-[240px,1fr]', 'lg:grid-cols-[240px,1fr,260px]');
-      }
-    }
-
-    if (this.sidebarToggleBtn) {
-      this.sidebarToggleBtn.setAttribute('title', this.sidebarCollapsed ? 'Show sidebar' : 'Hide sidebar');
     }
   }
 
@@ -689,13 +662,10 @@ export class BlockLibraryIDE {
     this.editorEl = this.root.querySelector('[data-block-ide-editor]');
     this.paletteEl = this.root.querySelector('[data-block-ide-palette]');
     // Phase 12: responsive + channel elements
-    this.sidebarEl = this.root.querySelector('[data-block-ide-sidebar]');
     this.paletteAsideEl = this.root.querySelector('[data-block-ide-palette-aside]');
-    this.gridEl = this.root.querySelector('[data-block-ide-grid]');
     this.addFieldBar = this.root.querySelector('[data-block-ide-add-field-bar]');
     this.paletteTriggerBtn = this.root.querySelector('[data-block-ide-palette-trigger]');
-    // Sidebar toggle and channel selector may be outside root (in the header)
-    this.sidebarToggleBtn = document.querySelector('[data-block-ide-sidebar-toggle]');
+    // Channel selector may be outside root (in the header)
     this.channelSelectEl = document.querySelector('[data-block-ide-channel], [data-block-ide-env]');
     this.channelResetBtn = document.querySelector('[data-block-ide-channel-reset], [data-block-ide-env-reset]');
     this.channelAddBtn = document.querySelector('[data-block-ide-channel-add], [data-block-ide-env-add]');
@@ -1079,7 +1049,7 @@ export class BlockLibraryIDE {
     } else if (isDirty) {
       indicatorHtml = `<span class="flex-shrink-0 w-1.5 h-1.5 rounded-full bg-orange-400" title="Unsaved changes"></span>`;
     } else {
-      indicatorHtml = renderBlockStatusDot(block.status);
+      indicatorHtml = renderBlockStatusBadge(block.status, { size: 'sm' });
     }
 
     return `

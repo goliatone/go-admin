@@ -25,6 +25,8 @@ const {
   applyEditorUpdateResponse,
   fetchTranslationEditorDetailState,
   renderTranslationEditorState,
+  buildTranslationSuggestionRPCRequest,
+  dispatchTranslationSuggestion,
   TranslationEditorScreen,
   initTranslationEditorPage,
 } = await import('../dist/translation-editor/index.js');
@@ -633,6 +635,56 @@ function makeAutosaveConflictFixture() {
   };
 }
 
+function makeSuggestionReadyFixture() {
+  const next = makeSubmitReadyFixture();
+  const baseAction = {
+    enabled: true,
+    permission: 'admin.translations.suggest',
+    command_name: 'translations.suggestions.generate',
+    transport: 'rpc',
+    rpc_method: 'admin.commands.dispatch',
+    execution_mode: 'inline',
+    endpoint: '/admin/api/rpc',
+    rpc_invoke_path: '/admin/api/rpc',
+    payload: {
+      assignment_id: next.data.assignment_id,
+    },
+  };
+  next.data.suggest_translation_action = baseAction;
+  next.data.fields = next.data.fields.map((field) => ({
+    ...field,
+    suggest_translation_action: {
+      ...baseAction,
+      field_path: field.path,
+      payload: {
+        assignment_id: next.data.assignment_id,
+        field_path: field.path,
+      },
+    },
+  }));
+  return next;
+}
+
+function makeSuggestionDeniedFixture(reasonCode = 'provider_policy_denied', reason = 'Provider policy denied this assignment.') {
+  const next = makeSuggestionReadyFixture();
+  next.data.suggest_translation_action = {
+    ...next.data.suggest_translation_action,
+    enabled: false,
+    reason,
+    reason_code: reasonCode,
+  };
+  next.data.fields = next.data.fields.map((field) => ({
+    ...field,
+    suggest_translation_action: {
+      ...field.suggest_translation_action,
+      enabled: false,
+      reason,
+      reason_code: reasonCode,
+    },
+  }));
+  return next;
+}
+
 test('translation editor contracts: normalize detail fixture with assist and action envelopes', () => {
   const detail = normalizeAssignmentEditorDetail(fixtures.detail);
 
@@ -666,6 +718,69 @@ test('translation editor contracts: normalize detail fixture with assist and act
   assert.equal(detail.preview_action.target_locale, 'fr');
   assert.equal(detail.preview_action.channel, 'production');
   assert.equal(detail.preview_action.url, undefined);
+});
+
+test('translation editor contracts: normalize suggestion action state for assignment fields', () => {
+  const detail = normalizeAssignmentEditorDetail(makeSuggestionReadyFixture());
+  const titleAction = detail.fields.find((field) => field.path === 'title')?.suggest_translation_action;
+
+  assert.equal(detail.suggest_translation_action.enabled, true);
+  assert.equal(detail.suggest_translation_action.command_name, 'translations.suggestions.generate');
+  assert.equal(titleAction?.enabled, true);
+  assert.equal(titleAction?.assignment_id, 'asg-editor-1');
+  assert.equal(titleAction?.field_path, 'title');
+  assert.equal(titleAction?.endpoint, '/admin/api/rpc');
+  assert.equal(titleAction?.execution_mode, 'inline');
+  assert.equal(titleAction?.payload.assignment_id, 'asg-editor-1');
+  assert.equal(titleAction?.payload.field_path, 'title');
+});
+
+test('translation editor runtime: builds translation suggestion RPC dispatch envelope', () => {
+  const detail = normalizeAssignmentEditorDetail(makeSuggestionReadyFixture());
+  const action = detail.fields.find((field) => field.path === 'title')?.suggest_translation_action;
+  assert.ok(action);
+
+  const request = buildTranslationSuggestionRPCRequest(action, 'req-editor');
+  assert.equal(request.method, 'admin.commands.dispatch');
+  assert.deepEqual(request.params.data.ids, ['asg-editor-1']);
+  assert.equal(request.params.data.name, 'translations.suggestions.generate');
+  assert.equal(request.params.data.payload.assignment_id, 'asg-editor-1');
+  assert.equal(request.params.data.payload.field_path, 'title');
+  assert.equal(request.params.data.options.Mode, 'inline');
+  assert.equal(request.params.data.options.IdempotencyKey, undefined);
+  assert.equal(request.params.data.options.Metadata.idempotency_key, undefined);
+  assert.equal(request.params.data.options.CorrelationID, 'req-editor');
+  assert.equal(request.params.meta.correlationId, 'req-editor');
+});
+
+test('translation editor runtime: only sends suggestion mode and idempotency when action supplies them', () => {
+  const detail = normalizeAssignmentEditorDetail(makeSuggestionReadyFixture());
+  const action = detail.fields.find((field) => field.path === 'title')?.suggest_translation_action;
+  assert.ok(action);
+
+  const policyDriven = buildTranslationSuggestionRPCRequest({
+    ...action,
+    execution_mode: '',
+    idempotency_key: '',
+    payload: {
+      ...action.payload,
+      idempotency_key: undefined,
+    },
+  }, 'req-policy');
+  assert.equal(policyDriven.params.data.options.Mode, undefined);
+  assert.equal(policyDriven.params.data.options.IdempotencyKey, undefined);
+  assert.deepEqual(policyDriven.params.data.options.Metadata, {
+    correlation_id: 'req-policy',
+  });
+
+  const explicit = buildTranslationSuggestionRPCRequest({
+    ...action,
+    execution_mode: 'inline',
+    idempotency_key: 'suggestion-attempt-1',
+  }, 'req-explicit');
+  assert.equal(explicit.params.data.options.Mode, 'inline');
+  assert.equal(explicit.params.data.options.IdempotencyKey, 'suggestion-attempt-1');
+  assert.equal(explicit.params.data.options.Metadata.idempotency_key, 'suggestion-attempt-1');
 });
 
 test('translation editor contracts: render assignment actor display labels instead of UUIDs', () => {
@@ -885,6 +1000,228 @@ test('translation editor runtime: copy source fills target field and autosaves c
   assert.ok(requests.some((request) => request.method === 'PATCH'));
 
   screen.unmount();
+});
+
+test('translation editor runtime: dispatches suggestion command and inserts returned text', async () => {
+  const { root, window } = setupDom();
+  installTranslationSyncCoreStub(window);
+  window.scrollTo = mock.fn();
+  const requests = [];
+  const detail = makeSuggestionReadyFixture();
+  const suggestedText = 'Guide de publication suggere';
+  globalThis.fetch = mock.fn(async (input, init = {}) => {
+    const method = String(init.method || 'GET').toUpperCase();
+    const url = String(input);
+    requests.push({ url, method, init });
+    if (method === 'GET' && url.includes('/api/translations/assignments/asg-editor-1')) {
+      return createJsonResponse(detail);
+    }
+    if (method === 'GET' && url.includes('/api/translations/sync/resources/translation_variant_draft/')) {
+      return createJsonResponse({
+        data: detail.data,
+        revision: 3,
+        updated_at: '2026-01-01T00:00:00Z',
+      });
+    }
+    if (method === 'POST' && url.includes('/admin/api/rpc')) {
+      const body = JSON.parse(init.body);
+      assert.equal(body.method, 'admin.commands.dispatch');
+      assert.equal(body.params.data.name, 'translations.suggestions.generate');
+      assert.deepEqual(body.params.data.ids, ['asg-editor-1']);
+      assert.equal(body.params.data.payload.field_path, 'title');
+      assert.equal(body.params.data.options.Mode, 'inline');
+      return createJsonResponse({
+        data: {
+          receipt: {
+            accepted: true,
+            command_id: 'translations.suggestions.generate',
+          },
+          result: {
+            assignment_id: 'asg-editor-1',
+            field_path: 'title',
+            suggested_text: suggestedText,
+            provider: 'fixture',
+            model: 'fixture-model',
+          },
+        },
+      });
+    }
+    return createJsonResponse({ error: { message: 'unexpected request' } }, 500, {
+      'content-type': 'application/json',
+    });
+  });
+
+  const screen = new TranslationEditorScreen({
+    endpoint: '/admin/api/translations/assignments/asg-editor-1',
+    actionEndpointBase: '/admin/api/translations/assignments',
+  });
+  screen.mount(root);
+  await flushAsync();
+  await flushAsync();
+
+  const button = root.querySelector('[data-suggest-translation="title"]');
+  assert.ok(button);
+  assert.equal(button.disabled, false);
+  assert.match(button.textContent, /Generate suggestion/);
+
+  button.click();
+  assert.equal(await waitForCondition(() => root.querySelector('[data-field-input="title"]')?.value === suggestedText), true);
+  assert.equal(root.querySelector('[data-field-input="title"]')?.value, suggestedText);
+  assert.equal(window.document.activeElement?.dataset.fieldInput, 'title');
+  assert.match(root.innerHTML, /Translation suggestion inserted\./);
+  assert.ok(requests.some((request) => request.method === 'POST' && request.url.includes('/admin/api/rpc')));
+
+  screen.unmount();
+});
+
+test('translation editor runtime: suggestion button visibility follows server action state', () => {
+  const unavailable = normalizeAssignmentEditorDetail(fixtures.detail);
+  const unavailableHTML = renderTranslationEditorState(
+    { status: 'ready', detail: unavailable },
+    createTranslationEditorState(unavailable)
+  );
+  const unavailableDOM = new JSDOM(unavailableHTML);
+  assert.equal(unavailableDOM.window.document.querySelector('[data-suggest-translation]'), null);
+
+  const denied = normalizeAssignmentEditorDetail(makeSuggestionDeniedFixture());
+  const deniedHTML = renderTranslationEditorState(
+    { status: 'ready', detail: denied },
+    createTranslationEditorState(denied)
+  );
+  const deniedDOM = new JSDOM(deniedHTML);
+  const deniedButton = deniedDOM.window.document.querySelector('[data-suggest-translation="title"]');
+  assert.ok(deniedButton);
+  assert.equal(deniedButton.disabled, true);
+  assert.match(deniedButton.getAttribute('title') || '', /Provider policy denied/);
+});
+
+test('translation editor runtime: read-only assignment disables suggestion controls', () => {
+  const fixture = makeApprovedAssignmentFixture();
+  const suggestionFixture = makeSuggestionReadyFixture();
+  fixture.data.suggest_translation_action = suggestionFixture.data.suggest_translation_action;
+  fixture.data.fields = fixture.data.fields.map((field) => ({
+    ...field,
+    suggest_translation_action: suggestionFixture.data.fields.find((candidate) => candidate.path === field.path)?.suggest_translation_action,
+  }));
+  const detail = normalizeAssignmentEditorDetail(fixture);
+  const html = renderTranslationEditorState(
+    { status: 'ready', detail },
+    createTranslationEditorState(detail)
+  );
+  const dom = new JSDOM(html);
+  const button = dom.window.document.querySelector('[data-suggest-translation="title"]');
+
+  assert.ok(button);
+  assert.equal(button.disabled, true);
+  assert.match(html, /data-editor-read-only="true"/);
+});
+
+test('translation editor runtime: autosave conflict blocks suggestion dispatch and insertion', async () => {
+  const { root, window } = setupDom();
+  installTranslationSyncCoreStub(window);
+  const detail = makeSuggestionReadyFixture();
+  const originalText = detail.data.fields.find((field) => field.path === 'title')?.target_value;
+  globalThis.fetch = mock.fn(async () => {
+    throw new Error('suggestion transport should not run during conflict');
+  });
+
+  const screen = new TranslationEditorScreen({
+    endpoint: '/admin/api/translations/assignments/asg-editor-1',
+    actionEndpointBase: '/admin/api/translations/assignments',
+  });
+  screen.mountWithInitialDetail(root, detail);
+  screen.editorState.autosave.conflict = { row_version: 4, message: 'server draft changed' };
+  screen.render();
+
+  root.querySelector('[data-suggest-translation="title"]').click();
+  assert.equal(await waitForCondition(() => /Reload the latest server draft before generating a suggestion\./.test(root.innerHTML)), true);
+  assert.equal(root.querySelector('[data-field-input="title"]')?.value, originalText);
+  assert.equal(globalThis.fetch.mock.callCount(), 0);
+
+  screen.unmount();
+});
+
+test('translation editor runtime: suggestion failure leaves field value unchanged', async () => {
+  const { root, window } = setupDom();
+  installTranslationSyncCoreStub(window);
+  window.scrollTo = mock.fn();
+  const detail = makeSuggestionReadyFixture();
+  const originalText = detail.data.fields.find((field) => field.path === 'title')?.target_value;
+  globalThis.fetch = mock.fn(async (input, init = {}) => {
+    const method = String(init.method || 'GET').toUpperCase();
+    const url = String(input);
+    if (method === 'GET' && url.includes('/api/translations/assignments/asg-editor-1')) {
+      return createJsonResponse(detail);
+    }
+    if (method === 'GET' && url.includes('/api/translations/sync/resources/translation_variant_draft/')) {
+      return createJsonResponse({
+        data: detail.data,
+        revision: 3,
+        updated_at: '2026-01-01T00:00:00Z',
+      });
+    }
+    if (method === 'POST' && url.includes('/admin/api/rpc')) {
+      return createJsonResponse({
+        error: {
+          message: 'suggestion quota exhausted',
+        },
+      }, 429, {
+        'content-type': 'application/json',
+      });
+    }
+    return createJsonResponse({ error: { message: 'unexpected request' } }, 500, {
+      'content-type': 'application/json',
+    });
+  });
+
+  const screen = new TranslationEditorScreen({
+    endpoint: '/admin/api/translations/assignments/asg-editor-1',
+    actionEndpointBase: '/admin/api/translations/assignments',
+  });
+  screen.mount(root);
+  await flushAsync();
+  await flushAsync();
+
+  root.querySelector('[data-suggest-translation="title"]').click();
+  assert.equal(await waitForCondition(() => /suggestion quota exhausted/.test(root.innerHTML)), true);
+  assert.equal(root.querySelector('[data-field-input="title"]')?.value, originalText);
+
+  screen.unmount();
+});
+
+test('translation editor runtime: dispatch helper returns structured suggestion result', async () => {
+  const { window } = setupDom();
+  const detail = normalizeAssignmentEditorDetail(makeSuggestionReadyFixture());
+  const action = detail.fields.find((field) => field.path === 'title')?.suggest_translation_action;
+  assert.ok(action);
+  globalThis.fetch = mock.fn(async (input, init = {}) => {
+    assert.equal(String(input), '/admin/api/rpc');
+    const body = JSON.parse(init.body);
+    assert.equal(body.params.data.payload.assignment_id, 'asg-editor-1');
+    assert.equal(body.params.data.payload.field_path, 'title');
+    return createJsonResponse({
+      data: {
+        result: {
+          assignment_id: 'asg-editor-1',
+          field_path: 'title',
+          suggested_text: 'Suggestion structuree',
+          provider: 'fixture',
+          model: 'fixture-model',
+        },
+      },
+    });
+  });
+
+  const result = await dispatchTranslationSuggestion(action, 'req-dispatch');
+  assert.deepEqual(result, {
+    assignment_id: 'asg-editor-1',
+    field_path: 'title',
+    suggested_text: 'Suggestion structuree',
+    provider: 'fixture',
+    model: 'fixture-model',
+    diagnostics: {},
+  });
+  window.close();
 });
 
 test('translation editor runtime: renders full screen with history, attachments, and assist fallbacks', () => {

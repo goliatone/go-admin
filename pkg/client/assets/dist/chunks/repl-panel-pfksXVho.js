@@ -1,7 +1,7 @@
 import { t as ge } from "./chunk-BUbnbzFL.js";
 import { escapeHTML as pe } from "../shared/html.js";
 import { normalizeDebugBasePath as Ce } from "../debug/shared/path-helpers.js";
-import { r as ne } from "./icons-SGrt9O6P.js";
+import { r as ne } from "./icons-YEpcXW1I.js";
 var be = /* @__PURE__ */ ge(((A, U) => {
   (function(z, q) {
     if (typeof A == "object" && typeof U == "object") U.exports = q();
@@ -7535,4 +7535,4 @@ export {
   ze as t
 };
 
-//# sourceMappingURL=repl-panel-DOA-vKgf.js.map
+//# sourceMappingURL=repl-panel-pfksXVho.js.map

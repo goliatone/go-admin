@@ -100,6 +100,18 @@ const SVG_FIELD_TYPE_KEYS: Record<string, string> = {
   'location': 'pin-alt',
 };
 
+/**
+ * Common names used by Lucide/Feather or older server-side seed data that do
+ * not exist in the Iconoir stylesheet loaded by the admin shell.
+ */
+const ICONOIR_ICON_ALIASES: Record<string, string> = {
+  'alert-triangle': 'warning-triangle',
+  'file': 'page',
+  'file-text': 'page',
+};
+
+const ICONOIR_COMPAT_ALIAS_LIBRARIES = new Set([DEFAULT_LIBRARY, 'lucide', 'feather']);
+
 // ---------------------------------------------------------------------------
 // Parser
 // ---------------------------------------------------------------------------
@@ -243,11 +255,26 @@ function renderEmoji(emoji: string, size: string, extraClass: string): string {
 }
 
 function renderLibraryIcon(library: string, name: string, size: string, extraClass: string): string {
+  const normalized = normalizeLibraryIconAlias(library, name);
+  library = normalized.library;
+  name = normalized.name;
   const escapedLib = escapeClassName(library);
   const escapedName = escapeClassName(name);
   const style = `font-size: ${size};`;
   const cls = `${escapedLib}-${escapedName} flex-shrink-0${extraClass ? ' ' + extraClass : ''}`;
   return `<i class="${cls}" style="${style}"></i>`;
+}
+
+function normalizeLibraryIconAlias(library: string, name: string): { library: string; name: string } {
+  const normalizedLibrary = library.trim().toLowerCase();
+  if (!ICONOIR_COMPAT_ALIAS_LIBRARIES.has(normalizedLibrary)) {
+    return { library, name };
+  }
+  const aliasedName = ICONOIR_ICON_ALIASES[name.trim().toLowerCase()];
+  if (!aliasedName) {
+    return { library, name };
+  }
+  return { library: DEFAULT_LIBRARY, name: aliasedName };
 }
 
 function renderSvgIcon(content: string, size: string, extraClass: string): string {

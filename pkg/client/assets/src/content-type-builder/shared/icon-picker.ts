@@ -19,6 +19,10 @@ import { iconForKey } from '../field-type-picker';
 import { inputClasses } from './field-input-classes';
 import { getBuiltinEmojiTab, getBuiltinIconoirTab, getBuiltinIconsTab } from './icon-picker-data';
 import { escapeHTML as escapeHtml } from '../../shared/html.js';
+import { renderIcon } from '../../shared/icon-renderer.js';
+
+/** Matches icon-name slugs like "file-text" or prefixed refs like "lucide:home". */
+const ICON_SLUG_PATTERN = /^[a-z0-9]+(?:[:_-][a-z0-9]+)*$/i;
 
 // ---------------------------------------------------------------------------
 // Types
@@ -109,7 +113,11 @@ export function getIconTabs(): IconTab[] {
  *   1. Empty → empty string
  *   2. iconForKey() match (built-in SVG icons) → SVG HTML
  *   3. Custom tab entry match → entry.display
- *   4. Passthrough (assumed emoji text)
+ *   4. Icon-name slug (e.g. "file-text", "lucide:home") → library glyph via
+ *      the shared icon renderer (renders a real glyph when the loaded icon
+ *      font has the class, otherwise a bounded, empty element — never text).
+ *   5. Anything else → a bounded, non-wrapping fallback chip so raw values can
+ *      never wrap or overflow the fixed-size icon swatch.
  */
 export function resolveIcon(value: string): string {
   if (!value) return '';
@@ -122,7 +130,11 @@ export function resolveIcon(value: string): string {
     if (entry) return entry.display;
   }
 
-  return escapeHtml(value);
+  const trimmed = value.trim();
+  if (ICON_SLUG_PATTERN.test(trimmed)) {
+    return renderIcon(trimmed);
+  }
+  return `<span class="inline-flex max-w-full items-center truncate rounded px-1 text-[9px] font-mono leading-none text-gray-500 dark:text-gray-400" title="${escapeHtml(value)}">${escapeHtml(value)}</span>`;
 }
 
 /**
@@ -176,7 +188,7 @@ export function renderIconTrigger(
                 hover:border-gray-400 dark:hover:border-gray-500
                 cursor-pointer transition-colors select-none">
       <span data-icon-preview
-            class="flex-shrink-0 ${iconSize} flex items-center justify-center rounded
+            class="flex-shrink-0 ${iconSize} flex items-center justify-center overflow-hidden rounded
                    ${hasValue ? '' : 'text-gray-300 dark:text-gray-600'}">
         ${hasValue ? resolved : '?'}
       </span>

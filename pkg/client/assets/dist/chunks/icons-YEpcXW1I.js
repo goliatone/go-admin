@@ -1,4 +1,4 @@
-import { t as c } from "./icon-renderer-a2WAOpSe.js";
+import { t as c } from "./icon-renderer-tQhqqQbt.js";
 var t = {
   success: "iconoir:check",
   error: "iconoir:xmark",
@@ -35,4 +35,4 @@ export {
   t
 };
 
-//# sourceMappingURL=icons-SGrt9O6P.js.map
+//# sourceMappingURL=icons-YEpcXW1I.js.map

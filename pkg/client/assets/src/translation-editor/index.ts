@@ -76,6 +76,19 @@ export interface TranslationEditorFieldValidation {
   message: string;
 }
 
+export interface TranslationSuggestionActionState extends TranslationActionState {
+  assignment_id: string;
+  field_path: string;
+  command_name: string;
+  transport: string;
+  rpc_method: string;
+  endpoint: string;
+  rpc_invoke_path: string;
+  execution_mode: string;
+  idempotency_key: string;
+  payload: Record<string, unknown>;
+}
+
 export interface TranslationEditorGlossaryMatch {
   term: string;
   preferred_translation: string;
@@ -161,6 +174,7 @@ export interface TranslationEditorFieldEntry {
   drift: TranslationEditorFieldDrift;
   validation: TranslationEditorFieldValidation;
   glossary_hits: Record<string, unknown>[];
+  suggest_translation_action: TranslationSuggestionActionState;
 }
 
 export interface TranslationEditorAttachment {
@@ -286,6 +300,7 @@ export interface TranslationAssignmentEditorDetail {
   qa_results: TranslationEditorQAResults;
   assignment_action_states: Record<string, TranslationActionState>;
   review_action_states: Record<string, TranslationActionState>;
+  suggest_translation_action: TranslationSuggestionActionState;
   locale_navigation: TranslationEditorLocaleNavigation;
   preview_action: TranslationEditorPreviewAction;
 }
@@ -343,6 +358,7 @@ export interface TranslationEditorRuntimeState {
   saving?: boolean;
   submitting?: boolean;
   previewing?: boolean;
+  suggestingFields?: string[];
   rejectDraft?: TranslationEditorRejectDraft | null;
   // T13: Active sidebar tab
   activeSidebarTab?: 'actions' | 'qa' | 'assist' | 'files' | 'history';
@@ -367,6 +383,15 @@ interface TranslationEditorRenderViewportState {
   selectionDirection: 'forward' | 'backward' | 'none' | null;
   scrollX: number;
   scrollY: number;
+}
+
+export interface TranslationSuggestionCommandResult {
+  assignment_id: string;
+  field_path: string;
+  suggested_text: string;
+  provider?: string;
+  model?: string;
+  diagnostics?: Record<string, unknown>;
 }
 
 const TRANSLATION_DRAFT_SYNC_RESOURCE_KIND = 'translation_variant_draft';
@@ -932,6 +957,35 @@ function normalizeActionStateMap(value: unknown): Record<string, TranslationActi
   return out;
 }
 
+function normalizeSuggestionActionState(value: unknown, fallback: Partial<TranslationSuggestionActionState> = {}): TranslationSuggestionActionState {
+  const raw = asRecord(value);
+  const normalized = normalizeTranslationActionState(raw) || { enabled: false };
+  const payload = asRecord(raw.payload ?? fallback.payload);
+  const assignmentID = asString(raw.assignment_id ?? payload.assignment_id ?? fallback.assignment_id);
+  const fieldPath = asString(raw.field_path ?? payload.field_path ?? fallback.field_path);
+  const endpoint = asString(raw.endpoint ?? raw.rpc_invoke_path ?? fallback.endpoint ?? fallback.rpc_invoke_path);
+  const executionMode = asString(raw.execution_mode ?? raw.executionMode ?? fallback.execution_mode);
+  const idempotencyKey = asString(raw.idempotency_key ?? raw.idempotencyKey ?? payload.idempotency_key ?? payload.idempotencyKey ?? fallback.idempotency_key);
+  return {
+    ...normalized,
+    assignment_id: assignmentID,
+    field_path: fieldPath,
+    command_name: asString(raw.command_name ?? fallback.command_name) || 'translations.suggestions.generate',
+    transport: asString(raw.transport ?? fallback.transport) || 'rpc',
+    rpc_method: asString(raw.rpc_method ?? fallback.rpc_method) || 'admin.commands.dispatch',
+    endpoint,
+    rpc_invoke_path: asString(raw.rpc_invoke_path ?? fallback.rpc_invoke_path) || endpoint,
+    execution_mode: executionMode,
+    idempotency_key: idempotencyKey,
+    payload: {
+      ...payload,
+      ...(assignmentID ? { assignment_id: assignmentID } : {}),
+      ...(fieldPath ? { field_path: fieldPath } : {}),
+      ...(idempotencyKey ? { idempotency_key: idempotencyKey } : {}),
+    },
+  };
+}
+
 function normalizeFieldEntries(
   record: Record<string, unknown>,
   sourceFields: Record<string, string>,
@@ -940,6 +994,10 @@ function normalizeFieldEntries(
   drift: Record<string, TranslationEditorFieldDrift>,
   validations: Record<string, TranslationEditorFieldValidation>
 ): TranslationEditorFieldEntry[] {
+  const assignmentID = asString(record.assignment_id);
+  const detailSuggestionAction = normalizeSuggestionActionState(record.suggest_translation_action, {
+    assignment_id: assignmentID,
+  });
   if (Array.isArray(record.fields)) {
     return record.fields
       .map((entry) => {
@@ -960,6 +1018,11 @@ function normalizeFieldEntries(
           glossary_hits: Array.isArray(field.glossary_hits)
             ? field.glossary_hits.filter((candidate) => candidate && typeof candidate === 'object') as Record<string, unknown>[]
             : [],
+          suggest_translation_action: normalizeSuggestionActionState(field.suggest_translation_action, {
+            ...detailSuggestionAction,
+            assignment_id: assignmentID || detailSuggestionAction.assignment_id,
+            field_path: path || detailSuggestionAction.field_path,
+          }),
         };
       })
       .filter((entry): entry is TranslationEditorFieldEntry => Boolean(entry));
@@ -988,6 +1051,11 @@ function normalizeFieldEntries(
     },
     validation: validations[path] ?? { valid: true, message: '' },
     glossary_hits: [],
+    suggest_translation_action: normalizeSuggestionActionState(null, {
+      ...detailSuggestionAction,
+      assignment_id: assignmentID || detailSuggestionAction.assignment_id,
+      field_path: path || detailSuggestionAction.field_path,
+    }),
   }));
 }
 
@@ -1038,6 +1106,9 @@ export function normalizeAssignmentEditorDetail(raw: unknown): TranslationAssign
     review_action_states: normalizeActionStateMap(
       record.review_action_states ?? record.review_actions
     ),
+    suggest_translation_action: normalizeSuggestionActionState(record.suggest_translation_action, {
+      assignment_id: asString(record.assignment_id),
+    }),
     locale_navigation: normalizeLocaleNavigation(record.locale_navigation, record),
     preview_action: normalizePreviewAction(record.preview_action, record),
   };
@@ -2112,7 +2183,127 @@ function renderCopySourceIcon(): string {
   return renderEditorIcon(ICON_COPY, '12px');
 }
 
-function renderFieldList(detail: TranslationAssignmentEditorDetail, readOnly = false): string {
+export function buildTranslationSuggestionRPCRequest(
+  action: TranslationSuggestionActionState,
+  correlationId = ''
+): Record<string, unknown> {
+  const trimmedCorrelationId = asString(correlationId);
+  const idempotencyKey = asString(action.idempotency_key || action.payload?.idempotency_key || action.payload?.idempotencyKey);
+  const executionMode = asString(action.execution_mode);
+  const metadata: Record<string, unknown> = {
+    correlation_id: trimmedCorrelationId,
+  };
+  if (idempotencyKey) {
+    metadata.idempotency_key = idempotencyKey;
+  }
+  const options: Record<string, unknown> = {
+    CorrelationID: trimmedCorrelationId,
+    Metadata: metadata,
+  };
+  if (executionMode) {
+    options.Mode = executionMode;
+  }
+  if (idempotencyKey) {
+    options.IdempotencyKey = idempotencyKey;
+  }
+  return {
+    method: action.rpc_method || 'admin.commands.dispatch',
+    params: {
+      data: {
+        name: action.command_name || 'translations.suggestions.generate',
+        ids: action.assignment_id ? [action.assignment_id] : [],
+        payload: {
+          ...action.payload,
+          assignment_id: action.assignment_id,
+          field_path: action.field_path,
+        },
+        options,
+      },
+      meta: {
+        correlationId: trimmedCorrelationId,
+      },
+    },
+  };
+}
+
+function normalizeSuggestionCommandResult(input: unknown): TranslationSuggestionCommandResult | null {
+  const result = asRecord(input);
+  const assignmentID = asString(result.assignment_id ?? result.assignmentId);
+  const fieldPath = asString(result.field_path ?? result.fieldPath);
+  const suggestedText = asString(result.suggested_text ?? result.suggestedText);
+  if (!assignmentID || !fieldPath || !suggestedText) return null;
+  return {
+    assignment_id: assignmentID,
+    field_path: fieldPath,
+    suggested_text: suggestedText,
+    provider: asString(result.provider) || undefined,
+    model: asString(result.model) || undefined,
+    diagnostics: asRecord(result.diagnostics),
+  };
+}
+
+export async function dispatchTranslationSuggestion(
+  action: TranslationSuggestionActionState,
+  correlationId = ''
+): Promise<TranslationSuggestionCommandResult> {
+  const endpoint = action.endpoint || action.rpc_invoke_path;
+  if (!action.enabled) {
+    throw new Error(action.reason || 'Translation suggestion is unavailable.');
+  }
+  if (!endpoint) {
+    throw new Error('Translation suggestion RPC endpoint is not configured.');
+  }
+  const response = await httpRequest(endpoint, {
+    method: 'POST',
+    json: buildTranslationSuggestionRPCRequest(action, correlationId),
+  });
+  if (!response.ok) {
+    const structured = await extractStructuredError(response);
+    throw new Error(structured.message || 'Failed to generate translation suggestion.');
+  }
+  const payload = asRecord(await response.json().catch(() => ({})));
+  const errorPayload = asRecord(payload.error);
+  if (Object.keys(errorPayload).length > 0) {
+    throw new Error(asString(errorPayload.message) || 'Failed to generate translation suggestion.');
+  }
+  const data = asRecord(payload.data);
+  const result = normalizeSuggestionCommandResult(data.result ?? data.Result);
+  if (!result) {
+    throw new Error('Translation suggestion did not return suggested text.');
+  }
+  return result;
+}
+
+function shouldRenderSuggestionButton(action: TranslationSuggestionActionState): boolean {
+  if (action.enabled) return true;
+  return Boolean(action.command_name && action.reason_code && action.reason_code !== 'service_unavailable');
+}
+
+function renderSuggestTranslationButton(entry: TranslationEditorFieldEntry, readOnly: boolean, suggesting: boolean): string {
+  const action = entry.suggest_translation_action;
+  if (!shouldRenderSuggestionButton(action)) return '';
+  const disabled = readOnly || suggesting || !action.enabled;
+  const title = suggesting
+    ? 'Generating suggestion...'
+    : disabled
+      ? action.reason || 'Translation suggestion is unavailable.'
+      : `Generate translation suggestion for ${entry.label}`;
+  return `
+    <button
+      type="button"
+      class="${COPY_SOURCE_BUTTON_CLASS}"
+      data-suggest-translation="${escapeAttribute(entry.path)}"
+      aria-label="Generate translation suggestion for ${escapeAttribute(entry.label)}"
+      title="${escapeAttribute(title)}"
+      ${disabled ? 'disabled aria-disabled="true"' : ''}
+    >
+      ${renderEditorIcon('iconoir:spark', '12px')}
+      <span>${suggesting ? 'Generating' : 'Generate suggestion'}</span>
+    </button>
+  `;
+}
+
+function renderFieldList(detail: TranslationAssignmentEditorDetail, readOnly = false, suggestingFields: Set<string> = new Set()): string {
   const summary = computeFieldIssueSummary(detail);
   const inputClass = readOnly
     ? 'mt-2 w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-600'
@@ -2131,17 +2322,20 @@ function renderFieldList(detail: TranslationAssignmentEditorDetail, readOnly = f
               <h2 class="text-lg font-semibold text-gray-900">${escapeHTML(entry.label)}</h2>
               ${renderFieldKeyLine(entry.label, entry.path, entry.required)}
             </div>
-            <button
-              type="button"
-              class="${COPY_SOURCE_BUTTON_CLASS}"
-              data-copy-source="${escapeAttribute(entry.path)}"
-              data-source-value="${escapeAttribute(entry.source_value)}"
-              aria-label="Copy source text to translation field for ${escapeAttribute(entry.label)}"
-              ${readOnly ? 'disabled aria-disabled="true"' : ''}
-            >
-              ${renderCopySourceIcon()}
-              <span>Copy source</span>
-            </button>
+            <div class="flex flex-wrap gap-2">
+              <button
+                type="button"
+                class="${COPY_SOURCE_BUTTON_CLASS}"
+                data-copy-source="${escapeAttribute(entry.path)}"
+                data-source-value="${escapeAttribute(entry.source_value)}"
+                aria-label="Copy source text to translation field for ${escapeAttribute(entry.label)}"
+                ${readOnly ? 'disabled aria-disabled="true"' : ''}
+              >
+                ${renderCopySourceIcon()}
+                <span>Copy source</span>
+              </button>
+              ${renderSuggestTranslationButton(entry, readOnly, suggestingFields.has(entry.path))}
+            </div>
           </div>
           <div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
             <div class="rounded-xl border border-gray-200 bg-gray-50 p-4">
@@ -2808,7 +3002,7 @@ export function renderTranslationEditorState(
       ` : ''}
       <div class="grid grid-cols-1 gap-4 sm:gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(280px,1fr)]">
         <div class="order-1 space-y-4 sm:space-y-6">
-          ${renderFieldList(detail, readOnly)}
+          ${renderFieldList(detail, readOnly, new Set(runtime.suggestingFields || []))}
         </div>
         <div class="order-2">
           ${renderTabbedSidebar(detail, runtime.submitting === true, runtime.activeSidebarTab || 'actions', loadState, runtime.saving === true, Boolean(conflictState))}
@@ -2852,6 +3046,7 @@ export class TranslationEditorScreen {
   private syncLoadedResourceKey = '';
   private syncLoadedRevision: number | null = null;
   private syncConflictSnapshot: TranslationSyncResourceSnapshot<unknown> | null = null;
+  private suggestingFields = new Set<string>();
   // T13: Active sidebar tab
   private activeSidebarTab: SidebarTab = 'actions';
 
@@ -2925,6 +3120,7 @@ export class TranslationEditorScreen {
     this.syncLoadedResourceKey = '';
     this.syncLoadedRevision = null;
     this.syncConflictSnapshot = null;
+    this.suggestingFields.clear();
   }
 
   async load(historyPage?: number): Promise<void> {
@@ -2957,6 +3153,7 @@ export class TranslationEditorScreen {
       saving: this.saving,
       submitting: this.submitting,
       previewing: this.previewing,
+      suggestingFields: Array.from(this.suggestingFields),
       rejectDraft: this.rejectDraft,
       activeSidebarTab: this.activeSidebarTab,
     });
@@ -3069,6 +3266,14 @@ export class TranslationEditorScreen {
         this.render();
       });
     });
+    this.container.querySelectorAll<HTMLElement>('[data-suggest-translation]').forEach((element) => {
+      element.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        const path = element.dataset.suggestTranslation || '';
+        void this.generateSuggestion(path);
+      });
+    });
     this.container.querySelector<HTMLElement>('[data-action="save-draft"]')?.addEventListener('click', () => {
       if (this.isEditorReadOnly()) return;
       void this.saveDirtyFields(false);
@@ -3171,6 +3376,64 @@ export class TranslationEditorScreen {
         this.render();
       });
     });
+  }
+
+  private focusField(path: string): void {
+    const input = this.container?.querySelector<HTMLInputElement | HTMLTextAreaElement>(`[data-field-input="${cssEscape(path)}"]`);
+    if (!input) return;
+    try {
+      input.focus({ preventScroll: true });
+    } catch {
+      input.focus();
+    }
+    const selectionEnd = input.value.length;
+    try {
+      input.setSelectionRange(selectionEnd, selectionEnd);
+    } catch {
+      // Non-text inputs do not support selection ranges.
+    }
+  }
+
+  private async generateSuggestion(path: string): Promise<void> {
+    const fieldPath = path.trim();
+    if (!fieldPath || !this.editorState || this.suggestingFields.has(fieldPath)) return;
+    if (this.isEditorReadOnly()) return;
+    if (this.editorState.autosave.conflict) {
+      this.feedback = { kind: 'conflict', message: 'Reload the latest server draft before generating a suggestion.' };
+      this.render();
+      return;
+    }
+    const entry = this.editorState.detail.fields.find((item) => item.path === fieldPath);
+    const action = entry?.suggest_translation_action;
+    if (!entry || !action?.enabled) {
+      this.feedback = { kind: 'error', message: action?.reason || 'Translation suggestion is unavailable for this field.' };
+      this.render();
+      return;
+    }
+    this.suggestingFields.add(fieldPath);
+    this.feedback = null;
+    this.render();
+    try {
+      const result = await dispatchTranslationSuggestion(action, this.loadState.requestId || '');
+      if (!this.editorState || result.assignment_id !== this.editorState.detail.assignment_id || result.field_path !== fieldPath) {
+        throw new Error('Translation suggestion response did not match the requested field.');
+      }
+      this.editorState = applyEditorFieldChange(this.editorState, fieldPath, result.suggested_text);
+      this.lastSavedMessage = '';
+      this.feedback = { kind: 'success', message: 'Translation suggestion inserted.' };
+      this.scheduleAutosave();
+      this.render();
+      this.focusField(fieldPath);
+    } catch (error) {
+      this.feedback = {
+        kind: 'error',
+        message: error instanceof Error ? error.message : 'Failed to generate translation suggestion.',
+      };
+      this.render();
+    } finally {
+      this.suggestingFields.delete(fieldPath);
+      this.render();
+    }
   }
 
   private scheduleAutosave(): void {
