@@ -27,6 +27,7 @@ type staticAssetsOptions struct {
 	runtimePrefix    string
 	syncClientPrefix string
 	echartsPrefix    string
+	shellPrefix      string
 	sidebarAssets    fs.FS
 }
 
@@ -37,6 +38,7 @@ func resolveStaticAssetsOptions(cfg admin.Config, opts []StaticAssetsOption) sta
 		runtimePrefix:    path.Join(cfg.BasePath, "runtime"),
 		syncClientPrefix: ResolveSyncClientAssetsPrefix(cfg),
 		echartsPrefix:    strings.TrimSuffix(dashboardcmp.DefaultEChartsAssetsPath, "/"),
+		shellPrefix:      strings.TrimSuffix(dashboardcmp.DefaultShellAssetsPath, "/"),
 		sidebarAssets:    SidebarAssetsFS(),
 	}
 	for _, opt := range opts {
@@ -128,6 +130,16 @@ func WithEChartsPrefix(prefix string) StaticAssetsOption {
 	}
 }
 
+// WithDashboardShellPrefix overrides the go-dashboard shell assets prefix.
+func WithDashboardShellPrefix(prefix string) StaticAssetsOption {
+	return func(opts *staticAssetsOptions) {
+		if opts == nil {
+			return
+		}
+		opts.shellPrefix = strings.TrimSpace(prefix)
+	}
+}
+
 // WithSidebarAssetsFS overrides the default quickstart sidebar assets.
 func WithSidebarAssetsFS(fsys fs.FS) StaticAssetsOption {
 	return func(opts *staticAssetsOptions) {
@@ -148,6 +160,7 @@ func ResolveStaticAssetPrefixes(cfg admin.Config, opts ...StaticAssetsOption) []
 		FormgenPrefix:    options.formgenPrefix,
 		SyncClientPrefix: options.syncClientPrefix,
 		EChartsPrefix:    options.echartsPrefix,
+		ShellPrefix:      options.shellPrefix,
 	})
 }
 
@@ -231,6 +244,13 @@ func NewStaticAssets[T any](r router.Router[T], cfg admin.Config, assetsFS fs.FS
 	if options.echartsPrefix != "" {
 		r.Static(options.echartsPrefix, ".", router.Static{
 			FS:   httpFSAdapter{fs: dashboardcmp.EChartsAssetsFS()},
+			Root: ".",
+		})
+	}
+
+	if options.shellPrefix != "" {
+		r.Static(options.shellPrefix, ".", router.Static{
+			FS:   dashboardcmp.ShellAssets(),
 			Root: ".",
 		})
 	}

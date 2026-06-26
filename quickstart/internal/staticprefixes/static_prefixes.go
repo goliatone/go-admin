@@ -16,6 +16,7 @@ type Input struct {
 	RuntimePrefix    string
 	SyncClientPrefix string
 	EChartsPrefix    string
+	ShellPrefix      string
 }
 
 // DefaultInput derives the quickstart static mount prefixes from admin config.
@@ -26,6 +27,7 @@ func DefaultInput(cfg admin.Config) Input {
 		RuntimePrefix:    path.Join(cfg.BasePath, "runtime"),
 		SyncClientPrefix: path.Join(cfg.BasePath, "sync-client", "sync-core"),
 		EChartsPrefix:    strings.TrimSuffix(dashboardcmp.DefaultEChartsAssetsPath, "/"),
+		ShellPrefix:      strings.TrimSuffix(dashboardcmp.DefaultShellAssetsPath, "/"),
 	}
 }
 
@@ -37,6 +39,7 @@ func Resolve(input Input) []string {
 		input.FormgenPrefix,
 		input.SyncClientPrefix,
 		input.EChartsPrefix,
+		input.ShellPrefix,
 	}
 	if NeedsRuntimeRootAlias(input.RuntimePrefix) {
 		prefixes = append(prefixes, "/runtime")

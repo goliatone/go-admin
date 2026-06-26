@@ -14,6 +14,7 @@ type SiteStaticPrefixInput struct {
 	RuntimePrefix    string `json:"runtime_prefix,omitempty"`
 	SyncClientPrefix string `json:"sync_client_prefix,omitempty"`
 	EChartsPrefix    string `json:"echarts_prefix,omitempty"`
+	ShellPrefix      string `json:"shell_prefix,omitempty"`
 }
 
 // ResolveSiteFallbackStaticInput returns a site fallback static-input payload
@@ -26,6 +27,7 @@ func ResolveSiteFallbackStaticInput(cfg admin.Config, opts ...StaticAssetsOption
 		RuntimePrefix:    options.runtimePrefix,
 		SyncClientPrefix: options.syncClientPrefix,
 		EChartsPrefix:    options.echartsPrefix,
+		ShellPrefix:      options.shellPrefix,
 	}
 }
 
@@ -41,5 +43,6 @@ func ResolveSiteFallbackReservedPrefixes(cfg admin.Config, opts ...StaticAssetsO
 		RuntimePrefix:    input.RuntimePrefix,
 		SyncClientPrefix: input.SyncClientPrefix,
 		EChartsPrefix:    input.EChartsPrefix,
+		ShellPrefix:      input.ShellPrefix,
 	})
 }

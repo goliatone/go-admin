@@ -189,6 +189,7 @@ func normalizeSiteStaticPrefixInput(input quickstart.SiteStaticPrefixInput) quic
 	input.RuntimePrefix = strings.TrimSpace(input.RuntimePrefix)
 	input.SyncClientPrefix = strings.TrimSpace(input.SyncClientPrefix)
 	input.EChartsPrefix = strings.TrimSpace(input.EChartsPrefix)
+	input.ShellPrefix = strings.TrimSpace(input.ShellPrefix)
 	return input
 }
 
@@ -244,7 +245,8 @@ func isZeroSiteStaticPrefixInput(input quickstart.SiteStaticPrefixInput) bool {
 		strings.TrimSpace(input.FormgenPrefix) == "" &&
 		strings.TrimSpace(input.RuntimePrefix) == "" &&
 		strings.TrimSpace(input.SyncClientPrefix) == "" &&
-		strings.TrimSpace(input.EChartsPrefix) == ""
+		strings.TrimSpace(input.EChartsPrefix) == "" &&
+		strings.TrimSpace(input.ShellPrefix) == ""
 }
 
 func ValidateSiteFallbackPolicy(policy SiteFallbackPolicy) error {

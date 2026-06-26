@@ -14,12 +14,14 @@ import (
 	"github.com/goliatone/go-admin/admin"
 	templateview "github.com/goliatone/go-admin/internal/templateview"
 	authlib "github.com/goliatone/go-auth"
+	dashboardcmp "github.com/goliatone/go-dashboard/components/dashboard"
 	goerrors "github.com/goliatone/go-errors"
 	router "github.com/goliatone/go-router"
 	urlkit "github.com/goliatone/go-urlkit"
 )
 
 const channelCookieName = "admin_channel"
+const contentBuilderShellAssetsHost = dashboardcmp.DefaultShellAssetsPath
 
 // ContentTypeBuilderUIOption customizes content type builder UI routes.
 type ContentTypeBuilderUIOption func(*contentTypeBuilderUIOptions)
@@ -394,6 +396,7 @@ func (h *contentTypeBuilderHandlers) ContentTypes(c router.Context) error {
 		"content_types_total_default":      diagnostics.TotalDefault,
 		"content_types_available_channels": diagnostics.AvailableChannels,
 	}
+	h.addContentBuilderShellContext(viewCtx, "content-types")
 	if h.viewContext != nil {
 		viewCtx = h.viewContext(viewCtx, "content_types", c)
 	}
@@ -419,10 +422,136 @@ func (h *contentTypeBuilderHandlers) BlockDefinitions(c router.Context) error {
 		"resource":          "block_definitions",
 		"block_definitions": blockDefs,
 	}
+	h.addContentBuilderShellContext(viewCtx, "block-library")
 	if h.viewContext != nil {
 		viewCtx = h.viewContext(viewCtx, "block_definitions", c)
 	}
 	return templateview.RenderTemplateView(c, h.blockDefinitionsTemplate, viewCtx)
+}
+
+func (h *contentTypeBuilderHandlers) addContentBuilderShellContext(viewCtx router.ViewContext, surface string) {
+	if viewCtx == nil {
+		return
+	}
+	assets := dashboardcmp.ShellPageAssets(contentBuilderShellAssetsHost)
+	viewCtx["dashboard_shell_css"] = assets.CSS
+	viewCtx["dashboard_shell_js"] = assets.JS
+
+	var shell dashboardcmp.Shell
+	switch surface {
+	case "block-library":
+		shell = blockLibraryDashboardShell()
+	default:
+		shell = contentTypesDashboardShell()
+	}
+	payload, err := dashboardShellTemplateContext(shell)
+	if err != nil {
+		return
+	}
+	if surface == "block-library" {
+		viewCtx["block_library_shell"] = payload
+		return
+	}
+	viewCtx["content_types_shell"] = payload
+}
+
+func contentTypesDashboardShell() dashboardcmp.Shell {
+	return dashboardcmp.Shell{
+		SurfaceID: "content-types",
+		Label:     "Content Types workbench",
+		Storage: dashboardcmp.ShellStorage{
+			Namespace: dashboardcmp.DefaultShellStateNamespace,
+			Version:   dashboardcmp.DefaultShellStateVersion,
+		},
+		Regions: []dashboardcmp.ShellRegion{
+			{
+				ID:          "list",
+				Role:        dashboardcmp.ShellRegionRoleNavigation,
+				Placement:   dashboardcmp.ShellRegionPlacementLeading,
+				Label:       "Content type library",
+				Collapsible: true,
+				Resizable:   true,
+				ResizeEdge:  dashboardcmp.ShellResizeEdgeTrailing,
+				Sizing:      dashboardcmp.ShellPaneSizing{Min: 240, Default: 320, Max: 420},
+			},
+			{
+				ID:          "builder",
+				Role:        dashboardcmp.ShellRegionRoleMain,
+				Placement:   dashboardcmp.ShellRegionPlacementMain,
+				Label:       "Content type builder",
+				FocusTarget: true,
+			},
+			{
+				ID:          "preview",
+				Role:        dashboardcmp.ShellRegionRolePreview,
+				Placement:   dashboardcmp.ShellRegionPlacementTrailing,
+				Label:       "Live form preview",
+				Collapsible: true,
+				Resizable:   true,
+				ResizeEdge:  dashboardcmp.ShellResizeEdgeLeading,
+				Sizing:      dashboardcmp.ShellPaneSizing{Min: 320, Default: 400, Max: 720},
+				FocusTarget: true,
+			},
+		},
+	}
+}
+
+func blockLibraryDashboardShell() dashboardcmp.Shell {
+	return dashboardcmp.Shell{
+		SurfaceID: "block-library",
+		Label:     "Block Library workbench",
+		Storage: dashboardcmp.ShellStorage{
+			Namespace: dashboardcmp.DefaultShellStateNamespace,
+			Version:   dashboardcmp.DefaultShellStateVersion,
+		},
+		Regions: []dashboardcmp.ShellRegion{
+			{
+				ID:          "list",
+				Role:        dashboardcmp.ShellRegionRoleNavigation,
+				Placement:   dashboardcmp.ShellRegionPlacementLeading,
+				Label:       "Block list",
+				Collapsible: true,
+				Resizable:   true,
+				ResizeEdge:  dashboardcmp.ShellResizeEdgeTrailing,
+				Sizing:      dashboardcmp.ShellPaneSizing{Min: 200, Default: 240, Max: 380},
+			},
+			{
+				ID:          "builder",
+				Role:        dashboardcmp.ShellRegionRoleMain,
+				Placement:   dashboardcmp.ShellRegionPlacementMain,
+				Label:       "Block editor",
+				FocusTarget: true,
+			},
+			{
+				ID:          "palette",
+				Role:        dashboardcmp.ShellRegionRolePalette,
+				Placement:   dashboardcmp.ShellRegionPlacementTrailing,
+				Label:       "Field palette",
+				Collapsible: true,
+				Resizable:   true,
+				ResizeEdge:  dashboardcmp.ShellResizeEdgeLeading,
+				Sizing:      dashboardcmp.ShellPaneSizing{Min: 220, Default: 260, Max: 400},
+			},
+		},
+	}
+}
+
+func dashboardShellTemplateContext(shell dashboardcmp.Shell) (map[string]any, error) {
+	normalized, err := shell.Normalize()
+	if err != nil {
+		return nil, err
+	}
+	payload, err := router.SerializeAsContext(normalized)
+	if err != nil {
+		return nil, err
+	}
+	storage, _ := payload["storage"].(map[string]any)
+	if storage == nil {
+		storage = map[string]any{}
+		payload["storage"] = storage
+	}
+	storage["key"] = normalized.Storage.StorageKey(normalized.SurfaceID)
+	return payload, nil
 }
 
 func (h *contentTypeBuilderHandlers) ContentTypeCompatibility(c router.Context) error {

@@ -136,6 +136,7 @@ func TestSiteReservedPrefixesAndSearchEndpointFollowAdminConfigRoots(t *testing.
 		"/assets",
 		"/control",
 		"/dashboard/assets/echarts",
+		"/dashboard/assets/shell",
 		"/public/content",
 		"/public/content/v3",
 		"/runtime",
