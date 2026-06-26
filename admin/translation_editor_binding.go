@@ -405,12 +405,108 @@ func (b *translationQueueBinding) assignmentDetailPayload(ctx context.Context, a
 		"style_guide_summary":        translationEditorStyleGuideSummary(editorCtx),
 		"translation_assignment":     row,
 		"locale_navigation":          b.translationEditorLocaleNavigationPayload(editorCtx, assignment),
+		"content_navigation":         b.translationEditorContentNavigationPayload(ctx, editorCtx, assignment),
 		"preview_action":             b.assignmentPreviewAction(AdminContext{Context: ctx}, assignment, editorCtx, false),
 	}
 	if assignment.DueDate != nil {
 		payload["due_date"] = assignment.DueDate
 	}
 	return payload
+}
+
+type translationContentNavigationAccess struct {
+	CanView        bool
+	CanEdit        bool
+	ViewPermission string
+	EditPermission string
+	Resource       string
+	ReasonCode     string
+	Reason         string
+}
+
+func (b *translationQueueBinding) translationEditorContentNavigationPayload(ctx context.Context, editorCtx translationEditorContext, assignment TranslationAssignment) map[string]any {
+	basePath := "/admin"
+	if b != nil && b.admin != nil {
+		basePath = strings.TrimSpace(firstNonEmpty(b.admin.config.BasePath, basePath))
+	}
+	contentType := strings.TrimSpace(editorCtx.Family.ContentType)
+	channel := strings.TrimSpace(editorCtx.Environment)
+	access := b.translationEditorContentNavigationAccess(ctx, contentType, channel)
+	source := translationContentNavigationPayloadForRecord(
+		contentType,
+		strings.TrimSpace(editorCtx.SourceRecordID),
+		strings.TrimSpace(editorCtx.SourceVariant.Locale),
+		channel,
+		basePath,
+		access,
+	)
+	targetLocale := strings.TrimSpace(firstNonEmpty(editorCtx.TargetVariant.Locale, assignment.TargetLocale))
+	target := translationContentNavigationPayloadForRecord(
+		contentType,
+		strings.TrimSpace(editorCtx.TargetRecordID),
+		targetLocale,
+		channel,
+		basePath,
+		access,
+	)
+	out := map[string]any{}
+	if len(source) > 0 {
+		if toBool(source["can_edit"]) {
+			source["label"] = "Edit source content"
+		} else {
+			source["label"] = "View source content"
+		}
+		source["detail_label"] = "View source content"
+		out["source"] = source
+	}
+	if len(target) > 0 {
+		if toBool(target["can_edit"]) {
+			target["label"] = "Edit target content"
+		} else {
+			target["label"] = "View target content"
+		}
+		target["detail_label"] = "View target content"
+		out["target"] = target
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+func (b *translationQueueBinding) translationEditorContentNavigationAccess(ctx context.Context, contentType, channel string) translationContentNavigationAccess {
+	out := translationContentNavigationAccess{
+		ReasonCode: "content_navigation_unavailable",
+		Reason:     "Content navigation is unavailable for this content type.",
+	}
+	if b == nil || b.admin == nil {
+		return out
+	}
+	contentCtx := ctx
+	if contentCtx == nil {
+		contentCtx = context.Background()
+	}
+	if channel = strings.TrimSpace(channel); channel != "" {
+		contentCtx = WithContentChannel(contentCtx, channel)
+	}
+	panelName, panel, err := b.admin.resolveContentNavigationPanel(contentCtx, contentType)
+	if err != nil || panel == nil {
+		return out
+	}
+	resource := strings.TrimSpace(firstNonEmpty(panel.name, panelName, contentType))
+	out.Resource = resource
+	out.ViewPermission = strings.TrimSpace(panel.permissions.View)
+	out.EditPermission = strings.TrimSpace(panel.permissions.Edit)
+	out.CanView = permissionAllowed(b.admin.authorizer, contentCtx, out.ViewPermission, resource)
+	out.CanEdit = permissionAllowed(b.admin.authorizer, contentCtx, out.EditPermission, resource)
+	if out.CanEdit {
+		out.ReasonCode = ""
+		out.Reason = ""
+	} else {
+		out.ReasonCode = "permission_denied"
+		out.Reason = "You do not have permission to edit this content."
+	}
+	return out
 }
 
 func (b *translationQueueBinding) assignmentPreviewAction(adminCtx AdminContext, assignment TranslationAssignment, editorCtx translationEditorContext, includeURL bool) map[string]any {
