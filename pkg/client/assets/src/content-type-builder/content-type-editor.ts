@@ -40,6 +40,7 @@ import { PreviewModal, wrapReadonlyPreview as wrapReadonlyPreviewShared, initPre
 import { FIELD_SET_PRESETS, getFieldSetPreset } from './shared/field-presets';
 import { nameToSlug, titleCaseIdentifier } from './shared/text';
 import { refreshContentModelingShell } from './shared/content-modeling-shell';
+import { deriveAdminBasePath } from './shared/api-paths';
 import { escapeHTML as escapeHtml } from '../shared/html.js';
 import { parseJSONValue } from '../shared/json-parse.js';
 
@@ -108,6 +109,14 @@ export class ContentTypeEditor {
   private normalizeChannel(value?: string): string {
     const normalized = String(value ?? '').trim().toLowerCase();
     return normalized;
+  }
+
+  private blockLibraryURL(): string {
+    const basePath = deriveAdminBasePath(this.config.apiBasePath, this.config.basePath);
+    const path = `${basePath}/content/block-library`;
+    const channel = this.normalizeChannel(this.config.channel);
+    if (!channel || channel === 'default') return path;
+    return `${path}?channel=${encodeURIComponent(channel)}`;
   }
 
   /**
@@ -890,10 +899,10 @@ export class ContentTypeEditor {
               Denied
             </button>
           </div>
-          <button type="button" data-ct-blocks-open-library="${escapeHtml(field.id)}"
-                  class="text-[11px] text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 font-medium">
+          <a href="${escapeHtml(this.blockLibraryURL())}" data-ct-blocks-open-library="${escapeHtml(field.id)}"
+             class="text-[11px] text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 font-medium">
             Open Block Library
-          </button>
+          </a>
         </div>
         <div data-ct-blocks-picker-container="${escapeHtml(field.id)}">
           ${pickerHtml}
@@ -1451,14 +1460,6 @@ export class ContentTypeEditor {
         if (field && normalizeFieldType(field.type) === 'blocks') {
           this.loadBlocksForField(field);
         }
-        return;
-      }
-
-      // Open Block Library
-      const blocksOpenLibrary = target.closest<HTMLElement>('[data-ct-blocks-open-library]');
-      if (blocksOpenLibrary) {
-        const basePath = this.api.getBasePath();
-        window.location.href = `${basePath}/content/block-library`;
         return;
       }
 

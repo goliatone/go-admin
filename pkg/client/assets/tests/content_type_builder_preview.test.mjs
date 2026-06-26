@@ -41,8 +41,8 @@ function setGlobals(win) {
     : (cb) => setTimeout(cb, 0);
 }
 
-function setupDom(html = '<!doctype html><html><body></body></html>') {
-  const dom = new JSDOM(html, { url: 'http://localhost' });
+function setupDom(html = '<!doctype html><html><body></body></html>', url = 'http://localhost') {
+  const dom = new JSDOM(html, { url });
   setGlobals(dom.window);
   return dom;
 }
@@ -291,6 +291,51 @@ test('ContentTypeEditor reapplies persisted preview pane state after async edit 
   } finally {
     globalThis.fetch = originalFetch;
   }
+});
+
+function renderBlocksField(editor) {
+  editor.state.fields = [{
+    id: 'field_blocks',
+    name: 'blocks',
+    type: 'blocks',
+    label: 'Blocks',
+    required: false,
+    order: 0,
+    config: {},
+  }];
+  editor.state.selectedFieldId = 'field_blocks';
+  editor.renderFieldList();
+  return editor.container.querySelector('[data-ct-blocks-open-library]');
+}
+
+test('ContentTypeEditor blocks-field library link uses the UI route and preserves channel', async () => {
+  setupDom('<!doctype html><html><body><div data-content-type-editor-root></div></body></html>', 'http://localhost/admin/content/types?channel=staging');
+  const root = document.querySelector('[data-content-type-editor-root]');
+  const editor = new ContentTypeEditor(root, {
+    apiBasePath: '/admin/api',
+    basePath: '/admin',
+    channel: 'staging',
+  });
+  await editor.init();
+
+  const link = renderBlocksField(editor);
+  assert.ok(link, 'expected Open Block Library link');
+  assert.equal(link.getAttribute('href'), '/admin/content/block-library?channel=staging');
+});
+
+test('ContentTypeEditor blocks-field library link derives admin route from apiBasePath', async () => {
+  setupDom('<!doctype html><html><body><div data-content-type-editor-root></div></body></html>');
+  const root = document.querySelector('[data-content-type-editor-root]');
+  const editor = new ContentTypeEditor(root, {
+    apiBasePath: '/admin/api',
+    channel: 'default',
+  });
+  await editor.init();
+
+  const link = renderBlocksField(editor);
+  assert.ok(link, 'expected Open Block Library link');
+  assert.equal(link.getAttribute('href'), '/admin/content/block-library');
+  assert.equal(link.getAttribute('href').includes('/api/'), false);
 });
 
 test('schemaToFields/fieldsToSchema preserves ref-based blocks representation', () => {

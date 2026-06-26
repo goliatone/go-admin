@@ -7,9 +7,9 @@ import { t as U } from "../chunks/badge-DT04uHwZ.js";
 import { normalizeAPIBasePath as Q, trimTrailingSlash as Qe } from "../shared/path-normalization.js";
 import { onReady as rt } from "../shared/dom-ready.js";
 import { parseJSONValue as R } from "../shared/json-parse.js";
-import { capitalizeLabel as D, nameToSlug as Ee, titleCaseIdentifier as he, titleCaseWords as F } from "./shared/text.js";
+import { capitalizeLabel as D, nameToSlug as je, titleCaseIdentifier as he, titleCaseWords as F } from "./shared/text.js";
 import { deepCloneJSON as ve } from "../shared/deep-clone.js";
-import { a as qt, c as g, d as He, i as Dt, l as b, n as zt, o as E, r as lr, s as Ht, t as Rt, u as M } from "../chunks/channel-switcher-DPOC5S4V.js";
+import { a as qt, c as p, d as Re, i as Dt, l as b, n as zt, o as E, r as lr, s as Ht, t as Rt, u as M } from "../chunks/channel-switcher-DPOC5S4V.js";
 import { formatContentTypeDate as it } from "./shared/date-formatters.js";
 import { PANE_LAYOUT_VERSION as hr, PaneLayoutController as ur, clampWidth as pr, createPaneLayout as gr, createSafeStorage as yr, defaultPaneState as fr, paneStorageKey as mr, sanitizePaneState as br } from "./shared/pane-layout.js";
 import { buildShellConfig as kr, initContentModelingShell as xr, initContentModelingShells as Ot, refreshContentModelingShell as Nt } from "./shared/content-modeling-shell.js";
@@ -321,31 +321,31 @@ function ue(t, e) {
     ...e
   };
 }
-function je(t) {
+function Me(t) {
   const e = String(t ?? "").trim().toLowerCase();
   return e === "id" || e === "url" ? e : void 0;
 }
 function Ye(t) {
   return t === "uri" || t === de;
 }
-function Me(t) {
-  if (!(!t || typeof t != "object" || Array.isArray(t)))
-    return ve(t);
-}
 function Te(t) {
   if (!(!t || typeof t != "object" || Array.isArray(t)))
     return ve(t);
 }
 function Pe(t) {
+  if (!(!t || typeof t != "object" || Array.isArray(t)))
+    return ve(t);
+}
+function Fe(t) {
   if (!Array.isArray(t)) return;
   const e = t.map((a) => String(a ?? "").trim()).filter(Boolean);
   return e.length > 0 ? e : void 0;
 }
-function Fe(t) {
+function Ae(t) {
   return Array.isArray(t) ? t.map((e) => String(e ?? "").trim()).filter(Boolean).join(",") || void 0 : String(t ?? "").trim() || void 0;
 }
 function Vt(t, e, a) {
-  const r = je(a?.valueMode);
+  const r = Me(a?.valueMode);
   return r || (e === "media-gallery" && t.items && typeof t.items == "object" && !Array.isArray(t.items) ? t.items.format === "uuid" ? "id" : "url" : t.format === "uuid" ? "id" : "url");
 }
 function L(t) {
@@ -515,14 +515,14 @@ function Qt(t) {
       e.items = { type: "string" }, t.config && "options" in t.config && t.config.options && (e.items.enum = t.config.options.map((s) => s.value));
       break;
     case "media-gallery": {
-      const s = t.config, o = Me(s?.__sourceComponentOptions) ?? {}, l = Te(s?.__sourceAdminMedia) ?? {}, d = je(s?.valueMode ?? o.valueMode) ?? "url", c = {
+      const s = t.config, o = Te(s?.__sourceComponentOptions) ?? {}, l = Pe(s?.__sourceAdminMedia) ?? {}, d = Me(s?.valueMode ?? o.valueMode) ?? "url", c = {
         ...o,
         variant: "media-picker",
         multiple: !0,
         valueMode: d
-      }, h = Fe(s?.accept ?? o.accept);
+      }, h = Ae(s?.accept ?? o.accept);
       h ? c.accept = h : delete c.accept, typeof s?.maxSize == "number" && Number.isFinite(s.maxSize) && (c.maxSize = s.maxSize, l.maxSize = s.maxSize);
-      const f = Pe(s?.acceptedKinds ?? o.acceptedKinds);
+      const f = Fe(s?.acceptedKinds ?? o.acceptedKinds);
       f ? (c.acceptedKinds = f, l.acceptedKinds = f) : delete c.acceptedKinds, e.items = {
         type: "string",
         format: d === "id" ? "uuid" : de
@@ -537,13 +537,13 @@ function Qt(t) {
       break;
     case "media-picker":
     case "file-upload": {
-      const s = t.config, o = Me(s?.__sourceComponentOptions) ?? {}, l = Te(s?.__sourceAdminMedia) ?? {}, d = t.type === "file-upload" ? "url" : je(s?.valueMode ?? o.valueMode) ?? "url", c = {
+      const s = t.config, o = Te(s?.__sourceComponentOptions) ?? {}, l = Pe(s?.__sourceAdminMedia) ?? {}, d = t.type === "file-upload" ? "url" : Me(s?.valueMode ?? o.valueMode) ?? "url", c = {
         ...o,
         variant: t.type,
         valueMode: d
-      }, h = Fe(s?.accept ?? o.accept);
+      }, h = Ae(s?.accept ?? o.accept);
       h ? c.accept = h : delete c.accept, typeof s?.maxSize == "number" && Number.isFinite(s.maxSize) && (c.maxSize = s.maxSize, l.maxSize = s.maxSize);
-      const f = Pe(s?.acceptedKinds ?? o.acceptedKinds);
+      const f = Fe(s?.acceptedKinds ?? o.acceptedKinds);
       f ? (c.acceptedKinds = f, l.acceptedKinds = f) : delete c.acceptedKinds, t.type === "file-upload" && (delete c.itemEndpoint, delete c.resolveEndpoint), e.format = d === "id" ? "uuid" : t.type === "file-upload" ? "uri" : de, r.componentOptions = c, e["x-formgen"] = r, l.valueMode = d, e["x-admin"] = ue(e["x-admin"] ?? {}, { media: l });
       break;
     }
@@ -551,14 +551,14 @@ function Qt(t) {
       t.config && "fields" in t.config && t.config.fields ? e.items = W(t.config.fields) : e.items = { type: "string" };
       break;
     case "blocks": {
-      const s = t.config, o = L(s?.allowedBlocks), l = L(s?.deniedBlocks), d = L(s?.__sourceAllowedBlocks), c = L(s?.__sourceDeniedBlocks), h = ge(s?.__sourceWidget) || "block", f = ge(s?.__sourceComponentName), m = ta(s?.__sourceComponentConfig), y = o.length > 0, p = l.length > 0, u = !Ze(o, d), v = !Ze(l, c), x = s?.__sourceItemsSchema, S = s?.__sourceRepresentation ?? "inline";
+      const s = t.config, o = L(s?.allowedBlocks), l = L(s?.deniedBlocks), d = L(s?.__sourceAllowedBlocks), c = L(s?.__sourceDeniedBlocks), h = ge(s?.__sourceWidget) || "block", f = ge(s?.__sourceComponentName), m = ta(s?.__sourceComponentConfig), y = o.length > 0, g = l.length > 0, u = !Ze(o, d), v = !Ze(l, c), x = s?.__sourceItemsSchema, S = s?.__sourceRepresentation ?? "inline";
       x && !u ? e.items = G(x) : S === "refs" && y ? e.items = Wt(o, s?.__sourceRefPrefix) : e.items = Gt(y ? o : void 0), s?.minBlocks !== void 0 && (e.minItems = s.minBlocks), s?.maxBlocks !== void 0 && (e.maxItems = s.maxBlocks);
       const q = {
         ...r,
         widget: h,
         sortable: s?.__sourceSortable ?? !0
-      }, oe = f || (Ae(h) ? h : "");
-      oe && (q["component.name"] = oe), Ae(h) && (y ? m.allowedBlocks = Array.from(o) : (s?.__sourceHadAllowedBlocks || Array.isArray(m.allowedBlocks)) && delete m.allowedBlocks, p ? m.deniedBlocks = Array.from(l) : (s?.__sourceHadDeniedBlocks || Array.isArray(m.deniedBlocks)) && delete m.deniedBlocks), Object.keys(m).length > 0 && (q["component.config"] = m), y && (s?.__sourceHadAllowedBlocks || S !== "refs" || u) && (q.allowedBlocks = o), (p || s?.__sourceHadDeniedBlocks && v) && (q.deniedBlocks = l), e["x-formgen"] = q;
+      }, oe = f || (_e(h) ? h : "");
+      oe && (q["component.name"] = oe), _e(h) && (y ? m.allowedBlocks = Array.from(o) : (s?.__sourceHadAllowedBlocks || Array.isArray(m.allowedBlocks)) && delete m.allowedBlocks, g ? m.deniedBlocks = Array.from(l) : (s?.__sourceHadDeniedBlocks || Array.isArray(m.deniedBlocks)) && delete m.deniedBlocks), Object.keys(m).length > 0 && (q["component.config"] = m), y && (s?.__sourceHadAllowedBlocks || S !== "refs" || u) && (q.allowedBlocks = o), (g || s?.__sourceHadDeniedBlocks && v) && (q.deniedBlocks = l), e["x-formgen"] = q;
       break;
     }
   }
@@ -610,7 +610,7 @@ function Zt(t, e, a) {
     value: String(d),
     label: he(String(d))
   })) }), o.type === "media-picker" || o.type === "media-gallery" || o.type === "file-upload") {
-    const d = {}, c = Me(r?.componentOptions), h = Te(i?.media), f = Vt(e, o.type, c), m = Fe(c?.accept), y = Pe(c?.acceptedKinds ?? h?.acceptedKinds);
+    const d = {}, c = Te(r?.componentOptions), h = Pe(i?.media), f = Vt(e, o.type, c), m = Ae(c?.accept), y = Fe(c?.acceptedKinds ?? h?.acceptedKinds);
     m && (d.accept = m), typeof c?.maxSize == "number" ? d.maxSize = c.maxSize : typeof h?.maxSize == "number" && (d.maxSize = h.maxSize), o.type === "media-gallery" && (d.multiple = !0), d.valueMode = f, y && (d.acceptedKinds = y), c && Object.keys(c).length > 0 && (d.__sourceComponentOptions = c), h && Object.keys(h).length > 0 && (d.__sourceAdminMedia = h), Object.keys(d).length > 0 && (o.config = d);
   }
   if (o.type === "blocks" && e.type === "array") {
@@ -618,12 +618,12 @@ function Zt(t, e, a) {
     c && (d.__sourceItemsSchema = c), typeof r?.widget == "string" && r.widget.trim() && (d.__sourceWidget = r.widget.trim()), typeof r?.["component.name"] == "string" && r["component.name"].trim() && (d.__sourceComponentName = r["component.name"].trim()), h && Object.keys(h).length > 0 && (d.__sourceComponentConfig = h), typeof r?.sortable == "boolean" && (d.__sourceSortable = r.sortable), d.__sourceHadAllowedBlocks = Array.isArray(r?.allowedBlocks) || f.length > 0, d.__sourceHadDeniedBlocks = Array.isArray(r?.deniedBlocks) || m.length > 0, e.minItems !== void 0 && (d.minBlocks = e.minItems), e.maxItems !== void 0 && (d.maxBlocks = e.maxItems);
     const y = c?.oneOf ? Kt(c.oneOf) : null;
     y && (d.__sourceRepresentation = y.mode, y.refPrefix && (d.__sourceRefPrefix = y.refPrefix));
-    let p;
+    let g;
     if (r?.allowedBlocks && Array.isArray(r.allowedBlocks)) {
       const u = L(r.allowedBlocks);
-      p = y?.allowed.length ? y.allowed : u, u.length > 0 && (d.allowedBlocks = u);
-    } else f.length > 0 ? (p = y?.allowed.length ? y.allowed : f, d.allowedBlocks = p) : y?.allowed.length && (p = y.allowed, d.allowedBlocks = y.allowed);
-    if (d.__sourceRepresentation || (d.__sourceRepresentation = "inline"), p && p.length > 0 && (d.__sourceAllowedBlocks = p), r?.deniedBlocks && Array.isArray(r.deniedBlocks)) {
+      g = y?.allowed.length ? y.allowed : u, u.length > 0 && (d.allowedBlocks = u);
+    } else f.length > 0 ? (g = y?.allowed.length ? y.allowed : f, d.allowedBlocks = g) : y?.allowed.length && (g = y.allowed, d.allowedBlocks = y.allowed);
+    if (d.__sourceRepresentation || (d.__sourceRepresentation = "inline"), g && g.length > 0 && (d.__sourceAllowedBlocks = g), r?.deniedBlocks && Array.isArray(r.deniedBlocks)) {
       const u = L(r.deniedBlocks);
       u.length > 0 && (d.deniedBlocks = u), d.__sourceDeniedBlocks = u;
     } else m.length > 0 && (d.deniedBlocks = m, d.__sourceDeniedBlocks = m);
@@ -688,13 +688,13 @@ function O() {
 function ge(t) {
   return typeof t == "string" ? t.trim() : "";
 }
-function Ae(t) {
+function _e(t) {
   const e = ge(t).toLowerCase();
   return e === "block-library-picker" || e === "block-library";
 }
 function ea(t) {
   const e = ge(t).toLowerCase();
-  return e === "block" || Ae(e);
+  return e === "block" || _e(e);
 }
 function nt(t) {
   if (t && typeof t == "object" && !Array.isArray(t)) return G(t);
@@ -2806,7 +2806,7 @@ function xe(t, e, a) {
 }
 var w = null, I = null, z = null, ye = "iconoir", H = "", K = null, Z = null;
 function ca(t, e) {
-  A(), I = e, z = t, H = "", ye = ct()[0]?.id ?? "emoji", w = document.createElement("div"), w.setAttribute("data-icon-picker-popover", ""), w.className = "fixed", w.style.zIndex = String(ua(t) + 5), w.innerHTML = _e(), document.body.appendChild(w), ha(t), Ie(), w.querySelector("[data-icon-search]")?.focus(), K = (a) => {
+  A(), I = e, z = t, H = "", ye = ct()[0]?.id ?? "emoji", w = document.createElement("div"), w.setAttribute("data-icon-picker-popover", ""), w.className = "fixed", w.style.zIndex = String(ua(t) + 5), w.innerHTML = Ie(), document.body.appendChild(w), ha(t), qe(), w.querySelector("[data-icon-search]")?.focus(), K = (a) => {
     const r = a.target;
     !r.closest("[data-icon-picker-popover]") && !r.closest("[data-icon-trigger]") && A();
   }, setTimeout(() => {
@@ -2824,7 +2824,7 @@ function ha(t) {
   let i = e.bottom + 4, s = e.left;
   i + r > window.innerHeight - 8 && (i = e.top - r - 4), s + a > window.innerWidth - 8 && (s = window.innerWidth - a - 8), s < 8 && (s = 8), w.style.top = `${i}px`, w.style.left = `${s}px`, w.style.width = `${a}px`;
 }
-function _e() {
+function Ie() {
   const t = ct(), e = t.find((s) => s.id === ye) ?? t[0];
   let a = [];
   if (H) {
@@ -2848,15 +2848,15 @@ function _e() {
   }).join("");
   let i;
   if (a.length === 0) i = '<div class="text-center py-6 text-xs text-gray-400 dark:text-gray-500">No matching icons</div>';
-  else if (H) i = Be(a.map((s) => s.entry));
+  else if (H) i = Le(a.map((s) => s.entry));
   else if (e?.categories && e.categories.length > 0) {
     i = "";
     for (let s = 0; s < e.categories.length; s++) {
       const o = e.categories[s], l = e.categories[s + 1]?.startIndex ?? e.entries.length, d = e.entries.slice(o.startIndex, l);
       d.length !== 0 && (i += `
-        <div class="text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider px-1 pt-2 pb-1">${n(o.label)}</div>`, i += Be(d));
+        <div class="text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider px-1 pt-2 pb-1">${n(o.label)}</div>`, i += Le(d));
     }
-  } else i = Be(a.map((s) => s.entry));
+  } else i = Le(a.map((s) => s.entry));
   return `
     <div class="bg-white dark:bg-slate-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl
                 flex flex-col overflow-hidden" style="max-height: 380px;">
@@ -2865,7 +2865,7 @@ function _e() {
           <input type="text" data-icon-search
                  placeholder="Search icons…"
                  value="${n(H)}"
-                 class="${g("xs")}" />
+                 class="${p("xs")}" />
         </div>
         <div class="flex items-center gap-1 overflow-x-auto" data-icon-tab-bar>
           ${r}
@@ -2883,7 +2883,7 @@ function _e() {
       </div>
     </div>`;
 }
-function Be(t) {
+function Le(t) {
   let e = '<div class="grid grid-cols-8 gap-0.5">';
   for (const a of t) {
     const r = !a.display.startsWith("<");
@@ -2899,7 +2899,7 @@ function Be(t) {
   }
   return e += "</div>", e;
 }
-function Ie() {
+function qe() {
   if (!w) return;
   const t = w.querySelector("[data-icon-search]");
   t?.addEventListener("input", () => {
@@ -2913,26 +2913,26 @@ function Ie() {
     const i = a.closest("[data-icon-pick]");
     if (i && I) {
       const s = i.dataset.iconPick;
-      I.onSelect(s), z && qe(z, s), A();
+      I.onSelect(s), z && De(z, s), A();
       return;
     }
-    a.closest("[data-icon-clear-btn]") && I && (I.onClear ? I.onClear() : I.onSelect(""), z && qe(z, ""), A());
+    a.closest("[data-icon-clear-btn]") && I && (I.onClear ? I.onClear() : I.onSelect(""), z && De(z, ""), A());
   });
 }
 function et() {
   if (!w) return;
   if (!w.querySelector(".bg-white, .dark\\:bg-slate-800")) {
-    w.innerHTML = _e(), Ie();
+    w.innerHTML = Ie(), qe();
     return;
   }
   const t = w.querySelector("[data-icon-grid-area]")?.scrollTop ?? 0;
-  w.innerHTML = _e(), Ie();
+  w.innerHTML = Ie(), qe();
   const e = w.querySelector("[data-icon-grid-area]");
   e && (e.scrollTop = t);
   const a = w.querySelector("[data-icon-search]");
   a && (a.focus(), a.setSelectionRange(a.value.length, a.value.length));
 }
-function qe(t, e) {
+function De(t, e) {
   const a = e.length > 0, r = t.querySelector("[data-icon-preview]"), i = t.querySelector("[data-icon-label]"), s = t.querySelector("[data-icon-clear]");
   r && (r.innerHTML = a ? se(e) : "?", r.classList.toggle("text-gray-300", !a), r.classList.toggle("dark:text-gray-600", !a)), i && (i.textContent = a ? ht(e) : "Choose icon…", i.classList.toggle("text-gray-400", !a), i.classList.toggle("dark:text-gray-500", !a), i.classList.toggle("text-gray-700", a), i.classList.toggle("dark:text-gray-300", a)), s && (s.classList.toggle("hidden", !a), s.setAttribute("aria-hidden", a ? "false" : "true"));
 }
@@ -2942,7 +2942,7 @@ function we(t, e, a) {
       if (i.target.closest("[data-icon-clear]")) {
         i.stopPropagation();
         const s = a(r);
-        s.onClear ? s.onClear() : s.onSelect(""), qe(r, "");
+        s.onClear ? s.onClear() : s.onSelect(""), De(r, "");
         return;
       }
       z === r && w ? A() : ca(r, a(r));
@@ -2958,7 +2958,7 @@ function ua(t) {
   }
   return 50;
 }
-async function Re(t) {
+async function Oe(t) {
   return await t.listBlockDefinitionsSummary();
 }
 function fe(t) {
@@ -2983,13 +2983,13 @@ function re(t) {
       <div class="text-center py-4 text-xs text-gray-400 dark:text-gray-500">
         No block definitions available.
       </div>`;
-  const l = r ? e.filter((p) => {
+  const l = r ? e.filter((g) => {
     const u = r.toLowerCase();
-    return p.name.toLowerCase().includes(u) || fe(p).toLowerCase().includes(u) || (p.category ?? "").toLowerCase().includes(u);
+    return g.name.toLowerCase().includes(u) || fe(g).toLowerCase().includes(u) || (g.category ?? "").toLowerCase().includes(u);
   }) : e, d = /* @__PURE__ */ new Map();
-  for (const p of l) {
-    const u = p.category || "uncategorized";
-    d.has(u) || d.set(u, []), d.get(u).push(p);
+  for (const g of l) {
+    const u = g.category || "uncategorized";
+    d.has(u) || d.set(u, []), d.get(u).push(g);
   }
   const c = a.size, h = c === 0 && o ? o : `${c} selected`, f = i === "red" ? "focus:ring-red-500" : "focus:ring-blue-500", m = i === "red" ? "bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700" : "bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700";
   let y = `
@@ -3007,9 +3007,9 @@ function re(t) {
       <div class="max-h-[200px] overflow-y-auto space-y-1" data-block-picker-list>`;
   if (l.length === 0) y += `
         <div class="text-center py-3 text-xs text-gray-400 dark:text-gray-500">No matching blocks</div>`;
-  else for (const [p, u] of d) {
+  else for (const [g, u] of d) {
     d.size > 1 && (y += `
-        <div class="text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider pt-1">${n(F(p))}</div>`);
+        <div class="text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider pt-1">${n(F(g))}</div>`);
     for (const v of u) {
       const x = fe(v), S = a.has(x) || a.has(v.type);
       y += `
@@ -3073,7 +3073,7 @@ function Se(...t) {
   const r = window?.DEBUG_CONFIG;
   return typeof r?.apiBasePath == "string" && r.apiBasePath.trim() ? Q(r.apiBasePath.trim(), { ensureAPISuffix: !0 }) : typeof r?.basePath == "string" && r.basePath.trim() ? Q(r.basePath.trim(), { ensureAPISuffix: !0 }) : "";
 }
-function Oe(t, e) {
+function Ce(t, e) {
   const a = (e || "").trim();
   if (a) return Qe(a);
   const r = Qe((t || "").trim());
@@ -3158,7 +3158,7 @@ var me = class extends P {
               placeholder="field_name"
               pattern="^[a-z][a-z0-9_]*$"
               required
-              class="${g()}"
+              class="${p()}"
             />
             <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Lowercase letters, numbers, underscores. Starts with letter.</p>
           </div>
@@ -3173,7 +3173,7 @@ var me = class extends P {
               value="${n(this.field.label)}"
               placeholder="Field Label"
               required
-              class="${g()}"
+              class="${p()}"
             />
           </div>
         </div>
@@ -3186,7 +3186,7 @@ var me = class extends P {
             name="description"
             rows="2"
             placeholder="Help text for editors"
-            class="${He()}"
+            class="${Re()}"
           >${n(this.field.description ?? "")}</textarea>
         </div>
 
@@ -3199,7 +3199,7 @@ var me = class extends P {
             name="placeholder"
             value="${n(this.field.placeholder ?? "")}"
             placeholder="Placeholder text"
-            class="${g()}"
+            class="${p()}"
           />
         </div>
 
@@ -3276,7 +3276,7 @@ var me = class extends P {
                 name="minLength"
                 value="${t.minLength ?? ""}"
                 min="0"
-                class="${g()}"
+                class="${p()}"
               />
             </div>
             <div>
@@ -3288,7 +3288,7 @@ var me = class extends P {
                 name="maxLength"
                 value="${t.maxLength ?? ""}"
                 min="0"
-                class="${g()}"
+                class="${p()}"
               />
             </div>
           ` : ""}
@@ -3303,7 +3303,7 @@ var me = class extends P {
                 name="min"
                 value="${t.min ?? ""}"
                 step="any"
-                class="${g()}"
+                class="${p()}"
               />
             </div>
             <div>
@@ -3315,7 +3315,7 @@ var me = class extends P {
                 name="max"
                 value="${t.max ?? ""}"
                 step="any"
-                class="${g()}"
+                class="${p()}"
               />
             </div>
           ` : ""}
@@ -3353,7 +3353,7 @@ var me = class extends P {
               name="section"
               value="${n(this.field.section ?? "")}"
               placeholder="main"
-              class="${g()}"
+              class="${p()}"
             />
           </div>
 
@@ -3368,7 +3368,7 @@ var me = class extends P {
               min="1"
               max="12"
               placeholder="12"
-              class="${g()}"
+              class="${p()}"
             />
           </div>
         </div>
@@ -3448,7 +3448,7 @@ var me = class extends P {
                 name="target"
                 value="${n(e?.target ?? "")}"
                 placeholder="users"
-                class="${g()}"
+                class="${p()}"
               />
             </div>
             <div>
@@ -3460,7 +3460,7 @@ var me = class extends P {
                 name="displayField"
                 value="${n(e?.displayField ?? "")}"
                 placeholder="name"
-                class="${g()}"
+                class="${p()}"
               />
             </div>
           </div>
@@ -3487,7 +3487,7 @@ var me = class extends P {
                 name="accept"
                 value="${n(e?.accept ?? "")}"
                 placeholder="image/*"
-                class="${g()}"
+                class="${p()}"
               />
             </div>
             <div>
@@ -3516,7 +3516,7 @@ var me = class extends P {
                 value="${e?.maxSize ?? ""}"
                 min="0"
                 placeholder="10"
-                class="${g()}"
+                class="${p()}"
               />
             </div>
             <div>
@@ -3528,7 +3528,7 @@ var me = class extends P {
                 name="acceptedKinds"
                 value="${n((e?.acceptedKinds ?? []).join(", "))}"
                 placeholder="image, audio"
-                class="${g()}"
+                class="${p()}"
               />
             </div>
           </div>
@@ -3591,7 +3591,7 @@ var me = class extends P {
               name="sourceField"
               value="${n(e?.sourceField ?? "")}"
               placeholder="title"
-              class="${g()}"
+              class="${p()}"
             />
             <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Field name to generate slug from (e.g., title)</p>
           </div>
@@ -3606,7 +3606,7 @@ var me = class extends P {
                 name="slugPrefix"
                 value="${n(e?.prefix ?? "")}"
                 placeholder=""
-                class="${g()}"
+                class="${p()}"
               />
             </div>
             <div>
@@ -3618,7 +3618,7 @@ var me = class extends P {
                 name="slugSuffix"
                 value="${n(e?.suffix ?? "")}"
                 placeholder=""
-                class="${g()}"
+                class="${p()}"
               />
             </div>
             <div>
@@ -3679,7 +3679,7 @@ var me = class extends P {
               name="colorPresets"
               value="${n(e?.presets?.join(", ") ?? "")}"
               placeholder="#ff0000, #00ff00, #0000ff"
-              class="${g()}"
+              class="${p()}"
             />
           </div>
         </div>
@@ -3702,7 +3702,7 @@ var me = class extends P {
                 value="${e?.defaultCenter?.lat ?? ""}"
                 step="any"
                 placeholder="40.7128"
-                class="${g()}"
+                class="${p()}"
               />
             </div>
             <div>
@@ -3715,7 +3715,7 @@ var me = class extends P {
                 value="${e?.defaultCenter?.lng ?? ""}"
                 step="any"
                 placeholder="-74.0060"
-                class="${g()}"
+                class="${p()}"
               />
             </div>
             <div>
@@ -3729,7 +3729,7 @@ var me = class extends P {
                 min="1"
                 max="20"
                 placeholder="12"
-                class="${g()}"
+                class="${p()}"
               />
             </div>
           </div>
@@ -3761,7 +3761,7 @@ var me = class extends P {
                 type="date"
                 name="minDate"
                 value="${n(e?.minDate ?? "")}"
-                class="${g()}"
+                class="${p()}"
               />
             </div>
             <div>
@@ -3772,7 +3772,7 @@ var me = class extends P {
                 type="date"
                 name="maxDate"
                 value="${n(e?.maxDate ?? "")}"
-                class="${g()}"
+                class="${p()}"
               />
             </div>
           </div>
@@ -3806,7 +3806,7 @@ var me = class extends P {
                 value="${e?.minItems ?? ""}"
                 min="0"
                 placeholder="0"
-                class="${g()}"
+                class="${p()}"
               />
             </div>
             <div>
@@ -3819,7 +3819,7 @@ var me = class extends P {
                 value="${e?.maxItems ?? ""}"
                 min="1"
                 placeholder="10"
-                class="${g()}"
+                class="${p()}"
               />
             </div>
           </div>
@@ -3859,7 +3859,7 @@ var me = class extends P {
                 value="${e?.minBlocks ?? ""}"
                 min="0"
                 placeholder="0"
-                class="${g()}"
+                class="${p()}"
               />
             </div>
             <div>
@@ -3872,7 +3872,7 @@ var me = class extends P {
                 value="${e?.maxBlocks ?? ""}"
                 min="1"
                 placeholder="No limit"
-                class="${g()}"
+                class="${p()}"
               />
             </div>
           </div>
@@ -4287,7 +4287,7 @@ var ga = class extends P {
   async loadBlocks() {
     const t = this.container?.querySelector("[data-blocks-loading]"), e = this.container?.querySelector("[data-blocks-list]"), a = this.container?.querySelector("[data-blocks-empty]");
     try {
-      this.availableBlocks = await Re(this.api), this.selectedBlocks = ae(this.selectedBlocks, this.availableBlocks), t?.classList.add("hidden"), this.availableBlocks.length === 0 ? a?.classList.remove("hidden") : (e?.classList.remove("hidden"), this.renderBlocksList());
+      this.availableBlocks = await Oe(this.api), this.selectedBlocks = ae(this.selectedBlocks, this.availableBlocks), t?.classList.add("hidden"), this.availableBlocks.length === 0 ? a?.classList.remove("hidden") : (e?.classList.remove("hidden"), this.renderBlocksList());
     } catch {
       t?.classList.add("hidden"), a?.classList.remove("hidden");
       const r = a?.querySelector("span") || a;
@@ -5069,7 +5069,7 @@ async function $a(t) {
     fieldTypes: [...ce.fieldTypes]
   };
 }
-var Ba = /* @__PURE__ */ new Set(["advanced"]), be = "application/x-field-palette-type", Ne = "application/x-field-palette-meta", De = class {
+var Ba = /* @__PURE__ */ new Set(["advanced"]), be = "application/x-field-palette-type", Ne = "application/x-field-palette-meta", ze = class {
   constructor(t) {
     this.fieldTypes = [], this.fieldTypeByKey = /* @__PURE__ */ new Map(), this.fieldTypeKeyByRef = /* @__PURE__ */ new Map(), this.categoryOrder = [], this.searchQuery = "", this.categoryStates = /* @__PURE__ */ new Map(), this.isLoading = !0, this.enabled = !1, this.config = t, this.categoryOrder = [...ce.categories];
   }
@@ -5266,7 +5266,7 @@ function ft(t, e) {
   }
 }
 function mt(t) {
-  const { name: e, subtitle: a, subtitleMono: r = !1, status: i, version: s, saveState: o = "idle", saveMessage: l, actions: d, compact: c = !1 } = t, h = c ? "px-5" : "px-6", f = c ? "h2" : "h1", m = c ? "text-lg" : "text-xl", y = c ? "gap-2.5" : "gap-3", p = ft(o, l), u = i ? U(c ? i : i.charAt(0).toUpperCase() + i.slice(1), "status", i, c ? {
+  const { name: e, subtitle: a, subtitleMono: r = !1, status: i, version: s, saveState: o = "idle", saveMessage: l, actions: d, compact: c = !1 } = t, h = c ? "px-5" : "px-6", f = c ? "h2" : "h1", m = c ? "text-lg" : "text-xl", y = c ? "gap-2.5" : "gap-3", g = ft(o, l), u = i ? U(c ? i : i.charAt(0).toUpperCase() + i.slice(1), "status", i, c ? {
     uppercase: !0,
     attrs: { "data-entity-status-badge": "" }
   } : { attrs: { "data-entity-status-badge": "" } }) : "", v = s ? `<span class="text-xs text-gray-400 dark:text-gray-500">v${n(s)}</span>` : "", x = a ? `<p class="${r ? "text-[11px] font-mono text-gray-400 dark:text-gray-500" : "text-sm text-gray-500 dark:text-gray-400"} mt-0.5 truncate">${n(a)}</p>` : "";
@@ -5277,7 +5277,7 @@ function mt(t) {
           ${x}
         </div>
         <div class="flex items-center ${y} shrink-0">
-          <span data-entity-save-indicator>${p}</span>
+          <span data-entity-save-indicator>${g}</span>
           ${u}
           ${d || ""}
         </div>
@@ -5292,14 +5292,14 @@ function mt(t) {
         ${x}
       </div>
       <div class="flex items-center ${y}">
-        <span data-entity-save-indicator>${p}</span>
+        <span data-entity-save-indicator>${g}</span>
         ${d || ""}
       </div>
     </div>`;
 }
 var La = '<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"></path></svg>', Ea = '<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>', ja = '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>', Ma = '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"></path></svg>', Ta = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>';
 function bt(t) {
-  const { field: e, isExpanded: a = !1, isSelected: r = !1, isDropTarget: i = !1, hasErrors: s = !1, errorMessages: o = [], showReorderButtons: l = !1, isFirst: d = !1, isLast: c = !1, compact: h = !1, renderExpandedContent: f, actionsHtml: m = "", constraintBadges: y = [], sectionName: p, index: u } = t, v = te(e.type), x = typeof f == "function";
+  const { field: e, isExpanded: a = !1, isSelected: r = !1, isDropTarget: i = !1, hasErrors: s = !1, errorMessages: o = [], showReorderButtons: l = !1, isFirst: d = !1, isLast: c = !1, compact: h = !1, renderExpandedContent: f, actionsHtml: m = "", constraintBadges: y = [], sectionName: g, index: u } = t, v = te(e.type), x = typeof f == "function";
   let S;
   s ? S = "border-red-400 bg-red-50 dark:bg-red-900/10" : a ? S = "border-blue-200 dark:border-blue-800 bg-blue-50/30 dark:bg-blue-900/20" : r ? S = "border-blue-500 bg-blue-50 dark:bg-blue-900/20" : S = "border-gray-200 dark:border-gray-700 bg-white dark:bg-slate-900 hover:border-gray-300 dark:hover:border-gray-600";
   const q = i ? "border-t-2 border-t-blue-400" : "", oe = h ? "gap-1.5 px-2 py-2" : "gap-3 p-3", Bt = h ? "w-7 h-7 rounded-md" : "w-8 h-8 rounded-lg", Lt = h ? "text-[13px]" : "text-sm", Et = h ? "text-[10px]" : "text-xs", jt = h ? "xs" : "sm", Mt = s ? "bg-red-100 dark:bg-red-900/30 text-red-600" : "bg-gray-100 dark:bg-slate-800 text-gray-500 dark:text-gray-400", Tt = s ? Ta : v?.icon ?? "?", ne = [];
@@ -5318,17 +5318,17 @@ function bt(t) {
   }));
   const Pt = ne.join(`
           `);
-  let Ce = `data-field-card="${n(e.id)}"`;
-  p != null && (Ce += ` data-field-section="${n(p)}"`), u != null && (Ce += ` data-field-index="${u}"`);
-  let $e;
-  if (h) $e = `${n(e.name)} &middot; ${n(e.type)}`;
+  let $e = `data-field-card="${n(e.id)}"`;
+  g != null && ($e += ` data-field-section="${n(g)}"`), u != null && ($e += ` data-field-index="${u}"`);
+  let Be;
+  if (h) Be = `${n(e.name)} &middot; ${n(e.type)}`;
   else {
     const _ = v?.label ?? e.type, V = [
       `<span class="font-mono">${n(e.name)}</span>`,
       "<span>&middot;</span>",
       `<span>${n(_)}</span>`
     ];
-    e.section && V.push(`<span>&middot; ${n(e.section)}</span>`), e.gridSpan && V.push(`<span>&middot; ${e.gridSpan} cols</span>`), $e = V.join(" ");
+    e.section && V.push(`<span>&middot; ${n(e.section)}</span>`), e.gridSpan && V.push(`<span>&middot; ${e.gridSpan} cols</span>`), Be = V.join(" ");
   }
   let Ve = "";
   y.length > 0 && (Ve = `
@@ -5368,7 +5368,7 @@ function bt(t) {
             title="${a ? "Collapse field" : "Expand field"}">
             ${a ? Ma : ja}
           </button>`), `
-      <div ${Ce}
+      <div ${$e}
            draggable="true"
            class="rounded-lg border ${q} ${S} transition-colors">
         <div class="flex items-center ${oe} select-none" ${x ? `data-field-toggle="${n(e.id)}"` : ""}>
@@ -5380,7 +5380,7 @@ function bt(t) {
           </span>
           <span class="flex-1 min-w-0 ${x ? "cursor-pointer" : ""}">
             <span class="block ${Lt} font-medium text-gray-800 dark:text-gray-100 truncate">${n(e.label || e.name)}</span>
-            <span class="block ${Et} text-gray-400 dark:text-gray-500 ${h ? "font-mono" : ""} truncate">${$e}</span>${Ve}${Ue}
+            <span class="block ${Et} text-gray-400 dark:text-gray-500 ${h ? "font-mono" : ""} truncate">${Be}</span>${Ve}${Ue}
           </span>
           ${Pt}
           <div class="flex items-center gap-0.5 flex-shrink-0">${Ke}${m}${Ge}</div>
@@ -5396,7 +5396,7 @@ function Fa(t) {
               ${Pa}
             </button>`;
 }
-function ze(t = {}) {
+function He(t = {}) {
   const { highlight: e = !1, text: a = "Drop a field here or click a field type in the palette" } = t;
   return `
       <div data-field-drop-zone
@@ -5554,6 +5554,10 @@ var C = "main", Da = class {
   }
   normalizeChannel(t) {
     return String(t ?? "").trim().toLowerCase();
+  }
+  blockLibraryURL() {
+    const t = `${Ce(this.config.apiBasePath, this.config.basePath)}/content/block-library`, e = this.normalizeChannel(this.config.channel);
+    return !e || e === "default" ? t : `${t}?channel=${encodeURIComponent(e)}`;
   }
   async init() {
     this.render(), this.bindEvents(), this.config.contentTypeId && await this.loadContentType(this.config.contentTypeId);
@@ -5726,10 +5730,10 @@ var C = "main", Da = class {
     s === o && c < f && (f -= 1), h.splice(f, 0, i), i.section = o === C ? void 0 : o;
     const m = /* @__PURE__ */ new Map();
     l.has(C) && m.set(C, l.get(C));
-    for (const [y, p] of l)
-      y !== C && m.set(y, p);
-    this.state.fields = Array.from(m.values()).flat(), this.state.fields.forEach((y, p) => {
-      y.order = p;
+    for (const [y, g] of l)
+      y !== C && m.set(y, g);
+    this.state.fields = Array.from(m.values()).flat(), this.state.fields.forEach((y, g) => {
+      y.order = g;
     }), this.state.isDirty = !0, this.renderFieldList(), this.updateDirtyState(), this.schedulePreview();
   }
   moveFieldByDirection(t, e) {
@@ -5860,7 +5864,7 @@ var C = "main", Da = class {
               value="${n(t?.name ?? "")}"
               placeholder="Blog Post"
               required
-              class="${g()}"
+              class="${p()}"
             />
           </div>
 
@@ -5874,7 +5878,7 @@ var C = "main", Da = class {
               value="${n(t?.slug ?? "")}"
               placeholder="blog-post"
               pattern="^[a-z][a-z0-9_\\-]*$"
-              class="${g()}"
+              class="${p()}"
             />
             <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Auto-generated from name if empty</p>
           </div>
@@ -5888,7 +5892,7 @@ var C = "main", Da = class {
             data-ct-description
             rows="2"
             placeholder="Describe this content type"
-            class="${He()}"
+            class="${Re()}"
           >${n(t?.description ?? "")}</textarea>
         </div>
 
@@ -6046,10 +6050,10 @@ var C = "main", Da = class {
               Denied
             </button>
           </div>
-          <button type="button" data-ct-blocks-open-library="${n(t.id)}"
-                  class="text-[11px] text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 font-medium">
+          <a href="${n(this.blockLibraryURL())}" data-ct-blocks-open-library="${n(t.id)}"
+             class="text-[11px] text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 font-medium">
             Open Block Library
-          </button>
+          </a>
         </div>
         <div data-ct-blocks-picker-container="${n(t.id)}">
           ${h}
@@ -6453,85 +6457,80 @@ var C = "main", Da = class {
       const r = e.closest("[data-field-actions]");
       if (r) {
         t.stopPropagation();
-        const p = r.dataset.fieldActions;
-        this.fieldActionsMenuId = this.fieldActionsMenuId === p ? null : p, this.renderFieldList();
+        const g = r.dataset.fieldActions;
+        this.fieldActionsMenuId = this.fieldActionsMenuId === g ? null : g, this.renderFieldList();
         return;
       }
       const i = e.closest("[data-field-action-edit]");
       if (i) {
-        const p = i.dataset.fieldActionEdit;
-        this.fieldActionsMenuId = null, this.editField(p);
+        const g = i.dataset.fieldActionEdit;
+        this.fieldActionsMenuId = null, this.editField(g);
         return;
       }
       const s = e.closest("[data-field-action-remove]");
       if (s) {
-        const p = s.dataset.fieldActionRemove;
-        this.fieldActionsMenuId = null, this.removeField(p);
+        const g = s.dataset.fieldActionRemove;
+        this.fieldActionsMenuId = null, this.removeField(g);
         return;
       }
       const o = e.closest("[data-field-move-up]");
       if (o && !o.hasAttribute("disabled")) {
         t.stopPropagation();
-        const p = o.dataset.fieldMoveUp;
-        this.moveFieldByDirection(p, -1);
+        const g = o.dataset.fieldMoveUp;
+        this.moveFieldByDirection(g, -1);
         return;
       }
       const l = e.closest("[data-field-move-down]");
       if (l && !l.hasAttribute("disabled")) {
         t.stopPropagation();
-        const p = l.dataset.fieldMoveDown;
-        this.moveFieldByDirection(p, 1);
+        const g = l.dataset.fieldMoveDown;
+        this.moveFieldByDirection(g, 1);
         return;
       }
       const d = e.closest("[data-ct-blocks-mode-toggle]");
       if (d) {
-        const p = d.dataset.ctBlocksModeToggle, u = d.dataset.ctBlocksMode ?? "allowed";
-        this.blockPickerModes.set(p, u), this.renderFieldList();
-        const v = this.state.fields.find((x) => x.id === p);
+        const g = d.dataset.ctBlocksModeToggle, u = d.dataset.ctBlocksMode ?? "allowed";
+        this.blockPickerModes.set(g, u), this.renderFieldList();
+        const v = this.state.fields.find((x) => x.id === g);
         v && j(v.type) === "blocks" && this.loadBlocksForField(v);
-        return;
-      }
-      if (e.closest("[data-ct-blocks-open-library]")) {
-        const p = this.api.getBasePath();
-        window.location.href = `${p}/content/block-library`;
         return;
       }
       const c = e.closest("[data-ct-blocks-advanced]");
       if (c) {
-        const p = c.dataset.ctBlocksAdvanced;
-        p && this.editField(p);
+        const g = c.dataset.ctBlocksAdvanced;
+        g && this.editField(g);
         return;
       }
       const h = e.closest("[data-ct-blocks-retry]");
       if (h) {
-        const p = h.dataset.ctBlocksRetry, u = this.state.fields.find((v) => v.id === p);
+        const g = h.dataset.ctBlocksRetry, u = this.state.fields.find((v) => v.id === g);
         u && (this.cachedBlocks = null, this.loadBlocksForField(u));
         return;
       }
       const f = e.closest("[data-field-expand-toggle]");
       if (f) {
         t.stopPropagation();
-        const p = f.dataset.fieldExpandToggle;
-        this.toggleFieldExpansion(p);
+        const g = f.dataset.fieldExpandToggle;
+        this.toggleFieldExpansion(g);
         return;
       }
       const m = e.closest("[data-field-toggle]");
       if (m && !e.closest("button")) {
-        const p = m.dataset.fieldToggle;
-        this.toggleFieldExpansion(p);
+        const g = m.dataset.fieldToggle;
+        this.toggleFieldExpansion(g);
         return;
       }
       const y = e.closest("[data-field-card]");
       if (y && !e.closest("button") && !e.closest("[data-field-props]")) {
-        const p = y.getAttribute("data-field-card");
-        p && (this.state.selectedFieldId = this.state.selectedFieldId === p ? null : p, this.renderFieldList());
+        const g = y.getAttribute("data-field-card");
+        g && (this.state.selectedFieldId = this.state.selectedFieldId === g ? null : g, this.renderFieldList());
       }
       this.fieldActionsMenuId && !e.closest("[data-field-actions]") && !e.closest("[data-ct-field-actions-menu]") && (this.fieldActionsMenuId = null, this.renderFieldList());
     }), this.container.addEventListener("input", (t) => {
       const e = t.target;
       if ((e.matches("[data-ct-name], [data-ct-slug], [data-ct-description], [data-ct-icon]") || e.matches("[data-ct-cap]")) && (this.state.isDirty = !0, this.updateDirtyState()), e.matches("[data-ct-name]")) {
         const a = e, r = this.container.querySelector("[data-ct-slug]");
-        r && !r.dataset.userModified && !this.state.contentType?.slug && (r.value = Ee(a.value)), this.schedulePreview();
+        r && !r.dataset.userModified && !this.state.contentType?.slug && (r.value = je(a.value)), this.schedulePreview();
         return;
       }
       if (e.matches("[data-ct-slug]")) {
@@ -6653,7 +6652,7 @@ var C = "main", Da = class {
   initPaletteIfNeeded() {
     if (!this.paletteVisible || this.palettePanel) return;
     const t = this.container.querySelector("[data-ct-palette-container]");
-    t && (this.palettePanel = new De({
+    t && (this.palettePanel = new ze({
       container: t,
       api: this.api,
       onAddField: (e) => this.addField(e.type)
@@ -6693,7 +6692,7 @@ var C = "main", Da = class {
   }
   getSlug() {
     const t = this.container.querySelector("[data-ct-slug]"), e = this.container.querySelector("[data-ct-name]"), a = t?.value?.trim();
-    return a || Ee(e?.value ?? "");
+    return a || je(e?.value ?? "");
   }
   getDescription() {
     const t = this.container.querySelector("[data-ct-description]");
@@ -6831,7 +6830,7 @@ var C = "main", Da = class {
         <div class="space-y-2">
           ${r.map((i, s) => this.renderFieldCard(i, s, r)).join("")}
         </div>
-        ${ze({ highlight: !1 })}
+        ${He({ highlight: !1 })}
       `;
     }
     let a = "";
@@ -6855,7 +6854,7 @@ var C = "main", Da = class {
           </div>
         </div>`;
     }
-    return a += ze({ highlight: !1 }), a;
+    return a += He({ highlight: !1 }), a;
   }
   groupFieldsBySection() {
     const t = /* @__PURE__ */ new Map();
@@ -6895,7 +6894,7 @@ var C = "main", Da = class {
     if (!this.blocksLoading) {
       this.blocksLoading = !0;
       try {
-        this.cachedBlocks = await Re(this.api), this.state.selectedFieldId === t.id && this.renderInlineBlockPickerForField(t);
+        this.cachedBlocks = await Oe(this.api), this.state.selectedFieldId === t.id && this.renderInlineBlockPickerForField(t);
       } catch (e) {
         const a = e instanceof Error ? e.message : "Failed to load block definitions";
         this.renderInlineBlockPickerError(t.id, a), this.showToast(`Failed to load block definitions: ${a}`, "error");
@@ -7207,7 +7206,7 @@ var C = "main", Da = class {
             placeholder="my-content-type"
             pattern="^[a-z][a-z0-9_\\-]*$"
             required
-            class="${g()}"
+            class="${p()}"
           />
           <p class="mt-1 text-xs text-gray-500">Lowercase letters, numbers, hyphens, underscores</p>
           <div data-clone-error class="hidden text-xs text-red-600 dark:text-red-400 mt-1"></div>
@@ -7222,7 +7221,7 @@ var C = "main", Da = class {
             data-clone-name
             value="${n(a)}"
             placeholder="My Content Type"
-            class="${g()}"
+            class="${p()}"
           />
         </div>
       </div>
@@ -7813,7 +7812,7 @@ var C = "main", Da = class {
       placeholder: "e.g. hero_copy",
       initialValue: `${(t.slug || t.type || "block").trim()}_copy`,
       confirmLabel: "Clone",
-      inputClass: g(),
+      inputClass: p(),
       onConfirm: async (e) => {
         const a = e.trim();
         if (a)
@@ -7881,7 +7880,7 @@ var C = "main", Da = class {
                 value="${n(t?.name ?? "")}"
                 placeholder="Hero Section"
                 required
-                class="${g()}"
+                class="${p()}"
               />
             </div>
             <div>
@@ -7896,7 +7895,7 @@ var C = "main", Da = class {
                 pattern="^[a-z][a-z0-9_\\-]*$"
                 required
                 ${t ? "readonly" : ""}
-                class="${g()} ${t ? "bg-gray-50 dark:bg-gray-800 cursor-not-allowed" : ""}"
+                class="${p()} ${t ? "bg-gray-50 dark:bg-gray-800 cursor-not-allowed" : ""}"
               />
               <p class="mt-1 text-xs text-gray-500">Unique identifier. Lowercase, numbers, hyphens, underscores.</p>
             </div>
@@ -7910,7 +7909,7 @@ var C = "main", Da = class {
               name="description"
               rows="2"
               placeholder="A description of this block type"
-              class="${He()}"
+              class="${Re()}"
             >${n(t?.description ?? "")}</textarea>
           </div>
 
@@ -8207,7 +8206,7 @@ var C = "main", Da = class {
 function Ua(t = document) {
   Array.from(t.querySelectorAll("[data-block-library-trigger]")).forEach((e) => {
     if (e.dataset.initialized === "true") return;
-    const a = Se(e.dataset.apiBasePath, e.dataset.basePath), r = Oe(a, e.dataset.basePath), i = e.dataset.mode ?? "manage";
+    const a = Se(e.dataset.apiBasePath, e.dataset.basePath), r = Ce(a, e.dataset.basePath), i = e.dataset.mode ?? "manage";
     if (i === "manage") e.addEventListener("click", () => {
       window.location.href = `${r}/content/block-library`;
     });
@@ -8294,12 +8293,12 @@ var B = "main", tt = "application/x-field-reorder", Ka = class {
             <div>
               <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Name</label>
               <input type="text" data-meta-field="name" value="${n(t.name)}"
-                     class="${g()}" />
+                     class="${p()}" />
             </div>
             <div>
               <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Slug</label>
               <input type="text" data-meta-field="slug" value="${n(e)}" pattern="^[a-z][a-z0-9_\\-]*$"
-                     class="${g()} font-mono" />
+                     class="${p()} font-mono" />
               ${a}
             </div>
           </div>
@@ -8307,7 +8306,7 @@ var B = "main", tt = "application/x-field-reorder", Ka = class {
             <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Description</label>
             <textarea data-meta-field="description" rows="2"
                       placeholder="Short description for other editors..."
-                      class="${g()} resize-none">${n(t.description ?? "")}</textarea>
+                      class="${p()} resize-none">${n(t.description ?? "")}</textarea>
           </div>
           <div class="grid grid-cols-3 gap-3">
             <div>
@@ -8393,7 +8392,7 @@ var B = "main", tt = "application/x-field-reorder", Ka = class {
           </div>
         </div>`;
     }
-    return a += ze({ highlight: this.dropHighlight }), a;
+    return a += He({ highlight: this.dropHighlight }), a;
   }
   renderFieldCard(t, e, a) {
     const r = t.section || B, i = a.indexOf(t), s = [];
@@ -8448,13 +8447,13 @@ var B = "main", tt = "application/x-field-reorder", Ka = class {
             <label class="block text-[10px] font-medium text-gray-500 dark:text-gray-400 mb-0.5">Field Name</label>
             <input type="text" data-field-prop="${n(t.id)}" data-prop-key="name"
                    value="${n(t.name)}" pattern="^[a-z][a-z0-9_]*$"
-                   class="${g("xs")}" />
+                   class="${p("xs")}" />
           </div>
           <div>
             <label class="block text-[10px] font-medium text-gray-500 dark:text-gray-400 mb-0.5">Label</label>
             <input type="text" data-field-prop="${n(t.id)}" data-prop-key="label"
                    value="${n(t.label)}"
-                   class="${g("xs")}" />
+                   class="${p("xs")}" />
           </div>
         </div>
 
@@ -8462,14 +8461,14 @@ var B = "main", tt = "application/x-field-reorder", Ka = class {
           <label class="block text-[10px] font-medium text-gray-500 dark:text-gray-400 mb-0.5">Description</label>
           <input type="text" data-field-prop="${n(t.id)}" data-prop-key="description"
                  value="${n(t.description ?? "")}" placeholder="Help text for editors"
-                 class="${g("xs")}" />
+                 class="${p("xs")}" />
         </div>
 
         <div>
           <label class="block text-[10px] font-medium text-gray-500 dark:text-gray-400 mb-0.5">Placeholder</label>
           <input type="text" data-field-prop="${n(t.id)}" data-prop-key="placeholder"
                  value="${n(t.placeholder ?? "")}"
-                 class="${g("xs")}" />
+                 class="${p("xs")}" />
         </div>
 
         <!-- Flags -->
@@ -8501,20 +8500,20 @@ var B = "main", tt = "application/x-field-reorder", Ka = class {
             <label class="block text-[10px] font-medium text-gray-500 dark:text-gray-400 mb-0.5">Min Length</label>
             <input type="number" data-field-prop="${n(t.id)}" data-prop-key="validation.minLength"
                    value="${a.minLength ?? ""}" min="0"
-                   class="${g("xs")}" />
+                   class="${p("xs")}" />
           </div>
           <div>
             <label class="block text-[10px] font-medium text-gray-500 dark:text-gray-400 mb-0.5">Max Length</label>
             <input type="number" data-field-prop="${n(t.id)}" data-prop-key="validation.maxLength"
                    value="${a.maxLength ?? ""}" min="0"
-                   class="${g("xs")}" />
+                   class="${p("xs")}" />
           </div>
         </div>
         <div>
           <label class="block text-[10px] font-medium text-gray-500 dark:text-gray-400 mb-0.5">Pattern (RegEx)</label>
           <input type="text" data-field-prop="${n(t.id)}" data-prop-key="validation.pattern"
                  value="${n(a.pattern ?? "")}" placeholder="^[a-z]+$"
-                 class="${g("xs")} font-mono" />
+                 class="${p("xs")} font-mono" />
         </div>` : ""}
 
         ${s ? `
@@ -8523,13 +8522,13 @@ var B = "main", tt = "application/x-field-reorder", Ka = class {
             <label class="block text-[10px] font-medium text-gray-500 dark:text-gray-400 mb-0.5">Minimum</label>
             <input type="number" data-field-prop="${n(t.id)}" data-prop-key="validation.min"
                    value="${a.min ?? ""}" step="any"
-                   class="${g("xs")}" />
+                   class="${p("xs")}" />
           </div>
           <div>
             <label class="block text-[10px] font-medium text-gray-500 dark:text-gray-400 mb-0.5">Maximum</label>
             <input type="number" data-field-prop="${n(t.id)}" data-prop-key="validation.max"
                    value="${a.max ?? ""}" step="any"
-                   class="${g("xs")}" />
+                   class="${p("xs")}" />
           </div>
         </div>` : ""}
 
@@ -8547,7 +8546,7 @@ var B = "main", tt = "application/x-field-reorder", Ka = class {
             <label class="block text-[10px] font-medium text-gray-500 dark:text-gray-400 mb-0.5">Grid Span (1-12)</label>
             <input type="number" data-field-prop="${n(t.id)}" data-prop-key="gridSpan"
                    value="${t.gridSpan ?? ""}" min="1" max="12" placeholder="12"
-                   class="${g("xs")}" />
+                   class="${p("xs")}" />
           </div>
         </div>
 
@@ -8614,13 +8613,13 @@ var B = "main", tt = "application/x-field-reorder", Ka = class {
             <label class="block text-[10px] font-medium text-gray-500 dark:text-gray-400 mb-0.5">Min Blocks</label>
             <input type="number" data-field-prop="${n(t.id)}" data-prop-key="config.minBlocks"
                    value="${a.minBlocks ?? ""}" min="0" placeholder="0"
-                   class="${g("xs")}" />
+                   class="${p("xs")}" />
           </div>
           <div>
             <label class="block text-[10px] font-medium text-gray-500 dark:text-gray-400 mb-0.5">Max Blocks</label>
             <input type="number" data-field-prop="${n(t.id)}" data-prop-key="config.maxBlocks"
                    value="${a.maxBlocks ?? ""}" min="1" placeholder="No limit"
-                   class="${g("xs")}" />
+                   class="${p("xs")}" />
           </div>
         </div>
 
@@ -8640,20 +8639,20 @@ var B = "main", tt = "application/x-field-reorder", Ka = class {
                 <label class="block text-[10px] font-medium text-gray-500 dark:text-gray-400 mb-0.5">Field Name</label>
                 <input type="text" data-field-prop="${n(t.id)}" data-prop-key="name"
                        value="${n(t.name)}" pattern="^[a-z][a-z0-9_]*$"
-                       class="${g("xs")}" />
+                       class="${p("xs")}" />
               </div>
               <div>
                 <label class="block text-[10px] font-medium text-gray-500 dark:text-gray-400 mb-0.5">Label</label>
                 <input type="text" data-field-prop="${n(t.id)}" data-prop-key="label"
                        value="${n(t.label)}"
-                       class="${g("xs")}" />
+                       class="${p("xs")}" />
               </div>
             </div>
             <div>
               <label class="block text-[10px] font-medium text-gray-500 dark:text-gray-400 mb-0.5">Description</label>
               <input type="text" data-field-prop="${n(t.id)}" data-prop-key="description"
                      value="${n(t.description ?? "")}" placeholder="Help text for editors"
-                     class="${g("xs")}" />
+                     class="${p("xs")}" />
             </div>
             <div class="flex items-center gap-4">
               <label class="flex items-center gap-1.5 cursor-pointer">
@@ -8688,7 +8687,7 @@ var B = "main", tt = "application/x-field-reorder", Ka = class {
                 <label class="block text-[10px] font-medium text-gray-500 dark:text-gray-400 mb-0.5">Grid Span (1-12)</label>
                 <input type="number" data-field-prop="${n(t.id)}" data-prop-key="gridSpan"
                        value="${t.gridSpan ?? ""}" min="1" max="12" placeholder="12"
-                       class="${g("xs")}" />
+                       class="${p("xs")}" />
               </div>
             </div>
           </div>
@@ -8857,7 +8856,7 @@ var B = "main", tt = "application/x-field-reorder", Ka = class {
         label: "Section name",
         placeholder: "e.g. sidebar",
         confirmLabel: "Create",
-        inputClass: g(),
+        inputClass: p(),
         onConfirm: (v) => {
           const x = v.trim().toLowerCase().replace(/\s+/g, "_");
           x && this.moveFieldToSection(u, x);
@@ -8927,10 +8926,10 @@ var B = "main", tt = "application/x-field-reorder", Ka = class {
       this.toggleFieldExpansion(u);
       return;
     }
-    const p = a.closest("[data-field-toggle]");
-    if (p) {
+    const g = a.closest("[data-field-toggle]");
+    if (g) {
       if (a.closest("[data-field-grip]")) return;
-      const u = p.dataset.fieldToggle;
+      const u = g.dataset.fieldToggle;
       this.toggleFieldExpansion(u);
       return;
     }
@@ -9009,7 +9008,7 @@ var B = "main", tt = "application/x-field-reorder", Ka = class {
       this.renderInlineBlockPickerForField(t);
       return;
     }
-    this.blocksLoading || (this.blocksLoading = !0, this.cachedBlocks = await Re(this.config.api), this.blocksLoading = !1, this.expandedFieldId === t.id && this.renderInlineBlockPickerForField(t));
+    this.blocksLoading || (this.blocksLoading = !0, this.cachedBlocks = await Oe(this.config.api), this.blocksLoading = !1, this.expandedFieldId === t.id && this.renderInlineBlockPickerForField(t));
   }
   renderInlineBlockPickerForField(t) {
     const e = this.config.container.querySelector(`[data-blocks-picker-container="${t.id}"]`);
@@ -9116,7 +9115,7 @@ var B = "main", tt = "application/x-field-reorder", Ka = class {
             label: "Section name",
             placeholder: "e.g. sidebar",
             confirmLabel: "Create",
-            inputClass: g(),
+            inputClass: p(),
             onConfirm: (s) => {
               const o = s.trim().toLowerCase().replace(/\s+/g, "_");
               o && this.moveFieldToSection(a, o);
@@ -9251,7 +9250,7 @@ var B = "main", tt = "application/x-field-reorder", Ka = class {
   openInteractivePreview() {
     this.previewHtml && new xt(this.previewHtml, () => kt()).show();
   }
-}, St, Le = [
+}, St, Ee = [
   "content",
   "media",
   "layout",
@@ -9280,7 +9279,7 @@ var B = "main", tt = "application/x-field-reorder", Ka = class {
     this.bindDOM(), this.bindEvents(), this.initPalette(), this.bindAutosaveListeners(), this.bindResponsive(), this.initChannel(), await Promise.all([this.loadBlocks(), this.loadCategories()]);
   }
   initPalette() {
-    this.paletteEl && (this.palettePanel = new De({
+    this.paletteEl && (this.palettePanel = new ze({
       container: this.paletteEl,
       api: this.api,
       onAddField: (e) => this.handlePaletteAddField(e)
@@ -9406,7 +9405,7 @@ var B = "main", tt = "application/x-field-reorder", Ka = class {
     const d = Math.min(window.innerHeight * 0.6, 480);
     l - d < 16 ? l = i.bottom + 8 : l = l - d, r.style.top = `${l}px`, r.style.left = `${o}px`, document.body.appendChild(a), document.body.appendChild(r);
     const c = r.querySelector("[data-palette-popover-content]");
-    c && (this.popoverPalettePanel = new De({
+    c && (this.popoverPalettePanel = new ze({
       container: c,
       api: this.api,
       onAddField: (h) => {
@@ -9454,7 +9453,7 @@ var B = "main", tt = "application/x-field-reorder", Ka = class {
       placeholder: "e.g. staging",
       confirmLabel: "Add",
       helpText: zt,
-      inputClass: g(),
+      inputClass: p(),
       onConfirm: (a) => {
         const r = qt(a);
         if (!r.ok) return r.error;
@@ -9569,7 +9568,7 @@ var B = "main", tt = "application/x-field-reorder", Ka = class {
     return e instanceof le ? e.status === 404 ? `Block Library API route not found. Expected GET ${this.api.getBasePath()}/panels/block_definitions.` : e.status === 403 ? "Access denied while loading block definitions. Check your admin permissions." : e.message ? `Failed to load block definitions: ${e.message}` : `Failed to load block definitions (HTTP ${e.status}).` : e instanceof Error && e.message ? `Failed to load block definitions: ${e.message}` : "Failed to load block definitions.";
   }
   async loadCategories() {
-    this.state.categories = [], this.mergeCategories(Le), this.mergeCategories(this.loadUserCategories());
+    this.state.categories = [], this.mergeCategories(Ee), this.mergeCategories(this.loadUserCategories());
     try {
       const e = await this.api.getBlockCategories();
       this.mergeCategories(e);
@@ -9578,7 +9577,7 @@ var B = "main", tt = "application/x-field-reorder", Ka = class {
     this.renderCategoryOptions(), this.updateCreateCategorySelect();
   }
   refreshCategoriesFromBlocks() {
-    this.state.categories.length === 0 && (this.mergeCategories(Le), this.mergeCategories(this.loadUserCategories()));
+    this.state.categories.length === 0 && (this.mergeCategories(Ee), this.mergeCategories(this.loadUserCategories()));
     const e = new Set(this.state.categories.map((a) => this.normalizeCategory(a)));
     this.state.categories = Array.from(e);
     for (const a of this.state.blocks) {
@@ -9601,7 +9600,7 @@ var B = "main", tt = "application/x-field-reorder", Ka = class {
     return Array.isArray(e) ? e.map((a) => this.normalizeCategory(a)).filter((a) => a.length > 0) : [];
   }
   persistUserCategories() {
-    const e = this.state.categories.filter((a) => !Le.includes(a));
+    const e = this.state.categories.filter((a) => !Ee.includes(a));
     try {
       sessionStorage.setItem("block-library-user-categories", JSON.stringify(e));
     } catch {
@@ -9623,7 +9622,7 @@ var B = "main", tt = "application/x-field-reorder", Ka = class {
       label: "Category name",
       placeholder: "e.g. marketing",
       confirmLabel: "Add",
-      inputClass: g(),
+      inputClass: p(),
       onConfirm: (r) => {
         const i = this.addCategory(r);
         if (i) {
@@ -9689,7 +9688,7 @@ var B = "main", tt = "application/x-field-reorder", Ka = class {
     if (a += "</ul>", this.listEl.innerHTML = a, this.state.isCreating) {
       const r = this.listEl.querySelector("[data-create-name]"), i = this.listEl.querySelector("[data-create-slug]"), s = this.listEl.querySelector("[data-create-category]");
       r?.focus(), r && i && (r.addEventListener("input", () => {
-        i.dataset.userModified || (i.value = Ee(r.value));
+        i.dataset.userModified || (i.value = je(r.value));
       }), i.addEventListener("input", () => {
         i.dataset.userModified = "true";
       })), s && (s.dataset.prevValue = s.value, s.addEventListener("change", () => {
@@ -9741,12 +9740,12 @@ var B = "main", tt = "application/x-field-reorder", Ka = class {
           <div>
             <label class="block text-[11px] font-medium text-gray-600 dark:text-gray-400 mb-0.5">Name</label>
             <input type="text" data-create-name placeholder="e.g. Hero Section"
-                   class="${g()}" />
+                   class="${p()}" />
           </div>
           <div>
             <label class="block text-[11px] font-medium text-gray-600 dark:text-gray-400 mb-0.5">Slug</label>
             <input type="text" data-create-slug placeholder="e.g. hero_section" pattern="^[a-z][a-z0-9_\\-]*$"
-                   class="${g()} font-mono" />
+                   class="${p()} font-mono" />
             <p class="mt-0.5 text-[10px] text-gray-400 dark:text-gray-500">Lowercase, numbers, hyphens, underscores.</p>
           </div>
           <div>
@@ -10218,7 +10217,7 @@ function Wa(t = document) {
       console.warn("Content type editor missing apiBasePath", e);
       return;
     }
-    const r = a.basePath ?? Oe(a.apiBasePath), i = String(a.channel ?? "").trim().toLowerCase(), s = i && i !== "default" ? `channel=${encodeURIComponent(i)}` : "";
+    const r = a.basePath ?? Ce(a.apiBasePath), i = String(a.channel ?? "").trim().toLowerCase(), s = i && i !== "default" ? `channel=${encodeURIComponent(i)}` : "";
     a.onCancel || (a.onCancel = () => {
       const o = `${r}/content/types`;
       window.location.href = s ? `${o}?${s}` : o;
@@ -10257,7 +10256,7 @@ function Ja(t) {
   let e = {};
   const a = t.getAttribute("data-content-type-editor-config");
   a && (e = R(a, {}));
-  const r = Se(e.apiBasePath, t.dataset.apiBasePath, t.dataset.basePath), i = e.basePath ?? Oe(r, t.dataset.basePath);
+  const r = Se(e.apiBasePath, t.dataset.apiBasePath, t.dataset.basePath), i = e.basePath ?? Ce(r, t.dataset.basePath);
   return {
     ...e,
     apiBasePath: r,
@@ -10281,7 +10280,7 @@ export {
   wt as FIELD_SET_PRESETS,
   ke as FIELD_TYPES,
   me as FieldConfigForm,
-  De as FieldPalettePanel,
+  ze as FieldPalettePanel,
   dt as FieldTypePicker,
   ya as LayoutEditor,
   be as PALETTE_DRAG_MIME,
@@ -10310,7 +10309,7 @@ export {
   mr as paneStorageKey,
   Nt as refreshContentModelingShell,
   Cr as registerIconTab,
-  ze as renderDropZone,
+  He as renderDropZone,
   bt as renderFieldCard,
   Fa as renderFieldKebab,
   se as resolveIcon,
