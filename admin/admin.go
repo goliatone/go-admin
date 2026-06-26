@@ -97,6 +97,7 @@ type Admin struct {
 	traitWorkflowDefaults           map[string]string
 	translationPolicy               TranslationPolicy
 	translationFamilyStore          translationservices.FamilyStore
+	translationSuggestionService    TranslationSuggestionService
 	cmsWorkflowDefaults             bool
 	cmsWorkflowActions              []Action
 	cmsWorkflowActionsSet           bool
@@ -274,6 +275,23 @@ func (a *Admin) WithTranslationFamilyStore(store translationservices.FamilyStore
 	}
 	a.translationFamilyStore = store
 	return a
+}
+
+// WithTranslationSuggestionService wires optional translation suggestion generation.
+func (a *Admin) WithTranslationSuggestionService(service TranslationSuggestionService) *Admin {
+	if a == nil {
+		return a
+	}
+	a.translationSuggestionService = service
+	return a
+}
+
+// TranslationSuggestionService exposes the optional translation suggestion service.
+func (a *Admin) TranslationSuggestionService() TranslationSuggestionService {
+	if a == nil {
+		return nil
+	}
+	return a.translationSuggestionService
 }
 
 // WithTranslationExchangeRuntime wires the exchange job runtime used by transport bindings.
