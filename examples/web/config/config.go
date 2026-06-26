@@ -193,10 +193,32 @@ type SecureLinkConfig struct {
 }
 
 type TranslationConfig struct {
-	Profile    string                      `koanf:"profile" json:"profile" yaml:"profile"`
-	Exchange   *bool                       `koanf:"exchange" json:"exchange" yaml:"exchange"`
-	Queue      *bool                       `koanf:"queue" json:"queue" yaml:"queue"`
-	ExchangeUI TranslationExchangeUIConfig `koanf:"exchange_ui" json:"exchange_ui" yaml:"exchange_ui"`
+	Profile     string                             `koanf:"profile" json:"profile" yaml:"profile"`
+	Exchange    *bool                              `koanf:"exchange" json:"exchange" yaml:"exchange"`
+	Queue       *bool                              `koanf:"queue" json:"queue" yaml:"queue"`
+	ExchangeUI  TranslationExchangeUIConfig        `koanf:"exchange_ui" json:"exchange_ui" yaml:"exchange_ui"`
+	Suggestions TranslationSuggestionRuntimeConfig `koanf:"suggestions" json:"suggestions" yaml:"suggestions"`
+}
+
+type TranslationSuggestionRuntimeConfig struct {
+	Enabled  bool                              `koanf:"enabled" json:"enabled" yaml:"enabled"`
+	Provider string                            `koanf:"provider" json:"provider" yaml:"provider"`
+	Prompt   TranslationSuggestionPromptConfig `koanf:"prompt" json:"prompt" yaml:"prompt"`
+	OpenAI   TranslationSuggestionOpenAIConfig `koanf:"openai" json:"openai" yaml:"openai"`
+}
+
+type TranslationSuggestionPromptConfig struct {
+	SystemPrompt string `koanf:"system_prompt" json:"system_prompt" yaml:"system_prompt"`
+	Instruction  string `koanf:"instruction" json:"instruction" yaml:"instruction"`
+}
+
+type TranslationSuggestionOpenAIConfig struct {
+	APIKey       string        `koanf:"api_key" json:"api_key" yaml:"api_key"`
+	BaseURL      string        `koanf:"base_url" json:"base_url" yaml:"base_url"`
+	Model        string        `koanf:"model" json:"model" yaml:"model"`
+	Organization string        `koanf:"organization" json:"organization" yaml:"organization"`
+	Timeout      time.Duration `koanf:"timeout" json:"timeout" yaml:"timeout"`
+	Temperature  *float64      `koanf:"temperature" json:"temperature" yaml:"temperature"`
 }
 
 type TranslationExchangeUIConfig struct {
@@ -424,6 +446,10 @@ func Defaults() *Config {
 		},
 		Translation: TranslationConfig{
 			Profile: "full",
+			Suggestions: TranslationSuggestionRuntimeConfig{
+				Enabled:  false,
+				Provider: "openai",
+			},
 		},
 		Datagrid: DatagridConfig{},
 		ExportPDF: ExportPDFConfig{

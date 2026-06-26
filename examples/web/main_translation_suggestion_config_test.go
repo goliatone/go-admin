@@ -2,12 +2,14 @@ package main
 
 import (
 	"context"
+	"net/http"
 	"testing"
 	"time"
 
 	coreadmin "github.com/goliatone/go-admin/admin"
 	appcfg "github.com/goliatone/go-admin/examples/web/config"
 	"github.com/goliatone/go-admin/quickstart"
+	router "github.com/goliatone/go-router"
 )
 
 func TestBuildExampleTranslationSuggestionServiceDisabledByDefault(t *testing.T) {
@@ -100,6 +102,46 @@ func TestTranslationSuggestionRPCTransportEnabledFollowsConfiguredQueueService(t
 	if translationSuggestionRPCTransportEnabled(cfg) {
 		t.Fatalf("expected rpc transport disabled without suggestion service")
 	}
+}
+
+func TestTranslationSuggestionRPCTransportOptionMountsInvokeRoute(t *testing.T) {
+	cfg := quickstart.NewAdminConfig("/admin", "Admin", "en")
+	translationProductCfg := buildTranslationProductConfig(
+		quickstart.TranslationProfileFull,
+		noopExchangeStore{},
+		coreadmin.NewInMemoryTranslationAssignmentRepository(),
+		appcfg.TranslationConfig{Profile: "full"},
+	)
+	if translationProductCfg.Queue == nil {
+		t.Fatalf("expected full profile to configure translation queue")
+	}
+	translationProductCfg.Queue.SupportedLocales = []string{"en", "es"}
+	translationProductCfg.Queue.SuggestionService = translationSuggestionTestService{}
+	translationProductCfg.Queue.SuggestionEligibility = coreadmin.TranslationSuggestionAllowAllEligibility{}
+	translationProductCfg.Queue.SuggestionPermission = coreadmin.PermAdminTranslationsSuggest
+	translationProductCfg.Queue.SuggestionResource = "translations"
+
+	options := []quickstart.AdminOption{
+		quickstart.WithAdminDependencies(coreadmin.Dependencies{
+			Authenticator: translationRuntimeHarnessPassthroughAuthenticator{},
+			Authorizer:    translationRuntimeHarnessAllowAllAuthorizer{},
+		}),
+		quickstart.WithTranslationProductConfig(translationProductCfg),
+	}
+	if translationSuggestionRPCTransportEnabled(translationProductCfg) {
+		options = append(options, quickstart.WithRPCTransport(quickstart.RPCTransportConfig{Enabled: true}))
+	}
+
+	adm, _, err := quickstart.NewAdmin(cfg, quickstart.AdapterHooks{}, options...)
+	if err != nil {
+		t.Fatalf("new admin: %v", err)
+	}
+	server := router.NewFiberAdapter()
+	if err := adm.Initialize(server.Router()); err != nil {
+		t.Fatalf("initialize admin: %v", err)
+	}
+
+	assertRouteRegistered(t, server.Router().Routes(), http.MethodPost, "/admin/api/rpc")
 }
 
 func TestTranslationOperationRequiredPermissionsIncludesSuggestOnlyWhenConfigured(t *testing.T) {

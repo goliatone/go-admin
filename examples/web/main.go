@@ -35,6 +35,7 @@ import (
 	"github.com/goliatone/go-admin/pkg/admin"
 	"github.com/goliatone/go-admin/pkg/client"
 	syncdata "github.com/goliatone/go-admin/pkg/go-sync/data"
+	translationai "github.com/goliatone/go-admin/pkg/go-translation-ai"
 	"github.com/goliatone/go-admin/quickstart"
 	quicksite "github.com/goliatone/go-admin/quickstart/site"
 	authlib "github.com/goliatone/go-auth"
@@ -429,6 +430,15 @@ func main() {
 	if translationProductCfg.Queue != nil && translationProductCfg.Queue.Enabled && !adapterFlags.UsePersistentCMS {
 		fatalf("translation queue requires persistent CMS storage")
 	}
+	if suggestionSvc, reason := buildExampleTranslationSuggestionService(runtimeConfig.Translation.Suggestions, translationProductCfg.Queue != nil && translationProductCfg.Queue.Enabled); suggestionSvc != nil {
+		translationProductCfg.Queue.SuggestionService = suggestionSvc
+		translationProductCfg.Queue.SuggestionEligibility = coreadmin.TranslationSuggestionAllowAllEligibility{}
+		translationProductCfg.Queue.SuggestionPermission = coreadmin.PermAdminTranslationsSuggest
+		translationProductCfg.Queue.SuggestionResource = "translations"
+		infof("translation suggestion service enabled provider=%s model=%s base_url=%s", normalizedTranslationSuggestionProvider(runtimeConfig.Translation.Suggestions), runtimeConfig.Translation.Suggestions.OpenAI.Model, runtimeConfig.Translation.Suggestions.OpenAI.BaseURL)
+	} else if reason != "" {
+		warnf("translation suggestion service disabled: %s", reason)
+	}
 	if translationProductCfg.Queue != nil && translationProductCfg.Queue.Enabled {
 		featureDefaults[string(coreadmin.FeatureTranslationQATerms)] = true
 		featureDefaults[string(coreadmin.FeatureTranslationQAStyle)] = true
@@ -448,9 +458,7 @@ func main() {
 		fatalf("failed to seed workflow runtime from config: %v", err)
 	}
 
-	adm, adapterResult, err := quickstart.NewAdmin(
-		cfg,
-		adapterHooks,
+	adminOptions := []quickstart.AdminOption{
 		quickstart.WithAdminContext(context.Background()),
 		quickstart.WithAdminDependencies(adminDeps),
 		quickstart.WithWorkflowConfigFile(workflowConfigPath),
@@ -476,6 +484,17 @@ func main() {
 			)
 		}),
 		quickstart.WithFeatureDefaults(featureDefaults),
+	}
+	if translationSuggestionRPCTransportEnabled(translationProductCfg) {
+		adminOptions = append(adminOptions, quickstart.WithRPCTransport(quickstart.RPCTransportConfig{
+			Enabled: true,
+		}))
+	}
+
+	adm, adapterResult, err := quickstart.NewAdmin(
+		cfg,
+		adapterHooks,
+		adminOptions...,
 	)
 	if err != nil {
 		fatalf("failed to construct admin: %v", err)
@@ -2246,6 +2265,87 @@ func resolveTranslationProfile(raw string) quickstart.TranslationProfile {
 	}
 }
 
+func buildExampleTranslationSuggestionService(
+	cfg appcfg.TranslationSuggestionRuntimeConfig,
+	queueEnabled bool,
+) (coreadmin.TranslationSuggestionService, string) {
+	if !cfg.Enabled {
+		return nil, ""
+	}
+	if !queueEnabled {
+		return nil, "translation queue is disabled"
+	}
+	provider := normalizedTranslationSuggestionProvider(cfg)
+	switch provider {
+	case "openai", "openai-compatible", "lmstudio", "lm-studio":
+	default:
+		return nil, fmt.Sprintf("unsupported translation suggestion provider %q", cfg.Provider)
+	}
+
+	model := strings.TrimSpace(cfg.OpenAI.Model)
+	if model == "" {
+		return nil, "translation.suggestions.openai.model is required"
+	}
+	apiKey := strings.TrimSpace(cfg.OpenAI.APIKey)
+	if apiKey == "" && translationSuggestionBaseURLLooksLocal(cfg.OpenAI.BaseURL) {
+		apiKey = "lm-studio"
+	}
+	if apiKey == "" {
+		return nil, "translation.suggestions.openai.api_key is required"
+	}
+
+	options := []translationai.Option{
+		translationai.WithOpenAIProvider(translationai.OpenAIConfig{
+			APIKey:       apiKey,
+			BaseURL:      strings.TrimSpace(cfg.OpenAI.BaseURL),
+			Model:        model,
+			Organization: strings.TrimSpace(cfg.OpenAI.Organization),
+			Timeout:      cfg.OpenAI.Timeout,
+			Temperature:  cfg.OpenAI.Temperature,
+			SystemPrompt: strings.TrimSpace(cfg.Prompt.SystemPrompt),
+		}),
+		translationai.WithDefaultModel(model),
+		translationai.WithEligibility(coreadmin.TranslationSuggestionAllowAllEligibility{}),
+	}
+	if strings.TrimSpace(cfg.Prompt.SystemPrompt) != "" || strings.TrimSpace(cfg.Prompt.Instruction) != "" {
+		options = append(options, translationai.WithServicePromptConfig(translationai.PromptConfig{
+			SystemPrompt: strings.TrimSpace(cfg.Prompt.SystemPrompt),
+			Instruction:  strings.TrimSpace(cfg.Prompt.Instruction),
+		}))
+	}
+	return translationai.NewService(options...), ""
+}
+
+func translationSuggestionRPCTransportEnabled(cfg quickstart.TranslationProductConfig) bool {
+	return cfg.Queue != nil && cfg.Queue.Enabled && cfg.Queue.SuggestionService != nil
+}
+
+func normalizedTranslationSuggestionProvider(cfg appcfg.TranslationSuggestionRuntimeConfig) string {
+	provider := strings.ToLower(strings.TrimSpace(cfg.Provider))
+	if provider == "" {
+		return "openai"
+	}
+	return provider
+}
+
+func translationSuggestionBaseURLLooksLocal(raw string) bool {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return false
+	}
+	parsed, err := url.Parse(trimmed)
+	if err != nil || parsed == nil {
+		return false
+	}
+	host := strings.ToLower(strings.Trim(parsed.Hostname(), "[]"))
+	switch host {
+	case "localhost", "127.0.0.1", "::1", "0.0.0.0":
+		return true
+	default:
+		return strings.HasSuffix(host, ".localhost")
+	}
+}
+
 func buildTranslationProductConfig(
 	profile quickstart.TranslationProfile,
 	exchangeStore coreadmin.TranslationExchangeStore,
@@ -2725,9 +2825,9 @@ func runTranslationAuthzPreflight(
 	mode authzPreflightMode,
 	roleKeys []string,
 ) (translationAuthzPreflightReport, error) {
-	required, modules := translationOperationRequiredPermissions(nil)
+	required, modules := translationOperationRequiredPermissions(nil, false)
 	if adm != nil {
-		required, modules = translationOperationRequiredPermissions(adm.FeatureGate())
+		required, modules = translationOperationRequiredPermissions(adm.FeatureGate(), adm.TranslationSuggestionService() != nil)
 	}
 	resolvedRoleKeys := resolveAuthzPreflightRoleKeys(roleKeys)
 	report := translationAuthzPreflightReport{
@@ -2846,10 +2946,11 @@ func resolveAuthzPreflightRoleKeys(values []string) []string {
 	return out
 }
 
-func translationOperationRequiredPermissions(gate fggate.FeatureGate) ([]string, map[string]bool) {
+func translationOperationRequiredPermissions(gate fggate.FeatureGate, suggestionsEnabled bool) ([]string, map[string]bool) {
 	modules := map[string]bool{
-		"exchange": featureEnabled(gate, string(coreadmin.FeatureTranslationExchange)),
-		"queue":    featureEnabled(gate, string(coreadmin.FeatureTranslationQueue)),
+		"exchange":    featureEnabled(gate, string(coreadmin.FeatureTranslationExchange)),
+		"queue":       featureEnabled(gate, string(coreadmin.FeatureTranslationQueue)),
+		"suggestions": suggestionsEnabled,
 	}
 	required := []string{}
 	if modules["exchange"] {
@@ -2869,6 +2970,9 @@ func translationOperationRequiredPermissions(gate fggate.FeatureGate) ([]string,
 			coreadmin.PermAdminTranslationsManage,
 			coreadmin.PermAdminTranslationsClaim,
 		)
+	}
+	if modules["suggestions"] {
+		required = append(required, coreadmin.PermAdminTranslationsSuggest)
 	}
 	return dedupeSortedStrings(required), modules
 }
@@ -3032,7 +3136,7 @@ func buildPermissionDiagnosticsPayload(adm *admin.Admin, ctx context.Context, gr
 	if adm != nil {
 		gate = adm.FeatureGate()
 	}
-	required, modules := translationOperationRequiredPermissions(gate)
+	required, modules := translationOperationRequiredPermissions(gate, adm != nil && adm.TranslationSuggestionService() != nil)
 	granted = dedupeSortedStrings(granted)
 	missing := missingPermissions(required, granted)
 
