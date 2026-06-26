@@ -1,4 +1,10 @@
 import { appendCSRFHeader } from './transport/http-client.js';
+import {
+  initBehaviors,
+  isBusy,
+  resetBusy,
+  setBusy,
+} from './behaviors/index.js';
 
 export const ENHANCED_ACTION_HEADER = 'X-Enhanced-Action';
 export const ENHANCED_ACTION_ACCEPT = 'application/vnd.admin.enhanced+json';
@@ -59,11 +65,6 @@ export interface EnhancedToastSink {
   show?: (message: string, type?: string) => void;
 }
 
-type BusyState = {
-  controls: Array<{ control: HTMLButtonElement | HTMLInputElement; disabled: boolean }>;
-  busy: string | null;
-};
-
 type EnhancedResponseRead = {
   envelope: EnhancedActionEnvelope;
   enhanced: boolean;
@@ -81,6 +82,10 @@ export function initEnhancedActions(
       return;
     }
     if (!canEnhance(options.fetch ?? globalThis.fetch, form.ownerDocument)) {
+      return;
+    }
+    if (isBusy(form)) {
+      event.preventDefault();
       return;
     }
     event.preventDefault();
@@ -119,7 +124,7 @@ export async function submitEnhancedForm(
   headers.set('Accept', enhancedActionAccept(options));
   appendCSRFHeader(requestURL, { method }, headers);
 
-  const busy = setEnhancedBusy(form, true);
+  const busy = setBusy(form, { submitter });
   try {
     const response = await fetchImpl(requestURL, {
       method,
@@ -152,7 +157,7 @@ export async function submitEnhancedForm(
     showEnhancedToasts(envelope, options.toast);
     return envelope;
   } finally {
-    restoreEnhancedBusy(form, busy);
+    busy.reset();
   }
 }
 
@@ -162,39 +167,46 @@ export async function applyEnhancedEnvelope(
 ): Promise<void> {
   const doc = options.document ?? globalThis.document;
   const applied: EnhancedActionFragment[] = [];
+  const appliedRoots: HTMLElement[] = [];
   for (const fragment of envelope.fragments ?? []) {
-    if (applyEnhancedFragment(doc, fragment)) {
+    const replacement = applyEnhancedFragmentRoot(doc, fragment);
+    if (replacement) {
       applied.push(fragment);
+      appliedRoots.push(replacement);
     }
   }
   if (applied.length > 0) {
-    await reinitializeEnhancedFragments(options);
+    await reinitializeEnhancedFragments(options, appliedRoots);
     await options.onFragmentsApplied?.(applied);
-    dispatchEnhancedFragmentsApplied(doc, applied);
+    dispatchEnhancedFragmentsApplied(doc, applied, appliedRoots);
   }
   showEnhancedToasts(envelope, options.toast);
   focusEnhancedTarget(envelope, doc);
 }
 
 export function applyEnhancedFragment(doc: Document, fragment: EnhancedActionFragment): boolean {
+  return !!applyEnhancedFragmentRoot(doc, fragment);
+}
+
+function applyEnhancedFragmentRoot(doc: Document, fragment: EnhancedActionFragment): HTMLElement | null {
   const selector = String(fragment.selector ?? '').trim();
   const html = String(fragment.html ?? '').trim();
   const mode = String(fragment.mode ?? 'replace').trim() || 'replace';
   if (!selector || !html || mode !== 'replace') {
-    return false;
+    return null;
   }
   const target = doc.querySelector(selector);
   if (!target) {
-    return false;
+    return null;
   }
   const template = doc.createElement('template');
   template.innerHTML = html;
   const replacement = template.content.firstElementChild;
   if (!replacement) {
-    return false;
+    return null;
   }
   target.replaceWith(replacement);
-  return true;
+  return replacement as HTMLElement;
 }
 
 function canEnhance(fetchImpl?: typeof fetch, doc?: Document): fetchImpl is typeof fetch {
@@ -411,30 +423,6 @@ function isSubmitterControl(submitter: HTMLElement | null): submitter is HTMLBut
   return typeof HTMLInputElement !== 'undefined' && submitter instanceof HTMLInputElement;
 }
 
-function setEnhancedBusy(form: HTMLFormElement, busy: boolean): BusyState {
-  const state: BusyState = {
-    controls: [],
-    busy: form.getAttribute('aria-busy'),
-  };
-  form.setAttribute('aria-busy', busy ? 'true' : 'false');
-  for (const control of Array.from(form.querySelectorAll<HTMLButtonElement | HTMLInputElement>('button, input[type="submit"], input[type="button"]'))) {
-    state.controls.push({ control, disabled: control.disabled });
-    control.disabled = busy || control.disabled;
-  }
-  return state;
-}
-
-function restoreEnhancedBusy(form: HTMLFormElement, state: BusyState): void {
-  if (state.busy === null) {
-    form.removeAttribute('aria-busy');
-  } else {
-    form.setAttribute('aria-busy', state.busy);
-  }
-  for (const item of state.controls) {
-    item.control.disabled = item.disabled;
-  }
-}
-
 function showEnhancedToasts(envelope: EnhancedActionEnvelope, explicitToast?: EnhancedToastSink): void {
   const sink = explicitToast ?? getEnhancedWindow().toastManager;
   const toasts = [...(envelope.toasts ?? [])];
@@ -515,7 +503,11 @@ function cssEscape(value: string): string {
   return value.replace(/["\\]/g, '\\$&');
 }
 
-async function reinitializeEnhancedFragments(options: EnhancedActionRuntimeOptions): Promise<void> {
+async function reinitializeEnhancedFragments(options: EnhancedActionRuntimeOptions, roots: HTMLElement[]): Promise<void> {
+  for (const root of roots) {
+    initBehaviors(root, { window: root.ownerDocument.defaultView ?? undefined });
+    resetBusy(root);
+  }
   const rel = getEnhancedWindow().FormgenRelationships;
   if (typeof rel?.initRelationships === 'function') {
     await rel.initRelationships();
@@ -536,10 +528,10 @@ function getEnhancedWindow(): {
   };
 }
 
-function dispatchEnhancedFragmentsApplied(doc: Document, fragments: EnhancedActionFragment[]): void {
+function dispatchEnhancedFragmentsApplied(doc: Document, fragments: EnhancedActionFragment[], roots: HTMLElement[]): void {
   const event = new CustomEvent('go-admin:enhanced-fragments-applied', {
     bubbles: true,
-    detail: { fragments },
+    detail: { fragments, roots },
   });
   doc.dispatchEvent(event);
 }

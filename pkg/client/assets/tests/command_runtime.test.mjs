@@ -59,6 +59,7 @@ function setGlobals(win) {
   globalThis.HTMLFormElement = win.HTMLFormElement;
   globalThis.HTMLInputElement = win.HTMLInputElement;
   globalThis.HTMLTextAreaElement = win.HTMLTextAreaElement;
+  globalThis.HTMLSelectElement = win.HTMLSelectElement;
   globalThis.DOMParser = win.DOMParser;
   globalThis.CustomEvent = win.CustomEvent;
   globalThis.Event = win.Event;
@@ -77,6 +78,14 @@ function setupDom(markup) {
 
 function nextTick() {
   return new Promise((resolve) => setTimeout(resolve, 0));
+}
+
+function deferred() {
+  let resolve;
+  const promise = new Promise((innerResolve) => {
+    resolve = innerResolve;
+  });
+  return { promise, resolve };
 }
 
 function createNotifier() {
@@ -278,6 +287,166 @@ test('CommandRuntimeController serializes forms for panel actions', async () => 
   assert.equal(actionPayload.id, 'agreement-1');
   assert.equal(actionPayload.review_id, 'review-1');
   assert.equal(actionPayload.body, 'hello world');
+});
+
+test('CommandRuntimeController uses shared busy behavior for button triggers and busy targets', async () => {
+  setupDom(`<!doctype html>
+    <html>
+      <body>
+        <div id="mount">
+          <div id="busy-target" aria-busy="false">
+            <button
+              id="sync-btn"
+              type="button"
+              data-command-name="sync_status"
+              data-command-success="Synced"
+              data-command-busy-target="#busy-target"
+              data-busy-label="Sending..."
+            ><span data-busy-spinner hidden></span><span data-busy-label-target>Sync</span></button>
+            <button id="already-disabled" type="button" disabled>Locked</button>
+          </div>
+        </div>
+      </body>
+    </html>`);
+
+  const { initCommandRuntime } = await importSourceModule('command-runtime.ts');
+  const notifier = createNotifier();
+  const gate = deferred();
+  const requests = [];
+  const fetchImpl = async (input, init = {}) => {
+    requests.push({ input, init });
+    await gate.promise;
+    return new Response(JSON.stringify({ status: 'ok', data: { ok: true } }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  };
+
+  initCommandRuntime({
+    mount: document.getElementById('mount'),
+    apiBasePath: '/admin/api/v1',
+    panelName: 'esign_agreements',
+    recordId: 'agreement-1',
+    notifier,
+    fetchImpl,
+  });
+
+  document.getElementById('sync-btn').click();
+  await nextTick();
+
+  assert.equal(requests.length, 1);
+  assert.equal(document.getElementById('busy-target').getAttribute('aria-busy'), 'true');
+  assert.equal(document.getElementById('sync-btn').disabled, true);
+  assert.equal(document.querySelector('[data-busy-label-target]').textContent, 'Sending...');
+  assert.equal(document.querySelector('[data-busy-spinner]').hidden, false);
+  assert.equal(document.getElementById('already-disabled').disabled, true);
+
+  gate.resolve();
+  await nextTick();
+  await nextTick();
+
+  assert.equal(document.getElementById('busy-target').getAttribute('aria-busy'), 'false');
+  assert.equal(document.getElementById('sync-btn').disabled, false);
+  assert.equal(document.querySelector('[data-busy-label-target]').textContent, 'Sync');
+  assert.equal(document.querySelector('[data-busy-spinner]').hidden, true);
+  assert.equal(document.getElementById('already-disabled').disabled, true);
+  assert.deepEqual(notifier.successes, ['Synced']);
+});
+
+test('CommandRuntimeController suppresses duplicate clicks while shared busy state is active', async () => {
+  setupDom(`<!doctype html>
+    <html>
+      <body>
+        <div id="mount">
+          <button
+            id="sync-btn"
+            type="button"
+            data-command-name="sync_status"
+            data-command-success="Synced"
+          >Sync</button>
+        </div>
+      </body>
+    </html>`);
+
+  const { initCommandRuntime } = await importSourceModule('command-runtime.ts');
+  const gate = deferred();
+  const requests = [];
+  const fetchImpl = async (input, init = {}) => {
+    requests.push({ input, init });
+    await gate.promise;
+    return new Response(JSON.stringify({ status: 'ok', data: { ok: true } }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  };
+
+  initCommandRuntime({
+    mount: document.getElementById('mount'),
+    apiBasePath: '/admin/api/v1',
+    panelName: 'esign_agreements',
+    recordId: 'agreement-1',
+    notifier: createNotifier(),
+    fetchImpl,
+  });
+
+  const button = document.getElementById('sync-btn');
+  button.click();
+  button.click();
+  await nextTick();
+
+  assert.equal(requests.length, 1);
+  assert.equal(button.getAttribute('aria-busy'), 'true');
+
+  gate.resolve();
+  await nextTick();
+  await nextTick();
+});
+
+test('CommandRuntimeController manual dispatch uses shared busy target state', async () => {
+  setupDom(`<!doctype html>
+    <html>
+      <body>
+        <div id="mount">
+          <div id="manual-target"><button id="nested">Nested</button></div>
+        </div>
+      </body>
+    </html>`);
+
+  const { initCommandRuntime } = await importSourceModule('command-runtime.ts');
+  const gate = deferred();
+  const fetchImpl = async () => {
+    await gate.promise;
+    return new Response(JSON.stringify({ status: 'ok', data: { ok: true } }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  };
+
+  const controller = initCommandRuntime({
+    mount: document.getElementById('mount'),
+    apiBasePath: '/admin/api/v1',
+    panelName: 'esign_agreements',
+    recordId: 'agreement-1',
+    notifier: createNotifier(),
+    fetchImpl,
+  });
+
+  const target = document.getElementById('manual-target');
+  const dispatch = controller.dispatch({
+    commandName: 'sync_status',
+    busyTarget: target,
+  });
+  await nextTick();
+
+  assert.equal(target.getAttribute('aria-busy'), 'true');
+  assert.equal(document.getElementById('nested').disabled, true);
+
+  gate.resolve();
+  const detail = await dispatch;
+
+  assert.equal(detail.success, true);
+  assert.equal(target.hasAttribute('aria-busy'), false);
+  assert.equal(document.getElementById('nested').disabled, false);
 });
 
 test('CommandRuntimeController routes duplicate success-body parsing through one local helper', () => {

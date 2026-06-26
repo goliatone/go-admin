@@ -401,14 +401,23 @@
     @apply bg-admin-dark text-white hover:bg-admin-light;
   }
 
+  [data-busy-button],
   .submit-loading-button {
     @apply relative;
   }
 
+  [data-busy-spinner],
+  .busy-spinner,
   .submit-loading-spinner {
     @apply hidden h-5 w-5 shrink-0 animate-spin text-current;
   }
 
+  [data-busy-generated-spinner] {
+    @apply h-4 w-4 rounded-full border-2 border-current border-r-transparent;
+  }
+
+  [data-busy="true"] [data-busy-spinner],
+  [aria-busy="true"] [data-busy-spinner],
   [data-submit-loading-form][data-loading="true"] .submit-loading-spinner {
     @apply inline-block;
   }
@@ -417,6 +426,8 @@
     @apply sr-only;
   }
 
+  [data-busy="true"] [data-busy-button],
+  [aria-busy="true"][data-busy-button],
   [data-submit-loading-form][aria-busy="true"] .submit-loading-button {
     @apply cursor-wait;
   }

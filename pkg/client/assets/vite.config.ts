@@ -54,6 +54,7 @@ export default defineConfig({
         'shared/coercion': resolve(__dirname, 'src/shared/coercion.ts'),
         'shared/deep-clone': resolve(__dirname, 'src/shared/deep-clone.ts'),
         'shared/enhanced-action': resolve(__dirname, 'src/shared/enhanced-action.ts'),
+        'shared/behaviors/index': resolve(__dirname, 'src/shared/behaviors/index.ts'),
         'shared/json-parse': resolve(__dirname, 'src/shared/json-parse.ts'),
         'shared/query-state/url-state': resolve(__dirname, 'src/shared/query-state/url-state.ts'),
         'shared/record-normalization': resolve(__dirname, 'src/shared/record-normalization.ts'),

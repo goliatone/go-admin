@@ -7,6 +7,11 @@ import {
 import { FallbackNotifier } from '../toast/toast-manager.js';
 import type { ToastNotifier } from '../toast/types.js';
 import { readHTTPJSONValue } from '../shared/transport/http-client.js';
+import {
+  isBusy,
+  setBusy,
+  type BusyController,
+} from '../shared/behaviors/index.js';
 
 export type CommandTransport = 'action' | 'rpc';
 
@@ -345,42 +350,21 @@ function resolveBusyTarget(trigger: HTMLElement): HTMLElement | null {
   return null;
 }
 
-function setElementBusy(node: HTMLElement | null, busy: boolean): void {
-  if (!node) {
-    return;
+function startCommandBusy(spec: CommandSpec): BusyController[] {
+  const controllers: BusyController[] = [];
+  if (spec.submitter) {
+    controllers.push(setBusy(spec.submitter));
   }
-  if (
-    node instanceof HTMLButtonElement ||
-    node instanceof HTMLInputElement ||
-    node instanceof HTMLTextAreaElement ||
-    node instanceof HTMLSelectElement
-  ) {
-    node.disabled = busy;
+  if (spec.busyTarget && spec.busyTarget !== spec.submitter) {
+    controllers.push(setBusy(spec.busyTarget));
   }
-  if (busy) {
-    node.setAttribute('aria-busy', 'true');
-  } else {
-    node.removeAttribute('aria-busy');
-  }
+  return controllers;
 }
 
-function setContainerBusy(node: HTMLElement | null, busy: boolean): void {
-  if (!node) {
-    return;
+function resetCommandBusy(controllers: BusyController[]): void {
+  for (const controller of [...controllers].reverse()) {
+    controller.reset();
   }
-  if (busy) {
-    node.setAttribute('aria-busy', 'true');
-  } else {
-    node.removeAttribute('aria-busy');
-  }
-  node.querySelectorAll<HTMLButtonElement>('button').forEach((button) => {
-    button.disabled = busy;
-    if (busy) {
-      button.setAttribute('aria-busy', 'true');
-    } else {
-      button.removeAttribute('aria-busy');
-    }
-  });
 }
 
 function captureCollapsibleState(root: Element): Map<string, boolean> {
@@ -739,7 +723,7 @@ export class CommandRuntimeController {
       success: false,
     });
 
-    if (spec.submitter && spec.submitter.getAttribute('aria-busy') === 'true') {
+    if ((spec.submitter && isBusy(spec.submitter)) || (spec.busyTarget && isBusy(spec.busyTarget))) {
       return emptyDetail();
     }
 
@@ -782,8 +766,7 @@ export class CommandRuntimeController {
     };
     this.onBeforeDispatch?.(pendingDetail);
 
-    setElementBusy(spec.submitter, true);
-    setContainerBusy(spec.busyTarget, true);
+    const busyControllers = startCommandBusy(spec);
 
     // Set submitting state
     this.updateInlineStatusFromDispatch(correlationId, spec.commandName, 'submitting', {
@@ -872,8 +855,7 @@ export class CommandRuntimeController {
       this.onAfterDispatch?.(detail);
       return detail;
     } finally {
-      setElementBusy(spec.submitter, false);
-      setContainerBusy(spec.busyTarget, false);
+      resetCommandBusy(busyControllers);
     }
   }
 

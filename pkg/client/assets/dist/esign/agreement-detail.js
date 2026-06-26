@@ -1,8 +1,8 @@
 import "../chunks/modal-Dzqx5T1M.js";
 import "../chunks/toast-manager-DWSFynqs.js";
-import "../chunks/services-Cvm6LUGc.js";
-import { a as r, c as i, d as o, f as n, h as E, i as m, l as C, m as l, n as g, o as p, p as c, r as A, s as d, t as D, u as N } from "../chunks/provenance-card-C9-4nCOE.js";
-import { a as R, c as T, d as O, i as _, k as f, l as v, n as L, o as S, r as I, s as V, t as u, u as w } from "../chunks/agreement-detail-vpGoPvsT.js";
+import "../chunks/services-my3IdkmQ.js";
+import { a as r, c as i, d as o, f as n, h as E, i as m, l as C, m as l, n as g, o as p, p as c, r as A, s as d, t as D, u as N } from "../chunks/provenance-card-DeTMQyQI.js";
+import { a as R, c as T, d as O, i as _, k as f, l as v, n as L, o as S, r as I, s as V, t as u, u as w } from "../chunks/agreement-detail-aZa2agGP.js";
 import { formatRelativeTime as b, formatTimestamp as h } from "./timeline-formatters.js";
 export {
   u as AgreementDetailPageController,

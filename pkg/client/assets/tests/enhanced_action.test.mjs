@@ -29,6 +29,8 @@ function setGlobals(win) {
   globalThis.HTMLFormElement = win.HTMLFormElement;
   globalThis.HTMLButtonElement = win.HTMLButtonElement;
   globalThis.HTMLInputElement = win.HTMLInputElement;
+  globalThis.HTMLTextAreaElement = win.HTMLTextAreaElement;
+  globalThis.HTMLSelectElement = win.HTMLSelectElement;
   globalThis.FormData = win.FormData;
   globalThis.CustomEvent = win.CustomEvent;
   Object.defineProperty(globalThis, 'navigator', { value: win.navigator, configurable: true });
@@ -116,6 +118,49 @@ test('enhanced-action runtime intercepts forms, sends headers, applies fragments
   assert.equal(reinitialized, 1);
   assert.equal(button.disabled, false);
   assert.equal(form.hasAttribute('aria-busy'), false);
+});
+
+test('enhanced-action runtime uses shared busy labels and spinner reset', async () => {
+  const dom = setupDom(`
+    <form data-enhance-action action="/admin/api/save" method="post">
+      <input name="title" value="Hello">
+      <button type="submit" data-busy-button data-busy-label="Saving...">
+        <span data-busy-spinner hidden></span>
+        <span data-busy-label-target>Save</span>
+      </button>
+    </form>
+  `);
+  let resolveFetch;
+  const fetchDone = new Promise((resolve) => { resolveFetch = resolve; });
+  const fetchImpl = async () => {
+    await fetchDone;
+    return new Response(JSON.stringify({ ok: true }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/vnd.admin.enhanced+json' },
+    });
+  };
+
+  initEnhancedActions(dom.window.document, { fetch: fetchImpl });
+
+  const form = dom.window.document.querySelector('form');
+  const button = dom.window.document.querySelector('button');
+  const label = dom.window.document.querySelector('[data-busy-label-target]');
+  const spinner = dom.window.document.querySelector('[data-busy-spinner]');
+  form.dispatchEvent(new dom.window.Event('submit', { bubbles: true, cancelable: true }));
+
+  assert.equal(form.dataset.busy, 'true');
+  assert.equal(button.disabled, true);
+  assert.equal(label.textContent, 'Saving...');
+  assert.equal(spinner.hidden, false);
+
+  resolveFetch();
+  await nextTick();
+  await nextTick();
+
+  assert.equal(form.dataset.busy, undefined);
+  assert.equal(button.disabled, false);
+  assert.equal(label.textContent, 'Save');
+  assert.equal(spinner.hidden, true);
 });
 
 test('enhanced-action runtime renders field errors without clearing user input', async () => {
@@ -522,7 +567,11 @@ test('applyEnhancedEnvelope dispatches fragment event and skips unsupported mode
   const dom = setupDom('<section id="target">Old</section>');
   const events = [];
   dom.window.document.addEventListener('go-admin:enhanced-fragments-applied', (event) => {
-    events.push(event.detail.fragments.length);
+    events.push({
+      fragments: event.detail.fragments.length,
+      roots: event.detail.roots.length,
+      rootText: event.detail.roots[0].textContent,
+    });
   });
 
   await applyEnhancedEnvelope({
@@ -534,5 +583,65 @@ test('applyEnhancedEnvelope dispatches fragment event and skips unsupported mode
   }, { document: dom.window.document });
 
   assert.equal(dom.window.document.querySelector('#target').textContent, 'New');
-  assert.deepEqual(events, [1]);
+  assert.deepEqual(events, [{ fragments: 1, roots: 1, rootText: 'New' }]);
+});
+
+test('enhanced fragments initialize behavior-enabled controls without page-local JavaScript', async () => {
+  const dom = setupDom('<section id="target">Old</section>');
+
+  await applyEnhancedEnvelope({
+    ok: true,
+    fragments: [{
+      selector: '#target',
+      mode: 'replace',
+      html: `
+        <section id="target">
+          <form data-behavior="submit-busy" action="/native" method="post">
+            <input name="title" value="Hello">
+            <button type="submit" data-busy-label="Saving">
+              <span data-busy-label-target>Save</span>
+            </button>
+          </form>
+        </section>
+      `,
+    }],
+  }, { document: dom.window.document });
+
+  const form = dom.window.document.querySelector('form');
+  const button = dom.window.document.querySelector('button');
+  const event = new dom.window.Event('submit', { bubbles: true, cancelable: true });
+  form.dispatchEvent(event);
+
+  assert.equal(event.defaultPrevented, false);
+  assert.equal(form.dataset.busy, 'true');
+  assert.equal(button.disabled, true);
+  assert.equal(dom.window.document.querySelector('[data-busy-label-target]').textContent, 'Saving');
+});
+
+test('enhanced fragment replacement keeps inline scripts inert for behavior binding', async () => {
+  const dom = setupDom('<section id="target">Old</section>');
+
+  await applyEnhancedEnvelope({
+    ok: true,
+    fragments: [{
+      selector: '#target',
+      mode: 'replace',
+      html: `
+        <section id="target">
+          <script>window.__enhancedFragmentScriptExecuted = true;</script>
+          <form data-behavior="submit-busy" action="/native" method="post">
+            <input name="title" value="Hello">
+            <button type="submit">Save</button>
+          </form>
+        </section>
+      `,
+    }],
+  }, { document: dom.window.document });
+
+  assert.equal(dom.window.__enhancedFragmentScriptExecuted, undefined);
+
+  const form = dom.window.document.querySelector('form');
+  form.dispatchEvent(new dom.window.Event('submit', { bubbles: true, cancelable: true }));
+
+  assert.equal(form.dataset.busy, 'true');
 });
