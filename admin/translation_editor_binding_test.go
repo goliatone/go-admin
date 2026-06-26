@@ -107,6 +107,16 @@ func (s editorSuggestionActionService) EvaluateTranslationSuggestionAction(conte
 	return s.decision, nil
 }
 
+func registerEditorSuggestionCommand(t *testing.T, adm *Admin, service TranslationSuggestionService) func() {
+	t.Helper()
+	if err := RegisterTranslationSuggestionCommands(adm.Commands(), service); err != nil {
+		t.Fatalf("RegisterTranslationSuggestionCommands: %v", err)
+	}
+	cleanup := adm.Commands().Reset
+	t.Cleanup(cleanup)
+	return cleanup
+}
+
 func translationEditorFieldByPath(t *testing.T, data map[string]any, path string) map[string]any {
 	t.Helper()
 	for _, raw := range anySliceFromValue(data["fields"]) {
@@ -527,9 +537,11 @@ func TestTranslationEditorAssignmentDetailSuggestionActionEnabled(t *testing.T) 
 	fixture := newTranslationEditorTestFixture(t, translationEditorTestFixtureOptions{
 		Permissions: map[string]bool{PermAdminTranslationsSuggest: true},
 	})
-	fixture.admin.WithTranslationSuggestionService(editorSuggestionActionService{
+	service := editorSuggestionActionService{
 		decision: TranslationSuggestionDecision{Allowed: true},
-	})
+	}
+	fixture.admin.WithTranslationSuggestionService(service)
+	registerEditorSuggestionCommand(t, fixture.admin, service)
 	fixture.admin.config.Commands.RPC.Commands = map[string]RPCCommandRule{
 		TranslationSuggestionGenerateCommandName: DefaultTranslationSuggestionRPCCommandRule(),
 	}
@@ -564,13 +576,43 @@ func TestTranslationEditorAssignmentDetailSuggestionActionEnabled(t *testing.T) 
 	}
 }
 
-func TestTranslationEditorAssignmentDetailSuggestionActionDisabledForQueuedExecutionMode(t *testing.T) {
+func TestTranslationEditorAssignmentDetailSuggestionActionDisabledWithoutCommandRegistration(t *testing.T) {
 	fixture := newTranslationEditorTestFixture(t, translationEditorTestFixtureOptions{
 		Permissions: map[string]bool{PermAdminTranslationsSuggest: true},
 	})
 	fixture.admin.WithTranslationSuggestionService(editorSuggestionActionService{
 		decision: TranslationSuggestionDecision{Allowed: true},
 	})
+	fixture.admin.config.Commands.RPC.Commands = map[string]RPCCommandRule{
+		TranslationSuggestionGenerateCommandName: DefaultTranslationSuggestionRPCCommandRule(),
+	}
+
+	status, payload := doTranslationEditorJSONRequest(t, fixture.app, http.MethodGet, "/admin/api/translations/assignments/"+fixture.assignmentID+"?channel=production&tenant_id=tenant-1&org_id=org-1", nil)
+	if status != http.StatusOK {
+		t.Fatalf("status=%d want=200 payload=%+v", status, payload)
+	}
+	title := translationEditorFieldByPath(t, extractMap(payload["data"]), "title")
+	fieldAction := extractMap(title["suggest_translation_action"])
+	if enabled := toBool(fieldAction["enabled"]); enabled {
+		t.Fatalf("expected suggestion action disabled without command registration, got %+v", fieldAction)
+	}
+	if got := toString(fieldAction["reason_code"]); got != "command_unavailable" {
+		t.Fatalf("expected command_unavailable reason, got %q in %+v", got, fieldAction)
+	}
+	if registered := toBool(fieldAction["command_registered"]); registered {
+		t.Fatalf("expected command_registered=false, got %+v", fieldAction)
+	}
+}
+
+func TestTranslationEditorAssignmentDetailSuggestionActionDisabledForQueuedExecutionMode(t *testing.T) {
+	fixture := newTranslationEditorTestFixture(t, translationEditorTestFixtureOptions{
+		Permissions: map[string]bool{PermAdminTranslationsSuggest: true},
+	})
+	service := editorSuggestionActionService{
+		decision: TranslationSuggestionDecision{Allowed: true},
+	}
+	fixture.admin.WithTranslationSuggestionService(service)
+	registerEditorSuggestionCommand(t, fixture.admin, service)
 	fixture.admin.config.Commands.RPC.Commands = map[string]RPCCommandRule{
 		TranslationSuggestionGenerateCommandName: DefaultTranslationSuggestionRPCCommandRule(),
 	}
@@ -604,7 +646,9 @@ func TestTranslationEditorAssignmentDetailSuggestionActionReadOnlyAndPolicyDenie
 		AssignmentStatus: AssignmentStatusApproved,
 		Permissions:      map[string]bool{PermAdminTranslationsSuggest: true},
 	})
-	readOnly.admin.WithTranslationSuggestionService(editorSuggestionActionService{decision: TranslationSuggestionDecision{Allowed: true}})
+	readOnlyService := editorSuggestionActionService{decision: TranslationSuggestionDecision{Allowed: true}}
+	readOnly.admin.WithTranslationSuggestionService(readOnlyService)
+	registerEditorSuggestionCommand(t, readOnly.admin, readOnlyService)
 	readOnly.admin.config.Commands.RPC.Commands = map[string]RPCCommandRule{
 		TranslationSuggestionGenerateCommandName: DefaultTranslationSuggestionRPCCommandRule(),
 	}
@@ -616,15 +660,18 @@ func TestTranslationEditorAssignmentDetailSuggestionActionReadOnlyAndPolicyDenie
 	if got := toString(action["reason_code"]); got != TranslationSuggestionReasonReadOnlyAssignment {
 		t.Fatalf("expected read-only reason, got %q in %+v", got, action)
 	}
+	readOnly.admin.Commands().Reset()
 
 	denied := newTranslationEditorTestFixture(t, translationEditorTestFixtureOptions{
 		Permissions: map[string]bool{PermAdminTranslationsSuggest: true},
 	})
-	denied.admin.WithTranslationSuggestionService(editorSuggestionActionService{decision: TranslationSuggestionDecision{
+	deniedService := editorSuggestionActionService{decision: TranslationSuggestionDecision{
 		Allowed:    false,
 		ReasonCode: TranslationSuggestionReasonQuotaExceeded,
 		Reason:     "Quota exhausted.",
-	}})
+	}}
+	denied.admin.WithTranslationSuggestionService(deniedService)
+	registerEditorSuggestionCommand(t, denied.admin, deniedService)
 	denied.admin.config.Commands.RPC.Commands = map[string]RPCCommandRule{
 		TranslationSuggestionGenerateCommandName: DefaultTranslationSuggestionRPCCommandRule(),
 	}

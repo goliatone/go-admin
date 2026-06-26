@@ -130,8 +130,6 @@ func TestTranslationCapabilitiesExposeActionPermissionStates(t *testing.T) {
 }
 
 func TestTranslationCapabilitiesExposeSuggestionCommandMetadata(t *testing.T) {
-	t.Parallel()
-
 	adm := mustNewAdmin(t, Config{
 		BasePath: "/admin",
 		Commands: CommandConfig{
@@ -144,7 +142,12 @@ func TestTranslationCapabilitiesExposeSuggestionCommandMetadata(t *testing.T) {
 	}, Dependencies{
 		FeatureGate: featureGateFromKeys(FeatureCMS, FeatureTranslationQueue),
 	})
-	adm.WithTranslationSuggestionService(&stubTranslationSuggestionService{})
+	service := &stubTranslationSuggestionService{}
+	adm.WithTranslationSuggestionService(service)
+	if err := RegisterTranslationSuggestionCommands(adm.Commands(), service); err != nil {
+		t.Fatalf("RegisterTranslationSuggestionCommands: %v", err)
+	}
+	t.Cleanup(adm.Commands().Reset)
 	adm.WithAuthorizer(translationPermissionAuthorizer{
 		allowed: map[string]bool{
 			PermAdminTranslationsView:    true,
@@ -164,6 +167,12 @@ func TestTranslationCapabilitiesExposeSuggestionCommandMetadata(t *testing.T) {
 	if rpcAllowed, _ := suggestions["rpc_allowed"].(bool); !rpcAllowed {
 		t.Fatalf("expected suggestion rpc_allowed in feature metadata, got %+v", suggestions)
 	}
+	if registered, _ := suggestions["command_registered"].(bool); !registered {
+		t.Fatalf("expected suggestion command_registered in feature metadata, got %+v", suggestions)
+	}
+	if inline, _ := suggestions["inline_result_supported"].(bool); !inline {
+		t.Fatalf("expected suggestion inline_result_supported in feature metadata, got %+v", suggestions)
+	}
 
 	queue := extractMap(extractMap(caps["modules"])["queue"])
 	suggest := extractMap(extractMap(queue["actions"])["suggest"])
@@ -172,6 +181,9 @@ func TestTranslationCapabilitiesExposeSuggestionCommandMetadata(t *testing.T) {
 	}
 	if got := strings.TrimSpace(toString(suggest["permission"])); got != PermAdminTranslationsSuggest {
 		t.Fatalf("expected suggest permission %q, got %q", PermAdminTranslationsSuggest, got)
+	}
+	if registered, _ := suggest["command_registered"].(bool); !registered {
+		t.Fatalf("expected suggest action command_registered, got %+v", suggest)
 	}
 }
 
@@ -208,6 +220,55 @@ func TestTranslationCapabilitiesDisableSuggestionsWhenRPCUnavailable(t *testing.
 	}
 	if got := strings.TrimSpace(toString(suggest["reason_code"])); got != "transport_unavailable" {
 		t.Fatalf("expected transport_unavailable action reason, got %q in %+v", got, suggest)
+	}
+}
+
+func TestTranslationCapabilitiesDisableSuggestionsWhenCommandUnregistered(t *testing.T) {
+	adm := mustNewAdmin(t, Config{
+		BasePath: "/admin",
+		Commands: CommandConfig{
+			RPC: RPCCommandConfig{
+				Commands: map[string]RPCCommandRule{
+					TranslationSuggestionGenerateCommandName: DefaultTranslationSuggestionRPCCommandRule(),
+				},
+			},
+		},
+	}, Dependencies{
+		FeatureGate: featureGateFromKeys(FeatureCMS, FeatureTranslationQueue),
+	})
+	adm.WithTranslationSuggestionService(&stubTranslationSuggestionService{})
+	adm.WithAuthorizer(translationPermissionAuthorizer{
+		allowed: map[string]bool{
+			PermAdminTranslationsView:    true,
+			PermAdminTranslationsSuggest: true,
+		},
+	})
+
+	caps := TranslationCapabilitiesForContext(adm, context.Background())
+	suggestions := extractMap(extractMap(caps["features"])["suggestions"])
+	if enabled, _ := suggestions["enabled"].(bool); enabled {
+		t.Fatalf("expected suggestions feature disabled without command registration, got %+v", suggestions)
+	}
+	if rpcAllowed, _ := suggestions["rpc_allowed"].(bool); !rpcAllowed {
+		t.Fatalf("expected rpc_allowed=true with RPC rule, got %+v", suggestions)
+	}
+	if registered, _ := suggestions["command_registered"].(bool); registered {
+		t.Fatalf("expected command_registered=false without command registration, got %+v", suggestions)
+	}
+	if got := strings.TrimSpace(toString(suggestions["reason_code"])); got != "command_unavailable" {
+		t.Fatalf("expected command_unavailable feature reason, got %q in %+v", got, suggestions)
+	}
+
+	queue := extractMap(extractMap(caps["modules"])["queue"])
+	suggest := extractMap(extractMap(queue["actions"])["suggest"])
+	if enabled, _ := suggest["enabled"].(bool); enabled {
+		t.Fatalf("expected suggest action disabled without command registration, got %+v", suggest)
+	}
+	if registered, _ := suggest["command_registered"].(bool); registered {
+		t.Fatalf("expected suggest action command_registered=false, got %+v", suggest)
+	}
+	if got := strings.TrimSpace(toString(suggest["reason_code"])); got != "command_unavailable" {
+		t.Fatalf("expected command_unavailable action reason, got %q in %+v", got, suggest)
 	}
 }
 
