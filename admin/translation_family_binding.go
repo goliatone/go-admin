@@ -2057,6 +2057,76 @@ func translationCreateVariantNavigationPayloadForRecord(contentType, recordID, l
 	}
 }
 
+func translationContentNavigationPayloadForRecord(contentType, recordID, locale, channel, basePath string, access ...translationContentNavigationAccess) map[string]any {
+	if strings.TrimSpace(recordID) == "" || strings.TrimSpace(contentType) == "" {
+		return nil
+	}
+	navAccess := translationContentNavigationAccess{CanView: true, CanEdit: true}
+	if len(access) > 0 {
+		navAccess = access[0]
+	}
+	base := strings.TrimRight(strings.TrimSpace(firstNonEmpty(basePath, "/admin")), "/")
+	if base == "" {
+		base = "/admin"
+	}
+	contentBase := base + "/content/" + neturl.PathEscape(strings.TrimSpace(contentType)) + "/" + neturl.PathEscape(strings.TrimSpace(recordID))
+	detailURL := ""
+	if navAccess.CanView {
+		detailURL = translationContentNavigationURL(contentBase, locale, channel)
+	}
+	editURL := ""
+	if navAccess.CanEdit {
+		editURL = translationContentNavigationURL(contentBase+"/edit", locale, channel)
+	}
+	if detailURL == "" && editURL == "" {
+		return nil
+	}
+	out := map[string]any{
+		"content_type":       strings.TrimSpace(contentType),
+		"record_id":          strings.TrimSpace(recordID),
+		"locale":             strings.TrimSpace(locale),
+		"channel":            strings.TrimSpace(channel),
+		"detail_url":         detailURL,
+		"edit_url":           editURL,
+		"content_detail_url": detailURL,
+		"content_edit_url":   editURL,
+		"can_view":           navAccess.CanView,
+		"can_edit":           navAccess.CanEdit,
+	}
+	if navAccess.Resource != "" {
+		out["resource"] = navAccess.Resource
+	}
+	if navAccess.ViewPermission != "" {
+		out["view_permission"] = navAccess.ViewPermission
+	}
+	if navAccess.EditPermission != "" {
+		out["edit_permission"] = navAccess.EditPermission
+	}
+	if !navAccess.CanEdit && navAccess.Reason != "" {
+		out["edit_disabled_reason"] = navAccess.Reason
+		out["edit_disabled_reason_code"] = navAccess.ReasonCode
+	}
+	return out
+}
+
+func translationContentNavigationURL(baseURL, locale, channel string) string {
+	baseURL = strings.TrimSpace(baseURL)
+	if baseURL == "" {
+		return ""
+	}
+	query := neturl.Values{}
+	if locale = strings.TrimSpace(locale); locale != "" {
+		query.Set("locale", locale)
+	}
+	if channel = strings.TrimSpace(channel); channel != "" {
+		query.Set("channel", channel)
+	}
+	if encoded := query.Encode(); encoded != "" {
+		return baseURL + "?" + encoded
+	}
+	return baseURL
+}
+
 func isTranslationVariantAlreadyExists(err error) bool {
 	var translationExists TranslationAlreadyExistsError
 	return errors.As(err, &translationExists) || errors.Is(err, ErrTranslationAlreadyExists)
