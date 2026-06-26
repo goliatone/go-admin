@@ -50,6 +50,7 @@ cannot be configured or safely extended.
 | Row/detail/bulk mutations for panels | Schema actions and panel action routes | `docs/GUIDE_CRUD.md`, `docs/GUIDE_ACTIONS.md` |
 | Custom page command without full reload | Command runtime over RPC | `pkg/client/assets/src/services/command-runtime.ts`, `docs/GUIDE_RPC.md` |
 | Progressive enhancement for server-rendered forms/actions | Enhanced SSR actions | `pkg/client/assets/src/shared/enhanced-action.ts`, `docs/GUIDE_ACTIONS.md` |
+| Declarative button/form busy state | Shared behavior layer | `pkg/client/assets/src/shared/behaviors/`, `docs/GUIDE_UI_PRIMITIVES.md#busy-buttons-and-submit-feedback` |
 | Toast notifications | Global toast manager / notifier contract | `pkg/client/assets/src/toast/`, `pkg/client/templates/partials/toast-container.html` |
 | Structured error display | Toast error helpers | `pkg/client/assets/src/toast/error-helpers.ts` |
 | Page headers, menus, filters, badges, tabs, metrics | Template partials | `pkg/client/templates/partials/`, `docs/GUIDE_UI_PRIMITIVES.md` |
@@ -130,6 +131,53 @@ Default rules:
 
 Server enhanced actions should return toast data through the enhanced mutation
 envelope rather than forcing browser code to infer success copy.
+
+## Behavior Layer And Busy State
+
+Use the shared behavior layer for small framework-free DOM behaviors that
+should work across SSR pages, Enhanced SSR actions, RPC command controls, and
+imperative page helpers. The behavior runtime lives in
+`pkg/client/assets/src/shared/behaviors/`; the shipped Vite entry is
+`shared/behaviors/index`.
+
+Preferred form markup keeps native submit behavior intact and adds declarative
+busy state only as an enhancement:
+
+```html
+<form method="post" action="/admin/example" data-behavior="submit-busy">
+  <button type="submit"
+          data-busy-button
+          data-busy-label="Saving...">
+    <span data-busy-spinner hidden></span>
+    <span data-busy-label-target>Save</span>
+  </button>
+</form>
+```
+
+Use behavior attributes for visual interaction state. Use transport attributes
+such as `data-enhance-action`, `data-command-*`, and DataGrid action metadata
+for request dispatch, command identity, refresh targets, and server semantics.
+
+Initialization rules:
+
+- Existing transport runtimes call the low-level busy helpers directly.
+- A page that relies only on declarative `data-behavior="submit-busy"` markup
+  must load a bundle that calls `initBehaviors(...)` or
+  `bootstrapBehaviors(...)`.
+- Native submit-busy behavior ignores `form[data-enhance-action]`; Enhanced
+  SSR forms should use `data-busy-*` submitter markup and let
+  `initEnhancedActions(...)` own submission.
+- Enhanced SSR fragment replacement reinitializes behavior hooks for applied
+  fragment roots and emits `go-admin:enhanced-fragments-applied` with those
+  roots.
+- Fragments must not rely on inline scripts or inline event handlers as
+  behavior-extension mechanisms.
+
+Compatibility aliases remain for older login markup:
+`data-submit-loading-form`, `submit-loading-button`,
+`data-submit-loading-busy-label`, `data-submit-loading-label`, and
+`.submit-loading-spinner`. Prefer the canonical `data-busy-*` attributes for
+new templates.
 
 ## Client To Server Communication
 
@@ -221,8 +269,11 @@ Use declarative command attributes for custom page controls:
   data-command-dispatch="esign.agreements.notify_reviewers"
   data-command-payload-participant-id="participant_123"
   data-command-refresh="#agreement-review-status-panel,#review-participants-panel"
+  data-busy-button
+  data-busy-label="Notifying..."
 >
-  Notify
+  <span data-busy-spinner hidden></span>
+  <span data-busy-label-target>Notify</span>
 </button>
 ```
 

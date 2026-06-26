@@ -243,14 +243,28 @@ Use semantic forms:
   <input type="hidden" name="target_locale" value="fr">
   <input type="hidden" name="work_scope" value="localization">
   <input type="hidden" name="assignee_id" value="translator-1">
-  <button type="submit">Assign</button>
+  <button type="submit"
+          data-busy-button
+          data-busy-label="Assigning...">
+    <span data-busy-spinner hidden></span>
+    <span data-busy-label-target>Assign</span>
+  </button>
   <div data-family-assignment-error-for="fr:localization" hidden></div>
 </form>
 ```
 
 The shared runtime lives in `pkg/client/assets/src/shared/enhanced-action.ts`.
-Page modules import `initEnhancedActions(...)`, then reinitialize local widgets
-from `onFragmentsApplied` when fragments replace controls.
+Page modules import `initEnhancedActions(...)`. Enhanced actions reuse the
+shared busy behavior from `pkg/client/assets/src/shared/behaviors/`, so forms
+and submitters may use the canonical `data-busy-*` attributes documented in
+`docs/GUIDE_UI_PRIMITIVES.md`. Do not add `data-behavior="submit-busy"` to
+Enhanced SSR forms; the enhanced runtime owns submit interception and starts
+shared busy state directly.
+
+After fragment replacement, the enhanced runtime initializes behavior hooks for
+the applied roots and then emits `go-admin:enhanced-fragments-applied` with the
+same roots. Page modules should use `onFragmentsApplied` for page-specific
+widgets only.
 
 ### Fragment rules
 
@@ -258,6 +272,8 @@ from `onFragmentsApplied` when fragments replace controls.
 - Use server-authored selectors from a known page registry.
 - Use `replace` mode until a page has a proven append/prepend need.
 - Do not execute inline scripts from fragments.
+- Do not use inline scripts or inline event handlers as behavior-extension
+  mechanisms; ship behavior through shared or page-specific bundles.
 - Reuse the same presenter data as first-paint SSR.
 
 The translation family pilot uses:

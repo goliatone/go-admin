@@ -49,6 +49,44 @@ For translation actions that need lifecycle metadata, keep both layers:
 
 Do not rename shared action-menu or enhanced-action hooks to translation-specific names. For example, use `data-action-menu`, not `data-translation-action-menu`; use `data-enhance-action="true"`, not a translation-prefixed replacement.
 
+## Busy Buttons And Submit Feedback
+
+Use the shared behavior layer for submit/loading feedback instead of page-local
+spinner code. New markup should prefer canonical `data-busy-*` attributes:
+
+```html
+<form method="post" action="/admin/example" data-behavior="submit-busy">
+  <button type="submit"
+          data-busy-button
+          data-busy-label="Saving...">
+    <span data-busy-spinner hidden></span>
+    <span data-busy-label-target>Save</span>
+  </button>
+</form>
+```
+
+Rules:
+
+- Keep the form valid without JavaScript: `method`, `action`, CSRF fields,
+  submitter names/values, and server redirect or flash fallback still matter.
+- Use `data-behavior="submit-busy"` for native submit busy state.
+- Use `data-busy-button` on the submitter or command trigger.
+- Use `data-busy-label` and `data-busy-label-target` when the visible label
+  should change while busy.
+- For buttons with icons or nested markup, include `data-busy-label-target`
+  so only the label text changes.
+- Prefer an explicit `[data-busy-spinner]` element for stable layout. The busy
+  helper can generate a minimal spinner for imperative helpers when needed.
+- Use `data-enhance-action` and `data-command-*` only for transport semantics,
+  not for visual loading state.
+- Do not add `data-behavior="submit-busy"` to Enhanced SSR forms; use
+  `data-busy-*` on the submitter and let the enhanced runtime own submission.
+
+Compatibility aliases still work for older login submit markup:
+`data-submit-loading-form`, `submit-loading-button`,
+`data-submit-loading-busy-label`, `data-submit-loading-label`, and
+`.submit-loading-spinner`. Do not use those aliases for new templates.
+
 ## Template Partials
 
 ### Action Menu
