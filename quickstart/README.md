@@ -119,11 +119,12 @@ password-change gate, and recovery flow.
 - `WithModuleFeatureGates(gates gate.FeatureGate) ModuleRegistrarOption` - Inputs: feature gate; outputs: option to filter modules/menu items.
 - `WithModuleFeatureDisabledHandler(handler func(feature, moduleID string) error) ModuleRegistrarOption` - Inputs: handler; outputs: option for disabled modules.
 - `WithTranslationCapabilityMenuMode(mode TranslationCapabilityMenuMode) ModuleRegistrarOption` - Inputs: translation menu seeding mode (`tools` default, `none` opt-out); outputs: option controlling whether translation dashboard/queue/exchange links are added to server-seeded navigation.
-- `BuildMenuSeedPlan(opts MenuSeedPlanOptions) (MenuSeedPlan, error)` - Inputs: menu code/locale, module contributors, optional parent replacement, module/target parent overrides, item transforms, and extra base items. Outputs: deterministic expected generated menu rows used by quickstart seeding and reconciliation.
+- `BuildMenuSeedPlan(opts MenuSeedPlanOptions) (MenuSeedPlan, error)` - Inputs: menu code/locale, module contributors, optional parent replacement, module/target parent overrides, base item transforms, module item transforms, and extra base items. Outputs: deterministic expected generated menu rows used by quickstart seeding and reconciliation.
 - `WithMenuSeedPlanOptions(mutator func(*MenuSeedPlanOptions)) ModuleRegistrarOption` - Inputs: mutator for the expected menu seed plan. Outputs: option for advanced host layout control before generated rows are reconciled.
 - `WithMenuSeedParents(parents ...admin.MenuItem) ModuleRegistrarOption` - Inputs: host-defined parent/group rows. Outputs: option that replaces default quickstart parent groups for the primary menu while retaining module and translation capability collection.
 - `WithMenuSeedTargetParentOverride(targetKey, parentID string) ModuleRegistrarOption` - Inputs: stable menu target key and parent ID. Outputs: option that moves matching generated rows without copying quickstart seed internals.
 - `WithMenuSeedModuleParentOverride(moduleID, parentID string) ModuleRegistrarOption` - Inputs: module ID and parent ID. Outputs: option that moves all menu rows contributed by that module under the given parent.
+- `WithMenuSeedBaseItemTransform(transforms ...MenuSeedBaseItemTransform) ModuleRegistrarOption` - Inputs: transforms for quickstart base/capability rows such as translation dashboard, queue, assignments, and exchange links. Outputs: option for host label, target, permission, parent, or sparse sort-weight tweaks before generated rows are reconciled.
 - `WithMenuSeedItemTransform(transforms ...MenuSeedItemTransform) ModuleRegistrarOption` - Inputs: transforms for module-contributed menu rows. Outputs: option for host label, permission, parent, or sparse sort-weight tweaks before generated rows are reconciled.
 - `ReconcileGeneratedNavigation(ctx context.Context, opts NavigationReconcileOptions) (NavigationReconcileReport, error)` - Inputs: menu service, expected items, locale, menu code, apply/dry-run mode, and optional destructive cleanup. Outputs: creates, updates, preserved user rows, duplicate identities, destructive candidates, stale target cleanup, route failures, capability omissions, permission-filtered rows, preserved generated fields, and parent-prune diagnostics.
 - `DefaultContentParentPermissions() []string` - Outputs: canonical permission set used by the default sidebar `Content` parent (`media`, `content_types`, `block_definitions`).
@@ -1956,6 +1957,15 @@ quickstart.NewModuleRegistrar(
         Collapsible: true,
     }),
     quickstart.WithMenuSeedTargetParentOverride("translation_queue", "host.nav"),
+    quickstart.WithMenuSeedBaseItemTransform(func(item *admin.MenuItem) {
+        if item == nil || item.Target["key"] != "translation_dashboard" {
+            return
+        }
+        item.Label = "Translations"
+        item.LabelKey = "menu.translations.overview"
+        item.Target["name"] = "admin.translations.overview"
+        item.Target["breadcrumb_label"] = "Translation Center"
+    }),
     quickstart.WithMenuSeedModuleParentOverride("reports", "host.nav"),
     quickstart.WithMenuSeedItemTransform(func(moduleID string, item *admin.MenuItem) {
         if moduleID == "reports" && item != nil {
@@ -1964,6 +1974,14 @@ quickstart.NewModuleRegistrar(
     }),
 )
 ```
+
+Use `WithMenuSeedBaseItemTransform` for quickstart-owned base/capability rows,
+including translation capability links. Use `WithMenuSeedItemTransform` for
+rows returned by module `MenuItems(locale)` contributors. Hosts that pin
+`github.com/goliatone/go-admin` and `github.com/goliatone/go-admin/quickstart`
+separately should upgrade both modules together when adopting base-item
+transforms so the seed-plan API and generated navigation reconciliation stay in
+sync.
 
 Use `ReconcileGeneratedNavigation` directly when you need a dry-run report
 before applying changes:

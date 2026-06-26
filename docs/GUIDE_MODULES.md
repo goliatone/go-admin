@@ -2236,6 +2236,7 @@ if err != nil {
 | `WithMenuSeedParents(items...)`        | Replace quickstart default primary-menu parent groups |
 | `WithMenuSeedTargetParentOverride(targetKey, parentID)` | Move rows by stable target key |
 | `WithMenuSeedModuleParentOverride(moduleID, parentID)` | Move all rows contributed by a module |
+| `WithMenuSeedBaseItemTransform(fns...)` | Adjust quickstart base/capability rows before reconciliation |
 | `WithMenuSeedItemTransform(fns...)`    | Adjust module-contributed rows before reconciliation |
 | `WithModuleFeatureGates(gates)`        | Enable feature-gated module filtering |
 | `WithModuleFeatureDisabledHandler(fn)` | Custom handler for disabled modules   |
@@ -2304,6 +2305,33 @@ quickstart.NewModuleRegistrar(
     quickstart.WithMenuSeedModuleParentOverride("reports", "host.nav"),
 )
 ```
+
+Base/capability rows are quickstart-owned rows, such as translation dashboard,
+queue, assignments, and exchange links. Module item transforms do not see those
+rows. Use `WithMenuSeedBaseItemTransform` when the host needs to customize a
+quickstart-owned row before generated navigation reconciliation:
+
+```go
+quickstart.NewModuleRegistrar(
+    adm, cfg, modules, isDev,
+    quickstart.WithMenuSeedTargetParentOverride("translation_dashboard", "host.nav"),
+    quickstart.WithMenuSeedBaseItemTransform(func(item *admin.MenuItem) {
+        if item == nil || item.Target["key"] != "translation_dashboard" {
+            return
+        }
+        item.Label = "Translations"
+        item.LabelKey = "menu.translations.overview"
+        item.Target["name"] = "admin.translations.overview"
+        item.Target["breadcrumb_label"] = "Translation Center"
+    }),
+)
+```
+
+Use `WithMenuSeedItemTransform` only for rows returned by module
+`MenuItems(locale)` contributors. Hosts that pin `go-admin` and
+`go-admin/quickstart` independently should upgrade both together when adopting
+base-item transforms so the seed-plan API and generated navigation reconciler
+come from compatible releases.
 
 For troubleshooting or migrations, call `ReconcileGeneratedNavigation` with
 `Apply: false` first and inspect `Creates`, `Updates`,
