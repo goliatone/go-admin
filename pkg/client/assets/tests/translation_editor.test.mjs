@@ -514,6 +514,8 @@ function makeEmptySourceFixture() {
       channel: 'production',
       detail_url: '/admin/content/pages/page-1?channel=production&locale=en',
       edit_url: '/admin/content/pages/page-1/edit?channel=production&locale=en',
+      can_view: true,
+      can_edit: true,
       label: 'Edit source content',
       detail_label: 'View source content',
     },
@@ -549,6 +551,49 @@ function makeEmptySourceFixture() {
     ...next.data.source_fields,
     path: '',
     title: '',
+  };
+  return next;
+}
+
+function makeEmptyRequiredSourceCompleteTargetFixture() {
+  const next = makeEmptySourceFixture();
+  next.data.target_fields = {
+    ...next.data.target_fields,
+    title: 'Titre deja saisi',
+  };
+  next.data.field_completeness = {
+    ...next.data.field_completeness,
+    title: {
+      required: true,
+      complete: true,
+      missing: false,
+    },
+  };
+  next.data.fields = next.data.fields.map((field) => {
+    if (field.path !== 'title') return field;
+    return {
+      ...field,
+      target_value: 'Titre deja saisi',
+      completeness: {
+        required: true,
+        complete: true,
+        missing: false,
+      },
+    };
+  });
+  return next;
+}
+
+function makeEmptyRequiredSourceViewOnlyFixture() {
+  const next = makeEmptySourceFixture();
+  next.data.content_navigation.source = {
+    ...next.data.content_navigation.source,
+    edit_url: '',
+    content_edit_url: '',
+    can_edit: false,
+    edit_disabled_reason: 'You do not have permission to edit this content.',
+    edit_disabled_reason_code: 'permission_denied',
+    label: 'View source content',
   };
   return next;
 }
@@ -1830,6 +1875,32 @@ test('translation editor runtime: distinguishes optional and required empty sour
   assert.match(html, /data-copy-source="title"[\s\S]*disabled aria-disabled="true"/);
   assert.doesNotMatch(html, /data-suggest-translation="title"/);
   assert.doesNotMatch(html, /No source text for this field/);
+});
+
+test('translation editor runtime: summary source action is independent from target completeness', () => {
+  const detail = normalizeAssignmentEditorDetail(makeEmptyRequiredSourceCompleteTargetFixture());
+  const html = renderTranslationEditorState(
+    { status: 'ready', detail },
+    createTranslationEditorState(detail)
+  );
+
+  assert.match(html, /Source text pending - required field/);
+  assert.match(html, /source required pending/);
+  assert.match(html, /data-source-content-action="summary"/);
+  assert.match(html, /data-source-content-action="field"/);
+  assert.doesNotMatch(html, /1 missing required/);
+});
+
+test('translation editor runtime: source action falls back to detail link without edit permission', () => {
+  const detail = normalizeAssignmentEditorDetail(makeEmptyRequiredSourceViewOnlyFixture());
+  const html = renderTranslationEditorState(
+    { status: 'ready', detail },
+    createTranslationEditorState(detail)
+  );
+
+  assert.match(html, /View source content/);
+  assert.match(html, /href="\/admin\/content\/pages\/page-1\?channel=production&amp;locale=en"/);
+  assert.doesNotMatch(html, /href="\/admin\/content\/pages\/page-1\/edit/);
 });
 
 test('translation editor runtime: suppresses repeated hash-only drift field warnings', () => {

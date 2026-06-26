@@ -280,6 +280,10 @@ export interface TranslationEditorContentNavigationEntry {
   edit_url: string;
   content_detail_url: string;
   content_edit_url: string;
+  can_view: boolean;
+  can_edit: boolean;
+  edit_disabled_reason: string;
+  edit_disabled_reason_code: string;
   label: string;
   detail_label: string;
 }
@@ -1029,6 +1033,10 @@ function normalizeContentNavigationEntry(value: unknown): TranslationEditorConte
     edit_url: editURL,
     content_detail_url: asString(record.content_detail_url) || detailURL,
     content_edit_url: asString(record.content_edit_url) || editURL,
+    can_view: Object.prototype.hasOwnProperty.call(record, 'can_view') ? asBoolean(record.can_view) : Boolean(detailURL),
+    can_edit: Object.prototype.hasOwnProperty.call(record, 'can_edit') ? asBoolean(record.can_edit) : Boolean(editURL),
+    edit_disabled_reason: asString(record.edit_disabled_reason),
+    edit_disabled_reason_code: asString(record.edit_disabled_reason_code),
     label: asString(record.label) || 'Edit content',
     detail_label: asString(record.detail_label) || 'View content',
   };
@@ -2077,6 +2085,7 @@ interface EditorFieldIssueSummary {
   totalFields: number;
   completeFields: number;
   missingRequiredFields: number;
+  missingRequiredSourceFields: number;
   sourceChangedFields: number;
   validationErrors: number;
   qaBlockers: number;
@@ -2095,9 +2104,11 @@ function computeFieldIssueSummary(detail: TranslationAssignmentEditorDetail): Ed
     qaFinding: null,
     sourceDrift: null,
   };
+  let firstMissingRequiredSourcePath: string | null = null;
 
   let completeFields = 0;
   let missingRequiredFields = 0;
+  let missingRequiredSourceFields = 0;
   let sourceChangedFields = 0;
   let validationErrors = 0;
 
@@ -2111,6 +2122,11 @@ function computeFieldIssueSummary(detail: TranslationAssignmentEditorDetail): Ed
     if (field.completeness.required && field.completeness.missing) {
       missingRequiredFields++;
       if (!targets.missing) targets.missing = field.path;
+    }
+
+    if (field.required && !field.source_value.trim()) {
+      missingRequiredSourceFields++;
+      if (!firstMissingRequiredSourcePath) firstMissingRequiredSourcePath = field.path;
     }
 
     // Count source drift
@@ -2141,11 +2157,12 @@ function computeFieldIssueSummary(detail: TranslationAssignmentEditorDetail): Ed
     totalFields: fields.length,
     completeFields,
     missingRequiredFields,
+    missingRequiredSourceFields,
     sourceChangedFields,
     validationErrors,
     qaBlockers: qa.enabled ? qa.summary.blocker_count : 0,
     qaWarnings: qa.enabled ? qa.summary.warning_count : 0,
-    firstIssuePath: targets.missing || targets.validation || targets.qaBlocker || targets.qaFinding || targets.sourceDrift,
+    firstIssuePath: firstMissingRequiredSourcePath || targets.missing || targets.validation || targets.qaBlocker || targets.qaFinding || targets.sourceDrift,
   };
 }
 
@@ -2192,12 +2209,14 @@ function renderFieldIssueSummary(
   sourceNavigation?: TranslationEditorContentNavigationEntry
 ): string {
   const hasIssues = summary.missingRequiredFields > 0
+    || summary.missingRequiredSourceFields > 0
     || summary.sourceChangedFields > 0
     || summary.validationErrors > 0
     || summary.qaBlockers > 0;
 
   const isReadyToSubmit = summary.completeFields === summary.totalFields
     && summary.missingRequiredFields === 0
+    && summary.missingRequiredSourceFields === 0
     && summary.validationErrors === 0
     && summary.qaBlockers === 0;
 
@@ -2210,6 +2229,10 @@ function renderFieldIssueSummary(
 
   if (summary.missingRequiredFields > 0) {
     chips.push(metaChip('error', `${summary.missingRequiredFields} missing required`));
+  }
+
+  if (summary.missingRequiredSourceFields > 0) {
+    chips.push(metaChip('error', `${summary.missingRequiredSourceFields} source required pending`));
   }
 
   if (summary.sourceChangedFields > 0) {
@@ -2246,7 +2269,7 @@ function renderFieldIssueSummary(
         ${renderEditorIcon('iconoir:nav-arrow-down', '14px')}
       </button>`
     : '';
-  const sourceAction = summary.missingRequiredFields > 0
+  const sourceAction = summary.missingRequiredSourceFields > 0
     ? renderSourceContentAction(sourceNavigation, 'summary')
     : '';
 
@@ -2426,7 +2449,7 @@ function renderSuggestTranslationButton(entry: TranslationEditorFieldEntry, read
 
 function renderFieldList(detail: TranslationAssignmentEditorDetail, readOnly = false, suggestingFields: Set<string> = new Set()): string {
   const summary = computeFieldIssueSummary(detail);
-  const sourceNavigation = detail.content_navigation.source;
+  const sourceNavigation = detail.content_navigation?.source;
   const inputClass = readOnly
     ? 'mt-2 w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-600'
     : 'mt-2 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-100';
