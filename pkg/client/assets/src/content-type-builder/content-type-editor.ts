@@ -39,7 +39,6 @@ import { formatContentTypeDate } from './shared/date-formatters';
 import { PreviewModal, wrapReadonlyPreview as wrapReadonlyPreviewShared, initPreviewEditors as initPreviewEditorsShared } from './shared/schema-preview';
 import { FIELD_SET_PRESETS, getFieldSetPreset } from './shared/field-presets';
 import { nameToSlug, titleCaseIdentifier } from './shared/text';
-import { refreshContentModelingShell } from './shared/content-modeling-shell';
 import { deriveAdminBasePath } from './shared/api-paths';
 import { escapeHTML as escapeHtml } from '../shared/html.js';
 import { parseJSONValue } from '../shared/json-parse.js';
@@ -49,6 +48,11 @@ import { parseJSONValue } from '../shared/json-parse.js';
 // =============================================================================
 
 const DEFAULT_SECTION = 'main';
+
+interface DashboardShellAPI {
+  initShell?: (root: HTMLElement) => unknown;
+  initShells?: (scope?: ParentNode) => unknown[];
+}
 
 // Extended state with layout
 interface ExtendedBuilderState extends ContentTypeBuilderState {
@@ -117,6 +121,18 @@ export class ContentTypeEditor {
     const channel = this.normalizeChannel(this.config.channel);
     if (!channel || channel === 'default') return path;
     return `${path}?channel=${encodeURIComponent(channel)}`;
+  }
+
+  private shellRoot(): HTMLElement | null {
+    return this.container.closest<HTMLElement>('[data-dashboard-shell]');
+  }
+
+  private previewHost(): HTMLElement {
+    return this.shellRoot()?.querySelector<HTMLElement>('[data-content-type-preview-region]') ?? this.container;
+  }
+
+  private previewQuery<T extends Element>(selector: string): T | null {
+    return this.previewHost().querySelector<T>(selector);
   }
 
   /**
@@ -529,7 +545,7 @@ export class ContentTypeEditor {
       this.state.previewError = null;
       this.state.isPreviewing = false;
       this.updatePreviewState();
-      const previewContainer = this.container.querySelector('[data-ct-preview-container]');
+      const previewContainer = this.previewQuery('[data-ct-preview-container]');
       if (previewContainer) {
         previewContainer.innerHTML = `
           <div class="flex flex-col items-center justify-center h-40 text-gray-400">
@@ -591,55 +607,72 @@ export class ContentTypeEditor {
         ${this.renderHeader()}
 
         <!-- Main Content -->
-        <div class="flex-1 flex flex-col md:flex-row overflow-hidden min-h-0" data-ct-editor-layout>
+        <div class="flex-1 flex flex-col overflow-hidden min-h-0" data-ct-editor-layout>
           <!-- Left Panel: Basic Info + Fields -->
           <div class="flex-1 min-h-0 overflow-y-auto p-6 space-y-6" data-ct-editor-main>
             ${this.renderBasicInfo()}
             ${this.renderFieldsSection()}
             ${this.renderCapabilitiesSection()}
           </div>
-
-          <div
-            class="cm-splitter"
-            data-pane-resize="preview"
-            role="separator"
-            aria-orientation="vertical"
-            aria-label="Resize form preview"
-            tabindex="-1"
-          ></div>
-
-          <!-- Right Rail: Field Palette + Preview -->
-          <aside
-            class="cm-rail cm-rail--preview border-l border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-slate-950 flex flex-col overflow-hidden"
-            data-pane-rail="preview"
-            data-pane-resizable
-            data-pane-edge="leading"
-            data-pane-min="320"
-            data-pane-max="720"
-            data-pane-default-width="400"
-          >
-            <div data-ct-palette class="${this.paletteVisible ? '' : 'hidden'} shrink-0 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-slate-900">
-              <div class="flex items-center justify-between px-4 py-2 border-b border-gray-100 dark:border-gray-800">
-                <h3 class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Field Palette</h3>
-              </div>
-              <div data-ct-palette-container class="h-[260px] overflow-y-auto"></div>
-            </div>
-            <div class="flex-1 overflow-y-auto min-h-0">
-              ${this.renderPreviewPanel()}
-            </div>
-          </aside>
         </div>
 
         <!-- Validation Errors -->
         <div data-ct-validation-errors class="hidden"></div>
       </div>
     `;
-    this.refreshPaneLayout();
+    this.renderPreviewRegion();
+    this.refreshDashboardShell();
   }
 
-  private refreshPaneLayout(): void {
-    const shell = this.container.closest<HTMLElement>('[data-content-modeling-shell]');
-    refreshContentModelingShell(shell);
+  private renderPreviewRegion(): void {
+    const host = this.previewHost();
+    const html = `
+      <div data-ct-palette class="${this.paletteVisible ? '' : 'hidden'} shrink-0 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-slate-900">
+        <div class="flex items-center justify-between px-4 py-2 border-b border-gray-100 dark:border-gray-800">
+          <h3 class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Field Palette</h3>
+        </div>
+        <div data-ct-palette-container class="h-[260px] overflow-y-auto"></div>
+      </div>
+      <div class="flex-1 overflow-y-auto min-h-0">
+        ${this.renderPreviewPanel()}
+      </div>
+    `;
+    if (host === this.container) {
+      this.container.insertAdjacentHTML(
+        'beforeend',
+        `<aside data-content-type-preview-region class="hidden">${html}</aside>`,
+      );
+      this.syncDynamicShellControls();
+      return;
+    }
+    host.innerHTML = html;
+    this.syncDynamicShellControls();
+  }
+
+  private refreshDashboardShell(): void {
+    const shell = this.shellRoot();
+    const api = (window as typeof window & { DashboardShell?: DashboardShellAPI }).DashboardShell;
+    if (shell && api?.initShell && shell.getAttribute('data-dashboard-shell-init') !== 'true') {
+      api.initShell(shell);
+    }
+  }
+
+  private syncDynamicShellControls(): void {
+    const shell = this.shellRoot();
+    if (!shell || shell.getAttribute('data-dashboard-shell-init') !== 'true') return;
+    const preview = shell.querySelector<HTMLElement>('[data-shell-region="preview"]');
+    if (preview) {
+      const collapsed = preview.getAttribute('data-collapsed') === 'true';
+      shell.querySelectorAll<HTMLElement>('[data-shell-toggle="preview"]').forEach((toggle) => {
+        toggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+        toggle.setAttribute('data-shell-collapsed', collapsed ? 'true' : 'false');
+      });
+    }
+    const activeFocus = shell.getAttribute('data-shell-focus') || '';
+    shell.querySelectorAll<HTMLElement>('[data-shell-focus-toggle]').forEach((toggle) => {
+      const target = toggle.getAttribute('data-shell-focus-toggle') || '';
+      toggle.setAttribute('aria-pressed', activeFocus === target ? 'true' : 'false');
+    });
   }
 
   private renderBasicInfo(): string {
@@ -727,7 +760,7 @@ export class ContentTypeEditor {
           <div class="flex items-center gap-2">
             <button
               type="button"
-              data-pane-toggle="preview"
+              data-shell-toggle="preview"
               aria-expanded="true"
               class="flex items-center gap-1 px-2 py-1 text-xs text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 rounded hover:bg-gray-200 dark:hover:bg-gray-700"
             >
@@ -1079,7 +1112,7 @@ export class ContentTypeEditor {
           <div class="flex items-center gap-3">
             <button
               type="button"
-              data-pane-focus-toggle="preview"
+              data-shell-focus-toggle="preview"
               class="inline-flex items-center gap-1 text-xs text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200"
               aria-label="Focus form preview"
               aria-pressed="false"
@@ -1104,7 +1137,7 @@ export class ContentTypeEditor {
             </button>
             <button
               type="button"
-              data-pane-toggle="preview"
+              data-shell-toggle="preview"
               class="text-xs text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200"
               aria-label="Collapse form preview"
               aria-expanded="true"
@@ -1572,10 +1605,10 @@ export class ContentTypeEditor {
     this.container.querySelector('[data-ct-layout]')?.addEventListener('click', () => this.showLayoutEditor());
 
     // Preview refresh (manual fallback; preview is otherwise live/debounced)
-    this.container.querySelector('[data-ct-refresh-preview]')?.addEventListener('click', () => this.previewSchema());
+    this.previewQuery('[data-ct-refresh-preview]')?.addEventListener('click', () => this.previewSchema());
 
     // Expand to a larger, interactive preview
-    this.container.querySelector('[data-ct-expand-preview]')?.addEventListener('click', () => this.openInteractivePreview());
+    this.previewQuery('[data-ct-expand-preview]')?.addEventListener('click', () => this.openInteractivePreview());
 
     // Icon picker trigger
     bindIconTriggerEvents(this.container, '[data-icon-trigger]', (trigger) => {
@@ -1824,7 +1857,7 @@ export class ContentTypeEditor {
 
   private togglePalette(): void {
     this.paletteVisible = !this.paletteVisible;
-    const wrapper = this.container.querySelector<HTMLElement>('[data-ct-palette]');
+    const wrapper = this.previewQuery<HTMLElement>('[data-ct-palette]');
     if (wrapper) {
       wrapper.classList.toggle('hidden', !this.paletteVisible);
     }
@@ -1837,7 +1870,7 @@ export class ContentTypeEditor {
 
   private initPaletteIfNeeded(): void {
     if (!this.paletteVisible || this.palettePanel) return;
-    const el = this.container.querySelector<HTMLElement>('[data-ct-palette-container]');
+    const el = this.previewQuery<HTMLElement>('[data-ct-palette-container]');
     if (!el) return;
     this.palettePanel = new FieldPalettePanel({
       container: el,
@@ -2071,9 +2104,9 @@ export class ContentTypeEditor {
   private updatePreviewState(): void {
     // Live preview replaced the standalone Preview button; reflect progress with a
     // small spinner in the preview pane and disable Refresh while a request runs.
-    const loading = this.container.querySelector<HTMLElement>('[data-ct-preview-loading]');
+    const loading = this.previewQuery<HTMLElement>('[data-ct-preview-loading]');
     if (loading) loading.classList.toggle('hidden', !this.state.isPreviewing);
-    const refreshBtn = this.container.querySelector<HTMLButtonElement>('[data-ct-refresh-preview]');
+    const refreshBtn = this.previewQuery<HTMLButtonElement>('[data-ct-refresh-preview]');
     if (refreshBtn) refreshBtn.disabled = this.state.isPreviewing;
   }
 
@@ -2372,7 +2405,7 @@ export class ContentTypeEditor {
   }
 
   private renderPreview(): void {
-    const previewContainer = this.container.querySelector('[data-ct-preview-container]');
+    const previewContainer = this.previewQuery('[data-ct-preview-container]');
     if (!previewContainer) return;
 
     if (this.state.previewError) {

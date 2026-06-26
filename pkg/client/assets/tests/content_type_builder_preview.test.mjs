@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { createRequire } from 'node:module';
 
 async function loadJSDOM() {
   try {
@@ -10,6 +11,8 @@ async function loadJSDOM() {
 }
 
 const { JSDOM } = await loadJSDOM();
+const require = createRequire(import.meta.url);
+const dashboardShell = require('../../../../../go-dashboard/components/dashboard/assets/shell/shell.js');
 
 const bootstrapDom = new JSDOM('<!doctype html><html><body></body></html>', { url: 'http://localhost' });
 setGlobals(bootstrapDom.window);
@@ -222,23 +225,35 @@ test('ContentTypeEditor reapplies persisted preview pane state after async edit 
     <!doctype html>
     <html>
       <body>
-        <div class="cm-shell" data-content-modeling-shell data-cm-surface="content-types">
-          <aside class="cm-rail cm-rail--list" data-pane-rail="list"
-                 data-pane-resizable data-pane-edge="trailing"
-                 data-pane-min="240" data-pane-max="420" data-pane-default-width="320"></aside>
-          <div class="cm-splitter" data-pane-resize="list"></div>
-          <section data-pane="builder">
-            <button data-pane-focus-toggle="builder" type="button" aria-pressed="false">builder</button>
+        <div data-dashboard-shell
+             data-dashboard-shell-surface="content-types"
+             data-dashboard-shell-namespace="go-dashboard:shell"
+             data-dashboard-shell-version="1">
+          <aside data-shell-region="list"
+                 data-shell-resizable data-shell-edge="trailing"
+                 data-shell-min="240" data-shell-max="420" data-shell-default-size="320"></aside>
+          <div data-shell-resize="list"></div>
+          <section data-shell-region="builder" data-shell-focus-target="builder">
+            <button data-shell-focus-toggle="builder" type="button" aria-pressed="false">builder</button>
             <div data-content-type-editor-root></div>
           </section>
+          <div data-shell-resize="preview"></div>
+          <aside data-content-type-preview-region
+                 data-shell-region="preview"
+                 data-shell-resizable data-shell-edge="leading"
+                 data-shell-min="320" data-shell-max="720" data-shell-default-size="400"
+                 data-shell-focus-target="preview"></aside>
+          <button data-shell-toggle="preview" type="button" aria-expanded="true">preview</button>
+          <button data-shell-focus-toggle="preview" type="button" aria-pressed="false">preview focus</button>
         </div>
       </body>
     </html>`);
+  window.DashboardShell = dashboardShell;
 
-  window.localStorage.setItem('cm-pane:v1:content-types', JSON.stringify({
-    rails: {
-      list: { collapsed: false, width: 320 },
-      preview: { collapsed: true, width: 540 },
+  window.localStorage.setItem('go-dashboard:shell:v1:content-types:viewer:anonymous', JSON.stringify({
+    regions: {
+      list: { collapsed: false, size: 320 },
+      preview: { collapsed: true, size: 540 },
     },
     focus: 'preview',
   }));
@@ -271,19 +286,18 @@ test('ContentTypeEditor reapplies persisted preview pane state after async edit 
     const editor = new ContentTypeEditor(root, { apiBasePath: '/admin/api', contentTypeId: 'page' });
     await editor.init();
 
-    const shell = document.querySelector('[data-content-modeling-shell]');
-    const previewRail = root.querySelector('[data-pane-rail="preview"]');
-    const previewToggle = root.querySelector('[data-pane-toggle="preview"]');
-    const previewFocus = root.querySelector('[data-pane-focus-toggle="preview"]');
+    const shell = document.querySelector('[data-dashboard-shell]');
+    const previewRail = document.querySelector('[data-shell-region="preview"]');
+    const previewToggle = document.querySelector('[data-shell-toggle="preview"]');
+    const previewFocus = document.querySelector('[data-shell-focus-toggle="preview"]');
     const editorLayout = root.querySelector('[data-ct-editor-layout]');
 
     assert.ok(previewRail, 'expected preview rail after load re-render');
     assert.equal(previewRail.getAttribute('data-collapsed'), 'true');
     assert.equal(previewToggle.getAttribute('aria-expanded'), 'false');
-    assert.equal(shell.getAttribute('data-pane-focus'), 'preview');
+    assert.equal(shell.getAttribute('data-shell-focus'), 'preview');
     assert.equal(previewFocus.getAttribute('aria-pressed'), 'true');
     assert.match(editorLayout.className, /flex-col/);
-    assert.match(editorLayout.className, /md:flex-row/);
 
     click(previewToggle);
     assert.equal(previewRail.getAttribute('data-collapsed'), 'false');

@@ -2,6 +2,12 @@
 
 {% block title %}Content Types - {{ title }}{% endblock %}
 
+{% block head_extra %}
+{% for href in dashboard_shell_css %}
+<link rel="stylesheet" href="{{ href }}">
+{% endfor %}
+{% endblock %}
+
 {% block content %}
 {% set active_channel = content_types_effective_channel|default:"default" %}
 {% set in_default_channel = active_channel == "default" %}
@@ -78,15 +84,23 @@
   </div>
 </header>
 
-<div class="flex-1 cm-shell flex flex-col md:flex-row overflow-hidden min-h-0" data-content-modeling-shell data-cm-surface="content-types">
+<div class="flex-1 dashboard-shell flex flex-col md:flex-row overflow-hidden min-h-0"
+     data-dashboard-shell
+     data-dashboard-shell-surface="{{ content_types_shell.surface_id|default:"content-types" }}"
+     data-dashboard-shell-namespace="{{ content_types_shell.storage.namespace|default:"go-dashboard:shell" }}"
+     data-dashboard-shell-storage-key="{{ content_types_shell.storage.key|default:"go-dashboard:shell:v1:content-types:viewer:anonymous" }}"
+     data-dashboard-shell-version="{{ content_types_shell.storage.version|default:1 }}"
+     aria-label="{{ content_types_shell.label|default:"Content Types workbench" }}">
   <!-- Left rail: content type library -->
-  <aside class="cm-rail cm-rail--list bg-white dark:bg-slate-900 border-r border-gray-200 dark:border-gray-700 flex flex-col overflow-hidden"
-         data-pane-rail="list"
-         data-pane-resizable
-         data-pane-edge="trailing"
-         data-pane-min="240"
-         data-pane-max="420"
-         data-pane-default-width="320">
+  <aside class="dashboard-shell__region dashboard-shell__region--leading bg-white dark:bg-slate-900 border-r border-gray-200 dark:border-gray-700 flex flex-col overflow-hidden"
+         data-shell-region="list"
+         data-shell-role="navigation"
+         data-shell-placement="leading"
+         data-shell-resizable
+         data-shell-edge="trailing"
+         data-shell-min="240"
+         data-shell-max="420"
+         data-shell-default-size="320">
     <div class="flex items-center justify-between px-4 py-3 border-b border-gray-100 dark:border-gray-800 shrink-0">
       <h2 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Library</h2>
       <span class="text-xs text-gray-400 dark:text-gray-500">{{ visible_total }} visible</span>
@@ -125,14 +139,18 @@
   </aside>
 
   <!-- Resize handle between the list rail and the builder -->
-  <div class="cm-splitter" data-pane-resize="list" role="separator" aria-orientation="vertical" aria-label="Resize content type list" tabindex="-1"></div>
+  <div class="dashboard-shell__splitter" data-shell-resize="list" role="separator" aria-orientation="vertical" aria-label="Resize content type list" tabindex="0" aria-valuemin="240" aria-valuemax="420"></div>
 
   <!-- Center: builder -->
-  <div class="flex-1 min-w-0 flex flex-col overflow-hidden" data-pane="builder">
+  <div class="dashboard-shell__region dashboard-shell__region--main flex-1 min-w-0 flex flex-col overflow-hidden"
+       data-shell-region="builder"
+       data-shell-role="main"
+       data-shell-placement="main"
+       data-shell-focus-target="builder">
     <div class="cm-builder-toolbar flex items-center gap-1 px-3 py-1.5 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-slate-900 shrink-0">
       <button type="button"
-              data-pane-toggle="list"
-              class="cm-icon-btn"
+              data-shell-toggle="list"
+              class="dashboard-shell__icon-button"
               aria-label="Toggle content type list"
               aria-expanded="true"
               title="Toggle list">
@@ -141,8 +159,8 @@
         </svg>
       </button>
       <button type="button"
-              data-pane-focus-toggle="builder"
-              class="cm-icon-btn"
+              data-shell-focus-toggle="builder"
+              class="dashboard-shell__icon-button"
               aria-label="Maximize builder"
               aria-pressed="false"
               title="Focus builder">
@@ -159,10 +177,28 @@
          {% if selected_content_type_id %}data-content-type-id="{{ selected_content_type_id }}"{% endif %}
     ></div>
   </div>
+
+  <div class="dashboard-shell__splitter" data-shell-resize="preview" role="separator" aria-orientation="vertical" aria-label="Resize form preview" tabindex="0" aria-valuemin="320" aria-valuemax="720"></div>
+
+  <aside class="dashboard-shell__region dashboard-shell__region--trailing border-l border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-slate-950 flex flex-col overflow-hidden"
+         data-content-type-preview-region
+         data-shell-region="preview"
+         data-shell-role="preview"
+         data-shell-placement="trailing"
+         data-shell-resizable
+         data-shell-edge="leading"
+         data-shell-min="320"
+         data-shell-max="720"
+         data-shell-default-size="400"
+         data-shell-focus-target="preview">
+  </aside>
 </div>
 {% endblock %}
 
 {% block scripts %}
+{% for src in dashboard_shell_js %}
+<script src="{{ src }}" defer></script>
+{% endfor %}
 <script src="{{ adminURL("runtime/formgen-behaviors.min.js") }}" defer></script>
 <script src="{{ adminURL("runtime/formgen-relationships.min.js") }}" defer></script>
 <script type="module" src="{{ adminURL("assets/dist/content-type-builder/index.js") }}"></script>

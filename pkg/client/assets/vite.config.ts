@@ -34,8 +34,6 @@ export default defineConfig({
         'content-type-builder/index': resolve(__dirname, 'src/content-type-builder/index.ts'),
         'content-type-builder/shared/date-formatters': resolve(__dirname, 'src/content-type-builder/shared/date-formatters.ts'),
         'content-type-builder/shared/status-badges': resolve(__dirname, 'src/content-type-builder/shared/status-badges.ts'),
-        'content-type-builder/shared/pane-layout': resolve(__dirname, 'src/content-type-builder/shared/pane-layout.ts'),
-        'content-type-builder/shared/content-modeling-shell': resolve(__dirname, 'src/content-type-builder/shared/content-modeling-shell.ts'),
         'content-type-builder/shared/channel-switcher': resolve(__dirname, 'src/content-type-builder/shared/channel-switcher.ts'),
         'content-type-builder/shared/text': resolve(__dirname, 'src/content-type-builder/shared/text.ts'),
         'menu-builder/index': resolve(__dirname, 'src/menu-builder/index.ts'),

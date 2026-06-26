@@ -96,35 +96,6 @@ export { FieldPalettePanel, PALETTE_DRAG_MIME } from './field-palette-panel';
 export { registerIconTab, unregisterIconTab, getIconTabs, resolveIcon } from './shared/icon-picker';
 export type { IconTab, IconEntry, IconPickerConfig } from './shared/icon-picker';
 
-// Re-export shared pane layout controller (T06)
-export {
-  PaneLayoutController,
-  createPaneLayout,
-  clampWidth,
-  paneStorageKey,
-  defaultPaneState,
-  sanitizePaneState,
-  createSafeStorage,
-  PANE_LAYOUT_VERSION,
-} from './shared/pane-layout';
-export type {
-  PaneLayoutConfig,
-  PaneLayoutState,
-  PaneRailDef,
-  PaneRailState,
-  PaneRailEdge,
-  StorageLike,
-} from './shared/pane-layout';
-
-// Re-export declarative content-modeling shell bootstrap (T07/T08)
-export {
-  initContentModelingShell,
-  initContentModelingShells,
-  refreshContentModelingShell,
-  buildShellConfig,
-} from './shared/content-modeling-shell';
-export type { ContentModelingShellOptions } from './shared/content-modeling-shell';
-
 // Re-export content-types channel switcher (T10 — styled modal, no native prompt)
 export { initContentTypeChannelSwitcher, normalizeChannelName } from './shared/channel-switcher';
 
@@ -149,7 +120,6 @@ import type { ContentTypeEditorConfig } from './types';
 import { deriveAdminBasePath, resolveApiBasePath } from './shared/api-paths';
 import { onReady } from '../shared/dom-ready.js';
 import { parseJSONValue } from '../shared/json-parse.js';
-import { initContentModelingShells } from './shared/content-modeling-shell';
 import { initContentTypeChannelSwitcher } from './shared/channel-switcher';
 
 /**
@@ -249,7 +219,4 @@ onReady(() => {
   initContentTypeChannelSwitcher();
   initContentTypeEditors();
   initBlockLibraryIDE();
-  // Wire the shared collapse/resize/focus shell after surface controllers render
-  // their rails so dynamic Content Type editor panes are included in the scan.
-  initContentModelingShells();
 });

@@ -86,8 +86,7 @@ export class BlockLibraryIDE {
   private boundBeforeUnload: ((e: BeforeUnloadEvent) => void) | null = null;
 
   // Responsive layout (Phase 12 — Task 12.1)
-  // Rail collapse/resize is owned by the shared content-modeling shell controller
-  // (shared/content-modeling-shell.ts); only the narrow-screen palette popover and
+  // Rail collapse/resize is owned by the shared go-dashboard shell runtime; only the narrow-screen palette popover and
   // breakpoint handling remain surface-specific here.
   private paletteAsideEl: HTMLElement | null = null;
   private addFieldBar: HTMLElement | null = null;

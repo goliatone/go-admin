@@ -2,6 +2,12 @@
 
 {% block title %}Block Library - {{ title }}{% endblock %}
 
+{% block head_extra %}
+{% for href in dashboard_shell_css %}
+<link rel="stylesheet" href="{{ href }}">
+{% endfor %}
+{% endblock %}
+
 {% block content %}
 <header class="px-6 py-4 bg-white dark:bg-slate-900 border-b border-gray-200 dark:border-gray-700 flex flex-wrap gap-4 items-center justify-between">
   <div class="flex items-center gap-3">
@@ -66,22 +72,28 @@
   </div>
 </header>
 
-<div class="flex-1 cm-shell flex flex-col md:flex-row overflow-hidden h-full"
+<div class="flex-1 dashboard-shell flex flex-col md:flex-row overflow-hidden h-full"
      data-block-library-ide
-     data-content-modeling-shell
-     data-cm-surface="block-library"
+     data-dashboard-shell
+     data-dashboard-shell-surface="{{ block_library_shell.surface_id|default:"block-library" }}"
+     data-dashboard-shell-namespace="{{ block_library_shell.storage.namespace|default:"go-dashboard:shell" }}"
+     data-dashboard-shell-storage-key="{{ block_library_shell.storage.key|default:"go-dashboard:shell:v1:block-library:viewer:anonymous" }}"
+     data-dashboard-shell-version="{{ block_library_shell.storage.version|default:1 }}"
      data-api-base-path="{{ api_base_path }}"
-     data-base-path="{{ base_path }}">
+     data-base-path="{{ base_path }}"
+     aria-label="{{ block_library_shell.label|default:"Block Library workbench" }}">
 
     <!-- Left rail: Block List -->
-    <aside class="cm-rail cm-rail--list border-r border-gray-200 dark:border-gray-700 bg-white dark:bg-slate-900 flex flex-col overflow-hidden"
+    <aside class="dashboard-shell__region dashboard-shell__region--leading border-r border-gray-200 dark:border-gray-700 bg-white dark:bg-slate-900 flex flex-col overflow-hidden"
            data-block-ide-sidebar
-           data-pane-rail="list"
-           data-pane-resizable
-           data-pane-edge="trailing"
-           data-pane-min="200"
-           data-pane-max="380"
-           data-pane-default-width="240">
+           data-shell-region="list"
+           data-shell-role="navigation"
+           data-shell-placement="leading"
+           data-shell-resizable
+           data-shell-edge="trailing"
+           data-shell-min="200"
+           data-shell-max="380"
+           data-shell-default-size="240">
       <div class="px-4 py-3 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between shrink-0">
         <h2 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Blocks</h2>
         <span class="text-xs text-gray-400 dark:text-gray-500" data-block-ide-count>{{ block_definitions|length }}</span>
@@ -159,14 +171,18 @@
     </aside>
 
     <!-- Resize handle between the block list and the editor -->
-    <div class="cm-splitter" data-pane-resize="list" role="separator" aria-orientation="vertical" aria-label="Resize block list" tabindex="-1"></div>
+    <div class="dashboard-shell__splitter" data-shell-resize="list" role="separator" aria-orientation="vertical" aria-label="Resize block list" tabindex="0" aria-valuemin="200" aria-valuemax="380"></div>
 
     <!-- Center: Block Editor (builder) -->
-    <section class="flex-1 min-w-0 flex flex-col overflow-hidden bg-gray-50 dark:bg-slate-950" data-pane="builder">
+    <section class="dashboard-shell__region dashboard-shell__region--main flex-1 min-w-0 flex flex-col overflow-hidden bg-gray-50 dark:bg-slate-950"
+             data-shell-region="builder"
+             data-shell-role="main"
+             data-shell-placement="main"
+             data-shell-focus-target="builder">
       <div class="cm-builder-toolbar flex items-center gap-1 px-3 py-1.5 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-slate-900 shrink-0">
         <button type="button"
-                data-pane-toggle="list"
-                class="cm-icon-btn"
+                data-shell-toggle="list"
+                class="dashboard-shell__icon-button"
                 aria-label="Toggle block list"
                 aria-expanded="true"
                 title="Toggle list">
@@ -175,8 +191,8 @@
           </svg>
         </button>
         <button type="button"
-                data-pane-toggle="palette"
-                class="cm-icon-btn hidden lg:inline-flex"
+                data-shell-toggle="palette"
+                class="dashboard-shell__icon-button hidden lg:inline-flex"
                 aria-label="Toggle field palette"
                 aria-expanded="true"
                 title="Toggle palette">
@@ -186,8 +202,8 @@
         </button>
         <span class="flex-1"></span>
         <button type="button"
-                data-pane-focus-toggle="builder"
-                class="cm-icon-btn"
+                data-shell-focus-toggle="builder"
+                class="dashboard-shell__icon-button"
                 aria-label="Maximize editor"
                 aria-pressed="false"
                 title="Focus editor">
@@ -219,17 +235,19 @@
     </section>
 
     <!-- Resize handle between the editor and the palette (lg+ only) -->
-    <div class="cm-splitter hidden lg:block" data-pane-resize="palette" role="separator" aria-orientation="vertical" aria-label="Resize field palette" tabindex="-1"></div>
+    <div class="dashboard-shell__splitter hidden lg:block" data-shell-resize="palette" role="separator" aria-orientation="vertical" aria-label="Resize field palette" tabindex="0" aria-valuemin="220" aria-valuemax="400"></div>
 
     <!-- Right rail: Field Palette (hidden on < lg, visible on lg+) -->
-    <aside class="cm-rail cm-rail--palette border-l border-gray-200 dark:border-gray-700 bg-white dark:bg-slate-900 flex-col overflow-hidden hidden lg:flex"
+    <aside class="dashboard-shell__region dashboard-shell__region--trailing border-l border-gray-200 dark:border-gray-700 bg-white dark:bg-slate-900 flex-col overflow-hidden hidden lg:flex"
            data-block-ide-palette-aside
-           data-pane-rail="palette"
-           data-pane-resizable
-           data-pane-edge="leading"
-           data-pane-min="220"
-           data-pane-max="400"
-           data-pane-default-width="260">
+           data-shell-region="palette"
+           data-shell-role="palette"
+           data-shell-placement="trailing"
+           data-shell-resizable
+           data-shell-edge="leading"
+           data-shell-min="220"
+           data-shell-max="400"
+           data-shell-default-size="260">
       <div class="px-4 py-3 border-b border-gray-100 dark:border-gray-800 shrink-0">
         <div class="flex items-center gap-2">
           <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -252,5 +270,8 @@
 {% endblock %}
 
 {% block scripts %}
+{% for src in dashboard_shell_js %}
+<script src="{{ src }}" defer></script>
+{% endfor %}
 <script type="module" src="{{ adminURL("assets/dist/content-type-builder/index.js") }}"></script>
 {% endblock %}
