@@ -387,13 +387,30 @@ var svgFieldTypeKeys = map[string]string{
 	"location":      "pin-alt",
 }
 
+// iconoirMenuIconAliases maps common Lucide/Feather-style names and older
+// built-in names to glyphs that exist in the Iconoir stylesheet loaded by the
+// admin layout.
+var iconoirMenuIconAliases = map[string]string{
+	"alert-triangle": "warning-triangle",
+	"file":           "page",
+	"file-text":      "page",
+}
+
+var iconoirMenuIconAliasLibraries = map[string]struct{}{
+	"iconoir": {},
+	"lucide":  {},
+	"feather": {},
+}
+
 // renderMenuIcon returns safe HTML for a sidebar/menu icon.
 //
 // Detection order:
 //  1. Empty string → ""
 //  2. Emoji (Unicode range check) → <span> with the emoji character
 //  3. SVG field-type key (finite set from icon picker) → mapped to Iconoir name
-//  4. Default → rendered as Iconoir <i class="iconoir-{name}">
+//  4. Known Iconoir compatibility alias → mapped to an available Iconoir name
+//  5. Qualified library:name → rendered as <i class="{library}-{name}">
+//  6. Default → rendered as Iconoir <i class="iconoir-{name}">
 func renderMenuIcon(icon string) string {
 	icon = strings.TrimSpace(icon)
 	if icon == "" {
@@ -408,13 +425,36 @@ func renderMenuIcon(icon string) string {
 		return `<span class="flex-shrink-0" style="` + style + ` line-height: 1; text-align: center; width: 1.25em;">` + escaped + `</span>`
 	}
 
-	// 2. SVG field-type key → map to Iconoir name
-	if mapped, ok := svgFieldTypeKeys[icon]; ok {
-		icon = mapped
+	library, name := normalizeMenuIconClass(icon)
+	if name == "" {
+		return ""
 	}
 
-	// 3. Render as Iconoir
-	return `<i class="iconoir-` + html.EscapeString(icon) + ` flex-shrink-0" style="` + style + `"></i>`
+	return `<i class="` + html.EscapeString(library) + `-` + html.EscapeString(name) + ` flex-shrink-0" style="` + style + `"></i>`
+}
+
+func normalizeMenuIconClass(icon string) (string, string) {
+	library := "iconoir"
+	name := strings.TrimSpace(icon)
+	if rawLibrary, rawName, ok := strings.Cut(name, ":"); ok {
+		normalizedLibrary := strings.ToLower(strings.TrimSpace(rawLibrary))
+		trimmedName := strings.TrimSpace(rawName)
+		if normalizedLibrary != "" {
+			library = normalizedLibrary
+			name = trimmedName
+		}
+	}
+	if library == "iconoir" {
+		if mapped, ok := svgFieldTypeKeys[name]; ok {
+			return "iconoir", mapped
+		}
+	}
+	if _, compatible := iconoirMenuIconAliasLibraries[library]; compatible {
+		if mapped, ok := iconoirMenuIconAliases[strings.ToLower(name)]; ok {
+			return "iconoir", mapped
+		}
+	}
+	return library, name
 }
 
 // isEmoji returns true if the string contains emoji characters.

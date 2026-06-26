@@ -399,6 +399,21 @@ func mergeTranslationQueueConfig(base, override TranslationQueueConfig) Translat
 	if override.Service != nil {
 		out.Service = override.Service
 	}
+	if override.SuggestionService != nil {
+		out.SuggestionService = override.SuggestionService
+	}
+	if override.SuggestionEligibility != nil {
+		out.SuggestionEligibility = override.SuggestionEligibility
+	}
+	if override.SuggestionAssistContext != nil {
+		out.SuggestionAssistContext = override.SuggestionAssistContext
+	}
+	if strings.TrimSpace(override.SuggestionPermission) != "" {
+		out.SuggestionPermission = strings.TrimSpace(override.SuggestionPermission)
+	}
+	if strings.TrimSpace(override.SuggestionResource) != "" {
+		out.SuggestionResource = strings.TrimSpace(override.SuggestionResource)
+	}
 	if override.PermissionRegister != nil {
 		out.PermissionRegister = override.PermissionRegister
 	}

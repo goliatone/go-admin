@@ -57,6 +57,26 @@ func applyRPCTransportPolicyConfig(cfg *admin.Config, opts *adminOptions) {
 	}
 }
 
+func applyTranslationSuggestionRPCCommandRule(cfg *admin.Config, opts *adminOptions) {
+	if cfg == nil || opts == nil || !opts.translationQueueConfigSet || opts.translationQueueConfig.SuggestionService == nil {
+		return
+	}
+	if !opts.rpcTransportConfigSet || !opts.rpcTransportConfig.Enabled {
+		return
+	}
+	if opts.rpcTransportConfig.CommandRules != nil {
+		return
+	}
+	if cfg.Commands.RPC.Commands == nil {
+		cfg.Commands.RPC.Commands = map[string]admin.RPCCommandRule{}
+	}
+	commandID := (admin.TranslationSuggestionInput{}).Type()
+	if _, exists := cfg.Commands.RPC.Commands[commandID]; exists {
+		return
+	}
+	cfg.Commands.RPC.Commands[commandID] = admin.DefaultTranslationSuggestionRPCCommandRule()
+}
+
 func configureRPCTransport(adm *admin.Admin, opts adminOptions) error {
 	if adm == nil || !opts.rpcTransportConfigSet {
 		return nil
@@ -93,14 +113,39 @@ func mountRPCTransportRouter(adm *admin.Admin, r admin.AdminRouter, rpcServer *c
 	if cfg.RequireAuth && !adm.HasAuthenticator() {
 		return fmt.Errorf("rpc transport requires authenticator")
 	}
-	rt, ok := r.(router.Router[*fiber.App])
-	if !ok {
+	rt := resolveRPCFiberRouter(r)
+	if rt == nil {
 		if explicit {
 			return fmt.Errorf("rpc transport requires Fiber router")
 		}
 		return nil
 	}
 	return rpcfiber.MountFiber(rt, rpcServer, rpcTransportOptions(adm, cfg)...)
+}
+
+type rpcUnderlyingRouter interface {
+	UnderlyingRouter() any
+}
+
+func resolveRPCFiberRouter(r any) router.Router[*fiber.App] {
+	return resolveRPCFiberRouterDepth(r, 0)
+}
+
+func resolveRPCFiberRouterDepth(r any, depth int) router.Router[*fiber.App] {
+	if r == nil {
+		return nil
+	}
+	if rt, ok := r.(router.Router[*fiber.App]); ok {
+		return rt
+	}
+	if depth >= 8 {
+		return nil
+	}
+	underlying, ok := r.(rpcUnderlyingRouter)
+	if !ok {
+		return nil
+	}
+	return resolveRPCFiberRouterDepth(underlying.UnderlyingRouter(), depth+1)
 }
 
 func rpcTransportOptions(adm *admin.Admin, cfg RPCTransportConfig) []rpcfiber.Option {

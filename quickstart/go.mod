@@ -23,7 +23,7 @@ require (
 	github.com/goliatone/go-cache v0.1.0
 	github.com/goliatone/go-cms v0.59.0
 	github.com/goliatone/go-command v0.22.0
-	github.com/goliatone/go-dashboard v0.12.1
+	github.com/goliatone/go-dashboard v0.13.0
 	github.com/goliatone/go-errors v0.11.0
 	github.com/goliatone/go-export v0.8.0
 	github.com/goliatone/go-export/adapters/template/go-template v0.8.0

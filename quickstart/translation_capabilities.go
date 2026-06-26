@@ -3,6 +3,7 @@ package quickstart
 import (
 	"context"
 	"fmt"
+	"maps"
 	"sort"
 	"strings"
 	"sync"
@@ -98,15 +99,12 @@ func buildTranslationCapabilities(adm *admin.Admin, productCfg TranslationProduc
 		"supported_profiles": []string{"none", "core", "core+exchange", "core+queue", "full"},
 		"schema_version":     schemaVersion,
 		"modules":            cloneAnyMap(baseModules),
-		"features": map[string]any{
-			"cms":       cmsEnabled,
-			"dashboard": dashboardEnabled,
-		},
-		"routes":        routes,
-		"panels":        panels,
-		"resolver_keys": resolverKeys,
-		"warnings":      dedupeStringSlice(warnings),
-		"contracts":     base["contracts"],
+		"features":           translationCapabilityFeaturesOverlay(baseFeatures, cmsEnabled, dashboardEnabled),
+		"routes":             routes,
+		"panels":             panels,
+		"resolver_keys":      resolverKeys,
+		"warnings":           dedupeStringSlice(warnings),
+		"contracts":          base["contracts"],
 	}
 	if productCfg.Exchange != nil && productCfg.Exchange.UI.Configured {
 		out["exchange_ui_config"] = productCfg.Exchange.UI
@@ -134,15 +132,59 @@ func mergeTranslationCapabilities(base, overlay map[string]any) map[string]any {
 	copyCapabilityField(out, overlay, "warnings")
 	copyCapabilityField(out, overlay, "contracts")
 	copyCapabilityField(out, overlay, "exchange_ui_config")
-	copyCapabilityField(out, overlay, "features")
 	copyCapabilityField(out, overlay, "routes")
 	copyCapabilityField(out, overlay, "panels")
 	copyCapabilityField(out, overlay, "resolver_keys")
 
+	mergeTranslationCapabilityFeatures(out, overlay)
 	mergeTranslationCapabilityModules(out, overlay)
 	applyTranslationCapabilityRouteFiltering(out)
 
 	return out
+}
+
+func translationCapabilityFeaturesOverlay(baseFeatures map[string]any, cmsEnabled, dashboardEnabled bool) map[string]any {
+	features := cloneAnyMap(baseFeatures)
+	if features == nil {
+		features = map[string]any{}
+	}
+	features["cms"] = cmsEnabled
+	features["dashboard"] = dashboardEnabled
+	return features
+}
+
+func mergeTranslationCapabilityFeatures(out, overlay map[string]any) {
+	overlayFeatures := translationAnyMap(overlay["features"])
+	if len(overlayFeatures) == 0 {
+		return
+	}
+	baseFeatures := translationAnyMap(out["features"])
+	mergedFeatures := cloneAnyMap(baseFeatures)
+	if mergedFeatures == nil {
+		mergedFeatures = map[string]any{}
+	}
+	for featureName, rawFeature := range overlayFeatures {
+		featureName = strings.TrimSpace(featureName)
+		if featureName == "" {
+			continue
+		}
+		if rawFeature == nil {
+			continue
+		}
+		if overlayMap, ok := rawFeature.(map[string]any); ok {
+			baseMap := translationAnyMap(mergedFeatures[featureName])
+			if len(baseMap) > 0 {
+				feature := cloneAnyMap(baseMap)
+				maps.Copy(feature, overlayMap)
+				mergedFeatures[featureName] = feature
+				continue
+			}
+			mergedFeatures[featureName] = cloneAnyMap(overlayMap)
+			continue
+		}
+		mergedFeatures[featureName] = rawFeature
+	}
+	out["features"] = mergedFeatures
 }
 
 func mergeTranslationCapabilityModules(out, overlay map[string]any) {

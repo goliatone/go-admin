@@ -66,6 +66,7 @@ func TranslationQueuePermissions() []PermissionDefinition {
 		{Key: admin.PermAdminTranslationsAssign, Description: "Assign/release queue assignments"},
 		{Key: admin.PermAdminTranslationsApprove, Description: "Approve/reject queue review submissions"},
 		{Key: admin.PermAdminTranslationsClaim, Description: "Claim open-pool queue assignments"},
+		{Key: admin.PermAdminTranslationsSuggest, Description: "Generate translation suggestions for assignment fields"},
 	}
 }
 

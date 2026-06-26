@@ -368,6 +368,7 @@ func configureNewAdminAdapters(cfg admin.Config, hooks AdapterHooks, options adm
 
 func applyAdminRuntimeConfig(cfg *admin.Config, options *adminOptions) {
 	applyRPCTransportPolicyConfig(cfg, options)
+	applyTranslationSuggestionRPCCommandRule(cfg, options)
 	applyCommandExecutionRoutingConfig(cfg, *options)
 	if options.workflowRuntime != nil {
 		options.deps.WorkflowRuntime = options.workflowRuntime

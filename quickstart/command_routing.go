@@ -104,6 +104,7 @@ func TranslationQueueCommandIDs() []string {
 		(admin.TranslationQueueBulkReleaseInput{}).Type(),
 		(admin.TranslationQueueBulkPriorityInput{}).Type(),
 		(admin.TranslationQueueBulkArchiveInput{}).Type(),
+		(admin.TranslationSuggestionInput{}).Type(),
 	}
 }
 

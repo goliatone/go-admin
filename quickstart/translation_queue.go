@@ -28,6 +28,12 @@ type TranslationQueueConfig struct {
 
 	Repository admin.TranslationAssignmentRepository `json:"-"`
 	Service    admin.TranslationQueueService         `json:"-"`
+	// SuggestionService enables the optional translation suggestion command wiring.
+	SuggestionService       admin.TranslationSuggestionService                `json:"-"`
+	SuggestionEligibility   admin.TranslationSuggestionEligibilityChecker     `json:"-"`
+	SuggestionAssistContext admin.TranslationSuggestionAssistContextExtractor `json:"-"`
+	SuggestionPermission    string                                            `json:"-"`
+	SuggestionResource      string                                            `json:"-"`
 
 	PermissionRegister PermissionRegisterFunc `json:"-"`
 }
@@ -102,6 +108,21 @@ func RegisterTranslationQueueWiring(adm *admin.Admin, cfg TranslationQueueConfig
 	}
 	if err := admin.RegisterTranslationQueueCommands(adm.Commands(), service); err != nil {
 		return err
+	}
+	if cfg.SuggestionService != nil {
+		adm.WithTranslationSuggestionService(cfg.SuggestionService)
+		adm.ConfigureTranslationSuggestionServiceDependencies(admin.TranslationSuggestionServiceDependencies{
+			Repository:    repo,
+			ContextLoader: admin.NewTranslationSuggestionContextLoader(adm),
+			Authorizer:    adm.Authorizer(),
+			Permission:    cfg.SuggestionPermission,
+			Resource:      cfg.SuggestionResource,
+			Eligibility:   cfg.SuggestionEligibility,
+			AssistContext: cfg.SuggestionAssistContext,
+		})
+		if err := admin.RegisterTranslationSuggestionCommands(adm.Commands(), cfg.SuggestionService); err != nil {
+			return err
+		}
 	}
 	if cfg.PermissionRegister != nil {
 		if err := RegisterTranslationQueuePermissions(cfg.PermissionRegister); err != nil {

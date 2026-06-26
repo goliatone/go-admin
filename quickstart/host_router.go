@@ -752,6 +752,25 @@ func (r hostAdminRouter[T]) Handle(method router.HTTPMethod, path string, handle
 	return r.surface.Handle(method, path, handler, mw...)
 }
 
+func (r hostAdminRouter[T]) Group(prefix string) router.Router[T] {
+	return r.surface.Group(prefix)
+}
+
+func (r hostAdminRouter[T]) Mount(prefix string) router.Router[T] {
+	return r.surface.Mount(prefix)
+}
+
+func (r hostAdminRouter[T]) WithGroup(groupPath string, cb func(router.Router[T])) router.Router[T] {
+	return r.surface.WithGroup(groupPath, cb)
+}
+
+func (r *hostAdminRouter[T]) Use(m ...router.MiddlewareFunc) router.Router[T] {
+	if r == nil || r.surface == nil {
+		return r
+	}
+	return r.surface.Use(m...)
+}
+
 func (r hostAdminRouter[T]) Get(path string, handler router.HandlerFunc, mw ...router.MiddlewareFunc) router.RouteInfo {
 	return r.surface.Get(path, handler, mw...)
 }
@@ -778,4 +797,39 @@ func (r hostAdminRouter[T]) Head(path string, handler router.HandlerFunc, mw ...
 
 func (r hostAdminRouter[T]) WebSocket(path string, config router.WebSocketConfig, handler func(router.WebSocketContext) error) router.RouteInfo {
 	return r.surface.WebSocket(path, config, handler)
+}
+
+func (r hostAdminRouter[T]) Static(prefix, root string, config ...router.Static) router.Router[T] {
+	return r.surface.Static(prefix, root, config...)
+}
+
+func (r hostAdminRouter[T]) Routes() []router.RouteDefinition {
+	if r.surface == nil {
+		return nil
+	}
+	return r.surface.Routes()
+}
+
+func (r hostAdminRouter[T]) ValidateRoutes() []error {
+	if r.surface == nil {
+		return nil
+	}
+	return r.surface.ValidateRoutes()
+}
+
+func (r hostAdminRouter[T]) PrintRoutes() {
+	if r.surface != nil {
+		r.surface.PrintRoutes()
+	}
+}
+
+func (r hostAdminRouter[T]) WithLogger(logger router.Logger) router.Router[T] {
+	return r.surface.WithLogger(logger)
+}
+
+func (r hostAdminRouter[T]) UnderlyingRouter() any {
+	if r.surface == nil {
+		return nil
+	}
+	return r.surface.UnderlyingRouter()
 }
