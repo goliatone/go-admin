@@ -145,6 +145,7 @@ func (m *PreferencesModule) MenuItems(locale string) []MenuItem {
 	}
 	return []MenuItem{
 		{
+			ID:          preferencesModuleID,
 			Label:       "Preferences",
 			LabelKey:    "menu.preferences",
 			Icon:        "user-circle",

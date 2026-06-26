@@ -164,6 +164,7 @@ func (m *TenantsModule) MenuItems(locale string) []MenuItem {
 	path := resolveURLWith(m.urls, group, tenantsRouteKey, nil, nil)
 	return []MenuItem{
 		{
+			ID:          tenantsModuleID,
 			Label:       "Tenants",
 			LabelKey:    "menu.tenants",
 			Icon:        "building",
@@ -302,6 +303,7 @@ func (m *OrganizationsModule) MenuItems(locale string) []MenuItem {
 	path := resolveURLWith(m.urls, group, organizationsRouteKey, nil, nil)
 	return []MenuItem{
 		{
+			ID:          organizationsModuleID,
 			Label:       "Organizations",
 			LabelKey:    "menu.organizations",
 			Icon:        "community",

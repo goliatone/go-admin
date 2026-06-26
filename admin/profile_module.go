@@ -134,6 +134,7 @@ func (m *ProfileModule) MenuItems(locale string) []MenuItem {
 	path := resolveURLWith(m.urls, group, profileRouteKey, nil, nil)
 	return []MenuItem{
 		{
+			ID:          profileModuleID,
 			Label:       "Profile",
 			LabelKey:    "menu.profile",
 			Icon:        "user",
