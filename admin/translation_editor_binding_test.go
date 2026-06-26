@@ -35,6 +35,7 @@ type translationEditorTestFixtureOptions struct {
 	RequiredLocales         []string
 	ExtraAssignments        []TranslationAssignment
 	PagePanelViewPermission string
+	PagePanelEditPermission string
 }
 
 type translationEditorTestFixture struct {
@@ -225,13 +226,14 @@ func newTranslationEditorTestFixture(t *testing.T, options translationEditorTest
 		},
 	}
 	assignments = append(assignments, options.ExtraAssignments...)
-	base := newTranslationFamilyMutationFixture(t, translationFamilyMutationFixtureOptions{
-		RequiredLocales:         requiredLocales,
-		ReviewRequired:          options.ReviewRequired,
-		FamilyStore:             options.FamilyStore,
-		Assignments:             assignments,
-		PagePanelViewPermission: options.PagePanelViewPermission,
-	})
+		base := newTranslationFamilyMutationFixture(t, translationFamilyMutationFixtureOptions{
+			RequiredLocales:         requiredLocales,
+			ReviewRequired:          options.ReviewRequired,
+			FamilyStore:             options.FamilyStore,
+			Assignments:             assignments,
+			PagePanelViewPermission: options.PagePanelViewPermission,
+			PagePanelEditPermission: options.PagePanelEditPermission,
+		})
 
 	permissions := map[string]bool{
 		PermAdminTranslationsView:    true,
@@ -443,6 +445,21 @@ func TestTranslationEditorAssignmentDetailReturnsDriftAssistTimelineAndActions(t
 	if got := toInt(data["assignment_row_version"]); got != 2 {
 		t.Fatalf("expected assignment_row_version 2, got %d", got)
 	}
+	contentNavigation := extractMap(data["content_navigation"])
+	sourceNavigation := extractMap(contentNavigation["source"])
+	if got := toString(sourceNavigation["edit_url"]); got != "/admin/content/pages/page-1/edit?channel=production&locale=en" {
+		t.Fatalf("expected source edit URL with channel and locale, got %q", got)
+	}
+	if got := toString(sourceNavigation["detail_url"]); got != "/admin/content/pages/page-1?channel=production&locale=en" {
+		t.Fatalf("expected source detail URL with channel and locale, got %q", got)
+	}
+	if got := toString(sourceNavigation["label"]); got != "Edit source content" {
+		t.Fatalf("expected source label, got %q", got)
+	}
+	targetNavigation := extractMap(contentNavigation["target"])
+	if got := toString(targetNavigation["edit_url"]); got != "/admin/content/pages/page-1-fr/edit?channel=production&locale=fr" {
+		t.Fatalf("expected target edit URL with channel and locale, got %q", got)
+	}
 
 	fieldDrift := extractMap(data["field_drift"])
 	titleDrift := extractMap(fieldDrift["title"])
@@ -512,6 +529,94 @@ func TestTranslationEditorAssignmentDetailReturnsDriftAssistTimelineAndActions(t
 	}
 	if autoApprove := toBool(submitReview["auto_approve"]); autoApprove {
 		t.Fatalf("expected submit_review auto_approve false when review is required")
+	}
+}
+
+func TestTranslationEditorContentNavigationOmitsUnavailableRecords(t *testing.T) {
+	payload := translationContentNavigationPayloadForRecord("pages", "", "en", "production", "/admin")
+	if payload != nil {
+		t.Fatalf("expected nil navigation without record id, got %+v", payload)
+	}
+	payload = translationContentNavigationPayloadForRecord("", "page-1", "en", "production", "/admin")
+	if payload != nil {
+		t.Fatalf("expected nil navigation without content type, got %+v", payload)
+	}
+	payload = translationContentNavigationPayloadForRecord("posts", "post-1", "en", "default", "/admin")
+	if got := toString(payload["edit_url"]); got != "/admin/content/posts/post-1/edit?channel=default&locale=en" {
+		t.Fatalf("expected posts edit URL with channel and locale, got %q", got)
+	}
+}
+
+func TestTranslationEditorAssignmentDetailContentNavigationFallsBackWhenEditDenied(t *testing.T) {
+	const pageEditPermission = "pages:update"
+	fixture := newTranslationEditorTestFixture(t, translationEditorTestFixtureOptions{
+		PagePanelEditPermission: pageEditPermission,
+		Permissions: map[string]bool{
+			pageEditPermission: false,
+		},
+	})
+
+	status, payload := doTranslationEditorJSONRequest(t, fixture.app, http.MethodGet, "/admin/api/translations/assignments/"+fixture.assignmentID+"?channel=production&tenant_id=tenant-1&org_id=org-1", nil)
+	if status != http.StatusOK {
+		t.Fatalf("status=%d want=200 payload=%+v", status, payload)
+	}
+	data := extractMap(payload["data"])
+	contentNavigation := extractMap(data["content_navigation"])
+	sourceNavigation := extractMap(contentNavigation["source"])
+	if got := toString(sourceNavigation["edit_url"]); got != "" {
+		t.Fatalf("expected source edit URL omitted when edit permission denied, got %q", got)
+	}
+	if got := toString(sourceNavigation["detail_url"]); got != "/admin/content/pages/page-1?channel=production&locale=en" {
+		t.Fatalf("expected source detail URL fallback, got %q", got)
+	}
+	if got := toString(sourceNavigation["label"]); got != "View source content" {
+		t.Fatalf("expected source view label, got %q", got)
+	}
+	if canEdit := toBool(sourceNavigation["can_edit"]); canEdit {
+		t.Fatalf("expected source can_edit=false, got %+v", sourceNavigation)
+	}
+	if got := toString(sourceNavigation["edit_disabled_reason_code"]); got != "permission_denied" {
+		t.Fatalf("expected permission_denied reason code, got %q", got)
+	}
+	targetNavigation := extractMap(contentNavigation["target"])
+	if got := toString(targetNavigation["edit_url"]); got != "" {
+		t.Fatalf("expected target edit URL omitted when edit permission denied, got %q", got)
+	}
+	if got := toString(targetNavigation["detail_url"]); got != "/admin/content/pages/page-1-fr?channel=production&locale=fr" {
+		t.Fatalf("expected target detail URL fallback, got %q", got)
+	}
+}
+
+func TestTranslationEditorAssignmentDetailContentNavigationOmitsTargetWithoutRecord(t *testing.T) {
+	fixture := newTranslationEditorTestFixture(t, translationEditorTestFixtureOptions{
+		RequiredLocales: []string{"fr", "es"},
+		ExtraAssignments: []TranslationAssignment{{
+			ID:             "asg-editor-es",
+			FamilyID:       "tg-page-1",
+			EntityType:     "pages",
+			TenantID:       "tenant-1",
+			OrgID:          "org-1",
+			SourceRecordID: "page-1",
+			SourceLocale:   "en",
+			TargetLocale:   "es",
+			Status:         AssignmentStatusInProgress,
+			AssigneeID:     "translator-1",
+			Version:        1,
+		}},
+	})
+
+	status, payload := doTranslationEditorJSONRequest(t, fixture.app, http.MethodGet, "/admin/api/translations/assignments/asg-editor-es?channel=production&tenant_id=tenant-1&org_id=org-1", nil)
+	if status != http.StatusOK {
+		t.Fatalf("status=%d want=200 payload=%+v", status, payload)
+	}
+	data := extractMap(payload["data"])
+	contentNavigation := extractMap(data["content_navigation"])
+	sourceNavigation := extractMap(contentNavigation["source"])
+	if got := toString(sourceNavigation["edit_url"]); got != "/admin/content/pages/page-1/edit?channel=production&locale=en" {
+		t.Fatalf("expected source edit URL, got %q", got)
+	}
+	if target, ok := contentNavigation["target"]; ok && target != nil {
+		t.Fatalf("expected target navigation omitted without target record, got %+v", target)
 	}
 }
 

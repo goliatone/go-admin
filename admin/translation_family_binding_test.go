@@ -2924,6 +2924,7 @@ type translationFamilyMutationFixtureOptions struct {
 	FamilyStore             translationservices.FamilyStore
 	Users                   []UserRecord
 	PagePanelViewPermission string
+	PagePanelEditPermission string
 	DisableQueueFeature     bool
 }
 
@@ -3046,10 +3047,12 @@ func newTranslationFamilyMutationFixture(t *testing.T, options translationFamily
 	if pagePanelViewPermission == "" {
 		pagePanelViewPermission = PermAdminTranslationsView
 	}
+	pagePanelEditPermission := strings.TrimSpace(options.PagePanelEditPermission)
 	if _, err := adm.RegisterPanel("pages", adm.Panel("pages").
 		WithRepository(NewCMSPageRepository(contentSvc)).
 		Permissions(PanelPermissions{
 			View: pagePanelViewPermission,
+			Edit: pagePanelEditPermission,
 		}),
 	); err != nil {
 		t.Fatalf("register pages panel: %v", err)

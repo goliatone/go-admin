@@ -271,6 +271,15 @@ func TestResolveStaticAssetPrefixesIncludesRuntimeAliasAndSharedMounts(t *testin
 	}
 }
 
+func TestResolveDashboardShellAssetsPrefixTracksStaticAssetOverrides(t *testing.T) {
+	cfg := admin.Config{BasePath: "/admin"}
+
+	got := ResolveDashboardShellAssetsPrefix(cfg, WithDashboardShellPrefix("/charts/shell/"))
+	if got != "/charts/shell" {
+		t.Fatalf("expected dashboard shell prefix override, got %q", got)
+	}
+}
+
 func TestResolveSiteFallbackReservedPrefixesTracksStaticAssetOverrides(t *testing.T) {
 	cfg := admin.Config{BasePath: "/admin"}
 
