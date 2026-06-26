@@ -7,6 +7,7 @@ const (
 	PermAdminTranslationsAssign         = "admin.translations.assign"
 	PermAdminTranslationsApprove        = "admin.translations.approve"
 	PermAdminTranslationsClaim          = "admin.translations.claim"
+	PermAdminTranslationsSuggest        = "admin.translations.suggest"
 	PermAdminTranslationsSync           = "admin.translations.sync"
 	PermAdminTranslationsExport         = "admin.translations.export"
 	PermAdminTranslationsImportView     = "admin.translations.import.view"
