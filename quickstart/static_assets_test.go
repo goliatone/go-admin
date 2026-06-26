@@ -203,6 +203,7 @@ func TestNewStaticAssetsMountsExpectedRoutes(t *testing.T) {
 		"/admin/runtime":            false,
 		"/admin/formgen":            false,
 		"/dashboard/assets/echarts": false,
+		"/dashboard/assets/shell":   false,
 		"/runtime":                  false,
 	}
 
@@ -257,6 +258,7 @@ func TestResolveStaticAssetPrefixesIncludesRuntimeAliasAndSharedMounts(t *testin
 		"/admin/formgen",
 		"/admin/sync-client/sync-core",
 		"/dashboard/assets/echarts",
+		"/dashboard/assets/shell",
 		"/runtime",
 	}
 	if len(got) != len(want) {
@@ -279,6 +281,7 @@ func TestResolveSiteFallbackReservedPrefixesTracksStaticAssetOverrides(t *testin
 		WithFormgenPrefix("/widgets/formgen"),
 		WithSyncClientPrefix("/ops/sync-client"),
 		WithEChartsPrefix("/charts/echarts"),
+		WithDashboardShellPrefix("/charts/shell"),
 	)
 	want := []string{
 		"/.well-known",
@@ -287,6 +290,7 @@ func TestResolveSiteFallbackReservedPrefixesTracksStaticAssetOverrides(t *testin
 		"/api/v1",
 		"/assets",
 		"/charts/echarts",
+		"/charts/shell",
 		"/ops/runtime",
 		"/ops/sync-client",
 		"/public-assets",
@@ -314,6 +318,7 @@ func TestResolveSiteFallbackStaticInputTracksStaticAssetOverrides(t *testing.T) 
 		WithFormgenPrefix("/widgets/formgen"),
 		WithSyncClientPrefix("/ops/sync-client"),
 		WithEChartsPrefix("/charts/echarts"),
+		WithDashboardShellPrefix("/charts/shell"),
 	)
 
 	if got.AssetsPrefix != "/public-assets" {
@@ -330,5 +335,29 @@ func TestResolveSiteFallbackStaticInputTracksStaticAssetOverrides(t *testing.T) 
 	}
 	if got.EChartsPrefix != "/charts/echarts" {
 		t.Fatalf("expected echarts prefix override, got %+v", got)
+	}
+	if got.ShellPrefix != "/charts/shell" {
+		t.Fatalf("expected shell prefix override, got %+v", got)
+	}
+}
+
+func TestNewStaticAssetsMountsDashboardShellAssets(t *testing.T) {
+	r := &stubRouter{}
+	cfg := admin.Config{BasePath: "/admin"}
+
+	NewStaticAssets(r, cfg, fstest.MapFS{"app.js": {Data: []byte("assets")}})
+
+	call, ok := findStaticCall(r.staticCalls, "/dashboard/assets/shell")
+	if !ok {
+		t.Fatalf("expected dashboard shell static mount")
+	}
+	if call.config.FS == nil {
+		t.Fatalf("expected dashboard shell static FS configured")
+	}
+	if _, err := fs.ReadFile(call.config.FS, "shell.css"); err != nil {
+		t.Fatalf("expected shell.css from dashboard shell FS: %v", err)
+	}
+	if _, err := fs.ReadFile(call.config.FS, "shell.js"); err != nil {
+		t.Fatalf("expected shell.js from dashboard shell FS: %v", err)
 	}
 }
