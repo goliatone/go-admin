@@ -186,6 +186,77 @@ func TestWithRPCTransportMountsInvokeRouteAndHidesDiscoveryByDefault(t *testing.
 	}
 }
 
+func TestWithRPCTransportMountsThroughHostAdminRouter(t *testing.T) {
+	resetCommandRegistryForTest(t)
+	t.Cleanup(func() { resetCommandRegistryForTest(t) })
+
+	authn := &rpcTestAuthenticator{}
+	cfg := NewAdminConfig("/admin", "Admin", "en")
+	adm, _, err := NewAdmin(
+		cfg,
+		AdapterHooks{},
+		WithAdminDependencies(admin.Dependencies{
+			Authenticator: authn,
+			Authorizer: rpcTestAuthorizer{allow: map[string]bool{
+				"admin.commands.dispatch|commands": true,
+			}},
+		}),
+		WithRPCTransport(RPCTransportConfig{Enabled: true}),
+	)
+	if err != nil {
+		t.Fatalf("new admin: %v", err)
+	}
+	server := router.NewFiberAdapter()
+	host := NewHostRouter(server.Router(), cfg)
+	if err := adm.Initialize(host.Admin()); err != nil {
+		t.Fatalf("initialize admin with host admin router: %v", err)
+	}
+
+	invokePath := path.Join(adm.AdminAPIBasePath(), "rpc")
+	if !hasRoute(server.Router().Routes(), router.POST, invokePath) {
+		t.Fatalf("expected rpc invoke route %q", invokePath)
+	}
+
+	resp := testFiberRequest(t, server.WrappedRouter(), http.MethodPost, invokePath, `{"method":"admin.commands.dispatch","params":{"data":{"name":"missing"}}}`)
+	defer closeResponseBody(t, resp)
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected invoke response status 200, got %d", resp.StatusCode)
+	}
+	if authn.calls == 0 {
+		t.Fatalf("expected authenticator middleware to run for host-mounted invoke route")
+	}
+}
+
+type rpcTransportUnderlyingRouterStub struct {
+	underlying any
+}
+
+func (s rpcTransportUnderlyingRouterStub) UnderlyingRouter() any {
+	return s.underlying
+}
+
+type rpcTransportLoopingUnderlyingRouterStub struct{}
+
+func (rpcTransportLoopingUnderlyingRouterStub) UnderlyingRouter() any {
+	return rpcTransportLoopingUnderlyingRouterStub{}
+}
+
+func TestResolveRPCFiberRouterSupportsUnderlyingRouterWrappers(t *testing.T) {
+	fiberServer := router.NewFiberAdapter()
+	if rt := resolveRPCFiberRouter(rpcTransportUnderlyingRouterStub{underlying: fiberServer.Router()}); rt == nil {
+		t.Fatalf("expected wrapped Fiber router to resolve")
+	}
+
+	httpServer := router.NewHTTPServer()
+	if rt := resolveRPCFiberRouter(rpcTransportUnderlyingRouterStub{underlying: httpServer.Router()}); rt != nil {
+		t.Fatalf("expected wrapped HTTP router not to resolve as Fiber router")
+	}
+
+	if rt := resolveRPCFiberRouter(rpcTransportLoopingUnderlyingRouterStub{}); rt != nil {
+		t.Fatalf("expected looping underlying router wrapper not to resolve")
+	}
+}
+
 func TestWithRPCTransportCanEnableDiscoveryRoute(t *testing.T) {
 	resetCommandRegistryForTest(t)
 	t.Cleanup(func() { resetCommandRegistryForTest(t) })
@@ -312,6 +383,30 @@ func TestWithRPCTransportFailsForHTTPRouter(t *testing.T) {
 	}
 	server := router.NewHTTPServer()
 	err = adm.Initialize(server.Router())
+	if err == nil || !strings.Contains(strings.ToLower(err.Error()), "fiber") {
+		t.Fatalf("expected fiber startup error, got %v", err)
+	}
+}
+
+func TestWithRPCTransportFailsForHTTPHostAdminRouter(t *testing.T) {
+	resetCommandRegistryForTest(t)
+	t.Cleanup(func() { resetCommandRegistryForTest(t) })
+
+	cfg := NewAdminConfig("/admin", "Admin", "en")
+	adm, _, err := NewAdmin(
+		cfg,
+		AdapterHooks{},
+		WithAdminDependencies(admin.Dependencies{
+			Authenticator: &rpcTestAuthenticator{},
+		}),
+		WithRPCTransport(RPCTransportConfig{Enabled: true}),
+	)
+	if err != nil {
+		t.Fatalf("new admin: %v", err)
+	}
+	server := router.NewHTTPServer()
+	host := NewHostRouter(server.Router(), cfg)
+	err = adm.Initialize(host.Admin())
 	if err == nil || !strings.Contains(strings.ToLower(err.Error()), "fiber") {
 		t.Fatalf("expected fiber startup error, got %v", err)
 	}

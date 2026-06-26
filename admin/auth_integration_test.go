@@ -290,6 +290,18 @@ func TestPermissionGrantMatchesAdminWildcards(t *testing.T) {
 	}
 }
 
+func TestExportedPermissionGrantMatchesUsesAdminWildcardSemantics(t *testing.T) {
+	if !PermissionGrantMatches("admin.*", "admin.translations.suggest") {
+		t.Fatalf("expected exported permission matcher to honor admin wildcard grant")
+	}
+	if !PermissionGrantMatches("admin.translations.*", "admin.translations.suggest") {
+		t.Fatalf("expected exported permission matcher to honor narrow admin wildcard grant")
+	}
+	if PermissionGrantMatches("reports.*", "reports.translations.suggest") {
+		t.Fatalf("expected exported permission matcher to keep non-admin wildcards literal")
+	}
+}
+
 func TestGoAuthAuthorizerResolvedPermissionsUsesRequestCache(t *testing.T) {
 	claims := &auth.JWTClaims{
 		UID:      "actor-1",

@@ -65,6 +65,7 @@ func TestSetupUsersSeededOwnerRoleKeepsExplicitTranslationOperationPermissions(t
 		"admin.translations.assign",
 		"admin.translations.approve",
 		"admin.translations.claim",
+		"admin.translations.suggest",
 		"admin.translations.export",
 		"admin.translations.import.view",
 		"admin.translations.import.validate",
@@ -138,6 +139,7 @@ func TestResolveRolePermissionsViewerExcludesTranslationOperationPermissions(t *
 		"admin.translations.assign",
 		"admin.translations.approve",
 		"admin.translations.claim",
+		"admin.translations.suggest",
 		"admin.translations.export",
 		"admin.translations.import.view",
 		"admin.translations.import.validate",
@@ -310,6 +312,33 @@ func TestEnsureTranslationExchangeSeedPermissionsDoesNotExpandWildcardSuperadmin
 	}
 	if len(registry.updates) != 0 {
 		t.Fatalf("expected wildcard superadmin not to be re-expanded, got updates %+v", registry.updates)
+	}
+}
+
+func TestEnsureTranslationExchangeSeedPermissionsRepairsOwnerSuggestionPermission(t *testing.T) {
+	registry := &testRoleRegistry{
+		roles: userstypes.RolePage{Roles: []userstypes.RoleDefinition{
+			{
+				ID:          uuid.New(),
+				RoleKey:     "owner",
+				Name:        "Owner",
+				Permissions: []string{"admin.translations.view", "admin.translations.edit"},
+				Scope:       seedScopeDefaults(),
+			},
+		}},
+	}
+
+	if err := ensureTranslationExchangeSeedPermissions(context.Background(), registry); err != nil {
+		t.Fatalf("ensure translation permissions: %v", err)
+	}
+	if len(registry.updates) != 1 {
+		t.Fatalf("expected one owner update, got %d", len(registry.updates))
+	}
+	if !permissionIncluded(registry.updates[0].Permissions, "admin.translations.suggest") {
+		t.Fatalf("expected owner repair to add suggest permission, got %v", registry.updates[0].Permissions)
+	}
+	if !permissionIncluded(registry.updates[0].Permissions, "admin.translations.edit") {
+		t.Fatalf("expected owner repair to preserve existing permissions, got %v", registry.updates[0].Permissions)
 	}
 }
 

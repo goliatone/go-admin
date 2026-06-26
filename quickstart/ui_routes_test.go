@@ -1133,6 +1133,90 @@ func TestTranslationEditorTemplateRendersResumeWorkState(t *testing.T) {
 	}
 }
 
+func TestTranslationEditorTemplateRendersSuggestionActionOnlyWhenDispatchable(t *testing.T) {
+	baseData := func(status string, action map[string]any) fiber.Map {
+		return fiber.Map{
+			"translation_assignment_id":          "asg-suggest",
+			"translation_editor_api_path":        "/admin/api/translations/assignments/asg-suggest?channel=staging",
+			"translation_editor_action_api_base": "/admin/api/translations/assignments",
+			"translation_editor_channel":         "staging",
+			"translation_editor_ssr": admin.TranslationSSRPage{
+				Surface: admin.TranslationSSRSurfaceEditor,
+				Data: map[string]any{
+					"assignment_id":  "asg-suggest",
+					"source_locale":  "en",
+					"target_locale":  "es",
+					"row_version":    3,
+					"source_fields":  map[string]any{"title": "Hello"},
+					"target_fields":  map[string]any{"title": "Hola"},
+					"field_drift":    map[string]any{},
+					"qa_results":     map[string]any{"summary": map[string]any{"blocker_count": 0}},
+					"preview_action": map[string]any{"enabled": true},
+					"translation_assignment": map[string]any{
+						"source_title": "Launch page",
+						"status":       status,
+						"queue_state":  status,
+						"version":      3,
+					},
+					"fields": []map[string]any{{
+						"path":                       "title",
+						"label":                      "Title",
+						"source_value":               "Hello",
+						"target_value":               "Hola",
+						"suggest_translation_action": action,
+					}},
+					"locale_navigation":        map[string]any{"locales": []map[string]any{{"locale": "es", "label": "Spanish", "current": true}}},
+					"assignment_action_states": map[string]any{"submit_review": map[string]any{"enabled": true}},
+					"review_action_states": map[string]any{
+						"approve": map[string]any{"enabled": false, "reason": "assignment must be in review"},
+						"reject":  map[string]any{"enabled": false, "reason": "assignment must be in review"},
+					},
+				},
+			},
+		}
+	}
+	enabledAction := map[string]any{
+		"enabled":         true,
+		"command_name":    "translations.suggestions.generate",
+		"endpoint":        "/admin/api/rpc",
+		"rpc_invoke_path": "/admin/api/rpc",
+	}
+
+	enabledHTML := renderTranslationUITemplate(t, "resources/translations/editor", baseData("assigned", enabledAction))
+	if !strings.Contains(enabledHTML, `data-suggest-translation="title"`) {
+		t.Fatalf("expected enabled SSR suggestion action to render button: %s", enabledHTML)
+	}
+	if !strings.Contains(enabledHTML, `Generate suggestion`) {
+		t.Fatalf("expected enabled SSR suggestion action to render label: %s", enabledHTML)
+	}
+
+	deniedAction := map[string]any{
+		"enabled":      false,
+		"reason":       "Provider policy denied this assignment.",
+		"reason_code":  "provider_policy_denied",
+		"command_name": "translations.suggestions.generate",
+		"endpoint":     "/admin/api/rpc",
+	}
+	deniedHTML := renderTranslationUITemplate(t, "resources/translations/editor", baseData("assigned", deniedAction))
+	if strings.Contains(deniedHTML, `data-suggest-translation="title"`) {
+		t.Fatalf("did not expect denied SSR suggestion action to render button: %s", deniedHTML)
+	}
+
+	transportlessAction := map[string]any{
+		"enabled":      true,
+		"command_name": "translations.suggestions.generate",
+	}
+	transportlessHTML := renderTranslationUITemplate(t, "resources/translations/editor", baseData("assigned", transportlessAction))
+	if strings.Contains(transportlessHTML, `data-suggest-translation="title"`) {
+		t.Fatalf("did not expect transportless SSR suggestion action to render button: %s", transportlessHTML)
+	}
+
+	readOnlyHTML := renderTranslationUITemplate(t, "resources/translations/editor", baseData("approved", enabledAction))
+	if strings.Contains(readOnlyHTML, `data-suggest-translation="title"`) {
+		t.Fatalf("did not expect read-only SSR suggestion action to render button: %s", readOnlyHTML)
+	}
+}
+
 func TestRegisterAdminUIRoutesTranslationExchangeRouteIsCapabilityGuarded(t *testing.T) {
 	cfg := NewAdminConfig("/admin", "Admin", "en")
 	adm, _, err := NewAdmin(

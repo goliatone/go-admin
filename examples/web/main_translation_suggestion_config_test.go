@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"net/http"
+	"slices"
 	"testing"
 	"time"
 
@@ -163,12 +164,7 @@ func TestTranslationOperationRequiredPermissionsIncludesSuggestOnlyWhenConfigure
 }
 
 func translationSuggestionTestContainsString(values []string, target string) bool {
-	for _, value := range values {
-		if value == target {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(values, target)
 }
 
 type translationSuggestionTestService struct{}

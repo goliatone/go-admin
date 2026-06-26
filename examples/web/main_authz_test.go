@@ -36,6 +36,33 @@ func TestMissingPermissionsCaseInsensitive(t *testing.T) {
 	}
 }
 
+func TestMissingPermissionsTreatsAdminWildcardGrantAsCovered(t *testing.T) {
+	required := []string{"admin.translations.suggest", "admin.users.view"}
+	granted := []string{"admin.*"}
+	missing := missingPermissions(required, granted)
+	if len(missing) != 0 {
+		t.Fatalf("expected admin wildcard to cover required admin permissions, got %v", missing)
+	}
+}
+
+func TestMissingPermissionsTreatsNarrowAdminWildcardGrantAsCovered(t *testing.T) {
+	required := []string{"admin.translations.suggest", "admin.users.view"}
+	granted := []string{"admin.translations.*"}
+	missing := missingPermissions(required, granted)
+	if len(missing) != 1 || missing[0] != "admin.users.view" {
+		t.Fatalf("expected narrow wildcard to cover translations only, got %v", missing)
+	}
+}
+
+func TestMissingPermissionsDoesNotTreatNonAdminWildcardAsCovered(t *testing.T) {
+	required := []string{"reports.translations.suggest"}
+	granted := []string{"reports.*"}
+	missing := missingPermissions(required, granted)
+	if len(missing) != 1 || missing[0] != "reports.translations.suggest" {
+		t.Fatalf("expected non-admin wildcard to stay literal, got %v", missing)
+	}
+}
+
 func TestBuildPermissionDiagnosticsPayloadIncludesResolvedPermissions(t *testing.T) {
 	payload := buildPermissionDiagnosticsPayload(nil, context.Background(), []string{
 		"admin.translations.export",
