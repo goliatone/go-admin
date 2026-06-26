@@ -77,6 +77,43 @@ func TestBuildTranslationProductResolutionDefaultsToNoneWhenCMSDisabled(t *testi
 	}
 }
 
+type quickstartTranslationSuggestionAssistContext struct{}
+
+func (quickstartTranslationSuggestionAssistContext) TranslationSuggestionAssistContext(context.Context, admin.TranslationSuggestionInput, admin.TranslationSuggestionAssignmentContext) (map[string]any, error) {
+	return map[string]any{"style": "concise"}, nil
+}
+
+func TestMergeTranslationQueueConfigPreservesSuggestionRuntimeWiring(t *testing.T) {
+	suggestionSvc := &quickstartTranslationSuggestionService{}
+	eligibility := admin.TranslationSuggestionAllowAllEligibility{}
+	assist := quickstartTranslationSuggestionAssistContext{}
+
+	merged := mergeTranslationQueueConfig(TranslationQueueConfig{}, TranslationQueueConfig{
+		Enabled:                 true,
+		SuggestionService:       suggestionSvc,
+		SuggestionEligibility:   eligibility,
+		SuggestionAssistContext: assist,
+		SuggestionPermission:    "admin.translations.suggest.custom",
+		SuggestionResource:      "custom-translations",
+	})
+
+	if merged.SuggestionService != suggestionSvc {
+		t.Fatalf("expected suggestion service to be preserved")
+	}
+	if merged.SuggestionEligibility == nil {
+		t.Fatalf("expected suggestion eligibility to be preserved")
+	}
+	if merged.SuggestionAssistContext == nil {
+		t.Fatalf("expected suggestion assist context to be preserved")
+	}
+	if merged.SuggestionPermission != "admin.translations.suggest.custom" {
+		t.Fatalf("expected suggestion permission to be preserved, got %q", merged.SuggestionPermission)
+	}
+	if merged.SuggestionResource != "custom-translations" {
+		t.Fatalf("expected suggestion resource to be preserved, got %q", merged.SuggestionResource)
+	}
+}
+
 func TestBuildTranslationProductResolutionRejectsUnknownProfile(t *testing.T) {
 	_, err := buildTranslationProductResolution(NewAdminConfig("", "", ""), adminOptions{
 		translationProductConfigSet: true,

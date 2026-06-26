@@ -137,6 +137,96 @@ func TestDefaultTranslationSuggestionServiceUsesServerLoadedSourceText(t *testin
 	}
 }
 
+func TestDefaultTranslationSuggestionServiceRequiresScopeForScopedAssignments(t *testing.T) {
+	cases := []struct {
+		name  string
+		input TranslationSuggestionInput
+	}{
+		{
+			name: "missing tenant",
+			input: TranslationSuggestionInput{
+				FieldPath: "title",
+				OrgID:     "org_1",
+			},
+		},
+		{
+			name: "missing org",
+			input: TranslationSuggestionInput{
+				FieldPath: "title",
+				TenantID:  "tenant_1",
+			},
+		},
+		{
+			name: "tenant mismatch",
+			input: TranslationSuggestionInput{
+				FieldPath: "title",
+				TenantID:  "tenant_other",
+				OrgID:     "org_1",
+			},
+		},
+		{
+			name: "org mismatch",
+			input: TranslationSuggestionInput{
+				FieldPath: "title",
+				TenantID:  "tenant_1",
+				OrgID:     "org_other",
+			},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			repo := NewInMemoryTranslationAssignmentRepository()
+			assignment, err := repo.Create(context.Background(), TranslationAssignment{
+				FamilyID:       "family_1",
+				EntityType:     "pages",
+				TenantID:       "tenant_1",
+				OrgID:          "org_1",
+				SourceRecordID: "page_1",
+				SourceLocale:   "en",
+				TargetLocale:   "es",
+				AssignmentType: AssignmentTypeDirect,
+				Status:         AssignmentStatusInProgress,
+				Priority:       PriorityNormal,
+				WorkScope:      "default",
+			})
+			if err != nil {
+				t.Fatalf("create assignment: %v", err)
+			}
+			loader := &fakeTranslationSuggestionContextLoader{
+				ctx: TranslationSuggestionAssignmentContext{
+					SourceFields: map[string]string{"title": "Hello"},
+					TargetFields: map[string]string{"title": ""},
+				},
+			}
+			eligibility := &fakeTranslationSuggestionEligibility{decision: TranslationSuggestionDecision{Allowed: true}}
+			provider := &fakeTranslationSuggestionProvider{}
+			service := &DefaultTranslationSuggestionService{
+				Repository:    repo,
+				Authorizer:    fakeTranslationSuggestionAuthorizer{allowed: true},
+				ContextLoader: loader,
+				Eligibility:   eligibility,
+				Provider:      provider,
+			}
+
+			tc.input.AssignmentID = assignment.ID
+			_, err = service.SuggestTranslation(context.Background(), tc.input)
+			if err == nil {
+				t.Fatal("expected scope denial error")
+			}
+			if loader.calls != 0 {
+				t.Fatalf("context loader was called before scope denial: %d", loader.calls)
+			}
+			if eligibility.calls != 0 {
+				t.Fatalf("eligibility was called before scope denial: %d", eligibility.calls)
+			}
+			if provider.calls != 0 {
+				t.Fatalf("provider was called before scope denial: %d", provider.calls)
+			}
+		})
+	}
+}
+
 func TestDefaultTranslationSuggestionServiceDeniesBeforeProvider(t *testing.T) {
 	repo := NewInMemoryTranslationAssignmentRepository()
 	assignment, err := repo.Create(context.Background(), TranslationAssignment{
@@ -177,6 +267,8 @@ func TestDefaultTranslationSuggestionServiceDeniesBeforeProvider(t *testing.T) {
 	_, err = service.SuggestTranslation(context.Background(), TranslationSuggestionInput{
 		AssignmentID: assignment.ID,
 		FieldPath:    "title",
+		TenantID:     "tenant_1",
+		OrgID:        "org_1",
 	})
 	if err == nil {
 		t.Fatal("expected quota denial error")
@@ -226,6 +318,8 @@ func TestDefaultTranslationSuggestionServiceDeniesPermissionBeforeContextLoad(t 
 	_, err = service.SuggestTranslation(context.Background(), TranslationSuggestionInput{
 		AssignmentID: assignment.ID,
 		FieldPath:    "title",
+		TenantID:     "tenant_1",
+		OrgID:        "org_1",
 	})
 	if err == nil {
 		t.Fatal("expected permission denial error")
@@ -305,6 +399,8 @@ func TestDefaultTranslationSuggestionServicePropagatesSafePolicyDenialReasons(t 
 			_, err = service.SuggestTranslation(context.Background(), TranslationSuggestionInput{
 				AssignmentID: assignment.ID,
 				FieldPath:    "title",
+				TenantID:     "tenant_1",
+				OrgID:        "org_1",
 			})
 			if err == nil {
 				t.Fatal("expected denial error")

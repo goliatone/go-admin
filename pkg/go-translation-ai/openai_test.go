@@ -64,6 +64,8 @@ func TestWithOpenAIClientConfiguresServiceProvider(t *testing.T) {
 	result, err := svc.SuggestTranslation(context.Background(), coreadmin.TranslationSuggestionInput{
 		AssignmentID: "asg-ai-1",
 		FieldPath:    "title",
+		TenantID:     "tenant-1",
+		OrgID:        "org-1",
 	})
 	if err != nil {
 		t.Fatalf("SuggestTranslation: %v", err)

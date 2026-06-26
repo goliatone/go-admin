@@ -109,6 +109,10 @@ func (s editorSuggestionActionService) EvaluateTranslationSuggestionAction(conte
 
 func registerEditorSuggestionCommand(t *testing.T, adm *Admin, service TranslationSuggestionService) func() {
 	t.Helper()
+	if adm == nil || adm.Commands() == nil {
+		t.Fatal("expected admin command bus")
+	}
+	adm.Commands().Enable(true)
 	if err := RegisterTranslationSuggestionCommands(adm.Commands(), service); err != nil {
 		t.Fatalf("RegisterTranslationSuggestionCommands: %v", err)
 	}

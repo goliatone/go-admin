@@ -191,6 +191,8 @@ func TestServiceDeniesBeforeProviderCall(t *testing.T) {
 	_, err := svc.SuggestTranslation(context.Background(), coreadmin.TranslationSuggestionInput{
 		AssignmentID: "asg-ai-1",
 		FieldPath:    "title",
+		TenantID:     "tenant-1",
+		OrgID:        "org-1",
 	})
 	if err == nil {
 		t.Fatalf("expected denial error")
@@ -200,6 +202,42 @@ func TestServiceDeniesBeforeProviderCall(t *testing.T) {
 	}
 	if eligibility.calls != 1 {
 		t.Fatalf("expected eligibility to be checked once, got %d", eligibility.calls)
+	}
+}
+
+func TestServiceConfiguresMissingAdminDependencies(t *testing.T) {
+	assignment := suggestionTestAssignment()
+	provider := &fakeProvider{resp: ProviderResponse{
+		Text:     " Guide configure ",
+		Provider: "fake",
+		Model:    "fake-model",
+	}}
+	svc := NewService(
+		WithDefaultModel("fallback-model"),
+		WithProvider(provider),
+	)
+	svc.ConfigureTranslationSuggestionServiceDependencies(coreadmin.TranslationSuggestionServiceDependencies{
+		Repository:    fakeAssignmentRepo{assignment: assignment},
+		ContextLoader: fakeContextLoader{loaded: suggestionTestContext(assignment)},
+		Authorizer:    allowAuthorizer{},
+		Eligibility:   coreadmin.TranslationSuggestionAllowAllEligibility{},
+		AssistContext: fakeAssistContext{},
+	})
+
+	result, err := svc.SuggestTranslation(context.Background(), coreadmin.TranslationSuggestionInput{
+		AssignmentID: "asg-ai-1",
+		FieldPath:    "title",
+		TenantID:     "tenant-1",
+		OrgID:        "org-1",
+	})
+	if err != nil {
+		t.Fatalf("SuggestTranslation: %v", err)
+	}
+	if provider.calls != 1 {
+		t.Fatalf("expected provider call after dependency configuration, got %d", provider.calls)
+	}
+	if result.SuggestedText != "Guide configure" {
+		t.Fatalf("unexpected suggestion text %q", result.SuggestedText)
 	}
 }
 

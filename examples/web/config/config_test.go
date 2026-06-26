@@ -5,12 +5,19 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 )
 
 func TestDefaultsEnableFullTranslationProfileForReleaseQA(t *testing.T) {
 	cfg := Defaults()
 	if cfg.Translation.Profile != "full" {
 		t.Fatalf("expected default translation profile full, got %q", cfg.Translation.Profile)
+	}
+	if cfg.Translation.Suggestions.Enabled {
+		t.Fatalf("expected translation suggestions disabled by default")
+	}
+	if cfg.Translation.Suggestions.Provider != "openai" {
+		t.Fatalf("expected default suggestion provider openai, got %q", cfg.Translation.Suggestions.Provider)
 	}
 	if cfg.Site.Fallback.Mode == "" {
 		t.Fatalf("expected site fallback mode default to be configured")
@@ -26,6 +33,57 @@ func TestDefaultsEnableFullTranslationProfileForReleaseQA(t *testing.T) {
 	}
 	if cfg.Navigation.PermissionDeniedMode != "hide" {
 		t.Fatalf("expected navigation permission denied mode hide by default, got %q", cfg.Navigation.PermissionDeniedMode)
+	}
+}
+
+func TestLoadTranslationSuggestionRuntimeConfigFromEnv(t *testing.T) {
+	dir := t.TempDir()
+	configPath := filepath.Join(dir, "app.json")
+	if err := os.WriteFile(configPath, []byte(`{}`), 0o600); err != nil {
+		t.Fatalf("write config fixture: %v", err)
+	}
+	t.Setenv("APP_TRANSLATION__SUGGESTIONS__ENABLED", "true")
+	t.Setenv("APP_TRANSLATION__SUGGESTIONS__PROVIDER", "openai-compatible")
+	t.Setenv("APP_TRANSLATION__SUGGESTIONS__OPENAI__BASE_URL", "http://127.0.0.1:1234/v1")
+	t.Setenv("APP_TRANSLATION__SUGGESTIONS__OPENAI__MODEL", "local-model")
+	t.Setenv("APP_TRANSLATION__SUGGESTIONS__OPENAI__API_KEY", "local-key")
+	t.Setenv("APP_TRANSLATION__SUGGESTIONS__OPENAI__ORGANIZATION", "local-org")
+	t.Setenv("APP_TRANSLATION__SUGGESTIONS__OPENAI__TIMEOUT", "15s")
+	t.Setenv("APP_TRANSLATION__SUGGESTIONS__OPENAI__TEMPERATURE", "0.2")
+	t.Setenv("APP_TRANSLATION__SUGGESTIONS__PROMPT__SYSTEM_PROMPT", "Use product terminology.")
+	t.Setenv("APP_TRANSLATION__SUGGESTIONS__PROMPT__INSTRUCTION", "Return only translated text.")
+
+	cfg, _, err := Load(context.Background(), configPath)
+	if err != nil {
+		t.Fatalf("load config: %v", err)
+	}
+	suggestions := cfg.Translation.Suggestions
+	if !suggestions.Enabled {
+		t.Fatalf("expected translation suggestions enabled from env")
+	}
+	if suggestions.Provider != "openai-compatible" {
+		t.Fatalf("expected provider from env, got %q", suggestions.Provider)
+	}
+	if suggestions.OpenAI.BaseURL != "http://127.0.0.1:1234/v1" {
+		t.Fatalf("expected LM Studio base URL, got %q", suggestions.OpenAI.BaseURL)
+	}
+	if suggestions.OpenAI.Model != "local-model" || suggestions.OpenAI.APIKey != "local-key" {
+		t.Fatalf("expected OpenAI model/API key from env, got %+v", suggestions.OpenAI)
+	}
+	if suggestions.OpenAI.Organization != "local-org" {
+		t.Fatalf("expected organization from env, got %q", suggestions.OpenAI.Organization)
+	}
+	if suggestions.OpenAI.Timeout != 15*time.Second {
+		t.Fatalf("expected timeout 15s, got %s", suggestions.OpenAI.Timeout)
+	}
+	if suggestions.OpenAI.Temperature == nil || *suggestions.OpenAI.Temperature != 0.2 {
+		t.Fatalf("expected temperature 0.2, got %v", suggestions.OpenAI.Temperature)
+	}
+	if suggestions.Prompt.SystemPrompt != "Use product terminology." {
+		t.Fatalf("expected prompt system prompt from env, got %q", suggestions.Prompt.SystemPrompt)
+	}
+	if suggestions.Prompt.Instruction != "Return only translated text." {
+		t.Fatalf("expected prompt instruction from env, got %q", suggestions.Prompt.Instruction)
 	}
 }
 

@@ -146,6 +146,52 @@ func TestNewAdminTranslationQueueRegistersSuggestionServiceCommandAndRPCRule(t *
 	}
 }
 
+func TestNewAdminTranslationQueueConfiguresSuggestionServiceDependencies(t *testing.T) {
+	cleanupGlobalCommandRegistry(t)
+
+	repo := admin.NewInMemoryTranslationAssignmentRepository()
+	suggestionSvc := &quickstartConfigurableTranslationSuggestionService{}
+	eligibility := admin.TranslationSuggestionAllowAllEligibility{}
+	authorizer := quickstartTranslationSuggestionAuthorizer{}
+	cfg := NewAdminConfig("", "", "")
+	adm, _, err := NewAdmin(cfg, AdapterHooks{},
+		WithAdminDependencies(admin.Dependencies{Authorizer: authorizer}),
+		WithTranslationQueueConfig(TranslationQueueConfig{
+			Enabled:               true,
+			Repository:            repo,
+			SupportedLocales:      []string{"en", "es"},
+			SuggestionService:     suggestionSvc,
+			SuggestionEligibility: eligibility,
+			SuggestionPermission:  "admin.translations.suggest.custom",
+			SuggestionResource:    "translation-suggestions",
+		}),
+	)
+	if err != nil {
+		t.Fatalf("NewAdmin error: %v", err)
+	}
+	if adm.Commands() != nil {
+		t.Cleanup(adm.Commands().Reset)
+	}
+	if suggestionSvc.deps.Repository != repo {
+		t.Fatalf("expected queue repository dependency, got %#v", suggestionSvc.deps.Repository)
+	}
+	if suggestionSvc.deps.ContextLoader == nil {
+		t.Fatalf("expected admin-backed suggestion context loader")
+	}
+	if suggestionSvc.deps.Authorizer != authorizer {
+		t.Fatalf("expected admin authorizer dependency")
+	}
+	if suggestionSvc.deps.Eligibility != eligibility {
+		t.Fatalf("expected configured eligibility dependency")
+	}
+	if suggestionSvc.deps.Permission != "admin.translations.suggest.custom" {
+		t.Fatalf("expected custom suggestion permission, got %q", suggestionSvc.deps.Permission)
+	}
+	if suggestionSvc.deps.Resource != "translation-suggestions" {
+		t.Fatalf("expected custom suggestion resource, got %q", suggestionSvc.deps.Resource)
+	}
+}
+
 type quickstartTranslationSuggestionService struct {
 	calls  int
 	result admin.TranslationSuggestionResult
@@ -160,6 +206,21 @@ func (s *quickstartTranslationSuggestionService) SuggestTranslation(_ context.Co
 		s.result.FieldPath = input.FieldPath
 	}
 	return s.result, nil
+}
+
+type quickstartConfigurableTranslationSuggestionService struct {
+	quickstartTranslationSuggestionService
+	deps admin.TranslationSuggestionServiceDependencies
+}
+
+func (s *quickstartConfigurableTranslationSuggestionService) ConfigureTranslationSuggestionServiceDependencies(deps admin.TranslationSuggestionServiceDependencies) {
+	s.deps = deps
+}
+
+type quickstartTranslationSuggestionAuthorizer struct{}
+
+func (quickstartTranslationSuggestionAuthorizer) Can(context.Context, string, string) bool {
+	return true
 }
 
 func TestNewAdminTranslationQueueDerivesLocalesFromPolicyWhenUnset(t *testing.T) {

@@ -140,7 +140,7 @@ func TestTranslationCapabilitiesExposeSuggestionCommandMetadata(t *testing.T) {
 			},
 		},
 	}, Dependencies{
-		FeatureGate: featureGateFromKeys(FeatureCMS, FeatureTranslationQueue),
+		FeatureGate: featureGateFromKeys(FeatureCMS, FeatureCommands, FeatureTranslationQueue),
 	})
 	service := &stubTranslationSuggestionService{}
 	adm.WithTranslationSuggestionService(service)
@@ -234,7 +234,7 @@ func TestTranslationCapabilitiesDisableSuggestionsWhenCommandUnregistered(t *tes
 			},
 		},
 	}, Dependencies{
-		FeatureGate: featureGateFromKeys(FeatureCMS, FeatureTranslationQueue),
+		FeatureGate: featureGateFromKeys(FeatureCMS, FeatureCommands, FeatureTranslationQueue),
 	})
 	adm.WithTranslationSuggestionService(&stubTranslationSuggestionService{})
 	adm.WithAuthorizer(translationPermissionAuthorizer{
