@@ -16,7 +16,10 @@ const (
 	MenuTargetGeneratedSource       = "quickstart.menu_seed_plan"
 )
 
-// MenuSeedItemTransform can adjust expected generated menu rows before they are normalized.
+// MenuSeedBaseItemTransform can adjust quickstart base/capability menu rows before they are normalized.
+type MenuSeedBaseItemTransform func(item *admin.MenuItem)
+
+// MenuSeedItemTransform can adjust module-contributed menu rows before they are normalized.
 type MenuSeedItemTransform func(moduleID string, item *admin.MenuItem)
 
 // MenuSeedPlanOptions describes how quickstart computes expected generated menu rows.
@@ -32,6 +35,7 @@ type MenuSeedPlanOptions struct {
 
 	ModuleParentOverrides map[string]string
 	TargetParentOverrides map[string]string
+	BaseItemTransforms    []MenuSeedBaseItemTransform
 	ItemTransforms        []MenuSeedItemTransform
 }
 
@@ -62,6 +66,11 @@ func BuildMenuSeedPlan(opts MenuSeedPlanOptions) (MenuSeedPlan, error) {
 	}
 	for _, item := range cloneMenuItems(opts.BaseItems) {
 		applyMenuSeedTargetParentOverride(&item, opts)
+		for _, transform := range opts.BaseItemTransforms {
+			if transform != nil {
+				transform(&item)
+			}
+		}
 		items = append(items, item)
 	}
 
