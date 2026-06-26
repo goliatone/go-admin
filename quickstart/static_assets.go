@@ -164,6 +164,13 @@ func ResolveStaticAssetPrefixes(cfg admin.Config, opts ...StaticAssetsOption) []
 	})
 }
 
+// ResolveDashboardShellAssetsPrefix returns the go-dashboard shell asset prefix
+// after applying the same static asset options used by NewStaticAssets.
+func ResolveDashboardShellAssetsPrefix(cfg admin.Config, opts ...StaticAssetsOption) string {
+	options := resolveStaticAssetsOptions(cfg, opts)
+	return normalizeContentBuilderShellAssetsPrefix(options.shellPrefix)
+}
+
 // ResolveSyncClientAssetsPrefix returns the admin-scoped sync-core runtime
 // asset prefix used by translation and e-sign editor runtime config.
 func ResolveSyncClientAssetsPrefix(cfg admin.Config) string {

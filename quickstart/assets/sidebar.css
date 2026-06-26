@@ -19,7 +19,100 @@
 }
 
 #sidebar[data-collapsed="true"] {
-  width: 72px;
+  width: 64px !important;
+}
+
+#sidebar[data-collapsed="true"] .nav-text,
+#sidebar[data-collapsed="true"] .sidebar-user-info,
+#sidebar[data-collapsed="true"] kbd,
+#sidebar[data-collapsed="true"] .menu-group button span,
+#sidebar[data-collapsed="true"] #user-menu,
+#sidebar[data-collapsed="true"] .submenu,
+#sidebar[data-collapsed="true"] .submenu-indicator {
+  display: none !important;
+}
+
+#sidebar[data-collapsed="true"] .sidebar-search-container {
+  display: none !important;
+}
+
+#sidebar[data-collapsed="true"] .sidebar-header {
+  flex-direction: column;
+  align-items: center;
+}
+
+#sidebar[data-collapsed="true"] .sidebar-toggle-btn {
+  margin-left: 0;
+}
+
+#sidebar[data-collapsed="true"] .nav-item {
+  justify-content: center;
+  width: 48px;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: 0;
+  padding-right: 0;
+}
+
+#sidebar[data-collapsed="true"] .nav-item .iconoir-open-new-window {
+  display: none !important;
+}
+
+#sidebar[data-collapsed="true"] .menu-group button {
+  justify-content: center;
+  padding-left: 0;
+  padding-right: 0;
+  margin-left: 0;
+  margin-right: 0;
+}
+
+#sidebar[data-collapsed="true"] .sidebar-bottom > div:last-child > div {
+  justify-content: center;
+  padding-left: 0;
+  padding-right: 0;
+}
+
+#sidebar[data-collapsed="true"] .sidebar-bottom {
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+}
+
+#sidebar[data-collapsed="true"] nav {
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+}
+
+#sidebar[data-collapsed="true"] .menu-group-ellipsis {
+  display: block !important;
+}
+
+#sidebar[data-collapsed="true"] .menu-group button i {
+  display: none !important;
+}
+
+@media (max-width: 1023px) {
+  .admin-layout {
+    padding-left: 64px;
+  }
+
+  .admin-main {
+    width: calc(100vw - 64px);
+  }
+
+  #sidebar {
+    position: fixed;
+    inset: 0 auto 0 0;
+    z-index: 50;
+    width: min(var(--sidebar-width, 260px), calc(100vw - 64px)) !important;
+    max-width: calc(100vw - 64px);
+    box-shadow: 0 24px 80px rgba(15, 23, 42, 0.28);
+  }
+
+  #sidebar[data-collapsed="true"] {
+    width: 64px !important;
+    max-width: 64px;
+    box-shadow: none;
+  }
 }
 
 .sidebar-header button:hover,
@@ -50,6 +143,10 @@
   display: none;
   width: 100%;
   justify-content: center;
+}
+
+.menu-group-ellipsis {
+  display: none;
 }
 
 .sidebar-logo {
