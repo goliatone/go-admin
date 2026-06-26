@@ -36,6 +36,7 @@ const (
 	contentTypePublishCommandName    = "content_types.publish"
 	contentTypeDeleteCommandName     = "content_types.delete"
 	contentTypeBuilderMenuGroupID    = "content_modeling"
+	contentTypeBuilderBlocksMenuID   = "block_library"
 	defaultFormIDOperationSuffix     = ".edit"
 	contentTypeSearchAdapterKey      = "content_types"
 	contentTypeBuilderPermissions    = "content_types"
@@ -324,7 +325,7 @@ func (m *ContentTypeBuilderModule) MenuItems(locale string) []MenuItem {
 	}
 	contentModeling := MenuItem{
 		ID:       contentTypeBuilderMenuGroupID,
-		Label:    "Content Modeling",
+		Label:    "Content Types",
 		Icon:     "cube",
 		Target:   map[string]any{"type": "url", "path": contentTypesPath, "key": contentTypePanelID},
 		Locale:   locale,
@@ -333,6 +334,13 @@ func (m *ContentTypeBuilderModule) MenuItems(locale string) []MenuItem {
 		Position: new(4),
 	}
 	blocks := MenuItem{
+		// An explicit, stable ID is required so the admin-core and quickstart
+		// menu-seeding paths derive the same canonical identity for this item.
+		// Without it, one path keys the ID off the label slug ("block-library")
+		// and the other off the target key ("block_definitions"), producing two
+		// un-deduplicated "Block Library" entries in the sidebar. The sibling
+		// "Content Modeling" item avoids this precisely because it sets an ID.
+		ID:       contentTypeBuilderBlocksMenuID,
 		Label:    "Block Library",
 		Icon:     "view-grid",
 		Target:   map[string]any{"type": "url", "path": blocksPath, "key": blockDefinitionsPanelID},
