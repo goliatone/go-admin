@@ -23,6 +23,7 @@ import { resolveIcon } from './shared/icon-picker';
 import { resolveApiBasePath } from './shared/api-paths';
 import { renderBlockStatusBadge } from './shared/status-badges';
 import { capitalizeLabel, nameToSlug } from './shared/text';
+import { CHANNEL_HELP_TEXT, normalizeKnownChannel, validateChannelName } from './shared/channel-validation';
 import { parseJSONValue } from '../shared/json-parse.js';
 
 // =============================================================================
@@ -511,14 +512,14 @@ export class BlockLibraryIDE {
       label: 'Channel name',
       placeholder: 'e.g. staging',
       confirmLabel: 'Add',
+      helpText: CHANNEL_HELP_TEXT,
       inputClass: inputClasses(),
       onConfirm: (value) => {
-        const raw = value.trim();
-        if (!raw) return;
-        const channel = this.normalizeChannel(raw);
-        this.upsertChannelOption(channel);
-        this.channelSelectEl!.value = channel;
-        this.setChannel(channel);
+        const validation = validateChannelName(value);
+        if (!validation.ok) return validation.error;
+        this.upsertChannelOption(validation.value);
+        this.channelSelectEl!.value = validation.value;
+        this.setChannel(validation.value);
       },
       onCancel: () => {
         this.channelSelectEl!.value = previous;
@@ -528,8 +529,7 @@ export class BlockLibraryIDE {
   }
 
   private normalizeChannel(value: string | null | undefined): string {
-    const channel = String(value ?? '').trim().toLowerCase();
-    return channel || DEFAULT_CHANNEL_KEY;
+    return normalizeKnownChannel(value, DEFAULT_CHANNEL_KEY);
   }
 
   private refreshChannelOptions(): void {

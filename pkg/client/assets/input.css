@@ -1312,6 +1312,11 @@
   width: 20rem;
 }
 
+.cm-rail--preview {
+  /* Stable width before the controller applies a persisted/inline width. */
+  width: 25rem;
+}
+
 /* Suppress width animation while actively dragging a splitter. */
 .cm-shell[data-pane-resizing] .cm-rail {
   transition: none;
@@ -1361,6 +1366,23 @@
 .cm-shell[data-pane-focus="builder"] .cm-rail,
 .cm-shell[data-pane-focus="builder"] .cm-splitter {
   display: none;
+}
+
+/* Preview focus keeps the outer list hidden and grows the Content Types
+   preview rail to fill the shell. */
+.cm-shell[data-pane-focus="preview"] > .cm-rail,
+.cm-shell[data-pane-focus="preview"] > .cm-splitter,
+.cm-shell[data-pane-focus="preview"] [data-ct-editor-main],
+.cm-shell[data-pane-focus="preview"] [data-pane-resize="preview"] {
+  display: none;
+}
+
+.cm-shell[data-pane-focus="preview"] [data-pane-rail="preview"] {
+  display: flex !important;
+  flex: 1 1 auto !important;
+  width: auto !important;
+  flex-basis: auto !important;
+  max-width: none;
 }
 
 /* Icon-only buttons in the builder toolbar. */

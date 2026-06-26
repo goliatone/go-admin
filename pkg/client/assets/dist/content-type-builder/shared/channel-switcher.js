@@ -1,6 +1,8 @@
-import "../../chunks/modal-C7iNT0ae.js";
-import { n as t, t as a } from "../../chunks/channel-switcher-0MuqCBy5.js";
+import "../../chunks/modal-Dzqx5T1M.js";
+import { a as n, n as t, r as i, t as r } from "../../chunks/channel-switcher-DPOC5S4V.js";
 export {
-  a as initContentTypeChannelSwitcher,
-  t as normalizeChannelName
+  t as CHANNEL_HELP_TEXT,
+  r as initContentTypeChannelSwitcher,
+  i as normalizeChannelName,
+  n as validateChannelName
 };

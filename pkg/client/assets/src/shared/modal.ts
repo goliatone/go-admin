@@ -409,9 +409,10 @@ export interface TextPromptModalConfig {
   initialValue?: string;
   confirmLabel?: string;
   cancelLabel?: string;
+  helpText?: string;
   /** CSS class string for the text input. Falls back to a sensible default. */
   inputClass?: string;
-  onConfirm: (value: string) => void;
+  onConfirm: (value: string) => void | boolean | string | { error?: string } | Promise<void | boolean | string | { error?: string }>;
   onCancel?: () => void;
 }
 
@@ -440,6 +441,7 @@ export class TextPromptModal extends Modal {
                value="${escapeHtml(this.config.initialValue ?? '')}"
                placeholder="${escapeHtml(this.config.placeholder ?? '')}"
                class="${cls}" />
+        ${this.config.helpText ? `<p class="mt-1 text-xs text-gray-500 dark:text-gray-400">${escapeHtml(this.config.helpText)}</p>` : ''}
         <div data-prompt-error class="hidden text-xs text-red-600 dark:text-red-400 mt-1"></div>
         <div class="flex items-center justify-end gap-2 mt-4">
           <button type="button" data-prompt-cancel
@@ -467,22 +469,37 @@ export class TextPromptModal extends Modal {
       errorEl.classList.remove('hidden');
     };
 
-    const handleConfirm = (): void => {
+    const handleConfirm = async (): Promise<void> => {
       const value = input?.value.trim() ?? '';
       if (!value) {
         showError('Value is required.');
         input?.focus();
         return;
       }
-      this.config.onConfirm(value);
+      const result = await this.config.onConfirm(value);
+      const error =
+        result === false
+          ? 'Value is invalid.'
+          : typeof result === 'string'
+            ? result
+            : result && typeof result === 'object' && typeof result.error === 'string'
+              ? result.error
+              : '';
+      if (error) {
+        showError(error);
+        input?.focus();
+        return;
+      }
       this.hide();
     };
 
-    confirmBtn?.addEventListener('click', handleConfirm);
+    confirmBtn?.addEventListener('click', () => {
+      void handleConfirm();
+    });
     input?.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') {
         e.preventDefault();
-        handleConfirm();
+        void handleConfirm();
       }
     });
     cancelBtn?.addEventListener('click', () => {

@@ -1143,12 +1143,12 @@ async function fs(e, t = "") {
   return l;
 }
 function ms(e) {
-  return e.enabled ? !0 : !!(e.command_name && e.reason_code && e.reason_code !== "service_unavailable");
+  return e.enabled === !0 && !!(e.endpoint || e.rpc_invoke_path);
 }
 function gs(e, t, s) {
   const a = e.suggest_translation_action;
-  if (!ms(a)) return "";
-  const i = t || s || !a.enabled, n = s ? "Generating suggestion..." : i ? a.reason || "Translation suggestion is unavailable." : `Generate translation suggestion for ${e.label}`;
+  if (t || !ms(a)) return "";
+  const i = s, n = s ? "Generating suggestion..." : `Generate translation suggestion for ${e.label}`, r = s ? '<span class="h-3 w-3 animate-spin rounded-full border-2 border-sky-200 border-t-sky-600" aria-hidden="true"></span><span>Generating</span>' : `${F("iconoir:spark", "12px")}<span>Generate suggestion</span>`;
   return `
     <button
       type="button"
@@ -1157,9 +1157,9 @@ function gs(e, t, s) {
       aria-label="Generate translation suggestion for ${f(e.label)}"
       title="${f(n)}"
       ${i ? 'disabled aria-disabled="true"' : ""}
+      ${s ? 'aria-busy="true"' : ""}
     >
-      ${F("iconoir:spark", "12px")}
-      <span>${s ? "Generating" : "Generate suggestion"}</span>
+      ${r}
     </button>
   `;
 }

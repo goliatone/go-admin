@@ -137,6 +137,73 @@ test('the wired list toggle collapses the rail through the controller', () => {
   ctrl.destroy();
 });
 
+function contentTypeEditorPreviewMarkup() {
+  return `
+    <div class="cm-shell" data-content-modeling-shell data-cm-surface="content-types">
+      <aside class="cm-rail cm-rail--list" data-pane-rail="list"
+             data-pane-resizable data-pane-edge="trailing"
+             data-pane-min="240" data-pane-max="420" data-pane-default-width="320"></aside>
+      <div class="cm-splitter" data-pane-resize="list"></div>
+      <div data-pane="builder">
+        <button data-pane-toggle="list" type="button" aria-expanded="true">list</button>
+        <button data-pane-toggle="preview" type="button" aria-expanded="true">preview</button>
+        <button data-pane-focus-toggle="builder" type="button" aria-pressed="false">builder</button>
+        <div data-ct-editor-main></div>
+        <div class="cm-splitter" data-pane-resize="preview"></div>
+        <aside class="cm-rail cm-rail--preview" data-pane-rail="preview"
+               data-pane-resizable data-pane-edge="leading"
+               data-pane-min="320" data-pane-max="720" data-pane-default-width="400">
+          <button data-pane-toggle="preview" type="button" aria-expanded="true">hide</button>
+          <button data-pane-focus-toggle="preview" type="button" aria-pressed="false">focus</button>
+        </aside>
+      </div>
+    </div>`;
+}
+
+test('content-types shell includes nested preview rail for resize, collapse, and focus', () => {
+  const dom = setup(contentTypeEditorPreviewMarkup());
+  const root = dom.window.document.querySelector('[data-content-modeling-shell]');
+  const config = buildShellConfig(root, { storage: memStorage() });
+  assert.equal(config.rails.length, 2);
+  assert.deepEqual(config.focusPanes, ['builder', 'preview']);
+
+  const preview = config.rails.find((rail) => rail.id === 'preview');
+  assert.ok(preview);
+  assert.equal(preview.edge, 'leading');
+  assert.equal(preview.min, 320);
+  assert.equal(preview.max, 720);
+  assert.equal(preview.defaultWidth, 400);
+});
+
+test('content-types preview controls restore persisted preview rail and focus state', () => {
+  const dom = setup(contentTypeEditorPreviewMarkup());
+  const root = dom.window.document.querySelector('[data-content-modeling-shell]');
+  const storage = memStorage({
+    'cm-pane:v1:content-types': JSON.stringify({
+      rails: {
+        list: { collapsed: false, width: 300 },
+        preview: { collapsed: true, width: 520 },
+      },
+      focus: 'preview',
+    }),
+  });
+
+  const ctrl = initContentModelingShell(root, { storage });
+  const previewRail = root.querySelector('[data-pane-rail="preview"]');
+  const previewToggles = root.querySelectorAll('[data-pane-toggle="preview"]');
+  assert.equal(previewRail.getAttribute('data-collapsed'), 'true');
+  assert.equal(root.getAttribute('data-pane-focus'), 'preview');
+  assert.equal(root.querySelector('[data-pane-focus-toggle="preview"]').getAttribute('aria-pressed'), 'true');
+  assert.equal(previewToggles[0].getAttribute('aria-expanded'), 'false');
+
+  click(previewToggles[0]);
+  assert.equal(previewRail.getAttribute('data-collapsed'), 'false');
+  assert.equal(previewRail.style.width, '520px');
+  assert.equal(previewToggles[0].getAttribute('aria-expanded'), 'true');
+  assert.equal(previewToggles[1].getAttribute('aria-expanded'), 'true');
+  ctrl.destroy();
+});
+
 // Mirrors the block-definitions/index.html shell contract (two rails).
 function blockLibraryMarkup() {
   return `

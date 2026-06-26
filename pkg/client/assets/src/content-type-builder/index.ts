@@ -134,6 +134,10 @@ export { PreviewModal, wrapReadonlyPreview, initPreviewEditors } from './shared/
 export { FIELD_SET_PRESETS, getFieldSetPreset } from './shared/field-presets';
 export type { FieldSetPreset, PresetField } from './shared/field-presets';
 
+// Re-export shared field-card primitives (T16 — unified trailing controls)
+export { renderFieldCard, renderFieldKebab, renderDropZone } from './shared/field-card';
+export type { FieldCardConfig, DropZoneConfig } from './shared/field-card';
+
 // =============================================================================
 // Auto-initialization
 // =============================================================================
@@ -241,10 +245,10 @@ function parseConfig(root: HTMLElement): ContentTypeEditorConfig {
 
 // Auto-initialize on DOM ready
 onReady(() => {
-  // Wire the shared collapse/resize/focus shell before surface controllers so the
-  // restored pane layout is in place when editors render their content.
-  initContentModelingShells();
   initContentTypeChannelSwitcher();
   initContentTypeEditors();
   initBlockLibraryIDE();
+  // Wire the shared collapse/resize/focus shell after surface controllers render
+  // their rails so dynamic Content Type editor panes are included in the scan.
+  initContentModelingShells();
 });

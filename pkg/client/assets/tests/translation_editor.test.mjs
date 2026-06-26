@@ -1074,6 +1074,76 @@ test('translation editor runtime: dispatches suggestion command and inserts retu
   screen.unmount();
 });
 
+test('translation editor runtime: suggestion click shows field-local activity while dispatching', async () => {
+  const { root, window } = setupDom();
+  installTranslationSyncCoreStub(window);
+  window.scrollTo = mock.fn();
+  const detail = makeSuggestionReadyFixture();
+  const suggestedText = 'Guide de publication suggere';
+  let resolveSuggestion;
+  const suggestionResponse = new Promise((resolve) => {
+    resolveSuggestion = resolve;
+  });
+
+  globalThis.fetch = mock.fn(async (input, init = {}) => {
+    const method = String(init.method || 'GET').toUpperCase();
+    const url = String(input);
+    if (method === 'GET' && url.includes('/api/translations/assignments/asg-editor-1')) {
+      return createJsonResponse(detail);
+    }
+    if (method === 'GET' && url.includes('/api/translations/sync/resources/translation_variant_draft/')) {
+      return createJsonResponse({
+        data: detail.data,
+        revision: 3,
+        updated_at: '2026-01-01T00:00:00Z',
+      });
+    }
+    if (method === 'POST' && url.includes('/admin/api/rpc')) {
+      return suggestionResponse;
+    }
+    return createJsonResponse({ error: { message: 'unexpected request' } }, 500, {
+      'content-type': 'application/json',
+    });
+  });
+
+  const screen = new TranslationEditorScreen({
+    endpoint: '/admin/api/translations/assignments/asg-editor-1',
+    actionEndpointBase: '/admin/api/translations/assignments',
+  });
+  screen.mount(root);
+  await flushAsync();
+  await flushAsync();
+
+  root.querySelector('[data-suggest-translation="title"]').click();
+  assert.equal(await waitForCondition(() => {
+    const pendingButton = root.querySelector('[data-suggest-translation="title"]');
+    return pendingButton?.getAttribute('aria-busy') === 'true'
+      && pendingButton?.disabled === true
+      && /Generating/.test(pendingButton?.textContent || '')
+      && Boolean(pendingButton?.querySelector('.animate-spin'));
+  }), true);
+
+  resolveSuggestion(createJsonResponse({
+    data: {
+      receipt: {
+        accepted: true,
+        command_id: 'translations.suggestions.generate',
+      },
+      result: {
+        assignment_id: 'asg-editor-1',
+        field_path: 'title',
+        suggested_text: suggestedText,
+        provider: 'fixture',
+        model: 'fixture-model',
+      },
+    },
+  }));
+
+  assert.equal(await waitForCondition(() => root.querySelector('[data-field-input="title"]')?.value === suggestedText), true);
+
+  screen.unmount();
+});
+
 test('translation editor runtime: stale suggestion response does not overwrite a newer field edit', async () => {
   const { root, window } = setupDom();
   installTranslationSyncCoreStub(window);
@@ -1163,13 +1233,32 @@ test('translation editor runtime: suggestion button visibility follows server ac
     createTranslationEditorState(denied)
   );
   const deniedDOM = new JSDOM(deniedHTML);
-  const deniedButton = deniedDOM.window.document.querySelector('[data-suggest-translation="title"]');
-  assert.ok(deniedButton);
-  assert.equal(deniedButton.disabled, true);
-  assert.match(deniedButton.getAttribute('title') || '', /Provider policy denied/);
+  assert.equal(deniedDOM.window.document.querySelector('[data-suggest-translation="title"]'), null);
+
+  const transportMissingFixture = makeSuggestionReadyFixture();
+  transportMissingFixture.data.suggest_translation_action = {
+    ...transportMissingFixture.data.suggest_translation_action,
+    endpoint: '',
+    rpc_invoke_path: '',
+  };
+  transportMissingFixture.data.fields = transportMissingFixture.data.fields.map((field) => ({
+    ...field,
+    suggest_translation_action: {
+      ...field.suggest_translation_action,
+      endpoint: '',
+      rpc_invoke_path: '',
+    },
+  }));
+  const transportMissing = normalizeAssignmentEditorDetail(transportMissingFixture);
+  const transportMissingHTML = renderTranslationEditorState(
+    { status: 'ready', detail: transportMissing },
+    createTranslationEditorState(transportMissing)
+  );
+  const transportMissingDOM = new JSDOM(transportMissingHTML);
+  assert.equal(transportMissingDOM.window.document.querySelector('[data-suggest-translation="title"]'), null);
 });
 
-test('translation editor runtime: read-only assignment disables suggestion controls', () => {
+test('translation editor runtime: read-only assignment omits suggestion controls', () => {
   const fixture = makeApprovedAssignmentFixture();
   const suggestionFixture = makeSuggestionReadyFixture();
   fixture.data.suggest_translation_action = suggestionFixture.data.suggest_translation_action;
@@ -1185,8 +1274,7 @@ test('translation editor runtime: read-only assignment disables suggestion contr
   const dom = new JSDOM(html);
   const button = dom.window.document.querySelector('[data-suggest-translation="title"]');
 
-  assert.ok(button);
-  assert.equal(button.disabled, true);
+  assert.equal(button, null);
   assert.match(html, /data-editor-read-only="true"/);
 });
 

@@ -155,13 +155,26 @@
                     <p class="mt-1 text-xs text-gray-500">Required</p>
                     {% endif %}
                   </div>
-                  <button type="button"
-                          class="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-xs font-medium text-gray-600 shadow-sm transition-colors hover:border-gray-300 hover:bg-gray-50 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-sky-100"
-                          data-copy-source="{{ field.path }}"
-                          data-source-value="{{ field.source_value|default:"" }}"
-                          {% if editor.translation_assignment.status == "approved" or editor.translation_assignment.status == "archived" or editor.translation_assignment.status == "in_review" %}disabled aria-disabled="true"{% endif %}>
-                    Copy source
-                  </button>
+                  <div class="flex flex-wrap gap-2">
+                    <button type="button"
+                            class="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-xs font-medium text-gray-600 shadow-sm transition-colors hover:border-gray-300 hover:bg-gray-50 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-sky-100"
+                            data-copy-source="{{ field.path }}"
+                            data-source-value="{{ field.source_value|default:"" }}"
+                            {% if editor.translation_assignment.status == "approved" or editor.translation_assignment.status == "archived" or editor.translation_assignment.status == "in_review" %}disabled aria-disabled="true"{% endif %}>
+                      Copy source
+                    </button>
+                    {% set field_suggest_action = field.suggest_translation_action %}
+                    {% set field_suggest_endpoint = field_suggest_action.endpoint or field_suggest_action.rpc_invoke_path %}
+                    {% if field_suggest_action.enabled and field_suggest_endpoint and editor.translation_assignment.status != "approved" and editor.translation_assignment.status != "archived" and editor.translation_assignment.status != "in_review" %}
+                    <button type="button"
+                            class="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-xs font-medium text-gray-600 shadow-sm transition-colors hover:border-gray-300 hover:bg-gray-50 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-sky-100"
+                            data-suggest-translation="{{ field.path }}"
+                            aria-label="Generate translation suggestion for {{ field.label|default:field.path }}"
+                            title="Generate translation suggestion for {{ field.label|default:field.path }}">
+                      Generate suggestion
+                    </button>
+                    {% endif %}
+                  </div>
                 </div>
                 <div class="mt-4 grid gap-4 md:grid-cols-2">
                   <div class="rounded-xl border border-gray-200 bg-gray-50 p-4">

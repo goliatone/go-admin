@@ -13,7 +13,7 @@ const { JSDOM } = await loadJSDOM();
 const bootstrapDom = new JSDOM('<!doctype html><html><body></body></html>', { url: 'http://localhost' });
 setGlobals(bootstrapDom.window);
 
-const { initContentTypeChannelSwitcher, normalizeChannelName } = await import(
+const { initContentTypeChannelSwitcher, normalizeChannelName, validateChannelName } = await import(
   '../dist/content-type-builder/shared/channel-switcher.js'
 );
 
@@ -79,6 +79,34 @@ test('Add Channel opens the styled modal and never calls window.prompt', async (
   assert.ok(document.querySelector('[data-prompt-input]'), 'styled TextPromptModal opened');
   // The modal title reflects the channel workflow.
   assert.match(document.body.textContent, /Add Channel/);
+});
+
+test('Add Channel keeps invalid normalized names in the modal with inline error', async () => {
+  setup();
+  const originalLocation = window.location.href;
+
+  initContentTypeChannelSwitcher(document);
+  click(document.querySelector('[data-content-types-channel-add]'));
+  await new Promise((r) => setTimeout(r, 0));
+
+  const input = document.querySelector('[data-prompt-input]');
+  const confirm = document.querySelector('[data-prompt-confirm]');
+  input.value = '!!!';
+  click(confirm);
+  await new Promise((r) => setTimeout(r, 0));
+
+  const error = document.querySelector('[data-prompt-error]');
+  assert.ok(document.querySelector('[data-prompt-input]'), 'modal remains open');
+  assert.equal(error.classList.contains('hidden'), false, 'error is visible');
+  assert.match(error.textContent, /at least one letter or number/);
+  assert.equal(document.querySelector('[data-content-types-channel]').options.length, 1);
+  assert.equal(window.location.href, originalLocation);
+});
+
+test('shared channel validation accepts normalized names and rejects punctuation-only names', () => {
+  assert.deepEqual(validateChannelName(' My Channel!! '), { ok: true, value: 'my-channel' });
+  assert.equal(validateChannelName('!!!').ok, false);
+  assert.equal(validateChannelName('   ').ok, false);
 });
 
 test('channel switcher init is idempotent', () => {

@@ -1103,23 +1103,33 @@ export class BlockEditorPanel {
       return;
     }
 
+    // Explicit expand/collapse button on shared field cards.
+    const fieldExpandToggle = target.closest<HTMLElement>('[data-field-expand-toggle]');
+    if (fieldExpandToggle) {
+      e.stopPropagation();
+      const fieldId = fieldExpandToggle.dataset.fieldExpandToggle!;
+      this.toggleFieldExpansion(fieldId);
+      return;
+    }
+
     // Field toggle (expand/collapse — Task 8.2 accordion)
     const fieldToggle = target.closest<HTMLElement>('[data-field-toggle]');
     if (fieldToggle) {
       if (target.closest('[data-field-grip]')) return;
       const fieldId = fieldToggle.dataset.fieldToggle!;
-      // Accordion: close current if same, otherwise switch
-      this.expandedFieldId = this.expandedFieldId === fieldId ? null : fieldId;
-      this.render();
-
-      // Trigger block loading for blocks fields (Phase 4)
-      if (this.expandedFieldId) {
-        const field = this.fields.find((f) => f.id === this.expandedFieldId);
-        if (field && normalizeFieldType(field.type) === 'blocks') {
-          this.loadBlocksForField(field);
-        }
-      }
+      this.toggleFieldExpansion(fieldId);
       return;
+    }
+  }
+
+  private toggleFieldExpansion(fieldId: string): void {
+    this.expandedFieldId = this.expandedFieldId === fieldId ? null : fieldId;
+    this.render();
+
+    if (!this.expandedFieldId) return;
+    const field = this.fields.find((f) => f.id === this.expandedFieldId);
+    if (field && normalizeFieldType(field.type) === 'blocks') {
+      this.loadBlocksForField(field);
     }
   }
 

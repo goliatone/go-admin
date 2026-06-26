@@ -1,5 +1,5 @@
 import { escapeHTML as o } from "../shared/html.js";
-import { t as r } from "./modal-C7iNT0ae.js";
+import { t as r } from "./modal-Dzqx5T1M.js";
 var c = class {
   constructor(t = {}) {
     this.toasts = /* @__PURE__ */ new Map(), this.position = t.position || "top-right", this.container = this.getOrCreateContainer(), this.applyContainerClasses(this.container);
@@ -158,4 +158,4 @@ export {
   d as t
 };
 
-//# sourceMappingURL=toast-manager-DJ83v89f.js.map
+//# sourceMappingURL=toast-manager-DWSFynqs.js.map

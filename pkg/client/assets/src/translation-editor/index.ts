@@ -2275,19 +2275,19 @@ export async function dispatchTranslationSuggestion(
 }
 
 function shouldRenderSuggestionButton(action: TranslationSuggestionActionState): boolean {
-  if (action.enabled) return true;
-  return Boolean(action.command_name && action.reason_code && action.reason_code !== 'service_unavailable');
+  return action.enabled === true && Boolean(action.endpoint || action.rpc_invoke_path);
 }
 
 function renderSuggestTranslationButton(entry: TranslationEditorFieldEntry, readOnly: boolean, suggesting: boolean): string {
   const action = entry.suggest_translation_action;
-  if (!shouldRenderSuggestionButton(action)) return '';
-  const disabled = readOnly || suggesting || !action.enabled;
+  if (readOnly || !shouldRenderSuggestionButton(action)) return '';
+  const disabled = suggesting;
   const title = suggesting
     ? 'Generating suggestion...'
-    : disabled
-      ? action.reason || 'Translation suggestion is unavailable.'
-      : `Generate translation suggestion for ${entry.label}`;
+    : `Generate translation suggestion for ${entry.label}`;
+  const buttonContent = suggesting
+    ? '<span class="h-3 w-3 animate-spin rounded-full border-2 border-sky-200 border-t-sky-600" aria-hidden="true"></span><span>Generating</span>'
+    : `${renderEditorIcon('iconoir:spark', '12px')}<span>Generate suggestion</span>`;
   return `
     <button
       type="button"
@@ -2296,9 +2296,9 @@ function renderSuggestTranslationButton(entry: TranslationEditorFieldEntry, read
       aria-label="Generate translation suggestion for ${escapeAttribute(entry.label)}"
       title="${escapeAttribute(title)}"
       ${disabled ? 'disabled aria-disabled="true"' : ''}
+      ${suggesting ? 'aria-busy="true"' : ''}
     >
-      ${renderEditorIcon('iconoir:spark', '12px')}
-      <span>${suggesting ? 'Generating' : 'Generate suggestion'}</span>
+      ${buttonContent}
     </button>
   `;
 }

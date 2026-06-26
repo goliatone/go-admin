@@ -13,19 +13,8 @@
 
 import { TextPromptModal } from '../../shared/modal';
 import { inputClasses } from './field-input-classes';
-
-/**
- * Normalize a user-entered channel name to the persisted form: lowercase,
- * non `[a-z0-9_-]` collapsed to `-`, and leading/trailing dashes trimmed.
- * Exposed for unit testing.
- */
-export function normalizeChannelName(value: string): string {
-  return String(value ?? '')
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9_-]/g, '-')
-    .replace(/^-+|-+$/g, '');
-}
+import { CHANNEL_HELP_TEXT, normalizeKnownChannel, validateChannelName } from './channel-validation';
+export { CHANNEL_HELP_TEXT, normalizeChannelName, validateChannelName } from './channel-validation';
 
 function upsertChannelOption(select: HTMLSelectElement, value: string): void {
   const existing = Array.from(select.options).some((opt) => opt.value === value);
@@ -48,12 +37,10 @@ export function initContentTypeChannelSwitcher(scope: ParentNode = document): vo
   if (!select || !resetBtn) return;
   wrapper.dataset.channelInit = 'true';
 
-  const defaultChannel =
-    (wrapper.getAttribute('data-default-channel') || 'default').trim().toLowerCase() || 'default';
+  const defaultChannel = normalizeKnownChannel(wrapper.getAttribute('data-default-channel'));
 
   const normalize = (value: string | null): string => {
-    const next = String(value ?? '').trim().toLowerCase();
-    return next || defaultChannel;
+    return normalizeKnownChannel(value, defaultChannel);
   };
 
   const navigateToChannel = (nextChannel: string): void => {
@@ -88,13 +75,14 @@ export function initContentTypeChannelSwitcher(scope: ParentNode = document): vo
       label: 'Channel name',
       placeholder: 'e.g. staging',
       confirmLabel: 'Add',
+      helpText: CHANNEL_HELP_TEXT,
       inputClass: inputClasses(),
       onConfirm: (value) => {
-        const normalized = normalizeChannelName(value);
-        if (!normalized) return; // ignore values that normalize to empty
-        upsertChannelOption(select, normalized);
-        select.value = normalized;
-        navigateToChannel(normalized);
+        const validation = validateChannelName(value);
+        if (!validation.ok) return validation.error;
+        upsertChannelOption(select, validation.value);
+        select.value = validation.value;
+        navigateToChannel(validation.value);
       },
     });
     void modal.show();

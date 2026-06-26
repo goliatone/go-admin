@@ -581,16 +581,33 @@ export class ContentTypeEditor {
         ${this.renderHeader()}
 
         <!-- Main Content -->
-        <div class="flex-1 flex overflow-hidden">
+        <div class="flex-1 flex overflow-hidden" data-ct-editor-layout>
           <!-- Left Panel: Basic Info + Fields -->
-          <div class="flex-1 overflow-y-auto p-6 space-y-6">
+          <div class="flex-1 overflow-y-auto p-6 space-y-6" data-ct-editor-main>
             ${this.renderBasicInfo()}
             ${this.renderFieldsSection()}
             ${this.renderCapabilitiesSection()}
           </div>
 
-          <!-- Right Rail: Field Palette (collapsible) + Preview -->
-          <div class="w-[400px] border-l border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-slate-950 flex flex-col overflow-hidden">
+          <div
+            class="cm-splitter"
+            data-pane-resize="preview"
+            role="separator"
+            aria-orientation="vertical"
+            aria-label="Resize form preview"
+            tabindex="-1"
+          ></div>
+
+          <!-- Right Rail: Field Palette + Preview -->
+          <aside
+            class="cm-rail cm-rail--preview border-l border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-slate-950 flex flex-col overflow-hidden"
+            data-pane-rail="preview"
+            data-pane-resizable
+            data-pane-edge="leading"
+            data-pane-min="320"
+            data-pane-max="720"
+            data-pane-default-width="400"
+          >
             <div data-ct-palette class="${this.paletteVisible ? '' : 'hidden'} shrink-0 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-slate-900">
               <div class="flex items-center justify-between px-4 py-2 border-b border-gray-100 dark:border-gray-800">
                 <h3 class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Field Palette</h3>
@@ -600,7 +617,7 @@ export class ContentTypeEditor {
             <div class="flex-1 overflow-y-auto min-h-0">
               ${this.renderPreviewPanel()}
             </div>
-          </div>
+          </aside>
         </div>
 
         <!-- Validation Errors -->
@@ -694,7 +711,19 @@ export class ContentTypeEditor {
           <div class="flex items-center gap-2">
             <button
               type="button"
+              data-pane-toggle="preview"
+              aria-expanded="true"
+              class="flex items-center gap-1 px-2 py-1 text-xs text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 rounded hover:bg-gray-200 dark:hover:bg-gray-700"
+            >
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 4h11v16H9M4 8l4 4-4 4"></path>
+              </svg>
+              Preview
+            </button>
+            <button
+              type="button"
               data-ct-toggle-palette
+              aria-expanded="${this.paletteVisible ? 'true' : 'false'}"
               class="flex items-center gap-1 px-2 py-1 text-xs ${this.paletteVisible ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20' : 'text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-800'} rounded hover:bg-gray-200 dark:hover:bg-gray-700"
             >
               <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -724,6 +753,17 @@ export class ContentTypeEditor {
 
   private renderFieldListHTML(): string {
     return this.renderFieldListContent();
+  }
+
+  private toggleFieldExpansion(fieldId: string): void {
+    this.state.selectedFieldId = this.state.selectedFieldId === fieldId ? null : fieldId;
+    this.renderFieldList();
+    if (!this.state.selectedFieldId) return;
+
+    const field = this.state.fields.find((f) => f.id === this.state.selectedFieldId);
+    if (field && normalizeFieldType(field.type) === 'blocks') {
+      this.loadBlocksForField(field);
+    }
   }
 
   private renderFieldCard(field: FieldDefinition, index: number, sectionFields?: FieldDefinition[]): string {
@@ -1023,6 +1063,19 @@ export class ContentTypeEditor {
           <div class="flex items-center gap-3">
             <button
               type="button"
+              data-pane-focus-toggle="preview"
+              class="inline-flex items-center gap-1 text-xs text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200"
+              aria-label="Focus form preview"
+              aria-pressed="false"
+              title="Focus preview"
+            >
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 3H5a2 2 0 00-2 2v3m18 0V5a2 2 0 00-2-2h-3M3 16v3a2 2 0 002 2h3m8 0h3a2 2 0 002-2v-3"></path>
+              </svg>
+              Focus
+            </button>
+            <button
+              type="button"
               data-ct-expand-preview
               class="inline-flex items-center gap-1 text-xs text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200"
               aria-label="Open interactive preview"
@@ -1032,6 +1085,16 @@ export class ContentTypeEditor {
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"></path>
               </svg>
               Expand
+            </button>
+            <button
+              type="button"
+              data-pane-toggle="preview"
+              class="text-xs text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200"
+              aria-label="Collapse form preview"
+              aria-expanded="true"
+              title="Collapse preview"
+            >
+              Hide
             </button>
             <button
               type="button"
@@ -1412,18 +1475,20 @@ export class ContentTypeEditor {
         return;
       }
 
+      // Explicit expand/collapse button on shared field cards.
+      const fieldExpandToggle = target.closest<HTMLElement>('[data-field-expand-toggle]');
+      if (fieldExpandToggle) {
+        e.stopPropagation();
+        const fieldId = fieldExpandToggle.dataset.fieldExpandToggle!;
+        this.toggleFieldExpansion(fieldId);
+        return;
+      }
+
       // Field toggle (expand/collapse for inline blocks)
       const fieldToggle = target.closest<HTMLElement>('[data-field-toggle]');
       if (fieldToggle && !target.closest('button')) {
         const fieldId = fieldToggle.dataset.fieldToggle!;
-        this.state.selectedFieldId = this.state.selectedFieldId === fieldId ? null : fieldId;
-        this.renderFieldList();
-        if (this.state.selectedFieldId) {
-          const field = this.state.fields.find((f) => f.id === this.state.selectedFieldId);
-          if (field && normalizeFieldType(field.type) === 'blocks') {
-            this.loadBlocksForField(field);
-          }
-        }
+        this.toggleFieldExpansion(fieldId);
         return;
       }
 

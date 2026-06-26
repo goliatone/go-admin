@@ -172,28 +172,27 @@ export function renderFieldCard(config: FieldCardConfig): string {
             </div>`;
   }
 
-  // --- Reorder buttons ---
+  // --- Reorder buttons (keyboard-reachable alternative to drag) ---
+  // Borderless + muted so they read as part of the unified trailing control
+  // cluster instead of a competing bordered widget (T16).
   let reorderHtml = '';
   if (showReorderButtons) {
     const upDisabled = isFirst;
     const downDisabled = isLast;
-    const upClass = upDisabled
-      ? 'text-gray-200 dark:text-gray-700 cursor-not-allowed'
-      : 'text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800';
-    const downClass = downDisabled
-      ? 'text-gray-200 dark:text-gray-700 cursor-not-allowed'
-      : 'text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800';
+    const enabled = 'text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800';
+    const disabled = 'text-gray-200 dark:text-gray-700 cursor-not-allowed';
+    const upClass = upDisabled ? disabled : enabled;
+    const downClass = downDisabled ? disabled : enabled;
 
     reorderHtml = `
-          <span class="flex-shrink-0 inline-flex flex-col border border-gray-200 dark:border-gray-700 rounded-md overflow-hidden">
+          <span class="inline-flex flex-col leading-none" role="group" aria-label="Reorder field">
             <button type="button" data-field-move-up="${esc(field.id)}"
-                    class="px-0.5 py-px ${upClass} transition-colors"
+                    class="flex items-center justify-center w-5 h-3.5 rounded ${upClass} transition-colors"
                     aria-label="Move field up" title="Move up" ${upDisabled ? 'disabled' : ''}>
               ${CHEVRON_UP}
             </button>
-            <span class="block h-px bg-gray-200 dark:bg-gray-700"></span>
             <button type="button" data-field-move-down="${esc(field.id)}"
-                    class="px-0.5 py-px ${downClass} transition-colors"
+                    class="flex items-center justify-center w-5 h-3.5 rounded ${downClass} transition-colors"
                     aria-label="Move field down" title="Move down" ${downDisabled ? 'disabled' : ''}>
               ${CHEVRON_DOWN}
             </button>
@@ -204,9 +203,15 @@ export function renderFieldCard(config: FieldCardConfig): string {
   let expandToggle = '';
   if (expandable) {
     expandToggle = `
-          <span class="flex-shrink-0 w-5 h-5 flex items-center justify-center rounded text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 cursor-pointer transition-colors">
+          <button
+            type="button"
+            data-field-expand-toggle="${esc(field.id)}"
+            class="flex-shrink-0 w-5 h-5 flex items-center justify-center rounded text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+            aria-label="${isExpanded ? 'Collapse field' : 'Expand field'}"
+            aria-expanded="${isExpanded ? 'true' : 'false'}"
+            title="${isExpanded ? 'Collapse field' : 'Expand field'}">
             ${isExpanded ? COLLAPSE_ICON : EXPAND_ICON}
-          </span>`;
+          </button>`;
   }
 
   return `
@@ -225,9 +230,7 @@ export function renderFieldCard(config: FieldCardConfig): string {
             <span class="block ${metaSize} text-gray-400 dark:text-gray-500 ${compact ? 'font-mono' : ''} truncate">${metaLine}</span>${constraintHtml}${errorHtml}
           </span>
           ${badgesHtml}
-          ${reorderHtml}
-          ${actionsHtml}
-          ${expandToggle}
+          <div class="flex items-center gap-0.5 flex-shrink-0">${reorderHtml}${actionsHtml}${expandToggle}</div>
         </div>
         ${isExpanded && expandable ? renderExpandedContent!() : ''}
       </div>`;
