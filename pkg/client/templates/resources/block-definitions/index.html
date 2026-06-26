@@ -2,15 +2,17 @@
 
 {% block title %}Block Library - {{ title }}{% endblock %}
 
-{% block head_extra %}
+{% block before_app_styles %}
 {% for href in dashboard_shell_css %}
 <link rel="stylesheet" href="{{ href }}">
 {% endfor %}
 {% endblock %}
 
 {% block content %}
-<header class="px-6 py-4 bg-white dark:bg-slate-900 border-b border-gray-200 dark:border-gray-700 flex flex-wrap gap-4 items-center justify-between">
-  <div class="flex items-center gap-3">
+{% set active_channel = block_library_effective_channel|default:"default" %}
+{% set in_default_channel = active_channel == "default" %}
+<header class="px-4 sm:px-6 py-4 bg-white dark:bg-slate-900 border-b border-gray-200 dark:border-gray-700 flex flex-wrap gap-3 items-center justify-between">
+  <div class="flex items-center gap-3 min-w-0">
     <span class="flex items-center justify-center w-9 h-9 rounded-lg bg-indigo-100 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-300">
       <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path>
@@ -21,22 +23,22 @@
       <p class="text-xs text-gray-500 dark:text-gray-400">Create and manage reusable block definitions.</p>
     </div>
   </div>
-  <div class="flex items-center gap-3">
-    <nav class="cm-mode-switch" aria-label="Content modeling section">
-      <a href="{{ adminURL("content/types") }}" class="cm-mode-seg" data-back-to-content-types>
+  <div class="flex flex-wrap items-center justify-start sm:justify-end gap-2 max-w-full min-w-0">
+    <nav class="cm-mode-switch shrink-0" aria-label="Content modeling section">
+      <a href="{{ adminURL("content/types") }}{% if not in_default_channel %}?channel={{ active_channel|urlencode }}{% endif %}" class="cm-mode-seg" data-back-to-content-types>
         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
         </svg>
         Content Types
       </a>
-      <a href="{{ adminURL("content/block-library") }}" class="cm-mode-seg" aria-current="page">
+      <a href="{{ adminURL("content/block-library") }}{% if not in_default_channel %}?channel={{ active_channel|urlencode }}{% endif %}" class="cm-mode-seg" aria-current="page">
         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path>
         </svg>
         Blocks
       </a>
     </nav>
-    <div class="inline-flex items-center bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-gray-700 rounded-lg px-2.5 py-1.5 gap-2" data-block-ide-channel-wrapper>
+    <div class="inline-flex flex-wrap items-center bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-gray-700 rounded-lg px-2.5 py-1.5 gap-2 max-w-full" data-block-ide-channel-wrapper>
       <div class="flex items-center gap-1.5 text-gray-500 dark:text-gray-400">
         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"></path>

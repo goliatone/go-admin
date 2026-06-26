@@ -83,6 +83,36 @@ export interface StructuredActionError extends Error {
   handled?: boolean;
 }
 
+function objectRecord(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return null;
+  }
+  return value as Record<string, unknown>;
+}
+
+function mergeErrorMetadata(
+  metadata: unknown,
+  details: unknown
+): Record<string, unknown> | null {
+  const merged: Record<string, unknown> = {};
+  const base = objectRecord(metadata);
+  if (base) {
+    Object.assign(merged, base);
+  }
+  const detailRecord = objectRecord(details);
+  if (detailRecord) {
+    for (const [key, value] of Object.entries(detailRecord)) {
+      if (merged[key] === undefined) {
+        merged[key] = value;
+      }
+    }
+    if (merged.details === undefined) {
+      merged.details = detailRecord;
+    }
+  }
+  return Object.keys(merged).length > 0 ? merged : null;
+}
+
 // ============================================================================
 // Structured Error Extraction
 // ============================================================================
@@ -125,6 +155,8 @@ export async function extractStructuredError(response: Response): Promise<Struct
         // Extract text_code
         if (typeof errObj.text_code === 'string') {
           result.textCode = errObj.text_code;
+        } else if (typeof errObj.code === 'string') {
+          result.textCode = errObj.code;
         }
 
         // Extract message
@@ -133,9 +165,7 @@ export async function extractStructuredError(response: Response): Promise<Struct
         }
 
         // Extract metadata
-        if (errObj.metadata && typeof errObj.metadata === 'object') {
-          result.metadata = errObj.metadata as Record<string, unknown>;
-        }
+        result.metadata = mergeErrorMetadata(errObj.metadata, errObj.details);
 
         // Extract validation_errors
         if (Array.isArray(errObj.validation_errors)) {

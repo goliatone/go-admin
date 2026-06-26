@@ -122,6 +122,27 @@ test('extractStructuredError handles metadata.fields for field errors', async ()
   assert.equal(result.fields.username, 'Username already taken');
 });
 
+test('extractStructuredError preserves RPC details cause metadata', async () => {
+  const response = mockResponse({
+    error: {
+      code: 'RPC_INVOKE_FAILED',
+      message: 'rpc invocation failed',
+      details: {
+        cause: '[internal:HANDLER_EXECUTION_FAILED] provider timeout',
+        method: 'admin.commands.dispatch',
+      },
+    },
+  });
+
+  const result = await extractStructuredError(response);
+  const message = formatStructuredErrorForDisplay(result);
+
+  assert.equal(result.textCode, 'RPC_INVOKE_FAILED');
+  assert.equal(result.metadata?.cause, '[internal:HANDLER_EXECUTION_FAILED] provider timeout');
+  assert.equal(result.metadata?.method, 'admin.commands.dispatch');
+  assert.match(message, /rpc invocation failed: \[internal:HANDLER_EXECUTION_FAILED\] provider timeout/);
+});
+
 test('extractStructuredError handles go-users text errors', async () => {
   const response = mockResponse('error | go-users: lifecycle transition not allowed', {
     contentType: 'text/plain',

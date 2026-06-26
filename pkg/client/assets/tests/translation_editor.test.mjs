@@ -506,6 +506,18 @@ function makeTranslationMemoryScaleFixture() {
 
 function makeEmptySourceFixture() {
   const next = structuredClone(fixtures.detail);
+  next.data.content_navigation = {
+    source: {
+      content_type: 'pages',
+      record_id: 'page-1',
+      locale: 'en',
+      channel: 'production',
+      detail_url: '/admin/content/pages/page-1?channel=production&locale=en',
+      edit_url: '/admin/content/pages/page-1/edit?channel=production&locale=en',
+      label: 'Edit source content',
+      detail_label: 'View source content',
+    },
+  };
   next.data.fields = next.data.fields.map((field) => {
     if (field.path === 'path') {
       return {
@@ -711,6 +723,12 @@ test('translation editor contracts: normalize detail fixture with assist and act
   assert.equal(detail.locale_navigation.locales.find((entry) => entry.locale === 'de')?.href, undefined);
   assert.equal(detail.locale_navigation.locales.find((entry) => entry.locale === 'it')?.disabled, true);
   assert.equal(detail.locale_navigation.locales.find((entry) => entry.locale === 'it')?.href, undefined);
+  const emptySourceDetail = normalizeAssignmentEditorDetail(makeEmptySourceFixture());
+  assert.equal(emptySourceDetail.content_navigation.source?.record_id, 'page-1');
+  assert.equal(emptySourceDetail.content_navigation.source?.edit_url, '/admin/content/pages/page-1/edit?channel=production&locale=en');
+  assert.equal(emptySourceDetail.content_navigation.source?.detail_url, '/admin/content/pages/page-1?channel=production&locale=en');
+  assert.equal(emptySourceDetail.content_navigation.source?.label, 'Edit source content');
+  assert.equal(emptySourceDetail.content_navigation.target, undefined);
   assert.equal(detail.preview_action.enabled, true);
   assert.equal(detail.preview_action.assignment_id, 'asg-editor-1');
   assert.equal(detail.preview_action.entity_type, 'pages');
@@ -1148,6 +1166,13 @@ test('translation editor runtime: stale suggestion response does not overwrite a
   const { root, window } = setupDom();
   installTranslationSyncCoreStub(window);
   window.scrollTo = mock.fn();
+  const toastManager = {
+    messages: [],
+    error(message) {
+      this.messages.push(message);
+    },
+  };
+  window.toastManager = toastManager;
   const detail = makeSuggestionReadyFixture();
   const manualText = 'Manual edit while suggestion is pending';
   const suggestedText = 'Late suggestion should not apply';
@@ -1214,6 +1239,7 @@ test('translation editor runtime: stale suggestion response does not overwrite a
   assert.equal(await waitForCondition(() => /field changed while the suggestion was generating/i.test(root.innerHTML)), true);
   assert.equal(root.querySelector('[data-field-input="title"]')?.value, manualText);
   assert.doesNotMatch(root.innerHTML, /Translation suggestion inserted\./);
+  assert.deepEqual(toastManager.messages, []);
 
   screen.unmount();
 });
@@ -1370,6 +1396,87 @@ test('translation editor runtime: suggestion failure leaves field value unchange
   assert.equal(root.querySelector('[data-field-input="title"]')?.value, originalText);
 
   screen.unmount();
+});
+
+test('translation editor runtime: suggestion failure uses toast notification when available', async () => {
+  const { root, window } = setupDom();
+  installTranslationSyncCoreStub(window);
+  window.scrollTo = mock.fn();
+  window.toastManager = {
+    errors: [],
+    error(message) {
+      this.errors.push(message);
+    },
+  };
+  const detail = makeSuggestionReadyFixture();
+  const originalText = detail.data.fields.find((field) => field.path === 'title')?.target_value;
+  globalThis.fetch = mock.fn(async (input, init = {}) => {
+    const method = String(init.method || 'GET').toUpperCase();
+    const url = String(input);
+    if (method === 'GET' && url.includes('/api/translations/assignments/asg-editor-1')) {
+      return createJsonResponse(detail);
+    }
+    if (method === 'GET' && url.includes('/api/translations/sync/resources/translation_variant_draft/')) {
+      return createJsonResponse({
+        data: detail.data,
+        revision: 3,
+        updated_at: '2026-01-01T00:00:00Z',
+      });
+    }
+    if (method === 'POST' && url.includes('/admin/api/rpc')) {
+      return createJsonResponse({
+        error: {
+          message: 'suggestion provider timed out',
+        },
+      }, 504, {
+        'content-type': 'application/json',
+      });
+    }
+    return createJsonResponse({ error: { message: 'unexpected request' } }, 500, {
+      'content-type': 'application/json',
+    });
+  });
+
+  const screen = new TranslationEditorScreen({
+    endpoint: '/admin/api/translations/assignments/asg-editor-1',
+    actionEndpointBase: '/admin/api/translations/assignments',
+  });
+  screen.mount(root);
+  await flushAsync();
+  await flushAsync();
+
+  root.querySelector('[data-suggest-translation="title"]').click();
+  assert.equal(await waitForCondition(() => window.toastManager.errors.length === 1), true);
+  assert.equal(window.toastManager.errors[0], 'suggestion provider timed out');
+  assert.equal(root.querySelector('[data-field-input="title"]')?.value, originalText);
+  assert.doesNotMatch(root.innerHTML, /suggestion provider timed out/);
+
+  screen.unmount();
+});
+
+test('translation editor runtime: suggestion RPC failure surfaces provider cause', async () => {
+  const { window } = setupDom();
+  const detail = normalizeAssignmentEditorDetail(makeSuggestionReadyFixture());
+  const action = detail.fields.find((field) => field.path === 'title')?.suggest_translation_action;
+  assert.ok(action);
+  globalThis.fetch = mock.fn(async () => createJsonResponse({
+    error: {
+      code: 'RPC_INVOKE_FAILED',
+      message: 'rpc invocation failed',
+      details: {
+        cause: '[internal:HANDLER_EXECUTION_FAILED] handler failed for type translations.suggestions.generate: Post "http://127.0.0.1:1234/v1/chat/completions": context deadline exceeded (Client.Timeout exceeded while awaiting headers)',
+        method: 'admin.commands.dispatch',
+      },
+    },
+  }, 200, {
+    'content-type': 'application/json',
+  }));
+
+  await assert.rejects(
+    () => dispatchTranslationSuggestion(action, 'req-dispatch'),
+    /rpc invocation failed: .*127\.0\.0\.1:1234\/v1\/chat\/completions.*context deadline exceeded/
+  );
+  window.close();
 });
 
 test('translation editor runtime: dispatch helper returns structured suggestion result', async () => {
@@ -1716,6 +1823,12 @@ test('translation editor runtime: distinguishes optional and required empty sour
 
   assert.match(html, /Optional source content not provided/);
   assert.match(html, /Source text pending - required field/);
+  assert.match(html, /Edit source content/);
+  assert.match(html, /href="\/admin\/content\/pages\/page-1\/edit\?channel=production&amp;locale=en"/);
+  assert.match(html, /data-source-content-action="summary"/);
+  assert.match(html, /data-source-content-action="field"/);
+  assert.match(html, /data-copy-source="title"[\s\S]*disabled aria-disabled="true"/);
+  assert.doesNotMatch(html, /data-suggest-translation="title"/);
   assert.doesNotMatch(html, /No source text for this field/);
 });
 

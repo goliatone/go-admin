@@ -2,12 +2,19 @@ document.addEventListener('DOMContentLoaded', () => {
   const sidebar = document.getElementById('sidebar');
   const toggleButton = document.getElementById('sidebar-toggle');
   const sidebarStateKey = 'admin-sidebar-collapsed';
+  const narrowSidebarQuery = window.matchMedia('(max-width: 1023px)');
 
   if (sidebar) {
-    const savedState = localStorage.getItem(sidebarStateKey);
-    if (savedState === 'true') {
-      sidebar.setAttribute('data-collapsed', 'true');
-    }
+    const applySidebarState = () => {
+      if (narrowSidebarQuery.matches) {
+        sidebar.setAttribute('data-collapsed', 'true');
+        return;
+      }
+      const savedState = localStorage.getItem(sidebarStateKey);
+      sidebar.setAttribute('data-collapsed', (savedState === 'true').toString());
+    };
+    applySidebarState();
+    narrowSidebarQuery.addEventListener?.('change', applySidebarState);
   }
 
   toggleButton?.addEventListener('click', (event) => {

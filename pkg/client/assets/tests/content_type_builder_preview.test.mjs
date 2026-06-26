@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createRequire } from 'node:module';
+import { loadDashboardShell } from './helpers/dashboard-shell.mjs';
 
 async function loadJSDOM() {
   try {
@@ -11,8 +11,7 @@ async function loadJSDOM() {
 }
 
 const { JSDOM } = await loadJSDOM();
-const require = createRequire(import.meta.url);
-const dashboardShell = require('../../../../../go-dashboard/components/dashboard/assets/shell/shell.js');
+const dashboardShell = loadDashboardShell();
 
 const bootstrapDom = new JSDOM('<!doctype html><html><body></body></html>', { url: 'http://localhost' });
 setGlobals(bootstrapDom.window);

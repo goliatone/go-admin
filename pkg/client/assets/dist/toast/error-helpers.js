@@ -1,5 +1,18 @@
-import { httpRequest as p } from "../shared/transport/http-client.js";
-async function m(t) {
+import { httpRequest as y } from "../shared/transport/http-client.js";
+function p(t) {
+  return !t || typeof t != "object" || Array.isArray(t) ? null : t;
+}
+function m(t, e) {
+  const r = {}, s = p(t);
+  s && Object.assign(r, s);
+  const i = p(e);
+  if (i) {
+    for (const [n, o] of Object.entries(i)) r[n] === void 0 && (r[n] = o);
+    r.details === void 0 && (r.details = i);
+  }
+  return Object.keys(r).length > 0 ? r : null;
+}
+async function g(t) {
   const e = t.headers.get("content-type") || "", r = e.includes("application/json") || e.includes("application/problem+json"), s = await t.clone().text().catch(() => ""), i = {
     textCode: null,
     message: `Request failed (${t.status})`,
@@ -12,7 +25,7 @@ async function m(t) {
     const o = JSON.parse(s);
     if (o.error && typeof o.error == "object") {
       const a = o.error;
-      if (typeof a.text_code == "string" && (i.textCode = a.text_code), typeof a.message == "string" && a.message.trim() && (i.message = a.message.trim()), a.metadata && typeof a.metadata == "object" && (i.metadata = a.metadata), Array.isArray(a.validation_errors)) {
+      if (typeof a.text_code == "string" ? i.textCode = a.text_code : typeof a.code == "string" && (i.textCode = a.code), typeof a.message == "string" && a.message.trim() && (i.message = a.message.trim()), i.metadata = m(a.metadata, a.details), Array.isArray(a.validation_errors)) {
         const c = [], l = {};
         for (const f of a.validation_errors) {
           if (!f || typeof f != "object") continue;
@@ -49,7 +62,7 @@ async function m(t) {
   const n = s.match(/\|\s*([^|]+)$/);
   return n ? (i.message = n[1].trim(), i) : (s.trim().length > 0 && s.length < 200 && (i.message = s.trim()), i);
 }
-function S(t) {
+function T(t) {
   if (t.textCode !== "TRANSLATION_MISSING") return null;
   const e = t.metadata || {};
   let r = [];
@@ -71,10 +84,10 @@ function S(t) {
     channel: a
   };
 }
-function I(t) {
+function C(t) {
   return t.textCode === "TRANSLATION_MISSING";
 }
-function y(t) {
+function _(t) {
   if (!t || typeof t != "object") return {
     success: !1,
     error: {
@@ -127,7 +140,7 @@ function y(t) {
     }
   };
 }
-function g(t) {
+function h(t) {
   return {
     textCode: null,
     message: t instanceof Error ? t.message : "Network error",
@@ -136,7 +149,7 @@ function g(t) {
     validationErrors: null
   };
 }
-async function _(t) {
+async function b(t) {
   const e = await t.text().catch(() => "");
   if (e.trim())
     try {
@@ -145,43 +158,43 @@ async function _(t) {
     } catch {
     }
 }
-async function h(t, e, r) {
+async function j(t, e, r) {
   try {
-    const s = await p(t, e);
+    const s = await y(t, e);
     return s.ok ? r ? {
       ...await r(s),
       status: s.status
     } : {
       success: !0,
-      data: await _(s),
+      data: await b(s),
       status: s.status
     } : {
       success: !1,
-      error: await m(s),
+      error: await g(s),
       status: s.status
     };
   } catch (s) {
     return {
       success: !1,
-      error: g(s),
+      error: h(s),
       status: 0
     };
   }
 }
-function T(t, e = "Request failed", r = !1) {
-  const s = new Error(b(t, e));
+function $(t, e = "Request failed", r = !1) {
+  const s = new Error(x(t, e));
   return s.structuredError = t, s.handled = r, s;
 }
-function $(t) {
+function N(t) {
   if (!t || typeof t != "object") return null;
   const e = t.structuredError;
   return !e || typeof e != "object" ? null : e;
 }
-function C(t) {
+function k(t) {
   return !!t && typeof t == "object" && t.handled === !0;
 }
-async function N(t, e, r) {
-  const s = await h(t, {
+async function M(t, e, r) {
+  const s = await j(t, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -189,7 +202,7 @@ async function N(t, e, r) {
     },
     ...r,
     body: JSON.stringify(e)
-  }, async (i) => y(await i.json()));
+  }, async (i) => _(await i.json()));
   return s.success ? {
     success: !0,
     data: s.data
@@ -198,7 +211,7 @@ async function N(t, e, r) {
     error: s.error
   };
 }
-async function k(t) {
+async function v(t) {
   const e = t.headers.get("content-type") || "", r = e.includes("application/json") || e.includes("application/problem+json"), s = await t.clone().text().catch(() => "");
   if (s) {
     if (r || s.trim().startsWith("{")) try {
@@ -235,10 +248,10 @@ async function k(t) {
   }
   return `Request failed (${t.status})`;
 }
-function v(t) {
+function L(t) {
   return t instanceof Error ? t.message : typeof t == "string" ? t : "An unexpected error occurred";
 }
-function b(t, e = "Request failed") {
+function x(t, e = "Request failed") {
   const r = (t.message || "").trim() || e, s = typeof t.metadata?.cause == "string" ? String(t.metadata.cause || "").trim() : "", i = [], n = /* @__PURE__ */ new Set(), o = (c, l) => {
     const f = c.trim(), u = l.trim();
     if (!f || !u) return;
@@ -252,7 +265,7 @@ function b(t, e = "Request failed") {
   const a = i.length > 0 ? `: ${i.join("; ")}` : "";
   return s && /^rpc invocation failed$/i.test(r) ? `${r}: ${s}${a}` : t.textCode && !r.includes(t.textCode) ? `${t.textCode}: ${r}${a}` : `${r}${a}`;
 }
-function j(t) {
+function E(t) {
   return t.textCode !== null && [
     "IMPORT_VALIDATION_FAILED",
     "IMPORT_CONFLICT",
@@ -263,8 +276,8 @@ function j(t) {
     "EXCHANGE_PERMISSION_DENIED"
   ].includes(t.textCode);
 }
-function M(t) {
-  if (!j(t)) return null;
+function P(t) {
+  if (!E(t)) return null;
   const e = t.metadata || {}, r = {
     code: t.textCode,
     message: t.message,
@@ -273,11 +286,11 @@ function M(t) {
   };
   if (e.import_result && typeof e.import_result == "object") {
     const s = e.import_result;
-    r.importResult = x(s);
+    r.importResult = A(s);
   }
   return r;
 }
-function x(t) {
+function A(t) {
   const e = {
     summary: {
       processed: 0,
@@ -299,9 +312,9 @@ function x(t) {
       skipped: typeof r.skipped == "number" ? r.skipped : 0
     };
   }
-  return Array.isArray(t.results) && (e.results = t.results.filter((r) => r !== null && typeof r == "object").map((r) => E(r))), typeof t.truncated == "boolean" && (e.truncated = t.truncated), typeof t.total_rows == "number" && (e.totalRows = t.total_rows), e;
+  return Array.isArray(t.results) && (e.results = t.results.filter((r) => r !== null && typeof r == "object").map((r) => R(r))), typeof t.truncated == "boolean" && (e.truncated = t.truncated), typeof t.total_rows == "number" && (e.totalRows = t.total_rows), e;
 }
-function E(t) {
+function R(t) {
   const e = {
     index: typeof t.index == "number" ? t.index : 0,
     resource: typeof t.resource == "string" ? t.resource : "",
@@ -309,12 +322,12 @@ function E(t) {
     familyId: typeof t.family_id == "string" ? t.family_id : "",
     targetLocale: typeof t.target_locale == "string" ? t.target_locale : "",
     fieldPath: typeof t.field_path == "string" ? t.field_path : "",
-    status: A(t.status)
+    status: O(t.status)
   };
   if (typeof t.error == "string" && (e.error = t.error), t.conflict && typeof t.conflict == "object") {
     const r = t.conflict;
     e.conflict = {
-      type: R(r.type),
+      type: S(r.type),
       expectedHash: typeof r.expected_hash == "string" ? r.expected_hash : void 0,
       actualHash: typeof r.actual_hash == "string" ? r.actual_hash : void 0,
       details: typeof r.details == "string" ? r.details : void 0
@@ -322,13 +335,13 @@ function E(t) {
   }
   return e;
 }
-function A(t) {
+function O(t) {
   return t === "success" || t === "error" || t === "conflict" || t === "skipped" ? t : "error";
 }
-function R(t) {
+function S(t) {
   return t === "stale_source" || t === "missing_linkage" || t === "duplicate" || t === "invalid_locale" ? t : "missing_linkage";
 }
-function L(t) {
+function q(t) {
   return {
     success: t.filter((e) => e.status === "success"),
     error: t.filter((e) => e.status === "error"),
@@ -336,7 +349,7 @@ function L(t) {
     skipped: t.filter((e) => e.status === "skipped")
   };
 }
-function P(t, e = "json") {
+function F(t, e = "json") {
   if (e === "json") {
     const n = JSON.stringify(t, null, 2);
     return new Blob([n], { type: "application/json" });
@@ -366,23 +379,23 @@ function P(t, e = "json") {
   return new Blob([i], { type: "text/csv" });
 }
 export {
-  T as createStructuredActionError,
-  N as executeActionRequest,
-  h as executeStructuredRequest,
-  k as extractErrorMessage,
-  M as extractExchangeError,
-  m as extractStructuredError,
-  S as extractTranslationBlocker,
-  b as formatStructuredErrorForDisplay,
-  P as generateExchangeReport,
-  v as getErrorMessage,
-  $ as getStructuredActionError,
-  L as groupRowResultsByStatus,
-  j as isExchangeError,
-  C as isHandledActionError,
-  I as isTranslationBlocker,
-  y as parseActionResponse,
-  x as parseImportResult
+  $ as createStructuredActionError,
+  M as executeActionRequest,
+  j as executeStructuredRequest,
+  v as extractErrorMessage,
+  P as extractExchangeError,
+  g as extractStructuredError,
+  T as extractTranslationBlocker,
+  x as formatStructuredErrorForDisplay,
+  F as generateExchangeReport,
+  L as getErrorMessage,
+  N as getStructuredActionError,
+  q as groupRowResultsByStatus,
+  E as isExchangeError,
+  k as isHandledActionError,
+  C as isTranslationBlocker,
+  _ as parseActionResponse,
+  A as parseImportResult
 };
 
 //# sourceMappingURL=error-helpers.js.map

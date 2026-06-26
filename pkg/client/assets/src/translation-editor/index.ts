@@ -16,7 +16,7 @@ import { readLocationSearchParams } from '../shared/query-state/url-state.js';
 import { normalizeStringRecord } from '../shared/record-normalization.js';
 import { httpRequest, readCSRFToken, readHTTPError } from '../shared/transport/http-client.js';
 import { renderPanelLoadingState, renderPanelState } from '../services/ui-states.js';
-import { extractStructuredError } from '../toast/error-helpers.js';
+import { extractStructuredError, formatStructuredErrorForDisplay } from '../toast/error-helpers.js';
 import {
   BTN_PRIMARY,
   BTN_SECONDARY,
@@ -271,6 +271,24 @@ export interface TranslationEditorPreviewAction {
   channel: string;
 }
 
+export interface TranslationEditorContentNavigationEntry {
+  content_type: string;
+  record_id: string;
+  locale: string;
+  channel: string;
+  detail_url: string;
+  edit_url: string;
+  content_detail_url: string;
+  content_edit_url: string;
+  label: string;
+  detail_label: string;
+}
+
+export interface TranslationEditorContentNavigation {
+  source?: TranslationEditorContentNavigationEntry;
+  target?: TranslationEditorContentNavigationEntry;
+}
+
 export interface TranslationAssignmentEditorDetail {
   assignment_id: string;
   assignment_row_version: number;
@@ -302,6 +320,7 @@ export interface TranslationAssignmentEditorDetail {
   review_action_states: Record<string, TranslationActionState>;
   suggest_translation_action: TranslationSuggestionActionState;
   locale_navigation: TranslationEditorLocaleNavigation;
+  content_navigation: TranslationEditorContentNavigation;
   preview_action: TranslationEditorPreviewAction;
 }
 
@@ -383,6 +402,15 @@ interface TranslationEditorRenderViewportState {
   selectionDirection: 'forward' | 'backward' | 'none' | null;
   scrollX: number;
   scrollY: number;
+}
+
+interface TranslationEditorToastHost {
+  toastManager?: {
+    error?: (message: string, duration?: number) => void;
+  };
+  notify?: {
+    error?: (message: string, duration?: number) => void;
+  };
 }
 
 export interface TranslationSuggestionCommandResult {
@@ -986,6 +1014,34 @@ function normalizeSuggestionActionState(value: unknown, fallback: Partial<Transl
   };
 }
 
+function normalizeContentNavigationEntry(value: unknown): TranslationEditorContentNavigationEntry | undefined {
+  const record = asRecord(value);
+  const recordID = asString(record.record_id);
+  const detailURL = asString(record.detail_url ?? record.content_detail_url);
+  const editURL = asString(record.edit_url ?? record.content_edit_url);
+  if (!recordID || (!detailURL && !editURL)) return undefined;
+  return {
+    content_type: asString(record.content_type),
+    record_id: recordID,
+    locale: asString(record.locale),
+    channel: asString(record.channel),
+    detail_url: detailURL,
+    edit_url: editURL,
+    content_detail_url: asString(record.content_detail_url) || detailURL,
+    content_edit_url: asString(record.content_edit_url) || editURL,
+    label: asString(record.label) || 'Edit content',
+    detail_label: asString(record.detail_label) || 'View content',
+  };
+}
+
+function normalizeContentNavigation(value: unknown): TranslationEditorContentNavigation {
+  const record = asRecord(value);
+  return {
+    source: normalizeContentNavigationEntry(record.source),
+    target: normalizeContentNavigationEntry(record.target),
+  };
+}
+
 function normalizeFieldEntries(
   record: Record<string, unknown>,
   sourceFields: Record<string, string>,
@@ -1110,6 +1166,7 @@ export function normalizeAssignmentEditorDetail(raw: unknown): TranslationAssign
       assignment_id: asString(record.assignment_id),
     }),
     locale_navigation: normalizeLocaleNavigation(record.locale_navigation, record),
+    content_navigation: normalizeContentNavigation(record.content_navigation),
     preview_action: normalizePreviewAction(record.preview_action, record),
   };
 }
@@ -2092,8 +2149,48 @@ function computeFieldIssueSummary(detail: TranslationAssignmentEditorDetail): Ed
   };
 }
 
+function contentNavigationActionURL(entry?: TranslationEditorContentNavigationEntry): string {
+  return asString(entry?.edit_url || entry?.content_edit_url || entry?.detail_url || entry?.content_detail_url);
+}
+
+function contentNavigationActionLabel(entry?: TranslationEditorContentNavigationEntry): string {
+  if (!entry) return '';
+  if (asString(entry.edit_url || entry.content_edit_url)) {
+    return asString(entry.label) || 'Edit source content';
+  }
+  return asString(entry.detail_label) || 'View source content';
+}
+
+function renderSourceContentAction(
+  entry: TranslationEditorContentNavigationEntry | undefined,
+  placement: 'summary' | 'field',
+  fieldLabel = ''
+): string {
+  const href = contentNavigationActionURL(entry);
+  if (!href) return '';
+  const label = contentNavigationActionLabel(entry);
+  const context = fieldLabel ? ` for ${fieldLabel}` : '';
+  const className = placement === 'summary'
+    ? 'inline-flex items-center gap-1.5 rounded-lg border border-amber-300 bg-white px-3 py-1.5 text-xs font-medium text-amber-800 shadow-sm transition-colors hover:bg-amber-50 focus:outline-none focus:ring-2 focus:ring-amber-200'
+    : 'mt-2 inline-flex items-center gap-1 text-xs font-medium text-amber-700 underline-offset-2 hover:text-amber-900 hover:underline focus:outline-none focus:ring-2 focus:ring-amber-200';
+  return `
+    <a
+      class="${className}"
+      href="${escapeAttribute(href)}"
+      data-source-content-action="${escapeAttribute(placement)}"
+      aria-label="${escapeAttribute(`${label}${context}`)}"
+    >
+      ${placement === 'summary' ? renderEditorIcon(ICON_DOCUMENT, '14px') : ''}
+      <span>${escapeHTML(label)}</span>
+    </a>
+  `;
+}
+
 // T12: Render field issue summary bar
-function renderFieldIssueSummary(summary: EditorFieldIssueSummary): string {
+function renderFieldIssueSummary(
+  summary: EditorFieldIssueSummary,
+  sourceNavigation?: TranslationEditorContentNavigationEntry
+): string {
   const hasIssues = summary.missingRequiredFields > 0
     || summary.sourceChangedFields > 0
     || summary.validationErrors > 0
@@ -2149,24 +2246,30 @@ function renderFieldIssueSummary(summary: EditorFieldIssueSummary): string {
         ${renderEditorIcon('iconoir:nav-arrow-down', '14px')}
       </button>`
     : '';
+  const sourceAction = summary.missingRequiredFields > 0
+    ? renderSourceContentAction(sourceNavigation, 'summary')
+    : '';
 
   return `
     <section class="flex flex-wrap items-center justify-between gap-3 rounded-xl border p-3 ${barClass}" aria-label="Field progress summary" data-editor-summary="true">
       <div class="flex flex-wrap items-center gap-2">${chips.join('')}</div>
-      ${jumpButton}
+      <div class="flex flex-wrap items-center gap-2">${sourceAction}${jumpButton}</div>
     </section>
   `;
 }
 
 // T12: Render contextual empty source state
-function renderSourceValue(entry: TranslationEditorFieldEntry): string {
+function renderSourceValue(entry: TranslationEditorFieldEntry, sourceNavigation?: TranslationEditorContentNavigationEntry): string {
   if (entry.source_value && entry.source_value.trim()) {
     return escapeHTML(entry.source_value);
   }
 
   // Contextual empty state based on required status
   if (entry.required) {
-    return '<span class="text-amber-600 italic">Source text pending - required field</span>';
+    return `
+      <span class="text-amber-600 italic">Source text pending - required field</span>
+      ${renderSourceContentAction(sourceNavigation, 'field', entry.label)}
+    `;
   }
   // Optional fields show minimal empty indicator
   return '<span class="text-gray-400 italic text-xs">Optional source content not provided</span>';
@@ -2242,6 +2345,24 @@ function normalizeSuggestionCommandResult(input: unknown): TranslationSuggestion
   };
 }
 
+function formatTranslationSuggestionErrorPayload(payload: Record<string, unknown>): string {
+  const errorPayload = asRecord(payload.error);
+  if (Object.keys(errorPayload).length === 0) {
+    return '';
+  }
+  const metadata = {
+    ...asRecord(errorPayload.metadata),
+    ...asRecord(errorPayload.details),
+  };
+  return formatStructuredErrorForDisplay({
+    textCode: asString(errorPayload.text_code ?? errorPayload.code) || null,
+    message: asString(errorPayload.message) || 'Failed to generate translation suggestion.',
+    metadata: Object.keys(metadata).length > 0 ? metadata : null,
+    fields: null,
+    validationErrors: null,
+  }, 'Failed to generate translation suggestion.');
+}
+
 export async function dispatchTranslationSuggestion(
   action: TranslationSuggestionActionState,
   correlationId = ''
@@ -2259,12 +2380,12 @@ export async function dispatchTranslationSuggestion(
   });
   if (!response.ok) {
     const structured = await extractStructuredError(response);
-    throw new Error(structured.message || 'Failed to generate translation suggestion.');
+    throw new Error(formatStructuredErrorForDisplay(structured, 'Failed to generate translation suggestion.'));
   }
   const payload = asRecord(await response.json().catch(() => ({})));
-  const errorPayload = asRecord(payload.error);
-  if (Object.keys(errorPayload).length > 0) {
-    throw new Error(asString(errorPayload.message) || 'Failed to generate translation suggestion.');
+  const errorMessage = formatTranslationSuggestionErrorPayload(payload);
+  if (errorMessage) {
+    throw new Error(errorMessage);
   }
   const data = asRecord(payload.data);
   const result = normalizeSuggestionCommandResult(data.result ?? data.Result);
@@ -2280,7 +2401,7 @@ function shouldRenderSuggestionButton(action: TranslationSuggestionActionState):
 
 function renderSuggestTranslationButton(entry: TranslationEditorFieldEntry, readOnly: boolean, suggesting: boolean): string {
   const action = entry.suggest_translation_action;
-  if (readOnly || !shouldRenderSuggestionButton(action)) return '';
+  if (readOnly || !entry.source_value.trim() || !shouldRenderSuggestionButton(action)) return '';
   const disabled = suggesting;
   const title = suggesting
     ? 'Generating suggestion...'
@@ -2305,6 +2426,7 @@ function renderSuggestTranslationButton(entry: TranslationEditorFieldEntry, read
 
 function renderFieldList(detail: TranslationAssignmentEditorDetail, readOnly = false, suggestingFields: Set<string> = new Set()): string {
   const summary = computeFieldIssueSummary(detail);
+  const sourceNavigation = detail.content_navigation.source;
   const inputClass = readOnly
     ? 'mt-2 w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-600'
     : 'mt-2 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-100';
@@ -2314,8 +2436,11 @@ function renderFieldList(detail: TranslationAssignmentEditorDetail, readOnly = f
 
   return `
     <section class="space-y-4">
-      ${renderFieldIssueSummary(summary)}
-      ${detail.fields.map((entry) => `
+      ${renderFieldIssueSummary(summary, sourceNavigation)}
+      ${detail.fields.map((entry) => {
+        const sourceHasText = Boolean(entry.source_value.trim());
+        const copyDisabled = readOnly || !sourceHasText;
+        return `
         <article class="rounded-xl border border-gray-200 bg-white p-5" data-editor-field="${escapeAttribute(entry.path)}" id="field-${escapeAttribute(entry.path)}">
           <div class="flex flex-wrap items-start justify-between gap-3">
             <div>
@@ -2329,7 +2454,7 @@ function renderFieldList(detail: TranslationAssignmentEditorDetail, readOnly = f
                 data-copy-source="${escapeAttribute(entry.path)}"
                 data-source-value="${escapeAttribute(entry.source_value)}"
                 aria-label="Copy source text to translation field for ${escapeAttribute(entry.label)}"
-                ${readOnly ? 'disabled aria-disabled="true"' : ''}
+                ${copyDisabled ? 'disabled aria-disabled="true"' : ''}
               >
                 ${renderCopySourceIcon()}
                 <span>Copy source</span>
@@ -2340,7 +2465,7 @@ function renderFieldList(detail: TranslationAssignmentEditorDetail, readOnly = f
           <div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
             <div class="rounded-xl border border-gray-200 bg-gray-50 p-4">
               <p class="text-xs font-semibold uppercase tracking-wider text-gray-500">Source</p>
-              <div class="mt-2 whitespace-pre-wrap text-sm text-gray-800">${renderSourceValue(entry)}</div>
+              <div class="mt-2 whitespace-pre-wrap text-sm text-gray-800">${renderSourceValue(entry, sourceNavigation)}</div>
             </div>
             <div class="rounded-xl border ${entry.validation.valid ? 'border-gray-200' : 'border-rose-200'} bg-white p-4">
               <label class="text-xs font-semibold uppercase tracking-wider text-gray-500" for="editor-field-${escapeAttribute(entry.path)}">Translation</label>
@@ -2359,7 +2484,8 @@ function renderFieldList(detail: TranslationAssignmentEditorDetail, readOnly = f
             </div>
           </div>
         </article>
-      `).join('')}
+      `;
+      }).join('')}
     </section>
   `;
 }
@@ -3394,6 +3520,27 @@ export class TranslationEditorScreen {
     }
   }
 
+  private showSuggestionTransportError(message: string): void {
+    const text = message.trim() || 'Failed to generate translation suggestion.';
+    const host = typeof window !== 'undefined' ? window as unknown as TranslationEditorToastHost : null;
+    if (typeof host?.toastManager?.error === 'function') {
+      host.toastManager.error(text);
+      return;
+    }
+    if (typeof host?.notify?.error === 'function') {
+      host.notify.error(text);
+      return;
+    }
+    this.feedback = { kind: 'error', message: text };
+  }
+
+  private showSuggestionInlineError(message: string): void {
+    this.feedback = {
+      kind: 'error',
+      message: message.trim() || 'Failed to generate translation suggestion.',
+    };
+  }
+
   private async generateSuggestion(path: string): Promise<void> {
     const fieldPath = path.trim();
     if (!fieldPath || !this.editorState || this.suggestingFields.has(fieldPath)) return;
@@ -3415,8 +3562,17 @@ export class TranslationEditorScreen {
     this.suggestingFields.add(fieldPath);
     this.feedback = null;
     this.render();
+    let result: TranslationSuggestionCommandResult;
     try {
-      const result = await dispatchTranslationSuggestion(action, this.loadState.requestId || '');
+      result = await dispatchTranslationSuggestion(action, this.loadState.requestId || '');
+    } catch (error) {
+      this.showSuggestionTransportError(error instanceof Error ? error.message : 'Failed to generate translation suggestion.');
+      this.render();
+      this.suggestingFields.delete(fieldPath);
+      this.render();
+      return;
+    }
+    try {
       if (!this.editorState || result.assignment_id !== this.editorState.detail.assignment_id || result.field_path !== fieldPath) {
         throw new Error('Translation suggestion response did not match the requested field.');
       }
@@ -3436,10 +3592,7 @@ export class TranslationEditorScreen {
       this.render();
       this.focusField(fieldPath);
     } catch (error) {
-      this.feedback = {
-        kind: 'error',
-        message: error instanceof Error ? error.message : 'Failed to generate translation suggestion.',
-      };
+      this.showSuggestionInlineError(error instanceof Error ? error.message : 'Failed to generate translation suggestion.');
       this.render();
     } finally {
       this.suggestingFields.delete(fieldPath);

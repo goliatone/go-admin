@@ -27,6 +27,11 @@ func TestDefaultPromptBuilderIncludesTranslationContext(t *testing.T) {
 			t.Fatalf("expected prompt to contain %q, got %q", want, req.Prompt)
 		}
 	}
+	for _, want := range []string{"Return only the final translated text", "Do not include reasoning", "markdown", "JSON"} {
+		if !strings.Contains(req.Prompt, want) && !strings.Contains(req.SystemPrompt, want) {
+			t.Fatalf("expected prompt instructions to contain %q, got system=%q prompt=%q", want, req.SystemPrompt, req.Prompt)
+		}
+	}
 	if req.SystemPrompt == "" {
 		t.Fatalf("expected default system prompt")
 	}

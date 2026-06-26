@@ -2,7 +2,7 @@
 
 {% block title %}Content Types - {{ title }}{% endblock %}
 
-{% block head_extra %}
+{% block before_app_styles %}
 {% for href in dashboard_shell_css %}
 <link rel="stylesheet" href="{{ href }}">
 {% endfor %}
@@ -14,13 +14,13 @@
 {% set visible_total = content_types_total_effective|default:0 %}
 {% set default_total = content_types_total_default|default:0 %}
 {% set available_channels = content_types_available_channels %}
-<header class="px-6 py-4 bg-white dark:bg-slate-900 border-b border-gray-200 dark:border-gray-700 flex flex-wrap gap-4 items-center justify-between">
-  <div>
+<header class="px-4 sm:px-6 py-4 bg-white dark:bg-slate-900 border-b border-gray-200 dark:border-gray-700 flex flex-wrap gap-3 items-center justify-between">
+  <div class="min-w-0">
     <h1 class="text-xl font-bold text-gray-900 dark:text-white">Content Types</h1>
     <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Design schemas, layout, and capabilities for structured content.</p>
   </div>
-  <div class="flex items-center gap-3">
-    <nav class="cm-mode-switch" aria-label="Content modeling section">
+  <div class="flex flex-wrap items-center justify-start sm:justify-end gap-2 max-w-full min-w-0">
+    <nav class="cm-mode-switch shrink-0" aria-label="Content modeling section">
       <a href="{{ adminURL("content/types") }}{% if not in_default_channel %}?channel={{ active_channel|urlencode }}{% endif %}"
          class="cm-mode-seg" aria-current="page">
         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -36,7 +36,7 @@
         Blocks
       </a>
     </nav>
-    <div class="inline-flex items-center bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-gray-700 rounded-lg px-2.5 py-1.5 gap-2"
+    <div class="inline-flex flex-wrap items-center bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-gray-700 rounded-lg px-2.5 py-1.5 gap-2 max-w-full"
          data-content-types-channel-wrapper
          data-base-path="{{ base_path }}"
          data-active-channel="{{ active_channel }}"
@@ -80,7 +80,7 @@
         Add Channel
       </button>
     </div>
-    <a class="btn btn-primary" href="{{ adminURL("content/types") }}{% if not in_default_channel %}?channel={{ active_channel|urlencode }}{% endif %}">New Content Type</a>
+    <a class="btn btn-primary shrink-0" href="{{ adminURL("content/types") }}{% if not in_default_channel %}?channel={{ active_channel|urlencode }}{% endif %}">New Content Type</a>
   </div>
 </header>
 

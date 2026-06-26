@@ -68,11 +68,11 @@ func (DefaultPromptBuilder) BuildTranslationPrompt(input coreadmin.TranslationSu
 	}
 	instruction := strings.TrimSpace(cfg.Instruction)
 	if instruction == "" {
-		instruction = "Translate the source text into the target locale. Preserve placeholders, variables, HTML tags, product names, and formatting intent. Return only the translated text."
+		instruction = "Translate the source text into the target locale. Preserve placeholders, variables, HTML tags, product names, and formatting intent. Return only the final translated text. Do not include reasoning, analysis, labels, markdown, or JSON."
 	}
 	systemPrompt := strings.TrimSpace(cfg.SystemPrompt)
 	if systemPrompt == "" {
-		systemPrompt = "You are a professional localization assistant."
+		systemPrompt = "You are a professional localization assistant. Return only the final translated text. Do not include reasoning, analysis, labels, markdown, or JSON."
 	}
 
 	parts := []string{
