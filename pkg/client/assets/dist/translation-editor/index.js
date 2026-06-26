@@ -6,7 +6,7 @@ import { r as ie, s as qe } from "../chunks/status-vocabulary-Bdx_bn1-.js";
 import { readLocationSearchParams as Le } from "../shared/query-state/url-state.js";
 import { n as de } from "../chunks/translation-contracts-DrJVTucO.js";
 import { asBoolean as _, asNumber as g, asRecord as c, asString as o, asStringArray as ue } from "../shared/coercion.js";
-import { A as De, C as I, D as Oe, E as Ie, F as Pe, M as Fe, O as Me, P as Be, R as Ne, S as re, T as ze, a as Ue, at as Ke, c as He, ct as Ve, et as Ye, ft as Ge, g as Qe, j as We, k as Xe, lt as Je, mt as Ze, ot as et, pt as tt, s as st, st as w, tt as at, v as it, x as D, y as T } from "../chunks/translation-shared-BPEUoMd4.js";
+import { A as De, C as I, D as Oe, E as Ie, F as Pe, M as Fe, O as Me, P as Be, R as Ne, S as re, T as ze, a as Ue, at as Ke, c as Ve, ct as He, et as Ye, ft as Ge, g as Qe, j as We, k as Xe, lt as Je, mt as Ze, ot as et, pt as tt, s as st, st as w, tt as at, v as it, x as D, y as T } from "../chunks/translation-shared-BPEUoMd4.js";
 import { formatTranslationTimestampUTC as fe, sentenceCaseToken as P } from "../translation-shared/formatters.js";
 import { normalizeStringRecord as K } from "../shared/record-normalization.js";
 import { c as me, s as rt } from "../chunks/ui-states-IJy0FaWc.js";
@@ -14,15 +14,15 @@ var nt = "translation_variant_draft", ot = "autosave", N = /* @__PURE__ */ new M
 async function ct(e) {
   const t = E(e);
   if (!t) throw new Error("syncClientBasePath is required to load sync-core");
-  return typeof window < "u" && window.__translationSyncCoreModule ? H(window.__translationSyncCoreModule) : (N.has(t) || N.set(t, lt(t)), N.get(t));
+  return typeof window < "u" && window.__translationSyncCoreModule ? V(window.__translationSyncCoreModule) : (N.has(t) || N.set(t, lt(t)), N.get(t));
 }
 async function lt(e) {
-  return typeof window < "u" && typeof window.__translationSyncCoreLoader == "function" ? H(await window.__translationSyncCoreLoader(e)) : H(await import(
+  return typeof window < "u" && typeof window.__translationSyncCoreLoader == "function" ? V(await window.__translationSyncCoreLoader(e)) : V(await import(
     /* @vite-ignore */
     `${e}/index.js`
   ));
 }
-function H(e) {
+function V(e) {
   if (!e || typeof e.createInMemoryCache != "function" || typeof e.createFetchSyncTransport != "function" || typeof e.createSyncEngine != "function" || typeof e.parseReadEnvelope != "function") throw new TypeError("Invalid translation sync-core runtime module");
   return e;
 }
@@ -733,11 +733,11 @@ function C(e) {
 function Kt(e) {
   return e === "review" || e === "in_review";
 }
-function Ht(e) {
+function Vt(e) {
   return e === "changes_requested";
 }
 function A(e) {
-  return Ht(C(e));
+  return Vt(C(e));
 }
 function ee(e) {
   return Kt(C(e)) ? !0 : !!(e.review_action_states.approve?.enabled || e.review_action_states.reject?.enabled);
@@ -745,14 +745,14 @@ function ee(e) {
 function te(e) {
   return !!e.assignment_action_states.archive?.enabled;
 }
-function V(e) {
+function H(e) {
   const t = C(e);
   return t === "review" || t === "in_review" || t === "approved" || t === "archived";
 }
 function se(e) {
   return `This assignment is ${P(C(e) || "unavailable").toLowerCase()} and can be inspected but not edited.`;
 }
-function Vt(e, t, s) {
+function Ht(e, t, s) {
   const a = !!t && e.trim().toLowerCase() !== t.trim().toLowerCase();
   return !a && !s ? "" : `<p class="mt-1 text-xs text-gray-500">${[a ? d(t) : "", s ? "Required" : ""].filter(Boolean).join(" • ")}</p>`;
 }
@@ -1173,7 +1173,7 @@ function ps(e, t = !1, s = /* @__PURE__ */ new Set()) {
           <div class="flex flex-wrap items-start justify-between gap-3">
             <div>
               <h2 class="text-lg font-semibold text-gray-900">${d(r.label)}</h2>
-              ${Vt(r.label, r.path, r.required)}
+              ${Ht(r.label, r.path, r.required)}
             </div>
             <div class="flex flex-wrap gap-2">
               <button
@@ -1345,7 +1345,7 @@ function ws(e) {
   if (!t.enabled) return "";
   const s = t.findings.filter((n) => n.severity === "blocker"), a = t.findings.filter((n) => n.severity !== "blocker"), i = (n, r) => {
     if (!n.length) return "";
-    const l = Ve(r);
+    const l = He(r);
     return `
       <section data-qa-group="${f(r === "blocker" ? "blockers" : "warnings")}">
         <h3 class="text-sm font-semibold ${r === "blocker" ? "text-rose-800" : "text-amber-800"}">
@@ -1568,7 +1568,7 @@ var Ts = {
   actions: "iconoir:flash",
   qa: "iconoir:shield",
   assist: "iconoir:chat-bubble",
-  files: He,
+  files: Ve,
   history: Ue
 };
 function Cs(e) {
@@ -1681,7 +1681,7 @@ function qs(e, t, s = {}, a = {}) {
   if (e.status === "conflict") return le("Editor conflict", e.message || "A newer version of this assignment is available.", e);
   const i = t?.detail || e.detail;
   if (!i) return ce("Assignment unavailable", "No assignment detail payload was returned.");
-  const n = !!(t && Object.keys(t.dirty_fields).length), r = Gt(t || null, n, a.lastSavedMessage || ""), l = t?.autosave.conflict, u = V(i);
+  const n = !!(t && Object.keys(t.dirty_fields).length), r = Gt(t || null, n, a.lastSavedMessage || ""), l = t?.autosave.conflict, u = H(i);
   return `
     <div class="translation-editor-screen space-y-6" data-translation-editor="true" data-editor-read-only="${u ? "true" : "false"}">
       ${Qt(a.feedback || null)}
@@ -1756,7 +1756,7 @@ var Ds = class {
     this.loadState = { status: "loading" }, this.render(), this.loadState = await zt(e ? U(this.config.endpoint, {
       history_page: e,
       history_per_page: this.editorState?.detail.history.per_page || this.loadState.detail?.history.per_page || 10
-    }) : this.config.endpoint), this.loadState.status === "ready" && this.loadState.detail ? (this.editorState = ne(this.loadState.detail), V(this.loadState.detail) || await this.hydrateDraftSyncFromRead(this.loadState.detail)) : this.editorState = null, this.render();
+    }) : this.config.endpoint), this.loadState.status === "ready" && this.loadState.detail ? (this.editorState = ne(this.loadState.detail), H(this.loadState.detail) || await this.hydrateDraftSyncFromRead(this.loadState.detail)) : this.editorState = null, this.render();
   }
   render() {
     if (!this.container) return;
@@ -1809,7 +1809,7 @@ var Ds = class {
       }
   }
   isEditorReadOnly() {
-    return this.editorState ? V(this.editorState.detail) : !0;
+    return this.editorState ? H(this.editorState.detail) : !0;
   }
   attachEventListeners() {
     !this.container || !this.editorState || (this.container.querySelectorAll("[data-field-input]").forEach((e) => {
@@ -1949,7 +1949,7 @@ var Ds = class {
       }, this.render();
       return;
     }
-    const s = this.editorState.detail.fields.find((i) => i.path === t), a = s?.suggest_translation_action;
+    const s = this.editorState.detail.fields.find((r) => r.path === t), a = s?.suggest_translation_action;
     if (!s || !a?.enabled) {
       this.feedback = {
         kind: "error",
@@ -1957,18 +1957,21 @@ var Ds = class {
       }, this.render();
       return;
     }
+    const i = o(this.editorState.detail.target_fields[t]), n = this.editorState.detail.row_version;
     this.suggestingFields.add(t), this.feedback = null, this.render();
     try {
-      const i = await fs(a, this.loadState.requestId || "");
-      if (!this.editorState || i.assignment_id !== this.editorState.detail.assignment_id || i.field_path !== t) throw new Error("Translation suggestion response did not match the requested field.");
-      this.editorState = k(this.editorState, t, i.suggested_text), this.lastSavedMessage = "", this.feedback = {
+      const r = await fs(a, this.loadState.requestId || "");
+      if (!this.editorState || r.assignment_id !== this.editorState.detail.assignment_id || r.field_path !== t) throw new Error("Translation suggestion response did not match the requested field.");
+      if (this.editorState.autosave.conflict) throw new Error("Reload the latest server draft before applying this suggestion.");
+      if (this.editorState.detail.row_version !== n || o(this.editorState.detail.target_fields[t]) !== i) throw new Error("The field changed while the suggestion was generating. Review the current draft and try again.");
+      this.editorState = k(this.editorState, t, r.suggested_text), this.lastSavedMessage = "", this.feedback = {
         kind: "success",
         message: "Translation suggestion inserted."
       }, this.scheduleAutosave(), this.render(), this.focusField(t);
-    } catch (i) {
+    } catch (r) {
       this.feedback = {
         kind: "error",
-        message: i instanceof Error ? i.message : "Failed to generate translation suggestion."
+        message: r instanceof Error ? r.message : "Failed to generate translation suggestion."
       }, this.render();
     } finally {
       this.suggestingFields.delete(t), this.render();

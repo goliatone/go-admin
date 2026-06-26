@@ -1005,16 +1005,40 @@ export class ContentTypeEditor {
   private renderPreviewPanel(): string {
     return `
       <div class="p-4">
-        <div class="flex items-center justify-between mb-4">
-          <h2 class="text-sm font-medium text-gray-900 dark:text-white">Form Preview</h2>
-          <button
-            type="button"
-            data-ct-refresh-preview
-            class="text-xs text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
-          >
-            Refresh
-          </button>
+        <div class="flex items-center justify-between mb-3">
+          <div class="flex items-center gap-2">
+            <h2 class="text-sm font-medium text-gray-900 dark:text-white">Form Preview</h2>
+            <span data-ct-preview-loading class="hidden inline-flex items-center" role="status" aria-label="Updating preview">
+              <svg class="w-3.5 h-3.5 animate-spin text-blue-500" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+              </svg>
+            </span>
+          </div>
+          <div class="flex items-center gap-3">
+            <button
+              type="button"
+              data-ct-expand-preview
+              class="inline-flex items-center gap-1 text-xs text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200"
+              aria-label="Open interactive preview"
+              title="Open a larger, interactive preview"
+            >
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"></path>
+              </svg>
+              Expand
+            </button>
+            <button
+              type="button"
+              data-ct-refresh-preview
+              class="text-xs text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+            >
+              Refresh
+            </button>
+          </div>
         </div>
+
+        <p class="mb-2 text-[11px] text-gray-400 dark:text-gray-500">Live, read-only preview. Use Expand to interact.</p>
 
         <div
           data-ct-preview-container
@@ -1022,20 +1046,28 @@ export class ContentTypeEditor {
         >
           ${
             this.state.previewHtml
-              ? this.state.previewHtml
+              ? this.wrapReadonlyPreview(this.state.previewHtml)
               : `
             <div class="flex flex-col items-center justify-center h-40 text-gray-400">
               <svg class="w-10 h-10 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
               </svg>
-              <p class="text-sm">Click "Preview" to see the generated form</p>
+              <p class="text-sm">Add fields to see a live preview</p>
             </div>
           `
           }
         </div>
       </div>
     `;
+  }
+
+  /**
+   * Wrap generated preview HTML so the side-pane preview reads as a lightweight,
+   * non-interactive snapshot. The Expand modal renders the same HTML interactively.
+   */
+  private wrapReadonlyPreview(html: string): string {
+    return `<div class="ct-preview-readonly pointer-events-none select-none" aria-label="Read-only form preview">${html}</div>`;
   }
 
   // ===========================================================================
@@ -1067,7 +1099,6 @@ export class ContentTypeEditor {
       ` : ''}
       ${ct ? this.renderLifecycleActions(ct) : ''}
       <button type="button" data-ct-validate class="${btnClass}">Validate</button>
-      <button type="button" data-ct-preview class="${btnClass}">Preview</button>
       <button type="button" data-ct-cancel class="${btnClass}">Cancel</button>
       <button type="button" data-ct-save class="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed">
         ${ct ? 'Save Changes' : 'Create Content Type'}
@@ -1433,7 +1464,6 @@ export class ContentTypeEditor {
     // Header actions
     this.container.querySelector('[data-ct-save]')?.addEventListener('click', () => this.save());
     this.container.querySelector('[data-ct-validate]')?.addEventListener('click', () => this.validateSchema());
-    this.container.querySelector('[data-ct-preview]')?.addEventListener('click', () => this.previewSchema());
     this.container.querySelector('[data-ct-cancel]')?.addEventListener('click', () => this.config.onCancel?.());
 
     // Lifecycle actions dropdown
@@ -1454,8 +1484,11 @@ export class ContentTypeEditor {
     // Layout button
     this.container.querySelector('[data-ct-layout]')?.addEventListener('click', () => this.showLayoutEditor());
 
-    // Preview refresh
+    // Preview refresh (manual fallback; preview is otherwise live/debounced)
     this.container.querySelector('[data-ct-refresh-preview]')?.addEventListener('click', () => this.previewSchema());
+
+    // Expand to a larger, interactive preview
+    this.container.querySelector('[data-ct-expand-preview]')?.addEventListener('click', () => this.openInteractivePreview());
 
     // Icon picker trigger
     bindIconTriggerEvents(this.container, '[data-icon-trigger]', (trigger) => {
@@ -1949,11 +1982,21 @@ export class ContentTypeEditor {
   }
 
   private updatePreviewState(): void {
-    const previewBtn = this.container.querySelector<HTMLButtonElement>('[data-ct-preview]');
-    if (previewBtn) {
-      previewBtn.disabled = this.state.isPreviewing;
-      previewBtn.textContent = this.state.isPreviewing ? 'Loading...' : 'Preview';
+    // Live preview replaced the standalone Preview button; reflect progress with a
+    // small spinner in the preview pane and disable Refresh while a request runs.
+    const loading = this.container.querySelector<HTMLElement>('[data-ct-preview-loading]');
+    if (loading) loading.classList.toggle('hidden', !this.state.isPreviewing);
+    const refreshBtn = this.container.querySelector<HTMLButtonElement>('[data-ct-refresh-preview]');
+    if (refreshBtn) refreshBtn.disabled = this.state.isPreviewing;
+  }
+
+  private openInteractivePreview(): void {
+    if (!this.state.previewHtml) {
+      this.showToast('Add fields and wait for the preview to load first.', 'info');
+      return;
     }
+    const modal = new PreviewModal(this.state.previewHtml, () => this.initPreviewEditors());
+    void modal.show();
   }
 
   private updateDirtyState(): void {
@@ -2243,8 +2286,9 @@ export class ContentTypeEditor {
         </div>
       `;
     } else if (this.state.previewHtml) {
-      previewContainer.innerHTML = this.state.previewHtml;
-      this.initPreviewEditors();
+      // Lightweight, read-only snapshot in the side pane — no heavy editor
+      // hydration here. The Expand modal hydrates the interactive version.
+      previewContainer.innerHTML = this.wrapReadonlyPreview(this.state.previewHtml);
     }
   }
 

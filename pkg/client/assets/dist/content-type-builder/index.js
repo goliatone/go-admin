@@ -6,18 +6,18 @@ import { extractErrorMessage as Ft } from "../toast/error-helpers.js";
 import { t as V } from "../chunks/badge-DT04uHwZ.js";
 import { normalizeAPIBasePath as J, trimTrailingSlash as We } from "../shared/path-normalization.js";
 import { onReady as at } from "../shared/dom-ready.js";
-import { parseJSONValue as O } from "../shared/json-parse.js";
+import { parseJSONValue as R } from "../shared/json-parse.js";
 import { capitalizeLabel as D, nameToSlug as Ee, titleCaseIdentifier as de, titleCaseWords as F } from "./shared/text.js";
 import { deepCloneJSON as be } from "../shared/deep-clone.js";
 import { formatContentTypeDate as rt } from "./shared/date-formatters.js";
 import { renderBlockStatusBadge as it } from "./shared/status-badges.js";
-import { PANE_LAYOUT_VERSION as Za, PaneLayoutController as Xa, clampWidth as er, createPaneLayout as tr, createSafeStorage as ar, defaultPaneState as rr, paneStorageKey as ir, sanitizePaneState as sr } from "./shared/pane-layout.js";
-import { buildShellConfig as nr, initContentModelingShell as lr, initContentModelingShells as Pt } from "./shared/content-modeling-shell.js";
+import { PANE_LAYOUT_VERSION as Xa, PaneLayoutController as er, clampWidth as tr, createPaneLayout as ar, createSafeStorage as rr, defaultPaneState as ir, paneStorageKey as sr, sanitizePaneState as or } from "./shared/pane-layout.js";
+import { buildShellConfig as lr, initContentModelingShell as dr, initContentModelingShells as Pt } from "./shared/content-modeling-shell.js";
 var oe = class extends Error {
   constructor(t, e, a, r) {
     super(t), this.name = "ContentTypeAPIError", this.status = e, this.textCode = a, this.fields = r;
   }
-}, R = class {
+}, O = class {
   constructor(t) {
     this.channel = "";
     let e = t.basePath.replace(/\/+$/, "");
@@ -430,7 +430,7 @@ function Ht(t, e) {
 function he(t, e) {
   const a = {}, r = [];
   for (const s of t)
-    a[s.name] = Ot(s), s.required && r.push(s.name);
+    a[s.name] = Rt(s), s.required && r.push(s.name);
   const i = {
     $schema: "https://json-schema.org/draft/2020-12/schema",
     type: "object",
@@ -448,7 +448,7 @@ function st(t, e) {
   const r = new Set(a.required ?? []);
   return r.add("_type"), a.required = Array.from(r), a;
 }
-function Ot(t) {
+function Rt(t) {
   const e = {}, a = {
     text: { type: "string" },
     textarea: { type: "string" },
@@ -504,7 +504,7 @@ function Ot(t) {
     location: { type: "object" }
   }[t.type] ?? { type: "string" };
   e.type = a.type, a.format && (e.format = a.format), t.label && (e.title = t.label), t.description && (e.description = t.description), t.defaultValue !== void 0 && (e.default = t.defaultValue), t.validation && (t.validation.minLength !== void 0 && (e.minLength = t.validation.minLength), t.validation.maxLength !== void 0 && (e.maxLength = t.validation.maxLength), t.validation.min !== void 0 && (e.minimum = t.validation.min), t.validation.max !== void 0 && (e.maximum = t.validation.max), t.validation.pattern && (e.pattern = t.validation.pattern));
-  const r = {}, i = Rt(t.type);
+  const r = {}, i = Ot(t.type);
   switch (i && (r.widget = i), t.placeholder && (r.placeholder = t.placeholder), t.helpText && (r.helpText = t.helpText), t.section && (r.section = t.section), t.order !== void 0 && (r.order = t.order), t.gridSpan !== void 0 && (r.grid = { span: t.gridSpan }), t.readonly && (r.readonly = !0), t.hidden && (r.hidden = !0), t.filterable && (r.filterable = !0), Object.keys(r).length > 0 && (e["x-formgen"] = r), t.filterable && (e["x-admin"] = { filterable: !0 }), t.type) {
     case "select":
     case "radio":
@@ -563,7 +563,7 @@ function Ot(t) {
   }
   return e;
 }
-function Rt(t) {
+function Ot(t) {
   return {
     textarea: "textarea",
     "rich-text": "rich-text",
@@ -1072,7 +1072,7 @@ function ke(t) {
   const e = j(String(t));
   return ve.find((a) => a.type === e);
 }
-function dr(t) {
+function cr(t) {
   return ve.filter((e) => e.category === t);
 }
 var lt = class extends A {
@@ -2753,12 +2753,12 @@ var ta = /^[a-z0-9]+(?:[:_-][a-z0-9]+)*$/i, T = [], Ze = !1;
 function ae() {
   Ze || (Ze = !0, T.push(Yt()), T.push(Xt()), T.push(ea()));
 }
-function cr(t) {
+function hr(t) {
   ae();
   const e = T.findIndex((a) => a.id === t.id);
   e >= 0 ? T[e] = t : T.push(t);
 }
-function hr(t) {
+function ur(t) {
   ae();
   const e = T.findIndex((a) => a.id === t);
   e >= 0 && T.splice(e, 1);
@@ -2978,7 +2978,7 @@ function ia(t) {
   }
   return 50;
 }
-async function Oe(t) {
+async function Re(t) {
   return await t.listBlockDefinitionsSummary();
 }
 function ye(t) {
@@ -3093,7 +3093,7 @@ function Se(...t) {
   const r = window?.DEBUG_CONFIG;
   return typeof r?.apiBasePath == "string" && r.apiBasePath.trim() ? J(r.apiBasePath.trim(), { ensureAPISuffix: !0 }) : typeof r?.basePath == "string" && r.basePath.trim() ? J(r.basePath.trim(), { ensureAPISuffix: !0 }) : "";
 }
-function Re(t, e) {
+function Oe(t, e) {
   const a = (e || "").trim();
   if (a) return We(a);
   const r = We((t || "").trim());
@@ -4056,7 +4056,7 @@ var fe = class extends A {
     this.updateBlockList(t, r);
   }
   parseBlockListValue(t) {
-    const e = O(t, []);
+    const e = R(t, []);
     return Array.isArray(e) ? e.map((a) => String(a ?? "").trim()).filter(Boolean) : [];
   }
   handleSave() {
@@ -4195,7 +4195,7 @@ var fe = class extends A {
         const e = t.get("minBlocks"), a = t.get("maxBlocks"), r = t.get("allowedBlocks")?.trim(), i = t.get("deniedBlocks")?.trim(), s = this.field.config;
         let o, l;
         if (r) {
-          const d = O(r, null);
+          const d = R(r, null);
           if (Array.isArray(d)) {
             const c = d.map((h) => String(h ?? "").trim()).filter(Boolean);
             o = c.length > 0 ? c : void 0;
@@ -4203,7 +4203,7 @@ var fe = class extends A {
             o = r.split(",").map((c) => c.trim()).filter(Boolean), o.length === 0 && (o = void 0);
         }
         if (i) {
-          const d = O(i, null);
+          const d = R(i, null);
           if (Array.isArray(d)) {
             const c = d.map((h) => String(h ?? "").trim()).filter(Boolean);
             l = c.length > 0 ? c : void 0;
@@ -4252,7 +4252,7 @@ var oa = class extends A {
     super({
       size: "lg",
       maxHeight: "max-h-[70vh]"
-    }), this.availableBlocks = [], this.config = t, this.api = new R({ basePath: t.apiBasePath }), this.selectedBlocks = new Set(t.selectedBlocks);
+    }), this.availableBlocks = [], this.config = t, this.api = new O({ basePath: t.apiBasePath }), this.selectedBlocks = new Set(t.selectedBlocks);
   }
   async onAfterShow() {
     await this.loadBlocks();
@@ -4307,7 +4307,7 @@ var oa = class extends A {
   async loadBlocks() {
     const t = this.container?.querySelector("[data-blocks-loading]"), e = this.container?.querySelector("[data-blocks-list]"), a = this.container?.querySelector("[data-blocks-empty]");
     try {
-      this.availableBlocks = await Oe(this.api), this.selectedBlocks = ee(this.selectedBlocks, this.availableBlocks), t?.classList.add("hidden"), this.availableBlocks.length === 0 ? a?.classList.remove("hidden") : (e?.classList.remove("hidden"), this.renderBlocksList());
+      this.availableBlocks = await Re(this.api), this.selectedBlocks = ee(this.selectedBlocks, this.availableBlocks), t?.classList.add("hidden"), this.availableBlocks.length === 0 ? a?.classList.remove("hidden") : (e?.classList.remove("hidden"), this.renderBlocksList());
     } catch {
       t?.classList.add("hidden"), a?.classList.remove("hidden");
       const r = a?.querySelector("span") || a;
@@ -5421,9 +5421,38 @@ function ze(t = {}) {
         <p class="text-xs text-gray-400 dark:text-gray-500">${n(a)}</p>
       </div>`;
 }
-var S = "main", Ba = class {
+var S = "main", Ba = class extends A {
   constructor(t, e) {
-    this.dragState = null, this.dropIndicator = null, this.dragOverRAF = null, this.staticEventsBound = !1, this.previewDebounceTimer = null, this.previewRequestSeq = 0, this.palettePanel = null, this.paletteVisible = !1, this.sectionStates = /* @__PURE__ */ new Map(), this.lifecycleOutsideClickHandler = null, this.cachedBlocks = null, this.blocksLoading = !1, this.blockPickerModes = /* @__PURE__ */ new Map(), this.fieldActionsMenuId = null, this.container = t, this.config = e, this.api = new R({ basePath: e.apiBasePath });
+    super({
+      size: "4xl",
+      maxHeight: "max-h-[90vh]",
+      initialFocus: "[data-preview-modal-close]"
+    }), this.previewHtml = t, this.hydrate = e;
+  }
+  renderContent() {
+    return `
+      <div class="flex items-center justify-between px-5 py-3 border-b border-gray-200 dark:border-gray-700 shrink-0">
+        <h2 class="text-sm font-semibold text-gray-900 dark:text-white">Interactive Form Preview</h2>
+        <button type="button" data-preview-modal-close
+                class="p-1.5 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:text-gray-200 dark:hover:bg-gray-800"
+                aria-label="Close preview">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+          </svg>
+        </button>
+      </div>
+      <div class="overflow-y-auto p-6" data-preview-modal-body>${this.previewHtml}</div>
+    `;
+  }
+  bindContentEvents() {
+    this.container?.querySelector("[data-preview-modal-close]")?.addEventListener("click", () => this.hide());
+  }
+  async onAfterShow() {
+    this.hydrate();
+  }
+}, La = class {
+  constructor(t, e) {
+    this.dragState = null, this.dropIndicator = null, this.dragOverRAF = null, this.staticEventsBound = !1, this.previewDebounceTimer = null, this.previewRequestSeq = 0, this.palettePanel = null, this.paletteVisible = !1, this.sectionStates = /* @__PURE__ */ new Map(), this.lifecycleOutsideClickHandler = null, this.cachedBlocks = null, this.blocksLoading = !1, this.blockPickerModes = /* @__PURE__ */ new Map(), this.fieldActionsMenuId = null, this.container = t, this.config = e, this.api = new O({ basePath: e.apiBasePath });
     const a = this.normalizeChannel(e.channel);
     a && this.api.setChannel(a), this.state = {
       contentType: null,
@@ -5628,11 +5657,10 @@ var S = "main", Ba = class {
     this.renderValidationErrors();
   }
   async previewSchema() {
-    if (this.state.isPreviewing) return;
     if (this.state.fields.length === 0) {
-      this.state.previewHtml = null, this.state.previewError = null;
-      const e = this.container.querySelector("[data-ct-preview-container]");
-      e && (e.innerHTML = `
+      this.previewRequestSeq++, this.state.previewHtml = null, this.state.previewError = null, this.state.isPreviewing = !1, this.updatePreviewState();
+      const a = this.container.querySelector("[data-ct-preview-container]");
+      a && (a.innerHTML = `
           <div class="flex flex-col items-center justify-center h-40 text-gray-400">
             <svg class="w-10 h-10 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
@@ -5642,21 +5670,23 @@ var S = "main", Ba = class {
         `);
       return;
     }
-    const t = he(this.state.fields, this.getSlug());
+    const t = he(this.state.fields, this.getSlug()), e = ++this.previewRequestSeq;
     this.state.isPreviewing = !0, this.updatePreviewState();
     try {
-      const e = await this.api.previewSchema({
+      const a = await this.api.previewSchema({
         schema: t,
         slug: this.getSlug(),
         ui_schema: this.buildUISchema()
       });
-      this.state.previewHtml = e.html, this.state.previewError = null, this.renderPreview();
-    } catch (e) {
-      console.error("Preview failed:", e);
-      const a = e instanceof Error ? e.message : "Preview failed";
-      this.state.previewHtml = null, this.state.previewError = a, this.renderPreview();
+      if (e !== this.previewRequestSeq) return;
+      this.state.previewHtml = a.html, this.state.previewError = null, this.renderPreview();
+    } catch (a) {
+      if (e !== this.previewRequestSeq) return;
+      console.error("Preview failed:", a);
+      const r = a instanceof Error ? a.message : "Preview failed";
+      this.state.previewHtml = null, this.state.previewError = r, this.renderPreview();
     } finally {
-      this.state.isPreviewing = !1, this.updatePreviewState();
+      e === this.previewRequestSeq && (this.state.isPreviewing = !1, this.updatePreviewState());
     }
   }
   render() {
@@ -6033,33 +6063,60 @@ var S = "main", Ba = class {
   renderPreviewPanel() {
     return `
       <div class="p-4">
-        <div class="flex items-center justify-between mb-4">
-          <h2 class="text-sm font-medium text-gray-900 dark:text-white">Form Preview</h2>
-          <button
-            type="button"
-            data-ct-refresh-preview
-            class="text-xs text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
-          >
-            Refresh
-          </button>
+        <div class="flex items-center justify-between mb-3">
+          <div class="flex items-center gap-2">
+            <h2 class="text-sm font-medium text-gray-900 dark:text-white">Form Preview</h2>
+            <span data-ct-preview-loading class="hidden inline-flex items-center" role="status" aria-label="Updating preview">
+              <svg class="w-3.5 h-3.5 animate-spin text-blue-500" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+              </svg>
+            </span>
+          </div>
+          <div class="flex items-center gap-3">
+            <button
+              type="button"
+              data-ct-expand-preview
+              class="inline-flex items-center gap-1 text-xs text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200"
+              aria-label="Open interactive preview"
+              title="Open a larger, interactive preview"
+            >
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"></path>
+              </svg>
+              Expand
+            </button>
+            <button
+              type="button"
+              data-ct-refresh-preview
+              class="text-xs text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+            >
+              Refresh
+            </button>
+          </div>
         </div>
+
+        <p class="mb-2 text-[11px] text-gray-400 dark:text-gray-500">Live, read-only preview. Use Expand to interact.</p>
 
         <div
           data-ct-preview-container
           class="bg-white dark:bg-slate-900 rounded-lg border border-gray-200 dark:border-gray-700 p-4 min-h-[200px]"
         >
-          ${this.state.previewHtml ? this.state.previewHtml : `
+          ${this.state.previewHtml ? this.wrapReadonlyPreview(this.state.previewHtml) : `
             <div class="flex flex-col items-center justify-center h-40 text-gray-400">
               <svg class="w-10 h-10 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
               </svg>
-              <p class="text-sm">Click "Preview" to see the generated form</p>
+              <p class="text-sm">Add fields to see a live preview</p>
             </div>
           `}
         </div>
       </div>
     `;
+  }
+  wrapReadonlyPreview(t) {
+    return `<div class="ct-preview-readonly pointer-events-none select-none" aria-label="Read-only form preview">${t}</div>`;
   }
   renderHeader() {
     const t = this.state.contentType;
@@ -6084,7 +6141,6 @@ var S = "main", Ba = class {
       ` : ""}
       ${t ? this.renderLifecycleActions(t) : ""}
       <button type="button" data-ct-validate class="${e}">Validate</button>
-      <button type="button" data-ct-preview class="${e}">Preview</button>
       <button type="button" data-ct-cancel class="${e}">Cancel</button>
       <button type="button" data-ct-save class="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed">
         ${t ? "Save Changes" : "Create Content Type"}
@@ -6171,7 +6227,7 @@ var S = "main", Ba = class {
     } catch (r) {
       a = r instanceof Error ? r.message : "Compatibility check failed";
     }
-    new La({
+    new Ea({
       contentType: this.state.contentType,
       compatibilityResult: e,
       compatibilityError: a ?? void 0,
@@ -6203,7 +6259,7 @@ var S = "main", Ba = class {
       }
   }
   async cloneContentType() {
-    this.state.contentType?.id && new Ea({
+    this.state.contentType?.id && new ja({
       contentType: this.state.contentType,
       onConfirm: async (t, e) => {
         try {
@@ -6219,7 +6275,7 @@ var S = "main", Ba = class {
     }).show();
   }
   showVersionHistory() {
-    this.state.contentType?.id && new ja({
+    this.state.contentType?.id && new Ma({
       apiBasePath: this.config.apiBasePath,
       contentType: this.state.contentType
     }).show();
@@ -6317,7 +6373,7 @@ var S = "main", Ba = class {
     });
   }
   bindDynamicEvents() {
-    this.container.querySelector("[data-ct-save]")?.addEventListener("click", () => this.save()), this.container.querySelector("[data-ct-validate]")?.addEventListener("click", () => this.validateSchema()), this.container.querySelector("[data-ct-preview]")?.addEventListener("click", () => this.previewSchema()), this.container.querySelector("[data-ct-cancel]")?.addEventListener("click", () => this.config.onCancel?.()), this.bindLifecycleMenuEvents(), this.container.querySelector("[data-ct-add-field]")?.addEventListener("click", () => this.showFieldTypePicker()), this.container.querySelector("[data-ct-add-field-empty]")?.addEventListener("click", () => this.showFieldTypePicker()), this.container.querySelector("[data-ct-toggle-palette]")?.addEventListener("click", () => this.togglePalette()), this.initPaletteIfNeeded(), this.container.querySelector("[data-ct-layout]")?.addEventListener("click", () => this.showLayoutEditor()), this.container.querySelector("[data-ct-refresh-preview]")?.addEventListener("click", () => this.previewSchema()), we(this.container, "[data-icon-trigger]", (t) => {
+    this.container.querySelector("[data-ct-save]")?.addEventListener("click", () => this.save()), this.container.querySelector("[data-ct-validate]")?.addEventListener("click", () => this.validateSchema()), this.container.querySelector("[data-ct-cancel]")?.addEventListener("click", () => this.config.onCancel?.()), this.bindLifecycleMenuEvents(), this.container.querySelector("[data-ct-add-field]")?.addEventListener("click", () => this.showFieldTypePicker()), this.container.querySelector("[data-ct-add-field-empty]")?.addEventListener("click", () => this.showFieldTypePicker()), this.container.querySelector("[data-ct-toggle-palette]")?.addEventListener("click", () => this.togglePalette()), this.initPaletteIfNeeded(), this.container.querySelector("[data-ct-layout]")?.addEventListener("click", () => this.showLayoutEditor()), this.container.querySelector("[data-ct-refresh-preview]")?.addEventListener("click", () => this.previewSchema()), this.container.querySelector("[data-ct-expand-preview]")?.addEventListener("click", () => this.openInteractivePreview()), we(this.container, "[data-icon-trigger]", (t) => {
       const e = t.querySelector("[data-ct-icon]");
       return {
         value: e?.value ?? "",
@@ -6386,7 +6442,7 @@ var S = "main", Ba = class {
         a.preventDefault(), e.classList.remove("border-blue-400", "bg-blue-50/50"), e.classList.add("border-gray-200", "hover:border-gray-300");
         const r = a.dataTransfer?.getData(Ne);
         if (r) {
-          const s = O(r, null);
+          const s = R(r, null);
           if (s?.type) {
             this.addField(s.type);
             return;
@@ -6539,8 +6595,17 @@ var S = "main", Ba = class {
     t && (t.disabled = this.state.isSaving, t.textContent = this.state.isSaving ? "Saving..." : this.state.contentType ? "Save Changes" : "Create Content Type");
   }
   updatePreviewState() {
-    const t = this.container.querySelector("[data-ct-preview]");
-    t && (t.disabled = this.state.isPreviewing, t.textContent = this.state.isPreviewing ? "Loading..." : "Preview");
+    const t = this.container.querySelector("[data-ct-preview-loading]");
+    t && t.classList.toggle("hidden", !this.state.isPreviewing);
+    const e = this.container.querySelector("[data-ct-refresh-preview]");
+    e && (e.disabled = this.state.isPreviewing);
+  }
+  openInteractivePreview() {
+    if (!this.state.previewHtml) {
+      this.showToast("Add fields and wait for the preview to load first.", "info");
+      return;
+    }
+    new Ba(this.state.previewHtml, () => this.initPreviewEditors()).show();
   }
   updateDirtyState() {
     const t = this.container.querySelector("[data-ct-save]");
@@ -6649,7 +6714,7 @@ var S = "main", Ba = class {
     if (!this.blocksLoading) {
       this.blocksLoading = !0;
       try {
-        this.cachedBlocks = await Oe(this.api), this.state.selectedFieldId === t.id && this.renderInlineBlockPickerForField(t);
+        this.cachedBlocks = await Re(this.api), this.state.selectedFieldId === t.id && this.renderInlineBlockPickerForField(t);
       } catch (e) {
         const a = e instanceof Error ? e.message : "Failed to load block definitions";
         this.renderInlineBlockPickerError(t.id, a), this.showToast(`Failed to load block definitions: ${a}`, "error");
@@ -6710,7 +6775,7 @@ var S = "main", Ba = class {
           <p class="text-sm font-medium">Preview failed</p>
           <p class="text-xs text-red-300 mt-1 max-w-xs text-center">${this.state.previewError}</p>
         </div>
-      ` : this.state.previewHtml && (t.innerHTML = this.state.previewHtml, this.initPreviewEditors()));
+      ` : this.state.previewHtml && (t.innerHTML = this.wrapReadonlyPreview(this.state.previewHtml)));
   }
   initPreviewEditors() {
     const t = window.FormgenBehaviors;
@@ -6788,7 +6853,7 @@ var S = "main", Ba = class {
       this.previewDebounceTimer = null, this.previewSchema();
     }, t);
   }
-}, La = class extends A {
+}, Ea = class extends A {
   constructor(t) {
     super({
       size: "lg",
@@ -6929,7 +6994,7 @@ var S = "main", Ba = class {
       this.config.onConfirm(r), this.hide();
     });
   }
-}, Ea = class extends A {
+}, ja = class extends A {
   constructor(t) {
     super({
       size: "md",
@@ -7022,12 +7087,12 @@ var S = "main", Ba = class {
       t.key === "Enter" && (t.preventDefault(), this.container?.querySelector("[data-clone-confirm]")?.click());
     });
   }
-}, ja = class extends A {
+}, Ma = class extends A {
   constructor(t) {
     super({
       size: "2xl",
       maxHeight: "max-h-[80vh]"
-    }), this.versions = [], this.expandedVersions = /* @__PURE__ */ new Set(), this.config = t, this.api = new R({ basePath: t.apiBasePath });
+    }), this.versions = [], this.expandedVersions = /* @__PURE__ */ new Set(), this.config = t, this.api = new O({ basePath: t.apiBasePath });
   }
   async onAfterShow() {
     await this.loadVersions();
@@ -7183,12 +7248,12 @@ var S = "main", Ba = class {
         return "";
     }
   }
-}, Ma = class extends A {
+}, Ta = class extends A {
   constructor(t) {
     super({
       size: "4xl",
       backdropDataAttr: "data-block-library-backdrop"
-    }), this.categories = [], this.config = t, this.api = new R({ basePath: t.apiBasePath }), this.state = {
+    }), this.categories = [], this.config = t, this.api = new O({ basePath: t.apiBasePath }), this.state = {
       blocks: [],
       selectedBlockId: null,
       isLoading: !1,
@@ -7540,7 +7605,7 @@ var S = "main", Ba = class {
     return this.blockInList(a, t) ? !1 : e && e.length > 0 ? this.blockInList(e, t) : !0;
   }
   showBlockEditor(t) {
-    new Ta({
+    new Aa({
       apiBasePath: this.config.apiBasePath,
       block: t,
       categories: this.categories,
@@ -7590,7 +7655,7 @@ var S = "main", Ba = class {
     }
   }
   async showVersionHistory(t) {
-    new Aa({
+    new Fa({
       apiBasePath: this.config.apiBasePath,
       block: t
     }).show();
@@ -7604,9 +7669,9 @@ var S = "main", Ba = class {
       e.classList.add("hidden");
     }, 5e3);
   }
-}, Ta = class extends A {
+}, Aa = class extends A {
   constructor(t) {
-    super({ size: "3xl" }), this.fields = [], this.config = t, this.api = new R({ basePath: t.apiBasePath }), this.isNew = !t.block, t.block?.schema && (this.fields = ue(t.block.schema));
+    super({ size: "3xl" }), this.fields = [], this.config = t, this.api = new O({ basePath: t.apiBasePath }), this.isNew = !t.block, t.block?.schema && (this.fields = ue(t.block.schema));
   }
   onBeforeHide() {
     return this.config.onCancel(), !0;
@@ -7865,12 +7930,12 @@ var S = "main", Ba = class {
     const a = e.querySelector("p");
     a && (a.textContent = t), setTimeout(() => e.classList.add("hidden"), 5e3);
   }
-}, Aa = class extends A {
+}, Fa = class extends A {
   constructor(t) {
     super({
       size: "2xl",
       maxHeight: "max-h-[80vh]"
-    }), this.versions = [], this.config = t, this.api = new R({ basePath: t.apiBasePath });
+    }), this.versions = [], this.config = t, this.api = new O({ basePath: t.apiBasePath });
   }
   async onAfterShow() {
     await this.loadVersions();
@@ -7961,10 +8026,10 @@ var S = "main", Ba = class {
     return e ? V(e[0], "status", e[1]) : "";
   }
 };
-function Fa(t = document) {
+function Pa(t = document) {
   Array.from(t.querySelectorAll("[data-block-library-trigger]")).forEach((e) => {
     if (e.dataset.initialized === "true") return;
-    const a = Se(e.dataset.apiBasePath, e.dataset.basePath), r = Re(a, e.dataset.basePath), i = e.dataset.mode ?? "manage";
+    const a = Se(e.dataset.apiBasePath, e.dataset.basePath), r = Oe(a, e.dataset.basePath), i = e.dataset.mode ?? "manage";
     if (i === "manage") e.addEventListener("click", () => {
       window.location.href = `${r}/content/block-library`;
     });
@@ -7974,14 +8039,14 @@ function Fa(t = document) {
         mode: i
       };
       e.addEventListener("click", () => {
-        new Ma(s).show();
+        new Ta(s).show();
       });
     }
     e.dataset.initialized = "true";
   });
 }
-at(() => Fa());
-var $ = "main", et = "application/x-field-reorder", Pa = class {
+at(() => Pa());
+var $ = "main", et = "application/x-field-reorder", _a = class {
   constructor(t) {
     this.expandedFieldId = null, this.sectionStates = /* @__PURE__ */ new Map(), this.moveMenuFieldId = null, this.dropHighlight = !1, this.dragReorder = null, this.dropTargetFieldId = null, this.saveState = "idle", this.saveMessage = "", this.saveDisplayTimer = null, this.cachedBlocks = null, this.blocksLoading = !1, this.blockPickerModes = /* @__PURE__ */ new Map(), this.config = t, this.block = { ...t.block }, this.fields = t.block.schema ? ue(t.block.schema) : [];
   }
@@ -8553,7 +8618,7 @@ var $ = "main", et = "application/x-field-reorder", Pa = class {
         if (a.preventDefault(), this.dropHighlight = !1, e.classList.remove("border-blue-400", "bg-blue-50/50"), e.classList.add("border-gray-200", "hover:border-gray-300"), this.config.onFieldDrop) {
           const r = a.dataTransfer?.getData(Ne);
           if (r) {
-            const s = O(r, null);
+            const s = R(r, null);
             if (s && s.type) {
               this.config.onFieldDrop(s);
               return;
@@ -8754,7 +8819,7 @@ var $ = "main", et = "application/x-field-reorder", Pa = class {
       this.renderInlineBlockPickerForField(t);
       return;
     }
-    this.blocksLoading || (this.blocksLoading = !0, this.cachedBlocks = await Oe(this.config.api), this.blocksLoading = !1, this.expandedFieldId === t.id && this.renderInlineBlockPickerForField(t));
+    this.blocksLoading || (this.blocksLoading = !0, this.cachedBlocks = await Re(this.config.api), this.blocksLoading = !1, this.expandedFieldId === t.id && this.renderInlineBlockPickerForField(t));
   }
   renderInlineBlockPickerForField(t) {
     const e = this.config.container.querySelector(`[data-blocks-picker-container="${t.id}"]`);
@@ -8889,7 +8954,7 @@ var $ = "main", et = "application/x-field-reorder", Pa = class {
   constructor(e) {
     this.listEl = null, this.searchInput = null, this.categorySelect = null, this.countEl = null, this.createBtn = null, this.editorEl = null, this.paletteEl = null, this.activeMenu = null, this.editorPanel = null, this.palettePanel = null, this.autosaveTimers = /* @__PURE__ */ new Map(), this.boundVisibilityChange = null, this.boundBeforeUnload = null, this.paletteAsideEl = null, this.addFieldBar = null, this.paletteTriggerBtn = null, this.mediaQueryLg = null, this.popoverPalettePanel = null, this.channelSelectEl = null, this.channelResetBtn = null, this.channelAddBtn = null, this.backToContentTypesLink = null, this.currentChannel = C, this.availableChannels = [C], this.channelDiagnostics = null;
     const a = Se(e.dataset.apiBasePath, e.dataset.basePath);
-    this.root = e, this.api = new R({ basePath: a }), this.state = {
+    this.root = e, this.api = new O({ basePath: a }), this.state = {
       blocks: [],
       selectedBlockId: null,
       isLoading: !1,
@@ -9220,7 +9285,7 @@ var $ = "main", et = "application/x-field-reorder", Pa = class {
     }
   }
   loadUserCategories() {
-    const e = O(sessionStorage.getItem("block-library-user-categories"), []);
+    const e = R(sessionStorage.getItem("block-library-user-categories"), []);
     return Array.isArray(e) ? e.map((a) => this.normalizeCategory(a)).filter((a) => a.length > 0) : [];
   }
   persistUserCategories() {
@@ -9475,7 +9540,7 @@ var $ = "main", et = "application/x-field-reorder", Pa = class {
         </div>`, this.palettePanel?.disable(), this.updateAddFieldBar();
       return;
     }
-    this.editorPanel ? this.editorPanel.update(e) : (this.editorPanel = new Pa({
+    this.editorPanel ? this.editorPanel.update(e) : (this.editorPanel = new _a({
       container: this.editorEl,
       block: e,
       categories: this.state.categories,
@@ -9806,7 +9871,7 @@ var Q = {
   deprecate: '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"></path></svg>',
   delete: '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>'
 };
-function _a(t = document) {
+function Ia(t = document) {
   Array.from(t.querySelectorAll("[data-block-library-ide]")).forEach((e) => {
     if (e.dataset.ideInitialized !== "true")
       try {
@@ -9816,15 +9881,15 @@ function _a(t = document) {
       }
   });
 }
-function Ia(t = document) {
+function qa(t = document) {
   Array.from(t.querySelectorAll("[data-content-type-editor-root]")).forEach((e) => {
     if (e.dataset.initialized === "true") return;
-    const a = qa(e);
+    const a = Da(e);
     if (!a.apiBasePath) {
       console.warn("Content type editor missing apiBasePath", e);
       return;
     }
-    const r = a.basePath ?? Re(a.apiBasePath), i = String(a.channel ?? "").trim().toLowerCase(), s = i && i !== "default" ? `channel=${encodeURIComponent(i)}` : "";
+    const r = a.basePath ?? Oe(a.apiBasePath), i = String(a.channel ?? "").trim().toLowerCase(), s = i && i !== "default" ? `channel=${encodeURIComponent(i)}` : "";
     a.onCancel || (a.onCancel = () => {
       const o = `${r}/content/types`;
       window.location.href = s ? `${o}?${s}` : o;
@@ -9836,7 +9901,7 @@ function Ia(t = document) {
       }
     });
     try {
-      new Ba(e, a).init(), e.dataset.initialized = "true";
+      new La(e, a).init(), e.dataset.initialized = "true";
     } catch (o) {
       console.error("Content type editor failed to initialize:", o), e.innerHTML = `
         <div class="flex flex-col items-center justify-center min-h-[300px] p-8 text-center">
@@ -9859,11 +9924,11 @@ function Ia(t = document) {
     }
   });
 }
-function qa(t) {
+function Da(t) {
   let e = {};
   const a = t.getAttribute("data-content-type-editor-config");
-  a && (e = O(a, {}));
-  const r = Se(e.apiBasePath, t.dataset.apiBasePath, t.dataset.basePath), i = e.basePath ?? Re(r, t.dataset.basePath);
+  a && (e = R(a, {}));
+  const r = Se(e.apiBasePath, t.dataset.apiBasePath, t.dataset.basePath), i = e.basePath ?? Oe(r, t.dataset.basePath);
   return {
     ...e,
     apiBasePath: r,
@@ -9874,15 +9939,15 @@ function qa(t) {
   };
 }
 at(() => {
-  Pt(), Ia(), _a();
+  Pt(), qa(), Ia();
 });
 export {
-  Pa as BlockEditorPanel,
+  _a as BlockEditorPanel,
   xt as BlockLibraryIDE,
-  Ma as BlockLibraryManager,
-  R as ContentTypeAPIClient,
+  Ta as BlockLibraryManager,
+  O as ContentTypeAPIClient,
   oe as ContentTypeAPIError,
-  Ba as ContentTypeEditor,
+  La as ContentTypeEditor,
   nt as FIELD_CATEGORIES,
   ve as FIELD_TYPES,
   fe as FieldConfigForm,
@@ -9890,29 +9955,29 @@ export {
   lt as FieldTypePicker,
   na as LayoutEditor,
   me as PALETTE_DRAG_MIME,
-  Za as PANE_LAYOUT_VERSION,
-  Xa as PaneLayoutController,
-  nr as buildShellConfig,
-  er as clampWidth,
-  tr as createPaneLayout,
-  ar as createSafeStorage,
-  rr as defaultPaneState,
+  Xa as PANE_LAYOUT_VERSION,
+  er as PaneLayoutController,
+  lr as buildShellConfig,
+  tr as clampWidth,
+  ar as createPaneLayout,
+  rr as createSafeStorage,
+  ir as defaultPaneState,
   he as fieldsToSchema,
   G as generateFieldId,
   ke as getFieldTypeMetadata,
-  dr as getFieldTypesByCategory,
+  cr as getFieldTypesByCategory,
   ht as getIconTabs,
-  _a as initBlockLibraryIDE,
-  Fa as initBlockLibraryManagers,
-  lr as initContentModelingShell,
+  Ia as initBlockLibraryIDE,
+  Pa as initBlockLibraryManagers,
+  dr as initContentModelingShell,
   Pt as initContentModelingShells,
-  Ia as initContentTypeEditors,
-  ir as paneStorageKey,
-  cr as registerIconTab,
+  qa as initContentTypeEditors,
+  sr as paneStorageKey,
+  hr as registerIconTab,
   re as resolveIcon,
-  sr as sanitizePaneState,
+  or as sanitizePaneState,
   ue as schemaToFields,
-  hr as unregisterIconTab
+  ur as unregisterIconTab
 };
 
 //# sourceMappingURL=index.js.map

@@ -124,6 +124,9 @@ export {
 } from './shared/content-modeling-shell';
 export type { ContentModelingShellOptions } from './shared/content-modeling-shell';
 
+// Re-export content-types channel switcher (T10 — styled modal, no window.prompt)
+export { initContentTypeChannelSwitcher, normalizeChannelName } from './shared/channel-switcher';
+
 // =============================================================================
 // Auto-initialization
 // =============================================================================
@@ -135,6 +138,7 @@ import { deriveAdminBasePath, resolveApiBasePath } from './shared/api-paths';
 import { onReady } from '../shared/dom-ready.js';
 import { parseJSONValue } from '../shared/json-parse.js';
 import { initContentModelingShells } from './shared/content-modeling-shell';
+import { initContentTypeChannelSwitcher } from './shared/channel-switcher';
 
 /**
  * Initialize content type editors on elements matching [data-content-type-editor]
@@ -233,6 +237,7 @@ onReady(() => {
   // Wire the shared collapse/resize/focus shell before surface controllers so the
   // restored pane layout is in place when editors render their content.
   initContentModelingShells();
+  initContentTypeChannelSwitcher();
   initContentTypeEditors();
   initBlockLibraryIDE();
 });

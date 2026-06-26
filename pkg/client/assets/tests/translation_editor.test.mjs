@@ -1074,6 +1074,80 @@ test('translation editor runtime: dispatches suggestion command and inserts retu
   screen.unmount();
 });
 
+test('translation editor runtime: stale suggestion response does not overwrite a newer field edit', async () => {
+  const { root, window } = setupDom();
+  installTranslationSyncCoreStub(window);
+  window.scrollTo = mock.fn();
+  const detail = makeSuggestionReadyFixture();
+  const manualText = 'Manual edit while suggestion is pending';
+  const suggestedText = 'Late suggestion should not apply';
+  let postStarted = false;
+  let resolveSuggestion;
+  const suggestionResponse = new Promise((resolve) => {
+    resolveSuggestion = resolve;
+  });
+
+  globalThis.fetch = mock.fn(async (input, init = {}) => {
+    const method = String(init.method || 'GET').toUpperCase();
+    const url = String(input);
+    if (method === 'GET' && url.includes('/api/translations/assignments/asg-editor-1')) {
+      return createJsonResponse(detail);
+    }
+    if (method === 'GET' && url.includes('/api/translations/sync/resources/translation_variant_draft/')) {
+      return createJsonResponse({
+        data: detail.data,
+        revision: 3,
+        updated_at: '2026-01-01T00:00:00Z',
+      });
+    }
+    if (method === 'POST' && url.includes('/admin/api/rpc')) {
+      postStarted = true;
+      return suggestionResponse;
+    }
+    return createJsonResponse({ error: { message: 'unexpected request' } }, 500, {
+      'content-type': 'application/json',
+    });
+  });
+
+  const screen = new TranslationEditorScreen({
+    endpoint: '/admin/api/translations/assignments/asg-editor-1',
+    actionEndpointBase: '/admin/api/translations/assignments',
+  });
+  screen.mount(root);
+  await flushAsync();
+  await flushAsync();
+
+  root.querySelector('[data-suggest-translation="title"]').click();
+  assert.equal(await waitForCondition(() => postStarted), true);
+
+  const input = root.querySelector('[data-field-input="title"]');
+  input.value = manualText;
+  input.dispatchEvent(new window.Event('input', { bubbles: true }));
+  await flushAsync();
+
+  resolveSuggestion(createJsonResponse({
+    data: {
+      receipt: {
+        accepted: true,
+        command_id: 'translations.suggestions.generate',
+      },
+      result: {
+        assignment_id: 'asg-editor-1',
+        field_path: 'title',
+        suggested_text: suggestedText,
+        provider: 'fixture',
+        model: 'fixture-model',
+      },
+    },
+  }));
+
+  assert.equal(await waitForCondition(() => /field changed while the suggestion was generating/i.test(root.innerHTML)), true);
+  assert.equal(root.querySelector('[data-field-input="title"]')?.value, manualText);
+  assert.doesNotMatch(root.innerHTML, /Translation suggestion inserted\./);
+
+  screen.unmount();
+});
+
 test('translation editor runtime: suggestion button visibility follows server action state', () => {
   const unavailable = normalizeAssignmentEditorDetail(fixtures.detail);
   const unavailableHTML = renderTranslationEditorState(

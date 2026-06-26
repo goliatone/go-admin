@@ -367,3 +367,46 @@ test('schemaToFields recognizes block-library widget alias as blocks', () => {
   const rebuilt = fieldsToSchema(fields, 'page');
   assert.equal(rebuilt.properties.blocks['x-formgen'].widget, 'block-library');
 });
+
+test('ContentTypeEditor preview ignores a stale response when a newer one wins', async () => {
+  setupDom();
+  const root = document.createElement('div');
+  document.body.appendChild(root);
+
+  const editor = new ContentTypeEditor(root, { apiBasePath: '/admin/api' });
+  await editor.init();
+  // Give the preview something to render.
+  editor.state.fields = [{ id: 'f1', name: 'title', type: 'text' }];
+
+  // Controllable deferreds so the FIRST request resolves AFTER the second.
+  const deferred = [];
+  editor.api.previewSchema = () =>
+    new Promise((resolve) => {
+      deferred.push(resolve);
+    });
+
+  const first = editor.previewSchema();  // seq 1
+  const second = editor.previewSchema(); // seq 2 (supersedes 1)
+
+  // Resolve the newer request first, then the stale one.
+  deferred[1]({ html: '<p data-fresh>FRESH</p>' });
+  deferred[0]({ html: '<p data-stale>STALE</p>' });
+  await Promise.all([first, second]);
+
+  const container = root.querySelector('[data-ct-preview-container]');
+  assert.ok(container.innerHTML.includes('FRESH'), 'fresh response should render');
+  assert.ok(!container.innerHTML.includes('STALE'), 'stale response must be ignored');
+  // Side-pane preview is read-only (non-interactive).
+  assert.ok(container.querySelector('.ct-preview-readonly'), 'preview wrapped read-only');
+});
+
+test('ContentTypeEditor live preview leaves no standalone Preview button in the header', async () => {
+  setupDom();
+  const root = document.createElement('div');
+  document.body.appendChild(root);
+  const editor = new ContentTypeEditor(root, { apiBasePath: '/admin/api' });
+  await editor.init();
+  assert.equal(root.querySelector('[data-ct-preview]'), null, 'redundant Preview button removed');
+  assert.ok(root.querySelector('[data-ct-refresh-preview]'), 'Refresh fallback retained');
+  assert.ok(root.querySelector('[data-ct-expand-preview]'), 'interactive Expand affordance present');
+});
