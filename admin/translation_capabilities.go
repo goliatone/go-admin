@@ -62,6 +62,28 @@ func translationCapabilityModules(adm *Admin, reqCtx context.Context) map[string
 	}
 	exchangeEnabled := featureEnabled(adm.featureGate, FeatureTranslationExchange)
 	queueEnabled := featureEnabled(adm.featureGate, FeatureTranslationQueue)
+	queue := translationCapabilityModuleState(
+		adm,
+		reqCtx,
+		"translations",
+		queueEnabled,
+		PermAdminTranslationsView,
+		map[string]string{
+			"view":          PermAdminTranslationsView,
+			"claim":         PermAdminTranslationsClaim,
+			"assign":        PermAdminTranslationsAssign,
+			"release":       PermAdminTranslationsAssign,
+			"submit_review": PermAdminTranslationsEdit,
+			"suggest":       PermAdminTranslationsSuggest,
+			"approve":       PermAdminTranslationsApprove,
+			"reject":        PermAdminTranslationsApprove,
+			"archive":       PermAdminTranslationsManage,
+		},
+	)
+	if actions := extractMap(queue["actions"]); len(actions) > 0 {
+		actions["suggest"] = translationSuggestionCapabilityActionState(adm, reqCtx, queueEnabled)
+		queue["actions"] = actions
+	}
 	return map[string]any{
 		"exchange": translationCapabilityModuleState(
 			adm,
@@ -76,23 +98,7 @@ func translationCapabilityModules(adm *Admin, reqCtx context.Context) map[string
 				"import.apply":    PermAdminTranslationsImportApply,
 			},
 		),
-		"queue": translationCapabilityModuleState(
-			adm,
-			reqCtx,
-			"translations",
-			queueEnabled,
-			PermAdminTranslationsView,
-			map[string]string{
-				"view":          PermAdminTranslationsView,
-				"claim":         PermAdminTranslationsClaim,
-				"assign":        PermAdminTranslationsAssign,
-				"release":       PermAdminTranslationsAssign,
-				"submit_review": PermAdminTranslationsEdit,
-				"approve":       PermAdminTranslationsApprove,
-				"reject":        PermAdminTranslationsApprove,
-				"archive":       PermAdminTranslationsManage,
-			},
-		),
+		"queue": queue,
 	}
 }
 
@@ -163,9 +169,112 @@ func translationCapabilityFeatures(adm *Admin) map[string]any {
 		return map[string]any{}
 	}
 	return map[string]any{
-		"cms":       featureEnabled(adm.featureGate, FeatureCMS),
-		"dashboard": featureEnabled(adm.featureGate, FeatureDashboard),
+		"cms":         featureEnabled(adm.featureGate, FeatureCMS),
+		"dashboard":   featureEnabled(adm.featureGate, FeatureDashboard),
+		"suggestions": translationSuggestionCapability(adm),
 	}
+}
+
+func translationSuggestionCapability(adm *Admin) map[string]any {
+	serviceConfigured := adm != nil && adm.TranslationSuggestionService() != nil
+	queueEnabled := adm != nil && featureEnabled(adm.featureGate, FeatureTranslationQueue)
+	rpcAllowed := false
+	commandRegistration := translationSuggestionCommandRegistration(adm)
+	inlineResultSupported := commandRegistration.SupportsInlineResult()
+	if adm != nil {
+		_, rpcAllowed = adm.config.Commands.RPC.ResolveRule(TranslationSuggestionGenerateCommandName)
+	}
+	state := map[string]any{
+		"enabled":                 serviceConfigured && queueEnabled && rpcAllowed && inlineResultSupported,
+		"service_configured":      serviceConfigured,
+		"queue_enabled":           queueEnabled,
+		"permission":              PermAdminTranslationsSuggest,
+		"command_name":            TranslationSuggestionGenerateCommandName,
+		"command_registered":      commandRegistration.Registered(),
+		"command_dispatchable":    commandRegistration.CanDispatch(),
+		"inline_result_supported": inlineResultSupported,
+		"rpc_allowed":             rpcAllowed,
+	}
+	if !queueEnabled {
+		state["reason"] = "translation queue module disabled"
+		state["reason_code"] = ActionDisabledReasonCodeFeatureDisabled
+	} else if !serviceConfigured {
+		state["reason"] = "translation suggestion service not configured"
+		state["reason_code"] = ActionDisabledReasonCodeFeatureDisabled
+	} else if !rpcAllowed {
+		state["reason"] = "translation suggestion RPC transport is not configured"
+		state["reason_code"] = "transport_unavailable"
+	} else if !commandRegistration.Registered() {
+		state["reason"] = "translation suggestion command is not registered"
+		state["reason_code"] = "command_unavailable"
+	} else if !inlineResultSupported {
+		state["reason"] = "translation suggestion command does not support inline results"
+		state["reason_code"] = "command_result_unavailable"
+	}
+	return state
+}
+
+func translationSuggestionCapabilityActionState(adm *Admin, reqCtx context.Context, moduleEnabled bool) map[string]any {
+	serviceConfigured := adm != nil && adm.TranslationSuggestionService() != nil
+	commandRegistration := translationSuggestionCommandRegistration(adm)
+	inlineResultSupported := commandRegistration.SupportsInlineResult()
+	rpcAllowed := false
+	state := map[string]any{
+		"enabled":                 false,
+		"permission":              PermAdminTranslationsSuggest,
+		"command_name":            TranslationSuggestionGenerateCommandName,
+		"service_configured":      serviceConfigured,
+		"command_registered":      commandRegistration.Registered(),
+		"command_dispatchable":    commandRegistration.CanDispatch(),
+		"inline_result_supported": inlineResultSupported,
+		"rpc_allowed":             rpcAllowed,
+	}
+	if adm != nil {
+		_, rpcAllowed = adm.config.Commands.RPC.ResolveRule(TranslationSuggestionGenerateCommandName)
+		state["rpc_allowed"] = rpcAllowed
+	}
+	if !moduleEnabled {
+		state["reason"] = "module disabled by capability mode"
+		state["reason_code"] = ActionDisabledReasonCodeFeatureDisabled
+		return state
+	}
+	if !serviceConfigured {
+		state["reason"] = "translation suggestion service not configured"
+		state["reason_code"] = ActionDisabledReasonCodeFeatureDisabled
+		return state
+	}
+	if !rpcAllowed {
+		state["reason"] = "translation suggestion RPC transport is not configured"
+		state["reason_code"] = "transport_unavailable"
+		return state
+	}
+	if !commandRegistration.Registered() {
+		state["reason"] = "translation suggestion command is not registered"
+		state["reason_code"] = "command_unavailable"
+		return state
+	}
+	if !inlineResultSupported {
+		state["reason"] = "translation suggestion command does not support inline results"
+		state["reason_code"] = "command_result_unavailable"
+		return state
+	}
+	allowed := translationCapabilityPermissionAllowed(adm, reqCtx, PermAdminTranslationsSuggest, "translations")
+	if !allowed {
+		state["reason"] = "missing permission: " + PermAdminTranslationsSuggest
+		state["reason_code"] = ActionDisabledReasonCodePermissionDenied
+		return state
+	}
+	state["enabled"] = true
+	delete(state, "reason")
+	delete(state, "reason_code")
+	return state
+}
+
+func translationSuggestionCommandRegistration(adm *Admin) CommandRegistrationState {
+	if adm == nil || adm.Commands() == nil {
+		return CommandRegistrationState{}
+	}
+	return adm.Commands().CommandRegistration(TranslationSuggestionGenerateCommandName)
 }
 
 func translationCapabilityRoutes(adm *Admin) (map[string]string, []string) {
