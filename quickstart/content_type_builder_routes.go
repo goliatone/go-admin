@@ -21,7 +21,6 @@ import (
 )
 
 const channelCookieName = "admin_channel"
-const contentBuilderShellAssetsHost = dashboardcmp.DefaultShellAssetsPath
 
 // ContentTypeBuilderUIOption customizes content type builder UI routes.
 type ContentTypeBuilderUIOption func(*contentTypeBuilderUIOptions)
@@ -33,6 +32,7 @@ type contentTypeBuilderUIOptions struct {
 	viewContext              UIViewContextBuilder
 	permission               string
 	authResource             string
+	shellAssetsPrefix        string
 }
 
 // WithContentTypeBuilderUIBasePath overrides the base path used to build UI routes.
@@ -86,6 +86,24 @@ func WithContentTypeBuilderUIAuthResource(resource string) ContentTypeBuilderUIO
 	}
 }
 
+// WithContentTypeBuilderUIShellAssetsPrefix sets the go-dashboard shell asset
+// prefix rendered by Content Types and Block Library pages. Keep it aligned with
+// NewStaticAssets(..., WithDashboardShellPrefix(...)).
+func WithContentTypeBuilderUIShellAssetsPrefix(prefix string) ContentTypeBuilderUIOption {
+	return func(opts *contentTypeBuilderUIOptions) {
+		if opts != nil {
+			opts.shellAssetsPrefix = strings.TrimSpace(prefix)
+		}
+	}
+}
+
+// WithContentTypeBuilderUIStaticAssetOptions derives the rendered shell asset
+// prefix from the same static asset options passed to NewStaticAssets.
+func WithContentTypeBuilderUIStaticAssetOptions(cfg admin.Config, opts ...StaticAssetsOption) ContentTypeBuilderUIOption {
+	prefix := ResolveDashboardShellAssetsPrefix(cfg, opts...)
+	return WithContentTypeBuilderUIShellAssetsPrefix(prefix)
+}
+
 // RegisterContentTypeBuilderUIRoutes registers HTML routes for the content type builder.
 func RegisterContentTypeBuilderUIRoutes[T any](
 	r router.Router[T],
@@ -103,6 +121,7 @@ func RegisterContentTypeBuilderUIRoutes[T any](
 		contentTypesTemplate:     "resources/content-types/editor",
 		blockDefinitionsTemplate: "resources/block-definitions/index",
 		authResource:             "admin",
+		shellAssetsPrefix:        dashboardcmp.DefaultShellAssetsPath,
 	}
 	for _, opt := range opts {
 		if opt != nil {
@@ -110,6 +129,7 @@ func RegisterContentTypeBuilderUIRoutes[T any](
 		}
 	}
 	options.basePath = normalizeQuickstartRouteBasePath(options.basePath)
+	options.shellAssetsPrefix = normalizeContentBuilderShellAssetsPrefix(options.shellAssetsPrefix)
 	options.viewContext = resolveQuickstartUIViewContextBuilder(adm, cfg, options.viewContext)
 
 	wrap := wrapQuickstartRouteAuth(auth)
@@ -117,6 +137,7 @@ func RegisterContentTypeBuilderUIRoutes[T any](
 	handlers := newContentTypeBuilderHandlers(adm, cfg, options.viewContext, options.permission, options.authResource)
 	handlers.contentTypesTemplate = options.contentTypesTemplate
 	handlers.blockDefinitionsTemplate = options.blockDefinitionsTemplate
+	handlers.shellAssetsPrefix = options.shellAssetsPrefix
 
 	contentTypesPath := path.Join(options.basePath, "content", "types")
 	blockDefinitionsPath := path.Join(options.basePath, "content", "block-library")
@@ -224,6 +245,7 @@ type contentTypeBuilderHandlers struct {
 	versions                 *contentTypeVersionStore
 	permission               string
 	authResource             string
+	shellAssetsPrefix        string
 }
 
 type contentChannelDiagnostics struct {
@@ -357,6 +379,9 @@ func newContentTypeBuilderHandlers(adm *admin.Admin, cfg admin.Config, viewCtx U
 		versions:       newContentTypeVersionStore(),
 		permission:     strings.TrimSpace(permission),
 		authResource:   strings.TrimSpace(authResource),
+		shellAssetsPrefix: normalizeContentBuilderShellAssetsPrefix(
+			dashboardcmp.DefaultShellAssetsPath,
+		),
 	}
 }
 
@@ -415,12 +440,16 @@ func (h *contentTypeBuilderHandlers) BlockDefinitions(c router.Context) error {
 	if h.admin != nil {
 		urls = h.admin.URLs()
 	}
+	diagnostics := h.contentTypeDiagnostics(c)
 	viewCtx := router.ViewContext{
-		"title":             h.cfg.Title,
-		"base_path":         h.cfg.BasePath,
-		"api_base_path":     resolveAdminAPIBasePath(urls, h.cfg, h.cfg.BasePath),
-		"resource":          "block_definitions",
-		"block_definitions": blockDefs,
+		"title":                            h.cfg.Title,
+		"base_path":                        h.cfg.BasePath,
+		"api_base_path":                    resolveAdminAPIBasePath(urls, h.cfg, h.cfg.BasePath),
+		"resource":                         "block_definitions",
+		"block_definitions":                blockDefs,
+		"block_library_effective_channel":  diagnostics.EffectiveChannel,
+		"block_library_requested_channel":  diagnostics.RequestedChannel,
+		"block_library_available_channels": diagnostics.AvailableChannels,
 	}
 	h.addContentBuilderShellContext(viewCtx, "block-library")
 	if h.viewContext != nil {
@@ -433,7 +462,7 @@ func (h *contentTypeBuilderHandlers) addContentBuilderShellContext(viewCtx route
 	if viewCtx == nil {
 		return
 	}
-	assets := dashboardcmp.ShellPageAssets(contentBuilderShellAssetsHost)
+	assets := dashboardcmp.ShellPageAssets(h.shellAssetsPrefix)
 	viewCtx["dashboard_shell_css"] = assets.CSS
 	viewCtx["dashboard_shell_js"] = assets.JS
 
@@ -453,6 +482,14 @@ func (h *contentTypeBuilderHandlers) addContentBuilderShellContext(viewCtx route
 		return
 	}
 	viewCtx["content_types_shell"] = payload
+}
+
+func normalizeContentBuilderShellAssetsPrefix(prefix string) string {
+	prefix = strings.TrimSpace(prefix)
+	if prefix == "" {
+		prefix = dashboardcmp.DefaultShellAssetsPath
+	}
+	return strings.TrimSuffix(prefix, "/")
 }
 
 func contentTypesDashboardShell() dashboardcmp.Shell {
@@ -545,8 +582,8 @@ func dashboardShellTemplateContext(shell dashboardcmp.Shell) (map[string]any, er
 	if err != nil {
 		return nil, err
 	}
-	storage, _ := payload["storage"].(map[string]any)
-	if storage == nil {
+	storage, ok := payload["storage"].(map[string]any)
+	if !ok || storage == nil {
 		storage = map[string]any{}
 		payload["storage"] = storage
 	}
