@@ -73,6 +73,51 @@ func TestRenderMenuIcon_SVGKey(t *testing.T) {
 	}
 }
 
+func TestRenderMenuIcon_IconoirAliases(t *testing.T) {
+	tests := []struct {
+		input  string
+		mapped string
+		label  string
+	}{
+		{"file-text", "page", "Lucide-style file-text maps to available Iconoir page"},
+		{"file", "page", "generic file maps to available Iconoir page"},
+		{"alert-triangle", "warning-triangle", "Feather-style alert-triangle maps to Iconoir warning-triangle"},
+		{"File-Text", "page", "alias lookup is case-insensitive"},
+		{"iconoir:file-text", "page", "prefixed Iconoir file-text maps to available Iconoir page"},
+		{"lucide:file-text", "page", "prefixed Lucide file-text maps to available Iconoir page"},
+		{"feather:alert-triangle", "warning-triangle", "prefixed Feather alert-triangle maps to Iconoir warning-triangle"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.label, func(t *testing.T) {
+			result := renderMenuIcon(tt.input)
+			assert.Contains(t, result, "iconoir-"+tt.mapped, "icon %q should map to %q", tt.input, tt.mapped)
+			assert.NotContains(t, result, "iconoir-"+tt.input, "icon %q should not render unavailable class", tt.input)
+		})
+	}
+}
+
+func TestRenderMenuIcon_QualifiedLibraryNames(t *testing.T) {
+	tests := []struct {
+		input     string
+		wantClass string
+		notClass  string
+		label     string
+	}{
+		{"lucide:home", "lucide-home", "iconoir-home", "unknown Lucide names keep the Lucide class"},
+		{"feather:home", "feather-home", "iconoir-home", "unknown Feather names keep the Feather class"},
+		{"custom:home", "custom-home", "iconoir-home", "unknown libraries keep their requested class"},
+		{"iconoir:home", "iconoir-home", "iconoir-iconoir:home", "Iconoir prefix renders as Iconoir"},
+		{"lucide:rich-text", "lucide-rich-text", "iconoir-edit-pencil", "qualified non-Iconoir field names are not remapped"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.label, func(t *testing.T) {
+			result := renderMenuIcon(tt.input)
+			assert.Contains(t, result, tt.wantClass, "icon %q should render class %q", tt.input, tt.wantClass)
+			assert.NotContains(t, result, tt.notClass, "icon %q should not render class %q", tt.input, tt.notClass)
+		})
+	}
+}
+
 func TestRenderMenuIcon_SVGKeySelfMapping(t *testing.T) {
 	// Some SVG keys are valid Iconoir names and map to themselves
 	for _, name := range []string{"text", "code", "user"} {

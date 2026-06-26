@@ -139,6 +139,89 @@ func TestAdminRPCDispatchEndpointRoutesCommandBusWhenAuthorized(t *testing.T) {
 	}
 }
 
+func TestAdminRPCDispatchEndpointRoutesTranslationSuggestionCommand(t *testing.T) {
+	adm := mustNewAdmin(t, Config{
+		Commands: CommandConfig{
+			RPC: RPCCommandConfig{
+				Commands: map[string]RPCCommandRule{
+					TranslationSuggestionGenerateCommandName: DefaultTranslationSuggestionRPCCommandRule(),
+				},
+			},
+		},
+	}, Dependencies{
+		FeatureGate: featureGateFromKeys(FeatureCommands),
+		Authorizer: rpcTestAuthorizer{allow: map[string]bool{
+			"admin.commands.dispatch|commands":             true,
+			PermAdminTranslationsSuggest + "|translations": true,
+		}},
+	})
+	service := &stubTranslationSuggestionService{
+		result: TranslationSuggestionResult{
+			AssignmentID:  "tqa_rpc_1",
+			FieldPath:     "title",
+			SuggestedText: "Hola por RPC",
+		},
+	}
+	if err := RegisterTranslationSuggestionCommands(adm.Commands(), service); err != nil {
+		t.Fatalf("register suggestion command: %v", err)
+	}
+
+	ctx := auth.WithActorContext(context.Background(), &auth.ActorContext{ActorID: "translator-1", Subject: "translator-1"})
+	result, err := adm.RPCServer().Invoke(ctx, RPCMethodCommandDispatch, &cmdrpc.RequestEnvelope[RPCCommandDispatchRequest]{
+		Data: RPCCommandDispatchRequest{
+			Name: TranslationSuggestionGenerateCommandName,
+			Payload: map[string]any{
+				"assignment_id": "tqa_rpc_1",
+				"field_path":    "title",
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("invoke suggestion rpc dispatch: %v", err)
+	}
+	resp, ok := result.(cmdrpc.ResponseEnvelope[RPCCommandDispatchResponse])
+	if !ok {
+		t.Fatalf("unexpected rpc response type %T", result)
+	}
+	suggestion, ok := resp.Data.Result.(TranslationSuggestionResult)
+	if !ok {
+		t.Fatalf("expected suggestion result, got %T", resp.Data.Result)
+	}
+	if suggestion.SuggestedText != "Hola por RPC" {
+		t.Fatalf("unexpected suggestion result: %+v", suggestion)
+	}
+	if service.calls != 1 {
+		t.Fatalf("expected one suggestion service call, got %d", service.calls)
+	}
+}
+
+func TestAdminRPCDispatchEndpointRejectsTranslationSuggestionWithoutCommandRule(t *testing.T) {
+	adm := mustNewAdmin(t, Config{}, Dependencies{
+		FeatureGate: featureGateFromKeys(FeatureCommands),
+		Authorizer: rpcTestAuthorizer{allow: map[string]bool{
+			"admin.commands.dispatch|commands":             true,
+			PermAdminTranslationsSuggest + "|translations": true,
+		}},
+	})
+	if err := RegisterTranslationSuggestionCommands(adm.Commands(), &stubTranslationSuggestionService{}); err != nil {
+		t.Fatalf("register suggestion command: %v", err)
+	}
+
+	ctx := auth.WithActorContext(context.Background(), &auth.ActorContext{ActorID: "translator-1", Subject: "translator-1"})
+	_, err := adm.RPCServer().Invoke(ctx, RPCMethodCommandDispatch, &cmdrpc.RequestEnvelope[RPCCommandDispatchRequest]{
+		Data: RPCCommandDispatchRequest{
+			Name: TranslationSuggestionGenerateCommandName,
+			Payload: map[string]any{
+				"assignment_id": "tqa_rpc_1",
+				"field_path":    "title",
+			},
+		},
+	})
+	if !errors.Is(err, ErrNotFound) {
+		t.Fatalf("expected ErrNotFound without suggestion RPC rule, got %v", err)
+	}
+}
+
 func TestAdminRPCDispatchEndpointAcceptsCanonicalCommandID(t *testing.T) {
 	adm := mustNewAdmin(t, Config{
 		Commands: CommandConfig{

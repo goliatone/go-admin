@@ -119,6 +119,96 @@ func TestTranslationCapabilitiesExposeActionPermissionStates(t *testing.T) {
 	if code := strings.TrimSpace(toString(submitReview["reason_code"])); code != ActionDisabledReasonCodePermissionDenied {
 		t.Fatalf("expected submit_review reason code %q, got %q", ActionDisabledReasonCodePermissionDenied, code)
 	}
+
+	suggest, _ := queueActions["suggest"].(map[string]any)
+	if enabled, _ := suggest["enabled"].(bool); enabled {
+		t.Fatalf("expected suggest disabled when suggestion service is absent")
+	}
+	if code := strings.TrimSpace(toString(suggest["reason_code"])); code != ActionDisabledReasonCodeFeatureDisabled {
+		t.Fatalf("expected suggest feature-disabled reason code, got %q", code)
+	}
+}
+
+func TestTranslationCapabilitiesExposeSuggestionCommandMetadata(t *testing.T) {
+	t.Parallel()
+
+	adm := mustNewAdmin(t, Config{
+		BasePath: "/admin",
+		Commands: CommandConfig{
+			RPC: RPCCommandConfig{
+				Commands: map[string]RPCCommandRule{
+					TranslationSuggestionGenerateCommandName: DefaultTranslationSuggestionRPCCommandRule(),
+				},
+			},
+		},
+	}, Dependencies{
+		FeatureGate: featureGateFromKeys(FeatureCMS, FeatureTranslationQueue),
+	})
+	adm.WithTranslationSuggestionService(&stubTranslationSuggestionService{})
+	adm.WithAuthorizer(translationPermissionAuthorizer{
+		allowed: map[string]bool{
+			PermAdminTranslationsView:    true,
+			PermAdminTranslationsSuggest: true,
+		},
+	})
+
+	caps := TranslationCapabilitiesForContext(adm, context.Background())
+	features := extractMap(caps["features"])
+	suggestions := extractMap(features["suggestions"])
+	if enabled, _ := suggestions["enabled"].(bool); !enabled {
+		t.Fatalf("expected suggestions feature enabled, got %+v", suggestions)
+	}
+	if got := strings.TrimSpace(toString(suggestions["command_name"])); got != TranslationSuggestionGenerateCommandName {
+		t.Fatalf("expected suggestion command %q, got %q", TranslationSuggestionGenerateCommandName, got)
+	}
+	if rpcAllowed, _ := suggestions["rpc_allowed"].(bool); !rpcAllowed {
+		t.Fatalf("expected suggestion rpc_allowed in feature metadata, got %+v", suggestions)
+	}
+
+	queue := extractMap(extractMap(caps["modules"])["queue"])
+	suggest := extractMap(extractMap(queue["actions"])["suggest"])
+	if enabled, _ := suggest["enabled"].(bool); !enabled {
+		t.Fatalf("expected suggest action enabled, got %+v", suggest)
+	}
+	if got := strings.TrimSpace(toString(suggest["permission"])); got != PermAdminTranslationsSuggest {
+		t.Fatalf("expected suggest permission %q, got %q", PermAdminTranslationsSuggest, got)
+	}
+}
+
+func TestTranslationCapabilitiesDisableSuggestionsWhenRPCUnavailable(t *testing.T) {
+	t.Parallel()
+
+	adm := mustNewAdmin(t, Config{BasePath: "/admin"}, Dependencies{
+		FeatureGate: featureGateFromKeys(FeatureCMS, FeatureTranslationQueue),
+	})
+	adm.WithTranslationSuggestionService(&stubTranslationSuggestionService{})
+	adm.WithAuthorizer(translationPermissionAuthorizer{
+		allowed: map[string]bool{
+			PermAdminTranslationsView:    true,
+			PermAdminTranslationsSuggest: true,
+		},
+	})
+
+	caps := TranslationCapabilitiesForContext(adm, context.Background())
+	suggestions := extractMap(extractMap(caps["features"])["suggestions"])
+	if enabled, _ := suggestions["enabled"].(bool); enabled {
+		t.Fatalf("expected suggestions feature disabled without RPC rule, got %+v", suggestions)
+	}
+	if rpcAllowed, _ := suggestions["rpc_allowed"].(bool); rpcAllowed {
+		t.Fatalf("expected rpc_allowed=false without RPC rule, got %+v", suggestions)
+	}
+	if got := strings.TrimSpace(toString(suggestions["reason_code"])); got != "transport_unavailable" {
+		t.Fatalf("expected transport_unavailable feature reason, got %q in %+v", got, suggestions)
+	}
+
+	queue := extractMap(extractMap(caps["modules"])["queue"])
+	suggest := extractMap(extractMap(queue["actions"])["suggest"])
+	if enabled, _ := suggest["enabled"].(bool); enabled {
+		t.Fatalf("expected suggest action disabled without RPC rule, got %+v", suggest)
+	}
+	if got := strings.TrimSpace(toString(suggest["reason_code"])); got != "transport_unavailable" {
+		t.Fatalf("expected transport_unavailable action reason, got %q in %+v", got, suggest)
+	}
 }
 
 func TestTranslationCapabilitiesFailClosedWithoutAuthorizer(t *testing.T) {

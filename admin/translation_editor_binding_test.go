@@ -15,6 +15,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	translationcore "github.com/goliatone/go-admin/translations/core"
 	translationservices "github.com/goliatone/go-admin/translations/services"
+	gocommand "github.com/goliatone/go-command"
 )
 
 type translationEditorTestFixtureOptions struct {
@@ -85,6 +86,37 @@ func (s *translationEditorMemoryTrackingStore) TranslationEditorMemorySuggestion
 		return nil, nil
 	}
 	return append([]TranslationEditorMemorySuggestion{}, s.suggestions...), nil
+}
+
+type editorSuggestionActionService struct {
+	decision TranslationSuggestionDecision
+}
+
+func (s editorSuggestionActionService) SuggestTranslation(_ context.Context, input TranslationSuggestionInput) (TranslationSuggestionResult, error) {
+	return TranslationSuggestionResult{
+		AssignmentID:  strings.TrimSpace(input.AssignmentID),
+		FieldPath:     strings.TrimSpace(input.FieldPath),
+		SuggestedText: "Suggestion",
+	}, nil
+}
+
+func (s editorSuggestionActionService) EvaluateTranslationSuggestionAction(context.Context, TranslationSuggestionInput, TranslationSuggestionAssignmentContext) (TranslationSuggestionDecision, error) {
+	if !s.decision.Allowed && strings.TrimSpace(s.decision.ReasonCode) == "" {
+		return TranslationSuggestionDecision{Allowed: true}, nil
+	}
+	return s.decision, nil
+}
+
+func translationEditorFieldByPath(t *testing.T, data map[string]any, path string) map[string]any {
+	t.Helper()
+	for _, raw := range anySliceFromValue(data["fields"]) {
+		field := extractMap(raw)
+		if toString(field["path"]) == path {
+			return field
+		}
+	}
+	t.Fatalf("field %q not found in %+v", path, data["fields"])
+	return nil
 }
 
 func assertTranslationEditorVariantStatusMetadata(t *testing.T, metadata map[string]any, want string) {
@@ -466,6 +498,147 @@ func TestTranslationEditorAssignmentDetailReturnsDriftAssistTimelineAndActions(t
 	}
 	if autoApprove := toBool(submitReview["auto_approve"]); autoApprove {
 		t.Fatalf("expected submit_review auto_approve false when review is required")
+	}
+}
+
+func TestTranslationEditorAssignmentDetailSuggestionActionDisabledWithoutService(t *testing.T) {
+	fixture := newTranslationEditorTestFixture(t, translationEditorTestFixtureOptions{})
+
+	status, payload := doTranslationEditorJSONRequest(t, fixture.app, http.MethodGet, "/admin/api/translations/assignments/"+fixture.assignmentID+"?channel=production&tenant_id=tenant-1&org_id=org-1", nil)
+	if status != http.StatusOK {
+		t.Fatalf("status=%d want=200 payload=%+v", status, payload)
+	}
+	data := extractMap(payload["data"])
+	action := extractMap(data["suggest_translation_action"])
+	if enabled := toBool(action["enabled"]); enabled {
+		t.Fatalf("expected top-level suggestion action disabled, got %+v", action)
+	}
+	if got := toString(action["reason_code"]); got != TranslationSuggestionReasonServiceUnavailable {
+		t.Fatalf("expected service unavailable reason, got %q in %+v", got, action)
+	}
+	title := translationEditorFieldByPath(t, data, "title")
+	fieldAction := extractMap(title["suggest_translation_action"])
+	if enabled := toBool(fieldAction["enabled"]); enabled {
+		t.Fatalf("expected field suggestion action disabled, got %+v", fieldAction)
+	}
+}
+
+func TestTranslationEditorAssignmentDetailSuggestionActionEnabled(t *testing.T) {
+	fixture := newTranslationEditorTestFixture(t, translationEditorTestFixtureOptions{
+		Permissions: map[string]bool{PermAdminTranslationsSuggest: true},
+	})
+	fixture.admin.WithTranslationSuggestionService(editorSuggestionActionService{
+		decision: TranslationSuggestionDecision{Allowed: true},
+	})
+	fixture.admin.config.Commands.RPC.Commands = map[string]RPCCommandRule{
+		TranslationSuggestionGenerateCommandName: DefaultTranslationSuggestionRPCCommandRule(),
+	}
+
+	status, payload := doTranslationEditorJSONRequest(t, fixture.app, http.MethodGet, "/admin/api/translations/assignments/"+fixture.assignmentID+"?channel=production&tenant_id=tenant-1&org_id=org-1", nil)
+	if status != http.StatusOK {
+		t.Fatalf("status=%d want=200 payload=%+v", status, payload)
+	}
+	data := extractMap(payload["data"])
+	action := extractMap(data["suggest_translation_action"])
+	if enabled := toBool(action["enabled"]); !enabled {
+		t.Fatalf("expected top-level suggestion action enabled, got %+v", action)
+	}
+	if got := toString(action["command_name"]); got != TranslationSuggestionGenerateCommandName {
+		t.Fatalf("expected command name %q, got %q", TranslationSuggestionGenerateCommandName, got)
+	}
+	if got := toString(action["rpc_method"]); got != RPCMethodCommandDispatch {
+		t.Fatalf("expected rpc method %q, got %q", RPCMethodCommandDispatch, got)
+	}
+
+	title := translationEditorFieldByPath(t, data, "title")
+	fieldAction := extractMap(title["suggest_translation_action"])
+	if enabled := toBool(fieldAction["enabled"]); !enabled {
+		t.Fatalf("expected title suggestion action enabled, got %+v", fieldAction)
+	}
+	payloadMap := extractMap(fieldAction["payload"])
+	if got := toString(payloadMap["assignment_id"]); got != fixture.assignmentID {
+		t.Fatalf("expected assignment payload %q, got %+v", fixture.assignmentID, payloadMap)
+	}
+	if got := toString(payloadMap["field_path"]); got != "title" {
+		t.Fatalf("expected title field payload, got %+v", payloadMap)
+	}
+}
+
+func TestTranslationEditorAssignmentDetailSuggestionActionDisabledForQueuedExecutionMode(t *testing.T) {
+	fixture := newTranslationEditorTestFixture(t, translationEditorTestFixtureOptions{
+		Permissions: map[string]bool{PermAdminTranslationsSuggest: true},
+	})
+	fixture.admin.WithTranslationSuggestionService(editorSuggestionActionService{
+		decision: TranslationSuggestionDecision{Allowed: true},
+	})
+	fixture.admin.config.Commands.RPC.Commands = map[string]RPCCommandRule{
+		TranslationSuggestionGenerateCommandName: DefaultTranslationSuggestionRPCCommandRule(),
+	}
+	if err := fixture.admin.Commands().SetExecutionPolicy(CommandExecutionPolicy{
+		PerCommand: map[string]gocommand.ExecutionMode{
+			TranslationSuggestionGenerateCommandName: gocommand.ExecutionModeQueued,
+		},
+	}); err != nil {
+		t.Fatalf("SetExecutionPolicy: %v", err)
+	}
+
+	status, payload := doTranslationEditorJSONRequest(t, fixture.app, http.MethodGet, "/admin/api/translations/assignments/"+fixture.assignmentID+"?channel=production&tenant_id=tenant-1&org_id=org-1", nil)
+	if status != http.StatusOK {
+		t.Fatalf("status=%d want=200 payload=%+v", status, payload)
+	}
+	title := translationEditorFieldByPath(t, extractMap(payload["data"]), "title")
+	fieldAction := extractMap(title["suggest_translation_action"])
+	if enabled := toBool(fieldAction["enabled"]); enabled {
+		t.Fatalf("expected queued suggestion action disabled for editor, got %+v", fieldAction)
+	}
+	if got := toString(fieldAction["execution_mode"]); got != string(gocommand.ExecutionModeQueued) {
+		t.Fatalf("expected queued execution mode in action state, got %q in %+v", got, fieldAction)
+	}
+	if got := toString(fieldAction["reason_code"]); got != "execution_mode_unsupported" {
+		t.Fatalf("expected execution mode unsupported reason, got %q in %+v", got, fieldAction)
+	}
+}
+
+func TestTranslationEditorAssignmentDetailSuggestionActionReadOnlyAndPolicyDenied(t *testing.T) {
+	readOnly := newTranslationEditorTestFixture(t, translationEditorTestFixtureOptions{
+		AssignmentStatus: AssignmentStatusApproved,
+		Permissions:      map[string]bool{PermAdminTranslationsSuggest: true},
+	})
+	readOnly.admin.WithTranslationSuggestionService(editorSuggestionActionService{decision: TranslationSuggestionDecision{Allowed: true}})
+	readOnly.admin.config.Commands.RPC.Commands = map[string]RPCCommandRule{
+		TranslationSuggestionGenerateCommandName: DefaultTranslationSuggestionRPCCommandRule(),
+	}
+	status, payload := doTranslationEditorJSONRequest(t, readOnly.app, http.MethodGet, "/admin/api/translations/assignments/"+readOnly.assignmentID+"?channel=production&tenant_id=tenant-1&org_id=org-1", nil)
+	if status != http.StatusOK {
+		t.Fatalf("read-only status=%d want=200 payload=%+v", status, payload)
+	}
+	action := extractMap(extractMap(payload["data"])["suggest_translation_action"])
+	if got := toString(action["reason_code"]); got != TranslationSuggestionReasonReadOnlyAssignment {
+		t.Fatalf("expected read-only reason, got %q in %+v", got, action)
+	}
+
+	denied := newTranslationEditorTestFixture(t, translationEditorTestFixtureOptions{
+		Permissions: map[string]bool{PermAdminTranslationsSuggest: true},
+	})
+	denied.admin.WithTranslationSuggestionService(editorSuggestionActionService{decision: TranslationSuggestionDecision{
+		Allowed:    false,
+		ReasonCode: TranslationSuggestionReasonQuotaExceeded,
+		Reason:     "Quota exhausted.",
+	}})
+	denied.admin.config.Commands.RPC.Commands = map[string]RPCCommandRule{
+		TranslationSuggestionGenerateCommandName: DefaultTranslationSuggestionRPCCommandRule(),
+	}
+	status, payload = doTranslationEditorJSONRequest(t, denied.app, http.MethodGet, "/admin/api/translations/assignments/"+denied.assignmentID+"?channel=production&tenant_id=tenant-1&org_id=org-1", nil)
+	if status != http.StatusOK {
+		t.Fatalf("denied status=%d want=200 payload=%+v", status, payload)
+	}
+	title := translationEditorFieldByPath(t, extractMap(payload["data"]), "title")
+	fieldAction := extractMap(title["suggest_translation_action"])
+	if enabled := toBool(fieldAction["enabled"]); enabled {
+		t.Fatalf("expected quota-denied action disabled, got %+v", fieldAction)
+	}
+	if got := toString(fieldAction["reason_code"]); got != TranslationSuggestionReasonQuotaExceeded {
+		t.Fatalf("expected quota reason, got %q in %+v", got, fieldAction)
 	}
 }
 

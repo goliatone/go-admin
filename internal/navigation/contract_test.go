@@ -53,6 +53,21 @@ func TestCleanTargetRemovesRequestScopedRenderState(t *testing.T) {
 	}
 }
 
+func TestMarkProgrammaticStampsOwnerIDFromTargetKey(t *testing.T) {
+	item := MarkProgrammatic(Item{
+		ID:     "admin_main.nav-group-others.feature_flags",
+		Type:   "item",
+		Target: map[string]any{"type": "url", "path": "/admin/feature-flags", "key": "feature_flags"},
+	})
+
+	if got := TargetString(item.Target, TargetProgrammaticOwnerKey); got != TargetProgrammaticOwner {
+		t.Fatalf("expected programmatic owner, got %q in %#v", got, item.Target)
+	}
+	if got := TargetString(item.Target, TargetProgrammaticIDKey); got != "feature_flags" {
+		t.Fatalf("expected owner id from target key, got %q in %#v", got, item.Target)
+	}
+}
+
 func TestFindMatchPreservesUnsafeBroadModuleMatch(t *testing.T) {
 	expected := MarkProgrammatic(Item{
 		ID:          "admin_main.media",
@@ -69,6 +84,80 @@ func TestFindMatchPreservesUnsafeBroadModuleMatch(t *testing.T) {
 	match := FindMatch(expected, actual, MatchPolicy{Owner: OwnerModule})
 	if !match.UnsafeBroad || match.Matched {
 		t.Fatalf("expected unsafe broad non-match, got %#v", match)
+	}
+}
+
+func TestFindMatchRepairsLegacyModuleRowWithEquivalentIDAndDestination(t *testing.T) {
+	expected := MarkProgrammatic(Item{
+		ID:       "admin_main.nav-group-others.feature_flags",
+		Type:     "item",
+		Label:    "Feature Flags",
+		LabelKey: "menu.feature_flags",
+		ParentID: "admin_main.nav-group-others",
+		Target:   map[string]any{"type": "url", "path": "/admin/feature-flags", "key": "feature_flags"},
+	})
+	actual := []Item{{
+		ID:       "admin_main.nav-group-others.feature-flags",
+		Type:     "item",
+		Label:    "Feature Flags",
+		LabelKey: "menu.feature_flags",
+		ParentID: "admin_main.nav-group-others",
+		Target:   map[string]any{"type": "url", "path": "/admin/feature-flags", "key": "feature_flags"},
+	}}
+
+	match := FindMatch(expected, actual, MatchPolicy{Owner: OwnerModule})
+	if !match.Matched || match.UnsafeBroad || match.Ambiguous {
+		t.Fatalf("expected legacy module row repair match, got %#v", match)
+	}
+	if match.Item.ID != "admin_main.nav-group-others.feature-flags" {
+		t.Fatalf("expected existing legacy row to match, got %#v", match.Item)
+	}
+}
+
+func TestFindMatchRepairsLegacyModuleRowWhenExistingLacksLabelKey(t *testing.T) {
+	expected := MarkProgrammatic(Item{
+		ID:       "admin_main.nav-group-others.feature_flags",
+		Type:     "item",
+		Label:    "Feature Flags",
+		LabelKey: "menu.feature_flags",
+		ParentID: "admin_main.nav-group-others",
+		Target:   map[string]any{"type": "url", "path": "/admin/feature-flags", "key": "feature_flags"},
+	})
+	actual := []Item{{
+		ID:       "admin_main.nav-group-others.feature-flags",
+		Type:     "item",
+		Label:    "Feature Flags",
+		ParentID: "admin_main.nav-group-others",
+		Target:   map[string]any{"type": "url", "path": "/admin/feature-flags", "key": "feature_flags"},
+	}}
+
+	match := FindMatch(expected, actual, MatchPolicy{Owner: OwnerModule})
+	if !match.Matched || match.UnsafeBroad || match.Ambiguous {
+		t.Fatalf("expected legacy module row repair match by label fallback, got %#v", match)
+	}
+}
+
+func TestFindMatchDoesNotRepairEquivalentIDWithoutSameDestination(t *testing.T) {
+	expected := MarkProgrammatic(Item{
+		ID:       "admin_main.nav-group-others.feature_flags",
+		Type:     "item",
+		Label:    "Feature Flags",
+		LabelKey: "menu.feature_flags",
+		ParentID: "admin_main.nav-group-others",
+		Target:   map[string]any{"type": "url", "path": "/admin/feature-flags", "key": "feature_flags"},
+	})
+	actual := []Item{{
+		ID:       "admin_main.nav-group-others.feature-flags",
+		Type:     "item",
+		Label:    "Feature Flags",
+		LabelKey: "menu.feature_flags",
+		ParentID: "admin_main.nav-group-others",
+		Target:   map[string]any{"type": "url", "path": "/custom/feature-flags", "key": "feature_flags"},
+	}}
+
+	match := FindMatch(expected, actual, MatchPolicy{Owner: OwnerModule})
+	if !match.UnsafeBroad || match.Matched {
+		t.Fatalf("expected divergent destination to remain unsafe broad, got %#v", match)
 	}
 }
 

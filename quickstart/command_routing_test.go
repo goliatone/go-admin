@@ -208,6 +208,22 @@ func TestTranslationCommandExecutionModeAppliesPolicyOverrides(t *testing.T) {
 	if mode, ok := policy.Resolve((admin.TranslationQueueClaimInput{}).Type()); !ok || mode != gocommand.ExecutionModeQueued {
 		t.Fatalf("expected queued queue command policy override, got mode=%q ok=%v", mode, ok)
 	}
+	if mode, ok := policy.Resolve((admin.TranslationSuggestionInput{}).Type()); !ok || mode != gocommand.ExecutionModeQueued {
+		t.Fatalf("expected queued suggestion command policy override, got mode=%q ok=%v", mode, ok)
+	}
+}
+
+func TestTranslationQueueCommandIDsIncludeSuggestionCommand(t *testing.T) {
+	found := false
+	for _, commandID := range TranslationQueueCommandIDs() {
+		if commandID == (admin.TranslationSuggestionInput{}).Type() {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("expected translation queue command IDs to include suggestion command")
+	}
 }
 
 func TestTranslationCommandExecutionModeDoesNotOverrideExplicitPolicy(t *testing.T) {

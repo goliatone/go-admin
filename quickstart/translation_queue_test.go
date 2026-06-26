@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/goliatone/go-admin/admin"
+	gocommand "github.com/goliatone/go-command"
 )
 
 func TestWithTranslationQueueConfigSetsFeatureDefault(t *testing.T) {
@@ -93,6 +94,72 @@ func TestNewAdminTranslationQueueEnabledRegistersPanelCommandsAndPermissions(t *
 	if updated.Status != admin.AssignmentStatusInProgress {
 		t.Fatalf("expected in_progress after claim command, got %q", updated.Status)
 	}
+}
+
+func TestNewAdminTranslationQueueRegistersSuggestionServiceCommandAndRPCRule(t *testing.T) {
+	cleanupGlobalCommandRegistry(t)
+
+	repo := admin.NewInMemoryTranslationAssignmentRepository()
+	suggestionSvc := &quickstartTranslationSuggestionService{
+		result: admin.TranslationSuggestionResult{
+			AssignmentID:  "tqa_1",
+			FieldPath:     "title",
+			SuggestedText: "Hola",
+		},
+	}
+	cfg := NewAdminConfig("", "", "")
+	adm, _, err := NewAdmin(cfg, AdapterHooks{}, WithTranslationQueueConfig(TranslationQueueConfig{
+		Enabled:           true,
+		Repository:        repo,
+		SupportedLocales:  []string{"en", "es"},
+		SuggestionService: suggestionSvc,
+	}))
+	if err != nil {
+		t.Fatalf("NewAdmin error: %v", err)
+	}
+	if adm.Commands() != nil {
+		t.Cleanup(adm.Commands().Reset)
+	}
+	if adm.TranslationSuggestionService() == nil {
+		t.Fatalf("expected suggestion service to be attached")
+	}
+	outcome, err := adm.Commands().DispatchByNameWithOutcome(context.Background(), (admin.TranslationSuggestionInput{}).Type(), map[string]any{
+		"assignment_id": "tqa_1",
+		"field_path":    "title",
+	}, nil, gocommand.DispatchOptions{Mode: gocommand.ExecutionModeInline})
+	if err != nil {
+		t.Fatalf("dispatch suggestion command: %v", err)
+	}
+	if suggestionSvc.calls != 1 {
+		t.Fatalf("expected one suggestion service call, got %d", suggestionSvc.calls)
+	}
+	result, ok := outcome.Result.(admin.TranslationSuggestionResult)
+	if !ok || result.SuggestedText != "Hola" {
+		t.Fatalf("unexpected suggestion outcome: %#v", outcome.Result)
+	}
+
+	caps := admin.TranslationCapabilities(adm)
+	features, _ := caps["features"].(map[string]any)
+	suggestions, _ := features["suggestions"].(map[string]any)
+	if rpcAllowed, _ := suggestions["rpc_allowed"].(bool); !rpcAllowed {
+		t.Fatalf("expected quickstart to seed suggestion RPC rule, got %+v", suggestions)
+	}
+}
+
+type quickstartTranslationSuggestionService struct {
+	calls  int
+	result admin.TranslationSuggestionResult
+}
+
+func (s *quickstartTranslationSuggestionService) SuggestTranslation(_ context.Context, input admin.TranslationSuggestionInput) (admin.TranslationSuggestionResult, error) {
+	s.calls++
+	if s.result.AssignmentID == "" {
+		s.result.AssignmentID = input.AssignmentID
+	}
+	if s.result.FieldPath == "" {
+		s.result.FieldPath = input.FieldPath
+	}
+	return s.result, nil
 }
 
 func TestNewAdminTranslationQueueDerivesLocalesFromPolicyWhenUnset(t *testing.T) {

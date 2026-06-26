@@ -1,6 +1,10 @@
 package quickstart
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/goliatone/go-admin/admin"
+)
 
 func TestRegisterTranslationExchangePermissions(t *testing.T) {
 	got := []PermissionDefinition{}
@@ -37,6 +41,16 @@ func TestRegisterTranslationQueuePermissions(t *testing.T) {
 	}
 	if len(got) != len(TranslationQueuePermissions()) {
 		t.Fatalf("expected %d permissions, got %d", len(TranslationQueuePermissions()), len(got))
+	}
+	foundSuggest := false
+	for _, def := range got {
+		if def.Key == admin.PermAdminTranslationsSuggest {
+			foundSuggest = true
+			break
+		}
+	}
+	if !foundSuggest {
+		t.Fatalf("expected queue permissions to include %s", admin.PermAdminTranslationsSuggest)
 	}
 }
 

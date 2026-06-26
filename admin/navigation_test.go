@@ -418,6 +418,82 @@ func TestAdminPersistMenuItemsPreservesUserRowMatchedOnlyByBroadTargetKey(t *tes
 	}
 }
 
+func TestAdminPersistMenuItemsRepairsLegacyEquivalentIDRow(t *testing.T) {
+	ctx := context.Background()
+	menuSvc := NewInMemoryMenuService()
+	adm := mustNewAdmin(t, Config{
+		DefaultLocale:         "en",
+		NavMenuCode:           "admin_main",
+		NavRouteMissingPolicy: NavigationRouteMissingPolicyStrict,
+	}, Dependencies{FeatureGate: featureGateFromKeys(FeatureCMS)})
+	adm.UseCMS(&stubCMSContainer{menu: menuSvc})
+
+	mustCreateNavigationTestMenu(t, menuSvc, ctx, "admin_main")
+	mustAddNavigationTestMenuItem(t, menuSvc, ctx, "admin_main", MenuItem{
+		ID:       "admin_main.nav-group-others",
+		Type:     MenuItemTypeGroup,
+		Menu:     "admin_main",
+		Locale:   "en",
+		Position: new(90),
+	})
+	mustAddNavigationTestMenuItem(t, menuSvc, ctx, "admin_main", MenuItem{
+		ID:       "admin_main.nav-group-others.feature-flags",
+		Label:    "Feature Flags",
+		LabelKey: "menu.feature_flags",
+		Locale:   "en",
+		Menu:     "admin_main",
+		ParentID: "admin_main.nav-group-others",
+		Icon:     "old-switch",
+		Target: map[string]any{
+			"type": "url",
+			"path": "/admin/feature-flags",
+			"key":  "feature_flags",
+		},
+		Permissions: []string{"admin.feature_flags.view"},
+	})
+
+	if err := adm.addMenuItems(ctx, []MenuItem{{
+		Label:       "Feature Flags",
+		LabelKey:    "menu.feature_flags",
+		Icon:        "switch-on",
+		Locale:      "en",
+		Menu:        "admin_main",
+		ParentID:    "admin_main.nav-group-others",
+		Permissions: []string{"admin.feature_flags.view"},
+		Target: map[string]any{
+			"type": "url",
+			"path": "/admin/feature-flags",
+			"key":  "feature_flags",
+		},
+	}}); err != nil {
+		t.Fatalf("addMenuItems: %v", err)
+	}
+
+	menu, err := menuSvc.Menu(ctx, "admin_main", "en")
+	if err != nil {
+		t.Fatalf("menu: %v", err)
+	}
+	if got := countMenuItemsByTargetKey(menu.Items, "feature_flags"); got != 1 {
+		t.Fatalf("expected one feature flags row after repair, got %d in %#v", got, menu.Items)
+	}
+	legacy := findNavigationTestMenuItemByID(menu.Items, "admin_main.nav-group-others.feature-flags")
+	if legacy == nil {
+		t.Fatalf("expected legacy feature flags row to be repaired in place, got %#v", menu.Items)
+	}
+	if got := strings.TrimSpace(legacy.Icon); got != "switch-on" {
+		t.Fatalf("expected feature flags icon repaired, got %q", got)
+	}
+	if got := strings.TrimSpace(toString(legacy.Target[menuTargetProgrammaticOwnerKey])); got != menuTargetProgrammaticOwner {
+		t.Fatalf("expected programmatic owner metadata, got target %#v", legacy.Target)
+	}
+	if got := strings.TrimSpace(toString(legacy.Target[menuTargetProgrammaticIDKey])); got != "feature_flags" {
+		t.Fatalf("expected programmatic owner id feature_flags, got target %#v", legacy.Target)
+	}
+	if canonical := findNavigationTestMenuItemByID(menu.Items, "admin_main.nav-group-others.feature_flags"); canonical != nil {
+		t.Fatalf("expected no duplicate canonical feature flags row, got %#v", *canonical)
+	}
+}
+
 func TestAdminPersistMenuItemsRepairsHostStyleRowsMatchedByRouteIdentity(t *testing.T) {
 	ctx := context.Background()
 	menuSvc := NewInMemoryMenuService()
