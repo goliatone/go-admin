@@ -1,10 +1,26 @@
 # Changelog
 
+# [0.110.1](https://github.com/goliatone/go-admin/compare/v0.110.0...v0.110.1) - (2026-06-27)
+
+## <!-- 16 -->➕ Add
+
+- Menu seed transform ([959ab1d](https://github.com/goliatone/go-admin/commit/959ab1d6808fbcd6627b9c037380d4dc49caa811))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update docs ([564bfd4](https://github.com/goliatone/go-admin/commit/564bfd46dea9b6789223508b25b5c001f703a2b5))  - (goliatone)
+- Update readme ([37f2dbb](https://github.com/goliatone/go-admin/commit/37f2dbb17165c6d7bb9bc9fdd5e5b395732059f7))  - (goliatone)
+- Update tests ([748159a](https://github.com/goliatone/go-admin/commit/748159a5e7acd453737f3df817a4903bd85f93a3))  - (goliatone)
+
 # [0.110.0](https://github.com/goliatone/go-admin/compare/v0.109.2...v0.110.0) - (2026-06-26)
 
 ## <!-- 1 -->🐛 Bug Fixes
 
 - Add missing menu item id ([18d1ab5](https://github.com/goliatone/go-admin/commit/18d1ab598fce256a62d70662080d36a512e3ccaa))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.110.0 ([90bd548](https://github.com/goliatone/go-admin/commit/90bd5485540b5986b9498ae88ac37a90bd6e74b5))  - (goliatone)
 
 ## <!-- 16 -->➕ Add
 
