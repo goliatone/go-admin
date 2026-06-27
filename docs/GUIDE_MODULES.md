@@ -2316,7 +2316,7 @@ quickstart.NewModuleRegistrar(
     adm, cfg, modules, isDev,
     quickstart.WithMenuSeedTargetParentOverride("translation_dashboard", "host.nav"),
     quickstart.WithMenuSeedBaseItemTransform(func(item *admin.MenuItem) {
-        if item == nil || item.Target["key"] != "translation_dashboard" {
+        if item == nil || item.Target == nil || item.Target["key"] != "translation_dashboard" {
             return
         }
         item.Label = "Translations"
