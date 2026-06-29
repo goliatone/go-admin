@@ -729,17 +729,11 @@ func applyContentEntryNavigationWrite(record map[string]any, policy contentEntry
 	if record == nil {
 		return nil
 	}
-	hasOverride := recordHasKey(record, "_navigation")
-	if !hasOverride {
-		if data, ok := record["data"].(map[string]any); ok {
-			_, hasOverride = data["_navigation"]
-		}
-	}
+	rawOverrides, hasOverride := contentEntryNavigationWriteOverrides(record)
 	if !always && !hasOverride {
 		return nil
 	}
 
-	rawOverrides := record["_navigation"]
 	if !hasOverride {
 		rawOverrides = nil
 	}
@@ -751,6 +745,20 @@ func applyContentEntryNavigationWrite(record map[string]any, policy contentEntry
 	record["effective_menu_locations"] = append([]string{}, eval.EffectiveLocations...)
 	record["effective_navigation_visibility"] = navigationVisibilityBoolMapAny(eval.EffectiveVisibility)
 	return nil
+}
+
+func contentEntryNavigationWriteOverrides(record map[string]any) (any, bool) {
+	if record == nil {
+		return nil, false
+	}
+	if recordHasKey(record, "_navigation") {
+		return record["_navigation"], true
+	}
+	if data, ok := record["data"].(map[string]any); ok {
+		raw, exists := data["_navigation"]
+		return raw, exists
+	}
+	return nil, false
 }
 
 // ApplyEntryNavigationReadContract returns a cloned record with normalized
