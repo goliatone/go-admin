@@ -879,6 +879,65 @@ func TestAdminPersistMenuItemsFailsWhenRawInventoryProviderErrors(t *testing.T) 
 	}
 }
 
+func TestNavigationLifecycleReportIncludesEnvironmentAndCoordination(t *testing.T) {
+	adm := mustNewAdmin(t, Config{
+		DefaultLocale:  "en",
+		NavMenuCode:    "admin_main",
+		NavEnvironment: "staging",
+		Debug:          DebugConfig{Environment: "production"},
+	}, Dependencies{FeatureGate: featureGateFromKeys(FeatureCMS)})
+	adm.UseCMS(&stubCMSContainer{menu: NewInMemoryMenuService()})
+
+	report := adm.NavigationLifecycleReport()
+	if report.Environment != "staging" || report.EnvironmentSource != "config.nav_environment" {
+		t.Fatalf("expected explicit navigation environment, got %#v", report)
+	}
+	if report.CoordinationBackend != "memory" || report.CoordinationSupported {
+		t.Fatalf("expected in-memory unsupported coordination diagnostic, got %#v", report)
+	}
+	if report.CoordinationScope != "admin-process" {
+		t.Fatalf("expected process-scoped coordination diagnostic, got %#v", report)
+	}
+	if report.PersistenceBackend != "memory" || !report.RawInventoryBounded || !report.RawInventoryEnvScoped {
+		t.Fatalf("expected in-memory persistence capability diagnostic, got %#v", report)
+	}
+	if report.TransactionalApply {
+		t.Fatalf("expected in-memory transactional apply to be unsupported, got %#v", report)
+	}
+}
+
+func TestAdminRawInventoryUsesNavigationEnvironmentScope(t *testing.T) {
+	ctx := context.Background()
+	menuSvc := &adminScopedRawInventoryMenuService{
+		InMemoryMenuService: NewInMemoryMenuService(),
+		raw:                 []MenuItem{},
+	}
+	adm := mustNewAdmin(t, Config{
+		DefaultLocale:  "en",
+		NavMenuCode:    "admin_main",
+		NavEnvironment: "preview",
+	}, Dependencies{FeatureGate: featureGateFromKeys(FeatureCMS)})
+	adm.UseCMS(&stubCMSContainer{menu: menuSvc})
+	mustCreateNavigationTestMenu(t, menuSvc, ctx, "admin_main")
+
+	err := adm.addMenuItems(ctx, []MenuItem{{
+		ID:     "admin_main.media",
+		Label:  "Media",
+		Locale: "en",
+		Menu:   "admin_main",
+		Target: map[string]any{"type": "url", "path": "/admin/media", "key": "media"},
+	}})
+	if err != nil {
+		t.Fatalf("addMenuItems: %v", err)
+	}
+	if menuSvc.lastRawOptions.Environment != "preview" || menuSvc.lastRawOptions.EnvironmentSource != "config.nav_environment" {
+		t.Fatalf("expected scoped raw inventory options, got %#v", menuSvc.lastRawOptions)
+	}
+	if menuSvc.lastRawOptions.MenuCode != "admin_main" {
+		t.Fatalf("expected menu code in raw inventory options, got %#v", menuSvc.lastRawOptions)
+	}
+}
+
 func TestInMemoryMenuServiceStripsRequestScopedTargetState(t *testing.T) {
 	ctx := context.Background()
 	menuSvc := NewInMemoryMenuService()
@@ -961,6 +1020,12 @@ func TestAdminDiagnoseNavigationUsesSharedClassifierAndRawInventory(t *testing.T
 	}
 	if report.EngineIdentity == "" || report.EngineVersion == "" {
 		t.Fatalf("expected engine stamp, got %#v", report)
+	}
+	if report.Environment != "default" || report.EnvironmentSource != "default" {
+		t.Fatalf("expected default doctor environment, got %#v", report)
+	}
+	if report.CoordinationBackend != "memory" || report.CoordinationWarning == "" {
+		t.Fatalf("expected doctor coordination diagnostic, got %#v", report)
 	}
 	if len(report.Items) != 1 {
 		t.Fatalf("expected one classified item, got %#v", report.Items)
@@ -1161,6 +1226,10 @@ func (s *adminRawInventoryOnlyMenuService) RawMenuItems(context.Context, string)
 	return append([]MenuItem{}, s.raw...), nil
 }
 
+func (s *adminRawInventoryOnlyMenuService) RawMenuItemsWithOptions(context.Context, NavigationRawInventoryOptions) ([]MenuItem, error) {
+	return append([]MenuItem{}, s.raw...), nil
+}
+
 type adminRawInventoryErrorMenuService struct {
 	*InMemoryMenuService
 	err error
@@ -1168,6 +1237,25 @@ type adminRawInventoryErrorMenuService struct {
 
 func (s *adminRawInventoryErrorMenuService) RawMenuItems(context.Context, string) ([]MenuItem, error) {
 	return nil, s.err
+}
+
+func (s *adminRawInventoryErrorMenuService) RawMenuItemsWithOptions(context.Context, NavigationRawInventoryOptions) ([]MenuItem, error) {
+	return nil, s.err
+}
+
+type adminScopedRawInventoryMenuService struct {
+	*InMemoryMenuService
+	raw            []MenuItem
+	lastRawOptions NavigationRawInventoryOptions
+}
+
+func (s *adminScopedRawInventoryMenuService) RawMenuItems(context.Context, string) ([]MenuItem, error) {
+	return append([]MenuItem{}, s.raw...), nil
+}
+
+func (s *adminScopedRawInventoryMenuService) RawMenuItemsWithOptions(_ context.Context, opts NavigationRawInventoryOptions) ([]MenuItem, error) {
+	s.lastRawOptions = opts
+	return append([]MenuItem{}, s.raw...), nil
 }
 
 func (s *contextRecordingMenuService) UpdateMenuItem(ctx context.Context, menuCode string, item MenuItem) error {

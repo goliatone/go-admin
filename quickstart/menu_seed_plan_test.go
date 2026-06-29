@@ -159,6 +159,155 @@ func TestBuildMenuSeedPlanAppliesBaseItemTransformsAfterParentOverrides(t *testi
 	}
 }
 
+func TestBuildMenuSeedPlanMapsSemanticPlacementSlots(t *testing.T) {
+	t.Parallel()
+
+	plan, err := BuildMenuSeedPlan(MenuSeedPlanOptions{
+		MenuCode:              "admin.main",
+		Locale:                "en",
+		ReplaceDefaultParents: true,
+		ParentItems: []admin.MenuItem{
+			{ID: "host.content", Type: admin.MenuItemTypeGroup, GroupTitle: "Content"},
+		},
+		SlotParentOverrides: map[string]string{"content": "host.content"},
+		Modules: []admin.Module{
+			stubModule{
+				id: "articles",
+				menuItems: []admin.MenuItem{
+					{
+						ID:            "articles",
+						Label:         "Articles",
+						PlacementSlot: "content",
+						Target: map[string]any{
+							"type": "url",
+							"path": "/admin/articles",
+							"key":  "articles",
+						},
+					},
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("BuildMenuSeedPlan error: %v", err)
+	}
+	item := findPlanItemByTargetKey(plan.Items, "articles")
+	if item == nil {
+		t.Fatalf("expected articles item in plan")
+	}
+	if item.ParentID != "host.content" {
+		t.Fatalf("expected placement slot parent host.content, got %q", item.ParentID)
+	}
+}
+
+func TestBuildMenuSeedPlanMapsTargetPlacementSlot(t *testing.T) {
+	t.Parallel()
+
+	plan, err := BuildMenuSeedPlan(MenuSeedPlanOptions{
+		MenuCode:              "admin.main",
+		Locale:                "en",
+		ReplaceDefaultParents: true,
+		ParentItems: []admin.MenuItem{
+			{ID: "host.tools", Type: admin.MenuItemTypeGroup, GroupTitle: "Tools"},
+		},
+		SlotParentOverrides: map[string]string{"tools": "host.tools"},
+		Modules: []admin.Module{
+			stubModule{
+				id: "exports",
+				menuItems: []admin.MenuItem{
+					{
+						ID:    "exports",
+						Label: "Exports",
+						Target: map[string]any{
+							"type":                     "url",
+							"path":                     "/admin/exports",
+							"key":                      "exports",
+							MenuTargetPlacementSlotKey: "tools",
+						},
+					},
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("BuildMenuSeedPlan error: %v", err)
+	}
+	item := findPlanItemByTargetKey(plan.Items, "exports")
+	if item == nil {
+		t.Fatalf("expected exports item in plan")
+	}
+	if item.ParentID != "host.tools" {
+		t.Fatalf("expected target placement slot parent host.tools, got %q", item.ParentID)
+	}
+}
+
+func TestBuildMenuSeedPlanTargetParentOverrideWinsOverSlot(t *testing.T) {
+	t.Parallel()
+
+	plan, err := BuildMenuSeedPlan(MenuSeedPlanOptions{
+		MenuCode:              "admin.main",
+		Locale:                "en",
+		ReplaceDefaultParents: true,
+		ParentItems: []admin.MenuItem{
+			{ID: "host.content", Type: admin.MenuItemTypeGroup, GroupTitle: "Content"},
+			{ID: "host.users", Type: admin.MenuItemTypeGroup, GroupTitle: "Users"},
+		},
+		SlotParentOverrides:   map[string]string{"content": "host.content"},
+		TargetParentOverrides: map[string]string{"users": "host.users"},
+		Modules: []admin.Module{
+			stubModule{
+				id: "users",
+				menuItems: []admin.MenuItem{
+					{
+						ID:            "users",
+						Label:         "Users",
+						PlacementSlot: "content",
+						Target: map[string]any{
+							"type": "url",
+							"path": "/admin/users",
+							"key":  "users",
+						},
+					},
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("BuildMenuSeedPlan error: %v", err)
+	}
+	item := findPlanItemByTargetKey(plan.Items, "users")
+	if item == nil {
+		t.Fatalf("expected users item in plan")
+	}
+	if item.ParentID != "host.users" {
+		t.Fatalf("expected target parent override host.users, got %q", item.ParentID)
+	}
+}
+
+func TestNormalizeSeedMenuItemPromotesTargetPlacementSlot(t *testing.T) {
+	t.Parallel()
+
+	item, err := normalizeSeedMenuItem("admin.main", "en", admin.MenuItem{
+		ID:    "exports",
+		Label: "Exports",
+		Target: map[string]any{
+			"type":                     "url",
+			"path":                     "/admin/exports",
+			"key":                      "exports",
+			MenuTargetPlacementSlotKey: "tools",
+		},
+	})
+	if err != nil {
+		t.Fatalf("normalizeSeedMenuItem error: %v", err)
+	}
+	if item.PlacementSlot != "tools" {
+		t.Fatalf("expected placement slot tools, got %q", item.PlacementSlot)
+	}
+	if got := stringTargetValue(item.Target, MenuTargetPlacementSlotKey); got != "tools" {
+		t.Fatalf("expected target placement slot tools, got %q", got)
+	}
+}
+
 func TestReconcileGeneratedNavigationDryRunAndApplyRepairsMissingRows(t *testing.T) {
 	t.Parallel()
 
@@ -1329,6 +1478,99 @@ func TestReconcileGeneratedNavigationPreservesUserRowsAndReportsDestructiveCandi
 	}
 	if len(report.PreservedUserRows) == 0 {
 		t.Fatalf("expected custom user row preserved, got %#v", report)
+	}
+}
+
+func TestReconcileGeneratedNavigationAppliesManagedExclusionsOnlyForOwnedRows(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	menuSvc := admin.NewInMemoryMenuService()
+	menuCode := "admin.main"
+	locale := "en"
+	if err := SeedNavigation(ctx, SeedNavigationOptions{
+		MenuSvc:  menuSvc,
+		MenuCode: menuCode,
+		Locale:   locale,
+		Items: []admin.MenuItem{
+			testGeneratedMenuItem("admin_main.nav-group-main.settings", "", "Settings", "settings", "/admin/settings", 80),
+		},
+	}); err != nil {
+		t.Fatalf("seed generated settings row: %v", err)
+	}
+	if err := menuSvc.AddMenuItem(ctx, menuCode, admin.MenuItem{
+		ID:     "custom.settings",
+		Label:  "Custom Settings",
+		Locale: locale,
+		Target: map[string]any{"type": "url", "path": "/custom/settings", "key": "settings"},
+	}); err != nil {
+		t.Fatalf("seed custom settings row: %v", err)
+	}
+
+	report, err := ReconcileGeneratedNavigation(ctx, NavigationReconcileOptions{
+		MenuSvc:           menuSvc,
+		MenuCode:          menuCode,
+		Locale:            locale,
+		Apply:             true,
+		AllowDestructive:  true,
+		ManagedExclusions: []NavigationManagedExclusion{{ID: "admin_main.nav-group-main.settings"}},
+	})
+	if err != nil {
+		t.Fatalf("reconcile exclusions: %v", err)
+	}
+	if !containsMenuSeedPlanString(report.RetiredManagedItems, "admin_main.nav-group-main.settings") {
+		t.Fatalf("expected retired generated row in report, got %#v", report)
+	}
+	menu, err := menuSvc.Menu(ctx, menuCode, locale)
+	if err != nil {
+		t.Fatalf("menu: %v", err)
+	}
+	if item := findMenuItemByIDForTest(menu.Items, "admin_main.nav-group-main.settings"); item != nil {
+		t.Fatalf("expected owned retired settings row removed, got %+v", *item)
+	}
+	if item := findMenuItemByIDForTest(menu.Items, "custom.settings"); item == nil {
+		t.Fatalf("expected custom settings row preserved")
+	}
+}
+
+func TestReconcileGeneratedNavigationReportsManagedExclusionWithoutDestructiveApply(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	menuSvc := admin.NewInMemoryMenuService()
+	menuCode := "admin.main"
+	locale := "en"
+	if err := SeedNavigation(ctx, SeedNavigationOptions{
+		MenuSvc:  menuSvc,
+		MenuCode: menuCode,
+		Locale:   locale,
+		Items: []admin.MenuItem{
+			testGeneratedMenuItem("admin_main.nav-group-main.settings", "", "Settings", "settings", "/admin/settings", 80),
+		},
+	}); err != nil {
+		t.Fatalf("seed generated settings row: %v", err)
+	}
+
+	report, err := ReconcileGeneratedNavigation(ctx, NavigationReconcileOptions{
+		MenuSvc:           menuSvc,
+		MenuCode:          menuCode,
+		Locale:            locale,
+		Apply:             true,
+		AllowDestructive:  false,
+		ManagedExclusions: []NavigationManagedExclusion{{ID: "admin_main.nav-group-main.settings"}},
+	})
+	if err != nil {
+		t.Fatalf("reconcile exclusions: %v", err)
+	}
+	if !containsMenuSeedPlanString(report.RetiredManagedItems, "admin_main.nav-group-main.settings") {
+		t.Fatalf("expected retired generated row in report, got %#v", report)
+	}
+	menu, err := menuSvc.Menu(ctx, menuCode, locale)
+	if err != nil {
+		t.Fatalf("menu: %v", err)
+	}
+	if item := findMenuItemByIDForTest(menu.Items, "admin_main.nav-group-main.settings"); item == nil {
+		t.Fatalf("expected retired row to remain without destructive apply")
 	}
 }
 

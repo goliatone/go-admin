@@ -11,9 +11,8 @@ import (
 )
 
 func TestGoSyncPackagesDoNotImportAppSpecificGoAdminPackages(t *testing.T) {
-	repoRoot := repoRoot(t)
-	targetRoot := filepath.Join(repoRoot, "pkg", "go-sync")
-	files := goFiles(t, targetRoot)
+	root := moduleRoot(t)
+	files := goFiles(t, root)
 
 	fset := token.NewFileSet()
 	violations := make([]string, 0)
@@ -21,29 +20,28 @@ func TestGoSyncPackagesDoNotImportAppSpecificGoAdminPackages(t *testing.T) {
 	for _, path := range files {
 		file, err := parser.ParseFile(fset, path, nil, parser.ImportsOnly)
 		if err != nil {
-			t.Fatalf("parse imports for %s: %v", rel(repoRoot, path), err)
+			t.Fatalf("parse imports for %s: %v", rel(root, path), err)
 		}
 		for _, spec := range file.Imports {
 			importPath := strings.Trim(spec.Path.Value, `"`)
-			if strings.HasPrefix(importPath, "github.com/goliatone/go-admin/") &&
-				!strings.HasPrefix(importPath, "github.com/goliatone/go-admin/pkg/go-sync") {
-				violations = append(violations, rel(repoRoot, path)+" -> "+importPath)
+			if strings.HasPrefix(importPath, "github.com/goliatone/go-admin/") {
+				violations = append(violations, rel(root, path)+" -> "+importPath)
 			}
 		}
 	}
 
 	if len(violations) > 0 {
-		t.Fatalf("pkg/go-sync imports host-specific packages: %v", violations)
+		t.Fatalf("go-sync imports host-specific packages: %v", violations)
 	}
 }
 
-func repoRoot(t *testing.T) string {
+func moduleRoot(t *testing.T) string {
 	t.Helper()
 	_, filename, _, ok := runtime.Caller(0)
 	if !ok {
 		t.Fatal("resolve caller path")
 	}
-	return filepath.Clean(filepath.Join(filepath.Dir(filename), "..", ".."))
+	return filepath.Dir(filename)
 }
 
 func goFiles(t *testing.T, root string) []string {
@@ -69,8 +67,8 @@ func goFiles(t *testing.T, root string) []string {
 	return files
 }
 
-func rel(repoRoot, path string) string {
-	relative, err := filepath.Rel(repoRoot, path)
+func rel(root, path string) string {
+	relative, err := filepath.Rel(root, path)
 	if err != nil {
 		return path
 	}

@@ -199,6 +199,9 @@ func TestPackageImportsStayExtractable(t *testing.T) {
 			if strings.HasPrefix(importPath, "github.com/goliatone/go-admin") {
 				t.Fatalf("%s imports %s; lifecycle package must remain extractable", path, importPath)
 			}
+			if first := strings.Split(importPath, "/")[0]; strings.Contains(first, ".") {
+				t.Fatalf("%s imports %s; lifecycle package must remain stdlib-only", path, importPath)
+			}
 		}
 		if ast.IsGenerated(file) {
 			t.Fatalf("%s should not be generated; lifecycle package is hand-maintained API code", path)

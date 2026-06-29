@@ -1,8 +1,9 @@
 package admin
 
-import "slices"
-
-import "testing"
+import (
+	"slices"
+	"testing"
+)
 
 func TestPermissionMatrixDefaultsIncludeTranslationExchangePermissions(t *testing.T) {
 	if !containsPermissionMatrixString(defaultAdminResources, "admin.translations") {

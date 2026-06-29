@@ -114,6 +114,42 @@ func TestGoCMSMenuAdapterRawMenuItemsExposePersistedRows(t *testing.T) {
 	}
 }
 
+func TestGoCMSMenuAdapterRawMenuItemsRejectEnvironmentScope(t *testing.T) {
+	ctx := context.Background()
+	menuSvc := newStubCMSMenuService()
+	adapter := NewGoCMSMenuAdapterFromAny(menuSvc)
+
+	if _, err := adapter.CreateMenu(ctx, "admin.main"); err != nil {
+		t.Fatalf("create menu: %v", err)
+	}
+	_, err := adapter.RawMenuItemsWithOptions(ctx, NavigationRawInventoryOptions{
+		MenuCode:          "admin.main",
+		Environment:       "preview",
+		EnvironmentSource: "config.nav_environment",
+	})
+	if err == nil || !strings.Contains(err.Error(), "environment-scoped reads") {
+		t.Fatalf("expected environment-scope rejection, got %v", err)
+	}
+}
+
+func TestGoCMSMenuAdapterNavigationPersistenceReport(t *testing.T) {
+	adapter := NewGoCMSMenuAdapterFromAny(newStubCMSMenuService())
+	report := adapter.NavigationPersistenceReport()
+
+	if report.Backend != "go-cms" {
+		t.Fatalf("expected go-cms backend, got %#v", report)
+	}
+	if !report.RawInventoryBounded || report.RawInventoryScope != "menu-code" {
+		t.Fatalf("expected menu-code bounded raw inventory, got %#v", report)
+	}
+	if report.RawInventoryEnvScoped || report.SoftDeletedRowsVisible || report.TransactionalApply {
+		t.Fatalf("expected unsupported env/soft-delete/transaction flags, got %#v", report)
+	}
+	if len(report.Warnings) != 3 {
+		t.Fatalf("expected persistence warnings, got %#v", report.Warnings)
+	}
+}
+
 func TestGoCMSMenuAdapterUsesTranslationURLOverride(t *testing.T) {
 	ctx := context.Background()
 	menuSvc := newStubCMSMenuService()
