@@ -415,14 +415,10 @@ func (a *Admin) rawPersistedMenuItems(ctx context.Context, code string) ([]MenuI
 	if a == nil || a.menuSvc == nil {
 		return nil, ErrNotFound
 	}
-	provider, ok := a.menuSvc.(rawMenuItemsProvider)
-	if !ok || provider == nil {
-		return nil, ErrNotFound
-	}
 	a.navigationLifecycleMu.Lock()
 	opts := a.navigationRawInventoryOptionsLocked(code)
 	a.navigationLifecycleMu.Unlock()
-	return rawMenuItems(ctx, provider, opts)
+	return rawMenuItems(ctx, a.menuSvc, opts)
 }
 
 func (a *Admin) handleNavigationTargetMissing(code string, item MenuItem) error {
@@ -490,12 +486,16 @@ type navigationPersistenceReporter interface {
 	NavigationPersistenceReport() NavigationPersistenceReport
 }
 
-func rawMenuItems(ctx context.Context, provider rawMenuItemsProvider, opts NavigationRawInventoryOptions) ([]MenuItem, error) {
-	if provider == nil {
+func rawMenuItems(ctx context.Context, menuSvc any, opts NavigationRawInventoryOptions) ([]MenuItem, error) {
+	if menuSvc == nil {
 		return nil, ErrNotFound
 	}
-	if scoped, ok := provider.(scopedRawMenuItemsProvider); ok && scoped != nil {
+	if scoped, ok := menuSvc.(scopedRawMenuItemsProvider); ok && scoped != nil {
 		return scoped.RawMenuItemsWithOptions(ctx, opts)
+	}
+	provider, ok := menuSvc.(rawMenuItemsProvider)
+	if !ok || provider == nil {
+		return nil, ErrNotFound
 	}
 	return provider.RawMenuItems(ctx, opts.MenuCode)
 }
