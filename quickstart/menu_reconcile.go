@@ -139,12 +139,12 @@ func reconcileGeneratedNavigation(ctx context.Context, opts NavigationReconcileO
 
 func prepareGeneratedNavigationReconcile(ctx context.Context, opts NavigationReconcileOptions) (seedNavigationRuntime, []admin.MenuItem, NavigationReconcileReport, error) {
 	runtime := newSeedNavigationRuntime(ctx, SeedNavigationOptions{
-		MenuSvc:    opts.MenuSvc,
-		MenuCode:   opts.MenuCode,
-		Locale:     opts.Locale,
-		Items:      opts.Items,
-		Logf:       opts.Logf,
-		SkipLogger: opts.Logf == nil,
+		MenuSvc:      opts.MenuSvc,
+		MenuCode:     opts.MenuCode,
+		Locale:       opts.Locale,
+		Items:        opts.Items,
+		Logf:         opts.Logf,
+		SkipLogger:   opts.Logf == nil,
 		RawInventory: opts.RawInventory,
 	})
 	expected, err := runtime.seedItems()
@@ -409,7 +409,7 @@ func loadGeneratedNavigationSnapshot(ctx context.Context, opts NavigationReconci
 	if err != nil {
 		return generatedNavigationSnapshot{}, err
 	}
-	raw, rawErr := loadGeneratedNavigationRawItems(ctx, opts.MenuSvc, runtime.menuCode)
+	raw, rawErr := loadGeneratedNavigationRawItems(ctx, opts.MenuSvc, normalizeNavigationRawInventoryOptions(opts.RawInventory, runtime.menuCode))
 	if rawErr != nil {
 		report.RawInventoryUnavailable = append(report.RawInventoryUnavailable, rawErr.Error())
 	}
