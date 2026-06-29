@@ -217,6 +217,9 @@ func applyThemeTokenConfigDefaults(cfg Config) Config {
 	if cfg.ActivityActionLabels == nil {
 		cfg.ActivityActionLabels = map[string]string{}
 	}
+	if strings.TrimSpace(cfg.ActivityActionLabels[DefaultEntryNavigationActivityAction]) == "" {
+		cfg.ActivityActionLabels[DefaultEntryNavigationActivityAction] = "Navigation visibility updated"
+	}
 	if cfg.ThemeAssets == nil {
 		cfg.ThemeAssets = map[string]string{}
 	}
