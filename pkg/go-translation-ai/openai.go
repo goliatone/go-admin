@@ -117,14 +117,6 @@ func NewOpenAIClientProvider(client OpenAIClient, cfg OpenAIConfig) *OpenAIProvi
 	}
 }
 
-func WithOpenAIProvider(cfg OpenAIConfig) Option {
-	return WithProvider(NewOpenAIProvider(cfg))
-}
-
-func WithOpenAIClient(client OpenAIClient, cfg OpenAIConfig) Option {
-	return WithProvider(NewOpenAIClientProvider(client, cfg))
-}
-
 func (p *OpenAIProvider) GenerateTranslation(ctx context.Context, req ProviderRequest) (ProviderResponse, error) {
 	if p == nil || p.client == nil {
 		return ProviderResponse{}, errors.New("openai client is not configured")

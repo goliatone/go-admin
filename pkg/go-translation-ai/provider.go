@@ -7,8 +7,6 @@ import (
 	"fmt"
 	"sort"
 	"strings"
-
-	coreadmin "github.com/goliatone/go-admin/admin"
 )
 
 // Provider is the small LLM boundary used by this package.
@@ -47,21 +45,42 @@ type PromptConfig struct {
 	Instruction  string
 }
 
-// PromptBuilder builds the provider request after core policy checks pass.
-type PromptBuilder interface {
-	BuildTranslationPrompt(coreadmin.TranslationSuggestionProviderInput, PromptConfig) (ProviderRequest, error)
+// PromptInput contains generic translation context for prompt construction.
+type PromptInput struct {
+	AssignmentID   string
+	FieldPath      string
+	EntityType     string
+	SourceLocale   string
+	TargetLocale   string
+	SourceText     string
+	TargetText     string
+	CorrelationID  string
+	IdempotencyKey string
+	AssistContext  map[string]any
 }
 
-type promptBuilderFunc func(coreadmin.TranslationSuggestionProviderInput, PromptConfig) (ProviderRequest, error)
+// PromptBuilder builds the provider request after core policy checks pass.
+type PromptBuilder interface {
+	BuildTranslationPrompt(PromptInput, PromptConfig) (ProviderRequest, error)
+}
 
-func (f promptBuilderFunc) BuildTranslationPrompt(input coreadmin.TranslationSuggestionProviderInput, cfg PromptConfig) (ProviderRequest, error) {
+type promptBuilderFunc func(PromptInput, PromptConfig) (ProviderRequest, error)
+
+func (f promptBuilderFunc) BuildTranslationPrompt(input PromptInput, cfg PromptConfig) (ProviderRequest, error) {
 	return f(input, cfg)
+}
+
+func PromptBuilderFunc(fn func(PromptInput, PromptConfig) (ProviderRequest, error)) PromptBuilder {
+	if fn == nil {
+		return nil
+	}
+	return promptBuilderFunc(fn)
 }
 
 // DefaultPromptBuilder builds a concise translation prompt from sanitized input.
 type DefaultPromptBuilder struct{}
 
-func (DefaultPromptBuilder) BuildTranslationPrompt(input coreadmin.TranslationSuggestionProviderInput, cfg PromptConfig) (ProviderRequest, error) {
+func (DefaultPromptBuilder) BuildTranslationPrompt(input PromptInput, cfg PromptConfig) (ProviderRequest, error) {
 	sourceText := strings.TrimSpace(input.SourceText)
 	if sourceText == "" {
 		return ProviderRequest{}, errors.New("source text is required")
@@ -106,91 +125,6 @@ func (DefaultPromptBuilder) BuildTranslationPrompt(input coreadmin.TranslationSu
 			"idempotency_key": strings.TrimSpace(input.IdempotencyKey),
 		},
 	}, nil
-}
-
-// PromptProvider adapts a package Provider to core admin's provider boundary.
-type PromptProvider struct {
-	provider Provider
-	model    string
-	builder  PromptBuilder
-	config   PromptConfig
-}
-
-// ProviderOption configures a PromptProvider.
-type ProviderOption func(*PromptProvider)
-
-func NewPromptProvider(provider Provider, opts ...ProviderOption) *PromptProvider {
-	p := &PromptProvider{
-		provider: provider,
-		builder:  DefaultPromptBuilder{},
-	}
-	for _, opt := range opts {
-		if opt != nil {
-			opt(p)
-		}
-	}
-	return p
-}
-
-func WithProviderModel(model string) ProviderOption {
-	return func(p *PromptProvider) {
-		p.model = strings.TrimSpace(model)
-	}
-}
-
-func WithPromptBuilder(builder PromptBuilder) ProviderOption {
-	return func(p *PromptProvider) {
-		if builder != nil {
-			p.builder = builder
-		}
-	}
-}
-
-func WithPromptBuilderFunc(fn func(coreadmin.TranslationSuggestionProviderInput, PromptConfig) (ProviderRequest, error)) ProviderOption {
-	return WithPromptBuilder(promptBuilderFunc(fn))
-}
-
-func WithPromptConfig(cfg PromptConfig) ProviderOption {
-	return func(p *PromptProvider) {
-		p.config = cfg
-	}
-}
-
-func (p *PromptProvider) SuggestTranslation(ctx context.Context, input coreadmin.TranslationSuggestionProviderInput) (coreadmin.TranslationSuggestionProviderResult, error) {
-	if p == nil || p.provider == nil {
-		return coreadmin.TranslationSuggestionProviderResult{}, errors.New("translation AI provider is not configured")
-	}
-	builder := p.builder
-	if builder == nil {
-		builder = DefaultPromptBuilder{}
-	}
-	req, err := builder.BuildTranslationPrompt(input, p.config)
-	if err != nil {
-		return coreadmin.TranslationSuggestionProviderResult{}, err
-	}
-	if strings.TrimSpace(req.Model) == "" {
-		req.Model = strings.TrimSpace(p.model)
-	}
-	resp, err := p.provider.GenerateTranslation(ctx, req)
-	if err != nil {
-		return coreadmin.TranslationSuggestionProviderResult{}, err
-	}
-	return coreadmin.TranslationSuggestionProviderResult{
-		Text:        strings.TrimSpace(resp.Text),
-		Provider:    strings.TrimSpace(resp.Provider),
-		Model:       firstNonEmpty(resp.Model, req.Model),
-		Diagnostics: sanitizeDiagnostics(resp.Diagnostics),
-	}, nil
-}
-
-func (p *PromptProvider) Ready() bool {
-	if p == nil || p.provider == nil {
-		return false
-	}
-	if ready, ok := p.provider.(readyProvider); ok {
-		return ready.Ready()
-	}
-	return true
 }
 
 func formatAssistContext(value map[string]any) string {

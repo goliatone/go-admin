@@ -79,14 +79,6 @@ func NewAnthropicClientProvider(client AnthropicClient, cfg AnthropicConfig) *An
 	}
 }
 
-func WithAnthropicProvider(cfg AnthropicConfig) Option {
-	return WithProvider(NewAnthropicProvider(cfg))
-}
-
-func WithAnthropicClient(client AnthropicClient, cfg AnthropicConfig) Option {
-	return WithProvider(NewAnthropicClientProvider(client, cfg))
-}
-
 func (p *AnthropicProvider) GenerateTranslation(ctx context.Context, req ProviderRequest) (ProviderResponse, error) {
 	if p == nil || p.client == nil {
 		return ProviderResponse{}, errors.New("anthropic client is not configured")
