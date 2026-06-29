@@ -101,6 +101,39 @@ func TestContentFormTemplateBootstrapsRelationshipActions(t *testing.T) {
 	}
 }
 
+func TestContentFormTemplateUsesEntryNavigationViewModel(t *testing.T) {
+	template := mustReadClientTemplate(t, "resources/content/form.html")
+	partial := mustReadClientTemplate(t, "resources/content/partials/entry-navigation.html")
+
+	if !strings.Contains(template, `resources/content/partials/entry-navigation.html`) {
+		t.Fatalf("content form template must render the reusable entry navigation partial")
+	}
+	if !strings.Contains(template, `assets/dist/entry-navigation/index.js`) {
+		t.Fatalf("content form template must load the standalone entry navigation module")
+	}
+	if strings.Contains(template, `assets/dist/menu-builder/index.js`) {
+		t.Fatalf("content form template must not load menu builder for entry navigation")
+	}
+
+	required := []string{
+		`entry_navigation and entry_navigation.visible`,
+		`data-navigation-endpoint="{{ entry_navigation.endpoint }}"`,
+		`data-navigation-editable="{{ entry_navigation.editable }}"`,
+		`data-navigation-read-only="{{ entry_navigation.read_only }}"`,
+		`toJSON(entry_navigation.eligible_locations)`,
+		`toJSON(entry_navigation.overrides)`,
+	}
+	for _, fragment := range required {
+		if strings.Contains(partial, fragment) {
+			continue
+		}
+		t.Fatalf("expected content entry navigation partial fragment not found: %q", fragment)
+	}
+	if strings.Contains(template, `{% set navigation_cap = content_type.navigation %}`) || strings.Contains(partial, `{% set navigation_cap = content_type.navigation %}`) {
+		t.Fatalf("entry navigation templates must use server-authored entry_navigation model")
+	}
+}
+
 func TestTranslationFamilyDetailTemplateBootstrapsClientRenderer(t *testing.T) {
 	template := mustReadClientTemplate(t, "resources/translations/family-detail.html")
 

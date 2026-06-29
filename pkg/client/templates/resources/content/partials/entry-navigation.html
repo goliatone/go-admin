@@ -1,0 +1,19 @@
+{% if is_edit and resource_item and entry_navigation and entry_navigation.visible %}
+<div
+  class="mb-6"
+  data-entry-navigation-root
+  data-base-path="{{ base_path|default:"/admin" }}"
+  data-api-base-path="{{ api_base_path|default:base_path|default:"/admin" }}"
+  data-panel-name="{{ entry_navigation.content_type|default:panel_name }}"
+  data-record-id="{{ entry_navigation.record_id|default:resource_item.id }}"
+  data-navigation-endpoint="{{ entry_navigation.endpoint }}"
+  data-navigation-enabled="{{ entry_navigation.visible }}"
+  data-navigation-editable="{{ entry_navigation.editable }}"
+  data-navigation-read-only="{{ entry_navigation.read_only }}"
+  data-navigation-eligible-locations='{% if entry_navigation.eligible_locations %}{{ toJSON(entry_navigation.eligible_locations)|safe }}{% else %}[]{% endif %}'
+  data-navigation-default-locations='{% if entry_navigation.default_locations %}{{ toJSON(entry_navigation.default_locations)|safe }}{% else %}[]{% endif %}'
+  data-navigation-allow-instance-override="{{ entry_navigation.allow_instance_override }}"
+  data-navigation-overrides='{% if entry_navigation.overrides %}{{ toJSON(entry_navigation.overrides)|safe }}{% else %}{}{% endif %}'
+  data-navigation-effective-visibility='{% if entry_navigation.effective_visibility %}{{ toJSON(entry_navigation.effective_visibility)|safe }}{% else %}{}{% endif %}'
+></div>
+{% endif %}

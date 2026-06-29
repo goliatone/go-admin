@@ -1,4 +1,4 @@
-import { n as o, r as n, t as r } from "../chunks/integration-conflicts-BYJuzB0u.js";
+import { n as o, r as n, t as r } from "../chunks/integration-conflicts-DnDlaefT.js";
 export {
   r as IntegrationConflictsController,
   o as bootstrapIntegrationConflicts,

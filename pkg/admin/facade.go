@@ -924,7 +924,10 @@ type (
 	MutationPresentation                              = core.MutationPresentation
 	Navigation                                        = core.Navigation
 	NavigationClassification                          = core.NavigationClassification
+	NavigationConvergenceCoordinator                  = core.NavigationConvergenceCoordinator
+	NavigationConvergenceScope                        = core.NavigationConvergenceScope
 	NavigationContributionPolicy                      = core.NavigationContributionPolicy
+	NavigationCoordinationReport                      = core.NavigationCoordinationReport
 	NavigationDoctorExpectedItem                      = core.NavigationDoctorExpectedItem
 	NavigationDoctorItem                              = core.NavigationDoctorItem
 	NavigationDoctorOptions                           = core.NavigationDoctorOptions
@@ -932,7 +935,9 @@ type (
 	NavigationItem                                    = core.NavigationItem
 	NavigationLifecycleReport                         = core.NavigationLifecycleReport
 	NavigationOwner                                   = core.NavigationOwner
+	NavigationPersistenceReport                       = core.NavigationPersistenceReport
 	NavigationPermissionDeniedMode                    = core.NavigationPermissionDeniedMode
+	NavigationRawInventoryOptions                     = core.NavigationRawInventoryOptions
 	NavigationRouteMissingPolicy                      = core.NavigationRouteMissingPolicy
 	NoopCLIHandler                                    = core.NoopCLIHandler
 	NoopCMSContainer                                  = core.NoopCMSContainer

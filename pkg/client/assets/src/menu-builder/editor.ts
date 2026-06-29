@@ -2,17 +2,13 @@ import { MenuBuilderAPIClient, MenuBuilderAPIError } from './api-client.js';
 import { MenuBuilderStore } from './store.js';
 import { coerceString } from '../shared/coercion.js';
 import { escapeHTML as escapeHtml } from '../shared/html.js';
-import { parseJSONValue } from '../shared/json-parse.js';
 import { normalizeMenuBuilderAPIBasePath, normalizeMenuBuilderRoute } from './shared/path-helpers.js';
 import type {
-  EntryNavigationConfig,
-  EntryNavigationState,
   MenuBuilderState,
   MenuItemNode,
   MenuRecord,
   MenuTargetType,
   MenuViewProfileRecord,
-  NavigationOverrideValue,
 } from './types.js';
 function normalizeCSV(raw: string): string[] {
   return raw
@@ -26,10 +22,6 @@ function normalizeCSV(raw: string): string[] {
 function safePrompt(message: string, initial = ''): string {
   const value = window.prompt(message, initial);
   return String(value || '').trim();
-}
-
-function parseBool(raw: string | undefined): boolean {
-  return coerceString(raw).toLowerCase() === 'true';
 }
 
 type DropMode = 'before' | 'after' | 'inside';
@@ -790,151 +782,6 @@ export class MenuBuilderUI {
   }
 }
 
-export class EntryNavigationOverrideUI {
-  private readonly root: HTMLElement;
-  private readonly store: MenuBuilderStore;
-  private readonly contentType: string;
-  private readonly recordID: string;
-  private readonly config: EntryNavigationConfig;
-  private state: EntryNavigationState;
-
-  constructor(root: HTMLElement, store: MenuBuilderStore, contentType: string, recordID: string, config: EntryNavigationConfig, state: EntryNavigationState) {
-    this.root = root;
-    this.store = store;
-    this.contentType = contentType;
-    this.recordID = recordID;
-    this.config = config;
-    this.state = state;
-  }
-
-  init(): void {
-    this.root.addEventListener('change', this.onChange);
-    this.root.addEventListener('click', this.onClick);
-    this.render('');
-  }
-
-  destroy(): void {
-    this.root.removeEventListener('change', this.onChange);
-    this.root.removeEventListener('click', this.onClick);
-  }
-
-  private readonly onChange = (event: Event): void => {
-    const target = event.target as HTMLSelectElement;
-    if (!target.matches('[data-navigation-location]')) {
-      return;
-    }
-    const location = String(target.dataset.navigationLocation || '').trim();
-    const value = String(target.value || '').trim().toLowerCase() as NavigationOverrideValue;
-    if (!location) return;
-    if (!['inherit', 'show', 'hide'].includes(value)) return;
-    this.state.overrides[location] = value;
-  };
-
-  private readonly onClick = async (event: Event): Promise<void> => {
-    const target = event.target as HTMLElement;
-    if (!target.closest('[data-navigation-save]')) {
-      return;
-    }
-    await this.saveOverrides();
-  };
-
-  private async saveOverrides(): Promise<void> {
-    if (!this.config.enabled) {
-      this.render('Navigation overrides are disabled for this content type.');
-      return;
-    }
-    if (!this.config.allow_instance_override) {
-      this.render('Instance overrides are disabled by content type policy.');
-      return;
-    }
-
-    try {
-      const result = await this.store.patchEntryNavigation(
-        this.contentType,
-        this.recordID,
-        this.state.overrides,
-        this.config.eligible_locations
-      );
-      this.state = {
-        overrides: { ...result.overrides },
-        effective_visibility: { ...result.effective_visibility },
-      };
-      this.render('Saved entry navigation overrides.');
-    } catch (error) {
-      if (error instanceof MenuBuilderAPIError) {
-        const invalidLocationField = String(error.metadata.field || '').trim();
-        if (invalidLocationField.startsWith('_navigation.')) {
-          this.render(`Invalid location: ${invalidLocationField.replace('_navigation.', '')}`);
-          return;
-        }
-      }
-      this.render(error instanceof Error ? error.message : String(error));
-    }
-  }
-
-  private render(message: string): void {
-    const rows = this.config.eligible_locations
-      .map(location => {
-        const override = this.state.overrides[location] || 'inherit';
-        const effective = this.state.effective_visibility[location] === true;
-        return `
-          <div class="grid gap-2 md:grid-cols-[1fr,180px,120px] items-center">
-            <div>
-              <div class="text-sm font-medium text-gray-800">Show in ${escapeHtml(location)}</div>
-              <div class="text-xs text-gray-500">Tri-state: inherit, show, hide</div>
-            </div>
-            <select data-navigation-location="${escapeHtml(location)}" class="rounded border border-gray-300 px-2 py-1.5 text-sm" ${!this.config.allow_instance_override ? 'disabled' : ''}>
-              <option value="inherit" ${override === 'inherit' ? 'selected' : ''}>inherit</option>
-              <option value="show" ${override === 'show' ? 'selected' : ''}>show</option>
-              <option value="hide" ${override === 'hide' ? 'selected' : ''}>hide</option>
-            </select>
-            <span class="inline-flex justify-center rounded px-2 py-1 text-xs font-semibold ${effective ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}">
-              ${effective ? 'Visible' : 'Hidden'}
-            </span>
-          </div>
-        `;
-      })
-      .join('');
-
-    const help = this.config.allow_instance_override
-      ? 'Overrides are applied per entry. Use inherit/show/hide to control each location.'
-      : 'This content type has instance-level overrides disabled.';
-
-    this.root.innerHTML = `
-      <section class="bg-white border border-gray-200 rounded-xl p-4 space-y-3" data-entry-navigation-panel>
-        <div>
-          <h3 class="text-sm font-semibold text-gray-800">Entry Navigation Visibility</h3>
-          <p class="text-xs text-gray-500">${escapeHtml(help)}</p>
-        </div>
-        <div class="space-y-2">${rows || '<p class="text-sm text-gray-500">No eligible locations configured.</p>'}</div>
-        ${message ? `<div class="rounded border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-800">${escapeHtml(message)}</div>` : ''}
-        <div class="flex items-center justify-end">
-          <button type="button" data-navigation-save class="px-2.5 py-1.5 text-xs font-semibold text-white bg-blue-600 rounded hover:bg-blue-700" ${!this.config.allow_instance_override ? 'disabled' : ''}>
-            Save Visibility Overrides
-          </button>
-        </div>
-      </section>
-    `;
-  }
-}
-
-function parseEntryNavigationConfig(root: HTMLElement): EntryNavigationConfig {
-  return {
-    enabled: parseBool(root.dataset.navigationEnabled),
-    eligible_locations: parseJSONValue<string[]>(root.dataset.navigationEligibleLocations, []),
-    default_locations: parseJSONValue<string[]>(root.dataset.navigationDefaultLocations, []),
-    allow_instance_override: parseBool(root.dataset.navigationAllowInstanceOverride),
-    merge_mode: String(root.dataset.navigationMergeMode || '').trim(),
-  };
-}
-
-function parseEntryNavigationState(root: HTMLElement): EntryNavigationState {
-  return {
-    overrides: parseJSONValue<Record<string, NavigationOverrideValue>>(root.dataset.navigationOverrides, {}),
-    effective_visibility: parseJSONValue<Record<string, boolean>>(root.dataset.navigationEffectiveVisibility, {}),
-  };
-}
-
 export async function initMenuBuilder(root: HTMLElement): Promise<MenuBuilderUI> {
   const basePath = normalizeMenuBuilderRoute('/', String(root.dataset.basePath || '/admin'));
   const apiBase = normalizeMenuBuilderAPIBasePath(basePath, String(root.dataset.apiBasePath || `${basePath}/api`));
@@ -946,23 +793,5 @@ export async function initMenuBuilder(root: HTMLElement): Promise<MenuBuilderUI>
     initialMenuID,
   });
   await ui.init();
-  return ui;
-}
-
-export async function initEntryNavigationOverrides(root: HTMLElement): Promise<EntryNavigationOverrideUI | null> {
-  const panelName = String(root.dataset.panelName || '').trim();
-  const recordID = String(root.dataset.recordId || '').trim();
-  if (!panelName || !recordID) {
-    return null;
-  }
-
-  const basePath = normalizeMenuBuilderRoute('/', String(root.dataset.basePath || '/admin'));
-  const apiBase = normalizeMenuBuilderAPIBasePath(basePath, String(root.dataset.apiBasePath || `${basePath}/api`));
-  const store = new MenuBuilderStore(new MenuBuilderAPIClient({ basePath: apiBase }));
-
-  const config = parseEntryNavigationConfig(root);
-  const state = parseEntryNavigationState(root);
-  const ui = new EntryNavigationOverrideUI(root, store, panelName, recordID, config, state);
-  ui.init();
   return ui;
 }

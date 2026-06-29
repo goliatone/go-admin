@@ -38,6 +38,7 @@ export default defineConfig({
         'content-type-builder/shared/text': resolve(__dirname, 'src/content-type-builder/shared/text.ts'),
         'menu-builder/index': resolve(__dirname, 'src/menu-builder/index.ts'),
         'menu-builder/shared/path-helpers': resolve(__dirname, 'src/menu-builder/shared/path-helpers.ts'),
+        'entry-navigation/index': resolve(__dirname, 'src/entry-navigation/index.ts'),
         'media/index': resolve(__dirname, 'src/media/index.ts'),
         'translation-exchange/index': resolve(__dirname, 'src/translation-exchange/index.ts'),
         'translation-family/index': resolve(__dirname, 'src/translation-family/index.ts'),

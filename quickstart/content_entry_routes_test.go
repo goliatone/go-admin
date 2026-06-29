@@ -1552,6 +1552,82 @@ func TestRenderFormIncludesResourceItemForEdit(t *testing.T) {
 	ctx.AssertExpectations(t)
 }
 
+func TestRenderFormIncludesEntryNavigationViewModel(t *testing.T) {
+	validator, err := admin.NewFormgenSchemaValidatorWithAPIBase("/admin", "/admin/api")
+	if err != nil {
+		t.Fatalf("validator init failed: %v", err)
+	}
+	panel, err := newInMemoryPanelBuilder().
+		FormFields(admin.Field{Name: "title", Type: "text", Required: true}).
+		Build()
+	if err != nil {
+		t.Fatalf("build panel: %v", err)
+	}
+	contentType := &admin.CMSContentType{
+		Slug: "pages",
+		Capabilities: map[string]any{
+			"navigation": map[string]any{
+				"enabled":                 true,
+				"eligible_locations":      []string{"site.main", "site.footer"},
+				"default_locations":       []string{"site.main"},
+				"default_visible":         true,
+				"allow_instance_override": true,
+			},
+		},
+	}
+	resourceItem := map[string]any{
+		"id": "_page_123",
+		"_navigation": map[string]any{
+			"site.footer": "show",
+		},
+	}
+
+	ctx := router.NewMockContext()
+	ctx.ParamsM["id"] = "_page_123"
+	ctx.On("Context").Return(context.Background())
+	ctx.On("Render", "resources/content/form", mock.MatchedBy(func(arg any) bool {
+		viewCtx, ok := arg.(router.ViewContext)
+		if !ok {
+			return false
+		}
+		model := extractMap(viewCtx["entry_navigation"])
+		return toBool(model["visible"]) &&
+			toBool(model["editable"]) &&
+			strings.TrimSpace(anyToString(model["content_type"])) == "pages" &&
+			strings.TrimSpace(anyToString(model["record_id"])) == "_page_123" &&
+			strings.Contains(strings.TrimSpace(anyToString(model["endpoint"])), "/admin/api/content/pages/_page_123/navigation") &&
+			len(toStringSlice(model["eligible_locations"])) == 2
+	})).Return(nil).Once()
+
+	handler := &contentEntryHandlers{
+		cfg: admin.Config{
+			BasePath:      "/admin",
+			DefaultLocale: "en",
+		},
+		formTemplate: "resources/content/form",
+		formRenderer: validator,
+		templateExists: func(name string) bool {
+			return name == "resources/content/form"
+		},
+	}
+
+	err = handler.renderForm(
+		ctx,
+		"pages",
+		panel,
+		contentType,
+		admin.AdminContext{Context: context.Background()},
+		map[string]any{"title": "Page"},
+		resourceItem,
+		true,
+		"",
+	)
+	if err != nil {
+		t.Fatalf("render form: %v", err)
+	}
+	ctx.AssertExpectations(t)
+}
+
 func TestRenderFormIncludesRequestedLocaleInEditFormAction(t *testing.T) {
 	validator, err := admin.NewFormgenSchemaValidatorWithAPIBase("/admin", "/admin/api")
 	if err != nil {
