@@ -50,44 +50,45 @@ type Config struct {
 	// - "strict": return a 403 error
 	// - "inline": render tab-level unavailable state
 	// - "": auto mode (strict in dev, inline otherwise)
-	ActivityTabPermissionFailureMode     string              `json:"activity_tab_permission_failure_mode"`
-	ActivityActionLabels                 map[string]string   `json:"activity_action_labels"`
-	JobsPermission                       string              `json:"jobs_permission"`
-	JobsTriggerPermission                string              `json:"jobs_trigger_permission"`
-	PreferencesPermission                string              `json:"preferences_permission"`
-	PreferencesUpdatePermission          string              `json:"preferences_update_permission"`
-	DashboardPreferencesPermission       string              `json:"dashboard_preferences_permission"`
-	DashboardPreferencesUpdatePermission string              `json:"dashboard_preferences_update_permission"`
-	PreferencesManageTenantPermission    string              `json:"preferences_manage_tenant_permission"`
-	PreferencesManageOrgPermission       string              `json:"preferences_manage_org_permission"`
-	PreferencesManageSystemPermission    string              `json:"preferences_manage_system_permission"`
-	ProfilePermission                    string              `json:"profile_permission"`
-	ProfileUpdatePermission              string              `json:"profile_update_permission"`
-	UsersPermission                      string              `json:"users_permission"`
-	UsersCreatePermission                string              `json:"users_create_permission"`
-	UsersImportPermission                string              `json:"users_import_permission"`
-	UsersUpdatePermission                string              `json:"users_update_permission"`
-	UsersDeletePermission                string              `json:"users_delete_permission"`
-	RolesPermission                      string              `json:"roles_permission"`
-	RolesCreatePermission                string              `json:"roles_create_permission"`
-	RolesUpdatePermission                string              `json:"roles_update_permission"`
-	RolesDeletePermission                string              `json:"roles_delete_permission"`
-	TenantsPermission                    string              `json:"tenants_permission"`
-	TenantsCreatePermission              string              `json:"tenants_create_permission"`
-	TenantsUpdatePermission              string              `json:"tenants_update_permission"`
-	TenantsDeletePermission              string              `json:"tenants_delete_permission"`
-	OrganizationsPermission              string              `json:"organizations_permission"`
-	OrganizationsCreatePermission        string              `json:"organizations_create_permission"`
-	OrganizationsUpdatePermission        string              `json:"organizations_update_permission"`
-	OrganizationsDeletePermission        string              `json:"organizations_delete_permission"`
-	MenuBuilderPermission                string              `json:"menu_builder_permission"`
-	MenuBuilderEditPermission            string              `json:"menu_builder_edit_permission"`
-	MenuBuilderPublishPermission         string              `json:"menu_builder_publish_permission"`
-	MediaPermission                      string              `json:"media_permission"`
-	MediaCreatePermission                string              `json:"media_create_permission"`
-	MediaUpdatePermission                string              `json:"media_update_permission"`
-	MediaDeletePermission                string              `json:"media_delete_permission"`
-	MediaDelivery                        MediaDeliveryConfig `json:"media_delivery"`
+	ActivityTabPermissionFailureMode     string                 `json:"activity_tab_permission_failure_mode"`
+	ActivityActionLabels                 map[string]string      `json:"activity_action_labels"`
+	JobsPermission                       string                 `json:"jobs_permission"`
+	JobsTriggerPermission                string                 `json:"jobs_trigger_permission"`
+	PreferencesPermission                string                 `json:"preferences_permission"`
+	PreferencesUpdatePermission          string                 `json:"preferences_update_permission"`
+	DashboardPreferencesPermission       string                 `json:"dashboard_preferences_permission"`
+	DashboardPreferencesUpdatePermission string                 `json:"dashboard_preferences_update_permission"`
+	PreferencesManageTenantPermission    string                 `json:"preferences_manage_tenant_permission"`
+	PreferencesManageOrgPermission       string                 `json:"preferences_manage_org_permission"`
+	PreferencesManageSystemPermission    string                 `json:"preferences_manage_system_permission"`
+	ProfilePermission                    string                 `json:"profile_permission"`
+	ProfileUpdatePermission              string                 `json:"profile_update_permission"`
+	UsersPermission                      string                 `json:"users_permission"`
+	UsersCreatePermission                string                 `json:"users_create_permission"`
+	UsersImportPermission                string                 `json:"users_import_permission"`
+	UsersUpdatePermission                string                 `json:"users_update_permission"`
+	UsersDeletePermission                string                 `json:"users_delete_permission"`
+	RolesPermission                      string                 `json:"roles_permission"`
+	RolesCreatePermission                string                 `json:"roles_create_permission"`
+	RolesUpdatePermission                string                 `json:"roles_update_permission"`
+	RolesDeletePermission                string                 `json:"roles_delete_permission"`
+	TenantsPermission                    string                 `json:"tenants_permission"`
+	TenantsCreatePermission              string                 `json:"tenants_create_permission"`
+	TenantsUpdatePermission              string                 `json:"tenants_update_permission"`
+	TenantsDeletePermission              string                 `json:"tenants_delete_permission"`
+	OrganizationsPermission              string                 `json:"organizations_permission"`
+	OrganizationsCreatePermission        string                 `json:"organizations_create_permission"`
+	OrganizationsUpdatePermission        string                 `json:"organizations_update_permission"`
+	OrganizationsDeletePermission        string                 `json:"organizations_delete_permission"`
+	MenuBuilderPermission                string                 `json:"menu_builder_permission"`
+	MenuBuilderEditPermission            string                 `json:"menu_builder_edit_permission"`
+	MenuBuilderPublishPermission         string                 `json:"menu_builder_publish_permission"`
+	EntryNavigation                      EntryNavigationOptions `json:"entry_navigation"`
+	MediaPermission                      string                 `json:"media_permission"`
+	MediaCreatePermission                string                 `json:"media_create_permission"`
+	MediaUpdatePermission                string                 `json:"media_update_permission"`
+	MediaDeletePermission                string                 `json:"media_delete_permission"`
+	MediaDelivery                        MediaDeliveryConfig    `json:"media_delivery"`
 
 	AuthConfig *AuthConfig `json:"auth_config"`
 
@@ -96,6 +97,9 @@ type Config struct {
 	NavMenuCode string `json:"nav_menu_code"`
 	NavDebug    bool   `json:"nav_debug"`
 	NavDebugLog bool   `json:"nav_debug_log"`
+	// NavEnvironment scopes managed admin navigation convergence and diagnostics.
+	// Empty values fall back to Debug.Environment, then "default".
+	NavEnvironment string `json:"nav_environment"`
 	// NavPermissionDeniedMode controls whether denied navigation entries are
 	// hidden or retained as disabled diagnostics. Empty and unknown values
 	// normalize to "hide".
