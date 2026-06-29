@@ -1036,6 +1036,32 @@ func TestAdminRawInventoryUsesNavigationEnvironmentScope(t *testing.T) {
 	}
 }
 
+func TestAdminRawMenuItemsUsesScopedOnlyProvider(t *testing.T) {
+	ctx := context.Background()
+	provider := &adminScopedOnlyRawInventoryProvider{
+		raw: []MenuItem{{
+			ID:     "admin_main.media",
+			Locale: "en",
+			Target: map[string]any{"type": "url", "path": "/admin/media", "key": "media"},
+		}},
+	}
+
+	items, err := rawMenuItems(ctx, provider, NavigationRawInventoryOptions{
+		MenuCode:          "admin_main",
+		Environment:       "preview",
+		EnvironmentSource: "test",
+	})
+	if err != nil {
+		t.Fatalf("rawMenuItems: %v", err)
+	}
+	if len(items) != 1 || items[0].ID != "admin_main.media" {
+		t.Fatalf("expected scoped raw item, got %#v", items)
+	}
+	if provider.lastRawOptions.MenuCode != "admin_main" || provider.lastRawOptions.Environment != "preview" || provider.lastRawOptions.EnvironmentSource != "test" {
+		t.Fatalf("expected scoped raw inventory options, got %#v", provider.lastRawOptions)
+	}
+}
+
 func TestInMemoryMenuServiceStripsRequestScopedTargetState(t *testing.T) {
 	ctx := context.Background()
 	menuSvc := NewInMemoryMenuService()
@@ -1352,6 +1378,16 @@ func (s *adminScopedRawInventoryMenuService) RawMenuItems(context.Context, strin
 }
 
 func (s *adminScopedRawInventoryMenuService) RawMenuItemsWithOptions(_ context.Context, opts NavigationRawInventoryOptions) ([]MenuItem, error) {
+	s.lastRawOptions = opts
+	return append([]MenuItem{}, s.raw...), nil
+}
+
+type adminScopedOnlyRawInventoryProvider struct {
+	raw            []MenuItem
+	lastRawOptions NavigationRawInventoryOptions
+}
+
+func (s *adminScopedOnlyRawInventoryProvider) RawMenuItemsWithOptions(_ context.Context, opts NavigationRawInventoryOptions) ([]MenuItem, error) {
 	s.lastRawOptions = opts
 	return append([]MenuItem{}, s.raw...), nil
 }

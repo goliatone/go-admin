@@ -12,9 +12,55 @@ import (
 	coreadmin "github.com/goliatone/go-admin/admin"
 	"github.com/goliatone/go-admin/examples/web/setup"
 	"github.com/goliatone/go-admin/examples/web/stores"
+	"github.com/goliatone/go-admin/pkg/admin"
 	"github.com/goliatone/go-admin/quickstart"
 	goerrors "github.com/goliatone/go-errors"
 )
+
+func TestExampleEntryNavigationOptionsDocumentReusablePolicy(t *testing.T) {
+	options := exampleEntryNavigationOptions()
+	if options.Enabled == nil || !*options.Enabled {
+		t.Fatalf("expected entry navigation enabled")
+	}
+	if options.AllowInstanceOverride == nil || !*options.AllowInstanceOverride {
+		t.Fatalf("expected per-entry overrides enabled")
+	}
+	if options.ActivityAction != coreadmin.DefaultEntryNavigationActivityAction {
+		t.Fatalf("expected default activity action, got %q", options.ActivityAction)
+	}
+
+	required := map[string]coreadmin.EntryNavigationTypeOptions{
+		"page": {
+			ViewPermission:     admin.PermAdminPagesView,
+			EditPermission:     admin.PermAdminPagesEdit,
+			PermissionResource: "pages",
+		},
+		"post": {
+			ViewPermission:     admin.PermAdminPostsView,
+			EditPermission:     admin.PermAdminPostsEdit,
+			PermissionResource: "posts",
+		},
+		"news": {
+			ViewPermission:     admin.PermAdminPostsView,
+			EditPermission:     admin.PermAdminPostsEdit,
+			PermissionResource: "news",
+		},
+	}
+	for contentType, want := range required {
+		got, ok := options.ContentTypes[contentType]
+		if !ok {
+			t.Fatalf("expected content type %q in entry navigation options", contentType)
+		}
+		if got.ViewPermission != want.ViewPermission || got.EditPermission != want.EditPermission || got.PermissionResource != want.PermissionResource {
+			t.Fatalf("content type %q options = %+v, want %+v", contentType, got, want)
+		}
+	}
+
+	labels := exampleActivityActionLabels()
+	if got := labels[coreadmin.DefaultEntryNavigationActivityAction]; got != "Navigation visibility updated" {
+		t.Fatalf("expected entry navigation activity label, got %q", got)
+	}
+}
 
 func TestTriggerTestErrorPanicReturnsInternalError(t *testing.T) {
 	err := triggerTestError("panic")

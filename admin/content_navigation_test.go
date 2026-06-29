@@ -120,6 +120,71 @@ func TestApplyEntryNavigationWriteContractHandlesDisabledOverrides(t *testing.T)
 	}
 }
 
+func TestApplyEntryNavigationWriteContractUsesNestedDataOverrides(t *testing.T) {
+	policy := EntryNavigationPolicy{
+		Enabled:               true,
+		EligibleLocations:     []string{"site.main", "site.footer"},
+		DefaultLocations:      []string{"site.main"},
+		DefaultVisible:        true,
+		AllowInstanceOverride: true,
+	}
+	record := map[string]any{
+		"data": map[string]any{
+			"_navigation": map[string]any{
+				"site.main":   "hide",
+				"site.footer": "show",
+			},
+		},
+	}
+
+	if err := ApplyEntryNavigationWriteContract(record, policy, false); err != nil {
+		t.Fatalf("apply write contract: %v", err)
+	}
+	nav := extractMap(record["_navigation"])
+	if got := toString(nav["site.main"]); got != NavigationOverrideHide {
+		t.Fatalf("expected nested site.main override to be preserved, got %q", got)
+	}
+	if got := toString(nav["site.footer"]); got != NavigationOverrideShow {
+		t.Fatalf("expected nested site.footer override to be preserved, got %q", got)
+	}
+	if got, want := toStringSlice(record["effective_menu_locations"]), []string{"site.footer"}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("effective locations mismatch: got %+v want %+v", got, want)
+	}
+	visibility := extractMap(record["effective_navigation_visibility"])
+	if toBool(visibility["site.main"]) || !toBool(visibility["site.footer"]) {
+		t.Fatalf("effective visibility mismatch: %+v", visibility)
+	}
+}
+
+func TestApplyEntryNavigationWriteContractTopLevelOverrideWinsOverNestedData(t *testing.T) {
+	policy := EntryNavigationPolicy{
+		Enabled:               true,
+		EligibleLocations:     []string{"site.main"},
+		DefaultLocations:      []string{"site.main"},
+		DefaultVisible:        true,
+		AllowInstanceOverride: true,
+	}
+	record := map[string]any{
+		"_navigation": nil,
+		"data": map[string]any{
+			"_navigation": map[string]any{
+				"site.main": "hide",
+			},
+		},
+	}
+
+	if err := ApplyEntryNavigationWriteContract(record, policy, false); err != nil {
+		t.Fatalf("apply write contract: %v", err)
+	}
+	if nav := extractMap(record["_navigation"]); len(nav) != 0 {
+		t.Fatalf("expected explicit top-level clear to win, got %+v", nav)
+	}
+	visibility := extractMap(record["effective_navigation_visibility"])
+	if !toBool(visibility["site.main"]) {
+		t.Fatalf("expected default visibility after explicit clear, got %+v", visibility)
+	}
+}
+
 func TestEntryNavigationPolicyOptionsPreserveDefaultCapabilityBehavior(t *testing.T) {
 	contentType := CMSContentType{
 		Slug: "page",

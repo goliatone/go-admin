@@ -2,6 +2,7 @@ package quickstart
 
 import (
 	"context"
+	"errors"
 	"reflect"
 	"slices"
 	"strings"
@@ -410,6 +411,125 @@ func TestReconcileGeneratedNavigationUsesScopedRawInventoryOptions(t *testing.T)
 	}
 }
 
+func TestReconcileGeneratedNavigationUsesScopedOnlyRawInventoryProvider(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	menuCode := "admin.main"
+	locale := "en"
+	expected := testGeneratedMenuItem("translations.queue", NavigationGroupTranslationsID, "Translation Queue", "translation_queue", "/admin/translations/queue", 50)
+	menuSvc := &scopedOnlyRawInventoryMenuService{
+		base: admin.NewInMemoryMenuService(),
+		raw:  []admin.MenuItem{expected},
+	}
+	if _, createErr := menuSvc.CreateMenu(ctx, menuCode); createErr != nil {
+		t.Fatalf("CreateMenu: %v", createErr)
+	}
+
+	report, err := ReconcileGeneratedNavigation(ctx, NavigationReconcileOptions{
+		MenuSvc:  menuSvc,
+		MenuCode: menuCode,
+		Locale:   locale,
+		Items:    []admin.MenuItem{expected},
+		RawInventory: admin.NavigationRawInventoryOptions{
+			Environment:       "preview",
+			EnvironmentSource: "test",
+		},
+	})
+	if err != nil {
+		t.Fatalf("reconcile: %v", err)
+	}
+	if menuSvc.rawOptions.MenuCode != "admin_main" || menuSvc.rawOptions.Environment != "preview" || menuSvc.rawOptions.EnvironmentSource != "test" {
+		t.Fatalf("expected scoped raw inventory options, got %#v", menuSvc.rawOptions)
+	}
+	if !containsStringWithSuffix(report.RawPresentButNotRendered, "translations.queue") {
+		t.Fatalf("expected scoped-only raw row in report, got %#v", report.RawPresentButNotRendered)
+	}
+}
+
+func TestReconcileGeneratedNavigationApplyFailsOnScopedRawInventoryErrorWithoutMutation(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	menuCode := "admin.main"
+	locale := "en"
+	expected := testGeneratedMenuItem("translations.queue", NavigationGroupTranslationsID, "Translation Queue", "translation_queue", "/admin/translations/queue", 50)
+	menuSvc := &scopedOnlyRawInventoryMenuService{
+		base:   admin.NewInMemoryMenuService(),
+		rawErr: errors.New("environment-scoped reads unsupported"),
+	}
+	if _, createErr := menuSvc.CreateMenu(ctx, menuCode); createErr != nil {
+		t.Fatalf("CreateMenu: %v", createErr)
+	}
+
+	report, err := ReconcileGeneratedNavigation(ctx, NavigationReconcileOptions{
+		MenuSvc:  menuSvc,
+		MenuCode: menuCode,
+		Locale:   locale,
+		Items:    []admin.MenuItem{expected},
+		Apply:    true,
+		RawInventory: admin.NavigationRawInventoryOptions{
+			Environment:       "preview",
+			EnvironmentSource: "test",
+		},
+	})
+	if err == nil || !strings.Contains(err.Error(), "generated navigation raw inventory unavailable") {
+		t.Fatalf("expected scoped raw inventory apply error, got err=%v report=%#v", err, report)
+	}
+	if len(report.RawInventoryUnavailable) != 1 || !strings.Contains(report.RawInventoryUnavailable[0], "environment-scoped reads unsupported") {
+		t.Fatalf("expected raw inventory diagnostic, got %#v", report.RawInventoryUnavailable)
+	}
+	if menuSvc.adds != 0 || menuSvc.updates != 0 || menuSvc.deletes != 0 {
+		t.Fatalf("expected no menu mutations after scoped raw inventory error, adds=%d updates=%d deletes=%d", menuSvc.adds, menuSvc.updates, menuSvc.deletes)
+	}
+	menu, err := menuSvc.Menu(ctx, menuCode, locale)
+	if err != nil {
+		t.Fatalf("menu: %v", err)
+	}
+	if item := findMenuItemByTargetKeyForTest(menu.Items, "translation_queue"); item != nil {
+		t.Fatalf("expected no persisted translation queue after raw inventory error, got %#v", item)
+	}
+}
+
+func TestReconcileGeneratedNavigationDryRunReportsScopedRawInventoryError(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	menuCode := "admin.main"
+	locale := "en"
+	expected := testGeneratedMenuItem("translations.queue", NavigationGroupTranslationsID, "Translation Queue", "translation_queue", "/admin/translations/queue", 50)
+	menuSvc := &scopedOnlyRawInventoryMenuService{
+		base:   admin.NewInMemoryMenuService(),
+		rawErr: errors.New("environment-scoped reads unsupported"),
+	}
+	if _, createErr := menuSvc.CreateMenu(ctx, menuCode); createErr != nil {
+		t.Fatalf("CreateMenu: %v", createErr)
+	}
+
+	report, err := ReconcileGeneratedNavigation(ctx, NavigationReconcileOptions{
+		MenuSvc:  menuSvc,
+		MenuCode: menuCode,
+		Locale:   locale,
+		Items:    []admin.MenuItem{expected},
+		RawInventory: admin.NavigationRawInventoryOptions{
+			Environment:       "preview",
+			EnvironmentSource: "test",
+		},
+	})
+	if err != nil {
+		t.Fatalf("dry-run should report raw inventory error without failing: %v", err)
+	}
+	if len(report.RawInventoryUnavailable) != 1 || !strings.Contains(report.RawInventoryUnavailable[0], "environment-scoped reads unsupported") {
+		t.Fatalf("expected raw inventory diagnostic, got %#v", report.RawInventoryUnavailable)
+	}
+	if !containsStringWithSuffix(report.Creates, "translations.queue") {
+		t.Fatalf("expected dry-run create plan, got %#v", report.Creates)
+	}
+	if menuSvc.adds != 0 || menuSvc.updates != 0 || menuSvc.deletes != 0 {
+		t.Fatalf("dry-run should not mutate, adds=%d updates=%d deletes=%d", menuSvc.adds, menuSvc.updates, menuSvc.deletes)
+	}
+}
+
 func TestReconcileGeneratedNavigationApplyUsesConvergenceCoordinator(t *testing.T) {
 	t.Parallel()
 
@@ -443,6 +563,47 @@ func TestReconcileGeneratedNavigationApplyUsesConvergenceCoordinator(t *testing.
 	}
 	if menuSvc.lastScope.EngineIdentity == "" || menuSvc.lastScope.EngineVersion == "" {
 		t.Fatalf("expected engine stamp in convergence scope, got %#v", menuSvc.lastScope)
+	}
+	report, err := ReconcileGeneratedNavigation(ctx, NavigationReconcileOptions{
+		MenuSvc:  menuSvc,
+		MenuCode: menuCode,
+		Locale:   locale,
+		Items:    []admin.MenuItem{expected},
+	})
+	if err != nil {
+		t.Fatalf("dry-run reconcile: %v", err)
+	}
+	if !report.CoordinationSupported || report.CoordinationBackend != "test" || report.CoordinationScope != "test-menu" {
+		t.Fatalf("expected supported coordination report, got %#v", report)
+	}
+}
+
+func TestReconcileGeneratedNavigationReportsUnsupportedCoordination(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	menuCode := "admin.main"
+	locale := "en"
+	menuSvc := admin.NewInMemoryMenuService()
+	if _, createErr := menuSvc.CreateMenu(ctx, menuCode); createErr != nil {
+		t.Fatalf("CreateMenu: %v", createErr)
+	}
+	expected := testGeneratedMenuItem("translations.queue", NavigationGroupTranslationsID, "Translation Queue", "translation_queue", "/admin/translations/queue", 50)
+
+	report, err := ReconcileGeneratedNavigation(ctx, NavigationReconcileOptions{
+		MenuSvc:  menuSvc,
+		MenuCode: menuCode,
+		Locale:   locale,
+		Items:    []admin.MenuItem{expected},
+	})
+	if err != nil {
+		t.Fatalf("reconcile: %v", err)
+	}
+	if report.CoordinationSupported {
+		t.Fatalf("expected unsupported coordination report, got %#v", report)
+	}
+	if report.CoordinationBackend == "" || report.CoordinationWarning == "" {
+		t.Fatalf("expected coordination backend and warning, got %#v", report)
 	}
 }
 
@@ -1652,6 +1813,55 @@ func (s *rawInventoryMenuService) RawMenuItems(context.Context, string) ([]admin
 
 func (s *rawInventoryMenuService) RawMenuItemsWithOptions(_ context.Context, opts admin.NavigationRawInventoryOptions) ([]admin.MenuItem, error) {
 	s.rawOptions = opts
+	return append([]admin.MenuItem{}, s.raw...), nil
+}
+
+type scopedOnlyRawInventoryMenuService struct {
+	base       *admin.InMemoryMenuService
+	raw        []admin.MenuItem
+	rawErr     error
+	rawOptions admin.NavigationRawInventoryOptions
+	adds       int
+	updates    int
+	deletes    int
+}
+
+func (s *scopedOnlyRawInventoryMenuService) CreateMenu(ctx context.Context, code string) (*admin.Menu, error) {
+	return s.base.CreateMenu(ctx, code)
+}
+
+func (s *scopedOnlyRawInventoryMenuService) AddMenuItem(ctx context.Context, menuCode string, item admin.MenuItem) error {
+	s.adds++
+	return s.base.AddMenuItem(ctx, menuCode, item)
+}
+
+func (s *scopedOnlyRawInventoryMenuService) UpdateMenuItem(ctx context.Context, menuCode string, item admin.MenuItem) error {
+	s.updates++
+	return s.base.UpdateMenuItem(ctx, menuCode, item)
+}
+
+func (s *scopedOnlyRawInventoryMenuService) DeleteMenuItem(ctx context.Context, menuCode, id string) error {
+	s.deletes++
+	return s.base.DeleteMenuItem(ctx, menuCode, id)
+}
+
+func (s *scopedOnlyRawInventoryMenuService) ReorderMenu(ctx context.Context, menuCode string, orderedIDs []string) error {
+	return s.base.ReorderMenu(ctx, menuCode, orderedIDs)
+}
+
+func (s *scopedOnlyRawInventoryMenuService) Menu(ctx context.Context, code, locale string) (*admin.Menu, error) {
+	return s.base.Menu(ctx, code, locale)
+}
+
+func (s *scopedOnlyRawInventoryMenuService) MenuByLocation(ctx context.Context, location, locale string) (*admin.Menu, error) {
+	return s.base.MenuByLocation(ctx, location, locale)
+}
+
+func (s *scopedOnlyRawInventoryMenuService) RawMenuItemsWithOptions(_ context.Context, opts admin.NavigationRawInventoryOptions) ([]admin.MenuItem, error) {
+	s.rawOptions = opts
+	if s.rawErr != nil {
+		return nil, s.rawErr
+	}
 	return append([]admin.MenuItem{}, s.raw...), nil
 }
 

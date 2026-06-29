@@ -3,6 +3,7 @@ package admin
 import (
 	"context"
 	"errors"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -137,6 +138,130 @@ func TestAdminContentWriteServiceCreateUpdateAndTranslationPreserveRepositoryCon
 	}
 	if got := toString(translated["locale"]); got != "es" {
 		t.Fatalf("expected es locale, got %q", got)
+	}
+}
+
+func TestAdminContentWriteServiceCreateAppliesNestedNavigationOverrides(t *testing.T) {
+	ctx := context.Background()
+	content := NewInMemoryContentService()
+	if _, err := content.CreateContentType(ctx, CMSContentType{
+		Name:   "Page",
+		Slug:   "page",
+		Schema: minimalContentTypeSchema(),
+		Capabilities: map[string]any{
+			"navigation": map[string]any{
+				"enabled":                 true,
+				"eligible_locations":      []string{"site.main", "site.footer"},
+				"default_locations":       []string{"site.main"},
+				"default_visible":         true,
+				"allow_instance_override": true,
+			},
+		},
+	}); err != nil {
+		t.Fatalf("create content type: %v", err)
+	}
+	service := newAdminContentWriteService(content)
+
+	created, err := service.Create(ctx, map[string]any{
+		"title":             "Home",
+		"slug":              "home",
+		"locale":            "en",
+		"status":            "draft",
+		"content_type":      "page",
+		"content_type_slug": "page",
+		"data": map[string]any{
+			"path": "/home",
+			"_navigation": map[string]any{
+				"site.main":   "hide",
+				"site.footer": "show",
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("create failed: %v", err)
+	}
+
+	nav := extractMap(created["_navigation"])
+	if got := toString(nav["site.main"]); got != NavigationOverrideHide {
+		t.Fatalf("expected nested site.main override to persist, got %q", got)
+	}
+	if got := toString(nav["site.footer"]); got != NavigationOverrideShow {
+		t.Fatalf("expected nested site.footer override to persist, got %q", got)
+	}
+	visibility := extractMap(created["effective_navigation_visibility"])
+	if toBool(visibility["site.main"]) || !toBool(visibility["site.footer"]) {
+		t.Fatalf("effective visibility mismatch: %+v", visibility)
+	}
+	if got, want := toStringSlice(created["effective_menu_locations"]), []string{"site.footer"}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("effective locations mismatch: got %+v want %+v", got, want)
+	}
+	data := extractMap(created["data"])
+	dataNav := extractMap(data["_navigation"])
+	if got := toString(dataNav["site.main"]); got != NavigationOverrideHide {
+		t.Fatalf("expected data._navigation to persist normalized override, got %+v", dataNav)
+	}
+}
+
+func TestAdminContentWriteServiceUpdateAppliesNestedNavigationOverrides(t *testing.T) {
+	ctx := context.Background()
+	content := NewInMemoryContentService()
+	if _, err := content.CreateContentType(ctx, CMSContentType{
+		Name:   "Page",
+		Slug:   "page",
+		Schema: minimalContentTypeSchema(),
+		Capabilities: map[string]any{
+			"navigation": map[string]any{
+				"enabled":                 true,
+				"eligible_locations":      []string{"site.main", "site.footer"},
+				"default_locations":       []string{"site.main"},
+				"default_visible":         true,
+				"allow_instance_override": true,
+			},
+		},
+	}); err != nil {
+		t.Fatalf("create content type: %v", err)
+	}
+	service := newAdminContentWriteService(content)
+	created, err := service.Create(ctx, map[string]any{
+		"title":             "Home",
+		"slug":              "home",
+		"locale":            "en",
+		"status":            "draft",
+		"content_type":      "page",
+		"content_type_slug": "page",
+		"data": map[string]any{
+			"path": "/home",
+		},
+	})
+	if err != nil {
+		t.Fatalf("create failed: %v", err)
+	}
+
+	updated, err := service.Update(ctx, toString(created["id"]), map[string]any{
+		"data": map[string]any{
+			"_navigation": map[string]any{
+				"site.main":   "hide",
+				"site.footer": "show",
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("update failed: %v", err)
+	}
+
+	nav := extractMap(updated["_navigation"])
+	if got := toString(nav["site.main"]); got != NavigationOverrideHide {
+		t.Fatalf("expected nested site.main override to persist, got %q", got)
+	}
+	if got := toString(nav["site.footer"]); got != NavigationOverrideShow {
+		t.Fatalf("expected nested site.footer override to persist, got %q", got)
+	}
+	visibility := extractMap(updated["effective_navigation_visibility"])
+	if toBool(visibility["site.main"]) || !toBool(visibility["site.footer"]) {
+		t.Fatalf("effective visibility mismatch: %+v", visibility)
+	}
+	if got, want := toStringSlice(updated["effective_menu_locations"]), []string{"site.footer"}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("effective locations mismatch: got %+v want %+v", got, want)
 	}
 }
 
