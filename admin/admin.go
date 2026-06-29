@@ -126,6 +126,8 @@ type Admin struct {
 	navigationRouteMissingItems     []string
 	navigationRawInventoryErrors    []string
 	navigationConvergenceMu         sync.Mutex
+	navigationCoordinationWarnings  []string
+	navigationPermissionRegistry    *NavigationPermissionRegistry
 }
 
 type activityAware interface {
