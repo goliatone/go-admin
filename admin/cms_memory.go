@@ -344,6 +344,7 @@ type menuState struct {
 // InMemoryMenuService stores menus in memory.
 type InMemoryMenuService struct {
 	mu            sync.Mutex
+	convergenceMu sync.Mutex
 	menus         map[string]*menuState
 	slugIndex     map[string]string
 	locationIndex map[string]string
@@ -714,6 +715,21 @@ func (s *InMemoryMenuService) RawMenuItemsWithOptions(ctx context.Context, opts 
 	return s.RawMenuItems(ctx, opts.MenuCode)
 }
 
+func (s *InMemoryMenuService) WithNavigationConvergence(ctx context.Context, _ NavigationConvergenceScope, fn func(context.Context) error) error {
+	if fn == nil {
+		return nil
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if s == nil {
+		return fn(ctx)
+	}
+	s.convergenceMu.Lock()
+	defer s.convergenceMu.Unlock()
+	return fn(ctx)
+}
+
 func (s *InMemoryMenuService) NavigationCoordinationReport() NavigationCoordinationReport {
 	return NavigationCoordinationReport{
 		Backend:   "memory",
@@ -728,10 +744,11 @@ func (s *InMemoryMenuService) NavigationPersistenceReport() NavigationPersistenc
 		Backend:                "memory",
 		RawInventoryScope:      "menu-code",
 		RawInventoryBounded:    true,
-		RawInventoryEnvScoped:  true,
+		RawInventoryEnvScoped:  false,
 		SoftDeletedRowsVisible: true,
 		TransactionalApply:     false,
 		Warnings: []string{
+			"in-memory menu service raw inventory accepts environment options but stores one process-local menu state per menu code",
 			"in-memory menu service serializes writes in-process only and does not provide durable transactional apply",
 		},
 	}
