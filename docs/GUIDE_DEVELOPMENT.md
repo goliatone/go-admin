@@ -224,6 +224,12 @@ If quickstart-generated admin navigation is stale, duplicated, or missing:
     - `DestructiveCandidates` before enabling destructive cleanup.
     - `CapabilityOmissions` and `PermissionFilteredItems` when links disappear
       because a feature or permission gate filtered them out.
+    - `RawInventoryUnavailable` before apply; scoped raw-inventory errors stop
+      apply-mode mutation by design.
+    - `RawPresentButNotRendered` for generated rows hidden by render filtering
+      but still present in raw menu storage.
+    - `CoordinationBackend`, `CoordinationScope`, `CoordinationSupported`, and
+      `CoordinationWarning` before multi-process or blue-green startup.
     - `EngineIdentity` / `EngineVersion` when comparing startup reports across binaries
 4.  Use `Admin.DiagnoseNavigation` or `ClassifyNavigation` for module-owned and host diagnostics. The shared classification vocabulary is:
     - `rendered`
@@ -239,7 +245,9 @@ If quickstart-generated admin navigation is stale, duplicated, or missing:
     - `unsafe_broad_match`
 5.  Treat `route_missing` and `unsafe_broad_match` as stop-and-inspect states. Module-owned expected rows with `target.type=url` and no `target.path` or `target.url` fail before persistence; raw rows with missing paths remain diagnosable and repairable.
 6.  Do not reseed or delete menu data until the dry-run report explains the
-    mismatch. Keep `AllowDestructive` off unless the candidates were reviewed.
+    mismatch. Keep `AllowDestructive` off unless the candidates were reviewed,
+    and do not force apply past `RawInventoryUnavailable` for scoped menu
+    backends.
 7.  Treat `admin.MenuItem.Position` in generated/module navigation as a sparse
     sort weight. Quickstart compacts those weights to per-parent `0..n-1`
     sibling indexes before writing to CMS-backed menus, because CMS/menu-builder

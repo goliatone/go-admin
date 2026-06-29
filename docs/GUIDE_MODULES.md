@@ -2337,7 +2337,12 @@ For troubleshooting or migrations, call `ReconcileGeneratedNavigation` with
 `Apply: false` first and inspect `Creates`, `Updates`,
 `PreservedUserRows`, `DuplicateIdentities`, `DestructiveCandidates`,
 `StaleTargetStateCleanup`, `CapabilityOmissions`, and
-`PermissionFilteredItems`. See `quickstart/README.md` for the full
+`PermissionFilteredItems`. Also inspect `RawInventoryUnavailable` and
+`RawPresentButNotRendered` before apply so scoped raw-inventory failures or
+render-hidden rows are not mistaken for safe fallback behavior. Check
+`CoordinationBackend`, `CoordinationScope`, `CoordinationSupported`, and
+`CoordinationWarning` before relying on generated-menu convergence during
+multi-process or blue-green startup. See `quickstart/README.md` for the full
 reconciliation contract.
 
 ---
