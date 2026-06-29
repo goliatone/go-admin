@@ -31,6 +31,7 @@ require (
 	github.com/goliatone/go-formgen v0.29.1
 	github.com/goliatone/go-i18n v0.5.0
 	github.com/goliatone/go-job v0.19.0
+	github.com/goliatone/go-lifecycle v0.0.0
 	github.com/goliatone/go-logger v0.8.0
 	github.com/goliatone/go-notifications v0.14.0
 	github.com/goliatone/go-persistence-bun v0.16.1
@@ -54,6 +55,12 @@ require (
 )
 
 replace github.com/goliatone/go-i18n => ../../go-i18n
+
+replace github.com/goliatone/go-lifecycle => ../pkg/go-lifecycle
+
+replace github.com/goliatone/go-sync => ../pkg/go-sync
+
+replace github.com/goliatone/go-translation-ai => ../pkg/go-translation-ai
 
 require (
 	cel.dev/expr v0.25.1 // indirect
@@ -133,6 +140,7 @@ require (
 	github.com/goliatone/go-repository-cache v0.7.1 // indirect
 	github.com/goliatone/go-search/adapters/goadmin v0.8.1 // indirect
 	github.com/goliatone/go-slug v0.1.0 // indirect
+	github.com/goliatone/go-sync v0.0.0 // indirect
 	github.com/goliatone/hashid v0.2.2 // indirect
 	github.com/goodsign/monday v1.0.2 // indirect
 	github.com/google/cel-go v0.26.1 // indirect
