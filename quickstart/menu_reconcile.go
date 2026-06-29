@@ -72,6 +72,11 @@ type NavigationReconcileReport struct {
 	RawPresentButNotRendered []string `json:"raw_present_but_not_rendered,omitempty"`
 	RawInventoryUnavailable  []string `json:"raw_inventory_unavailable,omitempty"`
 	RetiredManagedItems      []string `json:"retired_managed_items,omitempty"`
+
+	CoordinationBackend   string `json:"coordination_backend,omitempty"`
+	CoordinationScope     string `json:"coordination_scope,omitempty"`
+	CoordinationSupported bool   `json:"coordination_supported"`
+	CoordinationWarning   string `json:"coordination_warning,omitempty"`
 }
 
 // ReconcileGeneratedNavigation converges persisted CMS menu rows to the expected generated plan.
@@ -106,6 +111,10 @@ func reconcileGeneratedNavigation(ctx context.Context, opts NavigationReconcileO
 	raw, rawErr := loadGeneratedNavigationRawItems(ctx, opts.MenuSvc, rawInventory)
 	if rawErr != nil {
 		report.RawInventoryUnavailable = append(report.RawInventoryUnavailable, rawErr.Error())
+		if opts.Apply {
+			report.sort()
+			return report, generatedNavigationRawInventoryError(rawErr)
+		}
 	}
 	recordRawGeneratedNavigationState(&report, rendered, raw, expected)
 	actual := mergeGeneratedNavigationActualItems(rendered, raw)
@@ -126,6 +135,8 @@ func reconcileGeneratedNavigation(ctx context.Context, opts NavigationReconcileO
 		raw, rawErr = loadGeneratedNavigationRawItems(ctx, opts.MenuSvc, rawInventory)
 		if rawErr != nil {
 			report.RawInventoryUnavailable = append(report.RawInventoryUnavailable, rawErr.Error())
+			report.sort()
+			return report, generatedNavigationRawInventoryError(rawErr)
 		}
 		actual = mergeGeneratedNavigationActualItems(rendered, raw)
 	}
@@ -163,6 +174,7 @@ func prepareGeneratedNavigationReconcile(ctx context.Context, opts NavigationRec
 		PermissionFilteredItems: append([]string{}, opts.PermissionFilteredItems...),
 		ParentPrunedItems:       generatedEmptyParentItems(expected),
 	}
+	recordGeneratedNavigationCoordination(&report, opts.MenuSvc, normalizeNavigationRawInventoryOptions(opts.RawInventory, runtime.menuCode))
 	report.PermissionFilteredItems = append(report.PermissionFilteredItems, generatedPermissionFilteredItems(expected)...)
 	return runtime, expected, report, nil
 }
@@ -179,16 +191,16 @@ func loadGeneratedNavigationActualItems(ctx context.Context, menuSvc admin.CMSMe
 }
 
 func loadGeneratedNavigationRawItems(ctx context.Context, menuSvc admin.CMSMenuService, opts admin.NavigationRawInventoryOptions) ([]admin.MenuItem, error) {
-	provider, ok := menuSvc.(rawMenuInventoryProvider)
-	if !ok || provider == nil {
-		return nil, nil
-	}
-	if scoped, ok := provider.(scopedRawMenuInventoryProvider); ok && scoped != nil {
+	if scoped, ok := menuSvc.(scopedRawMenuInventoryProvider); ok && scoped != nil {
 		items, err := scoped.RawMenuItemsWithOptions(ctx, opts)
 		if err != nil {
 			return nil, err
 		}
 		return flattenReconcileMenuItems(items), nil
+	}
+	provider, ok := menuSvc.(rawMenuInventoryProvider)
+	if !ok || provider == nil {
+		return nil, nil
 	}
 	items, err := provider.RawMenuItems(ctx, opts.MenuCode)
 	if err != nil {
@@ -232,6 +244,63 @@ func normalizeNavigationRawInventoryOptions(opts admin.NavigationRawInventoryOpt
 		opts.EnvironmentSource = "default"
 	}
 	return opts
+}
+
+func recordGeneratedNavigationCoordination(report *NavigationReconcileReport, menuSvc admin.CMSMenuService, opts admin.NavigationRawInventoryOptions) {
+	if report == nil {
+		return
+	}
+	coordination := generatedNavigationCoordinationReport(menuSvc, opts)
+	report.CoordinationBackend = coordination.Backend
+	report.CoordinationScope = coordination.Scope
+	report.CoordinationSupported = coordination.Supported
+	report.CoordinationWarning = strings.TrimSpace(coordination.Warning)
+}
+
+func generatedNavigationCoordinationReport(menuSvc admin.CMSMenuService, opts admin.NavigationRawInventoryOptions) admin.NavigationCoordinationReport {
+	report := admin.NavigationCoordinationReport{
+		Backend:   "process",
+		Scope:     "quickstart-process",
+		Supported: false,
+		Warning:   "backend coordination unavailable; generated navigation convergence is serialized only inside this process",
+	}
+	if menuSvc == nil {
+		return report
+	}
+	if provider, ok := menuSvc.(interface {
+		NavigationCoordinationReport() admin.NavigationCoordinationReport
+	}); ok && provider != nil {
+		provided := provider.NavigationCoordinationReport()
+		if value := strings.TrimSpace(provided.Backend); value != "" {
+			report.Backend = value
+		}
+		if value := strings.TrimSpace(provided.Scope); value != "" {
+			report.Scope = value
+		}
+		report.Supported = provided.Supported
+		report.Warning = strings.TrimSpace(provided.Warning)
+		return report
+	}
+	if _, ok := menuSvc.(admin.NavigationConvergenceCoordinator); ok {
+		report.Backend = "custom"
+		report.Scope = strings.TrimSpace(opts.MenuCode)
+		if report.Scope == "" {
+			report.Scope = "menu"
+		}
+		if env := strings.TrimSpace(opts.Environment); env != "" {
+			report.Scope += ":" + env
+		}
+		report.Supported = true
+		report.Warning = ""
+	}
+	return report
+}
+
+func generatedNavigationRawInventoryError(err error) error {
+	if err == nil {
+		return nil
+	}
+	return fmt.Errorf("generated navigation raw inventory unavailable: %w", err)
 }
 
 func mergeGeneratedNavigationActualItems(rendered, raw []admin.MenuItem) []admin.MenuItem {
@@ -412,6 +481,9 @@ func loadGeneratedNavigationSnapshot(ctx context.Context, opts NavigationReconci
 	raw, rawErr := loadGeneratedNavigationRawItems(ctx, opts.MenuSvc, normalizeNavigationRawInventoryOptions(opts.RawInventory, runtime.menuCode))
 	if rawErr != nil {
 		report.RawInventoryUnavailable = append(report.RawInventoryUnavailable, rawErr.Error())
+		if opts.Apply {
+			return generatedNavigationSnapshot{}, generatedNavigationRawInventoryError(rawErr)
+		}
 	}
 	return generatedNavigationSnapshot{
 		rendered: rendered,
