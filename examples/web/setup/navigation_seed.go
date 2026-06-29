@@ -48,11 +48,30 @@ func SeedAdminNavigation(ctx context.Context, menuSvc admin.CMSMenuService, cfg 
 		MenuSvc:           menuSvc,
 		MenuCode:          menuCode,
 		Locale:            locale,
+		RawInventory:      exampleNavigationRawInventoryOptions(cfg, menuCode),
 		Items:             items,
 		Reconcile:         true,
 		AllowDestructive:  true,
 		ManagedExclusions: ExampleManagedNavigationExclusions(menuCode),
 	})
+}
+
+func exampleNavigationRawInventoryOptions(cfg admin.Config, menuCode string) admin.NavigationRawInventoryOptions {
+	environment := strings.TrimSpace(cfg.NavEnvironment)
+	source := "config.nav_environment"
+	if environment == "" {
+		environment = strings.TrimSpace(cfg.Debug.Environment)
+		source = "config.debug.environment"
+	}
+	if environment == "" {
+		environment = "default"
+		source = "default"
+	}
+	return admin.NavigationRawInventoryOptions{
+		MenuCode:          strings.TrimSpace(menuCode),
+		Environment:       environment,
+		EnvironmentSource: source,
+	}
 }
 
 func ExampleManagedNavigationExclusions(menuCode string) []quickstart.NavigationManagedExclusion {
@@ -110,6 +129,38 @@ func buildAdminNavigationSpec(basePath, menuCode, locale string, modules []admin
 			Menu:        menuCode,
 			ParentID:    mainGroup,
 			Permissions: append([]string{}, quickstart.DefaultContentParentPermissions()...),
+		},
+		{
+			ID:       contentParent + ".pages",
+			Label:    "Pages",
+			LabelKey: "menu.content.pages",
+			Icon:     "page",
+			Position: new(20),
+			Target: map[string]any{
+				"type": "url",
+				"path": path.Join(basePath, "content", "pages"),
+				"key":  "pages",
+			},
+			Menu:        menuCode,
+			ParentID:    contentParent,
+			Locale:      locale,
+			Permissions: []string{admin.PermAdminPagesView},
+		},
+		{
+			ID:       contentParent + ".posts",
+			Label:    "Posts",
+			LabelKey: "menu.content.posts",
+			Icon:     "page",
+			Position: new(30),
+			Target: map[string]any{
+				"type": "url",
+				"path": path.Join(basePath, "content", "posts"),
+				"key":  "posts",
+			},
+			Menu:        menuCode,
+			ParentID:    contentParent,
+			Locale:      locale,
+			Permissions: []string{admin.PermAdminPostsView},
 		},
 	}
 
