@@ -2,11 +2,11 @@ package setup
 
 import (
 	"context"
+	"path"
 	"strings"
 
 	"github.com/goliatone/go-admin/pkg/admin"
 	"github.com/goliatone/go-admin/quickstart"
-	"path"
 )
 
 type featureGates interface {
@@ -45,12 +45,30 @@ func SeedAdminNavigation(ctx context.Context, menuSvc admin.CMSMenuService, cfg 
 	}
 
 	return quickstart.SeedNavigation(ctx, quickstart.SeedNavigationOptions{
-		MenuSvc:   menuSvc,
-		MenuCode:  menuCode,
-		Locale:    locale,
-		Items:     items,
-		Reconcile: true,
+		MenuSvc:           menuSvc,
+		MenuCode:          menuCode,
+		Locale:            locale,
+		Items:             items,
+		Reconcile:         true,
+		AllowDestructive:  true,
+		ManagedExclusions: ExampleManagedNavigationExclusions(menuCode),
 	})
+}
+
+func ExampleManagedNavigationExclusions(menuCode string) []quickstart.NavigationManagedExclusion {
+	menuCode = strings.TrimSpace(menuCode)
+	if menuCode == "" {
+		menuCode = NavigationMenuCode
+	}
+	mainGroup := menuCode + ".nav-group-main"
+	othersGroup := menuCode + ".nav-group-others"
+	return []quickstart.NavigationManagedExclusion{
+		{ID: mainGroup + ".settings", Reason: "settings moved to utility menu"},
+		{ID: othersGroup + ".translations.dashboard", Reason: "translations moved to product navigation"},
+		{ID: othersGroup + ".translations.queue", Reason: "translations moved to product navigation"},
+		{ID: othersGroup + ".translations.assignments", Reason: "translations moved to product navigation"},
+		{ID: othersGroup + ".translations.exchange", Reason: "translations moved to product navigation"},
+	}
 }
 
 func buildAdminNavigationSpec(basePath, menuCode, locale string, modules []admin.Module, gates featureGates) []admin.MenuItem {

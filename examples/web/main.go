@@ -34,8 +34,6 @@ import (
 	"github.com/goliatone/go-admin/examples/web/stores"
 	"github.com/goliatone/go-admin/pkg/admin"
 	"github.com/goliatone/go-admin/pkg/client"
-	syncdata "github.com/goliatone/go-admin/pkg/go-sync/data"
-	translationai "github.com/goliatone/go-admin/pkg/go-translation-ai"
 	"github.com/goliatone/go-admin/quickstart"
 	quicksite "github.com/goliatone/go-admin/quickstart/site"
 	authlib "github.com/goliatone/go-auth"
@@ -49,7 +47,10 @@ import (
 	glog "github.com/goliatone/go-logger/glog"
 	persistence "github.com/goliatone/go-persistence-bun"
 	"github.com/goliatone/go-router"
+	syncdata "github.com/goliatone/go-sync/data"
 	gotheme "github.com/goliatone/go-theme"
+	translationai "github.com/goliatone/go-translation-ai"
+	translationaigoadmin "github.com/goliatone/go-translation-ai/adapters/goadmin"
 	"github.com/goliatone/go-users/activity"
 	userstypes "github.com/goliatone/go-users/pkg/types"
 	"github.com/goliatone/go-users/preferences"
@@ -1067,6 +1068,8 @@ func main() {
 				return
 			}
 			opts.Reset = runtimeConfig.Navigation.ResetMenu
+			opts.AllowDestructive = true
+			opts.ManagedExclusions = append(opts.ManagedExclusions, setup.ExampleManagedNavigationExclusions(cfg.NavMenuCode)...)
 			opts.Logf = func(format string, args ...any) {
 				infof(format, args...)
 			}
@@ -1104,29 +1107,10 @@ func main() {
 		fatalf("failed to initialize admin: %v", err)
 	}
 	logTranslationNavigationSnapshot(context.Background(), "after-admin-initialize", adm.MenuService(), cfg.NavMenuCode, cfg.DefaultLocale, infof, warnf)
-	if err := setup.RemovePrimarySettingsMenuItems(context.Background(), adm.MenuService(), cfg.NavMenuCode, cfg.DefaultLocale); err != nil {
-		warnf("failed to prune primary settings menu item: %v", err)
-	}
-	logTranslationNavigationSnapshot(context.Background(), "after-remove-primary-settings", adm.MenuService(), cfg.NavMenuCode, cfg.DefaultLocale, infof, warnf)
 	if _, err := setup.LogNavigationIntegritySummary(context.Background(), adm.MenuService(), cfg.NavMenuCode, cfg.DefaultLocale); err != nil {
 		warnf("failed to repair/check navigation integrity: %v", err)
 	}
 	logTranslationNavigationSnapshot(context.Background(), "after-navigation-integrity-summary-1", adm.MenuService(), cfg.NavMenuCode, cfg.DefaultLocale, infof, warnf)
-	// Reorder after full module/panel registration to avoid mutation races with dynamic panel sync.
-	if err := setup.EnsureDashboardFirstWithOptions(context.Background(), adm.MenuService(), cfg.BasePath, cfg.NavMenuCode, cfg.DefaultLocale, setup.EnsureDashboardFirstOptions{
-		EnsureContentParentPath: false,
-	}); err != nil {
-		warnf("failed to fix dashboard ordering: %v", err)
-	}
-	logTranslationNavigationSnapshot(context.Background(), "after-ensure-dashboard-first", adm.MenuService(), cfg.NavMenuCode, cfg.DefaultLocale, infof, warnf)
-	if err := setup.EnsureContentParentPermissions(context.Background(), adm.MenuService(), cfg.NavMenuCode, cfg.DefaultLocale); err != nil {
-		warnf("failed to reconcile content parent permissions: %v", err)
-	}
-	logTranslationNavigationSnapshot(context.Background(), "after-content-parent-permissions", adm.MenuService(), cfg.NavMenuCode, cfg.DefaultLocale, infof, warnf)
-	if err := setup.RemoveLegacyTranslationToolsMenuItems(context.Background(), adm.MenuService(), cfg.NavMenuCode, cfg.DefaultLocale); err != nil {
-		warnf("failed to remove legacy translation items from tools menu: %v", err)
-	}
-	logTranslationNavigationSnapshot(context.Background(), "after-remove-legacy-translation-tools", adm.MenuService(), cfg.NavMenuCode, cfg.DefaultLocale, infof, warnf)
 	if report, err := setup.LogNavigationIntegritySummary(context.Background(), adm.MenuService(), cfg.NavMenuCode, cfg.DefaultLocale); err != nil {
 		warnf("failed to compute final navigation integrity summary: %v", err)
 	} else if report.HasIssues() {
@@ -2308,8 +2292,8 @@ func buildExampleTranslationSuggestionService(
 		return nil, extraBodyErr
 	}
 
-	options := []translationai.Option{
-		translationai.WithOpenAIProvider(translationai.OpenAIConfig{
+	options := []translationaigoadmin.Option{
+		translationaigoadmin.WithOpenAIProvider(translationai.OpenAIConfig{
 			APIKey:         apiKey,
 			BaseURL:        strings.TrimSpace(cfg.OpenAI.BaseURL),
 			Model:          model,
@@ -2321,16 +2305,16 @@ func buildExampleTranslationSuggestionService(
 			SystemPrompt:   strings.TrimSpace(cfg.Prompt.SystemPrompt),
 			ExtraBody:      extraBody,
 		}),
-		translationai.WithDefaultModel(model),
-		translationai.WithEligibility(coreadmin.TranslationSuggestionAllowAllEligibility{}),
+		translationaigoadmin.WithDefaultModel(model),
+		translationaigoadmin.WithEligibility(coreadmin.TranslationSuggestionAllowAllEligibility{}),
 	}
 	if strings.TrimSpace(cfg.Prompt.SystemPrompt) != "" || strings.TrimSpace(cfg.Prompt.Instruction) != "" {
-		options = append(options, translationai.WithServicePromptConfig(translationai.PromptConfig{
+		options = append(options, translationaigoadmin.WithServicePromptConfig(translationai.PromptConfig{
 			SystemPrompt: strings.TrimSpace(cfg.Prompt.SystemPrompt),
 			Instruction:  strings.TrimSpace(cfg.Prompt.Instruction),
 		}))
 	}
-	return translationai.NewService(options...), ""
+	return translationaigoadmin.NewService(options...), ""
 }
 
 func parseTranslationSuggestionOpenAIExtraBody(raw string) (map[string]any, string) {
