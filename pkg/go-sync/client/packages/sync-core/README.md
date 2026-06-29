@@ -52,9 +52,9 @@ Resource isolation is strict on `{kind, id, scope}`.
 
 ## Served Asset Consumption
 
-The compiled runtime is produced from this package and vendored into the Go package embed tree.
+The compiled runtime is produced from this package and embedded into the Go module tree.
 
-- Build source: [`pkg/go-sync/client/packages/sync-core/dist`](/Users/goliatone/Development/GO/src/github.com/goliatone/go-admin/pkg/go-sync/client/packages/sync-core/dist)
-- Embedded output: [`pkg/go-sync/data/client/sync-core`](/Users/goliatone/Development/GO/src/github.com/goliatone/go-admin/pkg/go-sync/data/client/sync-core)
+- Build source: `client/packages/sync-core/dist`
+- Embedded output: `data/client/sync-core`
 
 Consuming apps should serve the embedded bundle or wrap it behind a thin application-owned loader. They should not import unpublished page-local sync code.

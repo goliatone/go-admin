@@ -1,6 +1,6 @@
 # go-sync
 
-`pkg/go-sync` is the vendored, extraction-ready sync package for revision-safe resource reads, compare-and-swap mutations, idempotent action replay, HTTP transport mapping, and embedded browser client distribution.
+`github.com/goliatone/go-sync` is the extraction-ready sync module for revision-safe resource reads, compare-and-swap mutations, idempotent action replay, HTTP transport mapping, and embedded browser client distribution.
 
 ## Package Surface
 
@@ -40,7 +40,7 @@
 
 ## Client Distribution
 
-The package-local client workspace lives under [`pkg/go-sync/client/packages/sync-core`](/Users/goliatone/Development/GO/src/github.com/goliatone/go-admin/pkg/go-sync/client/packages/sync-core).
+The package-local client workspace lives under `client/packages/sync-core`.
 
 - Build output is emitted to `client/packages/sync-core/dist` and `dist-types`.
 - `client/scripts/build-sync.mjs` copies the runtime bundle into `data/client/sync-core`.
@@ -51,25 +51,25 @@ Consuming applications serve those embedded files from routes they own. `go-sync
 
 ## Release Workflow
 
-- Package version source of truth: [`pkg/go-sync/.version`](/Users/goliatone/Development/GO/src/github.com/goliatone/go-admin/pkg/go-sync/.version)
-- Package-local commands: [`pkg/go-sync/taskfile`](/Users/goliatone/Development/GO/src/github.com/goliatone/go-admin/pkg/go-sync/taskfile)
+- Package version source of truth: `.version`
+- Package-local commands: `taskfile`
 
 Commands:
 
-- `./pkg/go-sync/taskfile client:release`
+- `./taskfile client:release`
   - synchronizes the Go package version, workspace package versions, and `sync-core` metadata, then builds and embeds the client artifacts.
-- `./pkg/go-sync/taskfile client:build`
+- `./taskfile client:build`
   - builds `sync-core`, copies `dist` into `data/client/sync-core`, and verifies runtime/type outputs against the manifest.
-- `./pkg/go-sync/taskfile client:test`
+- `./taskfile client:test`
   - runs workspace tests and the same manifest/output verification.
-- `./pkg/go-sync/taskfile client:build:all`
+- `./taskfile client:build:all`
   - current alias for `client:build`, reserved for future multiple sync client packages.
 
 ## Extraction Boundaries
 
-- Do not import `examples/esign` or other host app packages from `pkg/go-sync`.
+- Do not import `examples/esign`, `go-admin/admin`, or other host app packages from `go-sync`.
 - Do not make the package-local taskfile or client scripts depend on `pkg/client/assets` or unpublished e-sign page source.
 - Keep browser artifacts checked in under `data/client` so Go builds do not require Node.
 - Preserve the package-local workspace, taskfile, and embed pipeline when the package moves to its own repository.
 
-The extraction checklist is documented in [`docs/GO_SYNC_EXTRACTION_CHECKLIST.md`](/Users/goliatone/Development/GO/src/github.com/goliatone/go-admin/docs/GO_SYNC_EXTRACTION_CHECKLIST.md).
+During incubation, go-admin consumes this module through a local `replace`. After repository extraction, consumers should use tagged `github.com/goliatone/go-sync` versions.
