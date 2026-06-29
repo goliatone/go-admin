@@ -126,7 +126,7 @@ password-change gate, and recovery flow.
 - `WithMenuSeedModuleParentOverride(moduleID, parentID string) ModuleRegistrarOption` - Inputs: module ID and parent ID. Outputs: option that moves all menu rows contributed by that module under the given parent.
 - `WithMenuSeedBaseItemTransform(transforms ...MenuSeedBaseItemTransform) ModuleRegistrarOption` - Inputs: transforms for quickstart base/capability rows such as translation dashboard, queue, assignments, and exchange links. Outputs: option for host label, target, permission, parent, or sparse sort-weight tweaks before generated rows are reconciled.
 - `WithMenuSeedItemTransform(transforms ...MenuSeedItemTransform) ModuleRegistrarOption` - Inputs: transforms for module-contributed menu rows. Outputs: option for host label, permission, parent, or sparse sort-weight tweaks before generated rows are reconciled.
-- `ReconcileGeneratedNavigation(ctx context.Context, opts NavigationReconcileOptions) (NavigationReconcileReport, error)` - Inputs: menu service, expected items, locale, menu code, apply/dry-run mode, and optional destructive cleanup. Outputs: creates, updates, preserved user rows, duplicate identities, destructive candidates, stale target cleanup, route failures, capability omissions, permission-filtered rows, preserved generated fields, and parent-prune diagnostics.
+- `ReconcileGeneratedNavigation(ctx context.Context, opts NavigationReconcileOptions) (NavigationReconcileReport, error)` - Inputs: menu service, expected items, locale, menu code, apply/dry-run mode, raw-inventory scope, and optional destructive cleanup. Outputs: creates, updates, preserved user rows, duplicate identities, destructive candidates, stale target cleanup, route failures, capability omissions, permission-filtered rows, preserved generated fields, parent-prune diagnostics, raw-inventory availability, raw-present-but-not-rendered rows, and coordination support diagnostics.
 - `DefaultContentParentPermissions() []string` - Outputs: canonical permission set used by the default sidebar `Content` parent (`media`, `content_types`, `block_definitions`).
 - `WithGoAuth(adm *admin.Admin, routeAuth *auth.RouteAuthenticator, cfg auth.Config, authz admin.GoAuthAuthorizerConfig, authCfg *admin.AuthConfig, opts ...admin.GoAuthAuthenticatorOption) (*admin.GoAuthAuthenticator, *admin.GoAuthAuthorizer)` - Inputs: admin, route auth, auth config, authz config, admin auth config, options. Outputs: adapters.
 - `WithDefaultDashboardRenderer(adm *admin.Admin, viewEngine fiber.Views, cfg admin.Config, opts ...DashboardRendererOption) error` - Inputs: admin, view engine, config, renderer options. Outputs: error.
@@ -1993,6 +1993,11 @@ report, err := quickstart.ReconcileGeneratedNavigation(ctx, quickstart.Navigatio
     Locale:   cfg.DefaultLocale,
     Items:    expectedItems,
     Apply:    false,
+    RawInventory: admin.NavigationRawInventoryOptions{
+        MenuCode:          cfg.NavMenuCode,
+        Environment:       cfg.NavEnvironment,
+        EnvironmentSource: "config.nav_environment",
+    },
 })
 ```
 
@@ -2018,6 +2023,16 @@ The report separates normal updates from operational diagnostics:
 - `CapabilityOmissions`, `PermissionFilteredItems`, `ParentPrunedItems`, and
   `RouteResolutionFailures` are diagnostics for missing capabilities,
   permission-filtered rows, empty generated parents, or unresolved route data.
+- `RawInventoryUnavailable` records scoped raw inventory failures. In dry-run
+  mode this is a diagnostic; in apply mode a raw-inventory error returns before
+  any create, update, delete, or managed-exclusion mutation.
+- `RawPresentButNotRendered` reports generated rows present in raw storage but
+  absent from the rendered menu, usually because render filtering or malformed
+  target data hid a row that still affects convergence.
+- `CoordinationBackend`, `CoordinationScope`, `CoordinationSupported`, and
+  `CoordinationWarning` describe whether the menu backend coordinated
+  convergence beyond this process. Treat unsupported coordination as an
+  operational warning for multi-process or blue-green startup.
 
 Set `Apply: true` to converge rows. Keep `AllowDestructive` off unless the host
 has explicitly reviewed the destructive candidates; generated rows are
