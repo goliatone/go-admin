@@ -429,6 +429,7 @@ curl http://localhost:8080/admin/test-error?type=nested
 - Configure DSNs with `APP_DATABASES__CONTENT_DSN` and `APP_DATABASES__CMS_DSN`; fixtures load from `examples/web/data/sql/seeds` when `seeds.enabled` is true (`APP_SEEDS__ENABLED=true`). Use `APP_SEEDS__TRUNCATE=true` to reseed.
 - Controllers use canonical go-crud routes by default; only legacy user-profile compatibility routes are kept (`/admin/crud/user-profiles`, `/admin/crud/user-profiles/:id`, `/admin/crud/user-profiles/batch`) so existing DataGrid/HTML flows continue to work.
 - Smoke: create/edit/delete a page and post via the content entry UI, and a media item via `/admin/crud/media`; restart the server and confirm the records persist and still filter/sort in the lists.
+- Entry navigation visibility is configured through `cfg.EntryNavigation` in `examples/web/main.go` and per-content-type `capabilities.navigation` in `examples/web/setup/cms_seed.go`. Pages, posts, and news expose `site.main`/`site.footer` as seeded menu locations; the admin-level config layers view/edit permissions and the activity action label without template-specific policy. Successful non-noop saves emit `content.navigation_visibility.update` on the `content` channel.
 
 ## Sidebar Navigation & Quickstart defaults
 

@@ -69,6 +69,46 @@ const (
 	exampleAppInfoPath            = "/.well-known/app-info"
 )
 
+func exampleEntryNavigationOptions() coreadmin.EntryNavigationOptions {
+	enabled := true
+	allowInstanceOverride := true
+	return coreadmin.EntryNavigationOptions{
+		Enabled:               &enabled,
+		AllowInstanceOverride: &allowInstanceOverride,
+		ActivityAction:        coreadmin.DefaultEntryNavigationActivityAction,
+		ContentTypes: map[string]coreadmin.EntryNavigationTypeOptions{
+			"page": {
+				ViewPermission:     admin.PermAdminPagesView,
+				EditPermission:     admin.PermAdminPagesEdit,
+				PermissionResource: "pages",
+			},
+			"post": {
+				ViewPermission:     admin.PermAdminPostsView,
+				EditPermission:     admin.PermAdminPostsEdit,
+				PermissionResource: "posts",
+			},
+			"news": {
+				ViewPermission:     admin.PermAdminPostsView,
+				EditPermission:     admin.PermAdminPostsEdit,
+				PermissionResource: "news",
+			},
+		},
+	}
+}
+
+func exampleActivityActionLabels() map[string]string {
+	return map[string]string{
+		"debug.repl.eval":       "Execute REPL",
+		"debug.repl.open":       "Opened REPL",
+		"debug.repl.close":      "Closed REPL",
+		"created":               "Created",
+		"tenant.create":         "Created",
+		"dashboard.layout.save": "Saved",
+		"preferences.update":    "Updated",
+		coreadmin.DefaultEntryNavigationActivityAction: "Navigation visibility updated",
+	}
+}
+
 type handlerAuthenticatorFunc func(router.HandlerFunc) router.HandlerFunc
 
 func (f handlerAuthenticatorFunc) WrapHandler(handler router.HandlerFunc) router.HandlerFunc {
@@ -187,15 +227,8 @@ func main() {
 			ExposeInternalMessage: &errorExposeOption,
 		}),
 	)
-	cfg.ActivityActionLabels = map[string]string{
-		"debug.repl.eval":       "Execute REPL",
-		"debug.repl.open":       "Opened REPL",
-		"debug.repl.close":      "Closed REPL",
-		"created":               "Created",
-		"tenant.create":         "Created",
-		"dashboard.layout.save": "Saved",
-		"preferences.update":    "Updated",
-	}
+	cfg.EntryNavigation = exampleEntryNavigationOptions()
+	cfg.ActivityActionLabels = exampleActivityActionLabels()
 	cfg.EnablePublicAPI = runtimeConfig.Admin.PublicAPI
 	cfg.Site.AllowUnauthenticatedReads = runtimeConfig.Admin.PublicAPI
 	cfg.PreviewSecret = strings.TrimSpace(runtimeConfig.Admin.PreviewSecret)
