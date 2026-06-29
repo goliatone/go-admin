@@ -710,6 +710,33 @@ func (s *InMemoryMenuService) RawMenuItems(_ context.Context, code string) ([]Me
 	return items, nil
 }
 
+func (s *InMemoryMenuService) RawMenuItemsWithOptions(ctx context.Context, opts NavigationRawInventoryOptions) ([]MenuItem, error) {
+	return s.RawMenuItems(ctx, opts.MenuCode)
+}
+
+func (s *InMemoryMenuService) NavigationCoordinationReport() NavigationCoordinationReport {
+	return NavigationCoordinationReport{
+		Backend:   "memory",
+		Scope:     "admin-process",
+		Supported: false,
+		Warning:   "in-memory menu service cannot coordinate convergence across processes",
+	}
+}
+
+func (s *InMemoryMenuService) NavigationPersistenceReport() NavigationPersistenceReport {
+	return NavigationPersistenceReport{
+		Backend:                "memory",
+		RawInventoryScope:      "menu-code",
+		RawInventoryBounded:    true,
+		RawInventoryEnvScoped:  true,
+		SoftDeletedRowsVisible: true,
+		TransactionalApply:     false,
+		Warnings: []string{
+			"in-memory menu service serializes writes in-process only and does not provide durable transactional apply",
+		},
+	}
+}
+
 // MenuByLocation returns a menu resolved by location.
 func (s *InMemoryMenuService) MenuByLocation(ctx context.Context, location, locale string) (*Menu, error) {
 	s.mu.Lock()

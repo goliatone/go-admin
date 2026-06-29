@@ -312,10 +312,22 @@ func (a *GoCMSMenuAdapter) Menu(ctx context.Context, code, locale string) (*Menu
 // RawMenuItems returns persisted go-cms menu rows without localized navigation filtering.
 // It is intentionally separate from Menu, which remains the renderable navigation API.
 func (a *GoCMSMenuAdapter) RawMenuItems(ctx context.Context, code string) ([]MenuItem, error) {
+	return a.RawMenuItemsWithOptions(ctx, NavigationRawInventoryOptions{MenuCode: code})
+}
+
+func (a *GoCMSMenuAdapter) RawMenuItemsWithOptions(ctx context.Context, opts NavigationRawInventoryOptions) ([]MenuItem, error) {
 	if a == nil || a.service == nil {
 		return nil, ErrNotFound
 	}
-	menuCode := cms.CanonicalMenuCode(code)
+	menuCode := cms.CanonicalMenuCode(opts.MenuCode)
+	if goCMSRawInventoryEnvironmentUnsupported(opts) {
+		return nil, validationDomainError("go-cms raw menu inventory does not support environment-scoped reads", map[string]any{
+			"component":          "navigation",
+			"menu":               menuCode,
+			"environment":        strings.TrimSpace(opts.Environment),
+			"environment_source": strings.TrimSpace(opts.EnvironmentSource),
+		})
+	}
 	rows, err := a.service.ListMenuItemsByCode(ctx, menuCode)
 	if err != nil {
 		return nil, err
@@ -333,25 +345,60 @@ func (a *GoCMSMenuAdapter) RawMenuItems(ctx context.Context, code string) ([]Men
 			}
 		}
 		position := row.Position
+		target := primitives.CloneAnyMap(row.Target)
 		items = append(items, MenuItem{
-			ID:          path,
-			Code:        path,
-			Type:        normalizeMenuItemType(row.Type),
-			Target:      primitives.CloneAnyMap(row.Target),
-			Icon:        strings.TrimSpace(row.Icon),
-			Badge:       primitives.CloneAnyMap(row.Badge),
-			Permissions: cloneStringSliceOrNil(row.Permissions),
-			Classes:     cloneStringSliceOrNil(row.Classes),
-			Styles:      cloneStringMapOrNil(row.Styles),
-			Collapsible: row.Collapsible,
-			Collapsed:   row.Collapsed,
-			Position:    cloneIntPtr(&position),
-			Menu:        menuCode,
-			ParentID:    parent,
-			ParentCode:  parent,
+			ID:            path,
+			Code:          path,
+			Type:          normalizeMenuItemType(row.Type),
+			Target:        target,
+			Icon:          strings.TrimSpace(row.Icon),
+			Badge:         primitives.CloneAnyMap(row.Badge),
+			Permissions:   cloneStringSliceOrNil(row.Permissions),
+			Classes:       cloneStringSliceOrNil(row.Classes),
+			Styles:        cloneStringMapOrNil(row.Styles),
+			Collapsible:   row.Collapsible,
+			Collapsed:     row.Collapsed,
+			Position:      cloneIntPtr(&position),
+			PlacementSlot: navcontract.TargetString(target, navcontract.TargetPlacementSlotKey),
+			Menu:          menuCode,
+			ParentID:      parent,
+			ParentCode:    parent,
 		})
 	}
 	return items, nil
+}
+
+func goCMSRawInventoryEnvironmentUnsupported(opts NavigationRawInventoryOptions) bool {
+	environment := strings.TrimSpace(opts.Environment)
+	if environment == "" || strings.EqualFold(environment, "default") {
+		return false
+	}
+	return true
+}
+
+func (a *GoCMSMenuAdapter) NavigationCoordinationReport() NavigationCoordinationReport {
+	return NavigationCoordinationReport{
+		Backend:   "go-cms",
+		Scope:     "menu-service",
+		Supported: false,
+		Warning:   "go-cms menu service does not expose backend-backed navigation convergence coordination",
+	}
+}
+
+func (a *GoCMSMenuAdapter) NavigationPersistenceReport() NavigationPersistenceReport {
+	return NavigationPersistenceReport{
+		Backend:                "go-cms",
+		RawInventoryScope:      "menu-code",
+		RawInventoryBounded:    true,
+		RawInventoryEnvScoped:  false,
+		SoftDeletedRowsVisible: false,
+		TransactionalApply:     false,
+		Warnings: []string{
+			"go-cms raw menu inventory is menu-code scoped but cannot filter by navigation environment through the current public API",
+			"go-cms public menu inventory does not expose soft-deleted rows to go-admin diagnostics",
+			"go-cms public menu service does not expose a transaction wrapper for multi-row managed navigation apply",
+		},
+	}
 }
 
 // MenuByLocation resolves a localized navigation tree using menu locations.
