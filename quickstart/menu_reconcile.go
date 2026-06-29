@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"sync"
 
 	"github.com/goliatone/go-admin/admin"
 	navcontract "github.com/goliatone/go-admin/internal/navigation"
@@ -20,13 +21,28 @@ type NavigationReconcileOptions struct {
 	Apply    bool
 	Logf     func(format string, args ...any)
 
+	RawInventory            admin.NavigationRawInventoryOptions
 	CapabilityOmissions     []string
 	PermissionFilteredItems []string
 	AllowDestructive        bool
+	ManagedExclusions       []NavigationManagedExclusion
 }
 
 type rawMenuInventoryProvider interface {
 	RawMenuItems(ctx context.Context, menuCode string) ([]admin.MenuItem, error)
+}
+
+type scopedRawMenuInventoryProvider interface {
+	RawMenuItemsWithOptions(ctx context.Context, opts admin.NavigationRawInventoryOptions) ([]admin.MenuItem, error)
+}
+
+var generatedNavigationConvergenceMu sync.Mutex
+
+type NavigationManagedExclusion struct {
+	ID          string
+	GeneratedID string
+	TargetKey   string
+	Reason      string
 }
 
 // NavigationReconcileReport describes a dry-run or applied generated-menu reconciliation.
@@ -55,6 +71,7 @@ type NavigationReconcileReport struct {
 	PersistedMissing         []string `json:"persisted_missing,omitempty"`
 	RawPresentButNotRendered []string `json:"raw_present_but_not_rendered,omitempty"`
 	RawInventoryUnavailable  []string `json:"raw_inventory_unavailable,omitempty"`
+	RetiredManagedItems      []string `json:"retired_managed_items,omitempty"`
 }
 
 // ReconcileGeneratedNavigation converges persisted CMS menu rows to the expected generated plan.
@@ -69,11 +86,24 @@ func ReconcileGeneratedNavigation(ctx context.Context, opts NavigationReconcileO
 	if err != nil {
 		return NavigationReconcileReport{}, err
 	}
+	if opts.Apply {
+		err = withGeneratedNavigationConvergence(ctx, opts, runtime, func(ctx context.Context) error {
+			var reconcileErr error
+			report, reconcileErr = reconcileGeneratedNavigation(ctx, opts, runtime, expected, report)
+			return reconcileErr
+		})
+		return report, err
+	}
+	return reconcileGeneratedNavigation(ctx, opts, runtime, expected, report)
+}
+
+func reconcileGeneratedNavigation(ctx context.Context, opts NavigationReconcileOptions, runtime seedNavigationRuntime, expected []admin.MenuItem, report NavigationReconcileReport) (NavigationReconcileReport, error) {
+	rawInventory := normalizeNavigationRawInventoryOptions(opts.RawInventory, runtime.menuCode)
 	rendered, err := loadGeneratedNavigationActualItems(ctx, opts.MenuSvc, runtime.menuCode, runtime.locale)
 	if err != nil {
 		return report, err
 	}
-	raw, rawErr := loadGeneratedNavigationRawItems(ctx, opts.MenuSvc, runtime.menuCode)
+	raw, rawErr := loadGeneratedNavigationRawItems(ctx, opts.MenuSvc, rawInventory)
 	if rawErr != nil {
 		report.RawInventoryUnavailable = append(report.RawInventoryUnavailable, rawErr.Error())
 	}
@@ -93,13 +123,16 @@ func ReconcileGeneratedNavigation(ctx context.Context, opts NavigationReconcileO
 		if err != nil {
 			return report, err
 		}
-		raw, rawErr = loadGeneratedNavigationRawItems(ctx, opts.MenuSvc, runtime.menuCode)
+		raw, rawErr = loadGeneratedNavigationRawItems(ctx, opts.MenuSvc, rawInventory)
 		if rawErr != nil {
 			report.RawInventoryUnavailable = append(report.RawInventoryUnavailable, rawErr.Error())
 		}
 		actual = mergeGeneratedNavigationActualItems(rendered, raw)
 	}
 	recordStaleGeneratedNavigationRows(&report, actual, expectedKeys)
+	if err := reconcileGeneratedNavigationExclusions(ctx, opts, runtime.menuCode, actual, &report); err != nil {
+		return report, err
+	}
 	report.sort()
 	return report, nil
 }
@@ -112,6 +145,7 @@ func prepareGeneratedNavigationReconcile(ctx context.Context, opts NavigationRec
 		Items:      opts.Items,
 		Logf:       opts.Logf,
 		SkipLogger: opts.Logf == nil,
+		RawInventory: opts.RawInventory,
 	})
 	expected, err := runtime.seedItems()
 	if err != nil {
@@ -144,16 +178,60 @@ func loadGeneratedNavigationActualItems(ctx context.Context, menuSvc admin.CMSMe
 	return flattenReconcileMenuItems(menu.Items), nil
 }
 
-func loadGeneratedNavigationRawItems(ctx context.Context, menuSvc admin.CMSMenuService, menuCode string) ([]admin.MenuItem, error) {
+func loadGeneratedNavigationRawItems(ctx context.Context, menuSvc admin.CMSMenuService, opts admin.NavigationRawInventoryOptions) ([]admin.MenuItem, error) {
 	provider, ok := menuSvc.(rawMenuInventoryProvider)
 	if !ok || provider == nil {
 		return nil, nil
 	}
-	items, err := provider.RawMenuItems(ctx, menuCode)
+	if scoped, ok := provider.(scopedRawMenuInventoryProvider); ok && scoped != nil {
+		items, err := scoped.RawMenuItemsWithOptions(ctx, opts)
+		if err != nil {
+			return nil, err
+		}
+		return flattenReconcileMenuItems(items), nil
+	}
+	items, err := provider.RawMenuItems(ctx, opts.MenuCode)
 	if err != nil {
 		return nil, err
 	}
 	return flattenReconcileMenuItems(items), nil
+}
+
+func withGeneratedNavigationConvergence(ctx context.Context, opts NavigationReconcileOptions, runtime seedNavigationRuntime, fn func(context.Context) error) error {
+	if fn == nil {
+		return nil
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	generatedNavigationConvergenceMu.Lock()
+	defer generatedNavigationConvergenceMu.Unlock()
+
+	scopeOptions := normalizeNavigationRawInventoryOptions(opts.RawInventory, runtime.menuCode)
+	scope := admin.NavigationConvergenceScope{
+		MenuCode:          scopeOptions.MenuCode,
+		Environment:       scopeOptions.Environment,
+		EnvironmentSource: scopeOptions.EnvironmentSource,
+		EngineIdentity:    navcontract.EngineIdentity,
+		EngineVersion:     navcontract.EngineVersion,
+	}
+	if coordinator, ok := opts.MenuSvc.(admin.NavigationConvergenceCoordinator); ok && coordinator != nil {
+		return coordinator.WithNavigationConvergence(ctx, scope, fn)
+	}
+	return fn(ctx)
+}
+
+func normalizeNavigationRawInventoryOptions(opts admin.NavigationRawInventoryOptions, menuCode string) admin.NavigationRawInventoryOptions {
+	if strings.TrimSpace(opts.MenuCode) == "" {
+		opts.MenuCode = strings.TrimSpace(menuCode)
+	}
+	if strings.TrimSpace(opts.Environment) == "" {
+		opts.Environment = "default"
+	}
+	if strings.TrimSpace(opts.EnvironmentSource) == "" {
+		opts.EnvironmentSource = "default"
+	}
+	return opts
 }
 
 func mergeGeneratedNavigationActualItems(rendered, raw []admin.MenuItem) []admin.MenuItem {
@@ -599,6 +677,76 @@ func (report *NavigationReconcileReport) sort() {
 	sort.Strings(report.PersistedMissing)
 	sort.Strings(report.RawPresentButNotRendered)
 	sort.Strings(report.RawInventoryUnavailable)
+	sort.Strings(report.RetiredManagedItems)
+}
+
+func reconcileGeneratedNavigationExclusions(ctx context.Context, opts NavigationReconcileOptions, menuCode string, actual []admin.MenuItem, report *NavigationReconcileReport) error {
+	if len(opts.ManagedExclusions) == 0 {
+		return nil
+	}
+	for _, exclusion := range opts.ManagedExclusions {
+		matches := generatedNavigationExclusionMatches(exclusion, actual)
+		switch len(matches) {
+		case 0:
+			continue
+		case 1:
+			item := matches[0]
+			report.RetiredManagedItems = append(report.RetiredManagedItems, item.ID)
+			report.DestructiveCandidates = append(report.DestructiveCandidates, item.ID)
+			if !opts.Apply || !opts.AllowDestructive {
+				continue
+			}
+			if err := opts.MenuSvc.DeleteMenuItem(ctx, menuCode, item.ID); err != nil && !errors.Is(err, admin.ErrMenuTargetNotFound) && !errors.Is(err, admin.ErrNotFound) {
+				return err
+			}
+		default:
+			report.DuplicateIdentities = append(report.DuplicateIdentities, "ambiguous_retired:"+navigationManagedExclusionIdentity(exclusion))
+		}
+	}
+	return nil
+}
+
+func generatedNavigationExclusionMatches(exclusion NavigationManagedExclusion, actual []admin.MenuItem) []admin.MenuItem {
+	out := []admin.MenuItem{}
+	seen := map[string]bool{}
+	for _, item := range actual {
+		if !generatedMenuItemOwned(item) {
+			continue
+		}
+		if !navigationManagedExclusionMatchesItem(exclusion, item) {
+			continue
+		}
+		out = appendUniqueMenuItemByID(out, seen, item)
+	}
+	return out
+}
+
+func navigationManagedExclusionMatchesItem(exclusion NavigationManagedExclusion, item admin.MenuItem) bool {
+	if id := strings.TrimSpace(exclusion.ID); id != "" {
+		if strings.EqualFold(strings.TrimSpace(item.ID), id) || strings.EqualFold(strings.TrimSpace(item.Code), id) {
+			return true
+		}
+	}
+	if generatedID := strings.TrimSpace(exclusion.GeneratedID); generatedID != "" {
+		if strings.EqualFold(strings.TrimSpace(stringTargetValue(item.Target, MenuTargetGeneratedIDKey)), generatedID) {
+			return true
+		}
+	}
+	if key := strings.TrimSpace(exclusion.TargetKey); key != "" {
+		if strings.EqualFold(strings.TrimSpace(stringTargetValue(item.Target, "key")), key) {
+			return true
+		}
+	}
+	return false
+}
+
+func navigationManagedExclusionIdentity(exclusion NavigationManagedExclusion) string {
+	for _, value := range []string{exclusion.ID, exclusion.GeneratedID, exclusion.TargetKey, exclusion.Reason} {
+		if trimmed := strings.TrimSpace(value); trimmed != "" {
+			return trimmed
+		}
+	}
+	return "unknown"
 }
 
 func flattenReconcileMenuItems(items []admin.MenuItem) []admin.MenuItem {
@@ -805,6 +953,7 @@ func navigationContractItem(item admin.MenuItem) navcontract.Item {
 		Target:        cloneAnyMap(item.Target),
 		Icon:          item.Icon,
 		Position:      cloneNavigationIntPtr(item.Position),
+		PlacementSlot: navigationPlacementSlot(item.PlacementSlot, item.Target),
 		Permissions:   append([]string{}, item.Permissions...),
 		Badge:         cloneAnyMap(item.Badge),
 		Classes:       append([]string{}, item.Classes...),
@@ -832,6 +981,7 @@ func adminMenuItemFromNavigationContract(item navcontract.Item) admin.MenuItem {
 		Target:        cloneAnyMap(item.Target),
 		Icon:          item.Icon,
 		Position:      cloneNavigationIntPtr(item.Position),
+		PlacementSlot: navigationPlacementSlot(item.PlacementSlot, item.Target),
 		Permissions:   append([]string{}, item.Permissions...),
 		Badge:         cloneAnyMap(item.Badge),
 		Classes:       append([]string{}, item.Classes...),
@@ -843,6 +993,13 @@ func adminMenuItemFromNavigationContract(item navcontract.Item) admin.MenuItem {
 		Collapsible:   item.Collapsible,
 		Collapsed:     item.Collapsed,
 	}
+}
+
+func navigationPlacementSlot(slot string, target map[string]any) string {
+	if trimmed := strings.TrimSpace(slot); trimmed != "" {
+		return trimmed
+	}
+	return stringTargetValue(target, MenuTargetPlacementSlotKey)
 }
 
 func cloneNavigationIntPtr(value *int) *int {

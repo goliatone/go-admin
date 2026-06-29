@@ -64,6 +64,7 @@ const (
 	TargetProgrammaticOwnerKey = "_menu_owner"
 	TargetProgrammaticOwner    = "go-admin.programmatic"
 	TargetProgrammaticIDKey    = "_menu_owner_id"
+	TargetPlacementSlotKey     = "_placement_slot"
 )
 
 type Item struct {
@@ -78,6 +79,7 @@ type Item struct {
 	Target        map[string]any
 	Icon          string
 	Position      *int
+	PlacementSlot string
 	Permissions   []string
 	Badge         map[string]any
 	Classes       []string
@@ -327,9 +329,17 @@ type ClassifiedItem struct {
 }
 
 type ClassificationReport struct {
-	EngineIdentity string           `json:"engine_identity"`
-	EngineVersion  string           `json:"engine_version"`
-	Items          []ClassifiedItem `json:"items"`
+	EngineIdentity      string           `json:"engine_identity"`
+	EngineVersion       string           `json:"engine_version"`
+	Environment         string           `json:"environment,omitempty"`
+	EnvironmentSource   string           `json:"environment_source,omitempty"`
+	CoordinationBackend string           `json:"coordination_backend,omitempty"`
+	CoordinationScope   string           `json:"coordination_scope,omitempty"`
+	CoordinationWarning string           `json:"coordination_warning,omitempty"`
+	PersistenceBackend  string           `json:"persistence_backend,omitempty"`
+	RawInventoryScope   string           `json:"raw_inventory_scope,omitempty"`
+	PersistenceWarnings []string         `json:"persistence_warnings,omitempty"`
+	Items               []ClassifiedItem `json:"items"`
 }
 
 func Classify(expected []ExpectedItem, rendered, raw []Item) ClassificationReport {

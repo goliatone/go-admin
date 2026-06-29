@@ -12,6 +12,7 @@ const (
 	MenuTargetGeneratedByKey        = "_generated_by"
 	MenuTargetGeneratedIDKey        = "_generated_id"
 	MenuTargetGeneratedSortOrderKey = "_generated_sort_order"
+	MenuTargetPlacementSlotKey      = navcontract.TargetPlacementSlotKey
 	MenuTargetGeneratedOwner        = "quickstart"
 	MenuTargetGeneratedSource       = "quickstart.menu_seed_plan"
 )
@@ -35,6 +36,7 @@ type MenuSeedPlanOptions struct {
 
 	ModuleParentOverrides map[string]string
 	TargetParentOverrides map[string]string
+	SlotParentOverrides   map[string]string
 	BaseItemTransforms    []MenuSeedBaseItemTransform
 	ItemTransforms        []MenuSeedItemTransform
 }
@@ -108,6 +110,7 @@ func applyMenuSeedParentOverrides(item *admin.MenuItem, moduleID string, opts Me
 	if parent := strings.TrimSpace(opts.ModuleParentOverrides[moduleID]); parent != "" {
 		item.ParentID = parent
 	}
+	applyMenuSeedSlotParentOverride(item, opts)
 	applyMenuSeedTargetParentOverride(item, opts)
 }
 
@@ -115,10 +118,27 @@ func applyMenuSeedTargetParentOverride(item *admin.MenuItem, opts MenuSeedPlanOp
 	if item == nil {
 		return
 	}
+	applyMenuSeedSlotParentOverride(item, opts)
 	if key := stringTargetValue(item.Target, "key"); key != "" {
 		if parent := strings.TrimSpace(opts.TargetParentOverrides[key]); parent != "" {
 			item.ParentID = parent
 		}
+	}
+}
+
+func applyMenuSeedSlotParentOverride(item *admin.MenuItem, opts MenuSeedPlanOptions) {
+	if item == nil {
+		return
+	}
+	slot := strings.TrimSpace(item.PlacementSlot)
+	if slot == "" {
+		slot = stringTargetValue(item.Target, MenuTargetPlacementSlotKey)
+	}
+	if slot == "" {
+		return
+	}
+	if parent := strings.TrimSpace(opts.SlotParentOverrides[slot]); parent != "" {
+		item.ParentID = parent
 	}
 }
 

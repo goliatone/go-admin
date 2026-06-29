@@ -33,12 +33,14 @@ type SeedNavigationOptions struct {
 	AllowDestructive bool                             `json:"allow_destructive"`
 	ResetEnv         string                           `json:"reset_env"`
 	Locale           string                           `json:"locale"`
+	RawInventory     admin.NavigationRawInventoryOptions `json:"raw_inventory"`
 	Logf             func(format string, args ...any) `json:"logf"`
 	SkipLogger       bool                             `json:"skip_logger"`
 	Reportf          func(NavigationReconcileReport)  `json:"-"`
 
-	CapabilityOmissions     []string `json:"capability_omissions,omitempty"`
-	PermissionFilteredItems []string `json:"permission_filtered_items,omitempty"`
+	CapabilityOmissions     []string                     `json:"capability_omissions,omitempty"`
+	PermissionFilteredItems []string                     `json:"permission_filtered_items,omitempty"`
+	ManagedExclusions       []NavigationManagedExclusion `json:"managed_exclusions,omitempty"`
 
 	// AutoCreateParents allows seeds to omit intermediate path segments; missing parents are scaffolded as group nodes.
 	AutoCreateParents bool `json:"auto_create_parents"`
@@ -76,9 +78,11 @@ func SeedNavigation(ctx context.Context, opts SeedNavigationOptions) error {
 			Items:                   opts.Items,
 			Apply:                   true,
 			AllowDestructive:        opts.AllowDestructive,
+			RawInventory:            runtime.rawInventoryOptions(),
 			Logf:                    opts.Logf,
 			CapabilityOmissions:     opts.CapabilityOmissions,
 			PermissionFilteredItems: opts.PermissionFilteredItems,
+			ManagedExclusions:       append([]NavigationManagedExclusion{}, opts.ManagedExclusions...),
 		})
 		if opts.Reportf != nil {
 			opts.Reportf(report)
@@ -147,6 +151,10 @@ func (runtime seedNavigationRuntime) resetMenu() error {
 	return nil
 }
 
+func (runtime seedNavigationRuntime) rawInventoryOptions() admin.NavigationRawInventoryOptions {
+	return normalizeNavigationRawInventoryOptions(runtime.opts.RawInventory, runtime.menuCode)
+}
+
 func (runtime seedNavigationRuntime) addSeedItems() error {
 	seedItems, err := runtime.seedItems()
 	if err != nil {
@@ -197,6 +205,14 @@ func normalizeSeedMenuItem(menuCode string, defaultLocale string, item admin.Men
 	path := derived.Path
 
 	target := cloneAnyMap(item.Target)
+	placementSlot := strings.TrimSpace(item.PlacementSlot)
+	if placementSlot == "" {
+		placementSlot = stringTargetValue(target, MenuTargetPlacementSlotKey)
+	}
+	if placementSlot != "" {
+		target = ensureMenuTarget(target)
+		target[MenuTargetPlacementSlotKey] = placementSlot
+	}
 	if item.Position != nil {
 		target = ensureMenuTarget(target)
 		target[MenuTargetGeneratedSortOrderKey] = *item.Position
@@ -211,19 +227,20 @@ func normalizeSeedMenuItem(menuCode string, defaultLocale string, item admin.Men
 	}
 
 	seed := admin.MenuItem{
-		ID:          path,
-		Position:    position,
-		Type:        itemType,
-		URLOverride: cloneStringPtr(item.URLOverride),
-		Target:      target,
-		Icon:        strings.TrimSpace(item.Icon),
-		Badge:       cloneAnyMap(item.Badge),
-		Permissions: normalizeSeedPermissions(item.Permissions),
-		Classes:     append([]string{}, item.Classes...),
-		Styles:      cloneStringMap(item.Styles),
-		Collapsible: item.Collapsible,
-		Collapsed:   item.Collapsed,
-		Menu:        menuCode,
+		ID:            path,
+		Position:      position,
+		Type:          itemType,
+		URLOverride:   cloneStringPtr(item.URLOverride),
+		Target:        target,
+		Icon:          strings.TrimSpace(item.Icon),
+		Badge:         cloneAnyMap(item.Badge),
+		PlacementSlot: placementSlot,
+		Permissions:   normalizeSeedPermissions(item.Permissions),
+		Classes:       append([]string{}, item.Classes...),
+		Styles:        cloneStringMap(item.Styles),
+		Collapsible:   item.Collapsible,
+		Collapsed:     item.Collapsed,
+		Menu:          menuCode,
 	}
 	if parentPath != "" && parentPath != menuCode {
 		seed.ParentID = parentPath

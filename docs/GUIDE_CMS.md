@@ -472,6 +472,16 @@ Quickstart reconciles that boundary by sorting generated siblings by sparse
 weight, then stable identity, and writing compact `0..n-1` positions. Generated
 leaf targets retain `_generated_sort_order` for diagnostics.
 
+Managed admin navigation uses raw menu inventory for write decisions when the
+backend supports it. For the go-cms adapter, raw inventory is bounded to one menu
+code and uses `ListMenuItemsByCode`, so it is not localized or permission
+filtered. The current public go-cms API does not expose environment-scoped raw
+reads, soft-deleted menu rows, or a transaction wrapper for multi-row managed
+apply. `NavigationLifecycleReport` and `DiagnoseNavigation` surface these
+capabilities through persistence warnings. If `NavEnvironment` is set to a
+non-default value with the go-cms adapter, raw inventory reads fail instead of
+silently classifying or mutating unscoped rows.
+
 ```go
 type Menu struct {
     ID       string

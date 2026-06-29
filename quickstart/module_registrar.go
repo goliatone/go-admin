@@ -264,9 +264,10 @@ func NewModuleRegistrar(adm *admin.Admin, cfg admin.Config, modules []admin.Modu
 		ctx:  context.Background(),
 		seed: true,
 		seedOpts: SeedNavigationOptions{
-			MenuSvc:  adm.MenuService(),
-			MenuCode: menuCode,
-			Locale:   locale,
+			MenuSvc:      adm.MenuService(),
+			MenuCode:     menuCode,
+			Locale:       locale,
+			RawInventory: moduleRegistrarRawInventoryOptions(cfg, menuCode),
 		},
 		sidebarUtilityMenuCode:        admin.NormalizeMenuSlug(DefaultSidebarUtilityMenuCode),
 		translationCapabilityMenuMode: TranslationCapabilityMenuModeTools,
@@ -320,6 +321,24 @@ func NewModuleRegistrar(adm *admin.Admin, cfg admin.Config, modules []admin.Modu
 	}
 
 	return nil
+}
+
+func moduleRegistrarRawInventoryOptions(cfg admin.Config, menuCode string) admin.NavigationRawInventoryOptions {
+	environment := strings.TrimSpace(cfg.NavEnvironment)
+	source := "config.nav_environment"
+	if environment == "" {
+		environment = strings.TrimSpace(cfg.Debug.Environment)
+		source = "config.debug.environment"
+	}
+	if environment == "" {
+		environment = "default"
+		source = "default"
+	}
+	return admin.NavigationRawInventoryOptions{
+		MenuCode:          strings.TrimSpace(menuCode),
+		Environment:       environment,
+		EnvironmentSource: source,
+	}
 }
 
 func (runtime moduleRegistrarSeedRuntime) seedNavigation() error {

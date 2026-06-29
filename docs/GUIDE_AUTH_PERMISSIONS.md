@@ -116,6 +116,28 @@ mode accepts `admin.*` for `admin.commands.dispatch` but still denies non-admin
 permissions. Diagnostics show the stored grant, such as `admin.*`, instead of an
 expanded generated list.
 
+### Navigation Policy Diagnostics
+
+Navigation can disappear because a role policy is missing a permission even when
+the menu row itself is healthy. go-admin declares common navigation permissions
+in a registry and exposes:
+
+```go
+adm.RegisterNavigationPermissions(admin.NavigationPermissionDeclaration{
+    Permission: "admin.news.view",
+    Owner:      "news",
+    Resource:   "news",
+    Renames:    []string{"admin.articles.view"},
+})
+
+report := adm.ValidateNavigationPolicy(roles)
+```
+
+The `navigation.permission_policy` doctor check compares declared navigation
+permissions with role grants, including `admin.*` wildcards and declared
+renames, and reports missing or stale grants before render-time filtering hides
+the item.
+
 When callers use split checks such as `Can(ctx, "delete", "users")`,
 `GoAuthAuthorizer` only maps short resource names into the `admin.` namespace
 for known go-admin resources. Host apps that introduce custom admin resource

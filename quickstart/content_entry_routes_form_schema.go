@@ -69,6 +69,10 @@ func (h *contentEntryHandlers) renderForm(
 		return err
 	}
 	html = injectQuickstartCSRFField(c, html)
+	entryNavigation, err := h.entryNavigationViewModel(c, panelName, panel, contentType, adminCtx, resourceItem, isEdit, baseSlug)
+	if err != nil {
+		return err
+	}
 	viewCtx := router.ViewContext{
 		"title":          h.cfg.Title,
 		"base_path":      h.cfg.BasePath,
@@ -92,6 +96,9 @@ func (h *contentEntryHandlers) renderForm(
 			"navigation":   contentTypeNavigationCapability(contentType),
 		},
 	}
+	if len(entryNavigation) > 0 {
+		viewCtx["entry_navigation"] = entryNavigation
+	}
 	routeKind := BreadcrumbRouteList
 	if isEdit {
 		routeKind = BreadcrumbRouteDetail
@@ -110,6 +117,52 @@ func (h *contentEntryHandlers) renderForm(
 	}
 	viewCtx = mergeQuickstartCSRFViewContext(c, viewCtx)
 	return h.renderTemplate(c, baseSlug, h.formTemplate, viewCtx)
+}
+
+func (h *contentEntryHandlers) entryNavigationViewModel(
+	c router.Context,
+	panelName string,
+	panel *admin.Panel,
+	contentType *admin.CMSContentType,
+	adminCtx admin.AdminContext,
+	resourceItem map[string]any,
+	isEdit bool,
+	baseSlug string,
+) (map[string]any, error) {
+	if !isEdit || len(resourceItem) == 0 || contentType == nil {
+		return nil, nil
+	}
+	policy := admin.EntryNavigationPolicyFromOptions(*contentType, h.cfg.EntryNavigation)
+	endpoint := h.entryNavigationEndpoint(resourceItem, baseSlug)
+	var authorizer admin.Authorizer
+	if h.admin != nil {
+		authorizer = h.admin.Authorizer()
+	}
+	model, err := admin.BuildEntryNavigationViewModel(admin.EntryNavigationViewModelInput{
+		Context:     adminCtx.Context,
+		Authorizer:  authorizer,
+		Panel:       panel,
+		PanelName:   panelName,
+		ContentType: contentType,
+		Record:      resourceItem,
+		Policy:      policy,
+		Endpoint:    endpoint,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return model.ToMap(), nil
+}
+
+func (h *contentEntryHandlers) entryNavigationEndpoint(resourceItem map[string]any, baseSlug string) string {
+	recordID := strings.TrimSpace(anyToString(resourceItem["id"]))
+	base := strings.TrimSpace(h.cfg.BasePath)
+	if h.admin != nil {
+		base = h.admin.AdminAPIBasePath()
+	} else {
+		base = path.Join(base, "api")
+	}
+	return path.Join("/", strings.Trim(base, "/"), "content", strings.TrimSpace(baseSlug), recordID, "navigation")
 }
 
 func (h *contentEntryHandlers) parseFormPayload(c router.Context, schema map[string]any) (map[string]any, error) {
