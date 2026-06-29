@@ -123,3 +123,9 @@ test('entry-navigation override parser drops invalid values and disallowed locat
     { 'site.main': 'show' }
   );
 });
+
+test('menu-builder re-exports extracted entry-navigation component', async () => {
+  const menuBuilder = await import('../dist/menu-builder/index.js');
+  assert.equal(menuBuilder.EntryNavigationOverrideUI, EntryNavigationOverrideUI);
+  assert.equal(typeof menuBuilder.initEntryNavigationOverrides, 'function');
+});
