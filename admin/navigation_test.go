@@ -898,11 +898,109 @@ func TestNavigationLifecycleReportIncludesEnvironmentAndCoordination(t *testing.
 	if report.CoordinationScope != "admin-process" {
 		t.Fatalf("expected process-scoped coordination diagnostic, got %#v", report)
 	}
-	if report.PersistenceBackend != "memory" || !report.RawInventoryBounded || !report.RawInventoryEnvScoped {
+	if report.PersistenceBackend != "memory" || !report.RawInventoryBounded || report.RawInventoryEnvScoped {
 		t.Fatalf("expected in-memory persistence capability diagnostic, got %#v", report)
+	}
+	if !stringSliceContains(report.PersistenceWarnings, "in-memory menu service raw inventory accepts environment options but stores one process-local menu state per menu code") {
+		t.Fatalf("expected in-memory environment scope warning, got %#v", report.PersistenceWarnings)
 	}
 	if report.TransactionalApply {
 		t.Fatalf("expected in-memory transactional apply to be unsupported, got %#v", report)
+	}
+}
+
+func TestAdminAddMenuItemsUsesNavigationConvergenceCoordinator(t *testing.T) {
+	ctx := context.Background()
+	menuSvc := &adminCoordinatedMenuService{InMemoryMenuService: NewInMemoryMenuService()}
+	adm := mustNewAdmin(t, Config{
+		DefaultLocale:  "en",
+		NavMenuCode:    "admin_main",
+		NavEnvironment: "preview",
+	}, Dependencies{FeatureGate: featureGateFromKeys(FeatureCMS)})
+	adm.UseCMS(&stubCMSContainer{menu: menuSvc})
+	mustCreateNavigationTestMenu(t, menuSvc, ctx, "admin_main")
+
+	if err := adm.addMenuItems(ctx, []MenuItem{{
+		ID:     "admin_main.media",
+		Label:  "Media",
+		Locale: "en",
+		Menu:   "admin_main",
+		Target: map[string]any{"type": "url", "path": "/admin/media", "key": "media"},
+	}}); err != nil {
+		t.Fatalf("addMenuItems: %v", err)
+	}
+	if menuSvc.coordinationCalls != 1 {
+		t.Fatalf("expected one coordination call, got %d", menuSvc.coordinationCalls)
+	}
+	if menuSvc.lastScope.MenuCode != "admin_main" || menuSvc.lastScope.Environment != "preview" || menuSvc.lastScope.EnvironmentSource != "config.nav_environment" {
+		t.Fatalf("expected scoped convergence call, got %#v", menuSvc.lastScope)
+	}
+	if menuSvc.lastScope.EngineIdentity == "" || menuSvc.lastScope.EngineVersion == "" {
+		t.Fatalf("expected engine stamp in convergence scope, got %#v", menuSvc.lastScope)
+	}
+}
+
+func TestAdminPersistMenuItemsFailsWhenAddReportsTargetMissing(t *testing.T) {
+	ctx := context.Background()
+	menuSvc := &adminTargetMissingAddMenuService{InMemoryMenuService: NewInMemoryMenuService()}
+	adm := mustNewAdmin(t, Config{
+		DefaultLocale:         "en",
+		NavMenuCode:           "admin_main",
+		NavRouteMissingPolicy: NavigationRouteMissingPolicyStrict,
+	}, Dependencies{FeatureGate: featureGateFromKeys(FeatureCMS)})
+	adm.UseCMS(&stubCMSContainer{menu: menuSvc})
+	mustCreateNavigationTestMenu(t, menuSvc, ctx, "admin_main")
+
+	err := adm.addMenuItems(ctx, []MenuItem{{
+		ID:     "admin_main.media",
+		Label:  "Media",
+		Locale: "en",
+		Menu:   "admin_main",
+		Target: map[string]any{"type": "url", "path": "/admin/media", "key": "media"},
+	}})
+	if err == nil || !strings.Contains(err.Error(), "navigation route target missing") {
+		t.Fatalf("expected route-missing error from target-missing add, got %v", err)
+	}
+	report := adm.NavigationLifecycleReport()
+	if !stringSliceContains(report.RouteMissingItems, "admin_main.media") {
+		t.Fatalf("expected target-missing lifecycle diagnostic, got %#v", report)
+	}
+}
+
+func TestAdminPersistMenuItemsFailsWhenRepairAddReportsTargetMissing(t *testing.T) {
+	ctx := context.Background()
+	raw := MenuItem{
+		ID:     "admin_main.media",
+		Label:  "Old Media",
+		Locale: "en",
+		Menu:   "admin_main",
+		Target: map[string]any{"type": "url", "path": "/old/media", "key": "media"},
+	}
+	menuSvc := &adminTargetMissingRepairMenuService{
+		InMemoryMenuService: NewInMemoryMenuService(),
+		raw:                 []MenuItem{raw},
+	}
+	adm := mustNewAdmin(t, Config{
+		DefaultLocale:         "en",
+		NavMenuCode:           "admin_main",
+		NavRouteMissingPolicy: NavigationRouteMissingPolicyStrict,
+	}, Dependencies{FeatureGate: featureGateFromKeys(FeatureCMS)})
+	adm.UseCMS(&stubCMSContainer{menu: menuSvc})
+	mustCreateNavigationTestMenu(t, menuSvc, ctx, "admin_main")
+
+	err := adm.addMenuItems(ctx, []MenuItem{{
+		ID:     "admin_main.media",
+		Label:  "Media",
+		Locale: "en",
+		Menu:   "admin_main",
+		Target: map[string]any{"type": "url", "path": "/admin/media", "key": "media"},
+	}})
+	if err == nil || !strings.Contains(err.Error(), "navigation route target missing") {
+		t.Fatalf("expected route-missing error from target-missing repair add, got %v", err)
+	}
+	report := adm.NavigationLifecycleReport()
+	if !stringSliceContains(report.RouteMissingItems, "admin_main.media") {
+		t.Fatalf("expected target-missing lifecycle diagnostic, got %#v", report)
 	}
 }
 
@@ -1256,6 +1354,58 @@ func (s *adminScopedRawInventoryMenuService) RawMenuItems(context.Context, strin
 func (s *adminScopedRawInventoryMenuService) RawMenuItemsWithOptions(_ context.Context, opts NavigationRawInventoryOptions) ([]MenuItem, error) {
 	s.lastRawOptions = opts
 	return append([]MenuItem{}, s.raw...), nil
+}
+
+type adminCoordinatedMenuService struct {
+	*InMemoryMenuService
+	coordinationCalls int
+	lastScope         NavigationConvergenceScope
+}
+
+func (s *adminCoordinatedMenuService) NavigationCoordinationReport() NavigationCoordinationReport {
+	return NavigationCoordinationReport{
+		Backend:   "test",
+		Scope:     "test-menu",
+		Supported: true,
+	}
+}
+
+func (s *adminCoordinatedMenuService) WithNavigationConvergence(ctx context.Context, scope NavigationConvergenceScope, fn func(context.Context) error) error {
+	s.coordinationCalls++
+	s.lastScope = scope
+	if fn == nil {
+		return nil
+	}
+	return fn(ctx)
+}
+
+type adminTargetMissingAddMenuService struct {
+	*InMemoryMenuService
+}
+
+func (s *adminTargetMissingAddMenuService) AddMenuItem(context.Context, string, MenuItem) error {
+	return ErrMenuTargetNotFound
+}
+
+type adminTargetMissingRepairMenuService struct {
+	*InMemoryMenuService
+	raw []MenuItem
+}
+
+func (s *adminTargetMissingRepairMenuService) RawMenuItems(context.Context, string) ([]MenuItem, error) {
+	return append([]MenuItem{}, s.raw...), nil
+}
+
+func (s *adminTargetMissingRepairMenuService) RawMenuItemsWithOptions(context.Context, NavigationRawInventoryOptions) ([]MenuItem, error) {
+	return append([]MenuItem{}, s.raw...), nil
+}
+
+func (s *adminTargetMissingRepairMenuService) UpdateMenuItem(context.Context, string, MenuItem) error {
+	return ErrMenuTargetNotFound
+}
+
+func (s *adminTargetMissingRepairMenuService) AddMenuItem(context.Context, string, MenuItem) error {
+	return ErrMenuTargetNotFound
 }
 
 func (s *contextRecordingMenuService) UpdateMenuItem(ctx context.Context, menuCode string, item MenuItem) error {

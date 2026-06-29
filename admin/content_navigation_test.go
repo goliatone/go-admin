@@ -3,6 +3,7 @@ package admin
 import (
 	"context"
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -73,6 +74,7 @@ func TestEvaluateEntryNavigationRejectsInvalidValuesAndDisabledPolicy(t *testing
 		DefaultLocations:      []string{"site.main"},
 		DefaultVisible:        true,
 		AllowInstanceOverride: true,
+		ViewPermission:        "entry:view",
 	}
 	if _, err := EvaluateEntryNavigation(map[string]any{"site.main": "sometimes"}, policy, true); err == nil {
 		t.Fatalf("expected invalid override value to fail")
@@ -230,6 +232,13 @@ func TestEntryNavigationPolicyOptionsGlobalDefaultsWhenCapabilitiesMissing(t *te
 	}
 }
 
+func TestEntryNavigationActivityActionLabelDefault(t *testing.T) {
+	cfg := applyConfigDefaults(Config{})
+	if got := strings.TrimSpace(cfg.ActivityActionLabels[DefaultEntryNavigationActivityAction]); got == "" {
+		t.Fatalf("expected default entry navigation activity action label")
+	}
+}
+
 func TestEntryNavigationPolicyOptionsExplicitDisabledCapabilityOverridesGlobalDefaults(t *testing.T) {
 	enabled := true
 	got := EntryNavigationPolicyFromOptions(CMSContentType{
@@ -321,6 +330,7 @@ func TestBuildEntryNavigationViewModelHiddenStates(t *testing.T) {
 		DefaultLocations:      []string{"site.main"},
 		DefaultVisible:        true,
 		AllowInstanceOverride: true,
+		ViewPermission:        "entry:view",
 	}
 
 	hidden, err := BuildEntryNavigationViewModel(EntryNavigationViewModelInput{

@@ -136,6 +136,128 @@ func TestContentNavigationPatchTriStateToggles(t *testing.T) {
 	}
 }
 
+func TestContentNavigationPatchRecordsVisibilityActivity(t *testing.T) {
+	adm, server, id := newContentNavigationTestServer(t, map[string]any{
+		"enabled":                 true,
+		"eligible_locations":      []string{"site.main", "site.footer"},
+		"default_locations":       []string{"site.footer"},
+		"default_visible":         true,
+		"allow_instance_override": true,
+	}, map[string]bool{
+		"page:read":   true,
+		"page:update": true,
+	})
+	group := adminAPIGroupName(adm.config)
+	path := mustResolveURL(t, adm.URLs(), group, "content.navigation", map[string]string{"type": "page", "id": id}, nil)
+
+	res := doContentNavigationPatch(server, path, `{"_navigation":{"site.main":"show","site.footer":"hide"}}`)
+	if res.Code != http.StatusOK {
+		t.Fatalf("patch navigation status=%d body=%s", res.Code, res.Body.String())
+	}
+
+	entries := contentNavigationActivityEntries(t, adm)
+	if len(entries) != 1 {
+		t.Fatalf("expected one entry navigation activity entry, got %+v", entries)
+	}
+	entry := entries[0]
+	if entry.Action != DefaultEntryNavigationActivityAction {
+		t.Fatalf("expected activity action %q, got %q", DefaultEntryNavigationActivityAction, entry.Action)
+	}
+	if entry.Object != "content:page:"+id {
+		t.Fatalf("expected content object, got %q", entry.Object)
+	}
+	if entry.Channel != "content" {
+		t.Fatalf("expected content channel, got %q", entry.Channel)
+	}
+	changed := toStringSlice(entry.Metadata["changed_locations"])
+	if len(changed) != 2 || changed[0] != "site.footer" || changed[1] != "site.main" {
+		t.Fatalf("expected changed locations [site.footer site.main], got %+v", changed)
+	}
+	if got := strings.TrimSpace(toString(entry.Metadata["content_type"])); got != "page" {
+		t.Fatalf("expected content_type=page, got %q", got)
+	}
+	next := extractMap(entry.Metadata["next_navigation"])
+	if got := strings.TrimSpace(toString(next["site.main"])); got != NavigationOverrideShow {
+		t.Fatalf("expected next site.main=show, got %+v", next)
+	}
+}
+
+func TestContentNavigationPatchSkipsNoopVisibilityActivity(t *testing.T) {
+	adm, server, id := newContentNavigationTestServer(t, map[string]any{
+		"enabled":                 true,
+		"eligible_locations":      []string{"site.main"},
+		"default_locations":       []string{},
+		"default_visible":         true,
+		"allow_instance_override": true,
+	}, map[string]bool{
+		"page:read":   true,
+		"page:update": true,
+	})
+	group := adminAPIGroupName(adm.config)
+	path := mustResolveURL(t, adm.URLs(), group, "content.navigation", map[string]string{"type": "page", "id": id}, nil)
+
+	first := doContentNavigationPatch(server, path, `{"_navigation":{"site.main":"show"}}`)
+	if first.Code != http.StatusOK {
+		t.Fatalf("first patch status=%d body=%s", first.Code, first.Body.String())
+	}
+	second := doContentNavigationPatch(server, path, `{"_navigation":{"site.main":"show"}}`)
+	if second.Code != http.StatusOK {
+		t.Fatalf("second patch status=%d body=%s", second.Code, second.Body.String())
+	}
+	entries := contentNavigationActivityEntries(t, adm)
+	if len(entries) != 1 {
+		t.Fatalf("expected one non-noop activity entry, got %+v", entries)
+	}
+}
+
+func TestContentNavigationPatchDoesNotRecordActivityForForbiddenUpdate(t *testing.T) {
+	adm, server, id := newContentNavigationTestServer(t, map[string]any{
+		"enabled":                 true,
+		"eligible_locations":      []string{"site.main"},
+		"default_locations":       []string{"site.main"},
+		"default_visible":         true,
+		"allow_instance_override": true,
+	}, map[string]bool{
+		"page:read":   true,
+		"page:update": false,
+	})
+	group := adminAPIGroupName(adm.config)
+	path := mustResolveURL(t, adm.URLs(), group, "content.navigation", map[string]string{"type": "page", "id": id}, nil)
+
+	res := doContentNavigationPatch(server, path, `{"_navigation":{"site.main":"hide"}}`)
+	if res.Code != http.StatusForbidden {
+		t.Fatalf("expected forbidden status, got %d body=%s", res.Code, res.Body.String())
+	}
+	if entries := contentNavigationActivityEntries(t, adm); len(entries) != 0 {
+		t.Fatalf("expected no entry navigation activity for forbidden update, got %+v", entries)
+	}
+}
+
+func TestContentNavigationPatchIgnoresActivitySinkFailure(t *testing.T) {
+	adm, server, id := newContentNavigationTestServer(t, map[string]any{
+		"enabled":                 true,
+		"eligible_locations":      []string{"site.main"},
+		"default_locations":       []string{},
+		"default_visible":         true,
+		"allow_instance_override": true,
+	}, map[string]bool{
+		"page:read":   true,
+		"page:update": true,
+	})
+	sink := &failingActivitySink{}
+	adm.activity = sink
+	group := adminAPIGroupName(adm.config)
+	path := mustResolveURL(t, adm.URLs(), group, "content.navigation", map[string]string{"type": "page", "id": id}, nil)
+
+	res := doContentNavigationPatch(server, path, `{"_navigation":{"site.main":"show"}}`)
+	if res.Code != http.StatusOK {
+		t.Fatalf("activity failure must not fail save, got %d body=%s", res.Code, res.Body.String())
+	}
+	if sink.calls == 0 {
+		t.Fatalf("expected failing activity sink to be called")
+	}
+}
+
 func TestContentNavigationPatchRequiresEditPermission(t *testing.T) {
 	adm, server, id := newContentNavigationTestServer(t, map[string]any{
 		"enabled":                 true,
@@ -160,6 +282,90 @@ func TestContentNavigationPatchRequiresEditPermission(t *testing.T) {
 	errPayload := extractMap(decodeJSONMap(t, res)["error"])
 	if got := strings.ToUpper(strings.TrimSpace(toString(errPayload["text_code"]))); got != TextCodeForbidden {
 		t.Fatalf("expected FORBIDDEN text_code, got %q", got)
+	}
+}
+
+func doContentNavigationPatch(server router.Server[*httprouter.Router], path, body string) *httptest.ResponseRecorder {
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPatch, path, strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	res := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(res, req)
+	return res
+}
+
+func contentNavigationActivityEntries(t *testing.T, adm *Admin) []ActivityEntry {
+	t.Helper()
+	entries, err := adm.ActivityFeed().List(context.Background(), 100)
+	if err != nil {
+		t.Fatalf("list activity entries: %v", err)
+	}
+	out := []ActivityEntry{}
+	for _, entry := range entries {
+		if strings.TrimSpace(entry.Action) == DefaultEntryNavigationActivityAction {
+			out = append(out, entry)
+		}
+	}
+	return out
+}
+
+func TestContentNavigationPatchRequiresFeatureEditPermission(t *testing.T) {
+	adm, server, id := newContentNavigationTestServer(t, map[string]any{
+		"enabled":                 true,
+		"eligible_locations":      []string{"site.main", "site.footer"},
+		"default_locations":       []string{"site.main"},
+		"default_visible":         true,
+		"allow_instance_override": true,
+	}, map[string]bool{
+		"page:read":   true,
+		"page:update": true,
+		"entry:view":  true,
+		"entry:edit":  false,
+	})
+	adm.config.EntryNavigation.EditPermission = "entry:edit"
+	group := adminAPIGroupName(adm.config)
+	path := mustResolveURL(t, adm.URLs(), group, "content.navigation", map[string]string{"type": "page", "id": id}, nil)
+
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPatch, path, strings.NewReader(`{"_navigation":{"site.main":"show"}}`))
+	req.Header.Set("Content-Type", "application/json")
+	res := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(res, req)
+	if res.Code != http.StatusForbidden {
+		t.Fatalf("expected forbidden status, got %d body=%s", res.Code, res.Body.String())
+	}
+	errPayload := extractMap(decodeJSONMap(t, res)["error"])
+	meta := extractMap(errPayload["metadata"])
+	if got := strings.TrimSpace(toString(meta["missing_permission"])); got != "entry:edit" {
+		t.Fatalf("expected missing feature edit permission, got %+v", meta)
+	}
+}
+
+func TestContentNavigationPatchRejectsHiddenByViewPermission(t *testing.T) {
+	adm, server, id := newContentNavigationTestServer(t, map[string]any{
+		"enabled":                 true,
+		"eligible_locations":      []string{"site.main"},
+		"default_locations":       []string{"site.main"},
+		"default_visible":         true,
+		"allow_instance_override": true,
+	}, map[string]bool{
+		"page:read":   true,
+		"page:update": true,
+		"entry:view":  false,
+	})
+	adm.config.EntryNavigation.ViewPermission = "entry:view"
+	group := adminAPIGroupName(adm.config)
+	path := mustResolveURL(t, adm.URLs(), group, "content.navigation", map[string]string{"type": "page", "id": id}, nil)
+
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPatch, path, strings.NewReader(`{"_navigation":{"site.main":"show"}}`))
+	req.Header.Set("Content-Type", "application/json")
+	res := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(res, req)
+	if res.Code != http.StatusForbidden {
+		t.Fatalf("expected forbidden status, got %d body=%s", res.Code, res.Body.String())
+	}
+	errPayload := extractMap(decodeJSONMap(t, res)["error"])
+	meta := extractMap(errPayload["metadata"])
+	if got := strings.TrimSpace(toString(meta["missing_permission"])); got != "entry:view" {
+		t.Fatalf("expected missing feature view permission, got %+v", meta)
 	}
 }
 
@@ -202,7 +408,39 @@ func TestContentNavigationPatchReturnsInvalidLocationGuidance(t *testing.T) {
 	}
 }
 
-func TestContentNavigationPatchIgnoresOverridesWhenDisabled(t *testing.T) {
+func TestContentNavigationPatchReturnsInvalidValueGuidance(t *testing.T) {
+	adm, server, id := newContentNavigationTestServer(t, map[string]any{
+		"enabled":                 true,
+		"eligible_locations":      []string{"site.main", "site.footer"},
+		"default_locations":       []string{"site.main"},
+		"default_visible":         true,
+		"allow_instance_override": true,
+	}, map[string]bool{
+		"page:read":   true,
+		"page:update": true,
+	})
+	group := adminAPIGroupName(adm.config)
+	path := mustResolveURL(t, adm.URLs(), group, "content.navigation", map[string]string{"type": "page", "id": id}, nil)
+
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPatch, path, strings.NewReader(`{"_navigation":{"site.main":"sometimes"}}`))
+	req.Header.Set("Content-Type", "application/json")
+	res := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(res, req)
+	if res.Code != http.StatusBadRequest {
+		t.Fatalf("expected validation failure, got %d body=%s", res.Code, res.Body.String())
+	}
+	errPayload := extractMap(decodeJSONMap(t, res)["error"])
+	meta := extractMap(errPayload["metadata"])
+	if got := strings.TrimSpace(toString(meta["field"])); got != "_navigation.site.main" {
+		t.Fatalf("expected field _navigation.site.main, got %q", got)
+	}
+	allowed := toStringSlice(meta["allowed_modes"])
+	if len(allowed) != 3 || allowed[0] != NavigationOverrideInherit || allowed[1] != NavigationOverrideShow || allowed[2] != NavigationOverrideHide {
+		t.Fatalf("expected allowed modes inherit/show/hide, got %+v", allowed)
+	}
+}
+
+func TestContentNavigationPatchRejectsReadOnlyPolicy(t *testing.T) {
 	adm, server, id := newContentNavigationTestServer(t, map[string]any{
 		"enabled":                 true,
 		"eligible_locations":      []string{"site.main", "site.footer"},
@@ -220,19 +458,44 @@ func TestContentNavigationPatchIgnoresOverridesWhenDisabled(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 	res := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(res, req)
-	if res.Code != http.StatusOK {
-		t.Fatalf("patch navigation status=%d body=%s", res.Code, res.Body.String())
+	if res.Code != http.StatusBadRequest {
+		t.Fatalf("expected read-only validation failure, got %d body=%s", res.Code, res.Body.String())
 	}
-	data := extractMap(decodeJSONMap(t, res)["data"])
-	if nav := extractMap(data["_navigation"]); len(nav) != 0 {
-		t.Fatalf("expected overrides to be ignored when allow_instance_override=false, got %+v", nav)
+	errPayload := extractMap(decodeJSONMap(t, res)["error"])
+	meta := extractMap(errPayload["metadata"])
+	if got := strings.TrimSpace(toString(meta["field"])); got != "_navigation" {
+		t.Fatalf("expected _navigation field metadata, got %+v", meta)
 	}
-	locations := toStringSlice(data["effective_menu_locations"])
-	if len(locations) != 1 || locations[0] != "site.main" {
-		t.Fatalf("expected effective_menu_locations=[site.main], got %+v", locations)
+	if toBool(meta["allow_instance_override"]) {
+		t.Fatalf("expected allow_instance_override=false metadata, got %+v", meta)
 	}
-	visibility := extractMap(data["effective_navigation_visibility"])
-	if !toBool(visibility["site.main"]) || toBool(visibility["site.footer"]) {
-		t.Fatalf("expected site.main visible and site.footer hidden, got %+v", visibility)
+}
+
+func TestContentNavigationPatchRejectsExcludedContentType(t *testing.T) {
+	adm, server, id := newContentNavigationTestServer(t, map[string]any{
+		"enabled":                 true,
+		"eligible_locations":      []string{"site.main"},
+		"default_locations":       []string{"site.main"},
+		"default_visible":         true,
+		"allow_instance_override": true,
+	}, map[string]bool{
+		"page:read":   true,
+		"page:update": true,
+	})
+	adm.config.EntryNavigation.ExcludedContentTypes = []string{"page"}
+	group := adminAPIGroupName(adm.config)
+	path := mustResolveURL(t, adm.URLs(), group, "content.navigation", map[string]string{"type": "page", "id": id}, nil)
+
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPatch, path, strings.NewReader(`{"_navigation":{"site.main":"hide"}}`))
+	req.Header.Set("Content-Type", "application/json")
+	res := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(res, req)
+	if res.Code != http.StatusBadRequest {
+		t.Fatalf("expected excluded content type validation failure, got %d body=%s", res.Code, res.Body.String())
+	}
+	errPayload := extractMap(decodeJSONMap(t, res)["error"])
+	meta := extractMap(errPayload["metadata"])
+	if got := strings.TrimSpace(toString(meta["reason"])); got != "content_type_excluded" {
+		t.Fatalf("expected content_type_excluded reason, got %+v", meta)
 	}
 }

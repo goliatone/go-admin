@@ -1590,13 +1590,17 @@ func TestRenderFormIncludesEntryNavigationViewModel(t *testing.T) {
 		if !ok {
 			return false
 		}
-		model := extractMap(viewCtx["entry_navigation"])
-		return toBool(model["visible"]) &&
-			toBool(model["editable"]) &&
+		model, ok := viewCtx["entry_navigation"].(map[string]any)
+		if !ok {
+			return false
+		}
+		eligible, _ := model["eligible_locations"].([]string)
+		return model["visible"] == true &&
+			model["editable"] == true &&
 			strings.TrimSpace(anyToString(model["content_type"])) == "pages" &&
 			strings.TrimSpace(anyToString(model["record_id"])) == "_page_123" &&
 			strings.Contains(strings.TrimSpace(anyToString(model["endpoint"])), "/admin/api/content/pages/_page_123/navigation") &&
-			len(toStringSlice(model["eligible_locations"])) == 2
+			len(eligible) == 2
 	})).Return(nil).Once()
 
 	handler := &contentEntryHandlers{

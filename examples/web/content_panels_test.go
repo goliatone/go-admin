@@ -69,7 +69,7 @@ func TestEnsureCoreContentPanelsRequiresMissingRepositories(t *testing.T) {
 	}
 }
 
-func TestEnsureCoreContentPanelsEnsuresPagesAndPostsMenuItems(t *testing.T) {
+func TestEnsureCoreContentPanelsDoesNotWriteNavigationMenuItems(t *testing.T) {
 	adm := mustNewWebTestAdmin(t)
 
 	if err := ensureCoreContentPanels(adm, &stubPageRepository{}, &stubPostRepository{}); err != nil {
@@ -84,11 +84,11 @@ func TestEnsureCoreContentPanelsEnsuresPagesAndPostsMenuItems(t *testing.T) {
 		t.Fatalf("expected menu")
 	}
 
-	if item := findMenuItemByTargetKey(menu.Items, "pages"); item == nil {
-		t.Fatalf("expected pages menu item")
+	if item := findMenuItemByTargetKey(menu.Items, "pages"); item != nil {
+		t.Fatalf("expected pages fallback menu write to be absent, got %#v", item)
 	}
-	if item := findMenuItemByTargetKey(menu.Items, "posts"); item == nil {
-		t.Fatalf("expected posts menu item")
+	if item := findMenuItemByTargetKey(menu.Items, "posts"); item != nil {
+		t.Fatalf("expected posts fallback menu write to be absent, got %#v", item)
 	}
 }
 

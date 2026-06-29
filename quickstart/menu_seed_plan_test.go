@@ -380,6 +380,72 @@ func TestReconcileGeneratedNavigationDryRunAndApplyRepairsMissingRows(t *testing
 
 }
 
+func TestReconcileGeneratedNavigationUsesScopedRawInventoryOptions(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	menuCode := "admin.main"
+	locale := "en"
+	expected := testGeneratedMenuItem("translations.queue", NavigationGroupTranslationsID, "Translation Queue", "translation_queue", "/admin/translations/queue", 50)
+	menuSvc := &rawInventoryMenuService{InMemoryMenuService: admin.NewInMemoryMenuService()}
+	if _, createErr := menuSvc.CreateMenu(ctx, menuCode); createErr != nil {
+		t.Fatalf("CreateMenu: %v", createErr)
+	}
+
+	_, err := ReconcileGeneratedNavigation(ctx, NavigationReconcileOptions{
+		MenuSvc:  menuSvc,
+		MenuCode: menuCode,
+		Locale:   locale,
+		Items:    []admin.MenuItem{expected},
+		RawInventory: admin.NavigationRawInventoryOptions{
+			Environment:       "preview",
+			EnvironmentSource: "test",
+		},
+	})
+	if err != nil {
+		t.Fatalf("reconcile: %v", err)
+	}
+	if menuSvc.rawOptions.MenuCode != "admin_main" || menuSvc.rawOptions.Environment != "preview" || menuSvc.rawOptions.EnvironmentSource != "test" {
+		t.Fatalf("expected scoped raw inventory options, got %#v", menuSvc.rawOptions)
+	}
+}
+
+func TestReconcileGeneratedNavigationApplyUsesConvergenceCoordinator(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	menuCode := "admin.main"
+	locale := "en"
+	menuSvc := &coordinatedNavigationMenuService{InMemoryMenuService: admin.NewInMemoryMenuService()}
+	if _, createErr := menuSvc.CreateMenu(ctx, menuCode); createErr != nil {
+		t.Fatalf("CreateMenu: %v", createErr)
+	}
+	expected := testGeneratedMenuItem("translations.queue", NavigationGroupTranslationsID, "Translation Queue", "translation_queue", "/admin/translations/queue", 50)
+
+	if _, err := ReconcileGeneratedNavigation(ctx, NavigationReconcileOptions{
+		MenuSvc:  menuSvc,
+		MenuCode: menuCode,
+		Locale:   locale,
+		Items:    []admin.MenuItem{expected},
+		Apply:    true,
+		RawInventory: admin.NavigationRawInventoryOptions{
+			Environment:       "preview",
+			EnvironmentSource: "test",
+		},
+	}); err != nil {
+		t.Fatalf("apply reconcile: %v", err)
+	}
+	if menuSvc.coordinationCalls != 1 {
+		t.Fatalf("expected one coordination call, got %d", menuSvc.coordinationCalls)
+	}
+	if menuSvc.lastScope.MenuCode != "admin_main" || menuSvc.lastScope.Environment != "preview" || menuSvc.lastScope.EnvironmentSource != "test" {
+		t.Fatalf("expected scoped convergence call, got %#v", menuSvc.lastScope)
+	}
+	if menuSvc.lastScope.EngineIdentity == "" || menuSvc.lastScope.EngineVersion == "" {
+		t.Fatalf("expected engine stamp in convergence scope, got %#v", menuSvc.lastScope)
+	}
+}
+
 func TestReconcileGeneratedNavigationRepairsMissingTranslationDashboardWithSiblingsPresent(t *testing.T) {
 	t.Parallel()
 
@@ -1576,11 +1642,40 @@ func TestReconcileGeneratedNavigationReportsManagedExclusionWithoutDestructiveAp
 
 type rawInventoryMenuService struct {
 	*admin.InMemoryMenuService
-	raw []admin.MenuItem
+	raw        []admin.MenuItem
+	rawOptions admin.NavigationRawInventoryOptions
 }
 
 func (s *rawInventoryMenuService) RawMenuItems(context.Context, string) ([]admin.MenuItem, error) {
 	return append([]admin.MenuItem{}, s.raw...), nil
+}
+
+func (s *rawInventoryMenuService) RawMenuItemsWithOptions(_ context.Context, opts admin.NavigationRawInventoryOptions) ([]admin.MenuItem, error) {
+	s.rawOptions = opts
+	return append([]admin.MenuItem{}, s.raw...), nil
+}
+
+type coordinatedNavigationMenuService struct {
+	*admin.InMemoryMenuService
+	coordinationCalls int
+	lastScope         admin.NavigationConvergenceScope
+}
+
+func (s *coordinatedNavigationMenuService) NavigationCoordinationReport() admin.NavigationCoordinationReport {
+	return admin.NavigationCoordinationReport{
+		Backend:   "test",
+		Scope:     "test-menu",
+		Supported: true,
+	}
+}
+
+func (s *coordinatedNavigationMenuService) WithNavigationConvergence(ctx context.Context, scope admin.NavigationConvergenceScope, fn func(context.Context) error) error {
+	s.coordinationCalls++
+	s.lastScope = scope
+	if fn == nil {
+		return nil
+	}
+	return fn(ctx)
 }
 
 type staleTargetMenuService struct {
