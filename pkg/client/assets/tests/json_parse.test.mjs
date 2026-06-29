@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 const jsonParse = await import('../dist/shared/json-parse.js');
 
 const testFileDir = path.dirname(fileURLToPath(import.meta.url));
-const menuBuilderEditorSourcePath = path.resolve(testFileDir, '../src/menu-builder/editor.ts');
+const entryNavigationSourcePath = path.resolve(testFileDir, '../src/entry-navigation/index.ts');
 const translationFamilySourcePath = path.resolve(testFileDir, '../src/translation-family/index.ts');
 const sourceManagementRuntimeSourcePath = path.resolve(testFileDir, '../src/esign/source-management-runtime.ts');
 const agreementFormSourcePath = path.resolve(testFileDir, '../src/esign/pages/agreement-form.ts');
@@ -84,7 +84,7 @@ test('shared json parser preserves fallback and script bootstrap behavior', () =
 });
 
 test('json/bootstrap callers now route through shared json-parse helper', () => {
-  const menuBuilderEditorSource = readFileSync(menuBuilderEditorSourcePath, 'utf8');
+  const entryNavigationSource = readFileSync(entryNavigationSourcePath, 'utf8');
   const translationFamilySource = readFileSync(translationFamilySourcePath, 'utf8');
   const sourceManagementRuntimeSource = readFileSync(sourceManagementRuntimeSourcePath, 'utf8');
   const agreementFormSource = readFileSync(agreementFormSourcePath, 'utf8');
@@ -106,8 +106,9 @@ test('json/bootstrap callers now route through shared json-parse helper', () => 
   const blockLibraryIdeSource = readFileSync(blockLibraryIdeSourcePath, 'utf8');
   const fieldConfigFormSource = readFileSync(fieldConfigFormSourcePath, 'utf8');
 
-  assert.match(menuBuilderEditorSource, /from '\.\.\/shared\/json-parse\.js'/);
-  assert.ok(!menuBuilderEditorSource.includes('function parseJSONData('));
+  assert.match(entryNavigationSource, /from '\.\.\/shared\/json-parse\.js'/);
+  assert.match(entryNavigationSource, /parseJSONValue/);
+  assert.ok(!entryNavigationSource.includes('JSON.parse('));
 
   assert.match(translationFamilySource, /from '\.\.\/shared\/json-parse\.js'/);
   assert.ok(!translationFamilySource.includes('function parseJSONAttribute('));
