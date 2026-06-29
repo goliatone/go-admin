@@ -193,5 +193,5 @@ func (a *Admin) resolveContentNavigationPolicy(ctx context.Context, typeKey stri
 	if a == nil {
 		return contentEntryNavigationPolicy{}, false
 	}
-	return resolveContentEntryNavigationPolicy(ctx, a.contentTypeSvc, typeKey)
+	return ResolveEntryNavigationPolicyWithOptions(ctx, a.contentTypeSvc, typeKey, a.config.EntryNavigation)
 }

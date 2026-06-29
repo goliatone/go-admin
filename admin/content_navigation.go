@@ -12,6 +12,8 @@ const (
 	NavigationOverrideInherit = "inherit"
 	NavigationOverrideShow    = "show"
 	NavigationOverrideHide    = "hide"
+
+	DefaultEntryNavigationActivityAction = "content.navigation_visibility.update"
 )
 
 var navigationOverrideModes = []string{
@@ -20,22 +22,242 @@ var navigationOverrideModes = []string{
 	NavigationOverrideHide,
 }
 
-type contentEntryNavigationPolicy struct {
+// EntryNavigationPolicy declares the content-type policy used to evaluate
+// entry-level navigation visibility.
+type EntryNavigationPolicy struct {
 	Enabled               bool     `json:"enabled"`
 	EligibleLocations     []string `json:"eligible_locations"`
 	DefaultLocations      []string `json:"default_locations"`
 	DefaultVisible        bool     `json:"default_visible"`
 	AllowInstanceOverride bool     `json:"allow_instance_override"`
+	ViewPermission        string   `json:"view_permission,omitempty"`
+	EditPermission        string   `json:"edit_permission,omitempty"`
+	PermissionResource    string   `json:"permission_resource,omitempty"`
+	ActivityAction        string   `json:"activity_action,omitempty"`
+	Excluded              bool     `json:"excluded,omitempty"`
 }
 
-type contentEntryNavigationEvaluation struct {
+// EntryNavigationEvaluation is the normalized read/write contract for an entry.
+type EntryNavigationEvaluation struct {
 	Overrides           map[string]string `json:"overrides"`
 	EffectiveLocations  []string          `json:"effective_locations"`
 	EffectiveVisibility map[string]bool   `json:"effective_visibility"`
 }
 
+// EntryNavigationViewModel is the server-authored state used by templates and
+// progressive enhancement code.
+type EntryNavigationViewModel struct {
+	Visible                bool              `json:"visible"`
+	Editable               bool              `json:"editable"`
+	ReadOnly               bool              `json:"read_only"`
+	ContentType            string            `json:"content_type"`
+	Panel                  string            `json:"panel"`
+	RecordID               string            `json:"record_id"`
+	Endpoint               string            `json:"endpoint"`
+	EligibleLocations      []string          `json:"eligible_locations"`
+	DefaultLocations       []string          `json:"default_locations"`
+	Overrides              map[string]string `json:"overrides"`
+	EffectiveVisibility    map[string]bool   `json:"effective_visibility"`
+	EffectiveMenuLocations []string          `json:"effective_menu_locations"`
+	AllowInstanceOverride  bool              `json:"allow_instance_override"`
+	ViewPermission         string            `json:"view_permission,omitempty"`
+	EditPermission         string            `json:"edit_permission,omitempty"`
+	PermissionResource     string            `json:"permission_resource,omitempty"`
+	PanelViewPermission    string            `json:"panel_view_permission,omitempty"`
+	PanelEditPermission    string            `json:"panel_edit_permission,omitempty"`
+	ActivityAction         string            `json:"activity_action,omitempty"`
+	Reason                 string            `json:"reason,omitempty"`
+	Debug                  map[string]any    `json:"debug,omitempty"`
+}
+
+// EntryNavigationViewModelInput contains server state needed to build a view model.
+type EntryNavigationViewModelInput struct {
+	Context     context.Context
+	Authorizer  Authorizer
+	Panel       *Panel
+	PanelName   string
+	ContentType *CMSContentType
+	Record      map[string]any
+	Policy      EntryNavigationPolicy
+	Endpoint    string
+}
+
+type contentEntryNavigationPolicy = EntryNavigationPolicy
+type contentEntryNavigationEvaluation = EntryNavigationEvaluation
+
+// EntryNavigationOptions configures reusable entry navigation visibility.
+type EntryNavigationOptions struct {
+	Enabled               *bool                                 `json:"enabled,omitempty"`
+	EligibleLocations     []string                              `json:"eligible_locations,omitempty"`
+	DefaultLocations      []string                              `json:"default_locations,omitempty"`
+	DefaultVisible        *bool                                 `json:"default_visible,omitempty"`
+	AllowInstanceOverride *bool                                 `json:"allow_instance_override,omitempty"`
+	ViewPermission        string                                `json:"view_permission,omitempty"`
+	EditPermission        string                                `json:"edit_permission,omitempty"`
+	PermissionResource    string                                `json:"permission_resource,omitempty"`
+	ActivityAction        string                                `json:"activity_action,omitempty"`
+	ExcludedContentTypes  []string                              `json:"excluded_content_types,omitempty"`
+	ContentTypes          map[string]EntryNavigationTypeOptions `json:"content_types,omitempty"`
+}
+
+// EntryNavigationTypeOptions narrows or disables entry navigation for a content type.
+type EntryNavigationTypeOptions struct {
+	Excluded              bool     `json:"excluded,omitempty"`
+	EligibleLocations     []string `json:"eligible_locations,omitempty"`
+	DefaultLocations      []string `json:"default_locations,omitempty"`
+	DefaultVisible        *bool    `json:"default_visible,omitempty"`
+	AllowInstanceOverride *bool    `json:"allow_instance_override,omitempty"`
+	ViewPermission        string   `json:"view_permission,omitempty"`
+	EditPermission        string   `json:"edit_permission,omitempty"`
+	PermissionResource    string   `json:"permission_resource,omitempty"`
+	ActivityAction        string   `json:"activity_action,omitempty"`
+}
+
+// ToMap returns a template-friendly map using the JSON field names.
+func (m EntryNavigationViewModel) ToMap() map[string]any {
+	return map[string]any{
+		"visible":                         m.Visible,
+		"editable":                        m.Editable,
+		"read_only":                       m.ReadOnly,
+		"content_type":                    m.ContentType,
+		"panel":                           m.Panel,
+		"record_id":                       m.RecordID,
+		"endpoint":                        m.Endpoint,
+		"eligible_locations":              append([]string{}, m.EligibleLocations...),
+		"default_locations":               append([]string{}, m.DefaultLocations...),
+		"overrides":                       navigationVisibilityMapAny(m.Overrides),
+		"effective_visibility":            navigationVisibilityBoolMapAny(m.EffectiveVisibility),
+		"effective_navigation_visibility": navigationVisibilityBoolMapAny(m.EffectiveVisibility),
+		"effective_menu_locations":        append([]string{}, m.EffectiveMenuLocations...),
+		"allow_instance_override":         m.AllowInstanceOverride,
+		"view_permission":                 m.ViewPermission,
+		"edit_permission":                 m.EditPermission,
+		"permission_resource":             m.PermissionResource,
+		"panel_view_permission":           m.PanelViewPermission,
+		"panel_edit_permission":           m.PanelEditPermission,
+		"activity_action":                 m.ActivityAction,
+		"reason":                          m.Reason,
+		"debug":                           cloneEntryNavigationDebug(m.Debug),
+	}
+}
+
+func cloneEntryNavigationDebug(in map[string]any) map[string]any {
+	if len(in) == 0 {
+		return nil
+	}
+	out := map[string]any{}
+	for key, value := range in {
+		if strings.TrimSpace(key) == "" {
+			continue
+		}
+		out[key] = value
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+// BuildEntryNavigationViewModel resolves visibility, editability, and effective
+// navigation state for a content entry.
+func BuildEntryNavigationViewModel(input EntryNavigationViewModelInput) (EntryNavigationViewModel, error) {
+	model := EntryNavigationViewModel{
+		Panel:                 strings.TrimSpace(input.PanelName),
+		Endpoint:              strings.TrimSpace(input.Endpoint),
+		ActivityAction:        strings.TrimSpace(primitives.FirstNonEmptyRaw(input.Policy.ActivityAction, DefaultEntryNavigationActivityAction)),
+		AllowInstanceOverride: input.Policy.AllowInstanceOverride,
+		ViewPermission:        strings.TrimSpace(input.Policy.ViewPermission),
+		EditPermission:        strings.TrimSpace(input.Policy.EditPermission),
+		PermissionResource:    entryNavigationPermissionResource(input.Policy),
+		Debug:                 map[string]any{},
+	}
+	if input.Context == nil {
+		input.Context = context.Background()
+	}
+	if input.ContentType != nil {
+		model.ContentType = strings.TrimSpace(primitives.FirstNonEmptyRaw(input.ContentType.Slug, input.ContentType.Name, input.ContentType.ID))
+	}
+	if model.ContentType == "" {
+		model.ContentType = strings.TrimSpace(model.Panel)
+	}
+	model.RecordID = strings.TrimSpace(extractRecordID(input.Record))
+	if len(input.Record) == 0 {
+		return hiddenEntryNavigationViewModel(model, "record_unavailable"), nil
+	}
+	if !input.Policy.Enabled {
+		reason := "policy_disabled"
+		if input.Policy.Excluded {
+			reason = "content_type_excluded"
+		}
+		return hiddenEntryNavigationViewModel(model, reason), nil
+	}
+	eligible := dedupeAndSortStrings(input.Policy.EligibleLocations)
+	if len(eligible) == 0 {
+		return hiddenEntryNavigationViewModel(model, "no_eligible_locations"), nil
+	}
+	eval, ok := evaluateContentEntryNavigationFromRecord(input.Record, input.Policy)
+	if !ok {
+		return hiddenEntryNavigationViewModel(model, "evaluation_unavailable"), nil
+	}
+	model.EligibleLocations = eligible
+	model.DefaultLocations = filterEntryNavigationDefaults(input.Policy.DefaultLocations, eligible)
+	model.Overrides = eval.Overrides
+	model.EffectiveVisibility = eval.EffectiveVisibility
+	model.EffectiveMenuLocations = eval.EffectiveLocations
+
+	perms := PanelPermissions{}
+	if input.Panel != nil {
+		perms = input.Panel.Schema().Permissions
+	}
+	model.PanelViewPermission = strings.TrimSpace(perms.View)
+	model.PanelEditPermission = strings.TrimSpace(perms.Edit)
+	panelViewAllowed := permissionAllowed(input.Authorizer, input.Context, model.PanelViewPermission, model.Panel)
+	featureViewAllowed := permissionAllowed(input.Authorizer, input.Context, model.ViewPermission, model.PermissionResource)
+	if !panelViewAllowed || !featureViewAllowed {
+		model.Debug["panel_view_allowed"] = panelViewAllowed
+		model.Debug["feature_view_allowed"] = featureViewAllowed
+		return hiddenEntryNavigationViewModel(model, "view_permission_denied"), nil
+	}
+	panelEditAllowed := permissionAllowed(input.Authorizer, input.Context, model.PanelEditPermission, model.Panel)
+	featureEditAllowed := permissionAllowed(input.Authorizer, input.Context, model.EditPermission, model.PermissionResource)
+	model.Visible = true
+	model.Editable = panelEditAllowed && featureEditAllowed && input.Policy.AllowInstanceOverride
+	model.ReadOnly = !model.Editable
+	model.Debug["panel_view_allowed"] = panelViewAllowed
+	model.Debug["feature_view_allowed"] = featureViewAllowed
+	model.Debug["panel_edit_allowed"] = panelEditAllowed
+	model.Debug["feature_edit_allowed"] = featureEditAllowed
+	return model, nil
+}
+
+func hiddenEntryNavigationViewModel(model EntryNavigationViewModel, reason string) EntryNavigationViewModel {
+	model.Visible = false
+	model.Editable = false
+	model.ReadOnly = false
+	model.Reason = strings.TrimSpace(reason)
+	return model
+}
+
+func entryNavigationPermissionResource(policy EntryNavigationPolicy) string {
+	if resource := strings.TrimSpace(policy.PermissionResource); resource != "" {
+		return resource
+	}
+	return "content_navigation"
+}
+
+// NavigationOverrideModes returns the supported tri-state override values.
+func NavigationOverrideModes() []string {
+	return navigationOverrideModesContract()
+}
+
 func navigationOverrideModesContract() []string {
 	return append([]string{}, navigationOverrideModes...)
+}
+
+// NormalizeNavigationOverrideMode normalizes a raw override value to inherit,
+// show, or hide. Invalid values return an empty string.
+func NormalizeNavigationOverrideMode(raw string) string {
+	return normalizeNavigationOverrideMode(raw)
 }
 
 func normalizeNavigationOverrideMode(raw string) string {
@@ -46,6 +268,12 @@ func normalizeNavigationOverrideMode(raw string) string {
 	default:
 		return ""
 	}
+}
+
+// NormalizeNavigationOverrideMap validates and normalizes an entry _navigation
+// payload. Nil or empty maps return nil.
+func NormalizeNavigationOverrideMap(raw any) (map[string]string, error) {
+	return normalizeNavigationOverrideMap(raw)
 }
 
 func normalizeNavigationOverrideMap(raw any) (map[string]string, error) {
@@ -91,9 +319,21 @@ func normalizeNavigationOverrideMap(raw any) (map[string]string, error) {
 	return out, nil
 }
 
+// EntryNavigationPolicyFromContentType builds the entry-navigation policy from
+// a CMS content type's capabilities.navigation contract.
+func EntryNavigationPolicyFromContentType(contentType CMSContentType) EntryNavigationPolicy {
+	return contentEntryNavigationPolicyFromContentType(contentType)
+}
+
 func contentEntryNavigationPolicyFromContentType(contentType CMSContentType) contentEntryNavigationPolicy {
 	contracts := ReadContentTypeCapabilityContracts(contentType)
-	navigation := contracts.Navigation
+	if len(contracts.Navigation) == 0 {
+		return contentEntryNavigationPolicy{}
+	}
+	return contentEntryNavigationPolicyFromCapability(contracts.Navigation)
+}
+
+func contentEntryNavigationPolicyFromCapability(navigation map[string]any) contentEntryNavigationPolicy {
 	if len(navigation) == 0 {
 		return contentEntryNavigationPolicy{}
 	}
@@ -112,7 +352,185 @@ func contentEntryNavigationPolicyFromContentType(contentType CMSContentType) con
 	if raw, exists := navigation["allow_instance_override"]; exists {
 		policy.AllowInstanceOverride = toBool(raw)
 	}
+	policy.ActivityAction = DefaultEntryNavigationActivityAction
 	return policy
+}
+
+// EntryNavigationPolicyFromOptions builds the merged entry-navigation policy for
+// a content type using global options, capabilities.navigation, per-type
+// options, and exclusions in that order.
+func EntryNavigationPolicyFromOptions(contentType CMSContentType, options EntryNavigationOptions) EntryNavigationPolicy {
+	return entryNavigationPolicyFromOptions(contentType, options)
+}
+
+func entryNavigationPolicyFromOptions(contentType CMSContentType, options EntryNavigationOptions) EntryNavigationPolicy {
+	policy := entryNavigationPolicyFromGlobalOptions(options)
+	contracts := ReadContentTypeCapabilityContracts(contentType)
+	if len(contracts.Navigation) > 0 {
+		capabilityPolicy := contentEntryNavigationPolicyFromCapability(contracts.Navigation)
+		policy.Enabled = capabilityPolicy.Enabled
+		policy.EligibleLocations = append([]string{}, capabilityPolicy.EligibleLocations...)
+		policy.DefaultLocations = append([]string{}, capabilityPolicy.DefaultLocations...)
+		policy.DefaultVisible = capabilityPolicy.DefaultVisible
+		policy.AllowInstanceOverride = capabilityPolicy.AllowInstanceOverride
+		if policy.ActivityAction == "" {
+			policy.ActivityAction = DefaultEntryNavigationActivityAction
+		}
+	}
+
+	typeOptions, hasTypeOptions := entryNavigationTypeOptionsFor(contentType, options)
+	if hasTypeOptions {
+		policy = applyEntryNavigationTypeOptions(policy, typeOptions)
+	}
+	if entryNavigationContentTypeExcluded(contentType, options) || (hasTypeOptions && typeOptions.Excluded) {
+		policy.Enabled = false
+		policy.EligibleLocations = nil
+		policy.DefaultLocations = nil
+		policy.AllowInstanceOverride = false
+		policy.Excluded = true
+	}
+	policy.EligibleLocations = dedupeAndSortStrings(policy.EligibleLocations)
+	policy.DefaultLocations = filterEntryNavigationDefaults(policy.DefaultLocations, policy.EligibleLocations)
+	if policy.ActivityAction == "" {
+		policy.ActivityAction = DefaultEntryNavigationActivityAction
+	}
+	return policy
+}
+
+func entryNavigationPolicyFromGlobalOptions(options EntryNavigationOptions) EntryNavigationPolicy {
+	eligible := dedupeAndSortStrings(options.EligibleLocations)
+	enabled := len(eligible) > 0
+	if options.Enabled != nil {
+		enabled = *options.Enabled
+	}
+	defaultVisible := true
+	if options.DefaultVisible != nil {
+		defaultVisible = *options.DefaultVisible
+	}
+	allowInstanceOverride := true
+	if options.AllowInstanceOverride != nil {
+		allowInstanceOverride = *options.AllowInstanceOverride
+	}
+	return EntryNavigationPolicy{
+		Enabled:               enabled,
+		EligibleLocations:     eligible,
+		DefaultLocations:      filterEntryNavigationDefaults(options.DefaultLocations, eligible),
+		DefaultVisible:        defaultVisible,
+		AllowInstanceOverride: allowInstanceOverride,
+		ViewPermission:        strings.TrimSpace(options.ViewPermission),
+		EditPermission:        strings.TrimSpace(options.EditPermission),
+		PermissionResource:    strings.TrimSpace(options.PermissionResource),
+		ActivityAction:        strings.TrimSpace(primitives.FirstNonEmptyRaw(options.ActivityAction, DefaultEntryNavigationActivityAction)),
+	}
+}
+
+func applyEntryNavigationTypeOptions(policy EntryNavigationPolicy, options EntryNavigationTypeOptions) EntryNavigationPolicy {
+	if len(options.EligibleLocations) > 0 {
+		policy.EligibleLocations = narrowEntryNavigationLocations(policy.EligibleLocations, options.EligibleLocations)
+	}
+	if len(options.DefaultLocations) > 0 {
+		policy.DefaultLocations = options.DefaultLocations
+	}
+	if options.DefaultVisible != nil {
+		policy.DefaultVisible = *options.DefaultVisible
+	}
+	if options.AllowInstanceOverride != nil && !*options.AllowInstanceOverride {
+		policy.AllowInstanceOverride = false
+	}
+	if value := strings.TrimSpace(options.ViewPermission); value != "" {
+		policy.ViewPermission = value
+	}
+	if value := strings.TrimSpace(options.EditPermission); value != "" {
+		policy.EditPermission = value
+	}
+	if value := strings.TrimSpace(options.PermissionResource); value != "" {
+		policy.PermissionResource = value
+	}
+	if value := strings.TrimSpace(options.ActivityAction); value != "" {
+		policy.ActivityAction = value
+	}
+	return policy
+}
+
+func narrowEntryNavigationLocations(current, requested []string) []string {
+	requested = dedupeAndSortStrings(requested)
+	if len(current) == 0 {
+		return requested
+	}
+	currentSet := contentNavigationLocationSet(dedupeAndSortStrings(current))
+	out := []string{}
+	for _, location := range requested {
+		if _, ok := currentSet[location]; ok {
+			out = append(out, location)
+		}
+	}
+	return dedupeAndSortStrings(out)
+}
+
+func filterEntryNavigationDefaults(defaults, eligible []string) []string {
+	if len(defaults) == 0 || len(eligible) == 0 {
+		return nil
+	}
+	eligibleSet := contentNavigationLocationSet(dedupeAndSortStrings(eligible))
+	out := []string{}
+	for _, location := range dedupeAndSortStrings(defaults) {
+		if _, ok := eligibleSet[location]; ok {
+			out = append(out, location)
+		}
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+func entryNavigationTypeOptionsFor(contentType CMSContentType, options EntryNavigationOptions) (EntryNavigationTypeOptions, bool) {
+	if len(options.ContentTypes) == 0 {
+		return EntryNavigationTypeOptions{}, false
+	}
+	keys := entryNavigationContentTypeKeys(contentType)
+	for _, key := range keys {
+		for candidate, value := range options.ContentTypes {
+			if normalizeEntryNavigationContentTypeKey(candidate) == key {
+				return value, true
+			}
+		}
+	}
+	return EntryNavigationTypeOptions{}, false
+}
+
+func entryNavigationContentTypeExcluded(contentType CMSContentType, options EntryNavigationOptions) bool {
+	if len(options.ExcludedContentTypes) == 0 {
+		return false
+	}
+	keys := contentNavigationLocationSet(entryNavigationContentTypeKeys(contentType))
+	for _, excluded := range options.ExcludedContentTypes {
+		if _, ok := keys[normalizeEntryNavigationContentTypeKey(excluded)]; ok {
+			return true
+		}
+	}
+	return false
+}
+
+func entryNavigationContentTypeKeys(contentType CMSContentType) []string {
+	values := []string{contentType.Slug, contentType.Name, contentType.ID}
+	out := []string{}
+	for _, value := range values {
+		if key := normalizeEntryNavigationContentTypeKey(value); key != "" {
+			out = append(out, key)
+		}
+	}
+	return dedupeAndSortStrings(out)
+}
+
+func normalizeEntryNavigationContentTypeKey(value string) string {
+	return strings.ToLower(strings.TrimSpace(value))
+}
+
+// ResolveEntryNavigationPolicy resolves a content type by slug or ID and
+// returns its entry-navigation policy.
+func ResolveEntryNavigationPolicy(ctx context.Context, service CMSContentTypeService, contentTypeKey string) (EntryNavigationPolicy, bool) {
+	return resolveContentEntryNavigationPolicy(ctx, service, contentTypeKey)
 }
 
 func resolveContentEntryNavigationPolicy(ctx context.Context, service CMSContentTypeService, contentTypeKey string) (contentEntryNavigationPolicy, bool) {
@@ -130,6 +548,33 @@ func resolveContentEntryNavigationPolicy(ctx context.Context, service CMSContent
 		return contentEntryNavigationPolicyFromContentType(*record), true
 	}
 	return contentEntryNavigationPolicy{}, false
+}
+
+// ResolveEntryNavigationPolicyWithOptions resolves and merges entry navigation
+// options for a content type.
+func ResolveEntryNavigationPolicyWithOptions(ctx context.Context, service CMSContentTypeService, contentTypeKey string, options EntryNavigationOptions) (EntryNavigationPolicy, bool) {
+	if service == nil {
+		return EntryNavigationPolicy{}, false
+	}
+	key := strings.TrimSpace(contentTypeKey)
+	if key == "" {
+		return EntryNavigationPolicy{}, false
+	}
+	if record, err := service.ContentTypeBySlug(ctx, key); err == nil && record != nil {
+		return entryNavigationPolicyFromOptions(*record, options), true
+	}
+	if record, err := service.ContentType(ctx, key); err == nil && record != nil {
+		return entryNavigationPolicyFromOptions(*record, options), true
+	}
+	return EntryNavigationPolicy{}, false
+}
+
+// EvaluateEntryNavigation normalizes overrides and computes effective menu
+// locations and visibility for a policy. Strict mode rejects invalid locations
+// and disabled policies; non-strict mode drops invalid locations and returns an
+// empty result for disabled policies.
+func EvaluateEntryNavigation(rawOverrides any, policy EntryNavigationPolicy, strict bool) (EntryNavigationEvaluation, error) {
+	return evaluateContentEntryNavigation(rawOverrides, policy, strict)
 }
 
 func evaluateContentEntryNavigation(rawOverrides any, policy contentEntryNavigationPolicy, strict bool) (contentEntryNavigationEvaluation, error) {
@@ -171,6 +616,13 @@ func evaluateContentEntryNavigation(rawOverrides any, policy contentEntryNavigat
 	}, nil
 }
 
+// ValidateEntryNavigationOverrides ensures override locations are eligible for
+// a policy. Strict mode returns a validation error; non-strict mode drops
+// ineligible locations.
+func ValidateEntryNavigationOverrides(overrides map[string]string, eligible []string, strict bool) (map[string]string, error) {
+	return validateNavigationOverrides(overrides, eligible, strict)
+}
+
 func validateNavigationOverrides(overrides map[string]string, eligible []string, strict bool) (map[string]string, error) {
 	if len(overrides) == 0 {
 		return overrides, nil
@@ -201,6 +653,12 @@ func contentNavigationLocationSet(locations []string) map[string]struct{} {
 	return out
 }
 
+// EvaluateEntryNavigationVisibility computes effective visibility for all
+// eligible locations using normalized overrides and defaults.
+func EvaluateEntryNavigationVisibility(eligible []string, overrides map[string]string, defaultSet map[string]struct{}, policy EntryNavigationPolicy) (map[string]bool, []string) {
+	return evaluateContentNavigationVisibility(eligible, overrides, defaultSet, policy)
+}
+
 func evaluateContentNavigationVisibility(eligible []string, overrides map[string]string, defaultSet map[string]struct{}, policy contentEntryNavigationPolicy) (map[string]bool, []string) {
 	visibility := map[string]bool{}
 	locations := make([]string, 0, len(eligible))
@@ -212,6 +670,12 @@ func evaluateContentNavigationVisibility(eligible []string, overrides map[string
 		}
 	}
 	return visibility, locations
+}
+
+// ResolveEntryNavigationVisibility resolves a single location to its effective
+// visible state.
+func ResolveEntryNavigationVisibility(location string, overrides map[string]string, defaultSet map[string]struct{}, policy EntryNavigationPolicy) bool {
+	return resolveContentNavigationVisibility(location, overrides, defaultSet, policy)
 }
 
 func resolveContentNavigationVisibility(location string, overrides map[string]string, defaultSet map[string]struct{}, policy contentEntryNavigationPolicy) bool {
@@ -232,6 +696,12 @@ func resolveContentNavigationVisibility(location string, overrides map[string]st
 	}
 }
 
+// EvaluateEntryNavigationFromRecord extracts _navigation from a record and
+// computes the effective entry-navigation contract.
+func EvaluateEntryNavigationFromRecord(record map[string]any, policy EntryNavigationPolicy) (EntryNavigationEvaluation, bool) {
+	return evaluateContentEntryNavigationFromRecord(record, policy)
+}
+
 func evaluateContentEntryNavigationFromRecord(record map[string]any, policy contentEntryNavigationPolicy) (contentEntryNavigationEvaluation, bool) {
 	if len(record) == 0 {
 		return contentEntryNavigationEvaluation{}, false
@@ -247,6 +717,12 @@ func evaluateContentEntryNavigationFromRecord(record map[string]any, policy cont
 		return contentEntryNavigationEvaluation{}, false
 	}
 	return eval, true
+}
+
+// ApplyEntryNavigationWriteContract normalizes _navigation and writes the
+// effective visibility fields onto a mutable record before persistence.
+func ApplyEntryNavigationWriteContract(record map[string]any, policy EntryNavigationPolicy, always bool) error {
+	return applyContentEntryNavigationWrite(record, policy, always)
 }
 
 func applyContentEntryNavigationWrite(record map[string]any, policy contentEntryNavigationPolicy, always bool) error {
@@ -275,6 +751,12 @@ func applyContentEntryNavigationWrite(record map[string]any, policy contentEntry
 	record["effective_menu_locations"] = append([]string{}, eval.EffectiveLocations...)
 	record["effective_navigation_visibility"] = navigationVisibilityBoolMapAny(eval.EffectiveVisibility)
 	return nil
+}
+
+// ApplyEntryNavigationReadContract returns a cloned record with normalized
+// _navigation, effective_menu_locations, and effective_navigation_visibility.
+func ApplyEntryNavigationReadContract(record map[string]any, policy EntryNavigationPolicy) map[string]any {
+	return applyContentEntryNavigationReadContract(record, policy)
 }
 
 func applyContentEntryNavigationReadContract(record map[string]any, policy contentEntryNavigationPolicy) map[string]any {

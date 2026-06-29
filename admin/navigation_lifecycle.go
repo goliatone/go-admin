@@ -28,11 +28,59 @@ type NavigationLifecycleReport struct {
 	Policy                     NavigationContributionPolicy `json:"policy"`
 	ContributionPolicyEnforced bool                         `json:"contribution_policy_enforced"`
 	RouteMissingPolicy         NavigationRouteMissingPolicy `json:"route_missing_policy"`
+	Environment                string                       `json:"environment"`
+	EnvironmentSource          string                       `json:"environment_source"`
+	CoordinationBackend        string                       `json:"coordination_backend"`
+	CoordinationScope          string                       `json:"coordination_scope"`
+	CoordinationSupported      bool                         `json:"coordination_supported"`
+	PersistenceBackend         string                       `json:"persistence_backend,omitempty"`
+	RawInventoryScope          string                       `json:"raw_inventory_scope,omitempty"`
+	RawInventoryBounded        bool                         `json:"raw_inventory_bounded"`
+	RawInventoryEnvScoped      bool                         `json:"raw_inventory_env_scoped"`
+	SoftDeletedRowsVisible     bool                         `json:"soft_deleted_rows_visible"`
+	TransactionalApply         bool                         `json:"transactional_apply"`
 	QueuedItems                int                          `json:"queued_items"`
 	EngineIdentity             string                       `json:"engine_identity,omitempty"`
 	EngineVersion              string                       `json:"engine_version,omitempty"`
 	RouteMissingItems          []string                     `json:"route_missing_items,omitempty"`
 	RawInventoryErrors         []string                     `json:"raw_inventory_errors,omitempty"`
+	CoordinationWarnings       []string                     `json:"coordination_warnings,omitempty"`
+	PersistenceWarnings        []string                     `json:"persistence_warnings,omitempty"`
+}
+
+type NavigationRawInventoryOptions struct {
+	MenuCode          string
+	Environment       string
+	EnvironmentSource string
+}
+
+type NavigationConvergenceScope struct {
+	MenuCode          string
+	Environment       string
+	EnvironmentSource string
+	EngineIdentity    string
+	EngineVersion     string
+}
+
+type NavigationConvergenceCoordinator interface {
+	WithNavigationConvergence(ctx context.Context, scope NavigationConvergenceScope, fn func(context.Context) error) error
+}
+
+type NavigationCoordinationReport struct {
+	Backend   string
+	Scope     string
+	Supported bool
+	Warning   string
+}
+
+type NavigationPersistenceReport struct {
+	Backend                string
+	RawInventoryScope      string
+	RawInventoryBounded    bool
+	RawInventoryEnvScoped  bool
+	SoftDeletedRowsVisible bool
+	TransactionalApply     bool
+	Warnings               []string
 }
 
 func (a *Admin) WithNavigationContributionPolicy(policy NavigationContributionPolicy) *Admin {
@@ -120,17 +168,153 @@ func (a *Admin) queueOrRejectLateNavigationItems(items []MenuItem) (bool, error)
 }
 
 func (a *Admin) navigationLifecycleReportLocked() NavigationLifecycleReport {
+	environment, source := a.navigationEnvironmentLocked()
+	coordination := a.navigationCoordinationReportLocked()
+	persistence := a.navigationPersistenceReportLocked()
+	coordinationWarnings := append([]string{}, a.navigationCoordinationWarnings...)
+	if !coordination.Supported {
+		coordinationWarnings = appendUniqueString(coordinationWarnings, coordination.Warning)
+	}
 	return NavigationLifecycleReport{
 		ContributionsClosed:        a.navigationContributionsClosed,
 		Policy:                     normalizeNavigationContributionPolicy(a.navigationContributionPolicy),
 		ContributionPolicyEnforced: a.navigationContributionPolicySet,
 		RouteMissingPolicy:         a.effectiveNavigationRouteMissingPolicyLocked(),
+		Environment:                environment,
+		EnvironmentSource:          source,
+		CoordinationBackend:        coordination.Backend,
+		CoordinationScope:          coordination.Scope,
+		CoordinationSupported:      coordination.Supported,
+		PersistenceBackend:         persistence.Backend,
+		RawInventoryScope:          persistence.RawInventoryScope,
+		RawInventoryBounded:        persistence.RawInventoryBounded,
+		RawInventoryEnvScoped:      persistence.RawInventoryEnvScoped,
+		SoftDeletedRowsVisible:     persistence.SoftDeletedRowsVisible,
+		TransactionalApply:         persistence.TransactionalApply,
 		QueuedItems:                len(a.queuedNavigationItems),
 		EngineIdentity:             navcontract.EngineIdentity,
 		EngineVersion:              navcontract.EngineVersion,
 		RouteMissingItems:          append([]string{}, a.navigationRouteMissingItems...),
 		RawInventoryErrors:         append([]string{}, a.navigationRawInventoryErrors...),
+		CoordinationWarnings:       coordinationWarnings,
+		PersistenceWarnings:        append([]string{}, persistence.Warnings...),
 	}
+}
+
+func (a *Admin) navigationEnvironmentLocked() (string, string) {
+	if a == nil {
+		return "default", "default"
+	}
+	if value := strings.TrimSpace(a.config.NavEnvironment); value != "" {
+		return value, "config.nav_environment"
+	}
+	if value := strings.TrimSpace(a.config.Debug.Environment); value != "" {
+		return value, "config.debug.environment"
+	}
+	return "default", "default"
+}
+
+func (a *Admin) navigationRawInventoryOptionsLocked(menuCode string) NavigationRawInventoryOptions {
+	environment, source := a.navigationEnvironmentLocked()
+	return NavigationRawInventoryOptions{
+		MenuCode:          strings.TrimSpace(menuCode),
+		Environment:       environment,
+		EnvironmentSource: source,
+	}
+}
+
+func (a *Admin) withNavigationConvergence(ctx context.Context, menuCode string, fn func(context.Context) error) error {
+	if fn == nil {
+		return nil
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if a == nil {
+		return fn(ctx)
+	}
+	a.navigationConvergenceMu.Lock()
+	defer a.navigationConvergenceMu.Unlock()
+
+	a.navigationLifecycleMu.Lock()
+	rawOptions := a.navigationRawInventoryOptionsLocked(menuCode)
+	coordination := a.navigationCoordinationReportLocked()
+	a.navigationLifecycleMu.Unlock()
+	if strings.TrimSpace(rawOptions.MenuCode) == "" {
+		rawOptions.MenuCode = strings.TrimSpace(menuCode)
+	}
+	if a.menuSvc != nil && !coordination.Supported {
+		a.recordNavigationCoordinationWarning(coordination.Warning)
+	}
+	scope := NavigationConvergenceScope{
+		MenuCode:          rawOptions.MenuCode,
+		Environment:       rawOptions.Environment,
+		EnvironmentSource: rawOptions.EnvironmentSource,
+		EngineIdentity:    navcontract.EngineIdentity,
+		EngineVersion:     navcontract.EngineVersion,
+	}
+	if coordinator, ok := a.menuSvc.(NavigationConvergenceCoordinator); ok && coordinator != nil {
+		return coordinator.WithNavigationConvergence(ctx, scope, fn)
+	}
+	return fn(ctx)
+}
+
+func (a *Admin) navigationCoordinationReportLocked() NavigationCoordinationReport {
+	report := NavigationCoordinationReport{
+		Backend:   "process",
+		Scope:     "admin-process",
+		Supported: false,
+		Warning:   "backend coordination unavailable; convergence is serialized only inside this admin process",
+	}
+	if a == nil || a.menuSvc == nil {
+		return report
+	}
+	if provider, ok := a.menuSvc.(navigationCoordinationReporter); ok && provider != nil {
+		provided := provider.NavigationCoordinationReport()
+		if value := strings.TrimSpace(provided.Backend); value != "" {
+			report.Backend = value
+		}
+		if value := strings.TrimSpace(provided.Scope); value != "" {
+			report.Scope = value
+		}
+		report.Supported = provided.Supported
+		report.Warning = strings.TrimSpace(provided.Warning)
+		return report
+	}
+	return report
+}
+
+func (a *Admin) navigationPersistenceReportLocked() NavigationPersistenceReport {
+	report := NavigationPersistenceReport{
+		Backend:                "unknown",
+		RawInventoryScope:      "menu-code",
+		RawInventoryBounded:    true,
+		RawInventoryEnvScoped:  false,
+		SoftDeletedRowsVisible: false,
+		TransactionalApply:     false,
+		Warnings: []string{
+			"navigation persistence backend does not expose capability diagnostics",
+		},
+	}
+	if a == nil || a.menuSvc == nil {
+		return report
+	}
+	if provider, ok := a.menuSvc.(navigationPersistenceReporter); ok && provider != nil {
+		provided := provider.NavigationPersistenceReport()
+		if value := strings.TrimSpace(provided.Backend); value != "" {
+			report.Backend = value
+		}
+		if value := strings.TrimSpace(provided.RawInventoryScope); value != "" {
+			report.RawInventoryScope = value
+		}
+		report.RawInventoryBounded = provided.RawInventoryBounded
+		report.RawInventoryEnvScoped = provided.RawInventoryEnvScoped
+		report.SoftDeletedRowsVisible = provided.SoftDeletedRowsVisible
+		report.TransactionalApply = provided.TransactionalApply
+		report.Warnings = append([]string{}, provided.Warnings...)
+		return report
+	}
+	return report
 }
 
 func normalizeNavigationContributionPolicy(policy NavigationContributionPolicy) NavigationContributionPolicy {
@@ -218,6 +402,15 @@ func (a *Admin) recordNavigationRawInventoryUnavailable(menuCode string, err err
 	a.navigationLifecycleMu.Lock()
 	defer a.navigationLifecycleMu.Unlock()
 	a.navigationRawInventoryErrors = appendUniqueString(a.navigationRawInventoryErrors, value)
+}
+
+func (a *Admin) recordNavigationCoordinationWarning(warning string) {
+	if a == nil {
+		return
+	}
+	a.navigationLifecycleMu.Lock()
+	defer a.navigationLifecycleMu.Unlock()
+	a.navigationCoordinationWarnings = appendUniqueString(a.navigationCoordinationWarnings, warning)
 }
 
 func appendUniqueString(values []string, value string) []string {

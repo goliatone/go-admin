@@ -87,6 +87,7 @@ type MenuItem struct {
 	Target        map[string]any    `json:"target,omitempty"`
 	Icon          string            `json:"icon,omitempty"`
 	Position      *int              `json:"position,omitempty"`
+	PlacementSlot string            `json:"placement_slot,omitempty"`
 	Children      []MenuItem        `json:"children,omitempty"`
 	Locale        string            `json:"locale,omitempty"`
 	Badge         map[string]any    `json:"badge,omitempty"`

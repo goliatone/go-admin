@@ -294,21 +294,34 @@ func (a *Admin) addMenuItemsNow(ctx context.Context, items []MenuItem) error {
 	if len(items) == 0 {
 		return nil
 	}
-	a.navigationConvergenceMu.Lock()
-	defer a.navigationConvergenceMu.Unlock()
-	cmsEnabled := featureEnabled(a.featureGate, FeatureCMS)
-	fallbackItems := []MenuItem{}
-	if a.menuSvc != nil {
-		persistedItems, err := a.persistMenuItems(ctx, items)
-		if err != nil {
-			return err
+	menuCode := a.navigationConvergenceMenuCode(items)
+	return a.withNavigationConvergence(ctx, menuCode, func(ctx context.Context) error {
+		cmsEnabled := featureEnabled(a.featureGate, FeatureCMS)
+		fallbackItems := []MenuItem{}
+		if a.menuSvc != nil {
+			persistedItems, err := a.persistMenuItems(ctx, items)
+			if err != nil {
+				return err
+			}
+			fallbackItems = persistedItems
 		}
-		fallbackItems = persistedItems
+		if (!cmsEnabled || a.menuSvc == nil) && a.nav != nil {
+			a.addFallbackMenuItems(items, fallbackItems)
+		}
+		return nil
+	})
+}
+
+func (a *Admin) navigationConvergenceMenuCode(items []MenuItem) string {
+	for _, item := range items {
+		if code := NormalizeMenuSlug(item.Menu); code != "" {
+			return code
+		}
 	}
-	if (!cmsEnabled || a.menuSvc == nil) && a.nav != nil {
-		a.addFallbackMenuItems(items, fallbackItems)
+	if a == nil {
+		return ""
 	}
-	return nil
+	return NormalizeMenuSlug(a.navMenuCode)
 }
 
 func (a *Admin) persistMenuItems(ctx context.Context, items []MenuItem) ([]MenuItem, error) {
@@ -353,6 +366,9 @@ func (a *Admin) persistMenuItems(ctx context.Context, items []MenuItem) ([]MenuI
 		}
 		if err := a.menuSvc.AddMenuItem(ctx, code, normalized); err != nil {
 			if isMenuTargetMissing(err) {
+				if routeErr := a.handleNavigationTargetMissing(code, normalized); routeErr != nil {
+					return nil, routeErr
+				}
 				continue
 			}
 			return nil, err
@@ -403,7 +419,27 @@ func (a *Admin) rawPersistedMenuItems(ctx context.Context, code string) ([]MenuI
 	if !ok || provider == nil {
 		return nil, ErrNotFound
 	}
-	return provider.RawMenuItems(ctx, code)
+	a.navigationLifecycleMu.Lock()
+	opts := a.navigationRawInventoryOptionsLocked(code)
+	a.navigationLifecycleMu.Unlock()
+	return rawMenuItems(ctx, provider, opts)
+}
+
+func (a *Admin) handleNavigationTargetMissing(code string, item MenuItem) error {
+	a.recordNavigationRouteMissing(item)
+	if a.navigationRouteMissingPolicyStrict() {
+		return validationDomainError("navigation route target missing", map[string]any{
+			"component": "navigation",
+			"menu":      code,
+			"id":        strings.TrimSpace(item.ID),
+		})
+	}
+	a.loggerFor("admin.navigation").Warn("navigation route target missing",
+		"component", "navigation",
+		"menu", code,
+		"id", strings.TrimSpace(item.ID),
+	)
+	return nil
 }
 
 func (a *Admin) updatePersistedMenuItem(ctx context.Context, code string, item MenuItem, match persistedMenuItemMatch) (MenuItem, error) {
@@ -416,7 +452,10 @@ func (a *Admin) updatePersistedMenuItem(ctx context.Context, code string, item M
 	update := match.repairItem(item)
 	if err := a.menuSvc.UpdateMenuItem(ctx, code, update); err != nil {
 		if isMenuTargetMissing(err) {
-			if addErr := a.menuSvc.AddMenuItem(ctx, code, item); addErr != nil && !isMenuTargetMissing(addErr) {
+			if addErr := a.menuSvc.AddMenuItem(ctx, code, item); addErr != nil {
+				if isMenuTargetMissing(addErr) {
+					return item, a.handleNavigationTargetMissing(code, item)
+				}
 				return item, addErr
 			}
 			return item, nil
@@ -437,6 +476,28 @@ type persistedMenuItemMatch struct {
 
 type rawMenuItemsProvider interface {
 	RawMenuItems(ctx context.Context, menuCode string) ([]MenuItem, error)
+}
+
+type scopedRawMenuItemsProvider interface {
+	RawMenuItemsWithOptions(ctx context.Context, opts NavigationRawInventoryOptions) ([]MenuItem, error)
+}
+
+type navigationCoordinationReporter interface {
+	NavigationCoordinationReport() NavigationCoordinationReport
+}
+
+type navigationPersistenceReporter interface {
+	NavigationPersistenceReport() NavigationPersistenceReport
+}
+
+func rawMenuItems(ctx context.Context, provider rawMenuItemsProvider, opts NavigationRawInventoryOptions) ([]MenuItem, error) {
+	if provider == nil {
+		return nil, ErrNotFound
+	}
+	if scoped, ok := provider.(scopedRawMenuItemsProvider); ok && scoped != nil {
+		return scoped.RawMenuItemsWithOptions(ctx, opts)
+	}
+	return provider.RawMenuItems(ctx, opts.MenuCode)
 }
 
 const (
@@ -626,6 +687,7 @@ func navigationContractItem(item MenuItem) navcontract.Item {
 		Target:        primitives.CloneAnyMap(item.Target),
 		Icon:          item.Icon,
 		Position:      cloneIntPtr(item.Position),
+		PlacementSlot: navigationPlacementSlot(item.PlacementSlot, item.Target),
 		Permissions:   cloneStringSliceOrNil(item.Permissions),
 		Badge:         primitives.CloneAnyMap(item.Badge),
 		Classes:       cloneStringSliceOrNil(item.Classes),
@@ -652,6 +714,7 @@ func adminMenuItemFromNavigationContract(item navcontract.Item) MenuItem {
 		Target:        primitives.CloneAnyMap(item.Target),
 		Icon:          item.Icon,
 		Position:      cloneIntPtr(item.Position),
+		PlacementSlot: navigationPlacementSlot(item.PlacementSlot, item.Target),
 		Permissions:   cloneStringSliceOrNil(item.Permissions),
 		Badge:         primitives.CloneAnyMap(item.Badge),
 		Classes:       cloneStringSliceOrNil(item.Classes),
@@ -663,6 +726,13 @@ func adminMenuItemFromNavigationContract(item navcontract.Item) MenuItem {
 		Collapsible:   item.Collapsible,
 		Collapsed:     item.Collapsed,
 	}
+}
+
+func navigationPlacementSlot(slot string, target map[string]any) string {
+	if trimmed := strings.TrimSpace(slot); trimmed != "" {
+		return trimmed
+	}
+	return navcontract.TargetString(target, navcontract.TargetPlacementSlotKey)
 }
 
 func (a *Admin) ensurePersistentMenu(ctx context.Context, code string, menuCodes map[string]bool) error {

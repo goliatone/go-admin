@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"context"
 	"reflect"
 	"testing"
 )
@@ -246,5 +247,112 @@ func TestEntryNavigationPolicyOptionsExplicitDisabledCapabilityOverridesGlobalDe
 
 	if got.Enabled || len(got.EligibleLocations) != 0 || len(got.DefaultLocations) != 0 {
 		t.Fatalf("expected explicit disabled capability to override global defaults, got %+v", got)
+	}
+}
+
+func TestBuildEntryNavigationViewModelEditableAndReadOnlyStates(t *testing.T) {
+	panel, err := (&PanelBuilder{name: "page"}).
+		WithRepository(NewMemoryRepository()).
+		Permissions(PanelPermissions{View: "page:read", Edit: "page:update"}).
+		Build()
+	if err != nil {
+		t.Fatalf("build panel: %v", err)
+	}
+	policy := EntryNavigationPolicy{
+		Enabled:               true,
+		EligibleLocations:     []string{"site.main", "site.footer"},
+		DefaultLocations:      []string{"site.main"},
+		DefaultVisible:        true,
+		AllowInstanceOverride: true,
+		ViewPermission:        "entry:view",
+		EditPermission:        "entry:edit",
+	}
+	record := map[string]any{
+		"id": "_page_1",
+		"_navigation": map[string]any{
+			"site.footer": "show",
+		},
+	}
+
+	editable, err := BuildEntryNavigationViewModel(EntryNavigationViewModelInput{
+		Context:     context.Background(),
+		Authorizer:  contentNavigationPermissionAuthorizer{allowed: map[string]bool{"page:read": true, "page:update": true, "entry:view": true, "entry:edit": true}},
+		Panel:       panel,
+		PanelName:   "page",
+		ContentType: &CMSContentType{Slug: "page"},
+		Record:      record,
+		Policy:      policy,
+		Endpoint:    "/admin/api/content/page/_page_1/navigation",
+	})
+	if err != nil {
+		t.Fatalf("build editable view model: %v", err)
+	}
+	if !editable.Visible || !editable.Editable || editable.ReadOnly {
+		t.Fatalf("expected editable model, got %+v", editable)
+	}
+	if editable.RecordID != "_page_1" || editable.Endpoint == "" {
+		t.Fatalf("expected record and endpoint data, got %+v", editable)
+	}
+	if !editable.EffectiveVisibility["site.main"] || !editable.EffectiveVisibility["site.footer"] {
+		t.Fatalf("expected effective visibility for defaults and override, got %+v", editable.EffectiveVisibility)
+	}
+
+	readOnly, err := BuildEntryNavigationViewModel(EntryNavigationViewModelInput{
+		Context:     context.Background(),
+		Authorizer:  contentNavigationPermissionAuthorizer{allowed: map[string]bool{"page:read": true, "entry:view": true}},
+		Panel:       panel,
+		PanelName:   "page",
+		ContentType: &CMSContentType{Slug: "page"},
+		Record:      record,
+		Policy:      policy,
+	})
+	if err != nil {
+		t.Fatalf("build readonly view model: %v", err)
+	}
+	if !readOnly.Visible || readOnly.Editable || !readOnly.ReadOnly {
+		t.Fatalf("expected read-only model, got %+v", readOnly)
+	}
+}
+
+func TestBuildEntryNavigationViewModelHiddenStates(t *testing.T) {
+	policy := EntryNavigationPolicy{
+		Enabled:               true,
+		EligibleLocations:     []string{"site.main"},
+		DefaultLocations:      []string{"site.main"},
+		DefaultVisible:        true,
+		AllowInstanceOverride: true,
+	}
+
+	hidden, err := BuildEntryNavigationViewModel(EntryNavigationViewModelInput{
+		Context:     context.Background(),
+		Authorizer:  contentNavigationPermissionAuthorizer{allowed: map[string]bool{}},
+		PanelName:   "page",
+		ContentType: &CMSContentType{Slug: "page"},
+		Record:      map[string]any{"id": "page-1"},
+		Policy:      policy,
+	})
+	if err != nil {
+		t.Fatalf("build hidden permission model: %v", err)
+	}
+	if hidden.Visible || hidden.Editable || hidden.Reason != "view_permission_denied" {
+		t.Fatalf("expected view permission hidden model, got %+v", hidden)
+	}
+
+	excluded := policy
+	excluded.Enabled = false
+	excluded.Excluded = true
+	excludedModel, err := BuildEntryNavigationViewModel(EntryNavigationViewModelInput{
+		Context:     context.Background(),
+		Authorizer:  contentNavigationPermissionAuthorizer{allowed: map[string]bool{"page:read": true}},
+		PanelName:   "page",
+		ContentType: &CMSContentType{Slug: "page"},
+		Record:      map[string]any{"id": "page-1"},
+		Policy:      excluded,
+	})
+	if err != nil {
+		t.Fatalf("build excluded model: %v", err)
+	}
+	if excludedModel.Visible || excludedModel.Reason != "content_type_excluded" {
+		t.Fatalf("expected excluded model, got %+v", excludedModel)
 	}
 }

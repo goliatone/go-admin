@@ -76,6 +76,11 @@ func (a *Admin) DiagnoseNavigation(ctx context.Context, opts NavigationDoctorOpt
 	if menuCode == "" {
 		menuCode = NormalizeMenuSlug("admin.main")
 	}
+	a.navigationLifecycleMu.Lock()
+	rawOpts := a.navigationRawInventoryOptionsLocked(menuCode)
+	coordination := a.navigationCoordinationReportLocked()
+	persistence := a.navigationPersistenceReportLocked()
+	a.navigationLifecycleMu.Unlock()
 	locale := strings.TrimSpace(opts.Locale)
 	if locale == "" {
 		locale = a.config.DefaultLocale
@@ -88,13 +93,24 @@ func (a *Admin) DiagnoseNavigation(ctx context.Context, opts NavigationDoctorOpt
 	}
 	raw := []MenuItem{}
 	if provider, ok := a.menuSvc.(rawMenuItemsProvider); ok && provider != nil {
-		items, err := provider.RawMenuItems(ctx, menuCode)
+		items, err := rawMenuItems(ctx, provider, rawOpts)
 		if err != nil {
 			return NavigationDoctorReport{}, err
 		}
 		raw = flattenPersistedMenuItems(items)
 	}
-	return ClassifyNavigation(opts.Expected, rendered, raw), nil
+	report := ClassifyNavigation(opts.Expected, rendered, raw)
+	report.Environment = rawOpts.Environment
+	report.EnvironmentSource = rawOpts.EnvironmentSource
+	report.CoordinationBackend = coordination.Backend
+	report.CoordinationScope = coordination.Scope
+	if !coordination.Supported {
+		report.CoordinationWarning = coordination.Warning
+	}
+	report.PersistenceBackend = persistence.Backend
+	report.RawInventoryScope = persistence.RawInventoryScope
+	report.PersistenceWarnings = append([]string{}, persistence.Warnings...)
+	return report, nil
 }
 
 func navigationExpectedContractItems(items []NavigationDoctorExpectedItem) []navcontract.ExpectedItem {

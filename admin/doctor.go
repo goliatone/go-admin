@@ -577,6 +577,7 @@ func defaultDoctorChecks() []DoctorCheck {
 	return []DoctorCheck{
 		coreDependenciesDoctorCheck(),
 		authWiringDoctorCheck(),
+		navigationPermissionPolicyDoctorCheck(),
 		featureWiringDoctorCheck(),
 		cmsWiringDoctorCheck(),
 	}
