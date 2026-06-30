@@ -6,7 +6,9 @@ import (
 	"reflect"
 	"slices"
 	"strings"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/goliatone/go-admin/admin"
 )
@@ -447,6 +449,244 @@ func TestReconcileGeneratedNavigationUsesScopedOnlyRawInventoryProvider(t *testi
 	}
 }
 
+func TestSeedNavigationReconcilePreflightsRawInventoryBeforeMutation(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	menuCode := "admin.main"
+	locale := "en"
+	expected := testGeneratedMenuItem("translations.queue", NavigationGroupTranslationsID, "Translation Queue", "translation_queue", "/admin/translations/queue", 50)
+	menuSvc := &scopedOnlyRawInventoryMenuService{
+		base:   admin.NewInMemoryMenuService(),
+		rawErr: errors.New("environment-scoped reads unsupported"),
+	}
+	var report NavigationReconcileReport
+
+	err := SeedNavigation(ctx, SeedNavigationOptions{
+		MenuSvc:   menuSvc,
+		MenuCode:  menuCode,
+		Locale:    locale,
+		Items:     []admin.MenuItem{expected},
+		Reconcile: true,
+		Reset:     true,
+		RawInventory: admin.NavigationRawInventoryOptions{
+			Environment:       "preview",
+			EnvironmentSource: "test",
+		},
+		Reportf: func(got NavigationReconcileReport) {
+			report = got
+		},
+	})
+	if err == nil || !strings.Contains(err.Error(), "generated navigation raw inventory unavailable") {
+		t.Fatalf("expected scoped raw inventory error, got err=%v report=%#v", err, report)
+	}
+	if len(report.RawInventoryUnavailable) != 1 || !strings.Contains(report.RawInventoryUnavailable[0], "environment-scoped reads unsupported") {
+		t.Fatalf("expected raw inventory diagnostic, got %#v", report.RawInventoryUnavailable)
+	}
+	if menuSvc.resets != 0 || menuSvc.creates != 0 || menuSvc.adds != 0 || menuSvc.updates != 0 || menuSvc.deletes != 0 {
+		t.Fatalf("expected no mutation before raw inventory preflight, resets=%d creates=%d adds=%d updates=%d deletes=%d", menuSvc.resets, menuSvc.creates, menuSvc.adds, menuSvc.updates, menuSvc.deletes)
+	}
+}
+
+func TestSeedNavigationReconcileCoordinatesResetCreateAndApply(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	menuCode := "admin.main"
+	locale := "en"
+	expected := testGeneratedMenuItem("translations.queue", NavigationGroupTranslationsID, "Translation Queue", "translation_queue", "/admin/translations/queue", 50)
+	menuSvc := newCoordinatedSeedNavigationMenuService()
+	var report NavigationReconcileReport
+
+	err := SeedNavigation(ctx, SeedNavigationOptions{
+		MenuSvc:   menuSvc,
+		MenuCode:  menuCode,
+		Locale:    locale,
+		Items:     []admin.MenuItem{expected},
+		Reconcile: true,
+		Reset:     true,
+		RawInventory: admin.NavigationRawInventoryOptions{
+			Environment:       "preview",
+			EnvironmentSource: "test",
+		},
+		Reportf: func(got NavigationReconcileReport) {
+			report = got
+		},
+	})
+	if err != nil {
+		t.Fatalf("SeedNavigation: %v", err)
+	}
+	menuSvc.mu.Lock()
+	coordinationCalls := menuSvc.coordinationCalls
+	lastScope := menuSvc.lastScope
+	mutations := append([]string{}, menuSvc.mutations...)
+	mutationsOutside := append([]string{}, menuSvc.mutationsOutside...)
+	rawCallsOutside := menuSvc.rawCallsOutside
+	menuSvc.mu.Unlock()
+
+	if coordinationCalls != 1 {
+		t.Fatalf("expected one coordination call, got %d", coordinationCalls)
+	}
+	if lastScope.MenuCode != "admin_main" || lastScope.Environment != "preview" || lastScope.EnvironmentSource != "test" {
+		t.Fatalf("expected scoped convergence call, got %#v", lastScope)
+	}
+	if len(mutationsOutside) != 0 || rawCallsOutside != 0 {
+		t.Fatalf("expected reset/create/apply and raw reads inside convergence, outside mutations=%#v rawOutside=%d", mutationsOutside, rawCallsOutside)
+	}
+	for _, want := range []string{"reset", "create", "add"} {
+		if !slices.Contains(mutations, want) {
+			t.Fatalf("expected mutation %q inside convergence, got %#v", want, mutations)
+		}
+	}
+	if !containsStringWithSuffix(report.Creates, "translations.queue") {
+		t.Fatalf("expected coordinated seed report to include create, got %#v", report)
+	}
+}
+
+func TestSeedNavigationReconcileRawInventoryFailureInsideCoordinatorPreventsMutation(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	menuCode := "admin.main"
+	locale := "en"
+	expected := testGeneratedMenuItem("translations.queue", NavigationGroupTranslationsID, "Translation Queue", "translation_queue", "/admin/translations/queue", 50)
+	menuSvc := newCoordinatedSeedNavigationMenuService()
+	menuSvc.rawErr = errors.New("scoped raw inventory unavailable")
+	var report NavigationReconcileReport
+
+	err := SeedNavigation(ctx, SeedNavigationOptions{
+		MenuSvc:   menuSvc,
+		MenuCode:  menuCode,
+		Locale:    locale,
+		Items:     []admin.MenuItem{expected},
+		Reconcile: true,
+		Reset:     true,
+		RawInventory: admin.NavigationRawInventoryOptions{
+			Environment:       "preview",
+			EnvironmentSource: "test",
+		},
+		Reportf: func(got NavigationReconcileReport) {
+			report = got
+		},
+	})
+	if err == nil || !strings.Contains(err.Error(), "generated navigation raw inventory unavailable") {
+		t.Fatalf("expected raw inventory error, got err=%v report=%#v", err, report)
+	}
+	menuSvc.mu.Lock()
+	coordinationCalls := menuSvc.coordinationCalls
+	mutations := append([]string{}, menuSvc.mutations...)
+	rawCalls := menuSvc.rawCalls
+	rawCallsOutside := menuSvc.rawCallsOutside
+	menuSvc.mu.Unlock()
+
+	if coordinationCalls != 1 {
+		t.Fatalf("expected one coordination call, got %d", coordinationCalls)
+	}
+	if rawCalls != 1 || rawCallsOutside != 0 {
+		t.Fatalf("expected one in-scope raw preflight, rawCalls=%d rawOutside=%d", rawCalls, rawCallsOutside)
+	}
+	if len(mutations) != 0 {
+		t.Fatalf("expected raw failure before reset/create/apply, got mutations %#v", mutations)
+	}
+	if len(report.RawInventoryUnavailable) != 1 || !strings.Contains(report.RawInventoryUnavailable[0], "scoped raw inventory unavailable") {
+		t.Fatalf("expected raw inventory diagnostic, got %#v", report.RawInventoryUnavailable)
+	}
+}
+
+func TestSeedNavigationReconcileSerializesResetCreateWithCoordinator(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	menuCode := "admin.main"
+	locale := "en"
+	expected := testGeneratedMenuItem("translations.queue", NavigationGroupTranslationsID, "Translation Queue", "translation_queue", "/admin/translations/queue", 50)
+	menuSvc := newCoordinatedSeedNavigationMenuService()
+	menuSvc.blockFirstConvergence = true
+	menuSvc.firstConvergenceEntered = make(chan struct{})
+	menuSvc.releaseFirstConvergence = make(chan struct{})
+
+	seed := func() error {
+		return SeedNavigation(ctx, SeedNavigationOptions{
+			MenuSvc:   menuSvc,
+			MenuCode:  menuCode,
+			Locale:    locale,
+			Items:     []admin.MenuItem{expected},
+			Reconcile: true,
+			Reset:     true,
+		})
+	}
+
+	firstDone := make(chan error, 1)
+	go func() {
+		firstDone <- seed()
+	}()
+	select {
+	case <-menuSvc.firstConvergenceEntered:
+	case <-time.After(500 * time.Millisecond):
+		t.Fatalf("first seed did not enter convergence")
+	}
+
+	secondDone := make(chan error, 1)
+	go func() {
+		secondDone <- seed()
+	}()
+	select {
+	case err := <-secondDone:
+		t.Fatalf("second seed completed before first convergence released: %v", err)
+	case <-time.After(50 * time.Millisecond):
+	}
+	menuSvc.mu.Lock()
+	mutationsBeforeRelease := append([]string{}, menuSvc.mutations...)
+	mutationsOutsideBeforeRelease := append([]string{}, menuSvc.mutationsOutside...)
+	menuSvc.mu.Unlock()
+	if len(mutationsBeforeRelease) != 0 || len(mutationsOutsideBeforeRelease) != 0 {
+		t.Fatalf("expected no reset/create while first convergence is blocked, mutations=%#v outside=%#v", mutationsBeforeRelease, mutationsOutsideBeforeRelease)
+	}
+
+	close(menuSvc.releaseFirstConvergence)
+	if err := <-firstDone; err != nil {
+		t.Fatalf("first seed: %v", err)
+	}
+	if err := <-secondDone; err != nil {
+		t.Fatalf("second seed: %v", err)
+	}
+	menuSvc.mu.Lock()
+	mutationsOutside := append([]string{}, menuSvc.mutationsOutside...)
+	menuSvc.mu.Unlock()
+	if len(mutationsOutside) != 0 {
+		t.Fatalf("expected no reset/create/apply outside convergence, got %#v", mutationsOutside)
+	}
+}
+
+func TestSeedNavigationUtilityMenuOverridesStaleRawInventoryMenuCode(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	utilityMenuCode := DefaultSidebarUtilityMenuCode
+	expected := testGeneratedMenuItem("preferences", "", "Preferences", "preferences", "/admin/preferences", 10)
+	menuSvc := &scopedOnlyRawInventoryMenuService{
+		base: admin.NewInMemoryMenuService(),
+	}
+
+	if err := SeedNavigation(ctx, SeedNavigationOptions{
+		MenuSvc:   menuSvc,
+		MenuCode:  utilityMenuCode,
+		Locale:    "en",
+		Items:     []admin.MenuItem{expected},
+		Reconcile: true,
+		RawInventory: admin.NavigationRawInventoryOptions{
+			MenuCode:          "admin_main",
+			Environment:       "preview",
+			EnvironmentSource: "test",
+		},
+	}); err != nil {
+		t.Fatalf("SeedNavigation: %v", err)
+	}
+	if want := newSeedNavigationRuntime(ctx, SeedNavigationOptions{MenuCode: utilityMenuCode}).menuCode; menuSvc.rawOptions.MenuCode != want {
+		t.Fatalf("expected effective utility menu raw scope %q, got %#v", want, menuSvc.rawOptions)
+	}
+}
+
 func TestReconcileGeneratedNavigationApplyFailsOnScopedRawInventoryErrorWithoutMutation(t *testing.T) {
 	t.Parallel()
 
@@ -686,6 +926,81 @@ func TestReconcileGeneratedNavigationRepairsMissingTranslationDashboardWithSibli
 		if item := findMenuItemByTargetKeyForTest(menu.Items, key); item == nil {
 			t.Fatalf("expected sibling %s to remain after apply, got %#v", key, menu.Items)
 		}
+	}
+}
+
+func TestReconcileGeneratedNavigationKeepsDistinctGeneratedDashboards(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	menuSvc := admin.NewInMemoryMenuService()
+	menuCode := "admin_main"
+	locale := "en"
+	if _, createErr := menuSvc.CreateMenu(ctx, menuCode); createErr != nil {
+		t.Fatalf("CreateMenu: %v", createErr)
+	}
+
+	expected := []admin.MenuItem{
+		{
+			ID:          NavigationGroupMainID,
+			Type:        admin.MenuItemTypeGroup,
+			GroupTitle:  "Main",
+			Collapsible: true,
+		},
+		{
+			ID:          NavigationGroupTranslationsID,
+			Type:        admin.MenuItemTypeGroup,
+			GroupTitle:  "Translations",
+			Collapsible: true,
+		},
+		testGeneratedMenuItem("dashboard", NavigationGroupMainID, "Dashboard", "dashboard", "/admin/dashboard", 0),
+		testGeneratedMenuItem("translations.dashboard", NavigationGroupTranslationsID, "Translation Dashboard", "translation_dashboard", "/admin/translations/dashboard", 49),
+	}
+
+	report, err := ReconcileGeneratedNavigation(ctx, NavigationReconcileOptions{
+		MenuSvc:          menuSvc,
+		MenuCode:         menuCode,
+		Locale:           locale,
+		Items:            expected,
+		Apply:            true,
+		AllowDestructive: true,
+	})
+	if err != nil {
+		t.Fatalf("destructive reconcile: %v", err)
+	}
+	for _, suffix := range []string{"nav-group-main.dashboard", "translations.dashboard"} {
+		if containsStringWithSuffix(report.DestructiveCandidates, suffix) {
+			t.Fatalf("expected canonical dashboard %s not to be destructive candidate, got %#v", suffix, report)
+		}
+	}
+	if len(report.DuplicateIdentities) != 0 {
+		t.Fatalf("expected first pass to avoid weak dashboard duplicate diagnostics, got %#v", report.DuplicateIdentities)
+	}
+
+	menu, err := menuSvc.Menu(ctx, menuCode, locale)
+	if err != nil {
+		t.Fatalf("read menu after destructive reconcile: %v", err)
+	}
+	if item := findMenuItemByIDForTest(menu.Items, "admin_main.nav-group-main.dashboard"); item == nil {
+		t.Fatalf("expected main dashboard to remain after destructive reconcile, got %#v", menu.Items)
+	}
+	if item := findMenuItemByIDForTest(menu.Items, "admin_main.translations.dashboard"); item == nil {
+		t.Fatalf("expected translation dashboard to remain after destructive reconcile, got %#v", menu.Items)
+	}
+
+	second, err := ReconcileGeneratedNavigation(ctx, NavigationReconcileOptions{
+		MenuSvc:          menuSvc,
+		MenuCode:         menuCode,
+		Locale:           locale,
+		Items:            expected,
+		Apply:            true,
+		AllowDestructive: true,
+	})
+	if err != nil {
+		t.Fatalf("second destructive reconcile: %v", err)
+	}
+	if len(second.DuplicateIdentities) != 0 {
+		t.Fatalf("expected distinct dashboards not to produce duplicate diagnostics, got %#v", second.DuplicateIdentities)
 	}
 }
 
@@ -1821,13 +2136,21 @@ type scopedOnlyRawInventoryMenuService struct {
 	raw        []admin.MenuItem
 	rawErr     error
 	rawOptions admin.NavigationRawInventoryOptions
+	creates    int
+	resets     int
 	adds       int
 	updates    int
 	deletes    int
 }
 
 func (s *scopedOnlyRawInventoryMenuService) CreateMenu(ctx context.Context, code string) (*admin.Menu, error) {
+	s.creates++
 	return s.base.CreateMenu(ctx, code)
+}
+
+func (s *scopedOnlyRawInventoryMenuService) ResetMenuContext(ctx context.Context, code string) error {
+	s.resets++
+	return s.base.ResetMenuContext(ctx, code)
 }
 
 func (s *scopedOnlyRawInventoryMenuService) AddMenuItem(ctx context.Context, menuCode string, item admin.MenuItem) error {
@@ -1863,6 +2186,122 @@ func (s *scopedOnlyRawInventoryMenuService) RawMenuItemsWithOptions(_ context.Co
 		return nil, s.rawErr
 	}
 	return append([]admin.MenuItem{}, s.raw...), nil
+}
+
+type seedNavigationConvergenceContextKey struct{}
+
+type coordinatedSeedNavigationMenuService struct {
+	base *admin.InMemoryMenuService
+
+	mu                         sync.Mutex
+	coordinationCalls          int
+	lastScope                  admin.NavigationConvergenceScope
+	mutations                  []string
+	mutationsOutside           []string
+	rawCalls                   int
+	rawCallsOutside            int
+	rawErr                     error
+	blockFirstConvergence      bool
+	firstConvergenceEntered    chan struct{}
+	releaseFirstConvergence    chan struct{}
+	firstConvergenceSignalOnce sync.Once
+}
+
+func newCoordinatedSeedNavigationMenuService() *coordinatedSeedNavigationMenuService {
+	return &coordinatedSeedNavigationMenuService{base: admin.NewInMemoryMenuService()}
+}
+
+func (s *coordinatedSeedNavigationMenuService) CreateMenu(ctx context.Context, code string) (*admin.Menu, error) {
+	s.recordMutation(ctx, "create")
+	return s.base.CreateMenu(ctx, code)
+}
+
+func (s *coordinatedSeedNavigationMenuService) AddMenuItem(ctx context.Context, menuCode string, item admin.MenuItem) error {
+	s.recordMutation(ctx, "add")
+	return s.base.AddMenuItem(ctx, menuCode, item)
+}
+
+func (s *coordinatedSeedNavigationMenuService) UpdateMenuItem(ctx context.Context, menuCode string, item admin.MenuItem) error {
+	s.recordMutation(ctx, "update")
+	return s.base.UpdateMenuItem(ctx, menuCode, item)
+}
+
+func (s *coordinatedSeedNavigationMenuService) DeleteMenuItem(ctx context.Context, menuCode, id string) error {
+	s.recordMutation(ctx, "delete")
+	return s.base.DeleteMenuItem(ctx, menuCode, id)
+}
+
+func (s *coordinatedSeedNavigationMenuService) ReorderMenu(ctx context.Context, menuCode string, orderedIDs []string) error {
+	s.recordMutation(ctx, "reorder")
+	return s.base.ReorderMenu(ctx, menuCode, orderedIDs)
+}
+
+func (s *coordinatedSeedNavigationMenuService) Menu(ctx context.Context, code, locale string) (*admin.Menu, error) {
+	return s.base.Menu(ctx, code, locale)
+}
+
+func (s *coordinatedSeedNavigationMenuService) MenuByLocation(ctx context.Context, location, locale string) (*admin.Menu, error) {
+	return s.base.MenuByLocation(ctx, location, locale)
+}
+
+func (s *coordinatedSeedNavigationMenuService) ResetMenuContext(ctx context.Context, code string) error {
+	s.recordMutation(ctx, "reset")
+	return s.base.ResetMenuContext(ctx, code)
+}
+
+func (s *coordinatedSeedNavigationMenuService) RawMenuItemsWithOptions(ctx context.Context, opts admin.NavigationRawInventoryOptions) ([]admin.MenuItem, error) {
+	s.mu.Lock()
+	s.rawCalls++
+	if !seedNavigationInConvergence(ctx) {
+		s.rawCallsOutside++
+	}
+	rawErr := s.rawErr
+	s.mu.Unlock()
+	if rawErr != nil {
+		return nil, rawErr
+	}
+	return s.base.RawMenuItemsWithOptions(ctx, opts)
+}
+
+func (s *coordinatedSeedNavigationMenuService) NavigationCoordinationReport() admin.NavigationCoordinationReport {
+	return admin.NavigationCoordinationReport{
+		Backend:   "test",
+		Scope:     "test-menu",
+		Supported: true,
+	}
+}
+
+func (s *coordinatedSeedNavigationMenuService) WithNavigationConvergence(ctx context.Context, scope admin.NavigationConvergenceScope, fn func(context.Context) error) error {
+	s.mu.Lock()
+	s.coordinationCalls++
+	call := s.coordinationCalls
+	s.lastScope = scope
+	block := s.blockFirstConvergence && call == 1
+	s.mu.Unlock()
+	if block {
+		s.firstConvergenceSignalOnce.Do(func() {
+			close(s.firstConvergenceEntered)
+		})
+		<-s.releaseFirstConvergence
+	}
+	if fn == nil {
+		return nil
+	}
+	return fn(context.WithValue(ctx, seedNavigationConvergenceContextKey{}, true))
+}
+
+func (s *coordinatedSeedNavigationMenuService) recordMutation(ctx context.Context, name string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.mutations = append(s.mutations, name)
+	if !seedNavigationInConvergence(ctx) {
+		s.mutationsOutside = append(s.mutationsOutside, name)
+	}
+}
+
+func seedNavigationInConvergence(ctx context.Context) bool {
+	inConvergence, ok := ctx.Value(seedNavigationConvergenceContextKey{}).(bool)
+	return ok && inConvergence
 }
 
 type coordinatedNavigationMenuService struct {

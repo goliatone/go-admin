@@ -10,20 +10,36 @@ import (
 
 // CMSContentRepository adapts CMSContentService for structured content entities.
 type CMSContentRepository struct {
-	content      CMSContentService
-	contentTypes CMSContentTypeService
-	read         AdminContentReadService
-	write        AdminContentWriteService
+	content                   CMSContentService
+	contentTypes              CMSContentTypeService
+	read                      AdminContentReadService
+	write                     AdminContentWriteService
+	entryNavigationOptions    EntryNavigationOptions
+	entryNavigationOptionsSet bool
 }
 
 // NewCMSContentRepository builds a content repository.
 func NewCMSContentRepository(content CMSContentService) *CMSContentRepository {
-	repository := &CMSContentRepository{content: content}
+	return newCMSContentRepository(content, EntryNavigationOptions{}, false)
+}
+
+// NewCMSContentRepositoryWithEntryNavigationOptions builds a content repository
+// using the final merged entry-navigation policy.
+func NewCMSContentRepositoryWithEntryNavigationOptions(content CMSContentService, options EntryNavigationOptions) *CMSContentRepository {
+	return newCMSContentRepository(content, options, true)
+}
+
+func newCMSContentRepository(content CMSContentService, options EntryNavigationOptions, optionsSet bool) *CMSContentRepository {
+	repository := &CMSContentRepository{
+		content:                   content,
+		entryNavigationOptions:    options,
+		entryNavigationOptionsSet: optionsSet,
+	}
 	if typed := resolveCMSContentTypeCapability(content); typed != nil {
 		repository.contentTypes = typed
 	}
-	repository.read = newAdminContentReadService(content, repository.contentTypes)
-	repository.write = newAdminContentWriteService(content, repository.contentTypes)
+	repository.read = repository.newReadService()
+	repository.write = repository.newWriteService()
 	return repository
 }
 
@@ -59,10 +75,12 @@ func (r *CMSContentRepository) Delete(ctx context.Context, id string) error {
 
 // CMSContentTypeEntryRepository scopes content CRUD to a specific content type.
 type CMSContentTypeEntryRepository struct {
-	content     CMSContentService
-	contentType CMSContentType
-	read        AdminContentReadService
-	write       AdminContentWriteService
+	content                   CMSContentService
+	contentType               CMSContentType
+	read                      AdminContentReadService
+	write                     AdminContentWriteService
+	entryNavigationOptions    EntryNavigationOptions
+	entryNavigationOptionsSet bool
 }
 
 type cmsContentListOptionsService interface {
@@ -79,12 +97,25 @@ type cmsContentTypeFamilyListService interface {
 
 // NewCMSContentTypeEntryRepository builds a content repository scoped to the supplied content type.
 func NewCMSContentTypeEntryRepository(content CMSContentService, contentType CMSContentType) *CMSContentTypeEntryRepository {
-	return &CMSContentTypeEntryRepository{
-		content:     content,
-		contentType: contentType,
-		read:        newAdminContentReadService(content),
-		write:       newAdminContentWriteService(content),
+	return newCMSContentTypeEntryRepository(content, contentType, EntryNavigationOptions{}, false)
+}
+
+// NewCMSContentTypeEntryRepositoryWithEntryNavigationOptions builds a scoped
+// content repository using the final merged entry-navigation policy.
+func NewCMSContentTypeEntryRepositoryWithEntryNavigationOptions(content CMSContentService, contentType CMSContentType, options EntryNavigationOptions) *CMSContentTypeEntryRepository {
+	return newCMSContentTypeEntryRepository(content, contentType, options, true)
+}
+
+func newCMSContentTypeEntryRepository(content CMSContentService, contentType CMSContentType, options EntryNavigationOptions, optionsSet bool) *CMSContentTypeEntryRepository {
+	repository := &CMSContentTypeEntryRepository{
+		content:                   content,
+		contentType:               contentType,
+		entryNavigationOptions:    options,
+		entryNavigationOptionsSet: optionsSet,
 	}
+	repository.read = repository.newReadService()
+	repository.write = repository.newWriteService()
+	return repository
 }
 
 // List returns content filtered by the bound content type.
@@ -616,7 +647,7 @@ func (r *CMSContentRepository) readService() AdminContentReadService {
 	if r.read != nil {
 		return r.read
 	}
-	return newAdminContentReadService(r.content, r.contentTypes)
+	return r.newReadService()
 }
 
 func (r *CMSContentRepository) writeService() AdminContentWriteService {
@@ -625,6 +656,20 @@ func (r *CMSContentRepository) writeService() AdminContentWriteService {
 	}
 	if r.write != nil {
 		return r.write
+	}
+	return r.newWriteService()
+}
+
+func (r *CMSContentRepository) newReadService() AdminContentReadService {
+	if r.entryNavigationOptionsSet {
+		return newAdminContentReadServiceWithEntryNavigationOptions(r.content, r.entryNavigationOptions, r.contentTypes)
+	}
+	return newAdminContentReadService(r.content, r.contentTypes)
+}
+
+func (r *CMSContentRepository) newWriteService() AdminContentWriteService {
+	if r.entryNavigationOptionsSet {
+		return newAdminContentWriteServiceWithEntryNavigationOptions(r.content, r.entryNavigationOptions, r.contentTypes)
 	}
 	return newAdminContentWriteService(r.content, r.contentTypes)
 }
@@ -636,7 +681,7 @@ func (r *CMSContentTypeEntryRepository) readService() AdminContentReadService {
 	if r.read != nil {
 		return r.read
 	}
-	return newAdminContentReadService(r.content)
+	return r.newReadService()
 }
 
 func (r *CMSContentTypeEntryRepository) writeService() AdminContentWriteService {
@@ -645,6 +690,20 @@ func (r *CMSContentTypeEntryRepository) writeService() AdminContentWriteService 
 	}
 	if r.write != nil {
 		return r.write
+	}
+	return r.newWriteService()
+}
+
+func (r *CMSContentTypeEntryRepository) newReadService() AdminContentReadService {
+	if r.entryNavigationOptionsSet {
+		return newAdminContentReadServiceWithEntryNavigationOptions(r.content, r.entryNavigationOptions)
+	}
+	return newAdminContentReadService(r.content)
+}
+
+func (r *CMSContentTypeEntryRepository) newWriteService() AdminContentWriteService {
+	if r.entryNavigationOptionsSet {
+		return newAdminContentWriteServiceWithEntryNavigationOptions(r.content, r.entryNavigationOptions)
 	}
 	return newAdminContentWriteService(r.content)
 }

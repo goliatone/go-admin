@@ -297,6 +297,119 @@ func TestEntryNavigationPolicyOptionsGlobalDefaultsWhenCapabilitiesMissing(t *te
 	}
 }
 
+func TestEntryNavigationPolicyMetadataOnlyOptionsDoNotCreatePolicy(t *testing.T) {
+	options := EntryNavigationOptions{
+		ViewPermission:     "entry:view",
+		EditPermission:     "entry:edit",
+		PermissionResource: "content_navigation",
+		ActivityAction:     "content.navigation.custom",
+	}
+	if policy, ok := entryNavigationPolicyFromContentTypeWithOptions(CMSContentType{Slug: "misc"}, options, true); ok {
+		t.Fatalf("metadata-only options must not enable an otherwise ineligible type, got policy %+v", policy)
+	}
+
+	capable := CMSContentType{
+		Slug: "page",
+		Capabilities: map[string]any{
+			"navigation": map[string]any{
+				"enabled":            true,
+				"eligible_locations": []string{"site.main"},
+				"default_locations":  []string{"site.main"},
+			},
+		},
+	}
+	policy, ok := entryNavigationPolicyFromContentTypeWithOptions(capable, options, true)
+	if !ok {
+		t.Fatalf("metadata options should attach to an existing capability policy")
+	}
+	if !policy.Enabled || policy.ViewPermission != "entry:view" || policy.EditPermission != "entry:edit" || policy.ActivityAction != "content.navigation.custom" {
+		t.Fatalf("metadata options were not applied to capable type: %+v", policy)
+	}
+}
+
+func TestEntryNavigationPolicyPerTypeLocationsDoNotWidenExplicitEmptyCapability(t *testing.T) {
+	options := EntryNavigationOptions{
+		ContentTypes: map[string]EntryNavigationTypeOptions{
+			"page": {
+				EligibleLocations: []string{"site.main"},
+				DefaultLocations:  []string{"site.main"},
+			},
+		},
+	}
+
+	explicitEmpty := EntryNavigationPolicyFromOptions(CMSContentType{
+		Slug: "page",
+		Capabilities: map[string]any{
+			"navigation": map[string]any{
+				"enabled":                 true,
+				"eligible_locations":      []string{},
+				"allow_instance_override": true,
+			},
+		},
+	}, options)
+	if explicitEmpty.Enabled && len(explicitEmpty.EligibleLocations) != 0 {
+		t.Fatalf("explicit empty eligible_locations must not be widened, got %+v", explicitEmpty)
+	}
+	if len(explicitEmpty.DefaultLocations) != 0 {
+		t.Fatalf("explicit empty eligible_locations should drop defaults, got %+v", explicitEmpty)
+	}
+
+	absentBase := EntryNavigationPolicyFromOptions(CMSContentType{
+		Slug: "page",
+		Capabilities: map[string]any{
+			"navigation": map[string]any{
+				"enabled":                 true,
+				"allow_instance_override": true,
+			},
+		},
+	}, options)
+	if got, want := absentBase.EligibleLocations, []string{"site.main"}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("per-type options should define locations when base is absent: got %+v want %+v", got, want)
+	}
+	if got, want := absentBase.DefaultLocations, []string{"site.main"}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("per-type defaults mismatch: got %+v want %+v", got, want)
+	}
+}
+
+func TestEntryNavigationPolicyOptionsMergePartialCapabilityFields(t *testing.T) {
+	enabled := true
+	defaultVisible := false
+	got := EntryNavigationPolicyFromOptions(CMSContentType{
+		Slug: "page",
+		Capabilities: map[string]any{
+			"navigation": map[string]any{
+				"allow_instance_override": false,
+			},
+		},
+	}, EntryNavigationOptions{
+		Enabled:               &enabled,
+		EligibleLocations:     []string{"site.main", "site.footer"},
+		DefaultLocations:      []string{"site.footer"},
+		DefaultVisible:        &defaultVisible,
+		AllowInstanceOverride: &enabled,
+		ViewPermission:        "entry:view",
+		EditPermission:        "entry:edit",
+		PermissionResource:    "content_navigation",
+		ActivityAction:        "content.navigation.custom",
+	})
+
+	if !got.Enabled || got.DefaultVisible || got.AllowInstanceOverride {
+		t.Fatalf("partial capability merge booleans mismatch: %+v", got)
+	}
+	if want := []string{"site.footer", "site.main"}; !reflect.DeepEqual(got.EligibleLocations, want) {
+		t.Fatalf("eligible locations mismatch: got %+v want %+v", got.EligibleLocations, want)
+	}
+	if want := []string{"site.footer"}; !reflect.DeepEqual(got.DefaultLocations, want) {
+		t.Fatalf("default locations mismatch: got %+v want %+v", got.DefaultLocations, want)
+	}
+	if got.ViewPermission != "entry:view" || got.EditPermission != "entry:edit" || got.PermissionResource != "content_navigation" {
+		t.Fatalf("permission fields should survive partial capability merge: %+v", got)
+	}
+	if got.ActivityAction != "content.navigation.custom" {
+		t.Fatalf("activity action should survive partial capability merge, got %q", got.ActivityAction)
+	}
+}
+
 func TestEntryNavigationActivityActionLabelDefault(t *testing.T) {
 	cfg := applyConfigDefaults(Config{})
 	if got := strings.TrimSpace(cfg.ActivityActionLabels[DefaultEntryNavigationActivityAction]); got == "" {

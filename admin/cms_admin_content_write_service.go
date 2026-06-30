@@ -21,13 +21,21 @@ type AdminContentWriteService interface {
 }
 
 type goCMSAdminContentWriteService struct {
-	content      CMSContentService
-	contentTypes CMSContentTypeService
+	content                   CMSContentService
+	contentTypes              CMSContentTypeService
+	entryNavigationOptions    EntryNavigationOptions
+	entryNavigationOptionsSet bool
 }
 
 // NewAdminContentWriteService builds the local admin content write-service boundary.
 func NewAdminContentWriteService(content CMSContentService, contentTypes ...CMSContentTypeService) AdminContentWriteService {
 	return newAdminContentWriteService(content, contentTypes...)
+}
+
+// NewAdminContentWriteServiceWithEntryNavigationOptions builds the admin write
+// boundary using the final merged entry-navigation policy.
+func NewAdminContentWriteServiceWithEntryNavigationOptions(content CMSContentService, options EntryNavigationOptions, contentTypes ...CMSContentTypeService) AdminContentWriteService {
+	return newAdminContentWriteServiceWithEntryNavigationOptions(content, options, contentTypes...)
 }
 
 func newAdminContentWriteService(content CMSContentService, contentTypes ...CMSContentTypeService) goCMSAdminContentWriteService {
@@ -37,6 +45,13 @@ func newAdminContentWriteService(content CMSContentService, contentTypes ...CMSC
 	} else if typed := resolveCMSContentTypeCapability(content); typed != nil {
 		service.contentTypes = typed
 	}
+	return service
+}
+
+func newAdminContentWriteServiceWithEntryNavigationOptions(content CMSContentService, options EntryNavigationOptions, contentTypes ...CMSContentTypeService) goCMSAdminContentWriteService {
+	service := newAdminContentWriteService(content, contentTypes...)
+	service.entryNavigationOptions = options
+	service.entryNavigationOptionsSet = true
 	return service
 }
 
@@ -238,14 +253,20 @@ func (s goCMSAdminContentWriteService) CreateForContentType(ctx context.Context,
 		record["content_type"] = typeKey
 		record["content_type_slug"] = typeKey
 	}
-	if err := applyContentEntryNavigationWrite(record, contentEntryNavigationPolicyFromContentType(contentType), true); err != nil {
-		return nil, err
+	navigationPolicy, hasNavigationPolicy := s.entryNavigationPolicyForContentType(contentType)
+	if hasNavigationPolicy {
+		if err := applyContentEntryNavigationWrite(record, navigationPolicy, true); err != nil {
+			return nil, err
+		}
 	}
 	created, err := s.Create(ctx, record)
 	if err != nil {
 		return nil, err
 	}
-	return applyContentEntryNavigationReadContract(created, contentEntryNavigationPolicyFromContentType(contentType)), nil
+	if hasNavigationPolicy {
+		created = applyContentEntryNavigationReadContract(created, navigationPolicy)
+	}
+	return created, nil
 }
 
 func (s goCMSAdminContentWriteService) CreateTranslationForContentType(ctx context.Context, contentType CMSContentType, input TranslationCreateInput) (map[string]any, error) {
@@ -307,21 +328,27 @@ func (s goCMSAdminContentWriteService) UpdateForContentType(ctx context.Context,
 		record["content_type"] = typeKey
 		record["content_type_slug"] = typeKey
 	}
-	if err := applyContentEntryNavigationWrite(record, contentEntryNavigationPolicyFromContentType(contentType), false); err != nil {
-		return nil, err
+	navigationPolicy, hasNavigationPolicy := s.entryNavigationPolicyForContentType(contentType)
+	if hasNavigationPolicy {
+		if err := applyContentEntryNavigationWrite(record, navigationPolicy, false); err != nil {
+			return nil, err
+		}
 	}
 	updated, err := s.Update(ctx, id, record)
 	if err != nil {
 		return nil, err
 	}
-	return applyContentEntryNavigationReadContract(updated, contentEntryNavigationPolicyFromContentType(contentType)), nil
+	if hasNavigationPolicy {
+		updated = applyContentEntryNavigationReadContract(updated, navigationPolicy)
+	}
+	return updated, nil
 }
 
 func (s goCMSAdminContentWriteService) DeleteForContentType(ctx context.Context, contentType CMSContentType, id string) error {
 	if s.content == nil {
 		return ErrNotFound
 	}
-	record, err := newAdminContentReadService(s.content, s.contentTypes).GetForContentType(ctx, contentType, id)
+	record, err := s.readService().GetForContentType(ctx, contentType, id)
 	if err != nil {
 		return err
 	}
@@ -340,7 +367,21 @@ func (s goCMSAdminContentWriteService) contentTypeService() CMSContentTypeServic
 }
 
 func (s goCMSAdminContentWriteService) resolveContentNavigationPolicy(ctx context.Context, contentTypeKey string) (contentEntryNavigationPolicy, bool) {
-	return resolveContentEntryNavigationPolicy(ctx, s.contentTypeService(), contentTypeKey)
+	if !s.entryNavigationOptionsSet {
+		return resolveContentEntryNavigationPolicy(ctx, s.contentTypeService(), contentTypeKey)
+	}
+	return resolveContentEntryNavigationPolicyWithOptionalOptions(ctx, s.contentTypeService(), contentTypeKey, s.entryNavigationOptions, true)
+}
+
+func (s goCMSAdminContentWriteService) entryNavigationPolicyForContentType(contentType CMSContentType) (contentEntryNavigationPolicy, bool) {
+	return entryNavigationPolicyFromContentTypeWithOptions(contentType, s.entryNavigationOptions, s.entryNavigationOptionsSet)
+}
+
+func (s goCMSAdminContentWriteService) readService() goCMSAdminContentReadService {
+	read := newAdminContentReadService(s.content, s.contentTypes)
+	read.entryNavigationOptions = s.entryNavigationOptions
+	read.entryNavigationOptionsSet = s.entryNavigationOptionsSet
+	return read
 }
 
 func (s goCMSAdminContentWriteService) ensureContentTranslationIntent(ctx context.Context, id string, record map[string]any) error {

@@ -202,6 +202,107 @@ func TestAdminContentWriteServiceCreateAppliesNestedNavigationOverrides(t *testi
 	}
 }
 
+func TestAdminContentReadWriteServicesWithEntryNavigationOptionsApplyGlobalPolicy(t *testing.T) {
+	ctx := context.Background()
+	content := NewInMemoryContentService()
+	if _, err := content.CreateContentType(ctx, CMSContentType{
+		Name:   "Page",
+		Slug:   "page",
+		Schema: minimalContentTypeSchema(),
+	}); err != nil {
+		t.Fatalf("create content type: %v", err)
+	}
+	enabled := true
+	options := EntryNavigationOptions{
+		Enabled:               &enabled,
+		EligibleLocations:     []string{"site.main", "site.footer"},
+		DefaultLocations:      []string{"site.footer"},
+		AllowInstanceOverride: &enabled,
+	}
+	write := newAdminContentWriteServiceWithEntryNavigationOptions(content, options)
+
+	created, err := write.Create(ctx, map[string]any{
+		"title":             "Home",
+		"slug":              "home",
+		"locale":            "en",
+		"status":            "draft",
+		"content_type":      "page",
+		"content_type_slug": "page",
+		"_navigation": map[string]any{
+			"site.main":   "show",
+			"site.footer": "hide",
+		},
+	})
+	if err != nil {
+		t.Fatalf("create failed: %v", err)
+	}
+	if got, want := toStringSlice(created["effective_menu_locations"]), []string{"site.main"}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("effective locations mismatch after write: got %+v want %+v", got, want)
+	}
+
+	read := newAdminContentReadServiceWithEntryNavigationOptions(content, options)
+	record, err := read.Get(ctx, toString(created["id"]))
+	if err != nil {
+		t.Fatalf("read failed: %v", err)
+	}
+	if got, want := toStringSlice(record["effective_menu_locations"]), []string{"site.main"}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("effective locations mismatch after read: got %+v want %+v", got, want)
+	}
+	visibility := extractMap(record["effective_navigation_visibility"])
+	if !toBool(visibility["site.main"]) || toBool(visibility["site.footer"]) {
+		t.Fatalf("expected global option policy visibility after read, got %+v", visibility)
+	}
+}
+
+func TestAdminContentReadWriteServicesMetadataOnlyEntryNavigationOptionsDoNotProjectPolicy(t *testing.T) {
+	ctx := context.Background()
+	content := NewInMemoryContentService()
+	if _, err := content.CreateContentType(ctx, CMSContentType{
+		Name:   "Misc",
+		Slug:   "misc",
+		Schema: minimalContentTypeSchema(),
+	}); err != nil {
+		t.Fatalf("create content type: %v", err)
+	}
+	options := EntryNavigationOptions{
+		ViewPermission:     "entry:view",
+		EditPermission:     "entry:edit",
+		PermissionResource: "content_navigation",
+		ActivityAction:     "content.navigation.custom",
+	}
+	write := newAdminContentWriteServiceWithEntryNavigationOptions(content, options)
+	created, err := write.Create(ctx, map[string]any{
+		"title":             "Loose Contract",
+		"slug":              "loose-contract",
+		"locale":            "en",
+		"status":            "draft",
+		"content_type":      "misc",
+		"content_type_slug": "misc",
+		"_navigation": map[string]any{
+			"legacy.location": "show",
+		},
+		"effective_menu_locations": []string{"legacy.location"},
+	})
+	if err != nil {
+		t.Fatalf("metadata-only options must not reject navigation payloads: %v", err)
+	}
+	if got := toString(extractMap(created["_navigation"])["legacy.location"]); got != NavigationOverrideShow {
+		t.Fatalf("expected legacy navigation payload to survive write, got %+v", created["_navigation"])
+	}
+
+	read := newAdminContentReadServiceWithEntryNavigationOptions(content, options)
+	record, err := read.Get(ctx, toString(created["id"]))
+	if err != nil {
+		t.Fatalf("read failed: %v", err)
+	}
+	if got := toString(extractMap(record["_navigation"])["legacy.location"]); got != NavigationOverrideShow {
+		t.Fatalf("metadata-only options must not strip read navigation payload, got %+v", record["_navigation"])
+	}
+	if got, want := toStringSlice(record["effective_menu_locations"]), []string{"legacy.location"}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("metadata-only options must not strip read effective locations: got %+v want %+v", got, want)
+	}
+}
+
 func TestAdminContentWriteServiceUpdateAppliesNestedNavigationOverrides(t *testing.T) {
 	ctx := context.Background()
 	content := NewInMemoryContentService()

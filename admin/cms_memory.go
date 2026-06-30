@@ -757,14 +757,16 @@ func (s *InMemoryMenuService) NavigationPersistenceReport() NavigationPersistenc
 // MenuByLocation returns a menu resolved by location.
 func (s *InMemoryMenuService) MenuByLocation(ctx context.Context, location, locale string) (*Menu, error) {
 	s.mu.Lock()
-	defer s.mu.Unlock()
 	if location == "" {
+		s.mu.Unlock()
 		return &Menu{}, nil
 	}
+	code := location
 	if slug, ok := s.locationIndex[location]; ok {
-		return s.Menu(ctx, slug, locale)
+		code = slug
 	}
-	return s.Menu(ctx, location, locale)
+	s.mu.Unlock()
+	return s.Menu(ctx, code, locale)
 }
 
 // MenuByLocationWithOptions supports site menu reads with explicit query options.

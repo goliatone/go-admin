@@ -132,6 +132,20 @@ func TestGoCMSMenuAdapterRawMenuItemsRejectEnvironmentScope(t *testing.T) {
 	}
 }
 
+func TestGoCMSMenuAdapterRawMenuItemsTreatMissingMenuAsEmptyInventory(t *testing.T) {
+	ctx := context.Background()
+	menuSvc := newStubCMSMenuService()
+	adapter := NewGoCMSMenuAdapterFromAny(menuSvc)
+
+	raw, err := adapter.RawMenuItemsWithOptions(ctx, NavigationRawInventoryOptions{MenuCode: "admin.main"})
+	if err != nil {
+		t.Fatalf("RawMenuItemsWithOptions: %v", err)
+	}
+	if len(raw) != 0 {
+		t.Fatalf("expected empty raw inventory for missing menu, got %#v", raw)
+	}
+}
+
 func TestGoCMSMenuAdapterNavigationPersistenceReport(t *testing.T) {
 	adapter := NewGoCMSMenuAdapterFromAny(newStubCMSMenuService())
 	report := adapter.NavigationPersistenceReport()

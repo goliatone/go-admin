@@ -51,13 +51,21 @@ func (a *Admin) handleContentNavigationOverride(c router.Context) error {
 	if err != nil {
 		return writeError(c, err)
 	}
-	updated, err := panel.Update(adminCtx, req.id, map[string]any{"_navigation": navigationVisibilityMapAny(preflight.normalizedOverrides)})
+	updated, err := panel.Update(adminCtx, req.id, contentNavigationMutationPayload(preflight.evaluation))
 	if err != nil {
 		return writeError(c, err)
 	}
 	updated = applyContentEntryNavigationReadContract(updated, preflight.policy)
 	a.recordContentNavigationOverrideActivity(adminCtx, req, panelName, preflight, updated)
 	return writeJSON(c, contentNavigationOverrideResponse(req.id, req.typeKey, panelName, updated))
+}
+
+func contentNavigationMutationPayload(eval contentEntryNavigationEvaluation) map[string]any {
+	return map[string]any{
+		"_navigation":                     navigationVisibilityMapAny(eval.Overrides),
+		"effective_menu_locations":        append([]string{}, eval.EffectiveLocations...),
+		"effective_navigation_visibility": navigationVisibilityBoolMapAny(eval.EffectiveVisibility),
+	}
 }
 
 type contentNavigationMutationPreflight struct {
@@ -88,7 +96,7 @@ func (a *Admin) prepareContentNavigationOverrideMutation(adminCtx AdminContext, 
 	}
 	model, err := BuildEntryNavigationViewModel(EntryNavigationViewModelInput{
 		Context:     adminCtx.Context,
-		Authorizer:  a.authorizer,
+		Authorizer:  entryNavigationPanelAuthorizer(panel, a.authorizer),
 		Panel:       panel,
 		PanelName:   panelName,
 		ContentType: contentType,
@@ -390,6 +398,7 @@ func (a *Admin) resolveContentNavigationType(ctx context.Context, typeKey string
 	return nil, false
 }
 
+//nolint:unused // Kept for compatibility with downstream navigation policy customization.
 func (a *Admin) resolveContentNavigationPolicy(ctx context.Context, typeKey string) (contentEntryNavigationPolicy, bool) {
 	if a == nil {
 		return contentEntryNavigationPolicy{}, false

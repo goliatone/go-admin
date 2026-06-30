@@ -120,8 +120,8 @@ func TestContentFormTemplateUsesEntryNavigationViewModel(t *testing.T) {
 		`data-navigation-endpoint="{{ entry_navigation.endpoint }}"`,
 		`data-navigation-editable="{{ entry_navigation.editable }}"`,
 		`data-navigation-read-only="{{ entry_navigation.read_only }}"`,
-		`toJSON(entry_navigation.eligible_locations)`,
-		`toJSON(entry_navigation.overrides)`,
+		`toJSONAttr(entry_navigation.eligible_locations)`,
+		`toJSONAttr(entry_navigation.overrides)`,
 	}
 	for _, fragment := range required {
 		if strings.Contains(partial, fragment) {

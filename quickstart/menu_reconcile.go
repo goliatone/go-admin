@@ -234,8 +234,10 @@ func withGeneratedNavigationConvergence(ctx context.Context, opts NavigationReco
 }
 
 func normalizeNavigationRawInventoryOptions(opts admin.NavigationRawInventoryOptions, menuCode string) admin.NavigationRawInventoryOptions {
-	if strings.TrimSpace(opts.MenuCode) == "" {
-		opts.MenuCode = strings.TrimSpace(menuCode)
+	if effectiveMenuCode := strings.TrimSpace(menuCode); effectiveMenuCode != "" {
+		opts.MenuCode = effectiveMenuCode
+	} else {
+		opts.MenuCode = strings.TrimSpace(opts.MenuCode)
 	}
 	if strings.TrimSpace(opts.Environment) == "" {
 		opts.Environment = "default"
@@ -334,7 +336,7 @@ func recordRawGeneratedNavigationState(report *NavigationReconcileReport, render
 func recordGeneratedNavigationActualState(report *NavigationReconcileReport, actual, expected []admin.MenuItem) {
 	actualIdentityCount := map[string]int{}
 	for _, item := range actual {
-		keys := navcontract.IdentityKeys(navigationContractItem(item))
+		keys := generatedNavigationDuplicateIdentityKeys(item)
 		if generatedMenuItemOwned(item) {
 			report.ActualGeneratedCount++
 		}
@@ -350,6 +352,18 @@ func recordGeneratedNavigationActualState(report *NavigationReconcileReport, act
 			report.DuplicateIdentities = append(report.DuplicateIdentities, key)
 		}
 	}
+}
+
+func generatedNavigationDuplicateIdentityKeys(item admin.MenuItem) []string {
+	keys := navcontract.IdentityKeys(navigationContractItem(item))
+	out := make([]string, 0, len(keys))
+	for _, key := range keys {
+		if strings.HasPrefix(key, "id_suffix:") {
+			continue
+		}
+		out = append(out, key)
+	}
+	return out
 }
 
 func reconcileGeneratedNavigationExpectedItems(ctx context.Context, opts NavigationReconcileOptions, runtime seedNavigationRuntime, expected, actual []admin.MenuItem, report *NavigationReconcileReport) (map[string]bool, error) {
@@ -564,6 +578,7 @@ func cleanupAppliedWeakGeneratedNavigationMatches(ctx context.Context, opts Navi
 	return changed, nil
 }
 
+//nolint:nestif // Replacement repair flow keeps mutation and report updates together.
 func repairAppliedExactGeneratedNavigationItem(ctx context.Context, opts NavigationReconcileOptions, menuCode string, expected admin.MenuItem, actual []admin.MenuItem, report *NavigationReconcileReport) error {
 	candidate, ambiguous := exactGeneratedNavigationReplacementCandidate(expected, actual)
 	if ambiguous {
@@ -864,7 +879,7 @@ func appendUniqueMenuItemByID(items []admin.MenuItem, seen map[string]bool, item
 
 func matchesAnyExpectedGeneratedRow(actual admin.MenuItem, expected []admin.MenuItem) bool {
 	for _, item := range expected {
-		if generatedMenuItemOwned(actual) && reconcileMenuItemsShareKey(item, actual) {
+		if generatedOwnedMenuItemsMatchExpected(item, actual) {
 			return true
 		}
 		if strings.TrimSpace(stringTargetValue(actual.Target, MenuTargetGeneratedIDKey)) != "" && len(generatedMetadataMatches(item, []admin.MenuItem{actual})) > 0 {
@@ -875,6 +890,21 @@ func matchesAnyExpectedGeneratedRow(actual admin.MenuItem, expected []admin.Menu
 		}
 	}
 	return false
+}
+
+func generatedOwnedMenuItemsMatchExpected(expected, actual admin.MenuItem) bool {
+	if !generatedMenuItemOwned(actual) {
+		return false
+	}
+	actualGeneratedID := strings.ToLower(strings.TrimSpace(stringTargetValue(actual.Target, MenuTargetGeneratedIDKey)))
+	if actualGeneratedID == "" {
+		return reconcileMenuItemsShareKey(expected, actual)
+	}
+	expectedGeneratedID := strings.ToLower(strings.TrimSpace(stringTargetValue(expected.Target, MenuTargetGeneratedIDKey)))
+	if expectedGeneratedID == "" {
+		return generatedNavigationConcreteIDMatches(expected, actual)
+	}
+	return actualGeneratedID == expectedGeneratedID
 }
 
 func reconcileMenuItemsShareKey(a, b admin.MenuItem) bool {

@@ -160,6 +160,8 @@ func cloneEntryNavigationDebug(in map[string]any) map[string]any {
 
 // BuildEntryNavigationViewModel resolves visibility, editability, and effective
 // navigation state for a content entry.
+//
+//nolint:funlen // The view model assembly is kept together to preserve field/default ordering.
 func BuildEntryNavigationViewModel(input EntryNavigationViewModelInput) (EntryNavigationViewModel, error) {
 	model := EntryNavigationViewModel{
 		Panel:                 strings.TrimSpace(input.PanelName),
@@ -236,6 +238,15 @@ func hiddenEntryNavigationViewModel(model EntryNavigationViewModel, reason strin
 	model.ReadOnly = false
 	model.Reason = strings.TrimSpace(reason)
 	return model
+}
+
+func entryNavigationPanelAuthorizer(panel *Panel, fallback Authorizer) Authorizer {
+	if panel != nil {
+		if authorizer := panel.Authorizer(); authorizer != nil {
+			return authorizer
+		}
+	}
+	return fallback
 }
 
 func entryNavigationPermissionResource(policy EntryNavigationPolicy) string {
@@ -333,6 +344,13 @@ func contentEntryNavigationPolicyFromContentType(contentType CMSContentType) con
 	return contentEntryNavigationPolicyFromCapability(contracts.Navigation)
 }
 
+func contentEntryNavigationPolicyFromContentTypeIfConfigured(contentType CMSContentType) (contentEntryNavigationPolicy, bool) {
+	if !contentTypeHasEntryNavigationCapability(contentType) {
+		return contentEntryNavigationPolicy{}, false
+	}
+	return contentEntryNavigationPolicyFromContentType(contentType), true
+}
+
 func contentEntryNavigationPolicyFromCapability(navigation map[string]any) contentEntryNavigationPolicy {
 	if len(navigation) == 0 {
 		return contentEntryNavigationPolicy{}
@@ -365,22 +383,17 @@ func EntryNavigationPolicyFromOptions(contentType CMSContentType, options EntryN
 
 func entryNavigationPolicyFromOptions(contentType CMSContentType, options EntryNavigationOptions) EntryNavigationPolicy {
 	policy := entryNavigationPolicyFromGlobalOptions(options)
-	contracts := ReadContentTypeCapabilityContracts(contentType)
-	if len(contracts.Navigation) > 0 {
-		capabilityPolicy := contentEntryNavigationPolicyFromCapability(contracts.Navigation)
-		policy.Enabled = capabilityPolicy.Enabled
-		policy.EligibleLocations = append([]string{}, capabilityPolicy.EligibleLocations...)
-		policy.DefaultLocations = append([]string{}, capabilityPolicy.DefaultLocations...)
-		policy.DefaultVisible = capabilityPolicy.DefaultVisible
-		policy.AllowInstanceOverride = capabilityPolicy.AllowInstanceOverride
-		if policy.ActivityAction == "" {
-			policy.ActivityAction = DefaultEntryNavigationActivityAction
-		}
+	capabilityEligibleLocationsSet := false
+	if navigation := rawEntryNavigationCapability(contentType); len(navigation) > 0 {
+		_, capabilityEligibleLocationsSet = entryNavigationCapabilityField(navigation, "eligible_locations")
+		policy = applyEntryNavigationCapabilityFields(policy, navigation)
 	}
 
 	typeOptions, hasTypeOptions := entryNavigationTypeOptionsFor(contentType, options)
 	if hasTypeOptions {
-		policy = applyEntryNavigationTypeOptions(policy, typeOptions)
+		policy = applyEntryNavigationTypeOptions(policy, typeOptions, entryNavigationTypeOptionContext{
+			preserveEmptyEligibleLocations: capabilityEligibleLocationsSet && len(policy.EligibleLocations) == 0,
+		})
 	}
 	if entryNavigationContentTypeExcluded(contentType, options) || (hasTypeOptions && typeOptions.Excluded) {
 		policy.Enabled = false
@@ -395,6 +408,49 @@ func entryNavigationPolicyFromOptions(contentType CMSContentType, options EntryN
 		policy.ActivityAction = DefaultEntryNavigationActivityAction
 	}
 	return policy
+}
+
+func applyEntryNavigationCapabilityFields(policy contentEntryNavigationPolicy, navigation map[string]any) contentEntryNavigationPolicy {
+	if len(navigation) == 0 {
+		return policy
+	}
+	if raw, exists := entryNavigationCapabilityField(navigation, "enabled"); exists {
+		policy.Enabled = toBool(raw)
+		if !policy.Enabled {
+			policy.EligibleLocations = nil
+			policy.DefaultLocations = nil
+			policy.AllowInstanceOverride = false
+			return policy
+		}
+	}
+	if raw, exists := entryNavigationCapabilityField(navigation, "eligible_locations"); exists {
+		policy.EligibleLocations = dedupeAndSortStrings(toStringSlice(raw))
+	}
+	if raw, exists := entryNavigationCapabilityField(navigation, "default_locations"); exists {
+		policy.DefaultLocations = dedupeAndSortStrings(toStringSlice(raw))
+	}
+	if raw, exists := entryNavigationCapabilityField(navigation, "default_visible"); exists {
+		policy.DefaultVisible = toBool(raw)
+	}
+	if raw, exists := entryNavigationCapabilityField(navigation, "allow_instance_override"); exists {
+		policy.AllowInstanceOverride = toBool(raw)
+	}
+	if policy.ActivityAction == "" {
+		policy.ActivityAction = DefaultEntryNavigationActivityAction
+	}
+	return policy
+}
+
+func rawEntryNavigationCapability(contentType CMSContentType) map[string]any {
+	raw, ok := capabilityValue(contentType.Capabilities, "navigation")
+	if !ok {
+		return nil
+	}
+	return extractMap(raw)
+}
+
+func entryNavigationCapabilityField(navigation map[string]any, key string) (any, bool) {
+	return capabilityValue(navigation, key)
 }
 
 func entryNavigationPolicyFromGlobalOptions(options EntryNavigationOptions) EntryNavigationPolicy {
@@ -424,9 +480,47 @@ func entryNavigationPolicyFromGlobalOptions(options EntryNavigationOptions) Entr
 	}
 }
 
-func applyEntryNavigationTypeOptions(policy EntryNavigationPolicy, options EntryNavigationTypeOptions) EntryNavigationPolicy {
+func entryNavigationPolicyFromContentTypeWithOptions(contentType CMSContentType, options EntryNavigationOptions, optionsSet bool) (contentEntryNavigationPolicy, bool) {
+	if !optionsSet {
+		return contentEntryNavigationPolicyFromContentTypeIfConfigured(contentType)
+	}
+	if !contentTypeHasEntryNavigationCapability(contentType) && !entryNavigationOptionsConfiguredForContentType(contentType, options) {
+		return contentEntryNavigationPolicy{}, false
+	}
+	return entryNavigationPolicyFromOptions(contentType, options), true
+}
+
+func contentTypeHasEntryNavigationCapability(contentType CMSContentType) bool {
+	return len(ReadContentTypeCapabilityContracts(contentType).Navigation) > 0
+}
+
+func entryNavigationOptionsConfiguredForContentType(contentType CMSContentType, options EntryNavigationOptions) bool {
+	if entryNavigationGlobalPolicyOptionsConfigured(options) {
+		return true
+	}
+	if entryNavigationContentTypeExcluded(contentType, options) {
+		return true
+	}
+	typeOptions, ok := entryNavigationTypeOptionsFor(contentType, options)
+	return ok && entryNavigationTypePolicyOptionsConfigured(typeOptions)
+}
+
+func entryNavigationGlobalPolicyOptionsConfigured(options EntryNavigationOptions) bool {
+	return len(options.EligibleLocations) > 0
+}
+
+func entryNavigationTypePolicyOptionsConfigured(options EntryNavigationTypeOptions) bool {
+	return options.Excluded ||
+		len(options.EligibleLocations) > 0
+}
+
+type entryNavigationTypeOptionContext struct {
+	preserveEmptyEligibleLocations bool
+}
+
+func applyEntryNavigationTypeOptions(policy EntryNavigationPolicy, options EntryNavigationTypeOptions, ctx entryNavigationTypeOptionContext) EntryNavigationPolicy {
 	if len(options.EligibleLocations) > 0 {
-		policy.EligibleLocations = narrowEntryNavigationLocations(policy.EligibleLocations, options.EligibleLocations)
+		policy.EligibleLocations = narrowEntryNavigationLocations(policy.EligibleLocations, options.EligibleLocations, ctx.preserveEmptyEligibleLocations)
 	}
 	if len(options.DefaultLocations) > 0 {
 		policy.DefaultLocations = options.DefaultLocations
@@ -452,9 +546,12 @@ func applyEntryNavigationTypeOptions(policy EntryNavigationPolicy, options Entry
 	return policy
 }
 
-func narrowEntryNavigationLocations(current, requested []string) []string {
+func narrowEntryNavigationLocations(current, requested []string, preserveEmptyCurrent bool) []string {
 	requested = dedupeAndSortStrings(requested)
 	if len(current) == 0 {
+		if preserveEmptyCurrent {
+			return nil
+		}
 		return requested
 	}
 	currentSet := contentNavigationLocationSet(dedupeAndSortStrings(current))
@@ -542,10 +639,30 @@ func resolveContentEntryNavigationPolicy(ctx context.Context, service CMSContent
 		return contentEntryNavigationPolicy{}, false
 	}
 	if record, err := service.ContentTypeBySlug(ctx, key); err == nil && record != nil {
-		return contentEntryNavigationPolicyFromContentType(*record), true
+		return contentEntryNavigationPolicyFromContentTypeIfConfigured(*record)
 	}
 	if record, err := service.ContentType(ctx, key); err == nil && record != nil {
-		return contentEntryNavigationPolicyFromContentType(*record), true
+		return contentEntryNavigationPolicyFromContentTypeIfConfigured(*record)
+	}
+	return contentEntryNavigationPolicy{}, false
+}
+
+func resolveContentEntryNavigationPolicyWithOptionalOptions(ctx context.Context, service CMSContentTypeService, contentTypeKey string, options EntryNavigationOptions, optionsSet bool) (contentEntryNavigationPolicy, bool) {
+	if !optionsSet {
+		return resolveContentEntryNavigationPolicy(ctx, service, contentTypeKey)
+	}
+	if service == nil {
+		return contentEntryNavigationPolicy{}, false
+	}
+	key := strings.TrimSpace(contentTypeKey)
+	if key == "" {
+		return contentEntryNavigationPolicy{}, false
+	}
+	if record, err := service.ContentTypeBySlug(ctx, key); err == nil && record != nil {
+		return entryNavigationPolicyFromContentTypeWithOptions(*record, options, true)
+	}
+	if record, err := service.ContentType(ctx, key); err == nil && record != nil {
+		return entryNavigationPolicyFromContentTypeWithOptions(*record, options, true)
 	}
 	return contentEntryNavigationPolicy{}, false
 }
@@ -553,20 +670,7 @@ func resolveContentEntryNavigationPolicy(ctx context.Context, service CMSContent
 // ResolveEntryNavigationPolicyWithOptions resolves and merges entry navigation
 // options for a content type.
 func ResolveEntryNavigationPolicyWithOptions(ctx context.Context, service CMSContentTypeService, contentTypeKey string, options EntryNavigationOptions) (EntryNavigationPolicy, bool) {
-	if service == nil {
-		return EntryNavigationPolicy{}, false
-	}
-	key := strings.TrimSpace(contentTypeKey)
-	if key == "" {
-		return EntryNavigationPolicy{}, false
-	}
-	if record, err := service.ContentTypeBySlug(ctx, key); err == nil && record != nil {
-		return entryNavigationPolicyFromOptions(*record, options), true
-	}
-	if record, err := service.ContentType(ctx, key); err == nil && record != nil {
-		return entryNavigationPolicyFromOptions(*record, options), true
-	}
-	return EntryNavigationPolicy{}, false
+	return resolveContentEntryNavigationPolicyWithOptionalOptions(ctx, service, contentTypeKey, options, true)
 }
 
 // EvaluateEntryNavigation normalizes overrides and computes effective menu

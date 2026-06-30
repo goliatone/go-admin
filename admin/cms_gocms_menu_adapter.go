@@ -330,6 +330,9 @@ func (a *GoCMSMenuAdapter) RawMenuItemsWithOptions(ctx context.Context, opts Nav
 	}
 	rows, err := a.service.ListMenuItemsByCode(ctx, menuCode)
 	if err != nil {
+		if errors.Is(err, cms.ErrMenuNotFound) {
+			return []MenuItem{}, nil
+		}
 		return nil, err
 	}
 	items := make([]MenuItem, 0, len(rows))

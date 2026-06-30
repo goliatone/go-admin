@@ -64,33 +64,15 @@ func SeedNavigation(ctx context.Context, opts SeedNavigationOptions) error {
 	}
 
 	runtime := newSeedNavigationRuntime(ctx, opts)
+	if opts.Reconcile {
+		_, err := runtime.reconcileSeedNavigation()
+		return err
+	}
 	if err := runtime.resetMenu(); err != nil {
 		return err
 	}
 	if _, err := opts.MenuSvc.CreateMenu(ctx, runtime.menuCode); err != nil {
 		return err
-	}
-	if opts.Reconcile {
-		report, err := ReconcileGeneratedNavigation(ctx, NavigationReconcileOptions{
-			MenuSvc:                 opts.MenuSvc,
-			MenuCode:                runtime.menuCode,
-			Locale:                  runtime.locale,
-			Items:                   opts.Items,
-			Apply:                   true,
-			AllowDestructive:        opts.AllowDestructive,
-			RawInventory:            runtime.rawInventoryOptions(),
-			Logf:                    opts.Logf,
-			CapabilityOmissions:     opts.CapabilityOmissions,
-			PermissionFilteredItems: opts.PermissionFilteredItems,
-			ManagedExclusions:       append([]NavigationManagedExclusion{}, opts.ManagedExclusions...),
-		})
-		if opts.Reportf != nil {
-			opts.Reportf(report)
-		}
-		if err != nil {
-			return err
-		}
-		return nil
 	}
 	return runtime.addSeedItems()
 }
@@ -153,6 +135,70 @@ func (runtime seedNavigationRuntime) resetMenu() error {
 
 func (runtime seedNavigationRuntime) rawInventoryOptions() admin.NavigationRawInventoryOptions {
 	return normalizeNavigationRawInventoryOptions(runtime.opts.RawInventory, runtime.menuCode)
+}
+
+func (runtime seedNavigationRuntime) reconcileOptions() NavigationReconcileOptions {
+	return NavigationReconcileOptions{
+		MenuSvc:                 runtime.opts.MenuSvc,
+		MenuCode:                runtime.menuCode,
+		Locale:                  runtime.locale,
+		Items:                   runtime.opts.Items,
+		Apply:                   true,
+		AllowDestructive:        runtime.opts.AllowDestructive,
+		RawInventory:            runtime.rawInventoryOptions(),
+		Logf:                    runtime.opts.Logf,
+		CapabilityOmissions:     runtime.opts.CapabilityOmissions,
+		PermissionFilteredItems: runtime.opts.PermissionFilteredItems,
+		ManagedExclusions:       append([]NavigationManagedExclusion{}, runtime.opts.ManagedExclusions...),
+	}
+}
+
+func (runtime seedNavigationRuntime) reconcileSeedNavigation() (NavigationReconcileReport, error) {
+	reconcileOpts := runtime.reconcileOptions()
+	preparedRuntime, expected, report, err := prepareGeneratedNavigationReconcile(runtime.ctx, reconcileOpts)
+	if err != nil {
+		if runtime.opts.Reportf != nil {
+			runtime.opts.Reportf(report)
+		}
+		return report, err
+	}
+	err = withGeneratedNavigationConvergence(runtime.ctx, reconcileOpts, preparedRuntime, func(ctx context.Context) error {
+		defer func() {
+			if runtime.opts.Reportf != nil {
+				runtime.opts.Reportf(report)
+			}
+		}()
+		seedRuntime := runtime
+		seedRuntime.ctx = ctx
+		seedRuntime.menuCode = preparedRuntime.menuCode
+		seedRuntime.locale = preparedRuntime.locale
+		reconcileRuntime := preparedRuntime
+		reconcileRuntime.ctx = ctx
+		if preflightErr := preflightGeneratedNavigationRawInventory(ctx, seedRuntime.opts.MenuSvc, seedRuntime.rawInventoryOptions(), &report); preflightErr != nil {
+			return preflightErr
+		}
+		if resetErr := seedRuntime.resetMenu(); resetErr != nil {
+			return resetErr
+		}
+		if _, createErr := seedRuntime.opts.MenuSvc.CreateMenu(ctx, seedRuntime.menuCode); createErr != nil {
+			return createErr
+		}
+		var reconcileErr error
+		report, reconcileErr = reconcileGeneratedNavigation(ctx, reconcileOpts, reconcileRuntime, expected, report)
+		return reconcileErr
+	})
+	return report, err
+}
+
+func preflightGeneratedNavigationRawInventory(ctx context.Context, menuSvc admin.CMSMenuService, opts admin.NavigationRawInventoryOptions, report *NavigationReconcileReport) error {
+	if _, rawErr := loadGeneratedNavigationRawItems(ctx, menuSvc, opts); rawErr != nil {
+		if report != nil {
+			report.RawInventoryUnavailable = append(report.RawInventoryUnavailable, rawErr.Error())
+			report.sort()
+		}
+		return generatedNavigationRawInventoryError(rawErr)
+	}
+	return nil
 }
 
 func (runtime seedNavigationRuntime) addSeedItems() error {

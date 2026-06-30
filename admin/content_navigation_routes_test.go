@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -22,24 +23,36 @@ func (a contentNavigationPermissionAuthorizer) Can(_ context.Context, action str
 	return a.allowed[action]
 }
 
+type contentNavigationTestServerConfig struct {
+	EntryNavigation  EntryNavigationOptions
+	PanelAuthorizer  Authorizer
+	LegacyRepository bool
+}
+
 func newContentNavigationTestServer(t *testing.T, capabilities map[string]any, allowed map[string]bool) (*Admin, router.Server[*httprouter.Router], string) {
+	return newContentNavigationTestServerWithConfig(t, capabilities, allowed, contentNavigationTestServerConfig{})
+}
+
+func newContentNavigationTestServerWithConfig(t *testing.T, capabilities map[string]any, allowed map[string]bool, testCfg contentNavigationTestServerConfig) (*Admin, router.Server[*httprouter.Router], string) {
 	t.Helper()
-	cfg := Config{BasePath: "/admin", DefaultLocale: "en"}
+	cfg := Config{BasePath: "/admin", DefaultLocale: "en", EntryNavigation: testCfg.EntryNavigation}
 	deps := Dependencies{
 		FeatureGate: featureGateFromKeys(FeatureCMS),
 		Authorizer:  contentNavigationPermissionAuthorizer{allowed: allowed},
 	}
 	adm := mustNewAdmin(t, cfg, deps)
 
+	typeCapabilities := map[string]any{}
+	if capabilities != nil {
+		typeCapabilities["navigation"] = capabilities
+	}
 	record, err := adm.contentTypeSvc.CreateContentType(context.Background(), CMSContentType{
 		Name: "Page",
 		Slug: "page",
 		Schema: map[string]any{
 			"fields": []map[string]any{{"name": "title", "type": "string"}},
 		},
-		Capabilities: map[string]any{
-			"navigation": capabilities,
-		},
+		Capabilities: typeCapabilities,
 	})
 	if err != nil {
 		t.Fatalf("create content type: %v", err)
@@ -48,12 +61,21 @@ func newContentNavigationTestServer(t *testing.T, capabilities map[string]any, a
 		t.Fatalf("expected created content type")
 	}
 
-	repo := NewCMSContentTypeEntryRepository(adm.contentSvc, *record)
-	_, err = adm.RegisterPanel("page", adm.Panel("page").
+	var repo Repository
+	if testCfg.LegacyRepository {
+		repo = NewCMSContentTypeEntryRepository(adm.contentSvc, *record)
+	} else {
+		repo = NewCMSContentTypeEntryRepositoryWithEntryNavigationOptions(adm.contentSvc, *record, adm.config.EntryNavigation)
+	}
+	builder := adm.Panel("page").
 		WithRepository(repo).
 		ListFields(Field{Name: "title", Type: "text"}).
 		DetailFields(Field{Name: "title", Type: "text"}).
-		Permissions(PanelPermissions{View: "page:read", Edit: "page:update"}))
+		Permissions(PanelPermissions{View: "page:read", Edit: "page:update"})
+	if testCfg.PanelAuthorizer != nil {
+		builder.WithAuthorizer(testCfg.PanelAuthorizer)
+	}
+	_, err = adm.RegisterPanel("page", builder)
 	if err != nil {
 		t.Fatalf("register page panel: %v", err)
 	}
@@ -133,6 +155,158 @@ func TestContentNavigationPatchTriStateToggles(t *testing.T) {
 	detail := extractMap(decodeJSONMap(t, detailRes)["data"])
 	if got := toStringSlice(detail["effective_menu_locations"]); len(got) != 1 || got[0] != "site.main" {
 		t.Fatalf("expected persisted effective_menu_locations=[site.main], got %+v", got)
+	}
+}
+
+func TestContentNavigationPatchUsesEntryNavigationOptionsForPersistence(t *testing.T) {
+	enabled := true
+	adm, server, id := newContentNavigationTestServerWithConfig(t, nil, map[string]bool{
+		"page:read":   true,
+		"page:update": true,
+	}, contentNavigationTestServerConfig{
+		EntryNavigation: EntryNavigationOptions{
+			Enabled:               &enabled,
+			EligibleLocations:     []string{"site.main", "site.footer"},
+			DefaultLocations:      []string{"site.footer"},
+			AllowInstanceOverride: &enabled,
+		},
+	})
+	group := adminAPIGroupName(adm.config)
+	path := mustResolveURL(t, adm.URLs(), group, "content.navigation", map[string]string{"type": "page", "id": id}, nil)
+
+	res := doContentNavigationPatch(server, path, `{"_navigation":{"site.main":"show","site.footer":"hide"}}`)
+	if res.Code != http.StatusOK {
+		t.Fatalf("patch navigation status=%d body=%s", res.Code, res.Body.String())
+	}
+
+	detailPath := mustResolveURL(t, adm.URLs(), group, "panel.id", map[string]string{"panel": "page", "id": id}, nil)
+	detailReq := httptest.NewRequestWithContext(context.Background(), http.MethodGet, detailPath, nil)
+	detailRes := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(detailRes, detailReq)
+	if detailRes.Code != http.StatusOK {
+		t.Fatalf("detail status=%d body=%s", detailRes.Code, detailRes.Body.String())
+	}
+	detail := extractMap(decodeJSONMap(t, detailRes)["data"])
+	if got := toStringSlice(detail["effective_menu_locations"]); len(got) != 1 || got[0] != "site.main" {
+		t.Fatalf("expected persisted effective_menu_locations=[site.main], got %+v", got)
+	}
+	visibility := extractMap(detail["effective_navigation_visibility"])
+	if !toBool(visibility["site.main"]) || toBool(visibility["site.footer"]) {
+		t.Fatalf("expected final option policy visibility, got %+v", visibility)
+	}
+}
+
+func TestContentNavigationPatchPersistsFinalPolicyWithLegacyRepository(t *testing.T) {
+	enabled := true
+	adm, server, id := newContentNavigationTestServerWithConfig(t, nil, map[string]bool{
+		"page:read":   true,
+		"page:update": true,
+	}, contentNavigationTestServerConfig{
+		EntryNavigation: EntryNavigationOptions{
+			Enabled:               &enabled,
+			EligibleLocations:     []string{"site.main", "site.footer"},
+			DefaultLocations:      []string{"site.footer"},
+			AllowInstanceOverride: &enabled,
+		},
+		LegacyRepository: true,
+	})
+	group := adminAPIGroupName(adm.config)
+	path := mustResolveURL(t, adm.URLs(), group, "content.navigation", map[string]string{"type": "page", "id": id}, nil)
+
+	res := doContentNavigationPatch(server, path, `{"_navigation":{"site.main":"show","site.footer":"hide"}}`)
+	if res.Code != http.StatusOK {
+		t.Fatalf("patch navigation status=%d body=%s", res.Code, res.Body.String())
+	}
+	payload := decodeJSONMap(t, res)
+	data := extractMap(payload["data"])
+	if got, want := toStringSlice(data["effective_menu_locations"]), []string{"site.main"}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("expected response effective_menu_locations=%+v, got %+v", want, got)
+	}
+
+	detailPath := mustResolveURL(t, adm.URLs(), group, "panel.id", map[string]string{"panel": "page", "id": id}, nil)
+	detailReq := httptest.NewRequestWithContext(context.Background(), http.MethodGet, detailPath, nil)
+	detailRes := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(detailRes, detailReq)
+	if detailRes.Code != http.StatusOK {
+		t.Fatalf("detail status=%d body=%s", detailRes.Code, detailRes.Body.String())
+	}
+	detail := extractMap(decodeJSONMap(t, detailRes)["data"])
+	if got, want := toStringSlice(detail["effective_menu_locations"]), []string{"site.main"}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("expected legacy repository to persist final effective locations=%+v, got %+v", want, got)
+	}
+	visibility := extractMap(detail["effective_navigation_visibility"])
+	if !toBool(visibility["site.main"]) || toBool(visibility["site.footer"]) {
+		t.Fatalf("expected legacy repository detail visibility from final policy, got %+v", visibility)
+	}
+}
+
+func TestContentNavigationPatchPersistsPerTypeNarrowing(t *testing.T) {
+	adm, server, id := newContentNavigationTestServerWithConfig(t, map[string]any{
+		"enabled":                 true,
+		"eligible_locations":      []string{"site.main", "site.footer"},
+		"default_locations":       []string{"site.footer"},
+		"default_visible":         true,
+		"allow_instance_override": true,
+	}, map[string]bool{
+		"page:read":   true,
+		"page:update": true,
+	}, contentNavigationTestServerConfig{
+		EntryNavigation: EntryNavigationOptions{
+			ContentTypes: map[string]EntryNavigationTypeOptions{
+				"page": {
+					EligibleLocations: []string{"site.main"},
+					DefaultLocations:  []string{"site.main"},
+				},
+			},
+		},
+	})
+	group := adminAPIGroupName(adm.config)
+	path := mustResolveURL(t, adm.URLs(), group, "content.navigation", map[string]string{"type": "page", "id": id}, nil)
+
+	res := doContentNavigationPatch(server, path, `{"_navigation":{"site.main":"show"}}`)
+	if res.Code != http.StatusOK {
+		t.Fatalf("patch navigation status=%d body=%s", res.Code, res.Body.String())
+	}
+
+	detailPath := mustResolveURL(t, adm.URLs(), group, "panel.id", map[string]string{"panel": "page", "id": id}, nil)
+	detailReq := httptest.NewRequestWithContext(context.Background(), http.MethodGet, detailPath, nil)
+	detailRes := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(detailRes, detailReq)
+	if detailRes.Code != http.StatusOK {
+		t.Fatalf("detail status=%d body=%s", detailRes.Code, detailRes.Body.String())
+	}
+	detail := extractMap(decodeJSONMap(t, detailRes)["data"])
+	if got := toStringSlice(detail["effective_menu_locations"]); len(got) != 1 || got[0] != "site.main" {
+		t.Fatalf("expected narrowed effective_menu_locations=[site.main], got %+v", got)
+	}
+	visibility := extractMap(detail["effective_navigation_visibility"])
+	if _, exists := visibility["site.footer"]; exists {
+		t.Fatalf("expected narrowed policy to omit site.footer, got %+v", visibility)
+	}
+}
+
+func TestContentNavigationPatchUsesPanelAuthorizerForPreflight(t *testing.T) {
+	adm, server, id := newContentNavigationTestServerWithConfig(t, map[string]any{
+		"enabled":                 true,
+		"eligible_locations":      []string{"site.main"},
+		"default_locations":       []string{"site.main"},
+		"default_visible":         true,
+		"allow_instance_override": true,
+	}, map[string]bool{
+		"page:read":   false,
+		"page:update": false,
+	}, contentNavigationTestServerConfig{
+		PanelAuthorizer: contentNavigationPermissionAuthorizer{allowed: map[string]bool{
+			"page:read":   true,
+			"page:update": true,
+		}},
+	})
+	group := adminAPIGroupName(adm.config)
+	path := mustResolveURL(t, adm.URLs(), group, "content.navigation", map[string]string{"type": "page", "id": id}, nil)
+
+	res := doContentNavigationPatch(server, path, `{"_navigation":{"site.main":"hide"}}`)
+	if res.Code != http.StatusOK {
+		t.Fatalf("patch navigation status=%d body=%s", res.Code, res.Body.String())
 	}
 }
 

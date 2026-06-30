@@ -92,8 +92,8 @@ func (a *Admin) DiagnoseNavigation(ctx context.Context, opts NavigationDoctorOpt
 		return NavigationDoctorReport{}, err
 	}
 	raw := []MenuItem{}
-	if provider, ok := a.menuSvc.(rawMenuItemsProvider); ok && provider != nil {
-		items, err := rawMenuItems(ctx, provider, rawOpts)
+	if supportsScopedRawInventory(a.menuSvc) || supportsLegacyRawInventory(a.menuSvc) {
+		items, err := rawMenuItems(ctx, a.menuSvc, rawOpts)
 		if err != nil {
 			return NavigationDoctorReport{}, err
 		}
@@ -111,6 +111,16 @@ func (a *Admin) DiagnoseNavigation(ctx context.Context, opts NavigationDoctorOpt
 	report.RawInventoryScope = persistence.RawInventoryScope
 	report.PersistenceWarnings = append([]string{}, persistence.Warnings...)
 	return report, nil
+}
+
+func supportsScopedRawInventory(menuSvc any) bool {
+	provider, ok := menuSvc.(scopedRawMenuItemsProvider)
+	return ok && provider != nil
+}
+
+func supportsLegacyRawInventory(menuSvc any) bool {
+	provider, ok := menuSvc.(rawMenuItemsProvider)
+	return ok && provider != nil
 }
 
 func navigationExpectedContractItems(items []NavigationDoctorExpectedItem) []navcontract.ExpectedItem {

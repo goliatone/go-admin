@@ -8,6 +8,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	router "github.com/goliatone/go-router"
 )
@@ -109,6 +110,42 @@ func TestNavigationResolveMenuCode(t *testing.T) {
 	reportItems := nav.ResolveMenu(ctx, "admin.reports", "en")
 	if len(reportItems) != 1 || reportItems[0].Label != "Reports" {
 		t.Fatalf("unexpected report items: %+v", reportItems)
+	}
+}
+
+func TestInMemoryMenuServiceMenuByLocationDoesNotDeadlock(t *testing.T) {
+	ctx := context.Background()
+	menuSvc := NewInMemoryMenuService()
+	mustCreateNavigationTestMenu(t, menuSvc, ctx, "site_main")
+	mustAddNavigationTestMenuItem(t, menuSvc, ctx, "site_main", MenuItem{
+		ID:     "home",
+		Label:  "Home",
+		Locale: "en",
+		Target: map[string]any{"url": "/"},
+	})
+
+	result := make(chan struct {
+		menu *Menu
+		err  error
+	}, 1)
+	go func() {
+		menu, err := menuSvc.MenuByLocation(ctx, "site_main", "en")
+		result <- struct {
+			menu *Menu
+			err  error
+		}{menu: menu, err: err}
+	}()
+
+	select {
+	case got := <-result:
+		if got.err != nil {
+			t.Fatalf("MenuByLocation: %v", got.err)
+		}
+		if got.menu == nil || got.menu.Code != "site_main" || len(got.menu.Items) != 1 {
+			t.Fatalf("expected site_main menu from location, got %#v", got.menu)
+		}
+	case <-time.After(500 * time.Millisecond):
+		t.Fatalf("MenuByLocation deadlocked")
 	}
 }
 
@@ -1159,6 +1196,51 @@ func TestAdminDiagnoseNavigationUsesSharedClassifierAndRawInventory(t *testing.T
 	}
 }
 
+func TestAdminDiagnoseNavigationUsesScopedOnlyRawInventoryProvider(t *testing.T) {
+	ctx := context.Background()
+	rawItem := MenuItem{
+		ID:     "admin_main.media",
+		Label:  "Media",
+		Locale: "en",
+		Target: map[string]any{
+			"_menu_owner":    "go-admin.programmatic",
+			"_menu_owner_id": "media",
+			"type":           "url",
+			"path":           "/admin/media",
+			"key":            "media",
+		},
+	}
+	menuSvc := &adminScopedOnlyDoctorMenuService{
+		base: NewInMemoryMenuService(),
+		raw:  []MenuItem{rawItem},
+	}
+	adm := mustNewAdmin(t, Config{
+		DefaultLocale:  "en",
+		NavMenuCode:    "admin_main",
+		NavEnvironment: "preview",
+	}, Dependencies{FeatureGate: featureGateFromKeys(FeatureCMS)})
+	adm.UseCMS(&stubCMSContainer{menu: menuSvc})
+	mustCreateNavigationTestMenu(t, menuSvc, ctx, "admin_main")
+
+	report, err := adm.DiagnoseNavigation(ctx, NavigationDoctorOptions{
+		MenuCode: "admin_main",
+		Locale:   "en",
+		Expected: []NavigationDoctorExpectedItem{{
+			Owner: NavigationOwnerModule,
+			Item:  rawItem,
+		}},
+	})
+	if err != nil {
+		t.Fatalf("DiagnoseNavigation: %v", err)
+	}
+	if menuSvc.lastRawOptions.MenuCode != "admin_main" || menuSvc.lastRawOptions.Environment != "preview" || menuSvc.lastRawOptions.EnvironmentSource != "config.nav_environment" {
+		t.Fatalf("expected scoped raw options, got %#v", menuSvc.lastRawOptions)
+	}
+	if len(report.Items) != 1 || report.Items[0].Classification != NavigationClassificationRawPresentNotRendered {
+		t.Fatalf("expected scoped-only raw row classified as raw-present-not-rendered, got %#v", report.Items)
+	}
+}
+
 func TestNavigationContributionLifecycleRejectsLateWritesInStrictMode(t *testing.T) {
 	menuSvc := NewInMemoryMenuService()
 	adm := mustNewAdmin(t, Config{
@@ -1388,6 +1470,45 @@ type adminScopedOnlyRawInventoryProvider struct {
 }
 
 func (s *adminScopedOnlyRawInventoryProvider) RawMenuItemsWithOptions(_ context.Context, opts NavigationRawInventoryOptions) ([]MenuItem, error) {
+	s.lastRawOptions = opts
+	return append([]MenuItem{}, s.raw...), nil
+}
+
+type adminScopedOnlyDoctorMenuService struct {
+	base           *InMemoryMenuService
+	raw            []MenuItem
+	lastRawOptions NavigationRawInventoryOptions
+}
+
+func (s *adminScopedOnlyDoctorMenuService) CreateMenu(ctx context.Context, code string) (*Menu, error) {
+	return s.base.CreateMenu(ctx, code)
+}
+
+func (s *adminScopedOnlyDoctorMenuService) AddMenuItem(ctx context.Context, menuCode string, item MenuItem) error {
+	return s.base.AddMenuItem(ctx, menuCode, item)
+}
+
+func (s *adminScopedOnlyDoctorMenuService) UpdateMenuItem(ctx context.Context, menuCode string, item MenuItem) error {
+	return s.base.UpdateMenuItem(ctx, menuCode, item)
+}
+
+func (s *adminScopedOnlyDoctorMenuService) DeleteMenuItem(ctx context.Context, menuCode, id string) error {
+	return s.base.DeleteMenuItem(ctx, menuCode, id)
+}
+
+func (s *adminScopedOnlyDoctorMenuService) ReorderMenu(ctx context.Context, menuCode string, orderedIDs []string) error {
+	return s.base.ReorderMenu(ctx, menuCode, orderedIDs)
+}
+
+func (s *adminScopedOnlyDoctorMenuService) Menu(ctx context.Context, code, locale string) (*Menu, error) {
+	return s.base.Menu(ctx, code, locale)
+}
+
+func (s *adminScopedOnlyDoctorMenuService) MenuByLocation(ctx context.Context, location, locale string) (*Menu, error) {
+	return s.base.MenuByLocation(ctx, location, locale)
+}
+
+func (s *adminScopedOnlyDoctorMenuService) RawMenuItemsWithOptions(_ context.Context, opts NavigationRawInventoryOptions) ([]MenuItem, error) {
 	s.lastRawOptions = opts
 	return append([]MenuItem{}, s.raw...), nil
 }

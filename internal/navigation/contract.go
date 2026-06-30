@@ -380,24 +380,50 @@ func Classify(expected []ExpectedItem, rendered, raw []Item) ClassificationRepor
 }
 
 func findQuickstartMatch(expected Item, actual []Item) MatchResult {
+	generatedID := strings.ToLower(TargetString(expected.Target, TargetGeneratedIDKey))
+	if generatedID != "" {
+		if matches := quickstartGeneratedIDMatches(actual, generatedID); len(matches) > 0 {
+			return matchResult(matches, "generated_owned_id", false)
+		}
+	}
 	if matches := ownedMatches(expected, actual, OwnerQuickstart); len(matches) > 0 {
 		return matchResult(matches, "generated_owned", false)
 	}
-	generatedID := strings.ToLower(TargetString(expected.Target, TargetGeneratedIDKey))
 	if generatedID != "" {
-		matches := []Item{}
-		for _, item := range actual {
-			if ResolveOwner(item) == OwnerQuickstart {
-				continue
-			}
-			if strings.ToLower(TargetString(item.Target, TargetGeneratedIDKey)) == generatedID {
-				matches = appendUniqueItem(matches, item)
-			}
-		}
-		if len(matches) > 0 {
+		if matches := nonQuickstartGeneratedIDMatches(actual, generatedID); len(matches) > 0 {
 			return matchResult(matches, "generated_id", false)
 		}
 	}
+	return matchResult(legacyQuickstartMatches(expected, actual), "legacy_generated", false)
+}
+
+func quickstartGeneratedIDMatches(actual []Item, generatedID string) []Item {
+	matches := []Item{}
+	for _, item := range actual {
+		if ResolveOwner(item) != OwnerQuickstart {
+			continue
+		}
+		if strings.ToLower(TargetString(item.Target, TargetGeneratedIDKey)) == generatedID {
+			matches = appendUniqueItem(matches, item)
+		}
+	}
+	return matches
+}
+
+func nonQuickstartGeneratedIDMatches(actual []Item, generatedID string) []Item {
+	matches := []Item{}
+	for _, item := range actual {
+		if ResolveOwner(item) == OwnerQuickstart {
+			continue
+		}
+		if strings.ToLower(TargetString(item.Target, TargetGeneratedIDKey)) == generatedID {
+			matches = appendUniqueItem(matches, item)
+		}
+	}
+	return matches
+}
+
+func legacyQuickstartMatches(expected Item, actual []Item) []Item {
 	matches := []Item{}
 	for _, item := range actual {
 		if ResolveOwner(item) == OwnerQuickstart || TargetString(item.Target, TargetGeneratedIDKey) != "" {
@@ -407,7 +433,7 @@ func findQuickstartMatch(expected Item, actual []Item) MatchResult {
 			matches = appendUniqueItem(matches, item)
 		}
 	}
-	return matchResult(matches, "legacy_generated", false)
+	return matches
 }
 
 func findModuleMatch(expected Item, actual []Item, policy MatchPolicy) MatchResult {

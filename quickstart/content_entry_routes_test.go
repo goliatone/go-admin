@@ -1594,7 +1594,10 @@ func TestRenderFormIncludesEntryNavigationViewModel(t *testing.T) {
 		if !ok {
 			return false
 		}
-		eligible, _ := model["eligible_locations"].([]string)
+		eligible, ok := model["eligible_locations"].([]string)
+		if !ok {
+			return false
+		}
 		return model["visible"] == true &&
 			model["editable"] == true &&
 			strings.TrimSpace(anyToString(model["content_type"])) == "pages" &&

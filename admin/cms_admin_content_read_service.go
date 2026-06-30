@@ -21,8 +21,10 @@ type AdminContentReadService interface {
 }
 
 type goCMSAdminContentReadService struct {
-	content      CMSContentService
-	contentTypes CMSContentTypeService
+	content                   CMSContentService
+	contentTypes              CMSContentTypeService
+	entryNavigationOptions    EntryNavigationOptions
+	entryNavigationOptionsSet bool
 }
 
 var (
@@ -35,6 +37,12 @@ func NewAdminContentReadService(content CMSContentService, contentTypes ...CMSCo
 	return newAdminContentReadService(content, contentTypes...)
 }
 
+// NewAdminContentReadServiceWithEntryNavigationOptions builds the admin read
+// boundary using the final merged entry-navigation policy.
+func NewAdminContentReadServiceWithEntryNavigationOptions(content CMSContentService, options EntryNavigationOptions, contentTypes ...CMSContentTypeService) AdminContentReadService {
+	return newAdminContentReadServiceWithEntryNavigationOptions(content, options, contentTypes...)
+}
+
 func newAdminContentReadService(content CMSContentService, contentTypes ...CMSContentTypeService) goCMSAdminContentReadService {
 	service := goCMSAdminContentReadService{content: content}
 	if len(contentTypes) > 0 && contentTypes[0] != nil {
@@ -42,6 +50,13 @@ func newAdminContentReadService(content CMSContentService, contentTypes ...CMSCo
 	} else if typed := resolveCMSContentTypeCapability(content); typed != nil {
 		service.contentTypes = typed
 	}
+	return service
+}
+
+func newAdminContentReadServiceWithEntryNavigationOptions(content CMSContentService, options EntryNavigationOptions, contentTypes ...CMSContentTypeService) goCMSAdminContentReadService {
+	service := newAdminContentReadService(content, contentTypes...)
+	service.entryNavigationOptions = options
+	service.entryNavigationOptionsSet = true
 	return service
 }
 
@@ -155,7 +170,7 @@ func (s goCMSAdminContentReadService) ListForContentType(ctx context.Context, co
 		return nil, 0, err
 	}
 	membershipKeys := contentTypeMembershipKeys(contentType)
-	navigationPolicy := contentEntryNavigationPolicyFromContentType(contentType)
+	navigationPolicy, hasNavigationPolicy := s.entryNavigationPolicyForContentType(contentType)
 	translationEnabled := contentTypeWantsTranslations(contentType)
 	recordBuildStarted := time.Now()
 	records := make([]map[string]any, 0, len(contents))
@@ -185,7 +200,9 @@ func (s goCMSAdminContentReadService) ListForContentType(ctx context.Context, co
 			includeContentTypeSlug: true,
 			summarizeBlocksForList: true,
 		})
-		record = applyContentEntryNavigationReadContract(record, navigationPolicy)
+		if hasNavigationPolicy {
+			record = applyContentEntryNavigationReadContract(record, navigationPolicy)
+		}
 		record = canonicalizeContentTypeRecordForPanel(record, contentType)
 		records = append(records, record)
 	}
@@ -235,10 +252,12 @@ func (s goCMSAdminContentReadService) listCountCapableContentTypeRecords(ctx con
 	if err != nil {
 		return nil, 0, true, err
 	}
-	navigationPolicy := contentEntryNavigationPolicyFromContentType(contentType)
+	navigationPolicy, hasNavigationPolicy := s.entryNavigationPolicyForContentType(contentType)
 	for idx := range records {
 		records[idx] = canonicalizeContentTypeRecordForPanel(records[idx], contentType)
-		records[idx] = applyContentEntryNavigationReadContract(records[idx], navigationPolicy)
+		if hasNavigationPolicy {
+			records[idx] = applyContentEntryNavigationReadContract(records[idx], navigationPolicy)
+		}
 	}
 	return records, total, true, nil
 }
@@ -271,7 +290,10 @@ func (s goCMSAdminContentReadService) GetForContentType(ctx context.Context, con
 		record["family_id"] = familyID
 	}
 	record = canonicalizeContentTypeRecordForPanel(record, contentType)
-	return applyContentEntryNavigationReadContract(record, contentEntryNavigationPolicyFromContentType(contentType)), nil
+	if policy, ok := s.entryNavigationPolicyForContentType(contentType); ok {
+		record = applyContentEntryNavigationReadContract(record, policy)
+	}
+	return record, nil
 }
 
 func (a *GoCMSContentAdapter) ListContentTypeRecords(ctx context.Context, contentType CMSContentType, opts ListOptions) ([]map[string]any, int, error) {
@@ -585,5 +607,12 @@ func (s goCMSAdminContentReadService) contentTypeService() CMSContentTypeService
 }
 
 func (s goCMSAdminContentReadService) resolveContentNavigationPolicy(ctx context.Context, contentTypeKey string) (contentEntryNavigationPolicy, bool) {
-	return resolveContentEntryNavigationPolicy(ctx, s.contentTypeService(), contentTypeKey)
+	if !s.entryNavigationOptionsSet {
+		return resolveContentEntryNavigationPolicy(ctx, s.contentTypeService(), contentTypeKey)
+	}
+	return resolveContentEntryNavigationPolicyWithOptionalOptions(ctx, s.contentTypeService(), contentTypeKey, s.entryNavigationOptions, true)
+}
+
+func (s goCMSAdminContentReadService) entryNavigationPolicyForContentType(contentType CMSContentType) (contentEntryNavigationPolicy, bool) {
+	return entryNavigationPolicyFromContentTypeWithOptions(contentType, s.entryNavigationOptions, s.entryNavigationOptionsSet)
 }

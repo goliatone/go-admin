@@ -23,6 +23,7 @@ import (
 	router "github.com/goliatone/go-router"
 )
 
+//nolint:funlen // This renderer assembles a single cohesive form view model.
 func (h *contentEntryHandlers) renderForm(
 	c router.Context,
 	panelName string,
@@ -135,7 +136,10 @@ func (h *contentEntryHandlers) entryNavigationViewModel(
 	policy := admin.EntryNavigationPolicyFromOptions(*contentType, h.cfg.EntryNavigation)
 	endpoint := h.entryNavigationEndpoint(resourceItem, baseSlug)
 	var authorizer admin.Authorizer
-	if h.admin != nil {
+	if panel != nil {
+		authorizer = panel.Authorizer()
+	}
+	if authorizer == nil && h.admin != nil {
 		authorizer = h.admin.Authorizer()
 	}
 	model, err := admin.BuildEntryNavigationViewModel(admin.EntryNavigationViewModelInput{
