@@ -64,6 +64,7 @@ examples/web/assets/uploads/users/profile-pictures
 .codex_tmp/
 .envset
 .taskenv
+.release-notes.md
 
 docs/*
 !docs/README.md

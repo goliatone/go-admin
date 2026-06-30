@@ -17,6 +17,9 @@ body = """
 {% else %}\
 	# [unreleased]
 {% endif %}\
+{% if message %}\n
+{{ message | trim }}
+{% endif %}\
 {% for group, commits in commits | group_by(attribute="group") %}
 	## {{ group | upper_first }}
 	{% for commit in commits | unique(attribute="message") %}

@@ -1925,6 +1925,47 @@ function version:check {
     fi
 }
 
+function release:notes:has_content {
+    local file=${1}
+
+    if [ -z "${file}" ] || [ ! -f "${file}" ]; then
+        return 1
+    fi
+
+    awk 'NF { found = 1; exit } END { exit found ? 0 : 1 }' "${file}"
+}
+
+function release:notes:assert_temporary {
+    local file=${1}
+
+    if [ -z "${file}" ]; then
+        return 0
+    fi
+
+    if git ls-files --error-unmatch -- "${file}" >/dev/null 2>&1; then
+        echo "Release notes file is tracked; refusing to consume it as temporary notes: ${file}" >&2
+        echo "Use an ignored scratch file such as .release-notes.md, or set RELEASE_NOTES_FILE to an untracked path." >&2
+        return 1
+    fi
+}
+
+function release:changelog:generate {
+    local release_tag=${1}
+    local release_notes_file=${2}
+    local release_notes
+
+    if release:notes:has_content "${release_notes_file}"; then
+        release:notes:assert_temporary "${release_notes_file}" || return 1
+        release_notes=$(cat "${release_notes_file}") || return 1
+        git cliff --tag "${release_tag}" --with-tag-message "${release_notes}" --output CHANGELOG.md || return 1
+        rm -f "${release_notes_file}" || return 1
+        echo "Included and removed temporary release notes: ${release_notes_file}" >&2
+        return 0
+    fi
+
+    git cliff --tag "${release_tag}" --output CHANGELOG.md
+}
+
 ##
 ## -----
 ##
@@ -1969,6 +2010,64 @@ function release {
     local release_tag
     local quickstart_tag
     local current_branch
+    local release_notes_file
+    local release_notes_enabled
+
+    level=""
+    message=""
+    release_notes_file="${RELEASE_NOTES_FILE:-.release-notes.md}"
+    release_notes_enabled=1
+
+    while [[ "$#" -gt 0 ]]; do
+        case "$1" in
+            patch|minor|major)
+                if [ -n "${level}" ]; then
+                    echo "Release level specified more than once" >&2
+                    return 2
+                fi
+                level=$1
+                shift
+            ;;
+            --notes|--notes-file)
+                shift
+                if [ -z "${1:-}" ]; then
+                    echo "--notes requires a file path" >&2
+                    return 2
+                fi
+                release_notes_file=$1
+                shift
+            ;;
+            --no-release-notes)
+                release_notes_enabled=0
+                shift
+            ;;
+            --)
+                shift
+                while [[ "$#" -gt 0 ]]; do
+                    if [ -z "${message}" ]; then
+                        message=$1
+                    else
+                        message="${message} $1"
+                    fi
+                    shift
+                done
+            ;;
+            -*)
+                echo "Invalid release option: $1" >&2
+                return 2
+            ;;
+            *)
+                if [ -z "${message}" ]; then
+                    message=$1
+                else
+                    message="${message} $1"
+                fi
+                shift
+            ;;
+        esac
+    done
+
+    level=${level:-"patch"}
 
     # Fetch all changes from origin
     git fetch --all --tags || return 1
@@ -1983,8 +2082,6 @@ function release {
         git status --short --untracked-files=no >&2
         return 1
     fi
-
-    level=${1:-"patch"}
 
     # Tags are the published release source of truth. If a prior release was
     # tagged outside this task, advance .version before calculating the next tag.
@@ -2006,7 +2103,7 @@ function release {
     fi
 
     # Set message: default to New major|minor|patch release: vx.x.x
-    message=${2:-"New ${level} release: v${tag}"}
+    message=${message:-"New ${level} release: v${tag}"}
 
     # Update version file
     version:set "${tag}" || return 1
@@ -2015,7 +2112,11 @@ function release {
     quickstart:sync "${tag}" || return 1
 
     # Generate changelog before tagging so release tags include their notes.
-    git cliff --tag "${release_tag}" --output CHANGELOG.md || return 1
+    if [ "${release_notes_enabled}" -eq 1 ]; then
+        release:changelog:generate "${release_tag}" "${release_notes_file}" || return 1
+    else
+        git cliff --tag "${release_tag}" --output CHANGELOG.md || return 1
+    fi
 
     # Add updated version file to git
     git add "${VERSION_FILE}" CHANGELOG.md || return 1
@@ -2062,4 +2163,9 @@ function help {
 }
 
 TIMEFORMAT="Task completed in %3lR"
-time "${@:-help}"
+if [ "$#" -eq 0 ]; then
+    set -- help
+fi
+
+time "$@"
+exit $?
