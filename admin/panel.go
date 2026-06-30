@@ -624,6 +624,14 @@ func (p *Panel) Breadcrumbs() PanelBreadcrumbConfig {
 	return normalizePanelBreadcrumbConfig(p.breadcrumbs)
 }
 
+// Authorizer returns the authorizer used by panel CRUD operations.
+func (p *Panel) Authorizer() Authorizer {
+	if p == nil {
+		return nil
+	}
+	return p.authorizer
+}
+
 func normalizePanelUIRouteMode(mode PanelUIRouteMode) PanelUIRouteMode {
 	switch mode {
 	case PanelUIRouteModeCustom:
