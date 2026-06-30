@@ -247,40 +247,12 @@ func parseIndexedFormFieldPath(raw string) ([]indexedFormPathSegment, bool) {
 	segments := []indexedFormPathSegment{}
 	hasIndexedSegment := false
 	for _, part := range parts {
-		if part == "" {
+		partSegments, indexed, ok := parseIndexedFormPathPart(part)
+		if !ok {
 			return nil, false
 		}
-		nameEnd := strings.Index(part, "[")
-		if nameEnd == -1 {
-			segments = append(segments, indexedFormPathSegment{Name: part})
-			continue
-		}
-		if nameEnd > 0 {
-			segments = append(segments, indexedFormPathSegment{Name: part[:nameEnd]})
-		}
-		rest := part[nameEnd:]
-		for rest != "" {
-			if !strings.HasPrefix(rest, "[") {
-				return nil, false
-			}
-			closeIndex := strings.Index(rest, "]")
-			if closeIndex == -1 {
-				return nil, false
-			}
-			token := strings.TrimSpace(rest[1:closeIndex])
-			rest = rest[closeIndex+1:]
-			if token == "" {
-				segments = append(segments, indexedFormPathSegment{Append: true})
-				hasIndexedSegment = true
-				continue
-			}
-			index, err := strconv.Atoi(token)
-			if err != nil || index < 0 {
-				return nil, false
-			}
-			segments = append(segments, indexedFormPathSegment{Index: &index})
-			hasIndexedSegment = true
-		}
+		segments = append(segments, partSegments...)
+		hasIndexedSegment = hasIndexedSegment || indexed
 	}
 	if len(segments) == 0 || segments[0].Name == "" || !hasIndexedSegment {
 		return nil, false
@@ -289,6 +261,58 @@ func parseIndexedFormFieldPath(raw string) ([]indexedFormPathSegment, bool) {
 		return nil, false
 	}
 	return segments, true
+}
+
+func parseIndexedFormPathPart(part string) ([]indexedFormPathSegment, bool, bool) {
+	if part == "" {
+		return nil, false, false
+	}
+	nameEnd := strings.Index(part, "[")
+	if nameEnd == -1 {
+		return []indexedFormPathSegment{{Name: part}}, false, true
+	}
+	segments := []indexedFormPathSegment{}
+	if nameEnd > 0 {
+		segments = append(segments, indexedFormPathSegment{Name: part[:nameEnd]})
+	}
+	indexSegments, ok := parseIndexedFormPathIndexes(part[nameEnd:])
+	if !ok {
+		return nil, false, false
+	}
+	segments = append(segments, indexSegments...)
+	return segments, len(indexSegments) > 0, true
+}
+
+func parseIndexedFormPathIndexes(rest string) ([]indexedFormPathSegment, bool) {
+	segments := []indexedFormPathSegment{}
+	for rest != "" {
+		if !strings.HasPrefix(rest, "[") {
+			return nil, false
+		}
+		closeIndex := strings.Index(rest, "]")
+		if closeIndex == -1 {
+			return nil, false
+		}
+		token := strings.TrimSpace(rest[1:closeIndex])
+		rest = rest[closeIndex+1:]
+		segment, ok := indexedFormPathIndexSegment(token)
+		if !ok {
+			return nil, false
+		}
+		segments = append(segments, segment)
+	}
+	return segments, true
+}
+
+func indexedFormPathIndexSegment(token string) (indexedFormPathSegment, bool) {
+	if token == "" {
+		return indexedFormPathSegment{Append: true}, true
+	}
+	index, err := strconv.Atoi(token)
+	if err != nil || index < 0 {
+		return indexedFormPathSegment{}, false
+	}
+	return indexedFormPathSegment{Index: &index}, true
 }
 
 func schemaPathForIndexedFormField(path []indexedFormPathSegment) string {
@@ -359,25 +383,32 @@ func setIndexedFormValueAt(current any, path []indexedFormPathSegment, value any
 	segment := path[0]
 	last := len(path) == 1
 	if segment.Name != "" {
-		currentMap, ok := current.(map[string]any)
-		if !ok || currentMap == nil {
-			return nil, fmt.Errorf("expected object at %s", segment.Name)
-		}
-		if last {
-			return currentMap, assignIndexedFormMapValue(currentMap, segment.Name, value)
-		}
-		next, exists := currentMap[segment.Name]
-		if !exists || next == nil {
-			next = newIndexedFormContainer(path[1])
-		}
-		updated, err := setIndexedFormValueAt(next, path[1:], value)
-		if err != nil {
-			return nil, err
-		}
-		currentMap[segment.Name] = updated
-		return currentMap, nil
+		return setIndexedFormMapSegment(current, path, value, segment, last)
 	}
+	return setIndexedFormArraySegment(current, path, value, segment, last)
+}
 
+func setIndexedFormMapSegment(current any, path []indexedFormPathSegment, value any, segment indexedFormPathSegment, last bool) (any, error) {
+	currentMap, ok := current.(map[string]any)
+	if !ok || currentMap == nil {
+		return nil, fmt.Errorf("expected object at %s", segment.Name)
+	}
+	if last {
+		return currentMap, assignIndexedFormMapValue(currentMap, segment.Name, value)
+	}
+	next, exists := currentMap[segment.Name]
+	if !exists || next == nil {
+		next = newIndexedFormContainer(path[1])
+	}
+	updated, err := setIndexedFormValueAt(next, path[1:], value)
+	if err != nil {
+		return nil, err
+	}
+	currentMap[segment.Name] = updated
+	return currentMap, nil
+}
+
+func setIndexedFormArraySegment(current any, path []indexedFormPathSegment, value any, segment indexedFormPathSegment, last bool) (any, error) {
 	currentArray, ok := current.([]any)
 	if !ok {
 		if current == nil {

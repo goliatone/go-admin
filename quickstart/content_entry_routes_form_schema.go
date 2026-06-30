@@ -216,6 +216,7 @@ func parseFormRequestValues(c router.Context) (url.Values, error) {
 	return parsed, nil
 }
 
+//nolint:nestif // Indexed form paths require ordered validation and assignment branches.
 func applyFormValues(record map[string]any, values url.Values, schemaMap map[string]schemaPathInfo) error {
 	for key, vals := range values {
 		if key == "" {

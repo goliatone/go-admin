@@ -359,10 +359,13 @@ func TestContentEntryAttachBlocksIconMapMergesOptions(t *testing.T) {
 			result := contentEntryAttachBlocksIconMap(tt.columns, iconMap)
 
 			for _, col := range result {
-				renderer, _ := col["renderer"].(string)
-				opts, _ := col["renderer_options"].(map[string]any)
+				renderer, ok := col["renderer"].(string)
+				if !ok {
+					continue
+				}
 
 				if renderer == "blocks_chips" {
+					opts := requireTestValue[map[string]any](t, col["renderer_options"], "renderer options")
 					if tt.expectIconMap {
 						attachedMap, ok := opts["block_icons_map"].(map[string]string)
 						if !ok {

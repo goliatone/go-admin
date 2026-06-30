@@ -55,7 +55,7 @@ func TestContentEntryApplyUpdateIntentEditsAddsAndReordersRowsByIdentity(t *test
 	if got := patched["enabled"]; got != false {
 		t.Fatalf("expected unrelated boolean to remain parsed false, got %#v", got)
 	}
-	if got := patched["tags"]; len(got.([]any)) != 2 {
+	if got := patched["tags"]; len(requireTestValue[[]any](t, got, "patched tags")) != 2 {
 		t.Fatalf("expected unrelated scalar array to remain, got %#v", got)
 	}
 	column := requireMapItem(t, requireRecordSlice(t, patched, "columns"), 0)
@@ -178,10 +178,10 @@ func TestUpdateForPanelUpdateIntentPreservesUnrelatedParsedFields(t *testing.T) 
 	if got := updated["featured"]; got != true {
 		t.Fatalf("expected unrelated scalar field to persist, got %#v", got)
 	}
-	if got := updated["tags"]; len(got.([]any)) != 2 {
+	if got := updated["tags"]; len(requireTestValue[[]any](t, got, "updated tags")) != 2 {
 		t.Fatalf("expected unrelated array field to persist, got %#v", got)
 	}
-	metadata := updated["metadata"].(map[string]any)
+	metadata := requireTestValue[map[string]any](t, updated["metadata"], "updated metadata")
 	if got := metadata["summary"]; got != "Curated topics" {
 		t.Fatalf("expected unrelated object field to persist, got %#v", metadata)
 	}

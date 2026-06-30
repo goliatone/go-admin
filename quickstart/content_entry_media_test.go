@@ -152,12 +152,13 @@ func TestRenderFormMediaHintsDoNotMutateStoredContentTypeSchema(t *testing.T) {
 	if err := handler.renderForm(ctx, "pages", nil, contentType, admin.AdminContext{Context: context.Background()}, map[string]any{}, nil, false, ""); err != nil {
 		t.Fatalf("render form: %v", err)
 	}
-	prop := contentType.Schema["properties"].(map[string]any)["gallery"].(map[string]any)
+	properties := requireTestValue[map[string]any](t, contentType.Schema["properties"], "content type properties")
+	prop := requireTestValue[map[string]any](t, properties["gallery"], "gallery property")
 	if _, ok := prop["x-admin"]; ok {
 		t.Fatalf("did not expect render-time media hints to mutate stored schema: %+v", prop)
 	}
-	formgen := prop["x-formgen"].(map[string]any)
-	config := formgen["component.config"].(map[string]any)
+	formgen := requireTestValue[map[string]any](t, prop["x-formgen"], "gallery x-formgen")
+	config := requireTestValue[map[string]any](t, formgen["component.config"], "gallery component config")
 	if _, ok := config["libraryPath"]; ok {
 		t.Fatalf("did not expect endpoint hints in stored component.config: %+v", config)
 	}
