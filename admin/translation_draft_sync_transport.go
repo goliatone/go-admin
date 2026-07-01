@@ -6,10 +6,10 @@ import (
 	"net/http"
 	"strings"
 
+	synccore "github.com/goliatone/go-admin/pkg/go-sync/core"
+	syncservice "github.com/goliatone/go-admin/pkg/go-sync/service"
+	httptransport "github.com/goliatone/go-admin/pkg/go-sync/transport/http"
 	router "github.com/goliatone/go-router"
-	synccore "github.com/goliatone/go-sync/core"
-	syncservice "github.com/goliatone/go-sync/service"
-	httptransport "github.com/goliatone/go-sync/transport/http"
 )
 
 type translationDraftSyncRequestIdentityContextKey struct{}

@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/goliatone/go-sync/core"
+	"github.com/goliatone/go-admin/pkg/go-sync/core"
 )
 
 func TestHandleReadReturnsCanonicalEnvelopeAndServerDerivedScope(t *testing.T) {

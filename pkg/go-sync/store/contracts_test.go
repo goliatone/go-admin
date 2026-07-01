@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/goliatone/go-sync/core"
-	"github.com/goliatone/go-sync/store"
+	"github.com/goliatone/go-admin/pkg/go-sync/core"
+	"github.com/goliatone/go-admin/pkg/go-sync/store"
 )
 
 func TestMemoryResourceStoreGetReturnsClonedSnapshot(t *testing.T) {

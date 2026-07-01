@@ -11,9 +11,9 @@ import (
 	"github.com/gofiber/fiber/v2"
 	appcfg "github.com/goliatone/go-admin/examples/web/config"
 	"github.com/goliatone/go-admin/pkg/client"
+	syncdata "github.com/goliatone/go-admin/pkg/go-sync/data"
 	"github.com/goliatone/go-admin/quickstart"
 	router "github.com/goliatone/go-router"
-	syncdata "github.com/goliatone/go-sync/data"
 )
 
 func TestExampleTranslationEditorServesAdvertisedSyncClientRuntime(t *testing.T) {

@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	gosyncobservability "github.com/goliatone/go-sync/observability"
+	gosyncobservability "github.com/goliatone/go-admin/pkg/go-sync/observability"
 )
 
 // SyncMetricsSnapshot captures example-level sync telemetry emitted by the embedded go-sync runtime.

@@ -7,8 +7,8 @@ import (
 
 	"github.com/goliatone/go-admin/examples/esign/services"
 	"github.com/goliatone/go-admin/examples/esign/stores"
-	gosynccore "github.com/goliatone/go-sync/core"
-	syncservice "github.com/goliatone/go-sync/service"
+	gosynccore "github.com/goliatone/go-admin/pkg/go-sync/core"
+	syncservice "github.com/goliatone/go-admin/pkg/go-sync/service"
 )
 
 type failingReplayAuditStore struct {

@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/goliatone/go-sync/core"
+	"github.com/goliatone/go-admin/pkg/go-sync/core"
 )
 
 // ResourceStore loads and mutates authoritative resource snapshots.

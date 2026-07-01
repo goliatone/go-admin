@@ -6,7 +6,7 @@ import (
 	"maps"
 	"time"
 
-	"github.com/goliatone/go-sync/core"
+	"github.com/goliatone/go-admin/pkg/go-sync/core"
 )
 
 // ReadResponse is the canonical read envelope exposed over HTTP.

@@ -14,8 +14,8 @@ import (
 	"github.com/goliatone/go-admin/examples/esign/services"
 	"github.com/goliatone/go-admin/examples/esign/stores"
 	esignsync "github.com/goliatone/go-admin/examples/esign/sync"
+	syncservice "github.com/goliatone/go-admin/pkg/go-sync/service"
 	router "github.com/goliatone/go-router"
-	syncservice "github.com/goliatone/go-sync/service"
 )
 
 func setupDraftSyncApp(t *testing.T, store *stores.InMemoryStore, scope stores.Scope) *fiber.App {

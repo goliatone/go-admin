@@ -15,7 +15,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/goliatone/go-admin/examples/esign/services"
-	syncdata "github.com/goliatone/go-sync/data"
+	syncdata "github.com/goliatone/go-admin/pkg/go-sync/data"
 )
 
 func TestRuntimeAgreementSyncE2ECreateAutosaveConflictRecoverAndReplaySend(t *testing.T) {

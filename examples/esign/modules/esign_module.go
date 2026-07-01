@@ -26,11 +26,11 @@ import (
 	"github.com/goliatone/go-admin/examples/esign/stores"
 	esignsync "github.com/goliatone/go-admin/examples/esign/sync"
 	servicesmodule "github.com/goliatone/go-admin/modules/services"
+	synccore "github.com/goliatone/go-admin/pkg/go-sync/core"
+	syncservice "github.com/goliatone/go-admin/pkg/go-sync/service"
 	"github.com/goliatone/go-admin/quickstart"
 	fggate "github.com/goliatone/go-featuregate/gate"
 	jobqueue "github.com/goliatone/go-job/queue"
-	synccore "github.com/goliatone/go-sync/core"
-	syncservice "github.com/goliatone/go-sync/service"
 	"github.com/goliatone/go-uploader"
 )
 

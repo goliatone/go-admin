@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	coreadmin "github.com/goliatone/go-admin/admin"
-	translationai "github.com/goliatone/go-translation-ai"
+	translationai "github.com/goliatone/go-admin/pkg/go-translation-ai"
 )
 
 type fakeAssignmentRepo struct {

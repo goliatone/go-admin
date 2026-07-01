@@ -8,9 +8,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/goliatone/go-sync/core"
-	"github.com/goliatone/go-sync/observability"
-	"github.com/goliatone/go-sync/store"
+	"github.com/goliatone/go-admin/pkg/go-sync/core"
+	"github.com/goliatone/go-admin/pkg/go-sync/observability"
+	"github.com/goliatone/go-admin/pkg/go-sync/store"
 )
 
 const defaultIdempotencyTTL = 24 * time.Hour

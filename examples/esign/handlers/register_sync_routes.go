@@ -12,9 +12,9 @@ import (
 	coreadmin "github.com/goliatone/go-admin/admin"
 	"github.com/goliatone/go-admin/examples/esign/stores"
 	esignsync "github.com/goliatone/go-admin/examples/esign/sync"
+	synccore "github.com/goliatone/go-admin/pkg/go-sync/core"
+	httptransport "github.com/goliatone/go-admin/pkg/go-sync/transport/http"
 	router "github.com/goliatone/go-router"
-	synccore "github.com/goliatone/go-sync/core"
-	httptransport "github.com/goliatone/go-sync/transport/http"
 )
 
 type trustedSyncRequestIdentityContextKey struct{}

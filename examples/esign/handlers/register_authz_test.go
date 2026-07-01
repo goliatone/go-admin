@@ -22,10 +22,10 @@ import (
 	"github.com/goliatone/go-admin/examples/esign/services"
 	"github.com/goliatone/go-admin/examples/esign/stores"
 	esignsync "github.com/goliatone/go-admin/examples/esign/sync"
+	syncservice "github.com/goliatone/go-admin/pkg/go-sync/service"
 	auth "github.com/goliatone/go-auth"
 	goerrors "github.com/goliatone/go-errors"
 	router "github.com/goliatone/go-router"
-	syncservice "github.com/goliatone/go-sync/service"
 )
 
 type rejectingValidator struct{}

@@ -7,10 +7,10 @@ import (
 	"strings"
 	"time"
 
+	synccore "github.com/goliatone/go-admin/pkg/go-sync/core"
+	syncstore "github.com/goliatone/go-admin/pkg/go-sync/store"
 	translationcore "github.com/goliatone/go-admin/translations/core"
 	goerrors "github.com/goliatone/go-errors"
-	synccore "github.com/goliatone/go-sync/core"
-	syncstore "github.com/goliatone/go-sync/store"
 )
 
 const (

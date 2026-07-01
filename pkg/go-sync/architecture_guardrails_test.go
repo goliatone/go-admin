@@ -24,7 +24,8 @@ func TestGoSyncPackagesDoNotImportAppSpecificGoAdminPackages(t *testing.T) {
 		}
 		for _, spec := range file.Imports {
 			importPath := strings.Trim(spec.Path.Value, `"`)
-			if strings.HasPrefix(importPath, "github.com/goliatone/go-admin/") {
+			if strings.HasPrefix(importPath, "github.com/goliatone/go-admin/") &&
+				!strings.HasPrefix(importPath, "github.com/goliatone/go-admin/pkg/go-sync") {
 				violations = append(violations, rel(root, path)+" -> "+importPath)
 			}
 		}

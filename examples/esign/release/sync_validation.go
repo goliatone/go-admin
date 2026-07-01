@@ -11,9 +11,9 @@ import (
 	"github.com/goliatone/go-admin/examples/esign/services"
 	"github.com/goliatone/go-admin/examples/esign/stores"
 	esignsync "github.com/goliatone/go-admin/examples/esign/sync"
-	gosynccore "github.com/goliatone/go-sync/core"
-	syncservice "github.com/goliatone/go-sync/service"
-	syncstore "github.com/goliatone/go-sync/store"
+	gosynccore "github.com/goliatone/go-admin/pkg/go-sync/core"
+	syncservice "github.com/goliatone/go-admin/pkg/go-sync/service"
+	syncstore "github.com/goliatone/go-admin/pkg/go-sync/store"
 )
 
 type SyncValidationResult struct {

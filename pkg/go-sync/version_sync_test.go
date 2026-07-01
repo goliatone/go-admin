@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	gosync "github.com/goliatone/go-sync"
+	gosync "github.com/goliatone/go-admin/pkg/go-sync"
 )
 
 func TestVersionSynchronizationAcrossVendoredPackageSurfaces(t *testing.T) {

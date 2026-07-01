@@ -1,4 +1,4 @@
-module github.com/goliatone/go-translation-ai
+module github.com/goliatone/go-admin/pkg/go-translation-ai
 
 go 1.26.4
 
@@ -48,6 +48,7 @@ require (
 	github.com/gofiber/template/django/v3 v3.1.14 // indirect
 	github.com/gofiber/utils v1.2.0 // indirect
 	github.com/golang-jwt/jwt/v5 v5.3.1 // indirect
+	github.com/goliatone/go-admin/pkg/go-sync v0.0.0 // indirect
 	github.com/goliatone/go-auth v0.44.1 // indirect
 	github.com/goliatone/go-auth/adapters/featuregate v0.44.1 // indirect
 	github.com/goliatone/go-cms v0.59.0 // indirect
@@ -74,7 +75,6 @@ require (
 	github.com/goliatone/go-search v0.8.1 // indirect
 	github.com/goliatone/go-search/adapters/goadmin v0.8.1 // indirect
 	github.com/goliatone/go-slug v0.1.0 // indirect
-	github.com/goliatone/go-sync v0.0.0 // indirect
 	github.com/goliatone/go-template v0.3.1 // indirect
 	github.com/goliatone/go-theme v0.3.0 // indirect
 	github.com/goliatone/go-urlkit v0.6.0 // indirect
@@ -172,6 +172,6 @@ require (
 
 replace github.com/goliatone/go-admin => ../..
 
-replace github.com/goliatone/go-lifecycle => ../go-lifecycle
+replace github.com/goliatone/go-admin/pkg/go-lifecycle => ../go-lifecycle
 
-replace github.com/goliatone/go-sync => ../go-sync
+replace github.com/goliatone/go-admin/pkg/go-sync => ../go-sync

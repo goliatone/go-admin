@@ -17,10 +17,10 @@ import (
 	"github.com/goliatone/go-admin/examples/esign/services"
 	"github.com/goliatone/go-admin/examples/esign/stores"
 	esignsync "github.com/goliatone/go-admin/examples/esign/sync"
+	synccore "github.com/goliatone/go-admin/pkg/go-sync/core"
 	"github.com/goliatone/go-admin/quickstart"
 	goerrors "github.com/goliatone/go-errors"
 	router "github.com/goliatone/go-router"
-	synccore "github.com/goliatone/go-sync/core"
 	"github.com/goliatone/go-uploader"
 )
 

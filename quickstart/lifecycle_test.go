@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	lifecycle "github.com/goliatone/go-lifecycle"
+	lifecycle "github.com/goliatone/go-admin/pkg/go-lifecycle"
 	router "github.com/goliatone/go-router"
 )
 

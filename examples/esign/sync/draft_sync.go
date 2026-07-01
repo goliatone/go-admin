@@ -14,10 +14,10 @@ import (
 
 	"github.com/goliatone/go-admin/examples/esign/services"
 	"github.com/goliatone/go-admin/examples/esign/stores"
+	gosynccore "github.com/goliatone/go-admin/pkg/go-sync/core"
+	"github.com/goliatone/go-admin/pkg/go-sync/store"
+	httptransport "github.com/goliatone/go-admin/pkg/go-sync/transport/http"
 	goerrors "github.com/goliatone/go-errors"
-	gosynccore "github.com/goliatone/go-sync/core"
-	"github.com/goliatone/go-sync/store"
-	httptransport "github.com/goliatone/go-sync/transport/http"
 	"github.com/google/uuid"
 )
 

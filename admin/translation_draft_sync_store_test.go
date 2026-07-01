@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
+	synccore "github.com/goliatone/go-admin/pkg/go-sync/core"
 	auth "github.com/goliatone/go-auth"
-	synccore "github.com/goliatone/go-sync/core"
 )
 
 func TestTranslationDraftSyncStoreGetReturnsEditorSnapshot(t *testing.T) {

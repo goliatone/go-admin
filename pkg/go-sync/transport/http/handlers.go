@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/goliatone/go-sync/core"
+	"github.com/goliatone/go-admin/pkg/go-sync/core"
 )
 
 const (

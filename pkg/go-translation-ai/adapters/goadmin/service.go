@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	coreadmin "github.com/goliatone/go-admin/admin"
-	translationai "github.com/goliatone/go-translation-ai"
+	translationai "github.com/goliatone/go-admin/pkg/go-translation-ai"
 )
 
 // Service implements admin.TranslationSuggestionService by composing core

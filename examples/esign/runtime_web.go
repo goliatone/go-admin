@@ -27,6 +27,7 @@ import (
 	"github.com/goliatone/go-admin/internal/primitives"
 	"github.com/goliatone/go-admin/internal/templateview"
 	"github.com/goliatone/go-admin/pkg/client"
+	syncdata "github.com/goliatone/go-admin/pkg/go-sync/data"
 	"github.com/goliatone/go-admin/quickstart"
 	auth "github.com/goliatone/go-auth"
 	goerrors "github.com/goliatone/go-errors"
@@ -35,7 +36,6 @@ import (
 	router "github.com/goliatone/go-router"
 	"github.com/goliatone/go-router/eventstream"
 	"github.com/goliatone/go-router/ssefiber"
-	syncdata "github.com/goliatone/go-sync/data"
 	"github.com/goliatone/go-uploader"
 	urlkit "github.com/goliatone/go-urlkit"
 )
