@@ -1,6 +1,8 @@
 package site
 
 import (
+	"strings"
+
 	"github.com/goliatone/go-admin/admin"
 	router "github.com/goliatone/go-router"
 )
@@ -21,6 +23,8 @@ type siteRegisterOptions struct {
 	fallbackPolicy    SiteFallbackPolicy
 	fallbackOverlay   siteFallbackPolicyOverlay
 	renderCache       renderCacheConfig
+	redirectStore     ContentURLRedirectStore
+	redirectSiteKey   string
 }
 
 // WithSearchProvider sets the search provider for optional search route wiring.
@@ -56,6 +60,28 @@ func WithDeliveryServices(contentSvc admin.CMSContentService, contentTypeSvc adm
 		if contentTypeSvc != nil {
 			opts.contentTypeSvc = contentTypeSvc
 		}
+	}
+}
+
+// WithContentURLRedirectStore registers a host-owned historical URL redirect
+// lookup store for public-site content delivery.
+func WithContentURLRedirectStore(store ContentURLRedirectStore) SiteOption {
+	return func(opts *siteRegisterOptions) {
+		if opts == nil || store == nil {
+			return
+		}
+		opts.redirectStore = store
+	}
+}
+
+// WithContentURLRedirectSiteKey sets the stable host-owned site scope included
+// in historical URL redirect lookup and capture contracts.
+func WithContentURLRedirectSiteKey(siteKey string) SiteOption {
+	return func(opts *siteRegisterOptions) {
+		if opts == nil {
+			return
+		}
+		opts.redirectSiteKey = strings.TrimSpace(siteKey)
 	}
 }
 
