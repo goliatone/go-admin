@@ -446,19 +446,22 @@ func (a *Admin) updatePersistedMenuItem(ctx context.Context, code string, item M
 		return item, nil
 	}
 	update := match.repairItem(item)
-	if err := a.menuSvc.UpdateMenuItem(ctx, code, update); err != nil {
-		if isMenuTargetMissing(err) {
-			if addErr := a.menuSvc.AddMenuItem(ctx, code, item); addErr != nil {
-				if isMenuTargetMissing(addErr) {
-					return item, a.handleNavigationTargetMissing(code, item)
-				}
-				return item, addErr
-			}
-			return item, nil
-		}
+	err := a.menuSvc.UpdateMenuItem(ctx, code, update)
+	if err == nil {
+		return update, nil
+	}
+	if !isMenuTargetMissing(err) {
 		return update, err
 	}
-	return update, nil
+
+	err = a.menuSvc.AddMenuItem(ctx, code, item)
+	if err == nil {
+		return item, nil
+	}
+	if isMenuTargetMissing(err) {
+		return item, a.handleNavigationTargetMissing(code, item)
+	}
+	return item, err
 }
 
 type persistedMenuItemIndex struct {
