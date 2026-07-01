@@ -384,16 +384,25 @@ func EntryNavigationPolicyFromOptions(contentType CMSContentType, options EntryN
 func entryNavigationPolicyFromOptions(contentType CMSContentType, options EntryNavigationOptions) EntryNavigationPolicy {
 	policy := entryNavigationPolicyFromGlobalOptions(options)
 	capabilityEligibleLocationsSet := false
-	if navigation := rawEntryNavigationCapability(contentType); len(navigation) > 0 {
-		_, capabilityEligibleLocationsSet = entryNavigationCapabilityField(navigation, "eligible_locations")
+	contracts := ReadContentTypeCapabilityContracts(contentType)
+	useCapabilityLocationFallback := entryNavigationShouldUseCapabilityLocationFallback(contentType, contracts, options)
+	if navigation := entryNavigationCapabilityFieldsForPolicy(contentType, contracts); len(navigation) > 0 {
+		capabilityEligibleLocationsSet = entryNavigationCapabilityEligibleLocationsFieldSet(contentType)
 		policy = applyEntryNavigationCapabilityFields(policy, navigation)
 	}
 
 	typeOptions, hasTypeOptions := entryNavigationTypeOptionsFor(contentType, options)
+	if hasTypeOptions && len(typeOptions.EligibleLocations) > 0 {
+		useCapabilityLocationFallback = false
+	}
 	if hasTypeOptions {
 		policy = applyEntryNavigationTypeOptions(policy, typeOptions, entryNavigationTypeOptionContext{
 			preserveEmptyEligibleLocations: capabilityEligibleLocationsSet && len(policy.EligibleLocations) == 0,
 		})
+	}
+	if policy.Enabled && useCapabilityLocationFallback && len(policy.EligibleLocations) == 0 {
+		policy.EligibleLocations = dedupeAndSortStrings(toStringSlice(contracts.Navigation["eligible_locations"]))
+		policy.DefaultLocations = dedupeAndSortStrings(toStringSlice(contracts.Navigation["default_locations"]))
 	}
 	if entryNavigationContentTypeExcluded(contentType, options) || (hasTypeOptions && typeOptions.Excluded) {
 		policy.Enabled = false
@@ -447,6 +456,93 @@ func rawEntryNavigationCapability(contentType CMSContentType) map[string]any {
 		return nil
 	}
 	return extractMap(raw)
+}
+
+func entryNavigationCapabilityFieldsForPolicy(contentType CMSContentType, contracts ContentTypeCapabilityContracts) map[string]any {
+	normalized := contracts.Navigation
+	if len(normalized) == 0 {
+		return nil
+	}
+	out := map[string]any{}
+	if _, exists := entryNavigationRawCapabilityField(contentType, "enabled", "navigation_enabled"); exists {
+		out["enabled"] = normalized["enabled"]
+	} else if contracts.MigratedDeliveryMenu {
+		out["enabled"] = normalized["enabled"]
+	}
+
+	if raw, exists := entryNavigationRawCapabilityField(contentType, "eligible_locations", "navigation_eligible_locations"); exists {
+		if len(normalizeStringListAny(raw)) == 0 {
+			out["eligible_locations"] = []string{}
+			delete(out, "default_locations")
+		} else {
+			copyEntryNavigationNormalizedLocations(out, normalized)
+		}
+	} else if _, exists := entryNavigationRawCapabilityField(contentType, "default_locations", "navigation_default_locations"); exists || contracts.MigratedDeliveryMenu {
+		copyEntryNavigationNormalizedLocations(out, normalized)
+	}
+
+	if _, exists := entryNavigationRawCapabilityField(contentType, "default_visible", "navigation_default_visible"); exists {
+		out["default_visible"] = normalized["default_visible"]
+	}
+	if _, exists := entryNavigationRawCapabilityField(contentType, "allow_instance_override", "allow_instance_override"); exists {
+		out["allow_instance_override"] = normalized["allow_instance_override"]
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+func entryNavigationShouldUseCapabilityLocationFallback(contentType CMSContentType, contracts ContentTypeCapabilityContracts, options EntryNavigationOptions) bool {
+	if len(contracts.Navigation) == 0 || !toBool(contracts.Navigation["enabled"]) {
+		return false
+	}
+	if entryNavigationCapabilityLocationPolicySet(contentType, contracts) {
+		return false
+	}
+	if len(options.EligibleLocations) > 0 {
+		return false
+	}
+	return len(toStringSlice(contracts.Navigation["eligible_locations"])) > 0
+}
+
+func copyEntryNavigationNormalizedLocations(out map[string]any, normalized map[string]any) {
+	if raw, exists := normalized["eligible_locations"]; exists {
+		out["eligible_locations"] = raw
+	}
+	if raw, exists := normalized["default_locations"]; exists {
+		out["default_locations"] = raw
+	}
+}
+
+func entryNavigationRawCapabilityField(contentType CMSContentType, nestedKey string, flatKey string) (any, bool) {
+	if navigation := rawEntryNavigationCapability(contentType); len(navigation) > 0 {
+		if raw, exists := entryNavigationCapabilityField(navigation, nestedKey); exists {
+			return raw, true
+		}
+	}
+	if flatKey == "" {
+		return nil, false
+	}
+	return capabilityValue(contentType.Capabilities, flatKey)
+}
+
+func entryNavigationCapabilityEligibleLocationsFieldSet(contentType CMSContentType) bool {
+	_, exists := entryNavigationRawCapabilityField(contentType, "eligible_locations", "navigation_eligible_locations")
+	return exists
+}
+
+func entryNavigationCapabilityLocationPolicySet(contentType CMSContentType, contracts ContentTypeCapabilityContracts) bool {
+	if contracts.MigratedDeliveryMenu {
+		return true
+	}
+	if _, exists := entryNavigationRawCapabilityField(contentType, "eligible_locations", "navigation_eligible_locations"); exists {
+		return true
+	}
+	if _, exists := entryNavigationRawCapabilityField(contentType, "default_locations", "navigation_default_locations"); exists {
+		return true
+	}
+	return false
 }
 
 func entryNavigationCapabilityField(navigation map[string]any, key string) (any, bool) {
