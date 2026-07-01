@@ -10,13 +10,15 @@ import (
 )
 
 type deliveryRuntime struct {
-	siteCfg        ResolvedSiteConfig
-	contentSvc     admin.CMSContentService
-	contentTypeSvc admin.CMSContentTypeService
-	navigation     *navigationRuntime
-	modules        []SiteModule
-	renderCache    renderCacheConfig
-	revalidation   renderCacheRevalidationGroup
+	siteCfg         ResolvedSiteConfig
+	contentSvc      admin.CMSContentService
+	contentTypeSvc  admin.CMSContentTypeService
+	navigation      *navigationRuntime
+	modules         []SiteModule
+	renderCache     renderCacheConfig
+	redirectStore   ContentURLRedirectStore
+	redirectSiteKey string
+	revalidation    renderCacheRevalidationGroup
 }
 
 func newDeliveryRuntime(
