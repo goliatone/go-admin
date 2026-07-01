@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"maps"
 	"reflect"
 	"slices"
 	"sort"
@@ -55,19 +56,24 @@ func ReadContentTypeCapabilityContracts(contentType CMSContentType) ContentTypeC
 // ParseContentTypeCapabilityContracts resolves normalized capability contracts
 // from a raw capabilities payload.
 func ParseContentTypeCapabilityContracts(capabilities map[string]any) ContentTypeCapabilityContracts {
-	return convertCapabilityContracts(cmscontent.ParseContentTypeCapabilityContracts(capabilities))
+	return convertCapabilityContracts(normalizeContentTypeCapabilityContracts(capabilities))
 }
 
 // NormalizeContentTypeCapabilities returns canonical capability objects and
 // validation metadata without mutating the input payload.
 func NormalizeContentTypeCapabilities(capabilities map[string]any) (map[string]any, map[string]string) {
-	return cmscontent.NormalizeContentTypeCapabilities(capabilities)
+	contracts := normalizeContentTypeCapabilityContracts(capabilities)
+	return contracts.Normalized, contracts.Validation
 }
 
 // ValidateAndNormalizeContentTypeCapabilities validates and normalizes
 // capabilities via the canonical go-cms implementation.
 func ValidateAndNormalizeContentTypeCapabilities(capabilities map[string]any) (map[string]any, error) {
-	return cmscontent.ValidateAndNormalizeContentTypeCapabilities(capabilities)
+	normalized, validation := NormalizeContentTypeCapabilities(capabilities)
+	if len(validation) > 0 {
+		return nil, contentTypeValidationError(validation)
+	}
+	return normalized, nil
 }
 
 // ContentTypeCapabilityString returns the first non-empty string value for the
@@ -143,8 +149,97 @@ func convertCapabilityContracts(in cmscontent.ContentTypeCapabilityContracts) Co
 }
 
 func normalizeContentTypeCapabilitiesInternal(capabilities map[string]any) (map[string]any, map[string]string, bool) {
-	contracts := cmscontent.ParseContentTypeCapabilityContracts(capabilities)
+	contracts := normalizeContentTypeCapabilityContracts(capabilities)
 	return contracts.Normalized, contracts.Validation, contracts.MigratedDeliveryMenu
+}
+
+func normalizeContentTypeCapabilityContracts(capabilities map[string]any) cmscontent.ContentTypeCapabilityContracts {
+	canonicalized := canonicalizeContentTypeCapabilityAliases(capabilities)
+	preserveExplicitEmptyNavigationLocations := hasExplicitEmptyNavigationEligibleLocations(canonicalized)
+	contracts := cmscontent.ParseContentTypeCapabilityContracts(canonicalized)
+	if preserveExplicitEmptyNavigationLocations {
+		contracts = restoreExplicitEmptyNavigationLocations(contracts)
+	}
+	return contracts
+}
+
+func canonicalizeContentTypeCapabilityAliases(capabilities map[string]any) map[string]any {
+	if len(capabilities) == 0 {
+		return capabilities
+	}
+	out := make(map[string]any, len(capabilities))
+	maps.Copy(out, capabilities)
+	rawNavigation, ok := capabilityValue(out, "navigation")
+	if ok {
+		navigation := extractMap(rawNavigation)
+		if len(navigation) > 0 {
+			out["navigation"] = canonicalizeNavigationCapabilityAliases(navigation)
+		}
+	}
+	return out
+}
+
+func canonicalizeNavigationCapabilityAliases(navigation map[string]any) map[string]any {
+	if len(navigation) == 0 {
+		return navigation
+	}
+	out := make(map[string]any, len(navigation))
+	maps.Copy(out, navigation)
+	for _, key := range []string{
+		"enabled",
+		"eligible_locations",
+		"default_locations",
+		"default_visible",
+		"allow_instance_override",
+		"merge_mode",
+	} {
+		raw, exists := capabilityValue(out, key)
+		if exists {
+			if _, canonicalExists := out[key]; !canonicalExists {
+				out[key] = raw
+			}
+		}
+		for _, variant := range capabilityKeyVariants(key) {
+			if variant != key {
+				delete(out, variant)
+			}
+		}
+	}
+	return out
+}
+
+func hasExplicitEmptyNavigationEligibleLocations(capabilities map[string]any) bool {
+	if len(capabilities) == 0 {
+		return false
+	}
+	if raw, exists := capabilityValue(capabilities, "navigation_eligible_locations"); exists {
+		return len(normalizeStringListAny(raw)) == 0
+	}
+	if rawNavigation, exists := capabilityValue(capabilities, "navigation"); exists {
+		navigation := extractMap(rawNavigation)
+		if raw, exists := capabilityValue(navigation, "eligible_locations"); exists {
+			return len(normalizeStringListAny(raw)) == 0
+		}
+	}
+	return false
+}
+
+func restoreExplicitEmptyNavigationLocations(contracts cmscontent.ContentTypeCapabilityContracts) cmscontent.ContentTypeCapabilityContracts {
+	navigation := cloneAnyMapDeep(contracts.Navigation)
+	if navigation == nil {
+		navigation = map[string]any{}
+	}
+	navigation["eligible_locations"] = []string{}
+	delete(navigation, "default_locations")
+	contracts.Navigation = navigation
+
+	normalized := cloneAnyMapDeep(contracts.Normalized)
+	if normalized == nil {
+		normalized = map[string]any{}
+	}
+	normalized["navigation"] = cloneAnyMapDeep(navigation)
+	contracts.Normalized = normalized
+	return contracts
 }
 
 func capabilityString(capabilities map[string]any, keys ...string) string {
@@ -315,6 +410,14 @@ func normalizeStringListAny(raw any) []string {
 		out := make([]string, 0, len(typed))
 		for _, value := range typed {
 			if item := strings.TrimSpace(toString(value)); item != "" {
+				out = append(out, item)
+			}
+		}
+		return dedupeAndSortStrings(out)
+	case string:
+		out := make([]string, 0, 1)
+		for part := range strings.SplitSeq(typed, ",") {
+			if item := strings.TrimSpace(part); item != "" {
 				out = append(out, item)
 			}
 		}
