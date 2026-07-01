@@ -331,8 +331,8 @@ func TestEntryNavigationPolicyPerTypeLocationsDoNotWidenExplicitEmptyCapability(
 	options := EntryNavigationOptions{
 		ContentTypes: map[string]EntryNavigationTypeOptions{
 			"page": {
-				EligibleLocations: []string{"site.main"},
-				DefaultLocations:  []string{"site.main"},
+				EligibleLocations: []string{"site.footer"},
+				DefaultLocations:  []string{"site.footer"},
 			},
 		},
 	}
@@ -363,10 +363,10 @@ func TestEntryNavigationPolicyPerTypeLocationsDoNotWidenExplicitEmptyCapability(
 			},
 		},
 	}, options)
-	if got, want := absentBase.EligibleLocations, []string{"site.main"}; !reflect.DeepEqual(got, want) {
+	if got, want := absentBase.EligibleLocations, []string{"site.footer"}; !reflect.DeepEqual(got, want) {
 		t.Fatalf("per-type options should define locations when base is absent: got %+v want %+v", got, want)
 	}
-	if got, want := absentBase.DefaultLocations, []string{"site.main"}; !reflect.DeepEqual(got, want) {
+	if got, want := absentBase.DefaultLocations, []string{"site.footer"}; !reflect.DeepEqual(got, want) {
 		t.Fatalf("per-type defaults mismatch: got %+v want %+v", got, want)
 	}
 }
@@ -407,6 +407,194 @@ func TestEntryNavigationPolicyOptionsMergePartialCapabilityFields(t *testing.T) 
 	}
 	if got.ActivityAction != "content.navigation.custom" {
 		t.Fatalf("activity action should survive partial capability merge, got %q", got.ActivityAction)
+	}
+}
+
+func TestEntryNavigationPolicyOptionsUseNormalizedCapabilityAliases(t *testing.T) {
+	got := EntryNavigationPolicyFromOptions(CMSContentType{
+		Slug: "page",
+		Capabilities: map[string]any{
+			"navigation_enabled":            true,
+			"navigation_eligible_locations": []string{"site.footer", "site.main"},
+			"navigation_default_locations":  []string{"site.footer"},
+		},
+	}, EntryNavigationOptions{})
+
+	if !got.Enabled {
+		t.Fatalf("expected flat navigation_enabled alias to enable policy: %+v", got)
+	}
+	if want := []string{"site.footer", "site.main"}; !reflect.DeepEqual(got.EligibleLocations, want) {
+		t.Fatalf("eligible locations mismatch: got %+v want %+v", got.EligibleLocations, want)
+	}
+	if want := []string{"site.footer"}; !reflect.DeepEqual(got.DefaultLocations, want) {
+		t.Fatalf("default locations mismatch: got %+v want %+v", got.DefaultLocations, want)
+	}
+}
+
+func TestEntryNavigationPolicyOptionsUseNestedNavigationAliasFields(t *testing.T) {
+	got := EntryNavigationPolicyFromOptions(CMSContentType{
+		Slug: "page",
+		Capabilities: map[string]any{
+			"navigation": map[string]any{
+				"enabled":               true,
+				"eligibleLocations":     []string{"site.footer", "site.utility"},
+				"defaultLocations":      []string{"site.utility"},
+				"defaultVisible":        false,
+				"allowInstanceOverride": false,
+			},
+		},
+	}, EntryNavigationOptions{})
+
+	if !got.Enabled {
+		t.Fatalf("expected nested alias capability to enable policy: %+v", got)
+	}
+	if want := []string{"site.footer", "site.utility"}; !reflect.DeepEqual(got.EligibleLocations, want) {
+		t.Fatalf("eligible locations mismatch: got %+v want %+v", got.EligibleLocations, want)
+	}
+	if want := []string{"site.utility"}; !reflect.DeepEqual(got.DefaultLocations, want) {
+		t.Fatalf("default locations mismatch: got %+v want %+v", got.DefaultLocations, want)
+	}
+	if got.DefaultVisible {
+		t.Fatalf("expected default_visible=false from nested alias, got %+v", got)
+	}
+	if got.AllowInstanceOverride {
+		t.Fatalf("expected allow_instance_override=false from nested alias, got %+v", got)
+	}
+}
+
+func TestEntryNavigationPolicyOptionsUseStringNavigationLocationFields(t *testing.T) {
+	for name, capabilities := range map[string]map[string]any{
+		"canonical_nested": {
+			"navigation": map[string]any{
+				"enabled":            true,
+				"eligible_locations": "site.main, site.footer",
+				"default_locations":  "site.main",
+			},
+		},
+		"camel_nested": {
+			"navigation": map[string]any{
+				"enabled":           true,
+				"eligibleLocations": "site.main, site.footer",
+				"defaultLocations":  "site.footer",
+			},
+		},
+		"flat_alias": {
+			"navigation_enabled":            true,
+			"navigation_eligible_locations": "site.main, site.footer",
+			"navigation_default_locations":  "site.footer",
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			got := EntryNavigationPolicyFromOptions(CMSContentType{
+				Slug:         "page",
+				Capabilities: capabilities,
+			}, EntryNavigationOptions{})
+
+			if !got.Enabled {
+				t.Fatalf("expected string location capability to enable policy: %+v", got)
+			}
+			if want := []string{"site.footer", "site.main"}; !reflect.DeepEqual(got.EligibleLocations, want) {
+				t.Fatalf("eligible locations mismatch: got %+v want %+v", got.EligibleLocations, want)
+			}
+			if len(got.DefaultLocations) != 1 {
+				t.Fatalf("expected one default location, got %+v", got.DefaultLocations)
+			}
+		})
+	}
+}
+
+func TestEntryNavigationPolicyOptionsUseMigratedDeliveryMenuContract(t *testing.T) {
+	got := EntryNavigationPolicyFromOptions(CMSContentType{
+		Slug: "news",
+		Capabilities: map[string]any{
+			"delivery": map[string]any{
+				"enabled": true,
+				"kind":    "page",
+				"menu": map[string]any{
+					"location":  "site.footer",
+					"label_key": "menu.news",
+				},
+			},
+		},
+	}, EntryNavigationOptions{})
+
+	if !got.Enabled {
+		t.Fatalf("expected migrated delivery.menu contract to enable policy: %+v", got)
+	}
+	if want := []string{"site.footer"}; !reflect.DeepEqual(got.EligibleLocations, want) {
+		t.Fatalf("eligible locations mismatch: got %+v want %+v", got.EligibleLocations, want)
+	}
+	if want := []string{"site.footer"}; !reflect.DeepEqual(got.DefaultLocations, want) {
+		t.Fatalf("default locations mismatch: got %+v want %+v", got.DefaultLocations, want)
+	}
+}
+
+func TestEntryNavigationPolicyOptionsMergePartialNormalizedAliases(t *testing.T) {
+	enabled := true
+	got := EntryNavigationPolicyFromOptions(CMSContentType{
+		Slug: "page",
+		Capabilities: map[string]any{
+			"navigation_enabled": true,
+		},
+	}, EntryNavigationOptions{
+		Enabled:           &enabled,
+		EligibleLocations: []string{"site.main", "site.footer"},
+		DefaultLocations:  []string{"site.main"},
+	})
+
+	if !got.Enabled {
+		t.Fatalf("expected partial normalized alias to preserve enabled policy: %+v", got)
+	}
+	if want := []string{"site.footer", "site.main"}; !reflect.DeepEqual(got.EligibleLocations, want) {
+		t.Fatalf("eligible locations mismatch: got %+v want %+v", got.EligibleLocations, want)
+	}
+	if want := []string{"site.main"}; !reflect.DeepEqual(got.DefaultLocations, want) {
+		t.Fatalf("default locations mismatch: got %+v want %+v", got.DefaultLocations, want)
+	}
+}
+
+func TestEntryNavigationPolicyOptionsUseNormalizedDefaultWhenNoLocationsConfigured(t *testing.T) {
+	got := EntryNavigationPolicyFromOptions(CMSContentType{
+		Slug: "page",
+		Capabilities: map[string]any{
+			"navigation": map[string]any{
+				"enabled": true,
+			},
+		},
+	}, EntryNavigationOptions{})
+
+	if !got.Enabled {
+		t.Fatalf("expected enabled-only capability to enable policy: %+v", got)
+	}
+	if want := []string{"site.main"}; !reflect.DeepEqual(got.EligibleLocations, want) {
+		t.Fatalf("expected normalized default eligible location: got %+v want %+v", got.EligibleLocations, want)
+	}
+	if want := []string{"site.main"}; !reflect.DeepEqual(got.DefaultLocations, want) {
+		t.Fatalf("expected normalized default location: got %+v want %+v", got.DefaultLocations, want)
+	}
+}
+
+func TestEntryNavigationPolicyOptionsPreserveExplicitEmptyFlatAliasLocations(t *testing.T) {
+	got := EntryNavigationPolicyFromOptions(CMSContentType{
+		Slug: "page",
+		Capabilities: map[string]any{
+			"navigation_enabled":            true,
+			"navigation_eligible_locations": []string{},
+		},
+	}, EntryNavigationOptions{
+		ContentTypes: map[string]EntryNavigationTypeOptions{
+			"page": {
+				EligibleLocations: []string{"site.main"},
+				DefaultLocations:  []string{"site.main"},
+			},
+		},
+	})
+
+	if len(got.EligibleLocations) != 0 {
+		t.Fatalf("explicit empty flat eligible_locations alias must not be widened, got %+v", got)
+	}
+	if len(got.DefaultLocations) != 0 {
+		t.Fatalf("explicit empty flat eligible_locations alias should drop defaults, got %+v", got)
 	}
 }
 

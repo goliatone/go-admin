@@ -1,6 +1,7 @@
 package site
 
 import (
+	"context"
 	"testing"
 
 	"github.com/goliatone/go-admin/admin"
@@ -16,6 +17,7 @@ func TestSiteRegisterOptionsApplyExplicitOverrides(t *testing.T) {
 	provider := searchProviderStub{}
 	ops := &admin.GoSearchOperations{}
 	contentSvc := admin.NewInMemoryContentService()
+	redirectStore := contentURLRedirectStoreStub{}
 	contentHandler := func(c router.Context) error {
 		contentCalls++
 		return nil
@@ -37,6 +39,8 @@ func TestSiteRegisterOptionsApplyExplicitOverrides(t *testing.T) {
 	WithSearchProvider(provider)(&options)
 	WithSearchOperations(ops)(&options)
 	WithDeliveryServices(contentSvc, nil)(&options)
+	WithContentURLRedirectStore(redirectStore)(&options)
+	WithContentURLRedirectSiteKey("site-primary")(&options)
 	WithContentHandler(contentHandler)(&options)
 	WithSearchHandlers(searchHandler, searchAPIHandler)(&options)
 	WithSuggestHandler(suggestHandler)(&options)
@@ -61,6 +65,12 @@ func TestSiteRegisterOptionsApplyExplicitOverrides(t *testing.T) {
 	}
 	if options.contentTypeSvc != nil {
 		t.Fatalf("expected nil content-type service to remain unchanged")
+	}
+	if options.redirectStore != redirectStore {
+		t.Fatalf("expected redirect store override to be preserved")
+	}
+	if options.redirectSiteKey != "site-primary" {
+		t.Fatalf("expected redirect site key override, got %q", options.redirectSiteKey)
 	}
 	if err := options.contentHandler(nil); err != nil {
 		t.Fatalf("invoke content handler: %v", err)
@@ -120,11 +130,15 @@ func TestSiteRegisterOptionsIgnoreNilInputs(t *testing.T) {
 	WithSearchProvider(searchProviderStub{})(nil)
 	WithSearchOperations(&admin.GoSearchOperations{})(nil)
 	WithDeliveryServices(nil, nil)(nil)
+	WithContentURLRedirectStore(contentURLRedirectStoreStub{})(nil)
+	WithContentURLRedirectSiteKey("ignored")(nil)
 	WithContentHandler(nil)(nil)
 	WithSearchHandlers(nil, nil)(nil)
 	WithSuggestHandler(nil)(nil)
 
 	WithDeliveryServices(nil, nil)(&options)
+	WithContentURLRedirectStore(nil)(&options)
+	WithContentURLRedirectSiteKey(" ")(&options)
 	WithContentHandler(nil)(&options)
 	WithSearchHandlers(nil, nil)(&options)
 	WithSuggestHandler(nil)(&options)
@@ -138,6 +152,12 @@ func TestSiteRegisterOptionsIgnoreNilInputs(t *testing.T) {
 	if options.suggestAPIHandler == nil {
 		t.Fatalf("expected existing suggest handler to remain unchanged")
 	}
+	if options.redirectStore != nil {
+		t.Fatalf("expected nil redirect store input to leave option unset")
+	}
+	if options.redirectSiteKey != "" {
+		t.Fatalf("expected blank redirect site key to normalize empty, got %q", options.redirectSiteKey)
+	}
 	if err := options.searchHandler(nil); err != nil {
 		t.Fatalf("invoke preserved search handler: %v", err)
 	}
@@ -147,6 +167,12 @@ func TestSiteRegisterOptionsIgnoreNilInputs(t *testing.T) {
 	if searchCalls != 1 || suggestCalls != 1 {
 		t.Fatalf("expected preserved handlers to keep behavior, got search=%d suggest=%d", searchCalls, suggestCalls)
 	}
+}
+
+type contentURLRedirectStoreStub struct{}
+
+func (contentURLRedirectStoreStub) LookupContentURLRedirect(context.Context, ContentURLRedirectLookup) (*ContentURLRedirect, error) {
+	return nil, nil
 }
 
 func TestDefaultNotFoundHandlerContracts(t *testing.T) {
