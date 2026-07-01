@@ -9,6 +9,42 @@
 //   - runtime still tolerates legacy locale-prefixed stored paths
 //   - bridge diagnostics can surface when that compatibility branch is used
 //
+// Historical URL redirects:
+//   - WithContentURLRedirectStore wires an optional lookup-only dependency for
+//     public-site requests that normal content resolution did not match.
+//   - Redirect persistence is host-owned. Stores implement
+//     ContentURLRedirectStore and should index normalized source path by site
+//     scope, locale, and content channel, plus any host-specific tenant key.
+//     WithContentURLRedirectSiteKey can provide an explicit stable site scope;
+//     otherwise lookup derives scope from request host, base path, and channel.
+//   - Runtime lookup is a safe first rollout step: existing current-content
+//     canonical redirects remain authoritative, unknown paths still fall
+//     through to the normal 404 flow, and only eligible GET/HEAD HTML requests
+//     can use historical redirects.
+//   - Hosts that want automatic capture around content moves can call
+//     ResolveContentDeliveryPath and CaptureContentURLRedirect from their
+//     write flows. Capture compares old and new public delivery paths and calls
+//     a host-provided ContentURLRedirectRecorder when a published, routable path
+//     changed.
+//   - Capture stores runtime-public paths by default, including site base path
+//     and locale-prefix policy. Use ContentURLRedirectPathExplicit only for
+//     migration tools that intentionally need caller-controlled path shape.
+//   - Route-template, base-path, channel, and locale-prefix changes should use
+//     CaptureContentURLRedirectBulk so every affected record is evaluated with
+//     before/after resolver inputs. Bulk capture supports distinct before/after
+//     content channels for channel moves. Use best-effort mode for migrations
+//     that should report per-record failures, or fail-fast mode when one bad
+//     record should stop the run.
+//   - ContentURLRedirectChainUpdater and
+//     ContentURLRedirectSourceOwnerLookupService are optional capture-side
+//     hooks. Stores can use them to flatten chains such as /a -> /b -> /c and
+//     reject source paths that still belong to different active content by ID,
+//     type, locale, or channel scope. Set ContentURLRedirectChainRequired when
+//     capture must fail instead of recording a redirect without chain flattening.
+//   - Backfills should write normalized source paths and validated same-site
+//     targets before enabling lookup. If rollout notes are needed for a
+//     release, write them in .release-notes.md.
+//
 // Render cache:
 //   - WithRenderCache wires anonymous public HTML response caching for
 //     capability-driven site delivery.

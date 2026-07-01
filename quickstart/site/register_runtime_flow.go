@@ -65,6 +65,8 @@ func resolveSiteContentHandler(adm *admin.Admin, resolved ResolvedSiteConfig, op
 			contentTypeSvc = adm.ContentTypeService()
 		}
 		if runtime := newDeliveryRuntime(resolved, adm, contentSvc, contentTypeSvc, options.renderCache); runtime != nil {
+			runtime.redirectStore = options.redirectStore
+			runtime.redirectSiteKey = options.redirectSiteKey
 			options.contentHandler = runtime.Handler()
 		}
 	}
