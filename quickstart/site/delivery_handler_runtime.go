@@ -28,6 +28,9 @@ func (r *deliveryRuntime) respondDelivery(c router.Context) error {
 		return renderSiteRuntimeError(c, flow.state, r.siteCfg, flow.err)
 	}
 	if flow.resolution == nil {
+		if handled, err := r.respondHistoricalContentURLRedirect(c, flow.state, flow.requestPath, decision); handled || err != nil {
+			return err
+		}
 		return renderSiteRuntimeError(c, flow.state, r.siteCfg, SiteRuntimeError{
 			Status:          404,
 			RequestedLocale: flow.state.Locale,
