@@ -1,6 +1,15 @@
 # Changelog
 
+# [0.112.0](https://github.com/goliatone/go-admin/compare/v0.111.0...v0.112.0) - (2026-07-01)
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Modules packages ([5c30587](https://github.com/goliatone/go-admin/commit/5c30587e8dc32a08536a964732feeb2b3935e8f9))  - (goliatone)
+
 # [0.111.0](https://github.com/goliatone/go-admin/compare/v0.110.1...v0.111.0) - (2026-07-01)
+
+
+New minor release: v0.111.0
 
 ## <!-- 1 -->🐛 Bug Fixes
 
@@ -9,6 +18,10 @@
 - Handle indexed content form paths ([5f9865d](https://github.com/goliatone/go-admin/commit/5f9865d48c8d38e68ebe0e23ca84bea209f31457))  - (goliatone)
 - Harden menu reconciliation and entry navigation policy ([3593b9c](https://github.com/goliatone/go-admin/commit/3593b9c791c6fc071fad5c2f208d3d09d48c6bb1))  - (goliatone)
 - Raw menu items ([196e39d](https://github.com/goliatone/go-admin/commit/196e39d2abffbf03aca71d7be207557bacc8e901))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.111.0 ([bb78c1f](https://github.com/goliatone/go-admin/commit/bb78c1fc38a2f4da055128d8b191f9d1b902fa77))  - (goliatone)
 
 ## <!-- 16 -->➕ Add
 
