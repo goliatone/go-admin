@@ -18,7 +18,6 @@ require (
 	github.com/gofiber/fiber/v2 v2.52.12
 	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/goliatone/go-admin v0.112.0
-	github.com/goliatone/go-admin/pkg/go-lifecycle v0.0.0
 	github.com/goliatone/go-auth v0.44.1
 	github.com/goliatone/go-auth/adapters/featuregate v0.44.1
 	github.com/goliatone/go-cache v0.1.0
@@ -55,12 +54,6 @@ require (
 )
 
 replace github.com/goliatone/go-i18n => ../../go-i18n
-
-replace github.com/goliatone/go-admin/pkg/go-lifecycle => ../pkg/go-lifecycle
-
-replace github.com/goliatone/go-admin/pkg/go-sync => ../pkg/go-sync
-
-replace github.com/goliatone/go-admin/pkg/go-translation-ai => ../pkg/go-translation-ai
 
 require (
 	cel.dev/expr v0.25.1 // indirect
@@ -129,7 +122,6 @@ require (
 	github.com/gofiber/template v1.8.3 // indirect
 	github.com/gofiber/template/django/v3 v3.1.14 // indirect
 	github.com/gofiber/utils v1.2.0 // indirect
-	github.com/goliatone/go-admin/pkg/go-sync v0.0.0 // indirect
 	github.com/goliatone/go-composite-fs v0.3.0 // indirect
 	github.com/goliatone/go-config v0.13.0 // indirect
 	github.com/goliatone/go-crud v0.25.0 // indirect

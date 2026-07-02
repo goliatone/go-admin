@@ -9,8 +9,6 @@ require (
 	github.com/go-ozzo/ozzo-validation/v4 v4.3.0
 	github.com/gofiber/fiber/v2 v2.52.12
 	github.com/golang-jwt/jwt/v5 v5.3.1
-	github.com/goliatone/go-admin/pkg/go-sync v0.0.0
-	github.com/goliatone/go-admin/pkg/go-translation-ai v0.0.0
 	github.com/goliatone/go-admin/quickstart v0.82.0
 	github.com/goliatone/go-auth v0.44.1
 	github.com/goliatone/go-auth/adapters/featuregate v0.44.1
@@ -64,7 +62,6 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/sso v1.30.7 // indirect
 	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.35.12 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sts v1.41.5 // indirect
-	github.com/goliatone/go-admin/pkg/go-lifecycle v0.0.0 // indirect
 	github.com/goliatone/go-cache v0.1.0 // indirect
 	github.com/goliatone/go-template v0.3.1 // indirect
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.2 // indirect
@@ -225,9 +222,3 @@ require (
 )
 
 replace github.com/goliatone/go-admin/quickstart => ./quickstart
-
-replace github.com/goliatone/go-admin/pkg/go-sync => ./pkg/go-sync
-
-replace github.com/goliatone/go-admin/pkg/go-lifecycle => ./pkg/go-lifecycle
-
-replace github.com/goliatone/go-admin/pkg/go-translation-ai => ./pkg/go-translation-ai
