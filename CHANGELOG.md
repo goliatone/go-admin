@@ -1,10 +1,23 @@
 # Changelog
 
+# [0.112.1](https://github.com/goliatone/go-admin/compare/v0.112.0...v0.112.1) - (2026-07-02)
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Subpackages ([96bde7e](https://github.com/goliatone/go-admin/commit/96bde7e056ef07d7da93e18fd1ba9638098cdf19))  - (goliatone)
+
 # [0.112.0](https://github.com/goliatone/go-admin/compare/v0.111.0...v0.112.0) - (2026-07-01)
+
+
+New minor release: v0.112.0
 
 ## <!-- 1 -->🐛 Bug Fixes
 
 - Modules packages ([5c30587](https://github.com/goliatone/go-admin/commit/5c30587e8dc32a08536a964732feeb2b3935e8f9))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.112.0 ([6dd6704](https://github.com/goliatone/go-admin/commit/6dd670462643787bd99094d9a951238af62bdea5))  - (goliatone)
 
 # [0.111.0](https://github.com/goliatone/go-admin/compare/v0.110.1...v0.111.0) - (2026-07-01)
 
