@@ -97,7 +97,10 @@
               
               <div class="mt-4" data-translation-filter-summary>
                 {% if queue.DataGrid.active_filter_chips %}
-                {% include "partials/filter-summary.html" with filters=queue.DataGrid.active_filter_chips clear_all_url=queue.DataGrid.view_links.clear_all|default:queue.Links.queue|default:"/admin/translations/queue" %}
+                <div class="flex flex-wrap items-center gap-3">
+                  <span class="rounded-md border border-gray-200 bg-white px-3 py-2 text-sm text-gray-500">All visible assignments</span>
+                  {% include "partials/filter-summary.html" with filters=queue.DataGrid.active_filter_chips clear_all_url=queue.DataGrid.view_links.clear_all|default:queue.Links.queue|default:"/admin/translations/queue" %}
+                </div>
                 {% else %}
                 <span class="rounded-md border border-gray-200 bg-white px-3 py-2 text-sm text-gray-500">All visible assignments</span>
                 {% endif %}
