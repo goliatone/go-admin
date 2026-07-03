@@ -131,7 +131,7 @@ func (p *demoIdentityProvider) FindResourceRoles(ctx context.Context, identity a
 	}
 	if p != nil && p.users != nil {
 		if record, err := p.users.Get(ctx, identity.ID()); err == nil && record != nil {
-			if recRole := strings.ToLower(strings.TrimSpace(toString(record["role"]))); recRole != "" {
+			if recRole := strings.ToLower(strings.TrimSpace(primitives.StringFromAny(record["role"]))); recRole != "" {
 				role = recRole
 			}
 		}
@@ -260,9 +260,9 @@ func (p *demoIdentityProvider) lookup(ctx context.Context, identifier string) (a
 	target := strings.ToLower(strings.TrimSpace(identifier))
 	logger.Debug("demo identity lookup scanning users", "records", len(records))
 	for _, rec := range records {
-		id := strings.ToLower(toString(rec["id"]))
-		username := strings.ToLower(toString(rec["username"]))
-		email := strings.ToLower(toString(rec["email"]))
+		id := strings.ToLower(primitives.StringFromAny(rec["id"]))
+		username := strings.ToLower(primitives.StringFromAny(rec["username"]))
+		email := strings.ToLower(primitives.StringFromAny(rec["email"]))
 		if target != "" && target != id && target != username && target != email {
 			continue
 		}
@@ -290,11 +290,11 @@ func (p *demoIdentityProvider) identities(ctx context.Context) []auth.Identity {
 
 func (p *demoIdentityProvider) identityFromRecord(rec map[string]any) auth.Identity {
 	return userIdentity{
-		id:       toString(rec["id"]),
-		username: toString(rec["username"]),
-		email:    toString(rec["email"]),
-		role:     string(mapToAuthRole(toString(rec["role"]))),
-		status:   mapToAuthStatus(toString(rec["status"])),
+		id:       primitives.StringFromAny(rec["id"]),
+		username: primitives.StringFromAny(rec["username"]),
+		email:    primitives.StringFromAny(rec["email"]),
+		role:     string(mapToAuthRole(primitives.StringFromAny(rec["role"]))),
+		status:   mapToAuthStatus(primitives.StringFromAny(rec["status"])),
 	}
 }
 
@@ -735,8 +735,8 @@ func scopeFromClaims(claims *auth.JWTClaims, defaults authOptions) userstypes.Sc
 	tenant := ""
 	org := ""
 	if metadata != nil {
-		tenant = strings.TrimSpace(toString(metadata[admin.ScopeTenantIDKey]))
-		org = strings.TrimSpace(toString(metadata[admin.ScopeOrganizationIDKey]))
+		tenant = strings.TrimSpace(primitives.StringFromAny(metadata[admin.ScopeTenantIDKey]))
+		org = strings.TrimSpace(primitives.StringFromAny(metadata[admin.ScopeOrganizationIDKey]))
 	}
 	tenant = primitives.FirstNonEmpty(tenant, defaults.defaultTenantID)
 	org = primitives.FirstNonEmpty(org, defaults.defaultOrgID)
@@ -761,10 +761,6 @@ func statusFromIdentity(identity auth.Identity) auth.UserStatus {
 		return carrier.Status()
 	}
 	return ""
-}
-
-func toString(val any) string {
-	return primitives.StringFromAny(val)
 }
 
 func makeAuthErrorHandler(cfg demoAuthConfig) func(router.Context, error) error {

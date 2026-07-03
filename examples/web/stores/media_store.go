@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/goliatone/go-admin/admin"
+	"github.com/goliatone/go-admin/internal/primitives"
 	repository "github.com/goliatone/go-repository-bun"
 	"github.com/google/uuid"
 	"github.com/uptrace/bun"
@@ -812,23 +813,7 @@ func mediaContentTypeAccepted(contentType string, accepted []string) bool {
 }
 
 func normalizeStringSlice(values []string) []string {
-	if len(values) == 0 {
-		return []string{}
-	}
-	out := make([]string, 0, len(values))
-	seen := map[string]struct{}{}
-	for _, value := range values {
-		trimmed := strings.TrimSpace(value)
-		if trimmed == "" {
-			continue
-		}
-		if _, ok := seen[trimmed]; ok {
-			continue
-		}
-		seen[trimmed] = struct{}{}
-		out = append(out, trimmed)
-	}
-	return out
+	return primitives.NormalizeUniqueStringSliceEmpty(values)
 }
 
 func mediaRecordFromMediaItem(item admin.MediaItem) *MediaRecord {

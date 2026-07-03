@@ -3,12 +3,18 @@ package services
 import (
 	"context"
 	"errors"
+	"github.com/goliatone/go-admin/internal/primitives"
 	"net/http"
 	"strings"
 	"time"
 
 	"github.com/goliatone/go-admin/examples/esign/stores"
 	goerrors "github.com/goliatone/go-errors"
+)
+
+var (
+	firstNonEmpty       = primitives.FirstNonEmpty
+	firstNonEmptyString = primitives.FirstNonEmpty
 )
 
 type ReviewOpenInput struct {
@@ -1231,9 +1237,9 @@ func (s AgreementService) buildReviewActorMap(
 			actorMap,
 			[]string{"reviewer"},
 			participant.ID,
-			firstNonEmptyString(participant.DisplayName, participant.Email),
+			primitives.FirstNonEmpty(participant.DisplayName, participant.Email),
 			participant.Email,
-			firstNonEmptyString(participant.Role, stores.AgreementReviewParticipantRoleReviewer),
+			primitives.FirstNonEmpty(participant.Role, stores.AgreementReviewParticipantRoleReviewer),
 		)
 		if approvedBy := strings.TrimSpace(participant.ApprovedOnBehalfByUserID); approvedBy != "" {
 			registerReviewActor(
@@ -1255,7 +1261,7 @@ func (s AgreementService) buildReviewActorMap(
 				actorMap,
 				[]string{"recipient", "signer"},
 				recipientID,
-				firstNonEmptyString(participant.DisplayName, participant.Email, recipientID),
+				primitives.FirstNonEmpty(participant.DisplayName, participant.Email, recipientID),
 				participant.Email,
 				"signer",
 			)
@@ -1410,8 +1416,8 @@ func mergeReviewActorInfo(existing, next ReviewActorInfo) ReviewActorInfo {
 
 func finalizeReviewActorMap(actorMap map[string]ReviewActorInfo) {
 	for key, actor := range actorMap {
-		actor.Name = firstNonEmptyString(actor.Name, actor.Email, actor.ActorID, humanizeReviewActorLabel(actor.Role), humanizeReviewActorLabel(actor.ActorType), "Participant")
-		actor.Role = firstNonEmptyString(actor.Role, actor.ActorType)
+		actor.Name = primitives.FirstNonEmpty(actor.Name, actor.Email, actor.ActorID, humanizeReviewActorLabel(actor.Role), humanizeReviewActorLabel(actor.ActorType), "Participant")
+		actor.Role = primitives.FirstNonEmpty(actor.Role, actor.ActorType)
 		actorMap[key] = actor
 	}
 }
@@ -1775,8 +1781,8 @@ func populateRecipientReviewParticipantRecord(
 		return stores.AgreementReviewParticipantRecord{}, domainValidationError("agreement_reviews", "review_participants", "recipient reviewers must be existing recipients")
 	}
 	record.RecipientID = recipientID
-	record.Email = strings.TrimSpace(firstNonEmptyString(participant.Email, recipient.Email))
-	record.DisplayName = strings.TrimSpace(firstNonEmptyString(participant.DisplayName, recipient.Name))
+	record.Email = strings.TrimSpace(primitives.FirstNonEmpty(participant.Email, recipient.Email))
+	record.DisplayName = strings.TrimSpace(primitives.FirstNonEmpty(participant.DisplayName, recipient.Name))
 	return record, nil
 }
 
@@ -2056,15 +2062,6 @@ func reviewVisibilityError() error {
 	return goerrors.New("internal review comments are not available on public signer flows", goerrors.CategoryAuthz).
 		WithCode(http.StatusForbidden).
 		WithTextCode(string(ErrorCodeScopeDenied))
-}
-
-func firstNonEmptyString(values ...string) string {
-	for _, value := range values {
-		if trimmed := strings.TrimSpace(value); trimmed != "" {
-			return trimmed
-		}
-	}
-	return ""
 }
 
 //go:fix inline

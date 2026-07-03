@@ -142,28 +142,28 @@ func mapContentToSearchHit(record admin.CMSContent) (admin.SearchHit, bool) {
 	}
 	title := strings.TrimSpace(record.Title)
 	if title == "" && record.Data != nil {
-		title = strings.TrimSpace(toString(record.Data["title"]))
+		title = strings.TrimSpace(primitives.StringFromAny(record.Data["title"]))
 	}
 	summary := ""
 	if record.Data != nil {
-		summary = strings.TrimSpace(firstNonEmpty(
-			toString(record.Data["summary"]),
-			toString(record.Data["excerpt"]),
-			toString(record.Data["description"]),
+		summary = strings.TrimSpace(primitives.FirstNonEmpty(
+			primitives.StringFromAny(record.Data["summary"]),
+			primitives.StringFromAny(record.Data["excerpt"]),
+			primitives.StringFromAny(record.Data["description"]),
 		))
 	}
 	path := ""
 	if record.Data != nil {
-		path = strings.TrimSpace(firstNonEmpty(
-			toString(record.Data["path"]),
-			toString(record.Data["url"]),
+		path = strings.TrimSpace(primitives.FirstNonEmpty(
+			primitives.StringFromAny(record.Data["path"]),
+			primitives.StringFromAny(record.Data["url"]),
 		))
 	}
 	if path == "" {
 		path = defaultPathForContent(record)
 	}
-	locale := strings.TrimSpace(firstNonEmpty(record.ResolvedLocale, record.Locale))
-	contentType := strings.TrimSpace(firstNonEmpty(record.ContentTypeSlug, record.ContentType))
+	locale := strings.TrimSpace(primitives.FirstNonEmpty(record.ResolvedLocale, record.Locale))
+	contentType := strings.TrimSpace(primitives.FirstNonEmpty(record.ContentTypeSlug, record.ContentType))
 	if contentType == "" {
 		contentType = "content"
 	}
@@ -178,8 +178,8 @@ func mapContentToSearchHit(record admin.CMSContent) (admin.SearchHit, bool) {
 		Fields: map[string]any{
 			"slug":         strings.TrimSpace(record.Slug),
 			"content_type": contentType,
-			"category":     strings.TrimSpace(toString(nestedMapValue(record.Data, "category"))),
-			"tags":         toStringSlice(nestedMapValue(record.Data, "tags")),
+			"category":     strings.TrimSpace(primitives.StringFromAny(nestedMapValue(record.Data, "category"))),
+			"tags":         primitives.CSVStringSliceFromAny(nestedMapValue(record.Data, "tags")),
 		},
 	}
 	if publishedAt := parseTimeAny(nestedMapValue(record.Data, "published_at")); publishedAt != nil {
@@ -196,7 +196,7 @@ func defaultPathForContent(record admin.CMSContent) string {
 	if slug == "" {
 		return "/"
 	}
-	switch strings.ToLower(strings.TrimSpace(firstNonEmpty(record.ContentTypeSlug, record.ContentType))) {
+	switch strings.ToLower(strings.TrimSpace(primitives.FirstNonEmpty(record.ContentTypeSlug, record.ContentType))) {
 	case "page", "pages":
 		return "/" + slug
 	case "post", "posts":
@@ -252,12 +252,12 @@ func searchHitMatchesFilters(hit admin.SearchHit, filters map[string][]string) b
 				return false
 			}
 		case "category":
-			category := strings.TrimSpace(toString(hit.Fields["category"]))
+			category := strings.TrimSpace(primitives.StringFromAny(hit.Fields["category"]))
 			if category == "" || !containsFold(values, category) {
 				return false
 			}
 		case "tag":
-			tags := toStringSlice(hit.Fields["tags"])
+			tags := primitives.CSVStringSliceFromAny(hit.Fields["tags"])
 			if !containsAnyFold(values, tags) {
 				return false
 			}
@@ -282,8 +282,8 @@ func searchHitMatchesQuery(hit admin.SearchHit, query string) bool {
 	for _, candidate := range []string{
 		hit.Title,
 		hit.Summary,
-		toString(hit.Fields["slug"]),
-		toString(hit.Type),
+		primitives.StringFromAny(hit.Fields["slug"]),
+		primitives.StringFromAny(hit.Type),
 	} {
 		if strings.Contains(strings.ToLower(strings.TrimSpace(candidate)), query) {
 			return true
@@ -339,8 +339,8 @@ func buildSearchFacets(hits []admin.SearchHit) []admin.SearchFacet {
 	for _, hit := range hits {
 		incrementFacet(counts["content_type"], hit.Type)
 		incrementFacet(counts["locale"], hit.Locale)
-		incrementFacet(counts["category"], toString(hit.Fields["category"]))
-		for _, tag := range toStringSlice(hit.Fields["tags"]) {
+		incrementFacet(counts["category"], primitives.StringFromAny(hit.Fields["category"]))
+		for _, tag := range primitives.CSVStringSliceFromAny(hit.Fields["tags"]) {
 			incrementFacet(counts["tag"], tag)
 		}
 	}
@@ -452,14 +452,6 @@ func nestedMapValue(values map[string]any, key string) any {
 	return values[strings.TrimSpace(key)]
 }
 
-func toString(value any) string {
-	return primitives.StringFromAny(value)
-}
-
-func toStringSlice(value any) []string {
-	return primitives.CSVStringSliceFromAny(value)
-}
-
 func containsFold(values []string, target string) bool {
 	target = strings.TrimSpace(strings.ToLower(target))
 	if target == "" {
@@ -514,14 +506,4 @@ func isSearchPublishedStatus(status string) bool {
 	default:
 		return false
 	}
-}
-
-func firstNonEmpty(values ...string) string {
-	for _, value := range values {
-		value = strings.TrimSpace(value)
-		if value != "" {
-			return value
-		}
-	}
-	return ""
 }

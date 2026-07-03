@@ -5,6 +5,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/goliatone/go-admin/internal/pathutil"
+	"github.com/goliatone/go-admin/internal/primitives"
 	"github.com/goliatone/go-users/adapter/securelink"
 	"github.com/goliatone/go-users/command"
 	userstypes "github.com/goliatone/go-users/pkg/types"
@@ -59,7 +61,7 @@ func secureLinkUIConfigFromConfig(cfg secureLinkConfig) SecureLinkUIConfig {
 
 func loadSecureLinkConfig() secureLinkConfig {
 	runtime := runtimeConfig()
-	basePath := normalizeBasePath(runtime.SecureLink.BasePath)
+	basePath := primitives.FirstNonEmpty(pathutil.NormalizeBasePath(runtime.SecureLink.BasePath), "/admin")
 	baseURL := strings.TrimSpace(runtime.SecureLink.BaseURL)
 	if baseURL == "" {
 		baseURL = defaultSecureLinkBaseURL
@@ -92,12 +94,4 @@ func loadSecureLinkConfig() secureLinkConfig {
 			command.SecureLinkRoutePasswordReset: path.Join(basePath, "password-reset", "confirm"),
 		},
 	}
-}
-
-func normalizeBasePath(raw string) string {
-	trimmed := strings.TrimSpace(raw)
-	if trimmed == "" {
-		return "/admin"
-	}
-	return "/" + strings.Trim(trimmed, "/")
 }

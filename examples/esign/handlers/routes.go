@@ -1,9 +1,9 @@
 package handlers
 
 import (
-	"path"
 	"strings"
 
+	"github.com/goliatone/go-admin/internal/pathutil"
 	urlkit "github.com/goliatone/go-urlkit"
 )
 
@@ -300,7 +300,7 @@ func populateIntegrationRoutes(set *RouteSet, adminAPIBase string) {
 func BuildRouteSet(urls urlkit.Resolver, adminBasePath, adminAPIGroup string) RouteSet {
 	adminBase := resolvePath(urls, adminGroupName, adminDashboardRoute, nil)
 	if adminBase == "" {
-		adminBase = normalizeBasePath(adminBasePath)
+		adminBase = pathutil.NormalizeBasePath(adminBasePath)
 	}
 	if adminBase == "" {
 		adminBase = defaultAdminBasePath
@@ -370,33 +370,17 @@ func resolvePath(urls urlkit.Resolver, group, route string, params urlkit.Params
 	if err != nil {
 		return ""
 	}
-	return normalizeBasePath(path)
+	return pathutil.NormalizeBasePath(path)
 }
 
 func joinPath(base string, parts ...string) string {
-	segments := make([]string, 0, len(parts)+1)
-	segments = append(segments, normalizeBasePath(base))
+	joined := pathutil.NormalizeBasePath(base)
 	for _, part := range parts {
 		trimmed := strings.TrimSpace(part)
 		if trimmed == "" {
 			continue
 		}
-		segments = append(segments, trimmed)
-	}
-	joined := path.Join(segments...)
-	if !strings.HasPrefix(joined, "/") {
-		joined = "/" + joined
+		joined = pathutil.JoinBasePath(joined, trimmed)
 	}
 	return joined
-}
-
-func normalizeBasePath(value string) string {
-	value = strings.TrimSpace(value)
-	if value == "" {
-		return ""
-	}
-	if value == "/" {
-		return value
-	}
-	return "/" + strings.Trim(value, "/")
 }

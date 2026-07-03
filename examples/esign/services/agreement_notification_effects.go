@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/goliatone/go-admin/internal/primitives"
 	"sort"
 	"strings"
 	"time"
@@ -333,7 +334,7 @@ func compatibilityDeliveryEffect(records []guardedeffects.Record, summaryStatus 
 	summaryStatus = guardedeffects.NormalizeStatus(summaryStatus)
 	recipientIDs := make(map[string]struct{}, len(records))
 	for _, record := range records {
-		subjectID := strings.TrimSpace(firstNonEmpty(
+		subjectID := strings.TrimSpace(primitives.FirstNonEmpty(
 			agreementNotificationPayload(record).RecipientID,
 			agreementNotificationPayload(record).ReviewParticipantID,
 			record.SubjectID,
@@ -574,14 +575,14 @@ func (s AgreementNotificationRecoveryService) resumeAgreementNotificationEffect(
 		return AgreementNotificationEffectDetail{}, "", domainValidationError("guarded_effects", "status", "resume requires dead_lettered notification effect")
 	}
 	payload := agreementNotificationPayload(record)
-	agreementID := strings.TrimSpace(firstNonEmpty(payload.AgreementID, record.GroupID))
+	agreementID := strings.TrimSpace(primitives.FirstNonEmpty(payload.AgreementID, record.GroupID))
 	recipientID := strings.TrimSpace(payload.RecipientID)
-	reviewParticipantID := strings.TrimSpace(firstNonEmpty(payload.ReviewParticipantID, record.SubjectID))
+	reviewParticipantID := strings.TrimSpace(primitives.FirstNonEmpty(payload.ReviewParticipantID, record.SubjectID))
 	if agreementID == "" {
 		return AgreementNotificationEffectDetail{}, "", fmt.Errorf("resume guarded effect: missing agreement")
 	}
 	now := s.now().UTC()
-	correlationID := strings.TrimSpace(firstNonEmpty(input.CorrelationID, record.CorrelationID, record.EffectID))
+	correlationID := strings.TrimSpace(primitives.FirstNonEmpty(input.CorrelationID, record.CorrelationID, record.EffectID))
 	notificationType := agreementNotificationTypeFromPreparePayload(payload, record.Kind)
 	notification := AgreementNotification{
 		AgreementID:         agreementID,
@@ -622,7 +623,7 @@ func prepareResumedAgreementNotificationEffect(
 		RecipientID:         strings.TrimSpace(notification.RecipientID),
 		ReviewParticipantID: strings.TrimSpace(notification.ReviewParticipantID),
 		PendingTokenID:      strings.TrimSpace(notification.Token.Record.ID),
-		Notification:        strings.TrimSpace(firstNonEmpty(payload.Notification, string(notification.Type))),
+		Notification:        strings.TrimSpace(primitives.FirstNonEmpty(payload.Notification, string(notification.Type))),
 		FailureAuditEvent:   strings.TrimSpace(payload.FailureAuditEvent),
 	})
 	if err != nil {
@@ -643,8 +644,8 @@ func prepareResumedAgreementNotificationEffect(
 	record.AbortedAt = nil
 	record.RetryAt = nil
 	record.UpdatedAt = now
-	record.GroupType = strings.TrimSpace(firstNonEmpty(record.GroupType, GuardedEffectGroupTypeAgreement))
-	record.GroupID = strings.TrimSpace(firstNonEmpty(record.GroupID, agreementID))
+	record.GroupType = strings.TrimSpace(primitives.FirstNonEmpty(record.GroupType, GuardedEffectGroupTypeAgreement))
+	record.GroupID = strings.TrimSpace(primitives.FirstNonEmpty(record.GroupID, agreementID))
 	return record, outboxRecord, nil
 }
 
@@ -785,14 +786,4 @@ func cloneAgreementTime(src *time.Time) *time.Time {
 	}
 	out := src.UTC()
 	return &out
-}
-
-func firstNonEmpty(values ...string) string {
-	for _, value := range values {
-		value = strings.TrimSpace(value)
-		if value != "" {
-			return value
-		}
-	}
-	return ""
 }

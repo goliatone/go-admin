@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/goliatone/go-admin/internal/primitives"
 	"log/slog"
 	"strings"
 	"sync"
@@ -95,10 +96,10 @@ func (t *remediationCommandTrigger) TriggerRemediation(ctx context.Context, inpu
 	}
 	out := handlers.RemediationDispatchReceipt{
 		Accepted:      receipt.Accepted,
-		Mode:          firstNonEmpty(strings.TrimSpace(string(receipt.Mode)), strings.TrimSpace(string(mode))),
-		CommandID:     firstNonEmpty(strings.TrimSpace(receipt.CommandID), commands.CommandPDFRemediate),
+		Mode:          primitives.FirstNonEmpty(strings.TrimSpace(string(receipt.Mode)), strings.TrimSpace(string(mode))),
+		CommandID:     primitives.FirstNonEmpty(strings.TrimSpace(receipt.CommandID), commands.CommandPDFRemediate),
 		DispatchID:    strings.TrimSpace(receipt.DispatchID),
-		CorrelationID: firstNonEmpty(strings.TrimSpace(receipt.CorrelationID), correlationID),
+		CorrelationID: primitives.FirstNonEmpty(strings.TrimSpace(receipt.CorrelationID), correlationID),
 		EnqueuedAt:    cloneRemediationTimePtr(receipt.EnqueuedAt),
 	}
 	if strings.TrimSpace(out.DispatchID) == "" {
@@ -501,15 +502,6 @@ func firstRemediationTimePtr(values ...*time.Time) *time.Time {
 		}
 	}
 	return nil
-}
-
-func firstNonEmpty(values ...string) string {
-	for _, value := range values {
-		if trimmed := strings.TrimSpace(value); trimmed != "" {
-			return trimmed
-		}
-	}
-	return ""
 }
 
 func remediationDispatchReceiptFromRecord(record stores.RemediationDispatchRecord) handlers.RemediationDispatchReceipt {

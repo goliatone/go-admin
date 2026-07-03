@@ -25,6 +25,7 @@ import (
 	"github.com/goliatone/go-admin/examples/esign/services"
 	"github.com/goliatone/go-admin/examples/esign/stores"
 	esignsync "github.com/goliatone/go-admin/examples/esign/sync"
+	"github.com/goliatone/go-admin/internal/pathutil"
 	servicesmodule "github.com/goliatone/go-admin/modules/services"
 	synccore "github.com/goliatone/go-admin/pkg/go-sync/core"
 	syncservice "github.com/goliatone/go-admin/pkg/go-sync/service"
@@ -1215,7 +1216,7 @@ func (m *ESignModule) registerDocumentPanel(adm *coreadmin.Admin) error {
 		WithBreadcrumbs(coreadmin.PanelBreadcrumbConfig{
 			ListLabel:           "Documents",
 			RootLabel:           "Home",
-			RootHref:            normalizeBasePath(m.basePath),
+			RootHref:            pathutil.NormalizeBasePath(m.basePath),
 			ShowCurrentOnDetail: true,
 			DetailLabelResolver: func(record map[string]any) string {
 				return firstNonEmptyValue(strings.TrimSpace(toString(record["title"])), strings.TrimSpace(toString(record["id"])))
@@ -1302,7 +1303,7 @@ func (m *ESignModule) agreementPanelBreadcrumbs() coreadmin.PanelBreadcrumbConfi
 	return coreadmin.PanelBreadcrumbConfig{
 		ListLabel:           "Agreements",
 		RootLabel:           "Home",
-		RootHref:            normalizeBasePath(m.basePath),
+		RootHref:            pathutil.NormalizeBasePath(m.basePath),
 		ShowCurrentOnDetail: true,
 		DetailLabelResolver: func(record map[string]any) string {
 			return firstNonEmptyValue(strings.TrimSpace(toString(record["title"])), strings.TrimSpace(toString(record["id"])))
@@ -1581,11 +1582,7 @@ func joinBasePath(basePath, suffix string) string {
 	if basePath == "" {
 		basePath = "/admin"
 	}
-	basePath = "/" + strings.Trim(basePath, "/")
-	if strings.TrimSpace(suffix) == "" {
-		return basePath
-	}
-	return path.Join(basePath, strings.TrimSpace(suffix))
+	return pathutil.JoinBasePath(basePath, suffix)
 }
 
 func (m *ESignModule) documentUploadManager() *uploader.Manager {

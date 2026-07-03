@@ -5,6 +5,7 @@ import (
 	"path"
 	"strings"
 
+	"github.com/goliatone/go-admin/internal/pathutil"
 	"github.com/goliatone/go-admin/pkg/admin"
 )
 
@@ -19,7 +20,7 @@ type BulkActionContext struct {
 // filters by permission, and pre-splits into primary vs overflow.
 func BuildBulkActionContext(adm *admin.Admin, panelName, basePath string, ctx context.Context) BulkActionContext {
 	result := BulkActionContext{
-		BaseURL: path.Join("/", strings.TrimSpace(basePath), "crud", panelName, "bulk"),
+		BaseURL: pathutil.JoinBasePath(basePath, path.Join("crud", panelName, "bulk")),
 	}
 
 	panel, ok := adm.Registry().Panel(panelName)

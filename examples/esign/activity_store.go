@@ -342,7 +342,7 @@ func buildUsersActivityFilters(filter userstypes.ActivityFilter) (string, []any)
 	appendUUIDActivityFilter(&where, &args, "actor_id", filter.ActorID)
 	appendUUIDActivityFilter(&where, &args, "tenant_id", filter.Scope.TenantID)
 	appendUUIDActivityFilter(&where, &args, "org_id", filter.Scope.OrgID)
-	if verbs := normalizeStringList(filter.Verbs); len(verbs) > 0 {
+	if verbs := primitives.NormalizeUniqueStringSliceFold(filter.Verbs); len(verbs) > 0 {
 		clause, inArgs := buildInClause("verb", verbs)
 		where = append(where, clause)
 		args = append(args, inArgs...)
@@ -355,7 +355,7 @@ func buildUsersActivityFilters(filter userstypes.ActivityFilter) (string, []any)
 		where = append(where, "object_id = ?")
 		args = append(args, objectID)
 	}
-	if channels := normalizeStringList(filter.Channels); len(channels) > 0 {
+	if channels := primitives.NormalizeUniqueStringSliceFold(filter.Channels); len(channels) > 0 {
 		clause, inArgs := buildInClause("channel", channels)
 		where = append(where, clause)
 		args = append(args, inArgs...)
@@ -363,7 +363,7 @@ func buildUsersActivityFilters(filter userstypes.ActivityFilter) (string, []any)
 		where = append(where, "channel = ?")
 		args = append(args, channel)
 	}
-	if denylist := normalizeStringList(filter.ChannelDenylist); len(denylist) > 0 {
+	if denylist := primitives.NormalizeUniqueStringSliceFold(filter.ChannelDenylist); len(denylist) > 0 {
 		clause, inArgs := buildInClause("channel", denylist)
 		where = append(where, "NOT ("+clause+")")
 		args = append(args, inArgs...)
@@ -414,7 +414,7 @@ func buildUsersActivityStatsFilters(filter userstypes.ActivityStatsFilter) (stri
 		where = append(where, "org_id = ?")
 		args = append(args, filter.Scope.OrgID.String())
 	}
-	if verbs := normalizeStringList(filter.Verbs); len(verbs) > 0 {
+	if verbs := primitives.NormalizeUniqueStringSliceFold(filter.Verbs); len(verbs) > 0 {
 		clause, inArgs := buildInClause("verb", verbs)
 		where = append(where, clause)
 		args = append(args, inArgs...)
@@ -444,27 +444,6 @@ func buildInClause(column string, values []string) (string, []any) {
 		args[idx] = value
 	}
 	return column + " IN (" + strings.Join(placeholders, ", ") + ")", args
-}
-
-func normalizeStringList(input []string) []string {
-	if len(input) == 0 {
-		return nil
-	}
-	seen := map[string]struct{}{}
-	out := make([]string, 0, len(input))
-	for _, value := range input {
-		value = strings.TrimSpace(value)
-		if value == "" {
-			continue
-		}
-		key := strings.ToLower(value)
-		if _, ok := seen[key]; ok {
-			continue
-		}
-		seen[key] = struct{}{}
-		out = append(out, value)
-	}
-	return out
 }
 
 func scanActivityCount(ctx context.Context, db *sql.DB, query string, args ...any) (int, error) {
@@ -593,8 +572,8 @@ func toUsersActivityRecord(entry coreadmin.ActivityEntry) userstypes.ActivityRec
 		ObjectType: objectType,
 		ObjectID:   objectID,
 		Channel:    defaultChannel(entry.Channel),
-		TenantID:   parseUUID(toString(metadata["tenant_id"])),
-		OrgID:      parseUUID(toString(metadata["org_id"])),
+		TenantID:   parseUUID(primitives.StringFromAny(metadata["tenant_id"])),
+		OrgID:      parseUUID(primitives.StringFromAny(metadata["org_id"])),
 		Data:       metadata,
 		OccurredAt: occurredAt,
 	}
@@ -604,7 +583,7 @@ func toAdminActivityEntry(record userstypes.ActivityRecord) coreadmin.ActivityEn
 	metadata := primitives.CloneAnyMapEmptyOnEmpty(record.Data)
 	actor := safeUUIDString(record.ActorID)
 	if actor == "" {
-		actor = strings.TrimSpace(toString(metadata["actor"]))
+		actor = strings.TrimSpace(primitives.StringFromAny(metadata["actor"]))
 	}
 	return coreadmin.ActivityEntry{
 		ID:        safeUUIDString(record.ID),
@@ -689,10 +668,6 @@ func joinObjectRef(objectType, objectID string) string {
 func parseUUID(value string) uuid.UUID {
 	id, _ := uuid.Parse(strings.TrimSpace(value)) //nolint:errcheck // legacy best-effort call intentionally does not affect the primary result.
 	return id
-}
-
-func toString(value any) string {
-	return primitives.StringFromAny(value)
 }
 
 func safeUUIDString(id uuid.UUID) string {

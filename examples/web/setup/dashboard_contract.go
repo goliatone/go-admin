@@ -3,6 +3,7 @@ package setup
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/goliatone/go-admin/internal/primitives"
 	"slices"
 	"strings"
 
@@ -110,11 +111,11 @@ func canonicalPayloadMap(model any) (map[string]any, error) {
 
 func canonicalQuickAction(item map[string]any) QuickActionWidgetItem {
 	return QuickActionWidgetItem{
-		Label:       strings.TrimSpace(toString(item["label"])),
-		URL:         strings.TrimSpace(toString(item["url"])),
-		Icon:        strings.TrimSpace(toString(item["icon"])),
-		Method:      strings.ToUpper(strings.TrimSpace(toString(item["method"]))),
-		Description: strings.TrimSpace(toString(item["description"])),
+		Label:       strings.TrimSpace(primitives.StringFromAny(item["label"])),
+		URL:         strings.TrimSpace(primitives.StringFromAny(item["url"])),
+		Icon:        strings.TrimSpace(primitives.StringFromAny(item["icon"])),
+		Method:      strings.ToUpper(strings.TrimSpace(primitives.StringFromAny(item["method"]))),
+		Description: strings.TrimSpace(primitives.StringFromAny(item["description"])),
 	}
 }
 

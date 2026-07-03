@@ -94,10 +94,10 @@ func MinimizeAuditMetadata(input map[string]any) map[string]any {
 		return map[string]any{}
 	}
 	out := map[string]any{}
-	if value := strings.TrimSpace(toString(input["ip_address"])); value != "" {
+	if value := strings.TrimSpace(primitives.StringFromAny(input["ip_address"])); value != "" {
 		out["ip_address"] = minimizeIP(value)
 	}
-	if value := strings.TrimSpace(toString(input["user_agent"])); value != "" {
+	if value := strings.TrimSpace(primitives.StringFromAny(input["user_agent"])); value != "" {
 		if len(value) > 128 {
 			value = value[:128]
 		}
@@ -128,8 +128,4 @@ func minimizeIP(raw string) string {
 		return ""
 	}
 	return masked.String() + "/64"
-}
-
-func toString(value any) string {
-	return primitives.StringFromAny(value)
 }

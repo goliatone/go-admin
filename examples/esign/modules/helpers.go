@@ -1,20 +1,9 @@
 package modules
 
-import (
-	"strings"
+import "github.com/goliatone/go-admin/internal/primitives"
 
-	"github.com/goliatone/go-admin/internal/pathutil"
+var (
+	firstNonEmpty                 = primitives.FirstNonEmpty
+	firstNonEmptyReviewActorValue = primitives.FirstNonEmpty
+	firstNonEmptyValue            = primitives.FirstNonEmpty
 )
-
-func normalizeBasePath(value string) string {
-	return pathutil.NormalizeBasePath(value)
-}
-
-func firstNonEmptyValue(values ...string) string {
-	for _, value := range values {
-		if trimmed := strings.TrimSpace(value); trimmed != "" {
-			return trimmed
-		}
-	}
-	return ""
-}

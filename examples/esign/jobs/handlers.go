@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/goliatone/go-admin/internal/primitives"
 	"log/slog"
 	"maps"
 	"strings"
@@ -1528,9 +1529,9 @@ func (h Handlers) updateImportRunLineageState(
 	_, err = h.googleImportRuns.MarkGoogleImportRunSucceeded(ctx, scope, run.ID, stores.GoogleImportRunSuccessInput{
 		DocumentID:          strings.TrimSpace(run.DocumentID),
 		AgreementID:         strings.TrimSpace(run.AgreementID),
-		SourceDocumentID:    firstNonEmpty(strings.TrimSpace(run.SourceDocumentID), strings.TrimSpace(sourceDocumentID)),
-		SourceRevisionID:    firstNonEmpty(strings.TrimSpace(run.SourceRevisionID), strings.TrimSpace(fingerprint.Fingerprint.SourceRevisionID)),
-		SourceArtifactID:    firstNonEmpty(strings.TrimSpace(run.SourceArtifactID), strings.TrimSpace(fingerprint.Fingerprint.ArtifactID)),
+		SourceDocumentID:    primitives.FirstNonEmpty(strings.TrimSpace(run.SourceDocumentID), strings.TrimSpace(sourceDocumentID)),
+		SourceRevisionID:    primitives.FirstNonEmpty(strings.TrimSpace(run.SourceRevisionID), strings.TrimSpace(fingerprint.Fingerprint.SourceRevisionID)),
+		SourceArtifactID:    primitives.FirstNonEmpty(strings.TrimSpace(run.SourceArtifactID), strings.TrimSpace(fingerprint.Fingerprint.ArtifactID)),
 		LineageStatus:       lineageStatus,
 		FingerprintStatus:   strings.TrimSpace(fingerprint.Status.Status),
 		CandidateStatusJSON: candidateStatusJSON,
@@ -1563,7 +1564,7 @@ func (h Handlers) loadCompletedGoogleImportResult(ctx context.Context, scope sto
 		SourceRevisionID:   strings.TrimSpace(run.SourceRevisionID),
 		SourceArtifactID:   strings.TrimSpace(run.SourceArtifactID),
 		LineageStatus:      strings.TrimSpace(run.LineageStatus),
-		FingerprintStatus:  services.FingerprintStatusSummary{Status: firstNonEmpty(strings.TrimSpace(run.FingerprintStatus), services.LineageFingerprintStatusUnknown), EvidenceAvailable: false},
+		FingerprintStatus:  services.FingerprintStatusSummary{Status: primitives.FirstNonEmpty(strings.TrimSpace(run.FingerprintStatus), services.LineageFingerprintStatusUnknown), EvidenceAvailable: false},
 		DocumentDetailURL:  strings.TrimSpace(run.DocumentDetailURL),
 		AgreementDetailURL: strings.TrimSpace(run.AgreementDetailURL),
 		SourceMimeType:     strings.TrimSpace(run.SourceMimeType),
@@ -2223,8 +2224,8 @@ func (h Handlers) notificationRecipientFromParticipant(
 	}
 	return stores.RecipientRecord{
 		ID:    strings.TrimSpace(participant.ID),
-		Email: strings.TrimSpace(firstNonEmpty(msg.RecipientEmail, participant.Email)),
-		Name:  strings.TrimSpace(firstNonEmpty(msg.RecipientName, participant.DisplayName)),
+		Email: strings.TrimSpace(primitives.FirstNonEmpty(msg.RecipientEmail, participant.Email)),
+		Name:  strings.TrimSpace(primitives.FirstNonEmpty(msg.RecipientName, participant.DisplayName)),
 	}, true, nil
 }
 
@@ -2271,13 +2272,4 @@ func isSigningNotification(notification string) bool {
 	default:
 		return false
 	}
-}
-
-func firstNonEmpty(values ...string) string {
-	for _, value := range values {
-		if trimmed := strings.TrimSpace(value); trimmed != "" {
-			return trimmed
-		}
-	}
-	return ""
 }

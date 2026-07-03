@@ -84,15 +84,15 @@ func (p *commerceIdentityProvider) lookup(ctx context.Context, identifier string
 	}
 	target := strings.ToLower(strings.TrimSpace(identifier))
 	for _, rec := range records {
-		name := strings.ToLower(toString(rec["name"]))
-		email := strings.ToLower(toString(rec["email"]))
+		name := strings.ToLower(primitives.StringFromAny(rec["name"]))
+		email := strings.ToLower(primitives.StringFromAny(rec["email"]))
 		if target != "" && target != name && target != email {
 			continue
 		}
 		return commerceIdentity{
-			id:    toString(rec["id"]),
-			name:  toString(rec["name"]),
-			email: toString(rec["email"]),
+			id:    primitives.StringFromAny(rec["id"]),
+			name:  primitives.StringFromAny(rec["name"]),
+			email: primitives.StringFromAny(rec["email"]),
 			role:  string(auth.RoleAdmin),
 		}, nil
 	}
@@ -151,9 +151,9 @@ func generateCommerceTokens(ctx context.Context, ts auth.TokenService, provider 
 	}
 	for _, rec := range records {
 		identity := commerceIdentity{
-			id:    toString(rec["id"]),
-			name:  toString(rec["name"]),
-			email: toString(rec["email"]),
+			id:    primitives.StringFromAny(rec["id"]),
+			name:  primitives.StringFromAny(rec["name"]),
+			email: primitives.StringFromAny(rec["email"]),
 			role:  string(auth.RoleAdmin),
 		}
 		token, err := ts.Generate(identity, nil)
@@ -163,8 +163,4 @@ func generateCommerceTokens(ctx context.Context, ts auth.TokenService, provider 
 		out[identity.Username()] = token
 	}
 	return out
-}
-
-func toString(val any) string {
-	return primitives.StringFromAny(val)
 }

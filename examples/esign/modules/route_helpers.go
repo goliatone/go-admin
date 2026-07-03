@@ -1,9 +1,6 @@
 package modules
 
-import (
-	"path"
-	"strings"
-)
+import "strings"
 
 func canonicalESignPanelRouteSlug(panelID string) string {
 	switch strings.TrimSpace(panelID) {
@@ -17,9 +14,5 @@ func canonicalESignPanelRouteSlug(panelID string) string {
 }
 
 func canonicalESignPanelListPath(basePath, panelID string) string {
-	basePath = "/" + strings.Trim(strings.TrimSpace(basePath), "/")
-	if basePath == "/" {
-		basePath = "/admin"
-	}
-	return path.Join(basePath, "content", canonicalESignPanelRouteSlug(panelID))
+	return joinBasePath(basePath, "content/"+canonicalESignPanelRouteSlug(panelID))
 }

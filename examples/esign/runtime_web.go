@@ -293,22 +293,22 @@ func resolveESignAuthBasePath(cfg coreadmin.Config) string {
 
 func resolveESignDemoIdentity(runtimeCfg appcfg.Config, seedAuth appcfg.AuthConfig) eSignDemoIdentity {
 	return eSignDemoIdentity{
-		id: firstNonEmptyValue(
+		id: primitives.FirstNonEmpty(
 			strings.TrimSpace(runtimeCfg.Auth.AdminID),
 			strings.TrimSpace(seedAuth.AdminID),
 			defaultESignDemoAdminID,
 		),
-		email: firstNonEmptyValue(
+		email: primitives.FirstNonEmpty(
 			strings.TrimSpace(runtimeCfg.Auth.AdminEmail),
 			strings.TrimSpace(seedAuth.AdminEmail),
 			defaultESignDemoAdminEmail,
 		),
-		role: firstNonEmptyValue(
+		role: primitives.FirstNonEmpty(
 			strings.TrimSpace(runtimeCfg.Auth.AdminRole),
 			strings.TrimSpace(seedAuth.AdminRole),
 			defaultESignDemoAdminRole,
 		),
-		password: firstNonEmptyValue(
+		password: primitives.FirstNonEmpty(
 			strings.TrimSpace(runtimeCfg.Auth.AdminPassword),
 			strings.TrimSpace(seedAuth.AdminPassword),
 			defaultESignDemoAdminPassword,
@@ -320,12 +320,12 @@ func resolveESignAuthConfig(basePath string, runtimeCfg appcfg.Config, seedAuth 
 	return eSignAuthConfig{
 		basePath: basePath,
 		adminCfg: coreadmin.Config{BasePath: basePath},
-		signingKey: firstNonEmptyValue(
+		signingKey: primitives.FirstNonEmpty(
 			strings.TrimSpace(runtimeCfg.Auth.SigningKey),
 			strings.TrimSpace(seedAuth.SigningKey),
 			defaultESignAuthSigningKey,
 		),
-		contextKey: firstNonEmptyValue(
+		contextKey: primitives.FirstNonEmpty(
 			strings.TrimSpace(runtimeCfg.Auth.ContextKey),
 			strings.TrimSpace(seedAuth.ContextKey),
 			defaultESignAuthContextKey,
@@ -1161,8 +1161,8 @@ func registerESignDocumentUploadRoute(
 
 func resolveESignUploadScope(c router.Context, fallback stores.Scope) stores.Scope {
 	scope := resolveESignActorScope(c)
-	scope.TenantID = firstNonEmptyValue(strings.TrimSpace(scope.TenantID), strings.TrimSpace(fallback.TenantID))
-	scope.OrgID = firstNonEmptyValue(strings.TrimSpace(scope.OrgID), strings.TrimSpace(fallback.OrgID))
+	scope.TenantID = primitives.FirstNonEmpty(strings.TrimSpace(scope.TenantID), strings.TrimSpace(fallback.TenantID))
+	scope.OrgID = primitives.FirstNonEmpty(strings.TrimSpace(scope.OrgID), strings.TrimSpace(fallback.OrgID))
 	return scope
 }
 
@@ -1394,12 +1394,12 @@ func resolveESignAdminUserID(c router.Context) string {
 		return userID
 	}
 	if claims, ok := auth.GetClaims(c.Context()); ok && claims != nil {
-		if userID := firstNonEmptyValue(strings.TrimSpace(claims.UserID()), strings.TrimSpace(claims.Subject())); userID != "" {
+		if userID := primitives.FirstNonEmpty(strings.TrimSpace(claims.UserID()), strings.TrimSpace(claims.Subject())); userID != "" {
 			return userID
 		}
 	}
 	if claims, ok := auth.GetRouterClaims(c, ""); ok && claims != nil {
-		if userID := firstNonEmptyValue(strings.TrimSpace(claims.UserID()), strings.TrimSpace(claims.Subject())); userID != "" {
+		if userID := primitives.FirstNonEmpty(strings.TrimSpace(claims.UserID()), strings.TrimSpace(claims.Subject())); userID != "" {
 			return userID
 		}
 	}
@@ -1494,7 +1494,7 @@ func withESignContentEntryViewContext(
 			identity.ActorID,
 			identity.TenantID,
 			identity.OrgID,
-			firstNonEmptyValue(routes["create"], routes["index"], viewContextString(ctx, "base_path", "/admin")),
+			primitives.FirstNonEmpty(routes["create"], routes["index"], viewContextString(ctx, "base_path", "/admin")),
 		)
 		ctx["agreement_form_storage_scope"] = storageScope
 		pageCfg := buildESignAgreementFormPageConfig(
@@ -1618,7 +1618,7 @@ func withESignCanonicalContentEntryContext(ctx router.ViewContext, panelName str
 
 	home := quickstart.Breadcrumb("Home", normalizeESignBasePath(viewContextString(ctx, "base_path", "/admin")))
 	if recordID != "" && !rawToBool(ctx["is_edit"]) && !strings.HasSuffix(strings.TrimSpace(c.Path()), "/new") {
-		recordLabel := firstNonEmptyValue(
+		recordLabel := primitives.FirstNonEmpty(
 			strings.TrimSpace(rawToString(record["title"])),
 			strings.TrimSpace(rawToString(record["name"])),
 			recordID,
@@ -2041,7 +2041,7 @@ func signerCompleteAssetURLs(apiBasePath string, token string, contract services
 }
 
 func signerCompleteDownloadURL(assetURLs map[string]string) string {
-	return firstNonEmptyValue(
+	return primitives.FirstNonEmpty(
 		strings.TrimSpace(assetURLs["executed_url"]),
 		strings.TrimSpace(assetURLs["certificate_url"]),
 		strings.TrimSpace(assetURLs["source_url"]),
@@ -2182,14 +2182,14 @@ func buildSignerReviewViewContext(token, apiBasePath, signerBasePath, resourceBa
 
 	// Build viewer context with pages_json for frontend
 	viewerCtx := map[string]any{
-		"coordinate_space":      firstNonEmptyValue(session.Viewer.CoordinateSpace, "pdf"),
-		"contract_version":      firstNonEmptyValue(session.Viewer.ContractVersion, "1.0"),
-		"unit":                  firstNonEmptyValue(session.Viewer.Unit, "pt"),
-		"origin":                firstNonEmptyValue(session.Viewer.Origin, "top-left"),
-		"y_axis_direction":      firstNonEmptyValue(session.Viewer.YAxisDirection, "down"),
+		"coordinate_space":      primitives.FirstNonEmpty(session.Viewer.CoordinateSpace, "pdf"),
+		"contract_version":      primitives.FirstNonEmpty(session.Viewer.ContractVersion, "1.0"),
+		"unit":                  primitives.FirstNonEmpty(session.Viewer.Unit, "pt"),
+		"origin":                primitives.FirstNonEmpty(session.Viewer.Origin, "top-left"),
+		"y_axis_direction":      primitives.FirstNonEmpty(session.Viewer.YAxisDirection, "down"),
 		"pages_json":            viewerPagesJSON,
-		"compatibility_tier":    firstNonEmptyValue(session.Viewer.CompatibilityTier, session.Viewer.Compatibility),
-		"compatibility_reason":  firstNonEmptyValue(session.Viewer.CompatibilityReason, session.Viewer.Reason),
+		"compatibility_tier":    primitives.FirstNonEmpty(session.Viewer.CompatibilityTier, session.Viewer.Compatibility),
+		"compatibility_reason":  primitives.FirstNonEmpty(session.Viewer.CompatibilityReason, session.Viewer.Reason),
 		"compatibility_message": signerViewerCompatibilityMessage(session.Viewer.CompatibilityTier, session.Viewer.CompatibilityReason, session.Viewer.Reason),
 	}
 
@@ -2224,14 +2224,14 @@ func buildSignerReviewViewContext(token, apiBasePath, signerBasePath, resourceBa
 			"title":         "Agreement",
 			"status":        session.AgreementStatus,
 			"page_count":    maxInt(session.PageCount, 1),
-			"document_name": firstNonEmptyValue(session.DocumentName, "Document.pdf"),
+			"document_name": primitives.FirstNonEmpty(session.DocumentName, "Document.pdf"),
 		},
 	}
 }
 
 func signerViewerCompatibilityMessage(tier, reason, fallbackReason string) string {
-	tier = strings.ToLower(strings.TrimSpace(firstNonEmptyValue(tier, "")))
-	reason = strings.ToLower(strings.TrimSpace(firstNonEmptyValue(reason, fallbackReason)))
+	tier = strings.ToLower(strings.TrimSpace(primitives.FirstNonEmpty(tier, "")))
+	reason = strings.ToLower(strings.TrimSpace(primitives.FirstNonEmpty(reason, fallbackReason)))
 	if tier != "limited" {
 		return ""
 	}
@@ -2264,7 +2264,7 @@ func sessionToViewContext(session services.SignerSessionContext) router.ViewCont
 	for _, f := range session.Fields {
 		field := map[string]any{
 			"id":                  f.ID,
-			"field_instance_id":   firstNonEmptyValue(f.FieldInstanceID, f.ID),
+			"field_instance_id":   primitives.FirstNonEmpty(f.FieldInstanceID, f.ID),
 			"field_definition_id": strings.TrimSpace(f.FieldDefinitionID),
 			"recipient_id":        f.RecipientID,
 			"type":                f.Type,
@@ -2313,7 +2313,7 @@ func sessionToViewContext(session services.SignerSessionContext) router.ViewCont
 		"viewer_banner":                  session.ViewerBanner,
 		"agreement_id":                   session.AgreementID,
 		"agreement_status":               session.AgreementStatus,
-		"document_name":                  firstNonEmptyValue(session.DocumentName, "Document.pdf"),
+		"document_name":                  primitives.FirstNonEmpty(session.DocumentName, "Document.pdf"),
 		"page_count":                     maxInt(session.PageCount, 1),
 		"viewer":                         session.Viewer,
 		"recipient_id":                   session.RecipientID,
@@ -2364,7 +2364,7 @@ func encodeFieldsJSON(fields []services.SignerSessionField) (string, error) {
 	for _, f := range fields {
 		out = append(out, fieldJSON{
 			ID:                f.ID,
-			FieldInstanceID:   firstNonEmptyValue(f.FieldInstanceID, f.ID),
+			FieldInstanceID:   primitives.FirstNonEmpty(f.FieldInstanceID, f.ID),
 			FieldDefinitionID: strings.TrimSpace(f.FieldDefinitionID),
 			RecipientID:       f.RecipientID,
 			Type:              f.Type,
@@ -2419,13 +2419,4 @@ func maxInt(value, min int) int {
 		return min
 	}
 	return value
-}
-
-func firstNonEmptyValue(values ...string) string {
-	for _, value := range values {
-		if trimmed := strings.TrimSpace(value); trimmed != "" {
-			return trimmed
-		}
-	}
-	return ""
 }

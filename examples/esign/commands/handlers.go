@@ -3,6 +3,7 @@ package commands
 import (
 	"context"
 	"fmt"
+	"github.com/goliatone/go-admin/internal/primitives"
 	"log/slog"
 	"net/http"
 	"strings"
@@ -746,7 +747,7 @@ func executeAgreementRevisionCommand(
 	created, err := agreements.CreateRevision(ctx, scope, services.CreateRevisionInput{
 		SourceAgreementID: strings.TrimSpace(agreementID),
 		Kind:              kind,
-		CreatedByUserID:   strings.TrimSpace(firstNonEmptyString(actorID, resolveCommandActorID(ctx))),
+		CreatedByUserID:   strings.TrimSpace(primitives.FirstNonEmpty(actorID, resolveCommandActorID(ctx))),
 		IdempotencyKey:    strings.TrimSpace(idempotencyKey),
 		IPAddress:         resolveCommandRequestIP(ctx),
 	})
@@ -1000,9 +1001,9 @@ func executeAgreementReviewOpenCommand(
 		CommentsEnabled:    input.CommentsEnabled,
 		ReviewParticipants: append([]services.ReviewParticipantInput{}, input.ReviewParticipants...),
 		ReviewerIDs:        append([]string{}, input.ReviewerIDs...),
-		RequestedByUserID:  strings.TrimSpace(firstNonEmptyString(actorID, resolveCommandActorID(ctx))),
+		RequestedByUserID:  strings.TrimSpace(primitives.FirstNonEmpty(actorID, resolveCommandActorID(ctx))),
 		ActorType:          "user",
-		ActorID:            strings.TrimSpace(firstNonEmptyString(actorID, resolveCommandActorID(ctx))),
+		ActorID:            strings.TrimSpace(primitives.FirstNonEmpty(actorID, resolveCommandActorID(ctx))),
 		IPAddress:          resolveCommandRequestIP(ctx),
 		CorrelationID:      strings.TrimSpace(correlationID),
 	}
@@ -1052,7 +1053,7 @@ func executeAgreementCloseReviewCommand(
 	if err != nil {
 		return err
 	}
-	if _, err := agreements.CloseReview(ctx, scope, strings.TrimSpace(msg.AgreementID), "user", strings.TrimSpace(firstNonEmptyString(msg.ActorID, resolveCommandActorID(ctx))), resolveCommandRequestIP(ctx)); err != nil {
+	if _, err := agreements.CloseReview(ctx, scope, strings.TrimSpace(msg.AgreementID), "user", strings.TrimSpace(primitives.FirstNonEmpty(msg.ActorID, resolveCommandActorID(ctx))), resolveCommandRequestIP(ctx)); err != nil {
 		return err
 	}
 	if err := projectAgreementActivity(ctx, projector, scope, msg.AgreementID); err != nil {
@@ -1094,7 +1095,7 @@ func executeAgreementForceApproveReviewCommand(
 	}
 	_, err = agreements.ForceApproveReview(ctx, scope, strings.TrimSpace(msg.AgreementID), services.ReviewOverrideInput{
 		ActorType: "user",
-		ActorID:   strings.TrimSpace(firstNonEmptyString(msg.ActorID, resolveCommandActorID(ctx))),
+		ActorID:   strings.TrimSpace(primitives.FirstNonEmpty(msg.ActorID, resolveCommandActorID(ctx))),
 		ActorName: strings.TrimSpace(resolveCommandActorDisplayName(ctx)),
 		IPAddress: resolveCommandRequestIP(ctx),
 		Reason:    strings.TrimSpace(msg.Reason),
@@ -1143,7 +1144,7 @@ func executeAgreementApproveReviewOnBehalfCommand(
 		ParticipantID: strings.TrimSpace(msg.ParticipantID),
 		RecipientID:   strings.TrimSpace(msg.RecipientID),
 		ActorType:     "user",
-		ActorID:       strings.TrimSpace(firstNonEmptyString(msg.ActorID, resolveCommandActorID(ctx))),
+		ActorID:       strings.TrimSpace(primitives.FirstNonEmpty(msg.ActorID, resolveCommandActorID(ctx))),
 		ActorName:     strings.TrimSpace(resolveCommandActorDisplayName(ctx)),
 		IPAddress:     resolveCommandRequestIP(ctx),
 		Reason:        strings.TrimSpace(msg.Reason),
@@ -1186,9 +1187,9 @@ func executeAgreementNotifyReviewersCommand(
 	notifyInput := services.ReviewNotifyInput{
 		ParticipantID: strings.TrimSpace(msg.ParticipantID),
 		RecipientID:   strings.TrimSpace(msg.RecipientID),
-		RequestedByID: strings.TrimSpace(firstNonEmptyString(msg.ActorID, resolveCommandActorID(ctx))),
+		RequestedByID: strings.TrimSpace(primitives.FirstNonEmpty(msg.ActorID, resolveCommandActorID(ctx))),
 		ActorType:     "user",
-		ActorID:       strings.TrimSpace(firstNonEmptyString(msg.ActorID, resolveCommandActorID(ctx))),
+		ActorID:       strings.TrimSpace(primitives.FirstNonEmpty(msg.ActorID, resolveCommandActorID(ctx))),
 		IPAddress:     resolveCommandRequestIP(ctx),
 		CorrelationID: strings.TrimSpace(msg.CorrelationID),
 	}
@@ -1235,7 +1236,7 @@ func executeAgreementReviewReminderControlCommand(
 		ParticipantID: strings.TrimSpace(msg.ParticipantID),
 		RecipientID:   strings.TrimSpace(msg.RecipientID),
 		ActorType:     "user",
-		ActorID:       strings.TrimSpace(firstNonEmptyString(msg.ActorID, resolveCommandActorID(ctx))),
+		ActorID:       strings.TrimSpace(primitives.FirstNonEmpty(msg.ActorID, resolveCommandActorID(ctx))),
 		IPAddress:     resolveCommandRequestIP(ctx),
 		CorrelationID: strings.TrimSpace(msg.CorrelationID),
 	}
@@ -1282,7 +1283,7 @@ func executeAgreementReviewDecisionCommand(
 	if !approve {
 		commandName = CommandAgreementRequestReviewChanges
 	}
-	correlationID = observability.ResolveCorrelationID(correlationID, agreementID, firstNonEmptyString(participantID, recipientID), commandName)
+	correlationID = observability.ResolveCorrelationID(correlationID, agreementID, primitives.FirstNonEmpty(participantID, recipientID), commandName)
 	if agreements == nil {
 		return fmt.Errorf("%s command not configured", commandName)
 	}
@@ -1295,7 +1296,7 @@ func executeAgreementReviewDecisionCommand(
 		RecipientID:   strings.TrimSpace(recipientID),
 		Comment:       strings.TrimSpace(comment),
 		ActorType:     "user",
-		ActorID:       strings.TrimSpace(firstNonEmptyString(actorID, resolveCommandActorID(ctx))),
+		ActorID:       strings.TrimSpace(primitives.FirstNonEmpty(actorID, resolveCommandActorID(ctx))),
 		IPAddress:     resolveCommandRequestIP(ctx),
 	}
 	if approve {
@@ -1353,7 +1354,7 @@ func executeAgreementCommentThreadCommand(
 		AnchorY:    msg.AnchorY,
 		Body:       strings.TrimSpace(msg.Body),
 		ActorType:  "user",
-		ActorID:    strings.TrimSpace(firstNonEmptyString(msg.ActorID, resolveCommandActorID(ctx))),
+		ActorID:    strings.TrimSpace(primitives.FirstNonEmpty(msg.ActorID, resolveCommandActorID(ctx))),
 	})
 	if err != nil {
 		return err
@@ -1394,7 +1395,7 @@ func executeAgreementCommentReplyCommand(
 		ThreadID:  strings.TrimSpace(msg.ThreadID),
 		Body:      strings.TrimSpace(msg.Body),
 		ActorType: "user",
-		ActorID:   strings.TrimSpace(firstNonEmptyString(msg.ActorID, resolveCommandActorID(ctx))),
+		ActorID:   strings.TrimSpace(primitives.FirstNonEmpty(msg.ActorID, resolveCommandActorID(ctx))),
 	})
 	if err != nil {
 		return err
@@ -1440,7 +1441,7 @@ func executeAgreementCommentStateCommand(
 	input := services.ReviewCommentStateInput{
 		ThreadID:  strings.TrimSpace(threadID),
 		ActorType: "user",
-		ActorID:   strings.TrimSpace(firstNonEmptyString(actorID, resolveCommandActorID(ctx))),
+		ActorID:   strings.TrimSpace(primitives.FirstNonEmpty(actorID, resolveCommandActorID(ctx))),
 	}
 	if resolve {
 		_, err = agreements.ResolveCommentThread(ctx, scope, strings.TrimSpace(agreementID), input)
@@ -1494,7 +1495,7 @@ func (c *AgreementDeliveryResumeCommand) Execute(ctx context.Context, msg Agreem
 		return err
 	}
 	result, err := c.recovery.ResumeAgreementDelivery(ctx, scope, strings.TrimSpace(msg.AgreementID), services.AgreementDeliveryResumeInput{
-		ActorID:       strings.TrimSpace(firstNonEmptyString(msg.ActorID, resolveCommandActorID(ctx))),
+		ActorID:       strings.TrimSpace(primitives.FirstNonEmpty(msg.ActorID, resolveCommandActorID(ctx))),
 		CorrelationID: strings.TrimSpace(correlationID),
 	})
 	if err != nil {
@@ -1539,7 +1540,7 @@ func (c *GuardedEffectResumeCommand) Execute(ctx context.Context, msg GuardedEff
 		return err
 	}
 	_, err = c.recovery.ResumeEffect(ctx, scope, strings.TrimSpace(msg.EffectID), services.GuardedEffectResumeInput{
-		ActorID:       strings.TrimSpace(firstNonEmptyString(msg.ActorID, resolveCommandActorID(ctx))),
+		ActorID:       strings.TrimSpace(primitives.FirstNonEmpty(msg.ActorID, resolveCommandActorID(ctx))),
 		CorrelationID: strings.TrimSpace(correlationID),
 	})
 	if err != nil {
@@ -2085,16 +2086,6 @@ func resolveCommandActorDisplayName(ctx context.Context) string {
 	if actor, ok := auth.ActorFromContext(ctx); ok && actor != nil {
 		if displayName := firstMetadataValue(actor.Metadata, "display_name", "name", "username", "email"); displayName != "" {
 			return displayName
-		}
-	}
-	return ""
-}
-
-func firstNonEmptyString(values ...string) string {
-	for _, value := range values {
-		value = strings.TrimSpace(value)
-		if value != "" {
-			return value
 		}
 	}
 	return ""

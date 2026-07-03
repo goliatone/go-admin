@@ -2,6 +2,7 @@ package modules
 
 import (
 	"context"
+	"github.com/goliatone/go-admin/internal/primitives"
 	"strings"
 
 	coreadmin "github.com/goliatone/go-admin/admin"
@@ -87,7 +88,7 @@ func (d reviewActorDirectory) resolveProfileActor(ctx context.Context, actorID s
 	if err != nil {
 		return "", ""
 	}
-	return firstNonEmptyReviewActorValue(profile.DisplayName, profile.Email), strings.TrimSpace(profile.Email)
+	return primitives.FirstNonEmpty(profile.DisplayName, profile.Email), strings.TrimSpace(profile.Email)
 }
 
 func (d reviewActorDirectory) resolveAccountActor(ctx context.Context, actorID, name, email string) (string, string) {
@@ -99,7 +100,7 @@ func (d reviewActorDirectory) resolveAccountActor(ctx context.Context, actorID, 
 		return name, email
 	}
 	if name == "" {
-		name = firstNonEmptyReviewActorValue(reviewActorUserDisplayName(user), user.Email, user.Username)
+		name = primitives.FirstNonEmpty(reviewActorUserDisplayName(user), user.Email, user.Username)
 	}
 	if email == "" {
 		email = strings.TrimSpace(user.Email)
@@ -108,17 +109,8 @@ func (d reviewActorDirectory) resolveAccountActor(ctx context.Context, actorID, 
 }
 
 func reviewActorUserDisplayName(user coreadmin.UserRecord) string {
-	return firstNonEmptyReviewActorValue(strings.TrimSpace(strings.Join([]string{
+	return primitives.FirstNonEmpty(strings.TrimSpace(strings.Join([]string{
 		strings.TrimSpace(user.FirstName),
 		strings.TrimSpace(user.LastName),
 	}, " ")), user.Username, user.Email)
-}
-
-func firstNonEmptyReviewActorValue(values ...string) string {
-	for _, value := range values {
-		if trimmed := strings.TrimSpace(value); trimmed != "" {
-			return trimmed
-		}
-	}
-	return ""
 }

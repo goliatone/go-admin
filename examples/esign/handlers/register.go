@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"github.com/goliatone/go-admin/internal/primitives"
 	"log/slog"
 	"net/http"
 	"strings"
@@ -17,6 +18,8 @@ import (
 	"github.com/goliatone/go-admin/examples/esign/stores"
 	router "github.com/goliatone/go-router"
 )
+
+var firstNonEmpty = primitives.FirstNonEmpty
 
 type routeRegistrar struct {
 	router     coreadmin.AdminRouter
@@ -120,8 +123,8 @@ func requireAuthenticatedAgreementRequest(cfg registerConfig) router.MiddlewareF
 			}
 
 			scope := cfg.resolveScope(c)
-			tenantID := firstNonEmpty(strings.TrimSpace(scope.TenantID), strings.TrimSpace(identity.TenantID))
-			orgID := firstNonEmpty(strings.TrimSpace(scope.OrgID), strings.TrimSpace(identity.OrgID))
+			tenantID := primitives.FirstNonEmpty(strings.TrimSpace(scope.TenantID), strings.TrimSpace(identity.TenantID))
+			orgID := primitives.FirstNonEmpty(strings.TrimSpace(scope.OrgID), strings.TrimSpace(identity.OrgID))
 			if tenantID == "" || orgID == "" {
 				return writeAPIError(c, nil, http.StatusBadRequest, "INVALID_SCOPE", "tenant and org scope are required", nil)
 			}
@@ -160,15 +163,6 @@ func firstFloatPointer(values ...*float64) *float64 {
 	return nil
 }
 
-func firstNonEmpty(values ...string) string {
-	for _, value := range values {
-		if trimmed := strings.TrimSpace(value); trimmed != "" {
-			return trimmed
-		}
-	}
-	return ""
-}
-
 func composeMiddleware(middleware ...router.MiddlewareFunc) router.MiddlewareFunc {
 	filtered := make([]router.MiddlewareFunc, 0, len(middleware))
 	for _, mw := range middleware {
@@ -202,11 +196,11 @@ func setTraceResponseHeaders(c router.Context) {
 		return
 	}
 	requestID := stableString(c.Header("X-Request-ID"))
-	correlationID := firstNonEmpty(
+	correlationID := primitives.FirstNonEmpty(
 		stableString(c.Header("X-Correlation-ID")),
 		requestID,
 	)
-	traceID := firstNonEmpty(
+	traceID := primitives.FirstNonEmpty(
 		stableString(c.Header("X-Trace-ID")),
 		correlationID,
 	)

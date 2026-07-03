@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/goliatone/go-admin/internal/primitives"
 	"github.com/google/uuid"
 	"github.com/uptrace/bun"
 )
@@ -48,7 +49,7 @@ func (s *TemplateStore) List(ctx context.Context, query string, ids []string, li
 		limit = 25
 	}
 	query = strings.TrimSpace(query)
-	ids = normalizeStringList(ids)
+	ids = primitives.NormalizeUniqueStringSliceEmpty(ids)
 
 	rows := []templateRow{}
 	selectQuery := s.db.NewSelect().Model(&rows)
@@ -89,21 +90,4 @@ func (s *TemplateStore) List(ctx context.Context, query string, ids []string, li
 	}
 
 	return out, nil
-}
-
-func normalizeStringList(values []string) []string {
-	if len(values) == 0 {
-		return nil
-	}
-	out := make([]string, 0, len(values))
-	seen := map[string]bool{}
-	for _, raw := range values {
-		item := strings.TrimSpace(raw)
-		if item == "" || seen[item] {
-			continue
-		}
-		seen[item] = true
-		out = append(out, item)
-	}
-	return out
 }

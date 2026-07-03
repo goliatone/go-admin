@@ -125,32 +125,24 @@ func normalizeSchedulePayload(payload map[string]any) map[string]any {
 
 func commandIDsFromPayload(ids []string, payload map[string]any) []string {
 	if payload != nil {
-		if id := toString(payload["id"]); id != "" {
+		if id := primitives.StringFromAny(payload["id"]); id != "" {
 			ids = append(ids, id)
 		}
-		ids = append(ids, toStringSlice(payload["ids"])...)
+		ids = append(ids, dedupeStrings(primitives.StringSliceFromAny(payload["ids"]))...)
 
 		if selection := extractMap(payload["selection"]); len(selection) > 0 {
-			if id := toString(selection["id"]); id != "" {
+			if id := primitives.StringFromAny(selection["id"]); id != "" {
 				ids = append(ids, id)
 			}
-			ids = append(ids, toStringSlice(selection["ids"])...)
+			ids = append(ids, dedupeStrings(primitives.StringSliceFromAny(selection["ids"]))...)
 		}
 		if record := extractMap(payload["record"]); len(record) > 0 {
-			if id := toString(record["id"]); id != "" {
+			if id := primitives.StringFromAny(record["id"]); id != "" {
 				ids = append(ids, id)
 			}
 		}
 	}
 	return dedupeStrings(ids)
-}
-
-func toString(val any) string {
-	return primitives.StringFromAny(val)
-}
-
-func toStringSlice(val any) []string {
-	return dedupeStrings(primitives.StringSliceFromAny(val))
 }
 
 func extractMap(val any) map[string]any {

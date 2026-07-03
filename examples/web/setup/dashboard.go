@@ -470,7 +470,7 @@ func buildChartOptions(chartType string, cfg map[string]any) map[string]any {
 		options["series"] = buildCartesianSeries(kind, cfg["series"])
 		options["xAxis"] = map[string]any{
 			"type": "category",
-			"data": toStringSlice(cfg["x_axis"]),
+			"data": primitives.StringSliceFromAny(cfg["x_axis"]),
 		}
 		options["yAxis"] = map[string]any{"type": "value"}
 	case "pie":
@@ -658,10 +658,6 @@ func toAnySlice(raw any) []any {
 	}
 }
 
-func toStringSlice(raw any) []string {
-	return primitives.StringSliceFromAny(raw)
-}
-
 func toFloat64(raw any) (float64, bool) {
 	return primitives.Float64FromAny(raw)
 }
@@ -679,13 +675,13 @@ func toStringMap(raw map[string]any) map[string]string {
 	}
 	out := make(map[string]string, len(raw))
 	for key, value := range raw {
-		out[key] = strings.TrimSpace(toString(value))
+		out[key] = strings.TrimSpace(primitives.StringFromAny(value))
 	}
 	return out
 }
 
 func chartString(raw any, fallback string) string {
-	text := strings.TrimSpace(toString(raw))
+	text := strings.TrimSpace(primitives.StringFromAny(raw))
 	if text == "" {
 		return fallback
 	}

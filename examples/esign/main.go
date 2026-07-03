@@ -3,9 +3,9 @@ package main
 import (
 	"context"
 	"fmt"
+	"github.com/goliatone/go-admin/internal/primitives"
 	"net/url"
 	"os"
-	"path"
 	"strconv"
 	"strings"
 
@@ -22,6 +22,7 @@ import (
 	"github.com/goliatone/go-admin/examples/esign/observability"
 	"github.com/goliatone/go-admin/examples/esign/permissions"
 	"github.com/goliatone/go-admin/examples/esign/stores"
+	"github.com/goliatone/go-admin/internal/pathutil"
 	"github.com/goliatone/go-admin/pkg/client"
 	"github.com/goliatone/go-admin/quickstart"
 	glog "github.com/goliatone/go-logger/glog"
@@ -136,8 +137,8 @@ func buildESignAdminConfig(runtimeConfig appcfg.Config) (admin.Config, bool, boo
 		runtimeConfig.Admin.DefaultLocale,
 	)
 	applyESignRuntimeDefaults(&cfg)
-	cfg.URLs.Admin.APIPrefix = firstNonEmptyString(strings.TrimSpace(runtimeConfig.Admin.APIPrefix), "api")
-	cfg.URLs.Admin.APIVersion = firstNonEmptyString(strings.TrimSpace(runtimeConfig.Admin.APIVersion), "v1")
+	cfg.URLs.Admin.APIPrefix = primitives.FirstNonEmpty(strings.TrimSpace(runtimeConfig.Admin.APIPrefix), "api")
+	cfg.URLs.Admin.APIVersion = primitives.FirstNonEmpty(strings.TrimSpace(runtimeConfig.Admin.APIVersion), "v1")
 	cfg.URLs.Public.APIPrefix = cfg.URLs.Admin.APIPrefix
 	cfg.URLs.Public.APIVersion = cfg.URLs.Admin.APIVersion
 	cfg.EnablePublicAPI = runtimeConfig.Admin.PublicAPI
@@ -647,7 +648,7 @@ func newESignStorageBundle(logger uploader.Logger, runtimeConfig appcfg.Config) 
 	providerCfg := uploader.ProviderConfig{
 		Backend: uploader.Backend(strings.TrimSpace(runtimeConfig.Storage.Backend)),
 		FS: uploader.FSConfig{
-			BasePath: firstNonEmptyString(
+			BasePath: primitives.FirstNonEmpty(
 				strings.TrimSpace(runtimeConfig.Storage.Fs.BasePath),
 				resolveESignDiskAssetsDir(),
 			),
@@ -686,16 +687,7 @@ func newESignStorageBundle(logger uploader.Logger, runtimeConfig appcfg.Config) 
 }
 
 func resolveESignAssetsURLPrefix(basePath string) string {
-	return path.Join("/", strings.TrimSpace(basePath), "assets")
-}
-
-func firstNonEmptyString(values ...string) string {
-	for _, value := range values {
-		if trimmed := strings.TrimSpace(value); trimmed != "" {
-			return trimmed
-		}
-	}
-	return ""
+	return pathutil.JoinBasePath(basePath, "assets")
 }
 
 func newESignRuntimeStore(bootstrap *esignpersistence.BootstrapResult) (stores.Store, func() error, error) {

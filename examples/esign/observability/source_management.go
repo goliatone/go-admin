@@ -2,6 +2,7 @@ package observability
 
 import (
 	"context"
+	"github.com/goliatone/go-admin/internal/primitives"
 	"log/slog"
 	"maps"
 	"strings"
@@ -181,7 +182,7 @@ func (s *sourceManagementMetricsState) observeSearchProviderSnapshot(health sear
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	s.searchProvider = strings.TrimSpace(firstNonEmptyString(stats.Provider, health.Provider))
+	s.searchProvider = strings.TrimSpace(primitives.FirstNonEmpty(stats.Provider, health.Provider))
 	s.searchHealthy = health.Healthy
 	if !health.CheckedAt.IsZero() {
 		checkedAt := health.CheckedAt.UTC()
@@ -271,15 +272,6 @@ func cloneStringMap(values map[string]string) map[string]string {
 	return out
 }
 
-func firstNonEmptyString(values ...string) string {
-	for _, value := range values {
-		if trimmed := strings.TrimSpace(value); trimmed != "" {
-			return trimmed
-		}
-	}
-	return ""
-}
-
 var (
 	defaultSourceManagementMetricsMu sync.RWMutex
 	defaultSourceManagementMetrics   = newSourceManagementMetricsState()
@@ -339,7 +331,7 @@ func ObserveSourceSearchReindex(ctx context.Context, targetKind string, success 
 func ObserveSourceSearchProviderSnapshot(ctx context.Context, health searchtypes.HealthStatus, stats searchtypes.StatsResult) {
 	currentSourceManagementMetrics().observeSearchProviderSnapshot(health, stats)
 	LogOperation(ctx, sourceManagementLogLevel(health.Healthy), "source_management", "search_provider_snapshot", sourceManagementOutcome(health.Healthy), "", 0, nil, map[string]any{
-		"provider": strings.TrimSpace(firstNonEmptyString(stats.Provider, health.Provider)),
+		"provider": strings.TrimSpace(primitives.FirstNonEmpty(stats.Provider, health.Provider)),
 		"healthy":  health.Healthy,
 		"indexes":  len(stats.Indexes),
 	})

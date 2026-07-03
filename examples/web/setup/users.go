@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"github.com/goliatone/go-admin/internal/primitives"
 	"io/fs"
 	"maps"
 	"regexp"
@@ -597,14 +598,14 @@ func seedUserProfile(ctx context.Context, repo types.ProfileRepository, user *au
 	if merged.Contact == nil {
 		merged.Contact = map[string]any{}
 	}
-	if strings.TrimSpace(toString(merged.Contact["email"])) == "" && strings.TrimSpace(user.Email) != "" {
+	if strings.TrimSpace(primitives.StringFromAny(merged.Contact["email"])) == "" && strings.TrimSpace(user.Email) != "" {
 		merged.Contact["email"] = user.Email
 		changed = true
 	}
 	if merged.Metadata == nil {
 		merged.Metadata = map[string]any{}
 	}
-	if strings.TrimSpace(toString(merged.Metadata["username"])) == "" && strings.TrimSpace(user.Username) != "" {
+	if strings.TrimSpace(primitives.StringFromAny(merged.Metadata["username"])) == "" && strings.TrimSpace(user.Username) != "" {
 		merged.Metadata["username"] = user.Username
 		changed = true
 	}

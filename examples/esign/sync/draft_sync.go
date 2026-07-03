@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/goliatone/go-admin/internal/primitives"
 	"maps"
 	"net/url"
 	"sort"
@@ -971,7 +972,7 @@ func resolveScopedActor(scope map[string]string) (stores.Scope, string, error) {
 	if err != nil {
 		return stores.Scope{}, "", err
 	}
-	actorID := firstNonEmpty(scope["actor_id"])
+	actorID := primitives.FirstNonEmpty(scope["actor_id"])
 	if actorID == "" {
 		return stores.Scope{}, "", gosynccore.NewError(gosynccore.CodeInvalidMutation, "actor id is required", map[string]any{
 			"field": "resource_ref.scope.actor_id",
@@ -982,8 +983,8 @@ func resolveScopedActor(scope map[string]string) (stores.Scope, string, error) {
 
 func storesScopeFromResourceScope(scope map[string]string) (stores.Scope, error) {
 	storeScope := stores.Scope{
-		TenantID: firstNonEmpty(scope["tenant_id"]),
-		OrgID:    firstNonEmpty(scope["org_id"]),
+		TenantID: primitives.FirstNonEmpty(scope["tenant_id"]),
+		OrgID:    primitives.FirstNonEmpty(scope["org_id"]),
 	}
 	if strings.TrimSpace(storeScope.TenantID) == "" || strings.TrimSpace(storeScope.OrgID) == "" {
 		return stores.Scope{}, gosynccore.NewError(gosynccore.CodeInvalidMutation, "tenant and org scope are required", map[string]any{
@@ -1193,13 +1194,4 @@ func copyAnyMap(input map[string]any) map[string]any {
 	out := make(map[string]any, len(input))
 	maps.Copy(out, input)
 	return out
-}
-
-func firstNonEmpty(values ...string) string {
-	for _, value := range values {
-		if trimmed := strings.TrimSpace(value); trimmed != "" {
-			return trimmed
-		}
-	}
-	return ""
 }

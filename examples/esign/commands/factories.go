@@ -11,6 +11,8 @@ import (
 	"github.com/goliatone/go-admin/internal/primitives"
 )
 
+var toString = primitives.StringFromAny
+
 // RegisterCommandFactories registers payload parsers for panel action command dispatch.
 func RegisterCommandFactories(bus *coreadmin.CommandBus) error {
 	if err := registerAgreementCommandFactories(bus); err != nil {
@@ -127,8 +129,8 @@ func buildAgreementSendInput(payload map[string]any, ids []string) (AgreementSen
 	msg := AgreementSendInput{
 		Scope:          scopeFromPayload(payload),
 		AgreementID:    agreementID,
-		IdempotencyKey: strings.TrimSpace(toString(payloadValue(payload, "idempotency_key"))),
-		CorrelationID:  strings.TrimSpace(toString(payloadValue(payload, "correlation_id"))),
+		IdempotencyKey: strings.TrimSpace(primitives.StringFromAny(payloadValue(payload, "idempotency_key"))),
+		CorrelationID:  strings.TrimSpace(primitives.StringFromAny(payloadValue(payload, "correlation_id"))),
 	}
 	if err := msg.Validate(); err != nil {
 		return msg, err
@@ -144,9 +146,9 @@ func buildAgreementVoidInput(payload map[string]any, ids []string) (AgreementVoi
 	msg := AgreementVoidInput{
 		Scope:         scopeFromPayload(payload),
 		AgreementID:   agreementID,
-		Reason:        strings.TrimSpace(toString(payloadValue(payload, "reason"))),
+		Reason:        strings.TrimSpace(primitives.StringFromAny(payloadValue(payload, "reason"))),
 		RevokeTokens:  boolWithDefault(payloadValue(payload, "revoke_tokens"), true),
-		CorrelationID: strings.TrimSpace(toString(payloadValue(payload, "correlation_id"))),
+		CorrelationID: strings.TrimSpace(primitives.StringFromAny(payloadValue(payload, "correlation_id"))),
 	}
 	if err := msg.Validate(); err != nil {
 		return msg, err
@@ -162,12 +164,12 @@ func buildAgreementResendInput(payload map[string]any, ids []string) (AgreementR
 	msg := AgreementResendInput{
 		Scope:              scopeFromPayload(payload),
 		AgreementID:        agreementID,
-		RecipientID:        strings.TrimSpace(toString(payloadValue(payload, "recipient_id"))),
+		RecipientID:        strings.TrimSpace(primitives.StringFromAny(payloadValue(payload, "recipient_id"))),
 		RotateToken:        boolWithDefault(payloadValue(payload, "rotate_token"), false),
 		InvalidateExisting: boolWithDefault(payloadValue(payload, "invalidate_existing"), true),
 		AllowOutOfOrder:    boolWithDefault(payloadValue(payload, "allow_out_of_order"), false),
-		IdempotencyKey:     strings.TrimSpace(toString(payloadValue(payload, "idempotency_key"))),
-		CorrelationID:      strings.TrimSpace(toString(payloadValue(payload, "correlation_id"))),
+		IdempotencyKey:     strings.TrimSpace(primitives.StringFromAny(payloadValue(payload, "idempotency_key"))),
+		CorrelationID:      strings.TrimSpace(primitives.StringFromAny(payloadValue(payload, "correlation_id"))),
 	}
 	if err := msg.Validate(); err != nil {
 		return msg, err
@@ -184,9 +186,9 @@ func buildAgreementRequestCorrectionInput(payload map[string]any, ids []string) 
 		AgreementRevisionRequestInput: AgreementRevisionRequestInput{
 			Scope:          scopeFromPayload(payload),
 			AgreementID:    agreementID,
-			ActorID:        strings.TrimSpace(toString(payloadValue(payload, "actor_id"))),
-			IdempotencyKey: strings.TrimSpace(toString(payloadValue(payload, "idempotency_key"))),
-			CorrelationID:  strings.TrimSpace(toString(payloadValue(payload, "correlation_id"))),
+			ActorID:        strings.TrimSpace(primitives.StringFromAny(payloadValue(payload, "actor_id"))),
+			IdempotencyKey: strings.TrimSpace(primitives.StringFromAny(payloadValue(payload, "idempotency_key"))),
+			CorrelationID:  strings.TrimSpace(primitives.StringFromAny(payloadValue(payload, "correlation_id"))),
 		},
 	}
 	if err := msg.Validate(); err != nil {
@@ -204,9 +206,9 @@ func buildAgreementRequestAmendmentInput(payload map[string]any, ids []string) (
 		AgreementRevisionRequestInput: AgreementRevisionRequestInput{
 			Scope:          scopeFromPayload(payload),
 			AgreementID:    agreementID,
-			ActorID:        strings.TrimSpace(toString(payloadValue(payload, "actor_id"))),
-			IdempotencyKey: strings.TrimSpace(toString(payloadValue(payload, "idempotency_key"))),
-			CorrelationID:  strings.TrimSpace(toString(payloadValue(payload, "correlation_id"))),
+			ActorID:        strings.TrimSpace(primitives.StringFromAny(payloadValue(payload, "actor_id"))),
+			IdempotencyKey: strings.TrimSpace(primitives.StringFromAny(payloadValue(payload, "idempotency_key"))),
+			CorrelationID:  strings.TrimSpace(primitives.StringFromAny(payloadValue(payload, "correlation_id"))),
 		},
 	}
 	if err := msg.Validate(); err != nil {
@@ -247,8 +249,8 @@ func buildAgreementCloseReviewInput(payload map[string]any, ids []string) (Agree
 	msg := AgreementCloseReviewInput{
 		Scope:         scopeFromPayload(payload),
 		AgreementID:   agreementID,
-		ActorID:       strings.TrimSpace(toString(payloadValue(payload, "actor_id"))),
-		CorrelationID: strings.TrimSpace(toString(payloadValue(payload, "correlation_id"))),
+		ActorID:       strings.TrimSpace(primitives.StringFromAny(payloadValue(payload, "actor_id"))),
+		CorrelationID: strings.TrimSpace(primitives.StringFromAny(payloadValue(payload, "correlation_id"))),
 	}
 	if err := msg.Validate(); err != nil {
 		return msg, err
@@ -264,9 +266,9 @@ func buildAgreementForceApproveReviewInput(payload map[string]any, ids []string)
 	msg := AgreementForceApproveReviewInput{
 		Scope:         scopeFromPayload(payload),
 		AgreementID:   agreementID,
-		Reason:        strings.TrimSpace(toString(payloadValue(payload, "reason"))),
-		ActorID:       strings.TrimSpace(toString(payloadValue(payload, "actor_id"))),
-		CorrelationID: strings.TrimSpace(toString(payloadValue(payload, "correlation_id"))),
+		Reason:        strings.TrimSpace(primitives.StringFromAny(payloadValue(payload, "reason"))),
+		ActorID:       strings.TrimSpace(primitives.StringFromAny(payloadValue(payload, "actor_id"))),
+		CorrelationID: strings.TrimSpace(primitives.StringFromAny(payloadValue(payload, "correlation_id"))),
 	}
 	if err := msg.Validate(); err != nil {
 		return msg, err
@@ -282,11 +284,11 @@ func buildAgreementApproveReviewOnBehalfInput(payload map[string]any, ids []stri
 	msg := AgreementApproveReviewOnBehalfInput{
 		Scope:         scopeFromPayload(payload),
 		AgreementID:   agreementID,
-		ParticipantID: strings.TrimSpace(toString(payloadValue(payload, "participant_id"))),
-		RecipientID:   strings.TrimSpace(toString(payloadValue(payload, "recipient_id"))),
-		Reason:        strings.TrimSpace(toString(payloadValue(payload, "reason"))),
-		ActorID:       strings.TrimSpace(toString(payloadValue(payload, "actor_id"))),
-		CorrelationID: strings.TrimSpace(toString(payloadValue(payload, "correlation_id"))),
+		ParticipantID: strings.TrimSpace(primitives.StringFromAny(payloadValue(payload, "participant_id"))),
+		RecipientID:   strings.TrimSpace(primitives.StringFromAny(payloadValue(payload, "recipient_id"))),
+		Reason:        strings.TrimSpace(primitives.StringFromAny(payloadValue(payload, "reason"))),
+		ActorID:       strings.TrimSpace(primitives.StringFromAny(payloadValue(payload, "actor_id"))),
+		CorrelationID: strings.TrimSpace(primitives.StringFromAny(payloadValue(payload, "correlation_id"))),
 	}
 	if err := msg.Validate(); err != nil {
 		return msg, err
@@ -302,10 +304,10 @@ func buildAgreementNotifyReviewersInput(payload map[string]any, ids []string) (A
 	msg := AgreementNotifyReviewersInput{
 		Scope:         scopeFromPayload(payload),
 		AgreementID:   agreementID,
-		ParticipantID: strings.TrimSpace(toString(payloadValue(payload, "participant_id"))),
-		RecipientID:   strings.TrimSpace(toString(payloadValue(payload, "recipient_id"))),
-		ActorID:       strings.TrimSpace(toString(payloadValue(payload, "actor_id"))),
-		CorrelationID: strings.TrimSpace(toString(payloadValue(payload, "correlation_id"))),
+		ParticipantID: strings.TrimSpace(primitives.StringFromAny(payloadValue(payload, "participant_id"))),
+		RecipientID:   strings.TrimSpace(primitives.StringFromAny(payloadValue(payload, "recipient_id"))),
+		ActorID:       strings.TrimSpace(primitives.StringFromAny(payloadValue(payload, "actor_id"))),
+		CorrelationID: strings.TrimSpace(primitives.StringFromAny(payloadValue(payload, "correlation_id"))),
 	}
 	if err := msg.Validate(); err != nil {
 		return msg, err
@@ -357,10 +359,10 @@ func buildAgreementReviewReminderControlInput(payload map[string]any, ids []stri
 	return AgreementReviewReminderControlInput{
 		Scope:         scopeFromPayload(payload),
 		AgreementID:   agreementID,
-		ParticipantID: strings.TrimSpace(toString(payloadValue(payload, "participant_id"))),
-		RecipientID:   strings.TrimSpace(toString(payloadValue(payload, "recipient_id"))),
-		ActorID:       strings.TrimSpace(toString(payloadValue(payload, "actor_id"))),
-		CorrelationID: strings.TrimSpace(toString(payloadValue(payload, "correlation_id"))),
+		ParticipantID: strings.TrimSpace(primitives.StringFromAny(payloadValue(payload, "participant_id"))),
+		RecipientID:   strings.TrimSpace(primitives.StringFromAny(payloadValue(payload, "recipient_id"))),
+		ActorID:       strings.TrimSpace(primitives.StringFromAny(payloadValue(payload, "actor_id"))),
+		CorrelationID: strings.TrimSpace(primitives.StringFromAny(payloadValue(payload, "correlation_id"))),
 	}, nil
 }
 
@@ -397,16 +399,16 @@ func buildAgreementCreateCommentThreadInput(payload map[string]any, ids []string
 		AgreementCommentThreadInput: AgreementCommentThreadInput{
 			Scope:         scopeFromPayload(payload),
 			AgreementID:   agreementID,
-			ReviewID:      strings.TrimSpace(toString(payloadValue(payload, "review_id"))),
-			Visibility:    strings.TrimSpace(toString(payloadValue(payload, "visibility"))),
-			AnchorType:    strings.TrimSpace(toString(payloadValue(payload, "anchor_type"))),
+			ReviewID:      strings.TrimSpace(primitives.StringFromAny(payloadValue(payload, "review_id"))),
+			Visibility:    strings.TrimSpace(primitives.StringFromAny(payloadValue(payload, "visibility"))),
+			AnchorType:    strings.TrimSpace(primitives.StringFromAny(payloadValue(payload, "anchor_type"))),
 			PageNumber:    intWithDefault(payloadValue(payload, "page_number"), 0),
-			FieldID:       strings.TrimSpace(toString(payloadValue(payload, "field_id"))),
+			FieldID:       strings.TrimSpace(primitives.StringFromAny(payloadValue(payload, "field_id"))),
 			AnchorX:       floatWithDefault(payloadValue(payload, "anchor_x"), 0),
 			AnchorY:       floatWithDefault(payloadValue(payload, "anchor_y"), 0),
-			Body:          strings.TrimSpace(toString(payloadValue(payload, "body"))),
-			ActorID:       strings.TrimSpace(toString(payloadValue(payload, "actor_id"))),
-			CorrelationID: strings.TrimSpace(toString(payloadValue(payload, "correlation_id"))),
+			Body:          strings.TrimSpace(primitives.StringFromAny(payloadValue(payload, "body"))),
+			ActorID:       strings.TrimSpace(primitives.StringFromAny(payloadValue(payload, "actor_id"))),
+			CorrelationID: strings.TrimSpace(primitives.StringFromAny(payloadValue(payload, "correlation_id"))),
 		},
 	}
 	if err := msg.Validate(); err != nil {
@@ -423,10 +425,10 @@ func buildAgreementReplyCommentThreadInput(payload map[string]any, ids []string)
 	msg := AgreementReplyCommentThreadInput{
 		Scope:         scopeFromPayload(payload),
 		AgreementID:   agreementID,
-		ThreadID:      strings.TrimSpace(toString(payloadValue(payload, "thread_id"))),
-		Body:          strings.TrimSpace(toString(payloadValue(payload, "body"))),
-		ActorID:       strings.TrimSpace(toString(payloadValue(payload, "actor_id"))),
-		CorrelationID: strings.TrimSpace(toString(payloadValue(payload, "correlation_id"))),
+		ThreadID:      strings.TrimSpace(primitives.StringFromAny(payloadValue(payload, "thread_id"))),
+		Body:          strings.TrimSpace(primitives.StringFromAny(payloadValue(payload, "body"))),
+		ActorID:       strings.TrimSpace(primitives.StringFromAny(payloadValue(payload, "actor_id"))),
+		CorrelationID: strings.TrimSpace(primitives.StringFromAny(payloadValue(payload, "correlation_id"))),
 	}
 	if err := msg.Validate(); err != nil {
 		return msg, err
@@ -466,8 +468,8 @@ func buildAgreementDeliveryResumeInput(payload map[string]any, ids []string) (Ag
 	msg := AgreementDeliveryResumeInput{
 		Scope:         scopeFromPayload(payload),
 		AgreementID:   agreementID,
-		ActorID:       strings.TrimSpace(toString(payloadValue(payload, "actor_id"))),
-		CorrelationID: strings.TrimSpace(toString(payloadValue(payload, "correlation_id"))),
+		ActorID:       strings.TrimSpace(primitives.StringFromAny(payloadValue(payload, "actor_id"))),
+		CorrelationID: strings.TrimSpace(primitives.StringFromAny(payloadValue(payload, "correlation_id"))),
 	}
 	if err := msg.Validate(); err != nil {
 		return msg, err
@@ -484,11 +486,11 @@ func buildAgreementReviewInput(payload map[string]any, ids []string) (AgreementR
 		Scope:              scopeFromPayload(payload),
 		AgreementID:        agreementID,
 		ReviewParticipants: toReviewParticipants(payloadValue(payload, "review_participants")),
-		ReviewerIDs:        toStringSlice(payloadValue(payload, "reviewer_ids")),
-		Gate:               strings.TrimSpace(toString(payloadValue(payload, "gate"))),
+		ReviewerIDs:        primitives.CSVStringSliceFromAny(payloadValue(payload, "reviewer_ids")),
+		Gate:               strings.TrimSpace(primitives.StringFromAny(payloadValue(payload, "gate"))),
 		CommentsEnabled:    boolWithDefault(payloadValue(payload, "comments_enabled"), false),
-		ActorID:            strings.TrimSpace(toString(payloadValue(payload, "actor_id"))),
-		CorrelationID:      strings.TrimSpace(toString(payloadValue(payload, "correlation_id"))),
+		ActorID:            strings.TrimSpace(primitives.StringFromAny(payloadValue(payload, "actor_id"))),
+		CorrelationID:      strings.TrimSpace(primitives.StringFromAny(payloadValue(payload, "correlation_id"))),
 	}, nil
 }
 
@@ -500,11 +502,11 @@ func buildAgreementReviewDecisionInput(payload map[string]any, ids []string) (Ag
 	return AgreementReviewDecisionCommandInput{
 		Scope:         scopeFromPayload(payload),
 		AgreementID:   agreementID,
-		ParticipantID: strings.TrimSpace(toString(payloadValue(payload, "participant_id"))),
-		RecipientID:   strings.TrimSpace(toString(payloadValue(payload, "recipient_id"))),
-		Comment:       strings.TrimSpace(toString(payloadValue(payload, "comment"))),
-		ActorID:       strings.TrimSpace(toString(payloadValue(payload, "actor_id"))),
-		CorrelationID: strings.TrimSpace(toString(payloadValue(payload, "correlation_id"))),
+		ParticipantID: strings.TrimSpace(primitives.StringFromAny(payloadValue(payload, "participant_id"))),
+		RecipientID:   strings.TrimSpace(primitives.StringFromAny(payloadValue(payload, "recipient_id"))),
+		Comment:       strings.TrimSpace(primitives.StringFromAny(payloadValue(payload, "comment"))),
+		ActorID:       strings.TrimSpace(primitives.StringFromAny(payloadValue(payload, "actor_id"))),
+		CorrelationID: strings.TrimSpace(primitives.StringFromAny(payloadValue(payload, "correlation_id"))),
 	}, nil
 }
 
@@ -516,9 +518,9 @@ func buildAgreementCommentThreadStateInput(payload map[string]any, ids []string)
 	return AgreementCommentThreadStateInput{
 		Scope:         scopeFromPayload(payload),
 		AgreementID:   agreementID,
-		ThreadID:      strings.TrimSpace(toString(payloadValue(payload, "thread_id"))),
-		ActorID:       strings.TrimSpace(toString(payloadValue(payload, "actor_id"))),
-		CorrelationID: strings.TrimSpace(toString(payloadValue(payload, "correlation_id"))),
+		ThreadID:      strings.TrimSpace(primitives.StringFromAny(payloadValue(payload, "thread_id"))),
+		ActorID:       strings.TrimSpace(primitives.StringFromAny(payloadValue(payload, "actor_id"))),
+		CorrelationID: strings.TrimSpace(primitives.StringFromAny(payloadValue(payload, "correlation_id"))),
 	}, nil
 }
 
@@ -528,13 +530,13 @@ func buildGuardedEffectResumeInput(payload map[string]any, ids []string) (Guarde
 		effectID = strings.TrimSpace(ids[0])
 	}
 	if effectID == "" {
-		effectID = strings.TrimSpace(toString(payloadValue(payload, "effect_id")))
+		effectID = strings.TrimSpace(primitives.StringFromAny(payloadValue(payload, "effect_id")))
 	}
 	msg := GuardedEffectResumeInput{
 		Scope:         scopeFromPayload(payload),
 		EffectID:      effectID,
-		ActorID:       strings.TrimSpace(toString(payloadValue(payload, "actor_id"))),
-		CorrelationID: strings.TrimSpace(toString(payloadValue(payload, "correlation_id"))),
+		ActorID:       strings.TrimSpace(primitives.StringFromAny(payloadValue(payload, "actor_id"))),
+		CorrelationID: strings.TrimSpace(primitives.StringFromAny(payloadValue(payload, "correlation_id"))),
 	}
 	if err := msg.Validate(); err != nil {
 		return msg, err
@@ -550,8 +552,8 @@ func buildTokenRotateInput(payload map[string]any, ids []string) (TokenRotateInp
 	msg := TokenRotateInput{
 		Scope:         scopeFromPayload(payload),
 		AgreementID:   agreementID,
-		RecipientID:   strings.TrimSpace(toString(payloadValue(payload, "recipient_id"))),
-		CorrelationID: strings.TrimSpace(toString(payloadValue(payload, "correlation_id"))),
+		RecipientID:   strings.TrimSpace(primitives.StringFromAny(payloadValue(payload, "recipient_id"))),
+		CorrelationID: strings.TrimSpace(primitives.StringFromAny(payloadValue(payload, "correlation_id"))),
 	}
 	if err := msg.Validate(); err != nil {
 		return msg, err
@@ -562,7 +564,7 @@ func buildTokenRotateInput(payload map[string]any, ids []string) (TokenRotateInp
 func buildAgreementReminderSweepInput(payload map[string]any, _ []string) (AgreementReminderSweepInput, error) {
 	msg := AgreementReminderSweepInput{
 		Scope:         scopeFromPayload(payload),
-		CorrelationID: strings.TrimSpace(toString(payloadValue(payload, "correlation_id"))),
+		CorrelationID: strings.TrimSpace(primitives.StringFromAny(payloadValue(payload, "correlation_id"))),
 	}
 	if err := msg.Validate(); err != nil {
 		return msg, err
@@ -573,9 +575,9 @@ func buildAgreementReminderSweepInput(payload map[string]any, _ []string) (Agree
 func buildAgreementReminderCleanupInput(payload map[string]any, _ []string) (AgreementReminderCleanupInput, error) {
 	msg := AgreementReminderCleanupInput{
 		Scope:         scopeFromPayload(payload),
-		Before:        strings.TrimSpace(toString(payloadValue(payload, "before"))),
+		Before:        strings.TrimSpace(primitives.StringFromAny(payloadValue(payload, "before"))),
 		Limit:         intWithDefault(payloadValue(payload, "limit"), 1000),
-		CorrelationID: strings.TrimSpace(toString(payloadValue(payload, "correlation_id"))),
+		CorrelationID: strings.TrimSpace(primitives.StringFromAny(payloadValue(payload, "correlation_id"))),
 	}
 	if err := msg.Validate(); err != nil {
 		return msg, err
@@ -627,8 +629,8 @@ func buildAgreementReminderControlInput(payload map[string]any, ids []string) (A
 	msg := AgreementReminderControlInput{
 		Scope:         scopeFromPayload(payload),
 		AgreementID:   agreementID,
-		RecipientID:   strings.TrimSpace(toString(payloadValue(payload, "recipient_id"))),
-		CorrelationID: strings.TrimSpace(toString(payloadValue(payload, "correlation_id"))),
+		RecipientID:   strings.TrimSpace(primitives.StringFromAny(payloadValue(payload, "recipient_id"))),
+		CorrelationID: strings.TrimSpace(primitives.StringFromAny(payloadValue(payload, "correlation_id"))),
 	}
 	return msg, nil
 }
@@ -636,8 +638,8 @@ func buildAgreementReminderControlInput(payload map[string]any, ids []string) (A
 func buildDraftCleanupInput(payload map[string]any, _ []string) (DraftCleanupInput, error) {
 	msg := DraftCleanupInput{
 		Scope:         scopeFromPayload(payload),
-		Before:        strings.TrimSpace(toString(payloadValue(payload, "before"))),
-		CorrelationID: strings.TrimSpace(toString(payloadValue(payload, "correlation_id"))),
+		Before:        strings.TrimSpace(primitives.StringFromAny(payloadValue(payload, "before"))),
+		CorrelationID: strings.TrimSpace(primitives.StringFromAny(payloadValue(payload, "correlation_id"))),
 	}
 	if err := msg.Validate(); err != nil {
 		return msg, err
@@ -651,23 +653,23 @@ func buildPDFRemediationInput(payload map[string]any, ids []string) (PDFRemediat
 		documentID = strings.TrimSpace(ids[0])
 	}
 	if documentID == "" {
-		documentID = strings.TrimSpace(toString(payloadValue(payload, "document_id")))
+		documentID = strings.TrimSpace(primitives.StringFromAny(payloadValue(payload, "document_id")))
 	}
 	if documentID == "" {
-		documentID = strings.TrimSpace(toString(payloadValue(payload, "id")))
+		documentID = strings.TrimSpace(primitives.StringFromAny(payloadValue(payload, "id")))
 	}
 
 	msg := PDFRemediationInput{
 		Scope:            scopeFromPayload(payload),
 		DocumentID:       documentID,
-		AgreementID:      strings.TrimSpace(toString(payloadValue(payload, "agreement_id"))),
-		ActorID:          strings.TrimSpace(toString(payloadValue(payload, "actor_id"))),
+		AgreementID:      strings.TrimSpace(primitives.StringFromAny(payloadValue(payload, "agreement_id"))),
+		ActorID:          strings.TrimSpace(primitives.StringFromAny(payloadValue(payload, "actor_id"))),
 		Force:            boolWithDefault(payloadValue(payload, "force"), false),
-		CorrelationID:    strings.TrimSpace(toString(payloadValue(payload, "correlation_id"))),
-		CommandID:        strings.TrimSpace(toString(payloadValue(payload, "command_id"))),
-		DispatchID:       strings.TrimSpace(toString(payloadValue(payload, "dispatch_id"))),
-		ExecutionMode:    strings.TrimSpace(strings.ToLower(toString(payloadValue(payload, "execution_mode")))),
-		RequestedAt:      strings.TrimSpace(toString(payloadValue(payload, "requested_at"))),
+		CorrelationID:    strings.TrimSpace(primitives.StringFromAny(payloadValue(payload, "correlation_id"))),
+		CommandID:        strings.TrimSpace(primitives.StringFromAny(payloadValue(payload, "command_id"))),
+		DispatchID:       strings.TrimSpace(primitives.StringFromAny(payloadValue(payload, "dispatch_id"))),
+		ExecutionMode:    strings.TrimSpace(strings.ToLower(primitives.StringFromAny(payloadValue(payload, "execution_mode")))),
+		RequestedAt:      strings.TrimSpace(primitives.StringFromAny(payloadValue(payload, "requested_at"))),
 		DispatchMetadata: toAnyMap(payloadValue(payload, "_dispatch_metadata")),
 	}
 	if err := msg.Validate(); err != nil {
@@ -682,10 +684,10 @@ func agreementIDFromPayload(payload map[string]any, ids []string) (string, error
 			return id, nil
 		}
 	}
-	if id := strings.TrimSpace(toString(payloadValue(payload, "agreement_id"))); id != "" {
+	if id := strings.TrimSpace(primitives.StringFromAny(payloadValue(payload, "agreement_id"))); id != "" {
 		return id, nil
 	}
-	if id := strings.TrimSpace(toString(payloadValue(payload, "id"))); id != "" {
+	if id := strings.TrimSpace(primitives.StringFromAny(payloadValue(payload, "id"))); id != "" {
 		return id, nil
 	}
 	return "", fmt.Errorf("agreement_id required")
@@ -693,8 +695,8 @@ func agreementIDFromPayload(payload map[string]any, ids []string) (string, error
 
 func scopeFromPayload(payload map[string]any) stores.Scope {
 	return stores.Scope{
-		TenantID: strings.TrimSpace(toString(payloadValue(payload, "tenant_id"))),
-		OrgID:    strings.TrimSpace(toString(payloadValue(payload, "org_id"))),
+		TenantID: strings.TrimSpace(primitives.StringFromAny(payloadValue(payload, "tenant_id"))),
+		OrgID:    strings.TrimSpace(primitives.StringFromAny(payloadValue(payload, "org_id"))),
 	}
 }
 
@@ -725,10 +727,6 @@ func toAnyMap(value any) map[string]any {
 	}
 }
 
-func toString(value any) string {
-	return primitives.StringFromAny(value)
-}
-
 func boolWithDefault(value any, fallback bool) bool {
 	if parsed, ok := primitives.BoolFromAny(value); ok {
 		return parsed
@@ -750,10 +748,6 @@ func floatWithDefault(value any, fallback float64) float64 {
 	return fallback
 }
 
-func toStringSlice(value any) []string {
-	return primitives.CSVStringSliceFromAny(value)
-}
-
 func toReviewParticipants(value any) []services.ReviewParticipantInput {
 	items, ok := value.([]any)
 	if !ok {
@@ -766,10 +760,10 @@ func toReviewParticipants(value any) []services.ReviewParticipantInput {
 			continue
 		}
 		out = append(out, services.ReviewParticipantInput{
-			ParticipantType: strings.TrimSpace(toString(record["participant_type"])),
-			RecipientID:     strings.TrimSpace(toString(record["recipient_id"])),
-			Email:           strings.TrimSpace(toString(record["email"])),
-			DisplayName:     strings.TrimSpace(toString(record["display_name"])),
+			ParticipantType: strings.TrimSpace(primitives.StringFromAny(record["participant_type"])),
+			RecipientID:     strings.TrimSpace(primitives.StringFromAny(record["recipient_id"])),
+			Email:           strings.TrimSpace(primitives.StringFromAny(record["email"])),
+			DisplayName:     strings.TrimSpace(primitives.StringFromAny(record["display_name"])),
 			CanComment:      boolWithDefault(record["can_comment"], false),
 			CanApprove:      boolWithDefault(record["can_approve"], false),
 		})
