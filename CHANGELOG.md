@@ -1,15 +1,29 @@
 # Changelog
 
+# [0.113.3](https://github.com/goliatone/go-admin/compare/v0.113.2...v0.113.3) - (2026-07-03)
+
+
+## Migration Notes
+
+- Translation Queue SSR parity fixes are included for filter clearing, out-of-range pagination, and server-family expansion pagination.
+- If your deployment serves queue assets from disk, refresh or remove stale files such as `data/public/assets/dist/translation-queue/index.js`; disk files can shadow the embedded upstream assets shipped by this release.
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Align translation queue SSR release parity ([887537c](https://github.com/goliatone/go-admin/commit/887537c294c763b0710bc5265588c020f2184738))  - (goliatone)
+
 # [0.113.2](https://github.com/goliatone/go-admin/compare/v0.113.1...v0.113.2) - (2026-07-03)
 
 
-## Translation Queue SSR
-
-- Keeps the `All visible assignments` bulk-selection copy visible when active filter chips are present on the SSR queue page.
+New patch release: v0.113.2
 
 ## <!-- 1 -->🐛 Bug Fixes
 
 - Keep queue bulk selection copy with active filters ([23f4a07](https://github.com/goliatone/go-admin/commit/23f4a074dcb35518010ba893491d8dc603644e83))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.113.2 ([92151c8](https://github.com/goliatone/go-admin/commit/92151c86cc08c75ef321491ccfc22cd29a0a1a9d))  - (goliatone)
 
 # [0.113.1](https://github.com/goliatone/go-admin/compare/v0.113.0...v0.113.1) - (2026-07-03)
 
