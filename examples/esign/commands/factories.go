@@ -13,6 +13,13 @@ import (
 
 var toString = primitives.StringFromAny
 
+type agreementCommandEnvelope struct {
+	Scope         stores.Scope
+	AgreementID   string
+	ActorID       string
+	CorrelationID string
+}
+
 // RegisterCommandFactories registers payload parsers for panel action command dispatch.
 func RegisterCommandFactories(bus *coreadmin.CommandBus) error {
 	if err := registerAgreementCommandFactories(bus); err != nil {
@@ -297,17 +304,17 @@ func buildAgreementApproveReviewOnBehalfInput(payload map[string]any, ids []stri
 }
 
 func buildAgreementNotifyReviewersInput(payload map[string]any, ids []string) (AgreementNotifyReviewersInput, error) {
-	agreementID, err := agreementIDFromPayload(payload, ids)
+	base, err := buildAgreementCommandEnvelope(payload, ids)
 	if err != nil {
 		return AgreementNotifyReviewersInput{}, err
 	}
 	msg := AgreementNotifyReviewersInput{
-		Scope:         scopeFromPayload(payload),
-		AgreementID:   agreementID,
-		ParticipantID: strings.TrimSpace(primitives.StringFromAny(payloadValue(payload, "participant_id"))),
-		RecipientID:   strings.TrimSpace(primitives.StringFromAny(payloadValue(payload, "recipient_id"))),
-		ActorID:       strings.TrimSpace(primitives.StringFromAny(payloadValue(payload, "actor_id"))),
-		CorrelationID: strings.TrimSpace(primitives.StringFromAny(payloadValue(payload, "correlation_id"))),
+		Scope:         base.Scope,
+		AgreementID:   base.AgreementID,
+		ParticipantID: stringPayloadValue(payload, "participant_id"),
+		RecipientID:   stringPayloadValue(payload, "recipient_id"),
+		ActorID:       base.ActorID,
+		CorrelationID: base.CorrelationID,
 	}
 	if err := msg.Validate(); err != nil {
 		return msg, err
@@ -418,17 +425,17 @@ func buildAgreementCreateCommentThreadInput(payload map[string]any, ids []string
 }
 
 func buildAgreementReplyCommentThreadInput(payload map[string]any, ids []string) (AgreementReplyCommentThreadInput, error) {
-	agreementID, err := agreementIDFromPayload(payload, ids)
+	base, err := buildAgreementCommandEnvelope(payload, ids)
 	if err != nil {
 		return AgreementReplyCommentThreadInput{}, err
 	}
 	msg := AgreementReplyCommentThreadInput{
-		Scope:         scopeFromPayload(payload),
-		AgreementID:   agreementID,
-		ThreadID:      strings.TrimSpace(primitives.StringFromAny(payloadValue(payload, "thread_id"))),
-		Body:          strings.TrimSpace(primitives.StringFromAny(payloadValue(payload, "body"))),
-		ActorID:       strings.TrimSpace(primitives.StringFromAny(payloadValue(payload, "actor_id"))),
-		CorrelationID: strings.TrimSpace(primitives.StringFromAny(payloadValue(payload, "correlation_id"))),
+		Scope:         base.Scope,
+		AgreementID:   base.AgreementID,
+		ThreadID:      stringPayloadValue(payload, "thread_id"),
+		Body:          stringPayloadValue(payload, "body"),
+		ActorID:       base.ActorID,
+		CorrelationID: base.CorrelationID,
 	}
 	if err := msg.Validate(); err != nil {
 		return msg, err
@@ -492,6 +499,23 @@ func buildAgreementReviewInput(payload map[string]any, ids []string) (AgreementR
 		ActorID:            strings.TrimSpace(primitives.StringFromAny(payloadValue(payload, "actor_id"))),
 		CorrelationID:      strings.TrimSpace(primitives.StringFromAny(payloadValue(payload, "correlation_id"))),
 	}, nil
+}
+
+func buildAgreementCommandEnvelope(payload map[string]any, ids []string) (agreementCommandEnvelope, error) {
+	agreementID, err := agreementIDFromPayload(payload, ids)
+	if err != nil {
+		return agreementCommandEnvelope{}, err
+	}
+	return agreementCommandEnvelope{
+		Scope:         scopeFromPayload(payload),
+		AgreementID:   agreementID,
+		ActorID:       stringPayloadValue(payload, "actor_id"),
+		CorrelationID: stringPayloadValue(payload, "correlation_id"),
+	}, nil
+}
+
+func stringPayloadValue(payload map[string]any, key string) string {
+	return strings.TrimSpace(primitives.StringFromAny(payloadValue(payload, key)))
 }
 
 func buildAgreementReviewDecisionInput(payload map[string]any, ids []string) (AgreementReviewDecisionCommandInput, error) {

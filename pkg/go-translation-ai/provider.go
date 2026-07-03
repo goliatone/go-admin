@@ -23,10 +23,6 @@ func firstNonEmpty(values ...string) string {
 	return ""
 }
 
-type readyProvider interface {
-	Ready() bool
-}
-
 // ProviderRequest contains the prompt and safe translation context sent to a
 // host-supplied provider implementation.
 type ProviderRequest struct {
@@ -156,32 +152,4 @@ func formatAssistContext(value map[string]any) string {
 		return ""
 	}
 	return string(data)
-}
-
-func sanitizeDiagnostics(in map[string]any) map[string]any {
-	if len(in) == 0 {
-		return nil
-	}
-	out := make(map[string]any, len(in))
-	for key, value := range in {
-		normalized := strings.ToLower(strings.TrimSpace(key))
-		if normalized == "" || diagnosticKeySensitive(normalized) {
-			continue
-		}
-		out[strings.TrimSpace(key)] = value
-	}
-	if len(out) == 0 {
-		return nil
-	}
-	return out
-}
-
-func diagnosticKeySensitive(key string) bool {
-	sensitive := []string{"api_key", "apikey", "secret", "token", "password", "authorization", "prompt", "source_text", "raw_request", "raw_response"}
-	for _, marker := range sensitive {
-		if strings.Contains(key, marker) {
-			return true
-		}
-	}
-	return false
 }
