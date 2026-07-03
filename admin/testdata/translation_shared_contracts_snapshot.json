@@ -848,6 +848,7 @@
       "due_state",
       "locale",
       "priority",
+      "entity_type",
       "family_id",
       "review_state"
     ],
