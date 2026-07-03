@@ -608,7 +608,7 @@ func requiredLocalesForBlockers(family FamilyRecord, policy FamilyPolicy, source
 	if len(requiredLocales) == 0 && source.Locale != "" {
 		requiredLocales = []string{source.Locale}
 	}
-	sourceLocale := strings.TrimSpace(strings.ToLower(firstNonEmpty(policy.SourceLocale, family.SourceLocale)))
+	sourceLocale := strings.TrimSpace(strings.ToLower(primitives.FirstNonEmptyRaw(policy.SourceLocale, family.SourceLocale)))
 	if sourceLocale != "" && strings.TrimSpace(source.ID) == "" && !containsString(requiredLocales, sourceLocale) {
 		requiredLocales = append([]string{sourceLocale}, requiredLocales...)
 	}
@@ -945,15 +945,6 @@ func containsString(values []string, candidate string) bool {
 		}
 	}
 	return false
-}
-
-func firstNonEmpty(values ...string) string {
-	for _, value := range values {
-		if strings.TrimSpace(value) != "" {
-			return value
-		}
-	}
-	return ""
 }
 
 func clampPositive(value, fallback int) int {

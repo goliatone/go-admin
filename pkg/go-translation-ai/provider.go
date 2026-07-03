@@ -14,6 +14,15 @@ type Provider interface {
 	GenerateTranslation(context.Context, ProviderRequest) (ProviderResponse, error)
 }
 
+func firstNonEmpty(values ...string) string {
+	for _, value := range values {
+		if trimmed := strings.TrimSpace(value); trimmed != "" {
+			return trimmed
+		}
+	}
+	return ""
+}
+
 type readyProvider interface {
 	Ready() bool
 }
@@ -175,13 +184,4 @@ func diagnosticKeySensitive(key string) bool {
 		}
 	}
 	return false
-}
-
-func firstNonEmpty(values ...string) string {
-	for _, value := range values {
-		if trimmed := strings.TrimSpace(value); trimmed != "" {
-			return trimmed
-		}
-	}
-	return ""
 }

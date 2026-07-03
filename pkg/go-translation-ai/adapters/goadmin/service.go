@@ -3,6 +3,7 @@ package goadmin
 import (
 	"context"
 	"errors"
+	"github.com/goliatone/go-admin/internal/primitives"
 	"strings"
 
 	coreadmin "github.com/goliatone/go-admin/admin"
@@ -295,7 +296,7 @@ func (p *PromptProvider) SuggestTranslation(ctx context.Context, input coreadmin
 	return coreadmin.TranslationSuggestionProviderResult{
 		Text:        strings.TrimSpace(resp.Text),
 		Provider:    strings.TrimSpace(resp.Provider),
-		Model:       firstNonEmpty(resp.Model, req.Model),
+		Model:       primitives.FirstNonEmpty(resp.Model, req.Model),
 		Diagnostics: sanitizeDiagnostics(resp.Diagnostics),
 	}, nil
 }
@@ -351,13 +352,4 @@ func diagnosticKeySensitive(key string) bool {
 		}
 	}
 	return false
-}
-
-func firstNonEmpty(values ...string) string {
-	for _, value := range values {
-		if trimmed := strings.TrimSpace(value); trimmed != "" {
-			return trimmed
-		}
-	}
-	return ""
 }

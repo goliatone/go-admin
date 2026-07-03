@@ -3,9 +3,9 @@ package services
 import (
 	"crypto/sha256"
 	"encoding/hex"
-	"sort"
 	"strings"
 
+	"github.com/goliatone/go-admin/internal/primitives"
 	translationcore "github.com/goliatone/go-admin/translations/core"
 )
 
@@ -34,27 +34,7 @@ func normalizeVariantStatus(status string) string {
 }
 
 func normalizedStringSlice(values []string) []string {
-	if len(values) == 0 {
-		return nil
-	}
-	set := map[string]struct{}{}
-	out := make([]string, 0, len(values))
-	for _, value := range values {
-		normalized := strings.TrimSpace(strings.ToLower(value))
-		if normalized == "" {
-			continue
-		}
-		if _, ok := set[normalized]; ok {
-			continue
-		}
-		set[normalized] = struct{}{}
-		out = append(out, normalized)
-	}
-	sort.Strings(out)
-	if len(out) == 0 {
-		return nil
-	}
-	return out
+	return primitives.NormalizeLowerUniqueStringSliceSorted(values)
 }
 
 func normalizedRequiredFields(fields map[string][]string) map[string][]string {
