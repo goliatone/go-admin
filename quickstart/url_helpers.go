@@ -91,25 +91,41 @@ func resolveAdminRouteURL(urls urlkit.Resolver, fallback, route string, fallback
 
 func resolveAdminContentEntryBasePath(urls urlkit.Resolver, fallback string) string {
 	const panelPlaceholder = "__go_admin_content_panel__"
-
-	if resolved := strings.TrimSpace(resolveRouteURL(urls, "admin", "content.panel", map[string]string{"panel": panelPlaceholder}, nil)); resolved != "" {
-		if trimmed, ok := strings.CutSuffix(resolved, "/"+panelPlaceholder); ok && strings.TrimSpace(trimmed) != "" {
-			return trimmed
-		}
-	}
+	adminBase := resolveAdminBaseURL(urls, fallback)
 
 	if routePath := strings.TrimSpace(resolveRoutePath(urls, "admin", "content.panel")); routePath != "" {
 		for _, suffix := range []string{"/:panel", "/{panel}", "/:" + panelPlaceholder, "/" + panelPlaceholder} {
 			if trimmed, ok := strings.CutSuffix(routePath, suffix); ok && strings.TrimSpace(trimmed) != "" {
-				return trimmed
+				return prefixAdminRouteBase(adminBase, trimmed)
 			}
 		}
 		if !strings.ContainsAny(routePath, ":*{}") {
-			return routePath
+			return prefixAdminRouteBase(adminBase, routePath)
+		}
+	}
+
+	if resolved := strings.TrimSpace(resolveRouteURL(urls, "admin", "content.panel", map[string]string{"panel": panelPlaceholder}, nil)); resolved != "" {
+		if trimmed, ok := strings.CutSuffix(resolved, "/"+panelPlaceholder); ok && strings.TrimSpace(trimmed) != "" {
+			return prefixAdminRouteBase(adminBase, trimmed)
 		}
 	}
 
 	return prefixBasePath(resolveAdminBasePath(urls, fallback), "content")
+}
+
+func prefixAdminRouteBase(adminBase, routeBase string) string {
+	routeBase = trimTrailingSlash(routeBase)
+	if routeBase == "" || pathutil.IsAbsoluteURL(routeBase) {
+		return routeBase
+	}
+	adminBase = trimTrailingSlash(adminBase)
+	if adminBase == "" || adminBase == "/" {
+		return routeBase
+	}
+	if routeBase == adminBase || strings.HasPrefix(routeBase, adminBase+"/") {
+		return routeBase
+	}
+	return prefixBasePath(adminBase, routeBase)
 }
 
 func resolveAdminURL(urls urlkit.Resolver, fallback, path string) string {
@@ -184,6 +200,9 @@ func resolveAdminPanelDetailURL(urls urlkit.Resolver, fallback, panel, id string
 	if resolved := resolveRouteURL(urls, "admin", "content.panel.id", map[string]string{"panel": panel, "id": id}, nil); strings.TrimSpace(resolved) != "" {
 		return resolved
 	}
+	if contentBase := strings.TrimSpace(resolveAdminContentEntryBasePath(urls, fallback)); contentBase != "" {
+		return joinResolvedPath(contentBase, path.Join(panel, id))
+	}
 	return prefixBasePath(resolveAdminBasePath(urls, fallback), path.Join("content", panel, id))
 }
 
@@ -253,4 +272,19 @@ func prefixBasePath(basePath, suffix string) string {
 
 func isAbsoluteURL(path string) bool {
 	return pathutil.IsAbsoluteURL(path)
+}
+
+func joinResolvedPath(base, suffix string) string {
+	base = strings.TrimRight(strings.TrimSpace(base), "/")
+	suffix = strings.Trim(strings.TrimSpace(suffix), "/")
+	if base == "" {
+		return pathutil.EnsureLeadingSlash(suffix)
+	}
+	if suffix == "" {
+		return base
+	}
+	if pathutil.IsAbsoluteURL(base) {
+		return base + "/" + suffix
+	}
+	return path.Join(base, suffix)
 }
