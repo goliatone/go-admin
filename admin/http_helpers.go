@@ -3,7 +3,6 @@ package admin
 import (
 	"encoding/json"
 	"reflect"
-	"strconv"
 	"strings"
 
 	"github.com/goliatone/go-admin/admin/internal/adminkeys"
@@ -92,13 +91,7 @@ func splitIDs(value string) []string {
 }
 
 func atoiDefault(val string, def int) int {
-	if val == "" {
-		return def
-	}
-	if n, err := strconv.Atoi(val); err == nil {
-		return n
-	}
-	return def
+	return listquery.AtoiDefault(val, def)
 }
 
 func extractMap(val any) map[string]any {

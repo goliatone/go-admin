@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	"reflect"
+	"sort"
 	"strconv"
 	"strings"
 )
@@ -40,6 +41,16 @@ func StringFromAny(value any) string {
 	default:
 		return strings.TrimSpace(fmt.Sprint(typed))
 	}
+}
+
+// FirstNonEmptyFromAny converts values to strings and returns the first non-empty result.
+func FirstNonEmptyFromAny(values ...any) string {
+	for _, value := range values {
+		if text := StringFromAny(value); text != "" {
+			return text
+		}
+	}
+	return ""
 }
 
 // BoolFromAny converts common scalar values into a boolean.
@@ -193,7 +204,7 @@ func StringSliceFromAny(value any) []string {
 	case nil:
 		return nil
 	case []string:
-		return normalizeStringSlice(typed)
+		return NormalizeStringSlice(typed)
 	case []any:
 		out := make([]string, 0, len(typed))
 		for _, item := range typed {
@@ -203,7 +214,7 @@ func StringSliceFromAny(value any) []string {
 			}
 			out = append(out, text)
 		}
-		return normalizeStringSlice(out)
+		return NormalizeStringSlice(out)
 	default:
 		return nil
 	}
@@ -221,13 +232,13 @@ func CSVStringSliceFromAny(value any) []string {
 		for _, item := range typed {
 			out = append(out, splitCSVStrings(item)...)
 		}
-		return normalizeStringSlice(out)
+		return NormalizeStringSlice(out)
 	case []any:
 		out := make([]string, 0, len(typed))
 		for _, item := range typed {
 			out = append(out, splitCSVStrings(StringFromAny(item))...)
 		}
-		return normalizeStringSlice(out)
+		return NormalizeStringSlice(out)
 	default:
 		text := StringFromAny(value)
 		if text == "" {
@@ -237,7 +248,17 @@ func CSVStringSliceFromAny(value any) []string {
 	}
 }
 
-func normalizeStringSlice(values []string) []string {
+// CSVStringSliceFromAnyEmpty normalizes strings and arrays, returning an empty slice when empty.
+func CSVStringSliceFromAnyEmpty(value any) []string {
+	out := CSVStringSliceFromAny(value)
+	if out == nil {
+		return []string{}
+	}
+	return out
+}
+
+// NormalizeStringSlice trims values and removes blank entries, returning nil when empty.
+func NormalizeStringSlice(values []string) []string {
 	if len(values) == 0 {
 		return nil
 	}
@@ -255,13 +276,105 @@ func normalizeStringSlice(values []string) []string {
 	return out
 }
 
+// NormalizeStringSliceEmpty trims values and removes blank entries, returning an empty slice when empty.
+func NormalizeStringSliceEmpty(values []string) []string {
+	out := NormalizeStringSlice(values)
+	if out == nil {
+		return []string{}
+	}
+	return out
+}
+
+// NormalizeUniqueStringSlice trims values, removes blanks, and keeps first occurrences.
+func NormalizeUniqueStringSlice(values []string) []string {
+	return normalizeUniqueStringSlice(values, false, false)
+}
+
+// NormalizeUniqueStringSliceEmpty trims values, removes blanks, keeps first occurrences, and returns an empty slice when empty.
+func NormalizeUniqueStringSliceEmpty(values []string) []string {
+	out := normalizeUniqueStringSlice(values, false, true)
+	if out == nil {
+		return []string{}
+	}
+	return out
+}
+
+// NormalizeUniqueStringSliceFold trims values and removes duplicates case-insensitively.
+func NormalizeUniqueStringSliceFold(values []string) []string {
+	return normalizeUniqueStringSlice(values, true, false)
+}
+
+// NormalizeLowerUniqueStringSlice trims, lowercases, dedupes, and returns nil when empty.
+func NormalizeLowerUniqueStringSlice(values []string) []string {
+	if len(values) == 0 {
+		return nil
+	}
+	seen := map[string]struct{}{}
+	out := make([]string, 0, len(values))
+	for _, value := range values {
+		normalized := strings.ToLower(strings.TrimSpace(value))
+		if normalized == "" {
+			continue
+		}
+		if _, ok := seen[normalized]; ok {
+			continue
+		}
+		seen[normalized] = struct{}{}
+		out = append(out, normalized)
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+// NormalizeLowerUniqueStringSliceSorted trims, lowercases, dedupes, sorts, and returns nil when empty.
+func NormalizeLowerUniqueStringSliceSorted(values []string) []string {
+	out := NormalizeLowerUniqueStringSlice(values)
+	if len(out) == 0 {
+		return nil
+	}
+	sort.Strings(out)
+	return out
+}
+
+func normalizeUniqueStringSlice(values []string, fold bool, emptyOnEmpty bool) []string {
+	if len(values) == 0 {
+		if emptyOnEmpty {
+			return []string{}
+		}
+		return nil
+	}
+	seen := map[string]struct{}{}
+	out := make([]string, 0, len(values))
+	for _, value := range values {
+		trimmed := strings.TrimSpace(value)
+		if trimmed == "" {
+			continue
+		}
+		key := trimmed
+		if fold {
+			key = strings.ToLower(key)
+		}
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		out = append(out, trimmed)
+	}
+	if len(out) == 0 && !emptyOnEmpty {
+		return nil
+	}
+	return out
+}
+
 func splitCSVStrings(value string) []string {
 	value = strings.TrimSpace(value)
 	if value == "" {
 		return nil
 	}
 	parts := strings.Split(value, ",")
-	return normalizeStringSlice(parts)
+	return NormalizeStringSlice(parts)
 }
 
 func intFromString(value string) (int, bool) {

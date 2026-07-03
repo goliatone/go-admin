@@ -148,7 +148,7 @@ func adminPageRecordFromMap(record map[string]any, includeData bool) AdminPageRe
 		AvailableLocales:       append([]string{}, page.AvailableLocales...),
 		MissingRequestedLocale: page.MissingRequestedLocale,
 		FallbackUsed:           page.RequestedLocale != "" && !isTranslationLocaleWildcard(page.RequestedLocale) && !strings.EqualFold(page.RequestedLocale, page.ResolvedLocale),
-		PrimaryLocale:          strings.TrimSpace(primitives.FirstNonEmptyRaw(toString(record["primary_locale"]), firstNonEmptyString(page.AvailableLocales...))),
+		PrimaryLocale:          strings.TrimSpace(primitives.FirstNonEmptyRaw(toString(record["primary_locale"]), primitives.FirstNonEmpty(page.AvailableLocales...))),
 	}
 	pageTranslation := PageTranslation{
 		Locale:  page.Locale,
@@ -198,15 +198,6 @@ func adminPageRecordFromMap(record map[string]any, includeData bool) AdminPageRe
 		out.PreviewURL = path
 	}
 	return out
-}
-
-func firstNonEmptyString(values ...string) string {
-	for _, value := range values {
-		if trimmed := strings.TrimSpace(value); trimmed != "" {
-			return trimmed
-		}
-	}
-	return ""
 }
 
 func stringPtr(value string) *string {

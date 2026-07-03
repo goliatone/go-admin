@@ -792,7 +792,7 @@ func userToRecord(user UserRecord) map[string]any {
 func userRoles(record map[string]any) []string {
 	roles := []string{}
 	if val, ok := record["roles"]; ok {
-		roles = append(roles, toStringSlice(val)...)
+		roles = append(roles, primitives.NormalizeUniqueStringSlice(primitives.StringSliceFromAny(val))...)
 	}
 	if role := toString(record["role"]); role != "" {
 		roles = append(roles, role)
@@ -803,7 +803,7 @@ func userRoles(record map[string]any) []string {
 func userPermissions(record map[string]any) []string {
 	perms := []string{}
 	if val, ok := record["permissions"]; ok {
-		perms = append(perms, toStringSlice(val)...)
+		perms = append(perms, primitives.NormalizeUniqueStringSlice(primitives.StringSliceFromAny(val))...)
 	}
 	raw := toString(record["permissions"])
 	if raw != "" && len(perms) == 0 {
@@ -985,7 +985,7 @@ func recordToRole(record map[string]any, id string) RoleRecord {
 func rolePermissionsFromRecordField(value any) []string {
 	perms := permissionStrings(value)
 	if len(perms) == 0 {
-		perms = toStringSlice(value)
+		perms = primitives.NormalizeUniqueStringSlice(primitives.StringSliceFromAny(value))
 	}
 	return dedupeStrings(perms)
 }
@@ -1042,8 +1042,4 @@ func toBool(val any) bool {
 		return value
 	}
 	return false
-}
-
-func toStringSlice(val any) []string {
-	return dedupeStrings(primitives.StringSliceFromAny(val))
 }

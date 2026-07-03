@@ -99,10 +99,6 @@ func cloneSlice(in []map[string]any) []map[string]any {
 	return out
 }
 
-func toString(v any) string {
-	return primitives.StringFromAny(v)
-}
-
 func intValue(v any) int {
 	if value, ok := primitives.IntFromAny(v); ok {
 		return value

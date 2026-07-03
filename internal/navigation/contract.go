@@ -1,7 +1,7 @@
 package navigation
 
 import (
-	"fmt"
+	"github.com/goliatone/go-admin/internal/primitives"
 	"maps"
 	"reflect"
 	"slices"
@@ -309,7 +309,7 @@ func TargetString(target map[string]any, key string) string {
 	if !ok || value == nil {
 		return ""
 	}
-	return strings.TrimSpace(toString(value))
+	return primitives.StringFromAny(value)
 }
 
 func MissingRoute(item Item) bool {
@@ -566,7 +566,7 @@ func sameMenuParent(expected, existing Item) bool {
 }
 
 func menuParentIdentity(item Item) string {
-	if parent := strings.TrimSpace(firstNonEmpty(item.ParentID, item.ParentCode)); parent != "" {
+	if parent := strings.TrimSpace(primitives.FirstNonEmpty(item.ParentID, item.ParentCode)); parent != "" {
 		return strings.ToLower(parent)
 	}
 	id := strings.TrimSpace(item.ID)
@@ -723,7 +723,7 @@ func comparableItem(item Item) Item {
 
 func classifyExpected(exp ExpectedItem, rendered, raw, merged []Item) ClassifiedItem {
 	canonicalID := strings.TrimSpace(exp.Item.ID)
-	item := ClassifiedItem{CanonicalID: canonicalID, Owner: exp.Owner, OwnerID: firstNonEmpty(exp.OwnerID, OwnerID(exp.Item))}
+	item := ClassifiedItem{CanonicalID: canonicalID, Owner: exp.Owner, OwnerID: primitives.FirstNonEmpty(exp.OwnerID, OwnerID(exp.Item))}
 	switch {
 	case exp.Retired:
 		item.Classification = ClassificationRetired
@@ -859,27 +859,4 @@ func containsFold(values []string, want string) bool {
 		}
 	}
 	return false
-}
-
-func firstNonEmpty(values ...string) string {
-	for _, value := range values {
-		if trimmed := strings.TrimSpace(value); trimmed != "" {
-			return trimmed
-		}
-	}
-	return ""
-}
-
-func toString(value any) string {
-	if value == nil {
-		return ""
-	}
-	switch v := value.(type) {
-	case string:
-		return v
-	case []byte:
-		return string(v)
-	default:
-		return strings.TrimSpace(fmt.Sprint(v))
-	}
 }
