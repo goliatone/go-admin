@@ -3,6 +3,7 @@ package quickstart
 import (
 	"context"
 	"net/http"
+	"path"
 	"strings"
 	"time"
 
@@ -234,14 +235,15 @@ func (h *contentEntryHandlers) previewActionURLForRecord(c router.Context, panel
 	if h == nil || h.admin == nil || h.admin.Preview() == nil || strings.TrimSpace(id) == "" {
 		return ""
 	}
-	if targetPath := admin.ResolveContentPreviewPathWithOptions(record, admin.ContentPreviewPathOptions{
-		AllowSlugFallback: contentTypeAllowsSlugPreviewFallback(contentType),
-	}); targetPath == "" {
+	targetPath := h.previewTargetPathForRecord(record, contentType)
+	if targetPath == "" || h.admin.BuildSitePreviewURL(targetPath, "preview-token-probe") == "" {
 		return ""
 	}
 	slug := contentTypeSlug(contentType, canonicalPanelName(panelName))
-	routes := newContentEntryRoutes(resolveAdminBasePath(h.adminURLs(), h.cfg.BasePath), slug, resolveContentChannel(c))
-	target := routes.preview(id)
+	target := joinResolvedPath(resolveAdminContentEntryBasePath(h.adminURLs(), h.cfg.BasePath), path.Join(slug, id, "preview"))
+	if channel := resolveContentChannel(c); channel != "" {
+		target = appendQueryParam(target, "channel", channel)
+	}
 	if locale := contentEntryRequestedLocale(c, contentEntryTranslationStateFromRecord(record).RequestedLocale); locale != "" {
 		target = appendQueryParam(target, "locale", locale)
 	}
@@ -252,9 +254,7 @@ func (h *contentEntryHandlers) previewURLForRecord(ctx context.Context, panelNam
 	if h == nil || h.admin == nil || strings.TrimSpace(id) == "" {
 		return "", nil
 	}
-	targetPath := admin.ResolveContentPreviewPathWithOptions(record, admin.ContentPreviewPathOptions{
-		AllowSlugFallback: contentTypeAllowsSlugPreviewFallback(contentType),
-	})
+	targetPath := h.previewTargetPathForRecord(record, contentType)
 	if targetPath == "" {
 		return "", nil
 	}
@@ -267,6 +267,12 @@ func (h *contentEntryHandlers) previewURLForRecord(ctx context.Context, panelNam
 		return "", err
 	}
 	return h.admin.BuildSitePreviewURL(targetPath, token), nil
+}
+
+func (h *contentEntryHandlers) previewTargetPathForRecord(record map[string]any, contentType *admin.CMSContentType) string {
+	return admin.ResolveContentPreviewPathWithOptions(record, admin.ContentPreviewPathOptions{
+		AllowSlugFallback: contentTypeAllowsSlugPreviewFallback(contentType),
+	})
 }
 
 func contentTypeAllowsSlugPreviewFallback(contentType *admin.CMSContentType) bool {

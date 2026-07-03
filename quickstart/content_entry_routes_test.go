@@ -225,6 +225,7 @@ func TestRegisterContentEntryUIRoutesUsesResolvedAdminContentBasePath(t *testing
 	for _, want := range []string{
 		"/control/content/:name",
 		"/control/content/:name/new",
+		"/control/content/:name/:id/preview",
 		"/control/content/:name/:id",
 		"/control/content/:name/:id/edit",
 	} {
@@ -1330,10 +1331,10 @@ func TestEditForPanelUsesClickTimePreviewRefreshURL(t *testing.T) {
 	if err != nil {
 		t.Fatalf("seed page: %v", err)
 	}
-	if _, err := adm.RegisterPanel("pages", (&admin.PanelBuilder{}).
+	if _, registerErr := adm.RegisterPanel("pages", (&admin.PanelBuilder{}).
 		WithRepository(repo).
-		FormFields(admin.Field{Name: "title", Type: "text"})); err != nil {
-		t.Fatalf("register panel: %v", err)
+		FormFields(admin.Field{Name: "title", Type: "text"})); registerErr != nil {
+		t.Fatalf("register panel: %v", registerErr)
 	}
 
 	ctx := router.NewMockContext()
@@ -1401,6 +1402,105 @@ func TestPreviewActionURLForRecordUsesResolvedAdminBasePath(t *testing.T) {
 	if got != "/control/content/pages/42/preview" {
 		t.Fatalf("expected preview action to use resolved admin base path, got %q", got)
 	}
+	if base := resolveAdminContentEntryBasePath(adm.URLs(), cfg.BasePath); base != "/control/content" {
+		t.Fatalf("expected content entry base /control/content, got %q", base)
+	}
+}
+
+func TestPreviewActionURLForRecordUsesResolvedContentPanelRouteBase(t *testing.T) {
+	manager, err := urlkit.NewRouteManagerFromConfig(&urlkit.Config{
+		Groups: []urlkit.GroupConfig{
+			{
+				Name:    "admin",
+				BaseURL: "/control",
+				Routes: map[string]string{
+					"dashboard":     "/",
+					"content.panel": "/cms/:panel",
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("new route manager: %v", err)
+	}
+	cfg := admin.Config{
+		BasePath:      "/admin",
+		DefaultLocale: "en",
+		PreviewSecret: "quickstart-preview-test-secret",
+	}
+	adm, err := admin.New(cfg, admin.Dependencies{URLManager: manager})
+	if err != nil {
+		t.Fatalf("new admin: %v", err)
+	}
+	handler := &contentEntryHandlers{admin: adm, cfg: cfg}
+	ctx := router.NewMockContext()
+	ctx.QueriesM["channel"] = "staging"
+
+	got := handler.previewActionURLForRecord(ctx, "pages", "42", map[string]any{
+		"path": "/about",
+	}, nil)
+	if got != "/control/cms/pages/42/preview?channel=staging" {
+		t.Fatalf("expected preview action to use content.panel route base, got %q", got)
+	}
+}
+
+func TestPreviewActionURLForRecordUsesRegisteredContentPanelRouteWhenExplicitPreviewRouteDiffers(t *testing.T) {
+	manager, err := urlkit.NewRouteManagerFromConfig(&urlkit.Config{
+		Groups: []urlkit.GroupConfig{
+			{
+				Name:    "admin",
+				BaseURL: "/control",
+				Routes: map[string]string{
+					"dashboard":             "/",
+					"content.panel":         "/cms/:panel",
+					"content.panel.preview": "/cms/:panel/:id/fresh-preview",
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("new route manager: %v", err)
+	}
+	cfg := admin.Config{
+		BasePath:      "/admin",
+		DefaultLocale: "en",
+		PreviewSecret: "quickstart-preview-test-secret",
+	}
+	adm, err := admin.New(cfg, admin.Dependencies{URLManager: manager})
+	if err != nil {
+		t.Fatalf("new admin: %v", err)
+	}
+	handler := &contentEntryHandlers{admin: adm, cfg: cfg}
+	ctx := router.NewMockContext()
+
+	got := handler.previewActionURLForRecord(ctx, "pages", "42", map[string]any{
+		"path": "/about",
+	}, nil)
+	if got != "/control/cms/pages/42/preview" {
+		t.Fatalf("expected preview action to use registered content.panel route base, got %q", got)
+	}
+}
+
+func TestPreviewActionURLForRecordHidesDisallowedAbsolutePreviewURL(t *testing.T) {
+	cfg := admin.Config{
+		BasePath:               "/admin",
+		DefaultLocale:          "en",
+		PreviewSecret:          "quickstart-preview-test-secret",
+		PreviewURLAllowedHosts: []string{"preview.example.test"},
+	}
+	adm, err := admin.New(cfg, admin.Dependencies{})
+	if err != nil {
+		t.Fatalf("new admin: %v", err)
+	}
+	handler := &contentEntryHandlers{admin: adm, cfg: cfg}
+	ctx := router.NewMockContext()
+
+	got := handler.previewActionURLForRecord(ctx, "pages", "42", map[string]any{
+		"preview_url": "https://evil.example.test/about",
+	}, nil)
+	if got != "" {
+		t.Fatalf("expected disallowed absolute preview URL to hide preview action, got %q", got)
+	}
 }
 
 func TestPreviewForPanelRedirectsWithFreshRouteAwareToken(t *testing.T) {
@@ -1415,10 +1515,10 @@ func TestPreviewForPanelRedirectsWithFreshRouteAwareToken(t *testing.T) {
 	if err != nil {
 		t.Fatalf("seed page: %v", err)
 	}
-	if _, err := adm.RegisterPanel("pages", (&admin.PanelBuilder{}).
+	if _, registerErr := adm.RegisterPanel("pages", (&admin.PanelBuilder{}).
 		WithRepository(repo).
-		FormFields(admin.Field{Name: "title", Type: "text"})); err != nil {
-		t.Fatalf("register panel: %v", err)
+		FormFields(admin.Field{Name: "title", Type: "text"})); registerErr != nil {
+		t.Fatalf("register panel: %v", registerErr)
 	}
 	handler := &contentEntryHandlers{admin: adm, cfg: cfg}
 
@@ -1433,8 +1533,8 @@ func TestPreviewForPanelRedirectsWithFreshRouteAwareToken(t *testing.T) {
 			return true
 		})).Return(nil).Once()
 
-		if err := handler.previewForPanel(ctx, "pages"); err != nil {
-			t.Fatalf("preview redirect: %v", err)
+		if previewErr := handler.previewForPanel(ctx, "pages"); previewErr != nil {
+			t.Fatalf("preview redirect: %v", previewErr)
 		}
 		ctx.AssertExpectations(t)
 		if redirected == "" {

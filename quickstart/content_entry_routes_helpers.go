@@ -208,10 +208,6 @@ func (r contentEntryRoutes) edit(id string) string {
 	return r.withChannel(path.Join(r.basePath, "content", r.slug, id, "edit"))
 }
 
-func (r contentEntryRoutes) preview(id string) string {
-	return r.withChannel(path.Join(r.basePath, "content", r.slug, id, "preview"))
-}
-
 func (r contentEntryRoutes) update(id string) string {
 	return r.withChannel(path.Join(r.basePath, "content", r.slug, id))
 }
