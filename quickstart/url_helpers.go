@@ -263,8 +263,7 @@ func prefixBasePath(basePath, suffix string) string {
 	}
 
 	if pathutil.IsAbsoluteURL(basePath) {
-		basePath = strings.TrimSuffix(basePath, "/")
-		return basePath + "/" + strings.TrimPrefix(trimmed, "/")
+		return pathutil.JoinResolvedPath(basePath, trimmed)
 	}
 
 	return admin.PrefixBasePath(basePath, trimmed)
