@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/goliatone/go-admin/admin"
+	"github.com/goliatone/go-admin/internal/primitives"
 	router "github.com/goliatone/go-router"
 )
 
@@ -162,7 +163,7 @@ func groupSettings(values map[string]admin.ResolvedSetting) []settingsGroup {
 		groupID := normalizeSettingsGroup(def.Group)
 		item := settingsItem{
 			Key:         key,
-			Title:       firstNonEmptyValue(def.Title, key),
+			Title:       primitives.FirstNonEmpty(def.Title, key),
 			Description: strings.TrimSpace(def.Description),
 			Value:       formatSettingValue(setting.Value),
 			Scope:       strings.TrimSpace(string(setting.Scope)),
@@ -246,15 +247,6 @@ func formatSettingValue(value any) string {
 		return string(payload)
 	}
 	return fmt.Sprint(value)
-}
-
-func firstNonEmptyValue(values ...string) string {
-	for _, value := range values {
-		if strings.TrimSpace(value) != "" {
-			return strings.TrimSpace(value)
-		}
-	}
-	return ""
 }
 
 func resolveSettingsAPIPath(adm *admin.Admin, cfg admin.Config) string {

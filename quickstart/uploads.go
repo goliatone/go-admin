@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/goliatone/go-admin/internal/pathutil"
 	router "github.com/goliatone/go-router"
 	"github.com/goliatone/go-uploader"
 )
@@ -136,7 +137,7 @@ func resolveUploadManager(cfg UploadHandlerConfig, assetsDir, basePath string) *
 }
 
 func resolveDefaultUploadURLPrefix(basePath string) string {
-	return path.Join("/", strings.TrimSpace(basePath), "assets")
+	return pathutil.JoinBasePath(basePath, "assets")
 }
 
 func resolveUploadPublicURL(ctx context.Context, manager *uploader.Manager, basePath string, meta *uploader.FileMeta) string {

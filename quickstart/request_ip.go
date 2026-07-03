@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+
+	"github.com/goliatone/go-admin/internal/primitives"
 )
 
 var (
@@ -319,31 +321,8 @@ func shouldTrustForwardedHeaders(peerIP string, policy RequestTrustPolicy) bool 
 }
 
 func normalizeRequestTrustPolicy(policy RequestTrustPolicy) RequestTrustPolicy {
-	policy.TrustedProxyCIDRs = normalizeStringList(policy.TrustedProxyCIDRs)
+	policy.TrustedProxyCIDRs = primitives.NormalizeUniqueStringSlice(policy.TrustedProxyCIDRs)
 	return policy
-}
-
-func normalizeStringList(values []string) []string {
-	if len(values) == 0 {
-		return nil
-	}
-	out := make([]string, 0, len(values))
-	seen := map[string]struct{}{}
-	for _, raw := range values {
-		value := strings.TrimSpace(raw)
-		if value == "" {
-			continue
-		}
-		if _, exists := seen[value]; exists {
-			continue
-		}
-		seen[value] = struct{}{}
-		out = append(out, value)
-	}
-	if len(out) == 0 {
-		return nil
-	}
-	return out
 }
 
 func parseXForwardedFor(value string) string {

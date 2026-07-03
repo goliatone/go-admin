@@ -1,6 +1,10 @@
 package site
 
-import "strings"
+import (
+	"strings"
+
+	"github.com/goliatone/go-admin/internal/primitives"
+)
 
 func renderCacheTagsForResolution(siteCfg ResolvedSiteConfig, state RequestState, decision renderCacheDecision, resolution *deliveryResolution) []string {
 	tags := []string{
@@ -22,7 +26,7 @@ func renderCacheTagsForResolution(siteCfg ResolvedSiteConfig, state RequestState
 	if strings.TrimSpace(decision.Key) != "" {
 		tags = append(tags, "site:key")
 	}
-	return normalizeStringList(tags)
+	return primitives.NormalizeUniqueStringSliceEmpty(tags)
 }
 
 func renderCacheTagsForDeliveryResolution(resolution *deliveryResolution) []string {

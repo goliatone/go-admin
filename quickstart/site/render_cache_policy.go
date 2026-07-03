@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/goliatone/go-admin/internal/primitives"
 	router "github.com/goliatone/go-router"
 )
 
@@ -144,8 +145,8 @@ func normalizeRenderCachePolicy(policy RenderCachePolicy) RenderCachePolicy {
 	} else {
 		policy.CacheableStatuses = normalizeStatusList(policy.CacheableStatuses)
 	}
-	policy.QueryAllowlist = normalizeStringList(policy.QueryAllowlist)
-	policy.AuthCookieNames = normalizeStringList(policy.AuthCookieNames)
+	policy.QueryAllowlist = primitives.NormalizeUniqueStringSliceEmpty(policy.QueryAllowlist)
+	policy.AuthCookieNames = primitives.NormalizeUniqueStringSliceEmpty(policy.AuthCookieNames)
 	if len(policy.HeaderAllowlist) == 0 {
 		policy.HeaderAllowlist = []string{"Content-Type", "Cache-Control", "ETag", "Last-Modified"}
 	} else {
@@ -185,20 +186,6 @@ func normalizeHeaderList(values []string) []string {
 	seen := map[string]bool{}
 	for _, value := range values {
 		value = http.CanonicalHeaderKey(strings.TrimSpace(value))
-		if value == "" || seen[value] {
-			continue
-		}
-		seen[value] = true
-		out = append(out, value)
-	}
-	return out
-}
-
-func normalizeStringList(values []string) []string {
-	out := make([]string, 0, len(values))
-	seen := map[string]bool{}
-	for _, value := range values {
-		value = strings.TrimSpace(value)
 		if value == "" || seen[value] {
 			continue
 		}

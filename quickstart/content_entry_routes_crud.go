@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/goliatone/go-admin/admin"
+	"github.com/goliatone/go-admin/internal/pathutil"
 	goerrors "github.com/goliatone/go-errors"
 	router "github.com/goliatone/go-router"
 )
@@ -240,7 +241,7 @@ func (h *contentEntryHandlers) previewActionURLForRecord(c router.Context, panel
 		return ""
 	}
 	slug := contentTypeSlug(contentType, canonicalPanelName(panelName))
-	target := joinResolvedPath(resolveAdminContentEntryBasePath(h.adminURLs(), h.cfg.BasePath), path.Join(slug, id, "preview"))
+	target := pathutil.JoinResolvedPath(resolveAdminContentEntryBasePath(h.adminURLs(), h.cfg.BasePath), path.Join(slug, id, "preview"))
 	if channel := resolveContentChannel(c); channel != "" {
 		target = appendQueryParam(target, "channel", channel)
 	}

@@ -201,7 +201,7 @@ func resolveAdminPanelDetailURL(urls urlkit.Resolver, fallback, panel, id string
 		return resolved
 	}
 	if contentBase := strings.TrimSpace(resolveAdminContentEntryBasePath(urls, fallback)); contentBase != "" {
-		return joinResolvedPath(contentBase, path.Join(panel, id))
+		return pathutil.JoinResolvedPath(contentBase, path.Join(panel, id))
 	}
 	return prefixBasePath(resolveAdminBasePath(urls, fallback), path.Join("content", panel, id))
 }
@@ -272,19 +272,4 @@ func prefixBasePath(basePath, suffix string) string {
 
 func isAbsoluteURL(path string) bool {
 	return pathutil.IsAbsoluteURL(path)
-}
-
-func joinResolvedPath(base, suffix string) string {
-	base = strings.TrimRight(strings.TrimSpace(base), "/")
-	suffix = strings.Trim(strings.TrimSpace(suffix), "/")
-	if base == "" {
-		return pathutil.EnsureLeadingSlash(suffix)
-	}
-	if suffix == "" {
-		return base
-	}
-	if pathutil.IsAbsoluteURL(base) {
-		return base + "/" + suffix
-	}
-	return path.Join(base, suffix)
 }
