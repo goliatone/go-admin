@@ -1,18 +1,20 @@
 # Changelog
 
-# [0.113.1](https://github.com/goliatone/go-admin/compare/v0.113.0...v0.113.1) - (2026-07-03)
+# [0.113.2](https://github.com/goliatone/go-admin/compare/v0.113.1...v0.113.2) - (2026-07-03)
 
 
 ## Translation Queue SSR
 
-- The Translation Queue SSR surface now includes the compact filter panel, active filter chips/count, review quick filters, footer pagination, and 25/50/100 page-size controls.
-- The queue Type filter emits `entity_type` as the canonical query key. Compatibility aliases `content_type` and `type` are accepted at request boundaries and normalized before filtering.
-- The queue remains SSR-first. The full client queue renderer is still available only through explicit opt-in such as `translation_client_render=1`.
+- Keeps the `All visible assignments` bulk-selection copy visible when active filter chips are present on the SSR queue page.
 
-## Operator Notes
+## <!-- 1 -->🐛 Bug Fixes
 
-- Refresh or remove deployed disk assets that can shadow embedded release assets, especially `data/public/assets/dist/translation-queue/index.js` and its source map.
-- Consuming apps should use upstream translation queue templates/assets instead of app-local queue template or dist overrides.
+- Keep queue bulk selection copy with active filters ([23f4a07](https://github.com/goliatone/go-admin/commit/23f4a074dcb35518010ba893491d8dc603644e83))  - (goliatone)
+
+# [0.113.1](https://github.com/goliatone/go-admin/compare/v0.113.0...v0.113.1) - (2026-07-03)
+
+
+New patch release: v0.113.1
 
 ## <!-- 0 -->🚀 Features
 
@@ -21,6 +23,10 @@
 ## <!-- 1 -->🐛 Bug Fixes
 
 - Code quality ([52973d2](https://github.com/goliatone/go-admin/commit/52973d2c07d6fba4525195e9affd2c957aef2f48))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.113.1 ([e07ea12](https://github.com/goliatone/go-admin/commit/e07ea12c758d78545ea4c982819e8cec03b44415))  - (goliatone)
 
 ## <!-- 7 -->⚙️ Miscellaneous Tasks
 
