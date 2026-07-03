@@ -43,6 +43,77 @@ func TestJoinBasePath(t *testing.T) {
 	}
 }
 
+func TestJoinResolvedPath(t *testing.T) {
+	tests := map[string]struct {
+		base   string
+		suffix string
+		want   string
+	}{
+		"relative suffix": {
+			base:   "/admin/content",
+			suffix: "posts/123",
+			want:   "/admin/content/posts/123",
+		},
+		"trim duplicate slashes": {
+			base:   " /admin/content/ ",
+			suffix: " /posts/123/ ",
+			want:   "/admin/content/posts/123",
+		},
+		"empty base keeps leading slash": {
+			base:   "",
+			suffix: "posts/123",
+			want:   "/posts/123",
+		},
+		"empty suffix returns resolved base": {
+			base:   "/admin/content/",
+			suffix: "",
+			want:   "/admin/content",
+		},
+		"absolute URL base": {
+			base:   "https://example.com/admin/content/",
+			suffix: "/posts/123/",
+			want:   "https://example.com/admin/content/posts/123",
+		},
+		"absolute URL preserves base query": {
+			base:   "https://example.com/admin/content?tenant=acme",
+			suffix: "posts/123",
+			want:   "https://example.com/admin/content/posts/123?tenant=acme",
+		},
+		"absolute URL preserves base fragment": {
+			base:   "https://example.com/admin/content#section",
+			suffix: "posts/123",
+			want:   "https://example.com/admin/content/posts/123#section",
+		},
+		"suffix query replaces base query": {
+			base:   "https://example.com/admin/content?tenant=acme",
+			suffix: "posts/123?view=preview",
+			want:   "https://example.com/admin/content/posts/123?view=preview",
+		},
+		"suffix fragment replaces base fragment": {
+			base:   "https://example.com/admin/content#old",
+			suffix: "posts/123#new",
+			want:   "https://example.com/admin/content/posts/123#new",
+		},
+		"uppercase absolute URL base": {
+			base:   "HTTPS://example.com/admin/content/",
+			suffix: "posts/123",
+			want:   "https://example.com/admin/content/posts/123",
+		},
+		"scheme-relative URL base": {
+			base:   "//cdn.example.com/admin/",
+			suffix: "assets/logo.svg",
+			want:   "//cdn.example.com/admin/assets/logo.svg",
+		},
+	}
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			if got := JoinResolvedPath(tt.base, tt.suffix); got != tt.want {
+				t.Fatalf("JoinResolvedPath(%q, %q) = %q, want %q", tt.base, tt.suffix, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestPrefixBasePath(t *testing.T) {
 	if got := PrefixBasePath("/admin", "content"); got != "/admin/content" {
 		t.Fatalf("PrefixBasePath mismatch: %q", got)
@@ -67,6 +138,9 @@ func TestTrimTrailingSlash(t *testing.T) {
 func TestIsAbsoluteURL(t *testing.T) {
 	if !IsAbsoluteURL("https://example.com/a") {
 		t.Fatalf("expected https URL to be absolute")
+	}
+	if !IsAbsoluteURL("HTTPS://example.com/a") {
+		t.Fatalf("expected uppercase https URL to be absolute")
 	}
 	if !IsAbsoluteURL("//cdn.example.com/a") {
 		t.Fatalf("expected scheme-relative URL to be absolute")

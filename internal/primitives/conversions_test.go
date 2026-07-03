@@ -33,6 +33,15 @@ func TestStringFromAny(t *testing.T) {
 	}
 }
 
+func TestFirstNonEmptyFromAny(t *testing.T) {
+	if got := FirstNonEmptyFromAny("", nil, []byte(" value "), "fallback"); got != "value" {
+		t.Fatalf("FirstNonEmptyFromAny mismatch: got %q", got)
+	}
+	if got := FirstNonEmptyFromAny("", " \t "); got != "" {
+		t.Fatalf("FirstNonEmptyFromAny should ignore blank values, got %q", got)
+	}
+}
+
 func TestBoolFromAny(t *testing.T) {
 	tests := []struct {
 		name  string
@@ -135,5 +144,35 @@ func TestCSVStringSliceFromAny(t *testing.T) {
 	want := []string{"a", "b", "c", "12"}
 	if fmt.Sprint(got) != fmt.Sprint(want) {
 		t.Fatalf("got %v want %v", got, want)
+	}
+}
+
+func TestNormalizeStringSliceVariants(t *testing.T) {
+	if got := NormalizeStringSlice([]string{" a ", "", "b"}); fmt.Sprint(got) != "[a b]" {
+		t.Fatalf("NormalizeStringSlice mismatch: %v", got)
+	}
+	if got := NormalizeStringSlice([]string{" ", ""}); got != nil {
+		t.Fatalf("NormalizeStringSlice should return nil when empty, got %v", got)
+	}
+	if got := NormalizeStringSliceEmpty([]string{" ", ""}); got == nil || len(got) != 0 {
+		t.Fatalf("NormalizeStringSliceEmpty should return empty slice, got %#v", got)
+	}
+}
+
+func TestNormalizeUniqueStringSliceVariants(t *testing.T) {
+	if got := NormalizeUniqueStringSlice([]string{" a ", "b", "a", ""}); fmt.Sprint(got) != "[a b]" {
+		t.Fatalf("NormalizeUniqueStringSlice mismatch: %v", got)
+	}
+	if got := NormalizeUniqueStringSliceEmpty(nil); got == nil || len(got) != 0 {
+		t.Fatalf("NormalizeUniqueStringSliceEmpty should return empty slice, got %#v", got)
+	}
+	if got := NormalizeUniqueStringSliceFold([]string{" A ", "a", "B"}); fmt.Sprint(got) != "[A B]" {
+		t.Fatalf("NormalizeUniqueStringSliceFold mismatch: %v", got)
+	}
+	if got := NormalizeLowerUniqueStringSlice([]string{" A ", "a", "B"}); fmt.Sprint(got) != "[a b]" {
+		t.Fatalf("NormalizeLowerUniqueStringSlice mismatch: %v", got)
+	}
+	if got := NormalizeLowerUniqueStringSliceSorted([]string{" B ", "a", "b"}); fmt.Sprint(got) != "[a b]" {
+		t.Fatalf("NormalizeLowerUniqueStringSliceSorted mismatch: %v", got)
 	}
 }

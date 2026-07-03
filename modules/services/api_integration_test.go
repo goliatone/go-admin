@@ -243,7 +243,7 @@ func (l *memoryWebhookLedger) Claim(
 
 	record.Attempts++
 	record.Status = goserviceswebhooks.DeliveryStatusProcessing
-	record.ClaimID = key + ":" + toString(record.Attempts)
+	record.ClaimID = key + ":" + primitives.StringFromAny(record.Attempts)
 	leaseUntil := now.Add(lease).UTC()
 	record.NextAttemptAt = &leaseUntil
 	record.UpdatedAt = now
@@ -446,7 +446,7 @@ func TestServicesAPI_BeginConnectionResolvesCallbackRedirectFromRequestOrigin(t 
 
 	payload := decodeJSONMap(t, response.Body.Bytes())
 	begin := toAnyMap(payload["begin"])
-	state := strings.TrimSpace(primitives.FirstNonEmpty(toString(begin["state"]), toString(begin["State"])))
+	state := strings.TrimSpace(primitives.FirstNonEmpty(primitives.StringFromAny(begin["state"]), primitives.StringFromAny(begin["State"])))
 	record := consumeOAuthStateRecord(t, module, state)
 	expected := "http://example.com" + strings.TrimRight(adm.AdminAPIBasePath(), "/") + "/services/connections/github/callback"
 	if got := strings.TrimSpace(record.RedirectURI); got != expected {
@@ -477,7 +477,7 @@ func TestServicesAPI_BeginConnectionResolvesCallbackRedirectWithPublicBaseOverri
 
 	payload := decodeJSONMap(t, response.Body.Bytes())
 	begin := toAnyMap(payload["begin"])
-	state := strings.TrimSpace(primitives.FirstNonEmpty(toString(begin["state"]), toString(begin["State"])))
+	state := strings.TrimSpace(primitives.FirstNonEmpty(primitives.StringFromAny(begin["state"]), primitives.StringFromAny(begin["State"])))
 	record := consumeOAuthStateRecord(t, module, state)
 	expected := "https://callbacks.example.com" + strings.TrimRight(adm.AdminAPIBasePath(), "/") + "/services/connections/github/callback"
 	if got := strings.TrimSpace(record.RedirectURI); got != expected {
@@ -521,7 +521,7 @@ func TestServicesAPI_BeginConnectionResolvesProviderSpecificCallbackRoute(t *tes
 
 	payload := decodeJSONMap(t, response.Body.Bytes())
 	begin := toAnyMap(payload["begin"])
-	state := strings.TrimSpace(primitives.FirstNonEmpty(toString(begin["state"]), toString(begin["State"])))
+	state := strings.TrimSpace(primitives.FirstNonEmpty(primitives.StringFromAny(begin["state"]), primitives.StringFromAny(begin["State"])))
 	record := consumeOAuthStateRecord(t, module, state)
 	expected := "http://example.com" + strings.TrimRight(adm.AdminAPIBasePath(), "/") + "/services/oauth/github/custom-callback"
 	if got := strings.TrimSpace(record.RedirectURI); got != expected {
@@ -554,7 +554,7 @@ func TestServicesAPI_BeginConnectionResolvesProviderSpecificCallbackURLOverride(
 
 	payload := decodeJSONMap(t, response.Body.Bytes())
 	begin := toAnyMap(payload["begin"])
-	state := strings.TrimSpace(primitives.FirstNonEmpty(toString(begin["state"]), toString(begin["State"])))
+	state := strings.TrimSpace(primitives.FirstNonEmpty(primitives.StringFromAny(begin["state"]), primitives.StringFromAny(begin["State"])))
 	record := consumeOAuthStateRecord(t, module, state)
 	if got := strings.TrimSpace(record.RedirectURI); got != "https://hooks.example.com/oauth/github/callback" {
 		t.Fatalf("expected override redirect, got %q", got)
@@ -590,7 +590,7 @@ func TestServicesAPI_BeginConnectionRedirectURIRequestValueHasPrecedence(t *test
 
 	payload := decodeJSONMap(t, response.Body.Bytes())
 	begin := toAnyMap(payload["begin"])
-	state := strings.TrimSpace(primitives.FirstNonEmpty(toString(begin["state"]), toString(begin["State"])))
+	state := strings.TrimSpace(primitives.FirstNonEmpty(primitives.StringFromAny(begin["state"]), primitives.StringFromAny(begin["State"])))
 	record := consumeOAuthStateRecord(t, module, state)
 	if got := strings.TrimSpace(record.RedirectURI); got != "https://request.example.com/oauth/direct-callback" {
 		t.Fatalf("expected request redirect URI precedence, got %q", got)
@@ -863,7 +863,7 @@ func TestServicesAPI_ConnectionDetailSyncRateLimitAndActionLabels(t *testing.T) 
 	if credentialHealth["next_refresh_attempt_at"] == nil {
 		t.Fatalf("expected credential_health.next_refresh_attempt_at in %v", credentialHealth)
 	}
-	if got := strings.TrimSpace(toString(credentialHealth["last_error"])); got == "" {
+	if got := strings.TrimSpace(primitives.StringFromAny(credentialHealth["last_error"])); got == "" {
 		t.Fatalf("expected credential_health.last_error in %v", credentialHealth)
 	}
 
@@ -906,7 +906,7 @@ func TestServicesAPI_ConnectionDetailSyncRateLimitAndActionLabels(t *testing.T) 
 	}
 	activityPayload := decodeJSONMap(t, activity.Body.Bytes())
 	overrides := toAnyMap(activityPayload["action_label_overrides"])
-	if got := strings.TrimSpace(toString(overrides["connection.revoked"])); got == "" {
+	if got := strings.TrimSpace(primitives.StringFromAny(overrides["connection.revoked"])); got == "" {
 		t.Fatalf("expected action label override in %v", overrides)
 	}
 }
@@ -968,11 +968,11 @@ func TestServicesAPI_ExtensionDiagnosticsAndStatusSurface(t *testing.T) {
 	}
 	diagPayload := decodeJSONMap(t, diagnostics.Body.Bytes())
 	extensions := toAnyMap(diagPayload["extensions"])
-	packs := toStringSlice(extensions["enabled_provider_packs"])
+	packs := primitives.CSVStringSliceFromAnyEmpty(extensions["enabled_provider_packs"])
 	if len(packs) != 1 || packs[0] != "orders-pack" {
 		t.Fatalf("expected enabled provider packs in diagnostics, got %#v", packs)
 	}
-	bundles := toStringSlice(extensions["command_query_bundles"])
+	bundles := primitives.CSVStringSliceFromAnyEmpty(extensions["command_query_bundles"])
 	if len(bundles) != 1 || bundles[0] != "orders-bundle" {
 		t.Fatalf("expected command/query bundle diagnostics, got %#v", bundles)
 	}
@@ -1002,7 +1002,7 @@ func TestServicesAPI_InstallationLifecyclePrimitiveEndpoints(t *testing.T) {
 		t.Fatalf("installation detail status=%d body=%s", detail.Code, detail.Body.String())
 	}
 	detailPayload := decodeJSONMap(t, detail.Body.Bytes())
-	if got := strings.TrimSpace(toString(toAnyMap(detailPayload["installation"])["id"])); got != "install_1" {
+	if got := strings.TrimSpace(primitives.StringFromAny(toAnyMap(detailPayload["installation"])["id"])); got != "install_1" {
 		t.Fatalf("expected installation id install_1, got %q", got)
 	}
 
@@ -1019,7 +1019,7 @@ func TestServicesAPI_InstallationLifecyclePrimitiveEndpoints(t *testing.T) {
 		t.Fatalf("installation status update status=%d body=%s", update.Code, update.Body.String())
 	}
 	updatePayload := decodeJSONMap(t, update.Body.Bytes())
-	if got := strings.TrimSpace(toString(toAnyMap(updatePayload["installation"])["status"])); got != "suspended" {
+	if got := strings.TrimSpace(primitives.StringFromAny(toAnyMap(updatePayload["installation"])["status"])); got != "suspended" {
 		t.Fatalf("expected suspended installation status, got %q", got)
 	}
 
@@ -1035,7 +1035,7 @@ func TestServicesAPI_InstallationLifecyclePrimitiveEndpoints(t *testing.T) {
 		t.Fatalf("installation uninstall status=%d body=%s", uninstall.Code, uninstall.Body.String())
 	}
 	uninstallPayload := decodeJSONMap(t, uninstall.Body.Bytes())
-	if got := strings.TrimSpace(toString(toAnyMap(uninstallPayload["installation"])["status"])); got != "uninstalled" {
+	if got := strings.TrimSpace(primitives.StringFromAny(toAnyMap(uninstallPayload["installation"])["status"])); got != "uninstalled" {
 		t.Fatalf("expected uninstalled installation status, got %q", got)
 	}
 }
@@ -1072,10 +1072,10 @@ func TestServicesAPI_RateLimitRuntimeAndProviderOperationStatus(t *testing.T) {
 		t.Fatalf("expected operation statuses in payload=%#v", opsPayload)
 	}
 	firstStatus := toAnyMap(statuses[0])
-	if strings.TrimSpace(toString(firstStatus["operation_source"])) == "" {
+	if strings.TrimSpace(primitives.StringFromAny(firstStatus["operation_source"])) == "" {
 		t.Fatalf("expected operation_source in status payload=%#v", firstStatus)
 	}
-	if strings.TrimSpace(toString(firstStatus["last_operation_status"])) == "" {
+	if strings.TrimSpace(primitives.StringFromAny(firstStatus["last_operation_status"])) == "" {
 		t.Fatalf("expected last_operation_status in status payload=%#v", firstStatus)
 	}
 }
@@ -1140,7 +1140,7 @@ func TestServicesAPI_WorkflowMappingSyncConflictWorkflow(t *testing.T) {
 	}
 	createPayload := decodeJSONMap(t, createDraft.Body.Bytes())
 	mapping := toAnyMap(createPayload["mapping"])
-	if got := strings.TrimSpace(toString(mapping["status"])); got != "draft" {
+	if got := strings.TrimSpace(primitives.StringFromAny(mapping["status"])); got != "draft" {
 		t.Fatalf("expected draft status, got %q payload=%v", got, createPayload)
 	}
 	if got := toInt(mapping["version"], 0); got != 1 {
@@ -1164,7 +1164,7 @@ func TestServicesAPI_WorkflowMappingSyncConflictWorkflow(t *testing.T) {
 		t.Fatalf("workflow mark validated status=%d body=%s", validateDraft.Code, validateDraft.Body.String())
 	}
 	validatedPayload := decodeJSONMap(t, validateDraft.Body.Bytes())
-	if got := strings.TrimSpace(toString(toAnyMap(validatedPayload["mapping"])["status"])); got != "validated" {
+	if got := strings.TrimSpace(primitives.StringFromAny(toAnyMap(validatedPayload["mapping"])["status"])); got != "validated" {
 		t.Fatalf("expected validated status, got %q payload=%v", got, validatedPayload)
 	}
 
@@ -1185,7 +1185,7 @@ func TestServicesAPI_WorkflowMappingSyncConflictWorkflow(t *testing.T) {
 		t.Fatalf("workflow publish status=%d body=%s", publish.Code, publish.Body.String())
 	}
 	publishedPayload := decodeJSONMap(t, publish.Body.Bytes())
-	if got := strings.TrimSpace(toString(toAnyMap(publishedPayload["mapping"])["status"])); got != "published" {
+	if got := strings.TrimSpace(primitives.StringFromAny(toAnyMap(publishedPayload["mapping"])["status"])); got != "published" {
 		t.Fatalf("expected published status, got %q payload=%v", got, publishedPayload)
 	}
 
@@ -1218,7 +1218,7 @@ func TestServicesAPI_WorkflowMappingSyncConflictWorkflow(t *testing.T) {
 		t.Fatalf("workflow unpublish status=%d body=%s", unpublish.Code, unpublish.Body.String())
 	}
 	unpublishedPayload := decodeJSONMap(t, unpublish.Body.Bytes())
-	if got := strings.TrimSpace(toString(toAnyMap(unpublishedPayload["mapping"])["status"])); got != "validated" {
+	if got := strings.TrimSpace(primitives.StringFromAny(toAnyMap(unpublishedPayload["mapping"])["status"])); got != "validated" {
 		t.Fatalf("expected validated status after unpublish, got %q payload=%v", got, unpublishedPayload)
 	}
 
@@ -1344,7 +1344,7 @@ func TestServicesAPI_WorkflowMappingSyncConflictWorkflow(t *testing.T) {
 	}
 	planPayload := decodeJSONMap(t, planSync.Body.Bytes())
 	plan := toAnyMap(planPayload["plan"])
-	if strings.TrimSpace(toString(plan["id"])) == "" {
+	if strings.TrimSpace(primitives.StringFromAny(plan["id"])) == "" {
 		t.Fatalf("expected sync plan id payload=%v", planPayload)
 	}
 
@@ -1383,14 +1383,14 @@ func TestServicesAPI_WorkflowMappingSyncConflictWorkflow(t *testing.T) {
 	}
 	runPayload := decodeJSONMap(t, runSync.Body.Bytes())
 	result := toAnyMap(runPayload["result"])
-	if got := strings.TrimSpace(toString(result["status"])); got != "succeeded" {
+	if got := strings.TrimSpace(primitives.StringFromAny(result["status"])); got != "succeeded" {
 		t.Fatalf("expected sync result status succeeded, got %q payload=%v", got, runPayload)
 	}
 	recordedConflicts := mustAs[[]any](runPayload["recorded_conflicts"])
 	if len(recordedConflicts) == 0 {
 		t.Fatalf("expected recorded conflicts payload=%v", runPayload)
 	}
-	conflictID := strings.TrimSpace(toString(toAnyMap(recordedConflicts[0])["id"]))
+	conflictID := strings.TrimSpace(primitives.StringFromAny(toAnyMap(recordedConflicts[0])["id"]))
 	if conflictID == "" {
 		t.Fatalf("expected conflict id payload=%v", runPayload)
 	}
@@ -1443,7 +1443,7 @@ func TestServicesAPI_WorkflowMappingSyncConflictWorkflow(t *testing.T) {
 		t.Fatalf("workflow resolve conflict status=%d body=%s", resolveConflict.Code, resolveConflict.Body.String())
 	}
 	resolvePayload := decodeJSONMap(t, resolveConflict.Body.Bytes())
-	if got := strings.TrimSpace(toString(toAnyMap(resolvePayload["conflict"])["status"])); got != "resolved" {
+	if got := strings.TrimSpace(primitives.StringFromAny(toAnyMap(resolvePayload["conflict"])["status"])); got != "resolved" {
 		t.Fatalf("expected resolved conflict status, got %q payload=%v", got, resolvePayload)
 	}
 }
@@ -1529,12 +1529,12 @@ func TestServicesAPI_WorkflowRunHistoryResumeCheckpointAndSchemaDrift(t *testing
 	}
 	runPayload := decodeJSONMap(t, runSync.Body.Bytes())
 	result := toAnyMap(runPayload["result"])
-	runID := strings.TrimSpace(toString(result["run_id"]))
+	runID := strings.TrimSpace(primitives.StringFromAny(result["run_id"]))
 	if runID == "" {
 		t.Fatalf("expected run_id in result payload=%v", runPayload)
 	}
 	nextCheckpoint := toAnyMap(result["next_checkpoint"])
-	checkpointID := strings.TrimSpace(toString(nextCheckpoint["id"]))
+	checkpointID := strings.TrimSpace(primitives.StringFromAny(nextCheckpoint["id"]))
 	if checkpointID == "" {
 		t.Fatalf("expected checkpoint id in result payload=%v", runPayload)
 	}
@@ -1568,7 +1568,7 @@ func TestServicesAPI_WorkflowRunHistoryResumeCheckpointAndSchemaDrift(t *testing
 		t.Fatalf("workflow sync run detail status=%d body=%s", runDetail.Code, runDetail.Body.String())
 	}
 	runDetailPayload := decodeJSONMap(t, runDetail.Body.Bytes())
-	if got := strings.TrimSpace(toString(toAnyMap(runDetailPayload["run"])["run_id"])); got != runID {
+	if got := strings.TrimSpace(primitives.StringFromAny(toAnyMap(runDetailPayload["run"])["run_id"])); got != runID {
 		t.Fatalf("expected run detail run_id %q, got %q payload=%v", runID, got, runDetailPayload)
 	}
 
@@ -1584,7 +1584,7 @@ func TestServicesAPI_WorkflowRunHistoryResumeCheckpointAndSchemaDrift(t *testing
 		t.Fatalf("workflow checkpoint detail status=%d body=%s", checkpointDetail.Code, checkpointDetail.Body.String())
 	}
 	checkpointPayload := decodeJSONMap(t, checkpointDetail.Body.Bytes())
-	if got := strings.TrimSpace(toString(toAnyMap(checkpointPayload["checkpoint"])["id"])); got != checkpointID {
+	if got := strings.TrimSpace(primitives.StringFromAny(toAnyMap(checkpointPayload["checkpoint"])["id"])); got != checkpointID {
 		t.Fatalf("expected checkpoint id %q, got %q payload=%v", checkpointID, got, checkpointPayload)
 	}
 
@@ -1614,11 +1614,11 @@ func TestServicesAPI_WorkflowRunHistoryResumeCheckpointAndSchemaDrift(t *testing
 		t.Fatalf("workflow sync run resume status=%d body=%s", resume.Code, resume.Body.String())
 	}
 	resumePayload := decodeJSONMap(t, resume.Body.Bytes())
-	if got := strings.TrimSpace(toString(resumePayload["resumed_from_run_id"])); got != runID {
+	if got := strings.TrimSpace(primitives.StringFromAny(resumePayload["resumed_from_run_id"])); got != runID {
 		t.Fatalf("expected resumed_from_run_id %q, got %q payload=%v", runID, got, resumePayload)
 	}
 	resumedResult := toAnyMap(resumePayload["result"])
-	if strings.TrimSpace(toString(resumedResult["run_id"])) == "" {
+	if strings.TrimSpace(primitives.StringFromAny(resumedResult["run_id"])) == "" {
 		t.Fatalf("expected resumed result run_id payload=%v", resumePayload)
 	}
 
@@ -1638,7 +1638,7 @@ func TestServicesAPI_WorkflowRunHistoryResumeCheckpointAndSchemaDrift(t *testing
 	if len(driftItemsBefore) != 1 {
 		t.Fatalf("expected one schema drift item before baseline payload=%v", driftBeforePayload)
 	}
-	if got := strings.TrimSpace(toString(toAnyMap(driftItemsBefore[0])["status"])); got != "baseline_missing" {
+	if got := strings.TrimSpace(primitives.StringFromAny(toAnyMap(driftItemsBefore[0])["status"])); got != "baseline_missing" {
 		t.Fatalf("expected baseline_missing status before baseline, got %q payload=%v", got, driftBeforePayload)
 	}
 
@@ -1662,7 +1662,7 @@ func TestServicesAPI_WorkflowRunHistoryResumeCheckpointAndSchemaDrift(t *testing
 		t.Fatalf("workflow schema drift baseline status=%d body=%s", baseline.Code, baseline.Body.String())
 	}
 	baselinePayload := decodeJSONMap(t, baseline.Body.Bytes())
-	if got := strings.TrimSpace(toString(toAnyMap(baselinePayload["drift"])["status"])); got != "in_sync" {
+	if got := strings.TrimSpace(primitives.StringFromAny(toAnyMap(baselinePayload["drift"])["status"])); got != "in_sync" {
 		t.Fatalf("expected in_sync baseline status, got %q payload=%v", got, baselinePayload)
 	}
 
@@ -1708,7 +1708,7 @@ func TestServicesAPI_WorkflowRunHistoryResumeCheckpointAndSchemaDrift(t *testing
 		t.Fatalf("expected one schema drift item after schema update payload=%v", driftAfterPayload)
 	}
 	item := toAnyMap(driftItemsAfter[0])
-	if got := strings.TrimSpace(toString(item["status"])); got != "drift_detected" {
+	if got := strings.TrimSpace(primitives.StringFromAny(item["status"])); got != "drift_detected" {
 		t.Fatalf("expected drift_detected status after schema update, got %q payload=%v", got, driftAfterPayload)
 	}
 	if detected := mustAs[bool](item["drift_detected"]); !detected {
@@ -1803,7 +1803,7 @@ func TestServicesAPI_WorkflowCallbackDiagnosticsAndIdempotency(t *testing.T) {
 	}
 	statusPayload := decodeJSONMap(t, status.Body.Bytes())
 	resolver := toAnyMap(statusPayload["resolver"])
-	if got := strings.TrimSpace(toString(resolver["status"])); got != "degraded" {
+	if got := strings.TrimSpace(primitives.StringFromAny(resolver["status"])); got != "degraded" {
 		t.Fatalf("expected degraded resolver status, got %q payload=%v", got, statusPayload)
 	}
 
@@ -1909,7 +1909,7 @@ func assertErrorCode(t *testing.T, raw []byte, want string) {
 	if !ok {
 		t.Fatalf("missing error payload: %s", string(raw))
 	}
-	if got := toString(errorPayload["code"]); got != want {
+	if got := primitives.StringFromAny(errorPayload["code"]); got != want {
 		t.Fatalf("expected error code %q, got %q payload=%s", want, got, string(raw))
 	}
 }
@@ -1924,7 +1924,7 @@ func assertErrorEnvelope(t *testing.T, raw []byte, wantCode string, wantRetryabl
 	if !ok {
 		t.Fatalf("missing error payload: %s", string(raw))
 	}
-	if got := toString(errorPayload["code"]); got != wantCode {
+	if got := primitives.StringFromAny(errorPayload["code"]); got != wantCode {
 		t.Fatalf("expected error code %q, got %q payload=%s", wantCode, got, string(raw))
 	}
 	retryable, ok := errorPayload["retryable"].(bool)
@@ -1946,7 +1946,7 @@ func assertErrorRequestID(t *testing.T, raw []byte, want string) {
 	if !ok {
 		t.Fatalf("missing error payload: %s", string(raw))
 	}
-	if got := strings.TrimSpace(toString(errorPayload["request_id"])); got != strings.TrimSpace(want) {
+	if got := strings.TrimSpace(primitives.StringFromAny(errorPayload["request_id"])); got != strings.TrimSpace(want) {
 		t.Fatalf("expected request_id %q, got %q payload=%s", want, got, string(raw))
 	}
 }
