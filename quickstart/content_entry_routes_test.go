@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/goliatone/go-admin/admin"
@@ -1310,6 +1311,173 @@ func TestNewForPanelReturnsNotFoundWhenPanelHasNoRenderableFormSchema(t *testing
 	h := &contentEntryHandlers{admin: adm, cfg: cfg}
 	if err := h.newForPanel(ctx, "translations"); !errors.Is(err, admin.ErrNotFound) {
 		t.Fatalf("expected ErrNotFound, got %v", err)
+	}
+}
+
+func TestEditForPanelUsesClickTimePreviewRefreshURL(t *testing.T) {
+	validator, err := admin.NewFormgenSchemaValidatorWithAPIBase("/admin", "/admin/api")
+	if err != nil {
+		t.Fatalf("validator init failed: %v", err)
+	}
+	fixture := newContentEntryAdminFixture(t)
+	cfg := fixture.Config
+	adm := fixture.Admin
+	repo := admin.NewMemoryRepository()
+	created, err := repo.Create(context.Background(), map[string]any{
+		"title": "About",
+		"path":  "/about?preview_token=stale-token",
+	})
+	if err != nil {
+		t.Fatalf("seed page: %v", err)
+	}
+	if _, err := adm.RegisterPanel("pages", (&admin.PanelBuilder{}).
+		WithRepository(repo).
+		FormFields(admin.Field{Name: "title", Type: "text"})); err != nil {
+		t.Fatalf("register panel: %v", err)
+	}
+
+	ctx := router.NewMockContext()
+	ctx.ParamsM["id"] = anyToString(created["id"])
+	ctx.QueriesM["locale"] = "es"
+	ctx.On("Context").Return(context.Background())
+	ctx.On("Render", "resources/content/form", mock.MatchedBy(func(arg any) bool {
+		viewCtx, ok := arg.(router.ViewContext)
+		if !ok {
+			return false
+		}
+		previewURL := strings.TrimSpace(anyToString(viewCtx["preview_url"]))
+		if strings.Contains(previewURL, "preview_token=") {
+			return false
+		}
+		return previewURL == "/admin/content/pages/"+anyToString(created["id"])+"/preview?locale=es"
+	})).Return(nil).Once()
+
+	handler := &contentEntryHandlers{
+		admin:        adm,
+		cfg:          cfg,
+		formTemplate: "resources/content/form",
+		formRenderer: validator,
+		templateExists: func(name string) bool {
+			return name == "resources/content/form"
+		},
+	}
+	if err := handler.editForPanel(ctx, "pages"); err != nil {
+		t.Fatalf("edit page: %v", err)
+	}
+	ctx.AssertExpectations(t)
+}
+
+func TestPreviewActionURLForRecordUsesResolvedAdminBasePath(t *testing.T) {
+	manager, err := urlkit.NewRouteManagerFromConfig(&urlkit.Config{
+		Groups: []urlkit.GroupConfig{
+			{
+				Name:    "admin",
+				BaseURL: "/control",
+				Routes: map[string]string{
+					"dashboard":     "/",
+					"content.panel": "/content/:panel",
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("new route manager: %v", err)
+	}
+	cfg := admin.Config{
+		BasePath:      "/admin",
+		DefaultLocale: "en",
+		PreviewSecret: "quickstart-preview-test-secret",
+	}
+	adm, err := admin.New(cfg, admin.Dependencies{URLManager: manager})
+	if err != nil {
+		t.Fatalf("new admin: %v", err)
+	}
+	handler := &contentEntryHandlers{admin: adm, cfg: cfg}
+	ctx := router.NewMockContext()
+
+	got := handler.previewActionURLForRecord(ctx, "pages", "42", map[string]any{
+		"path": "/about",
+	}, nil)
+	if got != "/control/content/pages/42/preview" {
+		t.Fatalf("expected preview action to use resolved admin base path, got %q", got)
+	}
+}
+
+func TestPreviewForPanelRedirectsWithFreshRouteAwareToken(t *testing.T) {
+	fixture := newContentEntryAdminFixture(t)
+	cfg := fixture.Config
+	adm := fixture.Admin
+	repo := admin.NewMemoryRepository()
+	created, err := repo.Create(context.Background(), map[string]any{
+		"title": "About",
+		"path":  "/about?lang=en&preview_token=stale-token#draft",
+	})
+	if err != nil {
+		t.Fatalf("seed page: %v", err)
+	}
+	if _, err := adm.RegisterPanel("pages", (&admin.PanelBuilder{}).
+		WithRepository(repo).
+		FormFields(admin.Field{Name: "title", Type: "text"})); err != nil {
+		t.Fatalf("register panel: %v", err)
+	}
+	handler := &contentEntryHandlers{admin: adm, cfg: cfg}
+
+	redirectOnce := func() string {
+		t.Helper()
+		var redirected string
+		ctx := router.NewMockContext()
+		ctx.ParamsM["id"] = anyToString(created["id"])
+		ctx.On("Context").Return(context.Background())
+		ctx.On("Redirect", mock.MatchedBy(func(target string) bool {
+			redirected = strings.TrimSpace(target)
+			return true
+		})).Return(nil).Once()
+
+		if err := handler.previewForPanel(ctx, "pages"); err != nil {
+			t.Fatalf("preview redirect: %v", err)
+		}
+		ctx.AssertExpectations(t)
+		if redirected == "" {
+			t.Fatalf("expected redirect target")
+		}
+		return redirected
+	}
+
+	first := redirectOnce()
+	if !strings.HasPrefix(first, "/about?lang=en&preview_token=") || !strings.HasSuffix(first, "#draft") {
+		t.Fatalf("expected route-aware preview redirect with replacement token, got %q", first)
+	}
+	if strings.Contains(first, "stale-token") {
+		t.Fatalf("expected stale token to be replaced, got %q", first)
+	}
+	firstParsed, err := url.Parse(first)
+	if err != nil {
+		t.Fatalf("parse first redirect: %v", err)
+	}
+	firstToken := strings.TrimSpace(firstParsed.Query().Get("preview_token"))
+	if firstToken == "" {
+		t.Fatalf("expected preview token in %q", first)
+	}
+	decoded, err := adm.Preview().Validate(firstToken)
+	if err != nil {
+		t.Fatalf("validate first preview token: %v", err)
+	}
+	if decoded.EntityType != "pages" || decoded.ContentID != anyToString(created["id"]) {
+		t.Fatalf("unexpected token scope: %+v", decoded)
+	}
+
+	time.Sleep(1100 * time.Millisecond)
+	second := redirectOnce()
+	secondParsed, err := url.Parse(second)
+	if err != nil {
+		t.Fatalf("parse second redirect: %v", err)
+	}
+	secondToken := strings.TrimSpace(secondParsed.Query().Get("preview_token"))
+	if secondToken == "" {
+		t.Fatalf("expected second preview token in %q", second)
+	}
+	if firstToken == secondToken {
+		t.Fatalf("expected fresh token per preview request, got same token %q", firstToken)
 	}
 }
 

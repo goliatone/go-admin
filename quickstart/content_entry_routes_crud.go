@@ -98,11 +98,38 @@ func (h *contentEntryHandlers) editForPanel(c router.Context, panelSlug string) 
 		}
 	}
 	values := contentEntryValues(record)
+	previewURL := h.previewActionURLForRecord(c, panelName, id, record, contentType)
+	return h.renderForm(c, panelName, panel, contentType, adminCtx, values, record, true, previewURL)
+}
+
+func (h *contentEntryHandlers) Preview(c router.Context) error {
+	return h.previewForPanel(c, "")
+}
+
+func (h *contentEntryHandlers) previewForPanel(c router.Context, panelSlug string) error {
+	panel, panelName, contentType, adminCtx, err := h.resolvePanelContext(c, panelSlug)
+	if err != nil {
+		return err
+	}
+	if guardErr := h.guardPanel(c, panelName, panel, "edit"); guardErr != nil {
+		return guardErr
+	}
+	id := strings.TrimSpace(c.Param("id"))
+	if id == "" {
+		return admin.ErrNotFound
+	}
+	record, err := panel.Get(adminCtx, id)
+	if err != nil {
+		return contentEntryRouteError(panelName, "load record", id, err)
+	}
 	previewURL, err := h.previewURLForRecord(c.Context(), panelName, id, record, contentType)
 	if err != nil {
 		return contentEntryRouteError(panelName, "generate preview token", id, err)
 	}
-	return h.renderForm(c, panelName, panel, contentType, adminCtx, values, record, true, previewURL)
+	if strings.TrimSpace(previewURL) == "" {
+		return admin.ErrNotFound
+	}
+	return c.Redirect(previewURL)
 }
 
 func (h *contentEntryHandlers) Update(c router.Context) error {
@@ -201,6 +228,24 @@ func (h *contentEntryHandlers) deleteForPanel(c router.Context, panelSlug string
 	}
 	routes := newContentEntryRoutes(h.cfg.BasePath, contentTypeSlug(contentType, panelName), adminCtx.Channel)
 	return c.Redirect(routes.index())
+}
+
+func (h *contentEntryHandlers) previewActionURLForRecord(c router.Context, panelName, id string, record map[string]any, contentType *admin.CMSContentType) string {
+	if h == nil || h.admin == nil || h.admin.Preview() == nil || strings.TrimSpace(id) == "" {
+		return ""
+	}
+	if targetPath := admin.ResolveContentPreviewPathWithOptions(record, admin.ContentPreviewPathOptions{
+		AllowSlugFallback: contentTypeAllowsSlugPreviewFallback(contentType),
+	}); targetPath == "" {
+		return ""
+	}
+	slug := contentTypeSlug(contentType, canonicalPanelName(panelName))
+	routes := newContentEntryRoutes(resolveAdminBasePath(h.adminURLs(), h.cfg.BasePath), slug, resolveContentChannel(c))
+	target := routes.preview(id)
+	if locale := contentEntryRequestedLocale(c, contentEntryTranslationStateFromRecord(record).RequestedLocale); locale != "" {
+		target = appendQueryParam(target, "locale", locale)
+	}
+	return target
 }
 
 func (h *contentEntryHandlers) previewURLForRecord(ctx context.Context, panelName, id string, record map[string]any, contentType *admin.CMSContentType) (string, error) {

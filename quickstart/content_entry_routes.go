@@ -264,6 +264,7 @@ func RegisterContentEntryUIRoutes[T any](
 	contentRoutes.Get("/:name", wrap(handlers.List))
 	contentRoutes.Get("/:name/new", wrap(handlers.New))
 	contentRoutes.Post("/:name", wrap(handlers.Create))
+	contentRoutes.Get("/:name/:id/preview", wrap(handlers.Preview))
 	contentRoutes.Get("/:name/:id", wrap(handlers.Detail))
 	contentRoutes.Get("/:name/:id/edit", wrap(handlers.Edit))
 	contentRoutes.Post("/:name/:id", wrap(handlers.Update))

@@ -34,6 +34,7 @@ func registerCanonicalContentEntryPanelRoutes[T any](
 			continue
 		}
 		newPath := path.Join(listPath, "new")
+		previewPath := path.Join(listPath, ":id", "preview")
 		detailPath := path.Join(listPath, ":id")
 		editPath := path.Join(listPath, ":id", "edit")
 		deletePath := path.Join(listPath, ":id", "delete")
@@ -46,6 +47,9 @@ func registerCanonicalContentEntryPanelRoutes[T any](
 		}))
 		r.Post(listPath, wrap(func(c router.Context) error {
 			return handlers.createForPanel(c, panelName)
+		}))
+		r.Get(previewPath, wrap(func(c router.Context) error {
+			return handlers.previewForPanel(c, panelName)
 		}))
 		r.Get(detailPath, wrap(func(c router.Context) error {
 			return handlers.detailForPanel(c, panelName)
@@ -202,6 +206,10 @@ func (r contentEntryRoutes) show(id string) string {
 
 func (r contentEntryRoutes) edit(id string) string {
 	return r.withChannel(path.Join(r.basePath, "content", r.slug, id, "edit"))
+}
+
+func (r contentEntryRoutes) preview(id string) string {
+	return r.withChannel(path.Join(r.basePath, "content", r.slug, id, "preview"))
 }
 
 func (r contentEntryRoutes) update(id string) string {
