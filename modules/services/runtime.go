@@ -222,8 +222,8 @@ func (w *WorkerRuntime) handleRefreshJob(ctx context.Context, params map[string]
 		return fmt.Errorf("modules/services: services runtime is not configured")
 	}
 	_, err := w.service.Refresh(ctx, gocore.RefreshRequest{
-		ProviderID:   toString(params["provider_id"]),
-		ConnectionID: toString(params["connection_id"]),
+		ProviderID:   primitives.StringFromAny(params["provider_id"]),
+		ConnectionID: primitives.StringFromAny(params["connection_id"]),
 	})
 	return err
 }
@@ -233,7 +233,7 @@ func (w *WorkerRuntime) handleSubscriptionRenewJob(ctx context.Context, params m
 		return fmt.Errorf("modules/services: services runtime is not configured")
 	}
 	_, err := w.service.RenewSubscription(ctx, gocore.RenewSubscriptionRequest{
-		SubscriptionID: toString(params["subscription_id"]),
+		SubscriptionID: primitives.StringFromAny(params["subscription_id"]),
 		Metadata:       toStringAnyMap(params["metadata"]),
 	})
 	return err
@@ -245,10 +245,10 @@ func (w *WorkerRuntime) handleSyncIncrementalJob(ctx context.Context, params map
 	}
 	_, err := w.syncOrchestrator.StartIncremental(
 		ctx,
-		toString(params["connection_id"]),
-		toString(params["provider_id"]),
-		toString(params["resource_type"]),
-		toString(params["resource_id"]),
+		primitives.StringFromAny(params["connection_id"]),
+		primitives.StringFromAny(params["provider_id"]),
+		primitives.StringFromAny(params["resource_type"]),
+		primitives.StringFromAny(params["resource_id"]),
 		toStringAnyMap(params["metadata"]),
 	)
 	return err
@@ -529,7 +529,7 @@ func inboundRequestToParams(req gocore.InboundRequest) map[string]any {
 }
 
 func inboundRequestFromParams(params map[string]any) (gocore.InboundRequest, error) {
-	bodyEncoded := strings.TrimSpace(toString(params["body"]))
+	bodyEncoded := strings.TrimSpace(primitives.StringFromAny(params["body"]))
 	body := []byte{}
 	if bodyEncoded != "" {
 		decoded, err := base64.StdEncoding.DecodeString(bodyEncoded)
@@ -539,8 +539,8 @@ func inboundRequestFromParams(params map[string]any) (gocore.InboundRequest, err
 		body = decoded
 	}
 	return gocore.InboundRequest{
-		ProviderID: strings.TrimSpace(toString(params["provider_id"])),
-		Surface:    strings.TrimSpace(toString(params["surface"])),
+		ProviderID: strings.TrimSpace(primitives.StringFromAny(params["provider_id"])),
+		Surface:    strings.TrimSpace(primitives.StringFromAny(params["surface"])),
 		Headers:    toStringMap(params["headers"]),
 		Metadata:   toStringAnyMap(params["metadata"]),
 		Body:       body,
@@ -566,7 +566,7 @@ func toStringMap(value any) map[string]string {
 	if typed, ok := value.(map[string]any); ok {
 		out := make(map[string]string, len(typed))
 		for key, raw := range typed {
-			out[key] = toString(raw)
+			out[key] = primitives.StringFromAny(raw)
 		}
 		return out
 	}

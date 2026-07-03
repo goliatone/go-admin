@@ -299,17 +299,17 @@ func (defaultLifecycleRecipientResolver) Resolve(_ context.Context, event gocore
 		appendRecipient("user", event.ScopeID)
 	}
 	if raw, ok := event.Metadata["recipient_ids"]; ok {
-		for _, id := range toStringSlice(raw) {
+		for _, id := range primitives.CSVStringSliceFromAnyEmpty(raw) {
 			appendRecipient("user", id)
 		}
 	}
 	if raw, ok := event.Metadata["recipient_user_ids"]; ok {
-		for _, id := range toStringSlice(raw) {
+		for _, id := range primitives.CSVStringSliceFromAnyEmpty(raw) {
 			appendRecipient("user", id)
 		}
 	}
 	if raw, ok := event.Metadata["recipient_org_ids"]; ok {
-		for _, id := range toStringSlice(raw) {
+		for _, id := range primitives.CSVStringSliceFromAnyEmpty(raw) {
 			appendRecipient("org", id)
 		}
 	}

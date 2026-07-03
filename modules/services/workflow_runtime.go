@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"fmt"
+	"github.com/goliatone/go-admin/internal/primitives"
 	"sort"
 	"strings"
 	"sync"
@@ -324,7 +325,7 @@ func newWorkflowMappingSpecStore() *workflowMappingSpecStore {
 }
 
 func (s *workflowMappingSpecStore) key(providerID string, scope gocore.ScopeRef, specID string, version int) string {
-	return strings.TrimSpace(strings.ToLower(providerID)) + "|" + strings.TrimSpace(strings.ToLower(scope.Type)) + "|" + strings.TrimSpace(scope.ID) + "|" + strings.TrimSpace(specID) + "|" + toString(version)
+	return strings.TrimSpace(strings.ToLower(providerID)) + "|" + strings.TrimSpace(strings.ToLower(scope.Type)) + "|" + strings.TrimSpace(scope.ID) + "|" + strings.TrimSpace(specID) + "|" + primitives.StringFromAny(version)
 }
 
 func (s *workflowMappingSpecStore) CreateDraft(_ context.Context, spec gocore.MappingSpec) (gocore.MappingSpec, error) {
@@ -332,7 +333,7 @@ func (s *workflowMappingSpecStore) CreateDraft(_ context.Context, spec gocore.Ma
 	defer s.mu.Unlock()
 	now := time.Now().UTC()
 	if spec.ID == "" {
-		spec.ID = "mapping_" + strings.ReplaceAll(strings.ToLower(spec.SpecID), " ", "_") + "_v" + toString(spec.Version)
+		spec.ID = "mapping_" + strings.ReplaceAll(strings.ToLower(spec.SpecID), " ", "_") + "_v" + primitives.StringFromAny(spec.Version)
 	}
 	spec.CreatedAt = now
 	spec.UpdatedAt = now
@@ -572,7 +573,7 @@ func (s *workflowSyncCheckpointStore) Save(_ context.Context, checkpoint gocore.
 	checkpoint.ID = strings.TrimSpace(checkpoint.ID)
 	if checkpoint.ID == "" {
 		s.counter++
-		checkpoint.ID = "checkpoint_" + toString(s.counter)
+		checkpoint.ID = "checkpoint_" + primitives.StringFromAny(s.counter)
 	}
 	if checkpoint.CreatedAt.IsZero() {
 		checkpoint.CreatedAt = now
@@ -634,7 +635,7 @@ func (s *workflowSyncChangeLogStore) Append(_ context.Context, entry gocore.Sync
 		}
 	}
 	s.counter++
-	entry.ID = "change_" + toString(s.counter)
+	entry.ID = "change_" + primitives.StringFromAny(s.counter)
 	if entry.OccurredAt.IsZero() {
 		entry.OccurredAt = time.Now().UTC()
 	}
@@ -700,7 +701,7 @@ func (s *workflowSyncConflictStore) Append(_ context.Context, conflict gocore.Sy
 	now := time.Now().UTC()
 	if strings.TrimSpace(conflict.ID) == "" {
 		s.counter++
-		conflict.ID = "conflict_" + toString(s.counter)
+		conflict.ID = "conflict_" + primitives.StringFromAny(s.counter)
 	}
 	if conflict.CreatedAt.IsZero() {
 		conflict.CreatedAt = now

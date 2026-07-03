@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"fmt"
+	"github.com/goliatone/go-admin/internal/primitives"
 	"io/fs"
 	"net/url"
 	"strings"
@@ -608,20 +609,7 @@ func validateCollectionsConfig(c Config) error {
 }
 
 func normalizeStringListUnique(values []string) []string {
-	if len(values) == 0 {
-		return []string{}
-	}
-	seen := map[string]bool{}
-	out := make([]string, 0, len(values))
-	for _, value := range values {
-		trimmed := strings.TrimSpace(value)
-		if trimmed == "" || seen[trimmed] {
-			continue
-		}
-		seen[trimmed] = true
-		out = append(out, trimmed)
-	}
-	return out
+	return primitives.NormalizeUniqueStringSliceEmpty(values)
 }
 
 func normalizeStringMapEntries(values map[string]string) map[string]string {

@@ -140,16 +140,16 @@ func parseActivityListFilter(c router.Context) (activityListFilter, error) {
 	if err != nil {
 		return activityListFilter{}, validationError("until must be RFC3339", map[string]any{"field": "until"})
 	}
-	channels := normalizeStringList(append(
-		toStringSlice(c.Query("channels")),
+	channels := primitives.NormalizeUniqueStringSliceEmpty(append(
+		primitives.CSVStringSliceFromAnyEmpty(c.Query("channels")),
 		strings.TrimSpace(c.Query("channel")),
 	))
 	channel := ""
 	if len(channels) == 1 {
 		channel = channels[0]
 	}
-	connections := normalizeStringList(append(
-		toStringSlice(c.Query("connections")),
+	connections := primitives.NormalizeUniqueStringSliceEmpty(append(
+		primitives.CSVStringSliceFromAnyEmpty(c.Query("connections")),
 		strings.TrimSpace(c.Query("connection_id")),
 	))
 
@@ -170,20 +170,6 @@ func parseActivityListFilter(c router.Context) (activityListFilter, error) {
 		Since:       since,
 		Until:       until,
 	}, nil
-}
-
-func normalizeStringList(values []string) []string {
-	out := make([]string, 0, len(values))
-	seen := map[string]bool{}
-	for _, value := range values {
-		trimmed := strings.TrimSpace(value)
-		if trimmed == "" || seen[trimmed] {
-			continue
-		}
-		seen[trimmed] = true
-		out = append(out, trimmed)
-	}
-	return out
 }
 
 func (m *Module) listActivityFeed(ctx context.Context, filter activityListFilter) (activityListPage, error) {

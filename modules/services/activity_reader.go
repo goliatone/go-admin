@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"fmt"
+	"github.com/goliatone/go-admin/internal/primitives"
 	"strings"
 	"time"
 
@@ -49,7 +50,7 @@ func toActivityListFilter(filter gocore.ServicesActivityFilter) activityListFilt
 		ScopeID:     strings.TrimSpace(filter.ScopeID),
 		Action:      strings.TrimSpace(filter.Action),
 		Status:      strings.TrimSpace(string(filter.Status)),
-		Connections: normalizeStringList(filter.Connections),
+		Connections: primitives.NormalizeUniqueStringSliceEmpty(filter.Connections),
 		Since:       filter.From,
 		Until:       filter.To,
 	}
@@ -67,10 +68,10 @@ func toCoreActivityPage(page activityListPage) gocore.ServicesActivityPage {
 
 	items := make([]gocore.ServiceActivityEntry, 0, len(page.Entries))
 	for _, raw := range page.Entries {
-		object := strings.TrimSpace(toString(raw["object"]))
+		object := strings.TrimSpace(primitives.StringFromAny(raw["object"]))
 		if object == "" {
-			objectType := strings.TrimSpace(toString(raw["object_type"]))
-			objectID := strings.TrimSpace(toString(raw["object_id"]))
+			objectType := strings.TrimSpace(primitives.StringFromAny(raw["object_type"]))
+			objectID := strings.TrimSpace(primitives.StringFromAny(raw["object_id"]))
 			if objectType != "" && objectID != "" {
 				object = objectType + ":" + objectID
 			} else if objectType != "" {
@@ -80,12 +81,12 @@ func toCoreActivityPage(page activityListPage) gocore.ServicesActivityPage {
 			}
 		}
 		items = append(items, gocore.ServiceActivityEntry{
-			ID:        strings.TrimSpace(toString(raw["id"])),
-			Actor:     strings.TrimSpace(toString(raw["actor"])),
-			Action:    strings.TrimSpace(toString(raw["action"])),
+			ID:        strings.TrimSpace(primitives.StringFromAny(raw["id"])),
+			Actor:     strings.TrimSpace(primitives.StringFromAny(raw["actor"])),
+			Action:    strings.TrimSpace(primitives.StringFromAny(raw["action"])),
 			Object:    object,
-			Channel:   strings.TrimSpace(toString(raw["channel"])),
-			Status:    gocore.ServiceActivityStatus(strings.TrimSpace(toString(raw["status"]))),
+			Channel:   strings.TrimSpace(primitives.StringFromAny(raw["channel"])),
+			Status:    gocore.ServiceActivityStatus(strings.TrimSpace(primitives.StringFromAny(raw["status"]))),
 			Metadata:  extractMap(raw["metadata"]),
 			CreatedAt: toActivityTime(raw["created_at"]),
 		})

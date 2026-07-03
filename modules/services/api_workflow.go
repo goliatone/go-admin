@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"encoding/json"
+	"github.com/goliatone/go-admin/internal/primitives"
 	"maps"
 	"net/http"
 	"sort"
@@ -242,7 +243,7 @@ func (m *Module) handleWorkflowUnpublishMapping(c router.Context, body map[strin
 	if specID == "" {
 		return 0, nil, validationError("mapping spec id is required", map[string]any{"field": "spec_id"})
 	}
-	providerID := strings.TrimSpace(toString(body["provider_id"]))
+	providerID := strings.TrimSpace(primitives.StringFromAny(body["provider_id"]))
 	if providerID == "" {
 		providerID = strings.TrimSpace(c.Query("provider_id"))
 	}
@@ -358,10 +359,10 @@ func workflowPlanSyncRunPayloadFromBody(body map[string]any) (workflowPlanSyncRu
 	if rawBinding, ok := body["binding"].(map[string]any); ok {
 		payload.Binding = workflowSyncBindingFromMap(rawBinding, payload.Binding)
 	}
-	if mode := firstNonEmptyString(body["mode"], payload.Mode); mode != "" {
+	if mode := primitives.FirstNonEmptyFromAny(body["mode"], payload.Mode); mode != "" {
 		payload.Mode = mode
 	}
-	if fromCheckpoint := firstNonEmptyString(body["from_checkpoint_id"], body["fromCheckpointID"], payload.FromCheckpointID); fromCheckpoint != "" {
+	if fromCheckpoint := primitives.FirstNonEmptyFromAny(body["from_checkpoint_id"], body["fromCheckpointID"], payload.FromCheckpointID); fromCheckpoint != "" {
 		payload.FromCheckpointID = fromCheckpoint
 	}
 	if limit := toInt(body["limit"], payload.Limit); limit > 0 {
@@ -383,7 +384,7 @@ func workflowPlanSyncRunBinding(c router.Context, body map[string]any, binding g
 	}
 	binding.ProviderID = strings.TrimSpace(binding.ProviderID)
 	if binding.ProviderID == "" {
-		binding.ProviderID = strings.TrimSpace(toString(body["provider_id"]))
+		binding.ProviderID = strings.TrimSpace(primitives.StringFromAny(body["provider_id"]))
 	}
 	if binding.Status == "" {
 		binding.Status = gocore.SyncBindingStatusActive
@@ -527,7 +528,7 @@ func (m *Module) handleWorkflowResumeSyncRun(c router.Context, body map[string]a
 	if err != nil {
 		return 0, nil, err
 	}
-	mode := workflowNormalizeSyncRunMode(firstNonEmptyString(body["mode"], previous.Mode), previous.Mode)
+	mode := workflowNormalizeSyncRunMode(primitives.FirstNonEmptyFromAny(body["mode"], previous.Mode), previous.Mode)
 	if mode == "" {
 		mode = gocore.SyncRunModeApply
 	}
@@ -546,7 +547,7 @@ func (m *Module) handleWorkflowResumeSyncRun(c router.Context, body map[string]a
 	if err != nil {
 		return 0, nil, err
 	}
-	direction := gocore.SyncDirection(strings.TrimSpace(strings.ToLower(firstNonEmptyString(body["direction"], previous.Direction, binding.Direction))))
+	direction := gocore.SyncDirection(strings.TrimSpace(strings.ToLower(primitives.FirstNonEmptyFromAny(body["direction"], previous.Direction, binding.Direction))))
 	if direction == "" {
 		direction = gocore.SyncDirectionImport
 	}
@@ -579,7 +580,7 @@ func (m *Module) workflowResumeSyncState(c router.Context, body map[string]any, 
 	if runID == "" {
 		return workflowSyncRunRecord{}, gocore.SyncBinding{}, "", validationError("run_id is required", map[string]any{"field": "run_id"})
 	}
-	providerID := strings.TrimSpace(firstNonEmptyString(body["provider_id"], c.Query("provider_id")))
+	providerID := strings.TrimSpace(primitives.FirstNonEmptyFromAny(body["provider_id"], c.Query("provider_id")))
 	if providerID == "" {
 		return workflowSyncRunRecord{}, gocore.SyncBinding{}, "", validationError("provider_id is required", map[string]any{"field": "provider_id"})
 	}
@@ -627,10 +628,10 @@ func workflowSyncRunPayloadFromBody(body map[string]any) (workflowSyncRunPayload
 	if rawBinding, ok := body["binding"].(map[string]any); ok {
 		payload.Binding = workflowSyncBindingFromMap(rawBinding, payload.Binding)
 	}
-	if mode := firstNonEmptyString(body["mode"], payload.Mode); mode != "" {
+	if mode := primitives.FirstNonEmptyFromAny(body["mode"], payload.Mode); mode != "" {
 		payload.Mode = mode
 	}
-	if direction := firstNonEmptyString(body["direction"], payload.Direction); direction != "" {
+	if direction := primitives.FirstNonEmptyFromAny(body["direction"], payload.Direction); direction != "" {
 		payload.Direction = direction
 	}
 	if metadata := extractMap(body["metadata"]); len(metadata) > 0 {
@@ -684,7 +685,7 @@ func (m *Module) ensureWorkflowSyncRunPlan(c router.Context, body map[string]any
 		binding.Scope = scope
 	}
 	if strings.TrimSpace(binding.ProviderID) == "" {
-		binding.ProviderID = strings.TrimSpace(toString(body["provider_id"]))
+		binding.ProviderID = strings.TrimSpace(primitives.StringFromAny(body["provider_id"]))
 	}
 	if binding.Status == "" {
 		binding.Status = gocore.SyncBindingStatusActive
@@ -859,7 +860,7 @@ func (m *Module) handleWorkflowListSchemaDrift(c router.Context, _ map[string]an
 		items = append(items, workflowSchemaDriftItem(spec, baseline, found))
 	}
 	sort.SliceStable(items, func(i, j int) bool {
-		return strings.TrimSpace(toString(items[i]["spec_id"])) < strings.TrimSpace(toString(items[j]["spec_id"]))
+		return strings.TrimSpace(primitives.StringFromAny(items[i]["spec_id"])) < strings.TrimSpace(primitives.StringFromAny(items[j]["spec_id"]))
 	})
 	limit := len(items)
 	if limit == 0 {
@@ -880,7 +881,7 @@ func (m *Module) handleWorkflowSetSchemaDriftBaseline(c router.Context, body map
 	if err != nil {
 		return 0, nil, err
 	}
-	providerID := strings.TrimSpace(firstNonEmptyString(body["provider_id"], c.Query("provider_id")))
+	providerID := strings.TrimSpace(primitives.FirstNonEmptyFromAny(body["provider_id"], c.Query("provider_id")))
 	if providerID == "" {
 		return 0, nil, validationError("provider_id is required", map[string]any{"field": "provider_id"})
 	}
@@ -892,7 +893,7 @@ func (m *Module) handleWorkflowSetSchemaDriftBaseline(c router.Context, body map
 	if err != nil {
 		return 0, nil, validationError(err.Error(), map[string]any{"field": "provider_id/scope"})
 	}
-	specID := strings.TrimSpace(firstNonEmptyString(body["spec_id"], body["mapping_spec_id"]))
+	specID := strings.TrimSpace(primitives.FirstNonEmptyFromAny(body["spec_id"], body["mapping_spec_id"]))
 	if specID == "" {
 		return 0, nil, validationError("spec_id is required", map[string]any{"field": "spec_id"})
 	}
@@ -901,11 +902,11 @@ func (m *Module) handleWorkflowSetSchemaDriftBaseline(c router.Context, body map
 	if err != nil {
 		return 0, nil, err
 	}
-	schemaRef := strings.TrimSpace(firstNonEmptyString(body["schema_ref"], spec.SchemaRef))
+	schemaRef := strings.TrimSpace(primitives.FirstNonEmptyFromAny(body["schema_ref"], spec.SchemaRef))
 	if schemaRef == "" {
 		return 0, nil, validationError("schema_ref is required", map[string]any{"field": "schema_ref"})
 	}
-	capturedBy := strings.TrimSpace(firstNonEmptyString(body["captured_by"], actorIDFromContext(c.Context())))
+	capturedBy := strings.TrimSpace(primitives.FirstNonEmptyFromAny(body["captured_by"], actorIDFromContext(c.Context())))
 	baseline := runtime.upsertSchemaBaseline(workflowSchemaBaseline{
 		ProviderID: providerID,
 		Scope:      scope,
@@ -1014,7 +1015,7 @@ func (m *Module) handleWorkflowResolveConflict(c router.Context, body map[string
 	if conflictID == "" {
 		return 0, nil, validationError("conflict_id is required", map[string]any{"field": "conflict_id"})
 	}
-	providerID := strings.TrimSpace(toString(body["provider_id"]))
+	providerID := strings.TrimSpace(primitives.StringFromAny(body["provider_id"]))
 	if providerID == "" {
 		providerID = strings.TrimSpace(c.Query("provider_id"))
 	}
@@ -1029,11 +1030,11 @@ func (m *Module) handleWorkflowResolveConflict(c router.Context, body map[string
 	if err != nil {
 		return 0, nil, validationError(err.Error(), map[string]any{"field": "provider_id/scope"})
 	}
-	action := gocore.SyncConflictResolutionAction(strings.TrimSpace(strings.ToLower(toString(body["action"]))))
+	action := gocore.SyncConflictResolutionAction(strings.TrimSpace(strings.ToLower(primitives.StringFromAny(body["action"]))))
 	if !action.IsValid() {
 		return 0, nil, validationError("action must be resolve|ignore|retry", map[string]any{"field": "action"})
 	}
-	resolvedBy := strings.TrimSpace(toString(body["resolved_by"]))
+	resolvedBy := strings.TrimSpace(primitives.StringFromAny(body["resolved_by"]))
 	if resolvedBy == "" {
 		resolvedBy = actorIDFromContext(c.Context())
 	}
@@ -1044,7 +1045,7 @@ func (m *Module) handleWorkflowResolveConflict(c router.Context, body map[string
 		Resolution: gocore.SyncConflictResolution{
 			Action:     action,
 			Patch:      extractMap(body["patch"]),
-			Reason:     strings.TrimSpace(toString(body["reason"])),
+			Reason:     strings.TrimSpace(primitives.StringFromAny(body["reason"])),
 			ResolvedBy: resolvedBy,
 		},
 		Metadata: extractMetadata(body),
@@ -1092,7 +1093,7 @@ func (m *Module) handleWorkflowInvokeCapability(c router.Context, body map[strin
 	if err != nil {
 		return 0, nil, err
 	}
-	connectionID := strings.TrimSpace(toString(body["connection_id"]))
+	connectionID := strings.TrimSpace(primitives.StringFromAny(body["connection_id"]))
 	candidates, err := m.workflowConnectionCandidates(c.Context(), providerID, scope)
 	if err != nil {
 		return 0, nil, err
@@ -1109,7 +1110,7 @@ func (m *Module) handleWorkflowInvokeCapability(c router.Context, body map[strin
 			})
 		}
 		if len(candidates) == 1 {
-			connectionID = strings.TrimSpace(toString(candidates[0]["connection_id"]))
+			connectionID = strings.TrimSpace(primitives.StringFromAny(candidates[0]["connection_id"]))
 		}
 	}
 
@@ -1187,14 +1188,14 @@ func (m *Module) handleWorkflowCallbackDiagnosticsStatus(c router.Context, _ map
 }
 
 func (m *Module) handleWorkflowCallbackDiagnosticsPreview(c router.Context, body map[string]any) (int, any, error) {
-	providerID := strings.TrimSpace(toString(body["provider_id"]))
+	providerID := strings.TrimSpace(primitives.StringFromAny(body["provider_id"]))
 	if providerID == "" {
 		providerID = strings.TrimSpace(c.Query("provider_id"))
 	}
 	if providerID == "" {
 		return 0, nil, validationError("provider_id is required", map[string]any{"field": "provider_id"})
 	}
-	flow := strings.TrimSpace(strings.ToLower(toString(body["flow"])))
+	flow := strings.TrimSpace(strings.ToLower(primitives.StringFromAny(body["flow"])))
 	if flow == "" {
 		flow = "connect"
 	}
@@ -1272,7 +1273,7 @@ func (m *Module) handleWorkflowVersionedMappingMutation(
 	if specID == "" {
 		return gocore.MappingSpec{}, validationError("mapping spec id is required", map[string]any{"field": "spec_id"})
 	}
-	providerID := strings.TrimSpace(toString(body["provider_id"]))
+	providerID := strings.TrimSpace(primitives.StringFromAny(body["provider_id"]))
 	if providerID == "" {
 		providerID = strings.TrimSpace(c.Query("provider_id"))
 	}
@@ -1315,7 +1316,7 @@ func workflowMappingRequestFromBody[T any](
 		mapping.Scope = scope
 	}
 	if strings.TrimSpace(mapping.ProviderID) == "" {
-		mapping.ProviderID = strings.TrimSpace(toString(body["provider_id"]))
+		mapping.ProviderID = strings.TrimSpace(primitives.StringFromAny(body["provider_id"]))
 	}
 	return request, nil
 }
@@ -1636,20 +1637,20 @@ func workflowSyncBindingFromMap(raw map[string]any, fallback gocore.SyncBinding)
 	if raw == nil {
 		return binding
 	}
-	binding.ID = strings.TrimSpace(firstNonEmptyString(raw["id"], raw["binding_id"], raw["bindingID"], binding.ID))
-	binding.ProviderID = strings.TrimSpace(firstNonEmptyString(raw["provider_id"], raw["providerID"], binding.ProviderID))
+	binding.ID = strings.TrimSpace(primitives.FirstNonEmptyFromAny(raw["id"], raw["binding_id"], raw["bindingID"], binding.ID))
+	binding.ProviderID = strings.TrimSpace(primitives.FirstNonEmptyFromAny(raw["provider_id"], raw["providerID"], binding.ProviderID))
 	binding.Scope = workflowScopeFromMap(raw, binding.Scope)
 	if scopeRaw, ok := raw["scope"].(map[string]any); ok {
 		binding.Scope = workflowScopeFromMap(scopeRaw, binding.Scope)
 	}
-	binding.ConnectionID = strings.TrimSpace(firstNonEmptyString(raw["connection_id"], raw["connectionID"], binding.ConnectionID))
-	binding.MappingSpecID = strings.TrimSpace(firstNonEmptyString(raw["mapping_spec_id"], raw["mappingSpecID"], binding.MappingSpecID))
-	binding.SourceObject = strings.TrimSpace(firstNonEmptyString(raw["source_object"], raw["sourceObject"], binding.SourceObject))
-	binding.TargetModel = strings.TrimSpace(firstNonEmptyString(raw["target_model"], raw["targetModel"], binding.TargetModel))
-	if direction := strings.TrimSpace(strings.ToLower(firstNonEmptyString(raw["direction"], binding.Direction))); direction != "" {
+	binding.ConnectionID = strings.TrimSpace(primitives.FirstNonEmptyFromAny(raw["connection_id"], raw["connectionID"], binding.ConnectionID))
+	binding.MappingSpecID = strings.TrimSpace(primitives.FirstNonEmptyFromAny(raw["mapping_spec_id"], raw["mappingSpecID"], binding.MappingSpecID))
+	binding.SourceObject = strings.TrimSpace(primitives.FirstNonEmptyFromAny(raw["source_object"], raw["sourceObject"], binding.SourceObject))
+	binding.TargetModel = strings.TrimSpace(primitives.FirstNonEmptyFromAny(raw["target_model"], raw["targetModel"], binding.TargetModel))
+	if direction := strings.TrimSpace(strings.ToLower(primitives.FirstNonEmptyFromAny(raw["direction"], binding.Direction))); direction != "" {
 		binding.Direction = gocore.SyncDirection(direction)
 	}
-	if status := strings.TrimSpace(strings.ToLower(firstNonEmptyString(raw["status"], binding.Status))); status != "" {
+	if status := strings.TrimSpace(strings.ToLower(primitives.FirstNonEmptyFromAny(raw["status"], binding.Status))); status != "" {
 		binding.Status = gocore.SyncBindingStatus(status)
 	}
 	if metadata := extractMap(raw["metadata"]); len(metadata) > 0 {
@@ -1663,17 +1664,17 @@ func workflowSyncRunPlanFromMap(raw map[string]any, fallback gocore.SyncRunPlan)
 	if raw == nil {
 		return plan
 	}
-	plan.ID = strings.TrimSpace(firstNonEmptyString(raw["id"], plan.ID))
-	plan.BindingID = strings.TrimSpace(firstNonEmptyString(raw["binding_id"], raw["bindingID"], plan.BindingID))
-	plan.Mode = workflowNormalizeSyncRunMode(firstNonEmptyString(raw["mode"], plan.Mode), plan.Mode)
+	plan.ID = strings.TrimSpace(primitives.FirstNonEmptyFromAny(raw["id"], plan.ID))
+	plan.BindingID = strings.TrimSpace(primitives.FirstNonEmptyFromAny(raw["binding_id"], raw["bindingID"], plan.BindingID))
+	plan.Mode = workflowNormalizeSyncRunMode(primitives.FirstNonEmptyFromAny(raw["mode"], plan.Mode), plan.Mode)
 	if checkpointRaw, ok := raw["checkpoint"].(map[string]any); ok {
 		plan.Checkpoint = workflowSyncCheckpointFromMap(checkpointRaw, plan.Checkpoint)
 	}
 	if estimated := toInt(raw["estimated_changes"], plan.EstimatedChanges); estimated > 0 {
 		plan.EstimatedChanges = estimated
 	}
-	plan.IdempotencySeed = strings.TrimSpace(firstNonEmptyString(raw["idempotency_seed"], raw["idempotencySeed"], plan.IdempotencySeed))
-	plan.DeterministicHash = strings.TrimSpace(firstNonEmptyString(raw["deterministic_hash"], raw["deterministicHash"], plan.DeterministicHash))
+	plan.IdempotencySeed = strings.TrimSpace(primitives.FirstNonEmptyFromAny(raw["idempotency_seed"], raw["idempotencySeed"], plan.IdempotencySeed))
+	plan.DeterministicHash = strings.TrimSpace(primitives.FirstNonEmptyFromAny(raw["deterministic_hash"], raw["deterministicHash"], plan.DeterministicHash))
 	if metadata := extractMap(raw["metadata"]); len(metadata) > 0 {
 		plan.Metadata = metadata
 	}
@@ -1685,23 +1686,23 @@ func workflowSyncCheckpointFromMap(raw map[string]any, fallback gocore.SyncCheck
 	if raw == nil {
 		return checkpoint
 	}
-	checkpoint.ID = strings.TrimSpace(firstNonEmptyString(raw["id"], checkpoint.ID))
-	checkpoint.ProviderID = strings.TrimSpace(firstNonEmptyString(raw["provider_id"], raw["providerID"], checkpoint.ProviderID))
+	checkpoint.ID = strings.TrimSpace(primitives.FirstNonEmptyFromAny(raw["id"], checkpoint.ID))
+	checkpoint.ProviderID = strings.TrimSpace(primitives.FirstNonEmptyFromAny(raw["provider_id"], raw["providerID"], checkpoint.ProviderID))
 	checkpoint.Scope = workflowScopeFromMap(raw, checkpoint.Scope)
 	if scopeRaw, ok := raw["scope"].(map[string]any); ok {
 		checkpoint.Scope = workflowScopeFromMap(scopeRaw, checkpoint.Scope)
 	}
-	checkpoint.ConnectionID = strings.TrimSpace(firstNonEmptyString(raw["connection_id"], raw["connectionID"], checkpoint.ConnectionID))
-	checkpoint.SyncBindingID = strings.TrimSpace(firstNonEmptyString(raw["sync_binding_id"], raw["syncBindingID"], checkpoint.SyncBindingID))
-	if direction := strings.TrimSpace(strings.ToLower(firstNonEmptyString(raw["direction"], checkpoint.Direction))); direction != "" {
+	checkpoint.ConnectionID = strings.TrimSpace(primitives.FirstNonEmptyFromAny(raw["connection_id"], raw["connectionID"], checkpoint.ConnectionID))
+	checkpoint.SyncBindingID = strings.TrimSpace(primitives.FirstNonEmptyFromAny(raw["sync_binding_id"], raw["syncBindingID"], checkpoint.SyncBindingID))
+	if direction := strings.TrimSpace(strings.ToLower(primitives.FirstNonEmptyFromAny(raw["direction"], checkpoint.Direction))); direction != "" {
 		checkpoint.Direction = gocore.SyncDirection(direction)
 	}
-	checkpoint.Cursor = strings.TrimSpace(firstNonEmptyString(raw["cursor"], checkpoint.Cursor))
+	checkpoint.Cursor = strings.TrimSpace(primitives.FirstNonEmptyFromAny(raw["cursor"], checkpoint.Cursor))
 	if sequence := toInt(raw["sequence"], int(checkpoint.Sequence)); sequence >= 0 {
 		checkpoint.Sequence = int64(sequence)
 	}
-	checkpoint.SourceVersion = strings.TrimSpace(firstNonEmptyString(raw["source_version"], raw["sourceVersion"], checkpoint.SourceVersion))
-	checkpoint.IdempotencySeed = strings.TrimSpace(firstNonEmptyString(raw["idempotency_seed"], raw["idempotencySeed"], checkpoint.IdempotencySeed))
+	checkpoint.SourceVersion = strings.TrimSpace(primitives.FirstNonEmptyFromAny(raw["source_version"], raw["sourceVersion"], checkpoint.SourceVersion))
+	checkpoint.IdempotencySeed = strings.TrimSpace(primitives.FirstNonEmptyFromAny(raw["idempotency_seed"], raw["idempotencySeed"], checkpoint.IdempotencySeed))
 	if metadata := extractMap(raw["metadata"]); len(metadata) > 0 {
 		checkpoint.Metadata = metadata
 	}
@@ -1716,9 +1717,9 @@ func workflowSyncChangesFromAny(values []any) []gocore.SyncChange {
 			continue
 		}
 		changes = append(changes, gocore.SyncChange{
-			SourceObject:  strings.TrimSpace(firstNonEmptyString(row["source_object"], row["sourceObject"])),
-			ExternalID:    strings.TrimSpace(firstNonEmptyString(row["external_id"], row["externalID"])),
-			SourceVersion: strings.TrimSpace(firstNonEmptyString(row["source_version"], row["sourceVersion"])),
+			SourceObject:  strings.TrimSpace(primitives.FirstNonEmptyFromAny(row["source_object"], row["sourceObject"])),
+			ExternalID:    strings.TrimSpace(primitives.FirstNonEmptyFromAny(row["external_id"], row["externalID"])),
+			SourceVersion: strings.TrimSpace(primitives.FirstNonEmptyFromAny(row["source_version"], row["sourceVersion"])),
 			Payload:       extractMap(row["payload"]),
 			Metadata:      extractMap(row["metadata"]),
 		})
@@ -1734,28 +1735,28 @@ func workflowSyncConflictsFromAny(values []any) []gocore.SyncConflict {
 			continue
 		}
 		conflict := gocore.SyncConflict{
-			ID:             strings.TrimSpace(firstNonEmptyString(row["id"])),
-			ProviderID:     strings.TrimSpace(firstNonEmptyString(row["provider_id"], row["providerID"])),
+			ID:             strings.TrimSpace(primitives.FirstNonEmptyFromAny(row["id"])),
+			ProviderID:     strings.TrimSpace(primitives.FirstNonEmptyFromAny(row["provider_id"], row["providerID"])),
 			Scope:          workflowScopeFromMap(row, gocore.ScopeRef{}),
-			ConnectionID:   strings.TrimSpace(firstNonEmptyString(row["connection_id"], row["connectionID"])),
-			SyncBindingID:  strings.TrimSpace(firstNonEmptyString(row["sync_binding_id"], row["syncBindingID"])),
-			CheckpointID:   strings.TrimSpace(firstNonEmptyString(row["checkpoint_id"], row["checkpointID"])),
-			SourceObject:   strings.TrimSpace(firstNonEmptyString(row["source_object"], row["sourceObject"])),
-			ExternalID:     strings.TrimSpace(firstNonEmptyString(row["external_id"], row["externalID"])),
-			SourceVersion:  strings.TrimSpace(firstNonEmptyString(row["source_version"], row["sourceVersion"])),
-			IdempotencyKey: strings.TrimSpace(firstNonEmptyString(row["idempotency_key"], row["idempotencyKey"])),
-			Policy:         strings.TrimSpace(firstNonEmptyString(row["policy"])),
-			Reason:         strings.TrimSpace(firstNonEmptyString(row["reason"])),
+			ConnectionID:   strings.TrimSpace(primitives.FirstNonEmptyFromAny(row["connection_id"], row["connectionID"])),
+			SyncBindingID:  strings.TrimSpace(primitives.FirstNonEmptyFromAny(row["sync_binding_id"], row["syncBindingID"])),
+			CheckpointID:   strings.TrimSpace(primitives.FirstNonEmptyFromAny(row["checkpoint_id"], row["checkpointID"])),
+			SourceObject:   strings.TrimSpace(primitives.FirstNonEmptyFromAny(row["source_object"], row["sourceObject"])),
+			ExternalID:     strings.TrimSpace(primitives.FirstNonEmptyFromAny(row["external_id"], row["externalID"])),
+			SourceVersion:  strings.TrimSpace(primitives.FirstNonEmptyFromAny(row["source_version"], row["sourceVersion"])),
+			IdempotencyKey: strings.TrimSpace(primitives.FirstNonEmptyFromAny(row["idempotency_key"], row["idempotencyKey"])),
+			Policy:         strings.TrimSpace(primitives.FirstNonEmptyFromAny(row["policy"])),
+			Reason:         strings.TrimSpace(primitives.FirstNonEmptyFromAny(row["reason"])),
 			SourcePayload:  extractMap(row["source_payload"]),
 			TargetPayload:  extractMap(row["target_payload"]),
 			Resolution:     extractMap(row["resolution"]),
-			ResolvedBy:     strings.TrimSpace(firstNonEmptyString(row["resolved_by"], row["resolvedBy"])),
+			ResolvedBy:     strings.TrimSpace(primitives.FirstNonEmptyFromAny(row["resolved_by"], row["resolvedBy"])),
 			Metadata:       extractMap(row["metadata"]),
 		}
 		if scopeRaw, ok := row["scope"].(map[string]any); ok {
 			conflict.Scope = workflowScopeFromMap(scopeRaw, conflict.Scope)
 		}
-		if status := strings.TrimSpace(strings.ToLower(firstNonEmptyString(row["status"]))); status != "" {
+		if status := strings.TrimSpace(strings.ToLower(primitives.FirstNonEmptyFromAny(row["status"]))); status != "" {
 			conflict.Status = gocore.SyncConflictStatus(status)
 		}
 		conflicts = append(conflicts, conflict)
@@ -1768,17 +1769,17 @@ func workflowScopeFromMap(raw map[string]any, fallback gocore.ScopeRef) gocore.S
 	if raw == nil {
 		return scope
 	}
-	if scopeType := strings.TrimSpace(strings.ToLower(firstNonEmptyString(raw["scope_type"], raw["scopeType"]))); scopeType != "" {
+	if scopeType := strings.TrimSpace(strings.ToLower(primitives.FirstNonEmptyFromAny(raw["scope_type"], raw["scopeType"]))); scopeType != "" {
 		scope.Type = scopeType
 	}
-	if scopeID := strings.TrimSpace(firstNonEmptyString(raw["scope_id"], raw["scopeID"])); scopeID != "" {
+	if scopeID := strings.TrimSpace(primitives.FirstNonEmptyFromAny(raw["scope_id"], raw["scopeID"])); scopeID != "" {
 		scope.ID = scopeID
 	}
 	if scopeRaw, ok := raw["scope"].(map[string]any); ok {
-		if scopeType := strings.TrimSpace(strings.ToLower(firstNonEmptyString(scopeRaw["type"], scopeRaw["scope_type"], scope.Type))); scopeType != "" {
+		if scopeType := strings.TrimSpace(strings.ToLower(primitives.FirstNonEmptyFromAny(scopeRaw["type"], scopeRaw["scope_type"], scope.Type))); scopeType != "" {
 			scope.Type = scopeType
 		}
-		if scopeID := strings.TrimSpace(firstNonEmptyString(scopeRaw["id"], scopeRaw["scope_id"], scope.ID)); scopeID != "" {
+		if scopeID := strings.TrimSpace(primitives.FirstNonEmptyFromAny(scopeRaw["id"], scopeRaw["scope_id"], scope.ID)); scopeID != "" {
 			scope.ID = scopeID
 		}
 	}
@@ -1831,30 +1832,30 @@ func workflowMappingSpecFromMap(raw map[string]any, fallback gocore.MappingSpec)
 	if raw == nil {
 		return spec
 	}
-	spec.SpecID = strings.TrimSpace(firstNonEmptyString(raw["spec_id"], raw["specID"], raw["id"], spec.SpecID))
-	spec.ProviderID = strings.TrimSpace(firstNonEmptyString(raw["provider_id"], raw["providerID"], spec.ProviderID))
-	spec.Name = strings.TrimSpace(firstNonEmptyString(raw["name"], spec.Name))
-	spec.Description = strings.TrimSpace(firstNonEmptyString(raw["description"], spec.Description))
-	spec.SourceObject = strings.TrimSpace(firstNonEmptyString(raw["source_object"], raw["sourceObject"], spec.SourceObject))
-	spec.TargetModel = strings.TrimSpace(firstNonEmptyString(raw["target_model"], raw["targetModel"], spec.TargetModel))
-	spec.SchemaRef = strings.TrimSpace(firstNonEmptyString(raw["schema_ref"], raw["schemaRef"], spec.SchemaRef))
+	spec.SpecID = strings.TrimSpace(primitives.FirstNonEmptyFromAny(raw["spec_id"], raw["specID"], raw["id"], spec.SpecID))
+	spec.ProviderID = strings.TrimSpace(primitives.FirstNonEmptyFromAny(raw["provider_id"], raw["providerID"], spec.ProviderID))
+	spec.Name = strings.TrimSpace(primitives.FirstNonEmptyFromAny(raw["name"], spec.Name))
+	spec.Description = strings.TrimSpace(primitives.FirstNonEmptyFromAny(raw["description"], spec.Description))
+	spec.SourceObject = strings.TrimSpace(primitives.FirstNonEmptyFromAny(raw["source_object"], raw["sourceObject"], spec.SourceObject))
+	spec.TargetModel = strings.TrimSpace(primitives.FirstNonEmptyFromAny(raw["target_model"], raw["targetModel"], spec.TargetModel))
+	spec.SchemaRef = strings.TrimSpace(primitives.FirstNonEmptyFromAny(raw["schema_ref"], raw["schemaRef"], spec.SchemaRef))
 	if version := toInt(raw["version"], 0); version > 0 {
 		spec.Version = version
 	}
-	if status := strings.TrimSpace(strings.ToLower(firstNonEmptyString(raw["status"]))); status != "" {
+	if status := strings.TrimSpace(strings.ToLower(primitives.FirstNonEmptyFromAny(raw["status"]))); status != "" {
 		spec.Status = gocore.MappingSpecStatus(status)
 	}
 	if scopeRaw, ok := raw["scope"].(map[string]any); ok {
-		scopeType := strings.TrimSpace(strings.ToLower(firstNonEmptyString(scopeRaw["type"], scopeRaw["scope_type"], spec.Scope.Type)))
-		scopeID := strings.TrimSpace(firstNonEmptyString(scopeRaw["id"], scopeRaw["scope_id"], spec.Scope.ID))
+		scopeType := strings.TrimSpace(strings.ToLower(primitives.FirstNonEmptyFromAny(scopeRaw["type"], scopeRaw["scope_type"], spec.Scope.Type)))
+		scopeID := strings.TrimSpace(primitives.FirstNonEmptyFromAny(scopeRaw["id"], scopeRaw["scope_id"], spec.Scope.ID))
 		if scopeType != "" || scopeID != "" {
 			spec.Scope = gocore.ScopeRef{Type: scopeType, ID: scopeID}
 		}
 	}
-	if scopeType := strings.TrimSpace(strings.ToLower(firstNonEmptyString(raw["scope_type"], raw["scopeType"]))); scopeType != "" {
+	if scopeType := strings.TrimSpace(strings.ToLower(primitives.FirstNonEmptyFromAny(raw["scope_type"], raw["scopeType"]))); scopeType != "" {
 		spec.Scope.Type = scopeType
 	}
-	if scopeID := strings.TrimSpace(firstNonEmptyString(raw["scope_id"], raw["scopeID"])); scopeID != "" {
+	if scopeID := strings.TrimSpace(primitives.FirstNonEmptyFromAny(raw["scope_id"], raw["scopeID"])); scopeID != "" {
 		spec.Scope.ID = scopeID
 	}
 	spec.Rules = workflowMappingRulesFromAny(raw["rules"])
@@ -1867,21 +1868,21 @@ func workflowExternalSchemaFromMap(raw map[string]any, fallback gocore.ExternalS
 	if raw == nil {
 		return schema
 	}
-	schema.ProviderID = strings.TrimSpace(firstNonEmptyString(raw["provider_id"], raw["providerID"], schema.ProviderID))
-	schema.Name = strings.TrimSpace(firstNonEmptyString(raw["name"], schema.Name))
-	schema.ID = strings.TrimSpace(firstNonEmptyString(raw["id"], schema.ID))
-	schema.Version = strings.TrimSpace(firstNonEmptyString(raw["version"], schema.Version))
+	schema.ProviderID = strings.TrimSpace(primitives.FirstNonEmptyFromAny(raw["provider_id"], raw["providerID"], schema.ProviderID))
+	schema.Name = strings.TrimSpace(primitives.FirstNonEmptyFromAny(raw["name"], schema.Name))
+	schema.ID = strings.TrimSpace(primitives.FirstNonEmptyFromAny(raw["id"], schema.ID))
+	schema.Version = strings.TrimSpace(primitives.FirstNonEmptyFromAny(raw["version"], schema.Version))
 	if scopeRaw, ok := raw["scope"].(map[string]any); ok {
-		scopeType := strings.TrimSpace(strings.ToLower(firstNonEmptyString(scopeRaw["type"], scopeRaw["scope_type"], schema.Scope.Type)))
-		scopeID := strings.TrimSpace(firstNonEmptyString(scopeRaw["id"], scopeRaw["scope_id"], schema.Scope.ID))
+		scopeType := strings.TrimSpace(strings.ToLower(primitives.FirstNonEmptyFromAny(scopeRaw["type"], scopeRaw["scope_type"], schema.Scope.Type)))
+		scopeID := strings.TrimSpace(primitives.FirstNonEmptyFromAny(scopeRaw["id"], scopeRaw["scope_id"], schema.Scope.ID))
 		if scopeType != "" || scopeID != "" {
 			schema.Scope = gocore.ScopeRef{Type: scopeType, ID: scopeID}
 		}
 	}
-	if scopeType := strings.TrimSpace(strings.ToLower(firstNonEmptyString(raw["scope_type"], raw["scopeType"]))); scopeType != "" {
+	if scopeType := strings.TrimSpace(strings.ToLower(primitives.FirstNonEmptyFromAny(raw["scope_type"], raw["scopeType"]))); scopeType != "" {
 		schema.Scope.Type = scopeType
 	}
-	if scopeID := strings.TrimSpace(firstNonEmptyString(raw["scope_id"], raw["scopeID"])); scopeID != "" {
+	if scopeID := strings.TrimSpace(primitives.FirstNonEmptyFromAny(raw["scope_id"], raw["scopeID"])); scopeID != "" {
 		schema.Scope.ID = scopeID
 	}
 	objects := []gocore.ExternalObjectSchema{}
@@ -1892,9 +1893,9 @@ func workflowExternalSchemaFromMap(raw map[string]any, fallback gocore.ExternalS
 				continue
 			}
 			object := gocore.ExternalObjectSchema{
-				Name: strings.TrimSpace(firstNonEmptyString(objectMap["name"])),
+				Name: strings.TrimSpace(primitives.FirstNonEmptyFromAny(objectMap["name"])),
 			}
-			object.PrimaryKey = toStringSlice(objectMap["primary_key"])
+			object.PrimaryKey = primitives.CSVStringSliceFromAnyEmpty(objectMap["primary_key"])
 			fields := []gocore.ExternalField{}
 			if rawFields, ok := objectMap["fields"].([]any); ok {
 				for _, fieldRaw := range rawFields {
@@ -1903,11 +1904,11 @@ func workflowExternalSchemaFromMap(raw map[string]any, fallback gocore.ExternalS
 						continue
 					}
 					field := gocore.ExternalField{
-						Path:       strings.TrimSpace(firstNonEmptyString(fieldMap["path"])),
-						Type:       strings.TrimSpace(firstNonEmptyString(fieldMap["type"])),
+						Path:       strings.TrimSpace(primitives.FirstNonEmptyFromAny(fieldMap["path"])),
+						Type:       strings.TrimSpace(primitives.FirstNonEmptyFromAny(fieldMap["type"])),
 						Required:   toBool(fieldMap["required"], false),
 						Repeatable: toBool(fieldMap["repeatable"], false),
-						Format:     strings.TrimSpace(firstNonEmptyString(fieldMap["format"])),
+						Format:     strings.TrimSpace(primitives.FirstNonEmptyFromAny(fieldMap["format"])),
 					}
 					field.Constraints = extractMap(fieldMap["constraints"])
 					field.Metadata = extractMap(fieldMap["metadata"])
@@ -1941,10 +1942,10 @@ func workflowMappingRulesFromAny(value any) []gocore.MappingRule {
 			continue
 		}
 		rule := gocore.MappingRule{
-			ID:          strings.TrimSpace(firstNonEmptyString(ruleMap["id"])),
-			SourcePath:  strings.TrimSpace(firstNonEmptyString(ruleMap["source_path"], ruleMap["sourcePath"])),
-			TargetPath:  strings.TrimSpace(firstNonEmptyString(ruleMap["target_path"], ruleMap["targetPath"])),
-			Transform:   workflowNormalizeTransformAlias(firstNonEmptyString(ruleMap["transform"])),
+			ID:          strings.TrimSpace(primitives.FirstNonEmptyFromAny(ruleMap["id"])),
+			SourcePath:  strings.TrimSpace(primitives.FirstNonEmptyFromAny(ruleMap["source_path"], ruleMap["sourcePath"])),
+			TargetPath:  strings.TrimSpace(primitives.FirstNonEmptyFromAny(ruleMap["target_path"], ruleMap["targetPath"])),
+			Transform:   workflowNormalizeTransformAlias(primitives.FirstNonEmptyFromAny(ruleMap["transform"])),
 			Required:    toBool(ruleMap["required"], false),
 			Default:     ruleMap["default"],
 			Constraints: extractMap(ruleMap["constraints"]),
@@ -1969,13 +1970,4 @@ func workflowNormalizeTransformAlias(value string) string {
 	default:
 		return transform
 	}
-}
-
-func firstNonEmptyString(values ...any) string {
-	for _, value := range values {
-		if trimmed := strings.TrimSpace(toString(value)); trimmed != "" {
-			return trimmed
-		}
-	}
-	return ""
 }

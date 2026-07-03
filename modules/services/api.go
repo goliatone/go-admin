@@ -304,7 +304,7 @@ func (m *Module) handleBeginInstallation(c router.Context, body map[string]any) 
 	if m.service == nil {
 		return 0, nil, providerUnavailableError("services runtime is not configured", nil)
 	}
-	redirectURI := strings.TrimSpace(toString(body["redirect_uri"]))
+	redirectURI := strings.TrimSpace(primitives.StringFromAny(body["redirect_uri"]))
 	if redirectURI == "" {
 		resolvedRedirect, redirectErr := m.resolveCallbackRedirectURI(c, providerID)
 		if redirectErr != nil {
@@ -312,12 +312,12 @@ func (m *Module) handleBeginInstallation(c router.Context, body map[string]any) 
 		}
 		redirectURI = resolvedRedirect
 	}
-	requested := toStringSlice(body["requested_grants"])
+	requested := primitives.CSVStringSliceFromAnyEmpty(body["requested_grants"])
 	begin, err := m.service.Connect(c.Context(), gocore.ConnectRequest{
 		ProviderID:      providerID,
 		Scope:           scope,
 		RedirectURI:     redirectURI,
-		State:           strings.TrimSpace(toString(body["state"])),
+		State:           strings.TrimSpace(primitives.StringFromAny(body["state"])),
 		RequestedGrants: requested,
 		Metadata:        extractMetadata(body),
 	})
@@ -328,7 +328,7 @@ func (m *Module) handleBeginInstallation(c router.Context, body map[string]any) 
 	installation, err := m.service.UpsertInstallation(c.Context(), gocore.UpsertInstallationInput{
 		ProviderID:  providerID,
 		Scope:       scope,
-		InstallType: primitives.FirstNonEmpty(toString(body["install_type"]), "standard"),
+		InstallType: primitives.FirstNonEmpty(primitives.StringFromAny(body["install_type"]), "standard"),
 		Status:      gocore.InstallationStatusActive,
 		GrantedAt:   ptrTime(time.Now().UTC()),
 		Metadata:    extractMetadata(body),
@@ -348,14 +348,14 @@ func (m *Module) handleUpdateInstallationStatus(c router.Context, body map[strin
 	if installationID == "" {
 		return 0, nil, validationError("installation id is required", map[string]any{"field": "ref"})
 	}
-	targetStatus := strings.TrimSpace(toString(body["status"]))
+	targetStatus := strings.TrimSpace(primitives.StringFromAny(body["status"]))
 	if targetStatus == "" {
 		return 0, nil, validationError("installation status is required", map[string]any{"field": "status"})
 	}
 	if m.service == nil {
 		return 0, nil, providerUnavailableError("services runtime is not configured", nil)
 	}
-	reason := strings.TrimSpace(toString(body["reason"]))
+	reason := strings.TrimSpace(primitives.StringFromAny(body["reason"]))
 	if updateErr := m.service.UpdateInstallationStatus(c.Context(), installationID, gocore.InstallationStatus(targetStatus), reason); updateErr != nil {
 		if isNotFound(updateErr) {
 			return 0, nil, missingResourceError("installation", map[string]any{"installation_id": installationID})
@@ -393,7 +393,7 @@ func (m *Module) handleUninstallInstallation(c router.Context, body map[string]a
 		return 0, nil, err
 	}
 
-	reason := strings.TrimSpace(primitives.FirstNonEmpty(toString(body["reason"]), "installation_uninstall"))
+	reason := strings.TrimSpace(primitives.FirstNonEmpty(primitives.StringFromAny(body["reason"]), "installation_uninstall"))
 	if updateErr := m.service.UpdateInstallationStatus(c.Context(), installationID, gocore.InstallationStatusUninstalled, reason); updateErr != nil {
 		return 0, nil, updateErr
 	}
@@ -567,7 +567,7 @@ func (m *Module) handleBeginConnection(c router.Context, body map[string]any) (i
 	if err != nil {
 		return 0, nil, err
 	}
-	redirectURI := strings.TrimSpace(toString(body["redirect_uri"]))
+	redirectURI := strings.TrimSpace(primitives.StringFromAny(body["redirect_uri"]))
 	if redirectURI == "" {
 		resolvedRedirect, redirectErr := m.resolveCallbackRedirectURI(c, providerID)
 		if redirectErr != nil {
@@ -579,8 +579,8 @@ func (m *Module) handleBeginConnection(c router.Context, body map[string]any) (i
 		ProviderID:      providerID,
 		Scope:           scope,
 		RedirectURI:     redirectURI,
-		State:           strings.TrimSpace(toString(body["state"])),
-		RequestedGrants: toStringSlice(body["requested_grants"]),
+		State:           strings.TrimSpace(primitives.StringFromAny(body["state"])),
+		RequestedGrants: primitives.CSVStringSliceFromAnyEmpty(body["requested_grants"]),
 		Metadata:        extractMetadata(body),
 	})
 	if err != nil {
@@ -645,9 +645,9 @@ func (m *Module) handleBeginReconsent(c router.Context, body map[string]any) (in
 	if m.service == nil {
 		return 0, nil, providerUnavailableError("services runtime is not configured", nil)
 	}
-	redirectURI := strings.TrimSpace(toString(body["redirect_uri"]))
+	redirectURI := strings.TrimSpace(primitives.StringFromAny(body["redirect_uri"]))
 	if redirectURI == "" {
-		providerID := strings.TrimSpace(toString(body["provider_id"]))
+		providerID := strings.TrimSpace(primitives.StringFromAny(body["provider_id"]))
 		if providerID == "" {
 			providerID = m.lookupConnectionProvider(c.Context(), connectionID)
 		}
@@ -662,8 +662,8 @@ func (m *Module) handleBeginReconsent(c router.Context, body map[string]any) (in
 	begin, err := m.service.StartReconsent(c.Context(), gocore.ReconsentRequest{
 		ConnectionID:    connectionID,
 		RedirectURI:     redirectURI,
-		State:           strings.TrimSpace(toString(body["state"])),
-		RequestedGrants: toStringSlice(body["requested_grants"]),
+		State:           strings.TrimSpace(primitives.StringFromAny(body["state"])),
+		RequestedGrants: primitives.CSVStringSliceFromAnyEmpty(body["requested_grants"]),
 		Metadata:        extractMetadata(body),
 	})
 	if err != nil {
@@ -677,7 +677,7 @@ func (m *Module) handleRefreshConnection(c router.Context, body map[string]any) 
 	if connectionID == "" {
 		return 0, nil, validationError("connection id is required", map[string]any{"field": "id"})
 	}
-	providerID := strings.TrimSpace(toString(body["provider_id"]))
+	providerID := strings.TrimSpace(primitives.StringFromAny(body["provider_id"]))
 	if providerID == "" {
 		providerID = m.lookupConnectionProvider(c.Context(), connectionID)
 	}
@@ -709,7 +709,7 @@ func (m *Module) handleRevokeConnection(c router.Context, body map[string]any) (
 	if m.service == nil {
 		return 0, nil, providerUnavailableError("services runtime is not configured", nil)
 	}
-	if err := m.service.Revoke(c.Context(), connectionID, strings.TrimSpace(toString(body["reason"]))); err != nil {
+	if err := m.service.Revoke(c.Context(), connectionID, strings.TrimSpace(primitives.StringFromAny(body["reason"]))); err != nil {
 		return 0, nil, err
 	}
 	return http.StatusOK, map[string]any{"status": "revoked", "connection_id": connectionID}, nil
@@ -846,7 +846,7 @@ func (m *Module) handleCancelSubscription(c router.Context, body map[string]any)
 	}
 	if err := m.service.CancelSubscription(c.Context(), gocore.CancelSubscriptionRequest{
 		SubscriptionID: subscriptionID,
-		Reason:         strings.TrimSpace(toString(body["reason"])),
+		Reason:         strings.TrimSpace(primitives.StringFromAny(body["reason"])),
 	}); err != nil {
 		return 0, nil, err
 	}
@@ -858,12 +858,12 @@ func (m *Module) handleRunSync(c router.Context, body map[string]any) (int, any,
 	if connectionID == "" {
 		return 0, nil, validationError("connection id is required", map[string]any{"field": "ref"})
 	}
-	providerID := primitives.FirstNonEmpty(strings.TrimSpace(toString(body["provider_id"])), m.lookupConnectionProvider(c.Context(), connectionID))
+	providerID := primitives.FirstNonEmpty(strings.TrimSpace(primitives.StringFromAny(body["provider_id"])), m.lookupConnectionProvider(c.Context(), connectionID))
 	if providerID == "" {
 		return 0, nil, validationError("provider id is required", map[string]any{"field": "provider_id"})
 	}
-	resourceType := strings.TrimSpace(toString(body["resource_type"]))
-	resourceID := strings.TrimSpace(toString(body["resource_id"]))
+	resourceType := strings.TrimSpace(primitives.StringFromAny(body["resource_type"]))
+	resourceID := strings.TrimSpace(primitives.StringFromAny(body["resource_id"]))
 	if resourceType == "" || resourceID == "" {
 		return 0, nil, validationError("resource_type and resource_id are required", map[string]any{"field": "resource_type/resource_id"})
 	}
@@ -1408,8 +1408,8 @@ func (m *Module) handleProviderInbound(c router.Context, body map[string]any) (i
 }
 
 func resolveScope(ctx context.Context, c router.Context, payload map[string]any) (gocore.ScopeRef, error) {
-	scopeType := strings.ToLower(strings.TrimSpace(primitives.FirstNonEmpty(toString(payload["scope_type"]), c.Query("scope_type"))))
-	scopeID := strings.TrimSpace(primitives.FirstNonEmpty(toString(payload["scope_id"]), c.Query("scope_id")))
+	scopeType := strings.ToLower(strings.TrimSpace(primitives.FirstNonEmpty(primitives.StringFromAny(payload["scope_type"]), c.Query("scope_type"))))
+	scopeID := strings.TrimSpace(primitives.FirstNonEmpty(primitives.StringFromAny(payload["scope_id"]), c.Query("scope_id")))
 
 	if scopeType != "" && scopeID != "" {
 		scope := gocore.ScopeRef{Type: scopeType, ID: scopeID}
@@ -1424,13 +1424,13 @@ func resolveScope(ctx context.Context, c router.Context, payload map[string]any)
 		return gocore.ScopeRef{}, validationError("scope is required", map[string]any{"field": "scope"})
 	}
 	if scopeType == "org" {
-		candidate := strings.TrimSpace(primitives.FirstNonEmpty(scopeID, actor.OrganizationID, toString(payload["org_id"]), c.Query("org_id")))
+		candidate := strings.TrimSpace(primitives.FirstNonEmpty(scopeID, actor.OrganizationID, primitives.StringFromAny(payload["org_id"]), c.Query("org_id")))
 		if candidate == "" {
 			return gocore.ScopeRef{}, validationError("scope_id is required for org scope", map[string]any{"field": "scope_id"})
 		}
 		return gocore.ScopeRef{Type: "org", ID: candidate}, nil
 	}
-	userID := strings.TrimSpace(primitives.FirstNonEmpty(actor.ActorID, actor.Subject, toString(payload["user_id"]), c.Query("user_id")))
+	userID := strings.TrimSpace(primitives.FirstNonEmpty(actor.ActorID, actor.Subject, primitives.StringFromAny(payload["user_id"]), c.Query("user_id")))
 	if userID == "" {
 		return gocore.ScopeRef{}, validationError("scope_id is required for user scope", map[string]any{"field": "scope_id"})
 	}
@@ -1586,7 +1586,7 @@ func paginateMaps(items []map[string]any, limit int, offset int) []map[string]an
 
 func goerrorsMissingPermissions(result gocore.CapabilityResult) error {
 	details := copyAnyMap(result.Metadata)
-	details["missing_grants"] = toStringSlice(result.Metadata["missing_grants"])
+	details["missing_grants"] = primitives.CSVStringSliceFromAnyEmpty(result.Metadata["missing_grants"])
 	return missingPermissionsError("required grants are missing", details)
 }
 
@@ -1673,8 +1673,8 @@ func (m *Module) loadConnectionGrantSummary(ctx context.Context, connectionID st
 	if !found {
 		return summary, nil
 	}
-	requested := normalizeStringList(snapshot.Requested)
-	granted := normalizeStringList(snapshot.Granted)
+	requested := primitives.NormalizeUniqueStringSliceEmpty(snapshot.Requested)
+	granted := primitives.NormalizeUniqueStringSliceEmpty(snapshot.Granted)
 	missing := diffStringLists(requiredGrants, granted)
 
 	summary["snapshot_found"] = true
@@ -2048,7 +2048,7 @@ func compactFilterMap(input map[string]any) map[string]any {
 			}
 			out[key] = trimmed
 		case []string:
-			values := normalizeStringList(typed)
+			values := primitives.NormalizeUniqueStringSliceEmpty(typed)
 			if len(values) == 0 {
 				continue
 			}
