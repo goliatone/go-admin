@@ -91,7 +91,7 @@
 
               
               <div class="mt-4 border-t border-gray-100 pt-4" data-translation-filter-panel>
-                {% include "partials/filter-panel.html" with filters=queue.DataGrid.filters form_action=queue.DataGrid.filter_action|default:queue.DataGrid.view_links.current|default:queue.Links.queue|default:"/admin/translations/queue" channel=queue.Meta.channel active_count=queue.DataGrid.active_filter_count|default:queue.DataGrid.active_filter_chips|length grid_cols=5 %}
+                {% include "partials/filter-panel.html" with filters=queue.DataGrid.filters form_action=queue.DataGrid.filter_action|default:queue.DataGrid.view_links.current|default:queue.Links.queue|default:"/admin/translations/queue" clear_url=queue.DataGrid.view_links.clear_all|default:queue.Links.queue|default:"/admin/translations/queue" channel=queue.Meta.channel active_count=queue.DataGrid.active_filter_count|default:queue.DataGrid.active_filter_chips|length grid_cols=5 %}
               </div>
 
               

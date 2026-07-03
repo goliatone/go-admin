@@ -567,6 +567,60 @@ func TestBunTranslationAssignmentRepositoryListAssignmentPageUsesInjectedClockFo
 	}
 }
 
+func TestBunTranslationAssignmentRepositoryListAssignmentPageClampsOutOfRangePage(t *testing.T) {
+	db := newTranslationFamilyStoreSQLiteDB(t)
+	ctx := context.Background()
+	store := NewBunTranslationFamilyStore(db)
+	familyRecord := func(id, targetLocale, sourceRecordID string) translationservices.FamilyRecord {
+		return translationservices.FamilyRecord{
+			ID:              id,
+			ContentType:     "pages",
+			SourceLocale:    "en",
+			SourceVariantID: id + "::en",
+			ReadinessState:  "ready",
+			Variants: []translationservices.FamilyVariant{
+				{ID: id + "::en", FamilyID: id, Locale: "en", Status: "published", IsSource: true, SourceRecordID: sourceRecordID},
+				{ID: id + "::" + targetLocale, FamilyID: id, Locale: targetLocale, Status: "draft", SourceRecordID: sourceRecordID},
+			},
+		}
+	}
+	for _, family := range []translationservices.FamilyRecord{
+		familyRecord("family-page-1", "es", "page-1"),
+		familyRecord("family-page-2", "fr", "page-2"),
+		familyRecord("family-page-3", "de", "page-3"),
+	} {
+		if err := store.SaveFamily(ctx, family); err != nil {
+			t.Fatalf("seed family %s: %v", family.ID, err)
+		}
+	}
+	repo := NewBunTranslationAssignmentRepository(db)
+	for _, assignment := range []TranslationAssignment{
+		{ID: "asg-page-1", FamilyID: "family-page-1", EntityType: "pages", SourceRecordID: "page-1", SourceLocale: "en", TargetLocale: "es", AssignmentType: AssignmentTypeDirect, Status: AssignmentStatusAssigned, Priority: PriorityNormal},
+		{ID: "asg-page-2", FamilyID: "family-page-2", EntityType: "pages", SourceRecordID: "page-2", SourceLocale: "en", TargetLocale: "fr", AssignmentType: AssignmentTypeDirect, Status: AssignmentStatusAssigned, Priority: PriorityNormal},
+		{ID: "asg-page-3", FamilyID: "family-page-3", EntityType: "pages", SourceRecordID: "page-3", SourceLocale: "en", TargetLocale: "de", AssignmentType: AssignmentTypeDirect, Status: AssignmentStatusAssigned, Priority: PriorityNormal},
+	} {
+		if _, err := repo.Create(ctx, assignment); err != nil {
+			t.Fatalf("seed assignment %s: %v", assignment.ID, err)
+		}
+	}
+
+	result, err := repo.ListAssignmentPage(ctx, TranslationAssignmentPageQueryInput{
+		Filter: translationAssignmentListFilter{
+			EntityType: "pages",
+			SortBy:     "updated_at",
+			SortDesc:   false,
+		},
+		Page:    99,
+		PerPage: 2,
+	})
+	if err != nil {
+		t.Fatalf("list assignment page: %v", err)
+	}
+	if result.Total != 3 || len(result.Items) != 1 {
+		t.Fatalf("expected out-of-range page to return final page, total=%d items=%+v", result.Total, result.Items)
+	}
+}
+
 func TestBunTranslationAssignmentRepositoryDashboardSummaryAllowsUnscopedScope(t *testing.T) {
 	db := newTranslationFamilyStoreSQLiteDB(t)
 	ctx := context.Background()
@@ -764,6 +818,24 @@ func TestBunTranslationAssignmentRepositoryFamilyGroupingAggregatesAndExpands(t 
 		t.Fatalf("expected wrong-scope blocker to be excluded from family-grouped-b count, got %+v", familyB)
 	}
 
+	outOfRangeGroups, err := repo.ListAssignmentFamilyGroups(ctx, TranslationAssignmentFamilyGroupQueryInput{
+		Filter: translationAssignmentListFilter{
+			TenantID: "tenant-1",
+			OrgID:    "org-1",
+			SortBy:   "created_at",
+			SortDesc: true,
+		},
+		Page:    99,
+		PerPage: 1,
+		Now:     now,
+	})
+	if err != nil {
+		t.Fatalf("list out-of-range family groups: %v", err)
+	}
+	if outOfRangeGroups.FamilyTotal != 2 || outOfRangeGroups.AssignmentTotal != 3 || len(outOfRangeGroups.Families) != 1 || outOfRangeGroups.Families[0].FamilyID != "family-grouped-b" {
+		t.Fatalf("expected out-of-range family groups to clamp to final family page, got %+v", outOfRangeGroups)
+	}
+
 	blocked, err := repo.ListAssignmentFamilyGroups(ctx, TranslationAssignmentFamilyGroupQueryInput{
 		Filter: translationAssignmentListFilter{
 			TenantID:    "tenant-1",
@@ -788,7 +860,7 @@ func TestBunTranslationAssignmentRepositoryFamilyGroupingAggregatesAndExpands(t 
 		Filter: translationAssignmentListFilter{
 			TenantID: "tenant-1",
 			OrgID:    "org-1",
-			SortBy:   "updated_at",
+			SortBy:   "created_at",
 			SortDesc: true,
 		},
 		Page:    1,
@@ -800,6 +872,25 @@ func TestBunTranslationAssignmentRepositoryFamilyGroupingAggregatesAndExpands(t 
 	}
 	if children.Total != 2 || !children.HasNext || len(children.Items) != 1 || children.Items[0].ID != "asg-family-a-fr" {
 		t.Fatalf("unexpected child assignment page: %+v", children)
+	}
+
+	outOfRangeChildren, err := repo.ListFamilyAssignments(ctx, TranslationAssignmentFamilyAssignmentsQueryInput{
+		FamilyID: "family-grouped-a",
+		Filter: translationAssignmentListFilter{
+			TenantID: "tenant-1",
+			OrgID:    "org-1",
+			SortBy:   "updated_at",
+			SortDesc: true,
+		},
+		Page:    99,
+		PerPage: 1,
+		Now:     now,
+	})
+	if err != nil {
+		t.Fatalf("list out-of-range family assignments: %v", err)
+	}
+	if outOfRangeChildren.Total != 2 || outOfRangeChildren.HasNext || len(outOfRangeChildren.Items) != 1 || outOfRangeChildren.Items[0].ID != "asg-family-a-es" {
+		t.Fatalf("expected out-of-range child assignments to clamp to final child page, got %+v", outOfRangeChildren)
 	}
 }
 

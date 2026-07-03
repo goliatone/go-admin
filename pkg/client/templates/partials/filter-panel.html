@@ -58,8 +58,8 @@
       {% endfor %}
       <div class="filter-panel__actions flex items-end gap-2">
         <button type="submit" class="btn btn-primary h-10 px-4 py-2 flex-1">Apply</button>
-        {% if form_action %}
-        <a href="{{ form_action }}" class="btn btn-secondary h-10 px-4 py-2">Clear</a>
+        {% if clear_url or form_action %}
+        <a href="{{ clear_url|default:form_action }}" class="btn btn-secondary h-10 px-4 py-2">Clear</a>
         {% endif %}
       </div>
     </div>

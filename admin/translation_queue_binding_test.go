@@ -208,6 +208,24 @@ func TestTranslationQueueFallbackFilteringMatchesEntityType(t *testing.T) {
 	}
 }
 
+func TestTranslationQueueFallbackPaginationClampsOutOfRangePage(t *testing.T) {
+	binding := &translationQueueBinding{}
+	now := time.Date(2026, 7, 3, 12, 0, 0, 0, time.UTC)
+	assignments := []TranslationAssignment{
+		{ID: "asg-1", Status: AssignmentStatusAssigned, Priority: PriorityNormal},
+		{ID: "asg-2", Status: AssignmentStatusAssigned, Priority: PriorityNormal},
+		{ID: "asg-3", Status: AssignmentStatusAssigned, Priority: PriorityNormal},
+	}
+
+	filtered, total := binding.filterAssignments(context.Background(), assignments, translationAssignmentListFilter{
+		SortBy:   "updated_at",
+		SortDesc: false,
+	}, 99, 2, "", now)
+	if total != 3 || len(filtered) != 1 || filtered[0].ID != "asg-3" {
+		t.Fatalf("expected out-of-range page to clamp to final assignment, total=%d rows=%+v", total, filtered)
+	}
+}
+
 func TestTranslationQueueAssignmentsTypeFilterAliasesMatchAPIRows(t *testing.T) {
 	now := time.Date(2026, 7, 3, 12, 0, 0, 0, time.UTC)
 	adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{
@@ -960,6 +978,60 @@ func TestTranslationQueueBindingAssignmentsSupportsServerFamilyGrouping(t *testi
 	childRows := anySliceFromValue(childPayload["data"])
 	if len(childRows) != 1 || len(extractMap(extractMap(childRows[0])["actions"])) == 0 {
 		t.Fatalf("expected normal assignment child row with actions, got %+v", childRows)
+	}
+
+	outOfRangeReq := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/translations/assignments?group_by=family_id&group_strategy=server_family&page=99&per_page=1&sort=created_at&order=desc", nil)
+	outOfRangeReq.Header.Set("X-User-ID", "manager-1")
+	outOfRangeResp, err := app.Test(outOfRangeReq)
+	if err != nil {
+		t.Fatalf("out-of-range request error: %v", err)
+	}
+	defer outOfRangeResp.Body.Close() //nolint:errcheck // test response body cleanup is best-effort
+	if outOfRangeResp.StatusCode != http.StatusOK {
+		t.Fatalf("out-of-range status=%d want=200", outOfRangeResp.StatusCode)
+	}
+	outOfRangePayload := map[string]any{}
+	if err := json.NewDecoder(outOfRangeResp.Body).Decode(&outOfRangePayload); err != nil {
+		t.Fatalf("decode out-of-range response: %v", err)
+	}
+	outOfRangeMeta := extractMap(outOfRangePayload["meta"])
+	if intValue(outOfRangeMeta["page"]) != 2 || intValue(outOfRangeMeta["total"]) != 2 {
+		t.Fatalf("expected out-of-range family page to clamp to final page, got %+v", outOfRangeMeta)
+	}
+	outOfRangeData := anySliceFromValue(outOfRangePayload["data"])
+	if len(outOfRangeData) != 1 {
+		t.Fatalf("expected one clamped parent family row, got %+v", outOfRangeData)
+	}
+	outOfRangeParent := extractMap(outOfRangeData[0])
+	if toString(outOfRangeParent["id"]) != "family:family-server-2" {
+		t.Fatalf("expected final family page to return family-server-2, got %+v", outOfRangeParent)
+	}
+
+	outOfRangeChildReq := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/translations/families/family-server-1/assignments?page=99&per_page=1&sort=created_at&order=desc", nil)
+	outOfRangeChildReq.Header.Set("X-User-ID", "manager-1")
+	outOfRangeChildResp, err := app.Test(outOfRangeChildReq)
+	if err != nil {
+		t.Fatalf("out-of-range child request error: %v", err)
+	}
+	defer outOfRangeChildResp.Body.Close() //nolint:errcheck // test response body cleanup is best-effort
+	if outOfRangeChildResp.StatusCode != http.StatusOK {
+		t.Fatalf("out-of-range child status=%d want=200", outOfRangeChildResp.StatusCode)
+	}
+	outOfRangeChildPayload := map[string]any{}
+	if err := json.NewDecoder(outOfRangeChildResp.Body).Decode(&outOfRangeChildPayload); err != nil {
+		t.Fatalf("decode out-of-range child response: %v", err)
+	}
+	outOfRangeChildMeta := extractMap(outOfRangeChildPayload["meta"])
+	if intValue(outOfRangeChildMeta["page"]) != 2 || intValue(outOfRangeChildMeta["total"]) != 2 || toBool(outOfRangeChildMeta["has_next"]) {
+		t.Fatalf("expected family assignment page to clamp to final page, got %+v", outOfRangeChildMeta)
+	}
+	outOfRangeChildRows := anySliceFromValue(outOfRangeChildPayload["data"])
+	if len(outOfRangeChildRows) != 1 {
+		t.Fatalf("expected one clamped child row, got %+v", outOfRangeChildRows)
+	}
+	outOfRangeChild := extractMap(outOfRangeChildRows[0])
+	if toString(outOfRangeChild["target_locale"]) != "es" {
+		t.Fatalf("expected final child page to return es assignment, got %+v", outOfRangeChild)
 	}
 }
 

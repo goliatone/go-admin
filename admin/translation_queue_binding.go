@@ -174,6 +174,7 @@ func (b *translationQueueBinding) Assignments(c router.Context) (payload any, er
 	if err != nil {
 		return nil, err
 	}
+	page, perPage = normalizeTranslationAssignmentPagination(page, perPage, total, 50)
 	rows := b.assignmentListRows(adminCtx.Context, assignments, now, channel, grouping)
 	var reviewAssignments []TranslationAssignment
 	if optimizedPage {
@@ -333,6 +334,20 @@ func (b *translationQueueBinding) serverFamilyAssignmentGroups(adminCtx AdminCon
 	if err != nil {
 		return nil, translationQueueFamilyGroupingError(err)
 	}
+	normalizedPage, normalizedPerPage := normalizeTranslationAssignmentPagination(page, perPage, result.FamilyTotal, 25)
+	if normalizedPage != page && result.FamilyTotal > 0 && len(result.Families) == 0 {
+		result, err = store.ListAssignmentFamilyGroups(adminCtx.Context, TranslationAssignmentFamilyGroupQueryInput{
+			Filter:      filter,
+			Page:        normalizedPage,
+			PerPage:     normalizedPerPage,
+			Environment: channel,
+			Now:         now,
+		})
+		if err != nil {
+			return nil, translationQueueFamilyGroupingError(err)
+		}
+	}
+	page, perPage = normalizedPage, normalizedPerPage
 	rows := make([]map[string]any, 0, len(result.Families))
 	for _, family := range result.Families {
 		rows = append(rows, b.serverFamilyParentRow(family, filter, page, perPage, channel))
@@ -399,6 +414,21 @@ func (b *translationQueueBinding) FamilyAssignments(c router.Context, familyID s
 	if err != nil {
 		return nil, translationQueueFamilyGroupingError(err)
 	}
+	normalizedPage, normalizedPerPage := normalizeTranslationAssignmentPagination(page, perPage, result.Total, 25)
+	if normalizedPage != page && result.Total > 0 && len(result.Items) == 0 {
+		result, err = store.ListFamilyAssignments(adminCtx.Context, TranslationAssignmentFamilyAssignmentsQueryInput{
+			FamilyID:    familyID,
+			Filter:      filter,
+			Page:        normalizedPage,
+			PerPage:     normalizedPerPage,
+			Environment: channel,
+			Now:         now,
+		})
+		if err != nil {
+			return nil, translationQueueFamilyGroupingError(err)
+		}
+	}
+	page, perPage = normalizedPage, normalizedPerPage
 	rows := b.translationQueueAssignmentRows(adminCtx.Context, result.Items, now, channel)
 	return map[string]any{
 		"data": rows,
@@ -1430,6 +1460,7 @@ func (b *translationQueueBinding) filterAssignments(ctx context.Context, assignm
 	}
 	sortAssignments(matched, filter.SortBy, filter.SortDesc, now)
 	total := len(matched)
+	page, perPage = normalizeTranslationAssignmentPagination(page, perPage, total, 25)
 	start := (page - 1) * perPage
 	if start >= total {
 		return []TranslationAssignment{}, total

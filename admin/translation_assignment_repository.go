@@ -260,6 +260,24 @@ func (r *InMemoryTranslationAssignmentRepository) List(_ context.Context, opts L
 	return paginated, total, nil
 }
 
+func normalizeTranslationAssignmentPagination(page, perPage, total, defaultPerPage int) (int, int) {
+	if page <= 0 {
+		page = 1
+	}
+	if perPage <= 0 {
+		perPage = defaultPerPage
+	}
+	if perPage <= 0 {
+		perPage = 10
+	}
+	pageCount := 1
+	if total > 0 {
+		pageCount = (total + perPage - 1) / perPage
+	}
+	page = clampInt(page, 1, pageCount)
+	return page, perPage
+}
+
 func (r *InMemoryTranslationAssignmentRepository) DistinctAssignmentEntityTypes(_ context.Context) ([]string, error) {
 	if r == nil {
 		return nil, serviceNotConfiguredDomainError("translation assignment repository", nil)
@@ -410,6 +428,7 @@ func (r *InMemoryTranslationAssignmentRepository) ListAssignmentFamilyGroups(ctx
 	groups := translationAssignmentFamilyGroupsFromAssignments(matched, input.Now)
 	sortTranslationAssignmentFamilyGroups(groups, input.Filter.SortBy, input.Filter.SortDesc)
 	totalFamilies := len(groups)
+	page, perPage = normalizeTranslationAssignmentPagination(page, perPage, totalFamilies, 25)
 	start := (page - 1) * perPage
 	if start >= totalFamilies {
 		return TranslationAssignmentFamilyGroupQueryResult{Families: []TranslationAssignmentFamilyGroup{}, FamilyTotal: totalFamilies, AssignmentTotal: len(matched)}, nil
@@ -456,6 +475,7 @@ func (r *InMemoryTranslationAssignmentRepository) ListFamilyAssignments(ctx cont
 	}
 	sortAssignments(matched, filter.SortBy, filter.SortDesc, input.Now)
 	total := len(matched)
+	page, perPage = normalizeTranslationAssignmentPagination(page, perPage, total, 25)
 	start := (page - 1) * perPage
 	if start >= total {
 		return TranslationAssignmentFamilyAssignmentsQueryResult{Items: []TranslationAssignment{}, Total: total}, nil

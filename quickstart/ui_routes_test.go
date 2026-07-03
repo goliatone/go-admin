@@ -717,7 +717,7 @@ func TestTranslationQueueTemplateRendersUIPresetLinks(t *testing.T) {
 					{"key": "status", "name": "status", "label": "Status", "type": "select", "current_value": "", "options": []map[string]any{{"value": "open", "label": "Open"}}},
 					{"key": "entity_type", "name": "entity_type", "label": "Type", "current_value": ""},
 				},
-				"filter_action":       "/admin/translations/queue?channel=staging&page=1",
+				"filter_action":       "/admin/translations/queue?channel=staging&page=1&status=assigned",
 				"active_filter_count": 0,
 				"active_filter_chips": []map[string]any{},
 				"grouping":            map[string]any{"mode": "none"},
@@ -725,9 +725,10 @@ func TestTranslationQueueTemplateRendersUIPresetLinks(t *testing.T) {
 				"sort":                map[string]any{"label": "Updated At, descending"},
 				"view_mode":           "list",
 				"view_links": map[string]any{
-					"list":     "/admin/translations/queue?channel=staging&page=1",
-					"grouped":  "/admin/translations/queue?channel=staging&group_by=family_id&group_strategy=page_local&page=1",
-					"families": "/admin/translations/queue?channel=staging&group_by=family_id&group_strategy=server_family&page=1",
+					"clear_all": "/admin/translations/queue?channel=staging&page=1&per_page=25",
+					"list":      "/admin/translations/queue?channel=staging&page=1",
+					"grouped":   "/admin/translations/queue?channel=staging&group_by=family_id&group_strategy=page_local&page=1",
+					"families":  "/admin/translations/queue?channel=staging&group_by=family_id&group_strategy=server_family&page=1",
 				},
 				"pagination": map[string]any{
 					"range_label":       "Showing 1-2 of 2 assignments",
@@ -771,6 +772,15 @@ func TestTranslationQueueTemplateRendersUIPresetLinks(t *testing.T) {
 	}
 	if !strings.Contains(html, `data-translation-filter-panel`) || !strings.Contains(html, `Advanced Filters`) {
 		t.Fatalf("expected queue filters to render a no-JS disclosure control, got %q", html)
+	}
+	if !strings.Contains(html, `action="/admin/translations/queue?channel=staging&amp;page=1&amp;status=assigned"`) {
+		t.Fatalf("expected filter form to use apply URL with active query state, got %q", html)
+	}
+	if !strings.Contains(html, `href="/admin/translations/queue?channel=staging&amp;page=1&amp;per_page=25" class="btn btn-secondary h-10 px-4 py-2">Clear</a>`) {
+		t.Fatalf("expected filter Clear link to use clear-all URL without active filters, got %q", html)
+	}
+	if strings.Contains(html, `href="/admin/translations/queue?channel=staging&amp;page=1&amp;status=assigned" class="btn btn-secondary h-10 px-4 py-2">Clear</a>`) {
+		t.Fatalf("expected filter Clear link not to reuse apply URL, got %q", html)
 	}
 	for _, expected := range []string{
 		`All visible assignments`,

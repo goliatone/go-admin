@@ -747,6 +747,7 @@ func translationSSRQueuePagination(input TranslationSSRPresenterInput, meta map[
 	if total > 0 && perPage > 0 {
 		pageCount = (total + perPage - 1) / perPage
 	}
+	page = clampInt(page, 1, pageCount)
 	rangeStart := 0
 	rangeEnd := 0
 	if total > 0 {

@@ -1001,6 +1001,51 @@ func TestTranslationSSRQueueDataGridPaginationModel(t *testing.T) {
 	}
 }
 
+func TestTranslationSSRQueueDataGridPaginationClampsOutOfRangePage(t *testing.T) {
+	grid := translationSSRQueueDataGrid(TranslationSSRPresenterInput{
+		QueuePath: "/admin/translations/queue",
+		Query: map[string]string{
+			"status":   "open",
+			"page":     "999",
+			"per_page": "25",
+		},
+	}, map[string]any{}, map[string]any{
+		"page":                  999,
+		"per_page":              25,
+		"total":                 76,
+		"supported_filter_keys": []string{"status"},
+		"default_sort":          map[string]any{"key": "updated_at", "order": "desc"},
+	})
+
+	pagination := extractMap(grid["pagination"])
+	if got := toString(pagination["range_label"]); got != "Showing 76-76 of 76 assignments" {
+		t.Fatalf("expected clamped visible range label, got %q", got)
+	}
+	if got := toString(pagination["page_label"]); got != "Assignment page 4 of 4" {
+		t.Fatalf("expected clamped page label, got %q", got)
+	}
+	if got := toInt(pagination["page"]); got != 4 {
+		t.Fatalf("expected rendered page to clamp to 4, got %d", got)
+	}
+	if toBool(pagination["previous_disabled"]) || !toBool(pagination["next_disabled"]) {
+		t.Fatalf("expected only next disabled on clamped last page, got %+v", pagination)
+	}
+	previousURL, err := url.Parse(toString(pagination["previous_href"]))
+	if err != nil {
+		t.Fatalf("parse previous href: %v", err)
+	}
+	if got := previousURL.Query().Get("page"); got != "3" {
+		t.Fatalf("expected previous href to target page 3, got %q in %q", got, previousURL.String())
+	}
+	nextURL, err := url.Parse(toString(pagination["next_href"]))
+	if err != nil {
+		t.Fatalf("parse next href: %v", err)
+	}
+	if got := nextURL.Query().Get("page"); got != "4" {
+		t.Fatalf("expected next href to stay on page 4, got %q in %q", got, nextURL.String())
+	}
+}
+
 func TestTranslationSSRQueueDataGridEmptyPaginationModel(t *testing.T) {
 	grid := translationSSRQueueDataGrid(TranslationSSRPresenterInput{
 		QueuePath: "/admin/translations/queue",

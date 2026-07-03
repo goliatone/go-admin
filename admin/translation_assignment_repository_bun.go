@@ -108,6 +108,7 @@ func (r *BunTranslationAssignmentRepository) list(ctx context.Context, opts List
 	if err != nil {
 		return nil, 0, err
 	}
+	opts.Page, opts.PerPage = normalizeTranslationAssignmentPagination(opts.Page, opts.PerPage, total, 20)
 	records := []bunTranslationAssignmentRecord{}
 	query := r.db.NewSelect().Model(&records)
 	applyBunAssignmentListFilters(query, opts, dueSQL)
@@ -294,6 +295,7 @@ func (r *BunTranslationAssignmentRepository) ListAssignmentFamilyGroups(ctx cont
 	if err != nil {
 		return TranslationAssignmentFamilyGroupQueryResult{}, err
 	}
+	opts.Page, opts.PerPage = normalizeTranslationAssignmentPagination(opts.Page, opts.PerPage, familyTotal, 25)
 	records := []bunTranslationAssignmentFamilyGroupRecord{}
 	query := r.db.NewSelect().
 		Model((*bunTranslationAssignmentRecord)(nil)).
@@ -394,6 +396,7 @@ func (r *BunTranslationAssignmentRepository) ListFamilyAssignments(ctx context.C
 	if err != nil {
 		return TranslationAssignmentFamilyAssignmentsQueryResult{}, err
 	}
+	opts.Page, opts.PerPage = normalizeTranslationAssignmentPagination(opts.Page, opts.PerPage, total, 25)
 	records := []bunTranslationAssignmentRecord{}
 	query := r.db.NewSelect().Model(&records)
 	applyBunAssignmentListFilters(query, opts, dueSQL)
@@ -412,18 +415,10 @@ func (r *BunTranslationAssignmentRepository) ListFamilyAssignments(ctx context.C
 	for _, record := range records {
 		items = append(items, translationAssignmentFromBunRecord(record))
 	}
-	page := opts.Page
-	if page <= 0 {
-		page = 1
-	}
-	perPage := opts.PerPage
-	if perPage <= 0 {
-		perPage = 25
-	}
 	return TranslationAssignmentFamilyAssignmentsQueryResult{
 		Items:   items,
 		Total:   total,
-		HasNext: page*perPage < total,
+		HasNext: opts.Page*opts.PerPage < total,
 	}, nil
 }
 

@@ -1,5 +1,7 @@
 package translationqueue
 
+import "slices"
+
 import "testing"
 
 func TestAssignmentFilterFromQueryNormalizesActorAndSort(t *testing.T) {
@@ -87,10 +89,8 @@ func TestAssignmentFilterFromQueryNormalizesEntityTypeAliases(t *testing.T) {
 }
 
 func TestSupportedFilterKeysIncludesEntityType(t *testing.T) {
-	for _, key := range SupportedFilterKeys() {
-		if key == "entity_type" {
-			return
-		}
+	if slices.Contains(SupportedFilterKeys(), "entity_type") {
+		return
 	}
 	t.Fatalf("expected supported filter keys to include entity_type, got %+v", SupportedFilterKeys())
 }
