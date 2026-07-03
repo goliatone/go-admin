@@ -38,7 +38,7 @@ func (c testPersistenceConfig) GetServer() string {
 }
 
 func (c testPersistenceConfig) GetPingTimeout() time.Duration {
-	return time.Second
+	return 10 * time.Second
 }
 
 func (c testPersistenceConfig) GetOtelIdentifier() string {

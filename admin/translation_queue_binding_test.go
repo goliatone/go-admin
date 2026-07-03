@@ -1035,6 +1035,160 @@ func TestTranslationQueueBindingAssignmentsSupportsServerFamilyGrouping(t *testi
 	}
 }
 
+func TestTranslationQueueBindingAssignmentsServerFamilyRequeriesNormalizedPages(t *testing.T) {
+	now := time.Date(2026, 2, 17, 12, 0, 0, 0, time.UTC)
+	adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{
+		FeatureGate: featureGateFromKeys(FeatureCMS, FeatureTranslationQueue),
+	})
+	adm.WithAuthorizer(translationPermissionAuthorizer{allowed: map[string]bool{PermAdminTranslationsView: true}})
+	finalAssignment := TranslationAssignment{
+		ID:             "asg-final-family-page",
+		FamilyID:       "family-custom",
+		EntityType:     "pages",
+		SourceRecordID: "page-final",
+		SourceLocale:   "en",
+		TargetLocale:   "es",
+		AssignmentType: AssignmentTypeOpenPool,
+		Status:         AssignmentStatusOpen,
+		Priority:       PriorityNormal,
+		UpdatedAt:      now,
+		CreatedAt:      now,
+	}
+	repo := &optimizedAssignmentFamilyRepo{
+		optimizedAssignmentReadRepo: &optimizedAssignmentReadRepo{},
+		listFamilyGroups: func(_ context.Context, input TranslationAssignmentFamilyGroupQueryInput) (TranslationAssignmentFamilyGroupQueryResult, error) {
+			if input.Page == 2 && input.PerPage == 1 {
+				return TranslationAssignmentFamilyGroupQueryResult{
+					Families: []TranslationAssignmentFamilyGroup{{
+						FamilyID:        "family-final",
+						FamilyLabel:     "Final Family",
+						EntityType:      "pages",
+						SourceRecordID:  "page-final",
+						SourceLocale:    "en",
+						SourceTitle:     "Final Page",
+						AssignmentCount: 1,
+						LocaleCount:     1,
+						TargetLocales:   []string{"es"},
+						StatusCounts:    map[string]int{string(AssignmentStatusOpen): 1},
+						Priority:        PriorityNormal,
+						UpdatedAt:       now,
+						CreatedAt:       now,
+					}},
+					FamilyTotal:     2,
+					AssignmentTotal: 2,
+				}, nil
+			}
+			return TranslationAssignmentFamilyGroupQueryResult{
+				Families: []TranslationAssignmentFamilyGroup{{
+					FamilyID:        "family-wrong",
+					FamilyLabel:     "Wrong Family",
+					EntityType:      "pages",
+					SourceRecordID:  "page-wrong",
+					SourceLocale:    "en",
+					SourceTitle:     "Wrong Page",
+					AssignmentCount: 1,
+					LocaleCount:     1,
+					TargetLocales:   []string{"fr"},
+					StatusCounts:    map[string]int{string(AssignmentStatusOpen): 1},
+					Priority:        PriorityNormal,
+					UpdatedAt:       now,
+					CreatedAt:       now,
+				}},
+				FamilyTotal:     2,
+				AssignmentTotal: 2,
+			}, nil
+		},
+		listFamilyAssignments: func(_ context.Context, input TranslationAssignmentFamilyAssignmentsQueryInput) (TranslationAssignmentFamilyAssignmentsQueryResult, error) {
+			if input.Page == 2 && input.PerPage == 1 {
+				return TranslationAssignmentFamilyAssignmentsQueryResult{Items: []TranslationAssignment{finalAssignment}, Total: 2, HasNext: false}, nil
+			}
+			return TranslationAssignmentFamilyAssignmentsQueryResult{Items: []TranslationAssignment{{
+				ID:             "asg-wrong-family-page",
+				FamilyID:       "family-custom",
+				EntityType:     "pages",
+				SourceRecordID: "page-wrong",
+				SourceLocale:   "en",
+				TargetLocale:   "fr",
+				AssignmentType: AssignmentTypeOpenPool,
+				Status:         AssignmentStatusOpen,
+				Priority:       PriorityNormal,
+				UpdatedAt:      now,
+				CreatedAt:      now,
+			}}, Total: 2, HasNext: true}, nil
+		},
+	}
+	if _, err := RegisterTranslationQueuePanel(adm, repo); err != nil {
+		t.Fatalf("register queue panel: %v", err)
+	}
+	binding := newTranslationQueueBinding(adm)
+	binding.now = func() time.Time { return now }
+	app := newTranslationQueueTestApp(t, binding)
+
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/translations/assignments?group_by=family_id&group_strategy=server_family&page=99&per_page=1", nil)
+	req.Header.Set("X-User-ID", "manager-1")
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("request error: %v", err)
+	}
+	defer resp.Body.Close() //nolint:errcheck // test response body cleanup is best-effort
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status=%d want=200", resp.StatusCode)
+	}
+	if repo.familyGroupCalls != 2 {
+		t.Fatalf("expected raw and normalized family group calls, got %d", repo.familyGroupCalls)
+	}
+	if len(repo.familyGroupInputs) != 2 || repo.familyGroupInputs[0].Page != 99 || repo.familyGroupInputs[1].Page != 2 || repo.familyGroupInputs[1].PerPage != 1 {
+		t.Fatalf("expected family group requery on normalized page, got %+v", repo.familyGroupInputs)
+	}
+	payload := map[string]any{}
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	meta := extractMap(payload["meta"])
+	if intValue(meta["page"]) != 2 || intValue(meta["per_page"]) != 1 || intValue(meta["total"]) != 2 {
+		t.Fatalf("expected normalized family metadata, got %+v", meta)
+	}
+	data := anySliceFromValue(payload["data"])
+	if len(data) != 1 {
+		t.Fatalf("expected one normalized family row, got %+v", data)
+	}
+	if row := extractMap(data[0]); toString(row["id"]) != "family:family-final" {
+		t.Fatalf("expected normalized family row, got %+v", row)
+	}
+
+	childReq := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/translations/families/family-custom/assignments?page=99&per_page=1", nil)
+	childReq.Header.Set("X-User-ID", "manager-1")
+	childResp, err := app.Test(childReq)
+	if err != nil {
+		t.Fatalf("child request error: %v", err)
+	}
+	defer childResp.Body.Close() //nolint:errcheck // test response body cleanup is best-effort
+	if childResp.StatusCode != http.StatusOK {
+		t.Fatalf("child status=%d want=200", childResp.StatusCode)
+	}
+	if repo.familyAssignmentCalls != 2 {
+		t.Fatalf("expected raw and normalized family assignment calls, got %d", repo.familyAssignmentCalls)
+	}
+	if len(repo.familyAssignmentInputs) != 2 || repo.familyAssignmentInputs[0].Page != 99 || repo.familyAssignmentInputs[1].Page != 2 || repo.familyAssignmentInputs[1].PerPage != 1 {
+		t.Fatalf("expected family assignment requery on normalized page, got %+v", repo.familyAssignmentInputs)
+	}
+	childPayload := map[string]any{}
+	if err := json.NewDecoder(childResp.Body).Decode(&childPayload); err != nil {
+		t.Fatalf("decode child response: %v", err)
+	}
+	childMeta := extractMap(childPayload["meta"])
+	if intValue(childMeta["page"]) != 2 || intValue(childMeta["per_page"]) != 1 || intValue(childMeta["total"]) != 2 || toBool(childMeta["has_next"]) {
+		t.Fatalf("expected normalized child metadata, got %+v", childMeta)
+	}
+	childRows := anySliceFromValue(childPayload["data"])
+	if len(childRows) != 1 {
+		t.Fatalf("expected one normalized child row, got %+v", childRows)
+	}
+	if row := extractMap(childRows[0]); toString(row["id"]) != "asg-final-family-page" {
+		t.Fatalf("expected normalized child assignment, got %+v", row)
+	}
+}
+
 func TestTranslationQueueBindingAssignmentsRejectsUnsupportedServerFamilySort(t *testing.T) {
 	adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{
 		FeatureGate: featureGateFromKeys(FeatureCMS, FeatureTranslationQueue),
@@ -1172,6 +1326,85 @@ func TestTranslationQueueBindingAssignmentsUsesOptimizedPageAndReviewerSummary(t
 	}
 	if degraded := toStringSlice(meta["review_aggregate_counts_degraded"]); len(degraded) != 0 {
 		t.Fatalf("expected no degraded reviewer aggregate keys, got %+v", degraded)
+	}
+}
+
+func TestTranslationQueueBindingAssignmentsOptimizedPageRequeriesNormalizedPage(t *testing.T) {
+	now := time.Date(2026, 2, 17, 12, 0, 0, 0, time.UTC)
+	adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{
+		FeatureGate: featureGateFromKeys(FeatureCMS, FeatureTranslationQueue),
+	})
+	adm.WithAuthorizer(translationPermissionAuthorizer{allowed: map[string]bool{PermAdminTranslationsView: true}})
+	finalAssignment := TranslationAssignment{
+		ID:             "asg-final-page",
+		FamilyID:       "family-final-page",
+		EntityType:     "pages",
+		SourceRecordID: "page-final",
+		SourceLocale:   "en",
+		TargetLocale:   "es",
+		AssignmentType: AssignmentTypeOpenPool,
+		Status:         AssignmentStatusOpen,
+		Priority:       PriorityNormal,
+		UpdatedAt:      now,
+		CreatedAt:      now,
+	}
+	repo := &optimizedAssignmentReadRepo{
+		listAssignmentPage: func(_ context.Context, input TranslationAssignmentPageQueryInput) (TranslationAssignmentPageQueryResult, error) {
+			if input.Page == 2 && input.PerPage == 2 {
+				return TranslationAssignmentPageQueryResult{Items: []TranslationAssignment{finalAssignment}, Total: 3}, nil
+			}
+			return TranslationAssignmentPageQueryResult{Items: []TranslationAssignment{{
+				ID:             "asg-wrong-page",
+				FamilyID:       "family-wrong-page",
+				EntityType:     "pages",
+				SourceRecordID: "page-wrong",
+				SourceLocale:   "en",
+				TargetLocale:   "fr",
+				AssignmentType: AssignmentTypeOpenPool,
+				Status:         AssignmentStatusOpen,
+				Priority:       PriorityNormal,
+				UpdatedAt:      now,
+				CreatedAt:      now,
+			}}, Total: 3}, nil
+		},
+	}
+	if _, err := RegisterTranslationQueuePanel(adm, repo); err != nil {
+		t.Fatalf("register queue panel: %v", err)
+	}
+	binding := newTranslationQueueBinding(adm)
+	binding.now = func() time.Time { return now }
+	app := newTranslationQueueTestApp(t, binding)
+
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/translations/assignments?page=99&per_page=2", nil)
+	req.Header.Set("X-User-ID", "manager-1")
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("request error: %v", err)
+	}
+	defer resp.Body.Close() //nolint:errcheck // test response body cleanup is best-effort
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status=%d want=200", resp.StatusCode)
+	}
+	if repo.pageCalls != 2 {
+		t.Fatalf("expected raw and normalized optimized page calls, got %d", repo.pageCalls)
+	}
+	if len(repo.pageInputs) != 2 || repo.pageInputs[0].Page != 99 || repo.pageInputs[1].Page != 2 || repo.pageInputs[1].PerPage != 2 {
+		t.Fatalf("expected optimized page requery on normalized page, got %+v", repo.pageInputs)
+	}
+	payload := map[string]any{}
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	meta := extractMap(payload["meta"])
+	if intValue(meta["page"]) != 2 || intValue(meta["per_page"]) != 2 || intValue(meta["total"]) != 3 {
+		t.Fatalf("expected normalized pagination metadata, got %+v", meta)
+	}
+	data := anySliceFromValue(payload["data"])
+	if len(data) != 1 {
+		t.Fatalf("expected one normalized page row, got %+v", data)
+	}
+	if row := extractMap(data[0]); toString(row["id"]) != "asg-final-page" {
+		t.Fatalf("expected normalized page assignment, got %+v", row)
 	}
 }
 
@@ -1373,12 +1606,14 @@ func TestTranslationQueueBindingAssignmentsPrefersPartialReviewerAggregateSummar
 }
 
 type optimizedAssignmentReadRepo struct {
-	pageItems      []TranslationAssignment
-	reviewerCounts map[string]int
-	reviewerErr    error
-	listCalls      int
-	pageCalls      int
-	reviewerCalls  int
+	pageItems          []TranslationAssignment
+	listAssignmentPage func(context.Context, TranslationAssignmentPageQueryInput) (TranslationAssignmentPageQueryResult, error)
+	pageInputs         []TranslationAssignmentPageQueryInput
+	reviewerCounts     map[string]int
+	reviewerErr        error
+	listCalls          int
+	pageCalls          int
+	reviewerCalls      int
 }
 
 func (r *optimizedAssignmentReadRepo) List(context.Context, ListOptions) ([]TranslationAssignment, int, error) {
@@ -1386,8 +1621,12 @@ func (r *optimizedAssignmentReadRepo) List(context.Context, ListOptions) ([]Tran
 	return nil, 0, errors.New("List must not be called by optimized assignment page")
 }
 
-func (r *optimizedAssignmentReadRepo) ListAssignmentPage(context.Context, TranslationAssignmentPageQueryInput) (TranslationAssignmentPageQueryResult, error) {
+func (r *optimizedAssignmentReadRepo) ListAssignmentPage(ctx context.Context, input TranslationAssignmentPageQueryInput) (TranslationAssignmentPageQueryResult, error) {
 	r.pageCalls++
+	r.pageInputs = append(r.pageInputs, input)
+	if r.listAssignmentPage != nil {
+		return r.listAssignmentPage(ctx, input)
+	}
 	return TranslationAssignmentPageQueryResult{Items: append([]TranslationAssignment{}, r.pageItems...), Total: len(r.pageItems)}, nil
 }
 
@@ -1412,6 +1651,34 @@ func (r *optimizedAssignmentReadRepo) Get(context.Context, string) (TranslationA
 
 func (r *optimizedAssignmentReadRepo) Update(context.Context, TranslationAssignment, int64) (TranslationAssignment, error) {
 	return TranslationAssignment{}, errors.New("not implemented")
+}
+
+type optimizedAssignmentFamilyRepo struct {
+	*optimizedAssignmentReadRepo
+	listFamilyGroups       func(context.Context, TranslationAssignmentFamilyGroupQueryInput) (TranslationAssignmentFamilyGroupQueryResult, error)
+	listFamilyAssignments  func(context.Context, TranslationAssignmentFamilyAssignmentsQueryInput) (TranslationAssignmentFamilyAssignmentsQueryResult, error)
+	familyGroupInputs      []TranslationAssignmentFamilyGroupQueryInput
+	familyAssignmentInputs []TranslationAssignmentFamilyAssignmentsQueryInput
+	familyGroupCalls       int
+	familyAssignmentCalls  int
+}
+
+func (r *optimizedAssignmentFamilyRepo) ListAssignmentFamilyGroups(ctx context.Context, input TranslationAssignmentFamilyGroupQueryInput) (TranslationAssignmentFamilyGroupQueryResult, error) {
+	r.familyGroupCalls++
+	r.familyGroupInputs = append(r.familyGroupInputs, input)
+	if r.listFamilyGroups != nil {
+		return r.listFamilyGroups(ctx, input)
+	}
+	return TranslationAssignmentFamilyGroupQueryResult{}, ErrTranslationAssignmentQueryUnsupported
+}
+
+func (r *optimizedAssignmentFamilyRepo) ListFamilyAssignments(ctx context.Context, input TranslationAssignmentFamilyAssignmentsQueryInput) (TranslationAssignmentFamilyAssignmentsQueryResult, error) {
+	r.familyAssignmentCalls++
+	r.familyAssignmentInputs = append(r.familyAssignmentInputs, input)
+	if r.listFamilyAssignments != nil {
+		return r.listFamilyAssignments(ctx, input)
+	}
+	return TranslationAssignmentFamilyAssignmentsQueryResult{}, ErrTranslationAssignmentQueryUnsupported
 }
 
 type partialAggregateAssignmentReadRepo struct {
