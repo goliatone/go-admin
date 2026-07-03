@@ -93,6 +93,7 @@ export interface AssignmentListFilters {
   dueState?: AssignmentDueState;
   locale?: string;
   priority?: string;
+  entityType?: string;
   reviewState?: AssignmentQueueReviewState;
   familyId?: string;
 }
@@ -104,6 +105,7 @@ export interface AssignmentQueueSavedFilterQuery {
   due_state?: string;
   locale?: string;
   priority?: string;
+  entity_type?: string;
   family_id?: string;
   sort?: AssignmentSortKey;
   order?: 'asc' | 'desc';
@@ -578,6 +580,7 @@ function normalizeSavedFilterPreset(value: unknown): AssignmentQueueSavedFilterP
       due_state: asString(queryRaw.due_state) || undefined,
       locale: asString(queryRaw.locale) || undefined,
       priority: asString(queryRaw.priority) || undefined,
+      entity_type: asString(queryRaw.entity_type) || undefined,
       family_id: asString(queryRaw.family_id) || undefined,
       sort: (asString(queryRaw.sort) || undefined) as AssignmentSortKey | undefined,
       order: (asString(queryRaw.order) || undefined) as 'asc' | 'desc' | undefined,
@@ -724,6 +727,7 @@ export function buildAssignmentListQuery(state: AssignmentListQueryState = {}): 
   setSearchParam(params, 'due_state', state.dueState);
   setSearchParam(params, 'locale', state.locale);
   setSearchParam(params, 'priority', state.priority);
+  setSearchParam(params, 'entity_type', state.entityType);
   setSearchParam(params, 'review_state', state.reviewState);
   setSearchParam(params, 'family_id', state.familyId);
   setNumberSearchParam(params, 'page', state.page, { min: 1 });
@@ -749,6 +753,7 @@ export function snapshotFiltersFromQueryState(state: AssignmentListQueryState = 
   assign('due_state', state.dueState);
   assign('locale', state.locale);
   assign('priority', state.priority);
+  assign('entity_type', state.entityType);
   assign('review_state', state.reviewState);
   assign('family_id', state.familyId);
   assign('sort', state.sort);
@@ -963,6 +968,7 @@ export function presetToQueryState(preset: AssignmentQueueSavedFilterPreset): As
     dueState: preset.query.due_state as AssignmentDueState | undefined,
     locale: preset.query.locale,
     priority: preset.query.priority,
+    entityType: preset.query.entity_type,
     reviewState: preset.review_state,
     familyId: preset.query.family_id,
     sort: preset.query.sort,
@@ -2070,6 +2076,7 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
     if (this.queryState.status) count++;
     if (this.queryState.dueState) count++;
     if (this.queryState.priority) count++;
+    if (this.queryState.entityType) count++;
     if (this.queryState.locale) count++;
     if (this.queryState.assigneeId) count++;
     if (this.queryState.reviewerId) count++;
@@ -2091,6 +2098,9 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
         break;
       case 'priority':
         updates.priority = undefined;
+        break;
+      case 'entity_type':
+        updates.entityType = undefined;
         break;
       case 'locale':
         updates.locale = undefined;
@@ -2136,6 +2146,13 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
         name: 'priority',
         label: 'Priority',
         value: humanizeToken(this.queryState.priority),
+      });
+    }
+    if (this.queryState.entityType) {
+      activeFilters.push({
+        name: 'entity_type',
+        label: 'Type',
+        value: humanizeToken(this.queryState.entityType),
       });
     }
     if (this.queryState.locale) {
@@ -2308,6 +2325,7 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
       status: undefined,
       dueState: undefined,
       priority: undefined,
+      entityType: undefined,
       locale: undefined,
       assigneeId: undefined,
       reviewerId: undefined,
@@ -2625,6 +2643,7 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
     const dueStates: AssignmentDueState[] = ['none', 'on_track', 'due_soon', 'overdue'];
     const priorities = ['', 'low', 'normal', 'high', 'urgent'];
     const locales = ['', ...uniqueFilterOptions(rows.map((row) => row.target_locale))];
+    const entityTypes = ['', ...uniqueFilterOptions(rows.map((row) => row.entity_type))];
     const assignees = ['', ...uniqueFilterOptions(rows.map((row) => row.assignee_id))];
     const reviewers = ['', ...uniqueFilterOptions(rows.map((row) => row.reviewer_id))];
     const sortKeys = this.response?.meta.supported_sort_keys?.length
@@ -2669,6 +2688,7 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
             ${this.renderSelect('status', 'Status', statuses, this.queryState.status || '')}
             ${this.renderSelect('due_state', 'Due State', ['', ...dueStates], this.queryState.dueState || '')}
             ${this.renderSelect('priority', 'Priority', priorities, this.queryState.priority || '')}
+            ${this.renderSelect('entity_type', 'Type', entityTypes, this.queryState.entityType || '')}
             ${this.renderSelect('locale', 'Locale', locales, this.queryState.locale || '')}
             ${this.renderSelect('assignee_id', 'Assignee', assignees, this.queryState.assigneeId || '')}
             ${this.renderSelect('reviewer_id', 'Reviewer', reviewers, this.queryState.reviewerId || '')}
@@ -3437,6 +3457,9 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
             break;
           case 'priority':
             this.updateFilter({ priority: value || undefined });
+            break;
+          case 'entity_type':
+            this.updateFilter({ entityType: value || undefined });
             break;
           case 'locale':
             this.updateFilter({ locale: value || undefined });

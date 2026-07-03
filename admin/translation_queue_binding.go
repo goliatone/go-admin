@@ -1158,6 +1158,8 @@ func translationQueueSnapshotFilterValue(filters map[string]any, key string) str
 		candidates = append(candidates, "dueState")
 	case "review_state":
 		candidates = append(candidates, "reviewState")
+	case "entity_type":
+		candidates = append(candidates, "entityType", "content_type", "contentType", "type")
 	case "family_id":
 		candidates = append(candidates, "familyId")
 	case "target_locale", "locale":
@@ -1286,6 +1288,9 @@ func translationQueueSnapshotFilterPayload(filter translationAssignmentListFilte
 	if filter.Priority != "" {
 		payload["priority"] = filter.Priority
 	}
+	if filter.EntityType != "" {
+		payload["entity_type"] = filter.EntityType
+	}
 	if filter.FamilyID != "" {
 		payload["family_id"] = filter.FamilyID
 	}
@@ -1322,6 +1327,9 @@ func translationQueueSnapshotFilterSummary(filter translationAssignmentListFilte
 	}
 	if filter.Priority != "" {
 		summary = append(summary, "Priority: "+strings.ReplaceAll(filter.Priority, ",", ", "))
+	}
+	if filter.EntityType != "" {
+		summary = append(summary, "Type: "+strings.ReplaceAll(filter.EntityType, ",", ", "))
 	}
 	if filter.FamilyID != "" {
 		summary = append(summary, "Family: "+filter.FamilyID)
@@ -1510,6 +1518,9 @@ func matchesAssignmentListFilter(assignment TranslationAssignment, filter transl
 	if !translationQueueListFilterMatches(filter.Priority, string(assignment.Priority), normalizeTranslationQueuePriorityFilterValue) {
 		return false
 	}
+	if !translationQueueListFilterMatches(filter.EntityType, assignment.EntityType, normalizeTranslationQueueEntityTypeFilterValue) {
+		return false
+	}
 	return translationQueueAssignmentScopeMatches(assignment, filter)
 }
 
@@ -1533,6 +1544,10 @@ func normalizeTranslationQueuePriorityFilterValue(value string) string {
 
 func normalizeTranslationQueueLocaleFilterValue(value string) string {
 	return translationqueue.NormalizeLocaleFilterValue(value)
+}
+
+func normalizeTranslationQueueEntityTypeFilterValue(value string) string {
+	return translationqueue.NormalizeEntityTypeFilterValue(value)
 }
 
 func normalizeTranslationQueueReviewState(value string) string {

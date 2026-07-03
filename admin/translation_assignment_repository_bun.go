@@ -457,6 +457,9 @@ func listOptionsFromAssignmentPageQuery(input TranslationAssignmentPageQueryInpu
 	if filter.Priority != "" {
 		filters["priority"] = filter.Priority
 	}
+	if filter.EntityType != "" {
+		filters["entity_type"] = filter.EntityType
+	}
 	if filter.DueState != "" {
 		filters["due_state"] = filter.DueState
 	}

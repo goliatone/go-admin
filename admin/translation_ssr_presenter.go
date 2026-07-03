@@ -696,7 +696,8 @@ func translationSSRQueueResult(input TranslationSSRPresenterInput, payload any) 
 }
 
 func translationSSRQueueDataGrid(input TranslationSSRPresenterInput, data, meta map[string]any) map[string]any {
-	filters := translationSSRQueueFilterControls(meta["supported_filter_keys"], input.Query)
+	filters := translationSSRQueueFilterControls(meta["supported_filter_keys"], input)
+	activeFilterChips := translationSSRQueueActiveFilterChips(input.Query, filters, input)
 	return map[string]any{
 		"resource": "translation_assignments",
 		"columns": []map[string]any{
@@ -709,9 +710,11 @@ func translationSSRQueueDataGrid(input TranslationSSRPresenterInput, data, meta 
 			{"key": "updated_at", "label": "Updated", "sortable": true},
 		},
 		"filters":                 filters,
+		"filter_action":           translationSSRQueueFilterAction(input),
 		"quick_filters":           translationSSRQueueQuickFilters(input),
-		"active_filter_chips":     translationSSRQueueActiveFilterChips(input.Query, filters),
-		"sort":                    map[string]any{"default": meta["default_sort"], "supported": meta["supported_sort_keys"], "label": translationSSRQueueSortLabel(meta["default_sort"])},
+		"active_filter_chips":     activeFilterChips,
+		"active_filter_count":     len(activeFilterChips),
+		"sort":                    translationSSRQueueSortModel(input, meta),
 		"saved_filter_presets":    translationSSREnrichQueuePresets(input, meta["saved_filter_presets"]),
 		"review_filter_presets":   translationSSREnrichQueuePresets(input, meta["saved_review_filter_presets"]),
 		"grouping":                meta["grouping"],
@@ -729,18 +732,73 @@ func translationSSRQueueDataGrid(input TranslationSSRPresenterInput, data, meta 
 			{"key": "release", "label": "Release selected"},
 			{"key": "archive", "label": "Archive selected"},
 		},
-		"pagination": map[string]any{
-			"page":     meta["page"],
-			"per_page": meta["per_page"],
-			"total":    meta["total"],
-		},
-		"url_state": map[string]any{"preserve_channel": true, "channel": strings.TrimSpace(input.Channel), "filters": cloneStringMap(input.Query)},
-		"items_key": "data",
-		"count":     len(translationSSRList(data)),
+		"pagination": translationSSRQueuePagination(input, meta),
+		"url_state":  map[string]any{"preserve_channel": true, "channel": strings.TrimSpace(input.Channel), "filters": cloneStringMap(input.Query)},
+		"items_key":  "data",
+		"count":      len(translationSSRList(data)),
 	}
 }
 
+func translationSSRQueuePagination(input TranslationSSRPresenterInput, meta map[string]any) map[string]any {
+	page := clampInt(atoiDefault(toString(meta["page"]), 1), 1, 10_000)
+	perPage := clampInt(atoiDefault(toString(meta["per_page"]), 25), 1, 200)
+	total := max(0, atoiDefault(toString(meta["total"]), 0))
+	pageCount := 1
+	if total > 0 && perPage > 0 {
+		pageCount = (total + perPage - 1) / perPage
+	}
+	rangeStart := 0
+	rangeEnd := 0
+	if total > 0 {
+		start := (page-1)*perPage + 1
+		if start <= total {
+			rangeStart = start
+			rangeEnd = min(start+perPage-1, total)
+		}
+	}
+	previousDisabled := page <= 1
+	nextDisabled := page >= pageCount
+	choices := []map[string]any{}
+	for _, choice := range []int{25, 50, 100} {
+		choices = append(choices, map[string]any{
+			"value":   choice,
+			"label":   strconv.Itoa(choice),
+			"active":  perPage == choice,
+			"href":    translationSSRQueuePaginationHref(input, map[string]string{"page": "1", "per_page": strconv.Itoa(choice)}),
+			"current": perPage == choice,
+		})
+	}
+	return map[string]any{
+		"page":              page,
+		"per_page":          perPage,
+		"total":             total,
+		"page_count":        pageCount,
+		"range_start":       rangeStart,
+		"range_end":         rangeEnd,
+		"range_label":       "Showing " + strconv.Itoa(rangeStart) + "-" + strconv.Itoa(rangeEnd) + " of " + strconv.Itoa(total) + " assignments",
+		"page_label":        "Assignment page " + strconv.Itoa(page) + " of " + strconv.Itoa(pageCount),
+		"previous_disabled": previousDisabled,
+		"next_disabled":     nextDisabled,
+		"previous_href":     translationSSRQueuePaginationHref(input, map[string]string{"page": strconv.Itoa(max(1, page-1)), "per_page": strconv.Itoa(perPage)}),
+		"next_href":         translationSSRQueuePaginationHref(input, map[string]string{"page": strconv.Itoa(min(pageCount, page+1)), "per_page": strconv.Itoa(perPage)}),
+		"page_size_choices": choices,
+	}
+}
+
+func translationSSRQueuePaginationHref(input TranslationSSRPresenterInput, set map[string]string) string {
+	base := translationSSRQueueBasePath(input)
+	next := cloneStringMap(set)
+	if next == nil {
+		next = map[string]string{}
+	}
+	if channel := strings.TrimSpace(input.Channel); channel != "" {
+		next["channel"] = channel
+	}
+	return translationSSRHrefWithQuery(base, input.Query, next)
+}
+
 func translationSSRQueueInputWithPreset(input TranslationSSRPresenterInput) TranslationSSRPresenterInput {
+	input.Query = translationSSRQueueNormalizeQuery(input.Query)
 	presetID := strings.TrimSpace(input.Query["preset"])
 	if presetID == "" {
 		return input
@@ -764,6 +822,24 @@ func translationSSRQueueInputWithPreset(input TranslationSSRPresenterInput) Tran
 	expanded["preset"] = presetID
 	input.Query = expanded
 	return input
+}
+
+func translationSSRQueueNormalizeQuery(query map[string]string) map[string]string {
+	if len(query) == 0 {
+		return query
+	}
+	normalized := cloneStringMap(query)
+	if normalized == nil {
+		normalized = map[string]string{}
+	}
+	if strings.TrimSpace(normalized["entity_type"]) == "" {
+		if value := firstNonEmpty(normalized["content_type"], normalized["type"]); strings.TrimSpace(value) != "" {
+			normalized["entity_type"] = strings.TrimSpace(value)
+		}
+	}
+	delete(normalized, "content_type")
+	delete(normalized, "type")
+	return normalized
 }
 
 func translationSSRQueueQuickFilters(input TranslationSSRPresenterInput) []map[string]any {
@@ -823,7 +899,7 @@ func translationSSRQueueQuickFilters(input TranslationSSRPresenterInput) []map[s
 	}
 }
 
-func translationSSRQueueFilterControls(raw any, query map[string]string) []map[string]any {
+func translationSSRQueueFilterControls(raw any, input TranslationSSRPresenterInput) []map[string]any {
 	keys := translationSSRStringSlice(raw)
 	out := make([]map[string]any, 0, len(keys))
 	for _, key := range keys {
@@ -831,13 +907,107 @@ func translationSSRQueueFilterControls(raw any, query map[string]string) []map[s
 		if key == "" {
 			continue
 		}
+		value := translationSSRQueueFilterValue(input.Query, key)
+		label := translationSSRQueueFilterLabel(key)
+		control := map[string]any{
+			"key":           key,
+			"name":          key,
+			"label":         label,
+			"value":         value,
+			"current_value": value,
+			"placeholder":   "All " + strings.ToLower(label),
+			"clear_url":     translationSSRQueueClearFilterHref(input, key),
+		}
+		if options := translationSSRQueueFilterOptions(key); len(options) > 0 {
+			control["type"] = "select"
+			control["options"] = options
+		}
 		out = append(out, map[string]any{
-			"key":   key,
-			"label": translationSSRHumanLabel(key),
-			"value": strings.TrimSpace(query[key]),
+			"key":           control["key"],
+			"name":          control["name"],
+			"label":         control["label"],
+			"value":         control["value"],
+			"current_value": control["current_value"],
+			"placeholder":   control["placeholder"],
+			"clear_url":     control["clear_url"],
+			"type":          control["type"],
+			"options":       control["options"],
 		})
 	}
 	return out
+}
+
+func translationSSRQueueFilterValue(query map[string]string, key string) string {
+	key = strings.TrimSpace(key)
+	if len(query) == 0 || key == "" {
+		return ""
+	}
+	switch key {
+	case "entity_type":
+		return strings.TrimSpace(firstNonEmpty(query["entity_type"], query["content_type"], query["type"]))
+	case "locale":
+		return strings.TrimSpace(firstNonEmpty(query["locale"], query["target_locale"]))
+	default:
+		return strings.TrimSpace(query[key])
+	}
+}
+
+func translationSSRQueueFilterLabel(key string) string {
+	switch strings.TrimSpace(key) {
+	case "entity_type":
+		return "Type"
+	case "locale", "target_locale":
+		return "Target Locale"
+	case "review_state":
+		return "Review State"
+	default:
+		return translationSSRHumanLabel(key)
+	}
+}
+
+func translationSSRQueueFilterOptions(key string) []map[string]any {
+	values := []string{}
+	switch strings.TrimSpace(key) {
+	case "status":
+		values = []string{"open", "assigned", "in_progress", "in_review", "changes_requested", "approved", "archived"}
+	case "priority":
+		values = []string{"low", "normal", "high", "urgent"}
+	case "review_state":
+		values = TranslationQueueSupportedReviewStates()
+	}
+	if len(values) == 0 {
+		return nil
+	}
+	out := make([]map[string]any, 0, len(values))
+	for _, value := range values {
+		out = append(out, map[string]any{"value": value, "label": translationSSRFormatFilterValue(value)})
+	}
+	return out
+}
+
+func translationSSRQueueClearFilterHref(input TranslationSSRPresenterInput, key string) string {
+	remove := []string{strings.TrimSpace(key), "page"}
+	switch strings.TrimSpace(key) {
+	case "entity_type":
+		remove = append(remove, "content_type", "type")
+	case "locale":
+		remove = append(remove, "target_locale")
+	}
+	return translationSSRHrefWithQuery(
+		translationSSRQueueBasePath(input),
+		input.Query,
+		map[string]string{"channel": strings.TrimSpace(input.Channel), "page": "1"},
+		remove...,
+	)
+}
+
+func translationSSRQueueFilterAction(input TranslationSSRPresenterInput) string {
+	return translationSSRHrefWithQuery(
+		translationSSRQueueBasePath(input),
+		input.Query,
+		map[string]string{"channel": strings.TrimSpace(input.Channel), "page": "1"},
+		"page",
+	)
 }
 
 func translationSSRDecorateDashboard(data, meta map[string]any) {
@@ -1155,7 +1325,7 @@ func translationSSRDecorateQueueFamilyRow(input TranslationSSRPresenterInput, ro
 	)
 }
 
-func translationSSRQueueActiveFilterChips(query map[string]string, controls []map[string]any) []map[string]any {
+func translationSSRQueueActiveFilterChips(query map[string]string, controls []map[string]any, input TranslationSSRPresenterInput) []map[string]any {
 	visible := map[string]map[string]any{}
 	orderedKeys := []string{}
 	for _, control := range controls {
@@ -1170,7 +1340,7 @@ func translationSSRQueueActiveFilterChips(query map[string]string, controls []ma
 	seen := map[string]bool{}
 	appendChip := func(key string) {
 		key = strings.TrimSpace(key)
-		value := strings.TrimSpace(query[key])
+		value := translationSSRQueueFilterValue(query, key)
 		if key == "" || value == "" || translationSSRQueueFilterChipHidden(key) {
 			return
 		}
@@ -1179,13 +1349,16 @@ func translationSSRQueueActiveFilterChips(query map[string]string, controls []ma
 		}
 		seen[key] = true
 		label := translationSSRHumanLabel(key)
+		clearURL := translationSSRQueueClearFilterHref(input, key)
 		if control, ok := visible[key]; ok {
 			label = firstNonEmpty(toString(control["label"]), label)
+			clearURL = firstNonEmpty(toString(control["clear_url"]), clearURL)
 		}
 		chips = append(chips, map[string]any{
-			"key":   key,
-			"label": label,
-			"value": translationSSRFormatFilterValue(value),
+			"key":       key,
+			"label":     label,
+			"value":     translationSSRFormatFilterValue(value),
+			"clear_url": clearURL,
 		})
 	}
 	for _, key := range orderedKeys {
@@ -1227,6 +1400,24 @@ func translationSSRQueueSortLabel(raw any) string {
 		direction = "descending"
 	}
 	return strings.TrimSpace(translationSSRHumanLabel(sort) + ", " + direction)
+}
+
+func translationSSRQueueSortModel(input TranslationSSRPresenterInput, meta map[string]any) map[string]any {
+	defaultSort := extractMap(meta["default_sort"])
+	defaultKey := firstNonEmpty(toString(defaultSort["key"]), toString(defaultSort["sort"]), "updated_at")
+	defaultOrder := firstNonEmpty(toString(defaultSort["order"]), "desc")
+	key := firstNonEmpty(input.Query["sort"], input.Query["sort_by"], defaultKey)
+	order := firstNonEmpty(input.Query["order"], input.Query["direction"], defaultOrder)
+	if !strings.EqualFold(strings.TrimSpace(order), "asc") {
+		order = "desc"
+	}
+	return map[string]any{
+		"default":   defaultSort,
+		"key":       strings.TrimSpace(key),
+		"order":     strings.TrimSpace(order),
+		"label":     translationSSRQueueSortLabel(map[string]any{"sort": key, "order": order}),
+		"supported": meta["supported_sort_keys"],
+	}
 }
 
 func translationSSRDecorateFamilyDetail(data map[string]any) {
@@ -2486,33 +2677,55 @@ func translationSSRFamilyListRowLinks(input TranslationSSRPresenterInput, row ma
 }
 
 func translationSSRQueueViewLinks(input TranslationSSRPresenterInput) map[string]any {
-	base := strings.TrimSpace(input.QueuePath)
-	if base == "" {
-		base = strings.TrimRight(strings.TrimSpace(input.BasePath), "/") + "/translations/queue"
-	}
+	base := translationSSRQueueBasePath(input)
 	return map[string]any{
 		"current": translationSSRHrefWithQuery(base, input.Query, map[string]string{
 			"channel": strings.TrimSpace(input.Channel),
 		}),
-		"clear_all": translationSSRHrefWithQuery(base, nil, map[string]string{
+		"clear_all": translationSSRHrefWithQuery(base, translationSSRQueueClearAllPreserveQuery(input.Query), map[string]string{
 			"channel": strings.TrimSpace(input.Channel),
+			"page":    "1",
 		}),
 		"list": translationSSRHrefWithQuery(base, input.Query, map[string]string{
 			"channel":        strings.TrimSpace(input.Channel),
+			"page":           "1",
 			"group_by":       "",
 			"group_strategy": "",
 		}),
 		"grouped": translationSSRHrefWithQuery(base, input.Query, map[string]string{
 			"channel":        strings.TrimSpace(input.Channel),
+			"page":           "1",
 			"group_by":       "family_id",
 			"group_strategy": "page_local",
 		}),
 		"families": translationSSRHrefWithQuery(base, input.Query, map[string]string{
 			"channel":        strings.TrimSpace(input.Channel),
+			"page":           "1",
 			"group_by":       "family_id",
 			"group_strategy": "server_family",
 		}),
 	}
+}
+
+func translationSSRQueueBasePath(input TranslationSSRPresenterInput) string {
+	base := strings.TrimSpace(input.QueuePath)
+	if base == "" {
+		base = strings.TrimRight(strings.TrimSpace(input.BasePath), "/") + "/translations/queue"
+	}
+	return base
+}
+
+func translationSSRQueueClearAllPreserveQuery(query map[string]string) map[string]string {
+	return translationSSRPreserveFilterQuery(query,
+		"tenant_id",
+		"org_id",
+		"channel",
+		"group_by",
+		"group_strategy",
+		"sort",
+		"order",
+		"per_page",
+	)
 }
 
 // translationSSRQueueViewMode resolves the active queue view ("list",
@@ -2673,6 +2886,7 @@ func translationSSRQueueStatusFilterPreserveKeys() []string {
 		"locale",
 		"target_locale",
 		"priority",
+		"entity_type",
 		"due_state",
 		"review_state",
 		"assignee_id",
@@ -2685,6 +2899,7 @@ func translationSSRQueuePresetFilterPreserveKeys() []string {
 		"family_id",
 		"locale",
 		"target_locale",
+		"entity_type",
 		"assignee_id",
 		"reviewer_id",
 	}

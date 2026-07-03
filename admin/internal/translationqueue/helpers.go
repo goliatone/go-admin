@@ -19,6 +19,7 @@ type AssignmentListFilter struct {
 	DueState    string `json:"due_state"`
 	Locale      string `json:"locale"`
 	Priority    string `json:"priority"`
+	EntityType  string `json:"entity_type"`
 	ReviewState string `json:"review_state"`
 	FamilyID    string `json:"family_id"`
 	SortBy      string `json:"sort_by"`
@@ -48,6 +49,7 @@ func SupportedFilterKeys() []string {
 		"due_state",
 		"locale",
 		"priority",
+		"entity_type",
 		"family_id",
 		"review_state",
 	}
@@ -221,6 +223,7 @@ func AssignmentFilterFromQuery(query func(string) string, actorID, tenantID, org
 		DueState:    strings.TrimSpace(strings.ToLower(get("due_state"))),
 		Locale:      strings.TrimSpace(strings.ToLower(primitives.FirstNonEmptyRaw(get("locale"), get("target_locale")))),
 		Priority:    strings.TrimSpace(strings.ToLower(get("priority"))),
+		EntityType:  NormalizeEntityTypeFilterValue(primitives.FirstNonEmptyRaw(get("entity_type"), get("content_type"), get("type"))),
 		ReviewState: NormalizeReviewState(get("review_state")),
 		FamilyID:    strings.TrimSpace(get("family_id")),
 		SortBy:      strings.TrimSpace(strings.ToLower(get("sort"))),
@@ -331,6 +334,10 @@ func NormalizePriorityFilterValue(value string) string {
 }
 
 func NormalizeLocaleFilterValue(value string) string {
+	return strings.TrimSpace(strings.ToLower(value))
+}
+
+func NormalizeEntityTypeFilterValue(value string) string {
 	return strings.TrimSpace(strings.ToLower(value))
 }
 

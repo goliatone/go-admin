@@ -1301,6 +1301,31 @@ test('translation queue runtime: assignment action URL appends path before scope
   );
 });
 
+test('translation queue runtime: explicit client render flag starts full queue renderer', async () => {
+  const { root } = setupDom('http://localhost/admin/translations/queue?translation_client_render=1');
+  root.dataset.ssrEnhanced = 'true';
+  root.dataset.endpoint = '/admin/api/translations/assignments';
+  root.innerHTML = '<section data-translation-queue-ssr="true"><p>SSR content</p></section>';
+
+  const requests = [];
+  globalThis.fetch = mock.fn(async (url) => {
+    requests.push(String(url));
+    return createJsonResponse({
+      meta: fixtures.meta,
+      data: fixtures.states.open_pool.data,
+    });
+  });
+
+  const screen = initAssignmentQueueScreen(root);
+  assert.ok(screen);
+  await flushAsync();
+  await flushAsync();
+
+  assert.equal(root.dataset.assignmentQueueEnhanced, undefined);
+  assert.equal(requests.length, 1);
+  assert.match(requests[0], /\/admin\/api\/translations\/assignments/);
+});
+
 test('translation queue runtime: queue entry re-exports shared SSR row action helpers', () => {
   assert.equal(queueBuildAssignmentActionURL, buildAssignmentActionURL);
   assert.equal(queueInitAssignmentSSRRowActions, initAssignmentSSRRowActions);

@@ -708,8 +708,40 @@ func TestTranslationQueueTemplateRendersUIPresetLinks(t *testing.T) {
 					"label": "Open",
 					"href":  "/admin/translations/queue?channel=staging&order=desc&preset=open&sort=updated_at&status=pending%2Cassigned",
 				}},
-				"grouping":       map[string]any{"mode": "none"},
-				"bulk_selection": map[string]any{"mode": "current_page"},
+				"review_filter_presets": []map[string]any{{
+					"id":    "review_inbox",
+					"label": "Review Inbox",
+					"href":  "/admin/translations/queue?channel=staging&preset=review_inbox&status=in_review",
+				}},
+				"filters": []map[string]any{
+					{"key": "status", "name": "status", "label": "Status", "type": "select", "current_value": "", "options": []map[string]any{{"value": "open", "label": "Open"}}},
+					{"key": "entity_type", "name": "entity_type", "label": "Type", "current_value": ""},
+				},
+				"filter_action":       "/admin/translations/queue?channel=staging&page=1",
+				"active_filter_count": 0,
+				"active_filter_chips": []map[string]any{},
+				"grouping":            map[string]any{"mode": "none"},
+				"bulk_selection":      map[string]any{"mode": "current_page"},
+				"sort":                map[string]any{"label": "Updated At, descending"},
+				"view_mode":           "list",
+				"view_links": map[string]any{
+					"list":     "/admin/translations/queue?channel=staging&page=1",
+					"grouped":  "/admin/translations/queue?channel=staging&group_by=family_id&group_strategy=page_local&page=1",
+					"families": "/admin/translations/queue?channel=staging&group_by=family_id&group_strategy=server_family&page=1",
+				},
+				"pagination": map[string]any{
+					"range_label":       "Showing 1-2 of 2 assignments",
+					"page_label":        "Assignment page 1 of 1",
+					"previous_disabled": true,
+					"next_disabled":     true,
+					"previous_href":     "/admin/translations/queue?channel=staging&page=1&per_page=50",
+					"next_href":         "/admin/translations/queue?channel=staging&page=1&per_page=50",
+					"page_size_choices": []map[string]any{
+						{"value": 25, "label": "25", "href": "/admin/translations/queue?channel=staging&page=1&per_page=25"},
+						{"value": 50, "label": "50", "active": true, "href": "/admin/translations/queue?channel=staging&page=1&per_page=50"},
+						{"value": 100, "label": "100", "href": "/admin/translations/queue?channel=staging&page=1&per_page=100"},
+					},
+				},
 			},
 			Links:      map[string]any{"queue": "/admin/translations/queue"},
 			EmptyState: map[string]any{"description": "No assignments match."},
@@ -739,6 +771,25 @@ func TestTranslationQueueTemplateRendersUIPresetLinks(t *testing.T) {
 	}
 	if !strings.Contains(html, `data-translation-filter-panel`) || !strings.Contains(html, `Advanced Filters`) {
 		t.Fatalf("expected queue filters to render a no-JS disclosure control, got %q", html)
+	}
+	for _, expected := range []string{
+		`All visible assignments`,
+		`Review Inbox`,
+		`Showing 1-2 of 2 assignments`,
+		`Assignment page 1 of 1`,
+		`Previous`,
+		`Next`,
+		`>25</a>`,
+		`>50</a>`,
+		`>100</a>`,
+		`>List</a>`,
+		`>Grouped</a>`,
+		`>Families</a>`,
+		`name="entity_type"`,
+	} {
+		if !strings.Contains(html, expected) {
+			t.Fatalf("expected rendered queue HTML to contain %q, got %q", expected, html)
+		}
 	}
 	if strings.Contains(html, `id="queue-filters-panel" class="mt-4 hidden`) {
 		t.Fatalf("expected queue filters not to be hidden without a disclosure control, got %q", html)
@@ -1751,7 +1802,13 @@ func TestTranslationSSRQueryValuesPreservesScope(t *testing.T) {
 	ctx.QueriesM[admin.ScopeTenantIDKey] = " tenant-1 "
 	ctx.QueriesM[admin.ScopeOrgIDKey] = "org-1"
 	ctx.QueriesM["status"] = "open"
+	ctx.QueriesM["entity_type"] = "pages"
+	ctx.QueriesM["type"] = "articles"
 	ctx.QueriesM["preset"] = "overdue"
+	ctx.QueriesM["target_locale"] = "fr"
+	ctx.QueriesM["group_by"] = "family_id"
+	ctx.QueriesM["group_strategy"] = "server_family"
+	ctx.QueriesM["sort_by"] = "due_date"
 	ctx.QueriesM["locales"] = "fr,de"
 	ctx.QueriesM["locale_offset"] = "10"
 	ctx.QueriesM["locale_limit"] = "5"
@@ -1768,8 +1825,14 @@ func TestTranslationSSRQueryValuesPreservesScope(t *testing.T) {
 	if values["status"] != "open" {
 		t.Fatalf("expected existing filter to be preserved, got %q", values["status"])
 	}
+	if values["entity_type"] != "pages" || values["type"] != "articles" {
+		t.Fatalf("expected queue type query keys to be preserved for presenter normalization, got %+v", values)
+	}
 	if values["preset"] != "overdue" {
 		t.Fatalf("expected preset to be preserved, got %q", values["preset"])
+	}
+	if values["target_locale"] != "fr" || values["group_by"] != "family_id" || values["group_strategy"] != "server_family" || values["sort_by"] != "due_date" {
+		t.Fatalf("expected queue view query to be preserved, got %+v", values)
 	}
 	if values["locales"] != "fr,de" || values["locale_offset"] != "10" || values["locale_limit"] != "5" {
 		t.Fatalf("expected matrix locale viewport query to be preserved, got %+v", values)

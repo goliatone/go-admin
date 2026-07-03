@@ -62,6 +62,39 @@ func TestAssignmentFilterFromQueryExplicitValuesOverridePreset(t *testing.T) {
 	}
 }
 
+func TestAssignmentFilterFromQueryNormalizesEntityTypeAliases(t *testing.T) {
+	tests := []struct {
+		name   string
+		values map[string]string
+		want   string
+	}{
+		{name: "canonical", values: map[string]string{"entity_type": " Pages "}, want: "pages"},
+		{name: "content type alias", values: map[string]string{"content_type": "Articles"}, want: "articles"},
+		{name: "type alias", values: map[string]string{"type": "News"}, want: "news"},
+		{name: "canonical wins", values: map[string]string{"entity_type": "Pages", "content_type": "Articles", "type": "News"}, want: "pages"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			filter := AssignmentFilterFromQuery(func(key string) string {
+				return tc.values[key]
+			}, "actor_1", "tenant_1", "org_1")
+			if filter.EntityType != tc.want {
+				t.Fatalf("expected entity type %q, got %+v", tc.want, filter)
+			}
+		})
+	}
+}
+
+func TestSupportedFilterKeysIncludesEntityType(t *testing.T) {
+	for _, key := range SupportedFilterKeys() {
+		if key == "entity_type" {
+			return
+		}
+	}
+	t.Fatalf("expected supported filter keys to include entity_type, got %+v", SupportedFilterKeys())
+}
+
 func TestAssignmentFilterFromQueryExpandsActorPreset(t *testing.T) {
 	values := map[string]string{"preset": "needs_review"}
 

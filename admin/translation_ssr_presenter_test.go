@@ -48,6 +48,49 @@ func TestTranslationSSRPayloadSectionsPreserveRootDashboardPayloads(t *testing.T
 	}
 }
 
+func TestTranslationSSRQueueInputNormalizesTypeAliases(t *testing.T) {
+	input := translationSSRQueueInputWithPreset(TranslationSSRPresenterInput{
+		Query: map[string]string{
+			"content_type": "pages",
+			"type":         "posts",
+			"status":       "assigned",
+		},
+	})
+
+	if got := input.Query["entity_type"]; got != "pages" {
+		t.Fatalf("expected content_type alias to normalize to entity_type, got %+v", input.Query)
+	}
+	if _, ok := input.Query["content_type"]; ok {
+		t.Fatalf("expected content_type alias to be removed from queue query, got %+v", input.Query)
+	}
+	if _, ok := input.Query["type"]; ok {
+		t.Fatalf("expected type alias to be removed from queue query, got %+v", input.Query)
+	}
+	if got := input.Query["status"]; got != "assigned" {
+		t.Fatalf("expected unrelated query state to be preserved, got %+v", input.Query)
+	}
+}
+
+func TestTranslationSSRQueueInputKeepsCanonicalEntityTypeOverAliases(t *testing.T) {
+	input := translationSSRQueueInputWithPreset(TranslationSSRPresenterInput{
+		Query: map[string]string{
+			"entity_type":  "pages",
+			"content_type": "articles",
+			"type":         "news",
+		},
+	})
+
+	if got := input.Query["entity_type"]; got != "pages" {
+		t.Fatalf("expected canonical entity_type to win, got %+v", input.Query)
+	}
+	if _, ok := input.Query["content_type"]; ok {
+		t.Fatalf("expected content_type alias to be removed, got %+v", input.Query)
+	}
+	if _, ok := input.Query["type"]; ok {
+		t.Fatalf("expected type alias to be removed, got %+v", input.Query)
+	}
+}
+
 func TestTranslationSSRDecorateDashboardAddsReferenceTableVariants(t *testing.T) {
 	data := map[string]any{
 		"generated": "2026-06-06T00:58:55Z",
@@ -895,6 +938,139 @@ func TestTranslationSSRQueueDataGridContract(t *testing.T) {
 	}
 	if got := toString(grid["view_mode"]); got != "families" {
 		t.Fatalf("expected families view mode from grouping meta, got %q", got)
+	}
+}
+
+func TestTranslationSSRQueueDataGridPaginationModel(t *testing.T) {
+	grid := translationSSRQueueDataGrid(TranslationSSRPresenterInput{
+		QueuePath: "/admin/translations/queue",
+		Channel:   "staging",
+		Query: map[string]string{
+			"status":    "open",
+			"tenant_id": "tenant-1",
+			"org_id":    "org-1",
+			"page":      "2",
+			"per_page":  "25",
+		},
+	}, map[string]any{}, map[string]any{
+		"page":                  2,
+		"per_page":              25,
+		"total":                 76,
+		"supported_filter_keys": []string{"status"},
+		"default_sort":          map[string]any{"key": "updated_at", "order": "desc"},
+	})
+
+	pagination := extractMap(grid["pagination"])
+	if got := toString(pagination["range_label"]); got != "Showing 26-50 of 76 assignments" {
+		t.Fatalf("expected visible range label, got %q", got)
+	}
+	if got := toString(pagination["page_label"]); got != "Assignment page 2 of 4" {
+		t.Fatalf("expected page label, got %q", got)
+	}
+	if toBool(pagination["previous_disabled"]) || toBool(pagination["next_disabled"]) {
+		t.Fatalf("expected previous and next enabled, got %+v", pagination)
+	}
+	choices := translationSSRAnyList(pagination["page_size_choices"])
+	if len(choices) != 3 {
+		t.Fatalf("expected fixed page-size choices, got %+v", choices)
+	}
+	values := []string{}
+	for _, choice := range choices {
+		values = append(values, toString(choice["value"]))
+		if toString(choice["value"]) == "50" {
+			parsed, err := url.Parse(toString(choice["href"]))
+			if err != nil {
+				t.Fatalf("parse page-size href: %v", err)
+			}
+			for key, want := range map[string]string{
+				"status":    "open",
+				"tenant_id": "tenant-1",
+				"org_id":    "org-1",
+				"channel":   "staging",
+				"page":      "1",
+				"per_page":  "50",
+			} {
+				if got := parsed.Query().Get(key); got != want {
+					t.Fatalf("expected page-size href %s=%q, got %q in %q", key, want, got, parsed.String())
+				}
+			}
+		}
+	}
+	if strings.Join(values, ",") != "25,50,100" {
+		t.Fatalf("expected page sizes 25,50,100, got %v", values)
+	}
+}
+
+func TestTranslationSSRQueueDataGridEmptyPaginationModel(t *testing.T) {
+	grid := translationSSRQueueDataGrid(TranslationSSRPresenterInput{
+		QueuePath: "/admin/translations/queue",
+	}, map[string]any{}, map[string]any{
+		"page":                  1,
+		"per_page":              25,
+		"total":                 0,
+		"supported_filter_keys": []string{"status"},
+		"default_sort":          map[string]any{"key": "updated_at", "order": "desc"},
+	})
+
+	pagination := extractMap(grid["pagination"])
+	if got := toString(pagination["range_label"]); got != "Showing 0-0 of 0 assignments" {
+		t.Fatalf("expected empty visible range label, got %q", got)
+	}
+	if got := toString(pagination["page_label"]); got != "Assignment page 1 of 1" {
+		t.Fatalf("expected empty page label, got %q", got)
+	}
+	if !toBool(pagination["previous_disabled"]) || !toBool(pagination["next_disabled"]) {
+		t.Fatalf("expected empty pagination controls disabled, got %+v", pagination)
+	}
+}
+
+func TestTranslationSSRQueueDataGridTypeFilterControl(t *testing.T) {
+	grid := translationSSRQueueDataGrid(TranslationSSRPresenterInput{
+		QueuePath: "/admin/translations/queue",
+		Channel:   "staging",
+		Query: map[string]string{
+			"entity_type": "pages",
+			"tenant_id":   "tenant-1",
+			"page":        "3",
+		},
+	}, map[string]any{}, map[string]any{
+		"page":                  3,
+		"per_page":              25,
+		"total":                 1,
+		"supported_filter_keys": []string{"status", "entity_type"},
+		"default_sort":          map[string]any{"key": "updated_at", "order": "desc"},
+	})
+
+	filters := translationSSRAnyList(grid["filters"])
+	var typeFilter map[string]any
+	for _, filter := range filters {
+		if toString(filter["key"]) == "entity_type" {
+			typeFilter = filter
+			break
+		}
+	}
+	if len(typeFilter) == 0 {
+		t.Fatalf("expected entity_type filter control, got %+v", filters)
+	}
+	if toString(typeFilter["label"]) != "Type" || toString(typeFilter["name"]) != "entity_type" || toString(typeFilter["current_value"]) != "pages" {
+		t.Fatalf("expected canonical Type control, got %+v", typeFilter)
+	}
+	chips := translationSSRAnyList(grid["active_filter_chips"])
+	if len(chips) != 1 || toString(chips[0]["label"]) != "Type" || toString(chips[0]["value"]) != "Pages" {
+		t.Fatalf("expected Type active chip, got %+v", chips)
+	}
+	clearURL, err := url.Parse(toString(chips[0]["clear_url"]))
+	if err != nil {
+		t.Fatalf("parse clear url: %v", err)
+	}
+	if got := clearURL.Query().Get("entity_type"); got != "" {
+		t.Fatalf("expected clear URL to remove entity_type, got %q", clearURL.String())
+	}
+	if got := clearURL.Query().Get("tenant_id"); got != "tenant-1" {
+		t.Fatalf("expected clear URL to preserve tenant scope, got %q", clearURL.String())
+	}
+	if got := clearURL.Query().Get("page"); got != "1" {
+		t.Fatalf("expected clear URL to reset page, got %q", clearURL.String())
 	}
 }
 

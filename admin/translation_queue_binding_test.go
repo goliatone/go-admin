@@ -170,6 +170,98 @@ func TestTranslationQueueBindingMyWorkRequiresViewPermission(t *testing.T) {
 	}
 }
 
+func TestTranslationQueueListOptionsIncludesEntityTypeFilter(t *testing.T) {
+	opts, empty := listOptionsFromAssignmentPageQuery(TranslationAssignmentPageQueryInput{
+		Filter: translationAssignmentListFilter{
+			TenantID:   "tenant-1",
+			OrgID:      "org-1",
+			EntityType: "pages",
+			SortBy:     "updated_at",
+			SortDesc:   true,
+		},
+		Page:    2,
+		PerPage: 25,
+	})
+	if empty {
+		t.Fatalf("expected non-empty query options")
+	}
+	if got := strings.TrimSpace(toString(opts.Filters["entity_type"])); got != "pages" {
+		t.Fatalf("expected entity_type filter, got filters=%+v", opts.Filters)
+	}
+}
+
+func TestTranslationQueueFallbackFilteringMatchesEntityType(t *testing.T) {
+	binding := &translationQueueBinding{}
+	now := time.Date(2026, 7, 3, 12, 0, 0, 0, time.UTC)
+	assignments := []TranslationAssignment{
+		{ID: "asg-pages", EntityType: "pages", TargetLocale: "es", Status: AssignmentStatusAssigned, Priority: PriorityNormal},
+		{ID: "asg-posts", EntityType: "posts", TargetLocale: "es", Status: AssignmentStatusAssigned, Priority: PriorityNormal},
+	}
+
+	filtered, total := binding.filterAssignments(context.Background(), assignments, translationAssignmentListFilter{
+		EntityType: "Pages",
+		SortBy:     "updated_at",
+		SortDesc:   true,
+	}, 1, 25, "", now)
+	if total != 1 || len(filtered) != 1 || filtered[0].ID != "asg-pages" {
+		t.Fatalf("expected only pages assignment, total=%d rows=%+v", total, filtered)
+	}
+}
+
+func TestTranslationQueueAssignmentsTypeFilterAliasesMatchAPIRows(t *testing.T) {
+	now := time.Date(2026, 7, 3, 12, 0, 0, 0, time.UTC)
+	adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{
+		FeatureGate: featureGateFromKeys(FeatureCMS, FeatureTranslationQueue),
+	})
+	adm.WithAuthorizer(translationPermissionAuthorizer{
+		allowed: map[string]bool{PermAdminTranslationsView: true},
+	})
+	repo := NewInMemoryTranslationAssignmentRepository()
+	for _, assignment := range []TranslationAssignment{
+		{ID: "asg-pages", FamilyID: "fam-pages", EntityType: "pages", SourceRecordID: "page-1", SourceLocale: "en", TargetLocale: "es", AssignmentType: AssignmentTypeDirect, Status: AssignmentStatusAssigned, Priority: PriorityNormal},
+		{ID: "asg-posts", FamilyID: "fam-posts", EntityType: "posts", SourceRecordID: "post-1", SourceLocale: "en", TargetLocale: "es", AssignmentType: AssignmentTypeDirect, Status: AssignmentStatusAssigned, Priority: PriorityNormal},
+	} {
+		if _, err := repo.Create(context.Background(), assignment); err != nil {
+			t.Fatalf("create assignment %s: %v", assignment.ID, err)
+		}
+	}
+	if _, err := RegisterTranslationQueuePanel(adm, repo); err != nil {
+		t.Fatalf("register queue panel: %v", err)
+	}
+	binding := newTranslationQueueBinding(adm)
+	binding.now = func() time.Time { return now }
+	app := newTranslationQueueTestApp(t, binding)
+
+	for _, query := range []string{"entity_type=pages", "content_type=pages", "type=pages"} {
+		t.Run(query, func(t *testing.T) {
+			req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/translations/assignments?"+query, nil)
+			resp, err := app.Test(req)
+			if err != nil {
+				t.Fatalf("request error: %v", err)
+			}
+			defer resp.Body.Close() //nolint:errcheck // test response body cleanup is best-effort
+			if resp.StatusCode != http.StatusOK {
+				t.Fatalf("status=%d want=200", resp.StatusCode)
+			}
+			payload := map[string]any{}
+			if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+				t.Fatalf("decode response: %v", err)
+			}
+			rows := anySliceFromValue(payload["data"])
+			if len(rows) != 1 {
+				t.Fatalf("expected one row for %s, got %+v", query, payload)
+			}
+			row := extractMap(rows[0])
+			if got := firstNonEmpty(toString(row["assignment_id"]), toString(row["id"])); got != "asg-pages" {
+				t.Fatalf("expected pages assignment for %s, got %+v", query, row)
+			}
+			if got := toString(row["entity_type"]); got != "pages" {
+				t.Fatalf("expected pages entity_type for %s, got %+v", query, row)
+			}
+		})
+	}
+}
+
 func TestTranslationQueueBindingQueueIncludesUnifiedInboxFields(t *testing.T) {
 	now := time.Date(2026, 2, 17, 12, 0, 0, 0, time.UTC)
 	adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{
