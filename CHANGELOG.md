@@ -1,16 +1,29 @@
 # Changelog
 
-# [0.113.3](https://github.com/goliatone/go-admin/compare/v0.113.2...v0.113.3) - (2026-07-03)
+# [0.113.4](https://github.com/goliatone/go-admin/compare/v0.113.3...v0.113.4) - (2026-07-03)
 
 
 ## Migration Notes
 
-- Translation Queue SSR parity fixes are included for filter clearing, out-of-range pagination, and server-family expansion pagination.
+- Translation Queue SSR parity fixes are included for filter clearing, out-of-range pagination, server-family expansion pagination, and the shared queue filter contract snapshot.
 - If your deployment serves queue assets from disk, refresh or remove stale files such as `data/public/assets/dist/translation-queue/index.js`; disk files can shadow the embedded upstream assets shipped by this release.
+
+## <!-- 6 -->🧪 Testing
+
+- Refresh translation shared contract snapshot ([1480f1a](https://github.com/goliatone/go-admin/commit/1480f1a56468e6ac1408265a0b4191bb0983f3aa))  - (goliatone)
+
+# [0.113.3](https://github.com/goliatone/go-admin/compare/v0.113.2...v0.113.3) - (2026-07-03)
+
+
+New patch release: v0.113.3
 
 ## <!-- 1 -->🐛 Bug Fixes
 
 - Align translation queue SSR release parity ([887537c](https://github.com/goliatone/go-admin/commit/887537c294c763b0710bc5265588c020f2184738))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.113.3 ([b7baa2e](https://github.com/goliatone/go-admin/commit/b7baa2e5fc5dc07cd0b9a763a9e4de6a3e2853e6))  - (goliatone)
 
 # [0.113.2](https://github.com/goliatone/go-admin/compare/v0.113.1...v0.113.2) - (2026-07-03)
 
