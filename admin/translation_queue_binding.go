@@ -335,7 +335,7 @@ func (b *translationQueueBinding) serverFamilyAssignmentGroups(adminCtx AdminCon
 		return nil, translationQueueFamilyGroupingError(err)
 	}
 	normalizedPage, normalizedPerPage := normalizeTranslationAssignmentPagination(page, perPage, result.FamilyTotal, 25)
-	if normalizedPage != page && result.FamilyTotal > 0 && len(result.Families) == 0 {
+	if result.FamilyTotal > 0 && (normalizedPage != page || normalizedPerPage != perPage) {
 		result, err = store.ListAssignmentFamilyGroups(adminCtx.Context, TranslationAssignmentFamilyGroupQueryInput{
 			Filter:      filter,
 			Page:        normalizedPage,
@@ -415,7 +415,7 @@ func (b *translationQueueBinding) FamilyAssignments(c router.Context, familyID s
 		return nil, translationQueueFamilyGroupingError(err)
 	}
 	normalizedPage, normalizedPerPage := normalizeTranslationAssignmentPagination(page, perPage, result.Total, 25)
-	if normalizedPage != page && result.Total > 0 && len(result.Items) == 0 {
+	if result.Total > 0 && (normalizedPage != page || normalizedPerPage != perPage) {
 		result, err = store.ListFamilyAssignments(adminCtx.Context, TranslationAssignmentFamilyAssignmentsQueryInput{
 			FamilyID:    familyID,
 			Filter:      filter,
@@ -1471,18 +1471,12 @@ func (b *translationQueueBinding) filterAssignments(ctx context.Context, assignm
 
 func (b *translationQueueBinding) assignmentPage(ctx context.Context, repo TranslationAssignmentRepository, filter translationAssignmentListFilter, page, perPage int, environment string, now time.Time) ([]TranslationAssignment, int, bool, error) {
 	if queryStore, ok := repo.(TranslationAssignmentPageQueryStore); ok && queryStore != nil {
-		result, err := queryStore.ListAssignmentPage(ctx, TranslationAssignmentPageQueryInput{
-			Filter:      filter,
-			Page:        page,
-			PerPage:     perPage,
-			Environment: environment,
-			Now:         now,
-		})
-		if err == nil {
-			return result.Items, result.Total, true, nil
-		}
-		if !errors.Is(err, ErrTranslationAssignmentQueryUnsupported) {
+		result, supported, err := listAssignmentPageFromQueryStore(ctx, queryStore, filter, page, perPage, environment, now)
+		if err != nil {
 			return nil, 0, false, err
+		}
+		if supported {
+			return result.Items, result.Total, true, nil
 		}
 	}
 	allAssignments, err := b.listAssignmentsForSummary(ctx, repo, filter.SortBy, nil)
@@ -1491,6 +1485,39 @@ func (b *translationQueueBinding) assignmentPage(ctx context.Context, repo Trans
 	}
 	assignments, total := b.filterAssignments(ctx, allAssignments, filter, page, perPage, environment, now)
 	return assignments, total, false, nil
+}
+
+func listAssignmentPageFromQueryStore(ctx context.Context, queryStore TranslationAssignmentPageQueryStore, filter translationAssignmentListFilter, page, perPage int, environment string, now time.Time) (TranslationAssignmentPageQueryResult, bool, error) {
+	result, err := queryStore.ListAssignmentPage(ctx, TranslationAssignmentPageQueryInput{
+		Filter:      filter,
+		Page:        page,
+		PerPage:     perPage,
+		Environment: environment,
+		Now:         now,
+	})
+	if errors.Is(err, ErrTranslationAssignmentQueryUnsupported) {
+		return TranslationAssignmentPageQueryResult{}, false, nil
+	}
+	if err != nil {
+		return TranslationAssignmentPageQueryResult{}, false, err
+	}
+
+	normalizedPage, normalizedPerPage := normalizeTranslationAssignmentPagination(page, perPage, result.Total, 50)
+	if result.Total <= 0 || (normalizedPage == page && normalizedPerPage == perPage) {
+		return result, true, nil
+	}
+
+	result, err = queryStore.ListAssignmentPage(ctx, TranslationAssignmentPageQueryInput{
+		Filter:      filter,
+		Page:        normalizedPage,
+		PerPage:     normalizedPerPage,
+		Environment: environment,
+		Now:         now,
+	})
+	if err != nil {
+		return TranslationAssignmentPageQueryResult{}, false, err
+	}
+	return result, true, nil
 }
 
 func (b *translationQueueBinding) matchAssignments(assignments []TranslationAssignment, filter translationAssignmentListFilter, now time.Time) []TranslationAssignment {
