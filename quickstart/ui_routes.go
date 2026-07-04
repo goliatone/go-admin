@@ -82,6 +82,7 @@ type uiRouteOptions struct {
 	translationExchangeUIConfig          TranslationExchangeUIConfig
 	translationSSRPresenter              admin.TranslationSSRPresenter
 	enhancedActionRuntime                admin.EnhancedActionRuntimeOptions
+	translationQueueUI                   admin.TranslationQueueUIOptions
 	viewContext                          UIViewContextBuilder
 }
 
@@ -460,6 +461,7 @@ func resolveAdminUIRouteOptions(cfg admin.Config, adm *admin.Admin, opts []UIRou
 		registerTranslationExchange:          exchangeModuleEnabled,
 		translationExchangeUIConfig:          translationExchangeUIConfigForAdmin(adm),
 		enhancedActionRuntime:                adm.EnhancedActionRuntimeOptions(),
+		translationQueueUI:                   translationQueueUIOptionsForAdmin(adm),
 	}
 	for _, opt := range opts {
 		if opt != nil {
@@ -822,6 +824,7 @@ func translationSSRInput(c router.Context, options uiRouteOptions, apiBase strin
 		ExchangeUIConfig:   options.translationExchangeUIConfig,
 		SyncClientBasePath: ResolveSyncClientAssetsPrefix(admin.Config{BasePath: options.basePath}),
 		EnhancedAction:     options.enhancedActionRuntime,
+		QueueUI:            options.translationQueueUI,
 	}
 }
 

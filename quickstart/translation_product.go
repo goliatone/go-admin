@@ -387,6 +387,7 @@ func mergeTranslationQueueConfig(base, override TranslationQueueConfig) Translat
 	out.EnableOpenPool = override.EnableOpenPool
 	out.EnableDashboard = override.EnableDashboard
 	out.EnableNotifications = override.EnableNotifications
+	out.EnhancedFilterSelects = override.EnhancedFilterSelects
 	if strings.TrimSpace(override.DefaultPriority) != "" {
 		out.DefaultPriority = strings.TrimSpace(override.DefaultPriority)
 	}

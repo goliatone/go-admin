@@ -105,6 +105,7 @@ func buildTranslationCapabilities(adm *admin.Admin, productCfg TranslationProduc
 		"resolver_keys":      resolverKeys,
 		"warnings":           dedupeStringSlice(warnings),
 		"contracts":          base["contracts"],
+		"queue_ui_config":    translationQueueUIConfigFromProduct(productCfg),
 	}
 	if productCfg.Exchange != nil && productCfg.Exchange.UI.Configured {
 		out["exchange_ui_config"] = productCfg.Exchange.UI
@@ -132,6 +133,7 @@ func mergeTranslationCapabilities(base, overlay map[string]any) map[string]any {
 	copyCapabilityField(out, overlay, "warnings")
 	copyCapabilityField(out, overlay, "contracts")
 	copyCapabilityField(out, overlay, "exchange_ui_config")
+	copyCapabilityField(out, overlay, "queue_ui_config")
 	copyCapabilityField(out, overlay, "routes")
 	copyCapabilityField(out, overlay, "panels")
 	copyCapabilityField(out, overlay, "resolver_keys")
@@ -141,6 +143,24 @@ func mergeTranslationCapabilities(base, overlay map[string]any) map[string]any {
 	applyTranslationCapabilityRouteFiltering(out)
 
 	return out
+}
+
+func translationQueueUIConfigFromProduct(productCfg TranslationProductConfig) map[string]any {
+	enhancedFilterSelects := false
+	if productCfg.Queue != nil {
+		enhancedFilterSelects = productCfg.Queue.EnhancedFilterSelects
+	}
+	return map[string]any{
+		"enhanced_filter_selects": enhancedFilterSelects,
+	}
+}
+
+func translationQueueUIOptionsForAdmin(adm *admin.Admin) admin.TranslationQueueUIOptions {
+	caps := translationCapabilitiesForAdmin(adm)
+	queueUI := translationAnyMap(caps["queue_ui_config"])
+	return admin.TranslationQueueUIOptions{
+		EnhancedFilterSelects: translationBool(queueUI["enhanced_filter_selects"]),
+	}
 }
 
 func translationCapabilityFeaturesOverlay(baseFeatures map[string]any, cmsEnabled, dashboardEnabled bool) map[string]any {

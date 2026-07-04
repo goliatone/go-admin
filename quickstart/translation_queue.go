@@ -18,13 +18,14 @@ type TranslationQueueConfig struct {
 	Enabled bool `json:"enabled,omitempty"`
 	// CommandExecutionMode applies per-command routing policy overrides for translation queue commands.
 	// Hosts can still override specific command ids through WithCommandExecutionPolicy.
-	CommandExecutionMode gocommand.ExecutionMode `json:"command_execution_mode,omitempty"`
-	EnableOpenPool       bool                    `json:"enable_open_pool"`
-	EnableDashboard      bool                    `json:"enable_dashboard_widget"`
-	EnableNotifications  bool                    `json:"enable_notifications"`
-	EnableAutoCreate     bool                    `json:"enable_auto_create"`
-	DefaultPriority      string                  `json:"default_priority,omitempty"`
-	SupportedLocales     []string                `json:"supported_locales,omitempty"`
+	CommandExecutionMode  gocommand.ExecutionMode `json:"command_execution_mode,omitempty"`
+	EnableOpenPool        bool                    `json:"enable_open_pool"`
+	EnableDashboard       bool                    `json:"enable_dashboard_widget"`
+	EnableNotifications   bool                    `json:"enable_notifications"`
+	EnableAutoCreate      bool                    `json:"enable_auto_create"`
+	EnhancedFilterSelects bool                    `json:"enhanced_filter_selects,omitempty"`
+	DefaultPriority       string                  `json:"default_priority,omitempty"`
+	SupportedLocales      []string                `json:"supported_locales,omitempty"`
 
 	Repository admin.TranslationAssignmentRepository `json:"-"`
 	Service    admin.TranslationQueueService         `json:"-"`
