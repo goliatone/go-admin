@@ -59,6 +59,7 @@ type TranslationSSRPresenterInput struct {
 	InitialPresetID    string
 	SyncClientBasePath string
 	EnhancedAction     EnhancedActionRuntimeOptions
+	QueueUI            TranslationQueueUIOptions
 }
 
 type TranslationSSRPage struct {
@@ -686,6 +687,8 @@ func translationSSRQueueResult(input TranslationSSRPresenterInput, payload any) 
 	if _, exists := meta["bulk_selection"]; !exists {
 		meta["bulk_selection"] = map[string]any{"mode": "current_page"}
 	}
+	meta["enhanced_filter_selects"] = input.QueueUI.EnhancedFilterSelects
+	meta["filter_controls"] = translationSSRQueueFilterControls(meta["supported_filter_keys"], input)
 	// Add summary cards for queue overview
 	data["summary_cards"] = translationSSRQueueSummaryCards(input, data)
 	return TranslationSSRResourceResult{
@@ -923,19 +926,88 @@ func translationSSRQueueFilterControls(raw any, input TranslationSSRPresenterInp
 			control["type"] = "select"
 			control["options"] = options
 		}
+		if input.QueueUI.EnhancedFilterSelects {
+			translationSSRApplyEnhancedQueueFilterControl(input, control, key)
+		}
 		out = append(out, map[string]any{
-			"key":           control["key"],
-			"name":          control["name"],
-			"label":         control["label"],
-			"value":         control["value"],
-			"current_value": control["current_value"],
-			"placeholder":   control["placeholder"],
-			"clear_url":     control["clear_url"],
-			"type":          control["type"],
-			"options":       control["options"],
+			"key":                    control["key"],
+			"name":                   control["name"],
+			"label":                  control["label"],
+			"value":                  control["value"],
+			"current_value":          control["current_value"],
+			"placeholder":            control["placeholder"],
+			"clear_url":              control["clear_url"],
+			"type":                   control["type"],
+			"options":                control["options"],
+			"enhanced":               control["enhanced"],
+			"endpoint_url":           control["endpoint_url"],
+			"endpoint_search_param":  control["endpoint_search_param"],
+			"endpoint_hydrate_param": control["endpoint_hydrate_param"],
+			"endpoint_value_field":   control["endpoint_value_field"],
+			"endpoint_label_field":   control["endpoint_label_field"],
+			"renderer":               control["renderer"],
+			"fallback":               control["fallback"],
 		})
 	}
 	return out
+}
+
+func translationSSRApplyEnhancedQueueFilterControl(input TranslationSSRPresenterInput, control map[string]any, key string) {
+	if len(control) == 0 {
+		return
+	}
+	endpointPath := ""
+	renderer := "simple"
+	controlType := "typeahead"
+	placeholder := ""
+	switch strings.TrimSpace(key) {
+	case "entity_type":
+		endpointPath = "/translations/options/entity-types"
+		renderer = "entity"
+		controlType = "remote_select"
+		placeholder = "All types"
+	case "assignee_id":
+		endpointPath = "/translations/options/assignees"
+		renderer = "user"
+		placeholder = "Search assignees"
+	case "reviewer_id":
+		endpointPath = "/translations/options/assignees"
+		renderer = "user"
+		placeholder = "Search reviewers"
+	case "family_id":
+		endpointPath = "/translations/options/families"
+		renderer = "family"
+		placeholder = "Search families"
+	default:
+		return
+	}
+	control["type"] = controlType
+	control["enhanced"] = true
+	control["endpoint_url"] = translationSSRQueueOptionEndpoint(input, endpointPath)
+	control["endpoint_search_param"] = "search"
+	control["endpoint_hydrate_param"] = "selected"
+	control["endpoint_value_field"] = "value"
+	control["endpoint_label_field"] = "label"
+	control["renderer"] = renderer
+	control["fallback"] = "raw"
+	if placeholder != "" {
+		control["placeholder"] = placeholder
+	}
+}
+
+func translationSSRQueueOptionEndpoint(input TranslationSSRPresenterInput, endpointPath string) string {
+	base := strings.TrimRight(strings.TrimSpace(input.APIBasePath), "/")
+	endpointPath = strings.TrimSpace(endpointPath)
+	if endpointPath == "" {
+		return base
+	}
+	if !strings.HasPrefix(endpointPath, "/") {
+		endpointPath = "/" + endpointPath
+	}
+	if base == "" {
+		return endpointPath
+	}
+	return base + endpointPath
 }
 
 func translationSSRQueueFilterValue(query map[string]string, key string) string {

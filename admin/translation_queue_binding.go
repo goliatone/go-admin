@@ -2077,7 +2077,7 @@ func (b *translationQueueBinding) EntityTypesOptions(c router.Context) (any, err
 		options = append(options, option)
 	}
 	sortTranslationQueueOptions(options)
-	return options, nil
+	return translationQueuePaginatedOptions(c, options), nil
 }
 
 func (b *translationQueueBinding) collectEntityTypeOptions(adminCtx AdminContext) map[string]map[string]any {
@@ -2249,10 +2249,30 @@ func (b *translationQueueBinding) TranslationGroupsOptions(c router.Context) (an
 	entityType := normalizeTranslationQueueEntityType(c.Query("entity_type"))
 	sourceRecordID := strings.TrimSpace(c.Query("source_record_id"))
 	search := strings.ToLower(strings.TrimSpace(translationQueueOptionsSearch(c)))
+	selected := translationQueueOptionsSelected(c, "family_id")
+	selectedValues := translationQueueSelectedValues(selected)
+	page, perPage := translationQueueOptionPagination(c)
 
 	optionsByValue := map[string]map[string]any{}
-	b.collectSourceTranslationGroup(adminCtx, entityType, sourceRecordID, optionsByValue)
+	if selected != "" {
+		b.collectSourceTranslationGroup(adminCtx, entityType, sourceRecordID, optionsByValue)
+	}
+	if b.collectBoundedAssignmentTranslationGroups(adminCtx.Context, entityType, sourceRecordID, search, selectedValues, page, perPage, optionsByValue) {
+		if selected != "" {
+			return selectedTranslationGroupOptions(selected, optionsByValue), nil
+		}
+		options := translationQueueOptionsFromMap(optionsByValue)
+		sortTranslationQueueOptions(options)
+		if len(options) > perPage {
+			options = options[:perPage]
+		}
+		return options, nil
+	}
+
 	b.collectAssignmentTranslationGroups(adminCtx.Context, entityType, sourceRecordID, optionsByValue)
+	if selected != "" {
+		return selectedTranslationGroupOptions(selected, optionsByValue), nil
+	}
 
 	options := make([]map[string]any, 0, len(optionsByValue))
 	for _, option := range optionsByValue {
@@ -2262,7 +2282,7 @@ func (b *translationQueueBinding) TranslationGroupsOptions(c router.Context) (an
 		options = append(options, option)
 	}
 	sortTranslationQueueOptions(options)
-	return options, nil
+	return translationQueuePaginatedOptions(c, options), nil
 }
 
 func addTranslationLocale(localeSet map[string]struct{}, locale string) {
@@ -2475,6 +2495,70 @@ func (b *translationQueueBinding) collectAssignmentTranslationGroups(ctx context
 	}
 }
 
+func (b *translationQueueBinding) collectBoundedAssignmentTranslationGroups(ctx context.Context, entityType, sourceRecordID, search string, selectedValues []string, page, perPage int, optionsByValue map[string]map[string]any) bool {
+	repo, err := b.assignmentRepository()
+	if err != nil || repo == nil {
+		return false
+	}
+	store, ok := repo.(TranslationAssignmentFamilyOptionQueryStore)
+	if !ok || store == nil {
+		return false
+	}
+	now := time.Time{}
+	if b != nil && b.now != nil {
+		now = b.now()
+	}
+	result, listErr := store.ListAssignmentFamilyOptions(ctx, TranslationAssignmentFamilyOptionQueryInput{
+		Filters:           translationQueueSummaryFilters(entityType, sourceRecordID),
+		Search:            search,
+		SelectedFamilyIDs: selectedValues,
+		Page:              page,
+		PerPage:           perPage,
+		Now:               now,
+	})
+	if listErr != nil {
+		return true
+	}
+	for _, option := range result.Options {
+		description := strings.TrimSpace(primitives.FirstNonEmptyRaw(
+			option.SourcePath,
+			option.EntityType,
+		))
+		label := strings.TrimSpace(primitives.FirstNonEmptyRaw(
+			option.SourceTitle,
+			option.FamilyID,
+		))
+		translationQueueAppendDescribedOption(optionsByValue, option.FamilyID, label, description)
+	}
+	return true
+}
+
+func translationQueueOptionsFromMap(optionsByValue map[string]map[string]any) []map[string]any {
+	options := make([]map[string]any, 0, len(optionsByValue))
+	for _, option := range optionsByValue {
+		options = append(options, option)
+	}
+	return options
+}
+
+func selectedTranslationGroupOptions(selected string, optionsByValue map[string]map[string]any) []map[string]any {
+	selectedValues := translationQueueSelectedValues(selected)
+	for _, selectedValue := range selectedValues {
+		if _, ok := optionsByValue[selectedValue]; ok {
+			continue
+		}
+		translationQueueAppendDescribedOption(optionsByValue, selectedValue, selectedValue, "")
+	}
+	options := make([]map[string]any, 0, len(selectedValues))
+	for _, selectedValue := range selectedValues {
+		if option, ok := optionsByValue[selectedValue]; ok {
+			options = append(options, option)
+		}
+	}
+	sortTranslationQueueOptions(options)
+	return options
+}
+
 func translationQueueSummaryFilters(entityType, sourceRecordID string) map[string]any {
 	filters := map[string]any{}
 	if entityType != "" {
@@ -2484,6 +2568,67 @@ func translationQueueSummaryFilters(entityType, sourceRecordID string) map[strin
 		filters["source_record_id"] = sourceRecordID
 	}
 	return filters
+}
+
+func translationQueueOptionsSelected(c router.Context, aliases ...string) string {
+	if c == nil {
+		return ""
+	}
+	keys := []string{"selected", "value"}
+	keys = append(keys, aliases...)
+	for _, key := range keys {
+		key = strings.TrimSpace(key)
+		if key == "" {
+			continue
+		}
+		if value := strings.TrimSpace(c.Query(key)); value != "" {
+			return value
+		}
+	}
+	return ""
+}
+
+func translationQueueSelectedValues(selected string) []string {
+	values := []string{}
+	seen := map[string]struct{}{}
+	for value := range strings.SplitSeq(selected, ",") {
+		value = strings.TrimSpace(value)
+		if value == "" {
+			continue
+		}
+		if _, ok := seen[value]; ok {
+			continue
+		}
+		seen[value] = struct{}{}
+		values = append(values, value)
+	}
+	return values
+}
+
+func translationQueuePaginatedOptions(c router.Context, options []map[string]any) []map[string]any {
+	if len(options) == 0 {
+		return options
+	}
+	page, perPage := translationQueueOptionPagination(c)
+	start := (page - 1) * perPage
+	if start >= len(options) {
+		return []map[string]any{}
+	}
+	end := start + perPage
+	if end > len(options) {
+		end = len(options)
+	}
+	return options[start:end]
+}
+
+func translationQueueOptionPagination(c router.Context) (int, int) {
+	page := 1
+	perPage := 25
+	if c != nil {
+		page = clampInt(atoiDefault(c.Query(adminkeys.QueryPage), 1), 1, 10_000)
+		perPage = clampInt(atoiDefault(c.Query(adminkeys.QueryPerPage), 25), 1, 200)
+	}
+	return page, perPage
 }
 
 func (b *translationQueueBinding) AssigneesOptions(c router.Context) (any, error) {
@@ -2502,22 +2647,18 @@ func (b *translationQueueBinding) AssigneesOptions(c router.Context) (any, error
 	perPage := clampInt(atoiDefault(c.Query(adminkeys.QueryPerPage), 25), 1, 200)
 	optionsByValue := map[string]map[string]any{}
 
-	if selected := strings.TrimSpace(c.Query("assignee_id")); selected != "" {
+	if selected := translationQueueOptionsSelected(c, "assignee_id", "reviewer_id"); selected != "" {
 		b.appendAssigneeSelectedUserOptions(adminCtx, selected, optionsByValue)
-		if len(optionsByValue) == 0 {
-			appendAssigneeOption(optionsByValue, map[string]any{
-				"value": selected,
-				"label": selected,
-			})
-		}
-		return translationQueueFilteredOptions(optionsByValue, searchKey), nil
+		options := translationQueueFilteredOptions(optionsByValue, searchKey)
+		sortTranslationQueueOptions(options)
+		return options, nil
 	}
 
 	b.appendAssigneeUserOptions(adminCtx, search, perPage, optionsByValue)
 
 	options := translationQueueFilteredOptions(optionsByValue, searchKey)
 	sortTranslationQueueOptions(options)
-	return options, nil
+	return translationQueuePaginatedOptions(c, options), nil
 }
 
 func appendAssigneeOption(optionsByValue map[string]map[string]any, option map[string]any) {
@@ -2565,7 +2706,13 @@ func (b *translationQueueBinding) appendAssigneeSelectedUserOptions(adminCtx Adm
 		if b.appendAssigneeSelectedUserOption(adminCtx, id, optionsByValue) {
 			continue
 		}
-		appendAssigneeSelectedUserPanelOption(adminCtx, b.admin, id, optionsByValue)
+		if appendAssigneeSelectedUserPanelOption(adminCtx, b.admin, id, optionsByValue) {
+			continue
+		}
+		appendAssigneeOption(optionsByValue, map[string]any{
+			"value": id,
+			"label": id,
+		})
 	}
 }
 
@@ -2581,19 +2728,20 @@ func (b *translationQueueBinding) appendAssigneeSelectedUserOption(adminCtx Admi
 	return true
 }
 
-func appendAssigneeSelectedUserPanelOption(adminCtx AdminContext, adm *Admin, id string, optionsByValue map[string]map[string]any) {
+func appendAssigneeSelectedUserPanelOption(adminCtx AdminContext, adm *Admin, id string, optionsByValue map[string]map[string]any) bool {
 	if adm == nil || adm.registry == nil {
-		return
+		return false
 	}
 	usersPanel, ok := adm.registry.Panel(usersModuleID)
 	if !ok || usersPanel == nil {
-		return
+		return false
 	}
 	record, err := usersPanel.Get(adminCtx, id)
 	if err != nil {
-		return
+		return false
 	}
 	appendAssigneeOption(optionsByValue, translationQueueAssigneeOption(record))
+	return true
 }
 
 func (b *translationQueueBinding) appendAssigneeUserOptions(adminCtx AdminContext, search string, perPage int, optionsByValue map[string]map[string]any) {

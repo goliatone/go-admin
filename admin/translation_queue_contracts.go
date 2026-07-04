@@ -2,6 +2,10 @@ package admin
 
 import translationqueue "github.com/goliatone/go-admin/admin/internal/translationqueue"
 
+type TranslationQueueUIOptions struct {
+	EnhancedFilterSelects bool `json:"enhanced_filter_selects"`
+}
+
 func TranslationQueueContractPayload() map[string]any {
 	return translationqueue.ContractPayload()
 }

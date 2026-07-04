@@ -203,6 +203,59 @@ func (r *BunTranslationAssignmentRepository) DistinctAssignmentTranslationGroups
 	return options, nil
 }
 
+func (r *BunTranslationAssignmentRepository) ListAssignmentFamilyOptions(ctx context.Context, input TranslationAssignmentFamilyOptionQueryInput) (TranslationAssignmentFamilyOptionQueryResult, error) {
+	if r == nil || r.db == nil {
+		return TranslationAssignmentFamilyOptionQueryResult{}, serviceNotConfiguredDomainError("translation assignment repository", nil)
+	}
+	records := []bunTranslationAssignmentGroupOptionRecord{}
+	query := r.db.NewSelect().
+		Model((*bunTranslationAssignmentRecord)(nil)).
+		ColumnExpr("family_id").
+		ColumnExpr("MAX(NULLIF(source_title, '')) AS source_title").
+		ColumnExpr("MAX(NULLIF(source_path, '')) AS source_path").
+		ColumnExpr("MAX(NULLIF(entity_type, '')) AS entity_type").
+		Where("TRIM(family_id) <> ''").
+		GroupExpr("family_id").
+		OrderExpr("LOWER(family_id) ASC")
+	now := normalizedBunAssignmentQueryNow(input.Now)
+	applyBunAssignmentListFilters(query, ListOptions{Filters: primitives.CloneAnyMap(input.Filters)}, r.assignmentDueDateSQL(now))
+	selected := normalizedFamilyOptionSelectedValues(input.SelectedFamilyIDs)
+	if len(selected) > 0 {
+		query.Where("family_id IN (?)", bun.List(selected))
+	} else {
+		if search := strings.ToLower(strings.TrimSpace(input.Search)); search != "" {
+			like := "%" + search + "%"
+			query.WhereGroup(" AND ", func(q *bun.SelectQuery) *bun.SelectQuery {
+				return q.WhereOr("LOWER(family_id) LIKE ?", like).
+					WhereOr("LOWER(source_title) LIKE ?", like).
+					WhereOr("LOWER(source_path) LIKE ?", like).
+					WhereOr("LOWER(entity_type) LIKE ?", like)
+			})
+		}
+		applyBunAssignmentPagination(query, ListOptions{
+			Page:    input.Page,
+			PerPage: input.PerPage,
+		}, 25)
+	}
+	if err := query.Scan(ctx, &records); err != nil {
+		return TranslationAssignmentFamilyOptionQueryResult{}, err
+	}
+	options := make([]TranslationAssignmentGroupOption, 0, len(records))
+	for _, record := range records {
+		familyID := strings.TrimSpace(record.FamilyID)
+		if familyID == "" {
+			continue
+		}
+		options = append(options, TranslationAssignmentGroupOption{
+			FamilyID:    familyID,
+			SourceTitle: strings.TrimSpace(record.SourceTitle),
+			SourcePath:  strings.TrimSpace(record.SourcePath),
+			EntityType:  strings.TrimSpace(record.EntityType),
+		})
+	}
+	return TranslationAssignmentFamilyOptionQueryResult{Options: options}, nil
+}
+
 func (r *BunTranslationAssignmentRepository) ListAssignmentPage(ctx context.Context, input TranslationAssignmentPageQueryInput) (TranslationAssignmentPageQueryResult, error) {
 	if r == nil || r.db == nil {
 		return TranslationAssignmentPageQueryResult{}, serviceNotConfiguredDomainError("translation assignment repository", nil)

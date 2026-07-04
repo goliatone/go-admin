@@ -42,11 +42,28 @@ type TranslationAssignmentOptionStore interface {
 	DistinctAssignmentTranslationGroups(ctx context.Context, filters map[string]any) ([]TranslationAssignmentGroupOption, error)
 }
 
+type TranslationAssignmentFamilyOptionQueryStore interface {
+	ListAssignmentFamilyOptions(ctx context.Context, input TranslationAssignmentFamilyOptionQueryInput) (TranslationAssignmentFamilyOptionQueryResult, error)
+}
+
 type TranslationAssignmentGroupOption struct {
 	FamilyID    string
 	SourceTitle string
 	SourcePath  string
 	EntityType  string
+}
+
+type TranslationAssignmentFamilyOptionQueryInput struct {
+	Filters           map[string]any
+	Search            string
+	SelectedFamilyIDs []string
+	Page              int
+	PerPage           int
+	Now               time.Time
+}
+
+type TranslationAssignmentFamilyOptionQueryResult struct {
+	Options []TranslationAssignmentGroupOption
 }
 
 type TranslationAssignmentReviewerSummaryStore interface {
@@ -355,6 +372,133 @@ func (r *InMemoryTranslationAssignmentRepository) DistinctAssignmentTranslationG
 		return strings.Compare(strings.ToLower(a.FamilyID), strings.ToLower(b.FamilyID))
 	})
 	return options, nil
+}
+
+func (r *InMemoryTranslationAssignmentRepository) ListAssignmentFamilyOptions(_ context.Context, input TranslationAssignmentFamilyOptionQueryInput) (TranslationAssignmentFamilyOptionQueryResult, error) {
+	if r == nil {
+		return TranslationAssignmentFamilyOptionQueryResult{}, serviceNotConfiguredDomainError("translation assignment repository", nil)
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	selected := normalizedFamilyOptionSelectedSet(input.SelectedFamilyIDs)
+	search := strings.ToLower(strings.TrimSpace(input.Search))
+	seen := map[string]TranslationAssignmentGroupOption{}
+	for _, assignment := range r.byID {
+		if !translationAssignmentMatchesFilters(assignment, input.Filters) {
+			continue
+		}
+		familyID := strings.TrimSpace(assignment.FamilyID)
+		if familyID == "" {
+			continue
+		}
+		current := seen[familyID]
+		current.FamilyID = familyID
+		if strings.TrimSpace(current.SourceTitle) == "" {
+			current.SourceTitle = strings.TrimSpace(assignment.SourceTitle)
+		}
+		if strings.TrimSpace(current.SourcePath) == "" {
+			current.SourcePath = strings.TrimSpace(assignment.SourcePath)
+		}
+		if strings.TrimSpace(current.EntityType) == "" {
+			current.EntityType = strings.TrimSpace(assignment.EntityType)
+		}
+		seen[familyID] = current
+	}
+
+	options := make([]TranslationAssignmentGroupOption, 0, len(seen))
+	for _, option := range seen {
+		if len(selected) > 0 {
+			if _, ok := selected[option.FamilyID]; !ok {
+				continue
+			}
+		} else if search != "" && !translationAssignmentGroupOptionMatchesSearch(option, search) {
+			continue
+		}
+		options = append(options, option)
+	}
+	sortTranslationAssignmentGroupOptions(options)
+	if len(selected) == 0 {
+		options = paginateTranslationAssignmentGroupOptions(options, input.Page, input.PerPage)
+	}
+	return TranslationAssignmentFamilyOptionQueryResult{Options: options}, nil
+}
+
+func normalizedFamilyOptionSelectedSet(values []string) map[string]struct{} {
+	normalized := normalizedFamilyOptionSelectedValues(values)
+	if len(normalized) == 0 {
+		return nil
+	}
+	selected := make(map[string]struct{}, len(normalized))
+	for _, value := range normalized {
+		selected[value] = struct{}{}
+	}
+	return selected
+}
+
+func normalizedFamilyOptionSelectedValues(values []string) []string {
+	if len(values) == 0 {
+		return nil
+	}
+	out := []string{}
+	seen := map[string]struct{}{}
+	for _, value := range values {
+		value = strings.TrimSpace(value)
+		if value == "" {
+			continue
+		}
+		if _, ok := seen[value]; ok {
+			continue
+		}
+		seen[value] = struct{}{}
+		out = append(out, value)
+	}
+	return out
+}
+
+func translationAssignmentGroupOptionMatchesSearch(option TranslationAssignmentGroupOption, search string) bool {
+	search = strings.ToLower(strings.TrimSpace(search))
+	if search == "" {
+		return true
+	}
+	for _, value := range []string{
+		option.FamilyID,
+		option.SourceTitle,
+		option.SourcePath,
+		option.EntityType,
+	} {
+		if strings.Contains(strings.ToLower(strings.TrimSpace(value)), search) {
+			return true
+		}
+	}
+	return false
+}
+
+func sortTranslationAssignmentGroupOptions(options []TranslationAssignmentGroupOption) {
+	slices.SortFunc(options, func(a, b TranslationAssignmentGroupOption) int {
+		return strings.Compare(strings.ToLower(a.FamilyID), strings.ToLower(b.FamilyID))
+	})
+}
+
+func paginateTranslationAssignmentGroupOptions(options []TranslationAssignmentGroupOption, page, perPage int) []TranslationAssignmentGroupOption {
+	if len(options) == 0 {
+		return options
+	}
+	if page <= 0 {
+		page = 1
+	}
+	if perPage <= 0 {
+		perPage = 25
+	}
+	start := (page - 1) * perPage
+	if start >= len(options) {
+		return []TranslationAssignmentGroupOption{}
+	}
+	end := start + perPage
+	if end > len(options) {
+		end = len(options)
+	}
+	return options[start:end]
 }
 
 func (r *InMemoryTranslationAssignmentRepository) ListAssignmentSnapshot(ctx context.Context, input TranslationAssignmentSnapshotQueryInput) (TranslationAssignmentSnapshotQueryResult, error) {
