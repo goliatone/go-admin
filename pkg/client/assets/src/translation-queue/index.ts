@@ -29,6 +29,15 @@ import { StatefulController } from '../shared/stateful-controller.js';
 import { normalizeNumberRecord } from '../shared/record-normalization.js';
 import { httpRequest, readHTTPError } from '../shared/transport/http-client.js';
 import {
+  SearchBox,
+  ApiResolver,
+  SimpleRenderer,
+  UserRenderer,
+  EntityRenderer,
+  type ResultRenderer,
+  type SearchResult,
+} from '../searchbox/index.js';
+import {
   buildAssignmentActionURL,
   initAssignmentSSRRowActions,
 } from '../translation-actions/assignment-row-actions.js';
@@ -117,6 +126,35 @@ export interface AssignmentQueueSavedFilterPreset {
   description?: string;
   review_state?: AssignmentQueueReviewState;
   query: AssignmentQueueSavedFilterQuery;
+}
+
+export type AssignmentQueueFilterControlRenderer = 'simple' | 'user' | 'entity' | 'family';
+export type AssignmentQueueFilterControlFallback = 'raw';
+
+export interface AssignmentQueueFilterControlOption {
+  value: string;
+  label: string;
+  description?: string;
+}
+
+export interface AssignmentQueueFilterControlMetadata {
+  key: string;
+  name: string;
+  label: string;
+  value: string;
+  current_value: string;
+  placeholder: string;
+  clear_url?: string;
+  type: string;
+  options: AssignmentQueueFilterControlOption[];
+  enhanced: boolean;
+  endpoint_url?: string;
+  endpoint_search_param?: string;
+  endpoint_hydrate_param?: string;
+  endpoint_value_field?: string;
+  endpoint_label_field?: string;
+  renderer?: AssignmentQueueFilterControlRenderer;
+  fallback?: AssignmentQueueFilterControlFallback;
 }
 
 export interface AssignmentListQueryState extends AssignmentListFilters {
@@ -219,6 +257,8 @@ export interface AssignmentListMeta {
   saved_filter_presets: AssignmentQueueSavedFilterPreset[];
   saved_review_filter_presets: AssignmentQueueSavedFilterPreset[];
   default_review_filter_preset?: string;
+  enhanced_filter_selects: boolean;
+  filter_controls: AssignmentQueueFilterControlMetadata[];
   review_actor_id?: string;
   review_aggregate_counts: Record<string, number>;
   review_aggregate_counts_unavailable: string[];
@@ -609,8 +649,290 @@ function cloneSavedFilterPreset(preset: AssignmentQueueSavedFilterPreset): Assig
   };
 }
 
+function normalizeQueueFilterControlOption(value: unknown): AssignmentQueueFilterControlOption | null {
+  const raw = asRecord(value);
+  const optionValue = asString(raw.value);
+  const label = asString(raw.label) || optionValue;
+  if (!optionValue) {
+    return null;
+  }
+  return {
+    value: optionValue,
+    label,
+    description: asString(raw.description) || undefined,
+  };
+}
+
+function normalizeQueueFilterControl(value: unknown): AssignmentQueueFilterControlMetadata | null {
+  const raw = asRecord(value);
+  const key = asString(raw.key || raw.name);
+  const name = asString(raw.name || raw.key);
+  if (!key || !name) {
+    return null;
+  }
+  const options = Array.isArray(raw.options)
+    ? raw.options
+        .map((option) => normalizeQueueFilterControlOption(option))
+        .filter((option): option is AssignmentQueueFilterControlOption => option !== null)
+    : [];
+  const renderer = asString(raw.renderer) as AssignmentQueueFilterControlRenderer;
+  const fallback = asString(raw.fallback) as AssignmentQueueFilterControlFallback;
+  return {
+    key,
+    name,
+    label: asString(raw.label) || humanizeToken(name),
+    value: asString(raw.value),
+    current_value: asString(raw.current_value || raw.value),
+    placeholder: asString(raw.placeholder),
+    clear_url: asString(raw.clear_url) || undefined,
+    type: asString(raw.type) || (options.length ? 'select' : 'text'),
+    options,
+    enhanced: raw.enhanced === true,
+    endpoint_url: asString(raw.endpoint_url) || undefined,
+    endpoint_search_param: asString(raw.endpoint_search_param) || undefined,
+    endpoint_hydrate_param: asString(raw.endpoint_hydrate_param) || undefined,
+    endpoint_value_field: asString(raw.endpoint_value_field) || undefined,
+    endpoint_label_field: asString(raw.endpoint_label_field) || undefined,
+    renderer: renderer || undefined,
+    fallback: fallback || undefined,
+  };
+}
+
+function normalizeQueueFilterControls(value: unknown): AssignmentQueueFilterControlMetadata[] {
+  const items = Array.isArray(value) ? value : [];
+  return items
+    .map((item) => normalizeQueueFilterControl(item))
+    .filter((item): item is AssignmentQueueFilterControlMetadata => item !== null);
+}
+
 function uniqueFilterOptions(values: Array<string | undefined>): string[] {
   return Array.from(new Set(values.map((value) => asString(value)).filter(Boolean)));
+}
+
+type QueueFilterOptionRecord = Record<string, unknown>;
+
+interface QueueFilterEnhancerMetadata {
+  controlType: string;
+  name: string;
+  endpointURL: string;
+  searchParam: string;
+  hydrateParam: string;
+  valueField: string;
+  labelField: string;
+  renderer: AssignmentQueueFilterControlRenderer;
+  fallback: AssignmentQueueFilterControlFallback;
+}
+
+function queueFilterOptionFromRecord(
+  item: QueueFilterOptionRecord,
+  metadata: Pick<QueueFilterEnhancerMetadata, 'valueField' | 'labelField'>,
+): SearchResult<QueueFilterOptionRecord> | null {
+  const id = asString(item[metadata.valueField] ?? item.value ?? item.id);
+  if (!id) return null;
+  const label = asString(item[metadata.labelField] ?? item.label ?? item.name) || id;
+  return {
+    id,
+    label,
+    description: asString(item.description) || undefined,
+    icon: asString(item.icon || item.avatar_url || item.avatar) || undefined,
+    metadata: item,
+    data: item,
+  };
+}
+
+function queueFilterOptionsFromResponse(
+  response: unknown,
+  metadata: Pick<QueueFilterEnhancerMetadata, 'valueField' | 'labelField'>,
+): SearchResult<QueueFilterOptionRecord>[] {
+  const raw = asRecord(response);
+  const items = Array.isArray(response)
+    ? response
+    : Array.isArray(raw.data)
+      ? raw.data
+      : Array.isArray(raw.options)
+        ? raw.options
+        : [];
+  return items
+    .map((item) => queueFilterOptionFromRecord(asRecord(item), metadata))
+    .filter((item): item is SearchResult<QueueFilterOptionRecord> => item !== null);
+}
+
+function queueFilterRenderer(
+  renderer: AssignmentQueueFilterControlRenderer,
+): ResultRenderer<QueueFilterOptionRecord> {
+  if (renderer === 'user') {
+    return new UserRenderer<QueueFilterOptionRecord>({
+      avatarField: 'avatar_url',
+      emailField: 'email',
+      roleField: 'role',
+    });
+  }
+  if (renderer === 'entity' || renderer === 'family') {
+    return new EntityRenderer<QueueFilterOptionRecord>({
+      showIcon: renderer === 'entity',
+      metadataFields: renderer === 'family' ? ['entity_type'] : [],
+    });
+  }
+  return new SimpleRenderer<QueueFilterOptionRecord>();
+}
+
+function queueFilterMetadataFromElement(control: HTMLElement): QueueFilterEnhancerMetadata | null {
+  const name = asString(control.dataset.filterName);
+  const endpointURL = asString(control.dataset.filterEndpointUrl);
+  if (!name || !endpointURL) {
+    return null;
+  }
+  const renderer = asString(control.dataset.filterRenderer) as AssignmentQueueFilterControlRenderer;
+  const fallback = asString(control.dataset.filterFallback) as AssignmentQueueFilterControlFallback;
+  return {
+    controlType: asString(control.dataset.filterControlType) || 'typeahead',
+    name,
+    endpointURL,
+    searchParam: asString(control.dataset.filterSearchParam) || 'search',
+    hydrateParam: asString(control.dataset.filterHydrateParam) || 'selected',
+    valueField: asString(control.dataset.filterValueField) || 'value',
+    labelField: asString(control.dataset.filterLabelField) || 'label',
+    renderer: renderer || 'simple',
+    fallback: fallback || 'raw',
+  };
+}
+
+function dispatchQueueFilterChange(
+  control: HTMLElement,
+  metadata: QueueFilterEnhancerMetadata,
+  value: string,
+): void {
+  control.dispatchEvent(new CustomEvent('queue-filter-change', {
+    bubbles: true,
+    detail: {
+      name: metadata.name,
+      value,
+    },
+  }));
+}
+
+async function hydrateQueueFilterInput(
+  input: HTMLInputElement,
+  canonicalInput: HTMLInputElement,
+  metadata: QueueFilterEnhancerMetadata,
+): Promise<void> {
+  const selected = canonicalInput.value.trim();
+  if (!selected) {
+    return;
+  }
+  const url = new URL(metadata.endpointURL, window.location.origin);
+  url.searchParams.set(metadata.hydrateParam, selected);
+  try {
+    const response = await fetch(url.toString(), {
+      method: 'GET',
+      headers: { Accept: 'application/json' },
+    });
+    if (!response.ok) {
+      throw new Error(`Hydration failed: ${response.status}`);
+    }
+    const options = queueFilterOptionsFromResponse(await response.json(), metadata);
+    const option = options.find((item) => item.id === selected);
+    if (!option) {
+      return;
+    }
+    if (canonicalInput.value.trim() !== selected) {
+      return;
+    }
+    canonicalInput.value = option.id;
+    input.value = option.label || option.id;
+  } catch {
+    input.dataset.filterEnhancedState = 'error';
+  }
+}
+
+function enhanceQueueFilterControl(control: HTMLElement): boolean {
+  if (control.dataset.filterEnhancedInitialized === 'true') {
+    return false;
+  }
+  const metadata = queueFilterMetadataFromElement(control);
+  const input = control.querySelector<HTMLInputElement>('[data-filter-enhanced-input="true"]');
+  if (!metadata || !input || !input.name) {
+    return false;
+  }
+
+  const canonicalInput = document.createElement('input');
+  canonicalInput.type = 'hidden';
+  canonicalInput.name = metadata.name;
+  canonicalInput.value = input.value;
+  canonicalInput.dataset.filterCanonicalInput = 'true';
+  input.removeAttribute('name');
+  input.dataset.filterDisplayInput = 'true';
+  input.setAttribute('aria-expanded', 'false');
+  control.appendChild(canonicalInput);
+
+  const resolver = new ApiResolver<QueueFilterOptionRecord>({
+    endpoint: metadata.endpointURL,
+    queryParam: metadata.searchParam,
+    params: metadata.controlType === 'remote_select' ? { per_page: '25' } : { per_page: '10' },
+    transform: (response) => queueFilterOptionsFromResponse(response, metadata),
+  });
+  input.addEventListener('input', () => {
+    canonicalInput.value = input.value.trim();
+    input.dataset.filterEnhancedState = '';
+  });
+
+  const searchBox = new SearchBox<QueueFilterOptionRecord>({
+    input,
+    container: control,
+    resolver,
+    renderer: queueFilterRenderer(metadata.renderer),
+    minChars: metadata.controlType === 'remote_select' ? 0 : 1,
+    debounceMs: 200,
+    maxResults: metadata.controlType === 'remote_select' ? 25 : 10,
+    emptyText: 'No matching options',
+    loadingText: 'Loading options...',
+    onSelect: (result) => {
+      canonicalInput.value = result.id;
+      input.dataset.filterEnhancedState = 'selected';
+      dispatchQueueFilterChange(control, metadata, canonicalInput.value);
+    },
+    onClear: () => {
+      canonicalInput.value = '';
+      input.dataset.filterEnhancedState = '';
+      dispatchQueueFilterChange(control, metadata, '');
+    },
+    onError: () => {
+      input.dataset.filterEnhancedState = 'error';
+    },
+  });
+  try {
+    searchBox.init();
+  } catch {
+    canonicalInput.remove();
+    input.name = metadata.name;
+    delete input.dataset.filterDisplayInput;
+    return false;
+  }
+  input.addEventListener('focus', () => {
+    if (metadata.controlType === 'remote_select' && !input.value.trim()) {
+      void searchBox.search('');
+    }
+  });
+  input.addEventListener('change', () => {
+    if (input.dataset.filterEnhancedState === 'selected') {
+      return;
+    }
+    canonicalInput.value = input.value.trim();
+    dispatchQueueFilterChange(control, metadata, canonicalInput.value);
+  });
+
+  control.dataset.filterEnhancedInitialized = 'true';
+  void hydrateQueueFilterInput(input, canonicalInput, metadata);
+  return true;
+}
+
+export function initAssignmentQueueFilterTypeaheads(container?: ParentNode): number {
+  if (typeof document === 'undefined') {
+    return 0;
+  }
+  const root = container ?? document;
+  return Array.from(root.querySelectorAll<HTMLElement>('[data-filter-enhanced="true"]'))
+    .reduce((count, control) => count + (enhanceQueueFilterControl(control) ? 1 : 0), 0);
 }
 
 export function normalizeAssignmentListMeta(value: unknown): AssignmentListMeta {
@@ -644,6 +966,8 @@ export function normalizeAssignmentListMeta(value: unknown): AssignmentListMeta 
     saved_filter_presets: normalizeSavedFilterPresets(raw.saved_filter_presets, DEFAULT_ASSIGNMENT_QUEUE_SAVED_FILTERS),
     saved_review_filter_presets: normalizeSavedFilterPresets(raw.saved_review_filter_presets, DEFAULT_ASSIGNMENT_QUEUE_REVIEW_FILTERS),
     default_review_filter_preset: asString(raw.default_review_filter_preset) || undefined,
+    enhanced_filter_selects: raw.enhanced_filter_selects === true,
+    filter_controls: normalizeQueueFilterControls(raw.filter_controls),
     review_actor_id: asString(raw.review_actor_id) || undefined,
     review_aggregate_counts: normalizeNumberRecord(raw.review_aggregate_counts, { trimKeys: true, omitBlankKeys: true }),
     review_aggregate_counts_unavailable: asStringArray(raw.review_aggregate_counts_unavailable),
@@ -2055,6 +2379,42 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
     void this.load();
   }
 
+  private updateNamedFilter(name: string, value: string): void {
+    const normalized = value.trim();
+    switch (name) {
+      case 'status':
+        this.updateFilter({ status: normalized || undefined });
+        break;
+      case 'due_state':
+        this.updateFilter({ dueState: (normalized || undefined) as AssignmentDueState | undefined });
+        break;
+      case 'priority':
+        this.updateFilter({ priority: normalized || undefined });
+        break;
+      case 'entity_type':
+        this.updateFilter({ entityType: normalized || undefined });
+        break;
+      case 'locale':
+        this.updateFilter({ locale: normalized || undefined });
+        break;
+      case 'assignee_id':
+        this.updateFilter({ assigneeId: normalized || undefined });
+        break;
+      case 'reviewer_id':
+        this.updateFilter({ reviewerId: normalized || undefined });
+        break;
+      case 'family_id':
+        this.updateFilter({ familyId: normalized || undefined });
+        break;
+      case 'sort':
+        this.updateFilter({ sort: (normalized || undefined) as AssignmentSortKey | undefined });
+        break;
+      case 'order':
+        this.updateFilter({ order: (normalized || undefined) as 'asc' | 'desc' | undefined });
+        break;
+    }
+  }
+
   private get savedFilterPresets(): AssignmentQueueSavedFilterPreset[] {
     return this.response?.meta.saved_filter_presets?.length
       ? this.response.meta.saved_filter_presets.map(cloneSavedFilterPreset)
@@ -2688,10 +3048,11 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
             ${this.renderSelect('status', 'Status', statuses, this.queryState.status || '')}
             ${this.renderSelect('due_state', 'Due State', ['', ...dueStates], this.queryState.dueState || '')}
             ${this.renderSelect('priority', 'Priority', priorities, this.queryState.priority || '')}
-            ${this.renderSelect('entity_type', 'Type', entityTypes, this.queryState.entityType || '')}
+            ${this.renderQueueFilterControl('entity_type', 'Type', entityTypes, this.queryState.entityType || '')}
             ${this.renderSelect('locale', 'Locale', locales, this.queryState.locale || '')}
-            ${this.renderSelect('assignee_id', 'Assignee', assignees, this.queryState.assigneeId || '')}
-            ${this.renderSelect('reviewer_id', 'Reviewer', reviewers, this.queryState.reviewerId || '')}
+            ${this.renderQueueFilterControl('assignee_id', 'Assignee', assignees, this.queryState.assigneeId || '')}
+            ${this.renderQueueFilterControl('reviewer_id', 'Reviewer', reviewers, this.queryState.reviewerId || '')}
+            ${this.renderQueueFilterControl('family_id', 'Family', ['', ...uniqueFilterOptions(rows.map((row) => row.family_id))], this.queryState.familyId || '')}
           </div>
           ${activeFilterCount > 0 ? `
             <div class="mt-4 flex items-center gap-2">
@@ -2766,6 +3127,51 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
             </option>
           `).join('')}
         </select>
+      </label>
+    `;
+  }
+
+  private queueFilterControl(name: string): AssignmentQueueFilterControlMetadata | null {
+    const meta = this.response?.meta;
+    if (!meta?.enhanced_filter_selects) {
+      return null;
+    }
+    return meta.filter_controls.find((control) => control.name === name || control.key === name) || null;
+  }
+
+  private renderQueueFilterControl(name: string, label: string, values: string[], activeValue: string): string {
+    const control = this.queueFilterControl(name);
+    if (!control?.enhanced || !control.endpoint_url || (control.type !== 'typeahead' && control.type !== 'remote_select')) {
+      return this.renderSelect(name, label, values, activeValue);
+    }
+    const controlLabel = control.label || label;
+    const placeholder = control.placeholder || controlLabel;
+    return `
+      <label class="queue-filter-field">
+        <span>${escapeHtml(controlLabel)}</span>
+        <div class="filter-panel__enhanced-control"
+             data-filter-enhanced="true"
+             data-filter-control-type="${escapeAttr(control.type)}"
+             data-filter-name="${escapeAttr(name)}"
+             data-filter-endpoint-url="${escapeAttr(control.endpoint_url)}"
+             data-filter-search-param="${escapeAttr(control.endpoint_search_param || 'search')}"
+             data-filter-hydrate-param="${escapeAttr(control.endpoint_hydrate_param || 'selected')}"
+             data-filter-value-field="${escapeAttr(control.endpoint_value_field || 'value')}"
+             data-filter-label-field="${escapeAttr(control.endpoint_label_field || 'label')}"
+             data-filter-renderer="${escapeAttr(control.renderer || 'simple')}"
+             data-filter-fallback="${escapeAttr(control.fallback || 'raw')}">
+          <input
+            type="text"
+            name="${escapeAttr(name)}"
+            value="${escapeAttr(activeValue)}"
+            placeholder="${escapeAttr(placeholder)}"
+            autocomplete="off"
+            role="combobox"
+            aria-autocomplete="list"
+            aria-expanded="false"
+            data-filter-enhanced-input="true"
+          />
+        </div>
       </label>
     `;
   }
@@ -3441,44 +3847,25 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
       });
     });
 
-    this.container.querySelectorAll<HTMLSelectElement>('[data-filter-name]').forEach((select) => {
+    this.container.querySelectorAll<HTMLSelectElement>('select[data-filter-name]').forEach((select) => {
       select.addEventListener('change', () => {
         const name = select.dataset.filterName;
         if (!name) {
           return;
         }
-        const value = select.value.trim();
-        switch (name) {
-          case 'status':
-            this.updateFilter({ status: value || undefined });
-            break;
-          case 'due_state':
-            this.updateFilter({ dueState: (value || undefined) as AssignmentDueState | undefined });
-            break;
-          case 'priority':
-            this.updateFilter({ priority: value || undefined });
-            break;
-          case 'entity_type':
-            this.updateFilter({ entityType: value || undefined });
-            break;
-          case 'locale':
-            this.updateFilter({ locale: value || undefined });
-            break;
-          case 'assignee_id':
-            this.updateFilter({ assigneeId: value || undefined });
-            break;
-          case 'reviewer_id':
-            this.updateFilter({ reviewerId: value || undefined });
-            break;
-          case 'sort':
-            this.updateFilter({ sort: (value || undefined) as AssignmentSortKey | undefined });
-            break;
-          case 'order':
-            this.updateFilter({ order: (value || undefined) as 'asc' | 'desc' | undefined });
-            break;
+        this.updateNamedFilter(name, select.value);
+      });
+    });
+
+    this.container.querySelectorAll<HTMLElement>('[data-filter-enhanced="true"]').forEach((control) => {
+      control.addEventListener('queue-filter-change', (event) => {
+        const detail = (event as CustomEvent<{ name?: string; value?: string }>).detail || {};
+        if (detail.name) {
+          this.updateNamedFilter(detail.name, asString(detail.value));
         }
       });
     });
+    initAssignmentQueueFilterTypeaheads(this.container);
 
     // Refresh button - supports both new (data-translation-refresh) and legacy (data-queue-refresh) conventions
     this.container.querySelectorAll<HTMLElement>('[data-translation-refresh], [data-queue-refresh]').forEach((button) => {
@@ -3893,7 +4280,8 @@ export function getAssignmentQueueStyles(): string {
     }
 
     /* Filter field styling */
-    .queue-filter-field select {
+    .queue-filter-field select,
+    .queue-filter-field input[type="text"] {
       border-radius: 0.5rem;
       border: 1px solid #d1d5db;
       background: #ffffff;
@@ -3903,7 +4291,8 @@ export function getAssignmentQueueStyles(): string {
       width: 100%;
     }
 
-    .queue-filter-field select:focus {
+    .queue-filter-field select:focus,
+    .queue-filter-field input[type="text"]:focus {
       border-color: #3b82f6;
       outline: none;
       box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
@@ -4931,6 +5320,7 @@ function bindAssignmentQueueSSR(container: HTMLElement, endpoint: string): void 
   }
   container.dataset.assignmentQueueEnhanced = 'true';
   initAssignmentSSRRowActions(container, { endpoint: container.dataset.actionEndpoint || endpoint });
+  initAssignmentQueueFilterTypeaheads(container);
 }
 
 function shouldUseTranslationClientRender(): boolean {

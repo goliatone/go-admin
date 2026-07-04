@@ -1,5 +1,5 @@
 import { appendCSRFHeader as b } from "./transport/http-client.js";
-import { a as D, c as H, n as C, o as L } from "../chunks/behaviors-DY7AZ1es.js";
+import { a as D, c as H, n as C, o as L } from "../chunks/behaviors-JUmide29.js";
 var Y = "X-Enhanced-Action", ee = "application/vnd.admin.enhanced+json", te = "1";
 function ne(e = document, t = {}) {
   const n = t.document ?? Z(e), a = (o) => {

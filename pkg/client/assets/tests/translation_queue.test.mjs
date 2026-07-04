@@ -21,6 +21,7 @@ const {
   buildAssignmentListURL,
   buildAssignmentActionURL: queueBuildAssignmentActionURL,
   initAssignmentQueueScreen,
+  initAssignmentQueueFilterTypeaheads,
   initAssignmentSSRRowActions: queueInitAssignmentSSRRowActions,
   normalizeAssignmentListResponse,
   resolveAssignmentBulkActionEndpoint,
@@ -72,6 +73,10 @@ async function flushAsync() {
   await new Promise((resolve) => setTimeout(resolve, 0));
 }
 
+async function wait(ms) {
+  await new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 function setGlobals(win) {
   globalThis.window = win;
   globalThis.document = win.document;
@@ -82,10 +87,12 @@ function setGlobals(win) {
   globalThis.HTMLInputElement = win.HTMLInputElement;
   globalThis.HTMLSelectElement = win.HTMLSelectElement;
   globalThis.Event = win.Event;
+  globalThis.CustomEvent = win.CustomEvent;
   globalThis.MouseEvent = win.MouseEvent;
   globalThis.KeyboardEvent = win.KeyboardEvent;
   globalThis.URL = win.URL;
   globalThis.URLSearchParams = win.URLSearchParams;
+  globalThis.getComputedStyle = win.getComputedStyle.bind(win);
   Object.defineProperty(globalThis, 'navigator', { value: win.navigator, configurable: true });
   Object.defineProperty(globalThis, 'location', { value: win.location, configurable: true });
 }
@@ -250,6 +257,79 @@ function makeServerFamilyQueueResponse() {
   };
 }
 
+function makeEnhancedFilterControls() {
+  return [
+    {
+      key: 'entity_type',
+      name: 'entity_type',
+      label: 'Type',
+      type: 'remote_select',
+      value: '',
+      current_value: '',
+      enhanced: true,
+      endpoint_url: '/admin/api/translations/options/entity-types',
+      endpoint_search_param: 'search',
+      endpoint_hydrate_param: 'selected',
+      endpoint_value_field: 'value',
+      endpoint_label_field: 'label',
+      renderer: 'entity',
+      fallback: 'raw',
+      options: [],
+    },
+    {
+      key: 'assignee_id',
+      name: 'assignee_id',
+      label: 'Assignee',
+      type: 'typeahead',
+      value: '',
+      current_value: '',
+      enhanced: true,
+      endpoint_url: '/admin/api/translations/options/assignees',
+      endpoint_search_param: 'search',
+      endpoint_hydrate_param: 'selected',
+      endpoint_value_field: 'value',
+      endpoint_label_field: 'label',
+      renderer: 'user',
+      fallback: 'raw',
+      options: [],
+    },
+    {
+      key: 'reviewer_id',
+      name: 'reviewer_id',
+      label: 'Reviewer',
+      type: 'typeahead',
+      value: '',
+      current_value: '',
+      enhanced: true,
+      endpoint_url: '/admin/api/translations/options/assignees',
+      endpoint_search_param: 'search',
+      endpoint_hydrate_param: 'selected',
+      endpoint_value_field: 'value',
+      endpoint_label_field: 'label',
+      renderer: 'user',
+      fallback: 'raw',
+      options: [],
+    },
+    {
+      key: 'family_id',
+      name: 'family_id',
+      label: 'Family',
+      type: 'typeahead',
+      value: '',
+      current_value: '',
+      enhanced: true,
+      endpoint_url: '/admin/api/translations/options/families',
+      endpoint_search_param: 'search',
+      endpoint_hydrate_param: 'selected',
+      endpoint_value_field: 'value',
+      endpoint_label_field: 'label',
+      renderer: 'family',
+      fallback: 'raw',
+      options: [],
+    },
+  ];
+}
+
 setGlobals(new JSDOM('<!doctype html><html><body></body></html>', {
   url: 'http://localhost/admin/translations/queue',
 }).window);
@@ -348,6 +428,195 @@ test('translation queue contracts: canonical list urls include server family str
   assert.equal(
     url,
     '/admin/api/translations/assignments?sort=priority&order=desc&group_by=family_id&group_strategy=server_family'
+  );
+});
+
+test('translation queue filters: enhanced typeahead hydrates and selects canonical values', async () => {
+  const { root } = setupDom();
+  root.innerHTML = `
+    <form>
+      <div data-filter-enhanced="true"
+           data-filter-control-type="typeahead"
+           data-filter-name="assignee_id"
+           data-filter-endpoint-url="/admin/api/translations/options/assignees"
+           data-filter-search-param="search"
+           data-filter-hydrate-param="selected"
+           data-filter-value-field="value"
+           data-filter-label-field="label"
+           data-filter-renderer="user"
+           data-filter-fallback="raw">
+        <input name="assignee_id" value="user-1" data-filter-enhanced-input="true" role="combobox">
+      </div>
+    </form>
+  `;
+  globalThis.fetch = mock.fn(async (input) => {
+    const url = new URL(String(input), 'http://localhost');
+    if (url.searchParams.get('selected') === 'user-1') {
+      return createJsonResponse({
+        data: [{ value: 'user-1', label: 'Ada Lovelace', email: 'ada@example.com' }],
+      });
+    }
+    assert.equal(url.searchParams.get('search'), 'bev');
+    return createJsonResponse({
+      data: [{ value: 'user-2', label: 'Bev Translator', email: 'bev@example.com' }],
+    });
+  });
+
+  assert.equal(initAssignmentQueueFilterTypeaheads(root), 1);
+  await flushAsync();
+
+  const display = root.querySelector('[data-filter-display-input="true"]');
+  const canonical = root.querySelector('[data-filter-canonical-input="true"]');
+  assert.ok(display);
+  assert.ok(canonical);
+  assert.equal(display.name, '');
+  assert.equal(canonical.name, 'assignee_id');
+  assert.equal(canonical.value, 'user-1');
+  assert.equal(display.value, 'Ada Lovelace');
+
+  display.value = 'bev';
+  display.dispatchEvent(new Event('input', { bubbles: true }));
+  await wait(240);
+  await flushAsync();
+  root.querySelector('.searchbox-item').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+  assert.equal(canonical.value, 'user-2');
+  assert.equal(display.value, 'Bev Translator');
+
+  display.dispatchEvent(new Event('change', { bubbles: true }));
+  assert.equal(canonical.value, 'user-2');
+});
+
+test('translation queue filters: enhanced typeahead preserves raw fallback on endpoint errors and clearing', async () => {
+  const { root } = setupDom();
+  root.innerHTML = `
+    <form>
+      <div data-filter-enhanced="true"
+           data-filter-control-type="typeahead"
+           data-filter-name="family_id"
+           data-filter-endpoint-url="/admin/api/translations/options/families"
+           data-filter-search-param="search"
+           data-filter-hydrate-param="selected"
+           data-filter-value-field="value"
+           data-filter-label-field="label"
+           data-filter-renderer="family"
+           data-filter-fallback="raw">
+        <input name="family_id" value="missing-family" data-filter-enhanced-input="true" role="combobox">
+      </div>
+    </form>
+  `;
+  globalThis.fetch = mock.fn(async () => createJsonResponse({ error: 'unavailable' }, 503));
+
+  assert.equal(initAssignmentQueueFilterTypeaheads(root), 1);
+  await flushAsync();
+
+  const display = root.querySelector('[data-filter-display-input="true"]');
+  const canonical = root.querySelector('[data-filter-canonical-input="true"]');
+  assert.equal(display.value, 'missing-family');
+  assert.equal(canonical.value, 'missing-family');
+  assert.equal(display.dataset.filterEnhancedState, 'error');
+
+  display.value = 'typed-family';
+  display.dispatchEvent(new Event('input', { bubbles: true }));
+  assert.equal(canonical.value, 'typed-family');
+
+  display.value = '';
+  display.dispatchEvent(new Event('input', { bubbles: true }));
+  assert.equal(canonical.value, '');
+});
+
+test('translation queue filters: unresolved hydration keeps the raw selected value', async () => {
+  const { root } = setupDom();
+  root.innerHTML = `
+    <form>
+      <div data-filter-enhanced="true"
+           data-filter-control-type="typeahead"
+           data-filter-name="family_id"
+           data-filter-endpoint-url="/admin/api/translations/options/families"
+           data-filter-search-param="search"
+           data-filter-hydrate-param="selected"
+           data-filter-value-field="value"
+           data-filter-label-field="label"
+           data-filter-renderer="family"
+           data-filter-fallback="raw">
+        <input name="family_id" value="missing-family" data-filter-enhanced-input="true" role="combobox">
+      </div>
+    </form>
+  `;
+  globalThis.fetch = mock.fn(async () => createJsonResponse({
+    data: [{ value: 'other-family', label: 'Other Family' }],
+  }));
+
+  assert.equal(initAssignmentQueueFilterTypeaheads(root), 1);
+  await flushAsync();
+
+  const display = root.querySelector('[data-filter-display-input="true"]');
+  const canonical = root.querySelector('[data-filter-canonical-input="true"]');
+  assert.equal(display.value, 'missing-family');
+  assert.equal(canonical.value, 'missing-family');
+});
+
+test('translation queue runtime: client filters render endpoint metadata and family filter when enhanced', async () => {
+  const { root } = setupDom();
+  globalThis.fetch = mock.fn(async () => createJsonResponse({
+    meta: {
+      ...fixtures.states.open_pool.meta,
+      ...fixtures.meta,
+      enhanced_filter_selects: true,
+      filter_controls: makeEnhancedFilterControls(),
+    },
+    data: fixtures.states.open_pool.data,
+  }));
+
+  const screen = new AssignmentQueueScreen({
+    endpoint: '/admin/api/translations/assignments',
+    editorBasePath: '/admin/translations/assignments',
+  });
+  screen.mount(root);
+  await flushAsync();
+
+  const enhancedNames = Array.from(root.querySelectorAll('[data-filter-enhanced="true"]'))
+    .map((control) => control.dataset.filterName)
+    .sort();
+  assert.deepEqual(enhancedNames, ['assignee_id', 'entity_type', 'family_id', 'reviewer_id']);
+  assert.equal(root.querySelector('[data-filter-name="entity_type"]').dataset.filterEndpointUrl, '/admin/api/translations/options/entity-types');
+  assert.equal(root.querySelector('[data-filter-name="family_id"]').dataset.filterEndpointUrl, '/admin/api/translations/options/families');
+  assert.equal(root.querySelector('select[data-filter-name="family_id"]'), null);
+});
+
+test('translation queue runtime: enhanced client filter changes use normal query updates', async () => {
+  const { root } = setupDom();
+  const seenURLs = [];
+  globalThis.fetch = mock.fn(async (input) => {
+    seenURLs.push(String(input));
+    return createJsonResponse({
+      meta: {
+        ...fixtures.states.open_pool.meta,
+        ...fixtures.meta,
+        enhanced_filter_selects: true,
+        filter_controls: makeEnhancedFilterControls(),
+      },
+      data: fixtures.states.open_pool.data,
+    });
+  });
+
+  const screen = new AssignmentQueueScreen({
+    endpoint: '/admin/api/translations/assignments',
+    editorBasePath: '/admin/translations/assignments',
+  });
+  screen.mount(root);
+  await flushAsync();
+
+  const familyControl = root.querySelector('[data-filter-name="family_id"]');
+  familyControl.dispatchEvent(new CustomEvent('queue-filter-change', {
+    bubbles: true,
+    detail: { name: 'family_id', value: 'family-from-endpoint' },
+  }));
+  await flushAsync();
+
+  assert.ok(
+    seenURLs.some((url) => /translations\/assignments/.test(url) && /family_id=family-from-endpoint/.test(url)),
+    `expected assignment reload with family filter, saw: ${seenURLs.join(', ')}`
   );
 });
 

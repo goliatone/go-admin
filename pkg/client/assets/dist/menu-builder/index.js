@@ -3,7 +3,7 @@ import { httpRequest as R } from "../shared/transport/http-client.js";
 import { onReady as N } from "../shared/dom-ready.js";
 import { asRecord as f, coerceInteger as S, coerceString as o, coerceStringArray as x } from "../shared/coercion.js";
 import { normalizeMenuBuilderAPIBasePath as O, normalizeMenuBuilderPath as A, normalizeMenuBuilderRoute as k } from "./shared/path-helpers.js";
-import { n as ce, t as ue } from "../chunks/entry-navigation-B6J02W1U.js";
+import { n as ce, t as ue } from "../chunks/entry-navigation-DpuuC92n.js";
 var F = /* @__PURE__ */ new Set([
   "inherit",
   "show",

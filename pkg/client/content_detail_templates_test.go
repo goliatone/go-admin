@@ -101,6 +101,45 @@ func TestContentFormTemplateBootstrapsRelationshipActions(t *testing.T) {
 	}
 }
 
+func TestFilterPanelTemplateRendersEnhancedEndpointControls(t *testing.T) {
+	template := mustReadClientTemplate(t, "partials/filter-panel.html")
+
+	required := []string{
+		`filter.type == "typeahead" or filter.type == "remote_select"`,
+		`data-filter-enhanced="true"`,
+		`data-filter-control-type="{{ filter.type }}"`,
+		`data-filter-endpoint-url="{{ filter.endpoint_url|default:"" }}"`,
+		`data-filter-search-param="{{ filter.endpoint_search_param|default:"search" }}"`,
+		`data-filter-hydrate-param="{{ filter.endpoint_hydrate_param|default:"selected" }}"`,
+		`data-filter-value-field="{{ filter.endpoint_value_field|default:"value" }}"`,
+		`data-filter-label-field="{{ filter.endpoint_label_field|default:"label" }}"`,
+		`data-filter-renderer="{{ filter.renderer|default:"simple" }}"`,
+		`name="{{ filter.name }}"`,
+		`data-filter-enhanced-input="true"`,
+	}
+	for _, fragment := range required {
+		if strings.Contains(template, fragment) {
+			continue
+		}
+		t.Fatalf("expected enhanced filter panel fragment not found: %q", fragment)
+	}
+}
+
+func TestTranslationShellBootstrapsQueueFilterControls(t *testing.T) {
+	template := mustReadClientTemplate(t, "resources/translations/shell.html")
+
+	required := []string{
+		`data-translation-queue-filter-controls`,
+		`{{ toJSON(queue.Meta.filter_controls)|safe }}`,
+	}
+	for _, fragment := range required {
+		if strings.Contains(template, fragment) {
+			continue
+		}
+		t.Fatalf("expected translation shell filter metadata fragment not found: %q", fragment)
+	}
+}
+
 func TestContentFormTemplateUsesEntryNavigationViewModel(t *testing.T) {
 	template := mustReadClientTemplate(t, "resources/content/form.html")
 	partial := mustReadClientTemplate(t, "resources/content/partials/entry-navigation.html")

@@ -29,6 +29,7 @@
           </section>
           {% else %}
           {% with queue=translation_queue_ssr %}
+          <script type="application/json" data-translation-queue-filter-controls>{{ toJSON(queue.Meta.filter_controls)|safe }}</script>
           
           {% if queue.Data.summary_cards %}
           <section class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6" aria-label="Translation queue summary">

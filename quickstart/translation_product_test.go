@@ -90,6 +90,7 @@ func TestMergeTranslationQueueConfigPreservesSuggestionRuntimeWiring(t *testing.
 
 	merged := mergeTranslationQueueConfig(TranslationQueueConfig{}, TranslationQueueConfig{
 		Enabled:                 true,
+		EnhancedFilterSelects:   true,
 		SuggestionService:       suggestionSvc,
 		SuggestionEligibility:   eligibility,
 		SuggestionAssistContext: assist,
@@ -111,6 +112,9 @@ func TestMergeTranslationQueueConfigPreservesSuggestionRuntimeWiring(t *testing.
 	}
 	if merged.SuggestionResource != "custom-translations" {
 		t.Fatalf("expected suggestion resource to be preserved, got %q", merged.SuggestionResource)
+	}
+	if !merged.EnhancedFilterSelects {
+		t.Fatalf("expected enhanced filter selects flag to be preserved")
 	}
 }
 

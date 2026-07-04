@@ -3,7 +3,7 @@ import { httpRequest as R } from "../shared/transport/http-client.js";
 import { extractStructuredError as q } from "../toast/error-helpers.js";
 import "../chunks/status-vocabulary-Bdx_bn1-.js";
 import { r as h, t as N } from "../chunks/translation-contracts-CCsjVv14.js";
-import { h as I, it as v, m as w, nt as A, p as P, rt as b } from "../chunks/translation-shared-Bor-6cvs.js";
+import { h as I, it as v, m as w, nt as A, p as P, rt as b } from "../chunks/translation-shared-Cy6-aSmF.js";
 var U = {
   QUEUE: "admin.translations.queue",
   EXCHANGE_UI: "admin.translations.exchange",

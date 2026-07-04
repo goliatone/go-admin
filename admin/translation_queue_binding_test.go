@@ -696,6 +696,349 @@ func TestTranslationQueueAssigneesOptionsHydratesSelectedUserDirectly(t *testing
 	}
 }
 
+func TestTranslationQueueAssigneesOptionsHydratesGenericSelectedAlias(t *testing.T) {
+	userStore := NewInMemoryUserStore()
+	userRepo := &translationQueueCountingUserRepo{UserRepository: &inMemoryUserRepoAdapter{store: userStore}}
+	adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{
+		FeatureGate:    featureGateFromKeys(FeatureCMS, FeatureTranslationQueue, FeatureUsers),
+		UserRepository: userRepo,
+		RoleRepository: &inMemoryRoleRepoAdapter{store: userStore},
+	})
+	adm.WithAuthorizer(translationPermissionAuthorizer{
+		allowed: map[string]bool{PermAdminTranslationsView: true},
+	})
+	if _, err := userStore.CreateUser(context.Background(), UserRecord{
+		ID:        "reviewer-1",
+		Username:  "reviewer.sam",
+		Email:     "sam@example.com",
+		FirstName: "Sam",
+		LastName:  "Reviewer",
+		Status:    "active",
+	}); err != nil {
+		t.Fatalf("save user: %v", err)
+	}
+	if _, err := RegisterTranslationQueuePanel(adm, NewInMemoryTranslationAssignmentRepository()); err != nil {
+		t.Fatalf("register queue panel: %v", err)
+	}
+	binding := newTranslationQueueBinding(adm)
+	app := newTranslationQueueTestApp(t, binding)
+
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/translations/options/assignees?selected=reviewer-1,missing-reviewer", nil)
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("request error: %v", err)
+	}
+	defer resp.Body.Close() //nolint:errcheck // test response body cleanup is best-effort
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status=%d want=200", resp.StatusCode)
+	}
+	payload := []map[string]any{}
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if len(payload) != 2 {
+		t.Fatalf("expected hydrated selected option and raw fallback, got %+v", payload)
+	}
+	optionsByValue := map[string]map[string]any{}
+	for _, option := range payload {
+		optionsByValue[strings.TrimSpace(toString(option["value"]))] = option
+	}
+	if got := strings.TrimSpace(toString(optionsByValue["reviewer-1"]["label"])); got != "Sam Reviewer" {
+		t.Fatalf("expected selected label Sam Reviewer, got %q in %+v", got, payload)
+	}
+	if got := strings.TrimSpace(toString(optionsByValue["missing-reviewer"]["label"])); got != "missing-reviewer" {
+		t.Fatalf("expected raw fallback label missing-reviewer, got %q in %+v", got, payload)
+	}
+	if userRepo.getCount != 2 {
+		t.Fatalf("expected one lookup per selected id, got %d", userRepo.getCount)
+	}
+}
+
+func TestTranslationQueueFamiliesOptionsHydratesSelectedWithRawFallback(t *testing.T) {
+	repo := NewInMemoryTranslationAssignmentRepository()
+	if _, err := repo.Create(context.Background(), TranslationAssignment{
+		FamilyID:       "family-1",
+		EntityType:     "pages",
+		SourceRecordID: "page-1",
+		SourceTitle:    "Launch Page",
+		SourcePath:     "/launch",
+		SourceLocale:   "en",
+		TargetLocale:   "es",
+		AssignmentType: AssignmentTypeDirect,
+		Status:         AssignmentStatusAssigned,
+	}); err != nil {
+		t.Fatalf("create assignment: %v", err)
+	}
+	adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{
+		FeatureGate: featureGateFromKeys(FeatureCMS, FeatureTranslationQueue),
+	})
+	adm.WithAuthorizer(translationPermissionAuthorizer{
+		allowed: map[string]bool{PermAdminTranslationsView: true},
+	})
+	if _, err := RegisterTranslationQueuePanel(adm, repo); err != nil {
+		t.Fatalf("register queue panel: %v", err)
+	}
+	binding := newTranslationQueueBinding(adm)
+	app := newTranslationQueueTestApp(t, binding)
+
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/translations/options/families?selected=family-1,missing-family&per_page=1", nil)
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("request error: %v", err)
+	}
+	defer resp.Body.Close() //nolint:errcheck // test response body cleanup is best-effort
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status=%d want=200", resp.StatusCode)
+	}
+	payload := []map[string]any{}
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if len(payload) != 2 {
+		t.Fatalf("expected selected hydration to return both selected family options, got %+v", payload)
+	}
+	optionsByValue := map[string]map[string]any{}
+	for _, option := range payload {
+		optionsByValue[strings.TrimSpace(toString(option["value"]))] = option
+	}
+	if got := strings.TrimSpace(toString(optionsByValue["family-1"]["label"])); got != "Launch Page" {
+		t.Fatalf("expected resolved family label Launch Page, got %q in %+v", got, payload)
+	}
+	if got := strings.TrimSpace(toString(optionsByValue["missing-family"]["label"])); got != "missing-family" {
+		t.Fatalf("expected unresolved family raw fallback, got %q in %+v", got, payload)
+	}
+}
+
+func TestTranslationQueueFamiliesOptionsUsesBoundedStoreForSelectedHydration(t *testing.T) {
+	repo := &translationQueueFamilyOptionSpyRepo{
+		InMemoryTranslationAssignmentRepository: NewInMemoryTranslationAssignmentRepository(),
+		result: TranslationAssignmentFamilyOptionQueryResult{Options: []TranslationAssignmentGroupOption{{
+			FamilyID:    "family-1",
+			SourceTitle: "Launch Page",
+			SourcePath:  "/launch",
+			EntityType:  "pages",
+		}}},
+	}
+	adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{
+		FeatureGate: featureGateFromKeys(FeatureCMS, FeatureTranslationQueue),
+	})
+	adm.WithAuthorizer(translationPermissionAuthorizer{
+		allowed: map[string]bool{PermAdminTranslationsView: true},
+	})
+	if _, err := RegisterTranslationQueuePanel(adm, repo); err != nil {
+		t.Fatalf("register queue panel: %v", err)
+	}
+	binding := newTranslationQueueBinding(adm)
+	app := newTranslationQueueTestApp(t, binding)
+
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/translations/options/families?selected=family-1,missing-family&per_page=1", nil)
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("request error: %v", err)
+	}
+	defer resp.Body.Close() //nolint:errcheck // test response body cleanup is best-effort
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status=%d want=200", resp.StatusCode)
+	}
+	payload := []map[string]any{}
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if len(payload) != 2 {
+		t.Fatalf("expected selected hydration and fallback, got %+v", payload)
+	}
+	optionsByValue := map[string]map[string]any{}
+	for _, option := range payload {
+		optionsByValue[strings.TrimSpace(toString(option["value"]))] = option
+	}
+	if got := strings.TrimSpace(toString(optionsByValue["family-1"]["label"])); got != "Launch Page" {
+		t.Fatalf("expected resolved family label Launch Page, got %q in %+v", got, payload)
+	}
+	if got := strings.TrimSpace(toString(optionsByValue["missing-family"]["label"])); got != "missing-family" {
+		t.Fatalf("expected unresolved family raw fallback, got %q in %+v", got, payload)
+	}
+	if repo.listCalls != 0 {
+		t.Fatalf("expected selected hydration not to list assignments, got %d list calls", repo.listCalls)
+	}
+	if len(repo.calls) != 1 {
+		t.Fatalf("expected one bounded family option call, got %d", len(repo.calls))
+	}
+	call := repo.calls[0]
+	if len(call.SelectedFamilyIDs) != 2 || call.SelectedFamilyIDs[0] != "family-1" || call.SelectedFamilyIDs[1] != "missing-family" {
+		t.Fatalf("expected selected IDs propagated to bounded store, got %+v", call.SelectedFamilyIDs)
+	}
+	if call.PerPage != 1 {
+		t.Fatalf("expected per_page propagated as 1, got %d", call.PerPage)
+	}
+}
+
+func TestTranslationQueueFamiliesOptionsPassesSearchFiltersAndPaginationToBoundedStore(t *testing.T) {
+	repo := &translationQueueFamilyOptionSpyRepo{
+		InMemoryTranslationAssignmentRepository: NewInMemoryTranslationAssignmentRepository(),
+		result: TranslationAssignmentFamilyOptionQueryResult{Options: []TranslationAssignmentGroupOption{{
+			FamilyID:    "family-launch",
+			SourceTitle: "Launch Page",
+			SourcePath:  "/launch",
+			EntityType:  "pages",
+		}}},
+	}
+	adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{
+		FeatureGate: featureGateFromKeys(FeatureCMS, FeatureTranslationQueue),
+	})
+	adm.WithAuthorizer(translationPermissionAuthorizer{
+		allowed: map[string]bool{PermAdminTranslationsView: true},
+	})
+	if _, err := RegisterTranslationQueuePanel(adm, repo); err != nil {
+		t.Fatalf("register queue panel: %v", err)
+	}
+	binding := newTranslationQueueBinding(adm)
+	app := newTranslationQueueTestApp(t, binding)
+
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/translations/options/families?search=launch&page=2&per_page=3&entity_type=Pages&source_record_id=page-1", nil)
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("request error: %v", err)
+	}
+	defer resp.Body.Close() //nolint:errcheck // test response body cleanup is best-effort
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status=%d want=200", resp.StatusCode)
+	}
+	payload := []map[string]any{}
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if len(payload) != 1 || strings.TrimSpace(toString(payload[0]["value"])) != "family-launch" {
+		t.Fatalf("expected bounded store result family-launch, got %+v", payload)
+	}
+	if repo.listCalls != 0 {
+		t.Fatalf("expected bounded path not to list assignments, got %d list calls", repo.listCalls)
+	}
+	if len(repo.calls) != 1 {
+		t.Fatalf("expected one bounded family option call, got %d", len(repo.calls))
+	}
+	call := repo.calls[0]
+	if call.Search != "launch" || call.Page != 2 || call.PerPage != 3 {
+		t.Fatalf("expected search/page/per_page propagated, got search=%q page=%d per_page=%d", call.Search, call.Page, call.PerPage)
+	}
+	if got := strings.TrimSpace(toString(call.Filters["entity_type"])); got != "pages" {
+		t.Fatalf("expected entity_type filter pages, got %q in %+v", got, call.Filters)
+	}
+	if got := strings.TrimSpace(toString(call.Filters["source_record_id"])); got != "page-1" {
+		t.Fatalf("expected source_record_id filter page-1, got %q in %+v", got, call.Filters)
+	}
+}
+
+func TestTranslationQueueFamiliesOptionsDoesNotMergeSourceRecordIntoNormalSearch(t *testing.T) {
+	repo := &translationQueueFamilyOptionSpyRepo{
+		InMemoryTranslationAssignmentRepository: NewInMemoryTranslationAssignmentRepository(),
+		result: TranslationAssignmentFamilyOptionQueryResult{Options: []TranslationAssignmentGroupOption{{
+			FamilyID:    "family-launch",
+			SourceTitle: "Launch Page",
+			SourcePath:  "/launch",
+			EntityType:  "pages",
+		}}},
+	}
+	adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{
+		FeatureGate: featureGateFromKeys(FeatureCMS, FeatureTranslationQueue),
+	})
+	adm.WithAuthorizer(translationPermissionAuthorizer{
+		allowed: map[string]bool{PermAdminTranslationsView: true},
+	})
+	pageRepo := NewMemoryRepository()
+	sourceRecord, err := pageRepo.Create(context.Background(), map[string]any{
+		"family_id":    "family-alpha",
+		"source_title": "Alpha Page",
+		"source_path":  "/alpha",
+	})
+	if err != nil {
+		t.Fatalf("create source record: %v", err)
+	}
+	if _, err := adm.RegisterPanel("pages", adm.Panel("pages").WithRepository(pageRepo)); err != nil {
+		t.Fatalf("register pages panel: %v", err)
+	}
+	if _, err := RegisterTranslationQueuePanel(adm, repo); err != nil {
+		t.Fatalf("register queue panel: %v", err)
+	}
+	binding := newTranslationQueueBinding(adm)
+	app := newTranslationQueueTestApp(t, binding)
+
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/translations/options/families?search=launch&page=1&per_page=1&entity_type=pages&source_record_id="+toString(sourceRecord["id"]), nil)
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("request error: %v", err)
+	}
+	defer resp.Body.Close() //nolint:errcheck // test response body cleanup is best-effort
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status=%d want=200", resp.StatusCode)
+	}
+	payload := []map[string]any{}
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if len(payload) != 1 {
+		t.Fatalf("expected one bounded provider option, got %+v", payload)
+	}
+	if got := strings.TrimSpace(toString(payload[0]["value"])); got != "family-launch" {
+		t.Fatalf("expected source record option not to displace bounded provider result, got %q in %+v", got, payload)
+	}
+	for _, option := range payload {
+		if got := strings.TrimSpace(toString(option["value"])); got == "family-alpha" {
+			t.Fatalf("expected normal search not to include source-record family option, got %+v", payload)
+		}
+	}
+	if repo.listCalls != 0 {
+		t.Fatalf("expected bounded path not to list assignments, got %d list calls", repo.listCalls)
+	}
+	if len(repo.calls) != 1 {
+		t.Fatalf("expected one bounded family option call, got %d", len(repo.calls))
+	}
+}
+
+func TestTranslationQueueEntityTypeOptionsArePaginated(t *testing.T) {
+	repo := NewInMemoryTranslationAssignmentRepository()
+	for _, entityType := range []string{"pages", "articles", "products"} {
+		if _, err := repo.Create(context.Background(), TranslationAssignment{
+			FamilyID:       "family-" + entityType,
+			EntityType:     entityType,
+			SourceRecordID: entityType + "-1",
+			SourceLocale:   "en",
+			TargetLocale:   "es",
+			AssignmentType: AssignmentTypeDirect,
+			Status:         AssignmentStatusAssigned,
+		}); err != nil {
+			t.Fatalf("create assignment for %s: %v", entityType, err)
+		}
+	}
+	adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{
+		FeatureGate: featureGateFromKeys(FeatureCMS, FeatureTranslationQueue),
+	})
+	adm.WithAuthorizer(translationPermissionAuthorizer{
+		allowed: map[string]bool{PermAdminTranslationsView: true},
+	})
+	if _, err := RegisterTranslationQueuePanel(adm, repo); err != nil {
+		t.Fatalf("register queue panel: %v", err)
+	}
+	binding := newTranslationQueueBinding(adm)
+	app := newTranslationQueueTestApp(t, binding)
+
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/translations/options/entity-types?per_page=1&page=2", nil)
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("request error: %v", err)
+	}
+	defer resp.Body.Close() //nolint:errcheck // test response body cleanup is best-effort
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status=%d want=200", resp.StatusCode)
+	}
+	payload := []map[string]any{}
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if len(payload) != 1 {
+		t.Fatalf("expected one paginated option, got %+v", payload)
+	}
+}
+
 func TestTranslationQueueAssigneesOptionsSearchesUsersWithoutRoleHydration(t *testing.T) {
 	userStore := NewInMemoryUserStore()
 	userRepo := &translationQueueCountingUserRepo{UserRepository: &inMemoryUserRepoAdapter{store: userStore}}
@@ -754,6 +1097,27 @@ func TestTranslationQueueAssigneesOptionsSearchesUsersWithoutRoleHydration(t *te
 	if roleRepo.rolesForUserCount != 0 {
 		t.Fatalf("expected search path not to hydrate roles, got %d role calls", roleRepo.rolesForUserCount)
 	}
+}
+
+type translationQueueFamilyOptionSpyRepo struct {
+	*InMemoryTranslationAssignmentRepository
+	calls     []TranslationAssignmentFamilyOptionQueryInput
+	result    TranslationAssignmentFamilyOptionQueryResult
+	err       error
+	listCalls int
+}
+
+func (r *translationQueueFamilyOptionSpyRepo) List(ctx context.Context, opts ListOptions) ([]TranslationAssignment, int, error) {
+	r.listCalls++
+	return r.InMemoryTranslationAssignmentRepository.List(ctx, opts)
+}
+
+func (r *translationQueueFamilyOptionSpyRepo) ListAssignmentFamilyOptions(_ context.Context, input TranslationAssignmentFamilyOptionQueryInput) (TranslationAssignmentFamilyOptionQueryResult, error) {
+	r.calls = append(r.calls, input)
+	if r.err != nil {
+		return TranslationAssignmentFamilyOptionQueryResult{}, r.err
+	}
+	return r.result, nil
 }
 
 type translationQueueCountingUserRepo struct {
@@ -3354,6 +3718,20 @@ func newTranslationQueueTestApp(t *testing.T, binding *translationQueueBinding) 
 	})
 	r.Get("/admin/api/translations/options/assignees", func(c router.Context) error {
 		payload, err := binding.AssigneesOptions(c)
+		if err != nil {
+			return writeError(c, err)
+		}
+		return writeJSON(c, payload)
+	})
+	r.Get("/admin/api/translations/options/entity-types", func(c router.Context) error {
+		payload, err := binding.EntityTypesOptions(c)
+		if err != nil {
+			return writeError(c, err)
+		}
+		return writeJSON(c, payload)
+	})
+	r.Get("/admin/api/translations/options/families", func(c router.Context) error {
+		payload, err := binding.TranslationGroupsOptions(c)
 		if err != nil {
 			return writeError(c, err)
 		}

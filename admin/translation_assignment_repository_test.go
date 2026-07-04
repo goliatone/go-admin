@@ -396,6 +396,75 @@ func TestBunTranslationAssignmentRepositoryListFiltersSortsAndCountsInSQL(t *tes
 	}
 }
 
+func TestBunTranslationAssignmentRepositoryListAssignmentFamilyOptionsIsBounded(t *testing.T) {
+	db := newTranslationFamilyStoreSQLiteDB(t)
+	ctx := context.Background()
+	store := NewBunTranslationFamilyStore(db)
+	for _, family := range []struct {
+		id             string
+		contentType    string
+		sourceRecordID string
+		targetLocale   string
+	}{
+		{id: "family-alpha", contentType: "pages", sourceRecordID: "page-1", targetLocale: "es"},
+		{id: "family-launch", contentType: "pages", sourceRecordID: "page-2", targetLocale: "fr"},
+		{id: "family-zeta", contentType: "articles", sourceRecordID: "article-1", targetLocale: "de"},
+	} {
+		if err := store.SaveFamily(ctx, translationservices.FamilyRecord{
+			ID:              family.id,
+			TenantID:        "tenant-1",
+			OrgID:           "org-1",
+			ContentType:     family.contentType,
+			SourceLocale:    "en",
+			SourceVariantID: family.id + "::en",
+			ReadinessState:  "ready",
+			Variants: []translationservices.FamilyVariant{
+				{ID: family.id + "::en", FamilyID: family.id, TenantID: "tenant-1", OrgID: "org-1", Locale: "en", Status: "published", IsSource: true, SourceRecordID: family.sourceRecordID},
+				{ID: family.id + "::" + family.targetLocale, FamilyID: family.id, TenantID: "tenant-1", OrgID: "org-1", Locale: family.targetLocale, Status: "draft", SourceRecordID: family.sourceRecordID},
+			},
+		}); err != nil {
+			t.Fatalf("seed family %s: %v", family.id, err)
+		}
+	}
+	repo := NewBunTranslationAssignmentRepository(db)
+	for _, assignment := range []TranslationAssignment{
+		{ID: "asg-family-options-1", FamilyID: "family-alpha", EntityType: "pages", TenantID: "tenant-1", OrgID: "org-1", SourceRecordID: "page-1", SourceLocale: "en", TargetLocale: "es", SourceTitle: "Alpha Page", SourcePath: "/alpha", AssignmentType: AssignmentTypeDirect, Status: AssignmentStatusAssigned},
+		{ID: "asg-family-options-2", FamilyID: "family-launch", EntityType: "pages", TenantID: "tenant-1", OrgID: "org-1", SourceRecordID: "page-2", SourceLocale: "en", TargetLocale: "fr", SourceTitle: "Launch Page", SourcePath: "/launch", AssignmentType: AssignmentTypeDirect, Status: AssignmentStatusAssigned},
+		{ID: "asg-family-options-3", FamilyID: "family-zeta", EntityType: "articles", TenantID: "tenant-1", OrgID: "org-1", SourceRecordID: "article-1", SourceLocale: "en", TargetLocale: "de", SourceTitle: "Zeta Article", SourcePath: "/zeta", AssignmentType: AssignmentTypeDirect, Status: AssignmentStatusAssigned},
+	} {
+		if _, err := repo.Create(ctx, assignment); err != nil {
+			t.Fatalf("create assignment %s: %v", assignment.ID, err)
+		}
+	}
+
+	selected, err := repo.ListAssignmentFamilyOptions(ctx, TranslationAssignmentFamilyOptionQueryInput{
+		SelectedFamilyIDs: []string{"family-zeta", "missing-family", "family-zeta"},
+		Page:              1,
+		PerPage:           1,
+	})
+	if err != nil {
+		t.Fatalf("list selected family options: %v", err)
+	}
+	if len(selected.Options) != 1 || selected.Options[0].FamilyID != "family-zeta" {
+		t.Fatalf("expected selected hydration to return only stored family-zeta despite per_page=1, got %+v", selected.Options)
+	}
+
+	searched, err := repo.ListAssignmentFamilyOptions(ctx, TranslationAssignmentFamilyOptionQueryInput{
+		Filters: map[string]any{
+			"entity_type": "pages",
+		},
+		Search:  "page",
+		Page:    2,
+		PerPage: 1,
+	})
+	if err != nil {
+		t.Fatalf("list searched family options: %v", err)
+	}
+	if len(searched.Options) != 1 || searched.Options[0].FamilyID != "family-launch" {
+		t.Fatalf("expected page 2/per_page 1 to return family-launch after SQL filtering, got %+v", searched.Options)
+	}
+}
+
 func TestBunAssignmentFilterValuesPreserveIndexedScopeIDs(t *testing.T) {
 	values := normalizedBunAssignmentFilterValues("tenant_id", "Tenant-A,tenant-b")
 	if len(values) != 2 || values[0] != "Tenant-A" || values[1] != "tenant-b" {

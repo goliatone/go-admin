@@ -33,6 +33,30 @@
           <option value="{{ opt.value }}" {% if opt.value == filter.current_value %}selected{% endif %}>{{ opt.label }}</option>
           {% endfor %}
         </select>
+        {% elif filter.type == "typeahead" or filter.type == "remote_select" %}
+        <div class="filter-panel__enhanced-control"
+             data-filter-enhanced="true"
+             data-filter-control-type="{{ filter.type }}"
+             data-filter-name="{{ filter.name }}"
+             data-filter-endpoint-url="{{ filter.endpoint_url|default:"" }}"
+             data-filter-search-param="{{ filter.endpoint_search_param|default:"search" }}"
+             data-filter-hydrate-param="{{ filter.endpoint_hydrate_param|default:"selected" }}"
+             data-filter-value-field="{{ filter.endpoint_value_field|default:"value" }}"
+             data-filter-label-field="{{ filter.endpoint_label_field|default:"label" }}"
+             data-filter-renderer="{{ filter.renderer|default:"simple" }}"
+             data-filter-fallback="{{ filter.fallback|default:"raw" }}">
+          <input class="h-10 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+                 type="text"
+                 name="{{ filter.name }}"
+                 value="{{ filter.current_value|default:"" }}"
+                 placeholder="{{ filter.placeholder|default:filter.label|default:filter.name }}"
+                 autocomplete="off"
+                 role="combobox"
+                 aria-autocomplete="list"
+                 aria-expanded="false"
+                 data-filter-field="{{ filter.name }}"
+                 data-filter-enhanced-input="true">
+        </div>
         {% elif filter.type == "date" %}
         <input class="h-10 rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
                type="date"

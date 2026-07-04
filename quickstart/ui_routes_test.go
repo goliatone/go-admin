@@ -1905,6 +1905,55 @@ func TestRegisterAdminUIRoutesTranslationQueueUsesPresetFromQuery(t *testing.T) 
 	ctx.AssertExpectations(t)
 }
 
+func TestRegisterAdminUIRoutesTranslationQueuePassesEnhancedFilterSelects(t *testing.T) {
+	cfg := NewAdminConfig("/admin", "Admin", "en")
+	adm, _, err := NewAdmin(
+		cfg,
+		AdapterHooks{},
+		WithFeatureDefaults(map[string]bool{
+			string(admin.FeatureCMS):              true,
+			string(admin.FeatureTranslationQueue): true,
+		}),
+	)
+	if err != nil {
+		t.Fatalf("create admin: %v", err)
+	}
+	registerTranslationCapabilities(
+		adm,
+		TranslationProductConfig{
+			Profile: TranslationProfileCoreQueue,
+			Queue: &TranslationQueueConfig{
+				Enabled:               true,
+				EnhancedFilterSelects: true,
+			},
+		},
+		nil,
+		translationCapabilityModuleState{HasState: true, QueueEnabled: true},
+	)
+
+	presenter := &capturingTranslationSSRPresenter{}
+	captureRouter := newUIRoutesCaptureRouter()
+	if err := RegisterAdminUIRoutes(captureRouter, cfg, adm, nil, WithUITranslationSSRPresenter(presenter)); err != nil {
+		t.Fatalf("register ui routes: %v", err)
+	}
+	handler := captureRouter.getHandlers["/admin/translations/queue"]
+	if handler == nil {
+		t.Fatalf("expected queue route handler")
+	}
+
+	ctx := router.NewMockContext()
+	ctx.On("Context").Return(context.Background())
+	ctx.On("Render", "resources/translations/shell", mock.Anything).Return(nil)
+
+	if err := handler(ctx); err != nil {
+		t.Fatalf("render queue shell: %v", err)
+	}
+	if !presenter.queueInput.QueueUI.EnhancedFilterSelects {
+		t.Fatalf("expected enhanced filter selects to reach queue presenter input")
+	}
+	ctx.AssertExpectations(t)
+}
+
 func TestRegisterAdminUIRoutesMigratedTranslationRoutesExposeHydratedSSRContext(t *testing.T) {
 	cfg := NewAdminConfig("/admin", "Admin", "en")
 	adm, _, err := NewAdmin(

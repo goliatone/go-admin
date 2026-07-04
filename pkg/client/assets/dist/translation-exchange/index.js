@@ -2,7 +2,7 @@ import { escapeHTML as o } from "../shared/html.js";
 import { httpRequest as G, readHTTPResponsePayload as K } from "../shared/transport/http-client.js";
 import "../chunks/status-vocabulary-Bdx_bn1-.js";
 import { a as I, i as Y, o as m, s as k } from "../chunks/translation-contracts-CCsjVv14.js";
-import { C as V, I as v, L as E, dt as X, h as w, nt as _, p as R, w as T, x as f, y as j } from "../chunks/translation-shared-Bor-6cvs.js";
+import { C as V, I as v, L as E, dt as X, h as w, nt as _, p as R, w as T, x as f, y as j } from "../chunks/translation-shared-Cy6-aSmF.js";
 import { formatTranslationShortDateTime as D } from "../translation-shared/formatters.js";
 var Q = { root: "#translation-exchange-app" }, Z = [{
   value: "pages",

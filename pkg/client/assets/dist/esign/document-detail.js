@@ -1,6 +1,6 @@
-import { a as e, c as t, d as s, f as r, h as i, i as E, l as o, m as n, n as C, o as m, p as l, r as D, s as c, t as p, u as _ } from "../chunks/provenance-card-DT62NQRb.js";
-import { a as N, i as O, n as P, o as R, r as T, s as v, t as L } from "../chunks/document-detail-C3JALb-2.js";
-import "../chunks/runtime-C21Ssfo_.js";
+import { a as e, c as t, d as s, f as r, h as i, i as E, l as o, m as n, n as C, o as m, p as l, r as D, s as c, t as p, u as _ } from "../chunks/provenance-card-B4t549AY.js";
+import { a as N, i as O, n as P, o as R, r as T, s as v, t as L } from "../chunks/document-detail-BbbCHe1P.js";
+import "../chunks/runtime-B8jqo2Kq.js";
 export {
   p as DEFAULT_PROVENANCE_CARD_CONFIG,
   L as DocumentDetailPreviewController,

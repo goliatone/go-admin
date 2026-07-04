@@ -1,4 +1,4 @@
-import { n as a, r as o, t as r } from "../chunks/integration-health-CK6IuPQH.js";
+import { n as a, r as o, t as r } from "../chunks/integration-health-CEvnThFp.js";
 export {
   r as IntegrationHealthController,
   a as bootstrapIntegrationHealth,

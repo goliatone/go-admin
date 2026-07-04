@@ -1,4 +1,4 @@
-import { n as t, r, t as n } from "../chunks/google-integration-D_sJGa6B.js";
+import { n as t, r, t as n } from "../chunks/google-integration-1DLXUuTE.js";
 export {
   n as GoogleIntegrationController,
   t as bootstrapGoogleIntegration,

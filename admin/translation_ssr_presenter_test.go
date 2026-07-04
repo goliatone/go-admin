@@ -941,6 +941,70 @@ func TestTranslationSSRQueueDataGridContract(t *testing.T) {
 	}
 }
 
+func TestTranslationSSRQueueResultIncludesEnhancedFilterMetadata(t *testing.T) {
+	result := translationSSRQueueResult(TranslationSSRPresenterInput{
+		APIBasePath: "/admin/api",
+		QueuePath:   "/admin/translations/queue",
+		QueueUI: TranslationQueueUIOptions{
+			EnhancedFilterSelects: true,
+		},
+		Query: map[string]string{
+			"assignee_id": "translator-1",
+			"family_id":   "family-1",
+		},
+	}, map[string]any{
+		"rows": []map[string]any{},
+		"meta": map[string]any{
+			"supported_filter_keys": []string{"status", "entity_type", "assignee_id", "reviewer_id", "family_id"},
+		},
+	})
+
+	if got := toBool(result.Meta["enhanced_filter_selects"]); !got {
+		t.Fatalf("expected enhanced filter-select flag in queue meta")
+	}
+	controls, ok := result.Meta["filter_controls"].([]map[string]any)
+	if !ok || len(controls) == 0 {
+		t.Fatalf("expected filter controls in queue meta, got %+v", result.Meta["filter_controls"])
+	}
+	byKey := map[string]map[string]any{}
+	for _, control := range controls {
+		byKey[toString(control["key"])] = control
+	}
+	for _, key := range []string{"entity_type", "assignee_id", "reviewer_id", "family_id"} {
+		control := byKey[key]
+		if len(control) == 0 {
+			t.Fatalf("expected enhanced control for %s, got %+v", key, controls)
+		}
+		if !toBool(control["enhanced"]) {
+			t.Fatalf("expected %s to be marked enhanced, got %+v", key, control)
+		}
+		if got := toString(control["endpoint_search_param"]); got != "search" {
+			t.Fatalf("expected %s search param metadata, got %+v", key, control)
+		}
+		if got := toString(control["endpoint_hydrate_param"]); got != "selected" {
+			t.Fatalf("expected %s hydrate param metadata, got %+v", key, control)
+		}
+		if got := toString(control["fallback"]); got != "raw" {
+			t.Fatalf("expected %s raw fallback metadata, got %+v", key, control)
+		}
+	}
+	if got := toString(byKey["entity_type"]["type"]); got != "remote_select" {
+		t.Fatalf("expected entity_type remote select, got %+v", byKey["entity_type"])
+	}
+	if got := toString(byKey["assignee_id"]["endpoint_url"]); got != "/admin/api/translations/options/assignees" {
+		t.Fatalf("expected assignee endpoint, got %q", got)
+	}
+	if got := toString(byKey["reviewer_id"]["endpoint_url"]); got != "/admin/api/translations/options/assignees" {
+		t.Fatalf("expected reviewer endpoint to reuse assignees, got %q", got)
+	}
+	if got := toString(byKey["family_id"]["endpoint_url"]); got != "/admin/api/translations/options/families" {
+		t.Fatalf("expected family endpoint, got %q", got)
+	}
+	if got := toString(byKey["status"]["type"]); got != "select" {
+		t.Fatalf("expected status to remain static select, got %+v", byKey["status"])
+	}
+}
+
 func TestTranslationSSRQueueDataGridPaginationModel(t *testing.T) {
 	grid := translationSSRQueueDataGrid(TranslationSSRPresenterInput{
 		QueuePath: "/admin/translations/queue",

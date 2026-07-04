@@ -1,5 +1,5 @@
 import { onReady as r } from "../shared/dom-ready.js";
-import { c as u, n as s, o as n } from "../chunks/behaviors-DY7AZ1es.js";
+import { c as u, n as s, o as n } from "../chunks/behaviors-JUmide29.js";
 var a = "form[data-submit-loading-form]", L = "true";
 function g(t, o = null) {
   u(t, {

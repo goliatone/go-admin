@@ -9,7 +9,7 @@ import { onReady as rt } from "../shared/dom-ready.js";
 import { parseJSONValue as R } from "../shared/json-parse.js";
 import { capitalizeLabel as D, nameToSlug as je, titleCaseIdentifier as he, titleCaseWords as A } from "./shared/text.js";
 import { deepCloneJSON as ve } from "../shared/deep-clone.js";
-import { a as qt, c as p, d as Re, i as Dt, l as b, n as zt, o as E, r as or, s as Ht, t as Rt, u as M } from "../chunks/channel-switcher-D242SzhQ.js";
+import { a as qt, c as p, d as Re, i as Dt, l as b, n as zt, o as E, r as or, s as Ht, t as Rt, u as M } from "../chunks/channel-switcher-C7eCXzRS.js";
 import { formatContentTypeDate as it } from "./shared/date-formatters.js";
 import { renderBlockStatusBadge as st } from "./shared/status-badges.js";
 var le = class extends Error {

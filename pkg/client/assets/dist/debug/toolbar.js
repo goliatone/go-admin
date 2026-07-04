@@ -1,10 +1,10 @@
 import { escapeHTML as u } from "../shared/html.js";
 import { httpRequest as M, readHTTPError as A } from "../shared/transport/http-client.js";
 import { normalizeDebugBasePath as I } from "./shared/path-helpers.js";
-import { A as $, C as c, D as H, E as O, F as D, M as j, O as F, _ as V, b as N, c as B, d as G, f as _, g as K, h as Q, k as Y, l as U, m as J, p as W, t as X, u as Z, v as tt, y as et, z as k } from "../chunks/builtin-panels-DMqskAbM.js";
-import { t as at } from "../chunks/repl-panel-DTvZlwvo.js";
-import { i as st } from "../chunks/icons-D3rRUaQI.js";
-import { M as b, P as v, S as ot, T as rt, W as nt, _ as it, a as Et, b as lt, c as C, d as y, f as dt, g as ct, h as Pt, l as qt, m as ht, n as E, o as P, p as pt, s as g, u as f, w as h, x as ut } from "../chunks/server-definitions-Cs4EGWUA.js";
+import { A as $, C as c, D as H, E as O, F as D, M as j, O as F, _ as V, b as N, c as B, d as G, f as _, g as K, h as Q, k as Y, l as U, m as J, p as W, t as X, u as Z, v as tt, y as et, z as k } from "../chunks/builtin-panels-DipfJKBZ.js";
+import { t as at } from "../chunks/repl-panel-Dvtc4bMw.js";
+import { i as st } from "../chunks/icons-B_VaFfsl.js";
+import { M as b, P as v, S as ot, T as rt, W as nt, _ as it, a as Et, b as lt, c as C, d as y, f as dt, g as ct, h as Pt, l as qt, m as ht, n as E, o as P, p as pt, s as g, u as f, w as h, x as ut } from "../chunks/server-definitions-Bn3L9Ams.js";
 var bt = `
   :host {
     --toolbar-bg: #1e1e2e;
