@@ -494,10 +494,7 @@ func paginateTranslationAssignmentGroupOptions(options []TranslationAssignmentGr
 	if start >= len(options) {
 		return []TranslationAssignmentGroupOption{}
 	}
-	end := start + perPage
-	if end > len(options) {
-		end = len(options)
-	}
+	end := min(start+perPage, len(options))
 	return options[start:end]
 }
 

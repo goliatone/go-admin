@@ -906,11 +906,16 @@ func translationSSRQueueQuickFilters(input TranslationSSRPresenterInput) []map[s
 func translationSSRQueueFilterControls(raw any, input TranslationSSRPresenterInput) []map[string]any {
 	keys := translationSSRStringSlice(raw)
 	out := make([]map[string]any, 0, len(keys))
-	for _, key := range keys {
-		key = strings.TrimSpace(key)
+	seen := map[string]struct{}{}
+	for _, rawKey := range keys {
+		key := translationSSRQueueCanonicalFilterKey(rawKey)
 		if key == "" {
 			continue
 		}
+		if _, exists := seen[key]; exists {
+			continue
+		}
+		seen[key] = struct{}{}
 		value := translationSSRQueueFilterValue(input.Query, key)
 		label := translationSSRQueueFilterLabel(key)
 		control := map[string]any{
@@ -952,6 +957,17 @@ func translationSSRQueueFilterControls(raw any, input TranslationSSRPresenterInp
 	return out
 }
 
+func translationSSRQueueCanonicalFilterKey(key string) string {
+	switch strings.TrimSpace(key) {
+	case "content_type", "type":
+		return "entity_type"
+	case "target_locale":
+		return "locale"
+	default:
+		return strings.TrimSpace(key)
+	}
+}
+
 func translationSSRApplyEnhancedQueueFilterControl(input TranslationSSRPresenterInput, control map[string]any, key string) {
 	if len(control) == 0 {
 		return
@@ -966,6 +982,10 @@ func translationSSRApplyEnhancedQueueFilterControl(input TranslationSSRPresenter
 		renderer = "entity"
 		controlType = "remote_select"
 		placeholder = "All types"
+	case "locale", "target_locale":
+		endpointPath = "/translations/options/locales"
+		controlType = "remote_select"
+		placeholder = "All target locales"
 	case "assignee_id":
 		endpointPath = "/translations/options/assignees"
 		renderer = "user"
@@ -1018,7 +1038,7 @@ func translationSSRQueueFilterValue(query map[string]string, key string) string 
 	switch key {
 	case "entity_type":
 		return strings.TrimSpace(firstNonEmpty(query["entity_type"], query["content_type"], query["type"]))
-	case "locale":
+	case "locale", "target_locale":
 		return strings.TrimSpace(firstNonEmpty(query["locale"], query["target_locale"]))
 	default:
 		return strings.TrimSpace(query[key])
@@ -1045,6 +1065,8 @@ func translationSSRQueueFilterOptions(key string) []map[string]any {
 		values = []string{"open", "assigned", "in_progress", "in_review", "changes_requested", "approved", "archived"}
 	case "priority":
 		values = []string{"low", "normal", "high", "urgent"}
+	case "due_state":
+		values = []string{"none", "on_track", "due_soon", "overdue"}
 	case "review_state":
 		values = TranslationQueueSupportedReviewStates()
 	}
@@ -1063,8 +1085,8 @@ func translationSSRQueueClearFilterHref(input TranslationSSRPresenterInput, key 
 	switch strings.TrimSpace(key) {
 	case "entity_type":
 		remove = append(remove, "content_type", "type")
-	case "locale":
-		remove = append(remove, "target_locale")
+	case "locale", "target_locale":
+		remove = append(remove, "locale", "target_locale")
 	}
 	return translationSSRHrefWithQuery(
 		translationSSRQueueBasePath(input),

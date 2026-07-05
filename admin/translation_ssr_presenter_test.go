@@ -949,13 +949,15 @@ func TestTranslationSSRQueueResultIncludesEnhancedFilterMetadata(t *testing.T) {
 			EnhancedFilterSelects: true,
 		},
 		Query: map[string]string{
-			"assignee_id": "translator-1",
-			"family_id":   "family-1",
+			"assignee_id":   "translator-1",
+			"due_state":     "overdue",
+			"family_id":     "family-1",
+			"target_locale": "fr",
 		},
 	}, map[string]any{
 		"rows": []map[string]any{},
 		"meta": map[string]any{
-			"supported_filter_keys": []string{"status", "entity_type", "assignee_id", "reviewer_id", "family_id"},
+			"supported_filter_keys": []string{"status", "due_state", "locale", "entity_type", "assignee_id", "reviewer_id", "family_id"},
 		},
 	})
 
@@ -970,7 +972,7 @@ func TestTranslationSSRQueueResultIncludesEnhancedFilterMetadata(t *testing.T) {
 	for _, control := range controls {
 		byKey[toString(control["key"])] = control
 	}
-	for _, key := range []string{"entity_type", "assignee_id", "reviewer_id", "family_id"} {
+	for _, key := range []string{"entity_type", "locale", "assignee_id", "reviewer_id", "family_id"} {
 		control := byKey[key]
 		if len(control) == 0 {
 			t.Fatalf("expected enhanced control for %s, got %+v", key, controls)
@@ -991,6 +993,18 @@ func TestTranslationSSRQueueResultIncludesEnhancedFilterMetadata(t *testing.T) {
 	if got := toString(byKey["entity_type"]["type"]); got != "remote_select" {
 		t.Fatalf("expected entity_type remote select, got %+v", byKey["entity_type"])
 	}
+	if got := toString(byKey["locale"]["type"]); got != "remote_select" {
+		t.Fatalf("expected locale remote select, got %+v", byKey["locale"])
+	}
+	if got := toString(byKey["locale"]["name"]); got != "locale" {
+		t.Fatalf("expected canonical locale name, got %+v", byKey["locale"])
+	}
+	if got := toString(byKey["locale"]["label"]); got != "Target Locale" {
+		t.Fatalf("expected target locale label, got %+v", byKey["locale"])
+	}
+	if got := toString(byKey["locale"]["current_value"]); got != "fr" {
+		t.Fatalf("expected locale current value from target_locale alias, got %+v", byKey["locale"])
+	}
 	if got := toString(byKey["assignee_id"]["endpoint_url"]); got != "/admin/api/translations/options/assignees" {
 		t.Fatalf("expected assignee endpoint, got %q", got)
 	}
@@ -1000,8 +1014,90 @@ func TestTranslationSSRQueueResultIncludesEnhancedFilterMetadata(t *testing.T) {
 	if got := toString(byKey["family_id"]["endpoint_url"]); got != "/admin/api/translations/options/families" {
 		t.Fatalf("expected family endpoint, got %q", got)
 	}
+	if got := toString(byKey["locale"]["endpoint_url"]); got != "/admin/api/translations/options/locales" {
+		t.Fatalf("expected locale endpoint, got %q", got)
+	}
 	if got := toString(byKey["status"]["type"]); got != "select" {
 		t.Fatalf("expected status to remain static select, got %+v", byKey["status"])
+	}
+	dueState := byKey["due_state"]
+	if got := toString(dueState["key"]); got != "due_state" {
+		t.Fatalf("expected due_state key, got %+v", dueState)
+	}
+	if got := toString(dueState["name"]); got != "due_state" {
+		t.Fatalf("expected due_state name, got %+v", dueState)
+	}
+	if got := toString(dueState["label"]); got != "Due State" {
+		t.Fatalf("expected due state label, got %+v", dueState)
+	}
+	if got := toString(dueState["type"]); got != "select" {
+		t.Fatalf("expected due_state static select, got %+v", dueState)
+	}
+	options := translationSSRAnyList(dueState["options"])
+	if len(options) != 4 {
+		t.Fatalf("expected due_state options, got %+v", dueState["options"])
+	}
+	if got := toString(options[2]["value"]); got != "due_soon" {
+		t.Fatalf("expected due_soon option value, got %+v", options)
+	}
+	if got := toString(options[2]["label"]); got != "Due Soon" {
+		t.Fatalf("expected Due Soon option label, got %+v", options)
+	}
+}
+
+func TestTranslationSSRQueueTargetLocaleAliasControlCompatibility(t *testing.T) {
+	result := translationSSRQueueResult(TranslationSSRPresenterInput{
+		APIBasePath: "/admin/api",
+		QueuePath:   "/admin/translations/queue",
+		QueueUI: TranslationQueueUIOptions{
+			EnhancedFilterSelects: true,
+		},
+		Query: map[string]string{
+			"status":        "open",
+			"target_locale": "fr",
+			"page":          "3",
+		},
+	}, map[string]any{
+		"rows": []map[string]any{},
+		"meta": map[string]any{
+			"supported_filter_keys": []string{"target_locale"},
+		},
+	})
+
+	controls, ok := result.Meta["filter_controls"].([]map[string]any)
+	if !ok || len(controls) != 1 {
+		t.Fatalf("expected one canonical target locale control, got %+v", result.Meta["filter_controls"])
+	}
+	control := controls[0]
+	if got := toString(control["key"]); got != "locale" {
+		t.Fatalf("expected target_locale alias to emit canonical locale key, got %+v", control)
+	}
+	if got := toString(control["name"]); got != "locale" {
+		t.Fatalf("expected target_locale alias to emit canonical locale name, got %+v", control)
+	}
+	if got := toString(control["label"]); got != "Target Locale" {
+		t.Fatalf("expected target locale label, got %+v", control)
+	}
+	if got := toString(control["current_value"]); got != "fr" {
+		t.Fatalf("expected current value from target_locale alias, got %+v", control)
+	}
+	if got := toString(control["endpoint_url"]); got != "/admin/api/translations/options/locales" {
+		t.Fatalf("expected locale options endpoint, got %+v", control)
+	}
+
+	clearURL := toString(control["clear_url"])
+	parsed, err := url.Parse(clearURL)
+	if err != nil {
+		t.Fatalf("parse clear URL %q: %v", clearURL, err)
+	}
+	if got := parsed.Query().Get("locale"); got != "" {
+		t.Fatalf("expected clear URL to remove locale alias, got %q in %q", got, clearURL)
+	}
+	if got := parsed.Query().Get("target_locale"); got != "" {
+		t.Fatalf("expected clear URL to remove target_locale alias, got %q in %q", got, clearURL)
+	}
+	if got := parsed.Query().Get("status"); got != "open" {
+		t.Fatalf("expected clear URL to preserve unrelated filters, got %q in %q", got, clearURL)
 	}
 }
 

@@ -2229,6 +2229,12 @@ func (b *translationQueueBinding) LocalesOptions(c router.Context) (any, error) 
 	collectReadinessRequiredLocales(localeSet, sourceRecord)
 	normalizeLocaleSet(localeSet, excludeLocale)
 
+	if selected := translationQueueOptionsSelected(c, "locale", "target_locale"); selected != "" {
+		options := selectedTranslationQueueLocaleOptions(selected)
+		sortTranslationQueueOptions(options)
+		return options, nil
+	}
+
 	search := strings.ToLower(strings.TrimSpace(translationQueueOptionsSearch(c)))
 	options := translationQueueLocaleOptions(localeSet, search)
 	sortTranslationQueueOptions(options)
@@ -2392,6 +2398,26 @@ func translationQueueLocaleOptions(localeSet map[string]struct{}, search string)
 			continue
 		}
 		options = append(options, option)
+	}
+	return options
+}
+
+func selectedTranslationQueueLocaleOptions(selected string) []map[string]any {
+	options := []map[string]any{}
+	seen := map[string]struct{}{}
+	for locale := range strings.SplitSeq(selected, ",") {
+		locale = strings.TrimSpace(strings.ToLower(locale))
+		if locale == "" {
+			continue
+		}
+		if _, exists := seen[locale]; exists {
+			continue
+		}
+		seen[locale] = struct{}{}
+		options = append(options, map[string]any{
+			"value": locale,
+			"label": strings.ToUpper(locale),
+		})
 	}
 	return options
 }
@@ -2614,10 +2640,7 @@ func translationQueuePaginatedOptions(c router.Context, options []map[string]any
 	if start >= len(options) {
 		return []map[string]any{}
 	}
-	end := start + perPage
-	if end > len(options) {
-		end = len(options)
-	}
+	end := min(start+perPage, len(options))
 	return options[start:end]
 }
 

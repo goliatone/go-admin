@@ -754,6 +754,59 @@ func TestTranslationQueueAssigneesOptionsHydratesGenericSelectedAlias(t *testing
 	}
 }
 
+func TestTranslationQueueLocalesOptionsHydratesSelectedWithRawFallback(t *testing.T) {
+	repo := NewInMemoryTranslationAssignmentRepository()
+	if _, err := repo.Create(context.Background(), TranslationAssignment{
+		FamilyID:       "family-1",
+		EntityType:     "pages",
+		SourceRecordID: "page-1",
+		SourceLocale:   "en",
+		TargetLocale:   "es",
+		AssignmentType: AssignmentTypeDirect,
+		Status:         AssignmentStatusAssigned,
+	}); err != nil {
+		t.Fatalf("create assignment: %v", err)
+	}
+	adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{
+		FeatureGate: featureGateFromKeys(FeatureCMS, FeatureTranslationQueue),
+	})
+	adm.WithAuthorizer(translationPermissionAuthorizer{
+		allowed: map[string]bool{PermAdminTranslationsView: true},
+	})
+	if _, err := RegisterTranslationQueuePanel(adm, repo); err != nil {
+		t.Fatalf("register queue panel: %v", err)
+	}
+	binding := newTranslationQueueBinding(adm)
+	app := newTranslationQueueTestApp(t, binding)
+
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/translations/options/locales?selected=fr,pt-br", nil)
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("request error: %v", err)
+	}
+	defer resp.Body.Close() //nolint:errcheck // test response body cleanup is best-effort
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status=%d want=200", resp.StatusCode)
+	}
+	payload := []map[string]any{}
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if len(payload) != 2 {
+		t.Fatalf("expected selected locale hydration to return raw fallback options, got %+v", payload)
+	}
+	optionsByValue := map[string]map[string]any{}
+	for _, option := range payload {
+		optionsByValue[strings.TrimSpace(toString(option["value"]))] = option
+	}
+	if got := strings.TrimSpace(toString(optionsByValue["fr"]["label"])); got != "FR" {
+		t.Fatalf("expected FR selected locale label, got %q in %+v", got, payload)
+	}
+	if got := strings.TrimSpace(toString(optionsByValue["pt-br"]["label"])); got != "PT-BR" {
+		t.Fatalf("expected PT-BR selected locale label, got %q in %+v", got, payload)
+	}
+}
+
 func TestTranslationQueueFamiliesOptionsHydratesSelectedWithRawFallback(t *testing.T) {
 	repo := NewInMemoryTranslationAssignmentRepository()
 	if _, err := repo.Create(context.Background(), TranslationAssignment{
@@ -3725,6 +3778,13 @@ func newTranslationQueueTestApp(t *testing.T, binding *translationQueueBinding) 
 	})
 	r.Get("/admin/api/translations/options/entity-types", func(c router.Context) error {
 		payload, err := binding.EntityTypesOptions(c)
+		if err != nil {
+			return writeError(c, err)
+		}
+		return writeJSON(c, payload)
+	})
+	r.Get("/admin/api/translations/options/locales", func(c router.Context) error {
+		payload, err := binding.LocalesOptions(c)
 		if err != nil {
 			return writeError(c, err)
 		}
