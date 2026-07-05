@@ -1,16 +1,16 @@
 import { escapeAttribute as c, escapeHTML as u } from "../shared/html.js";
 import { httpRequest as T, readHTTPError as ye } from "../shared/transport/http-client.js";
 import { extractStructuredError as be } from "../toast/error-helpers.js";
-import { T as _e, Y as G, c as we, h as ke, i as qe, l as $e, o as O, t as xe, v as x, x as Se, y as Ae } from "../chunks/grouped-mode-BKMTJtyG.js";
+import { T as _e, Y as O, c as we, h as ke, i as qe, l as $e, o as G, t as xe, v as x, x as Se, y as Ae } from "../chunks/grouped-mode-BKMTJtyG.js";
 import "../chunks/status-vocabulary-Bdx_bn1-.js";
 import { buildEndpointURL as Re, getStringSearchParam as Ee, readLocationSearchParams as pe, setNumberSearchParam as ie, setSearchParam as _ } from "../shared/query-state/url-state.js";
 import { StatefulController as Ie } from "../shared/stateful-controller.js";
-import { a as Fe, n as Le, r as Ce, t as Pe } from "../chunks/entity-renderer-CM6Gdu_j.js";
+import { a as Fe, n as Ce, r as Le, t as Pe } from "../chunks/entity-renderer-CM6Gdu_j.js";
 import { t as Te } from "../chunks/searchbox-C75-stnC.js";
-import { asNumber as g, asRecord as h, asString as n, asStringArray as se } from "../shared/coercion.js";
-import { $ as R, A as Be, D as Me, E as je, G as De, J as ze, K as Ge, O as Oe, Q as Ne, R as Qe, S as b, T as Ue, X as E, Y as I, Z as He, _ as Ve, b as Ke, k as Ye, q as Xe, v as re } from "../chunks/translation-shared-Cy6-aSmF.js";
+import { asNumber as g, asRecord as m, asString as n, asStringArray as se } from "../shared/coercion.js";
+import { $ as R, A as Be, D as Me, E as je, G as De, J as ze, K as Oe, O as Ge, Q as Ne, R as Qe, S as b, T as Ue, X as E, Y as I, Z as He, _ as Ve, b as Ke, k as Ye, q as Xe, v as re } from "../chunks/translation-shared-Cy6-aSmF.js";
 import { formatTranslationShortDateTime as N } from "../translation-shared/formatters.js";
-import { normalizeNumberRecord as C } from "../shared/record-normalization.js";
+import { normalizeNumberRecord as L } from "../shared/record-normalization.js";
 import { buildAssignmentActionURL as We, initAssignmentSSRRowActions as Je } from "../translation-actions/assignment-row-actions.js";
 var Z, D = class extends Error {
   constructor(a) {
@@ -117,7 +117,7 @@ var Z, D = class extends Error {
   }
 ];
 function S(a) {
-  const e = h(a);
+  const e = m(a);
   return {
     enabled: e.enabled === !0,
     reason: n(e.reason) || void 0,
@@ -126,7 +126,7 @@ function S(a) {
   };
 }
 function Ze(a) {
-  const e = h(a), t = n(e.last_rejection_reason), i = n(e.last_reviewer_id);
+  const e = m(a), t = n(e.last_rejection_reason), i = n(e.last_reviewer_id);
   if (!(!t && !i))
     return {
       last_rejection_reason: t || void 0,
@@ -134,7 +134,7 @@ function Ze(a) {
     };
 }
 function et(a) {
-  const e = h(a), t = e.enabled === !0, i = g(e.warning_count), s = g(e.blocker_count), o = g(e.finding_count);
+  const e = m(a), t = e.enabled === !0, i = g(e.warning_count), s = g(e.blocker_count), o = g(e.finding_count);
   if (!(!t && i <= 0 && s <= 0 && o <= 0))
     return {
       enabled: t,
@@ -197,9 +197,9 @@ async function B(a, e) {
   });
 }
 function it(a) {
-  const e = h(a), t = n(e.id), i = n(e.label);
+  const e = m(a), t = n(e.id), i = n(e.label);
   if (!t || !i) return null;
-  const s = h(e.query);
+  const s = m(e.query);
   return {
     id: t,
     label: i,
@@ -233,7 +233,7 @@ function P(a) {
   };
 }
 function st(a) {
-  const e = h(a), t = n(e.value), i = n(e.label) || t;
+  const e = m(a), t = n(e.value), i = n(e.label) || t;
   return t ? {
     value: t,
     label: i,
@@ -241,9 +241,9 @@ function st(a) {
   } : null;
 }
 function rt(a) {
-  const e = h(a), t = n(e.key || e.name), i = n(e.name || e.key);
+  const e = m(a), t = n(e.key || e.name), i = n(e.name || e.key);
   if (!t || !i) return null;
-  const s = Array.isArray(e.options) ? e.options.map((r) => st(r)).filter((r) => r !== null) : [], o = n(e.renderer), d = n(e.fallback);
+  const s = Array.isArray(e.options) ? e.options.map((r) => st(r)).filter((r) => r !== null) : [], o = n(e.renderer), l = n(e.fallback);
   return {
     key: t,
     name: i,
@@ -261,7 +261,7 @@ function rt(a) {
     endpoint_value_field: n(e.endpoint_value_field) || void 0,
     endpoint_label_field: n(e.endpoint_label_field) || void 0,
     renderer: o || void 0,
-    fallback: d || void 0
+    fallback: l || void 0
   };
 }
 function nt(a) {
@@ -281,12 +281,12 @@ function ot(a, e) {
     data: a
   } : null;
 }
-function he(a, e) {
-  const t = h(a);
-  return (Array.isArray(a) ? a : Array.isArray(t.data) ? t.data : Array.isArray(t.options) ? t.options : []).map((i) => ot(h(i), e)).filter((i) => i !== null);
+function me(a, e) {
+  const t = m(a);
+  return (Array.isArray(a) ? a : Array.isArray(t.data) ? t.data : Array.isArray(t.options) ? t.options : []).map((i) => ot(m(i), e)).filter((i) => i !== null);
 }
 function lt(a) {
-  return a === "user" ? new Le({
+  return a === "user" ? new Ce({
     avatarField: "avatar_url",
     emailField: "email",
     roleField: "role"
@@ -331,9 +331,9 @@ async function ct(a, e, t) {
       headers: { Accept: "application/json" }
     });
     if (!o.ok) throw new Error(`Hydration failed: ${o.status}`);
-    const d = he(await o.json(), t).find((r) => r.id === i);
-    if (!d || e.value.trim() !== i) return;
-    e.value = d.id, a.value = d.label || d.id;
+    const l = me(await o.json(), t).find((r) => r.id === i);
+    if (!l || e.value.trim() !== i) return;
+    e.value = l.id, a.value = l.label || l.id;
   } catch {
     a.dataset.filterEnhancedState = "error";
   }
@@ -344,11 +344,11 @@ function ut(a) {
   if (!e || !t || !t.name) return !1;
   const i = document.createElement("input");
   i.type = "hidden", i.name = e.name, i.value = t.value, i.dataset.filterCanonicalInput = "true", t.removeAttribute("name"), t.dataset.filterDisplayInput = "true", t.setAttribute("aria-expanded", "false"), a.appendChild(i);
-  const s = new Ce({
+  const s = new Le({
     endpoint: e.endpointURL,
     queryParam: e.searchParam,
     params: e.controlType === "remote_select" ? { per_page: "25" } : { per_page: "10" },
-    transform: (d) => he(d, e)
+    transform: (l) => me(l, e)
   });
   t.addEventListener("input", () => {
     i.value = t.value.trim(), t.dataset.filterEnhancedState = "";
@@ -363,8 +363,8 @@ function ut(a) {
     maxResults: e.controlType === "remote_select" ? 25 : 10,
     emptyText: "No matching options",
     loadingText: "Loading options...",
-    onSelect: (d) => {
-      i.value = d.id, t.dataset.filterEnhancedState = "selected", U(a, e, i.value);
+    onSelect: (l) => {
+      i.value = l.id, t.dataset.filterEnhancedState = "selected", U(a, e, i.value);
     },
     onClear: () => {
       i.value = "", t.dataset.filterEnhancedState = "", U(a, e, "");
@@ -384,11 +384,11 @@ function ut(a) {
     t.dataset.filterEnhancedState !== "selected" && (i.value = t.value.trim(), U(a, e, i.value));
   }), a.dataset.filterEnhancedInitialized = "true", ct(t, i, e), !0;
 }
-function me(a) {
+function he(a) {
   return typeof document > "u" ? 0 : Array.from((a ?? document).querySelectorAll('[data-filter-enhanced="true"]')).reduce((t, i) => t + (ut(i) ? 1 : 0), 0);
 }
 function pt(a) {
-  const e = h(a), t = Array.isArray(e.supported_sort_keys) ? e.supported_sort_keys.map((s) => n(s)).filter((s) => !!s) : [], i = h(e.default_sort);
+  const e = m(a), t = Array.isArray(e.supported_sort_keys) ? e.supported_sort_keys.map((s) => n(s)).filter((s) => !!s) : [], i = m(e.default_sort);
   return {
     page: g(e.page) || 1,
     per_page: g(e.per_page) || 25,
@@ -415,21 +415,21 @@ function pt(a) {
     enhanced_filter_selects: e.enhanced_filter_selects === !0,
     filter_controls: nt(e.filter_controls),
     review_actor_id: n(e.review_actor_id) || void 0,
-    review_aggregate_counts: C(e.review_aggregate_counts, {
+    review_aggregate_counts: L(e.review_aggregate_counts, {
       trimKeys: !0,
       omitBlankKeys: !0
     }),
     review_aggregate_counts_unavailable: se(e.review_aggregate_counts_unavailable),
     review_aggregate_counts_degraded: se(e.review_aggregate_counts_degraded),
-    grouping: ht(e.grouping),
+    grouping: mt(e.grouping),
     family_total: g(e.family_total) || void 0,
     assignment_total: g(e.assignment_total) || void 0
   };
 }
-function ht(a) {
-  const e = h(a);
+function mt(a) {
+  const e = m(a);
   if (!e) return;
-  const t = h(h(e.capabilities).server_family), i = Array.isArray(e.supported_sort_keys) ? e.supported_sort_keys.map((s) => n(s)).filter((s) => !!s) : void 0;
+  const t = m(m(e.capabilities).server_family), i = Array.isArray(e.supported_sort_keys) ? e.supported_sort_keys.map((s) => n(s)).filter((s) => !!s) : void 0;
   return {
     enabled: e.enabled === !0,
     mode: n(e.mode) || "family_id",
@@ -449,13 +449,13 @@ function ht(a) {
     } }
   };
 }
-function mt(a) {
-  const e = h(a), t = Array.isArray(e.filter_summary) ? e.filter_summary : [];
+function ht(a) {
+  const e = m(a), t = Array.isArray(e.filter_summary) ? e.filter_summary : [];
   return {
     selectionScope: "filter_snapshot",
     snapshotId: n(e.snapshot_id),
     requested: g(e.requested),
-    filters: h(e.filters),
+    filters: m(e.filters),
     filterSummary: t.map((i) => n(i)).filter(Boolean),
     createdAt: n(e.created_at),
     expiresAt: n(e.expires_at)
@@ -490,7 +490,7 @@ function yt(a, e = {}) {
   return t ? Re(a, new URLSearchParams(t), { preserveAbsolute: !0 }) : a;
 }
 function q(a) {
-  const e = h(a);
+  const e = m(a);
   return {
     id: n(e.id),
     family_id: n(e.family_id),
@@ -518,14 +518,14 @@ function q(a) {
     updated_at: n(e.updated_at),
     created_at: n(e.created_at),
     actions: {
-      claim: S(h(e.actions).claim),
-      release: S(h(e.actions).release)
+      claim: S(m(e.actions).claim),
+      release: S(m(e.actions).release)
     },
     review_actions: {
-      submit_review: S(h(e.review_actions).submit_review),
-      approve: S(h(e.review_actions).approve),
-      reject: S(h(e.review_actions).reject),
-      archive: S(h(e.review_actions).archive)
+      submit_review: S(m(e.review_actions).submit_review),
+      approve: S(m(e.review_actions).approve),
+      reject: S(m(e.review_actions).reject),
+      archive: S(m(e.review_actions).archive)
     },
     last_rejection_reason: n(e.last_rejection_reason) || void 0,
     review_feedback: Ze(e.review_feedback),
@@ -533,7 +533,7 @@ function q(a) {
   };
 }
 function bt(a, e) {
-  const t = h(a), i = h(t.expansion), s = h(i.params), o = n(t.family_id);
+  const t = m(a), i = m(t.expansion), s = m(i.params), o = n(t.family_id);
   return {
     id: n(t.id) || `family:${o}`,
     row_type: "family",
@@ -546,38 +546,38 @@ function bt(a, e) {
     source_path: n(t.source_path),
     assignment_count: g(t.assignment_count),
     locale_count: g(t.locale_count),
-    target_locales: Array.isArray(t.target_locales) ? t.target_locales.map((d) => n(d)).filter(Boolean) : [],
-    status_counts: C(t.status_counts, {
+    target_locales: Array.isArray(t.target_locales) ? t.target_locales.map((l) => n(l)).filter(Boolean) : [],
+    status_counts: L(t.status_counts, {
       trimKeys: !0,
       omitBlankKeys: !0
     }),
-    due_state_counts: C(t.due_state_counts, {
+    due_state_counts: L(t.due_state_counts, {
       trimKeys: !0,
       omitBlankKeys: !0
     }),
-    priority_counts: C(t.priority_counts, {
+    priority_counts: L(t.priority_counts, {
       trimKeys: !0,
       omitBlankKeys: !0
     }),
     family_blocker_count: t.family_blocker_count === null || t.family_blocker_count === void 0 ? null : g(t.family_blocker_count),
     family_blocker_count_available: t.family_blocker_count_available === !0,
     family_blocker_count_reason: n(t.family_blocker_count_reason),
-    action_hints: C(t.action_hints, {
+    action_hints: L(t.action_hints, {
       trimKeys: !0,
       omitBlankKeys: !0
     }),
     expansion: {
       href: n(i.href),
       route: n(i.route),
-      params: Object.fromEntries(Object.entries(s).map(([d, r]) => [d, n(r)])),
-      query: h(i.query)
+      params: Object.fromEntries(Object.entries(s).map(([l, r]) => [l, n(r)])),
+      query: m(i.query)
     },
     expanded: e.has(o),
     children: []
   };
 }
 function _t(a) {
-  const e = h(a), t = pt(e.meta), i = Array.isArray(e.data) ? e.data : [];
+  const e = m(a), t = pt(e.meta), i = Array.isArray(e.data) ? e.data : [];
   return t.grouping?.enabled ? {
     data: i.filter((s) => !!s && typeof s == "object" && !Array.isArray(s)).map((s) => ({ ...s })),
     meta: t
@@ -589,7 +589,7 @@ function _t(a) {
 async function wt(a) {
   const e = await T(a.href, { method: "GET" });
   if (!e.ok) throw await B(e, "Failed to load family assignments");
-  const t = h(await e.json()), i = h(t.meta);
+  const t = m(await e.json()), i = m(t.meta);
   return {
     rows: (Array.isArray(t.data) ? t.data : []).map((s) => q(s)),
     meta: {
@@ -601,7 +601,7 @@ async function wt(a) {
   };
 }
 function kt(a) {
-  const e = h(a), t = h(e.meta), i = h(e.data);
+  const e = m(a), t = m(e.meta), i = m(e.data);
   return {
     data: {
       assignment_id: n(i.assignment_id),
@@ -708,7 +708,7 @@ function Rt(a, e) {
     permission: a.actions.claim.permission
   }, t.actions.release = H(a.actions.release.permission, "assignment must be assigned or in progress before it can be released"), t.review_actions.submit_review = H(a.review_actions.submit_review.permission, "assignment must be in progress"), t);
 }
-function L(a, e) {
+function C(a, e) {
   return a instanceof D ? {
     kind: a.code === "VERSION_CONFLICT" ? "conflict" : "error",
     message: a.message || e,
@@ -736,17 +736,17 @@ function It(a) {
   return !!a.review_actions.archive.enabled;
 }
 function V(a, e) {
-  const t = [], i = e.has(`claim:${a.id}`), s = e.has(`release:${a.id}`), o = e.has(`approve:${a.id}`), d = e.has(`reject:${a.id}`), r = e.has(`archive:${a.id}`), l = a.actions.claim.enabled && !i;
+  const t = [], i = e.has(`claim:${a.id}`), s = e.has(`release:${a.id}`), o = e.has(`approve:${a.id}`), l = e.has(`reject:${a.id}`), r = e.has(`archive:${a.id}`), d = a.actions.claim.enabled && !i;
   t.push({
     type: "claim",
     category: "lifecycle",
     label: i ? "Claiming…" : "Claim",
-    enabled: l,
+    enabled: d,
     disabledReason: a.actions.claim.reason || "Claim assignment",
     pending: i,
     pendingLabel: "Claiming assignment…",
     dataAction: "claim",
-    ariaLabel: l ? "Claim assignment" : a.actions.claim.reason || "Cannot claim assignment",
+    ariaLabel: d ? "Claim assignment" : a.actions.claim.reason || "Cannot claim assignment",
     buttonClass: b
   });
   const p = a.actions.release.enabled && !s;
@@ -762,27 +762,27 @@ function V(a, e) {
     ariaLabel: p ? "Release assignment" : a.actions.release.reason || "Cannot release assignment",
     buttonClass: b
   }), Et(a)) {
-    const m = a.review_actions.approve.enabled && !o;
+    const h = a.review_actions.approve.enabled && !o;
     t.push({
       type: "approve",
       category: "review",
       label: o ? "Approving…" : "Approve",
-      enabled: m,
+      enabled: h,
       disabledReason: a.review_actions.approve.reason || "Approve assignment",
       pending: o,
       pendingLabel: "Approving assignment…",
       dataAction: "approve",
-      ariaLabel: m ? "Approve assignment" : a.review_actions.approve.reason || "Cannot approve assignment",
+      ariaLabel: h ? "Approve assignment" : a.review_actions.approve.reason || "Cannot approve assignment",
       buttonClass: Ke
     });
-    const v = a.review_actions.reject.enabled && !d;
+    const v = a.review_actions.reject.enabled && !l;
     t.push({
       type: "reject",
       category: "review",
-      label: d ? "Rejecting…" : "Reject",
+      label: l ? "Rejecting…" : "Reject",
       enabled: v,
       disabledReason: a.review_actions.reject.reason || "Reject assignment",
-      pending: d,
+      pending: l,
       pendingLabel: "Rejecting assignment…",
       dataAction: "reject",
       ariaLabel: v ? "Reject assignment" : a.review_actions.reject.reason || "Cannot reject assignment",
@@ -790,17 +790,17 @@ function V(a, e) {
     });
   }
   if (It(a)) {
-    const m = a.review_actions.archive.enabled && !r;
+    const h = a.review_actions.archive.enabled && !r;
     t.push({
       type: "archive",
       category: "management",
       label: r ? "Archiving…" : "Archive",
-      enabled: m,
+      enabled: h,
       disabledReason: a.review_actions.archive.reason || "Archive assignment",
       pending: r,
       pendingLabel: "Archiving assignment…",
       dataAction: "archive",
-      ariaLabel: m ? "Archive assignment" : a.review_actions.archive.reason || "Cannot archive assignment",
+      ariaLabel: h ? "Archive assignment" : a.review_actions.archive.reason || "Cannot archive assignment",
       buttonClass: b
     });
   }
@@ -817,22 +817,22 @@ function K(a, e) {
   return i || a[0];
 }
 function Y(a, e, t) {
-  const i = (d) => d === "review" ? "review" : d === "management" ? "manage" : "lifecycle";
-  if (e.length <= 2) return e.map((d) => `
+  const i = (l) => l === "review" ? "review" : l === "management" ? "manage" : "lifecycle";
+  if (e.length <= 2) return e.map((l) => `
       <button
         type="button"
-        class="${d.buttonClass}"
-        data-action="${c(d.dataAction)}"
-        data-action-group="${c(i(d.category))}"
+        class="${l.buttonClass}"
+        data-action="${c(l.dataAction)}"
+        data-action-group="${c(i(l.category))}"
         data-assignment-id="${c(a.id)}"
-        ${d.enabled ? "" : "disabled"}
-        aria-disabled="${d.enabled ? "false" : "true"}"
-        title="${c(d.pending ? d.pendingLabel : d.disabledReason)}"
+        ${l.enabled ? "" : "disabled"}
+        aria-disabled="${l.enabled ? "false" : "true"}"
+        title="${c(l.pending ? l.pendingLabel : l.disabledReason)}"
       >
-        ${u(d.label)}
+        ${u(l.label)}
       </button>
     `).join("");
-  const s = e.filter((d) => d !== t), o = `menu-${a.id}`;
+  const s = e.filter((l) => l !== t), o = `menu-${a.id}`;
   return `
     <div class="queue-action-overflow-container">
       <button
@@ -863,20 +863,20 @@ function Y(a, e, t) {
         role="menu"
         hidden
       >
-        ${s.map((d) => `
+        ${s.map((l) => `
           <button
             type="button"
             role="menuitem"
             class="queue-action-menu-item"
-            data-action="${c(d.dataAction)}"
-            data-action-group="${c(i(d.category))}"
+            data-action="${c(l.dataAction)}"
+            data-action-group="${c(i(l.category))}"
             data-assignment-id="${c(a.id)}"
-            ${d.enabled ? "" : "disabled"}
-            aria-disabled="${d.enabled ? "false" : "true"}"
-            title="${c(d.pending ? d.pendingLabel : d.disabledReason)}"
+            ${l.enabled ? "" : "disabled"}
+            aria-disabled="${l.enabled ? "false" : "true"}"
+            title="${c(l.pending ? l.pendingLabel : l.disabledReason)}"
           >
-            ${u(d.label)}
-            ${d.pending ? `<span class="action-pending-label">${u(d.pendingLabel)}</span>` : ""}
+            ${u(l.label)}
+            ${l.pending ? `<span class="action-pending-label">${u(l.pendingLabel)}</span>` : ""}
           </button>
         `).join("")}
       </div>
@@ -979,7 +979,7 @@ var ve = class k extends Ie {
         json: { filters: vt(this.queryState) }
       });
       if (!e.ok) throw await B(e, "Filter snapshot failed");
-      const t = mt(h(h(await e.json()).data));
+      const t = ht(m(m(await e.json()).data));
       if (!t.snapshotId) throw new D({
         message: "Filter snapshot response did not include a snapshot id.",
         status: 500,
@@ -990,7 +990,7 @@ var ve = class k extends Ie {
         message: `${t.requested} matching assignment${t.requested !== 1 ? "s" : ""} selected.`
       };
     } catch (e) {
-      this.feedback = L(e, "Filter snapshot failed.");
+      this.feedback = C(e, "Filter snapshot failed.");
     } finally {
       this.bulkSnapshotPending = !1, this.render();
     }
@@ -1013,11 +1013,11 @@ var ve = class k extends Ie {
         priority: t?.priority
       });
       for (const o of s.data.results) if (o.success && o.assignment) {
-        const d = this.rows.findIndex((r) => r.id === o.assignmentId);
-        d >= 0 && (this.rows[d] = w(o.assignment)), this.selectedRows.delete(o.assignmentId);
+        const l = this.rows.findIndex((r) => r.id === o.assignmentId);
+        l >= 0 && (this.rows[l] = w(o.assignment)), this.selectedRows.delete(o.assignmentId);
       }
       if (s.data.failed > 0) {
-        const o = s.data.results.filter((d) => !d.success).map((d) => d.assignmentId).slice(0, 3);
+        const o = s.data.results.filter((l) => !l.success).map((l) => l.assignmentId).slice(0, 3);
         this.feedback = {
           kind: "error",
           message: `${s.data.succeeded} succeeded, ${s.data.failed} failed. Failed: ${o.join(", ")}${s.data.failed > 3 ? "..." : ""}`
@@ -1027,7 +1027,7 @@ var ve = class k extends Ie {
         message: `${s.data.succeeded} assignment${s.data.succeeded !== 1 ? "s" : ""} updated.`
       };
     } catch (s) {
-      this.feedback = L(s, `Bulk ${e} failed.`);
+      this.feedback = C(s, `Bulk ${e} failed.`);
     } finally {
       this.bulkActionPending = !1, this.render();
     }
@@ -1043,11 +1043,11 @@ var ve = class k extends Ie {
     }
     const s = t || this.promptFilterSnapshotActionOptions(e);
     if (s === null) return;
-    const o = i.filterSummary || [], d = o.length ? `
+    const o = i.filterSummary || [], l = o.length ? `
 
 ${o.join(`
 `)}` : "";
-    if (typeof window > "u" || typeof window.confirm != "function" || window.confirm(`Apply ${e} to ${i.requested} matching assignment${i.requested !== 1 ? "s" : ""}?${d}`)) {
+    if (typeof window > "u" || typeof window.confirm != "function" || window.confirm(`Apply ${e} to ${i.requested} matching assignment${i.requested !== 1 ? "s" : ""}?${l}`)) {
       this.bulkActionPending = !0, this.feedback = null, this.render();
       try {
         const r = await this.executeBulkAction({
@@ -1066,7 +1066,7 @@ ${o.join(`
           message: `${r.data.succeeded} assignment${r.data.succeeded !== 1 ? "s" : ""} updated.`
         }, this.filterSnapshot = null, this.selectedRows.clear(), await this.load();
       } catch (r) {
-        this.feedback = L(r, `Bulk ${e} failed.`);
+        this.feedback = C(r, `Bulk ${e} failed.`);
       } finally {
         this.bulkActionPending = !1, this.render();
       }
@@ -1104,17 +1104,17 @@ ${o.join(`
       }
     });
     if (!t.ok) throw await B(t, `Bulk ${e.action} failed`);
-    const i = h(await t.json()), s = h(i.data), o = h(i.meta), d = Array.isArray(s.results) ? s.results : [], r = g(o.requested), l = g(o.succeeded), p = g(o.failed), m = o.partial === !0, v = n(o.selection_scope) || "current_page";
+    const i = m(await t.json()), s = m(i.data), o = m(i.meta), l = Array.isArray(s.results) ? s.results : [], r = g(o.requested), d = g(o.succeeded), p = g(o.failed), h = o.partial === !0, v = n(o.selection_scope) || "current_page";
     return {
       data: {
         action: n(s.action) || e.action,
         requested: r,
-        succeeded: l,
+        succeeded: d,
         failed: p,
-        partial: m,
+        partial: h,
         selectionScope: v,
-        results: d.map((f) => {
-          const $ = h(f), ae = h($.error);
+        results: l.map((f) => {
+          const $ = m(f), ae = m($.error);
           return {
             assignmentId: n($.assignment_id),
             success: n($.status) === "succeeded",
@@ -1127,9 +1127,9 @@ ${o.join(`
       meta: {
         action: n(s.action) || e.action,
         requested: r,
-        succeeded: l,
+        succeeded: d,
         failed: p,
-        partial: m,
+        partial: h,
         selection_scope: v
       }
     };
@@ -1200,7 +1200,7 @@ ${o.join(`
       this.toggleServerFamilyExpansion(e);
       return;
     }
-    this.groupedData && (this.groupedData = _e(this.groupedData, e), this.expandedGroups = O(this.groupedData), x(k.PANEL_ID, this.expandedGroups), this.render());
+    this.groupedData && (this.groupedData = _e(this.groupedData, e), this.expandedGroups = G(this.groupedData), x(k.PANEL_ID, this.expandedGroups), this.render());
   }
   async toggleServerFamilyExpansion(e) {
     const t = this.serverFamilyRows.find((i) => i.family_id === e);
@@ -1227,7 +1227,7 @@ ${o.join(`
       x(k.PANEL_ID, this.expandedGroups), this.render();
       return;
     }
-    this.groupedData && (this.groupedData = qe(this.groupedData), this.expandedGroups = O(this.groupedData), x(k.PANEL_ID, this.expandedGroups), this.render());
+    this.groupedData && (this.groupedData = qe(this.groupedData), this.expandedGroups = G(this.groupedData), x(k.PANEL_ID, this.expandedGroups), this.render());
   }
   collapseAllFamilyGroups() {
     if (this.viewMode === "server_family") {
@@ -1236,10 +1236,10 @@ ${o.join(`
       x(k.PANEL_ID, this.expandedGroups), this.render();
       return;
     }
-    this.groupedData && (this.groupedData = xe(this.groupedData), this.expandedGroups = O(this.groupedData), x(k.PANEL_ID, this.expandedGroups), this.render());
+    this.groupedData && (this.groupedData = xe(this.groupedData), this.expandedGroups = G(this.groupedData), x(k.PANEL_ID, this.expandedGroups), this.render());
   }
   async runInlineAction(e, t) {
-    const i = this.rows.findIndex((l) => l.id === t);
+    const i = this.rows.findIndex((d) => d.id === t);
     if (i < 0) return;
     const s = this.rows[i], o = s.actions[e];
     if (!o.enabled) {
@@ -1250,28 +1250,28 @@ ${o.join(`
       }, this.render();
       return;
     }
-    const d = w(s), r = `${e}:${t}`;
+    const l = w(s), r = `${e}:${t}`;
     this.pendingActions.add(r), this.feedback = null, this.rows[i] = Rt(s, e), this.replaceCachedRow(this.rows[i]), this.render();
     try {
-      const l = e === "claim" ? await $t(this.config.endpoint, t, {
-        expected_version: d.version,
-        idempotency_key: le("claim", d)
+      const d = e === "claim" ? await $t(this.config.endpoint, t, {
+        expected_version: l.version,
+        idempotency_key: le("claim", l)
       }) : await xt(this.config.endpoint, t, {
-        expected_version: d.version,
-        idempotency_key: le("release", d)
+        expected_version: l.version,
+        idempotency_key: le("release", l)
       });
-      this.rows[i] = w(l.data.assignment), this.replaceCachedRow(this.rows[i]), this.feedback = {
+      this.rows[i] = w(d.data.assignment), this.replaceCachedRow(this.rows[i]), this.feedback = {
         kind: "success",
         message: e === "claim" ? "Assignment claimed." : "Assignment released back to the pool."
       };
-    } catch (l) {
-      this.rows[i] = d, this.replaceCachedRow(d), this.feedback = L(l, `Failed to ${e} assignment.`);
+    } catch (d) {
+      this.rows[i] = l, this.replaceCachedRow(l), this.feedback = C(d, `Failed to ${e} assignment.`);
     } finally {
       this.pendingActions.delete(r), this.render();
     }
   }
   async runReviewAction(e, t) {
-    const i = this.rows.findIndex((l) => l.id === t);
+    const i = this.rows.findIndex((d) => d.id === t);
     if (i < 0) return;
     const s = this.rows[i], o = s.review_actions[e];
     if (!o?.enabled) {
@@ -1282,13 +1282,13 @@ ${o.join(`
       }, this.render();
       return;
     }
-    const d = {
+    const l = {
       expected_version: s.version,
       idempotency_key: St(e, s)
     };
     if (e === "reject") {
-      const l = typeof window < "u" ? window.prompt("Reject reason") : "";
-      if (!l || !l.trim()) {
+      const d = typeof window < "u" ? window.prompt("Reject reason") : "";
+      if (!d || !d.trim()) {
         this.feedback = {
           kind: "error",
           message: "Reject reason is required.",
@@ -1296,18 +1296,18 @@ ${o.join(`
         }, this.render();
         return;
       }
-      d.reason = l.trim();
+      l.reason = d.trim();
     }
     const r = `${e}:${t}`;
     this.pendingActions.add(r), this.feedback = null, this.render();
     try {
-      const l = await te(this.config.endpoint, t, e, d);
-      this.rows[i] = w(l.data.assignment), this.replaceCachedRow(this.rows[i]), this.feedback = {
+      const d = await te(this.config.endpoint, t, e, l);
+      this.rows[i] = w(d.data.assignment), this.replaceCachedRow(this.rows[i]), this.feedback = {
         kind: "success",
         message: e === "approve" ? "Assignment approved." : e === "reject" ? "Changes requested." : "Assignment archived."
       };
-    } catch (l) {
-      this.feedback = L(l, `Failed to ${e} assignment.`);
+    } catch (d) {
+      this.feedback = C(d, `Failed to ${e} assignment.`);
     } finally {
       this.pendingActions.delete(r), this.render();
     }
@@ -1496,11 +1496,11 @@ ${o.join(`
     if (!(!e || !t))
       if (e.classList.contains("hidden")) {
         e.classList.remove("hidden"), t.setAttribute("aria-expanded", "true"), i && i.classList.add("rotate-180");
-        const s = (d) => {
-          const r = d.target, l = this.container?.querySelector("[data-review-selector-container]");
-          l && !l.contains(r) && (this.closeReviewSelectorDropdown(), document.removeEventListener("click", s));
-        }, o = (d) => {
-          d.key === "Escape" && (this.closeReviewSelectorDropdown(), document.removeEventListener("keydown", o), t.focus());
+        const s = (l) => {
+          const r = l.target, d = this.container?.querySelector("[data-review-selector-container]");
+          d && !d.contains(r) && (this.closeReviewSelectorDropdown(), document.removeEventListener("click", s));
+        }, o = (l) => {
+          l.key === "Escape" && (this.closeReviewSelectorDropdown(), document.removeEventListener("keydown", o), t.focus());
         };
         setTimeout(() => {
           document.addEventListener("click", s), document.addEventListener("keydown", o);
@@ -1648,7 +1648,7 @@ ${o.join(`
   }
   renderReviewSelector() {
     if (!this.savedReviewFilterPresets.length) return "";
-    const e = this.response?.meta.review_aggregate_counts || {}, i = !!this.response?.meta.review_actor_id, s = this.savedReviewFilterPresets.find((r) => r.id === this.activeReviewPresetId), o = s ? s.label : "Review State", d = s ? e[s.id] ?? 0 : 0;
+    const e = this.response?.meta.review_aggregate_counts || {}, i = !!this.response?.meta.review_actor_id, s = this.savedReviewFilterPresets.find((r) => r.id === this.activeReviewPresetId), o = s ? s.label : "Review State", l = s ? e[s.id] ?? 0 : 0;
     return `
       <div class="relative" data-review-selector-container="true">
         <h2 class="sr-only">Reviewer states</h2>
@@ -1663,7 +1663,7 @@ ${o.join(`
           title="${c(i ? "Filter by review state" : "Reviewer metadata is required to use review filters.")}"
         >
           <span>${u(o)}</span>
-          ${s ? `<span class="ml-1 px-1.5 py-0.5 text-xs rounded-full bg-blue-100 text-blue-700">${d}</span>` : ""}
+          ${s ? `<span class="ml-1 px-1.5 py-0.5 text-xs rounded-full bg-blue-100 text-blue-700">${l}</span>` : ""}
           <svg class="h-4 w-4 transition-transform" data-review-selector-chevron="true" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
           </svg>
@@ -1698,9 +1698,9 @@ ${o.join(`
     `;
   }
   renderContextBar() {
-    const e = this.response?.meta.total ?? 0, t = this.visibleRows.length, i = this.viewMode === "grouped", s = this.viewMode === "server_family", o = !i && !s, d = this.groupedData?.totalGroups ?? 0, r = this.response?.meta.grouping?.assignment_count ?? this.rows.length, l = this.response?.meta.grouping?.capabilities?.server_family?.supported === !0, p = this.response?.meta.grouping?.family_total ?? this.response?.meta.family_total ?? this.serverFamilyRows.length, m = this.response?.meta.grouping?.assignment_total ?? this.response?.meta.assignment_total ?? 0;
+    const e = this.response?.meta.total ?? 0, t = this.visibleRows.length, i = this.viewMode === "grouped", s = this.viewMode === "server_family", o = !i && !s, l = this.groupedData?.totalGroups ?? 0, r = this.response?.meta.grouping?.assignment_count ?? this.rows.length, d = this.response?.meta.grouping?.capabilities?.server_family?.supported === !0, p = this.response?.meta.grouping?.family_total ?? this.response?.meta.family_total ?? this.serverFamilyRows.length, h = this.response?.meta.grouping?.assignment_total ?? this.response?.meta.assignment_total ?? 0;
     let v = "", f = "";
-    return s ? (v = `${this.serverFamilyRows.length} of ${p} ${p === 1 ? "family" : "families"} · ${m} assignments`, f = "(server-side family pages)") : i && this.groupedData ? (v = `${d} ${d === 1 ? "family" : "families"} · ${r} assignments`, f = "(page-local counts)") : (v = `Showing ${t} of ${e} ${e === 1 ? "assignment" : "assignments"}`, f = ""), `
+    return s ? (v = `${this.serverFamilyRows.length} of ${p} ${p === 1 ? "family" : "families"} · ${h} assignments`, f = "(server-side family pages)") : i && this.groupedData ? (v = `${l} ${l === 1 ? "family" : "families"} · ${r} assignments`, f = "(page-local counts)") : (v = `Showing ${t} of ${e} ${e === 1 ? "assignment" : "assignments"}`, f = ""), `
       <div class="bg-white border-b border-gray-200 px-6 py-3">
         <div class="flex flex-wrap items-center justify-between gap-3">
           <div class="flex items-center gap-3 text-sm">
@@ -1741,14 +1741,14 @@ ${o.join(`
                 </svg>
                 <span class="ml-1">Grouped</span>
               </button>
-              ${l || s ? `
+              ${d || s ? `
                 <button
                   type="button"
-                  class="px-3 py-1.5 text-sm font-medium transition-colors border-l border-gray-200 ${s ? "bg-blue-50 text-blue-700" : "text-gray-700 hover:bg-gray-50"} ${l ? "" : "opacity-50 cursor-not-allowed"}"
+                  class="px-3 py-1.5 text-sm font-medium transition-colors border-l border-gray-200 ${s ? "bg-blue-50 text-blue-700" : "text-gray-700 hover:bg-gray-50"} ${d ? "" : "opacity-50 cursor-not-allowed"}"
                   data-view-mode="server_family"
                   aria-pressed="${s}"
-                  title="${c(l ? "Use server-side family pagination" : "Server-side family grouping is unavailable for this repository")}"
-                  ${l ? "" : 'disabled aria-disabled="true"'}
+                  title="${c(d ? "Use server-side family pagination" : "Server-side family grouping is unavailable for this repository")}"
+                  ${d ? "" : 'disabled aria-disabled="true"'}
                 >
                   <svg class="h-4 w-4 inline-block" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
                     <path d="M3 2h10v3H3zM2 7h5v3H2zM9 7h5v3H9zM2 12h5v3H2zM9 12h5v3H9z"/>
@@ -1783,13 +1783,13 @@ ${o.join(`
       "normal",
       "high",
       "urgent"
-    ], o = ["", ...F(e.map((f) => f.target_locale))], d = ["", ...F(e.map((f) => f.entity_type))], r = ["", ...F(e.map((f) => f.assignee_id))], l = ["", ...F(e.map((f) => f.reviewer_id))], p = this.response?.meta.supported_sort_keys?.length ? this.response.meta.supported_sort_keys : [
+    ], o = ["", ...F(e.map((f) => f.target_locale))], l = ["", ...F(e.map((f) => f.entity_type))], r = ["", ...F(e.map((f) => f.assignee_id))], d = ["", ...F(e.map((f) => f.reviewer_id))], p = this.response?.meta.supported_sort_keys?.length ? this.response.meta.supported_sort_keys : [
       "updated_at",
       "due_date",
       "priority",
       "status",
       "locale"
-    ], m = this.getActiveFilterCount(), v = this.filtersExpanded ? "rotate-180" : "";
+    ], h = this.getActiveFilterCount(), v = this.filtersExpanded ? "rotate-180" : "";
     return `
       <div class="bg-white border-b border-gray-200 px-6 py-3">
         <div class="flex flex-wrap items-center justify-between gap-3">
@@ -1805,7 +1805,7 @@ ${o.join(`
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"/>
               </svg>
               <span>Filters</span>
-              ${m > 0 ? `<span class="ml-1 px-1.5 py-0.5 text-xs rounded-full bg-blue-100 text-blue-700">${m}</span>` : ""}
+              ${h > 0 ? `<span class="ml-1 px-1.5 py-0.5 text-xs rounded-full bg-blue-100 text-blue-700">${h}</span>` : ""}
               <svg class="h-4 w-4 transition-transform ${v}" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
               </svg>
@@ -1824,15 +1824,15 @@ ${o.join(`
         >
           <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             ${this.renderSelect("status", "Status", t, this.queryState.status || "")}
-            ${this.renderSelect("due_state", "Due State", ["", ...i], this.queryState.dueState || "")}
+            ${this.renderQueueFilterControl("due_state", "Due State", ["", ...i], this.queryState.dueState || "")}
             ${this.renderSelect("priority", "Priority", s, this.queryState.priority || "")}
-            ${this.renderQueueFilterControl("entity_type", "Type", d, this.queryState.entityType || "")}
-            ${this.renderSelect("locale", "Locale", o, this.queryState.locale || "")}
+            ${this.renderQueueFilterControl("entity_type", "Type", l, this.queryState.entityType || "")}
+            ${this.renderQueueFilterControl("locale", "Target Locale", o, this.queryState.locale || "")}
             ${this.renderQueueFilterControl("assignee_id", "Assignee", r, this.queryState.assigneeId || "")}
-            ${this.renderQueueFilterControl("reviewer_id", "Reviewer", l, this.queryState.reviewerId || "")}
+            ${this.renderQueueFilterControl("reviewer_id", "Reviewer", d, this.queryState.reviewerId || "")}
             ${this.renderQueueFilterControl("family_id", "Family", ["", ...F(e.map((f) => f.family_id))], this.queryState.familyId || "")}
           </div>
-          ${m > 0 ? `
+          ${h > 0 ? `
             <div class="mt-4 flex items-center gap-2">
               <button type="button" class="${b}" data-clear-filters="true">
                 <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
@@ -1885,14 +1885,27 @@ ${o.join(`
     `;
   }
   renderSelect(e, t, i, s) {
-    const o = [...i];
-    return s && !o.includes(s) && o.push(s), `
+    const o = i.map((l) => ({
+      value: l,
+      label: l ? y(l) : `All ${t.toLowerCase()}`
+    }));
+    return this.renderSelectOptions(e, t, o, s);
+  }
+  renderSelectOptions(e, t, i, s, o) {
+    const l = i.map((r) => ({ ...r }));
+    return l.some((r) => r.value === "") || l.unshift({
+      value: "",
+      label: o || `All ${t.toLowerCase()}`
+    }), s && !l.some((r) => r.value === s) && l.push({
+      value: s,
+      label: y(s)
+    }), `
       <label class="queue-filter-field">
         <span>${u(t)}</span>
         <select data-filter-name="${c(e)}">
-          ${o.map((d) => `
-            <option value="${c(d)}" ${d === s ? "selected" : ""}>
-              ${u(d ? y(d) : `All ${t.toLowerCase()}`)}
+          ${l.map((r) => `
+            <option value="${c(r.value)}" ${r.value === s ? "selected" : ""}>
+              ${u(r.label || r.value || o || `All ${t.toLowerCase()}`)}
             </option>
           `).join("")}
         </select>
@@ -1901,19 +1914,48 @@ ${o.join(`
   }
   queueFilterControl(e) {
     const t = this.response?.meta;
-    return t?.enhanced_filter_selects && t.filter_controls.find((i) => i.name === e || i.key === e) || null;
+    if (!t) return null;
+    const i = this.queueFilterControlAliases(e);
+    return t.filter_controls.find((s) => i.includes(s.name) || i.includes(s.key)) || null;
+  }
+  canonicalQueueFilterName(e) {
+    switch (e) {
+      case "content_type":
+      case "type":
+        return "entity_type";
+      case "target_locale":
+        return "locale";
+      default:
+        return e;
+    }
+  }
+  queueFilterControlAliases(e) {
+    const t = this.canonicalQueueFilterName(e);
+    switch (t) {
+      case "entity_type":
+        return [
+          "entity_type",
+          "content_type",
+          "type"
+        ];
+      case "locale":
+        return ["locale", "target_locale"];
+      default:
+        return [t];
+    }
   }
   renderQueueFilterControl(e, t, i, s) {
     const o = this.queueFilterControl(e);
-    if (!o?.enhanced || !o.endpoint_url || o.type !== "typeahead" && o.type !== "remote_select") return this.renderSelect(e, t, i, s);
-    const d = o.label || t, r = o.placeholder || d;
+    if (o?.type === "select" && o.options.length > 0) return this.renderSelectOptions(o.name || e, o.label || t, o.options, s, o.placeholder || `All ${(o.label || t).toLowerCase()}`);
+    if (this.response?.meta.enhanced_filter_selects !== !0 || !o?.enhanced || !o.endpoint_url || o.type !== "typeahead" && o.type !== "remote_select") return this.renderSelect(e, t, i, s);
+    const l = o.label || t, r = this.canonicalQueueFilterName(o.name || o.key || e), d = o.placeholder || l;
     return `
       <label class="queue-filter-field">
-        <span>${u(d)}</span>
+        <span>${u(l)}</span>
         <div class="filter-panel__enhanced-control"
              data-filter-enhanced="true"
              data-filter-control-type="${c(o.type)}"
-             data-filter-name="${c(e)}"
+             data-filter-name="${c(r)}"
              data-filter-endpoint-url="${c(o.endpoint_url)}"
              data-filter-search-param="${c(o.endpoint_search_param || "search")}"
              data-filter-hydrate-param="${c(o.endpoint_hydrate_param || "selected")}"
@@ -1923,9 +1965,9 @@ ${o.join(`
              data-filter-fallback="${c(o.fallback || "raw")}">
           <input
             type="text"
-            name="${c(e)}"
+            name="${c(r)}"
             value="${c(s)}"
-            placeholder="${c(r)}"
+            placeholder="${c(d)}"
             autocomplete="off"
             role="combobox"
             aria-autocomplete="list"
@@ -2016,7 +2058,7 @@ ${o.join(`
     `;
   }
   renderServerFamilyRows(e, t) {
-    const i = e.expanded ? "▼" : "▶", s = this.renderServerFamilyBlocker(e), o = e.expanded ? e.loading ? `<tr class="family-group-child"><td></td><td colspan="${t - 1}">Loading family assignments…</td></tr>` : e.error ? `<tr class="family-group-child"><td></td><td colspan="${t - 1}">${u(e.error)}</td></tr>` : e.children.map((d) => this.renderGroupChildRow(d, e.family_id)).join("") : "";
+    const i = e.expanded ? "▼" : "▶", s = this.renderServerFamilyBlocker(e), o = e.expanded ? e.loading ? `<tr class="family-group-child"><td></td><td colspan="${t - 1}">Loading family assignments…</td></tr>` : e.error ? `<tr class="family-group-child"><td></td><td colspan="${t - 1}">${u(e.error)}</td></tr>` : e.children.map((l) => this.renderGroupChildRow(l, e.family_id)).join("") : "";
     return `
       <tr class="family-group-header server-family-header ${e.expanded ? "is-expanded" : "is-collapsed"}"
           data-group-id="${c(e.family_id)}"
@@ -2113,7 +2155,7 @@ ${o.join(`
     `;
   }
   renderFamilyGroupRows(e, t) {
-    const i = Se(e, { size: "sm" }), s = u(e.displayLabel || this.deriveFamilyGroupLabel(e)), o = e.records.length, d = e.expanded ? "▼" : "▶";
+    const i = Se(e, { size: "sm" }), s = u(e.displayLabel || this.deriveFamilyGroupLabel(e)), o = e.records.length, l = e.expanded ? "▼" : "▶";
     return `
       <tr class="family-group-header ${e.expanded ? "is-expanded" : "is-collapsed"}"
           data-group-id="${c(e.groupId)}"
@@ -2127,7 +2169,7 @@ ${o.join(`
         <td colspan="${t - 1}">
           <div class="family-group-header-content">
             <button type="button" class="family-group-toggle" data-toggle-group="${c(e.groupId)}" aria-label="${e.expanded ? "Collapse" : "Expand"} family group">
-              <span class="family-group-expand-icon" aria-hidden="true">${d}</span>
+              <span class="family-group-expand-icon" aria-hidden="true">${l}</span>
             </button>
             <div class="family-group-info">
               <strong class="family-group-label">${s}</strong>
@@ -2140,12 +2182,12 @@ ${o.join(`
         </td>
       </tr>
     ` + (e.expanded ? e.records.map((r) => {
-      const l = q(r);
-      return this.renderGroupChildRow(l, e.groupId);
+      const d = q(r);
+      return this.renderGroupChildRow(d, e.groupId);
     }).join("") : "");
   }
   renderGroupChildRow(e, t) {
-    const i = !!e.assignee_id, s = !!e.reviewer_id, o = !!e.due_date, d = o || e.due_state === "overdue" || e.due_state === "due_soon", r = this.isRowSelected(e.id);
+    const i = !!e.assignee_id, s = !!e.reviewer_id, o = !!e.due_date, l = o || e.due_state === "overdue" || e.due_state === "due_soon", r = this.isRowSelected(e.id);
     return `
       <tr class="assignment-queue-row family-group-child ${r ? "is-selected" : ""}"
           data-assignment-id="${c(e.id)}"
@@ -2178,7 +2220,7 @@ ${o.join(`
         </td>
         <td class="queue-status-col">
           <div class="queue-status-cell">
-            ${G(e.queue_state, {
+            ${O(e.queue_state, {
       domain: "queue",
       size: "sm"
     })}
@@ -2197,7 +2239,7 @@ ${o.join(`
         </td>
         <td class="queue-due-col">
           <div class="queue-due-cell">
-            ${d ? `<span class="due-pill due-${c(e.due_state)}">${u(y(e.due_state))}</span>` : ""}
+            ${l ? `<span class="due-pill due-${c(e.due_state)}">${u(y(e.due_state))}</span>` : ""}
             ${o ? `<span class="queue-due-date">${u(N(e.due_date, ""))}</span>` : ""}
           </div>
         </td>
@@ -2210,8 +2252,8 @@ ${o.join(`
         <td class="queue-action-col">
           <div class="queue-action-cell">
             ${(() => {
-      const l = V(e, this.pendingActions);
-      return Y(e, l, K(l, e));
+      const d = V(e, this.pendingActions);
+      return Y(e, d, K(d, e));
     })()}
           </div>
         </td>
@@ -2231,8 +2273,8 @@ ${o.join(`
         </button>
       </div>
     ` + (e.expanded ? e.records.map((o) => {
-      const d = q(o);
-      return `<div class="family-group-mobile-child">${this.renderMobileCard(d)}</div>`;
+      const l = q(o);
+      return `<div class="family-group-mobile-child">${this.renderMobileCard(l)}</div>`;
     }).join("") : "");
   }
   deriveFamilyGroupLabel(e) {
@@ -2274,7 +2316,7 @@ ${o.join(`
   }
   renderErrorState(e, t) {
     return `
-      <div class="${Oe} p-6" data-queue-state="${e}" role="alert">
+      <div class="${Ge} p-6" data-queue-state="${e}" role="alert">
         <h2 class="${Be}">${e === "conflict" ? "Version conflict" : "Queue unavailable"}</h2>
         <p class="${Ye} mt-2">${u(t)}</p>
         <div class="mt-4">
@@ -2284,17 +2326,17 @@ ${o.join(`
     `;
   }
   renderRow(e) {
-    const t = !!e.assignee_id, i = !!e.reviewer_id, s = !!e.due_date, o = s || e.due_state === "overdue" || e.due_state === "due_soon", d = [];
-    e.entity_type && d.push(e.entity_type), e.family_id && e.family_id !== e.source_path && d.push(e.family_id);
-    const r = d.join(" · "), l = this.isRowSelected(e.id);
+    const t = !!e.assignee_id, i = !!e.reviewer_id, s = !!e.due_date, o = s || e.due_state === "overdue" || e.due_state === "due_soon", l = [];
+    e.entity_type && l.push(e.entity_type), e.family_id && e.family_id !== e.source_path && l.push(e.family_id);
+    const r = l.join(" · "), d = this.isRowSelected(e.id);
     return `
-      <tr class="assignment-queue-row ${l ? "is-selected" : ""}" tabindex="0" data-assignment-id="${c(e.id)}" data-assignment-row="true" data-assignment-nav-group="table" aria-label="${c(X(e))}">
+      <tr class="assignment-queue-row ${d ? "is-selected" : ""}" tabindex="0" data-assignment-id="${c(e.id)}" data-assignment-row="true" data-assignment-nav-group="table" aria-label="${c(X(e))}">
         <td class="queue-select-col">
           <input
             type="checkbox"
             class="queue-row-select"
             data-select-row="${c(e.id)}"
-            ${l ? "checked" : ""}
+            ${d ? "checked" : ""}
             aria-label="Select assignment ${c(e.source_title || e.id)}"
           />
         </td>
@@ -2314,7 +2356,7 @@ ${o.join(`
         </td>
         <td class="queue-status-col">
           <div class="queue-status-cell">
-            ${G(e.queue_state, {
+            ${O(e.queue_state, {
       domain: "queue",
       size: "sm"
     })}
@@ -2356,10 +2398,10 @@ ${o.join(`
     `;
   }
   renderMobileCard(e) {
-    const t = !!e.assignee_id, i = !!e.reviewer_id, s = !!e.due_date, o = s || e.due_state === "overdue" || e.due_state === "due_soon", d = this.isRowSelected(e.id);
+    const t = !!e.assignee_id, i = !!e.reviewer_id, s = !!e.due_date, o = s || e.due_state === "overdue" || e.due_state === "due_soon", l = this.isRowSelected(e.id);
     return `
       <article
-        class="${De} ${d ? "is-selected" : ""}"
+        class="${De} ${l ? "is-selected" : ""}"
         data-assignment-id="${c(e.id)}"
         data-assignment-card="true"
         data-assignment-nav-group="mobile"
@@ -2373,7 +2415,7 @@ ${o.join(`
               type="checkbox"
               class="queue-row-select"
               data-select-row="${c(e.id)}"
-              ${d ? "checked" : ""}
+              ${l ? "checked" : ""}
               aria-label="Select assignment ${c(e.source_title || e.id)}"
             />
           </div>
@@ -2381,7 +2423,7 @@ ${o.join(`
             <h3 class="${Ne}" title="${c(e.source_title || e.source_path || e.id)}">${u(e.source_title || e.source_path || e.id)}</h3>
             <p class="${He}" title="${c(e.source_path && e.source_title ? e.source_path : e.entity_type || e.family_id)}">${u(e.source_path && e.source_title ? e.source_path : e.entity_type || e.family_id)}</p>
           </div>
-          ${G(e.queue_state, {
+          ${O(e.queue_state, {
       domain: "queue",
       size: "sm"
     })}
@@ -2424,7 +2466,7 @@ ${o.join(`
             </span>
           </div>
         </div>
-        <div class="${Ge}">
+        <div class="${Oe}">
           ${(() => {
       const r = V(e, this.pendingActions);
       return Y(e, r, K(r, e));
@@ -2437,33 +2479,33 @@ ${o.join(`
     if (!this.container) return;
     this.container.querySelectorAll("[data-preset-id]").forEach((r) => {
       r.addEventListener("click", () => {
-        const l = r.dataset.presetId;
-        l && this.setActivePreset(l);
+        const d = r.dataset.presetId;
+        d && this.setActivePreset(d);
       });
     }), this.container.querySelectorAll("[data-review-preset-id]").forEach((r) => {
       r.addEventListener("click", () => {
-        const l = r.dataset.reviewPresetId;
-        if (l) {
-          this.setActiveReviewPreset(l);
+        const d = r.dataset.reviewPresetId;
+        if (d) {
+          this.setActiveReviewPreset(d);
           const p = this.container?.querySelector("[data-review-selector-menu]");
           p && !p.classList.contains("hidden") && this.closeReviewSelectorDropdown();
         }
       });
     }), this.container.querySelectorAll("[data-review-selector-toggle]").forEach((r) => {
-      r.addEventListener("click", (l) => {
-        l.stopPropagation(), this.toggleReviewSelectorDropdown();
+      r.addEventListener("click", (d) => {
+        d.stopPropagation(), this.toggleReviewSelectorDropdown();
       });
     }), this.container.querySelectorAll("select[data-filter-name]").forEach((r) => {
       r.addEventListener("change", () => {
-        const l = r.dataset.filterName;
-        l && this.updateNamedFilter(l, r.value);
+        const d = r.dataset.filterName;
+        d && this.updateNamedFilter(d, r.value);
       });
     }), this.container.querySelectorAll('[data-filter-enhanced="true"]').forEach((r) => {
-      r.addEventListener("queue-filter-change", (l) => {
-        const p = l.detail || {};
+      r.addEventListener("queue-filter-change", (d) => {
+        const p = d.detail || {};
         p.name && this.updateNamedFilter(p.name, n(p.value));
       });
-    }), me(this.container), this.container.querySelectorAll("[data-translation-refresh], [data-queue-refresh]").forEach((r) => {
+    }), he(this.container), this.container.querySelectorAll("[data-translation-refresh], [data-queue-refresh]").forEach((r) => {
       r.addEventListener("click", () => {
         this.load();
       });
@@ -2477,34 +2519,34 @@ ${o.join(`
       });
     }), this.container.querySelectorAll("[data-remove-filter]").forEach((r) => {
       r.addEventListener("click", () => {
-        const l = r.dataset.removeFilter;
-        l && this.removeFilter(l);
+        const d = r.dataset.removeFilter;
+        d && this.removeFilter(d);
       });
     }), this.container.querySelectorAll("[data-toggle-sort-order]").forEach((r) => {
       r.addEventListener("click", () => {
-        const l = this.queryState.order || "desc";
-        this.updateFilter({ order: l === "asc" ? "desc" : "asc" });
+        const d = this.queryState.order || "desc";
+        this.updateFilter({ order: d === "asc" ? "desc" : "asc" });
       });
     }), this.container.querySelectorAll("[data-action]").forEach((r) => {
       r.addEventListener("click", () => {
-        const l = r.dataset.action, p = r.dataset.assignmentId;
-        if ((l === "claim" || l === "release") && p) {
-          this.runInlineAction(l, p);
+        const d = r.dataset.action, p = r.dataset.assignmentId;
+        if ((d === "claim" || d === "release") && p) {
+          this.runInlineAction(d, p);
           return;
         }
-        (l === "approve" || l === "reject" || l === "archive") && p && this.runReviewAction(l, p);
+        (d === "approve" || d === "reject" || d === "archive") && p && this.runReviewAction(d, p);
       });
     });
     const e = this.container.querySelector("[data-translation-select-all], [data-select-all]");
     e && e.addEventListener("change", () => {
       e.checked ? this.selectAllPage() : this.clearSelection();
     }), this.container.querySelectorAll("[data-translation-select-row], [data-select-row]").forEach((r) => {
-      r.addEventListener("change", (l) => {
-        l.stopPropagation();
+      r.addEventListener("change", (d) => {
+        d.stopPropagation();
         const p = r.dataset.translationSelectRow || r.dataset.selectRow;
         p && this.toggleRowSelection(p);
-      }), r.addEventListener("click", (l) => {
-        l.stopPropagation();
+      }), r.addEventListener("click", (d) => {
+        d.stopPropagation();
       });
     });
     const t = this.container.querySelector("[data-bulk-clear]");
@@ -2520,59 +2562,59 @@ ${o.join(`
       this.clearSelection();
     }), this.container.querySelectorAll("[data-filter-snapshot-action]").forEach((r) => {
       r.addEventListener("click", () => {
-        const l = r.dataset.filterSnapshotAction;
-        (l === "assign" || l === "release" || l === "priority" || l === "archive") && this.runFilterSnapshotBulkAction(l);
+        const d = r.dataset.filterSnapshotAction;
+        (d === "assign" || d === "release" || d === "priority" || d === "archive") && this.runFilterSnapshotBulkAction(d);
       });
     }), this.container.querySelectorAll("[data-bulk-action]").forEach((r) => {
       r.addEventListener("click", () => {
-        const l = r.dataset.bulkAction;
-        (l === "release" || l === "archive") && this.runBulkAction(l);
+        const d = r.dataset.bulkAction;
+        (d === "release" || d === "archive") && this.runBulkAction(d);
       });
     }), this.container.querySelectorAll("[data-view-mode]").forEach((r) => {
       r.addEventListener("click", () => {
-        const l = r.dataset.viewMode;
-        (l === "flat" || l === "grouped" || l === "server_family") && this.setViewMode(l);
+        const d = r.dataset.viewMode;
+        (d === "flat" || d === "grouped" || d === "server_family") && this.setViewMode(d);
       });
     }), this.container.querySelectorAll("[data-toggle-group]").forEach((r) => {
-      r.addEventListener("click", (l) => {
-        l.stopPropagation();
+      r.addEventListener("click", (d) => {
+        d.stopPropagation();
         const p = r.dataset.toggleGroup;
         p && this.toggleGroupExpansion(p);
       });
     }), this.container.querySelectorAll("[data-overflow-menu]").forEach((r) => {
-      r.addEventListener("click", (l) => {
-        l.stopPropagation();
+      r.addEventListener("click", (d) => {
+        d.stopPropagation();
         const p = r.dataset.overflowMenu;
         if (!p) return;
-        let m = r.closest(".queue-action-overflow-container")?.querySelector(`#menu-${p}`);
-        if (m || (m = this.container?.querySelector(`#menu-${p}`) || null), !m) return;
-        const v = m.hidden === !1;
+        let h = r.closest(".queue-action-overflow-container")?.querySelector(`#menu-${p}`);
+        if (h || (h = this.container?.querySelector(`#menu-${p}`) || null), !h) return;
+        const v = h.hidden === !1;
         this.container?.querySelectorAll(".queue-action-overflow-menu").forEach((f) => {
           f.hidden = !0;
         }), this.container?.querySelectorAll("[data-overflow-menu]").forEach((f) => {
           f.setAttribute("aria-expanded", "false");
-        }), v ? (m.hidden = !0, r.setAttribute("aria-expanded", "false")) : (m.hidden = !1, r.setAttribute("aria-expanded", "true"), m.querySelector('[role="menuitem"]:not([disabled])')?.focus());
+        }), v ? (h.hidden = !0, r.setAttribute("aria-expanded", "false")) : (h.hidden = !1, r.setAttribute("aria-expanded", "true"), h.querySelector('[role="menuitem"]:not([disabled])')?.focus());
       });
     }), this.container && typeof this.container.addEventListener == "function" && this.container.addEventListener("click", (r) => {
-      r.target.closest(".queue-action-overflow-container") || (this.container?.querySelectorAll(".queue-action-overflow-menu").forEach((l) => {
-        l.hidden = !0;
-      }), this.container?.querySelectorAll("[data-overflow-menu]").forEach((l) => {
-        l.setAttribute("aria-expanded", "false");
+      r.target.closest(".queue-action-overflow-container") || (this.container?.querySelectorAll(".queue-action-overflow-menu").forEach((d) => {
+        d.hidden = !0;
+      }), this.container?.querySelectorAll("[data-overflow-menu]").forEach((d) => {
+        d.setAttribute("aria-expanded", "false");
       }));
     }), this.container.querySelectorAll(".queue-action-overflow-menu").forEach((r) => {
-      r.addEventListener("keydown", (l) => {
-        const p = Array.from(r.querySelectorAll('[role="menuitem"]:not([disabled])')), m = p.findIndex((v) => v === document.activeElement);
-        switch (l.key) {
+      r.addEventListener("keydown", (d) => {
+        const p = Array.from(r.querySelectorAll('[role="menuitem"]:not([disabled])')), h = p.findIndex((v) => v === document.activeElement);
+        switch (d.key) {
           case "Escape":
-            l.preventDefault(), r.hidden = !0;
+            d.preventDefault(), r.hidden = !0;
             const v = r.closest(".queue-action-overflow-container")?.querySelector("[data-overflow-menu]");
             v && (v.setAttribute("aria-expanded", "false"), v.focus());
             break;
           case "ArrowDown":
-            l.preventDefault(), m < p.length - 1 ? p[m + 1]?.focus() : p[0]?.focus();
+            d.preventDefault(), h < p.length - 1 ? p[h + 1]?.focus() : p[0]?.focus();
             break;
           case "ArrowUp":
-            l.preventDefault(), m > 0 ? p[m - 1]?.focus() : p[p.length - 1]?.focus();
+            d.preventDefault(), h > 0 ? p[h - 1]?.focus() : p[p.length - 1]?.focus();
             break;
           case "Tab":
             r.hidden = !0;
@@ -2586,17 +2628,17 @@ ${o.join(`
     o && o.addEventListener("click", () => {
       this.expandAllFamilyGroups();
     });
-    const d = this.container.querySelector("[data-collapse-all]");
-    d && d.addEventListener("click", () => {
+    const l = this.container.querySelector("[data-collapse-all]");
+    l && l.addEventListener("click", () => {
       this.collapseAllFamilyGroups();
     }), this.container.querySelectorAll("[data-group-id]").forEach((r) => {
-      (r.tagName.toLowerCase() === "tr" || r.classList.contains("family-group-mobile-header")) && (r.addEventListener("click", (l) => {
-        if (l.target?.closest("button, a, input, select, textarea")) return;
+      (r.tagName.toLowerCase() === "tr" || r.classList.contains("family-group-mobile-header")) && (r.addEventListener("click", (d) => {
+        if (d.target?.closest("button, a, input, select, textarea")) return;
         const p = r.dataset.groupId;
         p && this.toggleGroupExpansion(p);
-      }), r.addEventListener("keydown", (l) => {
-        if (!de(l, r) && (l.key === "Enter" || l.key === " ")) {
-          l.preventDefault();
+      }), r.addEventListener("keydown", (d) => {
+        if (!de(d, r) && (d.key === "Enter" || d.key === " ")) {
+          d.preventDefault();
           const p = r.dataset.groupId;
           p && this.toggleGroupExpansion(p);
         }
@@ -2616,11 +2658,11 @@ ${o.join(`
           return;
         }
         if (o !== "ArrowDown" && o !== "ArrowUp") return;
-        const d = t.dataset.translationNavGroup || t.dataset.assignmentNavGroup;
-        if (!d) return;
+        const l = t.dataset.translationNavGroup || t.dataset.assignmentNavGroup;
+        if (!l) return;
         s.preventDefault();
-        const r = Array.from(this.container?.querySelectorAll(`[data-translation-nav-group="${d}"], [data-assignment-nav-group="${d}"]`) || []), l = r.indexOf(t);
-        l < 0 || r[o === "ArrowDown" ? Math.min(l + 1, r.length - 1) : Math.max(l - 1, 0)]?.focus();
+        const r = Array.from(this.container?.querySelectorAll(`[data-translation-nav-group="${l}"], [data-assignment-nav-group="${l}"]`) || []), d = r.indexOf(t);
+        d < 0 || r[o === "ArrowDown" ? Math.min(d + 1, r.length - 1) : Math.max(d - 1, 0)]?.focus();
       });
     });
   }
@@ -3681,20 +3723,20 @@ function Ft() {
     }
   `;
 }
-function Lt() {
+function Ct() {
   if (typeof document > "u") return;
   const a = "assignment-queue-styles";
   if (document.getElementById(a)) return;
   const e = document.createElement("style");
   e.id = a, e.textContent = Ft(), document.head.appendChild(e);
 }
-function Ct(a, e) {
-  Lt();
+function Lt(a, e) {
+  Ct();
   const t = new ve(e);
   return t.mount(a), t;
 }
 function Pt(a, e) {
-  !a || a.dataset.assignmentQueueEnhanced === "true" || (a.dataset.assignmentQueueEnhanced = "true", Je(a, { endpoint: a.dataset.actionEndpoint || e }), me(a));
+  !a || a.dataset.assignmentQueueEnhanced === "true" || (a.dataset.assignmentQueueEnhanced = "true", Je(a, { endpoint: a.dataset.actionEndpoint || e }), he(a));
 }
 function Tt() {
   if (typeof window > "u" || !window.location) return !1;
@@ -3707,7 +3749,7 @@ function Xt(a) {
   if (a.dataset.ssrEnhanced === "true" && !Tt())
     return Pt(a, e), null;
   const t = typeof window < "u" ? pe(window.location) : null;
-  return Ct(a, {
+  return Lt(a, {
     endpoint: e,
     bulkActionEndpoint: a.dataset.bulkActionEndpoint || a.dataset.bulkActionsEndpoint || "",
     bulkSnapshotEndpoint: a.dataset.bulkSnapshotEndpoint || "",
@@ -3739,10 +3781,10 @@ export {
   gt as buildAssignmentListQuery,
   yt as buildAssignmentListURL,
   $t as claimAssignment,
-  Ct as createAssignmentQueueScreen,
+  Lt as createAssignmentQueueScreen,
   qt as fetchAssignmentList,
   Ft as getAssignmentQueueStyles,
-  me as initAssignmentQueueFilterTypeaheads,
+  he as initAssignmentQueueFilterTypeaheads,
   Xt as initAssignmentQueueScreen,
   Je as initAssignmentSSRRowActions,
   kt as normalizeAssignmentActionResponse,

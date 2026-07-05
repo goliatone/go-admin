@@ -260,6 +260,38 @@ function makeServerFamilyQueueResponse() {
 function makeEnhancedFilterControls() {
   return [
     {
+      key: 'due_state',
+      name: 'due_state',
+      label: 'Due State',
+      type: 'select',
+      value: '',
+      current_value: '',
+      enhanced: false,
+      options: [
+        { value: 'none', label: 'None' },
+        { value: 'on_track', label: 'On Track' },
+        { value: 'due_soon', label: 'Due Soon' },
+        { value: 'overdue', label: 'Overdue' },
+      ],
+    },
+    {
+      key: 'locale',
+      name: 'locale',
+      label: 'Target Locale',
+      type: 'remote_select',
+      value: '',
+      current_value: '',
+      enhanced: true,
+      endpoint_url: '/admin/api/translations/options/locales',
+      endpoint_search_param: 'search',
+      endpoint_hydrate_param: 'selected',
+      endpoint_value_field: 'value',
+      endpoint_label_field: 'label',
+      renderer: 'simple',
+      fallback: 'raw',
+      options: [],
+    },
+    {
       key: 'entity_type',
       name: 'entity_type',
       label: 'Type',
@@ -578,10 +610,109 @@ test('translation queue runtime: client filters render endpoint metadata and fam
   const enhancedNames = Array.from(root.querySelectorAll('[data-filter-enhanced="true"]'))
     .map((control) => control.dataset.filterName)
     .sort();
-  assert.deepEqual(enhancedNames, ['assignee_id', 'entity_type', 'family_id', 'reviewer_id']);
+  assert.deepEqual(enhancedNames, ['assignee_id', 'entity_type', 'family_id', 'locale', 'reviewer_id']);
   assert.equal(root.querySelector('[data-filter-name="entity_type"]').dataset.filterEndpointUrl, '/admin/api/translations/options/entity-types');
+  assert.equal(root.querySelector('[data-filter-name="locale"]').dataset.filterEndpointUrl, '/admin/api/translations/options/locales');
   assert.equal(root.querySelector('[data-filter-name="family_id"]').dataset.filterEndpointUrl, '/admin/api/translations/options/families');
   assert.equal(root.querySelector('select[data-filter-name="family_id"]'), null);
+  const dueStateOptions = Array.from(root.querySelectorAll('select[data-filter-name="due_state"] option'))
+    .map((option) => `${option.value}:${option.textContent.trim()}`);
+  assert.deepEqual(dueStateOptions, [
+    ':All due state',
+    'none:None',
+    'on_track:On Track',
+    'due_soon:Due Soon',
+    'overdue:Overdue',
+  ]);
+});
+
+test('translation queue runtime: static filter metadata renders when endpoint enhancement is disabled', async () => {
+  const { root } = setupDom();
+  const controls = makeEnhancedFilterControls().map((control) => (
+    control.key === 'due_state'
+      ? {
+          ...control,
+          options: [
+            { value: 'none', label: 'No deadline' },
+            { value: 'on_track', label: 'On schedule' },
+            { value: 'due_soon', label: 'Due shortly' },
+            { value: 'overdue', label: 'Past due' },
+          ],
+        }
+      : control
+  ));
+  globalThis.fetch = mock.fn(async () => createJsonResponse({
+    meta: {
+      ...fixtures.states.open_pool.meta,
+      ...fixtures.meta,
+      enhanced_filter_selects: false,
+      filter_controls: controls,
+    },
+    data: fixtures.states.open_pool.data,
+  }));
+
+  const screen = new AssignmentQueueScreen({
+    endpoint: '/admin/api/translations/assignments',
+    editorBasePath: '/admin/translations/assignments',
+  });
+  screen.mount(root);
+  await flushAsync();
+
+  assert.equal(root.querySelector('[data-filter-enhanced="true"]'), null);
+  const dueStateOptions = Array.from(root.querySelectorAll('select[data-filter-name="due_state"] option'))
+    .map((option) => `${option.value}:${option.textContent.trim()}`);
+  assert.deepEqual(dueStateOptions, [
+    ':All due state',
+    'none:No deadline',
+    'on_track:On schedule',
+    'due_soon:Due shortly',
+    'overdue:Past due',
+  ]);
+});
+
+test('translation queue runtime: endpoint filter metadata aliases submit canonical names', async () => {
+  const { root } = setupDom();
+  const seenURLs = [];
+  const controls = makeEnhancedFilterControls().map((control) => (
+    control.key === 'locale'
+      ? { ...control, key: 'target_locale', name: 'target_locale' }
+      : control
+  ));
+  globalThis.fetch = mock.fn(async (input) => {
+    seenURLs.push(String(input));
+    return createJsonResponse({
+      meta: {
+        ...fixtures.states.open_pool.meta,
+        ...fixtures.meta,
+        enhanced_filter_selects: true,
+        filter_controls: controls,
+      },
+      data: fixtures.states.open_pool.data,
+    });
+  });
+
+  const screen = new AssignmentQueueScreen({
+    endpoint: '/admin/api/translations/assignments',
+    editorBasePath: '/admin/translations/assignments',
+  });
+  screen.mount(root);
+  await flushAsync();
+
+  const localeControl = root.querySelector('[data-filter-enhanced="true"][data-filter-name="locale"]');
+  assert.ok(localeControl, 'expected target_locale metadata to render as canonical locale control');
+  assert.equal(localeControl.dataset.filterEndpointUrl, '/admin/api/translations/options/locales');
+  assert.equal(root.querySelector('[data-filter-enhanced="true"][data-filter-name="target_locale"]'), null);
+
+  localeControl.dispatchEvent(new CustomEvent('queue-filter-change', {
+    bubbles: true,
+    detail: { name: localeControl.dataset.filterName, value: 'fr' },
+  }));
+  await flushAsync();
+
+  assert.ok(
+    seenURLs.some((url) => /translations\/assignments/.test(url) && /[?&]locale=fr(?:&|$)/.test(url)),
+    `expected assignment reload with canonical locale filter, saw: ${seenURLs.join(', ')}`
+  );
 });
 
 test('translation queue runtime: enhanced client filter changes use normal query updates', async () => {
@@ -829,7 +960,8 @@ test('translation queue runtime: all-matching filter snapshots confirm and submi
 
   await screen.runFilterSnapshotBulkAction('release');
   assert.equal(globalThis.window.confirm.mock.calls.length, 1);
-  assert.equal(calls.length, 4);
+  const actionCalls = calls.filter((call) => /\/assignment-actions\/(snapshot|bulk)$/.test(call.input));
+  assert.equal(actionCalls.length, 2);
   assert.equal(screen.getFeedback()?.kind, 'success');
   assert.match(screen.getFeedback()?.message || '', /3 assignments updated/);
 });

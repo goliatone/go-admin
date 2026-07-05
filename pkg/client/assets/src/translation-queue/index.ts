@@ -3046,10 +3046,10 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
         >
           <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             ${this.renderSelect('status', 'Status', statuses, this.queryState.status || '')}
-            ${this.renderSelect('due_state', 'Due State', ['', ...dueStates], this.queryState.dueState || '')}
+            ${this.renderQueueFilterControl('due_state', 'Due State', ['', ...dueStates], this.queryState.dueState || '')}
             ${this.renderSelect('priority', 'Priority', priorities, this.queryState.priority || '')}
             ${this.renderQueueFilterControl('entity_type', 'Type', entityTypes, this.queryState.entityType || '')}
-            ${this.renderSelect('locale', 'Locale', locales, this.queryState.locale || '')}
+            ${this.renderQueueFilterControl('locale', 'Target Locale', locales, this.queryState.locale || '')}
             ${this.renderQueueFilterControl('assignee_id', 'Assignee', assignees, this.queryState.assigneeId || '')}
             ${this.renderQueueFilterControl('reviewer_id', 'Reviewer', reviewers, this.queryState.reviewerId || '')}
             ${this.renderQueueFilterControl('family_id', 'Family', ['', ...uniqueFilterOptions(rows.map((row) => row.family_id))], this.queryState.familyId || '')}
@@ -3113,17 +3113,34 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
   }
 
   private renderSelect(name: string, label: string, values: string[], activeValue: string): string {
-    const options = [...values];
-    if (activeValue && !options.includes(activeValue)) {
-      options.push(activeValue);
+    const options = values.map((value) => ({
+      value,
+      label: value ? humanizeToken(value) : `All ${label.toLowerCase()}`,
+    }));
+    return this.renderSelectOptions(name, label, options, activeValue);
+  }
+
+  private renderSelectOptions(
+    name: string,
+    label: string,
+    values: AssignmentQueueFilterControlOption[],
+    activeValue: string,
+    placeholder?: string,
+  ): string {
+    const options = values.map((option) => ({ ...option }));
+    if (!options.some((option) => option.value === '')) {
+      options.unshift({ value: '', label: placeholder || `All ${label.toLowerCase()}` });
+    }
+    if (activeValue && !options.some((option) => option.value === activeValue)) {
+      options.push({ value: activeValue, label: humanizeToken(activeValue) });
     }
     return `
       <label class="queue-filter-field">
         <span>${escapeHtml(label)}</span>
         <select data-filter-name="${escapeAttr(name)}">
-          ${options.map((value) => `
-            <option value="${escapeAttr(value)}" ${value === activeValue ? 'selected' : ''}>
-              ${escapeHtml(value ? humanizeToken(value) : `All ${label.toLowerCase()}`)}
+          ${options.map((option) => `
+            <option value="${escapeAttr(option.value)}" ${option.value === activeValue ? 'selected' : ''}>
+              ${escapeHtml(option.label || option.value || placeholder || `All ${label.toLowerCase()}`)}
             </option>
           `).join('')}
         </select>
@@ -3133,18 +3150,54 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
 
   private queueFilterControl(name: string): AssignmentQueueFilterControlMetadata | null {
     const meta = this.response?.meta;
-    if (!meta?.enhanced_filter_selects) {
+    if (!meta) {
       return null;
     }
-    return meta.filter_controls.find((control) => control.name === name || control.key === name) || null;
+    const aliases = this.queueFilterControlAliases(name);
+    return meta.filter_controls.find((control) => aliases.includes(control.name) || aliases.includes(control.key)) || null;
+  }
+
+  private canonicalQueueFilterName(name: string): string {
+    switch (name) {
+      case 'content_type':
+      case 'type':
+        return 'entity_type';
+      case 'target_locale':
+        return 'locale';
+      default:
+        return name;
+    }
+  }
+
+  private queueFilterControlAliases(name: string): string[] {
+    const canonical = this.canonicalQueueFilterName(name);
+    switch (canonical) {
+      case 'entity_type':
+        return ['entity_type', 'content_type', 'type'];
+      case 'locale':
+        return ['locale', 'target_locale'];
+      default:
+        return [canonical];
+    }
   }
 
   private renderQueueFilterControl(name: string, label: string, values: string[], activeValue: string): string {
     const control = this.queueFilterControl(name);
-    if (!control?.enhanced || !control.endpoint_url || (control.type !== 'typeahead' && control.type !== 'remote_select')) {
+    if (control?.type === 'select' && control.options.length > 0) {
+      return this.renderSelectOptions(
+        control.name || name,
+        control.label || label,
+        control.options,
+        activeValue,
+        control.placeholder || `All ${(control.label || label).toLowerCase()}`,
+      );
+    }
+    const enhancedFilterSelects = this.response?.meta.enhanced_filter_selects === true;
+    if (!enhancedFilterSelects || !control?.enhanced || !control.endpoint_url || (control.type !== 'typeahead' && control.type !== 'remote_select')) {
       return this.renderSelect(name, label, values, activeValue);
     }
     const controlLabel = control.label || label;
+    const controlName = this.canonicalQueueFilterName(control.name || control.key || name);
     const placeholder = control.placeholder || controlLabel;
     return `
       <label class="queue-filter-field">
@@ -3152,7 +3205,7 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
         <div class="filter-panel__enhanced-control"
              data-filter-enhanced="true"
              data-filter-control-type="${escapeAttr(control.type)}"
-             data-filter-name="${escapeAttr(name)}"
+             data-filter-name="${escapeAttr(controlName)}"
              data-filter-endpoint-url="${escapeAttr(control.endpoint_url)}"
              data-filter-search-param="${escapeAttr(control.endpoint_search_param || 'search')}"
              data-filter-hydrate-param="${escapeAttr(control.endpoint_hydrate_param || 'selected')}"
@@ -3162,7 +3215,7 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
              data-filter-fallback="${escapeAttr(control.fallback || 'raw')}">
           <input
             type="text"
-            name="${escapeAttr(name)}"
+            name="${escapeAttr(controlName)}"
             value="${escapeAttr(activeValue)}"
             placeholder="${escapeAttr(placeholder)}"
             autocomplete="off"
