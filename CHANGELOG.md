@@ -1,10 +1,23 @@
 # Changelog
 
+# [0.113.6](https://github.com/goliatone/go-admin/compare/v0.113.5...v0.113.6) - (2026-07-05)
+
+## <!-- 16 -->➕ Add
+
+- Select for translation queue ui ([4fdf192](https://github.com/goliatone/go-admin/commit/4fdf192db1e630bdea81f89a1384caca7f0d66cf))  - (goliatone)
+
 # [0.113.5](https://github.com/goliatone/go-admin/compare/v0.113.4...v0.113.5) - (2026-07-05)
+
+
+New patch release: v0.113.5
 
 ## <!-- 1 -->🐛 Bug Fixes
 
 - Translation queue bindings ([fe090e7](https://github.com/goliatone/go-admin/commit/fe090e7fd2b4789a6483168f5674c3bc5a22b150))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.113.5 ([1776c2c](https://github.com/goliatone/go-admin/commit/1776c2ca07e8e55da72af66a1a49bf5633c1af55))  - (goliatone)
 
 ## <!-- 16 -->➕ Add
 
