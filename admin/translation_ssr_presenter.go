@@ -992,6 +992,9 @@ func translationSSRApplyEnhancedQueueFilterControl(input TranslationSSRPresenter
 		placeholder = "Search assignees"
 	case "reviewer_id":
 		endpointPath = "/translations/options/assignees"
+		if input.QueueUI.ReviewerOptionEndpoint {
+			endpointPath = "/translations/options/reviewers"
+		}
 		renderer = "user"
 		placeholder = "Search reviewers"
 	case "family_id":

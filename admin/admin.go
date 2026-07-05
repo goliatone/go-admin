@@ -97,6 +97,7 @@ type Admin struct {
 	traitWorkflowDefaults           map[string]string
 	translationPolicy               TranslationPolicy
 	translationFamilyStore          translationservices.FamilyStore
+	translationActorOptionProvider  TranslationActorOptionProvider
 	translationSuggestionService    TranslationSuggestionService
 	translationSuggestionDeps       TranslationSuggestionServiceDependencies
 	cmsWorkflowDefaults             bool
@@ -281,6 +282,23 @@ func (a *Admin) WithTranslationFamilyStore(store translationservices.FamilyStore
 	}
 	a.translationFamilyStore = store
 	return a
+}
+
+// WithTranslationActorOptionProvider wires host-owned assignee/reviewer option lookup.
+func (a *Admin) WithTranslationActorOptionProvider(provider TranslationActorOptionProvider) *Admin {
+	if a == nil {
+		return a
+	}
+	a.translationActorOptionProvider = provider
+	return a
+}
+
+// TranslationActorOptionProvider exposes the configured actor option provider.
+func (a *Admin) TranslationActorOptionProvider() TranslationActorOptionProvider {
+	if a == nil {
+		return nil
+	}
+	return a.translationActorOptionProvider
 }
 
 // WithTranslationSuggestionService wires optional translation suggestion generation.

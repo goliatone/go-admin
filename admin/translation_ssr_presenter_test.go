@@ -1045,6 +1045,36 @@ func TestTranslationSSRQueueResultIncludesEnhancedFilterMetadata(t *testing.T) {
 	}
 }
 
+func TestTranslationSSRQueueReviewerFilterUsesReviewerEndpointWhenAvailable(t *testing.T) {
+	result := translationSSRQueueResult(TranslationSSRPresenterInput{
+		APIBasePath: "/admin/api",
+		QueueUI: TranslationQueueUIOptions{
+			EnhancedFilterSelects:  true,
+			ReviewerOptionEndpoint: true,
+		},
+	}, map[string]any{
+		"rows": []map[string]any{},
+		"meta": map[string]any{
+			"supported_filter_keys": []string{"assignee_id", "reviewer_id"},
+		},
+	})
+
+	controls, ok := result.Meta["filter_controls"].([]map[string]any)
+	if !ok || len(controls) == 0 {
+		t.Fatalf("expected filter controls, got %+v", result.Meta["filter_controls"])
+	}
+	byKey := map[string]map[string]any{}
+	for _, control := range controls {
+		byKey[toString(control["key"])] = control
+	}
+	if got := toString(byKey["assignee_id"]["endpoint_url"]); got != "/admin/api/translations/options/assignees" {
+		t.Fatalf("expected assignee endpoint, got %q", got)
+	}
+	if got := toString(byKey["reviewer_id"]["endpoint_url"]); got != "/admin/api/translations/options/reviewers" {
+		t.Fatalf("expected reviewer endpoint, got %q", got)
+	}
+}
+
 func TestTranslationSSRQueueTargetLocaleAliasControlCompatibility(t *testing.T) {
 	result := translationSSRQueueResult(TranslationSSRPresenterInput{
 		APIBasePath: "/admin/api",

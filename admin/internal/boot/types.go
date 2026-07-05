@@ -226,6 +226,7 @@ type TranslationQueueBinding interface {
 	LocalesOptions(router.Context) (any, error)
 	TranslationGroupsOptions(router.Context) (any, error)
 	AssigneesOptions(router.Context) (any, error)
+	ReviewersOptions(router.Context) (any, error)
 }
 
 // NotificationsBinding exposes notifications operations.

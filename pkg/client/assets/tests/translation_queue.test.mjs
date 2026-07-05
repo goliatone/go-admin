@@ -333,7 +333,7 @@ function makeEnhancedFilterControls() {
       value: '',
       current_value: '',
       enhanced: true,
-      endpoint_url: '/admin/api/translations/options/assignees',
+      endpoint_url: '/admin/api/translations/options/reviewers',
       endpoint_search_param: 'search',
       endpoint_hydrate_param: 'selected',
       endpoint_value_field: 'value',
@@ -613,6 +613,7 @@ test('translation queue runtime: client filters render endpoint metadata and fam
   assert.deepEqual(enhancedNames, ['assignee_id', 'entity_type', 'family_id', 'locale', 'reviewer_id']);
   assert.equal(root.querySelector('[data-filter-name="entity_type"]').dataset.filterEndpointUrl, '/admin/api/translations/options/entity-types');
   assert.equal(root.querySelector('[data-filter-name="locale"]').dataset.filterEndpointUrl, '/admin/api/translations/options/locales');
+  assert.equal(root.querySelector('[data-filter-name="reviewer_id"]').dataset.filterEndpointUrl, '/admin/api/translations/options/reviewers');
   assert.equal(root.querySelector('[data-filter-name="family_id"]').dataset.filterEndpointUrl, '/admin/api/translations/options/families');
   assert.equal(root.querySelector('select[data-filter-name="family_id"]'), null);
   const dueStateOptions = Array.from(root.querySelectorAll('select[data-filter-name="due_state"] option'))

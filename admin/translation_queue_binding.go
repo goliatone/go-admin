@@ -2654,6 +2654,161 @@ func translationQueueOptionPagination(c router.Context) (int, int) {
 	return page, perPage
 }
 
+func translationQueueOptionQuery(c router.Context, adminCtx AdminContext, purpose TranslationActorOptionPurpose, selectedAliases ...string) TranslationActorOptionQuery {
+	page, perPage := translationQueueOptionPagination(c)
+	query := TranslationActorOptionQuery{
+		Purpose:      purpose,
+		Search:       translationQueueOptionsSearch(c),
+		SelectedIDs:  translationQueueSelectedValues(translationQueueOptionsSelected(c, selectedAliases...)),
+		Page:         page,
+		PerPage:      perPage,
+		AdminContext: adminCtx,
+	}
+	if c != nil {
+		query.Channel = strings.TrimSpace(c.Query("channel"))
+		query.EntityType = normalizeTranslationQueueEntityType(c.Query("entity_type"))
+		query.SourceRecordID = strings.TrimSpace(c.Query("source_record_id"))
+		query.FamilyID = strings.TrimSpace(c.Query("family_id"))
+		query.TargetLocale = strings.TrimSpace(firstNonEmpty(c.Query("target_locale"), c.Query("locale")))
+	}
+	if query.Channel == "" {
+		query.Channel = adminCtx.Environment
+	}
+	return query
+}
+
+func (b *translationQueueBinding) translationActorOptionProvider() TranslationActorOptionProvider {
+	if b != nil && b.admin != nil {
+		if provider := b.admin.TranslationActorOptionProvider(); provider != nil {
+			return provider
+		}
+	}
+	return defaultTranslationActorOptionProvider{binding: b}
+}
+
+type defaultTranslationActorOptionProvider struct {
+	binding *translationQueueBinding
+}
+
+func (p defaultTranslationActorOptionProvider) ListTranslationActorOptions(_ context.Context, input TranslationActorOptionQuery) ([]TranslationActorOption, error) {
+	if p.binding == nil {
+		return nil, nil
+	}
+	searchKey := strings.ToLower(strings.TrimSpace(input.Search))
+	optionsByValue := map[string]map[string]any{}
+	if len(input.SelectedIDs) > 0 {
+		p.binding.appendAssigneeSelectedUserOptions(input.AdminContext, strings.Join(input.SelectedIDs, ","), optionsByValue)
+		options := translationQueueFilteredOptions(optionsByValue, searchKey)
+		sortTranslationQueueOptions(options)
+		return translationActorOptionsFromMaps(options), nil
+	}
+	p.binding.appendAssigneeUserOptions(input.AdminContext, input.Search, input.PerPage, optionsByValue)
+	options := translationQueueFilteredOptions(optionsByValue, searchKey)
+	sortTranslationQueueOptions(options)
+	options = paginateTranslationQueueOptionMaps(options, input.Page, input.PerPage)
+	return translationActorOptionsFromMaps(options), nil
+}
+
+func translationActorOptionsFromMaps(options []map[string]any) []TranslationActorOption {
+	out := make([]TranslationActorOption, 0, len(options))
+	for _, option := range options {
+		value := strings.TrimSpace(toString(option["value"]))
+		if value == "" {
+			continue
+		}
+		out = append(out, TranslationActorOption{
+			Value:       value,
+			Label:       strings.TrimSpace(firstNonEmpty(toString(option["label"]), value)),
+			Description: strings.TrimSpace(toString(option["description"])),
+			DisplayName: strings.TrimSpace(toString(option["display_name"])),
+			AvatarURL:   strings.TrimSpace(toString(option["avatar_url"])),
+		})
+	}
+	return out
+}
+
+func translationActorOptionsToMaps(options []TranslationActorOption) []map[string]any {
+	out := make([]map[string]any, 0, len(options))
+	for _, option := range options {
+		value := strings.TrimSpace(option.Value)
+		if value == "" {
+			continue
+		}
+		payload := maps.Clone(option.Metadata)
+		if payload == nil {
+			payload = map[string]any{}
+		}
+		payload["value"] = value
+		payload["label"] = strings.TrimSpace(firstNonEmpty(option.Label, value))
+		if description := strings.TrimSpace(option.Description); description != "" {
+			payload["description"] = description
+		}
+		if displayName := strings.TrimSpace(option.DisplayName); displayName != "" {
+			payload["display_name"] = displayName
+		}
+		if avatarURL := strings.TrimSpace(option.AvatarURL); avatarURL != "" {
+			payload["avatar_url"] = avatarURL
+		}
+		out = append(out, payload)
+	}
+	return out
+}
+
+func translationActorOptionsWithSelectedFallback(options []TranslationActorOption, selectedIDs []string) []TranslationActorOption {
+	if len(selectedIDs) == 0 {
+		return options
+	}
+	seen := map[string]struct{}{}
+	for _, option := range options {
+		value := strings.TrimSpace(option.Value)
+		if value != "" {
+			seen[value] = struct{}{}
+		}
+	}
+	out := append([]TranslationActorOption(nil), options...)
+	for _, id := range selectedIDs {
+		id = strings.TrimSpace(id)
+		if id == "" {
+			continue
+		}
+		if _, exists := seen[id]; exists {
+			continue
+		}
+		seen[id] = struct{}{}
+		out = append(out, TranslationActorOption{Value: id, Label: id})
+	}
+	return out
+}
+
+func boundTranslationActorOptionsForResponse(options []TranslationActorOption, input TranslationActorOptionQuery) []TranslationActorOption {
+	if len(options) == 0 || len(input.SelectedIDs) > 0 {
+		return options
+	}
+	perPage := input.PerPage
+	if perPage <= 0 {
+		perPage = 25
+	}
+	perPage = clampInt(perPage, 1, 200)
+	if len(options) <= perPage {
+		return options
+	}
+	return append([]TranslationActorOption(nil), options[:perPage]...)
+}
+
+func paginateTranslationQueueOptionMaps(options []map[string]any, page, perPage int) []map[string]any {
+	if len(options) == 0 {
+		return options
+	}
+	page = clampInt(page, 1, 10_000)
+	perPage = clampInt(perPage, 1, 200)
+	start := (page - 1) * perPage
+	if start >= len(options) {
+		return []map[string]any{}
+	}
+	end := min(start+perPage, len(options))
+	return options[start:end]
+}
+
 func (b *translationQueueBinding) AssigneesOptions(c router.Context) (any, error) {
 	if b == nil || b.admin == nil {
 		return nil, serviceNotConfiguredDomainError("translation queue binding", map[string]any{
@@ -2665,23 +2820,35 @@ func (b *translationQueueBinding) AssigneesOptions(c router.Context) (any, error
 		return nil, err
 	}
 
-	search := translationQueueOptionsSearch(c)
-	searchKey := strings.ToLower(strings.TrimSpace(search))
-	perPage := clampInt(atoiDefault(c.Query(adminkeys.QueryPerPage), 25), 1, 200)
-	optionsByValue := map[string]map[string]any{}
+	input := translationQueueOptionQuery(c, adminCtx, TranslationActorOptionPurposeAssignee, "assignee_id", "reviewer_id")
+	options, err := b.translationActorOptionProvider().ListTranslationActorOptions(adminCtx.Context, input)
+	if err != nil {
+		return nil, err
+	}
+	options = translationActorOptionsWithSelectedFallback(options, input.SelectedIDs)
+	options = boundTranslationActorOptionsForResponse(options, input)
+	return translationActorOptionsToMaps(options), nil
+}
 
-	if selected := translationQueueOptionsSelected(c, "assignee_id", "reviewer_id"); selected != "" {
-		b.appendAssigneeSelectedUserOptions(adminCtx, selected, optionsByValue)
-		options := translationQueueFilteredOptions(optionsByValue, searchKey)
-		sortTranslationQueueOptions(options)
-		return options, nil
+func (b *translationQueueBinding) ReviewersOptions(c router.Context) (any, error) {
+	if b == nil || b.admin == nil {
+		return nil, serviceNotConfiguredDomainError("translation queue binding", map[string]any{
+			"component": "translation_queue_binding",
+		})
+	}
+	adminCtx := b.admin.adminContextFromRequest(c, b.admin.config.DefaultLocale)
+	if err := b.admin.requirePermission(adminCtx, PermAdminTranslationsView, "translations"); err != nil {
+		return nil, err
 	}
 
-	b.appendAssigneeUserOptions(adminCtx, search, perPage, optionsByValue)
-
-	options := translationQueueFilteredOptions(optionsByValue, searchKey)
-	sortTranslationQueueOptions(options)
-	return translationQueuePaginatedOptions(c, options), nil
+	input := translationQueueOptionQuery(c, adminCtx, TranslationActorOptionPurposeReviewer, "reviewer_id")
+	options, err := b.translationActorOptionProvider().ListTranslationActorOptions(adminCtx.Context, input)
+	if err != nil {
+		return nil, err
+	}
+	options = translationActorOptionsWithSelectedFallback(options, input.SelectedIDs)
+	options = boundTranslationActorOptionsForResponse(options, input)
+	return translationActorOptionsToMaps(options), nil
 }
 
 func appendAssigneeOption(optionsByValue map[string]map[string]any, option map[string]any) {

@@ -247,6 +247,7 @@ func newTestURLManager(basePath string) *urlkit.RouteManager {
 							"translations.options.locales":                "/translations/options/locales",
 							"translations.options.families":               "/translations/options/families",
 							"translations.options.assignees":              "/translations/options/assignees",
+							"translations.options.reviewers":              "/translations/options/reviewers",
 							"translations.jobs.id":                        "/translations/exchange/jobs/:job_id",
 							"translations.import.validate":                "/translations/exchange/import/validate",
 							"translations.import.apply":                   "/translations/exchange/import/apply",
@@ -1454,6 +1455,7 @@ type stubTranslationQueueBinding struct {
 	localesOptionsCalled       int
 	groupsOptionsCalled        int
 	assigneesOptionsCalled     int
+	reviewersOptionsCalled     int
 }
 
 func (s *stubTranslationQueueBinding) Dashboard(_ router.Context) (any, error) {
@@ -1544,6 +1546,11 @@ func (s *stubTranslationQueueBinding) TranslationGroupsOptions(_ router.Context)
 
 func (s *stubTranslationQueueBinding) AssigneesOptions(_ router.Context) (any, error) {
 	s.assigneesOptionsCalled++
+	return []map[string]any{}, nil
+}
+
+func (s *stubTranslationQueueBinding) ReviewersOptions(_ router.Context) (any, error) {
+	s.reviewersOptionsCalled++
 	return []map[string]any{}, nil
 }
 
@@ -1655,7 +1662,7 @@ func TestTranslationQueueRouteStepRegistersRoutes(t *testing.T) {
 	}
 
 	require.NoError(t, TranslationQueueRouteStep(ctx))
-	require.Len(t, rr.calls, 17)
+	require.Len(t, rr.calls, 18)
 	methodPaths := map[string]bool{}
 	for _, call := range rr.calls {
 		methodPaths[call.method+" "+call.path] = true
@@ -1677,6 +1684,7 @@ func TestTranslationQueueRouteStepRegistersRoutes(t *testing.T) {
 	require.True(t, methodPaths["GET "+mustRoutePath(t, ctx, ctx.AdminAPIGroup(), "translations.options.locales")])
 	require.True(t, methodPaths["GET "+mustRoutePath(t, ctx, ctx.AdminAPIGroup(), "translations.options.families")])
 	require.True(t, methodPaths["GET "+mustRoutePath(t, ctx, ctx.AdminAPIGroup(), "translations.options.assignees")])
+	require.True(t, methodPaths["GET "+mustRoutePath(t, ctx, ctx.AdminAPIGroup(), "translations.options.reviewers")])
 
 	detailPath := mustRoutePath(t, ctx, ctx.AdminAPIGroup(), "translations.assignments.id")
 	previewPath := mustRoutePath(t, ctx, ctx.AdminAPIGroup(), "translations.assignments.preview")
@@ -1717,6 +1725,7 @@ func TestTranslationQueueRouteStepRegistersRoutes(t *testing.T) {
 	require.Equal(t, 1, binding.localesOptionsCalled)
 	require.Equal(t, 1, binding.groupsOptionsCalled)
 	require.Equal(t, 1, binding.assigneesOptionsCalled)
+	require.Equal(t, 1, binding.reviewersOptionsCalled)
 }
 
 func TestPanelAndTranslationQueueRoutesDoNotShadowEachOther(t *testing.T) {

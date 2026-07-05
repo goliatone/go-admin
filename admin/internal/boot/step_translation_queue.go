@@ -41,6 +41,7 @@ func translationQueueRouteSpecs(ctx BootCtx, responder Responder, gates FeatureG
 		translationQueueReadRoute(ctx, responder, gates, "translations.options.locales", binding.LocalesOptions),
 		translationQueueReadRoute(ctx, responder, gates, "translations.options.families", binding.TranslationGroupsOptions),
 		translationQueueReadRoute(ctx, responder, gates, "translations.options.assignees", binding.AssigneesOptions),
+		translationQueueReadRoute(ctx, responder, gates, "translations.options.reviewers", binding.ReviewersOptions),
 	}
 }
 

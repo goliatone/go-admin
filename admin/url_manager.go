@@ -469,6 +469,7 @@ func defaultAdminAPIRoutes() map[string]string {
 		"translations.options.locales":        "/translations/options/locales",
 		"translations.options.families":       "/translations/options/families",
 		"translations.options.assignees":      "/translations/options/assignees",
+		"translations.options.reviewers":      "/translations/options/reviewers",
 		"users.bulk.assign_role":              "/users/bulk/assign-role",
 		"users.bulk.unassign_role":            "/users/bulk/unassign-role",
 		"panel":                               "/panels/:panel",

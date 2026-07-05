@@ -754,6 +754,337 @@ func TestTranslationQueueAssigneesOptionsHydratesGenericSelectedAlias(t *testing
 	}
 }
 
+func TestTranslationQueueAssigneesOptionsUsesActorOptionProviderPurpose(t *testing.T) {
+	provider := &recordingTranslationActorOptionProvider{
+		options: []TranslationActorOption{{
+			Value:       "translator-1",
+			Label:       "Translator One",
+			Description: "Translation team",
+			DisplayName: "Translator One",
+			AvatarURL:   "/avatars/translator-1.png",
+		}},
+	}
+	adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{
+		FeatureGate: featureGateFromKeys(FeatureCMS, FeatureTranslationQueue),
+	})
+	adm.WithTranslationActorOptionProvider(provider)
+	adm.WithAuthorizer(translationPermissionAuthorizer{
+		allowed: map[string]bool{PermAdminTranslationsView: true},
+	})
+	if _, err := RegisterTranslationQueuePanel(adm, NewInMemoryTranslationAssignmentRepository()); err != nil {
+		t.Fatalf("register queue panel: %v", err)
+	}
+	binding := newTranslationQueueBinding(adm)
+	app := newTranslationQueueTestApp(t, binding)
+
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/translations/options/assignees?search=tran&page=2&per_page=3&entity_type=pages&source_record_id=page-1&family_id=family-1&target_locale=es&channel=staging", nil)
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("request error: %v", err)
+	}
+	defer resp.Body.Close() //nolint:errcheck // test response body cleanup is best-effort
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status=%d want=200", resp.StatusCode)
+	}
+	payload := []map[string]any{}
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if len(payload) != 1 {
+		t.Fatalf("expected one provider option, got %+v", payload)
+	}
+	if got := strings.TrimSpace(toString(payload[0]["value"])); got != "translator-1" {
+		t.Fatalf("expected provider value translator-1, got %q", got)
+	}
+	if got := strings.TrimSpace(toString(payload[0]["description"])); got != "Translation team" {
+		t.Fatalf("expected provider description to survive mapping, got %q", got)
+	}
+	if provider.calls != 1 {
+		t.Fatalf("expected one provider call, got %d", provider.calls)
+	}
+	if provider.last.Purpose != TranslationActorOptionPurposeAssignee {
+		t.Fatalf("expected assignee purpose, got %q", provider.last.Purpose)
+	}
+	if provider.last.Search != "tran" || provider.last.Page != 2 || provider.last.PerPage != 3 {
+		t.Fatalf("unexpected provider query: %+v", provider.last)
+	}
+	if provider.last.EntityType != "pages" || provider.last.SourceRecordID != "page-1" || provider.last.FamilyID != "family-1" || provider.last.TargetLocale != "es" || provider.last.Channel != "staging" {
+		t.Fatalf("expected queue context to reach provider, got %+v", provider.last)
+	}
+}
+
+func TestTranslationQueueReviewersOptionsUsesReviewerPurposeAndRawSelectedFallback(t *testing.T) {
+	provider := &recordingTranslationActorOptionProvider{
+		options: []TranslationActorOption{{
+			Value:       "reviewer-1",
+			Label:       "Reviewer One",
+			Description: "Review team",
+		}},
+	}
+	adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{
+		FeatureGate: featureGateFromKeys(FeatureCMS, FeatureTranslationQueue),
+	})
+	adm.WithTranslationActorOptionProvider(provider)
+	adm.WithAuthorizer(translationPermissionAuthorizer{
+		allowed: map[string]bool{PermAdminTranslationsView: true},
+	})
+	if _, err := RegisterTranslationQueuePanel(adm, NewInMemoryTranslationAssignmentRepository()); err != nil {
+		t.Fatalf("register queue panel: %v", err)
+	}
+	app := newTranslationQueueTestApp(t, newTranslationQueueBinding(adm))
+
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/translations/options/reviewers?selected=reviewer-1,missing-reviewer&per_page=5", nil)
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("request error: %v", err)
+	}
+	defer resp.Body.Close() //nolint:errcheck // test response body cleanup is best-effort
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status=%d want=200", resp.StatusCode)
+	}
+	payload := []map[string]any{}
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	optionsByValue := map[string]map[string]any{}
+	for _, option := range payload {
+		optionsByValue[strings.TrimSpace(toString(option["value"]))] = option
+	}
+	if got := strings.TrimSpace(toString(optionsByValue["reviewer-1"]["label"])); got != "Reviewer One" {
+		t.Fatalf("expected provider reviewer label, got %q in %+v", got, payload)
+	}
+	if got := strings.TrimSpace(toString(optionsByValue["missing-reviewer"]["label"])); got != "missing-reviewer" {
+		t.Fatalf("expected raw fallback reviewer label, got %q in %+v", got, payload)
+	}
+	if provider.calls != 1 {
+		t.Fatalf("expected one provider call, got %d", provider.calls)
+	}
+	if provider.last.Purpose != TranslationActorOptionPurposeReviewer {
+		t.Fatalf("expected reviewer purpose, got %q", provider.last.Purpose)
+	}
+	if strings.Join(provider.last.SelectedIDs, ",") != "reviewer-1,missing-reviewer" {
+		t.Fatalf("expected selected ids to reach provider, got %+v", provider.last.SelectedIDs)
+	}
+}
+
+func TestTranslationQueueReviewersOptionsDefaultsToUserLookup(t *testing.T) {
+	userStore := NewInMemoryUserStore()
+	userRepo := &translationQueueCountingUserRepo{UserRepository: &inMemoryUserRepoAdapter{store: userStore}}
+	adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{
+		FeatureGate:    featureGateFromKeys(FeatureCMS, FeatureTranslationQueue, FeatureUsers),
+		UserRepository: userRepo,
+		RoleRepository: &inMemoryRoleRepoAdapter{store: userStore},
+	})
+	adm.WithAuthorizer(translationPermissionAuthorizer{
+		allowed: map[string]bool{PermAdminTranslationsView: true},
+	})
+	if _, err := userStore.CreateUser(context.Background(), UserRecord{
+		ID:        "reviewer-1",
+		Username:  "reviewer.sam",
+		Email:     "sam@example.com",
+		FirstName: "Sam",
+		LastName:  "Reviewer",
+		Status:    "active",
+	}); err != nil {
+		t.Fatalf("save user: %v", err)
+	}
+	if _, err := RegisterTranslationQueuePanel(adm, NewInMemoryTranslationAssignmentRepository()); err != nil {
+		t.Fatalf("register queue panel: %v", err)
+	}
+	app := newTranslationQueueTestApp(t, newTranslationQueueBinding(adm))
+
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/translations/options/reviewers?reviewer_id=reviewer-1,missing-reviewer", nil)
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("request error: %v", err)
+	}
+	defer resp.Body.Close() //nolint:errcheck // test response body cleanup is best-effort
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status=%d want=200", resp.StatusCode)
+	}
+	payload := []map[string]any{}
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	optionsByValue := map[string]map[string]any{}
+	for _, option := range payload {
+		optionsByValue[strings.TrimSpace(toString(option["value"]))] = option
+	}
+	if got := strings.TrimSpace(toString(optionsByValue["reviewer-1"]["label"])); got != "Sam Reviewer" {
+		t.Fatalf("expected default reviewer label Sam Reviewer, got %q in %+v", got, payload)
+	}
+	if got := strings.TrimSpace(toString(optionsByValue["missing-reviewer"]["label"])); got != "missing-reviewer" {
+		t.Fatalf("expected raw fallback label missing-reviewer, got %q in %+v", got, payload)
+	}
+	if userRepo.getCount != 2 {
+		t.Fatalf("expected one lookup per selected reviewer id, got %d", userRepo.getCount)
+	}
+}
+
+func TestTranslationQueueReviewersOptionsRequiresViewPermission(t *testing.T) {
+	adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{
+		FeatureGate: featureGateFromKeys(FeatureCMS, FeatureTranslationQueue),
+	})
+	adm.WithAuthorizer(translationPermissionAuthorizer{allowed: map[string]bool{}})
+	if _, err := RegisterTranslationQueuePanel(adm, NewInMemoryTranslationAssignmentRepository()); err != nil {
+		t.Fatalf("register queue panel: %v", err)
+	}
+	app := newTranslationQueueTestApp(t, newTranslationQueueBinding(adm))
+
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/translations/options/reviewers?search=review", nil)
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("request error: %v", err)
+	}
+	defer resp.Body.Close() //nolint:errcheck // test response body cleanup is best-effort
+	if resp.StatusCode != http.StatusForbidden {
+		t.Fatalf("status=%d want=403", resp.StatusCode)
+	}
+}
+
+func TestTranslationQueueActorOptionsCanDivergeByPurpose(t *testing.T) {
+	provider := &purposeTranslationActorOptionProvider{
+		options: map[TranslationActorOptionPurpose][]TranslationActorOption{
+			TranslationActorOptionPurposeAssignee: {
+				{Value: "translator-1", Label: "Translator One"},
+			},
+			TranslationActorOptionPurposeReviewer: {
+				{Value: "reviewer-1", Label: "Reviewer One"},
+			},
+		},
+	}
+	adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{
+		FeatureGate: featureGateFromKeys(FeatureCMS, FeatureTranslationQueue),
+	})
+	adm.WithTranslationActorOptionProvider(provider)
+	adm.WithAuthorizer(translationPermissionAuthorizer{
+		allowed: map[string]bool{PermAdminTranslationsView: true},
+	})
+	if _, err := RegisterTranslationQueuePanel(adm, NewInMemoryTranslationAssignmentRepository()); err != nil {
+		t.Fatalf("register queue panel: %v", err)
+	}
+	app := newTranslationQueueTestApp(t, newTranslationQueueBinding(adm))
+
+	assigneeReq := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/translations/options/assignees?search=one", nil)
+	assigneeResp, err := app.Test(assigneeReq)
+	if err != nil {
+		t.Fatalf("assignee request error: %v", err)
+	}
+	defer assigneeResp.Body.Close() //nolint:errcheck // test response body cleanup is best-effort
+	assigneePayload := []map[string]any{}
+	if err := json.NewDecoder(assigneeResp.Body).Decode(&assigneePayload); err != nil {
+		t.Fatalf("decode assignee response: %v", err)
+	}
+
+	reviewerReq := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/translations/options/reviewers?search=one", nil)
+	reviewerResp, err := app.Test(reviewerReq)
+	if err != nil {
+		t.Fatalf("reviewer request error: %v", err)
+	}
+	defer reviewerResp.Body.Close() //nolint:errcheck // test response body cleanup is best-effort
+	reviewerPayload := []map[string]any{}
+	if err := json.NewDecoder(reviewerResp.Body).Decode(&reviewerPayload); err != nil {
+		t.Fatalf("decode reviewer response: %v", err)
+	}
+
+	if got := strings.TrimSpace(toString(assigneePayload[0]["value"])); got != "translator-1" {
+		t.Fatalf("expected assignee provider to return translator, got %+v", assigneePayload)
+	}
+	if got := strings.TrimSpace(toString(reviewerPayload[0]["value"])); got != "reviewer-1" {
+		t.Fatalf("expected reviewer provider to return reviewer, got %+v", reviewerPayload)
+	}
+	if strings.Join(provider.purposes, ",") != "assignee,reviewer" {
+		t.Fatalf("expected assignee then reviewer provider calls, got %+v", provider.purposes)
+	}
+}
+
+func TestTranslationQueueReviewersOptionsCapsProviderSearchResponseToPerPage(t *testing.T) {
+	provider := &recordingTranslationActorOptionProvider{
+		options: []TranslationActorOption{
+			{Value: "reviewer-1", Label: "Reviewer One"},
+			{Value: "reviewer-2", Label: "Reviewer Two"},
+			{Value: "reviewer-3", Label: "Reviewer Three"},
+		},
+	}
+	adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{
+		FeatureGate: featureGateFromKeys(FeatureCMS, FeatureTranslationQueue),
+	})
+	adm.WithTranslationActorOptionProvider(provider)
+	adm.WithAuthorizer(translationPermissionAuthorizer{
+		allowed: map[string]bool{PermAdminTranslationsView: true},
+	})
+	if _, err := RegisterTranslationQueuePanel(adm, NewInMemoryTranslationAssignmentRepository()); err != nil {
+		t.Fatalf("register queue panel: %v", err)
+	}
+	app := newTranslationQueueTestApp(t, newTranslationQueueBinding(adm))
+
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/translations/options/reviewers?search=reviewer&per_page=2", nil)
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("request error: %v", err)
+	}
+	defer resp.Body.Close() //nolint:errcheck // test response body cleanup is best-effort
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status=%d want=200", resp.StatusCode)
+	}
+	payload := []map[string]any{}
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if len(payload) != 2 {
+		t.Fatalf("expected provider response capped to per_page, got %+v", payload)
+	}
+	if provider.last.PerPage != 2 {
+		t.Fatalf("expected per_page to reach provider, got %+v", provider.last)
+	}
+}
+
+func TestTranslationQueueReviewersOptionsDoesNotCapSelectedHydrationToPerPage(t *testing.T) {
+	provider := &recordingTranslationActorOptionProvider{
+		options: []TranslationActorOption{
+			{Value: "reviewer-1", Label: "Reviewer One"},
+			{Value: "reviewer-2", Label: "Reviewer Two"},
+		},
+	}
+	adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{
+		FeatureGate: featureGateFromKeys(FeatureCMS, FeatureTranslationQueue),
+	})
+	adm.WithTranslationActorOptionProvider(provider)
+	adm.WithAuthorizer(translationPermissionAuthorizer{
+		allowed: map[string]bool{PermAdminTranslationsView: true},
+	})
+	if _, err := RegisterTranslationQueuePanel(adm, NewInMemoryTranslationAssignmentRepository()); err != nil {
+		t.Fatalf("register queue panel: %v", err)
+	}
+	app := newTranslationQueueTestApp(t, newTranslationQueueBinding(adm))
+
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/translations/options/reviewers?selected=reviewer-1,reviewer-2,missing-reviewer&per_page=1", nil)
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("request error: %v", err)
+	}
+	defer resp.Body.Close() //nolint:errcheck // test response body cleanup is best-effort
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status=%d want=200", resp.StatusCode)
+	}
+	payload := []map[string]any{}
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if len(payload) != 3 {
+		t.Fatalf("expected selected hydration and raw fallback not to be capped by per_page, got %+v", payload)
+	}
+	optionsByValue := map[string]map[string]any{}
+	for _, option := range payload {
+		optionsByValue[strings.TrimSpace(toString(option["value"]))] = option
+	}
+	for _, value := range []string{"reviewer-1", "reviewer-2", "missing-reviewer"} {
+		if _, ok := optionsByValue[value]; !ok {
+			t.Fatalf("expected selected value %q in payload, got %+v", value, payload)
+		}
+	}
+}
+
 func TestTranslationQueueLocalesOptionsHydratesSelectedWithRawFallback(t *testing.T) {
 	repo := NewInMemoryTranslationAssignmentRepository()
 	if _, err := repo.Create(context.Background(), TranslationAssignment{
@@ -1203,6 +1534,32 @@ type translationQueueCountingRoleRepo struct {
 func (r *translationQueueCountingRoleRepo) RolesForUser(ctx context.Context, userID string) ([]RoleRecord, error) {
 	r.rolesForUserCount++
 	return r.RoleRepository.RolesForUser(ctx, userID)
+}
+
+type recordingTranslationActorOptionProvider struct {
+	calls   int
+	last    TranslationActorOptionQuery
+	options []TranslationActorOption
+	err     error
+}
+
+func (p *recordingTranslationActorOptionProvider) ListTranslationActorOptions(_ context.Context, input TranslationActorOptionQuery) ([]TranslationActorOption, error) {
+	p.calls++
+	p.last = input
+	if p.err != nil {
+		return nil, p.err
+	}
+	return append([]TranslationActorOption(nil), p.options...), nil
+}
+
+type purposeTranslationActorOptionProvider struct {
+	purposes []string
+	options  map[TranslationActorOptionPurpose][]TranslationActorOption
+}
+
+func (p *purposeTranslationActorOptionProvider) ListTranslationActorOptions(_ context.Context, input TranslationActorOptionQuery) ([]TranslationActorOption, error) {
+	p.purposes = append(p.purposes, string(input.Purpose))
+	return append([]TranslationActorOption(nil), p.options[input.Purpose]...), nil
 }
 
 func TestTranslationQueueBindingAssignmentsSupportsPageLocalFamilyGrouping(t *testing.T) {
@@ -3771,6 +4128,13 @@ func newTranslationQueueTestApp(t *testing.T, binding *translationQueueBinding) 
 	})
 	r.Get("/admin/api/translations/options/assignees", func(c router.Context) error {
 		payload, err := binding.AssigneesOptions(c)
+		if err != nil {
+			return writeError(c, err)
+		}
+		return writeJSON(c, payload)
+	})
+	r.Get("/admin/api/translations/options/reviewers", func(c router.Context) error {
+		payload, err := binding.ReviewersOptions(c)
 		if err != nil {
 			return writeError(c, err)
 		}
