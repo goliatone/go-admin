@@ -41,6 +41,7 @@ Important current defaults:
   - `translation.exchange=true`
   - `translation.queue=true`
 - `examples/web` is intentionally configured to showcase the production-style translation setup by default.
+- `examples/web` also enables `TranslationQueueConfig.EnhancedFilterSelects` for the queue module so Advanced Filters use endpoint-backed controls.
 - Quickstart itself still resolves an omitted profile to `core` for CMS-enabled apps. That package-level default is different from the example app’s explicit `full` config.
 
 Supported profiles:
@@ -380,6 +381,14 @@ The assignment editor is opened from queue context or direct links:
 
 The queue/dashboard/editor surfaces are enabled when the queue module is enabled.
 
+Queue filter controls:
+
+- By default, quickstart keeps compatible lightweight queue filters.
+- Set `TranslationQueueConfig.EnhancedFilterSelects=true` to render endpoint-backed Advanced Filters.
+- Enhanced mode renders `entity_type` as a remote select, and `assignee_id`, `reviewer_id`, and `family_id` as typeahead controls.
+- These controls still submit the existing query keys, so bookmarked URLs, presets, chips, pagination, grouped views, and server-family queue mode keep working.
+- Existing raw IDs are hydrated into readable labels when option endpoints can resolve them. If JavaScript is disabled, an endpoint fails, or a value cannot be resolved, the editable raw-value field remains usable.
+
 Core queue API routes:
 
 - `GET /admin/api/translations/dashboard`
@@ -395,6 +404,14 @@ Core queue API routes:
 - `PATCH /admin/api/translations/sync/resources/:kind/:id`
 
 Queue option endpoints also exist under `/admin/api/translations/options/*` for entity types, source records, locales, families, and assignees.
+
+Enhanced queue filters use:
+
+- `GET /admin/api/translations/options/entity-types`
+- `GET /admin/api/translations/options/assignees`
+- `GET /admin/api/translations/options/families`
+
+The assignee endpoint is reused for reviewer lookup in this slice. Option requests are bounded and permission-gated by translation view access. Selected-value hydration uses the `selected` query parameter where supported and falls back to displaying the raw submitted value when no label can be resolved.
 
 ### Queue bulk action contract
 

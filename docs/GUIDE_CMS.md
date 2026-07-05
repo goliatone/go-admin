@@ -1287,6 +1287,11 @@ Queue feature gate key: `translations.queue` (default disabled).
 Enable via:
 - `quickstart.WithTranslationQueueConfig(...)`
 
+Useful queue UI config:
+- `TranslationQueueConfig.EnhancedFilterSelects`: opt-in. When true, Translation Queue Advanced Filters render endpoint-backed controls for `entity_type`, `assignee_id`, `reviewer_id`, and `family_id` instead of relying on only lightweight text/current-page controls.
+- JSON/product config key: `enhanced_filter_selects`.
+- The controls still submit the same query keys and preserve raw-ID fallback behavior when JavaScript or option endpoints are unavailable.
+
 Quickstart wiring responsibilities:
 1. Register queue panel + tabs (`pages`, `posts`) with queue context filters.
 2. Register queue command handlers and message factories.

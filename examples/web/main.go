@@ -2427,8 +2427,9 @@ func buildTranslationProductConfig(
 	}
 	if queueEnabled || queueOverride {
 		cfg.Queue = &quickstart.TranslationQueueConfig{
-			Enabled:    queueEnabled,
-			Repository: queueRepository,
+			Enabled:               queueEnabled,
+			EnhancedFilterSelects: true,
+			Repository:            queueRepository,
 		}
 	}
 

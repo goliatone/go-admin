@@ -176,6 +176,25 @@ func TestBuildTranslationProductConfigAttachesStoreAndRepository(t *testing.T) {
 	}
 }
 
+func TestBuildTranslationProductConfigEnablesQueueEnhancedFilterSelects(t *testing.T) {
+	cfg := buildTranslationProductConfig(
+		quickstart.TranslationProfileFull,
+		noopExchangeStore{},
+		coreadmin.NewInMemoryTranslationAssignmentRepository(),
+		appcfg.TranslationConfig{
+			Profile: "full",
+			Queue:   new(true),
+		},
+	)
+
+	if cfg.Queue == nil {
+		t.Fatalf("expected queue config")
+	}
+	if !cfg.Queue.EnhancedFilterSelects {
+		t.Fatalf("expected example queue config to enable enhanced filter selects")
+	}
+}
+
 func TestBuildTranslationProductConfigMapsExchangeUIRuntimeConfig(t *testing.T) {
 	includeExamples := false
 	cfg := buildTranslationProductConfig(
