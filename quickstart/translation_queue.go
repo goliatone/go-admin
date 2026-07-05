@@ -29,6 +29,8 @@ type TranslationQueueConfig struct {
 
 	Repository admin.TranslationAssignmentRepository `json:"-"`
 	Service    admin.TranslationQueueService         `json:"-"`
+	// ActorOptionProvider enables host-owned assignee/reviewer option eligibility.
+	ActorOptionProvider admin.TranslationActorOptionProvider `json:"-"`
 	// SuggestionService enables the optional translation suggestion command wiring.
 	SuggestionService       admin.TranslationSuggestionService                `json:"-"`
 	SuggestionEligibility   admin.TranslationSuggestionEligibilityChecker     `json:"-"`
@@ -96,6 +98,9 @@ func RegisterTranslationQueueWiring(adm *admin.Admin, cfg TranslationQueueConfig
 	}
 	if _, err := admin.RegisterTranslationQueuePanel(adm, repo); err != nil {
 		return err
+	}
+	if cfg.ActorOptionProvider != nil {
+		adm.WithTranslationActorOptionProvider(cfg.ActorOptionProvider)
 	}
 
 	service := cfg.Service

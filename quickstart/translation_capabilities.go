@@ -147,11 +147,14 @@ func mergeTranslationCapabilities(base, overlay map[string]any) map[string]any {
 
 func translationQueueUIConfigFromProduct(productCfg TranslationProductConfig) map[string]any {
 	enhancedFilterSelects := false
+	reviewerOptionEndpoint := false
 	if productCfg.Queue != nil {
 		enhancedFilterSelects = productCfg.Queue.EnhancedFilterSelects
+		reviewerOptionEndpoint = productCfg.Queue.Enabled
 	}
 	return map[string]any{
-		"enhanced_filter_selects": enhancedFilterSelects,
+		"enhanced_filter_selects":  enhancedFilterSelects,
+		"reviewer_option_endpoint": reviewerOptionEndpoint,
 	}
 }
 
@@ -159,7 +162,8 @@ func translationQueueUIOptionsForAdmin(adm *admin.Admin) admin.TranslationQueueU
 	caps := translationCapabilitiesForAdmin(adm)
 	queueUI := translationAnyMap(caps["queue_ui_config"])
 	return admin.TranslationQueueUIOptions{
-		EnhancedFilterSelects: translationBool(queueUI["enhanced_filter_selects"]),
+		EnhancedFilterSelects:  translationBool(queueUI["enhanced_filter_selects"]),
+		ReviewerOptionEndpoint: translationBool(queueUI["reviewer_option_endpoint"]),
 	}
 }
 

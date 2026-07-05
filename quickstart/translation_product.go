@@ -400,6 +400,9 @@ func mergeTranslationQueueConfig(base, override TranslationQueueConfig) Translat
 	if override.Service != nil {
 		out.Service = override.Service
 	}
+	if override.ActorOptionProvider != nil {
+		out.ActorOptionProvider = override.ActorOptionProvider
+	}
 	if override.SuggestionService != nil {
 		out.SuggestionService = override.SuggestionService
 	}

@@ -83,14 +83,22 @@ func (quickstartTranslationSuggestionAssistContext) TranslationSuggestionAssistC
 	return map[string]any{"style": "concise"}, nil
 }
 
+type quickstartTranslationActorOptionProvider struct{}
+
+func (quickstartTranslationActorOptionProvider) ListTranslationActorOptions(context.Context, admin.TranslationActorOptionQuery) ([]admin.TranslationActorOption, error) {
+	return nil, nil
+}
+
 func TestMergeTranslationQueueConfigPreservesSuggestionRuntimeWiring(t *testing.T) {
 	suggestionSvc := &quickstartTranslationSuggestionService{}
 	eligibility := admin.TranslationSuggestionAllowAllEligibility{}
 	assist := quickstartTranslationSuggestionAssistContext{}
+	actorOptions := quickstartTranslationActorOptionProvider{}
 
 	merged := mergeTranslationQueueConfig(TranslationQueueConfig{}, TranslationQueueConfig{
 		Enabled:                 true,
 		EnhancedFilterSelects:   true,
+		ActorOptionProvider:     actorOptions,
 		SuggestionService:       suggestionSvc,
 		SuggestionEligibility:   eligibility,
 		SuggestionAssistContext: assist,
@@ -100,6 +108,9 @@ func TestMergeTranslationQueueConfigPreservesSuggestionRuntimeWiring(t *testing.
 
 	if merged.SuggestionService != suggestionSvc {
 		t.Fatalf("expected suggestion service to be preserved")
+	}
+	if merged.ActorOptionProvider == nil {
+		t.Fatalf("expected actor option provider to be preserved")
 	}
 	if merged.SuggestionEligibility == nil {
 		t.Fatalf("expected suggestion eligibility to be preserved")

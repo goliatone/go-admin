@@ -1951,6 +1951,9 @@ func TestRegisterAdminUIRoutesTranslationQueuePassesEnhancedFilterSelects(t *tes
 	if !presenter.queueInput.QueueUI.EnhancedFilterSelects {
 		t.Fatalf("expected enhanced filter selects to reach queue presenter input")
 	}
+	if !presenter.queueInput.QueueUI.ReviewerOptionEndpoint {
+		t.Fatalf("expected reviewer option endpoint availability to reach queue presenter input")
+	}
 	ctx.AssertExpectations(t)
 }
 
