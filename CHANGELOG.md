@@ -1,6 +1,19 @@
 # Changelog
 
+# [0.113.8](https://github.com/goliatone/go-admin/compare/v0.113.7...v0.113.8) - (2026-07-12)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update deps ([44dff22](https://github.com/goliatone/go-admin/commit/44dff2269ba34f5e2c95a04d5974fc361777dc18))  - (goliatone)
+
 # [0.113.7](https://github.com/goliatone/go-admin/compare/v0.113.6...v0.113.7) - (2026-07-11)
+
+
+New patch release: v0.113.7
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.113.7 ([1f33522](https://github.com/goliatone/go-admin/commit/1f33522033304ba91c261da95135fc08f71b649f))  - (goliatone)
 
 ## <!-- 7 -->⚙️ Miscellaneous Tasks
 
