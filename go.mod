@@ -12,7 +12,7 @@ require (
 	github.com/goliatone/go-admin/quickstart v0.82.0
 	github.com/goliatone/go-auth v0.44.1
 	github.com/goliatone/go-auth/adapters/featuregate v0.44.1
-	github.com/goliatone/go-cms v0.60.1
+	github.com/goliatone/go-cms v0.60.2
 	github.com/goliatone/go-command v0.22.0
 	github.com/goliatone/go-crud v0.25.0
 	github.com/goliatone/go-crud/gql v0.25.0
@@ -201,7 +201,7 @@ require (
 	github.com/xuri/efp v0.0.0-20231025114914-d1ff6096ae53 // indirect
 	github.com/xuri/excelize/v2 v2.8.1 // indirect
 	github.com/xuri/nfp v0.0.0-20230919160717-d98342af3f05 // indirect
-	github.com/yuin/goldmark v1.7.13 // indirect
+	github.com/yuin/goldmark v1.7.17 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/otel v1.43.0 // indirect
 	go.opentelemetry.io/otel/metric v1.43.0 // indirect
