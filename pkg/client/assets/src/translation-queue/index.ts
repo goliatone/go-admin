@@ -4385,6 +4385,27 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
       });
     });
 
+    this.container.querySelectorAll<HTMLInputElement>('input[type="search"][data-filter-name]').forEach((input) => {
+      input.addEventListener('change', () => {
+        const name = input.dataset.filterName;
+        if (name) {
+          this.updateNamedFilter(name, input.value);
+        }
+      });
+    });
+
+    this.container.querySelectorAll<HTMLFormElement>('form[data-queue-filters="true"]').forEach((form) => {
+      form.addEventListener('submit', (event) => {
+        event.preventDefault();
+        const titleInput = form.querySelector<HTMLInputElement>('input[data-filter-name="title__ilike"]');
+        const pathInput = form.querySelector<HTMLInputElement>('input[data-filter-name="path__ilike"]');
+        this.updateFilter({
+          titleContains: asString(titleInput?.value) || undefined,
+          pathContains: asString(pathInput?.value) || undefined,
+        });
+      });
+    });
+
     this.container.querySelectorAll<HTMLElement>('[data-filter-enhanced="true"]').forEach((control) => {
       control.addEventListener('queue-filter-change', (event) => {
         const detail = (event as CustomEvent<{ name?: string; value?: string }>).detail || {};
