@@ -404,6 +404,10 @@ export interface AssignmentQueueScreenConfig {
   initialPresetId?: string;
 }
 
+export interface AssignmentListFetchOptions {
+  signal?: AbortSignal;
+}
+
 export type AssignmentQueueScreenState = 'loading' | 'ready' | 'empty' | 'error' | 'conflict';
 
 export interface AssignmentQueueFeedback {
@@ -816,6 +820,7 @@ async function hydrateQueueFilterInput(
   input: HTMLInputElement,
   canonicalInput: HTMLInputElement,
   metadata: QueueFilterEnhancerMetadata,
+  signal?: AbortSignal,
 ): Promise<void> {
   const selected = canonicalInput.value.trim();
   if (!selected) {
@@ -827,6 +832,7 @@ async function hydrateQueueFilterInput(
     const response = await fetch(url.toString(), {
       method: 'GET',
       headers: { Accept: 'application/json' },
+      signal,
     });
     if (!response.ok) {
       throw new Error(`Hydration failed: ${response.status}`);
@@ -842,9 +848,18 @@ async function hydrateQueueFilterInput(
     canonicalInput.value = option.id;
     input.value = option.label || option.id;
   } catch {
+    if (signal?.aborted) {
+      return;
+    }
     input.dataset.filterEnhancedState = 'error';
   }
 }
+
+interface QueueFilterEnhancerLifecycle {
+  destroy(): void;
+}
+
+const queueFilterEnhancers = new WeakMap<HTMLElement, QueueFilterEnhancerLifecycle>();
 
 function enhanceQueueFilterControl(control: HTMLElement): boolean {
   if (control.dataset.filterEnhancedInitialized === 'true') {
@@ -872,10 +887,11 @@ function enhanceQueueFilterControl(control: HTMLElement): boolean {
     params: metadata.controlType === 'remote_select' ? { per_page: '25' } : { per_page: '10' },
     transform: (response) => queueFilterOptionsFromResponse(response, metadata),
   });
-  input.addEventListener('input', () => {
+  const handleInput = () => {
     canonicalInput.value = input.value.trim();
     input.dataset.filterEnhancedState = '';
-  });
+  };
+  input.addEventListener('input', handleInput);
 
   const searchBox = new SearchBox<QueueFilterOptionRecord>({
     input,
@@ -904,26 +920,41 @@ function enhanceQueueFilterControl(control: HTMLElement): boolean {
   try {
     searchBox.init();
   } catch {
+    input.removeEventListener('input', handleInput);
     canonicalInput.remove();
     input.name = metadata.name;
     delete input.dataset.filterDisplayInput;
     return false;
   }
-  input.addEventListener('focus', () => {
+  const handleFocus = () => {
     if (metadata.controlType === 'remote_select' && !input.value.trim()) {
       void searchBox.search('');
     }
-  });
-  input.addEventListener('change', () => {
+  };
+  const handleChange = () => {
     if (input.dataset.filterEnhancedState === 'selected') {
       return;
     }
     canonicalInput.value = input.value.trim();
     dispatchQueueFilterChange(control, metadata, canonicalInput.value);
-  });
+  };
+  input.addEventListener('focus', handleFocus);
+  input.addEventListener('change', handleChange);
 
   control.dataset.filterEnhancedInitialized = 'true';
-  void hydrateQueueFilterInput(input, canonicalInput, metadata);
+  const hydrationController = new AbortController();
+  queueFilterEnhancers.set(control, {
+    destroy() {
+      hydrationController.abort();
+      searchBox.destroy();
+      input.removeEventListener('input', handleInput);
+      input.removeEventListener('focus', handleFocus);
+      input.removeEventListener('change', handleChange);
+      delete control.dataset.filterEnhancedInitialized;
+      queueFilterEnhancers.delete(control);
+    },
+  });
+  void hydrateQueueFilterInput(input, canonicalInput, metadata, hydrationController.signal);
   return true;
 }
 
@@ -934,6 +965,22 @@ export function initAssignmentQueueFilterTypeaheads(container?: ParentNode): num
   const root = container ?? document;
   return Array.from(root.querySelectorAll<HTMLElement>('[data-filter-enhanced="true"]'))
     .reduce((count, control) => count + (enhanceQueueFilterControl(control) ? 1 : 0), 0);
+}
+
+export function destroyAssignmentQueueFilterTypeaheads(container?: ParentNode): number {
+  if (typeof document === 'undefined') {
+    return 0;
+  }
+  const root = container ?? document;
+  return Array.from(root.querySelectorAll<HTMLElement>('[data-filter-enhanced="true"]'))
+    .reduce((count, control) => {
+      const lifecycle = queueFilterEnhancers.get(control);
+      if (!lifecycle) {
+        return count;
+      }
+      lifecycle.destroy();
+      return count + 1;
+    }, 0);
 }
 
 export function normalizeAssignmentListMeta(value: unknown): AssignmentListMeta {
@@ -1233,8 +1280,12 @@ export function normalizeAssignmentActionResponse(value: unknown): AssignmentAct
 export async function fetchAssignmentList(
   endpoint: string,
   state: AssignmentListQueryState = {},
+  options: AssignmentListFetchOptions = {},
 ): Promise<AssignmentListResponse> {
-  const response = await httpRequest(buildAssignmentListURL(endpoint, state), { method: 'GET' });
+  const response = await httpRequest(buildAssignmentListURL(endpoint, state), {
+    method: 'GET',
+    signal: options.signal,
+  });
   if (!response.ok) {
     throw await buildQueueRequestError(response, 'Failed to load assignments');
   }
@@ -1644,6 +1695,27 @@ interface SelectionEntry {
   expectedVersion: number;
 }
 
+interface AssignmentQueueCommittedPresentation {
+  queryState: AssignmentListQueryState;
+  activePresetId: string;
+  activeReviewPresetId: string;
+  activeReviewState: AssignmentQueueReviewState | null;
+  viewMode: ViewMode;
+  state: 'ready' | 'empty';
+}
+
+function isAbortError(error: unknown, signal?: AbortSignal): boolean {
+  if (signal?.aborted) {
+    return true;
+  }
+  return Boolean(
+    error
+    && typeof error === 'object'
+    && 'name' in error
+    && (error as { name?: unknown }).name === 'AbortError'
+  );
+}
+
 function isNestedInteractiveTarget(event: Event, owner: HTMLElement): boolean {
   const target = event.target as HTMLElement | null;
   return Boolean(
@@ -1664,7 +1736,25 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
   private activeReviewState: AssignmentQueueReviewState | null = null;
   private feedback: AssignmentQueueFeedback | null = null;
   private error: AssignmentQueueRequestError | Error | null = null;
+  private refreshError: AssignmentQueueRequestError | Error | null = null;
   private pendingActions = new Set<string>();
+  private listLoadController: AbortController | null = null;
+  private listLoadGeneration = 0;
+  private committedPresentation: AssignmentQueueCommittedPresentation | null = null;
+  private isRefreshing = false;
+  private mounted = false;
+  private liveMessage = '';
+  private readonly handleContainerClick = (event: Event): void => {
+    const target = event.target;
+    if (!(target instanceof Element) || !target.closest('.queue-action-overflow-container')) {
+      this.container?.querySelectorAll<HTMLElement>('.queue-action-overflow-menu').forEach((menu) => {
+        menu.hidden = true;
+      });
+      this.container?.querySelectorAll<HTMLButtonElement>('[data-overflow-menu]').forEach((trigger) => {
+        trigger.setAttribute('aria-expanded', 'false');
+      });
+    }
+  };
 
   // T10: Selection state
   private selectedRows = new Map<string, SelectionEntry>();
@@ -1725,14 +1815,28 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
   }
 
   mount(container: HTMLElement): void {
+    this.listLoadGeneration += 1;
+    this.listLoadController?.abort();
     this.container = container;
+    this.mounted = true;
+    if (typeof container.addEventListener === 'function') {
+      container.addEventListener('click', this.handleContainerClick);
+    }
     this.loadFiltersExpandedState();
-    this.render();
     void this.load();
   }
 
   unmount(): void {
+    this.mounted = false;
+    this.listLoadGeneration += 1;
+    this.listLoadController?.abort();
+    this.listLoadController = null;
+    this.isRefreshing = false;
     if (this.container) {
+      destroyAssignmentQueueFilterTypeaheads(this.container);
+      if (typeof this.container.removeEventListener === 'function') {
+        this.container.removeEventListener('click', this.handleContainerClick);
+      }
       this.container.innerHTML = '';
     }
     this.container = null;
@@ -2062,63 +2166,137 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
   }
 
   async load(): Promise<void> {
-    this.state = 'loading';
-    this.error = null;
-    this.render();
-    try {
-      const response = await fetchAssignmentList(this.config.endpoint, this.queryState);
-      this.response = response;
+    if (!this.container || !this.mounted) {
+      return;
+    }
 
-      if (this.viewMode === 'server_family' && response.meta.grouping?.strategy === 'server_family') {
-        this.groupedData = null;
-        this.serverFamilyRows = (response.data as unknown[]).map((row) => normalizeServerFamilyParentRow(row, this.expandedGroups));
-        this.rows = this.serverFamilyRows.flatMap((row) => row.children.map((child) => cloneRow(child)));
-        this.state = this.serverFamilyRows.length ? 'ready' : 'empty';
-        this.render();
+    this.listLoadController?.abort();
+    const controller = new AbortController();
+    const generation = ++this.listLoadGeneration;
+    const pendingPresentation = this.capturePresentation();
+    const isRefresh = this.committedPresentation !== null;
+    this.listLoadController = controller;
+    this.isRefreshing = isRefresh;
+    if (!isRefresh) {
+      this.state = 'loading';
+    }
+    this.error = null;
+    this.refreshError = null;
+    this.liveMessage = isRefresh ? 'Updating queue results...' : 'Loading queue results...';
+    this.render();
+
+    try {
+      const response = await fetchAssignmentList(this.config.endpoint, pendingPresentation.queryState, {
+        signal: controller.signal,
+      });
+      if (!this.isCurrentListLoad(generation, controller)) {
         return;
       }
+      this.applyListResponse(response, pendingPresentation.viewMode);
+      this.committedPresentation = {
+        ...pendingPresentation,
+        queryState: { ...pendingPresentation.queryState },
+        state: this.state === 'empty' ? 'empty' : 'ready',
+      };
+      const total = response.meta.total;
+      this.liveMessage = `${isRefresh ? 'Queue updated' : 'Queue loaded'}. ${total} ${total === 1 ? 'result' : 'results'} available.`;
+    } catch (error) {
+      if (!this.isCurrentListLoad(generation, controller) || isAbortError(error, controller.signal)) {
+        return;
+      }
+      const normalizedError = error instanceof Error ? error : new Error(String(error));
+      this.error = normalizedError;
+      if (isRefresh && this.committedPresentation) {
+        this.restoreCommittedPresentation();
+        this.refreshError = normalizedError;
+        this.liveMessage = 'Queue update failed. Previous results and filters were restored.';
+      } else {
+        this.state = error instanceof AssignmentQueueRequestError && error.code === 'VERSION_CONFLICT'
+          ? 'conflict'
+          : 'error';
+        this.liveMessage = 'Queue results could not be loaded.';
+      }
+    } finally {
+      if (!this.isCurrentListLoad(generation, controller)) {
+        return;
+      }
+      this.listLoadController = null;
+      this.isRefreshing = false;
+      this.render();
+    }
+  }
 
-      this.serverFamilyRows = [];
-      // T11: Handle grouped responses
-      if (this.viewMode === 'grouped' && response.meta.grouping?.enabled) {
-        const grouped = normalizeBackendGroupedRows(
-          response.data as unknown as Record<string, unknown>[],
-          {
-            defaultExpanded: true,
-            expandMode: 'explicit',
-            expandedGroups: this.expandedGroups,
-          }
-        );
-        if (grouped) {
-          this.groupedData = grouped;
-          // Extract all child rows for flat access (needed for selection state)
-          this.rows = [];
-          for (const group of grouped.groups) {
-            for (const record of group.records) {
-              this.rows.push(normalizeAssignmentListRow(record));
-            }
-          }
-          for (const record of grouped.ungrouped) {
+  private isCurrentListLoad(generation: number, controller: AbortController): boolean {
+    return this.mounted
+      && this.container !== null
+      && this.listLoadGeneration === generation
+      && this.listLoadController === controller;
+  }
+
+  private capturePresentation(): Omit<AssignmentQueueCommittedPresentation, 'state'> {
+    return {
+      queryState: { ...this.queryState },
+      activePresetId: this.activePresetId,
+      activeReviewPresetId: this.activeReviewPresetId,
+      activeReviewState: this.activeReviewState,
+      viewMode: this.viewMode,
+    };
+  }
+
+  private restoreCommittedPresentation(): void {
+    const committed = this.committedPresentation;
+    if (!committed) {
+      return;
+    }
+    this.queryState = { ...committed.queryState };
+    this.activePresetId = committed.activePresetId;
+    this.activeReviewPresetId = committed.activeReviewPresetId;
+    this.activeReviewState = committed.activeReviewState;
+    this.viewMode = committed.viewMode;
+    this.state = committed.state;
+    persistViewMode(AssignmentQueueScreen.PANEL_ID, committed.viewMode);
+  }
+
+  private applyListResponse(response: AssignmentListResponse, viewMode: ViewMode): void {
+    this.response = response;
+    if (viewMode === 'server_family' && response.meta.grouping?.strategy === 'server_family') {
+      this.groupedData = null;
+      this.serverFamilyRows = (response.data as unknown[]).map((row) => normalizeServerFamilyParentRow(row, this.expandedGroups));
+      this.rows = this.serverFamilyRows.flatMap((row) => row.children.map((child) => cloneRow(child)));
+      this.state = this.serverFamilyRows.length ? 'ready' : 'empty';
+      return;
+    }
+
+    this.serverFamilyRows = [];
+    if (viewMode === 'grouped' && response.meta.grouping?.enabled) {
+      const grouped = normalizeBackendGroupedRows(
+        response.data as unknown as Record<string, unknown>[],
+        {
+          defaultExpanded: true,
+          expandMode: 'explicit',
+          expandedGroups: this.expandedGroups,
+        }
+      );
+      if (grouped) {
+        this.groupedData = grouped;
+        this.rows = [];
+        for (const group of grouped.groups) {
+          for (const record of group.records) {
             this.rows.push(normalizeAssignmentListRow(record));
           }
-        } else {
-          // Fallback to flat if grouped parsing fails
-          this.groupedData = null;
-          this.rows = response.data.map((row) => cloneRow(row));
+        }
+        for (const record of grouped.ungrouped) {
+          this.rows.push(normalizeAssignmentListRow(record));
         }
       } else {
         this.groupedData = null;
         this.rows = response.data.map((row) => cloneRow(row));
       }
-
-      this.state = this.rows.length ? 'ready' : 'empty';
-    } catch (error) {
-      this.error = error instanceof Error ? error : new Error(String(error));
-      this.state = error instanceof AssignmentQueueRequestError && error.code === 'VERSION_CONFLICT'
-        ? 'conflict'
-        : 'error';
+    } else {
+      this.groupedData = null;
+      this.rows = response.data.map((row) => cloneRow(row));
     }
-    this.render();
+    this.state = this.rows.length ? 'ready' : 'empty';
   }
 
   // T11: View mode methods
@@ -2708,20 +2886,98 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
       return;
     }
 
-    this.container.innerHTML = `
-      <div class="assignment-queue-screen" data-assignment-queue="true">
-        ${this.renderFeedback()}
-        ${this.renderBulkActionBar()}
-        ${this.renderFilterSnapshotBar()}
-        ${this.renderReviewStateBar()}
-        ${this.renderPresetBar()}
-        ${this.renderFilters()}
-        ${this.renderContextBar()}
-        ${this.renderBody()}
-      </div>
-    `;
+    const content = this.renderContent();
+    const supportsDOM = Boolean(this.container.ownerDocument);
+    let screen = supportsDOM
+      ? this.container.querySelector<HTMLElement>('[data-assignment-queue="true"]')
+      : null;
+
+    if (supportsDOM && !screen) {
+      this.container.innerHTML = `
+        <div class="assignment-queue-screen" data-assignment-queue="true">
+          <div class="sr-only"
+               data-assignment-queue-live="true"
+               role="status"
+               aria-live="polite"
+               aria-atomic="true"></div>
+          <div data-assignment-queue-content="true"></div>
+        </div>
+      `;
+      screen = this.container.querySelector<HTMLElement>('[data-assignment-queue="true"]');
+    }
+
+    const contentRoot = screen?.querySelector<HTMLElement>('[data-assignment-queue-content="true"]');
+    const liveRegion = screen?.querySelector<HTMLElement>('[data-assignment-queue-live="true"]');
+    if (contentRoot && liveRegion) {
+      destroyAssignmentQueueFilterTypeaheads(contentRoot);
+      contentRoot.innerHTML = content;
+      liveRegion.textContent = this.liveMessage;
+    } else {
+      this.container.innerHTML = `
+        <div class="assignment-queue-screen" data-assignment-queue="true">
+          <div class="sr-only"
+               data-assignment-queue-live="true"
+               role="status"
+               aria-live="polite"
+               aria-atomic="true">${escapeHtml(this.liveMessage)}</div>
+          <div data-assignment-queue-content="true">${content}</div>
+        </div>
+      `;
+    }
 
     this.attachEventListeners();
+  }
+
+  private renderContent(): string {
+    return `
+      ${this.renderRefreshError()}
+      ${this.renderFeedback()}
+      ${this.renderBulkActionBar()}
+      ${this.renderFilterSnapshotBar()}
+      ${this.renderReviewStateBar()}
+      ${this.renderPresetBar()}
+      ${this.renderFilters()}
+      ${this.renderResults()}
+    `;
+  }
+
+  private renderResults(): string {
+    return `
+      <div class="assignment-queue-results"
+           data-assignment-queue-results="true"
+           data-refreshing="${this.isRefreshing ? 'true' : 'false'}"
+           aria-busy="${this.isRefreshing ? 'true' : 'false'}"
+           ${this.isRefreshing ? 'inert' : ''}>
+        ${this.renderContextBar()}
+        ${this.renderBody()}
+        ${this.isRefreshing ? `
+          <div class="assignment-queue-refresh-overlay" data-assignment-queue-refresh-overlay="true" aria-hidden="true">
+            <svg class="animate-spin h-6 w-6" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <span>Updating results...</span>
+          </div>
+        ` : ''}
+      </div>
+    `;
+  }
+
+  private renderRefreshError(): string {
+    if (!this.refreshError) {
+      return '';
+    }
+    return `
+      <div class="assignment-queue-feedback feedback-error"
+           data-assignment-queue-refresh-error="true"
+           role="alert">
+        <div>
+          <strong>Queue update failed.</strong>
+          <span> Previous results and filters were restored. ${escapeHtml(this.refreshError.message)}</span>
+        </div>
+        <button type="button" class="${BTN_SECONDARY_SM}" data-queue-refresh="true">Retry</button>
+      </div>
+    `;
   }
 
 
@@ -2750,7 +3006,7 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
   // T10: Bulk action bar - uses floating overlay pattern from input.css
   private renderBulkActionBar(): string {
     const selectedCount = this.selectedRows.size;
-    const isPending = this.bulkActionPending;
+    const isPending = this.bulkActionPending || this.isRefreshing;
     const hiddenClass = selectedCount === 0 ? 'hidden' : '';
 
     return `
@@ -2771,7 +3027,7 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
               ${isPending ? 'disabled' : ''}
               title="Release selected assignments back to the pool"
             >
-              ${isPending ? 'Processing…' : 'Release'}
+              ${this.bulkActionPending ? 'Processing…' : 'Release'}
             </button>
             <button
               type="button"
@@ -2780,7 +3036,7 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
               ${isPending ? 'disabled' : ''}
               title="Archive selected assignments"
             >
-              ${isPending ? 'Processing…' : 'Archive'}
+              ${this.bulkActionPending ? 'Processing…' : 'Archive'}
             </button>
           </div>
         </div>
@@ -2795,7 +3051,7 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
     if (!snapshot) {
       return '';
     }
-    const isPending = this.bulkSnapshotPending || this.bulkActionPending;
+    const isPending = this.bulkSnapshotPending || this.bulkActionPending || this.isRefreshing;
     const summary = (snapshot.filterSummary || []).slice(0, 4);
     return `
       <section class="filter-snapshot-bar" data-filter-snapshot-bar="true" aria-label="All matching filter selection">
@@ -4108,22 +4364,6 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
       });
     });
 
-    // T06: Close menu on outside click
-    if (this.container && typeof this.container.addEventListener === 'function') {
-      this.container.addEventListener('click', (event) => {
-        const target = event.target as HTMLElement;
-        if (!target.closest('.queue-action-overflow-container')) {
-          // Close all menus
-          this.container?.querySelectorAll<HTMLElement>('.queue-action-overflow-menu').forEach((menu) => {
-            menu.hidden = true;
-          });
-          this.container?.querySelectorAll<HTMLButtonElement>('[data-overflow-menu]').forEach((trigger) => {
-            trigger.setAttribute('aria-expanded', 'false');
-          });
-        }
-      });
-    }
-
     // T06: Keyboard navigation for menus (Escape, Arrow keys)
     this.container.querySelectorAll<HTMLElement>('.queue-action-overflow-menu').forEach((menu) => {
       menu.addEventListener('keydown', (event) => {
@@ -4331,6 +4571,46 @@ export function getAssignmentQueueStyles(): string {
       padding: 1rem;
       box-shadow: 0 18px 45px rgba(15, 23, 42, 0.08);
       border: 1px solid #e5e7eb;
+    }
+
+    [data-assignment-queue-content="true"] {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      min-width: 0;
+    }
+
+    .assignment-queue-results {
+      position: relative;
+      min-height: 4rem;
+      transition: opacity 160ms ease;
+    }
+
+    .assignment-queue-results[data-refreshing="true"] > :not(.assignment-queue-refresh-overlay) {
+      opacity: 0.52;
+      pointer-events: none;
+    }
+
+    .assignment-queue-refresh-overlay {
+      position: absolute;
+      inset: 0;
+      z-index: 20;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.65rem;
+      border-radius: 0.75rem;
+      background: rgba(255, 255, 255, 0.68);
+      color: #1f2937;
+      font-size: 0.875rem;
+      font-weight: 600;
+      pointer-events: none;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .assignment-queue-results {
+        transition: none;
+      }
     }
 
     /* Filter field styling */

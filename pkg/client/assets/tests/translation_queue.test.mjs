@@ -20,6 +20,7 @@ const {
   applyOptimisticAssignmentAction,
   buildAssignmentListURL,
   buildAssignmentActionURL: queueBuildAssignmentActionURL,
+  destroyAssignmentQueueFilterTypeaheads,
   initAssignmentQueueScreen,
   initAssignmentQueueFilterTypeaheads,
   initAssignmentSSRRowActions: queueInitAssignmentSSRRowActions,
@@ -85,6 +86,16 @@ async function waitFor(predicate, timeoutMs = 1000) {
 
 async function wait(ms) {
   await new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function deferred() {
+  let resolve;
+  let reject;
+  const promise = new Promise((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise;
+    reject = rejectPromise;
+  });
+  return { promise, resolve, reject };
 }
 
 function setGlobals(win) {
@@ -606,6 +617,41 @@ test('translation queue filters: unresolved hydration keeps the raw selected val
   const canonical = root.querySelector('[data-filter-canonical-input="true"]');
   assert.equal(display.value, 'missing-family');
   assert.equal(canonical.value, 'missing-family');
+});
+
+test('translation queue filters: destroy cancels pending searches before rerender', async () => {
+  const { root } = setupDom();
+  root.innerHTML = `
+    <div data-filter-enhanced="true"
+         data-filter-control-type="typeahead"
+         data-filter-name="family_id"
+         data-filter-endpoint-url="/admin/api/translations/options/families"
+         data-filter-search-param="search"
+         data-filter-hydrate-param="selected"
+         data-filter-value-field="value"
+         data-filter-label-field="label"
+         data-filter-renderer="family"
+         data-filter-fallback="raw">
+      <input name="family_id" value="" data-filter-enhanced-input="true" role="combobox">
+    </div>
+  `;
+  const requests = [];
+  globalThis.fetch = mock.fn(async (url) => {
+    requests.push(String(url));
+    return createJsonResponse({ data: [] });
+  });
+
+  assert.equal(initAssignmentQueueFilterTypeaheads(root), 1);
+  const input = root.querySelector('[data-filter-display-input="true"]');
+  input.value = 'family pending';
+  input.dispatchEvent(new Event('input', { bubbles: true }));
+
+  assert.equal(destroyAssignmentQueueFilterTypeaheads(root), 1);
+  await wait(250);
+
+  assert.equal(requests.length, 0);
+  assert.equal(root.querySelector('[data-filter-enhanced="true"]').dataset.filterEnhancedInitialized, undefined);
+  assert.equal(root.querySelector('.searchbox-dropdown'), null);
 });
 
 test('translation queue runtime: client filters render endpoint metadata and family filter when enhanced', async () => {
@@ -1798,6 +1844,160 @@ test('translation queue runtime: explicit client render flag starts full queue r
   assert.equal(root.dataset.assignmentQueueEnhanced, undefined);
   assert.equal(requests.length, 1);
   assert.match(requests[0], /\/admin\/api\/translations\/assignments/);
+});
+
+test('translation queue runtime: latest refresh wins while stale committed rows stay busy and inert', async () => {
+  const { root } = setupDom('http://localhost/admin/translations/queue?translation_client_render=1');
+  const staleRequest = deferred();
+  const latestRequest = deferred();
+  const requests = [];
+  const responseWithTitle = (title) => {
+    const row = structuredClone(fixtures.states.open_pool.data[0]);
+    row.source_title = title;
+    return createJsonResponse({
+      meta: { ...fixtures.states.open_pool.meta, ...fixtures.meta, total: 1 },
+      data: [row],
+    });
+  };
+
+  globalThis.fetch = mock.fn(async (url, init = {}) => {
+    requests.push({ url: String(url), signal: init.signal });
+    if (requests.length === 1) {
+      return responseWithTitle('Committed response');
+    }
+    if (requests.length === 2) {
+      return staleRequest.promise;
+    }
+    return latestRequest.promise;
+  });
+
+  const screen = new AssignmentQueueScreen({
+    endpoint: '/admin/api/translations/assignments',
+    editorBasePath: '/admin/translations/assignments',
+  });
+  screen.mount(root);
+  await waitFor(() => root.textContent.includes('Committed response'));
+
+  const liveRegion = root.querySelector('[data-assignment-queue-live="true"]');
+  const statusFilter = root.querySelector('select[data-filter-name="status"]');
+  statusFilter.value = 'assigned';
+  statusFilter.dispatchEvent(new Event('change', { bubbles: true }));
+
+  const refreshingResults = root.querySelector('[data-assignment-queue-results="true"]');
+  assert.equal(refreshingResults.dataset.refreshing, 'true');
+  assert.equal(refreshingResults.getAttribute('aria-busy'), 'true');
+  assert.equal(refreshingResults.hasAttribute('inert'), true);
+  assert.match(root.textContent, /Committed response/);
+  assert.match(root.textContent, /Updating results/);
+  assert.equal(liveRegion.textContent, 'Updating queue results...');
+
+  const priorityFilter = root.querySelector('select[data-filter-name="priority"]');
+  priorityFilter.value = 'high';
+  priorityFilter.dispatchEvent(new Event('change', { bubbles: true }));
+  assert.equal(requests.length, 3);
+  assert.equal(requests[1].signal.aborted, true);
+
+  latestRequest.resolve(responseWithTitle('Latest response'));
+  await waitFor(() => root.textContent.includes('Latest response'));
+  assert.equal(root.querySelector('[data-assignment-queue-live="true"]'), liveRegion);
+  assert.equal(liveRegion.textContent, 'Queue updated. 1 result available.');
+  assert.equal(root.querySelector('[data-assignment-queue-results="true"]').dataset.refreshing, 'false');
+
+  staleRequest.resolve(responseWithTitle('Stale response'));
+  await flushAsync();
+  await flushAsync();
+  assert.match(root.textContent, /Latest response/);
+  assert.doesNotMatch(root.textContent, /Stale response/);
+  assert.equal(liveRegion.textContent, 'Queue updated. 1 result available.');
+});
+
+test('translation queue runtime: refresh failure restores committed filters and rows with retry', async () => {
+  const { root } = setupDom('http://localhost/admin/translations/queue?translation_client_render=1');
+  let requestCount = 0;
+  const committedRow = structuredClone(fixtures.states.open_pool.data[0]);
+  committedRow.source_title = 'Committed queue row';
+  const recoveredRow = structuredClone(committedRow);
+  recoveredRow.source_title = 'Recovered queue row';
+  globalThis.fetch = mock.fn(async () => {
+    requestCount += 1;
+    if (requestCount === 2) {
+      throw new Error('temporary upstream failure');
+    }
+    return createJsonResponse({
+      meta: { ...fixtures.states.open_pool.meta, ...fixtures.meta, total: 1 },
+      data: [requestCount === 1 ? committedRow : recoveredRow],
+    });
+  });
+
+  const screen = new AssignmentQueueScreen({
+    endpoint: '/admin/api/translations/assignments',
+    editorBasePath: '/admin/translations/assignments',
+  });
+  screen.mount(root);
+  await waitFor(() => root.textContent.includes('Committed queue row'));
+
+  const priorityFilter = root.querySelector('select[data-filter-name="priority"]');
+  priorityFilter.value = 'high';
+  priorityFilter.dispatchEvent(new Event('change', { bubbles: true }));
+  await waitFor(() => root.querySelector('[data-assignment-queue-refresh-error="true"]'));
+
+  assert.match(root.textContent, /Committed queue row/);
+  assert.match(root.textContent, /Previous results and filters were restored/);
+  assert.equal(root.querySelector('select[data-filter-name="priority"]').value, '');
+  assert.equal(root.querySelector('[data-assignment-queue-results="true"]').getAttribute('aria-busy'), 'false');
+  assert.equal(root.querySelector('[data-assignment-queue-live="true"]').textContent, 'Queue update failed. Previous results and filters were restored.');
+
+  root.querySelector('[data-assignment-queue-refresh-error="true"] [data-queue-refresh="true"]').click();
+  await waitFor(() => root.textContent.includes('Recovered queue row'));
+  assert.equal(requestCount, 3);
+  assert.equal(root.querySelector('[data-assignment-queue-refresh-error="true"]'), null);
+});
+
+test('translation queue runtime: unmount aborts the active list load and ignores late completion', async () => {
+  const { root } = setupDom('http://localhost/admin/translations/queue?translation_client_render=1');
+  const pending = deferred();
+  let signal;
+  globalThis.fetch = mock.fn(async (_url, init = {}) => {
+    signal = init.signal;
+    return pending.promise;
+  });
+
+  const screen = new AssignmentQueueScreen({
+    endpoint: '/admin/api/translations/assignments',
+  });
+  screen.mount(root);
+  assert.ok(signal);
+
+  screen.unmount();
+  assert.equal(signal.aborted, true);
+  assert.equal(root.innerHTML, '');
+
+  pending.resolve(createJsonResponse({
+    meta: { ...fixtures.states.open_pool.meta, ...fixtures.meta },
+    data: fixtures.states.open_pool.data,
+  }));
+  await flushAsync();
+  await flushAsync();
+  assert.equal(root.innerHTML, '');
+  assert.equal(screen.getRows().length, 0);
+});
+
+test('translation queue runtime: initial list failures keep the fatal loading error state', async () => {
+  const { root } = setupDom('http://localhost/admin/translations/queue?translation_client_render=1');
+  globalThis.fetch = mock.fn(async () => {
+    throw new Error('initial upstream failure');
+  });
+
+  const screen = new AssignmentQueueScreen({
+    endpoint: '/admin/api/translations/assignments',
+  });
+  screen.mount(root);
+  await waitFor(() => screen.getState() === 'error');
+
+  assert.ok(root.querySelector('[data-queue-state="error"]'));
+  assert.match(root.textContent, /Queue unavailable/);
+  assert.equal(root.querySelector('[data-assignment-queue-refresh-error="true"]'), null);
+  assert.equal(root.querySelector('[data-assignment-queue-live="true"]').textContent, 'Queue results could not be loaded.');
 });
 
 test('translation queue runtime: queue entry re-exports shared SSR row action helpers', () => {
