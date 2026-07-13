@@ -87,6 +87,65 @@ Compatibility aliases still work for older login submit markup:
 `data-submit-loading-busy-label`, `data-submit-loading-label`, and
 `.submit-loading-spinner`. Do not use those aliases for new templates.
 
+### Native Navigation Feedback
+
+Use `navigation-busy` when an SSR component contains links or GET forms whose
+native current-page navigation may take long enough to need immediate feedback.
+The behavior preserves the original URL, browser history, and no-JavaScript
+fallback; it does not fetch or replace fragments.
+
+```html
+<section data-behavior="navigation-busy"
+         data-navigation-busy-label="Updating results..."
+         data-navigation-busy-status-target="#results-navigation-status">
+  <a href="?status=open" data-navigation-busy-trigger>Open</a>
+
+  <form method="get" data-navigation-busy-trigger>
+    <select name="status"><option value="open">Open</option></select>
+    <button type="submit">Apply</button>
+  </form>
+
+</section>
+
+<div id="results-navigation-status"
+     data-navigation-busy-status
+     hidden
+     role="status"
+     aria-live="polite">
+  <span data-navigation-busy-label-target>Updating results...</span>
+</div>
+```
+
+Rules:
+
+- Mark both the behavior root and each intended trigger explicitly. The runtime
+  does not treat every descendant link or form as a trigger.
+- The first eligible navigation remains native. While it is pending, the root
+  becomes `aria-busy`, controls and triggers become unavailable, and duplicate
+  trigger events are prevented.
+- Modified clicks, downloads, non-self targets, hash-only links, invalid forms,
+  and already-prevented events retain their existing behavior.
+- Effective targets include element or submitter overrides and the document's
+  `<base target>` fallback. New-context navigation never activates pending
+  state on the current page.
+- Navigation-busy forms are limited to HTTP(S) document submissions. Actions
+  using other schemes and forms or submitters using `method="dialog"` retain
+  their native behavior without entering pending state.
+- Use `data-navigation-busy-label` on a trigger to override the root label.
+- Prefer an external status target selected by
+  `data-navigation-busy-status-target`. Keeping the live region outside the
+  `aria-busy` root avoids deferring its pending announcement. A descendant
+  `[data-navigation-busy-status]` remains supported for non-live visual state.
+- Keep current content visible beneath feedback until the new document arrives;
+  do not optimistically remove filter chips or rows.
+- The behavior resets on `pageshow`, explicit behavior reset, or teardown so
+  back-forward cache restoration does not retain stale pending UI.
+- Overlapping document and enhanced-fragment behavior runtimes coordinate by
+  event identity, so one bubbling event starts pending state once while a
+  later duplicate activation is still blocked.
+- Do not use this behavior for Enhanced SSR or other fetch-owned transports;
+  those runtimes own their pending lifecycle through `data-busy-*`.
+
 ## Template Partials
 
 ### Action Menu
@@ -150,6 +209,7 @@ Inline badge-style filters for fast status/category filtering.
 | `active_value` | string | - | Current active filter value |
 | `label` | string | - | Optional visible label and group label |
 | `show_label` | bool/string | label value | Whether to show the label |
+| `navigation_busy` | bool | `false` | Marks quick-filter links as navigation-busy triggers |
 
 **Filter object properties**:
 
@@ -166,6 +226,7 @@ Inline badge-style filters for fast status/category filtering.
 - `data-quick-filters`
 - `data-quick-filter-value`
 - `data-tone`
+- `data-navigation-busy-trigger` when `navigation_busy` is enabled
 
 Translation pages often wrap this partial in a translation-owned container such as `data-translation-quick-filters`.
 
@@ -190,6 +251,7 @@ Collapsible advanced filters form using `<details>`.
 | `active_count` | number | - | Active filter count badge |
 | `open` | bool | `false` | Whether the panel starts open |
 | `grid_cols` | number | `7` | XL grid column count |
+| `navigation_busy` | bool | `false` | Marks the native GET form and Clear link as navigation-busy triggers |
 
 **Filter field properties**:
 
@@ -207,6 +269,7 @@ Collapsible advanced filters form using `<details>`.
 - `data-filter-panel`
 - `data-filter-panel-form`
 - `data-filter-field="<name>"`
+- `data-navigation-busy-trigger` when `navigation_busy` is enabled
 
 Translation pages may wrap or hand-render filter forms with translation-owned selectors such as `data-translation-filter-panel`, `data-translation-filter-toolbar`, `data-translation-filter-summary`, and `data-translation-filter-form="true"` when page enhancers need those selectors.
 
@@ -227,6 +290,7 @@ Displays active filter chips with individual clear links and optional clear-all 
 | `filters` | array | required | Array of active filter objects |
 | `clear_all_url` | string | - | URL to clear all filters |
 | `total_count` | number | `filters|length` | Count shown in the summary |
+| `navigation_busy` | bool | `false` | Marks individual and clear-all links as navigation-busy triggers |
 
 **Filter object properties**:
 
@@ -240,6 +304,7 @@ Displays active filter chips with individual clear links and optional clear-all 
 
 - `data-filter-summary`
 - `data-filter-clear-all`
+- `data-navigation-busy-trigger` when `navigation_busy` is enabled
 
 Translation queue wraps this with `data-translation-filter-summary` for translation-owned enhancement and route guards.
 
