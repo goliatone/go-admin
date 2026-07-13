@@ -34,3 +34,9 @@ func WithContentTypeID(id string) CMSContentListOption {
 func WithFamilyID(id string) CMSContentListOption {
 	return cmscontracts.WithFamilyID(id)
 }
+
+// WithFamilyIDs requests one bounded upstream read for multiple canonical
+// translation families.
+func WithFamilyIDs(ids ...string) CMSContentListOption {
+	return cmscontracts.WithFamilyIDs(ids...)
+}
