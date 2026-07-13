@@ -20,6 +20,7 @@ import {
 import { asNumber, asRecord, asString, asStringArray } from '../shared/coercion.js';
 import {
   buildEndpointURL,
+  getNumberSearchParam,
   getStringSearchParam,
   readLocationSearchParams,
   setNumberSearchParam,
@@ -104,6 +105,8 @@ export interface AssignmentListFilters {
   locale?: string;
   priority?: string;
   entityType?: string;
+  titleContains?: string;
+  pathContains?: string;
   reviewState?: AssignmentQueueReviewState;
   familyId?: string;
 }
@@ -116,6 +119,8 @@ export interface AssignmentQueueSavedFilterQuery {
   locale?: string;
   priority?: string;
   entity_type?: string;
+  title__ilike?: string;
+  path__ilike?: string;
   family_id?: string;
   sort?: AssignmentSortKey;
   order?: 'asc' | 'desc';
@@ -159,6 +164,9 @@ export interface AssignmentQueueFilterControlMetadata {
 }
 
 export interface AssignmentListQueryState extends AssignmentListFilters {
+  tenantId?: string;
+  orgId?: string;
+  channel?: string;
   page?: number;
   perPage?: number;
   sort?: AssignmentSortKey;
@@ -402,6 +410,8 @@ export interface AssignmentQueueScreenConfig {
   title?: string;
   description?: string;
   initialPresetId?: string;
+  initialQueryState?: AssignmentListQueryState;
+  hasExplicitQueryState?: boolean;
 }
 
 export interface AssignmentListFetchOptions {
@@ -626,6 +636,8 @@ function normalizeSavedFilterPreset(value: unknown): AssignmentQueueSavedFilterP
       locale: asString(queryRaw.locale) || undefined,
       priority: asString(queryRaw.priority) || undefined,
       entity_type: asString(queryRaw.entity_type) || undefined,
+      title__ilike: asString(queryRaw.title__ilike) || undefined,
+      path__ilike: asString(queryRaw.path__ilike) || undefined,
       family_id: asString(queryRaw.family_id) || undefined,
       sort: (asString(queryRaw.sort) || undefined) as AssignmentSortKey | undefined,
       order: (asString(queryRaw.order) || undefined) as 'asc' | 'desc' | undefined,
@@ -1091,8 +1103,116 @@ function filterSnapshotBulkIdempotencyKey(snapshotId: string, action: string, op
   ].join(':');
 }
 
+const ASSIGNMENT_LIST_QUERY_KEYS = [
+  'status',
+  'assignee_id',
+  'reviewer_id',
+  'due_state',
+  'locale',
+  'target_locale',
+  'priority',
+  'entity_type',
+  'content_type',
+  'type',
+  'title__ilike',
+  'title__contains',
+  'source_title__contains',
+  'source_title__ilike',
+  'path__ilike',
+  'path__contains',
+  'source_path__contains',
+  'source_path__ilike',
+  'review_state',
+  'family_id',
+  'tenant_id',
+  'org_id',
+  'channel',
+  'page',
+  'per_page',
+  'sort',
+  'order',
+  'group_by',
+  'group_strategy',
+] as const;
+
+function firstStringSearchParam(params: URLSearchParams, keys: readonly string[]): string | undefined {
+  for (const key of keys) {
+    const value = getStringSearchParam(params, key);
+    if (value) {
+      return value;
+    }
+  }
+  return undefined;
+}
+
+function normalizePositiveInteger(value: number | undefined): number | undefined {
+  if (value === undefined || !Number.isFinite(value)) {
+    return undefined;
+  }
+  const normalized = Math.floor(value);
+  return normalized >= 1 ? normalized : undefined;
+}
+
+function assignmentQueueScope(state: AssignmentListQueryState): AssignmentListQueryState {
+  return {
+    tenantId: state.tenantId,
+    orgId: state.orgId,
+    channel: state.channel,
+  };
+}
+
+function scopedAssignmentEndpoint(endpoint: string, state: AssignmentListQueryState): string {
+  const params = new URLSearchParams();
+  setSearchParam(params, 'tenant_id', state.tenantId);
+  setSearchParam(params, 'org_id', state.orgId);
+  return buildEndpointURL(endpoint, params, { preserveAbsolute: true });
+}
+
+export function hasAssignmentListQueryState(params: URLSearchParams): boolean {
+  return ASSIGNMENT_LIST_QUERY_KEYS.some((key) => params.has(key));
+}
+
+export function assignmentListQueryStateFromSearchParams(
+  params: URLSearchParams,
+  fallbackScope: Pick<AssignmentListQueryState, 'tenantId' | 'orgId' | 'channel'> = {},
+): AssignmentListQueryState {
+  const dueState = firstStringSearchParam(params, ['due_state']);
+  const reviewState = firstStringSearchParam(params, ['review_state']);
+  const sort = firstStringSearchParam(params, ['sort']);
+  const order = firstStringSearchParam(params, ['order']);
+  const groupBy = firstStringSearchParam(params, ['group_by']);
+  const groupStrategy = firstStringSearchParam(params, ['group_strategy']);
+  return {
+    status: firstStringSearchParam(params, ['status']),
+    assigneeId: firstStringSearchParam(params, ['assignee_id']),
+    reviewerId: firstStringSearchParam(params, ['reviewer_id']),
+    dueState: (dueState === 'none' || dueState === 'on_track' || dueState === 'due_soon' || dueState === 'overdue')
+      ? dueState
+      : undefined,
+    locale: firstStringSearchParam(params, ['locale', 'target_locale']),
+    priority: firstStringSearchParam(params, ['priority']),
+    entityType: firstStringSearchParam(params, ['entity_type', 'content_type', 'type']),
+    titleContains: firstStringSearchParam(params, ['title__ilike', 'title__contains', 'source_title__contains', 'source_title__ilike']),
+    pathContains: firstStringSearchParam(params, ['path__ilike', 'path__contains', 'source_path__contains', 'source_path__ilike']),
+    reviewState: reviewState === 'qa_blocked' ? reviewState : undefined,
+    familyId: firstStringSearchParam(params, ['family_id']),
+    tenantId: firstStringSearchParam(params, ['tenant_id']) || fallbackScope.tenantId,
+    orgId: firstStringSearchParam(params, ['org_id']) || fallbackScope.orgId,
+    channel: firstStringSearchParam(params, ['channel']) || fallbackScope.channel,
+    page: normalizePositiveInteger(getNumberSearchParam(params, 'page')),
+    perPage: normalizePositiveInteger(getNumberSearchParam(params, 'per_page')),
+    sort: sort as AssignmentSortKey | undefined,
+    order: order === 'asc' || order === 'desc' ? order : undefined,
+    groupBy: groupBy === 'family_id' ? groupBy : undefined,
+    groupStrategy: groupStrategy === 'page_local' || groupStrategy === 'server_family' ? groupStrategy : undefined,
+  };
+}
+
 export function buildAssignmentListQuery(state: AssignmentListQueryState = {}): string {
   const params = new URLSearchParams();
+  setSearchParam(params, 'tenant_id', state.tenantId);
+  setSearchParam(params, 'org_id', state.orgId);
+  setSearchParam(params, 'channel', state.channel);
   setSearchParam(params, 'status', state.status);
   setSearchParam(params, 'assignee_id', state.assigneeId);
   setSearchParam(params, 'reviewer_id', state.reviewerId);
@@ -1100,6 +1220,8 @@ export function buildAssignmentListQuery(state: AssignmentListQueryState = {}): 
   setSearchParam(params, 'locale', state.locale);
   setSearchParam(params, 'priority', state.priority);
   setSearchParam(params, 'entity_type', state.entityType);
+  setSearchParam(params, 'title__ilike', state.titleContains);
+  setSearchParam(params, 'path__ilike', state.pathContains);
   setSearchParam(params, 'review_state', state.reviewState);
   setSearchParam(params, 'family_id', state.familyId);
   setNumberSearchParam(params, 'page', state.page, { min: 1 });
@@ -1126,8 +1248,13 @@ export function snapshotFiltersFromQueryState(state: AssignmentListQueryState = 
   assign('locale', state.locale);
   assign('priority', state.priority);
   assign('entity_type', state.entityType);
+  assign('title__ilike', state.titleContains);
+  assign('path__ilike', state.pathContains);
   assign('review_state', state.reviewState);
   assign('family_id', state.familyId);
+  assign('tenant_id', state.tenantId);
+  assign('org_id', state.orgId);
+  assign('channel', state.channel);
   assign('sort', state.sort);
   assign('order', state.order);
   return filters;
@@ -1345,6 +1472,8 @@ export function presetToQueryState(preset: AssignmentQueueSavedFilterPreset): As
     locale: preset.query.locale,
     priority: preset.query.priority,
     entityType: preset.query.entity_type,
+    titleContains: preset.query.title__ilike,
+    pathContains: preset.query.path__ilike,
     reviewState: preset.review_state,
     familyId: preset.query.family_id,
     sort: preset.query.sort,
@@ -1699,7 +1828,6 @@ interface AssignmentQueueCommittedPresentation {
   queryState: AssignmentListQueryState;
   activePresetId: string;
   activeReviewPresetId: string;
-  activeReviewState: AssignmentQueueReviewState | null;
   viewMode: ViewMode;
   state: 'ready' | 'empty';
 }
@@ -1733,7 +1861,6 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
   private queryState: AssignmentListQueryState;
   private activePresetId: string;
   private activeReviewPresetId = '';
-  private activeReviewState: AssignmentQueueReviewState | null = null;
   private feedback: AssignmentQueueFeedback | null = null;
   private error: AssignmentQueueRequestError | Error | null = null;
   private refreshError: AssignmentQueueRequestError | Error | null = null;
@@ -1776,6 +1903,7 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
   constructor(config: AssignmentQueueScreenConfig) {
     super('loading');
     const requestedPresetId = asString(config.initialPresetId);
+    const initialQueryState = { ...(config.initialQueryState || {}) };
     this.config = {
       endpoint: config.endpoint,
       bulkActionEndpoint: config.bulkActionEndpoint || resolveAssignmentBulkActionEndpoint(config.endpoint),
@@ -1784,21 +1912,43 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
       title: config.title || 'Translation Queue',
       description: config.description || 'Filter assignments, claim open work, and release items back to the pool without leaving the queue.',
       initialPresetId: requestedPresetId || 'open',
+      initialQueryState,
+      hasExplicitQueryState: config.hasExplicitQueryState === true,
     };
     const initialPreset = findInitialQueuePreset(requestedPresetId);
     if (initialPreset?.kind === 'review') {
       this.activePresetId = 'custom';
       this.activeReviewPresetId = initialPreset.preset.id;
-      this.activeReviewState = initialPreset.preset.review_state || null;
-      this.queryState = presetToQueryState(initialPreset.preset);
+      this.queryState = {
+        ...presetToQueryState(initialPreset.preset),
+        ...initialQueryState,
+      };
       return;
     }
 
-    const preset = initialPreset?.preset
-      || DEFAULT_ASSIGNMENT_QUEUE_SAVED_FILTERS[1]
-      || DEFAULT_ASSIGNMENT_QUEUE_SAVED_FILTERS[0];
-    this.activePresetId = preset?.id || 'open';
-    this.queryState = preset ? presetToQueryState(preset) : { sort: 'updated_at', order: 'desc', page: 1 };
+    if (initialPreset?.kind === 'standard') {
+      this.activePresetId = initialPreset.preset.id;
+      this.queryState = {
+        ...presetToQueryState(initialPreset.preset),
+        ...initialQueryState,
+      };
+    } else if (this.config.hasExplicitQueryState) {
+      this.activePresetId = 'custom';
+      this.queryState = {
+        sort: 'updated_at',
+        order: 'desc',
+        page: 1,
+        ...initialQueryState,
+      };
+    } else {
+      const preset = DEFAULT_ASSIGNMENT_QUEUE_SAVED_FILTERS[1]
+        || DEFAULT_ASSIGNMENT_QUEUE_SAVED_FILTERS[0];
+      this.activePresetId = preset?.id || 'open';
+      this.queryState = {
+        ...(preset ? presetToQueryState(preset) : { sort: 'updated_at' as AssignmentSortKey, order: 'desc' as const, page: 1 }),
+        ...initialQueryState,
+      };
+    }
 
     // T11: Restore persisted view mode and expanded groups
     const persistedViewMode = getPersistedViewMode(AssignmentQueueScreen.PANEL_ID);
@@ -1928,10 +2078,14 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
     this.render();
 
     try {
-      const response = await httpRequest(this.config.bulkSnapshotEndpoint || resolveAssignmentBulkSnapshotEndpoint(this.config.endpoint), {
+      const response = await httpRequest(scopedAssignmentEndpoint(
+        this.config.bulkSnapshotEndpoint || resolveAssignmentBulkSnapshotEndpoint(this.config.endpoint),
+        this.queryState,
+      ), {
         method: 'POST',
         json: {
           filters: snapshotFiltersFromQueryState(this.queryState),
+          channel: this.queryState.channel,
         },
       });
 
@@ -2103,7 +2257,10 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
   }
 
   private async executeBulkAction(request: BulkActionRequest): Promise<BulkActionResponse> {
-    const response = await httpRequest(this.config.bulkActionEndpoint || resolveAssignmentBulkActionEndpoint(this.config.endpoint), {
+    const response = await httpRequest(scopedAssignmentEndpoint(
+      this.config.bulkActionEndpoint || resolveAssignmentBulkActionEndpoint(this.config.endpoint),
+      this.queryState,
+    ), {
       method: 'POST',
       json: {
         action: request.action,
@@ -2117,6 +2274,7 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
         assignee_id: request.assigneeId,
         reason: request.reason,
         priority: request.priority,
+        channel: this.queryState.channel,
       },
     });
 
@@ -2238,7 +2396,6 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
       queryState: { ...this.queryState },
       activePresetId: this.activePresetId,
       activeReviewPresetId: this.activeReviewPresetId,
-      activeReviewState: this.activeReviewState,
       viewMode: this.viewMode,
     };
   }
@@ -2251,7 +2408,6 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
     this.queryState = { ...committed.queryState };
     this.activePresetId = committed.activePresetId;
     this.activeReviewPresetId = committed.activeReviewPresetId;
-    this.activeReviewState = committed.activeReviewState;
     this.viewMode = committed.viewMode;
     this.state = committed.state;
     persistViewMode(AssignmentQueueScreen.PANEL_ID, committed.viewMode);
@@ -2434,13 +2590,15 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
 
     try {
       const response = action === 'claim'
-        ? await claimAssignment(this.config.endpoint, assignmentId, {
+        ? await claimAssignment(scopedAssignmentEndpoint(this.config.endpoint, this.queryState), assignmentId, {
             expected_version: previous.version,
             idempotency_key: buildActionIdempotencyKey('claim', previous),
+            channel: this.queryState.channel,
           })
-        : await releaseAssignment(this.config.endpoint, assignmentId, {
+        : await releaseAssignment(scopedAssignmentEndpoint(this.config.endpoint, this.queryState), assignmentId, {
             expected_version: previous.version,
             idempotency_key: buildActionIdempotencyKey('release', previous),
+            channel: this.queryState.channel,
           });
       this.rows[index] = cloneRow(response.data.assignment);
       this.replaceCachedRow(this.rows[index]);
@@ -2475,6 +2633,7 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
     const request: AssignmentActionRequest = {
       expected_version: current.version,
       idempotency_key: buildReviewActionIdempotencyKey(action, current),
+      channel: this.queryState.channel,
     };
     if (action === 'reject') {
       const reason = typeof window !== 'undefined' ? window.prompt('Reject reason') : '';
@@ -2494,7 +2653,7 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
     this.feedback = null;
     this.render();
     try {
-      const response = await runAssignmentAction(this.config.endpoint, assignmentId, action, request);
+      const response = await runAssignmentAction(scopedAssignmentEndpoint(this.config.endpoint, this.queryState), assignmentId, action, request);
       this.rows[index] = cloneRow(response.data.assignment);
       this.replaceCachedRow(this.rows[index]);
       this.feedback = {
@@ -2520,8 +2679,10 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
     }
     this.activePresetId = preset.id;
     this.activeReviewPresetId = '';
-    this.activeReviewState = null;
-    this.queryState = presetToQueryState(preset);
+    this.queryState = {
+      ...presetToQueryState(preset),
+      ...assignmentQueueScope(this.queryState),
+    };
     this.filterSnapshot = null;
     this.selectedRows.clear();
     this.feedback = null;
@@ -2535,8 +2696,10 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
     }
     this.activePresetId = 'custom';
     this.activeReviewPresetId = preset.id;
-    this.activeReviewState = preset.review_state || null;
-    this.queryState = presetToQueryState(preset);
+    this.queryState = {
+      ...presetToQueryState(preset),
+      ...assignmentQueueScope(this.queryState),
+    };
     this.filterSnapshot = null;
     this.selectedRows.clear();
     this.feedback = null;
@@ -2546,7 +2709,6 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
   private updateFilter(next: Partial<AssignmentListQueryState>): void {
     this.activePresetId = 'custom';
     this.activeReviewPresetId = '';
-    this.activeReviewState = null;
     this.queryState = {
       ...this.queryState,
       ...next,
@@ -2572,6 +2734,18 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
         break;
       case 'entity_type':
         this.updateFilter({ entityType: normalized || undefined });
+        break;
+      case 'title__ilike':
+      case 'title__contains':
+      case 'source_title__contains':
+      case 'source_title__ilike':
+        this.updateFilter({ titleContains: normalized || undefined });
+        break;
+      case 'path__ilike':
+      case 'path__contains':
+      case 'source_path__contains':
+      case 'source_path__ilike':
+        this.updateFilter({ pathContains: normalized || undefined });
         break;
       case 'locale':
         this.updateFilter({ locale: normalized || undefined });
@@ -2620,7 +2794,9 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
     if (this.queryState.assigneeId) count++;
     if (this.queryState.reviewerId) count++;
     if (this.queryState.familyId) count++;
-    if (this.activeReviewState) count++;
+    if (this.queryState.titleContains) count++;
+    if (this.queryState.pathContains) count++;
+    if (this.queryState.reviewState) count++;
     if (this.queryState.sort && this.queryState.sort !== (this.response?.meta.default_sort.key ?? 'updated_at')) count++;
     if (this.queryState.order && this.queryState.order !== (this.response?.meta.default_sort.order ?? 'desc')) count++;
     return count;
@@ -2641,6 +2817,12 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
       case 'entity_type':
         updates.entityType = undefined;
         break;
+      case 'title__ilike':
+        updates.titleContains = undefined;
+        break;
+      case 'path__ilike':
+        updates.pathContains = undefined;
+        break;
       case 'locale':
         updates.locale = undefined;
         break;
@@ -2652,6 +2834,9 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
         break;
       case 'family_id':
         updates.familyId = undefined;
+        break;
+      case 'review_state':
+        updates.reviewState = undefined;
         break;
       case 'sort':
         updates.sort = undefined;
@@ -2722,11 +2907,25 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
         value: this.queryState.familyId,
       });
     }
-    if (this.activeReviewState) {
+    if (this.queryState.titleContains) {
+      activeFilters.push({
+        name: 'title__ilike',
+        label: 'Title contains',
+        value: this.queryState.titleContains,
+      });
+    }
+    if (this.queryState.pathContains) {
+      activeFilters.push({
+        name: 'path__ilike',
+        label: 'Path contains',
+        value: this.queryState.pathContains,
+      });
+    }
+    if (this.queryState.reviewState) {
       activeFilters.push({
         name: 'review_state',
         label: 'Review State',
-        value: humanizeToken(this.activeReviewState),
+        value: humanizeToken(this.queryState.reviewState),
       });
     }
     if (this.queryState.sort && this.queryState.sort !== (this.response?.meta.default_sort.key ?? 'updated_at')) {
@@ -2865,17 +3064,19 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
       dueState: undefined,
       priority: undefined,
       entityType: undefined,
+      titleContains: undefined,
+      pathContains: undefined,
       locale: undefined,
       assigneeId: undefined,
       reviewerId: undefined,
       familyId: undefined,
+      reviewState: undefined,
       sort: undefined,
       order: undefined,
       page: 1,
     };
     this.activePresetId = 'custom';
     this.activeReviewPresetId = '';
-    this.activeReviewState = null;
     this.filterSnapshot = null;
     this.selectedRows.clear();
     void this.load();
@@ -3306,6 +3507,8 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
             ${this.renderQueueFilterControl('due_state', 'Due State', ['', ...dueStates], this.queryState.dueState || '')}
             ${this.renderSelect('priority', 'Priority', priorities, this.queryState.priority || '')}
             ${this.renderQueueFilterControl('entity_type', 'Type', entityTypes, this.queryState.entityType || '')}
+            ${this.renderTextFilter('title__ilike', 'Title contains', this.queryState.titleContains || '', 'Match source titles')}
+            ${this.renderTextFilter('path__ilike', 'Path contains', this.queryState.pathContains || '', 'Match source paths')}
             ${this.renderQueueFilterControl('locale', 'Target Locale', locales, this.queryState.locale || '')}
             ${this.renderQueueFilterControl('assignee_id', 'Assignee', assignees, this.queryState.assigneeId || '')}
             ${this.renderQueueFilterControl('reviewer_id', 'Reviewer', reviewers, this.queryState.reviewerId || '')}
@@ -3375,6 +3578,21 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
       label: value ? humanizeToken(value) : `All ${label.toLowerCase()}`,
     }));
     return this.renderSelectOptions(name, label, options, activeValue);
+  }
+
+  private renderTextFilter(name: string, label: string, activeValue: string, placeholder: string): string {
+    return `
+      <label class="queue-filter-field">
+        <span>${escapeHtml(label)}</span>
+        <input
+          type="search"
+          data-filter-name="${escapeAttr(name)}"
+          value="${escapeAttr(activeValue)}"
+          placeholder="${escapeAttr(placeholder)}"
+          autocomplete="off"
+        />
+      </label>
+    `;
   }
 
   private renderSelectOptions(
@@ -4615,7 +4833,8 @@ export function getAssignmentQueueStyles(): string {
 
     /* Filter field styling */
     .queue-filter-field select,
-    .queue-filter-field input[type="text"] {
+    .queue-filter-field input[type="text"],
+    .queue-filter-field input[type="search"] {
       border-radius: 0.5rem;
       border: 1px solid #d1d5db;
       background: #ffffff;
@@ -4626,7 +4845,8 @@ export function getAssignmentQueueStyles(): string {
     }
 
     .queue-filter-field select:focus,
-    .queue-filter-field input[type="text"]:focus {
+    .queue-filter-field input[type="text"]:focus,
+    .queue-filter-field input[type="search"]:focus {
       border-color: #3b82f6;
       outline: none;
       box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
@@ -5677,6 +5897,12 @@ export function initAssignmentQueueScreen(container: HTMLElement): AssignmentQue
   const locationSearch = typeof window !== 'undefined'
     ? readLocationSearchParams(window.location)
     : null;
+  const params = locationSearch ?? new URLSearchParams();
+  const initialQueryState = assignmentListQueryStateFromSearchParams(params, {
+    tenantId: container.dataset.tenantId || undefined,
+    orgId: container.dataset.orgId || undefined,
+    channel: container.dataset.channel || undefined,
+  });
   return createAssignmentQueueScreen(container, {
     endpoint,
     bulkActionEndpoint: container.dataset.bulkActionEndpoint || container.dataset.bulkActionsEndpoint || '',
@@ -5684,7 +5910,9 @@ export function initAssignmentQueueScreen(container: HTMLElement): AssignmentQue
     editorBasePath: container.dataset.editorBasePath || '',
     title: container.dataset.title,
     description: container.dataset.description,
-    initialPresetId: container.dataset.initialPresetId || getStringSearchParam(locationSearch ?? new URLSearchParams(), 'preset') || '',
+    initialPresetId: container.dataset.initialPresetId || getStringSearchParam(params, 'preset') || '',
+    initialQueryState,
+    hasExplicitQueryState: hasAssignmentListQueryState(params),
   });
 }
 
