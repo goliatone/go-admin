@@ -18,6 +18,7 @@ const fixtures = JSON.parse(await readFile(fixtureURL, 'utf8'));
 const {
   AssignmentQueueScreen,
   applyOptimisticAssignmentAction,
+  assignmentListQueryStateFromSearchParams,
   buildAssignmentListURL,
   buildAssignmentActionURL: queueBuildAssignmentActionURL,
   destroyAssignmentQueueFilterTypeaheads,
@@ -482,6 +483,57 @@ test('translation queue contracts: canonical list urls include server family str
     url,
     '/admin/api/translations/assignments?sort=priority&order=desc&group_by=family_id&group_strategy=server_family'
   );
+});
+
+test('translation queue contracts: canonical predicates and scope survive URL and snapshot serialization', () => {
+  const state = {
+    tenantId: 'tenant-1',
+    orgId: 'org-1',
+    channel: 'staging',
+    entityType: 'pages',
+    titleContains: 'Launch page',
+    pathContains: '/launch',
+    page: 2,
+    perPage: 50,
+  };
+  const url = new URL(buildAssignmentListURL('/admin/api/translations/assignments', state), 'http://localhost');
+  assert.equal(url.searchParams.get('tenant_id'), 'tenant-1');
+  assert.equal(url.searchParams.get('org_id'), 'org-1');
+  assert.equal(url.searchParams.get('channel'), 'staging');
+  assert.equal(url.searchParams.get('entity_type'), 'pages');
+  assert.equal(url.searchParams.get('title__ilike'), 'Launch page');
+  assert.equal(url.searchParams.get('path__ilike'), '/launch');
+  assert.equal(url.searchParams.get('page'), '2');
+  assert.equal(url.searchParams.get('per_page'), '50');
+  assert.deepEqual(snapshotFiltersFromQueryState(state), {
+    entity_type: 'pages',
+    title__ilike: 'Launch page',
+    path__ilike: '/launch',
+    tenant_id: 'tenant-1',
+    org_id: 'org-1',
+    channel: 'staging',
+  });
+});
+
+test('translation queue contracts: URL aliases normalize to canonical client query state', () => {
+  const params = new URLSearchParams(
+    'content_type=pages&source_title__contains=Launch&source_path__ilike=%2Flaunch&page=2&per_page=50&sort=priority&order=asc&group_by=family_id',
+  );
+  assert.deepEqual(assignmentListQueryStateFromSearchParams(params, {
+    tenantId: 'tenant-fallback',
+    channel: 'default',
+  }), {
+    entityType: 'pages',
+    titleContains: 'Launch',
+    pathContains: '/launch',
+    tenantId: 'tenant-fallback',
+    channel: 'default',
+    page: 2,
+    perPage: 50,
+    sort: 'priority',
+    order: 'asc',
+    groupBy: 'family_id',
+  });
 });
 
 test('translation queue filters: enhanced typeahead hydrates and selects canonical values', async () => {
@@ -1460,10 +1512,12 @@ test('translation queue runtime: filter chips render for active filters', async 
     assigneeId: 'user-1',
     reviewerId: 'user-2',
     familyId: 'family-1',
+    titleContains: 'Launch',
+    pathContains: '/launch',
+    reviewState: 'qa_blocked',
     sort: 'priority',
     order: 'asc',
   };
-  screen.activeReviewState = 'pending';
   screen.render();
   await flushAsync();
 
@@ -1474,10 +1528,10 @@ test('translation queue runtime: filter chips render for active filters', async 
   // Verify chip has proper label and value
   assert.match(root.innerHTML, /queue-filter-chip/,
     'Filter chips should have queue-filter-chip class');
-  for (const filterName of ['status', 'due_state', 'priority', 'locale', 'assignee_id', 'reviewer_id', 'family_id', 'review_state', 'sort', 'order']) {
+  for (const filterName of ['status', 'due_state', 'priority', 'locale', 'assignee_id', 'reviewer_id', 'family_id', 'title__ilike', 'path__ilike', 'review_state', 'sort', 'order']) {
     assert.ok(root.querySelector(`[data-remove-filter="${filterName}"]`), `expected ${filterName} chip`);
   }
-  assert.match(root.querySelector('[data-filters-toggle]').textContent, /10/);
+  assert.match(root.querySelector('[data-filters-toggle]').textContent, /12/);
 });
 
 test('translation queue runtime: removing individual filter chip clears that filter', async () => {
@@ -1555,10 +1609,12 @@ test('translation queue runtime: clear all filters button clears filter snapshot
     assigneeId: 'user-1',
     reviewerId: 'user-2',
     familyId: 'family-1',
+    titleContains: 'Launch',
+    pathContains: '/launch',
+    reviewState: 'qa_blocked',
     sort: 'priority',
     order: 'asc',
   };
-  screen.activeReviewState = 'pending';
   screen.render();
   await flushAsync();
 
@@ -1578,9 +1634,11 @@ test('translation queue runtime: clear all filters button clears filter snapshot
   assert.equal(screen.queryState.assigneeId, undefined);
   assert.equal(screen.queryState.reviewerId, undefined);
   assert.equal(screen.queryState.familyId, undefined);
+  assert.equal(screen.queryState.titleContains, undefined);
+  assert.equal(screen.queryState.pathContains, undefined);
+  assert.equal(screen.queryState.reviewState, undefined);
   assert.equal(screen.queryState.sort, undefined);
   assert.equal(screen.queryState.order, undefined);
-  assert.equal(screen.activeReviewState, null);
 });
 
 test('translation queue runtime: mobile cards are keyboard-accessible navigation targets', async () => {
@@ -1844,6 +1902,75 @@ test('translation queue runtime: explicit client render flag starts full queue r
   assert.equal(root.dataset.assignmentQueueEnhanced, undefined);
   assert.equal(requests.length, 1);
   assert.match(requests[0], /\/admin\/api\/translations\/assignments/);
+});
+
+test('translation queue runtime: explicit client bootstrap preserves URL filters and scope without an implicit preset', async () => {
+  const { root } = setupDom(
+    'http://localhost/admin/translations/queue?translation_client_render=1&content_type=pages&source_title__contains=Launch&page=2&per_page=50&channel=staging&tenant_id=tenant-1&org_id=org-1',
+  );
+  root.dataset.ssrEnhanced = 'true';
+  root.dataset.endpoint = '/admin/api/translations/assignments';
+  root.dataset.channel = 'default';
+  const requests = [];
+  globalThis.fetch = mock.fn(async (url) => {
+    requests.push(String(url));
+    return createJsonResponse({
+      meta: { ...fixtures.meta, page: 2, per_page: 50, total: 75 },
+      data: fixtures.states.open_pool.data,
+    });
+  });
+
+  const screen = initAssignmentQueueScreen(root);
+  assert.ok(screen);
+  await flushAsync();
+
+  const requestURL = new URL(requests[0], 'http://localhost');
+  assert.equal(requestURL.searchParams.get('entity_type'), 'pages');
+  assert.equal(requestURL.searchParams.get('title__ilike'), 'Launch');
+  assert.equal(requestURL.searchParams.get('page'), '2');
+  assert.equal(requestURL.searchParams.get('per_page'), '50');
+  assert.equal(requestURL.searchParams.get('channel'), 'staging');
+  assert.equal(requestURL.searchParams.get('tenant_id'), 'tenant-1');
+  assert.equal(requestURL.searchParams.get('org_id'), 'org-1');
+  assert.equal(requestURL.searchParams.has('status'), false);
+  assert.equal(screen.getActivePresetId(), 'custom');
+});
+
+test('translation queue runtime: scoped client actions preserve tenant, org, and channel', async () => {
+  const { root } = setupDom(
+    'http://localhost/admin/translations/queue?translation_client_render=1&tenant_id=tenant-1&org_id=org-1&channel=staging',
+  );
+  root.dataset.ssrEnhanced = 'true';
+  root.dataset.endpoint = '/admin/api/translations/assignments';
+  const requests = [];
+  globalThis.fetch = mock.fn(async (url, init = {}) => {
+    requests.push({ url: String(url), init });
+    if ((init.method || 'GET') === 'POST') {
+      const row = { ...fixtures.states.open_pool.data[0], status: 'assigned', queue_state: 'assigned' };
+      return createJsonResponse({
+        data: {
+          assignment_id: row.id,
+          status: row.status,
+          row_version: row.version,
+          updated_at: row.updated_at,
+          assignment: row,
+        },
+        meta: {},
+      });
+    }
+    return createJsonResponse({ meta: fixtures.meta, data: fixtures.states.open_pool.data });
+  });
+
+  initAssignmentQueueScreen(root);
+  await flushAsync();
+  root.querySelector('[data-action="claim"]').click();
+  await flushAsync();
+
+  const actionRequest = requests.find((request) => request.init.method === 'POST');
+  const actionURL = new URL(actionRequest.url, 'http://localhost');
+  assert.equal(actionURL.searchParams.get('tenant_id'), 'tenant-1');
+  assert.equal(actionURL.searchParams.get('org_id'), 'org-1');
+  assert.equal(JSON.parse(actionRequest.init.body).channel, 'staging');
 });
 
 test('translation queue runtime: latest refresh wins while stale committed rows stay busy and inert', async () => {
@@ -2156,6 +2283,50 @@ test('translation queue runtime: qa-blocked review preset requests server-side r
   assert.match(firstURL, /reviewer_id=__me__/);
 });
 
+test('translation queue runtime: review state stays visible through customization and clears explicitly', async () => {
+  const { root } = setupDom();
+  const requests = [];
+  globalThis.fetch = mock.fn(async (input) => {
+    requests.push(String(input));
+    return createJsonResponse({
+      meta: {
+        ...fixtures.states.qa_summary.meta,
+        ...fixtures.meta,
+        review_actor_id: 'reviewer-1',
+      },
+      data: fixtures.states.qa_summary.data,
+    });
+  });
+  const screen = new AssignmentQueueScreen({
+    endpoint: '/admin/api/translations/assignments',
+    initialPresetId: 'review_blocked',
+  });
+  screen.mount(root);
+  await flushAsync();
+
+  const priority = root.querySelector('select[data-filter-name="priority"]');
+  priority.value = 'high';
+  priority.dispatchEvent(new Event('change', { bubbles: true }));
+  await flushAsync();
+  let requestURL = new URL(requests.at(-1), 'http://localhost');
+  assert.equal(requestURL.searchParams.get('review_state'), 'qa_blocked');
+  assert.ok(root.querySelector('[data-remove-filter="review_state"]'));
+  assert.equal(screen.getActiveReviewPresetId(), '');
+
+  root.querySelector('[data-remove-filter="review_state"]').click();
+  await flushAsync();
+  requestURL = new URL(requests.at(-1), 'http://localhost');
+  assert.equal(requestURL.searchParams.has('review_state'), false);
+  assert.equal(root.querySelector('[data-remove-filter="review_state"]'), null);
+
+  screen.setActiveReviewPreset('review_blocked');
+  await flushAsync();
+  root.querySelector('[data-clear-filters]').click();
+  await flushAsync();
+  requestURL = new URL(requests.at(-1), 'http://localhost');
+  assert.equal(requestURL.searchParams.has('review_state'), false);
+});
+
 test('translation queue runtime: init screen reads preset from location query when dataset is empty', async () => {
   let firstURL = '';
   globalThis.fetch = mock.fn(async (input) => {
@@ -2466,6 +2637,63 @@ test('translation queue runtime: review selector renders in unified toolbar', as
   assert.match(html, />2</);
 });
 
+test('translation queue runtime: review selector owns and tears down document listeners', async () => {
+  const { root } = setupDom();
+  globalThis.fetch = mock.fn(async () => createJsonResponse({
+    meta: {
+      ...fixtures.states.open_pool.meta,
+      ...fixtures.meta,
+      review_actor_id: 'reviewer-1',
+    },
+    data: fixtures.states.open_pool.data,
+  }));
+  const screen = new AssignmentQueueScreen({ endpoint: '/admin/api/translations/assignments' });
+  screen.mount(root);
+  await flushAsync();
+
+  const active = { click: new Set(), keydown: new Set() };
+  const documentRef = root.ownerDocument;
+  const add = documentRef.addEventListener.bind(documentRef);
+  const remove = documentRef.removeEventListener.bind(documentRef);
+  documentRef.addEventListener = (type, listener, options) => {
+    active[type]?.add(listener);
+    return add(type, listener, options);
+  };
+  documentRef.removeEventListener = (type, listener, options) => {
+    active[type]?.delete(listener);
+    return remove(type, listener, options);
+  };
+
+  let toggle = root.querySelector('[data-review-selector-toggle]');
+  toggle.click();
+  toggle.click();
+  await flushAsync();
+  assert.equal(active.click.size, 0, 'toggle-close should cancel pending click registration');
+  assert.equal(active.keydown.size, 0, 'toggle-close should cancel pending keydown registration');
+
+  toggle.click();
+  await flushAsync();
+  assert.equal(active.click.size, 1);
+  assert.equal(active.keydown.size, 1);
+  documentRef.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+  assert.equal(active.click.size, 0);
+  assert.equal(active.keydown.size, 0);
+  assert.equal(documentRef.activeElement, toggle);
+
+  toggle.click();
+  await flushAsync();
+  screen.render();
+  assert.equal(active.click.size, 0, 'rerender should remove the click listener');
+  assert.equal(active.keydown.size, 0, 'rerender should remove the keydown listener');
+
+  toggle = root.querySelector('[data-review-selector-toggle]');
+  toggle.click();
+  await flushAsync();
+  screen.unmount();
+  assert.equal(active.click.size, 0, 'unmount should remove the click listener');
+  assert.equal(active.keydown.size, 0, 'unmount should remove the keydown listener');
+});
+
 test('translation queue runtime: review selector disabled when reviewer metadata is missing', async () => {
   globalThis.fetch = mock.fn(async () => {
     return createJsonResponse({
@@ -2527,6 +2755,84 @@ test('translation queue runtime: context bar renders with flat mode counts', asy
   // Verify expand/collapse buttons are NOT present in flat mode
   assert.doesNotMatch(html, /data-expand-all="true"/);
   assert.doesNotMatch(html, /data-collapse-all="true"/);
+});
+
+test('translation queue runtime: predicate controls submit canonical filters and support removal', async () => {
+  const { root } = setupDom();
+  const requests = [];
+  globalThis.fetch = mock.fn(async (input) => {
+    requests.push(String(input));
+    return createJsonResponse({
+      meta: { ...fixtures.states.open_pool.meta, ...fixtures.meta, total: 1 },
+      data: fixtures.states.open_pool.data,
+    });
+  });
+  const screen = new AssignmentQueueScreen({ endpoint: '/admin/api/translations/assignments' });
+  screen.mount(root);
+  await flushAsync();
+
+  const title = root.querySelector('input[data-filter-name="title__ilike"]');
+  title.value = 'Launch';
+  title.dispatchEvent(new Event('change', { bubbles: true }));
+  await flushAsync();
+  let requestURL = new URL(requests.at(-1), 'http://localhost');
+  assert.equal(requestURL.searchParams.get('title__ilike'), 'Launch');
+  assert.equal(requestURL.searchParams.get('page'), '1');
+  assert.ok(root.querySelector('[data-remove-filter="title__ilike"]'));
+
+  const path = root.querySelector('input[data-filter-name="path__ilike"]');
+  path.value = '/launch';
+  path.dispatchEvent(new Event('change', { bubbles: true }));
+  await flushAsync();
+  requestURL = new URL(requests.at(-1), 'http://localhost');
+  assert.equal(requestURL.searchParams.get('title__ilike'), 'Launch');
+  assert.equal(requestURL.searchParams.get('path__ilike'), '/launch');
+
+  root.querySelector('[data-remove-filter="title__ilike"]').click();
+  await flushAsync();
+  requestURL = new URL(requests.at(-1), 'http://localhost');
+  assert.equal(requestURL.searchParams.has('title__ilike'), false);
+  assert.equal(requestURL.searchParams.get('path__ilike'), '/launch');
+});
+
+test('translation queue runtime: pagination and page size preserve active query state', async () => {
+  const { root } = setupDom();
+  const requests = [];
+  globalThis.fetch = mock.fn(async (input) => {
+    const requestURL = new URL(String(input), 'http://localhost');
+    requests.push(requestURL);
+    const page = Number(requestURL.searchParams.get('page') || 1);
+    const perPage = Number(requestURL.searchParams.get('per_page') || 25);
+    return createJsonResponse({
+      meta: { ...fixtures.states.open_pool.meta, ...fixtures.meta, page, per_page: perPage, total: 60 },
+      data: fixtures.states.open_pool.data,
+    });
+  });
+  const screen = new AssignmentQueueScreen({
+    endpoint: '/admin/api/translations/assignments',
+    initialQueryState: { titleContains: 'Launch', tenantId: 'tenant-1' },
+  });
+  screen.mount(root);
+  await flushAsync();
+
+  assert.match(root.querySelector('[data-queue-pagination-range]').textContent, /Page 1 of 3/);
+  assert.equal(root.querySelector('[data-page-target="0"]').disabled, true);
+  root.querySelector('[data-page-target="2"]').click();
+  await flushAsync();
+  let requestURL = requests.at(-1);
+  assert.equal(requestURL.searchParams.get('page'), '2');
+  assert.equal(requestURL.searchParams.get('title__ilike'), 'Launch');
+  assert.equal(requestURL.searchParams.get('tenant_id'), 'tenant-1');
+
+  const pageSize = root.querySelector('select[data-page-size="true"]');
+  pageSize.value = '50';
+  pageSize.dispatchEvent(new Event('change', { bubbles: true }));
+  await flushAsync();
+  requestURL = requests.at(-1);
+  assert.equal(requestURL.searchParams.get('page'), '1');
+  assert.equal(requestURL.searchParams.get('per_page'), '50');
+  assert.equal(requestURL.searchParams.get('title__ilike'), 'Launch');
+  assert.match(root.querySelector('[data-queue-pagination-range]').textContent, /Page 1 of 2/);
 });
 
 test('translation queue runtime: context bar renders with grouped mode counts', async () => {

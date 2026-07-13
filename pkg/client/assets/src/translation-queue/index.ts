@@ -1182,7 +1182,7 @@ export function assignmentListQueryStateFromSearchParams(
   const order = firstStringSearchParam(params, ['order']);
   const groupBy = firstStringSearchParam(params, ['group_by']);
   const groupStrategy = firstStringSearchParam(params, ['group_strategy']);
-  return {
+  const state: AssignmentListQueryState = {
     status: firstStringSearchParam(params, ['status']),
     assigneeId: firstStringSearchParam(params, ['assignee_id']),
     reviewerId: firstStringSearchParam(params, ['reviewer_id']),
@@ -1206,6 +1206,9 @@ export function assignmentListQueryStateFromSearchParams(
     groupBy: groupBy === 'family_id' ? groupBy : undefined,
     groupStrategy: groupStrategy === 'page_local' || groupStrategy === 'server_family' ? groupStrategy : undefined,
   };
+  return Object.fromEntries(
+    Object.entries(state).filter(([, value]) => value !== undefined),
+  ) as AssignmentListQueryState;
 }
 
 export function buildAssignmentListQuery(state: AssignmentListQueryState = {}): string {
@@ -1882,6 +1885,22 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
       });
     }
   };
+  private reviewSelectorDocument: Document | null = null;
+  private reviewSelectorToggle: HTMLElement | null = null;
+  private reviewSelectorListenerTimer: ReturnType<typeof setTimeout> | null = null;
+  private readonly handleReviewSelectorDocumentClick = (event: MouseEvent): void => {
+    const target = event.target as Node | null;
+    const selector = this.container?.querySelector<HTMLElement>('[data-review-selector-container]');
+    if (target && selector && !selector.contains(target)) {
+      this.closeReviewSelectorDropdown();
+    }
+  };
+  private readonly handleReviewSelectorDocumentKeydown = (event: KeyboardEvent): void => {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      this.closeReviewSelectorDropdown({ restoreFocus: true });
+    }
+  };
 
   // T10: Selection state
   private selectedRows = new Map<string, SelectionEntry>();
@@ -1982,6 +2001,7 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
     this.listLoadController?.abort();
     this.listLoadController = null;
     this.isRefreshing = false;
+    this.teardownReviewSelectorListeners();
     if (this.container) {
       destroyAssignmentQueueFilterTypeaheads(this.container);
       if (typeof this.container.removeEventListener === 'function') {
@@ -2995,50 +3015,52 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
     const isHidden = menu.classList.contains('hidden');
 
     if (isHidden) {
-      // Open dropdown
+      this.teardownReviewSelectorListeners();
       menu.classList.remove('hidden');
       toggle.setAttribute('aria-expanded', 'true');
       if (chevron) chevron.classList.add('rotate-180');
-
-      // Add document listener for outside clicks
-      const closeOnOutsideClick = (event: MouseEvent) => {
-        const target = event.target as Node;
-        const container = this.container?.querySelector<HTMLElement>('[data-review-selector-container]');
-        if (container && !container.contains(target)) {
-          this.closeReviewSelectorDropdown();
-          document.removeEventListener('click', closeOnOutsideClick);
+      this.reviewSelectorDocument = toggle.ownerDocument;
+      this.reviewSelectorToggle = toggle;
+      this.reviewSelectorListenerTimer = setTimeout(() => {
+        this.reviewSelectorListenerTimer = null;
+        if (!this.mounted || !this.reviewSelectorDocument || !this.reviewSelectorToggle?.isConnected) {
+          this.teardownReviewSelectorListeners();
+          return;
         }
-      };
-
-      // Add document listener for Escape key
-      const closeOnEscape = (event: KeyboardEvent) => {
-        if (event.key === 'Escape') {
-          this.closeReviewSelectorDropdown();
-          document.removeEventListener('keydown', closeOnEscape);
-          toggle.focus();
-        }
-      };
-
-      // Delay to avoid immediate close from the same click
-      setTimeout(() => {
-        document.addEventListener('click', closeOnOutsideClick);
-        document.addEventListener('keydown', closeOnEscape);
+        this.reviewSelectorDocument.addEventListener('click', this.handleReviewSelectorDocumentClick);
+        this.reviewSelectorDocument.addEventListener('keydown', this.handleReviewSelectorDocumentKeydown);
       }, 0);
     } else {
       this.closeReviewSelectorDropdown();
     }
   }
 
-  private closeReviewSelectorDropdown(): void {
+  private closeReviewSelectorDropdown(options: { restoreFocus?: boolean } = {}): void {
     const menu = this.container?.querySelector<HTMLElement>('[data-review-selector-menu]');
     const toggle = this.container?.querySelector<HTMLElement>('[data-review-selector-toggle]');
     const chevron = this.container?.querySelector<HTMLElement>('[data-review-selector-chevron]');
 
-    if (!menu) return;
-
-    menu.classList.add('hidden');
+    if (menu) menu.classList.add('hidden');
     if (toggle) toggle.setAttribute('aria-expanded', 'false');
     if (chevron) chevron.classList.remove('rotate-180');
+    const focusTarget = options.restoreFocus ? this.reviewSelectorToggle : null;
+    this.teardownReviewSelectorListeners();
+    if (focusTarget?.isConnected) {
+      focusTarget.focus();
+    }
+  }
+
+  private teardownReviewSelectorListeners(): void {
+    if (this.reviewSelectorListenerTimer !== null) {
+      clearTimeout(this.reviewSelectorListenerTimer);
+      this.reviewSelectorListenerTimer = null;
+    }
+    if (this.reviewSelectorDocument) {
+      this.reviewSelectorDocument.removeEventListener('click', this.handleReviewSelectorDocumentClick);
+      this.reviewSelectorDocument.removeEventListener('keydown', this.handleReviewSelectorDocumentKeydown);
+    }
+    this.reviewSelectorDocument = null;
+    this.reviewSelectorToggle = null;
   }
 
   private persistFiltersExpanded(): void {
@@ -3086,6 +3108,8 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
     if (!this.container) {
       return;
     }
+
+    this.teardownReviewSelectorListeners();
 
     const content = this.renderContent();
     const supportsDOM = Boolean(this.container.ownerDocument);
