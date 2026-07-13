@@ -798,10 +798,10 @@ func TestTranslationQueueTemplateRendersUIPresetLinks(t *testing.T) {
 		`>List</a>`,
 		`>Grouped</a>`,
 		`>Families</a>`,
-			`name="entity_type"`,
-			`data-behavior="navigation-busy"`,
-			`data-navigation-busy-status`,
-			`data-navigation-busy-trigger`,
+		`name="entity_type"`,
+		`data-behavior="navigation-busy"`,
+		`data-navigation-busy-status`,
+		`data-navigation-busy-trigger`,
 	} {
 		if !strings.Contains(html, expected) {
 			t.Fatalf("expected rendered queue HTML to contain %q, got %q", expected, html)
