@@ -12,7 +12,7 @@ require (
 	github.com/goliatone/go-admin/quickstart v0.82.0
 	github.com/goliatone/go-auth v0.44.1
 	github.com/goliatone/go-auth/adapters/featuregate v0.44.1
-	github.com/goliatone/go-cms v0.59.0
+	github.com/goliatone/go-cms v0.60.1
 	github.com/goliatone/go-command v0.22.0
 	github.com/goliatone/go-crud v0.25.0
 	github.com/goliatone/go-crud/gql v0.25.0
@@ -30,8 +30,8 @@ require (
 	github.com/goliatone/go-persistence-bun v0.16.1
 	github.com/goliatone/go-repository-bun v0.16.1
 	github.com/goliatone/go-router v0.59.0
-	github.com/goliatone/go-search v0.11.2
-	github.com/goliatone/go-search/adapters/goadmin v0.11.2
+	github.com/goliatone/go-search v0.11.3
+	github.com/goliatone/go-search/adapters/goadmin v0.11.3
 	github.com/goliatone/go-theme v0.3.0
 	github.com/goliatone/go-uploader v0.4.0
 	github.com/goliatone/go-urlkit v0.6.0

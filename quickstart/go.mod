@@ -21,7 +21,7 @@ require (
 	github.com/goliatone/go-auth v0.44.1
 	github.com/goliatone/go-auth/adapters/featuregate v0.44.1
 	github.com/goliatone/go-cache v0.1.0
-	github.com/goliatone/go-cms v0.59.0
+	github.com/goliatone/go-cms v0.60.1
 	github.com/goliatone/go-command v0.22.0
 	github.com/goliatone/go-dashboard v0.13.1
 	github.com/goliatone/go-errors v0.11.0
@@ -35,7 +35,7 @@ require (
 	github.com/goliatone/go-notifications v0.14.0
 	github.com/goliatone/go-persistence-bun v0.16.1
 	github.com/goliatone/go-router v0.59.0
-	github.com/goliatone/go-search v0.11.2
+	github.com/goliatone/go-search v0.11.3
 	github.com/goliatone/go-template v0.3.1
 	github.com/goliatone/go-theme v0.3.0
 	github.com/goliatone/go-uploader v0.4.0
@@ -131,7 +131,7 @@ require (
 	github.com/goliatone/go-print v0.4.1 // indirect
 	github.com/goliatone/go-repository-bun v0.16.1 // indirect
 	github.com/goliatone/go-repository-cache v0.7.1 // indirect
-	github.com/goliatone/go-search/adapters/goadmin v0.11.2 // indirect
+	github.com/goliatone/go-search/adapters/goadmin v0.11.3 // indirect
 	github.com/goliatone/go-slug v0.1.0 // indirect
 	github.com/goliatone/hashid v0.2.2 // indirect
 	github.com/goodsign/monday v1.0.2 // indirect
