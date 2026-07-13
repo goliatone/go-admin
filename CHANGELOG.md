@@ -1,10 +1,23 @@
 # Changelog
 
+# [0.113.12](https://github.com/goliatone/go-admin/compare/v0.113.11...v0.113.12) - (2026-07-13)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update deps ([cc9bac8](https://github.com/goliatone/go-admin/commit/cc9bac8ab79e3c4d79f1eda723cdb655557f5344))  - (goliatone)
+
 # [0.113.11](https://github.com/goliatone/go-admin/compare/v0.113.10...v0.113.11) - (2026-07-13)
+
+
+New patch release: v0.113.11
 
 ## <!-- 1 -->🐛 Bug Fixes
 
 - Supoort content list option ([c85955b](https://github.com/goliatone/go-admin/commit/c85955b5dc70700412ddd5ba4d5759de3966582b))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.113.11 ([d785b82](https://github.com/goliatone/go-admin/commit/d785b8282a71aa364fb2a8628669d0dc2c57b16d))  - (goliatone)
 
 ## <!-- 7 -->⚙️ Miscellaneous Tasks
 
