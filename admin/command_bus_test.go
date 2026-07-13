@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -69,7 +70,12 @@ type resultDispatchTestMessage struct {
 func (resultDispatchTestMessage) Type() string { return "command_bus.test.result_dispatch" }
 
 type resultDispatchTestResult struct {
-	Value string
+	Value   string
+	Failure error
+}
+
+func (r resultDispatchTestResult) CommandResultFailure() error {
+	return r.Failure
 }
 
 func TestCommandBusDispatchByNameStaysInlineWhenPolicyQueued(t *testing.T) {
@@ -134,6 +140,47 @@ func TestCommandBusDispatchByNameWithOutcomeReturnsInlineResult(t *testing.T) {
 		}
 		if result.Value != "ok-result" {
 			t.Fatalf("expected ok-result, got %q", result.Value)
+		}
+	})
+}
+
+func TestCommandBusStrictDispatchReturnsInlineResultFailure(t *testing.T) {
+	commandregistry.WithTestRegistry(func() {
+		bus := NewCommandBus(true)
+		expected := errors.New("search verification failed")
+		if _, err := RegisterCommand(bus, command.CommandFunc[resultDispatchTestMessage](func(ctx context.Context, msg resultDispatchTestMessage) error {
+			if result := command.ResultFromContext[resultDispatchTestResult](ctx); result != nil {
+				result.Store(resultDispatchTestResult{Value: msg.Value + "-result", Failure: expected})
+			}
+			return nil
+		})); err != nil {
+			t.Fatalf("RegisterCommand: %v", err)
+		}
+		if err := RegisterMessageResultFactory[resultDispatchTestMessage, resultDispatchTestResult](bus, "result.dispatch", func(payload map[string]any, _ []string) (resultDispatchTestMessage, error) {
+			return resultDispatchTestMessage{Value: toString(payload["value"])}, nil
+		}); err != nil {
+			t.Fatalf("RegisterMessageResultFactory: %v", err)
+		}
+
+		outcome, err := bus.DispatchByNameWithOutcome(context.Background(), "result.dispatch", map[string]any{"value": "diagnostic"}, nil, command.DispatchOptions{Mode: command.ExecutionModeInline})
+		if err != nil {
+			t.Fatalf("outcome-aware dispatch should retain failed result: %v", err)
+		}
+		result, ok := outcome.Result.(resultDispatchTestResult)
+		if !ok || result.Value != "diagnostic-result" || !errors.Is(result.Failure, expected) {
+			t.Fatalf("unexpected diagnostic outcome: %#v", outcome.Result)
+		}
+
+		receipt, err := bus.DispatchByNameWithOptions(context.Background(), "result.dispatch", map[string]any{"value": "strict"}, nil, command.DispatchOptions{Mode: command.ExecutionModeInline})
+		if !errors.Is(err, expected) {
+			t.Fatalf("receipt-only dispatch error = %v, want %v", err, expected)
+		}
+		if !receipt.Accepted || receipt.Mode != command.ExecutionModeInline {
+			t.Fatalf("strict dispatch should preserve completed receipt, got %+v", receipt)
+		}
+
+		if err := bus.DispatchByName(context.Background(), "result.dispatch", map[string]any{"value": "plain"}, nil); !errors.Is(err, expected) {
+			t.Fatalf("plain dispatch error = %v, want %v", err, expected)
 		}
 	})
 }
