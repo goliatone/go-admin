@@ -70,7 +70,18 @@ func hasLocaleVariantsOption(opts []CMSContentListOption) bool {
 }
 
 func hasAdminReadUnsupportedContentListOption(opts []CMSContentListOption) bool {
-	return hasLocaleVariantsOption(opts)
+	if hasLocaleVariantsOption(opts) {
+		return true
+	}
+	const familiesPrefix = "content:list:families:"
+	for _, opt := range opts {
+		if strings.HasPrefix(strings.ToLower(strings.TrimSpace(opt)), familiesPrefix) {
+			// The generic admin-read filter surface currently accepts one family.
+			// Route bounded multi-family reads through go-cms' native list query.
+			return true
+		}
+	}
+	return false
 }
 
 func contentTypeIDFromListOptions(opts []CMSContentListOption) string {
@@ -117,6 +128,13 @@ func normalizeCMSRequestedListLocale(locale string) string {
 
 type goCMSContentReadBoundary struct {
 	adapter *GoCMSContentAdapter
+}
+
+// SupportsContentListOption lets hosts negotiate optional bounded list
+// capabilities without sending unknown tokens to older adapters.
+func (a *GoCMSContentAdapter) SupportsContentListOption(option CMSContentListOption) bool {
+	token := strings.ToLower(strings.TrimSpace(option))
+	return strings.HasPrefix(token, "content:list:families:")
 }
 
 func (a *GoCMSContentAdapter) contentReader() goCMSContentReadBoundary {
