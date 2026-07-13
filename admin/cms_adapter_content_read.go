@@ -133,8 +133,13 @@ type goCMSContentReadBoundary struct {
 // SupportsContentListOption lets hosts negotiate optional bounded list
 // capabilities without sending unknown tokens to older adapters.
 func (a *GoCMSContentAdapter) SupportsContentListOption(option CMSContentListOption) bool {
-	token := strings.ToLower(strings.TrimSpace(option))
-	return strings.HasPrefix(token, "content:list:families:")
+	if a == nil || a.content == nil {
+		return false
+	}
+	support, ok := a.content.(interface {
+		SupportsContentListOption(cmscontent.ContentListOption) bool
+	})
+	return ok && support.SupportsContentListOption(cmscontent.ContentListOption(option))
 }
 
 func (a *GoCMSContentAdapter) contentReader() goCMSContentReadBoundary {
