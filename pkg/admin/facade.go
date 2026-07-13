@@ -2664,6 +2664,10 @@ func WithFamilyID(id string) CMSContentListOption {
 	return core.WithFamilyID(id)
 }
 
+func WithFamilyIDs(ids ...string) CMSContentListOption {
+	return core.WithFamilyIDs(ids...)
+}
+
 func WithDefaultLibrary(library string) IconServiceOption {
 	return core.WithDefaultLibrary(library)
 }
