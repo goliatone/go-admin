@@ -215,10 +215,10 @@ github.com/goliatone/go-print v0.4.1 h1:rRcmZOWd27gq25Ays0nRu09tAH6wgTdfshE4rPpN
 github.com/goliatone/go-print v0.4.1/go.mod h1:hx13/Im2TeOYwwBwj/ImfjneDQ0MyN0ybfrgHripAus=
 github.com/goliatone/go-repository-cache v0.7.1 h1:/JHBAWnBDiz9Gz1ko3XZMmq5ZuOOHRdedMZfoBCVWk8=
 github.com/goliatone/go-repository-cache v0.7.1/go.mod h1:vv+5iv/FjDBoasIzy8Tb0t/lpswK1W6+l3piar4+w1o=
-github.com/goliatone/go-search v0.11.3 h1:fiLTIoEP4AL1E6ZIM1m5HucCPtrqzL6J3y1wfczTziA=
-github.com/goliatone/go-search v0.11.3/go.mod h1:HrEcvCnclFlqoEEybitnosoo3XwgwOLTHGx1H8Be55U=
-github.com/goliatone/go-search/adapters/goadmin v0.11.3 h1:BUNmPB9UwlDRR7J4H6qOYl6iAxNrZz9iizgYW108deM=
-github.com/goliatone/go-search/adapters/goadmin v0.11.3/go.mod h1:wXITuDaIsFAEWdZ9FyVkbesjuWlRvoI0YL0lF4ldRjY=
+github.com/goliatone/go-search v0.12.0 h1:eVQ359ANO5KUrsGtTmKmTXLhgqmC6cUE8rjrVtzTkM4=
+github.com/goliatone/go-search v0.12.0/go.mod h1:HrEcvCnclFlqoEEybitnosoo3XwgwOLTHGx1H8Be55U=
+github.com/goliatone/go-search/adapters/goadmin v0.12.0 h1:PdJJQwvslx7AUqRKtRRP8t3V/8nABBxZcTcOcXD8hl4=
+github.com/goliatone/go-search/adapters/goadmin v0.12.0/go.mod h1:NiL6+RUI1MYh3fkZlYZ+c2neltcxHcAJiN9sF/kr6vI=
 github.com/goliatone/go-slug v0.1.0 h1:0APBcu2X9MWF2t6X3LN55XfQ47zf4FUzDmXYJ1YraAk=
 github.com/goliatone/go-slug v0.1.0/go.mod h1:8lXx322OHfQQzdrwikY2uqhQVmH3IVNGiVxn9kPmX1w=
 github.com/goliatone/go-template v0.3.1 h1:x714biuWqtCyrtTmIrt2YjXWPYBOIS/Y2DPdWXtrAr8=
