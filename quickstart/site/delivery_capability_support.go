@@ -218,24 +218,29 @@ func staticRoutePrefix(pattern string) string {
 }
 
 func siteThemeTemplatePath(siteTheme map[string]any, key string) string {
+	target, _ := siteThemeTemplateTarget(siteTheme, key)
+	return normalizeSiteThemeTemplatePath(target)
+}
+
+func siteThemeTemplateTarget(siteTheme map[string]any, key string) (string, bool) {
 	if len(siteTheme) == 0 {
-		return ""
+		return "", false
 	}
 	if raw := anyMap(siteTheme["manifest_partials"]); len(raw) > 0 {
-		if value := normalizeSiteThemeTemplatePath(anyString(raw[key])); value != "" {
-			return value
+		if value := strings.TrimSpace(anyString(raw[key])); value != "" {
+			return value, true
 		}
 	}
 	alias := siteThemeTemplateAlias(key)
 	if alias == "" {
-		return ""
+		return "", false
 	}
 	if raw := anyMap(siteTheme["partials"]); len(raw) > 0 {
-		if value := normalizeSiteThemeTemplatePath(anyString(raw[alias])); value != "" {
-			return value
+		if value := strings.TrimSpace(anyString(raw[alias])); value != "" {
+			return value, true
 		}
 	}
-	return ""
+	return "", false
 }
 
 func siteThemeRenderTemplateName(path string) string {

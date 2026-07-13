@@ -184,7 +184,7 @@ func cloneCodeTemplateMap(in map[string]string) map[string]string {
 	}
 	out := make(map[string]string, len(in))
 	for key, value := range in {
-		key = strings.TrimSpace(key)
+		key = normalizeSiteErrorCode(key)
 		value = strings.TrimSpace(value)
 		if key == "" || value == "" {
 			continue
@@ -218,7 +218,7 @@ func mergeCodeTemplateMaps(parts ...map[string]string) map[string]string {
 	out := map[string]string{}
 	for _, part := range parts {
 		for key, value := range part {
-			key = strings.TrimSpace(key)
+			key = normalizeSiteErrorCode(key)
 			value = strings.TrimSpace(value)
 			if key == "" || value == "" {
 				continue
@@ -230,6 +230,90 @@ func mergeCodeTemplateMaps(parts ...map[string]string) map[string]string {
 		return nil
 	}
 	return out
+}
+
+func resolveSiteErrorTemplatePolicy(input SiteErrorTemplatePolicy, legacy ResolvedSiteViewConfig) SiteErrorTemplatePolicy {
+	out := normalizeSiteErrorTemplatePolicy(input)
+	if out.ByCode == nil {
+		out.ByCode = map[string][]SiteTemplateRef{}
+	}
+	if out.ByStatus == nil {
+		out.ByStatus = map[int][]SiteTemplateRef{}
+	}
+	for code, templateName := range legacy.ErrorTemplatesByCode {
+		out.ByCode[normalizeSiteErrorCode(code)] = append(
+			out.ByCode[normalizeSiteErrorCode(code)],
+			SiteTemplateRef{Template: strings.TrimSpace(templateName)},
+		)
+	}
+	for status, templateName := range legacy.ErrorTemplatesByStatus {
+		out.ByStatus[status] = append(
+			out.ByStatus[status],
+			SiteTemplateRef{Template: strings.TrimSpace(templateName)},
+		)
+	}
+	if templateName := strings.TrimSpace(legacy.ErrorTemplate); templateName != "" {
+		out.Fallback = append(out.Fallback, SiteTemplateRef{Template: templateName})
+	}
+	return normalizeSiteErrorTemplatePolicy(out)
+}
+
+func normalizeSiteErrorTemplatePolicy(input SiteErrorTemplatePolicy) SiteErrorTemplatePolicy {
+	out := SiteErrorTemplatePolicy{
+		ByCode:   map[string][]SiteTemplateRef{},
+		ByStatus: map[int][]SiteTemplateRef{},
+	}
+	for code, refs := range input.ByCode {
+		code = normalizeSiteErrorCode(code)
+		if code == "" {
+			continue
+		}
+		if normalized := normalizeSiteTemplateRefs(refs); len(normalized) > 0 {
+			out.ByCode[code] = normalized
+		}
+	}
+	for status, refs := range input.ByStatus {
+		if status <= 0 {
+			continue
+		}
+		if normalized := normalizeSiteTemplateRefs(refs); len(normalized) > 0 {
+			out.ByStatus[status] = normalized
+		}
+	}
+	out.Fallback = normalizeSiteTemplateRefs(input.Fallback)
+	if len(out.ByCode) == 0 {
+		out.ByCode = nil
+	}
+	if len(out.ByStatus) == 0 {
+		out.ByStatus = nil
+	}
+	return out
+}
+
+func normalizeSiteTemplateRefs(input []SiteTemplateRef) []SiteTemplateRef {
+	if len(input) == 0 {
+		return nil
+	}
+	out := make([]SiteTemplateRef, 0, len(input))
+	for _, ref := range input {
+		ref = SiteTemplateRef{
+			Template:        strings.TrimSpace(ref.Template),
+			ThemeKey:        strings.TrimSpace(ref.ThemeKey),
+			DefaultTemplate: strings.TrimSpace(ref.DefaultTemplate),
+		}
+		if ref.Template == "" && ref.ThemeKey == "" && ref.DefaultTemplate == "" {
+			continue
+		}
+		out = append(out, ref)
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+func normalizeSiteErrorCode(code string) string {
+	return strings.ToLower(strings.TrimSpace(code))
 }
 
 func cloneStrings(values []string) []string {

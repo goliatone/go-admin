@@ -1337,6 +1337,37 @@ siteCfg.Views.TemplateFS = []fs.FS{
 
 Use `site.home.page` when the public root route needs a dedicated homepage. If the host leaves `SiteThemeConfig.Variant` empty, the selector resolves the theme package `defaultVariant`; use `SiteThemeConfig.BaselineVariant` to warn when a downstream app forces a non-approved public baseline.
 
+## Public-site error rendering policy
+
+`quickstart/site` supports ordered concrete and theme-backed HTML error templates while preserving the legacy `ErrorTemplate`, `ErrorTemplatesByStatus`, and `ErrorTemplatesByCode` fields. Explicit policy references run before the matching legacy candidates; selection remains code-specific, then status-specific, then generic fallback.
+
+```go
+siteCfg.Views.ErrorPolicy = site.SiteErrorTemplatePolicy{
+	ByStatus: map[int][]site.SiteTemplateRef{
+		http.StatusNotFound: {
+			{
+				ThemeKey:        "site.error.404_page",
+				DefaultTemplate: "site/error/404",
+			},
+		},
+	},
+	Fallback: []site.SiteTemplateRef{
+		{Template: "site/error"},
+	},
+}
+```
+
+Theme keys resolve after request theme context is available through `site_theme.manifest_partials` and the existing aliases. A stable default is used only when the key is absent; unsafe or invalid resolved targets advance to the next reference. Every template attempt is rendered into an isolated router response capture, so missing templates and nested include failures cannot leak partial bytes into the selected fallback.
+
+- `site.RenderSiteErrorHTML` is the HTML-only host API. Keep application-specific JSON negotiation and payloads in the host, then call the shared renderer for HTML.
+- `site.SiteErrorContextProvider` lets registered site modules add safe localized fields after normal request context has run. Normal `SiteModule.ViewContext` methods are not rerun.
+- The base `site_error` model contains only normalized `code`, `status`, and locale/base-path-aware `home_href`. Providers own any visitor copy or compatibility projections.
+- `site.SiteErrorRenderObserver` receives sanitized attempt/selection provenance without view data, rendered bytes, tokens, or stack traces. Observer panics cannot change the visitor response.
+- `site.ResolveSitePublicPath` converts a canonical path into the configured locale/base-path public path and avoids duplicate locale prefixes.
+- `HEAD` preserves the requested status and headers without a body. If every candidate fails, the response contains only the requested status.
+
+Legacy configuration remains valid. Use `ErrorPolicy` when candidate ordering needs theme keys or multiple fallbacks; existing single-template fields do not require migration.
+
 ## Public-site render cache
 
 `quickstart/site.WithRenderCache(store, policy)` enables anonymous rendered HTML caching for public CMS delivery routes. `quickstart/site` owns policy, keying, eligibility, response replay, and unsafe-header filtering; host apps own rollout, host-specific policy mapping, and application-specific invalidation wiring.

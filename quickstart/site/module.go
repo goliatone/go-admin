@@ -24,6 +24,37 @@ type SiteModule interface {
 	ViewContext(ctx context.Context, in router.ViewContext) router.ViewContext
 }
 
+// SiteErrorContextRequest contains normalized error identity and request state
+// for optional error-specific context projection.
+type SiteErrorContextRequest struct {
+	Error SiteRuntimeError `json:"error"`
+	State RequestState     `json:"state"`
+}
+
+// SiteErrorContextProvider allows a site module to add safe, request-scoped
+// error view fields without rerunning its normal ViewContext lifecycle.
+type SiteErrorContextProvider interface {
+	ErrorViewContext(ctx context.Context, request SiteErrorContextRequest, in router.ViewContext) router.ViewContext
+}
+
+// SiteErrorRenderEvent describes a sanitized template render attempt or
+// selection. It intentionally contains no view data or rendered bytes.
+type SiteErrorRenderEvent struct {
+	Code       string `json:"code"`
+	Status     int    `json:"status"`
+	Source     string `json:"source"`
+	ThemeKey   string `json:"theme_key,omitempty"`
+	Template   string `json:"template,omitempty"`
+	Outcome    string `json:"outcome"`
+	Attempt    int    `json:"attempt"`
+	IsFallback bool   `json:"is_fallback"`
+}
+
+// SiteErrorRenderObserver receives sanitized error render diagnostics.
+type SiteErrorRenderObserver interface {
+	ObserveSiteErrorRender(context.Context, SiteErrorRenderEvent)
+}
+
 // SiteSearchFilterRequest describes the current search request state that
 // module filter injectors can inspect before returning extra filters.
 type SiteSearchFilterRequest struct {

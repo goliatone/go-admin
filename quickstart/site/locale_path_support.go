@@ -4,7 +4,31 @@ import (
 	"net/url"
 	pathpkg "path"
 	"strings"
+
+	"github.com/goliatone/go-admin/admin"
 )
+
+// ResolveSitePublicPath converts a canonical site path into the locale- and
+// base-path-aware public URL path used by delivery routes.
+func ResolveSitePublicPath(cfg ResolvedSiteConfig, canonicalPath, locale string) string {
+	canonicalPath = strings.TrimSpace(canonicalPath)
+	if canonicalPath == "" || localePathUnsafe(canonicalPath) {
+		canonicalPath = "/"
+	} else {
+		canonicalPath = normalizeLocalePath(canonicalPath)
+	}
+	canonicalPath, _ = StripSupportedLocalePrefix(canonicalPath, cfg.SupportedLocales)
+
+	locale = matchSupportedLocale(locale, cfg.SupportedLocales)
+	if locale == "" {
+		locale = matchSupportedLocale(cfg.DefaultLocale, cfg.SupportedLocales)
+	}
+	if locale == "" {
+		locale = strings.ToLower(strings.TrimSpace(cfg.DefaultLocale))
+	}
+	localized := LocalizedPath(canonicalPath, locale, cfg.DefaultLocale, cfg.LocalePrefixMode)
+	return normalizeLocalePath(admin.PrefixBasePath(cfg.BasePath, localized))
+}
 
 // LocalizedPath rewrites a canonical path using the configured locale prefix policy.
 func LocalizedPath(path, locale, defaultLocale string, mode LocalePrefixMode) string {

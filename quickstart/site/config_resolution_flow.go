@@ -186,7 +186,7 @@ func resolveSiteNavigationConfig(input SiteNavigationConfig) SiteNavigationConfi
 }
 
 func resolveSiteViewConfig(input SiteViewConfig) ResolvedSiteViewConfig {
-	return ResolvedSiteViewConfig{
+	resolved := ResolvedSiteViewConfig{
 		TemplateFS:    compactFS(input.TemplateFS),
 		BaseTemplate:  firstNonEmpty(input.BaseTemplate, DefaultBaseTemplate),
 		ErrorTemplate: firstNonEmpty(input.ErrorTemplate, DefaultErrorTemplate),
@@ -202,6 +202,8 @@ func resolveSiteViewConfig(input SiteViewConfig) ResolvedSiteViewConfig {
 		Reload:              boolValue(input.Reload, false),
 		ReloadInDevelopment: boolValue(input.ReloadInDevelopment, true),
 	}
+	resolved.ErrorPolicy = resolveSiteErrorTemplatePolicy(input.ErrorPolicy, resolved)
+	return resolved
 }
 
 func resolveSiteSearchConfig(input SiteSearchConfig) SiteSearchConfig {

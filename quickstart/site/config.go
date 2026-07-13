@@ -84,8 +84,9 @@ type SiteViewConfig struct {
 	BaseTemplate  string `json:"base_template"`
 	ErrorTemplate string `json:"error_template"`
 
-	ErrorTemplatesByStatus map[int]string    `json:"error_templates_by_status"`
-	ErrorTemplatesByCode   map[string]string `json:"error_templates_by_code"`
+	ErrorTemplatesByStatus map[int]string          `json:"error_templates_by_status"`
+	ErrorTemplatesByCode   map[string]string       `json:"error_templates_by_code"`
+	ErrorPolicy            SiteErrorTemplatePolicy `json:"error_policy"`
 
 	AssetBasePath string `json:"asset_base_path"`
 
@@ -180,8 +181,9 @@ type ResolvedSiteViewConfig struct {
 	BaseTemplate  string `json:"base_template"`
 	ErrorTemplate string `json:"error_template"`
 
-	ErrorTemplatesByStatus map[int]string    `json:"error_templates_by_status"`
-	ErrorTemplatesByCode   map[string]string `json:"error_templates_by_code"`
+	ErrorTemplatesByStatus map[int]string          `json:"error_templates_by_status"`
+	ErrorTemplatesByCode   map[string]string       `json:"error_templates_by_code"`
+	ErrorPolicy            SiteErrorTemplatePolicy `json:"error_policy"`
 
 	AssetBasePath string `json:"asset_base_path"`
 

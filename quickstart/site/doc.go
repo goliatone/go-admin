@@ -78,6 +78,21 @@
 //     implement RenderCacheTagInvalidator, and tag attachment failure removes
 //     the just-written entry before it can be served.
 //
+// Public HTML errors:
+//   - SiteViewConfig.ErrorPolicy adds ordered concrete or theme-manifest-backed
+//     candidates while the legacy ErrorTemplate, ErrorTemplatesByStatus, and
+//     ErrorTemplatesByCode fields remain supported.
+//   - RenderSiteErrorHTML is HTML-only. Host routes keep ownership of JSON
+//     negotiation and schemas, then call the shared renderer for browser HTML.
+//   - Candidates render through isolated go-router response captures. Failed
+//     templates, including nested partial failures, cannot commit bytes before
+//     the next candidate is attempted.
+//   - SiteErrorContextProvider adds request-scoped public error fields without
+//     rerunning normal SiteModule.ViewContext methods. The base site_error model
+//     contains only code, status, and ResolveSitePublicPath-derived home_href.
+//   - SiteErrorRenderObserver receives sanitized provenance only; observer
+//     panics are isolated from visitor responses.
+//
 // See /LOCALE_PATH_V1_GUIDE.md and /LOCALE_PATH_RUNBOOK.md for the full V1
 // rollout model, migration guidance, and V2 cleanup plan.
 package site
