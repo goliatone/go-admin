@@ -3,6 +3,7 @@ package site
 import (
 	"context"
 	"fmt"
+	"maps"
 	"path"
 	"slices"
 	"strings"
@@ -361,9 +362,7 @@ func RenderSiteErrorHTML(
 	request.Error = normalizeSiteRuntimeError(request.Error)
 	request.State = completeSiteErrorRequestState(c, cfg, request.State)
 	baseView := cloneSiteErrorViewContext(request.State.ViewContext)
-	for key, value := range cloneSiteErrorViewContext(request.ViewContext) {
-		baseView[key] = value
-	}
+	maps.Copy(baseView, cloneSiteErrorViewContext(request.ViewContext))
 	viewCtx := buildSiteErrorViewContext(RequestContext(c), cfg, SiteErrorContextRequest{
 		Error: request.Error,
 		State: request.State,
