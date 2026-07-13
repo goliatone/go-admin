@@ -24,6 +24,24 @@ type DispatchOutcome struct {
 	Result  any
 }
 
+// CommandResultFailureReporter lets an inline command result report an
+// operational failure while remaining available to outcome-aware callers.
+// Dispatch APIs that discard inline results return this failure to the caller.
+type CommandResultFailureReporter interface {
+	CommandResultFailure() error
+}
+
+// CommandResultFailure returns an operational failure reported by an inline
+// command result. Results that do not implement CommandResultFailureReporter are
+// treated as successful transport outcomes.
+func CommandResultFailure(result any) error {
+	reporter, ok := result.(CommandResultFailureReporter)
+	if !ok || reporter == nil {
+		return nil
+	}
+	return reporter.CommandResultFailure()
+}
+
 // ResultDispatchFactory executes a typed dispatch and returns an inline result when available.
 type ResultDispatchFactory func(ctx context.Context, payload map[string]any, ids []string, opts command.DispatchOptions) (command.DispatchReceipt, any, error)
 
@@ -317,6 +335,9 @@ func (b *CommandBus) DispatchByNameWithOptions(ctx context.Context, name string,
 	outcome, err := b.DispatchByNameWithOutcome(ctx, name, payload, ids, opts)
 	if err != nil {
 		return command.DispatchReceipt{}, err
+	}
+	if resultErr := CommandResultFailure(outcome.Result); resultErr != nil {
+		return outcome.Receipt, resultErr
 	}
 	return outcome.Receipt, nil
 }
