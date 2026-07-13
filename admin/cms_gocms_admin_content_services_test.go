@@ -715,6 +715,32 @@ func TestGoCMSContentAdapterContentsWithSupportedOptionsUsesAdminRead(t *testing
 	}
 }
 
+type optionAwareGoCMSContentService struct {
+	*stubGoCMSContentService
+}
+
+func (s *optionAwareGoCMSContentService) SupportsContentListOption(option cmscontent.ContentListOption) bool {
+	return strings.HasPrefix(string(option), "content:list:families:") &&
+		!strings.HasSuffix(string(option), "families:")
+}
+
+func TestGoCMSContentAdapterNegotiatesDownstreamListOptionSupport(t *testing.T) {
+	unsupported := mustGoCMSContentAdapter(t, newGoCMSContentAdapter(&stubGoCMSContentService{}, nil, nil, nil, nil, nil, nil, nil))
+	option := WithFamilyIDs(uuid.New().String(), uuid.New().String())
+	if unsupported.SupportsContentListOption(option) {
+		t.Fatal("adapter must not advertise an option absent from its downstream service")
+	}
+
+	supportedService := &optionAwareGoCMSContentService{stubGoCMSContentService: &stubGoCMSContentService{}}
+	supported := mustGoCMSContentAdapter(t, newGoCMSContentAdapter(supportedService, nil, nil, nil, nil, nil, nil, nil))
+	if !supported.SupportsContentListOption(option) {
+		t.Fatal("adapter did not advertise downstream multi-family support")
+	}
+	if supported.SupportsContentListOption("content:list:families:") {
+		t.Fatal("adapter advertised malformed multi-family option")
+	}
+}
+
 func TestGoCMSContentAdapterContentsWithLocaleVariantsStillBypassesAdminRead(t *testing.T) {
 	ctx := context.Background()
 	contentID := uuid.New()
