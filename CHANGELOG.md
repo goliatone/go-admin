@@ -1,6 +1,25 @@
 # Changelog
 
+# [0.113.10](https://github.com/goliatone/go-admin/compare/v0.113.9...v0.113.10) - (2026-07-13)
+
+## <!-- 16 -->➕ Add
+
+- With family IDs ([18473c5](https://github.com/goliatone/go-admin/commit/18473c5f5336cc7298192c1cccda63173b7c5eef))  - (goliatone)
+- Support content list option ([f953d40](https://github.com/goliatone/go-admin/commit/f953d40975c2902987ba6c30e694e540b09ebf12))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update deps ([c687ee0](https://github.com/goliatone/go-admin/commit/c687ee0bb906099cb59a43bc78aeefa5732abf32))  - (goliatone)
+- Update tests ([2f3cf38](https://github.com/goliatone/go-admin/commit/2f3cf38e3f42ab611fe2361a678a2c7302ead705))  - (goliatone)
+
 # [0.113.9](https://github.com/goliatone/go-admin/compare/v0.113.8...v0.113.9) - (2026-07-13)
+
+
+New patch release: v0.113.9
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.113.9 ([15ea382](https://github.com/goliatone/go-admin/commit/15ea3824d5466dc360d65eba805b4cea99a0975f))  - (goliatone)
 
 ## <!-- 7 -->⚙️ Miscellaneous Tasks
 
