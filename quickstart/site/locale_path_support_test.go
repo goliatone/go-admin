@@ -1,6 +1,45 @@
 package site
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/goliatone/go-admin/admin"
+)
+
+func TestResolveSitePublicPath(t *testing.T) {
+	tests := []struct {
+		name      string
+		basePath  string
+		mode      LocalePrefixMode
+		canonical string
+		locale    string
+		want      string
+	}{
+		{name: "root default", canonical: "/", locale: "en", want: "/"},
+		{name: "root non-default", canonical: "/", locale: "bo", want: "/bo"},
+		{name: "default always", mode: LocalePrefixAlways, canonical: "/", locale: "en", want: "/en"},
+		{name: "base root", basePath: "/site", canonical: "/", locale: "en", want: "/site"},
+		{name: "base non-default root", basePath: "/site", canonical: "/", locale: "bo", want: "/site/bo"},
+		{name: "base default always", basePath: "/site", mode: LocalePrefixAlways, canonical: "/", locale: "en", want: "/site/en"},
+		{name: "nested canonical", basePath: "/site", canonical: "/archive/items", locale: "bo", want: "/site/bo/archive/items"},
+		{name: "already target localized", basePath: "/site", canonical: "/bo/archive", locale: "bo", want: "/site/bo/archive"},
+		{name: "replace existing locale", basePath: "/site", canonical: "/en/archive", locale: "bo", want: "/site/bo/archive"},
+		{name: "unsafe becomes root", basePath: "/site", canonical: "https://example.com/phish", locale: "bo", want: "/site/bo"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := ResolveSiteConfig(admin.Config{DefaultLocale: "en"}, SiteConfig{
+				BasePath:         tc.basePath,
+				DefaultLocale:    "en",
+				SupportedLocales: []string{"en", "bo"},
+				LocalePrefixMode: tc.mode,
+			})
+			if got := ResolveSitePublicPath(cfg, tc.canonical, tc.locale); got != tc.want {
+				t.Fatalf("ResolveSitePublicPath() = %q, want %q", got, tc.want)
+			}
+		})
+	}
+}
 
 func TestLocalePathSupportLocalizedPathRespectsPrefixModes(t *testing.T) {
 	if got := LocalizedPath("/about", "en", "en", LocalePrefixNonDefault); got != "/about" {
