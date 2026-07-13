@@ -1,6 +1,31 @@
 # Changelog
 
+# [0.113.13](https://github.com/goliatone/go-admin/compare/v0.113.12...v0.113.13) - (2026-07-13)
+
+
+## Fixes
+
+- Add an optional command-result failure contract so outcome-aware dispatch can
+  retain structured diagnostics while plain and receipt-only inline dispatch
+  return the same operational failure instead of silently succeeding.
+
+## <!-- 16 -->➕ Add
+
+- Command result failure reporter ([cde4ce9](https://github.com/goliatone/go-admin/commit/cde4ce99465ce4b9d84e39c9e40767379fe2cf87))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update deps ([807b3e3](https://github.com/goliatone/go-admin/commit/807b3e34a0cc6527c42b2da0e97b127110f5ee30))  - (goliatone)
+- Update tests ([db2eac4](https://github.com/goliatone/go-admin/commit/db2eac447139fdd37d6ae4f5534f0c7b0f616826))  - (goliatone)
+
 # [0.113.12](https://github.com/goliatone/go-admin/compare/v0.113.11...v0.113.12) - (2026-07-13)
+
+
+New patch release: v0.113.12
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.113.12 ([7631363](https://github.com/goliatone/go-admin/commit/763136337a16e5cdc07ce62ff4eec4296daab828))  - (goliatone)
 
 ## <!-- 7 -->⚙️ Miscellaneous Tasks
 
