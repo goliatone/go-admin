@@ -3451,8 +3451,82 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
             </div>
           </div>
         </div>
+        ${this.renderPaginationControls()}
       </div>
     `;
+  }
+
+  private renderPaginationControls(): string {
+    const meta = this.response?.meta;
+    if (!meta) {
+      return '';
+    }
+    const page = Math.max(1, meta.page || this.queryState.page || 1);
+    const perPage = Math.max(1, meta.per_page || this.queryState.perPage || 25);
+    const total = Math.max(0, meta.total || 0);
+    const pageCount = Math.max(1, Math.ceil(total / perPage));
+    const normalizedPage = Math.min(page, pageCount);
+    const isServerFamily = this.viewMode === 'server_family';
+    const itemCount = isServerFamily
+      ? this.serverFamilyRows.length
+      : (meta.grouping?.assignment_count ?? this.rows.length);
+    const rangeStart = total > 0 ? ((normalizedPage - 1) * perPage) + 1 : 0;
+    const rangeEnd = total > 0 ? Math.min(total, rangeStart + Math.max(0, itemCount) - 1) : 0;
+    const noun = isServerFamily ? 'families' : 'assignments';
+    const pageSizes = Array.from(new Set([25, 50, 100, perPage])).sort((a, b) => a - b);
+    return `
+      <div class="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-gray-100 pt-3"
+           data-queue-pagination="true">
+        <div class="text-sm text-gray-600" data-queue-pagination-range="true">
+          Showing ${rangeStart}-${rangeEnd} of ${total} ${noun} · Page ${normalizedPage} of ${pageCount}
+        </div>
+        <div class="flex flex-wrap items-center gap-3">
+          <div class="inline-flex rounded-md border border-gray-200 bg-white p-1 text-sm font-medium" aria-label="Queue pagination">
+            <button type="button"
+                    class="rounded px-3 py-1.5 ${normalizedPage <= 1 ? 'text-gray-400' : 'text-gray-700 hover:bg-gray-50'}"
+                    data-page-target="${normalizedPage - 1}"
+                    ${normalizedPage <= 1 ? 'disabled aria-disabled="true"' : ''}>Previous</button>
+            <button type="button"
+                    class="rounded px-3 py-1.5 ${normalizedPage >= pageCount ? 'text-gray-400' : 'text-gray-700 hover:bg-gray-50'}"
+                    data-page-target="${normalizedPage + 1}"
+                    ${normalizedPage >= pageCount ? 'disabled aria-disabled="true"' : ''}>Next</button>
+          </div>
+          <label class="flex items-center gap-2 text-sm text-gray-600">
+            <span>Per page</span>
+            <select data-page-size="true" class="rounded-md border border-gray-200 bg-white px-2 py-1.5">
+              ${pageSizes.map((size) => `<option value="${size}" ${size === perPage ? 'selected' : ''}>${size}</option>`).join('')}
+            </select>
+          </label>
+        </div>
+      </div>
+    `;
+  }
+
+  private goToPage(page: number): void {
+    const meta = this.response?.meta;
+    const perPage = Math.max(1, meta?.per_page || this.queryState.perPage || 25);
+    const pageCount = Math.max(1, Math.ceil(Math.max(0, meta?.total || 0) / perPage));
+    const normalizedPage = Math.min(Math.max(1, Math.floor(page)), pageCount);
+    if (normalizedPage === (meta?.page || this.queryState.page || 1)) {
+      return;
+    }
+    this.queryState = { ...this.queryState, page: normalizedPage };
+    this.filterSnapshot = null;
+    this.selectedRows.clear();
+    this.feedback = null;
+    void this.load();
+  }
+
+  private setPageSize(perPage: number): void {
+    const normalizedPerPage = Math.min(200, Math.max(1, Math.floor(perPage)));
+    if (normalizedPerPage === (this.response?.meta.per_page || this.queryState.perPage || 25)) {
+      return;
+    }
+    this.queryState = { ...this.queryState, perPage: normalizedPerPage, page: 1 };
+    this.filterSnapshot = null;
+    this.selectedRows.clear();
+    this.feedback = null;
+    void this.load();
   }
 
   private renderFilters(): string {
@@ -4452,6 +4526,24 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
       button.addEventListener('click', () => {
         const currentOrder = this.queryState.order || 'desc';
         this.updateFilter({ order: currentOrder === 'asc' ? 'desc' : 'asc' });
+      });
+    });
+
+    this.container.querySelectorAll<HTMLButtonElement>('[data-page-target]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const page = Number(button.dataset.pageTarget);
+        if (Number.isFinite(page)) {
+          this.goToPage(page);
+        }
+      });
+    });
+
+    this.container.querySelectorAll<HTMLSelectElement>('select[data-page-size="true"]').forEach((select) => {
+      select.addEventListener('change', () => {
+        const perPage = Number(select.value);
+        if (Number.isFinite(perPage)) {
+          this.setPageSize(perPage);
+        }
       });
     });
 
