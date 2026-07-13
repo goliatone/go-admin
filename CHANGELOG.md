@@ -1,13 +1,30 @@
 # Changelog
 
+# [0.114.0](https://github.com/goliatone/go-admin/compare/v0.113.13...v0.114.0) - (2026-07-13)
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Translation queue ui ([13abfa6](https://github.com/goliatone/go-admin/commit/13abfa64c5afc7d9d948f9b1a6fe5c5a19d4a8ad))  - (goliatone)
+
+## <!-- 16 -->➕ Add
+
+- Custom error pages and error handling ([2ef1293](https://github.com/goliatone/go-admin/commit/2ef129359c039e1ee925e8035126c02c9aab3021))  - (goliatone)
+- Translation queue filters ([e0a529d](https://github.com/goliatone/go-admin/commit/e0a529dc4bb10d7dc46999f9088465fdebd65aeb))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update deps ([34b0b4d](https://github.com/goliatone/go-admin/commit/34b0b4d214cb5bd8bd3f533ea49de5f4f033ab01))  - (goliatone)
+- Update tests ([f4d983f](https://github.com/goliatone/go-admin/commit/f4d983f63da508b55ae7c5a374faeaf7a7836ed6))  - (goliatone)
+- Update docs ([3054e10](https://github.com/goliatone/go-admin/commit/3054e101e62d2323c6368ba17e253ce5c89f1994))  - (goliatone)
+
 # [0.113.13](https://github.com/goliatone/go-admin/compare/v0.113.12...v0.113.13) - (2026-07-13)
 
 
-## Fixes
+New patch release: v0.113.13
 
-- Add an optional command-result failure contract so outcome-aware dispatch can
-  retain structured diagnostics while plain and receipt-only inline dispatch
-  return the same operational failure instead of silently succeeding.
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.113.13 ([f8b097e](https://github.com/goliatone/go-admin/commit/f8b097e60ef5b70cf659651161decf9c09b29c82))  - (goliatone)
 
 ## <!-- 16 -->➕ Add
 
