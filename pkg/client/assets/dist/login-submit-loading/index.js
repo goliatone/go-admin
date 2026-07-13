@@ -1,55 +1,55 @@
 import { onReady as r } from "../shared/dom-ready.js";
-import { c as u, n as s, o as n } from "../chunks/behaviors-JUmide29.js";
+import { d as o, n as u, p as s } from "../chunks/behaviors-3r2n03MZ.js";
 var a = "form[data-submit-loading-form]", L = "true";
-function g(t, o = null) {
-  u(t, {
-    submitter: o,
+function g(t, i = null) {
+  s(t, {
+    submitter: i,
     compatibilitySubmitLoading: !0
   });
 }
 function y(t) {
-  n(t);
+  o(t);
 }
-function m(t = document, o = a) {
-  d(t, o).forEach((e) => {
-    (e.dataset.submitLoadingActive === "true" || e.dataset.loading === "true" || e.dataset.busy === "true" || e.getAttribute("aria-busy") === "true") && n(e);
+function m(t = document, i = a) {
+  c(t, i).forEach((e) => {
+    (e.dataset.submitLoadingActive === "true" || e.dataset.loading === "true" || e.dataset.busy === "true" || e.getAttribute("aria-busy") === "true") && o(e);
   });
 }
-function c(t = {}) {
-  const o = t.root ?? document, e = t.formSelector || "form[data-submit-loading-form]", i = s(o, {
+function d(t = {}) {
+  const i = t.root ?? document, e = t.formSelector || "form[data-submit-loading-form]", n = u(i, {
     submitBusySelector: e,
     window: t.window,
     compatibilitySubmitLoading: !0
   });
   return {
     reset() {
-      m(o, e);
+      m(i, e);
     },
     destroy() {
-      i.destroy();
+      n.destroy();
     }
   };
 }
 function S(t = {}) {
   r(() => {
-    c(t);
+    d(t);
   });
 }
-function d(t, o) {
+function c(t, i) {
   const e = [];
-  return f(t) && t.matches(o) && e.push(t), t.querySelectorAll(o).forEach((i) => {
-    e.includes(i) || e.push(i);
+  return f(t) && t.matches(i) && e.push(t), t.querySelectorAll(i).forEach((n) => {
+    e.includes(n) || e.push(n);
   }), e;
 }
 function f(t) {
-  const o = t.nodeType === 9 ? t.defaultView : t.ownerDocument?.defaultView;
-  return o?.HTMLFormElement && t instanceof o.HTMLFormElement || typeof HTMLFormElement < "u" && t instanceof HTMLFormElement;
+  const i = t.nodeType === 9 ? t.defaultView : t.ownerDocument?.defaultView;
+  return i?.HTMLFormElement && t instanceof i.HTMLFormElement || typeof HTMLFormElement < "u" && t instanceof HTMLFormElement;
 }
 export {
   L as SUBMIT_LOADING_ACTIVE_VALUE,
   a as SUBMIT_LOADING_FORM_SELECTOR,
   S as bootstrapSubmitLoadingForms,
-  c as initSubmitLoadingForms,
+  d as initSubmitLoadingForms,
   y as resetSubmitLoading,
   m as resetSubmitLoadingForms,
   g as setSubmitLoading

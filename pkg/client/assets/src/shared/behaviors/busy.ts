@@ -5,6 +5,7 @@ export type BusyRoot = HTMLElement | HTMLFormElement;
 
 export interface BusyOptions {
   controls?: Array<Element | null | undefined>;
+  includeDescendantControls?: boolean;
   submitter?: Element | null;
   label?: string;
   generateSpinner?: boolean;
@@ -194,7 +195,17 @@ export function submitterSkipsValidation(form: HTMLFormElement, submitter: Eleme
 }
 
 export function submitsOutsideCurrentContext(form: HTMLFormElement, submitter: Element | null): boolean {
-  const target = effectiveSubmitTarget(form, submitControlFromElement(submitter)).trim().toLowerCase();
+  return targetsOutsideCurrentContext(
+    form.ownerDocument,
+    effectiveSubmitTarget(form, submitControlFromElement(submitter)),
+  );
+}
+
+export function targetsOutsideCurrentContext(
+  doc: Document,
+  explicitTarget: string | null | undefined,
+): boolean {
+  const target = resolveBrowsingContextTarget(doc, explicitTarget).toLowerCase();
   return target !== '' && target !== '_self';
 }
 
@@ -302,14 +313,16 @@ function resolveBusyControls(root: BusyRoot, options: BusyOptions): BusyControl[
   if (isBusyControl(root) && !controls.includes(root)) {
     controls.push(root);
   }
-  const selector = isForm(root)
-    ? 'button, input[type="submit"], input[type="button"], input[type="image"]'
-    : 'button, input[type="submit"], input[type="button"], input[type="image"], select, textarea';
-  root.querySelectorAll<BusyControl>(selector).forEach((control) => {
-    if ((isForm(root) ? isSubmitControl(control) : isBusyControl(control)) && !controls.includes(control)) {
-      controls.push(control);
-    }
-  });
+  if (options.includeDescendantControls !== false) {
+    const selector = isForm(root)
+      ? 'button, input[type="submit"], input[type="button"], input[type="image"]'
+      : 'button, input[type="submit"], input[type="button"], input[type="image"], select, textarea';
+    root.querySelectorAll<BusyControl>(selector).forEach((control) => {
+      if ((isForm(root) ? isSubmitControl(control) : isBusyControl(control)) && !controls.includes(control)) {
+        controls.push(control);
+      }
+    });
+  }
   return controls;
 }
 
@@ -475,6 +488,17 @@ function effectiveSubmitTarget(form: HTMLFormElement, submitter: HTMLButtonEleme
     return submitterTarget;
   }
   return form.getAttribute('target') ?? '';
+}
+
+function resolveBrowsingContextTarget(
+  doc: Document,
+  explicitTarget: string | null | undefined,
+): string {
+  const target = String(explicitTarget ?? '').trim();
+  if (target) {
+    return target;
+  }
+  return doc.querySelector<HTMLBaseElement>('base[target]')?.getAttribute('target')?.trim() ?? '';
 }
 
 function restoreFormOverrides(form: HTMLFormElement, state: FormOverrideState): void {

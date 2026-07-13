@@ -432,6 +432,14 @@
     @apply cursor-wait;
   }
 
+  [data-navigation-busy-active="true"] {
+    @apply cursor-wait;
+  }
+
+  [data-navigation-busy-active="true"] [data-navigation-busy-trigger] {
+    @apply cursor-wait opacity-60;
+  }
+
   .btn-secondary {
     @apply bg-white text-admin-dark border border-gray-200 hover:bg-gray-50;
   }

@@ -223,6 +223,7 @@ export class SearchBox<T = unknown> {
     this.state.query = query;
 
     if (query.length < this.config.minChars) {
+      this.cancelPendingSearch();
       this.state.results = [];
       this.closeDropdown();
       return;

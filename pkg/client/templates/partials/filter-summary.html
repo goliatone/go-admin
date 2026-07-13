@@ -16,6 +16,7 @@
       <span class="filter-summary__chip-value">{{ filter.value }}</span>
       {% if filter.clear_url %}
       <a href="{{ filter.clear_url }}"
+         {% if navigation_busy %}data-navigation-busy-trigger{% endif %}
          class="filter-summary__chip-clear ml-1 rounded-full p-0.5 text-gray-400 hover:bg-gray-200 hover:text-gray-600 transition-colors"
          title="Remove this filter"
          aria-label="Remove {{ filter.label }} filter">
@@ -29,6 +30,7 @@
   </div>
   {% if clear_all_url %}
   <a href="{{ clear_all_url }}"
+     {% if navigation_busy %}data-navigation-busy-trigger{% endif %}
      class="filter-summary__clear-all ml-auto text-xs font-medium text-blue-600 hover:text-blue-800 hover:underline transition-colors"
      data-filter-clear-all>
     Clear all

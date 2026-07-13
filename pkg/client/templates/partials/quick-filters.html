@@ -41,6 +41,7 @@
 
     <a href="{{ qf.href }}"
        class="quick-filter inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-colors {{ tone_class }}"
+       {% if navigation_busy %}data-navigation-busy-trigger{% endif %}
        data-quick-filter-value="{{ qf.value }}"
        data-tone="{{ tone }}"
        {% if is_active %}aria-current="true"{% endif %}>

@@ -12,7 +12,7 @@ var u = {
     if (this.dropdown = null, this.debounceTimer = null, this.abortController = null, this.documentClickHandler = null, this.handleInput = () => {
       const t = this.input.value.trim();
       if (this.state.query = t, t.length < this.config.minChars) {
-        this.state.results = [], this.closeDropdown();
+        this.cancelPendingSearch(), this.state.results = [], this.closeDropdown();
         return;
       }
       this.debouncedSearch(t);
@@ -448,4 +448,4 @@ export {
   x as t
 };
 
-//# sourceMappingURL=entity-renderer-CM6Gdu_j.js.map
+//# sourceMappingURL=entity-renderer-CFkRabFN.js.map

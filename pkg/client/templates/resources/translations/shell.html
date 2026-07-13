@@ -20,6 +20,9 @@
            data-editor-base-path="{{ translation_queue_editor_base_path|default:"" }}"
            data-initial-preset-id="{{ translation_queue_initial_preset|default:"" }}"
            data-ssr-enhanced="{% if translation_shell_surface == "queue" %}true{% else %}false{% endif %}"
+           {% if translation_shell_surface == "queue" %}data-behavior="navigation-busy"
+           data-navigation-busy-label="Updating results..."
+           data-navigation-busy-status-target="#translation-queue-navigation-status"{% endif %}
            data-channel="{{ translation_queue_ssr.Meta.channel|default:"" }}">
         {% if translation_shell_surface == "queue" %}
           {% if translation_queue_ssr.ErrorState %}
@@ -45,6 +48,7 @@
               {% for preset in queue.DataGrid.saved_filter_presets %}
               <a class="border-b-2 {% if preset.id == translation_queue_initial_preset or preset.id == queue.Meta.initial_preset_id %}border-blue-500 text-blue-700{% else %}border-transparent hover:text-gray-900{% endif %} py-4"
                  href="{{ preset.href|default:queue.Links.queue }}"
+                 data-navigation-busy-trigger
                  data-translation-preset="{{ preset.id }}">
                 {{ preset.label|default:preset.id }}
               </a>
@@ -55,7 +59,7 @@
             
             {% if queue.DataGrid.quick_filters %}
             <div class="border-b border-gray-100 bg-white px-5 py-3" data-translation-quick-filters>
-              {% include "partials/quick-filters.html" with filters=queue.DataGrid.quick_filters active_value=queue.DataGrid.active_quick_filter label="Status" %}
+              {% include "partials/quick-filters.html" with filters=queue.DataGrid.quick_filters active_value=queue.DataGrid.active_quick_filter label="Status" navigation_busy=true %}
             </div>
             {% endif %}
 
@@ -73,6 +77,7 @@
                     {% for preset in queue.DataGrid.review_filter_presets %}
                     <a class="rounded-md border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-600 hover:bg-gray-50"
                        href="{{ preset.href|default:queue.Links.queue }}"
+                       data-navigation-busy-trigger
                        data-translation-review-preset="{{ preset.id }}">
                       {{ preset.label|default:preset.id }}
                     </a>
@@ -83,7 +88,7 @@
                 <div class="flex flex-wrap items-center gap-3 text-sm text-gray-600">
                   <span>Sort by</span>
                   <span class="rounded-md border border-gray-200 bg-white px-3 py-2 font-medium text-gray-800">{{ queue.DataGrid.sort.label|default:"Due Date, ascending" }}</span>
-                  <a class="btn btn-secondary" href="{{ queue.DataGrid.view_links.current|default:queue.Links.queue|default:"/admin/translations/queue" }}" data-translation-refresh>
+                  <a class="btn btn-secondary" href="{{ queue.DataGrid.view_links.current|default:queue.Links.queue|default:"/admin/translations/queue" }}" data-navigation-busy-trigger data-translation-refresh>
                     <i class="iconoir-refresh" aria-hidden="true"></i>
                     Refresh
                   </a>
@@ -92,7 +97,7 @@
 
               
               <div class="mt-4 border-t border-gray-100 pt-4" data-translation-filter-panel>
-                {% include "partials/filter-panel.html" with filters=queue.DataGrid.filters form_action=queue.DataGrid.filter_action|default:queue.DataGrid.view_links.current|default:queue.Links.queue|default:"/admin/translations/queue" clear_url=queue.DataGrid.view_links.clear_all|default:queue.Links.queue|default:"/admin/translations/queue" channel=queue.Meta.channel active_count=queue.DataGrid.active_filter_count|default:queue.DataGrid.active_filter_chips|length grid_cols=5 %}
+                {% include "partials/filter-panel.html" with filters=queue.DataGrid.filters form_action=queue.DataGrid.filter_action|default:queue.DataGrid.view_links.current|default:queue.Links.queue|default:"/admin/translations/queue" clear_url=queue.DataGrid.view_links.clear_all|default:queue.Links.queue|default:"/admin/translations/queue" channel=queue.Meta.channel active_count=queue.DataGrid.active_filter_count|default:queue.DataGrid.active_filter_chips|length grid_cols=5 navigation_busy=true %}
               </div>
 
               
@@ -100,7 +105,7 @@
                 {% if queue.DataGrid.active_filter_chips %}
                 <div class="flex flex-wrap items-center gap-3">
                   <span class="rounded-md border border-gray-200 bg-white px-3 py-2 text-sm text-gray-500">All visible assignments</span>
-                  {% include "partials/filter-summary.html" with filters=queue.DataGrid.active_filter_chips clear_all_url=queue.DataGrid.view_links.clear_all|default:queue.Links.queue|default:"/admin/translations/queue" %}
+                  {% include "partials/filter-summary.html" with filters=queue.DataGrid.active_filter_chips clear_all_url=queue.DataGrid.view_links.clear_all|default:queue.Links.queue|default:"/admin/translations/queue" navigation_busy=true %}
                 </div>
                 {% else %}
                 <span class="rounded-md border border-gray-200 bg-white px-3 py-2 text-sm text-gray-500">All visible assignments</span>
@@ -114,9 +119,9 @@
               </p>
               {% set queue_view_mode = queue.DataGrid.view_mode|default:"list" %}
               <div class="inline-flex rounded-md border border-gray-200 bg-white p-1 text-sm font-medium text-gray-600" aria-label="Queue view mode">
-                <a class="rounded px-3 py-1.5 {% if queue_view_mode == "list" %}bg-blue-50 font-semibold text-blue-700{% else %}hover:bg-gray-50{% endif %}"{% if queue_view_mode == "list" %} aria-current="page"{% endif %} href="{{ queue.DataGrid.view_links.list|default:queue.Links.queue|default:"/admin/translations/queue" }}">List</a>
-                <a class="rounded px-3 py-1.5 {% if queue_view_mode == "grouped" %}bg-blue-50 font-semibold text-blue-700{% else %}hover:bg-gray-50{% endif %}"{% if queue_view_mode == "grouped" %} aria-current="page"{% endif %} href="{{ queue.DataGrid.view_links.grouped|default:queue.Links.queue|default:"/admin/translations/queue" }}">Grouped</a>
-                <a class="rounded px-3 py-1.5 {% if queue_view_mode == "families" %}bg-blue-50 font-semibold text-blue-700{% else %}hover:bg-gray-50{% endif %}"{% if queue_view_mode == "families" %} aria-current="page"{% endif %} href="{{ queue.DataGrid.view_links.families|default:queue.Links.queue|default:"/admin/translations/queue" }}">Families</a>
+                <a class="rounded px-3 py-1.5 {% if queue_view_mode == "list" %}bg-blue-50 font-semibold text-blue-700{% else %}hover:bg-gray-50{% endif %}"{% if queue_view_mode == "list" %} aria-current="page"{% endif %} href="{{ queue.DataGrid.view_links.list|default:queue.Links.queue|default:"/admin/translations/queue" }}" data-navigation-busy-trigger>List</a>
+                <a class="rounded px-3 py-1.5 {% if queue_view_mode == "grouped" %}bg-blue-50 font-semibold text-blue-700{% else %}hover:bg-gray-50{% endif %}"{% if queue_view_mode == "grouped" %} aria-current="page"{% endif %} href="{{ queue.DataGrid.view_links.grouped|default:queue.Links.queue|default:"/admin/translations/queue" }}" data-navigation-busy-trigger>Grouped</a>
+                <a class="rounded px-3 py-1.5 {% if queue_view_mode == "families" %}bg-blue-50 font-semibold text-blue-700{% else %}hover:bg-gray-50{% endif %}"{% if queue_view_mode == "families" %} aria-current="page"{% endif %} href="{{ queue.DataGrid.view_links.families|default:queue.Links.queue|default:"/admin/translations/queue" }}" data-navigation-busy-trigger>Families</a>
               </div>
             </div>
 
@@ -312,23 +317,23 @@
                   {% if queue.DataGrid.pagination.previous_disabled %}
                   <span class="rounded px-3 py-1.5 text-gray-400" aria-disabled="true">Previous</span>
                   {% else %}
-                  <a class="rounded px-3 py-1.5 hover:bg-gray-50" href="{{ queue.DataGrid.pagination.previous_href }}">Previous</a>
+                  <a class="rounded px-3 py-1.5 hover:bg-gray-50" href="{{ queue.DataGrid.pagination.previous_href }}" data-navigation-busy-trigger>Previous</a>
                   {% endif %}
                   {% if queue.DataGrid.pagination.next_disabled %}
                   <span class="rounded px-3 py-1.5 text-gray-400" aria-disabled="true">Next</span>
                   {% else %}
-                  <a class="rounded px-3 py-1.5 hover:bg-gray-50" href="{{ queue.DataGrid.pagination.next_href }}">Next</a>
+                  <a class="rounded px-3 py-1.5 hover:bg-gray-50" href="{{ queue.DataGrid.pagination.next_href }}" data-navigation-busy-trigger>Next</a>
                   {% endif %}
                 </div>
                 <div class="inline-flex rounded-md border border-gray-200 bg-white p-1 text-sm font-medium text-gray-600" aria-label="Assignments per page">
                   {% for choice in queue.DataGrid.pagination.page_size_choices %}
-                  <a class="rounded px-3 py-1.5 {% if choice.active %}bg-blue-50 font-semibold text-blue-700{% else %}hover:bg-gray-50{% endif %}"{% if choice.active %} aria-current="true"{% endif %} href="{{ choice.href }}">{{ choice.label|default:choice.value }}</a>
+                  <a class="rounded px-3 py-1.5 {% if choice.active %}bg-blue-50 font-semibold text-blue-700{% else %}hover:bg-gray-50{% endif %}"{% if choice.active %} aria-current="true"{% endif %} href="{{ choice.href }}" data-navigation-busy-trigger>{{ choice.label|default:choice.value }}</a>
                   {% endfor %}
                 </div>
                 <div class="inline-flex rounded-md border border-gray-200 bg-white p-1 text-sm font-medium text-gray-600" aria-label="Queue view mode">
-                  <a class="rounded px-3 py-1.5 {% if queue_view_mode == "list" %}bg-blue-50 font-semibold text-blue-700{% else %}hover:bg-gray-50{% endif %}"{% if queue_view_mode == "list" %} aria-current="page"{% endif %} href="{{ queue.DataGrid.view_links.list|default:queue.Links.queue|default:"/admin/translations/queue" }}">List</a>
-                  <a class="rounded px-3 py-1.5 {% if queue_view_mode == "grouped" %}bg-blue-50 font-semibold text-blue-700{% else %}hover:bg-gray-50{% endif %}"{% if queue_view_mode == "grouped" %} aria-current="page"{% endif %} href="{{ queue.DataGrid.view_links.grouped|default:queue.Links.queue|default:"/admin/translations/queue" }}">Grouped</a>
-                  <a class="rounded px-3 py-1.5 {% if queue_view_mode == "families" %}bg-blue-50 font-semibold text-blue-700{% else %}hover:bg-gray-50{% endif %}"{% if queue_view_mode == "families" %} aria-current="page"{% endif %} href="{{ queue.DataGrid.view_links.families|default:queue.Links.queue|default:"/admin/translations/queue" }}">Families</a>
+                  <a class="rounded px-3 py-1.5 {% if queue_view_mode == "list" %}bg-blue-50 font-semibold text-blue-700{% else %}hover:bg-gray-50{% endif %}"{% if queue_view_mode == "list" %} aria-current="page"{% endif %} href="{{ queue.DataGrid.view_links.list|default:queue.Links.queue|default:"/admin/translations/queue" }}" data-navigation-busy-trigger>List</a>
+                  <a class="rounded px-3 py-1.5 {% if queue_view_mode == "grouped" %}bg-blue-50 font-semibold text-blue-700{% else %}hover:bg-gray-50{% endif %}"{% if queue_view_mode == "grouped" %} aria-current="page"{% endif %} href="{{ queue.DataGrid.view_links.grouped|default:queue.Links.queue|default:"/admin/translations/queue" }}" data-navigation-busy-trigger>Grouped</a>
+                  <a class="rounded px-3 py-1.5 {% if queue_view_mode == "families" %}bg-blue-50 font-semibold text-blue-700{% else %}hover:bg-gray-50{% endif %}"{% if queue_view_mode == "families" %} aria-current="page"{% endif %} href="{{ queue.DataGrid.view_links.families|default:queue.Links.queue|default:"/admin/translations/queue" }}" data-navigation-busy-trigger>Families</a>
                 </div>
               </div>
             </footer>
@@ -337,6 +342,20 @@
           {% endif %}
         {% endif %}
       </div>
+      {% if translation_shell_surface == "queue" %}
+      <div id="translation-queue-navigation-status"
+           class="fixed inset-0 z-50 bg-gray-900/10 px-4 backdrop-blur-[1px]"
+           data-navigation-busy-status
+           role="status"
+           aria-live="polite"
+           aria-atomic="true"
+           hidden>
+        <div class="mx-auto mt-[20vh] flex w-fit items-center gap-3 rounded-lg border border-gray-200 bg-white px-5 py-4 text-sm font-semibold text-gray-800 shadow-xl">
+          <i class="iconoir-refresh animate-spin text-lg text-blue-600" aria-hidden="true"></i>
+          <span data-navigation-busy-label-target>Updating results...</span>
+        </div>
+      </div>
+      {% endif %}
     </section>
   </div>
 </div>

@@ -2,7 +2,7 @@ import { escapeHTML as f } from "../shared/html.js";
 import { executeActionRequest as ie, formatStructuredErrorForDisplay as ne } from "../toast/error-helpers.js";
 import { readJSONScriptValue as O, readJSONSelectorValue as j } from "../shared/json-parse.js";
 import { c as ae, s as se } from "./ui-states-BOBY2bIW.js";
-import { T as oe } from "./services-BJAQVRfs.js";
+import { T as oe } from "./services-Dot4ooDE.js";
 import { a as ce } from "./dom-helpers-DCJA_7zh.js";
 import { formatRelativeTime as T, formatTimestamp as C } from "../esign/timeline-formatters.js";
 var le = 3e3, I = 45e3, de = 5, ue = 3e4, me = 0.2, ge = class {
@@ -2180,4 +2180,4 @@ export {
   K as z
 };
 
-//# sourceMappingURL=agreement-detail-B_lIJYMm.js.map
+//# sourceMappingURL=agreement-detail-YtVkapnW.js.map

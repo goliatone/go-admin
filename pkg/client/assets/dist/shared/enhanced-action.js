@@ -1,11 +1,11 @@
 import { appendCSRFHeader as b } from "./transport/http-client.js";
-import { a as D, c as H, n as C, o as L } from "../chunks/behaviors-JUmide29.js";
+import { d as D, n as H, p as C, u as L } from "../chunks/behaviors-3r2n03MZ.js";
 var Y = "X-Enhanced-Action", ee = "application/vnd.admin.enhanced+json", te = "1";
 function ne(e = document, t = {}) {
   const n = t.document ?? Z(e), a = (o) => {
     const r = O(o.target, n);
     if (!(!r || !r.matches("form[data-enhance-action]")) && y(t.fetch ?? globalThis.fetch, r.ownerDocument)) {
-      if (D(r)) {
+      if (L(r)) {
         o.preventDefault();
         return;
       }
@@ -24,13 +24,13 @@ async function R(e, t, n = {}) {
   if (!y(a, e.ownerDocument)) return null;
   const o = $(e, t);
   if (!o) return null;
-  const r = j(e, t), c = A(e.ownerDocument), i = w(e.ownerDocument), u = new c(e);
+  const r = j(e, t), i = A(e.ownerDocument), c = w(e.ownerDocument), u = new i(e);
   P(u, t);
   const l = I(o, r, u);
   z(e);
-  const m = new i();
+  const m = new c();
   m.set(U(n), _(n)), m.set("Accept", B(n)), b(l, { method: r }, m);
-  const S = H(e, { submitter: t });
+  const S = C(e, { submitter: t });
   try {
     const f = await a(l, {
       method: r,
@@ -56,8 +56,8 @@ async function R(e, t, n = {}) {
 async function F(e, t = {}) {
   const n = t.document ?? globalThis.document, a = [], o = [];
   for (const r of e.fragments ?? []) {
-    const c = E(n, r);
-    c && (a.push(r), o.push(c));
+    const i = E(n, r);
+    i && (a.push(r), o.push(i));
   }
   a.length > 0 && (await X(t, o), await t.onFragmentsApplied?.(a), J(n, a, o)), p(e, t.toast), T(e, n);
 }
@@ -69,10 +69,10 @@ function E(e, t) {
   if (!n || !a || o !== "replace") return null;
   const r = e.querySelector(n);
   if (!r) return null;
-  const c = e.createElement("template");
-  c.innerHTML = a;
-  const i = c.content.firstElementChild;
-  return i ? (r.replaceWith(i), i) : null;
+  const i = e.createElement("template");
+  i.innerHTML = a;
+  const c = i.content.firstElementChild;
+  return c ? (r.replaceWith(c), c) : null;
 }
 function y(e, t) {
   return typeof e == "function" && !!A(t) && !!w(t);
@@ -173,19 +173,19 @@ function B(e) {
 function I(e, t, n) {
   if (t !== "GET" && t !== "HEAD") return e;
   const a = new URLSearchParams();
-  n.forEach((r, c) => {
-    a.append(c, typeof r == "string" ? r : r.name);
+  n.forEach((r, i) => {
+    a.append(i, typeof r == "string" ? r : r.name);
   });
   const o = a.toString();
   if (!o) return e;
   try {
-    const r = typeof location < "u" && location?.href ? location.href : void 0, c = new URL(e, r);
-    return a.forEach((i, u) => {
-      c.searchParams.append(u, i);
-    }), /^[a-zA-Z][a-zA-Z\d+\-.]*:/.test(e) || e.startsWith("//") ? c.toString() : `${c.pathname}${c.search}${c.hash}`;
+    const r = typeof location < "u" && location?.href ? location.href : void 0, i = new URL(e, r);
+    return a.forEach((c, u) => {
+      i.searchParams.append(u, c);
+    }), /^[a-zA-Z][a-zA-Z\d+\-.]*:/.test(e) || e.startsWith("//") ? i.toString() : `${i.pathname}${i.search}${i.hash}`;
   } catch {
-    const r = e.indexOf("#"), c = r >= 0 ? e.slice(0, r) : e, i = r >= 0 ? e.slice(r) : "";
-    return `${c}${c.includes("?") ? "&" : "?"}${o}${i}`;
+    const r = e.indexOf("#"), i = r >= 0 ? e.slice(0, r) : e, c = r >= 0 ? e.slice(r) : "";
+    return `${i}${i.includes("?") ? "&" : "?"}${o}${c}`;
   }
 }
 function P(e, t) {
@@ -204,8 +204,8 @@ function p(e, t) {
   for (const o of a) {
     const r = String(o.message ?? "").trim();
     if (!r) continue;
-    const c = String(o.type ?? "info").trim() || "info", i = n?.[c];
-    typeof i == "function" ? i.call(n, r) : typeof n?.show == "function" && n.show(r, c);
+    const i = String(o.type ?? "info").trim() || "info", c = n?.[i];
+    typeof c == "function" ? c.call(n, r) : typeof n?.show == "function" && n.show(r, i);
   }
 }
 function T(e, t) {
@@ -220,12 +220,12 @@ function z(e) {
 }
 function g(e, t) {
   const n = t.error?.fields ?? {};
-  for (const [c, i] of Object.entries(n)) {
-    const u = e.querySelector(`[name="${W(c)}"]`);
+  for (const [i, c] of Object.entries(n)) {
+    const u = e.querySelector(`[name="${W(i)}"]`);
     if (!u) continue;
     u.setAttribute("aria-invalid", "true");
     const l = e.ownerDocument.createElement("div");
-    l.setAttribute("data-enhance-generated-error", "true"), l.setAttribute("data-enhance-field-error-for", c), l.className = "mt-1 text-xs text-rose-600", l.textContent = i, u.insertAdjacentElement("afterend", l);
+    l.setAttribute("data-enhance-generated-error", "true"), l.setAttribute("data-enhance-field-error-for", i), l.className = "mt-1 text-xs text-rose-600", l.textContent = c, u.insertAdjacentElement("afterend", l);
   }
   const a = String(t.error?.message ?? "").trim();
   if (!a) return;
@@ -238,7 +238,7 @@ function W(e) {
 }
 async function X(e, t) {
   for (const a of t)
-    C(a, { window: a.ownerDocument.defaultView ?? void 0 }), L(a);
+    H(a, { window: a.ownerDocument.defaultView ?? void 0 }), D(a);
   const n = v().FormgenRelationships;
   typeof n?.initRelationships == "function" && await n.initRelationships();
 }

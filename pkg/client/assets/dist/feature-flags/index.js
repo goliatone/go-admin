@@ -1,6 +1,6 @@
 import { escapeAttribute as S, escapeHTML as l } from "../shared/html.js";
 import { httpRequest as y, readHTTPError as v } from "../shared/transport/http-client.js";
-import { a as $, i, n as g, t as c } from "../chunks/entity-renderer-CM6Gdu_j.js";
+import { a as $, i, n as g, t as c } from "../chunks/entity-renderer-CFkRabFN.js";
 var w = class {
   constructor(e) {
     if (this.searchBox = null, this.scopeConfigs = /* @__PURE__ */ new Map(), this.currentScope = "system", this.selectedResult = null, this.config = e, typeof e.input == "string") {

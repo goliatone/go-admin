@@ -9,6 +9,11 @@ import {
   submitsOutsideCurrentContext,
   type BusyController,
 } from './busy.js';
+import {
+  handleNavigationBusyClick,
+  handleNavigationBusySubmit,
+  resetNavigationBusyWithin,
+} from './navigation.js';
 
 export {
   BUSY_ACTIVE_VALUE,
@@ -21,6 +26,13 @@ export {
   type BusyOptions,
   type BusyRoot,
 } from './busy.js';
+export {
+  NAVIGATION_BUSY_ROOT_SELECTOR,
+  NAVIGATION_BUSY_TRIGGER_SELECTOR,
+  isNavigationBusy,
+  resetNavigationBusy,
+  resetNavigationBusyWithin,
+} from './navigation.js';
 
 export interface BehaviorRuntimeOptions {
   submitBusySelector?: string;
@@ -53,6 +65,7 @@ interface BehaviorRootState {
   win: Window | null;
   submitRules: SubmitBusyRule[];
   fragmentListenerAttached: boolean;
+  handleClick: (event: MouseEvent) => void;
   handleSubmit: (event: SubmitEvent) => void;
   handlePageShow: () => void;
   handleFragmentsApplied: (event: Event) => void;
@@ -80,7 +93,14 @@ function createRootState(
   const doc = ownerDocument(root);
   const win = options.window ?? doc.defaultView ?? window;
 
+  const handleClick = (event: MouseEvent): void => {
+    handleNavigationBusyClick(event, root, win);
+  };
+
   const handleSubmit = (event: SubmitEvent): void => {
+    if (handleNavigationBusySubmit(event, root, win)) {
+      return;
+    }
     const form = formFromSubmitTarget(event.target, doc);
     const rule = form ? matchingSubmitBusyRule(form, state.submitRules) : null;
     if (
@@ -144,10 +164,12 @@ function createRootState(
     win,
     submitRules: [],
     fragmentListenerAttached: false,
+    handleClick,
     handleSubmit,
     handlePageShow,
     handleFragmentsApplied,
   };
+  root.addEventListener('click', handleClick as EventListener);
   root.addEventListener('submit', handleSubmit as EventListener);
   win?.addEventListener('pageshow', handlePageShow);
   rootStates.set(root, state);
@@ -175,6 +197,8 @@ function addSubmitBusyRule(
         state.submitRules.splice(index, 1);
       }
       if (state.submitRules.length === 0) {
+        resetBehaviors(state.root);
+        state.root.removeEventListener('click', state.handleClick as EventListener);
         state.root.removeEventListener('submit', state.handleSubmit as EventListener);
         state.win?.removeEventListener('pageshow', state.handlePageShow);
         state.doc.removeEventListener('go-admin:enhanced-fragments-applied', state.handleFragmentsApplied as EventListener);
@@ -226,6 +250,7 @@ function matchingSubmitBusyRule(form: HTMLFormElement, rules: SubmitBusyRule[]):
 }
 
 export function resetBehaviors(root: Document | HTMLElement = document): void {
+  resetNavigationBusyWithin(root);
   resetBusyWithin(root);
 }
 

@@ -73,6 +73,16 @@ async function flushAsync() {
   await new Promise((resolve) => setTimeout(resolve, 0));
 }
 
+async function waitFor(predicate, timeoutMs = 1000) {
+  const deadline = Date.now() + timeoutMs;
+  while (!predicate()) {
+    if (Date.now() >= deadline) {
+      throw new Error('Timed out waiting for asynchronous queue state.');
+    }
+    await flushAsync();
+  }
+}
+
 async function wait(ms) {
   await new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -521,6 +531,7 @@ test('translation queue filters: enhanced typeahead hydrates and selects canonic
 
 test('translation queue filters: enhanced typeahead preserves raw fallback on endpoint errors and clearing', async () => {
   const { root } = setupDom();
+  const requestedURLs = [];
   root.innerHTML = `
     <form>
       <div data-filter-enhanced="true"
@@ -537,7 +548,10 @@ test('translation queue filters: enhanced typeahead preserves raw fallback on en
       </div>
     </form>
   `;
-  globalThis.fetch = mock.fn(async () => createJsonResponse({ error: 'unavailable' }, 503));
+  globalThis.fetch = mock.fn(async (input) => {
+    requestedURLs.push(String(input));
+    return createJsonResponse({ error: 'unavailable' }, 503);
+  });
 
   assert.equal(initAssignmentQueueFilterTypeaheads(root), 1);
   await flushAsync();
@@ -555,6 +569,12 @@ test('translation queue filters: enhanced typeahead preserves raw fallback on en
   display.value = '';
   display.dispatchEvent(new Event('input', { bubbles: true }));
   assert.equal(canonical.value, '');
+  await wait(240);
+  await flushAsync();
+  assert.equal(
+    requestedURLs.some((url) => new URL(url, 'http://localhost').searchParams.get('search') === 'typed-family'),
+    false,
+  );
 });
 
 test('translation queue filters: unresolved hydration keeps the raw selected value', async () => {
@@ -861,12 +881,16 @@ test('translation queue runtime: bulk actions submit documented browser contract
     editorBasePath: '/admin/translations/assignments',
   });
   screen.mount(createContainer());
-  await flushAsync();
+  await waitFor(() => screen.getData() !== null);
 
   screen.toggleRowSelection('asg-open-1');
   await screen.runBulkAction('release');
 
-  assert.equal(calls.length, 2);
+  assert.equal(
+    calls.length,
+    2,
+    JSON.stringify(calls.map((call) => ({ input: call.input, method: call.init.method || 'GET' }))),
+  );
   assert.equal(screen.getFeedback()?.kind, 'success');
   assert.match(screen.getFeedback()?.message || '', /1 assignment updated/);
   assert.equal(screen.getSelectedCount(), 0);
@@ -1694,6 +1718,54 @@ test('translation queue runtime: SSR root binds row actions without first-render
   assert.equal(payload.channel, 'default');
   assert.equal(typeof payload.idempotency_key, 'string');
   assert.ok(payload.idempotency_key.length > 0);
+});
+
+test('translation queue runtime: SSR root binds native navigation feedback without replacing markup', () => {
+  const { root } = setupDom('http://localhost/admin/translations/queue?status=assigned');
+  root.dataset.ssrEnhanced = 'true';
+  root.dataset.endpoint = '/admin/api/translations/assignments';
+  root.dataset.behavior = 'navigation-busy';
+  root.dataset.navigationBusyLabel = 'Updating results...';
+  root.dataset.navigationBusyStatusTarget = '#queue-navigation-status';
+  root.innerHTML = `
+    <section data-translation-queue-ssr="true">
+      <a href="/admin/translations/queue" data-navigation-busy-trigger data-filter-clear-all>Clear all</a>
+    </section>
+  `;
+  root.insertAdjacentHTML('afterend', `
+    <div id="queue-navigation-status" data-navigation-busy-status hidden role="status" aria-live="polite">
+      <span data-navigation-busy-label-target>Updating results...</span>
+    </div>
+  `);
+  const requests = [];
+  globalThis.fetch = mock.fn(async (url) => {
+    requests.push(String(url));
+    return createJsonResponse({ meta: fixtures.meta, data: [] });
+  });
+
+  const screen = initAssignmentQueueScreen(root);
+  const clearAll = root.querySelector('[data-filter-clear-all]');
+  const status = globalThis.document.querySelector('#queue-navigation-status');
+  const click = new globalThis.window.MouseEvent('click', {
+    bubbles: true,
+    cancelable: true,
+    button: 0,
+  });
+  clearAll.dispatchEvent(click);
+
+  assert.equal(screen, null);
+  assert.equal(requests.length, 0);
+  assert.equal(click.defaultPrevented, false);
+  assert.equal(root.dataset.navigationBusyActive, 'true');
+  assert.equal(root.getAttribute('aria-busy'), 'true');
+  assert.equal(clearAll.getAttribute('aria-disabled'), 'true');
+  assert.equal(status.hidden, false);
+  assert.ok(root.querySelector('[data-translation-queue-ssr="true"]'));
+
+  globalThis.window.dispatchEvent(new globalThis.window.Event('pageshow'));
+  assert.equal(root.dataset.navigationBusyActive, undefined);
+  assert.equal(clearAll.hasAttribute('aria-disabled'), false);
+  assert.equal(status.hidden, true);
 });
 
 test('translation queue runtime: assignment action URL appends path before scope query', () => {

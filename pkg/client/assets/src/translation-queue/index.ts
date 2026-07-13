@@ -28,6 +28,7 @@ import {
 import { StatefulController } from '../shared/stateful-controller.js';
 import { normalizeNumberRecord } from '../shared/record-normalization.js';
 import { httpRequest, readHTTPError } from '../shared/transport/http-client.js';
+import { initBehaviors } from '../shared/behaviors/index.js';
 import {
   SearchBox,
   ApiResolver,
@@ -5372,6 +5373,7 @@ function bindAssignmentQueueSSR(container: HTMLElement, endpoint: string): void 
     return;
   }
   container.dataset.assignmentQueueEnhanced = 'true';
+  initBehaviors(container);
   initAssignmentSSRRowActions(container, { endpoint: container.dataset.actionEndpoint || endpoint });
   initAssignmentQueueFilterTypeaheads(container);
 }
