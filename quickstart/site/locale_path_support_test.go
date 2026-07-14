@@ -24,6 +24,7 @@ func TestResolveSitePublicPath(t *testing.T) {
 		{name: "nested canonical", basePath: "/site", canonical: "/archive/items", locale: "bo", want: "/site/bo/archive/items"},
 		{name: "already target localized", basePath: "/site", canonical: "/bo/archive", locale: "bo", want: "/site/bo/archive"},
 		{name: "replace existing locale", basePath: "/site", canonical: "/en/archive", locale: "bo", want: "/site/bo/archive"},
+		{name: "canonical locale-like slug", basePath: "/site", canonical: "/bo", locale: "en", want: "/site/bo"},
 		{name: "unsafe becomes root", basePath: "/site", canonical: "https://example.com/phish", locale: "bo", want: "/site/bo"},
 	}
 	for _, tc := range tests {

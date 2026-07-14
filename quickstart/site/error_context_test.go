@@ -16,6 +16,22 @@ type errorContextTestModule struct {
 	panicObserver bool
 }
 
+type mutatingNestedErrorContextModule struct{}
+
+func (*mutatingNestedErrorContextModule) ID() string                             { return "mutating-nested" }
+func (*mutatingNestedErrorContextModule) RegisterRoutes(SiteModuleContext) error { return nil }
+func (*mutatingNestedErrorContextModule) ViewContext(_ context.Context, in router.ViewContext) router.ViewContext {
+	return in
+}
+func (*mutatingNestedErrorContextModule) ErrorViewContext(_ context.Context, _ SiteErrorContextRequest, in router.ViewContext) router.ViewContext {
+	host := anyMap(in["host"])
+	items, _ := host["items"].([]any)
+	first := anyMap(items[0])
+	first["label"] = "provider-mutated"
+	host["added"] = true
+	return in
+}
+
 func (m *errorContextTestModule) ID() string                             { return m.id }
 func (m *errorContextTestModule) RegisterRoutes(SiteModuleContext) error { return nil }
 func (m *errorContextTestModule) ViewContext(_ context.Context, in router.ViewContext) router.ViewContext {
@@ -90,6 +106,91 @@ func TestBuildSiteErrorViewContextClonesProviderInputsAndOutputs(t *testing.T) {
 	}
 	if _, exists := baseModel["provider_clone"]; exists {
 		t.Fatalf("provider output mutated caller-owned nested map")
+	}
+}
+
+func TestBuildSiteErrorViewContextRecursivelyIsolatesHostContainers(t *testing.T) {
+	module := &mutatingNestedErrorContextModule{}
+	cfg := ResolveSiteConfig(admin.Config{DefaultLocale: "en"}, SiteConfig{Modules: []SiteModule{module}})
+	baseItem := map[string]any{"label": "original"}
+	baseHost := map[string]any{"items": []any{baseItem}}
+	base := router.ViewContext{"host": baseHost}
+
+	got := buildSiteErrorViewContext(context.Background(), cfg, SiteErrorContextRequest{
+		Error: SiteRuntimeError{Status: 500},
+		State: RequestState{Locale: "en"},
+	}, base)
+
+	gotItems, _ := anyMap(got["host"])["items"].([]any)
+	if gotLabel := anyString(anyMap(gotItems[0])["label"]); gotLabel != "provider-mutated" {
+		t.Fatalf("expected provider mutation in returned context, got %q", gotLabel)
+	}
+	if baseItem["label"] != "original" {
+		t.Fatalf("provider mutated caller-owned nested item: %#v", baseItem)
+	}
+	if _, exists := baseHost["added"]; exists {
+		t.Fatalf("provider mutated caller-owned host map: %#v", baseHost)
+	}
+
+	anyMap(gotItems[0])["label"] = "caller-mutated"
+	if baseItem["label"] != "original" {
+		t.Fatalf("returned context retained caller-owned nested aliases: %#v", baseItem)
+	}
+}
+
+func TestCompleteSiteErrorRequestStateMergesPreparedStateAndCallerOverlay(t *testing.T) {
+	preparedNested := map[string]any{"label": "prepared"}
+	prepared := RequestState{
+		Locale:              "en",
+		DefaultLocale:       "en",
+		SupportedLocales:    []string{"en", "bo"},
+		Environment:         "production",
+		ContentChannel:      "published",
+		AllowLocaleFallback: true,
+		PreviewTokenPresent: true,
+		PreviewTokenValid:   true,
+		IsPreview:           true,
+		PreviewToken:        "preview-secret",
+		PreviewEntityType:   "pages",
+		PreviewContentID:    "page-1",
+		ThemeName:           "archive",
+		ThemeVariant:        "default",
+		Theme:               map[string]map[string]string{"default": {"name": "archive"}},
+		SiteTheme:           map[string]any{"manifest_partials": map[string]string{"site.error.404_page": "templates/site/error/404.html"}},
+		BasePath:            "/site",
+		AssetBasePath:       "/site/assets",
+		ActivePath:          "/site/missing",
+		ViewContext: router.ViewContext{
+			"prepared":   preparedNested,
+			"shared_key": "prepared",
+		},
+	}
+	ctx := router.NewMockContext()
+	ctx.LocalsMock[requestStateLocalsKey] = prepared
+
+	got := completeSiteErrorRequestState(ctx, ResolvedSiteConfig{}, RequestState{
+		Locale: "bo",
+		ViewContext: router.ViewContext{
+			"caller":     true,
+			"shared_key": "caller",
+		},
+	})
+
+	if got.Locale != "bo" || got.DefaultLocale != "en" || got.Environment != "production" || got.ContentChannel != "published" {
+		t.Fatalf("prepared scalar state not merged with caller locale: %+v", got)
+	}
+	if !got.AllowLocaleFallback || !got.PreviewTokenPresent || !got.PreviewTokenValid || !got.IsPreview || got.PreviewToken != "preview-secret" {
+		t.Fatalf("prepared preview state not preserved: %+v", got)
+	}
+	if got.ThemeName != "archive" || got.ThemeVariant != "default" || got.AssetBasePath != "/site/assets" || got.ActivePath != "/site/missing" {
+		t.Fatalf("prepared theme/path state not preserved: %+v", got)
+	}
+	if got.ViewContext["caller"] != true || got.ViewContext["shared_key"] != "caller" || anyMap(got.ViewContext["prepared"])["label"] != "prepared" {
+		t.Fatalf("view context overlay did not preserve prepared values: %#v", got.ViewContext)
+	}
+	anyMap(got.ViewContext["prepared"])["label"] = "mutated"
+	if preparedNested["label"] != "prepared" {
+		t.Fatalf("merged request state retained prepared nested alias: %#v", preparedNested)
 	}
 }
 
