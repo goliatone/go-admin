@@ -108,6 +108,55 @@ func TestInMemoryTranslationAssignmentRepositoryCreateOrReuseActiveIsIdempotent(
 	}
 }
 
+func TestInMemoryTranslationAssignmentRepositoryListAssignmentPageEvaluatesPredicates(t *testing.T) {
+	repo := NewInMemoryTranslationAssignmentRepository()
+	ctx := context.Background()
+	for _, assignment := range []TranslationAssignment{
+		{ID: "asg-memory-match", FamilyID: "family-memory-match", EntityType: "pages", SourceRecordID: "page-memory-match", SourceTitle: "HOME report", SourcePath: "/News/Q3", SourceLocale: "en", TargetLocale: "es", AssignmentType: AssignmentTypeDirect, Status: AssignmentStatusAssigned, Priority: PriorityNormal},
+		{ID: "asg-memory-miss", FamilyID: "family-memory-miss", EntityType: "pages", SourceRecordID: "page-memory-miss", SourceTitle: "Home archive", SourcePath: "/archive", SourceLocale: "en", TargetLocale: "fr", AssignmentType: AssignmentTypeDirect, Status: AssignmentStatusAssigned, Priority: PriorityNormal},
+	} {
+		if _, err := repo.Create(ctx, assignment); err != nil {
+			t.Fatalf("seed assignment %s: %v", assignment.ID, err)
+		}
+	}
+
+	result, err := repo.ListAssignmentPage(ctx, TranslationAssignmentPageQueryInput{
+		Filter:  translationAssignmentListFilter{EntityType: "pages", TitleContains: "home", PathContains: "/NEWS"},
+		Page:    1,
+		PerPage: 25,
+	})
+	if err != nil {
+		t.Fatalf("list assignment page: %v", err)
+	}
+	if result.Total != 1 || len(result.Items) != 1 || result.Items[0].ID != "asg-memory-match" {
+		t.Fatalf("expected canonical predicates to match one assignment, total=%d items=%+v", result.Total, result.Items)
+	}
+}
+
+func TestInMemoryTranslationAssignmentRepositoryOptimizedQueriesUseInjectedClock(t *testing.T) {
+	repo := NewInMemoryTranslationAssignmentRepository()
+	ctx := context.Background()
+	queryNow := time.Date(2030, 1, 2, 12, 0, 0, 0, time.UTC)
+	due := queryNow.Add(-time.Hour)
+	assignment, err := repo.Create(ctx, TranslationAssignment{
+		ID: "asg-memory-clock", FamilyID: "family-memory-clock", EntityType: "pages", SourceRecordID: "page-memory-clock",
+		SourceLocale: "en", TargetLocale: "es", AssignmentType: AssignmentTypeDirect, Status: AssignmentStatusAssigned,
+		Priority: PriorityNormal, DueDate: &due,
+	})
+	if err != nil {
+		t.Fatalf("seed assignment: %v", err)
+	}
+	filter := translationAssignmentListFilter{DueState: translationQueueDueStateOverdue}
+	page, err := repo.ListAssignmentPage(ctx, TranslationAssignmentPageQueryInput{Filter: filter, Page: 1, PerPage: 25, Now: queryNow})
+	if err != nil || page.Total != 1 || len(page.Items) != 1 {
+		t.Fatalf("expected injected-clock page match, result=%+v err=%v", page, err)
+	}
+	snapshot, err := repo.ListAssignmentSnapshot(ctx, TranslationAssignmentSnapshotQueryInput{Filter: filter, Limit: 25, Now: queryNow})
+	if err != nil || snapshot.Total != 1 || len(snapshot.Selections) != 1 || snapshot.Selections[0].AssignmentID != assignment.ID {
+		t.Fatalf("expected injected-clock snapshot match, result=%+v err=%v", snapshot, err)
+	}
+}
+
 func TestInMemoryTranslationAssignmentRepositoryAssignedAtCreateAndReuse(t *testing.T) {
 	repo := NewInMemoryTranslationAssignmentRepository()
 	ctx := context.Background()
@@ -690,6 +739,42 @@ func TestBunTranslationAssignmentRepositoryListAssignmentPageClampsOutOfRangePag
 	}
 }
 
+func TestBunTranslationAssignmentRepositoryListAssignmentPageMatchesTitleAndPathPredicates(t *testing.T) {
+	db := newTranslationFamilyStoreSQLiteDB(t)
+	ctx := context.Background()
+	store := NewBunTranslationFamilyStore(db)
+	families := []translationservices.FamilyRecord{
+		{ID: "family-predicate-match", ContentType: "pages", SourceLocale: "en", SourceVariantID: "family-predicate-match::en", ReadinessState: "ready", Variants: []translationservices.FamilyVariant{{ID: "family-predicate-match::en", FamilyID: "family-predicate-match", Locale: "en", Status: "published", IsSource: true, SourceRecordID: "page-predicate-match"}, {ID: "family-predicate-match::es", FamilyID: "family-predicate-match", Locale: "es", Status: "draft", SourceRecordID: "page-predicate-match"}}},
+		{ID: "family-predicate-miss", ContentType: "pages", SourceLocale: "en", SourceVariantID: "family-predicate-miss::en", ReadinessState: "ready", Variants: []translationservices.FamilyVariant{{ID: "family-predicate-miss::en", FamilyID: "family-predicate-miss", Locale: "en", Status: "published", IsSource: true, SourceRecordID: "page-predicate-miss"}, {ID: "family-predicate-miss::fr", FamilyID: "family-predicate-miss", Locale: "fr", Status: "draft", SourceRecordID: "page-predicate-miss"}}},
+	}
+	for _, family := range families {
+		if err := store.SaveFamily(ctx, family); err != nil {
+			t.Fatalf("seed family %s: %v", family.ID, err)
+		}
+	}
+	repo := NewBunTranslationAssignmentRepository(db)
+	assignments := []TranslationAssignment{
+		{ID: "asg-predicate-match", FamilyID: "family-predicate-match", EntityType: "pages", SourceRecordID: "page-predicate-match", SourceTitle: "HOME report", SourcePath: "/News/Q3", SourceLocale: "en", TargetLocale: "es", AssignmentType: AssignmentTypeDirect, Status: AssignmentStatusAssigned, Priority: PriorityNormal},
+		{ID: "asg-predicate-miss", FamilyID: "family-predicate-miss", EntityType: "pages", SourceRecordID: "page-predicate-miss", SourceTitle: "Home archive", SourcePath: "/archive", SourceLocale: "en", TargetLocale: "fr", AssignmentType: AssignmentTypeDirect, Status: AssignmentStatusAssigned, Priority: PriorityNormal},
+	}
+	for _, assignment := range assignments {
+		if _, err := repo.Create(ctx, assignment); err != nil {
+			t.Fatalf("seed assignment %s: %v", assignment.ID, err)
+		}
+	}
+
+	result, err := repo.ListAssignmentPage(ctx, TranslationAssignmentPageQueryInput{
+		Filter: translationAssignmentListFilter{TitleContains: "home", PathContains: "/NEWS"},
+		Page:   1, PerPage: 25,
+	})
+	if err != nil {
+		t.Fatalf("list assignment page: %v", err)
+	}
+	if result.Total != 1 || len(result.Items) != 1 || result.Items[0].ID != "asg-predicate-match" {
+		t.Fatalf("expected case-insensitive predicate intersection, total=%d items=%+v", result.Total, result.Items)
+	}
+}
+
 func TestBunTranslationAssignmentRepositoryDashboardSummaryAllowsUnscopedScope(t *testing.T) {
 	db := newTranslationFamilyStoreSQLiteDB(t)
 	ctx := context.Background()
@@ -1248,6 +1333,66 @@ func TestBunTranslationAssignmentRepositoryMyWorkSummaryPreservesStatusFilterRev
 	}
 	if assignedAndReview["total"] != 2 || assignedAndReview["review"] != 1 {
 		t.Fatalf("expected multi-status summary total=2 review=1, got %+v", assignedAndReview)
+	}
+}
+
+func TestInMemoryTranslationAssignmentRepositoryReviewerAggregateSummaryCountsAssignmentStates(t *testing.T) {
+	repo := NewInMemoryTranslationAssignmentRepository()
+	ctx := context.Background()
+	now := time.Date(2026, 2, 17, 12, 0, 0, 0, time.UTC)
+	overdue := now.Add(-time.Hour)
+	future := now.Add(time.Hour)
+	createAssignment := func(id string, status AssignmentStatus, reviewerID, lastReviewerID, tenantID, orgID string, dueDate *time.Time) {
+		t.Helper()
+		_, err := repo.Create(ctx, TranslationAssignment{
+			ID:             id,
+			FamilyID:       "family-" + id,
+			EntityType:     "pages",
+			TenantID:       tenantID,
+			OrgID:          orgID,
+			SourceRecordID: "page-" + id,
+			SourceLocale:   "en",
+			TargetLocale:   "fr",
+			AssignmentType: AssignmentTypeDirect,
+			Status:         status,
+			ReviewerID:     reviewerID,
+			LastReviewerID: lastReviewerID,
+			Priority:       PriorityNormal,
+			DueDate:        dueDate,
+		})
+		if err != nil {
+			t.Fatalf("create assignment %s: %v", id, err)
+		}
+	}
+	createAssignment("inbox-future", AssignmentStatusInReview, "reviewer-1", "", "tenant-1", "org-1", &future)
+	createAssignment("inbox-overdue-fallback", AssignmentStatusInReview, "", "reviewer-1", "tenant-1", "org-1", &overdue)
+	createAssignment("changes", AssignmentStatusChangesRequested, "reviewer-1", "", "tenant-1", "org-1", nil)
+	createAssignment("other-reviewer", AssignmentStatusInReview, "reviewer-2", "", "tenant-1", "org-1", &overdue)
+	createAssignment("other-scope", AssignmentStatusInReview, "reviewer-1", "", "tenant-2", "org-2", &overdue)
+
+	summary, err := repo.AssignmentReviewerAggregateSummary(ctx, TranslationAssignmentReviewerAggregateInput{
+		TenantID: "tenant-1",
+		OrgID:    "org-1",
+		ActorID:  "reviewer-1",
+		Now:      now,
+	})
+	if err != nil {
+		t.Fatalf("reviewer aggregate summary: %v", err)
+	}
+	if got := summary.Counts["review_inbox"]; got != 2 {
+		t.Fatalf("expected review_inbox=2, got %+v", summary.Counts)
+	}
+	if got := summary.Counts["review_overdue"]; got != 1 {
+		t.Fatalf("expected review_overdue=1, got %+v", summary.Counts)
+	}
+	if got := summary.Counts["review_changes_requested"]; got != 1 {
+		t.Fatalf("expected review_changes_requested=1, got %+v", summary.Counts)
+	}
+	if got := summary.Counts["review_blocked"]; got != 0 {
+		t.Fatalf("expected review_blocked compatibility placeholder 0, got %+v", summary.Counts)
+	}
+	if len(summary.Unavailable) != 1 || summary.Unavailable[0] != "review_blocked" {
+		t.Fatalf("expected review_blocked unavailable, got %+v", summary.Unavailable)
 	}
 }
 

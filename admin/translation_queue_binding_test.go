@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
+	translationqueue "github.com/goliatone/go-admin/admin/internal/translationqueue"
 	auth "github.com/goliatone/go-auth"
 	router "github.com/goliatone/go-router"
 )
@@ -173,11 +174,13 @@ func TestTranslationQueueBindingMyWorkRequiresViewPermission(t *testing.T) {
 func TestTranslationQueueListOptionsIncludesEntityTypeFilter(t *testing.T) {
 	opts, empty := listOptionsFromAssignmentPageQuery(TranslationAssignmentPageQueryInput{
 		Filter: translationAssignmentListFilter{
-			TenantID:   "tenant-1",
-			OrgID:      "org-1",
-			EntityType: "pages",
-			SortBy:     "updated_at",
-			SortDesc:   true,
+			TenantID:      "tenant-1",
+			OrgID:         "org-1",
+			EntityType:    "pages",
+			TitleContains: "Home",
+			PathContains:  "/news",
+			SortBy:        "updated_at",
+			SortDesc:      true,
 		},
 		Page:    2,
 		PerPage: 25,
@@ -187,6 +190,12 @@ func TestTranslationQueueListOptionsIncludesEntityTypeFilter(t *testing.T) {
 	}
 	if got := strings.TrimSpace(toString(opts.Filters["entity_type"])); got != "pages" {
 		t.Fatalf("expected entity_type filter, got filters=%+v", opts.Filters)
+	}
+	if got := strings.TrimSpace(toString(opts.Filters["title__ilike"])); got != "Home" {
+		t.Fatalf("expected title predicate, got filters=%+v", opts.Filters)
+	}
+	if got := strings.TrimSpace(toString(opts.Filters["path__ilike"])); got != "/news" {
+		t.Fatalf("expected path predicate, got filters=%+v", opts.Filters)
 	}
 }
 
@@ -205,6 +214,59 @@ func TestTranslationQueueFallbackFilteringMatchesEntityType(t *testing.T) {
 	}, 1, 25, "", now)
 	if total != 1 || len(filtered) != 1 || filtered[0].ID != "asg-pages" {
 		t.Fatalf("expected only pages assignment, total=%d rows=%+v", total, filtered)
+	}
+}
+
+func TestTranslationQueueFallbackFilteringMatchesTitleAndPathPredicates(t *testing.T) {
+	binding := &translationQueueBinding{}
+	now := time.Date(2026, 7, 3, 12, 0, 0, 0, time.UTC)
+	assignments := []TranslationAssignment{
+		{ID: "asg-match", SourceTitle: "Quarterly HOME Report", SourcePath: "/news/Q3", Status: AssignmentStatusAssigned, Priority: PriorityNormal},
+		{ID: "asg-title-only", SourceTitle: "Home Archive", SourcePath: "/archive", Status: AssignmentStatusAssigned, Priority: PriorityNormal},
+		{ID: "asg-path-only", SourceTitle: "Other", SourcePath: "/news/Q3", Status: AssignmentStatusAssigned, Priority: PriorityNormal},
+	}
+
+	filtered, total := binding.filterAssignments(context.Background(), assignments, translationAssignmentListFilter{
+		TitleContains: "home",
+		PathContains:  "/NEWS",
+		SortBy:        "updated_at",
+	}, 1, 25, "", now)
+	if total != 1 || len(filtered) != 1 || filtered[0].ID != "asg-match" {
+		t.Fatalf("expected predicates to intersect case-insensitively, total=%d rows=%+v", total, filtered)
+	}
+}
+
+func TestTranslationQueuePredicatePageFailsClosedWithoutQueryStore(t *testing.T) {
+	binding := &translationQueueBinding{}
+	base := NewInMemoryTranslationAssignmentRepository()
+	repo := struct {
+		TranslationAssignmentRepository
+	}{TranslationAssignmentRepository: base}
+	_, _, _, err := binding.assignmentPage(context.Background(), repo, translationAssignmentListFilter{
+		TitleContains: "home",
+	}, 1, 25, "", time.Now().UTC())
+	if err == nil {
+		t.Fatalf("expected predicate page to fail closed when optimized query support is unavailable")
+	}
+	if !strings.Contains(err.Error(), "queue predicates") {
+		t.Fatalf("expected structured predicate query error, got %v", err)
+	}
+}
+
+func TestTranslationQueueSnapshotPreservesTitleAndPathPredicates(t *testing.T) {
+	filter := translationAssignmentListFilter{TitleContains: "Home", PathContains: "/news"}
+	payload := translationQueueSnapshotFilterPayload(filter)
+	if got := toString(payload["title__ilike"]); got != "Home" {
+		t.Fatalf("expected canonical title predicate, got payload=%+v", payload)
+	}
+	if got := toString(payload["path__ilike"]); got != "/news" {
+		t.Fatalf("expected canonical path predicate, got payload=%+v", payload)
+	}
+	restored := translationqueue.AssignmentFilterFromQuery(func(key string) string {
+		return translationQueueSnapshotFilterValue(payload, key)
+	}, "", "", "")
+	if restored.TitleContains != filter.TitleContains || restored.PathContains != filter.PathContains {
+		t.Fatalf("expected snapshot predicate round trip, got %+v", restored)
 	}
 }
 
@@ -275,6 +337,33 @@ func TestTranslationQueueAssignmentsTypeFilterAliasesMatchAPIRows(t *testing.T) 
 			}
 			if got := toString(row["entity_type"]); got != "pages" {
 				t.Fatalf("expected pages entity_type for %s, got %+v", query, row)
+			}
+		})
+	}
+}
+
+func TestTranslationQueueAssignmentsRejectUnsupportedPredicates(t *testing.T) {
+	adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{
+		FeatureGate: featureGateFromKeys(FeatureCMS, FeatureTranslationQueue),
+	})
+	adm.WithAuthorizer(translationPermissionAuthorizer{allowed: map[string]bool{PermAdminTranslationsView: true}})
+	repo := NewInMemoryTranslationAssignmentRepository()
+	if _, err := RegisterTranslationQueuePanel(adm, repo); err != nil {
+		t.Fatalf("register queue panel: %v", err)
+	}
+	app := newTranslationQueueTestApp(t, newTranslationQueueBinding(adm))
+
+	for _, query := range []string{"title__eq=Home", "unknown__contains=value"} {
+		t.Run(query, func(t *testing.T) {
+			req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/translations/assignments?"+query, nil)
+			req.Header.Set("X-User-ID", "manager-1")
+			resp, err := app.Test(req)
+			if err != nil {
+				t.Fatalf("request error: %v", err)
+			}
+			defer resp.Body.Close() //nolint:errcheck // test response body cleanup is best-effort
+			if resp.StatusCode != http.StatusBadRequest {
+				t.Fatalf("status=%d want=400", resp.StatusCode)
 			}
 		})
 	}
@@ -2594,8 +2683,12 @@ func TestTranslationQueueBindingAssignmentsExposeReviewerGuardFeedbackAndQASumma
 	if got := intValue(reviewCounts["review_inbox"]); got != 1 {
 		t.Fatalf("expected review_inbox count 1, got %+v", reviewCounts)
 	}
-	if got := intValue(reviewCounts["review_blocked"]); got != 1 {
-		t.Fatalf("expected review_blocked count 1, got %+v", reviewCounts)
+	if got := intValue(reviewCounts["review_blocked"]); got != 0 {
+		t.Fatalf("expected review_blocked compatibility placeholder 0, got %+v", reviewCounts)
+	}
+	unavailableReviewCounts := toStringSlice(meta["review_aggregate_counts_unavailable"])
+	if len(unavailableReviewCounts) != 1 || unavailableReviewCounts[0] != "review_blocked" {
+		t.Fatalf("expected review_blocked to be marked unavailable, got %+v", unavailableReviewCounts)
 	}
 
 	reqActorlessPreset := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/translations/assignments?reviewer_id=__me__", nil)

@@ -95,6 +95,52 @@ func TestSupportedFilterKeysIncludesEntityType(t *testing.T) {
 	t.Fatalf("expected supported filter keys to include entity_type, got %+v", SupportedFilterKeys())
 }
 
+func TestAssignmentFilterFromQueryNormalizesTitleAndPathAliases(t *testing.T) {
+	tests := []struct {
+		name      string
+		values    map[string]string
+		wantTitle string
+		wantPath  string
+	}{
+		{
+			name:      "canonical",
+			values:    map[string]string{"title__ilike": " Home ", "path__ilike": " /News "},
+			wantTitle: "Home",
+			wantPath:  "/News",
+		},
+		{
+			name:      "legacy source aliases",
+			values:    map[string]string{"source_title__contains": "Article", "source_path__contains": "/archive"},
+			wantTitle: "Article",
+			wantPath:  "/archive",
+		},
+		{
+			name:      "canonical wins",
+			values:    map[string]string{"title__ilike": "Canonical", "title__contains": "Alias", "path__ilike": "/canonical", "path__contains": "/alias"},
+			wantTitle: "Canonical",
+			wantPath:  "/canonical",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			filter := AssignmentFilterFromQuery(func(key string) string {
+				return tc.values[key]
+			}, "actor_1", "tenant_1", "org_1")
+			if filter.TitleContains != tc.wantTitle || filter.PathContains != tc.wantPath {
+				t.Fatalf("expected title=%q path=%q, got %+v", tc.wantTitle, tc.wantPath, filter)
+			}
+		})
+	}
+}
+
+func TestSupportedFilterKeysIncludesContentPredicates(t *testing.T) {
+	keys := SupportedFilterKeys()
+	if !slices.Contains(keys, "title__ilike") || !slices.Contains(keys, "path__ilike") {
+		t.Fatalf("expected supported filter keys to include canonical content predicates, got %+v", keys)
+	}
+}
+
 func TestAssignmentFilterFromQueryExpandsActorPreset(t *testing.T) {
 	values := map[string]string{"preset": "needs_review"}
 
