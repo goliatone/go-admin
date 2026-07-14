@@ -312,7 +312,7 @@ func observeSiteErrorRender(ctx context.Context, modules []SiteModule, event Sit
 }
 
 func callSiteErrorRenderObserver(ctx context.Context, observer SiteErrorRenderObserver, event SiteErrorRenderEvent) {
-	defer func() { _ = recover() }()
+	defer func() { _ = recover() }() //nolint:errcheck // Observer panics are intentionally isolated from visitor responses.
 	observer.ObserveSiteErrorRender(ctx, event)
 }
 
@@ -411,7 +411,7 @@ func completeSiteErrorRequestState(c router.Context, cfg ResolvedSiteConfig, inp
 	if strings.TrimSpace(out.BasePath) == "" {
 		out.BasePath = fallback.BasePath
 	}
-	if out.ViewContext == nil || len(out.ViewContext) == 0 {
+	if len(out.ViewContext) == 0 {
 		out.ViewContext = cloneSiteErrorViewContext(fallback.ViewContext)
 	}
 	return out
