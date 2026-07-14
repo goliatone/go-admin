@@ -3494,8 +3494,9 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
     const itemCount = isServerFamily
       ? this.serverFamilyRows.length
       : (meta.grouping?.assignment_count ?? this.rows.length);
-    const rangeStart = total > 0 ? ((normalizedPage - 1) * perPage) + 1 : 0;
-    const rangeEnd = total > 0 ? Math.min(total, rangeStart + Math.max(0, itemCount) - 1) : 0;
+    const hasVisibleItems = total > 0 && itemCount > 0;
+    const rangeStart = hasVisibleItems ? ((normalizedPage - 1) * perPage) + 1 : 0;
+    const rangeEnd = hasVisibleItems ? Math.min(total, rangeStart + itemCount - 1) : 0;
     const noun = isServerFamily ? 'families' : 'assignments';
     const pageSizes = Array.from(new Set([25, 50, 100, perPage])).sort((a, b) => a - b);
     return `

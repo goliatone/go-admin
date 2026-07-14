@@ -1,23 +1,23 @@
 import { escapeAttribute as c, escapeHTML as p } from "../shared/html.js";
-import { httpRequest as B, readHTTPError as Re } from "../shared/transport/http-client.js";
-import { extractStructuredError as Ee } from "../toast/error-helpers.js";
-import { T as Ie, Y as Q, c as Ce, h as Le, i as Pe, l as Fe, o as U, t as Te, v as x, x as Me, y as ne } from "../chunks/grouped-mode-BKMTJtyG.js";
+import { httpRequest as j, readHTTPError as Ee } from "../shared/transport/http-client.js";
+import { extractStructuredError as Ie } from "../toast/error-helpers.js";
+import { T as Ce, Y as Q, c as Le, h as Pe, i as Fe, l as Te, o as U, t as Me, v as A, x as De, y as ne } from "../chunks/grouped-mode-BKMTJtyG.js";
 import "../chunks/status-vocabulary-Bdx_bn1-.js";
 import { buildEndpointURL as _e, getNumberSearchParam as oe, getStringSearchParam as we, readLocationSearchParams as qe, setNumberSearchParam as le, setSearchParam as b } from "../shared/query-state/url-state.js";
-import { StatefulController as De } from "../shared/stateful-controller.js";
-import { a as Be, n as je, r as ze, t as Ne } from "../chunks/entity-renderer-CFkRabFN.js";
-import { t as Ge } from "../chunks/searchbox-C75-stnC.js";
-import { n as Oe } from "../chunks/behaviors-3r2n03MZ.js";
+import { StatefulController as Be } from "../shared/stateful-controller.js";
+import { a as je, n as ze, r as Ne, t as Ge } from "../chunks/entity-renderer-CFkRabFN.js";
+import { t as Oe } from "../chunks/searchbox-C75-stnC.js";
+import { n as Qe } from "../chunks/behaviors-3r2n03MZ.js";
 import { asNumber as g, asRecord as h, asString as o, asStringArray as de } from "../shared/coercion.js";
-import { $ as E, A as Qe, D as Ue, E as He, G as Ke, J as Ve, K as Ye, O as We, Q as Xe, R as Je, S as w, T as Ze, X as I, Y as C, Z as et, _ as tt, b as it, k as at, q as st, v as ce } from "../chunks/translation-shared-Cy6-aSmF.js";
+import { $ as I, A as Ue, D as He, E as Ke, G as Ve, J as Ye, K as We, O as Xe, Q as Je, R as Ze, S as w, T as et, X as C, Y as L, Z as tt, _ as it, b as at, k as st, q as rt, v as ce } from "../chunks/translation-shared-Cy6-aSmF.js";
 import { formatTranslationShortDateTime as H } from "../translation-shared/formatters.js";
-import { normalizeNumberRecord as M } from "../shared/record-normalization.js";
-import { buildAssignmentActionURL as rt, initAssignmentSSRRowActions as nt } from "../translation-actions/assignment-row-actions.js";
+import { normalizeNumberRecord as D } from "../shared/record-normalization.js";
+import { buildAssignmentActionURL as nt, initAssignmentSSRRowActions as ot } from "../translation-actions/assignment-row-actions.js";
 var ae, G = class extends Error {
   constructor(i) {
     super(i.message), this.name = "AssignmentQueueRequestError", this.status = i.status, this.code = i.code ?? null, this.metadata = i.metadata ?? null, this.requestId = i.requestId, this.traceId = i.traceId;
   }
-}, R = [
+}, E = [
   {
     id: "mine",
     label: "Mine",
@@ -117,7 +117,7 @@ var ae, G = class extends Error {
     }
   }
 ];
-function A(i) {
+function R(i) {
   const e = h(i);
   return {
     enabled: e.enabled === !0,
@@ -126,7 +126,7 @@ function A(i) {
     permission: o(e.permission) || void 0
   };
 }
-function ot(i) {
+function lt(i) {
   const e = h(i), t = o(e.last_rejection_reason), a = o(e.last_reviewer_id);
   if (!(!t && !a))
     return {
@@ -134,7 +134,7 @@ function ot(i) {
       last_reviewer_id: a || void 0
     };
 }
-function lt(i) {
+function dt(i) {
   const e = h(i), t = e.enabled === !0, a = g(e.warning_count), s = g(e.blocker_count), n = g(e.finding_count);
   if (!(!t && a <= 0 && s <= 0 && n <= 0))
     return {
@@ -170,24 +170,24 @@ function K(i, e) {
   const t = i.headers.get(e);
   return typeof t == "string" ? t.trim() : "";
 }
-function dt(i) {
+function ct(i) {
   const e = K(i, "x-request-id"), t = K(i, "x-correlation-id"), a = K(i, "x-trace-id") || t || void 0;
   return {
     requestId: e || void 0,
     traceId: a
   };
 }
-async function ct(i, e) {
-  return typeof i.clone == "function" ? Ee(i.clone()) : {
+async function ut(i, e) {
+  return typeof i.clone == "function" ? Ie(i.clone()) : {
     textCode: null,
-    message: await Re(i, e),
+    message: await Ee(i, e),
     metadata: null,
     fields: null,
     validationErrors: null
   };
 }
-async function j(i, e) {
-  const t = await ct(i, e), a = dt(i);
+async function z(i, e) {
+  const t = await ut(i, e), a = ct(i);
   return new G({
     message: t.message || `${e}: ${i.status}`,
     status: i.status,
@@ -197,7 +197,7 @@ async function j(i, e) {
     traceId: a.traceId
   });
 }
-function ut(i) {
+function pt(i) {
   const e = h(i), t = o(e.id), a = o(e.label);
   if (!t || !a) return null;
   const s = h(e.query);
@@ -222,11 +222,11 @@ function ut(i) {
     }
   };
 }
-function ue(i, e = R) {
-  const t = (Array.isArray(i) ? i : []).map((a) => ut(a)).filter((a) => a !== null);
-  return t.length ? t : e.map(D);
+function ue(i, e = E) {
+  const t = (Array.isArray(i) ? i : []).map((a) => pt(a)).filter((a) => a !== null);
+  return t.length ? t : e.map(B);
 }
-function D(i) {
+function B(i) {
   return {
     id: i.id,
     label: i.label,
@@ -235,7 +235,7 @@ function D(i) {
     query: { ...i.query }
   };
 }
-function pt(i) {
+function ht(i) {
   const e = h(i), t = o(e.value), a = o(e.label) || t;
   return t ? {
     value: t,
@@ -243,10 +243,10 @@ function pt(i) {
     description: o(e.description) || void 0
   } : null;
 }
-function ht(i) {
+function mt(i) {
   const e = h(i), t = o(e.key || e.name), a = o(e.name || e.key);
   if (!t || !a) return null;
-  const s = Array.isArray(e.options) ? e.options.map((r) => pt(r)).filter((r) => r !== null) : [], n = o(e.renderer), l = o(e.fallback);
+  const s = Array.isArray(e.options) ? e.options.map((r) => ht(r)).filter((r) => r !== null) : [], n = o(e.renderer), l = o(e.fallback);
   return {
     key: t,
     name: a,
@@ -267,13 +267,13 @@ function ht(i) {
     fallback: l || void 0
   };
 }
-function mt(i) {
-  return (Array.isArray(i) ? i : []).map((e) => ht(e)).filter((e) => e !== null);
+function ft(i) {
+  return (Array.isArray(i) ? i : []).map((e) => mt(e)).filter((e) => e !== null);
 }
-function L(i) {
+function P(i) {
   return Array.from(new Set(i.map((e) => o(e)).filter(Boolean)));
 }
-function ft(i, e) {
+function gt(i, e) {
   const t = o(i[e.valueField] ?? i.value ?? i.id);
   return t ? {
     id: t,
@@ -286,19 +286,19 @@ function ft(i, e) {
 }
 function Se(i, e) {
   const t = h(i);
-  return (Array.isArray(i) ? i : Array.isArray(t.data) ? t.data : Array.isArray(t.options) ? t.options : []).map((a) => ft(h(a), e)).filter((a) => a !== null);
+  return (Array.isArray(i) ? i : Array.isArray(t.data) ? t.data : Array.isArray(t.options) ? t.options : []).map((a) => gt(h(a), e)).filter((a) => a !== null);
 }
-function gt(i) {
-  return i === "user" ? new je({
+function vt(i) {
+  return i === "user" ? new ze({
     avatarField: "avatar_url",
     emailField: "email",
     roleField: "role"
-  }) : i === "entity" || i === "family" ? new Ne({
+  }) : i === "entity" || i === "family" ? new Ge({
     showIcon: i === "entity",
     metadataFields: i === "family" ? ["entity_type"] : []
-  }) : new Ge();
+  }) : new Oe();
 }
-function vt(i) {
+function yt(i) {
   const e = o(i.dataset.filterName), t = o(i.dataset.filterEndpointUrl);
   if (!e || !t) return null;
   const a = o(i.dataset.filterRenderer), s = o(i.dataset.filterFallback);
@@ -323,7 +323,7 @@ function V(i, e, t) {
     }
   }));
 }
-async function yt(i, e, t, a) {
+async function bt(i, e, t, a) {
   const s = e.value.trim();
   if (!s) return;
   const n = new URL(t.endpointURL, window.location.origin);
@@ -344,13 +344,13 @@ async function yt(i, e, t, a) {
   }
 }
 var te = /* @__PURE__ */ new WeakMap();
-function bt(i) {
+function _t(i) {
   if (i.dataset.filterEnhancedInitialized === "true") return !1;
-  const e = vt(i), t = i.querySelector('[data-filter-enhanced-input="true"]');
+  const e = yt(i), t = i.querySelector('[data-filter-enhanced-input="true"]');
   if (!e || !t || !t.name) return !1;
   const a = document.createElement("input");
   a.type = "hidden", a.name = e.name, a.value = t.value, a.dataset.filterCanonicalInput = "true", t.removeAttribute("name"), t.dataset.filterDisplayInput = "true", t.setAttribute("aria-expanded", "false"), i.appendChild(a);
-  const s = new ze({
+  const s = new Ne({
     endpoint: e.endpointURL,
     queryParam: e.searchParam,
     params: e.controlType === "remote_select" ? { per_page: "25" } : { per_page: "10" },
@@ -359,11 +359,11 @@ function bt(i) {
     a.value = t.value.trim(), t.dataset.filterEnhancedState = "";
   };
   t.addEventListener("input", n);
-  const l = new Be({
+  const l = new je({
     input: t,
     container: i,
     resolver: s,
-    renderer: gt(e.renderer),
+    renderer: vt(e.renderer),
     minChars: e.controlType === "remote_select" ? 0 : 1,
     debounceMs: 200,
     maxResults: e.controlType === "remote_select" ? 25 : 10,
@@ -393,10 +393,10 @@ function bt(i) {
   const u = new AbortController();
   return te.set(i, { destroy() {
     u.abort(), l.destroy(), t.removeEventListener("input", n), t.removeEventListener("focus", r), t.removeEventListener("change", d), delete i.dataset.filterEnhancedInitialized, te.delete(i);
-  } }), yt(t, a, e, u.signal), !0;
+  } }), bt(t, a, e, u.signal), !0;
 }
 function ke(i) {
-  return typeof document > "u" ? 0 : Array.from((i ?? document).querySelectorAll('[data-filter-enhanced="true"]')).reduce((t, a) => t + (bt(a) ? 1 : 0), 0);
+  return typeof document > "u" ? 0 : Array.from((i ?? document).querySelectorAll('[data-filter-enhanced="true"]')).reduce((t, a) => t + (_t(a) ? 1 : 0), 0);
 }
 function pe(i) {
   return typeof document > "u" ? 0 : Array.from((i ?? document).querySelectorAll('[data-filter-enhanced="true"]')).reduce((t, a) => {
@@ -404,7 +404,7 @@ function pe(i) {
     return s ? (s.destroy(), t + 1) : t;
   }, 0);
 }
-function _t(i) {
+function wt(i) {
   const e = h(i), t = Array.isArray(e.supported_sort_keys) ? e.supported_sort_keys.map((s) => o(s)).filter((s) => !!s) : [], a = h(e.default_sort);
   return {
     page: g(e.page) || 1,
@@ -426,24 +426,24 @@ function _t(i) {
       key: o(a.key) || "updated_at",
       order: o(a.order) || "desc"
     },
-    saved_filter_presets: ue(e.saved_filter_presets, R),
+    saved_filter_presets: ue(e.saved_filter_presets, E),
     saved_review_filter_presets: ue(e.saved_review_filter_presets, se),
     default_review_filter_preset: o(e.default_review_filter_preset) || void 0,
     enhanced_filter_selects: e.enhanced_filter_selects === !0,
-    filter_controls: mt(e.filter_controls),
+    filter_controls: ft(e.filter_controls),
     review_actor_id: o(e.review_actor_id) || void 0,
-    review_aggregate_counts: M(e.review_aggregate_counts, {
+    review_aggregate_counts: D(e.review_aggregate_counts, {
       trimKeys: !0,
       omitBlankKeys: !0
     }),
     review_aggregate_counts_unavailable: de(e.review_aggregate_counts_unavailable),
     review_aggregate_counts_degraded: de(e.review_aggregate_counts_degraded),
-    grouping: wt(e.grouping),
+    grouping: qt(e.grouping),
     family_total: g(e.family_total) || void 0,
     assignment_total: g(e.assignment_total) || void 0
   };
 }
-function wt(i) {
+function qt(i) {
   const e = h(i);
   if (!e) return;
   const t = h(h(e.capabilities).server_family), a = Array.isArray(e.supported_sort_keys) ? e.supported_sort_keys.map((s) => o(s)).filter((s) => !!s) : void 0;
@@ -466,7 +466,7 @@ function wt(i) {
     } }
   };
 }
-function qt(i) {
+function St(i) {
   const e = h(i), t = Array.isArray(e.filter_summary) ? e.filter_summary : [];
   return {
     selectionScope: "filter_snapshot",
@@ -482,7 +482,7 @@ function he(i) {
   const e = o(i).toLowerCase();
   return e === "low" || e === "normal" || e === "high" || e === "urgent" ? e : "";
 }
-function St(i, e, t = {}) {
+function kt(i, e, t = {}) {
   return [
     "translation_queue_filter_snapshot",
     o(i),
@@ -491,7 +491,7 @@ function St(i, e, t = {}) {
     o(t.priority)
   ].join(":");
 }
-var kt = [
+var $t = [
   "status",
   "assignee_id",
   "reviewer_id",
@@ -540,14 +540,14 @@ function fe(i) {
     channel: i.channel
   };
 }
-function P(i, e) {
+function F(i, e) {
   const t = new URLSearchParams();
   return b(t, "tenant_id", e.tenantId), b(t, "org_id", e.orgId), _e(i, t, { preserveAbsolute: !0 });
 }
-function $t(i) {
-  return kt.some((e) => i.has(e));
+function xt(i) {
+  return $t.some((e) => i.has(e));
 }
-function xt(i, e = {}) {
+function At(i, e = {}) {
   const t = _(i, ["due_state"]), a = _(i, ["review_state"]), s = _(i, ["sort"]), n = _(i, ["order"]), l = _(i, ["group_by"]), r = _(i, ["group_strategy"]), d = {
     status: _(i, ["status"]),
     assigneeId: _(i, ["assignee_id"]),
@@ -586,22 +586,22 @@ function xt(i, e = {}) {
   };
   return Object.fromEntries(Object.entries(d).filter(([, u]) => u !== void 0));
 }
-function At(i = {}) {
+function Rt(i = {}) {
   const e = new URLSearchParams();
   return b(e, "tenant_id", i.tenantId), b(e, "org_id", i.orgId), b(e, "channel", i.channel), b(e, "status", i.status), b(e, "assignee_id", i.assigneeId), b(e, "reviewer_id", i.reviewerId), b(e, "due_state", i.dueState), b(e, "locale", i.locale), b(e, "priority", i.priority), b(e, "entity_type", i.entityType), b(e, "title__ilike", i.titleContains), b(e, "path__ilike", i.pathContains), b(e, "review_state", i.reviewState), b(e, "family_id", i.familyId), le(e, "page", i.page, { min: 1 }), le(e, "per_page", i.perPage, { min: 1 }), b(e, "sort", i.sort), b(e, "order", i.order), b(e, "group_by", i.groupBy), b(e, "group_strategy", i.groupStrategy), e.toString();
 }
-function Rt(i = {}) {
+function Et(i = {}) {
   const e = {}, t = (a, s) => {
     const n = o(s);
     n && (e[a] = n);
   };
   return t("status", i.status), t("assignee_id", i.assigneeId), t("reviewer_id", i.reviewerId), t("due_state", i.dueState), t("locale", i.locale), t("priority", i.priority), t("entity_type", i.entityType), t("title__ilike", i.titleContains), t("path__ilike", i.pathContains), t("review_state", i.reviewState), t("family_id", i.familyId), t("tenant_id", i.tenantId), t("org_id", i.orgId), t("channel", i.channel), t("sort", i.sort), t("order", i.order), e;
 }
-function Et(i, e = {}) {
-  const t = At(e);
+function It(i, e = {}) {
+  const t = Rt(e);
   return t ? _e(i, new URLSearchParams(t), { preserveAbsolute: !0 }) : i;
 }
-function $(i) {
+function k(i) {
   const e = h(i);
   return {
     id: o(e.id),
@@ -630,21 +630,21 @@ function $(i) {
     updated_at: o(e.updated_at),
     created_at: o(e.created_at),
     actions: {
-      claim: A(h(e.actions).claim),
-      release: A(h(e.actions).release)
+      claim: R(h(e.actions).claim),
+      release: R(h(e.actions).release)
     },
     review_actions: {
-      submit_review: A(h(e.review_actions).submit_review),
-      approve: A(h(e.review_actions).approve),
-      reject: A(h(e.review_actions).reject),
-      archive: A(h(e.review_actions).archive)
+      submit_review: R(h(e.review_actions).submit_review),
+      approve: R(h(e.review_actions).approve),
+      reject: R(h(e.review_actions).reject),
+      archive: R(h(e.review_actions).archive)
     },
     last_rejection_reason: o(e.last_rejection_reason) || void 0,
-    review_feedback: ot(e.review_feedback),
-    qa_summary: lt(e.qa_summary)
+    review_feedback: lt(e.review_feedback),
+    qa_summary: dt(e.qa_summary)
   };
 }
-function It(i, e) {
+function Ct(i, e) {
   const t = h(i), a = h(t.expansion), s = h(a.params), n = o(t.family_id);
   return {
     id: o(t.id) || `family:${n}`,
@@ -659,22 +659,22 @@ function It(i, e) {
     assignment_count: g(t.assignment_count),
     locale_count: g(t.locale_count),
     target_locales: Array.isArray(t.target_locales) ? t.target_locales.map((l) => o(l)).filter(Boolean) : [],
-    status_counts: M(t.status_counts, {
+    status_counts: D(t.status_counts, {
       trimKeys: !0,
       omitBlankKeys: !0
     }),
-    due_state_counts: M(t.due_state_counts, {
+    due_state_counts: D(t.due_state_counts, {
       trimKeys: !0,
       omitBlankKeys: !0
     }),
-    priority_counts: M(t.priority_counts, {
+    priority_counts: D(t.priority_counts, {
       trimKeys: !0,
       omitBlankKeys: !0
     }),
     family_blocker_count: t.family_blocker_count === null || t.family_blocker_count === void 0 ? null : g(t.family_blocker_count),
     family_blocker_count_available: t.family_blocker_count_available === !0,
     family_blocker_count_reason: o(t.family_blocker_count_reason),
-    action_hints: M(t.action_hints, {
+    action_hints: D(t.action_hints, {
       trimKeys: !0,
       omitBlankKeys: !0
     }),
@@ -688,22 +688,22 @@ function It(i, e) {
     children: []
   };
 }
-function Ct(i) {
-  const e = h(i), t = _t(e.meta), a = Array.isArray(e.data) ? e.data : [];
+function Lt(i) {
+  const e = h(i), t = wt(e.meta), a = Array.isArray(e.data) ? e.data : [];
   return t.grouping?.enabled ? {
     data: a.filter((s) => !!s && typeof s == "object" && !Array.isArray(s)).map((s) => ({ ...s })),
     meta: t
   } : {
-    data: a.map((s) => $(s)),
+    data: a.map((s) => k(s)),
     meta: t
   };
 }
-async function Lt(i) {
-  const e = await B(i.href, { method: "GET" });
-  if (!e.ok) throw await j(e, "Failed to load family assignments");
+async function Pt(i) {
+  const e = await j(i.href, { method: "GET" });
+  if (!e.ok) throw await z(e, "Failed to load family assignments");
   const t = h(await e.json()), a = h(t.meta);
   return {
-    rows: (Array.isArray(t.data) ? t.data : []).map((s) => $(s)),
+    rows: (Array.isArray(t.data) ? t.data : []).map((s) => k(s)),
     meta: {
       page: g(a.page) || 1,
       per_page: g(a.per_page) || 25,
@@ -712,7 +712,7 @@ async function Lt(i) {
     }
   };
 }
-function Pt(i) {
+function Ft(i) {
   const e = h(i), t = h(e.meta), a = h(e.data);
   return {
     data: {
@@ -720,36 +720,36 @@ function Pt(i) {
       status: ee(a.status),
       row_version: g(a.row_version),
       updated_at: o(a.updated_at),
-      assignment: $(a.assignment)
+      assignment: k(a.assignment)
     },
     meta: { idempotency_hit: t.idempotency_hit === !0 }
   };
 }
-async function Ft(i, e = {}, t = {}) {
-  const a = await B(Et(i, e), {
+async function Tt(i, e = {}, t = {}) {
+  const a = await j(It(i, e), {
     method: "GET",
     signal: t.signal
   });
-  if (!a.ok) throw await j(a, "Failed to load assignments");
-  return Ct(await a.json());
+  if (!a.ok) throw await z(a, "Failed to load assignments");
+  return Lt(await a.json());
 }
 async function re(i, e, t, a) {
   const s = { expected_version: a.expected_version };
   a.idempotency_key && (s.idempotency_key = a.idempotency_key), a.reason && (s.reason = a.reason), a.channel && (s.channel = a.channel);
-  const n = await B(rt(i, e, t), {
+  const n = await j(nt(i, e, t), {
     method: "POST",
     json: s
   });
-  if (!n.ok) throw await j(n, `Failed to ${t} assignment`);
-  return Pt(await n.json());
-}
-function Tt(i, e, t) {
-  return re(i, e, "claim", t);
+  if (!n.ok) throw await z(n, `Failed to ${t} assignment`);
+  return Ft(await n.json());
 }
 function Mt(i, e, t) {
+  return re(i, e, "claim", t);
+}
+function Dt(i, e, t) {
   return re(i, e, "release", t);
 }
-function F(i) {
+function T(i) {
   return {
     status: i.query.status,
     assigneeId: i.query.assignee_id,
@@ -770,13 +770,13 @@ function F(i) {
 function ge(i, e) {
   return `queue-${i}-${e.id}-${e.version}-${Date.now()}`;
 }
-function Dt(i, e) {
+function Bt(i, e) {
   return `queue-${i}-${e.id}-${e.version}-${Date.now()}`;
 }
-function Bt(i) {
+function jt(i) {
   const e = o(i);
   if (!e) return null;
-  const t = R.find((s) => s.id === e);
+  const t = E.find((s) => s.id === e);
   if (t) return {
     kind: "standard",
     preset: t
@@ -787,7 +787,7 @@ function Bt(i) {
     preset: a
   } : null;
 }
-function k(i) {
+function S(i) {
   return {
     ...i,
     actions: {
@@ -812,8 +812,8 @@ function Y(i, e) {
     reason_code: "INVALID_STATUS"
   };
 }
-function jt(i, e) {
-  const t = k(i);
+function zt(i, e) {
+  const t = S(i);
   return e === "claim" ? (t.queue_state = "in_progress", t.status = "in_progress", t.actions.claim = Y(i.actions.claim.permission, "assignment must be open pool or already assigned to you before it can be claimed"), t.actions.release = {
     enabled: !0,
     permission: i.actions.release.permission
@@ -825,7 +825,7 @@ function jt(i, e) {
     permission: i.actions.claim.permission
   }, t.actions.release = Y(i.actions.release.permission, "assignment must be assigned or in progress before it can be released"), t.review_actions.submit_review = Y(i.review_actions.submit_review.permission, "assignment must be in progress"), t);
 }
-function T(i, e) {
+function M(i, e) {
   return i instanceof G ? {
     kind: i.code === "VERSION_CONFLICT" ? "conflict" : "error",
     message: i.message || e,
@@ -846,10 +846,10 @@ function $e(i) {
 function xe(i) {
   return i === "review" || i === "in_review";
 }
-function zt(i) {
+function Nt(i) {
   return xe($e(i)) ? !0 : !!(i.review_actions.approve.enabled || i.review_actions.reject.enabled);
 }
-function Nt(i) {
+function Gt(i) {
   return !!i.review_actions.archive.enabled;
 }
 function W(i, e) {
@@ -878,7 +878,7 @@ function W(i, e) {
     dataAction: "release",
     ariaLabel: u ? "Release assignment" : i.actions.release.reason || "Cannot release assignment",
     buttonClass: w
-  }), zt(i)) {
+  }), Nt(i)) {
     const m = i.review_actions.approve.enabled && !n;
     t.push({
       type: "approve",
@@ -890,7 +890,7 @@ function W(i, e) {
       pendingLabel: "Approving assignment…",
       dataAction: "approve",
       ariaLabel: m ? "Approve assignment" : i.review_actions.approve.reason || "Cannot approve assignment",
-      buttonClass: it
+      buttonClass: at
     });
     const v = i.review_actions.reject.enabled && !l;
     t.push({
@@ -903,10 +903,10 @@ function W(i, e) {
       pendingLabel: "Rejecting assignment…",
       dataAction: "reject",
       ariaLabel: v ? "Reject assignment" : i.review_actions.reject.reason || "Cannot reject assignment",
-      buttonClass: tt
+      buttonClass: it
     });
   }
-  if (Nt(i)) {
+  if (Gt(i)) {
     const m = i.review_actions.archive.enabled && !r;
     t.push({
       type: "archive",
@@ -1000,14 +1000,14 @@ function J(i, e, t) {
     </div>
   `;
 }
-function Gt(i, e) {
+function Ot(i, e) {
   return e?.aborted ? !0 : !!(i && typeof i == "object" && "name" in i && i.name === "AbortError");
 }
 function ve(i, e) {
   const t = i.target;
   return !!(t && t !== e && t.closest('button, a, input, select, textarea, [role="button"], [role="menuitem"]'));
 }
-var Ae = class S extends De {
+var Ae = class q extends Be {
   constructor(e) {
     super("loading"), this.container = null, this.response = null, this.rows = [], this.activeReviewPresetId = "", this.feedback = null, this.error = null, this.refreshError = null, this.pendingActions = /* @__PURE__ */ new Set(), this.listLoadController = null, this.listLoadGeneration = 0, this.committedPresentation = null, this.isRefreshing = !1, this.mounted = !1, this.liveMessage = "", this.handleContainerClick = (l) => {
       const r = l.target;
@@ -1034,17 +1034,17 @@ var Ae = class S extends De {
       initialQueryState: a,
       hasExplicitQueryState: e.hasExplicitQueryState === !0
     };
-    const s = Bt(t);
+    const s = jt(t);
     if (s?.kind === "review") {
       this.activePresetId = "custom", this.activeReviewPresetId = s.preset.id, this.queryState = {
-        ...F(s.preset),
+        ...T(s.preset),
         ...a
       };
       return;
     }
     if (s?.kind === "standard")
       this.activePresetId = s.preset.id, this.queryState = {
-        ...F(s.preset),
+        ...T(s.preset),
         ...a
       };
     else if (this.config.hasExplicitQueryState)
@@ -1055,9 +1055,9 @@ var Ae = class S extends De {
         ...a
       };
     else {
-      const l = R[1] || R[0];
+      const l = E[1] || E[0];
       this.activePresetId = l?.id || "open", this.queryState = {
-        ...l ? F(l) : {
+        ...l ? T(l) : {
           sort: "updated_at",
           order: "desc",
           page: 1
@@ -1065,8 +1065,8 @@ var Ae = class S extends De {
         ...a
       };
     }
-    const n = Fe(S.PANEL_ID);
-    n && (this.viewMode = n, this.viewMode === "grouped" ? this.queryState.groupBy = "family_id" : this.viewMode === "server_family" && (this.queryState.groupBy = "family_id", this.queryState.groupStrategy = "server_family")), this.expandedGroups = Ce(S.PANEL_ID);
+    const n = Te(q.PANEL_ID);
+    n && (this.viewMode = n, this.viewMode === "grouped" ? this.queryState.groupBy = "family_id" : this.viewMode === "server_family" && (this.queryState.groupBy = "family_id", this.queryState.groupStrategy = "server_family")), this.expandedGroups = Le(q.PANEL_ID);
   }
   mount(e) {
     this.listLoadGeneration += 1, this.listLoadController?.abort(), this.container = e, this.mounted = !0, typeof e.addEventListener == "function" && e.addEventListener("click", this.handleContainerClick), this.loadFiltersExpandedState(), this.load();
@@ -1078,7 +1078,7 @@ var Ae = class S extends De {
     return this.response;
   }
   getRows() {
-    return this.rows.map((e) => k(e));
+    return this.rows.map((e) => S(e));
   }
   getFeedback() {
     return this.feedback ? { ...this.feedback } : null;
@@ -1122,21 +1122,21 @@ var Ae = class S extends De {
   replaceCachedRow(e) {
     for (const t of this.serverFamilyRows) {
       const a = t.children.findIndex((s) => s.id === e.id);
-      a >= 0 && (t.children[a] = k(e));
+      a >= 0 && (t.children[a] = S(e));
     }
   }
   async selectAllMatchingFilters() {
     this.bulkSnapshotPending = !0, this.feedback = null, this.render();
     try {
-      const e = await B(P(this.config.bulkSnapshotEndpoint || be(this.config.endpoint), this.queryState), {
+      const e = await j(F(this.config.bulkSnapshotEndpoint || be(this.config.endpoint), this.queryState), {
         method: "POST",
         json: {
-          filters: Rt(this.queryState),
+          filters: Et(this.queryState),
           channel: this.queryState.channel
         }
       });
-      if (!e.ok) throw await j(e, "Filter snapshot failed");
-      const t = qt(h(h(await e.json()).data));
+      if (!e.ok) throw await z(e, "Filter snapshot failed");
+      const t = St(h(h(await e.json()).data));
       if (!t.snapshotId) throw new G({
         message: "Filter snapshot response did not include a snapshot id.",
         status: 500,
@@ -1147,7 +1147,7 @@ var Ae = class S extends De {
         message: `${t.requested} matching assignment${t.requested !== 1 ? "s" : ""} selected.`
       };
     } catch (e) {
-      this.feedback = T(e, "Filter snapshot failed.");
+      this.feedback = M(e, "Filter snapshot failed.");
     } finally {
       this.bulkSnapshotPending = !1, this.render();
     }
@@ -1171,7 +1171,7 @@ var Ae = class S extends De {
       });
       for (const n of s.data.results) if (n.success && n.assignment) {
         const l = this.rows.findIndex((r) => r.id === n.assignmentId);
-        l >= 0 && (this.rows[l] = k(n.assignment)), this.selectedRows.delete(n.assignmentId);
+        l >= 0 && (this.rows[l] = S(n.assignment)), this.selectedRows.delete(n.assignmentId);
       }
       if (s.data.failed > 0) {
         const n = s.data.results.filter((l) => !l.success).map((l) => l.assignmentId).slice(0, 3);
@@ -1184,7 +1184,7 @@ var Ae = class S extends De {
         message: `${s.data.succeeded} assignment${s.data.succeeded !== 1 ? "s" : ""} updated.`
       };
     } catch (s) {
-      this.feedback = T(s, `Bulk ${e} failed.`);
+      this.feedback = M(s, `Bulk ${e} failed.`);
     } finally {
       this.bulkActionPending = !1, this.render();
     }
@@ -1213,7 +1213,7 @@ ${n.join(`
           snapshotId: a.snapshotId,
           assigneeId: s.assigneeId,
           priority: s.priority,
-          idempotencyKey: St(a.snapshotId, e, s)
+          idempotencyKey: kt(a.snapshotId, e, s)
         });
         r.data.failed > 0 ? this.feedback = {
           kind: "error",
@@ -1223,7 +1223,7 @@ ${n.join(`
           message: `${r.data.succeeded} assignment${r.data.succeeded !== 1 ? "s" : ""} updated.`
         }, this.filterSnapshot = null, this.selectedRows.clear(), await this.load();
       } catch (r) {
-        this.feedback = T(r, `Bulk ${e} failed.`);
+        this.feedback = M(r, `Bulk ${e} failed.`);
       } finally {
         this.bulkActionPending = !1, this.render();
       }
@@ -1244,7 +1244,7 @@ ${n.join(`
     return {};
   }
   async executeBulkAction(e) {
-    const t = await B(P(this.config.bulkActionEndpoint || ye(this.config.endpoint), this.queryState), {
+    const t = await j(F(this.config.bulkActionEndpoint || ye(this.config.endpoint), this.queryState), {
       method: "POST",
       json: {
         action: e.action,
@@ -1261,7 +1261,7 @@ ${n.join(`
         channel: this.queryState.channel
       }
     });
-    if (!t.ok) throw await j(t, `Bulk ${e.action} failed`);
+    if (!t.ok) throw await z(t, `Bulk ${e.action} failed`);
     const a = h(await t.json()), s = h(a.data), n = h(a.meta), l = Array.isArray(s.results) ? s.results : [], r = g(n.requested), d = g(n.succeeded), u = g(n.failed), m = n.partial === !0, v = o(n.selection_scope) || "current_page";
     return {
       data: {
@@ -1272,13 +1272,13 @@ ${n.join(`
         partial: m,
         selectionScope: v,
         results: l.map((f) => {
-          const q = h(f), z = h(q.error);
+          const $ = h(f), x = h($.error);
           return {
-            assignmentId: o(q.assignment_id),
-            success: o(q.status) === "succeeded",
-            error: o(z.message) || o(q.error) || void 0,
-            errorCode: o(z.code) || o(q.error_code) || void 0,
-            assignment: q.assignment ? $(q.assignment) : void 0
+            assignmentId: o($.assignment_id),
+            success: o($.status) === "succeeded",
+            error: o(x.message) || o($.error) || void 0,
+            errorCode: o(x.code) || o($.error_code) || void 0,
+            assignment: $.assignment ? k($.assignment) : void 0
           };
         })
       },
@@ -1298,7 +1298,7 @@ ${n.join(`
     const e = new AbortController(), t = ++this.listLoadGeneration, a = this.capturePresentation(), s = this.committedPresentation !== null;
     this.listLoadController = e, this.isRefreshing = s, s || (this.state = "loading"), this.error = null, this.refreshError = null, this.liveMessage = s ? "Updating queue results..." : "Loading queue results...", this.render();
     try {
-      const n = await Ft(this.config.endpoint, a.queryState, { signal: e.signal });
+      const n = await Tt(this.config.endpoint, a.queryState, { signal: e.signal });
       if (!this.isCurrentListLoad(t, e)) return;
       this.applyListResponse(n, a.viewMode), this.committedPresentation = {
         ...a,
@@ -1308,7 +1308,7 @@ ${n.join(`
       const l = n.meta.total;
       this.liveMessage = `${s ? "Queue updated" : "Queue loaded"}. ${l} ${l === 1 ? "result" : "results"} available.`;
     } catch (n) {
-      if (!this.isCurrentListLoad(t, e) || Gt(n, e.signal)) return;
+      if (!this.isCurrentListLoad(t, e) || Ot(n, e.signal)) return;
       const l = n instanceof Error ? n : new Error(String(n));
       this.error = l, s && this.committedPresentation ? (this.restoreCommittedPresentation(), this.refreshError = l, this.liveMessage = "Queue update failed. Previous results and filters were restored.") : (this.state = n instanceof G && n.code === "VERSION_CONFLICT" ? "conflict" : "error", this.liveMessage = "Queue results could not be loaded.");
     } finally {
@@ -1329,27 +1329,27 @@ ${n.join(`
   }
   restoreCommittedPresentation() {
     const e = this.committedPresentation;
-    e && (this.queryState = { ...e.queryState }, this.activePresetId = e.activePresetId, this.activeReviewPresetId = e.activeReviewPresetId, this.viewMode = e.viewMode, this.state = e.state, ne(S.PANEL_ID, e.viewMode));
+    e && (this.queryState = { ...e.queryState }, this.activePresetId = e.activePresetId, this.activeReviewPresetId = e.activeReviewPresetId, this.viewMode = e.viewMode, this.state = e.state, ne(q.PANEL_ID, e.viewMode));
   }
   applyListResponse(e, t) {
     if (this.response = e, t === "server_family" && e.meta.grouping?.strategy === "server_family") {
-      this.groupedData = null, this.serverFamilyRows = e.data.map((a) => It(a, this.expandedGroups)), this.rows = this.serverFamilyRows.flatMap((a) => a.children.map((s) => k(s))), this.state = this.serverFamilyRows.length ? "ready" : "empty";
+      this.groupedData = null, this.serverFamilyRows = e.data.map((a) => Ct(a, this.expandedGroups)), this.rows = this.serverFamilyRows.flatMap((a) => a.children.map((s) => S(s))), this.state = this.serverFamilyRows.length ? "ready" : "empty";
       return;
     }
     if (this.serverFamilyRows = [], t === "grouped" && e.meta.grouping?.enabled) {
-      const a = Le(e.data, {
+      const a = Pe(e.data, {
         defaultExpanded: !0,
         expandMode: "explicit",
         expandedGroups: this.expandedGroups
       });
       if (a) {
         this.groupedData = a, this.rows = [];
-        for (const s of a.groups) for (const n of s.records) this.rows.push($(n));
-        for (const s of a.ungrouped) this.rows.push($(s));
+        for (const s of a.groups) for (const n of s.records) this.rows.push(k(n));
+        for (const s of a.ungrouped) this.rows.push(k(s));
       } else
-        this.groupedData = null, this.rows = e.data.map((s) => k(s));
+        this.groupedData = null, this.rows = e.data.map((s) => S(s));
     } else
-      this.groupedData = null, this.rows = e.data.map((a) => k(a));
+      this.groupedData = null, this.rows = e.data.map((a) => S(a));
     this.state = this.rows.length ? "ready" : "empty";
   }
   getViewMode() {
@@ -1357,7 +1357,7 @@ ${n.join(`
   }
   setViewMode(e) {
     if (this.viewMode !== e) {
-      if (this.viewMode = e, ne(S.PANEL_ID, e), e === "grouped") {
+      if (this.viewMode = e, ne(q.PANEL_ID, e), e === "grouped") {
         const { groupStrategy: t, ...a } = this.queryState;
         this.queryState = {
           ...a,
@@ -1390,19 +1390,19 @@ ${n.join(`
       this.toggleServerFamilyExpansion(e);
       return;
     }
-    this.groupedData && (this.groupedData = Ie(this.groupedData, e), this.expandedGroups = U(this.groupedData), x(S.PANEL_ID, this.expandedGroups), this.render());
+    this.groupedData && (this.groupedData = Ce(this.groupedData, e), this.expandedGroups = U(this.groupedData), A(q.PANEL_ID, this.expandedGroups), this.render());
   }
   async toggleServerFamilyExpansion(e) {
     const t = this.serverFamilyRows.find((a) => a.family_id === e);
     if (t) {
-      if (t.expanded = !t.expanded, t.expanded ? this.expandedGroups.add(e) : this.expandedGroups.delete(e), x(S.PANEL_ID, this.expandedGroups), !t.expanded || t.children.length || t.loading) {
-        this.rows = this.serverFamilyRows.flatMap((a) => a.children.map((s) => k(s))), this.render();
+      if (t.expanded = !t.expanded, t.expanded ? this.expandedGroups.add(e) : this.expandedGroups.delete(e), A(q.PANEL_ID, this.expandedGroups), !t.expanded || t.children.length || t.loading) {
+        this.rows = this.serverFamilyRows.flatMap((a) => a.children.map((s) => S(s))), this.render();
         return;
       }
       t.loading = !0, t.error = "", this.render();
       try {
-        const a = await Lt(t.expansion);
-        t.children = a.rows, t.childMeta = a.meta, this.rows = this.serverFamilyRows.flatMap((s) => s.children.map((n) => k(n)));
+        const a = await Pt(t.expansion);
+        t.children = a.rows, t.childMeta = a.meta, this.rows = this.serverFamilyRows.flatMap((s) => s.children.map((n) => S(n)));
       } catch (a) {
         t.error = a instanceof Error ? a.message : "Failed to load family assignments.";
       } finally {
@@ -1414,19 +1414,19 @@ ${n.join(`
     if (this.viewMode === "server_family") {
       for (const e of this.serverFamilyRows)
         this.expandedGroups.add(e.family_id), e.expanded = !0;
-      x(S.PANEL_ID, this.expandedGroups), this.render();
+      A(q.PANEL_ID, this.expandedGroups), this.render();
       return;
     }
-    this.groupedData && (this.groupedData = Pe(this.groupedData), this.expandedGroups = U(this.groupedData), x(S.PANEL_ID, this.expandedGroups), this.render());
+    this.groupedData && (this.groupedData = Fe(this.groupedData), this.expandedGroups = U(this.groupedData), A(q.PANEL_ID, this.expandedGroups), this.render());
   }
   collapseAllFamilyGroups() {
     if (this.viewMode === "server_family") {
       this.expandedGroups.clear();
       for (const e of this.serverFamilyRows) e.expanded = !1;
-      x(S.PANEL_ID, this.expandedGroups), this.render();
+      A(q.PANEL_ID, this.expandedGroups), this.render();
       return;
     }
-    this.groupedData && (this.groupedData = Te(this.groupedData), this.expandedGroups = U(this.groupedData), x(S.PANEL_ID, this.expandedGroups), this.render());
+    this.groupedData && (this.groupedData = Me(this.groupedData), this.expandedGroups = U(this.groupedData), A(q.PANEL_ID, this.expandedGroups), this.render());
   }
   async runInlineAction(e, t) {
     const a = this.rows.findIndex((d) => d.id === t);
@@ -1440,24 +1440,24 @@ ${n.join(`
       }, this.render();
       return;
     }
-    const l = k(s), r = `${e}:${t}`;
-    this.pendingActions.add(r), this.feedback = null, this.rows[a] = jt(s, e), this.replaceCachedRow(this.rows[a]), this.render();
+    const l = S(s), r = `${e}:${t}`;
+    this.pendingActions.add(r), this.feedback = null, this.rows[a] = zt(s, e), this.replaceCachedRow(this.rows[a]), this.render();
     try {
-      const d = e === "claim" ? await Tt(P(this.config.endpoint, this.queryState), t, {
+      const d = e === "claim" ? await Mt(F(this.config.endpoint, this.queryState), t, {
         expected_version: l.version,
         idempotency_key: ge("claim", l),
         channel: this.queryState.channel
-      }) : await Mt(P(this.config.endpoint, this.queryState), t, {
+      }) : await Dt(F(this.config.endpoint, this.queryState), t, {
         expected_version: l.version,
         idempotency_key: ge("release", l),
         channel: this.queryState.channel
       });
-      this.rows[a] = k(d.data.assignment), this.replaceCachedRow(this.rows[a]), this.feedback = {
+      this.rows[a] = S(d.data.assignment), this.replaceCachedRow(this.rows[a]), this.feedback = {
         kind: "success",
         message: e === "claim" ? "Assignment claimed." : "Assignment released back to the pool."
       };
     } catch (d) {
-      this.rows[a] = l, this.replaceCachedRow(l), this.feedback = T(d, `Failed to ${e} assignment.`);
+      this.rows[a] = l, this.replaceCachedRow(l), this.feedback = M(d, `Failed to ${e} assignment.`);
     } finally {
       this.pendingActions.delete(r), this.render();
     }
@@ -1476,7 +1476,7 @@ ${n.join(`
     }
     const l = {
       expected_version: s.version,
-      idempotency_key: Dt(e, s),
+      idempotency_key: Bt(e, s),
       channel: this.queryState.channel
     };
     if (e === "reject") {
@@ -1494,13 +1494,13 @@ ${n.join(`
     const r = `${e}:${t}`;
     this.pendingActions.add(r), this.feedback = null, this.render();
     try {
-      const d = await re(P(this.config.endpoint, this.queryState), t, e, l);
-      this.rows[a] = k(d.data.assignment), this.replaceCachedRow(this.rows[a]), this.feedback = {
+      const d = await re(F(this.config.endpoint, this.queryState), t, e, l);
+      this.rows[a] = S(d.data.assignment), this.replaceCachedRow(this.rows[a]), this.feedback = {
         kind: "success",
         message: e === "approve" ? "Assignment approved." : e === "reject" ? "Changes requested." : "Assignment archived."
       };
     } catch (d) {
-      this.feedback = T(d, `Failed to ${e} assignment.`);
+      this.feedback = M(d, `Failed to ${e} assignment.`);
     } finally {
       this.pendingActions.delete(r), this.render();
     }
@@ -1508,14 +1508,14 @@ ${n.join(`
   setActivePreset(e) {
     const t = this.savedFilterPresets.find((a) => a.id === e);
     t && (this.activePresetId = t.id, this.activeReviewPresetId = "", this.queryState = {
-      ...F(t),
+      ...T(t),
       ...fe(this.queryState)
     }, this.filterSnapshot = null, this.selectedRows.clear(), this.feedback = null, this.load());
   }
   setActiveReviewPreset(e) {
     const t = this.savedReviewFilterPresets.find((a) => a.id === e);
     t && (this.activePresetId = "custom", this.activeReviewPresetId = t.id, this.queryState = {
-      ...F(t),
+      ...T(t),
       ...fe(this.queryState)
     }, this.filterSnapshot = null, this.selectedRows.clear(), this.feedback = null, this.load());
   }
@@ -1574,10 +1574,10 @@ ${n.join(`
     }
   }
   get savedFilterPresets() {
-    return this.response?.meta.saved_filter_presets?.length ? this.response.meta.saved_filter_presets.map(D) : R.map(D);
+    return this.response?.meta.saved_filter_presets?.length ? this.response.meta.saved_filter_presets.map(B) : E.map(B);
   }
   get savedReviewFilterPresets() {
-    return this.response?.meta.saved_review_filter_presets?.length ? this.response.meta.saved_review_filter_presets.map(D) : se.map(D);
+    return this.response?.meta.saved_review_filter_presets?.length ? this.response.meta.saved_review_filter_presets.map(B) : se.map(B);
   }
   get visibleRows() {
     return this.rows;
@@ -1740,13 +1740,13 @@ ${n.join(`
   }
   persistFiltersExpanded() {
     try {
-      localStorage.setItem(S.FILTERS_STORAGE_KEY, this.filtersExpanded ? "true" : "false");
+      localStorage.setItem(q.FILTERS_STORAGE_KEY, this.filtersExpanded ? "true" : "false");
     } catch {
     }
   }
   loadFiltersExpandedState() {
     try {
-      this.filtersExpanded = localStorage.getItem(S.FILTERS_STORAGE_KEY) === "true";
+      this.filtersExpanded = localStorage.getItem(q.FILTERS_STORAGE_KEY) === "true";
     } catch {
       this.filtersExpanded = !1;
     }
@@ -2055,17 +2055,17 @@ ${n.join(`
   renderPaginationControls() {
     const e = this.response?.meta;
     if (!e) return "";
-    const t = Math.max(1, e.page || this.queryState.page || 1), a = Math.max(1, e.per_page || this.queryState.perPage || 25), s = Math.max(0, e.total || 0), n = Math.max(1, Math.ceil(s / a)), l = Math.min(t, n), r = this.viewMode === "server_family", d = r ? this.serverFamilyRows.length : e.grouping?.assignment_count ?? this.rows.length, u = s > 0 ? (l - 1) * a + 1 : 0, m = s > 0 ? Math.min(s, u + Math.max(0, d) - 1) : 0, v = r ? "families" : "assignments", f = Array.from(/* @__PURE__ */ new Set([
+    const t = Math.max(1, e.page || this.queryState.page || 1), a = Math.max(1, e.per_page || this.queryState.perPage || 25), s = Math.max(0, e.total || 0), n = Math.max(1, Math.ceil(s / a)), l = Math.min(t, n), r = this.viewMode === "server_family", d = r ? this.serverFamilyRows.length : e.grouping?.assignment_count ?? this.rows.length, u = s > 0 && d > 0, m = u ? (l - 1) * a + 1 : 0, v = u ? Math.min(s, m + d - 1) : 0, f = r ? "families" : "assignments", $ = Array.from(/* @__PURE__ */ new Set([
       25,
       50,
       100,
       a
-    ])).sort((q, z) => q - z);
+    ])).sort((x, Re) => x - Re);
     return `
       <div class="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-gray-100 pt-3"
            data-queue-pagination="true">
         <div class="text-sm text-gray-600" data-queue-pagination-range="true">
-          Showing ${u}-${m} of ${s} ${v} · Page ${l} of ${n}
+          Showing ${m}-${v} of ${s} ${f} · Page ${l} of ${n}
         </div>
         <div class="flex flex-wrap items-center gap-3">
           <div class="inline-flex rounded-md border border-gray-200 bg-white p-1 text-sm font-medium" aria-label="Queue pagination">
@@ -2081,7 +2081,7 @@ ${n.join(`
           <label class="flex items-center gap-2 text-sm text-gray-600">
             <span>Per page</span>
             <select data-page-size="true" class="rounded-md border border-gray-200 bg-white px-2 py-1.5">
-              ${f.map((q) => `<option value="${q}" ${q === a ? "selected" : ""}>${q}</option>`).join("")}
+              ${$.map((x) => `<option value="${x}" ${x === a ? "selected" : ""}>${x}</option>`).join("")}
             </select>
           </label>
         </div>
@@ -2124,7 +2124,7 @@ ${n.join(`
       "normal",
       "high",
       "urgent"
-    ], n = ["", ...L(e.map((f) => f.target_locale))], l = ["", ...L(e.map((f) => f.entity_type))], r = ["", ...L(e.map((f) => f.assignee_id))], d = ["", ...L(e.map((f) => f.reviewer_id))], u = this.response?.meta.supported_sort_keys?.length ? this.response.meta.supported_sort_keys : [
+    ], n = ["", ...P(e.map((f) => f.target_locale))], l = ["", ...P(e.map((f) => f.entity_type))], r = ["", ...P(e.map((f) => f.assignee_id))], d = ["", ...P(e.map((f) => f.reviewer_id))], u = this.response?.meta.supported_sort_keys?.length ? this.response.meta.supported_sort_keys : [
       "updated_at",
       "due_date",
       "priority",
@@ -2173,7 +2173,7 @@ ${n.join(`
             ${this.renderQueueFilterControl("locale", "Target Locale", n, this.queryState.locale || "")}
             ${this.renderQueueFilterControl("assignee_id", "Assignee", r, this.queryState.assigneeId || "")}
             ${this.renderQueueFilterControl("reviewer_id", "Reviewer", d, this.queryState.reviewerId || "")}
-            ${this.renderQueueFilterControl("family_id", "Family", ["", ...L(e.map((f) => f.family_id))], this.queryState.familyId || "")}
+            ${this.renderQueueFilterControl("family_id", "Family", ["", ...P(e.map((f) => f.family_id))], this.queryState.familyId || "")}
           </div>
           ${m > 0 ? `
             <div class="mt-4 flex items-center gap-2">
@@ -2338,7 +2338,7 @@ ${n.join(`
   renderBody() {
     const e = this.visibleRows;
     if (this.state === "loading" && !this.rows.length) return `
-        <div class="${Je}" data-queue-state="loading">
+        <div class="${Ze}" data-queue-state="loading">
           <svg class="animate-spin h-8 w-8 text-gray-400 mx-auto" fill="none" viewBox="0 0 24 24" aria-hidden="true">
             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
@@ -2478,7 +2478,7 @@ ${n.join(`
       <!-- Mobile Card View - Grouped (visible on small screens) -->
       <div class="flex flex-col gap-3 sm:hidden" data-queue-mobile-view="true" data-queue-grouped="true">
         ${this.groupedData.groups.map((a) => this.renderGroupedMobileCards(a)).join("")}
-        ${this.groupedData.ungrouped.map((a) => this.renderMobileCard($(a))).join("")}
+        ${this.groupedData.ungrouped.map((a) => this.renderMobileCard(k(a))).join("")}
       </div>
       <!-- Desktop Table View - Grouped (hidden on small screens) -->
       <div class="assignment-queue-table-wrap hidden sm:block">
@@ -2505,14 +2505,14 @@ ${n.join(`
           </thead>
           <tbody>
             ${this.groupedData.groups.map((a) => this.renderFamilyGroupRows(a, t)).join("")}
-            ${this.groupedData.ungrouped.map((a) => this.renderRow($(a))).join("")}
+            ${this.groupedData.ungrouped.map((a) => this.renderRow(k(a))).join("")}
           </tbody>
         </table>
       </div>
     `;
   }
   renderFamilyGroupRows(e, t) {
-    const a = Me(e, { size: "sm" }), s = p(e.displayLabel || this.deriveFamilyGroupLabel(e)), n = e.records.length, l = e.expanded ? "▼" : "▶";
+    const a = De(e, { size: "sm" }), s = p(e.displayLabel || this.deriveFamilyGroupLabel(e)), n = e.records.length, l = e.expanded ? "▼" : "▶";
     return `
       <tr class="family-group-header ${e.expanded ? "is-expanded" : "is-collapsed"}"
           data-group-id="${c(e.groupId)}"
@@ -2539,7 +2539,7 @@ ${n.join(`
         </td>
       </tr>
     ` + (e.expanded ? e.records.map((r) => {
-      const d = $(r);
+      const d = k(r);
       return this.renderGroupChildRow(d, e.groupId);
     }).join("") : "");
   }
@@ -2630,7 +2630,7 @@ ${n.join(`
         </button>
       </div>
     ` + (e.expanded ? e.records.map((n) => {
-      const l = $(n);
+      const l = k(n);
       return `<div class="family-group-mobile-child">${this.renderMobileCard(l)}</div>`;
     }).join("") : "");
   }
@@ -2649,12 +2649,12 @@ ${n.join(`
   renderEmptyState(e) {
     const t = e === "families" ? "No families found" : "No assignments found", a = e === "families" ? "No families match the current filters. Try adjusting your filters or check back later." : "No assignments match the current filters. Try adjusting your filters or selecting a different preset.", s = this.getActiveFilterCount();
     return `
-      <div class="${Ze}" data-queue-state="empty">
+      <div class="${et}" data-queue-state="empty">
         <svg class="h-12 w-12 text-gray-400 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
         </svg>
-        <h3 class="${Ue} mt-4">${p(t)}</h3>
-        <p class="${He} max-w-md mx-auto">${p(a)}</p>
+        <h3 class="${He} mt-4">${p(t)}</h3>
+        <p class="${Ke} max-w-md mx-auto">${p(a)}</p>
         <div class="mt-5 flex items-center justify-center gap-3">
           ${s > 0 ? `
             <button type="button" class="${w}" data-clear-filters="true">
@@ -2673,9 +2673,9 @@ ${n.join(`
   }
   renderErrorState(e, t) {
     return `
-      <div class="${We} p-6" data-queue-state="${e}" role="alert">
-        <h2 class="${Qe}">${e === "conflict" ? "Version conflict" : "Queue unavailable"}</h2>
-        <p class="${at} mt-2">${p(t)}</p>
+      <div class="${Xe} p-6" data-queue-state="${e}" role="alert">
+        <h2 class="${Ue}">${e === "conflict" ? "Version conflict" : "Queue unavailable"}</h2>
+        <p class="${st} mt-2">${p(t)}</p>
         <div class="mt-4">
           <button type="button" class="${w}" data-queue-refresh="true">Retry</button>
         </div>
@@ -2758,7 +2758,7 @@ ${n.join(`
     const t = !!e.assignee_id, a = !!e.reviewer_id, s = !!e.due_date, n = s || e.due_state === "overdue" || e.due_state === "due_soon", l = this.isRowSelected(e.id);
     return `
       <article
-        class="${Ke} ${l ? "is-selected" : ""}"
+        class="${Ve} ${l ? "is-selected" : ""}"
         data-assignment-id="${c(e.id)}"
         data-assignment-card="true"
         data-assignment-nav-group="mobile"
@@ -2766,7 +2766,7 @@ ${n.join(`
         role="button"
         aria-label="${c(Z(e))}"
       >
-        <div class="${Ve}">
+        <div class="${Ye}">
           <div class="mobile-card-select">
             <input
               type="checkbox"
@@ -2777,53 +2777,53 @@ ${n.join(`
             />
           </div>
           <div class="mobile-card-title-group">
-            <h3 class="${Xe}" title="${c(e.source_title || e.source_path || e.id)}">${p(e.source_title || e.source_path || e.id)}</h3>
-            <p class="${et}" title="${c(e.source_path && e.source_title ? e.source_path : e.entity_type || e.family_id)}">${p(e.source_path && e.source_title ? e.source_path : e.entity_type || e.family_id)}</p>
+            <h3 class="${Je}" title="${c(e.source_title || e.source_path || e.id)}">${p(e.source_title || e.source_path || e.id)}</h3>
+            <p class="${tt}" title="${c(e.source_path && e.source_title ? e.source_path : e.entity_type || e.family_id)}">${p(e.source_path && e.source_title ? e.source_path : e.entity_type || e.family_id)}</p>
           </div>
           ${Q(e.queue_state, {
       domain: "queue",
       size: "sm"
     })}
         </div>
-        <div class="${st}">
-          <div class="${I}">
-            <span class="${C}">Locale</span>
-            <span class="${E}">
+        <div class="${rt}">
+          <div class="${C}">
+            <span class="${L}">Locale</span>
+            <span class="${I}">
               <span class="locale-code">${p(e.source_locale.toUpperCase())}</span>
               <span class="locale-arrow">→</span>
               <span class="locale-code locale-target">${p(e.target_locale.toUpperCase())}</span>
             </span>
           </div>
           ${t ? `
-          <div class="${I}">
-            <span class="${C}">Assignee</span>
-            <span class="${E}" title="${c(ie("Assignee", e.assignee_id, e.assignee_label))}">${p(O(e.assignee_id, e.assignee_label))}</span>
+          <div class="${C}">
+            <span class="${L}">Assignee</span>
+            <span class="${I}" title="${c(ie("Assignee", e.assignee_id, e.assignee_label))}">${p(O(e.assignee_id, e.assignee_label))}</span>
           </div>
           ` : ""}
           ${a ? `
-          <div class="${I}">
-            <span class="${C}">Reviewer</span>
-            <span class="${E}" title="${c(ie("Reviewer", e.reviewer_id, e.reviewer_label))}">${p(O(e.reviewer_id, e.reviewer_label))}</span>
+          <div class="${C}">
+            <span class="${L}">Reviewer</span>
+            <span class="${I}" title="${c(ie("Reviewer", e.reviewer_id, e.reviewer_label))}">${p(O(e.reviewer_id, e.reviewer_label))}</span>
           </div>
           ` : ""}
           ${s || n ? `
-          <div class="${I}">
-            <span class="${C}">Due</span>
-            <span class="${E}">
+          <div class="${C}">
+            <span class="${L}">Due</span>
+            <span class="${I}">
               ${n ? `<span class="due-pill due-${c(e.due_state)}">${p(y(e.due_state))}</span>` : ""}
               ${s ? `<span class="text-gray-600 ml-1">${p(H(e.due_date, ""))}</span>` : ""}
             </span>
           </div>
           ` : ""}
-          <div class="${I}">
-            <span class="${C}">Priority</span>
-            <span class="${E}">
+          <div class="${C}">
+            <span class="${L}">Priority</span>
+            <span class="${I}">
               <span class="priority-indicator priority-${c(e.priority)}"></span>
               <span class="priority-label">${p(y(e.priority))}</span>
             </span>
           </div>
         </div>
-        <div class="${Ye}">
+        <div class="${We}">
           ${(() => {
       const r = W(e, this.pendingActions);
       return J(e, r, X(r, e));
@@ -3075,7 +3075,7 @@ function N(i, e, t, a) {
 function y(i) {
   return i ? i.replace(/_/g, " ").split(" ").filter(Boolean).map((e) => e.charAt(0).toUpperCase() + e.slice(1)).join(" ") : "";
 }
-function Ot() {
+function Qt() {
   return `
     .assignment-queue-screen {
       display: flex;
@@ -4140,37 +4140,37 @@ function Ot() {
     }
   `;
 }
-function Qt() {
+function Ut() {
   if (typeof document > "u") return;
   const i = "assignment-queue-styles";
   if (document.getElementById(i)) return;
   const e = document.createElement("style");
-  e.id = i, e.textContent = Ot(), document.head.appendChild(e);
+  e.id = i, e.textContent = Qt(), document.head.appendChild(e);
 }
-function Ut(i, e) {
-  Qt();
+function Ht(i, e) {
+  Ut();
   const t = new Ae(e);
   return t.mount(i), t;
 }
-function Ht(i, e) {
-  !i || i.dataset.assignmentQueueEnhanced === "true" || (i.dataset.assignmentQueueEnhanced = "true", Oe(i), nt(i, { endpoint: i.dataset.actionEndpoint || e }), ke(i));
+function Kt(i, e) {
+  !i || i.dataset.assignmentQueueEnhanced === "true" || (i.dataset.assignmentQueueEnhanced = "true", Qe(i), ot(i, { endpoint: i.dataset.actionEndpoint || e }), ke(i));
 }
-function Kt() {
+function Vt() {
   if (typeof window > "u" || !window.location) return !1;
   const i = (qe(window.location) ?? new URLSearchParams()).get("translation_client_render");
   return i === "1" || i === "true";
 }
-function di(i) {
+function ci(i) {
   const e = i.dataset.endpoint || i.dataset.assignmentListEndpoint || "";
   if (!e) return null;
-  if (i.dataset.ssrEnhanced === "true" && !Kt())
-    return Ht(i, e), null;
-  const t = (typeof window < "u" ? qe(window.location) : null) ?? new URLSearchParams(), a = xt(t, {
+  if (i.dataset.ssrEnhanced === "true" && !Vt())
+    return Kt(i, e), null;
+  const t = (typeof window < "u" ? qe(window.location) : null) ?? new URLSearchParams(), a = At(t, {
     tenantId: i.dataset.tenantId || void 0,
     orgId: i.dataset.orgId || void 0,
     channel: i.dataset.channel || void 0
   });
-  return Ut(i, {
+  return Ht(i, {
     endpoint: e,
     bulkActionEndpoint: i.dataset.bulkActionEndpoint || i.dataset.bulkActionsEndpoint || "",
     bulkSnapshotEndpoint: i.dataset.bulkSnapshotEndpoint || "",
@@ -4179,7 +4179,7 @@ function di(i) {
     description: i.dataset.description,
     initialPresetId: i.dataset.initialPresetId || we(t, "preset") || "",
     initialQueryState: a,
-    hasExplicitQueryState: $t(t)
+    hasExplicitQueryState: xt(t)
   });
 }
 function ye(i) {
@@ -4198,30 +4198,30 @@ export {
   G as AssignmentQueueRequestError,
   Ae as AssignmentQueueScreen,
   se as DEFAULT_ASSIGNMENT_QUEUE_REVIEW_FILTERS,
-  R as DEFAULT_ASSIGNMENT_QUEUE_SAVED_FILTERS,
-  jt as applyOptimisticAssignmentAction,
-  xt as assignmentListQueryStateFromSearchParams,
-  rt as buildAssignmentActionURL,
-  At as buildAssignmentListQuery,
-  Et as buildAssignmentListURL,
-  Tt as claimAssignment,
-  Ut as createAssignmentQueueScreen,
+  E as DEFAULT_ASSIGNMENT_QUEUE_SAVED_FILTERS,
+  zt as applyOptimisticAssignmentAction,
+  At as assignmentListQueryStateFromSearchParams,
+  nt as buildAssignmentActionURL,
+  Rt as buildAssignmentListQuery,
+  It as buildAssignmentListURL,
+  Mt as claimAssignment,
+  Ht as createAssignmentQueueScreen,
   pe as destroyAssignmentQueueFilterTypeaheads,
-  Ft as fetchAssignmentList,
-  Ot as getAssignmentQueueStyles,
-  $t as hasAssignmentListQueryState,
+  Tt as fetchAssignmentList,
+  Qt as getAssignmentQueueStyles,
+  xt as hasAssignmentListQueryState,
   ke as initAssignmentQueueFilterTypeaheads,
-  di as initAssignmentQueueScreen,
-  nt as initAssignmentSSRRowActions,
-  Pt as normalizeAssignmentActionResponse,
-  _t as normalizeAssignmentListMeta,
-  Ct as normalizeAssignmentListResponse,
-  $ as normalizeAssignmentListRow,
-  F as presetToQueryState,
-  Mt as releaseAssignment,
+  ci as initAssignmentQueueScreen,
+  ot as initAssignmentSSRRowActions,
+  Ft as normalizeAssignmentActionResponse,
+  wt as normalizeAssignmentListMeta,
+  Lt as normalizeAssignmentListResponse,
+  k as normalizeAssignmentListRow,
+  T as presetToQueryState,
+  Dt as releaseAssignment,
   ye as resolveAssignmentBulkActionEndpoint,
   be as resolveAssignmentBulkSnapshotEndpoint,
-  Rt as snapshotFiltersFromQueryState
+  Et as snapshotFiltersFromQueryState
 };
 
 //# sourceMappingURL=index.js.map
