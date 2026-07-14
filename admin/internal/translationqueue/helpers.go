@@ -13,19 +13,21 @@ const MissingActorFilterToken = "__missing_actor__"
 const ReviewStateQABlocked = "qa_blocked"
 
 type AssignmentListFilter struct {
-	Status      string `json:"status"`
-	AssigneeID  string `json:"assignee_id"`
-	ReviewerID  string `json:"reviewer_id"`
-	DueState    string `json:"due_state"`
-	Locale      string `json:"locale"`
-	Priority    string `json:"priority"`
-	EntityType  string `json:"entity_type"`
-	ReviewState string `json:"review_state"`
-	FamilyID    string `json:"family_id"`
-	SortBy      string `json:"sort_by"`
-	SortDesc    bool   `json:"sort_desc"`
-	TenantID    string `json:"tenant_id"`
-	OrgID       string `json:"org_id"`
+	Status        string `json:"status"`
+	AssigneeID    string `json:"assignee_id"`
+	ReviewerID    string `json:"reviewer_id"`
+	DueState      string `json:"due_state"`
+	Locale        string `json:"locale"`
+	Priority      string `json:"priority"`
+	EntityType    string `json:"entity_type"`
+	TitleContains string `json:"title__ilike"` //nolint:tagliatelle // Public operator-aware query keys use a double underscore.
+	PathContains  string `json:"path__ilike"`  //nolint:tagliatelle // Public operator-aware query keys use a double underscore.
+	ReviewState   string `json:"review_state"`
+	FamilyID      string `json:"family_id"`
+	SortBy        string `json:"sort_by"`
+	SortDesc      bool   `json:"sort_desc"`
+	TenantID      string `json:"tenant_id"`
+	OrgID         string `json:"org_id"`
 }
 
 func ContractPayload() map[string]any {
@@ -50,6 +52,8 @@ func SupportedFilterKeys() []string {
 		"locale",
 		"priority",
 		"entity_type",
+		"title__ilike",
+		"path__ilike",
 		"family_id",
 		"review_state",
 	}
@@ -217,19 +221,21 @@ func DefaultSortContract() map[string]any {
 func AssignmentFilterFromQuery(query func(string) string, actorID, tenantID, orgID string) AssignmentListFilter {
 	get := AssignmentQueryWithPreset(query)
 	filter := AssignmentListFilter{
-		Status:      strings.TrimSpace(strings.ToLower(get("status"))),
-		AssigneeID:  ResolveActorFilter(get("assignee_id"), actorID),
-		ReviewerID:  ResolveActorFilter(get("reviewer_id"), actorID),
-		DueState:    strings.TrimSpace(strings.ToLower(get("due_state"))),
-		Locale:      strings.TrimSpace(strings.ToLower(primitives.FirstNonEmptyRaw(get("locale"), get("target_locale")))),
-		Priority:    strings.TrimSpace(strings.ToLower(get("priority"))),
-		EntityType:  NormalizeEntityTypeFilterValue(primitives.FirstNonEmptyRaw(get("entity_type"), get("content_type"), get("type"))),
-		ReviewState: NormalizeReviewState(get("review_state")),
-		FamilyID:    strings.TrimSpace(get("family_id")),
-		SortBy:      strings.TrimSpace(strings.ToLower(get("sort"))),
-		SortDesc:    strings.EqualFold(strings.TrimSpace(get("order")), "desc"),
-		TenantID:    strings.TrimSpace(tenantID),
-		OrgID:       strings.TrimSpace(orgID),
+		Status:        strings.TrimSpace(strings.ToLower(get("status"))),
+		AssigneeID:    ResolveActorFilter(get("assignee_id"), actorID),
+		ReviewerID:    ResolveActorFilter(get("reviewer_id"), actorID),
+		DueState:      strings.TrimSpace(strings.ToLower(get("due_state"))),
+		Locale:        strings.TrimSpace(strings.ToLower(primitives.FirstNonEmptyRaw(get("locale"), get("target_locale")))),
+		Priority:      strings.TrimSpace(strings.ToLower(get("priority"))),
+		EntityType:    NormalizeEntityTypeFilterValue(primitives.FirstNonEmptyRaw(get("entity_type"), get("content_type"), get("type"))),
+		TitleContains: strings.TrimSpace(primitives.FirstNonEmptyRaw(get("title__ilike"), get("title__contains"), get("source_title__ilike"), get("source_title__contains"))),
+		PathContains:  strings.TrimSpace(primitives.FirstNonEmptyRaw(get("path__ilike"), get("path__contains"), get("source_path__ilike"), get("source_path__contains"))),
+		ReviewState:   NormalizeReviewState(get("review_state")),
+		FamilyID:      strings.TrimSpace(get("family_id")),
+		SortBy:        strings.TrimSpace(strings.ToLower(get("sort"))),
+		SortDesc:      strings.EqualFold(strings.TrimSpace(get("order")), "desc"),
+		TenantID:      strings.TrimSpace(tenantID),
+		OrgID:         strings.TrimSpace(orgID),
 	}
 	if !filter.SortDesc && strings.EqualFold(strings.TrimSpace(get("direction")), "desc") {
 		filter.SortDesc = true
