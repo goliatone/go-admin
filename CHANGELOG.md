@@ -1,6 +1,19 @@
 # Changelog
 
+# [0.114.2](https://github.com/goliatone/go-admin/compare/v0.114.1...v0.114.2) - (2026-07-14)
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Error runtime and locale path support ([5cddb5e](https://github.com/goliatone/go-admin/commit/5cddb5ea6602f286d84915cec0932e959eeece03))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update tests ([082d016](https://github.com/goliatone/go-admin/commit/082d0166fbdac067056b3e014781917681c2ab9f))  - (goliatone)
+
 # [0.114.1](https://github.com/goliatone/go-admin/compare/v0.114.0...v0.114.1) - (2026-07-14)
+
+
+New patch release: v0.114.1
 
 ## <!-- 1 -->🐛 Bug Fixes
 
@@ -9,6 +22,10 @@
 - Update translation queue UI ([14d994c](https://github.com/goliatone/go-admin/commit/14d994cead5f378eb45bbeb14a7223d010be765c))  - (goliatone)
 - Translation queue ui ([920ab5d](https://github.com/goliatone/go-admin/commit/920ab5dda3d2821ded614b7a51bf6294c2d21638))  - (goliatone)
 - Parity translation queue ([b33716f](https://github.com/goliatone/go-admin/commit/b33716ffb793ffd583d3d65dc134d7304b1df4c4))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.114.1 ([db70d3d](https://github.com/goliatone/go-admin/commit/db70d3dfaa850e5782bbd19101af45a652e2da07))  - (goliatone)
 
 ## <!-- 16 -->➕ Add
 
