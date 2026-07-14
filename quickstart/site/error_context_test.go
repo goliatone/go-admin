@@ -25,7 +25,10 @@ func (*mutatingNestedErrorContextModule) ViewContext(_ context.Context, in route
 }
 func (*mutatingNestedErrorContextModule) ErrorViewContext(_ context.Context, _ SiteErrorContextRequest, in router.ViewContext) router.ViewContext {
 	host := anyMap(in["host"])
-	items, _ := host["items"].([]any)
+	items, ok := host["items"].([]any)
+	if !ok || len(items) == 0 {
+		return in
+	}
 	first := anyMap(items[0])
 	first["label"] = "provider-mutated"
 	host["added"] = true
@@ -121,7 +124,10 @@ func TestBuildSiteErrorViewContextRecursivelyIsolatesHostContainers(t *testing.T
 		State: RequestState{Locale: "en"},
 	}, base)
 
-	gotItems, _ := anyMap(got["host"])["items"].([]any)
+	gotItems, ok := anyMap(got["host"])["items"].([]any)
+	if !ok || len(gotItems) == 0 {
+		t.Fatalf("provider did not preserve host items: %#v", got["host"])
+	}
 	if gotLabel := anyString(anyMap(gotItems[0])["label"]); gotLabel != "provider-mutated" {
 		t.Fatalf("expected provider mutation in returned context, got %q", gotLabel)
 	}
@@ -135,6 +141,36 @@ func TestBuildSiteErrorViewContextRecursivelyIsolatesHostContainers(t *testing.T
 	anyMap(gotItems[0])["label"] = "caller-mutated"
 	if baseItem["label"] != "original" {
 		t.Fatalf("returned context retained caller-owned nested aliases: %#v", baseItem)
+	}
+}
+
+func TestCloneSiteErrorViewContextPreservesCyclesWithoutSharing(t *testing.T) {
+	cycle := map[string]any{}
+	cycle["self"] = cycle
+	typedItems := []map[string]any{{"label": "original"}}
+	base := router.ViewContext{
+		"cycle":       cycle,
+		"typed_items": typedItems,
+	}
+
+	got := cloneSiteErrorViewContext(base)
+	gotCycle := anyMap(got["cycle"])
+	gotSelf := anyMap(gotCycle["self"])
+	gotSelf["mutated"] = true
+	if gotCycle["mutated"] != true {
+		t.Fatalf("cloned cycle did not retain its internal reference: %#v", gotCycle)
+	}
+	if _, exists := cycle["mutated"]; exists {
+		t.Fatalf("cloned cycle retained source alias: %#v", cycle)
+	}
+
+	gotItems, ok := got["typed_items"].([]map[string]any)
+	if !ok || len(gotItems) != 1 {
+		t.Fatalf("typed slice shape was not preserved: %#v", got["typed_items"])
+	}
+	gotItems[0]["label"] = "mutated"
+	if typedItems[0]["label"] != "original" {
+		t.Fatalf("typed slice retained source map alias: %#v", typedItems)
 	}
 }
 
@@ -187,6 +223,9 @@ func TestCompleteSiteErrorRequestStateMergesPreparedStateAndCallerOverlay(t *tes
 	}
 	if got.ViewContext["caller"] != true || got.ViewContext["shared_key"] != "caller" || anyMap(got.ViewContext["prepared"])["label"] != "prepared" {
 		t.Fatalf("view context overlay did not preserve prepared values: %#v", got.ViewContext)
+	}
+	if got.ViewContext["locale"] != "bo" {
+		t.Fatalf("typed caller state was not reflected in template view context: %#v", got.ViewContext)
 	}
 	anyMap(got.ViewContext["prepared"])["label"] = "mutated"
 	if preparedNested["label"] != "prepared" {

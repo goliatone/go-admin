@@ -1,6 +1,7 @@
 package site
 
 import (
+	"context"
 	"errors"
 	"io"
 	"net/http"
@@ -17,12 +18,39 @@ type errorRenderTestViews struct {
 	calls []string
 }
 
+type candidateIsolationTestViews struct{}
+
+func (*candidateIsolationTestViews) Load() error { return nil }
+func (*candidateIsolationTestViews) Render(w io.Writer, name string, bind any, _ ...string) error {
+	host := anyMap(anyMap(bind)["host"])
+	items, ok := host["items"].([]any)
+	if !ok || len(items) == 0 {
+		return errors.New("host items missing")
+	}
+	item := anyMap(items[0])
+	switch name {
+	case "site/error/mutating-failure":
+		item["label"] = "failed-candidate-mutation"
+		if _, err := io.WriteString(w, "LEAKED-MUTATION"); err != nil {
+			return err
+		}
+		return errors.New("candidate failed after mutating its view")
+	case "site/error/isolated-success":
+		_, err := io.WriteString(w, anyString(item["label"]))
+		return err
+	default:
+		return errors.New("template not found")
+	}
+}
+
 func (v *errorRenderTestViews) Load() error { return nil }
 func (v *errorRenderTestViews) Render(w io.Writer, name string, bind any, _ ...string) error {
 	v.calls = append(v.calls, name)
 	switch name {
 	case "site/error/partial":
-		_, _ = io.WriteString(w, "LEAKED-PARTIAL")
+		if _, err := io.WriteString(w, "LEAKED-PARTIAL"); err != nil {
+			return err
+		}
 		return errors.New("nested include failed")
 	case "site/error/success":
 		model := anyMap(anyMap(bind)["site_error"])
@@ -51,7 +79,7 @@ func TestRenderSiteErrorHTMLHTTPRouterAtomicFallbackAndDiagnostics(t *testing.T)
 	cfg := atomicErrorRenderConfig(observer)
 	views := &errorRenderTestViews{}
 	rec := httptest.NewRecorder()
-	ctx := router.NewHTTPRouterContext(rec, httptest.NewRequest(http.MethodGet, "/missing", nil), nil, views)
+	ctx := router.NewHTTPRouterContext(rec, httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/missing", nil), nil, views)
 
 	result, err := RenderSiteErrorHTML(ctx, cfg, SiteErrorRenderRequest{
 		Error: SiteRuntimeError{Code: " Not_Found ", Status: http.StatusNotFound},
@@ -91,7 +119,7 @@ func TestRenderSiteErrorHTMLAllFailuresSendStatusWithoutBody(t *testing.T) {
 	})
 	views := &errorRenderTestViews{}
 	rec := httptest.NewRecorder()
-	ctx := router.NewHTTPRouterContext(rec, httptest.NewRequest(http.MethodGet, "/missing", nil), nil, views)
+	ctx := router.NewHTTPRouterContext(rec, httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/missing", nil), nil, views)
 
 	result, err := RenderSiteErrorHTML(ctx, cfg, SiteErrorRenderRequest{Error: SiteRuntimeError{Status: 404}})
 	if err != nil {
@@ -109,7 +137,7 @@ func TestRenderSiteErrorHTMLHeadSuppressesBody(t *testing.T) {
 	cfg := atomicErrorRenderConfig()
 	views := &errorRenderTestViews{}
 	rec := httptest.NewRecorder()
-	ctx := router.NewHTTPRouterContext(rec, httptest.NewRequest(http.MethodHead, "/missing", nil), nil, views)
+	ctx := router.NewHTTPRouterContext(rec, httptest.NewRequestWithContext(context.Background(), http.MethodHead, "/missing", nil), nil, views)
 
 	result, err := RenderSiteErrorHTML(ctx, cfg, SiteErrorRenderRequest{Error: SiteRuntimeError{Status: 404}})
 	if err != nil {
@@ -133,16 +161,50 @@ func TestRenderSiteErrorHTMLFiberAtomicFallback(t *testing.T) {
 		return renderErr
 	})
 
-	resp, err := app.Test(httptest.NewRequest(http.MethodGet, "/missing", nil))
+	resp, err := app.Test(httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/missing", nil))
 	if err != nil {
 		t.Fatalf("fiber request: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			t.Errorf("close response body: %v", closeErr)
+		}
+	}()
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		t.Fatalf("read fiber body: %v", err)
 	}
-	if renderErr != nil || resp.StatusCode != 404 || string(body) != "selected:not_found" || result.Attempts != 2 {
+	if renderErr != nil || resp.StatusCode != http.StatusNotFound || string(body) != "selected:not_found" || result.Attempts != 2 {
 		t.Fatalf("unexpected fiber response: status=%d body=%q result=%#v err=%v", resp.StatusCode, body, result, renderErr)
+	}
+}
+
+func TestRenderSiteErrorHTMLIsolatesMutableContextBetweenCandidates(t *testing.T) {
+	cfg := ResolveSiteConfig(admin.Config{DefaultLocale: "en"}, SiteConfig{
+		Views: SiteViewConfig{ErrorPolicy: SiteErrorTemplatePolicy{
+			ByStatus: map[int][]SiteTemplateRef{404: {
+				{Template: "site/error/mutating-failure"},
+				{Template: "site/error/isolated-success"},
+			}},
+		}},
+	})
+	baseItem := map[string]any{"label": "original"}
+	rec := httptest.NewRecorder()
+	ctx := router.NewHTTPRouterContext(rec, httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/missing", nil), nil, &candidateIsolationTestViews{})
+
+	result, err := RenderSiteErrorHTML(ctx, cfg, SiteErrorRenderRequest{
+		Error: SiteRuntimeError{Status: 404},
+		ViewContext: router.ViewContext{
+			"host": map[string]any{"items": []any{baseItem}},
+		},
+	})
+	if err != nil {
+		t.Fatalf("render isolated candidates: %v", err)
+	}
+	if rec.Code != 404 || rec.Body.String() != "original" || result.Attempts != 2 {
+		t.Fatalf("candidate mutation leaked into fallback: status=%d body=%q result=%#v", rec.Code, rec.Body.String(), result)
+	}
+	if baseItem["label"] != "original" {
+		t.Fatalf("candidate mutation leaked into caller context: %#v", baseItem)
 	}
 }
