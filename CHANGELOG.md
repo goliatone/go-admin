@@ -1,10 +1,37 @@
 # Changelog
 
+# [0.114.1](https://github.com/goliatone/go-admin/compare/v0.114.0...v0.114.1) - (2026-07-14)
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Translation queue ([3cc631c](https://github.com/goliatone/go-admin/commit/3cc631cd318d157a1788699475388f1742b04268))  - (goliatone)
+- Code quality ([df37072](https://github.com/goliatone/go-admin/commit/df37072a1c81c2ccaa67694c9c875dd88c3cd8f4))  - (goliatone)
+- Update translation queue UI ([14d994c](https://github.com/goliatone/go-admin/commit/14d994cead5f378eb45bbeb14a7223d010be765c))  - (goliatone)
+- Translation queue ui ([920ab5d](https://github.com/goliatone/go-admin/commit/920ab5dda3d2821ded614b7a51bf6294c2d21638))  - (goliatone)
+- Parity translation queue ([b33716f](https://github.com/goliatone/go-admin/commit/b33716ffb793ffd583d3d65dc134d7304b1df4c4))  - (goliatone)
+
+## <!-- 16 -->➕ Add
+
+- Update translation queue bindings ([2960312](https://github.com/goliatone/go-admin/commit/296031205d351f1e91ef3dc7006ea42f1c7cc1d6))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update tests ([5164a0f](https://github.com/goliatone/go-admin/commit/5164a0f8b2cf4a6d4f5ea04c1398eff934ec41a1))  - (goliatone)
+- Udpate docs ([182510c](https://github.com/goliatone/go-admin/commit/182510ca3dad2f357b41ad01efe67e863eb31baa))  - (goliatone)
+- Code quality ([1a7fb25](https://github.com/goliatone/go-admin/commit/1a7fb25887b794e78c8a62be3b77db690a9ce845))  - (goliatone)
+
 # [0.114.0](https://github.com/goliatone/go-admin/compare/v0.113.13...v0.114.0) - (2026-07-13)
+
+
+New minor release: v0.114.0
 
 ## <!-- 1 -->🐛 Bug Fixes
 
 - Translation queue ui ([13abfa6](https://github.com/goliatone/go-admin/commit/13abfa64c5afc7d9d948f9b1a6fe5c5a19d4a8ad))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.114.0 ([e6fa6bc](https://github.com/goliatone/go-admin/commit/e6fa6bc40aff486557f8cb0ab4fb9a14366e1f34))  - (goliatone)
 
 ## <!-- 16 -->➕ Add
 
