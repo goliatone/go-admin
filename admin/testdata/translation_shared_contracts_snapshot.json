@@ -849,6 +849,8 @@
       "locale",
       "priority",
       "entity_type",
+      "title__ilike",
+      "path__ilike",
       "family_id",
       "review_state"
     ],
